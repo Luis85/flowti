@@ -37,8 +37,8 @@ Then open the Vault folder in a terminal and build the Plugin from source.
 
 ## Roadmap
 
-1. Automated Documentation Coverage of all created Domains, Services, Events, Flows
-2. Test-coverage in every aspect of the Test Pyramide, finalized with an end-to-end test-suite build on top of Obsidian CLI
+1. ~~Automated Documentation Coverage of all created Domains, Services, Events, Flows~~ Done
+2. ~~Test-coverage in every aspect of the Test Pyramid, finalized with an end-to-end test-suite built on top of Obsidian CLI~~ Done (6,023 tests + 69 E2E tests)
 3. Automated Release Pipeline from Plugin View to Git
 4. Release v0.0.1
 5. ...
@@ -140,12 +140,12 @@ Commands, views, and services are defined declaratively in registry files and bo
 ### Module Overview
 
 ```
-src/                                 # ~74,144 LOC across 355 files
-├── main.ts                          # Plugin lifecycle orchestrator (643 LOC)
-├── dataExchangeSetup.ts             # Data Exchange UI wiring (359 LOC)
-├── sessionSetup.ts                  # Session UI wiring (221 LOC)
+src/
+├── main.ts                          # Plugin lifecycle orchestrator
+├── dataExchangeSetup.ts             # Data Exchange UI wiring
+├── sessionSetup.ts                  # Session UI wiring
 ├── infrastructure/
-│   ├── events/                      # EventBus, EventBridge, FlowtiEventMap (~190 events)
+│   ├── events/                      # EventBus, EventBridge, FlowtiEventMap (343+ events)
 │   ├── errors/                      # Typed error hierarchy + ErrorService
 │   ├── logger/                      # Logging with optional event trace
 │   ├── services/                    # DI container with topological init
@@ -357,9 +357,10 @@ The plugin is built locally and deployed directly into the Obsidian vault's plug
 ```
 Development/flowti/          # Source code
     │
-    │  npm run build             (fast bundle: esbuild only)
-    │  npm run build:release     (full pipeline: test:coverage → typedoc → esbuild)
-    │  npm run build:distribution (release + copy to additional vaults)
+    │  npm run build             (flow tests → esbuild production)
+    │  npm run build:increment   (check → build → coverage → E2E → docs → reports → distribute)
+    │  npm run build:release     (check → build → coverage → docs → esbuild --publish)
+    │  npm run build:distribution (check → build → coverage → docs → esbuild --distribution)
     │
     ▼
 .obsidian/plugins/flowti-ibde/   # Primary output (always)
@@ -471,7 +472,7 @@ Use the Component Showcase view (`Flowti: Open Component Showcase`) to preview a
 | No persistence encryption | Plugin data is stored as plain JSON via Obsidian's `saveData` |
 | EventBridge boundary erosion | ~112 direct Obsidian API calls in UI layer; acceptable for read-only access patterns |
 
-129 technical debt items tracked in `docs/debt/TD-01` through `TD-129` (32 open, 80 resolved, 11 mitigated). Categories span event/communication, data/storage, testing/quality, architecture/performance, domain logic, file system, and documentation. See `docs/debt/` for individual items.
+132 technical debt items tracked in `docs/debt/TD-01` through `TD-132` (0 open, 89 resolved, 11 mitigated). Categories span event/communication, data/storage, testing/quality, architecture/performance, domain logic, file system, and documentation. See `docs/debt/` for individual items.
 
 ---
 
@@ -479,12 +480,25 @@ Use the Component Showcase view (`Flowti: Open Component Showcase`) to preview a
 
 Every component has a corresponding test suite. Tests run as part of the verification pipeline (`npm test`) and must pass before the plugin is bundled. The release pipeline (`npm run build:release`) includes full test coverage. The test infrastructure uses Vitest with a custom `obsidian-stub.ts` mock that provides minimal stubs for Obsidian's API surface.
 
+**Current metrics (Mar 2026):** 6,023 tests across 261 suites. 69 E2E tests across 4 journeys (Installer, Getting Started, Component Library, Canvas Session).
+
 ```bash
+# Unit + Integration
 npm test              # Verification: eslint → tsc → vitest (the standard check command)
 npm run test:watch    # Verification + Vitest watch mode
 npm run test:ui       # Verification + Vitest UI with browser-based report
 npm run test:coverage # Verification + coverage report
+npm run test:flows    # Flow integration tests only (41 suites)
+
+# End-to-End (Obsidian CLI)
+npm run test:e2e              # Full E2E suite (all journeys)
+npm run test:e2e:quick        # Installer + Getting Started only
+npm run test:e2e:journeys     # All journeys (excl. installer)
+npm run test:e2e:components   # Component Library journey
+npm run test:e2e:canvas-session # Canvas Session journey
 ```
+
+E2E tests run against a live Obsidian instance via the Obsidian CLI (`key=value` syntax). A dedicated test vault (`flowti-e2e`) is scaffolded automatically. Each journey produces screenshots, event traces (CSV), and a JourneyConfig meta file for living documentation.
 
 ---
 
@@ -514,10 +528,12 @@ npm install
 The output is automatically placed in `.obsidian/plugins/flowti-ibde/`.
 
 ```bash
-npm run build               # Fast bundle only (esbuild, NO type-check or tests)
+npm run build               # Flow tests → esbuild --production
+npm run build:only          # esbuild only (no tests, fast iteration)
 npm run build:dev           # Watch mode with hot-reload
-npm run build:release       # Full release pipeline: test:coverage → typedoc → esbuild
-npm run build:distribution  # Release + distribute to additional vaults
+npm run build:increment     # Full increment pipeline: check → build → test → e2e → docs → distribute
+npm run build:release       # Full release pipeline: check → build → test → docs → esbuild --publish
+npm run build:distribution  # Full distribution: check → build → test → docs → distribute
 ```
 
 ### Verification
@@ -533,10 +549,12 @@ npm run docs          # Generate TypeDoc documentation
 | Goal | Command | What runs |
 |------|---------|-----------|
 | Verify changes | `npm test` | eslint → tsc → vitest |
-| Fast bundle | `npm run build` | esbuild --production |
+| Fast bundle | `npm run build:only` | esbuild --production |
+| Gated bundle | `npm run build` | flow tests → esbuild --production |
 | Dev watch | `npm run build:dev` | esbuild --watch |
-| Release build | `npm run build:release` | test:coverage → typedoc → esbuild --publish |
-| Distribute | `npm run build:distribution` | test:coverage → typedoc → esbuild --distribution |
+| Increment | `npm run build:increment` | check → build → coverage → e2e → docs → reports → distribute |
+| Release build | `npm run build:release` | check → build → coverage → docs → esbuild --publish |
+| Distribute | `npm run build:distribution` | check → build → coverage → docs → distribute |
 
 ### Extending the Plugin
 
@@ -572,12 +590,18 @@ npm run docs          # Generate TypeDoc documentation
 | Term | Definition |
 |------|-----------|
 | **IBDE** | Integrated Business Development Environment |
-| **EventBus** | Central publish/subscribe system for decoupled communication |
+| **EventBus** | Central publish/subscribe system for decoupled communication (343+ event types) |
 | **EventBridge** | Translation layer between Obsidian's API and the internal EventBus |
 | **FileSystemClient** | Promise-based API for file/frontmatter operations via events |
-| **ServiceContainer** | Dependency injection container with lifecycle management |
+| **ServiceContainer** | Dependency injection container with lifecycle management (20 services) |
 | **Digital Twin** | A structured representation of a business process or entity in Markdown |
 | **Orchestrator** | Thin `ItemView` subclass owning state, lifecycle, and navigation for a complex view |
 | **Component** | Plain TypeScript class rendering a tab or panel, receiving dependencies via injection |
+| **BaseHubView** | Abstract base class for all Hub views; internally uses WorkspaceShell for shared chrome |
+| **WorkspaceShell** | Shared UI chrome (ribbon, tab bar, content area, status bar) used by all Hubs |
 | **Event Catalog** | The primary view for browsing events, domains, services, flows, systems, actors, and products |
 | **Data Exchange Hub** | The central management view for CSV imports, exports, pipelines, and data documentation |
+| **Session** | A time-boxed documentation workspace with 6-state lifecycle (idle → active → paused → completed → archived) |
+| **Train** | A Train of Thought — canvas-based brainstorming with branches and merge |
+| **Journey** | An E2E test scenario exercising a complete user workflow against a live Obsidian instance |
+| **JourneyConfig** | Living documentation meta file describing E2E steps, events, commands, and interactions |

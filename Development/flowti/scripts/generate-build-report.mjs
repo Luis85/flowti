@@ -65,6 +65,7 @@ function main() {
 	const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, "utf-8"));
 	const metafile = JSON.parse(fs.readFileSync(metafilePath, "utf-8"));
 	const isRelease = args.release === "true";
+	const buildType = args["build-type"];
 	const duration = parseInt(args.duration || "0", 10);
 	const warningsCount = parseInt(args.warnings || "0", 10);
 	const errorsCount = parseInt(args.errors || "0", 10);
@@ -141,7 +142,9 @@ function main() {
 	const content = `${frontmatter}\n\n${templateBody}\n${summary}\n${outputsTable}`;
 
 	const safeTimestamp = now.toISOString().replace(/:/g, "-");
-	const prefix = isRelease ? "release-build-report" : "build-report";
+	const prefix = buildType === "increment"
+		? "increment-build-report"
+		: isRelease ? "release-build-report" : "build-report";
 	const filename = `${safeTimestamp}-${prefix}.${manifest.version}.md`;
 	const outputPath = path.join(OUTPUT_DIR, filename);
 

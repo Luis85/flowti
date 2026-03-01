@@ -123,6 +123,7 @@ const PLUGIN_ID = manifest.id;
 const isWatch = process.argv.includes("--watch");
 const isPublic = process.argv.includes("--publish");
 const doDistribution = process.argv.includes("--distribution");
+const isIncrement = process.argv.includes("--increment");
 const doReload = process.argv.includes("--reload");
 const prod = !isWatch;
 
@@ -240,6 +241,7 @@ const writeBuildReport = (result, startTime) => {
 			`--warnings=${warningsCount}`,
 			`--errors=${errorsCount}`,
 			isPublic ? "--release=true" : "",
+			isIncrement ? "--build-type=increment" : "",
 		].filter(Boolean).join(" ");
 
 		execSync(`node "${script}" ${args}`, { cwd: __dirname, stdio: "inherit" });
@@ -259,7 +261,7 @@ const writeBuildReport = (result, startTime) => {
 const generateReportNotes = () => {
 	if (!prod) return;
 
-	const buildType = (isPublic || doDistribution) ? "full" : "flow";
+	const buildType = isIncrement ? "increment" : (isPublic || doDistribution) ? "full" : "flow";
 
 	const scripts = [
 		path.resolve(__dirname, "scripts", "generate-test-report.mjs"),

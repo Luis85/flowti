@@ -1,7 +1,7 @@
 ---
 type: TestPlan
 stage: done
-updated: 2026-02-19
+updated: 2026-03-01
 domain: Flowti/Tests
 plugin: "[[Development/flowti/README|README]]"
 tags:
@@ -24,24 +24,24 @@ This section describes **why** and **how** we test.
 1. **Prevent regressions** — Every domain service, infrastructure component, and utility function has automated tests that run on every build.
 2. **Document behavior** — Tests serve as executable specifications. Use case IDs (UC-01 through UC-99) link tests to user-visible behavior.
 3. **Enable fearless refactoring** — High coverage on pure functions and service logic allows structural changes (e.g., [[TD-34 Entity tab structural duplication|BaseEntityTab extraction]]) without risk.
-4. **Gate the build** — The `npm run publish` pipeline fails if any test fails, preventing broken code from reaching the plugin output.
+4. **Gate the build** — The `npm run build:increment` pipeline fails if any test fails, preventing broken code from reaching the plugin output.
 
 ### Test Pyramid
 
 ```
         ┌──────────────────────┐
-        │   E2E (planned)      │  Obsidian runtime
-        │   ⏭️ Future           │  ~0 tests
+        │   E2E                │  Live Obsidian via CLI
+        │   ✅ 4 journeys       │  69 tests (53 pass, 16 skip)
         ├──────────────────────┤
         │   Flow Integration   │  Cross-service journeys
-        │   ✅ 10 flow suites   │  ~87 tests (28 skipped)
+        │   ✅ 41 flow suites   │  ~500+ tests
         ├──────────────────────┤
         │   Integration        │  Multi-service flows
         │   ✅ InstallerJourney │  ~20 tests
         │   ✅ Pipeline         │  ~25 tests
         ├──────────────────────┤
         │   Unit               │  Services, pure fns, utils
-        │   ✅ 55 test files    │  ~1,300 tests
+        │   ✅ 261 suites       │  ~5,500+ tests
         └──────────────────────┘
 ```
 
@@ -77,7 +77,7 @@ This section describes **why** and **how** we test.
 
 | Methodology | Application in this project |
 |-------------|----------------------------|
-| **Domain-Driven Design (DDD)** | 11 bounded contexts (Settings, User, Installer, Discovery, Subscription, Ingestion, EventDefinition, EventFilter, EventNotify, DataExchange, Docs), each owning its events, types, and service. Cross-domain communication exclusively via EventBus |
+| **Domain-Driven Design (DDD)** | 21 bounded contexts, each owning its events, types, and service. Cross-domain communication exclusively via EventBus |
 | **Test-Driven Development (TDD)** | New services and pure functions are developed test-first. The failing-test → implementation → refactor cycle produces focused, testable units with high coverage from the start |
 | **Behaviour-Driven Development (BDD)** | Use cases (UC-01 through UC-99) link tests to user-visible behavior. Each UC describes preconditions, actions, and expected outcomes. Gherkin-style scenarios serve as executable specifications |
 | **Clean Code** | Single Responsibility Principle enforced through the orchestrator + component pattern. Services implement `IDisposable` for deterministic cleanup. No service imports another service — all coupling is via events |
@@ -100,54 +100,89 @@ This section describes **why** and **how** we test.
 | DOM rendering | Component rendering needs Obsidian's augmented `HTMLElement` | `obsidian-stub` polyfills cover event handler wiring; visual correctness is manual |
 | `main.ts` bootstrap | Plugin lifecycle tightly coupled to Obsidian API | Registration order tested indirectly via `ServiceContainer` |
 
+## E2E Testing
+
+E2E tests run against a live Obsidian instance via the **Obsidian CLI** (1.12+, `key=value` syntax). A dedicated test vault (`flowti-e2e`) is scaffolded automatically by `tests/e2e/helpers/testVault.ts`.
+
+### Capabilities
+
+1. **Boot the plugin** inside a live Obsidian instance with a scaffolded test vault
+2. **Trigger Obsidian commands** and verify views open (observable via `ui.opened` events)
+3. **Navigate Hubs** — open leaves, switch tabs, assert tab content via event traces
+4. **Assert vault state** — files created, frontmatter updated, folders scaffolded
+5. **Capture screenshots** per journey step for visual regression and documentation
+
+### E2E Infrastructure
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| **ObsidianCli** | `src/infrastructure/cli/ObsidianCli.ts` | Wraps Obsidian CLI commands (`key=value` syntax, `=> ` output prefix) |
+| **Test vault scaffold** | `tests/e2e/helpers/testVault.ts` | Creates/verifies `flowti-e2e` vault |
+| **Journey runner** | `tests/e2e/helpers/journeyRunner.ts` | Sequential step execution with settle delays |
+| **E2E report generator** | `scripts/generate-e2e-report.mjs` | Generates E2E Report, Journey Reports, Journey Canvases, Event Traces |
+
+### Journey Suites
+
+| Journey | Tests | Status |
+|---------|-------|--------|
+| Installer | 16 | Skip when already installed (re-run with `--journey=installer`) |
+| Getting Started | 8 | Hub navigation, tab switching, event traces |
+| Component Library | 35 | Component showcase, visual verification |
+| Canvas Session | 10 | Canvas operations, session lifecycle |
+| **Total** | **69** | **53 pass, 16 skip** |
+
+### npm Presets
+
+```bash
+npm run test:e2e                  # Full suite (all journeys)
+npm run test:e2e:quick            # Installer + Getting Started
+npm run test:e2e:journeys         # All journeys (excl. installer)
+npm run test:e2e:installer        # Installer only (forces fresh install)
+npm run test:e2e:getting-started  # Getting Started only
+npm run test:e2e:components       # Component Library only
+npm run test:e2e:canvas-session   # Canvas Session only
+npm run report:e2e                # Generate E2E report without running tests
+```
+
+### Living Documentation
+
+Each journey produces:
+- **JourneyConfig** meta file (describeBlock, itBlock, events, commands, interactions per step)
+- **Screenshots** per step
+- **Event traces** (CSV) for full observability
+- **Canvas** visualization of the journey flow
+
+---
+
+## Quality Reporting
+
+10 report generators run as part of the build pipeline, producing vault-native Markdown reports with YAML frontmatter:
+
+| Report | Generator | Output |
+|--------|-----------|--------|
+| Test Report | `generate-test-report.mjs` | `docs/reports/tests/` (timestamped) |
+| Coverage Report | `generate-coverage-report.mjs` | `docs/reports/coverage/` (timestamped) |
+| Build Report | `generate-build-report.mjs` | `docs/reports/builds/` (timestamped) |
+| Codebase Report | `generate-codebase-report.mjs` | `docs/reports/codebase/` (timestamped) |
+| Cycle Report | `generate-cycle-report.mjs` | `docs/reports/cycles/` (timestamped) |
+| Trace Conformance | `generate-trace-report.mjs` | `docs/reports/traceability/` (timestamped) |
+| Performance Report | `generate-performance-report.mjs` | `docs/reports/performance/` (timestamped) |
+| Command Reference | `generate-command-reference.mjs` | `docs/reference/Command Reference.md` (stable) |
+| Event Catalog | `generate-event-catalog.mjs` | `docs/reference/Event Catalog.md` (stable) |
+| Data Dictionary | `generate-data-dictionary.mjs` | `docs/reference/Data Dictionary.md` (stable) |
+| E2E Report | `generate-e2e-report.mjs` | `docs/reports/e2e/` + journey canvases |
+
+Reports use `--build-type` to distinguish filenames: `flow-*` (regular), `increment-*` (increment builds), no prefix (full/distribution).
+
+---
+
 ## Roadmap
 
-### E2E Testing
-
-To further improve our test capabilities we will enhance the test suite with user-interface end-to-end tests. In order to make this happen, we will depend on the yet-to-be-released Obsidian CLI, which would enable:
-
-1. **Booting the plugin** inside a headless Obsidian instance with a test vault
-2. **Triggering Obsidian commands** and verifying that the correct views open (now fully observable via `ui.opened` events on the EventBus)
-3. **Interacting with modals** (InputModal, InstallerWizardModal, EventConfigModal) and verifying outcomes
-4. **Asserting vault state** — files created, frontmatter updated, folders scaffolded
-
-The UI CommandBus refactoring (`ui.*` events) lays the groundwork: every user entry point is now an observable event, so E2E tests can assert on event emissions rather than inspecting DOM state directly.
-
-| Dependency | Status | Notes |
-|------------|--------|-------|
-| Obsidian CLI / E2E framework | Not yet released | No official test harness exists; community options are manual only |
-| jsdom environment | Not installed | Would enable testing Modal subclasses but not full workspace behavior |
-| Component-level rendering | [[TD-27 Limited UI component testing\|TD-27]] | 40+ UI components have 0% test coverage |
-
-### Quality Reporting
-
-For easier quality surveillance we will integrate Vitest JSON reports into dedicated Obsidian views for fast quality checks during plugin development. The data pipeline is already in place:
-
-| Asset | Path | Updated | Purpose |
-|-------|------|---------|---------|
-| Test results | `docs/reports/tests/testreport.json` | Every `npm run test` | Suite/test pass/fail/skip counts, durations |
-| Coverage | `docs/reports/tests/coverage-final.json` | Every `npm run test:coverage` | Per-file statement/branch/function coverage |
-| Codebase API | `docs/reports/codebase.json` | Every `npm run docs` | TypeDoc-generated API reference |
-| Build reports | `docs/reports/builds/*.md` | Every production/release build | Version, bundle size, duration, warnings |
-
-Planned enhancements:
-
-| Enhancement | Approach | Benefit |
-|-------------|----------|---------|
-| In-vault test dashboard | Custom Flowti view parsing `testreport.json` | Browse pass/fail/skip counts, durations, and trends directly in Obsidian |
-| In-vault coverage view | Parse `coverage-final.json` | Per-file coverage bars with drill-down, highlight low-coverage files |
-| Interactive test explorer | `@vitest/ui` (`vitest --ui`) | Browser-based test tree with re-run, failure diffs, and watch mode |
-| HTML coverage report | `@vitest/coverage-v8` with `reporter: ['html']` | Visual per-file line highlighting in browser |
-| CI trend tracking | GitHub Actions (future, see [[TD-37 No Release- and Publishing Strategy\|TD-37]]) | Test count, coverage %, and failure rate trends across commits |
-
-### Expanded Coverage Targets
-
-| Area | Current | Target | Approach |
-|------|---------|--------|----------|
-| UI components (`catalog/`, `hub/`, `csv/`, `export/`) | 0% | 40%+ | Extract testable logic into helpers; test render side effects via EventBus |
-| DataExchangeService facade | 59% | 80%+ | Test remaining config CRUD and pipeline orchestration |
-| DiscoveryService vault scan | 52% | 80%+ | Mock `metadataCache` with varied frontmatter scenarios |
-| UI command contracts | 100% | 100% | Maintain full coverage on `UiCommandService` event routing |
+| Item | Status | Notes |
+|------|--------|-------|
+| CI trend tracking | Planned | GitHub Actions (see [[TD-37 No Release- and Publishing Strategy\|TD-37]]) — test count, coverage %, failure rate trends |
+| In-vault test dashboard | Planned | Custom Flowti view parsing `testreport.json` for live quality metrics |
+| Composable E2E journeys | Planned | Journey steps that reference other journeys for reuse |
 
 ### Naming Conventions
 
@@ -167,62 +202,41 @@ This section describes **what** is tested — use cases, scenarios, and coverage
 
 ### Generated Reports
 
-Vitest generates test and coverage reports. You find them as JSON files in `docs/tests`.
+> See the Quality Reporting section above for the full list of 10+ report generators.
 
 | Report             | Path                             | Updated                            |
 | ------------------ | -------------------------------- | ---------------------------------- |
 | Test results       | `docs/tests/testreport.json`     | Every `npm run test`               |
 | Coverage           | `docs/tests/coverage-final.json` | `npm run test:coverage`            |
 | Codebase (TypeDoc) | `docs/reports/codebase.json`     | Every `npm run docs`               |
-| Build reports      | `docs/reports/builds/*.md`       | Every production/release build     |
+| Build reports      | `docs/reports/builds/*.md`       | Every production/release/increment build |
+| E2E reports        | `docs/reports/e2e/`             | Every `npm run test:e2e` or `report:e2e` |
 
-### Current Metrics (Feb 2026)
+### Current Metrics (Mar 2026)
 
 | Metric | Value |
 |--------|-------|
-| Test files | 65 |
-| Tests | 1,447 passing, 32 skipped |
-| Flow test suites | 10 files covering all documented user journeys (87 pass, 28 skip) |
-| Coverage (statements) | ~31% overall (UI layer largely untested — see [[TD-27 Limited UI component testing\|TD-27]]) |
-| Coverage (branches) | ~36% overall |
-| 100% coverage files | `pathResolver.ts`, `contentGenerator.ts`, `configDocContent.ts`, `CsvParser.ts`, `glob.ts`, `mutex.ts`, `pathUtils.ts`, `folders.ts`, `settings.ts`, `UserService.ts`, `EventBus.ts`, `UiCommandService.ts` |
+| Test suites | 261 |
+| Tests | 6,023 passing |
+| Flow test suites | 41 files covering all documented user journeys |
+| E2E tests | 69 (53 pass, 16 skip) across 4 journeys |
+| E2E journeys | Installer, Getting Started, Component Library, Canvas Session |
 | Verification pipeline | `npm test` = eslint → tsc → vitest |
-| Release pipeline | `npm run build:release` = test:coverage → typedoc → esbuild --publish |
-| Distribution pipeline | `npm run build:distribution` = test:coverage → typedoc → esbuild --distribution |
+| Increment pipeline | `npm run build:increment` = check → build → coverage → e2e → docs → distribute |
+| Release pipeline | `npm run build:release` = check → build → coverage → docs → esbuild --publish |
 
 ---
 
 ## Architecture
 
+> Full architecture details: see [[README]] (Arc42, §1-12) and [[Backend Architecture]] (C4 diagrams).
+
 ```
 src/
-├── domain/               # Business logic (11 bounded contexts)
-│   ├── dataExchange/     # CSV import/export, pipelines, type docs
-│   ├── docs/             # DocService + content generators + path resolvers
-│   ├── discovery/        # Vault scanning for user-defined events
-│   ├── eventDefinition/  # Custom event mapping rules
-│   ├── eventFilter/      # Hidden event types
-│   ├── eventNotify/      # Notification preferences
-│   ├── ingestion/        # File monitoring, job queue, catch-up
-│   ├── installer/        # First-run setup wizard
-│   ├── settings/         # Plugin configuration
-│   ├── subscription/     # Event watchers with filters
-│   └── user/             # User profile management
-├── infrastructure/       # Generic plumbing
-│   ├── commands/         # Command pipeline with middleware
-│   ├── errors/           # Error categorization & handling
-│   ├── events/           # EventBus + Obsidian EventBridge
-│   ├── filesystem/       # Vault I/O abstraction
-│   ├── logger/           # Structured logging
-│   ├── services/         # DI container with lifecycle
-│   ├── ui/               # UiCommandService (UI command bus)
-│   └── views/            # Obsidian pane registration
-├── ui/                   # Presentation layer (~17,127 LOC)
-│   ├── catalog/          # Event Catalog components (15 files)
-│   ├── hub/              # Data Exchange Hub components (21 files)
-│   ├── csv/              # CSV import wizard components (10 files)
-│   └── export/           # Export wizard components (7 files)
-├── utils/                # Shared helpers (UUID, glob, persistence, mutex)
+├── infrastructure/       # EventBus, EventBridge, FileSystemClient, ServiceContainer (20 services)
+├── domain/               # 21 bounded contexts (each has events.ts + types.ts + service)
+├── ui/                   # 5 Hub views, modals, session, analytics, train
+├── utils/                # Shared helpers (UUID, glob, persistence, mutex, SecretStore)
 └── main.ts               # Plugin orchestrator
 ```
 
@@ -269,19 +283,14 @@ End-to-end user journey test suites covering all 10 documented flows. Each suite
 
 ### Flow Test Suites
 
-| # | Flow | Test File | Pass | Skip | Services Exercised |
-|---|------|-----------|------|------|--------------------|
-| 01 | First-Run Onboarding | `01-FirstRunOnboarding.test.ts` | 4 | 2 | InstallerService, UserService |
-| 02 | Browse and Configure Events | `02-BrowseAndConfigureEvents.test.ts` | 10 | 2 | SubscriptionService, EventDefinitionService |
-| 03 | Import CSV as Notes | `03-ImportCsvAsNotes.test.ts` | 7 | 2 | DataExchangeService, ImportService |
-| 04 | Export Vault Data | `04-ExportVaultData.test.ts` | 5 | 5 | DataExchangeService, ExportService |
-| 05 | Build Import Pipeline | `05-BuildImportPipeline.test.ts` | 8 | 2 | DataExchangeService, PipelineExecutor |
-| 06 | Create Domain Documentation | `06-CreateDomainDocumentation.test.ts` | 13 | 2 | DocService |
-| 07 | Monitor and Debug Events | `07-MonitorAndDebugEvents.test.ts` | 8 | 3 | SubscriptionService |
-| 08 | Configure File Ingestion | `08-ConfigureFileIngestion.test.ts` | 9 | 4 | IngestionService, EventDefinitionService |
-| 09 | Discover Custom Events | `09-DiscoverCustomEvents.test.ts` | 7 | 3 | DiscoveryService, SubscriptionService |
-| 10 | Manage Data Dictionary | `10-ManageDataDictionary.test.ts` | 16 | 3 | DataExchangeService |
-| | **Total** | | **87** | **28** | |
+41 flow integration test suites in `tests/flows/`, covering all documented user journeys. Each suite exercises multiple services via real `EventBus` instances.
+
+| Range | Suites | Area |
+|-------|--------|------|
+| 01–10 | 10 | Core flows: onboarding, events, CSV, export, pipelines, docs, ingestion, discovery |
+| 11–20 | 10 | Session, inbox, nudge, analytics queries, dashboards, signal, canvas |
+| 21–30 | 10 | Train, hub navigation, capture, onboarding guidance, component registry |
+| 31–41 | 11 | Layouts, performance, data dictionary, pagination, advanced analytics |
 
 ### Skip Reasons (Flow Tests)
 
@@ -303,34 +312,41 @@ Each flow test:
 
 ## Features
 
-| # | Feature | Domain | Test Files | Status |
-|---|---------|--------|------------|--------|
-| 1 | Installer | domain/installer | `InstallerService`, `InstallerJourney`, `UserCreationStep`, `FolderScaffoldStep`, `folders` | ✅ |
-| 2 | Settings | domain/settings | `SettingsService`, `settings` | ✅ |
-| 3 | User Management | domain/user | `UserService` | ✅ |
-| 4 | Event System | infrastructure/events | `EventBus`, `EventBridge`, `catalog` | ✅ |
-| 5 | Service Container | infrastructure/services | `ServiceContainer`, `VaultQueryService`, `WorkspaceService` | ✅ |
-| 6 | Command Pipeline | infrastructure/commands | `CommandRegistry` | ✅ |
-| 7 | Error Handling | infrastructure/errors | `FlowtiError`, `ErrorService` | ✅ |
-| 8 | Logger | infrastructure/logger | `LoggerService` | ✅ |
-| 9 | Utilities | utils | `helpers`, `glob`, `persistence`, `mutex`, `pathUtils` | ✅ |
-| 10 | Event Catalog View | ui/catalog | `EventCatalogView`, `catalog/helpers`, `eventDocTemplate` | ✅ |
-| 11 | Event Log View | ui | `EventLogView` | ✅ |
-| 12 | Data Exchange Hub View | ui | `DataExchangeHubView` | ✅ |
-| 13 | CSV Import & Data Exchange | domain/dataExchange | `ImportService`, `CsvParser`, `DataExchangeService`, `Pipeline`, `BaseQueryEngine`, `ExportService`, `configDocContent` | ✅ |
-| 14 | Export View | ui/export | `ExportView` | ✅ |
-| 15 | Component Showcase View | ui | — | ⏭️ Rendering only |
-| 16 | Catalog Helpers | ui/catalog | `catalog/helpers` | ✅ |
-| 17 | Discovery | domain/discovery | `DiscoveryService` | ✅ |
-| 18 | Event Filter | domain/eventFilter | `EventFilterService` | ✅ |
-| 19 | Event Notification | domain/eventNotify | `EventNotificationService` | ✅ |
-| 20 | Subscription | domain/subscription | `SubscriptionService` | ✅ |
-| 21 | Ingestion | domain/ingestion | `IngestionService`, `JobQueue` | ✅ |
-| 22 | Event Definition | domain/eventDefinition | `EventDefinitionService`, `payloadExtractor` | ✅ |
-| 23 | DocService | domain/docs | `DocService`, `pathResolver`, `contentGenerator` | ✅ |
-| 24 | Event Config Modal | ui | `EventConfigModal` | ✅ |
-| 25 | Ingestion Status Bar | ui | `IngestionStatusBar` | ✅ |
-| 26 | UI Command Bus | infrastructure/ui | `UiCommandService` | ✅ |
+| # | Feature | Domain | Status |
+|---|---------|--------|--------|
+| 1 | Installer | domain/installer | ✅ |
+| 2 | Settings | domain/settings | ✅ |
+| 3 | User Management | domain/user | ✅ |
+| 4 | Event System | infrastructure/events | ✅ |
+| 5 | Service Container | infrastructure/services | ✅ |
+| 6 | Command Pipeline | infrastructure/commands | ✅ |
+| 7 | Error Handling | infrastructure/errors | ✅ |
+| 8 | Logger | infrastructure/logger | ✅ |
+| 9 | Utilities | utils | ✅ |
+| 10 | Event Catalog | ui/catalog | ✅ |
+| 11 | Activity Log | ui/EventLogView | ✅ |
+| 12 | Data Exchange Hub | ui/hub + domain/dataExchange | ✅ |
+| 13 | CSV Import/Export | domain/dataExchange | ✅ |
+| 14 | Discovery | domain/discovery | ✅ |
+| 15 | Event Filter | domain/eventFilter | ✅ |
+| 16 | Event Notification | domain/eventNotify | ✅ |
+| 17 | Subscription | domain/subscription | ✅ |
+| 18 | Ingestion | domain/ingestion | ✅ |
+| 19 | Event Definition | domain/eventDefinition | ✅ |
+| 20 | DocService | domain/docs | ✅ |
+| 21 | Session | domain/session | ✅ |
+| 22 | Inbox | domain/inbox | ✅ |
+| 23 | Nudge | domain/nudge | ✅ |
+| 24 | Analytics | domain/analytics | ✅ |
+| 25 | Signal | domain/signal | ✅ |
+| 26 | Canvas | domain/canvas | ✅ |
+| 27 | Capture | domain/capture | ✅ |
+| 28 | Train | domain/train | ✅ |
+| 29 | Onboarding | domain/onboarding | ✅ |
+| 30 | Hub Registry | domain/hub | ✅ |
+| 31 | Performance Observability | infrastructure (perf.*) | ✅ |
+| 32 | Layouts & Shell | ui/layouts, ui/shell | ✅ |
+| 33 | Component Registry | ui/components | ✅ |
 
 ---
 

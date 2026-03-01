@@ -317,7 +317,7 @@ export class EventLogView extends ItemView {
 			};
 
 			this.events.unshift(entry);
-			if (this.events.length > MAX_ENTRIES) {
+			if (!this.e2eMode && this.events.length > MAX_ENTRIES) {
 				this.events.length = MAX_ENTRIES;
 			}
 
@@ -595,7 +595,6 @@ export class EventLogView extends ItemView {
 				timestamp: new Date(t.ts).toISOString(),
 			};
 			this.events.push(entry);
-			if (this.events.length >= MAX_ENTRIES) break;
 		}
 
 		// Add E2E badge to header

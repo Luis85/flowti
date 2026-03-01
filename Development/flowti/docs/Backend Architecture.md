@@ -1,7 +1,7 @@
 ---
 type: ArchitectureDoc
 stage: done
-updated: 2026-02-23
+updated: 2026-03-01
 domain: Flowti/System
 plugin: "[[Development/flowti/README|README]]"
 tags:
@@ -29,7 +29,7 @@ tags:
 ┌──────────────────────────────────────────────────┐
 │             Flowti IBDE Plugin                    │
 │  Event-driven architecture toolkit for Obsidian   │
-│  330+ events · 19 domain services · 10 views       │
+│  343+ events · 20 domain services · 11 views       │
 └────────────────────┬─────────────────────────────┘
                      │ runs on
                      ▼
@@ -62,7 +62,7 @@ No external network dependencies. All data stored in-vault via `saveData()`.
 │  └────────────────────────────┬──────────────────────────── │ │
 │                               │ events                       │
 │  ┌────────────────────────────┴────────────────────────────┐ │
-│  │  Domain Layer  ·  19 services  ·  216+ events             │ │
+│  │  Domain Layer  ·  20 services  ·  229+ events             │ │
 │  │  Settings · User · EventFilter · EventNotify · Doc       │ │
 │  │  Discovery · Subscription · Ingestion · EventDefinition  │ │
 │  │  DataExchange · Installer · Session · Inbox · Nudge      │ │
@@ -798,22 +798,6 @@ Full type definitions in [[Data Dictionary]].
 
 ---
 
-## Appendix: Build & Distribution Pipeline
-
-| Goal | Command | What runs |
-|------|---------|-----------|
-| Verify changes | `npm test` | eslint → tsc → vitest |
-| Fast bundle | `npm run build` | esbuild --production (no checks) |
-| Dev watch | `npm run build:dev` | esbuild --watch |
-| Release build | `npm run build:release` | test:coverage → typedoc → esbuild --publish |
-| Distribute | `npm run build:distribution` | release + copy artifacts to configured vault endpoints |
-
-**Output**: `.obsidian/plugins/flowti-ibde/` (primary) + optional distribution endpoints via `docs/reports/build-endpoints.json`.
-
-**Build reports**: Every production build generates a Markdown report in `docs/reports/builds/` with YAML frontmatter (version, duration, bundle size).
-
-See [[Testplan and Teststrategy]] for full test strategy and [[README|README §7]] for the deployment view.
-
----
+*Build pipelines and distribution: see [[README|README §12]].*
 
 *See also: [[Frontend Architecture]] · [[Event Catalog]] · [[Data Dictionary]] · [[Testplan and Teststrategy]] · [[Technical Debt Review 2026-02-13]]*
