@@ -12,7 +12,8 @@ import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { ObsidianCli } from "../../src/infrastructure/cli/ObsidianCli";
 import { TestVault } from "./helpers/testVault";
-import { shouldRunInstaller, INSTALLER_SEED_FILES } from "./helpers/fixtures";
+import { shouldRunInstaller } from "./helpers/fixtures";
+import { SEED_REGISTRY, SEED_FOLDERS } from "./helpers/seedRegistry";
 import { injectHighlightStyles } from "./helpers/highlight";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -190,28 +191,7 @@ async function repairSeedFiles(cli: ObsidianCli, vaultDir: string): Promise<void
 
 	// 1. Repair missing folders — the installer scaffolds 26 folders.
 	//    We only repair the critical subset needed by journey tests.
-	const criticalFolders = [
-		"00 - Connectivity",
-		"00 - Connectivity/input",
-		"00 - Connectivity/inbox",
-		"00 - Connectivity/imports",
-		"00 - Connectivity/share",
-		"00 - Connectivity/feedback",
-		"01 - Projects",
-		"02 - Areas",
-		"03 - Resources",
-		"03 - Resources/Attachments",
-		"03 - Resources/Sample Data",
-		"03 - Resources/Documentation",
-		"03 - Resources/Templates",
-		"04 - Archive",
-		"var",
-		"var/data",
-		"var/events",
-		"var/reports",
-	];
-
-	for (const folder of criticalFolders) {
+	for (const folder of SEED_FOLDERS) {
 		const fullPath = path.join(vaultDir, folder);
 		if (!fs.existsSync(fullPath)) {
 			cli.eval(`(async () => { try { await app.vault.createFolder('${folder}'); } catch {} })()`);
@@ -224,19 +204,16 @@ async function repairSeedFiles(cli: ObsidianCli, vaultDir: string): Promise<void
 		console.log(`[e2e] Repaired ${repaired} missing folders.`);
 	}
 
-	// 2. Repair missing seed files
-	for (const seedPath of INSTALLER_SEED_FILES) {
-		const fullPath = path.join(vaultDir, seedPath);
+	// 2. Repair missing seed files (content from seedRegistry)
+	for (const entry of SEED_REGISTRY) {
+		const fullPath = path.join(vaultDir, entry.path);
 		if (fs.existsSync(fullPath)) continue;
 
-		const content = getSeedContent(seedPath);
-		if (!content) continue;
-
 		// Escape for JS string (single quotes, backslashes, newlines)
-		const escaped = content.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\n/g, "\\n");
-		cli.eval(`(async () => { try { await app.vault.create('${seedPath}', '${escaped}'); } catch {} })()`);
+		const escaped = entry.content.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\n/g, "\\n");
+		cli.eval(`(async () => { try { await app.vault.create('${entry.path}', '${escaped}'); } catch {} })()`);
 		repaired++;
-		console.log(`[e2e] Repaired missing seed file: ${seedPath}`);
+		console.log(`[e2e] Repaired missing seed file: ${entry.path}`);
 	}
 
 	if (repaired > 0) {
@@ -248,55 +225,3 @@ async function repairSeedFiles(cli: ObsidianCli, vaultDir: string): Promise<void
 	console.log(`[e2e] Seed repair complete (${repaired} items repaired).`);
 }
 
-/** Returns the default content for a known seed file path. */
-function getSeedContent(seedPath: string): string | null {
-	if (seedPath === "00 - Connectivity/inbox/Welcome to Flowti.md") {
-		return [
-			"# Welcome to Flowti!",
-			"",
-			"Your Integrated Business Development Environment is ready.",
-			"",
-			"## First Steps",
-			"",
-			"1. **Explore your dashboard** — Open the Analytics Hub to see your Supplier Overview dashboard with live charts and metrics.",
-			"2. **Review sample data** — The supplier overview CSV in `03 - Resources/Sample Data/` contains realistic demo data you can modify.",
-			"3. **Import your own data** — Drop CSV files into `00 - Connectivity/imports/` to trigger the ingestion pipeline.",
-			"4. **Create subscriptions** — Set up event subscriptions to watch for file changes in specific folders.",
-			"5. **Build custom queries** — Use the Analytics Query Builder to slice and dice your data.",
-			"",
-			"## Key Concepts",
-			"",
-			"- **Events** drive everything — file changes emit events, subscriptions react.",
-			"- **Dashboards** visualize query results as tables, stat cards, and charts.",
-			"- **Sessions** are time-boxed documentation periods for focused work.",
-			"",
-			"> Tip: Use the command palette (`Ctrl+P`) and search for \"Flowti\" to see all available commands.",
-		].join("\n");
-	}
-
-	if (seedPath === "03 - Resources/Sample Data/supplier-overview.csv") {
-		return [
-			"Month,Supplier,SKU,Category,Unit Price,Quantity,Total,Lead Time Days,Quality Score,On Time Delivery",
-			"2025-09,Acme Components,AC-1001,Fasteners,2.45,1200,2940.00,12,96.2,98.1",
-			"2025-09,Nordic Electronics,NE-2001,Sensors,15.30,420,6426.00,10,98.5,99.2",
-			"2025-09,Pacific Materials,PM-3001,Raw Aluminum,3.20,2800,8960.00,7,95.0,99.5",
-			"2025-10,Acme Components,AC-1001,Fasteners,2.45,1350,3307.50,11,96.5,98.4",
-			"2025-10,Nordic Electronics,NE-2001,Sensors,15.30,450,6885.00,10,98.8,99.0",
-			"2025-10,Pacific Materials,PM-3001,Raw Aluminum,3.25,2600,8450.00,8,95.2,99.0",
-			"2025-11,Acme Components,AC-1001,Fasteners,2.50,1100,2750.00,13,95.8,97.5",
-			"2025-11,Nordic Electronics,NE-2001,Sensors,15.50,400,6200.00,11,98.2,98.8",
-			"2025-11,Pacific Materials,PM-3001,Raw Aluminum,3.30,2900,9570.00,7,95.5,99.3",
-			"2025-12,Acme Components,AC-1001,Fasteners,2.50,950,2375.00,14,96.0,97.8",
-			"2025-12,Nordic Electronics,NE-2001,Sensors,15.50,380,5890.00,12,98.0,98.5",
-			"2025-12,Pacific Materials,PM-3001,Raw Aluminum,3.35,2500,8375.00,8,94.8,99.1",
-			"2026-01,Acme Components,AC-1001,Fasteners,2.55,1250,3187.50,12,96.8,98.5",
-			"2026-01,Nordic Electronics,NE-2001,Sensors,15.80,440,6952.00,10,98.9,99.3",
-			"2026-01,Pacific Materials,PM-3001,Raw Aluminum,3.40,2700,9180.00,7,95.8,99.5",
-			"2026-02,Acme Components,AC-1001,Fasteners,2.55,1300,3315.00,11,97.0,98.8",
-			"2026-02,Nordic Electronics,NE-2001,Sensors,16.00,460,7360.00,9,99.1,99.5",
-			"2026-02,Pacific Materials,PM-3001,Raw Aluminum,3.45,2850,9832.50,6,96.0,99.8",
-		].join("\n");
-	}
-
-	return null;
-}

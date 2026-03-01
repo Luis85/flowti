@@ -513,27 +513,13 @@ export async function teardown(): Promise<void> {
 	cli.notice("Teardown: Collecting event trace...", 5000);
 	collectEventTrace(cli, vault);
 
-	// Only reset installer state when explicitly running the installer test.
-	// Default: leave the installed state so the next run can skip the installer.
-	if (process.env.E2E_RUN_INSTALLER === "true") {
-		cli.notice("Teardown: Resetting installer state...", 5000);
-		const dataJsonPath = path.join(
-			vault.vaultDir, ".obsidian", "plugins", PLUGIN_ID, "data.json",
-		);
-		if (fs.existsSync(dataJsonPath)) {
-			try {
-				const data = JSON.parse(fs.readFileSync(dataJsonPath, "utf-8"));
-				// TypedStorage key is "installer" (NOT "installerService")
-				data.installer = { installed: false, completedSteps: {} };
-				fs.writeFileSync(dataJsonPath, JSON.stringify(data), "utf-8");
-				console.log("[e2e] Installer state reset via filesystem.");
-			} catch {
-				console.warn("[e2e] Failed to reset installer state in data.json.");
-			}
-		}
-	} else {
-		console.log("[e2e] Installer state preserved (skip mode).");
-	}
+	// Installer state is intentionally NOT reset here.
+	// The run-e2e wrapper re-enables the plugin after teardown for report viewing,
+	// and resetting to installed=false would trigger the installer wizard.
+	// Instead, the reset happens at the START of the next installer run:
+	//   - prerequisites.journey.json step 05 resets data.json
+	//   - globalSetup.ts clears vault content in installer mode
+	console.log("[e2e] Installer state preserved (reset happens at start of next installer run).");
 
 	// Clear E2E gate flags stored on window (survive plugin reloads)
 	cli.notice("Teardown: Cleaning up E2E state...", 5000);

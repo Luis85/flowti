@@ -15,6 +15,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ObsidianCli } from "../../../src/infrastructure/cli/ObsidianCli";
 import { TestVault } from "./testVault";
+import { getSeedPaths } from "./seedRegistry";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = path.resolve(__dirname, "..", "..", "..");
@@ -209,10 +210,7 @@ export function ensureInstalled(cli: ObsidianCli, vaultDir?: string): void {
 // cli.eval) so Obsidian's internal state stays consistent.
 
 /** Seed file paths created by the installer's SeedContentStep. */
-export const INSTALLER_SEED_FILES = [
-	"00 - Connectivity/inbox/Welcome to Flowti.md",
-	"03 - Resources/Sample Data/supplier-overview.csv",
-];
+export const INSTALLER_SEED_FILES = getSeedPaths();
 
 /**
  * Deletes a vault file through Obsidian's vault API (cache-safe).

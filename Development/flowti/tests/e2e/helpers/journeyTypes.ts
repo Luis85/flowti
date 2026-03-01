@@ -7,7 +7,7 @@
  *
  * Actions use a finite set of tools (command, click, input, highlight,
  * wait, assert, emit, navigate, eval, screenshot, manual, notice, theme,
- * plus lifecycle tools: create-file, delete-file, open-file, close-leaves).
+ * plus lifecycle tools: create-file, delete-file, open-file, open-url, close-leaves, seed).
  * Complex logic uses the `eval` tool as an escape hatch.
  *
  * Variable interpolation: `{{variableName}}` in any string field.
@@ -34,7 +34,23 @@ export type ToolName =
 	| "create-file"
 	| "delete-file"
 	| "open-file"
-	| "close-leaves";
+	| "open-url"
+	| "close-leaves"
+	| "seed";
+
+// ─── Lifecycle configuration ────────────────────────────────────────
+
+/** Controls what the executor does in beforeAll. Default: all true. */
+export interface JourneyLifecycle {
+	/** If false, skip ensurePluginEnabled in beforeAll. Default: true. */
+	enablePlugin?: boolean;
+	/** If false, skip ensureInstalled check in beforeAll. Default: true. */
+	checkInstalled?: boolean;
+	/** If false, skip startEventTrace in beforeAll. Default: true. */
+	startTrace?: boolean;
+	/** If false, skip openActivityLog in beforeAll. Default: true. */
+	openActivityLog?: boolean;
+}
 
 // ─── Journey definition ─────────────────────────────────────────────
 
@@ -53,6 +69,12 @@ export interface JourneyDefinition {
 	canvasPath?: string;
 	/** Tools used by this journey (self-documenting, validated on load). */
 	tools: ToolName[];
+	/** Lifecycle configuration — controls beforeAll behavior. */
+	lifecycle?: JourneyLifecycle;
+	/** Window properties to set after all steps pass (e.g. ["_e2ePrerequisitesPassed"]). */
+	gateFlags?: string[];
+	/** If true, write an anchor file with pass/fail status for skip-mode detection. */
+	anchor?: boolean;
 	/** Steps run before the journey. Failures block main steps; teardown still runs. */
 	setup?: StepDefinition[];
 	/** Ordered list of steps. Each step generates one vitest `it()` block.
@@ -143,7 +165,9 @@ export type ActionDefinition =
 	| CreateFileAction
 	| DeleteFileAction
 	| OpenFileAction
-	| CloseLeavesAction;
+	| OpenUrlAction
+	| CloseLeavesAction
+	| SeedAction;
 
 export interface CommandAction {
 	tool: "command";
@@ -298,9 +322,25 @@ export interface OpenFileAction {
 	description?: string;
 }
 
+export interface OpenUrlAction {
+	tool: "open-url";
+	/** URL to open in the Obsidian WebViewer. Supports {{variable}} interpolation. */
+	url: string;
+	description?: string;
+}
+
 export interface CloseLeavesAction {
 	tool: "close-leaves";
 	/** View type of leaves to close. e.g. "flowti-user-hub", "markdown" */
 	viewType: string;
+	description?: string;
+}
+
+export interface SeedAction {
+	tool: "seed";
+	/** Seed file identifier. e.g. "welcome-note", "supplier-csv", "all", "folders" */
+	id: string;
+	/** Operation mode. Default: "create". */
+	mode?: "create" | "verify" | "delete";
 	description?: string;
 }

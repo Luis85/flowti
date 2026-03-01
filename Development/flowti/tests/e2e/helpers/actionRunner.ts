@@ -7,7 +7,8 @@
  */
 import * as path from "node:path";
 import type { ObsidianCli } from "../../../src/infrastructure/cli/ObsidianCli";
-import type { ActionDefinition, AssertAction, CloseLeavesAction, CreateFileAction, DeleteFileAction, EmitAction, EvalAction, NoticeAction, OpenFileAction, ScreenshotAction, ThemeAction } from "./journeyTypes";
+import type { ActionDefinition, AssertAction, CloseLeavesAction, CreateFileAction, DeleteFileAction, EmitAction, EvalAction, NoticeAction, OpenFileAction, OpenUrlAction, ScreenshotAction, SeedAction, ThemeAction } from "./journeyTypes";
+import { getAllSeeds, getSeedById, SEED_FOLDERS } from "./seedRegistry";
 import { highlightElement, highlightButton, highlightInput } from "./highlight";
 import { navigateToTab } from "./navigation";
 import { assertEventEmitted, PLUGIN_ID } from "./fixtures";
@@ -160,8 +161,14 @@ export async function executeAction(
 		case "open-file":
 			executeOpenFile(cli, action, variables);
 			break;
+		case "open-url":
+			executeOpenUrl(cli, action, variables);
+			break;
 		case "close-leaves":
 			executeCloseLeaves(cli, action, variables);
+			break;
+		case "seed":
+			executeSeed(cli, action, variables);
 			break;
 		case "manual":
 			// Manual actions are skipped during automated execution.
@@ -383,6 +390,12 @@ function executeOpenFile(cli: ObsidianCli, action: OpenFileAction, variables: Re
 	}
 }
 
+function executeOpenUrl(cli: ObsidianCli, action: OpenUrlAction, variables: Record<string, string>): void {
+	const url = resolve(action.url, variables);
+	// Use the native CLI `web` command — handles plugin activation and view creation.
+	cli.run("web", [`url=${url}`, "newtab"]);
+}
+
 function executeCloseLeaves(cli: ObsidianCli, action: CloseLeavesAction, variables: Record<string, string>): void {
 	const viewType = resolve(action.viewType, variables);
 	const result = cli.eval(
@@ -390,6 +403,88 @@ function executeCloseLeaves(cli: ObsidianCli, action: CloseLeavesAction, variabl
 	);
 	if (!result.success) {
 		throw new Error(`close-leaves '${viewType}' failed: ${result.error}`);
+	}
+}
+
+// ─── Seed tool implementation ────────────────────────────────────────
+
+function executeSeed(cli: ObsidianCli, action: SeedAction, variables: Record<string, string>): void {
+	const id = resolve(action.id, variables);
+	const rawMode = action.mode ? resolve(action.mode, variables) : "create";
+	const mode = rawMode as "create" | "verify" | "delete";
+
+	// Special ID: "folders" — create all critical folders
+	if (id === "folders") {
+		if (mode !== "create") {
+			throw new Error(`seed id="folders" only supports mode="create", got "${mode}"`);
+		}
+		for (const folder of SEED_FOLDERS) {
+			cli.eval(`(async () => { try { await app.vault.createFolder('${folder}'); } catch {} })()`);
+		}
+		return;
+	}
+
+	// Special ID: "all" — operate on every entry in the registry
+	if (id === "all") {
+		for (const entry of getAllSeeds()) {
+			executeSeedEntry(cli, entry.id, entry.path, entry.content, mode);
+		}
+		return;
+	}
+
+	// Single seed by ID
+	const entry = getSeedById(id);
+	if (!entry) {
+		throw new Error(`Unknown seed id '${id}'. Available: ${getAllSeeds().map((e) => e.id).join(", ")}`);
+	}
+	executeSeedEntry(cli, entry.id, entry.path, entry.content, mode);
+}
+
+function executeSeedEntry(
+	cli: ObsidianCli,
+	id: string,
+	seedPath: string,
+	content: string,
+	mode: "create" | "verify" | "delete",
+): void {
+	const escapedPath = seedPath.replace(/'/g, "\\'");
+
+	switch (mode) {
+		case "create": {
+			const escapedContent = content.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\n/g, "\\n");
+			const result = cli.eval([
+				`(async () => {`,
+				`  const existing = app.vault.getAbstractFileByPath('${escapedPath}');`,
+				`  if (existing) return 'exists';`,
+				`  await app.vault.create('${escapedPath}', '${escapedContent}');`,
+				`  return 'created';`,
+				`})()`,
+			].join(" "));
+			if (!result.success) {
+				throw new Error(`seed create '${id}' (${seedPath}) failed: ${result.error}`);
+			}
+			break;
+		}
+		case "verify": {
+			const result = cli.eval(`!!app.vault.getAbstractFileByPath('${escapedPath}')`);
+			if (!result.success || result.value !== "true") {
+				throw new Error(`Seed file missing in skip mode: ${seedPath}`);
+			}
+			break;
+		}
+		case "delete": {
+			const result = cli.eval([
+				`(async () => {`,
+				`  const f = app.vault.getAbstractFileByPath('${escapedPath}');`,
+				`  if (f) { await app.vault.delete(f, true); return 'deleted'; }`,
+				`  return 'not-found';`,
+				`})()`,
+			].join(" "));
+			if (!result.success) {
+				throw new Error(`seed delete '${id}' (${seedPath}) failed: ${result.error}`);
+			}
+			break;
+		}
 	}
 }
 

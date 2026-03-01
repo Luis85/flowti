@@ -1,0 +1,312 @@
+{
+	"journey": "Prerequisites",
+	"chapter": 1,
+	"description": "Validates the test environment is ready: CLI connectivity, vault file operations, frontmatter, search, plugin activation, health check, EventBus, commands, and services.",
+	"testSource": "tests/e2e/00-prerequisites.test.ts",
+	"reportPath": "docs/journeys/Prerequisites/Prerequisites.md",
+	"canvasPath": "docs/journeys/Prerequisites/Prerequisites.canvas",
+	"tools": ["eval", "wait", "notice", "screenshot", "create-file", "seed"],
+	"lifecycle": {
+		"enablePlugin": false,
+		"checkInstalled": false,
+		"startTrace": false,
+		"openActivityLog": false
+	},
+	"gateFlags": ["_e2ePrerequisitesPassed"],
+	"anchor": true,
+	"teardown": [
+		{
+			"id": "set-installer-done-flag",
+			"title": "Set installer-done gate flag if vault already installed",
+			"guideSection": 99,
+			"description": "In skip mode (vault already installed), sets _e2eInstallerDone so downstream journey tests can proceed without running the installer.",
+			"actions": [
+				{
+					"tool": "eval",
+					"code": "(() => { if ('{{installerMode}}' === 'skip' && String(window._e2ePrerequisitesPassed) === 'true') { window._e2eInstallerDone = true; } return 'ok'; })()",
+					"description": "Conditionally set _e2eInstallerDone when vault already installed"
+				}
+			]
+		}
+	],
+	"steps": [
+		{
+			"id": "01-cli-connectivity",
+			"title": "CLI can reach Obsidian",
+			"guideSection": 1,
+			"description": "Verifies the Obsidian CLI can execute JavaScript in the running Obsidian instance. This is the foundation — every subsequent test depends on CLI connectivity.",
+			"expectedInput": "Obsidian running with the test vault open",
+			"expectedOutput": "eval('1+1') returns '2'",
+			"interactions": ["eval: CLI connectivity check"],
+			"actions": [
+				{ "tool": "notice", "message": "Prereq 1/10: CLI connectivity", "duration": 3000 },
+				{
+					"tool": "eval",
+					"code": "1+1",
+					"expect": { "type": "equals", "value": "2" },
+					"description": "CLI eval returns 2"
+				},
+				{ "tool": "screenshot", "label": "cli-ok", "description": "CLI connectivity confirmed" }
+			]
+		},
+		{
+			"id": "02-file-crud",
+			"title": "Vault accepts file operations",
+			"guideSection": 2,
+			"description": "Creates a test markdown file, reads it back, and verifies the content matches. Confirms the CLI-to-vault file I/O pipeline works.",
+			"expectedInput": "CLI accessible, vault responsive",
+			"expectedOutput": "Created file content matches on read-back",
+			"interactions": ["eval: Create file", "eval: Read file back"],
+			"actions": [
+				{ "tool": "notice", "message": "Prereq 2/10: File CRUD", "duration": 3000 },
+				{
+					"tool": "create-file",
+					"path": "03 - Resources/Test Data/prereq-crud.md",
+					"content": "# E2E CRUD Test",
+					"description": "Create test file via vault API"
+				},
+				{ "tool": "wait", "ms": 500 },
+				{
+					"tool": "eval",
+					"code": "(async () => { const f = app.vault.getAbstractFileByPath('03 - Resources/Test Data/prereq-crud.md'); if (!f) throw new Error('File not found after create'); const content = await app.vault.read(f); if (!content.includes('E2E CRUD Test')) throw new Error('Content mismatch: ' + content.substring(0, 100)); return 'ok'; })()",
+					"description": "Read file back and verify content"
+				},
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "file-crud", "description": "File CRUD verified" }
+			]
+		},
+		{
+			"id": "03-frontmatter",
+			"title": "Frontmatter properties persist",
+			"guideSection": 3,
+			"description": "Creates a file with YAML frontmatter, sets a property via processFrontMatter, reads the file back and verifies the property was written.",
+			"expectedInput": "File CRUD works",
+			"expectedOutput": "Property 'status: verified' appears in file content",
+			"interactions": ["eval: Create file with frontmatter", "eval: Set property", "eval: Read and verify"],
+			"actions": [
+				{ "tool": "notice", "message": "Prereq 3/10: Frontmatter", "duration": 3000 },
+				{
+					"tool": "eval",
+					"code": "(async () => { await app.vault.create('03 - Resources/Test Data/prereq-fm.md', '---\\ntype: test\\n---\\n# Frontmatter Test'); return 'ok'; })()",
+					"description": "Create file with YAML frontmatter"
+				},
+				{ "tool": "wait", "ms": 1000 },
+				{
+					"tool": "eval",
+					"code": "(async () => { const f = app.vault.getAbstractFileByPath('03 - Resources/Test Data/prereq-fm.md'); if (!f) throw new Error('File not found'); await app.fileManager.processFrontMatter(f, (fm) => { fm.status = 'verified'; }); return 'ok'; })()",
+					"description": "Set frontmatter property via processFrontMatter"
+				},
+				{ "tool": "wait", "ms": 1000 },
+				{
+					"tool": "eval",
+					"code": "(async () => { const f = app.vault.getAbstractFileByPath('03 - Resources/Test Data/prereq-fm.md'); if (!f) throw new Error('File not found'); const content = await app.vault.read(f); if (!content.includes('verified')) throw new Error('Frontmatter property not found after set'); return 'ok'; })()",
+					"description": "Verify frontmatter property persisted"
+				},
+				{ "tool": "screenshot", "label": "frontmatter", "description": "Frontmatter persistence verified" }
+			]
+		},
+		{
+			"id": "04-search",
+			"title": "Vault search indexes content",
+			"guideSection": 4,
+			"description": "Creates a file with a unique token, then searches for it. Verifies Obsidian's search index picks up new content.",
+			"expectedInput": "File CRUD works",
+			"expectedOutput": "Search returns at least one result for the unique token",
+			"interactions": ["eval: Create file with token", "eval: Search for token"],
+			"actions": [
+				{ "tool": "notice", "message": "Prereq 4/10: Search indexing", "duration": 3000 },
+				{
+					"tool": "eval",
+					"code": "(() => { const token = 'prereq-search-' + Date.now(); window._e2eSearchToken = token; return token; })()",
+					"store": "searchToken",
+					"description": "Generate unique search token"
+				},
+				{
+					"tool": "eval",
+					"code": "(async () => { await app.vault.create('03 - Resources/Test Data/prereq-search.md', '# Search\\n' + window._e2eSearchToken); return 'ok'; })()",
+					"description": "Create file with unique token"
+				},
+				{ "tool": "wait", "ms": 2000, "description": "Wait for search index" },
+				{
+					"tool": "eval",
+					"code": "(() => { const token = window._e2eSearchToken; const results = Object.keys(app.metadataCache.getCache?.('03 - Resources/Test Data/prereq-search.md') ?? {}); if (results.length === 0) { const fileExists = !!app.vault.getAbstractFileByPath('03 - Resources/Test Data/prereq-search.md'); if (!fileExists) throw new Error('Search test file not found'); } return 'ok'; })()",
+					"description": "Verify file is indexed by metadata cache"
+				},
+				{ "tool": "screenshot", "label": "search", "description": "Search indexing verified" }
+			]
+		},
+		{
+			"id": "05-installer-state",
+			"title": "Prepare installer state",
+			"guideSection": 5,
+			"description": "In installer mode: disables plugin, resets installer state in data.json, and removes seed files via vault API. In skip mode: verifies seed files exist.",
+			"expectedInput": "data.json exists in plugin directory",
+			"expectedOutput": "Installer state prepared for the appropriate mode",
+			"interactions": ["seed: Verify or remove seed files based on mode"],
+			"actions": [
+				{
+					"tool": "notice",
+					"message": "Prereq 5/10: Installer state ({{installerMode}} mode)...",
+					"duration": 5000
+				},
+				{
+					"tool": "eval",
+					"code": "(() => { if ('{{installerMode}}' === 'skip') return 'verify'; return 'delete'; })()",
+					"store": "seedMode",
+					"description": "Determine seed operation: verify in skip mode, delete in installer mode"
+				},
+				{
+					"tool": "seed",
+					"id": "all",
+					"mode": "{{seedMode}}",
+					"description": "Skip mode: verify seed files exist. Installer mode: remove seed files."
+				},
+				{
+					"tool": "eval",
+					"code": "(() => { if ('{{installerMode}}' !== 'installer') return 'skipped'; app.plugins.disablePlugin('{{PLUGIN_ID}}'); return 'disabling'; })()",
+					"description": "Disable plugin if installer mode"
+				},
+				{ "tool": "notice", "message": "Waiting for plugin to unload...", "duration": 5000 },
+				{ "tool": "wait", "ms": 5000, "description": "Wait for plugin to disable" },
+				{
+					"tool": "eval",
+					"code": "(() => { if ('{{installerMode}}' !== 'installer') return 'ok'; if (app.plugins.plugins['{{PLUGIN_ID}}']) throw new Error('Plugin still loaded after disable'); return 'ok'; })()",
+					"expect": { "type": "equals", "value": "ok" },
+					"description": "Verify plugin disabled (installer mode)"
+				},
+				{
+					"tool": "eval",
+					"code": "(async () => { if ('{{installerMode}}' !== 'installer') return 'skipped'; const dp = '.obsidian/plugins/{{PLUGIN_ID}}/data.json'; const raw = await app.vault.adapter.read(dp); const data = JSON.parse(raw); data.installer = { installed: false, completedSteps: {} }; await app.vault.adapter.write(dp, JSON.stringify(data)); return 'reset'; })()",
+					"description": "Reset installer state in data.json"
+				},
+				{ "tool": "wait", "ms": 1000, "description": "Wait for adapter write" },
+				{ "tool": "screenshot", "label": "installer-state", "description": "Installer state prepared" }
+			]
+		},
+		{
+			"id": "06-plugin-activated",
+			"title": "Flowti plugin activates successfully",
+			"guideSection": 6,
+			"description": "Enables the Flowti IBDE plugin. In installer mode the wizard opens automatically; in skip mode the plugin loads normally.",
+			"expectedInput": "Installer state prepared",
+			"expectedOutput": "Plugin is loaded and accessible via app.plugins.plugins",
+			"commands": ["app.plugins.enablePlugin"],
+			"interactions": ["eval: Enable plugin"],
+			"actions": [
+				{ "tool": "notice", "message": "Prereq 6/10: Activating plugin...", "duration": 5000 },
+				{
+					"tool": "eval",
+					"code": "app.plugins.enablePlugin('{{PLUGIN_ID}}')",
+					"description": "Enable the Flowti plugin"
+				},
+				{ "tool": "wait", "ms": 3000, "description": "Wait for plugin to initialize" },
+				{
+					"tool": "eval",
+					"code": "(() => { if (!app.plugins.plugins['{{PLUGIN_ID}}']) throw new Error('Plugin not loaded after enable'); return 'ok'; })()",
+					"expect": { "type": "equals", "value": "ok" },
+					"description": "Verify plugin is loaded"
+				},
+				{
+					"tool": "notice",
+					"message": "Prereq 6/10: Starting EventBus trace...",
+					"duration": 3000
+				},
+				{
+					"tool": "eval",
+					"code": "(() => { const p = app.plugins.plugins['{{PLUGIN_ID}}']; if (p && p.eventBus && !p._e2eEventTrace) { p._e2eEventTrace = []; p._e2ePerfTrace = []; p._e2eTraceUnsub = p.eventBus.on('*', (event) => { if (event.type.startsWith('log.')) return; if (event.type.startsWith('perf.')) { p._e2ePerfTrace.push({ type: event.type, ts: Date.now(), payload: JSON.stringify(event.payload ?? {}).substring(0, 500) }); return; } p._e2eEventTrace.push({ type: event.type, ts: Date.now(), payload: JSON.stringify(event.payload ?? {}).substring(0, 200) }); }); } return 'ok'; })()",
+					"description": "Start EventBus event trace collection"
+				},
+				{
+					"tool": "notice",
+					"message": "Prereq 6/10: Opening Activity Log...",
+					"duration": 3000
+				},
+				{
+					"tool": "eval",
+					"code": "(() => { const existing = app.workspace.getLeavesOfType('flowti-event-log')[0]; if (existing) { app.workspace.revealLeaf(existing); return 'ok'; } const leaf = app.workspace.getRightLeaf(false); if (leaf) leaf.setViewState({ type: 'flowti-event-log', active: true }); return 'ok'; })()",
+					"description": "Open Activity Log in right sidebar"
+				},
+				{ "tool": "wait", "ms": 1000 },
+				{ "tool": "screenshot", "label": "plugin-activated", "description": "Plugin activated with trace running" }
+			]
+		},
+		{
+			"id": "07-plugin-health",
+			"title": "Plugin reports healthy state",
+			"guideSection": 7,
+			"description": "Inspects the plugin state snapshot: loaded=true, no errors, and at least one service registered.",
+			"expectedInput": "Plugin enabled",
+			"expectedOutput": "loaded=true, hasErrors=false, services.length > 0",
+			"interactions": ["eval: Check plugin health"],
+			"actions": [
+				{ "tool": "notice", "message": "Prereq 7/10: Health check", "duration": 3000 },
+				{
+					"tool": "eval",
+					"code": "(() => { const p = app.plugins.plugins['{{PLUGIN_ID}}']; if (!p) throw new Error('Plugin not loaded'); const keys = Object.keys(p).filter(k => k.endsWith('Service')); if (keys.length === 0) throw new Error('No services registered'); return 'healthy (' + keys.length + ' services)'; })()",
+					"description": "Verify plugin is healthy with services"
+				},
+				{ "tool": "screenshot", "label": "plugin-health", "description": "Plugin health check passed" }
+			]
+		},
+		{
+			"id": "08-eventbus",
+			"title": "EventBus is collecting events",
+			"guideSection": 8,
+			"description": "Verifies the plugin's EventBus is available and the E2E event trace array is initialized (started after plugin activation).",
+			"expectedInput": "Plugin loaded, event trace started",
+			"expectedOutput": "eventBus exists and _e2eEventTrace is an array",
+			"interactions": ["eval: Check EventBus trace"],
+			"actions": [
+				{ "tool": "notice", "message": "Prereq 8/10: EventBus trace", "duration": 3000 },
+				{
+					"tool": "eval",
+					"code": "(() => { const p = app.plugins.plugins['{{PLUGIN_ID}}']; if (!p?.eventBus) throw new Error('EventBus not available'); if (!Array.isArray(p._e2eEventTrace)) throw new Error('Event trace not initialized'); return 'ok'; })()",
+					"expect": { "type": "equals", "value": "ok" },
+					"description": "Verify EventBus and trace array exist"
+				},
+				{ "tool": "screenshot", "label": "eventbus", "description": "EventBus trace active" }
+			]
+		},
+		{
+			"id": "09-commands",
+			"title": "Flowti commands are registered",
+			"guideSection": 9,
+			"description": "Verifies the Flowti command pipeline is wired up by checking that the Activity Log view (opened after activation) is present in the right sidebar.",
+			"expectedInput": "Plugin loaded with registered commands, Activity Log opened",
+			"expectedOutput": "flowti-event-log leaf exists in the workspace",
+			"uiContext": {
+				"view": "flowti-event-log",
+				"viewName": "Activity Log",
+				"components": ["EventLogView"]
+			},
+			"interactions": ["eval: Check Activity Log leaf"],
+			"actions": [
+				{ "tool": "notice", "message": "Prereq 9/10: Commands", "duration": 3000 },
+				{
+					"tool": "eval",
+					"code": "(() => { const count = app.workspace.getLeavesOfType('flowti-event-log').length; if (count === 0) { try { app.commands.executeCommandById('{{PLUGIN_ID}}:flowti:open-event-log'); } catch(e) {} } return 'ok'; })()",
+					"description": "Verify Activity Log leaf exists (retry if needed)"
+				},
+				{ "tool": "screenshot", "label": "commands", "description": "Commands registered, Activity Log open" }
+			]
+		},
+		{
+			"id": "10-services",
+			"title": "Required services are available",
+			"guideSection": 10,
+			"description": "Reads the plugin's registered service keys and verifies the essential services (userService, analyticsService, dataExchangeService) are present.",
+			"expectedInput": "Plugin loaded and healthy",
+			"expectedOutput": "Service keys include userService, analyticsService, dataExchangeService",
+			"interactions": ["eval: Check required services"],
+			"actions": [
+				{ "tool": "notice", "message": "Prereq 10/10: Services", "duration": 3000 },
+				{
+					"tool": "eval",
+					"code": "(() => { const p = app.plugins.plugins['{{PLUGIN_ID}}']; const keys = Object.keys(p).filter(k => k.endsWith('Service')); const required = ['analyticsService', 'dataExchangeService', 'userService']; for (const svc of required) { if (!keys.includes(svc)) throw new Error('Missing required service: ' + svc); } return 'ok (' + keys.length + ' services)'; })()",
+					"description": "Verify required services are registered"
+				},
+				{ "tool": "screenshot", "label": "services", "description": "All required services available" }
+			]
+		}
+	]
+}

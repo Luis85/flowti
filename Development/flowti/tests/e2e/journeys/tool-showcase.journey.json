@@ -1,11 +1,11 @@
 {
 	"journey": "Tool Showcase",
 	"chapter": 6,
-	"description": "Demonstrates every Journey Runner tool and capability: command execution, DOM interaction (click, input), visual annotations (highlight, screenshot, notice), theme switching, event system (emit, assert), navigation, eval with variable passing, wait timing, manual QA documentation, and lifecycle tools (create-file, delete-file, open-file, close-leaves). Uses vault file creation as a concrete scenario to exercise each tool in a realistic context.",
+	"description": "Demonstrates every Journey Runner tool and capability: command execution, DOM interaction (click, input), visual annotations (highlight, screenshot, notice), theme switching, event system (emit, assert), navigation, eval with variable passing, wait timing, manual QA documentation, lifecycle tools (create-file, delete-file, open-file, open-url, close-leaves, seed), and WebViewer content interaction via Electron webview.executeJavaScript(). Uses vault file creation as a concrete scenario and a Google search to exercise each tool in a realistic context.",
 	"testSource": "tests/e2e/60-journey-tool-showcase.test.ts",
 	"reportPath": "docs/journeys/Tool Showcase/Tool Showcase.md",
 	"canvasPath": "docs/journeys/Tool Showcase/Tool Showcase.canvas",
-	"tools": ["command", "click", "input", "highlight", "wait", "assert", "emit", "navigate", "eval", "screenshot", "manual", "notice", "theme", "create-file", "delete-file", "open-file", "close-leaves"],
+	"tools": ["command", "click", "input", "highlight", "wait", "assert", "emit", "navigate", "eval", "screenshot", "manual", "notice", "theme", "create-file", "delete-file", "open-file", "open-url", "close-leaves", "seed"],
 	"setup": [
 		{
 			"id": "setup-baseline",
@@ -82,7 +82,7 @@
 			"commands": ["flowti:open-user-hub"],
 			"interactions": ["command: Open User Hub"],
 			"actions": [
-				{ "tool": "notice", "message": "Tool Showcase 1/7: Opening User Hub", "duration": 3000, "description": "Annotate test progress" },
+				{ "tool": "notice", "message": "Tool Showcase 1/9: Opening User Hub", "duration": 3000, "description": "Annotate test progress" },
 				{ "tool": "command", "id": "flowti:open-user-hub", "description": "Open the User Hub via command palette" },
 				{ "tool": "wait", "ms": 1000 },
 				{ "tool": "assert", "type": "leaf", "viewType": "flowti-user-hub", "description": "User Hub leaf exists" },
@@ -111,7 +111,7 @@
 			"events": ["hub.navigate", "hub.tab.changed"],
 			"interactions": ["navigate: Inbox tab"],
 			"actions": [
-				{ "tool": "notice", "message": "Tool Showcase 2/7: Navigating tabs", "duration": 3000, "description": "Annotate test progress" },
+				{ "tool": "notice", "message": "Tool Showcase 2/9: Navigating tabs", "duration": 3000, "description": "Annotate test progress" },
 				{ "tool": "navigate", "hub": "user-hub", "viewType": "flowti-user-hub", "tab": "inbox", "description": "Navigate to Inbox tab" },
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "assert", "type": "event", "event": "hub.tab.changed", "payload": { "hubId": "user-hub", "tabId": "inbox" }, "description": "Tab change event emitted with correct payload" },
@@ -141,7 +141,7 @@
 			"events": ["showcase.demo.event"],
 			"interactions": ["emit: Custom showcase event"],
 			"actions": [
-				{ "tool": "notice", "message": "Tool Showcase 3/7: Emitting and tracing events", "duration": 3000, "description": "Annotate test progress" },
+				{ "tool": "notice", "message": "Tool Showcase 3/9: Emitting and tracing events", "duration": 3000, "description": "Annotate test progress" },
 				{
 					"tool": "eval",
 					"code": "String((app.plugins.plugins['{{PLUGIN_ID}}']?._e2eEventTrace ?? []).length)",
@@ -178,7 +178,7 @@
 			},
 			"interactions": ["click: Command palette trigger", "input: Search query", "click: Close modal"],
 			"actions": [
-				{ "tool": "notice", "message": "Tool Showcase 4/7: DOM interaction demo", "duration": 3000, "description": "Annotate test progress" },
+				{ "tool": "notice", "message": "Tool Showcase 4/9: DOM interaction demo", "duration": 3000, "description": "Annotate test progress" },
 				{
 					"tool": "eval",
 					"code": "(() => { app.commands.executeCommandById('command-palette:open'); return 'ok'; })()",
@@ -210,7 +210,7 @@
 			},
 			"interactions": ["highlight: Element style", "highlight: Button style", "highlight: Input style"],
 			"actions": [
-				{ "tool": "notice", "message": "Tool Showcase 5/7: Highlight styles", "duration": 3000, "description": "Annotate test progress" },
+				{ "tool": "notice", "message": "Tool Showcase 5/9: Highlight styles", "duration": 3000, "description": "Annotate test progress" },
 				{ "tool": "highlight", "selector": ".workspace-tab-header.is-active", "style": "element", "description": "Green outline — element style" },
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "screenshot", "label": "highlight-element", "description": "Element highlight: green outline on active tab header" },
@@ -250,7 +250,7 @@
 			"commands": ["flowti:open-user-hub"],
 			"interactions": ["theme: Dark", "screenshot: Dark hub", "theme: Light", "screenshot: Light hub"],
 			"actions": [
-				{ "tool": "notice", "message": "Tool Showcase 6/7: Theme comparison", "duration": 3000, "description": "Annotate test progress" },
+				{ "tool": "notice", "message": "Tool Showcase 6/9: Theme comparison", "duration": 3000, "description": "Annotate test progress" },
 				{ "tool": "command", "id": "flowti:open-user-hub", "description": "Ensure User Hub is open" },
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "theme", "theme": "obsidian", "description": "Switch to dark theme" },
@@ -279,7 +279,7 @@
 			"events": ["showcase.assert.test"],
 			"interactions": ["assert: All 6 types"],
 			"actions": [
-				{ "tool": "notice", "message": "Tool Showcase 7/7: Assertion types", "duration": 3000, "description": "Annotate test progress" },
+				{ "tool": "notice", "message": "Tool Showcase 7/9: Assertion types", "duration": 3000, "description": "Annotate test progress" },
 				{ "tool": "assert", "type": "visible", "selector": ".workspace-leaf", "description": "1. VISIBLE — workspace leaf exists in DOM" },
 				{ "tool": "assert", "type": "not-visible", "selector": ".modal-container .ft-canvas-template-card", "description": "2. NOT-VISIBLE — no template picker modal open" },
 				{ "tool": "assert", "type": "text", "selector": ".workspace-leaf.mod-active .view-header-title-container", "contains": "", "description": "3. TEXT — active leaf has a title (non-empty container)" },
@@ -302,6 +302,108 @@
 				{ "tool": "notice", "message": "All 6 assertion types passed", "duration": 5000, "description": "Confirm all assertions succeeded" },
 				{ "tool": "screenshot", "label": "assertions-passed", "description": "All assertion types verified" },
 				{ "tool": "manual", "instruction": "All 6 assertion types were exercised: visible, not-visible, text, event (with payload), leaf, and eval. If this step passed, the assertion subsystem is fully operational.", "description": "Assertion subsystem verification" }
+			]
+		},
+		{
+			"id": "08-open-url",
+			"title": "Open a URL in the WebViewer",
+			"guideSection": 8,
+			"description": "Demonstrates: open-url, eval (webview detection), assert (visible), close via eval, screenshot, wait. Opens a URL in Obsidian's built-in WebViewer via the CLI 'web' command and verifies the webview element is present in the DOM.",
+			"expectedInput": "Obsidian workspace active",
+			"expectedOutput": "URL opened in WebViewer tab, webview verified, then closed",
+			"uiContext": {
+				"view": "web-viewer",
+				"viewName": "WebViewer",
+				"components": ["WebViewer"]
+			},
+			"interactions": ["open-url: Obsidian help page", "eval: Detect webview leaf"],
+			"actions": [
+				{ "tool": "notice", "message": "Tool Showcase 8/9: WebViewer", "duration": 3000, "description": "Annotate test progress" },
+				{
+					"tool": "open-url",
+					"url": "https://help.obsidian.md/",
+					"description": "Open the Obsidian Help page via CLI 'web' command"
+				},
+				{ "tool": "wait", "ms": 3000, "description": "Wait for WebViewer to load the page" },
+				{
+					"tool": "eval",
+					"code": "(() => { const wv = document.querySelector('webview'); if (wv) return 'found'; throw new Error('No <webview> element found in DOM'); })()",
+					"expect": { "type": "equals", "value": "found" },
+					"description": "Verify a <webview> element exists in the Obsidian DOM"
+				},
+				{ "tool": "highlight", "selector": ".workspace-leaf.mod-active .view-header-title-container", "style": "element", "description": "Highlight the WebViewer tab title" },
+				{ "tool": "screenshot", "label": "webviewer-open", "description": "URL loaded in WebViewer" },
+				{
+					"tool": "eval",
+					"code": "(() => { let closed = 0; app.workspace.iterateAllLeaves(l => { if (l.view?.containerEl?.querySelector('webview')) { l.detach(); closed++; } }); return String(closed); })()",
+					"expect": { "type": "truthy" },
+					"description": "Close all leaves containing a <webview> element"
+				},
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "manual", "instruction": "Verify the webviewer-open screenshot shows the Obsidian Help page loaded in a WebViewer tab. The tab title should reflect the page title or URL.", "description": "WebViewer rendering QA" }
+			]
+		},
+		{
+			"id": "09-webviewer-search",
+			"title": "Interact with WebViewer content",
+			"guideSection": 9,
+			"description": "Demonstrates: open-url, eval (webview.executeJavaScript for cross-process content interaction), wait, screenshot, close via eval. Opens Google in the WebViewer, executes a search, clicks the first result link, and verifies navigation — all via Electron's webview API.",
+			"expectedInput": "Obsidian workspace active, no WebViewer open",
+			"expectedOutput": "Google search executed, first result clicked, target page loaded, then closed",
+			"uiContext": {
+				"view": "web-viewer",
+				"viewName": "WebViewer",
+				"components": ["WebViewer"]
+			},
+			"interactions": ["open-url: Google", "eval: Fill search input via webview.executeJavaScript", "eval: Submit search form", "eval: Click first result link"],
+			"actions": [
+				{ "tool": "notice", "message": "Tool Showcase 9/9: WebViewer interaction", "duration": 3000, "description": "Annotate test progress" },
+				{
+					"tool": "open-url",
+					"url": "https://www.google.com",
+					"description": "Open Google in WebViewer"
+				},
+				{ "tool": "wait", "ms": 3000, "description": "Wait for Google to fully load" },
+				{
+					"tool": "eval",
+					"code": "(() => { const wv = document.querySelector('webview'); if (!wv) throw new Error('No webview element'); return 'ready'; })()",
+					"expect": { "type": "equals", "value": "ready" },
+					"description": "Verify webview element is present"
+				},
+				{ "tool": "screenshot", "label": "google-loaded", "description": "Google homepage loaded in WebViewer" },
+				{
+					"tool": "eval",
+					"code": "(async () => { const wv = document.querySelector('webview'); const result = await wv.executeJavaScript(\"(() => { const input = document.querySelector('textarea[name=q]') || document.querySelector('input[name=q]'); if (!input) return 'no-input'; input.value = 'Obsidian plugin development'; input.dispatchEvent(new Event('input', {bubbles:true})); return 'filled'; })()\"); return result; })()",
+					"expect": { "type": "equals", "value": "filled" },
+					"description": "Type search query into Google via webview.executeJavaScript"
+				},
+				{ "tool": "wait", "ms": 1000, "description": "Let the search suggestions appear" },
+				{ "tool": "screenshot", "label": "google-query", "description": "Search query entered in Google" },
+				{
+					"tool": "eval",
+					"code": "(async () => { const wv = document.querySelector('webview'); await wv.executeJavaScript(\"document.querySelector('form').submit()\"); return 'submitted'; })()",
+					"expect": { "type": "equals", "value": "submitted" },
+					"description": "Submit the Google search form"
+				},
+				{ "tool": "wait", "ms": 3000, "description": "Wait for search results to load" },
+				{ "tool": "screenshot", "label": "google-results", "description": "Google search results for 'Obsidian plugin development'" },
+				{
+					"tool": "eval",
+					"code": "(async () => { const wv = document.querySelector('webview'); const result = await wv.executeJavaScript(\"(() => { const link = document.querySelector('#search a[href^=\\\\\\\"http\\\\\\\"]') || document.querySelector('#rso a[href^=\\\\\\\"http\\\\\\\"]') || document.querySelector('a[jsname][href^=\\\\\\\"http\\\\\\\"]'); if (!link) return 'no-link'; link.click(); return link.href; })()\"); return result; })()",
+					"store": "clickedUrl",
+					"expect": { "type": "truthy" },
+					"description": "Click the first search result link"
+				},
+				{ "tool": "wait", "ms": 3000, "description": "Wait for the target page to load" },
+				{ "tool": "screenshot", "label": "result-page", "description": "Target page after clicking first search result" },
+				{
+					"tool": "eval",
+					"code": "(() => { let closed = 0; app.workspace.iterateAllLeaves(l => { if (l.view?.containerEl?.querySelector('webview')) { l.detach(); closed++; } }); return String(closed); })()",
+					"expect": { "type": "truthy" },
+					"description": "Close all WebViewer leaves"
+				},
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "manual", "instruction": "Verify: (1) google-loaded shows Google homepage in WebViewer, (2) google-query shows 'Obsidian plugin development' in the search box, (3) google-results shows search results, (4) result-page shows the target page after clicking the first link. This demonstrates full content interaction cycle: open → search → click → navigate — all via Electron's webview.executeJavaScript() API.", "description": "WebViewer content interaction QA" }
 			]
 		}
 	],

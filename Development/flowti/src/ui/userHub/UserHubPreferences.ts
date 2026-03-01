@@ -517,7 +517,7 @@ export class UserHubPreferences {
 				const typeInput = row.createEl("input", { cls: "ft-input ft-pref-rule-type-input" });
 				typeInput.type = "text";
 				typeInput.value = rule.type;
-				typeInput.placeholder = "type";
+				typeInput.placeholder = "Type";
 				typeInput.addEventListener("change", () => {
 					rules[i] = { ...rules[i], type: typeInput.value.trim() };
 					void this.deps.eventBus.emit("settings.updateInboxRoutingRules", { rules: [...rules] });
@@ -528,7 +528,7 @@ export class UserHubPreferences {
 				const folderInput = row.createEl("input", { cls: "ft-input ft-pref-rule-folder-input" });
 				folderInput.type = "text";
 				folderInput.value = rule.targetFolder;
-				folderInput.placeholder = "target folder";
+				folderInput.placeholder = "Target folder";
 				folderInput.addEventListener("change", () => {
 					rules[i] = { ...rules[i], targetFolder: folderInput.value.trim() };
 					void this.deps.eventBus.emit("settings.updateInboxRoutingRules", { rules: [...rules] });

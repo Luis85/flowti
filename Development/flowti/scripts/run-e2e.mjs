@@ -13,7 +13,7 @@
  *   node scripts/run-e2e.mjs --journey=getting-started                  One journey
  *   node scripts/run-e2e.mjs --journey=getting-started,component-library Multiple journeys
  *   node scripts/run-e2e.mjs --journey=installer,getting-started        Installer + journey
- *   node scripts/run-e2e.mjs --list                                     Interactive journey picker
+ *   node scripts/run-e2e.mjs --list                                     Interactive test session
  *
  * npm script presets:
  *   npm run test:e2e                   Full suite
@@ -23,6 +23,7 @@
  *   npm run test:e2e:tool-showcase      Tool Showcase only
  *   npm run test:e2e:journeys          All journeys (no installer)
  *   npm run test:e2e:quick             Installer + Getting Started (fast)
+ *   npm run test:e2e:list              Interactive test session
  */
 import { execSync } from "node:child_process";
 import fs from "node:fs";
@@ -34,25 +35,207 @@ const PROJECTS_ROOT = path.resolve(PLUGIN_ROOT, "..", "..", "..");
 const TEST_VAULT = process.env.E2E_VAULT_DIR ?? path.join(PROJECTS_ROOT, "flowti-e2e");
 const VAULT_NAME = path.basename(TEST_VAULT);
 const JOURNEYS_DIR = path.join(PLUGIN_ROOT, "tests", "e2e", "journeys");
+const PLUGIN_ID = "flowti-ibde";
+const PLUGIN_DIR = path.join(TEST_VAULT, ".obsidian", "plugins", PLUGIN_ID);
+const DATA_JSON_PATH = path.join(PLUGIN_DIR, "data.json");
+const PLUGIN_ARTIFACTS = ["main.js", "manifest.json", "styles.css"];
+const TEST_DATA_CSV = path.join(TEST_VAULT, "03 - Resources", "Test Data", "Analytics", "Suppliers.csv");
 
-// ── --list: interactive journey picker ──────────────────────────────
+// ── Readline helpers ────────────────────────────────────────────────
 
-/**
- * Scans journeys directory, presents a numbered table, and prompts
- * the user to select which journeys to run.
- * Returns a comma-separated journey slug string (e.g. "getting-started,canvas-session").
- */
-async function interactiveList() {
+function ask(rl, question, defaultValue = "") {
+	return new Promise((resolve) => {
+		const suffix = defaultValue ? ` (${defaultValue})` : "";
+		rl.question(`  ${question}${suffix}: `, (answer) => {
+			resolve(answer.trim() || defaultValue);
+		});
+	});
+}
+
+function askYesNo(rl, question, defaultNo = true) {
+	return new Promise((resolve) => {
+		const hint = defaultNo ? "(y/N)" : "(Y/n)";
+		rl.question(`  ${question} ${hint}: `, (answer) => {
+			const input = answer.trim().toLowerCase();
+			if (!input) {
+				resolve(!defaultNo);
+				return;
+			}
+			resolve(input === "y" || input === "yes");
+		});
+	});
+}
+
+// ── Prerequisites check (local filesystem + single CLI ping) ────────
+
+function checkPrerequisites() {
+	const results = {
+		vaultExists: false,
+		artifactsPresent: false,
+		missingArtifacts: [],
+		cliResponsive: false,
+		vaultInstalled: false,
+		testDataPresent: false,
+	};
+
+	// 1. Vault exists
+	results.vaultExists = fs.existsSync(TEST_VAULT);
+
+	// 2. Plugin artifacts
+	if (results.vaultExists) {
+		results.missingArtifacts = PLUGIN_ARTIFACTS.filter(
+			(f) => !fs.existsSync(path.join(PLUGIN_DIR, f)),
+		);
+		results.artifactsPresent = results.missingArtifacts.length === 0;
+	}
+
+	// 3. CLI responsive (single eval, best-effort)
+	if (results.vaultExists) {
+		try {
+			const output = execSync(
+				`obsidian vault=${VAULT_NAME} eval code="1+1"`,
+				{ encoding: "utf-8", stdio: "pipe", timeout: 10_000 },
+			);
+			results.cliResponsive = output.includes("2");
+		} catch {
+			results.cliResponsive = false;
+		}
+	}
+
+	// 4. Vault installed (data.json check)
+	if (results.vaultExists && fs.existsSync(DATA_JSON_PATH)) {
+		try {
+			const data = JSON.parse(fs.readFileSync(DATA_JSON_PATH, "utf-8"));
+			results.vaultInstalled = data.installer?.installed === true;
+		} catch {
+			results.vaultInstalled = false;
+		}
+	}
+
+	// 5. Test data present
+	results.testDataPresent = fs.existsSync(TEST_DATA_CSV);
+
+	return results;
+}
+
+function printPrerequisites(results) {
+	const ok = (msg) => console.log(`  \x1b[32m✓\x1b[0m ${msg}`);
+	const fail = (msg) => console.log(`  \x1b[31m✗\x1b[0m ${msg}`);
+	const info = (msg) => console.log(`  \x1b[33m○\x1b[0m ${msg}`);
+
+	console.log("\n  Prerequisites (local):\n");
+
+	if (results.vaultExists) ok(`Test vault exists: ${TEST_VAULT}`);
+	else fail(`Test vault missing: ${TEST_VAULT}`);
+
+	if (results.artifactsPresent) ok("Plugin artifacts: main.js, manifest.json, styles.css");
+	else fail(`Plugin artifacts missing: ${results.missingArtifacts.join(", ")}`);
+
+	if (results.cliResponsive) ok("Obsidian CLI responsive");
+	else fail("Obsidian CLI not responsive (is Obsidian running?)");
+
+	if (results.vaultInstalled) ok("Vault installed (data.json → installer.installed = true)");
+	else info("Vault not installed (installer will run)");
+
+	if (results.testDataPresent) ok("Test data CSV present");
+	else info("Test data missing (generated during setup)");
+
+	console.log();
+}
+
+// ── Teardown to fresh state ─────────────────────────────────────────
+
+async function teardownVault() {
+	console.log("\n  Teardown will:");
+	console.log("    - Delete all vault content (except .obsidian/)");
+	console.log("    - Reset installer state (data.json → installed: false)");
+	console.log("    - Deactivate plugin");
+	console.log("    - Clear workspace layout\n");
+
+	const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+	const proceed = await askYesNo(rl, "Proceed?", true);
+	rl.close();
+
+	if (!proceed) {
+		console.log("\n  Teardown cancelled.\n");
+		return;
+	}
+
+	console.log();
+
+	// 1. Delete vault content via Obsidian CLI (cache-safe)
+	try {
+		execSync(
+			`obsidian vault=${VAULT_NAME} eval code="(async () => { const root = app.vault.getRoot(); const children = root.children || []; for (const child of [...children]) { if (child.path === '.obsidian' || child.path.startsWith('.obsidian/')) continue; try { await app.vault.delete(child, true); } catch(e) {} } })()"`,
+			{ stdio: "pipe", timeout: 30_000 },
+		);
+		// Wait for async deletions
+		await new Promise((r) => setTimeout(r, 1000));
+		console.log("  \x1b[32m✓\x1b[0m Vault content deleted (via Obsidian API)");
+	} catch {
+		console.log("  \x1b[31m✗\x1b[0m Failed to delete vault content (is Obsidian running?)");
+	}
+
+	// 2. Purge ghost file index entries
+	try {
+		execSync(
+			`obsidian vault=${VAULT_NAME} eval code="(async () => { const ghosts = []; for (const f of [...app.vault.getAllLoadedFiles()]) { if (f.path === '/' || f.path.startsWith('.obsidian')) continue; const exists = await app.vault.adapter.exists(f.path); if (!exists) ghosts.push(f); } for (const f of ghosts) { try { await app.vault.delete(f, true); } catch {} try { if (f.parent) f.parent.children = f.parent.children.filter(c => c !== f); delete app.vault.fileMap[f.path]; } catch {} } })()"`,
+			{ stdio: "pipe", timeout: 30_000 },
+		);
+		await new Promise((r) => setTimeout(r, 500));
+		console.log("  \x1b[32m✓\x1b[0m Ghost entries purged");
+	} catch {
+		// Non-fatal — ghost entries will be cleaned on next globalSetup
+	}
+
+	// 3. Reset data.json
+	if (fs.existsSync(DATA_JSON_PATH)) {
+		try {
+			const data = JSON.parse(fs.readFileSync(DATA_JSON_PATH, "utf-8"));
+			data.installer = { installed: false, completedSteps: {} };
+			fs.writeFileSync(DATA_JSON_PATH, JSON.stringify(data), "utf-8");
+			console.log("  \x1b[32m✓\x1b[0m Installer state reset");
+		} catch {
+			console.log("  \x1b[31m✗\x1b[0m Failed to reset data.json");
+		}
+	} else {
+		console.log("  \x1b[33m○\x1b[0m data.json not found (already fresh)");
+	}
+
+	// 4. Deactivate plugin
+	try {
+		execSync(
+			`obsidian vault=${VAULT_NAME} eval code="app.plugins.disablePlugin('${PLUGIN_ID}')"`,
+			{ stdio: "pipe", timeout: 10_000 },
+		);
+		await new Promise((r) => setTimeout(r, 1000));
+		console.log("  \x1b[32m✓\x1b[0m Plugin deactivated");
+	} catch {
+		console.log("  \x1b[33m○\x1b[0m Plugin deactivation skipped (may not be loaded)");
+	}
+
+	// 5. Clear workspace layout
+	const workspacePath = path.join(TEST_VAULT, ".obsidian", "workspace.json");
+	if (fs.existsSync(workspacePath)) {
+		try {
+			fs.rmSync(workspacePath, { force: true });
+			console.log("  \x1b[32m✓\x1b[0m Workspace layout cleared");
+		} catch {
+			// Non-fatal
+		}
+	}
+
+	console.log("\n  \x1b[32m✓\x1b[0m Fresh state — run again to start a new session.\n");
+}
+
+// ── Journey table ───────────────────────────────────────────────────
+
+function loadJourneyEntries() {
 	const files = fs.readdirSync(JOURNEYS_DIR)
 		.filter((f) => f.endsWith(".journey.json"))
 		.sort();
 
-	if (files.length === 0) {
-		console.log("[e2e] No journey files found.");
-		process.exit(0);
-	}
-
-	const entries = files.map((f) => {
+	return files.map((f) => {
 		const def = JSON.parse(fs.readFileSync(path.join(JOURNEYS_DIR, f), "utf-8"));
 		const slug = f.replace(".journey.json", "");
 		return {
@@ -63,10 +246,12 @@ async function interactiveList() {
 			description: def.description ?? "",
 		};
 	});
+}
 
+function printJourneyTable(entries) {
 	console.log("\n  Available Journeys:\n");
 	console.log("  #  Ch  Name                          Steps  Description");
-	console.log("  " + "-".length ? "-".repeat(78) : "");
+	console.log("  " + "-".repeat(78));
 	for (let i = 0; i < entries.length; i++) {
 		const e = entries[i];
 		const num = String(i + 1).padStart(2, " ");
@@ -76,33 +261,496 @@ async function interactiveList() {
 		const desc = e.description.length > 40 ? e.description.slice(0, 37) + "..." : e.description;
 		console.log(`  ${num}  ${ch}  ${name}  ${steps}  ${desc}`);
 	}
+	console.log();
+}
 
-	const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-	const answer = await new Promise((resolve) => {
-		rl.question('\n  Enter journey numbers (space-separated) or "all": ', resolve);
-	});
-	rl.close();
+// ── Session config prompt ───────────────────────────────────────────
 
-	const input = answer.trim().toLowerCase();
-	if (!input) {
-		console.log("[e2e] No selection — exiting.");
+async function promptSessionConfig(rl, entries, prereqResults) {
+	// Journey selection first — needed for auto-generated session name
+	printJourneyTable(entries);
+	const journeyInput = await ask(rl, 'Enter journey numbers (space-separated) or "all"');
+
+	if (!journeyInput) {
+		console.log("\n  No selection — exiting.\n");
 		process.exit(0);
 	}
 
 	let selectedSlugs;
-	if (input === "all") {
+	if (journeyInput.toLowerCase() === "all") {
 		selectedSlugs = entries.map((e) => e.slug);
 	} else {
-		const indices = input.split(/[\s,]+/).map(Number).filter((n) => n >= 1 && n <= entries.length);
+		const indices = journeyInput.split(/[\s,]+/).map(Number).filter((n) => n >= 1 && n <= entries.length);
 		if (indices.length === 0) {
-			console.log("[e2e] Invalid selection — exiting.");
+			console.log("\n  Invalid selection — exiting.\n");
 			process.exit(1);
 		}
 		selectedSlugs = indices.map((i) => entries[i - 1].slug);
 	}
 
-	console.log(`[e2e] Selected: ${selectedSlugs.join(", ")}`);
-	return selectedSlugs.join(",");
+	console.log();
+
+	// Session name — auto-generated from timestamp + journey slugs
+	const timestamp = new Date().toISOString().replace(/:/g, "-").slice(0, 19);
+	const journeySuffix = selectedSlugs.length === entries.length
+		? "all"
+		: selectedSlugs.join("+");
+	const autoName = `${timestamp} ${journeySuffix}`;
+	const sessionName = await ask(rl, "Session name (Enter for auto)", autoName);
+
+	// Installer toggle — default N when installed, Y (force) when not
+	const installerLabel = prereqResults.vaultInstalled
+		? "Include installer? (force)"
+		: "Include installer? (not installed)";
+	const includeInstaller = await askYesNo(rl, installerLabel, prereqResults.vaultInstalled);
+
+	// Prerequisites toggle — default N when all prereqs met, Y (force) when not
+	const prereqsMet = prereqResults.vaultInstalled && prereqResults.vaultExists && prereqResults.artifactsPresent;
+	const prereqLabel = prereqsMet
+		? "Include prerequisites? (force)"
+		: "Include prerequisites? (not yet passed)";
+	const includePrerequisites = await askYesNo(rl, prereqLabel, prereqsMet);
+
+	return { sessionName, selectedSlugs, includeInstaller, includePrerequisites };
+}
+
+// ── Post-run summary ────────────────────────────────────────────────
+
+/**
+ * Reads vitest JSON report and returns test result stats.
+ */
+function readTestStats() {
+	const reportPath = path.join(PLUGIN_ROOT, "docs", "reports", "tests", "testreport.json");
+	let totalTests = 0;
+	let passed = 0;
+	let failed = 0;
+	let skipped = 0;
+
+	if (fs.existsSync(reportPath)) {
+		try {
+			const report = JSON.parse(fs.readFileSync(reportPath, "utf-8"));
+			if (report.numTotalTests != null) {
+				totalTests = report.numTotalTests;
+				passed = report.numPassedTests ?? 0;
+				failed = report.numFailedTests ?? 0;
+				skipped = report.numPendingTests ?? 0;
+			} else if (Array.isArray(report.testResults)) {
+				// Vitest JSON reporter format
+				for (const suite of report.testResults) {
+					if (!Array.isArray(suite.assertionResults)) continue;
+					for (const test of suite.assertionResults) {
+						totalTests++;
+						if (test.status === "passed") passed++;
+						else if (test.status === "failed") failed++;
+						else skipped++;
+					}
+				}
+			}
+		} catch {
+			// Report parsing failed — show zeros
+		}
+	}
+
+	return { totalTests, passed, failed, skipped };
+}
+
+function printSummary(sessionName, selectedNames, startTime, stats) {
+	const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+	const failColor = stats.failed > 0 ? "\x1b[31m" : "\x1b[32m";
+	const reset = "\x1b[0m";
+
+	console.log(`\n  ${"=".repeat(60)}`);
+	console.log(`  Session Summary: ${sessionName}`);
+	console.log(`  ${"=".repeat(60)}\n`);
+	console.log(`  Duration:     ${duration}s`);
+	console.log(`  Journeys:     ${selectedNames.length} (${selectedNames.join(", ")})`);
+	console.log(`  Tests:        ${stats.totalTests} total`);
+	console.log(`  Passed:       \x1b[32m${stats.passed}${reset}`);
+	console.log(`  Failed:       ${failColor}${stats.failed}${reset}`);
+	console.log(`  Skipped:      ${stats.skipped}`);
+	console.log(`  Report:       docs/reports/e2e/E2E Report.md`);
+	console.log();
+}
+
+// ── Session note ────────────────────────────────────────────────────
+
+/**
+ * Writes a Markdown session note to the test vault at:
+ *   03 - Resources/Sessions/{sessionName}/{sessionName}.md
+ */
+function writeSessionNote(sessionName, config, selectedNames, prereqResults, stats, startTime, exitCode) {
+	const now = new Date();
+	const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+	const status = exitCode === 0 ? "passed" : "failed";
+
+	const lines = [
+		"---",
+		"type: E2ESession",
+		`session: ${yamlStr(sessionName)}`,
+		`date: ${now.toISOString()}`,
+		`status: ${status}`,
+		`duration_s: ${duration}`,
+		`total_tests: ${stats.totalTests}`,
+		`passed: ${stats.passed}`,
+		`failed: ${stats.failed}`,
+		`skipped: ${stats.skipped}`,
+		`installer: ${config.includeInstaller}`,
+		`prerequisites: ${config.includePrerequisites}`,
+		`journeys:`,
+		...config.selectedSlugs.map((s) => `  - ${s}`),
+		"tags:",
+		"  - e2e",
+		"  - session",
+		"---",
+		"",
+		`# E2E Session: ${sessionName}`,
+		"",
+		`> [!${exitCode === 0 ? "success" : "danger"}] ${exitCode === 0 ? "All tests passed" : "Some tests failed"}`,
+		`> Duration: ${duration}s | Tests: ${stats.totalTests} | Passed: ${stats.passed} | Failed: ${stats.failed} | Skipped: ${stats.skipped}`,
+		"",
+		"## Configuration",
+		"",
+		`| Setting | Value |`,
+		`|---|---|`,
+		`| Session | ${sessionName} |`,
+		`| Date | ${now.toISOString().slice(0, 19).replace("T", " ")} |`,
+		`| Installer | ${config.includeInstaller ? "yes" : "no"} |`,
+		`| Prerequisites | ${config.includePrerequisites ? "force" : "skip"} |`,
+		`| Journeys | ${selectedNames.join(", ")} |`,
+		"",
+		"## Prerequisites (local)",
+		"",
+		`| Check | Status |`,
+		`|---|---|`,
+		`| Test vault exists | ${prereqResults.vaultExists ? "✓" : "✗"} |`,
+		`| Plugin artifacts | ${prereqResults.artifactsPresent ? "✓" : "✗"} |`,
+		`| Obsidian CLI responsive | ${prereqResults.cliResponsive ? "✓" : "✗"} |`,
+		`| Vault installed | ${prereqResults.vaultInstalled ? "✓" : "○ not yet"} |`,
+		`| Test data present | ${prereqResults.testDataPresent ? "✓" : "○ generated during setup"} |`,
+		"",
+		"## Journeys",
+		"",
+		`| # | Journey | Steps |`,
+		`|---|---|---|`,
+		...config.selectedSlugs.map((slug, i) => {
+			const name = selectedNames[i] || slug;
+			const entry = loadJourneyEntries().find((e) => e.slug === slug);
+			const steps = entry ? entry.steps : "?";
+			return `| ${i + 1} | ${name} | ${steps} |`;
+		}),
+		"",
+		"## Results",
+		"",
+		`| Metric | Value |`,
+		`|---|---|`,
+		`| Duration | ${duration}s |`,
+		`| Total tests | ${stats.totalTests} |`,
+		`| Passed | ${stats.passed} |`,
+		`| Failed | ${stats.failed} |`,
+		`| Skipped | ${stats.skipped} |`,
+		`| Exit code | ${exitCode} |`,
+		"",
+		"## Links",
+		"",
+		"- [[E2E Report]]",
+		"- [[Event Trace]]",
+		"",
+	];
+
+	const content = lines.join("\n");
+
+	// Write to test vault
+	const sessionDir = path.join(TEST_VAULT, "03 - Resources", "Sessions", sessionName);
+	const notePath = path.join(sessionDir, `${sessionName}.md`);
+	fs.mkdirSync(sessionDir, { recursive: true });
+	fs.writeFileSync(notePath, content, "utf-8");
+	console.log(`[e2e] Session note written: ${notePath}`);
+
+	// Mirror to dev vault
+	const devSessionDir = path.join(PLUGIN_ROOT, "docs", "reports", "e2e", "sessions", sessionName);
+	const devNotePath = path.join(devSessionDir, `${sessionName}.md`);
+	fs.mkdirSync(devSessionDir, { recursive: true });
+	fs.writeFileSync(devNotePath, content, "utf-8");
+	console.log(`[e2e] Session note mirrored: ${devNotePath}`);
+
+	return notePath;
+}
+
+/** YAML-safe string escaping. */
+function yamlStr(value) {
+	if (/[:\n\r\t#'"{}[\],&*?]|^\s|\s$/.test(value)) return JSON.stringify(value);
+	return value;
+}
+
+// ── Quick build + deploy ─────────────────────────────────────────────
+
+/**
+ * Runs a fast production build (esbuild only, no type-check or tests)
+ * and copies the artifacts to the test vault plugin directory.
+ * Reloads the plugin in Obsidian so changes take effect immediately.
+ * Returns 0 on success, non-zero on failure.
+ */
+function quickBuildAndDeploy() {
+	console.log("\n  Quick build (esbuild → deploy → reload)...\n");
+
+	// 1. Run esbuild production build
+	try {
+		execSync("node esbuild.config.mjs --production", { stdio: "inherit" });
+		console.log("\n  \x1b[32m✓\x1b[0m Build completed");
+	} catch (err) {
+		console.log("\n  \x1b[31m✗\x1b[0m Build failed");
+		return err.status ?? 1;
+	}
+
+	// 2. Copy artifacts from main vault to test vault
+	const mainPluginDir = path.resolve(PLUGIN_ROOT, "..", "..", ".obsidian", "plugins", PLUGIN_ID);
+	let copied = 0;
+	for (const artifact of PLUGIN_ARTIFACTS) {
+		const src = path.join(mainPluginDir, artifact);
+		const dest = path.join(PLUGIN_DIR, artifact);
+		if (fs.existsSync(src)) {
+			fs.mkdirSync(path.dirname(dest), { recursive: true });
+			fs.copyFileSync(src, dest);
+			copied++;
+		} else {
+			console.log(`  \x1b[33m○\x1b[0m Artifact not found: ${artifact}`);
+		}
+	}
+	console.log(`  \x1b[32m✓\x1b[0m Deployed ${copied} artifacts to test vault`);
+
+	// 3. Reload plugin in Obsidian
+	try {
+		execSync(
+			`obsidian vault=${VAULT_NAME} eval code="(async () => { await app.plugins.disablePlugin('${PLUGIN_ID}'); await app.plugins.enablePlugin('${PLUGIN_ID}'); return 'reloaded'; })()"`,
+			{ stdio: "pipe", timeout: 15_000 },
+		);
+		console.log("  \x1b[32m✓\x1b[0m Plugin reloaded in Obsidian\n");
+	} catch {
+		console.log("  \x1b[33m○\x1b[0m Plugin reload skipped (Obsidian may not be running)\n");
+	}
+
+	return 0;
+}
+
+// ── Increment build ─────────────────────────────────────────────────
+
+function runIncrementBuild() {
+	console.log("\n  Starting increment build (check → build → test → e2e → docs → distribute)...\n");
+	try {
+		execSync("npm run build:increment", { stdio: "inherit" });
+		console.log("\n  \x1b[32m✓\x1b[0m Increment build completed successfully.\n");
+		return 0;
+	} catch (err) {
+		console.log("\n  \x1b[31m✗\x1b[0m Increment build failed.\n");
+		return err.status ?? 1;
+	}
+}
+
+// ── Rebuild (teardown + prerequisites + installer) ──────────────────
+
+async function runRebuild() {
+	console.log("\n  Rebuilding vault (teardown → prerequisites → installer)...\n");
+
+	// 1. Teardown
+	await teardownVault();
+
+	// 2. Run prerequisites + installer
+	process.env.E2E_JOURNEY = "prerequisites,installer";
+	process.env.E2E_RUN_PREREQUISITES = "true";
+	process.env.E2E_RUN_INSTALLER = "true";
+
+	const exitCode = runVitest();
+	generateReportAndOpen();
+
+	if (exitCode === 0) {
+		console.log("\n  \x1b[32m✓\x1b[0m Rebuild completed successfully.\n");
+	} else {
+		console.log("\n  \x1b[31m✗\x1b[0m Rebuild failed.\n");
+	}
+
+	return exitCode;
+}
+
+// ── Interactive session ─────────────────────────────────────────────
+
+async function interactiveSession() {
+	let lastExitCode = 0;
+	/** Saved config from the last run — reused for "Re-run session". */
+	let lastConfig = null;
+	let lastEntries = null;
+
+	// eslint-disable-next-line no-constant-condition
+	while (true) {
+		console.log(`\n  ${"=".repeat(50)}`);
+		console.log("  Flowti E2E Test Session");
+		console.log(`  ${"=".repeat(50)}`);
+
+		// 1. Check prerequisites
+		const prereqResults = checkPrerequisites();
+		printPrerequisites(prereqResults);
+
+		if (!prereqResults.vaultExists) {
+			console.log("  Cannot proceed — test vault does not exist.");
+			console.log(`  Create it by running: npm run test:e2e\n`);
+			process.exit(1);
+		}
+
+		if (!prereqResults.cliResponsive) {
+			console.log("  Cannot proceed — Obsidian is not running or CLI not responsive.");
+			console.log("  Start Obsidian with the test vault open, then try again.\n");
+			process.exit(1);
+		}
+
+		// 2. Choose action
+		const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+		console.log("  What would you like to do?");
+		console.log("    1) Start test session");
+		if (lastConfig) console.log("    r) Re-run last session");
+		if (lastConfig) console.log("    b) Build and re-run (quick build → deploy → re-run)");
+		console.log("    2) Teardown to fresh state");
+		console.log("    3) Increment build");
+		console.log("    4) Rebuild (teardown → prerequisites → installer)");
+		console.log("    q) Quit");
+		console.log();
+		const choice = await ask(rl, "Choice", lastConfig ? "r" : "1");
+
+		if (choice === "q" || choice === "Q") {
+			rl.close();
+			console.log("\n  Goodbye.\n");
+			process.exit(lastExitCode);
+		}
+
+		if (choice === "2") {
+			rl.close();
+			await teardownVault();
+			continue;
+		}
+
+		if (choice === "3") {
+			rl.close();
+			lastExitCode = runIncrementBuild();
+			continue;
+		}
+
+		if (choice === "4") {
+			rl.close();
+			lastExitCode = await runRebuild();
+			continue;
+		}
+
+		// Handle re-run: reuse last config with a fresh timestamp
+		if ((choice === "r" || choice === "R") && lastConfig && lastEntries) {
+			rl.close();
+			const rerunConfig = rerunWithFreshTimestamp(lastConfig, lastEntries);
+			lastExitCode = await executeSession(rerunConfig, lastEntries, prereqResults);
+			lastConfig = rerunConfig;
+			continue;
+		}
+
+		// Handle build and re-run: quick build → deploy → re-run last session
+		if ((choice === "b" || choice === "B") && lastConfig && lastEntries) {
+			rl.close();
+			const buildResult = quickBuildAndDeploy();
+			if (buildResult !== 0) {
+				lastExitCode = buildResult;
+				continue;
+			}
+			const rerunConfig = rerunWithFreshTimestamp(lastConfig, lastEntries);
+			lastExitCode = await executeSession(rerunConfig, lastEntries, prereqResults);
+			lastConfig = rerunConfig;
+			continue;
+		}
+
+		if (choice !== "1") {
+			rl.close();
+			console.log("\n  Invalid choice — try again.\n");
+			continue;
+		}
+
+		// 3. Load journeys and prompt for session config
+		const entries = loadJourneyEntries();
+		if (entries.length === 0) {
+			rl.close();
+			console.log("  No journey files found.\n");
+			continue;
+		}
+
+		const config = await promptSessionConfig(rl, entries, prereqResults);
+		rl.close();
+
+		lastExitCode = await executeSession(config, entries, prereqResults);
+		lastConfig = config;
+		lastEntries = entries;
+	}
+}
+
+/**
+ * Creates a re-run config from a previous config with a fresh timestamp in the session name.
+ */
+function rerunWithFreshTimestamp(prevConfig, entries) {
+	const timestamp = new Date().toISOString().replace(/:/g, "-").slice(0, 19);
+	const journeySuffix = prevConfig.selectedSlugs.length === entries.length
+		? "all"
+		: prevConfig.selectedSlugs.join("+");
+	return {
+		...prevConfig,
+		sessionName: `${timestamp} ${journeySuffix}`,
+	};
+}
+
+/**
+ * Executes a test session: sets env vars, runs vitest, generates report, writes session note.
+ * Returns the vitest exit code. Shows post-run menu and handles re-run loop internally.
+ */
+async function executeSession(config, entries, prereqResults) {
+	// 4. Configure env vars
+	const allSlugs = [...config.selectedSlugs];
+	if (config.includeInstaller && !allSlugs.includes("installer")) {
+		allSlugs.unshift("installer");
+	}
+
+	process.env.E2E_JOURNEY = allSlugs.join(",");
+	process.env.E2E_SESSION_NAME = config.sessionName;
+
+	if (config.includeInstaller) {
+		process.env.E2E_RUN_INSTALLER = "true";
+	}
+	if (config.includePrerequisites) {
+		process.env.E2E_RUN_PREREQUISITES = "true";
+	}
+
+	// 5. Print session banner
+	const selectedNames = config.selectedSlugs.map((slug) => {
+		const entry = entries.find((e) => e.slug === slug);
+		return entry ? entry.name : slug;
+	});
+
+	console.log(`\n  Starting session "${config.sessionName}"...`);
+	console.log(`    Journeys:       ${selectedNames.join(", ")}`);
+	console.log(`    Installer:      ${config.includeInstaller ? "yes" : "no"}`);
+	console.log(`    Prerequisites:  ${config.includePrerequisites ? "force" : "skip"}`);
+	console.log();
+
+	// 6. Run tests
+	const startTime = Date.now();
+	const exitCode = runVitest();
+
+	// 7. Generate report and open
+	generateReportAndOpen();
+
+	// 8. Summary and session note
+	const stats = readTestStats();
+	printSummary(config.sessionName, selectedNames, startTime, stats);
+	const notePath = writeSessionNote(config.sessionName, config, selectedNames, prereqResults, stats, startTime, exitCode);
+	console.log(`  Session note: ${notePath}\n`);
+
+	// Clean env vars for next iteration
+	delete process.env.E2E_JOURNEY;
+	delete process.env.E2E_SESSION_NAME;
+	delete process.env.E2E_RUN_INSTALLER;
+	delete process.env.E2E_RUN_PREREQUISITES;
+
+	return exitCode;
 }
 
 // ── Run vitest and generate report ──────────────────────────────────
@@ -159,9 +807,25 @@ function generateReportAndOpen() {
 			// best-effort
 		}
 
+		// Restore installed state before re-enabling the plugin.
+		// globalTeardown resets installer.installed=false when E2E_RUN_INSTALLER
+		// was set, but re-enabling the plugin with installed=false triggers the
+		// installer wizard. We restore it here so the plugin loads normally.
+		if (fs.existsSync(DATA_JSON_PATH)) {
+			try {
+				const data = JSON.parse(fs.readFileSync(DATA_JSON_PATH, "utf-8"));
+				if (data.installer && data.installer.installed === false) {
+					data.installer.installed = true;
+					fs.writeFileSync(DATA_JSON_PATH, JSON.stringify(data), "utf-8");
+				}
+			} catch {
+				// best-effort
+			}
+		}
+
 		try {
 			execSync(
-				`obsidian vault=${VAULT_NAME} eval code="app.plugins.enablePlugin('flowti-ibde')"`,
+				`obsidian vault=${VAULT_NAME} eval code="app.plugins.enablePlugin('${PLUGIN_ID}')"`,
 				{ stdio: "pipe" },
 			);
 		} catch {
@@ -170,7 +834,7 @@ function generateReportAndOpen() {
 
 		try {
 			execSync(
-				`obsidian vault=${VAULT_NAME} eval code="(() => { try { app.commands.executeCommandById('flowti-ibde:flowti:open-event-log'); } catch(e) {} })()"`,
+				`obsidian vault=${VAULT_NAME} eval code="(() => { try { app.commands.executeCommandById('${PLUGIN_ID}:flowti:open-event-log'); } catch(e) {} })()"`,
 				{ stdio: "pipe" },
 			);
 		} catch {
@@ -184,28 +848,26 @@ function generateReportAndOpen() {
 const isListMode = process.argv.includes("--list");
 
 if (isListMode) {
-	const selection = await interactiveList();
-	process.env.E2E_JOURNEY = selection;
-	console.log(`[e2e] Journey filter: ${process.env.E2E_JOURNEY}`);
+	await interactiveSession();
 } else {
 	const journeyArg = process.argv.find((a) => a.startsWith("--journey="));
 	if (journeyArg) {
 		process.env.E2E_JOURNEY = journeyArg.split("=")[1];
 		console.log(`[e2e] Journey filter: ${process.env.E2E_JOURNEY}`);
 	}
-}
 
-// When installer or prerequisites are explicitly requested, force a fresh run
-const journeys = (process.env.E2E_JOURNEY ?? "").split(",").map((j) => j.trim());
-if (journeys.includes("installer")) {
-	process.env.E2E_RUN_INSTALLER = "true";
-	console.log("[e2e] Installer forced (explicitly requested).");
-}
-if (journeys.includes("prerequisites")) {
-	process.env.E2E_RUN_PREREQUISITES = "true";
-	console.log("[e2e] Prerequisites forced (explicitly requested).");
-}
+	// When installer or prerequisites are explicitly requested, force a fresh run
+	const journeys = (process.env.E2E_JOURNEY ?? "").split(",").map((j) => j.trim());
+	if (journeys.includes("installer")) {
+		process.env.E2E_RUN_INSTALLER = "true";
+		console.log("[e2e] Installer forced (explicitly requested).");
+	}
+	if (journeys.includes("prerequisites")) {
+		process.env.E2E_RUN_PREREQUISITES = "true";
+		console.log("[e2e] Prerequisites forced (explicitly requested).");
+	}
 
-const exitCode = runVitest();
-generateReportAndOpen();
-process.exit(exitCode);
+	const exitCode = runVitest();
+	generateReportAndOpen();
+	process.exit(exitCode);
+}

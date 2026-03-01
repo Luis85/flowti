@@ -191,6 +191,16 @@ export const TOOL_CATALOG: Record<ToolName, ToolMeta> = {
 			"Set up editor state with a target file open",
 		],
 	},
+	"open-url": {
+		name: "open-url",
+		description: "Open a URL in the Obsidian WebViewer via CLI 'web' command",
+		tags: ["lifecycle"],
+		useCases: [
+			"Open external documentation or web resources during a journey",
+			"Navigate to a web-based dashboard or API endpoint",
+			"Verify WebViewer integration with external URLs",
+		],
+	},
 	"close-leaves": {
 		name: "close-leaves",
 		description: "Close all workspace leaves of a given view type",
@@ -199,6 +209,16 @@ export const TOOL_CATALOG: Record<ToolName, ToolMeta> = {
 			"Clean up hub views during teardown",
 			"Reset workspace layout between journey sections",
 			"Close stale leaves that persist across steps",
+		],
+	},
+	seed: {
+		name: "seed",
+		description: "Create, verify, or delete seed files from the centralized registry",
+		tags: ["lifecycle"],
+		useCases: [
+			"Verify seed files exist in skip mode (mode: verify)",
+			"Remove seed files before a fresh install (mode: delete)",
+			"Repair missing seed files and folders (mode: create)",
 		],
 	},
 };

@@ -18,6 +18,7 @@
     "test:e2e:journeys": "npm run build:only && vitest run tests/flows/ && node scripts/run-e2e.mjs --journey=getting-started,component-library,canvas-session,tool-showcase",
     "test:e2e:quick": "npm run build:only && vitest run tests/flows/ && node scripts/run-e2e.mjs --journey=installer,getting-started",
     "test:e2e:list": "npm run build:only && vitest run tests/flows/ && node scripts/run-e2e.mjs --list",
+    "review": "npm run build:only && vitest run tests/flows/ && node scripts/run-e2e.mjs --list",
     "report:e2e": "node scripts/generate-e2e-report.mjs",
     "build": "npm run test:flows && node esbuild.config.mjs --production",
     "build:only": "node esbuild.config.mjs --production",

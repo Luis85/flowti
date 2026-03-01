@@ -6,7 +6,7 @@
  */
 import { expect } from "vitest";
 import type { ObsidianCli } from "../../../src/infrastructure/cli/ObsidianCli";
-import { PLUGIN_ID, getTraceLength, assertEventEmitted } from "./fixtures";
+import { PLUGIN_ID, getTraceLength, getEventsSince, assertEventEmitted } from "./fixtures";
 
 /**
  * Focuses a hub leaf and navigates to a specific tab.
@@ -48,10 +48,20 @@ export async function navigateToTab(
 		`})()`,
 	].join(" "));
 
-	// Wait for the async event chain: hub.navigate → navigateTo → hub.tab.changed
-	// Both EventBus.emit and the fire-and-forget hub.tab.changed need time to process
-	await new Promise((resolve) => setTimeout(resolve, 250));
-
+	// Poll for the async event chain: hub.navigate → navigateTo → hub.tab.changed
+	// The fire-and-forget handler completes asynchronously; 250ms is sometimes
+	// insufficient, so poll with a 2s deadline instead of a fixed delay.
+	const deadline = Date.now() + 2000;
+	while (Date.now() < deadline) {
+		const events = getEventsSince(cli, before, "hub.tab.changed");
+		if (events.length > 0) {
+			// Verify the payload matches
+			assertEventEmitted(cli, before, "hub.tab.changed", { hubId, tabId });
+			return;
+		}
+		await new Promise((resolve) => setTimeout(resolve, 100));
+	}
+	// Final attempt — will throw with a clear error if still missing
 	assertEventEmitted(cli, before, "hub.tab.changed", { hubId, tabId });
 }
 

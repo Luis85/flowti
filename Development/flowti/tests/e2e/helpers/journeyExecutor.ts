@@ -10,12 +10,14 @@
  *
  * The executor handles:
  *   - Fixture creation and cleanup
- *   - Plugin enable, install check, event trace
+ *   - Plugin enable, install check, event trace (configurable via lifecycle)
  *   - JourneyRunner lifecycle (notifySuiteEnter → steps → writeResults)
  *   - Action dispatch via the actionRunner
  *   - Variable interpolation across steps
  *   - Setup steps (run in beforeAll, failures block main steps)
  *   - Teardown steps (run in afterAll, always execute)
+ *   - Gate flags and anchor file writing (afterAll)
+ *   - Skip mode with onSkip callback
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import * as fs from "node:fs";
@@ -40,6 +42,19 @@ import type { TestFixture } from "./fixtures";
 
 /** Directory containing *.journey.json files. */
 const JOURNEYS_DIR = path.join(__dirname, "..", "journeys");
+
+// ── Options ─────────────────────────────────────────────────────────
+
+export interface ExecuteJourneyOptions {
+	/** If true, skip the entire journey. All steps register as skipped. */
+	skip?: boolean;
+	/** Callback to run when the journey is skipped (e.g. set gate flags). */
+	onSkip?: (cli: ObsidianCli) => Promise<void> | void;
+	/** Extra variables merged into the variable map (available as {{key}} in actions). */
+	variables?: Record<string, string>;
+}
+
+// ── Ref resolution ──────────────────────────────────────────────────
 
 /**
  * Recursively resolves JourneyRefStep entries into concrete StepDefinitions.
@@ -184,6 +199,45 @@ async function runStepWithActions(
 	return result.status === "pass" ? "pass" : "fail";
 }
 
+// ── Anchor file ─────────────────────────────────────────────────────
+
+/**
+ * Writes an anchor file with pass/fail metadata for skip-mode detection.
+ * Future runs can read `passed: true` from frontmatter to skip the journey.
+ */
+function writeAnchorFile(
+	journeyDir: string,
+	journeyName: string,
+	results: { totalSteps: number; passed: number; failed: number },
+): void {
+	const allPassed = results.failed === 0 && results.totalSteps > 0;
+	const now = new Date();
+	const content = [
+		"---",
+		`type: E2EAnchor`,
+		`passed: ${allPassed}`,
+		`date: "${now.toISOString()}"`,
+		`totalSteps: ${results.totalSteps}`,
+		`passedSteps: ${results.passed}`,
+		`failedSteps: ${results.failed}`,
+		"---",
+		"",
+		`# ${journeyName} — Last Run`,
+		"",
+		`Status: **${allPassed ? "PASS" : "FAIL"}**`,
+		`Date: ${now.toISOString().slice(0, 16).replace("T", " ")}`,
+		`Steps: ${results.passed}/${results.totalSteps} passed`,
+		"",
+	].join("\n");
+
+	const anchorPath = path.join(journeyDir, `${journeyName}-anchor.md`);
+	fs.mkdirSync(journeyDir, { recursive: true });
+	fs.writeFileSync(anchorPath, content, "utf-8");
+	console.log(`[e2e] Anchor written: ${anchorPath}`);
+}
+
+// ── Executor ────────────────────────────────────────────────────────
+
 /**
  * Generates vitest describe/it blocks from a JourneyDefinition.
  *
@@ -192,14 +246,12 @@ async function runStepWithActions(
  * management (fixture, plugin, event trace, runner).
  *
  * Execution flow:
- *   beforeAll: fixture init → setup steps (failures block main steps)
+ *   beforeAll: fixture init → lifecycle → setup steps (failures block main steps)
  *   it() per step: main journey steps (skipped if setup failed)
- *   afterAll: teardown steps (always run) → write results → cleanup
+ *   afterAll: teardown steps (always run) → gate flags → anchor → write results → cleanup
  */
-export function executeJourney(definition: JourneyDefinition): void {
+export function executeJourney(definition: JourneyDefinition, options?: ExecuteJourneyOptions): void {
 	// ── Resolve journey refs ─────────────────────────────────
-	// Flatten StepOrRef[] into StepDefinition[], merge tools from refs,
-	// renumber guideSection sequentially after flattening.
 	const resolvedSteps = renumberSteps(resolveSteps(definition.steps));
 	const refTools = collectRefTools(definition.steps);
 	const allTools: ToolName[] = [...new Set([...definition.tools, ...refTools])];
@@ -213,27 +265,46 @@ export function executeJourney(definition: JourneyDefinition): void {
 
 	const chapterLabel = `Chapter ${definition.chapter}: ${definition.journey}`;
 
+	// ── Skip mode ────────────────────────────────────────────
+	if (options?.skip) {
+		describe(`${chapterLabel} (skip mode)`, () => {
+			it(`${definition.chapter}.0 — Skipped (previous run passed)`, async () => {
+				if (options.onSkip) {
+					const fixture = createFixture(process.env.OBSIDIAN_VAULT);
+					await options.onSkip(fixture.cli);
+				}
+			});
+		});
+		return;
+	}
+
+	// ── Full mode ────────────────────────────────────────────
+
 	describe(chapterLabel, () => {
 		let fixture: TestFixture;
 		let runner: JourneyRunner;
 		let cli: ObsidianCli;
 		let resultsPath: string;
+		let journeyDir: string;
 		let screenshotDir: string;
 		let setupFailed = false;
 		const variables: Record<string, string> = {
 			PLUGIN_ID,
+			...(options?.variables ?? {}),
 		};
 
 		beforeAll(async () => {
 			fixture = createFixture(process.env.OBSIDIAN_VAULT);
 			cli = fixture.cli;
 
-			await ensurePluginEnabled(cli);
-			ensureInstalled(cli, fixture.vault.vaultDir);
-			startEventTrace(cli);
-			openActivityLog(cli);
+			// ── Lifecycle (configurable per journey) ─────────
+			const lc = definition.lifecycle ?? {};
+			if (lc.enablePlugin !== false) await ensurePluginEnabled(cli);
+			if (lc.checkInstalled !== false) ensureInstalled(cli, fixture.vault.vaultDir);
+			if (lc.startTrace !== false) startEventTrace(cli);
+			if (lc.openActivityLog !== false) openActivityLog(cli);
 
-			const journeyDir = path.join(
+			journeyDir = path.join(
 				fixture.vault.vaultDir,
 				"docs",
 				"journeys",
@@ -251,9 +322,7 @@ export function executeJourney(definition: JourneyDefinition): void {
 
 			runner.notifySuiteEnter();
 
-			// ── Run setup steps ──────────────────────────────────
-			// Failures set setupFailed flag, blocking main steps.
-			// Teardown still runs regardless.
+			// ── Run setup steps ──────────────────────────────
 			for (const step of definition.setup ?? []) {
 				const status = await runStepWithActions(
 					step, "setup", runner, cli, variables, screenshotDir,
@@ -266,15 +335,29 @@ export function executeJourney(definition: JourneyDefinition): void {
 		});
 
 		afterAll(async () => {
-			// ── Run teardown steps ───────────────────────────────
-			// Always execute, even when setup or main steps failed.
+			// ── Run teardown steps ───────────────────────────
 			if (runner && cli) {
 				for (const step of definition.teardown ?? []) {
 					await runStepWithActions(
 						step, "teardown", runner, cli, variables, screenshotDir,
 					);
-					// Don't break on teardown failure — run all teardown steps
 				}
+			}
+
+			// ── Gate flags (set window properties on pass) ───
+			if (definition.gateFlags?.length && runner && cli) {
+				const results = runner.getResults();
+				if (results.failed === 0 && results.totalSteps > 0) {
+					for (const flag of definition.gateFlags) {
+						cli.eval(`window.${flag} = true`);
+					}
+				}
+			}
+
+			// ── Anchor file (for skip-mode detection) ────────
+			if (definition.anchor && runner) {
+				const results = runner.getResults();
+				writeAnchorFile(journeyDir, definition.journey, results);
 			}
 
 			if (runner) {
@@ -286,7 +369,6 @@ export function executeJourney(definition: JourneyDefinition): void {
 
 		for (const step of resolvedSteps) {
 			it(`${definition.chapter}.${step.guideSection} — ${step.title}`, async () => {
-				// Skip main steps if setup failed
 				if (setupFailed) {
 					const journeyStep = toJourneyStep(step, "journey");
 					runner.addSkippedResult(journeyStep);
