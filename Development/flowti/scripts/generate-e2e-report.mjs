@@ -390,6 +390,21 @@ function generateJourneyReport(data, date) {
 				}
 			}
 
+			if (ctx.consoleErrors && ctx.consoleErrors.length > 0) {
+				lines.push(">");
+				lines.push("> **Console Errors**:");
+				for (const e of ctx.consoleErrors) {
+					lines.push(`> - \`${e.substring(0, 120)}\``);
+				}
+			}
+
+			if (ctx.availableVariables && ctx.availableVariables.length > 0) {
+				lines.push(">");
+				lines.push(
+					`> **Variables**: ${ctx.availableVariables.map((v) => `\`${v}\``).join(", ")}`,
+				);
+			}
+
 			if (ctx.pluginState) {
 				lines.push(">");
 				lines.push(

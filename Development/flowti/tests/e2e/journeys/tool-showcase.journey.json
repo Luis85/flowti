@@ -1,11 +1,11 @@
 {
 	"journey": "Tool Showcase",
 	"chapter": 6,
-	"description": "Demonstrates every Journey Runner tool and capability: command execution, DOM interaction (click, input), visual annotations (highlight, screenshot, notice), theme switching, event system (emit, assert), navigation, eval with variable passing, wait timing, manual QA documentation, lifecycle tools (create-file, delete-file, open-file, open-url, close-leaves, seed), and WebViewer content interaction via Electron webview.executeJavaScript(). Uses vault file creation as a concrete scenario and a Google search to exercise each tool in a realistic context.",
+	"description": "Demonstrates every Journey Runner tool and capability: command execution, DOM interaction (click, input), visual annotations (highlight, screenshot, notice), ribbon button interaction with highlight, theme switching, event system (emit, assert), navigation, eval with variable passing, wait timing, manual QA documentation, lifecycle tools (create-file, delete-file, open-file, open-url, close-leaves, seed), and WebViewer content interaction via Electron webview.executeJavaScript(). Uses vault file creation as a concrete scenario, ribbon navigation, and a Google search to exercise each tool in a realistic context.",
 	"testSource": "tests/e2e/60-journey-tool-showcase.test.ts",
 	"reportPath": "docs/journeys/Tool Showcase/Tool Showcase.md",
 	"canvasPath": "docs/journeys/Tool Showcase/Tool Showcase.canvas",
-	"tools": ["command", "click", "input", "highlight", "wait", "assert", "emit", "navigate", "eval", "screenshot", "manual", "notice", "theme", "create-file", "delete-file", "open-file", "open-url", "close-leaves", "seed"],
+	"tools": ["command", "click", "input", "highlight", "ribbon", "wait", "assert", "emit", "navigate", "eval", "screenshot", "manual", "notice", "theme", "create-file", "delete-file", "open-file", "open-url", "close-leaves", "seed"],
 	"setup": [
 		{
 			"id": "setup-baseline",
@@ -82,7 +82,7 @@
 			"commands": ["flowti:open-user-hub"],
 			"interactions": ["command: Open User Hub"],
 			"actions": [
-				{ "tool": "notice", "message": "Tool Showcase 1/9: Opening User Hub", "duration": 3000, "description": "Annotate test progress" },
+				{ "tool": "notice", "message": "Tool Showcase 1/10: Opening User Hub", "duration": 3000, "description": "Annotate test progress" },
 				{ "tool": "command", "id": "flowti:open-user-hub", "description": "Open the User Hub via command palette" },
 				{ "tool": "wait", "ms": 1000 },
 				{ "tool": "assert", "type": "leaf", "viewType": "flowti-user-hub", "description": "User Hub leaf exists" },
@@ -111,7 +111,7 @@
 			"events": ["hub.navigate", "hub.tab.changed"],
 			"interactions": ["navigate: Inbox tab"],
 			"actions": [
-				{ "tool": "notice", "message": "Tool Showcase 2/9: Navigating tabs", "duration": 3000, "description": "Annotate test progress" },
+				{ "tool": "notice", "message": "Tool Showcase 2/10: Navigating tabs", "duration": 3000, "description": "Annotate test progress" },
 				{ "tool": "navigate", "hub": "user-hub", "viewType": "flowti-user-hub", "tab": "inbox", "description": "Navigate to Inbox tab" },
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "assert", "type": "event", "event": "hub.tab.changed", "payload": { "hubId": "user-hub", "tabId": "inbox" }, "description": "Tab change event emitted with correct payload" },
@@ -141,7 +141,7 @@
 			"events": ["showcase.demo.event"],
 			"interactions": ["emit: Custom showcase event"],
 			"actions": [
-				{ "tool": "notice", "message": "Tool Showcase 3/9: Emitting and tracing events", "duration": 3000, "description": "Annotate test progress" },
+				{ "tool": "notice", "message": "Tool Showcase 3/10: Emitting and tracing events", "duration": 3000, "description": "Annotate test progress" },
 				{
 					"tool": "eval",
 					"code": "String((app.plugins.plugins['{{PLUGIN_ID}}']?._e2eEventTrace ?? []).length)",
@@ -178,7 +178,7 @@
 			},
 			"interactions": ["click: Command palette trigger", "input: Search query", "click: Close modal"],
 			"actions": [
-				{ "tool": "notice", "message": "Tool Showcase 4/9: DOM interaction demo", "duration": 3000, "description": "Annotate test progress" },
+				{ "tool": "notice", "message": "Tool Showcase 4/10: DOM interaction demo", "duration": 3000, "description": "Annotate test progress" },
 				{
 					"tool": "eval",
 					"code": "(() => { app.commands.executeCommandById('command-palette:open'); return 'ok'; })()",
@@ -210,7 +210,7 @@
 			},
 			"interactions": ["highlight: Element style", "highlight: Button style", "highlight: Input style"],
 			"actions": [
-				{ "tool": "notice", "message": "Tool Showcase 5/9: Highlight styles", "duration": 3000, "description": "Annotate test progress" },
+				{ "tool": "notice", "message": "Tool Showcase 5/10: Highlight styles", "duration": 3000, "description": "Annotate test progress" },
 				{ "tool": "highlight", "selector": ".workspace-tab-header.is-active", "style": "element", "description": "Green outline — element style" },
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "screenshot", "label": "highlight-element", "description": "Element highlight: green outline on active tab header" },
@@ -250,7 +250,7 @@
 			"commands": ["flowti:open-user-hub"],
 			"interactions": ["theme: Dark", "screenshot: Dark hub", "theme: Light", "screenshot: Light hub"],
 			"actions": [
-				{ "tool": "notice", "message": "Tool Showcase 6/9: Theme comparison", "duration": 3000, "description": "Annotate test progress" },
+				{ "tool": "notice", "message": "Tool Showcase 6/10: Theme comparison", "duration": 3000, "description": "Annotate test progress" },
 				{ "tool": "command", "id": "flowti:open-user-hub", "description": "Ensure User Hub is open" },
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "theme", "theme": "obsidian", "description": "Switch to dark theme" },
@@ -279,7 +279,7 @@
 			"events": ["showcase.assert.test"],
 			"interactions": ["assert: All 6 types"],
 			"actions": [
-				{ "tool": "notice", "message": "Tool Showcase 7/9: Assertion types", "duration": 3000, "description": "Annotate test progress" },
+				{ "tool": "notice", "message": "Tool Showcase 7/10: Assertion types", "duration": 3000, "description": "Annotate test progress" },
 				{ "tool": "assert", "type": "visible", "selector": ".workspace-leaf", "description": "1. VISIBLE — workspace leaf exists in DOM" },
 				{ "tool": "assert", "type": "not-visible", "selector": ".modal-container .ft-canvas-template-card", "description": "2. NOT-VISIBLE — no template picker modal open" },
 				{ "tool": "assert", "type": "text", "selector": ".workspace-leaf.mod-active .view-header-title-container", "contains": "", "description": "3. TEXT — active leaf has a title (non-empty container)" },
@@ -318,7 +318,7 @@
 			},
 			"interactions": ["open-url: Obsidian help page", "eval: Detect webview leaf"],
 			"actions": [
-				{ "tool": "notice", "message": "Tool Showcase 8/9: WebViewer", "duration": 3000, "description": "Annotate test progress" },
+				{ "tool": "notice", "message": "Tool Showcase 8/10: WebViewer", "duration": 3000, "description": "Annotate test progress" },
 				{
 					"tool": "open-url",
 					"url": "https://help.obsidian.md/",
@@ -347,17 +347,17 @@
 			"id": "09-webviewer-search",
 			"title": "Interact with WebViewer content",
 			"guideSection": 9,
-			"description": "Demonstrates: open-url, eval (webview.executeJavaScript for cross-process content interaction), wait, screenshot, close via eval. Opens Google in the WebViewer, executes a search, clicks the first result link, and verifies navigation — all via Electron's webview API.",
+			"description": "Demonstrates: open-url, eval (webview.executeJavaScript for cross-process content interaction), wait, screenshot, close via eval. Opens Google in the WebViewer, executes a search query, navigates to page 2 of the results, and clicks the 5th result link — all via Electron's webview.executeJavaScript() API.",
 			"expectedInput": "Obsidian workspace active, no WebViewer open",
-			"expectedOutput": "Google search executed, first result clicked, target page loaded, then closed",
+			"expectedOutput": "Google search executed, page 2 navigated, 5th result clicked, target page loaded, then closed",
 			"uiContext": {
 				"view": "web-viewer",
 				"viewName": "WebViewer",
 				"components": ["WebViewer"]
 			},
-			"interactions": ["open-url: Google", "eval: Fill search input via webview.executeJavaScript", "eval: Submit search form", "eval: Click first result link"],
+			"interactions": ["open-url: Google", "eval: Fill search input via webview.executeJavaScript", "eval: Submit search form", "eval: Navigate to page 2", "eval: Click 5th result link"],
 			"actions": [
-				{ "tool": "notice", "message": "Tool Showcase 9/9: WebViewer interaction", "duration": 3000, "description": "Annotate test progress" },
+				{ "tool": "notice", "message": "Tool Showcase 9/10: WebViewer interaction", "duration": 3000, "description": "Annotate test progress" },
 				{
 					"tool": "open-url",
 					"url": "https://www.google.com",
@@ -386,16 +386,24 @@
 					"description": "Submit the Google search form"
 				},
 				{ "tool": "wait", "ms": 3000, "description": "Wait for search results to load" },
-				{ "tool": "screenshot", "label": "google-results", "description": "Google search results for 'Obsidian plugin development'" },
+				{ "tool": "screenshot", "label": "google-results-p1", "description": "Google search results page 1" },
 				{
 					"tool": "eval",
-					"code": "(async () => { const wv = document.querySelector('webview'); const result = await wv.executeJavaScript(\"(() => { const link = document.querySelector('#search a[href^=\\\\\\\"http\\\\\\\"]') || document.querySelector('#rso a[href^=\\\\\\\"http\\\\\\\"]') || document.querySelector('a[jsname][href^=\\\\\\\"http\\\\\\\"]'); if (!link) return 'no-link'; link.click(); return link.href; })()\"); return result; })()",
+					"code": "(async () => { const wv = document.querySelector('webview'); const result = await wv.executeJavaScript(\"(() => { const next = document.querySelector('#pnnext') || document.querySelector('a[aria-label=\\\\\\\"Page 2\\\\\\\"]') || document.querySelector('td.d6cvqb a[href]'); if (!next) return 'no-pagination'; next.click(); return 'page2'; })()\"); return result; })()",
+					"expect": { "type": "equals", "value": "page2" },
+					"description": "Navigate to page 2 of search results"
+				},
+				{ "tool": "wait", "ms": 3000, "description": "Wait for page 2 results to load" },
+				{ "tool": "screenshot", "label": "google-results-p2", "description": "Google search results page 2" },
+				{
+					"tool": "eval",
+					"code": "(async () => { const wv = document.querySelector('webview'); const result = await wv.executeJavaScript(\"(() => { const blocks = [...document.querySelectorAll('#rso > div')].filter(d => d.querySelector('a[href^=\\\\\\\"http\\\\\\\"]')); if (blocks.length < 5) return 'only-' + blocks.length + '-results'; const link = blocks[4].querySelector('a[href^=\\\\\\\"http\\\\\\\"]'); if (!link) return 'no-link'; link.click(); return link.href; })()\"); return result; })()",
 					"store": "clickedUrl",
 					"expect": { "type": "truthy" },
-					"description": "Click the first search result link"
+					"description": "Click the 5th search result on page 2"
 				},
 				{ "tool": "wait", "ms": 3000, "description": "Wait for the target page to load" },
-				{ "tool": "screenshot", "label": "result-page", "description": "Target page after clicking first search result" },
+				{ "tool": "screenshot", "label": "result-page", "description": "Target page after clicking 5th result from page 2" },
 				{
 					"tool": "eval",
 					"code": "(() => { let closed = 0; app.workspace.iterateAllLeaves(l => { if (l.view?.containerEl?.querySelector('webview')) { l.detach(); closed++; } }); return String(closed); })()",
@@ -403,7 +411,59 @@
 					"description": "Close all WebViewer leaves"
 				},
 				{ "tool": "wait", "ms": 300 },
-				{ "tool": "manual", "instruction": "Verify: (1) google-loaded shows Google homepage in WebViewer, (2) google-query shows 'Obsidian plugin development' in the search box, (3) google-results shows search results, (4) result-page shows the target page after clicking the first link. This demonstrates full content interaction cycle: open → search → click → navigate — all via Electron's webview.executeJavaScript() API.", "description": "WebViewer content interaction QA" }
+				{ "tool": "manual", "instruction": "Verify: (1) google-loaded shows Google homepage in WebViewer, (2) google-query shows 'Obsidian plugin development' in the search box, (3) google-results-p1 shows page 1 results, (4) google-results-p2 shows page 2 results, (5) result-page shows the target page after clicking the 5th link from page 2. This demonstrates full content interaction: open → search → paginate → click specific result — all via Electron's webview.executeJavaScript() API.", "description": "WebViewer content interaction QA" }
+			]
+		},
+		{
+			"id": "10-ribbon-click",
+			"title": "Click ribbon button with interaction visuals",
+			"guideSection": 10,
+			"description": "Demonstrates: ribbon, assert (leaf), screenshot, close-leaves, wait. Uses the ribbon tool to click sidebar icons with a purple pulse highlight, then verifies the target views opened.",
+			"expectedInput": "Obsidian workspace active, User Hub not open",
+			"expectedOutput": "Ribbon buttons clicked with purple highlight, target hubs opened and verified",
+			"uiContext": {
+				"view": "flowti-user-hub",
+				"viewName": "User Hub",
+				"components": ["Ribbon", "UserHubView"]
+			},
+			"interactions": ["ribbon: Click User Hub icon", "ribbon: Click Event Catalog icon"],
+			"actions": [
+				{ "tool": "notice", "message": "Tool Showcase 10/10: Ribbon interaction", "duration": 3000, "description": "Annotate test progress" },
+				{
+					"tool": "close-leaves",
+					"viewType": "flowti-user-hub",
+					"description": "Ensure User Hub is closed before ribbon click"
+				},
+				{ "tool": "wait", "ms": 300 },
+				{
+					"tool": "ribbon",
+					"label": "user hub",
+					"description": "Click the User Hub ribbon icon — purple pulse highlight + click"
+				},
+				{ "tool": "wait", "ms": 1000, "description": "Wait for hub view to open" },
+				{ "tool": "screenshot", "label": "ribbon-user-hub", "description": "User Hub opened via ribbon click with purple highlight on button" },
+				{ "tool": "assert", "type": "leaf", "viewType": "flowti-user-hub", "description": "User Hub leaf is open after ribbon click" },
+				{
+					"tool": "close-leaves",
+					"viewType": "flowti-user-hub",
+					"description": "Close User Hub for next ribbon test"
+				},
+				{ "tool": "wait", "ms": 300 },
+				{
+					"tool": "ribbon",
+					"label": "event catalog",
+					"description": "Click the Event Catalog ribbon icon — purple pulse highlight + click"
+				},
+				{ "tool": "wait", "ms": 1000, "description": "Wait for Event Catalog to open" },
+				{ "tool": "screenshot", "label": "ribbon-event-catalog", "description": "Event Catalog opened via ribbon click with purple highlight on button" },
+				{ "tool": "assert", "type": "leaf", "viewType": "flowti-event-catalog", "description": "Event Catalog leaf is open after ribbon click" },
+				{
+					"tool": "close-leaves",
+					"viewType": "flowti-event-catalog",
+					"description": "Close Event Catalog to restore workspace"
+				},
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "manual", "instruction": "Verify: (1) ribbon-user-hub shows User Hub opened with the ribbon icon highlighted in purple pulse. (2) ribbon-event-catalog shows Event Catalog opened via ribbon with purple pulse. The ribbon tool combines highlight + click in a single action for sidebar icons.", "description": "Ribbon tool interaction QA" }
 			]
 		}
 	],
@@ -445,10 +505,10 @@
 					"description": "Close all User Hub leaves to reset workspace"
 				},
 				{ "tool": "wait", "ms": 300 },
-				{ "tool": "notice", "message": "Tool Showcase complete. Plugin v{{pluginVersion}} | Tab changes: {{tabChangeCount}}", "duration": 8000, "description": "Summary notice with interpolated variables from earlier steps" },
+				{ "tool": "notice", "message": "Tool Showcase complete. Plugin v{{pluginVersion}}", "duration": 8000, "description": "Summary notice with interpolated variable from setup" },
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "screenshot", "label": "final", "description": "Final state with summary notice visible" },
-				{ "tool": "manual", "instruction": "Verify the summary notice shows correct values for pluginVersion and tabChangeCount (variables from earlier steps). Confirm the demo file no longer appears in the file explorer.", "description": "Final cleanup and variable round-trip verification" }
+				{ "tool": "manual", "instruction": "Verify the summary notice shows the correct pluginVersion (from setup). Confirm the demo file no longer appears in the file explorer.", "description": "Final cleanup and variable round-trip verification" }
 			]
 		}
 	]

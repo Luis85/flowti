@@ -7,9 +7,9 @@
  */
 import * as path from "node:path";
 import type { ObsidianCli } from "../../../src/infrastructure/cli/ObsidianCli";
-import type { ActionDefinition, AssertAction, CloseLeavesAction, CreateFileAction, DeleteFileAction, EmitAction, EvalAction, NoticeAction, OpenFileAction, OpenUrlAction, ScreenshotAction, SeedAction, ThemeAction } from "./journeyTypes";
+import type { ActionDefinition, AssertAction, CloseLeavesAction, CreateFileAction, DeleteFileAction, EmitAction, EvalAction, NoticeAction, OpenFileAction, OpenUrlAction, RibbonAction, ScreenshotAction, SeedAction, ThemeAction } from "./journeyTypes";
 import { getAllSeeds, getSeedById, SEED_FOLDERS } from "./seedRegistry";
-import { highlightElement, highlightButton, highlightInput } from "./highlight";
+import { highlightElement, highlightButton, highlightInput, highlightRibbon } from "./highlight";
 import { navigateToTab } from "./navigation";
 import { assertEventEmitted, PLUGIN_ID } from "./fixtures";
 
@@ -166,6 +166,9 @@ export async function executeAction(
 			break;
 		case "close-leaves":
 			executeCloseLeaves(cli, action, variables);
+			break;
+		case "ribbon":
+			executeRibbon(cli, action, variables);
 			break;
 		case "seed":
 			executeSeed(cli, action, variables);
@@ -404,6 +407,11 @@ function executeCloseLeaves(cli: ObsidianCli, action: CloseLeavesAction, variabl
 	if (!result.success) {
 		throw new Error(`close-leaves '${viewType}' failed: ${result.error}`);
 	}
+}
+
+function executeRibbon(cli: ObsidianCli, action: RibbonAction, variables: Record<string, string>): void {
+	const label = resolve(action.label, variables);
+	highlightRibbon(cli, label);
 }
 
 // ─── Seed tool implementation ────────────────────────────────────────

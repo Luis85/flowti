@@ -161,6 +161,16 @@ export const TOOL_CATALOG: Record<ToolName, ToolMeta> = {
 			"Set a consistent baseline theme before screenshot capture",
 		],
 	},
+	ribbon: {
+		name: "ribbon",
+		description: "Click a ribbon button by aria-label with visual highlight",
+		tags: [],
+		useCases: [
+			"Click a ribbon sidebar icon to open a hub view",
+			"Demonstrate ribbon button interaction with purple pulse highlight",
+			"Verify ribbon buttons are accessible and clickable",
+		],
+	},
 	"create-file": {
 		name: "create-file",
 		description: "Create a file in the vault via the Obsidian API",

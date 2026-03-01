@@ -208,6 +208,7 @@ export class JourneyRunner {
 		action: () => void | Promise<void>,
 		options?: StepOptions,
 		externalScreenshots?: string[],
+		variables?: Record<string, string>,
 	): Promise<JourneyStepResult> {
 		const stepStart = Date.now();
 		const capture = options?.capture ?? "afterSettle";
@@ -270,7 +271,7 @@ export class JourneyRunner {
 			// Collect error context while the failure state is still visible
 			let errorContext: ErrorContext | undefined;
 			try {
-				errorContext = collectErrorContext(this.cli);
+				errorContext = collectErrorContext(this.cli, 10, variables);
 			} catch {
 				// Error context collection must not mask the step error
 			}

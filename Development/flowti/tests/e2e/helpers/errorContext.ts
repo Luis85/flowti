@@ -40,6 +40,10 @@ export interface ErrorContext {
 	domSnapshot: DomSnapshot;
 	recentEvents: RecentEvent[];
 	pluginState: PluginErrorState;
+	/** Recent JavaScript console errors from Obsidian. */
+	consoleErrors: string[];
+	/** Variable names available at time of failure. */
+	availableVariables: string[];
 }
 
 const DEFAULT_DOM_SNAPSHOT: DomSnapshot = {
@@ -60,15 +64,19 @@ const DEFAULT_PLUGIN_STATE: PluginErrorState = {
  * Call immediately after a step failure, before any cleanup.
  *
  * @param lastN Number of recent events to include (default: 10)
+ * @param variables Current variable map (names only — values may be sensitive)
  */
 export function collectErrorContext(
 	cli: ObsidianCli,
 	lastN = 10,
+	variables?: Record<string, string>,
 ): ErrorContext {
 	return {
 		domSnapshot: collectDomSnapshot(cli),
 		recentEvents: collectRecentEvents(cli, lastN),
 		pluginState: collectPluginState(cli),
+		consoleErrors: collectConsoleErrors(cli),
+		availableVariables: variables ? Object.keys(variables) : [],
 	};
 }
 
@@ -131,4 +139,19 @@ function collectPluginState(cli: ObsidianCli): PluginErrorState {
 		// Fall through to default
 	}
 	return DEFAULT_PLUGIN_STATE;
+}
+
+function collectConsoleErrors(cli: ObsidianCli): string[] {
+	try {
+		const output = cli.getErrors();
+		if (!output) return [];
+		return output
+			.split("\n")
+			.map((line) => line.trim())
+			.filter(Boolean)
+			.slice(-5);
+	} catch {
+		// Fall through to empty
+	}
+	return [];
 }

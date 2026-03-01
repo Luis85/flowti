@@ -290,6 +290,9 @@ async function promptSessionConfig(rl, entries, prereqResults) {
 
 	console.log();
 
+	// Step selection — per-journey step filtering
+	const stepFilter = await promptStepFilter(rl, selectedSlugs);
+
 	// Session name — auto-generated from timestamp + journey slugs
 	const timestamp = new Date().toISOString().replace(/:/g, "-").slice(0, 19);
 	const journeySuffix = selectedSlugs.length === entries.length
@@ -311,7 +314,77 @@ async function promptSessionConfig(rl, entries, prereqResults) {
 		: "Include prerequisites? (not yet passed)";
 	const includePrerequisites = await askYesNo(rl, prereqLabel, prereqsMet);
 
-	return { sessionName, selectedSlugs, includeInstaller, includePrerequisites };
+	return { sessionName, selectedSlugs, includeInstaller, includePrerequisites, stepFilter };
+}
+
+/**
+ * Prompts the user to select steps for each journey.
+ * Returns a map of { slug: "all" | string[] } where string[] contains step IDs.
+ */
+async function promptStepFilter(rl, selectedSlugs) {
+	const stepFilter = {};
+
+	for (const slug of selectedSlugs) {
+		const journeyPath = path.join(JOURNEYS_DIR, `${slug}.journey.json`);
+		if (!fs.existsSync(journeyPath)) {
+			stepFilter[slug] = "all";
+			continue;
+		}
+
+		const def = JSON.parse(fs.readFileSync(journeyPath, "utf-8"));
+		const steps = def.steps ?? [];
+		if (steps.length === 0) {
+			stepFilter[slug] = "all";
+			continue;
+		}
+
+		// Print step table
+		console.log(`  Steps for ${def.journey} (${steps.length} steps):\n`);
+		console.log("    #  ID                          Title");
+		console.log("   " + "-".repeat(62));
+		for (let i = 0; i < steps.length; i++) {
+			const s = steps[i];
+			const num = String(i + 1).padStart(3);
+			const id = (s.id ?? `step-${i + 1}`).padEnd(26);
+			console.log(`  ${num}  ${id}  ${s.title}`);
+		}
+		console.log();
+
+		const stepInput = await ask(rl, 'Steps (numbers/ranges, "all", or "none")', "all");
+		const normalized = stepInput.trim().toLowerCase();
+
+		if (normalized === "all" || normalized === "") {
+			stepFilter[slug] = "all";
+		} else if (normalized === "none") {
+			stepFilter[slug] = [];
+		} else {
+			// Parse "1 3 5-7" into step IDs
+			const ids = [];
+			for (const token of stepInput.split(/[\s,]+/)) {
+				const range = token.match(/^(\d+)-(\d+)$/);
+				if (range) {
+					const lo = Number(range[1]);
+					const hi = Number(range[2]);
+					for (let n = lo; n <= hi; n++) {
+						if (n >= 1 && n <= steps.length) ids.push(steps[n - 1].id);
+					}
+				} else {
+					const n = Number(token);
+					if (n >= 1 && n <= steps.length) ids.push(steps[n - 1].id);
+				}
+			}
+			stepFilter[slug] = ids.length > 0 ? ids : "all";
+		}
+
+		const sel = stepFilter[slug];
+		if (sel === "all") {
+			console.log(`  → All ${steps.length} steps selected\n`);
+		} else {
+			console.log(`  → ${sel.length} of ${steps.length} steps selected\n`);
+		}
+	}
+
+	return stepFilter;
 }
 
 // ── Post-run summary ────────────────────────────────────────────────
@@ -719,14 +792,36 @@ async function executeSession(config, entries, prereqResults) {
 		process.env.E2E_RUN_PREREQUISITES = "true";
 	}
 
+	// Step filter — encode as E2E_STEPS env var
+	if (config.stepFilter) {
+		const parts = [];
+		for (const [slug, filter] of Object.entries(config.stepFilter)) {
+			if (filter === "all") continue;
+			if (Array.isArray(filter) && filter.length > 0) {
+				parts.push(`${slug}:${filter.join(",")}`);
+			}
+		}
+		if (parts.length > 0) {
+			process.env.E2E_STEPS = parts.join(";");
+		}
+	}
+
 	// 5. Print session banner
 	const selectedNames = config.selectedSlugs.map((slug) => {
 		const entry = entries.find((e) => e.slug === slug);
 		return entry ? entry.name : slug;
 	});
 
+	const hasStepFilter = config.stepFilter && Object.values(config.stepFilter).some((f) => f !== "all");
 	console.log(`\n  Starting session "${config.sessionName}"...`);
 	console.log(`    Journeys:       ${selectedNames.join(", ")}`);
+	if (hasStepFilter) {
+		for (const [slug, filter] of Object.entries(config.stepFilter)) {
+			if (filter !== "all" && Array.isArray(filter)) {
+				console.log(`    Steps (${slug}): ${filter.join(", ")}`);
+			}
+		}
+	}
 	console.log(`    Installer:      ${config.includeInstaller ? "yes" : "no"}`);
 	console.log(`    Prerequisites:  ${config.includePrerequisites ? "force" : "skip"}`);
 	console.log();
@@ -749,6 +844,7 @@ async function executeSession(config, entries, prereqResults) {
 	delete process.env.E2E_SESSION_NAME;
 	delete process.env.E2E_RUN_INSTALLER;
 	delete process.env.E2E_RUN_PREREQUISITES;
+	delete process.env.E2E_STEPS;
 
 	return exitCode;
 }

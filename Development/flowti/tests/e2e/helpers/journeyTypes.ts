@@ -30,6 +30,7 @@ export type ToolName =
 	| "manual"
 	| "notice"
 	| "theme"
+	| "ribbon"
 	// Lifecycle tools — tagged for setup/teardown operations
 	| "create-file"
 	| "delete-file"
@@ -167,7 +168,8 @@ export type ActionDefinition =
 	| OpenFileAction
 	| OpenUrlAction
 	| CloseLeavesAction
-	| SeedAction;
+	| SeedAction
+	| RibbonAction;
 
 export interface CommandAction {
 	tool: "command";
@@ -294,6 +296,13 @@ export type EvalExpectation =
 	| { type: "equals"; value: string }
 	| { type: "truthy" }
 	| { type: "json"; match: Record<string, unknown> };
+
+export interface RibbonAction {
+	tool: "ribbon";
+	/** Text to match against the ribbon button's aria-label (partial match). */
+	label: string;
+	description?: string;
+}
 
 // ─── Lifecycle tool actions ─────────────────────────────────────────
 

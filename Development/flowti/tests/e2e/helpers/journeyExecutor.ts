@@ -107,6 +107,42 @@ function collectRefTools(steps: StepOrRef[]): ToolName[] {
 }
 
 /**
+ * Derives the journey slug from the definition's testSource field.
+ * e.g. "tests/e2e/60-journey-tool-showcase.test.ts" → "tool-showcase"
+ * Falls back to lowercased journey name with spaces replaced by hyphens.
+ */
+function deriveJourneySlug(definition: JourneyDefinition): string {
+	if (definition.testSource) {
+		const base = path.basename(definition.testSource, ".test.ts");
+		// Strip numeric prefix and "journey-" prefix: "60-journey-tool-showcase" → "tool-showcase"
+		const match = base.match(/^\d+-journey-(.+)$/);
+		if (match) return match[1];
+	}
+	return definition.journey.toLowerCase().replace(/\s+/g, "-");
+}
+
+/**
+ * Reads the E2E_STEPS env var and returns the step filter for a journey.
+ * Format: "slug1:stepId1,stepId2;slug2:stepId3"
+ * Returns null if no filter (run all steps), or a Set of step IDs to include.
+ */
+function getStepFilter(journeySlug: string): Set<string> | null {
+	const raw = process.env.E2E_STEPS;
+	if (!raw) return null;
+
+	for (const segment of raw.split(";")) {
+		const colonIdx = segment.indexOf(":");
+		if (colonIdx === -1) continue;
+		const slug = segment.slice(0, colonIdx);
+		if (slug === journeySlug) {
+			const stepIds = segment.slice(colonIdx + 1).split(",").filter(Boolean);
+			return new Set(stepIds);
+		}
+	}
+	return null; // this journey not in filter — run all
+}
+
+/**
  * Validates that all actions in the resolved steps use only declared tools.
  * Checks setup, resolved steps, and teardown arrays.
  * Throws on the first undeclared tool found.
@@ -185,8 +221,18 @@ async function runStepWithActions(
 	const result = await runner.runStep(
 		journeyStep,
 		async () => {
-			for (const action of step.actions) {
-				await executeAction(cli, action, variables, traceBookmark, collector);
+			const actions = step.actions;
+			for (let i = 0; i < actions.length; i++) {
+				const action = actions[i];
+				try {
+					await executeAction(cli, action, variables, traceBookmark, collector);
+				} catch (err) {
+					const msg = err instanceof Error ? err.message : String(err);
+					const desc = action.description ? ` — ${action.description}` : "";
+					throw new Error(
+						`[Action ${i + 1}/${actions.length}] ${action.tool}${desc}\n${msg}`,
+					);
+				}
 			}
 		},
 		{
@@ -194,6 +240,7 @@ async function runStepWithActions(
 			autoScreenshot: !useExplicit,
 		},
 		collector.files,
+		variables,
 	);
 
 	return result.status === "pass" ? "pass" : "fail";
@@ -255,6 +302,10 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 	const resolvedSteps = renumberSteps(resolveSteps(definition.steps));
 	const refTools = collectRefTools(definition.steps);
 	const allTools: ToolName[] = [...new Set([...definition.tools, ...refTools])];
+
+	// ── Step filter (E2E_STEPS env var) ─────────────────────
+	const journeySlug = deriveJourneySlug(definition);
+	const stepFilter = getStepFilter(journeySlug);
 
 	validateTools(
 		allTools,
@@ -355,7 +406,9 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 			}
 
 			// ── Anchor file (for skip-mode detection) ────────
-			if (definition.anchor && runner) {
+			// Skip anchor when step filter is active — partial runs
+			// shouldn't mark the journey as "passed".
+			if (definition.anchor && runner && !stepFilter) {
 				const results = runner.getResults();
 				writeAnchorFile(journeyDir, definition.journey, results);
 			}
@@ -369,6 +422,13 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 
 		for (const step of resolvedSteps) {
 			it(`${definition.chapter}.${step.guideSection} — ${step.title}`, async () => {
+				// Skip if step not in active filter (E2E_STEPS)
+				if (stepFilter && !stepFilter.has(step.id)) {
+					const journeyStep = toJourneyStep(step, "journey");
+					runner.addSkippedResult(journeyStep);
+					return;
+				}
+
 				if (setupFailed) {
 					const journeyStep = toJourneyStep(step, "journey");
 					runner.addSkippedResult(journeyStep);
