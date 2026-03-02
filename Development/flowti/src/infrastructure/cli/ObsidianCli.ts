@@ -137,9 +137,14 @@ export class ObsidianCli {
 		return this.runJson("plugins", ["versions"]) as PluginEntry[];
 	}
 
-	/** Enables a community plugin by ID. Async in Obsidian — callers should wait before interacting. */
+	/** Enables a community plugin by ID. */
 	enablePlugin(pluginId: string): void {
-		this.eval(`app.plugins.enablePlugin('${pluginId}')`);
+		this.run("plugin:enable", [`id=${pluginId}`]);
+	}
+
+	/** Disables a community plugin by ID. */
+	disablePlugin(pluginId: string): void {
+		this.run("plugin:disable", [`id=${pluginId}`]);
 	}
 
 	/** Reloads a plugin by ID. */
@@ -176,6 +181,110 @@ export class ObsidianCli {
 				0,
 				result.value,
 			);
+		}
+	}
+
+	/** Opens a file in the Obsidian editor. Opens in a new tab by default. */
+	openFile(path: string, newTab = true): void {
+		const args = [`path=${path}`];
+		if (newTab) args.push("newtab");
+		this.run("open", args);
+	}
+
+	/** Appends content to an existing vault note. */
+	appendFile(path: string, content: string): void {
+		this.run("append", [`path=${path}`, `content=${content}`]);
+	}
+
+	/** Creates a file, overwriting if it already exists. */
+	createFileOverwrite(path: string, content: string): void {
+		this.run("create", [`path=${path}`, `content=${content}`, "overwrite"]);
+	}
+
+	/** Sets the Obsidian theme by name. */
+	setTheme(name: string): void {
+		this.run("theme:set", [`name=${name}`]);
+	}
+
+	/** Checks whether a vault file exists (returns false instead of throwing). */
+	fileExists(path: string): boolean {
+		try {
+			this.run("file", [`path=${path}`]);
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	/** Returns the count of DOM elements matching the selector. */
+	domCount(selector: string): number {
+		const output = this.run("dev:dom", [`selector=${selector}`, "total"]);
+		return parseInt(output, 10) || 0;
+	}
+
+	/** Returns the text content of the first DOM element matching the selector. */
+	domText(selector: string): string {
+		return this.run("dev:dom", [`selector=${selector}`, "text"]);
+	}
+
+	/** Returns the value of an attribute on the first DOM element matching the selector. */
+	domAttr(selector: string, attr: string): string {
+		return this.run("dev:dom", [`selector=${selector}`, `attr=${attr}`]);
+	}
+
+	/** Prepends content to an existing vault note. */
+	prependFile(path: string, content: string): void {
+		this.run("prepend", [`path=${path}`, `content=${content}`]);
+	}
+
+	/** Moves/renames a vault file. */
+	moveFile(from: string, to: string): void {
+		this.run("move", [`path=${from}`, `to=${to}`]);
+	}
+
+	/** Returns open tab information as a JSON array. */
+	getTabs(): Array<{ path?: string; type?: string }> {
+		const output = this.run("tabs", ["format=json"]);
+		try {
+			return JSON.parse(output) as Array<{ path?: string; type?: string }>;
+		} catch {
+			return [];
+		}
+	}
+
+	/** Creates a vault folder. Uses eval since no native CLI folder:create exists. */
+	createFolder(folderPath: string): void {
+		const escaped = folderPath.replace(/'/g, "\\'");
+		const result = this.eval(
+			`(async () => { try { await app.vault.createFolder('${escaped}'); } catch {} })()`,
+		);
+		if (!result.success) {
+			throw new CliError(
+				`createFolder failed: ${result.error ?? "unknown"}`,
+				"eval",
+				1,
+				result.error ?? "",
+			);
+		}
+	}
+
+	/** Dismisses all visible Notice toasts from the DOM. */
+	dismissNotices(): void {
+		this.eval(
+			"document.querySelectorAll('.notice').forEach(n => n.remove())",
+		);
+	}
+
+	/** Returns text content of all visible Notice toasts. */
+	getNotices(): string[] {
+		const result = this.eval(
+			"JSON.stringify(Array.from(document.querySelectorAll('.notice')).map(n => n.textContent || ''))",
+		);
+		if (!result.success) return [];
+		try {
+			return JSON.parse(result.value) as string[];
+		} catch {
+			return [];
 		}
 	}
 

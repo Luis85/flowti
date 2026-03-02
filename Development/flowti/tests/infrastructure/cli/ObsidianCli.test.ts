@@ -239,16 +239,37 @@ describe("ObsidianCli", () => {
 	});
 
 	describe("enablePlugin()", () => {
-		it("evaluates enablePlugin call via eval", () => {
-			const runner = createMockRunner("=> undefined");
+		it("passes id= parameter to plugin:enable", () => {
+			const runner = createMockRunner("");
 			const cli = new ObsidianCli({ runner });
 
 			cli.enablePlugin("flowti-ibde");
 
 			expect(runner.run).toHaveBeenCalledWith("obsidian", [
-				"eval",
-				"code=app.plugins.enablePlugin('flowti-ibde')",
+				"plugin:enable",
+				"id=flowti-ibde",
 			]);
+		});
+	});
+
+	describe("disablePlugin()", () => {
+		it("passes id= parameter to plugin:disable", () => {
+			const runner = createMockRunner("");
+			const cli = new ObsidianCli({ runner });
+
+			cli.disablePlugin("flowti-ibde");
+
+			expect(runner.run).toHaveBeenCalledWith("obsidian", [
+				"plugin:disable",
+				"id=flowti-ibde",
+			]);
+		});
+
+		it("throws CliError when plugin not found", () => {
+			const runner = createMockRunner("", 1, "plugin not found");
+			const cli = new ObsidianCli({ runner });
+
+			expect(() => cli.disablePlugin("nonexistent")).toThrow(CliError);
 		});
 	});
 
@@ -397,6 +418,326 @@ describe("ObsidianCli", () => {
 				"eval",
 				'code=new Notice("Hello", 8000)',
 			]);
+		});
+	});
+
+	describe("openFile()", () => {
+		it("passes path= and newtab by default", () => {
+			const runner = createMockRunner("");
+			const cli = new ObsidianCli({ runner });
+
+			cli.openFile("notes/hello.md");
+
+			expect(runner.run).toHaveBeenCalledWith("obsidian", [
+				"open",
+				"path=notes/hello.md",
+				"newtab",
+			]);
+		});
+
+		it("omits newtab when newTab is false", () => {
+			const runner = createMockRunner("");
+			const cli = new ObsidianCli({ runner });
+
+			cli.openFile("notes/hello.md", false);
+
+			expect(runner.run).toHaveBeenCalledWith("obsidian", [
+				"open",
+				"path=notes/hello.md",
+			]);
+		});
+
+		it("throws CliError when file not found", () => {
+			const runner = createMockRunner("", 1, "file not found");
+			const cli = new ObsidianCli({ runner });
+
+			expect(() => cli.openFile("nonexistent.md")).toThrow(CliError);
+		});
+	});
+
+	describe("appendFile()", () => {
+		it("passes path= and content= to append command", () => {
+			const runner = createMockRunner("");
+			const cli = new ObsidianCli({ runner });
+
+			cli.appendFile("log.md", "new entry");
+
+			expect(runner.run).toHaveBeenCalledWith("obsidian", [
+				"append",
+				"path=log.md",
+				"content=new entry",
+			]);
+		});
+
+		it("throws CliError when file does not exist", () => {
+			const runner = createMockRunner("", 1, "file not found");
+			const cli = new ObsidianCli({ runner });
+
+			expect(() => cli.appendFile("missing.md", "text")).toThrow(CliError);
+		});
+	});
+
+	describe("createFileOverwrite()", () => {
+		it("passes path=, content=, and overwrite flag", () => {
+			const runner = createMockRunner("");
+			const cli = new ObsidianCli({ runner });
+
+			cli.createFileOverwrite("test.md", "# Fresh");
+
+			expect(runner.run).toHaveBeenCalledWith("obsidian", [
+				"create",
+				"path=test.md",
+				"content=# Fresh",
+				"overwrite",
+			]);
+		});
+	});
+
+	describe("setTheme()", () => {
+		it("passes name= to theme:set", () => {
+			const runner = createMockRunner("");
+			const cli = new ObsidianCli({ runner });
+
+			cli.setTheme("Minimal");
+
+			expect(runner.run).toHaveBeenCalledWith("obsidian", [
+				"theme:set",
+				"name=Minimal",
+			]);
+		});
+
+		it("throws CliError when theme not found", () => {
+			const runner = createMockRunner("", 1, "theme not found");
+			const cli = new ObsidianCli({ runner });
+
+			expect(() => cli.setTheme("nonexistent")).toThrow(CliError);
+		});
+	});
+
+	describe("fileExists()", () => {
+		it("returns true when file command succeeds", () => {
+			const runner = createMockRunner('{"path":"test.md","size":42}');
+			const cli = new ObsidianCli({ runner });
+
+			expect(cli.fileExists("test.md")).toBe(true);
+			expect(runner.run).toHaveBeenCalledWith("obsidian", [
+				"file",
+				"path=test.md",
+			]);
+		});
+
+		it("returns false when file command fails", () => {
+			const runner = createMockRunner("", 1, "file not found");
+			const cli = new ObsidianCli({ runner });
+
+			expect(cli.fileExists("missing.md")).toBe(false);
+		});
+	});
+
+	describe("domCount()", () => {
+		it("returns parsed count from dev:dom total", () => {
+			const runner = createMockRunner("3");
+			const cli = new ObsidianCli({ runner });
+
+			expect(cli.domCount(".nav-file")).toBe(3);
+			expect(runner.run).toHaveBeenCalledWith("obsidian", [
+				"dev:dom",
+				"selector=.nav-file",
+				"total",
+			]);
+		});
+
+		it("returns 0 for non-numeric output", () => {
+			const runner = createMockRunner("");
+			const cli = new ObsidianCli({ runner });
+
+			expect(cli.domCount(".missing")).toBe(0);
+		});
+
+		it("throws CliError when command fails", () => {
+			const runner = createMockRunner("", 1, "invalid selector");
+			const cli = new ObsidianCli({ runner });
+
+			expect(() => cli.domCount("[bad")).toThrow(CliError);
+		});
+	});
+
+	describe("domText()", () => {
+		it("returns text content from dev:dom text", () => {
+			const runner = createMockRunner("Hello World");
+			const cli = new ObsidianCli({ runner });
+
+			expect(cli.domText(".title")).toBe("Hello World");
+			expect(runner.run).toHaveBeenCalledWith("obsidian", [
+				"dev:dom",
+				"selector=.title",
+				"text",
+			]);
+		});
+
+		it("throws CliError when element not found", () => {
+			const runner = createMockRunner("", 1, "no match");
+			const cli = new ObsidianCli({ runner });
+
+			expect(() => cli.domText(".missing")).toThrow(CliError);
+		});
+	});
+
+	describe("domAttr()", () => {
+		it("returns attribute value from dev:dom attr", () => {
+			const runner = createMockRunner("flowti-user-hub");
+			const cli = new ObsidianCli({ runner });
+
+			expect(cli.domAttr(".workspace-leaf-content", "data-type")).toBe("flowti-user-hub");
+			expect(runner.run).toHaveBeenCalledWith("obsidian", [
+				"dev:dom",
+				"selector=.workspace-leaf-content",
+				"attr=data-type",
+			]);
+		});
+
+		it("throws CliError when element not found", () => {
+			const runner = createMockRunner("", 1, "no match");
+			const cli = new ObsidianCli({ runner });
+
+			expect(() => cli.domAttr(".missing", "id")).toThrow(CliError);
+		});
+	});
+
+	describe("prependFile()", () => {
+		it("passes path= and content= to prepend command", () => {
+			const runner = createMockRunner("");
+			const cli = new ObsidianCli({ runner });
+
+			cli.prependFile("log.md", "# Header");
+
+			expect(runner.run).toHaveBeenCalledWith("obsidian", [
+				"prepend",
+				"path=log.md",
+				"content=# Header",
+			]);
+		});
+
+		it("throws CliError when file does not exist", () => {
+			const runner = createMockRunner("", 1, "file not found");
+			const cli = new ObsidianCli({ runner });
+
+			expect(() => cli.prependFile("missing.md", "text")).toThrow(CliError);
+		});
+	});
+
+	describe("moveFile()", () => {
+		it("passes path= and to= to move command", () => {
+			const runner = createMockRunner("");
+			const cli = new ObsidianCli({ runner });
+
+			cli.moveFile("old/note.md", "new/note.md");
+
+			expect(runner.run).toHaveBeenCalledWith("obsidian", [
+				"move",
+				"path=old/note.md",
+				"to=new/note.md",
+			]);
+		});
+
+		it("throws CliError when source file not found", () => {
+			const runner = createMockRunner("", 1, "file not found");
+			const cli = new ObsidianCli({ runner });
+
+			expect(() => cli.moveFile("missing.md", "dest.md")).toThrow(CliError);
+		});
+	});
+
+	describe("getTabs()", () => {
+		it("returns parsed JSON array of tab objects", () => {
+			const json = JSON.stringify([
+				{ path: "notes/hello.md", type: "markdown" },
+				{ path: "E2E Test Run.md", type: "markdown" },
+			]);
+			const runner = createMockRunner(json);
+			const cli = new ObsidianCli({ runner });
+
+			const tabs = cli.getTabs();
+
+			expect(tabs).toEqual([
+				{ path: "notes/hello.md", type: "markdown" },
+				{ path: "E2E Test Run.md", type: "markdown" },
+			]);
+			expect(runner.run).toHaveBeenCalledWith("obsidian", [
+				"tabs",
+				"format=json",
+			]);
+		});
+
+		it("returns empty array for non-JSON output", () => {
+			const runner = createMockRunner("not json");
+			const cli = new ObsidianCli({ runner });
+
+			expect(cli.getTabs()).toEqual([]);
+		});
+	});
+
+	describe("createFolder()", () => {
+		it("evals app.vault.createFolder with escaped path", () => {
+			const runner = createMockRunner("=> undefined");
+			const cli = new ObsidianCli({ runner });
+
+			cli.createFolder("03 - Resources/Test Data");
+
+			expect(runner.run).toHaveBeenCalledWith("obsidian", [
+				"eval",
+				"code=(async () => { try { await app.vault.createFolder('03 - Resources/Test Data'); } catch {} })()",
+			]);
+		});
+
+		it("escapes single quotes in path", () => {
+			const runner = createMockRunner("=> undefined");
+			const cli = new ObsidianCli({ runner });
+
+			cli.createFolder("it's a folder");
+
+			expect(runner.run).toHaveBeenCalledWith("obsidian", [
+				"eval",
+				"code=(async () => { try { await app.vault.createFolder('it\\'s a folder'); } catch {} })()",
+			]);
+		});
+	});
+
+	describe("dismissNotices()", () => {
+		it("evals DOM notice removal", () => {
+			const runner = createMockRunner("=> undefined");
+			const cli = new ObsidianCli({ runner });
+
+			cli.dismissNotices();
+
+			expect(runner.run).toHaveBeenCalledWith("obsidian", [
+				"eval",
+				"code=document.querySelectorAll('.notice').forEach(n => n.remove())",
+			]);
+		});
+	});
+
+	describe("getNotices()", () => {
+		it("returns parsed array of notice texts", () => {
+			const json = JSON.stringify(["Success!", "Warning: check input"]);
+			const runner = createMockRunner(`=> ${json}`);
+			const cli = new ObsidianCli({ runner });
+
+			expect(cli.getNotices()).toEqual(["Success!", "Warning: check input"]);
+		});
+
+		it("returns empty array on eval failure", () => {
+			const runner = createMockRunner("", 1, "error");
+			const cli = new ObsidianCli({ runner });
+
+			expect(cli.getNotices()).toEqual([]);
+		});
+
+		it("returns empty array on non-JSON result", () => {
+			const runner = createMockRunner("=> not json");
+			const cli = new ObsidianCli({ runner });
+
+			expect(cli.getNotices()).toEqual([]);
 		});
 	});
 

@@ -86,11 +86,8 @@ export async function navigateToTab(
  * Asserts that at least one leaf of the given view type is open.
  */
 export function assertLeafOpen(cli: ObsidianCli, viewType: string): void {
-	const result = cli.eval(
-		`app.workspace.getLeavesOfType('${viewType}').length`,
-	);
-	expect(result.success).toBe(true);
-	expect(Number(result.value)).toBeGreaterThan(0);
+	const count = cli.domCount(`.workspace-leaf-content[data-type='${viewType}']`);
+	expect(count).toBeGreaterThan(0);
 }
 
 /**
@@ -126,16 +123,11 @@ function isNativelyOpenable(vaultPath: string): boolean {
  */
 export function openFile(cli: ObsidianCli, vaultPath: string): void {
 	if (!isNativelyOpenable(vaultPath)) return;
-	const escaped = vaultPath.replace(/'/g, "\\'");
-	cli.eval([
-		`(async () => {`,
-		`  const f = app.vault.getAbstractFileByPath('${escaped}');`,
-		`  if (f && f.extension !== undefined) {`,
-		`    const leaf = app.workspace.getLeaf('tab');`,
-		`    await leaf.openFile(f);`,
-		`  }`,
-		`})()`,
-	].join(" "));
+	try {
+		cli.openFile(vaultPath);
+	} catch {
+		// File may not exist — silent no-op matches original behavior
+	}
 }
 
 /**

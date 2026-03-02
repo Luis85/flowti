@@ -217,13 +217,11 @@ export class JourneyRunner {
 	private openTestSource(): void {
 		if (!this.options.testSource) return;
 		const vaultPath = `Development/flowti/${this.options.testSource}`;
-		this.cli.eval([
-			`(async () => {`,
-			`  const f = app.vault.getAbstractFileByPath('${vaultPath}');`,
-			`  if (f) { const leaf = app.workspace.getLeaf('tab');`,
-			`    await leaf.openFile(f); }`,
-			`})()`,
-		].join(" "));
+		try {
+			this.cli.openFile(vaultPath);
+		} catch {
+			// Test source file may not exist in the vault — skip silently
+		}
 	}
 
 	/** Posts a summary notice when the suite finishes. */
@@ -377,9 +375,7 @@ export class JourneyRunner {
 
 	/** Removes all notices — cleans the slate for the next step. */
 	private dismissAllNotices(): void {
-		this.cli.eval(
-			"document.querySelectorAll('.notice').forEach(n => n.remove())",
-		);
+		this.cli.dismissNotices();
 	}
 
 	/**
@@ -390,15 +386,7 @@ export class JourneyRunner {
 	 * Notices are never dismissed or modified by this call.
 	 */
 	getNotices(): string[] {
-		const result = this.cli.eval(
-			"JSON.stringify(Array.from(document.querySelectorAll('.notice')).map(n => n.textContent || ''))",
-		);
-		if (!result.success) return [];
-		try {
-			return JSON.parse(result.value) as string[];
-		} catch {
-			return [];
-		}
+		return this.cli.getNotices();
 	}
 
 	/** Writes the journey results JSON to the given path. */

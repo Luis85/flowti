@@ -47,14 +47,11 @@ import type { TestFixture } from "./fixtures";
  * Best-effort — does not throw on failure.
  */
 function writeRunLog(cli: ObsidianCli, message: string): void {
-	const escaped = message.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\n/g, "\\n");
-	cli.eval([
-		`(async () => {`,
-		`  var path = 'E2E Test Run.md';`,
-		`  var f = app.vault.getAbstractFileByPath(path);`,
-		`  if (f) { var c = await app.vault.read(f); await app.vault.modify(f, c + '${escaped}' + '\\n'); }`,
-		`})()`,
-	].join(" "));
+	try {
+		cli.appendFile("E2E Test Run.md", message + "\n");
+	} catch {
+		// Best-effort — file may not exist yet
+	}
 }
 
 /** Returns true if any action in the step is a `write-run-log` tool. */

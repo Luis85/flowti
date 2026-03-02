@@ -218,12 +218,11 @@ export const INSTALLER_SEED_FILES = getSeedPaths();
  * No-op if the file doesn't exist in Obsidian's index.
  */
 export function vaultDelete(cli: ObsidianCli, vaultPath: string): void {
-	cli.eval([
-		"(async () => {",
-		`  const f = app.vault.getAbstractFileByPath('${vaultPath}');`,
-		"  if (f) await app.vault.delete(f, true);",
-		"})()",
-	].join(" "));
+	try {
+		cli.deleteFile(vaultPath);
+	} catch {
+		// File may not exist — silent no-op
+	}
 }
 
 /**

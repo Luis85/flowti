@@ -177,27 +177,11 @@ export async function setup(): Promise<void> {
 	// ── Create E2E Test Run log file ────────────────────────────────────
 	const runMode = runInstaller ? "Installer" : "Skip";
 	const runTs = new Date().toISOString().slice(0, 19).replace("T", " ");
-	const runLogHeader = `# E2E Test Run\\n\\n> **Started**: ${runTs}\\n> **Mode**: ${runMode}\\n\\n---\\n`;
-	cli.eval([
-		`(async () => {`,
-		`  var path = 'E2E Test Run.md';`,
-		`  var existing = app.vault.getAbstractFileByPath(path);`,
-		`  if (existing) { await app.vault.modify(existing, '${runLogHeader}'); }`,
-		`  else { await app.vault.create(path, '${runLogHeader}'); }`,
-		`})()`,
-	].join(" "));
-	await sleep(500);
+	const runLogHeader = `# E2E Test Run\n\n> **Started**: ${runTs}\n> **Mode**: ${runMode}\n\n---\n`;
+	cli.createFileOverwrite("E2E Test Run.md", runLogHeader);
 
 	// Open the run log as a tab for live visibility
-	cli.eval([
-		`(async () => {`,
-		`  var f = app.vault.getAbstractFileByPath('E2E Test Run.md');`,
-		`  if (f && f.extension !== undefined) {`,
-		`    var leaf = app.workspace.getLeaf('tab');`,
-		`    await leaf.openFile(f);`,
-		`  }`,
-		`})()`,
-	].join(" "));
+	cli.openFile("E2E Test Run.md");
 	console.log("[e2e] Created and opened E2E Test Run.md");
 
 	cli.notice("✓ E2E setup complete — starting tests", 5000);
@@ -220,7 +204,11 @@ async function repairSeedFiles(cli: ObsidianCli, vaultDir: string): Promise<void
 	for (const folder of SEED_FOLDERS) {
 		const fullPath = path.join(vaultDir, folder);
 		if (!fs.existsSync(fullPath)) {
-			cli.eval(`(async () => { try { await app.vault.createFolder('${folder}'); } catch {} })()`);
+			try {
+				cli.createFolder(folder);
+			} catch {
+				// Folder may already exist in Obsidian's index — silent no-op
+			}
 			repaired++;
 		}
 	}
@@ -235,9 +223,11 @@ async function repairSeedFiles(cli: ObsidianCli, vaultDir: string): Promise<void
 		const fullPath = path.join(vaultDir, entry.path);
 		if (fs.existsSync(fullPath)) continue;
 
-		// Escape for JS string (single quotes, backslashes, newlines)
-		const escaped = entry.content.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\n/g, "\\n");
-		cli.eval(`(async () => { try { await app.vault.create('${entry.path}', '${escaped}'); } catch {} })()`);
+		try {
+			cli.createFile(entry.path, entry.content);
+		} catch {
+			// File may have been created concurrently — skip
+		}
 		repaired++;
 		console.log(`[e2e] Repaired missing seed file: ${entry.path}`);
 	}

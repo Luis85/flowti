@@ -7,11 +7,11 @@
  */
 import * as path from "node:path";
 import type { ObsidianCli } from "../../../src/infrastructure/cli/ObsidianCli";
-import type { ActionDefinition, AssertAction, CloseLeavesAction, CreateFileAction, DeleteFileAction, EmitAction, EvalAction, NoticeAction, OpenFileAction, OpenUrlAction, RibbonAction, ScreenshotAction, SeedAction, ThemeAction, VisualInspectionAction, WriteRunLogAction } from "./journeyTypes";
+import type { ActionDefinition, AssertAction, CloseLeavesAction, CreateFileAction, DeleteFileAction, EmitAction, EvalAction, FrontmatterAction, NoticeAction, OpenFileAction, OpenUrlAction, QueryTraceAction, RibbonAction, ScreenshotAction, SeedAction, SetInputAction, ThemeAction, VisualInspectionAction, WriteRunLogAction } from "./journeyTypes";
 import { getAllSeeds, getSeedById, SEED_FOLDERS } from "./seedRegistry";
 import { highlightElement, highlightButton, highlightInput, highlightRibbon, highlightWebView, highlightAssert, notifyAssert } from "./highlight";
 import { navigateToTab } from "./navigation";
-import { assertEventEmitted, PLUGIN_ID } from "./fixtures";
+import { assertEventEmitted, getEventsSince, getTraceLength, PLUGIN_ID } from "./fixtures";
 
 // ─── Variable interpolation ─────────────────────────────────────────
 
@@ -181,6 +181,15 @@ export async function executeAction(
 		case "seed":
 			executeSeed(cli, action, variables);
 			break;
+		case "set-input":
+			executeSetInput(cli, action, variables);
+			break;
+		case "frontmatter":
+			executeFrontmatter(cli, action, variables);
+			break;
+		case "query-trace":
+			executeQueryTrace(cli, action, variables, traceBookmark);
+			break;
 		case "write-run-log":
 			executeWriteRunLog(cli, action, variables);
 			break;
@@ -255,9 +264,8 @@ function executeAssert(
 	switch (action.type) {
 		case "visible": {
 			const rawSel = resolve(action.selector!, variables);
-			const sel = escapeSelector(rawSel);
-			const check = cli.eval(`!!document.querySelector('${sel}')`);
-			const passed = check.success && check.value === "true";
+			const count = cli.domCount(rawSel);
+			const passed = count > 0;
 			highlightAssert(cli, rawSel, passed, desc || `visible: ${action.selector}`);
 			if (!passed) {
 				throw new Error(`Expected element '${action.selector}' to be visible`);
@@ -266,9 +274,8 @@ function executeAssert(
 		}
 		case "not-visible": {
 			const rawSel = resolve(action.selector!, variables);
-			const sel = escapeSelector(rawSel);
-			const check = cli.eval(`!!document.querySelector('${sel}')`);
-			const passed = !(check.success && check.value === "true");
+			const count = cli.domCount(rawSel);
+			const passed = count === 0;
 			notifyAssert(cli, passed, desc || `not-visible: ${action.selector}`);
 			if (!passed) {
 				throw new Error(`Expected element '${action.selector}' to NOT be visible`);
@@ -277,12 +284,16 @@ function executeAssert(
 		}
 		case "text": {
 			const rawSel = resolve(action.selector!, variables);
-			const sel = escapeSelector(rawSel);
-			const check = cli.eval(`document.querySelector('${sel}')?.textContent ?? ''`);
-			const passed = check.success && check.value.includes(resolve(action.contains!, variables));
+			let text: string;
+			try {
+				text = cli.domText(rawSel);
+			} catch {
+				text = "";
+			}
+			const passed = text.includes(resolve(action.contains!, variables));
 			highlightAssert(cli, rawSel, passed, desc || `text: "${action.contains}"`);
 			if (!passed) {
-				throw new Error(`Expected element '${action.selector}' to contain '${action.contains}', got '${check.value}'`);
+				throw new Error(`Expected element '${action.selector}' to contain '${action.contains}', got '${text}'`);
 			}
 			break;
 		}
@@ -304,8 +315,8 @@ function executeAssert(
 		}
 		case "leaf": {
 			const viewType = resolve(action.viewType!, variables);
-			const check = cli.eval(`app.workspace.getLeavesOfType('${viewType}').length`);
-			const passed = check.success && Number(check.value) > 0;
+			const count = cli.domCount(`.workspace-leaf-content[data-type='${viewType}']`);
+			const passed = count > 0;
 			notifyAssert(cli, passed, desc || `leaf: ${viewType}`);
 			if (!passed) {
 				throw new Error(`No leaf found with view type '${viewType}'`);
@@ -324,6 +335,34 @@ function executeAssert(
 			notifyAssert(cli, passed, desc || `eval: expected "${expected}"`);
 			if (!passed) {
 				throw new Error(`Expected '${expected}', got '${check.value}'`);
+			}
+			break;
+		}
+		case "count": {
+			const rawSel = resolve(action.selector!, variables);
+			const count = cli.domCount(rawSel);
+			const expectedCount = action.count!;
+			const passed = count === expectedCount;
+			notifyAssert(cli, passed, desc || `count: ${expectedCount} of ${action.selector}`);
+			if (!passed) {
+				throw new Error(`Expected ${expectedCount} elements matching '${action.selector}', found ${count}`);
+			}
+			break;
+		}
+		case "attr": {
+			const rawSel = resolve(action.selector!, variables);
+			const attrName = action.attr!;
+			const expectedValue = resolve(action.value!, variables);
+			let attrValue: string;
+			try {
+				attrValue = cli.domAttr(rawSel, attrName);
+			} catch {
+				attrValue = "";
+			}
+			const passed = attrValue === expectedValue;
+			highlightAssert(cli, rawSel, passed, desc || `attr ${attrName}="${expectedValue}"`);
+			if (!passed) {
+				throw new Error(`Expected attribute '${attrName}' to be '${expectedValue}' on '${action.selector}', got '${attrValue}'`);
 			}
 			break;
 		}
@@ -349,28 +388,12 @@ function executeEmit(cli: ObsidianCli, action: EmitAction, variables: Record<str
 function executeNotice(cli: ObsidianCli, action: NoticeAction, variables: Record<string, string>): void {
 	const message = resolve(action.message, variables);
 	const duration = action.duration ?? 5000;
-	const escapedMessage = message.replace(/'/g, "\\'");
-	const result = cli.eval(`new Notice('${escapedMessage}', ${duration})`);
-	if (!result.success) {
-		throw new Error(`Notice failed: ${result.error}`);
-	}
+	cli.notice(message, duration);
 }
 
 function executeTheme(cli: ObsidianCli, action: ThemeAction, variables: Record<string, string>): void {
 	const theme = resolve(action.theme, variables);
-	const escapedTheme = theme.replace(/'/g, "\\'");
-	// Use the three-step Obsidian internal API: setTheme + persist + trigger CSS refresh
-	// (ref: obsidian-system-dark-mode plugin by kepano)
-	const result = cli.eval([
-		`(() => {`,
-		`  app.setTheme('${escapedTheme}');`,
-		`  app.vault.setConfig('theme', '${escapedTheme}');`,
-		`  app.workspace.trigger('css-change');`,
-		`})()`,
-	].join(" "));
-	if (!result.success) {
-		throw new Error(`Theme switch to '${theme}' failed: ${result.error}`);
-	}
+	cli.setTheme(theme);
 }
 
 // ─── Lifecycle tool implementations ─────────────────────────────────
@@ -378,17 +401,7 @@ function executeTheme(cli: ObsidianCli, action: ThemeAction, variables: Record<s
 function executeCreateFile(cli: ObsidianCli, action: CreateFileAction, variables: Record<string, string>): void {
 	const filePath = resolve(action.path, variables);
 	const content = resolve(action.content, variables);
-	const escapedPath = filePath.replace(/'/g, "\\'");
-	const escapedContent = content.replace(/'/g, "\\'").replace(/\n/g, "\\n");
-	const result = cli.eval([
-		`(async () => {`,
-		`  await app.vault.create('${escapedPath}', '${escapedContent}');`,
-		`  return '${escapedPath}';`,
-		`})()`,
-	].join(" "));
-	if (!result.success) {
-		throw new Error(`create-file '${filePath}' failed: ${result.error}`);
-	}
+	cli.createFile(filePath, content);
 	if (action.store) {
 		variables[action.store] = filePath;
 	}
@@ -396,36 +409,16 @@ function executeCreateFile(cli: ObsidianCli, action: CreateFileAction, variables
 
 function executeDeleteFile(cli: ObsidianCli, action: DeleteFileAction, variables: Record<string, string>): void {
 	const filePath = resolve(action.path, variables);
-	const escapedPath = filePath.replace(/'/g, "\\'");
-	const result = cli.eval([
-		`(async () => {`,
-		`  const f = app.vault.getAbstractFileByPath('${escapedPath}');`,
-		`  if (f) await app.vault.delete(f, true);`,
-		`  return f ? 'deleted' : 'not-found';`,
-		`})()`,
-	].join(" "));
-	if (!result.success) {
-		throw new Error(`delete-file '${filePath}' failed: ${result.error}`);
+	try {
+		cli.deleteFile(filePath);
+	} catch {
+		// File may not exist — silent no-op matches original behavior
 	}
 }
 
 function executeOpenFile(cli: ObsidianCli, action: OpenFileAction, variables: Record<string, string>): void {
 	const filePath = resolve(action.path, variables);
-	const escapedPath = filePath.replace(/'/g, "\\'");
-	const result = cli.eval([
-		`(async () => {`,
-		`  const f = app.vault.getAbstractFileByPath('${escapedPath}');`,
-		`  if (f && f.extension !== undefined) {`,
-		`    const leaf = app.workspace.getLeaf('tab');`,
-		`    await leaf.openFile(f);`,
-		`    return 'opened';`,
-		`  }`,
-		`  return 'not-found';`,
-		`})()`,
-	].join(" "));
-	if (!result.success) {
-		throw new Error(`open-file '${filePath}' failed: ${result.error}`);
-	}
+	cli.openFile(filePath);
 }
 
 function executeOpenUrl(cli: ObsidianCli, action: OpenUrlAction, variables: Record<string, string>): void {
@@ -448,8 +441,7 @@ function executeWait(cli: ObsidianCli, ms: number, description?: string): void {
 	const label = description
 		? `\u23f3 ${description} (${ms}ms)`
 		: `\u23f3 Waiting ${ms}ms\u2026`;
-	const escapedLabel = label.replace(/'/g, "\\'");
-	cli.eval(`new Notice('${escapedLabel}', ${ms})`);
+	cli.notice(label, ms);
 }
 
 function executeCloseModals(cli: ObsidianCli): void {
@@ -476,7 +468,11 @@ function executeSeed(cli: ObsidianCli, action: SeedAction, variables: Record<str
 			throw new Error(`seed id="folders" only supports mode="create", got "${mode}"`);
 		}
 		for (const folder of SEED_FOLDERS) {
-			cli.eval(`(async () => { try { await app.vault.createFolder('${folder}'); } catch {} })()`);
+			try {
+				cli.createFolder(folder);
+			} catch {
+				// Folder may already exist — silent no-op
+			}
 		}
 		return;
 	}
@@ -499,46 +495,28 @@ function executeSeed(cli: ObsidianCli, action: SeedAction, variables: Record<str
 
 function executeSeedEntry(
 	cli: ObsidianCli,
-	id: string,
+	_id: string,
 	seedPath: string,
 	content: string,
 	mode: "create" | "verify" | "delete",
 ): void {
-	const escapedPath = seedPath.replace(/'/g, "\\'");
-
 	switch (mode) {
 		case "create": {
-			const escapedContent = content.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\n/g, "\\n");
-			const result = cli.eval([
-				`(async () => {`,
-				`  const existing = app.vault.getAbstractFileByPath('${escapedPath}');`,
-				`  if (existing) return 'exists';`,
-				`  await app.vault.create('${escapedPath}', '${escapedContent}');`,
-				`  return 'created';`,
-				`})()`,
-			].join(" "));
-			if (!result.success) {
-				throw new Error(`seed create '${id}' (${seedPath}) failed: ${result.error}`);
-			}
+			if (cli.fileExists(seedPath)) return;
+			cli.createFile(seedPath, content);
 			break;
 		}
 		case "verify": {
-			const result = cli.eval(`!!app.vault.getAbstractFileByPath('${escapedPath}')`);
-			if (!result.success || result.value !== "true") {
+			if (!cli.fileExists(seedPath)) {
 				throw new Error(`Seed file missing in skip mode: ${seedPath}`);
 			}
 			break;
 		}
 		case "delete": {
-			const result = cli.eval([
-				`(async () => {`,
-				`  const f = app.vault.getAbstractFileByPath('${escapedPath}');`,
-				`  if (f) { await app.vault.delete(f, true); return 'deleted'; }`,
-				`  return 'not-found';`,
-				`})()`,
-			].join(" "));
-			if (!result.success) {
-				throw new Error(`seed delete '${id}' (${seedPath}) failed: ${result.error}`);
+			try {
+				cli.deleteFile(seedPath);
+			} catch {
+				// File may not exist — silent no-op
 			}
 			break;
 		}
@@ -549,18 +527,90 @@ function executeSeedEntry(
 
 function executeWriteRunLog(cli: ObsidianCli, action: WriteRunLogAction, variables: Record<string, string>): void {
 	const message = resolve(action.message, variables);
-	const escaped = message.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\n/g, "\\n");
+	try {
+		cli.appendFile("E2E Test Run.md", message + "\n");
+	} catch {
+		// File may not exist yet — create it first, then append
+		cli.createFile("E2E Test Run.md", "# E2E Test Run\n");
+		cli.appendFile("E2E Test Run.md", message + "\n");
+	}
+}
+
+// ─── Set-input tool (React-safe) ────────────────────────────────────
+
+function executeSetInput(cli: ObsidianCli, action: SetInputAction, variables: Record<string, string>): void {
+	const selector = resolve(action.selector, variables);
+	const value = resolve(action.value, variables);
+	const dispatchEvent = action.dispatchEvent !== false; // default true
+	const sel = escapeSelector(selector);
+	const escapedValue = value.replace(/'/g, "\\'");
 	const result = cli.eval([
-		`(async () => {`,
-		`  var path = 'E2E Test Run.md';`,
-		`  var f = app.vault.getAbstractFileByPath(path);`,
-		`  if (!f) { await app.vault.create(path, '# E2E Test Run\\n'); f = app.vault.getAbstractFileByPath(path); }`,
-		`  if (f) { var c = await app.vault.read(f); await app.vault.modify(f, c + '${escaped}' + '\\n'); }`,
-		`  return 'ok';`,
-		`})()`,
+		"(() => {",
+		`  const el = document.querySelector('${sel}');`,
+		"  if (!el) throw new Error('Input not found');",
+		`  const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set`,
+		`    || Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;`,
+		`  if (nativeSetter) nativeSetter.call(el, '${escapedValue}');`,
+		`  else el.value = '${escapedValue}';`,
+		...(dispatchEvent ? [
+			"  el.dispatchEvent(new Event('input', { bubbles: true }));",
+			"  el.dispatchEvent(new Event('change', { bubbles: true }));",
+		] : []),
+		"})()",
 	].join(" "));
 	if (!result.success) {
-		throw new Error(`write-run-log failed: ${result.error}`);
+		throw new Error(`set-input failed on '${selector}': ${result.error}`);
+	}
+}
+
+// ─── Frontmatter tool ───────────────────────────────────────────────
+
+function executeFrontmatter(cli: ObsidianCli, action: FrontmatterAction, variables: Record<string, string>): void {
+	const filePath = resolve(action.path, variables);
+	const property = action.property;
+
+	switch (action.mode) {
+		case "set": {
+			const value = resolve(action.value!, variables);
+			cli.setProperty(filePath, property, value);
+			break;
+		}
+		case "read": {
+			const result = cli.eval(
+				`JSON.stringify(app.metadataCache.getCache('${escapeSelector(filePath)}')?.frontmatter?.['${property}'] ?? null)`,
+			);
+			if (!result.success) {
+				throw new Error(`frontmatter read '${property}' on '${filePath}' failed: ${result.error}`);
+			}
+			if (action.store) {
+				// Strip JSON quotes for simple values
+				try {
+					const parsed = JSON.parse(result.value);
+					variables[action.store] = String(parsed);
+				} catch {
+					variables[action.store] = result.value;
+				}
+			}
+			break;
+		}
+	}
+}
+
+// ─── Query-trace tool ───────────────────────────────────────────────
+
+function executeQueryTrace(
+	cli: ObsidianCli,
+	action: QueryTraceAction,
+	variables: Record<string, string>,
+	traceBookmark: number,
+): void {
+	const event = resolve(action.event, variables);
+	const limit = action.limit ?? 10;
+	const events = getEventsSince(cli, traceBookmark, event);
+	const limited = events.slice(0, limit);
+
+	if (action.store) {
+		variables[action.store] = JSON.stringify(limited);
 	}
 }
 

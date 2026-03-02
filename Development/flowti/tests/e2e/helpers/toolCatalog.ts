@@ -241,6 +241,36 @@ export const TOOL_CATALOG: Record<ToolName, ToolMeta> = {
 			"Repair missing seed files and folders (mode: create)",
 		],
 	},
+	"set-input": {
+		name: "set-input",
+		description: "Set an input value using React-compatible native setter with input/change events",
+		tags: [],
+		useCases: [
+			"Set values on React-controlled inputs where insertText doesn't propagate",
+			"Update input fields that use synthetic event handlers",
+			"Set values on textarea or input elements with proper event dispatch",
+		],
+	},
+	frontmatter: {
+		name: "frontmatter",
+		description: "Read or set YAML frontmatter properties on a vault file",
+		tags: [],
+		useCases: [
+			"Set a frontmatter property for test setup (mode: set)",
+			"Read a frontmatter value into a variable for downstream assertions (mode: read)",
+			"Verify frontmatter was updated by a previous step",
+		],
+	},
+	"query-trace": {
+		name: "query-trace",
+		description: "Query the E2E event trace for events of a specific type",
+		tags: [],
+		useCases: [
+			"Retrieve events emitted during a step for variable interpolation",
+			"Count how many times a specific event was emitted",
+			"Extract event payloads for cross-step data passing",
+		],
+	},
 	"write-run-log": {
 		name: "write-run-log",
 		description: "Append a line to the E2E Test Run log file at the vault root",

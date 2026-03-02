@@ -542,11 +542,11 @@ export async function teardown(): Promise<void> {
 
 	// Disable the plugin — return to clean baseline (no plugins active)
 	cli.notice("Teardown: Disabling plugin...", 5000);
-	cli.eval(`app.plugins.disablePlugin('${PLUGIN_ID}')`);
+	cli.disablePlugin(PLUGIN_ID);
 
 	// Dismiss teardown notices
 	await sleep(1000);
-	cli.eval("document.querySelectorAll('.notice').forEach(n => n.remove())");
+	cli.dismissNotices();
 }
 
 /**

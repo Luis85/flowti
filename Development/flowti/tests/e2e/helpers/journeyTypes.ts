@@ -40,6 +40,12 @@ export type ToolName =
 	| "close-leaves"
 	| "close-modals"
 	| "seed"
+	// Input tools
+	| "set-input"
+	// Frontmatter tools
+	| "frontmatter"
+	// Query tools
+	| "query-trace"
 	// Logging tools
 	| "write-run-log"
 	// Interactive inspection tools
@@ -209,6 +215,12 @@ export type ActionDefinition =
 	| CloseModalsAction
 	| SeedAction
 	| RibbonAction
+	// Input tools
+	| SetInputAction
+	// Frontmatter tools
+	| FrontmatterAction
+	// Query tools
+	| QueryTraceAction
 	// Logging tools
 	| WriteRunLogAction
 	// Interactive inspection tools
@@ -299,8 +311,8 @@ export interface NavigateAction {
 export interface AssertAction {
 	tool: "assert";
 	/** Assertion type. */
-	type: "visible" | "not-visible" | "text" | "event" | "leaf" | "eval";
-	/** CSS selector (for visible, not-visible, text). */
+	type: "visible" | "not-visible" | "text" | "event" | "leaf" | "eval" | "count" | "attr";
+	/** CSS selector (for visible, not-visible, text, count, attr). */
 	selector?: string;
 	/** Expected text content (for text assertion). */
 	contains?: string;
@@ -314,6 +326,12 @@ export interface AssertAction {
 	code?: string;
 	/** Expected eval result (for eval assertion). */
 	expected?: string;
+	/** Expected count (for count assertion). */
+	count?: number;
+	/** Attribute name (for attr assertion). */
+	attr?: string;
+	/** Expected attribute value (for attr assertion). */
+	value?: string;
 	description?: string;
 }
 
@@ -408,6 +426,43 @@ export interface WriteRunLogAction {
 	tool: "write-run-log";
 	/** The log line to append to E2E Test Run.md. Supports {{variable}} interpolation. */
 	message: string;
+	description?: string;
+}
+
+export interface SetInputAction {
+	tool: "set-input";
+	/** CSS selector for the input element. */
+	selector: string;
+	/** Value to set on the input. Supports {{variable}} interpolation. */
+	value: string;
+	/** If true, dispatch React-compatible input event. Default: true. */
+	dispatchEvent?: boolean;
+	description?: string;
+}
+
+export interface FrontmatterAction {
+	tool: "frontmatter";
+	/** Vault-relative path of the file. Supports {{variable}} interpolation. */
+	path: string;
+	/** Frontmatter operation: "set" writes a property, "read" stores a property value. */
+	mode: "set" | "read";
+	/** Frontmatter property name. */
+	property: string;
+	/** Property value (for "set" mode). Supports {{variable}} interpolation. */
+	value?: string;
+	/** Store the read value in a named variable (for "read" mode). */
+	store?: string;
+	description?: string;
+}
+
+export interface QueryTraceAction {
+	tool: "query-trace";
+	/** Event type to search for in the trace. Supports {{variable}} interpolation. */
+	event: string;
+	/** Maximum number of events to return. Default: 10. */
+	limit?: number;
+	/** Store the JSON result in a named variable. */
+	store?: string;
 	description?: string;
 }
 
