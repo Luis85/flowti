@@ -654,6 +654,11 @@ const ACTION_GROUP_START_Y = GROUP_HEIGHT + 4 * ACTION_GROUP_HEIGHT_DEFAULT; // 
 // Events summary
 const EVENTS_SIZE = 420;
 
+// Improvement card dimensions (yellow cards stacked above step groups)
+const IMPROVEMENT_WIDTH = ACTION_GROUP_WIDTH * 2;                    // 2× normal node width
+const IMPROVEMENT_HEIGHT = ACTION_GROUP_HEIGHT_DEFAULT * 3;          // 3× normal node height
+const IMPROVEMENT_GAP = ACTION_GROUP_HEIGHT_DEFAULT * 2;             // 2× node height spacing between cards
+
 /**
  * Returns a color code for an action tool type on the canvas.
  *   - screenshot → 6 (cyan)
@@ -978,6 +983,41 @@ function generateJourneyCanvas(data, screenshotBasePath, trace, configFilePath) 
 		};
 		if (stepColor) configNode.color = stepColor;
 		nodes.push(configNode);
+
+		// ── Improvement cards (yellow, stacked above the step group) ──
+		const improvements = s.improvements ?? [];
+		if (improvements.length > 0) {
+			const improvCenterX = groupX + Math.round((GROUP_WIDTH - IMPROVEMENT_WIDTH) / 2);
+
+			for (let ii = 0; ii < improvements.length; ii++) {
+				const imp = improvements[ii];
+				// Stack bottom-up: closest improvement is nearest to the group top
+				const distFromTop = (ii + 1) * (IMPROVEMENT_HEIGHT + IMPROVEMENT_GAP);
+				const improvY = -distFromTop;
+
+				const impLines = [];
+				impLines.push(`## ${imp.title}`);
+				if (imp.description) {
+					impLines.push("");
+					impLines.push(imp.description);
+				}
+				if (imp.priority) {
+					impLines.push("");
+					impLines.push(`**Priority**: ${imp.priority}`);
+				}
+
+				nodes.push({
+					id: nId(`${s.id}-imp-${ii}`),
+					type: "text",
+					text: impLines.join("\n"),
+					x: improvCenterX,
+					y: improvY,
+					width: IMPROVEMENT_WIDTH,
+					height: IMPROVEMENT_HEIGHT,
+					color: "3", // yellow
+				});
+			}
+		}
 
 		// ── Action groups (vertical stack below the step group) ──
 		const actions = s.actions ?? [];

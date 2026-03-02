@@ -71,6 +71,8 @@ export interface JourneyStep {
 	 */
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	actions?: Array<Record<string, any>>;
+	/** Ideas and notes captured during development of this step. */
+	improvements?: Array<{ title: string; description?: string; priority?: string; added?: string }>;
 }
 
 export interface ManualVerification {

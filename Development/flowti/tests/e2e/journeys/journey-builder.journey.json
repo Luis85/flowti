@@ -281,7 +281,7 @@
 			"actions": [
 				{ "tool": "notice", "message": "Step 5/5: Exporting journey JSON", "duration": 3000 },
 				{ "tool": "click", "selector": "[data-test-id='jb-export-btn']", "description": "Click Export button" },
-				{ "tool": "wait", "ms": 1000, "description": "Wait for file write to complete via FileSystemClient" },
+				{ "tool": "wait", "ms": 500, "description": "Wait for file write to complete via FileSystemClient" },
 				{ "tool": "assert", "type": "event", "event": "journey-builder.exported", "description": "Export event emitted by sidebar" },
 				{ "tool": "assert", "type": "event", "event": "file.create.request", "description": "File create request sent to EventBridge" },
 				{ "tool": "assert", "type": "event", "event": "file.create.response", "description": "File created successfully via adapter" },
@@ -302,8 +302,6 @@
 			"actions": [
 				{ "tool": "close-modals", "description": "Dismiss any open modals" },
 				{ "tool": "close-leaves", "viewType": "flowti-journey-builder", "description": "Close Journey Builder sidebar" },
-				{ "tool": "wait", "ms": 300 },
-				{ "tool": "delete-file", "path": "journeys/E2E Demo Journey.journey.json", "description": "Delete exported test JSON" },
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "write-run-log", "message": "- Journey Builder: teardown complete\n" },
 				{ "tool": "screenshot", "label": "final", "description": "Final workspace state after cleanup" }

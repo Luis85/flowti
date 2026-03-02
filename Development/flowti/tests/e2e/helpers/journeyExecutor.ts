@@ -274,6 +274,7 @@ function toJourneyStep(step: StepDefinition, phase?: "setup" | "journey" | "tear
 		actions: step.actions,
 		skip: step.skip,
 		dev: step.dev,
+		improvements: step.improvements,
 	};
 }
 
