@@ -1,6 +1,6 @@
 {
 	"journey": "Journey Builder",
-	"description": "TDD blueprint for the Journey Builder feature: command/ribbon launch shows a welcome screen with Create New / Open Existing choices. Create a journey with name, description, start event, steps with actions, end event, then export to JSON + canvas.",
+	"description": "Full E2E blueprint for the Journey Builder feature. Steps 1-5 validate the C54 spike (launch, setup, add step, export). Steps 6-13 are the Cycle 55 development targets: step editor with prev/next navigation, action builder with templates, smart inputs (event autocomplete, command picker, assert builder), JSON preview, canvas sync, full 3-file export, open existing, and preview run.",
 	"testSource": "tests/e2e/90-journey-journey-builder.test.ts",
 	"reportPath": "docs/journeys/Journey Builder/Journey Builder.md",
 	"canvasPath": "docs/journeys/Journey Builder/Journey Builder.canvas",
@@ -8,7 +8,7 @@
 	"category": "tooling",
 	"domain": "e2e",
 	"actors": ["Developer", "System"],
-	"services": ["JourneyBuilderService", "EventBus"],
+	"services": ["JourneyBuilderService", "CanvasSyncService", "EventBus", "FileSystemClient"],
 	"tools": [],
 
 	"improvements": [
@@ -33,7 +33,7 @@
 			"guideSection": 0,
 			"swimlane": "support",
 			"actions": [
-        { "tool": "write-run-log", "message": "\n## Journey Builder\n" }
+				{ "tool": "write-run-log", "message": "\n## Journey Builder\n" }
 			]
 		},
 		{
@@ -67,45 +67,15 @@
 			"events": ["journey-builder.opened"],
 			"interactions": ["command: Open Journey Builder"],
 			"actions": [
-        {
-          "tool": "notice",
-          "message": "Step 1/5: Opening Journey Builder via command",
-          "duration": 3000
-        },
-        {
-          "tool": "command",
-          "id": "flowti:open-journey-builder",
-          "description": "Open Journey Builder via command palette"
-        },
-        {
-          "tool": "wait",
-          "ms": 500,
-          "description": "Wait for sidebar to open"
-        },
-        {
-          "tool": "assert",
-          "type": "leaf",
-          "viewType": "flowti-journey-builder",
-          "description": "Journey Builder sidebar leaf exists"
-        },
-        {
-          "tool": "assert",
-          "type": "event",
-          "event": "journey-builder.opened",
-          "description": "journey-builder.opened event was emitted"
-        },
-        {
-          "tool": "screenshot",
-          "label": "after-command",
-          "description": "Journey Builder opened via command"
-        },
-        {
-          "tool": "close-leaves",
-          "viewType": "flowti-journey-builder",
-          "description": "Close sidebar for step 2"
-        },
-        { "tool": "wait", "ms": 500 }
-      ]
+				{ "tool": "notice", "message": "Step 1/13: Opening Journey Builder via command", "duration": 3000 },
+				{ "tool": "command", "id": "flowti:open-journey-builder", "description": "Open Journey Builder via command palette" },
+				{ "tool": "wait", "ms": 500, "description": "Wait for sidebar to open" },
+				{ "tool": "assert", "type": "leaf", "viewType": "flowti-journey-builder", "description": "Journey Builder sidebar leaf exists" },
+				{ "tool": "assert", "type": "event", "event": "journey-builder.opened", "description": "journey-builder.opened event was emitted" },
+				{ "tool": "screenshot", "label": "after-command", "description": "Journey Builder opened via command" },
+				{ "tool": "close-leaves", "viewType": "flowti-journey-builder", "description": "Close sidebar for step 2" },
+				{ "tool": "wait", "ms": 500 }
+			]
 		},
 		{
 			"id": "02-open-via-ribbon",
@@ -123,7 +93,7 @@
 			"events": ["journey-builder.opened"],
 			"interactions": ["ribbon: Journey Builder"],
 			"actions": [
-				{ "tool": "notice", "message": "Step 2/5: Opening Journey Builder via ribbon", "duration": 3000 },
+				{ "tool": "notice", "message": "Step 2/13: Opening Journey Builder via ribbon", "duration": 3000 },
 				{ "tool": "screenshot", "label": "before-ribbon", "description": "Clean workspace before ribbon click" },
 				{ "tool": "ribbon", "label": "journey builder", "description": "Click Journey Builder ribbon icon" },
 				{ "tool": "wait", "ms": 500, "description": "Wait for sidebar to open" },
@@ -136,7 +106,7 @@
 					"expect": { "type": "equals", "value": "right" },
 					"description": "Sidebar is in the right split pane"
 				},
-				{ "tool": "highlight", "selector": ".workspace-leaf-content[data-type='flowti-journey-builder']", "style": "element", "description": "Highlight sidebar","duration": 500 },
+				{ "tool": "highlight", "selector": ".workspace-leaf-content[data-type='flowti-journey-builder']", "style": "element", "description": "Highlight sidebar", "duration": 500 },
 				{ "tool": "screenshot", "label": "after-ribbon", "description": "Journey Builder open via ribbon" },
 				{ "tool": "manual", "instruction": "Verify the ribbon button has a route icon. The sidebar should appear in the right pane with two action cards: Open Existing Journey and Create New Journey.", "interactive": false, "description": "Visual QA of ribbon-triggered state" }
 			]
@@ -165,7 +135,7 @@
 				}
 			],
 			"actions": [
-				{ "tool": "notice", "message": "Step 3/5: Creating a new journey", "duration": 3000 },
+				{ "tool": "notice", "message": "Step 3/13: Creating a new journey", "duration": 3000 },
 				{ "tool": "click", "selector": "[data-test-id='jb-create-new']", "description": "Click Create New Journey" },
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-setup-form']", "description": "Setup form container is visible" },
@@ -225,7 +195,7 @@
 				}
 			],
 			"actions": [
-				{ "tool": "notice", "message": "Step 4/5: Adding a journey step", "duration": 3000 },
+				{ "tool": "notice", "message": "Step 4/13: Adding a journey step", "duration": 3000 },
 				{ "tool": "click", "selector": "[data-test-id='jb-continue-btn']", "description": "Click Continue to enter step builder" },
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-list']", "description": "Step list is visible" },
@@ -279,15 +249,372 @@
 				}
 			],
 			"actions": [
-				{ "tool": "notice", "message": "Step 5/5: Exporting journey JSON", "duration": 3000 },
+				{ "tool": "notice", "message": "Step 5/13: Exporting journey JSON", "duration": 3000 },
 				{ "tool": "click", "selector": "[data-test-id='jb-export-btn']", "description": "Click Export button" },
 				{ "tool": "wait", "ms": 500, "description": "Wait for file write to complete via FileSystemClient" },
 				{ "tool": "assert", "type": "event", "event": "journey-builder.exported", "description": "Export event emitted by sidebar" },
 				{ "tool": "assert", "type": "event", "event": "file.create.request", "description": "File create request sent to EventBridge" },
 				{ "tool": "assert", "type": "event", "event": "file.create.response", "description": "File created successfully via adapter" },
 				{ "tool": "screenshot", "label": "exported", "description": "Journey exported successfully" },
-				{ "tool": "notice", "message": "Journey Builder journey complete", "duration": 5000 },
-				{ "tool": "manual", "instruction": "Verify the event trace shows journey-builder.exported → file.create.request → file.create.response in sequence, confirming the JSON was written via the adapter.", "interactive": false, "description": "Visual QA of export flow via event trace" }
+				{ "tool": "notice", "message": "Export complete — continuing to step editor", "duration": 3000 },
+				{ "tool": "manual", "instruction": "Verify the event trace shows journey-builder.exported followed by file.create.request and file.create.response in sequence, confirming the JSON was written via the adapter.", "interactive": false, "description": "Visual QA of export flow via event trace" }
+			]
+		},
+
+		{
+			"id": "06-step-editor-navigation",
+			"title": "Navigate and edit steps with prev/next",
+			"guideSection": 6,
+			"swimlane": "frontstage",
+			"dev": true,
+			"description": "After initial export, the sidebar transitions to the step editor view. A prev/next navigation row sits above the step card. The user navigates between steps, edits metadata fields (description, swimlane, UI context), adds a second step, and reorders.",
+			"expectedInput": "Journey Builder with one step and exported JSON",
+			"expectedOutput": "Step editor with prev/next navigation, two steps, step metadata edited",
+			"uiContext": {
+				"view": "flowti-journey-builder",
+				"viewName": "Journey Builder",
+				"components": ["JourneyBuilderSidebar", "NavBar", "StepCard"]
+			},
+			"events": ["journey-builder.step.updated", "journey-builder.step.added", "journey-builder.step.reordered"],
+			"interactions": ["click: Next", "click: Prev", "click: Add Step", "input: Description", "select: Swimlane", "click: Move Up"],
+			"improvements": [
+				{
+					"title": "Keyboard shortcuts for step navigation",
+					"description": "Alt+Left for prev step, Alt+Right for next step. Shown as tooltip on nav buttons.",
+					"priority": "nice-to-have",
+					"added": "2026-03-02"
+				}
+			],
+			"actions": [
+				{ "tool": "notice", "message": "Step 6/13: Step editor with prev/next navigation", "duration": 3000 },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-nav-bar']", "description": "Navigation bar is visible" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-nav-prev']", "description": "Prev button is visible" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-nav-next']", "description": "Next button is visible" },
+				{ "tool": "assert", "type": "text", "selector": "[data-test-id='jb-nav-counter']", "expected": "Step 1 of 1", "description": "Step counter shows correct position" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-card']", "description": "Step card is visible with full metadata" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-description']", "description": "Description field is visible" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-swimlane']", "description": "Swimlane selector is visible" },
+				{ "tool": "set-input", "selector": "[data-test-id='jb-step-description']", "value": "Opens the user hub via command palette", "description": "Edit step description" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "assert", "type": "event", "event": "journey-builder.step.updated", "description": "step.updated event emitted" },
+				{ "tool": "click", "selector": "[data-test-id='jb-nav-add-step']", "description": "Add a second step" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "set-input", "selector": "[data-test-id='jb-step-title-input']", "value": "Navigate to Domains tab", "description": "Enter second step title" },
+				{ "tool": "click", "selector": "[data-test-id='jb-step-confirm']", "description": "Confirm second step" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "assert", "type": "text", "selector": "[data-test-id='jb-nav-counter']", "expected": "Step 2 of 2", "description": "Counter updated to step 2 of 2" },
+				{ "tool": "click", "selector": "[data-test-id='jb-nav-prev']", "description": "Navigate to previous step" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "assert", "type": "text", "selector": "[data-test-id='jb-nav-counter']", "expected": "Step 1 of 2", "description": "Counter shows step 1 of 2" },
+				{ "tool": "screenshot", "label": "step-editor-nav", "description": "Step editor with prev/next navigation and 2 steps" },
+				{ "tool": "manual", "instruction": "Verify the step card shows full metadata for step 1 ('Open the user hub'). The prev button should be disabled (first step). The next button should be enabled. The step counter should read 'Step 1 of 2'.", "interactive": false, "description": "Visual QA of step editor navigation" }
+			]
+		},
+		{
+			"id": "07-action-builder",
+			"title": "Add actions to a step",
+			"guideSection": 7,
+			"swimlane": "frontstage",
+			"dev": true,
+			"description": "Uses the action builder to add actions to step 1. Demonstrates the tool picker, per-tool form fields, action reordering, and action templates. Adds a 'command' action, a 'wait' action, and uses the 'Open via command' template.",
+			"expectedInput": "Step editor on step 1 with no actions",
+			"expectedOutput": "Step 1 has actions: command, wait, assert(leaf) — added via template and individually",
+			"uiContext": {
+				"view": "flowti-journey-builder",
+				"viewName": "Journey Builder",
+				"components": ["JourneyBuilderSidebar", "StepCard", "ActionBuilder"]
+			},
+			"events": ["journey-builder.action.added"],
+			"interactions": ["click: Add Action", "select: Tool", "input: Action fields", "click: Use Template", "click: Move Up"],
+			"improvements": [
+				{
+					"title": "Drag-and-drop action reordering",
+					"description": "Allow reordering actions by drag-and-drop instead of only up/down buttons. Use Obsidian's sortable list pattern.",
+					"priority": "nice-to-have",
+					"added": "2026-03-02"
+				}
+			],
+			"actions": [
+				{ "tool": "notice", "message": "Step 7/13: Action builder", "duration": 3000 },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-add-action-btn']", "description": "Add Action button is visible" },
+				{ "tool": "click", "selector": "[data-test-id='jb-add-action-btn']", "description": "Click Add Action" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-tool-picker']", "description": "Tool picker modal is visible" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-template-section']", "description": "Action templates section visible at top" },
+				{ "tool": "click", "selector": "[data-test-id='jb-template-open-via-command']", "description": "Select 'Open via command' template" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-template-form']", "description": "Template fill-in form is visible" },
+				{ "tool": "set-input", "selector": "[data-test-id='jb-template-command-id']", "value": "flowti:show-hub", "description": "Enter command ID for template" },
+				{ "tool": "set-input", "selector": "[data-test-id='jb-template-view-type']", "value": "flowti-user-hub", "description": "Enter view type for template" },
+				{ "tool": "click", "selector": "[data-test-id='jb-template-apply']", "description": "Apply template — adds command + wait + assert(leaf)" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "assert", "type": "count", "selector": "[data-test-id='jb-action-card']", "expected": 3, "description": "Three actions added from template" },
+				{ "tool": "click", "selector": "[data-test-id='jb-add-action-btn']", "description": "Add another action individually" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "click", "selector": "[data-test-id='jb-tool-screenshot']", "description": "Select screenshot tool" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "set-input", "selector": "[data-test-id='jb-action-label']", "value": "after-hub-open", "description": "Enter screenshot label" },
+				{ "tool": "click", "selector": "[data-test-id='jb-action-confirm']", "description": "Confirm screenshot action" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "assert", "type": "count", "selector": "[data-test-id='jb-action-card']", "expected": 4, "description": "Four actions total" },
+				{ "tool": "screenshot", "label": "action-builder", "description": "Step with 4 actions added via template and individually" },
+				{ "tool": "manual", "instruction": "Verify four action cards are visible: command (flowti:show-hub), wait (500ms), assert (leaf flowti-user-hub), screenshot (after-hub-open). Each card should show tool icon, summary, and up/down/remove buttons.", "interactive": false, "description": "Visual QA of action builder" }
+			]
+		},
+		{
+			"id": "08-smart-inputs",
+			"title": "Event autocomplete and command picker",
+			"guideSection": 8,
+			"swimlane": "frontstage",
+			"dev": true,
+			"description": "Demonstrates the smart input components: event autocomplete on the start event field (typeahead over 360+ events), command picker on command actions, and assert builder with type-specific fields.",
+			"expectedInput": "Step editor with actions added",
+			"expectedOutput": "Start event selected via autocomplete, command action updated via picker, assert action built with guided form",
+			"uiContext": {
+				"view": "flowti-journey-builder",
+				"viewName": "Journey Builder",
+				"components": ["JourneyBuilderSidebar", "EventAutocomplete", "CommandPicker", "AssertBuilder"]
+			},
+			"events": ["journey-builder.metadata.updated"],
+			"interactions": ["input: Start event (autocomplete)", "select: Command (picker)", "select: Assert type", "input: Assert fields"],
+			"improvements": [
+				{
+					"title": "View type autocomplete for leaf assertions",
+					"description": "When building a leaf assertion, provide autocomplete over registered view types. Currently the user must know view type strings by heart.",
+					"priority": "should-have",
+					"added": "2026-03-02"
+				},
+				{
+					"title": "CSS selector hints for DOM assertions",
+					"description": "When entering a CSS selector for visible/text/count/attr assertions, show syntax hints and common data-test-id patterns from the codebase.",
+					"priority": "nice-to-have",
+					"added": "2026-03-02"
+				}
+			],
+			"actions": [
+				{ "tool": "notice", "message": "Step 8/13: Smart inputs — autocomplete and pickers", "duration": 3000 },
+				{ "tool": "click", "selector": "[data-test-id='jb-nav-setup']", "description": "Navigate back to setup form" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "click", "selector": "[data-test-id='jb-start-event-input']", "description": "Focus start event input" },
+				{ "tool": "set-input", "selector": "[data-test-id='jb-start-event-input']", "value": "hub.nav", "description": "Type partial event name" },
+				{ "tool": "wait", "ms": 500, "description": "Wait for autocomplete dropdown" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-autocomplete-dropdown']", "description": "Autocomplete dropdown appeared" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-autocomplete-item']", "description": "At least one autocomplete match" },
+				{ "tool": "click", "selector": "[data-test-id='jb-autocomplete-item']:first-child", "description": "Select first autocomplete match" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "assert", "type": "event", "event": "journey-builder.metadata.updated", "description": "Metadata updated with selected event" },
+				{ "tool": "screenshot", "label": "event-autocomplete", "description": "Event autocomplete in action" },
+				{ "tool": "click", "selector": "[data-test-id='jb-continue-btn']", "description": "Continue to step editor" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "click", "selector": "[data-test-id='jb-action-card']:first-child", "description": "Expand first action card (command)" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-command-picker']", "description": "Command picker dropdown is visible" },
+				{ "tool": "screenshot", "label": "command-picker", "description": "Command picker dropdown" },
+				{ "tool": "click", "selector": "[data-test-id='jb-add-action-btn']", "description": "Add an assert action" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "click", "selector": "[data-test-id='jb-tool-assert']", "description": "Select assert tool" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-assert-type-picker']", "description": "Assert type picker is visible" },
+				{ "tool": "click", "selector": "[data-test-id='jb-assert-type-event']", "description": "Select 'event' assert type" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-assert-event-input']", "description": "Event name input with autocomplete is visible" },
+				{ "tool": "screenshot", "label": "assert-builder", "description": "Assert builder with type-specific fields" },
+				{ "tool": "manual", "instruction": "Verify: (1) Event autocomplete showed a dropdown with categorized results when typing. (2) Command picker showed registered commands with IDs and display names. (3) Assert builder showed type picker and rendered event-specific fields (event name with autocomplete).", "interactive": false, "description": "Visual QA of smart inputs" }
+			]
+		},
+		{
+			"id": "09-json-preview",
+			"title": "Live JSON preview panel",
+			"guideSection": 9,
+			"swimlane": "frontstage",
+			"dev": true,
+			"description": "Toggles the JSON preview panel at the bottom of the sidebar. Verifies the panel shows valid, formatted JSON that reflects the current journey definition. Makes an edit and confirms the JSON updates in real-time.",
+			"expectedInput": "Step editor with steps and actions configured",
+			"expectedOutput": "JSON preview panel visible with valid, formatted journey definition",
+			"uiContext": {
+				"view": "flowti-journey-builder",
+				"viewName": "Journey Builder",
+				"components": ["JourneyBuilderSidebar", "JSONPanel"]
+			},
+			"events": [],
+			"interactions": ["click: Toggle JSON", "click: Copy to clipboard"],
+			"actions": [
+				{ "tool": "notice", "message": "Step 9/13: Live JSON preview", "duration": 3000 },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-json-toggle']", "description": "JSON toggle button is visible" },
+				{ "tool": "click", "selector": "[data-test-id='jb-json-toggle']", "description": "Toggle JSON preview open" },
+				{ "tool": "wait", "ms": 500, "description": "Wait for panel to render" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-json-panel']", "description": "JSON panel is visible" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-json-content']", "description": "JSON content is visible" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-json-copy']", "description": "Copy to clipboard button is visible" },
+				{ "tool": "eval", "code": "(() => { const el = document.querySelector('[data-test-id=\"jb-json-content\"]'); if (!el) return 'missing'; try { JSON.parse(el.textContent); return 'valid'; } catch { return 'invalid'; } })()", "expect": { "type": "equals", "value": "valid" }, "description": "JSON content is valid JSON" },
+				{ "tool": "screenshot", "label": "json-preview", "description": "JSON preview panel showing formatted journey definition" },
+				{ "tool": "set-input", "selector": "[data-test-id='jb-step-title-input']", "value": "Open the user hub (updated)", "description": "Edit step title to trigger JSON update" },
+				{ "tool": "wait", "ms": 500, "description": "Wait for debounced JSON update" },
+				{ "tool": "eval", "code": "(() => { const el = document.querySelector('[data-test-id=\"jb-json-content\"]'); if (!el) return 'missing'; try { const def = JSON.parse(el.textContent); return def.steps?.some(s => s.title?.includes('updated')) ? 'updated' : 'stale'; } catch { return 'error'; } })()", "expect": { "type": "equals", "value": "updated" }, "description": "JSON reflects the title edit" },
+				{ "tool": "screenshot", "label": "json-updated", "description": "JSON preview updated after title edit" },
+				{ "tool": "manual", "instruction": "Verify the JSON panel shows a formatted, syntax-highlighted journey definition. After editing the step title, the JSON should update within ~300ms to reflect the change. A copy button should be visible at the top of the panel.", "interactive": false, "description": "Visual QA of JSON preview" }
+			]
+		},
+		{
+			"id": "10-canvas-sync",
+			"title": "Canvas sync — real-time canvas generation",
+			"guideSection": 10,
+			"swimlane": "backstage",
+			"dev": true,
+			"description": "Verifies that a companion canvas file is generated and updated in real-time as the user builds the journey. The canvas layout matches the test-runner output format (START circle, step groups, END circle). Adding/removing steps and editing metadata are reflected in the canvas.",
+			"expectedInput": "Journey Builder with steps, actions, and JSON preview visible",
+			"expectedOutput": "Companion canvas file exists and reflects current journey state",
+			"uiContext": {
+				"view": "flowti-journey-builder",
+				"viewName": "Journey Builder",
+				"components": ["JourneyBuilderSidebar", "CanvasSyncService"]
+			},
+			"events": ["journey-builder.canvas.synced", "file.create.request", "file.update.request"],
+			"interactions": [],
+			"improvements": [
+				{
+					"title": "Split pane: sidebar + canvas side by side",
+					"description": "Automatically open the companion canvas in a split pane alongside the sidebar so the user sees visual changes in real-time without manually opening the file.",
+					"priority": "should-have",
+					"added": "2026-03-02"
+				}
+			],
+			"actions": [
+				{ "tool": "notice", "message": "Step 10/13: Canvas sync", "duration": 3000 },
+				{ "tool": "assert", "type": "event", "event": "journey-builder.canvas.synced", "description": "Canvas sync event was emitted" },
+				{ "tool": "eval", "code": "await app.vault.adapter.exists('journeys/E2E Demo Journey.canvas')", "expect": { "type": "equals", "value": "true" }, "description": "Companion canvas file exists" },
+				{ "tool": "eval", "code": "(() => { const json = await app.vault.adapter.read('journeys/E2E Demo Journey.canvas'); const data = JSON.parse(json); return data.nodes?.some(n => n.text?.includes('Start')) && data.nodes?.some(n => n.type === 'group') ? 'valid' : 'invalid'; })()", "expect": { "type": "equals", "value": "valid" }, "description": "Canvas contains START node and step groups" },
+				{ "tool": "open-file", "path": "journeys/E2E Demo Journey.canvas", "description": "Open the companion canvas" },
+				{ "tool": "wait", "ms": 1000, "description": "Wait for canvas to render" },
+				{ "tool": "screenshot", "label": "canvas-sync", "description": "Companion canvas generated from journey definition" },
+				{ "tool": "manual", "instruction": "Verify the canvas shows a left-to-right flow: START circle (green) with journey name, step group nodes for each step (with titles and config), and an END circle. The layout should match the test-runner canvas output. Step groups should contain config text nodes with step metadata.", "interactive": false, "description": "Visual QA of canvas sync" }
+			]
+		},
+		{
+			"id": "11-full-export",
+			"title": "Full export — JSON, test file, and canvas",
+			"guideSection": 11,
+			"swimlane": "backstage",
+			"dev": true,
+			"description": "Exports the complete journey as three files: .journey.json (full definition with actions), .test.ts (thin executor wrapper), and .canvas (companion canvas). All files written via the EventBridge file pipeline with adapter fallback for non-vault extensions.",
+			"expectedInput": "Journey Builder with fully configured steps and actions",
+			"expectedOutput": "Three files created: journey JSON, test executor, companion canvas",
+			"uiContext": {
+				"view": "flowti-journey-builder",
+				"viewName": "Journey Builder",
+				"components": ["JourneyBuilderSidebar"]
+			},
+			"events": ["journey-builder.exported", "file.create.request", "file.create.response"],
+			"interactions": ["click: Export"],
+			"actions": [
+				{ "tool": "notice", "message": "Step 11/13: Full 3-file export", "duration": 3000 },
+				{ "tool": "close-leaves", "viewType": "canvas", "description": "Close canvas to return focus to sidebar" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "click", "selector": "[data-test-id='jb-export-btn']", "description": "Click Export button" },
+				{ "tool": "wait", "ms": 1000, "description": "Wait for all three files to be written" },
+				{ "tool": "assert", "type": "event", "event": "journey-builder.exported", "description": "Export event emitted" },
+				{ "tool": "eval", "code": "await app.vault.adapter.exists('journeys/E2E Demo Journey.journey.json')", "expect": { "type": "equals", "value": "true" }, "description": "Journey JSON file exists" },
+				{ "tool": "eval", "code": "await app.vault.adapter.exists('tests/e2e/90-journey-e2e-demo-journey.test.ts')", "expect": { "type": "equals", "value": "true" }, "description": "Test executor file exists" },
+				{ "tool": "eval", "code": "await app.vault.adapter.exists('journeys/E2E Demo Journey.canvas')", "expect": { "type": "equals", "value": "true" }, "description": "Companion canvas file exists" },
+				{ "tool": "eval", "code": "(() => { const json = await app.vault.adapter.read('journeys/E2E Demo Journey.journey.json'); const def = JSON.parse(json); return def.steps?.[0]?.actions?.length > 0 ? 'has-actions' : 'empty'; })()", "expect": { "type": "equals", "value": "has-actions" }, "description": "Exported JSON includes step actions" },
+				{ "tool": "screenshot", "label": "full-export", "description": "Full 3-file export complete" },
+				{ "tool": "manual", "instruction": "Verify three files were created: (1) .journey.json with full step definitions including actions, (2) .test.ts with executeJourney boilerplate, (3) .canvas matching the canvas sync output. The event trace should show journey-builder.exported followed by file.create events.", "interactive": false, "description": "Visual QA of full export" }
+			]
+		},
+		{
+			"id": "12-open-existing",
+			"title": "Open existing journey for editing",
+			"guideSection": 12,
+			"swimlane": "frontstage",
+			"dev": true,
+			"description": "Closes the current journey, returns to the welcome screen, and uses 'Open Existing' to load the previously exported journey back into the step editor. Verifies all fields are populated and the companion canvas opens alongside.",
+			"expectedInput": "Journey Builder on welcome screen, exported journey JSON in vault",
+			"expectedOutput": "Exported journey loaded in step editor with all fields populated, companion canvas open",
+			"uiContext": {
+				"view": "flowti-journey-builder",
+				"viewName": "Journey Builder",
+				"components": ["JourneyBuilderSidebar", "NavBar", "StepCard"]
+			},
+			"events": ["journey-builder.open-existing"],
+			"interactions": ["click: Open Existing", "select: Journey file"],
+			"improvements": [
+				{
+					"title": "Recent journeys list on welcome screen",
+					"description": "Show the 5 most recently edited journeys directly on the welcome screen for quick access, avoiding the file picker for common cases.",
+					"priority": "nice-to-have",
+					"added": "2026-03-02"
+				},
+				{
+					"title": "Dirty tracking with save confirmation",
+					"description": "Track unsaved changes and warn the user when navigating away. Show a save button that writes back to the source file.",
+					"priority": "should-have",
+					"added": "2026-03-02"
+				}
+			],
+			"actions": [
+				{ "tool": "notice", "message": "Step 12/13: Open existing journey", "duration": 3000 },
+				{ "tool": "click", "selector": "[data-test-id='jb-back-btn']", "description": "Navigate back to welcome screen" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-open-existing']", "description": "Open Existing card is visible" },
+				{ "tool": "click", "selector": "[data-test-id='jb-open-existing']", "description": "Click Open Existing" },
+				{ "tool": "wait", "ms": 500, "description": "Wait for file picker modal" },
+				{ "tool": "assert", "type": "visible", "selector": ".prompt", "description": "File picker modal is visible" },
+				{ "tool": "set-input", "selector": ".prompt-input", "value": "E2E Demo Journey", "description": "Search for the exported journey" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "click", "selector": ".suggestion-item:first-child", "description": "Select the journey from results" },
+				{ "tool": "wait", "ms": 500, "description": "Wait for journey to load" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-nav-bar']", "description": "Step editor navigation is visible" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-card']", "description": "Step card is populated" },
+				{ "tool": "assert", "type": "text", "selector": "[data-test-id='jb-nav-counter']", "expected": "Step 1 of 2", "description": "Both steps loaded" },
+				{ "tool": "screenshot", "label": "open-existing", "description": "Existing journey loaded in step editor" },
+				{ "tool": "manual", "instruction": "Verify the previously exported journey loaded correctly: step 1 should show 'Open the user hub' with its actions, step 2 should show 'Navigate to Domains tab'. The navigation counter should show 'Step 1 of 2'. The companion canvas should be open in a split pane.", "interactive": false, "description": "Visual QA of open existing" }
+			]
+		},
+		{
+			"id": "13-preview-run",
+			"title": "Preview run with live canvas feedback",
+			"guideSection": 13,
+			"swimlane": "backstage",
+			"dev": true,
+			"description": "Executes a preview run of the journey within Obsidian. Steps execute sequentially using the same action runner as E2E tests. The companion canvas updates live — step nodes turn green (pass) or red (fail). Screenshots are captured and embedded as step group backgrounds. The final canvas matches the test-runner output format.",
+			"expectedInput": "Journey loaded in step editor with actions configured",
+			"expectedOutput": "Preview run complete, canvas shows pass/fail per step, results inspectable",
+			"uiContext": {
+				"view": "flowti-journey-builder",
+				"viewName": "Journey Builder",
+				"components": ["JourneyBuilderSidebar", "PreviewRunner"]
+			},
+			"events": ["journey-builder.preview.started", "journey-builder.preview.completed"],
+			"interactions": ["click: Preview Run"],
+			"improvements": [
+				{
+					"title": "Step-by-step preview mode",
+					"description": "Instead of running all steps at once, allow stepping through one step at a time with pause between steps. Shows step result before proceeding to the next.",
+					"priority": "should-have",
+					"added": "2026-03-02"
+				},
+				{
+					"title": "Preview sandbox mode",
+					"description": "Revert all vault changes (file creates, deletes, modifications) after the preview run completes. Ensures preview doesn't leave permanent side effects.",
+					"priority": "must-have",
+					"added": "2026-03-02"
+				}
+			],
+			"actions": [
+				{ "tool": "notice", "message": "Step 13/13: Preview run", "duration": 3000 },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-preview-run-btn']", "description": "Preview Run button is visible" },
+				{ "tool": "click", "selector": "[data-test-id='jb-preview-run-btn']", "description": "Start preview run" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "assert", "type": "event", "event": "journey-builder.preview.started", "description": "Preview started event emitted" },
+				{ "tool": "wait", "ms": 5000, "description": "Wait for preview run to complete (steps execute sequentially)" },
+				{ "tool": "assert", "type": "event", "event": "journey-builder.preview.completed", "description": "Preview completed event emitted" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-preview-results']", "description": "Preview results panel is visible" },
+				{ "tool": "screenshot", "label": "preview-results", "description": "Preview run results in sidebar" },
+				{ "tool": "open-file", "path": "journeys/E2E Demo Journey.canvas", "description": "Open the updated canvas" },
+				{ "tool": "wait", "ms": 1000 },
+				{ "tool": "screenshot", "label": "preview-canvas", "description": "Canvas with live pass/fail coloring from preview run" },
+				{ "tool": "notice", "message": "Journey Builder journey complete!", "duration": 5000 },
+				{ "tool": "manual", "instruction": "Verify: (1) The preview ran all steps sequentially. (2) The sidebar shows per-step results (pass/fail with duration). (3) The canvas step groups are colored green (pass) or red (fail). (4) Screenshots are embedded as step group backgrounds. (5) The canvas layout matches what generate-e2e-report.mjs would produce.", "interactive": false, "description": "Visual QA of preview run and canvas output" }
 			]
 		}
 	],
@@ -302,6 +629,11 @@
 			"actions": [
 				{ "tool": "close-modals", "description": "Dismiss any open modals" },
 				{ "tool": "close-leaves", "viewType": "flowti-journey-builder", "description": "Close Journey Builder sidebar" },
+				{ "tool": "close-leaves", "viewType": "canvas", "description": "Close any open canvas leaves" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "delete-file", "path": "journeys/E2E Demo Journey.journey.json", "description": "Delete exported journey JSON" },
+				{ "tool": "delete-file", "path": "journeys/E2E Demo Journey.canvas", "description": "Delete companion canvas" },
+				{ "tool": "delete-file", "path": "tests/e2e/90-journey-e2e-demo-journey.test.ts", "description": "Delete generated test executor" },
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "write-run-log", "message": "- Journey Builder: teardown complete\n" },
 				{ "tool": "screenshot", "label": "final", "description": "Final workspace state after cleanup" }
