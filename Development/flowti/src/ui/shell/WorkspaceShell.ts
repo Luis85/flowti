@@ -30,6 +30,7 @@ export class WorkspaceShell {
 	mount(wrapper: HTMLElement): ShellElements {
 		this.buildTopBar(wrapper);
 		this.tabBarEl = wrapper.createDiv({ cls: "ft-catalog-tab-bar ft-hidden" });
+		this.tabBarEl.dataset.testId = "catalog-tab-bar";
 
 		return {
 			topBarEl: this.topBarEl!,
@@ -50,6 +51,7 @@ export class WorkspaceShell {
 			const btn = this.tabBarEl.createEl("span", {
 				cls: `ft-catalog-tab${activePage === tab.id ? " ft-catalog-tab-active" : ""}`,
 			});
+			btn.dataset.testId = "catalog-tab";
 			const iconEl = btn.createSpan();
 			setIcon(iconEl, tab.icon);
 			btn.appendText(` ${tab.label}`);

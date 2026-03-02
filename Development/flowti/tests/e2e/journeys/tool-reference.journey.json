@@ -52,7 +52,7 @@
 				{ "tool": "notice", "message": "Tool Reference 1/7: Core interaction", "duration": 3000 },
 				{ "tool": "command", "id": "flowti:open-user-hub", "description": "Open User Hub via command" },
 				{ "tool": "wait", "ms": 1000 },
-				{ "tool": "click", "selector": ".ft-catalog-tab-bar .ft-catalog-tab", "description": "Click the first tab" },
+				{ "tool": "click", "selector": "[data-test-id='catalog-tab-bar'] [data-test-id='catalog-tab']", "description": "Click the first tab" },
 				{ "tool": "wait", "ms": 300 },
 				{
 					"tool": "eval",
@@ -90,10 +90,10 @@
 			"interactions": ["highlight: 3 styles"],
 			"actions": [
 				{ "tool": "notice", "message": "Tool Reference 2/7: Visual annotations", "duration": 3000 },
-				{ "tool": "highlight", "selector": ".ft-catalog-tab-bar", "style": "element", "description": "Element style: green outline" },
+				{ "tool": "highlight", "selector": "[data-test-id='catalog-tab-bar']", "style": "element", "description": "Element style: green outline" },
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "screenshot", "label": "highlight-element", "description": "Green outline on tab bar" },
-				{ "tool": "highlight", "selector": ".ft-catalog-tab-bar .ft-catalog-tab", "style": "button", "description": "Button style: orange pulse" },
+				{ "tool": "highlight", "selector": "[data-test-id='catalog-tab-bar'] [data-test-id='catalog-tab']", "style": "button", "description": "Button style: orange pulse" },
 				{ "tool": "wait", "ms": 800 },
 				{ "tool": "screenshot", "label": "highlight-button", "description": "Orange pulse on tab" },
 				{
@@ -128,11 +128,11 @@
 				{ "tool": "navigate", "hub": "user-hub", "viewType": "flowti-user-hub", "tab": "inbox", "description": "Navigate to Inbox tab" },
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "assert", "type": "visible", "selector": ".workspace-leaf", "description": "1. VISIBLE" },
-				{ "tool": "assert", "type": "not-visible", "selector": ".modal-container .ft-canvas-template-card", "description": "2. NOT-VISIBLE" },
+				{ "tool": "assert", "type": "not-visible", "selector": ".modal-container [data-test-id='canvas-template-card']", "description": "2. NOT-VISIBLE" },
 				{ "tool": "assert", "type": "text", "selector": ".workspace-leaf.mod-active .view-header-title-container", "contains": "", "description": "3. TEXT" },
 				{ "tool": "assert", "type": "leaf", "viewType": "flowti-user-hub", "description": "4. LEAF" },
 				{ "tool": "assert", "type": "eval", "code": "String(1 + 1)", "expected": "2", "description": "5. EVAL" },
-				{ "tool": "assert", "type": "count", "selector": ".ft-catalog-tab-bar .ft-catalog-tab", "count": 4, "description": "6. COUNT — expect 4 tabs in User Hub" },
+				{ "tool": "assert", "type": "count", "selector": "[data-test-id='catalog-tab-bar'] [data-test-id='catalog-tab']", "count": 4, "description": "6. COUNT — expect 4 tabs in User Hub" },
 				{ "tool": "assert", "type": "attr", "selector": ".workspace-leaf.mod-active .workspace-leaf-content", "attr": "data-type", "value": "flowti-user-hub", "description": "7. ATTR — active leaf data-type" },
 				{ "tool": "assert", "type": "event", "event": "hub.tab.changed", "payload": { "hubId": "user-hub", "tabId": "inbox" }, "description": "8. EVENT" },
 				{

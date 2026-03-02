@@ -46,14 +46,14 @@
 				{ "tool": "wait", "ms": 2000, "description": "Brief settle after chapter transition" },
 				{
 					"tool": "eval",
-					"code": "(() => { const modal = document.querySelector('.flowti-installer-modal'); if (!modal) { app.commands.executeCommandById('flowti-ibde:flowti:open-installer'); return 'opened-via-command'; } return 'already-open'; })()",
+					"code": "(() => { const modal = document.querySelector('[data-test-id=\"installer-modal\"]'); if (!modal) { app.commands.executeCommandById('flowti-ibde:flowti:open-installer'); return 'opened-via-command'; } return 'already-open'; })()",
 					"description": "Open installer wizard via command if not already visible"
 				},
 				{ "tool": "wait", "ms": 2000, "description": "Wait for modal to render after command" },
 				{
 					"tool": "assert",
 					"type": "visible",
-					"selector": ".flowti-installer-modal",
+					"selector": "[data-test-id='installer-modal']",
 					"description": "Installer wizard modal is present in DOM"
 				}
 			]
@@ -73,7 +73,7 @@
 				{
 					"tool": "assert",
 					"type": "visible",
-					"selector": ".flowti-installer-modal",
+					"selector": "[data-test-id='installer-modal']",
 					"description": "Installer wizard modal is in DOM"
 				},
 				{ "tool": "screenshot", "label": "wizard-open", "description": "Installer wizard modal open" }
@@ -92,19 +92,19 @@
 				{
 					"tool": "assert",
 					"type": "eval",
-					"code": "(() => { const h = document.querySelector('.flowti-installer-modal h2')?.textContent ?? ''; return h.includes('Welcome') ? 'true' : 'false'; })()",
+					"code": "(() => { const h = document.querySelector('[data-test-id=\"installer-modal\"] h2')?.textContent ?? ''; return h.includes('Welcome') ? 'true' : 'false'; })()",
 					"expected": "true",
 					"description": "Heading contains 'Welcome'"
 				},
 				{
 					"tool": "assert",
 					"type": "visible",
-					"selector": ".flowti-installer-modal input[placeholder=\"Enter your name\"]",
+					"selector": "[data-test-id='installer-name-input']",
 					"description": "Name input field exists"
 				},
 				{
 					"tool": "eval",
-					"code": "(() => { const cards = document.querySelectorAll('.flowti-installer-modal .ft-role-card-enabled').length; if (cards < 2) throw new Error('Expected at least 2 role cards, found: ' + cards); return 'ok'; })()",
+					"code": "(() => { const cards = document.querySelectorAll('[data-test-id=\"installer-role-card\"]').length; if (cards < 2) throw new Error('Expected at least 2 role cards, found: ' + cards); return 'ok'; })()",
 					"description": "At least 2 role cards visible"
 				},
 				{ "tool": "screenshot", "label": "welcome-page", "description": "Welcome page with name input and role cards" }
@@ -122,13 +122,13 @@
 				{ "tool": "notice", "message": "Installer 3/16: Enter username", "duration": 3000 },
 				{
 					"tool": "highlight",
-					"selector": ".flowti-installer-modal input[placeholder=\"Enter your name\"]",
+					"selector": "[data-test-id='installer-name-input']",
 					"style": "input",
 					"description": "Highlight name input"
 				},
 				{
 					"tool": "eval",
-					"code": "(() => { const input = document.querySelector('.flowti-installer-modal input[placeholder=\"Enter your name\"]'); if (!input) throw new Error('Name input not found'); const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; setter.call(input, 'E2E Tester'); input.dispatchEvent(new Event('input', { bubbles: true })); return input.value; })()",
+					"code": "(() => { const input = document.querySelector('[data-test-id=\"installer-name-input\"]'); if (!input) throw new Error('Name input not found'); const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; setter.call(input, 'E2E Tester'); input.dispatchEvent(new Event('input', { bubbles: true })); return input.value; })()",
 					"expect": { "type": "equals", "value": "E2E Tester" },
 					"description": "Set name input via native setter"
 				},
@@ -147,20 +147,20 @@
 				{ "tool": "notice", "message": "Installer 4/16: Select role", "duration": 3000 },
 				{
 					"tool": "highlight",
-					"selector": ".flowti-installer-modal .ft-role-card-enabled",
+					"selector": "[data-test-id='installer-role-card']",
 					"style": "button",
 					"description": "Highlight first role card"
 				},
 				{
 					"tool": "click",
-					"selector": ".flowti-installer-modal .ft-role-card-enabled",
+					"selector": "[data-test-id='installer-role-card']",
 					"description": "Click first enabled role card (User)"
 				},
 				{ "tool": "wait", "ms": 500 },
 				{
 					"tool": "assert",
 					"type": "visible",
-					"selector": ".flowti-installer-modal .ft-card-selected",
+					"selector": "[data-test-id='installer-role-card'][data-test-selected='true']",
 					"description": "Role card is selected"
 				},
 				{ "tool": "screenshot", "label": "role-selected", "description": "User role selected" }
@@ -178,20 +178,20 @@
 				{ "tool": "notice", "message": "Installer 5/16: Navigate to Review", "duration": 3000 },
 				{
 					"tool": "highlight",
-					"selector": ".flowti-installer-modal .ft-btn-primary",
+					"selector": "[data-test-id='installer-next-btn']",
 					"style": "button",
 					"description": "Highlight Next button"
 				},
 				{
 					"tool": "click",
-					"selector": ".flowti-installer-modal .ft-btn-primary",
+					"selector": "[data-test-id='installer-next-btn']",
 					"description": "Click Next to advance to Review"
 				},
 				{ "tool": "wait", "ms": 1000 },
 				{
 					"tool": "assert",
 					"type": "eval",
-					"code": "(() => { const h = document.querySelector('.flowti-installer-modal h2')?.textContent ?? ''; return h.includes('Ready') ? 'true' : 'false'; })()",
+					"code": "(() => { const h = document.querySelector('[data-test-id=\"installer-modal\"] h2')?.textContent ?? ''; return h.includes('Ready') ? 'true' : 'false'; })()",
 					"expected": "true",
 					"description": "Review page heading contains 'Ready'"
 				},
@@ -211,27 +211,27 @@
 				{
 					"tool": "assert",
 					"type": "text",
-					"selector": ".flowti-installer-modal .ft-review-identity",
+					"selector": "[data-test-id='installer-review-identity']",
 					"contains": "E2E Tester",
 					"description": "User name shown in review"
 				},
 				{
 					"tool": "assert",
 					"type": "text",
-					"selector": ".flowti-installer-modal .ft-review-role-badge",
+					"selector": "[data-test-id='installer-review-role']",
 					"contains": "User",
 					"description": "Role badge shows 'User'"
 				},
 				{
 					"tool": "assert",
 					"type": "visible",
-					"selector": ".flowti-installer-modal .ft-folder-list",
+					"selector": "[data-test-id='installer-folder-list']",
 					"description": "Folder structure section visible"
 				},
 				{
 					"tool": "assert",
 					"type": "visible",
-					"selector": ".flowti-installer-modal .checkbox-container.is-enabled",
+					"selector": "[data-test-id='installer-modal'] .checkbox-container.is-enabled",
 					"description": "Sample content toggle is enabled"
 				},
 				{ "tool": "screenshot", "label": "review-settings", "description": "Review page settings verified" }
@@ -250,13 +250,13 @@
 				{ "tool": "notice", "message": "Installer 7/16: Starting install...", "duration": 5000 },
 				{
 					"tool": "highlight",
-					"selector": ".flowti-installer-modal .ft-btn-primary",
+					"selector": "[data-test-id='installer-install-btn']",
 					"style": "button",
 					"description": "Highlight Install button"
 				},
 				{
 					"tool": "click",
-					"selector": ".flowti-installer-modal .ft-btn-primary",
+					"selector": "[data-test-id='installer-install-btn']",
 					"description": "Click Install to start installation"
 				},
 				{ "tool": "wait", "ms": 1000 },
@@ -287,7 +287,7 @@
 				{
 					"tool": "assert",
 					"type": "eval",
-					"code": "(() => { const h = document.querySelector('.flowti-installer-modal h2')?.textContent ?? ''; return h.toLowerCase().includes('complete') ? 'true' : 'false'; })()",
+					"code": "(() => { const h = document.querySelector('[data-test-id=\"installer-modal\"] h2')?.textContent ?? ''; return h.toLowerCase().includes('complete') ? 'true' : 'false'; })()",
 					"expected": "true",
 					"description": "Completion page heading contains 'complete'"
 				},
@@ -326,13 +326,13 @@
 				{
 					"tool": "assert",
 					"type": "text",
-					"selector": ".flowti-installer-modal .ft-alert-success",
+					"selector": "[data-test-id='installer-success-alert']",
 					"contains": "E2E Tester",
 					"description": "Success alert contains user name"
 				},
 				{
 					"tool": "eval",
-					"code": "(() => { const count = document.querySelectorAll('.flowti-installer-modal .ft-step-status-icon').length; if (count < 3) throw new Error('Expected 3+ step summaries, found: ' + count); return 'ok'; })()",
+					"code": "(() => { const count = document.querySelectorAll('[data-test-id=\"installer-step-status\"]').length; if (count < 3) throw new Error('Expected 3+ step summaries, found: ' + count); return 'ok'; })()",
 					"description": "At least 3 step status icons present"
 				},
 				{ "tool": "screenshot", "label": "success-message", "description": "Success message with step summary" }
@@ -350,20 +350,20 @@
 				{ "tool": "notice", "message": "Installer 11/16: Closing wizard", "duration": 3000 },
 				{
 					"tool": "highlight",
-					"selector": ".flowti-installer-modal .ft-btn-secondary",
+					"selector": "[data-test-id='installer-close-btn']",
 					"style": "button",
 					"description": "Highlight Close button"
 				},
 				{
 					"tool": "click",
-					"selector": ".flowti-installer-modal .ft-btn-secondary",
+					"selector": "[data-test-id='installer-close-btn']",
 					"description": "Click Close to dismiss wizard"
 				},
 				{ "tool": "wait", "ms": 1000 },
 				{
 					"tool": "assert",
 					"type": "not-visible",
-					"selector": ".flowti-installer-modal",
+					"selector": "[data-test-id='installer-modal']",
 					"description": "Wizard modal is gone"
 				},
 				{ "tool": "screenshot", "label": "wizard-closed", "description": "Wizard dismissed, main workspace visible" }

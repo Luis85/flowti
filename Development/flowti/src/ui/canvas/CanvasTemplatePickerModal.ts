@@ -40,6 +40,7 @@ export class CanvasTemplatePickerModal extends Modal {
 
 		for (const template of CANVAS_TEMPLATES) {
 			const card = grid.createDiv({ cls: "ft-canvas-template-card" });
+			card.dataset.testId = "canvas-template-card";
 			card.dataset.templateId = template.id;
 			card.setAttribute("role", "button");
 			card.tabIndex = 0;

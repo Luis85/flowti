@@ -40,7 +40,7 @@
 			"description": "Screenshots the Event Catalog dashboard (default view).",
 			"uiContext": { "view": "flowti-event-catalog", "viewName": "Event Catalog", "components": ["WorkspaceShell", "Dashboard"] },
 			"actions": [
-				{ "tool": "highlight", "selector": ".ft-dashboard", "description": "Highlight dashboard area" },
+				{ "tool": "highlight", "selector": ".workspace-leaf.mod-active .view-content", "description": "Highlight dashboard area" },
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "screenshot", "label": "dashboard", "description": "Event Catalog dashboard" }
 			]
@@ -164,7 +164,7 @@
 			"description": "Screenshots the Data Exchange dashboard (default view).",
 			"uiContext": { "view": "flowti-data-exchange-hub", "viewName": "Data Exchange", "components": ["WorkspaceShell", "Dashboard"] },
 			"actions": [
-				{ "tool": "highlight", "selector": ".ft-dashboard", "description": "Highlight dashboard area" },
+				{ "tool": "highlight", "selector": ".workspace-leaf.mod-active .view-content", "description": "Highlight dashboard area" },
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "screenshot", "label": "dashboard", "description": "Data Exchange dashboard" }
 			]
@@ -288,7 +288,7 @@
 			"description": "Screenshots the User Hub dashboard (default view).",
 			"uiContext": { "view": "flowti-user-hub", "viewName": "User Hub", "components": ["WorkspaceShell", "Dashboard"] },
 			"actions": [
-				{ "tool": "highlight", "selector": ".ft-dashboard", "description": "Highlight dashboard area" },
+				{ "tool": "highlight", "selector": ".workspace-leaf.mod-active .view-content", "description": "Highlight dashboard area" },
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "screenshot", "label": "dashboard", "description": "User Hub dashboard" }
 			]
@@ -364,7 +364,7 @@
 			"description": "Screenshots the Train Hub dashboard (default view).",
 			"uiContext": { "view": "flowti-train-hub", "viewName": "Train Hub", "components": ["WorkspaceShell", "Dashboard"] },
 			"actions": [
-				{ "tool": "highlight", "selector": ".ft-dashboard", "description": "Highlight dashboard area" },
+				{ "tool": "highlight", "selector": ".workspace-leaf.mod-active .view-content", "description": "Highlight dashboard area" },
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "screenshot", "label": "dashboard", "description": "Train Hub dashboard" }
 			]
@@ -416,7 +416,7 @@
 			"description": "Screenshots the Analytics Hub dashboard (default view).",
 			"uiContext": { "view": "flowti-analytics-hub", "viewName": "Analytics Hub", "components": ["WorkspaceShell", "Dashboard"] },
 			"actions": [
-				{ "tool": "highlight", "selector": ".ft-dashboard", "description": "Highlight dashboard area" },
+				{ "tool": "highlight", "selector": ".workspace-leaf.mod-active .view-content", "description": "Highlight dashboard area" },
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "screenshot", "label": "dashboard", "description": "Analytics Hub dashboard" }
 			]

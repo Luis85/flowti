@@ -35,8 +35,8 @@
 				{ "tool": "screenshot", "label": "before", "description": "Baseline state before command" },
 				{ "tool": "command", "id": "flowti:start-canvas-session", "description": "Open template picker" },
 				{ "tool": "wait", "ms": 500 },
-				{ "tool": "assert", "type": "visible", "selector": ".modal-container .ft-canvas-template-card", "description": "Template picker is visible" },
-				{ "tool": "highlight", "selector": ".modal-container .ft-canvas-template-card", "style": "element" },
+				{ "tool": "assert", "type": "visible", "selector": ".modal-container [data-test-id='canvas-template-card']", "description": "Template picker is visible" },
+				{ "tool": "highlight", "selector": ".modal-container [data-test-id='canvas-template-card']", "style": "element" },
 				{ "tool": "screenshot", "label": "after", "description": "Template picker visible with cards highlighted" },
 				{ "tool": "manual", "instruction": "Review template cards for correct icons, titles, and descriptions. Verify the modal layout is centered and cards are evenly spaced.", "description": "Visual QA of template picker modal" }
 			]
@@ -55,7 +55,7 @@
 			"actions": [
 				{ "tool": "notice", "message": "Step 2/9: Selecting template", "duration": 3000, "description": "Annotate test progress" },
 				{ "tool": "manual", "instruction": "Browse available templates and compare their descriptions. In a real session, the user would read each card before choosing.", "description": "User reviews template options" },
-				{ "tool": "click", "selector": ".modal-container .ft-canvas-template-card", "description": "Click first template card" },
+				{ "tool": "click", "selector": ".modal-container [data-test-id='canvas-template-card']", "description": "Click first template card" },
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "assert", "type": "visible", "selector": ".modal-container .setting-item input", "description": "InputModal with goal field is visible" },
 				{ "tool": "highlight", "selector": ".modal-container .setting-item input", "style": "element" },
@@ -236,8 +236,8 @@
 				},
 				{ "tool": "wait", "ms": 1500 },
 				{ "tool": "assert", "type": "event", "event": "session.closure.started", "description": "Closure started event emitted" },
-				{ "tool": "assert", "type": "visible", "selector": ".ft-closure-overlay", "description": "Closure overlay is visible" },
-				{ "tool": "highlight", "selector": ".ft-closure-skip", "style": "button" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='closure-overlay']", "description": "Closure overlay is visible" },
+				{ "tool": "highlight", "selector": "[data-test-id='closure-skip']", "style": "button" },
 				{ "tool": "screenshot", "label": "closure-overlay", "description": "Closure overlay visible with Skip button highlighted" },
 				{ "tool": "manual", "instruction": "Review the closure overlay: verify the reflection prompt is readable, the rating widget is interactive (try clicking stars), and both Skip and Complete buttons are visible and styled correctly.", "description": "Visual QA and interaction test of closure overlay" }
 			]
@@ -256,7 +256,7 @@
 			"interactions": ["click: Skip closure"],
 			"actions": [
 				{ "tool": "notice", "message": "Step 9/9: Skipping closure ritual", "duration": 3000, "description": "Annotate test progress" },
-				{ "tool": "click", "selector": ".ft-closure-skip", "description": "Click Skip button" },
+				{ "tool": "click", "selector": "[data-test-id='closure-skip']", "description": "Click Skip button" },
 				{ "tool": "wait", "ms": 1000 },
 				{
 					"tool": "eval",

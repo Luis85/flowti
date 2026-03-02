@@ -101,6 +101,7 @@ export class InstallerWizardModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.addClass("flowti-installer-modal");
+		contentEl.dataset.testId = "installer-modal";
 
 		switch (this.currentPage) {
 			case "welcome":
@@ -167,6 +168,7 @@ export class InstallerWizardModal extends Modal {
 		this.renderCardHeader(card, "folder", `Folder Structure (${allFolders.length} folders)`);
 
 		const folderList = card.createDiv({ cls: "ft-list ft-folder-list ft-folder-list-font" });
+		folderList.dataset.testId = "installer-folder-list";
 
 		for (const parent of topLevel) {
 			const children = allFolders.filter(
@@ -245,6 +247,7 @@ export class InstallerWizardModal extends Modal {
 					.onChange((value) => {
 						this.userName = value;
 					});
+				text.inputEl.dataset.testId = "installer-name-input";
 				text.inputEl.addEventListener("keydown", (e) => {
 					if (e.key === "Enter") goToReview();
 				});
@@ -263,6 +266,8 @@ export class InstallerWizardModal extends Modal {
 			const card = cardContainer.createDiv({
 				cls: `ft-card ft-p-2 ${isSelected ? "ft-card-selected" : ""}`,
 			});
+			card.dataset.testId = "installer-role-card";
+			card.dataset.testSelected = isSelected ? "true" : "false";
 
 			if (!option.disabled) {
 				card.addClass("ft-role-card-enabled");
@@ -295,15 +300,19 @@ export class InstallerWizardModal extends Modal {
 		// Navigation: cancel left, progress right
 		const nav = container.createDiv({ cls: "ft-flex ft-justify-between ft-mt-2" });
 
-		nav.createEl("button", {
+		const cancelBtn = nav.createEl("button", {
 			text: "Cancel",
 			cls: "ft-btn ft-btn-secondary",
-		}).addEventListener("click", () => this.close());
+		});
+		cancelBtn.dataset.testId = "installer-cancel-btn";
+		cancelBtn.addEventListener("click", () => this.close());
 
-		nav.createEl("button", {
+		const nextBtn = nav.createEl("button", {
 			text: "Next",
 			cls: "ft-btn ft-btn-primary",
-		}).addEventListener("click", goToReview);
+		});
+		nextBtn.dataset.testId = "installer-next-btn";
+		nextBtn.addEventListener("click", goToReview);
 
 		this.addKeyboardNav(goToReview, () => this.close());
 	}
@@ -323,10 +332,12 @@ export class InstallerWizardModal extends Modal {
 
 		const roleLabel = ROLE_OPTIONS.find((r) => r.id === this.selectedRole)?.label ?? "User";
 		const identityRow = container.createDiv({ cls: "ft-flex ft-gap-2 ft-items-center ft-review-identity" });
+		identityRow.dataset.testId = "installer-review-identity";
 		const userIcon = identityRow.createSpan({ cls: "ft-icon-muted ft-icon-14" });
 		setIcon(userIcon, "user");
 		identityRow.createSpan({ text: this.userName.trim(), cls: "ft-font-medium" });
-		identityRow.createSpan({ text: roleLabel, cls: "ft-text-xs ft-role-badge ft-review-role-badge" });
+		const roleBadge = identityRow.createSpan({ text: roleLabel, cls: "ft-text-xs ft-role-badge ft-review-role-badge" });
+		roleBadge.dataset.testId = "installer-review-role";
 
 		// ── Preferences ──────────────────────────────────
 		new Setting(container)
@@ -414,15 +425,19 @@ export class InstallerWizardModal extends Modal {
 
 		const nav = container.createDiv({ cls: "ft-flex ft-justify-between ft-mt-2" });
 
-		nav.createEl("button", {
+		const backBtn = nav.createEl("button", {
 			text: "Back",
 			cls: "ft-btn ft-btn-secondary",
-		}).addEventListener("click", goBack);
+		});
+		backBtn.dataset.testId = "installer-back-btn";
+		backBtn.addEventListener("click", goBack);
 
-		nav.createEl("button", {
+		const installBtn = nav.createEl("button", {
 			text: "Install",
 			cls: "ft-btn ft-btn-primary",
-		}).addEventListener("click", goInstall);
+		});
+		installBtn.dataset.testId = "installer-install-btn";
+		installBtn.addEventListener("click", goInstall);
 
 		this.addKeyboardNav(goInstall, goBack);
 	}
@@ -552,6 +567,7 @@ export class InstallerWizardModal extends Modal {
 			setIcon(heroIconEl, "circle-check-big");
 
 			const alert = container.createDiv({ cls: "ft-alert ft-alert-success ft-p-3" });
+			alert.dataset.testId = "installer-success-alert";
 			alert.createEl("p", {
 				text: `Welcome, ${this.userName.trim()}! Your Flowti IBDE environment is ready.`,
 			});
@@ -565,6 +581,7 @@ export class InstallerWizardModal extends Modal {
 			for (const entry of this.stepStatuses) {
 				const row = list.createDiv({ cls: "ft-flex ft-gap-2 ft-items-center" });
 				const statusIcon = row.createSpan({ cls: "ft-step-status-icon ft-icon-14" });
+				statusIcon.dataset.testId = "installer-step-status";
 				setIcon(statusIcon, entry.status === "skipped" ? "minus" : "check");
 				const label = entry.status === "skipped" ? `${entry.name} (skipped)` : entry.name;
 				row.createSpan({ text: label, cls: "ft-text-muted" });
@@ -593,18 +610,22 @@ export class InstallerWizardModal extends Modal {
 		const navLeft = nav.createDiv({ cls: "ft-flex ft-gap-2" });
 		const navRight = nav.createDiv({ cls: "ft-flex ft-gap-2" });
 
-		navLeft.createEl("button", {
+		const closeBtn = navLeft.createEl("button", {
 			text: "Close",
 			cls: "ft-btn ft-btn-secondary",
-		}).addEventListener("click", () => {
+		});
+		closeBtn.dataset.testId = "installer-close-btn";
+		closeBtn.addEventListener("click", () => {
 			this.close();
 		});
 
 		if (!this.installSuccess) {
-			navRight.createEl("button", {
+			const retryBtn = navRight.createEl("button", {
 				text: "Retry",
 				cls: "ft-btn ft-btn-primary",
-			}).addEventListener("click", () => {
+			});
+			retryBtn.dataset.testId = "installer-retry-btn";
+			retryBtn.addEventListener("click", () => {
 				this.currentPage = "progress";
 				this.renderPage();
 				void this.runInstallation();
@@ -618,10 +639,12 @@ export class InstallerWizardModal extends Modal {
 					void this.eventBus.emit("ui.openAnalyticsHub", {});
 				}, 100);
 			};
-			navRight.createEl("button", {
+			const exploreBtn = navRight.createEl("button", {
 				text: "Explore your dashboard",
 				cls: "ft-btn ft-btn-primary",
-			}).addEventListener("click", explore);
+			});
+			exploreBtn.dataset.testId = "installer-explore-btn";
+			exploreBtn.addEventListener("click", explore);
 
 			this.addKeyboardNav(explore, () => this.close());
 		} else if (this.installSuccess) {

@@ -86,8 +86,8 @@ export type BlueprintSwimlane =
 export interface JourneyDefinition {
 	/** Journey display name. e.g. "Canvas Session" */
 	journey: string;
-	/** Chapter number for vitest describe block. e.g. 5 → "Chapter 5: Canvas Session" */
-	chapter: number;
+	/** Chapter number for vitest describe block. e.g. 5 → "Chapter 5: Canvas Session". Optional — omit for unnumbered journeys. */
+	chapter?: number;
 	/** If true, skip this entire journey during execution. All steps register as skipped. */
 	skip?: boolean;
 	/** What this journey validates. */

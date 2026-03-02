@@ -204,7 +204,7 @@ function validateJourney(definition: JourneyDefinition): string[] {
 
 	// Required fields
 	if (!definition.journey) errors.push("Missing required field: journey");
-	if (definition.chapter == null) errors.push("Missing required field: chapter");
+	// chapter is optional — unnumbered journeys are valid
 	// tools array is now optional — derived from actions when omitted
 
 	// Unique step IDs
@@ -418,12 +418,14 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 		);
 	}
 
-	const chapterLabel = `Chapter ${definition.chapter}: ${definition.journey}`;
+	const chapterLabel = definition.chapter != null
+		? `Chapter ${definition.chapter}: ${definition.journey}`
+		: definition.journey;
 
 	// ── Skip mode ────────────────────────────────────────────
 	if (options?.skip || definition.skip) {
 		describe(`${chapterLabel} (skip mode)`, () => {
-			it(`${definition.chapter}.0 — Skipped (previous run passed)`, async () => {
+			it(`${definition.chapter != null ? `${definition.chapter}.0` : "0"} — Skipped (previous run passed)`, async () => {
 				if (options?.onSkip) {
 					const fixture = createFixture(process.env.OBSIDIAN_VAULT);
 					await options.onSkip(fixture.cli);
@@ -537,7 +539,7 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 		});
 
 		for (const step of resolvedSteps) {
-			it(`${definition.chapter}.${step.guideSection} — ${step.title}`, async () => {
+			it(`${definition.chapter != null ? `${definition.chapter}.` : ""}${step.guideSection} — ${step.title}`, async () => {
 				// Skip if marked as skipped in the journey definition
 				if (step.skip) {
 					const journeyStep = toJourneyStep(step, "journey");

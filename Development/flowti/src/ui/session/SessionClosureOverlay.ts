@@ -26,6 +26,7 @@ export class SessionClosureOverlay {
 
 	render(): void {
 		const overlay = this.container.createDiv({ cls: "ft-closure-overlay" });
+		overlay.dataset.testId = "closure-overlay";
 
 		// Header
 		const header = overlay.createDiv({ cls: "ft-closure-header" });
@@ -51,6 +52,7 @@ export class SessionClosureOverlay {
 		submitBtn.addEventListener("click", () => this.handleSubmit(form));
 
 		const skipBtn = actions.createEl("button", { text: "Skip", cls: "ft-closure-skip" });
+		skipBtn.dataset.testId = "closure-skip";
 		skipBtn.addEventListener("click", () => this.callbacks.onSkip());
 	}
 
