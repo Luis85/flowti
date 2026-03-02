@@ -1556,6 +1556,7 @@ async function sessionView(config, entries, prereqResults, exitCode) {
 		const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 		console.log("    r) Re-run");
 		console.log("    b) Build and re-run");
+		console.log("    d) Build only (no re-run)");
 		console.log("    e) Edit test selection");
 		console.log("    a) Generate audit");
 		console.log("    m) Back to main menu");
@@ -1597,6 +1598,12 @@ async function sessionView(config, entries, prereqResults, exitCode) {
 			const rerunConfig = rerunWithFreshTimestamp(currentConfig, entries);
 			currentExitCode = await executeSession(rerunConfig, entries, prereqResults);
 			currentConfig = rerunConfig;
+			continue;
+		}
+
+		if (choice === "d" || choice === "D") {
+			rl.close();
+			quickBuildAndDeploy();
 			continue;
 		}
 

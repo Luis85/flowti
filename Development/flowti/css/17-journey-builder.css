@@ -161,3 +161,153 @@
 .ft-jb-continue-icon {
 	display: flex;
 }
+
+/* ── Step list ────────────────────────────────────────────── */
+
+.ft-jb-step-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-2);
+	margin-bottom: var(--size-4-3);
+}
+
+.ft-jb-step-card {
+	padding: var(--size-4-2) var(--size-4-3);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	background: var(--background-secondary);
+}
+
+.ft-jb-step-card-header {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+}
+
+.ft-jb-step-num {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-semibold);
+	flex-shrink: 0;
+}
+
+.ft-jb-step-title {
+	flex: 1;
+	font-size: var(--font-ui-small);
+}
+
+.ft-jb-step-remove {
+	display: flex;
+	cursor: pointer;
+	color: var(--text-muted);
+	transition: color 150ms ease;
+}
+
+.ft-jb-step-remove:hover {
+	color: var(--text-error);
+}
+
+/* ── Add step button ──────────────────────────────────────── */
+
+.ft-jb-add-step-btn {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-1);
+	margin-bottom: var(--size-4-4);
+	padding: var(--size-4-2);
+	border: 1px dashed var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	cursor: pointer;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	transition: border-color 150ms ease, color 150ms ease;
+}
+
+.ft-jb-add-step-btn:hover {
+	border-color: var(--interactive-accent);
+	color: var(--interactive-accent);
+}
+
+.ft-jb-add-step-btn:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 2px;
+}
+
+.ft-jb-add-step-icon {
+	display: flex;
+}
+
+/* ── Step inline form ─────────────────────────────────────── */
+
+.ft-jb-step-form {
+	padding: var(--size-4-3);
+	border: 1px solid var(--interactive-accent);
+	border-radius: var(--radius-s);
+	background: var(--background-secondary);
+	margin-bottom: var(--size-4-2);
+}
+
+.ft-jb-step-form-actions {
+	display: flex;
+	justify-content: flex-end;
+	margin-top: var(--size-4-2);
+}
+
+.ft-jb-step-form-confirm {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-1);
+	padding: var(--size-4-1) var(--size-4-2);
+	border-radius: var(--radius-s);
+	cursor: pointer;
+	color: var(--interactive-accent);
+	font-size: var(--font-ui-small);
+	transition: background-color 150ms ease;
+}
+
+.ft-jb-step-form-confirm:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+/* ── End event group ──────────────────────────────────────── */
+
+.ft-jb-end-event-group {
+	margin-bottom: var(--size-4-3);
+}
+
+/* ── Export button ─────────────────────────────────────────── */
+
+.ft-jb-export-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--size-4-2);
+	padding: var(--size-4-2) var(--size-4-4);
+	border: 1px solid var(--interactive-accent);
+	border-radius: var(--radius-m);
+	color: var(--interactive-accent);
+	cursor: pointer;
+	font-weight: var(--font-semibold);
+	transition: background-color 150ms ease, color 150ms ease;
+}
+
+.ft-jb-export-btn:hover {
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.ft-jb-export-btn:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 2px;
+}
+
+.ft-jb-export-btn-icon {
+	display: flex;
+}

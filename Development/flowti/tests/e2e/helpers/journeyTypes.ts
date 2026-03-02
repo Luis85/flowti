@@ -83,6 +83,18 @@ export type BlueprintSwimlane =
 	| "backstage"   // Behind-the-scenes processing (services, events)
 	| "support";    // Supporting systems (storage, external APIs)
 
+/** An improvement idea or note captured during journey development. */
+export interface JourneyImprovement {
+	/** Short title of the improvement. */
+	title: string;
+	/** Detailed description. */
+	description?: string;
+	/** Priority: nice-to-have, should-have, must-have. */
+	priority?: "nice-to-have" | "should-have" | "must-have";
+	/** Date the idea was captured (ISO string). */
+	added?: string;
+}
+
 export interface JourneyDefinition {
 	/** Journey display name. e.g. "Canvas Session" */
 	journey: string;
@@ -118,6 +130,10 @@ export interface JourneyDefinition {
 	actors?: string[];
 	/** Services exercised during this journey (e.g. ["SettingsService", "EventBus"]). */
 	services?: string[];
+
+	// ── Improvements ───────────────────────────────────────
+	/** Ideas, enhancements, and notes captured during development. */
+	improvements?: JourneyImprovement[];
 
 	// ── Steps ───────────────────────────────────────────────
 	/** Steps run before the journey. Failures block main steps; teardown still runs. */
@@ -195,6 +211,8 @@ export interface StepDefinition {
 	/** If true, this step is under development. The executor runs it normally,
 	 *  then terminates — remaining steps register as skipped. */
 	dev?: boolean;
+	/** Ideas and notes captured during development of this step. */
+	improvements?: JourneyImprovement[];
 }
 
 // ─── Action definitions (discriminated union on `tool`) ─────────────
