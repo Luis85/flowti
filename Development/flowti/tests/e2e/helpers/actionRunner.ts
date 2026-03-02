@@ -7,7 +7,7 @@
  */
 import * as path from "node:path";
 import type { ObsidianCli } from "../../../src/infrastructure/cli/ObsidianCli";
-import type { ActionDefinition, AssertAction, CloseLeavesAction, CreateFileAction, DeleteFileAction, EmitAction, EvalAction, NoticeAction, OpenFileAction, OpenUrlAction, RibbonAction, ScreenshotAction, SeedAction, ThemeAction } from "./journeyTypes";
+import type { ActionDefinition, AssertAction, CloseLeavesAction, CreateFileAction, DeleteFileAction, EmitAction, EvalAction, NoticeAction, OpenFileAction, OpenUrlAction, RibbonAction, ScreenshotAction, SeedAction, ThemeAction, VisualInspectionAction } from "./journeyTypes";
 import { getAllSeeds, getSeedById, SEED_FOLDERS } from "./seedRegistry";
 import { highlightElement, highlightButton, highlightInput, highlightRibbon, highlightWebView, highlightAssert, notifyAssert } from "./highlight";
 import { navigateToTab } from "./navigation";
@@ -184,6 +184,9 @@ export async function executeAction(
 		case "manual":
 			// Manual actions are skipped during automated execution.
 			// They serve as documentation for steps requiring human intervention.
+			break;
+		case "visual-inspection":
+			await executeVisualInspection(cli, action, variables);
 			break;
 	}
 }
@@ -537,6 +540,105 @@ function executeSeedEntry(
 			break;
 		}
 	}
+}
+
+// ─── Visual inspection ──────────────────────────────────────────────
+
+/** Default timeout for visual inspection (5 minutes). */
+const VISUAL_TIMEOUT_MS = 300_000;
+/** Polling interval to check for operator response. */
+const VISUAL_POLL_MS = 500;
+
+/**
+ * Shows an Obsidian notice with Pass/Fail buttons. On Fail, opens a modal
+ * prompting for a reason. Always prompts — this is a required interactive step.
+ */
+async function executeVisualInspection(
+	cli: ObsidianCli,
+	action: VisualInspectionAction,
+	variables: Record<string, string>,
+): Promise<void> {
+	const prompt = resolve(action.prompt, variables);
+	const escapedPrompt = JSON.stringify(prompt);
+	const timeoutMs = action.timeout ?? VISUAL_TIMEOUT_MS;
+
+	// Clear previous result and show the inspection notice with Pass/Fail buttons.
+	// Fail sets 'fail-pending' — the polling loop then opens a modal for the reason.
+	cli.eval([
+		"(() => {",
+		"  delete window._e2eVisualResult;",
+		"  delete window._e2eVisualReason;",
+		"  const notice = new Notice('', 0);",
+		"  const el = notice.noticeEl;",
+		"  el.empty();",
+		"  el.style.flexDirection = 'column';",
+		"  el.style.alignItems = 'stretch';",
+		"  el.style.maxWidth = '400px';",
+		`  el.createEl('strong', { text: 'Visual Inspection' });`,
+		`  el.createEl('p', { text: ${escapedPrompt} });`,
+		"  const btnRow = el.createDiv({ cls: 'modal-button-container' });",
+		"  btnRow.style.display = 'flex';",
+		"  btnRow.style.gap = '8px';",
+		"  btnRow.style.marginTop = '8px';",
+		"  const passBtn = btnRow.createEl('button', { text: 'Pass', cls: 'mod-cta' });",
+		"  passBtn.addEventListener('click', () => { window._e2eVisualResult = 'pass'; notice.hide(); });",
+		"  const failBtn = btnRow.createEl('button', { text: 'Fail' });",
+		"  failBtn.style.backgroundColor = 'var(--background-modifier-error)';",
+		"  failBtn.style.color = 'var(--text-on-accent)';",
+		"  failBtn.addEventListener('click', () => { window._e2eVisualResult = 'fail-pending'; notice.hide(); });",
+		"})()",
+	].join(" "));
+
+	// Poll for operator response
+	const deadline = Date.now() + timeoutMs;
+	while (Date.now() < deadline) {
+		await sleep(VISUAL_POLL_MS);
+		const result = cli.eval("window._e2eVisualResult ?? 'pending'");
+		if (!result.success) continue;
+
+		if (result.value === "pass") return;
+
+		if (result.value === "fail-pending") {
+			// Operator clicked Fail — open a modal to capture the reason
+			cli.eval([
+				"(() => {",
+				"  delete window._e2eVisualReason;",
+				"  window._e2eVisualResult = 'awaiting-reason';",
+				"  const modal = new (class extends require('obsidian').Modal {",
+				"    onOpen() {",
+				"      const { contentEl } = this;",
+				"      contentEl.createEl('h2', { text: 'Visual Inspection Failed' });",
+				`      contentEl.createEl('p', { text: ${escapedPrompt} });`,
+				"      contentEl.createEl('label', { text: 'Reason for failure:' });",
+				"      const textarea = contentEl.createEl('textarea');",
+				"      textarea.style.width = '100%';",
+				"      textarea.style.minHeight = '80px';",
+				"      textarea.style.marginTop = '8px';",
+				"      const submitRow = contentEl.createDiv({ cls: 'modal-button-container' });",
+				"      const submitBtn = submitRow.createEl('button', { text: 'Submit', cls: 'mod-warning' });",
+				"      submitBtn.addEventListener('click', () => {",
+				"        window._e2eVisualReason = textarea.value || 'No reason provided';",
+				"        window._e2eVisualResult = 'fail';",
+				"        this.close();",
+				"      });",
+				"    }",
+				"  })(app);",
+				"  modal.open();",
+				"})()",
+			].join(" "));
+			continue;
+		}
+
+		if (result.value === "fail") {
+			const reasonResult = cli.eval("window._e2eVisualReason ?? 'No reason provided'");
+			const reason = reasonResult.success ? reasonResult.value : "No reason provided";
+			throw new Error(`Visual inspection failed: ${prompt}\nReason: ${reason}`);
+		}
+	}
+
+	throw new Error(
+		`Visual inspection timed out after ${(timeoutMs / 1000).toFixed(0)}s: ${prompt}`,
+	);
 }
 
 function executeEval(cli: ObsidianCli, action: EvalAction, variables: Record<string, string>): void {

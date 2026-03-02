@@ -1,0 +1,57 @@
+{
+	"journey": "User Hub",
+	"chapter": 7,
+	"description": "Validates the User Hub homepage and Sessions tab, including a visual inspection of the sessions view.",
+	"testSource": "tests/e2e/70-journey-user-hub.test.ts",
+	"reportPath": "docs/journeys/User Hub/User Hub.md",
+	"canvasPath": "docs/journeys/User Hub/User Hub.canvas",
+	"tools": ["command", "navigate", "wait", "assert", "screenshot", "visual-inspection"],
+	"domain": "user",
+	"category": "hub",
+	"steps": [
+		{
+			"id": "01-open-user-hub",
+			"title": "Open the User Hub",
+			"guideSection": 1,
+			"description": "Opens the User Hub via the command palette. The hub should appear with the default Sessions tab active.",
+			"expectedInput": "Plugin enabled, no User Hub open",
+			"expectedOutput": "User Hub is visible with Sessions tab selected",
+			"uiContext": {
+				"view": "flowti-user-hub",
+				"viewName": "User Hub",
+				"tab": "sessions",
+				"tabName": "Sessions"
+			},
+			"events": ["ui.openUserHub"],
+			"commands": ["flowti:open-user-hub"],
+			"interactions": ["command: Open user hub"],
+			"actions": [
+				{ "tool": "command", "id": "flowti:open-user-hub", "description": "Open User Hub" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "assert", "type": "leaf", "viewType": "flowti-user-hub", "description": "User Hub leaf is open" },
+				{ "tool": "screenshot", "label": "homepage", "description": "User Hub homepage with Sessions tab" }
+			]
+		},
+		{
+			"id": "02-sessions-tab",
+			"title": "Inspect Sessions tab",
+			"guideSection": 2,
+			"description": "Navigates to the Sessions tab and performs a visual inspection to verify the session list renders correctly.",
+			"expectedInput": "User Hub is open",
+			"expectedOutput": "Sessions tab is active and visually inspected",
+			"uiContext": {
+				"view": "flowti-user-hub",
+				"viewName": "User Hub",
+				"tab": "sessions",
+				"tabName": "Sessions"
+			},
+			"interactions": ["navigate: Sessions tab", "visual-inspection: Sessions view"],
+			"actions": [
+				{ "tool": "navigate", "hub": "user-hub", "viewType": "flowti-user-hub", "tab": "sessions", "description": "Navigate to Sessions tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "sessions", "description": "Sessions tab content" },
+				{ "tool": "visual-inspection", "prompt": "Verify the Sessions tab renders correctly: session list is visible, columns are aligned, and the layout looks clean.", "description": "Visual inspection of Sessions view" }
+			]
+		}
+	]
+}

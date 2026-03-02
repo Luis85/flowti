@@ -144,6 +144,7 @@ function computeActionStats(data) {
 		screenshots: 0,
 		assertions: 0,
 		manualChecks: 0,
+		visualInspections: 0,
 		notices: 0,
 		themeChanges: 0,
 		createFiles: 0,
@@ -162,6 +163,7 @@ function computeActionStats(data) {
 				case "screenshot": stats.screenshots++; break;
 				case "assert": stats.assertions++; break;
 				case "manual": stats.manualChecks++; break;
+				case "visual-inspection": stats.visualInspections++; break;
 				case "notice": stats.notices++; break;
 				case "theme": stats.themeChanges++; break;
 				case "create-file": stats.createFiles++; break;
@@ -177,6 +179,7 @@ function computeActionStats(data) {
 		screenshots: stats.screenshots,
 		assertions: stats.assertions,
 		manual_checks: stats.manualChecks,
+		visual_inspections: stats.visualInspections,
 		notices: stats.notices,
 		theme_changes: stats.themeChanges,
 		create_files: stats.createFiles,
@@ -312,6 +315,7 @@ function generateJourneyReport(data, date) {
 		screenshots: actionStats.screenshots,
 		assertions: actionStats.assertions,
 		manual_checks: actionStats.manual_checks,
+		visual_inspections: actionStats.visual_inspections,
 		notices: actionStats.notices,
 		theme_changes: actionStats.theme_changes,
 		create_files: actionStats.create_files,
@@ -357,10 +361,12 @@ function generateJourneyReport(data, date) {
 		`${stepsSummary} | ` +
 		`${formatDuration(data.durationMs ?? 0)}`,
 		`> Mode: **${fm.mode}** | Source: \`${data.testSource ?? "unknown"}\``,
-		`> Actions: ${actionStats.total} | Screenshots: ${actionStats.screenshots} | Assertions: ${actionStats.assertions} | Manual: ${actionStats.manual_checks} | Notices: ${actionStats.notices}` + (actionStats.theme_changes > 0 ? ` | Themes: ${actionStats.theme_changes}` : ""),
+		`> Actions: ${actionStats.total} | Screenshots: ${actionStats.screenshots} | Assertions: ${actionStats.assertions} | Manual: ${actionStats.manual_checks}` + (actionStats.visual_inspections > 0 ? ` | Visual: ${actionStats.visual_inspections}` : "") + ` | Notices: ${actionStats.notices}` + (actionStats.theme_changes > 0 ? ` | Themes: ${actionStats.theme_changes}` : ""),
 		`> Tools: ${actionStats.tools.map((t) => `\`${t}\``).join(" ")}`,
 		"",
 		`Canvas: [[${journeyTitle}.canvas|${journeyTitle} Canvas]]`,
+		"",
+		"---",
 		"",
 	];
 
@@ -476,6 +482,16 @@ function generateJourneyReport(data, date) {
 			lines.push("");
 		}
 
+		// Visual inspection actions — interactive pass/fail checkpoints
+		const viActions = (s.actions ?? []).filter((a) => a.tool === "visual-inspection");
+		if (viActions.length > 0) {
+			lines.push("> [!eye] Visual Inspection");
+			for (const vi of viActions) {
+				lines.push(`> - ${resolveVars(vi.prompt, vars)}`);
+			}
+			lines.push("");
+		}
+
 		// Notice actions — runtime annotations shown during test execution
 		const noticeActions = (s.actions ?? []).filter((a) => a.tool === "notice");
 		if (noticeActions.length > 0) {
@@ -506,10 +522,10 @@ function generateJourneyReport(data, date) {
 	for (const stepResult of journeySteps) {
 		renderStep(stepResult);
 	}
+	lines.push("---", "");
 
 	// ── Render Teardown section ──
 	if (teardownSteps.length > 0) {
-		lines.push("---", "");
 		const teardownPassed = teardownSteps.filter((r) => r.status === "pass").length;
 		const teardownTotal = teardownSteps.length;
 		lines.push(`## Teardown (${teardownPassed}/${teardownTotal})`);
@@ -517,6 +533,7 @@ function generateJourneyReport(data, date) {
 		for (const stepResult of teardownSteps) {
 			renderStep(stepResult);
 		}
+		lines.push("---", "");
 	}
 
 	const content = frontmatter + lines.join("\n");
@@ -582,6 +599,7 @@ function actionColor(tool) {
 		case "screenshot": return "6";
 		case "assert": return "4";
 		case "manual": return "3";
+		case "visual-inspection": return "3";
 		case "notice": return "5";
 		case "emit": return "1";
 		case "theme": return "2";
@@ -630,6 +648,8 @@ function formatActionText(action, vars) {
 			return `**notice** ${r(action.message)}${desc}`;
 		case "manual":
 			return `**manual**\n${r(action.instruction)}`;
+		case "visual-inspection":
+			return `**visual-inspection**\n${r(action.prompt)}`;
 		case "theme":
 			return `**theme** → \`${r(action.theme)}\`${desc}`;
 		case "create-file":
@@ -828,6 +848,16 @@ function generateJourneyCanvas(data, screenshotBasePath, trace, configFilePath) 
 			configLines.push("**Manual QA**:");
 			for (const m of manualActions) {
 				configLines.push(`- [ ] ${resolveVars(m.instruction, canvasVars)}`);
+			}
+		}
+
+		// Visual inspection actions
+		const viActions = (s.actions ?? []).filter((a) => a.tool === "visual-inspection");
+		if (viActions.length > 0) {
+			configLines.push("");
+			configLines.push("**Visual Inspection**:");
+			for (const vi of viActions) {
+				configLines.push(`- ${resolveVars(vi.prompt, canvasVars)}`);
 			}
 		}
 
@@ -1443,7 +1473,8 @@ function generateReport() {
 
 	// Aggregate action stats across all journeys
 	const aggregateActions = {
-		total: 0, screenshots: 0, assertions: 0, manual_checks: 0, notices: 0, theme_changes: 0,
+		total: 0, screenshots: 0, assertions: 0, manual_checks: 0, visual_inspections: 0,
+		notices: 0, theme_changes: 0,
 		create_files: 0, delete_files: 0, open_files: 0, close_leaves: 0,
 		tools: new Set(),
 	};
@@ -1454,6 +1485,7 @@ function generateReport() {
 		aggregateActions.screenshots += stats.screenshots;
 		aggregateActions.assertions += stats.assertions;
 		aggregateActions.manual_checks += stats.manual_checks;
+		aggregateActions.visual_inspections += stats.visual_inspections;
 		aggregateActions.notices += stats.notices;
 		aggregateActions.theme_changes += stats.theme_changes;
 		aggregateActions.create_files += stats.create_files;
@@ -1485,6 +1517,7 @@ function generateReport() {
 		total_screenshots: aggregateActions.screenshots,
 		total_assertions: aggregateActions.assertions,
 		total_manual_checks: aggregateActions.manual_checks,
+		total_visual_inspections: aggregateActions.visual_inspections,
 		total_notices: aggregateActions.notices,
 		total_theme_changes: aggregateActions.theme_changes,
 		total_create_files: aggregateActions.create_files,
@@ -1682,7 +1715,9 @@ function generateReport() {
 		);
 		const lifecycleCount = aggregateActions.create_files + aggregateActions.delete_files + aggregateActions.open_files + aggregateActions.close_leaves;
 		lines.push(
-			`> Screenshots: **${aggregateActions.screenshots}** | Assertions: **${aggregateActions.assertions}** | Manual QA: **${aggregateActions.manual_checks}** | Notices: **${aggregateActions.notices}**` +
+			`> Screenshots: **${aggregateActions.screenshots}** | Assertions: **${aggregateActions.assertions}** | Manual QA: **${aggregateActions.manual_checks}**` +
+			(aggregateActions.visual_inspections > 0 ? ` | Visual: **${aggregateActions.visual_inspections}**` : "") +
+			` | Notices: **${aggregateActions.notices}**` +
 			(aggregateActions.theme_changes > 0 ? ` | Themes: **${aggregateActions.theme_changes}**` : "") +
 			(lifecycleCount > 0 ? ` | Lifecycle: **${lifecycleCount}**` : ""),
 		);
@@ -1805,7 +1840,9 @@ function generateReport() {
 			if (stats && stats.total > 0) {
 				const lc = stats.create_files + stats.delete_files + stats.open_files + stats.close_leaves;
 				lines.push(
-					`> Actions: ${stats.total} | Screenshots: ${stats.screenshots} | Assertions: ${stats.assertions} | Manual: ${stats.manual_checks} | Notices: ${stats.notices}` +
+					`> Actions: ${stats.total} | Screenshots: ${stats.screenshots} | Assertions: ${stats.assertions} | Manual: ${stats.manual_checks}` +
+					(stats.visual_inspections > 0 ? ` | Visual: ${stats.visual_inspections}` : "") +
+					` | Notices: ${stats.notices}` +
 					(stats.theme_changes > 0 ? ` | Themes: ${stats.theme_changes}` : "") +
 					(lc > 0 ? ` | Lifecycle: ${lc}` : ""),
 				);

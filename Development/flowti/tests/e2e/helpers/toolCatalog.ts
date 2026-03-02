@@ -241,4 +241,14 @@ export const TOOL_CATALOG: Record<ToolName, ToolMeta> = {
 			"Repair missing seed files and folders (mode: create)",
 		],
 	},
+	"visual-inspection": {
+		name: "visual-inspection",
+		description: "Show a pass/fail notice for operator visual inspection; on fail, prompt for reason",
+		tags: ["interactive"],
+		useCases: [
+			"Verify visual layout or styling that cannot be asserted programmatically",
+			"Confirm a rendered view matches design expectations",
+			"Interactive QA gate with documented failure reason",
+		],
+	},
 };

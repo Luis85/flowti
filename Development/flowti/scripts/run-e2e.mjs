@@ -159,25 +159,12 @@ function printPrerequisites(results) {
 
 // ── Teardown to fresh state ─────────────────────────────────────────
 
-async function teardownVault() {
-	console.log("\n  Teardown will:");
-	console.log("    - Delete all vault content (except .obsidian/)");
-	console.log("    - Reset installer state (data.json → installed: false)");
-	console.log("    - Deactivate plugin");
-	console.log("    - Clear workspace layout");
-	console.log("    - Collapse file navigator folders\n");
-
-	const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-	const proceed = await askYesNo(rl, "Proceed?", true);
-	rl.close();
-
-	if (!proceed) {
-		console.log("\n  Teardown cancelled.\n");
-		return;
-	}
-
-	console.log();
-
+/**
+ * Performs the actual teardown steps (non-interactive).
+ * Deletes vault content, resets installer state, deactivates plugin,
+ * clears workspace layout, and collapses file explorer.
+ */
+async function performTeardown() {
 	// 1. Delete vault content via Obsidian CLI (cache-safe)
 	try {
 		execSync(
@@ -243,7 +230,31 @@ async function teardownVault() {
 	// 6. Collapse all folders in the file navigator
 	collapseFileExplorer();
 
-	console.log("\n  \x1b[32m✓\x1b[0m Fresh state — run again to start a new session.\n");
+	console.log("\n  \x1b[32m✓\x1b[0m Fresh state.\n");
+}
+
+/**
+ * Interactive teardown — prompts for confirmation before proceeding.
+ */
+async function teardownVault() {
+	console.log("\n  Teardown will:");
+	console.log("    - Delete all vault content (except .obsidian/)");
+	console.log("    - Reset installer state (data.json → installed: false)");
+	console.log("    - Deactivate plugin");
+	console.log("    - Clear workspace layout");
+	console.log("    - Collapse file navigator folders\n");
+
+	const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+	const proceed = await askYesNo(rl, "Proceed?", true);
+	rl.close();
+
+	if (!proceed) {
+		console.log("\n  Teardown cancelled.\n");
+		return;
+	}
+
+	console.log();
+	await performTeardown();
 }
 
 // ── Journey table ───────────────────────────────────────────────────
@@ -878,8 +889,12 @@ function printIncrementSummary(exitCode, duration, stats) {
 	console.log();
 }
 
-function runIncrementBuild() {
-	console.log("\n  Starting increment build (check → build → test → e2e → docs → distribute)...\n");
+async function runIncrementBuild() {
+	// Teardown test vault to fresh state so E2E runs the full journey with installer
+	console.log("\n  Preparing test vault for full journey...\n");
+	await performTeardown();
+
+	console.log("  Starting increment build (check → build → test → e2e → docs → distribute)...\n");
 	const startTime = Date.now();
 	let exitCode;
 	try {
@@ -1218,7 +1233,7 @@ async function incrementResultView(exitCode) {
 
 		if (choice === "r" || choice === "R") {
 			rl.close();
-			exitCode = runIncrementBuild();
+			exitCode = await runIncrementBuild();
 			continue;
 		}
 
@@ -1643,7 +1658,7 @@ async function interactiveSession() {
 
 		if (choice === "2") {
 			rl.close();
-			lastExitCode = runIncrementBuild();
+			lastExitCode = await runIncrementBuild();
 			if (lastExitCode === 0) incrementPassed = true;
 			const result = await incrementResultView(lastExitCode);
 			lastExitCode = result.exitCode;

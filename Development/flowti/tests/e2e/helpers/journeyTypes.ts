@@ -7,7 +7,8 @@
  *
  * Actions use a finite set of tools (command, click, input, highlight,
  * wait, assert, emit, navigate, eval, screenshot, manual, notice, theme,
- * plus lifecycle tools: create-file, delete-file, open-file, open-url, close-leaves, seed).
+ * plus lifecycle tools: create-file, delete-file, open-file, open-url, close-leaves, seed,
+ * and interactive tools: visual-inspection).
  * Complex logic uses the `eval` tool as an escape hatch.
  *
  * Variable interpolation: `{{variableName}}` in any string field.
@@ -38,7 +39,9 @@ export type ToolName =
 	| "open-url"
 	| "close-leaves"
 	| "close-modals"
-	| "seed";
+	| "seed"
+	// Interactive inspection tools
+	| "visual-inspection";
 
 // ─── Lifecycle configuration ────────────────────────────────────────
 
@@ -203,7 +206,9 @@ export type ActionDefinition =
 	| CloseLeavesAction
 	| CloseModalsAction
 	| SeedAction
-	| RibbonAction;
+	| RibbonAction
+	// Interactive inspection tools
+	| VisualInspectionAction;
 
 export interface CommandAction {
 	tool: "command";
@@ -392,5 +397,14 @@ export interface SeedAction {
 	id: string;
 	/** Operation mode. Default: "create". */
 	mode?: "create" | "verify" | "delete";
+	description?: string;
+}
+
+export interface VisualInspectionAction {
+	tool: "visual-inspection";
+	/** Prompt shown to the operator describing what to inspect. Supports {{variable}} interpolation. */
+	prompt: string;
+	/** Timeout in milliseconds before auto-failing. Default: 300000 (5 minutes). */
+	timeout?: number;
 	description?: string;
 }
