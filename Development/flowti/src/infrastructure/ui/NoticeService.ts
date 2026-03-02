@@ -11,6 +11,7 @@
 import { Notice } from "obsidian";
 import type { IEventBus } from "../events/types";
 import type { IDisposable } from "../services/types";
+import type { NoticePromptButton } from "./noticeEvents";
 
 // ─────────────────────────────────────────────────────────────
 // Options
@@ -95,6 +96,48 @@ export class NoticeService implements IDisposable {
 		this.batches.set(key, batch);
 	}
 
+	/**
+	 * Show a persistent prompt with configurable buttons.
+	 * Returns a Promise that resolves with the clicked button's value.
+	 */
+	showPrompt(config: {
+		title: string;
+		message: string;
+		buttons: NoticePromptButton[];
+	}): Promise<string> {
+		return new Promise<string>((resolve) => {
+			const fragment = document.createDocumentFragment();
+			const strong = document.createElement("strong");
+			strong.textContent = config.title;
+			fragment.appendChild(strong);
+			const p = document.createElement("p");
+			p.textContent = config.message;
+			fragment.appendChild(p);
+			const btnRow = document.createElement("div");
+			btnRow.className = "modal-button-container";
+			btnRow.style.display = "flex";
+			btnRow.style.gap = "8px";
+			btnRow.style.marginTop = "8px";
+			for (const btn of config.buttons) {
+				const el = document.createElement("button");
+				el.textContent = btn.label;
+				if (btn.cta) el.classList.add("mod-cta");
+				if (btn.warning) {
+					el.style.backgroundColor = "var(--background-modifier-error)";
+					el.style.color = "var(--text-on-accent)";
+				}
+				el.addEventListener("click", () => {
+					notice.hide();
+					void this.eventBus.emit("notice.prompt.responded", { value: btn.value });
+					resolve(btn.value);
+				});
+				btnRow.appendChild(el);
+			}
+			fragment.appendChild(btnRow);
+			const notice = this.showInteractive(fragment, 0);
+		});
+	}
+
 	// ── IDisposable ─────────────────────────────────────────
 
 	dispose(): void {
@@ -130,6 +173,12 @@ export class NoticeService implements IDisposable {
 		this.unsubscribes.push(
 			this.eventBus.on("notice.throttled", (event) => {
 				this.showThrottled(event.payload.key, event.payload.message);
+			}),
+		);
+
+		this.unsubscribes.push(
+			this.eventBus.on("notice.prompt", (event) => {
+				void this.showPrompt(event.payload);
 			}),
 		);
 	}

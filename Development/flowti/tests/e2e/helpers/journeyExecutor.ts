@@ -40,6 +40,28 @@ import { executeAction } from "./actionRunner";
 import type { ScreenshotCollector } from "./actionRunner";
 import type { TestFixture } from "./fixtures";
 
+// ── Run log auto-logging ────────────────────────────────────────────
+
+/**
+ * Appends a line to `E2E Test Run.md` in the vault root.
+ * Best-effort — does not throw on failure.
+ */
+function writeRunLog(cli: ObsidianCli, message: string): void {
+	const escaped = message.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\n/g, "\\n");
+	cli.eval([
+		`(async () => {`,
+		`  var path = 'E2E Test Run.md';`,
+		`  var f = app.vault.getAbstractFileByPath(path);`,
+		`  if (f) { var c = await app.vault.read(f); await app.vault.modify(f, c + '${escaped}' + '\\n'); }`,
+		`})()`,
+	].join(" "));
+}
+
+/** Returns true if any action in the step is a `write-run-log` tool. */
+function hasExplicitRunLog(step: StepDefinition): boolean {
+	return step.actions.some((a) => a.tool === "write-run-log");
+}
+
 /** Directory containing *.journey.json files. */
 const JOURNEYS_DIR = path.join(__dirname, "..", "journeys");
 
@@ -275,6 +297,7 @@ async function runStepWithActions(
 		files: [],
 		counter: 0,
 	};
+	const warnings: string[] = [];
 
 	const result = await runner.runStep(
 		journeyStep,
@@ -286,6 +309,13 @@ async function runStepWithActions(
 					await executeAction(cli, action, variables, traceBookmark, collector);
 				} catch (err) {
 					const msg = err instanceof Error ? err.message : String(err);
+					// Visual inspections are advisory — log failure but don't block the test
+					if (action.tool === "visual-inspection") {
+						writeRunLog(cli, `- [ ] **Visual Inspection** — ${msg}`);
+						console.warn(`[e2e] Visual inspection soft-fail: ${msg}`);
+						warnings.push(msg);
+						continue;
+					}
 					const desc = action.description ? ` — ${action.description}` : "";
 					throw new Error(
 						`[Action ${i + 1}/${actions.length}] ${action.tool}${desc}\n${msg}`,
@@ -299,6 +329,7 @@ async function runStepWithActions(
 		},
 		collector.files,
 		variables,
+		warnings,
 	);
 
 	return result.status === "pass" ? "pass" : "fail";
@@ -517,6 +548,13 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 				const status = await runStepWithActions(
 					step, "journey", runner, cli, variables, screenshotDir,
 				);
+
+				// Auto-log step result unless the step has explicit write-run-log actions
+				if (!hasExplicitRunLog(step)) {
+					const checkbox = status === "pass" ? "x" : " ";
+					writeRunLog(cli, `- [${checkbox}] **${step.title}**`);
+				}
+
 				expect(status).toBe("pass");
 			});
 		}

@@ -485,9 +485,27 @@ function generateJourneyReport(data, date) {
 		// Visual inspection actions — interactive pass/fail checkpoints
 		const viActions = (s.actions ?? []).filter((a) => a.tool === "visual-inspection");
 		if (viActions.length > 0) {
-			lines.push("> [!eye] Visual Inspection");
+			const hasWarnings = stepResult.warnings && stepResult.warnings.length > 0;
+			const viCallout = hasWarnings ? "warning" : "eye";
+			const viLabel = hasWarnings ? "Visual Inspection — FAILED" : "Visual Inspection";
+			lines.push(`> [!${viCallout}] ${viLabel}`);
 			for (const vi of viActions) {
 				lines.push(`> - ${resolveVars(vi.prompt, vars)}`);
+			}
+			if (hasWarnings) {
+				lines.push(">");
+				for (const w of stepResult.warnings) {
+					lines.push(`> **Reason**: ${w}`);
+				}
+			}
+			lines.push("");
+		}
+
+		// Step-level warnings (visual-inspection soft-fails) — shown even without vi actions
+		if (!viActions.length && stepResult.warnings && stepResult.warnings.length > 0) {
+			lines.push("> [!warning] Warnings");
+			for (const w of stepResult.warnings) {
+				lines.push(`> - ${w}`);
 			}
 			lines.push("");
 		}
@@ -854,10 +872,16 @@ function generateJourneyCanvas(data, screenshotBasePath, trace, configFilePath) 
 		// Visual inspection actions
 		const viActions = (s.actions ?? []).filter((a) => a.tool === "visual-inspection");
 		if (viActions.length > 0) {
+			const hasWarnings = stepResult.warnings && stepResult.warnings.length > 0;
 			configLines.push("");
-			configLines.push("**Visual Inspection**:");
+			configLines.push(hasWarnings ? "**Visual Inspection — FAILED**:" : "**Visual Inspection**:");
 			for (const vi of viActions) {
 				configLines.push(`- ${resolveVars(vi.prompt, canvasVars)}`);
+			}
+			if (hasWarnings) {
+				for (const w of stepResult.warnings) {
+					configLines.push(`**Reason**: ${w}`);
+				}
 			}
 		}
 
@@ -1703,6 +1727,31 @@ function generateReport() {
 				}
 				lines.push("");
 			}
+		}
+	}
+
+	// ── Warnings section — surfaces visual-inspection soft-fails ──
+	const stepsWithWarnings = [];
+	for (const { title, data } of journeyReportNames) {
+		for (const stepResult of (data.steps ?? [])) {
+			if (stepResult.warnings && stepResult.warnings.length > 0) {
+				stepsWithWarnings.push({ journeyTitle: title, stepResult });
+			}
+		}
+	}
+
+	if (stepsWithWarnings.length > 0) {
+		lines.push("---", "");
+		lines.push(`## Warnings (${stepsWithWarnings.length})`, "");
+
+		for (const { journeyTitle, stepResult } of stepsWithWarnings) {
+			const s = stepResult.step;
+			const stepLabel = `Step ${s.guideSection}: ${s.title}`;
+			lines.push(`> [!warning] ${journeyTitle} — ${stepLabel}`);
+			for (const w of stepResult.warnings) {
+				lines.push(`> ${w}`);
+			}
+			lines.push("");
 		}
 	}
 

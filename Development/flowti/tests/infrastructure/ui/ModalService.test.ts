@@ -53,10 +53,16 @@ vi.mock("../../../src/ui/canvas/CanvasTemplatePickerModal", () => ({
 	},
 }));
 
+/** Track InputModal instances for onClose simulation */
+const inputModalInstances: Array<{ options: unknown; onClose: () => void }> = [];
 vi.mock("../../../src/ui/modals", () => ({
 	InputModal: class {
+		private _options: unknown;
+		onClose: () => void = () => { /* noop */ };
 		constructor(_app: unknown, options: unknown) {
+			this._options = options;
 			openedModals.push({ type: "InputModal", options });
+			inputModalInstances.push(this as unknown as { options: unknown; onClose: () => void });
 		}
 		open() { /* noop */ }
 	},
@@ -140,6 +146,7 @@ describe("ModalService", () => {
 
 	beforeEach(() => {
 		openedModals.length = 0;
+		inputModalInstances.length = 0;
 		eventBus = new EventBus();
 		mockApp = createMockApp();
 		mockNotice = createMockNoticeService();
@@ -481,6 +488,137 @@ describe("ModalService", () => {
 			});
 			expect(() => s2.setCanvasSessionService(mockCanvasSession as never)).not.toThrow();
 			s2.dispose();
+		});
+	});
+
+	// ── openTextPrompt ──────────────────────────────────────
+
+	describe("openTextPrompt", () => {
+		it("should open an InputModal with correct config", () => {
+			void service.openTextPrompt({
+				title: "Enter name",
+				message: "What is your name?",
+				placeholder: "Name...",
+				submitLabel: "OK",
+			});
+
+			expect(openedModals).toHaveLength(1);
+			expect(openedModals[0].type).toBe("InputModal");
+			const opts = openedModals[0].options as {
+				title: string;
+				inputDesc: string;
+				placeholder: string;
+				submitLabel: string;
+			};
+			expect(opts.title).toBe("Enter name");
+			expect(opts.inputDesc).toBe("What is your name?");
+			expect(opts.placeholder).toBe("Name...");
+			expect(opts.submitLabel).toBe("OK");
+		});
+
+		it("should resolve with value on submit", async () => {
+			const promise = service.openTextPrompt({
+				title: "Input",
+				message: "Enter value",
+			});
+
+			const opts = openedModals[0].options as { onSubmit: (v: string) => void };
+			opts.onSubmit("hello");
+
+			const result = await promise;
+			expect(result).toBe("hello");
+		});
+
+		it("should resolve with null when cancelled (closed without submit)", async () => {
+			const promise = service.openTextPrompt({
+				title: "Input",
+			});
+
+			// Simulate close without submit
+			const instance = inputModalInstances[inputModalInstances.length - 1];
+			instance.onClose();
+
+			const result = await promise;
+			expect(result).toBeNull();
+		});
+
+		it("should emit modal.textPrompt.submitted on submit", async () => {
+			const submitted: Array<{ value: string }> = [];
+			eventBus.on("modal.textPrompt.submitted", (e) => { submitted.push(e.payload); });
+
+			const promise = service.openTextPrompt({ title: "Test" });
+			const opts = openedModals[0].options as { onSubmit: (v: string) => void };
+			opts.onSubmit("my value");
+			await promise;
+
+			expect(submitted).toHaveLength(1);
+			expect(submitted[0].value).toBe("my value");
+		});
+
+		it("should emit modal.textPrompt.cancelled when closed without submit", async () => {
+			const cancelled: unknown[] = [];
+			eventBus.on("modal.textPrompt.cancelled", () => { cancelled.push(true); });
+
+			const promise = service.openTextPrompt({ title: "Test" });
+			const instance = inputModalInstances[inputModalInstances.length - 1];
+			instance.onClose();
+			await promise;
+
+			expect(cancelled).toHaveLength(1);
+		});
+
+		it("should emit modal.opened with textPrompt type", () => {
+			const opened: Array<{ modalType: string }> = [];
+			eventBus.on("modal.opened", (e) => { opened.push(e.payload); });
+
+			void service.openTextPrompt({ title: "Test" });
+
+			expect(opened).toHaveLength(1);
+			expect(opened[0].modalType).toBe("textPrompt");
+		});
+
+		it("should not emit cancelled when submitted and then closed", async () => {
+			const cancelled: unknown[] = [];
+			eventBus.on("modal.textPrompt.cancelled", () => { cancelled.push(true); });
+
+			const promise = service.openTextPrompt({ title: "Test" });
+			const opts = openedModals[0].options as { onSubmit: (v: string) => void };
+			opts.onSubmit("value");
+			await promise;
+
+			// Close after submit
+			const instance = inputModalInstances[inputModalInstances.length - 1];
+			instance.onClose();
+
+			expect(cancelled).toHaveLength(0);
+		});
+
+		it("should open text prompt via ui.openTextPrompt event", async () => {
+			await eventBus.emit("ui.openTextPrompt", {
+				title: "Event Prompt",
+				message: "Via event",
+				placeholder: "type here",
+				submitLabel: "Send",
+			});
+
+			expect(openedModals).toHaveLength(1);
+			expect(openedModals[0].type).toBe("InputModal");
+			const opts = openedModals[0].options as { title: string; inputDesc: string };
+			expect(opts.title).toBe("Event Prompt");
+			expect(opts.inputDesc).toBe("Via event");
+		});
+
+		it("should use defaults for optional config fields", () => {
+			void service.openTextPrompt({ title: "Minimal" });
+
+			const opts = openedModals[0].options as {
+				inputDesc: string;
+				placeholder: string;
+				submitLabel: string;
+			};
+			expect(opts.inputDesc).toBe("");
+			expect(opts.placeholder).toBe("");
+			expect(opts.submitLabel).toBe("Submit");
 		});
 	});
 

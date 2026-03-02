@@ -572,8 +572,9 @@ const VISUAL_TIMEOUT_MS = 300_000;
 const VISUAL_POLL_MS = 500;
 
 /**
- * Shows an Obsidian notice with Pass/Fail buttons. On Fail, opens a modal
- * prompting for a reason. Always prompts — this is a required interactive step.
+ * Shows a Pass/Fail prompt via the NoticeService (EventBus).
+ * On Fail, opens a text prompt via the ModalService (EventBus) for a reason.
+ * Uses the Flowti service layer instead of raw DOM for consistency.
  */
 async function executeVisualInspection(
 	cli: ObsidianCli,
@@ -584,30 +585,25 @@ async function executeVisualInspection(
 	const escapedPrompt = JSON.stringify(prompt);
 	const timeoutMs = action.timeout ?? VISUAL_TIMEOUT_MS;
 
-	// Clear previous result and show the inspection notice with Pass/Fail buttons.
-	// Fail sets 'fail-pending' — the polling loop then opens a modal for the reason.
+	// Clear previous result and trigger the Pass/Fail prompt via EventBus
 	cli.eval([
 		"(() => {",
+		`  const p = app.plugins.plugins['${PLUGIN_ID}'];`,
+		"  if (!p) throw new Error('Plugin not loaded');",
 		"  delete window._e2eVisualResult;",
 		"  delete window._e2eVisualReason;",
-		"  const notice = new Notice('', 0);",
-		"  const el = notice.noticeEl;",
-		"  el.empty();",
-		"  el.style.flexDirection = 'column';",
-		"  el.style.alignItems = 'stretch';",
-		"  el.style.maxWidth = '400px';",
-		`  el.createEl('strong', { text: 'Visual Inspection' });`,
-		`  el.createEl('p', { text: ${escapedPrompt} });`,
-		"  const btnRow = el.createDiv({ cls: 'modal-button-container' });",
-		"  btnRow.style.display = 'flex';",
-		"  btnRow.style.gap = '8px';",
-		"  btnRow.style.marginTop = '8px';",
-		"  const passBtn = btnRow.createEl('button', { text: 'Pass', cls: 'mod-cta' });",
-		"  passBtn.addEventListener('click', () => { window._e2eVisualResult = 'pass'; notice.hide(); });",
-		"  const failBtn = btnRow.createEl('button', { text: 'Fail' });",
-		"  failBtn.style.backgroundColor = 'var(--background-modifier-error)';",
-		"  failBtn.style.color = 'var(--text-on-accent)';",
-		"  failBtn.addEventListener('click', () => { window._e2eVisualResult = 'fail-pending'; notice.hide(); });",
+		"  const unsub = p.eventBus.on('notice.prompt.responded', (e) => {",
+		"    window._e2eVisualResult = e.payload.value;",
+		"    unsub();",
+		"  });",
+		`  p.eventBus.emit('notice.prompt', {`,
+		`    title: 'Visual Inspection',`,
+		`    message: ${escapedPrompt},`,
+		`    buttons: [`,
+		`      { label: 'Pass', value: 'pass', cta: true },`,
+		`      { label: 'Fail', value: 'fail', warning: true }`,
+		`    ]`,
+		`  });`,
 		"})()",
 	].join(" "));
 
@@ -620,38 +616,31 @@ async function executeVisualInspection(
 
 		if (result.value === "pass") return;
 
-		if (result.value === "fail-pending") {
-			// Operator clicked Fail — open a modal to capture the reason
+		if (result.value === "fail") {
+			// Operator clicked Fail — open text prompt for reason via ModalService
 			cli.eval([
 				"(() => {",
+				`  const p = app.plugins.plugins['${PLUGIN_ID}'];`,
+				"  if (!p) return;",
 				"  delete window._e2eVisualReason;",
 				"  window._e2eVisualResult = 'awaiting-reason';",
-				"  const modal = new (class extends require('obsidian').Modal {",
-				"    onOpen() {",
-				"      const { contentEl } = this;",
-				"      contentEl.createEl('h2', { text: 'Visual Inspection Failed' });",
-				`      contentEl.createEl('p', { text: ${escapedPrompt} });`,
-				"      contentEl.createEl('label', { text: 'Reason for failure:' });",
-				"      const textarea = contentEl.createEl('textarea');",
-				"      textarea.style.width = '100%';",
-				"      textarea.style.minHeight = '80px';",
-				"      textarea.style.marginTop = '8px';",
-				"      const submitRow = contentEl.createDiv({ cls: 'modal-button-container' });",
-				"      const submitBtn = submitRow.createEl('button', { text: 'Submit', cls: 'mod-warning' });",
-				"      submitBtn.addEventListener('click', () => {",
-				"        window._e2eVisualReason = textarea.value || 'No reason provided';",
-				"        window._e2eVisualResult = 'fail';",
-				"        this.close();",
-				"      });",
-				"    }",
-				"  })(app);",
-				"  modal.open();",
+				"  const unsub = p.eventBus.on('modal.textPrompt.submitted', (e) => {",
+				"    window._e2eVisualReason = e.payload.value;",
+				"    window._e2eVisualResult = 'fail-with-reason';",
+				"    unsub();",
+				"  });",
+				`  p.eventBus.emit('ui.openTextPrompt', {`,
+				`    title: 'Visual Inspection Failed',`,
+				`    message: ${escapedPrompt},`,
+				`    placeholder: 'Describe what looks wrong...',`,
+				`    submitLabel: 'Submit'`,
+				`  });`,
 				"})()",
 			].join(" "));
 			continue;
 		}
 
-		if (result.value === "fail") {
+		if (result.value === "fail-with-reason") {
 			const reasonResult = cli.eval("window._e2eVisualReason ?? 'No reason provided'");
 			const reason = reasonResult.success ? reasonResult.value : "No reason provided";
 			throw new Error(`Visual inspection failed: ${prompt}\nReason: ${reason}`);

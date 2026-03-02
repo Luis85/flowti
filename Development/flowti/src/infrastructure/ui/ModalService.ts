@@ -101,6 +101,46 @@ export class ModalService implements IDisposable {
 		});
 	}
 
+	/**
+	 * Open a text input prompt modal.
+	 * Resolves with the submitted value, or `null` if cancelled.
+	 */
+	openTextPrompt(config: {
+		title: string;
+		message?: string;
+		placeholder?: string;
+		submitLabel?: string;
+	}): Promise<string | null> {
+		return new Promise<string | null>((resolve) => {
+			let submitted = false;
+			const modal = new InputModal(this.app, {
+				title: config.title,
+				inputName: config.title,
+				inputDesc: config.message ?? "",
+				placeholder: config.placeholder ?? "",
+				submitLabel: config.submitLabel ?? "Submit",
+				onSubmit: (value: string) => {
+					submitted = true;
+					void this.eventBus.emit("modal.textPrompt.submitted", { value });
+					resolve(value);
+				},
+			});
+			const originalOnClose = modal.onClose.bind(modal);
+			modal.onClose = () => {
+				originalOnClose();
+				if (!submitted) {
+					void this.eventBus.emit("modal.textPrompt.cancelled", {});
+					resolve(null);
+				}
+			};
+			modal.open();
+			void this.eventBus.emit("modal.opened", {
+				modalType: "textPrompt",
+				timestamp: new Date().toISOString(),
+			});
+		});
+	}
+
 	// ── IDisposable ─────────────────────────────────────────
 
 	dispose(): void {
@@ -132,6 +172,12 @@ export class ModalService implements IDisposable {
 		this.unsubscribes.push(
 			this.eventBus.on("ui.startCanvasSession", () => {
 				this.handleStartCanvasSession();
+			}),
+		);
+
+		this.unsubscribes.push(
+			this.eventBus.on("ui.openTextPrompt", (event) => {
+				void this.openTextPrompt(event.payload);
 			}),
 		);
 	}

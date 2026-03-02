@@ -631,14 +631,19 @@ const CATALOG_DATA = {
 	"perf.view.opened":      { category: "Performance", description: "Hub view finished opening", direction: "Internal", domain: "ui", services: "BaseHubView", tags: ["system"] },
 
 	// ── Notification ───────────────────────────────────────
-	"notice.show":       { category: "Notification", description: "Show a plain notice to the user", direction: "Internal", domain: "ui", services: "NoticeService", tags: ["system"] },
-	"notice.success":    { category: "Notification", description: "Show a success notice to the user", direction: "Internal", domain: "ui", services: "NoticeService", tags: ["system"] },
-	"notice.error":      { category: "Notification", description: "Show an error notice to the user", direction: "Internal", domain: "ui", services: "NoticeService", tags: ["system"] },
-	"notice.throttled":  { category: "Notification", description: "Show a throttled/batched notice (deduplicated by key)", direction: "Internal", domain: "ui", services: "NoticeService", tags: ["system"] },
+	"notice.show":               { category: "Notification", description: "Show a plain notice to the user", direction: "Internal", domain: "ui", services: "NoticeService", tags: ["system"] },
+	"notice.success":            { category: "Notification", description: "Show a success notice to the user", direction: "Internal", domain: "ui", services: "NoticeService", tags: ["system"] },
+	"notice.error":              { category: "Notification", description: "Show an error notice to the user", direction: "Internal", domain: "ui", services: "NoticeService", tags: ["system"] },
+	"notice.throttled":          { category: "Notification", description: "Show a throttled/batched notice (deduplicated by key)", direction: "Internal", domain: "ui", services: "NoticeService", tags: ["system"] },
+	"notice.prompt":             { category: "Notification", description: "Show an interactive prompt with configurable buttons", direction: "Internal", domain: "ui", services: "NoticeService", tags: ["system"] },
+	"notice.prompt.responded":   { category: "Notification", description: "A prompt button was clicked", direction: "Internal", domain: "ui", services: "NoticeService", tags: ["system"] },
 
 	// ── Modal ──────────────────────────────────────────────
-	"modal.opened":  { category: "Modal", description: "A modal was opened by ModalService", direction: "Internal", domain: "ui", services: "ModalService", tags: ["system"] },
-	"modal.closed":  { category: "Modal", description: "A modal was closed", direction: "Internal", domain: "ui", services: "ModalService", tags: ["system"] },
+	"modal.opened":              { category: "Modal", description: "A modal was opened by ModalService", direction: "Internal", domain: "ui", services: "ModalService", tags: ["system"] },
+	"modal.closed":              { category: "Modal", description: "A modal was closed", direction: "Internal", domain: "ui", services: "ModalService", tags: ["system"] },
+	"ui.openTextPrompt":         { category: "Modal", description: "Request to open a text input prompt modal", direction: "Internal", domain: "ui", services: "ModalService", tags: ["system"] },
+	"modal.textPrompt.submitted": { category: "Modal", description: "A text prompt was submitted with a value", direction: "Internal", domain: "ui", services: "ModalService", tags: ["system"] },
+	"modal.textPrompt.cancelled": { category: "Modal", description: "A text prompt was cancelled without submitting", direction: "Internal", domain: "ui", services: "ModalService", tags: ["system"] },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

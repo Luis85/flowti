@@ -80,6 +80,8 @@ export interface JourneyStepResult {
 	error?: string;
 	/** Diagnostic context captured on failure (DOM state, recent events, plugin state). */
 	errorContext?: ErrorContext;
+	/** Advisory warnings (e.g. visual-inspection soft-fails). Do not affect step status. */
+	warnings?: string[];
 }
 
 export interface JourneyResult {
@@ -247,6 +249,7 @@ export class JourneyRunner {
 		options?: StepOptions,
 		externalScreenshots?: string[],
 		variables?: Record<string, string>,
+		warnings?: string[],
 	): Promise<JourneyStepResult> {
 		const stepStart = Date.now();
 		const capture = options?.capture ?? "afterSettle";
@@ -301,6 +304,7 @@ export class JourneyRunner {
 				durationMs: Date.now() - stepStart,
 				screenshotFile: screenshotFiles[0] ?? null,
 				screenshotFiles,
+				...(warnings?.length ? { warnings } : {}),
 			};
 			this.recordResult(result);
 			return result;

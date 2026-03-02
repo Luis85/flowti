@@ -38,6 +38,17 @@ export async function navigateToTab(
 	// Wait for setActiveLeaf to complete
 	await new Promise((resolve) => setTimeout(resolve, 250));
 
+	// Check if already on the target tab — BaseHubView skips hub.tab.changed for no-op navigations
+	const currentTab = cli.eval([
+		`(() => {`,
+		`  const leaf = app.workspace.getLeavesOfType('${viewType}')[0];`,
+		`  if (!leaf || !leaf.view) return '';`,
+		`  const v = leaf.view;`,
+		`  return (typeof v.getActivePage === 'function' ? v.getActivePage() : v.activePage) ?? '';`,
+		`})()`,
+	].join(" "));
+	const alreadyOnTab = currentTab.success && currentTab.value === tabId;
+
 	const before = getTraceLength(cli);
 
 	// Emit hub.navigate — this triggers navigateTo() which fire-and-forgets hub.tab.changed
@@ -47,6 +58,12 @@ export async function navigateToTab(
 		`  if (p && p.eventBus) p.eventBus.emit('hub.navigate', { hubId: '${hubId}', tabId: '${tabId}' });`,
 		`})()`,
 	].join(" "));
+
+	// If already on the target tab, navigateTo() won't emit hub.tab.changed — just settle
+	if (alreadyOnTab) {
+		await new Promise((resolve) => setTimeout(resolve, 250));
+		return;
+	}
 
 	// Poll for the async event chain: hub.navigate → navigateTo → hub.tab.changed
 	// The fire-and-forget handler completes asynchronously; 250ms is sometimes
