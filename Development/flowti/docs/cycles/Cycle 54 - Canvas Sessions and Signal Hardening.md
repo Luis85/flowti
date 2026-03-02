@@ -15,13 +15,13 @@ tech_debt:
   - CLI wrapper unit tests (C53 backlog)
   - RB-6 CLI Installer reassessment (C53 backlog)
 estimated_increments: 8
-actual_increments: 11
+actual_increments: 14
 estimated_loc: 1490
 estimated_tests: 135
 pre_cycle_tests: 5825
 pre_cycle_suites: 252
-current_tests: 6023
-current_suites: 261
+current_tests: 6119
+current_suites: 263
 ---
 
 # Cycle 54 — Canvas Sessions and Signal Hardening
@@ -309,15 +309,18 @@ Inc 7 (Integration)         ──→ Depends on Inc 1–6
 
 | Metric | Target | Actual |
 |--------|--------|--------|
-| New tests | ~130 | 198 (6,023 − 5,825) |
-| Post-cycle tests | ~5,955 | 6,023 |
-| Post-cycle suites | ~255 | 261 |
+| New tests | ~130 | 294 (6,119 − 5,825) |
+| Post-cycle tests | ~5,955 | 6,119 |
+| Post-cycle suites | ~255 | 263 |
 | Canvas templates | 5 | 5 |
 | Signal error scenarios | 4 | 4 (401, 429, network, timeout) |
 | Routing rules | 4+ default | 4 (idea, feature, bug, learning) |
-| CLI wrapper edge tests | ~20 | 6 (40 already existed from C53) |
+| CLI wrapper unit tests | ~20 | 66 (40 from C53 + 12 Inc 0 + 14 Inc 12) |
 | RB-6 decision | Documented | Closed as superseded |
-| Increments | 8 | 11 (8 planned + 3 bonus E2E) |
+| Eval calls eliminated | — | 28 (88→60, 32% reduction) |
+| New ObsidianCli methods | — | 16 (9 native CLI + 7 eval wrappers) |
+| New journey tools | — | 3 (set-input, frontmatter, query-trace) |
+| Increments | 8 | 14 (8 planned + 6 bonus) |
 
 ### Increment Summary
 
@@ -334,6 +337,9 @@ Inc 7 (Integration)         ──→ Depends on Inc 1–6
 | 8 | E2E Observability | 7 | 0 | E2E-aware Activity Log, event trace CSV, report enrichment |
 | 9 | Journey Runner Hardening | 7 | 0 | Tool-showcase journey, setup/teardown lifecycle, bug fixes |
 | 10 | E2E UX & Reporting | 0 | 0 | close-modals tool, assert/wait feedback, failure reporting, interactive mode redesign, retry dedup |
+| 11 | Frontend Refactor | 77 | 4 | NoticeService (179 LOC), ModalService (543 LOC), 11 events, main.ts −530 LOC |
+| 12 | E2E Eval Reduction | 14 | 0 | 16 CLI methods, 28 evals eliminated (88→60), 3 journey tools, 2 assert subtypes |
+| 13 | Tool Reference Journey | 0 | 2 | Chapter 8 journey (26 tools), WebViewer interactions, CSS selector fixes |
 
 ### Inc 8: E2E Observability (Bonus)
 **Theme**: Testing Infrastructure | **+~250 LOC across 11 files**
@@ -436,14 +442,97 @@ Major UX and reporting improvements to the E2E journey runner and interactive mo
 - Journey number prompt shows single/multi examples: `(e.g. "2" or "1 3 4")`
 - Teardown collapses all file navigator folders via file-explorer leaf API
 
-### New Events (7)
+### Inc 11: Frontend Refactor — Notice and Modal Services (Bonus)
+**Theme**: Architecture / Quality | **+~1,200 LOC across 47 files (net −530 in main.ts)**
+
+Extracted two infrastructure services from main.ts, reducing the monolith from ~960 LOC to ~430 LOC:
+
+**NoticeService** (`src/infrastructure/ui/NoticeService.ts`, 179 LOC):
+- Event-driven: listens for `notice.show`, `notice.success`, `notice.error`, `notice.throttled`, `notice.prompt`
+- Throttle/batch deduplication (2s window per key) — previously inline in main.ts
+- Interactive prompts with configurable buttons, emits `notice.prompt.responded`
+- Implements `IDisposable` for cleanup
+
+**ModalService** (`src/infrastructure/ui/ModalService.ts`, 543 LOC):
+- Centralizes lifecycle for 7 modal types: QuickCapture, TrainResume, TrainTypePicker, TrainCapture, CanvasTemplatePicker, Input, SubscriptionManager
+- Emits `modal.opened` / `modal.closed` for observability
+- Text prompt support: `ui.openTextPrompt` → `modal.textPrompt.submitted` / `modal.textPrompt.cancelled`
+- Domain services injected via setters (following UiCommandService pattern)
+
+**Additional Changes**:
+- 2 new event categories in catalog: "Notification", "Modal"
+- 1 new command: `flowti:open-installer` (domain: "installer", category: "action")
+- Inline styles refactored to CSS classes (`css/02-components.css`)
+- Visual inspection warnings surfaced in E2E Report
+- Rebuild bug fix in journey runner (stale module cache)
+- E2E tools: `set-input`, `visual-inspection`, seed enhancements across all 7 journey JSONs
+
+### Inc 12: E2E Eval Reduction — Native CLI Migration (Bonus)
+**Theme**: Testing Infrastructure | **+~850 LOC across 11 files**
+
+Systematic replacement of `cli.eval()` calls with dedicated ObsidianCli methods and native CLI commands:
+
+**9 New Methods (native CLI wrappers)**:
+- `enablePlugin()` refactored to use `plugin:enable` (was eval)
+- `disablePlugin(id)` — `plugin:disable`
+- `openFile(path, newTab?)` — `open path=... newtab`
+- `appendFile(path, content)` — `append path=... content=...`
+- `createFileOverwrite(path, content)` — `create path=... content=... overwrite`
+- `setTheme(name)` — `theme:set name=...`
+- `fileExists(path)` — `file path=...` (try/catch)
+- `domCount(selector)` — `dev:dom selector=... total`
+- `domText(selector)` — `dev:dom selector=... text`
+
+**7 New Methods (eval wrappers + JSON commands)**:
+- `domAttr(selector, attr)` — `dev:dom selector=... attr=...`
+- `prependFile(path, content)` — `prepend path=... content=...`
+- `moveFile(from, to)` — `move path=... to=...`
+- `getTabs()` — `tabs format=json`
+- `createFolder(folderPath)` — encapsulated `vault.createFolder()` eval
+- `dismissNotices()` — encapsulated DOM eval to remove `.notice` elements
+- `getNotices()` — encapsulated DOM eval to read notice text content
+
+**3 New Journey Tools**: `set-input` (React-safe native property setter), `frontmatter` (property:set CLI + metadataCache eval), `query-trace` (getEventsSince with store)
+
+**2 New Assert Subtypes**: `count` (exact element counting via domCount), `attr` (attribute value checking via domAttr)
+
+**Refactored Files**: actionRunner.ts (27→12 evals), globalSetup.ts (10→5), globalTeardown.ts, fixtures.ts, navigation.ts, journey.ts, journeyExecutor.ts
+
+**Result**: 88→60 eval calls (28 eliminated, 32% reduction). 66 total CLI unit tests.
+
+### Inc 13: Tool Reference Journey (Bonus)
+**Theme**: Testing Infrastructure / Documentation | **+~400 LOC across 3 files**
+
+New Chapter 8 journey demonstrating all 26 E2E runner tools in a compact reference format:
+
+**Journey Structure** (7 steps + setup + teardown):
+- **Setup**: write-run-log, seed (folders + files), create-file, open-file, wait
+- **Step 1**: Core interaction — command, click, input, set-input
+- **Step 2**: Visual annotations — highlight (3 styles), notice, screenshot, wait, manual
+- **Step 3**: Navigation, events, assertions — navigate, emit, assert (all 8 subtypes), query-trace, eval
+- **Step 4**: File operations — create-file, open-file, frontmatter (set + read), delete-file
+- **Step 5**: Theme and workspace — theme (light/dark), close-leaves, ribbon
+- **Step 6**: WebViewer — open-url, scroll via executeJavaScript, click link, read page title
+- **Teardown**: close-modals, close-leaves, delete-file, notice, screenshot, write-run-log, wait
+
+**CSS Selector Fixes**: Corrected `.ft-tab-item` → `.ft-catalog-tab` and `.is-active` → `.ft-catalog-tab-active` in both tool-reference and tool-showcase journeys (matched WorkspaceShell.ts class names).
+
+**New Files**: `tool-reference.journey.json`, `80-journey-tool-reference.test.ts`
+**New npm Script**: `test:e2e:tool-reference`
+
+### New Events (18)
 - `canvas.template.created`, `canvas.session.started`, `canvas.session.activity`, `canvas.session.completed`
 - `signal.health.checked`, `signal.health.changed`
 - `inbox.file.routed`
+- `notice.show`, `notice.success`, `notice.error`, `notice.throttled`, `notice.prompt`, `notice.prompt.responded`
+- `modal.opened`, `modal.closed`, `ui.openTextPrompt`, `modal.textPrompt.submitted`, `modal.textPrompt.cancelled`
 
 ### New Settings (2)
 - `inboxAutoRoutingEnabled` (boolean, default false)
 - `inboxRoutingRules` (array, 4 default rules)
+
+### New Commands (1)
+- `flowti:open-installer` (domain: "installer", category: "action")
 
 ### Key Learnings
 
@@ -463,15 +552,24 @@ Major UX and reporting improvements to the E2E journey runner and interactive mo
 
 **E2E Filter Layering**: The Activity Log has 3 filter layers: `isSkippedEvent()` (infrastructure prefixes), `excludedTypes` (user-configured), `hiddenCategories` (UI toggles). In E2E mode, only `log.*` must be filtered (prevents infinite recursion from logging the log event); all other infrastructure events are valuable for debugging.
 
+**Service Extraction from main.ts**: When extracting services from a monolithic plugin entry point, use the event-driven pattern: services subscribe to events and emit results, avoiding direct coupling. Domain services can be injected via setters when they're registered later in the boot sequence. This allowed main.ts to shrink from ~960 LOC to ~430 LOC while improving testability.
+
+**React-Safe Input Setting**: When testing applications that use React-style state management, `el.value = x` doesn't trigger change handlers. Use `Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(el, value)` followed by dispatching `input` and `change` events. This pattern also applies to Obsidian's Preact-based UI components.
+
+**WorkspaceShell CSS Classes**: Tab items use `ft-catalog-tab` (not `ft-tab-item`) and active state uses `ft-catalog-tab-active` (not `.is-active`). Always verify selectors against actual source code (WorkspaceShell.ts) rather than assuming common naming conventions.
+
+**Native CLI vs Eval Trade-offs**: Obsidian 1.12+ CLI commands (`dev:dom`, `file`, `plugin:enable`, `theme:set`) are more reliable than `cli.eval()` — no string escaping issues, no async race conditions, deterministic output format. Reserve eval for operations without CLI equivalents: DOM manipulation (`.click()`, `.insertText()`), EventBus access, window properties, complex Obsidian API chains.
+
 ## Remaining Work
 
-The cycle is nearing completion. All 8 planned PBI increments (0–7) are delivered. Three bonus E2E increments (8–10) significantly hardened the testing infrastructure. Remaining items for cycle close:
+The cycle is complete. All 8 planned PBI increments (0–7) delivered. Six bonus increments (8–13) significantly hardened testing infrastructure, extracted services from main.ts, eliminated 32% of E2E eval calls, and created a comprehensive Tool Reference journey. Remaining items for cycle close:
 
 - **DoD checklist**: Final review, retrospective, cycle doc finalization
 - **Memory update**: Sync MEMORY.md with new patterns and learnings
+- **Increment State Report**: Update cycle field to 54
 
 ### Deferred to Future Cycles
-- Additional journey definitions (new journeys beyond tool-showcase)
 - Journey step metadata population for existing journeys (Getting Started, Component Library)
 - Per-step `settleMs` configuration on JourneyStep
 - WebViewer highlight injection (target: "webview" on highlight tool — prototype exists but untested in journey)
+- Remaining 60 eval calls — irreducible set (DOM manipulation, EventBus, workspace API, window flags)
