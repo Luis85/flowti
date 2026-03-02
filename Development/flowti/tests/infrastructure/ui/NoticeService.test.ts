@@ -241,7 +241,7 @@ describe("NoticeService", () => {
 			expect(responses[0].value).toBe("go");
 		});
 
-		it("should apply warning styling to warning buttons", () => {
+		it("should apply warning class to warning buttons", () => {
 			void service.showPrompt({
 				title: "Danger",
 				message: "Delete?",
@@ -249,8 +249,7 @@ describe("NoticeService", () => {
 			});
 
 			const btn = mockNoticeInstances[0].noticeEl.querySelector("button")!;
-			expect(btn.style.backgroundColor).toBe("var(--background-modifier-error)");
-			expect(btn.style.color).toBe("var(--text-on-accent)");
+			expect(btn.classList.contains("mod-warning")).toBe(true);
 		});
 	});
 

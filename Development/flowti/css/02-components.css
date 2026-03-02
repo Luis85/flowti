@@ -675,6 +675,19 @@
   background: var(--background-modifier-message);
 }
 
+/* ── Notice prompt (showPrompt button row) ─────────────── */
+
+.ft-notice-prompt-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.ft-notice-prompt-buttons .mod-warning {
+  background-color: var(--background-modifier-error);
+  color: var(--text-on-accent);
+}
+
 /* ── EventsCategoryRenderer ────────────────────────────── */
 
 .ft-chevron-sm {

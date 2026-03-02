@@ -115,14 +115,14 @@ function statusCallout(status) {
 
 /**
  * Determines a suite/journey result status.
- *   - "pass"         — at least one test passed, none failed, none skipped
- *   - "partial-pass" — at least one test passed, none failed, but some skipped
+ *   - "pass"         — at least one test passed, none failed, none skipped, no warnings
+ *   - "partial-pass" — at least one test passed, none failed, but skipped or warned
  *   - "fail"         — one or more tests failed
  *   - "skipped"      — zero tests ran (upstream failure caused skip)
  */
-function resolveStatus(passed, failed, total, skipped = 0) {
+function resolveStatus(passed, failed, total, skipped = 0, hasWarnings = false) {
 	if (failed > 0) return "fail";
-	if (passed > 0 && skipped > 0) return "partial-pass";
+	if (passed > 0 && (skipped > 0 || hasWarnings)) return "partial-pass";
 	if (passed > 0) return "pass";
 	if (total === 0) return "skipped";
 	return "skipped";
@@ -299,7 +299,8 @@ function generateJourneyReport(data, date) {
 	const passedSteps = data.passed ?? 0;
 	const failedSteps = data.failed ?? 0;
 	const skippedSteps = data.skipped ?? 0;
-	const journeyStatus = resolveStatus(passedSteps, failedSteps, totalSteps, skippedSteps);
+	const hasWarnings = (data.steps ?? []).some((r) => r.warnings && r.warnings.length > 0);
+	const journeyStatus = resolveStatus(passedSteps, failedSteps, totalSteps, skippedSteps, hasWarnings);
 	const actionStats = computeActionStats(data);
 
 	const fm = {
@@ -381,7 +382,10 @@ function generateJourneyReport(data, date) {
 	/** Renders a single step result into the report lines array. */
 	function renderStep(stepResult) {
 		const s = stepResult.step;
-		const stepStatus = stepResult.status === "pass" ? "pass" : stepResult.status === "fail" ? "fail" : "skipped";
+		const rawStatus = stepResult.status === "pass" ? "pass" : stepResult.status === "fail" ? "fail" : "skipped";
+		// Steps with warnings (e.g. visual-inspection failures) render as partial-pass
+		const hasStepWarnings = stepResult.warnings && stepResult.warnings.length > 0;
+		const stepStatus = (rawStatus === "pass" && hasStepWarnings) ? "partial-pass" : rawStatus;
 		const stepCallout = statusCallout(stepStatus);
 		const icon = statusLabel(stepStatus);
 
@@ -495,7 +499,10 @@ function generateJourneyReport(data, date) {
 			if (hasWarnings) {
 				lines.push(">");
 				for (const w of stepResult.warnings) {
-					lines.push(`> **Reason**: ${w}`);
+					// Extract just the user-provided reason (after "Reason: ") if present
+					const reasonMatch = w.match(/\nReason:\s*(.+)/);
+					const reason = reasonMatch ? reasonMatch[1].trim() : w;
+					lines.push(`> **Reason**: ${reason}`);
 				}
 			}
 			lines.push("");
@@ -704,6 +711,7 @@ function generateJourneyCanvas(data, screenshotBasePath, trace, configFilePath) 
 
 	const statusColor = (status) => {
 		if (status === "pass") return "4"; // green
+		if (status === "partial-pass") return "5"; // yellow/orange
 		if (status === "fail") return "1"; // red
 		return undefined;
 	};
@@ -778,7 +786,9 @@ function generateJourneyCanvas(data, screenshotBasePath, trace, configFilePath) 
 		const stepResult = steps[i];
 		const s = stepResult.step;
 		const groupX = firstGroupX + i * (GROUP_WIDTH + GROUP_SPACING_X);
-		const stepColor = statusColor(stepResult.status);
+		const hasStepWarnings = stepResult.warnings && stepResult.warnings.length > 0;
+		const effectiveStatus = (stepResult.status === "pass" && hasStepWarnings) ? "partial-pass" : stepResult.status;
+		const stepColor = statusColor(effectiveStatus);
 
 		// Screenshot path (vault-root-relative) — use first screenshot for canvas background
 		const stepScreenshots = stepResult.screenshotFiles ??
@@ -807,7 +817,10 @@ function generateJourneyCanvas(data, screenshotBasePath, trace, configFilePath) 
 		// Step config node — shows the full step configuration as a structured card
 		const innerX = groupX + INNER_MARGIN_LEFT;
 		const durationStr = stepResult.durationMs ? formatDuration(stepResult.durationMs) : "";
-		const cb = stepResult.status === "pass" ? "[x]" : stepResult.status === "fail" ? "[!]" : "[ ]";
+		const cb = (stepResult.status === "pass" && hasStepWarnings) ? "[~]"
+			: stepResult.status === "pass" ? "[x]"
+			: stepResult.status === "fail" ? "[!]"
+			: "[ ]";
 
 		const configLines = [];
 
@@ -1491,7 +1504,10 @@ function generateReport() {
 	const isPartialMode = resolveMode() !== "full";
 	// Effective skipped count: vitest skipped + journey-level skipped steps
 	const effectiveSkipped = totalSkipped + journeySkippedSteps + (isPartialMode ? 1 : 0);
-	const overallStatus = resolveStatus(totalPassed, totalFailed, totalTests, effectiveSkipped);
+	// Visual-inspection warnings elevate status to partial-pass
+	const hasJourneyWarnings = journeys.some(({ data }) =>
+		(data.steps ?? []).some((r) => r.warnings && r.warnings.length > 0));
+	const overallStatus = resolveStatus(totalPassed, totalFailed, totalTests, effectiveSkipped, hasJourneyWarnings);
 
 	const totalDurationMs = vitest?.durationMs ?? 0;
 
@@ -1749,7 +1765,10 @@ function generateReport() {
 			const stepLabel = `Step ${s.guideSection}: ${s.title}`;
 			lines.push(`> [!warning] ${journeyTitle} — ${stepLabel}`);
 			for (const w of stepResult.warnings) {
-				lines.push(`> ${w}`);
+				// Extract just the user-provided reason (after "Reason: ") if present
+				const reasonMatch = w.match(/\nReason:\s*(.+)/);
+				const reason = reasonMatch ? reasonMatch[1].trim() : w;
+				lines.push(`> ${reason}`);
 			}
 			lines.push("");
 		}
@@ -1807,6 +1826,19 @@ function generateReport() {
 		lines.push("---", "");
 		lines.push("## Test Suites", "");
 
+		// Build lookup of test names with visual-inspection warnings
+		// so the checklist can render [~] instead of [x] for partial-pass steps
+		const warningItBlocks = new Set();
+		for (const { data } of journeyReportNames) {
+			for (const stepResult of (data.steps ?? [])) {
+				if (stepResult.warnings && stepResult.warnings.length > 0) {
+					const s = stepResult.step;
+					const itStr = s.itBlock ?? `${s.guideSection} — ${s.title}`;
+					warningItBlocks.add(itStr);
+				}
+			}
+		}
+
 		for (const suite of vitest.suites) {
 			const suiteStatus = resolveStatus(suite.passed, suite.failed, suite.cases.length);
 			const callout = statusCallout(suiteStatus);
@@ -1827,12 +1859,16 @@ function generateReport() {
 			for (const c of suite.cases) {
 				// Markers:
 				//   [x] passed   — test ran and passed
+				//   [~] warned   — test passed but has visual-inspection warnings
 				//   [!] failed   — test ran and failed (Obsidian renders as important)
 				//   [ ] blocked  — never ran because a hook or prior test failed
 				//   [-] skipped  — intentionally skipped (not due to failure)
 				let mark;
 				if (c.status === "passed") {
-					mark = "[x]";
+					// Check if this test has visual-inspection warnings
+					const hasWarning = warningItBlocks.size > 0 &&
+						[...warningItBlocks].some((w) => c.name.includes(w));
+					mark = hasWarning ? "[~]" : "[x]";
 				} else if (c.status === "failed") {
 					mark = "[!]";
 				} else if (suite.suiteHookFailed) {

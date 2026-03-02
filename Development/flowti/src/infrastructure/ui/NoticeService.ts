@@ -114,18 +114,12 @@ export class NoticeService implements IDisposable {
 			p.textContent = config.message;
 			fragment.appendChild(p);
 			const btnRow = document.createElement("div");
-			btnRow.className = "modal-button-container";
-			btnRow.style.display = "flex";
-			btnRow.style.gap = "8px";
-			btnRow.style.marginTop = "8px";
+			btnRow.className = "ft-notice-prompt-buttons";
 			for (const btn of config.buttons) {
 				const el = document.createElement("button");
 				el.textContent = btn.label;
 				if (btn.cta) el.classList.add("mod-cta");
-				if (btn.warning) {
-					el.style.backgroundColor = "var(--background-modifier-error)";
-					el.style.color = "var(--text-on-accent)";
-				}
+				if (btn.warning) el.classList.add("mod-warning");
 				el.addEventListener("click", () => {
 					notice.hide();
 					void this.eventBus.emit("notice.prompt.responded", { value: btn.value });
