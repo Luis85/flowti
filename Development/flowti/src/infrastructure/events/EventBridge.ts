@@ -44,6 +44,15 @@ export class EventBridge implements IEventBridge {
 	/** Gate: suppresses vault/metadata events until first metadata.resolved fires */
 	private cacheResolved = false;
 
+	/** Extensions Obsidian's vault API indexes and manages natively */
+	private static readonly VAULT_MANAGED_EXTENSIONS = new Set([
+		"md", "canvas",
+		"png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "avif",
+		"mp3", "wav", "m4a", "ogg", "3gp", "flac",
+		"mp4", "ogv", "mov", "mkv", "webm",
+		"pdf",
+	]);
+
 	constructor(options: EventBridgeOptions) {
 		this.app = options.app;
 		this.eventBus = options.eventBus;
@@ -72,6 +81,30 @@ export class EventBridge implements IEventBridge {
 		this.logger.debug("EventBridge disposed");
 	}
 
+	/** Returns true if the file extension is managed by Obsidian's vault API. */
+	private isVaultManaged(path: string): boolean {
+		const dotIdx = path.lastIndexOf(".");
+		if (dotIdx < 0) return false;
+		const ext = path.substring(dotIdx + 1).toLowerCase();
+		return EventBridge.VAULT_MANAGED_EXTENSIONS.has(ext);
+	}
+
+	/** Creates a file via the vault adapter (for non-vault-managed extensions). */
+	private async createViaAdapter(
+		path: string,
+		content: string,
+		createFolders?: boolean,
+	): Promise<void> {
+		const adapter = this.app.vault.adapter;
+		if (createFolders) {
+			const folderPath = path.substring(0, path.lastIndexOf("/"));
+			if (folderPath && !(await adapter.exists(folderPath))) {
+				await adapter.mkdir(folderPath);
+			}
+		}
+		await adapter.write(path, content);
+	}
+
 	/**
 	 * Set up event listeners for file system operations.
 	 * Bridges the EventBus with Obsidian's file API.
@@ -82,6 +115,17 @@ export class EventBridge implements IEventBridge {
 			this.eventBus.on("file.create.request", async (event) => {
 				const { requestId, path, content, createFolders } = event.payload;
 				try {
+					if (!this.isVaultManaged(path)) {
+						// Non-standard extension — vault won't track it, use adapter
+						await this.createViaAdapter(path, content, createFolders);
+						await this.eventBus.emit("file.create.response", {
+							requestId,
+							success: true,
+							path,
+						});
+						return;
+					}
+
 					if (createFolders) {
 						const folderPath = path.substring(0, path.lastIndexOf("/"));
 						if (
@@ -134,12 +178,22 @@ export class EventBridge implements IEventBridge {
 			this.eventBus.on("file.read.request", async (event) => {
 				const { requestId, path } = event.payload;
 				try {
-					const file = this.app.vault.getAbstractFileByPath(path);
-					if (!file || !(file instanceof TFile)) {
-						throw new Error(`File not found: ${path}`);
-					}
+					let content: string;
 
-					const content = await this.app.vault.read(file);
+					if (!this.isVaultManaged(path)) {
+						// Non-standard extension — read via adapter
+						const adapter = this.app.vault.adapter;
+						if (!(await adapter.exists(path))) {
+							throw new Error(`File not found: ${path}`);
+						}
+						content = await adapter.read(path);
+					} else {
+						const file = this.app.vault.getAbstractFileByPath(path);
+						if (!file || !(file instanceof TFile)) {
+							throw new Error(`File not found: ${path}`);
+						}
+						content = await this.app.vault.read(file);
+					}
 
 					await this.eventBus.emit("file.read.response", {
 						requestId,
@@ -168,12 +222,19 @@ export class EventBridge implements IEventBridge {
 			this.eventBus.on("file.update.request", async (event) => {
 				const { requestId, path, content } = event.payload;
 				try {
-					const file = this.app.vault.getAbstractFileByPath(path);
-					if (!file || !(file instanceof TFile)) {
-						throw new Error(`File not found: ${path}`);
+					if (!this.isVaultManaged(path)) {
+						const adapter = this.app.vault.adapter;
+						if (!(await adapter.exists(path))) {
+							throw new Error(`File not found: ${path}`);
+						}
+						await adapter.write(path, content);
+					} else {
+						const file = this.app.vault.getAbstractFileByPath(path);
+						if (!file || !(file instanceof TFile)) {
+							throw new Error(`File not found: ${path}`);
+						}
+						await this.app.vault.modify(file, content);
 					}
-
-					await this.app.vault.modify(file, content);
 
 					await this.eventBus.emit("file.update.response", {
 						requestId,
@@ -201,12 +262,19 @@ export class EventBridge implements IEventBridge {
 			this.eventBus.on("file.delete.request", async (event) => {
 				const { requestId, path } = event.payload;
 				try {
-					const file = this.app.vault.getAbstractFileByPath(path);
-					if (!file) {
-						throw new Error(`File not found: ${path}`);
+					if (!this.isVaultManaged(path)) {
+						const adapter = this.app.vault.adapter;
+						if (!(await adapter.exists(path))) {
+							throw new Error(`File not found: ${path}`);
+						}
+						await adapter.remove(path);
+					} else {
+						const file = this.app.vault.getAbstractFileByPath(path);
+						if (!file) {
+							throw new Error(`File not found: ${path}`);
+						}
+						await this.app.fileManager.trashFile(file);
 					}
-
-					await this.app.fileManager.trashFile(file);
 
 					await this.eventBus.emit("file.delete.response", {
 						requestId,

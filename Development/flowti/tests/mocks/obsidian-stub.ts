@@ -149,6 +149,8 @@ export class ItemView {
 	async setState(_state: Record<string, unknown>, _result: ViewStateResult): Promise<void> {}
 	async onOpen(): Promise<void> {}
 	async onClose(): Promise<void> {}
+	register(_cb: () => void): void {}
+	registerEvent(_ref: EventRef): void {}
 }
 
 export class MarkdownView extends ItemView {}
@@ -157,7 +159,25 @@ export class WorkspaceLeaf {
 	view: ItemView = new ItemView();
 }
 
-export class App {}
+export class App {
+	vault = {
+		getAbstractFileByPath: () => null,
+		create: async () => ({}) as TFile,
+		modify: async () => {},
+		createFolder: async () => {},
+		rename: async () => {},
+		read: async () => "",
+		getFiles: () => [] as TFile[],
+		on: () => ({ unload: () => {} }),
+		adapter: {
+			exists: async () => false,
+			read: async () => "",
+			write: async () => {},
+			mkdir: async () => {},
+			remove: async () => {},
+		},
+	};
+}
 
 export class Plugin {
 	app: App = new App();

@@ -433,14 +433,14 @@ describe("JourneyBuilderSidebar", () => {
 			expect(handler.mock.calls[0][0].payload).toEqual({ field: "endEvent", value: "app.closed" });
 		});
 
-		it("emits exported event on Export click", () => {
+		it("emits exported event on Export click", async () => {
 			const handler = vi.fn();
 			eventBus.on("journey-builder.exported", handler);
 			byTestId(sidebar.contentEl, "jb-export-btn")!.click();
-			expect(handler).toHaveBeenCalledOnce();
+			await vi.waitFor(() => expect(handler).toHaveBeenCalledOnce());
 		});
 
-		it("exported event payload includes step count", () => {
+		it("exported event payload includes journey definition with steps", async () => {
 			// Add a step first
 			byTestId(sidebar.contentEl, "jb-add-step-btn")!.click();
 			setInputValue(byTestId(sidebar.contentEl, "jb-step-title-input") as HTMLInputElement, "A step");
@@ -449,7 +449,11 @@ describe("JourneyBuilderSidebar", () => {
 			const handler = vi.fn();
 			eventBus.on("journey-builder.exported", handler);
 			byTestId(sidebar.contentEl, "jb-export-btn")!.click();
-			expect(handler.mock.calls[0][0].payload.stepCount).toBe(1);
+			await vi.waitFor(() => expect(handler).toHaveBeenCalledOnce());
+			const payload = handler.mock.calls[0][0].payload;
+			expect(payload.definition.steps).toHaveLength(1);
+			expect(payload.definition.steps[0].title).toBe("A step");
+			expect(payload.definition.steps[0].guideSection).toBe(1);
 		});
 
 		it("returns to setup on back button click", () => {

@@ -403,10 +403,21 @@ export class JourneyBuilderSidebar extends ItemView {
 	}
 
 	private onExport(): void {
-		void this.eventBus.emit("journey-builder.exported", {
-			path: `journeys/${this.metadata.name}.journey.json`,
-			stepCount: this.steps.length,
-		});
+		const filePath = `journeys/${this.metadata.name}.journey.json`;
+		const definition = {
+			journey: this.metadata.name,
+			description: this.metadata.description,
+			startEvent: this.metadata.startEvent,
+			endEvent: this.endEvent,
+			steps: this.steps.map((s, i) => ({
+				id: s.id,
+				title: s.title,
+				guideSection: i + 1,
+			})),
+		};
+
+		// File write is handled by JourneyBuilderService via IFileSystemClient → EventBridge
+		void this.eventBus.emit("journey-builder.exported", { path: filePath, definition });
 	}
 
 	private emitMetadataUpdate(field: string, value: string): void {
