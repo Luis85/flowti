@@ -137,6 +137,10 @@ export function openActivityLog(cli: ObsidianCli): void {
 }
 
 export async function ensurePluginEnabled(cli: ObsidianCli): Promise<void> {
+	// Fast path: plugin already loaded — skip enable + wait entirely
+	const preCheck = cli.eval(`!!app.plugins.plugins['${PLUGIN_ID}']`);
+	if (preCheck.success && preCheck.value === "true") return;
+
 	for (let attempt = 1; attempt <= ENABLE_RETRIES; attempt++) {
 		cli.enablePlugin(PLUGIN_ID);
 		await sleep(PLUGIN_INIT_MS);

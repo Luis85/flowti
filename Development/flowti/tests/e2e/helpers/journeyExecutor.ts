@@ -457,6 +457,8 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 			cli = fixture.cli;
 
 			// ── Lifecycle (configurable per journey) ─────────
+			cli.notice(`\u23f3 ${definition.journey}: preparing\u2026`, 3000);
+
 			const lc = definition.lifecycle ?? {};
 			if (lc.enablePlugin !== false) await ensurePluginEnabled(cli);
 			if (lc.checkInstalled !== false) ensureInstalled(cli, fixture.vault.vaultDir);

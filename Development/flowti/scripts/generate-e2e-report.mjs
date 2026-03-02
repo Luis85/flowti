@@ -307,6 +307,7 @@ function generateJourneyReport(data, date) {
 	const passedSteps = data.passed ?? 0;
 	const failedSteps = data.failed ?? 0;
 	const skippedSteps = data.skipped ?? 0;
+	const devSteps = data.dev ?? 0;
 	const hasWarnings = (data.steps ?? []).some((r) => r.warnings && r.warnings.length > 0);
 	const isDevStopped = data.devStopped === true;
 	const journeyStatus = resolveStatus(passedSteps, failedSteps, totalSteps, skippedSteps, hasWarnings, isDevStopped);
@@ -362,7 +363,6 @@ function generateJourneyReport(data, date) {
 		"---",
 	].join("\n");
 
-	const devSteps = data.dev ?? 0;
 	const titleSuffix = journeyStatus === "partial-pass" ? " (Partial)"
 		: journeyStatus === "dev-stopped" ? " (Dev)" : "";
 	const stepsSummary = isDevStopped
