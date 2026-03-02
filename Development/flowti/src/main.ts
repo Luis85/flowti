@@ -63,6 +63,7 @@ import { TrainHubView, VIEW_TYPE_TRAIN_HUB } from "./ui/train/TrainHubView";
 import { AnalyticsHubView, VIEW_TYPE_ANALYTICS_HUB } from "./ui/analytics/AnalyticsHubView";
 import { CanvasSessionService } from "./domain/canvas/session/CanvasSessionService";
 import { JourneyBuilderSidebar, VIEW_TYPE_JOURNEY_BUILDER } from "./ui/journeyBuilder/JourneyBuilderSidebar";
+import { JourneyBuilderService } from "./domain/journeyBuilder/JourneyBuilderService";
 import { showNudgeNotification } from "./ui/shared/NudgeNotification";
 import { openStartPage } from "./infrastructure/StartpageHandler";
 import { NoticeService } from "./infrastructure/ui/NoticeService";
@@ -127,6 +128,7 @@ export default class FlowtiBasePlugin extends Plugin {
 	private trainService?: TrainService;
 	private canvasService?: CanvasService;
 	private canvasSessionService?: CanvasSessionService;
+	private journeyBuilderService?: JourneyBuilderService;
 	private analyticsService?: AnalyticsService;
 	private onboardingService?: OnboardingService;
 	private perfAggregator?: PerfAggregator;
@@ -333,10 +335,12 @@ export default class FlowtiBasePlugin extends Plugin {
 			"flowti-train-main", "flowti-train-timeline", "flowti-train-hub",
 			"flowti-analytics-hub", "flowti-session-workspace",
 			"flowti-csv", "flowti-export", "flowti-canvas-import",
+			"flowti-journey-builder",
 		];
 		for (const type of viewTypes) {
 			safeDispose(`detach:${type}`, () => this.app.workspace.detachLeavesOfType(type));
 		}
+		safeDispose("journeyBuilderService", () => this.journeyBuilderService?.stop());
 		safeDispose("canvasService", () => this.canvasService?.dispose());
 		safeDispose("signalService", () => this.signalService?.dispose());
 		safeDispose("nudgeService", () => this.nudgeService?.dispose());
@@ -772,6 +776,14 @@ export default class FlowtiBasePlugin extends Plugin {
 			sessionFolder: SESSION_NOTES_FOLDER,
 		});
 		this.register(() => this.canvasSessionService?.dispose());
+
+		// Journey Builder Service — writes exported journey JSON via adapter
+		const journeyBuilderFs = new FileSystemClient({ eventBus: this.eventBus });
+		this.journeyBuilderService = new JourneyBuilderService({
+			fileSystem: journeyBuilderFs,
+			eventBus: this.eventBus,
+		});
+		this.journeyBuilderService.start();
 
 		// Wire domain services into ModalService
 		this.modalService?.setCaptureService(this.captureService);
