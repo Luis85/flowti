@@ -388,7 +388,11 @@ function executeEmit(cli: ObsidianCli, action: EmitAction, variables: Record<str
 function executeNotice(cli: ObsidianCli, action: NoticeAction, variables: Record<string, string>): void {
 	const message = resolve(action.message, variables);
 	const duration = action.duration ?? 5000;
-	cli.notice(message, duration);
+	if (action.style) {
+		cli.styledNotice(message, action.style, duration);
+	} else {
+		cli.notice(message, duration);
+	}
 }
 
 function executeTheme(cli: ObsidianCli, action: ThemeAction, variables: Record<string, string>): void {

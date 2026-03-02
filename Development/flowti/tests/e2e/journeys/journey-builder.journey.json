@@ -1,7 +1,6 @@
 {
 	"journey": "Journey Builder",
-	"chapter": 9,
-	"description": "TDD blueprint for the Journey Builder feature: command/ribbon launch shows a welcome screen with Create New / Open Existing choices. Steps define expected behavior before the feature exists.",
+	"description": "TDD blueprint for the Journey Builder feature: command/ribbon launch shows a welcome screen with Create New / Open Existing choices. Create a journey with name, description, start event, steps with actions, end event, then export to JSON + canvas.",
 	"testSource": "tests/e2e/90-journey-journey-builder.test.ts",
 	"reportPath": "docs/journeys/Journey Builder/Journey Builder.md",
 	"canvasPath": "docs/journeys/Journey Builder/Journey Builder.canvas",
@@ -19,7 +18,7 @@
 			"guideSection": 0,
 			"swimlane": "support",
 			"actions": [
-				{ "tool": "write-run-log", "message": "\n## Chapter 9: Journey Builder\n" }
+				{ "tool": "write-run-log", "message": "\n## Journey Builder\n" }
 			]
 		},
 		{
@@ -115,16 +114,17 @@
 			"title": "Create a new journey via setup form",
 			"guideSection": 3,
 			"swimlane": "frontstage",
-			"description": "Clicks Create New Journey. The sidebar transitions to a setup form where the user enters journey name, chapter, description, and selects a start event from the event catalog.",
+			"dev": true,
+			"description": "Clicks Create New Journey. The sidebar transitions to a setup form where the user enters journey name, description, and selects a start event from the event catalog. A canvas begins building live in the main workspace.",
 			"expectedInput": "Journey Builder sidebar open with welcome screen",
-			"expectedOutput": "Setup form visible with metadata fields and start event picker",
+			"expectedOutput": "Setup form visible with metadata fields and start event picker, canvas created",
 			"uiContext": {
 				"view": "flowti-journey-builder",
 				"viewName": "Journey Builder",
 				"components": ["JourneyBuilderSidebar", "MetadataForm"]
 			},
 			"events": ["journey-builder.metadata.updated"],
-			"interactions": ["click: Create New", "input: Journey name", "input: Chapter number", "input: Description", "input: Start event"],
+			"interactions": ["click: Create New", "input: Journey name", "input: Description", "input: Start event"],
 			"actions": [
 				{ "tool": "notice", "message": "Step 3/5: Creating a new journey", "duration": 3000 },
 				{ "tool": "click", "selector": "[data-test-id='jb-create-new']", "description": "Click Create New Journey" },
@@ -132,14 +132,12 @@
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-name-input']", "description": "Journey name input is visible" },
 				{ "tool": "set-input", "selector": "[data-test-id='jb-name-input']", "value": "E2E Demo Journey", "description": "Enter journey name" },
 				{ "tool": "wait", "ms": 300 },
-				{ "tool": "set-input", "selector": "[data-test-id='jb-chapter-input']", "value": "99", "description": "Enter chapter number" },
-				{ "tool": "wait", "ms": 300 },
 				{ "tool": "set-input", "selector": "[data-test-id='jb-description-input']", "value": "A demo journey created by the Journey Builder.", "description": "Enter journey description" },
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "set-input", "selector": "[data-test-id='jb-start-event-input']", "value": "journey-builder.opened", "description": "Enter start event name" },
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "screenshot", "label": "setup-filled", "description": "Journey setup form populated" },
-				{ "tool": "manual", "instruction": "Verify the setup form shows journey name, chapter, description, and start event fields. The start event input should support autocomplete from the event catalog.", "description": "Visual QA of setup form" }
+				{ "tool": "manual", "instruction": "Verify the setup form shows journey name, description, and start event fields. The start event input should support autocomplete from the event catalog. A canvas should be building live in the main workspace.", "description": "Visual QA of setup form" }
 			]
 		},
 		{
@@ -147,9 +145,9 @@
 			"title": "Add a step to the journey",
 			"guideSection": 4,
 			"swimlane": "frontstage",
-			"description": "Clicks Continue to enter the step builder. Adds a step with a title and actions. Sets the end event.",
+			"description": "Clicks Continue to enter the step builder. Adds a step with a title and actions. Sets the end event. The canvas updates live with step nodes and edges.",
 			"expectedInput": "Journey Builder setup form filled with metadata",
-			"expectedOutput": "Step builder visible with one step added and end event set",
+			"expectedOutput": "Step builder visible with one step added, end event set, canvas updated",
 			"uiContext": {
 				"view": "flowti-journey-builder",
 				"viewName": "Journey Builder",
@@ -178,9 +176,9 @@
 			"title": "Export journey JSON",
 			"guideSection": 5,
 			"swimlane": "backstage",
-			"description": "Clicks the Export button. A JSON file and test file should be created with the correct JourneyDefinition structure.",
+			"description": "Clicks the Export button. A JSON file and test file should be created with the correct JourneyDefinition structure. The live canvas is finalized.",
 			"expectedInput": "Journey Builder with metadata, start event, one step, and end event",
-			"expectedOutput": "Journey JSON file and test file created with valid structure",
+			"expectedOutput": "Journey JSON file and test file created with valid structure, canvas complete",
 			"uiContext": {
 				"view": "flowti-journey-builder",
 				"viewName": "Journey Builder",
@@ -201,13 +199,13 @@
 				},
 				{
 					"tool": "eval",
-					"code": "(async () => { const file = app.vault.getAbstractFileByPath('03 - Resources/Test Data/journeys/E2E Demo Journey.journey.json'); if (!file) return 'not-found'; const content = await app.vault.read(file); const def = JSON.parse(content); return JSON.stringify({ hasJourney: !!def.journey, hasChapter: typeof def.chapter === 'number', hasSteps: Array.isArray(def.steps) && def.steps.length > 0 }); })()",
-					"expect": { "type": "json", "match": { "hasJourney": true, "hasChapter": true, "hasSteps": true } },
+					"code": "(async () => { const file = app.vault.getAbstractFileByPath('03 - Resources/Test Data/journeys/E2E Demo Journey.journey.json'); if (!file) return 'not-found'; const content = await app.vault.read(file); const def = JSON.parse(content); return JSON.stringify({ hasJourney: !!def.journey, hasSteps: Array.isArray(def.steps) && def.steps.length > 0 }); })()",
+					"expect": { "type": "json", "match": { "hasJourney": true, "hasSteps": true } },
 					"description": "Exported JSON has valid JourneyDefinition structure"
 				},
 				{ "tool": "screenshot", "label": "exported", "description": "Journey exported successfully" },
 				{ "tool": "notice", "message": "Journey Builder journey complete", "duration": 5000 },
-				{ "tool": "manual", "instruction": "Open the exported JSON file and verify it matches the JourneyDefinition schema: journey name, chapter number, description, start event as first emit action, end event as last assert action, and at least one step with id, title, and actions.", "description": "Manual JSON structure verification" }
+				{ "tool": "manual", "instruction": "Open the exported JSON file and verify it matches the JourneyDefinition schema: journey name, description, start event as first emit action, end event as last assert action, and at least one step with id, title, and actions. A companion canvas file should also exist.", "description": "Manual JSON + canvas structure verification" }
 			]
 		}
 	],

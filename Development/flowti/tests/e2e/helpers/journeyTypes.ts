@@ -192,6 +192,9 @@ export interface StepDefinition {
 	actions: ActionDefinition[];
 	/** If true, skip this step during execution. Registers as skipped in results. */
 	skip?: boolean;
+	/** If true, this step is under development. The executor runs it normally,
+	 *  then terminates — remaining steps register as skipped. */
+	dev?: boolean;
 }
 
 // ─── Action definitions (discriminated union on `tool`) ─────────────
@@ -291,6 +294,8 @@ export interface NoticeAction {
 	message: string;
 	/** Duration in milliseconds. Default: 5000. */
 	duration?: number;
+	/** Visual style: "success" (green), "error" (red), or default (neutral). */
+	style?: "success" | "error";
 	description?: string;
 }
 

@@ -273,6 +273,7 @@ function toJourneyStep(step: StepDefinition, phase?: "setup" | "journey" | "tear
 		queries: step.queries,
 		actions: step.actions,
 		skip: step.skip,
+		dev: step.dev,
 	};
 }
 
@@ -445,6 +446,7 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 		let journeyDir: string;
 		let screenshotDir: string;
 		let setupFailed = false;
+		let devStopped = false;
 		const variables: Record<string, string> = {
 			PLUGIN_ID,
 			...(options?.variables ?? {}),
@@ -514,7 +516,8 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 			}
 
 			// ── Gate flags (set window properties on pass) ───
-			if (definition.gateFlags?.length && runner && cli) {
+			// Suppress when dev-stopped — partial runs shouldn't set gates.
+			if (definition.gateFlags?.length && runner && cli && !devStopped) {
 				const results = runner.getResults();
 				if (results.failed === 0 && results.totalSteps > 0) {
 					for (const flag of definition.gateFlags) {
@@ -524,9 +527,9 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 			}
 
 			// ── Anchor file (for skip-mode detection) ────────
-			// Skip anchor when step filter is active — partial runs
+			// Skip anchor when step filter is active or dev-stopped — partial runs
 			// shouldn't mark the journey as "passed".
-			if (definition.anchor && runner && !stepFilter) {
+			if (definition.anchor && runner && !stepFilter && !devStopped) {
 				const results = runner.getResults();
 				writeAnchorFile(journeyDir, definition.journey, results);
 			}
@@ -554,7 +557,7 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 					return;
 				}
 
-				if (setupFailed) {
+				if (setupFailed || devStopped) {
 					const journeyStep = toJourneyStep(step, "journey");
 					runner.addSkippedResult(journeyStep);
 					return;
@@ -563,6 +566,32 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 				const status = await runStepWithActions(
 					step, "journey", runner, cli, variables, screenshotDir,
 				);
+
+				// Dev step: run normally, mark as dev boundary, then terminate
+				if (step.dev) {
+					runner.markStepAsDev(step.id);
+					runner.markDevStopped();
+					devStopped = true;
+					const devIcon = status === "pass" ? "\u2714" : "\u2718";
+					cli.styledNotice(
+						`${devIcon} ${step.title} [dev boundary]`,
+						status === "pass" ? "success" : "error",
+						6000,
+					);
+					if (!hasExplicitRunLog(step)) {
+						const checkbox = status === "pass" ? "x" : " ";
+						writeRunLog(cli, `- [${checkbox}] **${step.title}** _(dev)_`);
+					}
+					// Dev steps don't assert — failure is expected at the frontier
+					return;
+				}
+
+				// Step result notice — green for pass, red for fail
+				if (status === "pass") {
+					cli.styledNotice(`\u2714 ${step.title}`, "success", 4000);
+				} else {
+					cli.styledNotice(`\u2718 ${step.title}`, "error", 8000);
+				}
 
 				// Auto-log step result unless the step has explicit write-run-log actions
 				if (!hasExplicitRunLog(step)) {

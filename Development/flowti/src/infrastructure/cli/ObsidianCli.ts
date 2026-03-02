@@ -326,6 +326,20 @@ export class ObsidianCli {
 		this.eval(`new Notice(${JSON.stringify(message)}, ${durationMs})`);
 	}
 
+	/** Shows a styled Notice with a colored left border (green for success, red for error). */
+	styledNotice(message: string, style: "success" | "error", durationMs = 8000): void {
+		const color = style === "success" ? "#4ade80" : "#f87171";
+		const bg = style === "success" ? "rgba(74,222,128,0.08)" : "rgba(248,113,113,0.08)";
+		this.eval([
+			`(() => {`,
+			`  const n = new Notice(${JSON.stringify(message)}, ${durationMs});`,
+			`  const el = n.noticeEl;`,
+			`  el.style.borderLeft = '4px solid ${color}';`,
+			`  el.style.background = '${bg}';`,
+			`})()`,
+		].join(""));
+	}
+
 	/** Gets recent JavaScript errors from Obsidian. */
 	getErrors(): string {
 		try {

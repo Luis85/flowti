@@ -62,6 +62,8 @@ export interface JourneyStep {
 	queries?: string[];
 	/** If true, this step was marked as skipped in the journey definition. */
 	skip?: boolean;
+	/** If true, this step is the development frontier — executor terminates after it. */
+	dev?: boolean;
 	/**
 	 * Declarative action definitions from the journey JSON.
 	 * Passed through for report/canvas generation (manual, notice rendering).
@@ -73,7 +75,7 @@ export interface JourneyStep {
 
 export interface JourneyStepResult {
 	step: JourneyStep;
-	status: "pass" | "fail" | "skip";
+	status: "pass" | "fail" | "skip" | "dev";
 	durationMs: number;
 	/** @deprecated Use screenshotFiles instead. Kept for backward compat with report generator. */
 	screenshotFile: string | null;
@@ -93,6 +95,10 @@ export interface JourneyResult {
 	passed: number;
 	failed: number;
 	skipped: number;
+	/** Number of steps with "dev" status (dev boundary reached). */
+	dev?: number;
+	/** True when the journey was terminated early by a dev step. */
+	devStopped?: boolean;
 	durationMs: number;
 	steps: JourneyStepResult[];
 	/** Relative path to the test source file (from plugin root). */
@@ -178,6 +184,7 @@ export class JourneyRunner {
 	private readonly startTime: number;
 	private readonly settleMs: number;
 	private stylesInjected = false;
+	private _devStopped = false;
 
 	constructor(
 		private readonly cli: ObsidianCli,
@@ -229,10 +236,17 @@ export class JourneyRunner {
 	/** Posts a summary notice when the suite finishes. */
 	notifySuiteExit(): void {
 		const r = this.getResults();
-		const icon = r.failed === 0 ? "✓" : "✗";
-		this.cli.notice(
-			`${icon} Suite: ${r.journey} — ${r.passed}/${r.totalSteps} passed`,
-		);
+		if (r.devStopped) {
+			this.cli.styledNotice(
+				`⚙ Suite: ${r.journey} — ${r.passed}/${r.totalSteps} passed (dev-stopped)`,
+				r.failed > 0 ? "error" : "success",
+			);
+		} else {
+			const icon = r.failed === 0 ? "✓" : "✗";
+			this.cli.notice(
+				`${icon} Suite: ${r.journey} — ${r.passed}/${r.totalSteps} passed`,
+			);
+		}
 	}
 
 	/**
@@ -364,6 +378,14 @@ export class JourneyRunner {
 		});
 	}
 
+	/** Overwrites the recorded status of a step to "dev" (development boundary). */
+	markStepAsDev(stepId: string): void {
+		const idx = this.results.findIndex((r) => r.step.id === stepId);
+		if (idx >= 0) {
+			this.results[idx] = { ...this.results[idx], status: "dev" };
+		}
+	}
+
 	/** Records a skipped step result (used when setup fails). */
 	addSkippedResult(step: JourneyStep): void {
 		this.recordResult({
@@ -456,11 +478,17 @@ export class JourneyRunner {
 		};
 	}
 
+	/** Mark this journey as terminated by a dev step. */
+	markDevStopped(): void {
+		this._devStopped = true;
+	}
+
 	/** Returns the accumulated journey results. */
 	getResults(): JourneyResult {
 		const passed = this.results.filter((r) => r.status === "pass").length;
 		const failed = this.results.filter((r) => r.status === "fail").length;
 		const skipped = this.results.filter((r) => r.status === "skip").length;
+		const dev = this.results.filter((r) => r.status === "dev").length;
 
 		return {
 			journey: this.options.journeyName,
@@ -469,6 +497,8 @@ export class JourneyRunner {
 			passed,
 			failed,
 			skipped,
+			...(dev > 0 ? { dev } : {}),
+			...(this._devStopped ? { devStopped: true } : {}),
 			durationMs: Date.now() - this.startTime,
 			steps: this.results,
 			...(this.options.testSource ? { testSource: this.options.testSource } : {}),

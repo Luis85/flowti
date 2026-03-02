@@ -103,13 +103,17 @@ function formatDuration(ms) {
 
 /**
  * Returns the callout type for a given status.
- *   - "pass"    → "success"
- *   - "fail"    → "danger"
- *   - "skipped" → "warning"
+ *   - "pass"         → "success"
+ *   - "fail"         → "danger"
+ *   - "skipped"      → "warning"
+ *   - "partial-pass" → "warning"
+ *   - "dev"          → "info"
+ *   - "dev-stopped"  → "info"
  */
 function statusCallout(status) {
 	if (status === "partial-pass") return "warning";
 	if (status === "skipped") return "warning";
+	if (status === "dev" || status === "dev-stopped") return "info";
 	return status === "pass" ? "success" : "danger";
 }
 
@@ -118,9 +122,11 @@ function statusCallout(status) {
  *   - "pass"         — at least one test passed, none failed, none skipped, no warnings
  *   - "partial-pass" — at least one test passed, none failed, but skipped or warned
  *   - "fail"         — one or more tests failed
+ *   - "dev-stopped"  — journey terminated at a dev boundary (no real failures)
  *   - "skipped"      — zero tests ran (upstream failure caused skip)
  */
-function resolveStatus(passed, failed, total, skipped = 0, hasWarnings = false) {
+function resolveStatus(passed, failed, total, skipped = 0, hasWarnings = false, devStopped = false) {
+	if (devStopped) return "dev-stopped";
 	if (failed > 0) return "fail";
 	if (passed > 0 && (skipped > 0 || hasWarnings)) return "partial-pass";
 	if (passed > 0) return "pass";
@@ -131,6 +137,8 @@ function resolveStatus(passed, failed, total, skipped = 0, hasWarnings = false) 
 function statusLabel(status) {
 	if (status === "partial-pass") return "PARTIAL PASS";
 	if (status === "skipped") return "SKIPPED";
+	if (status === "dev-stopped") return "DEV";
+	if (status === "dev") return "DEV";
 	return status === "pass" ? "PASS" : "FAIL";
 }
 
@@ -300,7 +308,8 @@ function generateJourneyReport(data, date) {
 	const failedSteps = data.failed ?? 0;
 	const skippedSteps = data.skipped ?? 0;
 	const hasWarnings = (data.steps ?? []).some((r) => r.warnings && r.warnings.length > 0);
-	const journeyStatus = resolveStatus(passedSteps, failedSteps, totalSteps, skippedSteps, hasWarnings);
+	const isDevStopped = data.devStopped === true;
+	const journeyStatus = resolveStatus(passedSteps, failedSteps, totalSteps, skippedSteps, hasWarnings, isDevStopped);
 	const actionStats = computeActionStats(data);
 
 	const fm = {
@@ -312,6 +321,8 @@ function generateJourneyReport(data, date) {
 		passed: passedSteps,
 		failed: failedSteps,
 		skipped: skippedSteps,
+		...(devSteps > 0 ? { dev: devSteps } : {}),
+		...(isDevStopped ? { dev_stopped: true } : {}),
 		total_actions: actionStats.total,
 		screenshots: actionStats.screenshots,
 		assertions: actionStats.assertions,
@@ -328,14 +339,16 @@ function generateJourneyReport(data, date) {
 			: "[]",
 		duration_ms: data.durationMs ?? 0,
 		duration: formatDuration(data.durationMs ?? 0),
-		success: journeyStatus === "pass" || journeyStatus === "partial-pass",
+		success: journeyStatus === "pass" || journeyStatus === "partial-pass" || journeyStatus === "dev-stopped",
 		status: journeyStatus,
 		...(data.testSource ? { test_source: `"[[${data.testSource}]]"` } : {}),
 		e2e_report: `"[[E2E Report]]"`,
 		canvas: `"[[${journeyTitle}]]"`,
 		tags: journeyStatus === "partial-pass"
 			? "\n  - report\n  - e2e\n  - journey\n  - partial"
-			: "\n  - report\n  - e2e\n  - journey",
+			: journeyStatus === "dev-stopped"
+				? "\n  - report\n  - e2e\n  - journey\n  - dev"
+				: "\n  - report\n  - e2e\n  - journey",
 	};
 
 	const JOURNEY_PREFORMATTED = new Set(["tags", "test_source", "e2e_report", "canvas", "tools"]);
@@ -349,10 +362,14 @@ function generateJourneyReport(data, date) {
 		"---",
 	].join("\n");
 
-	const titleSuffix = journeyStatus === "partial-pass" ? " (Partial)" : "";
-	const stepsSummary = skippedSteps > 0
-		? `${passedSteps}/${totalSteps} steps (${skippedSteps} skipped)`
-		: `${passedSteps}/${totalSteps} steps`;
+	const devSteps = data.dev ?? 0;
+	const titleSuffix = journeyStatus === "partial-pass" ? " (Partial)"
+		: journeyStatus === "dev-stopped" ? " (Dev)" : "";
+	const stepsSummary = isDevStopped
+		? `${passedSteps}/${totalSteps} steps (${devSteps} dev, ${skippedSteps} skipped)`
+		: skippedSteps > 0
+			? `${passedSteps}/${totalSteps} steps (${skippedSteps} skipped)`
+			: `${passedSteps}/${totalSteps} steps`;
 
 	const lines = [
 		"",
@@ -382,14 +399,20 @@ function generateJourneyReport(data, date) {
 	/** Renders a single step result into the report lines array. */
 	function renderStep(stepResult) {
 		const s = stepResult.step;
-		const rawStatus = stepResult.status === "pass" ? "pass" : stepResult.status === "fail" ? "fail" : "skipped";
+		const rawStatus = stepResult.status === "dev" ? "dev"
+			: stepResult.status === "pass" ? "pass"
+			: stepResult.status === "fail" ? "fail"
+			: "skipped";
 		// Steps with warnings (e.g. visual-inspection failures) render as partial-pass
 		const hasStepWarnings = stepResult.warnings && stepResult.warnings.length > 0;
 		const stepStatus = (rawStatus === "pass" && hasStepWarnings) ? "partial-pass" : rawStatus;
 		const stepCallout = statusCallout(stepStatus);
 		const icon = statusLabel(stepStatus);
 
-		const statusTag = stepStatus === "fail" ? " FAIL" : stepStatus === "skipped" ? " [SKIP]" : "";
+		const statusTag = stepStatus === "fail" ? " FAIL"
+			: stepStatus === "skipped" ? " [SKIP]"
+			: stepStatus === "dev" ? " [DEV]"
+			: "";
 		lines.push(`### Step ${s.guideSection}: ${s.title}${statusTag}`);
 		lines.push("");
 		lines.push(`> [!${stepCallout}] ${icon} (${formatDuration(stepResult.durationMs)})`);
@@ -1907,13 +1930,18 @@ function generateReport() {
 
 		for (const { title, data } of journeyReportNames) {
 			const jSkipped = data.skipped ?? 0;
-			const jStatus = resolveStatus(data.passed ?? 0, data.failed ?? 0, data.totalSteps ?? 0, jSkipped);
+			const jDevStopped = data.devStopped === true;
+			const jDevSteps = data.dev ?? 0;
+			const jStatus = resolveStatus(data.passed ?? 0, data.failed ?? 0, data.totalSteps ?? 0, jSkipped, false, jDevStopped);
 			const callout = statusCallout(jStatus);
 			const stats = perJourneyStats.get(data.journey);
-			const jTitleSuffix = jStatus === "partial-pass" ? " (Partial)" : "";
-			const jStepsSummary = jSkipped > 0
-				? `${data.passed ?? 0}/${data.totalSteps ?? 0} steps (${jSkipped} skipped)`
-				: `${data.passed ?? 0}/${data.totalSteps ?? 0} steps`;
+			const jTitleSuffix = jStatus === "partial-pass" ? " (Partial)"
+				: jStatus === "dev-stopped" ? " (Dev)" : "";
+			const jStepsSummary = jDevStopped
+				? `${data.passed ?? 0}/${data.totalSteps ?? 0} steps (${jDevSteps} dev, ${jSkipped} skipped)`
+				: jSkipped > 0
+					? `${data.passed ?? 0}/${data.totalSteps ?? 0} steps (${jSkipped} skipped)`
+					: `${data.passed ?? 0}/${data.totalSteps ?? 0} steps`;
 
 			lines.push(`### Journey: ${title}${jTitleSuffix}`);
 			lines.push("");
