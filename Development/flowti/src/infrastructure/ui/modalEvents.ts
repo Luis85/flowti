@@ -16,4 +16,8 @@ export interface ModalEventMap {
 	"modal.textPrompt.submitted": { value: string };
 	/** Emitted when a text prompt is cancelled (closed without submit) */
 	"modal.textPrompt.cancelled": Record<string, never>;
+	/** Request to open a Manual QA checkpoint modal (E2E) */
+	"ui.openManualQa": { instruction: string };
+	/** Emitted when the operator clicks Pass or Fail in the Manual QA modal */
+	"modal.manualQa.responded": { value: "pass" | "fail"; notes: string };
 }

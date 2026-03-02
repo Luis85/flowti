@@ -93,7 +93,7 @@ export function startEventTrace(cli: ObsidianCli): void {
 		"  p._e2eEventTrace = [];",
 		"  p._e2ePerfTrace = [];",
 		"  p._e2eTraceUnsub = p.eventBus.on('*', (event) => {",
-		"    if (event.type.startsWith('log.')) return;",
+		"    if (event.type.startsWith('log.') && event.type !== 'log.error') return;",
 		"    if (event.type.startsWith('perf.')) {",
 		"      p._e2ePerfTrace.push({",
 		"        type: event.type,",

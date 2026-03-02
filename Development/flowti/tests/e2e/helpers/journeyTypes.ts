@@ -48,6 +48,8 @@ export type ToolName =
 	| "query-trace"
 	// Logging tools
 	| "write-run-log"
+	// Scroll tools
+	| "scroll-to"
 	// Interactive inspection tools
 	| "visual-inspection";
 
@@ -248,6 +250,8 @@ export type ActionDefinition =
 	| QueryTraceAction
 	// Logging tools
 	| WriteRunLogAction
+	// Scroll tools
+	| ScrollToAction
 	// Interactive inspection tools
 	| VisualInspectionAction;
 
@@ -282,6 +286,8 @@ export interface HighlightAction {
 	style?: "element" | "button" | "input";
 	/** Target DOM context. "webview" highlights inside the active Electron webview. Default: "dom". */
 	target?: "dom" | "webview";
+	/** Auto-remove the highlight after this many milliseconds. Omit to persist until next step. */
+	duration?: number;
 	description?: string;
 }
 
@@ -303,6 +309,10 @@ export interface ManualAction {
 	tool: "manual";
 	/** What the operator should do manually. */
 	instruction: string;
+	/** Timeout in milliseconds before auto-failing. Default: 300000 (5 minutes). */
+	timeout?: number;
+	/** If false, skip the modal and auto-approve — the step appears only as a checklist item on reports. Default: true. */
+	interactive?: boolean;
 	description?: string;
 }
 
@@ -493,11 +503,26 @@ export interface QueryTraceAction {
 	description?: string;
 }
 
+export interface ScrollToAction {
+	tool: "scroll-to";
+	/** CSS selector for the element to scroll into view. */
+	selector: string;
+	/** Target DOM context. "webview" scrolls inside the active Electron webview. Default: "dom". */
+	target?: "dom" | "webview";
+	/** Scroll behavior. Default: "smooth". */
+	behavior?: "smooth" | "instant";
+	/** Vertical alignment. Default: "center". */
+	block?: "start" | "center" | "end" | "nearest";
+	description?: string;
+}
+
 export interface VisualInspectionAction {
 	tool: "visual-inspection";
 	/** Prompt shown to the operator describing what to inspect. Supports {{variable}} interpolation. */
 	prompt: string;
 	/** Timeout in milliseconds before auto-failing. Default: 300000 (5 minutes). */
 	timeout?: number;
+	/** If false, skip the notice prompt and auto-approve — the step appears only on reports. Default: true. */
+	interactive?: boolean;
 	description?: string;
 }

@@ -645,6 +645,8 @@ const CATALOG_DATA = {
 	"ui.openTextPrompt":         { category: "Modal", description: "Request to open a text input prompt modal", direction: "Internal", domain: "ui", services: "ModalService", tags: ["system"] },
 	"modal.textPrompt.submitted": { category: "Modal", description: "A text prompt was submitted with a value", direction: "Internal", domain: "ui", services: "ModalService", tags: ["system"] },
 	"modal.textPrompt.cancelled": { category: "Modal", description: "A text prompt was cancelled without submitting", direction: "Internal", domain: "ui", services: "ModalService", tags: ["system"] },
+	"ui.openManualQa":           { category: "Modal", description: "Request to open a manual QA checkpoint modal", direction: "Internal", domain: "ui", services: "ModalService", tags: ["system"] },
+	"modal.manualQa.responded":  { category: "Modal", description: "Operator clicked pass or fail in the manual QA modal", direction: "Internal", domain: "ui", services: "ModalService", tags: ["system"] },
 
 	// ── Journey Builder ───────────────────────────────────
 	"journey-builder.opened":           { category: "Journey Builder", description: "Journey Builder sidebar was opened", direction: "Plugin → Listeners", domain: "journey-builder", services: "JourneyBuilderSidebar" },

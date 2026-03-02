@@ -73,6 +73,15 @@ export interface JourneyStep {
 	actions?: Array<Record<string, any>>;
 }
 
+export interface ManualVerification {
+	/** The instruction shown to the operator. */
+	instruction: string;
+	/** Operator verdict. */
+	status: "pass" | "fail";
+	/** Optional operator notes / observations. */
+	notes?: string;
+}
+
 export interface JourneyStepResult {
 	step: JourneyStep;
 	status: "pass" | "fail" | "skip" | "dev";
@@ -86,6 +95,8 @@ export interface JourneyStepResult {
 	errorContext?: ErrorContext;
 	/** Advisory warnings (e.g. visual-inspection soft-fails). Do not affect step status. */
 	warnings?: string[];
+	/** Results from interactive manual verification steps. */
+	manualVerifications?: ManualVerification[];
 }
 
 export interface JourneyResult {
@@ -264,6 +275,7 @@ export class JourneyRunner {
 		externalScreenshots?: string[],
 		variables?: Record<string, string>,
 		warnings?: string[],
+		manualVerifications?: ManualVerification[],
 	): Promise<JourneyStepResult> {
 		const stepStart = Date.now();
 		const capture = options?.capture ?? "afterSettle";
@@ -319,6 +331,7 @@ export class JourneyRunner {
 				screenshotFile: screenshotFiles[0] ?? null,
 				screenshotFiles,
 				...(warnings?.length ? { warnings } : {}),
+				...(manualVerifications?.length ? { manualVerifications } : {}),
 			};
 			this.recordResult(result);
 			return result;
@@ -358,6 +371,7 @@ export class JourneyRunner {
 				screenshotFiles,
 				error: message,
 				errorContext,
+				...(manualVerifications?.length ? { manualVerifications } : {}),
 			};
 			this.recordResult(result);
 			return result;

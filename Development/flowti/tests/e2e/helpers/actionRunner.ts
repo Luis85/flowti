@@ -7,11 +7,12 @@
  */
 import * as path from "node:path";
 import type { ObsidianCli } from "../../../src/infrastructure/cli/ObsidianCli";
-import type { ActionDefinition, AssertAction, CloseLeavesAction, CreateFileAction, DeleteFileAction, EmitAction, EvalAction, FrontmatterAction, NoticeAction, OpenFileAction, OpenUrlAction, QueryTraceAction, RibbonAction, ScreenshotAction, SeedAction, SetInputAction, ThemeAction, VisualInspectionAction, WriteRunLogAction } from "./journeyTypes";
+import type { ActionDefinition, AssertAction, CloseLeavesAction, CreateFileAction, DeleteFileAction, EmitAction, EvalAction, FrontmatterAction, ManualAction, NoticeAction, OpenFileAction, OpenUrlAction, QueryTraceAction, RibbonAction, ScreenshotAction, ScrollToAction, SeedAction, SetInputAction, ThemeAction, VisualInspectionAction, WriteRunLogAction } from "./journeyTypes";
+import type { ManualVerification } from "./journey";
 import { getAllSeeds, getSeedById, SEED_FOLDERS } from "./seedRegistry";
 import { highlightElement, highlightButton, highlightInput, highlightRibbon, highlightWebView, highlightAssert, notifyAssert } from "./highlight";
 import { navigateToTab } from "./navigation";
-import { assertEventEmitted, getEventsSince, getTraceLength, PLUGIN_ID } from "./fixtures";
+import { assertEventEmitted, getEventsSince, PLUGIN_ID } from "./fixtures";
 
 // ─── Variable interpolation ─────────────────────────────────────────
 
@@ -83,16 +84,27 @@ function resolveScreenshotPath(
 	return { filename, absolutePath };
 }
 
+// ─── Manual verification collector ──────────────────────────────────
+
+/**
+ * Mutable context for accumulating manual verification results
+ * during a step's action sequence.
+ */
+export interface ManualVerificationCollector {
+	results: ManualVerification[];
+}
+
 // ─── Action dispatcher ──────────────────────────────────────────────
 
 /**
  * Executes a single action from a journey step definition.
  *
- * @param cli           — ObsidianCli instance
- * @param action        — Action definition from the journey config
- * @param variables     — Mutable variable map (shared across steps)
- * @param traceBookmark — Event trace index recorded at step start
- * @param collector     — Screenshot collector for accumulating filenames
+ * @param cli              — ObsidianCli instance
+ * @param action           — Action definition from the journey config
+ * @param variables        — Mutable variable map (shared across steps)
+ * @param traceBookmark    — Event trace index recorded at step start
+ * @param collector        — Screenshot collector for accumulating filenames
+ * @param manualCollector  — Manual verification collector for pass/fail results
  */
 export async function executeAction(
 	cli: ObsidianCli,
@@ -100,6 +112,7 @@ export async function executeAction(
 	variables: Record<string, string>,
 	traceBookmark: number,
 	collector?: ScreenshotCollector,
+	manualCollector?: ManualVerificationCollector,
 ): Promise<void> {
 	switch (action.tool) {
 		case "command":
@@ -113,9 +126,9 @@ export async function executeAction(
 			break;
 		case "highlight":
 			if (action.target === "webview") {
-				highlightWebView(cli, resolve(action.selector, variables));
+				highlightWebView(cli, resolve(action.selector, variables), action.duration);
 			} else {
-				executeHighlight(cli, resolve(action.selector, variables), action.style);
+				executeHighlight(cli, resolve(action.selector, variables), action.style, action.duration);
 			}
 			break;
 		case "wait":
@@ -193,9 +206,11 @@ export async function executeAction(
 		case "write-run-log":
 			executeWriteRunLog(cli, action, variables);
 			break;
+		case "scroll-to":
+			executeScrollTo(cli, action, variables);
+			break;
 		case "manual":
-			// Manual actions are skipped during automated execution.
-			// They serve as documentation for steps requiring human intervention.
+			await executeManualVerification(cli, action, variables, manualCollector);
 			break;
 		case "visual-inspection":
 			await executeVisualInspection(cli, action, variables);
@@ -240,16 +255,16 @@ function executeInput(cli: ObsidianCli, selector: string, value: string): void {
 	}
 }
 
-function executeHighlight(cli: ObsidianCli, selector: string, style?: "element" | "button" | "input"): void {
+function executeHighlight(cli: ObsidianCli, selector: string, style?: "element" | "button" | "input", duration?: number): void {
 	switch (style) {
 		case "button":
-			highlightButton(cli, selector);
+			highlightButton(cli, selector, duration);
 			break;
 		case "input":
-			highlightInput(cli, selector);
+			highlightInput(cli, selector, duration);
 			break;
 		default:
-			highlightElement(cli, selector);
+			highlightElement(cli, selector, duration);
 			break;
 	}
 }
@@ -618,6 +633,187 @@ function executeQueryTrace(
 	}
 }
 
+// ─── Scroll-to tool ─────────────────────────────────────────────────
+
+function executeScrollTo(cli: ObsidianCli, action: ScrollToAction, variables: Record<string, string>): void {
+	const selector = resolve(action.selector, variables);
+	const behavior = action.behavior ?? "smooth";
+	const block = action.block ?? "center";
+
+	if (action.target === "webview") {
+		const escaped = selector.replace(/'/g, "\\'").replace(/\\/g, "\\\\");
+		cli.eval([
+			`(async () => {`,
+			`  const wv = document.querySelector('webview');`,
+			`  if (!wv) throw new Error('No webview element found');`,
+			`  await wv.executeJavaScript(\``,
+			`    (() => {`,
+			`      const el = document.querySelector('${escaped}');`,
+			`      if (el) el.scrollIntoView({ behavior: '${behavior}', block: '${block}' });`,
+			`    })()`,
+			`  \`);`,
+			`})()`,
+		].join(" "));
+	} else {
+		const escaped = escapeSelector(selector);
+		const result = cli.eval(
+			`(() => { const el = document.querySelector('${escaped}'); if (el) { el.scrollIntoView({ behavior: '${behavior}', block: '${block}' }); return 'ok'; } return 'not-found'; })()`,
+		);
+		if (result.success && result.value === "not-found") {
+			throw new Error(`scroll-to: element '${selector}' not found`);
+		}
+	}
+}
+
+// ─── Manual verification ────────────────────────────────────────────
+
+/** Default timeout for manual verification (5 minutes). */
+const MANUAL_TIMEOUT_MS = 300_000;
+/** Polling interval to check for operator response. */
+const MANUAL_POLL_MS = 500;
+
+/**
+ * Shows a Manual QA prompt via the EventBus (NoticeService + ModalService).
+ *
+ * Flow (same pattern as visual inspection):
+ *   1. `notice.prompt` → persistent Notice with instruction + Fail/Pass buttons
+ *   2. On either response → `ui.openTextPrompt` → InputModal for notes
+ *   3. Records result (pass/fail + notes) to collector
+ *
+ * When `interactive: false`, auto-approves without showing anything.
+ * The step still appears on reports as a checklist item.
+ *
+ * Errors are treated as soft-fails by the executor (pushed to warnings).
+ */
+async function executeManualVerification(
+	cli: ObsidianCli,
+	action: ManualAction,
+	variables: Record<string, string>,
+	collector?: ManualVerificationCollector,
+): Promise<void> {
+	const prompt = resolve(action.instruction, variables);
+
+	// Non-interactive mode: skip silently — renders as open checklist in reports
+	if (action.interactive === false) {
+		return;
+	}
+
+	const escapedPrompt = JSON.stringify(prompt);
+	const timeoutMs = action.timeout ?? MANUAL_TIMEOUT_MS;
+
+	// ── Verify handler registration ──────────────────────────
+	const regCheck = cli.eval([
+		"(() => {",
+		`  const p = app.plugins.plugins['${PLUGIN_ID}'];`,
+		"  if (!p) return 'ERR:no-plugin';",
+		"  if (!p.eventBus) return 'ERR:no-eventBus';",
+		"  const hMap = p.eventBus.handlers;",
+		"  if (!hMap) return 'ERR:no-handlers-map';",
+		"  const h = hMap.get('ui.openManualQa');",
+		"  return String(h ? h.size : 0);",
+		"})()",
+	].join(" "));
+
+	if (!regCheck.success) {
+		throw new Error(`Manual QA: handler check failed: ${regCheck.error}`);
+	}
+	if (regCheck.value.startsWith("ERR:")) {
+		throw new Error(`Manual QA: ${regCheck.value}`);
+	}
+	if (regCheck.value === "0") {
+		throw new Error(
+			"Manual QA: no handlers registered for 'ui.openManualQa'. " +
+			"ModalService may not have wired its subscription — check plugin bootstrap.",
+		);
+	}
+
+	// ── Clear state, subscribe to response, emit event ───────
+	const emitResult = cli.eval([
+		"(() => {",
+		`  const p = app.plugins.plugins['${PLUGIN_ID}'];`,
+		"  if (!p) return 'ERR:no-plugin';",
+		"  delete window._e2eManualResult;",
+		"  delete window._e2eManualNotes;",
+		"  const unsub = p.eventBus.on('modal.manualQa.responded', (e) => {",
+		"    window._e2eManualResult = e.payload.value;",
+		"    window._e2eManualNotes = e.payload.notes || '';",
+		"    unsub();",
+		"  });",
+		`  p.eventBus.emit('ui.openManualQa', { instruction: ${escapedPrompt} });`,
+		"  return 'ok';",
+		"})()",
+	].join(" "));
+
+	if (!emitResult.success || emitResult.value !== "ok") {
+		throw new Error(`Manual QA: emit failed — ${emitResult.success ? emitResult.value : emitResult.error}`);
+	}
+
+	// ── Verify modal appeared ────────────────────────────────
+	await sleep(1000);
+	const traceCheck = cli.eval([
+		"(() => {",
+		`  const p = app.plugins.plugins['${PLUGIN_ID}'];`,
+		"  const trace = p?._e2eEventTrace ?? [];",
+		"  const logErrors = trace.filter(e => e.type === 'log.error').slice(-3);",
+		"  const modalOpened = trace.some(e => e.type === 'modal.opened' && e.payload?.modalType === 'manualQa');",
+		"  const modalDomCount = document.querySelectorAll('.modal-container').length;",
+		"  return JSON.stringify({ modalOpened, logErrors: logErrors.map(e => e.payload), modalDomCount });",
+		"})()",
+	].join(" "));
+
+	if (traceCheck.success) {
+		try {
+			const diag = JSON.parse(traceCheck.value) as {
+				modalOpened: boolean;
+				logErrors: unknown[];
+				modalDomCount: number;
+			};
+			if (diag.logErrors.length > 0) {
+				throw new Error(
+					`Manual QA: handler errors detected:\n${JSON.stringify(diag.logErrors, null, 2)}`,
+				);
+			}
+			if (!diag.modalOpened && diag.modalDomCount === 0) {
+				throw new Error(
+					"Manual QA: event emitted but modal did not appear. " +
+					"Handler may have failed silently or ManualQaModal.open() did not create DOM.",
+				);
+			}
+		} catch (e) {
+			if (e instanceof Error && e.message.startsWith("Manual QA:")) throw e;
+			// JSON parse failure — fall through to poll
+		}
+	}
+
+	// ── Poll for operator response ───────────────────────────
+	const deadline = Date.now() + timeoutMs;
+	while (Date.now() < deadline) {
+		await sleep(MANUAL_POLL_MS);
+		const result = cli.eval("window._e2eManualResult ?? 'pending'");
+		if (!result.success) continue;
+
+		if (result.value === "pass" || result.value === "fail") {
+			const notesResult = cli.eval("window._e2eManualNotes ?? ''");
+			const notes = notesResult.success && notesResult.value ? notesResult.value : undefined;
+			if (collector) {
+				collector.results.push({
+					instruction: prompt,
+					status: result.value as "pass" | "fail",
+					...(notes ? { notes } : {}),
+				});
+			}
+			if (result.value === "fail") {
+				throw new Error(`Manual QA failed: ${prompt}${notes ? `\nNotes: ${notes}` : ""}`);
+			}
+			return;
+		}
+	}
+
+	throw new Error(
+		`Manual QA timed out after ${(timeoutMs / 1000).toFixed(0)}s: ${prompt}`,
+	);
+}
+
 // ─── Visual inspection ──────────────────────────────────────────────
 
 /** Default timeout for visual inspection (5 minutes). */
@@ -636,6 +832,10 @@ async function executeVisualInspection(
 	variables: Record<string, string>,
 ): Promise<void> {
 	const prompt = resolve(action.prompt, variables);
+
+	// Non-interactive mode: skip silently — renders as open checklist in reports
+	if (action.interactive === false) return;
+
 	const escapedPrompt = JSON.stringify(prompt);
 	const timeoutMs = action.timeout ?? VISUAL_TIMEOUT_MS;
 

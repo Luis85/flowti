@@ -152,6 +152,8 @@ function computeActionStats(data) {
 		screenshots: 0,
 		assertions: 0,
 		manualChecks: 0,
+		manualPassed: 0,
+		manualFailed: 0,
 		visualInspections: 0,
 		notices: 0,
 		themeChanges: 0,
@@ -180,6 +182,11 @@ function computeActionStats(data) {
 				case "close-leaves": stats.closeLeaves++; break;
 			}
 		}
+		// Count manual verification results
+		for (const mv of stepResult.manualVerifications ?? []) {
+			if (mv.status === "pass") stats.manualPassed++;
+			else stats.manualFailed++;
+		}
 	}
 
 	return {
@@ -187,6 +194,8 @@ function computeActionStats(data) {
 		screenshots: stats.screenshots,
 		assertions: stats.assertions,
 		manual_checks: stats.manualChecks,
+		manual_passed: stats.manualPassed,
+		manual_failed: stats.manualFailed,
 		visual_inspections: stats.visualInspections,
 		notices: stats.notices,
 		theme_changes: stats.themeChanges,
@@ -328,6 +337,8 @@ function generateJourneyReport(data, date) {
 		screenshots: actionStats.screenshots,
 		assertions: actionStats.assertions,
 		manual_checks: actionStats.manual_checks,
+		...(actionStats.manual_passed > 0 ? { manual_passed: actionStats.manual_passed } : {}),
+		...(actionStats.manual_failed > 0 ? { manual_failed: actionStats.manual_failed } : {}),
 		visual_inspections: actionStats.visual_inspections,
 		notices: actionStats.notices,
 		theme_changes: actionStats.theme_changes,
@@ -499,9 +510,21 @@ function generateJourneyReport(data, date) {
 		}
 		if (screenshots.length > 0) lines.push("");
 
-		// Manual actions — human QA steps documented in the journey config
+		// Manual actions — interactive verification or static checklist fallback
 		const manualActions = (s.actions ?? []).filter((a) => a.tool === "manual");
-		if (manualActions.length > 0) {
+		const manualResults = stepResult.manualVerifications ?? [];
+		if (manualResults.length > 0) {
+			const allPassed = manualResults.every((m) => m.status === "pass");
+			const callout = allPassed ? "success" : "failure";
+			const label = allPassed ? "Manual QA — PASSED" : "Manual QA — FAILED";
+			lines.push(`> [!${callout}] ${label}`);
+			for (const m of manualResults) {
+				const icon = m.status === "pass" ? "✓" : "✗";
+				lines.push(`> - ${icon} ${m.instruction}`);
+				if (m.notes) lines.push(`>   *Notes*: ${m.notes}`);
+			}
+			lines.push("");
+		} else if (manualActions.length > 0) {
 			lines.push("> [!todo] Manual QA");
 			for (const m of manualActions) {
 				lines.push(`> - [ ] ${resolveVars(m.instruction, vars)}`);
@@ -895,12 +918,22 @@ function generateJourneyCanvas(data, screenshotBasePath, trace, configFilePath) 
 			configLines.push(`**Interactions**: ${s.interactions.map((i) => `*${i}*`).join(", ")}`);
 		}
 
-		// Manual actions — human QA steps
-		const manualActions = (s.actions ?? []).filter((a) => a.tool === "manual");
-		if (manualActions.length > 0) {
+		// Manual actions — dynamic results or static checklist fallback
+		const canvasManualActions = (s.actions ?? []).filter((a) => a.tool === "manual");
+		const canvasManualResults = stepResult.manualVerifications ?? [];
+		if (canvasManualResults.length > 0) {
+			const allPassed = canvasManualResults.every((m) => m.status === "pass");
+			configLines.push("");
+			configLines.push(allPassed ? "**Manual QA — PASSED**:" : "**Manual QA — FAILED**:");
+			for (const m of canvasManualResults) {
+				const icon = m.status === "pass" ? "✓" : "✗";
+				configLines.push(`- ${icon} ${m.instruction}`);
+				if (m.notes) configLines.push(`  *Notes*: ${m.notes}`);
+			}
+		} else if (canvasManualActions.length > 0) {
 			configLines.push("");
 			configLines.push("**Manual QA**:");
-			for (const m of manualActions) {
+			for (const m of canvasManualActions) {
 				configLines.push(`- [ ] ${resolveVars(m.instruction, canvasVars)}`);
 			}
 		}
@@ -1536,8 +1569,8 @@ function generateReport() {
 
 	// Aggregate action stats across all journeys
 	const aggregateActions = {
-		total: 0, screenshots: 0, assertions: 0, manual_checks: 0, visual_inspections: 0,
-		notices: 0, theme_changes: 0,
+		total: 0, screenshots: 0, assertions: 0, manual_checks: 0, manual_passed: 0, manual_failed: 0,
+		visual_inspections: 0, notices: 0, theme_changes: 0,
 		create_files: 0, delete_files: 0, open_files: 0, close_leaves: 0,
 		tools: new Set(),
 	};
@@ -1548,6 +1581,8 @@ function generateReport() {
 		aggregateActions.screenshots += stats.screenshots;
 		aggregateActions.assertions += stats.assertions;
 		aggregateActions.manual_checks += stats.manual_checks;
+		aggregateActions.manual_passed += stats.manual_passed;
+		aggregateActions.manual_failed += stats.manual_failed;
 		aggregateActions.visual_inspections += stats.visual_inspections;
 		aggregateActions.notices += stats.notices;
 		aggregateActions.theme_changes += stats.theme_changes;
@@ -1580,6 +1615,8 @@ function generateReport() {
 		total_screenshots: aggregateActions.screenshots,
 		total_assertions: aggregateActions.assertions,
 		total_manual_checks: aggregateActions.manual_checks,
+		...(aggregateActions.manual_passed > 0 ? { total_manual_passed: aggregateActions.manual_passed } : {}),
+		...(aggregateActions.manual_failed > 0 ? { total_manual_failed: aggregateActions.manual_failed } : {}),
 		total_visual_inspections: aggregateActions.visual_inspections,
 		total_notices: aggregateActions.notices,
 		total_theme_changes: aggregateActions.theme_changes,

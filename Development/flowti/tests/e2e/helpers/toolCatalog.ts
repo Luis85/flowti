@@ -291,4 +291,14 @@ export const TOOL_CATALOG: Record<ToolName, ToolMeta> = {
 			"Interactive QA gate with documented failure reason",
 		],
 	},
+	"scroll-to": {
+		name: "scroll-to",
+		description: "Scroll an element into view in the DOM or inside a webview",
+		tags: ["navigation"],
+		useCases: [
+			"Scroll to a specific section before taking a screenshot",
+			"Bring a deeply nested element into the visible viewport",
+			"Scroll inside a webview to reveal content below the fold",
+		],
+	},
 };

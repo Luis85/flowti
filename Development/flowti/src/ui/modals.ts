@@ -43,6 +43,58 @@ export class ConfirmModal extends Modal {
 }
 
 /**
+ * A manual QA checkpoint modal with instruction text, a notes textarea,
+ * and Fail/Pass buttons. Used by E2E tests to pause for operator verification.
+ */
+export class ManualQaModal extends Modal {
+	private instruction: string;
+	private onResult: (result: { value: "pass" | "fail"; notes: string }) => void;
+
+	constructor(app: App, options: { instruction: string; onResult: (result: { value: "pass" | "fail"; notes: string }) => void }) {
+		super(app);
+		this.instruction = options.instruction;
+		this.onResult = options.onResult;
+	}
+
+	onOpen(): void {
+		const { contentEl } = this;
+		// eslint-disable-next-line obsidianmd/ui/sentence-case
+		contentEl.createEl("h3", { text: "Manual QA" });
+		contentEl.createEl("p", { text: this.instruction });
+
+		let notes = "";
+
+		new Setting(contentEl)
+			.setName("Notes")
+			.setDesc("Optional observations")
+			.addTextArea((ta) => {
+				ta.setPlaceholder("Optional observations...");
+				ta.onChange((value) => { notes = value; });
+				ta.inputEl.rows = 4;
+				ta.inputEl.addClass("ft-w-full");
+			});
+
+		new Setting(contentEl)
+			.addButton((btn) =>
+				btn.setButtonText("Fail").setWarning().onClick(() => {
+					this.onResult({ value: "fail", notes: notes.trim() });
+					this.close();
+				})
+			)
+			.addButton((btn) =>
+				btn.setButtonText("Pass").setCta().onClick(() => {
+					this.onResult({ value: "pass", notes: notes.trim() });
+					this.close();
+				})
+			);
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
+	}
+}
+
+/**
  * A modal with a single text input and submit/cancel buttons.
  */
 export class InputModal extends Modal {

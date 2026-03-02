@@ -28,7 +28,7 @@ import { TrainResumeModal } from "../../ui/train/TrainResumeModal";
 import { TrainTypePickerModal } from "../../ui/train/TrainTypePickerModal";
 import { TrainCaptureModal } from "../../ui/train/TrainCaptureModal";
 import { CanvasTemplatePickerModal } from "../../ui/canvas/CanvasTemplatePickerModal";
-import { InputModal } from "../../ui/modals";
+import { InputModal, ManualQaModal } from "../../ui/modals";
 import { SubscriptionManagerModal } from "../../ui/catalog/SubscriptionManagerModal";
 import { computeRemainingMs } from "../../domain/session/helpers";
 import type { InputModalConfig } from "./UiCommandService";
@@ -141,6 +141,21 @@ export class ModalService implements IDisposable {
 		});
 	}
 
+	// ── Manual QA (E2E) ─────────────────────────────────────
+
+	private handleOpenManualQa(payload: { instruction: string }): void {
+		new ManualQaModal(this.app, {
+			instruction: payload.instruction,
+			onResult: (result) => {
+				void this.eventBus.emit("modal.manualQa.responded", result);
+			},
+		}).open();
+		void this.eventBus.emit("modal.opened", {
+			modalType: "manualQa",
+			timestamp: new Date().toISOString(),
+		});
+	}
+
 	// ── IDisposable ─────────────────────────────────────────
 
 	dispose(): void {
@@ -178,6 +193,12 @@ export class ModalService implements IDisposable {
 		this.unsubscribes.push(
 			this.eventBus.on("ui.openTextPrompt", (event) => {
 				void this.openTextPrompt(event.payload);
+			}),
+		);
+
+		this.unsubscribes.push(
+			this.eventBus.on("ui.openManualQa", (event) => {
+				this.handleOpenManualQa(event.payload);
 			}),
 		);
 	}

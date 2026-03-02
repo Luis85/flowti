@@ -72,14 +72,17 @@ export function injectHighlightStyles(cli: ObsidianCli): void {
 
 /**
  * Highlights an input element: focuses it and adds a blue glow.
- * The highlight persists until clearHighlights() is called.
+ * The highlight persists until clearHighlights() is called,
+ * or auto-removes after `duration` ms if specified.
  */
-export function highlightInput(cli: ObsidianCli, selector: string): void {
+export function highlightInput(cli: ObsidianCli, selector: string, duration?: number): void {
 	const escaped = selector.replace(/'/g, "\\'");
+	const cls = "ft-e2e-highlight-input";
+	const autoRemove = duration ? ` setTimeout(() => el.classList.remove('${cls}'), ${duration});` : "";
 	cli.eval([
 		`(() => {`,
 		`  const el = document.querySelector('${escaped}');`,
-		`  if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('ft-e2e-highlight-input'); el.focus(); }`,
+		`  if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('${cls}'); el.focus();${autoRemove} }`,
 		`})()`,
 	].join(" "));
 }
@@ -87,14 +90,17 @@ export function highlightInput(cli: ObsidianCli, selector: string): void {
 /**
  * Highlights a button element: adds an orange pulse animation.
  * Scrolls into view if the element is outside the visible area.
- * The highlight persists until clearHighlights() is called.
+ * The highlight persists until clearHighlights() is called,
+ * or auto-removes after `duration` ms if specified.
  */
-export function highlightButton(cli: ObsidianCli, selector: string): void {
+export function highlightButton(cli: ObsidianCli, selector: string, duration?: number): void {
 	const escaped = selector.replace(/'/g, "\\'");
+	const cls = "ft-e2e-highlight-button";
+	const autoRemove = duration ? ` setTimeout(() => el.classList.remove('${cls}'), ${duration});` : "";
 	cli.eval([
 		`(() => {`,
 		`  const el = document.querySelector('${escaped}');`,
-		`  if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('ft-e2e-highlight-button'); }`,
+		`  if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('${cls}');${autoRemove} }`,
 		`})()`,
 	].join(" "));
 }
@@ -102,13 +108,16 @@ export function highlightButton(cli: ObsidianCli, selector: string): void {
 /**
  * Highlights any element by selector: adds a green outline.
  * Scrolls into view if the element is outside the visible area.
+ * Auto-removes after `duration` ms if specified.
  */
-export function highlightElement(cli: ObsidianCli, selector: string): void {
+export function highlightElement(cli: ObsidianCli, selector: string, duration?: number): void {
 	const escaped = selector.replace(/'/g, "\\'");
+	const cls = "ft-e2e-highlight-element";
+	const autoRemove = duration ? ` setTimeout(() => el.classList.remove('${cls}'), ${duration});` : "";
 	cli.eval([
 		`(() => {`,
 		`  const el = document.querySelector('${escaped}');`,
-		`  if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('ft-e2e-highlight-element'); }`,
+		`  if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('${cls}');${autoRemove} }`,
 		`})()`,
 	].join(" "));
 }
@@ -219,9 +228,12 @@ const WEBVIEW_HIGHLIGHT_CSS = `
  *
  * Color: cyan (#26c6da) — distinct from main-DOM highlights.
  */
-export function highlightWebView(cli: ObsidianCli, selector: string): void {
+export function highlightWebView(cli: ObsidianCli, selector: string, duration?: number): void {
 	const escaped = selector.replace(/'/g, "\\'").replace(/\\/g, "\\\\");
 	const cssEscaped = WEBVIEW_HIGHLIGHT_CSS.replace(/'/g, "\\'");
+	const autoRemove = duration
+		? `setTimeout(() => el.classList.remove('ft-e2e-wv-highlight'), ${duration});`
+		: "";
 
 	const result = cli.eval([
 		`(async () => {`,
@@ -239,6 +251,7 @@ export function highlightWebView(cli: ObsidianCli, selector: string): void {
 		`      if (el) {`,
 		`        el.scrollIntoView({ behavior: 'smooth', block: 'center' });`,
 		`        el.classList.add('ft-e2e-wv-highlight');`,
+		`        ${autoRemove}`,
 		`        return 'highlighted';`,
 		`      }`,
 		`      return 'not-found';`,

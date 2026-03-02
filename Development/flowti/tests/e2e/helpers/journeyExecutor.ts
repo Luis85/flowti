@@ -37,7 +37,7 @@ import {
 import { JourneyRunner } from "./journey";
 import type { JourneyStep } from "./journey";
 import { executeAction } from "./actionRunner";
-import type { ScreenshotCollector } from "./actionRunner";
+import type { ScreenshotCollector, ManualVerificationCollector } from "./actionRunner";
 import type { TestFixture } from "./fixtures";
 
 // ── Run log auto-logging ────────────────────────────────────────────
@@ -304,6 +304,7 @@ async function runStepWithActions(
 		files: [],
 		counter: 0,
 	};
+	const manualCollector: ManualVerificationCollector = { results: [] };
 	const warnings: string[] = [];
 
 	const result = await runner.runStep(
@@ -313,13 +314,14 @@ async function runStepWithActions(
 			for (let i = 0; i < actions.length; i++) {
 				const action = actions[i];
 				try {
-					await executeAction(cli, action, variables, traceBookmark, collector);
+					await executeAction(cli, action, variables, traceBookmark, collector, manualCollector);
 				} catch (err) {
 					const msg = err instanceof Error ? err.message : String(err);
-					// Visual inspections are advisory — log failure but don't block the test
-					if (action.tool === "visual-inspection") {
-						writeRunLog(cli, `- [ ] **Visual Inspection** — ${msg}`);
-						console.warn(`[e2e] Visual inspection soft-fail: ${msg}`);
+					// Interactive tools are advisory — log failure but don't block the test
+					if (action.tool === "visual-inspection" || action.tool === "manual") {
+						const label = action.tool === "manual" ? "Manual QA" : "Visual Inspection";
+						writeRunLog(cli, `- [ ] **${label}** — ${msg}`);
+						console.warn(`[e2e] ${label} soft-fail: ${msg}`);
 						warnings.push(msg);
 						continue;
 					}
@@ -337,6 +339,7 @@ async function runStepWithActions(
 		collector.files,
 		variables,
 		warnings,
+		manualCollector.results,
 	);
 
 	return result.status === "pass" ? "pass" : "fail";
@@ -544,6 +547,13 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 		});
 
 		for (const step of resolvedSteps) {
+			// Interactive tools (manual, visual-inspection) need longer timeouts
+			// for operator interaction. Default vitest timeout is 30s — expand to 6 min.
+			const hasInteractiveTools = step.actions.some(
+				(a) => a.tool === "manual" || a.tool === "visual-inspection",
+			);
+			const stepTimeout = hasInteractiveTools ? 360_000 : undefined;
+
 			it(`${definition.chapter != null ? `${definition.chapter}.` : ""}${step.guideSection} — ${step.title}`, async () => {
 				// Skip if marked as skipped in the journey definition
 				if (step.skip) {
@@ -602,7 +612,7 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 				}
 
 				expect(status).toBe("pass");
-			});
+			}, stepTimeout);
 		}
 	});
 }

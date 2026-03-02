@@ -66,6 +66,12 @@ vi.mock("../../../src/ui/modals", () => ({
 		}
 		open() { /* noop */ }
 	},
+	ManualQaModal: class {
+		constructor(_app: unknown, options: unknown) {
+			openedModals.push({ type: "ManualQaModal", options });
+		}
+		open() { /* noop */ }
+	},
 }));
 
 vi.mock("../../../src/domain/capture/resolveCaptureConfig", () => ({
@@ -619,6 +625,55 @@ describe("ModalService", () => {
 			expect(opts.inputDesc).toBe("");
 			expect(opts.placeholder).toBe("");
 			expect(opts.submitLabel).toBe("Submit");
+		});
+	});
+
+	// ── ui.openManualQa ────────────────────────────────────
+
+	describe("handleOpenManualQa", () => {
+		it("should open ManualQaModal when event fires", async () => {
+			await eventBus.emit("ui.openManualQa", { instruction: "Check the layout" });
+			expect(openedModals).toHaveLength(1);
+			expect(openedModals[0].type).toBe("ManualQaModal");
+		});
+
+		it("should pass instruction to the modal", async () => {
+			await eventBus.emit("ui.openManualQa", { instruction: "Verify sidebar" });
+			const opts = openedModals[0].options as { instruction: string };
+			expect(opts.instruction).toBe("Verify sidebar");
+		});
+
+		it("should emit modal.opened with manualQa type", async () => {
+			const opened: Array<{ modalType: string }> = [];
+			eventBus.on("modal.opened", (e) => { opened.push(e.payload); });
+
+			await eventBus.emit("ui.openManualQa", { instruction: "Test" });
+			expect(opened).toHaveLength(1);
+			expect(opened[0].modalType).toBe("manualQa");
+		});
+
+		it("should emit modal.manualQa.responded when onResult is called", async () => {
+			const responded: Array<{ value: string; notes: string }> = [];
+			eventBus.on("modal.manualQa.responded", (e) => { responded.push(e.payload); });
+
+			await eventBus.emit("ui.openManualQa", { instruction: "Test" });
+			const opts = openedModals[0].options as { onResult: (r: { value: string; notes: string }) => void };
+			opts.onResult({ value: "pass", notes: "looks good" });
+
+			// Wait for the async emit inside onResult
+			await vi.waitFor(() => {
+				expect(responded).toHaveLength(1);
+			});
+			expect(responded[0].value).toBe("pass");
+			expect(responded[0].notes).toBe("looks good");
+		});
+
+		it("should not open modal after dispose", async () => {
+			service.dispose();
+			openedModals.length = 0;
+
+			await eventBus.emit("ui.openManualQa", { instruction: "Test" });
+			expect(openedModals).toHaveLength(0);
 		});
 	});
 

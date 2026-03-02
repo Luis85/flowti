@@ -44,8 +44,7 @@
 			"description": "Closes stale Journey Builder leaves and modals from previous runs.",
 			"actions": [
 				{ "tool": "close-modals", "description": "Dismiss any open modals" },
-				{ "tool": "close-leaves", "viewType": "flowti-journey-builder", "description": "Close stale Journey Builder sidebar leaves" },
-				{ "tool": "wait", "ms": 300 }
+				{ "tool": "close-leaves", "viewType": "flowti-journey-builder", "description": "Close stale Journey Builder sidebar leaves" }
 			]
 		}
 	],
@@ -70,7 +69,7 @@
 			"actions": [
 				{ "tool": "notice", "message": "Step 1/5: Opening Journey Builder via command", "duration": 3000 },
 				{ "tool": "command", "id": "flowti:open-journey-builder", "description": "Open Journey Builder via command palette" },
-				{ "tool": "wait", "ms": 1000, "description": "Wait for sidebar to open" },
+				{ "tool": "wait", "ms": 500, "description": "Wait for sidebar to open" },
 				{ "tool": "assert", "type": "leaf", "viewType": "flowti-journey-builder", "description": "Journey Builder sidebar leaf exists" },
 				{ "tool": "assert", "type": "event", "event": "journey-builder.opened", "description": "journey-builder.opened event was emitted" },
 				{ "tool": "screenshot", "label": "after-command", "description": "Journey Builder opened via command" },
@@ -107,9 +106,9 @@
 					"expect": { "type": "equals", "value": "right" },
 					"description": "Sidebar is in the right split pane"
 				},
-				{ "tool": "highlight", "selector": ".workspace-leaf-content[data-type='flowti-journey-builder']", "style": "element", "description": "Highlight sidebar" },
+				{ "tool": "highlight", "selector": ".workspace-leaf-content[data-type='flowti-journey-builder']", "style": "element", "description": "Highlight sidebar","duration": 500 },
 				{ "tool": "screenshot", "label": "after-ribbon", "description": "Journey Builder open via ribbon" },
-				{ "tool": "manual", "instruction": "Verify the ribbon button has a route icon. The sidebar should appear in the right pane with two action cards: Open Existing Journey and Create New Journey.", "description": "Visual QA of ribbon-triggered state" }
+				{ "tool": "manual", "instruction": "Verify the ribbon button has a route icon. The sidebar should appear in the right pane with two action cards: Open Existing Journey and Create New Journey.", "interactive": false, "description": "Visual QA of ribbon-triggered state" }
 			]
 		},
 		{
@@ -143,7 +142,7 @@
 				{ "tool": "set-input", "selector": "[data-test-id='jb-start-event-input']", "value": "journey-builder.opened", "description": "Enter start event name" },
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "screenshot", "label": "setup-filled", "description": "Journey setup form populated" },
-				{ "tool": "manual", "instruction": "Verify the setup form shows journey name, description, and start event fields all filled in. A back button and continue button should be visible.", "description": "Visual QA of setup form" }
+				{ "tool": "manual", "instruction": "Verify the setup form shows journey name, description, and start event fields all filled in. A back button and continue button should be visible.", "interactive": false, "description": "Visual QA of setup form" }
 			]
 		},
 		{
@@ -182,7 +181,7 @@
 				{ "tool": "set-input", "selector": "[data-test-id='jb-end-event-input']", "value": "hub.tab.changed", "description": "Enter end event name" },
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "screenshot", "label": "step-added", "description": "Step added with end event set" },
-				{ "tool": "manual", "instruction": "Verify a step card appeared with number badge '1' and title 'Open the user hub'. The end event field should show 'hub.tab.changed'. An export button should be visible at the bottom.", "description": "Visual QA of step creation" }
+				{ "tool": "manual", "instruction": "Verify a step card appeared with number badge '1' and title 'Open the user hub'. The end event field should show 'hub.tab.changed'. An export button should be visible at the bottom.", "interactive": false, "description": "Visual QA of step creation" }
 			]
 		},
 		{
@@ -234,7 +233,7 @@
 				},
 				{ "tool": "screenshot", "label": "exported", "description": "Journey exported successfully" },
 				{ "tool": "notice", "message": "Journey Builder journey complete", "duration": 5000 },
-				{ "tool": "manual", "instruction": "Open the exported JSON file and verify it matches the JourneyDefinition schema: journey name, description, start event, end event, and at least one step with id, title, and actions. A companion canvas file should also exist.", "description": "Manual JSON + canvas structure verification" }
+				{ "tool": "manual", "instruction": "Open the exported JSON file and verify it matches the JourneyDefinition schema: journey name, description, start event, end event, and at least one step with id, title, and actions. A companion canvas file should also exist.", "interactive": false, "description": "Manual JSON + canvas structure verification" }
 			]
 		}
 	],
