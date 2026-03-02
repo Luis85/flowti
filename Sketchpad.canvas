@@ -5,6 +5,7 @@
 		{"id":"b166cd871972398d","type":"group","x":1380,"y":2180,"width":2860,"height":1520,"label":"Flowti - Mental Model"},
 		{"id":"d4b7da991046b772","type":"group","x":-40,"y":2100,"width":1220,"height":1680,"label":"Flowti Development Process"},
 		{"id":"69533e597bf70e07","type":"group","x":440,"y":-1810,"width":1120,"height":1820,"label":"Process - From Idea to Solution"},
+		{"id":"47155404c92774a1","type":"group","x":3640,"y":-1930,"width":2480,"height":810,"label":"Product Backlog"},
 		{
 			"id":"8949429598fc16f9",
 			"type":"group",
@@ -21,7 +22,6 @@
 		},
 		{"id":"709db2caae500820","type":"group","backgroundStyle":"ratio","x":1730,"y":5360,"width":1648,"height":1100,"label":"Event Catalog - Dashboard","background":"03 - Resources/Attachments/Pasted image 20260213192558.png"},
 		{"id":"88cf99594f0985d7","type":"group","backgroundStyle":"ratio","x":3820,"y":5362,"width":1647,"height":1098,"label":"Event Catalog - Flows","background":"03 - Resources/Attachments/Pasted image 20260213192818.png"},
-		{"id":"47155404c92774a1","type":"group","x":3680,"y":-1930,"width":2100,"height":760,"label":"Product Backlog"},
 		{"id":"1e795db265a03e30","type":"group","x":-40,"y":1440,"width":2240,"height":540,"label":"Quality Management System - Product Development"},
 		{"id":"39fcb04a6dfb4db0","type":"group","x":1740,"y":-1210,"width":1580,"height":500,"label":"Solution"},
 		{"id":"be68efe3c18f4579","type":"group","x":2840,"y":2520,"width":960,"height":820,"label":"Product Development"},
@@ -1853,6 +1853,26 @@
 			"y":-1550,
 			"width":260,
 			"height":60
+		},
+		{
+			"id":"3d379f0f9822f73f",
+			"type":"text",
+			"text":"Non-Functional Requirements",
+			"styleAttributes":{"textAlign":"center"},
+			"x":4620,
+			"y":-1270,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"e518a67e4deef363",
+			"type":"text",
+			"text":"Code",
+			"styleAttributes":{"textAlign":"center"},
+			"x":5820,
+			"y":-1550,
+			"width":260,
+			"height":60
 		}
 	],
 	"edges":[
@@ -2510,6 +2530,24 @@
 			"fromSide":"left",
 			"toNode":"8693c91ef0c19664",
 			"toSide":"right"
+		},
+		{
+			"id":"02ec266545a3a093",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"3d379f0f9822f73f",
+			"fromSide":"top",
+			"toNode":"ac827defa91bd785",
+			"toSide":"bottom"
+		},
+		{
+			"id":"6e5dba55e3110da6",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"7196ef67c2aede3b",
+			"fromSide":"right",
+			"toNode":"e518a67e4deef363",
+			"toSide":"left"
 		}
 	],
 	"metadata":{
