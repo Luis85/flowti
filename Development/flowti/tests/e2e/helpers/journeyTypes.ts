@@ -88,6 +88,8 @@ export interface JourneyDefinition {
 	journey: string;
 	/** Chapter number for vitest describe block. e.g. 5 → "Chapter 5: Canvas Session" */
 	chapter: number;
+	/** If true, skip this entire journey during execution. All steps register as skipped. */
+	skip?: boolean;
 	/** What this journey validates. */
 	description?: string;
 	/** Relative path to the test source file (from plugin root). */
@@ -188,6 +190,8 @@ export interface StepDefinition {
 	queries?: string[];
 	/** Ordered list of actions to execute within this step. */
 	actions: ActionDefinition[];
+	/** If true, skip this step during execution. Registers as skipped in results. */
+	skip?: boolean;
 }
 
 // ─── Action definitions (discriminated union on `tool`) ─────────────

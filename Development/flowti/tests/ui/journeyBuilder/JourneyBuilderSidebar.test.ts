@@ -13,6 +13,11 @@ function createMockLeaf(): import("obsidian").WorkspaceLeaf {
 	return {} as import("obsidian").WorkspaceLeaf;
 }
 
+/** Query by data-test-id attribute. */
+function byTestId(root: HTMLElement, id: string): HTMLElement | null {
+	return root.querySelector(`[data-test-id="${id}"]`);
+}
+
 // ── Tests ────────────────────────────────────────────────
 
 describe("JourneyBuilderSidebar", () => {
@@ -53,37 +58,37 @@ describe("JourneyBuilderSidebar", () => {
 		});
 
 		it("renders the header with title", () => {
-			const header = sidebar.contentEl.querySelector(".ft-jb-header-title");
+			const header = byTestId(sidebar.contentEl, "jb-header-title");
 			expect(header).toBeTruthy();
 			expect(header!.textContent).toBe("Journey Builder");
 		});
 
 		it("renders Open Existing button", () => {
-			const btn = sidebar.contentEl.querySelector(".ft-jb-open-existing-btn");
+			const btn = byTestId(sidebar.contentEl, "jb-open-existing");
 			expect(btn).toBeTruthy();
 			expect(btn!.getAttribute("role")).toBe("button");
 			expect(btn!.getAttribute("tabindex")).toBe("0");
 		});
 
 		it("renders Create New button", () => {
-			const btn = sidebar.contentEl.querySelector(".ft-jb-create-new-btn");
+			const btn = byTestId(sidebar.contentEl, "jb-create-new");
 			expect(btn).toBeTruthy();
 			expect(btn!.getAttribute("role")).toBe("button");
 			expect(btn!.getAttribute("tabindex")).toBe("0");
 		});
 
 		it("renders Open Existing card with title and description", () => {
-			const card = sidebar.contentEl.querySelector(".ft-jb-open-existing-btn");
-			const title = card!.querySelector(".ft-jb-card-title");
-			const desc = card!.querySelector(".ft-jb-card-desc");
+			const card = byTestId(sidebar.contentEl, "jb-open-existing");
+			const title = card!.querySelector("[data-test-id='jb-card-title']");
+			const desc = card!.querySelector("[data-test-id='jb-card-desc']");
 			expect(title!.textContent).toBe("Open Existing Journey");
 			expect(desc!.textContent).toContain("Load and edit");
 		});
 
 		it("renders Create New card with title and description", () => {
-			const card = sidebar.contentEl.querySelector(".ft-jb-create-new-btn");
-			const title = card!.querySelector(".ft-jb-card-title");
-			const desc = card!.querySelector(".ft-jb-card-desc");
+			const card = byTestId(sidebar.contentEl, "jb-create-new");
+			const title = card!.querySelector("[data-test-id='jb-card-title']");
+			const desc = card!.querySelector("[data-test-id='jb-card-desc']");
 			expect(title!.textContent).toBe("Create New Journey");
 			expect(desc!.textContent).toContain("Design a new");
 		});
@@ -91,7 +96,7 @@ describe("JourneyBuilderSidebar", () => {
 		it("emits journey-builder.open-existing on Open Existing click", () => {
 			const handler = vi.fn();
 			eventBus.on("journey-builder.open-existing", handler);
-			const btn = sidebar.contentEl.querySelector(".ft-jb-open-existing-btn") as HTMLElement;
+			const btn = byTestId(sidebar.contentEl, "jb-open-existing")!;
 			btn.click();
 			expect(handler).toHaveBeenCalledOnce();
 		});
@@ -99,7 +104,7 @@ describe("JourneyBuilderSidebar", () => {
 		it("emits journey-builder.create-new on Create New click", () => {
 			const handler = vi.fn();
 			eventBus.on("journey-builder.create-new", handler);
-			const btn = sidebar.contentEl.querySelector(".ft-jb-create-new-btn") as HTMLElement;
+			const btn = byTestId(sidebar.contentEl, "jb-create-new")!;
 			btn.click();
 			expect(handler).toHaveBeenCalledOnce();
 		});
@@ -107,7 +112,7 @@ describe("JourneyBuilderSidebar", () => {
 		it("supports keyboard activation with Enter", () => {
 			const handler = vi.fn();
 			eventBus.on("journey-builder.create-new", handler);
-			const btn = sidebar.contentEl.querySelector(".ft-jb-create-new-btn") as HTMLElement;
+			const btn = byTestId(sidebar.contentEl, "jb-create-new")!;
 			btn.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
 			expect(handler).toHaveBeenCalledOnce();
 		});
@@ -115,7 +120,7 @@ describe("JourneyBuilderSidebar", () => {
 		it("supports keyboard activation with Space", () => {
 			const handler = vi.fn();
 			eventBus.on("journey-builder.open-existing", handler);
-			const btn = sidebar.contentEl.querySelector(".ft-jb-open-existing-btn") as HTMLElement;
+			const btn = byTestId(sidebar.contentEl, "jb-open-existing")!;
 			btn.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
 			expect(handler).toHaveBeenCalledOnce();
 		});

@@ -51,19 +51,23 @@ export class JourneyBuilderSidebar extends ItemView {
 		const header = el.createDiv({ cls: "ft-jb-header" });
 		const iconEl = header.createSpan({ cls: "ft-jb-header-icon" });
 		setIcon(iconEl, "route");
-		header.createSpan({ cls: "ft-jb-header-title", text: "Journey Builder" });
+		const titleEl = header.createSpan({ cls: "ft-jb-header-title", text: "Journey Builder" });
+		titleEl.dataset.testId = "jb-header-title";
 
 		// Welcome cards
 		const cards = el.createDiv({ cls: "ft-jb-welcome-cards" });
 
 		// Open Existing card
 		const openCard = cards.createDiv({ cls: "ft-jb-welcome-card ft-jb-open-existing-btn" });
+		openCard.dataset.testId = "jb-open-existing";
 		openCard.setAttribute("role", "button");
 		openCard.setAttribute("tabindex", "0");
 		const openIcon = openCard.createDiv({ cls: "ft-jb-card-icon" });
 		setIcon(openIcon, "file-search");
-		openCard.createDiv({ cls: "ft-jb-card-title", text: "Open Existing Journey" });
-		openCard.createDiv({ cls: "ft-jb-card-desc", text: "Load and edit a journey definition from your vault" });
+		const openTitle = openCard.createDiv({ cls: "ft-jb-card-title", text: "Open Existing Journey" });
+		openTitle.dataset.testId = "jb-card-title";
+		const openDesc = openCard.createDiv({ cls: "ft-jb-card-desc", text: "Load and edit a journey definition from your vault" });
+		openDesc.dataset.testId = "jb-card-desc";
 		openCard.addEventListener("click", () => this.onOpenExisting());
 		openCard.addEventListener("keydown", (e: KeyboardEvent) => {
 			if (e.key === "Enter" || e.key === " ") {
@@ -74,12 +78,15 @@ export class JourneyBuilderSidebar extends ItemView {
 
 		// Create New card
 		const newCard = cards.createDiv({ cls: "ft-jb-welcome-card ft-jb-create-new-btn" });
+		newCard.dataset.testId = "jb-create-new";
 		newCard.setAttribute("role", "button");
 		newCard.setAttribute("tabindex", "0");
 		const newIcon = newCard.createDiv({ cls: "ft-jb-card-icon" });
 		setIcon(newIcon, "plus-circle");
-		newCard.createDiv({ cls: "ft-jb-card-title", text: "Create New Journey" });
-		newCard.createDiv({ cls: "ft-jb-card-desc", text: "Design a new E2E journey from scratch" });
+		const newTitle = newCard.createDiv({ cls: "ft-jb-card-title", text: "Create New Journey" });
+		newTitle.dataset.testId = "jb-card-title";
+		const newDesc = newCard.createDiv({ cls: "ft-jb-card-desc", text: "Design a new E2E journey from scratch" });
+		newDesc.dataset.testId = "jb-card-desc";
 		newCard.addEventListener("click", () => this.onCreateNew());
 		newCard.addEventListener("keydown", (e: KeyboardEvent) => {
 			if (e.key === "Enter" || e.key === " ") {

@@ -60,6 +60,8 @@ export interface JourneyStep {
 	commands?: string[];
 	/** Analytics queries run or validated. e.g. ["supplier-overview"] */
 	queries?: string[];
+	/** If true, this step was marked as skipped in the journey definition. */
+	skip?: boolean;
 	/**
 	 * Declarative action definitions from the journey JSON.
 	 * Passed through for report/canvas generation (manual, notice rendering).

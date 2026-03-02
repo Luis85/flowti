@@ -223,6 +223,14 @@ function validateJourney(definition: JourneyDefinition): string[] {
 		}
 	}
 
+	// Setup/teardown steps cannot be skipped (they control lifecycle)
+	for (const step of definition.setup ?? []) {
+		if (step.skip) errors.push(`Setup step '${step.id}' cannot be skipped`);
+	}
+	for (const step of definition.teardown ?? []) {
+		if (step.skip) errors.push(`Teardown step '${step.id}' cannot be skipped`);
+	}
+
 	// Blueprint swimlane validation (if type is "blueprint")
 	if (definition.type === "blueprint") {
 		const stepsWithoutSwimlane = allSteps.filter((s) => !s.swimlane);
@@ -264,6 +272,7 @@ function toJourneyStep(step: StepDefinition, phase?: "setup" | "journey" | "tear
 		interactions: step.interactions,
 		queries: step.queries,
 		actions: step.actions,
+		skip: step.skip,
 	};
 }
 
@@ -412,10 +421,10 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 	const chapterLabel = `Chapter ${definition.chapter}: ${definition.journey}`;
 
 	// ── Skip mode ────────────────────────────────────────────
-	if (options?.skip) {
+	if (options?.skip || definition.skip) {
 		describe(`${chapterLabel} (skip mode)`, () => {
 			it(`${definition.chapter}.0 — Skipped (previous run passed)`, async () => {
-				if (options.onSkip) {
+				if (options?.onSkip) {
 					const fixture = createFixture(process.env.OBSIDIAN_VAULT);
 					await options.onSkip(fixture.cli);
 				}
@@ -529,6 +538,13 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 
 		for (const step of resolvedSteps) {
 			it(`${definition.chapter}.${step.guideSection} — ${step.title}`, async () => {
+				// Skip if marked as skipped in the journey definition
+				if (step.skip) {
+					const journeyStep = toJourneyStep(step, "journey");
+					runner.addSkippedResult(journeyStep);
+					return;
+				}
+
 				// Skip if step not in active filter (E2E_STEPS)
 				if (stepFilter && !stepFilter.has(step.id)) {
 					const journeyStep = toJourneyStep(step, "journey");
