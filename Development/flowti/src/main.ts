@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFile, TFolder, type ViewCreator } from "obsidian";
+import { Plugin, TFile, TFolder, type ViewCreator } from "obsidian";
 import { registerCommands } from "./infrastructure/commands/registry";
 import type { CommandContext, ICommandRegistry } from "./infrastructure/commands/types";
 import { LifecycleError } from "./infrastructure/errors/FlowtiError";
@@ -40,9 +40,6 @@ import { PerfAggregator } from "./infrastructure/services/PerfAggregator";
 import { TypedStorage } from "./utils/TypedStorage";
 import type { PerfState } from "./infrastructure/services/perfTypes";
 import { seedSupplierDashboard } from "./domain/installer/seedDashboard";
-import { QuickCaptureModal } from "./ui/capture/QuickCaptureModal";
-import { resolveCaptureConfig } from "./domain/capture/resolveCaptureConfig";
-import { TrainCaptureModal } from "./ui/train/TrainCaptureModal";
 import { registerViews } from "./infrastructure/views/registry";
 import type { IViewRegistry } from "./infrastructure/views/types";
 import { IngestionStatusBar } from "./ui/shared/IngestionStatusBar";
@@ -50,7 +47,6 @@ import { DataExchangeService } from "./domain/dataExchange/DataExchangeService";
 import { DataExchangeSetup } from "./bootstrap/dataExchangeSetup";
 import { SessionSetup } from "./bootstrap/sessionSetup";
 import { UiCommandService } from "./infrastructure/ui/UiCommandService";
-import { InputModal } from "./ui/modals";
 import { createInfrastructure, setupCrossCuttingListeners } from "./bootstrap/pluginBootstrap";
 import { createSecretStore } from "./utils/SecretStore";
 import { HubRegistry } from "./domain/hub/HubRegistry";
@@ -65,13 +61,11 @@ import { TrainMainView, VIEW_TYPE_TRAIN_MAIN } from "./ui/train/TrainMainView";
 import { TrainTimelineSidebar, VIEW_TYPE_TRAIN_TIMELINE } from "./ui/train/TrainTimelineSidebar";
 import { TrainHubView, VIEW_TYPE_TRAIN_HUB } from "./ui/train/TrainHubView";
 import { AnalyticsHubView, VIEW_TYPE_ANALYTICS_HUB } from "./ui/analytics/AnalyticsHubView";
-import { TrainResumeModal } from "./ui/train/TrainResumeModal";
-import { TrainTypePickerModal } from "./ui/train/TrainTypePickerModal";
-import { CanvasTemplatePickerModal } from "./ui/canvas/CanvasTemplatePickerModal";
 import { CanvasSessionService } from "./domain/canvas/session/CanvasSessionService";
 import { showNudgeNotification } from "./ui/shared/NudgeNotification";
 import { openStartPage } from "./infrastructure/StartpageHandler";
-import { computeRemainingMs } from "./domain/session/helpers";
+import { NoticeService } from "./infrastructure/ui/NoticeService";
+import { ModalService } from "./infrastructure/ui/ModalService";
 
 
 /**  
@@ -142,35 +136,8 @@ export default class FlowtiBasePlugin extends Plugin {
 	private sessionSetup?: SessionSetup;
 	private crossCuttingListeners: (() => void)[] = [];
 	private pendingSettingsWarning?: unknown[];
-
-	// ── Notice throttle ──────────────────────────────────────
-	// Batches rapid-fire notices (e.g. during bulk import) into a single
-	// summary notice per key. Within the window, counts accumulate; when
-	// the timer fires, a single Notice is shown with the total count.
-	private static readonly NOTICE_WINDOW_MS = 2000;
-	private noticeBatches = new Map<string, { count: number; timer: ReturnType<typeof setTimeout> }>();
-
-	private throttledNotice(key: string, singleMsg: string): void {
-		const existing = this.noticeBatches.get(key);
-		if (existing) {
-			existing.count++;
-			return; // timer already running — it will flush
-		}
-		const batch = {
-			count: 1,
-			timer: setTimeout(() => {
-				const b = this.noticeBatches.get(key);
-				this.noticeBatches.delete(key);
-				if (!b) return;
-				if (b.count === 1) {
-					new Notice(singleMsg);
-				} else {
-					new Notice(`${singleMsg} (+${b.count - 1} more)`);
-				}
-			}, FlowtiBasePlugin.NOTICE_WINDOW_MS),
-		};
-		this.noticeBatches.set(key, batch);
-	}
+	private noticeService?: NoticeService;
+	private modalService?: ModalService;
 
 	async onload() {
 		try {
@@ -202,6 +169,17 @@ export default class FlowtiBasePlugin extends Plugin {
 				timestamp: new Date().toISOString(),
 			});
 
+			// NoticeService — centralizes all notice creation
+			this.noticeService = new NoticeService({ eventBus: this.eventBus });
+
+			// ModalService — centralizes all modal lifecycle
+			this.modalService = new ModalService({
+				app: this.app,
+				eventBus: this.eventBus,
+				noticeService: this.noticeService,
+				getSettings: () => this.settings,
+			});
+
 			this.crossCuttingListeners = setupCrossCuttingListeners({
 				eventBus: this.eventBus,
 				logger: this.logger,
@@ -209,7 +187,6 @@ export default class FlowtiBasePlugin extends Plugin {
 					this.settings = s;
 					this.collapsedCategories = new Set(s.collapsedCategories);
 				},
-				throttledNotice: (key, msg) => this.throttledNotice(key, msg),
 			});
 
 			void this.eventBus.emit("settings.loaded", { settings: this.settings });
@@ -240,9 +217,7 @@ export default class FlowtiBasePlugin extends Plugin {
 				app: this.app,
 				eventBus: this.eventBus,
 			});
-			this.uiCommandService.setShowInputModal((config) => {
-				new InputModal(this.app, config).open();
-			});
+			this.uiCommandService.setModalService(this.modalService!);
 
 			// Ribbon icons — emit UI command events
 			this.addRibbonIcon("list", "Open event catalog", () => {
@@ -291,147 +266,6 @@ export default class FlowtiBasePlugin extends Plugin {
 			});
 			this.addRibbonIcon("layout-template", "Start canvas session", () => {
 				void this.eventBus.emit("ui.startCanvasSession", {});
-			});
-
-			// Quick Capture modal listener
-			this.eventBus.on("ui.openQuickCapture", (event) => {
-				const type = event.payload.type;
-				const resolved = resolveCaptureConfig(type ?? "idea", this.settings);
-				new QuickCaptureModal(this.app, {
-					showTypeSelector: !type,
-					defaultType: type,
-					defaultFolder: resolved.folder,
-					defaultTemplate: resolved.template || undefined,
-					onSubmit: (input) => {
-						if (this.captureService) {
-							void this.captureService.capture(input).then((result) => {
-								new Notice(`Captured: ${result.title}`);
-							});
-						}
-					},
-				}).open();
-			});
-
-			// Inline idea capture from User Hub dashboard
-			this.eventBus.on("ui.captureIdea", (event) => {
-				if (this.captureService) {
-					void this.captureService.capture({
-						type: "idea",
-						title: event.payload.title,
-					}).then((result) => {
-						new Notice(`Captured: ${result.title}`);
-					});
-				}
-			});
-
-			// Train of Thoughts serial capture listener
-			// Nesting: if a train is running, prompt for a new title (startTrain auto-pauses)
-			// If paused, resume it. If none, prompt for a new title.
-			this.eventBus.on("ui.startTrain", (event) => {
-				if (!this.trainService) return;
-
-				// If paused, resume and open modal from the selected thought
-				const activeTrain = this.trainService.getActiveTrain();
-				if (activeTrain && activeTrain.status === "paused") {
-					const fromThoughtId = event.payload.fromThoughtId;
-					const mdFlag = event.payload.mergeDown;
-
-					// Smart resume: check if active thought is NOT the head node
-					const headNode = this.trainService.getHeadNode(activeTrain.id);
-					const activeThoughtId = fromThoughtId ?? activeTrain.thoughts[activeTrain.thoughts.length - 1]?.id;
-					const currentThought = activeThoughtId
-						? activeTrain.thoughts.find((t) => t.id === activeThoughtId)
-						: null;
-
-					if (headNode && currentThought && headNode.id !== currentThought.id && !mdFlag && !fromThoughtId) {
-						new TrainResumeModal(this.app, {
-							trainTitle: activeTrain.title,
-							currentThoughtTitle: currentThought.title,
-							headThoughtTitle: headNode.title,
-							onChoice: (choice) => {
-								switch (choice) {
-									case "jump-to-end":
-										void this.trainService!.resume(activeTrain.id).then(() => {
-											this.openTrainModal(activeTrain.id, activeTrain.title, undefined, headNode.id);
-										});
-										break;
-									case "branch-from-here":
-										void this.trainService!.resume(activeTrain.id).then(() => {
-											this.openTrainModal(activeTrain.id, activeTrain.title, undefined, currentThought.id);
-										});
-										break;
-									case "stay-here":
-										// Don't resume — leave the train paused at current position
-										break;
-								}
-							},
-						}).open();
-						return;
-					}
-
-					void this.trainService.resume(activeTrain.id).then(() => {
-						this.openTrainModal(activeTrain.id, activeTrain.title, undefined, fromThoughtId, mdFlag);
-					});
-					return;
-				}
-
-				// Running train — open capture modal from the active thought
-				if (activeTrain && activeTrain.status === "running") {
-					this.openTrainModal(activeTrain.id, activeTrain.title, undefined, event.payload.fromThoughtId, event.payload.mergeDown);
-					return;
-				}
-
-				// No train — type picker → title input → start
-				const fromFilePath = event.payload.fromFilePath;
-				new TrainTypePickerModal(this.app, {
-					onSelect: (typeConfig) => {
-						const duration = typeConfig.defaultDuration || (this.settings.defaultTrainDuration ?? 0);
-						new InputModal(this.app, {
-							title: `Start a ${typeConfig.label} Train`,
-							inputName: "What are you thinking?",
-							inputDesc: "",
-							placeholder: "e.g. Exploring a new idea\u2026",
-							submitLabel: "Start",
-							onSubmit: (title) => {
-								void this.trainService!.startTrain(title, duration, typeConfig.id).then(async (train) => {
-									if (fromFilePath) {
-										const basename = fromFilePath.replace(/^.*[\\/]/, "").replace(/\.md$/, "");
-										await this.trainService!.addThought(train.id, basename, { path: fromFilePath });
-									}
-									this.openTrainModal(train.id, train.title);
-								});
-							},
-						}).open();
-					},
-				}).open();
-			});
-
-			// Canvas session listener
-			this.eventBus.on("ui.startCanvasSession", () => {
-				new CanvasTemplatePickerModal(this.app, {
-					onSelect: (template) => {
-						if (!this.canvasSessionService) return;
-						new InputModal(this.app, {
-							title: `Canvas session: ${template.name}`,
-							inputName: "Session goal",
-							inputDesc: "",
-							placeholder: "What do you want to achieve?",
-							submitLabel: "Start",
-							onSubmit: (goal) => {
-								void this.canvasSessionService!.startSession({
-									templateId: template.id,
-									goal,
-									durationMinutes: 25,
-								}).then((result) => {
-									new Notice(`Canvas session started — ${template.name}`);
-									void this.app.workspace.openLinkText(result.canvasPath, "", false);
-								}).catch((err: Error) => {
-									new Notice(`Failed to start canvas session: ${err.message}`);
-								});
-							},
-						}).open();
-					},
-				}).open();
 			});
 
 			// Status bar
@@ -502,6 +336,8 @@ export default class FlowtiBasePlugin extends Plugin {
 		safeDispose("canvasService", () => this.canvasService?.dispose());
 		safeDispose("signalService", () => this.signalService?.dispose());
 		safeDispose("nudgeService", () => this.nudgeService?.dispose());
+		safeDispose("modalService", () => this.modalService?.dispose());
+		safeDispose("noticeService", () => this.noticeService?.dispose());
 		safeDispose("uiCommandService", () => this.uiCommandService?.dispose());
 		safeDispose("ingestionStatusBar", () => this.ingestionStatusBar?.dispose());
 		safeDispose("eventBridge", () => this.eventBridge?.dispose());
@@ -734,7 +570,7 @@ export default class FlowtiBasePlugin extends Plugin {
 		} catch (error) {
 			const err = error instanceof Error ? error : new Error(String(error));
 			this.errorService.handle(err, "onLayoutReady");
-			new Notice(`Flowti startup error: ${err.message}`);
+			this.noticeService?.error(`Flowti startup error: ${err.message}`);
 		}
 	}
 
@@ -767,6 +603,20 @@ export default class FlowtiBasePlugin extends Plugin {
 		const installerService = await this.services.get<IInstallerService>("installerService");
 		await this.timedServiceLoad("installerService", () => installerService.load());
 		InstallerWizardModal.showIfNeeded(this.app, installerService, this.eventBus);
+
+		// Register open-installer command — only available when not installed
+		this.addCommand({
+			id: "flowti:open-installer",
+			name: "Open installer",
+			icon: "download",
+			checkCallback: (checking) => {
+				if (installerService.isInstalled()) return false;
+				if (!checking) {
+					InstallerWizardModal.showIfNeeded(this.app, installerService, this.eventBus);
+				}
+				return true;
+			},
+		});
 
 		this.eventFilterService = await this.services.get<EventFilterService>("eventFilterService");
 		await this.timedServiceLoad("eventFilterService", () => this.eventFilterService!.load());
@@ -870,7 +720,7 @@ export default class FlowtiBasePlugin extends Plugin {
 		// Show notification when a nudge fires
 		this.crossCuttingListeners.push(
 			this.eventBus.on("nudge.triggered", (event) => {
-				showNudgeNotification(event.payload.config, this.eventBus, event.payload.inboxItemCount);
+				showNudgeNotification(event.payload.config, this.eventBus, this.noticeService!, event.payload.inboxItemCount);
 			}),
 		);
 
@@ -918,6 +768,12 @@ export default class FlowtiBasePlugin extends Plugin {
 			sessionFolder: SESSION_NOTES_FOLDER,
 		});
 		this.register(() => this.canvasSessionService?.dispose());
+
+		// Wire domain services into ModalService
+		this.modalService?.setCaptureService(this.captureService);
+		this.modalService?.setTrainService(this.trainService);
+		this.modalService?.setSessionService(this.sessionService!);
+		this.modalService?.setCanvasSessionService(this.canvasSessionService);
 
 		// Analytics Service — in-memory CSV analytics engine
 		this.analyticsService = await this.services.get<AnalyticsService>("analyticsService");
@@ -1090,7 +946,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.eventBus.on("ui.resumeTrain", () => {
 				const paused = this.trainService?.getAllTrains().find((t) => t.status === "paused");
 				if (!paused) {
-					new Notice("No paused train to resume");
+					this.noticeService!.show("No paused train to resume");
 					return;
 				}
 				void this.trainService!.resume(paused.id);
@@ -1102,7 +958,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.eventBus.on("ui.completeTrain", () => {
 				const active = this.trainService?.getActiveTrain();
 				if (!active) {
-					new Notice("No active train to complete");
+					this.noticeService!.show("No active train to complete");
 					return;
 				}
 				void this.trainService!.completeTrain(active.id);
@@ -1140,12 +996,12 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.eventBus.on("ui.openTrainCanvas", () => {
 				const active = this.trainService?.getActiveTrain();
 				if (!active) {
-					new Notice("No active train");
+					this.noticeService!.show("No active train");
 					return;
 				}
 				const settings = settingsService.getSettings();
 				if (!settings.trainCanvasEnabled || !active.folderPath) {
-					new Notice("Train canvas is not enabled");
+					this.noticeService!.show("Train canvas is not enabled");
 					return;
 				}
 				const canvasPath = getCanvasPath(active.title, active.folderPath);
@@ -1158,7 +1014,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.eventBus.on("ui.openTrainTimeline", () => {
 				const active = this.trainService?.getActiveTrain();
 				if (!active) {
-					new Notice("No active train");
+					this.noticeService!.show("No active train");
 					return;
 				}
 				this.revealOrCreateTrainTimeline(active.id);
@@ -1281,200 +1137,6 @@ export default class FlowtiBasePlugin extends Plugin {
 			active: true,
 			state: { trainId },
 		});
-	}
-
-	private openTrainModal(
-		trainId: string,
-		trainTitle: string,
-		overrides?: { previousTitle: string; thoughtCount: number },
-		fromThoughtId?: string,
-		mergeDown?: boolean,
-	): void {
-		if (!this.trainService) return;
-
-		// Sync the active thought across all views (main view + timeline sidebar)
-		if (fromThoughtId) {
-			void this.eventBus.emit("train.thought.activated", { trainId, thoughtId: fromThoughtId });
-		}
-
-		let previousThoughtTitle: string | null;
-		let thoughtCount: number;
-
-		if (overrides) {
-			previousThoughtTitle = overrides.previousTitle;
-			thoughtCount = overrides.thoughtCount;
-		} else {
-			const train = this.trainService.getTrain(trainId);
-			if (!train) return;
-
-			// Use the specified thought as context, otherwise fall back to last thought
-			const contextThought = fromThoughtId
-				? train.thoughts.find((t) => t.id === fromThoughtId) ?? null
-				: train.thoughts[train.thoughts.length - 1] ?? null;
-			previousThoughtTitle = contextThought?.title ?? null;
-			thoughtCount = train.thoughts.length;
-		}
-
-		// Resolve timer info from TrainState
-		const train = this.trainService.getTrain(trainId);
-		const durationMinutes = train?.durationMinutes ?? 0;
-		const sessionId = train?.sessionId;
-
-		// Compute current remaining time to avoid timer reset flash when modal reopens
-		let initialRemainingMs: number | undefined;
-		if (durationMinutes > 0 && sessionId && this.sessionService) {
-			const session = this.sessionService.getSessionById(sessionId);
-			if (session) {
-				initialRemainingMs = computeRemainingMs(session);
-			}
-		}
-
-		// Auto-detect direction: if the source thought already has a "next" child, default to "branch"
-		let defaultDirection: import("./domain/train/types").ThoughtDirection = "next";
-		if (fromThoughtId && train) {
-			const hasNextChild = train.relations.some(
-				(r) => r.fromId === fromThoughtId && r.direction === "next",
-			);
-			if (hasNextChild) {
-				defaultDirection = "branch";
-			}
-		}
-
-		// Timer subscriptions — closures that filter by sessionId
-		const subscribeTimerTick = (durationMinutes > 0 && sessionId)
-			? (cb: (remainingMs: number) => void) => {
-				return this.eventBus.on("session.timer.tick", (event) => {
-					if (event.payload.sessionId === sessionId) {
-						cb(event.payload.remainingMs);
-					}
-				});
-			}
-			: undefined;
-
-		const subscribeTimerCompleted = (durationMinutes > 0 && sessionId)
-			? (cb: () => void) => {
-				return this.eventBus.on("session.timer.completed", (event) => {
-					if (event.payload.sessionId === sessionId) {
-						cb();
-					}
-				});
-			}
-			: undefined;
-
-		// Navigation callbacks — mirrors the thought's link directions (prev/next/up)
-		// Each emits train.thought.activated so main view + timeline sync to the new thought.
-		let onBack: (() => void) | undefined;
-		let onNext: (() => void) | undefined;
-		let onUp: (() => void) | undefined;
-		let onDown: (() => void) | undefined;
-		if (fromThoughtId && train) {
-			// prev: linear parent (any relation pointing TO this thought)
-			const parentRelation = train.relations.find((r) => r.toId === fromThoughtId);
-			if (parentRelation) {
-				const parentId = parentRelation.fromId;
-				onBack = () => this.openTrainModal(trainId, trainTitle, undefined, parentId);
-			}
-			// next: linear child (direction="next" from this thought)
-			const nextRelation = train.relations.find(
-				(r) => r.fromId === fromThoughtId && r.direction === "next",
-			);
-			if (nextRelation) {
-				const nextId = nextRelation.toId;
-				onNext = () => this.openTrainModal(trainId, trainTitle, undefined, nextId);
-			}
-			// up: first branch child (direction="branch" from this thought)
-			const branchRelation = train.relations.find(
-				(r) => r.fromId === fromThoughtId && r.direction === "branch",
-			);
-			if (branchRelation) {
-				const branchId = branchRelation.toId;
-				onUp = () => this.openTrainModal(trainId, trainTitle, undefined, branchId);
-			}
-			// down: branch parent (parent with direction="branch" pointing TO this thought)
-			const branchParentRelation = train.relations.find(
-				(r) => r.toId === fromThoughtId && r.direction === "branch",
-			);
-			if (branchParentRelation) {
-				const branchParentId = branchParentRelation.fromId;
-				onDown = () => this.openTrainModal(trainId, trainTitle, undefined, branchParentId);
-			}
-		}
-
-		// Detect branch for merge-down option (available whenever thought is on a branch)
-		const mergeDownInfo = (fromThoughtId && train)
-			? this.trainService.findMergeDownTarget(trainId, fromThoughtId)
-			: null;
-		const isBranchEndpoint = mergeDownInfo !== null;
-
-		// Check if source thought has been merged into another thought
-		const isMerged = (fromThoughtId && train)
-			? train.relations.some((r) => r.fromId === fromThoughtId && r.direction === "merge")
-			: false;
-
-		new TrainCaptureModal(this.app, {
-			trainTitle,
-			previousThoughtTitle,
-			thoughtCount,
-			durationMinutes,
-			initialRemainingMs,
-			defaultDirection,
-			subscribeTimerTick,
-			subscribeTimerCompleted,
-			onBack,
-			onNext,
-			onUp,
-			onDown,
-			isBranchEndpoint,
-			isMerged,
-			defaultMergeDown: mergeDown,
-			onRenameThought: fromThoughtId ? (newTitle) => {
-				void this.trainService!.renameThought(trainId, fromThoughtId, newTitle);
-			} : undefined,
-			onMergeDown: isBranchEndpoint ? (title) => {
-				if (mergeDownInfo.targetId) {
-					// Add thought on branch, then merge it into main chain target
-					void this.trainService!.addThought(trainId, title, {
-						direction: "next",
-						fromThoughtId: fromThoughtId!,
-					}).then(async (newThought) => {
-						if (newThought) {
-							await this.trainService!.mergeBranch(trainId, newThought.id, mergeDownInfo.targetId!);
-						}
-						// Continue from the main chain target
-						this.openTrainModal(trainId, trainTitle, {
-							previousTitle: title,
-							thoughtCount: thoughtCount + 1,
-						}, mergeDownInfo.targetId!);
-					});
-				} else {
-					// No next on main chain — add thought as "next" from origin, then merge branch into it
-					void this.trainService!.addThought(trainId, title, { direction: "next", fromThoughtId: mergeDownInfo.originId }).then(async (newThought) => {
-						if (newThought) {
-							await this.trainService!.mergeBranch(trainId, fromThoughtId!, newThought.id);
-						}
-						this.openTrainModal(trainId, trainTitle, {
-							previousTitle: title,
-							thoughtCount: thoughtCount + 1,
-						}, newThought?.id);
-					});
-				}
-			} : undefined,
-			onSubmit: (title, direction) => {
-				// Await addThought so the next modal chains from the correct thought
-				void this.trainService!.addThought(trainId, title, { direction, fromThoughtId }).then((newThought) => {
-					this.openTrainModal(trainId, trainTitle, {
-						previousTitle: title,
-						thoughtCount: thoughtCount + 1,
-					}, newThought?.id);
-				});
-			},
-			onComplete: () => {
-				void this.trainService!.completeTrain(trainId);
-			},
-			onCancel: () => {
-				void this.trainService!.pause(trainId);
-			},
-		}).open();
 	}
 
 	/**

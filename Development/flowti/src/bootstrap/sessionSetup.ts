@@ -5,7 +5,7 @@
  * Extracted from main.ts to reduce its LOC (TD-05).
  */
 
-import { Notice, TFile, TFolder } from "obsidian";
+import { TFile, TFolder } from "obsidian";
 import type { App, Command, EventRef, ViewCreator } from "obsidian";
 import type { IEventBus } from "../infrastructure/events/types";
 import type { IErrorService } from "../infrastructure/errors/types";
@@ -125,7 +125,7 @@ export class SessionSetup {
 				if (!session || session.status !== "paused") return false;
 				if (!checking) {
 					void this.deps.eventBus.emit("session.resume", { sessionId: session.id });
-					new Notice(`Resumed "${session.title}"`);
+					void this.deps.eventBus.emit("notice.success", { message: `Resumed "${session.title}"` });
 				}
 				return true;
 			},
@@ -160,7 +160,7 @@ export class SessionSetup {
 									path: bindPath,
 									type: bindType,
 								});
-								new Notice(`Added "${label}" to "${current.title}"`);
+								void eventBus.emit("notice.success", { message: `Added "${label}" to "${current.title}"` });
 							});
 					});
 				}

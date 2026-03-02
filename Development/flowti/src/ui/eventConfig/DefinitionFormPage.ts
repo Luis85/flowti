@@ -5,7 +5,7 @@
  * including the payload mapping repeater.
  */
 
-import { Notice, Setting } from "obsidian";
+import { Setting } from "obsidian";
 import type { PayloadMapping, EmissionPolicy } from "../../domain/eventDefinition/types";
 import type { EventConfigPageDeps } from "./types";
 
@@ -140,7 +140,7 @@ export function renderDefinitionFormPage(container: HTMLElement, deps: EventConf
 
 		promise.catch((err: unknown) => {
 			console.error("[Flowti] Transform save failed:", err);
-			new Notice("Transform save failed — check console for details");
+			void deps.eventBus.emit("notice.error", { message: "Transform save failed — check console for details" });
 		});
 	});
 }

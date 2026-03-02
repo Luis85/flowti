@@ -8,7 +8,7 @@
  * Page rendering is delegated to extracted components in eventConfig/.
  */
 
-import { App, Modal, Notice } from "obsidian";
+import { App, Modal } from "obsidian";
 import { createVaultQueryService, createWorkspaceService } from "../../infrastructure/services/ObsidianAdapters";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { EventCatalogEntry } from "../../infrastructure/events/catalog";
@@ -274,7 +274,7 @@ export class EventConfigModal extends Modal {
 
 		promise.catch((err: unknown) => {
 			console.error("[Flowti] Watcher save failed:", err);
-			new Notice("Failed to save watcher. Check console for details.", 5000);
+			void this.eventBus.emit("notice.error", { message: "Failed to save watcher. Check console for details.", duration: 5000 });
 		});
 	}
 

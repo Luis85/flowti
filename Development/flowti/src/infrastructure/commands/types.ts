@@ -21,6 +21,7 @@ export type CommandDomain =
 	| "subscription"
 	| "analytics"
 	| "canvas"
+	| "installer"
 	| "developer";
 
 /**

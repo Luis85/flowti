@@ -3,7 +3,7 @@
  * Handles rendering of documented report details and undocumented CSV file details.
  */
 
-import { Notice, TFile, setIcon } from "obsidian";
+import { TFile, setIcon } from "obsidian";
 import { CsvParser } from "../../domain/dataExchange/CsvParser";
 import { ConfirmModal } from "../modals";
 import { addInfoRow, renderEmptyDetail, getEmptyDetailStats, renderFrontmatterAlert } from "./helpers";
@@ -56,7 +56,7 @@ export function createDocForCsvEntry(deps: HubComponentDeps, entry: CsvFileEntry
 			entry.path, parsed.headers, parsed.rowCount, parsed.detectedDelimiter,
 		);
 	}).then(() => {
-		new Notice(`Report created for ${entry.name}`);
+		void deps.eventBus.emit("notice.success", { message: `Report created for ${entry.name}` });
 		setTimeout(() => deps.scheduleRender(), 500);
 	});
 }
@@ -177,7 +177,7 @@ export class ReportDetailPanel {
 					}).then(() => {
 						this.deps.setState({ selectedReportPath: null });
 						this.deps.scheduleRender();
-						new Notice("Report documentation deleted");
+						void this.deps.eventBus.emit("notice.success", { message: "Report documentation deleted" });
 					});
 				},
 			}).open();

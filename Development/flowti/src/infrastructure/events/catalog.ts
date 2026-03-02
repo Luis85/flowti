@@ -170,6 +170,8 @@ export const EVENT_CATEGORIES = [
 	"Analytics",
 	"Onboarding",
 	"Performance",
+	"Notification",
+	"Modal",
 ] as const;
 
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
@@ -627,6 +629,16 @@ const CATALOG_DATA = {
 	"perf.csv.parsed":       { category: "Performance", description: "CSV content parsed by CsvParser", direction: "Internal", domain: "dataExchange", services: "ImportService", tags: ["system"] },
 	"perf.import.completed": { category: "Performance", description: "Full import pipeline completed", direction: "Internal", domain: "dataExchange", services: "ImportService", tags: ["system"] },
 	"perf.view.opened":      { category: "Performance", description: "Hub view finished opening", direction: "Internal", domain: "ui", services: "BaseHubView", tags: ["system"] },
+
+	// ── Notification ───────────────────────────────────────
+	"notice.show":       { category: "Notification", description: "Show a plain notice to the user", direction: "Internal", domain: "ui", services: "NoticeService", tags: ["system"] },
+	"notice.success":    { category: "Notification", description: "Show a success notice to the user", direction: "Internal", domain: "ui", services: "NoticeService", tags: ["system"] },
+	"notice.error":      { category: "Notification", description: "Show an error notice to the user", direction: "Internal", domain: "ui", services: "NoticeService", tags: ["system"] },
+	"notice.throttled":  { category: "Notification", description: "Show a throttled/batched notice (deduplicated by key)", direction: "Internal", domain: "ui", services: "NoticeService", tags: ["system"] },
+
+	// ── Modal ──────────────────────────────────────────────
+	"modal.opened":  { category: "Modal", description: "A modal was opened by ModalService", direction: "Internal", domain: "ui", services: "ModalService", tags: ["system"] },
+	"modal.closed":  { category: "Modal", description: "A modal was closed", direction: "Internal", domain: "ui", services: "ModalService", tags: ["system"] },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

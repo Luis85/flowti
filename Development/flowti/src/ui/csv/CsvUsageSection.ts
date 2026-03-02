@@ -3,7 +3,7 @@
  * Shows import config usage, inline import execution with progress/result display.
  */
 
-import { Notice, setIcon } from "obsidian";
+import { setIcon } from "obsidian";
 import type { ImportResult, SavedImportConfig } from "../../domain/dataExchange/types";
 import type { CsvComponentDeps } from "./types";
 
@@ -117,14 +117,14 @@ export class CsvUsageSection {
 			this.options.persistDisplaySettings();
 			// Refresh bases section so newly created .base files appear
 			setTimeout(() => this.options.refreshAssociatedBases(), 500);
-			new Notice(
-				`Import complete: ${r.created} created, ${r.updated} updated, ${r.skipped} skipped`,
-			);
+			void this.deps.eventBus.emit("notice.success", {
+				message: `Import complete: ${r.created} created, ${r.updated} updated, ${r.skipped} skipped`,
+			});
 		});
 		const offFailed = this.deps.eventBus.on("dataExchange.import.failed", (event) => {
 			offProgress(); offComplete(); offFailed();
 			this.renderUsageError(event.payload.error);
-			new Notice(`Import failed: ${event.payload.error}`);
+			void this.deps.eventBus.emit("notice.error", { message: `Import failed: ${event.payload.error}` });
 		});
 	}
 

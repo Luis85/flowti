@@ -3,7 +3,7 @@
  * Shows progress, success, error, or skipped states plus "what's next" actions.
  */
 
-import { Notice, setIcon } from "obsidian";
+import { setIcon } from "obsidian";
 import { STRATEGY_LABELS } from "./types";
 import type { ExportComponentDeps } from "./types";
 
@@ -107,10 +107,13 @@ export class ResultPage {
 			if (cfg) addRow("Config used", cfg.name);
 		}
 
-		new Notice(
-			isSkipped
-				? `Export skipped: ${r.outputPath} already exists`
-				: `Export complete: ${r.totalRows} rows written to ${r.outputPath}`,
+		void this.deps.eventBus.emit(
+			isSkipped ? "notice.show" : "notice.success",
+			{
+				message: isSkipped
+					? `Export skipped: ${r.outputPath} already exists`
+					: `Export complete: ${r.totalRows} rows written to ${r.outputPath}`,
+			},
 		);
 
 		// ── "What's next" actions ──

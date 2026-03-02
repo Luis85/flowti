@@ -5,7 +5,7 @@
  * Detail panel: CSS Grid tile layout for the selected dashboard.
  */
 
-import { Notice, setIcon, type EventRef } from "obsidian";
+import { setIcon, type EventRef } from "obsidian";
 import type { Dashboard } from "../../domain/analytics/types";
 import { computeFreshnessSummary, getFreshnessLevel, getFreshnessColor } from "../../domain/analytics/freshnessUtils";
 import { discoverDateColumns, filterResultForMeasurement } from "./dashboardUtils";
@@ -513,16 +513,16 @@ export class DashboardsTab {
 				try {
 					const template = JSON.parse(reader.result as string);
 					if (!template.name || !template.queries || !template.tiles) {
-						new Notice("Invalid template: missing name, queries, or tiles");
+						void this.deps.eventBus.emit("notice.error", { message: "Invalid template: missing name, queries, or tiles" });
 						return;
 					}
 					const dashboard = await this.deps.analyticsService.importDashboardFromJson(template);
 					this.deps.setState({ selectedDashboardId: dashboard.id });
 					this.deps.scheduleRender();
-					new Notice(`Dashboard "${dashboard.name}" imported`);
+					void this.deps.eventBus.emit("notice.success", { message: `Dashboard "${dashboard.name}" imported` });
 				} catch (err) {
 					const msg = err instanceof Error ? err.message : String(err);
-					new Notice(`Import failed: ${msg}`, 5000);
+					void this.deps.eventBus.emit("notice.error", { message: `Import failed: ${msg}`, duration: 5000 });
 				}
 			};
 			reader.readAsText(file);
@@ -544,7 +544,7 @@ export class DashboardsTab {
 		}
 		lines.push(`\n*Exported from Analytics Hub on ${new Date().toLocaleDateString()}*`);
 		await navigator.clipboard.writeText(lines.join("\n"));
-		new Notice("Dashboard summary copied to clipboard");
+		void this.deps.eventBus.emit("notice.success", { message: "Dashboard summary copied to clipboard" });
 	}
 
 	private async exportDashboardTemplate(dashboard: Dashboard): Promise<void> {
@@ -555,7 +555,7 @@ export class DashboardsTab {
 			"Analytics",
 		);
 		if (!template) {
-			new Notice("Could not build template — dashboard has no tiles with saved queries");
+			void this.deps.eventBus.emit("notice.error", { message: "Could not build template — dashboard has no tiles with saved queries" });
 			return;
 		}
 
@@ -574,16 +574,16 @@ export class DashboardsTab {
 			const filePath = folder ? `${folder}/${sanitizedName}.json` : `${sanitizedName}.json`;
 			try {
 				await this.deps.app.vault.create(filePath, json);
-				new Notice(`Template saved to ${filePath}`);
+				void this.deps.eventBus.emit("notice.success", { message: `Template saved to ${filePath}` });
 			} catch {
 				// File might already exist — try with timestamp suffix
 				const ts = new Date().toISOString().slice(0, 16).replace(/[T:]/g, "-");
 				const fallbackPath = folder ? `${folder}/${sanitizedName} ${ts}.json` : `${sanitizedName} ${ts}.json`;
 				try {
 					await this.deps.app.vault.create(fallbackPath, json);
-					new Notice(`Template saved to ${fallbackPath}`);
+					void this.deps.eventBus.emit("notice.success", { message: `Template saved to ${fallbackPath}` });
 				} catch (innerErr) {
-					new Notice(`Failed to save template: ${innerErr instanceof Error ? innerErr.message : String(innerErr)}`);
+					void this.deps.eventBus.emit("notice.error", { message: `Failed to save template: ${innerErr instanceof Error ? innerErr.message : String(innerErr)}` });
 				}
 			}
 		}).open();
@@ -741,7 +741,7 @@ export class DashboardsTab {
 
 				if (invalidated > 0) {
 					this.deps.scheduleRender();
-					new Notice("Dashboard updated");
+					void this.deps.eventBus.emit("notice.show", { message: "Dashboard updated" });
 				}
 			}, 2000);
 		});

@@ -8,7 +8,7 @@
  * - {@link CsvAssociatedBases}
  */
 
-import { Notice, TFile, setIcon } from "obsidian";
+import { TFile, setIcon } from "obsidian";
 import type { CsvComponentDeps } from "./types";
 import { splitCsvLine, formatRelativeTime } from "./csvUtils";
 import { ConfigChooserModal } from "../modals";
@@ -232,7 +232,7 @@ export class CsvLanding {
 		void this.deps.dataExchangeService
 			.createCsvDoc(file.path, csvHeaders, csvRowCount, state.detectedDelimiter)
 			.then((path) => {
-				new Notice("CSV documentation created");
+				void this.deps.eventBus.emit("notice.success", { message: "CSV documentation created" });
 				void this.deps.app.workspace.openLinkText(path, "", false);
 				setTimeout(() => this.deps.renderContent(), 500);
 			})

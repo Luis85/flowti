@@ -3,6 +3,7 @@
  */
 
 import type { App } from "obsidian";
+import type { IEventBus } from "../../infrastructure/events/types";
 import type { ExportService } from "../../domain/dataExchange/ExportService";
 import type {
 	ExportConflictStrategy,
@@ -56,6 +57,7 @@ export interface ExportViewState {
 
 export interface ExportComponentDeps {
 	app: App;
+	eventBus: IEventBus;
 	exportService: ExportService;
 	getState: () => ExportViewState;
 	setState: (partial: Partial<ExportViewState>) => void;

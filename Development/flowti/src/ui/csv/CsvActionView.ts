@@ -5,7 +5,7 @@
  * delegated to components in src/ui/csv/.
  */
 
-import { Notice, TFile, TextFileView, WorkspaceLeaf, setIcon } from "obsidian";
+import { TFile, TextFileView, WorkspaceLeaf, setIcon } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { DataExchangeService } from "../../domain/dataExchange/DataExchangeService";
 import type { SavedImportConfig } from "../../domain/dataExchange/types";
@@ -424,7 +424,7 @@ export class CsvActionView extends TextFileView {
 								.then((updated) => {
 									this.state.savedConfigs = this.dataExchangeService.getSavedImportConfigs();
 									this.state.loadedConfigId = existing.id;
-									new Notice(`Config updated: ${updated?.name ?? name}`);
+									void this.eventBus.emit("notice.success", { message: `Config updated: ${updated?.name ?? name}` });
 									this.renderContent();
 								})
 								.catch((err) =>
@@ -440,7 +440,7 @@ export class CsvActionView extends TextFileView {
 					.then((saved) => {
 						this.state.savedConfigs = this.dataExchangeService.getSavedImportConfigs();
 						this.state.loadedConfigId = saved.id;
-						new Notice(`Config saved: ${saved.name}`);
+						void this.eventBus.emit("notice.success", { message: `Config saved: ${saved.name}` });
 						this.renderContent();
 					})
 					.catch((err) =>
@@ -479,7 +479,7 @@ export class CsvActionView extends TextFileView {
 				mapping.included = saved.included;
 			}
 		}
-		new Notice(`Loaded config: ${cfg.name}`);
+		void this.eventBus.emit("notice.show", { message: `Loaded config: ${cfg.name}` });
 	}
 
 	// ── Import wizard entry ─────────────────────────────────
@@ -591,9 +591,9 @@ export class CsvActionView extends TextFileView {
 					: undefined,
 			});
 			const r = this.state.importResult;
-			new Notice(
-				`Import complete: ${r.created} created, ${r.updated} updated, ${r.skipped} skipped`,
-			);
+			void this.eventBus.emit("notice.success", {
+				message: `Import complete: ${r.created} created, ${r.updated} updated, ${r.skipped} skipped`,
+			});
 			// Record last import timestamp
 			this.state.lastImportedAt = Date.now();
 			this.persistDisplaySettings();
@@ -629,7 +629,7 @@ export class CsvActionView extends TextFileView {
 				basePath: this.state.basePath || undefined,
 			});
 			this.state.savedConfigs = this.dataExchangeService.getSavedImportConfigs();
-			new Notice(`Config auto-saved: ${saved.name}`);
+			void this.eventBus.emit("notice.success", { message: `Config auto-saved: ${saved.name}` });
 		} catch (err) {
 			console.error("[Flowti] Failed to auto-save import config", err);
 		}
@@ -661,10 +661,10 @@ export class CsvActionView extends TextFileView {
 				content,
 				source: "CsvActionView",
 			});
-			new Notice(`Base view created: ${path}`);
+			void this.eventBus.emit("notice.success", { message: `Base view created: ${path}` });
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
-			new Notice(`Failed to create .base file: ${msg}`);
+			void this.eventBus.emit("notice.error", { message: `Failed to create .base file: ${msg}` });
 		}
 	}
 

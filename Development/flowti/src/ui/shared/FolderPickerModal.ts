@@ -7,18 +7,21 @@
  * any existing folder, a "+ Create: {text}" option appears.
  */
 
-import { App, FuzzySuggestModal, Notice, TFolder } from "obsidian";
+import { App, FuzzySuggestModal, TFolder } from "obsidian";
+import type { IEventBus } from "../../infrastructure/events/types";
 
 const CREATE_PREFIX = "+ Create: ";
 
 export class FolderPickerModal extends FuzzySuggestModal<string> {
 	private folders: string[];
 	private onChoose: (folder: string) => void;
+	private eventBus?: IEventBus;
 
-	constructor(app: App, folders: string[], onChoose: (folder: string) => void) {
+	constructor(app: App, folders: string[], onChoose: (folder: string) => void, eventBus?: IEventBus) {
 		super(app);
 		this.folders = folders;
 		this.onChoose = onChoose;
+		this.eventBus = eventBus;
 	}
 
 	getItems(): string[] {
@@ -46,7 +49,7 @@ export class FolderPickerModal extends FuzzySuggestModal<string> {
 				// TD-31 accepted exception: standalone folder creation is orthogonal
 			// to the doc lifecycle pipeline. No IFileSystemClient.createFolder exists.
 			await this.app.vault.createFolder(newPath);
-				new Notice(`Folder created: ${newPath}`);
+				if (this.eventBus) void this.eventBus.emit("notice.success", { message: `Folder created: ${newPath}` });
 			} catch {
 				// Folder may already exist (race), which is fine
 			}

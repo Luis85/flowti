@@ -4,7 +4,7 @@
  * Extracted from main.ts (Phase 7) to reduce its LOC.
  */
 
-import { Notice, TFile, TFolder } from "obsidian";
+import { TFile, TFolder } from "obsidian";
 import type { App, Command, EventRef, ViewCreator } from "obsidian";
 import type { IEventBus } from "../infrastructure/events/types";
 import { DataExchangeService } from "../domain/dataExchange/DataExchangeService";
@@ -427,7 +427,7 @@ export class DataExchangeSetup {
 	openCsvImportWithConfig(csvPath: string, savedConfig?: SavedImportConfig): void {
 		const csvFile = this.deps.app.vault.getAbstractFileByPath(csvPath);
 		if (!(csvFile instanceof TFile)) {
-			new Notice(`File not found: ${csvPath}`);
+			void this.deps.eventBus.emit("notice.error", { message: `File not found: ${csvPath}` });
 			return;
 		}
 		this.pendingSavedImportConfig = savedConfig ?? null;

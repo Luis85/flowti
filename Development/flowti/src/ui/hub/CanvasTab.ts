@@ -4,7 +4,7 @@
  * Supports inline editing following the ImportsTab pattern.
  */
 
-import { Notice, Setting, setIcon } from "obsidian";
+import { Setting, setIcon } from "obsidian";
 import { ConfirmModal } from "../modals";
 import { addInfoRow, renderEmptyDetail, getEmptyDetailStats } from "./helpers";
 import { FolderPickerModal, getVaultFolders } from "../shared/FolderPickerModal";
@@ -434,7 +434,7 @@ export class CanvasTab {
 				this.deps.setState({ editingCanvasId: null });
 				this.renderMaster();
 				this.renderDetail();
-				new Notice("Canvas config updated");
+				void this.deps.eventBus.emit("notice.success", { message: "Canvas config updated" });
 			});
 		});
 

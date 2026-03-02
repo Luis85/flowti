@@ -488,6 +488,8 @@ describe("catalog helpers", () => {
 		{ name: "Analytics", visible: true },
 		{ name: "Onboarding", visible: true },
 		{ name: "Performance", visible: true },
+		{ name: "Notification", visible: true },
+		{ name: "Modal", visible: true },
 	];
 
 	describe("discoveredToCatalogEntries", () => {

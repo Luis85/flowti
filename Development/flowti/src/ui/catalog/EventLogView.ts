@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, setIcon, Notice } from "obsidian";
+import { ItemView, WorkspaceLeaf, setIcon } from "obsidian";
 import { getEventCategory, getEventEntry, isSkippedEvent, type EventCatalogEntry } from "../../infrastructure/events/catalog";
 import type { FlowtiEvents, IEventBus, WildcardEventHandler } from "../../infrastructure/events/types";
 import { type CatalogCategoryConfig, type EntityPaths, DEFAULT_ENTITY_PATHS } from "../../domain/settings/settings";
@@ -473,7 +473,7 @@ export class EventLogView extends ItemView {
 		typeSpan.addEventListener("click", (e) => {
 			e.stopPropagation();
 			void navigator.clipboard.writeText(entry.type);
-			new Notice(`Copied: ${entry.type}`);
+			void this.eventBus.emit("notice.success", { message: `Copied: ${entry.type}` });
 		});
 
 		// Description

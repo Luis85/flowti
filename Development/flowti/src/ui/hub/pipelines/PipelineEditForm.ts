@@ -2,7 +2,7 @@
  * Pipeline edit form component — Settings-based inline form with folder picker.
  */
 
-import { Notice, Setting, setIcon } from "obsidian";
+import { Setting, setIcon } from "obsidian";
 import type { SavedMultiImportPipeline } from "../../../domain/dataExchange/types";
 import { FolderPickerModal, getVaultFolders } from "../../shared/FolderPickerModal";
 import type { PipelineComponentDeps } from "./types";
@@ -117,7 +117,7 @@ export class PipelineEditForm {
 				.then(() => {
 					this.deps.setState({ editingPipelineId: null });
 					this.deps.renderDetail();
-					new Notice("Pipeline updated");
+					void this.deps.eventBus.emit("notice.success", { message: "Pipeline updated" });
 				});
 		});
 

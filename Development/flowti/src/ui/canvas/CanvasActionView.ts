@@ -9,7 +9,7 @@
  * Obsidian owns the .canvas extension. Canvas data is read from the vault.
  */
 
-import { ItemView, Notice, TFile, WorkspaceLeaf, setIcon } from "obsidian";
+import { ItemView, TFile, WorkspaceLeaf, setIcon } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { CanvasService, CanvasConfigInput } from "../../domain/canvas/CanvasService";
 import { DEFAULT_COLOR_MAP, DEFAULT_SHAPE_MAP } from "../../domain/canvas/types";
@@ -390,7 +390,7 @@ export class CanvasActionView extends ItemView {
 			const errorNote = result.errors.length > 0 ? `, ${result.errors.length} errors` : "";
 			this.state.importMessage =
 				`Imported ${result.imported} of ${result.totalNodes} nodes (${result.skipped} skipped${errorNote}) in ${result.duration}ms`;
-			new Notice(this.state.importMessage);
+			void this.eventBus.emit("notice.success", { message: this.state.importMessage });
 			revealFolderInExplorer(this.app, result.targetFolder);
 		} catch (err) {
 			this.state.importSuccess = false;
@@ -415,7 +415,7 @@ export class CanvasActionView extends ItemView {
 			const errorNote = result.errors.length > 0 ? `, ${result.errors.length} errors` : "";
 			this.state.importMessage =
 				`Imported ${result.imported} of ${result.totalNodes} nodes (${result.skipped} skipped${errorNote}) in ${result.duration}ms`;
-			new Notice(this.state.importMessage);
+			void this.eventBus.emit("notice.success", { message: this.state.importMessage });
 			revealFolderInExplorer(this.app, result.targetFolder);
 		} catch (err) {
 			this.state.importSuccess = false;
@@ -451,10 +451,10 @@ export class CanvasActionView extends ItemView {
 				const config = await this.canvasService.saveConfig(input);
 				this.state.loadedConfigId = config.id;
 			}
-			new Notice("Canvas config saved");
+			void this.eventBus.emit("notice.success", { message: "Canvas config saved" });
 			this.renderContent();
 		} catch (err) {
-			new Notice(`Failed to save config: ${err instanceof Error ? err.message : String(err)}`);
+			void this.eventBus.emit("notice.error", { message: `Failed to save config: ${err instanceof Error ? err.message : String(err)}` });
 		}
 	}
 

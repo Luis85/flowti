@@ -8,7 +8,7 @@
  * Page rendering is delegated to components in `./export/`.
  */
 
-import { ItemView, Notice, WorkspaceLeaf, setIcon } from "obsidian";
+import { ItemView, WorkspaceLeaf, setIcon } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { DataExchangeService } from "../../domain/dataExchange/DataExchangeService";
 import type { ExportService } from "../../domain/dataExchange/ExportService";
@@ -218,6 +218,7 @@ export class ExportView extends ItemView {
 	private buildDeps(): ExportComponentDeps {
 		return {
 			app: this.app,
+			eventBus: this.eventBus,
 			exportService: this.exportService,
 			getState: () => this.getViewState(),
 			setState: (partial) => this.setViewState(partial),
@@ -470,7 +471,7 @@ export class ExportView extends ItemView {
 								.then((updated) => {
 									this.savedConfigs = this.dataExchangeService.getSavedExportConfigs();
 									this.loadedConfigId = existing.id;
-									new Notice(`Config updated: ${updated?.name ?? name}`);
+									void this.eventBus.emit("notice.success", { message: `Config updated: ${updated?.name ?? name}` });
 									this.renderTopBar();
 									this.updateUnsavedHint();
 								})
@@ -487,7 +488,7 @@ export class ExportView extends ItemView {
 					.then((saved) => {
 						this.savedConfigs = this.dataExchangeService.getSavedExportConfigs();
 						this.loadedConfigId = saved.id;
-						new Notice(`Config saved: ${saved.name}`);
+						void this.eventBus.emit("notice.success", { message: `Config saved: ${saved.name}` });
 						this.renderTopBar();
 						this.updateUnsavedHint();
 					})
@@ -548,7 +549,7 @@ export class ExportView extends ItemView {
 			});
 			this.savedConfigs = this.dataExchangeService.getSavedExportConfigs();
 			this.loadedConfigId = saved.id;
-			new Notice(`Config auto-saved: ${saved.name}`);
+			void this.eventBus.emit("notice.success", { message: `Config auto-saved: ${saved.name}` });
 			this.renderTopBar();
 		} catch (err) {
 			console.error("[Flowti] Failed to auto-save export config", err);
@@ -573,7 +574,7 @@ export class ExportView extends ItemView {
 			defaultFilename: getFilenameFromPath(this.outputPath),
 		});
 		if (result === null) {
-			new Notice("Could not open save dialog. Try entering the path manually.");
+			void this.eventBus.emit("notice.error", { message: "Could not open save dialog. Try entering the path manually." });
 			return;
 		}
 		if (!result.canceled && result.filePath) {
@@ -601,7 +602,7 @@ export class ExportView extends ItemView {
 		}
 		this.noteType = cfg.noteType ?? "";
 		this.loadedConfigId = id;
-		new Notice(`Loaded config: ${cfg.name}`);
+		void this.eventBus.emit("notice.show", { message: `Loaded config: ${cfg.name}` });
 		this.renderPage();
 	}
 

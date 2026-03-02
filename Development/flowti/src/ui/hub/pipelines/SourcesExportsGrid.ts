@@ -3,7 +3,7 @@
  * and Outputs row (export steps).
  */
 
-import { Notice, TFile, setIcon } from "obsidian";
+import { TFile, setIcon } from "obsidian";
 import type { SavedMultiImportPipeline } from "../../../domain/dataExchange/types";
 import { basename } from "../../../utils/pathUtils";
 import { ConfigChooserModal, ConfirmModal } from "../../modals";
@@ -53,6 +53,7 @@ export class SourcesExportsGrid {
 		addSourceLink.addEventListener("click", () => {
 			new PipelineSourceModal({
 				app: this.deps.app,
+				eventBus: this.deps.eventBus,
 				importService: this.deps.dataExchangeService.getImportService(),
 				mergeKey: pipe.mergeKey,
 				otherSources: pipe.sources,
@@ -94,7 +95,7 @@ export class SourcesExportsGrid {
 			const allExportConfigs = this.deps.dataExchangeService.getSavedExportConfigs();
 			const available = allExportConfigs.filter((c) => !(pipe.exportConfigIds ?? []).includes(c.id));
 			if (available.length === 0) {
-				new Notice("No export configs available. Create one first.");
+				void this.deps.eventBus.emit("notice.show", { message: "No export configs available. Create one first." });
 				return;
 			}
 			new ConfigChooserModal(
@@ -135,6 +136,7 @@ export class SourcesExportsGrid {
 		nameEl.addEventListener("click", () => {
 			new PipelineSourceModal({
 				app: this.deps.app,
+				eventBus: this.deps.eventBus,
 				importService: this.deps.dataExchangeService.getImportService(),
 				mergeKey: pipe.mergeKey,
 				existingSource: source,
@@ -341,7 +343,7 @@ export class SourcesExportsGrid {
 			const existing = new Set(canvasConfigIds);
 			const available = allConfigs.filter((c) => !existing.has(c.id));
 			if (available.length === 0) {
-				new Notice("No canvas configs available. Create one first in the canvas tab.");
+				void this.deps.eventBus.emit("notice.show", { message: "No canvas configs available. Create one first in the canvas tab." });
 				return;
 			}
 			new ConfigChooserModal(

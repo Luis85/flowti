@@ -6,18 +6,17 @@ import type {
 	OpenCsvImportCallback,
 	OpenExportViewCallback,
 	OpenExportWithSavedConfigCallback,
-	ShowInputModalCallback,
 	InputModalConfig,
 } from "../../../src/infrastructure/ui/UiCommandService";
+import type { ModalService } from "../../../src/infrastructure/ui/ModalService";
 import type { SavedExportConfig, SavedImportConfig } from "../../../src/domain/dataExchange/types";
 
-// Mock SubscriptionManagerModal to avoid Obsidian Modal constructor (no DOM)
-const mockOpen = vi.fn();
-vi.mock("../../../src/ui/catalog/SubscriptionManagerModal", () => ({
-	SubscriptionManagerModal: class {
-		open = mockOpen;
-	},
-}));
+function createMockModalService() {
+	return {
+		openInput: vi.fn(),
+		openSubscriptionManager: vi.fn(),
+	} as unknown as ModalService;
+}
 
 // ─── Mock workspace helpers ──────────────────────────────────────
 
@@ -227,7 +226,19 @@ describe("UiCommandService", () => {
 	// ── Subscription Manager modal ──────────────────────────────
 
 	describe("ui.openSubscriptionManager", () => {
+		it("should delegate to ModalService.openSubscriptionManager", async () => {
+			const mockModal = createMockModalService();
+			service.setModalService(mockModal);
+
+			await eventBus.emit("ui.openSubscriptionManager", {});
+
+			expect(mockModal.openSubscriptionManager).toHaveBeenCalled();
+		});
+
 		it("should emit ui.opened with target subscriptionManager", async () => {
+			const mockModal = createMockModalService();
+			service.setModalService(mockModal);
+
 			const spy = vi.fn();
 			eventBus.on("ui.opened", spy);
 
@@ -286,12 +297,12 @@ describe("UiCommandService", () => {
 		});
 
 		it("should show InputModal when filePath is absent", async () => {
-			const showInputModalFn = vi.fn();
-			service.setShowInputModal(showInputModalFn as ShowInputModalCallback);
+			const mockModal = createMockModalService();
+			service.setModalService(mockModal);
 
 			await eventBus.emit("ui.openCsvImport", {});
 
-			expect(showInputModalFn).toHaveBeenCalledWith(
+			expect(mockModal.openInput).toHaveBeenCalledWith(
 				expect.objectContaining({
 					title: "Import CSV",
 					submitLabel: "Import",
@@ -300,13 +311,13 @@ describe("UiCommandService", () => {
 		});
 
 		it("should delegate to openCsvImport when InputModal submits", async () => {
-			const showInputModalFn = vi.fn();
-			service.setShowInputModal(showInputModalFn as ShowInputModalCallback);
+			const mockModal = createMockModalService();
+			service.setModalService(mockModal);
 
 			await eventBus.emit("ui.openCsvImport", {});
 
 			// Extract and invoke the onSubmit callback
-			const config: InputModalConfig = showInputModalFn.mock.calls[0][0];
+			const config: InputModalConfig = (mockModal.openInput as ReturnType<typeof vi.fn>).mock.calls[0][0];
 			config.onSubmit("path/to/data.csv");
 
 			expect(openCsvImportFn).toHaveBeenCalledWith("path/to/data.csv");
@@ -388,12 +399,12 @@ describe("UiCommandService", () => {
 		});
 
 		it("should show InputModal when sourcePath is absent and no savedConfig", async () => {
-			const showInputModalFn = vi.fn();
-			service.setShowInputModal(showInputModalFn as ShowInputModalCallback);
+			const mockModal = createMockModalService();
+			service.setModalService(mockModal);
 
 			await eventBus.emit("ui.openExport", { format: "csv" });
 
-			expect(showInputModalFn).toHaveBeenCalledWith(
+			expect(mockModal.openInput).toHaveBeenCalledWith(
 				expect.objectContaining({
 					title: "Export as CSV",
 					submitLabel: "Export",
@@ -402,12 +413,12 @@ describe("UiCommandService", () => {
 		});
 
 		it("should show Tab label in InputModal for tab format", async () => {
-			const showInputModalFn = vi.fn();
-			service.setShowInputModal(showInputModalFn as ShowInputModalCallback);
+			const mockModal = createMockModalService();
+			service.setModalService(mockModal);
 
 			await eventBus.emit("ui.openExport", { format: "tab" });
 
-			expect(showInputModalFn).toHaveBeenCalledWith(
+			expect(mockModal.openInput).toHaveBeenCalledWith(
 				expect.objectContaining({
 					title: "Export as Tab",
 				}),
@@ -415,12 +426,12 @@ describe("UiCommandService", () => {
 		});
 
 		it("should delegate with inferred sourceType from InputModal", async () => {
-			const showInputModalFn = vi.fn();
-			service.setShowInputModal(showInputModalFn as ShowInputModalCallback);
+			const mockModal = createMockModalService();
+			service.setModalService(mockModal);
 
 			await eventBus.emit("ui.openExport", { format: "csv" });
 
-			const config: InputModalConfig = showInputModalFn.mock.calls[0][0];
+			const config: InputModalConfig = (mockModal.openInput as ReturnType<typeof vi.fn>).mock.calls[0][0];
 
 			// Submit a .base path — should infer sourceType as "base"
 			config.onSubmit("views/people.base");

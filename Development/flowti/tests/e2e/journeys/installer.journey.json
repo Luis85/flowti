@@ -30,12 +30,18 @@
 		},
 		{
 			"id": "wait-for-modal",
-			"title": "Wait for installer wizard modal",
+			"title": "Ensure installer wizard modal is open",
 			"guideSection": 0,
-			"description": "Waits for the installer wizard modal to render. Prerequisites enabled the plugin with installer state reset — the wizard should open automatically.",
+			"description": "Checks if the installer wizard modal is already visible. If not (e.g. closed by prior chapter teardown), re-opens it via the flowti:open-installer command.",
 			"actions": [
-				{ "tool": "notice", "message": "Waiting for installer wizard to render...", "duration": 5000 },
-				{ "tool": "wait", "ms": 5000, "description": "Wait for installer wizard to render" },
+				{ "tool": "notice", "message": "Ensuring installer wizard is open...", "duration": 5000 },
+				{ "tool": "wait", "ms": 2000, "description": "Brief settle after chapter transition" },
+				{
+					"tool": "eval",
+					"code": "(() => { const modal = document.querySelector('.flowti-installer-modal'); if (!modal) { app.commands.executeCommandById('flowti-ibde:flowti:open-installer'); return 'opened-via-command'; } return 'already-open'; })()",
+					"description": "Open installer wizard via command if not already visible"
+				},
+				{ "tool": "wait", "ms": 2000, "description": "Wait for modal to render after command" },
 				{
 					"tool": "assert",
 					"type": "visible",

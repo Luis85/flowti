@@ -5,7 +5,7 @@
  * This component only handles rendering and user interactions.
  */
 
-import { Notice, TFile, setIcon } from "obsidian";
+import { TFile, setIcon } from "obsidian";
 import type { SavedMultiImportPipeline, PipelinePreviewResult } from "../../../domain/dataExchange/types";
 import { basename } from "../../../utils/pathUtils";
 import type { PipelineComponentDeps } from "./types";
@@ -18,7 +18,7 @@ export class PipelinePreview {
 
 	async run(pipe: SavedMultiImportPipeline): Promise<void> {
 		if (pipe.sources.length === 0) {
-			new Notice("Pipeline has no sources. Add CSV sources first.");
+			void this.deps.eventBus.emit("notice.error", { message: "Pipeline has no sources. Add CSV sources first." });
 			return;
 		}
 

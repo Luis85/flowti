@@ -5,10 +5,11 @@
  * custom properties, and prefix/suffix fields.
  */
 
-import { App, Modal, Notice, Setting, TFile, setIcon } from "obsidian";
+import { App, Modal, Setting, TFile, setIcon } from "obsidian";
 import { generateUUID } from "../../utils/helpers";
 import { matchMergeKeyColumn, syncColumnMappings } from "../../utils/csvUtils";
 import type { ImportService } from "../../domain/dataExchange/ImportService";
+import type { IEventBus } from "../../infrastructure/events/types";
 import type { ColumnMapping, MultiImportSource, SavedImportConfig } from "../../domain/dataExchange/types";
 import { FilePickerModal } from "../shared/FilePickerModal";
 import { ConfigChooserModal } from "../modals";
@@ -16,6 +17,7 @@ import { basename } from "../../utils/pathUtils";
 
 export interface PipelineSourceModalOptions {
 	app: App;
+	eventBus: IEventBus;
 	importService: ImportService;
 	/** Canonical merge key name from the pipeline (e.g., "item_id") */
 	mergeKey: string;
@@ -36,6 +38,7 @@ function generateSourceId(): string {
 }
 
 export class PipelineSourceModal extends Modal {
+	private eventBus: IEventBus;
 	private importService: ImportService;
 	private mergeKey: string;
 	private existingSource?: MultiImportSource;
@@ -55,6 +58,7 @@ export class PipelineSourceModal extends Modal {
 
 	constructor(options: PipelineSourceModalOptions) {
 		super(options.app);
+		this.eventBus = options.eventBus;
 		this.importService = options.importService;
 		this.mergeKey = options.mergeKey;
 		this.existingSource = options.existingSource;
@@ -253,7 +257,7 @@ export class PipelineSourceModal extends Modal {
 			// Initialize or sync column mappings with current headers
 			this.columnMappings = syncColumnMappings(this.csvHeaders, this.columnMappings);
 		} catch (error) {
-			new Notice(`Failed to parse CSV: ${error instanceof Error ? error.message : String(error)}`);
+			void this.eventBus.emit("notice.error", { message: `Failed to parse CSV: ${error instanceof Error ? error.message : String(error)}` });
 			this.csvHeaders = [];
 		}
 
@@ -405,11 +409,11 @@ export class PipelineSourceModal extends Modal {
 
 	private handleSave(): void {
 		if (!this.csvPath) {
-			new Notice("Please select a CSV file.");
+			void this.eventBus.emit("notice.show", { message: "Please select a CSV file." });
 			return;
 		}
 		if (!this.mergeKeyColumn) {
-			new Notice("Please select a merge key column.");
+			void this.eventBus.emit("notice.show", { message: "Please select a merge key column." });
 			return;
 		}
 

@@ -99,9 +99,8 @@ export function setupCrossCuttingListeners(deps: {
 	eventBus: IEventBus;
 	logger: ILogger;
 	onSettingsChanged: (settings: FlowtiSettings) => void;
-	throttledNotice: (key: string, msg: string) => void;
 }): (() => void)[] {
-	const { eventBus, logger, onSettingsChanged, throttledNotice } = deps;
+	const { eventBus, logger, onSettingsChanged } = deps;
 	const listeners: (() => void)[] = [];
 
 	listeners.push(
@@ -165,20 +164,20 @@ export function setupCrossCuttingListeners(deps: {
 
 	listeners.push(
 		eventBus.on("eventNotify.fired", (event) => {
-			throttledNotice(
-				`notify:${event.payload.eventType}`,
-				`Event: ${event.payload.eventType}`,
-			);
+			void eventBus.emit("notice.throttled", {
+				key: `notify:${event.payload.eventType}`,
+				message: `Event: ${event.payload.eventType}`,
+			});
 		})
 	);
 
 	listeners.push(
 		eventBus.on("subscription.matched", (event) => {
 			const label = event.payload.subscriptionLabel ?? event.payload.eventType;
-			throttledNotice(
-				`sub:${label}`,
-				`Subscription matched: ${label}`,
-			);
+			void eventBus.emit("notice.throttled", {
+				key: `sub:${label}`,
+				message: `Subscription matched: ${label}`,
+			});
 		})
 	);
 

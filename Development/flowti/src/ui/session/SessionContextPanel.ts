@@ -1,4 +1,4 @@
-import { FuzzySuggestModal, Notice, setIcon } from "obsidian";
+import { FuzzySuggestModal, setIcon } from "obsidian";
 import type { App, TAbstractFile } from "obsidian";
 import type { SessionPanelDeps } from "./types";
 import type { ContextBindingType } from "../../domain/session/types";
@@ -114,7 +114,7 @@ export class SessionContextPanel {
 				triggerBtn.setText(`Added "${name}"`);
 				triggerBtn.disabled = true;
 			}
-			new Notice(`Added "${name}" as ${choice.type} context`);
+			void this.deps.eventBus.emit("notice.success", { message: `Added "${name}" as ${choice.type} context` });
 		}).open();
 	}
 }

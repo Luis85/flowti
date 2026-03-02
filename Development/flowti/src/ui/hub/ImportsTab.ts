@@ -3,7 +3,7 @@
  * Renders the master list of saved import configs and the detail/edit panel.
  */
 
-import { Notice, Setting, TFile, setIcon } from "obsidian";
+import { Setting, TFile, setIcon } from "obsidian";
 import type { SavedImportConfig } from "../../domain/dataExchange/types";
 import { ConfirmModal } from "../modals";
 import { FilePickerModal } from "../shared/FilePickerModal";
@@ -238,7 +238,7 @@ export class ImportsTab {
 						.then(() => {
 							this.deps.setState({ selectedImportId: null });
 							this.deps.scheduleRender();
-							new Notice("Import config deleted");
+							void this.deps.eventBus.emit("notice.success", { message: "Import config deleted" });
 						});
 				},
 			}).open();
@@ -445,7 +445,7 @@ export class ImportsTab {
 					this.deps.setState({ editingImportId: null });
 					this.renderMaster();
 					this.renderDetail();
-					new Notice("Import config updated");
+					void this.deps.eventBus.emit("notice.success", { message: "Import config updated" });
 				});
 		});
 

@@ -15,7 +15,7 @@
  * Helper functions:    SessionWorkspaceHelpers.ts (~150 LOC)
  */
 
-import { ItemView, Notice, setIcon } from "obsidian";
+import { ItemView, setIcon } from "obsidian";
 import type { WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { SessionService } from "../../domain/session/SessionService";
@@ -392,7 +392,7 @@ export class SessionWorkspaceView extends ItemView {
 		} else if (session.status === "prepared" && !this.sessionService.getActiveSession()) {
 			this.createActionButton(this.actionsEl, "play", "Start", () => {
 				if (this.sessionService.getActiveSession()) {
-					new Notice("Another session is already active. Complete or pause it first.");
+					void this.eventBus.emit("notice.error", { message: "Another session is already active. Complete or pause it first." });
 					return;
 				}
 				void this.eventBus.emit("session.start", { sessionId: session.id });
@@ -548,7 +548,7 @@ export class SessionWorkspaceView extends ItemView {
 		}
 
 		void this.eventBus.emit("session.canvasFile.set", { sessionId: session.id, path });
-		new Notice(`Canvas created: ${path.split("/").pop()}`);
+		void this.eventBus.emit("notice.success", { message: `Canvas created: ${path.split("/").pop()}` });
 
 		if (session.notesFile) {
 			await this.appendCanvasLinkToNotes(session.notesFile, path);

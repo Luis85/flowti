@@ -3,7 +3,7 @@
  * Two pages: list (default) and form (add/edit).
  */
 
-import { App, Modal, Notice } from "obsidian";
+import { App, Modal } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { Subscription } from "../../domain/subscription/types";
 import {
@@ -175,7 +175,7 @@ export class SubscriptionManagerModal extends Modal {
 
 		promise.catch((err: unknown) => {
 			console.error("[Flowti] Watcher save failed:", err);
-			new Notice("Failed to save watcher. Check console for details.", 5000);
+			void this.eventBus.emit("notice.error", { message: "Failed to save watcher. Check console for details.", duration: 5000 });
 		});
 	}
 

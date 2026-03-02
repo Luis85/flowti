@@ -340,6 +340,15 @@ export function createCommandDefinitions(): CommandDefinition[] {
  */
 export function getExternalCommandMeta(): CommandMeta[] {
 	return [
+		// Installer command
+		{
+			id: "flowti:open-installer",
+			label: "Open installer",
+			description: "Open the installer wizard (only available when Flowti is not installed)",
+			domain: "installer",
+			category: "action",
+			icon: "download",
+		},
 		// Data Exchange commands
 		{
 			id: "flowti:import-csv",

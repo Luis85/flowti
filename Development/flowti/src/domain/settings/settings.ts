@@ -63,6 +63,8 @@ export const DEFAULT_CATALOG_CATEGORIES: CatalogCategoryConfig[] = [
 	{ name: "Analytics", visible: true },
 	{ name: "Onboarding", visible: true },
 	{ name: "Performance", visible: false },
+	{ name: "Notification", visible: false },
+	{ name: "Modal", visible: false },
 ];
 
 // ─────────────────────────────────────────────────────────────

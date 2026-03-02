@@ -3,7 +3,7 @@
  * Renders the data dictionary master list and property detail panel.
  */
 
-import { Notice, TFile, setIcon } from "obsidian";
+import { TFile, setIcon } from "obsidian";
 import { renderEmptyDetail, getEmptyDetailStats } from "./helpers";
 import type { HubComponentDeps } from "./types";
 
@@ -208,7 +208,7 @@ export class PropertiesTab {
 			createLink.appendText(" Create Documentation");
 			createLink.addEventListener("click", () => {
 				void this.deps.dataExchangeService.createPropertyDoc(entry.propertyName).then((docPath) => {
-					new Notice(`Created property doc: ${entry.propertyName}`);
+					void this.deps.eventBus.emit("notice.success", { message: `Created property doc: ${entry.propertyName}` });
 					void this.deps.app.workspace.openLinkText(docPath, "", false);
 				});
 			});

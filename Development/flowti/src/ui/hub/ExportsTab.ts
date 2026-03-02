@@ -3,7 +3,7 @@
  * Renders the master list of saved export configs and the detail/edit panel.
  */
 
-import { Notice, Setting, TFile, setIcon } from "obsidian";
+import { Setting, TFile, setIcon } from "obsidian";
 import type { SavedExportConfig } from "../../domain/dataExchange/types";
 import { basename } from "../../utils/pathUtils";
 import { ConfirmModal } from "../modals";
@@ -236,7 +236,7 @@ export class ExportsTab {
 						.then(() => {
 							this.deps.setState({ selectedExportId: null });
 							this.deps.scheduleRender();
-							new Notice("Export config deleted");
+							void this.deps.eventBus.emit("notice.success", { message: "Export config deleted" });
 						});
 				},
 			}).open();
@@ -445,7 +445,7 @@ export class ExportsTab {
 				const currentFilename = basename(edits.outputPath || cfg.outputPath || `export.${ext}`) || `export.${ext}`;
 				void showNativeSaveDialog({ format, defaultFilename: currentFilename }).then((result) => {
 					if (result === null) {
-						new Notice("Could not open save dialog. Try entering the path manually.");
+						void this.deps.eventBus.emit("notice.error", { message: "Could not open save dialog. Try entering the path manually." });
 						return;
 					}
 					if (!result.canceled && result.filePath) {
@@ -492,7 +492,7 @@ export class ExportsTab {
 					this.deps.setState({ editingExportId: null });
 					this.renderMaster();
 					this.renderDetail();
-					new Notice("Export config updated");
+					void this.deps.eventBus.emit("notice.success", { message: "Export config updated" });
 				});
 		});
 
@@ -524,22 +524,22 @@ export class ExportsTab {
 				conflictStrategy: cfg.conflictStrategy,
 			},
 		});
-		new Notice(`Running export: ${cfg.name}...`);
+		void this.deps.eventBus.emit("notice.show", { message: `Running export: ${cfg.name}...` });
 
 		const offComplete = this.deps.eventBus.on("dataExchange.export.completed", (event) => {
 			offComplete();
 			offFailed();
 			const r = event.payload.result;
 			if (r.skipped) {
-				new Notice(`Export skipped: ${r.outputPath} already exists`);
+				void this.deps.eventBus.emit("notice.show", { message: `Export skipped: ${r.outputPath} already exists` });
 			} else {
-				new Notice(`Export complete: ${r.totalRows} rows written to ${r.outputPath}`);
+				void this.deps.eventBus.emit("notice.success", { message: `Export complete: ${r.totalRows} rows written to ${r.outputPath}` });
 			}
 		});
 		const offFailed = this.deps.eventBus.on("dataExchange.export.failed", (event) => {
 			offComplete();
 			offFailed();
-			new Notice(`Export failed: ${event.payload.error}`);
+			void this.deps.eventBus.emit("notice.error", { message: `Export failed: ${event.payload.error}` });
 		});
 	}
 }

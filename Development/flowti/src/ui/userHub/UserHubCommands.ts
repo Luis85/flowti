@@ -19,6 +19,7 @@ const DOMAIN_LABELS: Record<CommandDomain, string> = {
 	subscription: "Subscription",
 	analytics: "Analytics",
 	canvas: "Canvas",
+	installer: "Installer",
 	developer: "Developer",
 };
 
@@ -31,6 +32,7 @@ const DOMAIN_ICONS: Record<CommandDomain, string> = {
 	subscription: "bell",
 	analytics: "bar-chart-2",
 	canvas: "layout-template",
+	installer: "download",
 	developer: "code",
 };
 

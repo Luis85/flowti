@@ -8,9 +8,9 @@
  * The notice auto-dismisses after 30 seconds if no action is taken.
  */
 
-import { Notice } from "obsidian";
 import type { NudgeConfig } from "../../domain/nudge/types";
 import type { IEventBus } from "../../infrastructure/events/types";
+import type { NoticeService } from "../../infrastructure/ui/NoticeService";
 
 const NOTICE_TIMEOUT_MS = 30_000;
 
@@ -81,10 +81,15 @@ export function buildNudgeNotificationFragment(
 	return fragment;
 }
 
-export function showNudgeNotification(config: NudgeConfig, eventBus: IEventBus, inboxItemCount?: number): void {
-	const notice = new Notice("", NOTICE_TIMEOUT_MS);
-	const fragment = buildNudgeNotificationFragment(config, eventBus, () => notice.hide(), inboxItemCount);
-	// Replace the default text content with our rich fragment
-	notice.noticeEl.empty();
-	notice.noticeEl.appendChild(fragment);
+export function showNudgeNotification(
+	config: NudgeConfig,
+	eventBus: IEventBus,
+	noticeService: NoticeService,
+	inboxItemCount?: number,
+): void {
+	// Use a deferred hide so the fragment can reference it before the notice exists
+	let hideNotice: () => void = () => {};
+	const fragment = buildNudgeNotificationFragment(config, eventBus, () => hideNotice(), inboxItemCount);
+	const notice = noticeService.showInteractive(fragment, NOTICE_TIMEOUT_MS);
+	hideNotice = () => notice.hide();
 }

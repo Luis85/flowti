@@ -13,13 +13,13 @@ import type { App } from "obsidian";
 import type { IEventBus } from "../events/types";
 import type { IDisposable } from "../services/types";
 import type { ExportFormat, SavedExportConfig, SavedImportConfig } from "../../domain/dataExchange/types";
+import type { ModalService } from "./ModalService";
 import { VIEW_TYPE_COMPONENT_SHOWCASE } from "../../ui/components/ComponentShowcaseView";
 import { VIEW_TYPE_EVENT_CATALOG } from "../../ui/catalog/EventCatalogView";
 import { VIEW_TYPE_EVENT_LOG } from "../../ui/catalog/EventLogView";
 import { VIEW_TYPE_DATA_EXCHANGE_HUB } from "../../ui/hub/DataExchangeHubView";
 import { VIEW_TYPE_USER_HUB } from "../../ui/userHub/UserHubView";
 import { VIEW_TYPE_TRAIN_HUB, VIEW_TYPE_ANALYTICS_HUB } from "../../domain/hub/types";
-import { SubscriptionManagerModal } from "../../ui/catalog/SubscriptionManagerModal";
 
 // ─────────────────────────────────────────────────────────────
 // Callback types for data exchange delegation
@@ -49,8 +49,6 @@ export interface InputModalConfig {
 	onSubmit: (value: string) => void;
 }
 
-export type ShowInputModalCallback = (config: InputModalConfig) => void;
-
 // ─────────────────────────────────────────────────────────────
 // Service
 // ─────────────────────────────────────────────────────────────
@@ -69,7 +67,7 @@ export class UiCommandService implements IDisposable {
 	private openCsvImportFn?: OpenCsvImportCallback;
 	private openExportViewFn?: OpenExportViewCallback;
 	private openExportWithSavedConfigFn?: OpenExportWithSavedConfigCallback;
-	private showInputModalFn?: ShowInputModalCallback;
+	private modalService?: ModalService;
 
 	constructor(options: UiCommandServiceOptions) {
 		this.app = options.app;
@@ -91,8 +89,8 @@ export class UiCommandService implements IDisposable {
 		this.openExportWithSavedConfigFn = fn;
 	}
 
-	setShowInputModal(fn: ShowInputModalCallback): void {
-		this.showInputModalFn = fn;
+	setModalService(svc: ModalService): void {
+		this.modalService = svc;
 	}
 
 	// ── IDisposable ─────────────────────────────────────────
@@ -195,7 +193,7 @@ export class UiCommandService implements IDisposable {
 	}
 
 	private handleOpenSubscriptionManager(): void {
-		new SubscriptionManagerModal(this.app, this.eventBus).open();
+		this.modalService?.openSubscriptionManager();
 		void this.eventBus.emit("ui.opened", {
 			target: "subscriptionManager",
 			timestamp: new Date().toISOString(),
@@ -214,7 +212,7 @@ export class UiCommandService implements IDisposable {
 				timestamp: new Date().toISOString(),
 			});
 		} else {
-			this.showInputModalFn?.({
+			this.modalService?.openInput({
 				title: "Import CSV",
 				inputName: "CSV file path",
 				inputDesc: "Enter the vault path to a .csv file",
@@ -251,7 +249,7 @@ export class UiCommandService implements IDisposable {
 			});
 		} else {
 			const formatLabel = payload.format === "tab" ? "Tab" : "CSV";
-			this.showInputModalFn?.({
+			this.modalService?.openInput({
 				title: `Export as ${formatLabel}`,
 				inputName: "Source path",
 				inputDesc: "Enter a folder path or .base file path",
