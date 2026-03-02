@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Backlog Refinement - Post Cycle 48]]"
-stage: in-progress
+stage: done
 cycle: 54
 release_anchor:
   - "Theme 4: Feature Deepening — Competitive Moat"
@@ -15,7 +15,7 @@ tech_debt:
   - CLI wrapper unit tests (C53 backlog)
   - RB-6 CLI Installer reassessment (C53 backlog)
 estimated_increments: 8
-actual_increments: 14
+actual_increments: 15
 estimated_loc: 1490
 estimated_tests: 135
 pre_cycle_tests: 5825
@@ -320,7 +320,8 @@ Inc 7 (Integration)         ──→ Depends on Inc 1–6
 | Eval calls eliminated | — | 28 (88→60, 32% reduction) |
 | New ObsidianCli methods | — | 16 (9 native CLI + 7 eval wrappers) |
 | New journey tools | — | 3 (set-input, frontmatter, query-trace) |
-| Increments | 8 | 14 (8 planned + 6 bonus) |
+| New events | — | 24 (18 planned + 6 journey-builder) |
+| Increments | 8 | 15 (8 planned + 7 bonus) |
 
 ### Increment Summary
 
@@ -340,6 +341,7 @@ Inc 7 (Integration)         ──→ Depends on Inc 1–6
 | 11 | Frontend Refactor | 77 | 4 | NoticeService (179 LOC), ModalService (543 LOC), 11 events, main.ts −530 LOC |
 | 12 | E2E Eval Reduction | 14 | 0 | 16 CLI methods, 28 evals eliminated (88→60), 3 journey tools, 2 assert subtypes |
 | 13 | Tool Reference Journey | 0 | 2 | Chapter 8 journey (26 tools), WebViewer interactions, CSS selector fixes |
+| 14 | Journey Builder Spike | 0 | 3 | JourneyBuilderService wired, EventBridge adapter fallback, canvas improvement cards |
 
 ### Inc 8: E2E Observability (Bonus)
 **Theme**: Testing Infrastructure | **+~250 LOC across 11 files**
@@ -520,12 +522,50 @@ New Chapter 8 journey demonstrating all 26 E2E runner tools in a compact referen
 **New Files**: `tool-reference.journey.json`, `80-journey-tool-reference.test.ts`
 **New npm Script**: `test:e2e:tool-reference`
 
-### New Events (18)
+### Inc 14: Journey Builder Spike (Bonus)
+**Theme**: Feature Discovery | **+~350 LOC across 8 files**
+
+Foundational spike for the Journey Builder feature — creating and editing E2E journeys from within Obsidian:
+
+**EventBridge Adapter Fallback** (`EventBridge.ts`):
+- `VAULT_MANAGED_EXTENSIONS` set (md, canvas, images, audio, video, pdf)
+- `isVaultManaged()` checks file extension against known set
+- `createViaAdapter()` helper for `adapter.write()` with folder creation
+- All 4 file handlers (`file.create/read/update/delete.request`) auto-detect non-vault extensions and route through adapter API
+- JSON files now work through the event-driven file system pipeline
+
+**JourneyBuilderService Wiring** (`main.ts`, `JourneyBuilderService.ts`):
+- Service instantiated with FileSystemClient + EventBus after canvas session service
+- Listens for `journey-builder.exported`, builds JSON via `buildDefinitionJSON()`, writes via `IFileSystemClient.createFile()`
+- Full lifecycle: `.start()` in onLayoutReady, `.stop()` in onunload
+- View detach registered for `flowti-journey-builder`
+
+**Sidebar Export Cleanup** (`JourneyBuilderSidebar.ts`):
+- Removed direct file write — sidebar only emits `journey-builder.exported` event
+- File write delegated to JourneyBuilderService through the event pipeline
+
+**Canvas Improvement Cards** (`generate-e2e-report.mjs`):
+- New constants: `IMPROVEMENT_WIDTH` (2× node), `IMPROVEMENT_HEIGHT` (3× node), `IMPROVEMENT_GAP` (2× node)
+- Yellow (`color: "3"`) text nodes stacked above step groups
+- Markdown content: title, description, priority
+- `improvements` field added to `JourneyStep` interface and passed through `toJourneyStep()`
+
+**Journey Builder Blueprint** (`journey-builder.journey.json`):
+- 9 total improvements mapped to steps: R1-R6 from recommendations + 3 existing
+- Step 03: Event Autocomplete (must-have)
+- Step 04: Action Templates, Command Picker, Live JSON Preview, Assert Builder
+- Step 05: Auto-generate test file, companion canvas
+
+**obsidian-stub updates** (`obsidian-stub.ts`):
+- Added `adapter` stub to `App.vault` mock (exists, read, write, mkdir, remove)
+
+### New Events (24)
 - `canvas.template.created`, `canvas.session.started`, `canvas.session.activity`, `canvas.session.completed`
 - `signal.health.checked`, `signal.health.changed`
 - `inbox.file.routed`
 - `notice.show`, `notice.success`, `notice.error`, `notice.throttled`, `notice.prompt`, `notice.prompt.responded`
 - `modal.opened`, `modal.closed`, `ui.openTextPrompt`, `modal.textPrompt.submitted`, `modal.textPrompt.cancelled`
+- `journey-builder.opened`, `journey-builder.create-new`, `journey-builder.metadata.updated`, `journey-builder.step.added`, `journey-builder.exported`, `journey-builder.open-existing`
 
 ### New Settings (2)
 - `inboxAutoRoutingEnabled` (boolean, default false)
@@ -562,13 +602,15 @@ New Chapter 8 journey demonstrating all 26 E2E runner tools in a compact referen
 
 ## Remaining Work
 
-The cycle is complete. All 8 planned PBI increments (0–7) delivered. Six bonus increments (8–13) significantly hardened testing infrastructure, extracted services from main.ts, eliminated 32% of E2E eval calls, and created a comprehensive Tool Reference journey. Remaining items for cycle close:
+The cycle is complete. All 8 planned PBI increments (0–7) delivered. Seven bonus increments (8–14) significantly hardened testing infrastructure, extracted services from main.ts, eliminated 32% of E2E eval calls, created a comprehensive Tool Reference journey, and laid the foundation for the Journey Builder feature. Remaining items for cycle close:
 
-- **DoD checklist**: Final review, retrospective, cycle doc finalization
-- **Memory update**: Sync MEMORY.md with new patterns and learnings
-- **Increment State Report**: Update cycle field to 54
+- [x] DoD checklist: Final review, retrospective, cycle doc finalization
+- [x] Memory update: Sync MEMORY.md with new patterns and learnings
+- [x] Journey Builder PRD created (core feature, Cycle 55 anchor)
+- [x] Backlog refinement and Cycle 55 planning
 
-### Deferred to Future Cycles
+### Deferred to Future Cycles (Cycle 55+)
+- **Journey Builder** — Full feature (PRD-JB, anchor for Cycle 55). See [[Journey Builder PRD]]
 - Journey step metadata population for existing journeys (Getting Started, Component Library)
 - Per-step `settleMs` configuration on JourneyStep
 - WebViewer highlight injection (target: "webview" on highlight tool — prototype exists but untested in journey)
