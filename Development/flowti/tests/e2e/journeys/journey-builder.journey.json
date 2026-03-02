@@ -156,6 +156,14 @@
 			},
 			"events": ["journey-builder.create-new", "journey-builder.metadata.updated"],
 			"interactions": ["click: Create New", "input: Journey name", "input: Description", "input: Start event"],
+			"improvements": [
+				{
+					"title": "Event Autocomplete for start/end events",
+					"description": "Typeahead search over EVENT_CATALOG (360+ events) for the start event input. Group by category, show description on hover. Same autocomplete applies to the end event input in the step builder.",
+					"priority": "must-have",
+					"added": "2026-03-02"
+				}
+			],
 			"actions": [
 				{ "tool": "notice", "message": "Step 3/5: Creating a new journey", "duration": 3000 },
 				{ "tool": "click", "selector": "[data-test-id='jb-create-new']", "description": "Click Create New Journey" },
@@ -190,6 +198,32 @@
 			},
 			"events": ["journey-builder.step.added"],
 			"interactions": ["click: Continue", "click: Add Step", "input: Step title", "click: Confirm step", "input: End event"],
+			"improvements": [
+				{
+					"title": "Action Templates — quick-add patterns",
+					"description": "Instead of building actions one-by-one, offer common patterns: 'Open via command' (command + wait + assert leaf), 'Click element' (click + wait), 'Verify visible' (assert visible), 'Take screenshot'. User picks a template, fills in the blanks, actions are added as a group.",
+					"priority": "should-have",
+					"added": "2026-03-02"
+				},
+				{
+					"title": "Command Picker for command actions",
+					"description": "When adding a command action, show a searchable dropdown of all registered commands from the registry (~40 commands). Saves users from memorizing command IDs.",
+					"priority": "must-have",
+					"added": "2026-03-02"
+				},
+				{
+					"title": "Live JSON Preview panel",
+					"description": "A collapsible panel at the bottom of the sidebar showing the generated JSON in real-time as the user builds the journey. Helps power users verify the output before exporting.",
+					"priority": "nice-to-have",
+					"added": "2026-03-02"
+				},
+				{
+					"title": "Assert Builder — guided assert action form",
+					"description": "When adding an assert action, show a guided form: pick type (leaf | visible | event | eval), then type-specific fields — leaf: viewType with autocomplete, visible: CSS selector, event: event name with catalog autocomplete, eval: code textarea + expected value.",
+					"priority": "should-have",
+					"added": "2026-03-02"
+				}
+			],
 			"actions": [
 				{ "tool": "notice", "message": "Step 4/5: Adding a journey step", "duration": 3000 },
 				{ "tool": "click", "selector": "[data-test-id='jb-continue-btn']", "description": "Click Continue to enter step builder" },
@@ -231,6 +265,12 @@
 			"events": ["journey-builder.exported", "file.create.request", "file.create.response"],
 			"interactions": ["click: Export"],
 			"improvements": [
+				{
+					"title": "Auto-generate test executor file on export",
+					"description": "When exporting the journey JSON, also generate the companion .test.ts executor file (8-line boilerplate: import config, parse JSON, call executeJourney). No reason to make users create this manually.",
+					"priority": "must-have",
+					"added": "2026-03-02"
+				},
 				{
 					"title": "Generate companion canvas on export",
 					"description": "On export, also generate a .canvas file that mirrors the journey structure — start node, step nodes, end node, connected by edges. Same layout as the journey-runner produces after a test run.",
