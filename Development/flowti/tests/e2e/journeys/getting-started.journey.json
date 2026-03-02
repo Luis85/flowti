@@ -5,7 +5,17 @@
 	"testSource": "tests/e2e/30-journey-getting-started.test.ts",
 	"reportPath": "docs/journeys/Getting Started/Getting Started.md",
 	"canvasPath": "docs/journeys/Getting Started/Getting Started.canvas",
-	"tools": ["command", "highlight", "navigate", "eval", "assert", "emit", "wait", "screenshot"],
+	"tools": [],
+	"setup": [
+		{
+			"id": "chapter-header",
+			"title": "Log chapter start",
+			"guideSection": 0,
+			"actions": [
+				{ "tool": "write-run-log", "message": "\n## Chapter 3: Getting Started\n" }
+			]
+		}
+	],
 	"steps": [
 		{
 			"id": "01-user-hub",

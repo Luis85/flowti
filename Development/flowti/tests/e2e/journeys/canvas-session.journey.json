@@ -5,7 +5,17 @@
 	"testSource": "tests/e2e/50-journey-canvas-session.test.ts",
 	"reportPath": "docs/journeys/Canvas Session/Canvas Session.md",
 	"canvasPath": "docs/journeys/Canvas Session/Canvas Session.canvas",
-	"tools": ["command", "click", "input", "highlight", "wait", "assert", "emit", "eval", "screenshot", "manual", "notice", "close-modals"],
+	"tools": [],
+	"setup": [
+		{
+			"id": "chapter-header",
+			"title": "Log chapter start",
+			"guideSection": 0,
+			"actions": [
+				{ "tool": "write-run-log", "message": "\n## Chapter 5: Canvas Session\n" }
+			]
+		}
+	],
 	"steps": [
 		{
 			"id": "01-start-canvas-session",

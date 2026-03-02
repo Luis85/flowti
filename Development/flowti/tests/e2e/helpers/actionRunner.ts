@@ -7,7 +7,7 @@
  */
 import * as path from "node:path";
 import type { ObsidianCli } from "../../../src/infrastructure/cli/ObsidianCli";
-import type { ActionDefinition, AssertAction, CloseLeavesAction, CreateFileAction, DeleteFileAction, EmitAction, EvalAction, NoticeAction, OpenFileAction, OpenUrlAction, RibbonAction, ScreenshotAction, SeedAction, ThemeAction, VisualInspectionAction } from "./journeyTypes";
+import type { ActionDefinition, AssertAction, CloseLeavesAction, CreateFileAction, DeleteFileAction, EmitAction, EvalAction, NoticeAction, OpenFileAction, OpenUrlAction, RibbonAction, ScreenshotAction, SeedAction, ThemeAction, VisualInspectionAction, WriteRunLogAction } from "./journeyTypes";
 import { getAllSeeds, getSeedById, SEED_FOLDERS } from "./seedRegistry";
 import { highlightElement, highlightButton, highlightInput, highlightRibbon, highlightWebView, highlightAssert, notifyAssert } from "./highlight";
 import { navigateToTab } from "./navigation";
@@ -180,6 +180,9 @@ export async function executeAction(
 			break;
 		case "seed":
 			executeSeed(cli, action, variables);
+			break;
+		case "write-run-log":
+			executeWriteRunLog(cli, action, variables);
 			break;
 		case "manual":
 			// Manual actions are skipped during automated execution.
@@ -539,6 +542,25 @@ function executeSeedEntry(
 			}
 			break;
 		}
+	}
+}
+
+// ─── Run log ────────────────────────────────────────────────────────
+
+function executeWriteRunLog(cli: ObsidianCli, action: WriteRunLogAction, variables: Record<string, string>): void {
+	const message = resolve(action.message, variables);
+	const escaped = message.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\n/g, "\\n");
+	const result = cli.eval([
+		`(async () => {`,
+		`  var path = 'E2E Test Run.md';`,
+		`  var f = app.vault.getAbstractFileByPath(path);`,
+		`  if (!f) { await app.vault.create(path, '# E2E Test Run\\n'); f = app.vault.getAbstractFileByPath(path); }`,
+		`  if (f) { var c = await app.vault.read(f); await app.vault.modify(f, c + '${escaped}' + '\\n'); }`,
+		`  return 'ok';`,
+		`})()`,
+	].join(" "));
+	if (!result.success) {
+		throw new Error(`write-run-log failed: ${result.error}`);
 	}
 }
 

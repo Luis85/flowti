@@ -5,7 +5,7 @@
 	"testSource": "tests/e2e/10-installer.test.ts",
 	"reportPath": "docs/journeys/Installer/Installer.md",
 	"canvasPath": "docs/journeys/Installer/Installer.canvas",
-	"tools": ["eval", "wait", "notice", "screenshot", "click", "highlight", "assert"],
+	"tools": [],
 	"lifecycle": {
 		"enablePlugin": false,
 		"checkInstalled": false,
@@ -14,6 +14,14 @@
 	},
 	"gateFlags": ["_e2eInstallerDone"],
 	"setup": [
+		{
+			"id": "chapter-header",
+			"title": "Log chapter start",
+			"guideSection": 0,
+			"actions": [
+				{ "tool": "write-run-log", "message": "\n## Chapter 2: Installer\n" }
+			]
+		},
 		{
 			"id": "gate-prerequisites",
 			"title": "Prerequisites gate check",
@@ -68,6 +76,10 @@
 					"selector": ".flowti-installer-modal",
 					"description": "Installer wizard modal is in DOM"
 				},
+				{
+					"tool": "write-run-log",
+					"message": "- [x] **Wizard Opens** — Modal visible in DOM"
+				},
 				{ "tool": "screenshot", "label": "wizard-open", "description": "Installer wizard modal open" }
 			]
 		},
@@ -96,8 +108,13 @@
 				},
 				{
 					"tool": "eval",
-					"code": "(() => { const cards = document.querySelectorAll('.flowti-installer-modal .ft-role-card-enabled').length; if (cards < 2) throw new Error('Expected at least 2 role cards, found: ' + cards); return 'ok'; })()",
+					"code": "(() => { const cards = document.querySelectorAll('.flowti-installer-modal .ft-role-card-enabled').length; if (cards < 2) throw new Error('Expected at least 2 role cards, found: ' + cards); return String(cards); })()",
+					"store": "roleCardCount",
 					"description": "At least 2 role cards visible"
+				},
+				{
+					"tool": "write-run-log",
+					"message": "- [x] **Welcome Page** — Heading, name input, {{roleCardCount}} role cards"
 				},
 				{ "tool": "screenshot", "label": "welcome-page", "description": "Welcome page with name input and role cards" }
 			]
@@ -123,6 +140,10 @@
 					"code": "(() => { const input = document.querySelector('.flowti-installer-modal input[placeholder=\"Enter your name\"]'); if (!input) throw new Error('Name input not found'); const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; setter.call(input, 'E2E Tester'); input.dispatchEvent(new Event('input', { bubbles: true })); return input.value; })()",
 					"expect": { "type": "equals", "value": "E2E Tester" },
 					"description": "Set name input via native setter"
+				},
+				{
+					"tool": "write-run-log",
+					"message": "- [x] **Enter Username** — Set to 'E2E Tester'"
 				},
 				{ "tool": "screenshot", "label": "username-entered", "description": "Username entered in input field" }
 			]
@@ -155,6 +176,10 @@
 					"selector": ".flowti-installer-modal .ft-card-selected",
 					"description": "Role card is selected"
 				},
+				{
+					"tool": "write-run-log",
+					"message": "- [x] **Select Role** — User role card selected"
+				},
 				{ "tool": "screenshot", "label": "role-selected", "description": "User role selected" }
 			]
 		},
@@ -186,6 +211,10 @@
 					"code": "(() => { const h = document.querySelector('.flowti-installer-modal h2')?.textContent ?? ''; return h.includes('Ready') ? 'true' : 'false'; })()",
 					"expected": "true",
 					"description": "Review page heading contains 'Ready'"
+				},
+				{
+					"tool": "write-run-log",
+					"message": "- [x] **Navigate to Review** — Review page displayed"
 				},
 				{ "tool": "screenshot", "label": "review-page", "description": "Review page with settings summary" }
 			]
@@ -226,6 +255,10 @@
 					"selector": ".flowti-installer-modal .checkbox-container.is-enabled",
 					"description": "Sample content toggle is enabled"
 				},
+				{
+					"tool": "write-run-log",
+					"message": "- [x] **Review Settings** — Name, role badge, folders, toggle verified"
+				},
 				{ "tool": "screenshot", "label": "review-settings", "description": "Review page settings verified" }
 			]
 		},
@@ -258,6 +291,10 @@
 					"event": "installer.started",
 					"description": "installer.started event emitted"
 				},
+				{
+					"tool": "write-run-log",
+					"message": "- [x] **Start Install** — installer.started event emitted"
+				},
 				{ "tool": "screenshot", "label": "install-started", "description": "Installation in progress" }
 			]
 		},
@@ -283,6 +320,10 @@
 					"expected": "true",
 					"description": "Completion page heading contains 'complete'"
 				},
+				{
+					"tool": "write-run-log",
+					"message": "- [x] **Install Complete** — All 3 steps finished, completion page shown"
+				},
 				{ "tool": "screenshot", "label": "install-complete", "description": "Installation complete page" }
 			]
 		},
@@ -300,7 +341,12 @@
 				{
 					"tool": "eval",
 					"code": "(() => { const p = app.plugins.plugins['{{PLUGIN_ID}}']; const trace = p?._e2eEventTrace ?? []; const stepEvents = trace.filter(e => e.type === 'installer.step.completed'); if (stepEvents.length < 3) throw new Error('Expected 3 step completions, got ' + stepEvents.length); const completeEvents = trace.filter(e => e.type === 'installer.completed'); if (completeEvents.length === 0) throw new Error('installer.completed not found in trace'); return 'ok (' + stepEvents.length + ' steps)'; })()",
+					"store": "eventSummary",
 					"description": "Verify 3 step completions and overall completion in trace"
+				},
+				{
+					"tool": "write-run-log",
+					"message": "- [x] **Installer Events** — {{eventSummary}}"
 				},
 				{ "tool": "screenshot", "label": "installer-events", "description": "Installer events verified in trace" }
 			]
@@ -324,8 +370,13 @@
 				},
 				{
 					"tool": "eval",
-					"code": "(() => { const count = document.querySelectorAll('.flowti-installer-modal .ft-step-status-icon').length; if (count < 3) throw new Error('Expected 3+ step summaries, found: ' + count); return 'ok'; })()",
+					"code": "(() => { const count = document.querySelectorAll('.flowti-installer-modal .ft-step-status-icon').length; if (count < 3) throw new Error('Expected 3+ step summaries, found: ' + count); return String(count); })()",
+					"store": "stepSummaryCount",
 					"description": "At least 3 step status icons present"
+				},
+				{
+					"tool": "write-run-log",
+					"message": "- [x] **Success Message** — Alert with 'E2E Tester', {{stepSummaryCount}} step summaries"
 				},
 				{ "tool": "screenshot", "label": "success-message", "description": "Success message with step summary" }
 			]
@@ -358,6 +409,10 @@
 					"selector": ".flowti-installer-modal",
 					"description": "Wizard modal is gone"
 				},
+				{
+					"tool": "write-run-log",
+					"message": "- [x] **Close Wizard** — Modal dismissed"
+				},
 				{ "tool": "screenshot", "label": "wizard-closed", "description": "Wizard dismissed, main workspace visible" }
 			]
 		},
@@ -376,6 +431,10 @@
 					"code": "(async () => { const p = app.plugins.plugins['{{PLUGIN_ID}}']; const svc = await p.getService('userService'); const u = svc.getUser(); if (!u) throw new Error('No user found'); if (u.name !== 'E2E Tester') throw new Error('User name: ' + u.name); if (u.role !== 'user') throw new Error('User role: ' + u.role); return 'ok'; })()",
 					"description": "Verify user name and role via UserService"
 				},
+				{
+					"tool": "write-run-log",
+					"message": "- [x] **Verify User** — name='E2E Tester', role='user'"
+				},
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "screenshot", "label": "user-profile", "description": "User profile verified" }
 			]
@@ -393,7 +452,12 @@
 				{
 					"tool": "eval",
 					"code": "(() => { const folders = ['00 - Connectivity/inbox', '03 - Resources/Sample Data', '03 - Resources/Documentation', '04 - Archive', 'var/data']; for (const f of folders) { if (!app.vault.getAbstractFileByPath(f)) throw new Error('Folder not found: ' + f); } return 'ok (' + folders.length + ' folders)'; })()",
+					"store": "folderResult",
 					"description": "Verify key folders exist"
+				},
+				{
+					"tool": "write-run-log",
+					"message": "- [x] **Verify Folders** — {{folderResult}}"
 				},
 				{ "tool": "screenshot", "label": "folders", "description": "Folder structure verified" }
 			]
@@ -413,6 +477,10 @@
 					"code": "(async () => { const path = '00 - Connectivity/inbox/Welcome to Flowti.md'; const f = app.vault.getAbstractFileByPath(path); if (!f) throw new Error('Welcome note not found: ' + path); const content = await app.vault.read(f); if (!content || content.trim().length === 0) throw new Error('Welcome note is empty'); if (!content.toLowerCase().includes('flowti')) throw new Error('Welcome note does not mention Flowti'); return 'ok'; })()",
 					"description": "Verify welcome note content"
 				},
+				{
+					"tool": "write-run-log",
+					"message": "- [x] **Verify Welcome** — Note content includes Flowti"
+				},
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "screenshot", "label": "welcome-note", "description": "Welcome note verified" }
 			]
@@ -430,7 +498,12 @@
 				{
 					"tool": "eval",
 					"code": "(async () => { const path = '03 - Resources/Sample Data/supplier-overview.csv'; const f = app.vault.getAbstractFileByPath(path); if (!f) throw new Error('CSV not found: ' + path); const content = await app.vault.read(f); const lines = content.trim().split('\\n'); if (lines.length < 10) throw new Error('CSV too short: ' + lines.length + ' lines'); const header = lines[0].toLowerCase(); const expected = ['month', 'supplier', 'category']; for (const col of expected) { if (!header.includes(col)) throw new Error('Header missing column: ' + col); } return 'ok (' + lines.length + ' rows)'; })()",
+					"store": "csvResult",
 					"description": "Verify CSV has headers and data rows"
+				},
+				{
+					"tool": "write-run-log",
+					"message": "- [x] **Verify CSV** — {{csvResult}}"
 				},
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "screenshot", "label": "csv-data", "description": "Sample CSV verified" }
@@ -450,6 +523,10 @@
 					"tool": "eval",
 					"code": "(() => { const path = '03 - Resources/Test Data/Analytics/Suppliers.csv'; if (!app.vault.getAbstractFileByPath(path)) throw new Error('Test data CSV not found: ' + path); return 'ok'; })()",
 					"description": "Verify test data CSV is indexed"
+				},
+				{
+					"tool": "write-run-log",
+					"message": "- [x] **Verify Test CSV** — Analytics CSV indexed by Obsidian"
 				},
 				{ "tool": "screenshot", "label": "test-csv", "description": "Test data CSV indexed" }
 			]

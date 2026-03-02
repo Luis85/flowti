@@ -40,6 +40,8 @@ export type ToolName =
 	| "close-leaves"
 	| "close-modals"
 	| "seed"
+	// Logging tools
+	| "write-run-log"
 	// Interactive inspection tools
 	| "visual-inspection";
 
@@ -88,8 +90,8 @@ export interface JourneyDefinition {
 	reportPath?: string;
 	/** Vault-relative path to the generated journey canvas. */
 	canvasPath?: string;
-	/** Tools used by this journey (self-documenting, validated on load). */
-	tools: ToolName[];
+	/** Tools used by this journey (self-documenting). Optional — derived from actions if omitted. */
+	tools?: ToolName[];
 	/** Lifecycle configuration — controls beforeAll behavior. */
 	lifecycle?: JourneyLifecycle;
 	/** Window properties to set after all steps pass (e.g. ["_e2ePrerequisitesPassed"]). */
@@ -207,6 +209,8 @@ export type ActionDefinition =
 	| CloseModalsAction
 	| SeedAction
 	| RibbonAction
+	// Logging tools
+	| WriteRunLogAction
 	// Interactive inspection tools
 	| VisualInspectionAction;
 
@@ -397,6 +401,13 @@ export interface SeedAction {
 	id: string;
 	/** Operation mode. Default: "create". */
 	mode?: "create" | "verify" | "delete";
+	description?: string;
+}
+
+export interface WriteRunLogAction {
+	tool: "write-run-log";
+	/** The log line to append to E2E Test Run.md. Supports {{variable}} interpolation. */
+	message: string;
 	description?: string;
 }
 

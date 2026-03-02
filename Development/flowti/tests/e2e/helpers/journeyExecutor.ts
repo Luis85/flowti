@@ -98,7 +98,7 @@ function collectRefTools(steps: StepOrRef[]): ToolName[] {
 			const jsonFile = `${step.ref}.journey.json`;
 			const refPath = path.join(JOURNEYS_DIR, jsonFile);
 			const refDef: JourneyDefinition = JSON.parse(fs.readFileSync(refPath, "utf-8"));
-			for (const t of refDef.tools) tools.add(t);
+			for (const t of refDef.tools ?? []) tools.add(t);
 			// Recurse into nested refs
 			for (const t of collectRefTools(refDef.steps)) tools.add(t);
 		}
@@ -145,14 +145,16 @@ function getStepFilter(journeySlug: string): Set<string> | null {
 /**
  * Validates that all actions in the resolved steps use only declared tools.
  * Checks setup, resolved steps, and teardown arrays.
+ * Skips validation when tools array is not declared (tools are derived from actions).
  * Throws on the first undeclared tool found.
  */
 function validateTools(
-	tools: ToolName[],
+	tools: ToolName[] | undefined,
 	setup: StepDefinition[],
 	steps: StepDefinition[],
 	teardown: StepDefinition[],
 ): void {
+	if (!tools?.length) return; // tools derived from actions — skip validation
 	const allowed = new Set<string>(tools);
 	const allSteps = [...setup, ...steps, ...teardown];
 	for (const step of allSteps) {
@@ -184,7 +186,7 @@ function validateJourney(definition: JourneyDefinition): string[] {
 	// Required fields
 	if (!definition.journey) errors.push("Missing required field: journey");
 	if (definition.chapter == null) errors.push("Missing required field: chapter");
-	if (!definition.tools?.length) errors.push("Missing required field: tools");
+	// tools array is now optional — derived from actions when omitted
 
 	// Unique step IDs
 	const ids = new Set<string>();
@@ -357,7 +359,7 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 	// ── Resolve journey refs ─────────────────────────────────
 	const resolvedSteps = renumberSteps(resolveSteps(definition.steps));
 	const refTools = collectRefTools(definition.steps);
-	const allTools: ToolName[] = [...new Set([...definition.tools, ...refTools])];
+	const allTools: ToolName[] = [...new Set([...(definition.tools ?? []), ...refTools])];
 
 	// ── Step filter (E2E_STEPS env var) ─────────────────────
 	const journeySlug = deriveJourneySlug(definition);

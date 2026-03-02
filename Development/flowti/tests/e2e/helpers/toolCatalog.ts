@@ -241,6 +241,16 @@ export const TOOL_CATALOG: Record<ToolName, ToolMeta> = {
 			"Repair missing seed files and folders (mode: create)",
 		],
 	},
+	"write-run-log": {
+		name: "write-run-log",
+		description: "Append a line to the E2E Test Run log file at the vault root",
+		tags: ["logging"],
+		useCases: [
+			"Log step results to E2E Test Run.md for live visibility",
+			"Write chapter headers to structure the run log",
+			"Record pass/fail details for post-run review",
+		],
+	},
 	"visual-inspection": {
 		name: "visual-inspection",
 		description: "Show a pass/fail notice for operator visual inspection; on fail, prompt for reason",

@@ -1258,6 +1258,11 @@ async function runRebuild() {
 	const exitCode = runVitest();
 	generateReportAndOpen();
 
+	// Clean env vars so subsequent sessions don't inherit rebuild flags
+	delete process.env.E2E_JOURNEY;
+	delete process.env.E2E_RUN_PREREQUISITES;
+	delete process.env.E2E_RUN_INSTALLER;
+
 	if (exitCode === 0) {
 		console.log("\n  \x1b[32m✓\x1b[0m Rebuild completed successfully.\n");
 	} else {

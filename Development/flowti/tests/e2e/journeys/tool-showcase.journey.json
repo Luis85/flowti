@@ -10,8 +10,16 @@
 	"domain": "e2e",
 	"actors": ["Developer", "System"],
 	"services": ["EventBus", "UserHubView", "EventCatalogView", "WebViewer"],
-	"tools": ["command", "click", "input", "highlight", "ribbon", "wait", "assert", "emit", "navigate", "eval", "screenshot", "manual", "notice", "theme", "create-file", "delete-file", "open-file", "open-url", "close-leaves", "close-modals", "seed"],
+	"tools": [],
 	"setup": [
+		{
+			"id": "chapter-header",
+			"title": "Log chapter start",
+			"guideSection": 0,
+			"actions": [
+				{ "tool": "write-run-log", "message": "\n## Chapter 6: Tool Showcase\n" }
+			]
+		},
 		{
 			"id": "setup-baseline",
 			"title": "Capture baseline state",

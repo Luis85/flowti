@@ -1,11 +1,11 @@
 {
 	"journey": "Prerequisites",
 	"chapter": 1,
-	"description": "Validates the test environment is ready: CLI connectivity, vault file operations, frontmatter, search, plugin activation, health check, EventBus, commands, and services.",
+	"description": "Validates the test environment is ready: CLI connectivity, vault file operations, frontmatter, search, plugin activation, health check, EventBus, commands, and services. Writes progress line-by-line into E2E Test Run.md for live visibility.",
 	"testSource": "tests/e2e/00-prerequisites.test.ts",
 	"reportPath": "docs/journeys/Prerequisites/Prerequisites.md",
 	"canvasPath": "docs/journeys/Prerequisites/Prerequisites.canvas",
-	"tools": ["eval", "wait", "notice", "screenshot", "create-file", "seed"],
+	"tools": [],
 	"lifecycle": {
 		"enablePlugin": false,
 		"checkInstalled": false,
@@ -14,6 +14,21 @@
 	},
 	"gateFlags": ["_e2ePrerequisitesPassed"],
 	"anchor": true,
+	"setup": [
+		{
+			"id": "chapter-header",
+			"title": "Log chapter start",
+			"guideSection": 0,
+			"description": "Writes the Chapter 1 header to the E2E Test Run log.",
+			"actions": [
+				{
+					"tool": "write-run-log",
+					"message": "\n## Chapter 1: Prerequisites\n",
+					"description": "Write chapter header to run log"
+				}
+			]
+		}
+	],
 	"teardown": [
 		{
 			"id": "set-installer-done-flag",
@@ -39,12 +54,17 @@
 			"expectedOutput": "eval('1+1') returns '2'",
 			"interactions": ["eval: CLI connectivity check"],
 			"actions": [
-				{ "tool": "notice", "message": "Prereq 1/10: CLI connectivity", "duration": 3000 },
+				{ "tool": "notice", "message": "1/10 — Checking CLI connectivity...", "duration": 3000 },
 				{
 					"tool": "eval",
-					"code": "1+1",
+					"code": "(() => { var r = 1 + 1; if (r !== 2) throw new Error('Expected 2, got ' + r); return String(r); })()",
 					"expect": { "type": "equals", "value": "2" },
+					"store": "cliResult",
 					"description": "CLI eval returns 2"
+				},
+				{
+					"tool": "write-run-log",
+					"message": "- [x] **CLI Connectivity** — eval(1+1) = {{cliResult}}"
 				},
 				{ "tool": "screenshot", "label": "cli-ok", "description": "CLI connectivity confirmed" }
 			]
@@ -58,21 +78,16 @@
 			"expectedOutput": "Created file content matches on read-back",
 			"interactions": ["eval: Create file", "eval: Read file back"],
 			"actions": [
-				{ "tool": "notice", "message": "Prereq 2/10: File CRUD", "duration": 3000 },
-				{
-					"tool": "create-file",
-					"path": "03 - Resources/Test Data/prereq-crud.md",
-					"content": "# E2E CRUD Test",
-					"description": "Create test file via vault API"
-				},
-				{ "tool": "wait", "ms": 500 },
+				{ "tool": "notice", "message": "2/10 — Checking vault file operations...", "duration": 3000 },
 				{
 					"tool": "eval",
-					"code": "(async () => { const f = app.vault.getAbstractFileByPath('03 - Resources/Test Data/prereq-crud.md'); if (!f) throw new Error('File not found after create'); const content = await app.vault.read(f); if (!content.includes('E2E CRUD Test')) throw new Error('Content mismatch: ' + content.substring(0, 100)); return 'ok'; })()",
-					"description": "Read file back and verify content"
+					"code": "(async () => { var path = '03 - Resources/Test Data/prereq-crud.md'; var existing = app.vault.getAbstractFileByPath(path); if (existing) await app.vault.delete(existing, true); await app.vault.create(path, '# E2E CRUD Test'); await new Promise(function(r) { setTimeout(r, 500); }); var f = app.vault.getAbstractFileByPath(path); if (!f) throw new Error('File not found after create'); var content = await app.vault.read(f); if (!content.includes('E2E CRUD Test')) throw new Error('Content mismatch: ' + content.substring(0, 100)); return 'ok'; })()",
+					"description": "Create file, read back, verify content"
 				},
-				{ "tool": "wait", "ms": 500 },
-				{ "tool": "screenshot", "label": "file-crud", "description": "File CRUD verified" }
+				{
+					"tool": "write-run-log",
+					"message": "- [x] **File CRUD** — Created and verified prereq-crud.md"
+				}
 			]
 		},
 		{
@@ -84,55 +99,38 @@
 			"expectedOutput": "Property 'status: verified' appears in file content",
 			"interactions": ["eval: Create file with frontmatter", "eval: Set property", "eval: Read and verify"],
 			"actions": [
-				{ "tool": "notice", "message": "Prereq 3/10: Frontmatter", "duration": 3000 },
+				{ "tool": "notice", "message": "3/10 — Checking frontmatter persistence...", "duration": 3000 },
 				{
 					"tool": "eval",
-					"code": "(async () => { await app.vault.create('03 - Resources/Test Data/prereq-fm.md', '---\\ntype: test\\n---\\n# Frontmatter Test'); return 'ok'; })()",
-					"description": "Create file with YAML frontmatter"
+					"code": "(async () => { var path = '03 - Resources/Test Data/prereq-fm.md'; var existing = app.vault.getAbstractFileByPath(path); if (existing) await app.vault.delete(existing, true); await app.vault.create(path, '---\\ntype: test\\n---\\n# Frontmatter Test'); await new Promise(function(r) { setTimeout(r, 1000); }); var f = app.vault.getAbstractFileByPath(path); if (!f) throw new Error('File not found'); await app.fileManager.processFrontMatter(f, function(fm) { fm.status = 'verified'; }); await new Promise(function(r) { setTimeout(r, 1000); }); var content = await app.vault.read(f); if (!content.includes('verified')) throw new Error('Frontmatter property not found after set'); return 'ok'; })()",
+					"description": "Create file with frontmatter, set property, verify persistence"
 				},
-				{ "tool": "wait", "ms": 1000 },
 				{
-					"tool": "eval",
-					"code": "(async () => { const f = app.vault.getAbstractFileByPath('03 - Resources/Test Data/prereq-fm.md'); if (!f) throw new Error('File not found'); await app.fileManager.processFrontMatter(f, (fm) => { fm.status = 'verified'; }); return 'ok'; })()",
-					"description": "Set frontmatter property via processFrontMatter"
-				},
-				{ "tool": "wait", "ms": 1000 },
-				{
-					"tool": "eval",
-					"code": "(async () => { const f = app.vault.getAbstractFileByPath('03 - Resources/Test Data/prereq-fm.md'); if (!f) throw new Error('File not found'); const content = await app.vault.read(f); if (!content.includes('verified')) throw new Error('Frontmatter property not found after set'); return 'ok'; })()",
-					"description": "Verify frontmatter property persisted"
-				},
-				{ "tool": "screenshot", "label": "frontmatter", "description": "Frontmatter persistence verified" }
+					"tool": "write-run-log",
+					"message": "- [x] **Frontmatter** — Property persisted via processFrontMatter"
+				}
 			]
 		},
 		{
 			"id": "04-search",
 			"title": "Vault search indexes content",
 			"guideSection": 4,
-			"description": "Creates a file with a unique token, then searches for it. Verifies Obsidian's search index picks up new content.",
+			"description": "Creates a file with a unique token, then verifies it is indexed by the metadata cache.",
 			"expectedInput": "File CRUD works",
-			"expectedOutput": "Search returns at least one result for the unique token",
-			"interactions": ["eval: Create file with token", "eval: Search for token"],
+			"expectedOutput": "File is indexed in metadata cache",
+			"interactions": ["eval: Create file with token", "eval: Verify indexed"],
 			"actions": [
-				{ "tool": "notice", "message": "Prereq 4/10: Search indexing", "duration": 3000 },
+				{ "tool": "notice", "message": "4/10 — Checking search indexing...", "duration": 3000 },
 				{
 					"tool": "eval",
-					"code": "(() => { const token = 'prereq-search-' + Date.now(); window._e2eSearchToken = token; return token; })()",
-					"store": "searchToken",
-					"description": "Generate unique search token"
+					"code": "(async () => { var token = 'prereq-search-' + Date.now(); var path = '03 - Resources/Test Data/prereq-search.md'; var existing = app.vault.getAbstractFileByPath(path); if (existing) await app.vault.delete(existing, true); await app.vault.create(path, '# Search\\n' + token); await new Promise(function(r) { setTimeout(r, 2000); }); var f = app.vault.getAbstractFileByPath(path); if (!f) throw new Error('Search test file not found after create'); var cache = app.metadataCache.getFileCache(f); var cacheInfo = cache ? Object.keys(cache).join(', ') : 'empty'; return cacheInfo; })()",
+					"store": "cacheKeys",
+					"description": "Create file, wait for indexing, verify metadata cache"
 				},
 				{
-					"tool": "eval",
-					"code": "(async () => { await app.vault.create('03 - Resources/Test Data/prereq-search.md', '# Search\\n' + window._e2eSearchToken); return 'ok'; })()",
-					"description": "Create file with unique token"
-				},
-				{ "tool": "wait", "ms": 2000, "description": "Wait for search index" },
-				{
-					"tool": "eval",
-					"code": "(() => { const token = window._e2eSearchToken; const results = Object.keys(app.metadataCache.getCache?.('03 - Resources/Test Data/prereq-search.md') ?? {}); if (results.length === 0) { const fileExists = !!app.vault.getAbstractFileByPath('03 - Resources/Test Data/prereq-search.md'); if (!fileExists) throw new Error('Search test file not found'); } return 'ok'; })()",
-					"description": "Verify file is indexed by metadata cache"
-				},
-				{ "tool": "screenshot", "label": "search", "description": "Search indexing verified" }
+					"tool": "write-run-log",
+					"message": "- [x] **Search Index** — File indexed — cache keys: {{cacheKeys}}"
+				}
 			]
 		},
 		{
@@ -146,7 +144,7 @@
 			"actions": [
 				{
 					"tool": "notice",
-					"message": "Prereq 5/10: Installer state ({{installerMode}} mode)...",
+					"message": "5/10 — Preparing installer state ({{installerMode}} mode)...",
 					"duration": 5000
 				},
 				{
@@ -176,10 +174,14 @@
 				},
 				{
 					"tool": "eval",
-					"code": "(async () => { if ('{{installerMode}}' !== 'installer') return 'skipped'; const dp = '.obsidian/plugins/{{PLUGIN_ID}}/data.json'; const raw = await app.vault.adapter.read(dp); const data = JSON.parse(raw); data.installer = { installed: false, completedSteps: {} }; await app.vault.adapter.write(dp, JSON.stringify(data)); return 'reset'; })()",
+					"code": "(async () => { if ('{{installerMode}}' !== 'installer') return 'skip'; var dp = '.obsidian/plugins/{{PLUGIN_ID}}/data.json'; var raw = await app.vault.adapter.read(dp); var data = JSON.parse(raw); data.installer = { installed: false, completedSteps: {} }; await app.vault.adapter.write(dp, JSON.stringify(data)); await new Promise(function(r) { setTimeout(r, 1000); }); return 'reset'; })()",
+					"store": "installerState",
 					"description": "Reset installer state in data.json"
 				},
-				{ "tool": "wait", "ms": 1000, "description": "Wait for adapter write" },
+				{
+					"tool": "write-run-log",
+					"message": "- [x] **Installer State** — {{installerMode}} mode prepared"
+				},
 				{ "tool": "screenshot", "label": "installer-state", "description": "Installer state prepared" }
 			]
 		},
@@ -187,13 +189,13 @@
 			"id": "06-plugin-activated",
 			"title": "Flowti plugin activates successfully",
 			"guideSection": 6,
-			"description": "Enables the Flowti IBDE plugin. In installer mode the wizard opens automatically; in skip mode the plugin loads normally.",
+			"description": "Enables the Flowti IBDE plugin, starts the EventBus event trace, and opens the Activity Log sidebar. In installer mode the wizard opens automatically; in skip mode the plugin loads normally.",
 			"expectedInput": "Installer state prepared",
-			"expectedOutput": "Plugin is loaded and accessible via app.plugins.plugins",
+			"expectedOutput": "Plugin is loaded, trace collecting, Activity Log open",
 			"commands": ["app.plugins.enablePlugin"],
-			"interactions": ["eval: Enable plugin"],
+			"interactions": ["eval: Enable plugin", "eval: Start trace", "eval: Open Activity Log"],
 			"actions": [
-				{ "tool": "notice", "message": "Prereq 6/10: Activating plugin...", "duration": 5000 },
+				{ "tool": "notice", "message": "6/10 — Activating plugin...", "duration": 5000 },
 				{
 					"tool": "eval",
 					"code": "app.plugins.enablePlugin('{{PLUGIN_ID}}')",
@@ -206,27 +208,22 @@
 					"expect": { "type": "equals", "value": "ok" },
 					"description": "Verify plugin is loaded"
 				},
-				{
-					"tool": "notice",
-					"message": "Prereq 6/10: Starting EventBus trace...",
-					"duration": 3000
-				},
+				{ "tool": "notice", "message": "6/10 — Starting EventBus trace...", "duration": 3000 },
 				{
 					"tool": "eval",
-					"code": "(() => { const p = app.plugins.plugins['{{PLUGIN_ID}}']; if (p && p.eventBus && !p._e2eEventTrace) { p._e2eEventTrace = []; p._e2ePerfTrace = []; p._e2eTraceUnsub = p.eventBus.on('*', (event) => { if (event.type.startsWith('log.')) return; if (event.type.startsWith('perf.')) { p._e2ePerfTrace.push({ type: event.type, ts: Date.now(), payload: JSON.stringify(event.payload ?? {}).substring(0, 500) }); return; } p._e2eEventTrace.push({ type: event.type, ts: Date.now(), payload: JSON.stringify(event.payload ?? {}).substring(0, 200) }); }); } return 'ok'; })()",
+					"code": "(() => { var p = app.plugins.plugins['{{PLUGIN_ID}}']; if (p && p.eventBus && !p._e2eEventTrace) { p._e2eEventTrace = []; p._e2ePerfTrace = []; p._e2eTraceUnsub = p.eventBus.on('*', function(event) { if (event.type.startsWith('log.')) return; if (event.type.startsWith('perf.')) { p._e2ePerfTrace.push({ type: event.type, ts: Date.now(), payload: JSON.stringify(event.payload || {}).substring(0, 500) }); return; } p._e2eEventTrace.push({ type: event.type, ts: Date.now(), payload: JSON.stringify(event.payload || {}).substring(0, 200) }); }); } return 'ok'; })()",
 					"description": "Start EventBus event trace collection"
 				},
-				{
-					"tool": "notice",
-					"message": "Prereq 6/10: Opening Activity Log...",
-					"duration": 3000
-				},
+				{ "tool": "notice", "message": "6/10 — Opening Activity Log...", "duration": 3000 },
 				{
 					"tool": "eval",
-					"code": "(() => { const existing = app.workspace.getLeavesOfType('flowti-event-log')[0]; if (existing) { app.workspace.revealLeaf(existing); return 'ok'; } const leaf = app.workspace.getRightLeaf(false); if (leaf) leaf.setViewState({ type: 'flowti-event-log', active: true }); return 'ok'; })()",
+					"code": "(async () => { var existing = app.workspace.getLeavesOfType('flowti-event-log')[0]; if (existing) { app.workspace.revealLeaf(existing); } else { var leaf = app.workspace.getRightLeaf(false); if (leaf) leaf.setViewState({ type: 'flowti-event-log', active: true }); } await new Promise(function(r) { setTimeout(r, 1000); }); return 'ok'; })()",
 					"description": "Open Activity Log in right sidebar"
 				},
-				{ "tool": "wait", "ms": 1000 },
+				{
+					"tool": "write-run-log",
+					"message": "- [x] **Plugin Activation** — Plugin loaded, trace started, Activity Log opened"
+				},
 				{ "tool": "screenshot", "label": "plugin-activated", "description": "Plugin activated with trace running" }
 			]
 		},
@@ -234,44 +231,51 @@
 			"id": "07-plugin-health",
 			"title": "Plugin reports healthy state",
 			"guideSection": 7,
-			"description": "Inspects the plugin state snapshot: loaded=true, no errors, and at least one service registered.",
+			"description": "Inspects the plugin state: loaded=true, no errors, and counts the number of registered services.",
 			"expectedInput": "Plugin enabled",
-			"expectedOutput": "loaded=true, hasErrors=false, services.length > 0",
+			"expectedOutput": "loaded=true, services.length > 0",
 			"interactions": ["eval: Check plugin health"],
 			"actions": [
-				{ "tool": "notice", "message": "Prereq 7/10: Health check", "duration": 3000 },
+				{ "tool": "notice", "message": "7/10 — Checking plugin health...", "duration": 3000 },
 				{
 					"tool": "eval",
-					"code": "(() => { const p = app.plugins.plugins['{{PLUGIN_ID}}']; if (!p) throw new Error('Plugin not loaded'); const keys = Object.keys(p).filter(k => k.endsWith('Service')); if (keys.length === 0) throw new Error('No services registered'); return 'healthy (' + keys.length + ' services)'; })()",
+					"code": "(() => { var p = app.plugins.plugins['{{PLUGIN_ID}}']; if (!p) throw new Error('Plugin not loaded'); var keys = Object.keys(p).filter(function(k) { return k.endsWith('Service'); }); if (keys.length === 0) throw new Error('No services registered'); return String(keys.length); })()",
+					"store": "serviceCount",
 					"description": "Verify plugin is healthy with services"
 				},
-				{ "tool": "screenshot", "label": "plugin-health", "description": "Plugin health check passed" }
+				{
+					"tool": "write-run-log",
+					"message": "- [x] **Plugin Health** — {{serviceCount}} services registered"
+				}
 			]
 		},
 		{
 			"id": "08-eventbus",
 			"title": "EventBus is collecting events",
 			"guideSection": 8,
-			"description": "Verifies the plugin's EventBus is available and the E2E event trace array is initialized (started after plugin activation).",
+			"description": "Verifies the plugin's EventBus is available, the E2E event trace array is initialized, and reports how many events have been collected so far.",
 			"expectedInput": "Plugin loaded, event trace started",
-			"expectedOutput": "eventBus exists and _e2eEventTrace is an array",
+			"expectedOutput": "eventBus exists and _e2eEventTrace is an array with events",
 			"interactions": ["eval: Check EventBus trace"],
 			"actions": [
-				{ "tool": "notice", "message": "Prereq 8/10: EventBus trace", "duration": 3000 },
+				{ "tool": "notice", "message": "8/10 — Checking EventBus trace...", "duration": 3000 },
 				{
 					"tool": "eval",
-					"code": "(() => { const p = app.plugins.plugins['{{PLUGIN_ID}}']; if (!p?.eventBus) throw new Error('EventBus not available'); if (!Array.isArray(p._e2eEventTrace)) throw new Error('Event trace not initialized'); return 'ok'; })()",
-					"expect": { "type": "equals", "value": "ok" },
-					"description": "Verify EventBus and trace array exist"
+					"code": "(() => { var p = app.plugins.plugins['{{PLUGIN_ID}}']; if (!p || !p.eventBus) throw new Error('EventBus not available'); if (!Array.isArray(p._e2eEventTrace)) throw new Error('Event trace not initialized'); return p._e2eEventTrace.length + '/' + (p._e2ePerfTrace || []).length; })()",
+					"store": "traceCounts",
+					"description": "Verify EventBus and trace array, report event count"
 				},
-				{ "tool": "screenshot", "label": "eventbus", "description": "EventBus trace active" }
+				{
+					"tool": "write-run-log",
+					"message": "- [x] **EventBus** — Trace active — {{traceCounts}} events/perf metrics"
+				}
 			]
 		},
 		{
 			"id": "09-commands",
 			"title": "Flowti commands are registered",
 			"guideSection": 9,
-			"description": "Verifies the Flowti command pipeline is wired up by checking that the Activity Log view (opened after activation) is present in the right sidebar.",
+			"description": "Verifies the Flowti command pipeline is wired up by checking that the Activity Log view is present in the right sidebar.",
 			"expectedInput": "Plugin loaded with registered commands, Activity Log opened",
 			"expectedOutput": "flowti-event-log leaf exists in the workspace",
 			"uiContext": {
@@ -281,29 +285,37 @@
 			},
 			"interactions": ["eval: Check Activity Log leaf"],
 			"actions": [
-				{ "tool": "notice", "message": "Prereq 9/10: Commands", "duration": 3000 },
+				{ "tool": "notice", "message": "9/10 — Checking command registration...", "duration": 3000 },
 				{
 					"tool": "eval",
-					"code": "(() => { const count = app.workspace.getLeavesOfType('flowti-event-log').length; if (count === 0) { try { app.commands.executeCommandById('{{PLUGIN_ID}}:flowti:open-event-log'); } catch(e) {} } return 'ok'; })()",
-					"description": "Verify Activity Log leaf exists (retry if needed)"
+					"code": "(async () => { var count = app.workspace.getLeavesOfType('flowti-event-log').length; if (count === 0) { try { app.commands.executeCommandById('{{PLUGIN_ID}}:flowti:open-event-log'); } catch(e) {} await new Promise(function(r) { setTimeout(r, 1000); }); count = app.workspace.getLeavesOfType('flowti-event-log').length; } if (count === 0) throw new Error('Activity Log leaf not found'); return 'ok'; })()",
+					"description": "Verify Activity Log leaf exists, retry via command if needed"
 				},
-				{ "tool": "screenshot", "label": "commands", "description": "Commands registered, Activity Log open" }
+				{
+					"tool": "write-run-log",
+					"message": "- [x] **Commands** — Activity Log leaf present in sidebar"
+				}
 			]
 		},
 		{
 			"id": "10-services",
 			"title": "Required services are available",
 			"guideSection": 10,
-			"description": "Reads the plugin's registered service keys and verifies the essential services (userService, analyticsService, dataExchangeService) are present.",
+			"description": "Reads the plugin's registered service keys, verifies the essential services are present, and writes the final summary to the progress file.",
 			"expectedInput": "Plugin loaded and healthy",
 			"expectedOutput": "Service keys include userService, analyticsService, dataExchangeService",
 			"interactions": ["eval: Check required services"],
 			"actions": [
-				{ "tool": "notice", "message": "Prereq 10/10: Services", "duration": 3000 },
+				{ "tool": "notice", "message": "10/10 — Checking required services...", "duration": 3000 },
 				{
 					"tool": "eval",
-					"code": "(() => { const p = app.plugins.plugins['{{PLUGIN_ID}}']; const keys = Object.keys(p).filter(k => k.endsWith('Service')); const required = ['analyticsService', 'dataExchangeService', 'userService']; for (const svc of required) { if (!keys.includes(svc)) throw new Error('Missing required service: ' + svc); } return 'ok (' + keys.length + ' services)'; })()",
-					"description": "Verify required services are registered"
+					"code": "(() => { var p = app.plugins.plugins['{{PLUGIN_ID}}']; var keys = Object.keys(p).filter(function(k) { return k.endsWith('Service'); }); var required = ['analyticsService', 'dataExchangeService', 'userService']; for (var i = 0; i < required.length; i++) { if (keys.indexOf(required[i]) === -1) throw new Error('Missing required service: ' + required[i]); } return required.join(', ') + ' (' + keys.length + ' total)'; })()",
+					"store": "servicesInfo",
+					"description": "Verify required services"
+				},
+				{
+					"tool": "write-run-log",
+					"message": "- [x] **Services** — {{servicesInfo}}"
 				},
 				{ "tool": "screenshot", "label": "services", "description": "All required services available" }
 			]

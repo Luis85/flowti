@@ -5,7 +5,17 @@
 	"testSource": "tests/e2e/40-journey-component-library.test.ts",
 	"reportPath": "docs/journeys/Component Library/Component Library.md",
 	"canvasPath": "docs/journeys/Component Library/Component Library.canvas",
-	"tools": ["command", "highlight", "navigate", "assert", "wait", "screenshot", "close-leaves"],
+	"tools": [],
+	"setup": [
+		{
+			"id": "chapter-header",
+			"title": "Log chapter start",
+			"guideSection": 0,
+			"actions": [
+				{ "tool": "write-run-log", "message": "\n## Chapter 4: Component Library\n" }
+			]
+		}
+	],
 	"steps": [
 		{
 			"id": "01-event-catalog-open",

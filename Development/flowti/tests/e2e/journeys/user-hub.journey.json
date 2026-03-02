@@ -5,9 +5,19 @@
 	"testSource": "tests/e2e/70-journey-user-hub.test.ts",
 	"reportPath": "docs/journeys/User Hub/User Hub.md",
 	"canvasPath": "docs/journeys/User Hub/User Hub.canvas",
-	"tools": ["command", "navigate", "wait", "assert", "screenshot", "visual-inspection"],
+	"tools": [],
 	"domain": "user",
 	"category": "hub",
+	"setup": [
+		{
+			"id": "chapter-header",
+			"title": "Log chapter start",
+			"guideSection": 0,
+			"actions": [
+				{ "tool": "write-run-log", "message": "\n## Chapter 7: User Hub\n" }
+			]
+		}
+	],
 	"steps": [
 		{
 			"id": "01-open-user-hub",
