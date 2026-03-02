@@ -36,7 +36,7 @@ import {
 } from "./fixtures";
 import { JourneyRunner } from "./journey";
 import type { JourneyStep } from "./journey";
-import { executeAction } from "./actionRunner";
+import { executeAction, showSpinner, hideSpinner } from "./actionRunner";
 import type { ScreenshotCollector, ManualVerificationCollector } from "./actionRunner";
 import type { TestFixture } from "./fixtures";
 
@@ -459,8 +459,8 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 			fixture = createFixture(process.env.OBSIDIAN_VAULT);
 			cli = fixture.cli;
 
-			// ── Lifecycle (configurable per journey) ─────────
-			cli.notice(`\u23f3 ${definition.journey}: preparing\u2026`, 3000);
+			// ── Environment spinner (visible during lifecycle checks) ──
+			showSpinner(cli, "_env", `${definition.journey}: preparing\u2026`);
 
 			const lc = definition.lifecycle ?? {};
 			if (lc.enablePlugin !== false) await ensurePluginEnabled(cli);
@@ -493,8 +493,14 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 
 			runner.notifySuiteEnter();
 
-			// ── Run setup steps ──────────────────────────────
-			for (const step of definition.setup ?? []) {
+			// ── Setup phase (swap environment → setup spinner) ───
+			const setupSteps = definition.setup ?? [];
+			if (setupSteps.length > 0) {
+				hideSpinner(cli, "_env");
+				showSpinner(cli, "_setup", `${definition.journey}: running setup\u2026`);
+			}
+
+			for (const step of setupSteps) {
 				const status = await runStepWithActions(
 					step, "setup", runner, cli, variables, screenshotDir,
 				);
@@ -503,6 +509,10 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 					break;
 				}
 			}
+
+			// ── Stop whichever spinner is active ────────────
+			hideSpinner(cli, "_setup");
+			hideSpinner(cli, "_env");
 		});
 
 		afterAll(async () => {
@@ -513,11 +523,16 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 
 			// ── Run teardown steps ───────────────────────────
 			if (runner && cli) {
-				for (const step of definition.teardown ?? []) {
+				const teardownSteps = definition.teardown ?? [];
+				if (teardownSteps.length > 0) {
+					showSpinner(cli, "_teardown", `${definition.journey}: cleaning up\u2026`);
+				}
+				for (const step of teardownSteps) {
 					await runStepWithActions(
 						step, "teardown", runner, cli, variables, screenshotDir,
 					);
 				}
+				hideSpinner(cli, "_teardown");
 			}
 
 			// ── Gate flags (set window properties on pass) ───

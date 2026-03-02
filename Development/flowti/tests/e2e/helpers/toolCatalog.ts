@@ -301,4 +301,14 @@ export const TOOL_CATALOG: Record<ToolName, ToolMeta> = {
 			"Scroll inside a webview to reveal content below the fold",
 		],
 	},
+	spinner: {
+		name: "spinner",
+		description: "Show or hide a persistent loading spinner notice",
+		tags: ["feedback"],
+		useCases: [
+			"Indicate a long-running operation is in progress",
+			"Show a spinner before a multi-action sequence and dismiss it when done",
+			"Give the operator visual feedback while waiting for async work",
+		],
+	},
 };

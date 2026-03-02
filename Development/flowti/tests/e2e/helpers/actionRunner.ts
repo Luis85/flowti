@@ -7,7 +7,7 @@
  */
 import * as path from "node:path";
 import type { ObsidianCli } from "../../../src/infrastructure/cli/ObsidianCli";
-import type { ActionDefinition, AssertAction, CloseLeavesAction, CreateFileAction, DeleteFileAction, EmitAction, EvalAction, FrontmatterAction, ManualAction, NoticeAction, OpenFileAction, OpenUrlAction, QueryTraceAction, RibbonAction, ScreenshotAction, ScrollToAction, SeedAction, SetInputAction, ThemeAction, VisualInspectionAction, WriteRunLogAction } from "./journeyTypes";
+import type { ActionDefinition, AssertAction, CloseLeavesAction, CreateFileAction, DeleteFileAction, EmitAction, EvalAction, FrontmatterAction, ManualAction, NoticeAction, OpenFileAction, OpenUrlAction, QueryTraceAction, RibbonAction, ScreenshotAction, ScrollToAction, SeedAction, SetInputAction, SpinnerAction, ThemeAction, VisualInspectionAction, WriteRunLogAction } from "./journeyTypes";
 import type { ManualVerification } from "./journey";
 import { getAllSeeds, getSeedById, SEED_FOLDERS } from "./seedRegistry";
 import { highlightElement, highlightButton, highlightInput, highlightRibbon, highlightWebView, highlightAssert, notifyAssert } from "./highlight";
@@ -215,6 +215,9 @@ export async function executeAction(
 		case "visual-inspection":
 			await executeVisualInspection(cli, action, variables);
 			break;
+		case "spinner":
+			executeSpinner(cli, action, variables);
+			break;
 	}
 }
 
@@ -230,8 +233,12 @@ function executeCommand(cli: ObsidianCli, commandId: string): void {
 	cli.executeCommand(fullId);
 }
 
+/** Duration (ms) for the brief highlight flash before an interaction. */
+const INTERACTION_HIGHLIGHT_MS = 600;
+
 function executeClick(cli: ObsidianCli, selector: string): void {
 	const sel = escapeSelector(selector);
+	highlightButton(cli, selector, INTERACTION_HIGHLIGHT_MS);
 	const result = cli.eval(`document.querySelector('${sel}')?.click()`);
 	if (!result.success) {
 		throw new Error(`Click failed on '${selector}': ${result.error}`);
@@ -241,6 +248,7 @@ function executeClick(cli: ObsidianCli, selector: string): void {
 function executeInput(cli: ObsidianCli, selector: string, value: string): void {
 	const sel = escapeSelector(selector);
 	const escapedValue = value.replace(/'/g, "\\'");
+	highlightInput(cli, selector, INTERACTION_HIGHLIGHT_MS);
 	const result = cli.eval([
 		"(() => {",
 		`  const input = document.querySelector('${sel}');`,
@@ -410,6 +418,75 @@ function executeNotice(cli: ObsidianCli, action: NoticeAction, variables: Record
 	}
 }
 
+// ── Spinner helpers (shared with journeyExecutor) ───────────────────
+
+/**
+ * Shows a persistent loading spinner anchored to the bottom-right of the viewport.
+ * Uses a standalone fixed-position DOM element (not Obsidian's Notice API) so it
+ * cannot be pushed out or removed when new notices arrive.
+ */
+export function showSpinner(cli: ObsidianCli, id: string, message = "Loading\u2026"): void {
+	const escapedId = id.replace(/'/g, "\\'");
+	const escapedMsg = message.replace(/'/g, "\\'");
+	const result = cli.eval([
+		"(() => {",
+		"  if (!window._e2eSpinners) window._e2eSpinners = {};",
+		`  if (window._e2eSpinners['${escapedId}']) { window._e2eSpinners['${escapedId}'].remove(); delete window._e2eSpinners['${escapedId}']; }`,
+		"  const el = document.createElement('div');",
+		`  el.id = 'ft-spinner-${escapedId}';`,
+		"  el.className = 'ft-e2e-spinner';",
+		"  el.style.cssText = 'position:fixed; bottom:12px; right:12px; z-index:10000;"
+			+ " display:flex; align-items:center; gap:8px;"
+			+ " padding:8px 16px; border-radius:8px;"
+			+ " background:var(--background-modifier-message);"
+			+ " color:var(--text-normal); font-size:var(--font-ui-small);"
+			+ " box-shadow:0 2px 8px rgba(0,0,0,0.15); pointer-events:none;';",
+		"  const ring = document.createElement('div');",
+		"  ring.style.cssText = 'width:16px; height:16px;"
+			+ " border:2px solid var(--text-muted); border-top-color:transparent;"
+			+ " border-radius:50%; animation:ft-spin 0.8s linear infinite; flex-shrink:0;';",
+		"  el.appendChild(ring);",
+		"  const txt = document.createElement('span');",
+		`  txt.textContent = '${escapedMsg}';`,
+		"  el.appendChild(txt);",
+		"  document.body.appendChild(el);",
+		`  window._e2eSpinners['${escapedId}'] = el;`,
+		"})()",
+	].join(" "));
+	if (!result.success) {
+		throw new Error(`spinner start '${id}' failed: ${result.error}`);
+	}
+}
+
+/**
+ * Hides a previously shown spinner by ID.
+ * No-op if the spinner was already removed.
+ */
+export function hideSpinner(cli: ObsidianCli, id: string): void {
+	const escapedId = id.replace(/'/g, "\\'");
+	const result = cli.eval([
+		"(() => {",
+		`  if (window._e2eSpinners && window._e2eSpinners['${escapedId}']) {`,
+		`    window._e2eSpinners['${escapedId}'].remove();`,
+		`    delete window._e2eSpinners['${escapedId}'];`,
+		"  }",
+		"})()",
+	].join(" "));
+	if (!result.success) {
+		throw new Error(`spinner stop '${id}' failed: ${result.error}`);
+	}
+}
+
+function executeSpinner(cli: ObsidianCli, action: SpinnerAction, variables: Record<string, string>): void {
+	const id = resolve(action.id, variables);
+	const message = action.message ? resolve(action.message, variables) : undefined;
+	if (action.mode === "start") {
+		showSpinner(cli, id, message);
+	} else {
+		hideSpinner(cli, id);
+	}
+}
+
 function executeTheme(cli: ObsidianCli, action: ThemeAction, variables: Record<string, string>): void {
 	const theme = resolve(action.theme, variables);
 	cli.setTheme(theme);
@@ -563,6 +640,7 @@ function executeSetInput(cli: ObsidianCli, action: SetInputAction, variables: Re
 	const dispatchEvent = action.dispatchEvent !== false; // default true
 	const sel = escapeSelector(selector);
 	const escapedValue = value.replace(/'/g, "\\'");
+	highlightInput(cli, selector, INTERACTION_HIGHLIGHT_MS);
 	const result = cli.eval([
 		"(() => {",
 		`  const el = document.querySelector('${sel}');`,

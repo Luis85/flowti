@@ -51,7 +51,9 @@ export type ToolName =
 	// Scroll tools
 	| "scroll-to"
 	// Interactive inspection tools
-	| "visual-inspection";
+	| "visual-inspection"
+	// Spinner tools
+	| "spinner";
 
 // ─── Lifecycle configuration ────────────────────────────────────────
 
@@ -253,7 +255,9 @@ export type ActionDefinition =
 	// Scroll tools
 	| ScrollToAction
 	// Interactive inspection tools
-	| VisualInspectionAction;
+	| VisualInspectionAction
+	// Spinner tools
+	| SpinnerAction;
 
 export interface CommandAction {
 	tool: "command";
@@ -524,5 +528,16 @@ export interface VisualInspectionAction {
 	timeout?: number;
 	/** If false, skip the notice prompt and auto-approve — the step appears only on reports. Default: true. */
 	interactive?: boolean;
+	description?: string;
+}
+
+export interface SpinnerAction {
+	tool: "spinner";
+	/** Unique ID to match start/stop pairs. */
+	id: string;
+	/** "start" shows the spinner notice, "stop" dismisses it. */
+	mode: "start" | "stop";
+	/** Message shown alongside the spinner (start only). Supports {{variable}} interpolation. */
+	message?: string;
 	description?: string;
 }

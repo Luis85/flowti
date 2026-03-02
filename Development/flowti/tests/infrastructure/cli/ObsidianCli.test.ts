@@ -712,7 +712,7 @@ describe("ObsidianCli", () => {
 
 			expect(runner.run).toHaveBeenCalledWith("obsidian", [
 				"eval",
-				"code=document.querySelectorAll('.notice').forEach(n => n.remove())",
+				"code=document.querySelectorAll('.notice:not(.ft-e2e-spinner)').forEach(n => n.remove())",
 			]);
 		});
 	});

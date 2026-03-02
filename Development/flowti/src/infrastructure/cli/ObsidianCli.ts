@@ -268,10 +268,10 @@ export class ObsidianCli {
 		}
 	}
 
-	/** Dismisses all visible Notice toasts from the DOM. */
+	/** Dismisses all visible Notice toasts from the DOM (preserves spinner notices). */
 	dismissNotices(): void {
 		this.eval(
-			"document.querySelectorAll('.notice').forEach(n => n.remove())",
+			"document.querySelectorAll('.notice:not(.ft-e2e-spinner)').forEach(n => n.remove())",
 		);
 	}
 

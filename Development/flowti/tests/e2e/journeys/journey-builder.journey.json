@@ -33,7 +33,7 @@
 			"guideSection": 0,
 			"swimlane": "support",
 			"actions": [
-				{ "tool": "write-run-log", "message": "\n## Journey Builder\n" }
+        { "tool": "write-run-log", "message": "\n## Journey Builder\n" }
 			]
 		},
 		{
@@ -67,15 +67,45 @@
 			"events": ["journey-builder.opened"],
 			"interactions": ["command: Open Journey Builder"],
 			"actions": [
-				{ "tool": "notice", "message": "Step 1/5: Opening Journey Builder via command", "duration": 3000 },
-				{ "tool": "command", "id": "flowti:open-journey-builder", "description": "Open Journey Builder via command palette" },
-				{ "tool": "wait", "ms": 500, "description": "Wait for sidebar to open" },
-				{ "tool": "assert", "type": "leaf", "viewType": "flowti-journey-builder", "description": "Journey Builder sidebar leaf exists" },
-				{ "tool": "assert", "type": "event", "event": "journey-builder.opened", "description": "journey-builder.opened event was emitted" },
-				{ "tool": "screenshot", "label": "after-command", "description": "Journey Builder opened via command" },
-				{ "tool": "close-leaves", "viewType": "flowti-journey-builder", "description": "Close sidebar for step 2" },
-				{ "tool": "wait", "ms": 500 }
-			]
+        {
+          "tool": "notice",
+          "message": "Step 1/5: Opening Journey Builder via command",
+          "duration": 3000
+        },
+        {
+          "tool": "command",
+          "id": "flowti:open-journey-builder",
+          "description": "Open Journey Builder via command palette"
+        },
+        {
+          "tool": "wait",
+          "ms": 500,
+          "description": "Wait for sidebar to open"
+        },
+        {
+          "tool": "assert",
+          "type": "leaf",
+          "viewType": "flowti-journey-builder",
+          "description": "Journey Builder sidebar leaf exists"
+        },
+        {
+          "tool": "assert",
+          "type": "event",
+          "event": "journey-builder.opened",
+          "description": "journey-builder.opened event was emitted"
+        },
+        {
+          "tool": "screenshot",
+          "label": "after-command",
+          "description": "Journey Builder opened via command"
+        },
+        {
+          "tool": "close-leaves",
+          "viewType": "flowti-journey-builder",
+          "description": "Close sidebar for step 2"
+        },
+        { "tool": "wait", "ms": 500 }
+      ]
 		},
 		{
 			"id": "02-open-via-ribbon",
@@ -96,7 +126,7 @@
 				{ "tool": "notice", "message": "Step 2/5: Opening Journey Builder via ribbon", "duration": 3000 },
 				{ "tool": "screenshot", "label": "before-ribbon", "description": "Clean workspace before ribbon click" },
 				{ "tool": "ribbon", "label": "journey builder", "description": "Click Journey Builder ribbon icon" },
-				{ "tool": "wait", "ms": 1000, "description": "Wait for sidebar to open" },
+				{ "tool": "wait", "ms": 500, "description": "Wait for sidebar to open" },
 				{ "tool": "assert", "type": "leaf", "viewType": "flowti-journey-builder", "description": "Journey Builder sidebar leaf exists" },
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-open-existing']", "description": "Open Existing button is visible" },
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-create-new']", "description": "Create New button is visible" },
@@ -217,7 +247,7 @@
 			"actions": [
 				{ "tool": "notice", "message": "Step 5/5: Exporting journey JSON", "duration": 3000 },
 				{ "tool": "click", "selector": "[data-test-id='jb-export-btn']", "description": "Click Export button" },
-				{ "tool": "wait", "ms": 1000 },
+				{ "tool": "wait", "ms": 200 },
 				{ "tool": "assert", "type": "event", "event": "journey-builder.exported", "description": "Export event emitted" },
 				{
 					"tool": "eval",

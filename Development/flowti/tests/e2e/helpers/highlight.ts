@@ -158,9 +158,13 @@ export function highlightRibbon(cli: ObsidianCli, label: string): string {
 	return result.value;
 }
 
+/** Auto-remove delay: pass highlights fade quickly, fail highlights linger. */
+const ASSERT_HIGHLIGHT_DURATION_PASS = 800;
+const ASSERT_HIGHLIGHT_DURATION_FAIL = 800;
+
 /**
  * Highlights a DOM element with pass/fail assertion styling.
- * Pass: gold outline. Fail: red outline with pulse.
+ * Pass: gold outline (300ms). Fail: red outline with pulse (500ms).
  * Scrolls into view and shows a brief notice with the result.
  */
 export function highlightAssert(
@@ -171,10 +175,15 @@ export function highlightAssert(
 ): void {
 	const escaped = selector.replace(/'/g, "\\'");
 	const cls = passed ? "ft-e2e-highlight-assert-pass" : "ft-e2e-highlight-assert-fail";
+	const duration = passed ? ASSERT_HIGHLIGHT_DURATION_PASS : ASSERT_HIGHLIGHT_DURATION_FAIL;
 	cli.eval([
 		`(() => {`,
 		`  const el = document.querySelector('${escaped}');`,
-		`  if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('${cls}'); }`,
+		`  if (el) {`,
+		`    el.scrollIntoView({ behavior: 'smooth', block: 'center' });`,
+		`    el.classList.add('${cls}');`,
+		`    setTimeout(() => el.classList.remove('${cls}'), ${duration});`,
+		`  }`,
 		`})()`,
 	].join(" "));
 	const icon = passed ? "\u2713" : "\u2717";
