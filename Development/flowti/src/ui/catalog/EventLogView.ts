@@ -297,7 +297,11 @@ export class EventLogView extends ItemView {
 		const handler: WildcardEventHandler = (event: FlowtiEvents) => {
 			if (this.paused) return;
 
-			if (!this.e2eMode) {
+			// In E2E mode, show ALL events except log.* (which would
+			// cause infinite recursion from the trace listener itself).
+			if (this.e2eMode) {
+				if (event.type.startsWith("log.")) return;
+			} else {
 				if (isSkippedEvent(event.type)) return;
 				if (this.excludedTypes.has(event.type)) return;
 			}

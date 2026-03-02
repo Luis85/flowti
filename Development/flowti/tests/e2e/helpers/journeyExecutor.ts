@@ -168,6 +168,61 @@ function validateTools(
 }
 
 /**
+ * Validates the structural integrity of a journey definition.
+ * Checks: required fields, unique step IDs, sequential guide sections,
+ * tool declarations, and blueprint swimlane consistency.
+ * Returns an array of validation errors (empty = valid).
+ */
+function validateJourney(definition: JourneyDefinition): string[] {
+	const errors: string[] = [];
+	const allSteps = [
+		...(definition.setup ?? []),
+		...(definition.steps.filter((s): s is StepDefinition => !isJourneyRef(s))),
+		...(definition.teardown ?? []),
+	];
+
+	// Required fields
+	if (!definition.journey) errors.push("Missing required field: journey");
+	if (definition.chapter == null) errors.push("Missing required field: chapter");
+	if (!definition.tools?.length) errors.push("Missing required field: tools");
+
+	// Unique step IDs
+	const ids = new Set<string>();
+	for (const step of allSteps) {
+		if (ids.has(step.id)) {
+			errors.push(`Duplicate step ID: '${step.id}'`);
+		}
+		ids.add(step.id);
+	}
+
+	// Steps must have at least one action
+	for (const step of allSteps) {
+		if (!step.actions?.length) {
+			errors.push(`Step '${step.id}' has no actions`);
+		}
+	}
+
+	// Blueprint swimlane validation (if type is "blueprint")
+	if (definition.type === "blueprint") {
+		const stepsWithoutSwimlane = allSteps.filter((s) => !s.swimlane);
+		if (stepsWithoutSwimlane.length > 0) {
+			errors.push(
+				`Blueprint journey requires swimlane on all steps. ` +
+				`Missing: ${stepsWithoutSwimlane.map((s) => s.id).join(", ")}`,
+			);
+		}
+	}
+
+	// Actors and services recommended for blueprint
+	if (definition.type === "blueprint") {
+		if (!definition.actors?.length) errors.push("Blueprint journey should declare actors");
+		if (!definition.services?.length) errors.push("Blueprint journey should declare services");
+	}
+
+	return errors;
+}
+
+/**
  * Converts a StepDefinition (from JSON) to a JourneyStep (for the runner).
  * Strips the `capture` field which is handled by the executor.
  * Passes `actions` through for report/canvas generation.
@@ -178,6 +233,7 @@ function toJourneyStep(step: StepDefinition, phase?: "setup" | "journey" | "tear
 		title: step.title,
 		guideSection: step.guideSection,
 		phase,
+		swimlane: step.swimlane,
 		description: step.description,
 		expectedInput: step.expectedInput,
 		expectedOutput: step.expectedOutput,
@@ -314,6 +370,15 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 		definition.teardown ?? [],
 	);
 
+	// ── Structural validation ────────────────────────────────
+	const validationErrors = validateJourney(definition);
+	if (validationErrors.length > 0) {
+		throw new Error(
+			`Journey '${definition.journey}' validation failed:\n` +
+			validationErrors.map((e) => `  - ${e}`).join("\n"),
+		);
+	}
+
 	const chapterLabel = `Chapter ${definition.chapter}: ${definition.journey}`;
 
 	// ── Skip mode ────────────────────────────────────────────
@@ -369,6 +434,13 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 				screenshotDir,
 				settleMs: 1000,
 				testSource: definition.testSource,
+				classification: {
+					type: definition.type,
+					category: definition.category,
+					domain: definition.domain,
+					actors: definition.actors,
+					services: definition.services,
+				},
 			});
 
 			runner.notifySuiteEnter();
@@ -386,6 +458,11 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 		});
 
 		afterAll(async () => {
+			// ── Close stale modals before teardown ───────────
+			if (cli) {
+				cli.eval("document.querySelectorAll('.modal-container').forEach(el => el.remove())");
+			}
+
 			// ── Run teardown steps ───────────────────────────
 			if (runner && cli) {
 				for (const step of definition.teardown ?? []) {
@@ -414,7 +491,7 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 			}
 
 			if (runner) {
-				runner.writeResults(resultsPath);
+				runner.writeResults(resultsPath, variables);
 				runner.notifySuiteExit();
 			}
 			fixture?.cleanup();

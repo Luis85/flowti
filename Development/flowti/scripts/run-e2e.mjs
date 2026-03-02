@@ -150,7 +150,8 @@ async function teardownVault() {
 	console.log("    - Delete all vault content (except .obsidian/)");
 	console.log("    - Reset installer state (data.json → installed: false)");
 	console.log("    - Deactivate plugin");
-	console.log("    - Clear workspace layout\n");
+	console.log("    - Clear workspace layout");
+	console.log("    - Collapse file navigator folders\n");
 
 	const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 	const proceed = await askYesNo(rl, "Proceed?", true);
@@ -225,6 +226,17 @@ async function teardownVault() {
 		}
 	}
 
+	// 6. Collapse all folders in the file navigator
+	try {
+		execSync(
+			`obsidian vault=${VAULT_NAME} eval code="(() => { const explorer = app.workspace.getLeavesOfType('file-explorer')[0]; if (explorer && explorer.view) { const foldStatus = explorer.view.fileItems; if (foldStatus) { Object.values(foldStatus).forEach(item => { if (item.collapsed !== undefined) item.setCollapsed(true); }); } } })()"`,
+			{ stdio: "pipe", timeout: 10_000 },
+		);
+		console.log("  \x1b[32m✓\x1b[0m File navigator folders collapsed");
+	} catch {
+		// Non-fatal — file explorer may not be visible
+	}
+
 	console.log("\n  \x1b[32m✓\x1b[0m Fresh state — run again to start a new session.\n");
 }
 
@@ -269,7 +281,7 @@ function printJourneyTable(entries) {
 async function promptSessionConfig(rl, entries, prereqResults) {
 	// Journey selection first — needed for auto-generated session name
 	printJourneyTable(entries);
-	const journeyInput = await ask(rl, 'Enter journey numbers (space-separated) or "all"');
+	const journeyInput = await ask(rl, 'Enter journey numbers (e.g. "2" or "1 3 4") or "all"');
 
 	if (!journeyInput) {
 		console.log("\n  No selection — exiting.\n");
@@ -333,21 +345,37 @@ async function promptStepFilter(rl, selectedSlugs) {
 
 		const def = JSON.parse(fs.readFileSync(journeyPath, "utf-8"));
 		const steps = def.steps ?? [];
+		const setupSteps = def.setup ?? [];
+		const teardownSteps = def.teardown ?? [];
 		if (steps.length === 0) {
 			stepFilter[slug] = "all";
 			continue;
 		}
 
-		// Print step table
+		// Print step table with grayed-out setup/teardown
+		const dim = "\x1b[2m";   // dim (gray)
+		const reset = "\x1b[0m";
 		console.log(`  Steps for ${def.journey} (${steps.length} steps):\n`);
 		console.log("    #  ID                          Title");
 		console.log("   " + "-".repeat(62));
+
+		for (const s of setupSteps) {
+			const id = (s.id ?? "setup").padEnd(26);
+			console.log(`${dim}   ·  ${id}  ${s.title}  [setup]${reset}`);
+		}
+
 		for (let i = 0; i < steps.length; i++) {
 			const s = steps[i];
 			const num = String(i + 1).padStart(3);
 			const id = (s.id ?? `step-${i + 1}`).padEnd(26);
 			console.log(`  ${num}  ${id}  ${s.title}`);
 		}
+
+		for (const s of teardownSteps) {
+			const id = (s.id ?? "teardown").padEnd(26);
+			console.log(`${dim}   ·  ${id}  ${s.title}  [teardown]${reset}`);
+		}
+
 		console.log();
 
 		const stepInput = await ask(rl, 'Steps (numbers/ranges, "all", or "none")', "all");
@@ -491,6 +519,8 @@ function writeSessionNote(sessionName, config, selectedNames, prereqResults, sta
 		`| Prerequisites | ${config.includePrerequisites ? "force" : "skip"} |`,
 		`| Journeys | ${selectedNames.join(", ")} |`,
 		"",
+		"---",
+		"",
 		"## Prerequisites (local)",
 		"",
 		`| Check | Status |`,
@@ -500,6 +530,8 @@ function writeSessionNote(sessionName, config, selectedNames, prereqResults, sta
 		`| Obsidian CLI responsive | ${prereqResults.cliResponsive ? "✓" : "✗"} |`,
 		`| Vault installed | ${prereqResults.vaultInstalled ? "✓" : "○ not yet"} |`,
 		`| Test data present | ${prereqResults.testDataPresent ? "✓" : "○ generated during setup"} |`,
+		"",
+		"---",
 		"",
 		"## Journeys",
 		"",
@@ -512,6 +544,8 @@ function writeSessionNote(sessionName, config, selectedNames, prereqResults, sta
 			return `| ${i + 1} | ${name} | ${steps} |`;
 		}),
 		"",
+		"---",
+		"",
 		"## Results",
 		"",
 		`| Metric | Value |`,
@@ -522,6 +556,8 @@ function writeSessionNote(sessionName, config, selectedNames, prereqResults, sta
 		`| Failed | ${stats.failed} |`,
 		`| Skipped | ${stats.skipped} |`,
 		`| Exit code | ${exitCode} |`,
+		"",
+		"---",
 		"",
 		"## Links",
 		"",
@@ -607,15 +643,127 @@ function quickBuildAndDeploy() {
 
 // ── Increment build ─────────────────────────────────────────────────
 
+/**
+ * Reads the latest build report frontmatter for summary display.
+ */
+function readBuildStats() {
+	const buildFile = findLatestReport(path.join(REPORTS_DIR, "builds"));
+	const testFile = findLatestReport(path.join(REPORTS_DIR, "tests"));
+	const coverageDir = path.join(REPORTS_DIR, "coverage", "runs");
+	const coverageFile = findLatestReport(coverageDir);
+
+	return {
+		build: buildFile ? parseFrontmatter(buildFile) : null,
+		test: testFile ? parseFrontmatter(testFile) : null,
+		coverage: coverageFile ? parseFrontmatter(coverageFile) : null,
+		unitTests: readTestStats(),
+	};
+}
+
+function printIncrementSummary(exitCode, duration, stats) {
+	const reset = "\x1b[0m";
+	const green = "\x1b[32m";
+	const red = "\x1b[31m";
+	const dim = "\x1b[2m";
+	const statusIcon = exitCode === 0 ? `${green}✓ PASS${reset}` : `${red}✗ FAIL${reset}`;
+
+	console.log(`\n  ${"═".repeat(50)}`);
+	console.log(`  Increment Build Results`);
+	console.log(`  ${"═".repeat(50)}\n`);
+	console.log(`  Status:       ${statusIcon}`);
+	console.log(`  Duration:     ${duration}s`);
+
+	if (stats.build) {
+		const sizeKb = stats.build.total_bytes ? Math.round(stats.build.total_bytes / 1024) : "?";
+		console.log(`  Bundle:       ${sizeKb} KB`);
+		console.log(`  Version:      ${stats.build.plugin_version ?? "?"}`);
+		if (stats.build.warnings_count > 0) {
+			console.log(`  Warnings:     ${red}${stats.build.warnings_count}${reset}`);
+		}
+	}
+
+	const ut = stats.unitTests;
+	if (ut.totalTests > 0) {
+		const failColor = ut.failed > 0 ? red : green;
+		console.log(`  Tests:        ${green}${ut.passed}${reset} passed, ${failColor}${ut.failed}${reset} failed, ${dim}${ut.skipped} skipped${reset} ${dim}(${ut.totalTests} total)${reset}`);
+	}
+
+	if (stats.coverage) {
+		const cov = stats.coverage;
+		const pct = cov.line_pct ?? cov.lines_pct ?? cov.line_percent;
+		if (pct != null) {
+			console.log(`  Coverage:     ${pct}%`);
+		}
+	}
+
+	console.log();
+}
+
 function runIncrementBuild() {
 	console.log("\n  Starting increment build (check → build → test → e2e → docs → distribute)...\n");
+	const startTime = Date.now();
+	let exitCode;
 	try {
 		execSync("npm run build:increment", { stdio: "inherit" });
-		console.log("\n  \x1b[32m✓\x1b[0m Increment build completed successfully.\n");
-		return 0;
+		exitCode = 0;
 	} catch (err) {
-		console.log("\n  \x1b[31m✗\x1b[0m Increment build failed.\n");
-		return err.status ?? 1;
+		exitCode = err.status ?? 1;
+	}
+	const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+	const stats = readBuildStats();
+	printIncrementSummary(exitCode, duration, stats);
+	return exitCode;
+}
+
+/**
+ * Post-increment result view — shows after an increment build completes.
+ * Offers build-specific actions before returning to the main menu.
+ *
+ * Returns { action, exitCode } where action is:
+ *   - "main"  — return to main menu
+ *   - "quit"  — exit the process
+ */
+async function incrementResultView(exitCode) {
+	// eslint-disable-next-line no-constant-condition
+	while (true) {
+		const statusIcon = exitCode === 0 ? "\x1b[32m✓ PASS\x1b[0m" : "\x1b[31m✗ FAIL\x1b[0m";
+		console.log(`  ${"─".repeat(50)}`);
+		console.log(`  Increment Build: ${statusIcon}`);
+		console.log(`  ${"─".repeat(50)}`);
+		console.log();
+
+		const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+		console.log("    r) Re-run increment build");
+		console.log("    a) Generate audit");
+		console.log("    m) Back to main menu");
+		console.log("    q) Quit");
+		console.log();
+		const choice = await ask(rl, "Choice", "m");
+
+		if (choice === "q" || choice === "Q") {
+			rl.close();
+			return { action: "quit", exitCode };
+		}
+
+		if (choice === "m" || choice === "M") {
+			rl.close();
+			return { action: "main", exitCode };
+		}
+
+		if (choice === "a" || choice === "A") {
+			await generateAudit(rl);
+			rl.close();
+			continue;
+		}
+
+		if (choice === "r" || choice === "R") {
+			rl.close();
+			exitCode = runIncrementBuild();
+			continue;
+		}
+
+		rl.close();
+		console.log("\n  Invalid choice — try again.\n");
 	}
 }
 
@@ -644,13 +792,350 @@ async function runRebuild() {
 	return exitCode;
 }
 
+// ── Audit generation ────────────────────────────────────────────────
+
+const REPORTS_DIR = path.join(PLUGIN_ROOT, "docs", "reports");
+
+/**
+ * Parses YAML frontmatter from a markdown file.
+ * Returns the frontmatter as a key-value object, or null if no frontmatter found.
+ */
+function parseFrontmatter(filePath) {
+	try {
+		const content = fs.readFileSync(filePath, "utf-8");
+		const match = content.match(/^---\n([\s\S]*?)\n---/);
+		if (!match) return null;
+		const fm = {};
+		for (const line of match[1].split("\n")) {
+			const colonIdx = line.indexOf(":");
+			if (colonIdx === -1) continue;
+			const key = line.slice(0, colonIdx).trim();
+			let value = line.slice(colonIdx + 1).trim();
+			// Parse simple YAML values
+			if (value === "true") value = true;
+			else if (value === "false") value = false;
+			else if (value === "null") value = null;
+			else if (/^-?\d+(\.\d+)?$/.test(value)) value = Number(value);
+			else if (value.startsWith('"') && value.endsWith('"')) value = value.slice(1, -1);
+			fm[key] = value;
+		}
+		return fm;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Finds the latest report file in a directory by sorting filenames (timestamp-prefixed).
+ * Returns the absolute path, or null if directory is empty/missing.
+ */
+function findLatestReport(dir) {
+	try {
+		const files = fs.readdirSync(dir)
+			.filter((f) => f.endsWith(".md"))
+			.sort()
+			.reverse();
+		return files.length > 0 ? path.join(dir, files[0]) : null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Generates an audit note consolidating metrics from all available reports.
+ * Creates the note in both the test vault and dev vault.
+ */
+async function generateAudit(rl) {
+	const defaultName = new Date().toISOString().slice(0, 10) + "-audit";
+	const auditName = await ask(rl, "Audit name", defaultName);
+
+	console.log(`\n  Generating audit: ${auditName}...\n`);
+
+	// Collect latest report data from each category
+	const sources = {};
+
+	// Build report (latest timestamped)
+	const buildFile = findLatestReport(path.join(REPORTS_DIR, "builds"));
+	if (buildFile) sources.build = { file: buildFile, fm: parseFrontmatter(buildFile) };
+
+	// Test report (latest timestamped)
+	const testFile = findLatestReport(path.join(REPORTS_DIR, "tests"));
+	if (testFile) sources.test = { file: testFile, fm: parseFrontmatter(testFile) };
+
+	// Coverage report (latest timestamped)
+	const coverageFile = findLatestReport(path.join(REPORTS_DIR, "coverage", "runs"));
+	if (coverageFile) sources.coverage = { file: coverageFile, fm: parseFrontmatter(coverageFile) };
+
+	// Performance report (latest timestamped)
+	const perfFile = findLatestReport(path.join(REPORTS_DIR, "performance", "runs"));
+	if (perfFile) sources.performance = { file: perfFile, fm: parseFrontmatter(perfFile) };
+
+	// Cycle report (latest timestamped)
+	const cycleFile = findLatestReport(path.join(REPORTS_DIR, "cycles", "runs"));
+	if (cycleFile) sources.cycle = { file: cycleFile, fm: parseFrontmatter(cycleFile) };
+
+	// E2E report (stable name)
+	const e2eFile = path.join(REPORTS_DIR, "e2e", "E2E Report.md");
+	if (fs.existsSync(e2eFile)) sources.e2e = { file: e2eFile, fm: parseFrontmatter(e2eFile) };
+
+	// Trace conformance report (stable name)
+	const traceFile = path.join(REPORTS_DIR, "traceability", "Trace Conformance Report.md");
+	if (fs.existsSync(traceFile)) sources.traceability = { file: traceFile, fm: parseFrontmatter(traceFile) };
+
+	// Determine overall health
+	const buildFm = sources.build?.fm ?? {};
+	const testFm = sources.test?.fm ?? {};
+	const e2eFm = sources.e2e?.fm ?? {};
+	const perfFm = sources.performance?.fm ?? {};
+	const cycleFm = sources.cycle?.fm ?? {};
+
+	const hasFailures = (testFm.failed ?? 0) > 0 || (e2eFm.failed ?? 0) > 0 || (buildFm.errors_count ?? 0) > 0;
+	const overallStatus = hasFailures ? "fail" : "pass";
+	const currentCycle = cycleFm.cycle ?? cycleFm.number ?? "";
+
+	const now = new Date();
+	const lines = [
+		"---",
+		"type: E2EAudit",
+		`name: ${yamlStr(auditName)}`,
+		`date: "${now.toISOString()}"`,
+		`overall_status: ${overallStatus}`,
+		...(currentCycle ? [`cycle: ${currentCycle}`] : []),
+		"# Build",
+		`build_size_kb: ${buildFm.total_bytes ? Math.round(buildFm.total_bytes / 1024) : 0}`,
+		`build_duration_ms: ${buildFm.duration_ms ?? 0}`,
+		`build_warnings: ${buildFm.warnings_count ?? 0}`,
+		`build_errors: ${buildFm.errors_count ?? 0}`,
+		"# Unit Tests",
+		`unit_tests_total: ${testFm.total ?? 0}`,
+		`unit_tests_passed: ${testFm.passed ?? 0}`,
+		`unit_tests_failed: ${testFm.failed ?? 0}`,
+		`unit_tests_skipped: ${testFm.skipped ?? 0}`,
+		`unit_tests_suites: ${testFm.suites ?? 0}`,
+		"# E2E",
+		`e2e_tests_total: ${e2eFm.total_tests ?? 0}`,
+		`e2e_passed: ${e2eFm.passed ?? 0}`,
+		`e2e_failed: ${e2eFm.failed ?? 0}`,
+		`e2e_journeys: ${e2eFm.journeys ?? 0}`,
+		`e2e_actions: ${e2eFm.total_actions ?? 0}`,
+		"# Performance",
+		`startup_p50_ms: ${perfFm.startup_p50 ?? testFm.startup_p50 ?? 0}`,
+		"tags:",
+		"  - audit",
+		"  - review",
+		"---",
+		"",
+		`# Audit: ${auditName}`,
+		"",
+		`> [!${overallStatus === "pass" ? "success" : "danger"}] Overall: **${overallStatus.toUpperCase()}**`,
+		`> Date: ${now.toISOString().slice(0, 16).replace("T", " ")}`,
+		"",
+		"## Build",
+		"",
+	];
+
+	if (sources.build) {
+		lines.push("| Metric | Value |");
+		lines.push("|---|---|");
+		lines.push(`| Bundle Size | ${buildFm.total_bytes ? Math.round(buildFm.total_bytes / 1024) + " KB" : "N/A"} |`);
+		lines.push(`| Build Duration | ${buildFm.duration_ms ?? "N/A"} ms |`);
+		lines.push(`| Warnings | ${buildFm.warnings_count ?? 0} |`);
+		lines.push(`| Errors | ${buildFm.errors_count ?? 0} |`);
+		lines.push(`| Plugin Version | ${buildFm.plugin_version ?? "N/A"} |`);
+	} else {
+		lines.push("> No build report available.");
+	}
+	lines.push("");
+
+	lines.push("---", "");
+	lines.push("## Unit Tests");
+	lines.push("");
+	if (sources.test) {
+		const icon = (testFm.failed ?? 0) === 0 ? "success" : "danger";
+		lines.push(`> [!${icon}] ${testFm.passed}/${testFm.total} passed | ${testFm.suites ?? "?"} suites`);
+		lines.push("");
+		lines.push("| Metric | Value |");
+		lines.push("|---|---|");
+		lines.push(`| Total | ${testFm.total} |`);
+		lines.push(`| Passed | ${testFm.passed} |`);
+		lines.push(`| Failed | ${testFm.failed} |`);
+		lines.push(`| Skipped | ${testFm.skipped} |`);
+		lines.push(`| Suites | ${testFm.suites} |`);
+		lines.push(`| Duration | ${testFm.duration_ms ? Math.round(testFm.duration_ms / 1000) + "s" : "N/A"} |`);
+	} else {
+		lines.push("> No test report available.");
+	}
+	lines.push("");
+
+	lines.push("---", "");
+	lines.push("## E2E Tests");
+	lines.push("");
+	if (sources.e2e) {
+		const icon = (e2eFm.failed ?? 0) === 0 ? "success" : "danger";
+		lines.push(`> [!${icon}] ${e2eFm.passed}/${e2eFm.total_tests} passed | ${e2eFm.journeys ?? "?"} journeys`);
+		lines.push("");
+		lines.push("| Metric | Value |");
+		lines.push("|---|---|");
+		lines.push(`| Total Tests | ${e2eFm.total_tests} |`);
+		lines.push(`| Passed | ${e2eFm.passed} |`);
+		lines.push(`| Failed | ${e2eFm.failed} |`);
+		lines.push(`| Journeys | ${e2eFm.journeys} |`);
+		lines.push(`| Actions | ${e2eFm.total_actions} |`);
+		lines.push(`| Screenshots | ${e2eFm.total_screenshots} |`);
+		lines.push(`| Duration | ${e2eFm.duration ?? "N/A"} |`);
+	} else {
+		lines.push("> No E2E report available.");
+	}
+	lines.push("");
+
+	lines.push("---", "");
+	lines.push("## Performance");
+	lines.push("");
+	if (sources.performance || testFm.startup_p50) {
+		lines.push("| Metric | Value |");
+		lines.push("|---|---|");
+		lines.push(`| Startup p50 | ${perfFm.startup_p50 ?? testFm.startup_p50 ?? "N/A"} ms |`);
+		lines.push(`| Startup p95 | ${perfFm.startup_p95 ?? testFm.startup_p95 ?? "N/A"} ms |`);
+		lines.push(`| Startup Max | ${perfFm.startup_max ?? testFm.startup_max ?? "N/A"} ms |`);
+	} else {
+		lines.push("> No performance data available.");
+	}
+	lines.push("");
+
+	lines.push("---", "");
+	lines.push("## Report Sources");
+	lines.push("");
+	const reportLinks = [];
+	if (sources.build) reportLinks.push(`- Build: \`${path.basename(sources.build.file)}\``);
+	if (sources.test) reportLinks.push(`- Tests: \`${path.basename(sources.test.file)}\``);
+	if (sources.coverage) reportLinks.push(`- Coverage: \`${path.basename(sources.coverage.file)}\``);
+	if (sources.e2e) reportLinks.push("- E2E: [[E2E Report]]");
+	if (sources.performance) reportLinks.push(`- Performance: \`${path.basename(sources.performance.file)}\``);
+	if (sources.traceability) reportLinks.push("- Traceability: [[Trace Conformance Report]]");
+	if (sources.cycle) reportLinks.push(`- Cycle: \`${path.basename(sources.cycle.file)}\``);
+	lines.push(...(reportLinks.length > 0 ? reportLinks : ["> No reports found."]));
+	lines.push("");
+
+	const content = lines.join("\n");
+
+	// Write to test vault
+	const testAuditDir = path.join(TEST_VAULT, "03 - Resources", "Reviews", "Audits", auditName);
+	const testAuditPath = path.join(testAuditDir, `${auditName}.md`);
+	fs.mkdirSync(testAuditDir, { recursive: true });
+	fs.writeFileSync(testAuditPath, content, "utf-8");
+	console.log(`  \x1b[32m✓\x1b[0m Audit written: ${testAuditPath}`);
+
+	// Mirror to dev vault
+	const devAuditDir = path.join(PLUGIN_ROOT, "docs", "reports", "e2e", "audits", auditName);
+	const devAuditPath = path.join(devAuditDir, `${auditName}.md`);
+	fs.mkdirSync(devAuditDir, { recursive: true });
+	fs.writeFileSync(devAuditPath, content, "utf-8");
+	console.log(`  \x1b[32m✓\x1b[0m Audit mirrored: ${devAuditPath}`);
+
+	// Open in test vault
+	try {
+		execSync(
+			`obsidian vault=${VAULT_NAME} open "03 - Resources/Reviews/Audits/${auditName}/${auditName}.md"`,
+			{ stdio: "pipe", timeout: 10_000 },
+		);
+		console.log("  \x1b[32m✓\x1b[0m Audit opened in Obsidian\n");
+	} catch {
+		console.log("  \x1b[33m○\x1b[0m Could not open audit in Obsidian\n");
+	}
+}
+
 // ── Interactive session ─────────────────────────────────────────────
+
+/**
+ * Post-run session view — shows after a test run completes.
+ * Offers run-specific actions before returning to the main menu.
+ *
+ * Returns { action, exitCode } where action is:
+ *   - "main"  — return to main menu
+ *   - "quit"  — exit the process
+ */
+async function sessionView(config, entries, prereqResults, exitCode) {
+	let currentConfig = config;
+	let currentExitCode = exitCode;
+
+	// eslint-disable-next-line no-constant-condition
+	while (true) {
+		const statusIcon = currentExitCode === 0 ? "\x1b[32m✓ PASS\x1b[0m" : "\x1b[31m✗ FAIL\x1b[0m";
+		const journeyNames = currentConfig.selectedSlugs.map((slug) => {
+			const entry = entries.find((e) => e.slug === slug);
+			return entry ? entry.name : slug;
+		});
+
+		console.log(`\n  ${"─".repeat(50)}`);
+		console.log(`  Session: ${currentConfig.sessionName}`);
+		console.log(`  Status:  ${statusIcon}`);
+		console.log(`  Tests:   ${journeyNames.join(", ")}`);
+		console.log(`  ${"─".repeat(50)}`);
+		console.log();
+
+		const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+		console.log("    r) Re-run");
+		console.log("    b) Build and re-run");
+		console.log("    e) Edit test selection");
+		console.log("    a) Generate audit");
+		console.log("    m) Back to main menu");
+		console.log("    q) Quit");
+		console.log();
+		const choice = await ask(rl, "Choice", "r");
+
+		if (choice === "q" || choice === "Q") {
+			rl.close();
+			return { action: "quit", exitCode: currentExitCode };
+		}
+
+		if (choice === "m" || choice === "M") {
+			rl.close();
+			return { action: "main", exitCode: currentExitCode };
+		}
+
+		if (choice === "a" || choice === "A") {
+			await generateAudit(rl);
+			rl.close();
+			continue;
+		}
+
+		if (choice === "r" || choice === "R") {
+			rl.close();
+			const rerunConfig = rerunWithFreshTimestamp(currentConfig, entries);
+			currentExitCode = await executeSession(rerunConfig, entries, prereqResults);
+			currentConfig = rerunConfig;
+			continue;
+		}
+
+		if (choice === "b" || choice === "B") {
+			rl.close();
+			const buildResult = quickBuildAndDeploy();
+			if (buildResult !== 0) {
+				currentExitCode = buildResult;
+				continue;
+			}
+			const rerunConfig = rerunWithFreshTimestamp(currentConfig, entries);
+			currentExitCode = await executeSession(rerunConfig, entries, prereqResults);
+			currentConfig = rerunConfig;
+			continue;
+		}
+
+		if (choice === "e" || choice === "E") {
+			// Re-enter test selection with current journeys pre-loaded
+			const editConfig = await promptSessionConfig(rl, entries, prereqResults);
+			rl.close();
+			currentExitCode = await executeSession(editConfig, entries, prereqResults);
+			currentConfig = editConfig;
+			continue;
+		}
+
+		rl.close();
+		console.log("\n  Invalid choice — try again.\n");
+	}
+}
 
 async function interactiveSession() {
 	let lastExitCode = 0;
-	/** Saved config from the last run — reused for "Re-run session". */
-	let lastConfig = null;
-	let lastEntries = null;
 
 	// eslint-disable-next-line no-constant-condition
 	while (true) {
@@ -678,14 +1163,13 @@ async function interactiveSession() {
 		const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 		console.log("  What would you like to do?");
 		console.log("    1) Start test session");
-		if (lastConfig) console.log("    r) Re-run last session");
-		if (lastConfig) console.log("    b) Build and re-run (quick build → deploy → re-run)");
-		console.log("    2) Teardown to fresh state");
-		console.log("    3) Increment build");
-		console.log("    4) Rebuild (teardown → prerequisites → installer)");
+		console.log("    2) Build the increment");
+		console.log("    3) Generate audit");
+		console.log("    4) Teardown test vault to fresh state");
+		console.log("    5) Rebuild (teardown → prerequisites → installer)");
 		console.log("    q) Quit");
 		console.log();
-		const choice = await ask(rl, "Choice", lastConfig ? "r" : "1");
+		const choice = await ask(rl, "Choice", "1");
 
 		if (choice === "q" || choice === "Q") {
 			rl.close();
@@ -693,44 +1177,33 @@ async function interactiveSession() {
 			process.exit(lastExitCode);
 		}
 
-		if (choice === "2") {
+		if (choice === "3") {
+			await generateAudit(rl);
 			rl.close();
-			await teardownVault();
 			continue;
 		}
 
-		if (choice === "3") {
+		if (choice === "2") {
 			rl.close();
 			lastExitCode = runIncrementBuild();
+			const result = await incrementResultView(lastExitCode);
+			lastExitCode = result.exitCode;
+			if (result.action === "quit") {
+				console.log("\n  Goodbye.\n");
+				process.exit(lastExitCode);
+			}
 			continue;
 		}
 
 		if (choice === "4") {
 			rl.close();
+			await teardownVault();
+			continue;
+		}
+
+		if (choice === "5") {
+			rl.close();
 			lastExitCode = await runRebuild();
-			continue;
-		}
-
-		// Handle re-run: reuse last config with a fresh timestamp
-		if ((choice === "r" || choice === "R") && lastConfig && lastEntries) {
-			rl.close();
-			const rerunConfig = rerunWithFreshTimestamp(lastConfig, lastEntries);
-			lastExitCode = await executeSession(rerunConfig, lastEntries, prereqResults);
-			lastConfig = rerunConfig;
-			continue;
-		}
-
-		// Handle build and re-run: quick build → deploy → re-run last session
-		if ((choice === "b" || choice === "B") && lastConfig && lastEntries) {
-			rl.close();
-			const buildResult = quickBuildAndDeploy();
-			if (buildResult !== 0) {
-				lastExitCode = buildResult;
-				continue;
-			}
-			const rerunConfig = rerunWithFreshTimestamp(lastConfig, lastEntries);
-			lastExitCode = await executeSession(rerunConfig, lastEntries, prereqResults);
-			lastConfig = rerunConfig;
 			continue;
 		}
 
@@ -751,9 +1224,16 @@ async function interactiveSession() {
 		const config = await promptSessionConfig(rl, entries, prereqResults);
 		rl.close();
 
+		// 4. Execute and enter session view
 		lastExitCode = await executeSession(config, entries, prereqResults);
-		lastConfig = config;
-		lastEntries = entries;
+		const result = await sessionView(config, entries, prereqResults, lastExitCode);
+		lastExitCode = result.exitCode;
+
+		if (result.action === "quit") {
+			console.log("\n  Goodbye.\n");
+			process.exit(lastExitCode);
+		}
+		// "main" → loop continues to main menu
 	}
 }
 
@@ -773,7 +1253,7 @@ function rerunWithFreshTimestamp(prevConfig, entries) {
 
 /**
  * Executes a test session: sets env vars, runs vitest, generates report, writes session note.
- * Returns the vitest exit code. Shows post-run menu and handles re-run loop internally.
+ * Returns the vitest exit code.
  */
 async function executeSession(config, entries, prereqResults) {
 	// 4. Configure env vars

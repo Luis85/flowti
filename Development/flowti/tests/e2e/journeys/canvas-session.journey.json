@@ -5,7 +5,7 @@
 	"testSource": "tests/e2e/50-journey-canvas-session.test.ts",
 	"reportPath": "docs/journeys/Canvas Session/Canvas Session.md",
 	"canvasPath": "docs/journeys/Canvas Session/Canvas Session.canvas",
-	"tools": ["command", "click", "input", "highlight", "wait", "assert", "emit", "eval", "screenshot", "manual", "notice"],
+	"tools": ["command", "click", "input", "highlight", "wait", "assert", "emit", "eval", "screenshot", "manual", "notice", "close-modals"],
 	"steps": [
 		{
 			"id": "01-start-canvas-session",
@@ -257,6 +257,19 @@
 				{ "tool": "screenshot", "label": "completed", "description": "Session completed" },
 				{ "tool": "notice", "message": "Canvas Session journey complete", "duration": 5000, "description": "Signal journey completion" },
 				{ "tool": "manual", "instruction": "Navigate to the User Hub Sessions tab and verify the completed session appears in the session history with correct duration, goal, and 'completed' status badge.", "description": "Verify completed session in session history" }
+			]
+		}
+	],
+	"teardown": [
+		{
+			"id": "teardown-canvas",
+			"title": "Close modals and clean up",
+			"guideSection": 1,
+			"description": "Dismisses any stale modals left open by the canvas session journey.",
+			"expectedInput": "Modals or dialogs may be open",
+			"expectedOutput": "All modals dismissed",
+			"actions": [
+				{ "tool": "close-modals", "description": "Dismiss any open modals (template picker, etc.)" }
 			]
 		}
 	]

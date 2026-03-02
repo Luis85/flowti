@@ -12,7 +12,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { ObsidianCli } from "../../../src/infrastructure/cli/ObsidianCli";
-import { clearHighlights, injectHighlightStyles } from "./highlight";
+import { clearHighlights, clearWebViewHighlights, injectHighlightStyles } from "./highlight";
 import { collectErrorContext, type ErrorContext } from "./errorContext";
 import { qcCheckpoint } from "./qc";
 
@@ -38,6 +38,8 @@ export interface JourneyStep {
 	guideSection: number;
 	/** Execution phase: setup, journey (default), or teardown. */
 	phase?: "setup" | "journey" | "teardown";
+	/** Service Blueprint swimlane classification. */
+	swimlane?: "customer" | "frontstage" | "backstage" | "support";
 	/** Exact describe() block name. e.g. "Chapter 3: Getting Started" */
 	describeBlock?: string;
 	/** Exact it() description. e.g. "3.1 — Open the User Hub" */
@@ -91,12 +93,24 @@ export interface JourneyResult {
 	steps: JourneyStepResult[];
 	/** Relative path to the test source file (from plugin root). */
 	testSource?: string;
+	/** Final variable map at end of journey (for template resolution in reports). */
+	variables?: Record<string, string>;
 }
 
 /** Static journey spec — step definitions without runtime data. */
 export interface JourneyConfig {
 	journey: string;
 	testSource?: string;
+	/** Journey type classification (e.g. "functional", "blueprint"). */
+	type?: string;
+	/** High-level category (e.g. "onboarding", "analytics"). */
+	category?: string;
+	/** Business domain (e.g. "user", "session"). */
+	domain?: string;
+	/** Actors involved (e.g. ["User", "Admin"]). */
+	actors?: string[];
+	/** Services exercised (e.g. ["SettingsService", "EventBus"]). */
+	services?: string[];
 	/** Setup steps (run before journey, failures block main steps). */
 	setup?: JourneyStep[];
 	steps: JourneyStep[];
@@ -124,6 +138,14 @@ export interface JourneyRunnerOptions {
 	settleMs?: number;
 	/** Relative path to the test source file (from plugin root). Used in reports. */
 	testSource?: string;
+	/** Journey classification metadata (flows through to config and reports). */
+	classification?: {
+		type?: string;
+		category?: string;
+		domain?: string;
+		actors?: string[];
+		services?: string[];
+	};
 }
 
 /** Controls how a step is executed and captured. */
@@ -160,6 +182,22 @@ export class JourneyRunner {
 		this.startTime = Date.now();
 		this.settleMs = options.settleMs ?? 1000;
 		fs.mkdirSync(options.screenshotDir, { recursive: true });
+	}
+
+	/**
+	 * Records a step result, replacing any existing entry with the same step ID.
+	 * This prevents duplicate entries when vitest retries a failed test —
+	 * only the last attempt's result is kept.
+	 */
+	private recordResult(result: JourneyStepResult): void {
+		const idx = this.results.findIndex(
+			(r) => r.step.id === result.step.id,
+		);
+		if (idx >= 0) {
+			this.results[idx] = result;
+		} else {
+			this.results.push(result);
+		}
 	}
 
 	/** Posts an Obsidian notice announcing that a test suite has started. */
@@ -223,6 +261,7 @@ export class JourneyRunner {
 		// Dismiss the previous step's result notice (already captured in its screenshot)
 		this.dismissAllNotices();
 		clearHighlights(this.cli);
+		clearWebViewHighlights(this.cli);
 
 		try {
 			this.cli.notice(`Step ${step.guideSection}: ${step.title} …`);
@@ -263,7 +302,7 @@ export class JourneyRunner {
 				screenshotFile: screenshotFiles[0] ?? null,
 				screenshotFiles,
 			};
-			this.results.push(result);
+			this.recordResult(result);
 			return result;
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
@@ -302,7 +341,7 @@ export class JourneyRunner {
 				error: message,
 				errorContext,
 			};
-			this.results.push(result);
+			this.recordResult(result);
 			return result;
 		}
 	}
@@ -323,7 +362,7 @@ export class JourneyRunner {
 
 	/** Records a skipped step result (used when setup fails). */
 	addSkippedResult(step: JourneyStep): void {
-		this.results.push({
+		this.recordResult({
 			step,
 			status: "skip",
 			durationMs: 0,
@@ -359,10 +398,12 @@ export class JourneyRunner {
 	}
 
 	/** Writes the journey results JSON to the given path. */
-	writeResults(outputPath: string): void {
+	writeResults(outputPath: string, variables?: Record<string, string>): void {
 		const dir = path.dirname(outputPath);
 		fs.mkdirSync(dir, { recursive: true });
-		fs.writeFileSync(outputPath, JSON.stringify(this.getResults(), null, 2), "utf-8");
+		const results = this.getResults();
+		if (variables) results.variables = { ...variables };
+		fs.writeFileSync(outputPath, JSON.stringify(results, null, 2), "utf-8");
 
 		// Also write the static journey config alongside the results.
 		// Config captures the step definitions (spec) without runtime data.
@@ -400,9 +441,15 @@ export class JourneyRunner {
 			for (const i of step.interactions ?? []) interactions.add(i);
 		}
 
+		const cls = this.options.classification;
 		return {
 			journey: this.options.journeyName,
 			...(this.options.testSource ? { testSource: this.options.testSource } : {}),
+			...(cls?.type ? { type: cls.type } : {}),
+			...(cls?.category ? { category: cls.category } : {}),
+			...(cls?.domain ? { domain: cls.domain } : {}),
+			...(cls?.actors?.length ? { actors: cls.actors } : {}),
+			...(cls?.services?.length ? { services: cls.services } : {}),
 			...(setupSteps.length > 0 ? { setup: setupSteps } : {}),
 			steps: journeySteps,
 			...(teardownSteps.length > 0 ? { teardown: teardownSteps } : {}),

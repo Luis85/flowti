@@ -15,7 +15,7 @@ tech_debt:
   - CLI wrapper unit tests (C53 backlog)
   - RB-6 CLI Installer reassessment (C53 backlog)
 estimated_increments: 8
-actual_increments: 10
+actual_increments: 11
 estimated_loc: 1490
 estimated_tests: 135
 pre_cycle_tests: 5825
@@ -310,14 +310,14 @@ Inc 7 (Integration)         ──→ Depends on Inc 1–6
 | Metric | Target | Actual |
 |--------|--------|--------|
 | New tests | ~130 | 198 (6,023 − 5,825) |
-| Post-cycle tests | ~5,955 | 6,023 (in progress) |
+| Post-cycle tests | ~5,955 | 6,023 |
 | Post-cycle suites | ~255 | 261 |
 | Canvas templates | 5 | 5 |
 | Signal error scenarios | 4 | 4 (401, 429, network, timeout) |
 | Routing rules | 4+ default | 4 (idea, feature, bug, learning) |
 | CLI wrapper edge tests | ~20 | 6 (40 already existed from C53) |
 | RB-6 decision | Documented | Closed as superseded |
-| Increments | 8 | 10 (8 planned + 2 bonus E2E) |
+| Increments | 8 | 11 (8 planned + 3 bonus E2E) |
 
 ### Increment Summary
 
@@ -333,6 +333,7 @@ Inc 7 (Integration)         ──→ Depends on Inc 1–6
 | 7 | Integration | 12 | 1 | SESSION_TYPE_LABELS fix, callout updates, integration tests |
 | 8 | E2E Observability | 7 | 0 | E2E-aware Activity Log, event trace CSV, report enrichment |
 | 9 | Journey Runner Hardening | 7 | 0 | Tool-showcase journey, setup/teardown lifecycle, bug fixes |
+| 10 | E2E UX & Reporting | 0 | 0 | close-modals tool, assert/wait feedback, failure reporting, interactive mode redesign, retry dedup |
 
 ### Inc 8: E2E Observability (Bonus)
 **Theme**: Testing Infrastructure | **+~250 LOC across 11 files**
@@ -384,6 +385,57 @@ Bug fixes and tool improvements discovered through tool-showcase journey executi
 - All test vault paths changed from `03 - Resources/Tested Journeys/` to `docs/journeys/` (matches dev vault structure)
 - Traces path: `03 - Resources/Traces/` → `docs/reports/e2e/traces/`
 
+### Inc 10: E2E UX and Reporting (Bonus)
+**Theme**: Testing Infrastructure | **+~830 LOC across 11 files**
+
+Major UX and reporting improvements to the E2E journey runner and interactive mode:
+
+**New E2E Tool — `close-modals`** (`journeyTypes.ts`, `actionRunner.ts`, `toolCatalog.ts`):
+- Removes all `.modal-container` elements from DOM
+- Lifecycle tag — designed for teardown use
+- Added automatic modal close as safety net in `journeyExecutor.ts afterAll` before teardown steps
+- Added to tool-showcase and canvas-session journey teardown sections
+
+**Visual Feedback for Assertions** (`highlight.ts`, `actionRunner.ts`):
+- Gold outline (`#ffd54f`) for passing DOM assertions, red outline (`#ef5350`) with pulse for failures
+- `highlightAssert(cli, selector, passed, label)` for DOM-based assertions (visible, text)
+- `notifyAssert(cli, passed, label)` for non-DOM assertions (event, leaf, eval) — checkmark/cross notice
+- All 6 assertion types now provide immediate visual feedback
+
+**Visual Feedback for Wait Tool** (`actionRunner.ts`):
+- Hourglass notice shown during wait: `⏳ ${description} (${ms}ms)` or `⏳ Waiting ${ms}ms…`
+- Notice auto-dismisses when wait completes (duration matches ms)
+
+**Activity Log E2E Filter Bypass** (`EventLogView.ts`):
+- E2E mode now only filters `log.*` events (prevents infinite recursion)
+- Normal mode continues using `isSkippedEvent()` + `excludedTypes` + `hiddenCategories`
+- All infrastructure events (`error.*`, `plugin.*`, `service.*`, `command.*`, etc.) visible in E2E mode
+
+**E2E Report Failure Surfacing** (`generate-e2e-report.mjs`):
+- New `## Failures (N)` section at top of E2E Report (right after Summary)
+- Each failed step shows: error message, DOM trace, recent events, console errors, plugin state
+- Wikilinks to detailed step in Journey Report: `[[Journey#Step X: Title FAIL]]`
+- Failed step titles in Journey Reports use `FAIL` suffix matching wikilink anchors
+
+**Retry Deduplication** (`journey.ts`):
+- New `recordResult()` method replaces existing entry with same step ID
+- Prevents duplicate step entries when vitest `retry: 1` re-runs a failed test
+- Applied to pass, fail, and skip result recording
+
+**Template Variable Resolution Fix** (`generate-e2e-report.mjs`):
+- Unresolved `{{variables}}` now render as `—` (em dash) instead of literal template syntax
+- Fixes skipped step notices showing raw `{{tabChangeCount}}` in reports
+
+**Report Section Separators** (`generate-e2e-report.mjs`, `run-e2e.mjs`):
+- `---` horizontal rules between all major sections in Journey Reports, E2E Reports, Session Notes, Audit Reports
+
+**Interactive Mode Redesign** (`run-e2e.mjs`):
+- Post-run session view: re-run, build+re-run, edit selection, generate audit, back to menu, quit
+- All-numeric main menu (1-5 + q): Start session → Build increment → Generate audit → Teardown → Rebuild
+- Setup/teardown steps shown grayed out (dim ANSI) with `[setup]`/`[teardown]` labels, not selectable
+- Journey number prompt shows single/multi examples: `(e.g. "2" or "1 3 4")`
+- Teardown collapses all file navigator folders via file-explorer leaf API
+
 ### New Events (7)
 - `canvas.template.created`, `canvas.session.started`, `canvas.session.activity`, `canvas.session.completed`
 - `signal.health.checked`, `signal.health.changed`
@@ -405,10 +457,21 @@ Bug fixes and tool improvements discovered through tool-showcase journey executi
 
 **perf.event.dispatched Correlation**: Each domain event has a matching `perf.event.dispatched` entry with `{ eventType, handlerCount, durationMs }`. These can be joined by event type (consuming in order) to enrich trace data with dispatch performance metrics.
 
+**Vitest Retry and Result Accumulation**: With `retry: 1`, vitest re-runs the `it()` callback but `beforeAll` doesn't re-run — shared state (like `JourneyRunner.results[]`) accumulates both attempts. Must deduplicate by step ID to avoid duplicate entries in reports.
+
+**Obsidian File Explorer API**: `app.workspace.getLeavesOfType('file-explorer')[0].view.fileItems` gives access to all folder items. Each has `setCollapsed(true)` for programmatic folder collapse. Useful for resetting visual state after teardown.
+
+**E2E Filter Layering**: The Activity Log has 3 filter layers: `isSkippedEvent()` (infrastructure prefixes), `excludedTypes` (user-configured), `hiddenCategories` (UI toggles). In E2E mode, only `log.*` must be filtered (prevents infinite recursion from logging the log event); all other infrastructure events are valuable for debugging.
+
 ## Remaining Work
 
-The cycle continues with further Journey Runner expansion and E2E test coverage:
+The cycle is nearing completion. All 8 planned PBI increments (0–7) are delivered. Three bonus E2E increments (8–10) significantly hardened the testing infrastructure. Remaining items for cycle close:
+
+- **DoD checklist**: Final review, retrospective, cycle doc finalization
+- **Memory update**: Sync MEMORY.md with new patterns and learnings
+
+### Deferred to Future Cycles
 - Additional journey definitions (new journeys beyond tool-showcase)
 - Journey step metadata population for existing journeys (Getting Started, Component Library)
 - Per-step `settleMs` configuration on JourneyStep
-- Expanded tool coverage in tool-showcase journey
+- WebViewer highlight injection (target: "webview" on highlight tool — prototype exists but untested in journey)

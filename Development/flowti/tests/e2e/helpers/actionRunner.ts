@@ -9,7 +9,7 @@ import * as path from "node:path";
 import type { ObsidianCli } from "../../../src/infrastructure/cli/ObsidianCli";
 import type { ActionDefinition, AssertAction, CloseLeavesAction, CreateFileAction, DeleteFileAction, EmitAction, EvalAction, NoticeAction, OpenFileAction, OpenUrlAction, RibbonAction, ScreenshotAction, SeedAction, ThemeAction } from "./journeyTypes";
 import { getAllSeeds, getSeedById, SEED_FOLDERS } from "./seedRegistry";
-import { highlightElement, highlightButton, highlightInput, highlightRibbon } from "./highlight";
+import { highlightElement, highlightButton, highlightInput, highlightRibbon, highlightWebView, highlightAssert, notifyAssert } from "./highlight";
 import { navigateToTab } from "./navigation";
 import { assertEventEmitted, PLUGIN_ID } from "./fixtures";
 
@@ -112,9 +112,14 @@ export async function executeAction(
 			executeInput(cli, resolve(action.selector, variables), resolve(action.value, variables));
 			break;
 		case "highlight":
-			executeHighlight(cli, resolve(action.selector, variables), action.style);
+			if (action.target === "webview") {
+				highlightWebView(cli, resolve(action.selector, variables));
+			} else {
+				executeHighlight(cli, resolve(action.selector, variables), action.style);
+			}
 			break;
 		case "wait":
+			executeWait(cli, action.ms, action.description);
 			await sleep(action.ms);
 			break;
 		case "screenshot": {
@@ -166,6 +171,9 @@ export async function executeAction(
 			break;
 		case "close-leaves":
 			executeCloseLeaves(cli, action, variables);
+			break;
+		case "close-modals":
+			executeCloseModals(cli);
 			break;
 		case "ribbon":
 			executeRibbon(cli, action, variables);
@@ -237,27 +245,37 @@ function executeAssert(
 	variables: Record<string, string>,
 	traceBookmark: number,
 ): void {
+	const desc = action.description ?? "";
 	switch (action.type) {
 		case "visible": {
-			const sel = escapeSelector(resolve(action.selector!, variables));
+			const rawSel = resolve(action.selector!, variables);
+			const sel = escapeSelector(rawSel);
 			const check = cli.eval(`!!document.querySelector('${sel}')`);
-			if (!check.success || check.value !== "true") {
+			const passed = check.success && check.value === "true";
+			highlightAssert(cli, rawSel, passed, desc || `visible: ${action.selector}`);
+			if (!passed) {
 				throw new Error(`Expected element '${action.selector}' to be visible`);
 			}
 			break;
 		}
 		case "not-visible": {
-			const sel = escapeSelector(resolve(action.selector!, variables));
+			const rawSel = resolve(action.selector!, variables);
+			const sel = escapeSelector(rawSel);
 			const check = cli.eval(`!!document.querySelector('${sel}')`);
-			if (check.success && check.value === "true") {
+			const passed = !(check.success && check.value === "true");
+			notifyAssert(cli, passed, desc || `not-visible: ${action.selector}`);
+			if (!passed) {
 				throw new Error(`Expected element '${action.selector}' to NOT be visible`);
 			}
 			break;
 		}
 		case "text": {
-			const sel = escapeSelector(resolve(action.selector!, variables));
+			const rawSel = resolve(action.selector!, variables);
+			const sel = escapeSelector(rawSel);
 			const check = cli.eval(`document.querySelector('${sel}')?.textContent ?? ''`);
-			if (!check.success || !check.value.includes(resolve(action.contains!, variables))) {
+			const passed = check.success && check.value.includes(resolve(action.contains!, variables));
+			highlightAssert(cli, rawSel, passed, desc || `text: "${action.contains}"`);
+			if (!passed) {
 				throw new Error(`Expected element '${action.selector}' to contain '${action.contains}', got '${check.value}'`);
 			}
 			break;
@@ -265,7 +283,13 @@ function executeAssert(
 		case "event": {
 			const event = resolve(action.event!, variables);
 			const payload = action.payload ? resolvePayload(action.payload, variables) : undefined;
-			assertEventEmitted(cli, traceBookmark, event, payload);
+			try {
+				assertEventEmitted(cli, traceBookmark, event, payload);
+				notifyAssert(cli, true, desc || `event: ${event}`);
+			} catch (err) {
+				notifyAssert(cli, false, desc || `event: ${event}`);
+				throw err;
+			}
 			// Mark as asserted for Activity Log highlighting
 			cli.eval(
 				`(() => { const p = app.plugins.plugins['${PLUGIN_ID}']; if (p) { if (!p._e2eAssertedEvents) p._e2eAssertedEvents = []; p._e2eAssertedEvents.push('${event}'); } })()`,
@@ -275,7 +299,9 @@ function executeAssert(
 		case "leaf": {
 			const viewType = resolve(action.viewType!, variables);
 			const check = cli.eval(`app.workspace.getLeavesOfType('${viewType}').length`);
-			if (!check.success || Number(check.value) === 0) {
+			const passed = check.success && Number(check.value) > 0;
+			notifyAssert(cli, passed, desc || `leaf: ${viewType}`);
+			if (!passed) {
 				throw new Error(`No leaf found with view type '${viewType}'`);
 			}
 			break;
@@ -284,10 +310,13 @@ function executeAssert(
 			const code = resolve(action.code!, variables);
 			const check = cli.eval(code);
 			if (!check.success) {
+				notifyAssert(cli, false, desc || "eval assertion");
 				throw new Error(`Eval assertion failed: ${check.error}`);
 			}
 			const expected = resolve(action.expected!, variables);
-			if (check.value !== expected) {
+			const passed = check.value === expected;
+			notifyAssert(cli, passed, desc || `eval: expected "${expected}"`);
+			if (!passed) {
 				throw new Error(`Expected '${expected}', got '${check.value}'`);
 			}
 			break;
@@ -407,6 +436,20 @@ function executeCloseLeaves(cli: ObsidianCli, action: CloseLeavesAction, variabl
 	if (!result.success) {
 		throw new Error(`close-leaves '${viewType}' failed: ${result.error}`);
 	}
+}
+
+function executeWait(cli: ObsidianCli, ms: number, description?: string): void {
+	const label = description
+		? `\u23f3 ${description} (${ms}ms)`
+		: `\u23f3 Waiting ${ms}ms\u2026`;
+	const escapedLabel = label.replace(/'/g, "\\'");
+	cli.eval(`new Notice('${escapedLabel}', ${ms})`);
+}
+
+function executeCloseModals(cli: ObsidianCli): void {
+	cli.eval(
+		"document.querySelectorAll('.modal-container').forEach(el => el.remove())",
+	);
 }
 
 function executeRibbon(cli: ObsidianCli, action: RibbonAction, variables: Record<string, string>): void {

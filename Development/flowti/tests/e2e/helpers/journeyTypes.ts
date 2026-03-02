@@ -37,6 +37,7 @@ export type ToolName =
 	| "open-file"
 	| "open-url"
 	| "close-leaves"
+	| "close-modals"
 	| "seed";
 
 // ─── Lifecycle configuration ────────────────────────────────────────
@@ -54,6 +55,22 @@ export interface JourneyLifecycle {
 }
 
 // ─── Journey definition ─────────────────────────────────────────────
+
+/** Journey type classification. */
+export type JourneyType =
+	| "functional"
+	| "regression"
+	| "smoke"
+	| "exploratory"
+	| "blueprint"
+	| "integration";
+
+/** Service Blueprint swimlane for step classification. */
+export type BlueprintSwimlane =
+	| "customer"    // Customer actions (what the user does)
+	| "frontstage"  // Visible interactions (UI, feedback, responses)
+	| "backstage"   // Behind-the-scenes processing (services, events)
+	| "support";    // Supporting systems (storage, external APIs)
 
 export interface JourneyDefinition {
 	/** Journey display name. e.g. "Canvas Session" */
@@ -76,6 +93,20 @@ export interface JourneyDefinition {
 	gateFlags?: string[];
 	/** If true, write an anchor file with pass/fail status for skip-mode detection. */
 	anchor?: boolean;
+
+	// ── Classification ──────────────────────────────────────
+	/** Journey type classification. Default: "functional". */
+	type?: JourneyType;
+	/** High-level category (e.g. "onboarding", "analytics", "settings"). */
+	category?: string;
+	/** Business domain (e.g. "user", "session", "hub", "ingestion"). */
+	domain?: string;
+	/** Actors involved in this journey (e.g. ["User", "Admin", "System"]). */
+	actors?: string[];
+	/** Services exercised during this journey (e.g. ["SettingsService", "EventBus"]). */
+	services?: string[];
+
+	// ── Steps ───────────────────────────────────────────────
 	/** Steps run before the journey. Failures block main steps; teardown still runs. */
 	setup?: StepDefinition[];
 	/** Ordered list of steps. Each step generates one vitest `it()` block.
@@ -132,6 +163,8 @@ export interface StepDefinition {
 	 * Retained for backward compatibility with imperative journeys.
 	 */
 	capture?: "afterSettle" | "afterAction";
+	/** Service Blueprint swimlane. Classifies this step's position in the service flow. */
+	swimlane?: BlueprintSwimlane;
 	/** UI context — which view, tab, and components are involved. */
 	uiContext?: StepUiContext;
 	/** EventBus events triggered or asserted. */
@@ -168,6 +201,7 @@ export type ActionDefinition =
 	| OpenFileAction
 	| OpenUrlAction
 	| CloseLeavesAction
+	| CloseModalsAction
 	| SeedAction
 	| RibbonAction;
 
@@ -200,6 +234,8 @@ export interface HighlightAction {
 	selector: string;
 	/** Highlight style. Default: "element". */
 	style?: "element" | "button" | "input";
+	/** Target DOM context. "webview" highlights inside the active Electron webview. Default: "dom". */
+	target?: "dom" | "webview";
 	description?: string;
 }
 
@@ -342,6 +378,11 @@ export interface CloseLeavesAction {
 	tool: "close-leaves";
 	/** View type of leaves to close. e.g. "flowti-user-hub", "markdown" */
 	viewType: string;
+	description?: string;
+}
+
+export interface CloseModalsAction {
+	tool: "close-modals";
 	description?: string;
 }
 

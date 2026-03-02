@@ -221,6 +221,16 @@ export const TOOL_CATALOG: Record<ToolName, ToolMeta> = {
 			"Close stale leaves that persist across steps",
 		],
 	},
+	"close-modals": {
+		name: "close-modals",
+		description: "Close all open Obsidian modals and dialogs",
+		tags: ["lifecycle"],
+		useCases: [
+			"Dismiss stale modals during teardown",
+			"Reset UI state between journey steps",
+			"Ensure a clean workspace before assertions",
+		],
+	},
 	seed: {
 		name: "seed",
 		description: "Create, verify, or delete seed files from the centralized registry",

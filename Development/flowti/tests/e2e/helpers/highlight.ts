@@ -7,9 +7,13 @@
  * All manipulation happens through cli.eval() — no direct DOM access.
  *
  * Colors:
- *   - Input focus:  blue glow (#4fc3f7)
- *   - Button hover: orange pulse (#ffb74d)
- *   - Generic:      green outline (#81c784)
+ *   - Input focus:    blue glow (#4fc3f7)
+ *   - Button hover:   orange pulse (#ffb74d)
+ *   - Generic:        green outline (#81c784)
+ *   - Ribbon:         purple pulse (#ce93d8)
+ *   - Assert pass:    gold outline (#ffd54f)
+ *   - Assert fail:    red outline (#ef5350)
+ *   - WebView:        cyan glow (#26c6da) — injected into webview content
  */
 import type { ObsidianCli } from "../../../src/infrastructure/cli/ObsidianCli";
 
@@ -35,6 +39,15 @@ const HIGHLIGHT_CSS = `
   box-shadow: 0 0 14px 5px rgba(206, 147, 216, 0.6) !important;
   animation: ft-e2e-pulse 0.6s ease-in-out 2 !important;
   border-radius: 4px;
+}
+.ft-e2e-highlight-assert-pass {
+  outline: 3px solid #ffd54f !important;
+  box-shadow: 0 0 12px 4px rgba(255, 213, 79, 0.5) !important;
+}
+.ft-e2e-highlight-assert-fail {
+  outline: 3px solid #ef5350 !important;
+  box-shadow: 0 0 12px 4px rgba(239, 83, 80, 0.5) !important;
+  animation: ft-e2e-pulse 0.6s ease-in-out 2 !important;
 }
 @keyframes ft-e2e-pulse {
   0%, 100% { transform: scale(1); }
@@ -137,10 +150,122 @@ export function highlightRibbon(cli: ObsidianCli, label: string): string {
 }
 
 /**
+ * Highlights a DOM element with pass/fail assertion styling.
+ * Pass: gold outline. Fail: red outline with pulse.
+ * Scrolls into view and shows a brief notice with the result.
+ */
+export function highlightAssert(
+	cli: ObsidianCli,
+	selector: string,
+	passed: boolean,
+	label: string,
+): void {
+	const escaped = selector.replace(/'/g, "\\'");
+	const cls = passed ? "ft-e2e-highlight-assert-pass" : "ft-e2e-highlight-assert-fail";
+	cli.eval([
+		`(() => {`,
+		`  const el = document.querySelector('${escaped}');`,
+		`  if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('${cls}'); }`,
+		`})()`,
+	].join(" "));
+	const icon = passed ? "\u2713" : "\u2717";
+	const escapedLabel = label.replace(/'/g, "\\'");
+	cli.eval(`new Notice('${icon} ${escapedLabel}', ${passed ? 2000 : 4000})`);
+}
+
+/**
+ * Shows an assertion result notice (no DOM element to highlight).
+ * Used for event, eval, and other non-DOM assertions.
+ */
+export function notifyAssert(
+	cli: ObsidianCli,
+	passed: boolean,
+	label: string,
+): void {
+	const icon = passed ? "\u2713" : "\u2717";
+	const escapedLabel = label.replace(/'/g, "\\'");
+	cli.eval(`new Notice('${icon} ${escapedLabel}', ${passed ? 2000 : 4000})`);
+}
+
+/**
  * Removes all highlight classes from all elements.
  */
 export function clearHighlights(cli: ObsidianCli): void {
 	cli.eval(
-		"document.querySelectorAll('.ft-e2e-highlight-input,.ft-e2e-highlight-button,.ft-e2e-highlight-element,.ft-e2e-highlight-ribbon').forEach(el => { el.classList.remove('ft-e2e-highlight-input','ft-e2e-highlight-button','ft-e2e-highlight-element','ft-e2e-highlight-ribbon'); })",
+		"document.querySelectorAll('.ft-e2e-highlight-input,.ft-e2e-highlight-button,.ft-e2e-highlight-element,.ft-e2e-highlight-ribbon,.ft-e2e-highlight-assert-pass,.ft-e2e-highlight-assert-fail').forEach(el => { el.classList.remove('ft-e2e-highlight-input','ft-e2e-highlight-button','ft-e2e-highlight-element','ft-e2e-highlight-ribbon','ft-e2e-highlight-assert-pass','ft-e2e-highlight-assert-fail'); })",
 	);
+}
+
+// ── WebView Highlight (cross-process via webview.executeJavaScript) ──
+
+const WEBVIEW_HIGHLIGHT_CSS = `
+.ft-e2e-wv-highlight {
+  outline: 3px solid #26c6da !important;
+  box-shadow: 0 0 14px 5px rgba(38, 198, 218, 0.6) !important;
+  animation: ft-e2e-wv-pulse 0.6s ease-in-out 2 !important;
+  position: relative;
+  z-index: 99999;
+}
+@keyframes ft-e2e-wv-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+`.trim().replace(/\n/g, " ");
+
+/**
+ * Highlights an element inside the active Electron webview.
+ * Injects highlight CSS into the webview's DOM (idempotent), then
+ * applies the highlight class to the matched element.
+ *
+ * Color: cyan (#26c6da) — distinct from main-DOM highlights.
+ */
+export function highlightWebView(cli: ObsidianCli, selector: string): void {
+	const escaped = selector.replace(/'/g, "\\'").replace(/\\/g, "\\\\");
+	const cssEscaped = WEBVIEW_HIGHLIGHT_CSS.replace(/'/g, "\\'");
+
+	const result = cli.eval([
+		`(async () => {`,
+		`  const wv = document.querySelector('webview');`,
+		`  if (!wv) throw new Error('No webview element found');`,
+		`  await wv.executeJavaScript(\``,
+		`    (() => {`,
+		`      if (!document.getElementById('ft-e2e-wv-styles')) {`,
+		`        const s = document.createElement('style');`,
+		`        s.id = 'ft-e2e-wv-styles';`,
+		`        s.textContent = '${cssEscaped}';`,
+		`        document.head.appendChild(s);`,
+		`      }`,
+		`      const el = document.querySelector('${escaped}');`,
+		`      if (el) {`,
+		`        el.scrollIntoView({ behavior: 'smooth', block: 'center' });`,
+		`        el.classList.add('ft-e2e-wv-highlight');`,
+		`        return 'highlighted';`,
+		`      }`,
+		`      return 'not-found';`,
+		`    })()`,
+		`  \`);`,
+		`  return 'ok';`,
+		`})()`,
+	].join(" "));
+
+	if (!result.success) {
+		// Non-fatal: webview highlight failure should not block the step
+		console.warn(`[e2e] WebView highlight failed for '${selector}': ${result.error}`);
+	}
+}
+
+/**
+ * Clears all highlight classes inside the active Electron webview.
+ */
+export function clearWebViewHighlights(cli: ObsidianCli): void {
+	cli.eval([
+		`(async () => {`,
+		`  const wv = document.querySelector('webview');`,
+		`  if (!wv) return 'no-webview';`,
+		`  await wv.executeJavaScript(\``,
+		`    document.querySelectorAll('.ft-e2e-wv-highlight').forEach(el => el.classList.remove('ft-e2e-wv-highlight'))`,
+		`  \`);`,
+		`  return 'cleared';`,
+		`})()`,
+	].join(" "));
 }

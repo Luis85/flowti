@@ -80,8 +80,20 @@ function yamlEscape(value) {
 	return str;
 }
 
+/**
+ * Resolves {{key}} template variables in a string using a variables map.
+ * Returns the original string if no variables map is provided.
+ */
+function resolveVars(template, variables) {
+	if (!template) return "";
+	return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+		if (variables && key in variables) return variables[key];
+		return "\u2014"; // unresolved variable (step was skipped or variable not set)
+	});
+}
+
 function formatDuration(ms) {
-	if (ms < 1000) return `${ms}ms`;
+	if (ms < 1000) return `${Math.round(ms)}ms`;
 	const totalSec = ms / 1000;
 	if (totalSec < 60) return `${totalSec.toFixed(1)}s`;
 	const min = Math.floor(totalSec / 60);
@@ -345,6 +357,8 @@ function generateJourneyReport(data, date) {
 	const journeySteps = allSteps.filter((r) => !r.step?.phase || r.step.phase === "journey");
 	const teardownSteps = allSteps.filter((r) => r.step?.phase === "teardown");
 
+	const vars = data.variables ?? {};
+
 	/** Renders a single step result into the report lines array. */
 	function renderStep(stepResult) {
 		const s = stepResult.step;
@@ -352,13 +366,13 @@ function generateJourneyReport(data, date) {
 		const stepCallout = statusCallout(stepStatus);
 		const icon = statusLabel(stepStatus);
 
-		const statusTag = stepStatus === "fail" ? " [FAIL]" : stepStatus === "skipped" ? " [SKIP]" : "";
+		const statusTag = stepStatus === "fail" ? " FAIL" : stepStatus === "skipped" ? " [SKIP]" : "";
 		lines.push(`### Step ${s.guideSection}: ${s.title}${statusTag}`);
 		lines.push("");
 		lines.push(`> [!${stepCallout}] ${icon} (${formatDuration(stepResult.durationMs)})`);
 
 		if (stepResult.error) {
-			lines.push(`> Error: ${stepResult.error}`);
+			lines.push(`> **Error**: ${stepResult.error}`);
 		}
 
 		// Enhanced error context (DOM state, recent events, plugin state)
@@ -444,7 +458,7 @@ function generateJourneyReport(data, date) {
 		if (manualActions.length > 0) {
 			lines.push("> [!todo] Manual QA");
 			for (const m of manualActions) {
-				lines.push(`> - [ ] ${m.instruction}`);
+				lines.push(`> - [ ] ${resolveVars(m.instruction, vars)}`);
 			}
 			lines.push("");
 		}
@@ -455,7 +469,7 @@ function generateJourneyReport(data, date) {
 			lines.push("> [!quote] Notices");
 			for (const n of noticeActions) {
 				const dur = n.duration ? ` (${n.duration}ms)` : "";
-				lines.push(`> - ${n.message}${dur}`);
+				lines.push(`> - ${resolveVars(n.message, vars)}${dur}`);
 			}
 			lines.push("");
 		}
@@ -470,6 +484,7 @@ function generateJourneyReport(data, date) {
 		for (const stepResult of setupSteps) {
 			renderStep(stepResult);
 		}
+		lines.push("---", "");
 	}
 
 	// ── Render Journey steps ──
@@ -481,6 +496,7 @@ function generateJourneyReport(data, date) {
 
 	// ── Render Teardown section ──
 	if (teardownSteps.length > 0) {
+		lines.push("---", "");
 		const teardownPassed = teardownSteps.filter((r) => r.status === "pass").length;
 		const teardownTotal = teardownSteps.length;
 		lines.push(`## Teardown (${teardownPassed}/${teardownTotal})`);
@@ -568,15 +584,16 @@ function actionColor(tool) {
 /**
  * Formats a single action into a concise text label for canvas rendering.
  */
-function formatActionText(action) {
+function formatActionText(action, vars) {
 	const desc = action.description ? `\n${action.description}` : "";
+	const r = (s) => resolveVars(s, vars);
 	switch (action.tool) {
 		case "command":
-			return `**command** \`${action.id}\`${desc}`;
+			return `**command** \`${r(action.id)}\`${desc}`;
 		case "click":
 			return `**click** \`${action.selector}\`${desc}`;
 		case "input":
-			return `**input** \`${action.selector}\`\n→ "${action.value}"${desc}`;
+			return `**input** \`${action.selector}\`\n→ "${r(action.value)}"${desc}`;
 		case "highlight":
 			return `**highlight** \`${action.selector}\` [${action.style ?? "element"}]${desc}`;
 		case "wait":
@@ -584,32 +601,32 @@ function formatActionText(action) {
 		case "screenshot":
 			return `**screenshot** ${action.label ?? "(auto)"}${desc}`;
 		case "navigate":
-			return `**navigate** ${action.hub} → ${action.tab}${desc}`;
+			return `**navigate** ${r(action.hub)} → ${r(action.tab)}${desc}`;
 		case "assert":
 			if (action.type === "visible" || action.type === "not-visible" || action.type === "text") {
 				return `**assert ${action.type}** \`${action.selector}\`${desc}`;
 			}
-			if (action.type === "event") return `**assert event** \`${action.event}\`${desc}`;
-			if (action.type === "leaf") return `**assert leaf** \`${action.viewType}\`${desc}`;
+			if (action.type === "event") return `**assert event** \`${r(action.event)}\`${desc}`;
+			if (action.type === "leaf") return `**assert leaf** \`${r(action.viewType)}\`${desc}`;
 			return `**assert ${action.type}**${desc}`;
 		case "emit":
-			return `**emit** \`${action.event}\`${desc}`;
+			return `**emit** \`${r(action.event)}\`${desc}`;
 		case "eval":
 			return `**eval**${action.store ? ` → \`${action.store}\`` : ""}${desc}`;
 		case "notice":
-			return `**notice** ${action.message}${desc}`;
+			return `**notice** ${r(action.message)}${desc}`;
 		case "manual":
-			return `**manual**\n${action.instruction}`;
+			return `**manual**\n${r(action.instruction)}`;
 		case "theme":
-			return `**theme** → \`${action.theme}\`${desc}`;
+			return `**theme** → \`${r(action.theme)}\`${desc}`;
 		case "create-file":
-			return `**create-file** \`${action.path}\`${desc}`;
+			return `**create-file** \`${r(action.path)}\`${desc}`;
 		case "delete-file":
-			return `**delete-file** \`${action.path}\`${desc}`;
+			return `**delete-file** \`${r(action.path)}\`${desc}`;
 		case "open-file":
-			return `**open-file** \`${action.path}\`${desc}`;
+			return `**open-file** \`${r(action.path)}\`${desc}`;
 		case "close-leaves":
-			return `**close-leaves** \`${action.viewType}\`${desc}`;
+			return `**close-leaves** \`${r(action.viewType)}\`${desc}`;
 		default:
 			return `**${action.tool}**${desc}`;
 	}
@@ -645,6 +662,8 @@ function generateJourneyCanvas(data, screenshotBasePath, trace, configFilePath) 
 		if (status === "fail") return "FAIL";
 		return "SKIP";
 	};
+
+	const canvasVars = data.variables ?? {};
 
 	const journeySlug = data.journey ?? "unknown";
 	const journeyTitle = journeySlug
@@ -793,7 +812,7 @@ function generateJourneyCanvas(data, screenshotBasePath, trace, configFilePath) 
 			configLines.push("");
 			configLines.push("**Manual QA**:");
 			for (const m of manualActions) {
-				configLines.push(`- [ ] ${m.instruction}`);
+				configLines.push(`- [ ] ${resolveVars(m.instruction, canvasVars)}`);
 			}
 		}
 
@@ -801,7 +820,7 @@ function generateJourneyCanvas(data, screenshotBasePath, trace, configFilePath) 
 		const noticeActions = (s.actions ?? []).filter((a) => a.tool === "notice");
 		if (noticeActions.length > 0) {
 			configLines.push("");
-			configLines.push(`**Notices**: ${noticeActions.map((n) => `*${n.message}*`).join(", ")}`);
+			configLines.push(`**Notices**: ${noticeActions.map((n) => `*${resolveVars(n.message, canvasVars)}*`).join(", ")}`);
 		}
 
 		// Error (if failed)
@@ -847,7 +866,7 @@ function generateJourneyCanvas(data, screenshotBasePath, trace, configFilePath) 
 				const actionGroupNode = {
 					id: gId(actionId),
 					type: "group",
-					label: formatActionText(action),
+					label: formatActionText(action, data.variables),
 					x: actionCenterX,
 					y: actionY,
 					width: ACTION_GROUP_WIDTH,
@@ -1054,6 +1073,8 @@ function buildPerfLines(startupPerf) {
 	const max = round(sorted[sorted.length - 1] ?? 0);
 
 	return [
+		"---",
+		"",
 		"## Performance",
 		"",
 		"> [!tip] Startup",
@@ -1068,6 +1089,8 @@ function buildEventTraceLines(trace) {
 	if (!trace) return [];
 
 	const lines = [
+		"---",
+		"",
 		"## Event Trace",
 		"",
 		"> [!abstract] Trace Summary",
@@ -1188,7 +1211,7 @@ function buildPerfEventStats(perfEvents) {
 		lines.push("#### Startup");
 		lines.push("");
 		if (startupTotal) {
-			lines.push(`Total startup: **${startupTotal.durationMs}ms** (${startupTotal.serviceCount} services)`);
+			lines.push(`Total startup: **${Math.round(startupTotal.durationMs)}ms** (${startupTotal.serviceCount} services)`);
 			lines.push("");
 		}
 		if (startupServices.length > 0) {
@@ -1196,7 +1219,7 @@ function buildPerfEventStats(perfEvents) {
 			lines.push("| Service | Duration |");
 			lines.push("|---|---|");
 			for (const s of sorted) {
-				lines.push(`| ${s.service} | ${s.durationMs}ms |`);
+				lines.push(`| ${s.service} | ${Math.round(s.durationMs)}ms |`);
 			}
 			lines.push("");
 		}
@@ -1204,20 +1227,25 @@ function buildPerfEventStats(perfEvents) {
 
 	// Storage
 	if (storageOps.length > 0) {
+		const STORAGE_OPS_LIMIT = 20;
 		lines.push("#### Storage Operations");
 		lines.push("");
-		const totalLoadMs = storageOps.filter(o => o.op === "load").reduce((s, o) => s + o.durationMs, 0);
-		const totalSaveMs = storageOps.filter(o => o.op === "save").reduce((s, o) => s + o.durationMs, 0);
+		const totalLoadMs = Math.round(storageOps.filter(o => o.op === "load").reduce((s, o) => s + o.durationMs, 0));
+		const totalSaveMs = Math.round(storageOps.filter(o => o.op === "save").reduce((s, o) => s + o.durationMs, 0));
 		lines.push(`Load: ${storageOps.filter(o => o.op === "load").length} ops (${totalLoadMs}ms) | Save: ${storageOps.filter(o => o.op === "save").length} ops (${totalSaveMs}ms)`);
 		lines.push("");
 		lines.push("| Key | Op | Duration | Size |");
 		lines.push("|---|---|---|---|");
 		const sorted = [...storageOps].sort((a, b) => b.durationMs - a.durationMs);
-		for (const o of sorted) {
+		const display = sorted.slice(0, STORAGE_OPS_LIMIT);
+		for (const o of display) {
 			const size = o.sizeBytes > 1024
 				? `${(o.sizeBytes / 1024).toFixed(1)}KB`
 				: `${o.sizeBytes}B`;
-			lines.push(`| ${o.key} | ${o.op} | ${o.durationMs}ms | ${size} |`);
+			lines.push(`| ${o.key} | ${o.op} | ${Math.round(o.durationMs)}ms | ${size} |`);
+		}
+		if (sorted.length > STORAGE_OPS_LIMIT) {
+			lines.push(`| *...and ${sorted.length - STORAGE_OPS_LIMIT} more* | | | |`);
 		}
 		lines.push("");
 	}
@@ -1226,16 +1254,16 @@ function buildPerfEventStats(perfEvents) {
 	if (queries.length > 0) {
 		lines.push("#### Query Execution");
 		lines.push("");
-		const totalMs = queries.reduce((s, q) => s + q.durationMs, 0);
+		const totalMs = Math.round(queries.reduce((s, q) => s + q.durationMs, 0));
 		const avgMs = (totalMs / queries.length).toFixed(1);
 		const maxQ = queries.reduce((m, q) => q.durationMs > m.durationMs ? q : m, queries[0]);
-		lines.push(`Queries: ${queries.length} | Total: ${totalMs}ms | Avg: ${avgMs}ms | Slowest: ${maxQ.queryId} (${maxQ.durationMs}ms)`);
+		lines.push(`Queries: ${queries.length} | Total: ${totalMs}ms | Avg: ${avgMs}ms | Slowest: ${maxQ.queryId} (${Math.round(maxQ.durationMs)}ms)`);
 		lines.push("");
 		lines.push("| Query | Duration | Source Rows | Result Rows |");
 		lines.push("|---|---|---|---|");
 		const sorted = [...queries].sort((a, b) => b.durationMs - a.durationMs);
 		for (const q of sorted) {
-			lines.push(`| ${q.queryId} | ${q.durationMs}ms | ${q.sourceRows} | ${q.resultRows} |`);
+			lines.push(`| ${q.queryId} | ${Math.round(q.durationMs)}ms | ${q.sourceRows} | ${q.resultRows} |`);
 		}
 		lines.push("");
 	}
@@ -1256,13 +1284,13 @@ function buildPerfEventStats(perfEvents) {
 			byType.set(d.eventType, existing);
 		}
 		const sortedByTotal = [...byType.entries()].sort((a, b) => b[1].totalMs - a[1].totalMs);
-		lines.push(`Dispatches: ${dispatches.length} | Total: ${totalMs.toFixed(1)}ms | Avg: ${avgMs}ms`);
+		lines.push(`Dispatches: ${dispatches.length} | Total: ${Math.round(totalMs)}ms | Avg: ${avgMs}ms`);
 		lines.push("");
 		lines.push("| Event | Dispatches | Total | Avg | Max |");
 		lines.push("|---|---|---|---|---|");
 		for (const [type, stats] of sortedByTotal) {
 			const avg = (stats.totalMs / stats.count).toFixed(2);
-			lines.push(`| \`${type}\` | ${stats.count} | ${stats.totalMs.toFixed(1)}ms | ${avg}ms | ${stats.maxMs.toFixed(1)}ms |`);
+			lines.push(`| \`${type}\` | ${stats.count} | ${Math.round(stats.totalMs)}ms | ${avg}ms | ${Math.round(stats.maxMs)}ms |`);
 		}
 		lines.push("");
 	}
@@ -1273,7 +1301,7 @@ function buildPerfEventStats(perfEvents) {
 		lines.push("");
 		lines.push("> [!warning] Threshold Violations");
 		for (const a of alerts) {
-			lines.push(`> - **${a.metric}**: ${a.value}ms (threshold: ${a.threshold}ms)`);
+			lines.push(`> - **${a.metric}**: ${Math.round(a.value)}ms (threshold: ${Math.round(a.threshold)}ms)`);
 		}
 		lines.push("");
 	}
@@ -1463,8 +1491,138 @@ function generateReport() {
 		"",
 	];
 
+	// ── Failures section — surfaces failed steps at the top ──
+	// Collects from two sources:
+	// 1. Journey results (step-level failures with rich errorContext)
+	// 2. Vitest results (test-level failures — catches retried tests that
+	//    passed in the journey runner but are still recorded as failed in vitest)
+
+	const failedSteps = [];
+	for (const { title, data } of journeyReportNames) {
+		for (const stepResult of (data.steps ?? [])) {
+			if (stepResult.status === "fail") {
+				failedSteps.push({ journeyTitle: title, stepResult });
+			}
+		}
+	}
+
+	// Vitest-level failures not captured by journey results (e.g. retry dedup)
+	const vitestFailures = [];
+	if (vitest) {
+		for (const suite of vitest.suites) {
+			for (const c of suite.cases) {
+				if (c.status !== "failed") continue;
+				vitestFailures.push({ suite: suite.name, testCase: c, hookError: suite.hookError });
+			}
+			// Surface hook-level failures (beforeAll crashed, no individual test failed)
+			if (suite.suiteHookFailed && suite.cases.filter((c) => c.status === "failed").length === 0) {
+				vitestFailures.push({
+					suite: suite.name,
+					testCase: { name: "Hook failure (beforeAll)", status: "failed", durationMs: 0, error: suite.hookError },
+					hookError: suite.hookError,
+				});
+			}
+		}
+	}
+
+	const totalFailures = failedSteps.length + vitestFailures.length;
+
+	if (totalFailures > 0) {
+		lines.push("---", "");
+		lines.push(`## Failures (${totalFailures})`, "");
+
+		// Journey-level failures (rich context)
+		for (const { journeyTitle, stepResult } of failedSteps) {
+			const s = stepResult.step;
+			const stepLabel = `Step ${s.guideSection}: ${s.title}`;
+
+			lines.push(`### ${stepLabel} [FAIL]`);
+			lines.push("");
+			lines.push(
+				`> [!danger] ${journeyTitle} — ${stepLabel} (${formatDuration(stepResult.durationMs)})`,
+			);
+			if (stepResult.error) {
+				lines.push(`> **Error**: ${stepResult.error}`);
+			}
+			lines.push("");
+
+			// Compact error trace for quick diagnosis
+			if (stepResult.errorContext) {
+				const ctx = stepResult.errorContext;
+				lines.push("> [!bug] Trace");
+
+				if (ctx.domSnapshot) {
+					const ds = ctx.domSnapshot;
+					lines.push(
+						`> View: \`${ds.activeViewType}\` | Leaves: ${ds.leafCount} | Modal: ${ds.hasModal ? "yes" : "no"}`,
+					);
+					if (ds.notices && ds.notices.length > 0) {
+						lines.push(
+							`> Notices: ${ds.notices.map((n) => `\`${n.substring(0, 80)}\``).join(", ")}`,
+						);
+					}
+				}
+
+				if (ctx.recentEvents && ctx.recentEvents.length > 0) {
+					lines.push(">");
+					lines.push("> **Recent Events**:");
+					for (const e of ctx.recentEvents) {
+						lines.push(`> - \`${e.type}\` (${e.relativeMs}ms ago)`);
+					}
+				}
+
+				if (ctx.consoleErrors && ctx.consoleErrors.length > 0) {
+					lines.push(">");
+					lines.push("> **Console Errors**:");
+					for (const e of ctx.consoleErrors) {
+						lines.push(`> - \`${e.substring(0, 120)}\``);
+					}
+				}
+
+				if (ctx.pluginState) {
+					lines.push(">");
+					lines.push(
+						`> Plugin: loaded=${ctx.pluginState.loaded}, services=${ctx.pluginState.serviceCount}`,
+					);
+				}
+				lines.push("");
+			}
+
+			lines.push(`Details: [[${journeyTitle}#${stepLabel} FAIL]] | Canvas: [[${journeyTitle}.canvas|Canvas]]`);
+			lines.push("");
+		}
+
+		// Vitest-level failures (catches retries that passed in journey runner
+		// but are still recorded as failed by vitest's first-attempt tracking)
+		if (vitestFailures.length > 0) {
+			if (failedSteps.length > 0) {
+				lines.push("---", "");
+			}
+			const label = failedSteps.length > 0
+				? "### Vitest Failures (not captured by journey runner)"
+				: "### Test Runner Failures";
+			lines.push(label, "");
+
+			for (const { suite, testCase, hookError } of vitestFailures) {
+				const dur = testCase.durationMs > 0 ? ` (${formatDuration(testCase.durationMs)})` : "";
+				lines.push(`> [!danger] ${suite} — ${testCase.name}${dur}`);
+				if (testCase.error) {
+					// First line of vitest error (often includes the assertion message)
+					const firstLine = testCase.error.split("\n")[0].substring(0, 200);
+					lines.push(`> **Error**: ${firstLine}`);
+				}
+				if (hookError && !testCase.error) {
+					const firstLine = hookError.split("\n")[0].substring(0, 200);
+					lines.push(`> **Hook error**: ${firstLine}`);
+				}
+				lines.push("");
+			}
+		}
+	}
+
 	// Action coverage summary (aggregate across all journeys)
 	if (aggregateActions.total > 0) {
+		lines.push("---", "");
 		lines.push("## Action Coverage", "");
 		lines.push(
 			`> [!abstract] ${aggregateActions.total} actions across ${journeys.length} journeys`,
@@ -1498,6 +1656,7 @@ function generateReport() {
 
 	// Units Under Test — show test source files for context
 	if (vitest && vitest.suites.length > 0) {
+		lines.push("---", "");
 		lines.push("## Units Under Test", "");
 		for (const suite of vitest.suites) {
 			const relativePath = path.relative(PLUGIN_ROOT, suite.file).replace(/\\/g, "/");
@@ -1508,6 +1667,7 @@ function generateReport() {
 
 	// Test suites section
 	if (vitest) {
+		lines.push("---", "");
 		lines.push("## Test Suites", "");
 
 		for (const suite of vitest.suites) {
@@ -1569,6 +1729,7 @@ function generateReport() {
 
 	// Journey summary section — wikilinks to dedicated journey reports
 	if (journeyReportNames.length > 0) {
+		lines.push("---", "");
 		lines.push("## Journeys", "");
 
 		for (const { title, data } of journeyReportNames) {
