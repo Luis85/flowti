@@ -108,24 +108,28 @@ function formatDuration(ms) {
  *   - "skipped" → "warning"
  */
 function statusCallout(status) {
+	if (status === "partial-pass") return "warning";
 	if (status === "skipped") return "warning";
 	return status === "pass" ? "success" : "danger";
 }
 
 /**
  * Determines a suite/journey result status.
- *   - "pass"    — at least one test passed, none failed
- *   - "fail"    — one or more tests failed
- *   - "skipped" — zero tests ran (upstream failure caused skip)
+ *   - "pass"         — at least one test passed, none failed, none skipped
+ *   - "partial-pass" — at least one test passed, none failed, but some skipped
+ *   - "fail"         — one or more tests failed
+ *   - "skipped"      — zero tests ran (upstream failure caused skip)
  */
-function resolveStatus(passed, failed, total) {
+function resolveStatus(passed, failed, total, skipped = 0) {
 	if (failed > 0) return "fail";
+	if (passed > 0 && skipped > 0) return "partial-pass";
 	if (passed > 0) return "pass";
 	if (total === 0) return "skipped";
 	return "skipped";
 }
 
 function statusLabel(status) {
+	if (status === "partial-pass") return "PARTIAL PASS";
 	if (status === "skipped") return "SKIPPED";
 	return status === "pass" ? "PASS" : "FAIL";
 }
@@ -291,7 +295,8 @@ function generateJourneyReport(data, date) {
 	const totalSteps = data.totalSteps ?? 0;
 	const passedSteps = data.passed ?? 0;
 	const failedSteps = data.failed ?? 0;
-	const journeyStatus = resolveStatus(passedSteps, failedSteps, totalSteps);
+	const skippedSteps = data.skipped ?? 0;
+	const journeyStatus = resolveStatus(passedSteps, failedSteps, totalSteps, skippedSteps);
 	const actionStats = computeActionStats(data);
 
 	const fm = {
@@ -302,6 +307,7 @@ function generateJourneyReport(data, date) {
 		total_steps: totalSteps,
 		passed: passedSteps,
 		failed: failedSteps,
+		skipped: skippedSteps,
 		total_actions: actionStats.total,
 		screenshots: actionStats.screenshots,
 		assertions: actionStats.assertions,
@@ -317,12 +323,14 @@ function generateJourneyReport(data, date) {
 			: "[]",
 		duration_ms: data.durationMs ?? 0,
 		duration: formatDuration(data.durationMs ?? 0),
-		success: journeyStatus === "pass",
+		success: journeyStatus === "pass" || journeyStatus === "partial-pass",
 		status: journeyStatus,
 		...(data.testSource ? { test_source: `"[[${data.testSource}]]"` } : {}),
 		e2e_report: `"[[E2E Report]]"`,
 		canvas: `"[[${journeyTitle}]]"`,
-		tags: "\n  - report\n  - e2e\n  - journey",
+		tags: journeyStatus === "partial-pass"
+			? "\n  - report\n  - e2e\n  - journey\n  - partial"
+			: "\n  - report\n  - e2e\n  - journey",
 	};
 
 	const JOURNEY_PREFORMATTED = new Set(["tags", "test_source", "e2e_report", "canvas", "tools"]);
@@ -336,12 +344,17 @@ function generateJourneyReport(data, date) {
 		"---",
 	].join("\n");
 
+	const titleSuffix = journeyStatus === "partial-pass" ? " (Partial)" : "";
+	const stepsSummary = skippedSteps > 0
+		? `${passedSteps}/${totalSteps} steps (${skippedSteps} skipped)`
+		: `${passedSteps}/${totalSteps} steps`;
+
 	const lines = [
 		"",
-		`# Journey: ${journeyTitle}`,
+		`# Journey: ${journeyTitle}${titleSuffix}`,
 		"",
 		`> [!${statusCallout(journeyStatus)}] ${statusLabel(journeyStatus)} — ` +
-		`${passedSteps}/${totalSteps} steps | ` +
+		`${stepsSummary} | ` +
 		`${formatDuration(data.durationMs ?? 0)}`,
 		`> Mode: **${fm.mode}** | Source: \`${data.testSource ?? "unknown"}\``,
 		`> Actions: ${actionStats.total} | Screenshots: ${actionStats.screenshots} | Assertions: ${actionStats.assertions} | Manual: ${actionStats.manual_checks} | Notices: ${actionStats.notices}` + (actionStats.theme_changes > 0 ? ` | Themes: ${actionStats.theme_changes}` : ""),
@@ -508,7 +521,7 @@ function generateJourneyReport(data, date) {
 
 	const content = frontmatter + lines.join("\n");
 
-	return { title: journeyTitle, content };
+	return { title: journeyTitle, status: journeyStatus, content };
 }
 
 // ── Canvas Layout Constants ─────────────────────────────────────
@@ -672,8 +685,10 @@ function generateJourneyCanvas(data, screenshotBasePath, trace, configFilePath) 
 	const steps = data.steps ?? [];
 	const passedSteps = data.passed ?? 0;
 	const failedSteps = data.failed ?? 0;
+	const skippedSteps = data.skipped ?? 0;
 	const totalSteps = data.totalSteps ?? 0;
 	const journeyPassed = failedSteps === 0 && passedSteps > 0;
+	const journeyPartial = journeyPassed && skippedSteps > 0;
 
 	const circleCenterY = Math.round((GROUP_HEIGHT - CIRCLE_HEIGHT) / 2);
 
@@ -967,10 +982,12 @@ function generateJourneyCanvas(data, screenshotBasePath, trace, configFilePath) 
 
 	// ── END node (circle) ──
 	const endX = eventsX + EVENTS_SIZE + GROUP_SPACING_X;
-	const endText = journeyPassed
-		? `# PASS\n${passedSteps}/${totalSteps} steps\n${formatDuration(data.durationMs ?? 0)}`
-		: `# FAIL\n${passedSteps}/${totalSteps} steps\n${formatDuration(data.durationMs ?? 0)}`;
-	const endColor = journeyPassed ? "4" : "1";
+	const endLabel = journeyPartial ? "PARTIAL PASS" : journeyPassed ? "PASS" : "FAIL";
+	const stepsSummary = skippedSteps > 0
+		? `${passedSteps}/${totalSteps} steps (${skippedSteps} skipped)`
+		: `${passedSteps}/${totalSteps} steps`;
+	const endText = `# ${endLabel}\n${stepsSummary}\n${formatDuration(data.durationMs ?? 0)}`;
+	const endColor = journeyPartial ? "5" : journeyPassed ? "4" : "1";
 
 	nodes.push({
 		id: nId("end"),
@@ -1309,13 +1326,23 @@ function buildPerfEventStats(perfEvents) {
 	return lines;
 }
 
-/** Copies screenshot .png files from src to dest directory. */
+/** Copies screenshot .png files from src to dest directory, removing stale dest files first. */
 function copyScreenshots(srcDir, destDir) {
 	if (!fs.existsSync(srcDir)) return;
 
 	fs.mkdirSync(destDir, { recursive: true });
-	for (const file of fs.readdirSync(srcDir)) {
+
+	// Remove stale screenshots in dest that are not in src
+	const srcFiles = new Set(fs.readdirSync(srcDir).filter((f) => f.endsWith(".png")));
+	for (const file of fs.readdirSync(destDir)) {
 		if (!file.endsWith(".png")) continue;
+		if (!srcFiles.has(file)) {
+			fs.rmSync(path.join(destDir, file), { force: true });
+		}
+	}
+
+	// Copy current screenshots
+	for (const file of srcFiles) {
 		fs.copyFileSync(path.join(srcDir, file), path.join(destDir, file));
 	}
 }
@@ -1340,7 +1367,7 @@ function generateReport() {
 	const journeyReportNames = [];
 
 	for (const { dir, data } of journeys) {
-		const { title, content } = generateJourneyReport(data, date);
+		const { title, status: jReportStatus, content } = generateJourneyReport(data, date);
 		const filename = `${title}.md`;
 		const canvasFilename = `${title}.canvas`;
 		journeyReportNames.push({ title, data });
@@ -1357,8 +1384,14 @@ function generateReport() {
 
 		// Dev vault — current status file at journey root (stable name, overwrites)
 		// e.g. docs/journeys/Getting Started/Getting Started.md
+		// Convert wikilink screenshot embeds to relative markdown embeds
+		// so Obsidian resolves them via path (vault index may not cover Development/)
+		const devContent = content.replace(
+			/!\[\[([^\]]+\.png)\]\]/g,
+			(_, file) => `![](screenshots/${file})`,
+		);
 		const devJourneyDir = path.join(DEV_JOURNEYS_DIR, title);
-		writeReport(devJourneyDir, filename, content, "JourneyReport mirrored");
+		writeReport(devJourneyDir, filename, devContent, "JourneyReport mirrored");
 
 		// Mirror config JSON (step definitions without runtime data)
 		const configFile = path.join(dir, `${title}-config.json`);
@@ -1375,10 +1408,16 @@ function generateReport() {
 
 		// Dev vault — timestamped archive in past-tests/ subfolder
 		// e.g. docs/journeys/Getting Started/past-tests/2026-02-28T16-02-04.162Z-Getting Started.md
+		// Archived reports point up one level to the shared screenshots/ folder
+		const archivedContent = content.replace(
+			/!\[\[([^\]]+\.png)\]\]/g,
+			(_, file) => `![](../screenshots/${file})`,
+		);
 		const safeTs = now.toISOString().replace(/:/g, "-");
+		const archiveSuffix = jReportStatus === "partial-pass" ? " (Partial)" : "";
 		const pastTestsDir = path.join(devJourneyDir, "past-tests");
-		writeReport(pastTestsDir, `${safeTs}-${title}.md`, content, "JourneyReport archived");
-		writeReport(pastTestsDir, `${safeTs}-${title}.canvas`, JSON.stringify(devCanvas, null, "\t"), "JourneyCanvas archived");
+		writeReport(pastTestsDir, `${safeTs}-${title}${archiveSuffix}.md`, archivedContent, "JourneyReport archived");
+		writeReport(pastTestsDir, `${safeTs}-${title}${archiveSuffix}.canvas`, JSON.stringify(devCanvas, null, "\t"), "JourneyCanvas archived");
 
 		// Copy screenshots into the journey's own folder in dev vault
 		const srcScreenshots = path.join(dir, "screenshots");
@@ -1391,6 +1430,14 @@ function generateReport() {
 	const totalFailed = vitest?.totalFailed ?? 0;
 	const totalSkipped = vitest?.totalSkipped ?? 0;
 	const totalTests = vitest?.totalTests ?? 0;
+
+	// Journey-level skipped steps (step filter, setup failure, skip-mode)
+	const journeySkippedSteps = journeys.reduce((sum, { data }) => sum + (data.skipped ?? 0), 0);
+	// Mode-based partial detection: not "full" means a subset of journeys was selected
+	const isPartialMode = resolveMode() !== "full";
+	// Effective skipped count: vitest skipped + journey-level skipped steps
+	const effectiveSkipped = totalSkipped + journeySkippedSteps + (isPartialMode ? 1 : 0);
+	const overallStatus = resolveStatus(totalPassed, totalFailed, totalTests, effectiveSkipped);
 
 	const totalDurationMs = vitest?.durationMs ?? 0;
 
@@ -1450,7 +1497,8 @@ function generateReport() {
 		duration_ms: totalDurationMs,
 		duration: formatDuration(totalDurationMs),
 		journeys: journeys.length,
-		success: totalFailed === 0,
+		status: overallStatus,
+		success: overallStatus === "pass" || overallStatus === "partial-pass",
 		trace_events: trace?.summary?.totalEvents ?? 0,
 		trace_perf_events: trace?.summary?.perfEvents ?? 0,
 		startup_p50: startupPerf ? round(percentile([...startupPerf.history].sort((a, b) => a - b), 0.5)) : 0,
@@ -1466,7 +1514,9 @@ function generateReport() {
 		event_trace: `"[[Event Trace]]"`,
 		event_trace_json: `"[[Event Trace.json]]"`,
 		event_trace_csv: `"[[Event Trace.csv]]"`,
-		tags: "\n  - report\n  - e2e",
+		tags: overallStatus === "partial-pass"
+			? "\n  - report\n  - e2e\n  - partial"
+			: "\n  - report\n  - e2e",
 	};
 
 	const PREFORMATTED_KEYS = new Set(["tags", "test_suites", "journey_reports", "journey_canvases", "event_trace", "event_trace_json", "event_trace_csv", "tools"]);
@@ -1480,14 +1530,17 @@ function generateReport() {
 		"---",
 	].join("\n");
 
+	const reportTitleSuffix = overallStatus === "partial-pass" ? " (Partial)" : "";
+	const overallCallout = statusCallout(overallStatus);
+	const overallLabel = statusLabel(overallStatus);
+
 	const lines = [
 		"",
-		"# E2E Report",
+		`# E2E Report${reportTitleSuffix}`,
 		"",
-		"> [!info] Summary",
+		`> [!${overallCallout}] Summary — ${overallLabel}`,
 		`> Mode: **${fm.mode}** | Tests: ${totalTests} | Passed: ${totalPassed} | Failed: ${totalFailed} | Skipped: ${totalSkipped}`,
 		`> Duration: ${formatDuration(totalDurationMs)}`,
-		`> Result: ${fm.success ? "PASS" : "FAIL"}`,
 		"",
 	];
 
@@ -1733,15 +1786,20 @@ function generateReport() {
 		lines.push("## Journeys", "");
 
 		for (const { title, data } of journeyReportNames) {
-			const jStatus = resolveStatus(data.passed ?? 0, data.failed ?? 0, data.totalSteps ?? 0);
+			const jSkipped = data.skipped ?? 0;
+			const jStatus = resolveStatus(data.passed ?? 0, data.failed ?? 0, data.totalSteps ?? 0, jSkipped);
 			const callout = statusCallout(jStatus);
 			const stats = perJourneyStats.get(data.journey);
+			const jTitleSuffix = jStatus === "partial-pass" ? " (Partial)" : "";
+			const jStepsSummary = jSkipped > 0
+				? `${data.passed ?? 0}/${data.totalSteps ?? 0} steps (${jSkipped} skipped)`
+				: `${data.passed ?? 0}/${data.totalSteps ?? 0} steps`;
 
-			lines.push(`### Journey: ${title}`);
+			lines.push(`### Journey: ${title}${jTitleSuffix}`);
 			lines.push("");
 			lines.push(
 				`> [!${callout}] ${statusLabel(jStatus)} — ` +
-				`${data.passed ?? 0}/${data.totalSteps ?? 0} steps | ` +
+				`${jStepsSummary} | ` +
 				`${formatDuration(data.durationMs ?? 0)}`,
 			);
 			if (stats && stats.total > 0) {
@@ -1761,7 +1819,8 @@ function generateReport() {
 	const content = frontmatter + lines.join("\n");
 
 	const safeTimestamp = now.toISOString().replace(/:/g, "-");
-	const e2eFilename = `${safeTimestamp}-e2e-report.md`;
+	const e2ePartialSuffix = overallStatus === "partial-pass" ? " (Partial)" : "";
+	const e2eFilename = `${safeTimestamp}-e2e-report${e2ePartialSuffix}.md`;
 
 	// Write to test vault — root of vault, stable name (overwrites previous run)
 	writeReport(TEST_VAULT, "E2E Report.md", content, "E2EReport written");

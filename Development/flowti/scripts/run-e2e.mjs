@@ -66,6 +66,20 @@ function askYesNo(rl, question, defaultNo = true) {
 	});
 }
 
+// ── File explorer helpers ────────────────────────────────────────────
+
+function collapseFileExplorer() {
+	try {
+		execSync(
+			`obsidian vault=${VAULT_NAME} eval code="(() => { const explorer = app.workspace.getLeavesOfType('file-explorer')[0]; if (explorer && explorer.view) { const foldStatus = explorer.view.fileItems; if (foldStatus) { Object.values(foldStatus).forEach(item => { if (item.collapsed !== undefined) item.setCollapsed(true); }); } } })()"`,
+			{ stdio: "pipe", timeout: 10_000 },
+		);
+		console.log("  \x1b[32m✓\x1b[0m File navigator folders collapsed");
+	} catch {
+		// Non-fatal — file explorer may not be visible
+	}
+}
+
 // ── Prerequisites check (local filesystem + single CLI ping) ────────
 
 function checkPrerequisites() {
@@ -227,15 +241,7 @@ async function teardownVault() {
 	}
 
 	// 6. Collapse all folders in the file navigator
-	try {
-		execSync(
-			`obsidian vault=${VAULT_NAME} eval code="(() => { const explorer = app.workspace.getLeavesOfType('file-explorer')[0]; if (explorer && explorer.view) { const foldStatus = explorer.view.fileItems; if (foldStatus) { Object.values(foldStatus).forEach(item => { if (item.collapsed !== undefined) item.setCollapsed(true); }); } } })()"`,
-			{ stdio: "pipe", timeout: 10_000 },
-		);
-		console.log("  \x1b[32m✓\x1b[0m File navigator folders collapsed");
-	} catch {
-		// Non-fatal — file explorer may not be visible
-	}
+	collapseFileExplorer();
 
 	console.log("\n  \x1b[32m✓\x1b[0m Fresh state — run again to start a new session.\n");
 }
@@ -649,15 +655,188 @@ function quickBuildAndDeploy() {
 function readBuildStats() {
 	const buildFile = findLatestReport(path.join(REPORTS_DIR, "builds"));
 	const testFile = findLatestReport(path.join(REPORTS_DIR, "tests"));
-	const coverageDir = path.join(REPORTS_DIR, "coverage", "runs");
+	const coverageDir = path.join(REPORTS_DIR, "coverage");
 	const coverageFile = findLatestReport(coverageDir);
+	const perfFile = findLatestReport(path.join(REPORTS_DIR, "performance"));
+	const cycleFile = findLatestReport(path.join(REPORTS_DIR, "cycles"));
+	const e2eFile = path.join(REPORTS_DIR, "e2e", "E2E Report.md");
+	const traceFile = path.join(REPORTS_DIR, "traceability", "Trace Conformance Report.md");
 
 	return {
 		build: buildFile ? parseFrontmatter(buildFile) : null,
 		test: testFile ? parseFrontmatter(testFile) : null,
 		coverage: coverageFile ? parseFrontmatter(coverageFile) : null,
+		performance: perfFile ? parseFrontmatter(perfFile) : null,
+		cycle: cycleFile ? parseFrontmatter(cycleFile) : null,
+		e2e: fs.existsSync(e2eFile) ? parseFrontmatter(e2eFile) : null,
+		traceability: fs.existsSync(traceFile) ? parseFrontmatter(traceFile) : null,
 		unitTests: readTestStats(),
 	};
+}
+
+/**
+ * Generates the Increment State Report — a consolidated snapshot of all
+ * quality metrics at the time of the increment build.
+ * Written to both the test vault root and dev vault root.
+ */
+function generateIncrementStateReport(exitCode, duration, stats) {
+	const DEV_VAULT_ROOT = path.resolve(PLUGIN_ROOT, "..", "..");
+	const now = new Date();
+	const status = exitCode === 0 ? "pass" : "fail";
+
+	const b = stats.build ?? {};
+	const t = stats.test ?? {};
+	const c = stats.coverage ?? {};
+	const e = stats.e2e ?? {};
+	const p = stats.performance ?? {};
+	const cy = stats.cycle ?? {};
+	const ut = stats.unitTests;
+
+	const sizeKb = b.total_bytes ? Math.round(b.total_bytes / 1024) : 0;
+	const linesPct = c.lines_pct ?? c.line_pct ?? c.line_percent ?? 0;
+	const branchesPct = c.branches_pct ?? 0;
+	const functionsPct = c.functions_pct ?? 0;
+	const cycle = cy.cycle ?? cy.number ?? "";
+
+	const lines = [
+		"---",
+		"type: IncrementStateReport",
+		`date: "${now.toISOString()}"`,
+		`status: ${status}`,
+		`duration_s: ${duration}`,
+		...(cycle ? [`cycle: ${cycle}`] : []),
+		`plugin_version: ${b.plugin_version ?? "?"}`,
+		"# Build",
+		`bundle_size_kb: ${sizeKb}`,
+		`build_duration_ms: ${b.duration_ms ?? 0}`,
+		`build_warnings: ${b.warnings_count ?? 0}`,
+		`build_errors: ${b.errors_count ?? 0}`,
+		"# Unit Tests",
+		`unit_total: ${ut.totalTests}`,
+		`unit_passed: ${ut.passed}`,
+		`unit_failed: ${ut.failed}`,
+		`unit_skipped: ${ut.skipped}`,
+		`unit_suites: ${t.suites ?? 0}`,
+		"# Coverage",
+		`lines_pct: ${linesPct}`,
+		`branches_pct: ${branchesPct}`,
+		`functions_pct: ${functionsPct}`,
+		"# E2E",
+		`e2e_total: ${e.total_tests ?? 0}`,
+		`e2e_passed: ${e.passed ?? 0}`,
+		`e2e_failed: ${e.failed ?? 0}`,
+		`e2e_journeys: ${e.journeys ?? 0}`,
+		`e2e_actions: ${e.total_actions ?? 0}`,
+		"# Performance",
+		`startup_p50_ms: ${p.startup_p50 ?? t.startup_p50 ?? 0}`,
+		`startup_p95_ms: ${p.startup_p95 ?? t.startup_p95 ?? 0}`,
+		"tags:",
+		"  - increment",
+		"  - state-report",
+		"---",
+		"",
+		"# Increment State Report",
+		"",
+		`> [!${status === "pass" ? "success" : "danger"}] **${status.toUpperCase()}** — ${now.toISOString().slice(0, 16).replace("T", " ")}`,
+		...(cycle ? [`> Cycle ${cycle} | ` + `v${b.plugin_version ?? "?"} | ${duration}s`] : [`> v${b.plugin_version ?? "?"} | ${duration}s`]),
+		"",
+		"## Build",
+		"",
+		"| Metric | Value |",
+		"|---|---|",
+		`| Bundle Size | ${sizeKb} KB |`,
+		`| Build Duration | ${b.duration_ms ?? "?"} ms |`,
+		`| Plugin Version | ${b.plugin_version ?? "?"} |`,
+		`| Warnings | ${b.warnings_count ?? 0} |`,
+		`| Errors | ${b.errors_count ?? 0} |`,
+		"",
+		"## Unit Tests",
+		"",
+	];
+
+	if (ut.totalTests > 0) {
+		const icon = ut.failed === 0 ? "success" : "danger";
+		lines.push(`> [!${icon}] ${ut.passed}/${ut.totalTests} passed | ${t.suites ?? "?"} suites`);
+		lines.push("");
+		lines.push("| Metric | Value |");
+		lines.push("|---|---|");
+		lines.push(`| Total | ${ut.totalTests} |`);
+		lines.push(`| Passed | ${ut.passed} |`);
+		lines.push(`| Failed | ${ut.failed} |`);
+		lines.push(`| Skipped | ${ut.skipped} |`);
+		lines.push(`| Suites | ${t.suites ?? "?"} |`);
+		if (t.duration_ms) lines.push(`| Duration | ${Math.round(t.duration_ms / 1000)}s |`);
+	} else {
+		lines.push("> No unit test data available.");
+	}
+	lines.push("");
+
+	lines.push("## Coverage");
+	lines.push("");
+	if (linesPct > 0) {
+		lines.push("| Metric | Value |");
+		lines.push("|---|---|");
+		lines.push(`| Lines | ${linesPct}% |`);
+		lines.push(`| Branches | ${branchesPct}% |`);
+		lines.push(`| Functions | ${functionsPct}% |`);
+		if (c.files_covered) lines.push(`| Files | ${c.files_covered} |`);
+	} else {
+		lines.push("> No coverage data available.");
+	}
+	lines.push("");
+
+	lines.push("## E2E Tests");
+	lines.push("");
+	if ((e.total_tests ?? 0) > 0) {
+		const icon = (e.failed ?? 0) === 0 ? "success" : "danger";
+		lines.push(`> [!${icon}] ${e.passed}/${e.total_tests} passed | ${e.journeys ?? "?"} journeys`);
+		lines.push("");
+		lines.push("| Metric | Value |");
+		lines.push("|---|---|");
+		lines.push(`| Total | ${e.total_tests} |`);
+		lines.push(`| Passed | ${e.passed} |`);
+		lines.push(`| Failed | ${e.failed} |`);
+		lines.push(`| Journeys | ${e.journeys} |`);
+		lines.push(`| Actions | ${e.total_actions} |`);
+		lines.push(`| Screenshots | ${e.total_screenshots ?? "?"} |`);
+		if (e.duration) lines.push(`| Duration | ${e.duration} |`);
+	} else {
+		lines.push("> No E2E data available.");
+	}
+	lines.push("");
+
+	lines.push("## Performance");
+	lines.push("");
+	const p50 = p.startup_p50 ?? t.startup_p50;
+	if (p50) {
+		lines.push("| Metric | Value |");
+		lines.push("|---|---|");
+		lines.push(`| Startup p50 | ${p50} ms |`);
+		lines.push(`| Startup p95 | ${p.startup_p95 ?? t.startup_p95 ?? "?"} ms |`);
+		lines.push(`| Startup Max | ${p.startup_max ?? t.startup_max ?? "?"} ms |`);
+		if (p.data_json_size_bytes || t.data_json_size_bytes) {
+			const djSize = p.data_json_size_bytes ?? t.data_json_size_bytes;
+			lines.push(`| data.json | ${(djSize / (1024 * 1024)).toFixed(1)} MB |`);
+		}
+	} else {
+		lines.push("> No performance data available.");
+	}
+	lines.push("");
+
+	const content = lines.join("\n");
+	const filename = "Increment State Report.md";
+
+	// Write to test vault root
+	const testPath = path.join(TEST_VAULT, filename);
+	fs.writeFileSync(testPath, content, "utf-8");
+	console.log(`  \x1b[32m✓\x1b[0m Increment State Report: ${testPath}`);
+
+	// Write to dev vault root
+	const devPath = path.join(DEV_VAULT_ROOT, filename);
+	fs.writeFileSync(devPath, content, "utf-8");
+	console.log(`  \x1b[32m✓\x1b[0m Increment State Report: ${devPath}`);
+
+	return { testPath, devPath };
 }
 
 function printIncrementSummary(exitCode, duration, stats) {
@@ -712,28 +891,242 @@ function runIncrementBuild() {
 	const duration = ((Date.now() - startTime) / 1000).toFixed(1);
 	const stats = readBuildStats();
 	printIncrementSummary(exitCode, duration, stats);
+	generateIncrementStateReport(exitCode, duration, stats);
+	return exitCode;
+}
+
+// ── Publish ─────────────────────────────────────────────────────────
+
+function printPublishSummary(exitCode, duration, stats) {
+	const reset = "\x1b[0m";
+	const green = "\x1b[32m";
+	const red = "\x1b[31m";
+	const dim = "\x1b[2m";
+	const statusIcon = exitCode === 0 ? `${green}✓ PASS${reset}` : `${red}✗ FAIL${reset}`;
+
+	console.log(`\n  ${"═".repeat(50)}`);
+	console.log(`  Publish Results`);
+	console.log(`  ${"═".repeat(50)}\n`);
+	console.log(`  Status:       ${statusIcon}`);
+	console.log(`  Duration:     ${duration}s`);
+
+	if (stats.build) {
+		const sizeKb = stats.build.total_bytes ? Math.round(stats.build.total_bytes / 1024) : "?";
+		console.log(`  Bundle:       ${sizeKb} KB`);
+		console.log(`  Version:      ${stats.build.plugin_version ?? "?"}`);
+		if (stats.build.warnings_count > 0) {
+			console.log(`  Warnings:     ${red}${stats.build.warnings_count}${reset}`);
+		}
+	}
+
+	const ut = stats.unitTests;
+	if (ut.totalTests > 0) {
+		const failColor = ut.failed > 0 ? red : green;
+		console.log(`  Tests:        ${green}${ut.passed}${reset} passed, ${failColor}${ut.failed}${reset} failed, ${dim}${ut.skipped} skipped${reset} ${dim}(${ut.totalTests} total)${reset}`);
+	}
+
+	if (stats.coverage) {
+		const cov = stats.coverage;
+		const pct = cov.line_pct ?? cov.lines_pct ?? cov.line_percent;
+		if (pct != null) {
+			console.log(`  Coverage:     ${pct}%`);
+		}
+	}
+
+	console.log();
+}
+
+/**
+ * Generates the Publish State Report — a consolidated snapshot of all
+ * quality metrics at the time of the release publish.
+ * Written to the dev vault root.
+ */
+function generatePublishStateReport(exitCode, duration, stats) {
+	const DEV_VAULT_ROOT = path.resolve(PLUGIN_ROOT, "..", "..");
+	const now = new Date();
+	const status = exitCode === 0 ? "pass" : "fail";
+
+	const b = stats.build ?? {};
+	const t = stats.test ?? {};
+	const c = stats.coverage ?? {};
+	const p = stats.performance ?? {};
+	const cy = stats.cycle ?? {};
+	const tr = stats.traceability ?? {};
+	const ut = stats.unitTests;
+
+	const sizeKb = b.total_bytes ? Math.round(b.total_bytes / 1024) : 0;
+	const linesPct = c.lines_pct ?? c.line_pct ?? c.line_percent ?? 0;
+	const branchesPct = c.branches_pct ?? 0;
+	const functionsPct = c.functions_pct ?? 0;
+	const cycle = cy.cycle ?? cy.number ?? "";
+
+	const lines = [
+		"---",
+		"type: PublishStateReport",
+		`date: "${now.toISOString()}"`,
+		`status: ${status}`,
+		`duration_s: ${duration}`,
+		...(cycle ? [`cycle: ${cycle}`] : []),
+		`plugin_version: ${b.plugin_version ?? "?"}`,
+		"# Build",
+		`bundle_size_kb: ${sizeKb}`,
+		`build_duration_ms: ${b.duration_ms ?? 0}`,
+		`build_warnings: ${b.warnings_count ?? 0}`,
+		`build_errors: ${b.errors_count ?? 0}`,
+		"# Unit Tests",
+		`unit_total: ${ut.totalTests}`,
+		`unit_passed: ${ut.passed}`,
+		`unit_failed: ${ut.failed}`,
+		`unit_skipped: ${ut.skipped}`,
+		`unit_suites: ${t.suites ?? 0}`,
+		"# Coverage",
+		`lines_pct: ${linesPct}`,
+		`branches_pct: ${branchesPct}`,
+		`functions_pct: ${functionsPct}`,
+		"# Traceability",
+		`trace_total: ${tr.total_events ?? 0}`,
+		`trace_linked: ${tr.linked ?? 0}`,
+		`trace_unlinked: ${tr.unlinked ?? 0}`,
+		"# Performance",
+		`startup_p50_ms: ${p.startup_p50 ?? t.startup_p50 ?? 0}`,
+		`startup_p95_ms: ${p.startup_p95 ?? t.startup_p95 ?? 0}`,
+		"tags:",
+		"  - publish",
+		"  - state-report",
+		"---",
+		"",
+		"# Publish State Report",
+		"",
+		`> [!${status === "pass" ? "success" : "danger"}] **${status.toUpperCase()}** — ${now.toISOString().slice(0, 16).replace("T", " ")}`,
+		...(cycle ? [`> Cycle ${cycle} | v${b.plugin_version ?? "?"} | ${duration}s`] : [`> v${b.plugin_version ?? "?"} | ${duration}s`]),
+		"",
+		"## Build",
+		"",
+		"| Metric | Value |",
+		"|---|---|",
+		`| Bundle Size | ${sizeKb} KB |`,
+		`| Build Duration | ${b.duration_ms ?? "?"} ms |`,
+		`| Plugin Version | ${b.plugin_version ?? "?"} |`,
+		`| Warnings | ${b.warnings_count ?? 0} |`,
+		`| Errors | ${b.errors_count ?? 0} |`,
+		"",
+		"## Unit Tests",
+		"",
+	];
+
+	if (ut.totalTests > 0) {
+		const icon = ut.failed === 0 ? "success" : "danger";
+		lines.push(`> [!${icon}] ${ut.passed}/${ut.totalTests} passed | ${t.suites ?? "?"} suites`);
+		lines.push("");
+		lines.push("| Metric | Value |");
+		lines.push("|---|---|");
+		lines.push(`| Total | ${ut.totalTests} |`);
+		lines.push(`| Passed | ${ut.passed} |`);
+		lines.push(`| Failed | ${ut.failed} |`);
+		lines.push(`| Skipped | ${ut.skipped} |`);
+		lines.push(`| Suites | ${t.suites ?? "?"} |`);
+		if (t.duration_ms) lines.push(`| Duration | ${Math.round(t.duration_ms / 1000)}s |`);
+	} else {
+		lines.push("> No unit test data available.");
+	}
+	lines.push("");
+
+	lines.push("## Coverage");
+	lines.push("");
+	if (linesPct > 0) {
+		lines.push("| Metric | Value |");
+		lines.push("|---|---|");
+		lines.push(`| Lines | ${linesPct}% |`);
+		lines.push(`| Branches | ${branchesPct}% |`);
+		lines.push(`| Functions | ${functionsPct}% |`);
+		if (c.files_covered) lines.push(`| Files | ${c.files_covered} |`);
+	} else {
+		lines.push("> No coverage data available.");
+	}
+	lines.push("");
+
+	lines.push("## Traceability");
+	lines.push("");
+	if ((tr.total_events ?? 0) > 0) {
+		const pct = tr.linked && tr.total_events ? Math.round((tr.linked / tr.total_events) * 100) : 0;
+		const icon = (tr.unlinked ?? 0) === 0 ? "success" : "warning";
+		lines.push(`> [!${icon}] ${tr.linked}/${tr.total_events} linked (${pct}%)`);
+		lines.push("");
+		lines.push("| Metric | Value |");
+		lines.push("|---|---|");
+		lines.push(`| Total Events | ${tr.total_events} |`);
+		lines.push(`| Linked | ${tr.linked} |`);
+		lines.push(`| Unlinked | ${tr.unlinked} |`);
+	} else {
+		lines.push("> No traceability data available.");
+	}
+	lines.push("");
+
+	lines.push("## Performance");
+	lines.push("");
+	const p50 = p.startup_p50 ?? t.startup_p50;
+	if (p50) {
+		lines.push("| Metric | Value |");
+		lines.push("|---|---|");
+		lines.push(`| Startup p50 | ${p50} ms |`);
+		lines.push(`| Startup p95 | ${p.startup_p95 ?? t.startup_p95 ?? "?"} ms |`);
+		lines.push(`| Startup Max | ${p.startup_max ?? t.startup_max ?? "?"} ms |`);
+		if (p.data_json_size_bytes || t.data_json_size_bytes) {
+			const djSize = p.data_json_size_bytes ?? t.data_json_size_bytes;
+			lines.push(`| data.json | ${(djSize / (1024 * 1024)).toFixed(1)} MB |`);
+		}
+	} else {
+		lines.push("> No performance data available.");
+	}
+	lines.push("");
+
+	const content = lines.join("\n");
+	const filename = "Publish State Report.md";
+
+	// Write to dev vault root
+	const devPath = path.join(DEV_VAULT_ROOT, filename);
+	fs.writeFileSync(devPath, content, "utf-8");
+	console.log(`  \x1b[32m✓\x1b[0m Publish State Report: ${devPath}`);
+
+	return { devPath };
+}
+
+function runPublish() {
+	console.log("\n  Starting publish (check → build → test → docs → publish)...\n");
+	const startTime = Date.now();
+	let exitCode;
+	try {
+		execSync("npm run build:release", { stdio: "inherit" });
+		exitCode = 0;
+	} catch (err) {
+		exitCode = err.status ?? 1;
+	}
+	const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+	const stats = readBuildStats();
+	printPublishSummary(exitCode, duration, stats);
+	generatePublishStateReport(exitCode, duration, stats);
 	return exitCode;
 }
 
 /**
- * Post-increment result view — shows after an increment build completes.
- * Offers build-specific actions before returning to the main menu.
+ * Post-publish result view — shows after a publish completes.
+ * Offers publish-specific actions before returning to the main menu.
  *
  * Returns { action, exitCode } where action is:
  *   - "main"  — return to main menu
  *   - "quit"  — exit the process
  */
-async function incrementResultView(exitCode) {
+async function publishResultView(exitCode) {
 	// eslint-disable-next-line no-constant-condition
 	while (true) {
 		const statusIcon = exitCode === 0 ? "\x1b[32m✓ PASS\x1b[0m" : "\x1b[31m✗ FAIL\x1b[0m";
 		console.log(`  ${"─".repeat(50)}`);
-		console.log(`  Increment Build: ${statusIcon}`);
+		console.log(`  Publish: ${statusIcon}`);
 		console.log(`  ${"─".repeat(50)}`);
 		console.log();
 
 		const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-		console.log("    r) Re-run increment build");
+		console.log("    r) Re-run publish");
 		console.log("    a) Generate audit");
 		console.log("    m) Back to main menu");
 		console.log("    q) Quit");
@@ -748,6 +1141,73 @@ async function incrementResultView(exitCode) {
 		if (choice === "m" || choice === "M") {
 			rl.close();
 			return { action: "main", exitCode };
+		}
+
+		if (choice === "a" || choice === "A") {
+			await generateAudit(rl);
+			rl.close();
+			continue;
+		}
+
+		if (choice === "r" || choice === "R") {
+			rl.close();
+			exitCode = runPublish();
+			continue;
+		}
+
+		rl.close();
+		console.log("\n  Invalid choice — try again.\n");
+	}
+}
+
+/**
+ * Post-increment result view — shows after an increment build completes.
+ * Offers build-specific actions before returning to the main menu.
+ *
+ * Returns { action, exitCode } where action is:
+ *   - "main"  — return to main menu
+ *   - "quit"  — exit the process
+ */
+async function incrementResultView(exitCode) {
+	// eslint-disable-next-line no-constant-condition
+	while (true) {
+		const dim = "\x1b[2m";
+		const reset = "\x1b[0m";
+		const statusIcon = exitCode === 0 ? "\x1b[32m✓ PASS\x1b[0m" : "\x1b[31m✗ FAIL\x1b[0m";
+		console.log(`  ${"─".repeat(50)}`);
+		console.log(`  Increment Build: ${statusIcon}`);
+		console.log(`  ${"─".repeat(50)}`);
+		console.log();
+
+		const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+		console.log(exitCode === 0 ? "    p) Publish the increment" : `    ${dim}p) Publish the increment (requires successful build)${reset}`);
+		console.log("    r) Re-run increment build");
+		console.log("    a) Generate audit");
+		console.log("    m) Back to main menu");
+		console.log("    q) Quit");
+		console.log();
+		const choice = await ask(rl, "Choice", exitCode === 0 ? "p" : "m");
+
+		if (choice === "q" || choice === "Q") {
+			rl.close();
+			return { action: "quit", exitCode };
+		}
+
+		if (choice === "m" || choice === "M") {
+			rl.close();
+			return { action: "main", exitCode };
+		}
+
+		if (choice === "p" || choice === "P") {
+			if (exitCode !== 0) {
+				rl.close();
+				console.log("\n  Cannot publish — increment build did not pass.\n");
+				continue;
+			}
+			rl.close();
+			const publishExitCode = runPublish();
+			const result = await publishResultView(publishExitCode);
+			return result;
 		}
 
 		if (choice === "a" || choice === "A") {
@@ -863,15 +1323,15 @@ async function generateAudit(rl) {
 	if (testFile) sources.test = { file: testFile, fm: parseFrontmatter(testFile) };
 
 	// Coverage report (latest timestamped)
-	const coverageFile = findLatestReport(path.join(REPORTS_DIR, "coverage", "runs"));
+	const coverageFile = findLatestReport(path.join(REPORTS_DIR, "coverage"));
 	if (coverageFile) sources.coverage = { file: coverageFile, fm: parseFrontmatter(coverageFile) };
 
 	// Performance report (latest timestamped)
-	const perfFile = findLatestReport(path.join(REPORTS_DIR, "performance", "runs"));
+	const perfFile = findLatestReport(path.join(REPORTS_DIR, "performance"));
 	if (perfFile) sources.performance = { file: perfFile, fm: parseFrontmatter(perfFile) };
 
 	// Cycle report (latest timestamped)
-	const cycleFile = findLatestReport(path.join(REPORTS_DIR, "cycles", "runs"));
+	const cycleFile = findLatestReport(path.join(REPORTS_DIR, "cycles"));
 	if (cycleFile) sources.cycle = { file: cycleFile, fm: parseFrontmatter(cycleFile) };
 
 	// E2E report (stable name)
@@ -1136,6 +1596,7 @@ async function sessionView(config, entries, prereqResults, exitCode) {
 
 async function interactiveSession() {
 	let lastExitCode = 0;
+	let incrementPassed = false;
 
 	// eslint-disable-next-line no-constant-condition
 	while (true) {
@@ -1161,12 +1622,15 @@ async function interactiveSession() {
 
 		// 2. Choose action
 		const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+		const dim = "\x1b[2m";
+		const reset = "\x1b[0m";
 		console.log("  What would you like to do?");
 		console.log("    1) Start test session");
 		console.log("    2) Build the increment");
-		console.log("    3) Generate audit");
-		console.log("    4) Teardown test vault to fresh state");
-		console.log("    5) Rebuild (teardown → prerequisites → installer)");
+		console.log(incrementPassed ? "    3) Publish the increment" : `    ${dim}3) Publish the increment (requires successful build)${reset}`);
+		console.log("    4) Generate audit");
+		console.log("    5) Teardown test vault to fresh state");
+		console.log("    6) Rebuild (teardown → prerequisites → installer)");
 		console.log("    q) Quit");
 		console.log();
 		const choice = await ask(rl, "Choice", "1");
@@ -1177,16 +1641,29 @@ async function interactiveSession() {
 			process.exit(lastExitCode);
 		}
 
-		if (choice === "3") {
-			await generateAudit(rl);
-			rl.close();
-			continue;
-		}
-
 		if (choice === "2") {
 			rl.close();
 			lastExitCode = runIncrementBuild();
+			if (lastExitCode === 0) incrementPassed = true;
 			const result = await incrementResultView(lastExitCode);
+			lastExitCode = result.exitCode;
+			if (lastExitCode === 0) incrementPassed = true;
+			if (result.action === "quit") {
+				console.log("\n  Goodbye.\n");
+				process.exit(lastExitCode);
+			}
+			continue;
+		}
+
+		if (choice === "3") {
+			if (!incrementPassed) {
+				rl.close();
+				console.log("\n  Cannot publish — no successful increment build in this session.\n  Run option 2 first.\n");
+				continue;
+			}
+			rl.close();
+			lastExitCode = runPublish();
+			const result = await publishResultView(lastExitCode);
 			lastExitCode = result.exitCode;
 			if (result.action === "quit") {
 				console.log("\n  Goodbye.\n");
@@ -1196,12 +1673,18 @@ async function interactiveSession() {
 		}
 
 		if (choice === "4") {
+			await generateAudit(rl);
+			rl.close();
+			continue;
+		}
+
+		if (choice === "5") {
 			rl.close();
 			await teardownVault();
 			continue;
 		}
 
-		if (choice === "5") {
+		if (choice === "6") {
 			rl.close();
 			lastExitCode = await runRebuild();
 			continue;
@@ -1318,6 +1801,9 @@ async function executeSession(config, entries, prereqResults) {
 	printSummary(config.sessionName, selectedNames, startTime, stats);
 	const notePath = writeSessionNote(config.sessionName, config, selectedNames, prereqResults, stats, startTime, exitCode);
 	console.log(`  Session note: ${notePath}\n`);
+
+	// 9. Collapse file explorer folders
+	collapseFileExplorer();
 
 	// Clean env vars for next iteration
 	delete process.env.E2E_JOURNEY;
