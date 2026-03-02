@@ -102,7 +102,7 @@
 				{ "tool": "assert", "type": "visible", "selector": ".ft-catalog-tab-bar", "description": "Tab bar is visible" },
 				{ "tool": "highlight", "selector": ".ft-catalog-tab-bar", "style": "element", "description": "Highlight the tab bar (element style)" },
 				{ "tool": "screenshot", "label": "hub-tabbar", "description": "User Hub open with tab bar highlighted" },
-				{ "tool": "highlight", "selector": ".ft-catalog-tab-bar .ft-tab-item", "style": "button", "description": "Highlight a tab button (button style with pulse)" },
+				{ "tool": "highlight", "selector": ".ft-catalog-tab-bar .ft-catalog-tab", "style": "button", "description": "Highlight a tab button (button style with pulse)" },
 				{ "tool": "screenshot", "label": "hub-button-pulse", "description": "Tab button with orange pulse highlight" },
 				{ "tool": "manual", "instruction": "Verify the User Hub rendered correctly: tab bar has all expected tabs, content area shows the default tab, and the shell chrome (ribbon, status bar) is present.", "description": "Hub chrome QA" }
 			]
@@ -128,7 +128,7 @@
 				{ "tool": "navigate", "hub": "user-hub", "viewType": "flowti-user-hub", "tab": "inbox", "description": "Navigate to Inbox tab" },
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "assert", "type": "event", "event": "hub.tab.changed", "payload": { "hubId": "user-hub", "tabId": "inbox" }, "description": "Tab change event emitted with correct payload" },
-				{ "tool": "highlight", "selector": ".ft-catalog-tab-bar .ft-tab-item.is-active", "style": "element", "description": "Highlight the active tab indicator" },
+				{ "tool": "highlight", "selector": ".ft-catalog-tab-bar .ft-catalog-tab.ft-catalog-tab-active", "style": "element", "description": "Highlight the active tab indicator" },
 				{ "tool": "screenshot", "label": "inbox-tab", "description": "Inbox tab active and highlighted" },
 				{
 					"tool": "eval",

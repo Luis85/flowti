@@ -1,0 +1,354 @@
+{
+	"journey": "Tool Reference",
+	"chapter": 8,
+	"description": "Compact demonstration of all 26 Journey Runner tools. Each step covers a tool category with minimal actions: core interaction (command, click, input, set-input), visual annotations (highlight, notice, screenshot, wait, manual), navigation and events (navigate, emit, assert with all 8 subtypes, query-trace, eval), theme and ribbon (theme, ribbon, close-leaves), file lifecycle (create-file, open-file, frontmatter set/read, delete-file, seed, close-modals), WebViewer (open-url, scroll, follow link, close), logging and interactive (write-run-log, visual-inspection).",
+	"testSource": "tests/e2e/80-journey-tool-reference.test.ts",
+	"reportPath": "docs/journeys/Tool Reference/Tool Reference.md",
+	"canvasPath": "docs/journeys/Tool Reference/Tool Reference.canvas",
+	"type": "functional",
+	"category": "tooling",
+	"domain": "e2e",
+	"actors": ["Developer", "System"],
+	"services": ["EventBus", "UserHubView", "WebViewer"],
+	"tools": [],
+	"setup": [
+		{
+			"id": "setup-log",
+			"title": "Log chapter start and prepare environment",
+			"guideSection": 0,
+			"description": "Demonstrates: write-run-log, seed (folders + verify), create-file (with store), open-file, wait.",
+			"actions": [
+				{ "tool": "write-run-log", "message": "\n## Chapter 8: Tool Reference\n" },
+				{ "tool": "seed", "id": "folders", "mode": "create", "description": "Ensure seed folders exist" },
+				{ "tool": "seed", "id": "welcome-note", "mode": "verify", "description": "Verify welcome note present" },
+				{
+					"tool": "create-file",
+					"path": "03 - Resources/Test Data/tool-ref-demo.md",
+					"content": "---\nstatus: draft\ntags: e2e\n---\n# Tool Reference Demo\n\nCreated by the Tool Reference journey.\n",
+					"store": "demoFile",
+					"description": "Create a demo file with frontmatter"
+				},
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "open-file", "path": "{{demoFile}}", "description": "Open the demo file" },
+				{ "tool": "wait", "ms": 500 }
+			]
+		}
+	],
+	"steps": [
+		{
+			"id": "01-core-interaction",
+			"title": "Core interaction tools",
+			"guideSection": 1,
+			"description": "Demonstrates: command, click, input, set-input. Opens a hub via command, clicks a tab, types into search, sets input via React-safe setter.",
+			"expectedInput": "Plugin enabled",
+			"expectedOutput": "Hub opened, DOM interactions performed",
+			"uiContext": {
+				"view": "flowti-user-hub",
+				"viewName": "User Hub",
+				"components": ["UserHubView", "WorkspaceShell"]
+			},
+			"commands": ["flowti:open-user-hub"],
+			"actions": [
+				{ "tool": "notice", "message": "Tool Reference 1/7: Core interaction", "duration": 3000 },
+				{ "tool": "command", "id": "flowti:open-user-hub", "description": "Open User Hub via command" },
+				{ "tool": "wait", "ms": 1000 },
+				{ "tool": "click", "selector": ".ft-catalog-tab-bar .ft-catalog-tab", "description": "Click the first tab" },
+				{ "tool": "wait", "ms": 300 },
+				{
+					"tool": "eval",
+					"code": "(() => { app.commands.executeCommandById('command-palette:open'); return 'ok'; })()",
+					"description": "Open command palette for input demo"
+				},
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "input", "selector": ".prompt-input", "value": "flowti", "description": "Type into command palette via insertText" },
+				{ "tool": "wait", "ms": 200 },
+				{ "tool": "screenshot", "label": "input-demo", "description": "Command palette with typed input" },
+				{
+					"tool": "set-input",
+					"selector": ".prompt-input",
+					"value": "tool reference",
+					"description": "Set input value via React-safe native setter"
+				},
+				{ "tool": "wait", "ms": 200 },
+				{ "tool": "screenshot", "label": "set-input-demo", "description": "Command palette after set-input" },
+				{ "tool": "close-modals", "description": "Dismiss command palette" },
+				{ "tool": "wait", "ms": 200 }
+			]
+		},
+		{
+			"id": "02-visual-annotations",
+			"title": "Visual annotation tools",
+			"guideSection": 2,
+			"description": "Demonstrates: highlight (element, button, input styles), notice, screenshot, wait, manual. Applies all three highlight styles to UI elements.",
+			"expectedInput": "User Hub open",
+			"expectedOutput": "Three highlight styles captured in screenshots",
+			"uiContext": {
+				"view": "flowti-user-hub",
+				"viewName": "User Hub",
+				"components": ["UserHubView", "WorkspaceShell"]
+			},
+			"interactions": ["highlight: 3 styles"],
+			"actions": [
+				{ "tool": "notice", "message": "Tool Reference 2/7: Visual annotations", "duration": 3000 },
+				{ "tool": "highlight", "selector": ".ft-catalog-tab-bar", "style": "element", "description": "Element style: green outline" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "screenshot", "label": "highlight-element", "description": "Green outline on tab bar" },
+				{ "tool": "highlight", "selector": ".ft-catalog-tab-bar .ft-catalog-tab", "style": "button", "description": "Button style: orange pulse" },
+				{ "tool": "wait", "ms": 800 },
+				{ "tool": "screenshot", "label": "highlight-button", "description": "Orange pulse on tab" },
+				{
+					"tool": "eval",
+					"code": "(() => { app.commands.executeCommandById('command-palette:open'); return 'ok'; })()"
+				},
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "highlight", "selector": ".prompt-input", "style": "input", "description": "Input style: blue glow" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "screenshot", "label": "highlight-input", "description": "Blue glow on input" },
+				{ "tool": "close-modals", "description": "Dismiss command palette" },
+				{ "tool": "wait", "ms": 200 },
+				{ "tool": "manual", "instruction": "Verify the three highlight screenshots show distinct visual styles: green outline (element), orange pulse (button), blue glow (input).", "description": "Highlight styles QA" }
+			]
+		},
+		{
+			"id": "03-navigation-events",
+			"title": "Navigation, events, and all assertion types",
+			"guideSection": 3,
+			"description": "Demonstrates: navigate, emit, assert (all 8 subtypes: visible, not-visible, text, event, leaf, eval, count, attr), query-trace, eval (store + expect). Exercises every assertion variant and event system tool.",
+			"expectedInput": "User Hub open, event trace running",
+			"expectedOutput": "All 8 assertion types verified, event traced and queried",
+			"uiContext": {
+				"view": "flowti-user-hub",
+				"viewName": "User Hub",
+				"tab": "inbox",
+				"components": ["UserHubView", "EventBus"]
+			},
+			"events": ["hub.tab.changed", "toolref.demo.event"],
+			"actions": [
+				{ "tool": "notice", "message": "Tool Reference 3/7: Navigation and assertions", "duration": 3000 },
+				{ "tool": "navigate", "hub": "user-hub", "viewType": "flowti-user-hub", "tab": "inbox", "description": "Navigate to Inbox tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "assert", "type": "visible", "selector": ".workspace-leaf", "description": "1. VISIBLE" },
+				{ "tool": "assert", "type": "not-visible", "selector": ".modal-container .ft-canvas-template-card", "description": "2. NOT-VISIBLE" },
+				{ "tool": "assert", "type": "text", "selector": ".workspace-leaf.mod-active .view-header-title-container", "contains": "", "description": "3. TEXT" },
+				{ "tool": "assert", "type": "leaf", "viewType": "flowti-user-hub", "description": "4. LEAF" },
+				{ "tool": "assert", "type": "eval", "code": "String(1 + 1)", "expected": "2", "description": "5. EVAL" },
+				{ "tool": "assert", "type": "count", "selector": ".ft-catalog-tab-bar .ft-catalog-tab", "count": 4, "description": "6. COUNT — expect 4 tabs in User Hub" },
+				{ "tool": "assert", "type": "attr", "selector": ".workspace-leaf.mod-active .workspace-leaf-content", "attr": "data-type", "value": "flowti-user-hub", "description": "7. ATTR — active leaf data-type" },
+				{ "tool": "assert", "type": "event", "event": "hub.tab.changed", "payload": { "hubId": "user-hub", "tabId": "inbox" }, "description": "8. EVENT" },
+				{
+					"tool": "emit",
+					"event": "toolref.demo.event",
+					"payload": { "source": "tool-reference" },
+					"description": "Emit a custom event"
+				},
+				{ "tool": "wait", "ms": 200 },
+				{
+					"tool": "query-trace",
+					"event": "toolref.demo.event",
+					"limit": 5,
+					"store": "tracedEvents",
+					"description": "Query trace for the emitted event"
+				},
+				{
+					"tool": "eval",
+					"code": "(() => { const events = JSON.parse('{{tracedEvents}}'); return String(events.length); })()",
+					"store": "eventCount",
+					"expect": { "type": "truthy" },
+					"description": "Verify query-trace returned results"
+				},
+				{ "tool": "notice", "message": "All 8 assert types passed. Traced {{eventCount}} event(s).", "duration": 3000 },
+				{ "tool": "screenshot", "label": "assertions-passed", "description": "All assertions verified" }
+			]
+		},
+		{
+			"id": "04-theme-ribbon",
+			"title": "Theme switching and ribbon interaction",
+			"guideSection": 4,
+			"description": "Demonstrates: theme, ribbon, close-leaves. Switches between dark/light themes, clicks ribbon icon with purple highlight.",
+			"expectedInput": "Workspace active",
+			"expectedOutput": "Theme toggled, ribbon icon clicked with highlight",
+			"uiContext": {
+				"components": ["Ribbon", "WorkspaceShell"]
+			},
+			"actions": [
+				{ "tool": "notice", "message": "Tool Reference 4/7: Theme and ribbon", "duration": 3000 },
+				{ "tool": "theme", "theme": "moonstone", "description": "Switch to light theme" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "theme-light", "description": "Workspace in light theme" },
+				{ "tool": "theme", "theme": "obsidian", "description": "Switch back to dark theme" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "theme-dark", "description": "Workspace in dark theme" },
+				{ "tool": "close-leaves", "viewType": "flowti-user-hub", "description": "Close User Hub before ribbon test" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "ribbon", "label": "user hub", "description": "Click User Hub ribbon icon with purple pulse" },
+				{ "tool": "wait", "ms": 1000 },
+				{ "tool": "assert", "type": "leaf", "viewType": "flowti-user-hub", "description": "Hub opened via ribbon" },
+				{ "tool": "screenshot", "label": "ribbon-click", "description": "Hub opened via ribbon with purple highlight" }
+			]
+		},
+		{
+			"id": "05-file-frontmatter",
+			"title": "File lifecycle and frontmatter tools",
+			"guideSection": 5,
+			"description": "Demonstrates: frontmatter (set + read), eval, create-file, delete-file. Sets a frontmatter property on the demo file, reads it back, verifies the round-trip.",
+			"expectedInput": "Demo file created in setup with status: draft",
+			"expectedOutput": "Frontmatter updated, read back, and verified",
+			"uiContext": {
+				"components": ["Vault", "Editor"]
+			},
+			"actions": [
+				{ "tool": "notice", "message": "Tool Reference 5/7: File lifecycle and frontmatter", "duration": 3000 },
+				{
+					"tool": "frontmatter",
+					"path": "{{demoFile}}",
+					"mode": "set",
+					"property": "status",
+					"value": "verified",
+					"description": "Set frontmatter status to 'verified'"
+				},
+				{ "tool": "wait", "ms": 500, "description": "Wait for metadataCache to update" },
+				{
+					"tool": "frontmatter",
+					"path": "{{demoFile}}",
+					"mode": "read",
+					"property": "status",
+					"store": "readStatus",
+					"description": "Read frontmatter status back"
+				},
+				{
+					"tool": "eval",
+					"code": "'{{readStatus}}'",
+					"expect": { "type": "equals", "value": "verified" },
+					"description": "Verify frontmatter round-trip: status = verified"
+				},
+				{ "tool": "notice", "message": "Frontmatter round-trip: status = {{readStatus}}", "duration": 3000 },
+				{ "tool": "screenshot", "label": "frontmatter-set", "description": "Frontmatter updated and verified" },
+				{
+					"tool": "create-file",
+					"path": "03 - Resources/Test Data/tool-ref-temp.md",
+					"content": "# Temporary\n\nThis file will be deleted immediately.\n",
+					"store": "tempFile",
+					"description": "Create a temporary file"
+				},
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "delete-file", "path": "{{tempFile}}", "description": "Delete the temporary file" },
+				{ "tool": "wait", "ms": 300 },
+				{
+					"tool": "eval",
+					"code": "(() => { const f = app.vault.getAbstractFileByPath('{{tempFile}}'); return f ? 'exists' : 'gone'; })()",
+					"expect": { "type": "equals", "value": "gone" },
+					"description": "Confirm temp file is deleted"
+				}
+			]
+		},
+		{
+			"id": "06-webviewer",
+			"title": "WebViewer: navigate, scroll, and follow links",
+			"guideSection": 6,
+			"description": "Demonstrates: open-url, eval (webview.executeJavaScript for scrolling and link-clicking), highlight (webview target), screenshot, close-leaves. Opens a URL, scrolls the page, clicks a link to navigate to a new page, and captures each state.",
+			"expectedInput": "Obsidian workspace active",
+			"expectedOutput": "URL opened, page scrolled, link followed, new page loaded",
+			"uiContext": {
+				"view": "web-viewer",
+				"viewName": "WebViewer",
+				"components": ["WebViewer"]
+			},
+			"interactions": ["open-url: Load page", "scroll: Scroll down", "click: Follow link", "screenshot: Each state"],
+			"actions": [
+				{ "tool": "notice", "message": "Tool Reference 6/7: WebViewer interaction", "duration": 3000 },
+				{
+					"tool": "open-url",
+					"url": "https://help.obsidian.md/",
+					"description": "Open Obsidian Help page in WebViewer"
+				},
+				{ "tool": "wait", "ms": 3000, "description": "Wait for page to load" },
+				{
+					"tool": "eval",
+					"code": "(() => { const wv = document.querySelector('webview'); if (!wv) throw new Error('No webview'); return 'ready'; })()",
+					"expect": { "type": "equals", "value": "ready" },
+					"description": "Verify webview element exists"
+				},
+				{ "tool": "highlight", "selector": ".workspace-leaf.mod-active .view-header-title-container", "style": "element", "description": "Highlight WebViewer tab title" },
+				{ "tool": "screenshot", "label": "webview-loaded", "description": "Help page loaded in WebViewer" },
+				{
+					"tool": "eval",
+					"code": "(async () => { const wv = document.querySelector('webview'); await wv.executeJavaScript('window.scrollBy({ top: 600, behavior: \"smooth\" })'); return 'scrolled'; })()",
+					"expect": { "type": "equals", "value": "scrolled" },
+					"description": "Scroll down 600px inside the webview"
+				},
+				{ "tool": "wait", "ms": 1000, "description": "Wait for smooth scroll to complete" },
+				{ "tool": "screenshot", "label": "webview-scrolled", "description": "Page scrolled down inside WebViewer" },
+				{
+					"tool": "eval",
+					"code": "(async () => { const wv = document.querySelector('webview'); const title = await wv.executeJavaScript('document.title'); return title || 'unknown'; })()",
+					"store": "pageBeforeClick",
+					"expect": { "type": "truthy" },
+					"description": "Store current page title before clicking a link"
+				},
+				{
+					"tool": "eval",
+					"code": "(async () => { const wv = document.querySelector('webview'); const result = await wv.executeJavaScript(`(() => { const links = Array.from(document.querySelectorAll('a[href]')); const navLink = links.find(a => a.href && !a.href.startsWith('javascript') && !a.href.startsWith('#') && a.textContent.trim().length > 0); if (navLink) { const text = navLink.textContent.trim().substring(0, 50); navLink.click(); return text; } return 'no-link'; })()`); return result; })()",
+					"store": "clickedLink",
+					"expect": { "type": "truthy" },
+					"description": "Click the first navigable link on the page"
+				},
+				{ "tool": "wait", "ms": 2000, "description": "Wait for link navigation to complete" },
+				{
+					"tool": "eval",
+					"code": "(async () => { const wv = document.querySelector('webview'); const title = await wv.executeJavaScript('document.title'); return title || 'unknown'; })()",
+					"store": "pageAfterClick",
+					"expect": { "type": "truthy" },
+					"description": "Read page title after following the link"
+				},
+				{ "tool": "highlight", "selector": "h1, h2, .page-title, [role='heading']", "target": "webview", "description": "Highlight heading on the new page (cross-process)" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "webview-navigated", "description": "New page after following a link" },
+				{ "tool": "notice", "message": "Navigated: {{clickedLink}} | Before: {{pageBeforeClick}} | After: {{pageAfterClick}}", "duration": 5000 },
+				{
+					"tool": "eval",
+					"code": "(() => { let closed = 0; app.workspace.iterateAllLeaves(l => { if (l.view?.containerEl?.querySelector('webview')) { l.detach(); closed++; } }); return String(closed); })()",
+					"description": "Close WebViewer leaves"
+				},
+				{ "tool": "wait", "ms": 300 }
+			]
+		},
+		{
+			"id": "07-interactive-qa",
+			"title": "Interactive QA gate",
+			"guideSection": 7,
+			"description": "Demonstrates: visual-inspection. Presents a Pass/Fail prompt for operator sign-off. This is the only interactive tool — it pauses execution until the operator responds.",
+			"expectedInput": "All previous steps passed",
+			"expectedOutput": "Operator approves the test run",
+			"actions": [
+				{ "tool": "notice", "message": "Tool Reference 7/7: Interactive QA gate", "duration": 3000 },
+				{ "tool": "screenshot", "label": "before-inspection", "description": "Final state before operator inspection" },
+				{
+					"tool": "visual-inspection",
+					"prompt": "Tool Reference journey complete. All 26 tools were exercised. Review the screenshots and confirm everything looks correct.",
+					"timeout": 120000,
+					"description": "Operator sign-off on the tool reference journey"
+				}
+			]
+		}
+	],
+	"teardown": [
+		{
+			"id": "teardown-cleanup",
+			"title": "Cleanup demo files and workspace",
+			"guideSection": 1,
+			"description": "Demonstrates: close-modals, close-leaves, delete-file, notice, screenshot, write-run-log, wait.",
+			"actions": [
+				{ "tool": "close-modals", "description": "Dismiss any open modals" },
+				{ "tool": "close-leaves", "viewType": "markdown", "description": "Close markdown editors" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "delete-file", "path": "{{demoFile}}", "description": "Delete demo file" },
+				{ "tool": "close-leaves", "viewType": "flowti-user-hub", "description": "Close User Hub" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "write-run-log", "message": "- Tool Reference: teardown complete\n" },
+				{ "tool": "notice", "message": "Tool Reference journey complete.", "duration": 5000 },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "final", "description": "Final workspace state" }
+			]
+		}
+	]
+}
