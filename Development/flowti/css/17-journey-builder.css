@@ -1,0 +1,62 @@
+/* ── Journey Builder Sidebar ──────────────────────────────── */
+
+.ft-jb-sidebar {
+	padding: var(--size-4-3);
+}
+
+.ft-jb-header {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	margin-bottom: var(--size-4-4);
+}
+
+.ft-jb-header-icon {
+	display: flex;
+	color: var(--text-accent);
+}
+
+.ft-jb-header-title {
+	font-size: var(--font-ui-large);
+	font-weight: var(--font-semibold);
+}
+
+.ft-jb-welcome-cards {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-3);
+}
+
+.ft-jb-welcome-card {
+	padding: var(--size-4-4);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	cursor: pointer;
+	transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.ft-jb-welcome-card:hover {
+	border-color: var(--interactive-accent);
+	background-color: var(--background-modifier-hover);
+}
+
+.ft-jb-welcome-card:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 2px;
+}
+
+.ft-jb-card-icon {
+	display: flex;
+	color: var(--text-accent);
+	margin-bottom: var(--size-4-2);
+}
+
+.ft-jb-card-title {
+	font-weight: var(--font-semibold);
+	margin-bottom: var(--size-4-1);
+}
+
+.ft-jb-card-desc {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}

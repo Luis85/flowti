@@ -331,6 +331,18 @@ export function createCommandDefinitions(): CommandDefinition[] {
 				void ctx.eventBus.emit("ui.startCanvasSession", {});
 			},
 		},
+		{
+			id: "flowti:open-journey-builder",
+			name: "Open journey builder",
+			description: "Open the Journey Builder sidebar to create or edit E2E journeys",
+			domain: "developer",
+			category: "view",
+			icon: "route",
+			handler: async (ctx) => {
+				ctx.logger.debug("Opening journey builder");
+				void ctx.eventBus.emit("ui.openJourneyBuilder", {});
+			},
+		},
 	];
 }
 

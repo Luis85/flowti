@@ -1,7 +1,7 @@
 {
 	"journey": "Journey Builder",
 	"chapter": 9,
-	"description": "TDD blueprint for the Journey Builder feature: command/ribbon launch, sidebar panel with journey configuration, canvas-based visual step design, and JSON export. Steps define expected behavior before the feature exists.",
+	"description": "TDD blueprint for the Journey Builder feature: command/ribbon launch shows a welcome screen with Create New / Open Existing choices. Steps define expected behavior before the feature exists.",
 	"testSource": "tests/e2e/90-journey-journey-builder.test.ts",
 	"reportPath": "docs/journeys/Journey Builder/Journey Builder.md",
 	"canvasPath": "docs/journeys/Journey Builder/Journey Builder.canvas",
@@ -9,7 +9,7 @@
 	"category": "tooling",
 	"domain": "e2e",
 	"actors": ["Developer", "System"],
-	"services": ["JourneyBuilderService", "EventBus", "CanvasWriter"],
+	"services": ["JourneyBuilderService", "EventBus"],
 	"tools": [],
 
 	"setup": [
@@ -31,7 +31,6 @@
 			"actions": [
 				{ "tool": "close-modals", "description": "Dismiss any open modals" },
 				{ "tool": "close-leaves", "viewType": "flowti-journey-builder", "description": "Close stale Journey Builder sidebar leaves" },
-				{ "tool": "close-leaves", "viewType": "canvas", "description": "Close stale canvas leaves" },
 				{ "tool": "wait", "ms": 300 }
 			]
 		}
@@ -43,13 +42,13 @@
 			"title": "Open Journey Builder via command",
 			"guideSection": 1,
 			"swimlane": "customer",
-			"description": "Executes the flowti:open-journey-builder command. The Journey Builder sidebar should appear in the right side panel and a new canvas should open in the main workspace area.",
+			"description": "Executes the flowti:open-journey-builder command. The Journey Builder sidebar should appear in the right side panel showing a welcome screen with Create New and Open Existing choices.",
 			"expectedInput": "Plugin enabled, no active Journey Builder instance",
-			"expectedOutput": "Journey Builder sidebar leaf exists, canvas leaf open in center",
+			"expectedOutput": "Journey Builder sidebar leaf exists with welcome screen visible",
 			"uiContext": {
 				"view": "flowti-journey-builder",
 				"viewName": "Journey Builder",
-				"components": ["JourneyBuilderSidebar", "Canvas"]
+				"components": ["JourneyBuilderSidebar"]
 			},
 			"commands": ["flowti:open-journey-builder"],
 			"events": ["journey-builder.opened"],
@@ -58,10 +57,11 @@
 				{ "tool": "notice", "message": "Step 1/5: Opening Journey Builder via command", "duration": 3000 },
 				{ "tool": "screenshot", "label": "before", "description": "Baseline state before command" },
 				{ "tool": "command", "id": "flowti:open-journey-builder", "description": "Open Journey Builder via command palette" },
-				{ "tool": "wait", "ms": 1000, "description": "Wait for sidebar and canvas to open" },
+				{ "tool": "wait", "ms": 1000, "description": "Wait for sidebar to open" },
 				{ "tool": "assert", "type": "leaf", "viewType": "flowti-journey-builder", "description": "Journey Builder sidebar leaf exists" },
-				{ "tool": "assert", "type": "leaf", "viewType": "canvas", "description": "Canvas leaf is open in main workspace" },
 				{ "tool": "assert", "type": "visible", "selector": ".workspace-leaf-content[data-type='flowti-journey-builder']", "description": "Sidebar content is visible" },
+				{ "tool": "assert", "type": "visible", "selector": ".ft-jb-open-existing-btn", "description": "Open Existing button is visible" },
+				{ "tool": "assert", "type": "visible", "selector": ".ft-jb-create-new-btn", "description": "Create New button is visible" },
 				{
 					"tool": "eval",
 					"code": "(() => { const leaves = app.workspace.getLeavesOfType('flowti-journey-builder'); return leaves.length > 0 ? 'found' : 'not-found'; })()",
@@ -69,11 +69,10 @@
 					"description": "Confirm Journey Builder sidebar leaf via API"
 				},
 				{ "tool": "highlight", "selector": ".workspace-leaf-content[data-type='flowti-journey-builder']", "style": "element", "description": "Highlight the Journey Builder sidebar" },
-				{ "tool": "screenshot", "label": "after-command", "description": "Journey Builder sidebar and canvas open" },
+				{ "tool": "screenshot", "label": "after-command", "description": "Journey Builder sidebar with welcome screen" },
 				{ "tool": "assert", "type": "event", "event": "journey-builder.opened", "description": "journey-builder.opened event was emitted" },
-				{ "tool": "manual", "instruction": "Verify the Journey Builder sidebar appears on the right side. It should contain journey metadata fields (name, chapter, description) and an empty step list. The canvas in the main area should be blank or contain a title node.", "description": "Visual QA of initial Journey Builder state" },
+				{ "tool": "manual", "instruction": "Verify the Journey Builder sidebar appears on the right side. It should contain a welcome screen with two large action cards: 'Open Existing Journey' and 'Create New Journey'. No canvas should be open.", "description": "Visual QA of initial Journey Builder state" },
 				{ "tool": "close-leaves", "viewType": "flowti-journey-builder", "description": "Close Journey Builder sidebar for step 2" },
-				{ "tool": "close-leaves", "viewType": "canvas", "description": "Close canvas for step 2" },
 				{ "tool": "wait", "ms": 500 }
 			]
 		},
@@ -82,13 +81,13 @@
 			"title": "Open Journey Builder via ribbon",
 			"guideSection": 2,
 			"swimlane": "customer",
-			"description": "Clicks the Journey Builder ribbon button. Same result as the command: sidebar opens on the right, canvas opens in center.",
+			"description": "Clicks the Journey Builder ribbon button. Same result as the command: sidebar opens on the right with welcome screen.",
 			"expectedInput": "Plugin enabled, Journey Builder closed",
-			"expectedOutput": "Journey Builder sidebar leaf exists, canvas leaf open",
+			"expectedOutput": "Journey Builder sidebar leaf exists with welcome screen visible",
 			"uiContext": {
 				"view": "flowti-journey-builder",
 				"viewName": "Journey Builder",
-				"components": ["JourneyBuilderSidebar", "Canvas"]
+				"components": ["JourneyBuilderSidebar"]
 			},
 			"events": ["journey-builder.opened"],
 			"interactions": ["ribbon: Journey Builder"],
@@ -96,9 +95,10 @@
 				{ "tool": "notice", "message": "Step 2/5: Opening Journey Builder via ribbon", "duration": 3000 },
 				{ "tool": "screenshot", "label": "before-ribbon", "description": "Clean workspace before ribbon click" },
 				{ "tool": "ribbon", "label": "journey builder", "description": "Click Journey Builder ribbon icon" },
-				{ "tool": "wait", "ms": 1000, "description": "Wait for sidebar and canvas to open" },
+				{ "tool": "wait", "ms": 1000, "description": "Wait for sidebar to open" },
 				{ "tool": "assert", "type": "leaf", "viewType": "flowti-journey-builder", "description": "Journey Builder sidebar leaf exists" },
-				{ "tool": "assert", "type": "leaf", "viewType": "canvas", "description": "Canvas leaf is open" },
+				{ "tool": "assert", "type": "visible", "selector": ".ft-jb-open-existing-btn", "description": "Open Existing button is visible" },
+				{ "tool": "assert", "type": "visible", "selector": ".ft-jb-create-new-btn", "description": "Create New button is visible" },
 				{
 					"tool": "eval",
 					"code": "(() => { const leaves = app.workspace.getLeavesOfType('flowti-journey-builder'); if (leaves.length === 0) return 'none'; const leaf = leaves[0]; return leaf.getRoot() === app.workspace.rightSplit ? 'right' : 'other'; })()",
@@ -107,35 +107,39 @@
 				},
 				{ "tool": "highlight", "selector": ".workspace-leaf-content[data-type='flowti-journey-builder']", "style": "element", "description": "Highlight sidebar" },
 				{ "tool": "screenshot", "label": "after-ribbon", "description": "Journey Builder open via ribbon" },
-				{ "tool": "manual", "instruction": "Verify the ribbon button has a distinctive icon (e.g. route or map). The sidebar should appear in the right pane, identical to the command-triggered state.", "description": "Visual QA of ribbon-triggered state" }
+				{ "tool": "manual", "instruction": "Verify the ribbon button has a route icon. The sidebar should appear in the right pane with the same welcome screen as the command-triggered state.", "description": "Visual QA of ribbon-triggered state" }
 			]
 		},
 		{
-			"id": "03-configure-metadata",
-			"title": "Configure journey metadata",
+			"id": "03-create-new-journey",
+			"title": "Create a new journey via setup form",
 			"guideSection": 3,
 			"swimlane": "frontstage",
-			"description": "Fills in the journey name, chapter number, and description fields in the Journey Builder sidebar. The canvas title node should update to reflect the journey name.",
-			"expectedInput": "Journey Builder sidebar open with empty metadata fields",
-			"expectedOutput": "Metadata fields populated, canvas title updated",
+			"description": "Clicks Create New Journey. The sidebar transitions to a setup form where the user enters journey name, chapter, description, and selects a start event from the event catalog.",
+			"expectedInput": "Journey Builder sidebar open with welcome screen",
+			"expectedOutput": "Setup form visible with metadata fields and start event picker",
 			"uiContext": {
 				"view": "flowti-journey-builder",
 				"viewName": "Journey Builder",
-				"components": ["JourneyBuilderSidebar", "MetadataForm", "Canvas"]
+				"components": ["JourneyBuilderSidebar", "MetadataForm"]
 			},
 			"events": ["journey-builder.metadata.updated"],
-			"interactions": ["input: Journey name", "input: Chapter number", "input: Description"],
+			"interactions": ["click: Create New", "input: Journey name", "input: Chapter number", "input: Description", "input: Start event"],
 			"actions": [
-				{ "tool": "notice", "message": "Step 3/5: Configuring journey metadata", "duration": 3000 },
+				{ "tool": "notice", "message": "Step 3/5: Creating a new journey", "duration": 3000 },
+				{ "tool": "click", "selector": ".ft-jb-create-new-btn", "description": "Click Create New Journey" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "assert", "type": "visible", "selector": ".ft-jb-name-input", "description": "Journey name input is visible" },
 				{ "tool": "set-input", "selector": ".ft-jb-name-input", "value": "E2E Demo Journey", "description": "Enter journey name" },
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "set-input", "selector": ".ft-jb-chapter-input", "value": "99", "description": "Enter chapter number" },
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "set-input", "selector": ".ft-jb-description-input", "value": "A demo journey created by the Journey Builder.", "description": "Enter journey description" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "set-input", "selector": ".ft-jb-start-event-input", "value": "journey-builder.opened", "description": "Enter start event name" },
 				{ "tool": "wait", "ms": 500 },
-				{ "tool": "assert", "type": "event", "event": "journey-builder.metadata.updated", "description": "Metadata updated event emitted" },
-				{ "tool": "screenshot", "label": "metadata-filled", "description": "Journey metadata fields populated" },
-				{ "tool": "manual", "instruction": "Verify the canvas title node text matches the journey name entered in the sidebar.", "description": "Canvas title sync check" }
+				{ "tool": "screenshot", "label": "setup-filled", "description": "Journey setup form populated" },
+				{ "tool": "manual", "instruction": "Verify the setup form shows journey name, chapter, description, and start event fields. The start event input should support autocomplete from the event catalog.", "description": "Visual QA of setup form" }
 			]
 		},
 		{
@@ -143,28 +147,30 @@
 			"title": "Add a step to the journey",
 			"guideSection": 4,
 			"swimlane": "frontstage",
-			"description": "Clicks the Add Step button in the sidebar. A new group node should appear on the canvas and a step detail form should appear in the sidebar.",
-			"expectedInput": "Journey Builder open with metadata configured, empty step list",
-			"expectedOutput": "One step added, canvas has a group node, sidebar shows step detail form",
+			"description": "Clicks Continue to enter the step builder. Adds a step with a title and actions. Sets the end event.",
+			"expectedInput": "Journey Builder setup form filled with metadata",
+			"expectedOutput": "Step builder visible with one step added and end event set",
 			"uiContext": {
 				"view": "flowti-journey-builder",
 				"viewName": "Journey Builder",
-				"components": ["JourneyBuilderSidebar", "StepForm", "Canvas"]
+				"components": ["JourneyBuilderSidebar", "StepBuilder"]
 			},
 			"events": ["journey-builder.step.added"],
-			"interactions": ["click: Add Step", "input: Step title", "input: Step description"],
+			"interactions": ["click: Continue", "click: Add Step", "input: Step title"],
 			"actions": [
 				{ "tool": "notice", "message": "Step 4/5: Adding a journey step", "duration": 3000 },
+				{ "tool": "click", "selector": ".ft-jb-continue-btn", "description": "Click Continue to enter step builder" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "assert", "type": "visible", "selector": ".ft-jb-add-step-btn", "description": "Add Step button is visible" },
 				{ "tool": "click", "selector": ".ft-jb-add-step-btn", "description": "Click Add Step button" },
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "assert", "type": "visible", "selector": ".ft-jb-step-form", "description": "Step detail form is visible" },
-				{ "tool": "assert", "type": "event", "event": "journey-builder.step.added", "description": "Step added event emitted" },
-				{ "tool": "set-input", "selector": ".ft-jb-step-title-input", "value": "Open the feature hub", "description": "Enter step title" },
+				{ "tool": "set-input", "selector": ".ft-jb-step-title-input", "value": "Open the user hub", "description": "Enter step title" },
 				{ "tool": "wait", "ms": 300 },
-				{ "tool": "set-input", "selector": ".ft-jb-step-desc-input", "value": "Opens the feature hub via command palette.", "description": "Enter step description" },
+				{ "tool": "set-input", "selector": ".ft-jb-end-event-input", "value": "hub.tab.changed", "description": "Enter end event name" },
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "screenshot", "label": "step-added", "description": "Step added to journey" },
-				{ "tool": "manual", "instruction": "Verify a new group node appeared on the canvas with the step title. The sidebar should show the step form with editable fields for title, description, and actions.", "description": "Visual QA of step creation" }
+				{ "tool": "manual", "instruction": "Verify a step card appeared in the sidebar with the step title. The step should show an editable actions list. An end event field should be visible at the bottom of the step builder.", "description": "Visual QA of step creation" }
 			]
 		},
 		{
@@ -172,9 +178,9 @@
 			"title": "Export journey JSON",
 			"guideSection": 5,
 			"swimlane": "backstage",
-			"description": "Clicks the Export button in the sidebar. A JSON file should be created with the correct JourneyDefinition structure.",
-			"expectedInput": "Journey Builder open with metadata and at least one step",
-			"expectedOutput": "Journey JSON file created with valid structure",
+			"description": "Clicks the Export button. A JSON file and test file should be created with the correct JourneyDefinition structure.",
+			"expectedInput": "Journey Builder with metadata, start event, one step, and end event",
+			"expectedOutput": "Journey JSON file and test file created with valid structure",
 			"uiContext": {
 				"view": "flowti-journey-builder",
 				"viewName": "Journey Builder",
@@ -201,7 +207,7 @@
 				},
 				{ "tool": "screenshot", "label": "exported", "description": "Journey exported successfully" },
 				{ "tool": "notice", "message": "Journey Builder journey complete", "duration": 5000 },
-				{ "tool": "manual", "instruction": "Open the exported JSON file and verify it matches the JourneyDefinition schema: journey name, chapter number, description, and at least one step with id, title, and actions.", "description": "Manual JSON structure verification" }
+				{ "tool": "manual", "instruction": "Open the exported JSON file and verify it matches the JourneyDefinition schema: journey name, chapter number, description, start event as first emit action, end event as last assert action, and at least one step with id, title, and actions.", "description": "Manual JSON structure verification" }
 			]
 		}
 	],
@@ -212,11 +218,10 @@
 			"title": "Close builder and clean up",
 			"guideSection": 1,
 			"swimlane": "support",
-			"description": "Closes the Journey Builder sidebar, canvas, modals, and deletes test artifacts.",
+			"description": "Closes the Journey Builder sidebar, modals, and deletes test artifacts.",
 			"actions": [
 				{ "tool": "close-modals", "description": "Dismiss any open modals" },
 				{ "tool": "close-leaves", "viewType": "flowti-journey-builder", "description": "Close Journey Builder sidebar" },
-				{ "tool": "close-leaves", "viewType": "canvas", "description": "Close canvas leaves" },
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "delete-file", "path": "03 - Resources/Test Data/journeys/E2E Demo Journey.journey.json", "description": "Delete exported test JSON" },
 				{ "tool": "wait", "ms": 300 },

@@ -62,6 +62,7 @@ import { TrainTimelineSidebar, VIEW_TYPE_TRAIN_TIMELINE } from "./ui/train/Train
 import { TrainHubView, VIEW_TYPE_TRAIN_HUB } from "./ui/train/TrainHubView";
 import { AnalyticsHubView, VIEW_TYPE_ANALYTICS_HUB } from "./ui/analytics/AnalyticsHubView";
 import { CanvasSessionService } from "./domain/canvas/session/CanvasSessionService";
+import { JourneyBuilderSidebar, VIEW_TYPE_JOURNEY_BUILDER } from "./ui/journeyBuilder/JourneyBuilderSidebar";
 import { showNudgeNotification } from "./ui/shared/NudgeNotification";
 import { openStartPage } from "./infrastructure/StartpageHandler";
 import { NoticeService } from "./infrastructure/ui/NoticeService";
@@ -266,6 +267,9 @@ export default class FlowtiBasePlugin extends Plugin {
 			});
 			this.addRibbonIcon("layout-template", "Start canvas session", () => {
 				void this.eventBus.emit("ui.startCanvasSession", {});
+			});
+			this.addRibbonIcon("route", "Open journey builder", () => {
+				void this.eventBus.emit("ui.openJourneyBuilder", {});
 			});
 
 			// Status bar
@@ -843,6 +847,11 @@ export default class FlowtiBasePlugin extends Plugin {
 		// Analytics Hub — dedicated analytics view
 		this.safeRegisterView(VIEW_TYPE_ANALYTICS_HUB, (leaf) =>
 			new AnalyticsHubView(leaf, this.eventBus, this.analyticsService!, this.onboardingService!),
+		);
+
+		// Journey Builder — sidebar for creating E2E journey definitions
+		this.safeRegisterView(VIEW_TYPE_JOURNEY_BUILDER, (leaf) =>
+			new JourneyBuilderSidebar(leaf, { eventBus: this.eventBus }),
 		);
 
 		// Seed supplier dashboard and init onboarding after first-run install

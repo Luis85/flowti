@@ -20,6 +20,7 @@ import { VIEW_TYPE_EVENT_LOG } from "../../ui/catalog/EventLogView";
 import { VIEW_TYPE_DATA_EXCHANGE_HUB } from "../../ui/hub/DataExchangeHubView";
 import { VIEW_TYPE_USER_HUB } from "../../ui/userHub/UserHubView";
 import { VIEW_TYPE_TRAIN_HUB, VIEW_TYPE_ANALYTICS_HUB } from "../../domain/hub/types";
+import { VIEW_TYPE_JOURNEY_BUILDER } from "../../ui/journeyBuilder/JourneyBuilderSidebar";
 
 // ─────────────────────────────────────────────────────────────
 // Callback types for data exchange delegation
@@ -143,6 +144,13 @@ export class UiCommandService implements IDisposable {
 			this.eventBus.on("ui.openAnalyticsHub", () =>
 				this.openView(VIEW_TYPE_ANALYTICS_HUB, "analyticsHub", "main"),
 			),
+		);
+
+		this.unsubscribes.push(
+			this.eventBus.on("ui.openJourneyBuilder", () => {
+				this.openView(VIEW_TYPE_JOURNEY_BUILDER, "journeyBuilder", "right");
+				void this.eventBus.emit("journey-builder.opened", {});
+			}),
 		);
 
 		this.unsubscribes.push(

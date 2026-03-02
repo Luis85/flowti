@@ -172,6 +172,7 @@ export const EVENT_CATEGORIES = [
 	"Performance",
 	"Notification",
 	"Modal",
+	"Journey Builder",
 ] as const;
 
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
@@ -644,6 +645,15 @@ const CATALOG_DATA = {
 	"ui.openTextPrompt":         { category: "Modal", description: "Request to open a text input prompt modal", direction: "Internal", domain: "ui", services: "ModalService", tags: ["system"] },
 	"modal.textPrompt.submitted": { category: "Modal", description: "A text prompt was submitted with a value", direction: "Internal", domain: "ui", services: "ModalService", tags: ["system"] },
 	"modal.textPrompt.cancelled": { category: "Modal", description: "A text prompt was cancelled without submitting", direction: "Internal", domain: "ui", services: "ModalService", tags: ["system"] },
+
+	// ── Journey Builder ───────────────────────────────────
+	"journey-builder.opened":           { category: "Journey Builder", description: "Journey Builder sidebar was opened", direction: "Plugin → Listeners", domain: "journey-builder", services: "JourneyBuilderSidebar" },
+	"journey-builder.create-new":       { category: "Journey Builder", description: "User clicked Create New Journey", direction: "View → Plugin", domain: "journey-builder", services: "JourneyBuilderSidebar" },
+	"journey-builder.open-existing":    { category: "Journey Builder", description: "User clicked Open Existing Journey", direction: "View → Plugin", domain: "journey-builder", services: "JourneyBuilderSidebar" },
+	"journey-builder.metadata.updated": { category: "Journey Builder", description: "Journey metadata was updated", direction: "View → Plugin", domain: "journey-builder", services: "JourneyBuilderSidebar" },
+	"journey-builder.step.added":       { category: "Journey Builder", description: "A step was added to the journey", direction: "View → Plugin", domain: "journey-builder", services: "JourneyBuilderSidebar" },
+	"journey-builder.exported":         { category: "Journey Builder", description: "Journey was exported to JSON and test file", direction: "Service → Listeners", domain: "journey-builder", services: "JourneyBuilderSidebar" },
+	"ui.openJourneyBuilder":            { category: "UI Commands", description: "Open the Journey Builder sidebar", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

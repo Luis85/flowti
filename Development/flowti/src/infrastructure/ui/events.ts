@@ -86,6 +86,9 @@ export interface UiCommandEventMap {
 	/** Open the Analytics Hub view (or reveal if already open) */
 	"ui.openAnalyticsHub": Record<string, never>;
 
+	/** Open the Journey Builder sidebar in the right panel */
+	"ui.openJourneyBuilder": Record<string, never>;
+
 	/** Emitted after a view or modal was opened by UiCommandService */
 	"ui.opened": {
 		target: string;
