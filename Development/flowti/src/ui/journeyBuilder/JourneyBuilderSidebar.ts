@@ -712,6 +712,18 @@ export class JourneyBuilderSidebar extends ItemView {
 	private onContinue(): void {
 		this.renderSteps();
 		this.scheduleCanvasSync();
+		this.autoSaveDefinition();
+	}
+
+	/** Auto-saves the journey definition JSON (without test/canvas files). */
+	private autoSaveDefinition(): void {
+		if (!this.metadata.name) return;
+		const subfolder = `${this.journeyFolder()}/${this.metadata.name}`;
+		const filePath = `${subfolder}/${this.metadata.name}.journey.json`;
+		void this.eventBus.emit("journey-builder.exported", {
+			path: filePath,
+			definition: this.buildDefinition(),
+		});
 	}
 
 	private onNavPrev(): void {
@@ -834,10 +846,10 @@ export class JourneyBuilderSidebar extends ItemView {
 	private onExport(): void {
 		const name = this.metadata.name;
 		const slug = name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-		const folder = this.journeyFolder();
-		const filePath = `${folder}/${name}.journey.json`;
+		const subfolder = `${this.journeyFolder()}/${name}`;
+		const filePath = `${subfolder}/${name}.journey.json`;
 		const testFilePath = `tests/e2e/90-journey-${slug}.test.ts`;
-		const canvasPath = `${folder}/${name}.canvas`;
+		const canvasPath = `${subfolder}/${name}.canvas`;
 		const definition = this.buildDefinition();
 		void this.eventBus.emit("journey-builder.exported", {
 			path: filePath, testFilePath, canvasPath, definition,
@@ -895,7 +907,7 @@ export class JourneyBuilderSidebar extends ItemView {
 	}
 
 	private onOpenCanvas(): void {
-		const canvasPath = `${this.journeyFolder()}/${this.metadata.name}.canvas`;
+		const canvasPath = `${this.journeyFolder()}/${this.metadata.name}/${this.metadata.name}.canvas`;
 		void this.app?.workspace?.openLinkText(canvasPath, "");
 	}
 
@@ -910,7 +922,7 @@ export class JourneyBuilderSidebar extends ItemView {
 		if (this.canvasSyncTimer) clearTimeout(this.canvasSyncTimer);
 		this.canvasSyncTimer = setTimeout(() => {
 			this.canvasSyncTimer = null;
-			const canvasPath = `${this.journeyFolder()}/${this.metadata.name}.canvas`;
+			const canvasPath = `${this.journeyFolder()}/${this.metadata.name}/${this.metadata.name}.canvas`;
 			void this.eventBus.emit("journey-builder.canvas.sync-requested", {
 				canvasPath,
 				definition: this.buildCanvasSyncInput(),

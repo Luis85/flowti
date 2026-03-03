@@ -1152,7 +1152,7 @@ describe("JourneyBuilderSidebar", () => {
 		it("opens canvas file on click", () => {
 			byTestId(sidebar.contentEl, "jb-open-canvas-btn")!.click();
 			expect(openLinkText).toHaveBeenCalledOnce();
-			expect(openLinkText).toHaveBeenCalledWith("03 - Resources/Journeys/My Journey.canvas", "");
+			expect(openLinkText).toHaveBeenCalledWith("03 - Resources/Journeys/My Journey/My Journey.canvas", "");
 		});
 	});
 
@@ -1202,7 +1202,7 @@ describe("JourneyBuilderSidebar", () => {
 			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
 			vi.advanceTimersByTime(1500);
 
-			expect(handler.mock.calls[0][0].payload.canvasPath).toBe("03 - Resources/Journeys/My Journey.canvas");
+			expect(handler.mock.calls[0][0].payload.canvasPath).toBe("03 - Resources/Journeys/My Journey/My Journey.canvas");
 		});
 
 		it("emits with correct definition matching sidebar state", () => {

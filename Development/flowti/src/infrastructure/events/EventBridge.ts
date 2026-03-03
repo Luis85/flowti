@@ -368,7 +368,7 @@ export class EventBridge implements IEventBridge {
 			})
 		);
 
-		// Handle file.list.request
+		// Handle file.list.request (recursive — walks subdirectories)
 		this.unsubscribers.push(
 			this.eventBus.on("file.list.request", async (event) => {
 				const { requestId, path } = event.payload;
@@ -383,12 +383,20 @@ export class EventBridge implements IEventBridge {
 						});
 						return;
 					}
-					const listing = await adapter.list(path);
+					const collectFiles = async (dir: string): Promise<string[]> => {
+						const listing = await adapter.list(dir);
+						let files = [...listing.files];
+						for (const sub of listing.folders) {
+							files = files.concat(await collectFiles(sub));
+						}
+						return files;
+					};
+					const files = await collectFiles(path);
 					await this.eventBus.emit("file.list.response", {
 						requestId,
 						success: true,
 						path,
-						files: listing.files,
+						files,
 					});
 				} catch (error) {
 					await this.eventBus.emit("file.list.response", {
