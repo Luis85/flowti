@@ -510,6 +510,7 @@ export class JourneyBuilderSidebar extends ItemView {
 		if (this.currentStepIndex > 0) {
 			this.currentStepIndex--;
 			this.renderSteps();
+			this.scheduleCanvasSync(300);
 		}
 	}
 
@@ -517,6 +518,7 @@ export class JourneyBuilderSidebar extends ItemView {
 		if (this.currentStepIndex < this.steps.length - 1) {
 			this.currentStepIndex++;
 			this.renderSteps();
+			this.scheduleCanvasSync(300);
 		}
 	}
 
@@ -620,9 +622,15 @@ export class JourneyBuilderSidebar extends ItemView {
 	}
 
 	private onExport(): void {
-		const filePath = `journeys/${this.metadata.name}.journey.json`;
+		const name = this.metadata.name;
+		const slug = name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+		const filePath = `journeys/${name}.journey.json`;
+		const testFilePath = `tests/e2e/90-journey-${slug}.test.ts`;
+		const canvasPath = `journeys/${name}.canvas`;
 		const definition = this.buildDefinition();
-		void this.eventBus.emit("journey-builder.exported", { path: filePath, definition });
+		void this.eventBus.emit("journey-builder.exported", {
+			path: filePath, testFilePath, canvasPath, definition,
+		});
 	}
 
 	private onCanvasSynced(payload: { canvasPath: string }): void {
@@ -657,7 +665,7 @@ export class JourneyBuilderSidebar extends ItemView {
 
 	// ── Canvas sync ─────────────────────────────────────────
 
-	private scheduleCanvasSync(): void {
+	private scheduleCanvasSync(delay = 1500): void {
 		if (!this.metadata.name) return;
 		if (this.canvasSyncTimer) clearTimeout(this.canvasSyncTimer);
 		this.canvasSyncTimer = setTimeout(() => {
@@ -667,7 +675,7 @@ export class JourneyBuilderSidebar extends ItemView {
 				canvasPath,
 				definition: this.buildCanvasSyncInput(),
 			});
-		}, 1500);
+		}, delay);
 	}
 
 	private buildCanvasSyncInput(): CanvasSyncInput {
@@ -676,6 +684,7 @@ export class JourneyBuilderSidebar extends ItemView {
 			description: this.metadata.description,
 			startEvent: this.metadata.startEvent,
 			endEvent: this.endEvent,
+			activeStepIndex: this.currentStepIndex,
 			steps: this.steps.map((s) => ({
 				id: s.id,
 				title: s.title,

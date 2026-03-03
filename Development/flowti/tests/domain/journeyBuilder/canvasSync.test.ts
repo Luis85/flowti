@@ -223,6 +223,36 @@ describe("buildJourneyCanvas", () => {
 		});
 	});
 
+	describe("active step highlight", () => {
+		it("colors the active step group with '5' (cyan)", () => {
+			const result = buildJourneyCanvas(sampleInput({ activeStepIndex: 0 }), deterministicId);
+			const groups = result.nodes.filter((n) => n.type === "group");
+			expect((groups[0] as { color?: string }).color).toBe("5");
+		});
+
+		it("leaves non-active step groups without color", () => {
+			const result = buildJourneyCanvas(sampleInput({ activeStepIndex: 0 }), deterministicId);
+			const groups = result.nodes.filter((n) => n.type === "group");
+			expect((groups[1] as { color?: string }).color).toBeUndefined();
+		});
+
+		it("all step groups uncolored when activeStepIndex is omitted", () => {
+			const result = buildJourneyCanvas(sampleInput(), deterministicId);
+			const groups = result.nodes.filter((n) => n.type === "group");
+			for (const g of groups) {
+				expect((g as { color?: string }).color).toBeUndefined();
+			}
+		});
+
+		it("ignores out-of-range activeStepIndex", () => {
+			const result = buildJourneyCanvas(sampleInput({ activeStepIndex: 99 }), deterministicId);
+			const groups = result.nodes.filter((n) => n.type === "group");
+			for (const g of groups) {
+				expect((g as { color?: string }).color).toBeUndefined();
+			}
+		});
+	});
+
 	describe("edge cases", () => {
 		it("works with zero steps (START → END only)", () => {
 			const input = sampleInput({ steps: [] });

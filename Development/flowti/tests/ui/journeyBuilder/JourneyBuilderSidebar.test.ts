@@ -1066,5 +1066,56 @@ describe("JourneyBuilderSidebar", () => {
 
 			expect(handler).not.toHaveBeenCalled();
 		});
+
+		it("navigation prev triggers canvas sync with short delay", () => {
+			const handler = vi.fn();
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			// Flush add-step syncs
+			vi.advanceTimersByTime(1500);
+
+			eventBus.on("journey-builder.canvas.sync-requested", handler);
+			byTestId(sidebar.contentEl, "jb-nav-prev")!.click();
+
+			// Not emitted immediately
+			expect(handler).not.toHaveBeenCalled();
+			// Emitted after short 300ms delay
+			vi.advanceTimersByTime(300);
+			expect(handler).toHaveBeenCalledOnce();
+		});
+
+		it("navigation next triggers canvas sync with short delay", () => {
+			const handler = vi.fn();
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			byTestId(sidebar.contentEl, "jb-nav-prev")!.click();
+			// Flush pending syncs
+			vi.advanceTimersByTime(1500);
+
+			eventBus.on("journey-builder.canvas.sync-requested", handler);
+			byTestId(sidebar.contentEl, "jb-nav-next")!.click();
+
+			expect(handler).not.toHaveBeenCalled();
+			vi.advanceTimersByTime(300);
+			expect(handler).toHaveBeenCalledOnce();
+		});
+
+		it("sync payload includes activeStepIndex matching currentStepIndex", () => {
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			// Flush add syncs
+			vi.advanceTimersByTime(1500);
+
+			// Navigate to step 1 (index 1)
+			byTestId(sidebar.contentEl, "jb-nav-prev")!.click();
+
+			const handler = vi.fn();
+			eventBus.on("journey-builder.canvas.sync-requested", handler);
+			vi.advanceTimersByTime(300);
+
+			const def = handler.mock.calls[0][0].payload.definition;
+			expect(def.activeStepIndex).toBe(1);
+		});
 	});
 });

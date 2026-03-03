@@ -1,6 +1,6 @@
 {
 	"journey": "Journey Builder",
-	"description": "Full E2E blueprint for the Journey Builder feature. Steps 1-10 validate the current implementation (launch, welcome/setup flow, step editing with navigation, Title Sentence conversion, export, action builder with 34 tools, live JSON preview with copy-to-clipboard, event autocomplete, command picker, assert type builder, real-time canvas sync). Steps 11-13 are development targets: full 3-file export, open existing, and preview run.",
+	"description": "Full E2E blueprint for the Journey Builder feature. Steps 1-11 validate the current implementation (launch, welcome/setup flow, step editing with navigation, Title Sentence conversion, export, action builder with 34 tools, live JSON preview with copy-to-clipboard, event autocomplete, command picker, assert type builder, real-time canvas sync, full 3-file export). Steps 12-13 are development targets: open existing and preview run.",
 	"testSource": "tests/e2e/90-journey-journey-builder.test.ts",
 	"reportPath": "docs/journeys/Journey Builder/Journey Builder.md",
 	"canvasPath": "docs/journeys/Journey Builder/Journey Builder.canvas",
@@ -608,7 +608,6 @@
 			"title": "Full export — JSON, test file, and canvas",
 			"guideSection": 11,
 			"swimlane": "backstage",
-			"dev": true,
 			"description": "Exports the complete journey as three files: a .journey.json with the full definition, a .test.ts executor wrapper, and a .canvas companion file. Verifies all three files are created in the vault.",
 			"expectedInput": "Journey Builder with fully configured steps and actions",
 			"expectedOutput": "Three files created: journey JSON, test executor, companion canvas",

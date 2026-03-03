@@ -226,6 +226,135 @@ describe("JourneyBuilderService", () => {
 		});
 	});
 
+	// ── Test executor generation ────────────────────────────────────
+
+	describe("buildTestExecutor()", () => {
+		it("includes correct imports", () => {
+			const content = service.buildTestExecutor("My Journey", "my-journey.journey.json");
+			expect(content).toContain('import * as fs from "node:fs"');
+			expect(content).toContain('import * as path from "node:path"');
+			expect(content).toContain('import { executeJourney } from "./helpers/journeyExecutor"');
+			expect(content).toContain('import type { JourneyDefinition } from "./helpers/journeyTypes"');
+		});
+
+		it("includes journey name in doc comment", () => {
+			const content = service.buildTestExecutor("Getting Started", "getting-started.journey.json");
+			expect(content).toContain("E2E Journey: Getting Started");
+		});
+
+		it("references correct JSON filename in configPath", () => {
+			const content = service.buildTestExecutor("My Journey", "my-journey.journey.json");
+			expect(content).toContain('"my-journey.journey.json"');
+		});
+
+		it("ends with executeJourney call", () => {
+			const content = service.buildTestExecutor("My Journey", "my-journey.journey.json");
+			expect(content).toContain("executeJourney(definition);");
+		});
+
+		it("references JSON in journeys subfolder", () => {
+			const content = service.buildTestExecutor("My Journey", "my-journey.journey.json");
+			expect(content).toContain('path.join(__dirname, "journeys"');
+		});
+
+		it("handles names with special characters", () => {
+			const content = service.buildTestExecutor("Journey #1 — Test!", "journey-1-test.journey.json");
+			expect(content).toContain("E2E Journey: Journey #1 — Test!");
+			expect(content).toContain('"journey-1-test.journey.json"');
+		});
+	});
+
+	// ── 3-file export ───────────────────────────────────────────────
+
+	describe("handleExport — 3-file mode", () => {
+		it("writes test executor when testFilePath is provided", async () => {
+			service.start();
+			const payload = samplePayload({
+				testFilePath: "tests/e2e/90-journey-my-journey.test.ts",
+			});
+			eventBus._trigger("journey-builder.exported", payload);
+
+			await vi.waitFor(() => {
+				expect(fileSystem.createFile).toHaveBeenCalledTimes(2);
+			});
+
+			const calls = (fileSystem.createFile as ReturnType<typeof vi.fn>).mock.calls;
+			const testCall = calls.find((c: string[]) => c[0].includes(".test.ts"));
+			expect(testCall).toBeDefined();
+			expect(testCall![0]).toBe("tests/e2e/90-journey-my-journey.test.ts");
+			expect(testCall![1]).toContain("executeJourney");
+		});
+
+		it("writes canvas when canvasPath is provided", async () => {
+			(fileSystem.fileExists as ReturnType<typeof vi.fn>).mockResolvedValue(false);
+			service.start();
+			const payload = samplePayload({
+				canvasPath: "journeys/My Journey.canvas",
+			});
+			eventBus._trigger("journey-builder.exported", payload);
+
+			await vi.waitFor(() => {
+				expect(fileSystem.createFile).toHaveBeenCalledTimes(2);
+			});
+
+			const calls = (fileSystem.createFile as ReturnType<typeof vi.fn>).mock.calls;
+			const canvasCall = calls.find((c: string[]) => c[0].includes(".canvas"));
+			expect(canvasCall).toBeDefined();
+			expect(canvasCall![0]).toBe("journeys/My Journey.canvas");
+
+			const parsed = JSON.parse(canvasCall![1]);
+			expect(parsed.nodes).toBeDefined();
+			expect(parsed.edges).toBeDefined();
+		});
+
+		it("updates canvas when file already exists", async () => {
+			(fileSystem.fileExists as ReturnType<typeof vi.fn>).mockResolvedValue(true);
+			service.start();
+			const payload = samplePayload({
+				canvasPath: "journeys/My Journey.canvas",
+			});
+			eventBus._trigger("journey-builder.exported", payload);
+
+			await vi.waitFor(() => {
+				expect(fileSystem.updateFile).toHaveBeenCalledOnce();
+			});
+
+			const [path] = (fileSystem.updateFile as ReturnType<typeof vi.fn>).mock.calls[0];
+			expect(path).toBe("journeys/My Journey.canvas");
+		});
+
+		it("writes all three files when all paths provided", async () => {
+			(fileSystem.fileExists as ReturnType<typeof vi.fn>).mockResolvedValue(false);
+			service.start();
+			const payload = samplePayload({
+				testFilePath: "tests/e2e/90-journey-my-journey.test.ts",
+				canvasPath: "journeys/My Journey.canvas",
+			});
+			eventBus._trigger("journey-builder.exported", payload);
+
+			await vi.waitFor(() => {
+				expect(fileSystem.createFile).toHaveBeenCalledTimes(3);
+			});
+
+			const paths = (fileSystem.createFile as ReturnType<typeof vi.fn>).mock.calls.map((c: string[]) => c[0]);
+			expect(paths).toContain("journeys/My Journey.journey.json");
+			expect(paths).toContain("tests/e2e/90-journey-my-journey.test.ts");
+			expect(paths).toContain("journeys/My Journey.canvas");
+		});
+
+		it("only writes JSON when testFilePath and canvasPath are absent", async () => {
+			service.start();
+			eventBus._trigger("journey-builder.exported", samplePayload());
+
+			await vi.waitFor(() => {
+				expect(fileSystem.createFile).toHaveBeenCalledOnce();
+			});
+
+			const path = (fileSystem.createFile as ReturnType<typeof vi.fn>).mock.calls[0][0];
+			expect(path).toBe("journeys/My Journey.journey.json");
+		});
+	});
+
 	// ── Canvas sync ─────────────────────────────────────────────────
 
 	describe("handleCanvasSync (via event trigger)", () => {

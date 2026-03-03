@@ -17,6 +17,7 @@ export interface CanvasSyncInput {
 	description: string;
 	startEvent: string;
 	endEvent: string;
+	activeStepIndex?: number;
 	steps: Array<{
 		id: string;
 		title: string;
@@ -112,7 +113,8 @@ export function buildJourneyCanvas(
 
 		const groupId = idGen();
 		const label = step.title || `Step ${i + 1}`;
-		nodes.push(groupNode(groupId, label, gx, gy, GROUP_W, GROUP_H));
+		const color = i === input.activeStepIndex ? "5" : undefined;
+		nodes.push(groupNode(groupId, label, gx, gy, GROUP_W, GROUP_H, color));
 
 		// Inner text node
 		const innerId = idGen();

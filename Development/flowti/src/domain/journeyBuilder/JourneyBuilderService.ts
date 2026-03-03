@@ -2,7 +2,7 @@
  * JourneyBuilderService — handles export and canvas sync for journey definitions.
  *
  * Listens for:
- *   - `journey-builder.exported` → writes journey JSON to vault
+ *   - `journey-builder.exported` → writes journey JSON, test executor, and canvas to vault
  *   - `journey-builder.canvas.sync-requested` → writes companion .canvas file
  */
 import type { IFileSystemClient } from "../../infrastructure/filesystem/types";
@@ -69,10 +69,64 @@ export class JourneyBuilderService {
 		return JSON.stringify(output, null, "\t");
 	}
 
+	/** Generates a test executor .ts file from a journey name and JSON filename. */
+	buildTestExecutor(journeyName: string, jsonFileName: string): string {
+		return [
+			"/**",
+			` * E2E Journey: ${journeyName}`,
+			" *",
+			` * Driven by declarative JSON — see journeys/${jsonFileName}`,
+			" * for step definitions and actions.",
+			" */",
+			'import * as fs from "node:fs";',
+			'import * as path from "node:path";',
+			'import { executeJourney } from "./helpers/journeyExecutor";',
+			'import type { JourneyDefinition } from "./helpers/journeyTypes";',
+			"",
+			`const configPath = path.join(__dirname, "journeys", "${jsonFileName}");`,
+			'const definition = JSON.parse(fs.readFileSync(configPath, "utf-8")) as JourneyDefinition;',
+			"",
+			"executeJourney(definition);",
+			"",
+		].join("\n");
+	}
+
 	private async handleExport(payload: JourneyExportPayload): Promise<void> {
 		try {
+			// 1. Write journey JSON
 			const json = this.buildDefinitionJSON(payload);
 			await this.fileSystem.createFile(payload.path, json, { createFolders: true });
+
+			// 2. Write test executor
+			if (payload.testFilePath) {
+				const jsonFileName = payload.path.split("/").pop() ?? "";
+				const testContent = this.buildTestExecutor(payload.definition.journey, jsonFileName);
+				await this.fileSystem.createFile(payload.testFilePath, testContent, { createFolders: true });
+			}
+
+			// 3. Write canvas snapshot
+			if (payload.canvasPath) {
+				const canvasInput: CanvasSyncInput = {
+					journey: payload.definition.journey,
+					description: payload.definition.description,
+					startEvent: payload.definition.startEvent,
+					endEvent: payload.definition.endEvent,
+					steps: payload.definition.steps.map((s) => ({
+						id: s.id,
+						title: s.title,
+						description: s.description,
+						actions: s.actions ?? [],
+					})),
+				};
+				const canvasData = buildJourneyCanvas(canvasInput);
+				const canvasJson = JSON.stringify(canvasData, null, 2);
+				const exists = await this.fileSystem.fileExists(payload.canvasPath);
+				if (exists) {
+					await this.fileSystem.updateFile(payload.canvasPath, canvasJson);
+				} else {
+					await this.fileSystem.createFile(payload.canvasPath, canvasJson, { createFolders: true });
+				}
+			}
 		} catch (err) {
 			console.error("[JourneyBuilderService] Export failed:", err);
 		}

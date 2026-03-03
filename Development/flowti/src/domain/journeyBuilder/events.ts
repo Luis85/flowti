@@ -6,6 +6,8 @@ import type { CanvasSyncInput } from "./canvasSync";
 /** Payload for the export event — carries the full journey definition. */
 export interface JourneyExportPayload {
 	path: string;
+	testFilePath?: string;
+	canvasPath?: string;
 	definition: {
 		journey: string;
 		description: string;
