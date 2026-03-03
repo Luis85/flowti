@@ -61,7 +61,9 @@ export type ToolName =
 	// Dropdown tools
 	| "select"
 	// Spinner tools
-	| "spinner";
+	| "spinner"
+	// Batch tools
+	| "parallel-group";
 
 // ─── Lifecycle configuration ────────────────────────────────────────
 
@@ -273,7 +275,9 @@ export type ActionDefinition =
 	// Dropdown tools
 	| SelectAction
 	// Spinner tools
-	| SpinnerAction;
+	| SpinnerAction
+	// Batch tools
+	| ParallelGroupAction;
 
 export interface CommandAction {
 	tool: "command";
@@ -614,4 +618,22 @@ export interface SpinnerAction {
 	/** Message shown alongside the spinner (start only). Supports {{variable}} interpolation. */
 	message?: string;
 	description?: string;
+}
+
+// ─── Batch tools ────────────────────────────────────────────────────
+
+/** Action types allowed inside a parallel-group. Read-only assertions only. */
+export type ParallelGroupSubAction =
+	| AssertAction
+	| AssertTextAction
+	| AssertNumberAction
+	| AssertValueAction
+	| EvalAction;
+
+export interface ParallelGroupAction {
+	tool: "parallel-group";
+	/** Human-readable label for the batch. */
+	description?: string;
+	/** Sub-actions to execute in a single batched eval call. */
+	actions: ParallelGroupSubAction[];
 }

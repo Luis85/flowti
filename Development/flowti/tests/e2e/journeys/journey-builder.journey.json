@@ -103,9 +103,15 @@
 				{ "tool": "screenshot", "label": "before-ribbon", "description": "Clean workspace before ribbon click" },
 				{ "tool": "ribbon", "label": "journey builder", "description": "Click Journey Builder ribbon icon" },
 				{ "tool": "wait", "ms": 500, "description": "Wait for sidebar to open" },
-				{ "tool": "assert", "type": "leaf", "viewType": "flowti-journey-builder", "description": "Journey Builder sidebar leaf exists" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-open-existing']", "description": "Open Existing button is visible" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-create-new']", "description": "Create New button is visible" },
+				{
+					"tool": "parallel-group",
+					"description": "Verify sidebar opened with welcome screen",
+					"actions": [
+						{ "tool": "assert", "type": "leaf", "viewType": "flowti-journey-builder", "description": "Journey Builder sidebar leaf exists" },
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-open-existing']", "description": "Open Existing button is visible" },
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-create-new']", "description": "Create New button is visible" }
+					]
+				},
 				{
 					"tool": "eval",
 					"code": "(() => { const leaves = app.workspace.getLeavesOfType('flowti-journey-builder'); if (leaves.length === 0) return 'none'; const leaf = leaves[0]; return leaf.getRoot() === app.workspace.rightSplit ? 'right' : 'other'; })()",
@@ -144,11 +150,17 @@
 				{ "tool": "notice", "message": "Step 3/13: Creating a new journey", "duration": 3000 },
 				{ "tool": "click", "selector": "[data-test-id='jb-create-new']", "description": "Click Create New Journey" },
 				{ "tool": "wait", "ms": 500 },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-setup-form']", "description": "Setup form container is visible" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-name-input']", "description": "Journey name input is visible" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-description-input']", "description": "Description textarea is visible" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-start-event-input']", "description": "Start event input is visible" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-continue-btn']", "description": "Continue button is visible" },
+				{
+					"tool": "parallel-group",
+					"description": "Verify setup form elements are visible",
+					"actions": [
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-setup-form']", "description": "Setup form container is visible" },
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-name-input']", "description": "Journey name input is visible" },
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-description-input']", "description": "Description textarea is visible" },
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-start-event-input']", "description": "Start event input is visible" },
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-continue-btn']", "description": "Continue button is visible" }
+					]
+				},
 				{ "tool": "set-input", "selector": "[data-test-id='jb-name-input']", "value": "E2E Demo Journey", "description": "Enter journey name" },
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "assert", "type": "event", "event": "journey-builder.metadata.updated", "description": "metadata.updated emitted for name" },
@@ -210,20 +222,38 @@
 				{ "tool": "notice", "message": "Step 4/13: Adding a journey step", "duration": 3000 },
 				{ "tool": "click", "selector": "[data-test-id='jb-continue-btn']", "description": "Click Continue to enter step editor" },
 				{ "tool": "wait", "ms": 500 },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-nav-counter']", "description": "NavBar counter is visible" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-nav-add-step']", "description": "NavBar Add Step button is visible" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-empty-steps']", "description": "Empty state message is visible" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-end-event-input']", "description": "End event input is visible" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-export-btn']", "description": "Export button is visible" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-json-toggle']", "description": "JSON preview toggle is visible" },
+				{
+					"tool": "parallel-group",
+					"description": "Verify step editor UI elements are visible",
+					"actions": [
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-nav-counter']", "description": "NavBar counter is visible" },
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-nav-add-step']", "description": "NavBar Add Step button is visible" },
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-empty-steps']", "description": "Empty state message is visible" },
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-end-event-input']", "description": "End event input is visible" },
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-export-btn']", "description": "Export button is visible" },
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-json-toggle']", "description": "JSON preview toggle is visible" }
+					]
+				},
 				{ "tool": "click", "selector": "[data-test-id='jb-nav-add-step']", "description": "Click Add Step in NavBar" },
 				{ "tool": "wait", "ms": 500 },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-card']", "description": "StepCard appeared with editable title" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-title-input']", "description": "Step title input is visible in StepCard" },
+				{
+					"tool": "parallel-group",
+					"description": "Verify StepCard appeared",
+					"actions": [
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-card']", "description": "StepCard appeared with editable title" },
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-title-input']", "description": "Step title input is visible in StepCard" }
+					]
+				},
 				{ "tool": "assert", "type": "event", "event": "journey-builder.step.added", "description": "step.added event was emitted" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-action-count']", "description": "Action count is visible on StepCard" },
-				{ "tool": "assert-text", "selector": "[data-test-id='jb-step-action-count']", "contains": "No actions", "description": "Action count shows 'No actions' for new step" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-add-action-btn']", "description": "Add action button is visible in ActionList" },
+				{
+					"tool": "parallel-group",
+					"description": "Verify StepCard content and action list",
+					"actions": [
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-action-count']", "description": "Action count is visible on StepCard" },
+						{ "tool": "assert-text", "selector": "[data-test-id='jb-step-action-count']", "contains": "No actions", "description": "Action count shows 'No actions' for new step" },
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-add-action-btn']", "description": "Add action button is visible in ActionList" }
+					]
+				},
 				{ "tool": "set-input", "selector": "[data-test-id='jb-step-title-input']", "value": "Open the user hub", "description": "Enter step title in StepCard" },
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "assert", "type": "event", "event": "journey-builder.step.updated", "description": "step.updated event was emitted on title edit" },
@@ -303,12 +333,18 @@
 			],
 			"actions": [
 				{ "tool": "notice", "message": "Step 6/13: Step editor with prev/next navigation", "duration": 3000 },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-nav-prev']", "description": "Prev button is visible" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-nav-next']", "description": "Next button is visible" },
-				{ "tool": "assert-text", "selector": "[data-test-id='jb-nav-counter']", "contains": "Step 1 of 1", "description": "Step counter shows correct position" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-card']", "description": "Step card is visible with full metadata" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-description']", "description": "Description field is visible" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-swimlane']", "description": "Swimlane selector is visible" },
+				{
+					"tool": "parallel-group",
+					"description": "Verify step editor state after navigation",
+					"actions": [
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-nav-prev']", "description": "Prev button is visible" },
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-nav-next']", "description": "Next button is visible" },
+						{ "tool": "assert-text", "selector": "[data-test-id='jb-nav-counter']", "contains": "Step 1 of 1", "description": "Step counter shows correct position" },
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-card']", "description": "Step card is visible with full metadata" },
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-description']", "description": "Description field is visible" },
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-swimlane']", "description": "Swimlane selector is visible" }
+					]
+				},
 				{ "tool": "select", "selector": "[data-test-id='jb-step-swimlane']", "value": "frontstage", "description": "Select frontstage swimlane" },
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "assert-value", "selector": "[data-test-id='jb-step-swimlane']", "equals": "frontstage", "description": "Swimlane shows frontstage" },
@@ -376,9 +412,15 @@
 				{ "tool": "select", "selector": "[data-test-id='jb-tool-select']", "value": "command", "description": "Pick 'command' tool" },
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "assert", "type": "event", "event": "journey-builder.action.added", "description": "action.added event emitted" },
-				{ "tool": "assert", "type": "count", "selector": "[data-test-id='jb-action-card']", "count": 1, "description": "One action card appeared" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-action-form']", "description": "Action form is visible for the selected action" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-action-field-id']", "description": "Command ID field is visible" },
+				{
+					"tool": "parallel-group",
+					"description": "Verify action card and form after tool selection",
+					"actions": [
+						{ "tool": "assert", "type": "count", "selector": "[data-test-id='jb-action-card']", "count": 1, "description": "One action card appeared" },
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-action-form']", "description": "Action form is visible for the selected action" },
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-action-field-id']", "description": "Command ID field is visible" }
+					]
+				},
 				{ "tool": "set-input", "selector": "[data-test-id='jb-action-field-id']", "value": "flowti:show-hub", "description": "Enter command ID" },
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-action-field-description']", "description": "Description field is visible" },
@@ -444,9 +486,15 @@
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-json-toggle']", "description": "JSON toggle button is visible" },
 				{ "tool": "click", "selector": "[data-test-id='jb-json-toggle']", "description": "Toggle JSON preview open" },
 				{ "tool": "wait", "ms": 300, "description": "Wait for panel to open" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-json-panel']", "description": "JSON panel is visible" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-json-content']", "description": "JSON content is visible" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-json-copy']", "description": "Copy to clipboard button is visible" },
+				{
+					"tool": "parallel-group",
+					"description": "Verify JSON panel elements are visible",
+					"actions": [
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-json-panel']", "description": "JSON panel is visible" },
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-json-content']", "description": "JSON content is visible" },
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-json-copy']", "description": "Copy to clipboard button is visible" }
+					]
+				},
 				{ "tool": "eval", "code": "(() => { const el = document.querySelector('[data-test-id=\"jb-json-content\"]'); if (!el) return 'missing'; try { JSON.parse(el.textContent); return 'valid'; } catch { return 'invalid'; } })()", "expect": { "type": "equals", "value": "valid" }, "description": "JSON content is valid JSON" },
 				{ "tool": "screenshot", "label": "json-preview", "description": "JSON preview panel showing formatted journey definition" },
 				{ "tool": "click", "selector": "[data-test-id='jb-json-copy']", "description": "Click copy to clipboard button" },
@@ -626,9 +674,15 @@
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "click", "selector": ".suggestion-item:first-child", "description": "Select the journey from results" },
 				{ "tool": "wait", "ms": 500, "description": "Wait for journey to load" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-nav-counter']", "description": "Step editor NavBar is visible" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-card']", "description": "Step card is populated" },
-				{ "tool": "assert-text", "selector": "[data-test-id='jb-nav-counter']", "contains": "Step 1 of 2", "description": "Both steps loaded" },
+				{
+					"tool": "parallel-group",
+					"description": "Verify loaded journey state",
+					"actions": [
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-nav-counter']", "description": "Step editor NavBar is visible" },
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-card']", "description": "Step card is populated" },
+						{ "tool": "assert-text", "selector": "[data-test-id='jb-nav-counter']", "contains": "Step 1 of 2", "description": "Both steps loaded" }
+					]
+				},
 				{ "tool": "screenshot", "label": "open-existing", "description": "Existing journey loaded in step editor" },
 				{ "tool": "manual", "instruction": "Verify the previously exported journey loaded correctly: step 1 should show 'Open the user hub' with its actions, step 2 should show 'Navigate to Domains tab'. The navigation counter should show 'Step 1 of 2'. The companion canvas should be open in a split pane.", "interactive": false, "description": "Visual QA of open existing" }
 			]

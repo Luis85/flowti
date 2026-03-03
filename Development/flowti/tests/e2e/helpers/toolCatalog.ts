@@ -802,4 +802,30 @@ export const TOOL_CATALOG: Record<ToolName, ToolMeta> = {
 			},
 		],
 	},
+	"parallel-group": {
+		name: "parallel-group",
+		description: "Batch multiple read-only assertions into a single subprocess eval call",
+		tags: ["assert", "performance"],
+		useCases: [
+			"Batch visibility checks for a group of UI elements",
+			"Run multiple independent assertions in one CLI call to reduce IPC overhead",
+			"Get all-at-once failure reporting instead of stopping at the first failure",
+		],
+		params: [
+			{ name: "actions", type: "array", required: true, description: "Array of read-only assertion sub-actions (assert, assert-text, assert-number, assert-value, eval without store)" },
+		],
+		examples: [
+			{
+				title: "Batch visibility assertions",
+				action: {
+					tool: "parallel-group",
+					description: "Verify form elements",
+					actions: [
+						{ tool: "assert", type: "visible", selector: "[data-test-id='form']" },
+						{ tool: "assert", type: "visible", selector: "[data-test-id='submit-btn']" },
+					],
+				},
+			},
+		],
+	},
 };

@@ -7,12 +7,13 @@
  */
 import * as path from "node:path";
 import type { ObsidianCli } from "../../../src/infrastructure/cli/ObsidianCli";
-import type { ActionDefinition, AssertAction, AssertNumberAction, AssertTextAction, AssertValueAction, CloseLeavesAction, CopyFileAction, CreateFileAction, DeleteFileAction, EmitAction, EvalAction, FrontmatterAction, ManualAction, MoveFileAction, NoticeAction, OpenFileAction, OpenUrlAction, QueryTraceAction, RibbonAction, ScreenshotAction, ScrollToAction, SeedAction, SelectAction, SetInputAction, SpinnerAction, ThemeAction, VisualInspectionAction, WriteRunLogAction } from "./journeyTypes";
+import type { ActionDefinition, AssertAction, AssertNumberAction, AssertTextAction, AssertValueAction, CloseLeavesAction, CopyFileAction, CreateFileAction, DeleteFileAction, EmitAction, EvalAction, FrontmatterAction, ManualAction, MoveFileAction, NoticeAction, OpenFileAction, OpenUrlAction, ParallelGroupAction, QueryTraceAction, RibbonAction, ScreenshotAction, ScrollToAction, SeedAction, SelectAction, SetInputAction, SpinnerAction, ThemeAction, VisualInspectionAction, WriteRunLogAction } from "./journeyTypes";
 import type { ManualVerification } from "./journey";
 import { getAllSeeds, getSeedById, SEED_FOLDERS } from "./seedRegistry";
 import { highlightElement, highlightButton, highlightInput, highlightRibbon, highlightWebView, highlightAssert, notifyAssert } from "./highlight";
 import { navigateToTab } from "./navigation";
 import { assertEventEmitted, getEventsSince, PLUGIN_ID } from "./fixtures";
+import { executeParallelGroup } from "./parallelGroup";
 
 // ─── Variable interpolation ─────────────────────────────────────────
 
@@ -235,6 +236,14 @@ export async function executeAction(
 			break;
 		case "spinner":
 			executeSpinner(cli, action, variables);
+			break;
+		case "parallel-group":
+			executeParallelGroup(
+				cli,
+				(action as ParallelGroupAction).actions,
+				variables,
+				resolve,
+			);
 			break;
 	}
 }
