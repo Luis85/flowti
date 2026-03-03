@@ -47,8 +47,8 @@ function samplePayload(overrides?: Partial<JourneyExportPayload>): JourneyExport
 			startEvent: "app.opened",
 			endEvent: "app.closed",
 			steps: [
-				{ id: "step-1", title: "Open the hub", guideSection: 1 },
-				{ id: "step-2", title: "Click the button", guideSection: 2 },
+				{ id: "step-1", title: "Open the hub", description: "", swimlane: "", guideSection: 1 },
+				{ id: "step-2", title: "Click the button", description: "", swimlane: "", guideSection: 2 },
 			],
 		},
 		...overrides,
@@ -159,6 +159,23 @@ describe("JourneyBuilderService", () => {
 		it("uses tab indentation", () => {
 			const json = service.buildDefinitionJSON(samplePayload());
 			expect(json).toContain("\t");
+		});
+
+		it("includes description and swimlane per step", () => {
+			const payload = samplePayload();
+			payload.definition.steps[0].description = "Opens the hub via command";
+			payload.definition.steps[0].swimlane = "frontstage";
+			const json = service.buildDefinitionJSON(payload);
+			const parsed = JSON.parse(json);
+			expect(parsed.steps[0].description).toBe("Opens the hub via command");
+			expect(parsed.steps[0].swimlane).toBe("frontstage");
+		});
+
+		it("preserves empty description and swimlane", () => {
+			const json = service.buildDefinitionJSON(samplePayload());
+			const parsed = JSON.parse(json);
+			expect(parsed.steps[0].description).toBe("");
+			expect(parsed.steps[0].swimlane).toBe("");
 		});
 	});
 

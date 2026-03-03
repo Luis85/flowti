@@ -32,6 +32,8 @@ export interface JourneyMetadata {
 export interface JourneyStep {
 	id: string;
 	title: string;
+	description: string;
+	swimlane: string;
 	actions: JourneyAction[];
 }
 
@@ -108,7 +110,7 @@ export class JourneyBuilderSidebar extends ItemView {
 		description: string;
 		startEvent: string;
 		endEvent: string;
-		steps: { id: string; title: string; guideSection: number; actions: JourneyAction[] }[];
+		steps: { id: string; title: string; description: string; swimlane: string; guideSection: number; actions: JourneyAction[] }[];
 	} {
 		return {
 			journey: this.metadata.name,
@@ -118,6 +120,8 @@ export class JourneyBuilderSidebar extends ItemView {
 			steps: this.steps.map((s, i) => ({
 				id: s.id,
 				title: s.title,
+				description: s.description,
+				swimlane: s.swimlane,
 				guideSection: i + 1,
 				actions: s.actions,
 			})),
@@ -273,7 +277,9 @@ export class JourneyBuilderSidebar extends ItemView {
 				step,
 				stepNumber: this.currentStepIndex + 1,
 				actionCount: step.actions.length,
-				onTitleChanged: (title) => this.onStepTitleChanged(step.id, title),
+				onTitleChanged: (title) => this.onStepFieldChanged(step.id, "title", title),
+				onDescriptionChanged: (desc) => this.onStepFieldChanged(step.id, "description", desc),
+				onSwimlanChanged: (sw) => this.onStepFieldChanged(step.id, "swimlane", sw),
 				onRemove: () => this.onRemoveStep(step.id),
 			}).render();
 
@@ -424,21 +430,21 @@ export class JourneyBuilderSidebar extends ItemView {
 
 	private onAddStep(): void {
 		const id = `step-${++stepCounter}`;
-		const step: JourneyStep = { id, title: "", actions: [] };
+		const step: JourneyStep = { id, title: "", description: "", swimlane: "", actions: [] };
 		this.steps.push(step);
 		this.currentStepIndex = this.steps.length - 1;
 		void this.eventBus.emit("journey-builder.step.added", { stepId: id, title: "" });
 		this.renderSteps();
 	}
 
-	private onStepTitleChanged(stepId: string, title: string): void {
+	private onStepFieldChanged(stepId: string, field: string, value: string): void {
 		const step = this.steps.find((s) => s.id === stepId);
 		if (step) {
-			step.title = title;
+			(step as unknown as Record<string, unknown>)[field] = value;
 			void this.eventBus.emit("journey-builder.step.updated", {
 				stepId,
-				field: "title",
-				value: title,
+				field,
+				value,
 			});
 		}
 	}

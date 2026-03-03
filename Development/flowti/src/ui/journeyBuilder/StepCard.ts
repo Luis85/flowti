@@ -15,6 +15,10 @@ export interface StepCardDeps {
 	actionCount?: number;
 	/** Called when the user edits the step title. */
 	onTitleChanged: (newTitle: string) => void;
+	/** Called when the user edits the step description. */
+	onDescriptionChanged: (desc: string) => void;
+	/** Called when the user changes the swimlane. */
+	onSwimlanChanged: (swimlane: string) => void;
 	/** Called when the user clicks the remove button. */
 	onRemove: () => void;
 }
@@ -61,6 +65,36 @@ export class StepCard {
 				e.preventDefault();
 				this.deps.onRemove();
 			}
+		});
+
+		// Description textarea
+		const descEl = card.createEl("textarea", { cls: "ft-jb-step-description" });
+		descEl.dataset.testId = "jb-step-description";
+		descEl.placeholder = "Step description…";
+		descEl.rows = 2;
+		descEl.value = step.description;
+		descEl.addEventListener("input", () => {
+			this.deps.onDescriptionChanged(descEl.value);
+		});
+
+		// Swimlane dropdown
+		const swimlaneEl = card.createEl("select", { cls: "ft-jb-step-swimlane" });
+		swimlaneEl.dataset.testId = "jb-step-swimlane";
+		const placeholder = swimlaneEl.createEl("option", { text: "Select swimlane…" });
+		placeholder.value = "";
+		placeholder.disabled = true;
+		for (const { value, label } of [
+			{ value: "customer", label: "Customer" },
+			{ value: "frontstage", label: "Frontstage" },
+			{ value: "backstage", label: "Backstage" },
+			{ value: "support", label: "Support" },
+		]) {
+			const opt = swimlaneEl.createEl("option", { text: label });
+			opt.value = value;
+		}
+		swimlaneEl.value = step.swimlane || "";
+		swimlaneEl.addEventListener("change", () => {
+			this.deps.onSwimlanChanged(swimlaneEl.value);
 		});
 
 		// Action count

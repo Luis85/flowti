@@ -13,6 +13,8 @@ export interface JourneyExportPayload {
 		steps: {
 			id: string;
 			title: string;
+			description: string;
+			swimlane: string;
 			guideSection: number;
 			actions?: Array<{ tool: string; [key: string]: unknown }>;
 		}[];

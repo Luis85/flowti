@@ -269,7 +269,6 @@
 			"title": "Navigate and edit steps with prev/next",
 			"guideSection": 6,
 			"swimlane": "frontstage",
-			"dev": true,
 			"description": "After initial export, the sidebar shows the step editor with NavBar (prev/next/add) above the active StepCard. The user navigates between steps, edits metadata fields (description, swimlane, UI context), adds a second step via NavBar, and reorders.",
 			"expectedInput": "Journey Builder with one step and exported JSON",
 			"expectedOutput": "Step editor with NavBar navigation, two steps with metadata, step reordered",

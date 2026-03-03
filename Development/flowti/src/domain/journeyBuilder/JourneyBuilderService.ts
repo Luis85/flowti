@@ -48,6 +48,8 @@ export class JourneyBuilderService {
 			steps: definition.steps.map((s) => ({
 				id: s.id,
 				title: s.title,
+				description: s.description,
+				swimlane: s.swimlane,
 				guideSection: s.guideSection,
 				events: [definition.startEvent],
 				actions: s.actions ?? [],

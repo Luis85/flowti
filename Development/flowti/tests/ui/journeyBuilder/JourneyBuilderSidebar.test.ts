@@ -502,6 +502,51 @@ describe("JourneyBuilderSidebar", () => {
 		});
 	});
 
+	describe("step metadata fields", () => {
+		beforeEach(async () => {
+			await sidebar.onOpen();
+			byTestId(sidebar.contentEl, "jb-create-new")!.click();
+			byTestId(sidebar.contentEl, "jb-continue-btn")!.click();
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+		});
+
+		it("emits step.updated with field 'description' on description input", () => {
+			const handler = vi.fn();
+			eventBus.on("journey-builder.step.updated", handler);
+			const el = byTestId(sidebar.contentEl, "jb-step-description") as HTMLTextAreaElement;
+			setInputValue(el, "Opens the user hub");
+			expect(handler).toHaveBeenCalledOnce();
+			expect(handler.mock.calls[0][0].payload).toMatchObject({
+				field: "description",
+				value: "Opens the user hub",
+			});
+		});
+
+		it("emits step.updated with field 'swimlane' on swimlane change", () => {
+			const handler = vi.fn();
+			eventBus.on("journey-builder.step.updated", handler);
+			const el = byTestId(sidebar.contentEl, "jb-step-swimlane") as HTMLSelectElement;
+			el.value = "frontstage";
+			el.dispatchEvent(new Event("change", { bubbles: true }));
+			expect(handler).toHaveBeenCalledOnce();
+			expect(handler.mock.calls[0][0].payload).toMatchObject({
+				field: "swimlane",
+				value: "frontstage",
+			});
+		});
+
+		it("buildDefinition includes description and swimlane", () => {
+			const descEl = byTestId(sidebar.contentEl, "jb-step-description") as HTMLTextAreaElement;
+			setInputValue(descEl, "A step description");
+			const swEl = byTestId(sidebar.contentEl, "jb-step-swimlane") as HTMLSelectElement;
+			swEl.value = "backstage";
+			swEl.dispatchEvent(new Event("change", { bubbles: true }));
+			const def = sidebar.buildDefinition();
+			expect(def.steps[0].description).toBe("A step description");
+			expect(def.steps[0].swimlane).toBe("backstage");
+		});
+	});
+
 	describe("cleanup", () => {
 		it("onClose completes without error", async () => {
 			await sidebar.onOpen();

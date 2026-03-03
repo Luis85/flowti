@@ -699,8 +699,10 @@ function executeSetInput(cli: ObsidianCli, action: SetInputAction, variables: Re
 		"(() => {",
 		`  const el = document.querySelector('${sel}');`,
 		"  if (!el) throw new Error('Input not found');",
-		`  const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set`,
-		`    || Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;`,
+		`  const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype`,
+		`    : el instanceof HTMLSelectElement ? HTMLSelectElement.prototype`,
+		`    : HTMLInputElement.prototype;`,
+		`  const nativeSetter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;`,
 		`  if (nativeSetter) nativeSetter.call(el, '${escapedValue}');`,
 		`  else el.value = '${escapedValue}';`,
 		...(dispatchEvent ? [
