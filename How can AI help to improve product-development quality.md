@@ -380,9 +380,19 @@ It is planned to migrate the Machine-Room into the Flowti IBDE Obsidian Plugin.
 
 ## Insights
 
+As LLM generate a tremendous amount of content, it is near impossible to review and test what was done. As manual testing is way too expensive the larger the application grows, an automated E2E Testsuite should be in place. Combined with Screenshot capabilities and a pre-defined Journey-Definition it helps getting in a constant, visual feedback-loop with the agent.
+
+Visual Test-Driven Design with a Journey as spec.
+
 ![[Pasted image 20260228174101.png]]
 
 ![[Pasted image 20260301135831.png]]
+
+Enhancing the toolkit with the Agent directly.
+
+![[Pasted image 20260303092700.png]]
+
+---
 
 ## Conclusions
 

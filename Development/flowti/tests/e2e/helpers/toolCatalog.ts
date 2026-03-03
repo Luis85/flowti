@@ -301,6 +301,26 @@ export const TOOL_CATALOG: Record<ToolName, ToolMeta> = {
 			"Scroll inside a webview to reveal content below the fold",
 		],
 	},
+	"assert-text": {
+		name: "assert-text",
+		description: "Assert that an element's text content contains an expected string",
+		tags: ["assert"],
+		useCases: [
+			"Verify a counter or label shows the expected text (e.g. 'Step 1 of 3')",
+			"Check that a heading, badge, or status message contains expected content",
+			"Safer alternative to assert type:text — requires 'contains' field, preventing field-name mistakes",
+		],
+	},
+	"assert-number": {
+		name: "assert-number",
+		description: "Assert that an element's text content parses to a number matching a comparison",
+		tags: ["assert"],
+		useCases: [
+			"Verify a count badge shows at least N items (gte)",
+			"Assert a KPI card value equals a specific number (eq)",
+			"Check that a progress indicator is below a threshold (lt, lte)",
+		],
+	},
 	spinner: {
 		name: "spinner",
 		description: "Show or hide a persistent loading spinner notice",

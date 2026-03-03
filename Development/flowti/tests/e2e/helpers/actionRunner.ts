@@ -7,7 +7,7 @@
  */
 import * as path from "node:path";
 import type { ObsidianCli } from "../../../src/infrastructure/cli/ObsidianCli";
-import type { ActionDefinition, AssertAction, CloseLeavesAction, CreateFileAction, DeleteFileAction, EmitAction, EvalAction, FrontmatterAction, ManualAction, NoticeAction, OpenFileAction, OpenUrlAction, QueryTraceAction, RibbonAction, ScreenshotAction, ScrollToAction, SeedAction, SetInputAction, SpinnerAction, ThemeAction, VisualInspectionAction, WriteRunLogAction } from "./journeyTypes";
+import type { ActionDefinition, AssertAction, AssertNumberAction, AssertTextAction, CloseLeavesAction, CreateFileAction, DeleteFileAction, EmitAction, EvalAction, FrontmatterAction, ManualAction, NoticeAction, OpenFileAction, OpenUrlAction, QueryTraceAction, RibbonAction, ScreenshotAction, ScrollToAction, SeedAction, SetInputAction, SpinnerAction, ThemeAction, VisualInspectionAction, WriteRunLogAction } from "./journeyTypes";
 import type { ManualVerification } from "./journey";
 import { getAllSeeds, getSeedById, SEED_FOLDERS } from "./seedRegistry";
 import { highlightElement, highlightButton, highlightInput, highlightRibbon, highlightWebView, highlightAssert, notifyAssert } from "./highlight";
@@ -156,6 +156,12 @@ export async function executeAction(
 			break;
 		case "assert":
 			executeAssert(cli, action, variables, traceBookmark);
+			break;
+		case "assert-text":
+			executeAssertText(cli, action, variables);
+			break;
+		case "assert-number":
+			executeAssertNumber(cli, action, variables);
 			break;
 		case "emit":
 			executeEmit(cli, action, variables);
@@ -389,6 +395,54 @@ function executeAssert(
 			}
 			break;
 		}
+	}
+}
+
+// ─── Dedicated assert tools ─────────────────────────────────────────
+
+function executeAssertText(cli: ObsidianCli, action: AssertTextAction, variables: Record<string, string>): void {
+	const selector = resolve(action.selector, variables);
+	const expected = resolve(action.contains, variables);
+	const desc = action.description ?? "";
+	let text: string;
+	try {
+		text = cli.domText(selector);
+	} catch {
+		text = "";
+	}
+	const passed = text.includes(expected);
+	highlightAssert(cli, selector, passed, desc || `text: "${expected}"`);
+	if (!passed) {
+		throw new Error(`Expected element '${action.selector}' to contain '${expected}', got '${text}'`);
+	}
+}
+
+function executeAssertNumber(cli: ObsidianCli, action: AssertNumberAction, variables: Record<string, string>): void {
+	const selector = resolve(action.selector, variables);
+	const desc = action.description ?? "";
+	let text: string;
+	try {
+		text = cli.domText(selector);
+	} catch {
+		text = "";
+	}
+	const actual = parseFloat(text.replace(/[^0-9.\-]/g, ""));
+	if (isNaN(actual)) {
+		notifyAssert(cli, false, desc || `number: ${action.operator} ${action.value}`);
+		throw new Error(`Expected element '${action.selector}' to contain a number, got '${text}'`);
+	}
+	const expected = action.value;
+	let passed: boolean;
+	switch (action.operator) {
+		case "eq": passed = actual === expected; break;
+		case "gt": passed = actual > expected; break;
+		case "gte": passed = actual >= expected; break;
+		case "lt": passed = actual < expected; break;
+		case "lte": passed = actual <= expected; break;
+	}
+	highlightAssert(cli, selector, passed, desc || `number: ${actual} ${action.operator} ${expected}`);
+	if (!passed) {
+		throw new Error(`Expected element '${action.selector}': ${actual} ${action.operator} ${expected}`);
 	}
 }
 

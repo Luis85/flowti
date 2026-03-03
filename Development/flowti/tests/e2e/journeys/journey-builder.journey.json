@@ -1,6 +1,6 @@
 {
 	"journey": "Journey Builder",
-	"description": "Full E2E blueprint for the Journey Builder feature. Steps 1-5 validate the C54 spike (launch, setup, add step, export). Steps 6-13 are the Cycle 55 development targets: step editor with prev/next navigation, action builder with templates, smart inputs (event autocomplete, command picker, assert builder), JSON preview, canvas sync, full 3-file export, open existing, and preview run.",
+	"description": "Full E2E blueprint for the Journey Builder feature. Steps 1-5 validate the current implementation (launch, welcome/setup flow, NavBar + StepCard step editor with prev/next navigation, JSON preview, export). Steps 6-13 are Cycle 55 development targets: step metadata fields (description, swimlane, UI context), action builder with templates, smart inputs (event autocomplete, command picker, assert builder), canvas sync, full 3-file export, open existing, and preview run.",
 	"testSource": "tests/e2e/90-journey-journey-builder.test.ts",
 	"reportPath": "docs/journeys/Journey Builder/Journey Builder.md",
 	"canvasPath": "docs/journeys/Journey Builder/Journey Builder.canvas",
@@ -158,16 +158,16 @@
 			"title": "Add a step to the journey",
 			"guideSection": 4,
 			"swimlane": "frontstage",
-			"description": "Clicks Continue to enter the step builder. Adds a step with a title, confirms it, then sets the end event.",
+			"description": "Clicks Continue to enter the step editor. The NavBar shows prev/next navigation and an Add Step button. An empty state message is visible. Adds a step via NavBar, edits its title in the StepCard, then sets the end event.",
 			"expectedInput": "Journey Builder setup form filled with metadata",
-			"expectedOutput": "Step builder visible with one step card, end event set",
+			"expectedOutput": "Step editor visible with NavBar (Step 1 of 1), StepCard with title, end event set, JSON preview toggle visible",
 			"uiContext": {
 				"view": "flowti-journey-builder",
 				"viewName": "Journey Builder",
-				"components": ["JourneyBuilderSidebar"]
+				"components": ["JourneyBuilderSidebar", "NavBar", "StepCard", "JSONPanel"]
 			},
-			"events": ["journey-builder.step.added"],
-			"interactions": ["click: Continue", "click: Add Step", "input: Step title", "click: Confirm step", "input: End event"],
+			"events": ["journey-builder.step.added", "journey-builder.step.updated"],
+			"interactions": ["click: Continue", "click: Add Step (NavBar)", "input: Step title (StepCard)", "input: End event"],
 			"improvements": [
 				{
 					"title": "Action Templates — quick-add patterns",
@@ -196,26 +196,27 @@
 			],
 			"actions": [
 				{ "tool": "notice", "message": "Step 4/13: Adding a journey step", "duration": 3000 },
-				{ "tool": "click", "selector": "[data-test-id='jb-continue-btn']", "description": "Click Continue to enter step builder" },
+				{ "tool": "click", "selector": "[data-test-id='jb-continue-btn']", "description": "Click Continue to enter step editor" },
 				{ "tool": "wait", "ms": 500 },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-list']", "description": "Step list is visible" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-add-step-btn']", "description": "Add Step button is visible" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-nav-counter']", "description": "NavBar counter is visible" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-nav-add-step']", "description": "NavBar Add Step button is visible" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-empty-steps']", "description": "Empty state message is visible" },
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-end-event-input']", "description": "End event input is visible" },
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-export-btn']", "description": "Export button is visible" },
-				{ "tool": "click", "selector": "[data-test-id='jb-add-step-btn']", "description": "Click Add Step button" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-json-toggle']", "description": "JSON preview toggle is visible" },
+				{ "tool": "click", "selector": "[data-test-id='jb-nav-add-step']", "description": "Click Add Step in NavBar" },
 				{ "tool": "wait", "ms": 500 },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-form']", "description": "Step form is visible" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-title-input']", "description": "Step title input is visible" },
-				{ "tool": "set-input", "selector": "[data-test-id='jb-step-title-input']", "value": "Open the user hub", "description": "Enter step title" },
-				{ "tool": "wait", "ms": 300 },
-				{ "tool": "click", "selector": "[data-test-id='jb-step-confirm']", "description": "Confirm the step" },
-				{ "tool": "wait", "ms": 300 },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-card']", "description": "Step card appeared in list" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-card']", "description": "StepCard appeared with editable title" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-title-input']", "description": "Step title input is visible in StepCard" },
 				{ "tool": "assert", "type": "event", "event": "journey-builder.step.added", "description": "step.added event was emitted" },
+				{ "tool": "set-input", "selector": "[data-test-id='jb-step-title-input']", "value": "Open the user hub", "description": "Enter step title in StepCard" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "assert", "type": "event", "event": "journey-builder.step.updated", "description": "step.updated event was emitted on title edit" },
+				{ "tool": "assert-text", "selector": "[data-test-id='jb-nav-counter']", "contains": "Step 1 of 1", "description": "NavBar counter shows Step 1 of 1" },
 				{ "tool": "set-input", "selector": "[data-test-id='jb-end-event-input']", "value": "hub.tab.changed", "description": "Enter end event name" },
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "screenshot", "label": "step-added", "description": "Step added with end event set" },
-				{ "tool": "manual", "instruction": "Verify a step card appeared with number badge '1' and title 'Open the user hub'. The end event field should show 'hub.tab.changed'. An export button should be visible at the bottom.", "interactive": false, "description": "Visual QA of step creation" }
+				{ "tool": "manual", "instruction": "Verify a StepCard appeared with number badge '1' and an editable title input showing 'Open the user hub'. The NavBar shows 'Step 1 of 1'. The end event field shows 'hub.tab.changed'. A JSON preview toggle and export button are visible below.", "interactive": false, "description": "Visual QA of step creation" }
 			]
 		},
 		{
@@ -267,9 +268,9 @@
 			"guideSection": 6,
 			"swimlane": "frontstage",
 			"dev": true,
-			"description": "After initial export, the sidebar transitions to the step editor view. A prev/next navigation row sits above the step card. The user navigates between steps, edits metadata fields (description, swimlane, UI context), adds a second step, and reorders.",
+			"description": "After initial export, the sidebar shows the step editor with NavBar (prev/next/add) above the active StepCard. The user navigates between steps, edits metadata fields (description, swimlane, UI context), adds a second step via NavBar, and reorders.",
 			"expectedInput": "Journey Builder with one step and exported JSON",
-			"expectedOutput": "Step editor with prev/next navigation, two steps, step metadata edited",
+			"expectedOutput": "Step editor with NavBar navigation, two steps with metadata, step reordered",
 			"uiContext": {
 				"view": "flowti-journey-builder",
 				"viewName": "Journey Builder",
@@ -287,27 +288,26 @@
 			],
 			"actions": [
 				{ "tool": "notice", "message": "Step 6/13: Step editor with prev/next navigation", "duration": 3000 },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-nav-bar']", "description": "Navigation bar is visible" },
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-nav-prev']", "description": "Prev button is visible" },
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-nav-next']", "description": "Next button is visible" },
-				{ "tool": "assert", "type": "text", "selector": "[data-test-id='jb-nav-counter']", "expected": "Step 1 of 1", "description": "Step counter shows correct position" },
+				{ "tool": "assert-text", "selector": "[data-test-id='jb-nav-counter']", "contains": "Step 1 of 1", "description": "Step counter shows correct position" },
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-card']", "description": "Step card is visible with full metadata" },
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-description']", "description": "Description field is visible" },
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-swimlane']", "description": "Swimlane selector is visible" },
 				{ "tool": "set-input", "selector": "[data-test-id='jb-step-description']", "value": "Opens the user hub via command palette", "description": "Edit step description" },
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "assert", "type": "event", "event": "journey-builder.step.updated", "description": "step.updated event emitted" },
-				{ "tool": "click", "selector": "[data-test-id='jb-nav-add-step']", "description": "Add a second step" },
+				{ "tool": "click", "selector": "[data-test-id='jb-nav-add-step']", "description": "Add a second step via NavBar" },
 				{ "tool": "wait", "ms": 300 },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-title-input']", "description": "New StepCard title input is visible" },
 				{ "tool": "set-input", "selector": "[data-test-id='jb-step-title-input']", "value": "Navigate to Domains tab", "description": "Enter second step title" },
-				{ "tool": "click", "selector": "[data-test-id='jb-step-confirm']", "description": "Confirm second step" },
 				{ "tool": "wait", "ms": 300 },
-				{ "tool": "assert", "type": "text", "selector": "[data-test-id='jb-nav-counter']", "expected": "Step 2 of 2", "description": "Counter updated to step 2 of 2" },
+				{ "tool": "assert-text", "selector": "[data-test-id='jb-nav-counter']", "contains": "Step 2 of 2", "description": "Counter updated to step 2 of 2" },
 				{ "tool": "click", "selector": "[data-test-id='jb-nav-prev']", "description": "Navigate to previous step" },
 				{ "tool": "wait", "ms": 300 },
-				{ "tool": "assert", "type": "text", "selector": "[data-test-id='jb-nav-counter']", "expected": "Step 1 of 2", "description": "Counter shows step 1 of 2" },
+				{ "tool": "assert-text", "selector": "[data-test-id='jb-nav-counter']", "contains": "Step 1 of 2", "description": "Counter shows step 1 of 2" },
 				{ "tool": "screenshot", "label": "step-editor-nav", "description": "Step editor with prev/next navigation and 2 steps" },
-				{ "tool": "manual", "instruction": "Verify the step card shows full metadata for step 1 ('Open the user hub'). The prev button should be disabled (first step). The next button should be enabled. The step counter should read 'Step 1 of 2'.", "interactive": false, "description": "Visual QA of step editor navigation" }
+				{ "tool": "manual", "instruction": "Verify the StepCard shows full metadata for step 1 ('Open the user hub'). The prev button should be disabled (first step). The next button should be enabled. The step counter should read 'Step 1 of 2'.", "interactive": false, "description": "Visual QA of step editor navigation" }
 			]
 		},
 		{
@@ -563,9 +563,9 @@
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "click", "selector": ".suggestion-item:first-child", "description": "Select the journey from results" },
 				{ "tool": "wait", "ms": 500, "description": "Wait for journey to load" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-nav-bar']", "description": "Step editor navigation is visible" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-nav-counter']", "description": "Step editor NavBar is visible" },
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-card']", "description": "Step card is populated" },
-				{ "tool": "assert", "type": "text", "selector": "[data-test-id='jb-nav-counter']", "expected": "Step 1 of 2", "description": "Both steps loaded" },
+				{ "tool": "assert-text", "selector": "[data-test-id='jb-nav-counter']", "contains": "Step 1 of 2", "description": "Both steps loaded" },
 				{ "tool": "screenshot", "label": "open-existing", "description": "Existing journey loaded in step editor" },
 				{ "tool": "manual", "instruction": "Verify the previously exported journey loaded correctly: step 1 should show 'Open the user hub' with its actions, step 2 should show 'Navigate to Domains tab'. The navigation counter should show 'Step 1 of 2'. The companion canvas should be open in a split pane.", "interactive": false, "description": "Visual QA of open existing" }
 			]

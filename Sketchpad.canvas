@@ -1845,16 +1845,6 @@
 			"height":60
 		},
 		{
-			"id":"7196ef67c2aede3b",
-			"type":"text",
-			"text":"Testsuite",
-			"styleAttributes":{"textAlign":"center"},
-			"x":5500,
-			"y":-1550,
-			"width":260,
-			"height":60
-		},
-		{
 			"id":"3d379f0f9822f73f",
 			"type":"text",
 			"text":"Non-Functional Requirements",
@@ -1870,6 +1860,16 @@
 			"text":"Code",
 			"styleAttributes":{"textAlign":"center"},
 			"x":5820,
+			"y":-1550,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"7196ef67c2aede3b",
+			"type":"text",
+			"text":"Testsuite",
+			"styleAttributes":{"textAlign":"center"},
+			"x":5480,
 			"y":-1550,
 			"width":260,
 			"height":60

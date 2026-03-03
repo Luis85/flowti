@@ -297,14 +297,21 @@ describe("JourneyBuilderSidebar", () => {
 			expect(sidebar.getSidebarState()).toBe("steps");
 		});
 
-		it("renders step list container", () => {
-			expect(byTestId(sidebar.contentEl, "jb-step-list")).toBeTruthy();
+		it("renders NavBar with counter", () => {
+			const counter = byTestId(sidebar.contentEl, "jb-nav-counter");
+			expect(counter).toBeTruthy();
 		});
 
-		it("renders add step button", () => {
-			const btn = byTestId(sidebar.contentEl, "jb-add-step-btn");
+		it("renders NavBar add step button", () => {
+			const btn = byTestId(sidebar.contentEl, "jb-nav-add-step");
 			expect(btn).toBeTruthy();
 			expect(btn!.getAttribute("role")).toBe("button");
+		});
+
+		it("shows empty state when no steps exist", () => {
+			const empty = byTestId(sidebar.contentEl, "jb-empty-steps");
+			expect(empty).toBeTruthy();
+			expect(empty!.textContent).toContain("No steps yet");
 		});
 
 		it("renders end event input", () => {
@@ -319,103 +326,106 @@ describe("JourneyBuilderSidebar", () => {
 			expect(btn!.getAttribute("role")).toBe("button");
 		});
 
+		it("renders JSON panel toggle", () => {
+			const toggle = byTestId(sidebar.contentEl, "jb-json-toggle");
+			expect(toggle).toBeTruthy();
+		});
+
 		it("does not show setup form elements", () => {
 			expect(byTestId(sidebar.contentEl, "jb-name-input")).toBeNull();
 			expect(byTestId(sidebar.contentEl, "jb-setup-form")).toBeNull();
 		});
 
-		it("shows step form on Add Step click", () => {
-			byTestId(sidebar.contentEl, "jb-add-step-btn")!.click();
-			expect(byTestId(sidebar.contentEl, "jb-step-form")).toBeTruthy();
-			expect(byTestId(sidebar.contentEl, "jb-step-title-input")).toBeTruthy();
+		it("adds a step via NavBar add button", () => {
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			expect(sidebar.getSteps()).toHaveLength(1);
+			expect(sidebar.getCurrentStepIndex()).toBe(0);
 		});
 
-		it("adds a step when form is confirmed", () => {
-			byTestId(sidebar.contentEl, "jb-add-step-btn")!.click();
-			const titleInput = byTestId(sidebar.contentEl, "jb-step-title-input") as HTMLInputElement;
-			setInputValue(titleInput, "Open the user hub");
-			byTestId(sidebar.contentEl, "jb-step-confirm")!.click();
-
-			const steps = sidebar.getSteps();
-			expect(steps).toHaveLength(1);
-			expect(steps[0].title).toBe("Open the user hub");
-		});
-
-		it("renders step card after adding a step", () => {
-			byTestId(sidebar.contentEl, "jb-add-step-btn")!.click();
-			const titleInput = byTestId(sidebar.contentEl, "jb-step-title-input") as HTMLInputElement;
-			setInputValue(titleInput, "Click a button");
-			byTestId(sidebar.contentEl, "jb-step-confirm")!.click();
-
+		it("renders StepCard after adding a step", () => {
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
 			const card = byTestId(sidebar.contentEl, "jb-step-card");
 			expect(card).toBeTruthy();
-			const title = byTestId(sidebar.contentEl, "jb-step-title");
-			expect(title!.textContent).toBe("Click a button");
 		});
 
-		it("shows step number on card", () => {
-			byTestId(sidebar.contentEl, "jb-add-step-btn")!.click();
-			setInputValue(byTestId(sidebar.contentEl, "jb-step-title-input") as HTMLInputElement, "Step A");
-			byTestId(sidebar.contentEl, "jb-step-confirm")!.click();
-
+		it("shows step number on StepCard", () => {
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
 			const num = byTestId(sidebar.contentEl, "jb-step-num");
 			expect(num!.textContent).toBe("1");
 		});
 
-		it("emits step.added event when step is confirmed", () => {
+		it("shows editable title input on StepCard", () => {
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			const input = byTestId(sidebar.contentEl, "jb-step-title-input") as HTMLInputElement;
+			expect(input).toBeTruthy();
+			expect(input.tagName.toLowerCase()).toBe("input");
+		});
+
+		it("emits step.added event when step is added", () => {
 			const handler = vi.fn();
 			eventBus.on("journey-builder.step.added", handler);
-
-			byTestId(sidebar.contentEl, "jb-add-step-btn")!.click();
-			setInputValue(byTestId(sidebar.contentEl, "jb-step-title-input") as HTMLInputElement, "Navigate");
-			byTestId(sidebar.contentEl, "jb-step-confirm")!.click();
-
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
 			expect(handler).toHaveBeenCalledOnce();
-			expect(handler.mock.calls[0][0].payload).toMatchObject({ title: "Navigate" });
+			expect(handler.mock.calls[0][0].payload).toMatchObject({ title: "" });
 		});
 
-		it("does not add step with empty title", () => {
-			byTestId(sidebar.contentEl, "jb-add-step-btn")!.click();
-			byTestId(sidebar.contentEl, "jb-step-confirm")!.click();
-
-			expect(sidebar.getSteps()).toHaveLength(0);
+		it("emits step.updated event when title is edited", () => {
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			const handler = vi.fn();
+			eventBus.on("journey-builder.step.updated", handler);
+			const input = byTestId(sidebar.contentEl, "jb-step-title-input") as HTMLInputElement;
+			setInputValue(input, "Open the hub");
+			expect(handler).toHaveBeenCalledOnce();
+			expect(handler.mock.calls[0][0].payload).toMatchObject({
+				field: "title",
+				value: "Open the hub",
+			});
 		});
 
-		it("removes step form after confirming", () => {
-			byTestId(sidebar.contentEl, "jb-add-step-btn")!.click();
-			setInputValue(byTestId(sidebar.contentEl, "jb-step-title-input") as HTMLInputElement, "Test");
-			byTestId(sidebar.contentEl, "jb-step-confirm")!.click();
-
-			expect(byTestId(sidebar.contentEl, "jb-step-form")).toBeNull();
+		it("updates step title in state when edited", () => {
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			const input = byTestId(sidebar.contentEl, "jb-step-title-input") as HTMLInputElement;
+			setInputValue(input, "Navigate to settings");
+			expect(sidebar.getSteps()[0].title).toBe("Navigate to settings");
 		});
 
-		it("can add multiple steps", () => {
-			// Step 1
-			byTestId(sidebar.contentEl, "jb-add-step-btn")!.click();
-			setInputValue(byTestId(sidebar.contentEl, "jb-step-title-input") as HTMLInputElement, "First");
-			byTestId(sidebar.contentEl, "jb-step-confirm")!.click();
-
-			// Step 2
-			byTestId(sidebar.contentEl, "jb-add-step-btn")!.click();
-			setInputValue(byTestId(sidebar.contentEl, "jb-step-title-input") as HTMLInputElement, "Second");
-			byTestId(sidebar.contentEl, "jb-step-confirm")!.click();
-
+		it("navigates to new step when multiple steps are added", () => {
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
 			expect(sidebar.getSteps()).toHaveLength(2);
-			const cards = sidebar.contentEl.querySelectorAll("[data-test-id='jb-step-card']");
-			expect(cards).toHaveLength(2);
+			expect(sidebar.getCurrentStepIndex()).toBe(1);
+			const num = byTestId(sidebar.contentEl, "jb-step-num");
+			expect(num!.textContent).toBe("2");
 		});
 
-		it("removes a step on remove button click", () => {
-			// Add a step
-			byTestId(sidebar.contentEl, "jb-add-step-btn")!.click();
-			setInputValue(byTestId(sidebar.contentEl, "jb-step-title-input") as HTMLInputElement, "To remove");
-			byTestId(sidebar.contentEl, "jb-step-confirm")!.click();
-			expect(sidebar.getSteps()).toHaveLength(1);
+		it("navigates to previous step with Prev button", () => {
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			expect(sidebar.getCurrentStepIndex()).toBe(1);
+			byTestId(sidebar.contentEl, "jb-nav-prev")!.click();
+			expect(sidebar.getCurrentStepIndex()).toBe(0);
+			const num = byTestId(sidebar.contentEl, "jb-step-num");
+			expect(num!.textContent).toBe("1");
+		});
 
-			// Remove it
+		it("navigates to next step with Next button", () => {
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			// Go back to first
+			byTestId(sidebar.contentEl, "jb-nav-prev")!.click();
+			expect(sidebar.getCurrentStepIndex()).toBe(0);
+			// Go forward again
+			byTestId(sidebar.contentEl, "jb-nav-next")!.click();
+			expect(sidebar.getCurrentStepIndex()).toBe(1);
+		});
+
+		it("removes step and clamps index", () => {
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			expect(sidebar.getSteps()).toHaveLength(1);
 			byTestId(sidebar.contentEl, "jb-step-remove")!.click();
 			expect(sidebar.getSteps()).toHaveLength(0);
-			expect(byTestId(sidebar.contentEl, "jb-step-card")).toBeNull();
+			expect(sidebar.getCurrentStepIndex()).toBe(0);
+			expect(byTestId(sidebar.contentEl, "jb-empty-steps")).toBeTruthy();
 		});
 
 		it("tracks end event input", () => {
@@ -441,10 +451,10 @@ describe("JourneyBuilderSidebar", () => {
 		});
 
 		it("exported event payload includes journey definition with steps", async () => {
-			// Add a step first
-			byTestId(sidebar.contentEl, "jb-add-step-btn")!.click();
-			setInputValue(byTestId(sidebar.contentEl, "jb-step-title-input") as HTMLInputElement, "A step");
-			byTestId(sidebar.contentEl, "jb-step-confirm")!.click();
+			// Add a step and set its title
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			const input = byTestId(sidebar.contentEl, "jb-step-title-input") as HTMLInputElement;
+			setInputValue(input, "A step");
 
 			const handler = vi.fn();
 			eventBus.on("journey-builder.exported", handler);
@@ -462,14 +472,33 @@ describe("JourneyBuilderSidebar", () => {
 			expect(byTestId(sidebar.contentEl, "jb-setup-form")).toBeTruthy();
 		});
 
-		it("confirms step via Enter key in title input", () => {
-			byTestId(sidebar.contentEl, "jb-add-step-btn")!.click();
-			const titleInput = byTestId(sidebar.contentEl, "jb-step-title-input") as HTMLInputElement;
-			setInputValue(titleInput, "Enter step");
-			titleInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+		it("buildDefinition returns correct structure", () => {
+			// Fill metadata from setup
+			byTestId(sidebar.contentEl, "jb-back-btn")!.click();
+			setInputValue(byTestId(sidebar.contentEl, "jb-name-input") as HTMLInputElement, "Test Journey");
+			setInputValue(byTestId(sidebar.contentEl, "jb-description-input") as HTMLTextAreaElement, "A description");
+			setInputValue(byTestId(sidebar.contentEl, "jb-start-event-input") as HTMLInputElement, "start.evt");
+			byTestId(sidebar.contentEl, "jb-continue-btn")!.click();
 
-			expect(sidebar.getSteps()).toHaveLength(1);
-			expect(sidebar.getSteps()[0].title).toBe("Enter step");
+			// Add steps
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			setInputValue(byTestId(sidebar.contentEl, "jb-step-title-input") as HTMLInputElement, "Step One");
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			setInputValue(byTestId(sidebar.contentEl, "jb-step-title-input") as HTMLInputElement, "Step Two");
+
+			// Set end event
+			setInputValue(byTestId(sidebar.contentEl, "jb-end-event-input") as HTMLInputElement, "end.evt");
+
+			const def = sidebar.buildDefinition();
+			expect(def.journey).toBe("Test Journey");
+			expect(def.description).toBe("A description");
+			expect(def.startEvent).toBe("start.evt");
+			expect(def.endEvent).toBe("end.evt");
+			expect(def.steps).toHaveLength(2);
+			expect(def.steps[0].title).toBe("Step One");
+			expect(def.steps[0].guideSection).toBe(1);
+			expect(def.steps[1].title).toBe("Step Two");
+			expect(def.steps[1].guideSection).toBe(2);
 		});
 	});
 

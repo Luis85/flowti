@@ -52,6 +52,9 @@ export type ToolName =
 	| "scroll-to"
 	// Interactive inspection tools
 	| "visual-inspection"
+	// Assert tools
+	| "assert-text"
+	| "assert-number"
 	// Spinner tools
 	| "spinner";
 
@@ -256,6 +259,9 @@ export type ActionDefinition =
 	| ScrollToAction
 	// Interactive inspection tools
 	| VisualInspectionAction
+	// Assert tools
+	| AssertTextAction
+	| AssertNumberAction
 	// Spinner tools
 	| SpinnerAction;
 
@@ -373,6 +379,26 @@ export interface AssertAction {
 	attr?: string;
 	/** Expected attribute value (for attr assertion). */
 	value?: string;
+	description?: string;
+}
+
+export interface AssertTextAction {
+	tool: "assert-text";
+	/** CSS selector for the element to check. */
+	selector: string;
+	/** Expected text (checked via textContent.includes). */
+	contains: string;
+	description?: string;
+}
+
+export interface AssertNumberAction {
+	tool: "assert-number";
+	/** CSS selector for the element whose textContent is parsed as a number. */
+	selector: string;
+	/** Comparison operator. */
+	operator: "eq" | "gt" | "gte" | "lt" | "lte";
+	/** Value to compare against. */
+	value: number;
 	description?: string;
 }
 

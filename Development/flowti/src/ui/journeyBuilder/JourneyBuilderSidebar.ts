@@ -2,13 +2,17 @@
  * JourneyBuilderSidebar — Obsidian right-sidebar view for creating
  * and editing E2E journey definitions.
  *
- * Increment 1: Welcome state with "Create New" and "Open Existing" buttons.
- * Increment 2: Setup form with name, description, and start event inputs.
- * Increment 3: Step builder with add/remove steps, end event, and export.
+ * Acts as orchestrator: owns state, delegates rendering to NavBar,
+ * StepCard, and JSONPanel components.
+ *
+ * States: welcome → setup → steps (step editor with prev/next navigation)
  */
 import { ItemView, setIcon } from "obsidian";
 import type { WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
+import { NavBar } from "./NavBar";
+import { StepCard } from "./StepCard";
+import { JSONPanel } from "./JSONPanel";
 
 export const VIEW_TYPE_JOURNEY_BUILDER = "flowti-journey-builder";
 
@@ -37,6 +41,7 @@ export class JourneyBuilderSidebar extends ItemView {
 	private metadata: JourneyMetadata = { name: "", description: "", startEvent: "" };
 	private steps: JourneyStep[] = [];
 	private endEvent = "";
+	private currentStepIndex = 0;
 
 	constructor(leaf: WorkspaceLeaf, deps: JourneyBuilderSidebarDeps) {
 		super(leaf);
@@ -63,24 +68,47 @@ export class JourneyBuilderSidebar extends ItemView {
 		// Cleanup will be needed when we add event subscriptions
 	}
 
-	/** Returns the current sidebar state (for testing). */
+	// ── Public accessors (for testing) ──────────────────────
+
 	getSidebarState(): SidebarState {
 		return this.state;
 	}
 
-	/** Returns the current metadata (for testing). */
 	getMetadata(): JourneyMetadata {
 		return { ...this.metadata };
 	}
 
-	/** Returns the current steps (for testing). */
 	getSteps(): JourneyStep[] {
 		return this.steps.map((s) => ({ ...s }));
 	}
 
-	/** Returns the current end event (for testing). */
 	getEndEvent(): string {
 		return this.endEvent;
+	}
+
+	getCurrentStepIndex(): number {
+		return this.currentStepIndex;
+	}
+
+	/** Builds the journey definition from current state (reusable by JSONPanel and export). */
+	buildDefinition(): {
+		journey: string;
+		description: string;
+		startEvent: string;
+		endEvent: string;
+		steps: { id: string; title: string; guideSection: number }[];
+	} {
+		return {
+			journey: this.metadata.name,
+			description: this.metadata.description,
+			startEvent: this.metadata.startEvent,
+			endEvent: this.endEvent,
+			steps: this.steps.map((s, i) => ({
+				id: s.id,
+				title: s.title,
+				guideSection: i + 1,
+			})),
+		};
 	}
 
 	// ── Render: Welcome ──────────────────────────────────────
@@ -90,6 +118,7 @@ export class JourneyBuilderSidebar extends ItemView {
 		this.metadata = { name: "", description: "", startEvent: "" };
 		this.steps = [];
 		this.endEvent = "";
+		this.currentStepIndex = 0;
 		const el = this.contentEl;
 		el.empty();
 		el.addClass("ft-jb-sidebar");
@@ -200,7 +229,7 @@ export class JourneyBuilderSidebar extends ItemView {
 		});
 	}
 
-	// ── Render: Step builder ─────────────────────────────────
+	// ── Render: Step editor ──────────────────────────────────
 
 	private renderSteps(): void {
 		this.state = "steps";
@@ -211,26 +240,31 @@ export class JourneyBuilderSidebar extends ItemView {
 		this.renderHeader(el);
 		this.renderBackButton(el, () => this.renderSetup());
 
-		// Step list
-		const stepList = el.createDiv({ cls: "ft-jb-step-list" });
-		stepList.dataset.testId = "jb-step-list";
-		this.renderStepCards(stepList);
+		// NavBar — step navigation
+		const navContainer = el.createDiv({ cls: "ft-jb-nav-container" });
+		new NavBar(navContainer, {
+			stepCount: this.steps.length,
+			currentIndex: this.currentStepIndex,
+			onPrev: () => this.onNavPrev(),
+			onNext: () => this.onNavNext(),
+			onAddStep: () => this.onAddStep(),
+		}).render();
 
-		// Add Step button
-		const addBtn = el.createDiv({ cls: "ft-jb-add-step-btn" });
-		addBtn.dataset.testId = "jb-add-step-btn";
-		addBtn.setAttribute("role", "button");
-		addBtn.setAttribute("tabindex", "0");
-		const addIcon = addBtn.createSpan({ cls: "ft-jb-add-step-icon" });
-		setIcon(addIcon, "plus");
-		addBtn.createSpan({ text: "Add step" });
-		addBtn.addEventListener("click", () => this.onAddStep(stepList));
-		addBtn.addEventListener("keydown", (e: KeyboardEvent) => {
-			if (e.key === "Enter" || e.key === " ") {
-				e.preventDefault();
-				this.onAddStep(stepList);
-			}
-		});
+		// StepCard — active step (or empty state)
+		const stepContainer = el.createDiv({ cls: "ft-jb-step-container" });
+		if (this.steps.length > 0) {
+			const step = this.steps[this.currentStepIndex];
+			new StepCard(stepContainer, {
+				step,
+				stepNumber: this.currentStepIndex + 1,
+				onTitleChanged: (title) => this.onStepTitleChanged(step.id, title),
+				onRemove: () => this.onRemoveStep(step.id),
+			}).render();
+		} else {
+			const empty = stepContainer.createDiv({ cls: "ft-jb-empty-state" });
+			empty.dataset.testId = "jb-empty-steps";
+			empty.textContent = "No steps yet. Click \"Add step\" to begin.";
+		}
 
 		// End event
 		const endGroup = el.createDiv({ cls: "ft-jb-form-group ft-jb-end-event-group" });
@@ -244,6 +278,12 @@ export class JourneyBuilderSidebar extends ItemView {
 			this.emitMetadataUpdate("endEvent", endInput.value);
 		});
 
+		// JSONPanel — collapsible preview
+		const jsonContainer = el.createDiv({ cls: "ft-jb-json-container" });
+		new JSONPanel(jsonContainer, {
+			getJSON: () => JSON.stringify(this.buildDefinition(), null, "\t"),
+		}).render();
+
 		// Export button
 		this.renderActionButton(el, {
 			testId: "jb-export-btn",
@@ -251,80 +291,6 @@ export class JourneyBuilderSidebar extends ItemView {
 			icon: "download",
 			text: "Export journey",
 			onClick: () => this.onExport(),
-		});
-	}
-
-	private renderStepCards(container: HTMLElement): void {
-		container.empty();
-		for (const step of this.steps) {
-			const card = container.createDiv({ cls: "ft-jb-step-card" });
-			card.dataset.testId = "jb-step-card";
-			card.dataset.stepId = step.id;
-
-			const cardHeader = card.createDiv({ cls: "ft-jb-step-card-header" });
-			const stepNum = cardHeader.createSpan({ cls: "ft-jb-step-num", text: `${this.steps.indexOf(step) + 1}` });
-			stepNum.dataset.testId = "jb-step-num";
-			const stepTitle = cardHeader.createSpan({ cls: "ft-jb-step-title", text: step.title || "Untitled step" });
-			stepTitle.dataset.testId = "jb-step-title";
-
-			const removeBtn = cardHeader.createSpan({ cls: "ft-jb-step-remove" });
-			removeBtn.dataset.testId = "jb-step-remove";
-			removeBtn.setAttribute("role", "button");
-			removeBtn.setAttribute("tabindex", "0");
-			setIcon(removeBtn, "x");
-			removeBtn.addEventListener("click", () => this.onRemoveStep(step.id, container));
-		}
-	}
-
-	// ── Render: Step inline form ─────────────────────────────
-
-	private renderStepForm(container: HTMLElement): void {
-		// Remove existing form if any
-		const existing = container.querySelector("[data-test-id='jb-step-form']");
-		if (existing) existing.remove();
-
-		const form = container.createDiv({ cls: "ft-jb-step-form" });
-		form.dataset.testId = "jb-step-form";
-
-		const titleGroup = form.createDiv({ cls: "ft-jb-form-group" });
-		titleGroup.createEl("label", { cls: "ft-jb-form-label", text: "Step title" });
-		const titleInput = titleGroup.createEl("input", { cls: "ft-jb-form-input", type: "text" });
-		titleInput.dataset.testId = "jb-step-title-input";
-		titleInput.placeholder = "e.g. Open the user hub";
-		titleInput.focus();
-
-		const actions = form.createDiv({ cls: "ft-jb-step-form-actions" });
-		const confirmBtn = actions.createDiv({ cls: "ft-jb-step-form-confirm" });
-		confirmBtn.dataset.testId = "jb-step-confirm";
-		confirmBtn.setAttribute("role", "button");
-		confirmBtn.setAttribute("tabindex", "0");
-		const confirmIcon = confirmBtn.createSpan();
-		setIcon(confirmIcon, "check");
-		confirmBtn.createSpan({ text: "Add" });
-
-		const confirmStep = () => {
-			const title = titleInput.value.trim();
-			if (!title) return;
-			const id = `step-${++stepCounter}`;
-			const step: JourneyStep = { id, title };
-			this.steps.push(step);
-			void this.eventBus.emit("journey-builder.step.added", { stepId: id, title });
-			form.remove();
-			this.renderStepCards(container);
-		};
-
-		confirmBtn.addEventListener("click", confirmStep);
-		confirmBtn.addEventListener("keydown", (e: KeyboardEvent) => {
-			if (e.key === "Enter" || e.key === " ") {
-				e.preventDefault();
-				confirmStep();
-			}
-		});
-		titleInput.addEventListener("keydown", (e: KeyboardEvent) => {
-			if (e.key === "Enter") {
-				e.preventDefault();
-				confirmStep();
-			}
 		});
 	}
 
@@ -393,30 +359,52 @@ export class JourneyBuilderSidebar extends ItemView {
 		this.renderSteps();
 	}
 
-	private onAddStep(stepList: HTMLElement): void {
-		this.renderStepForm(stepList);
+	private onNavPrev(): void {
+		if (this.currentStepIndex > 0) {
+			this.currentStepIndex--;
+			this.renderSteps();
+		}
 	}
 
-	private onRemoveStep(stepId: string, container: HTMLElement): void {
+	private onNavNext(): void {
+		if (this.currentStepIndex < this.steps.length - 1) {
+			this.currentStepIndex++;
+			this.renderSteps();
+		}
+	}
+
+	private onAddStep(): void {
+		const id = `step-${++stepCounter}`;
+		const step: JourneyStep = { id, title: "" };
+		this.steps.push(step);
+		this.currentStepIndex = this.steps.length - 1;
+		void this.eventBus.emit("journey-builder.step.added", { stepId: id, title: "" });
+		this.renderSteps();
+	}
+
+	private onStepTitleChanged(stepId: string, title: string): void {
+		const step = this.steps.find((s) => s.id === stepId);
+		if (step) {
+			step.title = title;
+			void this.eventBus.emit("journey-builder.step.updated", {
+				stepId,
+				field: "title",
+				value: title,
+			});
+		}
+	}
+
+	private onRemoveStep(stepId: string): void {
 		this.steps = this.steps.filter((s) => s.id !== stepId);
-		this.renderStepCards(container);
+		if (this.currentStepIndex >= this.steps.length) {
+			this.currentStepIndex = Math.max(0, this.steps.length - 1);
+		}
+		this.renderSteps();
 	}
 
 	private onExport(): void {
 		const filePath = `journeys/${this.metadata.name}.journey.json`;
-		const definition = {
-			journey: this.metadata.name,
-			description: this.metadata.description,
-			startEvent: this.metadata.startEvent,
-			endEvent: this.endEvent,
-			steps: this.steps.map((s, i) => ({
-				id: s.id,
-				title: s.title,
-				guideSection: i + 1,
-			})),
-		};
-
-		// File write is handled by JourneyBuilderService via IFileSystemClient → EventBridge
+		const definition = this.buildDefinition();
 		void this.eventBus.emit("journey-builder.exported", { path: filePath, definition });
 	}
 

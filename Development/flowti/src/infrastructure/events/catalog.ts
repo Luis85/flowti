@@ -654,6 +654,7 @@ const CATALOG_DATA = {
 	"journey-builder.open-existing":    { category: "Journey Builder", description: "User clicked Open Existing Journey", direction: "View → Plugin", domain: "journey-builder", services: "JourneyBuilderSidebar" },
 	"journey-builder.metadata.updated": { category: "Journey Builder", description: "Journey metadata was updated", direction: "View → Plugin", domain: "journey-builder", services: "JourneyBuilderSidebar" },
 	"journey-builder.step.added":       { category: "Journey Builder", description: "A step was added to the journey", direction: "View → Plugin", domain: "journey-builder", services: "JourneyBuilderSidebar" },
+	"journey-builder.step.updated":     { category: "Journey Builder", description: "A step was updated (title, description, etc.)", direction: "View → Plugin", domain: "journey-builder", services: "JourneyBuilderSidebar" },
 	"journey-builder.exported":         { category: "Journey Builder", description: "Journey was exported to JSON and test file", direction: "Service → Listeners", domain: "journey-builder", services: "JourneyBuilderSidebar" },
 	"ui.openJourneyBuilder":            { category: "UI Commands", description: "Open the Journey Builder sidebar", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
