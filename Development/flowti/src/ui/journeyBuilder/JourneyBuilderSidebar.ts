@@ -10,9 +10,14 @@
 import { ItemView, setIcon } from "obsidian";
 import type { WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
+import type { JourneyAction, JourneyToolName } from "../../domain/journeyBuilder/types";
+import { TOOL_SCHEMAS } from "../../domain/journeyBuilder/toolSchemas";
 import { NavBar } from "./NavBar";
 import { StepCard } from "./StepCard";
 import { JSONPanel } from "./JSONPanel";
+import { ActionList } from "./ActionList";
+import { ToolPicker } from "./ToolPicker";
+import { ActionForm } from "./ActionForm";
 
 export const VIEW_TYPE_JOURNEY_BUILDER = "flowti-journey-builder";
 
@@ -27,6 +32,7 @@ export interface JourneyMetadata {
 export interface JourneyStep {
 	id: string;
 	title: string;
+	actions: JourneyAction[];
 }
 
 export interface JourneyBuilderSidebarDeps {
@@ -42,6 +48,8 @@ export class JourneyBuilderSidebar extends ItemView {
 	private steps: JourneyStep[] = [];
 	private endEvent = "";
 	private currentStepIndex = 0;
+	private selectedActionIndex = -1;
+	private showToolPicker = false;
 
 	constructor(leaf: WorkspaceLeaf, deps: JourneyBuilderSidebarDeps) {
 		super(leaf);
@@ -90,13 +98,17 @@ export class JourneyBuilderSidebar extends ItemView {
 		return this.currentStepIndex;
 	}
 
+	getSelectedActionIndex(): number {
+		return this.selectedActionIndex;
+	}
+
 	/** Builds the journey definition from current state (reusable by JSONPanel and export). */
 	buildDefinition(): {
 		journey: string;
 		description: string;
 		startEvent: string;
 		endEvent: string;
-		steps: { id: string; title: string; guideSection: number }[];
+		steps: { id: string; title: string; guideSection: number; actions: JourneyAction[] }[];
 	} {
 		return {
 			journey: this.metadata.name,
@@ -107,6 +119,7 @@ export class JourneyBuilderSidebar extends ItemView {
 				id: s.id,
 				title: s.title,
 				guideSection: i + 1,
+				actions: s.actions,
 			})),
 		};
 	}
@@ -119,6 +132,8 @@ export class JourneyBuilderSidebar extends ItemView {
 		this.steps = [];
 		this.endEvent = "";
 		this.currentStepIndex = 0;
+		this.selectedActionIndex = -1;
+		this.showToolPicker = false;
 		const el = this.contentEl;
 		el.empty();
 		el.addClass("ft-jb-sidebar");
@@ -257,9 +272,43 @@ export class JourneyBuilderSidebar extends ItemView {
 			new StepCard(stepContainer, {
 				step,
 				stepNumber: this.currentStepIndex + 1,
+				actionCount: step.actions.length,
 				onTitleChanged: (title) => this.onStepTitleChanged(step.id, title),
 				onRemove: () => this.onRemoveStep(step.id),
 			}).render();
+
+			// ActionList — actions for this step
+			const actionContainer = el.createDiv({ cls: "ft-jb-action-container" });
+			new ActionList(actionContainer, {
+				actions: step.actions,
+				selectedIndex: this.selectedActionIndex,
+				onAddAction: () => this.onAddAction(),
+				onRemoveAction: (i) => this.onRemoveAction(i),
+				onMoveAction: (i, dir) => this.onMoveAction(i, dir),
+				onSelectAction: (i) => this.onSelectAction(i),
+			}).render();
+
+			// ToolPicker — shown after "Add action" click
+			if (this.showToolPicker) {
+				const pickerContainer = el.createDiv({ cls: "ft-jb-picker-container" });
+				new ToolPicker(pickerContainer, {
+					onToolSelected: (tool) => this.onToolSelected(tool),
+				}).render();
+			}
+
+			// ActionForm — shown when an action is selected
+			if (this.selectedActionIndex >= 0 && this.selectedActionIndex < step.actions.length) {
+				const action = step.actions[this.selectedActionIndex];
+				const schema = TOOL_SCHEMAS[action.tool];
+				if (schema) {
+					const formContainer = el.createDiv({ cls: "ft-jb-form-container" });
+					new ActionForm(formContainer, {
+						action,
+						schema,
+						onFieldChanged: (key, value) => this.onActionFieldChanged(key, value),
+					}).render();
+				}
+			}
 		} else {
 			const empty = stepContainer.createDiv({ cls: "ft-jb-empty-state" });
 			empty.dataset.testId = "jb-empty-steps";
@@ -375,7 +424,7 @@ export class JourneyBuilderSidebar extends ItemView {
 
 	private onAddStep(): void {
 		const id = `step-${++stepCounter}`;
-		const step: JourneyStep = { id, title: "" };
+		const step: JourneyStep = { id, title: "", actions: [] };
 		this.steps.push(step);
 		this.currentStepIndex = this.steps.length - 1;
 		void this.eventBus.emit("journey-builder.step.added", { stepId: id, title: "" });
@@ -399,7 +448,69 @@ export class JourneyBuilderSidebar extends ItemView {
 		if (this.currentStepIndex >= this.steps.length) {
 			this.currentStepIndex = Math.max(0, this.steps.length - 1);
 		}
+		this.selectedActionIndex = -1;
+		this.showToolPicker = false;
 		this.renderSteps();
+	}
+
+	// ── Action handlers ─────────────────────────────────────
+
+	private onAddAction(): void {
+		this.showToolPicker = true;
+		this.selectedActionIndex = -1;
+		this.renderSteps();
+	}
+
+	private onToolSelected(tool: JourneyToolName): void {
+		const step = this.steps[this.currentStepIndex];
+		if (!step) return;
+		const action: JourneyAction = { tool };
+		step.actions.push(action);
+		this.selectedActionIndex = step.actions.length - 1;
+		this.showToolPicker = false;
+		void this.eventBus.emit("journey-builder.action.added", { stepId: step.id, tool });
+		this.renderSteps();
+	}
+
+	private onRemoveAction(index: number): void {
+		const step = this.steps[this.currentStepIndex];
+		if (!step) return;
+		step.actions.splice(index, 1);
+		if (this.selectedActionIndex >= step.actions.length) {
+			this.selectedActionIndex = Math.max(-1, step.actions.length - 1);
+		}
+		this.renderSteps();
+	}
+
+	private onMoveAction(fromIndex: number, direction: "up" | "down"): void {
+		const step = this.steps[this.currentStepIndex];
+		if (!step) return;
+		const toIndex = direction === "up" ? fromIndex - 1 : fromIndex + 1;
+		if (toIndex < 0 || toIndex >= step.actions.length) return;
+		const [moved] = step.actions.splice(fromIndex, 1);
+		step.actions.splice(toIndex, 0, moved);
+		if (this.selectedActionIndex === fromIndex) {
+			this.selectedActionIndex = toIndex;
+		}
+		this.renderSteps();
+	}
+
+	private onSelectAction(index: number): void {
+		this.selectedActionIndex = index;
+		this.showToolPicker = false;
+		this.renderSteps();
+	}
+
+	private onActionFieldChanged(key: string, value: string | number): void {
+		const step = this.steps[this.currentStepIndex];
+		if (!step || this.selectedActionIndex < 0) return;
+		const action = step.actions[this.selectedActionIndex];
+		if (!action) return;
+		if (key === "description") {
+			action.description = String(value);
+		} else {
+			action[key] = value;
+		}
 	}
 
 	private onExport(): void {

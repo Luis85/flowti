@@ -1,6 +1,6 @@
 {
 	"journey": "Journey Builder",
-	"description": "Full E2E blueprint for the Journey Builder feature. Steps 1-5 validate the current implementation (launch, welcome/setup flow, NavBar + StepCard step editor with prev/next navigation, JSON preview, export). Steps 6-13 are Cycle 55 development targets: step metadata fields (description, swimlane, UI context), action builder with templates, smart inputs (event autocomplete, command picker, assert builder), canvas sync, full 3-file export, open existing, and preview run.",
+	"description": "Full E2E blueprint for the Journey Builder feature. Steps 1-5 validate the current implementation (launch, welcome/setup flow, NavBar + StepCard step editor with prev/next navigation, JSON preview, export). Step 6 validates prev/next navigation (dev — needs step metadata fields). Step 7 validates the action builder (tool picker, action form, reorder, remove — implemented in Inc 3). Steps 8-13 are Cycle 55 development targets: smart inputs (event autocomplete, command picker, assert builder), canvas sync, full 3-file export, open existing, and preview run.",
 	"testSource": "tests/e2e/90-journey-journey-builder.test.ts",
 	"reportPath": "docs/journeys/Journey Builder/Journey Builder.md",
 	"canvasPath": "docs/journeys/Journey Builder/Journey Builder.canvas",
@@ -160,11 +160,11 @@
 			"swimlane": "frontstage",
 			"description": "Clicks Continue to enter the step editor. The NavBar shows prev/next navigation and an Add Step button. An empty state message is visible. Adds a step via NavBar, edits its title in the StepCard, then sets the end event.",
 			"expectedInput": "Journey Builder setup form filled with metadata",
-			"expectedOutput": "Step editor visible with NavBar (Step 1 of 1), StepCard with title, end event set, JSON preview toggle visible",
+			"expectedOutput": "Step editor visible with NavBar (Step 1 of 1), StepCard with title and action count, ActionList with add button, end event set, JSON preview toggle visible",
 			"uiContext": {
 				"view": "flowti-journey-builder",
 				"viewName": "Journey Builder",
-				"components": ["JourneyBuilderSidebar", "NavBar", "StepCard", "JSONPanel"]
+				"components": ["JourneyBuilderSidebar", "NavBar", "StepCard", "ActionList", "JSONPanel"]
 			},
 			"events": ["journey-builder.step.added", "journey-builder.step.updated"],
 			"interactions": ["click: Continue", "click: Add Step (NavBar)", "input: Step title (StepCard)", "input: End event"],
@@ -209,6 +209,9 @@
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-card']", "description": "StepCard appeared with editable title" },
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-title-input']", "description": "Step title input is visible in StepCard" },
 				{ "tool": "assert", "type": "event", "event": "journey-builder.step.added", "description": "step.added event was emitted" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-action-count']", "description": "Action count is visible on StepCard" },
+				{ "tool": "assert-text", "selector": "[data-test-id='jb-step-action-count']", "contains": "No actions", "description": "Action count shows 'No actions' for new step" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-add-action-btn']", "description": "Add action button is visible in ActionList" },
 				{ "tool": "set-input", "selector": "[data-test-id='jb-step-title-input']", "value": "Open the user hub", "description": "Enter step title in StepCard" },
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "assert", "type": "event", "event": "journey-builder.step.updated", "description": "step.updated event was emitted on title edit" },
@@ -216,7 +219,7 @@
 				{ "tool": "set-input", "selector": "[data-test-id='jb-end-event-input']", "value": "hub.tab.changed", "description": "Enter end event name" },
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "screenshot", "label": "step-added", "description": "Step added with end event set" },
-				{ "tool": "manual", "instruction": "Verify a StepCard appeared with number badge '1' and an editable title input showing 'Open the user hub'. The NavBar shows 'Step 1 of 1'. The end event field shows 'hub.tab.changed'. A JSON preview toggle and export button are visible below.", "interactive": false, "description": "Visual QA of step creation" }
+				{ "tool": "manual", "instruction": "Verify a StepCard appeared with number badge '1', an editable title input showing 'Open the user hub', and 'No actions' count below. An 'Add action' button with dashed border is visible below the card. The NavBar shows 'Step 1 of 1'. The end event field shows 'hub.tab.changed'. A JSON preview toggle and export button are visible below.", "interactive": false, "description": "Visual QA of step creation" }
 			]
 		},
 		{
@@ -224,7 +227,6 @@
 			"title": "Export journey JSON",
 			"guideSection": 5,
 			"swimlane": "backstage",
-			"dev": true,
 			"description": "Clicks the Export button. The sidebar emits journey-builder.exported, JourneyBuilderService writes the .json file via IFileSystemClient, and EventBridge uses the adapter for non-vault extensions.",
 			"expectedInput": "Journey Builder with metadata, start event, one step, and end event",
 			"expectedOutput": "Journey JSON file created via adapter, confirmed by file.create.response event",
@@ -315,50 +317,90 @@
 			"title": "Add actions to a step",
 			"guideSection": 7,
 			"swimlane": "frontstage",
-			"dev": true,
-			"description": "Uses the action builder to add actions to step 1. Demonstrates the tool picker, per-tool form fields, action reordering, and action templates. Adds a 'command' action, a 'wait' action, and uses the 'Open via command' template.",
+			"description": "Uses the action builder to add actions to step 1. Clicks 'Add action' to show the ToolPicker (grouped <select> with 30 tools across 5 categories). Selects a tool, fills in schema-driven ActionForm fields, adds more actions, reorders with up/down, removes an action, and verifies action count on StepCard.",
 			"expectedInput": "Step editor on step 1 with no actions",
-			"expectedOutput": "Step 1 has actions: command, wait, assert(leaf) — added via template and individually",
+			"expectedOutput": "Step 1 has 3 actions: command, wait, screenshot — added individually via ToolPicker + ActionForm, reordered",
 			"uiContext": {
 				"view": "flowti-journey-builder",
 				"viewName": "Journey Builder",
-				"components": ["JourneyBuilderSidebar", "StepCard", "ActionBuilder"]
+				"components": ["JourneyBuilderSidebar", "StepCard", "ActionList", "ToolPicker", "ActionForm"]
 			},
 			"events": ["journey-builder.action.added"],
-			"interactions": ["click: Add Action", "select: Tool", "input: Action fields", "click: Use Template", "click: Move Up"],
+			"interactions": ["click: Add Action", "select: Tool (ToolPicker)", "input: Action fields (ActionForm)", "click: Move Up", "click: Move Down", "click: Remove Action"],
 			"improvements": [
 				{
 					"title": "Drag-and-drop action reordering",
 					"description": "Allow reordering actions by drag-and-drop instead of only up/down buttons. Use Obsidian's sortable list pattern.",
 					"priority": "nice-to-have",
 					"added": "2026-03-02"
+				},
+				{
+					"title": "Action templates — quick-add patterns",
+					"description": "Instead of building actions one-by-one, offer common patterns: 'Open via command' (command + wait + assert leaf), 'Click element' (click + wait), 'Verify visible' (assert visible), 'Take screenshot'. User picks a template, fills in the blanks, actions are added as a group.",
+					"priority": "should-have",
+					"added": "2026-03-02"
 				}
 			],
 			"actions": [
-				{ "tool": "notice", "message": "Step 7/13: Action builder", "duration": 3000 },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-add-action-btn']", "description": "Add Action button is visible" },
-				{ "tool": "click", "selector": "[data-test-id='jb-add-action-btn']", "description": "Click Add Action" },
+				{ "tool": "notice", "message": "Step 7/13: Action builder — ToolPicker, ActionForm, reorder", "duration": 3000 },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-add-action-btn']", "description": "Add Action button is visible in ActionList" },
+				{ "tool": "assert-text", "selector": "[data-test-id='jb-step-action-count']", "contains": "No actions", "description": "Step shows 'No actions' before adding" },
+
+				{ "tool": "click", "selector": "[data-test-id='jb-add-action-btn']", "description": "Click Add Action to show ToolPicker" },
 				{ "tool": "wait", "ms": 500 },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-tool-picker']", "description": "Tool picker modal is visible" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-template-section']", "description": "Action templates section visible at top" },
-				{ "tool": "click", "selector": "[data-test-id='jb-template-open-via-command']", "description": "Select 'Open via command' template" },
-				{ "tool": "wait", "ms": 300 },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-template-form']", "description": "Template fill-in form is visible" },
-				{ "tool": "set-input", "selector": "[data-test-id='jb-template-command-id']", "value": "flowti:show-hub", "description": "Enter command ID for template" },
-				{ "tool": "set-input", "selector": "[data-test-id='jb-template-view-type']", "value": "flowti-user-hub", "description": "Enter view type for template" },
-				{ "tool": "click", "selector": "[data-test-id='jb-template-apply']", "description": "Apply template — adds command + wait + assert(leaf)" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-tool-picker']", "description": "ToolPicker container is visible" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-tool-select']", "description": "Tool <select> element is visible" },
+
+				{ "tool": "eval", "code": "(() => { const sel = document.querySelector('[data-test-id=\"jb-tool-select\"]'); return sel ? sel.querySelectorAll('optgroup').length : 0; })()", "expect": { "type": "equals", "value": "5" }, "description": "ToolPicker has 5 category optgroups (interaction, assertion, lifecycle, feedback, data)" },
+				{ "tool": "eval", "code": "(() => { const sel = document.querySelector('[data-test-id=\"jb-tool-select\"]'); return sel ? sel.querySelectorAll('optgroup option').length : 0; })()", "expect": { "type": "equals", "value": "30" }, "description": "ToolPicker has all 30 tool options" },
+
+				{ "tool": "set-input", "selector": "[data-test-id='jb-tool-select']", "value": "command", "dispatchEvent": true, "description": "Select 'command' tool from ToolPicker" },
 				{ "tool": "wait", "ms": 500 },
-				{ "tool": "assert", "type": "count", "selector": "[data-test-id='jb-action-card']", "expected": 3, "description": "Three actions added from template" },
-				{ "tool": "click", "selector": "[data-test-id='jb-add-action-btn']", "description": "Add another action individually" },
+				{ "tool": "assert", "type": "event", "event": "journey-builder.action.added", "description": "action.added event emitted for command tool" },
+				{ "tool": "assert", "type": "count", "selector": "[data-test-id='jb-action-card']", "count": 1, "description": "One action card appeared" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-action-form']", "description": "ActionForm is visible for the selected action" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-action-field-id']", "description": "Command ID field is visible in ActionForm" },
+				{ "tool": "set-input", "selector": "[data-test-id='jb-action-field-id']", "value": "flowti:show-hub", "description": "Enter command ID in ActionForm" },
 				{ "tool": "wait", "ms": 300 },
-				{ "tool": "click", "selector": "[data-test-id='jb-tool-screenshot']", "description": "Select screenshot tool" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-action-field-description']", "description": "Description field always appended to ActionForm" },
+				{ "tool": "set-input", "selector": "[data-test-id='jb-action-field-description']", "value": "Open the user hub", "description": "Enter action description" },
 				{ "tool": "wait", "ms": 300 },
-				{ "tool": "set-input", "selector": "[data-test-id='jb-action-label']", "value": "after-hub-open", "description": "Enter screenshot label" },
-				{ "tool": "click", "selector": "[data-test-id='jb-action-confirm']", "description": "Confirm screenshot action" },
+				{ "tool": "assert-text", "selector": "[data-test-id='jb-step-action-count']", "contains": "1 action", "description": "Step action count updated to '1 action'" },
+				{ "tool": "screenshot", "label": "action-form-command", "description": "First action added — command tool with ActionForm" },
+
+				{ "tool": "click", "selector": "[data-test-id='jb-add-action-btn']", "description": "Add a second action" },
 				{ "tool": "wait", "ms": 300 },
-				{ "tool": "assert", "type": "count", "selector": "[data-test-id='jb-action-card']", "expected": 4, "description": "Four actions total" },
-				{ "tool": "screenshot", "label": "action-builder", "description": "Step with 4 actions added via template and individually" },
-				{ "tool": "manual", "instruction": "Verify four action cards are visible: command (flowti:show-hub), wait (500ms), assert (leaf flowti-user-hub), screenshot (after-hub-open). Each card should show tool icon, summary, and up/down/remove buttons.", "interactive": false, "description": "Visual QA of action builder" }
+				{ "tool": "set-input", "selector": "[data-test-id='jb-tool-select']", "value": "wait", "dispatchEvent": true, "description": "Select 'wait' tool" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "assert", "type": "count", "selector": "[data-test-id='jb-action-card']", "count": 2, "description": "Two action cards" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-action-field-ms']", "description": "Duration (ms) number field visible for wait tool" },
+				{ "tool": "set-input", "selector": "[data-test-id='jb-action-field-ms']", "value": "500", "description": "Enter wait duration" },
+				{ "tool": "wait", "ms": 300 },
+
+				{ "tool": "click", "selector": "[data-test-id='jb-add-action-btn']", "description": "Add a third action" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "set-input", "selector": "[data-test-id='jb-tool-select']", "value": "screenshot", "dispatchEvent": true, "description": "Select 'screenshot' tool" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "assert", "type": "count", "selector": "[data-test-id='jb-action-card']", "count": 3, "description": "Three action cards" },
+				{ "tool": "set-input", "selector": "[data-test-id='jb-action-field-label']", "value": "after-hub-open", "description": "Enter screenshot label" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "assert-text", "selector": "[data-test-id='jb-step-action-count']", "contains": "3 actions", "description": "Step action count shows '3 actions'" },
+				{ "tool": "screenshot", "label": "three-actions", "description": "Three actions added: command, wait, screenshot" },
+
+				{ "tool": "click", "selector": "[data-test-id='jb-action-card']:nth-child(3) [data-test-id='jb-action-move-up']", "description": "Move screenshot action up (3→2)" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "click", "selector": "[data-test-id='jb-action-card']:nth-child(3) [data-test-id='jb-action-remove']", "description": "Remove last action (wait, now at position 3)" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "assert", "type": "count", "selector": "[data-test-id='jb-action-card']", "count": 2, "description": "Two actions remain after removal" },
+				{ "tool": "assert-text", "selector": "[data-test-id='jb-step-action-count']", "contains": "2 actions", "description": "Step action count updated to '2 actions'" },
+				{ "tool": "screenshot", "label": "action-reorder-remove", "description": "After reorder and remove — 2 actions remain" },
+
+				{ "tool": "click", "selector": "[data-test-id='jb-action-card']:first-child", "description": "Select first action card to show its form" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-action-form']", "description": "ActionForm visible for selected action" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-action-tool-badge']", "description": "Tool badge visible on action card" },
+				{ "tool": "screenshot", "label": "action-builder-final", "description": "Final action builder state with 2 actions and form visible" },
+				{ "tool": "manual", "instruction": "Verify: (1) Two action cards are visible with tool badges ('Command', 'Screenshot'). (2) The selected card has a highlighted border. (3) The ActionForm below shows the selected action's fields. (4) Each card has up/down/remove buttons. (5) The step card shows '2 actions'. (6) The JSON preview includes actions in the step definition.", "interactive": false, "description": "Visual QA of action builder" }
 			]
 		},
 		{

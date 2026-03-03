@@ -11,6 +11,8 @@ export interface StepCardDeps {
 	step: JourneyStep;
 	/** 1-based step number for the badge. */
 	stepNumber: number;
+	/** Number of actions on this step (for display). */
+	actionCount?: number;
 	/** Called when the user edits the step title. */
 	onTitleChanged: (newTitle: string) => void;
 	/** Called when the user clicks the remove button. */
@@ -60,5 +62,14 @@ export class StepCard {
 				this.deps.onRemove();
 			}
 		});
+
+		// Action count
+		if (this.deps.actionCount !== undefined) {
+			const countEl = card.createDiv({ cls: "ft-jb-step-action-count" });
+			countEl.dataset.testId = "jb-step-action-count";
+			countEl.textContent = this.deps.actionCount === 0
+				? "No actions"
+				: `${this.deps.actionCount} action${this.deps.actionCount === 1 ? "" : "s"}`;
+		}
 	}
 }

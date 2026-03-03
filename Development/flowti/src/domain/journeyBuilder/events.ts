@@ -10,7 +10,12 @@ export interface JourneyExportPayload {
 		description: string;
 		startEvent: string;
 		endEvent: string;
-		steps: { id: string; title: string; guideSection: number }[];
+		steps: {
+			id: string;
+			title: string;
+			guideSection: number;
+			actions?: Array<{ tool: string; [key: string]: unknown }>;
+		}[];
 	};
 }
 
@@ -27,6 +32,8 @@ export interface JourneyBuilderEventMap {
 	"journey-builder.step.added": { stepId: string; title: string };
 	/** A step was updated (title, description, etc.) */
 	"journey-builder.step.updated": { stepId: string; field: string; value: string };
+	/** An action was added to a step */
+	"journey-builder.action.added": { stepId: string; tool: string };
 	/** Journey was exported to JSON + test file */
 	"journey-builder.exported": JourneyExportPayload;
 }

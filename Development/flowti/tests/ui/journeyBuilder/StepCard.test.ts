@@ -15,7 +15,7 @@ describe("StepCard", () => {
 	beforeEach(() => {
 		container = document.createElement("div");
 		deps = {
-			step: { id: "step-1", title: "Open the user hub" },
+			step: { id: "step-1", title: "Open the user hub", actions: [] },
 			stepNumber: 1,
 			onTitleChanged: vi.fn(),
 			onRemove: vi.fn(),
@@ -42,14 +42,14 @@ describe("StepCard", () => {
 	});
 
 	it("renders empty title input for new step", () => {
-		deps.step = { id: "step-2", title: "" };
+		deps.step = { id: "step-2", title: "", actions: [] };
 		new StepCard(container, deps).render();
 		const input = byTestId(container, "jb-step-title-input") as HTMLInputElement;
 		expect(input.value).toBe("");
 	});
 
 	it("renders placeholder text in empty input", () => {
-		deps.step = { id: "step-2", title: "" };
+		deps.step = { id: "step-2", title: "", actions: [] };
 		new StepCard(container, deps).render();
 		const input = byTestId(container, "jb-step-title-input") as HTMLInputElement;
 		expect(input.placeholder).toContain("step title");

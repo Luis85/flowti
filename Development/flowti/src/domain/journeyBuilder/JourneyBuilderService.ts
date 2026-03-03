@@ -50,7 +50,7 @@ export class JourneyBuilderService {
 				title: s.title,
 				guideSection: s.guideSection,
 				events: [definition.startEvent],
-				actions: [],
+				actions: s.actions ?? [],
 			})),
 			teardown: [],
 		};
