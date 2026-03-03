@@ -1,8 +1,8 @@
 ---
 type: DevelopmentCycle
 feature: "[[Backlog Refinement - Post Cycle 48]]"
-stage: planning
-cycle: 55
+stage: deferred
+cycle:
 release_anchor:
   - "Theme 1: Ship It — Release Path"
 pbis:
@@ -19,7 +19,7 @@ tech_debt:
 estimated_increments: 6
 ---
 
-# Cycle 55 — Release Gate
+# Release Gate
 
 ## Release Anchor Theme
 
@@ -27,7 +27,7 @@ estimated_increments: 6
 
 ## Cycle Overview
 
-Cycle 55 is the release preparation cycle. After six cycles of investment — release readiness (C49), user activation (C50), dogfooding (C51), architecture (C52), data exchange (C53), and feature deepening (C54) — this cycle ensures everything is polished, documented, and process-ready for the Obsidian community plugin marketplace.
+After six cycles of investment — release readiness (C49), user activation (C50), dogfooding (C51), architecture (C52), data exchange (C53), and feature deepening (C54) — this cycle ensures everything is polished, documented, and process-ready for the Obsidian community plugin marketplace.
 
 No new features. Only documentation, process, quality assurance, and the final release checklist.
 
