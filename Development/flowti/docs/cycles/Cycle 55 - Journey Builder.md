@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Development/flowti/docs/features/Journey Builder/Journey Builder PRD|Journey Builder PRD]]"
-stage: planned
+stage: in-progress
 cycle: 55
 release_anchor:
   - "Theme 5: Visual Test Authoring — Journey Builder"
