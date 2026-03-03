@@ -303,6 +303,120 @@ function readJourneyResults() {
 }
 
 /**
+ * Reconciles vitest suite/case data with journey runner results.
+ *
+ * Vitest doesn't know about journey-level skipping or dev boundaries — it sees
+ * all early-returning it() blocks as "passed". The journey runner has the real
+ * step statuses (pass, fail, skip, dev). This function overlays journey data
+ * onto matching vitest cases so downstream report sections use correct numbers.
+ *
+ * For each vitest suite, we look for a matching journey (by name). For each
+ * vitest case in that suite, we match it to a journey step by checking if the
+ * case name contains the step's itBlock. Matched cases get their status overridden.
+ *
+ * Returns updated vitest data with reconciled totals.
+ */
+function reconcileResults(vitest, journeys) {
+	if (!vitest || journeys.length === 0) return vitest;
+
+	// Build a lookup: journey name → step statuses
+	// Journey step itBlock is like "5 — Export journey JSON"
+	// Vitest case name is like "Journey Builder 5 — Export journey JSON"
+	const journeyStepMap = new Map();
+	for (const { data } of journeys) {
+		const name = data.journey;
+		const steps = (data.steps ?? []).map((r) => ({
+			itBlock: r.step?.itBlock ?? `${r.step?.guideSection} — ${r.step?.title}`,
+			status: r.status, // "pass", "fail", "skip", "dev"
+		}));
+		journeyStepMap.set(name, steps);
+	}
+
+	let totalPassed = 0;
+	let totalFailed = 0;
+	let totalSkipped = 0;
+	let totalDev = 0;
+
+	for (const suite of vitest.suites) {
+		// Find matching journey by checking if the suite name matches a journey name slug
+		// Suite names are like "90-journey-journey-builder", journey names like "Journey Builder"
+		let matchedJourney = null;
+		for (const [name, steps] of journeyStepMap) {
+			// Match by checking if the suite name contains the journey slug
+			const slug = name.toLowerCase().replace(/\s+/g, "-");
+			if (suite.name.includes(slug)) {
+				matchedJourney = { name, steps };
+				break;
+			}
+		}
+
+		if (!matchedJourney) {
+			// Non-journey suite (e.g. prerequisites) — keep vitest numbers as-is
+			totalPassed += suite.passed;
+			totalFailed += suite.failed;
+			totalSkipped += suite.skipped;
+			continue;
+		}
+
+		// Reconcile each case in this suite with journey step data
+		let suitePassed = 0;
+		let suiteFailed = 0;
+		let suiteSkipped = 0;
+		let suiteDev = 0;
+
+		for (const c of suite.cases) {
+			// Find matching journey step by itBlock
+			const matchedStep = matchedJourney.steps.find((s) =>
+				c.name.includes(s.itBlock),
+			);
+
+			if (matchedStep) {
+				// Override vitest status with journey runner's truth
+				if (matchedStep.status === "skip") {
+					c.reconciledStatus = "skipped";
+					suiteSkipped++;
+				} else if (matchedStep.status === "dev") {
+					c.reconciledStatus = "dev";
+					suiteDev++;
+				} else if (matchedStep.status === "fail") {
+					c.reconciledStatus = "failed";
+					suiteFailed++;
+				} else {
+					// "pass" — keep as passed
+					c.reconciledStatus = "passed";
+					suitePassed++;
+				}
+			} else {
+				// No matching journey step — use vitest status
+				c.reconciledStatus = c.status;
+				if (c.status === "passed") suitePassed++;
+				else if (c.status === "failed") suiteFailed++;
+				else suiteSkipped++;
+			}
+		}
+
+		suite.reconciledPassed = suitePassed;
+		suite.reconciledFailed = suiteFailed;
+		suite.reconciledSkipped = suiteSkipped;
+		suite.reconciledDev = suiteDev;
+
+		totalPassed += suitePassed;
+		totalFailed += suiteFailed;
+		totalSkipped += suiteSkipped;
+		totalDev += suiteDev;
+	}
+
+	return {
+		...vitest,
+		totalPassed,
+		totalFailed,
+		totalSkipped,
+		totalDev,
+		totalTests: totalPassed + totalFailed + totalSkipped + totalDev,
+	};
+}
+
+/**
  * Generates a dedicated journey report with full step details and screenshots.
  * Returns the report filename (without path) for wikilink references.
  */
@@ -1588,18 +1702,20 @@ function generateReport() {
 		copyScreenshots(srcScreenshots, devScreenshots);
 	}
 
-	// --- E2E summary report ---
-	const totalPassed = vitest?.totalPassed ?? 0;
-	const totalFailed = vitest?.totalFailed ?? 0;
-	const totalSkipped = vitest?.totalSkipped ?? 0;
-	const totalTests = vitest?.totalTests ?? 0;
+	// --- Reconcile vitest results with journey runner truth ---
+	const reconciled = reconcileResults(vitest, journeys);
 
-	// Journey-level skipped steps (step filter, setup failure, skip-mode)
-	const journeySkippedSteps = journeys.reduce((sum, { data }) => sum + (data.skipped ?? 0), 0);
+	// --- E2E summary report ---
+	const totalPassed = reconciled?.totalPassed ?? 0;
+	const totalFailed = reconciled?.totalFailed ?? 0;
+	const totalSkipped = reconciled?.totalSkipped ?? 0;
+	const totalDev = reconciled?.totalDev ?? 0;
+	const totalTests = reconciled?.totalTests ?? 0;
+
 	// Mode-based partial detection: not "full" means a subset of journeys was selected
 	const isPartialMode = resolveMode() !== "full";
-	// Effective skipped count: vitest skipped + journey-level skipped steps
-	const effectiveSkipped = totalSkipped + journeySkippedSteps + (isPartialMode ? 1 : 0);
+	// Effective skipped: reconciled skipped already includes journey-level skips
+	const effectiveSkipped = totalSkipped + totalDev + (isPartialMode ? 1 : 0);
 	// Visual-inspection warnings elevate status to partial-pass
 	const hasJourneyWarnings = journeys.some(({ data }) =>
 		(data.steps ?? []).some((r) => r.warnings && r.warnings.length > 0));
@@ -1651,6 +1767,7 @@ function generateReport() {
 		passed: totalPassed,
 		failed: totalFailed,
 		skipped: totalSkipped,
+		...(totalDev > 0 ? { dev: totalDev } : {}),
 		total_actions: aggregateActions.total,
 		total_screenshots: aggregateActions.screenshots,
 		total_assertions: aggregateActions.assertions,
@@ -1712,7 +1829,8 @@ function generateReport() {
 		`# E2E Report${reportTitleSuffix}`,
 		"",
 		`> [!${overallCallout}] Summary — ${overallLabel}`,
-		`> Mode: **${fm.mode}** | Tests: ${totalTests} | Passed: ${totalPassed} | Failed: ${totalFailed} | Skipped: ${totalSkipped}`,
+		`> Mode: **${fm.mode}** | Tests: ${totalTests} | Passed: ${totalPassed} | Failed: ${totalFailed} | Skipped: ${totalSkipped}` +
+		(totalDev > 0 ? ` | Dev: ${totalDev}` : ""),
 		`> Duration: ${formatDuration(totalDurationMs)}`,
 		"",
 	];
@@ -1921,8 +2039,8 @@ function generateReport() {
 		lines.push("");
 	}
 
-	// Test suites section
-	if (vitest) {
+	// Test suites section (uses reconciled data for accurate status)
+	if (reconciled) {
 		lines.push("---", "");
 		lines.push("## Test Suites", "");
 
@@ -1939,14 +2057,23 @@ function generateReport() {
 			}
 		}
 
-		for (const suite of vitest.suites) {
-			const suiteStatus = resolveStatus(suite.passed, suite.failed, suite.cases.length);
+		for (const suite of reconciled.suites) {
+			// Use reconciled counts when available (journey suites), else raw vitest
+			const sPassed = suite.reconciledPassed ?? suite.passed;
+			const sFailed = suite.reconciledFailed ?? suite.failed;
+			const sSkipped = suite.reconciledSkipped ?? suite.skipped;
+			const sDev = suite.reconciledDev ?? 0;
+			const sTotal = suite.cases.length;
+			const suiteStatus = resolveStatus(sPassed, sFailed, sTotal, sSkipped + sDev);
 			const callout = statusCallout(suiteStatus);
 			const icon = statusLabel(suiteStatus);
 
 			lines.push(`### ${suite.name}`);
 			lines.push("");
-			lines.push(`> [!${callout}] ${icon} — ${suite.passed}/${suite.cases.length} passed`);
+			const summaryParts = [`${sPassed}/${sTotal} passed`];
+			if (sSkipped > 0) summaryParts.push(`${sSkipped} skipped`);
+			if (sDev > 0) summaryParts.push(`${sDev} dev`);
+			lines.push(`> [!${callout}] ${icon} — ${summaryParts.join(", ")}`);
 
 			// Show hook error so the reader can see WHERE the chain broke
 			if (suite.hookError) {
@@ -1957,20 +2084,31 @@ function generateReport() {
 			lines.push("");
 
 			for (const c of suite.cases) {
+				// Use reconciledStatus when available (journey steps), else raw vitest status
+				const status = c.reconciledStatus ?? c.status;
+
 				// Markers:
 				//   [x] passed   — test ran and passed
 				//   [~] warned   — test passed but has visual-inspection warnings
 				//   [!] failed   — test ran and failed (Obsidian renders as important)
 				//   [ ] blocked  — never ran because a hook or prior test failed
 				//   [-] skipped  — intentionally skipped (not due to failure)
+				//   [-] dev      — dev-mode step (not yet implemented)
 				let mark;
-				if (c.status === "passed") {
+				let suffix = "";
+				if (status === "passed") {
 					// Check if this test has visual-inspection warnings
 					const hasWarning = warningItBlocks.size > 0 &&
 						[...warningItBlocks].some((w) => c.name.includes(w));
 					mark = hasWarning ? "[~]" : "[x]";
-				} else if (c.status === "failed") {
+				} else if (status === "failed") {
 					mark = "[!]";
+				} else if (status === "skipped") {
+					mark = "[-]";
+					suffix = " — *Skipped (previous run passed)*";
+				} else if (status === "dev") {
+					mark = "[-]";
+					suffix = " — *Dev (not yet implemented)*";
 				} else if (suite.suiteHookFailed) {
 					mark = "[ ]";
 				} else {
@@ -1978,13 +2116,13 @@ function generateReport() {
 				}
 
 				const dur = c.durationMs > 0 ? ` (${formatDuration(c.durationMs)})` : "";
-				const blocked = suite.suiteHookFailed && c.status !== "passed" && c.status !== "failed"
+				const blocked = suite.suiteHookFailed && status !== "passed" && status !== "failed"
 					? " — *blocked*"
 					: "";
 				const displayName = c.name.includes(" > ")
 					? c.name.substring(c.name.lastIndexOf(" > ") + 3)
 					: c.name;
-				lines.push(`- ${mark} ${displayName}${dur}${blocked}`);
+				lines.push(`- ${mark} ${displayName}${dur}${blocked}${suffix}`);
 
 				if (c.error) {
 					lines.push(`  > Error: ${c.error.split("\n")[0]}`);
