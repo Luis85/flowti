@@ -368,6 +368,74 @@ export class EventBridge implements IEventBridge {
 			})
 		);
 
+		// Handle file.list.request
+		this.unsubscribers.push(
+			this.eventBus.on("file.list.request", async (event) => {
+				const { requestId, path } = event.payload;
+				try {
+					const adapter = this.app.vault.adapter;
+					if (!(await adapter.exists(path))) {
+						await this.eventBus.emit("file.list.response", {
+							requestId,
+							success: true,
+							path,
+							files: [],
+						});
+						return;
+					}
+					const listing = await adapter.list(path);
+					await this.eventBus.emit("file.list.response", {
+						requestId,
+						success: true,
+						path,
+						files: listing.files,
+					});
+				} catch (error) {
+					await this.eventBus.emit("file.list.response", {
+						requestId,
+						success: false,
+						path,
+						error: {
+							code: "FILE_LIST_FAILED",
+							message:
+								error instanceof Error ? error.message : String(error),
+							path,
+						},
+					});
+				}
+			})
+		);
+
+		// Handle folder.ensure.request
+		this.unsubscribers.push(
+			this.eventBus.on("folder.ensure.request", async (event) => {
+				const { requestId, path } = event.payload;
+				try {
+					const adapter = this.app.vault.adapter;
+					if (!(await adapter.exists(path))) {
+						await adapter.mkdir(path);
+					}
+					await this.eventBus.emit("folder.ensure.response", {
+						requestId,
+						success: true,
+						path,
+					});
+				} catch (error) {
+					await this.eventBus.emit("folder.ensure.response", {
+						requestId,
+						success: false,
+						path,
+						error: {
+							code: "FOLDER_ENSURE_FAILED",
+							message:
+								error instanceof Error ? error.message : String(error),
+							path,
+						},
+					});
+				}
+			})
+		);
+
 		this.logger.debug("File system handlers initialized");
 	}
 

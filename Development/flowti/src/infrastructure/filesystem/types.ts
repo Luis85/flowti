@@ -110,6 +110,21 @@ export interface IFileSystemClient {
 	): Promise<string>;
 
 	/**
+	 * List files in a folder.
+	 * @param folderPath - Folder path relative to vault root
+	 * @param options - Operation options
+	 * @returns Array of file paths within the folder
+	 */
+	listFiles(folderPath: string, options?: FileOperationOptions): Promise<string[]>;
+
+	/**
+	 * Ensure a folder exists, creating it (and parents) if necessary.
+	 * @param folderPath - Folder path relative to vault root
+	 * @param options - Operation options
+	 */
+	ensureFolder(folderPath: string, options?: FileOperationOptions): Promise<void>;
+
+	/**
 	 * Get frontmatter from a file.
 	 * @param path - File path relative to vault root
 	 * @param options - Operation options

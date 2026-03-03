@@ -253,6 +253,26 @@ export interface FlowtiEventMap extends UserEventMap, SettingsEventMap, Installe
 		error?: FileOperationError;
 	};
 
+	/** Request to list files in a folder */
+	"file.list.request": FileRequestBase;
+
+	/** Response after listing files in a folder */
+	"file.list.response": FileResponseBase & {
+		/** File paths within the folder */
+		files?: string[];
+		/** Error info if success is false */
+		error?: FileOperationError;
+	};
+
+	/** Request to ensure a folder exists (creates if missing) */
+	"folder.ensure.request": FileRequestBase;
+
+	/** Response after ensuring folder exists */
+	"folder.ensure.response": FileResponseBase & {
+		/** Error info if success is false */
+		error?: FileOperationError;
+	};
+
 	// ─────────────────────────────────────────────────────────────
 	// File Notification Events (External changes → Services)
 	// ─────────────────────────────────────────────────────────────

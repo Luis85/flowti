@@ -281,6 +281,25 @@ describe("SettingsService", () => {
 		});
 	});
 
+	describe("journey folder setting", () => {
+		it("defaults to 03 - Resources/Journeys", async () => {
+			const settings = settingsService.getSettings();
+			expect(settings.journeyFolder).toBe("03 - Resources/Journeys");
+		});
+
+		it("updates via settings.updateJourneyFolder event", async () => {
+			await eventBus.emit("settings.updateJourneyFolder", { folder: "my/journeys" });
+			const settings = settingsService.getSettings();
+			expect(settings.journeyFolder).toBe("my/journeys");
+		});
+
+		it("persists to storage", async () => {
+			await eventBus.emit("settings.updateJourneyFolder", { folder: "custom/path" });
+			expect(storage.save).toHaveBeenCalled();
+			expect(getData().journeyFolder).toBe("custom/path");
+		});
+	});
+
 	describe("TD-115: saveSettings handles non-object storage data", () => {
 		it("should not crash when storage returns null during save", async () => {
 			const nullStorage: IStorageProvider = {

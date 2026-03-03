@@ -38,6 +38,10 @@ export function createMockFileSystem(existingFiles: Record<string, string> = {})
 		}),
 		moveFile: vi.fn(async (_p: string, np: string) => np),
 		renameFile: vi.fn(async (_p: string, nn: string) => nn),
+		listFiles: vi.fn(async (folderPath: string) => {
+			return [...files.keys()].filter((p) => p.startsWith(folderPath + "/"));
+		}),
+		ensureFolder: vi.fn(async () => {}),
 		getFrontmatter: vi.fn(async () => ({})),
 		updateFrontmatter: vi.fn(async (_p: string, d: Record<string, unknown>) => d),
 		setFrontmatter: vi.fn(async () => undefined),
@@ -64,6 +68,8 @@ export function createMockFileSystemStub(): IFileSystemClient {
 		deleteFile: vi.fn(async () => {}),
 		moveFile: vi.fn(async (_p: string, np: string) => np),
 		renameFile: vi.fn(async (_p: string, nn: string) => nn),
+		listFiles: vi.fn(async () => []),
+		ensureFolder: vi.fn(async () => {}),
 		getFrontmatter: vi.fn(async () => ({})),
 		updateFrontmatter: vi.fn(async (_p: string, d: Record<string, unknown>) => d),
 		setFrontmatter: vi.fn(async () => {}),

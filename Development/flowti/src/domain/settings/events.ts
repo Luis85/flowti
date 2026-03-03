@@ -44,6 +44,8 @@ export interface SettingsEventMap {
 	"settings.updateTrainCanvasAutoOpen": { enabled: boolean };
 	/** Command: update analytics folder path */
 	"settings.updateAnalyticsFolder": { folder: string };
+	/** Command: update journey builder folder path */
+	"settings.updateJourneyFolder": { folder: string };
 	/** Command: update User Hub dashboard configuration */
 	"settings.updateUserHubConfig": { config: { kpiMeasures: string[]; visibleHubs: string[]; showQuickActions: boolean; toolbarHubs: string[]; toolbarActions: string[] } };
 	/** Command: toggle inbox auto-routing */

@@ -47,6 +47,8 @@ function createMockDeps(): InstallerStepDeps {
 			getFrontmatter: vi.fn(),
 			updateFrontmatter: vi.fn(),
 			setFrontmatter: vi.fn(),
+			listFiles: vi.fn(async () => []),
+			ensureFolder: vi.fn(async () => {}),
 		},
 		eventBus: new EventBus(),
 		userService: {

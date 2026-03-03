@@ -49,6 +49,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 		this.displayEntityPathsSection(containerEl);
 		this.displayTrainSection(containerEl);
 		this.displayAnalyticsSection(containerEl);
+		this.displayJourneyBuilderSection(containerEl);
 		this.displayGeneralSection(containerEl);
 	}
 
@@ -391,6 +392,27 @@ export class FlowtiSettingTab extends PluginSettingTab {
 								}
 							},
 						}).open();
+					})
+			);
+	}
+
+	/**
+	 * Display Journey Builder settings section
+	 */
+	private displayJourneyBuilderSection(containerEl: HTMLElement): void {
+		new Setting(containerEl).setName("Journey Builder").setHeading();
+
+		const settings = this.deps.getSettings();
+
+		new Setting(containerEl)
+			.setName("Journey folder")
+			.setDesc("Vault folder where journey definitions and canvas files are saved")
+			.addText((text) =>
+				text
+					.setValue(settings.journeyFolder)
+					.setPlaceholder("03 - Resources/Journeys")
+					.onChange((value) => {
+						void this.deps.eventBus.emit("settings.updateJourneyFolder", { folder: value });
 					})
 			);
 	}

@@ -223,6 +223,8 @@ const CATALOG_DATA = {
 	"file.delete.request": { category: "File Requests", description: "Request to delete a file", direction: "Service → EventBridge", domain: "infrastructure", services: "FileSystemClient", tags: ["system"] },
 	"file.move.request":   { category: "File Requests", description: "Request to move a file", direction: "Service → EventBridge", domain: "infrastructure", services: "FileSystemClient", tags: ["system"] },
 	"file.rename.request": { category: "File Requests", description: "Request to rename a file", direction: "Service → EventBridge", domain: "infrastructure", services: "FileSystemClient", tags: ["system"] },
+	"file.list.request":   { category: "File Requests", description: "Request to list files in a folder", direction: "Service → EventBridge", domain: "infrastructure", services: "FileSystemClient", tags: ["system"] },
+	"folder.ensure.request": { category: "File Requests", description: "Request to ensure a folder exists", direction: "Service → EventBridge", domain: "infrastructure", services: "FileSystemClient", tags: ["system"] },
 
 	// ── File Responses ───────────────────────────────────────
 	"file.create.response": { category: "File Responses", description: "Response after file creation", direction: "EventBridge → Service", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
@@ -231,6 +233,8 @@ const CATALOG_DATA = {
 	"file.delete.response": { category: "File Responses", description: "Response after file deletion", direction: "EventBridge → Service", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
 	"file.move.response":   { category: "File Responses", description: "Response after file move", direction: "EventBridge → Service", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
 	"file.rename.response": { category: "File Responses", description: "Response after file rename", direction: "EventBridge → Service", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
+	"file.list.response":   { category: "File Responses", description: "Response after listing folder contents", direction: "EventBridge → Service", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
+	"folder.ensure.response": { category: "File Responses", description: "Response after ensuring folder exists", direction: "EventBridge → Service", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
 
 	// ── File Notifications ───────────────────────────────────
 	"file.created":  { category: "File Notifications", description: "A file was created in the vault", direction: "EventBridge → Services", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
@@ -291,6 +295,7 @@ const CATALOG_DATA = {
 	"settings.updateTrainCanvasEnabled": { category: "Settings", description: "Toggle train canvas auto-generation", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
 	"settings.updateTrainCanvasAutoOpen": { category: "Settings", description: "Toggle auto-open canvas on train start", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
 	"settings.updateAnalyticsFolder": { category: "Settings", description: "Update analytics folder path", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
+	"settings.updateJourneyFolder": { category: "Settings", description: "Update journey builder folder path", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
 	"settings.updateUserHubConfig":  { category: "Settings", description: "Update User Hub dashboard configuration", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
 	"settings.updateInboxAutoRoutingEnabled": { category: "Settings", description: "Toggle inbox auto-routing", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
 	"settings.updateInboxRoutingRules": { category: "Settings", description: "Update inbox type-based routing rules", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
@@ -660,8 +665,10 @@ const CATALOG_DATA = {
 	"journey-builder.canvas.sync-requested": { category: "Journey Builder", description: "Canvas sync was requested with current definition", direction: "View → Plugin", domain: "journey-builder", services: "JourneyBuilderSidebar" },
 	"journey-builder.canvas.synced":    { category: "Journey Builder", description: "Companion canvas file was written/updated", direction: "Service → Listeners", domain: "journey-builder", services: "JourneyBuilderService" },
 	"journey-builder.import-requested": { category: "Journey Builder", description: "User selected a journey file to import", direction: "View → Plugin", domain: "journey-builder", services: "JourneyBuilderSidebar" },
-	"journey-builder.imported":         { category: "Journey Builder", description: "Journey JSON was read and is ready for hydration", direction: "Service → Listeners", domain: "journey-builder", services: "JourneyBuilderService" },
-	"ui.openJourneyBuilder":            { category: "UI Commands", description: "Open the Journey Builder sidebar", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
+	"journey-builder.imported":              { category: "Journey Builder", description: "Journey JSON was read and is ready for hydration", direction: "Service → Listeners", domain: "journey-builder", services: "JourneyBuilderService" },
+	"journey-builder.list-files.requested": { category: "Journey Builder", description: "Request to list journey files in configured folder", direction: "View → Plugin", domain: "journey-builder", services: "JourneyBuilderSidebar" },
+	"journey-builder.list-files.response":  { category: "Journey Builder", description: "Response with list of journey file paths", direction: "Service → Listeners", domain: "journey-builder", services: "JourneyBuilderService" },
+	"ui.openJourneyBuilder":                { category: "UI Commands", description: "Open the Journey Builder sidebar", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

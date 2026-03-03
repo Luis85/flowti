@@ -186,6 +186,7 @@ export const FlowtiSettingsSchema = z.object({
 	trainCanvasEnabled: z.boolean().default(true),
 	trainCanvasAutoOpen: z.boolean().default(false),
 	analyticsFolder: z.string().default("03 - Resources/Analytics"),
+	journeyFolder: z.string().default("03 - Resources/Journeys"),
 	startPage: z.enum(["none", "user-hub", "event-catalog", "data-exchange-hub", "analytics-hub", "train-hub"]).default("none"),
 	userHubConfig: z.object({
 		kpiMeasures: z.array(z.string()).max(3).default([]),

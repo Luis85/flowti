@@ -85,6 +85,101 @@ describe("FileSystemClient", () => {
 		});
 	});
 
+	describe("listFiles", () => {
+		it("resolves with file list on success", async () => {
+			const { client, eventBus } = createClientWithBus();
+
+			eventBus.on("*", (event) => {
+				if (event.type === "file.list.request") {
+					const p = event.payload as { requestId: RequestId; path: string };
+					void eventBus.emit("file.list.response", {
+						requestId: p.requestId,
+						success: true,
+						path: p.path,
+						files: ["folder/a.json", "folder/b.json"],
+					});
+				}
+			});
+
+			const result = await client.listFiles("folder");
+			expect(result).toEqual(["folder/a.json", "folder/b.json"]);
+		});
+
+		it("returns empty array when folder does not exist", async () => {
+			const { client, eventBus } = createClientWithBus();
+
+			eventBus.on("*", (event) => {
+				if (event.type === "file.list.request") {
+					const p = event.payload as { requestId: RequestId; path: string };
+					void eventBus.emit("file.list.response", {
+						requestId: p.requestId,
+						success: true,
+						path: p.path,
+						files: [],
+					});
+				}
+			});
+
+			const result = await client.listFiles("missing");
+			expect(result).toEqual([]);
+		});
+
+		it("rejects on error response", async () => {
+			const { client, eventBus } = createClientWithBus();
+
+			eventBus.on("*", (event) => {
+				if (event.type === "file.list.request") {
+					const p = event.payload as { requestId: RequestId; path: string };
+					void eventBus.emit("file.list.response", {
+						requestId: p.requestId,
+						success: false,
+						path: p.path,
+						error: { code: "FILE_LIST_FAILED", message: "Access denied", path: p.path },
+					});
+				}
+			});
+
+			await expect(client.listFiles("restricted")).rejects.toThrow("Access denied");
+		});
+	});
+
+	describe("ensureFolder", () => {
+		it("resolves on success", async () => {
+			const { client, eventBus } = createClientWithBus();
+
+			eventBus.on("*", (event) => {
+				if (event.type === "folder.ensure.request") {
+					const p = event.payload as { requestId: RequestId; path: string };
+					void eventBus.emit("folder.ensure.response", {
+						requestId: p.requestId,
+						success: true,
+						path: p.path,
+					});
+				}
+			});
+
+			await expect(client.ensureFolder("new/folder")).resolves.toBeUndefined();
+		});
+
+		it("rejects on error response", async () => {
+			const { client, eventBus } = createClientWithBus();
+
+			eventBus.on("*", (event) => {
+				if (event.type === "folder.ensure.request") {
+					const p = event.payload as { requestId: RequestId; path: string };
+					void eventBus.emit("folder.ensure.response", {
+						requestId: p.requestId,
+						success: false,
+						path: p.path,
+						error: { code: "FOLDER_ENSURE_FAILED", message: "Disk full", path: p.path },
+					});
+				}
+			});
+
+			await expect(client.ensureFolder("new/folder")).rejects.toThrow("Disk full");
+		});
+	});
+
 	describe("dispose", () => {
 		it("should reject in-flight requests when disposed", async () => {
 			const eventBus = new EventBus();

@@ -43,6 +43,8 @@ function buildInstaller(options: {
 		getFrontmatter: vi.fn(),
 		updateFrontmatter: vi.fn(),
 		setFrontmatter: vi.fn(),
+		listFiles: vi.fn(async () => []),
+		ensureFolder: vi.fn(async () => {}),
 	} as IFileSystemClient;
 
 	const userService = {

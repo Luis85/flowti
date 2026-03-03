@@ -78,6 +78,7 @@ export interface JourneyBuilderSidebarDeps {
 	getEventNames?: () => string[];
 	getCommands?: () => { id: string; label: string }[];
 	getJourneyFiles?: () => Promise<string[]>;
+	getJourneyFolder?: () => string;
 }
 
 let stepCounter = 0;
@@ -87,6 +88,7 @@ export class JourneyBuilderSidebar extends ItemView {
 	private readonly getEventNames: (() => string[]) | undefined;
 	private readonly getCommands: (() => { id: string; label: string }[]) | undefined;
 	private readonly getJourneyFiles: (() => Promise<string[]>) | undefined;
+	private readonly getJourneyFolder: (() => string) | undefined;
 	private state: SidebarState = "welcome";
 	private metadata: JourneyMetadata = { name: "", description: "", startEvent: "" };
 	private steps: JourneyStep[] = [];
@@ -108,6 +110,11 @@ export class JourneyBuilderSidebar extends ItemView {
 		this.getEventNames = deps.getEventNames;
 		this.getCommands = deps.getCommands;
 		this.getJourneyFiles = deps.getJourneyFiles;
+		this.getJourneyFolder = deps.getJourneyFolder;
+	}
+
+	private journeyFolder(): string {
+		return this.getJourneyFolder?.() ?? "03 - Resources/Journeys";
 	}
 
 	getViewType(): string {
@@ -621,20 +628,17 @@ export class JourneyBuilderSidebar extends ItemView {
 	}
 
 	private onImportFile(): void {
-		if (!this.app) return;
-		const vaultPaths = this.app.vault
-			.getFiles()
-			.filter((f) => f.path.endsWith(".journey.json"))
-			.map((f) => f.path)
-			.sort();
-		if (vaultPaths.length === 0) {
-			void this.eventBus.emit("notice.show", { message: "No .journey.json files found in vault" });
-			return;
-		}
-		new JourneyPickerModal(this.app, vaultPaths, (path) => {
-			this.renderLoading("Loading journey\u2026");
-			void this.eventBus.emit("journey-builder.import-requested", { path });
-		}).open();
+		if (!this.app || !this.getJourneyFiles) return;
+		void this.getJourneyFiles().then((paths) => {
+			if (paths.length === 0) {
+				void this.eventBus.emit("notice.show", { message: "No .journey.json files found" });
+				return;
+			}
+			new JourneyPickerModal(this.app!, paths, (path) => {
+				this.renderLoading("Loading journey\u2026");
+				void this.eventBus.emit("journey-builder.import-requested", { path });
+			}).open();
+		});
 	}
 
 	private importFromSystem(): void {
@@ -644,14 +648,14 @@ export class JourneyBuilderSidebar extends ItemView {
 			void (remote.dialog.showOpenDialog(remote.getCurrentWindow(), {
 				filters: [{ name: "Journey JSON", extensions: ["json"] }],
 				properties: ["openFile"],
-			}) as Promise<{ canceled: boolean; filePaths: string[] }>).then(async (result) => {
+			}) as Promise<{ canceled: boolean; filePaths: string[] }>).then((result) => {
 				if (result.canceled || result.filePaths.length === 0) return;
 				try {
 					// eslint-disable-next-line @typescript-eslint/no-require-imports
 					const fs = require("fs");
 					const json = fs.readFileSync(result.filePaths[0], "utf-8") as string;
 					this.renderLoading("Loading journey\u2026");
-					this.loadJourneyFromJSON(json);
+					void this.eventBus.emit("journey-builder.imported", { json });
 				} catch (err) {
 					console.error("[JourneyBuilder] Failed to read file:", err);
 				}
@@ -830,9 +834,10 @@ export class JourneyBuilderSidebar extends ItemView {
 	private onExport(): void {
 		const name = this.metadata.name;
 		const slug = name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-		const filePath = `journeys/${name}.journey.json`;
+		const folder = this.journeyFolder();
+		const filePath = `${folder}/${name}.journey.json`;
 		const testFilePath = `tests/e2e/90-journey-${slug}.test.ts`;
-		const canvasPath = `journeys/${name}.canvas`;
+		const canvasPath = `${folder}/${name}.canvas`;
 		const definition = this.buildDefinition();
 		void this.eventBus.emit("journey-builder.exported", {
 			path: filePath, testFilePath, canvasPath, definition,
@@ -890,7 +895,7 @@ export class JourneyBuilderSidebar extends ItemView {
 	}
 
 	private onOpenCanvas(): void {
-		const canvasPath = `journeys/${this.metadata.name}.canvas`;
+		const canvasPath = `${this.journeyFolder()}/${this.metadata.name}.canvas`;
 		void this.app?.workspace?.openLinkText(canvasPath, "");
 	}
 
@@ -905,7 +910,7 @@ export class JourneyBuilderSidebar extends ItemView {
 		if (this.canvasSyncTimer) clearTimeout(this.canvasSyncTimer);
 		this.canvasSyncTimer = setTimeout(() => {
 			this.canvasSyncTimer = null;
-			const canvasPath = `journeys/${this.metadata.name}.canvas`;
+			const canvasPath = `${this.journeyFolder()}/${this.metadata.name}.canvas`;
 			void this.eventBus.emit("journey-builder.canvas.sync-requested", {
 				canvasPath,
 				definition: this.buildCanvasSyncInput(),

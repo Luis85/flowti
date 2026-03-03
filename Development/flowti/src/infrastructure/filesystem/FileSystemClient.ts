@@ -41,6 +41,7 @@ import { generateUUID } from "../../utils/helpers";
 interface FileResponsePayload extends FileResponseBase {
 	content?: string;
 	newPath?: string;
+	files?: string[];
 	data?: Record<string, unknown>;
 	error?: FileOperationError;
 }
@@ -177,6 +178,31 @@ export class FileSystemClient implements IFileSystemClient {
 			requestId,
 			options?.timeout,
 			(response) => response.newPath ?? path
+		);
+	}
+
+	async listFiles(folderPath: string, options?: FileOperationOptions): Promise<string[]> {
+		const requestId = generateRequestId();
+
+		return this.request(
+			"file.list.request",
+			"file.list.response",
+			{ requestId, path: folderPath },
+			requestId,
+			options?.timeout,
+			(response) => response.files ?? []
+		);
+	}
+
+	async ensureFolder(folderPath: string, options?: FileOperationOptions): Promise<void> {
+		const requestId = generateRequestId();
+
+		return this.request(
+			"folder.ensure.request",
+			"folder.ensure.response",
+			{ requestId, path: folderPath },
+			requestId,
+			options?.timeout
 		);
 	}
 
