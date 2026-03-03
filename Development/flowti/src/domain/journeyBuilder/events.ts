@@ -50,4 +50,12 @@ export interface JourneyBuilderEventMap {
 	"journey-builder.canvas.synced": {
 		canvasPath: string;
 	};
+	/** User selected a journey file to import */
+	"journey-builder.import-requested": {
+		path: string;
+	};
+	/** Journey JSON was read and is ready for hydration */
+	"journey-builder.imported": {
+		json: string;
+	};
 }

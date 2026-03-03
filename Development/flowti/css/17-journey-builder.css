@@ -761,3 +761,92 @@
 .ft-jb-command-picker {
 	margin-bottom: var(--size-4-2);
 }
+
+/* ── Loading state ──────────────────────────────────────── */
+
+.ft-jb-loading {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--size-4-3);
+	padding: var(--size-4-8) 0;
+	color: var(--text-muted);
+}
+
+.ft-jb-loading-spinner {
+	display: flex;
+	animation: ft-jb-spin 1s linear infinite;
+}
+
+.ft-jb-loading-text {
+	font-size: var(--font-ui-small);
+}
+
+@keyframes ft-jb-spin {
+	from { transform: rotate(0deg); }
+	to { transform: rotate(360deg); }
+}
+
+/* ── Empty welcome state ────────────────────────────────── */
+
+.ft-jb-empty-welcome {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+	gap: var(--size-4-3);
+	padding: var(--size-4-8) var(--size-4-4);
+}
+
+.ft-jb-empty-icon {
+	display: flex;
+	color: var(--text-faint);
+	font-size: 2rem;
+}
+
+.ft-jb-empty-title {
+	font-size: var(--font-ui-large);
+	font-weight: var(--font-semibold);
+	color: var(--text-normal);
+}
+
+.ft-jb-empty-desc {
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+	max-width: 280px;
+}
+
+.ft-jb-create-first-btn {
+	margin-top: var(--size-4-2);
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	padding: var(--size-4-2) var(--size-4-4);
+	border-radius: var(--radius-s);
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	cursor: pointer;
+	font-weight: var(--font-semibold);
+}
+
+.ft-jb-create-first-btn:hover {
+	background: var(--interactive-accent-hover);
+}
+
+.ft-jb-import-group {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--size-4-1);
+	margin-top: var(--size-4-2);
+}
+
+.ft-jb-import-link {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-accent);
+	cursor: pointer;
+}
+
+.ft-jb-import-link:hover {
+	text-decoration: underline;
+}

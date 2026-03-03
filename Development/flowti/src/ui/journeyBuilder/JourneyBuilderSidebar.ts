@@ -7,8 +7,8 @@
  *
  * States: welcome → setup → steps (step editor with prev/next navigation)
  */
-import { ItemView, setIcon } from "obsidian";
-import type { WorkspaceLeaf } from "obsidian";
+import { ItemView, FuzzySuggestModal, setIcon } from "obsidian";
+import type { App, WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { JourneyAction, JourneyToolName } from "../../domain/journeyBuilder/types";
 import type { CanvasSyncInput } from "../../domain/journeyBuilder/canvasSync";
@@ -24,13 +24,40 @@ import { ActionForm } from "./ActionForm";
 
 export const VIEW_TYPE_JOURNEY_BUILDER = "flowti-journey-builder";
 
+/** Narrow type for Obsidian's internal canvas node (not publicly typed). */
+interface CanvasNode {
+	getData: () => Record<string, unknown>;
+}
+
 /** Narrow type for Obsidian's internal canvas view (not publicly typed). */
 interface CanvasLeafView {
 	file?: { path: string };
-	canvas?: { zoomToFit: () => void };
+	canvas?: {
+		zoomToFit: () => void;
+		zoomToSelection: () => void;
+		selectOnly: (node: CanvasNode) => void;
+		deselectAll: () => void;
+		nodes: Map<string, CanvasNode>;
+	};
 }
 
 type SidebarState = "welcome" | "setup" | "steps";
+
+/** Adapter-based journey file picker — works for .json files not indexed by vault. */
+class JourneyPickerModal extends FuzzySuggestModal<string> {
+	private paths: string[];
+	private onChoosePath: (path: string) => void;
+
+	constructor(app: App, paths: string[], onChoose: (path: string) => void) {
+		super(app);
+		this.paths = paths;
+		this.onChoosePath = onChoose;
+	}
+
+	getItems(): string[] { return this.paths; }
+	getItemText(item: string): string { return item.split("/").pop() ?? item; }
+	onChooseItem(item: string): void { this.onChoosePath(item); }
+}
 
 export interface JourneyMetadata {
 	name: string;
@@ -50,6 +77,7 @@ export interface JourneyBuilderSidebarDeps {
 	eventBus: IEventBus;
 	getEventNames?: () => string[];
 	getCommands?: () => { id: string; label: string }[];
+	getJourneyFiles?: () => Promise<string[]>;
 }
 
 let stepCounter = 0;
@@ -58,6 +86,7 @@ export class JourneyBuilderSidebar extends ItemView {
 	private readonly eventBus: IEventBus;
 	private readonly getEventNames: (() => string[]) | undefined;
 	private readonly getCommands: (() => { id: string; label: string }[]) | undefined;
+	private readonly getJourneyFiles: (() => Promise<string[]>) | undefined;
 	private state: SidebarState = "welcome";
 	private metadata: JourneyMetadata = { name: "", description: "", startEvent: "" };
 	private steps: JourneyStep[] = [];
@@ -69,13 +98,16 @@ export class JourneyBuilderSidebar extends ItemView {
 	private suggestCleanups: (() => void)[] = [];
 	private canvasSyncTimer: ReturnType<typeof setTimeout> | null = null;
 	private canvasOpenedPath: string | null = null;
+	private pendingZoomToStep = false;
 	private unsubCanvasSynced: (() => void) | undefined;
+	private unsubImported: (() => void) | undefined;
 
 	constructor(leaf: WorkspaceLeaf, deps: JourneyBuilderSidebarDeps) {
 		super(leaf);
 		this.eventBus = deps.eventBus;
 		this.getEventNames = deps.getEventNames;
 		this.getCommands = deps.getCommands;
+		this.getJourneyFiles = deps.getJourneyFiles;
 	}
 
 	getViewType(): string {
@@ -95,6 +127,10 @@ export class JourneyBuilderSidebar extends ItemView {
 			"journey-builder.canvas.synced",
 			(event) => this.onCanvasSynced(event.payload),
 		);
+		this.unsubImported = this.eventBus.on(
+			"journey-builder.imported",
+			(event) => this.loadJourneyFromJSON(event.payload.json),
+		);
 		this.renderWelcome();
 	}
 
@@ -106,6 +142,8 @@ export class JourneyBuilderSidebar extends ItemView {
 		}
 		this.unsubCanvasSynced?.();
 		this.unsubCanvasSynced = undefined;
+		this.unsubImported?.();
+		this.unsubImported = undefined;
 		this.canvasOpenedPath = null;
 	}
 
@@ -176,7 +214,69 @@ export class JourneyBuilderSidebar extends ItemView {
 
 		this.renderHeader(el);
 
-		// Welcome cards
+		if (this.getJourneyFiles) {
+			void this.getJourneyFiles().then((paths) => {
+				if (this.state !== "welcome") return; // navigated away
+				if (paths.length > 0) {
+					this.renderWelcomeCards(el);
+				} else {
+					this.renderEmptyState(el);
+				}
+			});
+		} else {
+			this.renderEmptyState(el);
+		}
+	}
+
+	private renderEmptyState(el: HTMLElement): void {
+		const empty = el.createDiv({ cls: "ft-jb-empty-welcome" });
+		empty.dataset.testId = "jb-empty-welcome";
+
+		const iconWrap = empty.createDiv({ cls: "ft-jb-empty-icon" });
+		setIcon(iconWrap, "route");
+
+		empty.createDiv({ cls: "ft-jb-empty-title", text: "No journeys yet" });
+		empty.createDiv({ cls: "ft-jb-empty-desc", text: "Create your first E2E journey definition to get started." });
+
+		this.renderActionButton(empty, {
+			testId: "jb-create-new",
+			cls: "ft-jb-create-first-btn",
+			icon: "plus-circle",
+			text: "Create first journey",
+			onClick: () => this.onCreateNew(),
+		});
+
+		const importGroup = empty.createDiv({ cls: "ft-jb-import-group" });
+		importGroup.dataset.testId = "jb-import-group";
+
+		const importLink = importGroup.createDiv({ cls: "ft-jb-import-link" });
+		importLink.dataset.testId = "jb-import-link";
+		importLink.setAttribute("role", "button");
+		importLink.setAttribute("tabindex", "0");
+		importLink.textContent = "or import from vault";
+		importLink.addEventListener("click", () => this.onImportFile());
+		importLink.addEventListener("keydown", (e: KeyboardEvent) => {
+			if (e.key === "Enter" || e.key === " ") {
+				e.preventDefault();
+				this.onImportFile();
+			}
+		});
+
+		const browseLink = importGroup.createDiv({ cls: "ft-jb-import-link" });
+		browseLink.dataset.testId = "jb-browse-link";
+		browseLink.setAttribute("role", "button");
+		browseLink.setAttribute("tabindex", "0");
+		browseLink.textContent = "or browse from file system";
+		browseLink.addEventListener("click", () => this.importFromSystem());
+		browseLink.addEventListener("keydown", (e: KeyboardEvent) => {
+			if (e.key === "Enter" || e.key === " ") {
+				e.preventDefault();
+				this.importFromSystem();
+			}
+		});
+	}
+
+	private renderWelcomeCards(el: HTMLElement): void {
 		const cards = el.createDiv({ cls: "ft-jb-welcome-cards" });
 
 		// Open Existing card
@@ -186,7 +286,7 @@ export class JourneyBuilderSidebar extends ItemView {
 		openCard.setAttribute("tabindex", "0");
 		const openIcon = openCard.createDiv({ cls: "ft-jb-card-icon" });
 		setIcon(openIcon, "file-search");
-		const openTitle = openCard.createDiv({ cls: "ft-jb-card-title", text: "Open Existing Journey" });
+		const openTitle = openCard.createDiv({ cls: "ft-jb-card-title", text: "Open existing journey" });
 		openTitle.dataset.testId = "jb-card-title";
 		const openDesc = openCard.createDiv({ cls: "ft-jb-card-desc", text: "Load and edit a journey definition from your vault" });
 		openDesc.dataset.testId = "jb-card-desc";
@@ -205,7 +305,7 @@ export class JourneyBuilderSidebar extends ItemView {
 		newCard.setAttribute("tabindex", "0");
 		const newIcon = newCard.createDiv({ cls: "ft-jb-card-icon" });
 		setIcon(newIcon, "plus-circle");
-		const newTitle = newCard.createDiv({ cls: "ft-jb-card-title", text: "Create New Journey" });
+		const newTitle = newCard.createDiv({ cls: "ft-jb-card-title", text: "Create new journey" });
 		newTitle.dataset.testId = "jb-card-title";
 		const newDesc = newCard.createDiv({ cls: "ft-jb-card-desc", text: "Design a new E2E journey from scratch" });
 		newDesc.dataset.testId = "jb-card-desc";
@@ -214,6 +314,25 @@ export class JourneyBuilderSidebar extends ItemView {
 			if (e.key === "Enter" || e.key === " ") {
 				e.preventDefault();
 				this.onCreateNew();
+			}
+		});
+
+		// Import Definition card
+		const importCard = cards.createDiv({ cls: "ft-jb-welcome-card ft-jb-import-btn" });
+		importCard.dataset.testId = "jb-import-definition";
+		importCard.setAttribute("role", "button");
+		importCard.setAttribute("tabindex", "0");
+		const importIcon = importCard.createDiv({ cls: "ft-jb-card-icon" });
+		setIcon(importIcon, "file-input");
+		const importTitle = importCard.createDiv({ cls: "ft-jb-card-title", text: "Import definition" });
+		importTitle.dataset.testId = "jb-card-title";
+		const importDesc = importCard.createDiv({ cls: "ft-jb-card-desc", text: "Import a .journey.json from your vault or file system" });
+		importDesc.dataset.testId = "jb-card-desc";
+		importCard.addEventListener("click", () => this.onImportFile());
+		importCard.addEventListener("keydown", (e: KeyboardEvent) => {
+			if (e.key === "Enter" || e.key === " ") {
+				e.preventDefault();
+				this.onImportFile();
 			}
 		});
 	}
@@ -249,7 +368,6 @@ export class JourneyBuilderSidebar extends ItemView {
 		nameInput.addEventListener("input", () => {
 			this.metadata.name = nameInput.value;
 			this.emitMetadataUpdate("name", nameInput.value);
-			this.scheduleCanvasSync();
 		});
 
 		// Description
@@ -263,7 +381,6 @@ export class JourneyBuilderSidebar extends ItemView {
 		descInput.addEventListener("input", () => {
 			this.metadata.description = descInput.value;
 			this.emitMetadataUpdate("description", descInput.value);
-			this.scheduleCanvasSync();
 		});
 
 		// Start event
@@ -282,7 +399,6 @@ export class JourneyBuilderSidebar extends ItemView {
 				? `\u2192 ${converted}`
 				: "";
 			this.emitMetadataUpdate("startEvent", converted);
-			this.scheduleCanvasSync();
 		});
 
 		// Event autocomplete on start event
@@ -494,6 +610,94 @@ export class JourneyBuilderSidebar extends ItemView {
 
 	private onOpenExisting(): void {
 		void this.eventBus.emit("journey-builder.open-existing", {});
+		if (!this.app || !this.getJourneyFiles) return;
+		void this.getJourneyFiles().then((paths) => {
+			if (paths.length === 0) return;
+			new JourneyPickerModal(this.app!, paths, (path) => {
+				this.renderLoading("Loading journey\u2026");
+				void this.eventBus.emit("journey-builder.import-requested", { path });
+			}).open();
+		});
+	}
+
+	private onImportFile(): void {
+		if (!this.app) return;
+		const vaultPaths = this.app.vault
+			.getFiles()
+			.filter((f) => f.path.endsWith(".journey.json"))
+			.map((f) => f.path)
+			.sort();
+		if (vaultPaths.length === 0) {
+			void this.eventBus.emit("notice.show", { message: "No .journey.json files found in vault" });
+			return;
+		}
+		new JourneyPickerModal(this.app, vaultPaths, (path) => {
+			this.renderLoading("Loading journey\u2026");
+			void this.eventBus.emit("journey-builder.import-requested", { path });
+		}).open();
+	}
+
+	private importFromSystem(): void {
+		try {
+			// eslint-disable-next-line @typescript-eslint/no-require-imports
+			const { remote } = require("electron");
+			void (remote.dialog.showOpenDialog(remote.getCurrentWindow(), {
+				filters: [{ name: "Journey JSON", extensions: ["json"] }],
+				properties: ["openFile"],
+			}) as Promise<{ canceled: boolean; filePaths: string[] }>).then(async (result) => {
+				if (result.canceled || result.filePaths.length === 0) return;
+				try {
+					// eslint-disable-next-line @typescript-eslint/no-require-imports
+					const fs = require("fs");
+					const json = fs.readFileSync(result.filePaths[0], "utf-8") as string;
+					this.renderLoading("Loading journey\u2026");
+					this.loadJourneyFromJSON(json);
+				} catch (err) {
+					console.error("[JourneyBuilder] Failed to read file:", err);
+				}
+			});
+		} catch {
+			// Electron remote not available
+		}
+	}
+
+	private renderLoading(message: string): void {
+		const el = this.contentEl;
+		el.empty();
+		el.addClass("ft-jb-sidebar");
+		this.renderHeader(el);
+		const loading = el.createDiv({ cls: "ft-jb-loading" });
+		loading.dataset.testId = "jb-loading";
+		const spinner = loading.createDiv({ cls: "ft-jb-loading-spinner" });
+		setIcon(spinner, "loader");
+		loading.createDiv({ cls: "ft-jb-loading-text", text: message });
+	}
+
+	/** Loads a journey definition from a JSON string into the sidebar state. */
+	loadJourneyFromJSON(json: string): void {
+		const data = JSON.parse(json) as Record<string, unknown>;
+		const steps = Array.isArray(data.steps) ? data.steps : [];
+		this.metadata = {
+			name: (data.journey as string) ?? "",
+			description: (data.description as string) ?? "",
+			startEvent: (data.startEvent as string)
+				?? (steps[0]?.events as string[])?.[0]
+				?? "",
+		};
+		this.endEvent = (data.endEvent as string) ?? "";
+		this.steps = steps.map((s: Record<string, unknown>) => ({
+			id: (s.id as string) ?? `step-${++stepCounter}`,
+			title: (s.title as string) ?? "",
+			description: (s.description as string) ?? "",
+			swimlane: (s.swimlane as string) ?? "",
+			actions: (Array.isArray(s.actions) ? s.actions : []) as JourneyAction[],
+		}));
+		this.currentStepIndex = 0;
+		this.selectedActionIndex = -1;
+		this.showToolPicker = false;
+		this.canvasOpenedPath = null;
+		this.renderSteps();
+		this.scheduleCanvasSync();
 	}
 
 	private onCreateNew(): void {
@@ -509,6 +713,7 @@ export class JourneyBuilderSidebar extends ItemView {
 	private onNavPrev(): void {
 		if (this.currentStepIndex > 0) {
 			this.currentStepIndex--;
+			this.pendingZoomToStep = true;
 			this.renderSteps();
 			this.scheduleCanvasSync(300);
 		}
@@ -517,6 +722,7 @@ export class JourneyBuilderSidebar extends ItemView {
 	private onNavNext(): void {
 		if (this.currentStepIndex < this.steps.length - 1) {
 			this.currentStepIndex++;
+			this.pendingZoomToStep = true;
 			this.renderSteps();
 			this.scheduleCanvasSync(300);
 		}
@@ -631,27 +837,56 @@ export class JourneyBuilderSidebar extends ItemView {
 		void this.eventBus.emit("journey-builder.exported", {
 			path: filePath, testFilePath, canvasPath, definition,
 		});
+		void this.eventBus.emit("notice.success", {
+			message: `Exported "${name}" — JSON, test file, and canvas`,
+		});
 	}
 
 	private onCanvasSynced(payload: { canvasPath: string }): void {
-		if (this.canvasOpenedPath !== payload.canvasPath) {
+		const isFirstOpen = this.canvasOpenedPath !== payload.canvasPath;
+		if (isFirstOpen) {
 			this.canvasOpenedPath = payload.canvasPath;
 			void this.app?.workspace?.openLinkText(payload.canvasPath, "");
 		}
-		this.zoomCanvasToFit(payload.canvasPath);
+		const shouldZoom = isFirstOpen || this.pendingZoomToStep;
+		this.pendingZoomToStep = false;
+		if (shouldZoom) {
+			this.zoomCanvas(payload.canvasPath, isFirstOpen);
+		}
 	}
 
-	private zoomCanvasToFit(canvasPath: string): void {
+	private zoomCanvas(canvasPath: string, zoomToFit: boolean): void {
 		setTimeout(() => {
-			const leaves = this.app?.workspace?.getLeavesOfType("canvas") ?? [];
-			for (const leaf of leaves) {
-					const view = leaf.view as unknown as CanvasLeafView;
-				if (view?.file?.path === canvasPath && typeof view?.canvas?.zoomToFit === "function") {
-					view.canvas.zoomToFit();
-					break;
-				}
+			const canvas = this.findCanvas(canvasPath);
+			if (!canvas) return;
+			if (zoomToFit) {
+				canvas.zoomToFit();
 			}
+			this.zoomToActiveStep(canvas);
 		}, 500);
+	}
+
+	private findCanvas(canvasPath: string): CanvasLeafView["canvas"] | null {
+		const leaves = this.app?.workspace?.getLeavesOfType("canvas") ?? [];
+		for (const leaf of leaves) {
+			const view = leaf.view as unknown as CanvasLeafView;
+			if (view?.file?.path === canvasPath && view?.canvas) {
+				return view.canvas;
+			}
+		}
+		return null;
+	}
+
+	private zoomToActiveStep(canvas: NonNullable<CanvasLeafView["canvas"]>): void {
+		if (!canvas.nodes || typeof canvas.zoomToSelection !== "function") return;
+		for (const node of canvas.nodes.values()) {
+			const data = typeof node.getData === "function" ? node.getData() : null;
+			if (data && data.color === "5" && data.type === "group") {
+				canvas.selectOnly(node);
+				setTimeout(() => canvas.zoomToSelection(), 300);
+				return;
+			}
+		}
 	}
 
 	private onOpenCanvas(): void {

@@ -1,0 +1,981 @@
+{
+  "nodes": [
+    {
+      "id": "e27ddc2f77bf40e4",
+      "type": "text",
+      "text": "▶ Start",
+      "x": 0,
+      "y": 0,
+      "width": 160,
+      "height": 80,
+      "color": "4"
+    },
+    {
+      "id": "cbb67dfb404040aa",
+      "type": "group",
+      "label": "Open Event Catalog",
+      "x": 200,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "0809cfe880b8f59e",
+      "type": "text",
+      "text": "Opens the Event Catalog hub via command.\n5 actions",
+      "x": 250,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "60090bbd3fcbf2dc",
+      "type": "group",
+      "label": "Event Catalog Dashboard",
+      "x": 720,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "0a514c4adaeb9742",
+      "type": "text",
+      "text": "Screenshots the Event Catalog dashboard (default view).\n3 actions",
+      "x": 770,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "126af95fb649ec20",
+      "type": "group",
+      "label": "Event Catalog > domains",
+      "x": 1240,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "851b8b7d2068a7f3",
+      "type": "text",
+      "text": "Navigates to the domains tab in Event Catalog.\n3 actions",
+      "x": 1290,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "4a2a6cc6726904ff",
+      "type": "group",
+      "label": "Event Catalog > services",
+      "x": 1760,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "9028107b9e809097",
+      "type": "text",
+      "text": "Navigates to the services tab in Event Catalog.\n3 actions",
+      "x": 1810,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "f8bbe4ed86d17013",
+      "type": "group",
+      "label": "Event Catalog > events",
+      "x": 2280,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "5661f3f3d645820e",
+      "type": "text",
+      "text": "Navigates to the events tab in Event Catalog.\n3 actions",
+      "x": 2330,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "326d5699f8fdb3f5",
+      "type": "group",
+      "label": "Event Catalog > flows",
+      "x": 2800,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "22b04c995ace2226",
+      "type": "text",
+      "text": "Navigates to the flows tab in Event Catalog.\n3 actions",
+      "x": 2850,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "ad38844566007bd3",
+      "type": "group",
+      "label": "Event Catalog > systems",
+      "x": 3320,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "bad29de95e4e4b50",
+      "type": "text",
+      "text": "Navigates to the systems tab in Event Catalog.\n3 actions",
+      "x": 3370,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "95e39e5d0d24ca4e",
+      "type": "group",
+      "label": "Event Catalog > actors",
+      "x": 3840,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "51a904432519b8a4",
+      "type": "text",
+      "text": "Navigates to the actors tab in Event Catalog.\n3 actions",
+      "x": 3890,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "102b8cf405a161f9",
+      "type": "group",
+      "label": "Event Catalog > products",
+      "x": 4360,
+      "y": -40,
+      "width": 480,
+      "height": 160,
+      "color": "5"
+    },
+    {
+      "id": "56a0d4327e29d389",
+      "type": "text",
+      "text": "Navigates to the products tab in Event Catalog.\n3 actions",
+      "x": 4410,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "daca8484ba78584c",
+      "type": "group",
+      "label": "Event Catalog > health",
+      "x": 4880,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "0b8f739efe0c5948",
+      "type": "text",
+      "text": "Navigates to the health tab in Event Catalog.\n3 actions",
+      "x": 4930,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "1f5da53bdc8a4c8c",
+      "type": "group",
+      "label": "Open Data Exchange",
+      "x": 5400,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "2acb058fc9a1304f",
+      "type": "text",
+      "text": "Opens the Data Exchange hub via command.\n5 actions",
+      "x": 5450,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "fda6983204c45466",
+      "type": "group",
+      "label": "Data Exchange Dashboard",
+      "x": 5920,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "3aba91581fdacf61",
+      "type": "text",
+      "text": "Screenshots the Data Exchange dashboard (default view).\n3 actions",
+      "x": 5970,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "36129b7fc558bbd3",
+      "type": "group",
+      "label": "Data Exchange > pipelines",
+      "x": 6440,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "b102e4c300f7a477",
+      "type": "text",
+      "text": "Navigates to the pipelines tab in Data Exchange.\n3 actions",
+      "x": 6490,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "4fe6ec9722e0f0c3",
+      "type": "group",
+      "label": "Data Exchange > imports",
+      "x": 6960,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "8b769a9a53fe09e9",
+      "type": "text",
+      "text": "Navigates to the imports tab in Data Exchange.\n3 actions",
+      "x": 7010,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "d2bf6bfd1fe86817",
+      "type": "group",
+      "label": "Data Exchange > exports",
+      "x": 7480,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "8ca207e6b2c5850a",
+      "type": "text",
+      "text": "Navigates to the exports tab in Data Exchange.\n3 actions",
+      "x": 7530,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "0a238b4793dce458",
+      "type": "group",
+      "label": "Data Exchange > types",
+      "x": 8000,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "0bbb9f4c84cbce47",
+      "type": "text",
+      "text": "Navigates to the types tab in Data Exchange.\n3 actions",
+      "x": 8050,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "1255eac139a35327",
+      "type": "group",
+      "label": "Data Exchange > properties",
+      "x": 8520,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "d17c3253b127326d",
+      "type": "text",
+      "text": "Navigates to the properties tab in Data Exchange.\n3 actions",
+      "x": 8570,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "d327a78785e41126",
+      "type": "group",
+      "label": "Data Exchange > signals",
+      "x": 9040,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "b40f9983c00c6829",
+      "type": "text",
+      "text": "Navigates to the signals tab in Data Exchange.\n3 actions",
+      "x": 9090,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "ed8b4c31c6510656",
+      "type": "group",
+      "label": "Data Exchange > reports",
+      "x": 9560,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "7449ebb751933ec9",
+      "type": "text",
+      "text": "Navigates to the reports tab in Data Exchange.\n3 actions",
+      "x": 9610,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "7d9bf42a84483ce8",
+      "type": "group",
+      "label": "Data Exchange > canvas",
+      "x": 10080,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "be8e7a00e2cb9f7e",
+      "type": "text",
+      "text": "Navigates to the canvas tab in Data Exchange.\n3 actions",
+      "x": 10130,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "f2249a528e179c05",
+      "type": "group",
+      "label": "Open User Hub",
+      "x": 10600,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "930104bc5241cfa1",
+      "type": "text",
+      "text": "Opens the User Hub via command.\n5 actions",
+      "x": 10650,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "e9af7410c8835db0",
+      "type": "group",
+      "label": "User Hub Dashboard",
+      "x": 11120,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "7ebb80f39df67c44",
+      "type": "text",
+      "text": "Screenshots the User Hub dashboard (default view).\n3 actions",
+      "x": 11170,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "c3c39322e24a29c5",
+      "type": "group",
+      "label": "User Hub > sessions",
+      "x": 11640,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "8f8f77fdc7e60afc",
+      "type": "text",
+      "text": "Navigates to the sessions tab in User Hub.\n3 actions",
+      "x": 11690,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "50425013a52d376a",
+      "type": "group",
+      "label": "User Hub > inbox",
+      "x": 12160,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "17d5c05ea8b73b29",
+      "type": "text",
+      "text": "Navigates to the inbox tab in User Hub.\n3 actions",
+      "x": 12210,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "4b019dc70b11a986",
+      "type": "group",
+      "label": "User Hub > commands",
+      "x": 12680,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "d72055760179acb5",
+      "type": "text",
+      "text": "Navigates to the commands tab in User Hub.\n3 actions",
+      "x": 12730,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "3184638ce57c4989",
+      "type": "group",
+      "label": "User Hub > preferences",
+      "x": 13200,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "cacb42b0f27ff43b",
+      "type": "text",
+      "text": "Navigates to the preferences tab in User Hub.\n3 actions",
+      "x": 13250,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "47c7fe56fdb6f5f0",
+      "type": "group",
+      "label": "Open Train Hub",
+      "x": 13720,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "1ff9082ea8bc6da1",
+      "type": "text",
+      "text": "Opens the Train Hub via command.\n5 actions",
+      "x": 13770,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "ec768a24630ae966",
+      "type": "group",
+      "label": "Train Hub Dashboard",
+      "x": 14240,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "de47d8f1a833e3eb",
+      "type": "text",
+      "text": "Screenshots the Train Hub dashboard (default view).\n3 actions",
+      "x": 14290,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "9481dc2d032358b1",
+      "type": "group",
+      "label": "Train Hub > active",
+      "x": 14760,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "a8b23e4b61f5c41b",
+      "type": "text",
+      "text": "Navigates to the active tab in Train Hub.\n3 actions",
+      "x": 14810,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "427e091e06035d96",
+      "type": "group",
+      "label": "Train Hub > history",
+      "x": 15280,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "7139c1e0820099e3",
+      "type": "text",
+      "text": "Navigates to the history tab in Train Hub.\n3 actions",
+      "x": 15330,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "7161a2931cbe5e96",
+      "type": "group",
+      "label": "Open Analytics Hub",
+      "x": 15800,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "bc42e1da8644da8f",
+      "type": "text",
+      "text": "Opens the Analytics Hub via command.\n5 actions",
+      "x": 15850,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "592144a49743ee04",
+      "type": "group",
+      "label": "Analytics Hub Dashboard",
+      "x": 16320,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "3c0008ec0d51feda",
+      "type": "text",
+      "text": "Screenshots the Analytics Hub dashboard (default view).\n3 actions",
+      "x": 16370,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "2ddd0748b5629bd7",
+      "type": "group",
+      "label": "Analytics Hub > dashboards",
+      "x": 16840,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "043ae9ef80eb73c2",
+      "type": "text",
+      "text": "Navigates to the dashboards tab in Analytics Hub.\n3 actions",
+      "x": 16890,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "22c07aa79903bca2",
+      "type": "group",
+      "label": "Analytics Hub > measurements",
+      "x": 17360,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "3fd187789ec5aa7a",
+      "type": "text",
+      "text": "Navigates to the measurements tab in Analytics Hub.\n3 actions",
+      "x": 17410,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "a12ec9466b52c327",
+      "type": "group",
+      "label": "Analytics Hub > queries",
+      "x": 17880,
+      "y": -40,
+      "width": 480,
+      "height": 160
+    },
+    {
+      "id": "9277f772709371c1",
+      "type": "text",
+      "text": "Navigates to the queries tab in Analytics Hub.\n3 actions",
+      "x": 17930,
+      "y": 10,
+      "width": 380,
+      "height": 60
+    },
+    {
+      "id": "17aca4ed9f7cf25a",
+      "type": "text",
+      "text": "⏹ End",
+      "x": 18400,
+      "y": 0,
+      "width": 160,
+      "height": 80,
+      "color": "1"
+    }
+  ],
+  "edges": [
+    {
+      "id": "38797ccec9a7d1c0",
+      "fromNode": "e27ddc2f77bf40e4",
+      "toNode": "cbb67dfb404040aa",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "fa11095f9ac626e4",
+      "fromNode": "cbb67dfb404040aa",
+      "toNode": "60090bbd3fcbf2dc",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "f8e539c0b81927f8",
+      "fromNode": "60090bbd3fcbf2dc",
+      "toNode": "126af95fb649ec20",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "369489fca541c3b9",
+      "fromNode": "126af95fb649ec20",
+      "toNode": "4a2a6cc6726904ff",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "380223f558b95ca0",
+      "fromNode": "4a2a6cc6726904ff",
+      "toNode": "f8bbe4ed86d17013",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "77247f2325562ef8",
+      "fromNode": "f8bbe4ed86d17013",
+      "toNode": "326d5699f8fdb3f5",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "2a8f7379e22475b6",
+      "fromNode": "326d5699f8fdb3f5",
+      "toNode": "ad38844566007bd3",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "d633c599bd0dedf1",
+      "fromNode": "ad38844566007bd3",
+      "toNode": "95e39e5d0d24ca4e",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "d095b0ccc9bd29db",
+      "fromNode": "95e39e5d0d24ca4e",
+      "toNode": "102b8cf405a161f9",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "88540ef60997bbd2",
+      "fromNode": "102b8cf405a161f9",
+      "toNode": "daca8484ba78584c",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "164822c1d4c431d0",
+      "fromNode": "daca8484ba78584c",
+      "toNode": "1f5da53bdc8a4c8c",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "b0c7eb2e22c8a8a9",
+      "fromNode": "1f5da53bdc8a4c8c",
+      "toNode": "fda6983204c45466",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "6925545c0e277d56",
+      "fromNode": "fda6983204c45466",
+      "toNode": "36129b7fc558bbd3",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "da31dd5f3b747420",
+      "fromNode": "36129b7fc558bbd3",
+      "toNode": "4fe6ec9722e0f0c3",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "1fc3092a71befc51",
+      "fromNode": "4fe6ec9722e0f0c3",
+      "toNode": "d2bf6bfd1fe86817",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "0c2dd07b7ba9ec3a",
+      "fromNode": "d2bf6bfd1fe86817",
+      "toNode": "0a238b4793dce458",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "d77dc0b2f6d51f1d",
+      "fromNode": "0a238b4793dce458",
+      "toNode": "1255eac139a35327",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "c3bfc433bf130a63",
+      "fromNode": "1255eac139a35327",
+      "toNode": "d327a78785e41126",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "3445edf66dcd07b1",
+      "fromNode": "d327a78785e41126",
+      "toNode": "ed8b4c31c6510656",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "b3b1112225229c97",
+      "fromNode": "ed8b4c31c6510656",
+      "toNode": "7d9bf42a84483ce8",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "e1e745328d6d2f84",
+      "fromNode": "7d9bf42a84483ce8",
+      "toNode": "f2249a528e179c05",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "86be0b8842729bf9",
+      "fromNode": "f2249a528e179c05",
+      "toNode": "e9af7410c8835db0",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "9bd32f438852f555",
+      "fromNode": "e9af7410c8835db0",
+      "toNode": "c3c39322e24a29c5",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "2383a622d8b52c73",
+      "fromNode": "c3c39322e24a29c5",
+      "toNode": "50425013a52d376a",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "4ceb18a4938be8bf",
+      "fromNode": "50425013a52d376a",
+      "toNode": "4b019dc70b11a986",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "412760e6af3a78a2",
+      "fromNode": "4b019dc70b11a986",
+      "toNode": "3184638ce57c4989",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "c07fff2016653e88",
+      "fromNode": "3184638ce57c4989",
+      "toNode": "47c7fe56fdb6f5f0",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "488970ff742355a9",
+      "fromNode": "47c7fe56fdb6f5f0",
+      "toNode": "ec768a24630ae966",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "575a91e170e2b7ce",
+      "fromNode": "ec768a24630ae966",
+      "toNode": "9481dc2d032358b1",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "15c2f6499370304c",
+      "fromNode": "9481dc2d032358b1",
+      "toNode": "427e091e06035d96",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "a87dd672f1d8d2ff",
+      "fromNode": "427e091e06035d96",
+      "toNode": "7161a2931cbe5e96",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "abff8456e4c8272c",
+      "fromNode": "7161a2931cbe5e96",
+      "toNode": "592144a49743ee04",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "7857ef233fc20c13",
+      "fromNode": "592144a49743ee04",
+      "toNode": "2ddd0748b5629bd7",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "29fdef02954302a3",
+      "fromNode": "2ddd0748b5629bd7",
+      "toNode": "22c07aa79903bca2",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "c9e3b2936df961e7",
+      "fromNode": "22c07aa79903bca2",
+      "toNode": "a12ec9466b52c327",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "1149d5628ce8d486",
+      "fromNode": "a12ec9466b52c327",
+      "toNode": "17aca4ed9f7cf25a",
+      "fromSide": "right",
+      "toSide": "left",
+      "fromEnd": "none",
+      "toEnd": "arrow"
+    }
+  ]
+}

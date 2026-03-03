@@ -1,0 +1,40 @@
+{
+	"nodes":[
+		{"id":"a39ca170079debc0","type":"text","text":"▶ Start\nui.startCanvasSession","x":0,"y":0,"width":160,"height":80,"color":"4"},
+		{"id":"b11f235e9ef53b11","type":"group","label":"Start canvas session","x":200,"y":-40,"width":480,"height":160},
+		{"id":"bf8b3fb0de9473f5","type":"text","text":"Triggers the canvas session flow via the command palette. The CanvasTemplatePickerModal should appear.\n8 actions","x":250,"y":10,"width":380,"height":60},
+		{"id":"abbc34f005821e23","type":"group","label":"Select a canvas template","x":720,"y":-40,"width":480,"height":160},
+		{"id":"43b297917887c126","type":"text","text":"Clicks the first template card in the CanvasTemplatePickerModal. The InputModal for the session goal should appear.\n7 actions","x":770,"y":10,"width":380,"height":60},
+		{"id":"246bcae746bf69c4","type":"group","label":"Enter goal and start session","x":1240,"y":-40,"width":480,"height":160},
+		{"id":"238f375eded42088","type":"text","text":"Types a session goal into the InputModal and clicks Start. The canvas file should be created and a session started.\n9 actions","x":1290,"y":10,"width":380,"height":60},
+		{"id":"bb9b5a225f20ce14","type":"group","label":"Verify canvas file opened","x":1760,"y":-40,"width":480,"height":160},
+		{"id":"71bbdbeaf61f0136","type":"text","text":"Checks that the canvas file was created and is open in the workspace.\n4 actions","x":1810,"y":10,"width":380,"height":60},
+		{"id":"6759c0161683e345","type":"group","label":"Verify canvas session state","x":2280,"y":-40,"width":480,"height":160},
+		{"id":"40601b83e587375b","type":"text","text":"Checks the plugin's SessionService to confirm an active canvas session exists with the correct type.\n4 actions","x":2330,"y":10,"width":380,"height":60},
+		{"id":"0dae1a52d625c200","type":"group","label":"Pause the canvas session","x":2800,"y":-40,"width":480,"height":160},
+		{"id":"f42f09a80a029024","type":"text","text":"Emits session.pause via the EventBus to pause the active canvas session.\n9 actions","x":2850,"y":10,"width":380,"height":60},
+		{"id":"c3d5e026b3c5f83d","type":"group","label":"Resume the canvas session","x":3320,"y":-40,"width":480,"height":160},
+		{"id":"5fff3fa714a6858e","type":"text","text":"Emits session.resume via the EventBus to resume the paused canvas session. The canvas file should be re-focused.\n8 actions","x":3370,"y":10,"width":380,"height":60},
+		{"id":"5e1283f7f364d05c","type":"group","label":"Complete the canvas session","x":3840,"y":-40,"width":480,"height":160,"color":"5"},
+		{"id":"04f49abfe3964272","type":"text","text":"Emits session.complete to finish the session. The session enters 'reviewing' status and the closure overlay appears in the sidebar.\n9 actions","x":3890,"y":10,"width":380,"height":60},
+		{"id":"9c6c1c360266ecea","type":"group","label":"Skip closure ritual","x":4360,"y":-40,"width":480,"height":160},
+		{"id":"e2bda1e865477029","type":"text","text":"Clicks the Skip button on the closure overlay to bypass the ritual. The session transitions from 'reviewing' to 'completed'.\n7 actions","x":4410,"y":10,"width":380,"height":60},
+		{"id":"4a37534e8a6b04d6","type":"text","text":"⏹ End","x":4880,"y":0,"width":160,"height":80,"color":"1"}
+	],
+	"edges":[
+		{"id":"303a34139f5098ac","fromNode":"a39ca170079debc0","toNode":"b11f235e9ef53b11","fromSide":"right","toSide":"left","fromEnd":"none","toEnd":"arrow"},
+		{"id":"94b29344275a5750","fromNode":"b11f235e9ef53b11","toNode":"abbc34f005821e23","fromSide":"right","toSide":"left","fromEnd":"none","toEnd":"arrow"},
+		{"id":"005419defc174fb3","fromNode":"abbc34f005821e23","toNode":"246bcae746bf69c4","fromSide":"right","toSide":"left","fromEnd":"none","toEnd":"arrow"},
+		{"id":"c644de57fa5ec18c","fromNode":"246bcae746bf69c4","toNode":"bb9b5a225f20ce14","fromSide":"right","toSide":"left","fromEnd":"none","toEnd":"arrow"},
+		{"id":"ca6c3c4d61e63c16","fromNode":"bb9b5a225f20ce14","toNode":"6759c0161683e345","fromSide":"right","toSide":"left","fromEnd":"none","toEnd":"arrow"},
+		{"id":"a2c1062f9f04a065","fromNode":"6759c0161683e345","toNode":"0dae1a52d625c200","fromSide":"right","toSide":"left","fromEnd":"none","toEnd":"arrow"},
+		{"id":"9dcc306c7fe1db04","fromNode":"0dae1a52d625c200","toNode":"c3d5e026b3c5f83d","fromSide":"right","toSide":"left","fromEnd":"none","toEnd":"arrow"},
+		{"id":"f22cd755fcbba2ab","fromNode":"c3d5e026b3c5f83d","toNode":"5e1283f7f364d05c","fromSide":"right","toSide":"left","fromEnd":"none","toEnd":"arrow"},
+		{"id":"f2e9528724046f62","fromNode":"5e1283f7f364d05c","toNode":"9c6c1c360266ecea","fromSide":"right","toSide":"left","fromEnd":"none","toEnd":"arrow"},
+		{"id":"1f6bafc749f1b698","fromNode":"9c6c1c360266ecea","toNode":"4a37534e8a6b04d6","fromSide":"right","toSide":"left","fromEnd":"none","toEnd":"arrow"}
+	],
+	"metadata":{
+		"version":"1.0-1.0",
+		"frontmatter":{}
+	}
+}

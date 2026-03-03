@@ -591,6 +591,12 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 					return;
 				}
 
+				// Log step as in-progress todo before execution
+				if (!hasExplicitRunLog(step)) {
+					const devTag = step.dev ? " _(dev)_" : "";
+					writeRunLog(cli, `- [ ] **${step.title}**${devTag}`);
+				}
+
 				const status = await runStepWithActions(
 					step, "journey", runner, cli, variables, screenshotDir,
 				);

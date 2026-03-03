@@ -868,6 +868,19 @@ export default class FlowtiBasePlugin extends Plugin {
 				eventBus: this.eventBus,
 				getEventNames: () => EVENT_CATALOG.map((e) => e.type),
 				getCommands: () => this.commands.getCommandsMeta().map((c) => ({ id: c.id, label: c.label })),
+				getJourneyFiles: async () => {
+					try {
+						const exists = await this.app.vault.adapter.exists("journeys");
+						if (!exists) {
+							await this.app.vault.adapter.mkdir("journeys");
+							return [];
+						}
+						const listing = await this.app.vault.adapter.list("journeys");
+						return listing.files.filter((f: string) => f.endsWith(".journey.json"));
+					} catch {
+						return [];
+					}
+				},
 			}),
 		);
 

@@ -1,6 +1,6 @@
 {
 	"journey": "Journey Builder",
-	"description": "Full E2E blueprint for the Journey Builder feature. Steps 1-11 validate the current implementation (launch, welcome/setup flow, step editing with navigation, Title Sentence conversion, export, action builder with 34 tools, live JSON preview with copy-to-clipboard, event autocomplete, command picker, assert type builder, real-time canvas sync, full 3-file export). Steps 12-13 are development targets: open existing and preview run.",
+	"description": "Full E2E blueprint for the Journey Builder feature. Steps 1-12 validate the current implementation (launch, welcome/setup flow, step editing with navigation, Title Sentence conversion, export, action builder with 34 tools, live JSON preview with copy-to-clipboard, event autocomplete, command picker, assert type builder, real-time canvas sync, full 3-file export, open existing journey). Step 13 is a development target: preview run.",
 	"testSource": "tests/e2e/90-journey-journey-builder.test.ts",
 	"reportPath": "docs/journeys/Journey Builder/Journey Builder.md",
 	"canvasPath": "docs/journeys/Journey Builder/Journey Builder.canvas",
@@ -638,7 +638,6 @@
 			"title": "Open existing journey for editing",
 			"guideSection": 12,
 			"swimlane": "frontstage",
-			"dev": true,
 			"description": "Closes the current journey, returns to the welcome screen, and uses 'Open Existing' to load the previously exported journey back into the step editor. Verifies all fields are populated and the companion canvas opens alongside.",
 			"expectedInput": "Journey Builder on welcome screen, exported journey JSON in vault",
 			"expectedOutput": "Exported journey loaded in step editor with all fields populated, companion canvas open",
@@ -665,7 +664,9 @@
 			],
 			"actions": [
 				{ "tool": "notice", "message": "Step 12/13: Open existing journey", "duration": 3000 },
-				{ "tool": "click", "selector": "[data-test-id='jb-back-btn']", "description": "Navigate back to welcome screen" },
+				{ "tool": "click", "selector": "[data-test-id='jb-back-btn']", "description": "Navigate back from steps to setup" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "click", "selector": "[data-test-id='jb-back-btn']", "description": "Navigate back from setup to welcome" },
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-open-existing']", "description": "Open Existing card is visible" },
 				{ "tool": "click", "selector": "[data-test-id='jb-open-existing']", "description": "Click Open Existing" },

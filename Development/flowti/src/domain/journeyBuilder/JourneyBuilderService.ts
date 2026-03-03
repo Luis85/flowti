@@ -21,6 +21,7 @@ export class JourneyBuilderService {
 	private readonly eventBus: IEventBus;
 	private unsubExport: (() => void) | undefined;
 	private unsubCanvasSync: (() => void) | undefined;
+	private unsubImport: (() => void) | undefined;
 
 	constructor(deps: JourneyBuilderServiceDeps) {
 		this.fileSystem = deps.fileSystem;
@@ -37,6 +38,10 @@ export class JourneyBuilderService {
 			"journey-builder.canvas.sync-requested",
 			(event) => void this.handleCanvasSync(event.payload),
 		);
+		this.unsubImport = this.eventBus.on(
+			"journey-builder.import-requested",
+			(event) => void this.handleImport(event.payload),
+		);
 	}
 
 	/** Stops listening. */
@@ -45,6 +50,8 @@ export class JourneyBuilderService {
 		this.unsubExport = undefined;
 		this.unsubCanvasSync?.();
 		this.unsubCanvasSync = undefined;
+		this.unsubImport?.();
+		this.unsubImport = undefined;
 	}
 
 	/** Builds the JSON content from an export payload. */
@@ -53,6 +60,8 @@ export class JourneyBuilderService {
 		const output = {
 			journey: definition.journey,
 			description: definition.description,
+			startEvent: definition.startEvent,
+			endEvent: definition.endEvent,
 			tools: [] as string[],
 			setup: [],
 			steps: definition.steps.map((s) => ({
@@ -129,6 +138,15 @@ export class JourneyBuilderService {
 			}
 		} catch (err) {
 			console.error("[JourneyBuilderService] Export failed:", err);
+		}
+	}
+
+	private async handleImport(payload: { path: string }): Promise<void> {
+		try {
+			const json = await this.fileSystem.readFile(payload.path);
+			void this.eventBus.emit("journey-builder.imported", { json });
+		} catch (err) {
+			console.error("[JourneyBuilderService] Import failed:", err);
 		}
 	}
 

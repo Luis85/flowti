@@ -138,6 +138,13 @@ describe("JourneyBuilderService", () => {
 			});
 		});
 
+		it("includes top-level startEvent and endEvent for roundtrip", () => {
+			const json = service.buildDefinitionJSON(samplePayload());
+			const parsed = JSON.parse(json);
+			expect(parsed.startEvent).toBe("app.opened");
+			expect(parsed.endEvent).toBe("app.closed");
+		});
+
 		it("includes steps with events array from startEvent", () => {
 			const json = service.buildDefinitionJSON(samplePayload());
 			const parsed = JSON.parse(json);
@@ -356,6 +363,56 @@ describe("JourneyBuilderService", () => {
 	});
 
 	// ── Canvas sync ─────────────────────────────────────────────────
+
+	describe("handleImport (via event trigger)", () => {
+		it("subscribes to journey-builder.import-requested on start", () => {
+			service.start();
+			expect(eventBus.on).toHaveBeenCalledWith(
+				"journey-builder.import-requested",
+				expect.any(Function),
+			);
+		});
+
+		it("unsubscribes on stop", () => {
+			service.start();
+			expect(eventBus._listeners.get("journey-builder.import-requested")).toHaveLength(1);
+			service.stop();
+			expect(eventBus._listeners.get("journey-builder.import-requested")).toHaveLength(0);
+		});
+
+		it("reads file and emits journey-builder.imported", async () => {
+			const json = JSON.stringify({ journey: "Test", steps: [] });
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockResolvedValue(json);
+			service.start();
+			eventBus._trigger("journey-builder.import-requested", { path: "journeys/Test.journey.json" });
+
+			await vi.waitFor(() => {
+				expect(fileSystem.readFile).toHaveBeenCalledWith("journeys/Test.journey.json");
+				const imported = eventBus._emitted.find((e) => e.type === "journey-builder.imported");
+				expect(imported).toBeDefined();
+				expect(imported!.payload).toEqual({ json });
+			});
+		});
+
+		it("does not emit when readFile fails", async () => {
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("not found"));
+			service.start();
+			eventBus._trigger("journey-builder.import-requested", { path: "bad/path.json" });
+
+			await new Promise((r) => setTimeout(r, 50));
+			const imported = eventBus._emitted.find((e) => e.type === "journey-builder.imported");
+			expect(imported).toBeUndefined();
+		});
+
+		it("does not read when service is stopped", async () => {
+			service.start();
+			service.stop();
+			eventBus._trigger("journey-builder.import-requested", { path: "journeys/Test.journey.json" });
+
+			await new Promise((r) => setTimeout(r, 50));
+			expect(fileSystem.readFile).not.toHaveBeenCalled();
+		});
+	});
 
 	describe("handleCanvasSync (via event trigger)", () => {
 		function sampleSyncPayload(): { canvasPath: string; definition: CanvasSyncInput } {

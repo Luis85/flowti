@@ -73,77 +73,117 @@ describe("JourneyBuilderSidebar", () => {
 			expect(header!.textContent).toBe("Journey Builder");
 		});
 
-		it("renders Open Existing button", () => {
-			const btn = byTestId(sidebar.contentEl, "jb-open-existing");
-			expect(btn).toBeTruthy();
-			expect(btn!.getAttribute("role")).toBe("button");
-			expect(btn!.getAttribute("tabindex")).toBe("0");
-		});
-
-		it("renders Create New button", () => {
+		it("renders empty state with create button when no getJourneyFiles", () => {
+			const empty = byTestId(sidebar.contentEl, "jb-empty-welcome");
+			expect(empty).toBeTruthy();
 			const btn = byTestId(sidebar.contentEl, "jb-create-new");
 			expect(btn).toBeTruthy();
 			expect(btn!.getAttribute("role")).toBe("button");
-			expect(btn!.getAttribute("tabindex")).toBe("0");
 		});
 
-		it("renders Open Existing card with title and description", () => {
-			const card = byTestId(sidebar.contentEl, "jb-open-existing");
-			const title = card!.querySelector("[data-test-id='jb-card-title']");
-			const desc = card!.querySelector("[data-test-id='jb-card-desc']");
-			expect(title!.textContent).toBe("Open Existing Journey");
-			expect(desc!.textContent).toContain("Load and edit");
+		it("renders import links in empty state", () => {
+			const importLink = byTestId(sidebar.contentEl, "jb-import-link");
+			const browseLink = byTestId(sidebar.contentEl, "jb-browse-link");
+			expect(importLink).toBeTruthy();
+			expect(browseLink).toBeTruthy();
 		});
 
-		it("renders Create New card with title and description", () => {
-			const card = byTestId(sidebar.contentEl, "jb-create-new");
-			const title = card!.querySelector("[data-test-id='jb-card-title']");
-			const desc = card!.querySelector("[data-test-id='jb-card-desc']");
-			expect(title!.textContent).toBe("Create New Journey");
-			expect(desc!.textContent).toContain("Design a new");
-		});
-
-		it("emits journey-builder.open-existing on Open Existing click", () => {
-			const handler = vi.fn();
-			eventBus.on("journey-builder.open-existing", handler);
-			const btn = byTestId(sidebar.contentEl, "jb-open-existing")!;
-			btn.click();
-			expect(handler).toHaveBeenCalledOnce();
-		});
-
-		it("emits journey-builder.create-new on Create New click", () => {
+		it("emits journey-builder.create-new on Create click", () => {
 			const handler = vi.fn();
 			eventBus.on("journey-builder.create-new", handler);
-			const btn = byTestId(sidebar.contentEl, "jb-create-new")!;
-			btn.click();
+			byTestId(sidebar.contentEl, "jb-create-new")!.click();
 			expect(handler).toHaveBeenCalledOnce();
 		});
 
 		it("supports keyboard activation with Enter", () => {
 			const handler = vi.fn();
 			eventBus.on("journey-builder.create-new", handler);
-			const btn = byTestId(sidebar.contentEl, "jb-create-new")!;
-			btn.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+			byTestId(sidebar.contentEl, "jb-create-new")!.dispatchEvent(
+				new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+			);
 			expect(handler).toHaveBeenCalledOnce();
 		});
 
-		it("supports keyboard activation with Space", () => {
-			const handler = vi.fn();
-			eventBus.on("journey-builder.open-existing", handler);
-			const btn = byTestId(sidebar.contentEl, "jb-open-existing")!;
-			btn.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
-			expect(handler).toHaveBeenCalledOnce();
-		});
-
-		it("transitions to setup state on Create New click", () => {
-			const btn = byTestId(sidebar.contentEl, "jb-create-new")!;
-			btn.click();
+		it("transitions to setup state on Create click", () => {
+			byTestId(sidebar.contentEl, "jb-create-new")!.click();
 			expect(sidebar.getSidebarState()).toBe("setup");
 		});
 
 		it("does not show setup form elements in welcome state", () => {
 			expect(byTestId(sidebar.contentEl, "jb-name-input")).toBeNull();
 			expect(byTestId(sidebar.contentEl, "jb-setup-form")).toBeNull();
+		});
+	});
+
+	describe("welcome state — with saved journeys", () => {
+		let sidebarWithJourneys: JourneyBuilderSidebar;
+
+		beforeEach(async () => {
+			sidebarWithJourneys = new JourneyBuilderSidebar(createMockLeaf(), {
+				eventBus,
+				getJourneyFiles: async () => ["journeys/Test.journey.json"],
+			});
+			await sidebarWithJourneys.onOpen();
+			// Wait for async getJourneyFiles to resolve
+			await vi.waitFor(() => {
+				expect(byTestId(sidebarWithJourneys.contentEl, "jb-open-existing")).toBeTruthy();
+			});
+		});
+
+		it("renders welcome cards when journeys exist", () => {
+			expect(byTestId(sidebarWithJourneys.contentEl, "jb-empty-welcome")).toBeNull();
+			expect(byTestId(sidebarWithJourneys.contentEl, "jb-open-existing")).toBeTruthy();
+			expect(byTestId(sidebarWithJourneys.contentEl, "jb-create-new")).toBeTruthy();
+		});
+
+		it("renders Open Existing card with title and description", () => {
+			const card = byTestId(sidebarWithJourneys.contentEl, "jb-open-existing");
+			const title = card!.querySelector("[data-test-id='jb-card-title']");
+			const desc = card!.querySelector("[data-test-id='jb-card-desc']");
+			expect(title!.textContent).toBe("Open existing journey");
+			expect(desc!.textContent).toContain("Load and edit");
+		});
+
+		it("renders Create New card with title and description", () => {
+			const card = byTestId(sidebarWithJourneys.contentEl, "jb-create-new");
+			const title = card!.querySelector("[data-test-id='jb-card-title']");
+			const desc = card!.querySelector("[data-test-id='jb-card-desc']");
+			expect(title!.textContent).toBe("Create new journey");
+			expect(desc!.textContent).toContain("Design a new");
+		});
+
+		it("emits journey-builder.open-existing on Open Existing click", () => {
+			const handler = vi.fn();
+			eventBus.on("journey-builder.open-existing", handler);
+			byTestId(sidebarWithJourneys.contentEl, "jb-open-existing")!.click();
+			expect(handler).toHaveBeenCalledOnce();
+		});
+
+		it("supports keyboard activation with Space on Open Existing", () => {
+			const handler = vi.fn();
+			eventBus.on("journey-builder.open-existing", handler);
+			byTestId(sidebarWithJourneys.contentEl, "jb-open-existing")!.dispatchEvent(
+				new KeyboardEvent("keydown", { key: " ", bubbles: true }),
+			);
+			expect(handler).toHaveBeenCalledOnce();
+		});
+
+		it("renders Import Definition card with title and description", () => {
+			const card = byTestId(sidebarWithJourneys.contentEl, "jb-import-definition");
+			expect(card).toBeTruthy();
+			const title = card!.querySelector("[data-test-id='jb-card-title']");
+			const desc = card!.querySelector("[data-test-id='jb-card-desc']");
+			expect(title!.textContent).toBe("Import definition");
+			expect(desc!.textContent).toContain("Import a .journey.json");
+		});
+
+		it("supports keyboard activation with Enter on Import Definition", () => {
+			const card = byTestId(sidebarWithJourneys.contentEl, "jb-import-definition");
+			expect(card).toBeTruthy();
+			// Should not throw — onImportFile needs app which is null in test, but event listener fires
+			card!.dispatchEvent(
+				new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+			);
 		});
 	});
 
@@ -464,6 +504,14 @@ describe("JourneyBuilderSidebar", () => {
 			expect(payload.definition.steps).toHaveLength(1);
 			expect(payload.definition.steps[0].title).toBe("A step");
 			expect(payload.definition.steps[0].guideSection).toBe(1);
+		});
+
+		it("emits notice.success on Export click", async () => {
+			const handler = vi.fn();
+			eventBus.on("notice.success", handler);
+			byTestId(sidebar.contentEl, "jb-export-btn")!.click();
+			await vi.waitFor(() => expect(handler).toHaveBeenCalledOnce());
+			expect(handler.mock.calls[0][0].payload.message).toContain("Exported");
 		});
 
 		it("returns to setup on back button click", () => {
@@ -890,12 +938,15 @@ describe("JourneyBuilderSidebar", () => {
 			expect(zoomToFit).toHaveBeenCalledOnce();
 		});
 
-		it("calls zoomToFit on every sync, not just the first", async () => {
+		it("skips zoom on subsequent syncs (content edits)", async () => {
 			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/My Journey.canvas" });
 			vi.advanceTimersByTime(500);
+			expect(zoomToFit).toHaveBeenCalledOnce();
+
 			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/My Journey.canvas" });
 			vi.advanceTimersByTime(500);
-			expect(zoomToFit).toHaveBeenCalledTimes(2);
+			// No additional zoom — content edit, not navigation
+			expect(zoomToFit).toHaveBeenCalledOnce();
 		});
 
 		it("skips zoom when canvas leaf path does not match", async () => {
@@ -931,6 +982,140 @@ describe("JourneyBuilderSidebar", () => {
 			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/My Journey.canvas" });
 			vi.advanceTimersByTime(500);
 			// Should not throw
+		});
+	});
+
+	describe("canvas zoom-to-selection", () => {
+		let zoomToFit: ReturnType<typeof vi.fn>;
+		let zoomToSelection: ReturnType<typeof vi.fn>;
+		let selectOnly: ReturnType<typeof vi.fn>;
+		let deselectAll: ReturnType<typeof vi.fn>;
+		let openLinkText: ReturnType<typeof vi.fn>;
+
+		function makeCanvasNodes(activeColor?: string): Map<string, { getData: () => Record<string, unknown> }> {
+			const nodes = new Map<string, { getData: () => Record<string, unknown> }>();
+			nodes.set("start", { getData: () => ({ type: "text", color: "4" }) });
+			nodes.set("step-group", { getData: () => ({ type: "group", color: activeColor ?? undefined }) });
+			nodes.set("end", { getData: () => ({ type: "text", color: "1" }) });
+			return nodes;
+		}
+
+		beforeEach(async () => {
+			vi.useFakeTimers();
+			zoomToFit = vi.fn();
+			zoomToSelection = vi.fn();
+			selectOnly = vi.fn();
+			deselectAll = vi.fn();
+			openLinkText = vi.fn();
+			(sidebar as unknown as { app: unknown }).app = {
+				workspace: {
+					openLinkText,
+					getLeavesOfType: () => [
+						{
+							view: {
+								file: { path: "journeys/My Journey.canvas" },
+								canvas: { zoomToFit, zoomToSelection, selectOnly, deselectAll, nodes: makeCanvasNodes("5") },
+							},
+						},
+					],
+				},
+			};
+			await sidebar.onOpen();
+			byTestId(sidebar.contentEl, "jb-create-new")!.click();
+			setInputValue(byTestId(sidebar.contentEl, "jb-name-input") as HTMLInputElement, "My Journey");
+			byTestId(sidebar.contentEl, "jb-continue-btn")!.click();
+		});
+
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		it("selects active step node after zoomToFit", async () => {
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/My Journey.canvas" });
+			vi.advanceTimersByTime(500);
+			expect(zoomToFit).toHaveBeenCalledOnce();
+			expect(selectOnly).toHaveBeenCalledOnce();
+			const selectedNode = selectOnly.mock.calls[0][0];
+			expect(selectedNode.getData().color).toBe("5");
+			expect(selectedNode.getData().type).toBe("group");
+		});
+
+		it("calls zoomToSelection after selecting active node", async () => {
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/My Journey.canvas" });
+			vi.advanceTimersByTime(500);
+			expect(zoomToSelection).not.toHaveBeenCalled();
+			vi.advanceTimersByTime(300);
+			expect(zoomToSelection).toHaveBeenCalledOnce();
+		});
+
+		it("zooms to selection on navigation without zoomToFit", async () => {
+			// First sync — first open triggers zoomToFit
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/My Journey.canvas" });
+			vi.advanceTimersByTime(800);
+			expect(zoomToFit).toHaveBeenCalledOnce();
+			zoomToFit.mockClear();
+			selectOnly.mockClear();
+			zoomToSelection.mockClear();
+
+			// Add steps for navigation
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			vi.advanceTimersByTime(1500); // flush add syncs
+
+			// Navigate prev — triggers pendingZoomToStep
+			byTestId(sidebar.contentEl, "jb-nav-prev")!.click();
+			vi.advanceTimersByTime(300); // nav debounce
+			// Simulate service responding with canvas.synced
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/My Journey.canvas" });
+			vi.advanceTimersByTime(500);
+
+			// Should NOT call zoomToFit, but SHOULD select + zoom to selection
+			expect(zoomToFit).not.toHaveBeenCalled();
+			expect(selectOnly).toHaveBeenCalledOnce();
+			vi.advanceTimersByTime(300);
+			expect(zoomToSelection).toHaveBeenCalledOnce();
+		});
+
+		it("skips zoom-to-selection when no active step node", async () => {
+			// Replace canvas with no highlighted node
+			(sidebar as unknown as { app: unknown }).app = {
+				workspace: {
+					openLinkText,
+					getLeavesOfType: () => [
+						{
+							view: {
+								file: { path: "journeys/My Journey.canvas" },
+								canvas: { zoomToFit, zoomToSelection, selectOnly, deselectAll, nodes: makeCanvasNodes() },
+							},
+						},
+					],
+				},
+			};
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/My Journey.canvas" });
+			vi.advanceTimersByTime(800);
+			expect(zoomToFit).toHaveBeenCalledOnce();
+			expect(selectOnly).not.toHaveBeenCalled();
+			expect(zoomToSelection).not.toHaveBeenCalled();
+		});
+
+		it("handles missing nodes map gracefully", async () => {
+			(sidebar as unknown as { app: unknown }).app = {
+				workspace: {
+					openLinkText,
+					getLeavesOfType: () => [
+						{
+							view: {
+								file: { path: "journeys/My Journey.canvas" },
+								canvas: { zoomToFit },
+							},
+						},
+					],
+				},
+			};
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/My Journey.canvas" });
+			vi.advanceTimersByTime(800);
+			// Should not throw
+			expect(zoomToFit).toHaveBeenCalledOnce();
 		});
 	});
 
@@ -1116,6 +1301,149 @@ describe("JourneyBuilderSidebar", () => {
 
 			const def = handler.mock.calls[0][0].payload.definition;
 			expect(def.activeStepIndex).toBe(1);
+		});
+	});
+
+	describe("open existing journey", () => {
+		const sampleJourney = JSON.stringify({
+			journey: "My Loaded Journey",
+			description: "A loaded description",
+			startEvent: "app.opened",
+			endEvent: "app.closed",
+			tools: [],
+			setup: [],
+			steps: [
+				{ id: "s1", title: "Open the hub", description: "Opens it", swimlane: "frontstage", guideSection: 1, events: ["app.opened"], actions: [{ tool: "command", command: "foo" }] },
+				{ id: "s2", title: "Click button", description: "", swimlane: "backstage", guideSection: 2, events: ["app.opened"], actions: [] },
+			],
+			teardown: [],
+		});
+
+		beforeEach(async () => {
+			await sidebar.onOpen();
+		});
+
+		it("hydrates metadata from JSON", () => {
+			sidebar.loadJourneyFromJSON(sampleJourney);
+			const meta = sidebar.getMetadata();
+			expect(meta.name).toBe("My Loaded Journey");
+			expect(meta.description).toBe("A loaded description");
+			expect(meta.startEvent).toBe("app.opened");
+		});
+
+		it("hydrates steps from JSON", () => {
+			sidebar.loadJourneyFromJSON(sampleJourney);
+			const steps = sidebar.getSteps();
+			expect(steps).toHaveLength(2);
+			expect(steps[0].title).toBe("Open the hub");
+			expect(steps[0].description).toBe("Opens it");
+			expect(steps[0].swimlane).toBe("frontstage");
+			expect(steps[0].actions).toHaveLength(1);
+			expect(steps[1].title).toBe("Click button");
+		});
+
+		it("hydrates endEvent from JSON", () => {
+			sidebar.loadJourneyFromJSON(sampleJourney);
+			expect(sidebar.getEndEvent()).toBe("app.closed");
+		});
+
+		it("transitions to steps state", () => {
+			sidebar.loadJourneyFromJSON(sampleJourney);
+			expect(sidebar.getSidebarState()).toBe("steps");
+		});
+
+		it("recovers startEvent from steps[0].events[0] when top-level missing", () => {
+			const legacy = JSON.stringify({
+				journey: "Legacy",
+				description: "",
+				steps: [{ id: "s1", title: "Step", description: "", swimlane: "", events: ["legacy.start"], actions: [] }],
+			});
+			sidebar.loadJourneyFromJSON(legacy);
+			expect(sidebar.getMetadata().startEvent).toBe("legacy.start");
+		});
+
+		it("handles missing fields gracefully", () => {
+			sidebar.loadJourneyFromJSON(JSON.stringify({ journey: "Minimal" }));
+			const meta = sidebar.getMetadata();
+			expect(meta.name).toBe("Minimal");
+			expect(meta.description).toBe("");
+			expect(meta.startEvent).toBe("");
+			expect(sidebar.getEndEvent()).toBe("");
+			expect(sidebar.getSteps()).toHaveLength(0);
+		});
+
+		it("resets currentStepIndex to 0", () => {
+			sidebar.loadJourneyFromJSON(sampleJourney);
+			expect(sidebar.getCurrentStepIndex()).toBe(0);
+		});
+
+		it("renders step card with loaded title", () => {
+			sidebar.loadJourneyFromJSON(sampleJourney);
+			const num = byTestId(sidebar.contentEl, "jb-step-num");
+			expect(num!.textContent).toBe("1");
+			const title = byTestId(sidebar.contentEl, "jb-step-title-input") as HTMLInputElement;
+			expect(title.value).toBe("Open the hub");
+		});
+
+		it("renders nav counter with correct step count", () => {
+			sidebar.loadJourneyFromJSON(sampleJourney);
+			const counter = byTestId(sidebar.contentEl, "jb-nav-counter");
+			expect(counter!.textContent).toContain("2");
+		});
+
+		it("schedules canvas sync after load", () => {
+			vi.useFakeTimers();
+			const handler = vi.fn();
+			eventBus.on("journey-builder.canvas.sync-requested", handler);
+
+			sidebar.loadJourneyFromJSON(sampleJourney);
+			expect(handler).not.toHaveBeenCalled();
+			vi.advanceTimersByTime(1500);
+			expect(handler).toHaveBeenCalledOnce();
+			expect(handler.mock.calls[0][0].payload.definition.journey).toBe("My Loaded Journey");
+
+			vi.useRealTimers();
+		});
+
+		it("resets canvasOpenedPath for auto-open", async () => {
+			// Simulate a previous canvas open
+			(sidebar as unknown as { canvasOpenedPath: string | null }).canvasOpenedPath = "old.canvas";
+
+			sidebar.loadJourneyFromJSON(sampleJourney);
+
+			// canvasOpenedPath should be reset so auto-open fires again
+			expect((sidebar as unknown as { canvasOpenedPath: string | null }).canvasOpenedPath).toBeNull();
+		});
+
+		it("shows loading state before journey is hydrated", () => {
+			// Trigger renderLoading directly (simulates the state after picker selection)
+			(sidebar as unknown as { renderLoading: (msg: string) => void }).renderLoading("Loading journey\u2026");
+			const loading = byTestId(sidebar.contentEl, "jb-loading");
+			expect(loading).toBeTruthy();
+			expect(loading!.textContent).toContain("Loading journey");
+		});
+
+		it("loading state is replaced by steps after hydration", () => {
+			(sidebar as unknown as { renderLoading: (msg: string) => void }).renderLoading("Loading journey\u2026");
+			expect(byTestId(sidebar.contentEl, "jb-loading")).toBeTruthy();
+
+			sidebar.loadJourneyFromJSON(sampleJourney);
+			expect(byTestId(sidebar.contentEl, "jb-loading")).toBeNull();
+			expect(sidebar.getSidebarState()).toBe("steps");
+		});
+
+		it("hydrates when journey-builder.imported event is received", async () => {
+			await eventBus.emit("journey-builder.imported", { json: sampleJourney });
+			expect(sidebar.getSidebarState()).toBe("steps");
+			expect(sidebar.getMetadata().name).toBe("My Loaded Journey");
+			expect(sidebar.getSteps()).toHaveLength(2);
+		});
+
+		it("unsubscribes imported listener on close", async () => {
+			await sidebar.onClose();
+			await eventBus.emit("journey-builder.imported", { json: sampleJourney });
+			// State should remain welcome since listener was removed
+			expect(sidebar.getSidebarState()).toBe("welcome");
 		});
 	});
 });
