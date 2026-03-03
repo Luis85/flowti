@@ -24,6 +24,12 @@ import { ActionForm } from "./ActionForm";
 
 export const VIEW_TYPE_JOURNEY_BUILDER = "flowti-journey-builder";
 
+/** Narrow type for Obsidian's internal canvas view (not publicly typed). */
+interface CanvasLeafView {
+	file?: { path: string };
+	canvas?: { zoomToFit: () => void };
+}
+
 type SidebarState = "welcome" | "setup" | "steps";
 
 export interface JourneyMetadata {
@@ -624,6 +630,20 @@ export class JourneyBuilderSidebar extends ItemView {
 			this.canvasOpenedPath = payload.canvasPath;
 			void this.app?.workspace?.openLinkText(payload.canvasPath, "");
 		}
+		this.zoomCanvasToFit(payload.canvasPath);
+	}
+
+	private zoomCanvasToFit(canvasPath: string): void {
+		setTimeout(() => {
+			const leaves = this.app?.workspace?.getLeavesOfType("canvas") ?? [];
+			for (const leaf of leaves) {
+					const view = leaf.view as unknown as CanvasLeafView;
+				if (view?.file?.path === canvasPath && typeof view?.canvas?.zoomToFit === "function") {
+					view.canvas.zoomToFit();
+					break;
+				}
+			}
+		}, 500);
 	}
 
 	private onOpenCanvas(): void {

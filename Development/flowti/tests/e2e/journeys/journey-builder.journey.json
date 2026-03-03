@@ -592,6 +592,8 @@
 			],
 			"actions": [
 				{ "tool": "notice", "message": "Step 10/13: Canvas sync", "duration": 3000 },
+				{ "tool": "set-input", "selector": "[data-test-id='jb-step-title-input']", "value": "Open the user hub", "description": "Revert step title to trigger a fresh canvas sync" },
+				{ "tool": "wait", "ms": 2000, "description": "Wait for canvas sync debounce (1500ms) to fire" },
 				{ "tool": "assert", "type": "event", "event": "journey-builder.canvas.synced", "description": "Canvas sync event was emitted" },
 				{ "tool": "eval", "code": "(async () => await app.vault.adapter.exists('journeys/E2E Demo Journey.canvas'))()", "expect": { "type": "equals", "value": "true" }, "description": "Companion canvas file exists" },
 				{ "tool": "eval", "code": "(async () => { const json = await app.vault.adapter.read('journeys/E2E Demo Journey.canvas'); const data = JSON.parse(json); return data.nodes?.some(n => n.text?.includes('Start')) && data.nodes?.some(n => n.type === 'group') ? 'valid' : 'invalid'; })()", "expect": { "type": "equals", "value": "valid" }, "description": "Canvas contains START node and step groups" },

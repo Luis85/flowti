@@ -852,6 +852,88 @@ describe("JourneyBuilderSidebar", () => {
 		});
 	});
 
+	describe("canvas zoom-to-fit", () => {
+		let zoomToFit: ReturnType<typeof vi.fn>;
+		let openLinkText: ReturnType<typeof vi.fn>;
+
+		beforeEach(async () => {
+			vi.useFakeTimers();
+			zoomToFit = vi.fn();
+			openLinkText = vi.fn();
+			(sidebar as unknown as { app: unknown }).app = {
+				workspace: {
+					openLinkText,
+					getLeavesOfType: () => [
+						{
+							view: {
+								file: { path: "journeys/My Journey.canvas" },
+								canvas: { zoomToFit },
+							},
+						},
+					],
+				},
+			};
+			await sidebar.onOpen();
+			byTestId(sidebar.contentEl, "jb-create-new")!.click();
+			setInputValue(byTestId(sidebar.contentEl, "jb-name-input") as HTMLInputElement, "My Journey");
+			byTestId(sidebar.contentEl, "jb-continue-btn")!.click();
+		});
+
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		it("calls zoomToFit after canvas sync with delay", async () => {
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/My Journey.canvas" });
+			expect(zoomToFit).not.toHaveBeenCalled();
+			vi.advanceTimersByTime(500);
+			expect(zoomToFit).toHaveBeenCalledOnce();
+		});
+
+		it("calls zoomToFit on every sync, not just the first", async () => {
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/My Journey.canvas" });
+			vi.advanceTimersByTime(500);
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/My Journey.canvas" });
+			vi.advanceTimersByTime(500);
+			expect(zoomToFit).toHaveBeenCalledTimes(2);
+		});
+
+		it("skips zoom when canvas leaf path does not match", async () => {
+			(sidebar as unknown as { app: unknown }).app = {
+				workspace: {
+					openLinkText,
+					getLeavesOfType: () => [
+						{
+							view: {
+								file: { path: "journeys/Other.canvas" },
+								canvas: { zoomToFit },
+							},
+						},
+					],
+				},
+			};
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/My Journey.canvas" });
+			vi.advanceTimersByTime(500);
+			expect(zoomToFit).not.toHaveBeenCalled();
+		});
+
+		it("handles missing canvas API gracefully", async () => {
+			(sidebar as unknown as { app: unknown }).app = {
+				workspace: {
+					openLinkText,
+					getLeavesOfType: () => [
+						{
+							view: { file: { path: "journeys/My Journey.canvas" } },
+						},
+					],
+				},
+			};
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/My Journey.canvas" });
+			vi.advanceTimersByTime(500);
+			// Should not throw
+		});
+	});
+
 	describe("open canvas button", () => {
 		let openLinkText: ReturnType<typeof vi.fn>;
 
