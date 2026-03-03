@@ -502,6 +502,95 @@ describe("JourneyBuilderSidebar", () => {
 		});
 	});
 
+	describe("start event Title Sentence conversion", () => {
+		beforeEach(async () => {
+			await sidebar.onOpen();
+			byTestId(sidebar.contentEl, "jb-create-new")!.click();
+		});
+
+		it("converts Title Sentence to dot-notation in metadata", () => {
+			const input = byTestId(sidebar.contentEl, "jb-start-event-input") as HTMLInputElement;
+			setInputValue(input, "Session Started");
+			expect(sidebar.getMetadata().startEvent).toBe("session.started");
+		});
+
+		it("passes through dot-notation unchanged", () => {
+			const input = byTestId(sidebar.contentEl, "jb-start-event-input") as HTMLInputElement;
+			setInputValue(input, "session.started");
+			expect(sidebar.getMetadata().startEvent).toBe("session.started");
+		});
+
+		it("shows preview when Title Sentence is converted", () => {
+			const input = byTestId(sidebar.contentEl, "jb-start-event-input") as HTMLInputElement;
+			setInputValue(input, "Session Started");
+			const preview = byTestId(sidebar.contentEl, "jb-start-event-preview")!;
+			expect(preview.textContent).toBe("\u2192 session.started");
+		});
+
+		it("hides preview for dot-notation passthrough", () => {
+			const input = byTestId(sidebar.contentEl, "jb-start-event-input") as HTMLInputElement;
+			setInputValue(input, "session.started");
+			const preview = byTestId(sidebar.contentEl, "jb-start-event-preview")!;
+			expect(preview.textContent).toBe("");
+		});
+
+		it("emits converted value in metadata.updated event", () => {
+			const handler = vi.fn();
+			eventBus.on("journey-builder.metadata.updated", handler);
+			const input = byTestId(sidebar.contentEl, "jb-start-event-input") as HTMLInputElement;
+			setInputValue(input, "Journey Builder Opened");
+			expect(handler.mock.calls[0][0].payload).toEqual({
+				field: "startEvent",
+				value: "journey.builder.opened",
+			});
+		});
+	});
+
+	describe("end event Title Sentence conversion", () => {
+		beforeEach(async () => {
+			await sidebar.onOpen();
+			byTestId(sidebar.contentEl, "jb-create-new")!.click();
+			byTestId(sidebar.contentEl, "jb-continue-btn")!.click();
+		});
+
+		it("converts Title Sentence to dot-notation in endEvent", () => {
+			const input = byTestId(sidebar.contentEl, "jb-end-event-input") as HTMLInputElement;
+			setInputValue(input, "Hub Tab Changed");
+			expect(sidebar.getEndEvent()).toBe("hub.tab.changed");
+		});
+
+		it("passes through dot-notation unchanged", () => {
+			const input = byTestId(sidebar.contentEl, "jb-end-event-input") as HTMLInputElement;
+			setInputValue(input, "hub.tab.changed");
+			expect(sidebar.getEndEvent()).toBe("hub.tab.changed");
+		});
+
+		it("shows preview when Title Sentence is converted", () => {
+			const input = byTestId(sidebar.contentEl, "jb-end-event-input") as HTMLInputElement;
+			setInputValue(input, "Hub Tab Changed");
+			const preview = byTestId(sidebar.contentEl, "jb-end-event-preview")!;
+			expect(preview.textContent).toBe("\u2192 hub.tab.changed");
+		});
+
+		it("hides preview for dot-notation passthrough", () => {
+			const input = byTestId(sidebar.contentEl, "jb-end-event-input") as HTMLInputElement;
+			setInputValue(input, "hub.tab.changed");
+			const preview = byTestId(sidebar.contentEl, "jb-end-event-preview")!;
+			expect(preview.textContent).toBe("");
+		});
+
+		it("emits converted value in metadata.updated event", () => {
+			const handler = vi.fn();
+			eventBus.on("journey-builder.metadata.updated", handler);
+			const input = byTestId(sidebar.contentEl, "jb-end-event-input") as HTMLInputElement;
+			setInputValue(input, "App Closed");
+			expect(handler.mock.calls[0][0].payload).toEqual({
+				field: "endEvent",
+				value: "app.closed",
+			});
+		});
+	});
+
 	describe("step metadata fields", () => {
 		beforeEach(async () => {
 			await sidebar.onOpen();

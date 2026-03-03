@@ -1,0 +1,27 @@
+{
+	"journey": "Test Journey",
+	"description": "dunno",
+	"tools": [],
+	"setup": [],
+	"steps": [
+		{
+			"id": "step-1",
+			"title": "My first step",
+			"description": "",
+			"swimlane": "frontstage",
+			"guideSection": 1,
+			"events": [
+				"my.start.event"
+			],
+			"actions": [
+				{
+					"tool": "command"
+				},
+				{
+					"tool": "navigate"
+				}
+			]
+		}
+	],
+	"teardown": []
+}

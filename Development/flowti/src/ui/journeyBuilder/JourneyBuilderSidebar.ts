@@ -12,6 +12,7 @@ import type { WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { JourneyAction, JourneyToolName } from "../../domain/journeyBuilder/types";
 import { TOOL_SCHEMAS } from "../../domain/journeyBuilder/toolSchemas";
+import { toEventName, isEventNameConverted } from "../../domain/journeyBuilder/eventNameUtils";
 import { NavBar } from "./NavBar";
 import { StepCard } from "./StepCard";
 import { JSONPanel } from "./JSONPanel";
@@ -231,11 +232,17 @@ export class JourneyBuilderSidebar extends ItemView {
 		startGroup.createEl("label", { cls: "ft-jb-form-label", text: "Start event" });
 		const startInput = startGroup.createEl("input", { cls: "ft-jb-form-input", type: "text" });
 		startInput.dataset.testId = "jb-start-event-input";
-		startInput.placeholder = "e.g. journey-builder.opened";
+		startInput.placeholder = "e.g. Session Started or session.started";
 		startInput.value = this.metadata.startEvent;
+		const startPreview = startGroup.createSpan({ cls: "ft-jb-event-preview" });
+		startPreview.dataset.testId = "jb-start-event-preview";
 		startInput.addEventListener("input", () => {
-			this.metadata.startEvent = startInput.value;
-			this.emitMetadataUpdate("startEvent", startInput.value);
+			const converted = toEventName(startInput.value);
+			this.metadata.startEvent = converted;
+			startPreview.textContent = isEventNameConverted(startInput.value, converted)
+				? `\u2192 ${converted}`
+				: "";
+			this.emitMetadataUpdate("startEvent", converted);
 		});
 
 		// Continue button
@@ -326,11 +333,17 @@ export class JourneyBuilderSidebar extends ItemView {
 		endGroup.createEl("label", { cls: "ft-jb-form-label", text: "End event" });
 		const endInput = endGroup.createEl("input", { cls: "ft-jb-form-input", type: "text" });
 		endInput.dataset.testId = "jb-end-event-input";
-		endInput.placeholder = "e.g. hub.tab.changed";
+		endInput.placeholder = "e.g. Hub Tab Changed or hub.tab.changed";
 		endInput.value = this.endEvent;
+		const endPreview = endGroup.createSpan({ cls: "ft-jb-event-preview" });
+		endPreview.dataset.testId = "jb-end-event-preview";
 		endInput.addEventListener("input", () => {
-			this.endEvent = endInput.value;
-			this.emitMetadataUpdate("endEvent", endInput.value);
+			const converted = toEventName(endInput.value);
+			this.endEvent = converted;
+			endPreview.textContent = isEventNameConverted(endInput.value, converted)
+				? `\u2192 ${converted}`
+				: "";
+			this.emitMetadataUpdate("endEvent", converted);
 		});
 
 		// JSONPanel — collapsible preview

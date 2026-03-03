@@ -131,6 +131,15 @@
 	min-height: 60px;
 }
 
+/* ── Event name preview hint ─────────────────────────────── */
+
+.ft-jb-event-preview {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-accent);
+	font-family: var(--font-monospace);
+	padding-top: 2px;
+}
+
 /* ── Continue button ──────────────────────────────────────── */
 
 .ft-jb-continue-btn {
