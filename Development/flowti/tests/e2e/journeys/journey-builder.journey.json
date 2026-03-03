@@ -1,6 +1,6 @@
 {
 	"journey": "Journey Builder",
-	"description": "Full E2E blueprint for the Journey Builder feature. Steps 1-6 validate the current implementation (launch, welcome/setup flow, step editing with navigation, JSON preview, export). Step 7 validates the action builder (tool picker, action form, reorder, remove). Steps 8-13 are development targets: smart inputs, canvas sync, full 3-file export, open existing, and preview run.",
+	"description": "Full E2E blueprint for the Journey Builder feature. Steps 1-7 validate the current implementation (launch, welcome/setup flow, step editing with navigation, Title Sentence conversion, JSON preview, export, action builder with 34 tools). Steps 8-13 are development targets: smart inputs, canvas sync, full 3-file export, open existing, and preview run.",
 	"testSource": "tests/e2e/90-journey-journey-builder.test.ts",
 	"reportPath": "docs/journeys/Journey Builder/Journey Builder.md",
 	"canvasPath": "docs/journeys/Journey Builder/Journey Builder.canvas",
@@ -23,6 +23,12 @@
 			"description": "Added 'd) Build only' to the session view menu. Quick-builds and deploys to the test vault without re-running tests, then returns to the same session view.",
 			"priority": "nice-to-have",
 			"added": "2026-03-02"
+		},
+		{
+			"title": "Title Sentence to event name conversion",
+			"description": "Start and end event inputs auto-convert Title Sentence input (e.g. 'Session Started') to dot-notation (session.started) with a live preview below the input. Users can type natural names or raw dot-notation — both work seamlessly.",
+			"priority": "must-have",
+			"added": "2026-03-03"
 		}
 	],
 
@@ -150,11 +156,13 @@
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "assert", "type": "event", "event": "journey-builder.metadata.updated", "description": "metadata.updated emitted for description" },
 				{ "tool": "assert-value", "selector": "[data-test-id='jb-description-input']", "equals": "A demo journey created by the Journey Builder.", "description": "Description textarea has the entered value" },
-				{ "tool": "set-input", "selector": "[data-test-id='jb-start-event-input']", "value": "journey-builder.opened", "description": "Enter start event name" },
+				{ "tool": "set-input", "selector": "[data-test-id='jb-start-event-input']", "value": "Journey Builder Opened", "description": "Enter start event as Title Sentence" },
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "assert", "type": "event", "event": "journey-builder.metadata.updated", "description": "metadata.updated emitted for start event" },
-				{ "tool": "screenshot", "label": "setup-filled", "description": "Journey setup form populated" },
-				{ "tool": "manual", "instruction": "Verify the setup form shows journey name, description, and start event fields all filled in. A back button and continue button should be visible.", "interactive": false, "description": "Visual QA of setup form" }
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-start-event-preview']", "description": "Start event preview span is visible" },
+				{ "tool": "assert-text", "selector": "[data-test-id='jb-start-event-preview']", "contains": "journey.builder.opened", "description": "Preview shows converted dot-notation" },
+				{ "tool": "screenshot", "label": "setup-filled", "description": "Journey setup form with Title Sentence preview" },
+				{ "tool": "manual", "instruction": "Verify the setup form shows journey name, description, and start event fields. The start event input shows 'Journey Builder Opened' with a preview beneath showing the converted dot-notation. A back button and continue button should be visible.", "interactive": false, "description": "Visual QA of setup form with Title Sentence" }
 			]
 		},
 		{
@@ -220,10 +228,12 @@
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "assert", "type": "event", "event": "journey-builder.step.updated", "description": "step.updated event was emitted on title edit" },
 				{ "tool": "assert-text", "selector": "[data-test-id='jb-nav-counter']", "contains": "Step 1 of 1", "description": "NavBar counter shows Step 1 of 1" },
-				{ "tool": "set-input", "selector": "[data-test-id='jb-end-event-input']", "value": "hub.tab.changed", "description": "Enter end event name" },
+				{ "tool": "set-input", "selector": "[data-test-id='jb-end-event-input']", "value": "Hub Tab Changed", "description": "Enter end event as Title Sentence" },
 				{ "tool": "wait", "ms": 500 },
-				{ "tool": "screenshot", "label": "step-added", "description": "Step added with end event set" },
-				{ "tool": "manual", "instruction": "Verify a StepCard appeared with number badge '1', an editable title input showing 'Open the user hub', and 'No actions' count below. An 'Add action' button with dashed border is visible below the card. The NavBar shows 'Step 1 of 1'. The end event field shows 'hub.tab.changed'. A JSON preview toggle and export button are visible below.", "interactive": false, "description": "Visual QA of step creation" }
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-end-event-preview']", "description": "End event preview span is visible" },
+				{ "tool": "assert-text", "selector": "[data-test-id='jb-end-event-preview']", "contains": "hub.tab.changed", "description": "Preview shows converted dot-notation" },
+				{ "tool": "screenshot", "label": "step-added", "description": "Step added with end event Title Sentence preview" },
+				{ "tool": "manual", "instruction": "Verify a StepCard appeared with number badge '1', an editable title input showing 'Open the user hub', and 'No actions' count below. An 'Add action' button with dashed border is visible below the card. The NavBar shows 'Step 1 of 1'. The end event field shows 'Hub Tab Changed' with a preview: hub.tab.changed. A JSON preview toggle and export button are visible below.", "interactive": false, "description": "Visual QA of step creation with Title Sentence" }
 			]
 		},
 		{
@@ -299,6 +309,9 @@
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-card']", "description": "Step card is visible with full metadata" },
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-description']", "description": "Description field is visible" },
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-step-swimlane']", "description": "Swimlane selector is visible" },
+				{ "tool": "select", "selector": "[data-test-id='jb-step-swimlane']", "value": "frontstage", "description": "Select frontstage swimlane" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "assert-value", "selector": "[data-test-id='jb-step-swimlane']", "equals": "frontstage", "description": "Swimlane shows frontstage" },
 				{ "tool": "set-input", "selector": "[data-test-id='jb-step-description']", "value": "Opens the user hub via command palette", "description": "Edit step description" },
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "assert", "type": "event", "event": "journey-builder.step.updated", "description": "step.updated event emitted" },
@@ -322,7 +335,6 @@
 			"title": "Add actions to a step",
 			"guideSection": 7,
 			"swimlane": "frontstage",
-			"dev": true,
 			"description": "Opens the tool picker to add actions to a step. Selects a tool, fills in its fields, adds more actions, reorders them with up/down, removes one, and verifies the action count updates.",
 			"expectedInput": "Step editor on step 1 with no actions",
 			"expectedOutput": "Step 1 has 2 actions (command, screenshot) after adding three, reordering, and removing one",
