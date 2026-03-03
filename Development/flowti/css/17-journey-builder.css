@@ -850,3 +850,79 @@
 .ft-jb-import-link:hover {
 	text-decoration: underline;
 }
+
+/* ── Journey File View ─────────────────────────────────── */
+
+.ft-jb-file-view {
+	padding: var(--size-4-6);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 100%;
+}
+
+.ft-jb-file-card {
+	max-width: 480px;
+	width: 100%;
+	padding: var(--size-4-6);
+	border-radius: var(--radius-l);
+	background: var(--background-secondary);
+}
+
+.ft-jb-file-header {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-3);
+	margin-bottom: var(--size-4-3);
+}
+
+.ft-jb-file-icon {
+	display: flex;
+	color: var(--text-accent);
+}
+
+.ft-jb-file-title {
+	margin: 0;
+	font-size: var(--font-ui-large);
+}
+
+.ft-jb-file-desc {
+	color: var(--text-muted);
+	margin: 0 0 var(--size-4-4);
+}
+
+.ft-jb-file-info {
+	display: flex;
+	gap: var(--size-4-2);
+	flex-wrap: wrap;
+	margin-bottom: var(--size-4-4);
+}
+
+.ft-jb-file-badge {
+	font-size: var(--font-ui-smaller);
+	padding: var(--size-2-1) var(--size-4-2);
+	border-radius: var(--radius-s);
+	background: var(--background-modifier-hover);
+	color: var(--text-muted);
+}
+
+.ft-jb-file-actions {
+	display: flex;
+	gap: var(--size-4-2);
+}
+
+.ft-jb-file-action-btn {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	padding: var(--size-4-2) var(--size-4-3);
+	border-radius: var(--radius-s);
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	cursor: pointer;
+	font-size: var(--font-ui-small);
+}
+
+.ft-jb-file-action-btn:hover {
+	background: var(--interactive-accent-hover);
+}

@@ -24,7 +24,6 @@ export class JourneyBuilderService {
 	private unsubExport: (() => void) | undefined;
 	private unsubCanvasSync: (() => void) | undefined;
 	private unsubImport: (() => void) | undefined;
-	private unsubListFiles: (() => void) | undefined;
 
 	constructor(deps: JourneyBuilderServiceDeps) {
 		this.fileSystem = deps.fileSystem;
@@ -46,10 +45,6 @@ export class JourneyBuilderService {
 			"journey-builder.import-requested",
 			(event) => void this.handleImport(event.payload),
 		);
-		this.unsubListFiles = this.eventBus.on(
-			"journey-builder.list-files.requested",
-			() => void this.handleListFiles(),
-		);
 	}
 
 	/** Stops listening. */
@@ -60,8 +55,6 @@ export class JourneyBuilderService {
 		this.unsubCanvasSync = undefined;
 		this.unsubImport?.();
 		this.unsubImport = undefined;
-		this.unsubListFiles?.();
-		this.unsubListFiles = undefined;
 	}
 
 	/** Builds the JSON content from an export payload. */
@@ -148,18 +141,6 @@ export class JourneyBuilderService {
 			}
 		} catch (err) {
 			console.error("[JourneyBuilderService] Export failed:", err);
-		}
-	}
-
-	private async handleListFiles(): Promise<void> {
-		try {
-			const folder = this.getSettings().journeyFolder;
-			await this.fileSystem.ensureFolder(folder);
-			const allFiles = await this.fileSystem.listFiles(folder);
-			const journeyFiles = allFiles.filter((f) => f.endsWith(".journey.json"));
-			void this.eventBus.emit("journey-builder.list-files.response", { files: journeyFiles });
-		} catch {
-			void this.eventBus.emit("journey-builder.list-files.response", { files: [] });
 		}
 	}
 

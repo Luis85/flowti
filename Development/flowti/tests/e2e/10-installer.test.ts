@@ -1,7 +1,7 @@
 /**
  * E2E Chapter 2: Installer Wizard
  *
- * Driven by declarative JSON config — see journeys/installer.journey.json
+ * Driven by declarative JSON config — see journeys/installer.journey
  * for step definitions and actions.
  *
  * Skip-mode: when the vault is already installed and E2E_RUN_INSTALLER
@@ -15,7 +15,7 @@ import { executeJourney } from "./helpers/journeyExecutor";
 import type { JourneyDefinition } from "./helpers/journeyTypes";
 import { createFixture, shouldRunInstaller } from "./helpers/fixtures";
 
-const configPath = path.join(__dirname, "journeys", "installer.journey.json");
+const configPath = path.join(__dirname, "journeys", "installer.journey");
 const definition = JSON.parse(fs.readFileSync(configPath, "utf-8")) as JourneyDefinition;
 
 // ── Skip-mode detection ──────────────────────────────────────

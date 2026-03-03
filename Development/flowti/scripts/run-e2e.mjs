@@ -261,12 +261,12 @@ async function teardownVault() {
 
 function loadJourneyEntries() {
 	const files = fs.readdirSync(JOURNEYS_DIR)
-		.filter((f) => f.endsWith(".journey.json"))
+		.filter((f) => f.endsWith(".journey"))
 		.sort();
 
 	return files.map((f) => {
 		const def = JSON.parse(fs.readFileSync(path.join(JOURNEYS_DIR, f), "utf-8"));
-		const slug = f.replace(".journey.json", "");
+		const slug = f.replace(".journey", "");
 		return {
 			slug,
 			name: def.journey ?? slug,
@@ -354,7 +354,7 @@ async function promptStepFilter(rl, selectedSlugs) {
 	const stepFilter = {};
 
 	for (const slug of selectedSlugs) {
-		const journeyPath = path.join(JOURNEYS_DIR, `${slug}.journey.json`);
+		const journeyPath = path.join(JOURNEYS_DIR, `${slug}.journey`);
 		if (!fs.existsSync(journeyPath)) {
 			stepFilter[slug] = "all";
 			continue;

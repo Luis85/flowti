@@ -517,7 +517,7 @@ export async function teardown(): Promise<void> {
 	// The run-e2e wrapper re-enables the plugin after teardown for report viewing,
 	// and resetting to installed=false would trigger the installer wizard.
 	// Instead, the reset happens at the START of the next installer run:
-	//   - prerequisites.journey.json step 05 resets data.json
+	//   - prerequisites.journey step 05 resets data.json
 	//   - globalSetup.ts clears vault content in installer mode
 	console.log("[e2e] Installer state preserved (reset happens at start of next installer run).");
 

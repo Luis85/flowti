@@ -88,9 +88,9 @@
 			"title": "Open Journey Builder via ribbon",
 			"guideSection": 2,
 			"swimlane": "customer",
-			"description": "Clicks the Journey Builder ribbon button. Sidebar opens on the right with welcome screen showing Create New and Open Existing cards.",
-			"expectedInput": "Plugin enabled, Journey Builder closed",
-			"expectedOutput": "Journey Builder sidebar leaf exists with welcome screen visible in right pane",
+			"description": "Clicks the Journey Builder ribbon button. Sidebar opens on the right with empty welcome screen showing Create First Journey button and import links.",
+			"expectedInput": "Plugin enabled, Journey Builder closed, no existing journeys in vault",
+			"expectedOutput": "Journey Builder sidebar leaf exists with empty welcome state visible in right pane",
 			"uiContext": {
 				"view": "flowti-journey-builder",
 				"viewName": "Journey Builder",
@@ -105,11 +105,11 @@
 				{ "tool": "wait", "ms": 500, "description": "Wait for sidebar to open" },
 				{
 					"tool": "parallel-group",
-					"description": "Verify sidebar opened with welcome screen",
+					"description": "Verify sidebar opened with empty welcome state",
 					"actions": [
 						{ "tool": "assert", "type": "leaf", "viewType": "flowti-journey-builder", "description": "Journey Builder sidebar leaf exists" },
-						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-open-existing']", "description": "Open Existing button is visible" },
-						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-create-new']", "description": "Create New button is visible" }
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-empty-welcome']", "description": "Empty welcome state is visible" },
+						{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-create-new']", "description": "Create first journey button is visible" }
 					]
 				},
 				{
@@ -120,7 +120,7 @@
 				},
 				{ "tool": "highlight", "selector": ".workspace-leaf-content[data-type='flowti-journey-builder']", "style": "element", "description": "Highlight sidebar", "duration": 500 },
 				{ "tool": "screenshot", "label": "after-ribbon", "description": "Journey Builder open via ribbon" },
-				{ "tool": "manual", "instruction": "Verify the ribbon button has a route icon. The sidebar should appear in the right pane with two action cards: Open Existing Journey and Create New Journey.", "interactive": false, "description": "Visual QA of ribbon-triggered state" }
+				{ "tool": "manual", "instruction": "Verify the ribbon button has a route icon. The sidebar should appear in the right pane with an empty welcome state: a 'Create first journey' button and 'or import from vault' / 'or browse from file system' links.", "interactive": false, "description": "Visual QA of ribbon-triggered state" }
 			]
 		},
 		{
@@ -595,9 +595,9 @@
 				{ "tool": "set-input", "selector": "[data-test-id='jb-step-title-input']", "value": "Open the user hub", "description": "Revert step title to trigger a fresh canvas sync" },
 				{ "tool": "wait", "ms": 2000, "description": "Wait for canvas sync debounce (1500ms) to fire" },
 				{ "tool": "assert", "type": "event", "event": "journey-builder.canvas.synced", "description": "Canvas sync event was emitted" },
-				{ "tool": "eval", "code": "(async () => await app.vault.adapter.exists('journeys/E2E Demo Journey.canvas'))()", "expect": { "type": "equals", "value": "true" }, "description": "Companion canvas file exists" },
-				{ "tool": "eval", "code": "(async () => { const json = await app.vault.adapter.read('journeys/E2E Demo Journey.canvas'); const data = JSON.parse(json); return data.nodes?.some(n => n.text?.includes('Start')) && data.nodes?.some(n => n.type === 'group') ? 'valid' : 'invalid'; })()", "expect": { "type": "equals", "value": "valid" }, "description": "Canvas contains START node and step groups" },
-				{ "tool": "open-file", "path": "journeys/E2E Demo Journey.canvas", "description": "Open the companion canvas" },
+				{ "tool": "eval", "code": "(async () => await app.vault.adapter.exists('03 - Resources/Journeys/E2E Demo Journey/E2E Demo Journey.canvas'))()", "expect": { "type": "equals", "value": "true" }, "description": "Companion canvas file exists" },
+				{ "tool": "eval", "code": "(async () => { const json = await app.vault.adapter.read('03 - Resources/Journeys/E2E Demo Journey/E2E Demo Journey.canvas'); const data = JSON.parse(json); return data.nodes?.some(n => n.text?.includes('Start')) && data.nodes?.some(n => n.type === 'group') ? 'valid' : 'invalid'; })()", "expect": { "type": "equals", "value": "valid" }, "description": "Canvas contains START node and step groups" },
+				{ "tool": "open-file", "path": "03 - Resources/Journeys/E2E Demo Journey/E2E Demo Journey.canvas", "description": "Open the companion canvas" },
 				{ "tool": "wait", "ms": 1000, "description": "Wait for canvas to render" },
 				{ "tool": "screenshot", "label": "canvas-sync", "description": "Companion canvas generated from journey definition" },
 				{ "tool": "manual", "instruction": "Verify the canvas shows a left-to-right flow: START circle (green) with journey name, step group nodes for each step (with titles and config), and an END circle. The layout should match the test-runner canvas output. Step groups should contain config text nodes with step metadata.", "interactive": false, "description": "Visual QA of canvas sync" }
@@ -608,7 +608,7 @@
 			"title": "Full export — JSON, test file, and canvas",
 			"guideSection": 11,
 			"swimlane": "backstage",
-			"description": "Exports the complete journey as three files: a .journey.json with the full definition, a .test.ts executor wrapper, and a .canvas companion file. Verifies all three files are created in the vault.",
+			"description": "Exports the complete journey as three files: a .journey with the full definition, a .test.ts executor wrapper, and a .canvas companion file. Verifies all three files are created in the vault.",
 			"expectedInput": "Journey Builder with fully configured steps and actions",
 			"expectedOutput": "Three files created: journey JSON, test executor, companion canvas",
 			"uiContext": {
@@ -625,12 +625,12 @@
 				{ "tool": "click", "selector": "[data-test-id='jb-export-btn']", "description": "Click Export button" },
 				{ "tool": "wait", "ms": 1000, "description": "Wait for all three files to be written" },
 				{ "tool": "assert", "type": "event", "event": "journey-builder.exported", "description": "Export event emitted" },
-				{ "tool": "eval", "code": "(async () => await app.vault.adapter.exists('journeys/E2E Demo Journey.journey.json'))()", "expect": { "type": "equals", "value": "true" }, "description": "Journey JSON file exists" },
+				{ "tool": "eval", "code": "(async () => await app.vault.adapter.exists('03 - Resources/Journeys/E2E Demo Journey/E2E Demo Journey.journey'))()", "expect": { "type": "equals", "value": "true" }, "description": "Journey JSON file exists" },
 				{ "tool": "eval", "code": "(async () => await app.vault.adapter.exists('tests/e2e/90-journey-e2e-demo-journey.test.ts'))()", "expect": { "type": "equals", "value": "true" }, "description": "Test executor file exists" },
-				{ "tool": "eval", "code": "(async () => await app.vault.adapter.exists('journeys/E2E Demo Journey.canvas'))()", "expect": { "type": "equals", "value": "true" }, "description": "Companion canvas file exists" },
-				{ "tool": "eval", "code": "(async () => { const json = await app.vault.adapter.read('journeys/E2E Demo Journey.journey.json'); const def = JSON.parse(json); return def.steps?.[0]?.actions?.length > 0 ? 'has-actions' : 'empty'; })()", "expect": { "type": "equals", "value": "has-actions" }, "description": "Exported JSON includes step actions" },
+				{ "tool": "eval", "code": "(async () => await app.vault.adapter.exists('03 - Resources/Journeys/E2E Demo Journey/E2E Demo Journey.canvas'))()", "expect": { "type": "equals", "value": "true" }, "description": "Companion canvas file exists" },
+				{ "tool": "eval", "code": "(async () => { const json = await app.vault.adapter.read('03 - Resources/Journeys/E2E Demo Journey/E2E Demo Journey.journey'); const def = JSON.parse(json); return def.steps?.[0]?.actions?.length > 0 ? 'has-actions' : 'empty'; })()", "expect": { "type": "equals", "value": "has-actions" }, "description": "Exported JSON includes step actions" },
 				{ "tool": "screenshot", "label": "full-export", "description": "Full 3-file export complete" },
-				{ "tool": "manual", "instruction": "Verify three files were created: (1) .journey.json with full step definitions including actions, (2) .test.ts with executeJourney boilerplate, (3) .canvas matching the canvas sync output. The event trace should show journey-builder.exported followed by file.create events.", "interactive": false, "description": "Visual QA of full export" }
+				{ "tool": "manual", "instruction": "Verify three files were created: (1) .journey with full step definitions including actions, (2) .test.ts with executeJourney boilerplate, (3) .canvas matching the canvas sync output. The event trace should show journey-builder.exported followed by file.create events.", "interactive": false, "description": "Visual QA of full export" }
 			]
 		},
 		{
@@ -667,7 +667,7 @@
 				{ "tool": "click", "selector": "[data-test-id='jb-back-btn']", "description": "Navigate back from steps to setup" },
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "click", "selector": "[data-test-id='jb-back-btn']", "description": "Navigate back from setup to welcome" },
-				{ "tool": "wait", "ms": 300 },
+				{ "tool": "wait", "ms": 300, "description": "Wait for welcome cards to render" },
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-open-existing']", "description": "Open Existing card is visible" },
 				{ "tool": "click", "selector": "[data-test-id='jb-open-existing']", "description": "Click Open Existing" },
 				{ "tool": "wait", "ms": 500, "description": "Wait for file picker modal" },
@@ -729,7 +729,7 @@
 				{ "tool": "assert", "type": "event", "event": "journey-builder.preview.completed", "description": "Preview completed event emitted" },
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-preview-results']", "description": "Preview results panel is visible" },
 				{ "tool": "screenshot", "label": "preview-results", "description": "Preview run results in sidebar" },
-				{ "tool": "open-file", "path": "journeys/E2E Demo Journey.canvas", "description": "Open the updated canvas" },
+				{ "tool": "open-file", "path": "03 - Resources/Journeys/E2E Demo Journey/E2E Demo Journey.canvas", "description": "Open the updated canvas" },
 				{ "tool": "wait", "ms": 1000 },
 				{ "tool": "screenshot", "label": "preview-canvas", "description": "Canvas with live pass/fail coloring from preview run" },
 				{ "tool": "notice", "message": "Journey Builder journey complete!", "duration": 5000 },
@@ -750,8 +750,8 @@
 				{ "tool": "close-leaves", "viewType": "flowti-journey-builder", "description": "Close Journey Builder sidebar" },
 				{ "tool": "close-leaves", "viewType": "canvas", "description": "Close any open canvas leaves" },
 				{ "tool": "wait", "ms": 300 },
-				{ "tool": "delete-file", "path": "journeys/E2E Demo Journey.journey.json", "description": "Delete exported journey JSON" },
-				{ "tool": "delete-file", "path": "journeys/E2E Demo Journey.canvas", "description": "Delete companion canvas" },
+				{ "tool": "delete-file", "path": "03 - Resources/Journeys/E2E Demo Journey/E2E Demo Journey.journey", "description": "Delete exported journey JSON" },
+				{ "tool": "delete-file", "path": "03 - Resources/Journeys/E2E Demo Journey/E2E Demo Journey.canvas", "description": "Delete companion canvas" },
 				{ "tool": "delete-file", "path": "tests/e2e/90-journey-e2e-demo-journey.test.ts", "description": "Delete generated test executor" },
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "write-run-log", "message": "- Journey Builder: teardown complete\n" },

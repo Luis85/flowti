@@ -5,7 +5,7 @@
  * Usage (in a .test.ts file):
  *
  *   import { executeJourney } from "./helpers/journeyExecutor";
- *   import definition from "./journeys/canvas-session.journey.json";
+ *   import definition from "./journeys/canvas-session.journey";
  *   executeJourney(definition);
  *
  * The executor handles:
@@ -54,12 +54,29 @@ function writeRunLog(cli: ObsidianCli, message: string): void {
 	}
 }
 
+/**
+ * Replaces `- [ ] **title**…` with `- [x] **title**…` (or keeps `- [ ]` on failure)
+ * in the run log file. Falls back to appending if read/write fails.
+ */
+function completeRunLogTodo(cli: ObsidianCli, openLine: string, passed: boolean): void {
+	const closedLine = passed ? openLine.replace("- [ ]", "- [x]") : openLine;
+	try {
+		const content = cli.readFile("E2E Test Run.md");
+		if (content.includes(openLine)) {
+			cli.createFileOverwrite("E2E Test Run.md", content.replace(openLine, closedLine));
+		}
+	} catch {
+		// Best-effort — fall back to append
+		writeRunLog(cli, closedLine);
+	}
+}
+
 /** Returns true if any action in the step is a `write-run-log` tool. */
 function hasExplicitRunLog(step: StepDefinition): boolean {
 	return step.actions.some((a) => a.tool === "write-run-log");
 }
 
-/** Directory containing *.journey.json files. */
+/** Directory containing *.journey files. */
 const JOURNEYS_DIR = path.join(__dirname, "..", "journeys");
 
 // ── Options ─────────────────────────────────────────────────────────
@@ -89,7 +106,7 @@ function resolveSteps(steps: StepOrRef[], seen = new Set<string>()): StepDefinit
 			resolved.push(step);
 			continue;
 		}
-		const jsonFile = `${step.ref}.journey.json`;
+		const jsonFile = `${step.ref}.journey`;
 		if (seen.has(jsonFile)) {
 			throw new Error(`Circular journey ref: ${step.ref}`);
 		}
@@ -114,7 +131,7 @@ function collectRefTools(steps: StepOrRef[]): ToolName[] {
 	const tools = new Set<ToolName>();
 	for (const step of steps) {
 		if (isJourneyRef(step)) {
-			const jsonFile = `${step.ref}.journey.json`;
+			const jsonFile = `${step.ref}.journey`;
 			const refPath = path.join(JOURNEYS_DIR, jsonFile);
 			const refDef: JourneyDefinition = JSON.parse(fs.readFileSync(refPath, "utf-8"));
 			for (const t of refDef.tools ?? []) tools.add(t);
@@ -613,8 +630,7 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 						6000,
 					);
 					if (!hasExplicitRunLog(step)) {
-						const checkbox = status === "pass" ? "x" : " ";
-						writeRunLog(cli, `- [${checkbox}] **${step.title}** _(dev)_`);
+						completeRunLogTodo(cli, `- [ ] **${step.title}** _(dev)_`, status === "pass");
 					}
 					// Dev steps don't assert — failure is expected at the frontier
 					return;
@@ -627,10 +643,9 @@ export function executeJourney(definition: JourneyDefinition, options?: ExecuteJ
 					cli.styledNotice(`\u2718 ${step.title}`, "error", 8000);
 				}
 
-				// Auto-log step result unless the step has explicit write-run-log actions
+				// Auto-log step result — update the in-progress todo to completed
 				if (!hasExplicitRunLog(step)) {
-					const checkbox = status === "pass" ? "x" : " ";
-					writeRunLog(cli, `- [${checkbox}] **${step.title}**`);
+					completeRunLogTodo(cli, `- [ ] **${step.title}**`, status === "pass");
 				}
 
 				expect(status).toBe("pass");

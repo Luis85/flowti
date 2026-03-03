@@ -1,7 +1,7 @@
 /**
  * E2E Chapter 1: Prerequisites
  *
- * Driven by declarative JSON config — see journeys/prerequisites.journey.json
+ * Driven by declarative JSON config — see journeys/prerequisites.journey
  * for step definitions and actions.
  *
  * Handles skip-mode detection: when a previous run passed (anchor file),
@@ -22,7 +22,7 @@ import {
 	openActivityLog,
 } from "./helpers/fixtures";
 
-const configPath = path.join(__dirname, "journeys", "prerequisites.journey.json");
+const configPath = path.join(__dirname, "journeys", "prerequisites.journey");
 const definition = JSON.parse(fs.readFileSync(configPath, "utf-8")) as JourneyDefinition;
 
 // ── Skip-mode detection (before any describe block) ──────────

@@ -164,7 +164,7 @@ export interface JourneyDefinition {
 
 /** References another journey — its steps are flattened into the parent at resolution time. */
 export interface JourneyRefStep {
-	/** Filename stem of the referenced journey. e.g. "getting-started" → getting-started.journey.json */
+	/** Filename stem of the referenced journey. e.g. "getting-started" → getting-started.journey */
 	ref: string;
 	/** Why this journey is included (documentation only). */
 	description?: string;

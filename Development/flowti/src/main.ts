@@ -63,6 +63,7 @@ import { TrainHubView, VIEW_TYPE_TRAIN_HUB } from "./ui/train/TrainHubView";
 import { AnalyticsHubView, VIEW_TYPE_ANALYTICS_HUB } from "./ui/analytics/AnalyticsHubView";
 import { CanvasSessionService } from "./domain/canvas/session/CanvasSessionService";
 import { JourneyBuilderSidebar, VIEW_TYPE_JOURNEY_BUILDER } from "./ui/journeyBuilder/JourneyBuilderSidebar";
+import { JourneyFileView, VIEW_TYPE_JOURNEY_FILE } from "./ui/journeyBuilder/JourneyFileView";
 import { JourneyBuilderService } from "./domain/journeyBuilder/JourneyBuilderService";
 import { EVENT_CATALOG } from "./infrastructure/events/catalog";
 import { showNudgeNotification } from "./ui/shared/NudgeNotification";
@@ -869,18 +870,19 @@ export default class FlowtiBasePlugin extends Plugin {
 				eventBus: this.eventBus,
 				getEventNames: () => EVENT_CATALOG.map((e) => e.type),
 				getCommands: () => this.commands.getCommandsMeta().map((c) => ({ id: c.id, label: c.label })),
-				getJourneyFiles: () => new Promise<string[]>((resolve) => {
-					const unsub = this.eventBus.on("journey-builder.list-files.response", (event) => {
-						unsub();
-						clearTimeout(timer);
-						resolve(event.payload.files);
-					});
-					const timer = setTimeout(() => { unsub(); resolve([]); }, 5000);
-					void this.eventBus.emit("journey-builder.list-files.requested", {});
-				}),
 				getJourneyFolder: () => settingsService.getSettings().journeyFolder,
 			}),
 		);
+
+		// Journey File View — opens .journey files with summary + sidebar
+		this.safeRegisterView(VIEW_TYPE_JOURNEY_FILE, (leaf) =>
+			new JourneyFileView(leaf, this.eventBus, () => settingsService.getSettings().journeyFolder),
+		);
+		try {
+			this.registerExtensions(["journey"], VIEW_TYPE_JOURNEY_FILE);
+		} catch {
+			// Extension may already be registered
+		}
 
 		// Seed supplier dashboard and init onboarding after first-run install
 		this.crossCuttingListeners.push(

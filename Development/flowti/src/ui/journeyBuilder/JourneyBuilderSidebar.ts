@@ -77,7 +77,6 @@ export interface JourneyBuilderSidebarDeps {
 	eventBus: IEventBus;
 	getEventNames?: () => string[];
 	getCommands?: () => { id: string; label: string }[];
-	getJourneyFiles?: () => Promise<string[]>;
 	getJourneyFolder?: () => string;
 }
 
@@ -87,7 +86,6 @@ export class JourneyBuilderSidebar extends ItemView {
 	private readonly eventBus: IEventBus;
 	private readonly getEventNames: (() => string[]) | undefined;
 	private readonly getCommands: (() => { id: string; label: string }[]) | undefined;
-	private readonly getJourneyFiles: (() => Promise<string[]>) | undefined;
 	private readonly getJourneyFolder: (() => string) | undefined;
 	private state: SidebarState = "welcome";
 	private metadata: JourneyMetadata = { name: "", description: "", startEvent: "" };
@@ -109,12 +107,20 @@ export class JourneyBuilderSidebar extends ItemView {
 		this.eventBus = deps.eventBus;
 		this.getEventNames = deps.getEventNames;
 		this.getCommands = deps.getCommands;
-		this.getJourneyFiles = deps.getJourneyFiles;
 		this.getJourneyFolder = deps.getJourneyFolder;
 	}
 
 	private journeyFolder(): string {
 		return this.getJourneyFolder?.() ?? "03 - Resources/Journeys";
+	}
+
+	/** Returns .journey file paths from the vault's in-memory index. */
+	private findJourneyFiles(scope: "folder" | "vault" = "folder"): string[] {
+		const files = this.app?.vault?.getFiles() ?? [];
+		const journeyFiles = files.filter((f) => f.path.endsWith(".journey"));
+		if (scope === "vault") return journeyFiles.map((f) => f.path);
+		const folder = this.journeyFolder();
+		return journeyFiles.filter((f) => f.path.startsWith(folder + "/")).map((f) => f.path);
 	}
 
 	getViewType(): string {
@@ -221,15 +227,9 @@ export class JourneyBuilderSidebar extends ItemView {
 
 		this.renderHeader(el);
 
-		if (this.getJourneyFiles) {
-			void this.getJourneyFiles().then((paths) => {
-				if (this.state !== "welcome") return; // navigated away
-				if (paths.length > 0) {
-					this.renderWelcomeCards(el);
-				} else {
-					this.renderEmptyState(el);
-				}
-			});
+		const journeyFiles = this.findJourneyFiles("folder");
+		if (journeyFiles.length > 0) {
+			this.renderWelcomeCards(el);
 		} else {
 			this.renderEmptyState(el);
 		}
@@ -333,7 +333,7 @@ export class JourneyBuilderSidebar extends ItemView {
 		setIcon(importIcon, "file-input");
 		const importTitle = importCard.createDiv({ cls: "ft-jb-card-title", text: "Import definition" });
 		importTitle.dataset.testId = "jb-card-title";
-		const importDesc = importCard.createDiv({ cls: "ft-jb-card-desc", text: "Import a .journey.json from your vault or file system" });
+		const importDesc = importCard.createDiv({ cls: "ft-jb-card-desc", text: "Import a .journey file from your vault or file system" });
 		importDesc.dataset.testId = "jb-card-desc";
 		importCard.addEventListener("click", () => this.onImportFile());
 		importCard.addEventListener("keydown", (e: KeyboardEvent) => {
@@ -617,28 +617,26 @@ export class JourneyBuilderSidebar extends ItemView {
 
 	private onOpenExisting(): void {
 		void this.eventBus.emit("journey-builder.open-existing", {});
-		if (!this.app || !this.getJourneyFiles) return;
-		void this.getJourneyFiles().then((paths) => {
-			if (paths.length === 0) return;
-			new JourneyPickerModal(this.app!, paths, (path) => {
-				this.renderLoading("Loading journey\u2026");
-				void this.eventBus.emit("journey-builder.import-requested", { path });
-			}).open();
-		});
+		if (!this.app) return;
+		const paths = this.findJourneyFiles("folder");
+		if (paths.length === 0) return;
+		new JourneyPickerModal(this.app, paths, (path) => {
+			this.renderLoading("Loading journey\u2026");
+			void this.eventBus.emit("journey-builder.import-requested", { path });
+		}).open();
 	}
 
 	private onImportFile(): void {
-		if (!this.app || !this.getJourneyFiles) return;
-		void this.getJourneyFiles().then((paths) => {
-			if (paths.length === 0) {
-				void this.eventBus.emit("notice.show", { message: "No .journey.json files found" });
-				return;
-			}
-			new JourneyPickerModal(this.app!, paths, (path) => {
-				this.renderLoading("Loading journey\u2026");
-				void this.eventBus.emit("journey-builder.import-requested", { path });
-			}).open();
-		});
+		if (!this.app) return;
+		const paths = this.findJourneyFiles("vault");
+		if (paths.length === 0) {
+			void this.eventBus.emit("notice.show", { message: "No .journey files found" });
+			return;
+		}
+		new JourneyPickerModal(this.app, paths, (path) => {
+			this.renderLoading("Loading journey\u2026");
+			void this.eventBus.emit("journey-builder.import-requested", { path });
+		}).open();
 	}
 
 	private importFromSystem(): void {
@@ -702,6 +700,7 @@ export class JourneyBuilderSidebar extends ItemView {
 		this.canvasOpenedPath = null;
 		this.renderSteps();
 		this.scheduleCanvasSync();
+		this.autoSaveDefinition();
 	}
 
 	private onCreateNew(): void {
@@ -719,7 +718,7 @@ export class JourneyBuilderSidebar extends ItemView {
 	private autoSaveDefinition(): void {
 		if (!this.metadata.name) return;
 		const subfolder = `${this.journeyFolder()}/${this.metadata.name}`;
-		const filePath = `${subfolder}/${this.metadata.name}.journey.json`;
+		const filePath = `${subfolder}/${this.metadata.name}.journey`;
 		void this.eventBus.emit("journey-builder.exported", {
 			path: filePath,
 			definition: this.buildDefinition(),
@@ -847,7 +846,7 @@ export class JourneyBuilderSidebar extends ItemView {
 		const name = this.metadata.name;
 		const slug = name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
 		const subfolder = `${this.journeyFolder()}/${name}`;
-		const filePath = `${subfolder}/${name}.journey.json`;
+		const filePath = `${subfolder}/${name}.journey`;
 		const testFilePath = `tests/e2e/90-journey-${slug}.test.ts`;
 		const canvasPath = `${subfolder}/${name}.canvas`;
 		const definition = this.buildDefinition();

@@ -58,10 +58,4 @@ export interface JourneyBuilderEventMap {
 	"journey-builder.imported": {
 		json: string;
 	};
-	/** Request to list journey files in the configured folder */
-	"journey-builder.list-files.requested": Record<string, never>;
-	/** Response with list of journey file paths */
-	"journey-builder.list-files.response": {
-		files: string[];
-	};
 }

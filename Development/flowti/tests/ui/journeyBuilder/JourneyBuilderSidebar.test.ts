@@ -73,7 +73,7 @@ describe("JourneyBuilderSidebar", () => {
 			expect(header!.textContent).toBe("Journey Builder");
 		});
 
-		it("renders empty state with create button when no getJourneyFiles", () => {
+		it("renders empty state with create button when vault has no journey files", () => {
 			const empty = byTestId(sidebar.contentEl, "jb-empty-welcome");
 			expect(empty).toBeTruthy();
 			const btn = byTestId(sidebar.contentEl, "jb-create-new");
@@ -121,13 +121,13 @@ describe("JourneyBuilderSidebar", () => {
 		beforeEach(async () => {
 			sidebarWithJourneys = new JourneyBuilderSidebar(createMockLeaf(), {
 				eventBus,
-				getJourneyFiles: async () => ["journeys/Test.journey.json"],
+				getJourneyFolder: () => "03 - Resources/Journeys",
 			});
+			// Mock vault.getFiles to return a .journey file in the configured folder
+			(sidebarWithJourneys as unknown as { app: { vault: { getFiles: () => { path: string }[] } } }).app.vault.getFiles = () => [
+				{ path: "03 - Resources/Journeys/Test/Test.journey" },
+			];
 			await sidebarWithJourneys.onOpen();
-			// Wait for async getJourneyFiles to resolve
-			await vi.waitFor(() => {
-				expect(byTestId(sidebarWithJourneys.contentEl, "jb-open-existing")).toBeTruthy();
-			});
 		});
 
 		it("renders welcome cards when journeys exist", () => {
@@ -174,7 +174,7 @@ describe("JourneyBuilderSidebar", () => {
 			const title = card!.querySelector("[data-test-id='jb-card-title']");
 			const desc = card!.querySelector("[data-test-id='jb-card-desc']");
 			expect(title!.textContent).toBe("Import definition");
-			expect(desc!.textContent).toContain("Import a .journey.json");
+			expect(desc!.textContent).toContain("Import a .journey");
 		});
 
 		it("supports keyboard activation with Enter on Import Definition", () => {
