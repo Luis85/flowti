@@ -9,11 +9,11 @@
 export type JourneyToolName =
 	| "command" | "click" | "input" | "set-input" | "highlight"
 	| "wait" | "screenshot" | "navigate" | "assert" | "assert-text"
-	| "assert-number" | "emit" | "eval" | "manual" | "notice"
-	| "theme" | "ribbon" | "create-file" | "delete-file" | "open-file"
-	| "open-url" | "close-leaves" | "close-modals" | "seed"
-	| "frontmatter" | "query-trace" | "write-run-log" | "scroll-to"
-	| "visual-inspection" | "spinner";
+	| "assert-number" | "assert-value" | "emit" | "eval" | "manual" | "notice"
+	| "theme" | "ribbon" | "create-file" | "delete-file" | "copy-file"
+	| "move-file" | "open-file" | "open-url" | "close-leaves" | "close-modals"
+	| "seed" | "select" | "frontmatter" | "query-trace" | "write-run-log"
+	| "scroll-to" | "visual-inspection" | "spinner";
 
 /** A single action in a journey step. */
 export interface JourneyAction {

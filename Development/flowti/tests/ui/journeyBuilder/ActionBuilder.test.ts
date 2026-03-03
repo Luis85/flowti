@@ -290,13 +290,13 @@ describe("ToolPicker", () => {
 		expect(labels).toEqual(TOOL_CATEGORIES.map((c) => c.label));
 	});
 
-	it("has options for all 30 tools", () => {
+	it("has options for all 34 tools", () => {
 		new ToolPicker(container, { onToolSelected: vi.fn() }).render();
 
 		const select = byTestId(container, "jb-tool-select") as HTMLSelectElement;
-		// total options = 1 placeholder + 30 tools
+		// total options = 1 placeholder + 34 tools
 		const toolOptions = Array.from(select.querySelectorAll("optgroup option"));
-		expect(toolOptions).toHaveLength(30);
+		expect(toolOptions).toHaveLength(34);
 	});
 
 	it("option values match tool names", () => {

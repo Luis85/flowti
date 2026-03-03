@@ -5,9 +5,9 @@ import type { JourneyToolName, ToolCategory } from "../../../src/domain/journeyB
 const ALL_TOOL_NAMES: JourneyToolName[] = [
 	"command", "click", "input", "set-input", "highlight",
 	"wait", "screenshot", "navigate", "assert", "assert-text",
-	"assert-number", "emit", "eval", "manual", "notice",
-	"theme", "ribbon", "create-file", "delete-file", "open-file",
-	"open-url", "close-leaves", "close-modals", "seed",
+	"assert-number", "assert-value", "emit", "eval", "manual", "notice",
+	"theme", "ribbon", "select", "create-file", "delete-file", "copy-file",
+	"move-file", "open-file", "open-url", "close-leaves", "close-modals", "seed",
 	"frontmatter", "query-trace", "write-run-log", "scroll-to",
 	"visual-inspection", "spinner",
 ];
@@ -16,8 +16,8 @@ const VALID_FIELD_TYPES = new Set(["text", "number", "select", "textarea"]);
 const VALID_CATEGORIES: ToolCategory[] = ["interaction", "assertion", "lifecycle", "feedback", "data"];
 
 describe("TOOL_SCHEMAS", () => {
-	it("has exactly 30 tool entries", () => {
-		expect(Object.keys(TOOL_SCHEMAS)).toHaveLength(30);
+	it("has exactly 34 tool entries", () => {
+		expect(Object.keys(TOOL_SCHEMAS)).toHaveLength(34);
 	});
 
 	it("has an entry for every JourneyToolName", () => {
@@ -122,19 +122,19 @@ describe("TOOL_CATEGORIES", () => {
 describe("getToolsByCategory", () => {
 	it("returns interaction tools sorted by label", () => {
 		const tools = getToolsByCategory("interaction");
-		expect(tools.length).toBe(8);
+		expect(tools.length).toBe(9);
 		const labels = tools.map((t) => t.label);
 		expect(labels).toEqual([...labels].sort());
 	});
 
 	it("returns assertion tools", () => {
 		const tools = getToolsByCategory("assertion");
-		expect(tools.length).toBe(3);
+		expect(tools.length).toBe(4);
 	});
 
 	it("returns lifecycle tools", () => {
 		const tools = getToolsByCategory("lifecycle");
-		expect(tools.length).toBe(7);
+		expect(tools.length).toBe(9);
 	});
 
 	it("returns feedback tools", () => {

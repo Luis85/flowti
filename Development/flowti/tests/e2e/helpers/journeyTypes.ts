@@ -40,6 +40,8 @@ export type ToolName =
 	| "close-leaves"
 	| "close-modals"
 	| "seed"
+	| "copy-file"
+	| "move-file"
 	// Input tools
 	| "set-input"
 	// Frontmatter tools
@@ -55,6 +57,9 @@ export type ToolName =
 	// Assert tools
 	| "assert-text"
 	| "assert-number"
+	| "assert-value"
+	// Dropdown tools
+	| "select"
 	// Spinner tools
 	| "spinner";
 
@@ -246,6 +251,8 @@ export type ActionDefinition =
 	| CloseLeavesAction
 	| CloseModalsAction
 	| SeedAction
+	| CopyFileAction
+	| MoveFileAction
 	| RibbonAction
 	// Input tools
 	| SetInputAction
@@ -262,6 +269,9 @@ export type ActionDefinition =
 	// Assert tools
 	| AssertTextAction
 	| AssertNumberAction
+	| AssertValueAction
+	// Dropdown tools
+	| SelectAction
 	// Spinner tools
 	| SpinnerAction;
 
@@ -489,6 +499,24 @@ export interface SeedAction {
 	description?: string;
 }
 
+export interface CopyFileAction {
+	tool: "copy-file";
+	/** Source file path. Absolute or vault-relative. Supports {{variable}} interpolation. */
+	from: string;
+	/** Destination file path. Absolute or vault-relative. Supports {{variable}} interpolation. */
+	to: string;
+	description?: string;
+}
+
+export interface MoveFileAction {
+	tool: "move-file";
+	/** Source file path. Absolute or vault-relative. Supports {{variable}} interpolation. */
+	from: string;
+	/** Destination file path. Absolute or vault-relative. Supports {{variable}} interpolation. */
+	to: string;
+	description?: string;
+}
+
 export interface WriteRunLogAction {
 	tool: "write-run-log";
 	/** The log line to append to E2E Test Run.md. Supports {{variable}} interpolation. */
@@ -554,6 +582,26 @@ export interface VisualInspectionAction {
 	timeout?: number;
 	/** If false, skip the notice prompt and auto-approve — the step appears only on reports. Default: true. */
 	interactive?: boolean;
+	description?: string;
+}
+
+export interface AssertValueAction {
+	tool: "assert-value";
+	/** CSS selector for the input, textarea, or select element. */
+	selector: string;
+	/** Expected exact value (checked via el.value === expected). */
+	equals?: string;
+	/** Expected substring (checked via el.value.includes(substr)). */
+	contains?: string;
+	description?: string;
+}
+
+export interface SelectAction {
+	tool: "select";
+	/** CSS selector for the <select> element. */
+	selector: string;
+	/** The option value to select. */
+	value: string;
 	description?: string;
 }
 

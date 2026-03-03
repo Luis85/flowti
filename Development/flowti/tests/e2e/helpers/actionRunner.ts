@@ -7,7 +7,7 @@
  */
 import * as path from "node:path";
 import type { ObsidianCli } from "../../../src/infrastructure/cli/ObsidianCli";
-import type { ActionDefinition, AssertAction, AssertNumberAction, AssertTextAction, CloseLeavesAction, CreateFileAction, DeleteFileAction, EmitAction, EvalAction, FrontmatterAction, ManualAction, NoticeAction, OpenFileAction, OpenUrlAction, QueryTraceAction, RibbonAction, ScreenshotAction, ScrollToAction, SeedAction, SetInputAction, SpinnerAction, ThemeAction, VisualInspectionAction, WriteRunLogAction } from "./journeyTypes";
+import type { ActionDefinition, AssertAction, AssertNumberAction, AssertTextAction, AssertValueAction, CloseLeavesAction, CopyFileAction, CreateFileAction, DeleteFileAction, EmitAction, EvalAction, FrontmatterAction, ManualAction, MoveFileAction, NoticeAction, OpenFileAction, OpenUrlAction, QueryTraceAction, RibbonAction, ScreenshotAction, ScrollToAction, SeedAction, SelectAction, SetInputAction, SpinnerAction, ThemeAction, VisualInspectionAction, WriteRunLogAction } from "./journeyTypes";
 import type { ManualVerification } from "./journey";
 import { getAllSeeds, getSeedById, SEED_FOLDERS } from "./seedRegistry";
 import { highlightElement, highlightButton, highlightInput, highlightRibbon, highlightWebView, highlightAssert, notifyAssert } from "./highlight";
@@ -163,6 +163,12 @@ export async function executeAction(
 		case "assert-number":
 			executeAssertNumber(cli, action, variables);
 			break;
+		case "assert-value":
+			executeAssertValue(cli, action, variables);
+			break;
+		case "select":
+			executeSelect(cli, action, variables);
+			break;
 		case "emit":
 			executeEmit(cli, action, variables);
 			break;
@@ -181,6 +187,12 @@ export async function executeAction(
 			break;
 		case "delete-file":
 			executeDeleteFile(cli, action, variables);
+			break;
+		case "copy-file":
+			executeCopyFile(cli, action, variables);
+			break;
+		case "move-file":
+			executeMoveFile(cli, action, variables);
 			break;
 		case "open-file":
 			executeOpenFile(cli, action, variables);
@@ -446,6 +458,57 @@ function executeAssertNumber(cli: ObsidianCli, action: AssertNumberAction, varia
 	}
 }
 
+function executeAssertValue(cli: ObsidianCli, action: AssertValueAction, variables: Record<string, string>): void {
+	const selector = resolve(action.selector, variables);
+	const desc = action.description ?? "";
+	const sel = escapeSelector(selector);
+	const result = cli.eval(
+		`(() => { const el = document.querySelector('${sel}'); return el ? el.value : null; })()`,
+	);
+	if (!result.success || result.value === "null") {
+		notifyAssert(cli, false, desc || `value: ${selector}`);
+		throw new Error(`Element '${selector}' not found or has no value property`);
+	}
+	const actual = result.value;
+	if (action.equals !== undefined) {
+		const expected = resolve(action.equals, variables);
+		const passed = actual === expected;
+		highlightAssert(cli, selector, passed, desc || `value equals "${expected}"`);
+		if (!passed) {
+			throw new Error(`Expected value '${expected}', got '${actual}' on '${selector}'`);
+		}
+	} else if (action.contains !== undefined) {
+		const substr = resolve(action.contains, variables);
+		const passed = actual.includes(substr);
+		highlightAssert(cli, selector, passed, desc || `value contains "${substr}"`);
+		if (!passed) {
+			throw new Error(`Expected value to contain '${substr}', got '${actual}' on '${selector}'`);
+		}
+	} else {
+		throw new Error("assert-value requires either 'equals' or 'contains'");
+	}
+}
+
+function executeSelect(cli: ObsidianCli, action: SelectAction, variables: Record<string, string>): void {
+	const selector = resolve(action.selector, variables);
+	const value = resolve(action.value, variables);
+	const sel = escapeSelector(selector);
+	const escapedValue = value.replace(/'/g, "\\'");
+	highlightInput(cli, selector, INTERACTION_HIGHLIGHT_MS);
+	const result = cli.eval([
+		"(() => {",
+		`  const el = document.querySelector('${sel}');`,
+		"  if (!el) throw new Error('Select not found');",
+		"  if (!(el instanceof HTMLSelectElement)) throw new Error('Element is not a <select>');",
+		`  el.value = '${escapedValue}';`,
+		"  el.dispatchEvent(new Event('change', { bubbles: true }));",
+		"})()",
+	].join(" "));
+	if (!result.success) {
+		throw new Error(`select failed on '${selector}': ${result.error}`);
+	}
+}
+
 function executeEmit(cli: ObsidianCli, action: EmitAction, variables: Record<string, string>): void {
 	const event = resolve(action.event, variables);
 	const payload = resolvePayload(action.payload, variables);
@@ -563,6 +626,50 @@ function executeDeleteFile(cli: ObsidianCli, action: DeleteFileAction, variables
 		cli.deleteFile(filePath);
 	} catch {
 		// File may not exist — silent no-op matches original behavior
+	}
+}
+
+function executeCopyFile(cli: ObsidianCli, action: CopyFileAction, variables: Record<string, string>): void {
+	const from = resolve(action.from, variables);
+	const to = resolve(action.to, variables);
+	const escapedFrom = from.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+	const escapedTo = to.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+	const result = cli.eval([
+		"(() => {",
+		"  const fs = require('fs');",
+		"  const p = require('path');",
+		`  const base = app.vault.adapter.basePath;`,
+		`  const src = p.isAbsolute('${escapedFrom}') ? '${escapedFrom}' : p.join(base, '${escapedFrom}');`,
+		`  const dst = p.isAbsolute('${escapedTo}') ? '${escapedTo}' : p.join(base, '${escapedTo}');`,
+		"  fs.mkdirSync(p.dirname(dst), { recursive: true });",
+		"  fs.copyFileSync(src, dst);",
+		"  return 'ok';",
+		"})()",
+	].join(" "));
+	if (!result.success) {
+		throw new Error(`copy-file failed: ${result.error}`);
+	}
+}
+
+function executeMoveFile(cli: ObsidianCli, action: MoveFileAction, variables: Record<string, string>): void {
+	const from = resolve(action.from, variables);
+	const to = resolve(action.to, variables);
+	const escapedFrom = from.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+	const escapedTo = to.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+	const result = cli.eval([
+		"(() => {",
+		"  const fs = require('fs');",
+		"  const p = require('path');",
+		`  const base = app.vault.adapter.basePath;`,
+		`  const src = p.isAbsolute('${escapedFrom}') ? '${escapedFrom}' : p.join(base, '${escapedFrom}');`,
+		`  const dst = p.isAbsolute('${escapedTo}') ? '${escapedTo}' : p.join(base, '${escapedTo}');`,
+		"  fs.mkdirSync(p.dirname(dst), { recursive: true });",
+		"  fs.renameSync(src, dst);",
+		"  return 'ok';",
+		"})()",
+	].join(" "));
+	if (!result.success) {
+		throw new Error(`move-file failed: ${result.error}`);
 	}
 }
 

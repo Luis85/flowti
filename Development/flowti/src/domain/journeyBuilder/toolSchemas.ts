@@ -16,7 +16,7 @@ export const TOOL_CATEGORIES: { id: ToolCategory; label: string }[] = [
 	{ id: "data", label: "Data" },
 ];
 
-/** Schema definitions for all 30 journey tools. */
+/** Schema definitions for all 34 journey tools. */
 export const TOOL_SCHEMAS: Record<JourneyToolName, ToolSchemaDef> = {
 	// ── Interaction ──
 	command: {
@@ -116,6 +116,16 @@ export const TOOL_SCHEMAS: Record<JourneyToolName, ToolSchemaDef> = {
 		],
 	},
 
+	select: {
+		name: "select",
+		label: "Select",
+		category: "interaction",
+		fields: [
+			{ key: "selector", label: "CSS Selector", type: "text", required: true, placeholder: "e.g. select.my-dropdown" },
+			{ key: "value", label: "Value", type: "text", required: true, placeholder: "Option value to select" },
+		],
+	},
+
 	// ── Assertion ──
 	assert: {
 		name: "assert",
@@ -169,6 +179,17 @@ export const TOOL_SCHEMAS: Record<JourneyToolName, ToolSchemaDef> = {
 		],
 	},
 
+	"assert-value": {
+		name: "assert-value",
+		label: "Assert Value",
+		category: "assertion",
+		fields: [
+			{ key: "selector", label: "CSS Selector", type: "text", required: true, placeholder: "e.g. input.my-field" },
+			{ key: "equals", label: "Equals", type: "text", placeholder: "Exact value match" },
+			{ key: "contains", label: "Contains", type: "text", placeholder: "Substring match" },
+		],
+	},
+
 	// ── Lifecycle ──
 	"create-file": {
 		name: "create-file",
@@ -186,6 +207,24 @@ export const TOOL_SCHEMAS: Record<JourneyToolName, ToolSchemaDef> = {
 		category: "lifecycle",
 		fields: [
 			{ key: "path", label: "Path", type: "text", required: true, placeholder: "Vault-relative path" },
+		],
+	},
+	"copy-file": {
+		name: "copy-file",
+		label: "Copy File",
+		category: "lifecycle",
+		fields: [
+			{ key: "from", label: "From", type: "text", required: true, placeholder: "Source path (absolute or vault-relative)" },
+			{ key: "to", label: "To", type: "text", required: true, placeholder: "Destination path (absolute or vault-relative)" },
+		],
+	},
+	"move-file": {
+		name: "move-file",
+		label: "Move File",
+		category: "lifecycle",
+		fields: [
+			{ key: "from", label: "From", type: "text", required: true, placeholder: "Source path (absolute or vault-relative)" },
+			{ key: "to", label: "To", type: "text", required: true, placeholder: "Destination path (absolute or vault-relative)" },
 		],
 	},
 	"open-file": {
