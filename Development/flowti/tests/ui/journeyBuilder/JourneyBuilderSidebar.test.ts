@@ -636,6 +636,56 @@ describe("JourneyBuilderSidebar", () => {
 		});
 	});
 
+	describe("JSON panel live update", () => {
+		beforeEach(async () => {
+			await sidebar.onOpen();
+			byTestId(sidebar.contentEl, "jb-create-new")!.click();
+			byTestId(sidebar.contentEl, "jb-continue-btn")!.click();
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+		});
+
+		it("JSON content updates when step title changes", () => {
+			// Expand JSON panel
+			byTestId(sidebar.contentEl, "jb-json-toggle")!.click();
+			const jsonContent = byTestId(sidebar.contentEl, "jb-json-content")!;
+			const before = jsonContent.textContent!;
+
+			// Edit step title
+			const titleInput = byTestId(sidebar.contentEl, "jb-step-title-input") as HTMLInputElement;
+			setInputValue(titleInput, "My updated step");
+
+			const after = jsonContent.textContent!;
+			expect(after).not.toBe(before);
+			expect(after).toContain("My updated step");
+		});
+
+		it("JSON content updates when step description changes", () => {
+			byTestId(sidebar.contentEl, "jb-json-toggle")!.click();
+			const jsonContent = byTestId(sidebar.contentEl, "jb-json-content")!;
+
+			const descEl = byTestId(sidebar.contentEl, "jb-step-description") as HTMLTextAreaElement;
+			setInputValue(descEl, "A new description");
+
+			expect(jsonContent.textContent).toContain("A new description");
+		});
+
+		it("JSON content updates when end event changes", () => {
+			byTestId(sidebar.contentEl, "jb-json-toggle")!.click();
+			const jsonContent = byTestId(sidebar.contentEl, "jb-json-content")!;
+
+			const endInput = byTestId(sidebar.contentEl, "jb-end-event-input") as HTMLInputElement;
+			setInputValue(endInput, "session.ended");
+
+			expect(jsonContent.textContent).toContain("session.ended");
+		});
+
+		it("renders copy button in JSON panel header", () => {
+			const copyBtn = byTestId(sidebar.contentEl, "jb-json-copy");
+			expect(copyBtn).toBeTruthy();
+			expect(copyBtn!.getAttribute("role")).toBe("button");
+		});
+	});
+
 	describe("cleanup", () => {
 		it("onClose completes without error", async () => {
 			await sidebar.onOpen();

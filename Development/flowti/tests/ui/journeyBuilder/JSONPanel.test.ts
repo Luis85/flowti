@@ -77,4 +77,70 @@ describe("JSONPanel", () => {
 		const chevron = byTestId(container, "jb-json-chevron");
 		expect(chevron!.textContent).toBe("▾");
 	});
+
+	it("renders copy button with correct test-id", () => {
+		new JSONPanel(container, deps).render();
+		const btn = byTestId(container, "jb-json-copy");
+		expect(btn).toBeTruthy();
+		expect(btn!.getAttribute("role")).toBe("button");
+		expect(btn!.getAttribute("aria-label")).toBe("Copy JSON");
+	});
+
+	it("copy button does not toggle the panel", () => {
+		new JSONPanel(container, deps).render();
+		const panel = byTestId(container, "jb-json-panel")!;
+		expect(panel.classList.contains("ft-hidden")).toBe(true);
+		const copyBtn = byTestId(container, "jb-json-copy")!;
+		copyBtn.click();
+		// Panel should still be collapsed — click was stopPropagated
+		expect(panel.classList.contains("ft-hidden")).toBe(true);
+	});
+
+	it("copy button calls navigator.clipboard.writeText", async () => {
+		const writeText = vi.fn().mockResolvedValue(undefined);
+		vi.stubGlobal("navigator", { clipboard: { writeText } });
+		new JSONPanel(container, deps).render();
+		byTestId(container, "jb-json-copy")!.click();
+		expect(writeText).toHaveBeenCalledWith(sampleJSON);
+		vi.unstubAllGlobals();
+	});
+
+	it("copy button calls onCopied callback", async () => {
+		const onCopied = vi.fn();
+		vi.stubGlobal("navigator", { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
+		deps.onCopied = onCopied;
+		new JSONPanel(container, deps).render();
+		byTestId(container, "jb-json-copy")!.click();
+		await vi.waitFor(() => expect(onCopied).toHaveBeenCalledOnce());
+		vi.unstubAllGlobals();
+	});
+
+	it("update() refreshes content without rebuilding DOM", () => {
+		let counter = 0;
+		deps.getJSON = vi.fn(() => {
+			counter++;
+			return counter === 1 ? sampleJSON : '{"updated":true}';
+		});
+		const panel = new JSONPanel(container, deps);
+		panel.render();
+		expect(byTestId(container, "jb-json-content")!.textContent).toBe(sampleJSON);
+		panel.update();
+		expect(byTestId(container, "jb-json-content")!.textContent).toBe('{"updated":true}');
+	});
+
+	it("update() preserves collapse state", () => {
+		const panel = new JSONPanel(container, deps);
+		panel.render();
+		byTestId(container, "jb-json-toggle")!.click(); // expand
+		const panelEl = byTestId(container, "jb-json-panel")!;
+		expect(panelEl.classList.contains("ft-hidden")).toBe(false);
+		panel.update();
+		// Panel should still be expanded after update
+		expect(panelEl.classList.contains("ft-hidden")).toBe(false);
+	});
+
+	it("update() is a no-op before render", () => {
+		const panel = new JSONPanel(container, deps);
+		expect(() => panel.update()).not.toThrow();
+	});
 });

@@ -71,7 +71,8 @@
       "Bash(npm run test:e2e:getting-started)",
       "Bash(npm run test:e2e -- --journey=getting-started)",
       "Bash(node -c scripts/generate-e2e-report.mjs)",
-      "Bash(obsidian --help)"
+      "Bash(obsidian --help)",
+      "Bash(npm run test:e2e:journey-builder)"
     ]
   }
 }

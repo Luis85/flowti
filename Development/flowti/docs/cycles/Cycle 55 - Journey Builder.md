@@ -23,11 +23,11 @@ estimated_loc: 2120
 estimated_tests: 275
 pre_cycle_tests: 6195
 pre_cycle_suites: 265
-actual_increments: 6
-actual_loc: 2388
-actual_tests: 132
+actual_increments: 7
+actual_loc: 2438
+actual_tests: 143
 actual_suites: 6
-post_cycle_tests: 6327
+post_cycle_tests: 6338
 post_cycle_suites: 271
 ---
 
@@ -61,14 +61,14 @@ post_cycle_suites: 271
 | [[Development/flowti/tests/e2e/helpers/journeyTypes.ts\|StepDefinition]] | Journey step type system (JourneyDefinition, StepDefinition, JourneyStep) | ~200 |
 | Canvas improvements | Yellow cards in report pipeline | ~35 |
 
-### Current State (After Inc 5)
+### Current State (After Inc 6)
 
 | Component | Status | LOC |
 |-----------|--------|-----|
-| JourneyBuilderSidebar | Orchestrator: 3 states, Title Sentence conversion, preview spans | 545 |
+| JourneyBuilderSidebar | Orchestrator: 3 states, Title Sentence conversion, preview spans, live JSON update | 549 |
 | NavBar | Step navigation: prev/next, counter, add step | 92 |
 | StepCard | Step card: title, description, swimlane, action count, remove | 110 |
-| JSONPanel | Collapsible JSON preview | 54 |
+| JSONPanel | Collapsible JSON preview, copy-to-clipboard, live update() | 95 |
 | ActionList | Action list: add/remove/reorder/select | 138 |
 | ToolPicker | Grouped tool select (5 categories, 34 tools) | 63 |
 | ActionForm | Schema-driven generic form for any tool | 103 |
@@ -77,9 +77,9 @@ post_cycle_suites: 271
 | types.ts | JourneyAction, ToolSchemaDef, 5 categories | 45 |
 | toolSchemas.ts | 34 tool schemas (fields, categories, labels) | 411 |
 | eventNameUtils.ts | Title Sentence → dot-notation conversion + preview helper | 27 |
-| 17-journey-builder.css | Full styling for sidebar, cards, forms, preview | 687 |
-| **Total source** | | **2,388** |
-| **Total tests** | 8 suites, 203 tests | **1,974** |
+| 17-journey-builder.css | Full styling for sidebar, cards, forms, copy button | 697 |
+| **Total source** | | **2,438** |
+| **Total tests** | 8 suites, 214 tests | **2,024** |
 
 ### Carried Forward from C54
 
@@ -337,10 +337,10 @@ Real-time JSON preview panel:
 - [x] JSON panel renders valid, formatted JSON
 - [x] Real-time updates (on re-render)
 - [x] Collapsible with toggle button
-- [ ] Copy-to-clipboard
+- [x] Copy-to-clipboard
 - [x] `npm test` green
 
-**Status**: Core done (Inc 0). JSONPanel (54 LOC, 8 tests) renders collapsible JSON preview. Updates on each render cycle. Debounce and copy-to-clipboard are polish items.
+**Status**: Done (Inc 0 + Inc 6). JSONPanel (95 LOC, 15 tests) — collapsible preview, copy-to-clipboard with icon feedback, `update()` for live content refresh. Sidebar wires `update()` on step field, end event, and action field changes. JB-006 fully complete.
 
 ### Inc 9: Canvas Sync — JSON → Canvas (PBI-JB-007)
 **Theme**: Feature
@@ -426,19 +426,19 @@ Inc 10 (Export + Open)   ──→ After Inc 9 (needs canvas generator)
 
 ## Success Metrics
 
-| Metric | Target | Actual (after Inc 5) |
+| Metric | Target | Actual (after Inc 6) |
 |---|---|---|
-| New tests | ~275 | 132 (48%) |
-| Post-cycle tests | ~6,470 | 6,327 |
+| New tests | ~275 | 143 (52%) |
+| Post-cycle tests | ~6,470 | 6,338 |
 | New suites | — | 6 |
 | New files | ~15 | 12 (8 src + 4 test, excl. CSS) |
-| Source LOC | ~2,120 | 2,388 |
-| PBIs delivered | 9 | 3 partial (JB-001, JB-002, JB-006) |
+| Source LOC | ~2,120 | 2,438 |
+| PBIs delivered | 9 | 2 partial (JB-001, JB-002) + 1 done (JB-006) |
 | Action builder tool coverage | 26/26 tools | 34/34 tools |
 | Event autocomplete coverage | 360+ events | Pre-work done (Title Sentence conversion) |
 | Export file types | 3 (JSON + .test.ts + .canvas) | 1 (JSON only) |
 | Canvas sync latency | < 1s from edit to canvas update | Not started |
-| Increments | ~10 | 6 completed |
+| Increments | ~10 | 7 completed |
 
 ## Actual Progress
 
@@ -452,6 +452,7 @@ Inc 10 (Export + Open)   ──→ After Inc 9 (needs canvas generator)
 | 3 | Feature | Action Builder — ActionList, ToolPicker, ActionForm, toolSchemas | 54 | Schema-driven forms for 30 tools, 5 categories, add/remove/reorder |
 | 4 | Feature | Step Metadata Fields — description textarea, swimlane dropdown | 11 | StepCard extended, `onStepFieldChanged` generic handler |
 | 5 | Feature / Tooling | Tool Reference enhancements (examples, params), copy-file + move-file tools, assert-value + select domain sync, Title Sentence → event name conversion | 15 | 34 tools, toolCatalog params/examples, `eventNameUtils.ts`, preview spans |
+| 6 | Feature / Polish | JSON Preview completion — copy-to-clipboard button, live `update()` on field changes, JSON preview promoted from dev to active (now step 8) | 11 | JSONPanel copy + live update (54→95 LOC), JB-006 fully done |
 
 ### Unplanned Work Delivered
 
@@ -472,7 +473,7 @@ Work not in the original plan but delivered organically during the cycle:
 | JB-003 | Event Autocomplete | Pre-work | Title Sentence conversion done. Dropdown autocomplete not started. |
 | JB-004 | Command Picker | Not started | |
 | JB-005 | Assert Builder | Not started | |
-| JB-006 | Live JSON Preview | Partial | Panel renders + collapses. Copy-to-clipboard pending. |
+| JB-006 | Live JSON Preview | Done | Panel, collapse, copy-to-clipboard, live update on field changes. 15 tests. |
 | JB-007 | Canvas Sync | Not started | |
 | JB-009 | Export | Partial | JSON export works. .test.ts + .canvas generation pending. |
 | JB-010 | Open Existing Journey | Not started | |

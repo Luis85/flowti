@@ -53,6 +53,7 @@ export class JourneyBuilderSidebar extends ItemView {
 	private currentStepIndex = 0;
 	private selectedActionIndex = -1;
 	private showToolPicker = false;
+	private jsonPanel: JSONPanel | null = null;
 
 	constructor(leaf: WorkspaceLeaf, deps: JourneyBuilderSidebarDeps) {
 		super(leaf);
@@ -344,13 +345,15 @@ export class JourneyBuilderSidebar extends ItemView {
 				? `\u2192 ${converted}`
 				: "";
 			this.emitMetadataUpdate("endEvent", converted);
+			this.jsonPanel?.update();
 		});
 
 		// JSONPanel — collapsible preview
 		const jsonContainer = el.createDiv({ cls: "ft-jb-json-container" });
-		new JSONPanel(jsonContainer, {
+		this.jsonPanel = new JSONPanel(jsonContainer, {
 			getJSON: () => JSON.stringify(this.buildDefinition(), null, "\t"),
-		}).render();
+		});
+		this.jsonPanel.render();
 
 		// Export button
 		this.renderActionButton(el, {
@@ -459,6 +462,7 @@ export class JourneyBuilderSidebar extends ItemView {
 				field,
 				value,
 			});
+			this.jsonPanel?.update();
 		}
 	}
 
@@ -530,6 +534,7 @@ export class JourneyBuilderSidebar extends ItemView {
 		} else {
 			action[key] = value;
 		}
+		this.jsonPanel?.update();
 	}
 
 	private onExport(): void {

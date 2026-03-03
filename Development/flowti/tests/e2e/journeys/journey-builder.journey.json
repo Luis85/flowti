@@ -1,6 +1,6 @@
 {
 	"journey": "Journey Builder",
-	"description": "Full E2E blueprint for the Journey Builder feature. Steps 1-7 validate the current implementation (launch, welcome/setup flow, step editing with navigation, Title Sentence conversion, JSON preview, export, action builder with 34 tools). Steps 8-13 are development targets: smart inputs, canvas sync, full 3-file export, open existing, and preview run.",
+	"description": "Full E2E blueprint for the Journey Builder feature. Steps 1-8 validate the current implementation (launch, welcome/setup flow, step editing with navigation, Title Sentence conversion, export, action builder with 34 tools, live JSON preview with copy-to-clipboard). Steps 9-13 are development targets: smart inputs, canvas sync, full 3-file export, open existing, and preview run.",
 	"testSource": "tests/e2e/90-journey-journey-builder.test.ts",
 	"reportPath": "docs/journeys/Journey Builder/Journey Builder.md",
 	"canvasPath": "docs/journeys/Journey Builder/Journey Builder.canvas",
@@ -425,9 +425,44 @@
 			]
 		},
 		{
-			"id": "08-smart-inputs",
-			"title": "Event autocomplete and command picker",
+			"id": "08-json-preview",
+			"title": "Live JSON preview panel",
 			"guideSection": 8,
+			"swimlane": "frontstage",
+			"description": "Toggles the JSON preview panel at the bottom of the sidebar. Verifies the panel shows valid, formatted JSON that reflects the current journey definition. Tests copy-to-clipboard, then makes an edit and confirms the JSON updates live.",
+			"expectedInput": "Step editor with steps and actions configured",
+			"expectedOutput": "JSON preview panel visible with valid, formatted journey definition",
+			"uiContext": {
+				"view": "flowti-journey-builder",
+				"viewName": "Journey Builder",
+				"components": ["JourneyBuilderSidebar", "JSONPanel"]
+			},
+			"events": [],
+			"interactions": ["click: Toggle JSON", "click: Copy to clipboard"],
+			"actions": [
+				{ "tool": "notice", "message": "Step 8/13: Live JSON preview", "duration": 3000 },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-json-toggle']", "description": "JSON toggle button is visible" },
+				{ "tool": "click", "selector": "[data-test-id='jb-json-toggle']", "description": "Toggle JSON preview open" },
+				{ "tool": "wait", "ms": 300, "description": "Wait for panel to open" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-json-panel']", "description": "JSON panel is visible" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-json-content']", "description": "JSON content is visible" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-json-copy']", "description": "Copy to clipboard button is visible" },
+				{ "tool": "eval", "code": "(() => { const el = document.querySelector('[data-test-id=\"jb-json-content\"]'); if (!el) return 'missing'; try { JSON.parse(el.textContent); return 'valid'; } catch { return 'invalid'; } })()", "expect": { "type": "equals", "value": "valid" }, "description": "JSON content is valid JSON" },
+				{ "tool": "screenshot", "label": "json-preview", "description": "JSON preview panel showing formatted journey definition" },
+				{ "tool": "click", "selector": "[data-test-id='jb-json-copy']", "description": "Click copy to clipboard button" },
+				{ "tool": "wait", "ms": 300, "description": "Wait for copy feedback" },
+				{ "tool": "screenshot", "label": "json-copied", "description": "Copy button feedback after click" },
+				{ "tool": "set-input", "selector": "[data-test-id='jb-step-title-input']", "value": "Open the user hub (updated)", "description": "Edit step title to trigger JSON update" },
+				{ "tool": "wait", "ms": 500, "description": "Wait for live JSON update" },
+				{ "tool": "eval", "code": "(() => { const el = document.querySelector('[data-test-id=\"jb-json-content\"]'); if (!el) return 'missing'; try { const def = JSON.parse(el.textContent); return def.steps?.some(s => s.title?.includes('updated')) ? 'updated' : 'stale'; } catch { return 'error'; } })()", "expect": { "type": "equals", "value": "updated" }, "description": "JSON reflects the title edit" },
+				{ "tool": "screenshot", "label": "json-updated", "description": "JSON preview updated after title edit" },
+				{ "tool": "manual", "instruction": "Verify the JSON panel shows a formatted journey definition in monospace font. After editing the step title, the JSON should update live to reflect the change. The copy button should provide visual feedback when clicked.", "interactive": false, "description": "Visual QA of JSON preview" }
+			]
+		},
+		{
+			"id": "09-smart-inputs",
+			"title": "Event autocomplete and command picker",
+			"guideSection": 9,
 			"swimlane": "frontstage",
 			"dev": true,
 			"description": "Tests the smart input features: typing a partial event name shows an autocomplete dropdown, command actions get a command picker, and assert actions get a guided type-specific form.",
@@ -455,7 +490,7 @@
 				}
 			],
 			"actions": [
-				{ "tool": "notice", "message": "Step 8/13: Smart inputs — autocomplete and pickers", "duration": 3000 },
+				{ "tool": "notice", "message": "Step 9/13: Smart inputs — autocomplete and pickers", "duration": 3000 },
 				{ "tool": "click", "selector": "[data-test-id='jb-nav-setup']", "description": "Navigate back to setup form" },
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "click", "selector": "[data-test-id='jb-start-event-input']", "description": "Focus start event input" },
@@ -483,39 +518,6 @@
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-assert-event-input']", "description": "Event name input with autocomplete is visible" },
 				{ "tool": "screenshot", "label": "assert-builder", "description": "Assert builder with type-specific fields" },
 				{ "tool": "manual", "instruction": "Verify: (1) Event autocomplete showed a dropdown with categorized results when typing. (2) Command picker showed registered commands with IDs and display names. (3) Assert builder showed type picker and rendered event-specific fields (event name with autocomplete).", "interactive": false, "description": "Visual QA of smart inputs" }
-			]
-		},
-		{
-			"id": "09-json-preview",
-			"title": "Live JSON preview panel",
-			"guideSection": 9,
-			"swimlane": "frontstage",
-			"dev": true,
-			"description": "Toggles the JSON preview panel at the bottom of the sidebar. Verifies the panel shows valid, formatted JSON that reflects the current journey definition. Makes an edit and confirms the JSON updates in real-time.",
-			"expectedInput": "Step editor with steps and actions configured",
-			"expectedOutput": "JSON preview panel visible with valid, formatted journey definition",
-			"uiContext": {
-				"view": "flowti-journey-builder",
-				"viewName": "Journey Builder",
-				"components": ["JourneyBuilderSidebar", "JSONPanel"]
-			},
-			"events": [],
-			"interactions": ["click: Toggle JSON", "click: Copy to clipboard"],
-			"actions": [
-				{ "tool": "notice", "message": "Step 9/13: Live JSON preview", "duration": 3000 },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-json-toggle']", "description": "JSON toggle button is visible" },
-				{ "tool": "click", "selector": "[data-test-id='jb-json-toggle']", "description": "Toggle JSON preview open" },
-				{ "tool": "wait", "ms": 500, "description": "Wait for panel to render" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-json-panel']", "description": "JSON panel is visible" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-json-content']", "description": "JSON content is visible" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-json-copy']", "description": "Copy to clipboard button is visible" },
-				{ "tool": "eval", "code": "(() => { const el = document.querySelector('[data-test-id=\"jb-json-content\"]'); if (!el) return 'missing'; try { JSON.parse(el.textContent); return 'valid'; } catch { return 'invalid'; } })()", "expect": { "type": "equals", "value": "valid" }, "description": "JSON content is valid JSON" },
-				{ "tool": "screenshot", "label": "json-preview", "description": "JSON preview panel showing formatted journey definition" },
-				{ "tool": "set-input", "selector": "[data-test-id='jb-step-title-input']", "value": "Open the user hub (updated)", "description": "Edit step title to trigger JSON update" },
-				{ "tool": "wait", "ms": 500, "description": "Wait for debounced JSON update" },
-				{ "tool": "eval", "code": "(() => { const el = document.querySelector('[data-test-id=\"jb-json-content\"]'); if (!el) return 'missing'; try { const def = JSON.parse(el.textContent); return def.steps?.some(s => s.title?.includes('updated')) ? 'updated' : 'stale'; } catch { return 'error'; } })()", "expect": { "type": "equals", "value": "updated" }, "description": "JSON reflects the title edit" },
-				{ "tool": "screenshot", "label": "json-updated", "description": "JSON preview updated after title edit" },
-				{ "tool": "manual", "instruction": "Verify the JSON panel shows a formatted, syntax-highlighted journey definition. After editing the step title, the JSON should update within ~300ms to reflect the change. A copy button should be visible at the top of the panel.", "interactive": false, "description": "Visual QA of JSON preview" }
 			]
 		},
 		{

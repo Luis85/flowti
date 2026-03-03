@@ -446,6 +446,17 @@
 	font-size: var(--font-ui-smaller);
 }
 
+.ft-jb-json-copy {
+	margin-left: auto;
+	cursor: pointer;
+	color: var(--text-faint);
+	transition: color 150ms ease;
+}
+
+.ft-jb-json-copy:hover {
+	color: var(--text-accent);
+}
+
 .ft-jb-json-content {
 	padding: var(--size-4-2);
 	border: 1px solid var(--background-modifier-border);
