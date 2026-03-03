@@ -1,6 +1,6 @@
 {
 	"journey": "Journey Builder",
-	"description": "Full E2E blueprint for the Journey Builder feature. Steps 1-8 validate the current implementation (launch, welcome/setup flow, step editing with navigation, Title Sentence conversion, export, action builder with 34 tools, live JSON preview with copy-to-clipboard). Steps 9-13 are development targets: smart inputs, canvas sync, full 3-file export, open existing, and preview run.",
+	"description": "Full E2E blueprint for the Journey Builder feature. Steps 1-9 validate the current implementation (launch, welcome/setup flow, step editing with navigation, Title Sentence conversion, export, action builder with 34 tools, live JSON preview with copy-to-clipboard, event autocomplete, command picker, assert type builder). Steps 10-13 are development targets: canvas sync, full 3-file export, open existing, and preview run.",
 	"testSource": "tests/e2e/90-journey-journey-builder.test.ts",
 	"reportPath": "docs/journeys/Journey Builder/Journey Builder.md",
 	"canvasPath": "docs/journeys/Journey Builder/Journey Builder.canvas",
@@ -464,7 +464,6 @@
 			"title": "Event autocomplete and command picker",
 			"guideSection": 9,
 			"swimlane": "frontstage",
-			"dev": true,
 			"description": "Tests the smart input features: typing a partial event name shows an autocomplete dropdown, command actions get a command picker, and assert actions get a guided type-specific form.",
 			"expectedInput": "Step editor with actions added",
 			"expectedOutput": "Start event selected via autocomplete, command updated via picker, assert action built with guided form",
@@ -492,8 +491,8 @@
 			"actions": [
 				{ "tool": "notice", "message": "Step 9/13: Smart inputs — autocomplete and pickers", "duration": 3000 },
 				{ "tool": "click", "selector": "[data-test-id='jb-nav-setup']", "description": "Navigate back to setup form" },
-				{ "tool": "wait", "ms": 300 },
-				{ "tool": "click", "selector": "[data-test-id='jb-start-event-input']", "description": "Focus start event input" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-setup-form']", "description": "Setup form is visible after nav-setup click" },
 				{ "tool": "set-input", "selector": "[data-test-id='jb-start-event-input']", "value": "hub.nav", "description": "Type partial event name" },
 				{ "tool": "wait", "ms": 500, "description": "Wait for autocomplete dropdown" },
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-autocomplete-dropdown']", "description": "Autocomplete dropdown appeared" },

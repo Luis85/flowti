@@ -33,6 +33,8 @@ export interface ToolFieldDef {
 	required?: boolean;
 	placeholder?: string;
 	options?: { value: string; label: string }[];
+	/** When set, field is only visible if action[field] matches one of values. */
+	visibleWhen?: { field: string; values: string[] };
 }
 
 /** Complete tool schema entry. */

@@ -64,6 +64,7 @@ import { AnalyticsHubView, VIEW_TYPE_ANALYTICS_HUB } from "./ui/analytics/Analyt
 import { CanvasSessionService } from "./domain/canvas/session/CanvasSessionService";
 import { JourneyBuilderSidebar, VIEW_TYPE_JOURNEY_BUILDER } from "./ui/journeyBuilder/JourneyBuilderSidebar";
 import { JourneyBuilderService } from "./domain/journeyBuilder/JourneyBuilderService";
+import { EVENT_CATALOG } from "./infrastructure/events/catalog";
 import { showNudgeNotification } from "./ui/shared/NudgeNotification";
 import { openStartPage } from "./infrastructure/StartpageHandler";
 import { NoticeService } from "./infrastructure/ui/NoticeService";
@@ -863,7 +864,11 @@ export default class FlowtiBasePlugin extends Plugin {
 
 		// Journey Builder — sidebar for creating E2E journey definitions
 		this.safeRegisterView(VIEW_TYPE_JOURNEY_BUILDER, (leaf) =>
-			new JourneyBuilderSidebar(leaf, { eventBus: this.eventBus }),
+			new JourneyBuilderSidebar(leaf, {
+				eventBus: this.eventBus,
+				getEventNames: () => EVENT_CATALOG.map((e) => e.type),
+				getCommands: () => this.commands.getCommandsMeta().map((c) => ({ id: c.id, label: c.label })),
+			}),
 		);
 
 		// Seed supplier dashboard and init onboarding after first-run install

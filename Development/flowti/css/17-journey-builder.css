@@ -695,3 +695,69 @@
 	margin-top: var(--size-4-1);
 	padding-left: 28px;
 }
+
+/* ── Autocomplete dropdown ───────────────────────────────── */
+
+.ft-jb-autocomplete-anchor {
+	position: relative;
+}
+
+.ft-jb-autocomplete-dropdown {
+	position: absolute;
+	left: 0;
+	right: 0;
+	z-index: var(--layer-popover);
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	box-shadow: var(--shadow-s);
+	max-height: 200px;
+	overflow-y: auto;
+}
+
+.ft-jb-autocomplete-item {
+	padding: var(--size-4-1) var(--size-4-2);
+	cursor: pointer;
+	font-size: var(--font-ui-small);
+	font-family: var(--font-monospace);
+}
+
+.ft-jb-autocomplete-item:hover {
+	background: var(--background-modifier-hover);
+}
+
+/* ── Assert type picker ──────────────────────────────────── */
+
+.ft-jb-assert-type-picker {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-4-1);
+	margin-bottom: var(--size-4-2);
+}
+
+.ft-jb-assert-type-btn {
+	padding: var(--size-2-3) var(--size-4-2);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	cursor: pointer;
+	font-size: var(--font-ui-smaller);
+	background: var(--background-secondary);
+	color: var(--text-muted);
+	transition: border-color 120ms, background 120ms;
+}
+
+.ft-jb-assert-type-btn:hover {
+	border-color: var(--text-muted);
+}
+
+.ft-jb-assert-type-btn.is-active {
+	border-color: var(--interactive-accent);
+	background: var(--background-primary-alt);
+	color: var(--text-normal);
+}
+
+/* ── Command picker ──────────────────────────────────────── */
+
+.ft-jb-command-picker {
+	margin-bottom: var(--size-4-2);
+}

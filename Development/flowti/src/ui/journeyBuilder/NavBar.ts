@@ -16,6 +16,8 @@ export interface NavBarDeps {
 	onNext: () => void;
 	/** Called when user clicks "Add step". */
 	onAddStep: () => void;
+	/** Called when user clicks "Setup" to return to the setup form. */
+	onSetup?: () => void;
 }
 
 export class NavBar {
@@ -32,6 +34,22 @@ export class NavBar {
 		const { stepCount, currentIndex } = this.deps;
 		const hasPrev = stepCount > 0 && currentIndex > 0;
 		const hasNext = stepCount > 0 && currentIndex < stepCount - 1;
+
+		// Setup button (optional)
+		if (this.deps.onSetup) {
+			const setupBtn = bar.createSpan({ cls: "ft-jb-nav-btn" });
+			setupBtn.dataset.testId = "jb-nav-setup";
+			setupBtn.setAttribute("role", "button");
+			setupBtn.setAttribute("tabindex", "0");
+			setIcon(setupBtn, "settings");
+			setupBtn.addEventListener("click", () => this.deps.onSetup!());
+			setupBtn.addEventListener("keydown", (e: KeyboardEvent) => {
+				if (e.key === "Enter" || e.key === " ") {
+					e.preventDefault();
+					this.deps.onSetup!();
+				}
+			});
+		}
 
 		// Prev button
 		const prevBtn = bar.createSpan({ cls: `ft-jb-nav-btn${hasPrev ? "" : " is-disabled"}` });

@@ -13,6 +13,7 @@ import type { IEventBus } from "../../infrastructure/events/types";
 import type { JourneyAction, JourneyToolName } from "../../domain/journeyBuilder/types";
 import { TOOL_SCHEMAS } from "../../domain/journeyBuilder/toolSchemas";
 import { toEventName, isEventNameConverted } from "../../domain/journeyBuilder/eventNameUtils";
+import { attachEventSuggest } from "./EventSuggest";
 import { NavBar } from "./NavBar";
 import { StepCard } from "./StepCard";
 import { JSONPanel } from "./JSONPanel";
@@ -40,12 +41,16 @@ export interface JourneyStep {
 
 export interface JourneyBuilderSidebarDeps {
 	eventBus: IEventBus;
+	getEventNames?: () => string[];
+	getCommands?: () => { id: string; label: string }[];
 }
 
 let stepCounter = 0;
 
 export class JourneyBuilderSidebar extends ItemView {
 	private readonly eventBus: IEventBus;
+	private readonly getEventNames: (() => string[]) | undefined;
+	private readonly getCommands: (() => { id: string; label: string }[]) | undefined;
 	private state: SidebarState = "welcome";
 	private metadata: JourneyMetadata = { name: "", description: "", startEvent: "" };
 	private steps: JourneyStep[] = [];
@@ -54,10 +59,13 @@ export class JourneyBuilderSidebar extends ItemView {
 	private selectedActionIndex = -1;
 	private showToolPicker = false;
 	private jsonPanel: JSONPanel | null = null;
+	private suggestCleanups: (() => void)[] = [];
 
 	constructor(leaf: WorkspaceLeaf, deps: JourneyBuilderSidebarDeps) {
 		super(leaf);
 		this.eventBus = deps.eventBus;
+		this.getEventNames = deps.getEventNames;
+		this.getCommands = deps.getCommands;
 	}
 
 	getViewType(): string {
@@ -77,7 +85,7 @@ export class JourneyBuilderSidebar extends ItemView {
 	}
 
 	async onClose(): Promise<void> {
-		// Cleanup will be needed when we add event subscriptions
+		this.cleanupSuggests();
 	}
 
 	// ── Public accessors (for testing) ──────────────────────
@@ -190,7 +198,13 @@ export class JourneyBuilderSidebar extends ItemView {
 
 	// ── Render: Setup form ───────────────────────────────────
 
+	private cleanupSuggests(): void {
+		for (const cleanup of this.suggestCleanups) cleanup();
+		this.suggestCleanups = [];
+	}
+
 	private renderSetup(): void {
+		this.cleanupSuggests();
 		this.state = "setup";
 		const el = this.contentEl;
 		el.empty();
@@ -246,6 +260,15 @@ export class JourneyBuilderSidebar extends ItemView {
 			this.emitMetadataUpdate("startEvent", converted);
 		});
 
+		// Event autocomplete on start event
+		if (this.getEventNames) {
+			const unsub = attachEventSuggest(startInput, this.getEventNames, (value) => {
+				this.metadata.startEvent = value;
+				this.emitMetadataUpdate("startEvent", value);
+			});
+			this.suggestCleanups.push(unsub);
+		}
+
 		// Continue button
 		this.renderActionButton(el, {
 			testId: "jb-continue-btn",
@@ -259,6 +282,7 @@ export class JourneyBuilderSidebar extends ItemView {
 	// ── Render: Step editor ──────────────────────────────────
 
 	private renderSteps(): void {
+		this.cleanupSuggests();
 		this.state = "steps";
 		const el = this.contentEl;
 		el.empty();
@@ -275,6 +299,7 @@ export class JourneyBuilderSidebar extends ItemView {
 			onPrev: () => this.onNavPrev(),
 			onNext: () => this.onNavNext(),
 			onAddStep: () => this.onAddStep(),
+			onSetup: () => this.renderSetup(),
 		}).render();
 
 		// StepCard — active step (or empty state)
@@ -320,6 +345,9 @@ export class JourneyBuilderSidebar extends ItemView {
 						action,
 						schema,
 						onFieldChanged: (key, value) => this.onActionFieldChanged(key, value),
+						getEventNames: this.getEventNames,
+						getCommands: this.getCommands,
+						onReRender: () => this.renderSteps(),
 					}).render();
 				}
 			}
@@ -347,6 +375,16 @@ export class JourneyBuilderSidebar extends ItemView {
 			this.emitMetadataUpdate("endEvent", converted);
 			this.jsonPanel?.update();
 		});
+
+		// Event autocomplete on end event
+		if (this.getEventNames) {
+			const unsub = attachEventSuggest(endInput, this.getEventNames, (value) => {
+				this.endEvent = value;
+				this.emitMetadataUpdate("endEvent", value);
+				this.jsonPanel?.update();
+			});
+			this.suggestCleanups.push(unsub);
+		}
 
 		// JSONPanel — collapsible preview
 		const jsonContainer = el.createDiv({ cls: "ft-jb-json-container" });

@@ -692,4 +692,107 @@ describe("JourneyBuilderSidebar", () => {
 			await expect(sidebar.onClose()).resolves.toBeUndefined();
 		});
 	});
+
+	describe("event autocomplete", () => {
+		let sidebarWithEvents: JourneyBuilderSidebar;
+		const mockEvents = ["hub.opened", "hub.tab.changed", "user.created", "session.started"];
+
+		beforeEach(async () => {
+			sidebarWithEvents = new JourneyBuilderSidebar(createMockLeaf(), {
+				eventBus,
+				getEventNames: () => mockEvents,
+			});
+			await sidebarWithEvents.onOpen();
+		});
+
+		it("attaches autocomplete to start event input in setup form", () => {
+			// Navigate to setup
+			const createNew = byTestId(sidebarWithEvents.contentEl, "jb-create-new");
+			createNew!.click();
+
+			const startInput = byTestId(sidebarWithEvents.contentEl, "jb-start-event-input") as HTMLInputElement;
+			setInputValue(startInput, "hub");
+
+			const dropdown = sidebarWithEvents.contentEl.querySelector("[data-test-id='jb-autocomplete-dropdown']");
+			expect(dropdown).toBeTruthy();
+		});
+
+		it("autocomplete selection updates metadata", () => {
+			// Navigate to setup
+			byTestId(sidebarWithEvents.contentEl, "jb-create-new")!.click();
+
+			const startInput = byTestId(sidebarWithEvents.contentEl, "jb-start-event-input") as HTMLInputElement;
+			setInputValue(startInput, "hub");
+
+			const items = sidebarWithEvents.contentEl.querySelectorAll("[data-test-id='jb-autocomplete-item']");
+			expect(items.length).toBeGreaterThan(0);
+			(items[0] as HTMLElement).dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+
+			expect(sidebarWithEvents.getMetadata().startEvent).toBe("hub.opened");
+		});
+
+		it("attaches autocomplete to end event input in steps form", () => {
+			// Navigate to setup → steps
+			byTestId(sidebarWithEvents.contentEl, "jb-create-new")!.click();
+			byTestId(sidebarWithEvents.contentEl, "jb-continue-btn")!.click();
+
+			const endInput = byTestId(sidebarWithEvents.contentEl, "jb-end-event-input") as HTMLInputElement;
+			setInputValue(endInput, "session");
+
+			const dropdown = sidebarWithEvents.contentEl.querySelector("[data-test-id='jb-autocomplete-dropdown']");
+			expect(dropdown).toBeTruthy();
+		});
+
+		it("does not attach autocomplete when getEventNames is not provided", async () => {
+			// Default sidebar (no getEventNames)
+			await sidebar.onOpen();
+			byTestId(sidebar.contentEl, "jb-create-new")!.click();
+
+			const startInput = byTestId(sidebar.contentEl, "jb-start-event-input") as HTMLInputElement;
+			setInputValue(startInput, "hub");
+
+			const dropdown = sidebar.contentEl.querySelector("[data-test-id='jb-autocomplete-dropdown']");
+			expect(dropdown).toBeNull();
+		});
+	});
+
+	describe("nav setup button", () => {
+		beforeEach(async () => {
+			await sidebar.onOpen();
+			// Navigate to setup → steps
+			byTestId(sidebar.contentEl, "jb-create-new")!.click();
+			const nameInput = byTestId(sidebar.contentEl, "jb-name-input") as HTMLInputElement;
+			setInputValue(nameInput, "Test Journey");
+			byTestId(sidebar.contentEl, "jb-continue-btn")!.click();
+		});
+
+		it("renders setup button in NavBar", () => {
+			expect(byTestId(sidebar.contentEl, "jb-nav-setup")).toBeTruthy();
+		});
+
+		it("clicking setup button navigates to setup form", () => {
+			byTestId(sidebar.contentEl, "jb-nav-setup")!.click();
+			expect(sidebar.getSidebarState()).toBe("setup");
+			expect(byTestId(sidebar.contentEl, "jb-setup-form")).toBeTruthy();
+		});
+
+		it("preserves metadata when navigating back to setup", () => {
+			byTestId(sidebar.contentEl, "jb-nav-setup")!.click();
+			const nameInput = byTestId(sidebar.contentEl, "jb-name-input") as HTMLInputElement;
+			expect(nameInput.value).toBe("Test Journey");
+		});
+
+		it("preserves steps when navigating setup → steps → setup → steps", () => {
+			// Add a step first
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			expect(sidebar.getSteps().length).toBe(1);
+
+			// Go to setup and back
+			byTestId(sidebar.contentEl, "jb-nav-setup")!.click();
+			byTestId(sidebar.contentEl, "jb-continue-btn")!.click();
+
+			expect(sidebar.getSidebarState()).toBe("steps");
+			expect(sidebar.getSteps().length).toBe(1);
+		});
+	});
 });

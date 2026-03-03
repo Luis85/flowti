@@ -387,12 +387,12 @@ describe("ActionForm", () => {
 
 	it("renders select for select fields", () => {
 		new ActionForm(container, {
-			action: { tool: "assert", type: "visible" },
-			schema: TOOL_SCHEMAS.assert,
+			action: { tool: "assert-number", operator: "eq" },
+			schema: TOOL_SCHEMAS["assert-number"],
 			onFieldChanged: vi.fn(),
 		}).render();
 
-		const select = byTestId(container, "jb-action-field-type") as HTMLSelectElement;
+		const select = byTestId(container, "jb-action-field-operator") as HTMLSelectElement;
 		expect(select.tagName.toLowerCase()).toBe("select");
 	});
 
@@ -473,15 +473,15 @@ describe("ActionForm", () => {
 	it("calls onFieldChanged when select changes", () => {
 		const onFieldChanged = vi.fn();
 		new ActionForm(container, {
-			action: { tool: "assert", type: "" },
-			schema: TOOL_SCHEMAS.assert,
+			action: { tool: "assert-number", operator: "" },
+			schema: TOOL_SCHEMAS["assert-number"],
 			onFieldChanged,
 		}).render();
 
-		const select = byTestId(container, "jb-action-field-type") as HTMLSelectElement;
-		select.value = "visible";
+		const select = byTestId(container, "jb-action-field-operator") as HTMLSelectElement;
+		select.value = "gt";
 		select.dispatchEvent(new Event("change", { bubbles: true }));
-		expect(onFieldChanged).toHaveBeenCalledWith("type", "visible");
+		expect(onFieldChanged).toHaveBeenCalledWith("operator", "gt");
 	});
 
 	it("calls onFieldChanged when description changes", () => {
@@ -496,5 +496,338 @@ describe("ActionForm", () => {
 		input.value = "Click the submit button";
 		input.dispatchEvent(new Event("input", { bubbles: true }));
 		expect(onFieldChanged).toHaveBeenCalledWith("description", "Click the submit button");
+	});
+
+	// ── Conditional field visibility (visibleWhen) ───────
+
+	describe("conditional field visibility", () => {
+		it("shows only selector when assert type is visible", () => {
+			new ActionForm(container, {
+				action: { tool: "assert", type: "visible" },
+				schema: TOOL_SCHEMAS.assert,
+				onFieldChanged: vi.fn(),
+			}).render();
+
+			expect(byTestId(container, "jb-action-field-selector")).toBeTruthy();
+			expect(byTestId(container, "jb-action-field-contains")).toBeNull();
+			expect(byTestId(container, "jb-action-field-event")).toBeNull();
+			expect(byTestId(container, "jb-action-field-code")).toBeNull();
+		});
+
+		it("shows selector and contains when assert type is text", () => {
+			new ActionForm(container, {
+				action: { tool: "assert", type: "text" },
+				schema: TOOL_SCHEMAS.assert,
+				onFieldChanged: vi.fn(),
+			}).render();
+
+			expect(byTestId(container, "jb-action-field-selector")).toBeTruthy();
+			expect(byTestId(container, "jb-action-field-contains")).toBeTruthy();
+			expect(byTestId(container, "jb-action-field-event")).toBeNull();
+		});
+
+		it("shows only event field when assert type is event", () => {
+			new ActionForm(container, {
+				action: { tool: "assert", type: "event" },
+				schema: TOOL_SCHEMAS.assert,
+				onFieldChanged: vi.fn(),
+			}).render();
+
+			expect(byTestId(container, "jb-assert-event-input")).toBeNull();
+			expect(byTestId(container, "jb-action-field-selector")).toBeNull();
+			// event field rendered but without suggest (no getEventNames)
+			const eventFields = container.querySelectorAll(".ft-jb-form-group");
+			expect(eventFields.length).toBeGreaterThan(0);
+		});
+
+		it("shows event field with jb-assert-event-input test-id when getEventNames provided", () => {
+			new ActionForm(container, {
+				action: { tool: "assert", type: "event" },
+				schema: TOOL_SCHEMAS.assert,
+				onFieldChanged: vi.fn(),
+				getEventNames: () => ["hub.opened", "user.created"],
+			}).render();
+
+			expect(byTestId(container, "jb-assert-event-input")).toBeTruthy();
+		});
+
+		it("shows code and expected when assert type is eval", () => {
+			new ActionForm(container, {
+				action: { tool: "assert", type: "eval" },
+				schema: TOOL_SCHEMAS.assert,
+				onFieldChanged: vi.fn(),
+			}).render();
+
+			expect(byTestId(container, "jb-action-field-code")).toBeTruthy();
+			expect(byTestId(container, "jb-action-field-expected")).toBeTruthy();
+			expect(byTestId(container, "jb-action-field-selector")).toBeNull();
+		});
+
+		it("shows no conditional fields when assert type is empty", () => {
+			new ActionForm(container, {
+				action: { tool: "assert", type: "" },
+				schema: TOOL_SCHEMAS.assert,
+				onFieldChanged: vi.fn(),
+			}).render();
+
+			expect(byTestId(container, "jb-action-field-selector")).toBeNull();
+			expect(byTestId(container, "jb-action-field-event")).toBeNull();
+			expect(byTestId(container, "jb-action-field-code")).toBeNull();
+		});
+
+		it("does not affect tools without visibleWhen rules", () => {
+			new ActionForm(container, {
+				action: { tool: "click", selector: "" },
+				schema: TOOL_SCHEMAS.click,
+				onFieldChanged: vi.fn(),
+			}).render();
+
+			expect(byTestId(container, "jb-action-field-selector")).toBeTruthy();
+		});
+	});
+
+	// ── Assert type picker ──────────────────────────────
+
+	describe("assert type picker", () => {
+		it("renders type picker with all 8 types", () => {
+			new ActionForm(container, {
+				action: { tool: "assert", type: "" },
+				schema: TOOL_SCHEMAS.assert,
+				onFieldChanged: vi.fn(),
+			}).render();
+
+			const picker = byTestId(container, "jb-assert-type-picker");
+			expect(picker).toBeTruthy();
+			const btns = picker!.querySelectorAll(".ft-jb-assert-type-btn");
+			expect(btns.length).toBe(8);
+		});
+
+		it("renders individual type buttons with correct test-ids", () => {
+			new ActionForm(container, {
+				action: { tool: "assert", type: "" },
+				schema: TOOL_SCHEMAS.assert,
+				onFieldChanged: vi.fn(),
+			}).render();
+
+			expect(byTestId(container, "jb-assert-type-visible")).toBeTruthy();
+			expect(byTestId(container, "jb-assert-type-event")).toBeTruthy();
+			expect(byTestId(container, "jb-assert-type-eval")).toBeTruthy();
+			expect(byTestId(container, "jb-assert-type-attr")).toBeTruthy();
+		});
+
+		it("marks active type with is-active class", () => {
+			new ActionForm(container, {
+				action: { tool: "assert", type: "event" },
+				schema: TOOL_SCHEMAS.assert,
+				onFieldChanged: vi.fn(),
+			}).render();
+
+			const eventBtn = byTestId(container, "jb-assert-type-event");
+			expect(eventBtn!.classList.contains("is-active")).toBe(true);
+			const visibleBtn = byTestId(container, "jb-assert-type-visible");
+			expect(visibleBtn!.classList.contains("is-active")).toBe(false);
+		});
+
+		it("calls onFieldChanged and onReRender when type button clicked", () => {
+			const onFieldChanged = vi.fn();
+			const onReRender = vi.fn();
+			new ActionForm(container, {
+				action: { tool: "assert", type: "" },
+				schema: TOOL_SCHEMAS.assert,
+				onFieldChanged,
+				onReRender,
+			}).render();
+
+			const eventBtn = byTestId(container, "jb-assert-type-event");
+			eventBtn!.click();
+			expect(onFieldChanged).toHaveBeenCalledWith("type", "event");
+			expect(onReRender).toHaveBeenCalled();
+		});
+
+		it("does not render type picker for non-assert tools", () => {
+			new ActionForm(container, {
+				action: { tool: "click", selector: "" },
+				schema: TOOL_SCHEMAS.click,
+				onFieldChanged: vi.fn(),
+			}).render();
+
+			expect(byTestId(container, "jb-assert-type-picker")).toBeNull();
+		});
+
+		it("does not render standard type select for assert", () => {
+			new ActionForm(container, {
+				action: { tool: "assert", type: "visible" },
+				schema: TOOL_SCHEMAS.assert,
+				onFieldChanged: vi.fn(),
+			}).render();
+
+			expect(byTestId(container, "jb-action-field-type")).toBeNull();
+		});
+	});
+
+	// ── Command picker ──────────────────────────────────
+
+	describe("command picker", () => {
+		const mockCommands = [
+			{ id: "flowti:open-user-hub", label: "Open User Hub" },
+			{ id: "flowti:open-journey-builder", label: "Open Journey Builder" },
+		];
+
+		it("renders command picker when getCommands is provided", () => {
+			new ActionForm(container, {
+				action: { tool: "command", id: "" },
+				schema: TOOL_SCHEMAS.command,
+				onFieldChanged: vi.fn(),
+				getCommands: () => mockCommands,
+			}).render();
+
+			expect(byTestId(container, "jb-command-picker")).toBeTruthy();
+		});
+
+		it("renders select with all commands", () => {
+			new ActionForm(container, {
+				action: { tool: "command", id: "" },
+				schema: TOOL_SCHEMAS.command,
+				onFieldChanged: vi.fn(),
+				getCommands: () => mockCommands,
+			}).render();
+
+			const select = byTestId(container, "jb-action-field-id") as HTMLSelectElement;
+			// empty option + 2 commands
+			expect(select.options.length).toBe(3);
+		});
+
+		it("pre-selects current command", () => {
+			new ActionForm(container, {
+				action: { tool: "command", id: "flowti:open-user-hub" },
+				schema: TOOL_SCHEMAS.command,
+				onFieldChanged: vi.fn(),
+				getCommands: () => mockCommands,
+			}).render();
+
+			const select = byTestId(container, "jb-action-field-id") as HTMLSelectElement;
+			expect(select.value).toBe("flowti:open-user-hub");
+		});
+
+		it("calls onFieldChanged when command selected", () => {
+			const onFieldChanged = vi.fn();
+			new ActionForm(container, {
+				action: { tool: "command", id: "" },
+				schema: TOOL_SCHEMAS.command,
+				onFieldChanged,
+				getCommands: () => mockCommands,
+			}).render();
+
+			const select = byTestId(container, "jb-action-field-id") as HTMLSelectElement;
+			select.value = "flowti:open-journey-builder";
+			select.dispatchEvent(new Event("change", { bubbles: true }));
+			expect(onFieldChanged).toHaveBeenCalledWith("id", "flowti:open-journey-builder");
+		});
+
+		it("renders plain text input without getCommands", () => {
+			new ActionForm(container, {
+				action: { tool: "command", id: "" },
+				schema: TOOL_SCHEMAS.command,
+				onFieldChanged: vi.fn(),
+			}).render();
+
+			expect(byTestId(container, "jb-command-picker")).toBeNull();
+			const input = byTestId(container, "jb-action-field-id") as HTMLInputElement;
+			expect(input.tagName.toLowerCase()).toBe("input");
+		});
+
+		it("does not render command picker for non-command tools", () => {
+			new ActionForm(container, {
+				action: { tool: "click", selector: "" },
+				schema: TOOL_SCHEMAS.click,
+				onFieldChanged: vi.fn(),
+				getCommands: () => mockCommands,
+			}).render();
+
+			expect(byTestId(container, "jb-command-picker")).toBeNull();
+		});
+	});
+});
+
+// ── NavBar — setup button ───────────────────────────────
+
+import { NavBar } from "../../../src/ui/journeyBuilder/NavBar";
+
+describe("NavBar — setup button", () => {
+	let container: HTMLElement;
+
+	beforeEach(() => {
+		container = createContainer();
+	});
+
+	it("renders setup button when onSetup provided", () => {
+		new NavBar(container, {
+			stepCount: 2,
+			currentIndex: 0,
+			onPrev: vi.fn(),
+			onNext: vi.fn(),
+			onAddStep: vi.fn(),
+			onSetup: vi.fn(),
+		}).render();
+
+		expect(byTestId(container, "jb-nav-setup")).toBeTruthy();
+	});
+
+	it("does not render setup button when onSetup is omitted", () => {
+		new NavBar(container, {
+			stepCount: 2,
+			currentIndex: 0,
+			onPrev: vi.fn(),
+			onNext: vi.fn(),
+			onAddStep: vi.fn(),
+		}).render();
+
+		expect(byTestId(container, "jb-nav-setup")).toBeNull();
+	});
+
+	it("calls onSetup when setup button clicked", () => {
+		const onSetup = vi.fn();
+		new NavBar(container, {
+			stepCount: 2,
+			currentIndex: 0,
+			onPrev: vi.fn(),
+			onNext: vi.fn(),
+			onAddStep: vi.fn(),
+			onSetup,
+		}).render();
+
+		byTestId(container, "jb-nav-setup")!.click();
+		expect(onSetup).toHaveBeenCalledOnce();
+	});
+
+	it("setup button has correct role and tabindex", () => {
+		new NavBar(container, {
+			stepCount: 2,
+			currentIndex: 0,
+			onPrev: vi.fn(),
+			onNext: vi.fn(),
+			onAddStep: vi.fn(),
+			onSetup: vi.fn(),
+		}).render();
+
+		const btn = byTestId(container, "jb-nav-setup");
+		expect(btn!.getAttribute("role")).toBe("button");
+		expect(btn!.getAttribute("tabindex")).toBe("0");
+	});
+
+	it("setup button responds to Enter key", () => {
+		const onSetup = vi.fn();
+		new NavBar(container, {
+			stepCount: 2,
+			currentIndex: 0,
+			onPrev: vi.fn(),
+			onNext: vi.fn(),
+			onAddStep: vi.fn(),
+			onSetup,
+		}).render();
+
+		const btn = byTestId(container, "jb-nav-setup")!;
+		btn.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+		expect(onSetup).toHaveBeenCalledOnce();
 	});
 });

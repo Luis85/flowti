@@ -72,7 +72,9 @@
       "Bash(npm run test:e2e -- --journey=getting-started)",
       "Bash(node -c scripts/generate-e2e-report.mjs)",
       "Bash(obsidian --help)",
-      "Bash(npm run test:e2e:journey-builder)"
+      "Bash(npm run test:e2e:journey-builder)",
+      "Bash(git -C \"c:/Projects/flowti\" diff --stat HEAD)",
+      "Bash(git -C c:/Projects/flowti status -s -- Development/flowti/)"
     ]
   }
 }
