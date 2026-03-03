@@ -11,6 +11,7 @@ import { ItemView, setIcon } from "obsidian";
 import type { WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { JourneyAction, JourneyToolName } from "../../domain/journeyBuilder/types";
+import type { CanvasSyncInput } from "../../domain/journeyBuilder/canvasSync";
 import { TOOL_SCHEMAS } from "../../domain/journeyBuilder/toolSchemas";
 import { toEventName, isEventNameConverted } from "../../domain/journeyBuilder/eventNameUtils";
 import { attachEventSuggest } from "./EventSuggest";
@@ -60,6 +61,9 @@ export class JourneyBuilderSidebar extends ItemView {
 	private showToolPicker = false;
 	private jsonPanel: JSONPanel | null = null;
 	private suggestCleanups: (() => void)[] = [];
+	private canvasSyncTimer: ReturnType<typeof setTimeout> | null = null;
+	private canvasOpenedPath: string | null = null;
+	private unsubCanvasSynced: (() => void) | undefined;
 
 	constructor(leaf: WorkspaceLeaf, deps: JourneyBuilderSidebarDeps) {
 		super(leaf);
@@ -81,11 +85,22 @@ export class JourneyBuilderSidebar extends ItemView {
 	}
 
 	async onOpen(): Promise<void> {
+		this.unsubCanvasSynced = this.eventBus.on(
+			"journey-builder.canvas.synced",
+			(event) => this.onCanvasSynced(event.payload),
+		);
 		this.renderWelcome();
 	}
 
 	async onClose(): Promise<void> {
 		this.cleanupSuggests();
+		if (this.canvasSyncTimer) {
+			clearTimeout(this.canvasSyncTimer);
+			this.canvasSyncTimer = null;
+		}
+		this.unsubCanvasSynced?.();
+		this.unsubCanvasSynced = undefined;
+		this.canvasOpenedPath = null;
 	}
 
 	// ── Public accessors (for testing) ──────────────────────
@@ -148,6 +163,7 @@ export class JourneyBuilderSidebar extends ItemView {
 		this.currentStepIndex = 0;
 		this.selectedActionIndex = -1;
 		this.showToolPicker = false;
+		this.canvasOpenedPath = null;
 		const el = this.contentEl;
 		el.empty();
 		el.addClass("ft-jb-sidebar");
@@ -227,6 +243,7 @@ export class JourneyBuilderSidebar extends ItemView {
 		nameInput.addEventListener("input", () => {
 			this.metadata.name = nameInput.value;
 			this.emitMetadataUpdate("name", nameInput.value);
+			this.scheduleCanvasSync();
 		});
 
 		// Description
@@ -240,6 +257,7 @@ export class JourneyBuilderSidebar extends ItemView {
 		descInput.addEventListener("input", () => {
 			this.metadata.description = descInput.value;
 			this.emitMetadataUpdate("description", descInput.value);
+			this.scheduleCanvasSync();
 		});
 
 		// Start event
@@ -258,6 +276,7 @@ export class JourneyBuilderSidebar extends ItemView {
 				? `\u2192 ${converted}`
 				: "";
 			this.emitMetadataUpdate("startEvent", converted);
+			this.scheduleCanvasSync();
 		});
 
 		// Event autocomplete on start event
@@ -374,6 +393,7 @@ export class JourneyBuilderSidebar extends ItemView {
 				: "";
 			this.emitMetadataUpdate("endEvent", converted);
 			this.jsonPanel?.update();
+			this.scheduleCanvasSync();
 		});
 
 		// Event autocomplete on end event
@@ -392,6 +412,17 @@ export class JourneyBuilderSidebar extends ItemView {
 			getJSON: () => JSON.stringify(this.buildDefinition(), null, "\t"),
 		});
 		this.jsonPanel.render();
+
+		// Open canvas button (only when journey has a name)
+		if (this.metadata.name) {
+			this.renderActionButton(el, {
+				testId: "jb-open-canvas-btn",
+				cls: "ft-jb-open-canvas-btn",
+				icon: "layout-dashboard",
+				text: "Open canvas",
+				onClick: () => this.onOpenCanvas(),
+			});
+		}
 
 		// Export button
 		this.renderActionButton(el, {
@@ -466,6 +497,7 @@ export class JourneyBuilderSidebar extends ItemView {
 
 	private onContinue(): void {
 		this.renderSteps();
+		this.scheduleCanvasSync();
 	}
 
 	private onNavPrev(): void {
@@ -489,6 +521,7 @@ export class JourneyBuilderSidebar extends ItemView {
 		this.currentStepIndex = this.steps.length - 1;
 		void this.eventBus.emit("journey-builder.step.added", { stepId: id, title: "" });
 		this.renderSteps();
+		this.scheduleCanvasSync();
 	}
 
 	private onStepFieldChanged(stepId: string, field: string, value: string): void {
@@ -501,6 +534,7 @@ export class JourneyBuilderSidebar extends ItemView {
 				value,
 			});
 			this.jsonPanel?.update();
+			this.scheduleCanvasSync();
 		}
 	}
 
@@ -512,6 +546,7 @@ export class JourneyBuilderSidebar extends ItemView {
 		this.selectedActionIndex = -1;
 		this.showToolPicker = false;
 		this.renderSteps();
+		this.scheduleCanvasSync();
 	}
 
 	// ── Action handlers ─────────────────────────────────────
@@ -531,6 +566,7 @@ export class JourneyBuilderSidebar extends ItemView {
 		this.showToolPicker = false;
 		void this.eventBus.emit("journey-builder.action.added", { stepId: step.id, tool });
 		this.renderSteps();
+		this.scheduleCanvasSync();
 	}
 
 	private onRemoveAction(index: number): void {
@@ -541,6 +577,7 @@ export class JourneyBuilderSidebar extends ItemView {
 			this.selectedActionIndex = Math.max(-1, step.actions.length - 1);
 		}
 		this.renderSteps();
+		this.scheduleCanvasSync();
 	}
 
 	private onMoveAction(fromIndex: number, direction: "up" | "down"): void {
@@ -573,6 +610,7 @@ export class JourneyBuilderSidebar extends ItemView {
 			action[key] = value;
 		}
 		this.jsonPanel?.update();
+		this.scheduleCanvasSync();
 	}
 
 	private onExport(): void {
@@ -581,7 +619,49 @@ export class JourneyBuilderSidebar extends ItemView {
 		void this.eventBus.emit("journey-builder.exported", { path: filePath, definition });
 	}
 
+	private onCanvasSynced(payload: { canvasPath: string }): void {
+		if (this.canvasOpenedPath !== payload.canvasPath) {
+			this.canvasOpenedPath = payload.canvasPath;
+			void this.app?.workspace?.openLinkText(payload.canvasPath, "");
+		}
+	}
+
+	private onOpenCanvas(): void {
+		const canvasPath = `journeys/${this.metadata.name}.canvas`;
+		void this.app?.workspace?.openLinkText(canvasPath, "");
+	}
+
 	private emitMetadataUpdate(field: string, value: string): void {
 		void this.eventBus.emit("journey-builder.metadata.updated", { field, value });
+	}
+
+	// ── Canvas sync ─────────────────────────────────────────
+
+	private scheduleCanvasSync(): void {
+		if (!this.metadata.name) return;
+		if (this.canvasSyncTimer) clearTimeout(this.canvasSyncTimer);
+		this.canvasSyncTimer = setTimeout(() => {
+			this.canvasSyncTimer = null;
+			const canvasPath = `journeys/${this.metadata.name}.canvas`;
+			void this.eventBus.emit("journey-builder.canvas.sync-requested", {
+				canvasPath,
+				definition: this.buildCanvasSyncInput(),
+			});
+		}, 1500);
+	}
+
+	private buildCanvasSyncInput(): CanvasSyncInput {
+		return {
+			journey: this.metadata.name,
+			description: this.metadata.description,
+			startEvent: this.metadata.startEvent,
+			endEvent: this.endEvent,
+			steps: this.steps.map((s) => ({
+				id: s.id,
+				title: s.title,
+				description: s.description,
+				actions: s.actions,
+			})),
+		};
 	}
 }

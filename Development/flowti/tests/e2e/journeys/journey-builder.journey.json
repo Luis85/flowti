@@ -1,6 +1,6 @@
 {
 	"journey": "Journey Builder",
-	"description": "Full E2E blueprint for the Journey Builder feature. Steps 1-9 validate the current implementation (launch, welcome/setup flow, step editing with navigation, Title Sentence conversion, export, action builder with 34 tools, live JSON preview with copy-to-clipboard, event autocomplete, command picker, assert type builder). Steps 10-13 are development targets: canvas sync, full 3-file export, open existing, and preview run.",
+	"description": "Full E2E blueprint for the Journey Builder feature. Steps 1-10 validate the current implementation (launch, welcome/setup flow, step editing with navigation, Title Sentence conversion, export, action builder with 34 tools, live JSON preview with copy-to-clipboard, event autocomplete, command picker, assert type builder, real-time canvas sync). Steps 11-13 are development targets: full 3-file export, open existing, and preview run.",
 	"testSource": "tests/e2e/90-journey-journey-builder.test.ts",
 	"reportPath": "docs/journeys/Journey Builder/Journey Builder.md",
 	"canvasPath": "docs/journeys/Journey Builder/Journey Builder.canvas",
@@ -524,7 +524,6 @@
 			"title": "Canvas sync — real-time canvas generation",
 			"guideSection": 10,
 			"swimlane": "backstage",
-			"dev": true,
 			"description": "Verifies that a companion canvas file is generated in real-time as the journey is built. The canvas shows a left-to-right flow with start/end nodes and step groups. Changes to steps and metadata are reflected automatically.",
 			"expectedInput": "Journey Builder with steps, actions, and JSON preview visible",
 			"expectedOutput": "Companion canvas file exists and reflects current journey state",

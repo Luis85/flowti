@@ -657,6 +657,8 @@ const CATALOG_DATA = {
 	"journey-builder.step.updated":     { category: "Journey Builder", description: "A step was updated (title, description, etc.)", direction: "View → Plugin", domain: "journey-builder", services: "JourneyBuilderSidebar" },
 	"journey-builder.action.added":     { category: "Journey Builder", description: "An action was added to a step", direction: "View → Plugin", domain: "journey-builder", services: "JourneyBuilderSidebar" },
 	"journey-builder.exported":         { category: "Journey Builder", description: "Journey was exported to JSON and test file", direction: "Service → Listeners", domain: "journey-builder", services: "JourneyBuilderSidebar" },
+	"journey-builder.canvas.sync-requested": { category: "Journey Builder", description: "Canvas sync was requested with current definition", direction: "View → Plugin", domain: "journey-builder", services: "JourneyBuilderSidebar" },
+	"journey-builder.canvas.synced":    { category: "Journey Builder", description: "Companion canvas file was written/updated", direction: "Service → Listeners", domain: "journey-builder", services: "JourneyBuilderService" },
 	"ui.openJourneyBuilder":            { category: "UI Commands", description: "Open the Journey Builder sidebar", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 

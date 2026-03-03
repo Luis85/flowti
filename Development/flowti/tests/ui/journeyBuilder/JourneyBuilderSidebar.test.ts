@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import "../../mocks/obsidian-stub";
 import {
 	JourneyBuilderSidebar,
@@ -793,6 +793,196 @@ describe("JourneyBuilderSidebar", () => {
 
 			expect(sidebar.getSidebarState()).toBe("steps");
 			expect(sidebar.getSteps().length).toBe(1);
+		});
+	});
+
+	describe("canvas auto-open", () => {
+		let openLinkText: ReturnType<typeof vi.fn>;
+
+		beforeEach(async () => {
+			openLinkText = vi.fn();
+			(sidebar as unknown as { app: unknown }).app = {
+				workspace: { openLinkText },
+			};
+			await sidebar.onOpen();
+			byTestId(sidebar.contentEl, "jb-create-new")!.click();
+			setInputValue(byTestId(sidebar.contentEl, "jb-name-input") as HTMLInputElement, "My Journey");
+			byTestId(sidebar.contentEl, "jb-continue-btn")!.click();
+		});
+
+		it("opens canvas on first canvas.synced event", async () => {
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/My Journey.canvas" });
+			expect(openLinkText).toHaveBeenCalledOnce();
+			expect(openLinkText).toHaveBeenCalledWith("journeys/My Journey.canvas", "");
+		});
+
+		it("does not re-open on subsequent syncs with same path", async () => {
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/My Journey.canvas" });
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/My Journey.canvas" });
+			expect(openLinkText).toHaveBeenCalledOnce();
+		});
+
+		it("opens again when canvas path changes", async () => {
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/My Journey.canvas" });
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/Other Journey.canvas" });
+			expect(openLinkText).toHaveBeenCalledTimes(2);
+		});
+
+		it("resets canvasOpenedPath when returning to welcome", async () => {
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/My Journey.canvas" });
+			expect(openLinkText).toHaveBeenCalledOnce();
+
+			// Go back to welcome (resets state)
+			byTestId(sidebar.contentEl, "jb-back-btn")!.click(); // → setup
+			byTestId(sidebar.contentEl, "jb-back-btn")!.click(); // → welcome
+
+			// Re-enter and trigger sync again
+			byTestId(sidebar.contentEl, "jb-create-new")!.click();
+			setInputValue(byTestId(sidebar.contentEl, "jb-name-input") as HTMLInputElement, "My Journey");
+			byTestId(sidebar.contentEl, "jb-continue-btn")!.click();
+
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/My Journey.canvas" });
+			expect(openLinkText).toHaveBeenCalledTimes(2);
+		});
+
+		it("unsubscribes on close", async () => {
+			await sidebar.onClose();
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/My Journey.canvas" });
+			expect(openLinkText).not.toHaveBeenCalled();
+		});
+	});
+
+	describe("open canvas button", () => {
+		let openLinkText: ReturnType<typeof vi.fn>;
+
+		beforeEach(async () => {
+			openLinkText = vi.fn();
+			(sidebar as unknown as { app: unknown }).app = {
+				workspace: { openLinkText },
+			};
+			await sidebar.onOpen();
+			byTestId(sidebar.contentEl, "jb-create-new")!.click();
+			setInputValue(byTestId(sidebar.contentEl, "jb-name-input") as HTMLInputElement, "My Journey");
+			byTestId(sidebar.contentEl, "jb-continue-btn")!.click();
+		});
+
+		it("renders Open Canvas button when journey name is set", () => {
+			const btn = byTestId(sidebar.contentEl, "jb-open-canvas-btn");
+			expect(btn).toBeTruthy();
+			expect(btn!.getAttribute("role")).toBe("button");
+		});
+
+		it("does not render Open Canvas button when name is empty", async () => {
+			// Go back to setup, clear name, return to steps
+			byTestId(sidebar.contentEl, "jb-nav-setup")!.click();
+			setInputValue(byTestId(sidebar.contentEl, "jb-name-input") as HTMLInputElement, "");
+			byTestId(sidebar.contentEl, "jb-continue-btn")!.click();
+
+			const btn = byTestId(sidebar.contentEl, "jb-open-canvas-btn");
+			expect(btn).toBeNull();
+		});
+
+		it("opens canvas file on click", () => {
+			byTestId(sidebar.contentEl, "jb-open-canvas-btn")!.click();
+			expect(openLinkText).toHaveBeenCalledOnce();
+			expect(openLinkText).toHaveBeenCalledWith("journeys/My Journey.canvas", "");
+		});
+	});
+
+	describe("canvas sync debounce", () => {
+		beforeEach(async () => {
+			vi.useFakeTimers();
+			await sidebar.onOpen();
+			byTestId(sidebar.contentEl, "jb-create-new")!.click();
+			// Set a name so canvas sync has a valid path
+			setInputValue(byTestId(sidebar.contentEl, "jb-name-input") as HTMLInputElement, "My Journey");
+			byTestId(sidebar.contentEl, "jb-continue-btn")!.click();
+		});
+
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		it("emits canvas.sync-requested after debounce on step add", () => {
+			const handler = vi.fn();
+			eventBus.on("journey-builder.canvas.sync-requested", handler);
+
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+
+			// Not emitted immediately
+			expect(handler).not.toHaveBeenCalled();
+
+			// After debounce
+			vi.advanceTimersByTime(1500);
+			expect(handler).toHaveBeenCalledOnce();
+		});
+
+		it("does not emit immediately (debounced)", () => {
+			const handler = vi.fn();
+			eventBus.on("journey-builder.canvas.sync-requested", handler);
+
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			expect(handler).not.toHaveBeenCalled();
+
+			vi.advanceTimersByTime(500);
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("emits with correct canvasPath based on journey name", () => {
+			const handler = vi.fn();
+			eventBus.on("journey-builder.canvas.sync-requested", handler);
+
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			vi.advanceTimersByTime(1500);
+
+			expect(handler.mock.calls[0][0].payload.canvasPath).toBe("journeys/My Journey.canvas");
+		});
+
+		it("emits with correct definition matching sidebar state", () => {
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			setInputValue(byTestId(sidebar.contentEl, "jb-step-title-input") as HTMLInputElement, "First Step");
+
+			const handler = vi.fn();
+			eventBus.on("journey-builder.canvas.sync-requested", handler);
+
+			// Trigger another change to schedule sync
+			setInputValue(byTestId(sidebar.contentEl, "jb-end-event-input") as HTMLInputElement, "app.closed");
+			vi.advanceTimersByTime(1500);
+
+			const def = handler.mock.calls[0][0].payload.definition;
+			expect(def.journey).toBe("My Journey");
+			expect(def.steps).toHaveLength(1);
+			expect(def.steps[0].title).toBe("First Step");
+			expect(def.endEvent).toBe("app.closed");
+		});
+
+		it("does not emit when journey name is empty", async () => {
+			// Flush any pending timers from beforeEach
+			vi.advanceTimersByTime(1500);
+
+			// Go back to setup, clear name
+			byTestId(sidebar.contentEl, "jb-nav-setup")!.click();
+			setInputValue(byTestId(sidebar.contentEl, "jb-name-input") as HTMLInputElement, "");
+			byTestId(sidebar.contentEl, "jb-continue-btn")!.click();
+
+			const handler = vi.fn();
+			eventBus.on("journey-builder.canvas.sync-requested", handler);
+
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			vi.advanceTimersByTime(1500);
+
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("clears timer on close", async () => {
+			const handler = vi.fn();
+			eventBus.on("journey-builder.canvas.sync-requested", handler);
+
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			await sidebar.onClose();
+			vi.advanceTimersByTime(1500);
+
+			expect(handler).not.toHaveBeenCalled();
 		});
 	});
 });

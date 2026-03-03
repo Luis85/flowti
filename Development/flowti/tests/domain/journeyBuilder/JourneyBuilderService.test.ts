@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { JourneyBuilderService } from "../../../src/domain/journeyBuilder/JourneyBuilderService";
 import type { JourneyExportPayload } from "../../../src/domain/journeyBuilder/events";
+import type { CanvasSyncInput } from "../../../src/domain/journeyBuilder/canvasSync";
 import type { IFileSystemClient } from "../../../src/infrastructure/filesystem/types";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import { createMockFileSystemStub } from "../../mocks/filesystem";
@@ -222,6 +223,123 @@ describe("JourneyBuilderService", () => {
 			// Give time for any potential async work
 			await new Promise((r) => setTimeout(r, 50));
 			expect(fileSystem.createFile).not.toHaveBeenCalled();
+		});
+	});
+
+	// ── Canvas sync ─────────────────────────────────────────────────
+
+	describe("handleCanvasSync (via event trigger)", () => {
+		function sampleSyncPayload(): { canvasPath: string; definition: CanvasSyncInput } {
+			return {
+				canvasPath: "journeys/My Journey.canvas",
+				definition: {
+					journey: "My Journey",
+					description: "A test journey",
+					startEvent: "app.opened",
+					endEvent: "app.closed",
+					steps: [
+						{ id: "step-1", title: "Open the hub", description: "", actions: [] },
+					],
+				},
+			};
+		}
+
+		it("subscribes to journey-builder.canvas.sync-requested on start", () => {
+			service.start();
+			expect(eventBus.on).toHaveBeenCalledWith(
+				"journey-builder.canvas.sync-requested",
+				expect.any(Function),
+			);
+		});
+
+		it("unsubscribes on stop", () => {
+			service.start();
+			expect(eventBus._listeners.get("journey-builder.canvas.sync-requested")).toHaveLength(1);
+			service.stop();
+			expect(eventBus._listeners.get("journey-builder.canvas.sync-requested")).toHaveLength(0);
+		});
+
+		it("creates canvas file when it does not exist", async () => {
+			(fileSystem.fileExists as ReturnType<typeof vi.fn>).mockResolvedValue(false);
+			service.start();
+			eventBus._trigger("journey-builder.canvas.sync-requested", sampleSyncPayload());
+
+			await vi.waitFor(() => {
+				expect(fileSystem.createFile).toHaveBeenCalledOnce();
+			});
+
+			const [path, content, opts] = (fileSystem.createFile as ReturnType<typeof vi.fn>).mock.calls[0];
+			expect(path).toBe("journeys/My Journey.canvas");
+			expect(opts).toEqual({ createFolders: true });
+
+			const parsed = JSON.parse(content);
+			expect(parsed.nodes).toBeDefined();
+			expect(parsed.edges).toBeDefined();
+		});
+
+		it("updates canvas file when it already exists", async () => {
+			(fileSystem.fileExists as ReturnType<typeof vi.fn>).mockResolvedValue(true);
+			service.start();
+			eventBus._trigger("journey-builder.canvas.sync-requested", sampleSyncPayload());
+
+			await vi.waitFor(() => {
+				expect(fileSystem.updateFile).toHaveBeenCalledOnce();
+			});
+
+			const [path, content] = (fileSystem.updateFile as ReturnType<typeof vi.fn>).mock.calls[0];
+			expect(path).toBe("journeys/My Journey.canvas");
+
+			const parsed = JSON.parse(content);
+			expect(parsed.nodes.length).toBeGreaterThan(0);
+		});
+
+		it("emits journey-builder.canvas.synced after successful write", async () => {
+			(fileSystem.fileExists as ReturnType<typeof vi.fn>).mockResolvedValue(false);
+			service.start();
+			eventBus._trigger("journey-builder.canvas.sync-requested", sampleSyncPayload());
+
+			await vi.waitFor(() => {
+				const synced = eventBus._emitted.find((e) => e.type === "journey-builder.canvas.synced");
+				expect(synced).toBeDefined();
+				expect(synced!.payload).toEqual({ canvasPath: "journeys/My Journey.canvas" });
+			});
+		});
+
+		it("canvas JSON contains START node and step group", async () => {
+			(fileSystem.fileExists as ReturnType<typeof vi.fn>).mockResolvedValue(false);
+			service.start();
+			eventBus._trigger("journey-builder.canvas.sync-requested", sampleSyncPayload());
+
+			await vi.waitFor(() => {
+				expect(fileSystem.createFile).toHaveBeenCalledOnce();
+			});
+
+			const content = (fileSystem.createFile as ReturnType<typeof vi.fn>).mock.calls[0][1];
+			const parsed = JSON.parse(content);
+			const hasStart = parsed.nodes.some((n: { text?: string }) => n.text?.includes("Start"));
+			const hasGroup = parsed.nodes.some((n: { type: string }) => n.type === "group");
+			expect(hasStart).toBe(true);
+			expect(hasGroup).toBe(true);
+		});
+
+		it("does not throw when fileSystem fails", async () => {
+			(fileSystem.fileExists as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("disk error"));
+			service.start();
+			eventBus._trigger("journey-builder.canvas.sync-requested", sampleSyncPayload());
+
+			// Should not throw — error is caught internally
+			await new Promise((r) => setTimeout(r, 50));
+			const synced = eventBus._emitted.find((e) => e.type === "journey-builder.canvas.synced");
+			expect(synced).toBeUndefined(); // no synced event on error
+		});
+
+		it("does not write when service is stopped", async () => {
+			service.start();
+			service.stop();
+			eventBus._trigger("journey-builder.canvas.sync-requested", sampleSyncPayload());
+
+			await new Promise((r) => setTimeout(r, 50));
+			expect(fileSystem.fileExists).not.toHaveBeenCalled();
 		});
 	});
 });

@@ -1,6 +1,7 @@
 /**
  * Event definitions for the Journey Builder domain.
  */
+import type { CanvasSyncInput } from "./canvasSync";
 
 /** Payload for the export event — carries the full journey definition. */
 export interface JourneyExportPayload {
@@ -38,4 +39,13 @@ export interface JourneyBuilderEventMap {
 	"journey-builder.action.added": { stepId: string; tool: string };
 	/** Journey was exported to JSON + test file */
 	"journey-builder.exported": JourneyExportPayload;
+	/** Canvas sync was requested (carries current definition + target path) */
+	"journey-builder.canvas.sync-requested": {
+		canvasPath: string;
+		definition: CanvasSyncInput;
+	};
+	/** Companion canvas file was written/updated */
+	"journey-builder.canvas.synced": {
+		canvasPath: string;
+	};
 }
