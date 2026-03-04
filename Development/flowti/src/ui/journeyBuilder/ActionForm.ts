@@ -15,7 +15,7 @@ export interface ActionFormDeps {
 	schema: ToolSchemaDef;
 	onFieldChanged: (key: string, value: string | number) => void;
 	getEventCatalog?: () => EventSuggestItem[];
-	getCommands?: () => { id: string; label: string }[];
+	getCommands?: () => { id: string; label: string; domain: string }[];
 	onReRender?: () => void;
 }
 
@@ -115,25 +115,24 @@ export class ActionForm {
 		const label = picker.createEl("label", { cls: "ft-jb-form-label", text: "Command *" });
 		label.dataset.testId = "jb-action-label-id";
 
-		const select = picker.createEl("select", { cls: "ft-jb-form-select" });
-		select.dataset.testId = "jb-action-field-id";
-
-		const emptyOpt = document.createElement("option");
-		emptyOpt.value = "";
-		emptyOpt.textContent = "Select a command\u2026";
-		select.appendChild(emptyOpt);
-
-		for (const cmd of commands) {
-			const option = document.createElement("option");
-			option.value = cmd.id;
-			option.textContent = `${cmd.label} (${cmd.id})`;
-			if (String(action.id) === cmd.id) option.selected = true;
-			select.appendChild(option);
-		}
-
-		select.addEventListener("change", () => {
-			this.deps.onFieldChanged("id", select.value);
+		const input = picker.createEl("input", { cls: "ft-jb-form-input", type: "text" });
+		input.dataset.testId = "jb-action-field-id";
+		input.placeholder = "Search commands\u2026";
+		input.value = String(action.id ?? "");
+		input.addEventListener("input", () => {
+			this.deps.onFieldChanged("id", input.value);
 		});
+
+		const items: EventSuggestItem[] = commands.map((c) => ({
+			type: c.id,
+			category: c.domain,
+			description: c.label,
+		}));
+
+		const unsub = attachEventSuggest(input, () => items, (id) => {
+			this.deps.onFieldChanged("id", id);
+		});
+		this.cleanups.push(unsub);
 	}
 
 	// ── Conditional visibility ──────────────────────────────

@@ -28,7 +28,8 @@
 			"title": "Title Sentence to event name conversion",
 			"description": "Start and end event inputs auto-convert Title Sentence input (e.g. 'Session Started') to dot-notation (session.started) with a live preview below the input. Users can type natural names or raw dot-notation — both work seamlessly.",
 			"priority": "must-have",
-			"added": "2026-03-03"
+			"added": "2026-03-03",
+			"delivered": "2026-03-03"
 		}
 	],
 
@@ -143,7 +144,8 @@
 					"title": "Event Autocomplete for start/end events",
 					"description": "Typeahead search over EVENT_CATALOG (360+ events) for the start event input. Group by category, show description on hover. Same autocomplete applies to the end event input in the step builder.",
 					"priority": "must-have",
-					"added": "2026-03-02"
+					"added": "2026-03-02",
+					"delivered": "2026-03-04"
 				}
 			],
 			"actions": [
@@ -201,21 +203,24 @@
 				},
 				{
 					"title": "Command Picker for command actions",
-					"description": "When adding a command action, show a searchable dropdown of all registered commands from the registry (~40 commands). Saves users from memorizing command IDs.",
+					"description": "When adding a command action, show a searchable autocomplete of all registered commands from the registry (~38 commands) with domain badges. Saves users from memorizing command IDs.",
 					"priority": "must-have",
-					"added": "2026-03-02"
+					"added": "2026-03-02",
+					"delivered": "2026-03-04"
 				},
 				{
 					"title": "Live JSON Preview panel",
 					"description": "A collapsible panel at the bottom of the sidebar showing the generated JSON in real-time as the user builds the journey. Helps power users verify the output before exporting.",
 					"priority": "nice-to-have",
-					"added": "2026-03-02"
+					"added": "2026-03-02",
+					"delivered": "2026-03-03"
 				},
 				{
 					"title": "Assert Builder — guided assert action form",
-					"description": "When adding an assert action, show a guided form: pick type (leaf | visible | event | eval), then type-specific fields — leaf: viewType with autocomplete, visible: CSS selector, event: event name with catalog autocomplete, eval: code textarea + expected value.",
+					"description": "When adding an assert action, show a guided form: pick type (leaf | visible | event | eval | count | attr | text | not-visible), then type-specific fields with conditional visibility. Event type gets catalog autocomplete.",
 					"priority": "should-have",
-					"added": "2026-03-02"
+					"added": "2026-03-02",
+					"delivered": "2026-03-04"
 				}
 			],
 			"actions": [
@@ -512,16 +517,16 @@
 			"title": "Event autocomplete and command picker",
 			"guideSection": 9,
 			"swimlane": "frontstage",
-			"description": "Tests the smart input features: typing a partial event name shows an autocomplete dropdown, command actions get a command picker, and assert actions get a guided type-specific form.",
+			"description": "Tests the smart input features: typing a partial event name shows a fuzzy autocomplete dropdown with category badges, command actions get a searchable command picker with domain badges, and assert actions get a guided type-specific form with conditional fields.",
 			"expectedInput": "Step editor with actions added",
 			"expectedOutput": "Start event selected via autocomplete, command updated via picker, assert action built with guided form",
 			"uiContext": {
 				"view": "flowti-journey-builder",
 				"viewName": "Journey Builder",
-				"components": ["JourneyBuilderSidebar", "EventAutocomplete", "CommandPicker", "AssertBuilder"]
+				"components": ["JourneyBuilderSidebar", "ActionForm", "EventSuggest"]
 			},
 			"events": ["journey-builder.metadata.updated"],
-			"interactions": ["input: Start event (autocomplete)", "select: Command (picker)", "select: Assert type", "input: Assert fields"],
+			"interactions": ["input: Start event (autocomplete)", "input: Command (autocomplete)", "select: Assert type", "input: Assert fields"],
 			"improvements": [
 				{
 					"title": "View type autocomplete for leaf assertions",
@@ -545,6 +550,8 @@
 				{ "tool": "wait", "ms": 500, "description": "Wait for autocomplete dropdown" },
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-autocomplete-dropdown']", "description": "Autocomplete dropdown appeared" },
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-autocomplete-item']", "description": "At least one autocomplete match" },
+				{ "tool": "assert", "type": "visible", "selector": ".ft-jb-autocomplete-badge", "description": "Category badge visible in autocomplete item" },
+				{ "tool": "assert", "type": "visible", "selector": ".ft-jb-autocomplete-desc", "description": "Description subtitle visible in autocomplete item" },
 				{ "tool": "click", "selector": "[data-test-id='jb-autocomplete-item']:first-child", "description": "Select first autocomplete match" },
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "assert", "type": "event", "event": "journey-builder.metadata.updated", "description": "Metadata updated with selected event" },
@@ -553,8 +560,15 @@
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "click", "selector": "[data-test-id='jb-action-card']:first-child", "description": "Expand first action card (command)" },
 				{ "tool": "wait", "ms": 300 },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-command-picker']", "description": "Command picker dropdown is visible" },
-				{ "tool": "screenshot", "label": "command-picker", "description": "Command picker dropdown" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-command-picker']", "description": "Command picker is visible" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-action-field-id']", "description": "Command ID input is visible" },
+				{ "tool": "set-input", "selector": "[data-test-id='jb-action-field-id']", "value": "open-hub", "description": "Type partial command to trigger autocomplete" },
+				{ "tool": "wait", "ms": 300, "description": "Wait for autocomplete dropdown" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-autocomplete-dropdown']", "description": "Command autocomplete dropdown appeared" },
+				{ "tool": "assert", "type": "visible", "selector": ".ft-jb-autocomplete-badge", "description": "Domain badges visible in command autocomplete" },
+				{ "tool": "click", "selector": "[data-test-id='jb-autocomplete-item']:first-child", "description": "Select first matching command" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "screenshot", "label": "command-picker", "description": "Command picker with autocomplete and domain badges" },
 				{ "tool": "click", "selector": "[data-test-id='jb-add-action-btn']", "description": "Add an assert action" },
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "select", "selector": "[data-test-id='jb-tool-select']", "value": "assert", "description": "Pick 'assert' tool" },
@@ -564,7 +578,7 @@
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-event-suggest-input']", "description": "Event name input with autocomplete is visible" },
 				{ "tool": "screenshot", "label": "assert-builder", "description": "Assert builder with type-specific fields" },
-				{ "tool": "manual", "instruction": "Verify: (1) Event autocomplete showed a dropdown with categorized results when typing. (2) Command picker showed registered commands with IDs and display names. (3) Assert builder showed type picker and rendered event-specific fields (event name with autocomplete).", "interactive": false, "description": "Visual QA of smart inputs" }
+				{ "tool": "manual", "instruction": "Verify: (1) Event autocomplete showed a fuzzy dropdown with category badges and description subtitles. (2) Command picker showed an autocomplete dropdown with command IDs, labels, and domain badges. (3) Assert builder showed 8-type button picker and rendered event-specific fields (event name with catalog autocomplete).", "interactive": false, "description": "Visual QA of smart inputs" }
 			]
 		},
 		{

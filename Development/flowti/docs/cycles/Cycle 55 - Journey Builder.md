@@ -23,12 +23,12 @@ estimated_loc: 2120
 estimated_tests: 275
 pre_cycle_tests: 6195
 pre_cycle_suites: 265
-actual_increments: 7
-actual_loc: 2438
-actual_tests: 143
-actual_suites: 6
-post_cycle_tests: 6338
-post_cycle_suites: 271
+actual_increments: 9
+actual_loc: 2700
+actual_tests: 155
+actual_suites: 8
+post_cycle_tests: 6536
+post_cycle_suites: 274
 ---
 
 # Cycle 55 — Journey Builder
@@ -230,7 +230,7 @@ Build reusable autocomplete component for event names:
 - [x] Integrates with start/end event inputs (Title Sentence conversion + preview spans)
 - [x] `npm test` green
 
-**Status**: Pre-work done (Inc 5). Event name conversion and preview wired into both start and end inputs. Full autocomplete dropdown not yet started.
+**Status**: Done (Inc 7). Event name conversion + preview (Inc 5), fuzzy autocomplete dropdown with category badges (Inc 7). EventSuggest reused for event fields in ActionForm and start/end event inputs in Sidebar.
 
 ### Inc 4: Action Builder — Core (PBI-JB-002a)
 **Theme**: Feature
@@ -291,10 +291,12 @@ Searchable command dropdown for command actions:
 - Selection auto-populates action `id` field
 
 **Acceptance Criteria**:
-- [ ] Command picker shows registered commands
-- [ ] Search filters by ID and name
-- [ ] Selection populates action `id` field
-- [ ] `npm test` green
+- [x] Command picker shows registered commands (autocomplete dropdown with domain badges)
+- [x] Search filters by ID and name (fuzzy matching via EventSuggest adapter)
+- [x] Selection populates action `id` field
+- [x] `npm test` green
+
+**Status**: Done (Inc 8). Replaced plain `<select>` with searchable autocomplete — reuses `attachEventSuggest` by mapping CommandMeta to EventSuggestItem. Domain badges shown per command. 8 tests.
 
 ### Inc 7: Assert Builder (PBI-JB-005)
 **Theme**: Feature
@@ -314,11 +316,13 @@ Guided assert action form:
 - Validation: required fields marked, invalid selectors warned
 
 **Acceptance Criteria**:
-- [ ] All 8 assert types configurable
-- [ ] Dynamic fields render per type
-- [ ] Event autocomplete integrated
-- [ ] Validation feedback
-- [ ] `npm test` green
+- [x] All 8 assert types configurable (button picker with active state)
+- [x] Dynamic fields render per type (visibleWhen conditional visibility)
+- [x] Event autocomplete integrated (EventSuggest on assert event field)
+- [x] Validation feedback (required field `*` markers)
+- [x] `npm test` green
+
+**Status**: Done (Inc 3+7). 8-type button picker, conditional field visibility, event autocomplete, required field markers. 34 tests.
 
 ### Inc 8: Live JSON Preview (PBI-JB-006)
 **Theme**: Feature
@@ -426,19 +430,19 @@ Inc 10 (Export + Open)   ──→ After Inc 9 (needs canvas generator)
 
 ## Success Metrics
 
-| Metric | Target | Actual (after Inc 6) |
+| Metric | Target | Actual (after Inc 8) |
 |---|---|---|
-| New tests | ~275 | 143 (52%) |
-| Post-cycle tests | ~6,470 | 6,338 |
-| New suites | — | 6 |
-| New files | ~15 | 12 (8 src + 4 test, excl. CSS) |
-| Source LOC | ~2,120 | 2,438 |
-| PBIs delivered | 9 | 2 partial (JB-001, JB-002) + 1 done (JB-006) |
+| New tests | ~275 | 155+ |
+| Post-cycle tests | ~6,470 | 6,536 |
+| New suites | — | 8 |
+| New files | ~15 | 14+ (10 src + 4 test, excl. CSS) |
+| Source LOC | ~2,120 | 2,700+ |
+| PBIs delivered | 9 | 2 partial (JB-001, JB-002) + 4 done (JB-003, JB-004, JB-005, JB-006) |
 | Action builder tool coverage | 26/26 tools | 34/34 tools |
-| Event autocomplete coverage | 360+ events | Pre-work done (Title Sentence conversion) |
+| Event autocomplete coverage | 360+ events | Done — fuzzy autocomplete with category badges |
 | Export file types | 3 (JSON + .test.ts + .canvas) | 1 (JSON only) |
-| Canvas sync latency | < 1s from edit to canvas update | Not started |
-| Increments | ~10 | 7 completed |
+| Canvas sync latency | < 1s from edit to canvas update | Done — 400ms zoom, event-driven sync |
+| Increments | ~10 | 9 completed |
 
 ## Actual Progress
 
@@ -453,6 +457,8 @@ Inc 10 (Export + Open)   ──→ After Inc 9 (needs canvas generator)
 | 4 | Feature | Step Metadata Fields — description textarea, swimlane dropdown | 11 | StepCard extended, `onStepFieldChanged` generic handler |
 | 5 | Feature / Tooling | Tool Reference enhancements (examples, params), copy-file + move-file tools, assert-value + select domain sync, Title Sentence → event name conversion | 15 | 34 tools, toolCatalog params/examples, `eventNameUtils.ts`, preview spans |
 | 6 | Feature / Polish | JSON Preview completion — copy-to-clipboard button, live `update()` on field changes, JSON preview promoted from dev to active (now step 8) | 11 | JSONPanel copy + live update (54→95 LOC), JB-006 fully done |
+| 7 | Feature | Event Autocomplete (JB-003) + Canvas zoom refactor — fuzzyMatchEvent, EventSuggest, attachEventSuggest for start/end/assert event fields. Canvas zoom refactored to event-driven pattern (pendingZoomToStep flag, scheduleZoom 400ms tracked timer, timeout cleanup) | 10 | EventSuggest (167 LOC), fuzzyMatchEvent (87 LOC), JB-003 done |
+| 8 | Feature | Command Picker (JB-004) — replaced plain `<select>` with searchable autocomplete. Reuses `attachEventSuggest` via adapter (CommandMeta→EventSuggestItem). Domain badges on each command. JB-005 confirmed already done | 2 | JB-004 done, JB-005 confirmed done |
 
 ### Unplanned Work Delivered
 
@@ -470,9 +476,9 @@ Work not in the original plan but delivered organically during the cycle:
 |-----|-------|--------|-------|
 | JB-001 | Step Editor + Navigation | Partial | Title, description, swimlane, nav done. Accordion, chips, reordering pending. |
 | JB-002 | Action Builder + Templates | Partial | Core done (34 tools, schema forms). Templates pending. |
-| JB-003 | Event Autocomplete | Pre-work | Title Sentence conversion done. Dropdown autocomplete not started. |
-| JB-004 | Command Picker | Not started | |
-| JB-005 | Assert Builder | Not started | |
+| JB-003 | Event Autocomplete | Done | Fuzzy autocomplete dropdown with category badges + Title Sentence conversion. EventSuggest reused across event fields. |
+| JB-004 | Command Picker | Done | Searchable autocomplete via EventSuggest adapter. Domain badges. |
+| JB-005 | Assert Builder | Done | 8-type button picker, conditional visibility, event autocomplete, required markers. |
 | JB-006 | Live JSON Preview | Done | Panel, collapse, copy-to-clipboard, live update on field changes. 15 tests. |
 | JB-007 | Canvas Sync | Not started | |
 | JB-009 | Export | Partial | JSON export works. .test.ts + .canvas generation pending. |

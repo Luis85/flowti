@@ -873,7 +873,7 @@ export default class FlowtiBasePlugin extends Plugin {
 					category: e.category,
 					description: e.description,
 				})),
-				getCommands: () => this.commands.getCommandsMeta().map((c) => ({ id: c.id, label: c.label })),
+				getCommands: () => this.commands.getCommandsMeta().map((c) => ({ id: c.id, label: c.label, domain: c.domain })),
 				getJourneyFolder: () => settingsService.getSettings().journeyFolder,
 			}),
 		);

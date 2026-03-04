@@ -672,8 +672,8 @@ describe("ActionForm", () => {
 
 	describe("command picker", () => {
 		const mockCommands = [
-			{ id: "flowti:open-user-hub", label: "Open User Hub" },
-			{ id: "flowti:open-journey-builder", label: "Open Journey Builder" },
+			{ id: "flowti:open-user-hub", label: "Open User Hub", domain: "hub" },
+			{ id: "flowti:open-journey-builder", label: "Open Journey builder", domain: "developer" },
 		];
 
 		it("renders command picker when getCommands is provided", () => {
@@ -687,7 +687,7 @@ describe("ActionForm", () => {
 			expect(byTestId(container, "jb-command-picker")).toBeTruthy();
 		});
 
-		it("renders select with all commands", () => {
+		it("renders text input for command search", () => {
 			new ActionForm(container, {
 				action: { tool: "command", id: "" },
 				schema: TOOL_SCHEMAS.command,
@@ -695,12 +695,13 @@ describe("ActionForm", () => {
 				getCommands: () => mockCommands,
 			}).render();
 
-			const select = byTestId(container, "jb-action-field-id") as HTMLSelectElement;
-			// empty option + 2 commands
-			expect(select.options.length).toBe(3);
+			const input = byTestId(container, "jb-action-field-id") as HTMLInputElement;
+			expect(input.tagName.toLowerCase()).toBe("input");
+			expect(input.type).toBe("text");
+			expect(input.placeholder).toBe("Search commands\u2026");
 		});
 
-		it("pre-selects current command", () => {
+		it("pre-populates input with current command id", () => {
 			new ActionForm(container, {
 				action: { tool: "command", id: "flowti:open-user-hub" },
 				schema: TOOL_SCHEMAS.command,
@@ -708,11 +709,28 @@ describe("ActionForm", () => {
 				getCommands: () => mockCommands,
 			}).render();
 
-			const select = byTestId(container, "jb-action-field-id") as HTMLSelectElement;
-			expect(select.value).toBe("flowti:open-user-hub");
+			const input = byTestId(container, "jb-action-field-id") as HTMLInputElement;
+			expect(input.value).toBe("flowti:open-user-hub");
 		});
 
-		it("calls onFieldChanged when command selected", () => {
+		it("shows autocomplete dropdown on focus", () => {
+			new ActionForm(container, {
+				action: { tool: "command", id: "" },
+				schema: TOOL_SCHEMAS.command,
+				onFieldChanged: vi.fn(),
+				getCommands: () => mockCommands,
+			}).render();
+
+			const input = byTestId(container, "jb-action-field-id") as HTMLInputElement;
+			input.dispatchEvent(new Event("focus"));
+
+			const dropdown = byTestId(container, "jb-autocomplete-dropdown");
+			expect(dropdown).toBeTruthy();
+			const items = dropdown!.querySelectorAll("[data-test-id='jb-autocomplete-item']");
+			expect(items.length).toBe(2);
+		});
+
+		it("calls onFieldChanged when command selected from dropdown", () => {
 			const onFieldChanged = vi.fn();
 			new ActionForm(container, {
 				action: { tool: "command", id: "" },
@@ -721,10 +739,48 @@ describe("ActionForm", () => {
 				getCommands: () => mockCommands,
 			}).render();
 
-			const select = byTestId(container, "jb-action-field-id") as HTMLSelectElement;
-			select.value = "flowti:open-journey-builder";
-			select.dispatchEvent(new Event("change", { bubbles: true }));
-			expect(onFieldChanged).toHaveBeenCalledWith("id", "flowti:open-journey-builder");
+			const input = byTestId(container, "jb-action-field-id") as HTMLInputElement;
+			input.dispatchEvent(new Event("focus"));
+
+			// Items sorted alphabetically: journey-builder first, user-hub second
+			const items = container.querySelectorAll("[data-test-id='jb-autocomplete-item']");
+			(items[1] as HTMLElement).dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+
+			expect(onFieldChanged).toHaveBeenCalledWith("id", "flowti:open-user-hub");
+		});
+
+		it("displays domain badge in autocomplete items", () => {
+			new ActionForm(container, {
+				action: { tool: "command", id: "" },
+				schema: TOOL_SCHEMAS.command,
+				onFieldChanged: vi.fn(),
+				getCommands: () => mockCommands,
+			}).render();
+
+			const input = byTestId(container, "jb-action-field-id") as HTMLInputElement;
+			input.dispatchEvent(new Event("focus"));
+
+			// Alphabetical order: journey-builder (developer) first, user-hub (hub) second
+			const badges = container.querySelectorAll(".ft-jb-autocomplete-badge");
+			expect(badges.length).toBe(2);
+			expect(badges[0].textContent).toBe("developer");
+			expect(badges[1].textContent).toBe("hub");
+		});
+
+		it("calls onFieldChanged on manual typing (without autocomplete selection)", () => {
+			const onFieldChanged = vi.fn();
+			new ActionForm(container, {
+				action: { tool: "command", id: "" },
+				schema: TOOL_SCHEMAS.command,
+				onFieldChanged,
+				getCommands: () => mockCommands,
+			}).render();
+
+			const input = byTestId(container, "jb-action-field-id") as HTMLInputElement;
+			input.value = "flowti:custom-command";
+			input.dispatchEvent(new Event("input", { bubbles: true }));
+
+			expect(onFieldChanged).toHaveBeenCalledWith("id", "flowti:custom-command");
 		});
 
 		it("renders plain text input without getCommands", () => {

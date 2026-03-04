@@ -77,7 +77,7 @@ export interface JourneyStep {
 export interface JourneyBuilderSidebarDeps {
 	eventBus: IEventBus;
 	getEventCatalog?: () => EventSuggestItem[];
-	getCommands?: () => { id: string; label: string }[];
+	getCommands?: () => { id: string; label: string; domain: string }[];
 	getJourneyFolder?: () => string;
 }
 
@@ -86,7 +86,7 @@ let stepCounter = 0;
 export class JourneyBuilderSidebar extends ItemView {
 	private readonly eventBus: IEventBus;
 	private readonly getEventCatalog: (() => EventSuggestItem[]) | undefined;
-	private readonly getCommands: (() => { id: string; label: string }[]) | undefined;
+	private readonly getCommands: (() => { id: string; label: string; domain: string }[]) | undefined;
 	private readonly getJourneyFolder: (() => string) | undefined;
 	private state: SidebarState = "welcome";
 	private metadata: JourneyMetadata = { name: "", description: "", startEvent: "" };
