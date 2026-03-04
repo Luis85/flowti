@@ -1,7 +1,7 @@
 /**
  * Event types for the Modal system.
  *
- * These events are emitted by the {@link ModalService} to track
+ * These events are emitted by the ModalService to track
  * modal lifecycle for observability and debugging.
  */
 

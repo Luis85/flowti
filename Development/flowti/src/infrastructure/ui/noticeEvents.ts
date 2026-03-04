@@ -3,7 +3,7 @@
  *
  * These events allow domain services and UI components to show
  * notices without importing Obsidian's Notice class directly.
- * The {@link NoticeService} listens for these events and creates
+ * The NoticeService listens for these events and creates
  * the actual Obsidian Notice instances.
  */
 
