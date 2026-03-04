@@ -868,7 +868,11 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.safeRegisterView(VIEW_TYPE_JOURNEY_BUILDER, (leaf) =>
 			new JourneyBuilderSidebar(leaf, {
 				eventBus: this.eventBus,
-				getEventNames: () => EVENT_CATALOG.map((e) => e.type),
+				getEventCatalog: () => EVENT_CATALOG.map((e) => ({
+					type: e.type,
+					category: e.category,
+					description: e.description,
+				})),
 				getCommands: () => this.commands.getCommandsMeta().map((c) => ({ id: c.id, label: c.label })),
 				getJourneyFolder: () => settingsService.getSettings().journeyFolder,
 			}),

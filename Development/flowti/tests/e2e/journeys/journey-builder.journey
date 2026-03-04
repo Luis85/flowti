@@ -562,7 +562,7 @@
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-assert-type-picker']", "description": "Assert type picker is visible" },
 				{ "tool": "click", "selector": "[data-test-id='jb-assert-type-event']", "description": "Select 'event' assert type" },
 				{ "tool": "wait", "ms": 300 },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-assert-event-input']", "description": "Event name input with autocomplete is visible" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-event-suggest-input']", "description": "Event name input with autocomplete is visible" },
 				{ "tool": "screenshot", "label": "assert-builder", "description": "Assert builder with type-specific fields" },
 				{ "tool": "manual", "instruction": "Verify: (1) Event autocomplete showed a dropdown with categorized results when typing. (2) Command picker showed registered commands with IDs and display names. (3) Assert builder showed type picker and rendered event-specific fields (event name with autocomplete).", "interactive": false, "description": "Visual QA of smart inputs" }
 			]

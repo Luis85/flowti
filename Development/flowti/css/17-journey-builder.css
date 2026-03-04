@@ -711,19 +711,53 @@
 	border: 1px solid var(--background-modifier-border);
 	border-radius: var(--radius-s);
 	box-shadow: var(--shadow-s);
-	max-height: 200px;
+	max-height: 280px;
 	overflow-y: auto;
 }
 
 .ft-jb-autocomplete-item {
 	padding: var(--size-4-1) var(--size-4-2);
 	cursor: pointer;
-	font-size: var(--font-ui-small);
-	font-family: var(--font-monospace);
 }
 
-.ft-jb-autocomplete-item:hover {
+.ft-jb-autocomplete-item:hover,
+.ft-jb-autocomplete-item.is-highlighted {
 	background: var(--background-modifier-hover);
+}
+
+.ft-jb-autocomplete-name-row {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-1);
+}
+
+.ft-jb-autocomplete-name {
+	font-size: var(--font-ui-small);
+	font-family: var(--font-monospace);
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ft-jb-autocomplete-badge {
+	font-size: var(--font-ui-smaller);
+	padding: 1px 6px;
+	border-radius: var(--radius-s);
+	background: var(--background-modifier-hover);
+	color: var(--text-muted);
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+.ft-jb-autocomplete-desc {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	padding-top: 1px;
 }
 
 /* ── Assert type picker ──────────────────────────────────── */

@@ -533,22 +533,25 @@ describe("ActionForm", () => {
 				onFieldChanged: vi.fn(),
 			}).render();
 
-			expect(byTestId(container, "jb-assert-event-input")).toBeNull();
+			expect(byTestId(container, "jb-event-suggest-input")).toBeNull();
 			expect(byTestId(container, "jb-action-field-selector")).toBeNull();
-			// event field rendered but without suggest (no getEventNames)
+			// event field rendered but without suggest (no getEventCatalog)
 			const eventFields = container.querySelectorAll(".ft-jb-form-group");
 			expect(eventFields.length).toBeGreaterThan(0);
 		});
 
-		it("shows event field with jb-assert-event-input test-id when getEventNames provided", () => {
+		it("shows event field with jb-event-suggest-input test-id when getEventCatalog provided", () => {
 			new ActionForm(container, {
 				action: { tool: "assert", type: "event" },
 				schema: TOOL_SCHEMAS.assert,
 				onFieldChanged: vi.fn(),
-				getEventNames: () => ["hub.opened", "user.created"],
+				getEventCatalog: () => [
+					{ type: "hub.opened", category: "Hub", description: "Hub was opened" },
+					{ type: "user.created", category: "User", description: "User was created" },
+				],
 			}).render();
 
-			expect(byTestId(container, "jb-assert-event-input")).toBeTruthy();
+			expect(byTestId(container, "jb-event-suggest-input")).toBeTruthy();
 		});
 
 		it("shows code and expected when assert type is eval", () => {

@@ -45,7 +45,7 @@ describe("JourneyBuilderSidebar", () => {
 		});
 
 		it("returns correct display text", () => {
-			expect(sidebar.getDisplayText()).toBe("Journey Builder");
+			expect(sidebar.getDisplayText()).toBe("Journey builder");
 		});
 
 		it("returns correct icon", () => {
@@ -70,7 +70,7 @@ describe("JourneyBuilderSidebar", () => {
 		it("renders the header with title", () => {
 			const header = byTestId(sidebar.contentEl, "jb-header-title");
 			expect(header).toBeTruthy();
-			expect(header!.textContent).toBe("Journey Builder");
+			expect(header!.textContent).toBe("Journey builder");
 		});
 
 		it("renders empty state with create button when vault has no journey files", () => {
@@ -207,7 +207,7 @@ describe("JourneyBuilderSidebar", () => {
 		it("renders the header in setup state", () => {
 			const header = byTestId(sidebar.contentEl, "jb-header-title");
 			expect(header).toBeTruthy();
-			expect(header!.textContent).toBe("Journey Builder");
+			expect(header!.textContent).toBe("Journey builder");
 		});
 
 		it("renders the back button", () => {
@@ -743,12 +743,17 @@ describe("JourneyBuilderSidebar", () => {
 
 	describe("event autocomplete", () => {
 		let sidebarWithEvents: JourneyBuilderSidebar;
-		const mockEvents = ["hub.opened", "hub.tab.changed", "user.created", "session.started"];
+		const mockEventCatalog = [
+			{ type: "hub.opened", category: "Hub", description: "Hub was opened" },
+			{ type: "hub.tab.changed", category: "Hub", description: "Tab was switched" },
+			{ type: "user.created", category: "User", description: "User was created" },
+			{ type: "session.started", category: "Session", description: "Session started" },
+		];
 
 		beforeEach(async () => {
 			sidebarWithEvents = new JourneyBuilderSidebar(createMockLeaf(), {
 				eventBus,
-				getEventNames: () => mockEvents,
+				getEventCatalog: () => mockEventCatalog,
 			});
 			await sidebarWithEvents.onOpen();
 		});
@@ -986,6 +991,7 @@ describe("JourneyBuilderSidebar", () => {
 	});
 
 	describe("canvas zoom-to-selection", () => {
+		const canvasPath = "03 - Resources/Journeys/My Journey/My Journey.canvas";
 		let zoomToFit: ReturnType<typeof vi.fn>;
 		let zoomToSelection: ReturnType<typeof vi.fn>;
 		let selectOnly: ReturnType<typeof vi.fn>;
@@ -1013,7 +1019,7 @@ describe("JourneyBuilderSidebar", () => {
 					getLeavesOfType: () => [
 						{
 							view: {
-								file: { path: "journeys/My Journey.canvas" },
+								file: { path: canvasPath },
 								canvas: { zoomToFit, zoomToSelection, selectOnly, deselectAll, nodes: makeCanvasNodes("5") },
 							},
 						},
@@ -1031,7 +1037,7 @@ describe("JourneyBuilderSidebar", () => {
 		});
 
 		it("selects active step node after zoomToFit", async () => {
-			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/My Journey.canvas" });
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath });
 			vi.advanceTimersByTime(500);
 			expect(zoomToFit).toHaveBeenCalledOnce();
 			expect(selectOnly).toHaveBeenCalledOnce();
@@ -1041,7 +1047,7 @@ describe("JourneyBuilderSidebar", () => {
 		});
 
 		it("calls zoomToSelection after selecting active node", async () => {
-			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/My Journey.canvas" });
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath });
 			vi.advanceTimersByTime(500);
 			expect(zoomToSelection).not.toHaveBeenCalled();
 			vi.advanceTimersByTime(300);
@@ -1050,7 +1056,7 @@ describe("JourneyBuilderSidebar", () => {
 
 		it("zooms to selection on navigation without zoomToFit", async () => {
 			// First sync — first open triggers zoomToFit
-			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/My Journey.canvas" });
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath });
 			vi.advanceTimersByTime(800);
 			expect(zoomToFit).toHaveBeenCalledOnce();
 			zoomToFit.mockClear();
@@ -1060,20 +1066,27 @@ describe("JourneyBuilderSidebar", () => {
 			// Add steps for navigation
 			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
 			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
-			vi.advanceTimersByTime(1500); // flush add syncs
+			vi.advanceTimersByTime(1500); // flush add syncs + zoom timers
+			selectOnly.mockClear();
+			zoomToSelection.mockClear();
 
-			// Navigate prev — triggers pendingZoomToStep
+			// Navigate prev — schedules zoom independently
 			byTestId(sidebar.contentEl, "jb-nav-prev")!.click();
-			vi.advanceTimersByTime(300); // nav debounce
-			// Simulate service responding with canvas.synced
-			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/My Journey.canvas" });
-			vi.advanceTimersByTime(500);
+			vi.advanceTimersByTime(1000); // zoom timer
 
 			// Should NOT call zoomToFit, but SHOULD select + zoom to selection
 			expect(zoomToFit).not.toHaveBeenCalled();
 			expect(selectOnly).toHaveBeenCalledOnce();
 			vi.advanceTimersByTime(300);
 			expect(zoomToSelection).toHaveBeenCalledOnce();
+		});
+
+		it("zooms to selection when adding a step", () => {
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			vi.advanceTimersByTime(1000); // zoom timer
+			expect(selectOnly).toHaveBeenCalled();
+			vi.advanceTimersByTime(300);
+			expect(zoomToSelection).toHaveBeenCalled();
 		});
 
 		it("skips zoom-to-selection when no active step node", async () => {
@@ -1084,14 +1097,14 @@ describe("JourneyBuilderSidebar", () => {
 					getLeavesOfType: () => [
 						{
 							view: {
-								file: { path: "journeys/My Journey.canvas" },
+								file: { path: canvasPath },
 								canvas: { zoomToFit, zoomToSelection, selectOnly, deselectAll, nodes: makeCanvasNodes() },
 							},
 						},
 					],
 				},
 			};
-			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/My Journey.canvas" });
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath });
 			vi.advanceTimersByTime(800);
 			expect(zoomToFit).toHaveBeenCalledOnce();
 			expect(selectOnly).not.toHaveBeenCalled();
@@ -1105,14 +1118,14 @@ describe("JourneyBuilderSidebar", () => {
 					getLeavesOfType: () => [
 						{
 							view: {
-								file: { path: "journeys/My Journey.canvas" },
+								file: { path: canvasPath },
 								canvas: { zoomToFit },
 							},
 						},
 					],
 				},
 			};
-			await eventBus.emit("journey-builder.canvas.synced", { canvasPath: "journeys/My Journey.canvas" });
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath });
 			vi.advanceTimersByTime(800);
 			// Should not throw
 			expect(zoomToFit).toHaveBeenCalledOnce();
@@ -1191,7 +1204,7 @@ describe("JourneyBuilderSidebar", () => {
 			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
 			expect(handler).not.toHaveBeenCalled();
 
-			vi.advanceTimersByTime(500);
+			vi.advanceTimersByTime(200);
 			expect(handler).not.toHaveBeenCalled();
 		});
 

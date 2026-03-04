@@ -7,13 +7,14 @@
  * Always appends a description text input at the end.
  */
 import type { JourneyAction, ToolSchemaDef, ToolFieldDef } from "../../domain/journeyBuilder/types";
+import type { EventSuggestItem } from "./EventSuggestTypes";
 import { attachEventSuggest } from "./EventSuggest";
 
 export interface ActionFormDeps {
 	action: JourneyAction;
 	schema: ToolSchemaDef;
 	onFieldChanged: (key: string, value: string | number) => void;
-	getEventNames?: () => string[];
+	getEventCatalog?: () => EventSuggestItem[];
 	getCommands?: () => { id: string; label: string }[];
 	onReRender?: () => void;
 }
@@ -207,10 +208,10 @@ export class ActionForm {
 				this.deps.onFieldChanged(field.key, input.value);
 			});
 
-			// Attach event suggest to assert event field
-			if (field.key === "event" && this.deps.getEventNames) {
-				input.dataset.testId = "jb-assert-event-input";
-				const unsub = attachEventSuggest(input, this.deps.getEventNames, (value) => {
+			// Attach event suggest to event fields (assert, emit, query-trace)
+			if (field.key === "event" && this.deps.getEventCatalog) {
+				input.dataset.testId = "jb-event-suggest-input";
+				const unsub = attachEventSuggest(input, this.deps.getEventCatalog, (value) => {
 					this.deps.onFieldChanged(field.key, value);
 				});
 				this.cleanups.push(unsub);

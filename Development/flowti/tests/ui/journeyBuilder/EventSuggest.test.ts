@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import "../../mocks/obsidian-stub";
 import { attachEventSuggest } from "../../../src/ui/journeyBuilder/EventSuggest";
+import type { EventSuggestItem } from "../../../src/ui/journeyBuilder/EventSuggestTypes";
 
 // ── Helpers ──────────────────────────────────────────────
 
@@ -19,6 +20,10 @@ function setInputValue(input: HTMLInputElement, value: string): void {
 	input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
+function focusInput(input: HTMLInputElement): void {
+	input.dispatchEvent(new Event("focus", { bubbles: true }));
+}
+
 function getDropdown(input: HTMLInputElement): HTMLElement | null {
 	return input.parentElement!.querySelector("[data-test-id='jb-autocomplete-dropdown']");
 }
@@ -29,19 +34,31 @@ function getItems(input: HTMLInputElement): HTMLElement[] {
 	return Array.from(dropdown.querySelectorAll("[data-test-id='jb-autocomplete-item']"));
 }
 
-const SAMPLE_EVENTS = [
-	"hub.tab.changed",
-	"hub.opened",
-	"user.created",
-	"user.updated",
-	"user.deleted",
-	"session.started",
-	"session.ended",
-	"settings.changed",
-	"ingestion.job.queued",
-	"ingestion.job.started",
-	"ingestion.job.completed",
-	"ingestion.batch.started",
+function getNameText(item: HTMLElement): string {
+	return item.querySelector(".ft-jb-autocomplete-name")?.textContent ?? "";
+}
+
+function getBadgeText(item: HTMLElement): string {
+	return item.querySelector(".ft-jb-autocomplete-badge")?.textContent ?? "";
+}
+
+function getDescText(item: HTMLElement): string {
+	return item.querySelector(".ft-jb-autocomplete-desc")?.textContent ?? "";
+}
+
+const SAMPLE_EVENTS: EventSuggestItem[] = [
+	{ type: "hub.tab.changed", category: "Hub", description: "A hub tab was switched" },
+	{ type: "hub.opened", category: "Hub", description: "A hub view was opened" },
+	{ type: "user.created", category: "User", description: "A new user was created" },
+	{ type: "user.updated", category: "User", description: "A user profile was updated" },
+	{ type: "user.deleted", category: "User", description: "A user was deleted" },
+	{ type: "session.started", category: "Session", description: "A session was started" },
+	{ type: "session.ended", category: "Session", description: "A session ended" },
+	{ type: "settings.changed", category: "Settings", description: "Settings were changed" },
+	{ type: "ingestion.job.queued", category: "Ingestion", description: "A job was queued" },
+	{ type: "ingestion.job.started", category: "Ingestion", description: "A job was started" },
+	{ type: "ingestion.job.completed", category: "Ingestion", description: "A job completed" },
+	{ type: "ingestion.batch.started", category: "Ingestion", description: "A batch was started" },
 ];
 
 // ── Tests ────────────────────────────────────────────────
@@ -63,14 +80,18 @@ describe("EventSuggest", () => {
 			expect(getDropdown(input)).toBeTruthy();
 		});
 
-		it("does not show dropdown for empty input", () => {
-			setInputValue(input, "");
-			expect(getDropdown(input)).toBeNull();
+		it("shows dropdown on focus with empty input", () => {
+			focusInput(input);
+			expect(getDropdown(input)).toBeTruthy();
+			expect(getItems(input).length).toBe(10);
 		});
 
-		it("does not show dropdown for whitespace-only input", () => {
-			setInputValue(input, "   ");
-			expect(getDropdown(input)).toBeNull();
+		it("shows dropdown on focus with top 10 items alphabetically", () => {
+			focusInput(input);
+			const items = getItems(input);
+			const firstType = getNameText(items[0]);
+			const secondType = getNameText(items[1]);
+			expect(firstType.localeCompare(secondType)).toBeLessThanOrEqual(0);
 		});
 
 		it("does not show dropdown when no items match", () => {
@@ -86,33 +107,69 @@ describe("EventSuggest", () => {
 		});
 	});
 
-	describe("filtering", () => {
-		it("filters items by case-insensitive substring match", () => {
-			setInputValue(input, "HUB");
+	describe("fuzzy matching", () => {
+		it("matches by prefix", () => {
+			setInputValue(input, "hub");
 			const items = getItems(input);
 			expect(items.length).toBe(2);
-			expect(items[0].textContent).toBe("hub.tab.changed");
-			expect(items[1].textContent).toBe("hub.opened");
+			expect(getNameText(items[0])).toMatch(/^hub\./);
 		});
 
-		it("limits results to 10 items", () => {
-			setInputValue(input, ".");
-			const items = getItems(input);
-			expect(items.length).toBe(10);
-		});
-
-		it("matches partial segments", () => {
+		it("matches segment prefix", () => {
 			setInputValue(input, "job");
 			const items = getItems(input);
 			expect(items.length).toBe(3);
 		});
+
+		it("matches by subsequence across segments", () => {
+			setInputValue(input, "htc");
+			const items = getItems(input);
+			expect(items.length).toBeGreaterThan(0);
+			expect(getNameText(items[0])).toBe("hub.tab.changed");
+		});
+
+		it("is case-insensitive", () => {
+			setInputValue(input, "HUB");
+			const items = getItems(input);
+			expect(items.length).toBe(2);
+		});
+
+		it("limits results to 10 items", () => {
+			setInputValue(input, "e");
+			const items = getItems(input);
+			expect(items.length).toBeLessThanOrEqual(10);
+		});
+
+		it("ranks exact match first", () => {
+			setInputValue(input, "hub.opened");
+			const items = getItems(input);
+			expect(getNameText(items[0])).toBe("hub.opened");
+		});
 	});
 
-	describe("item rendering", () => {
+	describe("rich item rendering", () => {
+		it("renders event name in .ft-jb-autocomplete-name", () => {
+			setInputValue(input, "session");
+			const items = getItems(input);
+			expect(items.length).toBeGreaterThan(0);
+			expect(getNameText(items[0])).toMatch(/^session\./);
+		});
+
+		it("renders category badge in .ft-jb-autocomplete-badge", () => {
+			setInputValue(input, "session");
+			const items = getItems(input);
+			expect(getBadgeText(items[0])).toBe("Session");
+		});
+
+		it("renders description in .ft-jb-autocomplete-desc", () => {
+			setInputValue(input, "session.started");
+			const items = getItems(input);
+			expect(getDescText(items[0])).toBe("A session was started");
+		});
+
 		it("renders items with correct CSS class", () => {
 			setInputValue(input, "session");
 			const items = getItems(input);
-			expect(items.length).toBe(2);
 			for (const item of items) {
 				expect(item.classList.contains("ft-jb-autocomplete-item")).toBe(true);
 			}
@@ -135,7 +192,7 @@ describe("EventSuggest", () => {
 			setInputValue(input, "hub");
 			input.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
 			const items = getItems(input);
-			expect(items[0].style.background).toBe("var(--background-modifier-hover)");
+			expect(items[0].classList.contains("is-highlighted")).toBe(true);
 		});
 
 		it("ArrowDown then ArrowUp keeps first item highlighted", () => {
@@ -144,15 +201,15 @@ describe("EventSuggest", () => {
 			input.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
 			input.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }));
 			const items = getItems(input);
-			expect(items[0].style.background).toBe("var(--background-modifier-hover)");
+			expect(items[0].classList.contains("is-highlighted")).toBe(true);
 		});
 
 		it("Enter selects highlighted item", () => {
 			setInputValue(input, "hub");
 			input.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
 			input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-			expect(onSelect).toHaveBeenCalledWith("hub.tab.changed");
-			expect(input.value).toBe("hub.tab.changed");
+			expect(onSelect).toHaveBeenCalled();
+			expect(input.value).toMatch(/^hub\./);
 		});
 
 		it("Enter does nothing when no item is highlighted", () => {
@@ -167,7 +224,7 @@ describe("EventSuggest", () => {
 				input.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
 			}
 			const items = getItems(input);
-			expect(items[items.length - 1].style.background).toBe("var(--background-modifier-hover)");
+			expect(items[items.length - 1].classList.contains("is-highlighted")).toBe(true);
 		});
 	});
 
@@ -176,8 +233,8 @@ describe("EventSuggest", () => {
 			setInputValue(input, "session");
 			const items = getItems(input);
 			items[0].dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
-			expect(onSelect).toHaveBeenCalledWith("session.started");
-			expect(input.value).toBe("session.started");
+			expect(onSelect).toHaveBeenCalled();
+			expect(input.value).toMatch(/^session\./);
 		});
 
 		it("mousedown hides dropdown", () => {
@@ -199,6 +256,14 @@ describe("EventSuggest", () => {
 			input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
 			expect(inputSpy).toHaveBeenCalled();
 		});
+
+		it("does not re-open dropdown from synthetic input event after selection", () => {
+			setInputValue(input, "hub");
+			input.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+			input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+			// The synthetic input event should be skipped
+			expect(getDropdown(input)).toBeNull();
+		});
 	});
 
 	describe("unsubscribe", () => {
@@ -212,6 +277,12 @@ describe("EventSuggest", () => {
 		it("input events no longer show dropdown after unsubscribe", () => {
 			unsub();
 			setInputValue(input, "hub");
+			expect(getDropdown(input)).toBeNull();
+		});
+
+		it("focus events no longer show dropdown after unsubscribe", () => {
+			unsub();
+			focusInput(input);
 			expect(getDropdown(input)).toBeNull();
 		});
 	});

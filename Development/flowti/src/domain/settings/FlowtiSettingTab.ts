@@ -400,7 +400,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 	 * Display Journey Builder settings section
 	 */
 	private displayJourneyBuilderSection(containerEl: HTMLElement): void {
-		new Setting(containerEl).setName("Journey Builder").setHeading();
+		new Setting(containerEl).setName("Journey builder").setHeading();
 
 		const settings = this.deps.getSettings();
 
@@ -410,7 +410,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 			.addText((text) =>
 				text
 					.setValue(settings.journeyFolder)
-					.setPlaceholder("03 - Resources/Journeys")
+					.setPlaceholder("03 - Resources/Journeys") // eslint-disable-line obsidianmd/ui/sentence-case -- path
 					.onChange((value) => {
 						void this.deps.eventBus.emit("settings.updateJourneyFolder", { folder: value });
 					})
