@@ -44,7 +44,8 @@ interface CanvasLeafView {
 	};
 }
 
-type SidebarState = "welcome" | "setup" | "steps";
+/** Sidebar view state: welcome (landing), setup (metadata form), or steps (step editor). */
+export type SidebarState = "welcome" | "setup" | "steps";
 
 /** Adapter-based journey file picker — works for .json files not indexed by vault. */
 class JourneyPickerModal extends FuzzySuggestModal<string> {
