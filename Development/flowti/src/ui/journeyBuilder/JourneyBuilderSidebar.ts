@@ -890,7 +890,9 @@ export class JourneyBuilderSidebar extends ItemView {
 	}
 
 	private findCanvas(canvasPath: string): CanvasLeafView["canvas"] | null {
-		const leaves = this.app?.workspace?.getLeavesOfType("canvas") ?? [];
+		const getLeavesOfType = this.app?.workspace?.getLeavesOfType;
+		if (typeof getLeavesOfType !== "function") return null;
+		const leaves = getLeavesOfType.call(this.app.workspace, "canvas") ?? [];
 		for (const leaf of leaves) {
 			const view = leaf.view as unknown as CanvasLeafView;
 			if (view?.file?.path === canvasPath && view?.canvas) {
