@@ -44,3 +44,55 @@ export interface ToolSchemaDef {
 	category: ToolCategory;
 	fields: ToolFieldDef[];
 }
+
+/** Pre-built action sequence template. */
+export interface ActionTemplate {
+	id: string;
+	label: string;
+	description: string;
+	icon: string;
+	actions: JourneyAction[];
+}
+
+/** Built-in action templates for quick multi-action creation. */
+export const ACTION_TEMPLATES: ActionTemplate[] = [
+	{
+		id: "open-command",
+		label: "Open via command",
+		description: "Run a command, wait, then verify the view opened",
+		icon: "terminal",
+		actions: [
+			{ tool: "command", id: "" },
+			{ tool: "wait", ms: 500 },
+			{ tool: "assert", type: "leaf", viewType: "" },
+		],
+	},
+	{
+		id: "click-element",
+		label: "Click element",
+		description: "Click a UI element and wait for the result",
+		icon: "pointer",
+		actions: [
+			{ tool: "click", selector: "" },
+			{ tool: "wait", ms: 300 },
+		],
+	},
+	{
+		id: "verify-visible",
+		label: "Verify visible",
+		description: "Assert that an element is visible on screen",
+		icon: "eye",
+		actions: [
+			{ tool: "assert", type: "visible", selector: "" },
+		],
+	},
+	{
+		id: "take-screenshot",
+		label: "Take screenshot",
+		description: "Capture a labeled screenshot of the current state",
+		icon: "camera",
+		actions: [
+			{ tool: "screenshot", label: "" },
+		],
+	},
+];

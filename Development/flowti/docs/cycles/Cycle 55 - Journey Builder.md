@@ -23,12 +23,12 @@ estimated_loc: 2120
 estimated_tests: 275
 pre_cycle_tests: 6195
 pre_cycle_suites: 265
-actual_increments: 10
-actual_loc: 2900
-actual_tests: 374
-actual_suites: 10
-post_cycle_tests: 6569
-post_cycle_suites: 275
+actual_increments: 11
+actual_loc: 3000
+actual_tests: 399
+actual_suites: 11
+post_cycle_tests: 6594
+post_cycle_suites: 276
 ---
 
 # Cycle 55 — Journey Builder
@@ -434,19 +434,19 @@ Inc 10 (Export + Open)   ──→ After Inc 9 (needs canvas generator)
 
 ## Success Metrics
 
-| Metric | Target | Actual (after Inc 10) |
+| Metric | Target | Actual (after Inc 11) |
 |---|---|---|
-| New tests | ~275 | 374 |
-| Post-cycle tests | ~6,470 | 6,569 |
-| New suites | — | 10 |
-| New files | ~15 | 17+ (13 src + 4 test, excl. CSS) |
-| Source LOC | ~2,120 | 2,900+ |
-| PBIs delivered | 9 | 1 partial (JB-002) + 8 done (JB-001, JB-003–007, JB-009, JB-010) |
-| Action builder tool coverage | 26/26 tools | 34/34 tools |
+| New tests | ~275 | 399 |
+| Post-cycle tests | ~6,470 | 6,594 |
+| New suites | — | 11 |
+| New files | ~15 | 19+ (14 src + 5 test, excl. CSS) |
+| Source LOC | ~2,120 | 3,000+ |
+| PBIs delivered | 9 | 9/9 done (JB-001–007, JB-009, JB-010) |
+| Action builder tool coverage | 26/26 tools | 34/34 tools + 4 templates |
 | Event autocomplete coverage | 360+ events | Done — fuzzy autocomplete with category badges |
 | Export file types | 3 (JSON + .test.ts + .canvas) | 3 (all done) |
 | Canvas sync latency | < 1s from edit to canvas update | Done — 400ms zoom, event-driven sync |
-| Increments | ~10 | 10 completed |
+| Increments | ~10 | 11 completed |
 
 ## Actual Progress
 
@@ -464,6 +464,7 @@ Inc 10 (Export + Open)   ──→ After Inc 9 (needs canvas generator)
 | 7 | Feature | Event Autocomplete (JB-003) + Canvas zoom refactor — fuzzyMatchEvent, EventSuggest, attachEventSuggest for start/end/assert event fields. Canvas zoom refactored to event-driven pattern (pendingZoomToStep flag, scheduleZoom 400ms tracked timer, timeout cleanup) | 10 | EventSuggest (167 LOC), fuzzyMatchEvent (87 LOC), JB-003 done |
 | 8 | Feature | Command Picker (JB-004) — replaced plain `<select>` with searchable autocomplete. Reuses `attachEventSuggest` via adapter (CommandMeta→EventSuggestItem). Domain badges on each command. JB-005 confirmed already done | 2 | JB-004 done, JB-005 confirmed done |
 | 9 | Feature | Step Metadata Chips (JB-001) — ChipList component for events, commands, interactions, components arrays on StepCard. Add via Enter, remove via × button. Keyboard accessible. `onStepListChanged` handler. buildDefinition includes arrays. JSON preview reflects chip data. | 32 | ChipList.ts (87 LOC), JB-001 done |
+| 10 | Feature | Action Templates (JB-002) — TemplatePicker component with 4 pre-built patterns (Open via command, Click element, Verify visible, Take screenshot) + Custom fallback. Templates bulk-create actions. `showTemplatePicker` state intercepts "Add action" before ToolPicker. | 25 | TemplatePicker.ts (72 LOC), ActionTemplate type, JB-002 done |
 
 ### Unplanned Work Delivered
 
@@ -480,7 +481,7 @@ Work not in the original plan but delivered organically during the cycle:
 | PBI | Title | Status | Notes |
 |-----|-------|--------|-------|
 | JB-001 | Step Editor + Navigation | Done | Title, description, swimlane, nav, chip lists (events/commands/interactions/components). |
-| JB-002 | Action Builder + Templates | Partial | Core done (34 tools, schema forms). Templates pending. |
+| JB-002 | Action Builder + Templates | Done | 34 tools, schema forms, 4 action templates (Open via command, Click element, Verify visible, Take screenshot) + Custom fallback. |
 | JB-003 | Event Autocomplete | Done | Fuzzy autocomplete dropdown with category badges + Title Sentence conversion. EventSuggest reused across event fields. |
 | JB-004 | Command Picker | Done | Searchable autocomplete via EventSuggest adapter. Domain badges. |
 | JB-005 | Assert Builder | Done | 8-type button picker, conditional visibility, event autocomplete, required markers. |

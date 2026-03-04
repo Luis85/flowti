@@ -22,6 +22,8 @@ import { JSONPanel } from "./JSONPanel";
 import { ActionList } from "./ActionList";
 import { ToolPicker } from "./ToolPicker";
 import { ActionForm } from "./ActionForm";
+import { TemplatePicker } from "./TemplatePicker";
+import { ACTION_TEMPLATES } from "../../domain/journeyBuilder/types";
 
 export const VIEW_TYPE_JOURNEY_BUILDER = "flowti-journey-builder";
 
@@ -99,6 +101,7 @@ export class JourneyBuilderSidebar extends ItemView {
 	private currentStepIndex = 0;
 	private selectedActionIndex = -1;
 	private showToolPicker = false;
+	private showTemplatePicker = false;
 	private jsonPanel: JSONPanel | null = null;
 	private suggestCleanups: (() => void)[] = [];
 	private canvasSyncTimer: ReturnType<typeof setTimeout> | null = null;
@@ -229,6 +232,7 @@ export class JourneyBuilderSidebar extends ItemView {
 		this.currentStepIndex = 0;
 		this.selectedActionIndex = -1;
 		this.showToolPicker = false;
+		this.showTemplatePicker = false;
 		this.canvasOpenedPath = null;
 		const el = this.contentEl;
 		el.empty();
@@ -490,7 +494,16 @@ export class JourneyBuilderSidebar extends ItemView {
 				onSelectAction: (i) => this.onSelectAction(i),
 			}).render();
 
-			// ToolPicker — shown after "Add action" click
+			// TemplatePicker — shown first when "Add action" is clicked
+			if (this.showTemplatePicker) {
+				const tplContainer = el.createDiv({ cls: "ft-jb-picker-container" });
+				new TemplatePicker(tplContainer, {
+					onTemplateSelected: (id) => this.onTemplateSelected(id),
+					onCustom: () => this.onCustomFromTemplate(),
+				}).render();
+			}
+
+			// ToolPicker — shown after "Custom" is selected from template picker
 			if (this.showToolPicker) {
 				const pickerContainer = el.createDiv({ cls: "ft-jb-picker-container" });
 				new ToolPicker(pickerContainer, {
@@ -712,6 +725,7 @@ export class JourneyBuilderSidebar extends ItemView {
 		this.currentStepIndex = 0;
 		this.selectedActionIndex = -1;
 		this.showToolPicker = false;
+		this.showTemplatePicker = false;
 		this.canvasOpenedPath = null;
 		this.renderSteps();
 		this.scheduleCanvasSync();
@@ -804,6 +818,7 @@ export class JourneyBuilderSidebar extends ItemView {
 		}
 		this.selectedActionIndex = -1;
 		this.showToolPicker = false;
+		this.showTemplatePicker = false;
 		this.renderSteps();
 		this.scheduleCanvasSync();
 	}
@@ -811,8 +826,31 @@ export class JourneyBuilderSidebar extends ItemView {
 	// ── Action handlers ─────────────────────────────────────
 
 	private onAddAction(): void {
-		this.showToolPicker = true;
+		this.showTemplatePicker = true;
+		this.showToolPicker = false;
 		this.selectedActionIndex = -1;
+		this.renderSteps();
+	}
+
+	private onTemplateSelected(templateId: string): void {
+		const step = this.steps[this.currentStepIndex];
+		if (!step) return;
+		const template = ACTION_TEMPLATES.find((t) => t.id === templateId);
+		if (!template) return;
+		const actions = template.actions.map((a) => ({ ...a }));
+		step.actions.push(...actions);
+		this.selectedActionIndex = step.actions.length - actions.length;
+		this.showTemplatePicker = false;
+		for (const a of actions) {
+			void this.eventBus.emit("journey-builder.action.added", { stepId: step.id, tool: a.tool });
+		}
+		this.renderSteps();
+		this.scheduleCanvasSync();
+	}
+
+	private onCustomFromTemplate(): void {
+		this.showTemplatePicker = false;
+		this.showToolPicker = true;
 		this.renderSteps();
 	}
 
@@ -855,6 +893,7 @@ export class JourneyBuilderSidebar extends ItemView {
 	private onSelectAction(index: number): void {
 		this.selectedActionIndex = index;
 		this.showToolPicker = false;
+		this.showTemplatePicker = false;
 		this.renderSteps();
 	}
 

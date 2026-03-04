@@ -6,6 +6,8 @@ import { ToolPicker } from "../../../src/ui/journeyBuilder/ToolPicker";
 import { ActionForm } from "../../../src/ui/journeyBuilder/ActionForm";
 import { TOOL_SCHEMAS, TOOL_CATEGORIES } from "../../../src/domain/journeyBuilder/toolSchemas";
 import type { JourneyAction, JourneyToolName } from "../../../src/domain/journeyBuilder/types";
+import { ACTION_TEMPLATES } from "../../../src/domain/journeyBuilder/types";
+import { TemplatePicker } from "../../../src/ui/journeyBuilder/TemplatePicker";
 
 // ── Helpers ──────────────────────────────────────────────
 
@@ -888,5 +890,56 @@ describe("NavBar — setup button", () => {
 		const btn = byTestId(container, "jb-nav-setup")!;
 		btn.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
 		expect(onSetup).toHaveBeenCalledOnce();
+	});
+});
+
+// ── ACTION_TEMPLATES data ──────────────────────────────────
+
+describe("ACTION_TEMPLATES", () => {
+	it("has 4 templates", () => {
+		expect(ACTION_TEMPLATES).toHaveLength(4);
+	});
+
+	it("open-command template creates 3 actions", () => {
+		const tpl = ACTION_TEMPLATES.find((t) => t.id === "open-command")!;
+		expect(tpl.actions).toHaveLength(3);
+		expect(tpl.actions[0].tool).toBe("command");
+		expect(tpl.actions[1].tool).toBe("wait");
+		expect(tpl.actions[2].tool).toBe("assert");
+	});
+
+	it("click-element template creates 2 actions", () => {
+		const tpl = ACTION_TEMPLATES.find((t) => t.id === "click-element")!;
+		expect(tpl.actions).toHaveLength(2);
+		expect(tpl.actions[0].tool).toBe("click");
+		expect(tpl.actions[1].tool).toBe("wait");
+	});
+
+	it("verify-visible template creates 1 assert action", () => {
+		const tpl = ACTION_TEMPLATES.find((t) => t.id === "verify-visible")!;
+		expect(tpl.actions).toHaveLength(1);
+		expect(tpl.actions[0].tool).toBe("assert");
+		expect(tpl.actions[0].type).toBe("visible");
+	});
+
+	it("take-screenshot template creates 1 screenshot action", () => {
+		const tpl = ACTION_TEMPLATES.find((t) => t.id === "take-screenshot")!;
+		expect(tpl.actions).toHaveLength(1);
+		expect(tpl.actions[0].tool).toBe("screenshot");
+	});
+
+	it("each template has required fields", () => {
+		for (const tpl of ACTION_TEMPLATES) {
+			expect(tpl.id).toBeTruthy();
+			expect(tpl.label).toBeTruthy();
+			expect(tpl.description).toBeTruthy();
+			expect(tpl.icon).toBeTruthy();
+			expect(tpl.actions.length).toBeGreaterThan(0);
+		}
+	});
+
+	it("all template ids are unique", () => {
+		const ids = ACTION_TEMPLATES.map((t) => t.id);
+		expect(new Set(ids).size).toBe(ids.length);
 	});
 });

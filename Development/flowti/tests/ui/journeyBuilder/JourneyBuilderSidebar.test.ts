@@ -750,6 +750,67 @@ describe("JourneyBuilderSidebar", () => {
 		});
 	});
 
+	describe("action templates", () => {
+		beforeEach(async () => {
+			await sidebar.onOpen();
+			byTestId(sidebar.contentEl, "jb-create-new")!.click();
+			byTestId(sidebar.contentEl, "jb-continue-btn")!.click();
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+		});
+
+		it("shows template picker on Add action click", () => {
+			byTestId(sidebar.contentEl, "jb-add-action-btn")!.click();
+			expect(byTestId(sidebar.contentEl, "jb-template-picker")).toBeTruthy();
+			expect(byTestId(sidebar.contentEl, "jb-tool-picker")).toBeNull();
+		});
+
+		it("shows tool picker after Custom selection", () => {
+			byTestId(sidebar.contentEl, "jb-add-action-btn")!.click();
+			byTestId(sidebar.contentEl, "jb-template-custom")!.click();
+			expect(byTestId(sidebar.contentEl, "jb-template-picker")).toBeNull();
+			expect(byTestId(sidebar.contentEl, "jb-tool-picker")).toBeTruthy();
+		});
+
+		it("creates multiple actions from template", () => {
+			byTestId(sidebar.contentEl, "jb-add-action-btn")!.click();
+			const cards = sidebar.contentEl.querySelectorAll("[data-test-id='jb-template-card']");
+			// Click "Open via command" (first template)
+			(cards[0] as HTMLElement).click();
+			const steps = sidebar.getSteps();
+			expect(steps[0].actions).toHaveLength(3);
+			expect(steps[0].actions[0].tool).toBe("command");
+			expect(steps[0].actions[1].tool).toBe("wait");
+			expect(steps[0].actions[2].tool).toBe("assert");
+		});
+
+		it("emits action.added for each template action", () => {
+			const handler = vi.fn();
+			eventBus.on("journey-builder.action.added", handler);
+			byTestId(sidebar.contentEl, "jb-add-action-btn")!.click();
+			const cards = sidebar.contentEl.querySelectorAll("[data-test-id='jb-template-card']");
+			(cards[0] as HTMLElement).click();
+			expect(handler).toHaveBeenCalledTimes(3);
+		});
+
+		it("selects first template action after creation", () => {
+			byTestId(sidebar.contentEl, "jb-add-action-btn")!.click();
+			const cards = sidebar.contentEl.querySelectorAll("[data-test-id='jb-template-card']");
+			(cards[0] as HTMLElement).click();
+			// First action should be selected — ActionForm should render for "command"
+			expect(sidebar.getSelectedActionIndex()).toBe(0);
+		});
+
+		it("buildDefinition includes template-generated actions", () => {
+			byTestId(sidebar.contentEl, "jb-add-action-btn")!.click();
+			const cards = sidebar.contentEl.querySelectorAll("[data-test-id='jb-template-card']");
+			(cards[1] as HTMLElement).click(); // click-element: click + wait
+			const def = sidebar.buildDefinition();
+			expect(def.steps[0].actions).toHaveLength(2);
+			expect(def.steps[0].actions![0].tool).toBe("click");
+			expect(def.steps[0].actions![1].tool).toBe("wait");
+		});
+	});
+
 	describe("JSON panel live update", () => {
 		beforeEach(async () => {
 			await sidebar.onOpen();
