@@ -1,6 +1,6 @@
 {
 	"journey": "Journey Builder",
-	"description": "Full E2E blueprint for the Journey Builder feature. Steps 1-12 validate the current implementation (launch, welcome/setup flow, step editing with navigation, Title Sentence conversion, export, action builder with 34 tools, live JSON preview with copy-to-clipboard, event autocomplete, command picker, assert type builder, real-time canvas sync, full 3-file export, open existing journey). Step 13 is a development target: preview run.",
+	"description": "Full E2E blueprint for the Journey Builder feature. Steps 1-12 validate the current implementation (launch, welcome/setup flow, step editing with navigation, Title Sentence conversion, export, action templates with template picker, action builder with 34 tools, live JSON preview with copy-to-clipboard, event autocomplete, command picker, assert type builder, real-time canvas sync, full 3-file export, open existing journey). Step 13 is a development target: preview run.",
 	"testSource": "tests/e2e/90-journey-journey-builder.test.ts",
 	"reportPath": "docs/journeys/Journey Builder/Journey Builder.md",
 	"canvasPath": "docs/journeys/Journey Builder/Journey Builder.canvas",
@@ -199,7 +199,8 @@
 					"title": "Action Templates — quick-add patterns",
 					"description": "Instead of building actions one-by-one, offer common patterns: 'Open via command' (command + wait + assert leaf), 'Click element' (click + wait), 'Verify visible' (assert visible), 'Take screenshot'. User picks a template, fills in the blanks, actions are added as a group.",
 					"priority": "should-have",
-					"added": "2026-03-02"
+					"added": "2026-03-02",
+					"delivered": "2026-03-04"
 				},
 				{
 					"title": "Command Picker for command actions",
@@ -376,39 +377,40 @@
 			"title": "Add actions to a step",
 			"guideSection": 7,
 			"swimlane": "frontstage",
-			"description": "Opens the tool picker to add actions to a step. Selects a tool, fills in its fields, adds more actions, reorders them with up/down, removes one, and verifies the action count updates.",
+			"description": "Opens the template picker via Add Action, verifies template cards, uses Custom to fall through to the tool picker. Selects a tool, fills in its fields, adds more actions via templates and custom, reorders them with up/down, removes one, and verifies the action count updates.",
 			"expectedInput": "Step editor on step 1 with no actions",
-			"expectedOutput": "Step 1 has 2 actions (command, screenshot) after adding three, reordering, and removing one",
+			"expectedOutput": "Step 1 has 4 actions after template use, custom tool addition, reordering, and removing one",
 			"uiContext": {
 				"view": "flowti-journey-builder",
 				"viewName": "Journey Builder",
-				"components": ["JourneyBuilderSidebar", "StepCard", "ActionList", "ToolPicker", "ActionForm"]
+				"components": ["JourneyBuilderSidebar", "StepCard", "ActionList", "TemplatePicker", "ToolPicker", "ActionForm"]
 			},
 			"events": ["journey-builder.action.added"],
-			"interactions": ["click: Add Action", "select: Tool", "input: Action fields", "click: Move Up", "click: Move Down", "click: Remove Action"],
+			"interactions": ["click: Add Action", "click: Template Card", "click: Custom", "select: Tool", "input: Action fields", "click: Move Up", "click: Move Down", "click: Remove Action"],
 			"improvements": [
 				{
 					"title": "Drag-and-drop action reordering",
 					"description": "Allow reordering actions by drag-and-drop instead of only up/down buttons. Use Obsidian's sortable list pattern.",
 					"priority": "nice-to-have",
 					"added": "2026-03-02"
-				},
-				{
-					"title": "Action templates — quick-add patterns",
-					"description": "Instead of building actions one-by-one, offer common patterns: 'Open via command' (command + wait + assert leaf), 'Click element' (click + wait), 'Verify visible' (assert visible), 'Take screenshot'. User picks a template, fills in the blanks, actions are added as a group.",
-					"priority": "should-have",
-					"added": "2026-03-02"
 				}
 			],
 			"actions": [
-				{ "tool": "notice", "message": "Step 7/13: Action builder", "duration": 3000 },
+				{ "tool": "notice", "message": "Step 7/13: Action builder with templates", "duration": 3000 },
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-add-action-btn']", "description": "Add Action button is visible" },
 				{ "tool": "assert-text", "selector": "[data-test-id='jb-step-action-count']", "contains": "No actions", "description": "Step shows 'No actions' before adding" },
 
-				{ "tool": "notice", "message": "7a: Adding first action (command)", "duration": 2000 },
-				{ "tool": "click", "selector": "[data-test-id='jb-add-action-btn']", "description": "Click Add Action to open the tool picker" },
+				{ "tool": "notice", "message": "7a: Template picker — verify and use Custom", "duration": 2000 },
+				{ "tool": "click", "selector": "[data-test-id='jb-add-action-btn']", "description": "Click Add Action to open the template picker" },
 				{ "tool": "wait", "ms": 500 },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-tool-picker']", "description": "Tool picker is visible" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-template-picker']", "description": "Template picker is visible" },
+				{ "tool": "assert", "type": "count", "selector": "[data-test-id='jb-template-card']", "count": 4, "description": "4 template cards are shown" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-template-custom']", "description": "Custom action card is visible" },
+				{ "tool": "screenshot", "label": "template-picker", "description": "Template picker with 4 templates and Custom card" },
+
+				{ "tool": "click", "selector": "[data-test-id='jb-template-custom']", "description": "Click Custom to fall through to tool picker" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-tool-picker']", "description": "Tool picker is visible after Custom" },
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-tool-select']", "description": "Tool dropdown is visible" },
 
 				{ "tool": "eval", "code": "(() => { const sel = document.querySelector('[data-test-id=\"jb-tool-select\"]'); return sel ? sel.querySelectorAll('optgroup').length : 0; })()", "expect": { "type": "equals", "value": "5" }, "description": "Dropdown has 5 category groups" },
@@ -434,41 +436,44 @@
 				{ "tool": "assert-text", "selector": "[data-test-id='jb-step-action-count']", "contains": "1 action", "description": "Step action count shows '1 action'" },
 				{ "tool": "screenshot", "label": "action-form-command", "description": "First action added with filled form" },
 
-				{ "tool": "notice", "message": "7b: Adding second and third actions", "duration": 2000 },
-				{ "tool": "click", "selector": "[data-test-id='jb-add-action-btn']", "description": "Add a second action" },
+				{ "tool": "notice", "message": "7b: Use 'Click element' template to bulk-add actions", "duration": 2000 },
+				{ "tool": "click", "selector": "[data-test-id='jb-add-action-btn']", "description": "Click Add Action to open template picker again" },
 				{ "tool": "wait", "ms": 300 },
-				{ "tool": "select", "selector": "[data-test-id='jb-tool-select']", "value": "wait", "description": "Pick 'wait' tool" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-template-picker']", "description": "Template picker is visible" },
+				{ "tool": "click", "selector": "[data-test-id='jb-template-card'][data-template-id='click-element']", "description": "Select 'Click element' template" },
 				{ "tool": "wait", "ms": 500 },
-				{ "tool": "assert", "type": "count", "selector": "[data-test-id='jb-action-card']", "count": 2, "description": "Two action cards" },
-				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-action-field-ms']", "description": "Duration (ms) field is visible" },
-				{ "tool": "set-input", "selector": "[data-test-id='jb-action-field-ms']", "value": "500", "description": "Enter wait duration" },
-				{ "tool": "wait", "ms": 300 },
+				{ "tool": "assert", "type": "count", "selector": "[data-test-id='jb-action-card']", "count": 3, "description": "Template added 2 actions (click + wait), total 3" },
+				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-action-form']", "description": "Action form shows first template action (click)" },
+				{ "tool": "screenshot", "label": "template-click-element", "description": "Click element template added 2 actions at once" },
 
-				{ "tool": "click", "selector": "[data-test-id='jb-add-action-btn']", "description": "Add a third action" },
+				{ "tool": "notice", "message": "7c: Adding fourth action via Custom", "duration": 2000 },
+				{ "tool": "click", "selector": "[data-test-id='jb-add-action-btn']", "description": "Add another action" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "click", "selector": "[data-test-id='jb-template-custom']", "description": "Click Custom to use tool picker" },
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "select", "selector": "[data-test-id='jb-tool-select']", "value": "screenshot", "description": "Pick 'screenshot' tool" },
 				{ "tool": "wait", "ms": 500 },
-				{ "tool": "assert", "type": "count", "selector": "[data-test-id='jb-action-card']", "count": 3, "description": "Three action cards" },
+				{ "tool": "assert", "type": "count", "selector": "[data-test-id='jb-action-card']", "count": 4, "description": "Four action cards total" },
 				{ "tool": "set-input", "selector": "[data-test-id='jb-action-field-label']", "value": "after-hub-open", "description": "Enter screenshot label" },
 				{ "tool": "wait", "ms": 300 },
-				{ "tool": "assert-text", "selector": "[data-test-id='jb-step-action-count']", "contains": "3 actions", "description": "Action count shows '3 actions'" },
-				{ "tool": "screenshot", "label": "three-actions", "description": "Three actions added: command, wait, screenshot" },
+				{ "tool": "assert-text", "selector": "[data-test-id='jb-step-action-count']", "contains": "4 actions", "description": "Action count shows '4 actions'" },
+				{ "tool": "screenshot", "label": "four-actions", "description": "Four actions: command, click, wait, screenshot" },
 
-				{ "tool": "notice", "message": "7c: Reorder and remove", "duration": 2000 },
-				{ "tool": "click", "selector": "[data-test-id='jb-action-card']:nth-child(3) [data-test-id='jb-action-move-up']", "description": "Move screenshot action up (3 to 2)" },
+				{ "tool": "notice", "message": "7d: Reorder and remove", "duration": 2000 },
+				{ "tool": "click", "selector": "[data-test-id='jb-action-card']:nth-child(4) [data-test-id='jb-action-move-up']", "description": "Move screenshot action up (4 to 3)" },
 				{ "tool": "wait", "ms": 300 },
-				{ "tool": "click", "selector": "[data-test-id='jb-action-card']:nth-child(3) [data-test-id='jb-action-remove']", "description": "Remove last action (wait, now at position 3)" },
+				{ "tool": "click", "selector": "[data-test-id='jb-action-card']:nth-child(4) [data-test-id='jb-action-remove']", "description": "Remove last action (wait, now at position 4)" },
 				{ "tool": "wait", "ms": 300 },
-				{ "tool": "assert", "type": "count", "selector": "[data-test-id='jb-action-card']", "count": 2, "description": "Two actions remain after removal" },
-				{ "tool": "assert-text", "selector": "[data-test-id='jb-step-action-count']", "contains": "2 actions", "description": "Action count shows '2 actions'" },
-				{ "tool": "screenshot", "label": "action-reorder-remove", "description": "After reorder and remove — 2 actions remain" },
+				{ "tool": "assert", "type": "count", "selector": "[data-test-id='jb-action-card']", "count": 3, "description": "Three actions remain after removal" },
+				{ "tool": "assert-text", "selector": "[data-test-id='jb-step-action-count']", "contains": "3 actions", "description": "Action count shows '3 actions'" },
+				{ "tool": "screenshot", "label": "action-reorder-remove", "description": "After reorder and remove — 3 actions remain" },
 
 				{ "tool": "click", "selector": "[data-test-id='jb-action-card']:first-child", "description": "Select first action card to show its form" },
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-action-form']", "description": "Action form visible for selected action" },
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='jb-action-tool-badge']", "description": "Tool badge visible on action card" },
-				{ "tool": "screenshot", "label": "action-builder-final", "description": "Final state with 2 actions and form visible" },
-				{ "tool": "manual", "instruction": "Verify: (1) Two action cards with tool badges ('Command', 'Screenshot'). (2) Selected card has highlighted border. (3) Action form shows the selected action's fields. (4) Each card has up/down/remove buttons. (5) Step shows '2 actions'.", "interactive": false, "description": "Visual QA of action builder" }
+				{ "tool": "screenshot", "label": "action-builder-final", "description": "Final state with 3 actions and form visible" },
+				{ "tool": "manual", "instruction": "Verify: (1) Three action cards with tool badges ('Command', 'Click', 'Screenshot'). (2) Template picker shows 4 cards (Open via command, Click element, Verify visible, Take screenshot) plus a Custom card. (3) Selecting a template bulk-adds its actions. (4) Custom falls through to the 34-tool dropdown. (5) Selected card has highlighted border. (6) Each card has up/down/remove buttons.", "interactive": false, "description": "Visual QA of action builder with templates" }
 			]
 		},
 		{
@@ -523,10 +528,10 @@
 			"uiContext": {
 				"view": "flowti-journey-builder",
 				"viewName": "Journey Builder",
-				"components": ["JourneyBuilderSidebar", "ActionForm", "EventSuggest"]
+				"components": ["JourneyBuilderSidebar", "ActionForm", "EventSuggest", "TemplatePicker"]
 			},
 			"events": ["journey-builder.metadata.updated"],
-			"interactions": ["input: Start event (autocomplete)", "input: Command (autocomplete)", "select: Assert type", "input: Assert fields"],
+			"interactions": ["input: Start event (autocomplete)", "input: Command (autocomplete)", "click: Custom", "select: Assert type", "input: Assert fields"],
 			"improvements": [
 				{
 					"title": "View type autocomplete for leaf assertions",
@@ -570,6 +575,8 @@
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "screenshot", "label": "command-picker", "description": "Command picker with autocomplete and domain badges" },
 				{ "tool": "click", "selector": "[data-test-id='jb-add-action-btn']", "description": "Add an assert action" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "click", "selector": "[data-test-id='jb-template-custom']", "description": "Click Custom to open tool picker" },
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "select", "selector": "[data-test-id='jb-tool-select']", "value": "assert", "description": "Pick 'assert' tool" },
 				{ "tool": "wait", "ms": 300 },
