@@ -72,6 +72,10 @@ export interface JourneyStep {
 	description: string;
 	swimlane: string;
 	actions: JourneyAction[];
+	events?: string[];
+	commands?: string[];
+	interactions?: string[];
+	components?: string[];
 }
 
 export interface JourneyBuilderSidebarDeps {
@@ -193,7 +197,7 @@ export class JourneyBuilderSidebar extends ItemView {
 		description: string;
 		startEvent: string;
 		endEvent: string;
-		steps: { id: string; title: string; description: string; swimlane: string; guideSection: number; actions: JourneyAction[] }[];
+		steps: { id: string; title: string; description: string; swimlane: string; guideSection: number; actions: JourneyAction[]; events: string[]; commands: string[]; interactions: string[]; components: string[] }[];
 	} {
 		return {
 			journey: this.metadata.name,
@@ -207,6 +211,10 @@ export class JourneyBuilderSidebar extends ItemView {
 				swimlane: s.swimlane,
 				guideSection: i + 1,
 				actions: s.actions,
+				events: s.events ?? [],
+				commands: s.commands ?? [],
+				interactions: s.interactions ?? [],
+				components: s.components ?? [],
 			})),
 		};
 	}
@@ -464,6 +472,10 @@ export class JourneyBuilderSidebar extends ItemView {
 				onTitleChanged: (title) => this.onStepFieldChanged(step.id, "title", title),
 				onDescriptionChanged: (desc) => this.onStepFieldChanged(step.id, "description", desc),
 				onSwimlanChanged: (sw) => this.onStepFieldChanged(step.id, "swimlane", sw),
+				onEventsChanged: (items) => this.onStepListChanged(step.id, "events", items),
+				onCommandsChanged: (items) => this.onStepListChanged(step.id, "commands", items),
+				onInteractionsChanged: (items) => this.onStepListChanged(step.id, "interactions", items),
+				onComponentsChanged: (items) => this.onStepListChanged(step.id, "components", items),
 				onRemove: () => this.onRemoveStep(step.id),
 			}).render();
 
@@ -765,6 +777,20 @@ export class JourneyBuilderSidebar extends ItemView {
 				stepId,
 				field,
 				value,
+			});
+			this.jsonPanel?.update();
+			this.scheduleCanvasSync();
+		}
+	}
+
+	private onStepListChanged(stepId: string, field: string, items: string[]): void {
+		const step = this.steps.find((s) => s.id === stepId);
+		if (step) {
+			(step as unknown as Record<string, unknown>)[field] = items;
+			void this.eventBus.emit("journey-builder.step.updated", {
+				stepId,
+				field,
+				value: items,
 			});
 			this.jsonPanel?.update();
 			this.scheduleCanvasSync();

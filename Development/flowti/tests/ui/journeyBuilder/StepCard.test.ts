@@ -8,6 +8,10 @@ function byTestId(root: HTMLElement, id: string): HTMLElement | null {
 	return root.querySelector(`[data-test-id="${id}"]`);
 }
 
+function allByTestId(root: HTMLElement, id: string): HTMLElement[] {
+	return Array.from(root.querySelectorAll(`[data-test-id="${id}"]`)) as HTMLElement[];
+}
+
 describe("StepCard", () => {
 	let container: HTMLDivElement;
 	let deps: StepCardDeps;
@@ -20,6 +24,10 @@ describe("StepCard", () => {
 			onTitleChanged: vi.fn(),
 			onDescriptionChanged: vi.fn(),
 			onSwimlanChanged: vi.fn(),
+			onEventsChanged: vi.fn(),
+			onCommandsChanged: vi.fn(),
+			onInteractionsChanged: vi.fn(),
+			onComponentsChanged: vi.fn(),
 			onRemove: vi.fn(),
 		};
 	});
@@ -135,5 +143,73 @@ describe("StepCard", () => {
 		el.value = "backstage";
 		el.dispatchEvent(new Event("change", { bubbles: true }));
 		expect(deps.onSwimlanChanged).toHaveBeenCalledWith("backstage");
+	});
+
+	// ── Chip lists ─────────────────────────────────────────
+
+	it("renders 4 chip list sections", () => {
+		new StepCard(container, deps).render();
+		expect(byTestId(container, "jb-step-events-list")).toBeTruthy();
+		expect(byTestId(container, "jb-step-commands-list")).toBeTruthy();
+		expect(byTestId(container, "jb-step-interactions-list")).toBeTruthy();
+		expect(byTestId(container, "jb-step-components-list")).toBeTruthy();
+	});
+
+	it("pre-populates chips from step data", () => {
+		deps.step = {
+			id: "step-1", title: "T", description: "", swimlane: "",
+			actions: [], events: ["user.login", "user.logout"],
+		};
+		new StepCard(container, deps).render();
+		const chips = allByTestId(container, "jb-step-events-chip");
+		expect(chips).toHaveLength(2);
+	});
+
+	it("renders empty chips when step has no arrays", () => {
+		new StepCard(container, deps).render();
+		expect(allByTestId(container, "jb-step-events-chip")).toHaveLength(0);
+		expect(allByTestId(container, "jb-step-commands-chip")).toHaveLength(0);
+	});
+
+	it("calls onEventsChanged when event chip is added", () => {
+		new StepCard(container, deps).render();
+		const input = byTestId(container, "jb-step-events-input") as HTMLInputElement;
+		input.value = "user.login";
+		input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+		expect(deps.onEventsChanged).toHaveBeenCalledWith(["user.login"]);
+	});
+
+	it("calls onCommandsChanged when command chip is added", () => {
+		new StepCard(container, deps).render();
+		const input = byTestId(container, "jb-step-commands-input") as HTMLInputElement;
+		input.value = "flowti:open-hub";
+		input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+		expect(deps.onCommandsChanged).toHaveBeenCalledWith(["flowti:open-hub"]);
+	});
+
+	it("calls onInteractionsChanged when interaction chip is added", () => {
+		new StepCard(container, deps).render();
+		const input = byTestId(container, "jb-step-interactions-input") as HTMLInputElement;
+		input.value = "click: Start button";
+		input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+		expect(deps.onInteractionsChanged).toHaveBeenCalledWith(["click: Start button"]);
+	});
+
+	it("calls onComponentsChanged when component chip is added", () => {
+		new StepCard(container, deps).render();
+		const input = byTestId(container, "jb-step-components-input") as HTMLInputElement;
+		input.value = "ActionForm";
+		input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+		expect(deps.onComponentsChanged).toHaveBeenCalledWith(["ActionForm"]);
+	});
+
+	it("calls onEventsChanged when event chip is removed", () => {
+		deps.step = {
+			id: "step-1", title: "T", description: "", swimlane: "",
+			actions: [], events: ["a", "b"],
+		};
+		new StepCard(container, deps).render();
+		allByTestId(container, "jb-step-events-remove")[0].click();
+		expect(deps.onEventsChanged).toHaveBeenCalledWith(["b"]);
 	});
 });

@@ -5,6 +5,7 @@
  */
 import { setIcon } from "obsidian";
 import type { JourneyStep } from "./JourneyBuilderSidebar";
+import { ChipList } from "./ChipList";
 
 export interface StepCardDeps {
 	/** The step to render. */
@@ -19,6 +20,14 @@ export interface StepCardDeps {
 	onDescriptionChanged: (desc: string) => void;
 	/** Called when the user changes the swimlane. */
 	onSwimlanChanged: (swimlane: string) => void;
+	/** Called when the step events list changes. */
+	onEventsChanged: (items: string[]) => void;
+	/** Called when the step commands list changes. */
+	onCommandsChanged: (items: string[]) => void;
+	/** Called when the step interactions list changes. */
+	onInteractionsChanged: (items: string[]) => void;
+	/** Called when the step components list changes. */
+	onComponentsChanged: (items: string[]) => void;
 	/** Called when the user clicks the remove button. */
 	onRemove: () => void;
 }
@@ -96,6 +105,39 @@ export class StepCard {
 		swimlaneEl.addEventListener("change", () => {
 			this.deps.onSwimlanChanged(swimlaneEl.value);
 		});
+
+		// Chip lists for step metadata arrays
+		new ChipList(card, {
+			label: "Events",
+			items: step.events ?? [],
+			testIdPrefix: "jb-step-events",
+			placeholder: "Add event\u2026",
+			onChanged: this.deps.onEventsChanged,
+		}).render();
+
+		new ChipList(card, {
+			label: "Commands",
+			items: step.commands ?? [],
+			testIdPrefix: "jb-step-commands",
+			placeholder: "Add command\u2026",
+			onChanged: this.deps.onCommandsChanged,
+		}).render();
+
+		new ChipList(card, {
+			label: "Interactions",
+			items: step.interactions ?? [],
+			testIdPrefix: "jb-step-interactions",
+			placeholder: "Add interaction\u2026",
+			onChanged: this.deps.onInteractionsChanged,
+		}).render();
+
+		new ChipList(card, {
+			label: "Components",
+			items: step.components ?? [],
+			testIdPrefix: "jb-step-components",
+			placeholder: "Add component\u2026",
+			onChanged: this.deps.onComponentsChanged,
+		}).render();
 
 		// Action count
 		if (this.deps.actionCount !== undefined) {

@@ -684,6 +684,72 @@ describe("JourneyBuilderSidebar", () => {
 		});
 	});
 
+	describe("step chip lists (metadata arrays)", () => {
+		beforeEach(async () => {
+			await sidebar.onOpen();
+			byTestId(sidebar.contentEl, "jb-create-new")!.click();
+			byTestId(sidebar.contentEl, "jb-continue-btn")!.click();
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+		});
+
+		it("emits step.updated when event chip is added", () => {
+			const handler = vi.fn();
+			eventBus.on("journey-builder.step.updated", handler);
+			const input = byTestId(sidebar.contentEl, "jb-step-events-input") as HTMLInputElement;
+			input.value = "user.login";
+			input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+			expect(handler).toHaveBeenCalledOnce();
+			expect(handler.mock.calls[0][0].payload).toMatchObject({
+				field: "events",
+				value: ["user.login"],
+			});
+		});
+
+		it("buildDefinition includes chip arrays", () => {
+			// Add events
+			const evtInput = byTestId(sidebar.contentEl, "jb-step-events-input") as HTMLInputElement;
+			evtInput.value = "user.login";
+			evtInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+			// Add commands
+			const cmdInput = byTestId(sidebar.contentEl, "jb-step-commands-input") as HTMLInputElement;
+			cmdInput.value = "flowti:open-hub";
+			cmdInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+
+			const def = sidebar.buildDefinition();
+			expect(def.steps[0].events).toEqual(["user.login"]);
+			expect(def.steps[0].commands).toEqual(["flowti:open-hub"]);
+			expect(def.steps[0].interactions).toEqual([]);
+			expect(def.steps[0].components).toEqual([]);
+		});
+
+		it("JSON preview reflects chip data", () => {
+			byTestId(sidebar.contentEl, "jb-json-toggle")!.click();
+			const jsonContent = byTestId(sidebar.contentEl, "jb-json-content")!;
+
+			const input = byTestId(sidebar.contentEl, "jb-step-events-input") as HTMLInputElement;
+			input.value = "session.started";
+			input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+
+			expect(jsonContent.textContent).toContain("session.started");
+		});
+
+		it("chip removal updates buildDefinition", () => {
+			// Add two events
+			const input = byTestId(sidebar.contentEl, "jb-step-events-input") as HTMLInputElement;
+			input.value = "a.evt";
+			input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+			input.value = "b.evt";
+			input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+
+			// Remove first
+			const removes = sidebar.contentEl.querySelectorAll("[data-test-id='jb-step-events-remove']");
+			(removes[0] as HTMLElement).click();
+
+			const def = sidebar.buildDefinition();
+			expect(def.steps[0].events).toEqual(["b.evt"]);
+		});
+	});
+
 	describe("JSON panel live update", () => {
 		beforeEach(async () => {
 			await sidebar.onOpen();

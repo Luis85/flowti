@@ -35,8 +35,8 @@ export interface JourneyBuilderEventMap {
 	"journey-builder.metadata.updated": { field: string; value: string };
 	/** A step was added to the journey */
 	"journey-builder.step.added": { stepId: string; title: string };
-	/** A step was updated (title, description, etc.) */
-	"journey-builder.step.updated": { stepId: string; field: string; value: string };
+	/** A step was updated (title, description, chip arrays, etc.) */
+	"journey-builder.step.updated": { stepId: string; field: string; value: string | string[] };
 	/** An action was added to a step */
 	"journey-builder.action.added": { stepId: string; tool: string };
 	/** Journey was exported to JSON + test file */
