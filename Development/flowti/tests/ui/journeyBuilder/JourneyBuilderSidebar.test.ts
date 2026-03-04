@@ -1036,28 +1036,21 @@ describe("JourneyBuilderSidebar", () => {
 			vi.useRealTimers();
 		});
 
-		it("selects active step node after zoomToFit", async () => {
+		it("selects active step node and zooms after first sync", async () => {
 			await eventBus.emit("journey-builder.canvas.synced", { canvasPath });
-			vi.advanceTimersByTime(500);
+			vi.advanceTimersByTime(400);
 			expect(zoomToFit).toHaveBeenCalledOnce();
 			expect(selectOnly).toHaveBeenCalledOnce();
+			expect(zoomToSelection).toHaveBeenCalledOnce();
 			const selectedNode = selectOnly.mock.calls[0][0];
 			expect(selectedNode.getData().color).toBe("5");
 			expect(selectedNode.getData().type).toBe("group");
 		});
 
-		it("calls zoomToSelection after selecting active node", async () => {
-			await eventBus.emit("journey-builder.canvas.synced", { canvasPath });
-			vi.advanceTimersByTime(500);
-			expect(zoomToSelection).not.toHaveBeenCalled();
-			vi.advanceTimersByTime(300);
-			expect(zoomToSelection).toHaveBeenCalledOnce();
-		});
-
 		it("zooms to selection on navigation without zoomToFit", async () => {
 			// First sync — first open triggers zoomToFit
 			await eventBus.emit("journey-builder.canvas.synced", { canvasPath });
-			vi.advanceTimersByTime(800);
+			vi.advanceTimersByTime(400);
 			expect(zoomToFit).toHaveBeenCalledOnce();
 			zoomToFit.mockClear();
 			selectOnly.mockClear();
@@ -1066,27 +1059,54 @@ describe("JourneyBuilderSidebar", () => {
 			// Add steps for navigation
 			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
 			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
-			vi.advanceTimersByTime(1500); // flush add syncs + zoom timers
+			// Simulate service responding to add-step syncs
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath });
+			vi.advanceTimersByTime(400);
 			selectOnly.mockClear();
 			zoomToSelection.mockClear();
 
-			// Navigate prev — schedules zoom independently
+			// Navigate prev — sets pendingZoomToStep flag
 			byTestId(sidebar.contentEl, "jb-nav-prev")!.click();
-			vi.advanceTimersByTime(1000); // zoom timer
+			// Simulate service responding to nav sync
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath });
+			vi.advanceTimersByTime(400);
 
-			// Should NOT call zoomToFit, but SHOULD select + zoom to selection
+			// Should NOT call zoomToFit, but SHOULD select + zoom
 			expect(zoomToFit).not.toHaveBeenCalled();
 			expect(selectOnly).toHaveBeenCalledOnce();
-			vi.advanceTimersByTime(300);
 			expect(zoomToSelection).toHaveBeenCalledOnce();
 		});
 
-		it("zooms to selection when adding a step", () => {
+		it("zooms to selection when adding a step", async () => {
+			// First open so canvasOpenedPath is set
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath });
+			vi.advanceTimersByTime(400);
+			selectOnly.mockClear();
+			zoomToSelection.mockClear();
+			zoomToFit.mockClear();
+
 			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
-			vi.advanceTimersByTime(1000); // zoom timer
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath });
+			vi.advanceTimersByTime(400);
+			expect(zoomToFit).not.toHaveBeenCalled();
 			expect(selectOnly).toHaveBeenCalled();
-			vi.advanceTimersByTime(300);
 			expect(zoomToSelection).toHaveBeenCalled();
+		});
+
+		it("does not zoom on field change sync", async () => {
+			// First open
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath });
+			vi.advanceTimersByTime(400);
+			zoomToFit.mockClear();
+			selectOnly.mockClear();
+			zoomToSelection.mockClear();
+
+			// Simulate a field-change sync (no pendingZoomToStep)
+			await eventBus.emit("journey-builder.canvas.synced", { canvasPath });
+			vi.advanceTimersByTime(400);
+			expect(zoomToFit).not.toHaveBeenCalled();
+			expect(selectOnly).not.toHaveBeenCalled();
+			expect(zoomToSelection).not.toHaveBeenCalled();
 		});
 
 		it("skips zoom-to-selection when no active step node", async () => {
@@ -1105,7 +1125,7 @@ describe("JourneyBuilderSidebar", () => {
 				},
 			};
 			await eventBus.emit("journey-builder.canvas.synced", { canvasPath });
-			vi.advanceTimersByTime(800);
+			vi.advanceTimersByTime(400);
 			expect(zoomToFit).toHaveBeenCalledOnce();
 			expect(selectOnly).not.toHaveBeenCalled();
 			expect(zoomToSelection).not.toHaveBeenCalled();
@@ -1126,7 +1146,7 @@ describe("JourneyBuilderSidebar", () => {
 				},
 			};
 			await eventBus.emit("journey-builder.canvas.synced", { canvasPath });
-			vi.advanceTimersByTime(800);
+			vi.advanceTimersByTime(400);
 			// Should not throw
 			expect(zoomToFit).toHaveBeenCalledOnce();
 		});

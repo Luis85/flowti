@@ -100,6 +100,7 @@ export class JourneyBuilderSidebar extends ItemView {
 	private canvasSyncTimer: ReturnType<typeof setTimeout> | null = null;
 	private canvasOpenedPath: string | null = null;
 	private zoomTimer: ReturnType<typeof setTimeout> | null = null;
+	private pendingZoomToStep = false;
 	private unsubCanvasSynced: (() => void) | undefined;
 	private unsubImported: (() => void) | undefined;
 
@@ -150,10 +151,9 @@ export class JourneyBuilderSidebar extends ItemView {
 
 	async onClose(): Promise<void> {
 		this.cleanupSuggests();
-		if (this.canvasSyncTimer) {
-			clearTimeout(this.canvasSyncTimer);
-			this.canvasSyncTimer = null;
-		}
+		if (this.canvasSyncTimer) { clearTimeout(this.canvasSyncTimer); this.canvasSyncTimer = null; }
+		if (this.zoomTimer) { clearTimeout(this.zoomTimer); this.zoomTimer = null; }
+		this.pendingZoomToStep = false;
 		this.unsubCanvasSynced?.();
 		this.unsubCanvasSynced = undefined;
 		this.unsubImported?.();
@@ -731,18 +731,18 @@ export class JourneyBuilderSidebar extends ItemView {
 	private onNavPrev(): void {
 		if (this.currentStepIndex > 0) {
 			this.currentStepIndex--;
+			this.pendingZoomToStep = true;
 			this.renderSteps();
 			this.scheduleCanvasSync(300);
-			this.scheduleZoomToActiveStep();
 		}
 	}
 
 	private onNavNext(): void {
 		if (this.currentStepIndex < this.steps.length - 1) {
 			this.currentStepIndex++;
+			this.pendingZoomToStep = true;
 			this.renderSteps();
 			this.scheduleCanvasSync(300);
-			this.scheduleZoomToActiveStep();
 		}
 	}
 
@@ -751,10 +751,10 @@ export class JourneyBuilderSidebar extends ItemView {
 		const step: JourneyStep = { id, title: "", description: "", swimlane: "", actions: [] };
 		this.steps.push(step);
 		this.currentStepIndex = this.steps.length - 1;
+		this.pendingZoomToStep = true;
 		void this.eventBus.emit("journey-builder.step.added", { stepId: id, title: "" });
 		this.renderSteps();
 		this.scheduleCanvasSync(300);
-		this.scheduleZoomToActiveStep();
 	}
 
 	private onStepFieldChanged(stepId: string, field: string, value: string): void {
@@ -862,31 +862,35 @@ export class JourneyBuilderSidebar extends ItemView {
 		});
 	}
 
+	/**
+	 * Handles canvas.synced — triggers zoom when needed.
+	 *
+	 * Zoom is event-driven: fires only after the service confirms the canvas
+	 * file was written, then waits a short delay for Obsidian to reload it.
+	 * This avoids blind timeouts that guess when the canvas is ready.
+	 */
 	private onCanvasSynced(payload: { canvasPath: string }): void {
 		const isFirstOpen = this.canvasOpenedPath !== payload.canvasPath;
 		if (isFirstOpen) {
 			this.canvasOpenedPath = payload.canvasPath;
 			void this.app?.workspace?.openLinkText(payload.canvasPath, "");
-			// First open: zoom to fit the whole canvas
-			setTimeout(() => {
-				const canvas = this.findCanvas(payload.canvasPath);
-				if (!canvas) return;
-				canvas.zoomToFit();
-				this.zoomToActiveStep(canvas);
-			}, 500);
+		}
+		if (isFirstOpen || this.pendingZoomToStep) {
+			this.pendingZoomToStep = false;
+			this.scheduleZoom(payload.canvasPath, isFirstOpen);
 		}
 	}
 
-	/** Schedules a zoom to the active step node, independent of canvas sync. */
-	private scheduleZoomToActiveStep(): void {
+	/** Tracked zoom — waits for Obsidian to reload canvas after file write. */
+	private scheduleZoom(canvasPath: string, zoomToFit: boolean): void {
 		if (this.zoomTimer) clearTimeout(this.zoomTimer);
 		this.zoomTimer = setTimeout(() => {
 			this.zoomTimer = null;
-			if (!this.metadata.name) return;
-			const canvasPath = `${this.journeyFolder()}/${this.metadata.name}/${this.metadata.name}.canvas`;
 			const canvas = this.findCanvas(canvasPath);
-			if (canvas) this.zoomToActiveStep(canvas);
-		}, 1000);
+			if (!canvas) return;
+			if (zoomToFit) canvas.zoomToFit();
+			this.zoomToActiveStep(canvas);
+		}, 400);
 	}
 
 	private findCanvas(canvasPath: string): CanvasLeafView["canvas"] | null {
@@ -908,7 +912,7 @@ export class JourneyBuilderSidebar extends ItemView {
 			const data = typeof node.getData === "function" ? node.getData() : null;
 			if (data && data.color === "5" && data.type === "group") {
 				canvas.selectOnly(node);
-				setTimeout(() => canvas.zoomToSelection(), 300);
+				canvas.zoomToSelection();
 				return;
 			}
 		}
