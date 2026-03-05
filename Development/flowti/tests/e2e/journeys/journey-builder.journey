@@ -66,6 +66,21 @@
       "finding": "When Preview Run is implemented, place the Preview Run button in the step editor (e.g. near Export or in the NavBar) so it is visible without scrolling. Step 13 failed because jb-preview-run-btn was not present; placement will affect adoption.",
       "priority": "must-have",
       "screenshotRef": "13-preview-run--error.png"
+    },
+    {
+      "area": "Step editor",
+      "finding": "When designing a journey, I want to use all the building-blocks I already created in Flowti, like views, components, actors, systems.",
+      "priority": "must-have"
+    },
+    {
+      "area": "Step editor",
+      "finding": "When saving a journey, it must create notes from added actors, entities, etc. and use those instead of simple nodes once build.",
+      "priority": "must-have"
+    },
+    {
+      "area": "Step editor",
+      "finding": "I need to be able to manage bugs in the journey or atleast make them visually apprear.",
+      "priority": "must-have"
     }
 	],
 

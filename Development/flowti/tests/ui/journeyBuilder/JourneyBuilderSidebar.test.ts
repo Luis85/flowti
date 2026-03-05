@@ -1605,5 +1605,28 @@ describe("JourneyBuilderSidebar", () => {
 			// State should remain welcome since listener was removed
 			expect(sidebar.getSidebarState()).toBe("welcome");
 		});
+
+		it("returns to welcome on import-failed event", async () => {
+			// Simulate loading state first
+			sidebar.loadJourneyFromJSON(sampleJourney);
+			expect(sidebar.getSidebarState()).toBe("steps");
+
+			await eventBus.emit("journey-builder.import-failed", {
+				path: "journeys/Bad.journey",
+				errors: ["Missing journey name"],
+			});
+			expect(sidebar.getSidebarState()).toBe("welcome");
+		});
+
+		it("unsubscribes import-failed listener on close", async () => {
+			sidebar.loadJourneyFromJSON(sampleJourney);
+			await sidebar.onClose();
+			await eventBus.emit("journey-builder.import-failed", {
+				path: "journeys/Bad.journey",
+				errors: ["test"],
+			});
+			// State should remain steps since listener was removed
+			expect(sidebar.getSidebarState()).toBe("steps");
+		});
 	});
 });

@@ -111,6 +111,7 @@ export class JourneyBuilderSidebar extends ItemView {
 	private pendingZoomToStep = false;
 	private unsubCanvasSynced: (() => void) | undefined;
 	private unsubImported: (() => void) | undefined;
+	private unsubImportFailed: (() => void) | undefined;
 
 	constructor(leaf: WorkspaceLeaf, deps: JourneyBuilderSidebarDeps) {
 		super(leaf);
@@ -154,6 +155,10 @@ export class JourneyBuilderSidebar extends ItemView {
 			"journey-builder.imported",
 			(event) => this.loadJourneyFromJSON(event.payload.json),
 		);
+		this.unsubImportFailed = this.eventBus.on(
+			"journey-builder.import-failed",
+			() => this.renderWelcome(),
+		);
 		this.renderWelcome();
 	}
 
@@ -166,6 +171,8 @@ export class JourneyBuilderSidebar extends ItemView {
 		this.unsubCanvasSynced = undefined;
 		this.unsubImported?.();
 		this.unsubImported = undefined;
+		this.unsubImportFailed?.();
+		this.unsubImportFailed = undefined;
 		this.canvasOpenedPath = null;
 	}
 
@@ -706,31 +713,43 @@ export class JourneyBuilderSidebar extends ItemView {
 
 	/** Loads a journey definition from a JSON string into the sidebar state. */
 	loadJourneyFromJSON(json: string): void {
-		const data = JSON.parse(json) as Record<string, unknown>;
-		const steps = Array.isArray(data.steps) ? data.steps : [];
-		this.metadata = {
-			name: (data.journey as string) ?? "",
-			description: (data.description as string) ?? "",
-			startEvent: (data.startEvent as string)
-				?? (steps[0]?.events as string[])?.[0]
-				?? "",
-		};
-		this.endEvent = (data.endEvent as string) ?? "";
-		this.steps = steps.map((s: Record<string, unknown>) => ({
-			id: (s.id as string) ?? `step-${++stepCounter}`,
-			title: (s.title as string) ?? "",
-			description: (s.description as string) ?? "",
-			swimlane: (s.swimlane as string) ?? "",
-			actions: (Array.isArray(s.actions) ? s.actions : []) as JourneyAction[],
-		}));
-		this.currentStepIndex = 0;
-		this.selectedActionIndex = -1;
-		this.showToolPicker = false;
-		this.showTemplatePicker = false;
-		this.canvasOpenedPath = null;
-		this.renderSteps();
-		this.scheduleCanvasSync();
-		this.autoSaveDefinition();
+		try {
+			const data = JSON.parse(json) as Record<string, unknown>;
+			const steps = Array.isArray(data.steps) ? data.steps : [];
+			this.metadata = {
+				name: (data.journey as string) ?? "",
+				description: (data.description as string) ?? "",
+				startEvent: (data.startEvent as string)
+					?? (steps[0]?.events as string[])?.[0]
+					?? "",
+			};
+			this.endEvent = (data.endEvent as string) ?? "";
+			this.steps = steps.map((s: Record<string, unknown>) => ({
+				id: (s.id as string) ?? `step-${++stepCounter}`,
+				title: (s.title as string) ?? "",
+				description: (s.description as string) ?? "",
+				swimlane: (s.swimlane as string) ?? "",
+				actions: (Array.isArray(s.actions) ? s.actions : []) as JourneyAction[],
+			}));
+			this.currentStepIndex = 0;
+			this.selectedActionIndex = -1;
+			this.showToolPicker = false;
+			this.showTemplatePicker = false;
+			this.canvasOpenedPath = null;
+			this.renderSteps();
+			this.scheduleCanvasSync();
+			this.autoSaveDefinition();
+			const stepCount = this.steps.length;
+			void this.eventBus.emit("notice.success", {
+				message: `Loaded "${this.metadata.name}" (${stepCount} step${stepCount !== 1 ? "s" : ""})`,
+			});
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err);
+			void this.eventBus.emit("notice.error", {
+				message: `Failed to load journey: ${message}`,
+			});
+			this.renderWelcome();
+		}
 	}
 
 	private onCreateNew(): void {

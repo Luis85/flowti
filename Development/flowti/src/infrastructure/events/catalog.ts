@@ -666,6 +666,7 @@ const CATALOG_DATA = {
 	"journey-builder.canvas.synced":    { category: "Journey Builder", description: "Companion canvas file was written/updated", direction: "Service → Listeners", domain: "journey-builder", services: "JourneyBuilderService" },
 	"journey-builder.import-requested": { category: "Journey Builder", description: "User selected a journey file to import", direction: "View → Plugin", domain: "journey-builder", services: "JourneyBuilderSidebar" },
 	"journey-builder.imported":              { category: "Journey Builder", description: "Journey JSON was read and is ready for hydration", direction: "Service → Listeners", domain: "journey-builder", services: "JourneyBuilderService" },
+	"journey-builder.import-failed":        { category: "Journey Builder", description: "Journey import failed (file read error or validation failure)", direction: "Service → Listeners", domain: "journey-builder", services: "JourneyBuilderService" },
 	"ui.openJourneyBuilder":                { category: "UI Commands", description: "Open the Journey Builder sidebar", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 

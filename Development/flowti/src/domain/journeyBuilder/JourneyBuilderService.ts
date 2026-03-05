@@ -10,6 +10,7 @@ import type { IEventBus } from "../../infrastructure/events/types";
 import type { JourneyExportPayload } from "./events";
 import type { CanvasSyncInput } from "./canvasSync";
 import { buildJourneyCanvas } from "./canvasSync";
+import { validateJourneyJSON } from "./validateJourney";
 
 export interface JourneyBuilderServiceDeps {
 	fileSystem: IFileSystemClient;
@@ -145,11 +146,33 @@ export class JourneyBuilderService {
 	}
 
 	private async handleImport(payload: { path: string }): Promise<void> {
+		const fileName = payload.path.split("/").pop() ?? payload.path;
 		try {
 			const json = await this.fileSystem.readFile(payload.path);
+			const result = validateJourneyJSON(json);
+			if (!result.valid) {
+				const detail = result.errors.slice(0, 3).join("; ");
+				void this.eventBus.emit("notice.error", {
+					message: `Cannot import "${fileName}": ${detail}`,
+				});
+				void this.eventBus.emit("journey-builder.import-failed", {
+					path: payload.path,
+					errors: result.errors,
+				});
+				return;
+			}
 			void this.eventBus.emit("journey-builder.imported", { json });
 		} catch (err) {
-			console.error("[JourneyBuilderService] Import failed:", err);
+			const message = err instanceof Error ? err.message : String(err);
+			const isTimeout = message.includes("timed out");
+			const userMessage = isTimeout
+				? `Could not read "${fileName}": file read timed out. Check the file exists in your vault.`
+				: `Could not import "${fileName}": ${message}`;
+			void this.eventBus.emit("notice.error", { message: userMessage });
+			void this.eventBus.emit("journey-builder.import-failed", {
+				path: payload.path,
+				errors: [message],
+			});
 		}
 	}
 

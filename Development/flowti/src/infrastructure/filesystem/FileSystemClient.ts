@@ -258,6 +258,9 @@ export class FileSystemClient implements IFileSystemClient {
 	/**
 	 * Generic request/response pattern.
 	 * Emits a request event and waits for the corresponding response.
+	 *
+	 * Uses a type-specific handler (not a wildcard) so the response is
+	 * delivered immediately — before any wildcard listeners process the event.
 	 */
 	private request<T>(
 		requestEvent: EventType,
@@ -288,12 +291,11 @@ export class FileSystemClient implements IFileSystemClient {
 				reject(new Error(`Request timed out after ${timeoutMs}ms`));
 			}, timeoutMs);
 
-			// Listen for response using wildcard handler to support dynamic event types
-			const unsubscribe = this.eventBus.on("*", (event) => {
-				if (event.type !== responseEvent) return;
-
-				const payload = event.payload as FileResponsePayload;
-				if (payload.requestId !== requestId) return;
+			// Listen for response using a type-specific handler so delivery
+			// is immediate — runs before wildcard listeners.
+			const handler = (event: { payload: FileResponsePayload }): void => {
+				const respPayload = event.payload;
+				if (respPayload.requestId !== requestId) return;
 				if (settled) return;
 				settled = true;
 
@@ -301,13 +303,18 @@ export class FileSystemClient implements IFileSystemClient {
 				unsubscribe();
 				cleanup();
 
-				if (payload.success) {
-					resolve(transform ? transform(payload) : (undefined as unknown as T));
+				if (respPayload.success) {
+					resolve(transform ? transform(respPayload) : (undefined as unknown as T));
 				} else {
-					const error = payload.error;
+					const error = respPayload.error;
 					reject(new Error(error?.message ?? "Operation failed"));
 				}
-			});
+			};
+
+			const unsubscribe = this.eventBus.on(
+				responseEvent as never,
+				handler as never,
+			);
 
 			this.pendingRequests.set(requestId, { unsubscribe, timeoutId, reject });
 

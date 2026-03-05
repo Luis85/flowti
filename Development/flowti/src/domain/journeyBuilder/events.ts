@@ -58,4 +58,9 @@ export interface JourneyBuilderEventMap {
 	"journey-builder.imported": {
 		json: string;
 	};
+	/** Journey import failed (file read error or validation failure) */
+	"journey-builder.import-failed": {
+		path: string;
+		errors: string[];
+	};
 }

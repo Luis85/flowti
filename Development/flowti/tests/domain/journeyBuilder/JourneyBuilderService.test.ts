@@ -398,14 +398,74 @@ describe("JourneyBuilderService", () => {
 			});
 		});
 
-		it("does not emit when readFile fails", async () => {
+		it("emits notice.error and import-failed when readFile fails", async () => {
 			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("not found"));
 			service.start();
 			eventBus._trigger("journey-builder.import-requested", { path: "bad/path.json" });
 
-			await new Promise((r) => setTimeout(r, 50));
-			const imported = eventBus._emitted.find((e) => e.type === "journey-builder.imported");
-			expect(imported).toBeUndefined();
+			await vi.waitFor(() => {
+				const imported = eventBus._emitted.find((e) => e.type === "journey-builder.imported");
+				expect(imported).toBeUndefined();
+
+				const notice = eventBus._emitted.find((e) => e.type === "notice.error");
+				expect(notice).toBeDefined();
+				expect((notice!.payload as { message: string }).message).toContain("path.json");
+
+				const failed = eventBus._emitted.find((e) => e.type === "journey-builder.import-failed");
+				expect(failed).toBeDefined();
+				expect((failed!.payload as { path: string }).path).toBe("bad/path.json");
+			});
+		});
+
+		it("emits user-friendly message on timeout", async () => {
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockRejectedValue(
+				new Error("Request timed out after 5000ms"),
+			);
+			service.start();
+			eventBus._trigger("journey-builder.import-requested", { path: "journeys/Test.journey" });
+
+			await vi.waitFor(() => {
+				const notice = eventBus._emitted.find((e) => e.type === "notice.error");
+				expect(notice).toBeDefined();
+				const msg = (notice!.payload as { message: string }).message;
+				expect(msg).toContain("timed out");
+				expect(msg).toContain("Test.journey");
+			});
+		});
+
+		it("validates JSON and rejects invalid journey", async () => {
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockResolvedValue("{ bad json");
+			service.start();
+			eventBus._trigger("journey-builder.import-requested", { path: "journeys/Bad.journey" });
+
+			await vi.waitFor(() => {
+				const imported = eventBus._emitted.find((e) => e.type === "journey-builder.imported");
+				expect(imported).toBeUndefined();
+
+				const notice = eventBus._emitted.find((e) => e.type === "notice.error");
+				expect(notice).toBeDefined();
+				expect((notice!.payload as { message: string }).message).toContain("Bad.journey");
+
+				const failed = eventBus._emitted.find((e) => e.type === "journey-builder.import-failed");
+				expect(failed).toBeDefined();
+			});
+		});
+
+		it("validates structure and rejects missing journey name", async () => {
+			const json = JSON.stringify({ steps: [] });
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockResolvedValue(json);
+			service.start();
+			eventBus._trigger("journey-builder.import-requested", { path: "journeys/Missing.journey" });
+
+			await vi.waitFor(() => {
+				const imported = eventBus._emitted.find((e) => e.type === "journey-builder.imported");
+				expect(imported).toBeUndefined();
+
+				const failed = eventBus._emitted.find((e) => e.type === "journey-builder.import-failed");
+				expect(failed).toBeDefined();
+				const errors = (failed!.payload as { errors: string[] }).errors;
+				expect(errors.some((e: string) => e.includes('"journey"'))).toBe(true);
+			});
 		});
 
 		it("does not read when service is stopped", async () => {

@@ -44,13 +44,17 @@ export class EventBridge implements IEventBridge {
 	/** Gate: suppresses vault/metadata events until first metadata.resolved fires */
 	private cacheResolved = false;
 
-	/** Extensions Obsidian's vault API indexes and manages natively */
+	/** Extensions handled by the EventBridge file-system handlers.
+	 *  Natively-indexed types use vault API; plugin-specific types (e.g. journey)
+	 *  are included so the bridge handles them — with adapter fallback when
+	 *  Obsidian's metadata index does not track them. */
 	private static readonly VAULT_MANAGED_EXTENSIONS = new Set([
 		"md", "canvas",
 		"png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "avif",
 		"mp3", "wav", "m4a", "ogg", "3gp", "flac",
 		"mp4", "ogv", "mov", "mkv", "webm",
 		"pdf",
+		"journey",
 	]);
 
 	constructor(options: EventBridgeOptions) {
@@ -188,11 +192,18 @@ export class EventBridge implements IEventBridge {
 						}
 						content = await adapter.read(path);
 					} else {
+						// Vault-managed: try vault API first, adapter fallback
+						// when Obsidian's index does not track the extension.
 						const file = this.app.vault.getAbstractFileByPath(path);
-						if (!file || !(file instanceof TFile)) {
-							throw new Error(`File not found: ${path}`);
+						if (file && file instanceof TFile) {
+							content = await this.app.vault.read(file);
+						} else {
+							const adapter = this.app.vault.adapter;
+							if (!(await adapter.exists(path))) {
+								throw new Error(`File not found: ${path}`);
+							}
+							content = await adapter.read(path);
 						}
-						content = await this.app.vault.read(file);
 					}
 
 					await this.eventBus.emit("file.read.response", {
