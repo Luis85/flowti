@@ -18,6 +18,8 @@ export interface CanvasSyncInput {
 	startEvent: string;
 	endEvent: string;
 	activeStepIndex?: number;
+	/** Per-step color overrides (index → Obsidian canvas color). Takes precedence over activeStepIndex. */
+	stepColors?: Record<number, string>;
 	steps: Array<{
 		id: string;
 		title: string;
@@ -113,7 +115,7 @@ export function buildJourneyCanvas(
 
 		const groupId = idGen();
 		const label = step.title || `Step ${i + 1}`;
-		const color = i === input.activeStepIndex ? "5" : undefined;
+		const color = input.stepColors?.[i] ?? (i === input.activeStepIndex ? "5" : undefined);
 		nodes.push(groupNode(groupId, label, gx, gy, GROUP_W, GROUP_H, color));
 
 		// Inner text node

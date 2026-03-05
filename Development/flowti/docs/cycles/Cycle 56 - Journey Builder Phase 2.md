@@ -203,25 +203,28 @@ Key design: canvas does NOT preserve individual actions, step IDs, swimlane, or 
 - [x] Round-trip: buildJourneyCanvas → parseJourneyCanvas recovers structural data (titles, descriptions, events, action counts, active step)
 - [x] `npm test` green — 6,710 tests, 282 suites
 
-### Inc 2: Canvas → JSON Integration (PBI-JB-008b)
+### Inc 2: Canvas → JSON Integration (PBI-JB-008b) — DONE
 **Theme**: Feature
-**Effort**: Medium | **Est. LOC**: ~80 | **Est. Tests**: ~10
+**Effort**: Medium | **Actual LOC**: ~80 | **Actual Tests**: +13
 
-Wire the parser into the sidebar workflow:
-- "Convert to Journey" command on canvas files
-- Detection: opening a `.canvas` with journey structure offers conversion
-- Canvas edits trigger re-parse and sidebar update (reverse sync)
-- Debounced bidirectional sync (prevent infinite loops)
-- Conflict resolution: last-write-wins with visual indicator
+Wired the parser into live sidebar workflow for bidirectional canvas sync:
 
-**Test Intent**: Integration tests for bidirectional sync (sidebar change → canvas update, canvas change → sidebar update). Loop prevention tests (verify no re-trigger after own write). Debounce timing tests. Command registration test.
-**Documentation Intent**: Update sitemap with canvas round-trip flow. Add bidirectional sync to Frontend Architecture.md.
-**Architecture Seams**: New event `journey-builder.canvas.changed` emitted by canvas watcher → sidebar handler. Sync direction tracked via `lastSyncSource: "sidebar" | "canvas"` flag. Command registered via EventBridge command adapter.
+| Component | File | Change |
+|-----------|------|--------|
+| Event type | `events.ts` | Added `journey-builder.canvas.changed` event |
+| Reverse sync | `JourneyBuilderService.ts` | `file.modified` handler, `activeCanvasPath` tracking, self-write detection (2s window) |
+| Sidebar merge | `JourneyBuilderSidebar.ts` | `canvas.changed` listener, `updatingFromCanvas` guard, position-based step merge |
+| Catalog | `catalog.ts` | Added catalog entry for new event |
+
+Key design decisions:
+- **Self-write detection**: Service tracks `lastCanvasWriteTime`; ignores `file.modified` within 2s window (`SELF_WRITE_WINDOW_MS`)
+- **Loop prevention**: `updatingFromCanvas` flag guards `scheduleCanvasSync()` during reverse sync merge
+- **Position-based merge**: Existing step actions preserved at same index; new canvas steps get empty actions; removed steps drop
 
 **Acceptance Criteria**:
-- [ ] Bidirectional sync works (sidebar ↔ canvas)
-- [ ] No infinite sync loops
-- [ ] `npm test` green
+- [x] Bidirectional sync works (sidebar ↔ canvas)
+- [x] No infinite sync loops
+- [x] `npm test` green — 6,724 tests, 282 suites
 
 ### Inc 3: Preview Run (PBI-JB-011)
 **Theme**: Feature

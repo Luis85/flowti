@@ -1793,4 +1793,58 @@ describe("JourneyBuilderSidebar", () => {
 			expect(sidebar.getSteps()[0].title).toBe("Open the hub");
 		});
 	});
+
+	describe("preview run", () => {
+		const sampleJourney = JSON.stringify({
+			journey: "My Journey",
+			description: "A test journey",
+			startEvent: "app.opened",
+			endEvent: "app.closed",
+			steps: [
+				{ id: "s1", title: "Open the hub", description: "", swimlane: "", guideSection: 1, events: [], actions: [{ tool: "command", id: "flowti:open" }] },
+				{ id: "s2", title: "Click button", description: "", swimlane: "", guideSection: 2, events: [], actions: [{ tool: "click", selector: ".btn" }] },
+			],
+		});
+
+		beforeEach(async () => {
+			await sidebar.onOpen();
+			sidebar.loadJourneyFromJSON(sampleJourney);
+		});
+
+		it("renders preview button when steps exist", () => {
+			const btn = sidebar.contentEl.querySelector('[data-test-id="jb-preview-btn"]');
+			expect(btn).toBeTruthy();
+		});
+
+		it("does not render preview button when no steps", async () => {
+			sidebar.loadJourneyFromJSON(JSON.stringify({
+				journey: "Empty",
+				steps: [],
+			}));
+			const btn = sidebar.contentEl.querySelector('[data-test-id="jb-preview-btn"]');
+			expect(btn).toBeNull();
+		});
+
+		it("emits preview.started and preview.completed during run", async () => {
+			const started = vi.fn();
+			const completed = vi.fn();
+			eventBus.on("journey-builder.preview.started", started);
+			eventBus.on("journey-builder.preview.completed", completed);
+
+			const btn = sidebar.contentEl.querySelector('[data-test-id="jb-preview-btn"]') as HTMLElement;
+			btn.click();
+
+			// Wait for async preview run to complete (300ms per step × 2 steps + buffer)
+			await new Promise((r) => setTimeout(r, 1000));
+
+			expect(started).toHaveBeenCalledOnce();
+			expect(started.mock.calls[0][0].payload).toEqual({ stepCount: 2 });
+			expect(completed).toHaveBeenCalledOnce();
+			expect(completed.mock.calls[0][0].payload).toMatchObject({
+				totalSteps: 2,
+				passed: 2,
+				failed: 0,
+			});
+		});
+	});
 });

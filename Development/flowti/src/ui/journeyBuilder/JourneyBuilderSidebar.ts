@@ -29,6 +29,7 @@ import { SetupForm } from "./SetupForm";
 import { CanvasSyncController } from "./CanvasSyncController";
 import { renderHeader, renderBackButton, renderActionButton, renderLoading } from "./sidebarHelpers";
 import type { ParsedJourneyCanvas } from "../../domain/journeyBuilder/canvasParser";
+import { runPreview } from "../../domain/journeyBuilder/previewRunner";
 
 export const VIEW_TYPE_JOURNEY_BUILDER = "flowti-journey-builder";
 
@@ -441,6 +442,17 @@ export class JourneyBuilderSidebar extends ItemView {
 			});
 		}
 
+		// Preview button (only when journey has steps)
+		if (this.steps.length > 0) {
+			renderActionButton(el, {
+				testId: "jb-preview-btn",
+				cls: "ft-jb-preview-btn",
+				icon: "play",
+				text: "Preview run",
+				onClick: () => void this.onPreviewRun(),
+			});
+		}
+
 		// Export button
 		renderActionButton(el, {
 			testId: "jb-export-btn",
@@ -795,7 +807,68 @@ export class JourneyBuilderSidebar extends ItemView {
 		}
 	}
 
-	private buildCanvasSyncInput() {
+	// ── Preview run ─────────────────────────────────────────
+
+	private async onPreviewRun(): Promise<void> {
+		if (this.steps.length === 0) return;
+
+		const result = runPreview(this.steps);
+		void this.eventBus.emit("journey-builder.preview.started", {
+			stepCount: this.steps.length,
+		});
+
+		const stepColors: Record<number, string> = {};
+
+		for (let i = 0; i < result.steps.length; i++) {
+			const stepResult = result.steps[i];
+
+			// Mark current step as running (cyan)
+			stepColors[i] = "5";
+			this.syncCanvasWithColors({ ...stepColors });
+
+			await this.previewDelay(300);
+
+			// Mark step with result color: green = pass, red = fail
+			stepColors[i] = stepResult.status === "pass" ? "4" : "1";
+			this.syncCanvasWithColors({ ...stepColors });
+
+			void this.eventBus.emit("journey-builder.preview.step-completed", {
+				stepIndex: stepResult.stepIndex,
+				status: stepResult.status,
+				errors: stepResult.errors,
+			});
+		}
+
+		void this.eventBus.emit("journey-builder.preview.completed", {
+			totalSteps: result.totalSteps,
+			passed: result.passed,
+			failed: result.failed,
+		});
+
+		const noticeType = result.failed === 0 ? "notice.success" : "notice.error";
+		void this.eventBus.emit(noticeType as "notice.success", {
+			message: `Preview: ${result.passed}/${result.totalSteps} steps passed${
+				result.failed > 0 ? `, ${result.failed} failed` : ""
+			}`,
+		});
+	}
+
+	private syncCanvasWithColors(stepColors: Record<number, string>): void {
+		const canvasPath = this.getCanvasPath();
+		if (!canvasPath) return;
+		const input = this.buildCanvasSyncInput();
+		input.stepColors = stepColors;
+		void this.eventBus.emit("journey-builder.canvas.sync-requested", {
+			canvasPath,
+			definition: input,
+		});
+	}
+
+	private previewDelay(ms: number): Promise<void> {
+		return new Promise((resolve) => setTimeout(resolve, ms));
+	}
+
+	private buildCanvasSyncInput(): import("../../domain/journeyBuilder/canvasSync").CanvasSyncInput {
 		return {
 			journey: this.metadata.name,
 			description: this.metadata.description,

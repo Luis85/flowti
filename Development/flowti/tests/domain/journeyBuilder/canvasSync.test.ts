@@ -295,4 +295,29 @@ describe("buildJourneyCanvas", () => {
 			expect(inner.text).toContain("0 actions");
 		});
 	});
+
+	describe("stepColors", () => {
+		it("applies stepColors to corresponding step groups", () => {
+			const input = sampleInput({ stepColors: { 0: "4", 1: "1" } });
+			const result = buildJourneyCanvas(input, deterministicId);
+			const groups = result.nodes.filter((n) => n.type === "group");
+			expect((groups[0] as { color?: string }).color).toBe("4");
+			expect((groups[1] as { color?: string }).color).toBe("1");
+		});
+
+		it("stepColors takes precedence over activeStepIndex", () => {
+			const input = sampleInput({ activeStepIndex: 0, stepColors: { 0: "1" } });
+			const result = buildJourneyCanvas(input, deterministicId);
+			const groups = result.nodes.filter((n) => n.type === "group");
+			expect((groups[0] as { color?: string }).color).toBe("1");
+		});
+
+		it("steps without stepColors entry fall back to activeStepIndex", () => {
+			const input = sampleInput({ activeStepIndex: 1, stepColors: { 0: "4" } });
+			const result = buildJourneyCanvas(input, deterministicId);
+			const groups = result.nodes.filter((n) => n.type === "group");
+			expect((groups[0] as { color?: string }).color).toBe("4");
+			expect((groups[1] as { color?: string }).color).toBe("5");
+		});
+	});
 });

@@ -68,4 +68,20 @@ export interface JourneyBuilderEventMap {
 		path: string;
 		errors: string[];
 	};
+	/** Preview run started */
+	"journey-builder.preview.started": {
+		stepCount: number;
+	};
+	/** Preview run step completed */
+	"journey-builder.preview.step-completed": {
+		stepIndex: number;
+		status: "pass" | "fail";
+		errors: string[];
+	};
+	/** Preview run finished */
+	"journey-builder.preview.completed": {
+		totalSteps: number;
+		passed: number;
+		failed: number;
+	};
 }
