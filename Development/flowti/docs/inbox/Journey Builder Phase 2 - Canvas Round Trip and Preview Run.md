@@ -1,6 +1,6 @@
 ---
 type: Idea
-stage: planned
+stage: delivered
 origin: cycle-retro
 domain: journey-builder
 parent: "[[Development/flowti/docs/features/Journey Builder/Journey Builder PRD|Journey Builder PRD]]"
@@ -11,8 +11,8 @@ tags:
   - e2e
 priority: 01 - medium
 planned_in: C56
-delivered_in:
-note: "Items from C55 retrospective improvement backlog. PBI-JB-008 (Canvas→JSON), PBI-JB-011 (Preview Run), PBI-JB-012 (Dual Input). Plus: save-back to source, drag-and-drop reorder, accordion sections, step reordering, canvas layout deduplication."
+delivered_in: C56
+note: "Core PBIs delivered in C56: JB-008 (Canvas→JSON + bidirectional sync), JB-011 (Preview Run validation), JB-012 (Dual Input), JB-013 (Background Image). Polish items deferred: save-back (folded into canvas sync), drag-and-drop reorder (backlog), accordion sections (backlog), step reordering (backlog), canvas layout deduplication (TD-131, C57)."
 ---
 # Journey Builder Phase 2 — Canvas Round Trip and Preview Run
 

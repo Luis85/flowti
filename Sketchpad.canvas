@@ -73,17 +73,6 @@
 			"color":"5"
 		},
 		{
-			"id":"e3ba873355ab536a",
-			"type":"text",
-			"text":"Idea to Solution Workflow",
-			"styleAttributes":{"textAlign":"center"},
-			"x":860,
-			"y":-1670,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
 			"id":"f9ee60f19b921abd",
 			"type":"text",
 			"text":"Software",
@@ -727,50 +716,6 @@
 			"height":60
 		},
 		{
-			"id":"5333dff10cb150dd",
-			"type":"text",
-			"text":"Maintain",
-			"styleAttributes":{"textAlign":"center"},
-			"x":860,
-			"y":-70,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"587a4f2dafd783c5",
-			"type":"text",
-			"text":"Test and Review",
-			"styleAttributes":{"textAlign":"center"},
-			"x":860,
-			"y":-490,
-			"width":260,
-			"height":60,
-			"color":"6"
-		},
-		{
-			"id":"4ef49a3684f6a3d2",
-			"type":"text",
-			"text":"Release",
-			"styleAttributes":{"textAlign":"center"},
-			"x":860,
-			"y":-210,
-			"width":260,
-			"height":60,
-			"color":"6"
-		},
-		{
-			"id":"9cf05049146e7cfe",
-			"type":"text",
-			"text":"Development",
-			"styleAttributes":{"textAlign":"center"},
-			"x":860,
-			"y":-840,
-			"width":260,
-			"height":60,
-			"color":"6"
-		},
-		{
 			"id":"aad5855793c9964c",
 			"type":"text",
 			"text":"Denied Product Increments",
@@ -788,28 +733,6 @@
 			"styleAttributes":{"textAlign":"right"},
 			"x":480,
 			"y":-210,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"8e7aac97cd743aaf",
-			"type":"text",
-			"text":"Definition of Done",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-680,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"34b64249b4f5320d",
-			"type":"text",
-			"text":"Product Increment",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-490,
 			"width":260,
 			"height":60,
 			"color":"5"
@@ -1135,17 +1058,6 @@
 			"height":60
 		},
 		{
-			"id":"126d5d8e7b2a909d",
-			"type":"text",
-			"text":"Planning",
-			"styleAttributes":{"textAlign":"center"},
-			"x":860,
-			"y":-1150,
-			"width":260,
-			"height":60,
-			"color":"6"
-		},
-		{
 			"id":"6575e2e5f6c1e713",
 			"type":"text",
 			"text":"Planned Increment",
@@ -1166,17 +1078,6 @@
 			"width":260,
 			"height":60,
 			"color":"5"
-		},
-		{
-			"id":"f24519715c7a4071",
-			"type":"text",
-			"text":"Priotization",
-			"styleAttributes":{"textAlign":"center"},
-			"x":860,
-			"y":-1350,
-			"width":260,
-			"height":60,
-			"color":"6"
 		},
 		{
 			"id":"e49f189e0102d47b",
@@ -1232,17 +1133,6 @@
 			"width":260,
 			"height":60,
 			"color":"5"
-		},
-		{
-			"id":"8a5046110f0f5d0a",
-			"type":"text",
-			"text":"Refinement",
-			"styleAttributes":{"textAlign":"center"},
-			"x":860,
-			"y":-1590,
-			"width":260,
-			"height":60,
-			"color":"6"
 		},
 		{
 			"id":"2ee7c7a2337bb2aa",
@@ -1929,6 +1819,116 @@
 			"y":-120,
 			"width":260,
 			"height":60
+		},
+		{
+			"id":"e3ba873355ab536a",
+			"type":"text",
+			"text":"Idea to Solution Workflow",
+			"styleAttributes":{"textAlign":"center"},
+			"x":860,
+			"y":-1670,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"5333dff10cb150dd",
+			"type":"text",
+			"text":"Maintain",
+			"styleAttributes":{"textAlign":"center"},
+			"x":860,
+			"y":-70,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"587a4f2dafd783c5",
+			"type":"text",
+			"text":"Test and Review",
+			"styleAttributes":{"textAlign":"center"},
+			"x":860,
+			"y":-490,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"4ef49a3684f6a3d2",
+			"type":"text",
+			"text":"Release",
+			"styleAttributes":{"textAlign":"center"},
+			"x":860,
+			"y":-210,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"9cf05049146e7cfe",
+			"type":"text",
+			"text":"Development",
+			"styleAttributes":{"textAlign":"center"},
+			"x":860,
+			"y":-840,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"8e7aac97cd743aaf",
+			"type":"text",
+			"text":"Definition of Done",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-680,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"34b64249b4f5320d",
+			"type":"text",
+			"text":"Product Increment",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-490,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"126d5d8e7b2a909d",
+			"type":"text",
+			"text":"Planning",
+			"styleAttributes":{"textAlign":"center"},
+			"x":860,
+			"y":-1150,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"f24519715c7a4071",
+			"type":"text",
+			"text":"Priotization",
+			"styleAttributes":{"textAlign":"center"},
+			"x":860,
+			"y":-1350,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"8a5046110f0f5d0a",
+			"type":"text",
+			"text":"Refinement",
+			"styleAttributes":{"textAlign":"center"},
+			"x":860,
+			"y":-1590,
+			"width":260,
+			"height":60,
+			"color":"6"
 		}
 	],
 	"edges":[

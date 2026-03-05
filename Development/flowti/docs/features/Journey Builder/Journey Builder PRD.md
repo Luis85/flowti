@@ -3,7 +3,7 @@ domain: Flowti
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
 stage: in-progress
-version: "1.1"
+version: "1.2"
 maturity: L2
 created: 2026-03-02
 updated: 2026-03-05
@@ -20,9 +20,15 @@ related_events:
   - journey-builder.action.updated
   - journey-builder.action.removed
   - journey-builder.exported
+  - journey-builder.canvas.sync-requested
   - journey-builder.canvas.synced
+  - journey-builder.canvas.changed
   - journey-builder.preview.started
+  - journey-builder.preview.step-completed
   - journey-builder.preview.completed
+  - journey-builder.import-requested
+  - journey-builder.imported
+  - journey-builder.import-failed
   - file.create.request
   - file.create.response
   - file.update.request
@@ -239,25 +245,25 @@ interface StepEditorState {
 - [x] Adding/removing actions updates action nodes below the step group
 - [ ] Improvement cards render as yellow nodes above step groups (deferred — no improvements in builder yet)
 
-### FR-08: Canvas Sync (Canvas → JSON)
-- [ ] Opening a `.canvas` file that contains journey-structured nodes triggers detection
-- [ ] Detection: START node + sequential step groups + END node pattern
-- [ ] **Convert to Journey** command parses canvas into JourneyDefinition
-- [ ] Step group labels → `steps[i].title` and `guideSection`
-- [ ] Config text node → parsed into structured metadata
-- [ ] Action nodes → `steps[i].actions[]`
-- [ ] Edge ordering → step sequence
-- [ ] Improvement cards (yellow, color "3") → `steps[i].improvements[]`
+### FR-08: Canvas Sync (Canvas → JSON) — DELIVERED (C56)
+- [x] Opening a `.canvas` file that contains journey-structured nodes triggers detection
+- [x] Detection: START node + sequential step groups + END node pattern
+- [x] Canvas parsed into journey definition via `parseJourneyCanvas()`
+- [x] Step group labels → `steps[i].title`
+- [x] Inner text node → parsed into description + action count
+- [x] Edge ordering → step sequence (edge-walk from START → END)
+- [x] Bidirectional sync: sidebar ↔ canvas with self-write detection and loop prevention
+- [x] Canvas selection → sidebar step navigation (pointerup listener, spatial containment)
 
-### FR-09: Preview Run
-- [ ] "Preview Run" button in the step editor toolbar
-- [ ] Executes the current journey definition using the same action runner as E2E tests
-- [ ] Steps execute sequentially; canvas nodes update in real-time (green = pass, red = fail)
-- [ ] Screenshots captured and embedded as step group backgrounds
-- [ ] Event trace collected and shown in Events Summary node
-- [ ] Final canvas matches `generateJourneyCanvas()` output
-- [ ] Results inspectable: click any step node to see pass/fail details
-- [ ] Preview does NOT require the test vault — runs in the current vault
+### FR-09: Preview Run — DELIVERED (C56)
+- [x] "Preview Run" button in the step editor header toolbar
+- [x] Validates action schemas against tool definitions (pure validation, no execution)
+- [x] Steps execute sequentially; canvas nodes update in real-time (green = pass, red = fail, cyan = running)
+- [ ] Screenshots captured and embedded as step group backgrounds (deferred to Phase 3)
+- [ ] Event trace collected and shown in Events Summary node (deferred to Phase 3)
+- [x] Results shown per step + summary notice ("Preview: X/Y passed, Z failed")
+- [ ] Results inspectable: click any step node to see pass/fail details (deferred to Phase 3)
+- [x] Preview does NOT require the test vault — runs in the current vault
 
 ### FR-10: Export
 - [x] "Export" button generates three files:
@@ -274,21 +280,21 @@ interface StepEditorState {
 - [x] Canvas companion file opened alongside (if exists)
 - [x] All fields populated from JSON, ready for step-by-step editing
 
-### FR-12: Dual Input for Journey Runner
-- [ ] Journey Runner accepts both `.journey.json` and `.canvas` files as input
-- [ ] Canvas input: parsed via FR-08 conversion, then executed normally
-- [ ] JSON input: unchanged behavior (existing flow)
-- [ ] Results output format identical regardless of input format
+### FR-12: Dual Input for Journey Runner — DELIVERED (C56)
+- [x] Journey Runner accepts both `.journey.json` and `.canvas` files as input
+- [x] Canvas input: parsed via FR-08 conversion, then executed normally
+- [x] JSON input: unchanged behavior (existing flow)
+- [x] Results output format identical regardless of input format
 
-### FR-13: Step Background Image
-- [ ] Each step supports an optional `backgroundImage` field — a vault-relative path to an image file (PNG, JPG, SVG)
-- [ ] The step card in the sidebar shows an "Add Background" button (or thumbnail if an image is already set)
-- [ ] Clicking "Add Background" opens a file picker filtered to image files in the vault
-- [ ] The selected image is stored as `backgroundImage: "path/to/image.png"` in the step JSON
-- [ ] The companion canvas renders the background image on the step group node using the Obsidian canvas `background` property
-- [ ] Use case: attach wireframes, mockups, or design sketches to steps during journey design — preparing visual context for later implementation
-- [ ] Background images are preserved through export/import and canvas round-trip (JSON ↔ Canvas)
-- [ ] Removing the image clears the field and removes the canvas group background
+### FR-13: Step Background Image — DELIVERED (C56)
+- [x] Each step supports an optional `backgroundImage` field — a vault-relative path to an image file (PNG, JPG, SVG)
+- [x] The step card in the sidebar shows an "Add Background" button (or thumbnail if an image is already set)
+- [x] Clicking "Add Background" opens a file picker filtered to image files in the vault
+- [x] The selected image is stored as `backgroundImage: "path/to/image.png"` in the step JSON
+- [x] The companion canvas renders the background image on the step group node using the Obsidian canvas `background` property
+- [x] Use case: attach wireframes, mockups, or design sketches to steps during journey design — preparing visual context for later implementation
+- [x] Background images are preserved through export/import and canvas round-trip (JSON ↔ Canvas)
+- [x] Removing the image clears the field and removes the canvas group background
 
 ---
 
@@ -376,11 +382,11 @@ Sidebar edit → journey-builder.step.updated
 ### Phase 1: Step Editor + Smart Inputs (Cycle 55) — DELIVERED
 FR-01 (Step editor), FR-02 (Action builder + templates), FR-03 (Assert builder), FR-04 (Event autocomplete), FR-05 (Command picker), FR-06 (JSON preview), FR-07 (JSON → Canvas sync), FR-10 (Export), FR-11 (Open existing)
 
-### Phase 2: Canvas Round-Trip (Cycle 56)
-FR-08 (Canvas → JSON), FR-12 (Dual input for runner)
+### Phase 2: Canvas Round-Trip + Preview + Background (Cycle 56) — DELIVERED
+FR-08 (Canvas → JSON), FR-09 (Preview run — validation mode), FR-12 (Dual input for runner), FR-13 (Step background image)
 
-### Phase 4: Preview Run (Cycle 56-57)
-FR-09 (Preview run with live canvas updates)
+### Phase 3: Preview Run Full Execution (Cycle 57+)
+FR-09 remaining items: screenshots as group backgrounds, event trace summary, click-to-inspect step details
 
 ---
 
@@ -390,6 +396,7 @@ FR-09 (Preview run with live canvas updates)
 |------|---------|-------|-------|---------|
 | 2026-03-02 | 1.0 | in-progress | C54 | PRD created. C54 spike delivered: sidebar (3 states), service, EventBridge adapter, 6 events |
 | 2026-03-05 | 1.1 | in-progress | C55 | Phase 1 delivered: 9/9 PBIs done. Step editor, action builder (34 tools + 4 templates), event autocomplete, command picker, assert builder, JSON preview, canvas sync, export, open existing. 399 new tests. FRI 23/35 |
+| 2026-03-05 | 1.2 | in-progress | C56 | Phase 2 delivered: 4/4 PBIs done. Canvas → JSON parser + bidirectional sync, preview run (validation), dual input (.journey + .canvas), step background images. Canvas→sidebar step selection. UX polish (header toolbar, setup form, sync indicator). Orchestrator extraction (4 components). 166 new tests (6,628 → 6,794). 12 increments. |
 
 ---
 
@@ -404,8 +411,9 @@ FR-09 (Preview run with live canvas updates)
 | JB-005 | Assert Builder | Done | C55 |
 | JB-006 | Live JSON Preview | Done | C55 |
 | JB-007 | Canvas Sync (JSON → Canvas) | Done | C55 |
-| JB-008 | Canvas Sync (Canvas → JSON) | Planned | C56 |
+| JB-008 | Canvas Sync (Canvas → JSON) | Done | C56 |
 | JB-009 | Export (3-file) | Done | C55 |
 | JB-010 | Open Existing Journey | Done | C55 |
-| JB-011 | Preview Run | Planned | C56 |
-| JB-012 | Dual Input for Journey Runner | Planned | C56 |
+| JB-011 | Preview Run (validation) | Done | C56 |
+| JB-012 | Dual Input for Journey Runner | Done | C56 |
+| JB-013 | Step Background Image | Done | C56 |
