@@ -32,6 +32,7 @@ import { CanvasService } from "../../domain/canvas/CanvasService";
 import { AnalyticsService } from "../../domain/analytics/AnalyticsService";
 import { OnboardingService } from "../../domain/onboarding/OnboardingService";
 import { DocService } from "../../domain/docs/DocService";
+import { TestManagementService } from "../../domain/testManagement/TestManagementService";
 import { FileSystemClient } from "../filesystem/FileSystemClient";
 import type { ISecretStore } from "../../utils/SecretStore";
 import type { IServiceContainer, ServiceRegistration } from "./types";
@@ -323,6 +324,17 @@ export function createServiceRegistrations(
 					storage: createTypedStorage(storage, "onboarding", container),
 					eventBus,
 					readLegacyChecklist: () => analyticsService.getOnboardingChecklist(),
+				});
+			},
+		},
+
+		// Test Management Service - journey-centric quality management
+		{
+			id: "testManagementService",
+			factory: (container: IServiceContainer) => {
+				return new TestManagementService({
+					storage: createTypedStorage(storage, "testManagement", container),
+					eventBus: container.getEventBus(),
 				});
 			},
 		},

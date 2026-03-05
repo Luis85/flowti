@@ -173,6 +173,7 @@ export const EVENT_CATEGORIES = [
 	"Notification",
 	"Modal",
 	"Journey Builder",
+	"Test Management",
 ] as const;
 
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
@@ -672,6 +673,17 @@ const CATALOG_DATA = {
 	"journey-builder.imported":              { category: "Journey Builder", description: "Journey JSON was read and is ready for hydration", direction: "Service → Listeners", domain: "journey-builder", services: "JourneyBuilderService" },
 	"journey-builder.import-failed":        { category: "Journey Builder", description: "Journey import failed (file read error or validation failure)", direction: "Service → Listeners", domain: "journey-builder", services: "JourneyBuilderService" },
 	"ui.openJourneyBuilder":                { category: "UI Commands", description: "Open the Journey Builder sidebar", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
+
+	// ── Test Management Events ────────────────────────────────
+	"test-mgmt.hub.loaded":                 { category: "Test Management", description: "Test Management Hub loaded with current state", direction: "Service → Listeners", domain: "test-management", services: "TestManagementService" },
+	"test-mgmt.journey.registered":         { category: "Test Management", description: "Journey registered in the test management registry", direction: "Service → Listeners", domain: "test-management", services: "TestManagementService" },
+	"test-mgmt.journey.deregistered":       { category: "Test Management", description: "Journey removed from the test management registry", direction: "Service → Listeners", domain: "test-management", services: "TestManagementService" },
+	"test-mgmt.journey.status-changed":     { category: "Test Management", description: "Journey status changed (passing/failing/stale/never-run)", direction: "Service → Listeners", domain: "test-management", services: "TestManagementService" },
+	"test-mgmt.journey.run-completed":      { category: "Test Management", description: "Journey run result recorded", direction: "Service → Listeners", domain: "test-management", services: "TestManagementService" },
+	"test-mgmt.coverage.computed":          { category: "Test Management", description: "PRD coverage matrix recomputed", direction: "Service → Listeners", domain: "test-management", services: "TestManagementService" },
+	"test-mgmt.compliance.checked":         { category: "Test Management", description: "ISO compliance check completed", direction: "Service → Listeners", domain: "test-management", services: "TestManagementService" },
+	"test-mgmt.pyramid.updated":            { category: "Test Management", description: "Test pyramid state updated", direction: "Service → Listeners", domain: "test-management", services: "TestManagementService" },
+	"test-mgmt.review.requested":           { category: "Test Management", description: "Three Amigos review requested for a journey", direction: "Service → Listeners", domain: "test-management", services: "TestManagementService" },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

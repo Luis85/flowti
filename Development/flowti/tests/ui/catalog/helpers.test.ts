@@ -491,6 +491,7 @@ describe("catalog helpers", () => {
 		{ name: "Notification", visible: true },
 		{ name: "Modal", visible: true },
 		{ name: "Journey Builder", visible: true },
+		{ name: "Test Management", visible: true },
 	];
 
 	describe("discoveredToCatalogEntries", () => {

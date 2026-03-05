@@ -66,6 +66,7 @@ export const DEFAULT_CATALOG_CATEGORIES: CatalogCategoryConfig[] = [
 	{ name: "Notification", visible: false },
 	{ name: "Modal", visible: false },
 	{ name: "Journey Builder", visible: true },
+	{ name: "Test Management", visible: true },
 ];
 
 // ─────────────────────────────────────────────────────────────
