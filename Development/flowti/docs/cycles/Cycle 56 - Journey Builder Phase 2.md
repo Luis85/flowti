@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Development/flowti/docs/features/Journey Builder/Journey Builder PRD|Journey Builder PRD]]"
-stage: planned
+stage: in-progress
 cycle: 56
 release_anchor:
   - "Theme 5: Visual Test Authoring — Journey Builder Phase 2"
@@ -22,8 +22,8 @@ tech_debt:
 estimated_increments: 10
 estimated_loc: 570
 estimated_tests: 90
-pre_cycle_tests: 6594
-pre_cycle_suites: 276
+pre_cycle_tests: 6628
+pre_cycle_suites: 277
 ---
 
 # Cycle 56 — Journey Builder Phase 2 + Architecture Hardening
@@ -37,7 +37,7 @@ pre_cycle_suites: 276
 
 ### Pre-Cycle State
 
-- **Tests**: 6,594 passing (276 suites) — all green
+- **Tests**: 6,628 passing (277 suites) — all green (post pre-cycle work; was 6,594/276 at C55 close)
 - **Build**: `npm run build` green
 - **Open bugs**: None critical
 - **Previous cycle**: C55 (Journey Builder Phase 1) closed — 12 increments, 399 new tests, 9/9 PBIs delivered
@@ -55,6 +55,25 @@ pre_cycle_suites: 276
 | ActionForm | Schema-driven generic form for any tool | 103 |
 | Export pipeline | 3-file export (JSON + .test.ts + .canvas) | — |
 | Open Existing | FuzzySuggestModal + import handler | — |
+
+### Completed Pre-Cycle
+
+| Item | Description |
+|------|-------------|
+| Journey import fix | Fixed `.journey` file import timeout — added `"journey"` to EventBridge VAULT_MANAGED_EXTENSIONS, switched FileSystemClient to type-specific response handler, added adapter fallback for unindexed extensions |
+| Import error handling | Enhanced import pipeline with user-facing notices (success/error), service-level validation with `validateJourneyJSON`, sidebar recovery on failure |
+| Canvas PRD template | Added 6th canvas template "Create a PRD" — 5 groups (Problem & Context, Users & Scenarios, Proposed Solution, Risks & Constraints, Success Criteria) with 5 directed edges |
+| Template picker redesign | Rewrote CanvasTemplatePickerModal with 2-column grid, category badges, group preview chips, hover/focus effects |
+| Test delta | +34 tests (6,594 → 6,628), +1 suite (276 → 277) |
+
+### Inbox Signals Reviewed
+
+| Inbox Item | Disposition |
+|------------|-------------|
+| `Journey Builder Phase 2 - Canvas Round Trip and Preview Run.md` (plugin inbox) | **Linked** — core scope of this cycle (PBI-JB-008, JB-011, JB-012) |
+| `Starting a Canvas Session.md` (plugin inbox) | **Deferred** — canvas session improvements not in scope |
+| `Canvas Integration Plan.md` (plugin inbox) | **Deferred** — broader canvas integration beyond JB scope |
+| Vault inbox | **No hits** — no vault-level signals relate to C56 journey builder work |
 
 ### Carried Forward from C55
 
@@ -116,6 +135,16 @@ In parallel, the architecture dimension addresses JourneyBuilderSidebar size cre
 - Visual regression / screenshot diffing
 - RB-7: Pipeline multi-source merge (deferred to v1.1)
 
+## Priority Rationale
+
+Delivery order is driven by **value unlock**, not just technical dependency:
+
+1. **Canvas round-trip (Inc 0→1→2)** is highest priority — it unblocks all other features and resolves the #1 user pain (one-way canvas). Extraction (Inc 0) is prerequisite to keep LOC manageable.
+2. **Preview Run (Inc 3)** is next — it enables rapid iteration without leaving the vault, resolving user pain #2.
+3. **Dual Input (Inc 4)** and **Background Image (Inc 5)** are independent value adds that complete the authoring experience.
+4. **Docs and Process (Inc 6–8)** run in parallel — they reduce debt without blocking features.
+5. **Regression + E2E (Inc 9)** is last — it validates the full feature set and gates the cycle close.
+
 ## Increments
 
 ### Inc 0: Orchestrator Extraction (TD-130)
@@ -128,6 +157,10 @@ Extract from JourneyBuilderSidebar:
 - `CanvasSyncController` (canvas sync scheduling and lifecycle)
 - Target: sidebar ≤600 LOC (from ~549 + Phase 2 additions)
 - Document extraction checkpoint convention in TD-01
+
+**Test Intent**: Unit tests for each extracted component (WelcomeScreen, SetupForm, CanvasSyncController) — verify rendering, callbacks, lifecycle. Existing sidebar tests must pass unchanged.
+**Documentation Intent**: Update TD-01 with extraction checkpoint convention. Update Frontend Architecture.md component inventory.
+**Architecture Seams**: Each component is a plain class with `constructor(el, deps)` + `render()` — follows existing UI component pattern. EventBus listeners stay in sidebar; extracted components are stateless renderers.
 
 **Acceptance Criteria**:
 - [ ] JourneyBuilderSidebar ≤600 LOC after extraction
@@ -148,6 +181,10 @@ Build the canvas-to-journey parser:
 - Improvement cards (yellow, color "3") → `steps[i].improvements[]`
 - Background image on group node → `steps[i].backgroundImage`
 
+**Test Intent**: Unit tests for parser (detection, node/edge parsing, metadata extraction, edge ordering). Round-trip fidelity tests: JSON → Canvas → JSON identity. Error cases: malformed canvas, missing START/END nodes, unrecognized node types.
+**Documentation Intent**: Add parser to component docs. Update Data Dictionary with any new entity fields.
+**Architecture Seams**: Pure function `parseCanvasToJourney(canvasData: CanvasData): JourneyDefinition | null` in `src/domain/journeyBuilder/`. No EventBus dependency — called by integration layer. Canvas JSON read via existing FileSystemClient.
+
 **Acceptance Criteria**:
 - [ ] Parser detects journey-structured canvases
 - [ ] Round-trip: JSON → Canvas → JSON produces identical definition
@@ -163,6 +200,10 @@ Wire the parser into the sidebar workflow:
 - Canvas edits trigger re-parse and sidebar update (reverse sync)
 - Debounced bidirectional sync (prevent infinite loops)
 - Conflict resolution: last-write-wins with visual indicator
+
+**Test Intent**: Integration tests for bidirectional sync (sidebar change → canvas update, canvas change → sidebar update). Loop prevention tests (verify no re-trigger after own write). Debounce timing tests. Command registration test.
+**Documentation Intent**: Update sitemap with canvas round-trip flow. Add bidirectional sync to Frontend Architecture.md.
+**Architecture Seams**: New event `journey-builder.canvas.changed` emitted by canvas watcher → sidebar handler. Sync direction tracked via `lastSyncSource: "sidebar" | "canvas"` flag. Command registered via EventBridge command adapter.
 
 **Acceptance Criteria**:
 - [ ] Bidirectional sync works (sidebar ↔ canvas)
@@ -181,6 +222,10 @@ Dry-run execution with visual feedback:
 - Does NOT require test vault — runs simulation in current vault
 - Results inspectable: click any step node to see pass/fail details
 
+**Test Intent**: Unit tests for simulated action runner (step execution, pass/fail outcomes). Integration tests for canvas highlighting (node color changes during run). Event emission tests (`journey-builder.preview.started/completed`). Edge case: empty journey, single-step journey.
+**Documentation Intent**: Add PreviewRunner to component docs. Document preview events in Event Catalog.
+**Architecture Seams**: `PreviewRunner` class in `src/domain/journeyBuilder/` — receives JourneyDefinition, emits step-level events, returns results. Canvas highlighting via existing `canvasSync` module (color overlay). No new Obsidian API surface — uses existing canvas node manipulation.
+
 **Acceptance Criteria**:
 - [ ] Preview executes all steps with simulated pass/fail
 - [ ] Canvas highlights active step during run
@@ -196,6 +241,10 @@ Support both JSON and canvas as input formats:
 - Journey Builder can be opened from either a `.journey.json` or a `.canvas` file
 - Results output format identical regardless of input format
 - File picker shows both `.journey.json` and `.canvas` files
+
+**Test Intent**: Unit tests for canvas-to-journey conversion path in runner. Integration tests verifying identical output for both input formats. File picker filter tests (both extensions listed).
+**Documentation Intent**: Update Journey Builder PRD with dual input support. Update tool reference for journey runner.
+**Architecture Seams**: Journey Runner's `loadJourney()` method accepts path string → detects extension → routes to JSON parser or canvas parser. No new events — reuses existing `journey-builder.imported` event. File picker extends existing `findJourneyFiles()` to include `.canvas` with journey structure.
 
 **Acceptance Criteria**:
 - [ ] Journey Runner accepts `.canvas` input
@@ -214,6 +263,10 @@ Attach wireframes/mockups to journey steps:
 - Canvas group node renders background image
 - Preserved through export/import and canvas round-trip
 - Remove button clears field and canvas background
+
+**Test Intent**: Unit tests for `backgroundImage` field on JourneyStep (serialization, validation). UI tests for add/remove button rendering. Canvas sync tests verifying background image is applied to group node. Round-trip preservation tests (JSON → Canvas → JSON with image field).
+**Documentation Intent**: Update JourneyStep type in Data Dictionary. Add background image to Journey Builder PRD FR-13 delivered notes.
+**Architecture Seams**: Optional `backgroundImage: string` field on `JourneyStep` interface. Canvas sync extends group node rendering to set `background` property. File picker uses Obsidian's `FileSystemAdapter` filtered to image extensions. No new events — existing `journey-builder.step.updated` carries image changes.
 
 **Acceptance Criteria**:
 - [ ] Background image can be added/removed from step card
@@ -269,6 +322,10 @@ Attach wireframes/mockups to journey steps:
 - Regression suite: 10 tests for bidirectional canvas consistency
 - E2E journey: Journey Builder canvas round-trip (full flow)
 - Verify all Phase 2 features work end-to-end
+
+**Test Intent**: Flow-level regression tests (canvas sync consistency, round-trip fidelity across all templates). E2E journey covering: create journey → export → edit canvas → re-import → preview run → verify results. Tests at flow level (`tests/flows/`) and E2E level (`tests/e2e/`).
+**Documentation Intent**: Update E2E journey configs. Generate E2E report with C56 results.
+**Architecture Seams**: Flow tests use existing `createMockFileSystem` + `createMockStorage` patterns. E2E journey follows established journey runner framework from C53.
 
 **Acceptance Criteria**:
 - [ ] 10 regression tests for canvas sync consistency
