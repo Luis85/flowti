@@ -15,6 +15,7 @@ views:
       - total_steps
       - passed
       - failed
+      - total_actions
       - test_source
       - tags
     columnSize:

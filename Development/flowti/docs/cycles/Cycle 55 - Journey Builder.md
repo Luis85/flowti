@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Development/flowti/docs/features/Journey Builder/Journey Builder PRD|Journey Builder PRD]]"
-stage: in-progress
+stage: done
 cycle: 55
 release_anchor:
   - "Theme 5: Visual Test Authoring — Journey Builder"
@@ -23,12 +23,14 @@ estimated_loc: 2120
 estimated_tests: 275
 pre_cycle_tests: 6195
 pre_cycle_suites: 265
-actual_increments: 11
+actual_increments: 12
 actual_loc: 3000
 actual_tests: 399
 actual_suites: 11
 post_cycle_tests: 6594
 post_cycle_suites: 276
+total_tests_after: 6594
+total_test_files_after: 276
 ---
 
 # Cycle 55 — Journey Builder
@@ -61,7 +63,7 @@ post_cycle_suites: 276
 | [[Development/flowti/tests/e2e/helpers/journeyTypes.ts\|StepDefinition]] | Journey step type system (JourneyDefinition, StepDefinition, JourneyStep) | ~200 |
 | Canvas improvements | Yellow cards in report pipeline | ~35 |
 
-### Current State (After Inc 6)
+### Current State (Final — After Inc 11)
 
 | Component | Status | LOC |
 |-----------|--------|-----|
@@ -434,19 +436,19 @@ Inc 10 (Export + Open)   ──→ After Inc 9 (needs canvas generator)
 
 ## Success Metrics
 
-| Metric | Target | Actual (after Inc 11) |
+| Metric | Target | Actual (Final) |
 |---|---|---|
-| New tests | ~275 | 399 |
+| New tests | ~275 | 399 (+45%) |
 | Post-cycle tests | ~6,470 | 6,594 |
 | New suites | — | 11 |
 | New files | ~15 | 19+ (14 src + 5 test, excl. CSS) |
-| Source LOC | ~2,120 | 3,000+ |
+| Source LOC | ~2,120 | 3,000+ (+42%) |
 | PBIs delivered | 9 | 9/9 done (JB-001–007, JB-009, JB-010) |
 | Action builder tool coverage | 26/26 tools | 34/34 tools + 4 templates |
 | Event autocomplete coverage | 360+ events | Done — fuzzy autocomplete with category badges |
 | Export file types | 3 (JSON + .test.ts + .canvas) | 3 (all done) |
 | Canvas sync latency | < 1s from edit to canvas update | Done — 400ms zoom, event-driven sync |
-| Increments | ~10 | 11 completed |
+| Increments | ~10 | 12 completed (11 planned + 1 polish) |
 
 ## Actual Progress
 
@@ -465,6 +467,7 @@ Inc 10 (Export + Open)   ──→ After Inc 9 (needs canvas generator)
 | 8 | Feature | Command Picker (JB-004) — replaced plain `<select>` with searchable autocomplete. Reuses `attachEventSuggest` via adapter (CommandMeta→EventSuggestItem). Domain badges on each command. JB-005 confirmed already done | 2 | JB-004 done, JB-005 confirmed done |
 | 9 | Feature | Step Metadata Chips (JB-001) — ChipList component for events, commands, interactions, components arrays on StepCard. Add via Enter, remove via × button. Keyboard accessible. `onStepListChanged` handler. buildDefinition includes arrays. JSON preview reflects chip data. | 32 | ChipList.ts (87 LOC), JB-001 done |
 | 10 | Feature | Action Templates (JB-002) — TemplatePicker component with 4 pre-built patterns (Open via command, Click element, Verify visible, Take screenshot) + Custom fallback. Templates bulk-create actions. `showTemplatePicker` state intercepts "Add action" before ToolPicker. | 25 | TemplatePicker.ts (72 LOC), ActionTemplate type, JB-002 done |
+| 11 | Polish | Polish & Bug Fixes — NavBar CSS class mismatch fix (disabled buttons now visually dimmed), chip list spacing tightened, Open canvas button styled, unused CSS removed, aria-labels on NavBar/ActionList/StepCard/TemplatePicker, E2E journey test updated for template picker flow. | 0 | CSS fixes, accessibility improvements, E2E alignment |
 
 ### Unplanned Work Delivered
 
@@ -499,3 +502,67 @@ Work not in the original plan but delivered organically during the cycle:
 - Per-step `settleMs` → integrate into PBI-JB-002 action builder
 - CI/CD pipeline for E2E → PBI-RP-003
 - Visual regression diff → future cycle
+- Save-back to source file (dirty tracking) → C56
+- Drag-and-drop action reordering → C56
+- Accordion collapse/expand for step sections → C56
+
+---
+
+## Risks Review
+
+| Risk | Materialized? | Resolution |
+|------|---------------|------------|
+| Canvas write performance on frequent edits | No | 1500ms debounce + event-driven sync prevents thrash |
+| 26-tool action builder is a large surface area | Partially | Grew to 34 tools — mitigated by schema-driven ActionForm (103 LOC handles all 34 tools) and 4 action templates |
+| EVENT_CATALOG data access from plugin runtime | No | EventSuggest loads from catalog module directly |
+| Command registry not easily queryable | No | `deps.getCommandMeta()` callback injected from main.ts |
+| Canvas layout logic duplicated (JS report script + TS plugin) | Yes (accepted) | canvasSync.ts (153 LOC) implements layout independently — minor duplication accepted, unification deferred to C56 |
+| Scope creep — Assert Builder has 8 subtypes | No | All 8 types delivered in Inc 3+7 with conditional field visibility |
+
+---
+
+## Cycle Retrospective
+
+### What Went Well
+
+1. **Inc 0 architecture refactor was the multiplier.** Decomposing the monolith sidebar into 9 composable components (NavBar, StepCard, JSONPanel, ActionList, ToolPicker, ActionForm, ChipList, EventSuggest, TemplatePicker) enabled parallel development and independent testing. Each subsequent increment was a focused addition to a clean surface.
+2. **Schema-driven ActionForm eliminated per-tool UI work.** A single 103-LOC component renders correct forms for all 34 tools. Adding tools #27-#34 required zero ActionForm changes — just schema entries in `toolSchemas.ts`.
+3. **EventSuggest adapter pattern enabled reuse across 3 integration points.** The same fuzzy autocomplete core serves event fields, command picker, and assert event builder by mapping different data sources to a common `EventSuggestItem` interface.
+4. **E2E journey test caught real issues.** The 13-step E2E journey (265 actions, 51 assertions) found the NavBar CSS class mismatch that was invisible in unit tests. The screenshots revealed spacing and positioning issues addressed in Inc 11 polish.
+5. **Test estimates exceeded by 45%.** 399 actual vs 275 estimated. The coverage depth is higher than planned, with 141 integration tests on the sidebar orchestrator alone.
+6. **All 9 PBIs delivered with no partial states.** Every PBI is either fully done or cleanly deferred — no "mostly done" items.
+
+### Deviations from Plan
+
+1. **12 increments instead of 10.** Inc 1 (E2E tooling) and Inc 2 (E2E reports) were unplanned but emerged organically from E2E test needs. Inc 11 (polish) was added after all PBIs were complete.
+2. **Tool count grew from 26 to 34.** Eight additional tools (assert-value, select, copy-file, move-file, scroll-to, spinner, seed, frontmatter) were added as the E2E tool vocabulary expanded.
+3. **Phase 2 features (FR-03, FR-04, FR-05, FR-11) delivered in C55.** Originally planned for C55-C56, the assert builder, event autocomplete, command picker, and open existing were all delivered in this cycle. This pulls forward scope from the original delivery plan.
+4. **Accordion sections deferred.** FR-01 specified collapsible step sections — the chip list approach made this less critical, so it was deferred rather than blocking the cycle.
+
+### Improvement Backlog
+
+| Item | Classification | Target |
+|------|----------------|--------|
+| Save-back to source file with dirty tracking | New PBI (JB-013) | C56 |
+| Drag-and-drop action reordering | Enhancement (JB-002) | C56 |
+| Canvas layout deduplication (canvasSync.ts ↔ generate-e2e-report.mjs) | Tech debt | C56 |
+| Accordion collapse/expand for step sections | Enhancement (JB-001) | C56 |
+| Step reordering (move step up/down) | Enhancement (JB-001) | C56 |
+| Keyboard shortcuts (Alt+Left/Right for nav) | Enhancement (JB-001) | Future |
+| Step removal confirmation dialog | Enhancement (JB-001) | Future |
+
+### Learnings
+
+1. **Schema-driven UI scales linearly.** When the tool count grew from 26 to 34, the only change was adding 8 schema entries. This pattern should be applied to any future configurable surface (e.g., assert types, template definitions).
+2. **Adapter pattern for component reuse.** The EventSuggest-to-CommandPicker adapter (mapping CommandMeta → EventSuggestItem) is a clean way to reuse autocomplete components across different data domains. The adapter is ~10 LOC and avoids duplicating the entire autocomplete infrastructure.
+3. **E2E journey tests are the best integration test.** The 13-step journey found the NavBar CSS class mismatch, template picker flow gaps, and chip list spacing issues — all invisible to unit tests. E2E screenshots are a visual regression tool even without automated diffing.
+4. **Title Sentence conversion is a UX win.** Users type "Session Started" and see `session.started` with a live preview. Natural language input → machine-readable output should be the pattern for any technical identifier input.
+5. **Polish increments are worth the investment.** Inc 11 (zero new tests) fixed real accessibility issues (5 components gained aria-labels), a visible CSS bug (disabled buttons), and tightened spacing from E2E screenshot evidence. These fixes would accumulate as debt without a dedicated polish pass.
+
+---
+
+## Three Amigos Review
+
+**Review:** [[Three Amigos Review 2026-03-05 Journey Builder]]
+**Verdict:** PASS
+**TASM Average:** 34.7/35

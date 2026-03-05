@@ -12,7 +12,7 @@ related:
   - "[[I want to have a Domain Design Session, so that I can easily document a new domain]]"
   - "[[I want to decompose a flow with User-Story mapping]]"
   - "[[I want to start the documented lifecycles as a Session in Flowti]]"
-note: "Overlaps PBI-SW-009 domain design sessions and guided tour concept. Per-step QA checklists align with quality gate vision. Session v2 FR-18 (Workshop Mode) provides the foundation: agenda-based execution with structured steps. Full service design blueprint may become a Workshop mode variant."
+note: "Overlaps PBI-SW-009 domain design sessions and guided tour concept. Per-step QA checklists align with quality gate vision. Session v2 FR-18 (Workshop Mode) provides the foundation: agenda-based execution with structured steps. Full service design blueprint may become a Workshop mode variant. C55 Journey Builder delivers step-by-step editing with swimlane (customer/frontstage/backstage/support), events, commands, interactions, components — the same metadata vocabulary. ChipList component is reusable for this use case."
 ---
 I want to create a session with steps.
 I want to be able to document Inputs, Process, Outputs, Events, Actors, Systems, Interfaces of each step.
