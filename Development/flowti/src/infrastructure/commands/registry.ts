@@ -248,6 +248,18 @@ export function createCommandDefinitions(): CommandDefinition[] {
 			},
 		},
 		{
+			id: "flowti:open-test-management-hub",
+			name: "Open test management hub",
+			description: "Open the test management quality cockpit",
+			domain: "test-management",
+			category: "view",
+			icon: "shield-check",
+			handler: async (ctx) => {
+				ctx.logger.debug("Opening test management hub view");
+				void ctx.eventBus.emit("ui.openTestManagementHub", {});
+			},
+		},
+		{
 			id: "flowti:start-train",
 			name: "Start train of thoughts",
 			description: "Begin a new train of thoughts session",

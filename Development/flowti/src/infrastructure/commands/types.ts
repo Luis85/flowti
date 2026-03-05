@@ -22,7 +22,8 @@ export type CommandDomain =
 	| "analytics"
 	| "canvas"
 	| "installer"
-	| "developer";
+	| "developer"
+	| "test-management";
 
 /**
  * Functional category for commands.

@@ -21,6 +21,7 @@ const DOMAIN_LABELS: Record<CommandDomain, string> = {
 	canvas: "Canvas",
 	installer: "Installer",
 	developer: "Developer",
+	"test-management": "Test Management",
 };
 
 const DOMAIN_ICONS: Record<CommandDomain, string> = {
@@ -34,6 +35,7 @@ const DOMAIN_ICONS: Record<CommandDomain, string> = {
 	canvas: "layout-template",
 	installer: "download",
 	developer: "code",
+	"test-management": "shield-check",
 };
 
 const DOMAIN_ORDER: CommandDomain[] = [

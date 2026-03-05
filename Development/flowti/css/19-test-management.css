@@ -1,0 +1,168 @@
+/* ── Test Management Hub ─────────────────────────────── */
+
+.ft-tm-section {
+	margin-bottom: 1rem;
+}
+
+.ft-tm-section-title {
+	font-size: var(--font-ui-small);
+	font-weight: 600;
+	margin-bottom: 0.5rem;
+	color: var(--text-normal);
+}
+
+/* Mini pyramid bars */
+.ft-tm-pyramid-section {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.ft-tm-pyramid-row {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.ft-tm-pyramid-label {
+	width: 3rem;
+	font-size: var(--font-ui-smaller);
+	text-align: right;
+	color: var(--text-muted);
+}
+
+.ft-tm-pyramid-bar-bg {
+	flex: 1;
+	height: 1.25rem;
+	background: var(--background-modifier-border);
+	border-radius: 4px;
+	overflow: hidden;
+}
+
+.ft-tm-pyramid-bar {
+	height: 100%;
+	border-radius: 4px;
+	transition: width 0.3s ease;
+}
+
+.ft-tm-pyramid-bar--e2e {
+	background: var(--color-accent);
+}
+
+.ft-tm-pyramid-bar--flow {
+	background: var(--interactive-accent);
+	opacity: 0.7;
+}
+
+.ft-tm-pyramid-bar--unit {
+	background: var(--interactive-accent);
+	opacity: 0.4;
+}
+
+.ft-tm-pyramid-count {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	min-width: 3rem;
+}
+
+/* Recent runs */
+.ft-tm-recent-runs {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+
+.ft-tm-run-item {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.375rem 0.5rem;
+	border-radius: 4px;
+	font-size: var(--font-ui-small);
+}
+
+.ft-tm-run-item:hover {
+	background: var(--background-modifier-hover);
+}
+
+.ft-tm-run-name {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ft-tm-run-stats {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	white-space: nowrap;
+}
+
+/* Status badges */
+.ft-tm-status-badge {
+	display: inline-block;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+.ft-tm-status-badge--passing {
+	background: var(--color-green);
+}
+
+.ft-tm-status-badge--failing {
+	background: var(--color-red);
+}
+
+.ft-tm-status-badge--never-run {
+	background: var(--text-faint);
+}
+
+.ft-tm-status-badge--stale {
+	background: var(--color-yellow);
+}
+
+/* Needs attention */
+.ft-tm-attention-section {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+
+.ft-tm-attention-item {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.375rem 0.5rem;
+	border-radius: 4px;
+	font-size: var(--font-ui-small);
+	cursor: pointer;
+}
+
+.ft-tm-attention-item:hover {
+	background: var(--background-modifier-hover);
+}
+
+/* Empty state */
+.ft-tm-empty {
+	text-align: center;
+	padding: 2rem 1rem;
+	color: var(--text-muted);
+}
+
+.ft-tm-empty-icon {
+	margin-bottom: 0.5rem;
+	opacity: 0.5;
+}
+
+/* Tab placeholder */
+.ft-tm-tab-placeholder {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 3rem 1rem;
+	color: var(--text-muted);
+	text-align: center;
+}

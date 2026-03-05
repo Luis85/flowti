@@ -89,6 +89,9 @@ export interface UiCommandEventMap {
 	/** Open the Journey Builder sidebar in the right panel */
 	"ui.openJourneyBuilder": Record<string, never>;
 
+	/** Open the Test Management Hub view (or reveal if already open) */
+	"ui.openTestManagementHub": Record<string, never>;
+
 	/** Emitted after a view or modal was opened by UiCommandService */
 	"ui.opened": {
 		target: string;

@@ -285,11 +285,11 @@ describe("CommandRegistry — metadata", () => {
 	});
 
 	describe("registerCommands — full catalog", () => {
-		it("should register all 38 commands as queryable metadata", () => {
+		it("should register all 39 commands as queryable metadata", () => {
 			registerCommands(registry);
 
 			const all = registry.getCommandsMeta();
-			expect(all.length).toBe(38);
+			expect(all.length).toBe(39);
 		});
 
 		it("should cover all expected domains", () => {

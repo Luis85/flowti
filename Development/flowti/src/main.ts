@@ -65,6 +65,9 @@ import { CanvasSessionService } from "./domain/canvas/session/CanvasSessionServi
 import { JourneyBuilderSidebar, VIEW_TYPE_JOURNEY_BUILDER } from "./ui/journeyBuilder/JourneyBuilderSidebar";
 import { JourneyFileView, VIEW_TYPE_JOURNEY_FILE } from "./ui/journeyBuilder/JourneyFileView";
 import { JourneyBuilderService } from "./domain/journeyBuilder/JourneyBuilderService";
+import type { TestManagementService } from "./domain/testManagement/TestManagementService";
+import { TestManagementHubView, VIEW_TYPE_TEST_MANAGEMENT_HUB } from "./ui/testManagement/TestManagementHubView";
+import { TestManagementHubProvider } from "./domain/hub/TestManagementHubProvider";
 import { EVENT_CATALOG } from "./infrastructure/events/catalog";
 import { showNudgeNotification } from "./ui/shared/NudgeNotification";
 import { openStartPage } from "./infrastructure/StartpageHandler";
@@ -132,6 +135,7 @@ export default class FlowtiBasePlugin extends Plugin {
 	private canvasSessionService?: CanvasSessionService;
 	private journeyBuilderService?: JourneyBuilderService;
 	private analyticsService?: AnalyticsService;
+	private testManagementService?: TestManagementService;
 	private onboardingService?: OnboardingService;
 	private perfAggregator?: PerfAggregator;
 	private ingestionStatusBar?: IngestionStatusBar;
@@ -274,6 +278,9 @@ export default class FlowtiBasePlugin extends Plugin {
 			});
 			this.addRibbonIcon("route", "Open journey builder", () => {
 				void this.eventBus.emit("ui.openJourneyBuilder", {});
+			});
+			this.addRibbonIcon("shield-check", "Open test management hub", () => {
+				void this.eventBus.emit("ui.openTestManagementHub", {});
 			});
 
 			// Status bar
@@ -864,6 +871,13 @@ export default class FlowtiBasePlugin extends Plugin {
 			new AnalyticsHubView(leaf, this.eventBus, this.analyticsService!, this.onboardingService!),
 		);
 
+		// Test Management Hub — quality cockpit for journey-based testing
+		this.testManagementService = await this.services.get<TestManagementService>("testManagementService");
+		await this.timedServiceLoad("testManagementService", () => this.testManagementService!.load());
+		this.safeRegisterView(VIEW_TYPE_TEST_MANAGEMENT_HUB, (leaf) =>
+			new TestManagementHubView(leaf, this.eventBus, this.testManagementService!, this.onboardingService!),
+		);
+
 		// Journey Builder — sidebar for creating E2E journey definitions
 		this.safeRegisterView(VIEW_TYPE_JOURNEY_BUILDER, (leaf) =>
 			new JourneyBuilderSidebar(leaf, {
@@ -1234,6 +1248,7 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.hubRegistry.register(new DataExchangeProvider(this.dataExchangeService!));
 		this.hubRegistry.register(new AnalyticsHubProvider(this.analyticsService!));
 		this.hubRegistry.register(new TrainHubProvider(this.trainService!));
+		this.hubRegistry.register(new TestManagementHubProvider(this.testManagementService!));
 
 		this.safeRegisterView(VIEW_TYPE_USER_HUB, (leaf) =>
 			new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!, this.inboxService!, this.sessionService!, this.nudgeService!, this.onboardingService!, this.settings.inboxEnabledSources, this.settings, this.trainService, this.commands),

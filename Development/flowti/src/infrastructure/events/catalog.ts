@@ -411,6 +411,7 @@ const CATALOG_DATA = {
 	"ui.openTrainHub":            { category: "UI Commands", description: "Open the Train Hub view", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.startCanvasSession":      { category: "UI Commands", description: "Start a guided canvas session from a template", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.openAnalyticsHub":        { category: "UI Commands", description: "Open the Analytics Hub view", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
+	"ui.openTestManagementHub":   { category: "UI Commands", description: "Open the Test Management Hub view", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.opened":                  { category: "UI Commands", description: "A UI view or modal was opened", direction: "Internal", domain: "ui", services: "UiCommandService", tags: ["system"] },
 
 	// ── Hub ──────────────────────────────────────────────────

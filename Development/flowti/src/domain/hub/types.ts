@@ -14,6 +14,7 @@ export const VIEW_TYPE_DATA_EXCHANGE_HUB = "flowti-data-exchange-hub";
 export const VIEW_TYPE_USER_HUB = "flowti-user-hub";
 export const VIEW_TYPE_TRAIN_HUB = "flowti-train-hub";
 export const VIEW_TYPE_ANALYTICS_HUB = "flowti-analytics-hub";
+export const VIEW_TYPE_TEST_MANAGEMENT_HUB = "flowti-test-management-hub";
 
 /**
  * A single stat for display in a hub summary card.
