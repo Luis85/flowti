@@ -2,7 +2,7 @@
 domain: Flowti
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
-stage: draft
+stage: in-progress
 version: "2.0"
 created: 2026-03-05
 updated: 2026-03-05

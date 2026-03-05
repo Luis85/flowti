@@ -27,8 +27,8 @@ tech_debt:
 estimated_increments: 12
 estimated_loc: 2700
 estimated_tests: 335
-pre_cycle_tests: 6700
-pre_cycle_suites: 281
+pre_cycle_tests: 6794
+pre_cycle_suites: 284
 ---
 
 # Cycle 57 — Test Management Hub + Session Finalization
@@ -42,12 +42,12 @@ pre_cycle_suites: 281
 
 ### Pre-Cycle State
 
-- **Tests**: ~6,700 passing (~281 suites) — projected after C56
+- **Tests**: 6,794 passing (284 suites) — actual C56 closing state
 - **Build**: `npm run build` green
-- **Open bugs**: None critical (projected)
-- **Previous cycle**: C56 (Journey Builder Phase 2) — canvas round-trip, preview run, dual input, step background images
+- **Open bugs**: None critical
+- **Previous cycle**: C56 (Journey Builder Phase 2) — canvas round-trip, preview run, dual input, step background images. Closed with DoD review.
 - **Release Blockers**: 2 remaining (RB-1 installer config, RB-7 deferred)
-- **Tech Debt**: ~27 open items (projected after C56 clears 3)
+- **Tech Debt**: ~27 open items (after C56 closed 3)
 
 ### Foundation from C55/C56
 
@@ -155,6 +155,12 @@ Build the Test Management domain foundation:
 - `events.ts` — 9 management events defined
 - Wire service start/stop in main.ts
 
+**Test Intent**: Unit tests for all pure calculation functions (pyramidCalculator, coverageCalculator, complianceChecker, journeyParser). Domain service tested with mock file system and event bus. ~40 tests across 4-5 test files.
+
+**Documentation Intent**: JSDoc on all public types. Update Data Dictionary with new entity types (JourneyRegistryEntry, TestPyramidState, CoverageEntry, ComplianceTag).
+
+**Architecture Seams**: New `src/domain/testManagement/` domain folder. EventMap extension via `TestManagementEventMap`. Service lifecycle (start/stop) wired in main.ts. Pure functions isolated from service orchestration.
+
 **Acceptance Criteria**:
 - [ ] Service scans journey files and parses results
 - [ ] Pure calculation functions tested with mock data
@@ -177,6 +183,12 @@ Build the Hub view and dashboard landing:
 - Register view type, ribbon icon (shield-check), command palette entry
 - `css/19-test-management.css` — full styling layer
 - Dual-mode detection: check for `node_modules/vitest` and test vault path
+
+**Test Intent**: Hub view registration, dashboard rendering (KPI cards, mini pyramid, recent runs, needs attention). HubDashboardProvider tests. Dual-mode detection logic. ~30 tests: UI render + domain provider.
+
+**Documentation Intent**: Create `css/19-test-management.css` layer. Component doc for TestManagementHubView. Update sitemap with new view.
+
+**Architecture Seams**: 6th BaseHubView subclass. WorkspaceShell reuse. HubDashboardProvider interface. VIEW_TYPE constant + registerView in main.ts. CSS layer 19.
 
 **Acceptance Criteria**:
 - [ ] Hub opens from command palette, ribbon, and User Hub card
@@ -202,6 +214,12 @@ Master/detail journey list:
 - Detail "Review" section: Three Amigos link, TASM score
 - Action bar: "Open in Builder", "Open Canvas", "Open JSON", "Request Review", "Run Journey"
 
+**Test Intent**: Master list rendering with sort/filter. Detail panel sections (run history, steps, traceability). Filter bar logic. Search fuzzy matching. ~25 tests: UI render + filter logic.
+
+**Documentation Intent**: Component doc for JourneysTab. Update Frontend Architecture doc with master/detail pattern usage.
+
+**Architecture Seams**: Master/detail shared UI pattern (same as Analytics DashboardsTab). Filter bar as reusable component. Action bar callbacks via deps injection.
+
 **Acceptance Criteria**:
 - [ ] Master list shows all registered journeys
 - [ ] Filters and search work
@@ -220,6 +238,12 @@ Full test pyramid tab:
 - Stacked bar or layered triangle rendering
 - Three Amigos badge overlay per layer
 - Standard mode: E2E only at full fidelity; Flow/Unit as dimmed placeholders with guidance callout
+
+**Test Intent**: Pyramid rendering (3-layer proportions, counts, pass rates). Trend indicator computation. Layer drill-down expand/collapse. Standard vs Expert mode display. ~20 tests: UI render + calculation logic.
+
+**Documentation Intent**: Component doc for PyramidTab. Document dual-mode behavior (Standard: E2E only; Expert: all layers).
+
+**Architecture Seams**: pyramidCalculator.ts (pure) drives UI. Dual-mode flag from service. Drill-down uses existing accordion/expand pattern.
 
 **Acceptance Criteria**:
 - [ ] Pyramid renders with correct proportions
@@ -241,6 +265,12 @@ PRD-to-journey coverage tab:
 - "Gaps" view: in-progress/done PRDs with zero journeys
 - Actor and service coverage views
 
+**Test Intent**: Coverage matrix rendering (PRD rows, indicators). Gap analysis computation. Domain/actor/service coverage aggregation. coverageCalculator pure function tests. ~25 tests: UI render + calculation logic.
+
+**Documentation Intent**: Component doc for CoverageTab. Document PRD-to-journey linking strategy (domain match + explicit `prd` field).
+
+**Architecture Seams**: coverageCalculator.ts (pure) drives UI. PRD discovery via file system scan of `docs/features/`. Journey-PRD linking via domain matching + optional explicit field.
+
 **Acceptance Criteria**:
 - [ ] Matrix renders with coverage indicators
 - [ ] Gap analysis highlights uncovered PRDs
@@ -260,6 +290,12 @@ ISO compliance tab:
 - Tag management: add/remove compliance tags on journeys (stored in TypedStorage)
 - Report export: markdown compliance summary as vault note
 
+**Test Intent**: Compliance accordion rendering. Score computation per standard. Tag management CRUD (add/remove persists to TypedStorage). Report export markdown format. complianceChecker pure function tests. ~20 tests: UI render + calculation + persistence.
+
+**Documentation Intent**: Component doc for ComplianceTab. Document ISO characteristic definitions and guidance text. ADR if compliance storage model warrants it.
+
+**Architecture Seams**: complianceDefinitions.ts (static data). complianceChecker.ts (pure). Tag storage via TypedStorage (extends existing data.json schema). Report export as pure markdown generator.
+
 **Acceptance Criteria**:
 - [ ] All 19 characteristics rendered with guidance
 - [ ] Compliance scores compute correctly
@@ -278,6 +314,12 @@ Wire the Hub to the Journey Builder:
 - "Open in Test Hub" from Builder: navigate from Builder to Hub with journey selected
 - Cross-hub navigation via `hub.navigate` events
 - Request review: create Three Amigos review document from template
+
+**Test Intent**: Event-driven auto-registration on export. Cross-hub navigation (Builder→Hub, Hub→Builder). Review document creation from template. ~15 tests: integration wiring + navigation.
+
+**Documentation Intent**: Update Journey Builder PRD with integration points. Document cross-hub navigation flow.
+
+**Architecture Seams**: Event listener on `journey-builder.exported`. hub.navigate events for cross-hub nav. Template-based review doc creation via FileSystemClient.
 
 **Acceptance Criteria**:
 - [ ] Export triggers auto-registration
@@ -304,6 +346,12 @@ Build the in-app journey execution engine:
 - 4 execution events: run.started, run.step-completed, run.completed, run.failed
 - Vault-modifying tools (create/delete/move file, seed) require confirmation when running on user vault
 
+**Test Intent**: Per-tool execution (34 tool unit tests). Variable interpolation. Cancellation state machine. Dry-run mode (no side effects). Vault targeting logic. ~50 tests: unit per tool + integration for orchestration.
+
+**Documentation Intent**: Component doc for JourneyExecutorService. Document tool parity between CLI and in-app executor. ADR-033 for executor architecture decisions.
+
+**Architecture Seams**: New `src/domain/journeyExecutor/` domain folder. ToolExecutor interface per tool (strategy pattern). Vault targeting adapter (user vault via plugin API, test vault via CLI bridge). Cancellation via AbortController pattern. 4 execution events extend EventMap.
+
 **Acceptance Criteria**:
 - [ ] All 34 tools execute correctly via plugin API
 - [ ] Variable interpolation works across steps
@@ -326,6 +374,12 @@ Build the execution user interface:
 - Command registration: `flowti:run-journey` with file picker
 - "Run Journey" button wired in Hub detail panel and Builder sidebar
 
+**Test Intent**: Progress panel rendering (step progress, action status, timing). Canvas highlighting via canvasSync stepColors. Manual step dialog. Result writing. Report markdown generation. ~20 tests: UI render + report generator.
+
+**Documentation Intent**: Component doc for ExecutionProgressPanel. Document manual step UX flow.
+
+**Architecture Seams**: Progress panel as standalone UI component (deps injection). Canvas highlighting reuses existing canvasSync stepColors API. Report generation as pure function (JourneyResult → markdown). Command registration in main.ts.
+
 **Acceptance Criteria**:
 - [ ] Progress panel updates in real-time
 - [ ] Canvas highlights active step
@@ -347,6 +401,12 @@ Complete Session v2 and infrastructure items:
 - TD-131: Extract shared canvas layout constants to `src/domain/canvas/journeyLayout.ts`
 - TD-120: Extract session/types.ts Zod schemas → session/schemas.ts
 
+**Test Intent**: Session auto-documentation (file linking). View state persistence (save/restore tab). Installer JSON config parsing. Canvas layout constant deduplication. Session schema extraction. ~50 tests spread across 5 sub-features.
+
+**Documentation Intent**: Update Session domain docs. Update Installer docs. ADR for installer config schema if needed.
+
+**Architecture Seams**: TypedStorage extension for view state. Installer config schema (JSON file in vault). Canvas layout constants extracted to shared module. Session Zod schemas extracted to separate file.
+
 **Acceptance Criteria**:
 - [ ] Sessions auto-link created files
 - [ ] Hub views remember last tab after reload
@@ -364,6 +424,12 @@ Close remaining debt and set baselines:
 - TD-93: Document ADR-032 acceptance, close as accepted
 - Verify ISO compliance characteristic definitions with team
 - Document test pyramid data sourcing strategy
+
+**Test Intent**: Performance baseline threshold assertions. Verify existing tests still pass after debt closure. ~10 tests: baseline validation.
+
+**Documentation Intent**: Close TD-58, TD-93 debt items. Document performance baselines in PerfAggregator config. Document pyramid data sourcing strategy.
+
+**Architecture Seams**: Performance thresholds as configuration constants. ADR-032 acceptance documented. No new domain boundaries.
 
 **Acceptance Criteria**:
 - [ ] Performance baselines documented
@@ -383,12 +449,33 @@ End-to-end validation:
 - Update Data Dictionary with new entity fields
 - CSS polish pass from E2E screenshots
 
+**Test Intent**: 2 E2E journey definitions (Hub walkthrough, Executor walkthrough). Flow-level regression suite for Test Management domain. ~15 tests: E2E + flow.
+
+**Documentation Intent**: Component docs for all new Hub components. Sitemap update. Data Dictionary update with new entity types. CSS polish pass.
+
+**Architecture Seams**: E2E journeys follow existing journey definition format. Flow tests follow established patterns (tests/flows/). Report generation reuses existing scripts.
+
 **Acceptance Criteria**:
 - [ ] E2E Hub journey passes
 - [ ] E2E Executor journey passes
 - [ ] Component docs created
 - [ ] Data Dictionary updated
 - [ ] `npm run build` green
+
+## Inbox Signals Reviewed
+
+| Inbox Item | Stage | Disposition |
+|------------|-------|-------------|
+| In order to publish, we first must establish an automated e-2-e test-suite | planned (C53) | **Already delivered** — E2E harness shipped in C53, expanded in C54. C57 adds 2 new E2E journeys (Inc 11). |
+| Ingest build reports, test reports, and coverage as vault notes | promoted | **Partially addressed** — Test Management Hub (Inc 1-5) consumes existing reports. Full ingestion pipeline deferred to C58. |
+| Session auto-documentation links artifacts on file events | discovery | **In scope** — Inc 9 delivers session auto-documentation. Stage will move to `planned`. |
+| I want to manage and maintain my Session Templates | promoted | **In scope** — Inc 9 delivers session template management. Stage will move to `planned`. |
+| I want the installer to use a versioned JSON folder config | planned | **In scope** — Inc 9 addresses RB-1 installer config externalization. |
+| We need to include generated reports into reviews | discovery | **Deferred** — related to CI/CD pipeline (C58 scope). |
+| Documentation must be built from source | discovery | **Deferred** — documentation pipeline already generates from source; further automation is C58+. |
+| I want to trigger a process from within a Canvas document | discovery | **Deferred** — canvas process triggers are out of scope for C57. |
+| How can we measure performance and impact | partially-delivered (C52) | **Not in scope** — C52 delivered PerfAggregator + perf events. UI dashboard deferred beyond C57. |
+| I want to ingest a test-report, coverage-report, PRDs | discovery | **Deferred** — ingestion pipeline is C58+ scope. Hub reads existing parsed data. |
 
 ## Dependency Graph
 
@@ -433,7 +520,7 @@ Inc 10 (Debt Closure)   ──→ Independent (parallel)
 | Metric | Target |
 |--------|--------|
 | New tests | ~335 (285 TM + 30 session + 20 installer) |
-| Post-cycle tests | ~7,035+ |
+| Post-cycle tests | ~7,129+ |
 | New suites | ~15 |
 | Source LOC | ~2,700 (2,350 TM + 350 session/infra) |
 | PBIs delivered | 10 TM + Session + TD-45 |
