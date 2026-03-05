@@ -22,21 +22,36 @@ import { computeCoverage, type PrdInfo } from "./coverageCalculator";
 import { checkCompliance } from "./complianceChecker";
 import { COMPLIANCE_CHARACTERISTICS } from "./complianceDefinitions";
 
+/** A discovered journey JSON file with its vault path. */
+export interface ScannedJourney {
+	json: Record<string, unknown>;
+	path: string;
+}
+
 /** Configuration options for TestManagementService. */
 export interface TestManagementServiceOptions {
 	storage: ITypedStorage<TestManagementState>;
 	eventBus?: IEventBus;
+	/** Optional callback that scans the vault for journey JSON files on load. */
+	scanJourneys?: () => Promise<ScannedJourney[]>;
 }
 
 export class TestManagementService {
 	private state: TestManagementState = createDefaultState();
 	private storage: ITypedStorage<TestManagementState>;
 	private eventBus?: IEventBus;
+	private scanJourneys?: () => Promise<ScannedJourney[]>;
 	private unsubscribes: (() => void)[] = [];
 
 	constructor(options: TestManagementServiceOptions) {
 		this.storage = options.storage;
 		this.eventBus = options.eventBus;
+		this.scanJourneys = options.scanJourneys;
+	}
+
+	/** Set the vault scanner callback (called before load). */
+	setScanner(scanner: () => Promise<ScannedJourney[]>): void {
+		this.scanJourneys = scanner;
 	}
 
 	// ── Lifecycle ────────────────────────────────────────────
@@ -46,6 +61,7 @@ export class TestManagementService {
 		if (saved) {
 			this.state = { ...createDefaultState(), ...saved };
 		}
+		await this.scanVaultJourneys();
 		this.wireEventSubscriptions();
 		await this.eventBus?.emit("test-mgmt.hub.loaded", {
 			journeyCount: this.state.journeys.length,
@@ -172,6 +188,35 @@ export class TestManagementService {
 	}
 
 	// ── Internal ─────────────────────────────────────────────
+
+	/** Scan vault for journey JSON files and register any new/updated ones. */
+	private async scanVaultJourneys(): Promise<void> {
+		if (!this.scanJourneys) return;
+		try {
+			const scanned = await this.scanJourneys();
+			for (const { json, path } of scanned) {
+				const entry = parseJourneyDefinition(json);
+				if (!entry) continue;
+				entry.jsonPath = path;
+
+				const idx = this.state.journeys.findIndex((j) => j.name === entry.name);
+				if (idx >= 0) {
+					// Preserve run history + compliance from persisted entry
+					entry.runHistory = this.state.journeys[idx].runHistory;
+					entry.lastRunResult = this.state.journeys[idx].lastRunResult;
+					entry.complianceTags = [
+						...new Set([...entry.complianceTags, ...(this.state.journeys[idx].complianceTags ?? [])]),
+					];
+					this.state.journeys[idx] = entry;
+				} else {
+					this.state.journeys.push(entry);
+				}
+			}
+			if (scanned.length > 0) await this.save();
+		} catch {
+			// Scan failure is non-fatal — logged but doesn't block startup
+		}
+	}
 
 	private wireEventSubscriptions(): void {
 		if (!this.eventBus) return;

@@ -228,6 +228,90 @@ describe("TestManagementService", () => {
 		});
 	});
 
+	describe("scan on load", () => {
+		it("registers journeys from scanner callback on load", async () => {
+			const scanner = vi.fn(async () => [
+				{ json: { journey: "Scanned A", steps: [{ id: "s1", actions: [] }] }, path: "journeys/A.json" },
+				{ json: { journey: "Scanned B", steps: [], type: "smoke" }, path: "journeys/B.json" },
+			]);
+			service = new TestManagementService({ storage: storage as never, eventBus: eventBus as never, scanJourneys: scanner });
+			await service.load();
+
+			expect(scanner).toHaveBeenCalledOnce();
+			expect(service.getJourneys()).toHaveLength(2);
+			expect(service.getJourneys()[0].name).toBe("Scanned A");
+			expect(service.getJourneys()[0].jsonPath).toBe("journeys/A.json");
+		});
+
+		it("preserves run history when rescanning existing journey", async () => {
+			// Pre-seed a journey with run history
+			storage = createMockStorage({
+				journeys: [{
+					name: "A",
+					type: "functional",
+					actors: [],
+					services: [],
+					stepCount: 1,
+					tools: [],
+					jsonPath: "old.json",
+					complianceTags: [],
+					runHistory: [{ date: "2026-03-05", totalSteps: 3, passed: 3, failed: 0, skipped: 0, durationMs: 1000 }],
+					lastRunResult: { date: "2026-03-05", totalSteps: 3, passed: 3, failed: 0, skipped: 0, durationMs: 1000 },
+				}],
+			});
+			const scanner = vi.fn(async () => [
+				{ json: { journey: "A", steps: [{ id: "s1", actions: [] }, { id: "s2", actions: [] }] }, path: "journeys/A.json" },
+			]);
+			service = new TestManagementService({ storage: storage as never, eventBus: eventBus as never, scanJourneys: scanner });
+			await service.load();
+
+			const entry = service.getJourneyByName("A")!;
+			expect(entry.runHistory).toHaveLength(1);
+			expect(entry.lastRunResult).toBeDefined();
+			expect(entry.stepCount).toBe(2); // Updated from scan
+			expect(entry.jsonPath).toBe("journeys/A.json");
+		});
+
+		it("skips invalid JSON files from scanner", async () => {
+			const scanner = vi.fn(async () => [
+				{ json: { notAJourney: true }, path: "bad.json" }, // invalid — no 'journey' field
+				{ json: { journey: "Valid", steps: [] }, path: "good.json" },
+			]);
+			service = new TestManagementService({ storage: storage as never, eventBus: eventBus as never, scanJourneys: scanner });
+			await service.load();
+
+			expect(service.getJourneys()).toHaveLength(1);
+			expect(service.getJourneys()[0].name).toBe("Valid");
+		});
+
+		it("handles scanner failure gracefully", async () => {
+			const scanner = vi.fn(async () => { throw new Error("Vault read failed"); });
+			service = new TestManagementService({ storage: storage as never, eventBus: eventBus as never, scanJourneys: scanner });
+			await service.load(); // Should not throw
+
+			expect(service.getJourneys()).toHaveLength(0);
+		});
+
+		it("loads without scanner when not provided", async () => {
+			service = new TestManagementService({ storage: storage as never, eventBus: eventBus as never });
+			await service.load();
+
+			expect(service.getJourneys()).toHaveLength(0);
+		});
+
+		it("setScanner allows setting scanner after construction", async () => {
+			const scanner = vi.fn(async () => [
+				{ json: { journey: "Late", steps: [] }, path: "late.json" },
+			]);
+			service = new TestManagementService({ storage: storage as never, eventBus: eventBus as never });
+			service.setScanner(scanner);
+			await service.load();
+
+			expect(service.getJourneys()).toHaveLength(1);
+			expect(service.getJourneys()[0].name).toBe("Late");
+		});
+	});
+
 	describe("queries", () => {
 		beforeEach(async () => { await service.load(); });
 

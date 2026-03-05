@@ -873,6 +873,21 @@ export default class FlowtiBasePlugin extends Plugin {
 
 		// Test Management Hub — quality cockpit for journey-based testing
 		this.testManagementService = await this.services.get<TestManagementService>("testManagementService");
+		this.testManagementService.setScanner(async () => {
+			const folder = settingsService.getSettings().journeyFolder;
+			const abstract = this.app.vault.getAbstractFileByPath(folder);
+			if (!abstract) return [];
+			const results: { json: Record<string, unknown>; path: string }[] = [];
+			const files = this.app.vault.getFiles().filter((f) => f.path.startsWith(folder + "/") && f.extension === "json");
+			for (const file of files) {
+				try {
+					const content = await this.app.vault.read(file);
+					const json = JSON.parse(content) as Record<string, unknown>;
+					if (typeof json.journey === "string") results.push({ json, path: file.path });
+				} catch { /* skip invalid files */ }
+			}
+			return results;
+		});
 		await this.timedServiceLoad("testManagementService", () => this.testManagementService!.load());
 		this.safeRegisterView(VIEW_TYPE_TEST_MANAGEMENT_HUB, (leaf) =>
 			new TestManagementHubView(leaf, this.eventBus, this.testManagementService!, this.onboardingService!),

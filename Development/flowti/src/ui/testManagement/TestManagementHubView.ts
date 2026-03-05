@@ -11,17 +11,23 @@ import { setIcon, type WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { TestManagementService } from "../../domain/testManagement/TestManagementService";
 import type { OnboardingService } from "../../domain/onboarding/OnboardingService";
+import type { JourneyStatus, JourneyType } from "../../domain/testManagement/types";
 import { BaseHubView, type TabDef } from "../BaseHubView";
 import { VIEW_TYPE_TEST_MANAGEMENT_HUB } from "../../domain/hub/types";
 import { TestManagementDashboard } from "./TestManagementDashboard";
+import { JourneysTab } from "./JourneysTab";
 export { VIEW_TYPE_TEST_MANAGEMENT_HUB };
 
 export type TestMgmtPage = "journeys" | "pyramid" | "coverage" | "compliance";
+
+const JOURNEY_TYPES: JourneyType[] = ["functional", "regression", "smoke", "exploratory", "blueprint"];
+const JOURNEY_STATUSES: JourneyStatus[] = ["passing", "failing", "never-run", "stale"];
 
 export class TestManagementHubView extends BaseHubView<TestMgmtPage> {
 	private testManagementService: TestManagementService;
 	private onboardingService: OnboardingService;
 	private dashboard: TestManagementDashboard;
+	private journeysTab!: JourneysTab;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -59,8 +65,34 @@ export class TestManagementHubView extends BaseHubView<TestMgmtPage> {
 
 	// ── Top bar actions ─────────────────────────────────────
 
-	renderTopBarActions(_bar: HTMLElement): void {
-		// No top bar actions in Inc 1
+	renderTopBarActions(bar: HTMLElement): void {
+		if (this.getActivePage() !== "journeys") return;
+
+		// Type filter
+		const typeSelect = bar.createEl("select", { cls: "dropdown" });
+		const typeAll = typeSelect.createEl("option", { text: "All types" });
+		typeAll.value = "all";
+		for (const t of JOURNEY_TYPES) {
+			const opt = typeSelect.createEl("option", { text: t });
+			opt.value = t;
+		}
+		typeSelect.addEventListener("change", () => {
+			this.journeysTab.setFilters({ typeFilter: typeSelect.value as JourneyType | "all" });
+			this.scheduleRender();
+		});
+
+		// Status filter
+		const statusSelect = bar.createEl("select", { cls: "dropdown" });
+		const statusAll = statusSelect.createEl("option", { text: "All statuses" });
+		statusAll.value = "all";
+		for (const s of JOURNEY_STATUSES) {
+			const opt = statusSelect.createEl("option", { text: s });
+			opt.value = s;
+		}
+		statusSelect.addEventListener("change", () => {
+			this.journeysTab.setFilters({ statusFilter: statusSelect.value as JourneyStatus | "all" });
+			this.scheduleRender();
+		});
 	}
 
 	// ── Rendering ───────────────────────────────────────────
@@ -70,6 +102,12 @@ export class TestManagementHubView extends BaseHubView<TestMgmtPage> {
 	}
 
 	onTabRender(tabId: TestMgmtPage): void {
+		if (tabId === "journeys") {
+			this.journeysTab.render(this.filterText);
+			return;
+		}
+
+		// Placeholder for tabs not yet implemented
 		this.masterTreeEl.empty();
 		this.detailPanelEl.empty();
 
@@ -89,6 +127,12 @@ export class TestManagementHubView extends BaseHubView<TestMgmtPage> {
 	// ── Lifecycle ───────────────────────────────────────────
 
 	onHubOpen(): void {
+		// Create JourneysTab now that shell elements are available
+		this.journeysTab = new JourneysTab(this.masterTreeEl, this.detailPanelEl, {
+			testManagementService: this.testManagementService,
+			eventBus: this.eventBus,
+		});
+
 		this.renderOnboardingCallout(this.dashboardEl, this.onboardingService, {
 			id: "test-management-welcome",
 			icon: "shield-check",
@@ -114,6 +158,13 @@ export class TestManagementHubView extends BaseHubView<TestMgmtPage> {
 
 	onHubClose(): void {
 		// Cleanup handled by BaseHubView via addUnsubscribe
+	}
+
+	protected onTabChanged(): void {
+		// Reset journeys tab state when switching away
+		if (this.getActivePage() !== "journeys" && this.journeysTab) {
+			this.journeysTab.resetSelection();
+		}
 	}
 
 	// ── Helpers ──────────────────────────────────────────────

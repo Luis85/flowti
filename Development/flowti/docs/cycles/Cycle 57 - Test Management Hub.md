@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Development/flowti/docs/features/Test Management/Test Management PRD|Test Management PRD]]"
-stage: planned
+stage: active
 cycle: 57
 release_anchor:
   - "Theme 7: Quality Management — Test Management Hub"
@@ -531,6 +531,47 @@ Inc 10 (Debt Closure)   ──→ Independent (parallel)
 | ISO characteristics defined | 19 (6 + 5 + 8) |
 | Dual-mode tested | Standard + Expert |
 | Increments | ~12 |
+
+## Execution Log
+
+### Inc 0: Domain Core (PBI-TM-001) — DONE
+**Date**: 2026-03-06 | **Tests**: 6,869 (288 suites) | **New**: +75 tests, +4 suites
+
+Delivered:
+- `TestManagementService` (184 LOC) — lifecycle, register/deregister, run results, compliance tags
+- `journeyParser.ts` — parseJourneyDefinition, parseJourneyResult, deriveJourneyStatus, extractTools
+- `pyramidCalculator.ts` — computePyramid (assigns journeys to E2E layer)
+- `coverageCalculator.ts` — computeCoverage, domain-matching + explicit PRD field
+- `complianceChecker.ts` — checkCompliance against 19 ISO characteristics
+- `complianceDefinitions.ts` — ISO 9001 (6), 27001 (5), 25010 (8) characteristics
+- `events.ts` — 9 domain events in TestManagementEventMap
+- `types.ts` — JourneyRegistryEntry, JourneyRunSummary, TestPyramidState, CoverageEntry, ComplianceScore
+- Service wired in registry.ts and main.ts
+
+### Inc 1: Hub Shell + Dashboard (PBI-TM-002) — DONE
+**Date**: 2026-03-06 | **Tests**: 6,911 (292 suites) | **New**: +42 tests, +3 suites
+
+Delivered:
+- `TestManagementHubView extends BaseHubView<TestMgmtPage>` — 4 tabs (journeys, pyramid, coverage, compliance)
+- `TestManagementDashboard` — KPI stat cards (journeys, passing, pass rate, compliance %), mini pyramid, recent runs, needs attention
+- `TestManagementHubProvider implements HubDashboardProvider` — stats, healthLevel, actionItemCount
+- `css/19-test-management.css` — full styling layer (pyramid bars, status badges, run items, tab placeholder)
+- View registration, ribbon icon (shield-check), command `flowti:open-test-management-hub`
+- `ui.openTestManagementHub` event + UiCommandService handler
+- Event catalog entry, command registry entry, UserHub domain label/icon
+
+### Inc 2: Journeys Tab (PBI-TM-003) — DONE
+**Date**: 2026-03-06 | **Tests**: 6,950 (293 suites) | **New**: +39 tests, +1 suite
+
+Delivered:
+- `JourneysTab` (270 LOC) — master/detail renderer with filters, search, selection
+- Master list: journey rows with status badge, name, type badge, step count, last run date
+- Detail panel: header (name, status, type, domain, chapter, steps), run history (sorted newest first), traceability (PRD, actors, services, tools, compliance chips), file links (JSON, canvas, test source)
+- Filtering: text search (name + domain), type filter dropdown, status filter dropdown
+- Selection: click-to-select, auto-select first, preserved across re-renders, resetSelection on tab switch
+- Empty state when no journeys or all filtered out
+- Top bar filter dropdowns wired in HubView (journeys tab only)
+- **Scan-on-load**: `TestManagementService.setScanner()` + vault scanner callback in main.ts — automatically discovers and registers journey JSON files from the configured journey folder on startup. Preserves run history and compliance tags for existing entries. Non-fatal on failure.
 
 ## Definition of Done
 

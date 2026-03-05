@@ -135,13 +135,27 @@ describe("TestManagementHubView", () => {
 		beforeEach(() => { vi.useFakeTimers(); });
 		afterEach(() => { vi.useRealTimers(); });
 
-		it("shows placeholder for journeys tab", async () => {
+		it("renders journeys tab content (not placeholder)", async () => {
 			const view = new TestManagementHubView(createMockLeaf(), eventBus, createMockService(), createMockOnboardingService());
 			prepareContainerEl(view);
 			await view.onOpen();
 
 			// Navigate to journeys tab
 			(view as unknown as { navigateTo: (p: string) => void }).navigateTo("journeys");
+			vi.advanceTimersByTime(20);
+
+			const el = (view as unknown as { containerEl: HTMLElement }).containerEl;
+			// Journeys tab renders empty state (no journeys), not the placeholder
+			expect(el.textContent).toContain("No journeys found");
+			expect(el.textContent).not.toContain("Coming in a future increment");
+		});
+
+		it("shows placeholder for pyramid tab", async () => {
+			const view = new TestManagementHubView(createMockLeaf(), eventBus, createMockService(), createMockOnboardingService());
+			prepareContainerEl(view);
+			await view.onOpen();
+
+			(view as unknown as { navigateTo: (p: string) => void }).navigateTo("pyramid");
 			vi.advanceTimersByTime(20);
 
 			const el = (view as unknown as { containerEl: HTMLElement }).containerEl;
