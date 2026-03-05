@@ -68,6 +68,8 @@ export class ActionList {
 			upBtn.dataset.testId = "jb-action-move-up";
 			upBtn.setAttribute("role", "button");
 			upBtn.setAttribute("tabindex", i === 0 ? "-1" : "0");
+			upBtn.setAttribute("aria-label", "Move up");
+			if (i === 0) upBtn.setAttribute("aria-disabled", "true");
 			setIcon(upBtn, "arrow-up");
 			if (i > 0) {
 				upBtn.addEventListener("click", (e) => {
@@ -83,6 +85,8 @@ export class ActionList {
 			downBtn.dataset.testId = "jb-action-move-down";
 			downBtn.setAttribute("role", "button");
 			downBtn.setAttribute("tabindex", i === actions.length - 1 ? "-1" : "0");
+			downBtn.setAttribute("aria-label", "Move down");
+			if (i === actions.length - 1) downBtn.setAttribute("aria-disabled", "true");
 			setIcon(downBtn, "arrow-down");
 			if (i < actions.length - 1) {
 				downBtn.addEventListener("click", (e) => {
@@ -96,6 +100,7 @@ export class ActionList {
 			removeBtn.dataset.testId = "jb-action-remove";
 			removeBtn.setAttribute("role", "button");
 			removeBtn.setAttribute("tabindex", "0");
+			removeBtn.setAttribute("aria-label", "Remove action");
 			setIcon(removeBtn, "x");
 			removeBtn.addEventListener("click", (e) => {
 				e.stopPropagation();
@@ -111,6 +116,7 @@ export class ActionList {
 		addBtn.dataset.testId = "jb-add-action-btn";
 		addBtn.setAttribute("role", "button");
 		addBtn.setAttribute("tabindex", "0");
+		addBtn.setAttribute("aria-label", "Add action");
 		const addIcon = addBtn.createSpan();
 		setIcon(addIcon, "plus");
 		addBtn.createSpan({ text: "Add action" });

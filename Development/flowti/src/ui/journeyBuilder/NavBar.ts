@@ -41,6 +41,7 @@ export class NavBar {
 			setupBtn.dataset.testId = "jb-nav-setup";
 			setupBtn.setAttribute("role", "button");
 			setupBtn.setAttribute("tabindex", "0");
+			setupBtn.setAttribute("aria-label", "Setup");
 			setIcon(setupBtn, "settings");
 			setupBtn.addEventListener("click", () => this.deps.onSetup!());
 			setupBtn.addEventListener("keydown", (e: KeyboardEvent) => {
@@ -52,10 +53,12 @@ export class NavBar {
 		}
 
 		// Prev button
-		const prevBtn = bar.createSpan({ cls: `ft-jb-nav-btn${hasPrev ? "" : " is-disabled"}` });
+		const prevBtn = bar.createSpan({ cls: `ft-jb-nav-btn${hasPrev ? "" : " ft-jb-nav-disabled"}` });
 		prevBtn.dataset.testId = "jb-nav-prev";
 		prevBtn.setAttribute("role", "button");
 		prevBtn.setAttribute("tabindex", hasPrev ? "0" : "-1");
+		prevBtn.setAttribute("aria-label", "Previous step");
+		if (!hasPrev) prevBtn.setAttribute("aria-disabled", "true");
 		setIcon(prevBtn, "arrow-left");
 		if (hasPrev) {
 			prevBtn.addEventListener("click", () => this.deps.onPrev());
@@ -75,10 +78,12 @@ export class NavBar {
 			: `Step ${currentIndex + 1} of ${stepCount}`;
 
 		// Next button
-		const nextBtn = bar.createSpan({ cls: `ft-jb-nav-btn${hasNext ? "" : " is-disabled"}` });
+		const nextBtn = bar.createSpan({ cls: `ft-jb-nav-btn${hasNext ? "" : " ft-jb-nav-disabled"}` });
 		nextBtn.dataset.testId = "jb-nav-next";
 		nextBtn.setAttribute("role", "button");
 		nextBtn.setAttribute("tabindex", hasNext ? "0" : "-1");
+		nextBtn.setAttribute("aria-label", "Next step");
+		if (!hasNext) nextBtn.setAttribute("aria-disabled", "true");
 		setIcon(nextBtn, "arrow-right");
 		if (hasNext) {
 			nextBtn.addEventListener("click", () => this.deps.onNext());
@@ -95,6 +100,7 @@ export class NavBar {
 		addBtn.dataset.testId = "jb-nav-add-step";
 		addBtn.setAttribute("role", "button");
 		addBtn.setAttribute("tabindex", "0");
+		addBtn.setAttribute("aria-label", "Add step");
 		const addIcon = addBtn.createSpan();
 		setIcon(addIcon, "plus");
 		addBtn.createSpan({ text: "Add step" });

@@ -67,6 +67,7 @@ export class StepCard {
 		removeBtn.dataset.testId = "jb-step-remove";
 		removeBtn.setAttribute("role", "button");
 		removeBtn.setAttribute("tabindex", "0");
+		removeBtn.setAttribute("aria-label", "Remove step");
 		setIcon(removeBtn, "x");
 		removeBtn.addEventListener("click", () => this.deps.onRemove());
 		removeBtn.addEventListener("keydown", (e: KeyboardEvent) => {

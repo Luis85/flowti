@@ -171,14 +171,7 @@
 	display: flex;
 }
 
-/* ── Step list ────────────────────────────────────────────── */
-
-.ft-jb-step-list {
-	display: flex;
-	flex-direction: column;
-	gap: var(--size-4-2);
-	margin-bottom: var(--size-4-3);
-}
+/* ── Step card ────────────────────────────────────────────── */
 
 .ft-jb-step-card {
 	padding: var(--size-4-2) var(--size-4-3);
@@ -205,11 +198,6 @@
 	font-size: var(--font-ui-smaller);
 	font-weight: var(--font-semibold);
 	flex-shrink: 0;
-}
-
-.ft-jb-step-title {
-	flex: 1;
-	font-size: var(--font-ui-small);
 }
 
 .ft-jb-step-remove {
@@ -289,6 +277,37 @@
 
 .ft-jb-end-event-group {
 	margin-bottom: var(--size-4-3);
+}
+
+/* ── Open canvas button ────────────────────────────────────── */
+
+.ft-jb-open-canvas-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--size-4-2);
+	margin-bottom: var(--size-4-2);
+	padding: var(--size-4-1) var(--size-4-3);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	color: var(--text-muted);
+	cursor: pointer;
+	font-size: var(--font-ui-small);
+	transition: border-color 150ms ease, color 150ms ease;
+}
+
+.ft-jb-open-canvas-btn:hover {
+	border-color: var(--interactive-accent);
+	color: var(--text-normal);
+}
+
+.ft-jb-open-canvas-btn:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 2px;
+}
+
+.ft-jb-open-canvas-btn-icon {
+	display: flex;
 }
 
 /* ── Export button ─────────────────────────────────────────── */
@@ -692,14 +711,14 @@
 /* ── Chip lists (step metadata arrays) ──────────────────── */
 
 .ft-jb-chip-list {
-	margin-top: var(--size-4-2);
+	margin-top: var(--size-4-1);
 	padding-left: 28px;
 }
 
 .ft-jb-chip-list > .ft-jb-form-label {
 	font-size: var(--font-ui-smaller);
-	color: var(--text-muted);
-	margin-bottom: var(--size-2-1);
+	color: var(--text-faint);
+	margin-bottom: 2px;
 }
 
 .ft-jb-chip-container {
@@ -735,11 +754,17 @@
 .ft-jb-chip-input {
 	width: 100%;
 	font-size: var(--font-ui-smaller);
-	padding: var(--size-2-1) var(--size-4-1);
+	padding: 2px var(--size-4-1);
 	border: 1px dashed var(--background-modifier-border);
 	border-radius: var(--radius-s);
 	background: transparent;
 	color: var(--text-normal);
+}
+
+.ft-jb-chip-input:focus {
+	border-color: var(--interactive-accent);
+	border-style: solid;
+	outline: none;
 }
 
 .ft-jb-chip-input::placeholder {
@@ -749,7 +774,7 @@
 .ft-jb-step-action-count {
 	font-size: var(--font-ui-smaller);
 	color: var(--text-muted);
-	margin-top: var(--size-4-1);
+	margin-top: var(--size-2-1);
 	padding-left: 28px;
 }
 

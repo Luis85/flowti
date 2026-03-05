@@ -72,7 +72,7 @@ describe("NavBar", () => {
 		deps.currentIndex = 0;
 		new NavBar(container, deps).render();
 		const prev = byTestId(container, "jb-nav-prev")!;
-		expect(prev.classList.contains("is-disabled")).toBe(true);
+		expect(prev.classList.contains("ft-jb-nav-disabled")).toBe(true);
 		expect(prev.getAttribute("tabindex")).toBe("-1");
 	});
 
@@ -80,7 +80,7 @@ describe("NavBar", () => {
 		deps.currentIndex = 2; // last of 3
 		new NavBar(container, deps).render();
 		const next = byTestId(container, "jb-nav-next")!;
-		expect(next.classList.contains("is-disabled")).toBe(true);
+		expect(next.classList.contains("ft-jb-nav-disabled")).toBe(true);
 		expect(next.getAttribute("tabindex")).toBe("-1");
 	});
 
@@ -130,8 +130,8 @@ describe("NavBar", () => {
 		new NavBar(container, deps).render();
 		const prev = byTestId(container, "jb-nav-prev")!;
 		const next = byTestId(container, "jb-nav-next")!;
-		expect(prev.classList.contains("is-disabled")).toBe(false);
-		expect(next.classList.contains("is-disabled")).toBe(false);
+		expect(prev.classList.contains("ft-jb-nav-disabled")).toBe(false);
+		expect(next.classList.contains("ft-jb-nav-disabled")).toBe(false);
 		expect(prev.getAttribute("tabindex")).toBe("0");
 		expect(next.getAttribute("tabindex")).toBe("0");
 	});

@@ -27,6 +27,7 @@ export class TemplatePicker {
 			card.dataset.testId = "jb-template-card";
 			card.dataset.templateId = template.id;
 			card.setAttribute("role", "button");
+			card.setAttribute("aria-label", template.label);
 			card.tabIndex = 0;
 
 			const iconEl = card.createSpan({ cls: "ft-jb-template-card-icon" });
@@ -51,6 +52,7 @@ export class TemplatePicker {
 		const custom = wrapper.createDiv({ cls: "ft-jb-template-card ft-jb-template-custom" });
 		custom.dataset.testId = "jb-template-custom";
 		custom.setAttribute("role", "button");
+		custom.setAttribute("aria-label", "Custom action");
 		custom.tabIndex = 0;
 
 		const customIcon = custom.createSpan({ cls: "ft-jb-template-card-icon" });
