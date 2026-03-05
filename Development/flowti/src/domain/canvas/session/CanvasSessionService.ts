@@ -69,7 +69,10 @@ export class CanvasSessionService {
 		// 2. Generate canvas from template
 		const datePrefix = new Date().toISOString().slice(0, 10).replace(/-/g, "");
 		const safeName = template.name.replace(/[^a-zA-Z0-9 -]/g, "").trim();
-		const canvasPath = `${this.sessionFolder}/${datePrefix} ${safeName}.canvas`;
+		const safeGoal = input.goal.replace(/[^a-zA-Z0-9 -]/g, "").trim();
+		const nameParts = [datePrefix, safeName];
+		if (safeGoal) nameParts.push(safeGoal);
+		const canvasPath = `${this.sessionFolder}/${nameParts.join(" - ")}.canvas`;
 
 		const canvasData = template.generate();
 		const json = JSON.stringify(canvasData, null, "\t");

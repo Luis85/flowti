@@ -253,12 +253,14 @@ function generatePRD(): CanvasData {
 	const gSolution = generateCanvasId();
 	const gRisks = generateCanvasId();
 	const gSuccess = generateCanvasId();
+	const gTest = generateCanvasId();
 
 	const cProblem = generateCanvasId();
 	const cUsers = generateCanvasId();
 	const cSolution = generateCanvasId();
 	const cRisks = generateCanvasId();
 	const cSuccess = generateCanvasId();
+	const cTest = generateCanvasId();
 
 	const fullW = GROUP_W * 2 + GAP;
 	const col1 = 0;
@@ -266,6 +268,7 @@ function generatePRD(): CanvasData {
 	const row1 = 0;
 	const row2 = GROUP_H + GAP;
 	const row3 = (GROUP_H + GAP) * 2;
+	const row4 = (GROUP_H + GAP) * 3;
 
 	const nodes: AllCanvasNodeData[] = [
 		// Row 1: Problem & Context spans full width
@@ -285,6 +288,10 @@ function generatePRD(): CanvasData {
 
 		groupNode(gSuccess, "Success Criteria", col2, row3, "6"),
 		textNode(cSuccess, "How do we know it works?\nAcceptance criteria and metrics.\nDefinition of done for first release.", col2 + CARD_PAD, row3 + CARD_PAD + 40),
+
+		// Row 4: Test Strategy spans full width
+		groupNode(gTest, "Test Strategy", col1, row4, "3", fullW, GROUP_H),
+		textNode(cTest, "How do we test our solutions?\nUnit tests, integration flows, E2E journeys.\nWhat are the test boundaries and mock strategy?", col1 + CARD_PAD, row4 + CARD_PAD + 40, fullW - CARD_PAD * 2),
 	];
 
 	const edges: CanvasEdgeData[] = [
@@ -293,6 +300,7 @@ function generatePRD(): CanvasData {
 		edge(generateCanvasId(), gUsers, gSolution, "right", "left", "shapes", "5"),
 		edge(generateCanvasId(), gSolution, gSuccess, "bottom", "top", "validates", "6"),
 		edge(generateCanvasId(), gUsers, gRisks, "bottom", "top", "reveals", "2"),
+		edge(generateCanvasId(), gSuccess, gTest, "bottom", "top", "informs", "3"),
 	];
 
 	return { nodes, edges };

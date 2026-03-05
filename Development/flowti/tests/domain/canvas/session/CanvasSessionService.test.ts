@@ -79,7 +79,8 @@ describe("CanvasSessionService", () => {
 
 			expect(fileSystem.createFile).toHaveBeenCalledOnce();
 			const [path, content] = (fileSystem.createFile as ReturnType<typeof vi.fn>).mock.calls[0];
-			expect(path).toContain("Domain Design.canvas");
+			expect(path).toContain("Domain Design");
+			expect(path).toContain("Map the actors");
 			expect(path.startsWith("sessions/canvas/")).toBe(true);
 			const parsed = JSON.parse(content);
 			expect(parsed.nodes.length).toBeGreaterThan(0);
@@ -153,7 +154,8 @@ describe("CanvasSessionService", () => {
 			});
 
 			expect(result.sessionId).toBe("sess-auto-1");
-			expect(result.canvasPath).toContain("Sprint Planning.canvas");
+			expect(result.canvasPath).toContain("Sprint Planning");
+			expect(result.canvasPath).toContain("Sprint 12");
 		});
 	});
 

@@ -1,6 +1,10 @@
 {
 	"nodes":[
 		{"id":"503aff305fed1757","type":"group","x":-240,"y":5280,"width":5727,"height":1200,"label":"Views and Improvements"},
+		{"id":"922fd2d4c3d71baf","type":"group","x":1240,"y":-1690,"width":300,"height":1580,"label":"Output"},
+		{"id":"9d7d9cb45757987e","type":"group","x":840,"y":-1690,"width":300,"height":1580,"color":"2","label":"Process"},
+		{"id":"30eac272b7498959","type":"group","x":1740,"y":-1810,"width":880,"height":500,"label":"Problem"},
+		{"id":"8693c91ef0c19664","type":"group","x":5060,"y":-1850,"width":300,"height":660,"label":"Journeys"},
 		{"id":"277a7b8ec3640f58","type":"group","x":-40,"y":-1930,"width":3440,"height":1960,"label":"Unit under Test"},
 		{"id":"b166cd871972398d","type":"group","x":1380,"y":2180,"width":2860,"height":1520,"label":"Flowti - Mental Model"},
 		{"id":"47155404c92774a1","type":"group","x":3640,"y":-1930,"width":2540,"height":810,"label":"Product Backlog"},
@@ -30,15 +34,11 @@
 		{"id":"abc9776e8773b32b","type":"group","x":1400,"y":2640,"width":1060,"height":580,"label":"Frontstage"},
 		{"id":"cfb72c57d6b99452","type":"group","x":4820,"y":520,"width":840,"height":660,"label":"Domain"},
 		{"id":"aff3d86ae9c9f798","type":"group","x":400,"y":2180,"width":340,"height":1580,"label":"Process: Flowti Development"},
-		{"id":"922fd2d4c3d71baf","type":"group","x":1240,"y":-1690,"width":300,"height":1580,"label":"Output"},
 		{"id":"8cbc340c22bf6acf","type":"group","x":460,"y":-1690,"width":300,"height":1580,"label":"Input"},
-		{"id":"9d7d9cb45757987e","type":"group","x":840,"y":-1690,"width":300,"height":1580,"color":"2","label":"Process"},
 		{"id":"7c0ee3db8f245007","type":"group","x":-20,"y":2180,"width":300,"height":1580,"label":"Input"},
 		{"id":"25b3d6b5ce67a4e8","type":"group","x":860,"y":2180,"width":300,"height":1580,"label":"Output"},
-		{"id":"30eac272b7498959","type":"group","x":1740,"y":-1810,"width":880,"height":500,"label":"Problem"},
 		{"id":"e39a96cd6dcd80b2","type":"group","x":4840,"y":640,"width":800,"height":520,"label":"Product or Service"},
 		{"id":"23419d421cec7007","type":"group","x":380,"y":1540,"width":740,"height":420,"color":"2","label":"Quality Model"},
-		{"id":"8693c91ef0c19664","type":"group","x":5060,"y":-1850,"width":300,"height":660,"label":"Journeys"},
 		{"id":"b2e30567a01d2f67","type":"group","x":2300,"y":1720,"width":1620,"height":120,"label":"Software Distribution Flow"},
 		{"id":"25c2f8a7fca6c9d7","type":"group","x":2920,"y":2640,"width":300,"height":580,"label":"Backstage"},
 		{"id":"5e8bcec9492cfb3e","type":"group","x":1420,"y":2710,"width":340,"height":480,"color":"2","label":"Product"},
@@ -1171,36 +1171,6 @@
 			"height":60
 		},
 		{
-			"id":"8de11da9bc43f7c0",
-			"type":"text",
-			"text":"Job to be done 1",
-			"styleAttributes":{"textAlign":"center"},
-			"x":4140,
-			"y":-1630,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"70781ae13f79e65d",
-			"type":"text",
-			"text":"Job to be done 2",
-			"styleAttributes":{"textAlign":"center"},
-			"x":4140,
-			"y":-1550,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"62ffca3ab5963175",
-			"type":"text",
-			"text":"Journey 7",
-			"styleAttributes":{"textAlign":"center"},
-			"x":5080,
-			"y":-1270,
-			"width":260,
-			"height":60
-		},
-		{
 			"id":"ebda0cfee2bd4bd9",
 			"type":"text",
 			"text":"Feature 1",
@@ -1241,77 +1211,6 @@
 			"height":60
 		},
 		{
-			"id":"c0811e437f875857",
-			"type":"text",
-			"text":"Job to be done 3",
-			"styleAttributes":{"textAlign":"center"},
-			"x":4140,
-			"y":-1470,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"7196ef67c2aede3b",
-			"type":"text",
-			"text":"Testsuite",
-			"styleAttributes":{"textAlign":"center"},
-			"x":5540,
-			"y":-1550,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"855f81709dbe73e6",
-			"type":"text",
-			"text":"Product Backlog Items",
-			"styleAttributes":{"textAlign":"center"},
-			"x":5540,
-			"y":-1690,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"d68b92708d9f2f1f",
-			"type":"text",
-			"text":"Journey 8",
-			"styleAttributes":{"textAlign":"center"},
-			"x":5080,
-			"y":-1830,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"2aa045c68ea4cf95",
-			"type":"text",
-			"text":"Journey 4",
-			"styleAttributes":{"textAlign":"center"},
-			"x":5080,
-			"y":-1510,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"299dead48455067e",
-			"type":"text",
-			"text":"Journey 5",
-			"styleAttributes":{"textAlign":"center"},
-			"x":5080,
-			"y":-1430,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"c68c3f51fb05a853",
-			"type":"text",
-			"text":"Journey 6",
-			"styleAttributes":{"textAlign":"center"},
-			"x":5080,
-			"y":-1350,
-			"width":260,
-			"height":60
-		},
-		{
 			"id":"5d7a9f0e9f8b3843",
 			"type":"text",
 			"text":"Journey 1",
@@ -1341,17 +1240,6 @@
 			"width":260,
 			"height":60
 		},
-		{
-			"id":"3d379f0f9822f73f",
-			"type":"text",
-			"text":"Non-Functional Requirements",
-			"styleAttributes":{"textAlign":"center"},
-			"x":4620,
-			"y":-1270,
-			"width":260,
-			"height":60
-		},
-		{"id":"5d6cdc543db0af78","type":"file","file":"Development/flowti/docs/inbox/Flowti - System Design.canvas","x":2480,"y":-1130,"width":260,"height":400},
 		{"id":"0b8e15eb023842e5","type":"file","file":"Development/Plugin Design.canvas","x":2760,"y":-1130,"width":260,"height":400},
 		{
 			"id":"8844baa6c4d7d42b",
@@ -1383,7 +1271,6 @@
 			"width":260,
 			"height":60
 		},
-		{"id":"5e20e595aaae0f17","type":"file","file":"02 - Jobs to be done.base","x":1760,"y":-1730,"width":400,"height":400},
 		{
 			"id":"4338c4ea406e8b96",
 			"type":"text",
@@ -1394,18 +1281,6 @@
 			"width":260,
 			"height":60,
 			"color":"3"
-		},
-		{"id":"c40b11027e8bac16","type":"file","file":"00 - Inbox.base","x":2200,"y":-1730,"width":400,"height":400},
-		{"id":"83c9ad2da538d079","type":"file","file":"Development/flowti/docs/learnings/AI is a very good tool to simulate document heavy processes to quickly iterate on them.md","x":1760,"y":-1130,"width":400,"height":400},
-		{
-			"id":"8b42e85c8914f3a7",
-			"type":"text",
-			"text":"# Folderstructure\n\n- `/00 - Connectivity`\n- `/01 - Projects`\n- `/02 - Areas`\n- `/03 - Resources`\n- `/03 - Resources/Documentations/...Diataxis`\n- `/04 - Archive`",
-			"styleAttributes":{},
-			"x":2200,
-			"y":-1130,
-			"width":260,
-			"height":400
 		},
 		{
 			"id":"62347b03526e6fd9",
@@ -1917,6 +1792,131 @@
 			"styleAttributes":{"textAlign":"center"},
 			"x":440,
 			"y":3080,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"8de11da9bc43f7c0",
+			"type":"text",
+			"text":"Job to be done 1",
+			"styleAttributes":{"textAlign":"center"},
+			"x":4140,
+			"y":-1630,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"70781ae13f79e65d",
+			"type":"text",
+			"text":"Job to be done 2",
+			"styleAttributes":{"textAlign":"center"},
+			"x":4140,
+			"y":-1550,
+			"width":260,
+			"height":60
+		},
+		{"id":"5d6cdc543db0af78","type":"file","file":"Development/flowti/docs/inbox/Flowti - System Design.canvas","x":2480,"y":-1130,"width":260,"height":400},
+		{"id":"5e20e595aaae0f17","type":"file","file":"02 - Jobs to be done.base","x":1760,"y":-1730,"width":400,"height":400},
+		{"id":"c40b11027e8bac16","type":"file","file":"00 - Inbox.base","x":2200,"y":-1730,"width":400,"height":400},
+		{"id":"83c9ad2da538d079","type":"file","file":"Development/flowti/docs/learnings/AI is a very good tool to simulate document heavy processes to quickly iterate on them.md","x":1760,"y":-1130,"width":400,"height":400},
+		{
+			"id":"8b42e85c8914f3a7",
+			"type":"text",
+			"text":"# Folderstructure\n\n- `/00 - Connectivity`\n- `/01 - Projects`\n- `/02 - Areas`\n- `/03 - Resources`\n- `/03 - Resources/Documentations/...Diataxis`\n- `/04 - Archive`",
+			"styleAttributes":{},
+			"x":2200,
+			"y":-1130,
+			"width":260,
+			"height":400
+		},
+		{
+			"id":"62ffca3ab5963175",
+			"type":"text",
+			"text":"Journey 7",
+			"styleAttributes":{"textAlign":"center"},
+			"x":5080,
+			"y":-1270,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"c0811e437f875857",
+			"type":"text",
+			"text":"Job to be done 3",
+			"styleAttributes":{"textAlign":"center"},
+			"x":4140,
+			"y":-1470,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"7196ef67c2aede3b",
+			"type":"text",
+			"text":"Testsuite",
+			"styleAttributes":{"textAlign":"center"},
+			"x":5540,
+			"y":-1550,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"855f81709dbe73e6",
+			"type":"text",
+			"text":"Product Backlog Items",
+			"styleAttributes":{"textAlign":"center"},
+			"x":5540,
+			"y":-1690,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"d68b92708d9f2f1f",
+			"type":"text",
+			"text":"Journey 8",
+			"styleAttributes":{"textAlign":"center"},
+			"x":5080,
+			"y":-1830,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"2aa045c68ea4cf95",
+			"type":"text",
+			"text":"Journey 4",
+			"styleAttributes":{"textAlign":"center"},
+			"x":5080,
+			"y":-1510,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"299dead48455067e",
+			"type":"text",
+			"text":"Journey 5",
+			"styleAttributes":{"textAlign":"center"},
+			"x":5080,
+			"y":-1430,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"c68c3f51fb05a853",
+			"type":"text",
+			"text":"Journey 6",
+			"styleAttributes":{"textAlign":"center"},
+			"x":5080,
+			"y":-1350,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"3d379f0f9822f73f",
+			"type":"text",
+			"text":"Non-Functional Requirements",
+			"styleAttributes":{"textAlign":"center"},
+			"x":4620,
+			"y":-1270,
 			"width":260,
 			"height":60
 		}

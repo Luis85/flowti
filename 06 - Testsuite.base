@@ -24,3 +24,4 @@ views:
       note.total_steps: 106
       note.passed: 101
       note.failed: 82
+      note.total_actions: 112

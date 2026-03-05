@@ -2,16 +2,16 @@
  * JourneyBuilderSidebar — Obsidian right-sidebar view for creating
  * and editing E2E journey definitions.
  *
- * Acts as orchestrator: owns state, delegates rendering to NavBar,
- * StepCard, and JSONPanel components.
+ * Acts as orchestrator: owns state, delegates rendering to extracted
+ * components (WelcomeScreen, SetupForm, CanvasSyncController) and
+ * composable UI (NavBar, StepCard, JSONPanel, ActionList, etc.).
  *
  * States: welcome → setup → steps (step editor with prev/next navigation)
  */
-import { ItemView, FuzzySuggestModal, setIcon } from "obsidian";
+import { ItemView, FuzzySuggestModal } from "obsidian";
 import type { App, WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { JourneyAction, JourneyToolName } from "../../domain/journeyBuilder/types";
-import type { CanvasSyncInput } from "../../domain/journeyBuilder/canvasSync";
 import { TOOL_SCHEMAS } from "../../domain/journeyBuilder/toolSchemas";
 import { toEventName, isEventNameConverted } from "../../domain/journeyBuilder/eventNameUtils";
 import type { EventSuggestItem } from "./EventSuggestTypes";
@@ -24,25 +24,12 @@ import { ToolPicker } from "./ToolPicker";
 import { ActionForm } from "./ActionForm";
 import { TemplatePicker } from "./TemplatePicker";
 import { ACTION_TEMPLATES } from "../../domain/journeyBuilder/types";
+import { WelcomeScreen } from "./WelcomeScreen";
+import { SetupForm } from "./SetupForm";
+import { CanvasSyncController } from "./CanvasSyncController";
+import { renderHeader, renderBackButton, renderActionButton, renderLoading } from "./sidebarHelpers";
 
 export const VIEW_TYPE_JOURNEY_BUILDER = "flowti-journey-builder";
-
-/** Narrow type for Obsidian's internal canvas node (not publicly typed). */
-interface CanvasNode {
-	getData: () => Record<string, unknown>;
-}
-
-/** Narrow type for Obsidian's internal canvas view (not publicly typed). */
-interface CanvasLeafView {
-	file?: { path: string };
-	canvas?: {
-		zoomToFit: () => void;
-		zoomToSelection: () => void;
-		selectOnly: (node: CanvasNode) => void;
-		deselectAll: () => void;
-		nodes: Map<string, CanvasNode>;
-	};
-}
 
 /** Sidebar view state: welcome (landing), setup (metadata form), or steps (step editor). */
 export type SidebarState = "welcome" | "setup" | "steps";
@@ -104,11 +91,9 @@ export class JourneyBuilderSidebar extends ItemView {
 	private showToolPicker = false;
 	private showTemplatePicker = false;
 	private jsonPanel: JSONPanel | null = null;
+	private activeSetupForm: SetupForm | null = null;
 	private suggestCleanups: (() => void)[] = [];
-	private canvasSyncTimer: ReturnType<typeof setTimeout> | null = null;
-	private canvasOpenedPath: string | null = null;
-	private zoomTimer: ReturnType<typeof setTimeout> | null = null;
-	private pendingZoomToStep = false;
+	private canvasSync: CanvasSyncController | null = null;
 	private unsubCanvasSynced: (() => void) | undefined;
 	private unsubImported: (() => void) | undefined;
 	private unsubImportFailed: (() => void) | undefined;
@@ -125,6 +110,11 @@ export class JourneyBuilderSidebar extends ItemView {
 		return this.getJourneyFolder?.() ?? "03 - Resources/Journeys";
 	}
 
+	private getCanvasPath(): string {
+		if (!this.metadata.name) return "";
+		return `${this.journeyFolder()}/${this.metadata.name}/${this.metadata.name}.canvas`;
+	}
+
 	/** Returns .journey file paths from the vault's in-memory index. */
 	private findJourneyFiles(scope: "folder" | "vault" = "folder"): string[] {
 		const files = this.app?.vault?.getFiles() ?? [];
@@ -132,6 +122,18 @@ export class JourneyBuilderSidebar extends ItemView {
 		if (scope === "vault") return journeyFiles.map((f) => f.path);
 		const folder = this.journeyFolder();
 		return journeyFiles.filter((f) => f.path.startsWith(folder + "/")).map((f) => f.path);
+	}
+
+	private ensureCanvasSync(): CanvasSyncController {
+		if (!this.canvasSync) {
+			this.canvasSync = new CanvasSyncController({
+				eventBus: this.eventBus,
+				getCanvasPath: () => this.getCanvasPath(),
+				buildSyncInput: () => this.buildCanvasSyncInput(),
+				getApp: () => this.app,
+			});
+		}
+		return this.canvasSync;
 	}
 
 	getViewType(): string {
@@ -149,7 +151,7 @@ export class JourneyBuilderSidebar extends ItemView {
 	async onOpen(): Promise<void> {
 		this.unsubCanvasSynced = this.eventBus.on(
 			"journey-builder.canvas.synced",
-			(event) => this.onCanvasSynced(event.payload),
+			(event) => this.ensureCanvasSync().onSynced(event.payload),
 		);
 		this.unsubImported = this.eventBus.on(
 			"journey-builder.imported",
@@ -163,17 +165,16 @@ export class JourneyBuilderSidebar extends ItemView {
 	}
 
 	async onClose(): Promise<void> {
+		this.destroySetupForm();
 		this.cleanupSuggests();
-		if (this.canvasSyncTimer) { clearTimeout(this.canvasSyncTimer); this.canvasSyncTimer = null; }
-		if (this.zoomTimer) { clearTimeout(this.zoomTimer); this.zoomTimer = null; }
-		this.pendingZoomToStep = false;
+		this.canvasSync?.destroy();
+		this.canvasSync = null;
 		this.unsubCanvasSynced?.();
 		this.unsubCanvasSynced = undefined;
 		this.unsubImported?.();
 		this.unsubImported = undefined;
 		this.unsubImportFailed?.();
 		this.unsubImportFailed = undefined;
-		this.canvasOpenedPath = null;
 	}
 
 	// ── Public accessors (for testing) ──────────────────────
@@ -241,133 +242,30 @@ export class JourneyBuilderSidebar extends ItemView {
 		this.selectedActionIndex = -1;
 		this.showToolPicker = false;
 		this.showTemplatePicker = false;
-		this.canvasOpenedPath = null;
+		this.canvasSync?.resetCanvasPath();
 		const el = this.contentEl;
 		el.empty();
 		el.addClass("ft-jb-sidebar");
 
-		this.renderHeader(el);
+		renderHeader(el);
 
 		const journeyFiles = this.findJourneyFiles("folder");
-		if (journeyFiles.length > 0) {
-			this.renderWelcomeCards(el);
-		} else {
-			this.renderEmptyState(el);
-		}
-	}
-
-	private renderEmptyState(el: HTMLElement): void {
-		const empty = el.createDiv({ cls: "ft-jb-empty-welcome" });
-		empty.dataset.testId = "jb-empty-welcome";
-
-		const iconWrap = empty.createDiv({ cls: "ft-jb-empty-icon" });
-		setIcon(iconWrap, "route");
-
-		empty.createDiv({ cls: "ft-jb-empty-title", text: "No journeys yet" });
-		empty.createDiv({ cls: "ft-jb-empty-desc", text: "Create your first E2E journey definition to get started." });
-
-		this.renderActionButton(empty, {
-			testId: "jb-create-new",
-			cls: "ft-jb-create-first-btn",
-			icon: "plus-circle",
-			text: "Create first journey",
-			onClick: () => this.onCreateNew(),
-		});
-
-		const importGroup = empty.createDiv({ cls: "ft-jb-import-group" });
-		importGroup.dataset.testId = "jb-import-group";
-
-		const importLink = importGroup.createDiv({ cls: "ft-jb-import-link" });
-		importLink.dataset.testId = "jb-import-link";
-		importLink.setAttribute("role", "button");
-		importLink.setAttribute("tabindex", "0");
-		// eslint-disable-next-line obsidianmd/ui/sentence-case -- lowercase intentional
-		importLink.textContent = "or import from vault";
-		importLink.addEventListener("click", () => this.onImportFile());
-		importLink.addEventListener("keydown", (e: KeyboardEvent) => {
-			if (e.key === "Enter" || e.key === " ") {
-				e.preventDefault();
-				this.onImportFile();
-			}
-		});
-
-		const browseLink = importGroup.createDiv({ cls: "ft-jb-import-link" });
-		browseLink.dataset.testId = "jb-browse-link";
-		browseLink.setAttribute("role", "button");
-		browseLink.setAttribute("tabindex", "0");
-		// eslint-disable-next-line obsidianmd/ui/sentence-case -- lowercase intentional
-		browseLink.textContent = "or browse from file system";
-		browseLink.addEventListener("click", () => this.importFromSystem());
-		browseLink.addEventListener("keydown", (e: KeyboardEvent) => {
-			if (e.key === "Enter" || e.key === " ") {
-				e.preventDefault();
-				this.importFromSystem();
-			}
-		});
-	}
-
-	private renderWelcomeCards(el: HTMLElement): void {
-		const cards = el.createDiv({ cls: "ft-jb-welcome-cards" });
-
-		// Open Existing card
-		const openCard = cards.createDiv({ cls: "ft-jb-welcome-card ft-jb-open-existing-btn" });
-		openCard.dataset.testId = "jb-open-existing";
-		openCard.setAttribute("role", "button");
-		openCard.setAttribute("tabindex", "0");
-		const openIcon = openCard.createDiv({ cls: "ft-jb-card-icon" });
-		setIcon(openIcon, "file-search");
-		const openTitle = openCard.createDiv({ cls: "ft-jb-card-title", text: "Open existing journey" });
-		openTitle.dataset.testId = "jb-card-title";
-		const openDesc = openCard.createDiv({ cls: "ft-jb-card-desc", text: "Load and edit a journey definition from your vault" });
-		openDesc.dataset.testId = "jb-card-desc";
-		openCard.addEventListener("click", () => this.onOpenExisting());
-		openCard.addEventListener("keydown", (e: KeyboardEvent) => {
-			if (e.key === "Enter" || e.key === " ") {
-				e.preventDefault();
-				this.onOpenExisting();
-			}
-		});
-
-		// Create New card
-		const newCard = cards.createDiv({ cls: "ft-jb-welcome-card ft-jb-create-new-btn" });
-		newCard.dataset.testId = "jb-create-new";
-		newCard.setAttribute("role", "button");
-		newCard.setAttribute("tabindex", "0");
-		const newIcon = newCard.createDiv({ cls: "ft-jb-card-icon" });
-		setIcon(newIcon, "plus-circle");
-		const newTitle = newCard.createDiv({ cls: "ft-jb-card-title", text: "Create new journey" });
-		newTitle.dataset.testId = "jb-card-title";
-		const newDesc = newCard.createDiv({ cls: "ft-jb-card-desc", text: "Design a new E2E journey from scratch" });
-		newDesc.dataset.testId = "jb-card-desc";
-		newCard.addEventListener("click", () => this.onCreateNew());
-		newCard.addEventListener("keydown", (e: KeyboardEvent) => {
-			if (e.key === "Enter" || e.key === " ") {
-				e.preventDefault();
-				this.onCreateNew();
-			}
-		});
-
-		// Import Definition card
-		const importCard = cards.createDiv({ cls: "ft-jb-welcome-card ft-jb-import-btn" });
-		importCard.dataset.testId = "jb-import-definition";
-		importCard.setAttribute("role", "button");
-		importCard.setAttribute("tabindex", "0");
-		const importIcon = importCard.createDiv({ cls: "ft-jb-card-icon" });
-		setIcon(importIcon, "file-input");
-		const importTitle = importCard.createDiv({ cls: "ft-jb-card-title", text: "Import definition" });
-		importTitle.dataset.testId = "jb-card-title";
-		const importDesc = importCard.createDiv({ cls: "ft-jb-card-desc", text: "Import a .journey file from your vault or file system" });
-		importDesc.dataset.testId = "jb-card-desc";
-		importCard.addEventListener("click", () => this.onImportFile());
-		importCard.addEventListener("keydown", (e: KeyboardEvent) => {
-			if (e.key === "Enter" || e.key === " ") {
-				e.preventDefault();
-				this.onImportFile();
-			}
-		});
+		const container = el.createDiv();
+		new WelcomeScreen(container, {
+			hasExistingJourneys: journeyFiles.length > 0,
+			onCreateNew: () => this.onCreateNew(),
+			onOpenExisting: () => this.onOpenExisting(),
+			onImportFile: () => this.onImportFile(),
+			onImportFromSystem: () => this.importFromSystem(),
+		}).render();
 	}
 
 	// ── Render: Setup form ───────────────────────────────────
+
+	private destroySetupForm(): void {
+		this.activeSetupForm?.destroy();
+		this.activeSetupForm = null;
+	}
 
 	private cleanupSuggests(): void {
 		for (const cleanup of this.suggestCleanups) cleanup();
@@ -375,92 +273,37 @@ export class JourneyBuilderSidebar extends ItemView {
 	}
 
 	private renderSetup(): void {
-		this.cleanupSuggests();
+		this.destroySetupForm();
 		this.state = "setup";
 		const el = this.contentEl;
 		el.empty();
 		el.addClass("ft-jb-sidebar");
 
-		this.renderHeader(el);
-		this.renderBackButton(el, () => this.renderWelcome());
+		renderHeader(el);
+		renderBackButton(el, () => this.renderWelcome());
 
-		// Form container
-		const form = el.createDiv({ cls: "ft-jb-setup-form" });
-		form.dataset.testId = "jb-setup-form";
-
-		// Journey name
-		const nameGroup = form.createDiv({ cls: "ft-jb-form-group" });
-		nameGroup.createEl("label", { cls: "ft-jb-form-label", text: "Journey name" });
-		const nameInput = nameGroup.createEl("input", { cls: "ft-jb-form-input", type: "text" });
-		nameInput.dataset.testId = "jb-name-input";
-		nameInput.placeholder = "e.g. Getting started"; // eslint-disable-line obsidianmd/ui/sentence-case
-		nameInput.value = this.metadata.name;
-		nameInput.addEventListener("input", () => {
-			this.metadata.name = nameInput.value;
-			this.emitMetadataUpdate("name", nameInput.value);
+		const formContainer = el.createDiv();
+		this.activeSetupForm = new SetupForm(formContainer, {
+			metadata: this.metadata,
+			onFieldChanged: (field, value) => this.emitMetadataUpdate(field, value),
+			onContinue: () => this.onContinue(),
+			getEventCatalog: this.getEventCatalog,
 		});
-
-		// Description
-		const descGroup = form.createDiv({ cls: "ft-jb-form-group" });
-		descGroup.createEl("label", { cls: "ft-jb-form-label", text: "Description" });
-		const descInput = descGroup.createEl("textarea", { cls: "ft-jb-form-textarea" });
-		descInput.dataset.testId = "jb-description-input";
-		descInput.placeholder = "What does this journey test?";
-		descInput.value = this.metadata.description;
-		descInput.rows = 3;
-		descInput.addEventListener("input", () => {
-			this.metadata.description = descInput.value;
-			this.emitMetadataUpdate("description", descInput.value);
-		});
-
-		// Start event
-		const startGroup = form.createDiv({ cls: "ft-jb-form-group" });
-		startGroup.createEl("label", { cls: "ft-jb-form-label", text: "Start event" });
-		const startInput = startGroup.createEl("input", { cls: "ft-jb-form-input", type: "text" });
-		startInput.dataset.testId = "jb-start-event-input";
-		startInput.placeholder = "e.g. Session started or session.started"; // eslint-disable-line obsidianmd/ui/sentence-case
-		startInput.value = this.metadata.startEvent;
-		const startPreview = startGroup.createSpan({ cls: "ft-jb-event-preview" });
-		startPreview.dataset.testId = "jb-start-event-preview";
-		startInput.addEventListener("input", () => {
-			const converted = toEventName(startInput.value);
-			this.metadata.startEvent = converted;
-			startPreview.textContent = isEventNameConverted(startInput.value, converted)
-				? `\u2192 ${converted}`
-				: "";
-			this.emitMetadataUpdate("startEvent", converted);
-		});
-
-		// Event autocomplete on start event
-		if (this.getEventCatalog) {
-			const unsub = attachEventSuggest(startInput, this.getEventCatalog, (value) => {
-				this.metadata.startEvent = value;
-				this.emitMetadataUpdate("startEvent", value);
-			});
-			this.suggestCleanups.push(unsub);
-		}
-
-		// Continue button
-		this.renderActionButton(el, {
-			testId: "jb-continue-btn",
-			cls: "ft-jb-continue-btn",
-			icon: "arrow-right",
-			text: "Continue",
-			onClick: () => this.onContinue(),
-		});
+		this.activeSetupForm.render();
 	}
 
 	// ── Render: Step editor ──────────────────────────────────
 
 	private renderSteps(): void {
+		this.destroySetupForm();
 		this.cleanupSuggests();
 		this.state = "steps";
 		const el = this.contentEl;
 		el.empty();
 		el.addClass("ft-jb-sidebar");
 
-		this.renderHeader(el);
-		this.renderBackButton(el, () => this.renderSetup());
+		renderHeader(el);
+		renderBackButton(el, () => this.renderSetup());
 
 		// NavBar — step navigation
 		const navContainer = el.createDiv({ cls: "ft-jb-nav-container" });
@@ -580,7 +423,7 @@ export class JourneyBuilderSidebar extends ItemView {
 
 		// Open canvas button (only when journey has a name)
 		if (this.metadata.name) {
-			this.renderActionButton(el, {
+			renderActionButton(el, {
 				testId: "jb-open-canvas-btn",
 				cls: "ft-jb-open-canvas-btn",
 				icon: "layout-dashboard",
@@ -590,62 +433,12 @@ export class JourneyBuilderSidebar extends ItemView {
 		}
 
 		// Export button
-		this.renderActionButton(el, {
+		renderActionButton(el, {
 			testId: "jb-export-btn",
 			cls: "ft-jb-export-btn",
 			icon: "download",
 			text: "Export journey",
 			onClick: () => this.onExport(),
-		});
-	}
-
-	// ── Shared rendering ─────────────────────────────────────
-
-	private renderHeader(el: HTMLElement): void {
-		const header = el.createDiv({ cls: "ft-jb-header" });
-		const iconEl = header.createSpan({ cls: "ft-jb-header-icon" });
-		setIcon(iconEl, "route");
-		const titleEl = header.createSpan({ cls: "ft-jb-header-title", text: "Journey builder" });
-		titleEl.dataset.testId = "jb-header-title";
-	}
-
-	private renderBackButton(el: HTMLElement, onBack: () => void): void {
-		const backBtn = el.createDiv({ cls: "ft-jb-back-btn" });
-		backBtn.dataset.testId = "jb-back-btn";
-		backBtn.setAttribute("role", "button");
-		backBtn.setAttribute("tabindex", "0");
-		const backIcon = backBtn.createSpan({ cls: "ft-jb-back-icon" });
-		setIcon(backIcon, "arrow-left");
-		backBtn.createSpan({ text: "Back" });
-		backBtn.addEventListener("click", onBack);
-		backBtn.addEventListener("keydown", (e: KeyboardEvent) => {
-			if (e.key === "Enter" || e.key === " ") {
-				e.preventDefault();
-				onBack();
-			}
-		});
-	}
-
-	private renderActionButton(el: HTMLElement, opts: {
-		testId: string;
-		cls: string;
-		icon: string;
-		text: string;
-		onClick: () => void;
-	}): void {
-		const btn = el.createDiv({ cls: opts.cls });
-		btn.dataset.testId = opts.testId;
-		btn.setAttribute("role", "button");
-		btn.setAttribute("tabindex", "0");
-		const icon = btn.createSpan({ cls: `${opts.cls}-icon` });
-		setIcon(icon, opts.icon);
-		btn.createSpan({ text: opts.text });
-		btn.addEventListener("click", opts.onClick);
-		btn.addEventListener("keydown", (e: KeyboardEvent) => {
-			if (e.key === "Enter" || e.key === " ") {
-				e.preventDefault();
-				opts.onClick();
-			}
 		});
 	}
 
@@ -657,7 +450,7 @@ export class JourneyBuilderSidebar extends ItemView {
 		const paths = this.findJourneyFiles("folder");
 		if (paths.length === 0) return;
 		new JourneyPickerModal(this.app, paths, (path) => {
-			this.renderLoading("Loading journey\u2026");
+			this.renderLoadingState("Loading journey\u2026");
 			void this.eventBus.emit("journey-builder.import-requested", { path });
 		}).open();
 	}
@@ -670,7 +463,7 @@ export class JourneyBuilderSidebar extends ItemView {
 			return;
 		}
 		new JourneyPickerModal(this.app, paths, (path) => {
-			this.renderLoading("Loading journey\u2026");
+			this.renderLoadingState("Loading journey\u2026");
 			void this.eventBus.emit("journey-builder.import-requested", { path });
 		}).open();
 	}
@@ -688,7 +481,7 @@ export class JourneyBuilderSidebar extends ItemView {
 					// eslint-disable-next-line @typescript-eslint/no-require-imports
 					const fs = require("fs");
 					const json = fs.readFileSync(result.filePaths[0], "utf-8") as string;
-					this.renderLoading("Loading journey\u2026");
+					this.renderLoadingState("Loading journey\u2026");
 					void this.eventBus.emit("journey-builder.imported", { json });
 				} catch (err) {
 					console.error("[JourneyBuilder] Failed to read file:", err);
@@ -699,16 +492,12 @@ export class JourneyBuilderSidebar extends ItemView {
 		}
 	}
 
-	private renderLoading(message: string): void {
+	private renderLoadingState(message: string): void {
 		const el = this.contentEl;
 		el.empty();
 		el.addClass("ft-jb-sidebar");
-		this.renderHeader(el);
-		const loading = el.createDiv({ cls: "ft-jb-loading" });
-		loading.dataset.testId = "jb-loading";
-		const spinner = loading.createDiv({ cls: "ft-jb-loading-spinner" });
-		setIcon(spinner, "loader");
-		loading.createDiv({ cls: "ft-jb-loading-text", text: message });
+		renderHeader(el);
+		renderLoading(el, message);
 	}
 
 	/** Loads a journey definition from a JSON string into the sidebar state. */
@@ -735,7 +524,7 @@ export class JourneyBuilderSidebar extends ItemView {
 			this.selectedActionIndex = -1;
 			this.showToolPicker = false;
 			this.showTemplatePicker = false;
-			this.canvasOpenedPath = null;
+			this.canvasSync?.resetCanvasPath();
 			this.renderSteps();
 			this.scheduleCanvasSync();
 			this.autoSaveDefinition();
@@ -777,7 +566,7 @@ export class JourneyBuilderSidebar extends ItemView {
 	private onNavPrev(): void {
 		if (this.currentStepIndex > 0) {
 			this.currentStepIndex--;
-			this.pendingZoomToStep = true;
+			this.ensureCanvasSync().setPendingZoom();
 			this.renderSteps();
 			this.scheduleCanvasSync(300);
 		}
@@ -786,7 +575,7 @@ export class JourneyBuilderSidebar extends ItemView {
 	private onNavNext(): void {
 		if (this.currentStepIndex < this.steps.length - 1) {
 			this.currentStepIndex++;
-			this.pendingZoomToStep = true;
+			this.ensureCanvasSync().setPendingZoom();
 			this.renderSteps();
 			this.scheduleCanvasSync(300);
 		}
@@ -797,7 +586,7 @@ export class JourneyBuilderSidebar extends ItemView {
 		const step: JourneyStep = { id, title: "", description: "", swimlane: "", actions: [] };
 		this.steps.push(step);
 		this.currentStepIndex = this.steps.length - 1;
-		this.pendingZoomToStep = true;
+		this.ensureCanvasSync().setPendingZoom();
 		void this.eventBus.emit("journey-builder.step.added", { stepId: id, title: "" });
 		this.renderSteps();
 		this.scheduleCanvasSync(300);
@@ -947,64 +736,8 @@ export class JourneyBuilderSidebar extends ItemView {
 		});
 	}
 
-	/**
-	 * Handles canvas.synced — triggers zoom when needed.
-	 *
-	 * Zoom is event-driven: fires only after the service confirms the canvas
-	 * file was written, then waits a short delay for Obsidian to reload it.
-	 * This avoids blind timeouts that guess when the canvas is ready.
-	 */
-	private onCanvasSynced(payload: { canvasPath: string }): void {
-		const isFirstOpen = this.canvasOpenedPath !== payload.canvasPath;
-		if (isFirstOpen) {
-			this.canvasOpenedPath = payload.canvasPath;
-			void this.app?.workspace?.openLinkText(payload.canvasPath, "");
-		}
-		if (isFirstOpen || this.pendingZoomToStep) {
-			this.pendingZoomToStep = false;
-			this.scheduleZoom(payload.canvasPath, isFirstOpen);
-		}
-	}
-
-	/** Tracked zoom — waits for Obsidian to reload canvas after file write. */
-	private scheduleZoom(canvasPath: string, zoomToFit: boolean): void {
-		if (this.zoomTimer) clearTimeout(this.zoomTimer);
-		this.zoomTimer = setTimeout(() => {
-			this.zoomTimer = null;
-			const canvas = this.findCanvas(canvasPath);
-			if (!canvas) return;
-			if (zoomToFit) canvas.zoomToFit();
-			this.zoomToActiveStep(canvas);
-		}, 400);
-	}
-
-	private findCanvas(canvasPath: string): CanvasLeafView["canvas"] | null {
-		const getLeavesOfType = this.app?.workspace?.getLeavesOfType;
-		if (typeof getLeavesOfType !== "function") return null;
-		const leaves = getLeavesOfType.call(this.app.workspace, "canvas") ?? [];
-		for (const leaf of leaves) {
-			const view = leaf.view as unknown as CanvasLeafView;
-			if (view?.file?.path === canvasPath && view?.canvas) {
-				return view.canvas;
-			}
-		}
-		return null;
-	}
-
-	private zoomToActiveStep(canvas: NonNullable<CanvasLeafView["canvas"]>): void {
-		if (!canvas.nodes || typeof canvas.zoomToSelection !== "function") return;
-		for (const node of canvas.nodes.values()) {
-			const data = typeof node.getData === "function" ? node.getData() : null;
-			if (data && data.color === "5" && data.type === "group") {
-				canvas.selectOnly(node);
-				canvas.zoomToSelection();
-				return;
-			}
-		}
-	}
-
 	private onOpenCanvas(): void {
-		const canvasPath = `${this.journeyFolder()}/${this.metadata.name}/${this.metadata.name}.canvas`;
+		const canvasPath = this.getCanvasPath();
 		void this.app?.workspace?.openLinkText(canvasPath, "");
 	}
 
@@ -1012,22 +745,13 @@ export class JourneyBuilderSidebar extends ItemView {
 		void this.eventBus.emit("journey-builder.metadata.updated", { field, value });
 	}
 
-	// ── Canvas sync ─────────────────────────────────────────
+	// ── Canvas sync (delegated) ─────────────────────────────
 
-	private scheduleCanvasSync(delay = 1500): void {
-		if (!this.metadata.name) return;
-		if (this.canvasSyncTimer) clearTimeout(this.canvasSyncTimer);
-		this.canvasSyncTimer = setTimeout(() => {
-			this.canvasSyncTimer = null;
-			const canvasPath = `${this.journeyFolder()}/${this.metadata.name}/${this.metadata.name}.canvas`;
-			void this.eventBus.emit("journey-builder.canvas.sync-requested", {
-				canvasPath,
-				definition: this.buildCanvasSyncInput(),
-			});
-		}, delay);
+	private scheduleCanvasSync(delay?: number): void {
+		this.ensureCanvasSync().scheduleSync(delay);
 	}
 
-	private buildCanvasSyncInput(): CanvasSyncInput {
+	private buildCanvasSyncInput() {
 		return {
 			journey: this.metadata.name,
 			description: this.metadata.description,

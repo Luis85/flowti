@@ -1566,25 +1566,29 @@ describe("JourneyBuilderSidebar", () => {
 		});
 
 		it("resets canvasOpenedPath for auto-open", async () => {
-			// Simulate a previous canvas open
-			(sidebar as unknown as { canvasOpenedPath: string | null }).canvasOpenedPath = "old.canvas";
-
+			// Load once to create the canvas sync controller
 			sidebar.loadJourneyFromJSON(sampleJourney);
+			const canvasSync = (sidebar as unknown as { canvasSync: { getCanvasOpenedPath: () => string | null; onSynced: (p: { canvasPath: string }) => void } }).canvasSync;
 
-			// canvasOpenedPath should be reset so auto-open fires again
-			expect((sidebar as unknown as { canvasOpenedPath: string | null }).canvasOpenedPath).toBeNull();
+			// Simulate a previous canvas open on the controller
+			canvasSync.onSynced({ canvasPath: "old.canvas" });
+			expect(canvasSync.getCanvasOpenedPath()).toBe("old.canvas");
+
+			// Load again — should reset canvasOpenedPath
+			sidebar.loadJourneyFromJSON(sampleJourney);
+			expect(canvasSync.getCanvasOpenedPath()).toBeNull();
 		});
 
 		it("shows loading state before journey is hydrated", () => {
 			// Trigger renderLoading directly (simulates the state after picker selection)
-			(sidebar as unknown as { renderLoading: (msg: string) => void }).renderLoading("Loading journey\u2026");
+			(sidebar as unknown as { renderLoadingState: (msg: string) => void }).renderLoadingState("Loading journey\u2026");
 			const loading = byTestId(sidebar.contentEl, "jb-loading");
 			expect(loading).toBeTruthy();
 			expect(loading!.textContent).toContain("Loading journey");
 		});
 
 		it("loading state is replaced by steps after hydration", () => {
-			(sidebar as unknown as { renderLoading: (msg: string) => void }).renderLoading("Loading journey\u2026");
+			(sidebar as unknown as { renderLoadingState: (msg: string) => void }).renderLoadingState("Loading journey\u2026");
 			expect(byTestId(sidebar.contentEl, "jb-loading")).toBeTruthy();
 
 			sidebar.loadJourneyFromJSON(sampleJourney);

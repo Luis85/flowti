@@ -175,7 +175,42 @@ Clear, binary outcomes.
 
 ---
 
-## 13. Definition of Done
+## 13. Test Strategy
+
+How do we test our solutions?
+
+### Unit Tests
+- Which domain functions need coverage?
+- Which UI components need rendering tests?
+- What mock boundaries exist? (EventBus, FileSystem, App)
+
+### Integration / Flow Tests
+- Which end-to-end flows need flow test coverage?
+- What event sequences must be verified?
+- Which service interactions cross domain boundaries?
+
+### E2E Tests
+- Which user journeys exercise this feature?
+- What E2E steps and assertions are needed?
+- Which tools (assert, navigate, emit, eval) apply?
+
+### Test Boundaries
+
+| Layer | What to test | What to mock |
+|-------|-------------|-------------|
+| Domain | Pure logic, state machines, validators | EventBus, FileSystem |
+| UI | Rendering, user interaction, callbacks | Obsidian API (obsidian-stub) |
+| Integration | Event flow, service orchestration | External I/O |
+| E2E | Full user journeys in running vault | Nothing (real Obsidian) |
+
+### Estimated Test Delta
+- New unit tests: ~
+- New flow tests: ~
+- New E2E steps: ~
+
+---
+
+## 14. Definition of Done
 
 - Schema updated
 - Layout manifest updated (if needed)
