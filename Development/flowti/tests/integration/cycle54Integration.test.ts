@@ -33,8 +33,8 @@ describe("Cycle 54 integration", () => {
 			expect(SESSION_TYPE_LABELS["canvas-session"]).toBe("Canvas Session");
 		});
 
-		it("canvas templates are available (5 templates)", () => {
-			expect(CANVAS_TEMPLATES).toHaveLength(5);
+		it("canvas templates are available (6 templates)", () => {
+			expect(CANVAS_TEMPLATES).toHaveLength(6);
 		});
 
 		it("canvas events are catalogued", () => {

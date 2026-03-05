@@ -6,8 +6,8 @@ import {
 import type { CanvasTemplate } from "../../../../src/domain/canvas/templates/types";
 
 describe("CANVAS_TEMPLATES registry", () => {
-	it("contains exactly 5 templates", () => {
-		expect(CANVAS_TEMPLATES).toHaveLength(5);
+	it("contains exactly 6 templates", () => {
+		expect(CANVAS_TEMPLATES).toHaveLength(6);
 	});
 
 	it("all IDs are unique", () => {
@@ -26,13 +26,14 @@ describe("CANVAS_TEMPLATES registry", () => {
 		}
 	});
 
-	it("includes the 5 expected template IDs", () => {
+	it("includes the 6 expected template IDs", () => {
 		const ids = CANVAS_TEMPLATES.map((t) => t.id);
 		expect(ids).toContain("domain-design");
 		expect(ids).toContain("sprint-planning");
 		expect(ids).toContain("retrospective");
 		expect(ids).toContain("brainstorm");
 		expect(ids).toContain("flow-design");
+		expect(ids).toContain("prd");
 	});
 });
 

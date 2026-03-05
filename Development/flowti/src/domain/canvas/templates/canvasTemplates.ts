@@ -245,6 +245,59 @@ function generateFlowDesign(): CanvasData {
 	return { nodes, edges };
 }
 
+// ── 6. PRD (Product Requirements Definition) ───────────────────────
+
+function generatePRD(): CanvasData {
+	const gProblem = generateCanvasId();
+	const gUsers = generateCanvasId();
+	const gSolution = generateCanvasId();
+	const gRisks = generateCanvasId();
+	const gSuccess = generateCanvasId();
+
+	const cProblem = generateCanvasId();
+	const cUsers = generateCanvasId();
+	const cSolution = generateCanvasId();
+	const cRisks = generateCanvasId();
+	const cSuccess = generateCanvasId();
+
+	const fullW = GROUP_W * 2 + GAP;
+	const col1 = 0;
+	const col2 = GROUP_W + GAP;
+	const row1 = 0;
+	const row2 = GROUP_H + GAP;
+	const row3 = (GROUP_H + GAP) * 2;
+
+	const nodes: AllCanvasNodeData[] = [
+		// Row 1: Problem & Context spans full width
+		groupNode(gProblem, "Problem & Context", col1, row1, "1", fullW, GROUP_H),
+		textNode(cProblem, "What problem are we solving?\nWho is affected and why does it matter?\nAdd context, pain points, and evidence.", col1 + CARD_PAD, row1 + CARD_PAD + 40, fullW - CARD_PAD * 2),
+
+		// Row 2: Users & Scenarios | Proposed Solution
+		groupNode(gUsers, "Users & Scenarios", col1, row2, "4"),
+		textNode(cUsers, "Who are the target users?\nWhat are the key use cases?\n\nEach scenario card can become a journey.", col1 + CARD_PAD, row2 + CARD_PAD + 40),
+
+		groupNode(gSolution, "Proposed Solution", col2, row2, "5"),
+		textNode(cSolution, "High-level approach.\nKey capabilities and constraints.\nWhat does the first iteration look like?", col2 + CARD_PAD, row2 + CARD_PAD + 40),
+
+		// Row 3: Risks & Constraints | Success Criteria
+		groupNode(gRisks, "Risks & Constraints", col1, row3, "2"),
+		textNode(cRisks, "What could go wrong?\nAssumptions, dependencies, blockers.\nWhat is explicitly out of scope?", col1 + CARD_PAD, row3 + CARD_PAD + 40),
+
+		groupNode(gSuccess, "Success Criteria", col2, row3, "6"),
+		textNode(cSuccess, "How do we know it works?\nAcceptance criteria and metrics.\nDefinition of done for first release.", col2 + CARD_PAD, row3 + CARD_PAD + 40),
+	];
+
+	const edges: CanvasEdgeData[] = [
+		edge(generateCanvasId(), gProblem, gUsers, "bottom", "top", "informs", "4"),
+		edge(generateCanvasId(), gProblem, gSolution, "bottom", "top", "drives", "5"),
+		edge(generateCanvasId(), gUsers, gSolution, "right", "left", "shapes", "5"),
+		edge(generateCanvasId(), gSolution, gSuccess, "bottom", "top", "validates", "6"),
+		edge(generateCanvasId(), gUsers, gRisks, "bottom", "top", "reveals", "2"),
+	];
+
+	return { nodes, edges };
+}
+
 // ── Registry ───────────────────────────────────────────────────────
 
 export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
@@ -287,6 +340,14 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
 		icon: "workflow",
 		category: "design",
 		generate: generateFlowDesign,
+	},
+	{
+		id: "prd",
+		name: "Create a PRD",
+		description: "Define the problem, users, solution, risks, and success criteria for a new feature.",
+		icon: "file-text",
+		category: "planning",
+		generate: generatePRD,
 	},
 ] as const;
 

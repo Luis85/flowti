@@ -38,7 +38,7 @@
 				{ "tool": "assert", "type": "visible", "selector": ".modal-container [data-test-id='canvas-template-card']", "description": "Template picker is visible" },
 				{ "tool": "highlight", "selector": ".modal-container [data-test-id='canvas-template-card']", "style": "element" },
 				{ "tool": "screenshot", "label": "after", "description": "Template picker visible with cards highlighted" },
-				{ "tool": "manual", "instruction": "Review template cards for correct icons, titles, and descriptions. Verify the modal layout is centered and cards are evenly spaced.", "description": "Visual QA of template picker modal" }
+				{ "tool": "manual", "interactive": false, "instruction": "Review template cards for correct icons, titles, and descriptions. Verify the modal layout is centered and cards are evenly spaced.", "description": "Visual QA of template picker modal" }
 			]
 		},
 		{
@@ -54,7 +54,7 @@
 			"interactions": ["click: Template card"],
 			"actions": [
 				{ "tool": "notice", "message": "Step 2/9: Selecting template", "duration": 3000, "description": "Annotate test progress" },
-				{ "tool": "manual", "instruction": "Browse available templates and compare their descriptions. In a real session, the user would read each card before choosing.", "description": "User reviews template options" },
+				{ "tool": "manual", "interactive": false, "instruction": "Browse available templates and compare their descriptions. In a real session, the user would read each card before choosing.", "description": "User reviews template options" },
 				{ "tool": "click", "selector": ".modal-container [data-test-id='canvas-template-card']", "description": "Click first template card" },
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "assert", "type": "visible", "selector": ".modal-container .setting-item input", "description": "InputModal with goal field is visible" },
@@ -100,7 +100,7 @@
 				{ "tool": "notice", "message": "Step 4/9: Verifying canvas file", "duration": 3000, "description": "Annotate test progress" },
 				{ "tool": "assert", "type": "leaf", "viewType": "canvas", "description": "Canvas leaf exists in workspace" },
 				{ "tool": "screenshot", "label": "canvas-open", "description": "Canvas file open in workspace" },
-				{ "tool": "manual", "instruction": "Verify the canvas contains the expected template nodes (e.g. goal card, empty area for work). Check that nodes are correctly positioned and the canvas is zoomable/pannable.", "description": "Visual QA of generated canvas layout" }
+				{ "tool": "manual", "interactive": false, "instruction": "Verify the canvas contains the expected template nodes (e.g. goal card, empty area for work). Check that nodes are correctly positioned and the canvas is zoomable/pannable.", "description": "Visual QA of generated canvas layout" }
 			]
 		},
 		{
@@ -125,7 +125,7 @@
 					"description": "Active session is canvas-session in running status"
 				},
 				{ "tool": "screenshot", "label": "session-running", "description": "Session verified as running" },
-				{ "tool": "manual", "instruction": "Check the status bar for the active session indicator. Verify it shows the session type, elapsed time, and a pause/stop button.", "description": "Verify session status bar indicator" }
+				{ "tool": "manual", "interactive": false, "instruction": "Check the status bar for the active session indicator. Verify it shows the session type, elapsed time, and a pause/stop button.", "description": "Verify session status bar indicator" }
 			]
 		},
 		{
@@ -165,7 +165,7 @@
 					"description": "Session status is paused"
 				},
 				{ "tool": "screenshot", "label": "after-pause", "description": "Session paused" },
-				{ "tool": "manual", "instruction": "Verify the status bar timer has stopped counting. The pause indicator should be visible and the canvas should remain open but the session timer frozen.", "description": "Verify paused UI state" }
+				{ "tool": "manual", "interactive": false, "instruction": "Verify the status bar timer has stopped counting. The pause indicator should be visible and the canvas should remain open but the session timer frozen.", "description": "Verify paused UI state" }
 			]
 		},
 		{
@@ -204,7 +204,7 @@
 					"description": "Session status is running"
 				},
 				{ "tool": "screenshot", "label": "resumed", "description": "Session resumed and running" },
-				{ "tool": "manual", "instruction": "Verify the canvas tab is re-focused and the session timer has resumed counting from where it was paused.", "description": "Verify resumed UI state and timer continuation" }
+				{ "tool": "manual", "interactive": false, "instruction": "Verify the canvas tab is re-focused and the session timer has resumed counting from where it was paused.", "description": "Verify resumed UI state and timer continuation" }
 			]
 		},
 		{
@@ -239,7 +239,7 @@
 				{ "tool": "assert", "type": "visible", "selector": "[data-test-id='closure-overlay']", "description": "Closure overlay is visible" },
 				{ "tool": "highlight", "selector": "[data-test-id='closure-skip']", "style": "button" },
 				{ "tool": "screenshot", "label": "closure-overlay", "description": "Closure overlay visible with Skip button highlighted" },
-				{ "tool": "manual", "instruction": "Review the closure overlay: verify the reflection prompt is readable, the rating widget is interactive (try clicking stars), and both Skip and Complete buttons are visible and styled correctly.", "description": "Visual QA and interaction test of closure overlay" }
+				{ "tool": "manual", "interactive": false, "instruction": "Review the closure overlay: verify the reflection prompt is readable, the rating widget is interactive (try clicking stars), and both Skip and Complete buttons are visible and styled correctly.", "description": "Visual QA and interaction test of closure overlay" }
 			]
 		},
 		{
@@ -266,7 +266,7 @@
 				},
 				{ "tool": "screenshot", "label": "completed", "description": "Session completed" },
 				{ "tool": "notice", "message": "Canvas Session journey complete", "duration": 5000, "description": "Signal journey completion" },
-				{ "tool": "manual", "instruction": "Navigate to the User Hub Sessions tab and verify the completed session appears in the session history with correct duration, goal, and 'completed' status badge.", "description": "Verify completed session in session history" }
+				{ "tool": "manual", "interactive": false, "instruction": "Navigate to the User Hub Sessions tab and verify the completed session appears in the session history with correct duration, goal, and 'completed' status badge.", "description": "Verify completed session in session history" }
 			]
 		}
 	],
