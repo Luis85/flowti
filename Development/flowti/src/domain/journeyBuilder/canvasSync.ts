@@ -25,6 +25,7 @@ export interface CanvasSyncInput {
 		title: string;
 		description: string;
 		actions: unknown[];
+		backgroundImage?: string;
 	}>;
 }
 
@@ -61,8 +62,13 @@ function groupNode(
 	w: number,
 	h: number,
 	color?: string,
+	background?: string,
 ): AllCanvasNodeData {
-	return { id, type: "group", label, x, y, width: w, height: h, ...(color ? { color } : {}) } as AllCanvasNodeData;
+	return {
+		id, type: "group", label, x, y, width: w, height: h,
+		...(color ? { color } : {}),
+		...(background ? { background, backgroundStyle: "cover" } : {}),
+	} as AllCanvasNodeData;
 }
 
 function edgeData(
@@ -116,7 +122,7 @@ export function buildJourneyCanvas(
 		const groupId = idGen();
 		const label = step.title || `Step ${i + 1}`;
 		const color = input.stepColors?.[i] ?? (i === input.activeStepIndex ? "5" : undefined);
-		nodes.push(groupNode(groupId, label, gx, gy, GROUP_W, GROUP_H, color));
+		nodes.push(groupNode(groupId, label, gx, gy, GROUP_W, GROUP_H, color, step.backgroundImage));
 
 		// Inner text node
 		const innerId = idGen();

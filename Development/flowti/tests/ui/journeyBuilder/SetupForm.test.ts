@@ -21,7 +21,7 @@ describe("SetupForm", () => {
 
 	beforeEach(() => {
 		container = document.createElement("div");
-		metadata = { name: "", description: "", startEvent: "" };
+		metadata = { name: "", description: "", startEvent: "", endEvent: "" };
 		deps = {
 			metadata,
 			onFieldChanged: vi.fn(),
@@ -54,6 +54,12 @@ describe("SetupForm", () => {
 		expect(input).toBeTruthy();
 	});
 
+	it("renders end event input", () => {
+		new SetupForm(container, deps).render();
+		const input = byTestId(container, "jb-end-event-input") as HTMLInputElement;
+		expect(input).toBeTruthy();
+	});
+
 	it("renders continue button", () => {
 		new SetupForm(container, deps).render();
 		expect(byTestId(container, "jb-continue-btn")).toBeTruthy();
@@ -63,10 +69,12 @@ describe("SetupForm", () => {
 		metadata.name = "My journey";
 		metadata.description = "Test desc";
 		metadata.startEvent = "session.started";
+		metadata.endEvent = "app.closed";
 		new SetupForm(container, deps).render();
 		expect((byTestId(container, "jb-name-input") as HTMLInputElement).value).toBe("My journey");
 		expect((byTestId(container, "jb-description-input") as HTMLTextAreaElement).value).toBe("Test desc");
 		expect((byTestId(container, "jb-start-event-input") as HTMLInputElement).value).toBe("session.started");
+		expect((byTestId(container, "jb-end-event-input") as HTMLInputElement).value).toBe("app.closed");
 	});
 
 	it("calls onFieldChanged when name changes", () => {
@@ -91,6 +99,18 @@ describe("SetupForm", () => {
 		new SetupForm(container, deps).render();
 		setInputValue(byTestId(container, "jb-start-event-input") as HTMLInputElement, "hub.loaded");
 		expect(deps.onFieldChanged).toHaveBeenCalledWith("startEvent", "hub.loaded");
+	});
+
+	it("calls onFieldChanged when end event changes", () => {
+		new SetupForm(container, deps).render();
+		setInputValue(byTestId(container, "jb-end-event-input") as HTMLInputElement, "app.closed");
+		expect(deps.onFieldChanged).toHaveBeenCalledWith("endEvent", "app.closed");
+	});
+
+	it("updates metadata.endEvent on input", () => {
+		new SetupForm(container, deps).render();
+		setInputValue(byTestId(container, "jb-end-event-input") as HTMLInputElement, "session.ended");
+		expect(metadata.endEvent).toBe("session.ended");
 	});
 
 	it("calls onContinue on continue button click", () => {

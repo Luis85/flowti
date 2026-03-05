@@ -320,4 +320,26 @@ describe("buildJourneyCanvas", () => {
 			expect((groups[1] as { color?: string }).color).toBe("5");
 		});
 	});
+
+	describe("background image", () => {
+		it("sets background on group node when step has backgroundImage", () => {
+			const input = sampleInput({
+				steps: [
+					{ id: "step-1", title: "Step 1", description: "", actions: [], backgroundImage: "assets/mockup.png" },
+				],
+			});
+			const result = buildJourneyCanvas(input, deterministicId);
+			const group = result.nodes.find((n) => n.type === "group");
+			expect((group as Record<string, unknown>).background).toBe("assets/mockup.png");
+			expect((group as Record<string, unknown>).backgroundStyle).toBe("cover");
+		});
+
+		it("omits background when step has no backgroundImage", () => {
+			const input = sampleInput();
+			const result = buildJourneyCanvas(input, deterministicId);
+			const group = result.nodes.find((n) => n.type === "group");
+			expect((group as Record<string, unknown>).background).toBeUndefined();
+			expect((group as Record<string, unknown>).backgroundStyle).toBeUndefined();
+		});
+	});
 });

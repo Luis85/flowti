@@ -212,4 +212,40 @@ describe("StepCard", () => {
 		allByTestId(container, "jb-step-events-remove")[0].click();
 		expect(deps.onEventsChanged).toHaveBeenCalledWith(["b"]);
 	});
+
+	// ── Background image ─────────────────────────────────
+
+	it("renders add background button when no image set", () => {
+		deps.onBackgroundImageRequested = vi.fn();
+		new StepCard(container, deps).render();
+		expect(byTestId(container, "jb-step-bg-add")).toBeTruthy();
+		expect(byTestId(container, "jb-step-bg-remove")).toBeNull();
+	});
+
+	it("calls onBackgroundImageRequested on add button click", () => {
+		deps.onBackgroundImageRequested = vi.fn();
+		new StepCard(container, deps).render();
+		byTestId(container, "jb-step-bg-add")!.click();
+		expect(deps.onBackgroundImageRequested).toHaveBeenCalledOnce();
+	});
+
+	it("shows filename and remove button when backgroundImage is set", () => {
+		deps.onBackgroundImageRequested = vi.fn();
+		deps.onBackgroundImageRemoved = vi.fn();
+		deps.step = { id: "step-1", title: "T", description: "", swimlane: "", actions: [], backgroundImage: "assets/mockup.png" };
+		new StepCard(container, deps).render();
+		expect(byTestId(container, "jb-step-bg-add")).toBeNull();
+		expect(byTestId(container, "jb-step-bg-remove")).toBeTruthy();
+		const name = container.querySelector(".ft-jb-step-bg-name");
+		expect(name!.textContent).toBe("mockup.png");
+	});
+
+	it("calls onBackgroundImageRemoved on remove click", () => {
+		deps.onBackgroundImageRequested = vi.fn();
+		deps.onBackgroundImageRemoved = vi.fn();
+		deps.step = { id: "step-1", title: "T", description: "", swimlane: "", actions: [], backgroundImage: "assets/mockup.png" };
+		new StepCard(container, deps).render();
+		byTestId(container, "jb-step-bg-remove")!.click();
+		expect(deps.onBackgroundImageRemoved).toHaveBeenCalledOnce();
+	});
 });

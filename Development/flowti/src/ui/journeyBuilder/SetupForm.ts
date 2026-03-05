@@ -51,7 +51,7 @@ export class SetupForm {
 		descInput.dataset.testId = "jb-description-input";
 		descInput.placeholder = "What does this journey test?";
 		descInput.value = metadata.description;
-		descInput.rows = 3;
+		descInput.rows = 5;
 		descInput.addEventListener("input", () => {
 			metadata.description = descInput.value;
 			onFieldChanged("description", descInput.value);
@@ -80,6 +80,33 @@ export class SetupForm {
 			const unsub = attachEventSuggest(startInput, getEventCatalog, (value) => {
 				metadata.startEvent = value;
 				onFieldChanged("startEvent", value);
+			});
+			this.suggestCleanups.push(unsub);
+		}
+
+		// End event
+		const endGroup = form.createDiv({ cls: "ft-jb-form-group" });
+		endGroup.createEl("label", { cls: "ft-jb-form-label", text: "End event" });
+		const endInput = endGroup.createEl("input", { cls: "ft-jb-form-input", type: "text" });
+		endInput.dataset.testId = "jb-end-event-input";
+		endInput.placeholder = "e.g. Hub tab changed or hub.tab.changed"; // eslint-disable-line obsidianmd/ui/sentence-case
+		endInput.value = metadata.endEvent;
+		const endPreview = endGroup.createSpan({ cls: "ft-jb-event-preview" });
+		endPreview.dataset.testId = "jb-end-event-preview";
+		endInput.addEventListener("input", () => {
+			const converted = toEventName(endInput.value);
+			metadata.endEvent = converted;
+			endPreview.textContent = isEventNameConverted(endInput.value, converted)
+				? `\u2192 ${converted}`
+				: "";
+			onFieldChanged("endEvent", converted);
+		});
+
+		// Event autocomplete on end event
+		if (getEventCatalog) {
+			const unsub = attachEventSuggest(endInput, getEventCatalog, (value) => {
+				metadata.endEvent = value;
+				onFieldChanged("endEvent", value);
 			});
 			this.suggestCleanups.push(unsub);
 		}

@@ -223,6 +223,27 @@ describe("JourneyBuilderSidebar", () => {
 			expect(input.type).toBe("text");
 		});
 
+		it("renders end event input", () => {
+			const input = byTestId(sidebar.contentEl, "jb-end-event-input") as HTMLInputElement;
+			expect(input).toBeTruthy();
+			expect(input.tagName.toLowerCase()).toBe("input");
+		});
+
+		it("tracks end event input", () => {
+			const input = byTestId(sidebar.contentEl, "jb-end-event-input") as HTMLInputElement;
+			setInputValue(input, "hub.tab.changed");
+			expect(sidebar.getEndEvent()).toBe("hub.tab.changed");
+		});
+
+		it("emits metadata.updated on end event input", () => {
+			const handler = vi.fn();
+			eventBus.on("journey-builder.metadata.updated", handler);
+			const input = byTestId(sidebar.contentEl, "jb-end-event-input") as HTMLInputElement;
+			setInputValue(input, "app.closed");
+			expect(handler).toHaveBeenCalledOnce();
+			expect(handler.mock.calls[0][0].payload).toEqual({ field: "endEvent", value: "app.closed" });
+		});
+
 		it("renders continue button", () => {
 			const btn = byTestId(sidebar.contentEl, "jb-continue-btn");
 			expect(btn).toBeTruthy();
@@ -288,6 +309,7 @@ describe("JourneyBuilderSidebar", () => {
 		it("resets metadata when returning to welcome", () => {
 			const nameInput = byTestId(sidebar.contentEl, "jb-name-input") as HTMLInputElement;
 			setInputValue(nameInput, "Dirty Data");
+			setInputValue(byTestId(sidebar.contentEl, "jb-end-event-input") as HTMLInputElement, "dirty.end");
 
 			const backBtn = byTestId(sidebar.contentEl, "jb-back-btn")!;
 			backBtn.click();
@@ -296,6 +318,7 @@ describe("JourneyBuilderSidebar", () => {
 			expect(meta.name).toBe("");
 			expect(meta.description).toBe("");
 			expect(meta.startEvent).toBe("");
+			expect(meta.endEvent).toBe("");
 		});
 
 		it("supports keyboard back with Enter", () => {
@@ -338,12 +361,6 @@ describe("JourneyBuilderSidebar", () => {
 			const empty = byTestId(sidebar.contentEl, "jb-empty-steps");
 			expect(empty).toBeTruthy();
 			expect(empty!.textContent).toContain("No steps yet");
-		});
-
-		it("renders end event input", () => {
-			const input = byTestId(sidebar.contentEl, "jb-end-event-input") as HTMLInputElement;
-			expect(input).toBeTruthy();
-			expect(input.tagName.toLowerCase()).toBe("input");
 		});
 
 		it("renders export button", () => {
@@ -454,21 +471,6 @@ describe("JourneyBuilderSidebar", () => {
 			expect(byTestId(sidebar.contentEl, "jb-empty-steps")).toBeTruthy();
 		});
 
-		it("tracks end event input", () => {
-			const input = byTestId(sidebar.contentEl, "jb-end-event-input") as HTMLInputElement;
-			setInputValue(input, "hub.tab.changed");
-			expect(sidebar.getEndEvent()).toBe("hub.tab.changed");
-		});
-
-		it("emits metadata.updated on end event input", () => {
-			const handler = vi.fn();
-			eventBus.on("journey-builder.metadata.updated", handler);
-			const input = byTestId(sidebar.contentEl, "jb-end-event-input") as HTMLInputElement;
-			setInputValue(input, "app.closed");
-			expect(handler).toHaveBeenCalledOnce();
-			expect(handler.mock.calls[0][0].payload).toEqual({ field: "endEvent", value: "app.closed" });
-		});
-
 		it("emits exported event on Export click", async () => {
 			const handler = vi.fn();
 			eventBus.on("journey-builder.exported", handler);
@@ -507,11 +509,12 @@ describe("JourneyBuilderSidebar", () => {
 		});
 
 		it("buildDefinition returns correct structure", () => {
-			// Fill metadata from setup
+			// Fill metadata from setup (including end event)
 			byTestId(sidebar.contentEl, "jb-back-btn")!.click();
 			setInputValue(byTestId(sidebar.contentEl, "jb-name-input") as HTMLInputElement, "Test Journey");
 			setInputValue(byTestId(sidebar.contentEl, "jb-description-input") as HTMLTextAreaElement, "A description");
 			setInputValue(byTestId(sidebar.contentEl, "jb-start-event-input") as HTMLInputElement, "start.evt");
+			setInputValue(byTestId(sidebar.contentEl, "jb-end-event-input") as HTMLInputElement, "end.evt");
 			byTestId(sidebar.contentEl, "jb-continue-btn")!.click();
 
 			// Add steps
@@ -519,9 +522,6 @@ describe("JourneyBuilderSidebar", () => {
 			setInputValue(byTestId(sidebar.contentEl, "jb-step-title-input") as HTMLInputElement, "Step One");
 			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
 			setInputValue(byTestId(sidebar.contentEl, "jb-step-title-input") as HTMLInputElement, "Step Two");
-
-			// Set end event
-			setInputValue(byTestId(sidebar.contentEl, "jb-end-event-input") as HTMLInputElement, "end.evt");
 
 			const def = sidebar.buildDefinition();
 			expect(def.journey).toBe("Test Journey");
@@ -584,7 +584,6 @@ describe("JourneyBuilderSidebar", () => {
 		beforeEach(async () => {
 			await sidebar.onOpen();
 			byTestId(sidebar.contentEl, "jb-create-new")!.click();
-			byTestId(sidebar.contentEl, "jb-continue-btn")!.click();
 		});
 
 		it("converts Title Sentence to dot-notation in endEvent", () => {
@@ -830,13 +829,14 @@ describe("JourneyBuilderSidebar", () => {
 			expect(jsonContent.textContent).toContain("A new description");
 		});
 
-		it("JSON content updates when end event changes", () => {
+		it("JSON content reflects end event set in setup", () => {
+			// Go back to setup and set end event
+			byTestId(sidebar.contentEl, "jb-back-btn")!.click();
+			setInputValue(byTestId(sidebar.contentEl, "jb-end-event-input") as HTMLInputElement, "session.ended");
+			byTestId(sidebar.contentEl, "jb-continue-btn")!.click();
+
 			byTestId(sidebar.contentEl, "jb-json-toggle")!.click();
 			const jsonContent = byTestId(sidebar.contentEl, "jb-json-content")!;
-
-			const endInput = byTestId(sidebar.contentEl, "jb-end-event-input") as HTMLInputElement;
-			setInputValue(endInput, "session.ended");
-
 			expect(jsonContent.textContent).toContain("session.ended");
 		});
 
@@ -897,10 +897,9 @@ describe("JourneyBuilderSidebar", () => {
 			expect(sidebarWithEvents.getMetadata().startEvent).toBe("hub.opened");
 		});
 
-		it("attaches autocomplete to end event input in steps form", () => {
-			// Navigate to setup → steps
+		it("attaches autocomplete to end event input in setup form", () => {
+			// Navigate to setup
 			byTestId(sidebarWithEvents.contentEl, "jb-create-new")!.click();
-			byTestId(sidebarWithEvents.contentEl, "jb-continue-btn")!.click();
 
 			const endInput = byTestId(sidebarWithEvents.contentEl, "jb-end-event-input") as HTMLInputElement;
 			setInputValue(endInput, "session");
@@ -1353,20 +1352,18 @@ describe("JourneyBuilderSidebar", () => {
 
 		it("emits with correct definition matching sidebar state", () => {
 			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
-			setInputValue(byTestId(sidebar.contentEl, "jb-step-title-input") as HTMLInputElement, "First Step");
 
 			const handler = vi.fn();
 			eventBus.on("journey-builder.canvas.sync-requested", handler);
 
-			// Trigger another change to schedule sync
-			setInputValue(byTestId(sidebar.contentEl, "jb-end-event-input") as HTMLInputElement, "app.closed");
+			// Trigger sync via step title change
+			setInputValue(byTestId(sidebar.contentEl, "jb-step-title-input") as HTMLInputElement, "First Step");
 			vi.advanceTimersByTime(1500);
 
 			const def = handler.mock.calls[0][0].payload.definition;
 			expect(def.journey).toBe("My Journey");
 			expect(def.steps).toHaveLength(1);
 			expect(def.steps[0].title).toBe("First Step");
-			expect(def.endEvent).toBe("app.closed");
 		});
 
 		it("does not emit when journey name is empty", async () => {
@@ -1907,6 +1904,36 @@ describe("JourneyBuilderSidebar", () => {
 				passed: 2,
 				failed: 0,
 			});
+		});
+	});
+
+	describe("background image round-trip", () => {
+		beforeEach(async () => {
+			await sidebar.onOpen();
+		});
+
+		it("buildDefinition includes backgroundImage field", () => {
+			const json = JSON.stringify({
+				journey: "BG Test",
+				startEvent: "start",
+				endEvent: "end",
+				steps: [{ id: "s1", title: "Step 1", description: "", swimlane: "", actions: [], backgroundImage: "assets/mockup.png" }],
+			});
+			sidebar.loadJourneyFromJSON(json);
+			const def = sidebar.buildDefinition();
+			expect(def.steps[0].backgroundImage).toBe("assets/mockup.png");
+		});
+
+		it("loadJourneyFromJSON restores backgroundImage from JSON", () => {
+			const json = JSON.stringify({
+				journey: "BG Test",
+				startEvent: "start",
+				endEvent: "end",
+				steps: [{ id: "s1", title: "Step 1", description: "", swimlane: "", actions: [], backgroundImage: "img/wireframe.svg" }],
+			});
+			sidebar.loadJourneyFromJSON(json);
+			const steps = sidebar.getSteps();
+			expect(steps[0].backgroundImage).toBe("img/wireframe.svg");
 		});
 	});
 });

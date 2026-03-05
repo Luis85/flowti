@@ -21,6 +21,8 @@ export interface ParsedCanvasStep {
 	actionCount: number;
 	/** The canvas group node's ID — enables bidirectional sync matching. */
 	canvasGroupId: string;
+	/** Vault-relative path to the group's background image (if set). */
+	backgroundImage?: string;
 }
 
 /** The structural data recovered from a journey canvas. */
@@ -82,11 +84,13 @@ export function parseJourneyCanvas(canvas: CanvasData): ParsedJourneyCanvas | nu
 		const { description, actionCount } = parseInnerText(
 			inner && inner.type === "text" ? (inner as { text: string }).text : "",
 		);
+		const bg = (group as { background?: string }).background;
 		return {
 			title: group.type === "group" ? ((group as { label?: string }).label ?? "") : "",
 			description,
 			actionCount,
 			canvasGroupId: group.id,
+			...(bg ? { backgroundImage: bg } : {}),
 		};
 	});
 

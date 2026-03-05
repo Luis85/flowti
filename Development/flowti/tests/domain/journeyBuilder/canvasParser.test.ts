@@ -291,3 +291,24 @@ describe("round-trip: buildJourneyCanvas → parseJourneyCanvas", () => {
 		}
 	});
 });
+
+describe("parseJourneyCanvas — background image", () => {
+	it("extracts backgroundImage from group with background property", () => {
+		const canvas = minimalCanvas({
+			groups: [{ id: "g1", label: "Step 1", innerText: "desc\n1 action" }],
+		});
+		// Add background property to the group node
+		const group = canvas.nodes.find((n) => n.type === "group")!;
+		(group as Record<string, unknown>).background = "assets/wireframe.png";
+		const result = parseJourneyCanvas(canvas)!;
+		expect(result.steps[0].backgroundImage).toBe("assets/wireframe.png");
+	});
+
+	it("returns undefined backgroundImage for group without background", () => {
+		const canvas = minimalCanvas({
+			groups: [{ id: "g1", label: "Step 1", innerText: "desc\n1 action" }],
+		});
+		const result = parseJourneyCanvas(canvas)!;
+		expect(result.steps[0].backgroundImage).toBeUndefined();
+	});
+});

@@ -123,7 +123,7 @@ In parallel, the architecture dimension addresses JourneyBuilderSidebar size cre
 - TD-130: JourneyBuilderSidebar extraction (target: <600 LOC)
 - TD-01: Orchestrator convention documentation
 - TD-85: Batch-add type frontmatter to ~40% of docs
-- TD-24: Update AGENTS.md
+- TD-24: Update AGENTS.md (out of scope, removed agents.md as it's becoming stale too fast)
 - TD-30: Reclassify as mitigated
 - TD-92: PR workflow definition + branch protection
 - RB-2: ESLint Obsidian rules compliance
@@ -276,27 +276,33 @@ Key design decisions:
 - [x] Results identical for both input formats
 - [x] `npm test` green — 6,753 tests, 283 suites
 
-### Inc 5: Step Background Image (PBI-JB-013)
+### Inc 5: Step Background Image (PBI-JB-013) — DONE
 **Theme**: Feature
-**Effort**: Small | **Est. LOC**: ~80 | **Est. Tests**: ~10
+**Effort**: Small | **Actual LOC**: ~75 | **Actual Tests**: +10
 
-Attach wireframes/mockups to journey steps:
-- Optional `backgroundImage` field on JourneyStep
-- Step card shows "Add Background" button (or thumbnail preview if set)
-- File picker filtered to image files (PNG, JPG, SVG)
-- Canvas group node renders background image
-- Preserved through export/import and canvas round-trip
-- Remove button clears field and canvas background
+Attach wireframes/mockups to journey steps via optional `backgroundImage` field:
 
-**Test Intent**: Unit tests for `backgroundImage` field on JourneyStep (serialization, validation). UI tests for add/remove button rendering. Canvas sync tests verifying background image is applied to group node. Round-trip preservation tests (JSON → Canvas → JSON with image field).
-**Documentation Intent**: Update JourneyStep type in Data Dictionary. Add background image to Journey Builder PRD FR-13 delivered notes.
-**Architecture Seams**: Optional `backgroundImage: string` field on `JourneyStep` interface. Canvas sync extends group node rendering to set `background` property. File picker uses Obsidian's `FileSystemAdapter` filtered to image extensions. No new events — existing `journey-builder.step.updated` carries image changes.
+| Component | File | Change |
+|-----------|------|--------|
+| JourneyStep | `JourneyBuilderSidebar.ts` | Added `backgroundImage?: string` field to interface |
+| Canvas sync | `canvasSync.ts` | Extended `groupNode()` + `CanvasSyncInput` to pass `background` + `backgroundStyle: "cover"` |
+| Canvas parser | `canvasParser.ts` | Extended `ParsedCanvasStep`, extracts `background` from group nodes |
+| StepCard UI | `StepCard.ts` | Background image section: "Add background" button or preview + remove + change |
+| Image picker | `JourneyBuilderSidebar.ts` | `ImagePickerModal` (FuzzySuggestModal filtered to image extensions) |
+| Sidebar wiring | `JourneyBuilderSidebar.ts` | Updated `buildDefinition`, `loadJourneyFromJSON`, `buildCanvasSyncInput`, `onCanvasChanged` |
+| CSS | `17-journey-builder.css` | Background image section styles (add button, preview row, remove/change) |
+
+Key design decisions:
+- **Native canvas property**: Uses Obsidian's built-in `CanvasGroupData.background` + `backgroundStyle` — no custom rendering needed
+- **Image picker**: FuzzySuggestModal filtering vault files to `.png/.jpg/.jpeg/.gif/.svg/.webp`
+- **StepCard callbacks**: `onBackgroundImageRequested` (opens picker) + `onBackgroundImageRemoved` (clears field) — StepCard has no App access, sidebar opens the modal
+- **Canvas round-trip**: Canvas parser extracts `background` from group nodes; canvas sync applies it back — full round-trip fidelity
 
 **Acceptance Criteria**:
-- [ ] Background image can be added/removed from step card
-- [ ] Canvas renders background on step group node
-- [ ] Round-trip preserves background image
-- [ ] `npm test` green
+- [x] Background image can be added/removed from step card
+- [x] Canvas renders background on step group node
+- [x] Round-trip preserves background image
+- [x] `npm test` green — 6,761 tests, 283 suites
 
 ### Inc 6: Documentation Cleanup (TD-85, TD-24, TD-30)
 **Theme**: Documentation / Debt
@@ -308,7 +314,6 @@ Attach wireframes/mockups to journey steps:
 
 **Acceptance Criteria**:
 - [ ] >90% of docs have type frontmatter
-- [ ] AGENTS.md reflects current codebase state
 - [ ] TD-30 status changed to mitigated with rationale
 - [ ] `npm test` green
 
@@ -354,7 +359,7 @@ Attach wireframes/mockups to journey steps:
 **Acceptance Criteria**:
 - [ ] 10 regression tests for canvas sync consistency
 - [ ] E2E journey for canvas round-trip passes
-- [ ] `npm test` green
+- [ ] `npm test:e2e` green
 - [ ] `npm run build` green
 
 ## Dependency Graph

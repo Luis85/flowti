@@ -30,6 +30,10 @@ export interface StepCardDeps {
 	onComponentsChanged: (items: string[]) => void;
 	/** Called when the user clicks the remove button. */
 	onRemove: () => void;
+	/** Called when the user wants to add/change the background image. */
+	onBackgroundImageRequested?: () => void;
+	/** Called when the user removes the background image. */
+	onBackgroundImageRemoved?: () => void;
 }
 
 export class StepCard {
@@ -106,6 +110,41 @@ export class StepCard {
 		swimlaneEl.addEventListener("change", () => {
 			this.deps.onSwimlanChanged(swimlaneEl.value);
 		});
+
+		// Background image
+		if (this.deps.onBackgroundImageRequested) {
+			const bgSection = card.createDiv({ cls: "ft-jb-step-bg" });
+			bgSection.dataset.testId = "jb-step-bg";
+			if (step.backgroundImage) {
+				const fileName = step.backgroundImage.split("/").pop() ?? step.backgroundImage;
+				const preview = bgSection.createDiv({ cls: "ft-jb-step-bg-preview" });
+				const iconEl = preview.createSpan({ cls: "ft-jb-step-bg-icon" });
+				setIcon(iconEl, "image");
+				preview.createSpan({ cls: "ft-jb-step-bg-name", text: fileName });
+				const removeBtn = preview.createSpan({ cls: "ft-jb-step-bg-remove" });
+				removeBtn.dataset.testId = "jb-step-bg-remove";
+				removeBtn.setAttribute("role", "button");
+				removeBtn.setAttribute("tabindex", "0");
+				removeBtn.setAttribute("aria-label", "Remove background");
+				setIcon(removeBtn, "x");
+				removeBtn.addEventListener("click", () => this.deps.onBackgroundImageRemoved?.());
+				const changeBtn = preview.createSpan({ cls: "ft-jb-step-bg-change" });
+				changeBtn.dataset.testId = "jb-step-bg-change";
+				changeBtn.setAttribute("role", "button");
+				changeBtn.setAttribute("tabindex", "0");
+				changeBtn.textContent = "Change";
+				changeBtn.addEventListener("click", () => this.deps.onBackgroundImageRequested?.());
+			} else {
+				const addBtn = bgSection.createDiv({ cls: "ft-jb-step-bg-add" });
+				addBtn.dataset.testId = "jb-step-bg-add";
+				addBtn.setAttribute("role", "button");
+				addBtn.setAttribute("tabindex", "0");
+				const addIcon = addBtn.createSpan({ cls: "ft-jb-step-bg-add-icon" });
+				setIcon(addIcon, "image");
+				addBtn.createSpan({ text: "Add background" });
+				addBtn.addEventListener("click", () => this.deps.onBackgroundImageRequested?.());
+			}
+		}
 
 		// Chip lists for step metadata arrays
 		new ChipList(card, {
