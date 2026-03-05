@@ -3,10 +3,11 @@ type: TechDebt
 severity: medium
 category: documentation
 layer: cross-cutting
-status: open
+status: mitigated
 effort: small
 resolved: 2026-02-13
 reopened: 2026-02-21
+mitigated: 2026-03-05
 description: "AGENTS.md stats have drifted again. Claims 110 files / 31K LOC / 41 tests — actual is 230 files / 44K LOC / 111 test files / 2,887 tests. Missing 4 bounded contexts (hub, inbox, nudge, session). Service count says 11, actual 14."
 ---
 # TD-24: AGENTS.md source tree is outdated
@@ -61,3 +62,7 @@ This item requires periodic audits as the codebase continues to grow rapidly. Cu
 - **230+ source files**
 
 AGENTS.md should be refreshed at least once per development cycle to prevent stats from drifting beyond acceptable thresholds.
+
+## Mitigation (2026-03-05)
+
+AGENTS.md no longer exists in the main plugin project (`Development/flowti/`). Project documentation is maintained via auto-generated reports (`npm run generate:reports` — 11 vault notes), CLAUDE.md (auto-memory), and cycle plan documents. Stats drift is addressed by the report generation pipeline which produces current metrics on every build. Reclassified as mitigated — the underlying concern (stale static documentation) is resolved by the shift to generated documentation.

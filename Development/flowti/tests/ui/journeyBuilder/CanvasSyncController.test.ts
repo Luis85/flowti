@@ -155,6 +155,173 @@ describe("CanvasSyncController", () => {
 		});
 	});
 
+	describe("canvas selection watching", () => {
+		function createMockCanvasApp(canvasPath: string, nodes: Map<string, { getData: () => Record<string, unknown> }>, selection: Set<unknown> = new Set()) {
+			const containerEl = document.createElement("div");
+			const leaf = {
+				containerEl,
+				view: {
+					file: { path: canvasPath },
+					canvas: { nodes, selection, zoomToFit: vi.fn(), zoomToSelection: vi.fn(), selectOnly: vi.fn(), deselectAll: vi.fn() },
+				},
+			};
+			return {
+				workspace: {
+					openLinkText: vi.fn(),
+					getLeavesOfType: vi.fn(() => [leaf]),
+				},
+				containerEl,
+				canvas: leaf.view.canvas,
+			};
+		}
+
+		function makeGroupNode(id: string, label: string, x: number) {
+			return {
+				getData: () => ({ id, type: "group", label, x, y: 0, width: 480, height: 160 }),
+			};
+		}
+
+		function makeTextNode(id: string, x: number, y: number) {
+			return {
+				getData: () => ({ id, type: "text", x, y, width: 380, height: 60 }),
+			};
+		}
+
+		it("calls onStepSelected when a group node is clicked on canvas", () => {
+			const onStepSelected = vi.fn();
+			const step1 = makeGroupNode("g1", "Step 1", 200);
+			const step2 = makeGroupNode("g2", "Step 2", 720);
+			const nodes = new Map([["g1", step1], ["g2", step2]]);
+			const selection = new Set([step2]);
+
+			const mockApp = createMockCanvasApp("journeys/Test/Test.canvas", nodes, selection);
+			deps.getApp = () => mockApp as never;
+			deps.onStepSelected = onStepSelected;
+			controller = new CanvasSyncController(deps);
+
+			controller.onSynced({ canvasPath: "journeys/Test/Test.canvas" });
+
+			// Simulate pointer up on canvas container
+			mockApp.containerEl.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+			vi.advanceTimersByTime(50);
+
+			expect(onStepSelected).toHaveBeenCalledWith(1);
+		});
+
+		it("calls onStepSelected with index 0 for the first group", () => {
+			const onStepSelected = vi.fn();
+			const step1 = makeGroupNode("g1", "Step 1", 200);
+			const step2 = makeGroupNode("g2", "Step 2", 720);
+			const nodes = new Map([["g1", step1], ["g2", step2]]);
+			const selection = new Set([step1]);
+
+			const mockApp = createMockCanvasApp("journeys/Test/Test.canvas", nodes, selection);
+			deps.getApp = () => mockApp as never;
+			deps.onStepSelected = onStepSelected;
+			controller = new CanvasSyncController(deps);
+
+			controller.onSynced({ canvasPath: "journeys/Test/Test.canvas" });
+			mockApp.containerEl.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+			vi.advanceTimersByTime(50);
+
+			expect(onStepSelected).toHaveBeenCalledWith(0);
+		});
+
+		it("resolves text node inside group to parent group step index", () => {
+			const onStepSelected = vi.fn();
+			const step1 = makeGroupNode("g1", "Step 1", 200);
+			const innerText = makeTextNode("t1", 250, 50); // inside g1 (200-680, 0-160)
+			const nodes = new Map([["g1", step1], ["t1", innerText]]);
+			const selection = new Set([innerText]);
+
+			const mockApp = createMockCanvasApp("journeys/Test/Test.canvas", nodes, selection);
+			deps.getApp = () => mockApp as never;
+			deps.onStepSelected = onStepSelected;
+			controller = new CanvasSyncController(deps);
+
+			controller.onSynced({ canvasPath: "journeys/Test/Test.canvas" });
+			mockApp.containerEl.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+			vi.advanceTimersByTime(50);
+
+			expect(onStepSelected).toHaveBeenCalledWith(0);
+		});
+
+		it("does not call onStepSelected when no node is selected", () => {
+			const onStepSelected = vi.fn();
+			const step1 = makeGroupNode("g1", "Step 1", 200);
+			const nodes = new Map([["g1", step1]]);
+			const selection = new Set();
+
+			const mockApp = createMockCanvasApp("journeys/Test/Test.canvas", nodes, selection);
+			deps.getApp = () => mockApp as never;
+			deps.onStepSelected = onStepSelected;
+			controller = new CanvasSyncController(deps);
+
+			controller.onSynced({ canvasPath: "journeys/Test/Test.canvas" });
+			mockApp.containerEl.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+			vi.advanceTimersByTime(50);
+
+			expect(onStepSelected).not.toHaveBeenCalled();
+		});
+
+		it("does not call onStepSelected when multiple nodes selected", () => {
+			const onStepSelected = vi.fn();
+			const step1 = makeGroupNode("g1", "Step 1", 200);
+			const step2 = makeGroupNode("g2", "Step 2", 720);
+			const nodes = new Map([["g1", step1], ["g2", step2]]);
+			const selection = new Set([step1, step2]);
+
+			const mockApp = createMockCanvasApp("journeys/Test/Test.canvas", nodes, selection);
+			deps.getApp = () => mockApp as never;
+			deps.onStepSelected = onStepSelected;
+			controller = new CanvasSyncController(deps);
+
+			controller.onSynced({ canvasPath: "journeys/Test/Test.canvas" });
+			mockApp.containerEl.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+			vi.advanceTimersByTime(50);
+
+			expect(onStepSelected).not.toHaveBeenCalled();
+		});
+
+		it("does not call onStepSelected for non-group text node outside groups", () => {
+			const onStepSelected = vi.fn();
+			const startNode = makeTextNode("start", 0, 0); // START node, not inside any group
+			const nodes = new Map([["start", startNode]]);
+			const selection = new Set([startNode]);
+
+			const mockApp = createMockCanvasApp("journeys/Test/Test.canvas", nodes, selection);
+			deps.getApp = () => mockApp as never;
+			deps.onStepSelected = onStepSelected;
+			controller = new CanvasSyncController(deps);
+
+			controller.onSynced({ canvasPath: "journeys/Test/Test.canvas" });
+			mockApp.containerEl.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+			vi.advanceTimersByTime(50);
+
+			expect(onStepSelected).not.toHaveBeenCalled();
+		});
+
+		it("cleans up selection listener on destroy", () => {
+			const onStepSelected = vi.fn();
+			const step1 = makeGroupNode("g1", "Step 1", 200);
+			const nodes = new Map([["g1", step1]]);
+			const selection = new Set([step1]);
+
+			const mockApp = createMockCanvasApp("journeys/Test/Test.canvas", nodes, selection);
+			deps.getApp = () => mockApp as never;
+			deps.onStepSelected = onStepSelected;
+			controller = new CanvasSyncController(deps);
+
+			controller.onSynced({ canvasPath: "journeys/Test/Test.canvas" });
+			controller.destroy();
+
+			mockApp.containerEl.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+			vi.advanceTimersByTime(50);
+
+			expect(onStepSelected).not.toHaveBeenCalled();
+		});
+	});
+
 	describe("destroy", () => {
 		it("clears pending sync timer", async () => {
 			const handler = vi.fn();

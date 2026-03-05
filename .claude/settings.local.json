@@ -76,7 +76,8 @@
       "Bash(git -C \"c:/Projects/flowti\" diff --stat HEAD)",
       "Bash(git -C c:/Projects/flowti status -s -- Development/flowti/)",
       "Bash({)",
-      "Bash(})"
+      "Bash(})",
+      "Bash(wc -l src/**/*.ts src/*.ts)"
     ]
   }
 }

@@ -304,6 +304,29 @@ Key design decisions:
 - [x] Round-trip preserves background image
 - [x] `npm test` green — 6,761 tests, 283 suites
 
+### Inc 5b: Step Editor UX Polish — DONE
+**Theme**: UX / Polish
+**Effort**: Small | **Actual LOC**: ~80 | **Actual Tests**: +3
+
+Sidebar layout restructuring and UX improvements:
+
+| Change | Description |
+|--------|-------------|
+| Header toolbar | Action buttons (Open canvas, Preview run, Export) moved from bottom to header toolbar as compact icon-only buttons with tooltips |
+| End event → Setup | End event input moved from step editor to setup/settings form (alongside start event) |
+| Canvas sync indicator | Loading spinner in back button row — shows "Syncing..." during canvas write, "Canvas ready" on completion |
+| Background sync indicator | Loading indicator on StepCard during background image sync |
+| Proceed button | Arrow-right button in setup back row for quick navigation to steps |
+| Description height | Setup form description textarea increased from 3 to 5 rows |
+| JourneyMetadata | Added `endEvent` field to interface (was separate private field) |
+| Unused imports | Removed `toEventName`, `isEventNameConverted`, `attachEventSuggest`, `renderActionButton` from sidebar |
+
+**Acceptance Criteria**:
+- [x] Action buttons visible in header without scrolling
+- [x] End event on same screen as start event
+- [x] Canvas sync provides visual feedback
+- [x] `npm test` green — 6,764 tests, 283 suites
+
 ### Inc 6: Documentation Cleanup (TD-85, TD-24, TD-30)
 **Theme**: Documentation / Debt
 **Effort**: Medium | **Est. LOC**: ~0 (docs only) | **Est. Tests**: 0

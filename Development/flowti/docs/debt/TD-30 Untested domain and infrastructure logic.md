@@ -3,11 +3,11 @@ type: TechDebt
 severity: medium
 category: testing
 layer: cross-cutting
-status: open
+status: mitigated
 created: 2026-02-14
-updated: 2026-02-21
+updated: 2026-03-05
 effort: medium
-description: "Tiers 1, 2, 4 complete. Tier 3 (bootstrap) open but low ROI. Session domain added 11 test files with extensive coverage. Current: 2,855 tests passing (32 skipped), 111 test suites. New untested areas: session handler modules have tests but helpers.ts test is monolithic."
+description: "Tiers 1, 2, 4 complete. Tier 3 (bootstrap/wiring) deferred — low ROI at 6,764 tests across 283 suites. All testable domain logic covered."
 source: "[[Technical Review 2026-02-14]]"
 ---
 # TD-30: Untested domain and infrastructure logic
@@ -97,3 +97,7 @@ All remaining untested domain files have low ROI for unit testing. UI component 
 - `tests/infrastructure/filesystem/FileSystemClient.test.ts` (new)
 - `tests/domain/hub/HubRegistry.test.ts` (new — 11 tests, 100% coverage)
 - `tests/domain/hub/providers.test.ts` (new — 15 tests, 100% coverage)
+
+## Mitigation (2026-03-05)
+
+Reclassified as **mitigated**. All testable domain and infrastructure logic (Tiers 1, 2, 4) is covered. Remaining Tier 3 files (main.ts, pluginBootstrap.ts, dataExchangeSetup.ts) are bootstrap/wiring with Obsidian runtime dependencies — low ROI for unit testing at 6,764 tests across 283 suites. These are exercised by E2E tests and manual QA.

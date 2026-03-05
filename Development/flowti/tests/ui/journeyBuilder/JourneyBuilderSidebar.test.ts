@@ -1447,6 +1447,67 @@ describe("JourneyBuilderSidebar", () => {
 		});
 	});
 
+	describe("canvas step selection", () => {
+		beforeEach(async () => {
+			vi.useFakeTimers();
+			await sidebar.onOpen();
+			byTestId(sidebar.contentEl, "jb-create-new")!.click();
+			setInputValue(byTestId(sidebar.contentEl, "jb-name-input") as HTMLInputElement, "Test");
+			byTestId(sidebar.contentEl, "jb-continue-btn")!.click();
+			// Add 3 steps
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			byTestId(sidebar.contentEl, "jb-nav-add-step")!.click();
+			vi.advanceTimersByTime(1500);
+		});
+
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		it("navigates to selected step when onStepSelectedOnCanvas is called", () => {
+			// Currently at step 2 (index 2, last added)
+			expect(sidebar.getCurrentStepIndex()).toBe(2);
+
+			// Simulate canvas selection of step 0
+			(sidebar as unknown as { onStepSelectedOnCanvas: (i: number) => void }).onStepSelectedOnCanvas(0);
+
+			expect(sidebar.getCurrentStepIndex()).toBe(0);
+		});
+
+		it("does not navigate when same step is selected", () => {
+			expect(sidebar.getCurrentStepIndex()).toBe(2);
+			const renderSpy = vi.spyOn(sidebar as unknown as { renderSteps: () => void }, "renderSteps");
+
+			(sidebar as unknown as { onStepSelectedOnCanvas: (i: number) => void }).onStepSelectedOnCanvas(2);
+
+			expect(renderSpy).not.toHaveBeenCalled();
+		});
+
+		it("ignores out-of-bounds step index", () => {
+			expect(sidebar.getCurrentStepIndex()).toBe(2);
+
+			(sidebar as unknown as { onStepSelectedOnCanvas: (i: number) => void }).onStepSelectedOnCanvas(5);
+			expect(sidebar.getCurrentStepIndex()).toBe(2);
+
+			(sidebar as unknown as { onStepSelectedOnCanvas: (i: number) => void }).onStepSelectedOnCanvas(-1);
+			expect(sidebar.getCurrentStepIndex()).toBe(2);
+		});
+
+		it("triggers canvas sync after step selection to update colors", () => {
+			vi.advanceTimersByTime(1500); // flush pending
+			const handler = vi.fn();
+			eventBus.on("journey-builder.canvas.sync-requested", handler);
+
+			(sidebar as unknown as { onStepSelectedOnCanvas: (i: number) => void }).onStepSelectedOnCanvas(0);
+			vi.advanceTimersByTime(300);
+
+			expect(handler).toHaveBeenCalledOnce();
+			const def = handler.mock.calls[0][0].payload.definition;
+			expect(def.activeStepIndex).toBe(0);
+		});
+	});
+
 	describe("open existing journey", () => {
 		const sampleJourney = JSON.stringify({
 			journey: "My Loaded Journey",

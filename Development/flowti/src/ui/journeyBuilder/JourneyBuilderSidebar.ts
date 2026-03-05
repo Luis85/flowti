@@ -203,6 +203,7 @@ export class JourneyBuilderSidebar extends ItemView {
 				getCanvasPath: () => this.getCanvasPath(),
 				buildSyncInput: () => this.buildCanvasSyncInput(),
 				getApp: () => this.app,
+				onStepSelected: (stepIndex) => this.onStepSelectedOnCanvas(stepIndex),
 			});
 		}
 		return this.canvasSync;
@@ -682,6 +683,16 @@ export class JourneyBuilderSidebar extends ItemView {
 			path: filePath,
 			definition: this.buildDefinition(),
 		});
+	}
+
+	private onStepSelectedOnCanvas(stepIndex: number): void {
+		if (this.state !== "steps") return;
+		if (stepIndex === this.currentStepIndex) return;
+		if (stepIndex < 0 || stepIndex >= this.steps.length) return;
+		this.currentStepIndex = stepIndex;
+		this.ensureCanvasSync().setPendingZoom();
+		this.renderSteps();
+		this.scheduleCanvasSync(300);
 	}
 
 	private onNavPrev(): void {

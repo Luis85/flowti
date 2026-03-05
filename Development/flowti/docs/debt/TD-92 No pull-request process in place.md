@@ -45,3 +45,7 @@ This is acceptable for a solo developer in early phases but becomes a risk as th
 ## Note (2026-02-22)
 
 This item becomes **critical** as the project approaches release. The codebase now contains 230+ source files, 3,548 tests, and 15 bounded contexts. Shipping without a PR process means no gated quality checks before code reaches users. Recommend prioritizing at least branch protection + CI gating before the first public release.
+
+## Note (2026-03-05)
+
+ESLint compliance verified — passes clean with current rules. PR workflow and branch protection deferred to C58 (CI pipeline). Current mitigation: `npm test` runs lint + tsc + vitest before every commit. Codebase now at 432 files, 6,764 tests, 20 bounded contexts.

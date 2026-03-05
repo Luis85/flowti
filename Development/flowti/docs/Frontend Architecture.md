@@ -1,7 +1,7 @@
 ---
 type: ArchitectureDoc
 stage: open
-updated: 2026-02-23
+updated: 2026-03-05
 domain: Flowti/System
 plugin: "[[Development/flowti/README|README]]"
 tags:
@@ -12,7 +12,7 @@ tags:
 
 This document describes the current frontend architecture of the Flowti IBDE Obsidian plugin, its design principles, view inventory, and refactoring history with planned next phases.
 
-> Last updated: 2026-02-23 (Post-Cycle 27 — analytics domain, signal domain, train domain, canvas domain added; metrics and counts updated)
+> Last updated: 2026-03-05 (Post-Cycle 55 — Journey Builder domain added; metrics refreshed to 432 files / ~86K LOC / 6,764 tests / 283 suites)
 
 ---
 
@@ -41,47 +41,60 @@ This document describes the current frontend architecture of the Flowti IBDE Obs
 ## Layer Overview
 
 ```
-src/                     # ~31,467 LOC across 154 files
-├── main.ts              # Plugin orchestrator (482 LOC)
-├── dataExchangeSetup.ts # Data Exchange UI wiring (~310 LOC, CommandBus Phase 8: commands + file-menu emit ui.* events)
-├── infrastructure/      # Generic plumbing — events, services, commands, views, filesystem, logger, errors
+src/                     # ~86,000 LOC across 432 files
+├── main.ts              # Plugin orchestrator (1,287 LOC)
+├── infrastructure/      # Generic plumbing — events, services, commands, views, filesystem, logger, errors (37 files)
 │   ├── events/          # EventBus, EventBridge, catalog, FlowtiEventMap
-│   ├── services/        # ServiceContainer (DI), registry
+│   ├── services/        # ServiceContainer (DI), registry, PerfAggregator
 │   ├── commands/        # CommandRegistry, middleware
 │   ├── errors/          # FlowtiError hierarchy, ErrorService
 │   ├── filesystem/      # FileSystemClient (async ops + events)
 │   ├── logger/          # LoggerService (in-memory buffer + events)
+│   ├── cli/             # ObsidianCli (E2E test automation)
 │   ├── ui/              # UiCommandService (ui.* command bus)
 │   └── views/           # ViewRegistry
-├── domain/              # Business logic (DDD, each owns events.ts)
-│   ├── dataExchange/    # Import/Export orchestration (11 files, ~3,600 LOC)
-│   ├── docs/            # DocService + content generators + path resolvers
-│   ├── ingestion/       # Vault file batching + retry pipeline
-│   ├── installer/       # First-run wizard + folder scaffold
-│   ├── settings/        # Settings persistence + migration
-│   ├── subscription/    # Event subscription CRUD + matching
+├── domain/              # Business logic — 20 bounded contexts (167 files)
+│   ├── analytics/       # In-memory analytics engine, query execution, dashboard handlers
+│   ├── canvas/          # Canvas import pipeline + session monitor + templates
+│   ├── capture/         # Thought capture for Train domain
+│   ├── dataExchange/    # Import/Export orchestration (11 files)
+│   ├── discovery/       # Vault scan for custom events
+│   ├── docs/            # DocService + content generators + path resolvers + report generators
 │   ├── eventDefinition/ # Source event → domain event mapping
 │   ├── eventFilter/     # Activity Log visibility toggles
 │   ├── eventNotify/     # Notice popups on event fire
-│   ├── discovery/       # Vault scan for custom events
-│   ├── session/         # Session v2 execution environment (timer, goals, execution tasks, intent, energy, reflections, closure, activity, artifacts, note sync, state machine)
-│   ├── canvas/          # Canvas import pipeline (parser, importer, rebuilder, base generator, service)
-│   ├── analytics/       # In-memory analytics engine, query execution, locale/date utils (6 files, ~1,058 LOC)
-│   ├── signal/          # External signal connections — Azure DevOps adapter, sync orchestration (7 files, ~857 LOC)
-│   ├── capture/         # Thought capture for Train domain
-│   ├── train/           # Train navigation and thought sequencing
+│   ├── hub/             # Hub registry + providers
 │   ├── inbox/           # User inbox items (mappers, service, persistence)
+│   ├── ingestion/       # Vault file batching + retry pipeline
+│   ├── installer/       # First-run wizard + folder scaffold
+│   ├── journeyBuilder/  # Journey Builder service, canvas sync, canvas parser, tool schemas, event name utils
+│   ├── nudge/           # Session nudge scheduling (interval + time-based)
+│   ├── onboarding/      # First-run onboarding flow
+│   ├── session/         # Session v2 execution environment (6-state machine, handler extraction)
+│   ├── settings/        # Settings persistence + migration
+│   ├── signal/          # External signal connections — Azure DevOps adapter, sync orchestration
+│   ├── subscription/    # Event subscription CRUD + matching
+│   ├── train/           # Train navigation and thought sequencing
 │   └── user/            # User profile management
-├── ui/                  # Presentation layer
-│   ├── catalog/         # Event Catalog components (15 files)
-│   ├── hub/             # Data Exchange Hub components (22 files, incl. CanvasTab)
-│   ├── canvas/          # Canvas import wizard components (5 files: Landing, Config, Preview, Result, types)
-│   ├── csv/             # CSV import wizard components (10 files)
-│   ├── export/          # Export wizard components (7 files)
-│   ├── session/         # Session Workspace components (17 files: panels, subscriptions, helpers, overlays, indicators)
-│   ├── userHub/         # User Hub components (7 files: Dashboard, Inbox, Sessions, Preferences, SessionPreferences, NudgePreferences, types)
+├── ui/                  # Presentation layer (216 files)
+│   ├── analytics/       # Analytics Hub components (38 files: dashboards, queries, tiles, charts)
+│   ├── canvas/          # Canvas import wizard + session sidebar (9 files)
+│   ├── capture/         # Quick capture modal
+│   ├── catalog/         # Event Catalog components (22 files incl. helpers/)
+│   ├── components/      # Component registry + showcase (5 files)
+│   ├── csv/             # CSV import wizard components (12 files)
+│   ├── eventConfig/     # Event config modal pages (4 files)
+│   ├── export/          # Export wizard components (9 files)
+│   ├── hub/             # Data Exchange Hub components (25 files, incl. pipelines/)
+│   ├── journeyBuilder/  # Journey Builder sidebar + 15 composable components (~2,875 LOC)
+│   ├── layouts/         # Layout system: SinglePane, Split, Tabbed, Stacked (7 files)
+│   ├── session/         # Session Workspace components (20 files)
+│   ├── shared/          # Shared modals + components (7 files)
+│   ├── shell/           # WorkspaceShell (3 files)
+│   ├── train/           # Train views + panels (15 files)
+│   ├── userHub/         # User Hub components (14 files)
 │   └── *.ts             # Orchestrator views + modals
-└── utils/               # Shared helpers (persistence, glob, types)
+└── utils/               # Shared helpers (persistence, glob, types, SecretStore)
 ```
 
 ### Communication Flow
@@ -112,6 +125,11 @@ Views read state via `deps.getState()` and write via `deps.setState(partial)`. T
 | `SessionWorkspaceView` | `flowti-session-workspace` | ~537 | `ItemView` | single-column | Dedicated focused workspace for a single session (timer, energy, goals, execution plan, notes, context, decisions, activity, outputs). Subscriptions extracted to `SessionWorkspaceSubscriptions.ts`, helpers to `SessionWorkspaceHelpers.ts` |
 | `TrainMainView` | `flowti-train-main` | ~237 | `ItemView` | single-column | Train navigator: thought detail, prev/next navigation, branch links. Subscriptions extracted to `TrainMainViewSubscriptions.ts` |
 | `TrainTimelineSidebar` | `flowti-train-timeline` | ~210 | `ItemView` | single-column | Vertical timeline graph: thought nodes, branch indentation, click-to-navigate. Subscriptions extracted to `TrainTimelineSidebarSubscriptions.ts` |
+| `TrainHubView` | `flowti-train-hub` | ~273 | `BaseHubView<TrainTab>` | Train domain hub: navigation, timeline, capture, stats |
+| `AnalyticsHubView` | `flowti-analytics-hub` | ~273 | `BaseHubView<AnalyticsTab>` | Analytics hub: dashboards, queries, measurements |
+| `JourneyBuilderSidebar` | `flowti-journey-builder` | ~570 | `ItemView` | Journey Builder sidebar: 3-state machine (welcome → setup → steps), 15 composable components |
+| `JourneyFileView` | `flowti-journey-file` | ~150 | `ItemView` | Journey JSON file viewer/editor |
+| `CanvasSessionSidebar` | `flowti-canvas-session` | ~210 | `ItemView` | Canvas session monitor sidebar |
 | `ComponentShowcaseView` | `flowti-component-showcase` | ~297 | showcase | Development view for previewing all CSS components |
 
 ### Modals
@@ -129,6 +147,11 @@ Views read state via `deps.getState()` and write via `deps.setState(partial)`. T
 | `ConfigChooserModal` | ~30 | Fuzzy-searchable config picker (`FuzzySuggestModal`) |
 | `FilePickerModal` | ~40 | Fuzzy-searchable file picker with extension filter |
 | `FolderPickerModal` | ~70 | Fuzzy-searchable folder picker with create-on-type |
+| `QuickCaptureModal` | ~80 | Thought capture for Train domain |
+| `DashboardNameModal` | ~50 | Dashboard create/rename |
+| `TrainCaptureModal` | ~80 | Train thought capture |
+| `CanvasTemplatePickerModal` | ~80 | Canvas template selection (5 templates) |
+| `SignalConfigModal` | ~200 | Azure DevOps signal configuration |
 
 ### Component Architecture (Decomposed Views)
 
@@ -193,7 +216,7 @@ Both major views extend `BaseHubView<TPage>` and follow the **orchestrator + com
 - `SessionClosureOverlay` — Closure ritual questionnaire shown in reviewing state (~130 LOC)
 - `SessionGuidingQuestions` — Session-type-specific guiding prompts
 
-**User Hub** (`src/ui/userHub/`, 7 files):
+**User Hub** (`src/ui/userHub/`, 14 files):
 - `UserHubDashboard` — Welcome section, cross-hub summary cards, active session card, inbox preview, quick actions
 - `UserHubInbox` — Inbox master list (filter, source badges, read/unread) + detail panel (type badge, source event link, actions)
 - `UserHubSessions` — Session master list (status sort, accent border on active, filter, "New" button) + detail panel (timer, info, artifacts, contextual lifecycle actions). Empty state shows "New Session" button opening `NewSessionModal`
@@ -201,7 +224,28 @@ Both major views extend `BaseHubView<TPage>` and follow the **orchestrator + com
 - `UserHubSessionPreferences` — Session type configuration (built-in + custom types, guiding questions, duration defaults)
 - `UserHubNudgePreferences` — Session nudge configuration (add/edit/remove nudges, template linking)
 
-**Canvas Import** (`src/ui/canvas/`, 5 files):
+**Journey Builder** (`src/ui/journeyBuilder/`, 16 files, ~2,875 LOC):
+- `JourneyBuilderSidebar` — Orchestrator: 3-state machine (welcome → setup → steps), owns step/action state, canvas sync, export
+- `WelcomeScreen` — Landing cards: "Create New" + "Open Existing" (FuzzySuggestModal)
+- `SetupForm` — Metadata form: name, description, start/end events (with Title Sentence conversion + autocomplete)
+- `NavBar` — Step navigation: prev/next buttons + step counter + "Add step" button
+- `StepCard` — Step editor: title, description, swimlane, background image, metadata chips (events/commands/interactions/components), action count
+- `ActionList` — Action management: add/remove/reorder/select, template picker integration
+- `ActionForm` — Schema-driven action form: renders fields from ToolSchemaDef, handles tool-specific inputs
+- `ToolPicker` — Grouped tool select: 34 tools across 5 categories (navigation, interaction, assertion, setup, utility)
+- `TemplatePicker` — 4 pre-built action templates: Open via command, Click element, Verify visible, Take screenshot
+- `EventSuggest` — Fuzzy autocomplete dropdown: category badges, keyboard navigation, configurable item source
+- `fuzzyMatchEvent` — Scoring algorithm: prefix > word boundary > contains, case-insensitive
+- `ChipList` — Enter-to-add chip list with ×-to-remove, duplicate prevention
+- `JSONPanel` — Live JSON preview: collapsible, copy-to-clipboard, `update()` for live refresh
+- `CanvasSyncController` — Canvas sync orchestrator: watches for canvas changes, syncs step state
+- `sidebarHelpers` — Shared rendering helpers: `renderHeader()`, `renderBackButton()`
+- `JourneyFileView` — Journey JSON file viewer
+
+**Canvas** (`src/ui/canvas/`, 9 files):
+- `CanvasActionView` — Canvas import wizard orchestrator (4-page navigation)
+- `CanvasSessionSidebar` — Canvas session monitor sidebar (ItemView)
+- `CanvasTemplatePickerModal` — Template selection modal (5 templates: Domain Design, Sprint Planning, Retrospective, Brainstorm, Flow Design)
 - `CanvasLanding` — Landing page: file info, stats, saved configs with quick-run (~120 LOC)
 - `CanvasConfigPage` — Split layout: general settings (left), color/shape mappings + type exclusion (right) (~304 LOC)
 - `CanvasPreviewPage` — Impact analysis: type distribution, group/product structure, legend (~269 LOC)
@@ -331,7 +375,6 @@ DataExchangeHubView ──→ EventCatalogView     (show event in catalog)
 CsvActionView ────────→ DataExchangeHubView  (via injected callback)
 
 main.ts ──────────────→ All views            (factory registration + callback wiring)
-dataExchangeSetup.ts ─→ Hub, CSV, Export     (view registration + file menu wiring)
 ```
 
 ---
@@ -340,7 +383,7 @@ dataExchangeSetup.ts ─→ Hub, CSV, Export     (view registration + file menu 
 
 ### Scale
 
-The `FlowtiEventMap` type union contains **260+ events** across 20+ domains:
+The `FlowtiEventMap` type union contains **360+ events** across 25+ domains:
 
 | Domain | Events | Examples |
 |--------|--------|---------|
@@ -370,6 +413,10 @@ The `FlowtiEventMap` type union contains **260+ events** across 20+ domains:
 | Signal | 10 | `signal.configured`, `signal.sync.started`, `signal.sync.completed` |
 | Canvas | 8 | `canvas.import.started`, `canvas.import.completed`, `canvas.config.saved` |
 | Analytics | 5 | `analytics.query.started`, `analytics.query.completed`, `analytics.query.saved` |
+| Journey Builder | 8 | `journey-builder.opened`, `journey-builder.exported`, `journey-builder.action.added` |
+| Nudge | 8 | `nudge.triggered`, `nudge.configured`, `nudge.dismissed` |
+| Performance | 7 | `perf.startup.total`, `perf.storage.loaded`, `perf.alert` |
+| Train | 17 | `train.started`, `train.thought.captured`, `train.completed` |
 | Installer | 6 | `installer.started`, `installer.step.completed` |
 
 ### Conventions
@@ -671,7 +718,7 @@ Pure content generation file with markdown builders for 8+ entity types. Could s
 
 | Item | Problem | Target | Debt File |
 |------|---------|--------|-----------|
-| **TD-7**: Limited UI testing | 1,887 tests across 82 files cover domain services, EventBus, utilities, pure functions, 6 view orchestrators, and 4 User Hub components. Component-level rendering tests expanding. | Add lightweight unit tests for remaining tab components with mock deps and DOM assertions via `obsidian-stub` polyfills. | [[TD-27 Limited UI component testing]] |
+| **TD-7**: Limited UI testing | 6,764 tests across 283 suites cover domain services, EventBus, utilities, pure functions, view orchestrators, all Journey Builder components, analytics, and train domain. Component-level rendering tests well established. | Add tests for remaining undocumented tab components. | [[TD-27 Limited UI component testing]] |
 | **TD-8**: Scanner duplication between Catalog and Hub | Catalog tabs use `entityScanner.ts`; Hub tabs implement their own scanning logic. | Generalize scanner utility. Low ROI — Hub tabs are storage-driven. | [[TD-28 Scanner duplication between Catalog and Hub]] |
 
 ---
@@ -688,11 +735,11 @@ Pure content generation file with markdown builders for 8+ entity types. Could s
 
 | Goal | Command | What runs |
 |------|---------|-----------|
-| Verify changes | `npm test` | eslint → tsc → vitest |
-| Fast bundle | `npm run build` | esbuild --production (no checks) |
+| Verify changes | `npm test` | lint → tsc → vitest |
+| Fast bundle | `npm run build` | test:flows → esbuild --production |
 | Dev watch | `npm run build:dev` | esbuild --watch |
-| Release build | `npm run build:release` | test:coverage → typedoc → esbuild --publish |
-| Distribute | `npm run build:distribution` | release + copy artifacts to configured vault endpoints |
+| Generate reports | `npm run generate:reports` | 11 vault notes (test, coverage, codebase, cycle, trace, perf, build, command ref, event catalog, data dict, tool ref) |
+| E2E tests | `npm run test:e2e` | Full E2E suite (requires running Obsidian) |
 6. **No premature abstraction**: Extract when a file exceeds ~600 LOC or when distinct responsibilities are clearly identifiable. Don't extract for the sake of extracting.
 7. **DocService for all docs**: Use `doc.create` events instead of direct `fileSystemClient.createFile()` calls for documentation files.
 
@@ -721,19 +768,26 @@ Pure content generation file with markdown builders for 8+ entity types. Could s
 - 176 test suites, 4,271 tests — all passing
 - ~190+ source files
 
-### After Cycles 9-11, 27 (Feb 2026)
+### After Cycles 9-27 (Feb 2026)
 - `SessionService.ts`: 1,729 → 613 LOC (TD-101 resolved — handler extraction)
 - Signal domain: +857 LOC (7 files), +10 events
-- Analytics domain: +1,058 LOC (6 files), +5 events, +978 LOC UI (AnalyticsTab + ResultsPanel)
-- Canvas domain: fully integrated
-- Train domain: 2 views + capture service
+- Analytics domain extracted to dedicated AnalyticsHubView (BaseHubView subclass)
+- Canvas domain: fully integrated with templates + session monitor
+- Train domain: 2 views + capture service + timeline sidebar
 
-### Planned: Cycle 28 — Analytics Hub
-- Extract `AnalyticsTab` from DX Hub into dedicated `AnalyticsHubView` (BaseHubView subclass)
-- Add dashboard domain: Dashboard, DashboardTile, TileDisplayMode types
-- Add `.base` file analytics source adapter
-- State migration from `"dataExchange"` to `"analytics"` storage key
-- See [[Analytics Hub PRD]] and [[Cycle 28 - Analytics Hub]]
+### After Cycles 44-55 (Mar 2026)
+- 432 source files, ~86,000 LOC
+- 6,764 tests across 283 suites — all passing
+- `main.ts`: 1,287 LOC (plugin orchestrator)
+- 20 domain bounded contexts, 360+ events, 14 services
+- 6 BaseHubView subclasses: EventCatalog, DataExchangeHub, UserHub, TrainHub, AnalyticsHub
+- Journey Builder: 16 UI components (~2,875 LOC), 3-state sidebar, 34 E2E tools
+- Analytics: 38 UI files (~9,668 LOC), dashboards, queries, tiles, charts
+- Train: 15 UI files (~3,441 LOC), timeline, capture, merge
+- Session: 20 UI files (~2,798 LOC), 6-state machine, handler extraction
+- Canvas: 9 UI files (~1,920 LOC), templates, session monitor
+- CSS: 12 layered source files in `css/` → auto-concatenated `styles.css`
+- Report pipeline: 11 generated vault notes (`npm run generate:reports`)
 
 ### Target After Phase 13
 - `EventConfigModal.ts`: 629 → ~150 LOC
@@ -761,7 +815,13 @@ Each UI component has a dedicated documentation file in `docs/components/` (68 f
 | User Hub | `src/ui/userHub/` | 6 | [[UserHubDashboard]], [[UserHubInbox]], [[UserHubSessions]], [[UserHubPreferences]], [[UserHubSessionPreferences]], [[UserHubNudgePreferences]] |
 | Export | `src/ui/export/` | 4 | [[ViewSelectPage]], [[ConfigurePage]], [[PreviewPage]] |
 | Event Config | `src/ui/eventConfig/` | 3 | [[OverviewPage]], [[DefinitionFormPage]], SubscriptionForm (inline) |
-| Session | `src/ui/session/` | 17 | [[SessionWorkspaceView]], [[SessionActivityPanel]], [[SessionClosureOverlay]], [[SessionEnergyIndicator]] |
+| Session | `src/ui/session/` | 20 | [[SessionWorkspaceView]], [[SessionActivityPanel]], [[SessionClosureOverlay]], [[SessionEnergyIndicator]] |
+| Journey Builder | `src/ui/journeyBuilder/` | 16 | JourneyBuilderSidebar, WelcomeScreen, SetupForm, NavBar, StepCard, ActionList, ActionForm, ToolPicker, TemplatePicker, EventSuggest, ChipList, JSONPanel, CanvasSyncController |
+| Analytics | `src/ui/analytics/` | 38 | [[AnalyticsHubView]], DashboardsTab, QueriesTab, TileSettingsPanel, ChartRenderer, DashboardFilterBar |
+| Train | `src/ui/train/` | 15 | [[TrainHubView]], TrainMainView, TrainTimelineSidebar, TrainControlsPanel, TrainHistoryPanel |
+| Canvas | `src/ui/canvas/` | 9 | CanvasActionView, CanvasSessionSidebar, CanvasTemplatePickerModal, CanvasLanding |
+| Shell | `src/ui/shell/` | 3 | [[WorkspaceShell]] |
+| Layouts | `src/ui/layouts/` | 7 | SinglePaneLayout, SplitLayout, TabbedLayout, StackedLayout, LayoutRegistry |
 
 ### Key Undocumented Components
 
