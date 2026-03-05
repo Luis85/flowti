@@ -1,6 +1,12 @@
 {
 	"nodes":[
 		{"id":"503aff305fed1757","type":"group","x":-240,"y":5280,"width":5727,"height":1200,"label":"Views and Improvements"},
+		{"id":"39fcb04a6dfb4db0","type":"group","x":1740,"y":-1210,"width":1580,"height":500,"label":"Solution"},
+		{"id":"f1ab36403ad8330d","type":"group","x":1740,"y":-590,"width":1280,"height":600,"label":"Simulation Environment - Product Development"},
+		{"id":"30eac272b7498959","type":"group","x":1740,"y":-1810,"width":880,"height":500,"label":"Problem"},
+		{"id":"595e466f2e980097","type":"group","x":2660,"y":-490,"width":300,"height":420,"label":"AI Agents"},
+		{"id":"cd503e9695ad13a0","type":"group","x":2220,"y":-410,"width":300,"height":260,"label":"Product Development"},
+		{"id":"0c2045c923d1ccf0","type":"group","x":1780,"y":-370,"width":300,"height":180,"label":"Obsidian"},
 		{"id":"277a7b8ec3640f58","type":"group","x":-40,"y":-1930,"width":3440,"height":1960,"label":"Unit under Test"},
 		{"id":"b166cd871972398d","type":"group","x":1380,"y":2180,"width":2860,"height":1520,"label":"Flowti - Mental Model"},
 		{"id":"47155404c92774a1","type":"group","x":3640,"y":-1930,"width":2540,"height":810,"label":"Product Backlog"},
@@ -23,9 +29,7 @@
 		{"id":"709db2caae500820","type":"group","backgroundStyle":"ratio","x":1730,"y":5360,"width":1648,"height":1100,"label":"Event Catalog - Dashboard","background":"03 - Resources/Attachments/Pasted image 20260213192558.png"},
 		{"id":"88cf99594f0985d7","type":"group","backgroundStyle":"ratio","x":3820,"y":5362,"width":1647,"height":1098,"label":"Event Catalog - Flows","background":"03 - Resources/Attachments/Pasted image 20260213192818.png"},
 		{"id":"1e795db265a03e30","type":"group","x":-40,"y":1440,"width":2240,"height":540,"label":"Quality Management System - Product Development"},
-		{"id":"39fcb04a6dfb4db0","type":"group","x":1740,"y":-1210,"width":1580,"height":500,"label":"Solution"},
 		{"id":"be68efe3c18f4579","type":"group","x":2840,"y":2520,"width":960,"height":820,"label":"Product Development"},
-		{"id":"f1ab36403ad8330d","type":"group","x":1740,"y":-590,"width":1280,"height":600,"label":"Simulation Environment - Product Development"},
 		{"id":"96c92613e64903ec","type":"group","x":3640,"y":-780,"width":880,"height":820,"label":"Domainmodel"},
 		{"id":"abc9776e8773b32b","type":"group","x":1400,"y":2640,"width":1060,"height":580,"label":"Frontstage"},
 		{"id":"cfb72c57d6b99452","type":"group","x":3660,"y":-640,"width":840,"height":660,"label":"Domain"},
@@ -35,7 +39,6 @@
 		{"id":"8cbc340c22bf6acf","type":"group","x":460,"y":-1690,"width":300,"height":1580,"label":"Input"},
 		{"id":"7c0ee3db8f245007","type":"group","x":-20,"y":2180,"width":300,"height":1580,"label":"Input"},
 		{"id":"25b3d6b5ce67a4e8","type":"group","x":860,"y":2180,"width":300,"height":1580,"label":"Output"},
-		{"id":"30eac272b7498959","type":"group","x":1740,"y":-1810,"width":880,"height":500,"label":"Problem"},
 		{"id":"e39a96cd6dcd80b2","type":"group","x":3680,"y":-520,"width":800,"height":520,"label":"Product or Service"},
 		{"id":"23419d421cec7007","type":"group","x":380,"y":1540,"width":740,"height":420,"color":"2","label":"Quality Model"},
 		{"id":"8693c91ef0c19664","type":"group","x":5060,"y":-1850,"width":300,"height":660,"label":"Journeys"},
@@ -45,19 +48,16 @@
 		{"id":"805b07718e132611","type":"group","x":3700,"y":-420,"width":380,"height":400,"label":"Frontstage"},
 		{"id":"1322864aeea97eeb","type":"group","x":3300,"y":2640,"width":360,"height":400,"color":"2","label":"Product Backlog Item"},
 		{"id":"d02ccec3b858e13f","type":"group","x":4100,"y":-420,"width":360,"height":400,"label":"Backstage"},
-		{"id":"595e466f2e980097","type":"group","x":2660,"y":-490,"width":300,"height":420,"label":"AI Agents"},
 		{"id":"0564f27fb8c2fa1e","type":"group","x":1400,"y":1540,"width":300,"height":420,"color":"2","label":"Product"},
 		{"id":"bfb5429fcc72e2ad","type":"group","x":-20,"y":1540,"width":300,"height":420,"color":"2","label":"Input"},
 		{"id":"3590bf8227c8e5b2","type":"group","x":420,"y":2260,"width":300,"height":420,"label":"Discovery"},
 		{"id":"f1d5d38384754027","type":"group","x":420,"y":3240,"width":300,"height":340,"label":"Cycle 1 - N"},
 		{"id":"ac827defa91bd785","type":"group","x":4600,"y":-1690,"width":300,"height":340,"label":"Product"},
 		{"id":"fd0dec85aece3e54","type":"group","x":3920,"y":2702,"width":300,"height":275,"label":"Influencer"},
-		{"id":"cd503e9695ad13a0","type":"group","x":2220,"y":-410,"width":300,"height":260,"label":"Product Development"},
 		{"id":"173575747476d753","type":"group","x":1440,"y":2910,"width":300,"height":260,"color":"5","label":"PBI"},
 		{"id":"465ea026f73d543a","type":"group","x":420,"y":2760,"width":300,"height":260,"label":"Product Design"},
 		{"id":"24159a8220ba5876","type":"group","x":4120,"y":-1650,"width":300,"height":260,"label":"Jobs to be done"},
 		{"id":"eb56d8b9c2c758f2","type":"group","x":1800,"y":2710,"width":620,"height":120,"color":"2","label":"Sitemap"},
-		{"id":"0c2045c923d1ccf0","type":"group","x":1780,"y":-370,"width":300,"height":180,"label":"Obsidian"},
 		{"id":"68dd7eaa4f3de939","type":"group","x":3080,"y":-590,"width":300,"height":180,"label":"Agent inner-workings"},
 		{"id":"ac6b4ec2959f3db2","type":"group","x":3330,"y":2700,"width":300,"height":110,"color":"6","label":"Problemspace"},
 		{"id":"2262b012353cf0dd","type":"group","x":3330,"y":2880,"width":300,"height":110,"color":"6","label":"Solutionspace"},
@@ -83,7 +83,6 @@
 			"height":60,
 			"color":"5"
 		},
-		{"id":"0b8e15eb023842e5","type":"file","file":"Development/Plugin Design.canvas","x":2760,"y":-1130,"width":260,"height":400},
 		{
 			"id":"f9ee60f19b921abd",
 			"type":"text",
@@ -126,8 +125,6 @@
 			"height":60,
 			"color":"4"
 		},
-		{"id":"5d6cdc543db0af78","type":"file","file":"Development/flowti/docs/inbox/Flowti - System Design.canvas","x":2480,"y":-1130,"width":260,"height":400},
-		{"id":"5e20e595aaae0f17","type":"file","file":"02 - Jobs to be done.base","x":1760,"y":-1730,"width":400,"height":400},
 		{
 			"id":"b35ecc95e2cbf4a2",
 			"type":"text",
@@ -213,18 +210,6 @@
 			"height":60,
 			"color":"6"
 		},
-		{"id":"c40b11027e8bac16","type":"file","file":"00 - Inbox.base","x":2200,"y":-1730,"width":400,"height":400},
-		{"id":"83c9ad2da538d079","type":"file","file":"Development/flowti/docs/learnings/AI is a very good tool to simulate document heavy processes to quickly iterate on them.md","x":1760,"y":-1130,"width":400,"height":400},
-		{
-			"id":"8b42e85c8914f3a7",
-			"type":"text",
-			"text":"# Folderstructure\n\n- `/00 - Connectivity`\n- `/01 - Projects`\n- `/02 - Areas`\n- `/03 - Resources`\n- `/03 - Resources/Documentations/...Diataxis`\n- `/04 - Archive`",
-			"styleAttributes":{},
-			"x":2200,
-			"y":-1130,
-			"width":260,
-			"height":400
-		},
 		{
 			"id":"a87a86377a3e80f2",
 			"type":"text",
@@ -292,26 +277,6 @@
 			"width":260,
 			"height":60,
 			"color":"5"
-		},
-		{
-			"id":"8e89498c443630b7",
-			"type":"text",
-			"text":"How can Flowti execute this process?",
-			"styleAttributes":{},
-			"x":-20,
-			"y":-930,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"ade7a1ce1fd55366",
-			"type":"text",
-			"text":"How can this become the baseline canvas when designing a new process?",
-			"styleAttributes":{},
-			"x":-20,
-			"y":-1020,
-			"width":260,
-			"height":60
 		},
 		{
 			"id":"1c73d2ff5d483bbd",
@@ -385,16 +350,6 @@
 			"y":2520,
 			"width":260,
 			"height":60
-		},
-		{
-			"id":"8844baa6c4d7d42b",
-			"type":"text",
-			"text":"# User Groups\n\n- new to Obsidian\n- new to Markdown\n- new to Git\n- new to Obsidian Plugin Development\n- new to Project Management\n- new to Software Design\n- new to Product Development\n",
-			"styleAttributes":{},
-			"x":3040,
-			"y":-1130,
-			"width":260,
-			"height":400
 		},
 		{
 			"id":"f5114aac9d6e5eac",
@@ -652,16 +607,6 @@
 			"color":"2"
 		},
 		{
-			"id":"f5c6fc5c5a4f7f20",
-			"type":"text",
-			"text":"Flowti Codebase",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2240,
-			"y":-390,
-			"width":260,
-			"height":60
-		},
-		{
 			"id":"1f8ab164b2703eeb",
 			"type":"text",
 			"text":"Git",
@@ -772,16 +717,6 @@
 			"height":60
 		},
 		{
-			"id":"c96c86f2ccab69fa",
-			"type":"text",
-			"text":"Claude - QA-Engineer",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2680,
-			"y":-150,
-			"width":260,
-			"height":60
-		},
-		{
 			"id":"0cc921be6148aa1f",
 			"type":"text",
 			"text":"ChatGPT - Product Owner",
@@ -790,17 +725,6 @@
 			"y":-470,
 			"width":260,
 			"height":60
-		},
-		{
-			"id":"4338c4ea406e8b96",
-			"type":"text",
-			"text":"Idea to Solution Workflow",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1800,
-			"y":-510,
-			"width":260,
-			"height":60,
-			"color":"3"
 		},
 		{
 			"id":"5333dff10cb150dd",
@@ -897,17 +821,6 @@
 			"styleAttributes":{"textAlign":"right"},
 			"x":480,
 			"y":-410,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"5905df0277543dfd",
-			"type":"text",
-			"text":"Next Cycle Plan",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-840,
 			"width":260,
 			"height":60,
 			"color":"5"
@@ -1172,28 +1085,6 @@
 			"color":"6"
 		},
 		{
-			"id":"1fb3cf12d3fea7bf",
-			"type":"text",
-			"text":"Flowti - IBDE",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2240,
-			"y":-120,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"dc8b1ed0fc69fe71",
-			"type":"text",
-			"text":"Denied Product Increment",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1260,
-			"y":-410,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
 			"id":"6ac10bf40d3581de",
 			"type":"text",
 			"text":"Journeys",
@@ -1244,39 +1135,6 @@
 			"height":60
 		},
 		{
-			"id":"eb9d5794187ece00",
-			"type":"text",
-			"text":"Release Artifact",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1260,
-			"y":-210,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"4fea4d5d896f7410",
-			"type":"text",
-			"text":"Accepted Product Increment",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1260,
-			"y":-490,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"c3266d01ce6c410d",
-			"type":"text",
-			"text":"New Product Increment",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1260,
-			"y":-840,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
 			"id":"126d5d8e7b2a909d",
 			"type":"text",
 			"text":"Planning",
@@ -1310,50 +1168,6 @@
 			"color":"5"
 		},
 		{
-			"id":"1baa2d48ccea8665",
-			"type":"text",
-			"text":"Feature Backlog",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-1350,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"f886a3ad9e6000f1",
-			"type":"text",
-			"text":"PBIs",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-990,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"ae0a20413c5d7dfd",
-			"type":"text",
-			"text":"Prioritized Features",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-1150,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"eda8ecd0802d8766",
-			"type":"text",
-			"text":"Slices",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-1070,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
 			"id":"f24519715c7a4071",
 			"type":"text",
 			"text":"Priotization",
@@ -1371,17 +1185,6 @@
 			"styleAttributes":{"textAlign":"center"},
 			"x":1260,
 			"y":-1350,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"b9b60f77e828c269",
-			"type":"text",
-			"text":"Tech Debt Backlog",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-1270,
 			"width":260,
 			"height":60,
 			"color":"5"
@@ -1919,6 +1722,203 @@
 			"y":-1270,
 			"width":260,
 			"height":60
+		},
+		{
+			"id":"8e89498c443630b7",
+			"type":"text",
+			"text":"How can Flowti execute this process?",
+			"styleAttributes":{},
+			"x":-20,
+			"y":-930,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"ade7a1ce1fd55366",
+			"type":"text",
+			"text":"How can this become the baseline canvas when designing a new process?",
+			"styleAttributes":{},
+			"x":-20,
+			"y":-1020,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"5905df0277543dfd",
+			"type":"text",
+			"text":"Next Cycle Plan",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-840,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"4fea4d5d896f7410",
+			"type":"text",
+			"text":"Accepted Product Increment",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1260,
+			"y":-490,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"c3266d01ce6c410d",
+			"type":"text",
+			"text":"New Product Increment",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1260,
+			"y":-840,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"1baa2d48ccea8665",
+			"type":"text",
+			"text":"Feature Backlog",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-1350,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"f886a3ad9e6000f1",
+			"type":"text",
+			"text":"PBIs",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-990,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"ae0a20413c5d7dfd",
+			"type":"text",
+			"text":"Prioritized Features",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-1150,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"eda8ecd0802d8766",
+			"type":"text",
+			"text":"Slices",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-1070,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"b9b60f77e828c269",
+			"type":"text",
+			"text":"Tech Debt Backlog",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-1270,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"f5c6fc5c5a4f7f20",
+			"type":"text",
+			"text":"Flowti Codebase",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2240,
+			"y":-390,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"c96c86f2ccab69fa",
+			"type":"text",
+			"text":"Claude - QA-Engineer",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2680,
+			"y":-150,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"4338c4ea406e8b96",
+			"type":"text",
+			"text":"Idea to Solution Workflow",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1800,
+			"y":-510,
+			"width":260,
+			"height":60,
+			"color":"3"
+		},
+		{
+			"id":"dc8b1ed0fc69fe71",
+			"type":"text",
+			"text":"Denied Product Increment",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1260,
+			"y":-410,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"eb9d5794187ece00",
+			"type":"text",
+			"text":"Release Artifact",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1260,
+			"y":-210,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{"id":"0b8e15eb023842e5","type":"file","file":"Development/Plugin Design.canvas","x":2760,"y":-1130,"width":260,"height":400},
+		{"id":"5d6cdc543db0af78","type":"file","file":"Development/flowti/docs/inbox/Flowti - System Design.canvas","x":2480,"y":-1130,"width":260,"height":400},
+		{"id":"5e20e595aaae0f17","type":"file","file":"02 - Jobs to be done.base","x":1760,"y":-1730,"width":400,"height":400},
+		{"id":"c40b11027e8bac16","type":"file","file":"00 - Inbox.base","x":2200,"y":-1730,"width":400,"height":400},
+		{"id":"83c9ad2da538d079","type":"file","file":"Development/flowti/docs/learnings/AI is a very good tool to simulate document heavy processes to quickly iterate on them.md","x":1760,"y":-1130,"width":400,"height":400},
+		{
+			"id":"8b42e85c8914f3a7",
+			"type":"text",
+			"text":"# Folderstructure\n\n- `/00 - Connectivity`\n- `/01 - Projects`\n- `/02 - Areas`\n- `/03 - Resources`\n- `/03 - Resources/Documentations/...Diataxis`\n- `/04 - Archive`",
+			"styleAttributes":{},
+			"x":2200,
+			"y":-1130,
+			"width":260,
+			"height":400
+		},
+		{
+			"id":"8844baa6c4d7d42b",
+			"type":"text",
+			"text":"# User Groups\n\n- new to Obsidian\n- new to Markdown\n- new to Git\n- new to Obsidian Plugin Development\n- new to Project Management\n- new to Software Design\n- new to Product Development\n",
+			"styleAttributes":{},
+			"x":3040,
+			"y":-1130,
+			"width":260,
+			"height":400
+		},
+		{
+			"id":"1fb3cf12d3fea7bf",
+			"type":"text",
+			"text":"Flowti - IBDE",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2240,
+			"y":-120,
+			"width":260,
+			"height":60,
+			"color":"2"
 		},
 		{
 			"id":"55ecf1e6b192a760",
