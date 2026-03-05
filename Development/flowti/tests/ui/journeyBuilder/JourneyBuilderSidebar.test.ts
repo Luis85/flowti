@@ -140,8 +140,8 @@ describe("JourneyBuilderSidebar", () => {
 			const card = byTestId(sidebarWithJourneys.contentEl, "jb-open-existing");
 			const title = card!.querySelector("[data-test-id='jb-card-title']");
 			const desc = card!.querySelector("[data-test-id='jb-card-desc']");
-			expect(title!.textContent).toBe("Open existing journey");
-			expect(desc!.textContent).toContain("Load and edit");
+			expect(title!.textContent).toBe("Open journey");
+			expect(desc!.textContent).toContain("journey or canvas");
 		});
 
 		it("renders Create New card with title and description", () => {
@@ -168,22 +168,8 @@ describe("JourneyBuilderSidebar", () => {
 			expect(handler).toHaveBeenCalledOnce();
 		});
 
-		it("renders Import Definition card with title and description", () => {
-			const card = byTestId(sidebarWithJourneys.contentEl, "jb-import-definition");
-			expect(card).toBeTruthy();
-			const title = card!.querySelector("[data-test-id='jb-card-title']");
-			const desc = card!.querySelector("[data-test-id='jb-card-desc']");
-			expect(title!.textContent).toBe("Import definition");
-			expect(desc!.textContent).toContain("Import a .journey");
-		});
-
-		it("supports keyboard activation with Enter on Import Definition", () => {
-			const card = byTestId(sidebarWithJourneys.contentEl, "jb-import-definition");
-			expect(card).toBeTruthy();
-			// Should not throw — onImportFile needs app which is null in test, but event listener fires
-			card!.dispatchEvent(
-				new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
-			);
+		it("does not render Import Definition card (consolidated into Open existing)", () => {
+			expect(byTestId(sidebarWithJourneys.contentEl, "jb-import-definition")).toBeNull();
 		});
 	});
 
@@ -1791,6 +1777,82 @@ describe("JourneyBuilderSidebar", () => {
 
 			// Re-open to check state was not changed
 			expect(sidebar.getSteps()[0].title).toBe("Open the hub");
+		});
+	});
+
+	describe("dual input (file picker)", () => {
+		it("findJourneyFiles includes both .journey and .canvas files", async () => {
+			const dual = new JourneyBuilderSidebar(createMockLeaf(), {
+				eventBus,
+				getJourneyFolder: () => "03 - Resources/Journeys",
+			});
+			(dual as unknown as { app: { vault: { getFiles: () => { path: string }[] } } }).app.vault.getFiles = () => [
+				{ path: "03 - Resources/Journeys/Test/Test.journey" },
+				{ path: "03 - Resources/Journeys/Test/Test.canvas" },
+				{ path: "03 - Resources/Journeys/Other/Other.journey" },
+			];
+			await dual.onOpen();
+			// Welcome state should show "Open existing" (3 files found)
+			expect(byTestId(dual.contentEl, "jb-open-existing")).toBeTruthy();
+		});
+
+		it("findJourneyFiles with folder scope only returns files in journey folder", async () => {
+			const dual = new JourneyBuilderSidebar(createMockLeaf(), {
+				eventBus,
+				getJourneyFolder: () => "03 - Resources/Journeys",
+			});
+			(dual as unknown as { app: { vault: { getFiles: () => { path: string }[] } } }).app.vault.getFiles = () => [
+				{ path: "03 - Resources/Journeys/Test/Test.journey" },
+				{ path: "other/folder/Random.canvas" },
+			];
+			await dual.onOpen();
+			// Only 1 file in journey folder — should show "Open existing"
+			expect(byTestId(dual.contentEl, "jb-open-existing")).toBeTruthy();
+		});
+
+		it("shows Open existing when only canvas files are present", async () => {
+			const dual = new JourneyBuilderSidebar(createMockLeaf(), {
+				eventBus,
+				getJourneyFolder: () => "03 - Resources/Journeys",
+			});
+			(dual as unknown as { app: { vault: { getFiles: () => { path: string }[] } } }).app.vault.getFiles = () => [
+				{ path: "03 - Resources/Journeys/MyCanvas/MyCanvas.canvas" },
+			];
+			await dual.onOpen();
+			expect(byTestId(dual.contentEl, "jb-open-existing")).toBeTruthy();
+		});
+
+		it("shows empty welcome when no journey or canvas files exist", async () => {
+			const dual = new JourneyBuilderSidebar(createMockLeaf(), {
+				eventBus,
+				getJourneyFolder: () => "03 - Resources/Journeys",
+			});
+			(dual as unknown as { app: { vault: { getFiles: () => { path: string }[] } } }).app.vault.getFiles = () => [
+				{ path: "03 - Resources/Journeys/readme.md" },
+			];
+			await dual.onOpen();
+			expect(byTestId(dual.contentEl, "jb-empty-welcome")).toBeTruthy();
+			expect(byTestId(dual.contentEl, "jb-open-existing")).toBeNull();
+		});
+
+		it("open from vault link shows notice when no files found", async () => {
+			const dual = new JourneyBuilderSidebar(createMockLeaf(), {
+				eventBus,
+				getJourneyFolder: () => "03 - Resources/Journeys",
+			});
+			(dual as unknown as { app: { vault: { getFiles: () => { path: string }[] } } }).app.vault.getFiles = () => [];
+			await dual.onOpen();
+
+			const notices: string[] = [];
+			eventBus.on("notice.show", (event) => {
+				notices.push((event.payload as { message: string }).message);
+			});
+
+			// Trigger open — internally calls onOpenExisting() via import link
+			const link = byTestId(dual.contentEl, "jb-import-link");
+			if (link) link.click();
+
+			expect(notices.some((m) => m.includes("No journey or canvas files found"))).toBe(true);
 		});
 	});
 

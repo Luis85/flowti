@@ -1,6 +1,6 @@
 {
 	"journey": "Journey Builder",
-	"description": "Full E2E blueprint for the Journey Builder feature. Steps 1-12 validate the current implementation (launch, welcome/setup flow, step editing with navigation, Title Sentence conversion, export, action templates with template picker, action builder with 34 tools, live JSON preview with copy-to-clipboard, event autocomplete, command picker, assert type builder, real-time canvas sync, full 3-file export, open existing journey). Step 13 is a development target: preview run.",
+	"description": "Full E2E blueprint for the Journey Builder feature. Steps 1-12 validate the current implementation (launch, welcome/setup flow, step editing with navigation, Title Sentence conversion, export, action templates with template picker, action builder with 34 tools, live JSON preview with copy-to-clipboard, event autocomplete, command picker, assert type builder, real-time canvas sync, full 3-file export, open existing journey). Step 13 is a development target: preview run. Dual input: file picker shows both .journey and .canvas files with type badges, canvas files filtered to journey canvases only.",
 	"testSource": "tests/e2e/90-journey-journey-builder.test.ts",
 	"reportPath": "docs/journeys/Journey Builder/Journey Builder.md",
 	"canvasPath": "docs/journeys/Journey Builder/Journey Builder.canvas",
@@ -171,7 +171,7 @@
 				},
 				{ "tool": "highlight", "selector": ".workspace-leaf-content[data-type='flowti-journey-builder']", "style": "element", "description": "Highlight sidebar", "duration": 500 },
 				{ "tool": "screenshot", "label": "after-ribbon", "description": "Journey Builder open via ribbon" },
-				{ "tool": "manual", "instruction": "Verify the ribbon button has a route icon. The sidebar should appear in the right pane with an empty welcome state: a 'Create first journey' button and 'or import from vault' / 'or browse from file system' links.", "interactive": false, "description": "Visual QA of ribbon-triggered state" }
+				{ "tool": "manual", "instruction": "Verify the ribbon button has a route icon. The sidebar should appear in the right pane with an empty welcome state: a 'Create first journey' button and 'or open from vault' / 'or browse from file system' links.", "interactive": false, "description": "Visual QA of ribbon-triggered state" }
 			]
 		},
 		{
@@ -709,8 +709,8 @@
 			"title": "Open existing journey for editing",
 			"guideSection": 12,
 			"swimlane": "frontstage",
-			"description": "Closes the current journey, returns to the welcome screen, and uses 'Open Existing' to load the previously exported journey back into the step editor. Verifies all fields are populated and the companion canvas opens alongside.",
-			"expectedInput": "Journey Builder on welcome screen, exported journey JSON in vault",
+			"description": "Closes the current journey, returns to the welcome screen, and uses 'Open Existing' to load a previously exported journey or canvas file back into the step editor. File picker shows both .journey and .canvas files with type badges, canvas files filtered to journey canvases only. Verifies all fields are populated and the companion canvas opens alongside.",
+			"expectedInput": "Journey Builder on welcome screen, exported journey JSON or canvas in vault",
 			"expectedOutput": "Exported journey loaded in step editor with all fields populated, companion canvas open",
 			"uiContext": {
 				"view": "flowti-journey-builder",
@@ -718,7 +718,7 @@
 				"components": ["JourneyBuilderSidebar", "NavBar", "StepCard"]
 			},
 			"events": ["journey-builder.open-existing"],
-			"interactions": ["click: Open Existing", "select: Journey file"],
+			"interactions": ["click: Open Existing", "select: Journey or canvas file"],
 			"improvements": [
 				{
 					"title": "Recent journeys list on welcome screen",

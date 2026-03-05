@@ -22,7 +22,6 @@ describe("WelcomeScreen", () => {
 			hasExistingJourneys: false,
 			onCreateNew: vi.fn(),
 			onOpenExisting: vi.fn(),
-			onImportFile: vi.fn(),
 			onImportFromSystem: vi.fn(),
 		};
 	});
@@ -61,10 +60,10 @@ describe("WelcomeScreen", () => {
 			expect(byTestId(container, "jb-import-link")).toBeTruthy();
 		});
 
-		it("calls onImportFile on import link click", () => {
+		it("calls onOpenExisting on import link click", () => {
 			new WelcomeScreen(container, deps).render();
 			byTestId(container, "jb-import-link")!.click();
-			expect(deps.onImportFile).toHaveBeenCalledOnce();
+			expect(deps.onOpenExisting).toHaveBeenCalledOnce();
 		});
 
 		it("renders browse link", () => {
@@ -83,7 +82,7 @@ describe("WelcomeScreen", () => {
 			byTestId(container, "jb-import-link")!.dispatchEvent(
 				new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
 			);
-			expect(deps.onImportFile).toHaveBeenCalledOnce();
+			expect(deps.onOpenExisting).toHaveBeenCalledOnce();
 		});
 
 		it("does not render welcome cards", () => {
@@ -102,10 +101,10 @@ describe("WelcomeScreen", () => {
 			expect(container.querySelector(".ft-jb-welcome-cards")).toBeTruthy();
 		});
 
-		it("renders three cards", () => {
+		it("renders two cards (open existing + create new)", () => {
 			new WelcomeScreen(container, deps).render();
 			const titles = allByTestId(container, "jb-card-title");
-			expect(titles).toHaveLength(3);
+			expect(titles).toHaveLength(2);
 		});
 
 		it("renders open existing card", () => {
@@ -130,15 +129,9 @@ describe("WelcomeScreen", () => {
 			expect(deps.onCreateNew).toHaveBeenCalledOnce();
 		});
 
-		it("renders import definition card", () => {
+		it("does not render import definition card (consolidated)", () => {
 			new WelcomeScreen(container, deps).render();
-			expect(byTestId(container, "jb-import-definition")).toBeTruthy();
-		});
-
-		it("calls onImportFile on import card click", () => {
-			new WelcomeScreen(container, deps).render();
-			byTestId(container, "jb-import-definition")!.click();
-			expect(deps.onImportFile).toHaveBeenCalledOnce();
+			expect(byTestId(container, "jb-import-definition")).toBeNull();
 		});
 
 		it("supports keyboard activation on cards (Enter)", () => {

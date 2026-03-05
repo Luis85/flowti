@@ -28,7 +28,7 @@ import { WelcomeScreen } from "./WelcomeScreen";
 import { SetupForm } from "./SetupForm";
 import { CanvasSyncController } from "./CanvasSyncController";
 import { renderHeader, renderBackButton, renderActionButton, renderLoading } from "./sidebarHelpers";
-import type { ParsedJourneyCanvas } from "../../domain/journeyBuilder/canvasParser";
+import { isJourneyCanvas, type ParsedJourneyCanvas } from "../../domain/journeyBuilder/canvasParser";
 import { runPreview } from "../../domain/journeyBuilder/previewRunner";
 
 export const VIEW_TYPE_JOURNEY_BUILDER = "flowti-journey-builder";
@@ -36,20 +36,45 @@ export const VIEW_TYPE_JOURNEY_BUILDER = "flowti-journey-builder";
 /** Sidebar view state: welcome (landing), setup (metadata form), or steps (step editor). */
 export type SidebarState = "welcome" | "setup" | "steps";
 
-/** Adapter-based journey file picker — works for .json files not indexed by vault. */
+/** Adapter-based journey file picker — groups .journey and .canvas files. */
 class JourneyPickerModal extends FuzzySuggestModal<string> {
 	private paths: string[];
 	private onChoosePath: (path: string) => void;
 
 	constructor(app: App, paths: string[], onChoose: (path: string) => void) {
 		super(app);
-		this.paths = paths;
+		// Sort: .journey files first, .canvas second — groups by type
+		this.paths = [...paths].sort((a, b) => {
+			const aIsCanvas = a.endsWith(".canvas") ? 1 : 0;
+			const bIsCanvas = b.endsWith(".canvas") ? 1 : 0;
+			return aIsCanvas - bIsCanvas || a.localeCompare(b);
+		});
 		this.onChoosePath = onChoose;
 	}
 
 	getItems(): string[] { return this.paths; }
 	getItemText(item: string): string { return item.split("/").pop() ?? item; }
 	onChooseItem(item: string): void { this.onChoosePath(item); }
+
+	renderSuggestion(match: import("obsidian").FuzzyMatch<string>, el: HTMLElement): void {
+		el.empty();
+		el.addClass("ft-jb-picker-item");
+		const isCanvas = match.item.endsWith(".canvas");
+
+		// Top row: badge + filename
+		const row = el.createDiv({ cls: "ft-jb-picker-row" });
+		const badge = row.createSpan({ cls: "ft-jb-picker-badge" });
+		badge.textContent = isCanvas ? "Canvas" : "Journey";
+		badge.dataset.type = isCanvas ? "canvas" : "journey";
+		const fileName = match.item.split("/").pop() ?? match.item;
+		row.createSpan({ cls: "ft-jb-picker-name", text: fileName });
+
+		// Subtitle: folder path
+		const parts = match.item.split("/");
+		if (parts.length > 1) {
+			el.createDiv({ cls: "ft-jb-picker-path", text: parts.slice(0, -1).join("/") });
+		}
+	}
 }
 
 export interface JourneyMetadata {
@@ -119,13 +144,38 @@ export class JourneyBuilderSidebar extends ItemView {
 		return `${this.journeyFolder()}/${this.metadata.name}/${this.metadata.name}.canvas`;
 	}
 
-	/** Returns .journey file paths from the vault's in-memory index. */
+	/** Returns .journey and .canvas file paths from the vault's in-memory index. */
 	private findJourneyFiles(scope: "folder" | "vault" = "folder"): string[] {
 		const files = this.app?.vault?.getFiles() ?? [];
-		const journeyFiles = files.filter((f) => f.path.endsWith(".journey"));
+		const journeyFiles = files.filter((f) =>
+			f.path.endsWith(".journey") || f.path.endsWith(".canvas"),
+		);
 		if (scope === "vault") return journeyFiles.map((f) => f.path);
 		const folder = this.journeyFolder();
 		return journeyFiles.filter((f) => f.path.startsWith(folder + "/")).map((f) => f.path);
+	}
+
+	/** Filters canvas files to only include journey canvases (has START + END nodes). */
+	private async filterJourneyCanvases(paths: string[]): Promise<string[]> {
+		const vault = this.app?.vault;
+		if (!vault) return paths.filter((p) => !p.endsWith(".canvas"));
+		const results: string[] = [];
+		for (const path of paths) {
+			if (!path.endsWith(".canvas")) {
+				results.push(path);
+				continue;
+			}
+			try {
+				const file = vault.getAbstractFileByPath(path);
+				if (!file || !("extension" in file)) continue;
+				const raw = await vault.cachedRead(file as import("obsidian").TFile);
+				const canvas = JSON.parse(raw) as import("obsidian/canvas").CanvasData;
+				if (isJourneyCanvas(canvas)) results.push(path);
+			} catch {
+				// Skip unreadable/unparseable canvas files
+			}
+		}
+		return results;
 	}
 
 	private ensureCanvasSync(): CanvasSyncController {
@@ -265,7 +315,6 @@ export class JourneyBuilderSidebar extends ItemView {
 			hasExistingJourneys: journeyFiles.length > 0,
 			onCreateNew: () => this.onCreateNew(),
 			onOpenExisting: () => this.onOpenExisting(),
-			onImportFile: () => this.onImportFile(),
 			onImportFromSystem: () => this.importFromSystem(),
 		}).render();
 	}
@@ -468,25 +517,38 @@ export class JourneyBuilderSidebar extends ItemView {
 	private onOpenExisting(): void {
 		void this.eventBus.emit("journey-builder.open-existing", {});
 		if (!this.app) return;
-		const paths = this.findJourneyFiles("folder");
-		if (paths.length === 0) return;
-		new JourneyPickerModal(this.app, paths, (path) => {
-			this.renderLoadingState("Loading journey\u2026");
-			void this.eventBus.emit("journey-builder.import-requested", { path });
-		}).open();
-	}
-
-	private onImportFile(): void {
-		if (!this.app) return;
-		const paths = this.findJourneyFiles("vault");
-		if (paths.length === 0) {
-			void this.eventBus.emit("notice.show", { message: "No .journey files found" });
+		const candidates = this.findJourneyFiles("vault");
+		if (candidates.length === 0) {
+			void this.eventBus.emit("notice.show", { message: "No journey or canvas files found" });
 			return;
 		}
-		new JourneyPickerModal(this.app, paths, (path) => {
-			this.renderLoadingState("Loading journey\u2026");
-			void this.eventBus.emit("journey-builder.import-requested", { path });
-		}).open();
+		const card = this.contentEl.querySelector<HTMLElement>('[data-test-id="jb-open-existing"]')
+			?? this.contentEl.querySelector<HTMLElement>('[data-test-id="jb-import-link"]');
+		this.setCardLoading(card, true);
+		void this.filterJourneyCanvases(candidates).then((paths) => {
+			this.setCardLoading(card, false);
+			if (paths.length === 0) {
+				void this.eventBus.emit("notice.show", { message: "No journey or canvas files found" });
+				return;
+			}
+			if (!this.app) return;
+			new JourneyPickerModal(this.app, paths, (path) => {
+				this.renderLoadingState("Loading journey\u2026");
+				void this.eventBus.emit("journey-builder.import-requested", { path });
+			}).open();
+		});
+	}
+
+	/** Toggle loading indicator on a welcome card or import link. */
+	private setCardLoading(el: HTMLElement | null, loading: boolean): void {
+		if (!el) return;
+		if (loading) {
+			el.classList.add("ft-jb-card-loading");
+			el.setAttribute("aria-busy", "true");
+		} else {
+			el.classList.remove("ft-jb-card-loading");
+			el.removeAttribute("aria-busy");
+		}
 	}
 
 	private importFromSystem(): void {

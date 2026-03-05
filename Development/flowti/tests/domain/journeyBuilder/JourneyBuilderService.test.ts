@@ -478,6 +478,112 @@ describe("JourneyBuilderService", () => {
 		});
 	});
 
+	describe("handleImport — canvas files", () => {
+		function journeyCanvasJSON(overrides?: { startEvent?: string; endEvent?: string; steps?: Array<{ title: string; description: string }> }): string {
+			const canvas = buildJourneyCanvas({
+				journey: "Canvas Journey",
+				description: "",
+				startEvent: overrides?.startEvent ?? "app.started",
+				endEvent: overrides?.endEvent ?? "app.closed",
+				steps: (overrides?.steps ?? [{ title: "Step A", description: "Do something" }]).map((s, i) => ({
+					id: `s${i}`,
+					title: s.title,
+					description: s.description,
+					actions: [{ tool: "command" }],
+				})),
+			});
+			return JSON.stringify(canvas);
+		}
+
+		it("imports valid journey canvas and emits imported with converted JSON", async () => {
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockResolvedValue(journeyCanvasJSON());
+			service.start();
+			eventBus._trigger("journey-builder.import-requested", { path: "journeys/My Canvas.canvas" });
+
+			await vi.waitFor(() => {
+				const imported = eventBus._emitted.find((e) => e.type === "journey-builder.imported");
+				expect(imported).toBeDefined();
+				const json = JSON.parse((imported!.payload as { json: string }).json);
+				expect(json.journey).toBe("My Canvas");
+				expect(json.startEvent).toBe("app.started");
+				expect(json.endEvent).toBe("app.closed");
+				expect(json.steps).toHaveLength(1);
+				expect(json.steps[0].title).toBe("Step A");
+				expect(json.steps[0].description).toBe("Do something");
+				expect(json.steps[0].actions).toEqual([]);
+			});
+		});
+
+		it("rejects non-journey canvas (no START/END nodes)", async () => {
+			const nonJourney = JSON.stringify({
+				nodes: [{ id: "n1", type: "text", text: "Hello", x: 0, y: 0, width: 100, height: 50 }],
+				edges: [],
+			});
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockResolvedValue(nonJourney);
+			service.start();
+			eventBus._trigger("journey-builder.import-requested", { path: "journeys/Plain.canvas" });
+
+			await vi.waitFor(() => {
+				const failed = eventBus._emitted.find((e) => e.type === "journey-builder.import-failed");
+				expect(failed).toBeDefined();
+				expect((failed!.payload as { errors: string[] }).errors[0]).toContain("not a journey canvas");
+			});
+		});
+
+		it("rejects malformed canvas JSON", async () => {
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockResolvedValue("not valid json {{{");
+			service.start();
+			eventBus._trigger("journey-builder.import-requested", { path: "journeys/Bad.canvas" });
+
+			await vi.waitFor(() => {
+				const failed = eventBus._emitted.find((e) => e.type === "journey-builder.import-failed");
+				expect(failed).toBeDefined();
+				expect((failed!.payload as { errors: string[] }).errors[0]).toContain("invalid canvas JSON");
+			});
+		});
+
+		it("produces correct journey structure from multi-step canvas", async () => {
+			const canvasJson = journeyCanvasJSON({
+				startEvent: "hub.opened",
+				endEvent: "hub.closed",
+				steps: [
+					{ title: "First", description: "Do first" },
+					{ title: "Second", description: "Do second" },
+					{ title: "Third", description: "Do third" },
+				],
+			});
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockResolvedValue(canvasJson);
+			service.start();
+			eventBus._trigger("journey-builder.import-requested", { path: "journeys/Multi.canvas" });
+
+			await vi.waitFor(() => {
+				const imported = eventBus._emitted.find((e) => e.type === "journey-builder.imported");
+				expect(imported).toBeDefined();
+				const json = JSON.parse((imported!.payload as { json: string }).json);
+				expect(json.steps).toHaveLength(3);
+				expect(json.steps[0].id).toBe("step-1");
+				expect(json.steps[1].id).toBe("step-2");
+				expect(json.steps[2].id).toBe("step-3");
+				expect(json.steps[0].swimlane).toBe("");
+				expect(json.startEvent).toBe("hub.opened");
+				expect(json.endEvent).toBe("hub.closed");
+			});
+		});
+
+		it("existing .journey import still works unchanged", async () => {
+			const json = JSON.stringify({ journey: "Old School", steps: [{ id: "s1", title: "Step" }] });
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockResolvedValue(json);
+			service.start();
+			eventBus._trigger("journey-builder.import-requested", { path: "journeys/Old.journey" });
+
+			await vi.waitFor(() => {
+				const imported = eventBus._emitted.find((e) => e.type === "journey-builder.imported");
+				expect(imported).toBeDefined();
+				expect((imported!.payload as { json: string }).json).toBe(json);
+			});
+		});
+	});
+
 	describe("handleCanvasSync (via event trigger)", () => {
 		function sampleSyncPayload(): { canvasPath: string; definition: CanvasSyncInput } {
 			return {

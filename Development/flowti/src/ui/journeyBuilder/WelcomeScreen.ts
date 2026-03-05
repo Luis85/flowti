@@ -11,7 +11,6 @@ export interface WelcomeScreenDeps {
 	hasExistingJourneys: boolean;
 	onCreateNew: () => void;
 	onOpenExisting: () => void;
-	onImportFile: () => void;
 	onImportFromSystem: () => void;
 }
 
@@ -52,8 +51,8 @@ export class WelcomeScreen {
 
 		this.renderImportLink(importGroup, {
 			testId: "jb-import-link",
-			text: "or import from vault",
-			onClick: () => this.deps.onImportFile(),
+			text: "or open from vault",
+			onClick: () => this.deps.onOpenExisting(),
 		});
 
 		this.renderImportLink(importGroup, {
@@ -85,8 +84,8 @@ export class WelcomeScreen {
 			testId: "jb-open-existing",
 			cls: "ft-jb-welcome-card ft-jb-open-existing-btn",
 			icon: "file-search",
-			title: "Open existing journey",
-			description: "Load and edit a journey definition from your vault",
+			title: "Open journey",
+			description: "Open a journey or canvas file from your vault",
 			onClick: () => this.deps.onOpenExisting(),
 		});
 
@@ -97,15 +96,6 @@ export class WelcomeScreen {
 			title: "Create new journey",
 			description: "Design a new E2E journey from scratch",
 			onClick: () => this.deps.onCreateNew(),
-		});
-
-		this.renderCard(cards, {
-			testId: "jb-import-definition",
-			cls: "ft-jb-welcome-card ft-jb-import-btn",
-			icon: "file-input",
-			title: "Import definition",
-			description: "Import a .journey file from your vault or file system",
-			onClick: () => this.deps.onImportFile(),
 		});
 	}
 

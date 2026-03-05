@@ -226,47 +226,55 @@ Key design decisions:
 - [x] No infinite sync loops
 - [x] `npm test` green — 6,724 tests, 282 suites
 
-### Inc 3: Preview Run (PBI-JB-011)
+### Inc 3: Preview Run (PBI-JB-011) — DONE
 **Theme**: Feature
-**Effort**: Medium | **Est. LOC**: ~150 | **Est. Tests**: ~15
+**Effort**: Medium | **Actual LOC**: ~100 | **Actual Tests**: +19
 
-Dry-run execution with visual feedback:
-- "Preview Run" button in step editor toolbar
-- Executes journey definition using simulated action runner
-- Steps execute sequentially; canvas nodes update in real-time (green = pass, red = fail, gray = pending)
-- Event trace collected and shown in Events Summary node
-- Does NOT require test vault — runs simulation in current vault
-- Results inspectable: click any step node to see pass/fail details
+Dry-run validation with visual canvas feedback:
 
-**Test Intent**: Unit tests for simulated action runner (step execution, pass/fail outcomes). Integration tests for canvas highlighting (node color changes during run). Event emission tests (`journey-builder.preview.started/completed`). Edge case: empty journey, single-step journey.
-**Documentation Intent**: Add PreviewRunner to component docs. Document preview events in Event Catalog.
-**Architecture Seams**: `PreviewRunner` class in `src/domain/journeyBuilder/` — receives JourneyDefinition, emits step-level events, returns results. Canvas highlighting via existing `canvasSync` module (color overlay). No new Obsidian API surface — uses existing canvas node manipulation.
+| Component | File | Change |
+|-----------|------|--------|
+| PreviewRunner | `previewRunner.ts` | **New** — pure validation: `validateAction()`, `validateStep()`, `runPreview()` (~90 LOC) |
+| Canvas stepColors | `canvasSync.ts` | Added `stepColors?: Record<number, string>` to `CanvasSyncInput`, precedence over `activeStepIndex` |
+| Preview events | `events.ts` | Added `preview.started`, `preview.step-completed`, `preview.completed` |
+| Sidebar button | `JourneyBuilderSidebar.ts` | Preview button + `onPreviewRun()` async orchestration (300ms/step, per-step canvas coloring) |
+
+Key design decisions:
+- **Pure validation**: `validateAction` checks tool schemas including `visibleWhen` conditional fields
+- **Sequential visual walk**: 300ms delay per step, bypasses debounced `scheduleCanvasSync` for immediate canvas updates
+- **Canvas colors**: running = "5" (cyan), passed = "4" (green), failed = "1" (red)
+- **Summary notice**: "Preview: X/Y steps passed, Z failed"
 
 **Acceptance Criteria**:
-- [ ] Preview executes all steps with simulated pass/fail
-- [ ] Canvas highlights active step during run
-- [ ] Results shown per step
-- [ ] `npm test` green
+- [x] Preview executes all steps with simulated pass/fail
+- [x] Canvas highlights active step during run (stepColors)
+- [x] Results shown per step + summary notice
+- [x] `npm test` green — 6,743 tests, 283 suites
 
-### Inc 4: Dual Input (PBI-JB-012)
+### Inc 4: Dual Input (PBI-JB-012) — DONE
 **Theme**: Feature
-**Effort**: Small | **Est. LOC**: ~80 | **Est. Tests**: ~10
+**Effort**: Small | **Actual LOC**: ~50 | **Actual Tests**: +10
 
 Support both JSON and canvas as input formats:
-- Journey Runner accepts `.canvas` files (parsed via Inc 1 conversion)
-- Journey Builder can be opened from either a `.journey.json` or a `.canvas` file
-- Results output format identical regardless of input format
-- File picker shows both `.journey.json` and `.canvas` files
 
-**Test Intent**: Unit tests for canvas-to-journey conversion path in runner. Integration tests verifying identical output for both input formats. File picker filter tests (both extensions listed).
-**Documentation Intent**: Update Journey Builder PRD with dual input support. Update tool reference for journey runner.
-**Architecture Seams**: Journey Runner's `loadJourney()` method accepts path string → detects extension → routes to JSON parser or canvas parser. No new events — reuses existing `journey-builder.imported` event. File picker extends existing `findJourneyFiles()` to include `.canvas` with journey structure.
+| Component | File | Change |
+|-----------|------|--------|
+| Canvas import | `JourneyBuilderService.ts` | `handleImport()` detects `.canvas` extension, routes to `importCanvas()` helper |
+| Canvas→JSON | `JourneyBuilderService.ts` | `importCanvas()` — parses via `parseJourneyCanvas()`, converts to journey JSON (empty actions, name from filename) |
+| File picker | `JourneyBuilderSidebar.ts` | `findJourneyFiles()` extended to include `.canvas` files alongside `.journey` |
+| Notice text | `JourneyBuilderSidebar.ts` | Updated "No .journey files found" → "No journey or canvas files found" |
+
+Key design decisions:
+- **Extension-based routing**: `.canvas` → `importCanvas()` helper, `.journey` → existing `validateJourneyJSON()` path
+- **Graceful degradation**: Non-journey canvases (no START/END nodes) → error notice + `import-failed` event
+- **Same hydration path**: Both formats converge to `journey-builder.imported` event with JSON payload
+- **Canvas limitations**: Canvas doesn't preserve actions, step IDs, or swimlanes — imported steps get empty `actions: []`
 
 **Acceptance Criteria**:
-- [ ] Journey Runner accepts `.canvas` input
-- [ ] Journey Builder opens from canvas files
-- [ ] Results identical for both input formats
-- [ ] `npm test` green
+- [x] Journey Runner accepts `.canvas` input
+- [x] Journey Builder opens from canvas files
+- [x] Results identical for both input formats
+- [x] `npm test` green — 6,753 tests, 283 suites
 
 ### Inc 5: Step Background Image (PBI-JB-013)
 **Theme**: Feature

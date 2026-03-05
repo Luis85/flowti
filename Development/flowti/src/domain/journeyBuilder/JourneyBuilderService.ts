@@ -161,8 +161,14 @@ export class JourneyBuilderService {
 	private async handleImport(payload: { path: string }): Promise<void> {
 		const fileName = payload.path.split("/").pop() ?? payload.path;
 		try {
-			const json = await this.fileSystem.readFile(payload.path);
-			const result = validateJourneyJSON(json);
+			const raw = await this.fileSystem.readFile(payload.path);
+
+			if (payload.path.endsWith(".canvas")) {
+				this.importCanvas(raw, fileName, payload.path);
+				return;
+			}
+
+			const result = validateJourneyJSON(raw);
 			if (!result.valid) {
 				const detail = result.errors.slice(0, 3).join("; ");
 				void this.eventBus.emit("notice.error", {
@@ -174,7 +180,7 @@ export class JourneyBuilderService {
 				});
 				return;
 			}
-			void this.eventBus.emit("journey-builder.imported", { json });
+			void this.eventBus.emit("journey-builder.imported", { json: raw });
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
 			const isTimeout = message.includes("timed out");
@@ -187,6 +193,49 @@ export class JourneyBuilderService {
 				errors: [message],
 			});
 		}
+	}
+
+	private importCanvas(raw: string, fileName: string, path: string): void {
+		let canvasData: CanvasData;
+		try {
+			canvasData = JSON.parse(raw) as CanvasData;
+		} catch {
+			void this.eventBus.emit("notice.error", {
+				message: `Cannot import "${fileName}": invalid canvas JSON`,
+			});
+			void this.eventBus.emit("journey-builder.import-failed", {
+				path,
+				errors: ["invalid canvas JSON"],
+			});
+			return;
+		}
+
+		const parsed = parseJourneyCanvas(canvasData);
+		if (!parsed) {
+			void this.eventBus.emit("notice.error", {
+				message: `Cannot import "${fileName}": not a journey canvas (missing START/END nodes)`,
+			});
+			void this.eventBus.emit("journey-builder.import-failed", {
+				path,
+				errors: ["not a journey canvas"],
+			});
+			return;
+		}
+
+		const json = JSON.stringify({
+			journey: fileName.replace(/\.canvas$/, ""),
+			description: "",
+			startEvent: parsed.startEvent,
+			endEvent: parsed.endEvent,
+			steps: parsed.steps.map((s, i) => ({
+				id: `step-${i + 1}`,
+				title: s.title,
+				description: s.description,
+				swimlane: "",
+				actions: [],
+			})),
+		});
+		void this.eventBus.emit("journey-builder.imported", { json });
 	}
 
 	private async handleCanvasSync(payload: {
