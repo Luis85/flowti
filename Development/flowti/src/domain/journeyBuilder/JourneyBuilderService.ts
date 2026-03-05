@@ -11,6 +11,8 @@ import type { JourneyExportPayload } from "./events";
 import type { CanvasSyncInput } from "./canvasSync";
 import { buildJourneyCanvas } from "./canvasSync";
 import { validateJourneyJSON } from "./validateJourney";
+import { parseJourneyCanvas } from "./canvasParser";
+import type { CanvasData } from "obsidian/canvas";
 
 export interface JourneyBuilderServiceDeps {
 	fileSystem: IFileSystemClient;
@@ -25,6 +27,10 @@ export class JourneyBuilderService {
 	private unsubExport: (() => void) | undefined;
 	private unsubCanvasSync: (() => void) | undefined;
 	private unsubImport: (() => void) | undefined;
+	private unsubFileModified: (() => void) | undefined;
+	private activeCanvasPath: string | null = null;
+	private lastCanvasWriteTime = 0;
+	private static readonly SELF_WRITE_WINDOW_MS = 2000;
 
 	constructor(deps: JourneyBuilderServiceDeps) {
 		this.fileSystem = deps.fileSystem;
@@ -46,6 +52,10 @@ export class JourneyBuilderService {
 			"journey-builder.import-requested",
 			(event) => void this.handleImport(event.payload),
 		);
+		this.unsubFileModified = this.eventBus.on(
+			"file.modified",
+			(event) => void this.handleFileModified(event.payload as { path: string }),
+		);
 	}
 
 	/** Stops listening. */
@@ -56,6 +66,9 @@ export class JourneyBuilderService {
 		this.unsubCanvasSync = undefined;
 		this.unsubImport?.();
 		this.unsubImport = undefined;
+		this.unsubFileModified?.();
+		this.unsubFileModified = undefined;
+		this.activeCanvasPath = null;
 	}
 
 	/** Builds the JSON content from an export payload. */
@@ -181,6 +194,8 @@ export class JourneyBuilderService {
 		definition: CanvasSyncInput;
 	}): Promise<void> {
 		try {
+			this.activeCanvasPath = payload.canvasPath;
+			this.lastCanvasWriteTime = Date.now();
 			const canvasData = buildJourneyCanvas(payload.definition);
 			const json = JSON.stringify(canvasData, null, 2);
 			const exists = await this.fileSystem.fileExists(payload.canvasPath);
@@ -194,6 +209,23 @@ export class JourneyBuilderService {
 			});
 		} catch (err) {
 			console.error("[JourneyBuilderService] Canvas sync failed:", err);
+		}
+	}
+
+	private async handleFileModified(payload: { path: string }): Promise<void> {
+		if (!this.activeCanvasPath || payload.path !== this.activeCanvasPath) return;
+		if (Date.now() - this.lastCanvasWriteTime < JourneyBuilderService.SELF_WRITE_WINDOW_MS) return;
+		try {
+			const content = await this.fileSystem.readFile(payload.path);
+			const canvasData = JSON.parse(content) as CanvasData;
+			const parsed = parseJourneyCanvas(canvasData);
+			if (!parsed) return;
+			void this.eventBus.emit("journey-builder.canvas.changed", {
+				canvasPath: payload.path,
+				...parsed,
+			});
+		} catch {
+			// Silent — canvas may be malformed during editing
 		}
 	}
 }

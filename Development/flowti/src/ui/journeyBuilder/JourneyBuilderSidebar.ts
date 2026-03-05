@@ -28,6 +28,7 @@ import { WelcomeScreen } from "./WelcomeScreen";
 import { SetupForm } from "./SetupForm";
 import { CanvasSyncController } from "./CanvasSyncController";
 import { renderHeader, renderBackButton, renderActionButton, renderLoading } from "./sidebarHelpers";
+import type { ParsedJourneyCanvas } from "../../domain/journeyBuilder/canvasParser";
 
 export const VIEW_TYPE_JOURNEY_BUILDER = "flowti-journey-builder";
 
@@ -97,6 +98,8 @@ export class JourneyBuilderSidebar extends ItemView {
 	private unsubCanvasSynced: (() => void) | undefined;
 	private unsubImported: (() => void) | undefined;
 	private unsubImportFailed: (() => void) | undefined;
+	private unsubCanvasChanged: (() => void) | undefined;
+	private updatingFromCanvas = false;
 
 	constructor(leaf: WorkspaceLeaf, deps: JourneyBuilderSidebarDeps) {
 		super(leaf);
@@ -161,6 +164,10 @@ export class JourneyBuilderSidebar extends ItemView {
 			"journey-builder.import-failed",
 			() => this.renderWelcome(),
 		);
+		this.unsubCanvasChanged = this.eventBus.on(
+			"journey-builder.canvas.changed",
+			(event) => this.onCanvasChanged(event.payload),
+		);
 		this.renderWelcome();
 	}
 
@@ -175,6 +182,8 @@ export class JourneyBuilderSidebar extends ItemView {
 		this.unsubImported = undefined;
 		this.unsubImportFailed?.();
 		this.unsubImportFailed = undefined;
+		this.unsubCanvasChanged?.();
+		this.unsubCanvasChanged = undefined;
 	}
 
 	// ── Public accessors (for testing) ──────────────────────
@@ -748,7 +757,42 @@ export class JourneyBuilderSidebar extends ItemView {
 	// ── Canvas sync (delegated) ─────────────────────────────
 
 	private scheduleCanvasSync(delay?: number): void {
+		if (this.updatingFromCanvas) return;
 		this.ensureCanvasSync().scheduleSync(delay);
+	}
+
+	private onCanvasChanged(payload: ParsedJourneyCanvas & { canvasPath: string }): void {
+		if (this.state !== "steps") return;
+		if (payload.canvasPath !== this.getCanvasPath()) return;
+
+		this.updatingFromCanvas = true;
+		try {
+			this.metadata.startEvent = payload.startEvent;
+			this.endEvent = payload.endEvent;
+
+			this.steps = payload.steps.map((cs, i) => {
+				const existing = this.steps[i];
+				if (existing) {
+					return { ...existing, title: cs.title, description: cs.description };
+				}
+				return {
+					id: `step-${++stepCounter}`,
+					title: cs.title,
+					description: cs.description,
+					swimlane: "",
+					actions: [],
+				};
+			});
+
+			if (this.currentStepIndex >= this.steps.length) {
+				this.currentStepIndex = Math.max(0, this.steps.length - 1);
+			}
+
+			this.renderSteps();
+			this.autoSaveDefinition();
+		} finally {
+			this.updatingFromCanvas = false;
+		}
 	}
 
 	private buildCanvasSyncInput() {

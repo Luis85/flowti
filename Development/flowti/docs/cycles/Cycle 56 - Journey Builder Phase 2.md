@@ -183,27 +183,25 @@ Bonus deliverables (same increment):
 - [x] Existing tests pass unchanged (170 sidebar tests)
 - [x] `npm test` green — 6,689 tests, 281 suites
 
-### Inc 1: Canvas → JSON Parser (PBI-JB-008a)
+### Inc 1: Canvas → JSON Parser (PBI-JB-008a) — DONE
 **Theme**: Feature
-**Effort**: Large | **Est. LOC**: ~150 | **Est. Tests**: ~20
+**Effort**: Small | **Actual LOC**: 133 | **Actual Tests**: +21
 
-Build the canvas-to-journey parser:
-- Detect journey-structured canvas (START node + step groups + END node pattern)
-- Parse step group labels → `steps[i].title` and `guideSection`
-- Parse config text nodes → structured metadata (description, events, commands)
-- Parse action nodes → `steps[i].actions[]`
-- Edge ordering → step sequence
-- Improvement cards (yellow, color "3") → `steps[i].improvements[]`
-- Background image on group node → `steps[i].backgroundImage`
+Created `src/domain/journeyBuilder/canvasParser.ts` — pure parser that reverses `buildJourneyCanvas()`:
+- `isJourneyCanvas(canvas)` — detects START (text, color "4", "▶") + END (text, color "1", "⏹") nodes
+- `parseJourneyCanvas(canvas)` — edge-walk from START → END, spatial containment for inner text, action count regex
+- Returns `ParsedJourneyCanvas` with `startEvent`, `endEvent`, `activeStepIndex`, `steps[]` (title, description, actionCount, canvasGroupId)
+
+Key design: canvas does NOT preserve individual actions, step IDs, swimlane, or journey name. Parser extracts what the canvas displays. Inc 2 handles merging canvas changes with the full sidebar definition.
 
 **Test Intent**: Unit tests for parser (detection, node/edge parsing, metadata extraction, edge ordering). Round-trip fidelity tests: JSON → Canvas → JSON identity. Error cases: malformed canvas, missing START/END nodes, unrecognized node types.
 **Documentation Intent**: Add parser to component docs. Update Data Dictionary with any new entity fields.
-**Architecture Seams**: Pure function `parseCanvasToJourney(canvasData: CanvasData): JourneyDefinition | null` in `src/domain/journeyBuilder/`. No EventBus dependency — called by integration layer. Canvas JSON read via existing FileSystemClient.
+**Architecture Seams**: Pure function `parseJourneyCanvas(canvasData: CanvasData): ParsedJourneyCanvas | null` in `src/domain/journeyBuilder/`. No EventBus dependency — called by integration layer.
 
 **Acceptance Criteria**:
-- [ ] Parser detects journey-structured canvases
-- [ ] Round-trip: JSON → Canvas → JSON produces identical definition
-- [ ] `npm test` green
+- [x] Parser detects journey-structured canvases
+- [x] Round-trip: buildJourneyCanvas → parseJourneyCanvas recovers structural data (titles, descriptions, events, action counts, active step)
+- [x] `npm test` green — 6,710 tests, 282 suites
 
 ### Inc 2: Canvas → JSON Integration (PBI-JB-008b)
 **Theme**: Feature

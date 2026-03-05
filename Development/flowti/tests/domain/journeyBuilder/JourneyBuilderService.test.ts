@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { JourneyBuilderService } from "../../../src/domain/journeyBuilder/JourneyBuilderService";
 import type { JourneyExportPayload } from "../../../src/domain/journeyBuilder/events";
-import type { CanvasSyncInput } from "../../../src/domain/journeyBuilder/canvasSync";
+import { buildJourneyCanvas, type CanvasSyncInput } from "../../../src/domain/journeyBuilder/canvasSync";
 import type { IFileSystemClient } from "../../../src/infrastructure/filesystem/types";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import { createMockFileSystemStub } from "../../mocks/filesystem";
@@ -590,6 +590,153 @@ describe("JourneyBuilderService", () => {
 
 			await new Promise((r) => setTimeout(r, 50));
 			expect(fileSystem.fileExists).not.toHaveBeenCalled();
+		});
+	});
+
+	// ── Reverse sync (file.modified → canvas.changed) ───────────────
+
+	describe("handleFileModified (reverse sync)", () => {
+		function sampleSyncPayload(): { canvasPath: string; definition: CanvasSyncInput } {
+			return {
+				canvasPath: "journeys/My Journey.canvas",
+				definition: {
+					journey: "My Journey",
+					description: "A test journey",
+					startEvent: "app.opened",
+					endEvent: "app.closed",
+					steps: [
+						{ id: "step-1", title: "Open the hub", description: "Opens hub", actions: [{ tool: "command" }] },
+					],
+				},
+			};
+		}
+
+		function validCanvasJSON(): string {
+			const canvas = buildJourneyCanvas({
+				journey: "My Journey",
+				description: "A test journey",
+				startEvent: "app.opened",
+				endEvent: "app.closed",
+				steps: [{ id: "s1", title: "Open the hub", description: "Opens hub", actions: [{ tool: "command" }] }],
+			});
+			return JSON.stringify(canvas);
+		}
+
+		it("subscribes to file.modified on start", () => {
+			service.start();
+			expect(eventBus.on).toHaveBeenCalledWith("file.modified", expect.any(Function));
+		});
+
+		it("emits canvas.changed when tracked canvas file is modified", async () => {
+			(fileSystem.fileExists as ReturnType<typeof vi.fn>).mockResolvedValue(false);
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockResolvedValue(validCanvasJSON());
+			service.start();
+
+			// Trigger a canvas sync to set activeCanvasPath
+			const syncTime = Date.now();
+			eventBus._trigger("journey-builder.canvas.sync-requested", sampleSyncPayload());
+			await vi.waitFor(() => {
+				expect(fileSystem.createFile).toHaveBeenCalled();
+			});
+
+			// Mock Date.now to be past the self-write window
+			const spy = vi.spyOn(Date, "now").mockReturnValue(syncTime + 3000);
+
+			// Trigger file.modified for the tracked canvas
+			eventBus._trigger("file.modified", { path: "journeys/My Journey.canvas" });
+
+			await vi.waitFor(() => {
+				const changed = eventBus._emitted.find((e) => e.type === "journey-builder.canvas.changed");
+				expect(changed).toBeDefined();
+				expect((changed!.payload as { canvasPath: string }).canvasPath).toBe("journeys/My Journey.canvas");
+				expect((changed!.payload as { startEvent: string }).startEvent).toBe("app.opened");
+			});
+
+			spy.mockRestore();
+		});
+
+		it("ignores file.modified for non-tracked paths", async () => {
+			(fileSystem.fileExists as ReturnType<typeof vi.fn>).mockResolvedValue(false);
+			service.start();
+
+			// Trigger a canvas sync to set activeCanvasPath
+			eventBus._trigger("journey-builder.canvas.sync-requested", sampleSyncPayload());
+			await vi.waitFor(() => {
+				expect(fileSystem.createFile).toHaveBeenCalled();
+			});
+
+			// Trigger file.modified for a different path
+			eventBus._trigger("file.modified", { path: "other/file.canvas" });
+
+			await new Promise((r) => setTimeout(r, 50));
+			expect(fileSystem.readFile).not.toHaveBeenCalled();
+		});
+
+		it("ignores file.modified within self-write window", async () => {
+			(fileSystem.fileExists as ReturnType<typeof vi.fn>).mockResolvedValue(false);
+			service.start();
+
+			// Trigger a canvas sync to set activeCanvasPath
+			eventBus._trigger("journey-builder.canvas.sync-requested", sampleSyncPayload());
+			await vi.waitFor(() => {
+				expect(fileSystem.createFile).toHaveBeenCalled();
+			});
+
+			// Trigger file.modified immediately (within self-write window)
+			eventBus._trigger("file.modified", { path: "journeys/My Journey.canvas" });
+
+			await new Promise((r) => setTimeout(r, 50));
+			expect(fileSystem.readFile).not.toHaveBeenCalled();
+		});
+
+		it("ignores file.modified when canvas is not a journey canvas", async () => {
+			(fileSystem.fileExists as ReturnType<typeof vi.fn>).mockResolvedValue(false);
+			// Return non-journey canvas (no START/END nodes)
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockResolvedValue(
+				JSON.stringify({ nodes: [{ id: "n1", type: "text", text: "Hello", x: 0, y: 0, width: 100, height: 50 }], edges: [] }),
+			);
+			service.start();
+
+			const syncTime = Date.now();
+			eventBus._trigger("journey-builder.canvas.sync-requested", sampleSyncPayload());
+			await vi.waitFor(() => {
+				expect(fileSystem.createFile).toHaveBeenCalled();
+			});
+
+			const spy = vi.spyOn(Date, "now").mockReturnValue(syncTime + 3000);
+
+			eventBus._trigger("file.modified", { path: "journeys/My Journey.canvas" });
+
+			await vi.waitFor(() => {
+				expect(fileSystem.readFile).toHaveBeenCalled();
+			});
+			const changed = eventBus._emitted.find((e) => e.type === "journey-builder.canvas.changed");
+			expect(changed).toBeUndefined();
+
+			spy.mockRestore();
+		});
+
+		it("handles read/parse failure gracefully", async () => {
+			(fileSystem.fileExists as ReturnType<typeof vi.fn>).mockResolvedValue(false);
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("read error"));
+			service.start();
+
+			const syncTime = Date.now();
+			eventBus._trigger("journey-builder.canvas.sync-requested", sampleSyncPayload());
+			await vi.waitFor(() => {
+				expect(fileSystem.createFile).toHaveBeenCalled();
+			});
+
+			const spy = vi.spyOn(Date, "now").mockReturnValue(syncTime + 3000);
+
+			// Should not throw
+			eventBus._trigger("file.modified", { path: "journeys/My Journey.canvas" });
+
+			await new Promise((r) => setTimeout(r, 50));
+			const changed = eventBus._emitted.find((e) => e.type === "journey-builder.canvas.changed");
+			expect(changed).toBeUndefined();
+
+			spy.mockRestore();
 		});
 	});
 

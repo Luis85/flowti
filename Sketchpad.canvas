@@ -1,10 +1,6 @@
 {
 	"nodes":[
 		{"id":"503aff305fed1757","type":"group","x":-240,"y":5280,"width":5727,"height":1200,"label":"Views and Improvements"},
-		{"id":"922fd2d4c3d71baf","type":"group","x":1240,"y":-1690,"width":300,"height":1580,"label":"Output"},
-		{"id":"9d7d9cb45757987e","type":"group","x":840,"y":-1690,"width":300,"height":1580,"color":"2","label":"Process"},
-		{"id":"30eac272b7498959","type":"group","x":1740,"y":-1810,"width":880,"height":500,"label":"Problem"},
-		{"id":"8693c91ef0c19664","type":"group","x":5060,"y":-1850,"width":300,"height":660,"label":"Journeys"},
 		{"id":"277a7b8ec3640f58","type":"group","x":-40,"y":-1930,"width":3440,"height":1960,"label":"Unit under Test"},
 		{"id":"b166cd871972398d","type":"group","x":1380,"y":2180,"width":2860,"height":1520,"label":"Flowti - Mental Model"},
 		{"id":"47155404c92774a1","type":"group","x":3640,"y":-1930,"width":2540,"height":810,"label":"Product Backlog"},
@@ -30,21 +26,25 @@
 		{"id":"39fcb04a6dfb4db0","type":"group","x":1740,"y":-1210,"width":1580,"height":500,"label":"Solution"},
 		{"id":"be68efe3c18f4579","type":"group","x":2840,"y":2520,"width":960,"height":820,"label":"Product Development"},
 		{"id":"f1ab36403ad8330d","type":"group","x":1740,"y":-590,"width":1280,"height":600,"label":"Simulation Environment - Product Development"},
-		{"id":"96c92613e64903ec","type":"group","x":4800,"y":380,"width":880,"height":820,"label":"Domainmodel"},
+		{"id":"96c92613e64903ec","type":"group","x":3640,"y":-780,"width":880,"height":820,"label":"Domainmodel"},
 		{"id":"abc9776e8773b32b","type":"group","x":1400,"y":2640,"width":1060,"height":580,"label":"Frontstage"},
-		{"id":"cfb72c57d6b99452","type":"group","x":4820,"y":520,"width":840,"height":660,"label":"Domain"},
+		{"id":"cfb72c57d6b99452","type":"group","x":3660,"y":-640,"width":840,"height":660,"label":"Domain"},
 		{"id":"aff3d86ae9c9f798","type":"group","x":400,"y":2180,"width":340,"height":1580,"label":"Process: Flowti Development"},
+		{"id":"922fd2d4c3d71baf","type":"group","x":1240,"y":-1690,"width":300,"height":1580,"label":"Output"},
+		{"id":"9d7d9cb45757987e","type":"group","x":840,"y":-1690,"width":300,"height":1580,"color":"2","label":"Process"},
 		{"id":"8cbc340c22bf6acf","type":"group","x":460,"y":-1690,"width":300,"height":1580,"label":"Input"},
 		{"id":"7c0ee3db8f245007","type":"group","x":-20,"y":2180,"width":300,"height":1580,"label":"Input"},
 		{"id":"25b3d6b5ce67a4e8","type":"group","x":860,"y":2180,"width":300,"height":1580,"label":"Output"},
-		{"id":"e39a96cd6dcd80b2","type":"group","x":4840,"y":640,"width":800,"height":520,"label":"Product or Service"},
+		{"id":"30eac272b7498959","type":"group","x":1740,"y":-1810,"width":880,"height":500,"label":"Problem"},
+		{"id":"e39a96cd6dcd80b2","type":"group","x":3680,"y":-520,"width":800,"height":520,"label":"Product or Service"},
 		{"id":"23419d421cec7007","type":"group","x":380,"y":1540,"width":740,"height":420,"color":"2","label":"Quality Model"},
+		{"id":"8693c91ef0c19664","type":"group","x":5060,"y":-1850,"width":300,"height":660,"label":"Journeys"},
 		{"id":"b2e30567a01d2f67","type":"group","x":2300,"y":1720,"width":1620,"height":120,"label":"Software Distribution Flow"},
 		{"id":"25c2f8a7fca6c9d7","type":"group","x":2920,"y":2640,"width":300,"height":580,"label":"Backstage"},
 		{"id":"5e8bcec9492cfb3e","type":"group","x":1420,"y":2710,"width":340,"height":480,"color":"2","label":"Product"},
-		{"id":"805b07718e132611","type":"group","x":4860,"y":740,"width":380,"height":400,"label":"Frontstage"},
+		{"id":"805b07718e132611","type":"group","x":3700,"y":-420,"width":380,"height":400,"label":"Frontstage"},
 		{"id":"1322864aeea97eeb","type":"group","x":3300,"y":2640,"width":360,"height":400,"color":"2","label":"Product Backlog Item"},
-		{"id":"d02ccec3b858e13f","type":"group","x":5260,"y":740,"width":360,"height":400,"label":"Backstage"},
+		{"id":"d02ccec3b858e13f","type":"group","x":4100,"y":-420,"width":360,"height":400,"label":"Backstage"},
 		{"id":"595e466f2e980097","type":"group","x":2660,"y":-490,"width":300,"height":420,"label":"AI Agents"},
 		{"id":"0564f27fb8c2fa1e","type":"group","x":1400,"y":1540,"width":300,"height":420,"color":"2","label":"Product"},
 		{"id":"bfb5429fcc72e2ad","type":"group","x":-20,"y":1540,"width":300,"height":420,"color":"2","label":"Input"},
@@ -62,315 +62,6 @@
 		{"id":"ac6b4ec2959f3db2","type":"group","x":3330,"y":2700,"width":300,"height":110,"color":"6","label":"Problemspace"},
 		{"id":"2262b012353cf0dd","type":"group","x":3330,"y":2880,"width":300,"height":110,"color":"6","label":"Solutionspace"},
 		{
-			"id":"1fb3cf12d3fea7bf",
-			"type":"text",
-			"text":"Flowti - IBDE",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2240,
-			"y":-120,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"882a1ad6195a25d6",
-			"type":"text",
-			"text":"Claude - Software-Developer",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2680,
-			"y":-390,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"f5c6fc5c5a4f7f20",
-			"type":"text",
-			"text":"Flowti Codebase",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2240,
-			"y":-390,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"1f8ab164b2703eeb",
-			"type":"text",
-			"text":"Git",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2240,
-			"y":-310,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"865bd8c6600cfa02",
-			"type":"text",
-			"text":"GitHub",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2240,
-			"y":-230,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"2e0565ab4efb1be3",
-			"type":"text",
-			"text":"Memory.md",
-			"styleAttributes":{},
-			"x":3100,
-			"y":-570,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"b9177294d5574203",
-			"type":"text",
-			"text":"Topics",
-			"styleAttributes":{},
-			"x":3100,
-			"y":-490,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"02a1ec53b7e8088a",
-			"type":"text",
-			"text":"Private Vault",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1800,
-			"y":-350,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"a9f291e1774772fc",
-			"type":"text",
-			"text":"Public Vault",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1800,
-			"y":-270,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"f24519715c7a4071",
-			"type":"text",
-			"text":"Priotization",
-			"styleAttributes":{"textAlign":"center"},
-			"x":860,
-			"y":-1350,
-			"width":260,
-			"height":60,
-			"color":"6"
-		},
-		{
-			"id":"e49f189e0102d47b",
-			"type":"text",
-			"text":"Prioritized Backlogs",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1260,
-			"y":-1350,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"dc8b1ed0fc69fe71",
-			"type":"text",
-			"text":"Denied Product Increment",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1260,
-			"y":-410,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"eb9d5794187ece00",
-			"type":"text",
-			"text":"Release Artifact",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1260,
-			"y":-210,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"4fea4d5d896f7410",
-			"type":"text",
-			"text":"Accepted Product Increment",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1260,
-			"y":-490,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"5333dff10cb150dd",
-			"type":"text",
-			"text":"Maintain",
-			"styleAttributes":{"textAlign":"center"},
-			"x":860,
-			"y":-70,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"587a4f2dafd783c5",
-			"type":"text",
-			"text":"Test and Review",
-			"styleAttributes":{"textAlign":"center"},
-			"x":860,
-			"y":-490,
-			"width":260,
-			"height":60,
-			"color":"6"
-		},
-		{
-			"id":"4ef49a3684f6a3d2",
-			"type":"text",
-			"text":"Release",
-			"styleAttributes":{"textAlign":"center"},
-			"x":860,
-			"y":-210,
-			"width":260,
-			"height":60,
-			"color":"6"
-		},
-		{
-			"id":"6b4577ab4a415979",
-			"type":"text",
-			"text":"Claude - Software-Architect",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2680,
-			"y":-310,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"a545c994c194a993",
-			"type":"text",
-			"text":"Claude - UX-Designer",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2680,
-			"y":-230,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"9cf05049146e7cfe",
-			"type":"text",
-			"text":"Development",
-			"styleAttributes":{"textAlign":"center"},
-			"x":860,
-			"y":-840,
-			"width":260,
-			"height":60,
-			"color":"6"
-		},
-		{
-			"id":"c3266d01ce6c410d",
-			"type":"text",
-			"text":"New Product Increment",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1260,
-			"y":-840,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"126d5d8e7b2a909d",
-			"type":"text",
-			"text":"Planning",
-			"styleAttributes":{"textAlign":"center"},
-			"x":860,
-			"y":-1150,
-			"width":260,
-			"height":60,
-			"color":"6"
-		},
-		{
-			"id":"6575e2e5f6c1e713",
-			"type":"text",
-			"text":"Planned Increment",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1260,
-			"y":-1070,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"7acc9f51e55be341",
-			"type":"text",
-			"text":"Refined Cycle Plan",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1260,
-			"y":-1150,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"aad5855793c9964c",
-			"type":"text",
-			"text":"Denied Product Increments",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-760,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"6819f68b4fb6e079",
-			"type":"text",
-			"text":"Release Candidate",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-210,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"8e7aac97cd743aaf",
-			"type":"text",
-			"text":"Definition of Done",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-680,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"34b64249b4f5320d",
-			"type":"text",
-			"text":"Product Increment",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-490,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"451128bf614c6d39",
-			"type":"text",
-			"text":"Testplan and Teststrategy",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-410,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
 			"id":"cab23099d23e267f",
 			"type":"text",
 			"text":"Refined Backlog",
@@ -380,138 +71,6 @@
 			"width":260,
 			"height":60,
 			"color":"5"
-		},
-		{
-			"id":"b9b60f77e828c269",
-			"type":"text",
-			"text":"Tech Debt Backlog",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-1270,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"1baa2d48ccea8665",
-			"type":"text",
-			"text":"Feature Backlog",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-1350,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"5905df0277543dfd",
-			"type":"text",
-			"text":"Next Cycle Plan",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-840,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"f886a3ad9e6000f1",
-			"type":"text",
-			"text":"PBIs",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-990,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"ae0a20413c5d7dfd",
-			"type":"text",
-			"text":"Prioritized Features",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-1150,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"eda8ecd0802d8766",
-			"type":"text",
-			"text":"Slices",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-1070,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"1562c861338e9167",
-			"type":"text",
-			"text":"Definition of Ready",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-1590,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"9da3a9196b27dee9",
-			"type":"text",
-			"text":"Product Backlog",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-1510,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"d78eeca627243df6",
-			"type":"text",
-			"text":"Idea Inbox",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-1670,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"dac2c2ccc6746691",
-			"type":"text",
-			"text":"Roadmap",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-1430,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"bcdfcb79c96a8ebe",
-			"type":"text",
-			"text":"Refined Increments",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1260,
-			"y":-1590,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"8a5046110f0f5d0a",
-			"type":"text",
-			"text":"Refinement",
-			"styleAttributes":{"textAlign":"center"},
-			"x":860,
-			"y":-1590,
-			"width":260,
-			"height":60,
-			"color":"6"
 		},
 		{
 			"id":"e3ba873355ab536a",
@@ -524,116 +83,51 @@
 			"height":60,
 			"color":"5"
 		},
+		{"id":"0b8e15eb023842e5","type":"file","file":"Development/Plugin Design.canvas","x":2760,"y":-1130,"width":260,"height":400},
 		{
-			"id":"8e89498c443630b7",
+			"id":"f9ee60f19b921abd",
 			"type":"text",
-			"text":"How can Flowti execute this process?",
-			"styleAttributes":{},
-			"x":-20,
-			"y":-930,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"ade7a1ce1fd55366",
-			"type":"text",
-			"text":"How can this become the baseline canvas when designing a new process?",
-			"styleAttributes":{},
-			"x":-20,
-			"y":-1020,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"d1b04d1c1a3cf4c7",
-			"type":"text",
-			"text":"Stock Taking",
+			"text":"Software",
 			"styleAttributes":{"textAlign":"center"},
-			"x":440,
-			"y":2280,
+			"x":2650,
+			"y":1750,
 			"width":260,
 			"height":60
 		},
 		{
-			"id":"68e957464a4ccdff",
+			"id":"13b0e3906908caac",
 			"type":"text",
-			"text":"Ideas, Feedback, Issues, Risks",
-			"styleAttributes":{},
-			"x":0,
-			"y":2280,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"814dc6f62cdadac6",
-			"type":"text",
-			"text":"Jobs to be Done",
+			"text":"Distribution Platform",
 			"styleAttributes":{"textAlign":"center"},
-			"x":880,
-			"y":2280,
+			"x":2980,
+			"y":1750,
 			"width":260,
-			"height":60
+			"height":60,
+			"color":"2"
 		},
 		{
-			"id":"376e0aad981ff60a",
+			"id":"e25059e37e43d990",
 			"type":"text",
-			"text":"Cycle Report",
+			"text":"Software-Developer",
 			"styleAttributes":{"textAlign":"center"},
-			"x":880,
-			"y":3080,
+			"x":2320,
+			"y":1750,
 			"width":260,
 			"height":60
 		},
 		{
-			"id":"6ac10bf40d3581de",
+			"id":"35a51555de6e306d",
 			"type":"text",
-			"text":"Journeys",
+			"text":"Happy Customers",
 			"styleAttributes":{"textAlign":"center"},
-			"x":880,
-			"y":2860,
+			"x":1920,
+			"y":1720,
 			"width":260,
-			"height":60
+			"height":60,
+			"color":"4"
 		},
-		{
-			"id":"6e9c7659cc2122aa",
-			"type":"text",
-			"text":"Product Backlog Items",
-			"styleAttributes":{"textAlign":"center"},
-			"x":880,
-			"y":2940,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"c0aeff204123ff00",
-			"type":"text",
-			"text":"Jobs to be Done",
-			"styleAttributes":{"textAlign":"center"},
-			"x":880,
-			"y":2780,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"f1eddda40a96e61e",
-			"type":"text",
-			"text":"Collect Input",
-			"styleAttributes":{"textAlign":"center"},
-			"x":440,
-			"y":2780,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"cef75c6810317278",
-			"type":"text",
-			"text":"Ideas, Feedback, Issues, Risks",
-			"styleAttributes":{},
-			"x":0,
-			"y":2780,
-			"width":260,
-			"height":60
-		},
+		{"id":"5d6cdc543db0af78","type":"file","file":"Development/flowti/docs/inbox/Flowti - System Design.canvas","x":2480,"y":-1130,"width":260,"height":400},
+		{"id":"5e20e595aaae0f17","type":"file","file":"02 - Jobs to be done.base","x":1760,"y":-1730,"width":400,"height":400},
 		{
 			"id":"b35ecc95e2cbf4a2",
 			"type":"text",
@@ -707,19 +201,6 @@
 			"color":"5"
 		},
 		{
-			"id":"a87a86377a3e80f2",
-			"type":"text",
-			"text":"Development",
-			"styleAttributes":{
-				"textAlign":null
-			},
-			"x":400,
-			"y":1640,
-			"width":520,
-			"height":60,
-			"color":"6"
-		},
-		{
 			"id":"12ce9ec40937c8d9",
 			"type":"text",
 			"text":"Test",
@@ -729,6 +210,31 @@
 			"x":400,
 			"y":1560,
 			"width":460,
+			"height":60,
+			"color":"6"
+		},
+		{"id":"c40b11027e8bac16","type":"file","file":"00 - Inbox.base","x":2200,"y":-1730,"width":400,"height":400},
+		{"id":"83c9ad2da538d079","type":"file","file":"Development/flowti/docs/learnings/AI is a very good tool to simulate document heavy processes to quickly iterate on them.md","x":1760,"y":-1130,"width":400,"height":400},
+		{
+			"id":"8b42e85c8914f3a7",
+			"type":"text",
+			"text":"# Folderstructure\n\n- `/00 - Connectivity`\n- `/01 - Projects`\n- `/02 - Areas`\n- `/03 - Resources`\n- `/03 - Resources/Documentations/...Diataxis`\n- `/04 - Archive`",
+			"styleAttributes":{},
+			"x":2200,
+			"y":-1130,
+			"width":260,
+			"height":400
+		},
+		{
+			"id":"a87a86377a3e80f2",
+			"type":"text",
+			"text":"Development",
+			"styleAttributes":{
+				"textAlign":null
+			},
+			"x":400,
+			"y":1640,
+			"width":520,
 			"height":60,
 			"color":"6"
 		},
@@ -755,17 +261,6 @@
 			"color":"5"
 		},
 		{
-			"id":"1c73d2ff5d483bbd",
-			"type":"text",
-			"text":"Product Development Workflow",
-			"styleAttributes":{},
-			"x":0,
-			"y":1880,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
 			"id":"bcbbe6545e8891ef",
 			"type":"text",
 			"text":"Testplan",
@@ -783,6 +278,699 @@
 			"styleAttributes":{},
 			"x":0,
 			"y":1640,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"d78eeca627243df6",
+			"type":"text",
+			"text":"Idea Inbox",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-1670,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"8e89498c443630b7",
+			"type":"text",
+			"text":"How can Flowti execute this process?",
+			"styleAttributes":{},
+			"x":-20,
+			"y":-930,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"ade7a1ce1fd55366",
+			"type":"text",
+			"text":"How can this become the baseline canvas when designing a new process?",
+			"styleAttributes":{},
+			"x":-20,
+			"y":-1020,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"1c73d2ff5d483bbd",
+			"type":"text",
+			"text":"Product Development Workflow",
+			"styleAttributes":{},
+			"x":0,
+			"y":1880,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"7f7d952712e2b426",
+			"type":"text",
+			"text":"Tech Concept and Increment",
+			"styleAttributes":{},
+			"x":1420,
+			"y":1640,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"8b78d19463b8b7b1",
+			"type":"text",
+			"text":"Testsuite and E2E Test Report",
+			"styleAttributes":{},
+			"x":1420,
+			"y":1560,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"cef75c6810317278",
+			"type":"text",
+			"text":"Ideas, Feedback, Issues, Risks",
+			"styleAttributes":{},
+			"x":0,
+			"y":2780,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"c6c2640b95011109",
+			"type":"text",
+			"text":"Cycle 0 Plan",
+			"styleAttributes":{"textAlign":"center"},
+			"x":0,
+			"y":2440,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"7fc6182e3f7ae183",
+			"type":"text",
+			"text":"Product Requirements",
+			"styleAttributes":{"textAlign":"center"},
+			"x":0,
+			"y":2600,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"e897e97e49a0c9b7",
+			"type":"text",
+			"text":"Product Idea",
+			"styleAttributes":{"textAlign":"center"},
+			"x":0,
+			"y":2520,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"8844baa6c4d7d42b",
+			"type":"text",
+			"text":"# User Groups\n\n- new to Obsidian\n- new to Markdown\n- new to Git\n- new to Obsidian Plugin Development\n- new to Project Management\n- new to Software Design\n- new to Product Development\n",
+			"styleAttributes":{},
+			"x":3040,
+			"y":-1130,
+			"width":260,
+			"height":400
+		},
+		{
+			"id":"f5114aac9d6e5eac",
+			"type":"text",
+			"text":"Backlog",
+			"styleAttributes":{"textAlign":"center"},
+			"x":0,
+			"y":2860,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"d63ba625dd6e9e5f",
+			"type":"text",
+			"text":"Test",
+			"styleAttributes":{"textAlign":"center"},
+			"x":440,
+			"y":3340,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"06a2f90f9e424098",
+			"type":"text",
+			"text":"Product Requirements Document",
+			"styleAttributes":{"textAlign":"center"},
+			"x":0,
+			"y":2940,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"d8449fcd0e3ab97a",
+			"type":"text",
+			"text":"Cycle Plan",
+			"styleAttributes":{"textAlign":"center"},
+			"x":0,
+			"y":3080,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"75cd264af6a9d9ec",
+			"type":"text",
+			"text":"Planning",
+			"styleAttributes":{"textAlign":"center"},
+			"x":440,
+			"y":3080,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"d1b04d1c1a3cf4c7",
+			"type":"text",
+			"text":"Stock Taking",
+			"styleAttributes":{"textAlign":"center"},
+			"x":440,
+			"y":2280,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"814dc6f62cdadac6",
+			"type":"text",
+			"text":"Jobs to be Done",
+			"styleAttributes":{"textAlign":"center"},
+			"x":880,
+			"y":2280,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"f1eddda40a96e61e",
+			"type":"text",
+			"text":"Collect Input",
+			"styleAttributes":{"textAlign":"center"},
+			"x":440,
+			"y":2780,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"c58ca77e80f43000",
+			"type":"text",
+			"text":"Product Vision",
+			"styleAttributes":{"textAlign":"center"},
+			"x":880,
+			"y":2520,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"e431edbb59f1cf00",
+			"type":"text",
+			"text":"System Setup",
+			"styleAttributes":{"textAlign":"center"},
+			"x":440,
+			"y":2360,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"111bcbd63463f2c6",
+			"type":"text",
+			"text":"Cycle 0 - Start",
+			"styleAttributes":{"textAlign":"center"},
+			"x":440,
+			"y":2440,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"cc1d47dadb3021e7",
+			"type":"text",
+			"text":"MVP Definition",
+			"styleAttributes":{"textAlign":"center"},
+			"x":440,
+			"y":2520,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"0705ea17e6e867ea",
+			"type":"text",
+			"text":"Project Environment",
+			"styleAttributes":{"textAlign":"center"},
+			"x":880,
+			"y":2360,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"56a089664bb8ea8c",
+			"type":"text",
+			"text":"Project Brief",
+			"styleAttributes":{"textAlign":"center"},
+			"x":880,
+			"y":2440,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"cd649dba25112bf3",
+			"type":"text",
+			"text":"Backlog",
+			"styleAttributes":{"textAlign":"center"},
+			"x":880,
+			"y":2600,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"429a14d62d8550fc",
+			"type":"text",
+			"text":"User Experience",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2140,
+			"y":3580,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"860a085c2916c78a",
+			"type":"text",
+			"text":"Actors",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1980,
+			"y":2460,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"b082fce9781d6278",
+			"type":"text",
+			"text":"Cycle 0 - End",
+			"styleAttributes":{"textAlign":"center"},
+			"x":440,
+			"y":2600,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"0d757187eaf829ce",
+			"type":"text",
+			"text":"Refinement",
+			"styleAttributes":{"textAlign":"center"},
+			"x":440,
+			"y":2860,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"774d708e0058bbcd",
+			"type":"text",
+			"text":"Design",
+			"styleAttributes":{"textAlign":"center"},
+			"x":440,
+			"y":2940,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"68e957464a4ccdff",
+			"type":"text",
+			"text":"Ideas, Feedback, Issues, Risks",
+			"styleAttributes":{},
+			"x":0,
+			"y":2280,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"9173d52cc8bd1b84",
+			"type":"text",
+			"text":"Standards and Frameworks",
+			"styleAttributes":{"textAlign":"center"},
+			"x":0,
+			"y":2360,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"719b2dfadce52cb7",
+			"type":"text",
+			"text":"Domains",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1980,
+			"y":2220,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"9f82d6e1e60009bb",
+			"type":"text",
+			"text":"Jobs to be done",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1980,
+			"y":2340,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"7690eedbe60304e6",
+			"type":"text",
+			"text":"Customer Experience",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1820,
+			"y":3580,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"f5c6fc5c5a4f7f20",
+			"type":"text",
+			"text":"Flowti Codebase",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2240,
+			"y":-390,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"1f8ab164b2703eeb",
+			"type":"text",
+			"text":"Git",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2240,
+			"y":-310,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"865bd8c6600cfa02",
+			"type":"text",
+			"text":"GitHub",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2240,
+			"y":-230,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"02a1ec53b7e8088a",
+			"type":"text",
+			"text":"Private Vault",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1800,
+			"y":-350,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"a9f291e1774772fc",
+			"type":"text",
+			"text":"Public Vault",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1800,
+			"y":-270,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"aeee5e3cd45356cf",
+			"type":"text",
+			"text":"Consumer",
+			"styleAttributes":{"textAlign":"center"},
+			"x":3310,
+			"y":1750,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"43489336883e00cc",
+			"type":"text",
+			"text":"End-User",
+			"styleAttributes":{"textAlign":"center"},
+			"x":3640,
+			"y":1750,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"882a1ad6195a25d6",
+			"type":"text",
+			"text":"Claude - Software-Developer",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2680,
+			"y":-390,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"2e0565ab4efb1be3",
+			"type":"text",
+			"text":"Memory.md",
+			"styleAttributes":{},
+			"x":3100,
+			"y":-570,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"b9177294d5574203",
+			"type":"text",
+			"text":"Topics",
+			"styleAttributes":{},
+			"x":3100,
+			"y":-490,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"6b4577ab4a415979",
+			"type":"text",
+			"text":"Claude - Software-Architect",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2680,
+			"y":-310,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"a545c994c194a993",
+			"type":"text",
+			"text":"Claude - UX-Designer",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2680,
+			"y":-230,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"c96c86f2ccab69fa",
+			"type":"text",
+			"text":"Claude - QA-Engineer",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2680,
+			"y":-150,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"0cc921be6148aa1f",
+			"type":"text",
+			"text":"ChatGPT - Product Owner",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2680,
+			"y":-470,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"4338c4ea406e8b96",
+			"type":"text",
+			"text":"Idea to Solution Workflow",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1800,
+			"y":-510,
+			"width":260,
+			"height":60,
+			"color":"3"
+		},
+		{
+			"id":"5333dff10cb150dd",
+			"type":"text",
+			"text":"Maintain",
+			"styleAttributes":{"textAlign":"center"},
+			"x":860,
+			"y":-70,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"587a4f2dafd783c5",
+			"type":"text",
+			"text":"Test and Review",
+			"styleAttributes":{"textAlign":"center"},
+			"x":860,
+			"y":-490,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"4ef49a3684f6a3d2",
+			"type":"text",
+			"text":"Release",
+			"styleAttributes":{"textAlign":"center"},
+			"x":860,
+			"y":-210,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"9cf05049146e7cfe",
+			"type":"text",
+			"text":"Development",
+			"styleAttributes":{"textAlign":"center"},
+			"x":860,
+			"y":-840,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"aad5855793c9964c",
+			"type":"text",
+			"text":"Denied Product Increments",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-760,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"6819f68b4fb6e079",
+			"type":"text",
+			"text":"Release Candidate",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-210,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"8e7aac97cd743aaf",
+			"type":"text",
+			"text":"Definition of Done",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-680,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"34b64249b4f5320d",
+			"type":"text",
+			"text":"Product Increment",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-490,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"451128bf614c6d39",
+			"type":"text",
+			"text":"Testplan and Teststrategy",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-410,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"5905df0277543dfd",
+			"type":"text",
+			"text":"Next Cycle Plan",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-840,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"376e0aad981ff60a",
+			"type":"text",
+			"text":"Cycle Report",
+			"styleAttributes":{"textAlign":"center"},
+			"x":880,
+			"y":3080,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"5ee5ae22d389ef82",
+			"type":"text",
+			"text":"Jobs to be done",
+			"styleAttributes":{},
+			"x":3940,
+			"y":2727,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"2e90d5366c626d13",
+			"type":"text",
+			"text":"Actors",
+			"styleAttributes":{},
+			"x":3940,
+			"y":2813,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"2114f4c1ccfeb94b",
+			"type":"text",
+			"text":"Increment",
+			"styleAttributes":{"textAlign":"center"},
+			"x":880,
+			"y":3260,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"fc796ab9a2371c81",
+			"type":"text",
+			"text":"Increment",
+			"styleAttributes":{"textAlign":"center"},
+			"x":880,
+			"y":3340,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"732f4472de9b1120",
+			"type":"text",
+			"text":"Increment",
+			"styleAttributes":{"textAlign":"center"},
+			"x":880,
+			"y":3420,
 			"width":260,
 			"height":60,
 			"color":"5"
@@ -832,6 +1020,450 @@
 			"color":"2"
 		},
 		{
+			"id":"06ad3e18891e6b69",
+			"type":"text",
+			"text":"Documentation",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2940,
+			"y":3140,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"ccb5ba982245f7b5",
+			"type":"text",
+			"text":"Requirements",
+			"styleAttributes":{},
+			"x":3940,
+			"y":2903,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"85d677cad9d99537",
+			"type":"text",
+			"text":"User Story",
+			"styleAttributes":{"textAlign":"center"},
+			"x":3350,
+			"y":2725,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"89793024ead10900",
+			"type":"text",
+			"text":"Storage",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2940,
+			"y":2900,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"6a8c1c61e47318ee",
+			"type":"text",
+			"text":"Use Case 2.0",
+			"styleAttributes":{"textAlign":"center"},
+			"x":3350,
+			"y":2905,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"c0aeff204123ff00",
+			"type":"text",
+			"text":"Jobs to be Done",
+			"styleAttributes":{"textAlign":"center"},
+			"x":880,
+			"y":2780,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"72449dad794f89e3",
+			"type":"text",
+			"text":"Interfaces",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2120,
+			"y":2740,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"0717bb983c2c6010",
+			"type":"text",
+			"text":"Flows",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1980,
+			"y":3000,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"cf79bf44ea769c98",
+			"type":"text",
+			"text":"Product Increment",
+			"styleAttributes":{"textAlign":"center"},
+			"x":3350,
+			"y":3180,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"10912870c9bcc94e",
+			"type":"text",
+			"text":"Offer",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1980,
+			"y":3440,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"34f728f65d90456d",
+			"type":"text",
+			"text":"Events",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2520,
+			"y":3000,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"a0da346fe621e29e",
+			"type":"text",
+			"text":"Props",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2940,
+			"y":2980,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"3a4582b7f06dbcf2",
+			"type":"text",
+			"text":"Views",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1840,
+			"y":2740,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"cd7a2daabf8bba73",
+			"type":"text",
+			"text":"Feature",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1460,
+			"y":2740,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"1fb3cf12d3fea7bf",
+			"type":"text",
+			"text":"Flowti - IBDE",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2240,
+			"y":-120,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"dc8b1ed0fc69fe71",
+			"type":"text",
+			"text":"Denied Product Increment",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1260,
+			"y":-410,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"6ac10bf40d3581de",
+			"type":"text",
+			"text":"Journeys",
+			"styleAttributes":{"textAlign":"center"},
+			"x":880,
+			"y":2860,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"6e9c7659cc2122aa",
+			"type":"text",
+			"text":"Product Backlog Items",
+			"styleAttributes":{"textAlign":"center"},
+			"x":880,
+			"y":2940,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"3b8e15b7fd161918",
+			"type":"text",
+			"text":"User Story",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1460,
+			"y":2930,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"f9fe5f4ef60e6a53",
+			"type":"text",
+			"text":"Use Case",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1460,
+			"y":3010,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"74227396a6c77e95",
+			"type":"text",
+			"text":"Gherkin Test",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1460,
+			"y":3090,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"eb9d5794187ece00",
+			"type":"text",
+			"text":"Release Artifact",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1260,
+			"y":-210,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"4fea4d5d896f7410",
+			"type":"text",
+			"text":"Accepted Product Increment",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1260,
+			"y":-490,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"c3266d01ce6c410d",
+			"type":"text",
+			"text":"New Product Increment",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1260,
+			"y":-840,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"126d5d8e7b2a909d",
+			"type":"text",
+			"text":"Planning",
+			"styleAttributes":{"textAlign":"center"},
+			"x":860,
+			"y":-1150,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"6575e2e5f6c1e713",
+			"type":"text",
+			"text":"Planned Increment",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1260,
+			"y":-1070,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"7acc9f51e55be341",
+			"type":"text",
+			"text":"Refined Cycle Plan",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1260,
+			"y":-1150,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"1baa2d48ccea8665",
+			"type":"text",
+			"text":"Feature Backlog",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-1350,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"f886a3ad9e6000f1",
+			"type":"text",
+			"text":"PBIs",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-990,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"ae0a20413c5d7dfd",
+			"type":"text",
+			"text":"Prioritized Features",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-1150,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"eda8ecd0802d8766",
+			"type":"text",
+			"text":"Slices",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-1070,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"f24519715c7a4071",
+			"type":"text",
+			"text":"Priotization",
+			"styleAttributes":{"textAlign":"center"},
+			"x":860,
+			"y":-1350,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"e49f189e0102d47b",
+			"type":"text",
+			"text":"Prioritized Backlogs",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1260,
+			"y":-1350,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"b9b60f77e828c269",
+			"type":"text",
+			"text":"Tech Debt Backlog",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-1270,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"1562c861338e9167",
+			"type":"text",
+			"text":"Definition of Ready",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-1590,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"9da3a9196b27dee9",
+			"type":"text",
+			"text":"Product Backlog",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-1510,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"dac2c2ccc6746691",
+			"type":"text",
+			"text":"Roadmap",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-1430,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"bcdfcb79c96a8ebe",
+			"type":"text",
+			"text":"Refined Increments",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1260,
+			"y":-1590,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"8a5046110f0f5d0a",
+			"type":"text",
+			"text":"Refinement",
+			"styleAttributes":{"textAlign":"center"},
+			"x":860,
+			"y":-1590,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"2ee7c7a2337bb2aa",
+			"type":"text",
+			"text":"I want to access the flow on a canvas",
+			"styleAttributes":{},
+			"x":4220,
+			"y":5862,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"37b60e3fcc6abba6",
+			"type":"text",
+			"text":"add start events",
+			"styleAttributes":{"textAlign":"center"},
+			"x":180,
+			"y":5900,
+			"width":260,
+			"height":60,
+			"color":"3"
+		},
+		{
 			"id":"234c521da08cb46a",
 			"type":"text",
 			"text":"add end events",
@@ -865,17 +1497,6 @@
 			"color":"5"
 		},
 		{
-			"id":"2ee7c7a2337bb2aa",
-			"type":"text",
-			"text":"I want to access the flow on a canvas",
-			"styleAttributes":{},
-			"x":4220,
-			"y":5862,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
 			"id":"700c2bc948091af7",
 			"type":"text",
 			"text":"I want to know which actors are involved",
@@ -885,28 +1506,6 @@
 			"width":260,
 			"height":60,
 			"color":"5"
-		},
-		{
-			"id":"06ad3e18891e6b69",
-			"type":"text",
-			"text":"Documentation",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2940,
-			"y":3140,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"37b60e3fcc6abba6",
-			"type":"text",
-			"text":"add start events",
-			"styleAttributes":{"textAlign":"center"},
-			"x":180,
-			"y":5900,
-			"width":260,
-			"height":60,
-			"color":"3"
 		},
 		{
 			"id":"c92dc9495faa6a66",
@@ -963,50 +1562,6 @@
 			"color":"3"
 		},
 		{
-			"id":"72449dad794f89e3",
-			"type":"text",
-			"text":"Interfaces",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2120,
-			"y":2740,
-			"width":260,
-			"height":60,
-			"color":"6"
-		},
-		{
-			"id":"0717bb983c2c6010",
-			"type":"text",
-			"text":"Flows",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1980,
-			"y":3000,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"cf79bf44ea769c98",
-			"type":"text",
-			"text":"Product Increment",
-			"styleAttributes":{"textAlign":"center"},
-			"x":3350,
-			"y":3180,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"10912870c9bcc94e",
-			"type":"text",
-			"text":"Offer",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1980,
-			"y":3440,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
 			"id":"c0cf2ae5fb7170e1",
 			"type":"text",
 			"text":"I want to know what deliverables I can expect from this domain and what needs to be done to produce this deliverable",
@@ -1016,490 +1571,6 @@
 			"width":360,
 			"height":120,
 			"color":"5"
-		},
-		{
-			"id":"c58ca77e80f43000",
-			"type":"text",
-			"text":"Product Vision",
-			"styleAttributes":{"textAlign":"center"},
-			"x":880,
-			"y":2520,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"e431edbb59f1cf00",
-			"type":"text",
-			"text":"System Setup",
-			"styleAttributes":{"textAlign":"center"},
-			"x":440,
-			"y":2360,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"111bcbd63463f2c6",
-			"type":"text",
-			"text":"Cycle 0 - Start",
-			"styleAttributes":{"textAlign":"center"},
-			"x":440,
-			"y":2440,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"cc1d47dadb3021e7",
-			"type":"text",
-			"text":"MVP Definition",
-			"styleAttributes":{"textAlign":"center"},
-			"x":440,
-			"y":2520,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"34f728f65d90456d",
-			"type":"text",
-			"text":"Events",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2520,
-			"y":3000,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"429a14d62d8550fc",
-			"type":"text",
-			"text":"User Experience",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2140,
-			"y":3580,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"860a085c2916c78a",
-			"type":"text",
-			"text":"Actors",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1980,
-			"y":2460,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"c6c2640b95011109",
-			"type":"text",
-			"text":"Cycle 0 Plan",
-			"styleAttributes":{"textAlign":"center"},
-			"x":0,
-			"y":2440,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"7fc6182e3f7ae183",
-			"type":"text",
-			"text":"Product Requirements",
-			"styleAttributes":{"textAlign":"center"},
-			"x":0,
-			"y":2600,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"e897e97e49a0c9b7",
-			"type":"text",
-			"text":"Product Idea",
-			"styleAttributes":{"textAlign":"center"},
-			"x":0,
-			"y":2520,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"0705ea17e6e867ea",
-			"type":"text",
-			"text":"Project Environment",
-			"styleAttributes":{"textAlign":"center"},
-			"x":880,
-			"y":2360,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"9173d52cc8bd1b84",
-			"type":"text",
-			"text":"Standards and Frameworks",
-			"styleAttributes":{"textAlign":"center"},
-			"x":0,
-			"y":2360,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"56a089664bb8ea8c",
-			"type":"text",
-			"text":"Project Brief",
-			"styleAttributes":{"textAlign":"center"},
-			"x":880,
-			"y":2440,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"b082fce9781d6278",
-			"type":"text",
-			"text":"Cycle 0 - End",
-			"styleAttributes":{"textAlign":"center"},
-			"x":440,
-			"y":2600,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"cd649dba25112bf3",
-			"type":"text",
-			"text":"Backlog",
-			"styleAttributes":{"textAlign":"center"},
-			"x":880,
-			"y":2600,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"ebda0cfee2bd4bd9",
-			"type":"text",
-			"text":"Feature 1",
-			"styleAttributes":{"textAlign":"center"},
-			"x":4620,
-			"y":-1670,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"bcd236e688510e5d",
-			"type":"text",
-			"text":"Feature 2",
-			"styleAttributes":{"textAlign":"center"},
-			"x":4620,
-			"y":-1590,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"e809764f164d562e",
-			"type":"text",
-			"text":"Feature 3",
-			"styleAttributes":{"textAlign":"center"},
-			"x":4620,
-			"y":-1510,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"95a1369cd8596309",
-			"type":"text",
-			"text":"Feature 4",
-			"styleAttributes":{"textAlign":"center"},
-			"x":4620,
-			"y":-1430,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"5d7a9f0e9f8b3843",
-			"type":"text",
-			"text":"Journey 1",
-			"styleAttributes":{"textAlign":"center"},
-			"x":5080,
-			"y":-1750,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"ba81b1397f44d55c",
-			"type":"text",
-			"text":"Journey 2",
-			"styleAttributes":{"textAlign":"center"},
-			"x":5080,
-			"y":-1670,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"29c0cd3570f18e21",
-			"type":"text",
-			"text":"Journey 3",
-			"styleAttributes":{"textAlign":"center"},
-			"x":5080,
-			"y":-1590,
-			"width":260,
-			"height":60
-		},
-		{"id":"0b8e15eb023842e5","type":"file","file":"Development/Plugin Design.canvas","x":2760,"y":-1130,"width":260,"height":400},
-		{
-			"id":"8844baa6c4d7d42b",
-			"type":"text",
-			"text":"# User Groups\n\n- new to Obsidian\n- new to Markdown\n- new to Git\n- new to Obsidian Plugin Development\n- new to Project Management\n- new to Software Design\n- new to Product Development\n",
-			"styleAttributes":{},
-			"x":3040,
-			"y":-1130,
-			"width":260,
-			"height":400
-		},
-		{
-			"id":"c96c86f2ccab69fa",
-			"type":"text",
-			"text":"Claude - QA-Engineer",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2680,
-			"y":-150,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"0cc921be6148aa1f",
-			"type":"text",
-			"text":"ChatGPT - Product Owner",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2680,
-			"y":-470,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"4338c4ea406e8b96",
-			"type":"text",
-			"text":"Idea to Solution Workflow",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1800,
-			"y":-510,
-			"width":260,
-			"height":60,
-			"color":"3"
-		},
-		{
-			"id":"62347b03526e6fd9",
-			"type":"text",
-			"text":"End to End Tests",
-			"styleAttributes":{"textAlign":"center"},
-			"x":5540,
-			"y":-1430,
-			"width":600,
-			"height":60
-		},
-		{
-			"id":"e518a67e4deef363",
-			"type":"text",
-			"text":"Code",
-			"styleAttributes":{"textAlign":"center"},
-			"x":5880,
-			"y":-1550,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"d89749f4a191a92e",
-			"type":"text",
-			"text":"User",
-			"styleAttributes":{"textAlign":"center"},
-			"x":3700,
-			"y":-1550,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"f9ee60f19b921abd",
-			"type":"text",
-			"text":"Software",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2650,
-			"y":1750,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"aeee5e3cd45356cf",
-			"type":"text",
-			"text":"Consumer",
-			"styleAttributes":{"textAlign":"center"},
-			"x":3310,
-			"y":1750,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"13b0e3906908caac",
-			"type":"text",
-			"text":"Distribution Platform",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2980,
-			"y":1750,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"43489336883e00cc",
-			"type":"text",
-			"text":"End-User",
-			"styleAttributes":{"textAlign":"center"},
-			"x":3640,
-			"y":1750,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"e25059e37e43d990",
-			"type":"text",
-			"text":"Software-Developer",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2320,
-			"y":1750,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"0ca9fd0377dd7004",
-			"type":"text",
-			"text":"Integration Tests",
-			"styleAttributes":{"textAlign":"center"},
-			"x":5540,
-			"y":-1350,
-			"width":600,
-			"height":60
-		},
-		{
-			"id":"b09b57b34176578f",
-			"type":"text",
-			"text":"Unit Tests",
-			"styleAttributes":{"textAlign":"center"},
-			"x":5540,
-			"y":-1270,
-			"width":600,
-			"height":60
-		},
-		{
-			"id":"5ee5ae22d389ef82",
-			"type":"text",
-			"text":"Jobs to be done",
-			"styleAttributes":{},
-			"x":3940,
-			"y":2727,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"2e90d5366c626d13",
-			"type":"text",
-			"text":"Actors",
-			"styleAttributes":{},
-			"x":3940,
-			"y":2813,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"ccb5ba982245f7b5",
-			"type":"text",
-			"text":"Requirements",
-			"styleAttributes":{},
-			"x":3940,
-			"y":2903,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"85d677cad9d99537",
-			"type":"text",
-			"text":"User Story",
-			"styleAttributes":{"textAlign":"center"},
-			"x":3350,
-			"y":2725,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"89793024ead10900",
-			"type":"text",
-			"text":"Storage",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2940,
-			"y":2900,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"a0da346fe621e29e",
-			"type":"text",
-			"text":"Props",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2940,
-			"y":2980,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"7f7d952712e2b426",
-			"type":"text",
-			"text":"Tech Concept and Increment",
-			"styleAttributes":{},
-			"x":1420,
-			"y":1640,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"8b78d19463b8b7b1",
-			"type":"text",
-			"text":"Testsuite and E2E Test Report",
-			"styleAttributes":{},
-			"x":1420,
-			"y":1560,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"35a51555de6e306d",
-			"type":"text",
-			"text":"Happy Customers",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1920,
-			"y":1720,
-			"width":260,
-			"height":60,
-			"color":"4"
-		},
-		{
-			"id":"6a8c1c61e47318ee",
-			"type":"text",
-			"text":"Use Case 2.0",
-			"styleAttributes":{"textAlign":"center"},
-			"x":3350,
-			"y":2905,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"719b2dfadce52cb7",
-			"type":"text",
-			"text":"Domains",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1980,
-			"y":2220,
-			"width":260,
-			"height":60,
-			"color":"2"
 		},
 		{
 			"id":"8a6137eeb01528ed",
@@ -1518,17 +1589,6 @@
 			"text":"Increment",
 			"styleAttributes":{"textAlign":"center"},
 			"x":0,
-			"y":3260,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"2114f4c1ccfeb94b",
-			"type":"text",
-			"text":"Increment",
-			"styleAttributes":{"textAlign":"center"},
-			"x":880,
 			"y":3260,
 			"width":260,
 			"height":60,
@@ -1568,17 +1628,6 @@
 			"color":"5"
 		},
 		{
-			"id":"9f82d6e1e60009bb",
-			"type":"text",
-			"text":"Jobs to be done",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1980,
-			"y":2340,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
 			"id":"a7fd775e802e0518",
 			"type":"text",
 			"text":"Increment",
@@ -1588,6 +1637,26 @@
 			"width":260,
 			"height":60,
 			"color":"5"
+		},
+		{
+			"id":"0ca9fd0377dd7004",
+			"type":"text",
+			"text":"Integration Tests",
+			"styleAttributes":{"textAlign":"center"},
+			"x":5540,
+			"y":-1350,
+			"width":600,
+			"height":60
+		},
+		{
+			"id":"b09b57b34176578f",
+			"type":"text",
+			"text":"Unit Tests",
+			"styleAttributes":{"textAlign":"center"},
+			"x":5540,
+			"y":-1270,
+			"width":600,
+			"height":60
 		},
 		{
 			"id":"cb65fd84dec063de",
@@ -1610,16 +1679,6 @@
 			"height":60
 		},
 		{
-			"id":"f5114aac9d6e5eac",
-			"type":"text",
-			"text":"Backlog",
-			"styleAttributes":{"textAlign":"center"},
-			"x":0,
-			"y":2860,
-			"width":260,
-			"height":60
-		},
-		{
 			"id":"87bd814f645db3c1",
 			"type":"text",
 			"text":"Increment",
@@ -1631,54 +1690,12 @@
 			"color":"5"
 		},
 		{
-			"id":"fc796ab9a2371c81",
-			"type":"text",
-			"text":"Increment",
-			"styleAttributes":{"textAlign":"center"},
-			"x":880,
-			"y":3340,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"732f4472de9b1120",
-			"type":"text",
-			"text":"Increment",
-			"styleAttributes":{"textAlign":"center"},
-			"x":880,
-			"y":3420,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"0d757187eaf829ce",
-			"type":"text",
-			"text":"Refinement",
-			"styleAttributes":{"textAlign":"center"},
-			"x":440,
-			"y":2860,
-			"width":260,
-			"height":60
-		},
-		{
 			"id":"9b4d72f9d64a83a6",
 			"type":"text",
 			"text":"Review",
 			"styleAttributes":{"textAlign":"center"},
 			"x":440,
 			"y":3420,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"774d708e0058bbcd",
-			"type":"text",
-			"text":"Design",
-			"styleAttributes":{"textAlign":"center"},
-			"x":440,
-			"y":2940,
 			"width":260,
 			"height":60
 		},
@@ -1693,159 +1710,12 @@
 			"height":60
 		},
 		{
-			"id":"d63ba625dd6e9e5f",
-			"type":"text",
-			"text":"Test",
-			"styleAttributes":{"textAlign":"center"},
-			"x":440,
-			"y":3340,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"06a2f90f9e424098",
-			"type":"text",
-			"text":"Product Requirements Document",
-			"styleAttributes":{"textAlign":"center"},
-			"x":0,
-			"y":2940,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"3a4582b7f06dbcf2",
-			"type":"text",
-			"text":"Views",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1840,
-			"y":2740,
-			"width":260,
-			"height":60,
-			"color":"6"
-		},
-		{
-			"id":"cd7a2daabf8bba73",
-			"type":"text",
-			"text":"Feature",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1460,
-			"y":2740,
-			"width":260,
-			"height":60,
-			"color":"6"
-		},
-		{
-			"id":"3b8e15b7fd161918",
-			"type":"text",
-			"text":"User Story",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1460,
-			"y":2930,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"f9fe5f4ef60e6a53",
-			"type":"text",
-			"text":"Use Case",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1460,
-			"y":3010,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"74227396a6c77e95",
-			"type":"text",
-			"text":"Gherkin Test",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1460,
-			"y":3090,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"d8449fcd0e3ab97a",
-			"type":"text",
-			"text":"Cycle Plan",
-			"styleAttributes":{"textAlign":"center"},
-			"x":0,
-			"y":3080,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"7690eedbe60304e6",
-			"type":"text",
-			"text":"Customer Experience",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1820,
-			"y":3580,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"75cd264af6a9d9ec",
-			"type":"text",
-			"text":"Planning",
-			"styleAttributes":{"textAlign":"center"},
-			"x":440,
-			"y":3080,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"8de11da9bc43f7c0",
-			"type":"text",
-			"text":"Job to be done 1",
-			"styleAttributes":{"textAlign":"center"},
-			"x":4140,
-			"y":-1630,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"70781ae13f79e65d",
-			"type":"text",
-			"text":"Job to be done 2",
-			"styleAttributes":{"textAlign":"center"},
-			"x":4140,
-			"y":-1550,
-			"width":260,
-			"height":60
-		},
-		{"id":"5d6cdc543db0af78","type":"file","file":"Development/flowti/docs/inbox/Flowti - System Design.canvas","x":2480,"y":-1130,"width":260,"height":400},
-		{"id":"5e20e595aaae0f17","type":"file","file":"02 - Jobs to be done.base","x":1760,"y":-1730,"width":400,"height":400},
-		{"id":"c40b11027e8bac16","type":"file","file":"00 - Inbox.base","x":2200,"y":-1730,"width":400,"height":400},
-		{"id":"83c9ad2da538d079","type":"file","file":"Development/flowti/docs/learnings/AI is a very good tool to simulate document heavy processes to quickly iterate on them.md","x":1760,"y":-1130,"width":400,"height":400},
-		{
-			"id":"8b42e85c8914f3a7",
-			"type":"text",
-			"text":"# Folderstructure\n\n- `/00 - Connectivity`\n- `/01 - Projects`\n- `/02 - Areas`\n- `/03 - Resources`\n- `/03 - Resources/Documentations/...Diataxis`\n- `/04 - Archive`",
-			"styleAttributes":{},
-			"x":2200,
-			"y":-1130,
-			"width":260,
-			"height":400
-		},
-		{
 			"id":"62ffca3ab5963175",
 			"type":"text",
 			"text":"Journey 7",
 			"styleAttributes":{"textAlign":"center"},
 			"x":5080,
 			"y":-1270,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"c0811e437f875857",
-			"type":"text",
-			"text":"Job to be done 3",
-			"styleAttributes":{"textAlign":"center"},
-			"x":4140,
-			"y":-1470,
 			"width":260,
 			"height":60
 		},
@@ -1860,6 +1730,56 @@
 			"height":60
 		},
 		{
+			"id":"5d7a9f0e9f8b3843",
+			"type":"text",
+			"text":"Journey 1",
+			"styleAttributes":{"textAlign":"center"},
+			"x":5080,
+			"y":-1750,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"ba81b1397f44d55c",
+			"type":"text",
+			"text":"Journey 2",
+			"styleAttributes":{"textAlign":"center"},
+			"x":5080,
+			"y":-1670,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"29c0cd3570f18e21",
+			"type":"text",
+			"text":"Journey 3",
+			"styleAttributes":{"textAlign":"center"},
+			"x":5080,
+			"y":-1590,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"62347b03526e6fd9",
+			"type":"text",
+			"text":"End to End Tests",
+			"styleAttributes":{"textAlign":"center"},
+			"x":5540,
+			"y":-1430,
+			"width":600,
+			"height":60
+		},
+		{
+			"id":"e518a67e4deef363",
+			"type":"text",
+			"text":"Code",
+			"styleAttributes":{"textAlign":"center"},
+			"x":5880,
+			"y":-1550,
+			"width":260,
+			"height":60
+		},
+		{
 			"id":"855f81709dbe73e6",
 			"type":"text",
 			"text":"Product Backlog Items",
@@ -1869,16 +1789,6 @@
 			"width":260,
 			"height":60,
 			"color":"5"
-		},
-		{
-			"id":"d68b92708d9f2f1f",
-			"type":"text",
-			"text":"Journey 8",
-			"styleAttributes":{"textAlign":"center"},
-			"x":5080,
-			"y":-1830,
-			"width":260,
-			"height":60
 		},
 		{
 			"id":"2aa045c68ea4cf95",
@@ -1911,12 +1821,112 @@
 			"height":60
 		},
 		{
+			"id":"bcd236e688510e5d",
+			"type":"text",
+			"text":"Feature 2",
+			"styleAttributes":{"textAlign":"center"},
+			"x":4620,
+			"y":-1590,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"e809764f164d562e",
+			"type":"text",
+			"text":"Feature 3",
+			"styleAttributes":{"textAlign":"center"},
+			"x":4620,
+			"y":-1510,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"95a1369cd8596309",
+			"type":"text",
+			"text":"Feature 4",
+			"styleAttributes":{"textAlign":"center"},
+			"x":4620,
+			"y":-1430,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"8de11da9bc43f7c0",
+			"type":"text",
+			"text":"Job to be done 1",
+			"styleAttributes":{"textAlign":"center"},
+			"x":4140,
+			"y":-1630,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"70781ae13f79e65d",
+			"type":"text",
+			"text":"Job to be done 2",
+			"styleAttributes":{"textAlign":"center"},
+			"x":4140,
+			"y":-1550,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"ebda0cfee2bd4bd9",
+			"type":"text",
+			"text":"Feature 1",
+			"styleAttributes":{"textAlign":"center"},
+			"x":4620,
+			"y":-1670,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"d89749f4a191a92e",
+			"type":"text",
+			"text":"User",
+			"styleAttributes":{"textAlign":"center"},
+			"x":3700,
+			"y":-1550,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"c0811e437f875857",
+			"type":"text",
+			"text":"Job to be done 3",
+			"styleAttributes":{"textAlign":"center"},
+			"x":4140,
+			"y":-1470,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"d68b92708d9f2f1f",
+			"type":"text",
+			"text":"Journey 8",
+			"styleAttributes":{"textAlign":"center"},
+			"x":5080,
+			"y":-1830,
+			"width":260,
+			"height":60
+		},
+		{
 			"id":"3d379f0f9822f73f",
 			"type":"text",
 			"text":"Non-Functional Requirements",
 			"styleAttributes":{"textAlign":"center"},
 			"x":4620,
 			"y":-1270,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"55ecf1e6b192a760",
+			"type":"text",
+			"text":"OneSeater Motorsport Manager",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1800,
+			"y":-120,
 			"width":260,
 			"height":60
 		}
@@ -2621,6 +2631,15 @@
 			"fromSide":"right",
 			"toNode":"e518a67e4deef363",
 			"toSide":"top"
+		},
+		{
+			"id":"7d30323ecc8de68a",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"55ecf1e6b192a760",
+			"fromSide":"top",
+			"toNode":"0c2045c923d1ccf0",
+			"toSide":"bottom"
 		}
 	],
 	"metadata":{

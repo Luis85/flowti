@@ -1633,4 +1633,164 @@ describe("JourneyBuilderSidebar", () => {
 			expect(sidebar.getSidebarState()).toBe("steps");
 		});
 	});
+
+	describe("canvas reverse sync (canvas.changed merge)", () => {
+		const sampleJourney = JSON.stringify({
+			journey: "My Journey",
+			description: "A test journey",
+			startEvent: "app.opened",
+			endEvent: "app.closed",
+			steps: [
+				{ id: "s1", title: "Open the hub", description: "Opens it", swimlane: "frontstage", guideSection: 1, events: [], actions: [{ tool: "command", command: "foo" }] },
+				{ id: "s2", title: "Click button", description: "", swimlane: "backstage", guideSection: 2, events: [], actions: [{ tool: "click", selector: ".btn" }] },
+			],
+		});
+
+		const canvasPath = "03 - Resources/Journeys/My Journey/My Journey.canvas";
+
+		beforeEach(async () => {
+			await sidebar.onOpen();
+			sidebar.loadJourneyFromJSON(sampleJourney);
+		});
+
+		it("updates step titles and descriptions from canvas", async () => {
+			await eventBus.emit("journey-builder.canvas.changed", {
+				canvasPath,
+				startEvent: "app.opened",
+				endEvent: "app.closed",
+				activeStepIndex: undefined,
+				steps: [
+					{ title: "Renamed step", description: "New desc", actionCount: 1, canvasGroupId: "g1" },
+					{ title: "Also renamed", description: "Another", actionCount: 1, canvasGroupId: "g2" },
+				],
+			});
+
+			const steps = sidebar.getSteps();
+			expect(steps[0].title).toBe("Renamed step");
+			expect(steps[0].description).toBe("New desc");
+			expect(steps[1].title).toBe("Also renamed");
+			expect(steps[1].description).toBe("Another");
+		});
+
+		it("preserves existing actions during canvas merge", async () => {
+			await eventBus.emit("journey-builder.canvas.changed", {
+				canvasPath,
+				startEvent: "app.opened",
+				endEvent: "app.closed",
+				activeStepIndex: undefined,
+				steps: [
+					{ title: "Renamed", description: "", actionCount: 1, canvasGroupId: "g1" },
+					{ title: "Also renamed", description: "", actionCount: 1, canvasGroupId: "g2" },
+				],
+			});
+
+			const steps = sidebar.getSteps();
+			expect(steps[0].actions).toEqual([{ tool: "command", command: "foo" }]);
+			expect(steps[1].actions).toEqual([{ tool: "click", selector: ".btn" }]);
+		});
+
+		it("adds new steps from canvas with empty actions", async () => {
+			await eventBus.emit("journey-builder.canvas.changed", {
+				canvasPath,
+				startEvent: "app.opened",
+				endEvent: "app.closed",
+				activeStepIndex: undefined,
+				steps: [
+					{ title: "Open the hub", description: "Opens it", actionCount: 1, canvasGroupId: "g1" },
+					{ title: "Click button", description: "", actionCount: 1, canvasGroupId: "g2" },
+					{ title: "New step", description: "Added in canvas", actionCount: 0, canvasGroupId: "g3" },
+				],
+			});
+
+			const steps = sidebar.getSteps();
+			expect(steps).toHaveLength(3);
+			expect(steps[2].title).toBe("New step");
+			expect(steps[2].description).toBe("Added in canvas");
+			expect(steps[2].actions).toEqual([]);
+		});
+
+		it("updates startEvent and endEvent from canvas", async () => {
+			await eventBus.emit("journey-builder.canvas.changed", {
+				canvasPath,
+				startEvent: "new.start.event",
+				endEvent: "new.end.event",
+				activeStepIndex: undefined,
+				steps: [
+					{ title: "Open the hub", description: "", actionCount: 0, canvasGroupId: "g1" },
+					{ title: "Click button", description: "", actionCount: 0, canvasGroupId: "g2" },
+				],
+			});
+
+			expect(sidebar.getMetadata().startEvent).toBe("new.start.event");
+			expect(sidebar.getEndEvent()).toBe("new.end.event");
+		});
+
+		it("does not trigger scheduleCanvasSync during canvas-initiated update", async () => {
+			vi.useFakeTimers();
+			const handler = vi.fn();
+			eventBus.on("journey-builder.canvas.sync-requested", handler);
+
+			await eventBus.emit("journey-builder.canvas.changed", {
+				canvasPath,
+				startEvent: "app.opened",
+				endEvent: "app.closed",
+				activeStepIndex: undefined,
+				steps: [
+					{ title: "Renamed", description: "New", actionCount: 1, canvasGroupId: "g1" },
+					{ title: "Also renamed", description: "", actionCount: 1, canvasGroupId: "g2" },
+				],
+			});
+
+			// Advance past any debounce timers
+			vi.advanceTimersByTime(5000);
+			vi.useRealTimers();
+
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("ignores canvas.changed when not in steps state", async () => {
+			// Reset to welcome state
+			await sidebar.onClose();
+			await sidebar.onOpen();
+			expect(sidebar.getSidebarState()).toBe("welcome");
+
+			await eventBus.emit("journey-builder.canvas.changed", {
+				canvasPath,
+				startEvent: "new.event",
+				endEvent: "new.end",
+				activeStepIndex: undefined,
+				steps: [{ title: "Ghost step", description: "", actionCount: 0, canvasGroupId: "g1" }],
+			});
+
+			expect(sidebar.getSteps()).toHaveLength(0);
+		});
+
+		it("ignores canvas.changed for wrong canvas path", async () => {
+			await eventBus.emit("journey-builder.canvas.changed", {
+				canvasPath: "other/path.canvas",
+				startEvent: "new.event",
+				endEvent: "new.end",
+				activeStepIndex: undefined,
+				steps: [{ title: "Ghost step", description: "", actionCount: 0, canvasGroupId: "g1" }],
+			});
+
+			const steps = sidebar.getSteps();
+			expect(steps[0].title).toBe("Open the hub");
+		});
+
+		it("unsubscribes canvas.changed on close", async () => {
+			await sidebar.onClose();
+
+			await eventBus.emit("journey-builder.canvas.changed", {
+				canvasPath,
+				startEvent: "new.event",
+				endEvent: "new.end",
+				activeStepIndex: undefined,
+				steps: [{ title: "Ghost", description: "", actionCount: 0, canvasGroupId: "g1" }],
+			});
+
+			// Re-open to check state was not changed
+			expect(sidebar.getSteps()[0].title).toBe("Open the hub");
+		});
+	});
 });

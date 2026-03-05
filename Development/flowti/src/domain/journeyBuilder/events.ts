@@ -2,6 +2,7 @@
  * Event definitions for the Journey Builder domain.
  */
 import type { CanvasSyncInput } from "./canvasSync";
+import type { ParsedJourneyCanvas } from "./canvasParser";
 
 /** Payload for the export event — carries the full journey definition. */
 export interface JourneyExportPayload {
@@ -48,6 +49,10 @@ export interface JourneyBuilderEventMap {
 	};
 	/** Companion canvas file was written/updated */
 	"journey-builder.canvas.synced": {
+		canvasPath: string;
+	};
+	/** Companion canvas file was modified externally (reverse sync) */
+	"journey-builder.canvas.changed": ParsedJourneyCanvas & {
 		canvasPath: string;
 	};
 	/** User selected a journey file to import */
