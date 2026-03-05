@@ -1,0 +1,387 @@
+{
+	"journey": "Test Management Hub",
+	"chapter": 9,
+	"description": "First vertical slice of the Test Management Hub: open the Hub, verify dashboard KPIs, navigate to the Journeys tab, select a journey, inspect detail panels (run history, steps, traceability), check the Coverage tab for PRD gaps, verify the Pyramid tab renders, tag a journey with a compliance characteristic, and execute a journey with the in-app executor against the user vault.",
+	"testSource": "tests/e2e/90-journey-test-management-hub.test.ts",
+	"reportPath": "docs/journeys/Test Management Hub/Test Management Hub.md",
+	"canvasPath": "docs/journeys/Test Management Hub/Test Management Hub.canvas",
+	"type": "functional",
+	"category": "quality",
+	"domain": "test-management",
+	"actors": ["QA Lead", "Developer", "Product Owner"],
+	"services": ["TestManagementService", "JourneyExecutorService", "TestManagementHubView", "EventBus"],
+	"prd": "Test Management",
+	"complianceTags": ["iso-9001:traceability", "iso-25010:functionality"],
+	"tools": [],
+	"lifecycle": {
+		"enablePlugin": false,
+		"checkInstalled": false,
+		"startTrace": true,
+		"openActivityLog": false
+	},
+	"setup": [
+		{
+			"id": "setup-log",
+			"title": "Log chapter start and verify prerequisites",
+			"guideSection": 0,
+			"description": "Log chapter header and verify that the plugin is running and journey files exist in the vault.",
+			"actions": [
+				{ "tool": "write-run-log", "message": "\n## Chapter 9: Test Management Hub\n" },
+				{ "tool": "notice", "message": "Starting Test Management Hub journey", "duration": 3000 }
+			]
+		}
+	],
+	"steps": [
+		{
+			"id": "01-open-hub",
+			"title": "Open Test Management Hub via command palette",
+			"guideSection": 1,
+			"description": "Open the Test Management Hub using the registered command. Verify the Hub view is created and the dashboard landing page renders with KPI cards.",
+			"expectedInput": "Plugin enabled, journey files in vault",
+			"expectedOutput": "Test Management Hub open with dashboard KPIs visible",
+			"uiContext": {
+				"view": "flowti-test-management-hub",
+				"viewName": "Test Management Hub",
+				"components": ["TestManagementHubView", "WorkspaceShell"]
+			},
+			"events": ["hub.opened", "test-mgmt.hub.loaded"],
+			"commands": ["flowti:open-test-management-hub"],
+			"interactions": ["Open Hub via command palette"],
+			"actions": [
+				{ "tool": "notice", "message": "Step 1/10: Opening Test Management Hub", "duration": 2000 },
+				{ "tool": "command", "id": "flowti:open-test-management-hub", "description": "Open Test Management Hub" },
+				{ "tool": "wait", "ms": 1000 },
+				{ "tool": "assert", "type": "leaf", "viewType": "flowti-test-management-hub", "description": "Hub view is open" },
+				{ "tool": "screenshot", "label": "hub-opened", "description": "Test Management Hub dashboard" }
+			]
+		},
+		{
+			"id": "02-dashboard-kpis",
+			"title": "Verify dashboard KPI cards",
+			"guideSection": 2,
+			"description": "Verify that the dashboard landing page shows 4 KPI stat cards: Total Journeys, Pass Rate, Coverage, and Compliance Score. Check that the mini pyramid and Recent Runs section render.",
+			"expectedInput": "Hub open on dashboard landing",
+			"expectedOutput": "All 4 KPI cards visible with values, mini pyramid rendered, recent runs listed",
+			"uiContext": {
+				"view": "flowti-test-management-hub",
+				"viewName": "Test Management Hub",
+				"tab": "dashboard",
+				"components": ["TestManagementHubView", "DashboardRenderer"]
+			},
+			"events": ["test-mgmt.coverage.computed", "test-mgmt.pyramid.updated"],
+			"interactions": ["Read dashboard KPIs", "Verify mini pyramid"],
+			"actions": [
+				{ "tool": "notice", "message": "Step 2/10: Checking dashboard KPIs", "duration": 2000 },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-kpi-cards", "description": "KPI cards container visible" },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-kpi-card[data-kpi='total-journeys']", "description": "Total Journeys KPI card" },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-kpi-card[data-kpi='pass-rate']", "description": "Pass Rate KPI card" },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-kpi-card[data-kpi='coverage']", "description": "Coverage KPI card" },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-kpi-card[data-kpi='compliance']", "description": "Compliance Score KPI card" },
+				{
+					"tool": "assert-number",
+					"selector": ".test-mgmt-kpi-card[data-kpi='total-journeys'] .kpi-value",
+					"min": 1,
+					"description": "At least 1 journey registered"
+				},
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-mini-pyramid", "description": "Mini pyramid visualization visible" },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-recent-runs", "description": "Recent Runs section visible" },
+				{ "tool": "screenshot", "label": "dashboard-kpis", "description": "Dashboard with KPIs, pyramid, and recent runs" }
+			]
+		},
+		{
+			"id": "03-navigate-journeys-tab",
+			"title": "Navigate to Journeys tab",
+			"guideSection": 3,
+			"description": "Click the Journeys tab in the Hub tab bar. Verify the master/detail layout renders with a journey list and filter bar.",
+			"expectedInput": "Hub open on dashboard",
+			"expectedOutput": "Journeys tab active with master list and filter bar visible",
+			"uiContext": {
+				"view": "flowti-test-management-hub",
+				"viewName": "Test Management Hub",
+				"tab": "journeys",
+				"components": ["TestManagementHubView", "JourneysTab"]
+			},
+			"events": ["hub.tab.changed"],
+			"interactions": ["Click Journeys tab"],
+			"actions": [
+				{ "tool": "notice", "message": "Step 3/10: Navigating to Journeys tab", "duration": 2000 },
+				{ "tool": "click", "selector": "[data-test-id='catalog-tab-bar'] [data-tab-id='journeys']", "description": "Click Journeys tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-journey-list", "description": "Journey master list visible" },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-filter-bar", "description": "Filter bar visible" },
+				{
+					"tool": "assert",
+					"type": "count",
+					"selector": ".test-mgmt-journey-item",
+					"expected": 7,
+					"description": "7 journeys listed (existing E2E journeys)"
+				},
+				{ "tool": "screenshot", "label": "journeys-tab", "description": "Journeys tab with master list" }
+			]
+		},
+		{
+			"id": "04-select-journey-detail",
+			"title": "Select a journey and inspect detail panel",
+			"guideSection": 4,
+			"description": "Click on the 'Getting Started' journey in the master list. Verify the detail panel renders with run history, step list, traceability, and action bar.",
+			"expectedInput": "Journeys tab active with journey list",
+			"expectedOutput": "Detail panel shows Getting Started journey with all sections",
+			"uiContext": {
+				"view": "flowti-test-management-hub",
+				"viewName": "Test Management Hub",
+				"tab": "journeys",
+				"components": ["TestManagementHubView", "JourneysTab", "JourneyDetailPanel"]
+			},
+			"interactions": ["Click journey in master list", "Read detail sections"],
+			"actions": [
+				{ "tool": "notice", "message": "Step 4/10: Inspecting journey detail panel", "duration": 2000 },
+				{ "tool": "click", "selector": ".test-mgmt-journey-item[data-journey='Getting Started']", "description": "Select Getting Started journey" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-journey-detail", "description": "Detail panel visible" },
+				{ "tool": "assert-text", "selector": ".test-mgmt-journey-detail .detail-header .journey-name", "expected": "Getting Started", "description": "Journey name shown" },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-detail-section[data-section='run-history']", "description": "Run History section visible" },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-detail-section[data-section='steps']", "description": "Steps section visible" },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-detail-section[data-section='traceability']", "description": "Traceability section visible" },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-action-bar", "description": "Action bar visible" },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-action-bar [data-action='open-in-builder']", "description": "'Open in Builder' button present" },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-action-bar [data-action='run-journey']", "description": "'Run Journey' button present" },
+				{ "tool": "screenshot", "label": "journey-detail", "description": "Getting Started journey detail panel" }
+			]
+		},
+		{
+			"id": "05-expand-steps",
+			"title": "Expand step list and verify per-step status",
+			"guideSection": 5,
+			"description": "Expand the Steps section to see the step list with per-step last run status indicators (green/red/yellow/gray). Click a step to expand its actions.",
+			"expectedInput": "Getting Started journey detail panel open",
+			"expectedOutput": "Steps listed with status badges, one step expanded to show actions",
+			"uiContext": {
+				"view": "flowti-test-management-hub",
+				"viewName": "Test Management Hub",
+				"tab": "journeys",
+				"components": ["JourneyDetailPanel", "StepListRenderer"]
+			},
+			"interactions": ["Expand step list", "Click step to expand actions"],
+			"actions": [
+				{ "tool": "notice", "message": "Step 5/10: Expanding step details", "duration": 2000 },
+				{
+					"tool": "assert",
+					"type": "count",
+					"selector": ".test-mgmt-step-item",
+					"min": 1,
+					"description": "At least 1 step listed"
+				},
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-step-item .step-status", "description": "Step status indicators present" },
+				{ "tool": "click", "selector": ".test-mgmt-step-item:first-child", "description": "Click first step to expand" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-step-item:first-child .step-actions", "description": "Step actions expanded" },
+				{ "tool": "screenshot", "label": "step-detail", "description": "Expanded step with actions and status" }
+			]
+		},
+		{
+			"id": "06-coverage-tab",
+			"title": "Navigate to Coverage tab and verify PRD matrix",
+			"guideSection": 6,
+			"description": "Switch to the Coverage tab. Verify the PRD-to-journey coverage matrix renders with rows for each PRD feature, coverage indicators, and a gaps view.",
+			"expectedInput": "Hub open on Journeys tab",
+			"expectedOutput": "Coverage matrix with PRD rows, coverage indicators, and gap analysis",
+			"uiContext": {
+				"view": "flowti-test-management-hub",
+				"viewName": "Test Management Hub",
+				"tab": "coverage",
+				"components": ["TestManagementHubView", "CoverageTab"]
+			},
+			"events": ["hub.tab.changed", "test-mgmt.coverage.computed"],
+			"interactions": ["Click Coverage tab", "Read coverage matrix"],
+			"actions": [
+				{ "tool": "notice", "message": "Step 6/10: Checking Coverage matrix", "duration": 2000 },
+				{ "tool": "click", "selector": "[data-test-id='catalog-tab-bar'] [data-tab-id='coverage']", "description": "Click Coverage tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-coverage-matrix", "description": "Coverage matrix visible" },
+				{
+					"tool": "assert",
+					"type": "count",
+					"selector": ".test-mgmt-coverage-row",
+					"min": 1,
+					"description": "At least 1 PRD feature row in matrix"
+				},
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-coverage-indicator", "description": "Coverage indicators visible (green/yellow/red)" },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-domain-coverage", "description": "Domain coverage summary visible" },
+				{ "tool": "screenshot", "label": "coverage-matrix", "description": "Coverage matrix with PRD features and indicators" }
+			]
+		},
+		{
+			"id": "07-pyramid-tab",
+			"title": "Navigate to Pyramid tab and verify visualization",
+			"guideSection": 7,
+			"description": "Switch to the Pyramid tab. Verify the 3-layer test pyramid renders with E2E at top, Flow in middle, Unit at bottom. In Standard mode, only E2E is at full fidelity.",
+			"expectedInput": "Hub open on Coverage tab",
+			"expectedOutput": "Pyramid visualization with 3 layers, counts, pass rates, and trend indicators",
+			"uiContext": {
+				"view": "flowti-test-management-hub",
+				"viewName": "Test Management Hub",
+				"tab": "pyramid",
+				"components": ["TestManagementHubView", "PyramidTab"]
+			},
+			"events": ["hub.tab.changed", "test-mgmt.pyramid.updated"],
+			"interactions": ["Click Pyramid tab", "Read pyramid layers"],
+			"actions": [
+				{ "tool": "notice", "message": "Step 7/10: Verifying Test Pyramid", "duration": 2000 },
+				{ "tool": "click", "selector": "[data-test-id='catalog-tab-bar'] [data-tab-id='pyramid']", "description": "Click Pyramid tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-pyramid", "description": "Pyramid visualization visible" },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-pyramid-layer[data-layer='e2e']", "description": "E2E layer visible" },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-pyramid-layer[data-layer='flow']", "description": "Flow layer visible" },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-pyramid-layer[data-layer='unit']", "description": "Unit layer visible" },
+				{ "tool": "click", "selector": ".test-mgmt-pyramid-layer[data-layer='e2e']", "description": "Click E2E layer to expand" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-pyramid-layer-detail", "description": "E2E layer detail expanded" },
+				{ "tool": "screenshot", "label": "pyramid", "description": "Test pyramid with E2E layer expanded" }
+			]
+		},
+		{
+			"id": "08-compliance-tag",
+			"title": "Navigate to Compliance tab and tag a journey",
+			"guideSection": 8,
+			"description": "Switch to the Compliance tab. Verify ISO standards accordion renders. Open ISO 25010, find the 'usability' characteristic, and verify the guidance callout. Check the compliance score.",
+			"expectedInput": "Hub open on Pyramid tab",
+			"expectedOutput": "Compliance tab with ISO 25010 expanded, usability characteristic visible with guidance",
+			"uiContext": {
+				"view": "flowti-test-management-hub",
+				"viewName": "Test Management Hub",
+				"tab": "compliance",
+				"components": ["TestManagementHubView", "ComplianceTab"]
+			},
+			"events": ["hub.tab.changed", "test-mgmt.compliance.checked"],
+			"interactions": ["Click Compliance tab", "Expand ISO 25010", "Read usability guidance"],
+			"actions": [
+				{ "tool": "notice", "message": "Step 8/10: Checking Compliance tab", "duration": 2000 },
+				{ "tool": "click", "selector": "[data-test-id='catalog-tab-bar'] [data-tab-id='compliance']", "description": "Click Compliance tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-compliance-standards", "description": "ISO standards accordion visible" },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-standard-section[data-standard='iso-9001']", "description": "ISO 9001 section visible" },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-standard-section[data-standard='iso-27001']", "description": "ISO 27001 section visible" },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-standard-section[data-standard='iso-25010']", "description": "ISO 25010 section visible" },
+				{ "tool": "click", "selector": ".test-mgmt-standard-section[data-standard='iso-25010'] .standard-header", "description": "Expand ISO 25010" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-characteristic[data-id='usability']", "description": "Usability characteristic visible" },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-characteristic[data-id='usability'] .guidance", "description": "Usability guidance callout visible" },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-compliance-score", "description": "Compliance score badge visible" },
+				{ "tool": "screenshot", "label": "compliance-iso25010", "description": "Compliance tab with ISO 25010 expanded" }
+			]
+		},
+		{
+			"id": "09-run-journey",
+			"title": "Execute a journey from the Hub",
+			"guideSection": 9,
+			"description": "Navigate back to the Journeys tab, select a journey, and click 'Run Journey'. Verify the live progress panel appears with step-by-step execution status. Wait for completion and verify result artifact is written.",
+			"expectedInput": "Hub open, at least 1 journey registered",
+			"expectedOutput": "Journey executed with live progress, result artifact written, Hub status updated",
+			"uiContext": {
+				"view": "flowti-test-management-hub",
+				"viewName": "Test Management Hub",
+				"tab": "journeys",
+				"components": ["TestManagementHubView", "JourneysTab", "ExecutionProgressPanel"]
+			},
+			"events": ["hub.tab.changed", "test-mgmt.run.started", "test-mgmt.run.step-completed", "test-mgmt.run.completed"],
+			"interactions": ["Navigate to Journeys tab", "Select journey", "Click Run Journey", "Watch progress panel"],
+			"actions": [
+				{ "tool": "notice", "message": "Step 9/10: Running a journey from the Hub", "duration": 2000 },
+				{ "tool": "click", "selector": "[data-test-id='catalog-tab-bar'] [data-tab-id='journeys']", "description": "Navigate to Journeys tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "click", "selector": ".test-mgmt-journey-item:first-child", "description": "Select first journey" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "click", "selector": ".test-mgmt-action-bar [data-action='run-journey']", "description": "Click Run Journey button" },
+				{ "tool": "wait", "ms": 1000 },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-execution-progress", "description": "Execution progress panel visible" },
+				{ "tool": "assert", "type": "visible", "selector": ".test-mgmt-execution-progress .progress-step-counter", "description": "Step counter visible (N of M)" },
+				{ "tool": "screenshot", "label": "execution-progress", "description": "Journey execution in progress with live status" },
+				{ "tool": "wait", "ms": 5000 },
+				{
+					"tool": "assert",
+					"type": "visible",
+					"selector": ".test-mgmt-execution-progress .execution-complete",
+					"description": "Execution completed indicator visible"
+				},
+				{ "tool": "screenshot", "label": "execution-complete", "description": "Journey execution completed" }
+			]
+		},
+		{
+			"id": "10-verify-hub-dashboard-provider",
+			"title": "Verify User Hub 'Test Health' card",
+			"guideSection": 10,
+			"description": "Open the User Hub and verify that the 'Test Health' summary card appears, showing pass rate and coverage percentage from the TestManagementHubProvider.",
+			"expectedInput": "Test Management Hub has loaded data",
+			"expectedOutput": "User Hub shows 'Test Health' card with pass rate and coverage %",
+			"uiContext": {
+				"view": "flowti-user-hub",
+				"viewName": "User Hub",
+				"components": ["UserHubView", "HubDashboardCards"]
+			},
+			"events": ["hub.opened"],
+			"commands": ["flowti:open-user-hub"],
+			"interactions": ["Open User Hub", "Verify Test Health card"],
+			"actions": [
+				{ "tool": "notice", "message": "Step 10/10: Verifying User Hub integration", "duration": 2000 },
+				{ "tool": "command", "id": "flowti:open-user-hub", "description": "Open User Hub" },
+				{ "tool": "wait", "ms": 1000 },
+				{ "tool": "assert", "type": "leaf", "viewType": "flowti-user-hub", "description": "User Hub view is open" },
+				{ "tool": "assert", "type": "visible", "selector": ".hub-dashboard-card[data-hub='test-management']", "description": "Test Health dashboard card visible" },
+				{
+					"tool": "assert-text",
+					"selector": ".hub-dashboard-card[data-hub='test-management'] .card-title",
+					"expected": "Test Health",
+					"description": "Card title is 'Test Health'"
+				},
+				{ "tool": "assert", "type": "visible", "selector": ".hub-dashboard-card[data-hub='test-management'] .card-stat", "description": "Card shows stats (pass rate, coverage)" },
+				{ "tool": "screenshot", "label": "user-hub-test-health", "description": "User Hub with Test Health card" }
+			]
+		}
+	],
+	"teardown": [
+		{
+			"id": "teardown-cleanup",
+			"title": "Close Hub views and log completion",
+			"guideSection": 99,
+			"description": "Close any open Hub views and log journey completion.",
+			"actions": [
+				{ "tool": "close-leaves", "description": "Close all open Hub leaves" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "write-run-log", "message": "Chapter 9: Test Management Hub — complete\n" },
+				{ "tool": "notice", "message": "Test Management Hub journey complete!", "duration": 3000 }
+			]
+		}
+	],
+	"improvements": [
+		{
+			"id": "imp-01",
+			"priority": "medium",
+			"description": "Add step for filtering journeys by type and status in the master list"
+		},
+		{
+			"id": "imp-02",
+			"priority": "medium",
+			"description": "Add step for requesting a Three Amigos review from the detail panel"
+		},
+		{
+			"id": "imp-03",
+			"priority": "low",
+			"description": "Add step for generating a compliance report export"
+		},
+		{
+			"id": "imp-04",
+			"priority": "medium",
+			"description": "Add step for dry-run mode execution validation"
+		},
+		{
+			"id": "imp-05",
+			"priority": "high",
+			"description": "Add step for 'Open in Builder' cross-hub navigation"
+		},
+		{
+			"id": "imp-06",
+			"priority": "low",
+			"description": "Add step for verifying canvas highlighting during execution"
+		}
+	]
+}

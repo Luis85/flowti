@@ -149,7 +149,7 @@ START (circle, green) → Step Groups → Events Summary → END (circle)
 ```
 
 Each **Step Group** contains:
-- **Group node** with screenshot background (if available)
+- **Group node** with background image (wireframe, mockup, or screenshot — from `backgroundImage` field if set)
 - **Config text node** with step metadata (describe/it, UI context, events, commands)
 - **Action nodes** (vertical stack below group)
 - **Improvement cards** (yellow, stacked above group) — 3× height, 2× width
@@ -160,6 +160,7 @@ Each **Step Group** contains:
 |---|---|
 | START node text | `journey`, `description` |
 | Step group label | `steps[i].guideSection`, `steps[i].title` |
+| Step group background | `steps[i].backgroundImage` (wireframe/mockup/screenshot) |
 | Config node text | `steps[i].description`, `uiContext`, `events`, `commands` |
 | Action nodes (vertical) | `steps[i].actions[]` |
 | Improvement cards (yellow) | `steps[i].improvements[]` |
@@ -278,6 +279,16 @@ interface StepEditorState {
 - [ ] Canvas input: parsed via FR-08 conversion, then executed normally
 - [ ] JSON input: unchanged behavior (existing flow)
 - [ ] Results output format identical regardless of input format
+
+### FR-13: Step Background Image
+- [ ] Each step supports an optional `backgroundImage` field — a vault-relative path to an image file (PNG, JPG, SVG)
+- [ ] The step card in the sidebar shows an "Add Background" button (or thumbnail if an image is already set)
+- [ ] Clicking "Add Background" opens a file picker filtered to image files in the vault
+- [ ] The selected image is stored as `backgroundImage: "path/to/image.png"` in the step JSON
+- [ ] The companion canvas renders the background image on the step group node using the Obsidian canvas `background` property
+- [ ] Use case: attach wireframes, mockups, or design sketches to steps during journey design — preparing visual context for later implementation
+- [ ] Background images are preserved through export/import and canvas round-trip (JSON ↔ Canvas)
+- [ ] Removing the image clears the field and removes the canvas group background
 
 ---
 
