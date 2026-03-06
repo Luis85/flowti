@@ -79,6 +79,7 @@ Measurable success:
 - **Review session integration**: create Three Amigos review sessions linked to features, capture TASM scores, persist as vault artifacts
 - **Stage transitions**: advance PRD to next stage via action button; validate gate criteria before allowing transition
 - **Event integration**: emit events for stage changes, gate results, session lifecycle, and scoring
+- The underlying Lifecycle must be manageable and substitiuteable like a process 
 
 ### Out of Scope (future phases)
 
