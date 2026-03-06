@@ -638,6 +638,26 @@ Delivered:
 - Destructive tools (create/delete/copy/move-file, seed) — gated by onConfirmDestructive callback
 - Event catalog entries for 4 new events
 
+### Inc 8: Execution UI (PBI-TM-009) — DONE
+**Date**: 2026-03-06 | **Tests**: 7,104 (300 suites) | **New**: +23 tests, +2 suites
+
+Delivered:
+- `ExecutionProgressModal` (220 LOC) — 3-phase Obsidian Modal: options → live progress → summary
+  - Phase 1: dry-run toggle, continue on failure toggle, Run/Cancel buttons
+  - Phase 2: progress bar, step results list via step-completed events, cancel button
+  - Phase 3: pass/fail/skip counts, failure details, Generate report + Close buttons
+  - Canvas highlighting: emits `journey-builder.canvas.sync-requested` with stepColors (green=pass, red=fail)
+  - Manual step callback: opens ManualQaModal for manual/visual-inspection tools
+  - Destructive action confirmation: inline in modal body
+- `executionReportGenerator.ts` (75 LOC) — pure function: ExecutionResult → frontmatter + markdown vault note
+- `ui.runJourney` event — carries journeyName, jsonPath, canvasPath
+- `flowti:run-journey` command — domain: journey-executor, category: action
+- "Run journey" button in JourneyBuilderSidebar toolbar
+- "Run journey" button in JourneysTab detail actions
+- main.ts wiring: ui.runJourney listener → load JSON → parse → open ExecutionProgressModal with writeFile callback
+- `CommandDomain` union extended with "journey-executor"
+- 8 report generator tests + 15 modal tests
+
 ## Definition of Done
 
 - [ ] `TestManagementService` implemented with scan, parse, coverage, pyramid, compliance

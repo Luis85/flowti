@@ -260,6 +260,18 @@ export function createCommandDefinitions(): CommandDefinition[] {
 			},
 		},
 		{
+			id: "flowti:run-journey",
+			name: "Run journey",
+			description: "Execute a journey definition from the vault",
+			domain: "journey-executor",
+			category: "action",
+			icon: "play",
+			handler: async (ctx) => {
+				ctx.logger.debug("Run journey command invoked");
+				void ctx.eventBus.emit("ui.runJourney", { journeyName: "", jsonPath: "" });
+			},
+		},
+		{
 			id: "flowti:start-train",
 			name: "Start train of thoughts",
 			description: "Begin a new train of thoughts session",

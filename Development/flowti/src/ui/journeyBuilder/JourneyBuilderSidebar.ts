@@ -405,6 +405,9 @@ export class JourneyBuilderSidebar extends ItemView {
 			this.renderToolbarButton(toolbar, "jb-preview-btn", "play", "Preview run", () => void this.onPreviewRun());
 		}
 		this.renderToolbarButton(toolbar, "jb-export-btn", "download", "Export", () => this.onExport());
+		if (this.steps.length > 0) {
+			this.renderToolbarButton(toolbar, "jb-run-btn", "play-circle", "Run journey", () => this.onRunJourney());
+		}
 		this.renderToolbarButton(toolbar, "jb-view-hub-btn", "shield-check", "View in Test Hub", () => this.onViewInTestHub());
 
 		// Back button row with canvas status indicator
@@ -882,6 +885,17 @@ export class JourneyBuilderSidebar extends ItemView {
 		});
 		void this.eventBus.emit("notice.success", {
 			message: `Exported "${name}" — JSON, test file, and canvas`,
+		});
+	}
+
+	private onRunJourney(): void {
+		const name = this.metadata.name;
+		if (!name || this.steps.length === 0) return;
+		const subfolder = `${this.journeyFolder()}/${name}`;
+		void this.eventBus.emit("ui.runJourney", {
+			journeyName: name,
+			jsonPath: `${subfolder}/${name}.journey`,
+			canvasPath: this.getCanvasPath(),
 		});
 	}
 

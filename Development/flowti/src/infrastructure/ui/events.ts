@@ -92,6 +92,13 @@ export interface UiCommandEventMap {
 	/** Open the Test Management Hub view (or reveal if already open) */
 	"ui.openTestManagementHub": Record<string, never>;
 
+	/** Run a journey definition from the vault */
+	"ui.runJourney": {
+		journeyName: string;
+		jsonPath: string;
+		canvasPath?: string;
+	};
+
 	/** Emitted after a view or modal was opened by UiCommandService */
 	"ui.opened": {
 		target: string;

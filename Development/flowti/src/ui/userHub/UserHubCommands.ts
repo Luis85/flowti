@@ -22,6 +22,7 @@ const DOMAIN_LABELS: Record<CommandDomain, string> = {
 	installer: "Installer",
 	developer: "Developer",
 	"test-management": "Test Management",
+	"journey-executor": "Journey Executor",
 };
 
 const DOMAIN_ICONS: Record<CommandDomain, string> = {
@@ -36,6 +37,7 @@ const DOMAIN_ICONS: Record<CommandDomain, string> = {
 	installer: "download",
 	developer: "code",
 	"test-management": "shield-check",
+	"journey-executor": "play",
 };
 
 const DOMAIN_ORDER: CommandDomain[] = [

@@ -152,6 +152,16 @@ export class JourneysTab {
 		reviewBtn.addEventListener("click", () => {
 			this.deps.testManagementService.requestReview(journey.name);
 		});
+
+		const runBtn = actions.createEl("button", { text: "Run journey", cls: "ft-text-sm" });
+		runBtn.dataset.testId = "tm-run-journey";
+		runBtn.addEventListener("click", () => {
+			void this.deps.eventBus.emit("ui.runJourney", {
+				journeyName: journey.name,
+				jsonPath: journey.jsonPath,
+				canvasPath: journey.canvasPath,
+			});
+		});
 	}
 
 	private renderDetailHeader(container: HTMLElement, journey: JourneyRegistryEntry): void {

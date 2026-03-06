@@ -412,6 +412,7 @@ const CATALOG_DATA = {
 	"ui.startCanvasSession":      { category: "UI Commands", description: "Start a guided canvas session from a template", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.openAnalyticsHub":        { category: "UI Commands", description: "Open the Analytics Hub view", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.openTestManagementHub":   { category: "UI Commands", description: "Open the Test Management Hub view", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
+	"ui.runJourney":              { category: "UI Commands", description: "Run a journey definition from the vault", direction: "View → Plugin", domain: "journey-executor", services: "JourneyExecutorService" },
 	"ui.opened":                  { category: "UI Commands", description: "A UI view or modal was opened", direction: "Internal", domain: "ui", services: "UiCommandService", tags: ["system"] },
 
 	// ── Hub ──────────────────────────────────────────────────
