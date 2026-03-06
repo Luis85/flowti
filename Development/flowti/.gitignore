@@ -24,9 +24,13 @@ data.json
 # Exclude build generated docs
 docs/reports/builds
 docs/reports/codebase
+docs/reports/complexity
 docs/reports/coverage
 docs/reports/e2e
 docs/reports/tests
+
+# Exclude complexity-report tool output
+complexity/
 docs/reports/build-endpoints.json
 
 styles.css

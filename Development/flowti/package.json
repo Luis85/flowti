@@ -35,7 +35,7 @@
     "lint": "eslint ./src/",
     "docs": "typedoc",
     "generate:testdata": "node scripts/generate-test-data.mjs",
-    "generate:reports": "node scripts/generate-test-report.mjs && node scripts/generate-coverage-report.mjs && node scripts/generate-codebase-report.mjs && node scripts/generate-cycle-report.mjs && node scripts/generate-trace-report.mjs && node scripts/generate-command-reference.mjs && node scripts/generate-event-catalog.mjs && node scripts/generate-data-dictionary.mjs && node scripts/generate-performance-report.mjs && node scripts/generate-tool-reference.mjs",
+    "generate:reports": "node scripts/generate-test-report.mjs && node scripts/generate-coverage-report.mjs && node scripts/generate-codebase-report.mjs && node scripts/generate-cycle-report.mjs && node scripts/generate-trace-report.mjs && node scripts/generate-command-reference.mjs && node scripts/generate-event-catalog.mjs && node scripts/generate-data-dictionary.mjs && node scripts/generate-performance-report.mjs && node scripts/generate-complexity-report.mjs && node scripts/generate-tool-reference.mjs",
     "version": "node version-bump.mjs && git add manifest.json versions.json"
   },
   "keywords": [
@@ -46,6 +46,7 @@
   "author": "Luis Mendez",
   "license": "MIT",
   "devDependencies": {
+    "@pythonidaer/complexity-report": "^1.0.18",
     "@types/node": "^25.0.9",
     "@types/papaparse": "^5.5.2",
     "@typescript-eslint/eslint-plugin": "8.53.0",

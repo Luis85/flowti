@@ -273,6 +273,7 @@ const generateReportNotes = () => {
 		path.resolve(__dirname, "scripts", "generate-event-catalog.mjs"),
 		path.resolve(__dirname, "scripts", "generate-data-dictionary.mjs"),
 		path.resolve(__dirname, "scripts", "generate-performance-report.mjs"),
+		path.resolve(__dirname, "scripts", "generate-complexity-report.mjs"),
 		path.resolve(__dirname, "scripts", "generate-e2e-report.mjs"),
 	];
 
