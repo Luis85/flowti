@@ -15,8 +15,11 @@ import type {
 	ExecutionResult,
 	ExecutionState,
 	StepResult,
+	RetryConfig,
+	FailedActionContext,
 } from "./types";
 import { executeAction } from "./toolExecutors";
+import { evaluateStepCondition } from "./conditionEvaluator";
 import { runPreview } from "../journeyBuilder/previewRunner";
 
 /** Dependencies injected at construction time. */
@@ -24,12 +27,15 @@ export interface JourneyExecutorServiceDeps {
 	eventBus: IEventBus;
 	host: ToolHost;
 	testManagementService: TestManagementService;
+	/** Injectable delay function for testing. Defaults to real setTimeout. */
+	delayFn?: (ms: number) => Promise<void>;
 }
 
 export class JourneyExecutorService {
 	private eventBus: IEventBus;
 	private host: ToolHost;
 	private testManagementService: TestManagementService;
+	private delayFn: (ms: number) => Promise<void>;
 	private abortController: AbortController | null = null;
 	private state: ExecutionState | null = null;
 
@@ -37,6 +43,7 @@ export class JourneyExecutorService {
 		this.eventBus = deps.eventBus;
 		this.host = deps.host;
 		this.testManagementService = deps.testManagementService;
+		this.delayFn = deps.delayFn ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
 	}
 
 	// ── Queries ──────────────────────────────────────────────
@@ -71,6 +78,8 @@ export class JourneyExecutorService {
 
 		const dryRun = options.dryRun ?? false;
 		const continueOnFailure = options.continueOnFailure ?? true;
+		const globalRetryCount = options.retryCount ?? 0;
+		const globalRetryDelayMs = options.retryDelayMs ?? 100;
 		const variables: Record<string, string> = { ...(options.variables ?? {}) };
 
 		this.abortController = new AbortController();
@@ -124,22 +133,89 @@ export class JourneyExecutorService {
 			const step = journey.steps[i];
 			this.state.currentStep = i;
 			const stepStart = Date.now();
+
+			// Evaluate step condition (skipIf / runIf)
+			if (step.condition) {
+				const condResult = evaluateStepCondition(step.condition, variables);
+				if (!condResult.shouldRun) {
+					const skipResult: StepResult = {
+						stepIndex: i,
+						stepId: step.id,
+						stepTitle: step.title,
+						status: "skip",
+						durationMs: 0,
+						error: condResult.reason,
+					};
+					this.state.stepResults.push(skipResult);
+					void this.eventBus.emit("journey-executor.run.step-completed", {
+						journeyName: journey.journey,
+						stepIndex: i,
+						stepId: step.id,
+						stepTitle: step.title,
+						status: "skip",
+						durationMs: 0,
+						error: condResult.reason,
+					});
+					continue;
+				}
+			}
+
 			let status: "pass" | "fail" = "pass";
 			let error: string | undefined;
+			let failedAction: FailedActionContext | undefined;
+			let retryAttempts = 0;
 
-			for (const action of step.actions) {
-				if (signal.aborted) {
-					status = "fail";
-					error = "Cancelled";
-					break;
+			// Determine retry config: per-step overrides global
+			const retryConfig: RetryConfig | undefined = step.retry
+				?? (globalRetryCount > 0 ? { maxRetries: globalRetryCount, delayMs: globalRetryDelayMs } : undefined);
+			const maxRetries = retryConfig?.maxRetries ?? 0;
+
+			for (let attempt = 0; attempt <= maxRetries; attempt++) {
+				status = "pass";
+				error = undefined;
+				failedAction = undefined;
+
+				for (let ai = 0; ai < step.actions.length; ai++) {
+					const action = step.actions[ai];
+					if (signal.aborted) {
+						status = "fail";
+						error = "Cancelled";
+						break;
+					}
+					try {
+						await executeAction(action, this.host, this.eventBus, variables, options);
+					} catch (err) {
+						status = "fail";
+						error = err instanceof Error ? err.message : String(err);
+						failedAction = {
+							tool: action.tool,
+							actionIndex: ai,
+							params: extractKeyParams(action),
+						};
+						break; // Stop remaining actions in this step
+					}
 				}
-				try {
-					await executeAction(action, this.host, this.eventBus, variables, options);
-				} catch (err) {
-					status = "fail";
-					error = err instanceof Error ? err.message : String(err);
-					break; // Stop remaining actions in this step
+
+				if (status === "pass" || signal.aborted || attempt === maxRetries) {
+					break; // Success, cancelled, or final attempt — no more retries
 				}
+
+				// Emit retry event and delay before next attempt
+				retryAttempts = attempt + 1;
+				void this.eventBus.emit("journey-executor.run.step-retried", {
+					journeyName: journey.journey,
+					stepIndex: i,
+					stepId: step.id,
+					stepTitle: step.title,
+					attempt: retryAttempts,
+					maxRetries,
+					error: error ?? "Unknown error",
+				});
+
+				const delay = retryConfig!.backoff === "exponential"
+					? retryConfig!.delayMs * Math.pow(2, attempt)
+					: retryConfig!.delayMs;
+				await this.delayFn(delay);
 			}
 
 			const stepResult: StepResult = {
@@ -149,6 +225,8 @@ export class JourneyExecutorService {
 				status,
 				durationMs: Date.now() - stepStart,
 				error,
+				retryAttempts: retryAttempts > 0 ? retryAttempts : undefined,
+				failedAction,
 			};
 			this.state.stepResults.push(stepResult);
 
@@ -241,4 +319,18 @@ export class JourneyExecutorService {
 		this.cancel();
 		this.state = null;
 	}
+}
+
+// ── Helpers ─────────────────────────────────────────────────
+
+/** Extracts key display-worthy parameters from an action for error context. */
+function extractKeyParams(action: Record<string, unknown>): Record<string, string> | undefined {
+	const params: Record<string, string> = {};
+	const keys = ["id", "selector", "path", "event", "message", "url"];
+	for (const key of keys) {
+		if (key in action && typeof action[key] === "string") {
+			params[key] = action[key] as string;
+		}
+	}
+	return Object.keys(params).length > 0 ? params : undefined;
 }

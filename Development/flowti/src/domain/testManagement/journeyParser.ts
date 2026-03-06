@@ -28,6 +28,7 @@ export function parseJourneyDefinition(json: Record<string, unknown>): JourneyRe
 		category: typeof json.category === "string" ? json.category : undefined,
 		domain: typeof json.domain === "string" ? json.domain : undefined,
 		prd: typeof json.prd === "string" ? json.prd : undefined,
+		feature: typeof json.feature === "string" ? json.feature : undefined,
 		actors: parseStringArray(json.actors),
 		services: parseStringArray(json.services),
 		stepCount: steps.length,

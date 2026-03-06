@@ -2,6 +2,7 @@ import { setIcon } from "obsidian";
 import type { FeatureEntry, FeatureStage } from "../../domain/featureLifecycle/types";
 import { FEATURE_STAGES, STAGE_LABELS, FRI_LEVEL_THRESHOLDS } from "../../domain/featureLifecycle/types";
 import type { GateContext } from "../../domain/featureLifecycle/gateChecks";
+import type { ProcessCompliance } from "../../domain/process/types";
 import type { CatalogComponentDeps } from "./types";
 import { FeatureDetailPanel } from "./FeatureDetailPanel";
 
@@ -12,6 +13,7 @@ export interface FeaturesTabDeps {
 	onFeatureSelect: (name: string) => void;
 	onAdvanceStage?: (featureName: string, targetStage: FeatureStage, ctx: GateContext) => void;
 	getGateContext?: (featureName: string) => GateContext;
+	getProcessCompliance?: (featureName: string) => ProcessCompliance | undefined;
 }
 
 /**
@@ -37,6 +39,7 @@ export class FeaturesTab {
 			onAdvanceStage: featureDeps.onAdvanceStage,
 			getGateContext: featureDeps.getGateContext,
 			navigateToEvent: (event) => deps.navigation.navigateToEvent(event),
+			getProcessCompliance: featureDeps.getProcessCompliance,
 		});
 	}
 

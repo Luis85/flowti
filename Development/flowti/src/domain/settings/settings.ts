@@ -191,6 +191,7 @@ export const FlowtiSettingsSchema = z.object({
 	analyticsFolder: z.string().default("03 - Resources/Analytics"),
 	journeyFolder: z.string().default("03 - Resources/Journeys"),
 	featuresFolder: z.string().default("Development/flowti/docs/features"),
+	processesFolder: z.string().default("docs/processes"),
 	testReportPath: z.string().default("Development/flowti/docs/reports/tests/testreport.json"),
 	startPage: z.enum(["none", "user-hub", "event-catalog", "data-exchange-hub", "analytics-hub", "train-hub"]).default("none"),
 	userHubConfig: z.object({

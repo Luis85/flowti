@@ -29,6 +29,7 @@ import { AzureDevOpsAdapter } from "../../domain/signal/adapters/AzureDevOpsAdap
 import { CaptureService } from "../../domain/capture/CaptureService";
 import { TrainService } from "../../domain/train/TrainService";
 import { FeatureLifecycleService } from "../../domain/featureLifecycle/FeatureLifecycleService";
+import { ProcessService } from "../../domain/process/ProcessService";
 import { CanvasService } from "../../domain/canvas/CanvasService";
 import { AnalyticsService } from "../../domain/analytics/AnalyticsService";
 import { OnboardingService } from "../../domain/onboarding/OnboardingService";
@@ -349,6 +350,14 @@ export function createServiceRegistrations(
 					storage: createTypedStorage(storage, "featureLifecycle", container),
 					eventBus,
 				});
+			},
+		},
+
+		// Process Service - process definition management and validation
+		{
+			id: "processService",
+			factory: (container: IServiceContainer) => {
+				return new ProcessService(container.getEventBus());
 			},
 		},
 

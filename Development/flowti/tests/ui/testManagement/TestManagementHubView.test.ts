@@ -94,13 +94,13 @@ describe("TestManagementHubView", () => {
 		it("defines 4 tabs", () => {
 			const view = new TestManagementHubView(createMockLeaf(), eventBus, createMockService(), createMockOnboardingService());
 			const tabs = view.getTabDefinitions();
-			expect(tabs).toHaveLength(4);
+			expect(tabs).toHaveLength(5);
 		});
 
-		it("tab IDs are journeys, pyramid, coverage, compliance", () => {
+		it("tab IDs are journeys, pyramid, coverage, compliance, feature-quality", () => {
 			const view = new TestManagementHubView(createMockLeaf(), eventBus, createMockService(), createMockOnboardingService());
 			const tabs = view.getTabDefinitions();
-			expect(tabs.map((t) => t.id)).toEqual(["journeys", "pyramid", "coverage", "compliance"]);
+			expect(tabs.map((t) => t.id)).toEqual(["journeys", "pyramid", "coverage", "compliance", "feature-quality"]);
 		});
 
 		it("each tab has a search placeholder", () => {

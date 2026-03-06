@@ -46,6 +46,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 	private onboardingService: OnboardingService;
 	private trainService: TrainService | null;
 	private commandRegistry: ICommandRegistry | null;
+	private getFeatures?: () => Array<{ name: string }>;
 
 	// Components
 	private dashboard!: UserHubDashboard;
@@ -70,6 +71,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 		initialSettings: FlowtiSettings,
 		trainService?: TrainService | null,
 		commandRegistry?: ICommandRegistry | null,
+		getFeatures?: () => Array<{ name: string }>,
 	) {
 		super(leaf, eventBus);
 		this.userService = userService;
@@ -80,6 +82,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 		this.onboardingService = onboardingService;
 		this.trainService = trainService ?? null;
 		this.commandRegistry = commandRegistry ?? null;
+		this.getFeatures = getFeatures;
 		this.state = {
 			inboxItems: [],
 			selectedInboxItem: null,
@@ -206,6 +209,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 				new NewSessionModal(this.app, {
 					sessionTypes: MODAL_SESSION_TYPES,
 					templates: this.sessionService.getSavedTemplates(),
+					getFeatures: this.getFeatures,
 					onSubmit: (title, type, durationMinutes, focusFile, goals, extra) => {
 						void this.eventBus.emit("session.create", {
 							type: type as SessionType,
@@ -343,6 +347,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 				new NewSessionModal(this.app, {
 					sessionTypes: MODAL_SESSION_TYPES,
 					templates: this.sessionService.getSavedTemplates(),
+					getFeatures: this.getFeatures,
 					prefill: initialFocusFile ? { title: "", type: MODAL_SESSION_TYPES[0].type, durationMinutes: 25, focusFile: initialFocusFile } : undefined,
 					onSubmit: (title, type, durationMinutes, focusFile, goals, extra) => {
 						void this.eventBus.emit("session.create", { type: type as SessionType, title, durationMinutes, focusFile: focusFile ?? undefined, goals: goals.length > 0 ? goals : undefined, ...extra });

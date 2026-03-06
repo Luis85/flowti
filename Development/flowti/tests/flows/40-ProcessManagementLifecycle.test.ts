@@ -182,4 +182,96 @@ describe("Flow 40: Process Management + Lifecycle Sessions", () => {
 			expect(events).toHaveLength(1);
 		});
 	});
+
+	describe("auto-rescan integration", () => {
+		it("rescan replaces previous process catalog", async () => {
+			const service = new ProcessService(eventBus);
+			const scanner = vi.fn()
+				.mockResolvedValueOnce([
+					{ name: "Process A", filePath: "a.canvas", content: generateDevelopmentLifecycleCanvas() },
+				])
+				.mockResolvedValueOnce([
+					{ name: "Process A", filePath: "a.canvas", content: generateDevelopmentLifecycleCanvas() },
+					{ name: "Process B", filePath: "b.canvas", content: generateDevelopmentLifecycleCanvas() },
+				]);
+			service.setScanner(scanner);
+
+			await service.scanProcesses();
+			expect(service.getProcesses()).toHaveLength(1);
+
+			await service.scanProcesses();
+			expect(service.getProcesses()).toHaveLength(2);
+		});
+
+		it("rescan clears validation cache", async () => {
+			const service = new ProcessService(eventBus);
+			service.setScanner(vi.fn().mockResolvedValue([
+				{ name: "Dev", filePath: "dev.canvas", content: generateDevelopmentLifecycleCanvas() },
+			]));
+
+			await service.scanProcesses();
+			const result1 = service.validateProcess(service.getProcess("Dev")!);
+
+			await service.scanProcesses();
+			const result2 = service.validateProcess(service.getProcess("Dev")!);
+
+			expect(result1).not.toBe(result2); // Different objects after rescan
+		});
+
+		it("file change event pattern: path matching for process canvas", () => {
+			const processesFolder = "docs/processes";
+			const isProcessFile = (path: string) =>
+				path.startsWith(processesFolder + "/") && path.endsWith(".process.canvas");
+
+			expect(isProcessFile("docs/processes/dev.process.canvas")).toBe(true);
+			expect(isProcessFile("docs/processes/sub/test.process.canvas")).toBe(true);
+			expect(isProcessFile("docs/processes/regular.canvas")).toBe(false);
+			expect(isProcessFile("other/folder/dev.process.canvas")).toBe(false);
+			expect(isProcessFile("docs/processes/readme.md")).toBe(false);
+		});
+
+		it("emits process.canvas.synced for each process on rescan", async () => {
+			const service = new ProcessService(eventBus);
+			const syncEvents: string[] = [];
+			eventBus.on("process.canvas.synced", (e) => { syncEvents.push(e.payload.processName); });
+
+			service.setScanner(vi.fn().mockResolvedValue([
+				{ name: "A", filePath: "a.canvas", content: generateDevelopmentLifecycleCanvas() },
+				{ name: "B", filePath: "b.canvas", content: generateDevelopmentLifecycleCanvas() },
+			]));
+
+			await service.scanProcesses();
+			expect(syncEvents).toEqual(["A", "B"]);
+
+			syncEvents.length = 0;
+			await service.scanProcesses();
+			expect(syncEvents).toEqual(["A", "B"]);
+		});
+
+		it("file.modified triggers rescan pattern (event-driven)", async () => {
+			// Simulate the main.ts wiring pattern: file event → isProcessFile check → rescan
+			const service = new ProcessService(eventBus);
+			service.setScanner(vi.fn().mockResolvedValue([
+				{ name: "Dev", filePath: "docs/processes/dev.process.canvas", content: generateDevelopmentLifecycleCanvas() },
+			]));
+
+			const processesFolder = "docs/processes";
+			const isProcessFile = (path: string) =>
+				path.startsWith(processesFolder + "/") && path.endsWith(".process.canvas");
+			const rescanSpy = vi.spyOn(service, "scanProcesses");
+
+			eventBus.on("file.modified", (e) => {
+				if (isProcessFile(e.payload.path)) void service.scanProcesses();
+			});
+
+			// Emit file.modified for a process canvas file
+			await eventBus.emit("file.modified", { path: "docs/processes/dev.process.canvas", source: "obsidian" });
+			expect(rescanSpy).toHaveBeenCalledOnce();
+
+			// Emit file.modified for a non-process file
+			rescanSpy.mockClear();
+			await eventBus.emit("file.modified", { path: "docs/other/file.md", source: "obsidian" });
+			expect(rescanSpy).not.toHaveBeenCalled();
+		});
+	});
 });

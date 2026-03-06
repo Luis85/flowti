@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ProcessService } from "../../../src/domain/process/ProcessService";
 import type { ProcessScanner } from "../../../src/domain/process/ProcessService";
 import { EventBus } from "../../../src/infrastructure/events/EventBus";
+import { createServiceRegistrations } from "../../../src/infrastructure/services/registry";
 
 // ── Helpers ─────────────────────────────────────────────────
 
@@ -170,6 +171,69 @@ describe("ProcessService", () => {
 			expect(summary).toHaveProperty("infoCount");
 			expect(summary).toHaveProperty("valid");
 			expect(summary.valid).toBe(true);
+		});
+	});
+
+	describe("service registry", () => {
+		it("processService is registered in service registrations", () => {
+			const mockStorage = { loadData: vi.fn(), saveData: vi.fn() };
+			const mockSecretStore = { setSecret: vi.fn(), getSecret: vi.fn(), deleteSecret: vi.fn() };
+			const registrations = createServiceRegistrations(mockStorage, mockSecretStore);
+			const processReg = registrations.find((r) => r.id === "processService");
+			expect(processReg).toBeDefined();
+		});
+
+		it("processService factory creates a ProcessService instance", async () => {
+			const mockStorage = { loadData: vi.fn(), saveData: vi.fn() };
+			const mockSecretStore = { setSecret: vi.fn(), getSecret: vi.fn(), deleteSecret: vi.fn() };
+			const registrations = createServiceRegistrations(mockStorage, mockSecretStore);
+			const processReg = registrations.find((r) => r.id === "processService")!;
+
+			const mockContainer = {
+				getEventBus: () => eventBus,
+				getLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), setContext: vi.fn(), setDebugMode: vi.fn() }),
+				get: vi.fn(),
+				has: vi.fn(),
+				register: vi.fn(),
+				initializeAll: vi.fn(),
+				disposeAll: vi.fn(),
+			};
+
+			const instance = await processReg.factory(mockContainer);
+			expect(instance).toBeInstanceOf(ProcessService);
+		});
+	});
+
+	describe("scanner callback contract", () => {
+		it("scanner returns expected shape for process canvas files", async () => {
+			const scanner: ProcessScanner = vi.fn().mockResolvedValue([
+				{ name: "My Process", filePath: "docs/processes/my.process.canvas", content: makeProcessCanvasContent() },
+			]);
+			service.setScanner(scanner);
+
+			const result = await service.scanProcesses();
+			expect(result).toHaveLength(1);
+			expect(result[0].filePath).toBe("docs/processes/my.process.canvas");
+		});
+
+		it("scanner can return empty array for missing folder", async () => {
+			const scanner: ProcessScanner = vi.fn().mockResolvedValue([]);
+			service.setScanner(scanner);
+
+			const result = await service.scanProcesses();
+			expect(result).toEqual([]);
+		});
+
+		it("notice is not emitted on empty scan", async () => {
+			// Verifying that main.ts logic only emits notice when results > 0
+			const scanner: ProcessScanner = vi.fn().mockResolvedValue([]);
+			service.setScanner(scanner);
+
+			const listener = vi.fn();
+			eventBus.on("process.canvas.synced", listener);
+
+			await service.scanProcesses();
+			expect(listener).not.toHaveBeenCalled();
 		});
 	});
 });

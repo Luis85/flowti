@@ -36,6 +36,28 @@ export interface ToolHost {
 	seed(id: string, mode: string): Promise<void>;
 }
 
+// ── Retry configuration ─────────────────────────────────────
+
+/** Per-step retry configuration. */
+export interface RetryConfig {
+	/** Maximum number of retries (excluding the initial attempt). */
+	maxRetries: number;
+	/** Base delay in milliseconds between retries. */
+	delayMs: number;
+	/** Backoff strategy. Default: "linear" (constant delay). */
+	backoff?: "linear" | "exponential";
+}
+
+// ── Conditional configuration ───────────────────────────────
+
+/** Per-step conditional execution configuration. */
+export interface ConditionalConfig {
+	/** Skip step if expression evaluates to true. */
+	skipIf?: string;
+	/** Only run step if expression evaluates to true. */
+	runIf?: string;
+}
+
 // ── Journey definition ───────────────────────────────────────
 
 /** A step ready for execution. */
@@ -44,6 +66,10 @@ export interface ExecutableStep {
 	title: string;
 	description: string;
 	actions: JourneyAction[];
+	/** Optional per-step retry configuration. Overrides global retryCount. */
+	retry?: RetryConfig;
+	/** Optional conditional execution (skipIf / runIf). */
+	condition?: ConditionalConfig;
 }
 
 /** Full journey definition for execution. */
@@ -54,6 +80,16 @@ export interface ExecutableJourney {
 
 // ── Execution results ────────────────────────────────────────
 
+/** Context about which action failed within a step. */
+export interface FailedActionContext {
+	/** Tool name of the failing action. */
+	tool: string;
+	/** Zero-based index of the action within the step. */
+	actionIndex: number;
+	/** Key parameters from the action (for display). */
+	params?: Record<string, string>;
+}
+
 /** Per-step result after execution. */
 export interface StepResult {
 	stepIndex: number;
@@ -62,6 +98,10 @@ export interface StepResult {
 	status: "pass" | "fail" | "skip";
 	durationMs: number;
 	error?: string;
+	/** Number of retry attempts before final result (0 = no retries). */
+	retryAttempts?: number;
+	/** Context about the failing action (tool, index, key params). */
+	failedAction?: FailedActionContext;
 }
 
 /** Full result after a journey run. */
@@ -89,6 +129,10 @@ export interface ExecutionOptions {
 	onConfirmDestructive?: (description: string) => Promise<boolean>;
 	/** Continue executing after a step failure. Default true. */
 	continueOnFailure?: boolean;
+	/** Global retry count for steps without per-step retry config. Default 0 (off). */
+	retryCount?: number;
+	/** Global retry delay in milliseconds. Default 100. */
+	retryDelayMs?: number;
 }
 
 // ── Live state ───────────────────────────────────────────────

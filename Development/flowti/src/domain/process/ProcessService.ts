@@ -11,7 +11,7 @@ import type { ProcessDefinition, ValidationResult } from "./types";
 import { parseProcessCanvas } from "./canvasParser";
 import type { CanvasJson } from "./canvasParser";
 import { validateProcess } from "./validation";
-import type { EventBus } from "../../infrastructure/events/EventBus";
+import type { IEventBus } from "../../infrastructure/events/types";
 
 /** Callback to scan the vault for process canvas files. */
 export type ProcessScanner = () => Promise<Array<{ name: string; filePath: string; content: string }>>;
@@ -21,7 +21,7 @@ export class ProcessService {
 	private validationCache = new Map<string, ValidationResult>();
 	private scanner: ProcessScanner | null = null;
 
-	constructor(private readonly eventBus: EventBus) {}
+	constructor(private readonly eventBus: IEventBus) {}
 
 	/** Set the scanner callback (deferred initialization from main.ts). */
 	setScanner(scanner: ProcessScanner): void {

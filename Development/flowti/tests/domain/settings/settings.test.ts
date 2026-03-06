@@ -162,6 +162,18 @@ describe("FlowtiSettings", () => {
 		});
 	});
 
+	describe("processesFolder", () => {
+		it("should default to docs/processes", () => {
+			const result = FlowtiSettingsSchema.parse({});
+			expect(result.processesFolder).toBe("docs/processes");
+		});
+
+		it("should accept custom processesFolder", () => {
+			const result = FlowtiSettingsSchema.parse({ processesFolder: "custom/processes" });
+			expect(result.processesFolder).toBe("custom/processes");
+		});
+	});
+
 	describe("safeParseSettings", () => {
 		it("should return parsed settings for valid data", () => {
 			const result = safeParseSettings({ debugMode: true });

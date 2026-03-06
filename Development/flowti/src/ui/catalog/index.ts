@@ -9,6 +9,7 @@ export { ActorsTab } from "./ActorsTab";
 export { ProductsTab } from "./ProductsTab";
 export { HealthTab } from "./HealthTab";
 export { FeaturesTab } from "./FeaturesTab";
+export { ProcessesTab } from "./ProcessesTab";
 export type {
 	SystemEntry,
 	FlowEntry,

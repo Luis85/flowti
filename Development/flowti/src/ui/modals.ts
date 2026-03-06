@@ -186,20 +186,23 @@ export class NewSessionModal extends Modal {
 	private sessionTypes: ReadonlyArray<{ type: string; label: string; description: string }>;
 	private templates: ReadonlyArray<SessionTemplateSummary>;
 	private customConfigs: Record<string, SessionTypeConfig>;
-	private prefill?: { title: string; type: string; durationMinutes: number; focusFile?: string; goals?: string[]; tasks?: string[]; decisions?: string[]; contextBindings?: Array<{ path: string; type: ContextBindingType }>; notes?: string };
-	private onSubmit: (title: string, type: string, durationMinutes: number, focusFile: string | null, goals: string[], extra?: { tasks?: string[]; decisions?: string[]; contextBindings?: Array<{ path: string; type: ContextBindingType }>; notes?: string }) => void;
+	private prefill?: { title: string; type: string; durationMinutes: number; focusFile?: string; goals?: string[]; tasks?: string[]; decisions?: string[]; contextBindings?: Array<{ path: string; type: ContextBindingType }>; notes?: string; featureName?: string };
+	private getFeatures?: () => Array<{ name: string }>;
+	private onSubmit: (title: string, type: string, durationMinutes: number, focusFile: string | null, goals: string[], extra?: { tasks?: string[]; decisions?: string[]; contextBindings?: Array<{ path: string; type: ContextBindingType }>; notes?: string; featureName?: string }) => void;
 
 	constructor(app: App, options: {
 		sessionTypes: ReadonlyArray<{ type: string; label: string; description: string }>;
 		templates?: ReadonlyArray<SessionTemplateSummary>;
 		customConfigs?: Record<string, SessionTypeConfig>;
-		prefill?: { title: string; type: string; durationMinutes: number; focusFile?: string; goals?: string[]; tasks?: string[]; decisions?: string[]; contextBindings?: Array<{ path: string; type: ContextBindingType }>; notes?: string };
-		onSubmit: (title: string, type: string, durationMinutes: number, focusFile: string | null, goals: string[], extra?: { tasks?: string[]; decisions?: string[]; contextBindings?: Array<{ path: string; type: ContextBindingType }>; notes?: string }) => void;
+		getFeatures?: () => Array<{ name: string }>;
+		prefill?: { title: string; type: string; durationMinutes: number; focusFile?: string; goals?: string[]; tasks?: string[]; decisions?: string[]; contextBindings?: Array<{ path: string; type: ContextBindingType }>; notes?: string; featureName?: string };
+		onSubmit: (title: string, type: string, durationMinutes: number, focusFile: string | null, goals: string[], extra?: { tasks?: string[]; decisions?: string[]; contextBindings?: Array<{ path: string; type: ContextBindingType }>; notes?: string; featureName?: string }) => void;
 	}) {
 		super(app);
 		this.sessionTypes = options.sessionTypes;
 		this.templates = options.templates ?? [];
 		this.customConfigs = options.customConfigs ?? {};
+		this.getFeatures = options.getFeatures;
 		this.prefill = options.prefill;
 		this.onSubmit = options.onSubmit;
 	}
@@ -212,8 +215,9 @@ export class NewSessionModal extends Modal {
 		const type = this.prefill?.type ?? this.sessionTypes[0]?.type ?? "event-storming";
 		let duration = this.prefill?.durationMinutes ?? 25;
 		let focusFile = this.prefill?.focusFile ?? "";
+		let featureName = this.prefill?.featureName ?? "";
 		const goals: string[] = [...(this.prefill?.goals ?? [])];
-		const extra: { tasks?: string[]; decisions?: string[]; contextBindings?: Array<{ path: string; type: ContextBindingType }>; notes?: string } = {
+		const extra: { tasks?: string[]; decisions?: string[]; contextBindings?: Array<{ path: string; type: ContextBindingType }>; notes?: string; featureName?: string } = {
 			tasks: this.prefill?.tasks,
 			decisions: this.prefill?.decisions,
 			contextBindings: this.prefill?.contextBindings,
@@ -240,6 +244,7 @@ export class NewSessionModal extends Modal {
 								sessionTypes: this.sessionTypes,
 								templates: this.templates,
 								customConfigs: this.customConfigs,
+								getFeatures: this.getFeatures,
 								prefill: { title: tmpl.name, type: tmpl.type, durationMinutes: tmpl.durationMinutes, focusFile: tmpl.focusFile, goals: tmpl.goals, tasks: tmpl.tasks, decisions: tmpl.decisions, contextBindings: tmpl.contextBindings, notes: tmpl.notes },
 								onSubmit: this.onSubmit,
 							}).open();
@@ -281,11 +286,13 @@ export class NewSessionModal extends Modal {
 						sessionTypes: this.sessionTypes,
 						templates: this.templates,
 						customConfigs: this.customConfigs,
+						getFeatures: this.getFeatures,
 						prefill: {
 							title,
 							type: value,
 							durationMinutes: cfg?.defaultDuration ?? 25,
 							focusFile,
+							featureName,
 							goals: cfg?.defaultGoals?.length ? [...cfg.defaultGoals] : goals,
 						},
 						onSubmit: this.onSubmit,
@@ -331,6 +338,24 @@ export class NewSessionModal extends Modal {
 				})
 		);
 
+		// Feature binding dropdown (only shown when features are available)
+		if (this.getFeatures) {
+			const features = this.getFeatures();
+			if (features.length > 0) {
+				new Setting(contentEl)
+					.setName("Feature")
+					.setDesc("Bind this session to a feature")
+					.addDropdown((dropdown) => {
+						dropdown.addOption("", "-- none --");
+						for (const f of features) {
+							dropdown.addOption(f.name, f.name);
+						}
+						dropdown.setValue(featureName);
+						dropdown.onChange((value) => { featureName = value; });
+					});
+			}
+		}
+
 		// Goals section — same UX as workspace: Enter to add, x to remove
 		const goalsContainer = contentEl.createDiv({ cls: "ft-goals-repeater ft-goals-container" });
 		goalsContainer.createDiv({ cls: "setting-item-name", text: "Goals" });
@@ -374,6 +399,7 @@ export class NewSessionModal extends Modal {
 						titleError.removeClass("ft-hidden");
 						return;
 					}
+					if (featureName) extra.featureName = featureName;
 					this.onSubmit(trimmed, type, duration, focusFile.trim() || null, goals.filter((g) => g.trim()), extra);
 					this.close();
 				})

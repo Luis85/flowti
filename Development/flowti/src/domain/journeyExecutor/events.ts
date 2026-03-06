@@ -13,6 +13,17 @@ export interface JourneyExecutorEventMap {
 		dryRun: boolean;
 	};
 
+	/** A step is being retried after failure. */
+	"journey-executor.run.step-retried": {
+		journeyName: string;
+		stepIndex: number;
+		stepId: string;
+		stepTitle: string;
+		attempt: number;
+		maxRetries: number;
+		error: string;
+	};
+
 	/** A step completed during a journey run. */
 	"journey-executor.run.step-completed": {
 		journeyName: string;

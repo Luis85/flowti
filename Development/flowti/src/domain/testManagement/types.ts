@@ -32,6 +32,7 @@ export interface JourneyRegistryEntry {
 	category?: string;
 	domain?: string;
 	prd?: string;
+	feature?: string;
 	actors: string[];
 	services: string[];
 	stepCount: number;

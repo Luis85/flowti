@@ -56,9 +56,28 @@ describe("parseJourneyDefinition", () => {
 		expect(result!.category).toBeUndefined();
 		expect(result!.domain).toBeUndefined();
 		expect(result!.prd).toBeUndefined();
+		expect(result!.feature).toBeUndefined();
 		expect(result!.actors).toEqual([]);
 		expect(result!.services).toEqual([]);
 		expect(result!.complianceTags).toEqual([]);
+	});
+
+	it("parses feature field when provided", () => {
+		const result = parseJourneyDefinition({
+			journey: "Feature Test",
+			feature: "MVP - Product Development Lifecycle",
+			steps: [],
+		});
+		expect(result!.feature).toBe("MVP - Product Development Lifecycle");
+	});
+
+	it("ignores non-string feature field", () => {
+		const result = parseJourneyDefinition({
+			journey: "Bad Feature",
+			feature: 123,
+			steps: [],
+		});
+		expect(result!.feature).toBeUndefined();
 	});
 
 	it("includes tools from setup and teardown steps", () => {

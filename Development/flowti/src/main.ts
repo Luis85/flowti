@@ -67,6 +67,7 @@ import { JourneyFileView, VIEW_TYPE_JOURNEY_FILE } from "./ui/journeyBuilder/Jou
 import { JourneyBuilderService } from "./domain/journeyBuilder/JourneyBuilderService";
 import type { TestManagementService } from "./domain/testManagement/TestManagementService";
 import type { FeatureLifecycleService } from "./domain/featureLifecycle/FeatureLifecycleService";
+import type { ProcessService } from "./domain/process/ProcessService";
 import { JourneyExecutorService } from "./domain/journeyExecutor/JourneyExecutorService";
 import type { ToolHost, ExecutableJourney } from "./domain/journeyExecutor/types";
 import { BaseHubView, type IViewStateStore } from "./ui/BaseHubView";
@@ -143,6 +144,7 @@ export default class FlowtiBasePlugin extends Plugin {
 	private analyticsService?: AnalyticsService;
 	private testManagementService?: TestManagementService;
 	private featureLifecycleService?: FeatureLifecycleService;
+	private processService?: ProcessService;
 	private journeyExecutorService?: JourneyExecutorService;
 	private onboardingService?: OnboardingService;
 	private viewStateMap = new Map<string, string>();
@@ -458,6 +460,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			},
 			getOnboardingService: () => this.onboardingService!,
 			getFeatureLifecycleService: () => this.featureLifecycleService,
+			getProcessService: () => this.processService,
 		});
 	}
 
@@ -1042,6 +1045,54 @@ export default class FlowtiBasePlugin extends Plugin {
 		});
 		await this.timedServiceLoad("featureLifecycleService", () => this.featureLifecycleService!.load());
 
+		// Process Management — process definition scanning and validation
+		this.processService = await this.services.get<ProcessService>("processService");
+		this.processService.setScanner(async () => {
+			const processesFolder = settingsService.getSettings().processesFolder;
+			const abstract = this.app.vault.getAbstractFileByPath(processesFolder);
+			if (!abstract) return [];
+			const results: { name: string; filePath: string; content: string }[] = [];
+			const files = this.app.vault.getFiles().filter(
+				(f) => f.path.startsWith(processesFolder + "/") && f.extension === "canvas" && f.basename.endsWith(".process"),
+			);
+			for (const file of files) {
+				try {
+					const content = await this.app.vault.read(file);
+					results.push({ name: file.basename.replace(/\.process$/, ""), filePath: file.path, content });
+				} catch { /* skip unreadable files */ }
+			}
+			return results;
+		});
+		const processResults = await this.processService.scanProcesses();
+		if (processResults.length > 0) {
+			void this.eventBus.emit("notice.show", { message: `Found ${processResults.length} process definition${processResults.length === 1 ? "" : "s"}` });
+		}
+		this.addCommand({
+			id: "flowti:scan-processes",
+			name: "Scan process definitions",
+			icon: "waypoints",
+			callback: () => {
+				void (async () => {
+					const results = await this.processService!.scanProcesses();
+					void this.eventBus.emit("notice.show", { message: `Scanned ${results.length} process definition${results.length === 1 ? "" : "s"}` });
+				})();
+			},
+		});
+
+		// Auto-rescan process definitions when *.process.canvas files change
+		const processFolder = settingsService.getSettings().processesFolder;
+		const isProcessFile = (path: string) =>
+			path.startsWith(processFolder + "/") && path.endsWith(".process.canvas");
+		const rescanProcesses = () => { void this.processService!.scanProcesses(); };
+		this.crossCuttingListeners.push(
+			this.eventBus.on("file.created", (e) => { if (isProcessFile(e.payload.path)) rescanProcesses(); }),
+			this.eventBus.on("file.modified", (e) => { if (isProcessFile(e.payload.path)) rescanProcesses(); }),
+			this.eventBus.on("file.deleted", (e) => { if (isProcessFile(e.payload.path)) rescanProcesses(); }),
+			this.eventBus.on("file.renamed", (e) => {
+				if (isProcessFile(e.payload.oldPath) || isProcessFile(e.payload.newPath)) rescanProcesses();
+			}),
+		);
+
 		// Journey Executor — in-app journey runner
 		this.journeyExecutorService = new JourneyExecutorService({
 			eventBus: this.eventBus,
@@ -1464,7 +1515,7 @@ export default class FlowtiBasePlugin extends Plugin {
 		}
 
 		this.safeRegisterView(VIEW_TYPE_USER_HUB, (leaf) =>
-			new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!, this.inboxService!, this.sessionService!, this.nudgeService!, this.onboardingService!, this.settings.inboxEnabledSources, this.settings, this.trainService, this.commands),
+			new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!, this.inboxService!, this.sessionService!, this.nudgeService!, this.onboardingService!, this.settings.inboxEnabledSources, this.settings, this.trainService, this.commands, () => this.featureLifecycleService?.getFeatures()?.map((f) => ({ name: f.name })) ?? []),
 		);
 		this.hubRegistry.register(new UserHubProvider(this.userService, this.inboxService!));
 

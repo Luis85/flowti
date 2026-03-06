@@ -59,8 +59,16 @@ export function generateExecutionReport(result: ExecutionResult): ExecutionRepor
 		lines.push("|---|--------|------|----------|-------|");
 		for (const step of result.steps) {
 			const icon = STATUS_ICON[step.status] ?? "?";
-			const error = step.error ? step.error.slice(0, 80) : "";
-			lines.push(`| ${step.stepIndex + 1} | ${icon} ${step.status} | ${step.stepTitle} | ${formatDuration(step.durationMs)} | ${error} |`);
+			let errorCol = step.error ? step.error.slice(0, 80) : "";
+			if (step.failedAction) {
+				const ctx = step.failedAction;
+				const paramStr = ctx.params ? ` (${Object.entries(ctx.params).map(([k, v]) => `${k}=${v}`).join(", ")})` : "";
+				errorCol = `[${ctx.tool}#${ctx.actionIndex}${paramStr}] ${errorCol}`;
+			}
+			if (step.retryAttempts) {
+				errorCol += ` [${step.retryAttempts} retries]`;
+			}
+			lines.push(`| ${step.stepIndex + 1} | ${icon} ${step.status} | ${step.stepTitle} | ${formatDuration(step.durationMs)} | ${errorCol} |`);
 		}
 		lines.push("");
 	}

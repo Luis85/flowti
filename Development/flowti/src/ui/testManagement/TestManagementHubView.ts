@@ -19,9 +19,10 @@ import { JourneysTab } from "./JourneysTab";
 import { PyramidTab } from "./PyramidTab";
 import { CoverageTab } from "./CoverageTab";
 import { ComplianceTab } from "./ComplianceTab";
+import { FeatureQualityTab } from "./FeatureQualityTab";
 export { VIEW_TYPE_TEST_MANAGEMENT_HUB };
 
-export type TestMgmtPage = "journeys" | "pyramid" | "coverage" | "compliance";
+export type TestMgmtPage = "journeys" | "pyramid" | "coverage" | "compliance" | "feature-quality";
 
 const JOURNEY_TYPES: JourneyType[] = ["functional", "regression", "smoke", "exploratory", "blueprint"];
 const JOURNEY_STATUSES: JourneyStatus[] = ["passing", "failing", "never-run", "stale"];
@@ -34,6 +35,7 @@ export class TestManagementHubView extends BaseHubView<TestMgmtPage> {
 	private pyramidTab!: PyramidTab;
 	private coverageTab!: CoverageTab;
 	private complianceTab!: ComplianceTab;
+	private featureQualityTab!: FeatureQualityTab;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -66,6 +68,7 @@ export class TestManagementHubView extends BaseHubView<TestMgmtPage> {
 			{ id: "pyramid", label: "Pyramid", icon: "triangle", searchPlaceholder: "Search layers..." },
 			{ id: "coverage", label: "Coverage", icon: "check-circle", searchPlaceholder: "Search PRDs..." },
 			{ id: "compliance", label: "Compliance", icon: "shield", searchPlaceholder: "Search standards..." },
+			{ id: "feature-quality", label: "Feature Quality", icon: "star", searchPlaceholder: "Search features..." },
 		];
 	}
 
@@ -124,6 +127,10 @@ export class TestManagementHubView extends BaseHubView<TestMgmtPage> {
 			this.complianceTab.render(this.filterText);
 			return;
 		}
+		if (tabId === "feature-quality") {
+			this.featureQualityTab.render(this.filterText);
+			return;
+		}
 	}
 
 	// ── Lifecycle ───────────────────────────────────────────
@@ -143,6 +150,10 @@ export class TestManagementHubView extends BaseHubView<TestMgmtPage> {
 			eventBus: this.eventBus,
 		});
 		this.complianceTab = new ComplianceTab(this.masterTreeEl, this.detailPanelEl, {
+			testManagementService: this.testManagementService,
+			eventBus: this.eventBus,
+		});
+		this.featureQualityTab = new FeatureQualityTab(this.masterTreeEl, this.detailPanelEl, {
 			testManagementService: this.testManagementService,
 			eventBus: this.eventBus,
 		});
@@ -194,6 +205,9 @@ export class TestManagementHubView extends BaseHubView<TestMgmtPage> {
 		}
 		if (this.getActivePage() !== "compliance" && this.complianceTab) {
 			this.complianceTab.resetSelection();
+		}
+		if (this.getActivePage() !== "feature-quality" && this.featureQualityTab) {
+			this.featureQualityTab.resetSelection();
 		}
 	}
 

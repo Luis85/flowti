@@ -24,6 +24,7 @@ import type { FlowtiSettings } from "../../domain/settings/settings";
 import type { DiscoveredEvent } from "../../domain/discovery/types";
 import type { OnboardingService } from "../../domain/onboarding/OnboardingService";
 import type { FeatureLifecycleService } from "../../domain/featureLifecycle/FeatureLifecycleService";
+import type { ProcessService } from "../../domain/process/ProcessService";
 
 /**
  * Provides current state for views opened mid-session.
@@ -47,6 +48,7 @@ export interface ViewDependencies {
 	state: ViewStateProvider;
 	getOnboardingService: () => OnboardingService;
 	getFeatureLifecycleService?: () => FeatureLifecycleService | undefined;
+	getProcessService?: () => ProcessService | undefined;
 }
 
 /**
@@ -67,7 +69,7 @@ export function createViewDefinitions(deps: ViewDependencies): ViewDefinition[] 
 			type: VIEW_TYPE_EVENT_CATALOG,
 			displayName: "Event Catalog",
 			icon: "list",
-			factory: (leaf) => new EventCatalogView(leaf, deps.eventBus, deps.state, deps.getOnboardingService(), deps.getFeatureLifecycleService?.()),
+			factory: (leaf) => new EventCatalogView(leaf, deps.eventBus, deps.state, deps.getOnboardingService(), deps.getFeatureLifecycleService?.(), deps.getProcessService?.()),
 		},
 		{
 			type: VIEW_TYPE_EVENT_LOG,

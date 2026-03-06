@@ -39,14 +39,17 @@ import {
 	EventsTab,
 	HealthTab,
 	FeaturesTab,
+	ProcessesTab,
 } from ".";
 import { BaseHubView, type TabDef } from "../BaseHubView";
 import type { OnboardingService } from "../../domain/onboarding/OnboardingService";
 import type { FeatureLifecycleService } from "../../domain/featureLifecycle/FeatureLifecycleService";
+import type { ProcessService } from "../../domain/process/ProcessService";
+import { computeProcessCompliance } from "../../domain/process/complianceCalculator";
 import { VIEW_TYPE_EVENT_CATALOG } from "../../domain/hub/types";
 export { VIEW_TYPE_EVENT_CATALOG };
 
-export type CatalogTab = "events" | "domains" | "services" | "flows" | "systems" | "actors" | "products" | "health" | "features";
+export type CatalogTab = "events" | "domains" | "services" | "flows" | "systems" | "actors" | "products" | "health" | "features" | "processes";
 
 /**
  * Master-Detail view for browsing and managing all events.
@@ -98,13 +101,16 @@ export class EventCatalogView extends BaseHubView<CatalogTab> {
 	private eventsTab: EventsTab | null = null;
 	private healthTab: HealthTab | null = null;
 	private featuresTab: FeaturesTab | null = null;
+	private processesTab: ProcessesTab | null = null;
 	private featureLifecycleService: FeatureLifecycleService | null = null;
+	private processService: ProcessService | null = null;
 
-	constructor(leaf: WorkspaceLeaf, eventBus: IEventBus, state: ViewStateProvider, onboardingService: OnboardingService, featureLifecycleService?: FeatureLifecycleService) {
+	constructor(leaf: WorkspaceLeaf, eventBus: IEventBus, state: ViewStateProvider, onboardingService: OnboardingService, featureLifecycleService?: FeatureLifecycleService, processService?: ProcessService) {
 		super(leaf, eventBus);
 		this.state = state;
 		this.onboardingService = onboardingService;
 		this.featureLifecycleService = featureLifecycleService ?? null;
+		this.processService = processService ?? null;
 	}
 
 	// ─────────────────────────────────────────────────────────────
@@ -142,6 +148,7 @@ export class EventCatalogView extends BaseHubView<CatalogTab> {
 			{ id: "products", label: "Products", icon: "package", searchPlaceholder: "Search products..." },
 			{ id: "health", label: "Health", icon: "heart-pulse", searchPlaceholder: "Search checks..." },
 			{ id: "features", label: "Features", icon: "sparkles", searchPlaceholder: "Search features..." },
+			{ id: "processes", label: "Processes", icon: "waypoints", searchPlaceholder: "Search processes..." },
 		];
 	}
 
@@ -255,6 +262,15 @@ export class EventCatalogView extends BaseHubView<CatalogTab> {
 			onFeatureSelect: (name) => {
 				this.featuresTab!.setSelectedFeature(name);
 			},
+			getProcessCompliance: (featureName) => {
+				const feature = this.featureLifecycleService?.getFeatures().find((f) => f.name === featureName);
+				if (!feature) return undefined;
+				return computeProcessCompliance(feature);
+			},
+		});
+		this.processesTab = new ProcessesTab(this.masterTreeEl, this.detailPanelEl, deps, {
+			getProcesses: () => this.processService?.getProcesses() ?? [],
+			validateProcess: (def) => this.processService?.validateProcess(def) ?? { findings: [], errorCount: 0, warningCount: 0, infoCount: 0, valid: true },
 		});
 
 		// Subscribe to events
@@ -344,6 +360,9 @@ export class EventCatalogView extends BaseHubView<CatalogTab> {
 				break;
 			case "features":
 				this.featuresTab!.render();
+				break;
+			case "processes":
+				this.processesTab!.render();
 				break;
 		}
 		this.updateCountBadge();
@@ -635,6 +654,9 @@ export class EventCatalogView extends BaseHubView<CatalogTab> {
 			}
 			case "features":
 				this.countBadge.textContent = this.featuresTab!.getCountText();
+				break;
+			case "processes":
+				this.countBadge.textContent = this.processesTab!.getCountText();
 				break;
 		}
 	}

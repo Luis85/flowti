@@ -697,6 +697,7 @@ const CATALOG_DATA = {
 	// Journey Executor (4 events)
 	"journey-executor.run.started":         { category: "Test Management", description: "Journey execution started", direction: "Service → Listeners", domain: "journey-executor", services: "JourneyExecutorService" },
 	"journey-executor.run.step-completed":  { category: "Test Management", description: "Journey step completed during execution", direction: "Service → Listeners", domain: "journey-executor", services: "JourneyExecutorService" },
+	"journey-executor.run.step-retried":    { category: "Test Management", description: "Journey step retried after failure", direction: "Service → Listeners", domain: "journey-executor", services: "JourneyExecutorService" },
 	"journey-executor.run.completed":       { category: "Test Management", description: "Journey execution completed", direction: "Service → Listeners", domain: "journey-executor", services: "JourneyExecutorService" },
 	"journey-executor.run.failed":          { category: "Test Management", description: "Journey execution failed or cancelled", direction: "Service → Listeners", domain: "journey-executor", services: "JourneyExecutorService" },
 
