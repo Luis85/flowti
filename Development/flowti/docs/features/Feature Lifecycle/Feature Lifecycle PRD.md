@@ -2,7 +2,7 @@
 domain: Flowti
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
-stage: approved
+stage: in-progress
 related_events:
   - feature.stage.changed
   - feature.gate.passed
@@ -19,7 +19,7 @@ maturity_score_architecture: 4
 maturity_score_event_integration: 4
 maturity_score_data_model: 4
 maturity_score_ui_consistency: 3
-maturity_score_validation_testing: 2
+maturity_score_validation_testing: 4
 business_value: 5
 implementation_cost: 4
 maintenance_cost: 2
@@ -112,15 +112,15 @@ Measurable success:
 
 ### PRD Discovery & Stage Management
 
-- [ ] Scan `docs/features/*/` for files with `type: ProductRequirementsDocument` frontmatter
-- [ ] Extract and validate `stage` field against allowed values: `idea`, `draft`, `approved`, `in-progress`, `review`, `done`
-- [ ] Normalize legacy stage values on first scan (e.g., `open` → `draft`, `development` → `in-progress`, `new` → `idea`, `planned` → `approved`)
-- [ ] Display PRDs grouped by stage in the master panel
-- [ ] Each PRD row shows: name, stage badge, maturity level, FRI score (if scored), gate readiness indicator (green/yellow/red)
+- [x] Scan `docs/features/*/` for files with `type: ProductRequirementsDocument` frontmatter
+- [x] Extract and validate `stage` field against allowed values: `idea`, `draft`, `approved`, `in-progress`, `review`, `done`
+- [x] Normalize legacy stage values on first scan (e.g., `open` → `draft`, `development` → `in-progress`, `new` → `idea`, `planned` → `approved`)
+- [x] Display PRDs grouped by stage in the master panel
+- [x] Each PRD row shows: name, stage badge, maturity level, FRI score (if scored), gate readiness indicator (green/yellow/red)
 
 ### Phase Mapping
 
-- [ ] Map the 6 stages to the 10 Development Lifecycle phases for contextual display:
+- [x] Map the 6 stages to the 10 Development Lifecycle phases for contextual display:
 
 | Stage | Lifecycle Phases | Gate Name |
 |---|---|---|
@@ -133,7 +133,7 @@ Measurable success:
 
 ### Gate Readiness Checks
 
-- [ ] Each stage has a set of automated gate checks (pure functions, like Health checks):
+- [x] Each stage has a set of automated gate checks (pure functions, like Health checks):
 
 **Problem Gate** (idea → draft):
 - PRD file exists with problem statement section
@@ -166,33 +166,33 @@ Measurable success:
 - All checks above passed
 - `maturity` field updated to reflect actual level
 
-- [ ] Gate check results shown as checklist in feature detail panel
-- [ ] Overall gate readiness: all checks pass → green "Ready to advance", some fail → yellow "N items remaining", critical fail → red "Blocked"
+- [x] Gate check results shown as checklist in feature detail panel
+- [x] Overall gate readiness: all checks pass → green "Ready to advance", some fail → yellow "N items remaining", critical fail → red "Blocked"
 
 ### FRI Scoring
 
-- [ ] Score form with 7 dimensions (Strategy, Scope, Architecture, Event Integration, Data Model, UI Consistency, Validation & Testing)
-- [ ] Each dimension scored 0-5 via slider or number input
-- [ ] Individual dimension scores persisted to PRD frontmatter (`maturity_score_*` fields)
-- [ ] Total and readiness level computed by Base formulas: Not Ready (0-10), Conceptual (11-18), Technically Ready (19-25), Integration Ready (26-30), Production Ready (31-35)
-- [ ] Score history tracked via `feature.scored` events
+- [x] Score form with 7 dimensions (Strategy, Scope, Architecture, Event Integration, Data Model, UI Consistency, Validation & Testing)
+- [x] Each dimension scored 0-5 via slider or number input
+- [x] Individual dimension scores persisted to PRD frontmatter (`maturity_score_*` fields)
+- [x] Total and readiness level computed by Base formulas: Not Ready (0-10), Conceptual (11-18), Technically Ready (19-25), Integration Ready (26-30), Production Ready (31-35)
+- [x] Score history tracked via `feature.scored` events
 
 ### Prioritization Scoring
 
-- [ ] Each feature scored across 7 prioritization dimensions: `business_value`, `implementation_cost`, `maintenance_cost`, `discovery_cost`, `design_cost`, `test_cost`, `priority` (all 0-5 or null)
-- [ ] Scores persisted in PRD frontmatter
+- [x] Each feature scored across 7 prioritization dimensions: `business_value`, `implementation_cost`, `maintenance_cost`, `discovery_cost`, `design_cost`, `test_cost`, `priority` (all 0-5 or null)
+- [x] Scores persisted in PRD frontmatter
 - [ ] Feature Pipeline view supports sorting by priority, business_value, or computed value-to-cost ratio
-- [ ] Priority signal computed as advisory: `business_value - ((discovery_cost + design_cost + implementation_cost + test_cost + maintenance_cost) / 5).round()`
-- [ ] Prioritization scores shown in feature detail panel alongside FRI scores
+- [x] Priority signal computed as advisory: `business_value - ((discovery_cost + design_cost + implementation_cost + test_cost + maintenance_cost) / 5).round()`
+- [x] Prioritization scores shown in feature detail panel alongside FRI scores
 - [ ] Pipeline master view shows priority badge (color-coded: 5=red/urgent, 4=orange, 3=yellow, 2=blue, 1=gray, 0=dimmed)
 
 ### Session Tracking
 
-- [ ] "Start Session" creates a session record: `{ featureName, startTime, filesCreated[], filesModified[], notes }`
+- [x] "Start Session" creates a session record: `{ featureName, startTime, filesCreated[], filesModified[], notes }`
 - [ ] While session is active, listen to `file.created` and `file.modified` events — if the file is under the feature's folder or references the feature, log it
-- [ ] "End Session" finalizes the record with endTime, summary, and persists to storage
-- [ ] Session log displayed in feature detail panel with timestamps, duration, and file change list
-- [ ] Sessions persisted under storage key `featureLifecycle`
+- [x] "End Session" finalizes the record with endTime, summary, and persists to storage
+- [x] Session log displayed in feature detail panel with timestamps, duration, and file change list
+- [x] Sessions persisted under storage key `featureLifecycle`
 
 ### Review Session Integration
 
@@ -204,15 +204,15 @@ Measurable success:
 
 ### Stage Transitions
 
-- [ ] "Advance to [next stage]" button visible when gate checks indicate readiness
-- [ ] Clicking advance: validate all gate checks → if passed, update PRD frontmatter `stage` field → emit `feature.stage.changed`
-- [ ] If gate checks fail: show which checks are blocking with explanations
-- [ ] Stage transition history logged in session records
+- [x] "Advance to [next stage]" button visible when gate checks indicate readiness
+- [x] Clicking advance: validate all gate checks → if passed, update PRD frontmatter `stage` field → emit `feature.stage.changed`
+- [x] If gate checks fail: show which checks are blocking with explanations
+- [x] Stage transition history logged in session records
 
 ### Dashboard Integration
 
-- [ ] Features card on Event Catalog dashboard showing: total PRDs, stage distribution (e.g., "3 idea, 5 draft, 2 in-progress, 4 done")
-- [ ] Click navigates to Features tab
+- [x] Features card on Event Catalog dashboard showing: total PRDs, stage distribution (e.g., "3 idea, 5 draft, 2 in-progress, 4 done")
+- [x] Click navigates to Features tab
 
 ---
 
@@ -409,18 +409,18 @@ Follows the existing `BaseEntityTab` pattern (if extracted) or matches the Healt
 
 ## 13. Definition of Done
 
-- [ ] `FeatureLifecycleService` implemented with scan, gate checks, scoring, session tracking, and review integration
-- [ ] Gate check functions implemented as pure functions with full test coverage
-- [ ] `FeaturesTab` component with pipeline master view and feature detail panel
-- [ ] Event definitions added to `FlowtiEventMap` (8 events under `feature.*` and `review.*`)
-- [ ] Storage persistence for sessions and active session state
-- [ ] Stage normalization handles all legacy stage values
-- [ ] FRI scoring persists to frontmatter
-- [ ] Three Amigos review doc creation from template
-- [ ] Dashboard integration (Features stat card + quick action)
-- [ ] Unit tests for all gate check functions and service methods
-- [ ] Use cases documented
-- [ ] `npm run build` passes
+- [x] `FeatureLifecycleService` implemented with scan, gate checks, scoring, session tracking, and review integration
+- [x] Gate check functions implemented as pure functions with full test coverage
+- [x] `FeaturesTab` component with pipeline master view and feature detail panel
+- [x] Event definitions added to `FlowtiEventMap` (8 events under `feature.*` and `review.*`)
+- [x] Storage persistence for sessions and active session state
+- [x] Stage normalization handles all legacy stage values
+- [x] FRI scoring persists to frontmatter
+- [ ] Three Amigos review doc creation from template — deferred to C61
+- [x] Dashboard integration (Features stat card + quick action)
+- [x] Unit tests for all gate check functions and service methods
+- [ ] Use cases documented — deferred
+- [x] `npm run build` passes
 
 ---
 
@@ -431,6 +431,7 @@ Follows the existing `BaseEntityTab` pattern (if extracted) or matches the Healt
 | 2026-02-15 | → idea | — | — | — | PRD concept created from Development Lifecycle process document |
 | 2026-02-15 | idea → draft | Problem Gate | 21 | — | Problem statement, outcome, scope, requirements, events, data model, UI layout, adapter API all defined. 3 PBIs, 6 use cases, 3 user stories created. |
 | 2026-02-15 | draft → approved | Design Gate | 27 | Technical Architect | FRI re-scored (21 → 27, Integration Ready). Technical Review: Pass. All Design Gate criteria met. PRD is development-ready. |
+| 2026-03-06 | approved → in-progress | Readiness Gate | 29 | — | C58 delivered MVP Cycle 1: FeatureLifecycleService, 6 gate checks, FRI/prioritization scoring, FeaturesTab + detail panel, stage transitions, session tracking, User Hub card. 230 tests, 314 suites. TASM 31/35. FRI re-scored (27 → 29: validation_testing 2→4). Review/TASM automation deferred to C61. |
 
 ---
 

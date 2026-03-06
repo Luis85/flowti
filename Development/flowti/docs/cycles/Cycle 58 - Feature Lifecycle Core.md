@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Development/flowti/docs/features/Feature Lifecycle/Feature Lifecycle PRD|Feature Lifecycle PRD]]"
-stage: completed
+stage: done
 cycle: 58
 release_anchor:
   - "Theme 9: Feature Lifecycle — The MVP Backbone"
@@ -416,13 +416,13 @@ Inc 9 (Debt)                 ──→ Independent
 
 ## Risks & Mitigations
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| PRD frontmatter is inconsistent across 41 files | Medium | Zod schema with lenient parsing + normalization layer |
-| 6 gates are too complex for first cycle | Medium | Start with 3 core gates (Problem, Build, Quality); add Design, Readiness, Release incrementally |
-| Event Catalog already has 8 tabs — adding Features creates fatigue | Low | Features tab is the most valuable; consider promoting to its own Hub in C62 if warranted |
-| Gate checks need vault file content, not just frontmatter | Medium | Use fileExists/readFile for content checks; keep gate logic pure by passing extracted data |
-| FRI scores in existing PRDs are stale | Low | Scan computes from current frontmatter; stale scores are visible as motivation to re-score |
+| Risk | Impact | Mitigation | Outcome |
+|------|--------|------------|---------|
+| PRD frontmatter is inconsistent across 41 files | Medium | Zod schema with lenient parsing + normalization layer | **Materialized** — 14 legacy stage values found, all normalized. Zod `.passthrough()` handles varied frontmatter gracefully. |
+| 6 gates are too complex for first cycle | Medium | Start with 3 core gates (Problem, Build, Quality); add Design, Readiness, Release incrementally | **Did not materialize** — all 6 gates delivered in Inc 2, pure function pattern made them straightforward. |
+| Event Catalog already has 8 tabs — adding Features creates fatigue | Low | Features tab is the most valuable; consider promoting to its own Hub in C62 if warranted | **Noted** — tab count is 9 now; promotion to standalone Hub considered for C62. |
+| Gate checks need vault file content, not just frontmatter | Medium | Use fileExists/readFile for content checks; keep gate logic pure by passing extracted data | **Mitigated** — GateContext pattern extracts all data before gate check; pure functions receive plain objects. |
+| FRI scores in existing PRDs are stale | Low | Scan computes from current frontmatter; stale scores are visible as motivation to re-score | **Accepted** — scores extracted from frontmatter as-is; no auto-rescore. |
 
 ## Success Metrics
 
@@ -453,8 +453,8 @@ Inc 9 (Debt)                 ──→ Independent
 - [x] Storage persistence for sessions and scores
 - [x] TD-58 and TD-93 resolved
 - [x] Flow integration test for scan → gate → transition
-- [ ] `npm run build` green
-- [ ] Three Amigos review completed
+- [x] `npm run build` green
+- [x] Three Amigos review completed (TASM 31/35 — Excellent)
 
 ## Cycle Results
 
@@ -525,3 +525,62 @@ Inc 9 (Debt)                 ──→ Independent
 - **Pyramid flow/unit always 0**: `getPyramid()` called `computePyramid(journeys)` without flow/unit params — added `setTestReportReader()` callback that reads testreport.json and classifies suites by path
 - **Pyramid drill-down stale guidance**: Non-e2e layers always showed "Expert mode required" callout even with metrics — fixed to show `renderLayerSummary()` when `layer.count > 0`
 - **TS2739 in EventBus.test.ts**: Inline settings objects missing new `featuresFolder`/`testReportPath` fields — replaced with `{ ...DEFAULT_SETTINGS, debugMode: true }` spread pattern
+
+## Cycle Retrospective
+
+### What Went Well
+
+1. **GateContext pattern** — Extracting all vault data before calling gate checks made them 100% pure functions. This is the cleanest domain/UI separation in the codebase. Testing was trivial — plain object literals, no mocks.
+2. **Increment merging was pragmatic** — Inc 1 (Scanner) and Inc 3 (FRI) were naturally part of Inc 0. Delivering them together avoided artificial boundaries and reduced boilerplate.
+3. **230 tests from 120 estimate** — Nearly 2x the target. The pure function pattern made it easy to test every branch of every gate check.
+4. **Post-cycle live testing found real bugs** — Scanner path, legacy stages, pyramid metrics — all integration-level issues that unit tests correctly wouldn't catch. Live testing is essential.
+5. **Configurable paths** — Making scanner paths settings instead of hardcoded constants was the right call. Different vault layouts now work out of the box.
+
+### Deviations from Plan
+
+| Deviation | Reason | Impact |
+|-----------|--------|--------|
+| Inc 1 + Inc 3 merged into Inc 0 | Scanner and FRI extraction are naturally coupled | Positive — fewer increments, cleaner delivery |
+| 2 review events deferred | Review automation belongs in C61, not C58 | Neutral — correct scoping |
+| No dedicated command | Features tab accessed via Event Catalog navigation | Neutral — reduces command count |
+| 5 post-cycle bugfixes | Live testing surfaced integration issues | Positive — shipped working product, not just passing tests |
+| `stageAtStart` reads current stage at `endSession()` time | Service implementation detail, not a bug | Neutral — documented in flow test |
+
+### Improvement Backlog
+
+| Item | Classification | Target |
+|------|----------------|--------|
+| Promote Features tab to standalone Hub | Future PRD | C62 |
+| `review.session.*` → `feature.review.*` namespace | Tech debt | C61 |
+| Session file tracking (filesCreated/Modified) | Deferred PBI | C59+ |
+| Defensive copy in `getFeatures()` | Tech debt (minor) | C59 |
+| Sort pipeline by priority/FRI | Deferred FR | C59+ |
+| Priority badge colors in pipeline master | Deferred FR | C59+ |
+| Lint rule for PRD frontmatter typos | Nice-to-have | Backlog |
+
+### Learnings
+
+1. **Pure function + injected context = testability gold standard.** The GateContext pattern should be replicated in any future domain that needs vault data for calculations. Pre-extract, then compute.
+2. **Settings fields break test fixtures.** Adding `featuresFolder` and `testReportPath` broke EventBus.test.ts which used inline settings objects. The `{ ...DEFAULT_SETTINGS, ...overrides }` spread pattern is resilient — use it everywhere.
+3. **Scanner paths must match vault layout.** The `docs/features` vs `Development/flowti/docs/features` mismatch was a silent failure — 0 results, no error. Add validation logging when scanners return empty results.
+4. **Live testing surfaces integration bugs that unit tests miss.** Domain logic was 100% correct. All 5 post-cycle bugs were wiring issues in main.ts and UI rendering. The test pyramid is working as designed — unit tests catch logic errors, integration tests catch wiring errors, live testing catches user-facing issues.
+5. **Legacy stage normalization needs a living map.** Started with 10 mappings, ended with 14 after discovering `delivered` and `deferred` in real PRDs. The map should be treated as a living document updated as new values are encountered.
+
+## Inbox & Feedback
+
+### Inbox Items Updated
+
+- **"I want to create and maintain lifecycle descriptions inside Flowti"** — marked as `delivered` (C58). Feature Lifecycle provides PRD-level lifecycle management; entity-level lifecycle (domains, services) could extend this pattern.
+
+### New Feedback Captured
+
+- Scanner should log a warning when it returns 0 results — helps catch path misconfiguration early
+- Pipeline view could benefit from drag-and-drop stage transitions (deferred, not MVP)
+- File change tracking during sessions would enable automatic artifact documentation (deferred to C59+)
+
+### Next Cycle Inputs (C59: Process Management)
+
+- Feature Lifecycle provides the stage model and gate infrastructure that Process Management will build on
+- Process definitions should reference Feature Lifecycle stages and gates
+- Session-to-feature binding (from Feature Lifecycle sessions) feeds into process step tracking
+- GateContext extraction pattern should be reused for process gates
