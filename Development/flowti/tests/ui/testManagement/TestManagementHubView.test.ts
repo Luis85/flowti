@@ -15,14 +15,18 @@ function createMockLeaf(): import("obsidian").WorkspaceLeaf {
 }
 
 function createMockService(): TestManagementService {
+	const pyramid = {
+		e2e: { count: 0, passRate: 0, trend: "stable" as const },
+		flow: { count: 0, passRate: 0, trend: "stable" as const },
+		unit: { count: 0, passRate: 0, trend: "stable" as const },
+	};
 	return {
 		getJourneys: vi.fn(() => []),
 		getJourneyByName: vi.fn(() => undefined),
-		getPyramid: vi.fn(() => ({
-			e2e: { count: 0, passRate: 0, trend: "stable" },
-			flow: { count: 0, passRate: 0, trend: "stable" },
-			unit: { count: 0, passRate: 0, trend: "stable" },
-		})),
+		getPyramid: vi.fn(() => pyramid),
+		getPyramidWithTrends: vi.fn(() => pyramid),
+		getBaseline: vi.fn(() => undefined),
+		setBaseline: vi.fn(),
 		getCoverage: vi.fn(() => []),
 		getCompliance: vi.fn(() => []),
 	} as unknown as TestManagementService;
@@ -150,7 +154,7 @@ describe("TestManagementHubView", () => {
 			expect(el.textContent).not.toContain("Coming in a future increment");
 		});
 
-		it("shows placeholder for pyramid tab", async () => {
+		it("renders pyramid tab content (not placeholder)", async () => {
 			const view = new TestManagementHubView(createMockLeaf(), eventBus, createMockService(), createMockOnboardingService());
 			prepareContainerEl(view);
 			await view.onOpen();
@@ -159,7 +163,9 @@ describe("TestManagementHubView", () => {
 			vi.advanceTimersByTime(20);
 
 			const el = (view as unknown as { containerEl: HTMLElement }).containerEl;
-			expect(el.textContent).toContain("Coming in a future increment");
+			// Pyramid tab renders layer cards, not the placeholder
+			expect(el.textContent).toContain("E2E Journeys");
+			expect(el.textContent).not.toContain("Coming in a future increment");
 		});
 
 		it("shows tab label in placeholder", async () => {

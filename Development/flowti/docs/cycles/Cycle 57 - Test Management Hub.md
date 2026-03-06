@@ -573,6 +573,18 @@ Delivered:
 - Top bar filter dropdowns wired in HubView (journeys tab only)
 - **Scan-on-load**: `TestManagementService.setScanner()` + vault scanner callback in main.ts — automatically discovers and registers journey JSON files from the configured journey folder on startup. Preserves run history and compliance tags for existing entries. Non-fatal on failure.
 
+### Inc 3: Pyramid Visualization (PBI-TM-004) — DONE
+**Date**: 2026-03-06 | **Tests**: 6,967 (294 suites) | **New**: +17 tests, +1 suite
+
+Delivered:
+- `PyramidTab` (200 LOC) — 3-layer pyramid visualization with drill-down
+- Master panel: layer cards (E2E, Flow, Unit) with icon, label, count, pass rate, progress bar, trend indicator (↑/↓/→), click-to-select, Flow/Unit dimmed in Standard mode
+- Detail panel: E2E drill-down (journey list with status badge, name, type, pass/fail stats, filtered by search), Flow/Unit guidance callout ("Expert mode" message)
+- "Set baseline" button — calls `service.setBaseline()`, re-renders with trend comparison
+- `TestManagementService` additions: `setBaseline()`, `getBaseline()`, `getPyramidWithTrends()` — wires `applyTrends()` from pyramidCalculator
+- CSS additions: pyramid cards, trend indicators, drill-down rows, guidance callout, footer
+- Empty state when no journeys registered
+
 ## Definition of Done
 
 - [ ] `TestManagementService` implemented with scan, parse, coverage, pyramid, compliance

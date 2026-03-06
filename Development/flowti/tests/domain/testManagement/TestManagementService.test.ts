@@ -338,4 +338,35 @@ describe("TestManagementService", () => {
 			expect(coverage[0].journeyCount).toBe(1);
 		});
 	});
+
+	describe("baseline", () => {
+		beforeEach(async () => { await service.load(); });
+
+		it("setBaseline persists pyramid baseline to storage", () => {
+			service.registerJourney({ journey: "A", steps: [] });
+			service.setBaseline();
+
+			expect(storage.save).toHaveBeenCalled();
+			const baseline = service.getBaseline();
+			expect(baseline).toBeDefined();
+			expect(baseline!.e2e.count).toBe(1);
+		});
+
+		it("getBaseline returns undefined when not set", () => {
+			expect(service.getBaseline()).toBeUndefined();
+		});
+
+		it("getPyramidWithTrends applies trend comparison from baseline", () => {
+			service.registerJourney({ journey: "A", steps: [] });
+			service.setBaseline();
+
+			// Register more journeys → count goes up
+			service.registerJourney({ journey: "B", steps: [] });
+			service.registerJourney({ journey: "C", steps: [] });
+
+			const trended = service.getPyramidWithTrends();
+			expect(trended.e2e.count).toBe(3);
+			expect(trended.e2e.trend).toBe("up"); // 3 > 1
+		});
+	});
 });

@@ -16,6 +16,7 @@ import { BaseHubView, type TabDef } from "../BaseHubView";
 import { VIEW_TYPE_TEST_MANAGEMENT_HUB } from "../../domain/hub/types";
 import { TestManagementDashboard } from "./TestManagementDashboard";
 import { JourneysTab } from "./JourneysTab";
+import { PyramidTab } from "./PyramidTab";
 export { VIEW_TYPE_TEST_MANAGEMENT_HUB };
 
 export type TestMgmtPage = "journeys" | "pyramid" | "coverage" | "compliance";
@@ -28,6 +29,7 @@ export class TestManagementHubView extends BaseHubView<TestMgmtPage> {
 	private onboardingService: OnboardingService;
 	private dashboard: TestManagementDashboard;
 	private journeysTab!: JourneysTab;
+	private pyramidTab!: PyramidTab;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -106,6 +108,10 @@ export class TestManagementHubView extends BaseHubView<TestMgmtPage> {
 			this.journeysTab.render(this.filterText);
 			return;
 		}
+		if (tabId === "pyramid") {
+			this.pyramidTab.render(this.filterText);
+			return;
+		}
 
 		// Placeholder for tabs not yet implemented
 		this.masterTreeEl.empty();
@@ -127,8 +133,12 @@ export class TestManagementHubView extends BaseHubView<TestMgmtPage> {
 	// ── Lifecycle ───────────────────────────────────────────
 
 	onHubOpen(): void {
-		// Create JourneysTab now that shell elements are available
+		// Create tab components now that shell elements are available
 		this.journeysTab = new JourneysTab(this.masterTreeEl, this.detailPanelEl, {
+			testManagementService: this.testManagementService,
+			eventBus: this.eventBus,
+		});
+		this.pyramidTab = new PyramidTab(this.masterTreeEl, this.detailPanelEl, {
 			testManagementService: this.testManagementService,
 			eventBus: this.eventBus,
 		});
@@ -161,9 +171,12 @@ export class TestManagementHubView extends BaseHubView<TestMgmtPage> {
 	}
 
 	protected onTabChanged(): void {
-		// Reset journeys tab state when switching away
+		// Reset tab state when switching away
 		if (this.getActivePage() !== "journeys" && this.journeysTab) {
 			this.journeysTab.resetSelection();
+		}
+		if (this.getActivePage() !== "pyramid" && this.pyramidTab) {
+			this.pyramidTab.resetSelection();
 		}
 	}
 

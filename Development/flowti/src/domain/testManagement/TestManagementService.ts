@@ -17,7 +17,7 @@ import type {
 } from "./types";
 import { createDefaultState } from "./types";
 import { parseJourneyDefinition, parseJourneyResult, deriveJourneyStatus } from "./journeyParser";
-import { computePyramid } from "./pyramidCalculator";
+import { applyTrends, computePyramid } from "./pyramidCalculator";
 import { computeCoverage, type PrdInfo } from "./coverageCalculator";
 import { checkCompliance } from "./complianceChecker";
 import { COMPLIANCE_CHARACTERISTICS } from "./complianceDefinitions";
@@ -86,6 +86,23 @@ export class TestManagementService {
 
 	getPyramid(): TestPyramidState {
 		return computePyramid(this.state.journeys);
+	}
+
+	/** Get pyramid with trend indicators (compared to stored baseline). */
+	getPyramidWithTrends(): TestPyramidState {
+		const current = this.getPyramid();
+		if (!this.state.pyramidBaseline) return current;
+		return applyTrends(current, this.state.pyramidBaseline);
+	}
+
+	getBaseline(): TestPyramidState | undefined {
+		return this.state.pyramidBaseline;
+	}
+
+	/** Snapshot the current pyramid as baseline for future trend comparison. */
+	setBaseline(): void {
+		this.state.pyramidBaseline = this.getPyramid();
+		void this.save();
 	}
 
 	getCoverage(prds: PrdInfo[]): CoverageEntry[] {

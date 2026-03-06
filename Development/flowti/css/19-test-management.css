@@ -271,6 +271,125 @@
 	color: var(--text-muted);
 }
 
+/* Pyramid layer cards */
+.ft-tm-pyramid-cards {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	padding: 0.5rem;
+}
+
+.ft-tm-pyramid-card {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.75rem 1rem;
+	border-radius: 6px;
+	cursor: pointer;
+	border: 1px solid transparent;
+}
+
+.ft-tm-pyramid-card:hover {
+	background: var(--background-modifier-hover);
+}
+
+.ft-tm-pyramid-card--active {
+	border-color: var(--interactive-accent);
+	background: var(--background-modifier-hover);
+}
+
+.ft-tm-pyramid-card--dimmed {
+	opacity: 0.5;
+}
+
+.ft-tm-pyramid-card-icon {
+	flex-shrink: 0;
+	color: var(--text-muted);
+}
+
+.ft-tm-pyramid-card-info {
+	flex: 1;
+	min-width: 0;
+}
+
+.ft-tm-pyramid-card-label {
+	font-weight: 600;
+	font-size: var(--font-ui-small);
+}
+
+.ft-tm-pyramid-card-stats {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+/* Trend indicators */
+.ft-tm-trend {
+	font-size: var(--font-ui-smaller);
+	margin-left: 0.25rem;
+}
+
+.ft-tm-trend--up {
+	color: var(--color-green);
+}
+
+.ft-tm-trend--down {
+	color: var(--color-red);
+}
+
+.ft-tm-trend--stable {
+	color: var(--text-faint);
+}
+
+/* Pyramid drill-down */
+.ft-tm-pyramid-drilldown-row {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.375rem 0.5rem;
+	border-radius: 4px;
+	font-size: var(--font-ui-small);
+}
+
+.ft-tm-pyramid-drilldown-row:hover {
+	background: var(--background-modifier-hover);
+}
+
+.ft-tm-pyramid-drilldown-name {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ft-tm-pyramid-drilldown-stats {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	white-space: nowrap;
+}
+
+/* Pyramid guidance callout */
+.ft-tm-pyramid-guidance {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	padding: 2rem 1rem;
+	color: var(--text-muted);
+}
+
+.ft-tm-pyramid-guidance-icon {
+	margin-bottom: 0.5rem;
+	opacity: 0.5;
+}
+
+/* Pyramid footer */
+.ft-tm-pyramid-footer {
+	padding: 0.5rem;
+	border-top: 1px solid var(--background-modifier-border);
+	margin-top: 0.5rem;
+}
+
 /* Tab placeholder */
 .ft-tm-tab-placeholder {
 	display: flex;
