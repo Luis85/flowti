@@ -66,12 +66,14 @@ import { JourneyBuilderSidebar, VIEW_TYPE_JOURNEY_BUILDER } from "./ui/journeyBu
 import { JourneyFileView, VIEW_TYPE_JOURNEY_FILE } from "./ui/journeyBuilder/JourneyFileView";
 import { JourneyBuilderService } from "./domain/journeyBuilder/JourneyBuilderService";
 import type { TestManagementService } from "./domain/testManagement/TestManagementService";
+import type { FeatureLifecycleService } from "./domain/featureLifecycle/FeatureLifecycleService";
 import { JourneyExecutorService } from "./domain/journeyExecutor/JourneyExecutorService";
 import type { ToolHost, ExecutableJourney } from "./domain/journeyExecutor/types";
 import { BaseHubView, type IViewStateStore } from "./ui/BaseHubView";
 import { ExecutionProgressModal } from "./ui/journeyExecutor/ExecutionProgressModal";
 import { TestManagementHubView, VIEW_TYPE_TEST_MANAGEMENT_HUB } from "./ui/testManagement/TestManagementHubView";
 import { TestManagementHubProvider } from "./domain/hub/TestManagementHubProvider";
+import { FeatureLifecycleProvider } from "./domain/hub/FeatureLifecycleProvider";
 import { EVENT_CATALOG } from "./infrastructure/events/catalog";
 import { showNudgeNotification } from "./ui/shared/NudgeNotification";
 import { openStartPage } from "./infrastructure/StartpageHandler";
@@ -140,6 +142,7 @@ export default class FlowtiBasePlugin extends Plugin {
 	private journeyBuilderService?: JourneyBuilderService;
 	private analyticsService?: AnalyticsService;
 	private testManagementService?: TestManagementService;
+	private featureLifecycleService?: FeatureLifecycleService;
 	private journeyExecutorService?: JourneyExecutorService;
 	private onboardingService?: OnboardingService;
 	private viewStateMap = new Map<string, string>();
@@ -454,6 +457,7 @@ export default class FlowtiBasePlugin extends Plugin {
 				collapsedCategories: this.collapsedCategories,
 			},
 			getOnboardingService: () => this.onboardingService!,
+			getFeatureLifecycleService: () => this.featureLifecycleService,
 		});
 	}
 
@@ -970,7 +974,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			return results;
 		});
 		this.testManagementService.setPrdScanner(async () => {
-			const featuresFolder = "docs/features";
+			const featuresFolder = settingsService.getSettings().featuresFolder;
 			const abstract = this.app.vault.getAbstractFileByPath(featuresFolder);
 			if (!abstract) return [];
 			const results: { name: string; stage: string; domain: string }[] = [];
@@ -989,10 +993,54 @@ export default class FlowtiBasePlugin extends Plugin {
 			}
 			return results;
 		});
+		this.testManagementService.setTestReportReader(async () => {
+			const reportPath = settingsService.getSettings().testReportPath;
+			const file = this.app.vault.getAbstractFileByPath(reportPath);
+			if (!file || !(file instanceof TFile)) return null;
+			try {
+				const content = await this.app.vault.read(file);
+				const report = JSON.parse(content) as { testResults?: { name?: string; status?: string }[] };
+				const results = report.testResults ?? [];
+				const flowSuites = results.filter((r) => r.name && r.name.includes("/flows/"));
+				const unitSuites = results.filter((r) => r.name && !r.name.includes("/flows/") && !r.name.includes("/e2e/"));
+				return {
+					flowSuites: flowSuites.length,
+					flowPassRate: flowSuites.length > 0 ? Math.round(flowSuites.filter((r) => r.status === "passed").length / flowSuites.length * 100) : 0,
+					unitSuites: unitSuites.length,
+					unitPassRate: unitSuites.length > 0 ? Math.round(unitSuites.filter((r) => r.status === "passed").length / unitSuites.length * 100) : 0,
+				};
+			} catch {
+				return null;
+			}
+		});
 		await this.timedServiceLoad("testManagementService", () => this.testManagementService!.load());
 		this.safeRegisterView(VIEW_TYPE_TEST_MANAGEMENT_HUB, (leaf) =>
 			new TestManagementHubView(leaf, this.eventBus, this.testManagementService!, this.onboardingService!),
 		);
+
+		// Feature Lifecycle — PRD scanning, stage management, gate checks
+		this.featureLifecycleService = await this.services.get<FeatureLifecycleService>("featureLifecycleService");
+		this.featureLifecycleService.setScanner(async () => {
+			const featuresFolder = settingsService.getSettings().featuresFolder;
+			const abstract = this.app.vault.getAbstractFileByPath(featuresFolder);
+			if (!abstract) return [];
+			const results: { path: string; name: string; frontmatter: Record<string, unknown> }[] = [];
+			const files = this.app.vault.getFiles().filter(
+				(f) => f.path.startsWith(featuresFolder + "/") && f.extension === "md",
+			);
+			for (const file of files) {
+				const cache = this.app.metadataCache.getFileCache(file);
+				const fm = cache?.frontmatter;
+				if (!fm || fm.type !== "ProductRequirementsDocument") continue;
+				results.push({
+					path: file.path,
+					name: file.basename,
+					frontmatter: { ...fm },
+				});
+			}
+			return results;
+		});
+		await this.timedServiceLoad("featureLifecycleService", () => this.featureLifecycleService!.load());
 
 		// Journey Executor — in-app journey runner
 		this.journeyExecutorService = new JourneyExecutorService({
@@ -1411,6 +1459,9 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.hubRegistry.register(new AnalyticsHubProvider(this.analyticsService!));
 		this.hubRegistry.register(new TrainHubProvider(this.trainService!));
 		this.hubRegistry.register(new TestManagementHubProvider(this.testManagementService!));
+		if (this.featureLifecycleService) {
+			this.hubRegistry.register(new FeatureLifecycleProvider(this.featureLifecycleService));
+		}
 
 		this.safeRegisterView(VIEW_TYPE_USER_HUB, (leaf) =>
 			new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!, this.inboxService!, this.sessionService!, this.nudgeService!, this.onboardingService!, this.settings.inboxEnabledSources, this.settings, this.trainService, this.commands),

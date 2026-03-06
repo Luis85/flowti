@@ -38,13 +38,15 @@ import {
 	ProductsTab,
 	EventsTab,
 	HealthTab,
+	FeaturesTab,
 } from ".";
 import { BaseHubView, type TabDef } from "../BaseHubView";
 import type { OnboardingService } from "../../domain/onboarding/OnboardingService";
+import type { FeatureLifecycleService } from "../../domain/featureLifecycle/FeatureLifecycleService";
 import { VIEW_TYPE_EVENT_CATALOG } from "../../domain/hub/types";
 export { VIEW_TYPE_EVENT_CATALOG };
 
-export type CatalogTab = "events" | "domains" | "services" | "flows" | "systems" | "actors" | "products" | "health";
+export type CatalogTab = "events" | "domains" | "services" | "flows" | "systems" | "actors" | "products" | "health" | "features";
 
 /**
  * Master-Detail view for browsing and managing all events.
@@ -95,11 +97,14 @@ export class EventCatalogView extends BaseHubView<CatalogTab> {
 	private productsTab: ProductsTab | null = null;
 	private eventsTab: EventsTab | null = null;
 	private healthTab: HealthTab | null = null;
+	private featuresTab: FeaturesTab | null = null;
+	private featureLifecycleService: FeatureLifecycleService | null = null;
 
-	constructor(leaf: WorkspaceLeaf, eventBus: IEventBus, state: ViewStateProvider, onboardingService: OnboardingService) {
+	constructor(leaf: WorkspaceLeaf, eventBus: IEventBus, state: ViewStateProvider, onboardingService: OnboardingService, featureLifecycleService?: FeatureLifecycleService) {
 		super(leaf, eventBus);
 		this.state = state;
 		this.onboardingService = onboardingService;
+		this.featureLifecycleService = featureLifecycleService ?? null;
 	}
 
 	// ─────────────────────────────────────────────────────────────
@@ -136,6 +141,7 @@ export class EventCatalogView extends BaseHubView<CatalogTab> {
 			{ id: "actors", label: "Actors", icon: "users", searchPlaceholder: "Search actors..." },
 			{ id: "products", label: "Products", icon: "package", searchPlaceholder: "Search products..." },
 			{ id: "health", label: "Health", icon: "heart-pulse", searchPlaceholder: "Search checks..." },
+			{ id: "features", label: "Features", icon: "sparkles", searchPlaceholder: "Search features..." },
 		];
 	}
 
@@ -241,6 +247,15 @@ export class EventCatalogView extends BaseHubView<CatalogTab> {
 			this.masterTreeEl, this.detailPanelEl,
 			this.settingsPanel, this.countBadge, deps,
 		);
+		this.featuresTab = new FeaturesTab(this.masterTreeEl, this.detailPanelEl, deps, {
+			getFeatures: () => this.featureLifecycleService?.getFeatures() ?? [],
+			getFeaturesByStage: () => this.featureLifecycleService?.getFeaturesByStage() ?? {
+				idea: [], draft: [], approved: [], "in-progress": [], review: [], done: [],
+			},
+			onFeatureSelect: (name) => {
+				this.featuresTab!.setSelectedFeature(name);
+			},
+		});
 
 		// Subscribe to events
 		this.subscribeToEvents();
@@ -327,6 +342,9 @@ export class EventCatalogView extends BaseHubView<CatalogTab> {
 				this.productEntries = this.productsTab!.getEntries();
 				this.healthTab!.render();
 				break;
+			case "features":
+				this.featuresTab!.render();
+				break;
 		}
 		this.updateCountBadge();
 	}
@@ -347,6 +365,7 @@ export class EventCatalogView extends BaseHubView<CatalogTab> {
 			case "systems": this.navigateToSystem(entityId); break;
 			case "actors": this.navigateToActor(entityId); break;
 			case "products": this.navigateToProduct(entityId); break;
+			case "features": this.navigateToFeature(entityId); break;
 		}
 	}
 
@@ -614,6 +633,9 @@ export class EventCatalogView extends BaseHubView<CatalogTab> {
 				this.countBadge.textContent = `${passing} / ${report.checks.length} passing`;
 				break;
 			}
+			case "features":
+				this.countBadge.textContent = this.featuresTab!.getCountText();
+				break;
 		}
 	}
 
@@ -728,6 +750,11 @@ export class EventCatalogView extends BaseHubView<CatalogTab> {
 	private navigateToProduct(product: string): void {
 		this.productsTab!.setSelectedProduct(product);
 		this.navigateTo("products");
+	}
+
+	private navigateToFeature(feature: string): void {
+		this.featuresTab!.setSelectedFeature(feature);
+		this.navigateTo("features");
 	}
 
 	private openActivityLog(): void {

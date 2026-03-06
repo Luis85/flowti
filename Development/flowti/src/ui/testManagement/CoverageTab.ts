@@ -213,7 +213,7 @@ export class CoverageTab {
 		setIcon(iconEl, "check-circle");
 		empty.createDiv({ text: "No PRDs found", cls: "ft-heading ft-heading-sm ft-mb-1" });
 		empty.createDiv({
-			text: "PRD files with frontmatter in docs/features/ will appear here.",
+			text: "PRD files with type: ProductRequirementsDocument frontmatter will appear here. Configure the features folder in settings.",
 			cls: "ft-text-sm ft-text-muted",
 		});
 	}

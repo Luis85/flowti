@@ -153,7 +153,13 @@ export class PyramidTab {
 		if (this.selectedLayer === "e2e") {
 			this.renderE2eDrillDown(filterText);
 		} else {
-			this.renderGuidanceCallout(this.selectedLayer);
+			const pyramid = this.deps.testManagementService.getPyramid();
+			const layer = pyramid[this.selectedLayer];
+			if (layer.count > 0) {
+				this.renderLayerSummary(this.selectedLayer, layer);
+			} else {
+				this.renderGuidanceCallout(this.selectedLayer);
+			}
 		}
 	}
 
@@ -199,6 +205,24 @@ export class PyramidTab {
 				});
 			}
 		}
+	}
+
+	private renderLayerSummary(layerId: LayerId, layer: PyramidLayer): void {
+		const def = LAYERS.find((l) => l.id === layerId)!;
+		const section = this.detailEl.createDiv({ cls: "ft-tm-detail-section" });
+		section.createDiv({ text: `${def.label} (${layer.count})`, cls: "ft-tm-detail-section-title" });
+
+		const stats = section.createDiv({ cls: "ft-tm-pyramid-drilldown-row" });
+		const iconEl = stats.createDiv({ cls: "ft-tm-pyramid-card-icon" });
+		setIcon(iconEl, def.icon);
+		const info = stats.createDiv({ cls: "ft-tm-pyramid-card-info" });
+		info.createDiv({ text: `${layer.count} ${def.countLabel}`, cls: "ft-tm-pyramid-drilldown-name" });
+		info.createDiv({ text: `${layer.passRate}% pass rate`, cls: "ft-tm-pyramid-drilldown-stats" });
+
+		const note = section.createDiv({ cls: "ft-text-sm ft-text-muted ft-mt-1" });
+		note.textContent = layerId === "flow"
+			? "Flow integration tests from tests/flows/. Metrics sourced from vitest report."
+			: "Unit and component tests. Metrics sourced from vitest report.";
 	}
 
 	private renderGuidanceCallout(layerId: LayerId): void {

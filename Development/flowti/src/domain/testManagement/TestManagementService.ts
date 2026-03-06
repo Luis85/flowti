@@ -42,7 +42,9 @@ export class TestManagementService {
 	private eventBus?: IEventBus;
 	private scanJourneys?: () => Promise<ScannedJourney[]>;
 	private scanPrdsFn?: () => Promise<PrdInfo[]>;
+	private readTestReportFn?: () => Promise<{ flowSuites: number; flowPassRate: number; unitSuites: number; unitPassRate: number } | null>;
 	private prds: PrdInfo[] = [];
+	private testReportMetrics: { flowSuites: number; flowPassRate: number; unitSuites: number; unitPassRate: number } | null = null;
 	private unsubscribes: (() => void)[] = [];
 
 	constructor(options: TestManagementServiceOptions) {
@@ -61,6 +63,11 @@ export class TestManagementService {
 		this.scanPrdsFn = scanner;
 	}
 
+	/** Set the test report reader callback. Returns flow/unit suite metrics. */
+	setTestReportReader(reader: () => Promise<{ flowSuites: number; flowPassRate: number; unitSuites: number; unitPassRate: number } | null>): void {
+		this.readTestReportFn = reader;
+	}
+
 	// ── Lifecycle ────────────────────────────────────────────
 
 	async load(): Promise<void> {
@@ -70,6 +77,7 @@ export class TestManagementService {
 		}
 		await this.scanVaultJourneys();
 		await this.scanVaultPrds();
+		await this.loadTestReportMetrics();
 		this.wireEventSubscriptions();
 		await this.eventBus?.emit("test-mgmt.hub.loaded", {
 			journeyCount: this.state.journeys.length,
@@ -93,7 +101,14 @@ export class TestManagementService {
 	}
 
 	getPyramid(): TestPyramidState {
-		return computePyramid(this.state.journeys);
+		const m = this.testReportMetrics;
+		return computePyramid(
+			this.state.journeys,
+			m?.flowSuites,
+			m?.flowPassRate,
+			m?.unitSuites,
+			m?.unitPassRate,
+		);
 	}
 
 	/** Get pyramid with trend indicators (compared to stored baseline). */
@@ -254,6 +269,16 @@ export class TestManagementService {
 			this.prds = await this.scanPrdsFn();
 		} catch {
 			// Scan failure is non-fatal
+		}
+	}
+
+	/** Load test report metrics (flow/unit suite counts) from vitest JSON report. */
+	private async loadTestReportMetrics(): Promise<void> {
+		if (!this.readTestReportFn) return;
+		try {
+			this.testReportMetrics = await this.readTestReportFn();
+		} catch {
+			// Read failure is non-fatal
 		}
 	}
 

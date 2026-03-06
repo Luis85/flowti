@@ -3,7 +3,7 @@ type: TechDebt
 severity: medium
 category: architecture
 layer: infrastructure
-status: mitigated
+status: resolved
 effort: large
 updated: 2026-02-19
 resolved: 2026-02-19

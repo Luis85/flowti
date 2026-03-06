@@ -67,6 +67,7 @@ export const DEFAULT_CATALOG_CATEGORIES: CatalogCategoryConfig[] = [
 	{ name: "Modal", visible: false },
 	{ name: "Journey Builder", visible: true },
 	{ name: "Test Management", visible: true },
+	{ name: "Feature Lifecycle", visible: true },
 ];
 
 // ─────────────────────────────────────────────────────────────
@@ -188,6 +189,8 @@ export const FlowtiSettingsSchema = z.object({
 	trainCanvasAutoOpen: z.boolean().default(false),
 	analyticsFolder: z.string().default("03 - Resources/Analytics"),
 	journeyFolder: z.string().default("03 - Resources/Journeys"),
+	featuresFolder: z.string().default("Development/flowti/docs/features"),
+	testReportPath: z.string().default("Development/flowti/docs/reports/tests/testreport.json"),
 	startPage: z.enum(["none", "user-hub", "event-catalog", "data-exchange-hub", "analytics-hub", "train-hub"]).default("none"),
 	userHubConfig: z.object({
 		kpiMeasures: z.array(z.string()).max(3).default([]),

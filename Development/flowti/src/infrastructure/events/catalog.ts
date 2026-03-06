@@ -174,6 +174,7 @@ export const EVENT_CATEGORIES = [
 	"Modal",
 	"Journey Builder",
 	"Test Management",
+	"Feature Lifecycle",
 ] as const;
 
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
@@ -693,6 +694,16 @@ const CATALOG_DATA = {
 	"journey-executor.run.step-completed":  { category: "Test Management", description: "Journey step completed during execution", direction: "Service → Listeners", domain: "journey-executor", services: "JourneyExecutorService" },
 	"journey-executor.run.completed":       { category: "Test Management", description: "Journey execution completed", direction: "Service → Listeners", domain: "journey-executor", services: "JourneyExecutorService" },
 	"journey-executor.run.failed":          { category: "Test Management", description: "Journey execution failed or cancelled", direction: "Service → Listeners", domain: "journey-executor", services: "JourneyExecutorService" },
+
+	// ── Feature Lifecycle ────────────────────────────────────
+	"feature.stage.changed":                { category: "Feature Lifecycle", description: "Feature stage changed via advance action", direction: "Service → Listeners", domain: "featureLifecycle", services: "FeatureLifecycleService" },
+	"feature.gate.passed":                  { category: "Feature Lifecycle", description: "All gate checks passed for a stage transition", direction: "Service → Listeners", domain: "featureLifecycle", services: "FeatureLifecycleService" },
+	"feature.gate.failed":                  { category: "Feature Lifecycle", description: "Gate check run with failures", direction: "Service → Listeners", domain: "featureLifecycle", services: "FeatureLifecycleService" },
+	"feature.scored":                       { category: "Feature Lifecycle", description: "FRI or prioritization scores saved", direction: "Service → Listeners", domain: "featureLifecycle", services: "FeatureLifecycleService" },
+	"feature.session.started":              { category: "Feature Lifecycle", description: "User started a session on a feature", direction: "Service → Listeners", domain: "featureLifecycle", services: "FeatureLifecycleService" },
+	"feature.session.ended":                { category: "Feature Lifecycle", description: "User ended a session on a feature", direction: "Service → Listeners", domain: "featureLifecycle", services: "FeatureLifecycleService" },
+	"review.session.created":               { category: "Feature Lifecycle", description: "Three Amigos review document created for a feature", direction: "Service → Listeners", domain: "featureLifecycle", services: "FeatureLifecycleService" },
+	"review.session.scored":                { category: "Feature Lifecycle", description: "TASM scores detected in a review document", direction: "Service → Listeners", domain: "featureLifecycle", services: "FeatureLifecycleService" },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

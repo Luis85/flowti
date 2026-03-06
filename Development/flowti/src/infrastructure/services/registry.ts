@@ -28,6 +28,7 @@ import { SignalService } from "../../domain/signal/SignalService";
 import { AzureDevOpsAdapter } from "../../domain/signal/adapters/AzureDevOpsAdapter";
 import { CaptureService } from "../../domain/capture/CaptureService";
 import { TrainService } from "../../domain/train/TrainService";
+import { FeatureLifecycleService } from "../../domain/featureLifecycle/FeatureLifecycleService";
 import { CanvasService } from "../../domain/canvas/CanvasService";
 import { AnalyticsService } from "../../domain/analytics/AnalyticsService";
 import { OnboardingService } from "../../domain/onboarding/OnboardingService";
@@ -335,6 +336,18 @@ export function createServiceRegistrations(
 				return new TestManagementService({
 					storage: createTypedStorage(storage, "testManagement", container),
 					eventBus: container.getEventBus(),
+				});
+			},
+		},
+
+		// Feature Lifecycle Service - PRD scanning, stage management, gate checks
+		{
+			id: "featureLifecycleService",
+			factory: (container: IServiceContainer) => {
+				const eventBus = container.getEventBus();
+				return new FeatureLifecycleService({
+					storage: createTypedStorage(storage, "featureLifecycle", container),
+					eventBus,
 				});
 			},
 		},
