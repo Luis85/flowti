@@ -250,4 +250,8 @@ export interface SessionEventMap {
 	// ── v2: Cognitive overload (ADR-031, FR-16) ─────────────
 	/** Emitted when cognitive overload thresholds are exceeded */
 	"session.overload.detected": { sessionId: string; reasons: string[] };
+
+	// ── Documentation ────────────────────────────────────────
+	/** Emitted after a session completion summary document is generated */
+	"session.documentation.generated": { sessionId: string; path: string };
 }

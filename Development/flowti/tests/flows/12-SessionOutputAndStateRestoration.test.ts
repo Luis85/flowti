@@ -180,9 +180,9 @@ describe("Flow 12: Session Output and State Restoration", () => {
 		expect(session.outputArtifacts[0].path).toContain("Review Summary");
 		expect(events).toContain("session.output.generated");
 
-		// Verify file was created
-		expect(fileSystem.createFile).toHaveBeenCalledTimes(1);
-		const [filePath, fileContent] = (fileSystem.createFile as ReturnType<typeof vi.fn>).mock.calls[0];
+		// Verify file was created (auto-doc summary + output artifact = 2)
+		expect(fileSystem.createFile).toHaveBeenCalledTimes(2);
+		const [filePath, fileContent] = (fileSystem.createFile as ReturnType<typeof vi.fn>).mock.calls[1];
 		expect(filePath).toContain("Event Discovery Workshop");
 		expect(fileContent).toContain("# Review Summary: Event Discovery Workshop");
 		expect(fileContent).toContain("## Goals");
@@ -199,8 +199,8 @@ describe("Flow 12: Session Output and State Restoration", () => {
 		expect(session.outputArtifacts.length).toBe(2);
 		expect(session.outputArtifacts[1].type).toBe("action-items");
 
-		// Both files created
-		expect(fileSystem.createFile).toHaveBeenCalledTimes(2);
+		// Both output files + auto-doc summary = 3
+		expect(fileSystem.createFile).toHaveBeenCalledTimes(3);
 	});
 
 	it("rejects output generation for active sessions", async () => {
@@ -333,13 +333,13 @@ describe("Flow 12: Session Output and State Restoration", () => {
 		expect(session.outputArtifacts[0].type).toBe("meeting-invite");
 		expect(session.outputArtifacts[1].type).toBe("review-summary");
 
-		// Verify files were created with correct content
-		expect(fileSystem.createFile).toHaveBeenCalledTimes(2);
-		const meetingContent = (fileSystem.createFile as ReturnType<typeof vi.fn>).mock.calls[0][1];
+		// Verify files were created with correct content (auto-doc + 2 outputs = 3)
+		expect(fileSystem.createFile).toHaveBeenCalledTimes(3);
+		const meetingContent = (fileSystem.createFile as ReturnType<typeof vi.fn>).mock.calls[1][1];
 		expect(meetingContent).toContain("# Meeting Invite: API Design Session");
 		expect(meetingContent).toContain("Use JWT for auth");
 
-		const reviewContent = (fileSystem.createFile as ReturnType<typeof vi.fn>).mock.calls[1][1];
+		const reviewContent = (fileSystem.createFile as ReturnType<typeof vi.fn>).mock.calls[2][1];
 		expect(reviewContent).toContain("# Review Summary: API Design Session");
 		expect(reviewContent).toContain("Define endpoints");
 		expect(reviewContent).toContain("Choose auth strategy");

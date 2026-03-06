@@ -7,6 +7,7 @@
 
 import type { ClosureResponse, Session } from "../types";
 import type { SessionHandlerContext } from "./types";
+import { generateSessionDoc, getSessionDocPath } from "../sessionDocGenerator";
 
 /**
  * Transitions a session from reviewing → completed.
@@ -20,6 +21,18 @@ export async function transitionToCompleted(ctx: SessionHandlerContext, session:
 	await ctx.saveState();
 	await ctx.eventBus?.emit("session.completed", { session: { ...session } });
 	await ctx.eventBus?.emit("session.state.save", { sessionId: session.id });
+
+	// Auto-documentation: generate completion summary
+	if (ctx.fileSystem) {
+		try {
+			const docPath = getSessionDocPath(session);
+			const docContent = generateSessionDoc(session);
+			await ctx.fileSystem.createFile(docPath, docContent, { createFolders: true });
+			await ctx.eventBus?.emit("session.documentation.generated", { sessionId: session.id, path: docPath });
+		} catch {
+			// Non-critical — don't fail the completion
+		}
+	}
 }
 
 /**

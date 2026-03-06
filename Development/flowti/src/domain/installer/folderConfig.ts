@@ -6,10 +6,13 @@
  * by the wizard review page and future config-driven tooling.
  *
  * The embedded `DEFAULT_FOLDER_CONFIG` is the single source of truth.
- * A future enhancement can read overrides from `var/config/installer/v1/folders.json`.
+ * `loadFolderConfig()` reads optional overrides from `var/config/installer/v1/folders.json` (RB-1).
  *
- * PBI-ONB-004, Cycle 46.
+ * PBI-ONB-004, Cycle 46. RB-1 JSON config, Cycle 57.
  */
+
+import { z } from "zod";
+import type { IFileSystemClient } from "../../infrastructure/filesystem/types";
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -70,6 +73,42 @@ export const DEFAULT_FOLDER_CONFIG: FolderConfig = {
 		{ path: "var/reports", description: "Generated reports and exports" },
 	],
 };
+
+// ── Validation schema ────────────────────────────────────────────
+
+const FolderConfigEntrySchema = z.object({
+	path: z.string().min(1),
+	description: z.string(),
+});
+
+const FolderConfigSchema = z.object({
+	version: z.number(),
+	description: z.string(),
+	folders: z.array(FolderConfigEntrySchema).min(1),
+});
+
+// ── Vault config loader ─────────────────────────────────────────
+
+/** Vault path for user-customizable folder configuration. */
+export const FOLDER_CONFIG_PATH = "var/config/installer/v1/folders.json";
+
+/**
+ * Loads folder config from vault JSON, falling back to DEFAULT_FOLDER_CONFIG.
+ * Returns DEFAULT if file doesn't exist or fails validation.
+ */
+export async function loadFolderConfig(fileSystem: IFileSystemClient): Promise<FolderConfig> {
+	try {
+		const exists = await fileSystem.fileExists(FOLDER_CONFIG_PATH);
+		if (!exists) return DEFAULT_FOLDER_CONFIG;
+		const raw = await fileSystem.readFile(FOLDER_CONFIG_PATH);
+		const parsed = JSON.parse(raw);
+		const result = FolderConfigSchema.safeParse(parsed);
+		if (!result.success) return DEFAULT_FOLDER_CONFIG;
+		return result.data;
+	} catch {
+		return DEFAULT_FOLDER_CONFIG;
+	}
+}
 
 // ── Helpers ──────────────────────────────────────────────────────
 

@@ -658,6 +658,40 @@ Delivered:
 - `CommandDomain` union extended with "journey-executor"
 - 8 report generator tests + 15 modal tests
 
+### Inc 9: Session v2 + View State + Infrastructure — DONE
+**Date**: 2026-03-06 | **Tests**: 7,156 (305 suites) | **New**: +52 tests, +5 suites
+
+Delivered:
+- **TD-131 Canvas layout constants** — extracted shared layout constants from 3 files into `src/domain/canvas/layoutConstants.ts`
+  - `CANVAS_GAP`, `CANVAS_PADDING` shared base constants
+  - `JOURNEY_LAYOUT`, `TEMPLATE_LAYOUT`, `TRAIN_LAYOUT` domain presets (`as const`)
+  - Updated canvasSync.ts, canvasTemplates.ts, TrainCanvasWriter.ts to import from shared module
+  - 4 tests
+- **TD-120 Session schemas** — Zod schemas in `src/domain/session/schemas.ts`
+  - `SessionArtifactSchema`, `SessionTemplateSchema`, `SessionTemplateExportSchema`
+  - Replaced hand-written `isValidTemplateExport()` in SessionService (~15 LOC removed)
+  - Whitespace-only name validation via `.refine(s => s.trim().length > 0)`
+  - 10 tests
+- **TD-45 View state persistence** — Hub views remember active tab across close/open
+  - `IViewStateStore` interface + static `BaseHubView.setViewStateStore()`
+  - `navigateTo()` persists tab, `onOpen()` restores stored tab
+  - Zero subclass changes — static store pattern
+  - In-memory `Map<string, string>` wired from main.ts
+  - 10 tests
+- **RB-1 Installer JSON config** — `loadFolderConfig(fileSystem)` async loader
+  - Reads from `var/config/installer/v1/folders.json`, validates with Zod, falls back to DEFAULT
+  - 8 tests appended to existing folderConfig.test.ts
+- **Session auto-documentation** — `generateSessionDoc(session)` + `getSessionDocPath(session)`
+  - Pure function generates markdown with frontmatter, artifacts, decisions, reflections, closure
+  - Wired in `transitionToCompleted()` via closureHandlers — auto-creates summary on completion
+  - `session.documentation.generated` event added to catalog
+  - 10 tests
+- **Session template edit modal** — `SessionTemplateModal` extends Obsidian Modal
+  - Fields: name, type (dropdown), duration, description
+  - Validates non-empty name + positive duration before submit
+  - 8 tests
+- Flow 12 test updated for auto-doc extra createFile call
+
 ## Definition of Done
 
 - [ ] `TestManagementService` implemented with scan, parse, coverage, pyramid, compliance

@@ -15,10 +15,9 @@ import type { IFileSystemClient } from "../../infrastructure/filesystem/types";
 
 // ── Layout Constants ──────────────────────────────────────────
 
-export const NODE_WIDTH = 400;
-export const NODE_HEIGHT = 200;
-export const SPACING_Y = 280;
-export const BRANCH_LANE_WIDTH = 500;
+import { TRAIN_LAYOUT } from "../canvas/layoutConstants";
+
+export const { NODE_WIDTH, NODE_HEIGHT, SPACING_Y, BRANCH_LANE_WIDTH } = TRAIN_LAYOUT;
 
 // ── ID Namespace ──────────────────────────────────────────────
 
@@ -27,7 +26,7 @@ const NODE_PREFIX = "ft-t-";
 const EDGE_PREFIX = "ft-e-";
 export const GROUP_PREFIX = "ft-g-";
 export const ANNOTATION_PREFIX = "ft-a-";
-export const GROUP_PADDING = 40;
+export const GROUP_PADDING = TRAIN_LAYOUT.GROUP_PADDING;
 
 export function nodeId(thoughtId: string): string {
 	return `${NODE_PREFIX}${thoughtId}`;

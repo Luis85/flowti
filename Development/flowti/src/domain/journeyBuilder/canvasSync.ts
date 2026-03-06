@@ -31,14 +31,10 @@ export interface CanvasSyncInput {
 
 // ── Layout constants ─────────────────────────────────────────
 
-const NODE_W = 160;
-const NODE_H = 80;
-const GROUP_W = 480;
-const GROUP_H = 160;
-const GAP = 40;
-const INNER_PAD = 50;
-const INNER_W = GROUP_W - INNER_PAD * 2;
-const INNER_H = 60;
+import { CANVAS_GAP, JOURNEY_LAYOUT } from "../canvas/layoutConstants";
+
+const { NODE_W, NODE_H, GROUP_W, GROUP_H, INNER_PAD, INNER_W, INNER_H } = JOURNEY_LAYOUT;
+const GAP = CANVAS_GAP;
 
 // ── Helpers ──────────────────────────────────────────────────
 

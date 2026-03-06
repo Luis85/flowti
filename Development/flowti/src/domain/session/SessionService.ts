@@ -18,6 +18,7 @@ import { generateUUID } from "../../utils/helpers";
 import type { ClosureResponse, EnergyLevel, ExecutionTask, Session, SessionState, SessionStatusV2, SessionTemplate, SessionTemplateExport, SessionTypeConfig } from "./types";
 import { MAX_TEMPLATES } from "./types";
 import { createContextBinding, computeRemainingMs, computeElapsedMs, isTimerExpired, isValidTransition } from "./helpers";
+import { SessionTemplateExportSchema } from "./schemas";
 import type { SessionHandlerContext } from "./handlers/types";
 import { lifecycleHandlers, fieldHandlers, taskHandlers, closureHandlers, syncHandlers, trackingHandlers } from "./handlers";
 
@@ -589,25 +590,8 @@ export function generateRerunTitle(title: string): string {
 
 /**
  * Type guard validating an unknown value is a valid SessionTemplateExport.
+ * Uses Zod schema (TD-120) for structural validation.
  */
 function isValidTemplateExport(data: unknown): data is SessionTemplateExport {
-	if (typeof data !== "object" || data === null) return false;
-	const obj = data as Record<string, unknown>;
-	if (obj.version !== 1) return false;
-	if (typeof obj.template !== "object" || obj.template === null) return false;
-
-	const tmpl = obj.template as Record<string, unknown>;
-	if (typeof tmpl.name !== "string" || tmpl.name.trim().length === 0) return false;
-	if (typeof tmpl.type !== "string" || tmpl.type.trim().length === 0) return false;
-	if (typeof tmpl.durationMinutes !== "number" || tmpl.durationMinutes <= 0) return false;
-
-	if (tmpl.description !== undefined && typeof tmpl.description !== "string") return false;
-	if (tmpl.focusFile !== undefined && typeof tmpl.focusFile !== "string") return false;
-	if (tmpl.goals !== undefined && !Array.isArray(tmpl.goals)) return false;
-	if (tmpl.decisions !== undefined && !Array.isArray(tmpl.decisions)) return false;
-	if (tmpl.tasks !== undefined && !Array.isArray(tmpl.tasks)) return false;
-	if (tmpl.contextBindings !== undefined && !Array.isArray(tmpl.contextBindings)) return false;
-	if (tmpl.notes !== undefined && typeof tmpl.notes !== "string") return false;
-
-	return true;
+	return SessionTemplateExportSchema.safeParse(data).success;
 }

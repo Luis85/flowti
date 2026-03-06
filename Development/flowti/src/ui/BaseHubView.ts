@@ -28,6 +28,12 @@ export interface TabDef {
 	searchPlaceholder: string;
 }
 
+/** Simple key-value store for persisting view state across open/close cycles. */
+export interface IViewStateStore {
+	get(key: string): string | undefined;
+	set(key: string, value: string): void;
+}
+
 // ─────────────────────────────────────────────────────────────
 // Abstract base
 // ─────────────────────────────────────────────────────────────
@@ -80,6 +86,14 @@ export abstract class BaseHubView<TPage extends string = string> extends ItemVie
 	private shell: WorkspaceShell | null = null;
 	private renderTimer: ReturnType<typeof setTimeout> | null = null;
 	private unsubscribes: (() => void)[] = [];
+
+	/** Shared view state store for tab persistence. Set once from main.ts. */
+	private static viewStateStore: IViewStateStore | null = null;
+
+	/** Configure the shared view state store for all Hub views. */
+	static setViewStateStore(store: IViewStateStore): void {
+		BaseHubView.viewStateStore = store;
+	}
 
 	constructor(leaf: WorkspaceLeaf, eventBus: IEventBus) {
 		super(leaf);
@@ -164,11 +178,17 @@ export abstract class BaseHubView<TPage extends string = string> extends ItemVie
 			hubType: this.getHubType(),
 		});
 
-		// Dashboard is the default landing page
-		try {
-			this.onDashboardRender();
-		} catch (err) {
-			this.renderError(err);
+		// Restore persisted tab or default to dashboard
+		const storedTab = BaseHubView.viewStateStore?.get(this.getHubId());
+		const tabs = this.getTabDefinitions();
+		if (storedTab && storedTab !== "dashboard" && tabs.some((t) => t.id === storedTab)) {
+			this.navigateTo(storedTab as TPage);
+		} else {
+			try {
+				this.onDashboardRender();
+			} catch (err) {
+				this.renderError(err);
+			}
 		}
 
 		void this.eventBus.emit("perf.view.opened", {
@@ -214,6 +234,7 @@ export abstract class BaseHubView<TPage extends string = string> extends ItemVie
 	protected navigateTo(page: TPage | "dashboard"): void {
 		const previousTabId = this.activePage;
 		this.activePage = page;
+		BaseHubView.viewStateStore?.set(this.getHubId(), String(page));
 		const isDashboard = page === "dashboard";
 
 		// Toggle dashboard vs split + tab bar + top bar

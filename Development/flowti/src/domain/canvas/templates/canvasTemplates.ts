@@ -9,20 +9,18 @@ import type { CanvasTemplate } from "./types";
 import { generateCanvasId } from "../CanvasRebuilder";
 
 // ── Layout constants ───────────────────────────────────────────────
-const GROUP_W = 460;
-const GROUP_H = 400;
-const GAP = 40;
-const CARD_W = 380;
-const CARD_H = 80;
-const CARD_PAD = 40; // inset from group origin
+import { CANVAS_GAP, TEMPLATE_LAYOUT } from "../layoutConstants";
+
+const { GROUP_W, GROUP_H, CARD_W, CARD_H, CARD_PAD } = TEMPLATE_LAYOUT;
+const GAP = CANVAS_GAP;
 
 function textNode(
 	id: string,
 	text: string,
 	x: number,
 	y: number,
-	w = CARD_W,
-	h = CARD_H,
+	w: number = CARD_W,
+	h: number = CARD_H,
 	color?: string,
 ): AllCanvasNodeData {
 	return { id, type: "text", text, x, y, width: w, height: h, color } as AllCanvasNodeData;
@@ -34,8 +32,8 @@ function groupNode(
 	x: number,
 	y: number,
 	color: string,
-	w = GROUP_W,
-	h = GROUP_H,
+	w: number = GROUP_W,
+	h: number = GROUP_H,
 ): AllCanvasNodeData {
 	return { id, type: "group", label, x, y, width: w, height: h, color } as AllCanvasNodeData;
 }

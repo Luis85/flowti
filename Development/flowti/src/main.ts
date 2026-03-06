@@ -68,6 +68,7 @@ import { JourneyBuilderService } from "./domain/journeyBuilder/JourneyBuilderSer
 import type { TestManagementService } from "./domain/testManagement/TestManagementService";
 import { JourneyExecutorService } from "./domain/journeyExecutor/JourneyExecutorService";
 import type { ToolHost, ExecutableJourney } from "./domain/journeyExecutor/types";
+import { BaseHubView, type IViewStateStore } from "./ui/BaseHubView";
 import { ExecutionProgressModal } from "./ui/journeyExecutor/ExecutionProgressModal";
 import { TestManagementHubView, VIEW_TYPE_TEST_MANAGEMENT_HUB } from "./ui/testManagement/TestManagementHubView";
 import { TestManagementHubProvider } from "./domain/hub/TestManagementHubProvider";
@@ -141,6 +142,7 @@ export default class FlowtiBasePlugin extends Plugin {
 	private testManagementService?: TestManagementService;
 	private journeyExecutorService?: JourneyExecutorService;
 	private onboardingService?: OnboardingService;
+	private viewStateMap = new Map<string, string>();
 	private perfAggregator?: PerfAggregator;
 	private ingestionStatusBar?: IngestionStatusBar;
 	private collapsedCategories = new Set<string>();
@@ -222,6 +224,7 @@ export default class FlowtiBasePlugin extends Plugin {
 				getAnalyticsService: () => this.analyticsService,
 				getOnboardingService: () => this.onboardingService,
 			}));
+			BaseHubView.setViewStateStore(this.getViewStateStore());
 			this.bindViews();
 			this.bindCommands();
 
@@ -591,6 +594,13 @@ export default class FlowtiBasePlugin extends Plugin {
 	 * that occur during dev hot-reload when Obsidian doesn't fully
 	 * deregister view types from the previous load.
 	 */
+	private getViewStateStore(): IViewStateStore {
+		return {
+			get: (key) => this.viewStateMap.get(key),
+			set: (key, value) => { this.viewStateMap.set(key, value); },
+		};
+	}
+
 	private safeRegisterView(type: string, factory: ViewCreator): void {
 		try {
 			this.registerView(type, factory);
