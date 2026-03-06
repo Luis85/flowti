@@ -38,6 +38,7 @@ function createMockService(journeys: JourneyRegistryEntry[] = []): TestManagemen
 		})),
 		getCoverage: vi.fn(() => []),
 		getCompliance: vi.fn(() => []),
+		requestReview: vi.fn(),
 	} as unknown as TestManagementService;
 }
 
@@ -482,6 +483,80 @@ describe("JourneysTab", () => {
 			tab.render("");
 
 			expect(detailEl.textContent).toContain("5s");
+		});
+	});
+
+	// ── Action buttons ──────────────────────────────────────
+
+	describe("action buttons", () => {
+		it("renders action buttons in detail panel", () => {
+			const tab = new JourneysTab(masterEl, detailEl, {
+				testManagementService: createMockService([makeJourney("Alpha")]),
+				eventBus,
+			});
+			tab.render("");
+
+			expect(detailEl.querySelector(".ft-tm-detail-actions")).not.toBeNull();
+			expect(detailEl.querySelector("[data-test-id='tm-open-in-builder']")).not.toBeNull();
+			expect(detailEl.querySelector("[data-test-id='tm-request-review']")).not.toBeNull();
+		});
+
+		it("'Open in Builder' emits openJourneyBuilder and import-requested", () => {
+			const tab = new JourneysTab(masterEl, detailEl, {
+				testManagementService: createMockService([makeJourney("Alpha", { jsonPath: "journeys/Alpha.journey" })]),
+				eventBus,
+			});
+			tab.render("");
+
+			const btn = detailEl.querySelector("[data-test-id='tm-open-in-builder']") as HTMLElement;
+			btn.click();
+
+			expect(eventBus.emit).toHaveBeenCalledWith("ui.openJourneyBuilder", {});
+			expect(eventBus.emit).toHaveBeenCalledWith("journey-builder.import-requested", { path: "journeys/Alpha.journey" });
+		});
+
+		it("'Request review' calls requestReview on service", () => {
+			const service = createMockService([makeJourney("Alpha")]);
+			const tab = new JourneysTab(masterEl, detailEl, {
+				testManagementService: service,
+				eventBus,
+			});
+			tab.render("");
+
+			const btn = detailEl.querySelector("[data-test-id='tm-request-review']") as HTMLElement;
+			btn.click();
+
+			expect(service.requestReview).toHaveBeenCalledWith("Alpha");
+		});
+	});
+
+	// ── selectByName ────────────────────────────────────────
+
+	describe("selectByName", () => {
+		it("pre-selects journey by name", () => {
+			const journeys = [makeJourney("Alpha"), makeJourney("Beta")];
+			const tab = new JourneysTab(masterEl, detailEl, {
+				testManagementService: createMockService(journeys),
+				eventBus,
+			});
+			tab.selectByName("Beta");
+			tab.render("");
+
+			expect(detailEl.textContent).toContain("Beta");
+			const rows = masterEl.querySelectorAll(".ft-list-item");
+			expect(rows[1].classList.contains("ft-list-item-active")).toBe(true);
+		});
+
+		it("unknown name falls back to first journey", () => {
+			const journeys = [makeJourney("Alpha")];
+			const tab = new JourneysTab(masterEl, detailEl, {
+				testManagementService: createMockService(journeys),
+				eventBus,
+			});
+			tab.selectByName("NonExistent");
+			tab.render("");
+
+			expect(detailEl.textContent).toContain("Alpha");
 		});
 	});
 });

@@ -610,6 +610,18 @@ Delivered:
 - Cleaned up unused `setIcon` import and `getTabLabel` helper from HubView
 - CSS additions: compliance cards, characteristic rows, guidance callouts, tag management styles, journey picker
 
+### Inc 6: Journey Builder Integration (PBI-TM-007) — DONE
+**Date**: 2026-03-06 | **Tests**: 7,024 (296 suites) | **New**: +14 tests, +0 suites
+
+Delivered:
+- `TestManagementService.wireEventSubscriptions()` — auto-registers journeys on `journey-builder.exported` event, preserves run history + compliance tags, sets jsonPath/testSourcePath/canvasPath on entry
+- `TestManagementService.requestReview()` — emits `test-mgmt.review.requested` with journeyName
+- `JourneysTab.selectByName()` — public method for cross-hub entity-level deep linking
+- `JourneysTab.renderDetailActions()` — "Open in builder" button (emits `ui.openJourneyBuilder` + `journey-builder.import-requested`), "Request review" button (calls `requestReview()`)
+- `TestManagementHubView.onNavigateToEntity()` — override delegates to `journeysTab.selectByName()` + `scheduleRender()`
+- `JourneyBuilderSidebar` — "View in Test Hub" toolbar button emits `ui.openTestManagementHub` + `hub.navigate` with entityId
+- CSS: `.ft-tm-detail-actions` flex container
+
 ## Definition of Done
 
 - [ ] `TestManagementService` implemented with scan, parse, coverage, pyramid, compliance

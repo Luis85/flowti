@@ -174,6 +174,13 @@ export class TestManagementHubView extends BaseHubView<TestMgmtPage> {
 		// Cleanup handled by BaseHubView via addUnsubscribe
 	}
 
+	protected onNavigateToEntity(tabId: string, entityId: string): void {
+		if (tabId === "journeys" && this.journeysTab) {
+			this.journeysTab.selectByName(entityId);
+			this.scheduleRender();
+		}
+	}
+
 	protected onTabChanged(): void {
 		// Reset tab state when switching away
 		if (this.getActivePage() !== "journeys" && this.journeysTab) {

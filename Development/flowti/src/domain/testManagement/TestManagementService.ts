@@ -257,9 +257,27 @@ export class TestManagementService {
 		}
 	}
 
+	/** Request a Three Amigos review for a journey. */
+	requestReview(journeyName: string): void {
+		void this.eventBus?.emit("test-mgmt.review.requested", { journeyName });
+	}
+
 	private wireEventSubscriptions(): void {
 		if (!this.eventBus) return;
-		// Will listen for journey-builder.exported in Inc 6 (JB Integration)
+
+		// Auto-register journeys on export from Journey Builder
+		this.unsubscribes.push(
+			this.eventBus.on("journey-builder.exported", (event) => {
+				const { definition, path, testFilePath, canvasPath } = event.payload;
+				const entry = this.registerJourney(definition);
+				if (entry) {
+					entry.jsonPath = path;
+					if (testFilePath) entry.testSourcePath = testFilePath;
+					if (canvasPath) entry.canvasPath = canvasPath;
+					void this.save();
+				}
+			}),
+		);
 	}
 
 	private async save(): Promise<void> {

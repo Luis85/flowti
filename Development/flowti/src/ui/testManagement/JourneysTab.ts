@@ -44,6 +44,11 @@ export class JourneysTab {
 		this.filters = { typeFilter: "all", statusFilter: "all" };
 	}
 
+	/** Pre-select a journey by name (used by cross-hub navigation). */
+	selectByName(name: string): void {
+		this.selectedJourneyName = name;
+	}
+
 	render(filterText: string): void {
 		const journeys = this.deps.testManagementService.getJourneys();
 		const filtered = this.applyFilters(journeys, filterText);
@@ -126,9 +131,27 @@ export class JourneysTab {
 
 	private renderDetail(journey: JourneyRegistryEntry): void {
 		this.renderDetailHeader(this.detailEl, journey);
+		this.renderDetailActions(this.detailEl, journey);
 		this.renderRunHistory(this.detailEl, journey);
 		this.renderTraceability(this.detailEl, journey);
 		this.renderFiles(this.detailEl, journey);
+	}
+
+	private renderDetailActions(container: HTMLElement, journey: JourneyRegistryEntry): void {
+		const actions = container.createDiv({ cls: "ft-tm-detail-actions" });
+
+		const openBtn = actions.createEl("button", { text: "Open in builder", cls: "ft-text-sm" });
+		openBtn.dataset.testId = "tm-open-in-builder";
+		openBtn.addEventListener("click", () => {
+			void this.deps.eventBus.emit("ui.openJourneyBuilder", {});
+			void this.deps.eventBus.emit("journey-builder.import-requested", { path: journey.jsonPath });
+		});
+
+		const reviewBtn = actions.createEl("button", { text: "Request review", cls: "ft-text-sm" });
+		reviewBtn.dataset.testId = "tm-request-review";
+		reviewBtn.addEventListener("click", () => {
+			this.deps.testManagementService.requestReview(journey.name);
+		});
 	}
 
 	private renderDetailHeader(container: HTMLElement, journey: JourneyRegistryEntry): void {

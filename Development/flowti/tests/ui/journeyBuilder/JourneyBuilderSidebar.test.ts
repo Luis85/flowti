@@ -369,6 +369,30 @@ describe("JourneyBuilderSidebar", () => {
 			expect(btn!.getAttribute("role")).toBe("button");
 		});
 
+		it("renders 'View in Test Hub' button", () => {
+			const btn = byTestId(sidebar.contentEl, "jb-view-hub-btn");
+			expect(btn).toBeTruthy();
+			expect(btn!.getAttribute("role")).toBe("button");
+		});
+
+		it("'View in Test Hub' emits hub navigation events when journey has a name", async () => {
+			// Load a journey to set the name (can't set via getMetadata which returns a copy)
+			sidebar.loadJourneyFromJSON(JSON.stringify({
+				journey: "Test Journey", description: "", startEvent: "", endEvent: "",
+				steps: [{ id: "s1", title: "Step 1", description: "", swimlane: "", actions: [] }],
+			}));
+
+			const handler = vi.fn();
+			eventBus.on("ui.openTestManagementHub", handler);
+			const navHandler = vi.fn();
+			eventBus.on("hub.navigate", navHandler);
+
+			byTestId(sidebar.contentEl, "jb-view-hub-btn")!.click();
+
+			await vi.waitFor(() => expect(handler).toHaveBeenCalledOnce());
+			await vi.waitFor(() => expect(navHandler).toHaveBeenCalledOnce());
+		});
+
 		it("renders JSON panel toggle", () => {
 			const toggle = byTestId(sidebar.contentEl, "jb-json-toggle");
 			expect(toggle).toBeTruthy();

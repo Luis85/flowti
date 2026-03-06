@@ -370,6 +370,83 @@ describe("TestManagementService", () => {
 		});
 	});
 
+	describe("auto-registration on export", () => {
+		it("subscribes to journey-builder.exported on load", async () => {
+			await service.load();
+			expect(eventBus.on).toHaveBeenCalledWith("journey-builder.exported", expect.any(Function));
+		});
+
+		it("exported event triggers registerJourney", async () => {
+			// Capture the handler registered by wireEventSubscriptions
+			let capturedHandler: ((event: { payload: Record<string, unknown> }) => void) | undefined;
+			(eventBus as Record<string, unknown>).on = vi.fn((event: string, handler: (event: { payload: Record<string, unknown> }) => void) => {
+				if (event === "journey-builder.exported") {
+					capturedHandler = handler;
+				}
+				return () => {};
+			});
+			service = new TestManagementService({ storage: storage as never, eventBus: eventBus as never });
+			await service.load();
+			expect(capturedHandler).toBeDefined();
+
+			capturedHandler!({ payload: {
+				definition: { journey: "Login Flow", steps: [{ id: "s1", actions: [] }] },
+				path: "journeys/Login Flow/Login Flow.journey",
+				testFilePath: "tests/e2e/90-journey-login-flow.test.ts",
+				canvasPath: "journeys/Login Flow/Login Flow.canvas",
+			} });
+
+			const entry = service.getJourneyByName("Login Flow");
+			expect(entry).toBeDefined();
+			expect(entry!.jsonPath).toBe("journeys/Login Flow/Login Flow.journey");
+		});
+
+		it("second export upserts and preserves run history", async () => {
+			let capturedHandler: ((event: { payload: Record<string, unknown> }) => void) | undefined;
+			(eventBus as Record<string, unknown>).on = vi.fn((event: string, handler: (event: { payload: Record<string, unknown> }) => void) => {
+				if (event === "journey-builder.exported") capturedHandler = handler;
+				return () => {};
+			});
+			service = new TestManagementService({ storage: storage as never, eventBus: eventBus as never });
+			await service.load();
+
+			// First export
+			capturedHandler!({ payload: {
+				definition: { journey: "Alpha", steps: [] },
+				path: "alpha.json",
+			} });
+
+			// Record a run
+			service.recordRunResult("Alpha", {
+				date: "2026-03-06T10:00:00Z", totalSteps: 3, passed: 3, failed: 0, skipped: 0, durationMs: 500,
+			});
+
+			// Re-export
+			capturedHandler!({ payload: {
+				definition: { journey: "Alpha", steps: [{ id: "s1", actions: [] }] },
+				path: "alpha-v2.json",
+			} });
+
+			const entry = service.getJourneyByName("Alpha");
+			expect(entry!.runHistory).toHaveLength(1);
+			expect(entry!.stepCount).toBe(1);
+		});
+
+		it("no crash when eventBus is undefined", async () => {
+			const svc = new TestManagementService({ storage: storage as never });
+			await svc.load(); // Should not throw
+			expect(svc.getJourneys()).toHaveLength(0);
+		});
+	});
+
+	describe("requestReview", () => {
+		it("emits test-mgmt.review.requested", async () => {
+			await service.load();
+			service.requestReview("Login Flow");
+			expect(eventBus.emit).toHaveBeenCalledWith("test-mgmt.review.requested", { journeyName: "Login Flow" });
+		});
+	});
+
 	describe("PRD scanning", () => {
 		it("setPrdScanner registers and getPrds returns results after load", async () => {
 			const prdScanner = vi.fn(async () => [

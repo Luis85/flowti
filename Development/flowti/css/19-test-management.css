@@ -600,6 +600,13 @@
 	background: var(--background-modifier-hover);
 }
 
+/* Detail actions */
+.ft-tm-detail-actions {
+	display: flex;
+	gap: 0.5rem;
+	padding: 0.5rem 1rem;
+}
+
 /* Tab placeholder */
 .ft-tm-tab-placeholder {
 	display: flex;

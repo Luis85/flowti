@@ -198,6 +198,44 @@ describe("TestManagementHubView", () => {
 		});
 	});
 
+	// ── Cross-hub navigation ───────────────────────────────
+
+	describe("cross-hub navigation", () => {
+		beforeEach(() => { vi.useFakeTimers(); });
+		afterEach(() => { vi.useRealTimers(); });
+
+		it("onNavigateToEntity selects journey by name", async () => {
+			const service = createMockService();
+			(service.getJourneys as ReturnType<typeof vi.fn>).mockReturnValue([
+				{ name: "Alpha", type: "functional", actors: [], services: [], stepCount: 1, tools: [], jsonPath: "a.json", complianceTags: [], runHistory: [] },
+				{ name: "Beta", type: "functional", actors: [], services: [], stepCount: 2, tools: [], jsonPath: "b.json", complianceTags: [], runHistory: [] },
+			]);
+			const view = new TestManagementHubView(createMockLeaf(), eventBus, service, createMockOnboardingService());
+			prepareContainerEl(view);
+			await view.onOpen();
+
+			// Navigate to journeys tab
+			(view as unknown as { navigateTo: (p: string) => void }).navigateTo("journeys");
+			vi.advanceTimersByTime(20);
+
+			// Simulate entity navigation
+			(view as unknown as { onNavigateToEntity: (tabId: string, entityId: string) => void }).onNavigateToEntity("journeys", "Beta");
+			vi.advanceTimersByTime(20);
+
+			const el = (view as unknown as { containerEl: HTMLElement }).containerEl;
+			expect(el.textContent).toContain("Beta");
+		});
+
+		it("onNavigateToEntity with non-journeys tab is no-op", async () => {
+			const view = new TestManagementHubView(createMockLeaf(), eventBus, createMockService(), createMockOnboardingService());
+			prepareContainerEl(view);
+			await view.onOpen();
+
+			// Should not throw
+			(view as unknown as { onNavigateToEntity: (tabId: string, entityId: string) => void }).onNavigateToEntity("pyramid", "something");
+		});
+	});
+
 	// ── Lifecycle ──────────────────────────────────────────
 
 	describe("lifecycle", () => {
