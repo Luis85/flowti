@@ -24,8 +24,8 @@ tech_debt: []
 estimated_increments: 12
 estimated_loc: 2000
 estimated_tests: 120
-pre_cycle_tests: 7276
-pre_cycle_suites: 315
+pre_cycle_tests: 7386
+pre_cycle_suites: 314
 ---
 
 # Cycle 59 — Process Management Phase 1 + Lifecycle Sessions
@@ -41,23 +41,25 @@ pre_cycle_suites: 315
 
 ### Pre-Cycle State
 
-- **Tests**: ~7,276 passing (~315 suites) — projected after C58
+- **Tests**: 7,386 passing (314 suites) — actual post-C58
 - **Build**: `npm run build` green
 - **Previous cycle**: C58 (Feature Lifecycle Core) — FeatureLifecycleService, gates, FRI, Pipeline UI
 - **Hub Views**: 6 + FeaturesTab in Event Catalog
-- **Events**: ~390 total (projected)
-- **Feature Lifecycle**: Operational — PRDs scanned, stages managed, gates check, FRI scored
+- **Events**: 390 total
+- **Feature Lifecycle**: Operational — 41 PRDs scanned, 6 gates, FRI/prioritization scoring, pipeline UI, configurable paths. TASM 31/35.
 
 ### Foundation from C58
 
 | Component | Status | Relevance to C59 |
 |-----------|--------|-------------------|
-| FeatureLifecycleService | Delivered | Process compliance binds to features |
-| Gate check functions | 6 gates | Process steps map to gate requirements |
-| FRI scoring | Operational | Process phase determines readiness context |
+| FeatureLifecycleService | Delivered (230 tests) | Process compliance binds to features |
+| Gate check functions | 6 gates (GateContext pattern) | Process steps map to gate requirements — reuse GateContext injection pattern |
+| FRI scoring | Operational (7 dimensions) | Process phase determines readiness context |
 | Feature Pipeline UI | FeaturesTab in Event Catalog | Process compliance shown in feature detail |
-| Feature events (8) | Wired | Process events extend the pattern |
-| Feature session tracking | Basic | Session v3 extends with feature binding |
+| Feature events (6) | Wired (2 review deferred) | Process events extend the pattern |
+| Feature session tracking | Basic (start/end, no file tracking) | Session v3 extends with feature binding + file change tracking |
+| Configurable settings | `featuresFolder`, `testReportPath` | Pattern for process-related settings |
+| Legacy stage normalization | 14 mappings | Process phases may introduce additional mapping needs |
 
 ### Foundation from Vault Inbox
 
@@ -382,7 +384,7 @@ Inc 9 (PRD move)             ──→ Independent
 | Metric | Target |
 |--------|--------|
 | New tests | ~120 |
-| Post-cycle tests | ~7,396 |
+| Post-cycle tests | ~7,506 |
 | New suites | ~10 |
 | Source LOC | ~2,000 |
 | Process node types | 4 (Start, Activity, Decision, End) |
@@ -406,3 +408,27 @@ Inc 9 (PRD move)             ──→ Independent
 - [ ] Flow integration test for full lifecycle
 - [ ] `npm run build` green
 - [ ] Three Amigos review completed
+
+## Definition of Ready — Verification
+
+| § | Criterion | Status | Evidence |
+|---|-----------|--------|----------|
+| 1 | PRD exists and approved | PASS | Process Mapping PRD at `approved`, FRI 22 (≥11 for continuation cycle) |
+| 1 | FRI meets threshold | PASS | FRI 22/35 (Technically Ready) — exceeds ≥11 continuation threshold |
+| 2 | PBIs defined with AC | PASS | 11 PBIs (PBI-PM-001–009, PBI-SS-001–002), each with acceptance criteria |
+| 2 | PBIs chunked into increments | PASS | 11 increments (Inc 0–10), vertical slices |
+| 2 | Dependencies mapped | PASS | Dependency graph with parallelism identified |
+| 3 | Cycle document exists | PASS | This document with full frontmatter |
+| 3 | Situation assessment | PASS | Pre-cycle state documented with C58 actuals |
+| 3 | Goals defined | PASS | 8 numbered goals |
+| 3 | Increments specified | PASS | 11 increments with LOC/test estimates |
+| 3 | Risks identified | PASS | 5 risks with mitigations |
+| 3 | Success metrics | PASS | 9 measurable targets |
+| 4 | Increment readiness | PASS | Each has scope, AC, test intent, size estimate |
+| 5 | Build pipeline green | PASS | `npm run build` verified 2026-03-06 |
+| 5 | No critical bugs | PASS | 0 open bugs |
+| 5 | Previous cycle closed | PASS | C58 done, retrospective complete, TASM 31/35 |
+| 6 | Pre-cycle work documented | PASS | Process Mapping PRD scored (FRI 22), plan updated with C58 actuals |
+| 6 | Inbox signals reviewed | PASS | C58 retrospective captured next cycle inputs |
+
+**Result: READY** — All 6 sections satisfied. Cycle 59 may begin.
