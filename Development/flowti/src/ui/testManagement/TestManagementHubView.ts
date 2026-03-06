@@ -2,12 +2,12 @@
  * Test Management Hub — central quality cockpit for journey-based testing.
  *
  * Dashboard shows KPI stat cards, mini pyramid, recent runs, and attention items.
- * Four tabs: Journeys, Pyramid, Coverage, Compliance (implemented in later increments).
+ * Four tabs: Journeys, Pyramid, Coverage, Compliance.
  *
  * Shell lifecycle (wrapper, top bar, tab bar, split layout) is handled by BaseHubView.
  */
 
-import { setIcon, type WorkspaceLeaf } from "obsidian";
+import type { WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { TestManagementService } from "../../domain/testManagement/TestManagementService";
 import type { OnboardingService } from "../../domain/onboarding/OnboardingService";
@@ -17,6 +17,8 @@ import { VIEW_TYPE_TEST_MANAGEMENT_HUB } from "../../domain/hub/types";
 import { TestManagementDashboard } from "./TestManagementDashboard";
 import { JourneysTab } from "./JourneysTab";
 import { PyramidTab } from "./PyramidTab";
+import { CoverageTab } from "./CoverageTab";
+import { ComplianceTab } from "./ComplianceTab";
 export { VIEW_TYPE_TEST_MANAGEMENT_HUB };
 
 export type TestMgmtPage = "journeys" | "pyramid" | "coverage" | "compliance";
@@ -30,6 +32,8 @@ export class TestManagementHubView extends BaseHubView<TestMgmtPage> {
 	private dashboard: TestManagementDashboard;
 	private journeysTab!: JourneysTab;
 	private pyramidTab!: PyramidTab;
+	private coverageTab!: CoverageTab;
+	private complianceTab!: ComplianceTab;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -112,22 +116,14 @@ export class TestManagementHubView extends BaseHubView<TestMgmtPage> {
 			this.pyramidTab.render(this.filterText);
 			return;
 		}
-
-		// Placeholder for tabs not yet implemented
-		this.masterTreeEl.empty();
-		this.detailPanelEl.empty();
-
-		const placeholder = this.detailPanelEl.createDiv({ cls: "ft-tm-tab-placeholder" });
-		const iconEl = placeholder.createDiv({ cls: "ft-mb-2 ft-opacity-50" });
-		const tabIcons: Record<TestMgmtPage, string> = {
-			journeys: "route",
-			pyramid: "triangle",
-			coverage: "check-circle",
-			compliance: "shield",
-		};
-		setIcon(iconEl, tabIcons[tabId] ?? "shield-check");
-		placeholder.createDiv({ text: this.getTabLabel(tabId), cls: "ft-heading ft-heading-sm ft-mb-1" });
-		placeholder.createDiv({ text: "Coming in a future increment", cls: "ft-text-sm ft-text-muted" });
+		if (tabId === "coverage") {
+			this.coverageTab.render(this.filterText);
+			return;
+		}
+		if (tabId === "compliance") {
+			this.complianceTab.render(this.filterText);
+			return;
+		}
 	}
 
 	// ── Lifecycle ───────────────────────────────────────────
@@ -139,6 +135,14 @@ export class TestManagementHubView extends BaseHubView<TestMgmtPage> {
 			eventBus: this.eventBus,
 		});
 		this.pyramidTab = new PyramidTab(this.masterTreeEl, this.detailPanelEl, {
+			testManagementService: this.testManagementService,
+			eventBus: this.eventBus,
+		});
+		this.coverageTab = new CoverageTab(this.masterTreeEl, this.detailPanelEl, {
+			testManagementService: this.testManagementService,
+			eventBus: this.eventBus,
+		});
+		this.complianceTab = new ComplianceTab(this.masterTreeEl, this.detailPanelEl, {
 			testManagementService: this.testManagementService,
 			eventBus: this.eventBus,
 		});
@@ -178,12 +182,12 @@ export class TestManagementHubView extends BaseHubView<TestMgmtPage> {
 		if (this.getActivePage() !== "pyramid" && this.pyramidTab) {
 			this.pyramidTab.resetSelection();
 		}
+		if (this.getActivePage() !== "coverage" && this.coverageTab) {
+			this.coverageTab.resetSelection();
+		}
+		if (this.getActivePage() !== "compliance" && this.complianceTab) {
+			this.complianceTab.resetSelection();
+		}
 	}
 
-	// ── Helpers ──────────────────────────────────────────────
-
-	private getTabLabel(tabId: TestMgmtPage): string {
-		const tab = this.getTabDefinitions().find((t) => t.id === tabId);
-		return tab?.label ?? tabId;
-	}
 }

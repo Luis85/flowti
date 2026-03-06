@@ -1,6 +1,7 @@
 {
 	"nodes":[
 		{"id":"503aff305fed1757","type":"group","x":-240,"y":5280,"width":5727,"height":1200,"label":"Views and Improvements"},
+		{"id":"922fd2d4c3d71baf","type":"group","x":1240,"y":-1690,"width":300,"height":1580,"label":"Output"},
 		{"id":"39fcb04a6dfb4db0","type":"group","x":1740,"y":-1210,"width":1580,"height":500,"label":"Solution"},
 		{"id":"f1ab36403ad8330d","type":"group","x":1740,"y":-590,"width":1280,"height":600,"label":"Simulation Environment - Product Development"},
 		{"id":"30eac272b7498959","type":"group","x":1740,"y":-1810,"width":880,"height":500,"label":"Problem"},
@@ -34,7 +35,6 @@
 		{"id":"abc9776e8773b32b","type":"group","x":1400,"y":2640,"width":1060,"height":580,"label":"Frontstage"},
 		{"id":"cfb72c57d6b99452","type":"group","x":3660,"y":-640,"width":840,"height":660,"label":"Domain"},
 		{"id":"aff3d86ae9c9f798","type":"group","x":400,"y":2180,"width":340,"height":1580,"label":"Process: Flowti Development"},
-		{"id":"922fd2d4c3d71baf","type":"group","x":1240,"y":-1690,"width":300,"height":1580,"label":"Output"},
 		{"id":"9d7d9cb45757987e","type":"group","x":840,"y":-1690,"width":300,"height":1580,"color":"2","label":"Process"},
 		{"id":"8cbc340c22bf6acf","type":"group","x":460,"y":-1690,"width":300,"height":1580,"label":"Input"},
 		{"id":"7c0ee3db8f245007","type":"group","x":-20,"y":2180,"width":300,"height":1580,"label":"Input"},
@@ -252,17 +252,6 @@
 			"styleAttributes":{},
 			"x":0,
 			"y":1640,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"d78eeca627243df6",
-			"type":"text",
-			"text":"Idea Inbox",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-1670,
 			"width":260,
 			"height":60,
 			"color":"5"
@@ -714,39 +703,6 @@
 			"y":-470,
 			"width":260,
 			"height":60
-		},
-		{
-			"id":"aad5855793c9964c",
-			"type":"text",
-			"text":"Denied Product Increments",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-760,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"6819f68b4fb6e079",
-			"type":"text",
-			"text":"Release Candidate",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-210,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"451128bf614c6d39",
-			"type":"text",
-			"text":"Testplan and Teststrategy",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-410,
-			"width":260,
-			"height":60,
-			"color":"5"
 		},
 		{
 			"id":"376e0aad981ff60a",
@@ -1634,17 +1590,6 @@
 			"height":60
 		},
 		{
-			"id":"5905df0277543dfd",
-			"type":"text",
-			"text":"Next Cycle Plan",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-840,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
 			"id":"4fea4d5d896f7410",
 			"type":"text",
 			"text":"Accepted Product Increment",
@@ -1673,17 +1618,6 @@
 			"styleAttributes":{"textAlign":"right"},
 			"x":480,
 			"y":-1350,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"f886a3ad9e6000f1",
-			"type":"text",
-			"text":"PBIs",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-990,
 			"width":260,
 			"height":60,
 			"color":"5"
@@ -1821,28 +1755,6 @@
 			"height":60
 		},
 		{
-			"id":"e3ba873355ab536a",
-			"type":"text",
-			"text":"Idea to Solution Workflow",
-			"styleAttributes":{"textAlign":"center"},
-			"x":860,
-			"y":-1670,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"5333dff10cb150dd",
-			"type":"text",
-			"text":"Maintain",
-			"styleAttributes":{"textAlign":"center"},
-			"x":860,
-			"y":-70,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
 			"id":"587a4f2dafd783c5",
 			"type":"text",
 			"text":"Test and Review",
@@ -1863,6 +1775,61 @@
 			"width":260,
 			"height":60,
 			"color":"6"
+		},
+		{
+			"id":"34b64249b4f5320d",
+			"type":"text",
+			"text":"Product Increment",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-490,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"aad5855793c9964c",
+			"type":"text",
+			"text":"Denied Product Increments",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-760,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"5905df0277543dfd",
+			"type":"text",
+			"text":"Next Cycle Plan",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-840,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"f886a3ad9e6000f1",
+			"type":"text",
+			"text":"PBIs",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-990,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"d78eeca627243df6",
+			"type":"text",
+			"text":"Idea Inbox",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-1670,
+			"width":260,
+			"height":60,
+			"color":"5"
 		},
 		{
 			"id":"9cf05049146e7cfe",
@@ -1887,17 +1854,6 @@
 			"color":"5"
 		},
 		{
-			"id":"34b64249b4f5320d",
-			"type":"text",
-			"text":"Product Increment",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-490,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
 			"id":"126d5d8e7b2a909d",
 			"type":"text",
 			"text":"Planning",
@@ -1907,6 +1863,50 @@
 			"width":260,
 			"height":60,
 			"color":"6"
+		},
+		{
+			"id":"6819f68b4fb6e079",
+			"type":"text",
+			"text":"Release Candidate",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-210,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"451128bf614c6d39",
+			"type":"text",
+			"text":"Testplan and Teststrategy",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-410,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"e3ba873355ab536a",
+			"type":"text",
+			"text":"Idea to Solution Workflow",
+			"styleAttributes":{"textAlign":"center"},
+			"x":860,
+			"y":-1670,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"5333dff10cb150dd",
+			"type":"text",
+			"text":"Maintain",
+			"styleAttributes":{"textAlign":"center"},
+			"x":860,
+			"y":-70,
+			"width":260,
+			"height":60,
+			"color":"2"
 		},
 		{
 			"id":"f24519715c7a4071",

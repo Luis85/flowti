@@ -888,6 +888,26 @@ export default class FlowtiBasePlugin extends Plugin {
 			}
 			return results;
 		});
+		this.testManagementService.setPrdScanner(async () => {
+			const featuresFolder = "docs/features";
+			const abstract = this.app.vault.getAbstractFileByPath(featuresFolder);
+			if (!abstract) return [];
+			const results: { name: string; stage: string; domain: string }[] = [];
+			const files = this.app.vault.getFiles().filter(
+				(f) => f.path.startsWith(featuresFolder + "/") && f.extension === "md",
+			);
+			for (const file of files) {
+				const cache = this.app.metadataCache.getFileCache(file);
+				const fm = cache?.frontmatter;
+				if (!fm || fm.type !== "ProductRequirementsDocument") continue;
+				results.push({
+					name: file.basename.replace(/ PRD$/, ""),
+					stage: String(fm.stage ?? "unknown"),
+					domain: String(fm.domain ?? "unknown"),
+				});
+			}
+			return results;
+		});
 		await this.timedServiceLoad("testManagementService", () => this.testManagementService!.load());
 		this.safeRegisterView(VIEW_TYPE_TEST_MANAGEMENT_HUB, (leaf) =>
 			new TestManagementHubView(leaf, this.eventBus, this.testManagementService!, this.onboardingService!),

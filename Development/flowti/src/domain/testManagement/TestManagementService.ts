@@ -41,6 +41,8 @@ export class TestManagementService {
 	private storage: ITypedStorage<TestManagementState>;
 	private eventBus?: IEventBus;
 	private scanJourneys?: () => Promise<ScannedJourney[]>;
+	private scanPrdsFn?: () => Promise<PrdInfo[]>;
+	private prds: PrdInfo[] = [];
 	private unsubscribes: (() => void)[] = [];
 
 	constructor(options: TestManagementServiceOptions) {
@@ -54,6 +56,11 @@ export class TestManagementService {
 		this.scanJourneys = scanner;
 	}
 
+	/** Set the PRD scanner callback (called during load). */
+	setPrdScanner(scanner: () => Promise<PrdInfo[]>): void {
+		this.scanPrdsFn = scanner;
+	}
+
 	// ── Lifecycle ────────────────────────────────────────────
 
 	async load(): Promise<void> {
@@ -62,6 +69,7 @@ export class TestManagementService {
 			this.state = { ...createDefaultState(), ...saved };
 		}
 		await this.scanVaultJourneys();
+		await this.scanVaultPrds();
 		this.wireEventSubscriptions();
 		await this.eventBus?.emit("test-mgmt.hub.loaded", {
 			journeyCount: this.state.journeys.length,
@@ -103,6 +111,10 @@ export class TestManagementService {
 	setBaseline(): void {
 		this.state.pyramidBaseline = this.getPyramid();
 		void this.save();
+	}
+
+	getPrds(): PrdInfo[] {
+		return this.prds;
 	}
 
 	getCoverage(prds: PrdInfo[]): CoverageEntry[] {
@@ -232,6 +244,16 @@ export class TestManagementService {
 			if (scanned.length > 0) await this.save();
 		} catch {
 			// Scan failure is non-fatal — logged but doesn't block startup
+		}
+	}
+
+	/** Scan vault for PRD files and store their info in memory. */
+	private async scanVaultPrds(): Promise<void> {
+		if (!this.scanPrdsFn) return;
+		try {
+			this.prds = await this.scanPrdsFn();
+		} catch {
+			// Scan failure is non-fatal
 		}
 	}
 

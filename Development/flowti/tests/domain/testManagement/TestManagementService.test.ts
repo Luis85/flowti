@@ -369,4 +369,32 @@ describe("TestManagementService", () => {
 			expect(trended.e2e.trend).toBe("up"); // 3 > 1
 		});
 	});
+
+	describe("PRD scanning", () => {
+		it("setPrdScanner registers and getPrds returns results after load", async () => {
+			const prdScanner = vi.fn(async () => [
+				{ name: "Analytics Hub", stage: "done", domain: "Analytics" },
+				{ name: "Settings", stage: "in-progress", domain: "Flowti" },
+			]);
+			service.setPrdScanner(prdScanner);
+			await service.load();
+
+			expect(prdScanner).toHaveBeenCalledOnce();
+			expect(service.getPrds()).toHaveLength(2);
+			expect(service.getPrds()[0].name).toBe("Analytics Hub");
+		});
+
+		it("getPrds returns empty array when no scanner set", async () => {
+			await service.load();
+			expect(service.getPrds()).toEqual([]);
+		});
+
+		it("handles PRD scanner failure gracefully", async () => {
+			const prdScanner = vi.fn(async () => { throw new Error("Read failed"); });
+			service.setPrdScanner(prdScanner);
+			await service.load();
+
+			expect(service.getPrds()).toEqual([]);
+		});
+	});
 });

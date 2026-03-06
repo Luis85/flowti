@@ -27,6 +27,7 @@ function createMockService(): TestManagementService {
 		getPyramidWithTrends: vi.fn(() => pyramid),
 		getBaseline: vi.fn(() => undefined),
 		setBaseline: vi.fn(),
+		getPrds: vi.fn(() => []),
 		getCoverage: vi.fn(() => []),
 		getCompliance: vi.fn(() => []),
 	} as unknown as TestManagementService;
@@ -168,7 +169,21 @@ describe("TestManagementHubView", () => {
 			expect(el.textContent).not.toContain("Coming in a future increment");
 		});
 
-		it("shows tab label in placeholder", async () => {
+		it("renders coverage tab content (not placeholder)", async () => {
+			const view = new TestManagementHubView(createMockLeaf(), eventBus, createMockService(), createMockOnboardingService());
+			prepareContainerEl(view);
+			await view.onOpen();
+
+			(view as unknown as { navigateTo: (p: string) => void }).navigateTo("coverage");
+			vi.advanceTimersByTime(20);
+
+			const el = (view as unknown as { containerEl: HTMLElement }).containerEl;
+			// Coverage tab renders empty state, not the placeholder
+			expect(el.textContent).toContain("No PRDs found");
+			expect(el.textContent).not.toContain("Coming in a future increment");
+		});
+
+		it("renders compliance tab content (not placeholder)", async () => {
 			const view = new TestManagementHubView(createMockLeaf(), eventBus, createMockService(), createMockOnboardingService());
 			prepareContainerEl(view);
 			await view.onOpen();
@@ -177,7 +192,9 @@ describe("TestManagementHubView", () => {
 			vi.advanceTimersByTime(20);
 
 			const el = (view as unknown as { containerEl: HTMLElement }).containerEl;
-			expect(el.textContent).toContain("Compliance");
+			// Compliance tab renders standard cards, not the placeholder
+			expect(el.textContent).toContain("ISO 9001");
+			expect(el.textContent).not.toContain("Coming in a future increment");
 		});
 	});
 

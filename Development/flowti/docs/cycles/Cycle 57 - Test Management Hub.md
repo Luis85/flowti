@@ -585,6 +585,31 @@ Delivered:
 - CSS additions: pyramid cards, trend indicators, drill-down rows, guidance callout, footer
 - Empty state when no journeys registered
 
+### Inc 4: Coverage Matrix (PBI-TM-005) — DONE
+**Date**: 2026-03-06 | **Tests**: 6,991 (295 suites) | **New**: +24 tests, +1 suite
+
+Delivered:
+- `CoverageTab` (230 LOC) — PRD-to-journey coverage matrix with master/detail split
+- Master panel: PRD rows with coverage status badge (green/yellow/red), name, stage badge, journey count, text search filtering
+- Detail panel: PRD header (name, status, stage, domain, count), linked journeys section, domain coverage summary with mini progress bars, coverage gaps section
+- `TestManagementService` additions: `setPrdScanner()`, `getPrds()`, `scanVaultPrds()` — in-memory PRD discovery following journey scanner pattern
+- PRD scanner wired in main.ts: reads `docs/features/*/` frontmatter via `metadataCache`, filters by `type: ProductRequirementsDocument`
+- CSS additions: coverage badges, PRD rows, domain summary bars, gap rows
+- Empty state when no PRDs found
+- Reuses existing pure functions: `computeCoverage()`, `computeDomainCoverage()`, `findGaps()`
+
+### Inc 5: Compliance Tagging (PBI-TM-006) — DONE
+**Date**: 2026-03-06 | **Tests**: 7,010 (296 suites) | **New**: +19 tests, +1 suite
+
+Delivered:
+- `ComplianceTab` (250 LOC) — ISO compliance visualization with tag management
+- Master panel: 3 standard cards (ISO 9001, 27001, 25010) with score, percentage, progress bar, click-to-select
+- Detail panel: characteristic list for selected standard with covered/uncovered badges, expandable rows (description + guidance), search filtering
+- Tag management: "Tag journey" button for uncovered characteristics → journey list → `addComplianceTag()`. Remove "×" buttons on tagged journeys → `removeComplianceTag()`
+- All 4 tabs now fully implemented — placeholder branch removed from `onTabRender()`
+- Cleaned up unused `setIcon` import and `getTabLabel` helper from HubView
+- CSS additions: compliance cards, characteristic rows, guidance callouts, tag management styles, journey picker
+
 ## Definition of Done
 
 - [ ] `TestManagementService` implemented with scan, parse, coverage, pyramid, compliance

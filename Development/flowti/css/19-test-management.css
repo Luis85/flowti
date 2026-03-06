@@ -390,6 +390,216 @@
 	margin-top: 0.5rem;
 }
 
+/* ── Coverage tab ──────────────────────────────────────── */
+
+/* Coverage status badges */
+.ft-tm-coverage-badge {
+	display: inline-block;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+.ft-tm-coverage-badge--covered {
+	background: var(--color-green);
+}
+
+.ft-tm-coverage-badge--partial {
+	background: var(--color-yellow);
+}
+
+.ft-tm-coverage-badge--uncovered {
+	background: var(--color-red);
+}
+
+/* PRD rows in master panel */
+.ft-tm-coverage-row {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.ft-tm-coverage-name {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* Domain summary mini bars */
+.ft-tm-domain-row {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.25rem 0;
+	font-size: var(--font-ui-small);
+}
+
+.ft-tm-domain-label {
+	width: 6rem;
+	text-align: right;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ft-tm-domain-bar-bg {
+	flex: 1;
+	height: 0.75rem;
+	background: var(--background-modifier-border);
+	border-radius: 4px;
+	overflow: hidden;
+}
+
+.ft-tm-domain-bar {
+	height: 100%;
+	border-radius: 4px;
+	background: var(--color-green);
+	transition: width 0.3s ease;
+}
+
+.ft-tm-domain-stat {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	min-width: 3.5rem;
+	white-space: nowrap;
+}
+
+/* Gap rows */
+.ft-tm-gap-row {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.25rem 0;
+	font-size: var(--font-ui-small);
+}
+
+/* ── Compliance tab ─────────────────────────────────────── */
+
+/* Standard cards */
+.ft-tm-compliance-card {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.75rem 1rem;
+	border-radius: 6px;
+	cursor: pointer;
+	border: 1px solid transparent;
+}
+
+.ft-tm-compliance-card:hover {
+	background: var(--background-modifier-hover);
+}
+
+.ft-tm-compliance-card--active {
+	border-color: var(--interactive-accent);
+	background: var(--background-modifier-hover);
+}
+
+.ft-tm-compliance-card-icon {
+	flex-shrink: 0;
+	color: var(--text-muted);
+}
+
+.ft-tm-compliance-card-info {
+	flex: 1;
+	min-width: 0;
+}
+
+.ft-tm-compliance-card-label {
+	font-weight: 600;
+	font-size: var(--font-ui-small);
+}
+
+.ft-tm-compliance-card-stats {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+/* Characteristic rows */
+.ft-tm-compliance-row {
+	padding: 0.5rem;
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+.ft-tm-compliance-row:hover {
+	background: var(--background-modifier-hover);
+}
+
+.ft-tm-compliance-row-header {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.ft-tm-compliance-row-name {
+	flex: 1;
+	font-size: var(--font-ui-small);
+}
+
+.ft-tm-compliance-row-detail {
+	padding: 0.375rem 0 0.25rem 1.25rem;
+	font-size: var(--font-ui-smaller);
+}
+
+/* Guidance callout */
+.ft-tm-compliance-guidance {
+	font-style: italic;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	padding: 0.125rem 0;
+}
+
+/* Tag management */
+.ft-tm-compliance-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem;
+	padding: 0.25rem 0;
+}
+
+.ft-tm-compliance-tag {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+	padding: 0.125rem 0.5rem;
+	border-radius: 10px;
+	background: var(--background-modifier-border);
+	font-size: var(--font-ui-smaller);
+}
+
+.ft-tm-compliance-tag-remove {
+	cursor: pointer;
+	opacity: 0.5;
+	font-size: var(--font-ui-smaller);
+}
+
+.ft-tm-compliance-tag-remove:hover {
+	opacity: 1;
+}
+
+.ft-tm-compliance-journey-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.125rem;
+	padding: 0.25rem 0;
+}
+
+.ft-tm-compliance-journey-option {
+	padding: 0.25rem 0.5rem;
+	border-radius: 4px;
+	font-size: var(--font-ui-smaller);
+	cursor: pointer;
+}
+
+.ft-tm-compliance-journey-option:hover {
+	background: var(--background-modifier-hover);
+}
+
 /* Tab placeholder */
 .ft-tm-tab-placeholder {
 	display: flex;
