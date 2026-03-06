@@ -42,7 +42,7 @@ views:
       - file.ctime
       - tags
     sort:
-      - property: priority
+      - property: file.ctime
         direction: DESC
       - property: file.mtime
         direction: DESC
