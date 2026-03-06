@@ -622,6 +622,22 @@ Delivered:
 - `JourneyBuilderSidebar` — "View in Test Hub" toolbar button emits `ui.openTestManagementHub` + `hub.navigate` with entityId
 - CSS: `.ft-tm-detail-actions` flex container
 
+### Inc 7: Journey Executor (PBI-TM-008) — DONE
+**Date**: 2026-03-06 | **Tests**: 7,081 (298 suites) | **New**: +57 tests, +2 suites
+
+Delivered:
+- `JourneyExecutorService` (150 LOC) — orchestrator with run(), cancel(), isRunning(), getExecutionState(), validateJourney()
+- `toolExecutors.ts` (280 LOC) — 34-tool in-app dispatch via ToolHost abstraction, variable interpolation (resolve/resolvePayload), DESTRUCTIVE_TOOLS confirmation gating
+- `types.ts` (95 LOC) — ToolHost interface (22 methods), ExecutableJourney, StepResult, ExecutionResult, ExecutionOptions, ExecutionState
+- `events.ts` (40 LOC) — 4 execution events: run.started, run.step-completed, run.completed, run.failed
+- ToolHost implementation in main.ts — wraps Obsidian App (commands, vault, workspace, metadataCache, DOM)
+- Cancellation via AbortController — checked before each action, marks remaining steps as skipped
+- Dry-run mode — emits events, skips side effects
+- Result recording — builds JSON matching parseJourneyResult() format, calls testManagementService.recordRunResult()
+- Interactive tools (manual/visual-inspection) — callback-based via ExecutionOptions.onManualInput
+- Destructive tools (create/delete/copy/move-file, seed) — gated by onConfirmDestructive callback
+- Event catalog entries for 4 new events
+
 ## Definition of Done
 
 - [ ] `TestManagementService` implemented with scan, parse, coverage, pyramid, compliance

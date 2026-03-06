@@ -685,6 +685,12 @@ const CATALOG_DATA = {
 	"test-mgmt.compliance.checked":         { category: "Test Management", description: "ISO compliance check completed", direction: "Service → Listeners", domain: "test-management", services: "TestManagementService" },
 	"test-mgmt.pyramid.updated":            { category: "Test Management", description: "Test pyramid state updated", direction: "Service → Listeners", domain: "test-management", services: "TestManagementService" },
 	"test-mgmt.review.requested":           { category: "Test Management", description: "Three Amigos review requested for a journey", direction: "Service → Listeners", domain: "test-management", services: "TestManagementService" },
+
+	// Journey Executor (4 events)
+	"journey-executor.run.started":         { category: "Test Management", description: "Journey execution started", direction: "Service → Listeners", domain: "journey-executor", services: "JourneyExecutorService" },
+	"journey-executor.run.step-completed":  { category: "Test Management", description: "Journey step completed during execution", direction: "Service → Listeners", domain: "journey-executor", services: "JourneyExecutorService" },
+	"journey-executor.run.completed":       { category: "Test Management", description: "Journey execution completed", direction: "Service → Listeners", domain: "journey-executor", services: "JourneyExecutorService" },
+	"journey-executor.run.failed":          { category: "Test Management", description: "Journey execution failed or cancelled", direction: "Service → Listeners", domain: "journey-executor", services: "JourneyExecutorService" },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

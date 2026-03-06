@@ -66,6 +66,8 @@ import { JourneyBuilderSidebar, VIEW_TYPE_JOURNEY_BUILDER } from "./ui/journeyBu
 import { JourneyFileView, VIEW_TYPE_JOURNEY_FILE } from "./ui/journeyBuilder/JourneyFileView";
 import { JourneyBuilderService } from "./domain/journeyBuilder/JourneyBuilderService";
 import type { TestManagementService } from "./domain/testManagement/TestManagementService";
+import { JourneyExecutorService } from "./domain/journeyExecutor/JourneyExecutorService";
+import type { ToolHost } from "./domain/journeyExecutor/types";
 import { TestManagementHubView, VIEW_TYPE_TEST_MANAGEMENT_HUB } from "./ui/testManagement/TestManagementHubView";
 import { TestManagementHubProvider } from "./domain/hub/TestManagementHubProvider";
 import { EVENT_CATALOG } from "./infrastructure/events/catalog";
@@ -136,6 +138,7 @@ export default class FlowtiBasePlugin extends Plugin {
 	private journeyBuilderService?: JourneyBuilderService;
 	private analyticsService?: AnalyticsService;
 	private testManagementService?: TestManagementService;
+	private journeyExecutorService?: JourneyExecutorService;
 	private onboardingService?: OnboardingService;
 	private perfAggregator?: PerfAggregator;
 	private ingestionStatusBar?: IngestionStatusBar;
@@ -512,6 +515,73 @@ export default class FlowtiBasePlugin extends Plugin {
 			app: this.app,
 			eventBus: this.eventBus,
 			logger: this.logger,
+		};
+	}
+
+	/** Create a ToolHost implementation backed by the live Obsidian App. */
+	private createToolHost(): ToolHost {
+		const app = this.app;
+		const eventBus = this.eventBus;
+		return {
+			executeCommand: (id) => (app as unknown as { commands: { executeCommandById: (id: string) => boolean } }).commands.executeCommandById(id),
+			querySelector: (sel) => document.querySelector(sel),
+			querySelectorAll: (sel) => document.querySelectorAll(sel),
+			createFile: async (path, content) => { await app.vault.create(path, content); },
+			deleteFile: async (path) => {
+				const file = app.vault.getAbstractFileByPath(path);
+				if (file) await app.fileManager.trashFile(file);
+			},
+			readFile: async (path) => {
+				const file = app.vault.getAbstractFileByPath(path);
+				if (!file) throw new Error(`File not found: ${path}`);
+				return app.vault.read(file as import("obsidian").TFile);
+			},
+			moveFile: async (from, to) => {
+				const file = app.vault.getAbstractFileByPath(from);
+				if (file) await app.vault.rename(file, to);
+			},
+			copyFile: async (from, to) => {
+				const file = app.vault.getAbstractFileByPath(from);
+				if (file) await app.vault.copy(file as import("obsidian").TFile, to);
+			},
+			openFile: async (path) => { await app.workspace.openLinkText(path, "", false); },
+			openUrl: (url) => { window.open(url); },
+			showNotice: (msg, dur) => { void eventBus.emit("notice.show", { message: msg, duration: dur }); },
+			setTheme: () => { /* theme switching deferred to Inc 8 */ },
+			closeLeaves: (viewType) => { if (viewType) app.workspace.detachLeavesOfType(viewType); },
+			closeModals: () => { document.querySelectorAll(".modal-container").forEach((el) => el.remove()); },
+			clickRibbon: (label) => {
+				const btn = document.querySelector(`[aria-label*="${label}"]`) as HTMLElement | null;
+				btn?.click();
+				return !!btn;
+			},
+			scrollTo: (sel, behavior, block) => {
+				const el = document.querySelector(sel);
+				if (!el) return false;
+				el.scrollIntoView({ behavior: (behavior ?? "smooth") as ScrollBehavior, block: (block ?? "center") as ScrollLogicalPosition });
+				return true;
+			},
+			getFrontmatter: (path) => {
+				const file = app.vault.getAbstractFileByPath(path);
+				if (!file) return undefined;
+				return app.metadataCache.getFileCache(file as import("obsidian").TFile)?.frontmatter as Record<string, unknown> | undefined;
+			},
+			updateFrontmatter: async (path, data) => {
+				void eventBus.emit("frontmatter.update.request", { requestId: `exec-${Date.now()}` as import("./infrastructure/events/events").RequestId, path, data });
+			},
+			getEventTrace: () => [],
+			showSpinner: () => { /* wired in Inc 8 */ },
+			hideSpinner: () => { /* wired in Inc 8 */ },
+			writeRunLog: async (path, content) => {
+				const existing = app.vault.getAbstractFileByPath(path);
+				if (existing) {
+					const prev = await app.vault.read(existing as import("obsidian").TFile);
+					await app.vault.modify(existing as import("obsidian").TFile, prev + "\n" + content);
+				} else {
+					await app.vault.create(path, content);
+				}
+			},
+			seed: async () => { /* seed logic deferred */ },
 		};
 	}
 
@@ -912,6 +982,14 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.safeRegisterView(VIEW_TYPE_TEST_MANAGEMENT_HUB, (leaf) =>
 			new TestManagementHubView(leaf, this.eventBus, this.testManagementService!, this.onboardingService!),
 		);
+
+		// Journey Executor — in-app journey runner
+		this.journeyExecutorService = new JourneyExecutorService({
+			eventBus: this.eventBus,
+			host: this.createToolHost(),
+			testManagementService: this.testManagementService!,
+		});
+		this.register(() => this.journeyExecutorService?.dispose());
 
 		// Journey Builder — sidebar for creating E2E journey definitions
 		this.safeRegisterView(VIEW_TYPE_JOURNEY_BUILDER, (leaf) =>
