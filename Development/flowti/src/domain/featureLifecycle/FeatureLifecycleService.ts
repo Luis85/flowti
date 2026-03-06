@@ -30,6 +30,7 @@ import {
 } from "./types";
 import { PRDFrontmatterSchema, type PRDFrontmatter } from "./schemas";
 import { runGateCheck, type GateContext } from "./gateChecks";
+import { computeFeatureSessionMetrics, createSessionRecordFromEvent, type FeatureSessionMetrics } from "./sessionMetrics";
 
 /** A discovered PRD file with parsed frontmatter. */
 export interface ScannedPRD {
@@ -267,6 +268,26 @@ export class FeatureLifecycleService {
 	/** Get the active session, or null. */
 	getActiveSession(): { featureName: string; startTime: string } | null {
 		return this.state.activeSession;
+	}
+
+	/** Get aggregate session metrics for a feature. */
+	getSessionMetrics(featureName: string): FeatureSessionMetrics {
+		return computeFeatureSessionMetrics(this.getSessionsForFeature(featureName));
+	}
+
+	/**
+	 * Handle a feature.session.ended event from the session domain.
+	 * Records the session into the feature's session history.
+	 */
+	async handleSessionEnded(payload: { featureName: string; endTime: string; duration: number; filesChanged: number }): Promise<void> {
+		const feature = this.features.find(f => f.name === payload.featureName);
+		if (!feature) return;
+
+		const record = createSessionRecordFromEvent(payload);
+		record.stageAtStart = feature.stage;
+		record.stageAtEnd = feature.stage;
+		this.state.sessions.push(record);
+		await this.save();
 	}
 
 	// ── Internal ─────────────────────────────────────────────

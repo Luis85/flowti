@@ -181,6 +181,7 @@ export function createSession(
 		decisions: [],
 		workspaceState: null,
 		outputArtifacts: [],
+		featureName: null,
 		intent: null,
 		energy: null,
 		executionTasks: [],

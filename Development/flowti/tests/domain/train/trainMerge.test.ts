@@ -52,6 +52,7 @@ function createTestHarness(initialState?: TrainServiceState) {
 				executionTasks: [],
 				reflections: [],
 				closureResponse: null,
+		featureName: null,
 			},
 		});
 	});

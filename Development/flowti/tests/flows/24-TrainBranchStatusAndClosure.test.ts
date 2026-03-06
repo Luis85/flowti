@@ -65,6 +65,7 @@ function createTestHarness() {
 				executionTasks: [],
 				reflections: [],
 				closureResponse: null,
+		featureName: null,
 			},
 		});
 	});

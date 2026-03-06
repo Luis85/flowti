@@ -22,6 +22,18 @@ export async function transitionToCompleted(ctx: SessionHandlerContext, session:
 	await ctx.eventBus?.emit("session.completed", { session: { ...session } });
 	await ctx.eventBus?.emit("session.state.save", { sessionId: session.id });
 
+	// Cross-domain: notify feature lifecycle of session completion
+	if (session.featureName) {
+		const filesChanged = session.artifacts.length;
+		const durationMs = session.elapsedBeforePauseMs;
+		await ctx.eventBus?.emit("feature.session.ended", {
+			featureName: session.featureName,
+			endTime: session.completedAt!,
+			duration: durationMs,
+			filesChanged,
+		});
+	}
+
 	// Auto-documentation: generate completion summary
 	if (ctx.fileSystem) {
 		try {

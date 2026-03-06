@@ -100,8 +100,8 @@ The MVP closes these gaps by investing in five areas: **Feature Lifecycle, Proce
 - Knowledgebase documentation (Development Lifecycle, Increment Lifecycle, Definition of Done/Ready)
 - Cycle planning documents (manual markdown)
 - Report generation pipeline (11 reports)
-- **PRD - Process Mapping** (vault inbox, draft) — BPMN-inspired visual process language for Canvas with 9 node types, canvas sync, lint rules, process→journey compilation
-- **PRD - Process Execution Framework** (vault inbox, draft) — Full execution engine with state model, metrics, dashboards, action buttons, event-driven orchestration
+- **[[Process Mapping PRD]]** (features/Process Management, in-progress) — BPMN-inspired visual process language for Canvas with 9 node types, canvas sync, lint rules, process→journey compilation
+- **[[Process Execution Framework PRD]]** (features/Process Management, draft) — Full execution engine with state model, metrics, dashboards, action buttons, event-driven orchestration
 
 **Gaps:**
 - No domain service
@@ -375,8 +375,8 @@ The roadmap is designed for adaptation:
 ## 12. Related
 
 - [[Feature Lifecycle PRD]] — approved, ready for C58 implementation
-- [[PRD - Process Mapping]] — draft, visual process language for Canvas (vault inbox)
-- [[PRD - Process Execution Framework]] — draft, execution engine with metrics (vault inbox)
+- [[Process Mapping PRD]] — in-progress, visual process language for Canvas (features/Process Management)
+- [[Process Execution Framework PRD]] — draft, execution engine with metrics (features/Process Management)
 - [[Development Lifecycle]] — 10-phase process that Feature Lifecycle implements
 - [[Increment Lifecycle]] — inner loop for each cycle's increments
 - [[Definition of Done (Cycle)]] — quality checklist applied at each cycle boundary

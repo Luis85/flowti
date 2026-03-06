@@ -249,4 +249,98 @@ describe("FeatureDetailPanel", () => {
 			expect(headings).not.toContain("Related events");
 		});
 	});
+
+	describe("process compliance", () => {
+		it("renders compliance section when data is available", () => {
+			const compliance = {
+				featureName: "Test Feature",
+				processName: "Development Lifecycle",
+				percentage: 80,
+				steps: [
+					{ phase: 1, name: "Feedback & Intake", satisfied: true },
+					{ phase: 2, name: "Problem Discovery", satisfied: true },
+					{ phase: 3, name: "Solution Design", satisfied: false },
+				],
+			};
+			const { panel, detailEl } = createPanel(createEntry(), {
+				getProcessCompliance: () => compliance,
+			});
+			panel.render();
+
+			const section = detailEl.querySelector('[data-section="process-compliance"]');
+			expect(section).not.toBeNull();
+			expect(section?.querySelector("h4")?.textContent).toContain("Process: 80%");
+		});
+
+		it("applies green color for >= 80%", () => {
+			const compliance = {
+				featureName: "Test", processName: "Dev", percentage: 90,
+				steps: [{ phase: 1, name: "Intake", satisfied: true }],
+			};
+			const { panel, detailEl } = createPanel(createEntry(), { getProcessCompliance: () => compliance });
+			panel.render();
+
+			const badge = detailEl.querySelector(".ft-compliance-green");
+			expect(badge).not.toBeNull();
+			expect(badge?.textContent).toBe("On track");
+		});
+
+		it("applies yellow color for 50-79%", () => {
+			const compliance = {
+				featureName: "Test", processName: "Dev", percentage: 60,
+				steps: [{ phase: 1, name: "Intake", satisfied: true }],
+			};
+			const { panel, detailEl } = createPanel(createEntry(), { getProcessCompliance: () => compliance });
+			panel.render();
+
+			const badge = detailEl.querySelector(".ft-compliance-yellow");
+			expect(badge).not.toBeNull();
+			expect(badge?.textContent).toBe("Partial");
+		});
+
+		it("applies red color for < 50%", () => {
+			const compliance = {
+				featureName: "Test", processName: "Dev", percentage: 30,
+				steps: [{ phase: 1, name: "Intake", satisfied: false }],
+			};
+			const { panel, detailEl } = createPanel(createEntry(), { getProcessCompliance: () => compliance });
+			panel.render();
+
+			const badge = detailEl.querySelector(".ft-compliance-red");
+			expect(badge).not.toBeNull();
+			expect(badge?.textContent).toBe("Behind");
+		});
+
+		it("renders step checklist with icons", () => {
+			const compliance = {
+				featureName: "Test", processName: "Dev", percentage: 50,
+				steps: [
+					{ phase: 1, name: "Intake", satisfied: true },
+					{ phase: 2, name: "Discovery", satisfied: false },
+				],
+			};
+			const { panel, detailEl } = createPanel(createEntry(), { getProcessCompliance: () => compliance });
+			panel.render();
+
+			const items = detailEl.querySelectorAll(".ft-step-done, .ft-step-pending");
+			expect(items).toHaveLength(2);
+			expect(items[0].classList.contains("ft-step-done")).toBe(true);
+			expect(items[1].classList.contains("ft-step-pending")).toBe(true);
+		});
+
+		it("does not render when getProcessCompliance returns undefined", () => {
+			const { panel, detailEl } = createPanel(createEntry(), {
+				getProcessCompliance: () => undefined,
+			});
+			panel.render();
+
+			expect(detailEl.querySelector('[data-section="process-compliance"]')).toBeNull();
+		});
+
+		it("does not render when getProcessCompliance is not provided", () => {
+			const { panel, detailEl } = createPanel(createEntry());
+			panel.render();
+			expect(detailEl.querySelector('[data-section="process-compliance"]')).toBeNull();
+		});
+	});
 });

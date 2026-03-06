@@ -20,7 +20,7 @@ import { MAX_TEMPLATES } from "./types";
 import { createContextBinding, computeRemainingMs, computeElapsedMs, isTimerExpired, isValidTransition } from "./helpers";
 import { SessionTemplateExportSchema } from "./schemas";
 import type { SessionHandlerContext } from "./handlers/types";
-import { lifecycleHandlers, fieldHandlers, taskHandlers, closureHandlers, syncHandlers, trackingHandlers } from "./handlers";
+import { lifecycleHandlers, fieldHandlers, taskHandlers, closureHandlers, syncHandlers, trackingHandlers, featureBindingHandlers } from "./handlers";
 
 /**
  * Configuration options for the SessionService.
@@ -163,6 +163,10 @@ export class SessionService {
 		sub(bus.on("session.task.toggle", (e) => { void taskHandlers.toggleTask(this.ctx, e.payload.sessionId, e.payload.taskId); }));
 		sub(bus.on("session.task.remove", (e) => { void taskHandlers.removeTask(this.ctx, e.payload.sessionId, e.payload.taskId); }));
 		sub(bus.on("session.task.reorder", (e) => { void taskHandlers.reorderTasks(this.ctx, e.payload.sessionId, e.payload.taskIds); }));
+
+		// v3: Feature binding (Cycle 59)
+		sub(bus.on("session.feature.bind", (e) => { void featureBindingHandlers.handleFeatureBind(this.ctx, e.payload.sessionId, e.payload.featureName); }));
+		sub(bus.on("session.feature.unbind", (e) => { void featureBindingHandlers.handleFeatureUnbind(this.ctx, e.payload.sessionId); }));
 	}
 
 	// ── Public API ───────────────────────────────────────────
@@ -196,6 +200,8 @@ export class SessionService {
 				if (!s.executionTasks) s.executionTasks = [];
 				if (!s.reflections) s.reflections = [];
 				if (s.closureResponse === undefined) s.closureResponse = null;
+				// v3 backward compat (Cycle 59)
+				if (s.featureName === undefined) s.featureName = null;
 				// Migrate legacy links → context bindings
 				if (s.links.length > 0) {
 					for (const link of s.links) {

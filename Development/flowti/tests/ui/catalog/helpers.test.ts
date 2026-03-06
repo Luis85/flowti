@@ -493,6 +493,7 @@ describe("catalog helpers", () => {
 		{ name: "Journey Builder", visible: true },
 		{ name: "Test Management", visible: true },
 		{ name: "Feature Lifecycle", visible: true },
+		{ name: "Process", visible: true },
 	];
 
 	describe("discoveredToCatalogEntries", () => {

@@ -51,6 +51,7 @@ import type { JourneyBuilderEventMap } from "../../domain/journeyBuilder/events"
 import type { TestManagementEventMap } from "../../domain/testManagement/events";
 import type { JourneyExecutorEventMap } from "../../domain/journeyExecutor/events";
 import type { FeatureLifecycleEventMap } from "../../domain/featureLifecycle/events";
+import type { ProcessEventMap } from "../../domain/process/events";
 
 // ─────────────────────────────────────────────────────────────
 // File System Types (defined here to avoid circular imports)
@@ -107,7 +108,7 @@ export interface FileOperationError {
  * This is the central registry for all events in the application.
  * The key is the event type string, the value is the payload type.
  */
-export interface FlowtiEventMap extends UserEventMap, SettingsEventMap, InstallerEventMap, DiscoveryEventMap, EventFilterEventMap, EventNotifyEventMap, SubscriptionEventMap, IngestionEventMap, EventDefinitionEventMap, DataExchangeEventMap, DocEventMap, UiCommandEventMap, HubEventMap, InboxEventMap, SessionEventMap, NudgeEventMap, SignalEventMap, CaptureEventMap, TrainEventMap, CanvasEventMap, AnalyticsEventMap, OnboardingEventMap, PerformanceEventMap, NoticeEventMap, ModalEventMap, JourneyBuilderEventMap, TestManagementEventMap, JourneyExecutorEventMap, FeatureLifecycleEventMap {
+export interface FlowtiEventMap extends UserEventMap, SettingsEventMap, InstallerEventMap, DiscoveryEventMap, EventFilterEventMap, EventNotifyEventMap, SubscriptionEventMap, IngestionEventMap, EventDefinitionEventMap, DataExchangeEventMap, DocEventMap, UiCommandEventMap, HubEventMap, InboxEventMap, SessionEventMap, NudgeEventMap, SignalEventMap, CaptureEventMap, TrainEventMap, CanvasEventMap, AnalyticsEventMap, OnboardingEventMap, PerformanceEventMap, NoticeEventMap, ModalEventMap, JourneyBuilderEventMap, TestManagementEventMap, JourneyExecutorEventMap, FeatureLifecycleEventMap, ProcessEventMap {
 	// ─────────────────────────────────────────────────────────────
 	// Plugin Lifecycle Events
 	// ─────────────────────────────────────────────────────────────

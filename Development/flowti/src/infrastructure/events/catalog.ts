@@ -175,6 +175,7 @@ export const EVENT_CATEGORIES = [
 	"Journey Builder",
 	"Test Management",
 	"Feature Lifecycle",
+	"Process",
 ] as const;
 
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
@@ -525,6 +526,10 @@ const CATALOG_DATA = {
 	"session.task.capReached":    { category: "Session", description: "Execution task cap reached (MAX_EXECUTION_TASKS)", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 	"session.overload.detected":  { category: "Session", description: "Cognitive overload thresholds exceeded", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 	"session.documentation.generated": { category: "Session", description: "Session completion summary document generated", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.feature.bind":    { category: "Session", description: "Command to bind a session to a feature", direction: "View → Plugin", domain: "session", services: "SessionService" },
+	"session.feature.bound":   { category: "Session", description: "Session was bound to a feature", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.feature.unbind":  { category: "Session", description: "Command to unbind a session from its feature", direction: "View → Plugin", domain: "session", services: "SessionService" },
+	"session.feature.unbound": { category: "Session", description: "Session was unbound from its feature", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 
 	// ── Nudge ─────────────────────────────────────────────────
 	"nudge.configure":  { category: "Nudge", description: "Command to add or update a nudge config", direction: "View → Plugin", domain: "nudge", services: "NudgeService", tags: ["system"] },
@@ -704,6 +709,20 @@ const CATALOG_DATA = {
 	"feature.session.ended":                { category: "Feature Lifecycle", description: "User ended a session on a feature", direction: "Service → Listeners", domain: "featureLifecycle", services: "FeatureLifecycleService" },
 	"review.session.created":               { category: "Feature Lifecycle", description: "Three Amigos review document created for a feature", direction: "Service → Listeners", domain: "featureLifecycle", services: "FeatureLifecycleService" },
 	"review.session.scored":                { category: "Feature Lifecycle", description: "TASM scores detected in a review document", direction: "Service → Listeners", domain: "featureLifecycle", services: "FeatureLifecycleService" },
+
+	// ── Process Management ────────────────────────────────────
+	"process.opened":                       { category: "Process", description: "Process canvas opened for viewing", direction: "Service → Listeners", domain: "process", services: "ProcessService" },
+	"process.created":                      { category: "Process", description: "New process definition created", direction: "Service → Listeners", domain: "process", services: "ProcessService" },
+	"process.updated":                      { category: "Process", description: "Process definition updated (re-scanned)", direction: "Service → Listeners", domain: "process", services: "ProcessService" },
+	"process.node.added":                   { category: "Process", description: "Node added to a process", direction: "Service → Listeners", domain: "process", services: "ProcessService" },
+	"process.node.updated":                 { category: "Process", description: "Node updated in a process", direction: "Service → Listeners", domain: "process", services: "ProcessService" },
+	"process.node.removed":                 { category: "Process", description: "Node removed from a process", direction: "Service → Listeners", domain: "process", services: "ProcessService" },
+	"process.edge.created":                 { category: "Process", description: "Edge created between process nodes", direction: "Service → Listeners", domain: "process", services: "ProcessService" },
+	"process.edge.removed":                 { category: "Process", description: "Edge removed from process", direction: "Service → Listeners", domain: "process", services: "ProcessService" },
+	"process.compiled":                     { category: "Process", description: "Process compiled (validated and ready)", direction: "Service → Listeners", domain: "process", services: "ProcessService" },
+	"process.canvas.synced":                { category: "Process", description: "Process canvas synced (re-parsed from file)", direction: "Service → Listeners", domain: "process", services: "ProcessService" },
+	"process.execution.started":            { category: "Process", description: "Process execution started for a feature", direction: "Service → Listeners", domain: "process", services: "ProcessService" },
+	"process.execution.completed":          { category: "Process", description: "Process execution completed for a feature", direction: "Service → Listeners", domain: "process", services: "ProcessService" },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

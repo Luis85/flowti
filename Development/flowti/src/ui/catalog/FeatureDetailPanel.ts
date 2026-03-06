@@ -4,6 +4,7 @@ import { STAGE_LABELS, FRI_DIMENSION_LABELS, PRIORITIZATION_LABELS, GATE_LABELS,
 import { getNextStage } from "../../domain/featureLifecycle/FeatureLifecycleService";
 import type { GateContext } from "../../domain/featureLifecycle/gateChecks";
 import { runGateCheck, createDefaultGateContext } from "../../domain/featureLifecycle/gateChecks";
+import type { ProcessCompliance } from "../../domain/process/types";
 
 /** Callbacks for the feature detail panel. */
 export interface FeatureDetailPanelDeps {
@@ -15,6 +16,8 @@ export interface FeatureDetailPanelDeps {
 	getGateContext?: (featureName: string) => GateContext;
 	/** Navigate to an event type in the Events tab. */
 	navigateToEvent?: (eventType: string) => void;
+	/** Get process compliance data for a feature. */
+	getProcessCompliance?: (featureName: string) => ProcessCompliance | undefined;
 }
 
 /**
@@ -41,6 +44,7 @@ export class FeatureDetailPanel {
 		this.renderGateCheck(feature);
 		this.renderFRI(feature);
 		this.renderPrioritization(feature);
+		this.renderProcessCompliance(feature);
 		this.renderRelatedEvents(feature);
 		this.renderAdvanceButton(feature);
 	}
@@ -124,6 +128,31 @@ export class FeatureDetailPanel {
 		for (const [dim, score] of Object.entries(feature.prioritization.dimensions)) {
 			const label = PRIORITIZATION_LABELS[dim as keyof typeof PRIORITIZATION_LABELS] ?? dim;
 			list.createEl("li", { text: `${label}: ${score ?? "—"}` });
+		}
+	}
+
+	private renderProcessCompliance(feature: FeatureEntry): void {
+		const compliance = this.deps.getProcessCompliance?.(feature.name);
+		if (!compliance) return;
+
+		const section = this.detailEl.createDiv({ cls: "ft-detail-section" });
+		section.dataset.section = "process-compliance";
+
+		const colorCls = compliance.percentage >= 80 ? "ft-compliance-green"
+			: compliance.percentage >= 50 ? "ft-compliance-yellow"
+			: "ft-compliance-red";
+
+		const heading = section.createEl("h4");
+		heading.appendText(`Process: ${compliance.percentage}%`);
+		const badge = heading.createSpan({ cls: `ft-badge ${colorCls}` });
+		badge.textContent = compliance.percentage >= 80 ? "On track" : compliance.percentage >= 50 ? "Partial" : "Behind";
+
+		const list = section.createEl("ul", { cls: "ft-detail-meta-list" });
+		for (const step of compliance.steps) {
+			const li = list.createEl("li", { cls: step.satisfied ? "ft-step-done" : "ft-step-pending" });
+			const icon = li.createSpan({ cls: "ft-step-icon" });
+			setIcon(icon, step.satisfied ? "check-circle" : "circle");
+			li.createSpan({ text: `Phase ${step.phase}: ${step.name}` });
 		}
 	}
 

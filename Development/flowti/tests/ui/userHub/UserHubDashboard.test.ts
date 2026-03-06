@@ -92,6 +92,7 @@ function makeActiveSession(overrides?: Partial<Session>): Session {
 		executionTasks: [],
 		reflections: [],
 		closureResponse: null,
+		featureName: null,
 		...overrides,
 	};
 }

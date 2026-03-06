@@ -16,6 +16,7 @@ export async function handleCreate(ctx: SessionHandlerContext, payload: {
 	goals?: string[]; decisions?: string[]; tasks?: string[];
 	contextBindings?: Array<{ path: string; type: ContextBindingType }>;
 	notes?: string; reflections?: Array<{ type: ReflectionEntry["type"]; content: string }>;
+	featureName?: string;
 }): Promise<Session> {
 	const id = `session_${generateUUID()}`;
 	const session = createSession(
@@ -72,6 +73,10 @@ export async function handleCreate(ctx: SessionHandlerContext, payload: {
 		}));
 	}
 
+	if (payload.featureName) {
+		session.featureName = payload.featureName;
+	}
+
 	const state = ctx.getState();
 	state.sessions.unshift(session);
 
@@ -106,6 +111,9 @@ export async function handleStart(ctx: SessionHandlerContext, sessionId: string)
 	ctx.startTimer(session);
 	await ctx.saveState();
 	await ctx.eventBus?.emit("session.started", { session: { ...session } });
+	if (session.featureName) {
+		await ctx.eventBus?.emit("feature.session.started", { featureName: session.featureName, startTime: session.startedAt! });
+	}
 	ctx.scheduleSyncNotesFile(sessionId);
 }
 

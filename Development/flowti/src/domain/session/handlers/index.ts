@@ -5,3 +5,4 @@ export * as taskHandlers from "./taskHandlers";
 export * as closureHandlers from "./closureHandlers";
 export * as syncHandlers from "./syncHandlers";
 export * as trackingHandlers from "./trackingHandlers";
+export * as featureBindingHandlers from "./featureBindingHandlers";

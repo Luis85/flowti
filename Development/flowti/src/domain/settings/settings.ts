@@ -68,6 +68,7 @@ export const DEFAULT_CATALOG_CATEGORIES: CatalogCategoryConfig[] = [
 	{ name: "Journey Builder", visible: true },
 	{ name: "Test Management", visible: true },
 	{ name: "Feature Lifecycle", visible: true },
+	{ name: "Process", visible: true },
 ];
 
 // ─────────────────────────────────────────────────────────────

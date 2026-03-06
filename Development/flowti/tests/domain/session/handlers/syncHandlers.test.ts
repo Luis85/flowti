@@ -45,6 +45,7 @@ function makeSession(overrides: Partial<Session> = {}): Session {
 		executionTasks: [],
 		reflections: [],
 		closureResponse: null,
+		featureName: null,
 		...overrides,
 	};
 }

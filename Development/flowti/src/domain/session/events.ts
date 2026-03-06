@@ -7,7 +7,7 @@ import type { ClosureResponse, ContextBindingType, EnergyLevel, ExecutionTask, R
 export interface SessionEventMap {
 	// ── Commands ──────────────────────────────────────────────
 	/** Command: create a new session */
-	"session.create": { type: SessionType; title: string; durationMinutes: number; focusFile?: string; goals?: string[]; tasks?: string[]; decisions?: string[]; contextBindings?: Array<{ path: string; type: ContextBindingType }>; notes?: string; reflections?: Array<{ type: ReflectionEntry["type"]; content: string }> };
+	"session.create": { type: SessionType; title: string; durationMinutes: number; focusFile?: string; goals?: string[]; tasks?: string[]; decisions?: string[]; contextBindings?: Array<{ path: string; type: ContextBindingType }>; notes?: string; reflections?: Array<{ type: ReflectionEntry["type"]; content: string }>; featureName?: string };
 	/** Command: start the timer for a prepared session */
 	"session.start": { sessionId: string };
 	/** Command: pause an active session */
@@ -254,4 +254,14 @@ export interface SessionEventMap {
 	// ── Documentation ────────────────────────────────────────
 	/** Emitted after a session completion summary document is generated */
 	"session.documentation.generated": { sessionId: string; path: string };
+
+	// ── v3: Feature binding (Cycle 59) ──────────────────────
+	/** Command: bind a session to a feature */
+	"session.feature.bind": { sessionId: string; featureName: string };
+	/** Emitted after a session is bound to a feature */
+	"session.feature.bound": { sessionId: string; featureName: string };
+	/** Command: unbind a session from its feature */
+	"session.feature.unbind": { sessionId: string };
+	/** Emitted after a session is unbound from its feature */
+	"session.feature.unbound": { sessionId: string; featureName: string };
 }

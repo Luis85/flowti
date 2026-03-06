@@ -326,6 +326,10 @@ export interface Session {
 	/** Output artifacts generated from this session (meeting invites, action items, etc.). */
 	outputArtifacts: SessionOutputArtifact[];
 
+	// ── v3 fields (Cycle 59) ─────────────────────────────────
+	/** Feature name this session is bound to (v3). Null if unbound. */
+	featureName: string | null;
+
 	// ── v2 fields (ADR-031) ─────────────────────────────────
 	/** Structured intent defined before starting (v2). Null for legacy sessions. */
 	intent: SessionIntent | null;
