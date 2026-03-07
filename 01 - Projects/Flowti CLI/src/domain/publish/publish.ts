@@ -9,6 +9,7 @@ import { runMenu } from "../../infrastructure/menu.js";
 import { showHelp } from "../help/help.js";
 import type { MenuResult } from "../../types.js";
 import { log } from "../../infrastructure/logger.js";
+import { proc } from "../../infrastructure/proc.js";
 
 const cmd = (config as Record<string, Record<string, Record<string, string>>>).publish?.commands ?? {};
 
@@ -69,9 +70,9 @@ export const commands = {
 	},
 	"publish:all": () => {
 		const b = shell.run(cmd.increment ?? "npm run build:increment", { label: "Step 1/3: Building increment..." });
-		if (b !== 0) process.exit(b);
+		if (b !== 0) proc.exit(b);
 		const t = shell.run(cmd.e2e ?? "npm run test:e2e", { label: "Step 2/3: Running E2E tests..." });
-		if (t !== 0) process.exit(t);
+		if (t !== 0) proc.exit(t);
 		shell.run(cmd.release ?? "npm run build:release", { label: "Step 3/3: Publishing..." });
 	},
 };

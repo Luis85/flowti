@@ -2,12 +2,13 @@
  * onboarding.ts — Environment checks and first-run guidance.
  */
 
-import path from "node:path";
+import { paths } from "../../infrastructure/paths.js";
 import { ROOT, VAULT_ROOT, cliConfig } from "../../infrastructure/config.js";
 import { disk } from "../../infrastructure/filesystem.js";
 import { shell } from "../../infrastructure/shell.js";
 import { RESET, BOLD, DIM, GREEN, RED, CYAN, YELLOW } from "../../infrastructure/ui.js";
 import { log } from "../../infrastructure/logger.js";
+import { proc } from "../../infrastructure/proc.js";
 import type { IFileSystem, IShell } from "../../types.js";
 
 const onb = cliConfig.onboarding ?? {};
@@ -23,7 +24,7 @@ export interface OnboardingDeps {
 const defaults: Required<OnboardingDeps> = {
 	fs: disk,
 	sh: shell,
-	exit: (code: number) => process.exit(code),
+	exit: (code: number) => proc.exit(code),
 };
 
 export function checkPrerequisites(deps: OnboardingDeps = {}): void {
@@ -66,7 +67,7 @@ export function checkPrerequisites(deps: OnboardingDeps = {}): void {
 
 export function ensureDependencies(deps: OnboardingDeps = {}): void {
 	const { fs, sh, exit } = { ...defaults, ...deps };
-	const nodeModulesPath = path.join(ROOT, "node_modules");
+	const nodeModulesPath = paths.join(ROOT, "node_modules");
 	if (fs.existsSync(nodeModulesPath)) return;
 
 	log(`\n  ${YELLOW}Dependencies not installed.${RESET}`);
@@ -83,7 +84,7 @@ export function ensureDependencies(deps: OnboardingDeps = {}): void {
 
 export function checkFirstRun(deps: OnboardingDeps = {}): void {
 	const { fs } = { ...defaults, ...deps };
-	const mainJs = path.join(VAULT_ROOT, ".obsidian", "plugins", pluginId, "main.js");
+	const mainJs = paths.join(VAULT_ROOT, ".obsidian", "plugins", pluginId, "main.js");
 	if (!fs.existsSync(mainJs)) {
 		log(`  ${YELLOW}Plugin not yet built.${RESET} Select ${BOLD}Build${RESET} (option 2) to get started.\n`);
 	}
@@ -91,7 +92,7 @@ export function checkFirstRun(deps: OnboardingDeps = {}): void {
 
 export function showPostBuildGuidance(deps: OnboardingDeps = {}): void {
 	const { fs } = { ...defaults, ...deps };
-	const mainJs = path.join(VAULT_ROOT, ".obsidian", "plugins", pluginId, "main.js");
+	const mainJs = paths.join(VAULT_ROOT, ".obsidian", "plugins", pluginId, "main.js");
 	if (!fs.existsSync(mainJs)) return;
 
 	log(`  ${GREEN}${BOLD}Plugin built successfully!${RESET}\n`);

@@ -2,7 +2,7 @@
  * fs.ts — File system utilities for scaffolding and report parsing.
  */
 
-import path from "node:path";
+import { paths } from "./paths.js";
 import { ROOT } from "./config.js";
 import { disk } from "./filesystem.js";
 import { RESET, GREEN, YELLOW } from "./ui.js";
@@ -14,8 +14,8 @@ export function writeFile(relPath: string, content: string, fs: IFileSystem = di
 }
 
 export function writeFileAt(basePath: string, relPath: string, content: string, fs: IFileSystem = disk): boolean {
-	const absPath = path.join(basePath, relPath);
-	const dir = path.dirname(absPath);
+	const absPath = paths.join(basePath, relPath);
+	const dir = paths.dirname(absPath);
 	fs.mkdirSync(dir, { recursive: true });
 	if (fs.existsSync(absPath)) {
 		log(`    ${YELLOW}skip${RESET}  ${relPath} (already exists)`);
@@ -32,7 +32,7 @@ export function countFiles(dir: string, ext: string, fs: IFileSystem = disk): nu
 		const walk = (d: string): void => {
 			for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
 				if (entry.name === "node_modules" || entry.name === ".git") continue;
-				const full = path.join(d, entry.name);
+				const full = paths.join(d, entry.name);
 				if (entry.isDirectory()) walk(full);
 				else if (entry.isFile() && full.endsWith(ext)) count++;
 			}
@@ -48,7 +48,7 @@ export function findLatestReport(dir: string, fs: IFileSystem = disk): string | 
 		.filter((f) => f.endsWith(".md") && !f.startsWith("."))
 		.sort()
 		.reverse();
-	return files.length > 0 ? path.join(dir, files[0]) : null;
+	return files.length > 0 ? paths.join(dir, files[0]) : null;
 }
 
 export function parseFrontmatter(filePath: string, fs: IFileSystem = disk): Record<string, string> {

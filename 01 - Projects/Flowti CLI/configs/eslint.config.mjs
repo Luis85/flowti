@@ -42,8 +42,16 @@ export default [
 				allow: ["warn", "error", "debug"],
 			}],
 
+			// Route all process operations through infrastructure/proc.ts — ban direct process.exit/argv/cwd
+			"no-restricted-properties": ["error",
+				{ object: "process", property: "exit", message: "Use { proc } from infrastructure/proc.js instead." },
+				{ object: "process", property: "argv", message: "Use { proc } from infrastructure/proc.js instead." },
+				{ object: "process", property: "cwd", message: "Use { proc } from infrastructure/proc.js instead." },
+			],
+
 			// Route all file I/O through infrastructure/filesystem.ts — ban direct node:fs usage
 			// Route all shell execution through infrastructure/shell.ts — ban direct child_process usage
+			// Route all path operations through infrastructure/paths.ts — ban direct node:path usage
 			"no-restricted-imports": ["error", {
 				paths: [{
 					name: "node:fs",
@@ -57,6 +65,12 @@ export default [
 				}, {
 					name: "child_process",
 					message: "Use { shell } from infrastructure/shell.js instead.",
+				}, {
+					name: "node:path",
+					message: "Use { paths } from infrastructure/paths.js instead.",
+				}, {
+					name: "path",
+					message: "Use { paths } from infrastructure/paths.js instead.",
 				}],
 			}],
 		},
@@ -64,10 +78,14 @@ export default [
 
 	// Allow node:fs in the filesystem service and types (type-only import for interface signatures)
 	// Allow node:child_process in the shell service and legacy orchestration files
+	// Allow node:path in the paths service
+	// Allow process.* in the proc service and entry points
 	{
 		files: [
 			"src/infrastructure/filesystem.ts",
 			"src/infrastructure/shell.ts",
+			"src/infrastructure/paths.ts",
+			"src/infrastructure/proc.ts",
 			"src/types.ts",
 			// Legacy orchestration — too complex to refactor now, isolated scripts
 			"src/domain/review/run-e2e.ts",
@@ -76,6 +94,21 @@ export default [
 		],
 		rules: {
 			"no-restricted-imports": "off",
+			"no-restricted-properties": "off",
+		},
+	},
+	// Template files generate code for other projects — their string literals contain
+	// process.*, console.*, and node:* imports that are valid in the generated output
+	{
+		files: [
+			"src/domain/make/templates.ts",
+			"src/domain/make/appTemplates.ts",
+			"src/domain/make/cliTemplates.ts",
+		],
+		rules: {
+			"no-restricted-imports": "off",
+			"no-restricted-properties": "off",
+			"no-console": "off",
 		},
 	},
 ];

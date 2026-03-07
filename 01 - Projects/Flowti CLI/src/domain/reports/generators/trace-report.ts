@@ -8,10 +8,11 @@
  */
 
 import { disk } from "../../../infrastructure/filesystem.js";
-import path from "node:path";
+import { paths } from "../../../infrastructure/paths.js";
 import { VAULT_ROOT, ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
+import { proc } from "../../../infrastructure/proc.js";
 
 interface ScanResult {
 	id: string;
@@ -26,11 +27,11 @@ interface TraceGap {
 	description: string;
 }
 
-const OUTPUT_DIR: string = path.join(ROOT, "docs", "reports", "traceability");
-const DOCS_DIR: string = path.join(ROOT, "docs");
+const OUTPUT_DIR: string = paths.join(ROOT, "docs", "reports", "traceability");
+const DOCS_DIR: string = paths.join(ROOT, "docs");
 
 // Vault inbox is relative to the git root
-const VAULT_INBOX: string = path.join(VAULT_ROOT, "00 - Connectivity", "inbox");
+const VAULT_INBOX: string = paths.join(VAULT_ROOT, "00 - Connectivity", "inbox");
 
 function parseScalar(rawValue: string): unknown {
 	if (rawValue === "true") return true;
@@ -83,7 +84,7 @@ function scanDir(dir: string, docType: string): ScanResult[] {
 
 	const files: string[] = disk.readdirSync(dir).filter((f: string) => f.endsWith(".md"));
 	for (const file of files) {
-		const content: string = disk.readFileSync(path.join(dir, file), "utf-8");
+		const content: string = disk.readFileSync(paths.join(dir, file), "utf-8");
 		const fm: Record<string, unknown> | null = parseFrontmatter(content);
 		if (!fm) continue;
 		results.push({ id: file.replace(/\.md$/, ""), type: docType, frontmatter: fm });
@@ -93,11 +94,11 @@ function scanDir(dir: string, docType: string): ScanResult[] {
 
 function collectDocuments(): ScanResult[] {
 	const docs: ScanResult[] = [
-		...scanDir(path.join(DOCS_DIR, "inbox"), "inbox"),
+		...scanDir(paths.join(DOCS_DIR, "inbox"), "inbox"),
 		...scanDir(VAULT_INBOX, "inbox"),
 		...scanDir(DOCS_DIR, "pbi").filter((d) => d.id.startsWith("PBI-")),
-		...scanDir(path.join(DOCS_DIR, "cycles"), "cycle"),
-		...scanDir(path.join(DOCS_DIR, "debt"), "tech_debt"),
+		...scanDir(paths.join(DOCS_DIR, "cycles"), "cycle"),
+		...scanDir(paths.join(DOCS_DIR, "debt"), "tech_debt"),
 	];
 
 	const topDocs = scanDir(DOCS_DIR, "pbi").filter((d) => d.id.startsWith("PBI-"));
@@ -188,7 +189,7 @@ function buildTraceReportDoc(docs: ScanResult[], gaps: TraceGap[]): Document {
 }
 
 function main(): void {
-	const dryRun = process.argv.includes("--dry-run");
+	const dryRun = proc.argv().includes("--dry-run");
 	const docs = collectDocuments();
 	const gaps = findGaps(docs);
 	const reportDoc = buildTraceReportDoc(docs, gaps);
@@ -200,7 +201,7 @@ function main(): void {
 	}
 
 	const safeTimestamp = new Date().toISOString().replace(/:/g, "-");
-	const outputPath = path.join(OUTPUT_DIR, `${safeTimestamp}-trace-conformance-report.md`);
+	const outputPath = paths.join(OUTPUT_DIR, `${safeTimestamp}-trace-conformance-report.md`);
 	reportDoc.save(outputPath);
 	log(`[report] TraceConformanceReport written: ${outputPath}`);
 }

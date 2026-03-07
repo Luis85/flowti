@@ -25,33 +25,33 @@
  */
 
 import { disk } from "../../../infrastructure/filesystem.js";
-import path from "node:path";
+import { paths } from "../../../infrastructure/paths.js";
 import { VAULT_ROOT, PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
 
 // Vitest JSON lives in the plugin source (temp artifact)
-const VITEST_RESULTS: string = path.join(PLUGIN_ROOT, "docs", "reports", "e2e", "e2e-results.json");
+const VITEST_RESULTS: string = paths.join(PLUGIN_ROOT, "docs", "reports", "e2e", "e2e-results.json");
 
 // Test vault: sibling to the main vault under the projects root
 // vaultRoot   = c:\Projects\flowti
 // projects    = c:\Projects
 // test vault  = c:\Projects\flowti-e2e
-const PROJECTS_ROOT: string = path.resolve(VAULT_ROOT, "..");
-const TEST_VAULT: string = process.env.E2E_VAULT_DIR ?? path.join(PROJECTS_ROOT, "flowti-e2e");
+const PROJECTS_ROOT: string = paths.resolve(VAULT_ROOT, "..");
+const TEST_VAULT: string = process.env.E2E_VAULT_DIR ?? paths.join(PROJECTS_ROOT, "flowti-e2e");
 
 // Journey results live in the test vault
-const JOURNEYS_DIR: string = path.join(TEST_VAULT, "docs", "journeys");
+const JOURNEYS_DIR: string = paths.join(TEST_VAULT, "docs", "journeys");
 
 // Development vault — separated by artifact type
-const DEV_RUNS_DIR: string = path.join(PLUGIN_ROOT, "docs", "reports", "e2e", "runs");
-const DEV_TRACES_DIR: string = path.join(PLUGIN_ROOT, "docs", "reports", "e2e", "traces");
-const DEV_JOURNEYS_DIR: string = path.join(PLUGIN_ROOT, "docs", "journeys");
+const DEV_RUNS_DIR: string = paths.join(PLUGIN_ROOT, "docs", "reports", "e2e", "runs");
+const DEV_TRACES_DIR: string = paths.join(PLUGIN_ROOT, "docs", "reports", "e2e", "traces");
+const DEV_JOURNEYS_DIR: string = paths.join(PLUGIN_ROOT, "docs", "journeys");
 
 // Plugin data.json candidates (for startup perf metrics)
 const DATA_JSON_CANDIDATES: string[] = [
-	path.resolve(PLUGIN_ROOT, "..", "..", ".obsidian", "plugins", "flowti-ibde", "data.json"),
-	path.join(PLUGIN_ROOT, "data.json"),
+	paths.resolve(PLUGIN_ROOT, "..", "..", ".obsidian", "plugins", "flowti-ibde", "data.json"),
+	paths.join(PLUGIN_ROOT, "data.json"),
 ];
 
 // ── Interfaces ──────────────────────────────────────────────────────
@@ -455,7 +455,7 @@ function extractHookError(file: Record<string, unknown>): string {
 
 /** Parses a single vitest file result into a VitestSuite and returns case-level totals. */
 function parseVitestSuite(file: Record<string, unknown>): { suite: VitestSuite; passed: number; failed: number; skipped: number } {
-	const suiteName = path.basename(file.name as string, ".test.ts");
+	const suiteName = paths.basename(file.name as string, ".test.ts");
 	const cases = (file.assertionResults as Record<string, unknown>[] ?? []).map(parseVitestCase);
 	const suiteHookFailed = file.status === "failed";
 
@@ -526,8 +526,8 @@ function readJourneyResults(): JourneyEntry[] {
 	for (const entry of entries) {
 		if (!entry.isDirectory()) continue;
 
-		const journeyDir = path.join(JOURNEYS_DIR, entry.name);
-		const resultsFile = path.join(journeyDir, `${entry.name}-results.json`);
+		const journeyDir = paths.join(JOURNEYS_DIR, entry.name);
+		const resultsFile = paths.join(journeyDir, `${entry.name}-results.json`);
 
 		if (disk.existsSync(resultsFile)) {
 			journeys.push({
@@ -1402,7 +1402,7 @@ function generateJourneyCanvas(data: Record<string, unknown>, screenshotBasePath
 /** Writes content to a file and logs the output path. */
 function writeReport(dir: string, filename: string, content: string, label: string): void {
 	disk.mkdirSync(dir, { recursive: true });
-	const outputPath = path.join(dir, filename);
+	const outputPath = paths.join(dir, filename);
 	disk.writeFileSync(outputPath, content, "utf-8");
 	log(`[report] ${label}: ${outputPath}`);
 }
@@ -1435,7 +1435,7 @@ function readLatestEventTrace(): TraceData | null {
 	if (files.length === 0) return null;
 
 	try {
-		return JSON.parse(disk.readFileSync(path.join(DEV_TRACES_DIR, files[0]), "utf-8")) as TraceData;
+		return JSON.parse(disk.readFileSync(paths.join(DEV_TRACES_DIR, files[0]), "utf-8")) as TraceData;
 	} catch {
 		return null;
 	}
@@ -1695,13 +1695,13 @@ function copyScreenshots(srcDir: string, destDir: string): void {
 	for (const file of disk.readdirSync(destDir)) {
 		if (!file.endsWith(".png")) continue;
 		if (!srcFiles.has(file)) {
-			disk.rmSync(path.join(destDir, file), { force: true });
+			disk.rmSync(paths.join(destDir, file), { force: true });
 		}
 	}
 
 	// Copy current screenshots
 	for (const file of srcFiles) {
-		disk.copyFileSync(path.join(srcDir, file), path.join(destDir, file));
+		disk.copyFileSync(paths.join(srcDir, file), paths.join(destDir, file));
 	}
 }
 
@@ -1721,10 +1721,10 @@ function writeJourneyOutputs(
 	writeReport(dir, canvasFilename, JSON.stringify(testCanvas, null, "\t"), "JourneyCanvas written");
 
 	const devContent = content.replace(/!\[\[([^\]]+\.png)\]\]/g, (_: string, file: string) => `![](screenshots/${file})`);
-	const devJourneyDir = path.join(DEV_JOURNEYS_DIR, title);
+	const devJourneyDir = paths.join(DEV_JOURNEYS_DIR, title);
 	writeReport(devJourneyDir, filename, devContent, "JourneyReport mirrored");
 
-	const configFile = path.join(dir, `${title}-config.json`);
+	const configFile = paths.join(dir, `${title}-config.json`);
 	if (disk.existsSync(configFile)) {
 		writeReport(devJourneyDir, `${title}-config.json`, disk.readFileSync(configFile, "utf-8"), "JourneyConfig mirrored");
 	}
@@ -1737,11 +1737,11 @@ function writeJourneyOutputs(
 	const archivedContent = content.replace(/!\[\[([^\]]+\.png)\]\]/g, (_: string, file: string) => `![](../screenshots/${file})`);
 	const safeTs = now.toISOString().replace(/:/g, "-");
 	const archiveSuffix = jReportStatus === "partial-pass" ? " (Partial)" : "";
-	const pastTestsDir = path.join(devJourneyDir, "past-tests");
+	const pastTestsDir = paths.join(devJourneyDir, "past-tests");
 	writeReport(pastTestsDir, `${safeTs}-${title}${archiveSuffix}.md`, archivedContent, "JourneyReport archived");
 	writeReport(pastTestsDir, `${safeTs}-${title}${archiveSuffix}.canvas`, JSON.stringify(devCanvas, null, "\t"), "JourneyCanvas archived");
 
-	copyScreenshots(path.join(dir, "screenshots"), path.join(devJourneyDir, "screenshots"));
+	copyScreenshots(paths.join(dir, "screenshots"), paths.join(devJourneyDir, "screenshots"));
 
 	return { title, status: jReportStatus, content };
 }
@@ -2116,7 +2116,7 @@ function renderJourneysSummarySection(
 function cleanupResults(journeys: JourneyEntry[]): void {
 	try { if (disk.existsSync(VITEST_RESULTS)) disk.rmSync(VITEST_RESULTS, { force: true }); } catch { /* ignore */ }
 	for (const { dir, data } of journeys) {
-		try { disk.rmSync(path.join(dir, `${(data.journey as string)}-results.json`), { force: true }); } catch { /* ignore */ }
+		try { disk.rmSync(paths.join(dir, `${(data.journey as string)}-results.json`), { force: true }); } catch { /* ignore */ }
 	}
 }
 
@@ -2186,7 +2186,7 @@ function renderE2EDocBody(
 	if (vitest && vitest.suites.length > 0) {
 		doc.addSeparator().addBlank();
 		doc.heading(2, "Units Under Test").addBlank();
-		doc.list(vitest.suites.map((s) => `\`${path.relative(PLUGIN_ROOT, s.file).replace(/\\/g, "/")}\``));
+		doc.list(vitest.suites.map((s) => `\`${paths.relative(PLUGIN_ROOT, s.file).replace(/\\/g, "/")}\``));
 		doc.addBlank();
 	}
 
@@ -2202,7 +2202,7 @@ function writeE2EOutputs(content: string, now: Date, overallStatus: string): voi
 	const safeTimestamp = now.toISOString().replace(/:/g, "-");
 	const e2eFilename = `${safeTimestamp}-e2e-report${overallStatus === "partial-pass" ? " (Partial)" : ""}.md`;
 	writeReport(TEST_VAULT, "E2E Report.md", content, "E2EReport written");
-	writeReport(path.join(PLUGIN_ROOT, "docs", "reports", "e2e"), "E2E Report.md", content, "E2EReport current");
+	writeReport(paths.join(PLUGIN_ROOT, "docs", "reports", "e2e"), "E2E Report.md", content, "E2EReport current");
 	writeReport(DEV_RUNS_DIR, e2eFilename, content, "E2EReport archived");
 }
 
@@ -2226,7 +2226,7 @@ function generateReport(): void {
 	const allTools = aggregate.tools;
 
 	const doc = Document.create("E2E Report");
-	const testSuiteLinks = (vitest?.suites ?? []).map((s) => `[[${path.relative(PLUGIN_ROOT, s.file).replace(/\\/g, "/")}]]`);
+	const testSuiteLinks = (vitest?.suites ?? []).map((s) => `[[${paths.relative(PLUGIN_ROOT, s.file).replace(/\\/g, "/")}]]`);
 
 	buildE2EFrontmatter(doc, {
 		date, ...totals, aggregate, allTools, testSuiteLinks,

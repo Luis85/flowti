@@ -12,73 +12,18 @@
  */
 
 import { disk } from "../../infrastructure/filesystem.js";
-import { join, resolve } from "path";
+import { paths } from "../../infrastructure/paths.js";
 import { PLUGIN_ROOT } from "../../infrastructure/config.js";
 import { log } from "../../infrastructure/logger.js";
+import { proc } from "../../infrastructure/proc.js";
+import { parseFrontmatter, applyFieldRule } from "./frontmatter-utils.js";
 
-const DOCS_ROOT: string = resolve(PLUGIN_ROOT, "docs");
-const DRY_RUN: boolean = process.argv.includes("--dry-run");
+const DOCS_ROOT: string = paths.resolve(PLUGIN_ROOT, "docs");
+const DRY_RUN: boolean = proc.argv().includes("--dry-run");
 
 let fixed: number = 0;
 let skipped: number = 0;
 let errors: number = 0;
-
-/**
- * Parse YAML frontmatter from a markdown file.
- * Returns { frontmatter: string, body: string, fields: Record<string, string> }
- */
-function parseFrontmatter(content: string): { frontmatterRaw: string; body: string; fields: Record<string, string>; fullMatch: string } | null {
-	const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-	if (!match) return null;
-
-	const frontmatterRaw: string = match[1];
-	const body: string = content.slice(match[0].length);
-	const fields: Record<string, string> = {};
-
-	for (const line of frontmatterRaw.split(/\r?\n/)) {
-		const fieldMatch = line.match(/^(\w[\w-]*):\s*(.*)/);
-		if (fieldMatch) {
-			fields[fieldMatch[1]] = fieldMatch[2].trim();
-		}
-	}
-
-	return { frontmatterRaw, body, fields, fullMatch: match[0] };
-}
-
-/**
- * Insert a field after the opening --- line in frontmatter.
- */
-function insertField(content: string, fieldName: string, fieldValue: string): string {
-	return content.replace(/^---\r?\n/, `---\n${fieldName}: ${fieldValue}\n`);
-}
-
-/**
- * Replace a field value in frontmatter.
- */
-function replaceField(content: string, fieldName: string, newValue: string): string {
-	const regex = new RegExp(`^(${fieldName}:\\s*)(.*)$`, "m");
-	return content.replace(regex, `$1${newValue}`);
-}
-
-/**
- * Apply a single field rule to the content, returning updated content and whether it changed.
- */
-function applyFieldRule(
-	content: string, filePath: string,
-	fields: Record<string, string>,
-	rule: { field: string; value: string; action: string },
-): { content: string; changed: boolean } {
-	const { field, value, action } = rule;
-	if (action === "add" && !fields[field]) {
-		log(`  ADD ${field}: ${value} → ${filePath}`);
-		return { content: insertField(content, field, value), changed: true };
-	}
-	if (action === "replace" && fields[field] !== value) {
-		log(`  REPLACE ${field}: ${fields[field]} → ${value} in ${filePath}`);
-		return { content: replaceField(content, field, value), changed: true };
-	}
-	return { content, changed: false };
-}
 
 /**
  * Process a single file: check and fix frontmatter.
@@ -120,7 +65,7 @@ function listMdFiles(dir: string): string[] {
 	try {
 		return disk.readdirSync(dir)
 			.filter((f: string) => f.endsWith(".md"))
-			.map((f: string) => join(dir, f));
+			.map((f: string) => paths.join(dir, f));
 	} catch {
 		return [];
 	}
@@ -129,7 +74,7 @@ function listMdFiles(dir: string): string[] {
 // ── Fix 1: Add type: TechDebt to all TD files ────────────────────────
 
 log("\n=== Fix 1: Add type: TechDebt to debt docs ===\n");
-const debtDir: string = join(DOCS_ROOT, "debt");
+const debtDir: string = paths.join(DOCS_ROOT, "debt");
 for (const file of listMdFiles(debtDir)) {
 	processFile(file, [{ field: "type", value: "TechDebt", action: "add" }]);
 }
@@ -137,24 +82,24 @@ for (const file of listMdFiles(debtDir)) {
 // ── Fix 2: Add stage: idea to Automation PRD ─────────────────────────
 
 log("\n=== Fix 2: Add missing stage: to PRDs ===\n");
-const automationPrd: string = join(DOCS_ROOT, "features", "Automation", "Automation PRD.md");
+const automationPrd: string = paths.join(DOCS_ROOT, "features", "Automation", "Automation PRD.md");
 processFile(automationPrd, [{ field: "stage", value: "idea", action: "add" }]);
 
 // ── Fix 3: Add stage: to Hubs PBI-003 and PBI-004 ──────────────────
 
 log("\n=== Fix 3: Add missing stage: to PBIs ===\n");
-const hubsBacklog: string = join(DOCS_ROOT, "features", "Hubs", "backlog");
-processFile(join(hubsBacklog, "PBI-003 Product Hub.md"), [
+const hubsBacklog: string = paths.join(DOCS_ROOT, "features", "Hubs", "backlog");
+processFile(paths.join(hubsBacklog, "PBI-003 Product Hub.md"), [
 	{ field: "stage", value: "idea", action: "add" },
 ]);
-processFile(join(hubsBacklog, "PBI-004 Project Hub.md"), [
+processFile(paths.join(hubsBacklog, "PBI-004 Project Hub.md"), [
 	{ field: "stage", value: "idea", action: "add" },
 ]);
 
 // ── Fix 4: Promote Feature Lifecycle PBIs from draft to planned ─────
 
 log("\n=== Fix 4: Promote Feature Lifecycle PBIs to planned (TD-99) ===\n");
-const flBacklog: string = join(DOCS_ROOT, "features", "Feature Lifecycle", "backlog");
+const flBacklog: string = paths.join(DOCS_ROOT, "features", "Feature Lifecycle", "backlog");
 for (const file of listMdFiles(flBacklog)) {
 	processFile(file, [{ field: "stage", value: "planned", action: "replace" }]);
 }

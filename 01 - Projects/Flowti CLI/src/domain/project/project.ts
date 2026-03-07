@@ -7,7 +7,7 @@
  */
 
 import { disk } from "../../infrastructure/filesystem.js";
-import path from "node:path";
+import { paths } from "../../infrastructure/paths.js";
 import { shell } from "../../infrastructure/shell.js";
 import { PROJECTS_DIR, DEVELOPMENT_DIR } from "../../infrastructure/config.js";
 import { getSelectedProject, setSelectedProject } from "../../infrastructure/state.js";
@@ -44,7 +44,7 @@ function listDevelopmentProjects(): string[] {
 }
 
 export function getProjectPath(name: string): string {
-	return path.join(PROJECTS_DIR, name);
+	return paths.join(PROJECTS_DIR, name);
 }
 
 // ── Load Project ────────────────────────────────────────────────────
@@ -92,7 +92,7 @@ async function createProjectMenu(): Promise<MenuResult> {
 		return "main";
 	}
 
-	const projectPath = path.join(PROJECTS_DIR, name);
+	const projectPath = paths.join(PROJECTS_DIR, name);
 	if (disk.existsSync(projectPath)) {
 		log(`\n  ${RED}Project already exists:${RESET} ${name}\n`);
 		return "main";

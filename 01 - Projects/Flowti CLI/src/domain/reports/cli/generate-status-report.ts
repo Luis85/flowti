@@ -6,7 +6,8 @@
  * Generates any missing reports before consolidating.
  */
 
-import path from "node:path";
+import { paths } from "../../../infrastructure/paths.js";
+import { proc } from "../../../infrastructure/proc.js";
 import { disk } from "../../../infrastructure/filesystem.js";
 import { shell } from "../../../infrastructure/shell.js";
 import { CLI_PROJECT } from "../../../infrastructure/config.js";
@@ -138,7 +139,7 @@ export async function generateProjectStatusReport(projectPath?: string): Promise
 	const resolvedPath = projectPath ?? CLI_PROJECT;
 	const svc = new ReportService(resolvedPath);
 	const sections = buildSections(svc);
-	const projectName = path.basename(resolvedPath);
+	const projectName = paths.basename(resolvedPath);
 	const outputPath = svc.stablePath("Project Status Report.md");
 
 	log(`\n  ${CYAN}▸${RESET} Generating Project Status Report...\n`);
@@ -152,5 +153,5 @@ export async function generateProjectStatusReport(projectPath?: string): Promise
 }
 
 // Direct invocation support: tsx src/domain/reports/cli/generate-status-report.ts
-const isDirectRun = process.argv[1]?.replace(/\\/g, "/").includes("generate-status-report");
+const isDirectRun = proc.argv().some((a) => a.replace(/\\/g, "/").includes("generate-status-report"));
 if (isDirectRun) generateProjectStatusReport();

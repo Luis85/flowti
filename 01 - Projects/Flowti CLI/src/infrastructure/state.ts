@@ -4,12 +4,12 @@
  * Stores lightweight runtime state in configs/.flowti-state.json.
  */
 
-import path from "node:path";
+import { paths } from "./paths.js";
 import { CLI_PROJECT } from "./config.js";
 import { disk } from "./filesystem.js";
 import type { CliState, ProjectSource, IFileSystem } from "../types.js";
 
-const STATE_PATH = path.join(CLI_PROJECT, "configs", ".flowti-state.json");
+const STATE_PATH = paths.join(CLI_PROJECT, "configs", ".flowti-state.json");
 
 export function loadState(fs: IFileSystem = disk): CliState {
 	try {

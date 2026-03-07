@@ -10,14 +10,15 @@
  */
 
 import { disk } from "../../../infrastructure/filesystem.js";
-import path from "node:path";
+import { paths } from "../../../infrastructure/paths.js";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
+import { proc } from "../../../infrastructure/proc.js";
 
-const OUTPUT_DIR = path.join(ROOT, "docs", "reports", "builds");
-const MANIFEST_PATH = path.join(ROOT, "manifest.json");
-const TEMPLATE_PATH = path.join(ROOT, "docs", "templates", "Build Report.md");
+const OUTPUT_DIR = paths.join(ROOT, "docs", "reports", "builds");
+const MANIFEST_PATH = paths.join(ROOT, "manifest.json");
+const TEMPLATE_PATH = paths.join(ROOT, "docs", "templates", "Build Report.md");
 
 function humanBytes(bytes: number): string {
 	const units = ["B", "KB", "MB", "GB"];
@@ -37,7 +38,7 @@ function safeLocalTime(d: Date): string {
 
 function parseArgs(): Record<string, string> {
 	const args: Record<string, string> = {};
-	for (const arg of process.argv.slice(2)) {
+	for (const arg of proc.argv()) {
 		const [key, ...rest] = arg.replace(/^--/, "").split("=");
 		args[key] = rest.join("=") || "true";
 	}
@@ -68,7 +69,7 @@ function collectOutputs(metafile: Record<string, unknown>): ByteSummary {
 		if (file.endsWith(".js")) result.jsBytes += bytes;
 		else if (file.endsWith(".css")) result.cssBytes += bytes;
 		else result.otherBytes += bytes;
-		result.outputs.push({ file: path.basename(file), bytes });
+		result.outputs.push({ file: paths.basename(file), bytes });
 	}
 	return result;
 }
@@ -151,7 +152,7 @@ function main(): void {
 		? "increment-build-report"
 		: isRelease ? "release-build-report" : "build-report";
 	const filename = `${safeTimestamp}-${prefix}.${manifest.version}.md`;
-	const outputPath = path.join(OUTPUT_DIR, filename);
+	const outputPath = paths.join(OUTPUT_DIR, filename);
 
 	doc.save(outputPath);
 

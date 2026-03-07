@@ -2,26 +2,26 @@
  * config.ts — Kernel-space path resolution and configuration loading.
  */
 
-import path from "node:path";
+import { paths } from "./paths.js";
 import type { FlowtiCliConfig } from "../types.js";
 import { disk } from "./filesystem.js";
 
 // ── Path resolution ──────────────────────────────────────────────────
 
 const CLI_DIR: string = import.meta.dirname;                                // src/infrastructure/ or bin/src/infrastructure/
-const RAW_ROOT: string = path.resolve(CLI_DIR, "..", "..");
-export const CLI_PROJECT: string = path.basename(RAW_ROOT) === "bin"        // compiled output lives one level deeper
-	? path.resolve(RAW_ROOT, "..")
+const RAW_ROOT: string = paths.resolve(CLI_DIR, "..", "..");
+export const CLI_PROJECT: string = paths.basename(RAW_ROOT) === "bin"        // compiled output lives one level deeper
+	? paths.resolve(RAW_ROOT, "..")
 	: RAW_ROOT;
-export const cliConfig: FlowtiCliConfig = JSON.parse(disk.readFileSync(path.join(CLI_PROJECT, "configs", "flowti-cli.config.json"), "utf-8"));
+export const cliConfig: FlowtiCliConfig = JSON.parse(disk.readFileSync(paths.join(CLI_PROJECT, "configs", "flowti-cli.config.json"), "utf-8"));
 
-export const VAULT_ROOT: string = path.resolve(CLI_PROJECT, "..", "..");
-export const PLUGIN_ROOT: string = path.resolve(VAULT_ROOT, cliConfig.subsystems?.plugin?.root ?? "Development/flowti");
+export const VAULT_ROOT: string = paths.resolve(CLI_PROJECT, "..", "..");
+export const PLUGIN_ROOT: string = paths.resolve(VAULT_ROOT, cliConfig.subsystems?.plugin?.root ?? "Development/flowti");
 export const ROOT: string = PLUGIN_ROOT;
 
-export const CONFIG_PATH: string = path.join(ROOT, cliConfig.subsystems?.plugin?.config ?? "flowti.config.json");
-const MANIFEST_PATH: string = path.join(ROOT, cliConfig.subsystems?.plugin?.manifest ?? "manifest.json");
-const PKG_PATH: string = path.join(ROOT, cliConfig.subsystems?.plugin?.package ?? "package.json");
+export const CONFIG_PATH: string = paths.join(ROOT, cliConfig.subsystems?.plugin?.config ?? "flowti.config.json");
+const MANIFEST_PATH: string = paths.join(ROOT, cliConfig.subsystems?.plugin?.manifest ?? "manifest.json");
+const PKG_PATH: string = paths.join(ROOT, cliConfig.subsystems?.plugin?.package ?? "package.json");
 
 // ── JSON loader ──────────────────────────────────────────────────────
 
@@ -41,8 +41,8 @@ export const pkg = loadJson<{ version: string }>(PKG_PATH) ?? { version: "?" };
 
 // ── Projects directory ───────────────────────────────────────────────
 
-export const PROJECTS_DIR: string = path.join(VAULT_ROOT, cliConfig.projectsFolder ?? "01 - Projects");
-export const DEVELOPMENT_DIR: string = path.join(VAULT_ROOT, "Development");
+export const PROJECTS_DIR: string = paths.join(VAULT_ROOT, cliConfig.projectsFolder ?? "01 - Projects");
+export const DEVELOPMENT_DIR: string = paths.join(VAULT_ROOT, "Development");
 
 // ── Capture config ──────────────────────────────────────────────────
 
@@ -50,5 +50,5 @@ const DEFAULT_CAPTURE = "00 - Connectivity/inbox";
 export const captureConfig: Record<string, string> = cliConfig.capture ?? {};
 export function getCaptureDir(type: string): string {
 	const rel = captureConfig[type] ?? captureConfig["default"] ?? DEFAULT_CAPTURE;
-	return path.join(VAULT_ROOT, rel);
+	return paths.join(VAULT_ROOT, rel);
 }

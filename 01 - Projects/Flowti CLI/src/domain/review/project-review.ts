@@ -7,7 +7,7 @@
  * Configured via flowti.config.json "review" section.
  */
 
-import path from "node:path";
+import { paths } from "../../infrastructure/paths.js";
 import { disk } from "../../infrastructure/filesystem.js";
 import { VAULT_ROOT } from "../../infrastructure/config.js";
 import { RESET, BOLD, DIM, GREEN, CYAN, YELLOW } from "../../infrastructure/ui.js";
@@ -26,14 +26,14 @@ interface JourneyFile {
 }
 
 function scanJourneys(projectPath: string, journeysDir: string): JourneyFile[] {
-	const dir = path.resolve(projectPath, journeysDir);
+	const dir = paths.resolve(projectPath, journeysDir);
 	if (!disk.existsSync(dir)) return [];
 
 	return disk.readdirSync(dir)
 		.filter((f) => f.endsWith(".journey") || f.endsWith(".journey.json"))
 		.sort()
 		.map((f) => {
-			const fullPath = path.join(dir, f);
+			const fullPath = paths.join(dir, f);
 			let meta: Record<string, unknown> = {};
 			try {
 				meta = JSON.parse(disk.readFileSync(fullPath, "utf-8")) as Record<string, unknown>;
@@ -49,10 +49,10 @@ function scanJourneys(projectPath: string, journeysDir: string): JourneyFile[] {
 // ── Test vault management ───────────────────────────────────────────
 
 function resolveTestVault(projectPath: string, config: ReviewConfig): string {
-	const baseDir = path.resolve(VAULT_ROOT, "..");
-	if (config.testVault) return path.resolve(baseDir, config.testVault);
-	const projectName = path.basename(projectPath);
-	return path.resolve(baseDir, `${projectName}-e2e`);
+	const baseDir = paths.resolve(VAULT_ROOT, "..");
+	if (config.testVault) return paths.resolve(baseDir, config.testVault);
+	const projectName = paths.basename(projectPath);
+	return paths.resolve(baseDir, `${projectName}-e2e`);
 }
 
 function ensureTestVault(vaultPath: string): boolean {

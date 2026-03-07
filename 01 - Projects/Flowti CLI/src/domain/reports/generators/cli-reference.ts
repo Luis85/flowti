@@ -8,15 +8,15 @@
  */
 
 import { disk } from "../../../infrastructure/filesystem.js";
-import path from "node:path";
+import { paths } from "../../../infrastructure/paths.js";
 import { CLI_PROJECT, PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
 
-const HELP_PATH: string = path.join(CLI_PROJECT, "src", "domain", "help", "help.ts");
-const PLUGIN_CONFIG_PATH: string = path.join(PLUGIN_ROOT, "flowti.config.json");
-const PLUGIN_PKG_PATH: string = path.join(PLUGIN_ROOT, "package.json");
-const OUTPUT_DIR: string = path.join(CLI_PROJECT, "docs", "reference");
+const HELP_PATH: string = paths.join(CLI_PROJECT, "src", "domain", "help", "help.ts");
+const PLUGIN_CONFIG_PATH: string = paths.join(PLUGIN_ROOT, "flowti.config.json");
+const PLUGIN_PKG_PATH: string = paths.join(PLUGIN_ROOT, "package.json");
+const OUTPUT_DIR: string = paths.join(CLI_PROJECT, "docs", "reference");
 
 /**
  * Extract HELP sections from the help module source.
@@ -300,7 +300,7 @@ function main(): void {
 	doc.addBlank();
 
 	disk.mkdirSync(OUTPUT_DIR, { recursive: true });
-	const outputPath = path.join(OUTPUT_DIR, "Flowti CLI Reference.md");
+	const outputPath = paths.join(OUTPUT_DIR, "Flowti CLI Reference.md");
 	doc.save(outputPath);
 
 	log(

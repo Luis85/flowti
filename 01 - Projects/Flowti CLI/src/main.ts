@@ -18,6 +18,7 @@
 // ── Infrastructure ──────────────────────────────────────────────────
 
 import { parseArgs } from "./infrastructure/args.js";
+import { proc } from "./infrastructure/proc.js";
 import { printBanner, RESET, DIM, RED, YELLOW, CYAN } from "./infrastructure/ui.js";
 import { runMenu } from "./infrastructure/menu.js";
 
@@ -62,7 +63,7 @@ const allCommands: Record<string, CommandHandler> = {
 // ── Non-interactive dispatch ────────────────────────────────────────
 
 async function handleCliArgs(): Promise<boolean> {
-	const rawArgs = process.argv.slice(2);
+	const rawArgs = proc.argv();
 	if (!rawArgs.length) return false;
 
 	const { command, flags } = parseArgs(rawArgs);
@@ -141,14 +142,14 @@ async function main(): Promise<void> {
 			const startResult = await startMenu();
 			if (startResult === "quit") {
 				log(`\n  ${DIM}Goodbye.${RESET}\n`);
-				process.exit(0);
+				proc.exit(0);
 			}
 		}
 
 		const detailResult = await projectDetailLoop();
 		if (detailResult === "quit") {
 			log(`\n  ${DIM}Goodbye.${RESET}\n`);
-			process.exit(0);
+			proc.exit(0);
 		}
 		// detailResult === "start" → clear project and loop back to start menu
 		clearSelectedProject();
@@ -157,5 +158,5 @@ async function main(): Promise<void> {
 
 main().catch((err: unknown) => {
 	console.error(`\n  ${RED}Fatal error:${RESET}`, err);
-	process.exit(1);
+	proc.exit(1);
 });

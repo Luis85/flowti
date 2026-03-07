@@ -7,7 +7,7 @@
  * Single source of truth for yamlEscape() — eliminates 14 duplicate copies.
  */
 
-import path from "node:path";
+import { paths } from "./paths.js";
 import { disk } from "./filesystem.js";
 import type { IFileSystem } from "../types.js";
 
@@ -207,7 +207,7 @@ export class Document {
 	}
 
 	save(absolutePath: string, fs: IFileSystem = disk): void {
-		const dir = path.dirname(absolutePath);
+		const dir = paths.dirname(absolutePath);
 		fs.mkdirSync(dir, { recursive: true });
 		fs.writeFileSync(absolutePath, this.toString(), "utf-8");
 	}

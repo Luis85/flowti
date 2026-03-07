@@ -8,7 +8,7 @@
  */
 
 import { disk } from "../../../infrastructure/filesystem.js";
-import path from "node:path";
+import { paths } from "../../../infrastructure/paths.js";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
@@ -16,10 +16,10 @@ import { log } from "../../../infrastructure/logger.js";
 // The plugin stores state in the Obsidian vault's plugin data folder.
 // During builds the data.json may be at the vault root's plugin dir.
 const DATA_JSON_CANDIDATES: string[] = [
-	path.resolve(ROOT, "..", "..", ".obsidian", "plugins", "flowti-ibde", "data.json"),
-	path.join(ROOT, "data.json"),
+	paths.resolve(ROOT, "..", "..", ".obsidian", "plugins", "flowti-ibde", "data.json"),
+	paths.join(ROOT, "data.json"),
 ];
-const OUTPUT_DIR = path.join(ROOT, "docs", "reports", "performance");
+const OUTPUT_DIR = paths.join(ROOT, "docs", "reports", "performance");
 
 function percentile(sorted: number[], p: number): number {
 	if (sorted.length === 0) return 0;
@@ -88,7 +88,7 @@ function main(): void {
 
 	const safeTimestamp = now.toISOString().replace(/:/g, "-");
 	const filename = `${safeTimestamp}-performance-report.md`;
-	const outputPath = path.join(OUTPUT_DIR, filename);
+	const outputPath = paths.join(OUTPUT_DIR, filename);
 
 	doc.save(outputPath);
 

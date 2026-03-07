@@ -8,7 +8,7 @@
  */
 
 import { disk } from "../../../infrastructure/filesystem.js";
-import path from "node:path";
+import { paths } from "../../../infrastructure/paths.js";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
@@ -25,8 +25,8 @@ interface CatalogEntry {
 	tags: string[];
 }
 
-const CATALOG_PATH: string = path.join(ROOT, "src", "infrastructure", "events", "catalog.ts");
-const OUTPUT_DIR: string = path.join(ROOT, "docs", "reference");
+const CATALOG_PATH: string = paths.join(ROOT, "src", "infrastructure", "events", "catalog.ts");
+const OUTPUT_DIR: string = paths.join(ROOT, "docs", "reference");
 
 /**
  * Extract EVENT_CATEGORIES from the source.
@@ -154,7 +154,7 @@ function main(): void {
 		doc.addBlank();
 	}
 
-	const outputPath = path.join(OUTPUT_DIR, "Event Catalog.md");
+	const outputPath = paths.join(OUTPUT_DIR, "Event Catalog.md");
 	doc.save(outputPath);
 	log(`[report] EventCatalog written (${events.length} events): ${outputPath}`);
 }

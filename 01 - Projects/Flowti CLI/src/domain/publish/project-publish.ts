@@ -6,7 +6,7 @@
  */
 
 import { disk } from "../../infrastructure/filesystem.js";
-import path from "node:path";
+import { paths } from "../../infrastructure/paths.js";
 import { RESET, DIM, GREEN, RED, CYAN, YELLOW } from "../../infrastructure/ui.js";
 import { shell } from "../../infrastructure/shell.js";
 import { runMenu } from "../../infrastructure/menu.js";
@@ -22,7 +22,7 @@ function validateDistributeConfig(config: PublishConfig, projectPath: string): s
 	if (!config.outDir) {
 		return `\n  ${YELLOW}No outDir configured.${RESET}\n  ${DIM}Add "outDir" to the "publish" section in flowti.config.json.${RESET}\n`;
 	}
-	const srcDir = path.resolve(projectPath, config.outDir);
+	const srcDir = paths.resolve(projectPath, config.outDir);
 	if (!disk.existsSync(srcDir)) {
 		return `\n  ${RED}Output directory not found: ${srcDir}${RESET}\n  ${DIM}Run build first.${RESET}\n`;
 	}
@@ -31,13 +31,13 @@ function validateDistributeConfig(config: PublishConfig, projectPath: string): s
 
 function copyArtifacts(srcDir: string, targetDir: string, artifacts: string[]): void {
 	for (const artifact of artifacts) {
-		const src = path.join(srcDir, artifact);
-		const dest = path.join(targetDir, artifact);
+		const src = paths.join(srcDir, artifact);
+		const dest = paths.join(targetDir, artifact);
 		if (!disk.existsSync(src)) {
 			log(`    ${YELLOW}skip${RESET}  ${artifact} (not found)`);
 			continue;
 		}
-		disk.mkdirSync(path.dirname(dest), { recursive: true });
+		disk.mkdirSync(paths.dirname(dest), { recursive: true });
 		disk.copyFileSync(src, dest);
 		log(`    ${GREEN}copy${RESET}  ${artifact}`);
 	}
@@ -45,7 +45,7 @@ function copyArtifacts(srcDir: string, targetDir: string, artifacts: string[]): 
 
 function distributeToEndpoint(ep: PublishEndpoint, srcDir: string, artifacts: string[]): void {
 	log(`\n  ${CYAN}▸${RESET} ${ep.name} → ${ep.path}`);
-	const targetDir = path.resolve(ep.path);
+	const targetDir = paths.resolve(ep.path);
 
 	if (ep.clean && disk.existsSync(targetDir)) cleanEndpoint(targetDir, artifacts);
 	disk.mkdirSync(targetDir, { recursive: true });
@@ -64,7 +64,7 @@ function distribute(projectPath: string, config: PublishConfig): number {
 
 	const artifacts = config.artifacts ?? [];
 	const endpoints = config.endpoints ?? [];
-	const srcDir = path.resolve(projectPath, config.outDir!);
+	const srcDir = paths.resolve(projectPath, config.outDir!);
 
 	for (const ep of endpoints) distributeToEndpoint(ep, srcDir, artifacts);
 
@@ -75,7 +75,7 @@ function distribute(projectPath: string, config: PublishConfig): number {
 function cleanEndpoint(targetDir: string, artifacts: string[]): void {
 	if (artifacts.length > 0) {
 		for (const artifact of artifacts) {
-			const p = path.join(targetDir, artifact);
+			const p = paths.join(targetDir, artifact);
 			if (disk.existsSync(p)) disk.unlinkSync(p);
 		}
 	}
@@ -84,8 +84,8 @@ function cleanEndpoint(targetDir: string, artifacts: string[]): void {
 function copyDir(src: string, dest: string): number {
 	let count = 0;
 	for (const entry of disk.readdirSync(src, { withFileTypes: true })) {
-		const srcPath = path.join(src, entry.name);
-		const destPath = path.join(dest, entry.name);
+		const srcPath = paths.join(src, entry.name);
+		const destPath = paths.join(dest, entry.name);
 		if (entry.isDirectory()) {
 			disk.mkdirSync(destPath, { recursive: true });
 			count += copyDir(srcPath, destPath);

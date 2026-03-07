@@ -36,6 +36,17 @@ export interface IShell {
 	check(cmd: string): boolean;
 }
 
+// ── Process abstraction ──────────────────────────────────────────────
+
+export interface IProcess {
+	/** Terminate the process with exit code. */
+	exit(code: number): never;
+	/** Command-line arguments (process.argv.slice(2)). */
+	argv(): string[];
+	/** Current working directory. */
+	cwd(): string;
+}
+
 // ── CLI argument parsing ────────────────────────────────────────────
 
 export interface ParsedArgs {

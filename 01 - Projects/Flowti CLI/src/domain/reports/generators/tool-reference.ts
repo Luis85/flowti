@@ -8,7 +8,7 @@
  */
 
 import { disk } from "../../../infrastructure/filesystem.js";
-import path from "node:path";
+import { paths } from "../../../infrastructure/paths.js";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
@@ -35,8 +35,8 @@ interface ToolMeta {
 	examples: ToolExample[];
 }
 
-const CATALOG_PATH: string = path.join(ROOT, "tests", "e2e", "helpers", "toolCatalog.ts");
-const OUTPUT_DIR: string = path.join(ROOT, "docs", "reference");
+const CATALOG_PATH: string = paths.join(ROOT, "tests", "e2e", "helpers", "toolCatalog.ts");
+const OUTPUT_DIR: string = paths.join(ROOT, "docs", "reference");
 
 /**
  * Extract a balanced brace block starting at `pos` (which must be `{`).
@@ -328,7 +328,7 @@ function main(): void {
 		for (const tool of groups.get(category)!) renderToolDetail(doc, tool);
 	}
 
-	const outputPath = path.join(OUTPUT_DIR, "Tool Reference.md");
+	const outputPath = paths.join(OUTPUT_DIR, "Tool Reference.md");
 	doc.save(outputPath);
 	log(`[report] ToolReference written (${tools.length} tools): ${outputPath}`);
 }

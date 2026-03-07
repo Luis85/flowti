@@ -9,20 +9,21 @@
  */
 
 import { disk } from "../../../infrastructure/filesystem.js";
-import path from "node:path";
+import { paths } from "../../../infrastructure/paths.js";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
+import { proc } from "../../../infrastructure/proc.js";
 
-const buildTypeArg = process.argv.find((a) => a.startsWith("--build-type="));
+const buildTypeArg = proc.argv().find((a) => a.startsWith("--build-type="));
 const buildType = buildTypeArg ? buildTypeArg.split("=")[1] : "flow";
 
-const REPORT_JSON = path.join(ROOT, "docs", "reports", "tests", "testreport.json");
-const OUTPUT_DIR = path.join(ROOT, "docs", "reports", "tests");
+const REPORT_JSON = paths.join(ROOT, "docs", "reports", "tests", "testreport.json");
+const OUTPUT_DIR = paths.join(ROOT, "docs", "reports", "tests");
 
 const DATA_JSON_CANDIDATES: string[] = [
-	path.resolve(ROOT, "..", "..", ".obsidian", "plugins", "flowti-ibde", "data.json"),
-	path.join(ROOT, "data.json"),
+	paths.resolve(ROOT, "..", "..", ".obsidian", "plugins", "flowti-ibde", "data.json"),
+	paths.join(ROOT, "data.json"),
 ];
 
 function round(n: number): number {
@@ -150,7 +151,7 @@ function main(): void {
 
 	const safeTimestamp = now.toISOString().replace(/:/g, "-");
 	const prefix = buildType === "full" ? "" : `${buildType}-`;
-	const outputPath = path.join(OUTPUT_DIR, `${safeTimestamp}-${prefix}test-report.md`);
+	const outputPath = paths.join(OUTPUT_DIR, `${safeTimestamp}-${prefix}test-report.md`);
 	doc.save(outputPath);
 
 	log(`[report] TestReport written: ${outputPath}`);

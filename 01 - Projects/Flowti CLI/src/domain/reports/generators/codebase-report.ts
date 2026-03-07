@@ -8,13 +8,13 @@
  */
 
 import { disk } from "../../../infrastructure/filesystem.js";
-import path from "node:path";
+import { paths } from "../../../infrastructure/paths.js";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
 
-const CODEBASE_JSON = path.join(ROOT, "docs", "reports", "codebase", "codebase.json");
-const OUTPUT_DIR = path.join(ROOT, "docs", "reports", "codebase");
+const CODEBASE_JSON = paths.join(ROOT, "docs", "reports", "codebase", "codebase.json");
+const OUTPUT_DIR = paths.join(ROOT, "docs", "reports", "codebase");
 
 /** TypeDoc reflection kind values */
 const KIND: Record<string, number> = {
@@ -92,7 +92,7 @@ function main(): void {
 		.addBlank();
 
 	const safeTimestamp = now.toISOString().replace(/:/g, "-");
-	const outputPath = path.join(OUTPUT_DIR, `${safeTimestamp}-codebase-report.md`);
+	const outputPath = paths.join(OUTPUT_DIR, `${safeTimestamp}-codebase-report.md`);
 	doc.save(outputPath);
 
 	log(`[report] CodebaseReport written: ${outputPath}`);

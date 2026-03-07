@@ -15,11 +15,12 @@
  *   node scripts/generate-test-data.ts --dry-run                # preview row counts only
  */
 import { disk } from "../../infrastructure/filesystem.js";
-import { resolve, join } from "path";
+import { paths } from "../../infrastructure/paths.js";
+import { proc } from "../../infrastructure/proc.js";
 
 // ── CLI argument parsing ────────────────────────────────
 
-const args: string[] = process.argv.slice(2);
+const args: string[] = proc.argv();
 
 function getArg(name: string, fallback: string | null): string | null {
 	const idx: number = args.indexOf(`--${name}`);
@@ -46,7 +47,7 @@ Options:
   --dry-run         Print row counts without writing files
   --help            Show this help
 `);
-	process.exit(0);
+	proc.exit(0);
 }
 
 const FROM: string = getArg("from", "2025-01") as string;
@@ -57,8 +58,8 @@ const DRY_RUN: boolean = hasFlag("dry-run");
 // Default output: vault test data folder
 import { VAULT_ROOT } from "../../infrastructure/config.js";
 import { log } from "../../infrastructure/logger.js";
-const DEFAULT_OUT: string = join(VAULT_ROOT, "03 - Resources", "Test Data", "Analytics");
-const OUT_DIR: string = resolve(getArg("out", DEFAULT_OUT) as string);
+const DEFAULT_OUT: string = paths.join(VAULT_ROOT, "03 - Resources", "Test Data", "Analytics");
+const OUT_DIR: string = paths.resolve(getArg("out", DEFAULT_OUT) as string);
 
 // ── Date range resolution ───────────────────────────────
 
@@ -458,7 +459,7 @@ for (const { name, generate } of files) {
 	if (DRY_RUN) {
 		log(`  ${name.padEnd(22)} ${String(dataRows).padStart(4)} rows`);
 	} else {
-		disk.writeFileSync(join(OUT_DIR, name), content, "utf-8");
+		disk.writeFileSync(paths.join(OUT_DIR, name), content, "utf-8");
 		log(`  ${name.padEnd(22)} ${String(dataRows).padStart(4)} rows  -> written`);
 	}
 }

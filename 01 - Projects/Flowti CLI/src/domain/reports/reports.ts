@@ -2,11 +2,11 @@
  * reports.ts — Report generation menu and commands.
  */
 
-import path from "node:path";
+import { paths } from "../../infrastructure/paths.js";
 import { disk } from "../../infrastructure/filesystem.js";
 import { ROOT, config } from "../../infrastructure/config.js";
 import { RESET, DIM, GREEN, RED, CYAN, YELLOW, printHeader } from "../../infrastructure/ui.js";
-import { run } from "../../infrastructure/shell.js";
+import { shell } from "../../infrastructure/shell.js";
 import { createRL, ask } from "../../infrastructure/readline.js";
 import { findLatestReport, parseFrontmatter } from "../../infrastructure/fs.js";
 import { runMenu } from "../../infrastructure/menu.js";
@@ -40,7 +40,7 @@ function getReportScripts(): ReportScript[] {
 export async function menu(): Promise<MenuResult> {
 	return runMenu("Reports", [
 		{ key: "1", label: "Build all reports", action: () => {
-			run(rptCfg.allCommand ?? "npm run generate:reports", "Generating all reports...");
+			shell.run(rptCfg.allCommand ?? "npm run generate:reports", { label: "Generating all reports..." });
 		}},
 		{ key: "2", label: "Build selected report", action: selectReportMenu },
 		{ key: "3", label: "Build audit report", action: auditMenu },
@@ -76,19 +76,19 @@ async function selectReportMenu(): Promise<void> {
 
 	if (choice.toLowerCase() === "b") return;
 	if (choice.toLowerCase() === "a") {
-		run(rptCfg.allCommand ?? "npm run generate:reports", "Generating all reports...");
+		shell.run(rptCfg.allCommand ?? "npm run generate:reports", { label: "Generating all reports..." });
 		return;
 	}
 
 	const idx = parseInt(choice, 10) - 1;
 	if (idx >= 0 && idx < scripts.length) {
 		const script = scripts[idx];
-		const scriptPath = path.join(ROOT, "scripts", script.script);
+		const scriptPath = paths.join(ROOT, "scripts", script.script);
 		if (!disk.existsSync(scriptPath)) {
 			log(`\n  ${RED}Script not found: ${script.script}${RESET}\n`);
 			return;
 		}
-		run(`node scripts/${script.script}`, `Generating ${script.label}...`);
+		shell.run(`node scripts/${script.script}`, { label: `Generating ${script.label}...` });
 	} else {
 		log("\n  Invalid choice.\n");
 	}
@@ -114,12 +114,12 @@ function collectAuditSections(reportsDir: string): Array<{ label: string; data: 
 	const sections: Array<{ label: string; data: Record<string, string>; file: string }> = [];
 
 	for (const cat of rptCfg.categories ?? DEFAULT_CATEGORIES) {
-		const latest = findLatestReport(path.join(reportsDir, cat.dir));
-		if (latest) sections.push({ label: cat.label, data: parseFrontmatter(latest), file: path.basename(latest) });
+		const latest = findLatestReport(paths.join(reportsDir, cat.dir));
+		if (latest) sections.push({ label: cat.label, data: parseFrontmatter(latest), file: paths.basename(latest) });
 	}
 
 	for (const sr of rptCfg.stableReports ?? DEFAULT_STABLE_REPORTS) {
-		const filePath = path.join(reportsDir, sr.file);
+		const filePath = paths.join(reportsDir, sr.file);
 		if (disk.existsSync(filePath)) sections.push({ label: sr.label, data: parseFrontmatter(filePath), file: sr.file });
 	}
 
@@ -134,8 +134,8 @@ async function auditMenu(): Promise<void> {
 
 	log(`\n  ${CYAN}▸${RESET} Generating audit: ${auditName}\n`);
 
-	const reportsDir = path.join(ROOT, rptCfg.dir ?? rptCfg.outputDir ?? "docs/reports");
-	const auditDir = path.join(reportsDir, rptCfg.auditSubdir ?? "audits");
+	const reportsDir = paths.join(ROOT, rptCfg.dir ?? rptCfg.outputDir ?? "docs/reports");
+	const auditDir = paths.join(reportsDir, rptCfg.auditSubdir ?? "audits");
 	try { disk.mkdirSync(auditDir, { recursive: true }); } catch { /* ignore */ }
 
 	const sections = collectAuditSections(reportsDir);
@@ -163,19 +163,19 @@ async function auditMenu(): Promise<void> {
 		doc.addBlank();
 	}
 
-	const auditPath = path.join(auditDir, `${auditName}.md`);
+	const auditPath = paths.join(auditDir, `${auditName}.md`);
 	doc.save(auditPath);
-	log(`  ${GREEN}✓${RESET} Audit written to: ${path.relative(ROOT, auditPath)}\n`);
+	log(`  ${GREEN}✓${RESET} Audit written to: ${paths.relative(ROOT, auditPath)}\n`);
 }
 
 // ── Non-interactive commands ────────────────────────────────────────
 
 export const commands = {
 	reports: () => {
-		run(rptCfg.allCommand ?? "npm run generate:reports", "Generating all reports...");
+		shell.run(rptCfg.allCommand ?? "npm run generate:reports", { label: "Generating all reports..." });
 	},
 	"reports:audit": () => {
-		run(rptCfg.allCommand ?? "npm run generate:reports", "Generating reports for audit...");
+		shell.run(rptCfg.allCommand ?? "npm run generate:reports", { label: "Generating reports for audit..." });
 		log(`  ${GREEN}✓${RESET} Reports generated. Use interactive mode for full audit.\n`);
 	},
 	"report:*": (_flags: Record<string, string | boolean>, _rawArgs: string[], command?: string) => {
@@ -183,7 +183,7 @@ export const commands = {
 		const scripts = getReportScripts();
 		const script = scripts.find((s) => s.id === reportId);
 		if (script) {
-			run(`node scripts/${script.script}`, `Generating ${script.label}...`);
+			shell.run(`node scripts/${script.script}`, { label: `Generating ${script.label}...` });
 		} else {
 			log(`\n  ${RED}Unknown report: ${reportId}${RESET}`);
 			log(`  ${DIM}Available: ${scripts.map((s) => s.id).join(", ")}${RESET}\n`);

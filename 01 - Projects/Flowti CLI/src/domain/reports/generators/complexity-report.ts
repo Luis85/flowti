@@ -9,7 +9,7 @@
  */
 
 import { disk } from "../../../infrastructure/filesystem.js";
-import path from "node:path";
+import { paths } from "../../../infrastructure/paths.js";
 
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
@@ -40,9 +40,9 @@ interface DomainStats {
 
 const { runESLintComplexityCheck } = await import("@pythonidaer/complexity-report/integration/eslint/index.js");
 
-const COMPLEXITY_JSON: string = path.join(ROOT, "complexity", "complexity-report.json");
-const OUTPUT_DIR: string = path.join(ROOT, "docs", "reports", "complexity");
-const STABLE_PATH: string = path.join(OUTPUT_DIR, "Complexity Report.md");
+const COMPLEXITY_JSON: string = paths.join(ROOT, "complexity", "complexity-report.json");
+const OUTPUT_DIR: string = paths.join(ROOT, "docs", "reports", "complexity");
+const STABLE_PATH: string = paths.join(OUTPUT_DIR, "Complexity Report.md");
 
 /**
  * Parse complexity values from ESLint messages.
@@ -191,7 +191,7 @@ async function main(): Promise<void> {
 	const now = new Date();
 	const safeTimestamp: string = now.toISOString().replace(/:/g, "-");
 	const filename: string = `${safeTimestamp}-complexity-report.md`;
-	const timestampedPath: string = path.join(OUTPUT_DIR, filename);
+	const timestampedPath: string = paths.join(OUTPUT_DIR, filename);
 	disk.writeFileSync(timestampedPath, content, "utf-8");
 
 	// Write stable report (overwrite)

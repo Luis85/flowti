@@ -8,16 +8,17 @@
  */
 
 import { disk } from "../../../infrastructure/filesystem.js";
-import path from "node:path";
+import { paths } from "../../../infrastructure/paths.js";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
+import { proc } from "../../../infrastructure/proc.js";
 
-const buildTypeArg = process.argv.find((a) => a.startsWith("--build-type="));
+const buildTypeArg = proc.argv().find((a) => a.startsWith("--build-type="));
 const buildType = buildTypeArg ? buildTypeArg.split("=")[1] : "flow";
 
-const COVERAGE_JSON = path.join(ROOT, "docs", "reports", "coverage", "coverage-final.json");
-const OUTPUT_DIR = path.join(ROOT, "docs", "reports", "coverage");
+const COVERAGE_JSON = paths.join(ROOT, "docs", "reports", "coverage", "coverage-final.json");
+const OUTPUT_DIR = paths.join(ROOT, "docs", "reports", "coverage");
 
 interface CoverageEntry {
 	s?: Record<string, number>;
@@ -83,7 +84,7 @@ function main(): void {
 	const safeTimestamp = now.toISOString().replace(/:/g, "-");
 	const prefix = buildType === "full" ? "" : `${buildType}-`;
 	const filename = `${safeTimestamp}-${prefix}coverage-report.md`;
-	const outputPath = path.join(OUTPUT_DIR, filename);
+	const outputPath = paths.join(OUTPUT_DIR, filename);
 
 	doc.save(outputPath);
 

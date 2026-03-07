@@ -8,13 +8,13 @@
  */
 
 import { disk } from "../../../infrastructure/filesystem.js";
-import path from "node:path";
+import { paths } from "../../../infrastructure/paths.js";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document, type FrontmatterValue } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
 
-const CYCLES_DIR: string = path.join(ROOT, "docs", "cycles");
-const OUTPUT_DIR: string = path.join(ROOT, "docs", "reports", "cycles");
+const CYCLES_DIR: string = paths.join(ROOT, "docs", "cycles");
+const OUTPUT_DIR: string = paths.join(ROOT, "docs", "reports", "cycles");
 
 /**
  * Parse YAML frontmatter from a markdown string.
@@ -77,7 +77,7 @@ function findLatestDoneCycle(): { file: string; frontmatter: Record<string, unkn
 	let bestCycle: number = -1;
 
 	for (const file of files) {
-		const content: string = disk.readFileSync(path.join(CYCLES_DIR, file), "utf-8");
+		const content: string = disk.readFileSync(paths.join(CYCLES_DIR, file), "utf-8");
 		const fm: Record<string, unknown> | null = parseFrontmatter(content);
 		if (!fm || fm.stage !== "done") continue;
 		const cycle: number = (fm.cycle as number) ?? 0;
@@ -147,10 +147,10 @@ function buildCycleReportData(fm: Record<string, unknown>, date: string): CycleR
 function collectReportLinks(): string[] {
 	const links: string[] = [];
 	const reportDirs: { dir: string; suffix: string }[] = [
-		{ dir: path.join(ROOT, "docs", "reports", "tests"), suffix: "test-report.md" },
-		{ dir: path.join(ROOT, "docs", "reports", "coverage"), suffix: "coverage-report.md" },
-		{ dir: path.join(ROOT, "docs", "reports", "codebase"), suffix: "codebase-report.md" },
-		{ dir: path.join(ROOT, "docs", "reports", "builds"), suffix: "build-report" },
+		{ dir: paths.join(ROOT, "docs", "reports", "tests"), suffix: "test-report.md" },
+		{ dir: paths.join(ROOT, "docs", "reports", "coverage"), suffix: "coverage-report.md" },
+		{ dir: paths.join(ROOT, "docs", "reports", "codebase"), suffix: "codebase-report.md" },
+		{ dir: paths.join(ROOT, "docs", "reports", "builds"), suffix: "build-report" },
 	];
 	for (const { dir, suffix } of reportDirs) {
 		if (!disk.existsSync(dir)) continue;
@@ -206,7 +206,7 @@ function main(): void {
 	}
 
 	const safeTimestamp = now.toISOString().replace(/:/g, "-");
-	const outputPath = path.join(OUTPUT_DIR, `${safeTimestamp}-cycle-${report.cycle}-report.md`);
+	const outputPath = paths.join(OUTPUT_DIR, `${safeTimestamp}-cycle-${report.cycle}-report.md`);
 	doc.save(outputPath);
 
 	log(`[report] CycleReport written: ${outputPath}`);

@@ -8,7 +8,7 @@
  */
 
 import { disk } from "../../../infrastructure/filesystem.js";
-import path from "node:path";
+import { paths } from "../../../infrastructure/paths.js";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
@@ -22,8 +22,8 @@ interface CommandMeta {
 	icon?: string;
 }
 
-const REGISTRY_PATH: string = path.join(ROOT, "src", "infrastructure", "commands", "registry.ts");
-const OUTPUT_DIR: string = path.join(ROOT, "docs", "reference");
+const REGISTRY_PATH: string = paths.join(ROOT, "src", "infrastructure", "commands", "registry.ts");
+const OUTPUT_DIR: string = paths.join(ROOT, "docs", "reference");
 
 /**
  * Extract command metadata from registry.ts source.
@@ -131,7 +131,7 @@ function main(): void {
 	}
 
 	const filename: string = "Command Reference.md";
-	const outputPath: string = path.join(OUTPUT_DIR, filename);
+	const outputPath: string = paths.join(OUTPUT_DIR, filename);
 
 	doc.save(outputPath);
 

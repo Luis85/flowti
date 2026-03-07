@@ -3,7 +3,7 @@
  */
 
 import { disk } from "../../infrastructure/filesystem.js";
-import path from "node:path";
+import { paths } from "../../infrastructure/paths.js";
 import { VAULT_ROOT, getCaptureDir } from "../../infrastructure/config.js";
 import { RESET, DIM, GREEN, RED, YELLOW, printHeader, printMenu } from "../../infrastructure/ui.js";
 import { createRL, ask } from "../../infrastructure/readline.js";
@@ -30,7 +30,7 @@ function createCaptureFile(type: string, title: string, body: string): string | 
 	disk.mkdirSync(dir, { recursive: true });
 
 	const filename = sanitizeFilename(title) + ".md";
-	const filePath = path.join(dir, filename);
+	const filePath = paths.join(dir, filename);
 
 	if (disk.existsSync(filePath)) {
 		log(`\n  ${YELLOW}File already exists:${RESET} ${filename}`);
@@ -48,7 +48,7 @@ function createCaptureFile(type: string, title: string, body: string): string | 
 
 	doc.addBlank();
 	doc.save(filePath);
-	const relPath = path.relative(VAULT_ROOT, filePath);
+	const relPath = paths.relative(VAULT_ROOT, filePath);
 	log(`\n  ${GREEN}✓${RESET} Created: ${relPath}`);
 	return filePath;
 }

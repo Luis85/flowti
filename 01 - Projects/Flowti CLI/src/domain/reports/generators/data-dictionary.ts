@@ -8,7 +8,7 @@
  */
 
 import { disk } from "../../../infrastructure/filesystem.js";
-import path from "node:path";
+import { paths } from "../../../infrastructure/paths.js";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
@@ -31,8 +31,8 @@ interface EntityType {
 	fields: EntityField[];
 }
 
-const REGISTRY_PATH: string = path.join(ROOT, "src", "domain", "docs", "entityTypeRegistry.ts");
-const OUTPUT_DIR: string = path.join(ROOT, "docs", "reference");
+const REGISTRY_PATH: string = paths.join(ROOT, "src", "domain", "docs", "entityTypeRegistry.ts");
+const OUTPUT_DIR: string = paths.join(ROOT, "docs", "reference");
 
 /**
  * Extract ENTITY_TYPE_REGISTRY entries from TypeScript source.
@@ -215,7 +215,7 @@ function main(): void {
 	}
 
 	const filename: string = "Data Dictionary.md";
-	const outputPath: string = path.join(OUTPUT_DIR, filename);
+	const outputPath: string = paths.join(OUTPUT_DIR, filename);
 
 	doc.save(outputPath);
 

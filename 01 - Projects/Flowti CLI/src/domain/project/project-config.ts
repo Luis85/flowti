@@ -7,7 +7,7 @@
  */
 
 import { disk } from "../../infrastructure/filesystem.js";
-import path from "node:path";
+import { paths } from "../../infrastructure/paths.js";
 import { PROJECTS_DIR, DEVELOPMENT_DIR } from "../../infrastructure/config.js";
 import { getProjectSource } from "../../infrastructure/state.js";
 import type { ProjectConfig, ProjectSource, FlowtiToolId } from "../../types.js";
@@ -20,8 +20,8 @@ const FLOWTI_CONFIG = "flowti.config.json";
 export function resolveProjectPath(name: string, source?: ProjectSource): string {
 	const s = source ?? getProjectSource();
 	return s === "development"
-		? path.join(DEVELOPMENT_DIR, name)
-		: path.join(PROJECTS_DIR, name);
+		? paths.join(DEVELOPMENT_DIR, name)
+		: paths.join(PROJECTS_DIR, name);
 }
 
 // ── Package.json ────────────────────────────────────────────────────
@@ -33,7 +33,7 @@ export interface PackageJson {
 }
 
 export function readPackageJson(projectPath: string): PackageJson | null {
-	const pkgPath = path.join(projectPath, "package.json");
+	const pkgPath = paths.join(projectPath, "package.json");
 	if (!disk.existsSync(pkgPath)) return null;
 	try {
 		return JSON.parse(disk.readFileSync(pkgPath, "utf-8")) as PackageJson;
@@ -45,7 +45,7 @@ export function readPackageJson(projectPath: string): PackageJson | null {
 // ── Flowti project config ───────────────────────────────────────────
 
 export function readProjectConfig(projectPath: string): ProjectConfig | null {
-	const cfgPath = path.join(projectPath, CONFIGS_DIR, FLOWTI_CONFIG);
+	const cfgPath = paths.join(projectPath, CONFIGS_DIR, FLOWTI_CONFIG);
 	if (!disk.existsSync(cfgPath)) return null;
 	try {
 		return JSON.parse(disk.readFileSync(cfgPath, "utf-8")) as ProjectConfig;
@@ -64,13 +64,13 @@ function scaffoldProjectConfig(projectPath: string, pkg: PackageJson): ProjectCo
 	if (scripts["dev"]) tools.devtools = "npm run dev";
 
 	const config: ProjectConfig = {
-		name: pkg.name ?? path.basename(projectPath),
+		name: pkg.name ?? paths.basename(projectPath),
 		tools,
 	};
 
-	const configsDir = path.join(projectPath, CONFIGS_DIR);
+	const configsDir = paths.join(projectPath, CONFIGS_DIR);
 	if (!disk.existsSync(configsDir)) disk.mkdirSync(configsDir, { recursive: true });
-	const cfgPath = path.join(configsDir, FLOWTI_CONFIG);
+	const cfgPath = paths.join(configsDir, FLOWTI_CONFIG);
 	disk.writeFileSync(cfgPath, JSON.stringify(config, null, "\t"), "utf-8");
 	return config;
 }
@@ -111,5 +111,5 @@ export function initializeProject(name: string, source?: ProjectSource): Project
 const DEFAULT_REPORTS_DIR = "docs/reports";
 
 export function getReportsDir(projectPath: string, config: ProjectConfig): string {
-	return path.join(projectPath, config.reports?.dir ?? DEFAULT_REPORTS_DIR);
+	return paths.join(projectPath, config.reports?.dir ?? DEFAULT_REPORTS_DIR);
 }
