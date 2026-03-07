@@ -12,6 +12,7 @@ import { findLatestReport, parseFrontmatter } from "../../infrastructure/fs.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { showHelp } from "../help/help.js";
 import { Document } from "../../infrastructure/document.js";
+import { clock } from "../../infrastructure/clock.js";
 import type { MenuResult } from "../../types.js";
 import { log } from "../../infrastructure/logger.js";
 
@@ -128,7 +129,7 @@ function collectAuditSections(reportsDir: string): Array<{ label: string; data: 
 
 async function auditMenu(): Promise<void> {
 	const rl = createRL();
-	const defaultName = new Date().toISOString().slice(0, 10) + "-audit";
+	const defaultName = clock.iso().slice(0, 10) + "-audit";
 	const auditName = await ask(rl, "Audit name", defaultName);
 	rl.close();
 
@@ -139,7 +140,7 @@ async function auditMenu(): Promise<void> {
 	try { disk.mkdirSync(auditDir, { recursive: true }); } catch { /* ignore */ }
 
 	const sections = collectAuditSections(reportsDir);
-	const now = new Date();
+	const now = clock.now();
 	const doc = Document.create(auditName)
 		.mergeFrontmatter({ type: "Audit", name: auditName, date: now.toISOString() })
 		.setTags(["audit", "review"])

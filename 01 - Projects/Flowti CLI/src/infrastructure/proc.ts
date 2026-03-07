@@ -19,6 +19,10 @@ class NodeProcess implements IProcess {
 	cwd(): string {
 		return process.cwd();
 	}
+
+	env(): Record<string, string | undefined> {
+		return process.env;
+	}
 }
 
 export const proc: IProcess = new NodeProcess();

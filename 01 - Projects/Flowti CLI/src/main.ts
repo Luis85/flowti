@@ -45,7 +45,7 @@ import { buildProjectDetailMenu } from "./mainMenu.js";
 // ── Command registry ────────────────────────────────────────────────
 
 import type { CommandHandler } from "./types.js";
-import { log } from "./infrastructure/logger.js";
+import { log, error } from "./infrastructure/logger.js";
 
 const allCommands: Record<string, CommandHandler> = {
 	...helpCmds,
@@ -157,6 +157,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-	console.error(`\n  ${RED}Fatal error:${RESET}`, err);
+	error(`\n  ${RED}Fatal error:${RESET}`, err);
 	proc.exit(1);
 });

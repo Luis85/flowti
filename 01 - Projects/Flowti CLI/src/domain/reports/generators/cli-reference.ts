@@ -12,6 +12,7 @@ import { paths } from "../../../infrastructure/paths.js";
 import { CLI_PROJECT, PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
+import { clock } from "../../../infrastructure/clock.js";
 
 const HELP_PATH: string = paths.join(CLI_PROJECT, "src", "domain", "help", "help.ts");
 const PLUGIN_CONFIG_PATH: string = paths.join(PLUGIN_ROOT, "flowti.config.json");
@@ -253,7 +254,7 @@ function addMakeConfig(doc: Document, makeConfig: Record<string, Record<string, 
 }
 
 function main(): void {
-	const date = new Date().toISOString();
+	const date = clock.iso();
 	const data = loadPluginData();
 	const commandCount = CLI_COMMANDS.length;
 

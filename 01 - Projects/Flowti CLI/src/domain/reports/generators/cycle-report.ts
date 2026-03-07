@@ -12,6 +12,7 @@ import { paths } from "../../../infrastructure/paths.js";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document, type FrontmatterValue } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
+import { clock } from "../../../infrastructure/clock.js";
 
 const CYCLES_DIR: string = paths.join(ROOT, "docs", "cycles");
 const OUTPUT_DIR: string = paths.join(ROOT, "docs", "reports", "cycles");
@@ -171,8 +172,8 @@ function main(): void {
 	}
 
 	const fm = latest.frontmatter;
-	const now = new Date();
-	const report = buildCycleReportData(fm, now.toISOString());
+	const date = clock.iso();
+	const report = buildCycleReportData(fm, date);
 	const pbis = (fm.pbis as string[]) ?? [];
 	const techDebt = (fm.tech_debt as string[]) ?? [];
 	const cycleDocTitle = latest.file.replace(/\.md$/, "");
@@ -205,7 +206,7 @@ function main(): void {
 		doc.addBlank();
 	}
 
-	const safeTimestamp = now.toISOString().replace(/:/g, "-");
+	const safeTimestamp = clock.safeIso();
 	const outputPath = paths.join(OUTPUT_DIR, `${safeTimestamp}-cycle-${report.cycle}-report.md`);
 	doc.save(outputPath);
 

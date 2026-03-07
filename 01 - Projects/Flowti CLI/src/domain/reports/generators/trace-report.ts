@@ -13,6 +13,7 @@ import { VAULT_ROOT, ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
 import { proc } from "../../../infrastructure/proc.js";
+import { clock } from "../../../infrastructure/clock.js";
 
 interface ScanResult {
 	id: string;
@@ -167,7 +168,7 @@ function buildTraceReportDoc(docs: ScanResult[], gaps: TraceGap[]): Document {
 	const coverage = docs.length > 0 ? Math.round(((docs.length - gaps.length) / docs.length) * 10000) / 100 : 100;
 
 	const reportDoc = Document.create("Trace Conformance Report")
-		.mergeFrontmatter({ type: "TraceConformanceReport", date: new Date().toISOString(), documents_scanned: docs.length, gaps_found: gaps.length, coverage_pct: coverage })
+		.mergeFrontmatter({ type: "TraceConformanceReport", date: clock.iso(), documents_scanned: docs.length, gaps_found: gaps.length, coverage_pct: coverage })
 		.addBlank()
 		.heading(1, "Trace Conformance Report")
 		.addBlank()
@@ -200,7 +201,7 @@ function main(): void {
 		return;
 	}
 
-	const safeTimestamp = new Date().toISOString().replace(/:/g, "-");
+	const safeTimestamp = clock.safeIso();
 	const outputPath = paths.join(OUTPUT_DIR, `${safeTimestamp}-trace-conformance-report.md`);
 	reportDoc.save(outputPath);
 	log(`[report] TraceConformanceReport written: ${outputPath}`);

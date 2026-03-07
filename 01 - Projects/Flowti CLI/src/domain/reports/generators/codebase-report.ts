@@ -12,6 +12,7 @@ import { paths } from "../../../infrastructure/paths.js";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
+import { clock } from "../../../infrastructure/clock.js";
 
 const CODEBASE_JSON = paths.join(ROOT, "docs", "reports", "codebase", "codebase.json");
 const OUTPUT_DIR = paths.join(ROOT, "docs", "reports", "codebase");
@@ -75,7 +76,7 @@ function main(): void {
 	}
 
 	const data: TypeDocNode = JSON.parse(disk.readFileSync(CODEBASE_JSON, "utf-8"));
-	const now = new Date();
+	const now = clock.now();
 	const counts = countByKind(data);
 	const fm = buildCodebaseFm(data, counts, now.toISOString());
 
@@ -91,7 +92,7 @@ function main(): void {
 		])
 		.addBlank();
 
-	const safeTimestamp = now.toISOString().replace(/:/g, "-");
+	const safeTimestamp = clock.safeIso();
 	const outputPath = paths.join(OUTPUT_DIR, `${safeTimestamp}-codebase-report.md`);
 	doc.save(outputPath);
 

@@ -5,8 +5,8 @@
  * through the Obsidian CLI (1.12+). All operations are read-only.
  */
 
-import { execFileSync } from "node:child_process";
-import path from "node:path";
+import { shell } from "../../infrastructure/shell.js";
+import { paths } from "../../infrastructure/paths.js";
 import { disk } from "../../infrastructure/filesystem.js";
 import { VAULT_ROOT } from "../../infrastructure/config.js";
 import type { DirEntry } from "../../types.js";
@@ -15,25 +15,16 @@ let _cliAvailable: boolean | null = null;
 
 export function isCliAvailable(): boolean {
 	if (_cliAvailable !== null) return _cliAvailable;
-	try {
-		execFileSync("obsidian", ["version"], {
-			encoding: "utf-8",
-			timeout: 3000,
-			windowsHide: true,
-		});
-		_cliAvailable = true;
-	} catch {
-		_cliAvailable = false;
-	}
+	_cliAvailable = shell.execFile("obsidian", ["version"], { timeout: 3000 }) !== null;
 	return _cliAvailable;
 }
 
 export function isVaultInitialized(): boolean {
-	return disk.existsSync(path.join(VAULT_ROOT, ".obsidian"));
+	return disk.existsSync(paths.join(VAULT_ROOT, ".obsidian"));
 }
 
 export function listFolder(folderPath: string): { name: string; isDir: boolean }[] {
-	const abs = path.join(VAULT_ROOT, folderPath);
+	const abs = paths.join(VAULT_ROOT, folderPath);
 	if (!disk.existsSync(abs)) return [];
 	const entries = disk.readdirSync(abs, { withFileTypes: true });
 	return entries
@@ -46,24 +37,22 @@ export function listFolder(folderPath: string): { name: string; isDir: boolean }
 }
 
 export function readMarkdownFile(filePath: string): string | null {
-	const abs = path.join(VAULT_ROOT, filePath);
+	const abs = paths.join(VAULT_ROOT, filePath);
 	if (!disk.existsSync(abs)) return null;
 	return disk.readFileSync(abs, "utf-8");
 }
 
 export function searchVault(query: string): string[] {
-	try {
-		const output = execFileSync("obsidian", ["search", `query=${query}`, "format=json"], {
-			encoding: "utf-8",
-			timeout: 10_000,
-			windowsHide: true,
-		});
-		const results = JSON.parse(output.trim()) as Array<string | { path: string }>;
-		return results.map((r) => (typeof r === "string" ? r : r.path));
-	} catch {
-		// Fallback: simple filesystem grep
-		return filesystemSearch(query);
+	const output = shell.execFile("obsidian", ["search", `query=${query}`, "format=json"]);
+	if (output) {
+		try {
+			const results = JSON.parse(output) as Array<string | { path: string }>;
+			return results.map((r) => (typeof r === "string" ? r : r.path));
+		} catch {
+			// JSON parse failed, fall through to filesystem search
+		}
 	}
+	return filesystemSearch(query);
 }
 
 function matchesMdFile(fullPath: string, name: string, lowerQuery: string): boolean {
@@ -86,7 +75,7 @@ function filesystemSearch(query: string): string[] {
 
 		for (const e of entries) {
 			if (e.name.startsWith(".") || e.name === "node_modules") continue;
-			const fullPath = path.join(dir, e.name);
+			const fullPath = paths.join(dir, e.name);
 			const relPath = rel ? `${rel}/${e.name}` : e.name;
 			if (e.isDirectory()) {
 				walk(fullPath, relPath);

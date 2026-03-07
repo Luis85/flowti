@@ -13,7 +13,8 @@ import { paths } from "../../../infrastructure/paths.js";
 
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
-import { log } from "../../../infrastructure/logger.js";
+import { log, warn } from "../../../infrastructure/logger.js";
+import { clock } from "../../../infrastructure/clock.js";
 
 interface ESLintMessage {
 	message: string;
@@ -82,7 +83,7 @@ function computeDistribution(entries: ComplexityEntry[]): Record<string, number>
 }
 
 function generateReport(data: ESLintResult[], entries: ComplexityEntry[]): string {
-	const now = new Date();
+	const now = clock.now();
 	const totalFiles: number = data.length;
 	const filesWithComplexity: number = data.filter((d: ESLintResult) => d.messages.length > 0).length;
 	const totalFunctions: number = entries.length;
@@ -173,7 +174,7 @@ async function main(): Promise<void> {
 	try {
 		await runESLintComplexityCheck(ROOT);
 	} catch {
-		console.warn("[report] ESLint complexity check failed — checking for existing JSON.");
+		warn("[report] ESLint complexity check failed — checking for existing JSON.");
 	}
 
 	if (!disk.existsSync(COMPLEXITY_JSON)) {
@@ -188,8 +189,7 @@ async function main(): Promise<void> {
 	disk.mkdirSync(OUTPUT_DIR, { recursive: true });
 
 	// Write timestamped report
-	const now = new Date();
-	const safeTimestamp: string = now.toISOString().replace(/:/g, "-");
+	const safeTimestamp: string = clock.safeIso();
 	const filename: string = `${safeTimestamp}-complexity-report.md`;
 	const timestampedPath: string = paths.join(OUTPUT_DIR, filename);
 	disk.writeFileSync(timestampedPath, content, "utf-8");

@@ -13,6 +13,7 @@ import { shell } from "../../../infrastructure/shell.js";
 import { CLI_PROJECT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { RESET, DIM, GREEN, CYAN } from "../../../infrastructure/ui.js";
+import { clock } from "../../../infrastructure/clock.js";
 import { ReportService } from "./report-service.js";
 import { log } from "../../../infrastructure/logger.js";
 
@@ -90,7 +91,7 @@ function ensureReportsExist(sections: ReportSection[], projectPath: string): voi
 }
 
 function buildStatusReport(sections: ReportSection[], projectName: string): string {
-	const now = new Date();
+	const now = clock.now();
 
 	const doc = Document.create("Project Status Report")
 		.setFrontmatter("type", "ProjectStatusReport")

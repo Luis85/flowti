@@ -19,6 +19,7 @@ export class MockExitError extends Error {
 export interface MockProcOptions {
 	argv?: string[];
 	cwd?: string;
+	env?: Record<string, string | undefined>;
 }
 
 export function createMockProc(opts: MockProcOptions = {}): IProcess & {
@@ -40,6 +41,10 @@ export function createMockProc(opts: MockProcOptions = {}): IProcess & {
 
 		cwd(): string {
 			return opts.cwd ?? "/mock/cwd";
+		},
+
+		env(): Record<string, string | undefined> {
+			return opts.env ?? {};
 		},
 	};
 }

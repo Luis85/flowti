@@ -14,6 +14,7 @@ import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
 import { proc } from "../../../infrastructure/proc.js";
+import { clock } from "../../../infrastructure/clock.js";
 
 const buildTypeArg = proc.argv().find((a) => a.startsWith("--build-type="));
 const buildType = buildTypeArg ? buildTypeArg.split("=")[1] : "flow";
@@ -113,7 +114,7 @@ function extractStats(json: Record<string, unknown>): TestReportStats {
 	const results = json.testResults as unknown[] | undefined;
 	const suites = results?.length ?? jsonNum(json, "numTotalTestSuites");
 	const startTime = jsonNum(json, "startTime");
-	const duration = startTime > 0 ? Date.now() - startTime : 0;
+	const duration = startTime > 0 ? clock.ms() - startTime : 0;
 	const success = (json.success as boolean) ?? failed === 0;
 	return { passed, failed, skipped, total, suites, duration_ms: Math.max(0, duration), success };
 }
@@ -125,7 +126,7 @@ function main(): void {
 	}
 
 	const json = JSON.parse(disk.readFileSync(REPORT_JSON, "utf-8")) as Record<string, unknown>;
-	const now = new Date();
+	const now = clock.now();
 	const stats = extractStats(json);
 
 	const fm: Record<string, string | number | boolean> = {
@@ -149,7 +150,7 @@ function main(): void {
 
 	doc.mergeFrontmatter(buildPerfSection(loadPerfData(), doc));
 
-	const safeTimestamp = now.toISOString().replace(/:/g, "-");
+	const safeTimestamp = clock.safeIso();
 	const prefix = buildType === "full" ? "" : `${buildType}-`;
 	const outputPath = paths.join(OUTPUT_DIR, `${safeTimestamp}-${prefix}test-report.md`);
 	doc.save(outputPath);

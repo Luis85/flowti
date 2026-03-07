@@ -11,6 +11,7 @@ import { disk } from "../../../infrastructure/filesystem.js";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
 import { log } from "../../../infrastructure/logger.js";
+import { clock } from "../../../infrastructure/clock.js";
 
 const svc = new ReportService();
 const CODEBASE_JSON = svc.subdir("codebase/codebase.json");
@@ -67,7 +68,7 @@ function buildFrontmatter(data: TypeDocNode, counts: Record<number, number>): Re
 	return {
 		type: "CodebaseReport",
 		project: "flowti-cli",
-		date: new Date().toISOString(),
+		date: clock.iso(),
 		schema_version: data.schemaVersion || "unknown",
 		modules: counts[KIND.MODULE] || 0,
 		classes: counts[KIND.CLASS] || 0,

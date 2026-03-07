@@ -10,6 +10,7 @@ import { disk } from "../../../infrastructure/filesystem.js";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
 import { log } from "../../../infrastructure/logger.js";
+import { clock } from "../../../infrastructure/clock.js";
 
 const svc = new ReportService();
 const REPORT_JSON = svc.subdir("tests/testreport.json");
@@ -32,7 +33,7 @@ function extractTestStats(json: Record<string, unknown>): TestStats {
 	const results = json.testResults as unknown[] | undefined;
 	const suites = results?.length ?? (json.numTotalTestSuites as number) ?? 0;
 	const startTime = json.startTime as number | undefined;
-	const durationMs = startTime ? Math.max(0, Date.now() - startTime) : 0;
+	const durationMs = startTime ? Math.max(0, clock.ms() - startTime) : 0;
 	return { passed, failed, skipped, total, suites, durationMs, success: (json.success as boolean) ?? failed === 0 };
 }
 
@@ -62,7 +63,7 @@ function main(): void {
 	const fm: Record<string, string | number | boolean> = {
 		type: "TestReport",
 		project: "flowti-cli",
-		date: new Date().toISOString(),
+		date: clock.iso(),
 		passed: stats.passed,
 		failed: stats.failed,
 		skipped: stats.skipped,

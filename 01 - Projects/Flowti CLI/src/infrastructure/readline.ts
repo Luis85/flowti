@@ -5,6 +5,8 @@
 import readline from "node:readline";
 import { RESET, DIM } from "./ui.js";
 
+export type ReadlineInterface = readline.Interface;
+
 export function createRL(): readline.Interface {
 	return readline.createInterface({ input: process.stdin, output: process.stdout });
 }

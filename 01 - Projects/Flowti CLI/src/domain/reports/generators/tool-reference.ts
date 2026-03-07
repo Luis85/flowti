@@ -12,6 +12,7 @@ import { paths } from "../../../infrastructure/paths.js";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
+import { clock } from "../../../infrastructure/clock.js";
 
 interface ToolParam {
 	name: string;
@@ -303,7 +304,7 @@ function main(): void {
 	const { groups, sortedCategories } = groupToolsByTag(tools);
 
 	const doc = Document.create("Journey Runner Tool Reference")
-		.mergeFrontmatter({ type: "ToolReference", date: new Date().toISOString(), total_tools: tools.length, categories: sortedCategories.length })
+		.mergeFrontmatter({ type: "ToolReference", date: clock.iso(), total_tools: tools.length, categories: sortedCategories.length })
 		.setTags(allTags)
 		.addBlank()
 		.heading(1, "Journey Runner Tool Reference")

@@ -12,6 +12,7 @@ import { paths } from "../../../infrastructure/paths.js";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
+import { clock } from "../../../infrastructure/clock.js";
 
 interface CatalogEntry {
 	type: string;
@@ -128,7 +129,7 @@ function main(): void {
 	const doc = Document.create("Event Catalog")
 		.mergeFrontmatter({
 			type: "EventCatalog",
-			date: new Date().toISOString(),
+			date: clock.iso(),
 			total_events: events.length,
 			categories: groups.size,
 			domains: uniqueDomains.size,

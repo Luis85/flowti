@@ -13,6 +13,7 @@ import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
 import { proc } from "../../../infrastructure/proc.js";
+import { clock } from "../../../infrastructure/clock.js";
 
 const buildTypeArg = proc.argv().find((a) => a.startsWith("--build-type="));
 const buildType = buildTypeArg ? buildTypeArg.split("=")[1] : "flow";
@@ -55,8 +56,7 @@ function main(): void {
 
 	const json = JSON.parse(disk.readFileSync(COVERAGE_JSON, "utf-8"));
 	const entries: CoverageEntry[] = Object.values(json);
-	const now = new Date();
-	const date = now.toISOString();
+	const date = clock.iso();
 
 	const fm: Record<string, string | number> = {
 		type: "CoverageReport",
@@ -81,7 +81,7 @@ function main(): void {
 		])
 		.addBlank();
 
-	const safeTimestamp = now.toISOString().replace(/:/g, "-");
+	const safeTimestamp = clock.safeIso();
 	const prefix = buildType === "full" ? "" : `${buildType}-`;
 	const filename = `${safeTimestamp}-${prefix}coverage-report.md`;
 	const outputPath = paths.join(OUTPUT_DIR, filename);

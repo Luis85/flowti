@@ -12,6 +12,7 @@ import { CLI_PROJECT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
 import { log } from "../../../infrastructure/logger.js";
+import { clock } from "../../../infrastructure/clock.js";
 
 const svc = new ReportService();
 const ANALYSIS_JSON = svc.subdir("coverage/analysis.json");
@@ -60,7 +61,7 @@ function buildComplexityFm(summary: AnalysisSummary, srcFiles: AnalysisFile[]): 
 	const fm: Record<string, string | number> = {
 		type: "ComplexityReport",
 		project: "flowti-cli",
-		date: new Date().toISOString(),
+		date: clock.iso(),
 		total_files: srcFiles.length,
 		total_decision_points: summary.totalDecisionPoints,
 	};

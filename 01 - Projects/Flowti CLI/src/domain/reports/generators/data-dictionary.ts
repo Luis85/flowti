@@ -12,6 +12,7 @@ import { paths } from "../../../infrastructure/paths.js";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
+import { clock } from "../../../infrastructure/clock.js";
 
 interface EntityField {
 	name: string;
@@ -145,8 +146,7 @@ function main(): void {
 		return;
 	}
 
-	const now: Date = new Date();
-	const date: string = now.toISOString();
+	const date: string = clock.iso();
 
 	// Group by group
 	const groups: Map<string, EntityType[]> = new Map();

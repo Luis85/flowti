@@ -17,6 +17,7 @@
 import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
 import { proc } from "../../infrastructure/proc.js";
+import { clock } from "../../infrastructure/clock.js";
 
 // ── CLI argument parsing ────────────────────────────────
 
@@ -74,7 +75,7 @@ function parseYearMonth(s: string): YearMonth {
 }
 
 function todayYearMonth(): YearMonth {
-	const d = new Date();
+	const d = clock.now();
 	return { year: d.getFullYear(), month: d.getMonth() + 1 };
 }
 

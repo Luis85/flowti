@@ -8,6 +8,7 @@ import { VAULT_ROOT, getCaptureDir } from "../../infrastructure/config.js";
 import { RESET, DIM, GREEN, RED, YELLOW, printHeader, printMenu } from "../../infrastructure/ui.js";
 import { createRL, ask } from "../../infrastructure/readline.js";
 import { Document } from "../../infrastructure/document.js";
+import { clock } from "../../infrastructure/clock.js";
 import type { MenuResult } from "../../types.js";
 import { log } from "../../infrastructure/logger.js";
 
@@ -38,7 +39,7 @@ function createCaptureFile(type: string, title: string, body: string): string | 
 	}
 
 	const doc = Document.create(title)
-		.mergeFrontmatter({ type, date: new Date().toISOString() })
+		.mergeFrontmatter({ type, date: clock.iso() })
 		.addBlank()
 		.heading(1, title);
 

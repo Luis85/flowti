@@ -34,6 +34,8 @@ export interface IShell {
 	runSilent(cmd: string, opts?: { cwd?: string }): string | null;
 	/** Run a command and check if it succeeds (exit code 0). */
 	check(cmd: string): boolean;
+	/** Run an executable file with args, return trimmed stdout or null on error. */
+	execFile(cmd: string, args: string[], opts?: { timeout?: number; stdio?: string }): string | null;
 }
 
 // ── Process abstraction ──────────────────────────────────────────────
@@ -45,6 +47,8 @@ export interface IProcess {
 	argv(): string[];
 	/** Current working directory. */
 	cwd(): string;
+	/** Environment variables. */
+	env(): Record<string, string | undefined>;
 }
 
 // ── CLI argument parsing ────────────────────────────────────────────

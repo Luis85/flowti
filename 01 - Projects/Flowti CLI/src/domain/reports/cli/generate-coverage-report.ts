@@ -11,6 +11,7 @@ import { disk } from "../../../infrastructure/filesystem.js";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
 import { log } from "../../../infrastructure/logger.js";
+import { clock } from "../../../infrastructure/clock.js";
 
 const svc = new ReportService();
 const COVERAGE_JSON = svc.subdir("coverage/coverage-final.json");
@@ -66,7 +67,7 @@ function main(): void {
 	const fm: Record<string, string | number> = {
 		type: "CoverageReport",
 		project: "flowti-cli",
-		date: new Date().toISOString(),
+		date: clock.iso(),
 		statements_pct: stmtPct,
 		branches_pct: branchPct,
 		functions_pct: fnPct,

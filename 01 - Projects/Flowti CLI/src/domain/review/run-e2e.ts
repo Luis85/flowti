@@ -25,26 +25,28 @@
  *   npm run test:e2e:quick             Installer + Getting Started (fast)
  *   npm run test:e2e:list              Interactive test session
  */
-import { execSync } from "node:child_process";
-import path from "node:path";
 import { disk } from "../../infrastructure/filesystem.js";
-import readline from "node:readline";
 
 import { VAULT_ROOT, PLUGIN_ROOT } from "../../infrastructure/config.js";
 import { log } from "../../infrastructure/logger.js";
-const PROJECTS_ROOT: string = path.resolve(VAULT_ROOT, "..");
-const TEST_VAULT: string = process.env.E2E_VAULT_DIR ?? path.join(PROJECTS_ROOT, "flowti-e2e");
-const VAULT_NAME: string = path.basename(TEST_VAULT);
-const JOURNEYS_DIR: string = path.join(PLUGIN_ROOT, "tests", "e2e", "journeys");
+import { paths } from "../../infrastructure/paths.js";
+import { shell } from "../../infrastructure/shell.js";
+import { proc } from "../../infrastructure/proc.js";
+import { createRL } from "../../infrastructure/readline.js";
+import type { ReadlineInterface } from "../../infrastructure/readline.js";
+const PROJECTS_ROOT: string = paths.resolve(VAULT_ROOT, "..");
+const TEST_VAULT: string = proc.env().E2E_VAULT_DIR ?? paths.join(PROJECTS_ROOT, "flowti-e2e");
+const VAULT_NAME: string = paths.basename(TEST_VAULT);
+const JOURNEYS_DIR: string = paths.join(PLUGIN_ROOT, "tests", "e2e", "journeys");
 const PLUGIN_ID: string = "flowti-ibde";
-const PLUGIN_DIR: string = path.join(TEST_VAULT, ".obsidian", "plugins", PLUGIN_ID);
-const DATA_JSON_PATH: string = path.join(PLUGIN_DIR, "data.json");
+const PLUGIN_DIR: string = paths.join(TEST_VAULT, ".obsidian", "plugins", PLUGIN_ID);
+const DATA_JSON_PATH: string = paths.join(PLUGIN_DIR, "data.json");
 const PLUGIN_ARTIFACTS: string[] = ["main.js", "manifest.json", "styles.css"];
-const TEST_DATA_CSV: string = path.join(TEST_VAULT, "03 - Resources", "Test Data", "Analytics", "Suppliers.csv");
+const TEST_DATA_CSV: string = paths.join(TEST_VAULT, "03 - Resources", "Test Data", "Analytics", "Suppliers.csv");
 
 // ── Readline helpers ────────────────────────────────────────────────
 
-function ask(rl: readline.Interface, question: string, defaultValue: string = ""): Promise<string> {
+function ask(rl: ReadlineInterface, question: string, defaultValue: string = ""): Promise<string> {
 	return new Promise((resolve) => {
 		const suffix = defaultValue ? ` (${defaultValue})` : "";
 		rl.question(`  ${question}${suffix}: `, (answer: string) => {
@@ -53,7 +55,7 @@ function ask(rl: readline.Interface, question: string, defaultValue: string = ""
 	});
 }
 
-function askYesNo(rl: readline.Interface, question: string, defaultNo: boolean = true): Promise<boolean> {
+function askYesNo(rl: ReadlineInterface, question: string, defaultNo: boolean = true): Promise<boolean> {
 	return new Promise((resolve) => {
 		const hint = defaultNo ? "(y/N)" : "(Y/n)";
 		rl.question(`  ${question} ${hint}: `, (answer: string) => {
@@ -70,15 +72,13 @@ function askYesNo(rl: readline.Interface, question: string, defaultNo: boolean =
 // ── File explorer helpers ────────────────────────────────────────────
 
 function collapseFileExplorer(): void {
-	try {
-		execSync(
-			`obsidian vault=${VAULT_NAME} eval code="(() => { const explorer = app.workspace.getLeavesOfType('file-explorer')[0]; if (explorer && explorer.view) { const foldStatus = explorer.view.fileItems; if (foldStatus) { Object.values(foldStatus).forEach(item => { if (item.collapsed !== undefined) item.setCollapsed(true); }); } } })()"`,
-			{ stdio: "pipe", timeout: 10_000 },
-		);
+	const result = shell.runSilent(
+		`obsidian vault=${VAULT_NAME} eval code="(() => { const explorer = app.workspace.getLeavesOfType('file-explorer')[0]; if (explorer && explorer.view) { const foldStatus = explorer.view.fileItems; if (foldStatus) { Object.values(foldStatus).forEach(item => { if (item.collapsed !== undefined) item.setCollapsed(true); }); } } })()"`,
+	);
+	if (result !== null) {
 		log("  \x1b[32m✓\x1b[0m File navigator folders collapsed");
-	} catch {
-		// Non-fatal — file explorer may not be visible
 	}
+	// Non-fatal — file explorer may not be visible
 }
 
 // ── Prerequisites check (local filesystem + single CLI ping) ────────
@@ -108,22 +108,15 @@ function checkPrerequisites(): PrerequisiteResults {
 	// 2. Plugin artifacts
 	if (results.vaultExists) {
 		results.missingArtifacts = PLUGIN_ARTIFACTS.filter(
-			(f) => !disk.existsSync(path.join(PLUGIN_DIR, f)),
+			(f) => !disk.existsSync(paths.join(PLUGIN_DIR, f)),
 		);
 		results.artifactsPresent = results.missingArtifacts.length === 0;
 	}
 
 	// 3. CLI responsive (single eval, best-effort)
 	if (results.vaultExists) {
-		try {
-			const output = execSync(
-				`obsidian vault=${VAULT_NAME} eval code="1+1"`,
-				{ encoding: "utf-8", stdio: "pipe", timeout: 10_000 },
-			);
-			results.cliResponsive = output.includes("2");
-		} catch {
-			results.cliResponsive = false;
-		}
+		const output = shell.runSilent(`obsidian vault=${VAULT_NAME} eval code="1+1"`);
+		results.cliResponsive = output !== null && output.includes("2");
 	}
 
 	// 4. Vault installed (data.json check)
@@ -176,29 +169,26 @@ function printPrerequisites(results: PrerequisiteResults): void {
  */
 async function performTeardown(): Promise<void> {
 	// 1. Delete vault content via Obsidian CLI (cache-safe)
-	try {
-		execSync(
-			`obsidian vault=${VAULT_NAME} eval code="(async () => { const root = app.vault.getRoot(); const children = root.children || []; for (const child of [...children]) { if (child.path === '.obsidian' || child.path.startsWith('.obsidian/')) continue; try { await app.vault.delete(child, true); } catch(e) {} } })()"`,
-			{ stdio: "pipe", timeout: 30_000 },
-		);
+	const deleteResult = shell.runSilent(
+		`obsidian vault=${VAULT_NAME} eval code="(async () => { const root = app.vault.getRoot(); const children = root.children || []; for (const child of [...children]) { if (child.path === '.obsidian' || child.path.startsWith('.obsidian/')) continue; try { await app.vault.delete(child, true); } catch(e) {} } })()"`,
+	);
+	if (deleteResult !== null) {
 		// Wait for async deletions
 		await new Promise<void>((r) => setTimeout(r, 1000));
 		log("  \x1b[32m✓\x1b[0m Vault content deleted (via Obsidian API)");
-	} catch {
+	} else {
 		log("  \x1b[31m✗\x1b[0m Failed to delete vault content (is Obsidian running?)");
 	}
 
 	// 2. Purge ghost file index entries
-	try {
-		execSync(
-			`obsidian vault=${VAULT_NAME} eval code="(async () => { const ghosts = []; for (const f of [...app.vault.getAllLoadedFiles()]) { if (f.path === '/' || f.path.startsWith('.obsidian')) continue; const exists = await app.vault.adapter.exists(f.path); if (!exists) ghosts.push(f); } for (const f of ghosts) { try { await app.vault.delete(f, true); } catch {} try { if (f.parent) f.parent.children = f.parent.children.filter(c => c !== f); delete app.vault.fileMap[f.path]; } catch {} } })()"`,
-			{ stdio: "pipe", timeout: 30_000 },
-		);
+	const purgeResult = shell.runSilent(
+		`obsidian vault=${VAULT_NAME} eval code="(async () => { const ghosts = []; for (const f of [...app.vault.getAllLoadedFiles()]) { if (f.path === '/' || f.path.startsWith('.obsidian')) continue; const exists = await app.vault.adapter.exists(f.path); if (!exists) ghosts.push(f); } for (const f of ghosts) { try { await app.vault.delete(f, true); } catch {} try { if (f.parent) f.parent.children = f.parent.children.filter(c => c !== f); delete app.vault.fileMap[f.path]; } catch {} } })()"`,
+	);
+	if (purgeResult !== null) {
 		await new Promise<void>((r) => setTimeout(r, 500));
 		log("  \x1b[32m✓\x1b[0m Ghost entries purged");
-	} catch {
-		// Non-fatal — ghost entries will be cleaned on next globalSetup
 	}
+	// Non-fatal — ghost entries will be cleaned on next globalSetup
 
 	// 3. Reset data.json
 	if (disk.existsSync(DATA_JSON_PATH)) {
@@ -215,19 +205,18 @@ async function performTeardown(): Promise<void> {
 	}
 
 	// 4. Deactivate plugin
-	try {
-		execSync(
-			`obsidian vault=${VAULT_NAME} eval code="app.plugins.disablePlugin('${PLUGIN_ID}')"`,
-			{ stdio: "pipe", timeout: 10_000 },
-		);
+	const disableResult = shell.runSilent(
+		`obsidian vault=${VAULT_NAME} eval code="app.plugins.disablePlugin('${PLUGIN_ID}')"`,
+	);
+	if (disableResult !== null) {
 		await new Promise<void>((r) => setTimeout(r, 1000));
 		log("  \x1b[32m✓\x1b[0m Plugin deactivated");
-	} catch {
+	} else {
 		log("  \x1b[33m○\x1b[0m Plugin deactivation skipped (may not be loaded)");
 	}
 
 	// 5. Clear workspace layout
-	const workspacePath: string = path.join(TEST_VAULT, ".obsidian", "workspace.json");
+	const workspacePath: string = paths.join(TEST_VAULT, ".obsidian", "workspace.json");
 	if (disk.existsSync(workspacePath)) {
 		try {
 			disk.rmSync(workspacePath, { force: true });
@@ -254,7 +243,7 @@ async function teardownVault(): Promise<void> {
 	log("    - Clear workspace layout");
 	log("    - Collapse file navigator folders\n");
 
-	const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+	const rl = createRL();
 	const proceed = await askYesNo(rl, "Proceed?", true);
 	rl.close();
 
@@ -283,7 +272,7 @@ function loadJourneyEntries(): JourneyEntry[] {
 		.sort();
 
 	return files.map((f) => {
-		const def = JSON.parse(disk.readFileSync(path.join(JOURNEYS_DIR, f), "utf-8")) as Record<string, unknown>;
+		const def = JSON.parse(disk.readFileSync(paths.join(JOURNEYS_DIR, f), "utf-8")) as Record<string, unknown>;
 		const slug = f.replace(".journey", "");
 		return {
 			slug,
@@ -321,14 +310,14 @@ interface SessionConfig {
 	stepFilter: Record<string, "all" | string[]>;
 }
 
-async function promptSessionConfig(rl: readline.Interface, entries: JourneyEntry[], prereqResults: PrerequisiteResults): Promise<SessionConfig> {
+async function promptSessionConfig(rl: ReadlineInterface, entries: JourneyEntry[], prereqResults: PrerequisiteResults): Promise<SessionConfig> {
 	// Journey selection first — needed for auto-generated session name
 	printJourneyTable(entries);
 	const journeyInput = await ask(rl, 'Enter journey numbers (e.g. "2" or "1 3 4") or "all"');
 
 	if (!journeyInput) {
 		log("\n  No selection — exiting.\n");
-		process.exit(0);
+		proc.exit(0);
 	}
 
 	let selectedSlugs: string[];
@@ -338,7 +327,7 @@ async function promptSessionConfig(rl: readline.Interface, entries: JourneyEntry
 		const indices = journeyInput.split(/[\s,]+/).map(Number).filter((n) => n >= 1 && n <= entries.length);
 		if (indices.length === 0) {
 			log("\n  Invalid selection — exiting.\n");
-			process.exit(1);
+			proc.exit(1);
 		}
 		selectedSlugs = indices.map((i) => entries[i - 1].slug);
 	}
@@ -431,11 +420,11 @@ function resolveStepFilter(input: string, steps: Array<Record<string, unknown>>)
  * Prompts the user to select steps for each journey.
  * Returns a map of { slug: "all" | string[] } where string[] contains step IDs.
  */
-async function promptStepFilter(rl: readline.Interface, selectedSlugs: string[]): Promise<Record<string, "all" | string[]>> {
+async function promptStepFilter(rl: ReadlineInterface, selectedSlugs: string[]): Promise<Record<string, "all" | string[]>> {
 	const stepFilter: Record<string, "all" | string[]> = {};
 
 	for (const slug of selectedSlugs) {
-		const journeyPath = path.join(JOURNEYS_DIR, `${slug}.journey`);
+		const journeyPath = paths.join(JOURNEYS_DIR, `${slug}.journey`);
 		if (!disk.existsSync(journeyPath)) {
 			stepFilter[slug] = "all";
 			continue;
@@ -494,7 +483,7 @@ function extractStatsFromTestResults(testResults: Array<Record<string, unknown>>
  * Reads vitest JSON report and returns test result stats.
  */
 function readTestStats(): TestStats {
-	const reportPath = path.join(PLUGIN_ROOT, "docs", "reports", "tests", "testreport.json");
+	const reportPath = paths.join(PLUGIN_ROOT, "docs", "reports", "tests", "testreport.json");
 	if (!disk.existsSync(reportPath)) return { totalTests: 0, passed: 0, failed: 0, skipped: 0 };
 
 	try {
@@ -646,15 +635,15 @@ function writeSessionNote(sessionName: string, config: SessionConfig, selectedNa
 	const content = lines.join("\n");
 
 	// Write to test vault
-	const sessionDir = path.join(TEST_VAULT, "03 - Resources", "Sessions", sessionName);
-	const notePath = path.join(sessionDir, `${sessionName}.md`);
+	const sessionDir = paths.join(TEST_VAULT, "03 - Resources", "Sessions", sessionName);
+	const notePath = paths.join(sessionDir, `${sessionName}.md`);
 	disk.mkdirSync(sessionDir, { recursive: true });
 	disk.writeFileSync(notePath, content, "utf-8");
 	log(`[e2e] Session note written: ${notePath}`);
 
 	// Mirror to dev vault
-	const devSessionDir = path.join(PLUGIN_ROOT, "docs", "reports", "e2e", "sessions", sessionName);
-	const devNotePath = path.join(devSessionDir, `${sessionName}.md`);
+	const devSessionDir = paths.join(PLUGIN_ROOT, "docs", "reports", "e2e", "sessions", sessionName);
+	const devNotePath = paths.join(devSessionDir, `${sessionName}.md`);
 	disk.mkdirSync(devSessionDir, { recursive: true });
 	disk.writeFileSync(devNotePath, content, "utf-8");
 	log(`[e2e] Session note mirrored: ${devNotePath}`);
@@ -680,22 +669,22 @@ function quickBuildAndDeploy(): number {
 	log("\n  Quick build (esbuild → deploy → reload)...\n");
 
 	// 1. Run esbuild production build
-	try {
-		execSync("node esbuild.config.mjs --production", { stdio: "inherit" });
+	const buildExitCode = shell.run("node esbuild.config.mjs --production");
+	if (buildExitCode === 0) {
 		log("\n  \x1b[32m✓\x1b[0m Build completed");
-	} catch (err) {
+	} else {
 		log("\n  \x1b[31m✗\x1b[0m Build failed");
-		return (err as { status?: number }).status ?? 1;
+		return buildExitCode;
 	}
 
 	// 2. Copy artifacts from main vault to test vault
-	const mainPluginDir = path.resolve(PLUGIN_ROOT, "..", "..", ".obsidian", "plugins", PLUGIN_ID);
+	const mainPluginDir = paths.resolve(PLUGIN_ROOT, "..", "..", ".obsidian", "plugins", PLUGIN_ID);
 	let copied = 0;
 	for (const artifact of PLUGIN_ARTIFACTS) {
-		const src = path.join(mainPluginDir, artifact);
-		const dest = path.join(PLUGIN_DIR, artifact);
+		const src = paths.join(mainPluginDir, artifact);
+		const dest = paths.join(PLUGIN_DIR, artifact);
 		if (disk.existsSync(src)) {
-			disk.mkdirSync(path.dirname(dest), { recursive: true });
+			disk.mkdirSync(paths.dirname(dest), { recursive: true });
 			disk.copyFileSync(src, dest);
 			copied++;
 		} else {
@@ -705,13 +694,12 @@ function quickBuildAndDeploy(): number {
 	log(`  \x1b[32m✓\x1b[0m Deployed ${copied} artifacts to test vault`);
 
 	// 3. Reload plugin in Obsidian
-	try {
-		execSync(
-			`obsidian vault=${VAULT_NAME} eval code="(async () => { await app.plugins.disablePlugin('${PLUGIN_ID}'); await app.plugins.enablePlugin('${PLUGIN_ID}'); return 'reloaded'; })()"`,
-			{ stdio: "pipe", timeout: 15_000 },
-		);
+	const reloadResult = shell.runSilent(
+		`obsidian vault=${VAULT_NAME} eval code="(async () => { await app.plugins.disablePlugin('${PLUGIN_ID}'); await app.plugins.enablePlugin('${PLUGIN_ID}'); return 'reloaded'; })()"`,
+	);
+	if (reloadResult !== null) {
 		log("  \x1b[32m✓\x1b[0m Plugin reloaded in Obsidian\n");
-	} catch {
+	} else {
 		log("  \x1b[33m○\x1b[0m Plugin reload skipped (Obsidian may not be running)\n");
 	}
 
@@ -740,14 +728,14 @@ interface BuildStats {
  * Reads the latest build report frontmatter for summary display.
  */
 function readBuildStats(): BuildStats {
-	const buildFile = findLatestReport(path.join(REPORTS_DIR, "builds"));
-	const testFile = findLatestReport(path.join(REPORTS_DIR, "tests"));
-	const coverageDir = path.join(REPORTS_DIR, "coverage");
+	const buildFile = findLatestReport(paths.join(REPORTS_DIR, "builds"));
+	const testFile = findLatestReport(paths.join(REPORTS_DIR, "tests"));
+	const coverageDir = paths.join(REPORTS_DIR, "coverage");
 	const coverageFile = findLatestReport(coverageDir);
-	const perfFile = findLatestReport(path.join(REPORTS_DIR, "performance"));
-	const cycleFile = findLatestReport(path.join(REPORTS_DIR, "cycles"));
-	const e2eFile = path.join(REPORTS_DIR, "e2e", "E2E Report.md");
-	const traceFile = path.join(REPORTS_DIR, "traceability", "Trace Conformance Report.md");
+	const perfFile = findLatestReport(paths.join(REPORTS_DIR, "performance"));
+	const cycleFile = findLatestReport(paths.join(REPORTS_DIR, "cycles"));
+	const e2eFile = paths.join(REPORTS_DIR, "e2e", "E2E Report.md");
+	const traceFile = paths.join(REPORTS_DIR, "traceability", "Trace Conformance Report.md");
 
 	return {
 		build: buildFile ? parseFrontmatter(buildFile) : null,
@@ -949,7 +937,7 @@ function buildPerfFrontmatterLines(p: Record<string, unknown>, t: Record<string,
 }
 
 function generateIncrementStateReport(exitCode: number, duration: string, stats: BuildStats): { testPath: string; devPath: string } {
-	const DEV_VAULT_ROOT = path.resolve(PLUGIN_ROOT, "..", "..");
+	const DEV_VAULT_ROOT = paths.resolve(PLUGIN_ROOT, "..", "..");
 	const now = new Date();
 	const status = exitCode === 0 ? "pass" : "fail";
 	const m = extractMetrics(stats);
@@ -975,12 +963,12 @@ function generateIncrementStateReport(exitCode: number, duration: string, stats:
 	const filename = "Increment State Report.md";
 
 	// Write to test vault root
-	const testPath = path.join(TEST_VAULT, filename);
+	const testPath = paths.join(TEST_VAULT, filename);
 	disk.writeFileSync(testPath, content, "utf-8");
 	log(`  \x1b[32m✓\x1b[0m Increment State Report: ${testPath}`);
 
 	// Write to dev vault root
-	const devPath = path.join(DEV_VAULT_ROOT, filename);
+	const devPath = paths.join(DEV_VAULT_ROOT, filename);
 	disk.writeFileSync(devPath, content, "utf-8");
 	log(`  \x1b[32m✓\x1b[0m Increment State Report: ${devPath}`);
 
@@ -1043,13 +1031,7 @@ async function runIncrementBuild(): Promise<number> {
 
 	log("  Starting increment build (check → build → test → e2e → docs → distribute)...\n");
 	const startTime = Date.now();
-	let exitCode: number;
-	try {
-		execSync("npm run build:increment", { stdio: "inherit" });
-		exitCode = 0;
-	} catch (err) {
-		exitCode = (err as { status?: number }).status ?? 1;
-	}
+	const exitCode = shell.run("npm run build:increment");
 	const duration = ((Date.now() - startTime) / 1000).toFixed(1);
 	const stats = readBuildStats();
 	printIncrementSummary(exitCode, duration, stats);
@@ -1109,7 +1091,7 @@ function buildTraceFrontmatterLines(tr: Record<string, unknown>): string[] {
 }
 
 function generatePublishStateReport(exitCode: number, duration: string, stats: BuildStats): { devPath: string } {
-	const DEV_VAULT_ROOT = path.resolve(PLUGIN_ROOT, "..", "..");
+	const DEV_VAULT_ROOT = paths.resolve(PLUGIN_ROOT, "..", "..");
 	const now = new Date();
 	const status = exitCode === 0 ? "pass" : "fail";
 	const m = extractMetrics(stats);
@@ -1136,7 +1118,7 @@ function generatePublishStateReport(exitCode: number, duration: string, stats: B
 	const filename = "Publish State Report.md";
 
 	// Write to dev vault root
-	const devPath = path.join(DEV_VAULT_ROOT, filename);
+	const devPath = paths.join(DEV_VAULT_ROOT, filename);
 	disk.writeFileSync(devPath, content, "utf-8");
 	log(`  \x1b[32m✓\x1b[0m Publish State Report: ${devPath}`);
 
@@ -1146,13 +1128,7 @@ function generatePublishStateReport(exitCode: number, duration: string, stats: B
 function runPublish(): number {
 	log("\n  Starting publish (check → build → test → docs → publish)...\n");
 	const startTime = Date.now();
-	let exitCode: number;
-	try {
-		execSync("npm run build:release", { stdio: "inherit" });
-		exitCode = 0;
-	} catch (err) {
-		exitCode = (err as { status?: number }).status ?? 1;
-	}
+	const exitCode = shell.run("npm run build:release");
 	const duration = ((Date.now() - startTime) / 1000).toFixed(1);
 	const stats = readBuildStats();
 	printPublishSummary(exitCode, duration, stats);
@@ -1186,7 +1162,7 @@ async function publishResultView(exitCode: number): Promise<ViewResult> {
 
 	while (true) {
 		printResultBanner("Publish", exitCode);
-		const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+		const rl = createRL();
 		log("    r) Re-run publish");
 		log("    a) Generate audit");
 		log("    m) Back to main menu");
@@ -1238,7 +1214,7 @@ async function incrementResultView(exitCode: number): Promise<ViewResult> {
 
 	while (true) {
 		printResultBanner("Increment Build", exitCode);
-		const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+		const rl = createRL();
 		printIncrementMenu(exitCode);
 		const choice = (await ask(rl, "Choice", exitCode === 0 ? "p" : "m")).toLowerCase();
 
@@ -1267,17 +1243,17 @@ async function runRebuild(): Promise<number> {
 	await teardownVault();
 
 	// 2. Run prerequisites + installer
-	process.env.E2E_JOURNEY = "prerequisites,installer";
-	process.env.E2E_RUN_PREREQUISITES = "true";
-	process.env.E2E_RUN_INSTALLER = "true";
+	proc.env().E2E_JOURNEY = "prerequisites,installer";
+	proc.env().E2E_RUN_PREREQUISITES = "true";
+	proc.env().E2E_RUN_INSTALLER = "true";
 
 	const exitCode = runVitest();
 	generateReportAndOpen();
 
 	// Clean env vars so subsequent sessions don't inherit rebuild flags
-	delete process.env.E2E_JOURNEY;
-	delete process.env.E2E_RUN_PREREQUISITES;
-	delete process.env.E2E_RUN_INSTALLER;
+	delete proc.env().E2E_JOURNEY;
+	delete proc.env().E2E_RUN_PREREQUISITES;
+	delete proc.env().E2E_RUN_INSTALLER;
 
 	if (exitCode === 0) {
 		log("\n  \x1b[32m✓\x1b[0m Rebuild completed successfully.\n");
@@ -1290,7 +1266,7 @@ async function runRebuild(): Promise<number> {
 
 // ── Audit generation ────────────────────────────────────────────────
 
-const REPORTS_DIR: string = path.join(PLUGIN_ROOT, "docs", "reports");
+const REPORTS_DIR: string = paths.join(PLUGIN_ROOT, "docs", "reports");
 
 /** Coerces a raw YAML string value to a typed JS value. */
 function parseYamlValue(raw: string): unknown {
@@ -1333,7 +1309,7 @@ function findLatestReport(dir: string): string | null {
 			.filter((f) => f.endsWith(".md"))
 			.sort()
 			.reverse();
-		return files.length > 0 ? path.join(dir, files[0]) : null;
+		return files.length > 0 ? paths.join(dir, files[0]) : null;
 	} catch {
 		return null;
 	}
@@ -1348,13 +1324,13 @@ function collectReportSources(): Record<string, ReportSource> {
 		["performance", "performance"], ["cycle", "cycles"],
 	];
 	for (const [key, dir] of timestampedDirs) {
-		const file = findLatestReport(path.join(REPORTS_DIR, dir));
+		const file = findLatestReport(paths.join(REPORTS_DIR, dir));
 		if (file) sources[key] = { file, fm: parseFrontmatter(file) };
 	}
 
 	const stableFiles: Array<[string, string]> = [
-		["e2e", path.join(REPORTS_DIR, "e2e", "E2E Report.md")],
-		["traceability", path.join(REPORTS_DIR, "traceability", "Trace Conformance Report.md")],
+		["e2e", paths.join(REPORTS_DIR, "e2e", "E2E Report.md")],
+		["traceability", paths.join(REPORTS_DIR, "traceability", "Trace Conformance Report.md")],
 	];
 	for (const [key, filePath] of stableFiles) {
 		if (disk.existsSync(filePath)) sources[key] = { file: filePath, fm: parseFrontmatter(filePath) };
@@ -1488,7 +1464,7 @@ function buildAuditSourcesSection(sources: Record<string, ReportSource>): string
 	];
 	const reportLinks: string[] = [];
 	for (const [key, label] of sourceMap) {
-		if (sources[key]) reportLinks.push(`- ${label}: \`${path.basename(sources[key].file)}\``);
+		if (sources[key]) reportLinks.push(`- ${label}: \`${paths.basename(sources[key].file)}\``);
 	}
 	if (sources.e2e) reportLinks.push("- E2E: [[E2E Report]]");
 	if (sources.traceability) reportLinks.push("- Traceability: [[Trace Conformance Report]]");
@@ -1499,25 +1475,24 @@ function buildAuditSourcesSection(sources: Record<string, ReportSource>): string
 
 /** Writes the audit note to both test and dev vaults, and opens in Obsidian. */
 function writeAndOpenAudit(auditName: string, content: string): void {
-	const testAuditDir = path.join(TEST_VAULT, "03 - Resources", "Reviews", "Audits", auditName);
-	const testAuditPath = path.join(testAuditDir, `${auditName}.md`);
+	const testAuditDir = paths.join(TEST_VAULT, "03 - Resources", "Reviews", "Audits", auditName);
+	const testAuditPath = paths.join(testAuditDir, `${auditName}.md`);
 	disk.mkdirSync(testAuditDir, { recursive: true });
 	disk.writeFileSync(testAuditPath, content, "utf-8");
 	log(`  \x1b[32m✓\x1b[0m Audit written: ${testAuditPath}`);
 
-	const devAuditDir = path.join(PLUGIN_ROOT, "docs", "reports", "e2e", "audits", auditName);
-	const devAuditPath = path.join(devAuditDir, `${auditName}.md`);
+	const devAuditDir = paths.join(PLUGIN_ROOT, "docs", "reports", "e2e", "audits", auditName);
+	const devAuditPath = paths.join(devAuditDir, `${auditName}.md`);
 	disk.mkdirSync(devAuditDir, { recursive: true });
 	disk.writeFileSync(devAuditPath, content, "utf-8");
 	log(`  \x1b[32m✓\x1b[0m Audit mirrored: ${devAuditPath}`);
 
-	try {
-		execSync(
-			`obsidian vault=${VAULT_NAME} open "03 - Resources/Reviews/Audits/${auditName}/${auditName}.md"`,
-			{ stdio: "pipe", timeout: 10_000 },
-		);
+	const openResult = shell.runSilent(
+		`obsidian vault=${VAULT_NAME} open "03 - Resources/Reviews/Audits/${auditName}/${auditName}.md"`,
+	);
+	if (openResult !== null) {
 		log("  \x1b[32m✓\x1b[0m Audit opened in Obsidian\n");
-	} catch {
+	} else {
 		log("  \x1b[33m○\x1b[0m Could not open audit in Obsidian\n");
 	}
 }
@@ -1556,7 +1531,7 @@ function determineAuditStatus(fm: AuditFrontmatters): { overallStatus: string; c
 	};
 }
 
-async function generateAudit(rl: readline.Interface): Promise<void> {
+async function generateAudit(rl: ReadlineInterface): Promise<void> {
 	const defaultName = new Date().toISOString().slice(0, 10) + "-audit";
 	const auditName = await ask(rl, "Audit name", defaultName);
 
@@ -1625,7 +1600,7 @@ async function sessionView(config: SessionConfig, entries: JourneyEntry[], prere
 
 	while (true) {
 		printSessionBanner(currentConfig, entries, currentExitCode);
-		const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+		const rl = createRL();
 		log("    r) Re-run");
 		log("    b) Build and re-run");
 		log("    d) Build only (no re-run)");
@@ -1672,12 +1647,12 @@ function validatePrerequisites(prereqResults: PrerequisiteResults): void {
 	if (!prereqResults.vaultExists) {
 		log("  Cannot proceed — test vault does not exist.");
 		log(`  Create it by running: npm run test:e2e\n`);
-		process.exit(1);
+		proc.exit(1);
 	}
 	if (!prereqResults.cliResponsive) {
 		log("  Cannot proceed — Obsidian is not running or CLI not responsive.");
 		log("  Start Obsidian with the test vault open, then try again.\n");
-		process.exit(1);
+		proc.exit(1);
 	}
 }
 
@@ -1713,7 +1688,7 @@ async function handlePublishChoice(): Promise<{ exitCode: number; quit: boolean 
 }
 
 /** Handles the test session choice (option 1). Returns updated state. */
-async function handleTestSessionChoice(rl: readline.Interface, prereqResults: PrerequisiteResults): Promise<{ exitCode: number; quit: boolean }> {
+async function handleTestSessionChoice(rl: ReadlineInterface, prereqResults: PrerequisiteResults): Promise<{ exitCode: number; quit: boolean }> {
 	const entries = loadJourneyEntries();
 	if (entries.length === 0) {
 		rl.close();
@@ -1732,32 +1707,32 @@ interface InteractiveState {
 	incrementPassed: boolean;
 }
 
-async function handleMainMenuChoice(choice: string, rl: readline.Interface, prereqResults: PrerequisiteResults, state: InteractiveState): Promise<{ handled: boolean; state: InteractiveState }> {
-	if (choice === "q") { rl.close(); log("\n  Goodbye.\n"); process.exit(state.lastExitCode); }
+async function handleMainMenuChoice(choice: string, rl: ReadlineInterface, prereqResults: PrerequisiteResults, state: InteractiveState): Promise<{ handled: boolean; state: InteractiveState }> {
+	if (choice === "q") { rl.close(); log("\n  Goodbye.\n"); proc.exit(state.lastExitCode); }
 	if (choice === "4") { await generateAudit(rl); rl.close(); return { handled: true, state }; }
 	if (choice === "5") { rl.close(); await teardownVault(); return { handled: true, state }; }
 	if (choice === "6") { rl.close(); return { handled: true, state: { ...state, lastExitCode: await runRebuild() } }; }
 	return { handled: false, state };
 }
 
-async function handleBuildMenuChoice(choice: string, rl: readline.Interface, prereqResults: PrerequisiteResults, state: InteractiveState): Promise<{ handled: boolean; state: InteractiveState }> {
+async function handleBuildMenuChoice(choice: string, rl: ReadlineInterface, prereqResults: PrerequisiteResults, state: InteractiveState): Promise<{ handled: boolean; state: InteractiveState }> {
 	if (choice === "2") {
 		rl.close();
 		const result = await handleIncrementChoice();
 		const updated = { lastExitCode: result.exitCode, incrementPassed: state.incrementPassed || result.incrementPassed };
-		if (result.quit) { log("\n  Goodbye.\n"); process.exit(updated.lastExitCode); }
+		if (result.quit) { log("\n  Goodbye.\n"); proc.exit(updated.lastExitCode); }
 		return { handled: true, state: updated };
 	}
 	if (choice === "3") {
 		rl.close();
 		if (!state.incrementPassed) { log("\n  Cannot publish — no successful increment build in this session.\n  Run option 2 first.\n"); return { handled: true, state }; }
 		const result = await handlePublishChoice();
-		if (result.quit) { log("\n  Goodbye.\n"); process.exit(result.exitCode); }
+		if (result.quit) { log("\n  Goodbye.\n"); proc.exit(result.exitCode); }
 		return { handled: true, state: { ...state, lastExitCode: result.exitCode } };
 	}
 	if (choice === "1") {
 		const result = await handleTestSessionChoice(rl, prereqResults);
-		if (result.quit) { log("\n  Goodbye.\n"); process.exit(result.exitCode); }
+		if (result.quit) { log("\n  Goodbye.\n"); proc.exit(result.exitCode); }
 		return { handled: true, state: { ...state, lastExitCode: result.exitCode } };
 	}
 	return { handled: false, state };
@@ -1775,7 +1750,7 @@ async function interactiveSession(): Promise<void> {
 		printPrerequisites(prereqResults);
 		validatePrerequisites(prereqResults);
 
-		const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+		const rl = createRL();
 		printMainMenu(state.incrementPassed);
 		const choice = (await ask(rl, "Choice", "1")).toLowerCase();
 
@@ -1820,24 +1795,24 @@ function configureSessionEnv(config: SessionConfig): void {
 	if (config.includeInstaller && !allSlugs.includes("installer")) {
 		allSlugs.unshift("installer");
 	}
-	process.env.E2E_JOURNEY = allSlugs.join(",");
-	process.env.E2E_SESSION_NAME = config.sessionName;
-	if (config.includeInstaller) process.env.E2E_RUN_INSTALLER = "true";
-	if (config.includePrerequisites) process.env.E2E_RUN_PREREQUISITES = "true";
+	proc.env().E2E_JOURNEY = allSlugs.join(",");
+	proc.env().E2E_SESSION_NAME = config.sessionName;
+	if (config.includeInstaller) proc.env().E2E_RUN_INSTALLER = "true";
+	if (config.includePrerequisites) proc.env().E2E_RUN_PREREQUISITES = "true";
 
 	if (config.stepFilter) {
 		const stepsEnv = buildStepFilterEnv(config.stepFilter);
-		if (stepsEnv) process.env.E2E_STEPS = stepsEnv;
+		if (stepsEnv) proc.env().E2E_STEPS = stepsEnv;
 	}
 }
 
 /** Cleans up environment variables after a session run. */
 function cleanSessionEnv(): void {
-	delete process.env.E2E_JOURNEY;
-	delete process.env.E2E_SESSION_NAME;
-	delete process.env.E2E_RUN_INSTALLER;
-	delete process.env.E2E_RUN_PREREQUISITES;
-	delete process.env.E2E_STEPS;
+	delete proc.env().E2E_JOURNEY;
+	delete proc.env().E2E_SESSION_NAME;
+	delete proc.env().E2E_RUN_INSTALLER;
+	delete proc.env().E2E_RUN_PREREQUISITES;
+	delete proc.env().E2E_STEPS;
 }
 
 /** Prints the session execution banner. */
@@ -1892,27 +1867,18 @@ async function executeSession(config: SessionConfig, entries: JourneyEntry[], pr
 // ── Run vitest and generate report ──────────────────────────────────
 
 function runVitest(): number {
-	let exitCode = 0;
-	try {
-		execSync("npx vitest run --config tests/e2e/vitest.e2e.config.ts", {
-			stdio: "inherit",
-		});
-	} catch (err) {
-		exitCode = (err as { status?: number }).status ?? 1;
-	}
-	return exitCode;
+	return shell.run("npx vitest run --config tests/e2e/vitest.e2e.config.ts");
 }
 
 /** Generates the E2E report and returns the vault-relative path, or null. */
 function generateReport(): string | null {
-	try {
-		const output = execSync("node scripts/generate-e2e-report.mjs", { encoding: "utf-8" });
+	const output = shell.runSilent("node scripts/generate-e2e-report.mjs");
+	if (output !== null) {
 		log(output);
 		const match = output.match(/E2EReport written:\s*(.+)/);
-		if (match) return path.relative(TEST_VAULT, match[1].trim()).replace(/\\/g, "/");
-	} catch {
-		// Report generation failure shouldn't mask test failures
+		if (match) return paths.relative(TEST_VAULT, match[1].trim()).replace(/\\/g, "/");
 	}
+	// Report generation failure shouldn't mask test failures
 	return null;
 }
 
@@ -1929,15 +1895,15 @@ function restorePluginState(): void {
 			// best-effort
 		}
 	}
-	try { execSync(`obsidian vault=${VAULT_NAME} eval code="app.plugins.enablePlugin('${PLUGIN_ID}')"`, { stdio: "pipe" }); } catch { /* best-effort */ }
-	try { execSync(`obsidian vault=${VAULT_NAME} eval code="(() => { try { app.commands.executeCommandById('${PLUGIN_ID}:flowti:open-event-log'); } catch(e) {} })()"`, { stdio: "pipe" }); } catch { /* best-effort */ }
+	shell.runSilent(`obsidian vault=${VAULT_NAME} eval code="app.plugins.enablePlugin('${PLUGIN_ID}')"`);
+	shell.runSilent(`obsidian vault=${VAULT_NAME} eval code="(() => { try { app.commands.executeCommandById('${PLUGIN_ID}:flowti:open-event-log'); } catch(e) {} })()"`);
 }
 
 /** Opens the report in Obsidian and sets up the workspace. */
 function openReportInObsidian(reportVaultPath: string): void {
 	log("[e2e] Opening report in Obsidian...");
-	try { execSync(`obsidian vault=${VAULT_NAME} open path="${reportVaultPath}"`, { stdio: "pipe" }); } catch { /* best-effort */ }
-	try { execSync(`obsidian vault=${VAULT_NAME} eval code="(() => { const existing = app.workspace.getLeavesOfType('outline')[0]; if (existing) { app.workspace.revealLeaf(existing); return; } const leaf = app.workspace.getRightLeaf(false); if (leaf) leaf.setViewState({ type: 'outline', active: true }); })()"`, { stdio: "pipe" }); } catch { /* best-effort */ }
+	shell.runSilent(`obsidian vault=${VAULT_NAME} open path="${reportVaultPath}"`);
+	shell.runSilent(`obsidian vault=${VAULT_NAME} eval code="(() => { const existing = app.workspace.getLeavesOfType('outline')[0]; if (existing) { app.workspace.revealLeaf(existing); return; } const leaf = app.workspace.getRightLeaf(false); if (leaf) leaf.setViewState({ type: 'outline', active: true }); })()"`);
 }
 
 function generateReportAndOpen(): void {
@@ -1951,29 +1917,29 @@ function generateReportAndOpen(): void {
 
 // ── Main ────────────────────────────────────────────────────────────
 
-const isListMode: boolean = process.argv.includes("--list");
+const isListMode: boolean = proc.argv().includes("--list");
 
 if (isListMode) {
 	await interactiveSession();
 } else {
-	const journeyArg = process.argv.find((a) => a.startsWith("--journey="));
+	const journeyArg = proc.argv().find((a) => a.startsWith("--journey="));
 	if (journeyArg) {
-		process.env.E2E_JOURNEY = journeyArg.split("=")[1];
-		log(`[e2e] Journey filter: ${process.env.E2E_JOURNEY}`);
+		proc.env().E2E_JOURNEY = journeyArg.split("=")[1];
+		log(`[e2e] Journey filter: ${proc.env().E2E_JOURNEY}`);
 	}
 
 	// When installer or prerequisites are explicitly requested, force a fresh run
-	const journeys = (process.env.E2E_JOURNEY ?? "").split(",").map((j) => j.trim());
+	const journeys = (proc.env().E2E_JOURNEY ?? "").split(",").map((j) => j.trim());
 	if (journeys.includes("installer")) {
-		process.env.E2E_RUN_INSTALLER = "true";
+		proc.env().E2E_RUN_INSTALLER = "true";
 		log("[e2e] Installer forced (explicitly requested).");
 	}
 	if (journeys.includes("prerequisites")) {
-		process.env.E2E_RUN_PREREQUISITES = "true";
+		proc.env().E2E_RUN_PREREQUISITES = "true";
 		log("[e2e] Prerequisites forced (explicitly requested).");
 	}
 
 	const exitCode = runVitest();
 	generateReportAndOpen();
-	process.exit(exitCode);
+	proc.exit(exitCode);
 }

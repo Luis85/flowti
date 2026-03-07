@@ -12,6 +12,7 @@ import { paths } from "../../../infrastructure/paths.js";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
+import { clock } from "../../../infrastructure/clock.js";
 
 // The plugin stores state in the Obsidian vault's plugin data folder.
 // During builds the data.json may be at the vault root's plugin dir.
@@ -49,8 +50,7 @@ function main(): void {
 		}
 	}
 
-	const now = new Date();
-	const date = now.toISOString();
+	const date = clock.iso();
 
 	// Extract perf state (may not exist yet)
 	const perfState = (data as Record<string, unknown>)?.perfAggregator as Record<string, unknown> ?? {};
@@ -86,7 +86,7 @@ function main(): void {
 		)
 		.addBlank();
 
-	const safeTimestamp = now.toISOString().replace(/:/g, "-");
+	const safeTimestamp = clock.safeIso();
 	const filename = `${safeTimestamp}-performance-report.md`;
 	const outputPath = paths.join(OUTPUT_DIR, filename);
 

@@ -45,5 +45,11 @@ export function createMockShell(opts: MockShellOptions = {}): IShell & {
 			calls.push({ method: "check", cmd });
 			return !failChecks.has(cmd);
 		},
+
+		execFile(cmd: string, args: string[], execOpts?: { timeout?: number; stdio?: string }): string | null {
+			const key = `${cmd} ${args.join(" ")}`;
+			calls.push({ method: "execFile", cmd: key, opts: execOpts });
+			return outputs[key] ?? null;
+		},
 	};
 }

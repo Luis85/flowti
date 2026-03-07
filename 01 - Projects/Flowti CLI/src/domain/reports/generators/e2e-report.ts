@@ -29,6 +29,8 @@ import { paths } from "../../../infrastructure/paths.js";
 import { VAULT_ROOT, PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
+import { clock } from "../../../infrastructure/clock.js";
+import { proc } from "../../../infrastructure/proc.js";
 
 // Vitest JSON lives in the plugin source (temp artifact)
 const VITEST_RESULTS: string = paths.join(PLUGIN_ROOT, "docs", "reports", "e2e", "e2e-results.json");
@@ -38,7 +40,7 @@ const VITEST_RESULTS: string = paths.join(PLUGIN_ROOT, "docs", "reports", "e2e",
 // projects    = c:\Projects
 // test vault  = c:\Projects\flowti-e2e
 const PROJECTS_ROOT: string = paths.resolve(VAULT_ROOT, "..");
-const TEST_VAULT: string = process.env.E2E_VAULT_DIR ?? paths.join(PROJECTS_ROOT, "flowti-e2e");
+const TEST_VAULT: string = proc.env().E2E_VAULT_DIR ?? paths.join(PROJECTS_ROOT, "flowti-e2e");
 
 // Journey results live in the test vault
 const JOURNEYS_DIR: string = paths.join(TEST_VAULT, "docs", "journeys");
@@ -324,7 +326,7 @@ interface DispatchAggregate {
  *   "installer,getting-started"      → "installer,getting-started"
  */
 function resolveMode(): string {
-	const journey = process.env.E2E_JOURNEY;
+	const journey = proc.env().E2E_JOURNEY;
 	if (!journey) return "full";
 	return journey;
 }
@@ -511,7 +513,7 @@ function readVitestResults(): VitestResults | null {
 		totalFailed,
 		totalSkipped,
 		totalTests: totalPassed + totalFailed + totalSkipped,
-		durationMs: (raw.startTime as number) ? Date.now() - (raw.startTime as number) : 0,
+		durationMs: (raw.startTime as number) ? clock.ms() - (raw.startTime as number) : 0,
 		suites,
 	};
 }
@@ -2215,7 +2217,7 @@ function generateReport(): void {
 		return;
 	}
 
-	const now = new Date();
+	const now = clock.now();
 	const date = now.toISOString();
 	const startupPerf = readStartupPerf();
 	const trace = readLatestEventTrace();

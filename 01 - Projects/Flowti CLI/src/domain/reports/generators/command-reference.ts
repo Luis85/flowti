@@ -12,6 +12,7 @@ import { paths } from "../../../infrastructure/paths.js";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
+import { clock } from "../../../infrastructure/clock.js";
 
 interface CommandMeta {
 	id: string;
@@ -88,8 +89,7 @@ function main(): void {
 		return;
 	}
 
-	const now: Date = new Date();
-	const date: string = now.toISOString();
+	const date: string = clock.iso();
 
 	// Group by domain
 	const groups: Map<string, CommandMeta[]> = new Map();

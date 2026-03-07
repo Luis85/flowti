@@ -22,36 +22,39 @@ export default [
 			"@typescript-eslint": tseslint,
 		},
 		rules: {
-			// Complexity threshold @todo should be driven by plugin config
-			// @todo should error out at treshold + 10%
-			complexity: ["warn", 15],
+			// Cyclomatic complexity — warn at 15, consider refactoring above this
+			complexity: ["error", 15],
 
-			// Unused vars — match plugin: error, but allow unused function args
+			// Unused vars — error, but allow unused function args
 			"no-unused-vars": "off",
 			"@typescript-eslint/no-unused-vars": ["error", {
 				args: "none",
 			}],
 
-			// Match plugin relaxations
+			// Relaxations matching the parent plugin
 			"@typescript-eslint/ban-ts-comment": "off",
 			"no-prototype-builtins": "off",
 			"@typescript-eslint/no-empty-function": "off",
 
-			// Route all output through infrastructure/logger.ts — ban direct console usage
+			// ── Architecture enforcement ───────────────────────────────────────
+			// These rules enforce the centralized service pattern:
+			//   console.*    → { log, warn, error } from infrastructure/logger.js
+			//   process.*    → { proc }              from infrastructure/proc.js
+			//   node:fs      → { disk }              from infrastructure/filesystem.js
+			//   child_process→ { shell }             from infrastructure/shell.js
+			//   node:path    → { paths }             from infrastructure/paths.js
+
 			"no-console": ["error", {
-				allow: ["warn", "error", "debug"],
+				allow: ["debug"],
 			}],
 
-			// Route all process operations through infrastructure/proc.ts — ban direct process.exit/argv/cwd
 			"no-restricted-properties": ["error",
 				{ object: "process", property: "exit", message: "Use { proc } from infrastructure/proc.js instead." },
 				{ object: "process", property: "argv", message: "Use { proc } from infrastructure/proc.js instead." },
 				{ object: "process", property: "cwd", message: "Use { proc } from infrastructure/proc.js instead." },
+				{ object: "process", property: "env", message: "Use { proc } from infrastructure/proc.js instead." },
 			],
 
-			// Route all file I/O through infrastructure/filesystem.ts — ban direct node:fs usage
-			// Route all shell execution through infrastructure/shell.ts — ban direct child_process usage
-			// Route all path operations through infrastructure/paths.ts — ban direct node:path usage
 			"no-restricted-imports": ["error", {
 				paths: [{
 					name: "node:fs",
@@ -71,34 +74,39 @@ export default [
 				}, {
 					name: "path",
 					message: "Use { paths } from infrastructure/paths.js instead.",
+				}, {
+					name: "node:readline",
+					message: "Use { createRL, ask } from infrastructure/readline.js instead.",
+				}, {
+					name: "readline",
+					message: "Use { createRL, ask } from infrastructure/readline.js instead.",
 				}],
 			}],
 		},
 	},
 
-	// Allow node:fs in the filesystem service and types (type-only import for interface signatures)
-	// Allow node:child_process in the shell service and legacy orchestration files
-	// Allow node:path in the paths service
-	// Allow process.* in the proc service and entry points
+	// ── Service implementations ────────────────────────────────────────
+	// These files ARE the centralized services — they wrap the raw APIs
 	{
 		files: [
 			"src/infrastructure/filesystem.ts",
 			"src/infrastructure/shell.ts",
 			"src/infrastructure/paths.ts",
 			"src/infrastructure/proc.ts",
-			"src/types.ts",
-			// Legacy orchestration — too complex to refactor now, isolated scripts
-			"src/domain/review/run-e2e.ts",
-			"src/domain/devtools/cli-reload.ts",
-			"src/domain/knowledgebase/vault-service.ts",
+			"src/infrastructure/clock.ts",
+			"src/infrastructure/readline.ts",
+			"src/types.ts", 
 		],
 		rules: {
 			"no-restricted-imports": "off",
 			"no-restricted-properties": "off",
 		},
 	},
-	// Template files generate code for other projects — their string literals contain
-	// process.*, console.*, and node:* imports that are valid in the generated output
+
+	// ── Template generators ────────────────────────────────────────────
+	// These files generate code for OTHER projects — their string literals
+	// contain process.*, console.*, and node:* imports that are valid in
+	// the generated output, not runtime violations
 	{
 		files: [
 			"src/domain/make/templates.ts",

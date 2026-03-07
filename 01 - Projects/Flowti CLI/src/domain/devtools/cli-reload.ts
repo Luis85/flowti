@@ -11,29 +11,21 @@
  *   1 — unexpected error
  */
 
-import { execFileSync } from "node:child_process";
-import { log } from "../../infrastructure/logger.js";
+import { shell } from "../../infrastructure/shell.js";
+import { log, warn } from "../../infrastructure/logger.js";
+import { proc } from "../../infrastructure/proc.js";
 
 const PLUGIN_ID = "flowti-ibde";
 
 function parseVaultArg(): string | undefined {
-	for (const arg of process.argv.slice(2)) {
+	for (const arg of proc.argv()) {
 		if (arg.startsWith("--vault=")) return arg.slice("--vault=".length);
 	}
 	return undefined;
 }
 
 function isCliAvailable(): boolean {
-	try {
-		execFileSync("obsidian", ["version"], {
-			encoding: "utf-8",
-			timeout: 3000,
-			windowsHide: true,
-		});
-		return true;
-	} catch {
-		return false;
-	}
+	return shell.execFile("obsidian", ["version"], { timeout: 3000 }) !== null;
 }
 
 function main(): void {
@@ -47,18 +39,11 @@ function main(): void {
 		? [`vault=${vault}`, "plugin:reload", `id=${PLUGIN_ID}`]
 		: ["plugin:reload", `id=${PLUGIN_ID}`];
 
-	try {
-		execFileSync("obsidian", args, {
-			encoding: "utf-8",
-			stdio: "inherit",
-			timeout: 10_000,
-			windowsHide: true,
-		});
+	const result = shell.execFile("obsidian", args, { stdio: "inherit" });
+	if (result !== null) {
 		log(`[cli] Plugin reloaded: ${PLUGIN_ID}`);
-	} catch (err) {
-		console.warn(
-			`[cli] Reload failed (non-fatal): ${err instanceof Error ? err.message : err}`,
-		);
+	} else {
+		warn(`[cli] Reload failed (non-fatal).`);
 	}
 }
 

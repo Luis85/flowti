@@ -4,7 +4,7 @@
  * All scaffolding writes to the selected project's root folder.
  */
 
-import { paths } from "../../infrastructure/paths.js";
+import { paths as nodePaths } from "../../infrastructure/paths.js";
 import { disk } from "../../infrastructure/filesystem.js";
 import { ROOT, VAULT_ROOT, manifest } from "../../infrastructure/config.js";
 import { RESET, BOLD, DIM, GREEN, RED, CYAN } from "../../infrastructure/ui.js";
@@ -218,7 +218,7 @@ async function makeHub(projectRoot: string): Promise<void> {
 	w(`${paths.hubDomain}/${pascal}HubProvider.ts`, hubProviderTemplate(pascal, kebab, icon));
 	w(`${paths.tests}/${kebab}/${pascal}HubView.test.ts`, hubTestTemplate(pascal, kebab));
 
-	const cssDir = paths.join(projectRoot, paths.css);
+	const cssDir = nodePaths.join(projectRoot, paths.css);
 	const cssFiles = disk.existsSync(cssDir)
 		? disk.readdirSync(cssDir).filter((f) => f.endsWith(".css")).sort()
 		: [];
@@ -264,7 +264,7 @@ async function makePlugin(projectRoot: string): Promise<void> {
 	const author = await ask(rl, "Author", (manifest as Record<string, unknown>).author as string ?? "");
 	rl.close();
 
-	const pluginRoot = paths.join(projectRoot, pluginId);
+	const pluginRoot = nodePaths.join(projectRoot, pluginId);
 
 	log();
 	log(`  ${BOLD}Scaffolding: ${name}${RESET}`);
@@ -326,7 +326,7 @@ async function makeApp(projectRoot: string): Promise<void> {
 	rl.close();
 
 	const pascal = toPascal(name);
-	const appRoot = paths.join(projectRoot, appId);
+	const appRoot = nodePaths.join(projectRoot, appId);
 
 	log();
 	log(`  ${BOLD}Scaffolding: ${name}${RESET}`);
@@ -407,7 +407,7 @@ async function makeCliApp(projectRoot: string): Promise<void> {
 	const appId = await ask(rl, "App ID", defaultId);
 	rl.close();
 
-	const cliRoot = paths.join(projectRoot, appId);
+	const cliRoot = nodePaths.join(projectRoot, appId);
 
 	log();
 	log(`  ${BOLD}Scaffolding: ${name}${RESET}`);
@@ -475,8 +475,8 @@ export const commands = {
 		w(`${paths.hubDomain}/${pascal}HubProvider.ts`, hubProviderTemplate(pascal, kebab, icon));
 		w(`${paths.tests}/${kebab}/${pascal}HubView.test.ts`, hubTestTemplate(pascal, kebab));
 
-		const cssFiles = disk.existsSync(paths.join(ROOT, paths.css))
-			? disk.readdirSync(paths.join(ROOT, paths.css)).filter((f) => f.endsWith(".css")).sort() : [];
+		const cssFiles = disk.existsSync(nodePaths.join(ROOT, paths.css))
+			? disk.readdirSync(nodePaths.join(ROOT, paths.css)).filter((f) => f.endsWith(".css")).sort() : [];
 		const maxNum = cssFiles.reduce((max, f) => { const m = f.match(/^(\d+)/); return m ? Math.max(max, parseInt(m[1], 10)) : max; }, 0);
 		w(`${paths.css}/${String(maxNum + 1).padStart(2, "0")}-${kebab}.css`, hubCssTemplate(pascal, kebab));
 		w(`${paths.docs}/${pascal}/${pascal} Hub.md`, hubPrdTemplate(pascal));
@@ -495,7 +495,7 @@ export const commands = {
 		const appId = (flags.id as string) ?? toKebab(name);
 		const author = (flags.author as string) ?? (manifest as Record<string, unknown>).author as string ?? "";
 		const pascal = toPascal(name);
-		const appRoot = paths.resolve(VAULT_ROOT, "01 - Projects", appId);
+		const appRoot = nodePaths.resolve(VAULT_ROOT, "01 - Projects", appId);
 
 		if (disk.existsSync(appRoot)) {
 			log(`\n  ${RED}Folder already exists: ${appRoot}${RESET}\n`);
@@ -536,7 +536,7 @@ export const commands = {
 			proc.exit(1);
 		}
 		const appId = (flags.id as string) ?? toKebab(name);
-		const cliRoot = paths.resolve(VAULT_ROOT, "01 - Projects", appId);
+		const cliRoot = nodePaths.resolve(VAULT_ROOT, "01 - Projects", appId);
 
 		if (disk.existsSync(cliRoot)) {
 			log(`\n  ${RED}Folder already exists: ${cliRoot}${RESET}\n`);
@@ -567,7 +567,7 @@ export const commands = {
 		}
 		const pluginId = (flags.id as string) ?? toKebab(name);
 		const author = (flags.author as string) ?? (manifest as Record<string, unknown>).author as string ?? "";
-		const pluginRoot = paths.resolve(ROOT, "..", pluginId);
+		const pluginRoot = nodePaths.resolve(ROOT, "..", pluginId);
 
 		if (disk.existsSync(pluginRoot)) {
 			log(`\n  ${RED}Folder already exists: ${pluginRoot}${RESET}\n`);
