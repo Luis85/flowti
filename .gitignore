@@ -40,3 +40,4 @@ build-endpoints.json
 /Development/flowti/docs/reports/performance/
 /Development/flowti/docs/journeys
 /Development/**/complexity
+/01 - Projects/Flowti CLI/configs/.flowti-state.json

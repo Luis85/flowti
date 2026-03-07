@@ -1,4 +1,5 @@
 {
+	"projectsFolder": "01 - Projects",
 	"subsystems": {
 		"plugin": {
 			"root": "Development/flowti",

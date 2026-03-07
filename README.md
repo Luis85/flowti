@@ -46,8 +46,9 @@ The Flowti CLI will verify these automatically and guide you if anything is miss
 ### Step 1 - Clone and start the CLI
 
 ```bash
-git clone <repo-url>
-flowti.cmd
+git clone [<repo-url>](https://github.com/Luis85/flowti.git)
+cd flowti
+.\flowti.cmd
 ```
 
 The CLI checks your environment (Git, Node.js) and installs dependencies automatically on first run. If the plugin hasn't been built yet, it will tell you.
@@ -57,7 +58,7 @@ The CLI checks your environment (Git, Node.js) and installs dependencies automat
 Select **Build** (option 2) from the interactive menu, or run:
 
 ```bash
-flowti.cmd build
+.\flowti.cmd build
 ```
 
 After a successful build, the CLI guides you to the next step: open this folder as an **Obsidian vault**, then **Settings → Community Plugins → Enable "Flowti - IBDE"**. The Installer Wizard appears on first launch — follow the steps to scaffold your vault.
@@ -65,9 +66,9 @@ After a successful build, the CLI guides you to the next step: open this folder 
 ### Step 3 - Explore and start your journey
 
 ```bash
-flowti.cmd              # Interactive menu — discover all capabilities
-flowti.cmd help         # Full command reference
-flowti.cmd info         # Project stats, version, config health
+.\flowti.cmd              # Interactive menu — discover all capabilities
+.\flowti.cmd help         # Full command reference
+.\flowti.cmd info         # Project stats, version, config health
 ```
 
 In Obsidian, hit `Ctrl+P` and try:

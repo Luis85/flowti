@@ -30,6 +30,8 @@ import { commands as reviewCmds } from "./domain/review/review.mjs";
 import { commands as publishCmds } from "./domain/publish/publish.mjs";
 import { commands as reportsCmds } from "./domain/reports/reports.mjs";
 import { commands as captureCmds } from "./domain/capture/capture.mjs";
+import { commands as projectCmds, projectSelectionMenu } from "./domain/project/project.mjs";
+import { getSelectedProject } from "./infrastructure/state.mjs";
 
 // ── Main menu definition ────────────────────────────────────────────
 
@@ -47,6 +49,7 @@ const allCommands = {
 	...publishCmds,
 	...reportsCmds,
 	...captureCmds,
+	...projectCmds,
 };
 
 // ── Non-interactive dispatch ────────────────────────────────────────
@@ -88,7 +91,8 @@ async function handleCliArgs() {
 // ── Interactive main menu ───────────────────────────────────────────
 
 async function mainMenu() {
-	console.log(`  ${DIM}Main Menu${RESET}\n`);
+	const project = getSelectedProject();
+	console.log(`  ${DIM}Main Menu${RESET}  ${DIM}[${project}]${RESET}\n`);
 	return runMenu(null, mainMenuItems);
 }
 
@@ -102,6 +106,10 @@ async function main() {
 
 	printBanner();
 	checkFirstRun();
+
+	if (!getSelectedProject()) {
+		await projectSelectionMenu();
+	}
 
 	// eslint-disable-next-line no-constant-condition
 	while (true) {

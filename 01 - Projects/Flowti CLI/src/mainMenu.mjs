@@ -13,6 +13,7 @@ import { menu as devToolsMenu } from "./domain/devtools/devtools.mjs";
 import { showInfo } from "./domain/info/info.mjs";
 import { showHelp } from "./domain/help/help.mjs";
 import { captureIdea, captureNote } from "./domain/capture/capture.mjs";
+import { projectSelectionMenu } from "./domain/project/project.mjs";
 
 export const mainMenuItems = [
 	{ key: "1", label: "Make", action: makeMenu },
@@ -26,6 +27,7 @@ export const mainMenuItems = [
 	{ key: "8", label: "Capture Idea", action: captureIdea },
 	{ key: "9", label: "Capture Note", action: captureNote },
 	{ separator: true },
+	{ key: "p", label: "Change Project", action: async () => { await projectSelectionMenu(); return "main"; } },
 	{ key: "?", label: "Help", action: () => { showHelp("main"); return "main"; } },
 	{ key: "q", label: "Quit", action: () => "quit" },
 ];

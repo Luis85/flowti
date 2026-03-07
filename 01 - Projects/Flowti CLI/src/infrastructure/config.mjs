@@ -35,6 +35,10 @@ export const config = loadJson(CONFIG_PATH) ?? { paths: {}, build: {}, reports: 
 export const manifest = loadJson(MANIFEST_PATH) ?? { id: "flowti-ibde", version: "?" };
 export const pkg = loadJson(PKG_PATH) ?? { version: "?" };
 
+// ── Projects directory ───────────────────────────────────────────────
+
+export const PROJECTS_DIR = path.join(VAULT_ROOT, cliConfig.projectsFolder ?? "01 - Projects");
+
 // ── Capture config ──────────────────────────────────────────────────
 
 const DEFAULT_CAPTURE = "00 - Connectivity/inbox";
