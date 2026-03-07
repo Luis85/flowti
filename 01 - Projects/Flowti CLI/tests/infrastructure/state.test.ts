@@ -1,98 +1,63 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import fs from "node:fs";
+import { describe, it, expect, vi } from "vitest";
+import { createMockFs } from "../mocks/mock-fs.js";
 
-vi.mock("node:fs");
 vi.mock("../../src/infrastructure/config.js", () => ({
 	CLI_PROJECT: "/mock/cli-project",
 }));
 
-import {
-	loadState,
-	saveState,
-	getSelectedProject,
-	getProjectSource,
-	setSelectedProject,
-	clearSelectedProject,
-} from "../../src/infrastructure/state.js";
+import { loadState, saveState } from "../../src/infrastructure/state.js";
 
-const mockedFs = vi.mocked(fs);
-
-beforeEach(() => {
-	vi.clearAllMocks();
-});
+// State path is: CLI_PROJECT + "/configs/.flowti-state.json"
+const STATE_PATH = "/mock/cli-project/configs/.flowti-state.json";
 
 describe("loadState", () => {
 	it("returns parsed state from file", () => {
-		mockedFs.readFileSync.mockReturnValue(JSON.stringify({ selectedProject: "my-app" }));
-		expect(loadState()).toEqual({ selectedProject: "my-app" });
+		const fs = createMockFs({ [STATE_PATH]: JSON.stringify({ selectedProject: "my-app" }) });
+		expect(loadState(fs)).toEqual({ selectedProject: "my-app" });
 	});
 
 	it("returns empty object when file does not exist", () => {
-		mockedFs.readFileSync.mockImplementation(() => { throw new Error("ENOENT"); });
-		expect(loadState()).toEqual({});
+		const fs = createMockFs();
+		expect(loadState(fs)).toEqual({});
+	});
+
+	it("returns empty object for corrupt JSON", () => {
+		const fs = createMockFs({ [STATE_PATH]: "not json {{{" });
+		expect(loadState(fs)).toEqual({});
 	});
 });
 
 describe("saveState", () => {
 	it("merges and writes state to file", () => {
-		mockedFs.readFileSync.mockReturnValue(JSON.stringify({ selectedProject: "old" }));
-		saveState({ projectSource: "development" });
+		const fs = createMockFs({ [STATE_PATH]: JSON.stringify({ selectedProject: "old" }) });
+		saveState({ projectSource: "development" }, fs);
 
-		expect(mockedFs.writeFileSync).toHaveBeenCalledOnce();
-		const written = JSON.parse(mockedFs.writeFileSync.mock.calls[0][1] as string);
+		const written = JSON.parse(fs.files.get(STATE_PATH)!);
 		expect(written).toEqual({ selectedProject: "old", projectSource: "development" });
 	});
-});
 
-describe("getSelectedProject", () => {
-	it("returns project name when set", () => {
-		mockedFs.readFileSync.mockReturnValue(JSON.stringify({ selectedProject: "flowti" }));
-		expect(getSelectedProject()).toBe("flowti");
+	it("creates state file when it does not exist", () => {
+		const fs = createMockFs();
+		saveState({ selectedProject: "new" }, fs);
+
+		const written = JSON.parse(fs.files.get(STATE_PATH)!);
+		expect(written.selectedProject).toBe("new");
 	});
 
-	it("returns null when not set", () => {
-		mockedFs.readFileSync.mockReturnValue(JSON.stringify({}));
-		expect(getSelectedProject()).toBeNull();
-	});
-});
+	it("overwrites existing keys", () => {
+		const fs = createMockFs({ [STATE_PATH]: JSON.stringify({ selectedProject: "old", projectSource: "projects" }) });
+		saveState({ selectedProject: "new" }, fs);
 
-describe("getProjectSource", () => {
-	it("returns source when set", () => {
-		mockedFs.readFileSync.mockReturnValue(JSON.stringify({ projectSource: "development" }));
-		expect(getProjectSource()).toBe("development");
-	});
-
-	it("defaults to 'projects'", () => {
-		mockedFs.readFileSync.mockReturnValue(JSON.stringify({}));
-		expect(getProjectSource()).toBe("projects");
-	});
-});
-
-describe("setSelectedProject", () => {
-	it("saves project name and source", () => {
-		mockedFs.readFileSync.mockReturnValue(JSON.stringify({}));
-		setSelectedProject("my-app", "development");
-
-		const written = JSON.parse(mockedFs.writeFileSync.mock.calls[0][1] as string);
-		expect(written.selectedProject).toBe("my-app");
-		expect(written.projectSource).toBe("development");
-	});
-
-	it("defaults source to 'projects'", () => {
-		mockedFs.readFileSync.mockReturnValue(JSON.stringify({}));
-		setSelectedProject("my-app");
-
-		const written = JSON.parse(mockedFs.writeFileSync.mock.calls[0][1] as string);
+		const written = JSON.parse(fs.files.get(STATE_PATH)!);
+		expect(written.selectedProject).toBe("new");
 		expect(written.projectSource).toBe("projects");
 	});
-});
 
-describe("clearSelectedProject", () => {
-	it("clears project and source", () => {
-		mockedFs.readFileSync.mockReturnValue(JSON.stringify({ selectedProject: "old", projectSource: "development" }));
-		clearSelectedProject();
+	it("can clear values with undefined", () => {
+		const fs = createMockFs({ [STATE_PATH]: JSON.stringify({ selectedProject: "old", projectSource: "development" }) });
+		saveState({ selectedProject: undefined, projectSource: undefined }, fs);
 
-		const written = JSON.parse(mockedFs.writeFileSync.mock.calls[0][1] as string);
+		const written = JSON.parse(fs.files.get(STATE_PATH)!);
 		expect(written.selectedProject).toBeUndefined();
 		expect(written.projectSource).toBeUndefined();
 	});

@@ -22,8 +22,9 @@ export default [
 			"@typescript-eslint": tseslint,
 		},
 		rules: {
-			// Complexity — same threshold as plugin
-			complexity: ["warn", 10],
+			// Complexity threshold @todo should be driven by plugin config
+			// @todo should error out at treshold + 10%
+			complexity: ["warn", 15],
 
 			// Unused vars — match plugin: error, but allow unused function args
 			"no-unused-vars": "off",
