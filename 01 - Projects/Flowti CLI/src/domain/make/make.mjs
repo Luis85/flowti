@@ -1,10 +1,10 @@
 /**
- * make.mjs — Scaffolding menu and commands for hubs and plugins.
+ * make.mjs — Scaffolding menu and commands for hubs, plugins, and applications.
  */
 
 import fs from "node:fs";
 import path from "node:path";
-import { ROOT, config, manifest } from "../../infrastructure/config.mjs";
+import { ROOT, VAULT_ROOT, config, manifest } from "../../infrastructure/config.mjs";
 import { RESET, BOLD, DIM, GREEN, RED, CYAN, YELLOW, printHeader } from "../../infrastructure/ui.mjs";
 import { createRL, ask } from "../../infrastructure/readline.mjs";
 import { writeFile } from "../../infrastructure/fs.mjs";
@@ -18,6 +18,13 @@ import {
 	pluginTsconfigTemplate, pluginEsbuildTemplate, pluginMainTemplate,
 	pluginGitignoreTemplate,
 } from "./templates.mjs";
+import {
+	appManifestTemplate, appPackageTemplate, appTsconfigTemplate,
+	appEsbuildTemplate, appVitestTemplate, appMainTemplate,
+	appEventBusTemplate, appEventTypesTemplate, appEventsTemplate,
+	appErrorTypesTemplate, appCssTemplate, appObsidianStubTemplate,
+	appEventBusTestTemplate, appGitignoreTemplate,
+} from "./appTemplates.mjs";
 
 // ── Interactive menu ────────────────────────────────────────────────
 
@@ -25,6 +32,7 @@ export async function menu() {
 	return runMenu("Make", [
 		{ key: "1", label: "New Hub (within Flowti)", action: makeHub },
 		{ key: "2", label: "New Plugin (standalone Obsidian plugin)", action: makePlugin },
+		{ key: "3", label: "New Application (DDD Obsidian plugin under Projects)", action: makeApp },
 		{ separator: true },
 		{ key: "?", label: "Help", action: () => { showHelp("make"); } },
 		{ key: "b", label: "Back", action: () => "main" },
@@ -175,6 +183,101 @@ async function makePlugin() {
 	console.log();
 }
 
+// ── Application scaffolding ─────────────────────────────────────────
+
+async function makeApp() {
+	printHeader("New Application");
+
+	const rl = createRL();
+	const name = await ask(rl, "App name (e.g., My App)");
+	if (!name) { rl.close(); return; }
+
+	const defaultId = toKebab(name);
+	const appId = await ask(rl, "App ID", defaultId);
+	const author = await ask(rl, "Author", manifest.author ?? "");
+	rl.close();
+
+	const pascal = toPascal(name);
+	const appRoot = path.relative(ROOT, path.join(VAULT_ROOT, "01 - Projects", appId));
+	const absRoot = path.resolve(ROOT, appRoot);
+
+	console.log();
+	console.log(`  ${BOLD}Scaffolding: ${name}${RESET}`);
+	console.log(`  ${DIM}ID: ${appId} | Author: ${author}${RESET}`);
+	console.log(`  ${DIM}Output: ${absRoot}${RESET}`);
+	console.log();
+
+	console.log(`  ${DIM}File tree:${RESET}`);
+	const tree = [
+		"css/00-base.css",
+		"src/main.ts",
+		"src/infrastructure/events/EventBus.ts",
+		"src/infrastructure/events/types.ts",
+		"src/infrastructure/events/events.ts",
+		"src/infrastructure/errors/types.ts",
+		"src/infrastructure/services/.gitkeep",
+		"src/domain/.gitkeep",
+		"src/ui/.gitkeep",
+		"tests/mocks/obsidian-stub.ts",
+		"tests/infrastructure/EventBus.test.ts",
+		"manifest.json",
+		"package.json",
+		"tsconfig.json",
+		"esbuild.config.mjs",
+		"vitest.config.ts",
+		".gitignore",
+	];
+	for (const f of tree) {
+		console.log(`    ${DIM}${f}${RESET}`);
+	}
+	console.log();
+
+	if (fs.existsSync(absRoot)) {
+		console.log(`  ${RED}Folder already exists: ${absRoot}${RESET}\n`);
+		return;
+	}
+
+	const confirmRl = createRL();
+	const proceed = await ask(confirmRl, "Create application? (Y/n)", "Y");
+	confirmRl.close();
+	if (proceed.toLowerCase() === "n") return;
+
+	console.log();
+	let created = 0;
+
+	const w = (rel, content) => {
+		if (writeFile(path.join(appRoot, rel), content)) created++;
+	};
+
+	w("manifest.json", appManifestTemplate(name, appId, author));
+	w("package.json", appPackageTemplate(name, appId));
+	w("tsconfig.json", appTsconfigTemplate());
+	w("esbuild.config.mjs", appEsbuildTemplate(appId));
+	w("vitest.config.ts", appVitestTemplate());
+	w(".gitignore", appGitignoreTemplate());
+	w("css/00-base.css", appCssTemplate(name));
+	w("src/main.ts", appMainTemplate(name, pascal));
+	w("src/infrastructure/events/EventBus.ts", appEventBusTemplate());
+	w("src/infrastructure/events/types.ts", appEventTypesTemplate());
+	w("src/infrastructure/events/events.ts", appEventsTemplate());
+	w("src/infrastructure/errors/types.ts", appErrorTypesTemplate());
+	w("src/infrastructure/services/.gitkeep", "");
+	w("src/domain/.gitkeep", "");
+	w("src/ui/.gitkeep", "");
+	w("tests/mocks/obsidian-stub.ts", appObsidianStubTemplate());
+	w("tests/infrastructure/EventBus.test.ts", appEventBusTestTemplate());
+
+	console.log(`\n  ${GREEN}✓${RESET} Created ${created} files for ${name}.\n`);
+
+	console.log(`  ${BOLD}Next steps:${RESET}`);
+	console.log(`    1. ${CYAN}cd "${absRoot}"${RESET}`);
+	console.log(`    2. ${CYAN}npm install${RESET}`);
+	console.log(`    3. ${CYAN}npm run build${RESET}`);
+	console.log(`    4. ${CYAN}npm test${RESET}`);
+	console.log(`    5. Open the vault in Obsidian and enable the plugin`);
+	console.log();
+}
+
 // ── Non-interactive commands ────────────────────────────────────────
 
 export const commands = {
@@ -210,6 +313,50 @@ export const commands = {
 		if (writeFile(`${paths.journeys}/${kebab}.journey.json`, hubJourneyTemplate(pascal, kebab))) created++;
 
 		console.log(`\n  ${GREEN}✓${RESET} Created ${created} files.\n`);
+	},
+
+	"make:app": (flags) => {
+		const name = flags.name;
+		if (!name) {
+			console.log(`\n  ${RED}--name is required.${RESET}`);
+			console.log(`  ${DIM}Usage: npm run flowti -- make:app --name="My App" [--id=my-app] [--author=Name]${RESET}\n`);
+			process.exit(1);
+		}
+		const appId = flags.id ?? toKebab(name);
+		const author = flags.author ?? manifest.author ?? "";
+		const pascal = toPascal(name);
+		const appRoot = path.relative(ROOT, path.join(VAULT_ROOT, "01 - Projects", appId));
+		const absRoot = path.resolve(ROOT, appRoot);
+
+		if (fs.existsSync(absRoot)) {
+			console.log(`\n  ${RED}Folder already exists: ${absRoot}${RESET}\n`);
+			process.exit(1);
+		}
+
+		console.log(`\n  ${CYAN}▸${RESET} Scaffolding: ${name}\n`);
+
+		let created = 0;
+		const w = (rel, content) => { if (writeFile(path.join(appRoot, rel), content)) created++; };
+
+		w("manifest.json", appManifestTemplate(name, appId, author));
+		w("package.json", appPackageTemplate(name, appId));
+		w("tsconfig.json", appTsconfigTemplate());
+		w("esbuild.config.mjs", appEsbuildTemplate(appId));
+		w("vitest.config.ts", appVitestTemplate());
+		w(".gitignore", appGitignoreTemplate());
+		w("css/00-base.css", appCssTemplate(name));
+		w("src/main.ts", appMainTemplate(name, pascal));
+		w("src/infrastructure/events/EventBus.ts", appEventBusTemplate());
+		w("src/infrastructure/events/types.ts", appEventTypesTemplate());
+		w("src/infrastructure/events/events.ts", appEventsTemplate());
+		w("src/infrastructure/errors/types.ts", appErrorTypesTemplate());
+		w("src/infrastructure/services/.gitkeep", "");
+		w("src/domain/.gitkeep", "");
+		w("src/ui/.gitkeep", "");
+		w("tests/mocks/obsidian-stub.ts", appObsidianStubTemplate());
+		w("tests/infrastructure/EventBus.test.ts", appEventBusTestTemplate());
+
+		console.log(`\n  ${GREEN}✓${RESET} Created ${created} files at ${absRoot}\n`);
 	},
 
 	"make:plugin": (flags) => {

@@ -16,7 +16,7 @@ export const HELP = {
     npm run flowti help build   Show help for a specific section
 
   ${BOLD}MAIN MENU${RESET}
-    ${CYAN}1) Make${RESET}       Scaffold new hub or plugin from templates
+    ${CYAN}1) Make${RESET}       Scaffold new hub, plugin, or application from templates
     ${CYAN}2) Build${RESET}      Build the plugin (fast, full, watch, distribute)
     ${CYAN}3) Review${RESET}     E2E test sessions, vault management
     ${CYAN}4) Publish${RESET}    Gated pipeline: build → test → publish
@@ -61,6 +61,7 @@ export const HELP = {
     npm run flowti -- dev:lint           ESLint only
     npm run flowti -- make:hub --name=X  Scaffold a new hub
     npm run flowti -- make:plugin --name=X  Scaffold a new plugin
+    npm run flowti -- make:app --name=X  Scaffold a new DDD application
     npm run flowti -- capture:idea --text="..." Capture an idea
     npm run flowti -- capture:note --type=task --title="..." Capture a note
     npm run flowti -- info               Show project info
@@ -96,6 +97,18 @@ export const HELP = {
        - package.json with focused npm scripts
 
        ${DIM}Prompts: plugin name, plugin ID, author${RESET}
+
+    ${CYAN}3) New Application${RESET}
+       Scaffolds a full DDD Obsidian plugin project under 01 - Projects/:
+       - Working EventBus (~80 LOC) with type-safe events
+       - Infrastructure layer (events, errors, services)
+       - Vitest + happy-dom + obsidian-stub test setup
+       - Starter EventBus test (4 tests, passing on first run)
+       - esbuild config with CSS pipeline
+       - AppError base class with code + context
+       - 17 files total, ready to npm install && npm run build
+
+       ${DIM}Prompts: app name, app ID, author${RESET}
 
   ${BOLD}CONFIGURATION${RESET}
     Output paths are configurable in flowti.config.json under "make":
