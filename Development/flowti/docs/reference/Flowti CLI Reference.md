@@ -1,6 +1,6 @@
 ---
 type: CLIReference
-date: "2026-03-07T12:13:39.440Z"
+date: "2026-03-07T13:08:53.047Z"
 sections: 8
 cli_commands: 25
 npm_scripts: 38
@@ -286,8 +286,9 @@ All commands can be run directly without the interactive menu:
 | `npm run flowti -- review` | List E2E journeys (interactive session) |
 | `npm run flowti -- publish` | Build release pipeline |
 | `npm run flowti -- publish:all` | Increment → E2E → release (stops on failure) |
-| `npm run flowti -- reports` | Generate all 13 report notes |
+| `npm run flowti -- reports` | Generate all report notes |
 | `npm run flowti -- reports:audit` | Generate reports for audit review |
+| `npm run flowti -- report:{id}` | Generate a single report by ID (e.g. report:test) |
 | `npm run flowti -- dev:reload` | Reload plugin in Obsidian via CLI |
 | `npm run flowti -- dev:console` | Open Obsidian developer console stream |
 | `npm run flowti -- dev:errors` | Open Obsidian error stream |
@@ -298,7 +299,6 @@ All commands can be run directly without the interactive menu:
 | `npm run flowti -- make:hub` | Scaffold a new hub (--name required, --icon, --type, --tabs) |
 | `npm run flowti -- make:plugin` | Scaffold a new plugin (--name required, --id, --author) |
 | `npm run flowti -- info` | Show project stats, version, config |
-| `npm run flowti -- report:{id}` | Generate a single report by ID (e.g. report:test) |
 
 ## npm Scripts
 

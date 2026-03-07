@@ -84,7 +84,11 @@
       "Bash(./flowti.cmd info)",
       "Bash(node \"../../01 - Projects/Flowti CLI/flowti-cli.mjs\" info)",
       "Bash(node scripts/generate-cli-reference.mjs)",
-      "Bash(node \"01 - Projects/Flowti CLI/src/flowti-cli.mjs\" info)"
+      "Bash(node \"01 - Projects/Flowti CLI/src/flowti-cli.mjs\" info)",
+      "Bash(node \"01 - Projects/Flowti CLI/src/flowti-cli.mjs\" help build)",
+      "Bash(node \"01 - Projects/Flowti CLI/src/flowti-cli.mjs\")",
+      "Bash(flowti.cmd info)",
+      "Bash(npm run flowti -- info)"
     ]
   }
 }
