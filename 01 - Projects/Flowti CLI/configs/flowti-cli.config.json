@@ -7,5 +7,12 @@
 			"package": "package.json",
 			"scripts": "scripts"
 		}
+	},
+	"capture": {
+		"idea": "00 - Connectivity/inbox",
+		"task": "00 - Connectivity/inbox",
+		"bug": "00 - Connectivity/inbox",
+		"note": "00 - Connectivity/inbox",
+		"documentation": "00 - Connectivity/inbox"
 	}
 }

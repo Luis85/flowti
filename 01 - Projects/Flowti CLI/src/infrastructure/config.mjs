@@ -34,3 +34,12 @@ export function loadJson(filePath) {
 export const config = loadJson(CONFIG_PATH) ?? { paths: {}, build: {}, reports: { scripts: [] } };
 export const manifest = loadJson(MANIFEST_PATH) ?? { id: "flowti-ibde", version: "?" };
 export const pkg = loadJson(PKG_PATH) ?? { version: "?" };
+
+// ── Capture config ──────────────────────────────────────────────────
+
+const DEFAULT_CAPTURE = "00 - Connectivity/inbox";
+export const captureConfig = CLI_CONFIG.capture ?? {};
+export function getCaptureDir(type) {
+	const rel = captureConfig[type] ?? captureConfig.default ?? DEFAULT_CAPTURE;
+	return path.join(VAULT_ROOT, rel);
+}

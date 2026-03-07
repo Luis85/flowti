@@ -17,7 +17,7 @@ const PLUGIN_ROOT = path.resolve(VAULT_ROOT, "Development", "flowti");
 const HELP_PATH = path.join(CLI_PROJECT, "src", "domain", "help", "help.mjs");
 const CONFIG_PATH = path.join(PLUGIN_ROOT, "flowti.config.json");
 const PKG_PATH = path.join(PLUGIN_ROOT, "package.json");
-const OUTPUT_DIR = path.join(PLUGIN_ROOT, "docs", "reference");
+const OUTPUT_DIR = path.join(CLI_PROJECT, "docs");
 
 function yamlEscape(value) {
 	if (value === null || value === undefined) return "null";

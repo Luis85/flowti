@@ -1,7 +1,7 @@
 ---
 type: CLIReference
-date: "2026-03-07T13:08:53.047Z"
-sections: 8
+date: "2026-03-07T13:26:36.778Z"
+sections: 9
 cli_commands: 25
 npm_scripts: 38
 report_generators: 14
@@ -9,7 +9,7 @@ report_generators: 14
 # Flowti CLI Reference
 
 > [!info] Summary
-> CLI commands: 25 | Help sections: 8 | npm scripts: 38 | Report generators: 14
+> CLI commands: 25 | Help sections: 9 | npm scripts: 38 | Report generators: 14
 
 ---
 
@@ -254,6 +254,40 @@ OBSIDIAN CLI (requires Obsidian 1.12+)
   and code execution capabilities. The ObsidianCli class
   (src/infrastructure/cli/ObsidianCli.ts) wraps 20 methods:
   file ops, plugin management, eval, DOM queries, screenshots.
+
+## capture
+
+CAPTURE — Quick-capture ideas and notes into the vault.
+
+### OPTIONS
+
+  1) Capture Idea
+     Prompts for an idea and creates a markdown note in the vault
+     inbox folder. Filename is derived from the idea text (~60 chars).
+
+  2) Capture Note
+     Prompts for a type (Task, Bug, Note, Documentation, Idea)
+     then a title. Creates a markdown note in the configured folder.
+
+### FILE FORMAT
+
+  Each captured file includes YAML frontmatter with type and date,
+  followed by a heading and optional body text.
+
+NON-INTERACTIVE
+  npm run flowti -- capture:idea --text "My idea here"
+  npm run flowti -- capture:note --type task --title "Fix login"
+
+### CONFIGURATION
+
+  Capture paths are configurable in flowti-cli.config.json:
+    capture.idea            Idea folder (default: 00 - Connectivity/inbox)
+    capture.task            Task folder
+    capture.bug             Bug folder
+    capture.note            Note folder
+    capture.documentation   Documentation folder
+
+  All paths are relative to the vault root.
 
 ## Info
 

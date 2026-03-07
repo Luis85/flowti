@@ -29,6 +29,7 @@ import { menu as makeMenu, commands as makeCmds } from "./domain/make/make.mjs";
 import { menu as reviewMenu, commands as reviewCmds } from "./domain/review/review.mjs";
 import { menu as publishMenu, commands as publishCmds } from "./domain/publish/publish.mjs";
 import { menu as reportsMenu, commands as reportsCmds } from "./domain/reports/reports.mjs";
+import { captureIdea, captureNote, commands as captureCmds } from "./domain/capture/capture.mjs";
 
 // ── Command registry ────────────────────────────────────────────────
 
@@ -41,6 +42,7 @@ const allCommands = {
 	...reviewCmds,
 	...publishCmds,
 	...reportsCmds,
+	...captureCmds,
 };
 
 // ── Non-interactive dispatch ────────────────────────────────────────
@@ -93,6 +95,9 @@ async function mainMenu() {
 		{ key: "6", label: "Dev Tools" },
 		{ key: "7", label: "Info" },
 		{ separator: true },
+		{ key: "8", label: "Capture Idea" },
+		{ key: "9", label: "Capture Note" },
+		{ separator: true },
 		{ key: "?", label: "Help" },
 		{ key: "q", label: "Quit" },
 	]);
@@ -109,6 +114,8 @@ async function mainMenu() {
 		case "5": return await reportsMenu();
 		case "6": return await devToolsMenu();
 		case "7": showInfo(); return "main";
+		case "8": return await captureIdea();
+		case "9": return await captureNote();
 		case "?": showHelp("main"); return "main";
 		case "q": return "quit";
 		default:

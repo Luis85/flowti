@@ -23,6 +23,8 @@ export const HELP = {
     ${CYAN}5) Reports${RESET}    Generate vault reports (14 generators)
     ${CYAN}6) Dev Tools${RESET}  Plugin reload, console, frontmatter, test data
     ${CYAN}7) Info${RESET}       Project stats, version, config
+    ${CYAN}8) Capture Idea${RESET}  Quick-capture an idea to vault inbox
+    ${CYAN}9) Capture Note${RESET}  Capture a typed note (Task, Bug, Note, ...)
 
   ${BOLD}NPM SCRIPTS (direct)${RESET}
     npm run build            Fast build (esbuild only, no reports)
@@ -59,6 +61,8 @@ export const HELP = {
     npm run flowti -- dev:lint           ESLint only
     npm run flowti -- make:hub --name=X  Scaffold a new hub
     npm run flowti -- make:plugin --name=X  Scaffold a new plugin
+    npm run flowti -- capture:idea --text="..." Capture an idea
+    npm run flowti -- capture:note --type=task --title="..." Capture a note
     npm run flowti -- info               Show project info
     npm run flowti -- help [section]     Show help
 
@@ -286,6 +290,37 @@ export const HELP = {
     and code execution capabilities. The ObsidianCli class
     (src/infrastructure/cli/ObsidianCli.ts) wraps 20 methods:
     file ops, plugin management, eval, DOM queries, screenshots.
+`,
+
+	capture: `
+  ${BOLD}CAPTURE${RESET} — Quick-capture ideas and notes into the vault.
+
+  ${BOLD}OPTIONS${RESET}
+    ${CYAN}1) Capture Idea${RESET}
+       Prompts for an idea and creates a markdown note in the vault
+       inbox folder. Filename is derived from the idea text (~60 chars).
+
+    ${CYAN}2) Capture Note${RESET}
+       Prompts for a type (Task, Bug, Note, Documentation, Idea)
+       then a title. Creates a markdown note in the configured folder.
+
+  ${BOLD}FILE FORMAT${RESET}
+    Each captured file includes YAML frontmatter with type and date,
+    followed by a heading and optional body text.
+
+  ${BOLD}NON-INTERACTIVE${RESET}
+    npm run flowti -- capture:idea --text "My idea here"
+    npm run flowti -- capture:note --type task --title "Fix login"
+
+  ${BOLD}CONFIGURATION${RESET}
+    Capture paths are configurable in flowti-cli.config.json:
+      capture.idea            Idea folder (default: 00 - Connectivity/inbox)
+      capture.task            Task folder
+      capture.bug             Bug folder
+      capture.note            Note folder
+      capture.documentation   Documentation folder
+
+    All paths are relative to the vault root.
 `,
 
 	info: `
