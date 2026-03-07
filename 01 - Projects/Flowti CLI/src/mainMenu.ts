@@ -193,6 +193,69 @@ export function buildProjectDetailMenu(): MenuEntry[] {
   items.push(
     { key: "8", label: "Capture Idea", action: captureIdea },
     { key: "9", label: "Capture Note", action: captureNote },
+  );
+  
+  items.push({ separator: true });
+
+  // d — Update Documentation
+  {
+    const docsConfig = ctx.config.docs;
+    const generators = docsConfig?.generators ?? [];
+    const allCmd = docsConfig?.allCommand;
+    const hasAny = generators.length > 0 || !!allCmd;
+
+    if (hasAny) {
+      items.push({
+        key: "d",
+        label: "Update Documentation",
+        action: async () => {
+          const { runMenu } = await import("./infrastructure/menu.js");
+          const docsMenuItems: MenuEntry[] = [];
+
+          if (allCmd) {
+            docsMenuItems.push({
+              key: "1",
+              label: "Generate All",
+              action: () => {
+                runIn(allCmd, ctx.path, "Documentation");
+                return "main" as const;
+              },
+            });
+          }
+
+          for (let i = 0; i < generators.length; i++) {
+            const gen = generators[i];
+            docsMenuItems.push({
+              key: String(allCmd ? i + 2 : i + 1),
+              label: gen.label,
+              action: () => {
+                runIn(gen.command, ctx.path, gen.label);
+                return "main" as const;
+              },
+            });
+          }
+
+          docsMenuItems.push(
+            { separator: true },
+            { key: "b", label: "Back", action: () => "main" as const },
+          );
+
+          await runMenu("documentation", docsMenuItems);
+          return "main" as const;
+        },
+      });
+    } else {
+      items.push({
+        key: "d",
+        label: "Update Documentation",
+        action: () => "main" as const,
+        disabled: true,
+        disabledMessage: '\n  No documentation generators configured. Add "docs" to flowti.config.json.\n',
+      });
+    }
+  }
+
+  items.push(
     {
       key: "k",
       label: "Knowledgebase",

@@ -93,10 +93,23 @@ export interface ReportsConfig {
 	allCommand?: string;
 }
 
+export interface DocGenerator {
+	label: string;
+	command: string;
+}
+
+export interface DocsConfig {
+	/** Command to generate all documentation at once */
+	allCommand?: string;
+	/** Individual documentation generators */
+	generators?: DocGenerator[];
+}
+
 export interface ProjectConfig {
 	name: string;
 	tools?: Partial<Record<FlowtiToolId, string>>;
 	reports?: ReportsConfig;
+	docs?: DocsConfig;
 	publish?: PublishConfig;
 	review?: ReviewConfig;
 }

@@ -3,5 +3,18 @@
 	"tools": {
 		"build": "npm run build",
 		"reports": "npm run reports"
+	},
+	"reports": {
+		"dir": "docs/reports",
+		"allCommand": "npm run generate:reports"
+	},
+	"docs": {
+		"generators": [
+			{ "label": "Command Reference", "command": "node scripts/generate-command-reference.mjs" },
+			{ "label": "Event Catalog", "command": "node scripts/generate-event-catalog.mjs" },
+			{ "label": "Data Dictionary", "command": "node scripts/generate-data-dictionary.mjs" },
+			{ "label": "Tool Reference", "command": "node scripts/generate-tool-reference.mjs" },
+			{ "label": "CLI Reference", "command": "node scripts/generate-cli-reference.mjs" }
+		]
 	}
 }

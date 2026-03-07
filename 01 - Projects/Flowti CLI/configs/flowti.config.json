@@ -8,5 +8,11 @@
 	"reports": {
 		"dir": "reports",
 		"allCommand": "npm run reports"
+	},
+	"docs": {
+		"generators": [
+			{ "label": "Codebase (TypeDoc)", "command": "npm run docs" },
+			{ "label": "CLI Reference", "command": "npx tsx src/domain/reports/generators/cli-reference.ts" }
+		]
 	}
 }

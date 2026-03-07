@@ -31,7 +31,7 @@ interface ReportScript {
 const HELP_PATH: string = path.join(CLI_PROJECT, "src", "domain", "help", "help.ts");
 const CONFIG_PATH: string = path.join(PLUGIN_ROOT, "flowti.config.json");
 const PKG_PATH: string = path.join(PLUGIN_ROOT, "package.json");
-const OUTPUT_DIR: string = path.join(CLI_PROJECT, "docs");
+const OUTPUT_DIR: string = path.join(CLI_PROJECT, "docs", "reference");
 
 /** Strip ANSI escape sequences from a string. */
 function stripAnsi(str: string): string {
@@ -347,9 +347,8 @@ function main(): void {
 	);
 	doc.addBlank();
 
-	const filename: string = "Flowti CLI Reference.md";
-	const outputPath: string = path.join(OUTPUT_DIR, filename);
-
+	fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+	const outputPath: string = path.join(OUTPUT_DIR, "Flowti CLI Reference.md");
 	doc.save(outputPath);
 
 	console.log(
