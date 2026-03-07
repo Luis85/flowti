@@ -2,7 +2,7 @@
  * capture.ts — Quick capture of ideas and notes into the vault.
  */
 
-import fs from "node:fs";
+import { disk } from "../../infrastructure/filesystem.js";
 import path from "node:path";
 import { VAULT_ROOT, getCaptureDir } from "../../infrastructure/config.js";
 import { RESET, DIM, GREEN, RED, YELLOW, printHeader, printMenu } from "../../infrastructure/ui.js";
@@ -27,12 +27,12 @@ function sanitizeFilename(name: string): string {
 
 function createCaptureFile(type: string, title: string, body: string): string | null {
 	const dir = getCaptureDir(type.toLowerCase());
-	fs.mkdirSync(dir, { recursive: true });
+	disk.mkdirSync(dir, { recursive: true });
 
 	const filename = sanitizeFilename(title) + ".md";
 	const filePath = path.join(dir, filename);
 
-	if (fs.existsSync(filePath)) {
+	if (disk.existsSync(filePath)) {
 		log(`\n  ${YELLOW}File already exists:${RESET} ${filename}`);
 		return null;
 	}

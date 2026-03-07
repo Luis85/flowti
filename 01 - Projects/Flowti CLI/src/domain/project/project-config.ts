@@ -6,7 +6,7 @@
  * data (npm scripts, mapped actions) to the detail menu.
  */
 
-import fs from "node:fs";
+import { disk } from "../../infrastructure/filesystem.js";
 import path from "node:path";
 import { PROJECTS_DIR, DEVELOPMENT_DIR } from "../../infrastructure/config.js";
 import { getProjectSource } from "../../infrastructure/state.js";
@@ -34,9 +34,9 @@ export interface PackageJson {
 
 export function readPackageJson(projectPath: string): PackageJson | null {
 	const pkgPath = path.join(projectPath, "package.json");
-	if (!fs.existsSync(pkgPath)) return null;
+	if (!disk.existsSync(pkgPath)) return null;
 	try {
-		return JSON.parse(fs.readFileSync(pkgPath, "utf-8")) as PackageJson;
+		return JSON.parse(disk.readFileSync(pkgPath, "utf-8")) as PackageJson;
 	} catch {
 		return null;
 	}
@@ -46,9 +46,9 @@ export function readPackageJson(projectPath: string): PackageJson | null {
 
 export function readProjectConfig(projectPath: string): ProjectConfig | null {
 	const cfgPath = path.join(projectPath, CONFIGS_DIR, FLOWTI_CONFIG);
-	if (!fs.existsSync(cfgPath)) return null;
+	if (!disk.existsSync(cfgPath)) return null;
 	try {
-		return JSON.parse(fs.readFileSync(cfgPath, "utf-8")) as ProjectConfig;
+		return JSON.parse(disk.readFileSync(cfgPath, "utf-8")) as ProjectConfig;
 	} catch {
 		return null;
 	}
@@ -69,9 +69,9 @@ function scaffoldProjectConfig(projectPath: string, pkg: PackageJson): ProjectCo
 	};
 
 	const configsDir = path.join(projectPath, CONFIGS_DIR);
-	if (!fs.existsSync(configsDir)) fs.mkdirSync(configsDir, { recursive: true });
+	if (!disk.existsSync(configsDir)) disk.mkdirSync(configsDir, { recursive: true });
 	const cfgPath = path.join(configsDir, FLOWTI_CONFIG);
-	fs.writeFileSync(cfgPath, JSON.stringify(config, null, "\t"), "utf-8");
+	disk.writeFileSync(cfgPath, JSON.stringify(config, null, "\t"), "utf-8");
 	return config;
 }
 

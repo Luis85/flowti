@@ -6,8 +6,8 @@
  * Generates any missing reports before consolidating.
  */
 
-import fs from "node:fs";
 import path from "node:path";
+import { disk } from "../../../infrastructure/filesystem.js";
 import { execSync } from "node:child_process";
 import { CLI_PROJECT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
@@ -75,7 +75,7 @@ function extractBody(content: string): string {
 }
 
 function ensureReportsExist(sections: ReportSection[], projectPath: string): void {
-	const missing = sections.filter((s) => !fs.existsSync(s.stablePath));
+	const missing = sections.filter((s) => !disk.existsSync(s.stablePath));
 	if (missing.length === 0) return;
 
 	log(`\n  ${DIM}Generating missing reports...${RESET}`);
@@ -102,8 +102,8 @@ function buildStatusReport(sections: ReportSection[], projectName: string): stri
 		.setFrontmatter("date", now.toISOString());
 
 	for (const section of sections) {
-		if (!fs.existsSync(section.stablePath)) continue;
-		const content = fs.readFileSync(section.stablePath, "utf-8");
+		if (!disk.existsSync(section.stablePath)) continue;
+		const content = disk.readFileSync(section.stablePath, "utf-8");
 		const { frontmatter } = parseFrontmatter(content);
 		const prefix = section.label.toLowerCase();
 		for (const [key, value] of Object.entries(frontmatter)) {
@@ -121,12 +121,12 @@ function buildStatusReport(sections: ReportSection[], projectName: string): stri
 	for (const section of sections) {
 		doc.heading(2, section.label).addBlank();
 
-		if (!fs.existsSync(section.stablePath)) {
+		if (!disk.existsSync(section.stablePath)) {
 			doc.callout("warning", "Missing", [`${section.label} report not available.`]).addBlank();
 			continue;
 		}
 
-		const content = fs.readFileSync(section.stablePath, "utf-8");
+		const content = disk.readFileSync(section.stablePath, "utf-8");
 		const body = extractBody(content);
 		if (body) {
 			doc.text(body).addBlank();
@@ -150,8 +150,8 @@ export async function generateProjectStatusReport(projectPath?: string): Promise
 	ensureReportsExist(sections, resolvedPath);
 
 	const content = buildStatusReport(sections, projectName);
-	fs.mkdirSync(svc.reportsDir, { recursive: true });
-	fs.writeFileSync(outputPath, content, "utf-8");
+	disk.mkdirSync(svc.reportsDir, { recursive: true });
+	disk.writeFileSync(outputPath, content, "utf-8");
 
 	log(`\n  ${GREEN}✓${RESET} Project Status Report written: ${outputPath}\n`);
 }

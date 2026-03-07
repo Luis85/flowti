@@ -2,34 +2,35 @@
  * fs.ts — File system utilities for scaffolding and report parsing.
  */
 
-import fsNode from "node:fs";
 import path from "node:path";
 import { ROOT } from "./config.js";
+import { disk } from "./filesystem.js";
 import { RESET, GREEN, YELLOW } from "./ui.js";
 import { log } from "./logger.js";
+import type { IFileSystem } from "../types.js";
 
-export function writeFile(relPath: string, content: string): boolean {
-	return writeFileAt(ROOT, relPath, content);
+export function writeFile(relPath: string, content: string, fs: IFileSystem = disk): boolean {
+	return writeFileAt(ROOT, relPath, content, fs);
 }
 
-export function writeFileAt(basePath: string, relPath: string, content: string): boolean {
+export function writeFileAt(basePath: string, relPath: string, content: string, fs: IFileSystem = disk): boolean {
 	const absPath = path.join(basePath, relPath);
 	const dir = path.dirname(absPath);
-	fsNode.mkdirSync(dir, { recursive: true });
-	if (fsNode.existsSync(absPath)) {
+	fs.mkdirSync(dir, { recursive: true });
+	if (fs.existsSync(absPath)) {
 		log(`    ${YELLOW}skip${RESET}  ${relPath} (already exists)`);
 		return false;
 	}
-	fsNode.writeFileSync(absPath, content, "utf-8");
+	fs.writeFileSync(absPath, content, "utf-8");
 	log(`    ${GREEN}create${RESET}  ${relPath}`);
 	return true;
 }
 
-export function countFiles(dir: string, ext: string): number {
+export function countFiles(dir: string, ext: string, fs: IFileSystem = disk): number {
 	let count = 0;
 	try {
 		const walk = (d: string): void => {
-			for (const entry of fsNode.readdirSync(d, { withFileTypes: true })) {
+			for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
 				if (entry.name === "node_modules" || entry.name === ".git") continue;
 				const full = path.join(d, entry.name);
 				if (entry.isDirectory()) walk(full);
@@ -41,18 +42,18 @@ export function countFiles(dir: string, ext: string): number {
 	return count;
 }
 
-export function findLatestReport(dir: string): string | null {
-	if (!fsNode.existsSync(dir)) return null;
-	const files = fsNode.readdirSync(dir)
+export function findLatestReport(dir: string, fs: IFileSystem = disk): string | null {
+	if (!fs.existsSync(dir)) return null;
+	const files = fs.readdirSync(dir)
 		.filter((f) => f.endsWith(".md") && !f.startsWith("."))
 		.sort()
 		.reverse();
 	return files.length > 0 ? path.join(dir, files[0]) : null;
 }
 
-export function parseFrontmatter(filePath: string): Record<string, string> {
+export function parseFrontmatter(filePath: string, fs: IFileSystem = disk): Record<string, string> {
 	try {
-		const content = fsNode.readFileSync(filePath, "utf-8");
+		const content = fs.readFileSync(filePath, "utf-8");
 		const match = content.match(/^---\n([\s\S]*?)\n---/);
 		if (!match) return {};
 

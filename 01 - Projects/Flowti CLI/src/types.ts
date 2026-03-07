@@ -2,6 +2,29 @@
  * types.ts — Cross-cutting type definitions for the Flowti CLI.
  */
 
+import type fs from "node:fs";
+
+// ── File system abstraction ────────────────────────────────────────
+
+export interface DirEntry {
+	name: string;
+	isDirectory(): boolean;
+	isFile(): boolean;
+}
+
+export interface IFileSystem {
+	readFileSync(path: string, encoding: BufferEncoding): string;
+	writeFileSync(path: string, content: string, encoding: BufferEncoding): void;
+	existsSync(path: string): boolean;
+	mkdirSync(path: string, options?: fs.MakeDirectoryOptions): void;
+	readdirSync(path: string): string[];
+	readdirSync(path: string, options: { withFileTypes: true }): DirEntry[];
+	copyFileSync(src: string, dest: string): void;
+	rmSync(path: string, options?: fs.RmOptions): void;
+	unlinkSync(path: string): void;
+	statSync(path: string): fs.Stats;
+}
+
 // ── CLI argument parsing ────────────────────────────────────────────
 
 export interface ParsedArgs {

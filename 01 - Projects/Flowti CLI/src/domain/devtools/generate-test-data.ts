@@ -14,7 +14,7 @@
  *   node scripts/generate-test-data.ts --out ./my-folder        # custom output directory
  *   node scripts/generate-test-data.ts --dry-run                # preview row counts only
  */
-import { writeFileSync, mkdirSync, existsSync } from "fs";
+import { disk } from "../../infrastructure/filesystem.js";
 import { resolve, join } from "path";
 
 // ── CLI argument parsing ────────────────────────────────
@@ -441,8 +441,8 @@ log(`Seed:   ${SEED_INPUT}`);
 log(`Output: ${OUT_DIR}`);
 log();
 
-if (!DRY_RUN && !existsSync(OUT_DIR)) {
-	mkdirSync(OUT_DIR, { recursive: true });
+if (!DRY_RUN && !disk.existsSync(OUT_DIR)) {
+	disk.mkdirSync(OUT_DIR, { recursive: true });
 }
 
 let totalRows: number = 0;
@@ -458,7 +458,7 @@ for (const { name, generate } of files) {
 	if (DRY_RUN) {
 		log(`  ${name.padEnd(22)} ${String(dataRows).padStart(4)} rows`);
 	} else {
-		writeFileSync(join(OUT_DIR, name), content);
+		disk.writeFileSync(join(OUT_DIR, name), content, "utf-8");
 		log(`  ${name.padEnd(22)} ${String(dataRows).padStart(4)} rows  -> written`);
 	}
 }

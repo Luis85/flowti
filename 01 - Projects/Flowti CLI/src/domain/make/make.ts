@@ -4,8 +4,8 @@
  * All scaffolding writes to the selected project's root folder.
  */
 
-import fs from "node:fs";
 import path from "node:path";
+import { disk } from "../../infrastructure/filesystem.js";
 import { ROOT, VAULT_ROOT, manifest } from "../../infrastructure/config.js";
 import { RESET, BOLD, DIM, GREEN, RED, CYAN } from "../../infrastructure/ui.js";
 import { createRL, ask } from "../../infrastructure/readline.js";
@@ -150,7 +150,7 @@ function scaffoldCli(projectPath: string, name: string): void {
 }
 
 function scaffoldEmpty(projectPath: string, _name: string): void {
-	fs.mkdirSync(projectPath, { recursive: true });
+	disk.mkdirSync(projectPath, { recursive: true });
 	log(`  ${GREEN}✓${RESET} Created empty project.\n`);
 }
 
@@ -218,8 +218,8 @@ async function makeHub(projectRoot: string): Promise<void> {
 	w(`${paths.tests}/${kebab}/${pascal}HubView.test.ts`, hubTestTemplate(pascal, kebab));
 
 	const cssDir = path.join(projectRoot, paths.css);
-	const cssFiles = fs.existsSync(cssDir)
-		? fs.readdirSync(cssDir).filter((f) => f.endsWith(".css")).sort()
+	const cssFiles = disk.existsSync(cssDir)
+		? disk.readdirSync(cssDir).filter((f) => f.endsWith(".css")).sort()
 		: [];
 	const maxNum = cssFiles.reduce((max, f) => {
 		const m = f.match(/^(\d+)/);
@@ -271,7 +271,7 @@ async function makePlugin(projectRoot: string): Promise<void> {
 	log(`  ${DIM}Output: ${pluginRoot}${RESET}`);
 	log();
 
-	if (fs.existsSync(pluginRoot)) {
+	if (disk.existsSync(pluginRoot)) {
 		log(`  ${RED}Folder already exists: ${pluginRoot}${RESET}\n`);
 		return;
 	}
@@ -347,7 +347,7 @@ async function makeApp(projectRoot: string): Promise<void> {
 	}
 	log();
 
-	if (fs.existsSync(appRoot)) {
+	if (disk.existsSync(appRoot)) {
 		log(`  ${RED}Folder already exists: ${appRoot}${RESET}\n`);
 		return;
 	}
@@ -414,7 +414,7 @@ async function makeCliApp(projectRoot: string): Promise<void> {
 	log(`  ${DIM}Output: ${cliRoot}${RESET}`);
 	log();
 
-	if (fs.existsSync(cliRoot)) {
+	if (disk.existsSync(cliRoot)) {
 		log(`  ${RED}Folder already exists: ${cliRoot}${RESET}\n`);
 		return;
 	}
@@ -474,8 +474,8 @@ export const commands = {
 		w(`${paths.hubDomain}/${pascal}HubProvider.ts`, hubProviderTemplate(pascal, kebab, icon));
 		w(`${paths.tests}/${kebab}/${pascal}HubView.test.ts`, hubTestTemplate(pascal, kebab));
 
-		const cssFiles = fs.existsSync(path.join(ROOT, paths.css))
-			? fs.readdirSync(path.join(ROOT, paths.css)).filter((f) => f.endsWith(".css")).sort() : [];
+		const cssFiles = disk.existsSync(path.join(ROOT, paths.css))
+			? disk.readdirSync(path.join(ROOT, paths.css)).filter((f) => f.endsWith(".css")).sort() : [];
 		const maxNum = cssFiles.reduce((max, f) => { const m = f.match(/^(\d+)/); return m ? Math.max(max, parseInt(m[1], 10)) : max; }, 0);
 		w(`${paths.css}/${String(maxNum + 1).padStart(2, "0")}-${kebab}.css`, hubCssTemplate(pascal, kebab));
 		w(`${paths.docs}/${pascal}/${pascal} Hub.md`, hubPrdTemplate(pascal));
@@ -496,7 +496,7 @@ export const commands = {
 		const pascal = toPascal(name);
 		const appRoot = path.resolve(VAULT_ROOT, "01 - Projects", appId);
 
-		if (fs.existsSync(appRoot)) {
+		if (disk.existsSync(appRoot)) {
 			log(`\n  ${RED}Folder already exists: ${appRoot}${RESET}\n`);
 			process.exit(1);
 		}
@@ -537,7 +537,7 @@ export const commands = {
 		const appId = (flags.id as string) ?? toKebab(name);
 		const cliRoot = path.resolve(VAULT_ROOT, "01 - Projects", appId);
 
-		if (fs.existsSync(cliRoot)) {
+		if (disk.existsSync(cliRoot)) {
 			log(`\n  ${RED}Folder already exists: ${cliRoot}${RESET}\n`);
 			process.exit(1);
 		}
@@ -568,7 +568,7 @@ export const commands = {
 		const author = (flags.author as string) ?? (manifest as Record<string, unknown>).author as string ?? "";
 		const pluginRoot = path.resolve(ROOT, "..", pluginId);
 
-		if (fs.existsSync(pluginRoot)) {
+		if (disk.existsSync(pluginRoot)) {
 			log(`\n  ${RED}Folder already exists: ${pluginRoot}${RESET}\n`);
 			process.exit(1);
 		}

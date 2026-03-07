@@ -6,9 +6,10 @@
  */
 
 import { execFileSync } from "node:child_process";
-import fs from "node:fs";
 import path from "node:path";
+import { disk } from "../../infrastructure/filesystem.js";
 import { VAULT_ROOT } from "../../infrastructure/config.js";
+import type { DirEntry } from "../../types.js";
 
 let _cliAvailable: boolean | null = null;
 
@@ -28,13 +29,13 @@ export function isCliAvailable(): boolean {
 }
 
 export function isVaultInitialized(): boolean {
-	return fs.existsSync(path.join(VAULT_ROOT, ".obsidian"));
+	return disk.existsSync(path.join(VAULT_ROOT, ".obsidian"));
 }
 
 export function listFolder(folderPath: string): { name: string; isDir: boolean }[] {
 	const abs = path.join(VAULT_ROOT, folderPath);
-	if (!fs.existsSync(abs)) return [];
-	const entries = fs.readdirSync(abs, { withFileTypes: true });
+	if (!disk.existsSync(abs)) return [];
+	const entries = disk.readdirSync(abs, { withFileTypes: true });
 	return entries
 		.filter((e) => !e.name.startsWith("."))
 		.map((e) => ({ name: e.name, isDir: e.isDirectory() }))
@@ -46,8 +47,8 @@ export function listFolder(folderPath: string): { name: string; isDir: boolean }
 
 export function readMarkdownFile(filePath: string): string | null {
 	const abs = path.join(VAULT_ROOT, filePath);
-	if (!fs.existsSync(abs)) return null;
-	return fs.readFileSync(abs, "utf-8");
+	if (!disk.existsSync(abs)) return null;
+	return disk.readFileSync(abs, "utf-8");
 }
 
 export function searchVault(query: string): string[] {
@@ -68,7 +69,7 @@ export function searchVault(query: string): string[] {
 function matchesMdFile(fullPath: string, name: string, lowerQuery: string): boolean {
 	if (name.toLowerCase().includes(lowerQuery)) return true;
 	try {
-		const content = fs.readFileSync(fullPath, "utf-8");
+		const content = disk.readFileSync(fullPath, "utf-8");
 		return content.toLowerCase().includes(lowerQuery);
 	} catch { return false; }
 }
@@ -79,8 +80,8 @@ function filesystemSearch(query: string): string[] {
 
 	function walk(dir: string, rel: string): void {
 		if (matches.length >= 50) return;
-		let entries: fs.Dirent[];
-		try { entries = fs.readdirSync(dir, { withFileTypes: true }); }
+		let entries: DirEntry[];
+		try { entries = disk.readdirSync(dir, { withFileTypes: true }); }
 		catch { return; }
 
 		for (const e of entries) {

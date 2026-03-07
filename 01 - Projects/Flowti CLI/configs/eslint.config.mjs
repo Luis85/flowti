@@ -40,6 +40,25 @@ export default [
 			"no-console": ["error", {
 				allow: ["warn", "error", "debug"],
 			}],
+
+			// Route all file I/O through infrastructure/filesystem.ts — ban direct node:fs usage
+			"no-restricted-imports": ["error", {
+				paths: [{
+					name: "node:fs",
+					message: "Use { disk } from infrastructure/filesystem.js instead.",
+				}, {
+					name: "fs",
+					message: "Use { disk } from infrastructure/filesystem.js instead.",
+				}],
+			}],
+		},
+	},
+
+	// Allow node:fs in the filesystem service and types (type-only import for interface signatures)
+	{
+		files: ["src/infrastructure/filesystem.ts", "src/types.ts"],
+		rules: {
+			"no-restricted-imports": "off",
 		},
 	},
 ];

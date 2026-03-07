@@ -7,7 +7,7 @@
  * Usage: tsx src/domain/reports/cli/generate-codebase-report.ts
  */
 
-import fs from "node:fs";
+import { disk } from "../../../infrastructure/filesystem.js";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
 import { log } from "../../../infrastructure/logger.js";
@@ -81,12 +81,12 @@ function buildFrontmatter(data: TypeDocNode, counts: Record<number, number>): Re
 }
 
 function main(): void {
-	if (!fs.existsSync(CODEBASE_JSON)) {
+	if (!disk.existsSync(CODEBASE_JSON)) {
 		log("[cli-report] No codebase.json found — run `npm run docs` first.");
 		return;
 	}
 
-	const data: TypeDocNode = JSON.parse(fs.readFileSync(CODEBASE_JSON, "utf-8"));
+	const data: TypeDocNode = JSON.parse(disk.readFileSync(CODEBASE_JSON, "utf-8"));
 	const counts = countByKind(data);
 	const domains = countModulesByDomain(data);
 	const fm = buildFrontmatter(data, counts);

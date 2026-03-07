@@ -6,7 +6,7 @@
  * the "Development/" folder.
  */
 
-import fs from "node:fs";
+import { disk } from "../../infrastructure/filesystem.js";
 import path from "node:path";
 import { execSync } from "node:child_process";
 import { PROJECTS_DIR, DEVELOPMENT_DIR } from "../../infrastructure/config.js";
@@ -23,7 +23,7 @@ import { log } from "../../infrastructure/logger.js";
 
 export function listProjects(): string[] {
 	try {
-		return fs.readdirSync(PROJECTS_DIR, { withFileTypes: true })
+		return disk.readdirSync(PROJECTS_DIR, { withFileTypes: true })
 			.filter((e) => e.isDirectory())
 			.map((e) => e.name)
 			.sort();
@@ -34,7 +34,7 @@ export function listProjects(): string[] {
 
 function listDevelopmentProjects(): string[] {
 	try {
-		return fs.readdirSync(DEVELOPMENT_DIR, { withFileTypes: true })
+		return disk.readdirSync(DEVELOPMENT_DIR, { withFileTypes: true })
 			.filter((e) => e.isDirectory())
 			.map((e) => e.name)
 			.sort();
@@ -93,7 +93,7 @@ async function createProjectMenu(): Promise<MenuResult> {
 	}
 
 	const projectPath = path.join(PROJECTS_DIR, name);
-	if (fs.existsSync(projectPath)) {
+	if (disk.existsSync(projectPath)) {
 		log(`\n  ${RED}Project already exists:${RESET} ${name}\n`);
 		return "main";
 	}
@@ -127,7 +127,7 @@ async function createProjectMenu(): Promise<MenuResult> {
 }
 
 function scaffoldFromTemplate(templateId: ProjectTemplateId, projectPath: string, name: string): void {
-	fs.mkdirSync(projectPath, { recursive: true });
+	disk.mkdirSync(projectPath, { recursive: true });
 	log(`\n  ${BOLD}Scaffolding:${RESET} ${name}\n`);
 	PROJECT_TEMPLATES[templateId].scaffold(projectPath, name);
 }

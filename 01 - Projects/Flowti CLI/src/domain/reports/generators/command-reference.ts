@@ -7,7 +7,7 @@
  * Usage: npx tsx scripts/generate-command-reference.ts
  */
 
-import fs from "node:fs";
+import { disk } from "../../../infrastructure/filesystem.js";
 import path from "node:path";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
@@ -75,12 +75,12 @@ function capitalize(s: string): string {
 }
 
 function main(): void {
-	if (!fs.existsSync(REGISTRY_PATH)) {
+	if (!disk.existsSync(REGISTRY_PATH)) {
 		log("[report] CommandRegistry source not found — skipping.");
 		return;
 	}
 
-	const source: string = fs.readFileSync(REGISTRY_PATH, "utf-8");
+	const source: string = disk.readFileSync(REGISTRY_PATH, "utf-8");
 	const commands: CommandMeta[] = extractCommandMeta(source);
 
 	if (commands.length === 0) {

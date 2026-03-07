@@ -8,8 +8,8 @@
  */
 
 import { execSync } from "node:child_process";
-import fs from "node:fs";
 import path from "node:path";
+import { disk } from "../../infrastructure/filesystem.js";
 import { VAULT_ROOT } from "../../infrastructure/config.js";
 import { RESET, BOLD, DIM, GREEN, CYAN, YELLOW } from "../../infrastructure/ui.js";
 import { runIn } from "../../infrastructure/shell.js";
@@ -28,16 +28,16 @@ interface JourneyFile {
 
 function scanJourneys(projectPath: string, journeysDir: string): JourneyFile[] {
 	const dir = path.resolve(projectPath, journeysDir);
-	if (!fs.existsSync(dir)) return [];
+	if (!disk.existsSync(dir)) return [];
 
-	return fs.readdirSync(dir)
+	return disk.readdirSync(dir)
 		.filter((f) => f.endsWith(".journey") || f.endsWith(".journey.json"))
 		.sort()
 		.map((f) => {
 			const fullPath = path.join(dir, f);
 			let meta: Record<string, unknown> = {};
 			try {
-				meta = JSON.parse(fs.readFileSync(fullPath, "utf-8")) as Record<string, unknown>;
+				meta = JSON.parse(disk.readFileSync(fullPath, "utf-8")) as Record<string, unknown>;
 			} catch { /* ignore */ }
 			return {
 				name: f.replace(/\.journey(\.json)?$/, ""),
@@ -57,8 +57,8 @@ function resolveTestVault(projectPath: string, config: ReviewConfig): string {
 }
 
 function ensureTestVault(vaultPath: string): boolean {
-	if (fs.existsSync(vaultPath)) return true;
-	fs.mkdirSync(vaultPath, { recursive: true });
+	if (disk.existsSync(vaultPath)) return true;
+	disk.mkdirSync(vaultPath, { recursive: true });
 	log(`  ${GREEN}Created test vault:${RESET} ${vaultPath}\n`);
 	return true;
 }
@@ -76,7 +76,7 @@ export async function reviewMenu(projectPath: string, config: ReviewConfig): Pro
 	const runnerCmd = config.runner;
 
 	const beforeMenu = (): void => {
-		const vaultExists = fs.existsSync(testVault);
+		const vaultExists = disk.existsSync(testVault);
 		log(`    ${DIM}Journeys:${RESET}   ${journeys.length} found in ${journeysDir}`);
 		log(`    ${DIM}Test vault:${RESET} ${vaultExists ? `${GREEN}exists${RESET}` : `${YELLOW}not created${RESET}`} ${DIM}(${testVault})${RESET}`);
 		const buildIcon = buildPassed ? `${GREEN}✓${RESET}` : `${DIM}○${RESET}`;

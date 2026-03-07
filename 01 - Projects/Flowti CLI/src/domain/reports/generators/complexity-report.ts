@@ -8,7 +8,7 @@
  * Usage: node scripts/generate-complexity-report.ts [--build-type=flow|increment|full]
  */
 
-import fs from "node:fs";
+import { disk } from "../../../infrastructure/filesystem.js";
 import path from "node:path";
 
 import { ROOT } from "../../../infrastructure/config.js";
@@ -176,26 +176,26 @@ async function main(): Promise<void> {
 		console.warn("[report] ESLint complexity check failed — checking for existing JSON.");
 	}
 
-	if (!fs.existsSync(COMPLEXITY_JSON)) {
+	if (!disk.existsSync(COMPLEXITY_JSON)) {
 		log("[report] No complexity-report.json found — skipping complexity report.");
 		return;
 	}
 
-	const data: ESLintResult[] = JSON.parse(fs.readFileSync(COMPLEXITY_JSON, "utf-8"));
+	const data: ESLintResult[] = JSON.parse(disk.readFileSync(COMPLEXITY_JSON, "utf-8"));
 	const entries: ComplexityEntry[] = extractComplexityEntries(data);
 	const content: string = generateReport(data, entries);
 
-	fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+	disk.mkdirSync(OUTPUT_DIR, { recursive: true });
 
 	// Write timestamped report
 	const now = new Date();
 	const safeTimestamp: string = now.toISOString().replace(/:/g, "-");
 	const filename: string = `${safeTimestamp}-complexity-report.md`;
 	const timestampedPath: string = path.join(OUTPUT_DIR, filename);
-	fs.writeFileSync(timestampedPath, content, "utf-8");
+	disk.writeFileSync(timestampedPath, content, "utf-8");
 
 	// Write stable report (overwrite)
-	fs.writeFileSync(STABLE_PATH, content, "utf-8");
+	disk.writeFileSync(STABLE_PATH, content, "utf-8");
 
 	log(`[report] ComplexityReport written: ${timestampedPath}`);
 }

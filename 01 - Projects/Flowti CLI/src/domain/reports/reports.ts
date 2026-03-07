@@ -2,8 +2,8 @@
  * reports.ts — Report generation menu and commands.
  */
 
-import fs from "node:fs";
 import path from "node:path";
+import { disk } from "../../infrastructure/filesystem.js";
 import { ROOT, config } from "../../infrastructure/config.js";
 import { RESET, DIM, GREEN, RED, CYAN, YELLOW, printHeader } from "../../infrastructure/ui.js";
 import { run } from "../../infrastructure/shell.js";
@@ -84,7 +84,7 @@ async function selectReportMenu(): Promise<void> {
 	if (idx >= 0 && idx < scripts.length) {
 		const script = scripts[idx];
 		const scriptPath = path.join(ROOT, "scripts", script.script);
-		if (!fs.existsSync(scriptPath)) {
+		if (!disk.existsSync(scriptPath)) {
 			log(`\n  ${RED}Script not found: ${script.script}${RESET}\n`);
 			return;
 		}
@@ -120,7 +120,7 @@ function collectAuditSections(reportsDir: string): Array<{ label: string; data: 
 
 	for (const sr of rptCfg.stableReports ?? DEFAULT_STABLE_REPORTS) {
 		const filePath = path.join(reportsDir, sr.file);
-		if (fs.existsSync(filePath)) sections.push({ label: sr.label, data: parseFrontmatter(filePath), file: sr.file });
+		if (disk.existsSync(filePath)) sections.push({ label: sr.label, data: parseFrontmatter(filePath), file: sr.file });
 	}
 
 	return sections;
@@ -136,7 +136,7 @@ async function auditMenu(): Promise<void> {
 
 	const reportsDir = path.join(ROOT, rptCfg.dir ?? rptCfg.outputDir ?? "docs/reports");
 	const auditDir = path.join(reportsDir, rptCfg.auditSubdir ?? "audits");
-	try { fs.mkdirSync(auditDir, { recursive: true }); } catch { /* ignore */ }
+	try { disk.mkdirSync(auditDir, { recursive: true }); } catch { /* ignore */ }
 
 	const sections = collectAuditSections(reportsDir);
 	const now = new Date();

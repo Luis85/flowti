@@ -8,7 +8,7 @@
  * Usage: node scripts/generate-test-report.ts [--build-type=flow|full]
  */
 
-import fs from "node:fs";
+import { disk } from "../../../infrastructure/filesystem.js";
 import path from "node:path";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
@@ -48,10 +48,10 @@ interface PerfData {
 
 function loadPerfData(): PerfData | null {
 	for (const candidate of DATA_JSON_CANDIDATES) {
-		if (fs.existsSync(candidate)) {
+		if (disk.existsSync(candidate)) {
 			try {
-				const data: Record<string, unknown> = JSON.parse(fs.readFileSync(candidate, "utf-8"));
-				const sizeBytes = fs.statSync(candidate).size;
+				const data: Record<string, unknown> = JSON.parse(disk.readFileSync(candidate, "utf-8"));
+				const sizeBytes = disk.statSync(candidate).size;
 				return { data, sizeBytes };
 			} catch { /* try next */ }
 		}
@@ -118,12 +118,12 @@ function extractStats(json: Record<string, unknown>): TestReportStats {
 }
 
 function main(): void {
-	if (!fs.existsSync(REPORT_JSON)) {
+	if (!disk.existsSync(REPORT_JSON)) {
 		log("[report] No testreport.json found — run tests first.");
 		return;
 	}
 
-	const json = JSON.parse(fs.readFileSync(REPORT_JSON, "utf-8")) as Record<string, unknown>;
+	const json = JSON.parse(disk.readFileSync(REPORT_JSON, "utf-8")) as Record<string, unknown>;
 	const now = new Date();
 	const stats = extractStats(json);
 

@@ -7,7 +7,7 @@
  * Usage: npx tsx scripts/generate-event-catalog.ts
  */
 
-import fs from "node:fs";
+import { disk } from "../../../infrastructure/filesystem.js";
 import path from "node:path";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
@@ -107,12 +107,12 @@ function getDomainSummary(events: CatalogEntry[]): [string, number][] {
 }
 
 function main(): void {
-	if (!fs.existsSync(CATALOG_PATH)) {
+	if (!disk.existsSync(CATALOG_PATH)) {
 		log("[report] catalog.ts not found — skipping event catalog generation.");
 		return;
 	}
 
-	const source = fs.readFileSync(CATALOG_PATH, "utf-8");
+	const source = disk.readFileSync(CATALOG_PATH, "utf-8");
 	const categories = extractCategories(source);
 	const events = extractCatalogEntries(source);
 

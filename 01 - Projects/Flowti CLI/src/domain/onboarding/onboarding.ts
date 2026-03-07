@@ -3,9 +3,9 @@
  */
 
 import { execSync } from "node:child_process";
-import fs from "node:fs";
 import path from "node:path";
 import { ROOT, VAULT_ROOT, cliConfig } from "../../infrastructure/config.js";
+import { disk } from "../../infrastructure/filesystem.js";
 import { RESET, BOLD, DIM, GREEN, RED, CYAN, YELLOW } from "../../infrastructure/ui.js";
 import { log } from "../../infrastructure/logger.js";
 
@@ -54,7 +54,7 @@ export function checkPrerequisites(): void {
 
 export function ensureDependencies(): void {
 	const nodeModulesPath = path.join(ROOT, "node_modules");
-	if (fs.existsSync(nodeModulesPath)) return;
+	if (disk.existsSync(nodeModulesPath)) return;
 
 	log(`\n  ${YELLOW}Dependencies not installed.${RESET}`);
 	log(`  ${CYAN}▸${RESET} Running npm install...\n`);
@@ -70,14 +70,14 @@ export function ensureDependencies(): void {
 
 export function checkFirstRun(): void {
 	const mainJs = path.join(VAULT_ROOT, ".obsidian", "plugins", pluginId, "main.js");
-	if (!fs.existsSync(mainJs)) {
+	if (!disk.existsSync(mainJs)) {
 		log(`  ${YELLOW}Plugin not yet built.${RESET} Select ${BOLD}Build${RESET} (option 2) to get started.\n`);
 	}
 }
 
 export function showPostBuildGuidance(): void {
 	const mainJs = path.join(VAULT_ROOT, ".obsidian", "plugins", pluginId, "main.js");
-	if (!fs.existsSync(mainJs)) return;
+	if (!disk.existsSync(mainJs)) return;
 
 	log(`  ${GREEN}${BOLD}Plugin built successfully!${RESET}\n`);
 	log(`  ${BOLD}Next steps:${RESET}`);

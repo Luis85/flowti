@@ -7,7 +7,7 @@
  * Usage: tsx src/domain/reports/cli/generate-coverage-report.ts
  */
 
-import fs from "node:fs";
+import { disk } from "../../../infrastructure/filesystem.js";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
 import { log } from "../../../infrastructure/logger.js";
@@ -51,12 +51,12 @@ function fileCoverage(entry: CoverageEntry): { statements: number; branches: num
 }
 
 function main(): void {
-	if (!fs.existsSync(COVERAGE_JSON)) {
+	if (!disk.existsSync(COVERAGE_JSON)) {
 		log("[cli-report] No coverage-final.json found — run vitest --coverage first.");
 		return;
 	}
 
-	const json: Record<string, CoverageEntry> = JSON.parse(fs.readFileSync(COVERAGE_JSON, "utf-8"));
+	const json: Record<string, CoverageEntry> = JSON.parse(disk.readFileSync(COVERAGE_JSON, "utf-8"));
 	const entries = Object.values(json);
 
 	const stmtPct = computeCoverage(entries, "statements");

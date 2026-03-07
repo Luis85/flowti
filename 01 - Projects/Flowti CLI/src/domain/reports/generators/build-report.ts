@@ -9,7 +9,7 @@
  * Can also be called from esbuild.config.mjs by writing the metafile to a temp location.
  */
 
-import fs from "node:fs";
+import { disk } from "../../../infrastructure/filesystem.js";
 import path from "node:path";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
@@ -102,13 +102,13 @@ function main(): void {
 	const args = parseArgs();
 	const metafilePath = args.metafile || process.env.BUILD_METAFILE;
 
-	if (!metafilePath || !fs.existsSync(metafilePath)) {
+	if (!metafilePath || !disk.existsSync(metafilePath)) {
 		log("[report] No metafile found — skipping build report.");
 		return;
 	}
 
-	const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, "utf-8")) as Record<string, string>;
-	const metafile = JSON.parse(fs.readFileSync(metafilePath, "utf-8")) as Record<string, unknown>;
+	const manifest = JSON.parse(disk.readFileSync(MANIFEST_PATH, "utf-8")) as Record<string, string>;
+	const metafile = JSON.parse(disk.readFileSync(metafilePath, "utf-8")) as Record<string, unknown>;
 	const now = new Date();
 	const sizes = collectOutputs(metafile);
 	const fm = buildBuildFm(manifest, now, args, sizes);
@@ -119,8 +119,8 @@ function main(): void {
 
 	const doc = Document.create("Build Report").mergeFrontmatter(fm);
 
-	if (fs.existsSync(TEMPLATE_PATH)) {
-		doc.addBlank().text(fs.readFileSync(TEMPLATE_PATH, "utf-8").trim());
+	if (disk.existsSync(TEMPLATE_PATH)) {
+		doc.addBlank().text(disk.readFileSync(TEMPLATE_PATH, "utf-8").trim());
 	}
 
 	doc.addBlank()

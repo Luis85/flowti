@@ -7,7 +7,7 @@
  * Usage: npx tsx src/domain/reports/generators/cli-reference.ts
  */
 
-import fs from "node:fs";
+import { disk } from "../../../infrastructure/filesystem.js";
 import path from "node:path";
 import { CLI_PROJECT, PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
@@ -128,7 +128,7 @@ const CLI_COMMANDS: CliCommand[] = [
 ];
 
 function loadJson<T>(filePath: string): T | null {
-	try { return JSON.parse(fs.readFileSync(filePath, "utf-8")) as T; }
+	try { return JSON.parse(disk.readFileSync(filePath, "utf-8")) as T; }
 	catch { return null; }
 }
 
@@ -141,8 +141,8 @@ interface PluginData {
 }
 
 function loadHelpSections(): Map<string, string> {
-	if (!fs.existsSync(HELP_PATH)) return new Map();
-	return extractHelpSections(fs.readFileSync(HELP_PATH, "utf-8"));
+	if (!disk.existsSync(HELP_PATH)) return new Map();
+	return extractHelpSections(disk.readFileSync(HELP_PATH, "utf-8"));
 }
 
 function extractScriptEntries(pluginPkg: Record<string, unknown> | undefined): NpmScript[] {
@@ -299,7 +299,7 @@ function main(): void {
 	]);
 	doc.addBlank();
 
-	fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+	disk.mkdirSync(OUTPUT_DIR, { recursive: true });
 	const outputPath = path.join(OUTPUT_DIR, "Flowti CLI Reference.md");
 	doc.save(outputPath);
 

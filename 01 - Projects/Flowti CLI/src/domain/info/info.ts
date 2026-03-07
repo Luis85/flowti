@@ -2,8 +2,8 @@
  * info.ts — Project information and diagnostics for the selected project.
  */
 
-import fs from "node:fs";
 import path from "node:path";
+import { disk } from "../../infrastructure/filesystem.js";
 import { RESET, BOLD, DIM, GREEN, YELLOW, printHeader } from "../../infrastructure/ui.js";
 import { runSilent } from "../../infrastructure/shell.js";
 import { countFiles } from "../../infrastructure/fs.js";
@@ -33,8 +33,8 @@ function printIdentity(ctx: ProjectContext, source: string): void {
 function printSourceFiles(ctx: ProjectContext): void {
 	const srcDir = path.join(ctx.path, "src");
 	const testsDir = path.join(ctx.path, "tests");
-	const hasSrc = fs.existsSync(srcDir);
-	const hasTests = fs.existsSync(testsDir);
+	const hasSrc = disk.existsSync(srcDir);
+	const hasTests = disk.existsSync(testsDir);
 
 	if (!hasSrc && !hasTests) return;
 	log(`  ${BOLD}Source${RESET}`);
@@ -45,7 +45,7 @@ function printSourceFiles(ctx: ProjectContext): void {
 
 function printDependencies(ctx: ProjectContext): void {
 	if (!ctx.pkg) return;
-	const raw = JSON.parse(fs.readFileSync(path.join(ctx.path, "package.json"), "utf-8")) as Record<string, unknown>;
+	const raw = JSON.parse(disk.readFileSync(path.join(ctx.path, "package.json"), "utf-8")) as Record<string, unknown>;
 	const devDeps = Object.keys((raw.devDependencies as Record<string, string>) ?? {}).length;
 	const prodDeps = Object.keys((raw.dependencies as Record<string, string>) ?? {}).length;
 	const scriptCount = Object.keys(ctx.scripts).length;
@@ -98,8 +98,8 @@ function printReview(ctx: ProjectContext): void {
 	if (!review) return;
 	const journeysDir = review.journeysDir ?? "tests/e2e/journeys";
 	const journeysPath = path.join(ctx.path, journeysDir);
-	const journeyCount = fs.existsSync(journeysPath)
-		? fs.readdirSync(journeysPath).filter((f) => f.endsWith(".journey") || f.endsWith(".journey.json")).length
+	const journeyCount = disk.existsSync(journeysPath)
+		? disk.readdirSync(journeysPath).filter((f) => f.endsWith(".journey") || f.endsWith(".journey.json")).length
 		: 0;
 	log(`  ${BOLD}Review${RESET}`);
 	log(`    Journeys:        ${journeyCount} in ${journeysDir}`);

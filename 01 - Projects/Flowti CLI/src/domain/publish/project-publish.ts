@@ -5,7 +5,7 @@
  * Configured via flowti.config.json "publish" section.
  */
 
-import fs from "node:fs";
+import { disk } from "../../infrastructure/filesystem.js";
 import path from "node:path";
 import { RESET, DIM, GREEN, RED, CYAN, YELLOW } from "../../infrastructure/ui.js";
 import { runIn } from "../../infrastructure/shell.js";
@@ -23,7 +23,7 @@ function validateDistributeConfig(config: PublishConfig, projectPath: string): s
 		return `\n  ${YELLOW}No outDir configured.${RESET}\n  ${DIM}Add "outDir" to the "publish" section in flowti.config.json.${RESET}\n`;
 	}
 	const srcDir = path.resolve(projectPath, config.outDir);
-	if (!fs.existsSync(srcDir)) {
+	if (!disk.existsSync(srcDir)) {
 		return `\n  ${RED}Output directory not found: ${srcDir}${RESET}\n  ${DIM}Run build first.${RESET}\n`;
 	}
 	return null;
@@ -33,12 +33,12 @@ function copyArtifacts(srcDir: string, targetDir: string, artifacts: string[]): 
 	for (const artifact of artifacts) {
 		const src = path.join(srcDir, artifact);
 		const dest = path.join(targetDir, artifact);
-		if (!fs.existsSync(src)) {
+		if (!disk.existsSync(src)) {
 			log(`    ${YELLOW}skip${RESET}  ${artifact} (not found)`);
 			continue;
 		}
-		fs.mkdirSync(path.dirname(dest), { recursive: true });
-		fs.copyFileSync(src, dest);
+		disk.mkdirSync(path.dirname(dest), { recursive: true });
+		disk.copyFileSync(src, dest);
 		log(`    ${GREEN}copy${RESET}  ${artifact}`);
 	}
 }
@@ -47,8 +47,8 @@ function distributeToEndpoint(ep: PublishEndpoint, srcDir: string, artifacts: st
 	log(`\n  ${CYAN}▸${RESET} ${ep.name} → ${ep.path}`);
 	const targetDir = path.resolve(ep.path);
 
-	if (ep.clean && fs.existsSync(targetDir)) cleanEndpoint(targetDir, artifacts);
-	fs.mkdirSync(targetDir, { recursive: true });
+	if (ep.clean && disk.existsSync(targetDir)) cleanEndpoint(targetDir, artifacts);
+	disk.mkdirSync(targetDir, { recursive: true });
 
 	if (artifacts.length > 0) {
 		copyArtifacts(srcDir, targetDir, artifacts);
@@ -76,21 +76,21 @@ function cleanEndpoint(targetDir: string, artifacts: string[]): void {
 	if (artifacts.length > 0) {
 		for (const artifact of artifacts) {
 			const p = path.join(targetDir, artifact);
-			if (fs.existsSync(p)) fs.unlinkSync(p);
+			if (disk.existsSync(p)) disk.unlinkSync(p);
 		}
 	}
 }
 
 function copyDir(src: string, dest: string): number {
 	let count = 0;
-	for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+	for (const entry of disk.readdirSync(src, { withFileTypes: true })) {
 		const srcPath = path.join(src, entry.name);
 		const destPath = path.join(dest, entry.name);
 		if (entry.isDirectory()) {
-			fs.mkdirSync(destPath, { recursive: true });
+			disk.mkdirSync(destPath, { recursive: true });
 			count += copyDir(srcPath, destPath);
 		} else {
-			fs.copyFileSync(srcPath, destPath);
+			disk.copyFileSync(srcPath, destPath);
 			count++;
 		}
 	}

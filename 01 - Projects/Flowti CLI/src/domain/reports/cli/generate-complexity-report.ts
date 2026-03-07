@@ -7,7 +7,7 @@
  * Usage: npm run analysis && tsx src/domain/reports/cli/generate-complexity-report.ts
  */
 
-import fs from "node:fs";
+import { disk } from "../../../infrastructure/filesystem.js";
 import { CLI_PROJECT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
@@ -122,12 +122,12 @@ function addLowCoverageSection(doc: Document, srcFiles: AnalysisFile[]): void {
 }
 
 function main(): void {
-	if (!fs.existsSync(ANALYSIS_JSON)) {
+	if (!disk.existsSync(ANALYSIS_JSON)) {
 		log("[cli-report] No analysis.json found — run `npm run analysis` first.");
 		return;
 	}
 
-	const data: AnalysisData = JSON.parse(fs.readFileSync(ANALYSIS_JSON, "utf-8"));
+	const data: AnalysisData = JSON.parse(disk.readFileSync(ANALYSIS_JSON, "utf-8"));
 	const { summary, files } = data;
 	const hasCoverage = summary.statements !== undefined;
 	const srcFiles = files.filter((f) => !relPath(f.file).startsWith("bin/"));

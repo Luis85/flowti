@@ -7,7 +7,7 @@
  * Usage: node scripts/generate-tool-reference.ts
  */
 
-import fs from "node:fs";
+import { disk } from "../../../infrastructure/filesystem.js";
 import path from "node:path";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
@@ -288,12 +288,12 @@ function renderToolDetail(doc: Document, tool: ToolMeta): void {
 }
 
 function main(): void {
-	if (!fs.existsSync(CATALOG_PATH)) {
+	if (!disk.existsSync(CATALOG_PATH)) {
 		log("[report] Tool catalog source not found — skipping.");
 		return;
 	}
 
-	const tools = extractToolMeta(fs.readFileSync(CATALOG_PATH, "utf-8"));
+	const tools = extractToolMeta(disk.readFileSync(CATALOG_PATH, "utf-8"));
 	if (tools.length === 0) {
 		log("[report] No tools extracted from catalog — skipping.");
 		return;

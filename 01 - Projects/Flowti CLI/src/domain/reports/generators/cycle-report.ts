@@ -7,7 +7,7 @@
  * Usage: npx tsx scripts/generate-cycle-report.ts
  */
 
-import fs from "node:fs";
+import { disk } from "../../../infrastructure/filesystem.js";
 import path from "node:path";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document, type FrontmatterValue } from "../../../infrastructure/document.js";
@@ -69,15 +69,15 @@ function parseFrontmatter(content: string): Record<string, unknown> | null {
  * Find the latest cycle document with stage: done.
  */
 function findLatestDoneCycle(): { file: string; frontmatter: Record<string, unknown> } | null {
-	if (!fs.existsSync(CYCLES_DIR)) return null;
+	if (!disk.existsSync(CYCLES_DIR)) return null;
 
-	const files: string[] = fs.readdirSync(CYCLES_DIR).filter((f: string) => f.startsWith("Cycle ") && f.endsWith(".md"));
+	const files: string[] = disk.readdirSync(CYCLES_DIR).filter((f: string) => f.startsWith("Cycle ") && f.endsWith(".md"));
 
 	let best: { file: string; frontmatter: Record<string, unknown> } | null = null;
 	let bestCycle: number = -1;
 
 	for (const file of files) {
-		const content: string = fs.readFileSync(path.join(CYCLES_DIR, file), "utf-8");
+		const content: string = disk.readFileSync(path.join(CYCLES_DIR, file), "utf-8");
 		const fm: Record<string, unknown> | null = parseFrontmatter(content);
 		if (!fm || fm.stage !== "done") continue;
 		const cycle: number = (fm.cycle as number) ?? 0;
@@ -153,8 +153,8 @@ function collectReportLinks(): string[] {
 		{ dir: path.join(ROOT, "docs", "reports", "builds"), suffix: "build-report" },
 	];
 	for (const { dir, suffix } of reportDirs) {
-		if (!fs.existsSync(dir)) continue;
-		const files = fs.readdirSync(dir).filter((f) => f.endsWith(".md") && f.includes(suffix));
+		if (!disk.existsSync(dir)) continue;
+		const files = disk.readdirSync(dir).filter((f) => f.endsWith(".md") && f.includes(suffix));
 		if (files.length > 0) {
 			files.sort();
 			links.push(files[files.length - 1].replace(/\.md$/, ""));

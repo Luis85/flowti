@@ -7,7 +7,7 @@
  * Usage: npx tsx scripts/generate-data-dictionary.ts
  */
 
-import fs from "node:fs";
+import { disk } from "../../../infrastructure/filesystem.js";
 import path from "node:path";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
@@ -132,12 +132,12 @@ function groupLabel(group: string): string {
 }
 
 function main(): void {
-	if (!fs.existsSync(REGISTRY_PATH)) {
+	if (!disk.existsSync(REGISTRY_PATH)) {
 		log("[report] entityTypeRegistry.ts not found — skipping data dictionary generation.");
 		return;
 	}
 
-	const source: string = fs.readFileSync(REGISTRY_PATH, "utf-8");
+	const source: string = disk.readFileSync(REGISTRY_PATH, "utf-8");
 	const entities: EntityType[] = extractEntityTypes(source);
 
 	if (entities.length === 0) {

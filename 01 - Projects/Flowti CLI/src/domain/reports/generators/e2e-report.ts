@@ -24,7 +24,7 @@
  *   docs/journeys/<name>/screenshots/                                   (journey screenshots)
  */
 
-import fs from "node:fs";
+import { disk } from "../../../infrastructure/filesystem.js";
 import path from "node:path";
 import { VAULT_ROOT, PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
@@ -490,9 +490,9 @@ function parseVitestSuite(file: Record<string, unknown>): { suite: VitestSuite; 
 
 /** Reads vitest JSON reporter output and extracts test suite/case results. */
 function readVitestResults(): VitestResults | null {
-	if (!fs.existsSync(VITEST_RESULTS)) return null;
+	if (!disk.existsSync(VITEST_RESULTS)) return null;
 
-	const raw = JSON.parse(fs.readFileSync(VITEST_RESULTS, "utf-8")) as Record<string, unknown>;
+	const raw = JSON.parse(disk.readFileSync(VITEST_RESULTS, "utf-8")) as Record<string, unknown>;
 	const files = raw.testResults as Record<string, unknown>[] ?? [];
 
 	let totalPassed = 0, totalFailed = 0, totalSkipped = 0;
@@ -518,10 +518,10 @@ function readVitestResults(): VitestResults | null {
 
 /** Reads all journey results from the test vault journeys directory. */
 function readJourneyResults(): JourneyEntry[] {
-	if (!fs.existsSync(JOURNEYS_DIR)) return [];
+	if (!disk.existsSync(JOURNEYS_DIR)) return [];
 
 	const journeys: JourneyEntry[] = [];
-	const entries = fs.readdirSync(JOURNEYS_DIR, { withFileTypes: true });
+	const entries = disk.readdirSync(JOURNEYS_DIR, { withFileTypes: true });
 
 	for (const entry of entries) {
 		if (!entry.isDirectory()) continue;
@@ -529,10 +529,10 @@ function readJourneyResults(): JourneyEntry[] {
 		const journeyDir = path.join(JOURNEYS_DIR, entry.name);
 		const resultsFile = path.join(journeyDir, `${entry.name}-results.json`);
 
-		if (fs.existsSync(resultsFile)) {
+		if (disk.existsSync(resultsFile)) {
 			journeys.push({
 				dir: journeyDir,
-				data: JSON.parse(fs.readFileSync(resultsFile, "utf-8")) as Record<string, unknown>,
+				data: JSON.parse(disk.readFileSync(resultsFile, "utf-8")) as Record<string, unknown>,
 			});
 		}
 	}
@@ -1401,9 +1401,9 @@ function generateJourneyCanvas(data: Record<string, unknown>, screenshotBasePath
 
 /** Writes content to a file and logs the output path. */
 function writeReport(dir: string, filename: string, content: string, label: string): void {
-	fs.mkdirSync(dir, { recursive: true });
+	disk.mkdirSync(dir, { recursive: true });
 	const outputPath = path.join(dir, filename);
-	fs.writeFileSync(outputPath, content, "utf-8");
+	disk.writeFileSync(outputPath, content, "utf-8");
 	log(`[report] ${label}: ${outputPath}`);
 }
 
@@ -1425,9 +1425,9 @@ function formatBytes(bytes: number): string {
 
 /** Reads the latest Event Trace JSON from the dev traces directory. */
 function readLatestEventTrace(): TraceData | null {
-	if (!fs.existsSync(DEV_TRACES_DIR)) return null;
+	if (!disk.existsSync(DEV_TRACES_DIR)) return null;
 
-	const files = fs.readdirSync(DEV_TRACES_DIR)
+	const files = disk.readdirSync(DEV_TRACES_DIR)
 		.filter((f) => f.endsWith("-Event Trace.json") || f.endsWith("-event-trace.json"))
 		.sort()
 		.reverse();
@@ -1435,7 +1435,7 @@ function readLatestEventTrace(): TraceData | null {
 	if (files.length === 0) return null;
 
 	try {
-		return JSON.parse(fs.readFileSync(path.join(DEV_TRACES_DIR, files[0]), "utf-8")) as TraceData;
+		return JSON.parse(disk.readFileSync(path.join(DEV_TRACES_DIR, files[0]), "utf-8")) as TraceData;
 	} catch {
 		return null;
 	}
@@ -1444,10 +1444,10 @@ function readLatestEventTrace(): TraceData | null {
 /** Reads startup history from plugin data.json. */
 function readStartupPerf(): StartupPerf | null {
 	for (const candidate of DATA_JSON_CANDIDATES) {
-		if (fs.existsSync(candidate)) {
+		if (disk.existsSync(candidate)) {
 			try {
-				const data = JSON.parse(fs.readFileSync(candidate, "utf-8")) as Record<string, unknown>;
-				const sizeBytes = fs.statSync(candidate).size;
+				const data = JSON.parse(disk.readFileSync(candidate, "utf-8")) as Record<string, unknown>;
+				const sizeBytes = disk.statSync(candidate).size;
 				const history = (data?.perfAggregator as Record<string, unknown> | undefined)?.startupHistory as number[] ?? [];
 				return { history, sizeBytes };
 			} catch { /* try next */ }
@@ -1686,22 +1686,22 @@ function buildPerfEventStats(perfEvents: PerfTraceEvent[], doc: InstanceType<typ
 
 /** Copies screenshot .png files from src to dest directory, removing stale dest files first. */
 function copyScreenshots(srcDir: string, destDir: string): void {
-	if (!fs.existsSync(srcDir)) return;
+	if (!disk.existsSync(srcDir)) return;
 
-	fs.mkdirSync(destDir, { recursive: true });
+	disk.mkdirSync(destDir, { recursive: true });
 
 	// Remove stale screenshots in dest that are not in src
-	const srcFiles = new Set(fs.readdirSync(srcDir).filter((f) => f.endsWith(".png")));
-	for (const file of fs.readdirSync(destDir)) {
+	const srcFiles = new Set(disk.readdirSync(srcDir).filter((f) => f.endsWith(".png")));
+	for (const file of disk.readdirSync(destDir)) {
 		if (!file.endsWith(".png")) continue;
 		if (!srcFiles.has(file)) {
-			fs.rmSync(path.join(destDir, file), { force: true });
+			disk.rmSync(path.join(destDir, file), { force: true });
 		}
 	}
 
 	// Copy current screenshots
 	for (const file of srcFiles) {
-		fs.copyFileSync(path.join(srcDir, file), path.join(destDir, file));
+		disk.copyFileSync(path.join(srcDir, file), path.join(destDir, file));
 	}
 }
 
@@ -1725,8 +1725,8 @@ function writeJourneyOutputs(
 	writeReport(devJourneyDir, filename, devContent, "JourneyReport mirrored");
 
 	const configFile = path.join(dir, `${title}-config.json`);
-	if (fs.existsSync(configFile)) {
-		writeReport(devJourneyDir, `${title}-config.json`, fs.readFileSync(configFile, "utf-8"), "JourneyConfig mirrored");
+	if (disk.existsSync(configFile)) {
+		writeReport(devJourneyDir, `${title}-config.json`, disk.readFileSync(configFile, "utf-8"), "JourneyConfig mirrored");
 	}
 
 	const devScreenshotPath = `Development/flowti/docs/journeys/${title}/screenshots`;
@@ -2114,9 +2114,9 @@ function renderJourneysSummarySection(
 
 /** Cleans up temporary result files after report generation. */
 function cleanupResults(journeys: JourneyEntry[]): void {
-	try { if (fs.existsSync(VITEST_RESULTS)) fs.rmSync(VITEST_RESULTS, { force: true }); } catch { /* ignore */ }
+	try { if (disk.existsSync(VITEST_RESULTS)) disk.rmSync(VITEST_RESULTS, { force: true }); } catch { /* ignore */ }
 	for (const { dir, data } of journeys) {
-		try { fs.rmSync(path.join(dir, `${(data.journey as string)}-results.json`), { force: true }); } catch { /* ignore */ }
+		try { disk.rmSync(path.join(dir, `${(data.journey as string)}-results.json`), { force: true }); } catch { /* ignore */ }
 	}
 }
 

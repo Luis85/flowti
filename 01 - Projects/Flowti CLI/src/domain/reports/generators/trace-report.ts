@@ -7,7 +7,7 @@
  * Usage: npx tsx scripts/generate-trace-report.ts [--dry-run]
  */
 
-import fs from "node:fs";
+import { disk } from "../../../infrastructure/filesystem.js";
 import path from "node:path";
 import { VAULT_ROOT, ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
@@ -79,11 +79,11 @@ function parseFrontmatter(content: string): Record<string, unknown> | null {
 
 function scanDir(dir: string, docType: string): ScanResult[] {
 	const results: ScanResult[] = [];
-	if (!fs.existsSync(dir)) return results;
+	if (!disk.existsSync(dir)) return results;
 
-	const files: string[] = fs.readdirSync(dir).filter((f: string) => f.endsWith(".md"));
+	const files: string[] = disk.readdirSync(dir).filter((f: string) => f.endsWith(".md"));
 	for (const file of files) {
-		const content: string = fs.readFileSync(path.join(dir, file), "utf-8");
+		const content: string = disk.readFileSync(path.join(dir, file), "utf-8");
 		const fm: Record<string, unknown> | null = parseFrontmatter(content);
 		if (!fm) continue;
 		results.push({ id: file.replace(/\.md$/, ""), type: docType, frontmatter: fm });

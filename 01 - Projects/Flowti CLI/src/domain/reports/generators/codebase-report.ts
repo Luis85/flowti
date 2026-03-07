@@ -7,7 +7,7 @@
  * Usage: node scripts/generate-codebase-report.ts
  */
 
-import fs from "node:fs";
+import { disk } from "../../../infrastructure/filesystem.js";
 import path from "node:path";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
@@ -69,12 +69,12 @@ function buildCodebaseFm(data: TypeDocNode, counts: Record<number, number>, date
 }
 
 function main(): void {
-	if (!fs.existsSync(CODEBASE_JSON)) {
+	if (!disk.existsSync(CODEBASE_JSON)) {
 		log("[report] No codebase.json found — run typedoc first.");
 		return;
 	}
 
-	const data: TypeDocNode = JSON.parse(fs.readFileSync(CODEBASE_JSON, "utf-8"));
+	const data: TypeDocNode = JSON.parse(disk.readFileSync(CODEBASE_JSON, "utf-8"));
 	const now = new Date();
 	const counts = countByKind(data);
 	const fm = buildCodebaseFm(data, counts, now.toISOString());

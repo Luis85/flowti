@@ -11,7 +11,7 @@
  * Safe to re-run — skips files that already have the required fields.
  */
 
-import { readFileSync, writeFileSync, readdirSync } from "fs";
+import { disk } from "../../infrastructure/filesystem.js";
 import { join, resolve } from "path";
 import { PLUGIN_ROOT } from "../../infrastructure/config.js";
 import { log } from "../../infrastructure/logger.js";
@@ -85,7 +85,7 @@ function applyFieldRule(
  */
 function processFile(filePath: string, requiredFields: Array<{ field: string; value: string; action: string }>): void {
 	try {
-		let content: string = readFileSync(filePath, "utf-8");
+		let content: string = disk.readFileSync(filePath, "utf-8");
 		const parsed = parseFrontmatter(content);
 		if (!parsed) {
 			log(`  SKIP (no frontmatter): ${filePath}`);
@@ -102,7 +102,7 @@ function processFile(filePath: string, requiredFields: Array<{ field: string; va
 		}
 
 		if (modified) {
-			if (!DRY_RUN) writeFileSync(filePath, content, "utf-8");
+			if (!DRY_RUN) disk.writeFileSync(filePath, content, "utf-8");
 			fixed++;
 		} else {
 			skipped++;
@@ -118,7 +118,7 @@ function processFile(filePath: string, requiredFields: Array<{ field: string; va
  */
 function listMdFiles(dir: string): string[] {
 	try {
-		return readdirSync(dir)
+		return disk.readdirSync(dir)
 			.filter((f: string) => f.endsWith(".md"))
 			.map((f: string) => join(dir, f));
 	} catch {

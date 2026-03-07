@@ -6,7 +6,7 @@
  * Usage: tsx src/domain/reports/cli/generate-test-report.ts
  */
 
-import fs from "node:fs";
+import { disk } from "../../../infrastructure/filesystem.js";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
 import { log } from "../../../infrastructure/logger.js";
@@ -51,12 +51,12 @@ function addSuitesTable(doc: Document, json: Record<string, unknown>): void {
 }
 
 function main(): void {
-	if (!fs.existsSync(REPORT_JSON)) {
+	if (!disk.existsSync(REPORT_JSON)) {
 		log("[cli-report] No testreport.json found — run tests with --reporter=json first.");
 		return;
 	}
 
-	const json = JSON.parse(fs.readFileSync(REPORT_JSON, "utf-8")) as Record<string, unknown>;
+	const json = JSON.parse(disk.readFileSync(REPORT_JSON, "utf-8")) as Record<string, unknown>;
 	const stats = extractTestStats(json);
 
 	const fm: Record<string, string | number | boolean> = {

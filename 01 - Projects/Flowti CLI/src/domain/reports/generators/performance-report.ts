@@ -7,7 +7,7 @@
  * Usage: node scripts/generate-performance-report.ts
  */
 
-import fs from "node:fs";
+import { disk } from "../../../infrastructure/filesystem.js";
 import path from "node:path";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
@@ -40,9 +40,9 @@ function formatBytes(bytes: number): string {
 function main(): void {
 	let data: Record<string, unknown> | null = null;
 	for (const candidate of DATA_JSON_CANDIDATES) {
-		if (fs.existsSync(candidate)) {
+		if (disk.existsSync(candidate)) {
 			try {
-				data = JSON.parse(fs.readFileSync(candidate, "utf-8"));
+				data = JSON.parse(disk.readFileSync(candidate, "utf-8"));
 				log(`[report] Read data.json from: ${candidate}`);
 				break;
 			} catch { /* try next */ }

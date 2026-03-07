@@ -7,7 +7,7 @@
  * Usage: node scripts/generate-coverage-report.ts [--build-type=flow|full]
  */
 
-import fs from "node:fs";
+import { disk } from "../../../infrastructure/filesystem.js";
 import path from "node:path";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
@@ -47,12 +47,12 @@ function computeCoverage(entries: CoverageEntry[], kind: string): number {
 }
 
 function main(): void {
-	if (!fs.existsSync(COVERAGE_JSON)) {
+	if (!disk.existsSync(COVERAGE_JSON)) {
 		log("[report] No coverage-final.json found — run tests with --coverage first.");
 		return;
 	}
 
-	const json = JSON.parse(fs.readFileSync(COVERAGE_JSON, "utf-8"));
+	const json = JSON.parse(disk.readFileSync(COVERAGE_JSON, "utf-8"));
 	const entries: CoverageEntry[] = Object.values(json);
 	const now = new Date();
 	const date = now.toISOString();

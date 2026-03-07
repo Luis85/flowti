@@ -26,8 +26,8 @@
  *   npm run test:e2e:list              Interactive test session
  */
 import { execSync } from "node:child_process";
-import fs from "node:fs";
 import path from "node:path";
+import { disk } from "../../infrastructure/filesystem.js";
 import readline from "node:readline";
 
 import { VAULT_ROOT, PLUGIN_ROOT } from "../../infrastructure/config.js";
@@ -103,12 +103,12 @@ function checkPrerequisites(): PrerequisiteResults {
 	};
 
 	// 1. Vault exists
-	results.vaultExists = fs.existsSync(TEST_VAULT);
+	results.vaultExists = disk.existsSync(TEST_VAULT);
 
 	// 2. Plugin artifacts
 	if (results.vaultExists) {
 		results.missingArtifacts = PLUGIN_ARTIFACTS.filter(
-			(f) => !fs.existsSync(path.join(PLUGIN_DIR, f)),
+			(f) => !disk.existsSync(path.join(PLUGIN_DIR, f)),
 		);
 		results.artifactsPresent = results.missingArtifacts.length === 0;
 	}
@@ -127,9 +127,9 @@ function checkPrerequisites(): PrerequisiteResults {
 	}
 
 	// 4. Vault installed (data.json check)
-	if (results.vaultExists && fs.existsSync(DATA_JSON_PATH)) {
+	if (results.vaultExists && disk.existsSync(DATA_JSON_PATH)) {
 		try {
-			const data = JSON.parse(fs.readFileSync(DATA_JSON_PATH, "utf-8")) as Record<string, unknown>;
+			const data = JSON.parse(disk.readFileSync(DATA_JSON_PATH, "utf-8")) as Record<string, unknown>;
 			results.vaultInstalled = (data.installer as Record<string, unknown>)?.installed === true;
 		} catch {
 			results.vaultInstalled = false;
@@ -137,7 +137,7 @@ function checkPrerequisites(): PrerequisiteResults {
 	}
 
 	// 5. Test data present
-	results.testDataPresent = fs.existsSync(TEST_DATA_CSV);
+	results.testDataPresent = disk.existsSync(TEST_DATA_CSV);
 
 	return results;
 }
@@ -201,11 +201,11 @@ async function performTeardown(): Promise<void> {
 	}
 
 	// 3. Reset data.json
-	if (fs.existsSync(DATA_JSON_PATH)) {
+	if (disk.existsSync(DATA_JSON_PATH)) {
 		try {
-			const data = JSON.parse(fs.readFileSync(DATA_JSON_PATH, "utf-8")) as Record<string, unknown>;
+			const data = JSON.parse(disk.readFileSync(DATA_JSON_PATH, "utf-8")) as Record<string, unknown>;
 			data.installer = { installed: false, completedSteps: {} };
-			fs.writeFileSync(DATA_JSON_PATH, JSON.stringify(data), "utf-8");
+			disk.writeFileSync(DATA_JSON_PATH, JSON.stringify(data), "utf-8");
 			log("  \x1b[32m✓\x1b[0m Installer state reset");
 		} catch {
 			log("  \x1b[31m✗\x1b[0m Failed to reset data.json");
@@ -228,9 +228,9 @@ async function performTeardown(): Promise<void> {
 
 	// 5. Clear workspace layout
 	const workspacePath: string = path.join(TEST_VAULT, ".obsidian", "workspace.json");
-	if (fs.existsSync(workspacePath)) {
+	if (disk.existsSync(workspacePath)) {
 		try {
-			fs.rmSync(workspacePath, { force: true });
+			disk.rmSync(workspacePath, { force: true });
 			log("  \x1b[32m✓\x1b[0m Workspace layout cleared");
 		} catch {
 			// Non-fatal
@@ -278,12 +278,12 @@ interface JourneyEntry {
 }
 
 function loadJourneyEntries(): JourneyEntry[] {
-	const files = fs.readdirSync(JOURNEYS_DIR)
+	const files = disk.readdirSync(JOURNEYS_DIR)
 		.filter((f) => f.endsWith(".journey"))
 		.sort();
 
 	return files.map((f) => {
-		const def = JSON.parse(fs.readFileSync(path.join(JOURNEYS_DIR, f), "utf-8")) as Record<string, unknown>;
+		const def = JSON.parse(disk.readFileSync(path.join(JOURNEYS_DIR, f), "utf-8")) as Record<string, unknown>;
 		const slug = f.replace(".journey", "");
 		return {
 			slug,
@@ -436,12 +436,12 @@ async function promptStepFilter(rl: readline.Interface, selectedSlugs: string[])
 
 	for (const slug of selectedSlugs) {
 		const journeyPath = path.join(JOURNEYS_DIR, `${slug}.journey`);
-		if (!fs.existsSync(journeyPath)) {
+		if (!disk.existsSync(journeyPath)) {
 			stepFilter[slug] = "all";
 			continue;
 		}
 
-		const def = JSON.parse(fs.readFileSync(journeyPath, "utf-8")) as Record<string, unknown>;
+		const def = JSON.parse(disk.readFileSync(journeyPath, "utf-8")) as Record<string, unknown>;
 		const steps = (def.steps as Array<Record<string, unknown>>) ?? [];
 		if (steps.length === 0) {
 			stepFilter[slug] = "all";
@@ -495,10 +495,10 @@ function extractStatsFromTestResults(testResults: Array<Record<string, unknown>>
  */
 function readTestStats(): TestStats {
 	const reportPath = path.join(PLUGIN_ROOT, "docs", "reports", "tests", "testreport.json");
-	if (!fs.existsSync(reportPath)) return { totalTests: 0, passed: 0, failed: 0, skipped: 0 };
+	if (!disk.existsSync(reportPath)) return { totalTests: 0, passed: 0, failed: 0, skipped: 0 };
 
 	try {
-		const report = JSON.parse(fs.readFileSync(reportPath, "utf-8")) as Record<string, unknown>;
+		const report = JSON.parse(disk.readFileSync(reportPath, "utf-8")) as Record<string, unknown>;
 		if (report.numTotalTests != null) {
 			return {
 				totalTests: report.numTotalTests as number,
@@ -648,15 +648,15 @@ function writeSessionNote(sessionName: string, config: SessionConfig, selectedNa
 	// Write to test vault
 	const sessionDir = path.join(TEST_VAULT, "03 - Resources", "Sessions", sessionName);
 	const notePath = path.join(sessionDir, `${sessionName}.md`);
-	fs.mkdirSync(sessionDir, { recursive: true });
-	fs.writeFileSync(notePath, content, "utf-8");
+	disk.mkdirSync(sessionDir, { recursive: true });
+	disk.writeFileSync(notePath, content, "utf-8");
 	log(`[e2e] Session note written: ${notePath}`);
 
 	// Mirror to dev vault
 	const devSessionDir = path.join(PLUGIN_ROOT, "docs", "reports", "e2e", "sessions", sessionName);
 	const devNotePath = path.join(devSessionDir, `${sessionName}.md`);
-	fs.mkdirSync(devSessionDir, { recursive: true });
-	fs.writeFileSync(devNotePath, content, "utf-8");
+	disk.mkdirSync(devSessionDir, { recursive: true });
+	disk.writeFileSync(devNotePath, content, "utf-8");
 	log(`[e2e] Session note mirrored: ${devNotePath}`);
 
 	return notePath;
@@ -694,9 +694,9 @@ function quickBuildAndDeploy(): number {
 	for (const artifact of PLUGIN_ARTIFACTS) {
 		const src = path.join(mainPluginDir, artifact);
 		const dest = path.join(PLUGIN_DIR, artifact);
-		if (fs.existsSync(src)) {
-			fs.mkdirSync(path.dirname(dest), { recursive: true });
-			fs.copyFileSync(src, dest);
+		if (disk.existsSync(src)) {
+			disk.mkdirSync(path.dirname(dest), { recursive: true });
+			disk.copyFileSync(src, dest);
 			copied++;
 		} else {
 			log(`  \x1b[33m○\x1b[0m Artifact not found: ${artifact}`);
@@ -755,8 +755,8 @@ function readBuildStats(): BuildStats {
 		coverage: coverageFile ? parseFrontmatter(coverageFile) : null,
 		performance: perfFile ? parseFrontmatter(perfFile) : null,
 		cycle: cycleFile ? parseFrontmatter(cycleFile) : null,
-		e2e: fs.existsSync(e2eFile) ? parseFrontmatter(e2eFile) : null,
-		traceability: fs.existsSync(traceFile) ? parseFrontmatter(traceFile) : null,
+		e2e: disk.existsSync(e2eFile) ? parseFrontmatter(e2eFile) : null,
+		traceability: disk.existsSync(traceFile) ? parseFrontmatter(traceFile) : null,
 		unitTests: readTestStats(),
 	};
 }
@@ -976,12 +976,12 @@ function generateIncrementStateReport(exitCode: number, duration: string, stats:
 
 	// Write to test vault root
 	const testPath = path.join(TEST_VAULT, filename);
-	fs.writeFileSync(testPath, content, "utf-8");
+	disk.writeFileSync(testPath, content, "utf-8");
 	log(`  \x1b[32m✓\x1b[0m Increment State Report: ${testPath}`);
 
 	// Write to dev vault root
 	const devPath = path.join(DEV_VAULT_ROOT, filename);
-	fs.writeFileSync(devPath, content, "utf-8");
+	disk.writeFileSync(devPath, content, "utf-8");
 	log(`  \x1b[32m✓\x1b[0m Increment State Report: ${devPath}`);
 
 	return { testPath, devPath };
@@ -1137,7 +1137,7 @@ function generatePublishStateReport(exitCode: number, duration: string, stats: B
 
 	// Write to dev vault root
 	const devPath = path.join(DEV_VAULT_ROOT, filename);
-	fs.writeFileSync(devPath, content, "utf-8");
+	disk.writeFileSync(devPath, content, "utf-8");
 	log(`  \x1b[32m✓\x1b[0m Publish State Report: ${devPath}`);
 
 	return { devPath };
@@ -1308,7 +1308,7 @@ function parseYamlValue(raw: string): unknown {
  */
 function parseFrontmatter(filePath: string): Record<string, unknown> | null {
 	try {
-		const content = fs.readFileSync(filePath, "utf-8");
+		const content = disk.readFileSync(filePath, "utf-8");
 		const match = content.match(/^---\n([\s\S]*?)\n---/);
 		if (!match) return null;
 		const fm: Record<string, unknown> = {};
@@ -1329,7 +1329,7 @@ function parseFrontmatter(filePath: string): Record<string, unknown> | null {
  */
 function findLatestReport(dir: string): string | null {
 	try {
-		const files = fs.readdirSync(dir)
+		const files = disk.readdirSync(dir)
 			.filter((f) => f.endsWith(".md"))
 			.sort()
 			.reverse();
@@ -1357,7 +1357,7 @@ function collectReportSources(): Record<string, ReportSource> {
 		["traceability", path.join(REPORTS_DIR, "traceability", "Trace Conformance Report.md")],
 	];
 	for (const [key, filePath] of stableFiles) {
-		if (fs.existsSync(filePath)) sources[key] = { file: filePath, fm: parseFrontmatter(filePath) };
+		if (disk.existsSync(filePath)) sources[key] = { file: filePath, fm: parseFrontmatter(filePath) };
 	}
 
 	return sources;
@@ -1501,14 +1501,14 @@ function buildAuditSourcesSection(sources: Record<string, ReportSource>): string
 function writeAndOpenAudit(auditName: string, content: string): void {
 	const testAuditDir = path.join(TEST_VAULT, "03 - Resources", "Reviews", "Audits", auditName);
 	const testAuditPath = path.join(testAuditDir, `${auditName}.md`);
-	fs.mkdirSync(testAuditDir, { recursive: true });
-	fs.writeFileSync(testAuditPath, content, "utf-8");
+	disk.mkdirSync(testAuditDir, { recursive: true });
+	disk.writeFileSync(testAuditPath, content, "utf-8");
 	log(`  \x1b[32m✓\x1b[0m Audit written: ${testAuditPath}`);
 
 	const devAuditDir = path.join(PLUGIN_ROOT, "docs", "reports", "e2e", "audits", auditName);
 	const devAuditPath = path.join(devAuditDir, `${auditName}.md`);
-	fs.mkdirSync(devAuditDir, { recursive: true });
-	fs.writeFileSync(devAuditPath, content, "utf-8");
+	disk.mkdirSync(devAuditDir, { recursive: true });
+	disk.writeFileSync(devAuditPath, content, "utf-8");
 	log(`  \x1b[32m✓\x1b[0m Audit mirrored: ${devAuditPath}`);
 
 	try {
@@ -1918,12 +1918,12 @@ function generateReport(): string | null {
 
 /** Restores installer state and re-enables the plugin after E2E run. */
 function restorePluginState(): void {
-	if (fs.existsSync(DATA_JSON_PATH)) {
+	if (disk.existsSync(DATA_JSON_PATH)) {
 		try {
-			const data = JSON.parse(fs.readFileSync(DATA_JSON_PATH, "utf-8")) as Record<string, unknown>;
+			const data = JSON.parse(disk.readFileSync(DATA_JSON_PATH, "utf-8")) as Record<string, unknown>;
 			if (data.installer && (data.installer as Record<string, unknown>).installed === false) {
 				(data.installer as Record<string, unknown>).installed = true;
-				fs.writeFileSync(DATA_JSON_PATH, JSON.stringify(data), "utf-8");
+				disk.writeFileSync(DATA_JSON_PATH, JSON.stringify(data), "utf-8");
 			}
 		} catch {
 			// best-effort
