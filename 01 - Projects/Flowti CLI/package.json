@@ -4,19 +4,22 @@
 	"type": "module",
 	"private": true,
 	"scripts": {
-		"dev": "tsx src/flowti-cli.ts",
-		"build": "tsc",
-		"test": "npm run check && vitest run",
-		"test:watch": "vitest",
-		"check": "tsc --noEmit",
-		"lint": "eslint src/ scripts/"
+		"dev": "tsx src/main.ts",
+		"build": "tsc --project configs/tsconfig.json",
+		"test": "npm run check && vitest run --config configs/vitest.config.ts",
+		"test:watch": "vitest --config configs/vitest.config.ts",
+		"check": "tsc --project configs/tsconfig.json --noEmit",
+		"lint": "eslint src/",
+		"docs": "typedoc --options configs/typedoc.json"
 	},
 	"devDependencies": {
+		"@pythonidaer/complexity-report": "^1.0.18",
 		"@types/node": "^25.3.5",
 		"@typescript-eslint/eslint-plugin": "^8.56.1",
 		"@typescript-eslint/parser": "^8.56.1",
 		"eslint": "^10.0.3",
 		"tsx": "^4.21.0",
+		"typedoc": "^0.28.17",
 		"typescript": "^5.9.3",
 		"vite": "^7.3.1",
 		"vitest": "^4.0.18"

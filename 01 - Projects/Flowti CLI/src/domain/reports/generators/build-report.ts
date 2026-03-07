@@ -11,8 +11,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { ROOT } from "../src/infrastructure/config.js";
-import { Document } from "../src/infrastructure/document.js";
+import { ROOT } from "../../../infrastructure/config.js";
+import { Document } from "../../../infrastructure/document.js";
 
 const OUTPUT_DIR = path.join(ROOT, "docs", "reports", "builds");
 const MANIFEST_PATH = path.join(ROOT, "manifest.json");

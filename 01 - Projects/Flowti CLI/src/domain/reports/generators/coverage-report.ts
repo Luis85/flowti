@@ -9,8 +9,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { ROOT } from "../src/infrastructure/config.js";
-import { Document } from "../src/infrastructure/document.js";
+import { ROOT } from "../../../infrastructure/config.js";
+import { Document } from "../../../infrastructure/document.js";
 
 const buildTypeArg = process.argv.find((a) => a.startsWith("--build-type="));
 const buildType = buildTypeArg ? buildTypeArg.split("=")[1] : "flow";

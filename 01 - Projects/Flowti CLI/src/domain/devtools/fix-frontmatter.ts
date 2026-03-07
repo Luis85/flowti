@@ -13,7 +13,7 @@
 
 import { readFileSync, writeFileSync, readdirSync, statSync } from "fs";
 import { join, resolve } from "path";
-import { PLUGIN_ROOT } from "../src/infrastructure/config.js";
+import { PLUGIN_ROOT } from "../../infrastructure/config.js";
 
 const DOCS_ROOT: string = resolve(PLUGIN_ROOT, "docs");
 const DRY_RUN: boolean = process.argv.includes("--dry-run");

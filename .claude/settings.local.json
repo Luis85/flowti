@@ -90,7 +90,10 @@
       "Bash(flowti.cmd info)",
       "Bash(npm run flowti -- info)",
       "Bash(npm run flowti -- help)",
-      "Bash(npm run generate:reports)"
+      "Bash(npm run generate:reports)",
+      "Bash(node bootstrap.mjs help)",
+      "Bash(node bin/src/main.js help)",
+      "Bash(node \"../../01 - Projects/Flowti CLI/bin/src/main.js\" help)"
     ]
   }
 }

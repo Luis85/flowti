@@ -14,6 +14,7 @@ import { showInfo } from "./domain/info/info.js";
 import { showHelp } from "./domain/help/help.js";
 import { captureIdea, captureNote } from "./domain/capture/capture.js";
 import { projectSelectionMenu } from "./domain/project/project.js";
+import { knowledgebaseMenu, isKnowledgebaseAvailable } from "./domain/knowledgebase/knowledgebase.js";
 import type { MenuEntry } from "./types.js";
 
 export const mainMenuItems: MenuEntry[] = [
@@ -27,6 +28,7 @@ export const mainMenuItems: MenuEntry[] = [
 	{ separator: true },
 	{ key: "8", label: "Capture Idea", action: captureIdea },
 	{ key: "9", label: "Capture Note", action: captureNote },
+	{ key: "k", label: "Knowledgebase", action: knowledgebaseMenu, disabled: () => !isKnowledgebaseAvailable(), disabledMessage: "\n  Knowledgebase requires Obsidian CLI and an initialized vault.\n" },
 	{ separator: true },
 	{ key: "p", label: "Change Project", action: async () => { await projectSelectionMenu(); return "main" as const; } },
 	{ key: "?", label: "Help", action: () => { showHelp("main"); return "main" as const; } },

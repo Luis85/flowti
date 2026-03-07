@@ -25,6 +25,7 @@ export const HELP: Record<string, string> = {
     ${CYAN}7) Info${RESET}       Project stats, version, config
     ${CYAN}8) Capture Idea${RESET}  Quick-capture an idea to vault inbox
     ${CYAN}9) Capture Note${RESET}  Capture a typed note (Task, Bug, Note, ...)
+    ${CYAN}k) Knowledgebase${RESET} Browse and search vault content (requires Obsidian CLI)
 
   ${BOLD}NPM SCRIPTS (direct)${RESET}
     npm run build            Fast build (esbuild only, no reports)

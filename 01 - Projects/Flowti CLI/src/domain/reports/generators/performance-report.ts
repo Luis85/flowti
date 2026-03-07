@@ -9,8 +9,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { ROOT } from "../src/infrastructure/config.js";
-import { Document } from "../src/infrastructure/document.js";
+import { ROOT } from "../../../infrastructure/config.js";
+import { Document } from "../../../infrastructure/document.js";
 
 // The plugin stores state in the Obsidian vault's plugin data folder.
 // During builds the data.json may be at the vault root's plugin dir.

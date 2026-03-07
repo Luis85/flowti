@@ -8,7 +8,7 @@ From the vault root (`c:\Projects\flowti`):
 
 ```bash
 # Windows
-flowti.cmd
+./flowti.cmd
 
 # Unix / Git Bash
 ./flowti.sh

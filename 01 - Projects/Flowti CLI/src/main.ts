@@ -1,5 +1,5 @@
 /**
- * flowti-cli.ts — Interactive CLI for Flowti development workflows.
+ * main.ts — Interactive CLI for Flowti development workflows.
  *
  * Thin orchestrator — all business logic lives in domain modules.
  *

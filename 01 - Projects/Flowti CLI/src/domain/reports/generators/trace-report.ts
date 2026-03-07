@@ -9,8 +9,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { VAULT_ROOT, ROOT } from "../src/infrastructure/config.js";
-import { Document } from "../src/infrastructure/document.js";
+import { VAULT_ROOT, ROOT } from "../../../infrastructure/config.js";
+import { Document } from "../../../infrastructure/document.js";
 
 interface ScanResult {
 	id: string;

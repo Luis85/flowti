@@ -9,8 +9,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { CLI_PROJECT, PLUGIN_ROOT } from "../src/infrastructure/config.js";
-import { Document } from "../src/infrastructure/document.js";
+import { CLI_PROJECT, PLUGIN_ROOT } from "../../../infrastructure/config.js";
+import { Document } from "../../../infrastructure/document.js";
 
 interface CliCommand {
 	command: string;

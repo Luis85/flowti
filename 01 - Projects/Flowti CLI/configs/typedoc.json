@@ -1,0 +1,35 @@
+{
+	"$schema": "https://typedoc.org/schema.json",
+	"entryPoints": ["../src"],
+	"entryPointStrategy": "expand",
+	"tsconfig": "tsconfig.json",
+
+	"outputs": [
+		{
+			"name": "json",
+			"path": "../docs/reports/codebase/codebase.json"
+		}
+	],
+
+	"exclude": [
+		"**/node_modules/**",
+		"**/tests/**",
+		"**/bin/**"
+	],
+
+	"name": "Flowti CLI",
+
+	"excludePrivate": true,
+	"excludeProtected": false,
+	"excludeInternal": true,
+
+	"visibilityFilters": {
+		"protected": true,
+		"private": false,
+		"inherited": true,
+		"@internal": false
+	},
+
+	"searchInComments": true,
+	"searchInDocuments": true
+}

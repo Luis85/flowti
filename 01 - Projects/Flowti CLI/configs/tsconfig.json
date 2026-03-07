@@ -5,12 +5,12 @@
 		"moduleResolution": "NodeNext",
 		"strict": true,
 		"esModuleInterop": true,
-		"outDir": "dist",
-		"rootDir": ".",
+		"outDir": "../bin",
+		"rootDir": "..",
 		"declaration": true,
 		"sourceMap": true,
 		"skipLibCheck": true
 	},
-	"include": ["src/**/*.ts", "scripts/**/*.ts"],
-	"exclude": ["node_modules", "dist", "tests"]
+	"include": ["../src/**/*.ts"],
+	"exclude": ["../node_modules", "../bin", "../tests"]
 }

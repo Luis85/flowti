@@ -10,10 +10,9 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 
-import { ROOT } from "../src/infrastructure/config.js";
-import { Document } from "../src/infrastructure/document.js";
+import { ROOT } from "../../../infrastructure/config.js";
+import { Document } from "../../../infrastructure/document.js";
 
 interface ESLintMessage {
 	message: string;
@@ -38,9 +37,7 @@ interface DomainStats {
 	totalComplexity: number;
 }
 
-// Resolve external dep from the plugin's node_modules (not installed in CLI project)
-const depPath: string = pathToFileURL(path.join(ROOT, "node_modules", "@pythonidaer", "complexity-report", "integration", "eslint", "index.js")).href;
-const { runESLintComplexityCheck } = await import(depPath) as { runESLintComplexityCheck: (root: string) => Promise<void> };
+const { runESLintComplexityCheck } = await import("@pythonidaer/complexity-report/integration/eslint/index.js");
 
 const COMPLEXITY_JSON: string = path.join(ROOT, "complexity", "complexity-report.json");
 const OUTPUT_DIR: string = path.join(ROOT, "docs", "reports", "complexity");

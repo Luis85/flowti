@@ -55,7 +55,7 @@ const SEED_INPUT: number = Number(getArg("seed", "42"));
 const DRY_RUN: boolean = hasFlag("dry-run");
 
 // Default output: vault test data folder
-import { VAULT_ROOT } from "../src/infrastructure/config.js";
+import { VAULT_ROOT } from "../../infrastructure/config.js";
 const DEFAULT_OUT: string = join(VAULT_ROOT, "03 - Resources", "Test Data", "Analytics");
 const OUT_DIR: string = resolve(getArg("out", DEFAULT_OUT) as string);
 

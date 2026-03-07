@@ -30,7 +30,7 @@ import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
 
-import { VAULT_ROOT, PLUGIN_ROOT } from "../src/infrastructure/config.js";
+import { VAULT_ROOT, PLUGIN_ROOT } from "../../infrastructure/config.js";
 const PROJECTS_ROOT: string = path.resolve(VAULT_ROOT, "..");
 const TEST_VAULT: string = process.env.E2E_VAULT_DIR ?? path.join(PROJECTS_ROOT, "flowti-e2e");
 const VAULT_NAME: string = path.basename(TEST_VAULT);

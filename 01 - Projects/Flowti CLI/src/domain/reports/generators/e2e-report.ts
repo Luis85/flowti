@@ -26,8 +26,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { VAULT_ROOT, PLUGIN_ROOT } from "../src/infrastructure/config.js";
-import { Document, yamlEscape } from "../src/infrastructure/document.js";
+import { VAULT_ROOT, PLUGIN_ROOT } from "../../../infrastructure/config.js";
+import { Document, yamlEscape } from "../../../infrastructure/document.js";
 
 // Vitest JSON lives in the plugin source (temp artifact)
 const VITEST_RESULTS: string = path.join(PLUGIN_ROOT, "docs", "reports", "e2e", "e2e-results.json");

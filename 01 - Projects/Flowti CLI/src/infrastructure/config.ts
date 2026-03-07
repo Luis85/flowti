@@ -8,9 +8,9 @@ import type { FlowtiCliConfig } from "../types.js";
 
 // ── Path resolution ──────────────────────────────────────────────────
 
-const CLI_DIR: string = import.meta.dirname;                                // src/infrastructure/ or dist/src/infrastructure/
+const CLI_DIR: string = import.meta.dirname;                                // src/infrastructure/ or bin/src/infrastructure/
 const RAW_ROOT: string = path.resolve(CLI_DIR, "..", "..");
-export const CLI_PROJECT: string = path.basename(RAW_ROOT) === "dist"       // compiled output lives one level deeper
+export const CLI_PROJECT: string = path.basename(RAW_ROOT) === "bin"        // compiled output lives one level deeper
 	? path.resolve(RAW_ROOT, "..")
 	: RAW_ROOT;
 export const cliConfig: FlowtiCliConfig = JSON.parse(fs.readFileSync(path.join(CLI_PROJECT, "configs", "flowti-cli.config.json"), "utf-8"));
