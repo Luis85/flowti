@@ -8,10 +8,11 @@ node_modules
 
 /** Ignore my digital garden **/
 /00 - Connectivity/
-/01 - Projects/
 /02 - Areas/
 /03 - Resources/
 /04 - Archive/
+
+/01 - Projects/Private
 
 /dist
 
