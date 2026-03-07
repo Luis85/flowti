@@ -4,7 +4,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { ROOT, config, cliConfig } from "../../infrastructure/config.js";
+import { ROOT, config } from "../../infrastructure/config.js";
 import { RESET, BOLD, DIM, GREEN, RED, CYAN, YELLOW, printHeader } from "../../infrastructure/ui.js";
 import { run } from "../../infrastructure/shell.js";
 import { createRL, ask } from "../../infrastructure/readline.js";
@@ -14,7 +14,7 @@ import { showHelp } from "../help/help.js";
 import { Document } from "../../infrastructure/document.js";
 import type { MenuResult } from "../../types.js";
 
-const rptCfg = cliConfig.reports ?? {};
+const rptCfg = (config as Record<string, unknown>).reports as Record<string, unknown> ?? {};
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -93,7 +93,7 @@ async function auditMenu(): Promise<void> {
 
 	console.log(`\n  ${CYAN}▸${RESET} Generating audit: ${auditName}\n`);
 
-	const reportsDir = path.join(ROOT, rptCfg.outputDir ?? "docs/reports");
+	const reportsDir = path.join(ROOT, (rptCfg.dir ?? rptCfg.outputDir ?? "docs/reports") as string);
 	const auditDir = path.join(reportsDir, rptCfg.auditSubdir ?? "audits");
 
 	try { fs.mkdirSync(auditDir, { recursive: true }); } catch { /* ignore */ }

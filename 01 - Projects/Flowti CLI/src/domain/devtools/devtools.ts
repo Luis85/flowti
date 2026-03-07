@@ -2,7 +2,7 @@
  * devtools.ts — Developer utilities menu and commands.
  */
 
-import { cliConfig } from "../../infrastructure/config.js";
+import { config } from "../../infrastructure/config.js";
 import { RESET, DIM, CYAN } from "../../infrastructure/ui.js";
 import { run } from "../../infrastructure/shell.js";
 import { createRL, ask } from "../../infrastructure/readline.js";
@@ -10,7 +10,7 @@ import { runMenu } from "../../infrastructure/menu.js";
 import { showHelp } from "../help/help.js";
 import type { MenuResult } from "../../types.js";
 
-const cmd = cliConfig.devtools?.commands ?? {};
+const cmd = (config as Record<string, Record<string, Record<string, string>>>).devtools?.commands ?? {};
 
 export async function menu(): Promise<MenuResult> {
 	return runMenu("Dev Tools", [

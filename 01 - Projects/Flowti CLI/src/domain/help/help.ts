@@ -8,38 +8,33 @@ import { RESET, BOLD, DIM, CYAN, GREEN, RED, YELLOW } from "../../infrastructure
 
 export const HELP: Record<string, string> = {
 	main: `
-  ${BOLD}FLOWTI CLI${RESET} — Developer tooling for the Flowti IBDE Obsidian plugin.
+  ${BOLD}FLOWTI CLI${RESET} — Project-centric developer tooling for the Flowti ecosystem.
 
   ${BOLD}USAGE${RESET}
     npm run flowti              Start interactive menu
     npm run flowti help         Show this help
     npm run flowti help build   Show help for a specific section
 
-  ${BOLD}MAIN MENU${RESET}
-    ${CYAN}1) Make${RESET}       Scaffold new hub, plugin, or application from templates
-    ${CYAN}2) Build${RESET}      Build the plugin (fast, full, watch, distribute)
-    ${CYAN}3) Review${RESET}     E2E test sessions, vault management
-    ${CYAN}4) Publish${RESET}    Gated pipeline: build → test → publish
-    ${CYAN}5) Reports${RESET}    Generate vault reports (14 generators)
-    ${CYAN}6) Dev Tools${RESET}  Plugin reload, console, frontmatter, test data
-    ${CYAN}7) Info${RESET}       Project stats, version, config
-    ${CYAN}8) Capture Idea${RESET}  Quick-capture an idea to vault inbox
-    ${CYAN}9) Capture Note${RESET}  Capture a typed note (Task, Bug, Note, ...)
-    ${CYAN}k) Knowledgebase${RESET} Browse and search vault content (requires Obsidian CLI)
+  ${BOLD}WORKFLOW${RESET}
+    Start Menu → Select/Create/Import project → Project Detail Menu
 
-  ${BOLD}NPM SCRIPTS (direct)${RESET}
-    npm run build            Fast build (esbuild only, no reports)
-    npm run build:dev        Watch mode with hot-reload
-    npm run build:full       Flow tests → build → all reports
-    npm run build:increment  Full CI: check → build → test → e2e → docs → distribute
-    npm run test             Type check + lint + vitest
-    npm run test:increment   Check + build + vitest with coverage
-    npm run test:e2e         Build + flow tests + E2E suite
-    npm run reports          Generate all 14 report notes
-    npm run check            Lint + tsc (no tests)
+  ${BOLD}PROJECT DETAIL MENU${RESET}
+    ${CYAN}1) Make${RESET}         Scaffold new hub, plugin, or application from templates
+    ${CYAN}2) Build${RESET}        Build the project (generates Build Report)
+    ${CYAN}3) Review${RESET}       E2E test sessions, vault management
+    ${CYAN}4) Publish${RESET}      Gated pipeline: build → test → publish
+    ${CYAN}5) Reports${RESET}      Run all reports, project status report
+    ${CYAN}6) Dev Tools${RESET}    Plugin reload, console, frontmatter, test data
+    ${CYAN}7) Npm Scripts${RESET}  Browse and run scripts from package.json
+    ${CYAN}8) Capture Idea${RESET} Quick-capture an idea to vault inbox
+    ${CYAN}9) Capture Note${RESET} Capture a typed note (Task, Bug, Note, ...)
+    ${CYAN}d) Documentation${RESET} Generate reference docs (per-project generators)
+    ${CYAN}k) Knowledgebase${RESET} Browse and search vault content (requires Obsidian CLI)
+    ${CYAN}i) Info${RESET}         Project stats, version, config
 
   ${BOLD}CONFIGURATION${RESET}
-    flowti.config.json       Report scripts, paths, build settings
+    flowti-cli.config.json   Global CLI config (projects folder, capture, onboarding)
+    flowti.config.json       Per-project config (tools, reports, docs, build commands)
     build-endpoints.json     Distribution endpoints (multi-vault deploy)
     manifest.json            Plugin metadata (id, version)
 
@@ -224,44 +219,39 @@ export const HELP: Record<string, string> = {
 `,
 
 	reports: `
-  ${BOLD}REPORTS${RESET} — Generate vault report notes.
+  ${BOLD}REPORTS${RESET} — Generate project reports.
 
-  All reports are written as Obsidian notes with YAML frontmatter,
-  making them queryable via Dataview or the Flowti query engine.
+  Reports are written as markdown notes with YAML frontmatter.
+  Each project configures its reports dir and generators in flowti.config.json.
 
-  ${BOLD}OPTIONS${RESET}
+  ${BOLD}PROJECT DETAIL MENU (key 5)${RESET}
+    ${CYAN}1) Run All Reports${RESET}
+       Runs the project's configured reports command.
+       ${DIM}→ Reads reports.allCommand or tools.reports from flowti.config.json${RESET}
+
+    ${CYAN}2) Project Status Report${RESET}
+       Generates a snapshot of source stats, git status, and config.
+
+  ${BOLD}NON-INTERACTIVE (plugin)${RESET}
     ${CYAN}1) Build all reports${RESET}
-       Runs all 14 report generators in sequence.
-       ${DIM}→ npm run generate:reports${RESET}
+       ${DIM}→ npm run generate:reports (14 generators)${RESET}
 
     ${CYAN}2) Build selected report${RESET}
-       Pick one report to generate. Reports are configured
-       in flowti.config.json under reports.scripts.
+       Pick one by ID from flowti.config.json → reports.scripts.
 
     ${CYAN}3) Build audit report${RESET}
-       Collects the latest frontmatter from all report categories
-       and writes a consolidated audit note to docs/reports/audits/.
-
-  ${BOLD}REPORT TYPES${RESET} (14)
-    Test Report          Vitest results + perf summary
-    Coverage Report      V8 line/branch/function coverage
-    Build Report         Bundle size, duration, warnings
-    Codebase Report      TypeDoc metrics (classes, LOC)
-    Cycle Report         Cycle metadata + PBIs + test stats
-    Trace Report         PRD → PBI → Test → Code linkage
-    Command Reference    All plugin commands (~40)
-    Event Catalog        All events (~443) by category
-    Data Dictionary      18 entity types, 131 fields
-    Performance Report   Startup/storage/query metrics
-    Complexity Report    Cyclomatic complexity per file
-    Tool Reference       30 E2E journey tools
-    E2E Report           Journey results + screenshots
-    CLI Reference        CLI commands, help sections, npm scripts
+       Collects latest frontmatter from report categories
+       and writes a consolidated audit note.
 
   ${BOLD}OUTPUT PATHS${RESET}
-    Timestamped:  docs/reports/{type}/YYYY-MM-DD-*.md
-    Stable:       docs/reference/{name}.md
-    Audits:       docs/reports/audits/{name}.md
+    Timestamped:  {reports.dir}/{type}/YYYY-MM-DD-*.md + .json
+    Stable:       {reports.dir}/{type}/{Name}.md
+    Reference:    docs/reference/{name}.md
+
+  ${BOLD}CONFIGURATION${RESET}
+    reports.dir         Output directory (default: docs/reports)
+    reports.allCommand  Command to generate all reports
+    reports.scripts     Array of { id, label, script } generators
 `,
 
 	devtools: `

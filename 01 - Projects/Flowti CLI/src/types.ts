@@ -128,18 +128,6 @@ export interface FlowtiCliConfig {
 		};
 	};
 	capture?: Record<string, string>;
-	build?: { commands?: Record<string, string> };
-	test?: { commands?: Record<string, string> };
-	devtools?: { commands?: Record<string, string> };
-	review?: { commands?: Record<string, string> };
-	publish?: { commands?: Record<string, string> };
-	reports?: {
-		allCommand?: string;
-		outputDir?: string;
-		auditSubdir?: string;
-		categories?: Array<{ dir: string; label: string }>;
-		stableReports?: Array<{ file: string; label: string }>;
-	};
 	onboarding?: {
 		nodeMinVersion?: number;
 		pluginId?: string;

@@ -16,66 +16,6 @@
 		"note": "00 - Connectivity/inbox",
 		"documentation": "00 - Connectivity/inbox"
 	},
-	"build": {
-		"commands": {
-			"fast": "node esbuild.config.mjs --production --no-reports",
-			"increment": "npm run build:increment",
-			"full": "npm run build:full",
-			"watch": "node esbuild.config.mjs --watch",
-			"distribute": "node esbuild.config.mjs --production --no-reports --distribution"
-		}
-	},
-	"test": {
-		"commands": {
-			"unit": "npm run check && vitest run",
-			"increment": "npm run test:increment",
-			"e2e": "npm run test:e2e"
-		}
-	},
-	"devtools": {
-		"commands": {
-			"reload": "node scripts/cli-reload.mjs",
-			"console": "obsidian dev:console",
-			"errors": "obsidian dev:errors",
-			"fixFrontmatter": "node scripts/fix-frontmatter.mjs",
-			"testdata": "node scripts/generate-test-data.mjs",
-			"check": "npm run check",
-			"lint": "npm run lint"
-		}
-	},
-	"review": {
-		"commands": {
-			"e2e": "node scripts/run-e2e.mjs --list",
-			"increment": "npm run build:increment",
-			"release": "npm run build:release",
-			"teardown": "node scripts/run-e2e.mjs --teardown",
-			"rebuild": "node scripts/run-e2e.mjs --rebuild"
-		}
-	},
-	"publish": {
-		"commands": {
-			"increment": "npm run build:increment",
-			"e2e": "npm run test:e2e",
-			"release": "npm run build:release"
-		}
-	},
-	"reports": {
-		"allCommand": "npm run generate:reports",
-		"outputDir": "reports",
-		"auditSubdir": "audits",
-		"categories": [
-			{ "dir": "builds", "label": "Build" },
-			{ "dir": "tests", "label": "Unit Tests" },
-			{ "dir": "coverage", "label": "Coverage" },
-			{ "dir": "performance", "label": "Performance" },
-			{ "dir": "cycles", "label": "Cycle" },
-			{ "dir": "complexity", "label": "Complexity" }
-		],
-		"stableReports": [
-			{ "file": "traceability/Trace Conformance Report.md", "label": "Traceability" },
-			{ "file": "e2e/E2E Report.md", "label": "E2E Tests" }
-		]
-	},
 	"onboarding": {
 		"nodeMinVersion": 16,
 		"pluginId": "flowti-ibde"

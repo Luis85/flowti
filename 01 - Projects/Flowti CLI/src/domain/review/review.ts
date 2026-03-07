@@ -2,7 +2,7 @@
  * review.ts — E2E testing and vault management menu and commands.
  */
 
-import { cliConfig } from "../../infrastructure/config.js";
+import { config } from "../../infrastructure/config.js";
 import { RESET, YELLOW } from "../../infrastructure/ui.js";
 import { run } from "../../infrastructure/shell.js";
 import { createRL, ask } from "../../infrastructure/readline.js";
@@ -10,7 +10,7 @@ import { runMenu } from "../../infrastructure/menu.js";
 import { showHelp } from "../help/help.js";
 import type { MenuResult } from "../../types.js";
 
-const cmd = cliConfig.review?.commands ?? {};
+const cmd = (config as Record<string, Record<string, Record<string, string>>>).review?.commands ?? {};
 
 export async function menu(): Promise<MenuResult> {
 	let incrementPassed = false;

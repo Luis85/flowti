@@ -2,14 +2,14 @@
  * publish.ts — Gated release pipeline menu and commands.
  */
 
-import { cliConfig } from "../../infrastructure/config.js";
+import { config } from "../../infrastructure/config.js";
 import { RESET, DIM, GREEN, RED, CYAN, YELLOW } from "../../infrastructure/ui.js";
 import { run } from "../../infrastructure/shell.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { showHelp } from "../help/help.js";
 import type { MenuResult } from "../../types.js";
 
-const cmd = cliConfig.publish?.commands ?? {};
+const cmd = (config as Record<string, Record<string, Record<string, string>>>).publish?.commands ?? {};
 
 export async function menu(): Promise<MenuResult> {
 	let buildPassed = false;

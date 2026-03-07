@@ -2,7 +2,8 @@
 	"name": "flowti-ibde",
 	"tools": {
 		"build": "npm run build",
-		"reports": "npm run reports"
+		"reports": "npm run generate:reports",
+		"devtools": "npm run dev:reload"
 	},
 	"reports": {
 		"dir": "docs/reports",

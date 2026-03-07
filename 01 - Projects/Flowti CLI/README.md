@@ -9,15 +9,12 @@ From the vault root (`c:\Projects\flowti`):
 ```bash
 # Windows
 ./flowti.cmd
-
-# Unix / Git Bash
-./flowti.sh
 ```
 
 Or from the CLI project directly:
 
 ```bash
-npm run dev
+npm run flowti
 ```
 
 ## Architecture

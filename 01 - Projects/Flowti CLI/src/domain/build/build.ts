@@ -2,7 +2,7 @@
  * build.ts — Build commands and interactive menu.
  */
 
-import { cliConfig } from "../../infrastructure/config.js";
+import { config } from "../../infrastructure/config.js";
 import { RESET, DIM, CYAN } from "../../infrastructure/ui.js";
 import { run } from "../../infrastructure/shell.js";
 import { createRL, ask } from "../../infrastructure/readline.js";
@@ -11,8 +11,9 @@ import { showHelp } from "../help/help.js";
 import { showPostBuildGuidance } from "../onboarding/onboarding.js";
 import type { MenuResult } from "../../types.js";
 
-const buildCmd = cliConfig.build?.commands ?? {};
-const testCmd = cliConfig.test?.commands ?? {};
+const cfg = config as Record<string, Record<string, Record<string, string>>>;
+const buildCmd = cfg.build?.commands ?? {};
+const testCmd = cfg.test?.commands ?? {};
 
 // ── Interactive menu ────────────────────────────────────────────────
 

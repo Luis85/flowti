@@ -9,7 +9,48 @@
 	"build": {
 		"entry": "src/main.ts",
 		"minify": true,
-		"sourcemap": false
+		"sourcemap": false,
+		"commands": {
+			"fast": "node esbuild.config.mjs --production --no-reports",
+			"increment": "npm run build:increment",
+			"full": "npm run build:full",
+			"watch": "node esbuild.config.mjs --watch",
+			"distribute": "node esbuild.config.mjs --production --no-reports --distribution"
+		}
+	},
+	"test": {
+		"commands": {
+			"unit": "npm run check && vitest run",
+			"increment": "npm run test:increment",
+			"e2e": "npm run test:e2e"
+		}
+	},
+	"devtools": {
+		"commands": {
+			"reload": "node scripts/cli-reload.mjs",
+			"console": "obsidian dev:console",
+			"errors": "obsidian dev:errors",
+			"fixFrontmatter": "node scripts/fix-frontmatter.mjs",
+			"testdata": "node scripts/generate-test-data.mjs",
+			"check": "npm run check",
+			"lint": "npm run lint"
+		}
+	},
+	"review": {
+		"commands": {
+			"e2e": "node scripts/run-e2e.mjs --list",
+			"increment": "npm run build:increment",
+			"release": "npm run build:release",
+			"teardown": "node scripts/run-e2e.mjs --teardown",
+			"rebuild": "node scripts/run-e2e.mjs --rebuild"
+		}
+	},
+	"publish": {
+		"commands": {
+			"increment": "npm run build:increment",
+			"e2e": "npm run test:e2e",
+			"release": "npm run build:release"
+		}
 	},
 	"make": {
 		"hub": {
@@ -28,6 +69,21 @@
 		}
 	},
 	"reports": {
+		"dir": "docs/reports",
+		"allCommand": "npm run generate:reports",
+		"auditSubdir": "audits",
+		"categories": [
+			{ "dir": "builds", "label": "Build" },
+			{ "dir": "tests", "label": "Unit Tests" },
+			{ "dir": "coverage", "label": "Coverage" },
+			{ "dir": "performance", "label": "Performance" },
+			{ "dir": "cycles", "label": "Cycle" },
+			{ "dir": "complexity", "label": "Complexity" }
+		],
+		"stableReports": [
+			{ "file": "traceability/Trace Conformance Report.md", "label": "Traceability" },
+			{ "file": "e2e/E2E Report.md", "label": "E2E Tests" }
+		],
 		"scripts": [
 			{ "id": "test",         "label": "Test Report",         "script": "generate-test-report.mjs" },
 			{ "id": "coverage",     "label": "Coverage Report",     "script": "generate-coverage-report.mjs" },
@@ -39,7 +95,7 @@
 			{ "id": "event-catalog","label": "Event Catalog",       "script": "generate-event-catalog.mjs" },
 			{ "id": "dictionary",   "label": "Data Dictionary",     "script": "generate-data-dictionary.mjs" },
 			{ "id": "performance",  "label": "Performance Report",  "script": "generate-performance-report.mjs" },
-			{ "id": "complexity",   "label": "Complexity Report",   "script": "generate-complexity-report.mjs" },
+			{ "id": "complexity",   "label": "Complexity Report",    "script": "generate-complexity-report.mjs" },
 			{ "id": "tool-ref",     "label": "Tool Reference",      "script": "generate-tool-reference.mjs" },
 			{ "id": "e2e",          "label": "E2E Report",          "script": "generate-e2e-report.mjs" },
 			{ "id": "cli-ref",      "label": "CLI Reference",       "script": "generate-cli-reference.mjs" }
