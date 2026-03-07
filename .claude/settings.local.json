@@ -89,7 +89,8 @@
       "Bash(node \"01 - Projects/Flowti CLI/src/flowti-cli.mjs\")",
       "Bash(flowti.cmd info)",
       "Bash(npm run flowti -- info)",
-      "Bash(npm run flowti -- help)"
+      "Bash(npm run flowti -- help)",
+      "Bash(npm run generate:reports)"
     ]
   }
 }

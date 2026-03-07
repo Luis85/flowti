@@ -10,17 +10,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "../src/infrastructure/config.mjs";
+import { Document } from "../src/infrastructure/document.mjs";
 
 const REGISTRY_PATH = path.join(ROOT, "src", "infrastructure", "commands", "registry.ts");
 const OUTPUT_DIR = path.join(ROOT, "docs", "reference");
-
-function yamlEscape(value) {
-	if (value === null || value === undefined) return "null";
-	if (typeof value === "boolean" || typeof value === "number") return String(value);
-	const str = String(value);
-	if (/[:\n\r\t#'"{}[\],&*?]|^\s|\s$/.test(str)) return JSON.stringify(str);
-	return str;
-}
 
 /**
  * Extract command metadata from registry.ts source.
@@ -107,34 +100,30 @@ function main() {
 		domains: sortedDomains.length,
 	};
 
-	const frontmatter = ["---", ...Object.entries(fm).map(([k, v]) => `${k}: ${yamlEscape(v)}`), "---"].join("\n");
-
-	const bodyLines = [
-		"",
-		"# Command Reference",
-		"",
-		"> [!info] Summary",
-		`> Total commands: ${fm.total_commands} | Domains: ${fm.domains}`,
-		"",
-	];
+	const doc = Document.create("Command Reference")
+		.mergeFrontmatter(fm)
+		.addBlank()
+		.heading(1, "Command Reference")
+		.addBlank()
+		.callout("info", "Summary", [
+			`Total commands: ${fm.total_commands} | Domains: ${fm.domains}`,
+		])
+		.addBlank();
 
 	for (const domain of sortedDomains) {
 		const cmds = groups.get(domain);
-		bodyLines.push(`## ${capitalize(domain)}`, "");
-		bodyLines.push("| Command | Description | Category | Icon |");
-		bodyLines.push("|---------|-------------|----------|------|");
-		for (const cmd of cmds) {
-			const icon = cmd.icon ?? "";
-			bodyLines.push(`| ${cmd.label} | ${cmd.description} | ${cmd.category} | ${icon} |`);
-		}
-		bodyLines.push("");
+		doc.heading(2, capitalize(domain)).addBlank();
+		doc.table(
+			["Command", "Description", "Category", "Icon"],
+			cmds.map((cmd) => [cmd.label, cmd.description, cmd.category, cmd.icon ?? ""]),
+		);
+		doc.addBlank();
 	}
 
 	const filename = "Command Reference.md";
 	const outputPath = path.join(OUTPUT_DIR, filename);
 
-	fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-	fs.writeFileSync(outputPath, frontmatter + bodyLines.join("\n"), "utf-8");
+	doc.save(outputPath);
 
 	console.log(`[report] CommandReference written (${commands.length} commands): ${outputPath}`);
 }

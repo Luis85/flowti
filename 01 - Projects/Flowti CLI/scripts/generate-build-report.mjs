@@ -12,18 +12,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "../src/infrastructure/config.mjs";
+import { Document } from "../src/infrastructure/document.mjs";
 
 const OUTPUT_DIR = path.join(ROOT, "docs", "reports", "builds");
 const MANIFEST_PATH = path.join(ROOT, "manifest.json");
 const TEMPLATE_PATH = path.join(ROOT, "docs", "templates", "Build Report.md");
-
-function yamlEscape(value) {
-	if (value === null || value === undefined) return "null";
-	if (typeof value === "boolean" || typeof value === "number") return String(value);
-	const str = String(value);
-	if (/[:\n\r\t#'"{}[\],&*?]|^\s|\s$/.test(str)) return JSON.stringify(str);
-	return str;
-}
 
 function humanBytes(bytes) {
 	const units = ["B", "KB", "MB", "GB"];
@@ -106,37 +99,34 @@ function main() {
 
 	if (process.env.GITHUB_SHA) fm.git_commit = process.env.GITHUB_SHA;
 
-	const frontmatter = ["---", ...Object.entries(fm).map(([k, v]) => `${k}: ${yamlEscape(v)}`), "---"].join("\n");
+	const doc = Document.create("Build Report").mergeFrontmatter(fm);
 
-	let templateBody = "";
+	// Optional template body
 	if (fs.existsSync(TEMPLATE_PATH)) {
-		templateBody = fs.readFileSync(TEMPLATE_PATH, "utf-8").trim();
+		const templateBody = fs.readFileSync(TEMPLATE_PATH, "utf-8").trim();
+		doc.addBlank().text(templateBody);
 	}
 
-	const summary = [
-		"",
-		"> [!info] Build Summary",
-		`> Mode: production`,
-		`> Duration: ${duration} ms`,
-		`> Bundle Size: ${humanBytes(totalBytes)}`,
-		`> Warnings: ${warningsCount}`,
-		`> Errors: ${errorsCount}`,
-		"",
-	].join("\n");
+	doc.addBlank()
+		.callout("info", "Build Summary", [
+			`Mode: production`,
+			`Duration: ${duration} ms`,
+			`Bundle Size: ${humanBytes(totalBytes)}`,
+			`Warnings: ${warningsCount}`,
+			`Errors: ${errorsCount}`,
+		])
+		.addBlank();
 
-	const outputsTable =
-		outputs.length > 0
-			? [
-					"## Outputs",
-					"",
-					"| File | Size |",
-					"|---|---:|",
-					...outputs.sort((a, b) => b.bytes - a.bytes).map((o) => `| ${o.file} | ${humanBytes(o.bytes)} |`),
-					"",
-			  ].join("\n")
-			: "";
-
-	const content = `${frontmatter}\n\n${templateBody}\n${summary}\n${outputsTable}`;
+	if (outputs.length > 0) {
+		doc.heading(2, "Outputs")
+			.addBlank()
+			.table(
+				["File", "Size"],
+				outputs.sort((a, b) => b.bytes - a.bytes).map((o) => [o.file, humanBytes(o.bytes)]),
+				{ alignRight: [1] },
+			)
+			.addBlank();
+	}
 
 	const safeTimestamp = now.toISOString().replace(/:/g, "-");
 	const prefix = buildType === "increment"
@@ -145,8 +135,7 @@ function main() {
 	const filename = `${safeTimestamp}-${prefix}.${manifest.version}.md`;
 	const outputPath = path.join(OUTPUT_DIR, filename);
 
-	fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-	fs.writeFileSync(outputPath, content, "utf-8");
+	doc.save(outputPath);
 
 	console.log(`[report] BuildReport written: ${outputPath}`);
 }

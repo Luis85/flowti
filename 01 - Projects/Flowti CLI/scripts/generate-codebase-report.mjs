@@ -10,17 +10,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "../src/infrastructure/config.mjs";
+import { Document } from "../src/infrastructure/document.mjs";
 
 const CODEBASE_JSON = path.join(ROOT, "docs", "reports", "codebase", "codebase.json");
 const OUTPUT_DIR = path.join(ROOT, "docs", "reports", "codebase");
-
-function yamlEscape(value) {
-	if (value === null || value === undefined) return "null";
-	if (typeof value === "boolean" || typeof value === "number") return String(value);
-	const str = String(value);
-	if (/[:\n\r\t#'"{}[\],&*?]|^\s|\s$/.test(str)) return JSON.stringify(str);
-	return str;
-}
 
 /** TypeDoc reflection kind values */
 const KIND = {
@@ -77,25 +70,23 @@ function main() {
 		constructors: counts[KIND.CONSTRUCTOR] || 0,
 	};
 
-	const frontmatter = ["---", ...Object.entries(fm).map(([k, v]) => `${k}: ${yamlEscape(v)}`), "---"].join("\n");
-
-	const body = [
-		"",
-		"# Codebase Report",
-		"",
-		"> [!info] Summary",
-		`> Modules: ${fm.modules} | Classes: ${fm.classes} | Interfaces: ${fm.interfaces}`,
-		`> Functions: ${fm.functions} | Type Aliases: ${fm.type_aliases}`,
-		`> Methods: ${fm.methods} | Properties: ${fm.properties}`,
-		"",
-	].join("\n");
+	const doc = Document.create("Codebase Report")
+		.mergeFrontmatter(fm)
+		.addBlank()
+		.heading(1, "Codebase Report")
+		.addBlank()
+		.callout("info", "Summary", [
+			`Modules: ${fm.modules} | Classes: ${fm.classes} | Interfaces: ${fm.interfaces}`,
+			`Functions: ${fm.functions} | Type Aliases: ${fm.type_aliases}`,
+			`Methods: ${fm.methods} | Properties: ${fm.properties}`,
+		])
+		.addBlank();
 
 	const safeTimestamp = now.toISOString().replace(/:/g, "-");
 	const filename = `${safeTimestamp}-codebase-report.md`;
 	const outputPath = path.join(OUTPUT_DIR, filename);
 
-	fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-	fs.writeFileSync(outputPath, frontmatter + body, "utf-8");
+	doc.save(outputPath);
 
 	console.log(`[report] CodebaseReport written: ${outputPath}`);
 }

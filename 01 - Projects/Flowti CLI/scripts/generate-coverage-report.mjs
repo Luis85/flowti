@@ -10,20 +10,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "../src/infrastructure/config.mjs";
+import { Document } from "../src/infrastructure/document.mjs";
 
 const buildTypeArg = process.argv.find((a) => a.startsWith("--build-type="));
 const buildType = buildTypeArg ? buildTypeArg.split("=")[1] : "flow";
 
 const COVERAGE_JSON = path.join(ROOT, "docs", "reports", "coverage", "coverage-final.json");
 const OUTPUT_DIR = path.join(ROOT, "docs", "reports", "coverage");
-
-function yamlEscape(value) {
-	if (value === null || value === undefined) return "null";
-	if (typeof value === "boolean" || typeof value === "number") return String(value);
-	const str = String(value);
-	if (/[:\n\r\t#'"{}[\],&*?]|^\s|\s$/.test(str)) return JSON.stringify(str);
-	return str;
-}
 
 function computeCoverage(entries, kind) {
 	let covered = 0;
@@ -76,26 +69,24 @@ function main() {
 		files_covered: entries.length,
 	};
 
-	const frontmatter = ["---", ...Object.entries(fm).map(([k, v]) => `${k}: ${yamlEscape(v)}`), "---"].join("\n");
-
-	const body = [
-		"",
-		"# Coverage Report",
-		"",
-		"> [!info] Summary",
-		`> Statements: ${fm.statements_pct}% | Branches: ${fm.branches_pct}%`,
-		`> Functions: ${fm.functions_pct}% | Lines: ${fm.lines_pct}%`,
-		`> Files: ${fm.files_covered}`,
-		"",
-	].join("\n");
+	const doc = Document.create("Coverage Report")
+		.mergeFrontmatter(fm)
+		.addBlank()
+		.heading(1, "Coverage Report")
+		.addBlank()
+		.callout("info", "Summary", [
+			`Statements: ${fm.statements_pct}% | Branches: ${fm.branches_pct}%`,
+			`Functions: ${fm.functions_pct}% | Lines: ${fm.lines_pct}%`,
+			`Files: ${fm.files_covered}`,
+		])
+		.addBlank();
 
 	const safeTimestamp = now.toISOString().replace(/:/g, "-");
 	const prefix = buildType === "full" ? "" : `${buildType}-`;
 	const filename = `${safeTimestamp}-${prefix}coverage-report.md`;
 	const outputPath = path.join(OUTPUT_DIR, filename);
 
-	fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-	fs.writeFileSync(outputPath, frontmatter + body, "utf-8");
+	doc.save(outputPath);
 
 	console.log(`[report] CoverageReport written: ${outputPath}`);
 }

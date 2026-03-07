@@ -10,17 +10,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "../src/infrastructure/config.mjs";
+import { Document } from "../src/infrastructure/document.mjs";
 
 const CYCLES_DIR = path.join(ROOT, "docs", "cycles");
 const OUTPUT_DIR = path.join(ROOT, "docs", "reports", "cycles");
-
-function yamlEscape(value) {
-	if (value === null || value === undefined) return "null";
-	if (typeof value === "boolean" || typeof value === "number") return String(value);
-	const str = String(value);
-	if (/[:\n\r\t#'"{}[\],&*?]|^\s|\s$/.test(str)) return JSON.stringify(str);
-	return str;
-}
 
 /**
  * Parse YAML frontmatter from a markdown string.
@@ -135,48 +128,36 @@ function main() {
 		debt_resolved: techDebt.length,
 	};
 
-	const frontmatter = ["---", ...Object.entries(report).map(([k, v]) => `${k}: ${yamlEscape(v)}`), "---"].join("\n");
-
-	// Derive the cycle document title from filename (without .md)
 	const cycleDocTitle = latest.file.replace(/\.md$/, "");
 
-	const body = [
-		"",
-		`# Cycle ${report.cycle} Report`,
-		"",
-		"> [!info] Summary",
-		`> Stage: ${report.stage} | Increments: ${report.increments} (est. ${report.estimated_increments})`,
-		`> Tests added: ${report.tests_added} | Total: ${report.total_tests}`,
-		`> Suites added: ${report.suites_added} | Total: ${report.total_suites}`,
-		`> PBIs delivered: ${report.pbis_delivered} | Debt resolved: ${report.debt_resolved}`,
-		`> Planned: ${report.date_planned || "N/A"} | Completed: ${report.date_completed || "N/A"}`,
-		"",
-		"## Source",
-		"",
-		`- [[${cycleDocTitle}]]`,
-		"",
-	].join("\n");
+	const doc = Document.create(`Cycle ${report.cycle} Report`)
+		.mergeFrontmatter(report)
+		.addBlank()
+		.heading(1, `Cycle ${report.cycle} Report`)
+		.addBlank()
+		.callout("info", "Summary", [
+			`Stage: ${report.stage} | Increments: ${report.increments} (est. ${report.estimated_increments})`,
+			`Tests added: ${report.tests_added} | Total: ${report.total_tests}`,
+			`Suites added: ${report.suites_added} | Total: ${report.total_suites}`,
+			`PBIs delivered: ${report.pbis_delivered} | Debt resolved: ${report.debt_resolved}`,
+			`Planned: ${report.date_planned || "N/A"} | Completed: ${report.date_completed || "N/A"}`,
+		])
+		.addBlank()
+		.heading(2, "Source")
+		.addBlank()
+		.list([Document.wikilink(cycleDocTitle)])
+		.addBlank();
 
-	// Build PBI section with wikilinks
-	let pbiSection = "";
 	if (pbis.length > 0) {
-		const pbiLines = ["", "## PBIs Delivered", ""];
-		for (const pbi of pbis) {
-			pbiLines.push(`- ${pbi}`);
-		}
-		pbiLines.push("");
-		pbiSection = pbiLines.join("\n");
+		doc.heading(2, "PBIs Delivered").addBlank();
+		doc.list(pbis);
+		doc.addBlank();
 	}
 
-	// Build tech debt section with wikilinks
-	let debtSection = "";
 	if (techDebt.length > 0) {
-		const debtLines = ["", "## Tech Debt Resolved", ""];
-		for (const td of techDebt) {
-			debtLines.push(`- ${td}`);
-		}
-		debtLines.push("");
-		debtSection = debtLines.join("\n");
+		doc.heading(2, "Tech Debt Resolved").addBlank();
+		doc.list(techDebt);
+		doc.addBlank();
 	}
 
 	// Find latest reports to link as related artifacts
@@ -192,27 +173,22 @@ function main() {
 		const files = fs.readdirSync(dir).filter((f) => f.endsWith(".md") && f.includes(suffix));
 		if (files.length > 0) {
 			files.sort();
-			const latest = files[files.length - 1].replace(/\.md$/, "");
-			reportLinks.push(latest);
+			const latestReport = files[files.length - 1].replace(/\.md$/, "");
+			reportLinks.push(latestReport);
 		}
 	}
 
-	let reportSection = "";
 	if (reportLinks.length > 0) {
-		const reportLines = ["", "## Related Reports", ""];
-		for (const link of reportLinks) {
-			reportLines.push(`- [[${link}]]`);
-		}
-		reportLines.push("");
-		reportSection = reportLines.join("\n");
+		doc.heading(2, "Related Reports").addBlank();
+		doc.list(reportLinks.map((link) => Document.wikilink(link)));
+		doc.addBlank();
 	}
 
 	const safeTimestamp = now.toISOString().replace(/:/g, "-");
 	const filename = `${safeTimestamp}-cycle-${report.cycle}-report.md`;
 	const outputPath = path.join(OUTPUT_DIR, filename);
 
-	fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-	fs.writeFileSync(outputPath, frontmatter + body + pbiSection + debtSection + reportSection, "utf-8");
+	doc.save(outputPath);
 
 	console.log(`[report] CycleReport written: ${outputPath}`);
 }

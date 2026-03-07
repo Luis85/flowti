@@ -27,6 +27,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { VAULT_ROOT, PLUGIN_ROOT } from "../src/infrastructure/config.mjs";
+import { Document, yamlEscape } from "../src/infrastructure/document.mjs";
 
 // Vitest JSON lives in the plugin source (temp artifact)
 const VITEST_RESULTS = path.join(PLUGIN_ROOT, "docs", "reports", "e2e", "e2e-results.json");
@@ -67,14 +68,6 @@ function resolveMode() {
 	const journey = process.env.E2E_JOURNEY;
 	if (!journey) return "full";
 	return journey;
-}
-
-function yamlEscape(value) {
-	if (value === null || value === undefined) return "null";
-	if (typeof value === "boolean" || typeof value === "number") return String(value);
-	const str = String(value);
-	if (/[:\n\r\t#'"{}[\],&*?]|^\s|\s$/.test(str)) return JSON.stringify(str);
-	return str;
 }
 
 /**
@@ -433,7 +426,9 @@ function generateJourneyReport(data, date) {
 	const journeyStatus = resolveStatus(passedSteps, failedSteps, totalSteps, skippedSteps, hasWarnings, isDevStopped);
 	const actionStats = computeActionStats(data);
 
-	const fm = {
+	const doc = Document.create(`Journey: ${journeyTitle}`);
+
+	doc.mergeFrontmatter({
 		type: "JourneyReport",
 		mode: resolveMode(),
 		journey: journeySlug,
@@ -442,14 +437,18 @@ function generateJourneyReport(data, date) {
 		passed: passedSteps,
 		failed: failedSteps,
 		skipped: skippedSteps,
-		...(devSteps > 0 ? { dev: devSteps } : {}),
-		...(isDevStopped ? { dev_stopped: true } : {}),
+	});
+	if (devSteps > 0) doc.setFrontmatter("dev", devSteps);
+	if (isDevStopped) doc.setFrontmatter("dev_stopped", true);
+	doc.mergeFrontmatter({
 		total_actions: actionStats.total,
 		screenshots: actionStats.screenshots,
 		assertions: actionStats.assertions,
 		manual_checks: actionStats.manual_checks,
-		...(actionStats.manual_passed > 0 ? { manual_passed: actionStats.manual_passed } : {}),
-		...(actionStats.manual_failed > 0 ? { manual_failed: actionStats.manual_failed } : {}),
+	});
+	if (actionStats.manual_passed > 0) doc.setFrontmatter("manual_passed", actionStats.manual_passed);
+	if (actionStats.manual_failed > 0) doc.setFrontmatter("manual_failed", actionStats.manual_failed);
+	doc.mergeFrontmatter({
 		visual_inspections: actionStats.visual_inspections,
 		notices: actionStats.notices,
 		theme_changes: actionStats.theme_changes,
@@ -457,33 +456,25 @@ function generateJourneyReport(data, date) {
 		delete_files: actionStats.delete_files,
 		open_files: actionStats.open_files,
 		close_leaves: actionStats.close_leaves,
-		tools: actionStats.tools.length > 0
-			? "\n" + actionStats.tools.map((t) => `  - ${t}`).join("\n")
-			: "[]",
+	});
+	if (actionStats.tools.length > 0) {
+		doc.setFrontmatter("tools", actionStats.tools);
+	} else {
+		doc.setRawFrontmatter("tools", "[]");
+	}
+	doc.mergeFrontmatter({
 		duration_ms: data.durationMs ?? 0,
 		duration: formatDuration(data.durationMs ?? 0),
 		success: journeyStatus === "pass" || journeyStatus === "partial-pass" || journeyStatus === "dev-stopped",
 		status: journeyStatus,
-		...(data.testSource ? { test_source: `"[[${data.testSource}]]"` } : {}),
-		e2e_report: `"[[E2E Report]]"`,
-		canvas: `"[[${journeyTitle}]]"`,
-		tags: journeyStatus === "partial-pass"
-			? "\n  - report\n  - e2e\n  - journey\n  - partial"
-			: journeyStatus === "dev-stopped"
-				? "\n  - report\n  - e2e\n  - journey\n  - dev"
-				: "\n  - report\n  - e2e\n  - journey",
-	};
-
-	const JOURNEY_PREFORMATTED = new Set(["tags", "test_source", "e2e_report", "canvas", "tools"]);
-
-	const frontmatter = [
-		"---",
-		...Object.entries(fm).map(([k, v]) => {
-			if (JOURNEY_PREFORMATTED.has(k)) return `${k}: ${v}`;
-			return `${k}: ${yamlEscape(v)}`;
-		}),
-		"---",
-	].join("\n");
+	});
+	if (data.testSource) doc.setRawFrontmatter("test_source", `"[[${data.testSource}]]"`);
+	doc.setRawFrontmatter("e2e_report", '"[[E2E Report]]"');
+	doc.setRawFrontmatter("canvas", `"[[${journeyTitle}]]"`);
+	const tags = ["report", "e2e", "journey"];
+	if (journeyStatus === "partial-pass") tags.push("partial");
+	else if (journeyStatus === "dev-stopped") tags.push("dev");
+	doc.setTags(tags);
 
 	const titleSuffix = journeyStatus === "partial-pass" ? " (Partial)"
 		: journeyStatus === "dev-stopped" ? " (Dev)" : "";
@@ -493,22 +484,19 @@ function generateJourneyReport(data, date) {
 			? `${passedSteps}/${totalSteps} steps (${skippedSteps} skipped)`
 			: `${passedSteps}/${totalSteps} steps`;
 
-	const lines = [
-		"",
-		`# Journey: ${journeyTitle}${titleSuffix}`,
-		"",
-		`> [!${statusCallout(journeyStatus)}] ${statusLabel(journeyStatus)} — ` +
-		`${stepsSummary} | ` +
-		`${formatDuration(data.durationMs ?? 0)}`,
-		`> Mode: **${fm.mode}** | Source: \`${data.testSource ?? "unknown"}\``,
-		`> Actions: ${actionStats.total} | Screenshots: ${actionStats.screenshots} | Assertions: ${actionStats.assertions} | Manual: ${actionStats.manual_checks}` + (actionStats.visual_inspections > 0 ? ` | Visual: ${actionStats.visual_inspections}` : "") + ` | Notices: ${actionStats.notices}` + (actionStats.theme_changes > 0 ? ` | Themes: ${actionStats.theme_changes}` : ""),
-		`> Tools: ${actionStats.tools.map((t) => `\`${t}\``).join(" ")}`,
-		"",
-		`Canvas: [[${journeyTitle}.canvas|${journeyTitle} Canvas]]`,
-		"",
-		"---",
-		"",
-	];
+	doc.addBlank()
+		.heading(1, `Journey: ${journeyTitle}${titleSuffix}`)
+		.addBlank();
+	doc.callout(statusCallout(journeyStatus), `${statusLabel(journeyStatus)} — ${stepsSummary} | ${formatDuration(data.durationMs ?? 0)}`, [
+		`Mode: **${resolveMode()}** | Source: \`${data.testSource ?? "unknown"}\``,
+		`Actions: ${actionStats.total} | Screenshots: ${actionStats.screenshots} | Assertions: ${actionStats.assertions} | Manual: ${actionStats.manual_checks}` + (actionStats.visual_inspections > 0 ? ` | Visual: ${actionStats.visual_inspections}` : "") + ` | Notices: ${actionStats.notices}` + (actionStats.theme_changes > 0 ? ` | Themes: ${actionStats.theme_changes}` : ""),
+		`Tools: ${actionStats.tools.map((t) => `\`${t}\``).join(" ")}`,
+	]);
+	doc.addBlank()
+		.text(`Canvas: [[${journeyTitle}.canvas|${journeyTitle} Canvas]]`)
+		.addBlank()
+		.addSeparator()
+		.addBlank();
 
 	// ── Partition steps by phase ──
 	const allSteps = data.steps ?? [];
@@ -518,14 +506,13 @@ function generateJourneyReport(data, date) {
 
 	const vars = data.variables ?? {};
 
-	/** Renders a single step result into the report lines array. */
+	/** Renders a single step result into the document. */
 	function renderStep(stepResult) {
 		const s = stepResult.step;
 		const rawStatus = stepResult.status === "dev" ? "dev"
 			: stepResult.status === "pass" ? "pass"
 			: stepResult.status === "fail" ? "fail"
 			: "skipped";
-		// Steps with warnings (e.g. visual-inspection failures) render as partial-pass
 		const hasStepWarnings = stepResult.warnings && stepResult.warnings.length > 0;
 		const stepStatus = (rawStatus === "pass" && hasStepWarnings) ? "partial-pass" : rawStatus;
 		const stepCallout = statusCallout(stepStatus);
@@ -535,112 +522,113 @@ function generateJourneyReport(data, date) {
 			: stepStatus === "skipped" ? " [SKIP]"
 			: stepStatus === "dev" ? " [DEV]"
 			: "";
-		lines.push(`### Step ${s.guideSection}: ${s.title}${statusTag}`);
-		lines.push("");
-		lines.push(`> [!${stepCallout}] ${icon} (${formatDuration(stepResult.durationMs)})`);
+		doc.heading(3, `Step ${s.guideSection}: ${s.title}${statusTag}`);
+		doc.addBlank();
 
+		const mainCalloutLines = [];
 		if (stepResult.error) {
-			lines.push(`> **Error**: ${stepResult.error}`);
+			mainCalloutLines.push(`**Error**: ${stepResult.error}`);
 		}
+		doc.callout(stepCallout, `${icon} (${formatDuration(stepResult.durationMs)})`, mainCalloutLines);
 
 		// Enhanced error context (DOM state, recent events, plugin state)
 		if (stepResult.errorContext) {
 			const ctx = stepResult.errorContext;
-			lines.push("");
-			lines.push("> [!bug] Error Context");
+			doc.addBlank();
 
+			const ecLines = [];
 			if (ctx.domSnapshot) {
 				const ds = ctx.domSnapshot;
-				lines.push(
-					`> **Active view**: \`${ds.activeViewType}\` | Leaves: ${ds.leafCount} | Modal: ${ds.hasModal ? "yes" : "no"}`,
+				ecLines.push(
+					`**Active view**: \`${ds.activeViewType}\` | Leaves: ${ds.leafCount} | Modal: ${ds.hasModal ? "yes" : "no"}`,
 				);
 				if (ds.notices && ds.notices.length > 0) {
-					lines.push(
-						`> **Notices**: ${ds.notices.map((n) => `\`${n.substring(0, 80)}\``).join(", ")}`,
+					ecLines.push(
+						`**Notices**: ${ds.notices.map((n) => `\`${n.substring(0, 80)}\``).join(", ")}`,
 					);
 				}
 				if (ds.visibleElements && ds.visibleElements.length > 0) {
-					lines.push(`> **Visible**: ${ds.visibleElements.join(", ")}`);
+					ecLines.push(`**Visible**: ${ds.visibleElements.join(", ")}`);
 				}
 			}
 
 			if (ctx.recentEvents && ctx.recentEvents.length > 0) {
-				lines.push(">");
-				lines.push("> **Recent Events** (last 10):");
+				ecLines.push("");
+				ecLines.push("**Recent Events** (last 10):");
 				for (const e of ctx.recentEvents) {
-					lines.push(`> - \`${e.type}\` (${e.relativeMs}ms ago)`);
+					ecLines.push(`- \`${e.type}\` (${e.relativeMs}ms ago)`);
 				}
 			}
 
 			if (ctx.consoleErrors && ctx.consoleErrors.length > 0) {
-				lines.push(">");
-				lines.push("> **Console Errors**:");
+				ecLines.push("");
+				ecLines.push("**Console Errors**:");
 				for (const e of ctx.consoleErrors) {
-					lines.push(`> - \`${e.substring(0, 120)}\``);
+					ecLines.push(`- \`${e.substring(0, 120)}\``);
 				}
 			}
 
 			if (ctx.availableVariables && ctx.availableVariables.length > 0) {
-				lines.push(">");
-				lines.push(
-					`> **Variables**: ${ctx.availableVariables.map((v) => `\`${v}\``).join(", ")}`,
+				ecLines.push("");
+				ecLines.push(
+					`**Variables**: ${ctx.availableVariables.map((v) => `\`${v}\``).join(", ")}`,
 				);
 			}
 
 			if (ctx.pluginState) {
-				lines.push(">");
-				lines.push(
-					`> **Plugin**: loaded=${ctx.pluginState.loaded}, services=${ctx.pluginState.serviceCount}`,
+				ecLines.push("");
+				ecLines.push(
+					`**Plugin**: loaded=${ctx.pluginState.loaded}, services=${ctx.pluginState.serviceCount}`,
 				);
 			}
+
+			doc.callout("bug", "Error Context", ecLines);
 		}
 
-		lines.push("");
+		doc.addBlank();
 
 		if (s.description) {
-			lines.push(s.description);
-			lines.push("");
+			doc.text(s.description);
+			doc.addBlank();
 		}
 
 		if (s.expectedInput || s.expectedOutput) {
-			lines.push("| | |");
-			lines.push("|---|---|");
+			doc.text("| | |");
+			doc.text("|---|---|");
 			if (s.expectedInput) {
-				lines.push(`| **Input** | ${s.expectedInput} |`);
+				doc.text(`| **Input** | ${s.expectedInput} |`);
 			}
 			if (s.expectedOutput) {
-				lines.push(`| **Expected** | ${s.expectedOutput} |`);
+				doc.text(`| **Expected** | ${s.expectedOutput} |`);
 			}
-			lines.push("");
+			doc.addBlank();
 		}
 
 		const screenshots = stepResult.screenshotFiles ??
 			(stepResult.screenshotFile ? [stepResult.screenshotFile] : []);
 		for (const file of screenshots) {
-			lines.push(`![[${file}]]`);
+			doc.text(`![[${file}]]`);
 		}
-		if (screenshots.length > 0) lines.push("");
+		if (screenshots.length > 0) doc.addBlank();
 
 		// Manual actions — interactive verification or static checklist fallback
 		const manualActions = (s.actions ?? []).filter((a) => a.tool === "manual");
 		const manualResults = stepResult.manualVerifications ?? [];
 		if (manualResults.length > 0) {
 			const allPassed = manualResults.every((m) => m.status === "pass");
-			const callout = allPassed ? "success" : "failure";
-			const label = allPassed ? "Manual QA — PASSED" : "Manual QA — FAILED";
-			lines.push(`> [!${callout}] ${label}`);
+			const mqCallout = allPassed ? "success" : "failure";
+			const mqLabel = allPassed ? "Manual QA — PASSED" : "Manual QA — FAILED";
+			const mqLines = [];
 			for (const m of manualResults) {
-				const icon = m.status === "pass" ? "✓" : "✗";
-				lines.push(`> - ${icon} ${m.instruction}`);
-				if (m.notes) lines.push(`>   *Notes*: ${m.notes}`);
+				const mqIcon = m.status === "pass" ? "✓" : "✗";
+				mqLines.push(`- ${mqIcon} ${m.instruction}`);
+				if (m.notes) mqLines.push(`  *Notes*: ${m.notes}`);
 			}
-			lines.push("");
+			doc.callout(mqCallout, mqLabel, mqLines);
+			doc.addBlank();
 		} else if (manualActions.length > 0) {
-			lines.push("> [!todo] Manual QA");
-			for (const m of manualActions) {
-				lines.push(`> - [ ] ${resolveVars(m.instruction, vars)}`);
-			}
-			lines.push("");
+			doc.callout("todo", "Manual QA", manualActions.map((m) => `- [ ] ${resolveVars(m.instruction, vars)}`));
+			doc.addBlank();
 		}
 
 		// Visual inspection actions — interactive pass/fail checkpoints
@@ -649,76 +637,68 @@ function generateJourneyReport(data, date) {
 			const hasWarnings = stepResult.warnings && stepResult.warnings.length > 0;
 			const viCallout = hasWarnings ? "warning" : "eye";
 			const viLabel = hasWarnings ? "Visual Inspection — FAILED" : "Visual Inspection";
-			lines.push(`> [!${viCallout}] ${viLabel}`);
-			for (const vi of viActions) {
-				lines.push(`> - ${resolveVars(vi.prompt, vars)}`);
-			}
+			const viLines = viActions.map((vi) => `- ${resolveVars(vi.prompt, vars)}`);
 			if (hasWarnings) {
-				lines.push(">");
+				viLines.push("");
 				for (const w of stepResult.warnings) {
-					// Extract just the user-provided reason (after "Reason: ") if present
 					const reasonMatch = w.match(/\nReason:\s*(.+)/);
 					const reason = reasonMatch ? reasonMatch[1].trim() : w;
-					lines.push(`> **Reason**: ${reason}`);
+					viLines.push(`**Reason**: ${reason}`);
 				}
 			}
-			lines.push("");
+			doc.callout(viCallout, viLabel, viLines);
+			doc.addBlank();
 		}
 
 		// Step-level warnings (visual-inspection soft-fails) — shown even without vi actions
 		if (!viActions.length && stepResult.warnings && stepResult.warnings.length > 0) {
-			lines.push("> [!warning] Warnings");
-			for (const w of stepResult.warnings) {
-				lines.push(`> - ${w}`);
-			}
-			lines.push("");
+			doc.callout("warning", "Warnings", stepResult.warnings.map((w) => `- ${w}`));
+			doc.addBlank();
 		}
 
 		// Notice actions — runtime annotations shown during test execution
 		const noticeActions = (s.actions ?? []).filter((a) => a.tool === "notice");
 		if (noticeActions.length > 0) {
-			lines.push("> [!quote] Notices");
-			for (const n of noticeActions) {
+			const nLines = noticeActions.map((n) => {
 				const dur = n.duration ? ` (${n.duration}ms)` : "";
-				lines.push(`> - ${resolveVars(n.message, vars)}${dur}`);
-			}
-			lines.push("");
+				return `- ${resolveVars(n.message, vars)}${dur}`;
+			});
+			doc.callout("quote", "Notices", nLines);
+			doc.addBlank();
 		}
 	}
 
 	// ── Render Setup section ──
 	if (setupSteps.length > 0) {
 		const setupPassed = setupSteps.filter((r) => r.status === "pass").length;
-		const setupTotal = setupSteps.length;
-		lines.push(`## Setup (${setupPassed}/${setupTotal})`);
-		lines.push("");
+		doc.heading(2, `Setup (${setupPassed}/${setupSteps.length})`);
+		doc.addBlank();
 		for (const stepResult of setupSteps) {
 			renderStep(stepResult);
 		}
-		lines.push("---", "");
+		doc.addSeparator().addBlank();
 	}
 
 	// ── Render Journey steps ──
-	lines.push(`## Steps (${passedSteps}/${totalSteps})`);
-	lines.push("");
+	doc.heading(2, `Steps (${passedSteps}/${totalSteps})`);
+	doc.addBlank();
 	for (const stepResult of journeySteps) {
 		renderStep(stepResult);
 	}
-	lines.push("---", "");
+	doc.addSeparator().addBlank();
 
 	// ── Render Teardown section ──
 	if (teardownSteps.length > 0) {
 		const teardownPassed = teardownSteps.filter((r) => r.status === "pass").length;
-		const teardownTotal = teardownSteps.length;
-		lines.push(`## Teardown (${teardownPassed}/${teardownTotal})`);
-		lines.push("");
+		doc.heading(2, `Teardown (${teardownPassed}/${teardownSteps.length})`);
+		doc.addBlank();
 		for (const stepResult of teardownSteps) {
 			renderStep(stepResult);
 		}
-		lines.push("---", "");
+		doc.addSeparator().addBlank();
 	}
 
-	const content = frontmatter + lines.join("\n");
+	const content = doc.toString();
 
 	return { title: journeyTitle, status: journeyStatus, content };
 }
@@ -1352,9 +1332,9 @@ function readStartupPerf() {
 	return null;
 }
 
-/** Builds the Performance section lines for the E2E report. */
-function buildPerfLines(startupPerf) {
-	if (!startupPerf || startupPerf.history.length === 0) return [];
+/** Appends the Performance section to the document. */
+function buildPerfLines(startupPerf, doc) {
+	if (!startupPerf || startupPerf.history.length === 0) return;
 
 	const { history, sizeBytes } = startupPerf;
 	const sorted = [...history].sort((a, b) => a - b);
@@ -1363,54 +1343,44 @@ function buildPerfLines(startupPerf) {
 	const p95 = round(percentile(sorted, 0.95));
 	const max = round(sorted[sorted.length - 1] ?? 0);
 
-	return [
-		"---",
-		"",
-		"## Performance",
-		"",
-		"> [!tip] Startup",
-		`> Last: ${last}ms | p50: ${p50}ms | p95: ${p95}ms | Max: ${max}ms`,
-		`> Measurements: ${history.length} | data.json: ${formatBytes(sizeBytes)}`,
-		"",
-	];
+	doc.addSeparator().addBlank();
+	doc.heading(2, "Performance").addBlank();
+	doc.callout("tip", "Startup", [
+		`Last: ${last}ms | p50: ${p50}ms | p95: ${p95}ms | Max: ${max}ms`,
+		`Measurements: ${history.length} | data.json: ${formatBytes(sizeBytes)}`,
+	]);
+	doc.addBlank();
 }
 
-/** Builds the Event Trace section lines for the E2E report. */
-function buildEventTraceLines(trace) {
-	if (!trace) return [];
+/** Appends the Event Trace section to the document. */
+function buildEventTraceLines(trace, doc) {
+	if (!trace) return;
 
-	const lines = [
-		"---",
-		"",
-		"## Event Trace",
-		"",
-		"> [!abstract] Trace Summary",
-		`> Events: ${trace.summary?.totalEvents ?? 0} | Perf: ${trace.summary?.perfEvents ?? 0} | ` +
+	doc.addSeparator().addBlank();
+	doc.heading(2, "Event Trace").addBlank();
+	doc.callout("abstract", "Trace Summary", [
+		`Events: ${trace.summary?.totalEvents ?? 0} | Perf: ${trace.summary?.perfEvents ?? 0} | ` +
 		`Types: ${trace.summary?.uniqueTypes ?? 0} | Duration: ${formatDuration(trace.durationMs ?? 0)}`,
-		"",
-	];
+	]);
+	doc.addBlank();
 
 	// Top 15 events by frequency
 	const freq = trace.summary?.eventFrequency;
 	if (freq && Object.keys(freq).length > 0) {
 		const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 15);
-		lines.push("### Top Events");
-		lines.push("");
-		lines.push("| Event | Count |");
-		lines.push("|---|---|");
-		for (const [type, count] of sorted) {
-			lines.push(`| \`${type}\` | ${count} |`);
-		}
-		lines.push("");
+		doc.heading(3, "Top Events").addBlank();
+		doc.table(
+			["Event", "Count"],
+			sorted.map(([type, count]) => [`\`${type}\``, String(count)]),
+		);
+		doc.addBlank();
 	}
 
 	// Detailed perf event statistics (startup, storage, queries, dispatches, alerts)
-	lines.push(...buildPerfEventStats(trace.perfEvents ?? []));
+	buildPerfEventStats(trace.perfEvents ?? [], doc);
 
-	lines.push("Full details: [[Event Trace]]");
-	lines.push("");
-
-	return lines;
+	doc.text("Full details: [[Event Trace]]");
+	doc.addBlank();
 }
 
 /**
@@ -1418,8 +1388,8 @@ function buildEventTraceLines(trace) {
  * Parses event payloads and groups metrics by type (startup, storage,
  * query, dispatch, alert) with aggregate statistics tables.
  */
-function buildPerfEventStats(perfEvents) {
-	if (!perfEvents || perfEvents.length === 0) return [];
+function buildPerfEventStats(perfEvents, doc) {
+	if (!perfEvents || perfEvents.length === 0) return;
 
 	const startupServices = [];
 	let startupTotal = null;
@@ -1489,83 +1459,71 @@ function buildPerfEventStats(perfEvents) {
 		}
 	}
 
-	const lines = [
-		"### Event Performance Statistics",
-		"",
-		`> [!info] Metrics`,
-		`> Perf events: ${perfEvents.length} | Startup services: ${startupServices.length} | Storage ops: ${storageOps.length} | Queries: ${queries.length} | Dispatches: ${dispatches.length} | Alerts: ${alerts.length}`,
-		"",
-	];
+	doc.heading(3, "Event Performance Statistics").addBlank();
+	doc.callout("info", "Metrics", [
+		`Perf events: ${perfEvents.length} | Startup services: ${startupServices.length} | Storage ops: ${storageOps.length} | Queries: ${queries.length} | Dispatches: ${dispatches.length} | Alerts: ${alerts.length}`,
+	]);
+	doc.addBlank();
 
 	// Startup
 	if (startupTotal || startupServices.length > 0) {
-		lines.push("#### Startup");
-		lines.push("");
+		doc.heading(4, "Startup").addBlank();
 		if (startupTotal) {
-			lines.push(`Total startup: **${Math.round(startupTotal.durationMs)}ms** (${startupTotal.serviceCount} services)`);
-			lines.push("");
+			doc.text(`Total startup: **${Math.round(startupTotal.durationMs)}ms** (${startupTotal.serviceCount} services)`);
+			doc.addBlank();
 		}
 		if (startupServices.length > 0) {
 			const sorted = [...startupServices].sort((a, b) => b.durationMs - a.durationMs);
-			lines.push("| Service | Duration |");
-			lines.push("|---|---|");
-			for (const s of sorted) {
-				lines.push(`| ${s.service} | ${Math.round(s.durationMs)}ms |`);
-			}
-			lines.push("");
+			doc.table(
+				["Service", "Duration"],
+				sorted.map((s) => [s.service, `${Math.round(s.durationMs)}ms`]),
+			);
+			doc.addBlank();
 		}
 	}
 
 	// Storage
 	if (storageOps.length > 0) {
 		const STORAGE_OPS_LIMIT = 20;
-		lines.push("#### Storage Operations");
-		lines.push("");
+		doc.heading(4, "Storage Operations").addBlank();
 		const totalLoadMs = Math.round(storageOps.filter(o => o.op === "load").reduce((s, o) => s + o.durationMs, 0));
 		const totalSaveMs = Math.round(storageOps.filter(o => o.op === "save").reduce((s, o) => s + o.durationMs, 0));
-		lines.push(`Load: ${storageOps.filter(o => o.op === "load").length} ops (${totalLoadMs}ms) | Save: ${storageOps.filter(o => o.op === "save").length} ops (${totalSaveMs}ms)`);
-		lines.push("");
-		lines.push("| Key | Op | Duration | Size |");
-		lines.push("|---|---|---|---|");
+		doc.text(`Load: ${storageOps.filter(o => o.op === "load").length} ops (${totalLoadMs}ms) | Save: ${storageOps.filter(o => o.op === "save").length} ops (${totalSaveMs}ms)`);
+		doc.addBlank();
 		const sorted = [...storageOps].sort((a, b) => b.durationMs - a.durationMs);
 		const display = sorted.slice(0, STORAGE_OPS_LIMIT);
-		for (const o of display) {
-			const size = o.sizeBytes > 1024
-				? `${(o.sizeBytes / 1024).toFixed(1)}KB`
-				: `${o.sizeBytes}B`;
-			lines.push(`| ${o.key} | ${o.op} | ${Math.round(o.durationMs)}ms | ${size} |`);
-		}
+		const rows = display.map((o) => {
+			const size = o.sizeBytes > 1024 ? `${(o.sizeBytes / 1024).toFixed(1)}KB` : `${o.sizeBytes}B`;
+			return [o.key, o.op, `${Math.round(o.durationMs)}ms`, size];
+		});
 		if (sorted.length > STORAGE_OPS_LIMIT) {
-			lines.push(`| *...and ${sorted.length - STORAGE_OPS_LIMIT} more* | | | |`);
+			rows.push([`*...and ${sorted.length - STORAGE_OPS_LIMIT} more*`, "", "", ""]);
 		}
-		lines.push("");
+		doc.table(["Key", "Op", "Duration", "Size"], rows);
+		doc.addBlank();
 	}
 
 	// Queries
 	if (queries.length > 0) {
-		lines.push("#### Query Execution");
-		lines.push("");
+		doc.heading(4, "Query Execution").addBlank();
 		const totalMs = Math.round(queries.reduce((s, q) => s + q.durationMs, 0));
 		const avgMs = (totalMs / queries.length).toFixed(1);
 		const maxQ = queries.reduce((m, q) => q.durationMs > m.durationMs ? q : m, queries[0]);
-		lines.push(`Queries: ${queries.length} | Total: ${totalMs}ms | Avg: ${avgMs}ms | Slowest: ${maxQ.queryId} (${Math.round(maxQ.durationMs)}ms)`);
-		lines.push("");
-		lines.push("| Query | Duration | Source Rows | Result Rows |");
-		lines.push("|---|---|---|---|");
+		doc.text(`Queries: ${queries.length} | Total: ${totalMs}ms | Avg: ${avgMs}ms | Slowest: ${maxQ.queryId} (${Math.round(maxQ.durationMs)}ms)`);
+		doc.addBlank();
 		const sorted = [...queries].sort((a, b) => b.durationMs - a.durationMs);
-		for (const q of sorted) {
-			lines.push(`| ${q.queryId} | ${Math.round(q.durationMs)}ms | ${q.sourceRows} | ${q.resultRows} |`);
-		}
-		lines.push("");
+		doc.table(
+			["Query", "Duration", "Source Rows", "Result Rows"],
+			sorted.map((q) => [q.queryId, `${Math.round(q.durationMs)}ms`, String(q.sourceRows), String(q.resultRows)]),
+		);
+		doc.addBlank();
 	}
 
 	// Event Dispatch
 	if (dispatches.length > 0) {
-		lines.push("#### Event Dispatch Timing");
-		lines.push("");
+		doc.heading(4, "Event Dispatch Timing").addBlank();
 		const totalMs = dispatches.reduce((s, d) => s + d.durationMs, 0);
 		const avgMs = (totalMs / dispatches.length).toFixed(2);
-		// Aggregate by eventType
 		const byType = new Map();
 		for (const d of dispatches) {
 			const existing = byType.get(d.eventType) ?? { count: 0, totalMs: 0, maxMs: 0 };
@@ -1575,29 +1533,26 @@ function buildPerfEventStats(perfEvents) {
 			byType.set(d.eventType, existing);
 		}
 		const sortedByTotal = [...byType.entries()].sort((a, b) => b[1].totalMs - a[1].totalMs);
-		lines.push(`Dispatches: ${dispatches.length} | Total: ${Math.round(totalMs)}ms | Avg: ${avgMs}ms`);
-		lines.push("");
-		lines.push("| Event | Dispatches | Total | Avg | Max |");
-		lines.push("|---|---|---|---|---|");
-		for (const [type, stats] of sortedByTotal) {
-			const avg = (stats.totalMs / stats.count).toFixed(2);
-			lines.push(`| \`${type}\` | ${stats.count} | ${Math.round(stats.totalMs)}ms | ${avg}ms | ${Math.round(stats.maxMs)}ms |`);
-		}
-		lines.push("");
+		doc.text(`Dispatches: ${dispatches.length} | Total: ${Math.round(totalMs)}ms | Avg: ${avgMs}ms`);
+		doc.addBlank();
+		doc.table(
+			["Event", "Dispatches", "Total", "Avg", "Max"],
+			sortedByTotal.map(([type, stats]) => {
+				const avg = (stats.totalMs / stats.count).toFixed(2);
+				return [`\`${type}\``, String(stats.count), `${Math.round(stats.totalMs)}ms`, `${avg}ms`, `${Math.round(stats.maxMs)}ms`];
+			}),
+		);
+		doc.addBlank();
 	}
 
 	// Alerts
 	if (alerts.length > 0) {
-		lines.push("#### Performance Alerts");
-		lines.push("");
-		lines.push("> [!warning] Threshold Violations");
-		for (const a of alerts) {
-			lines.push(`> - **${a.metric}**: ${Math.round(a.value)}ms (threshold: ${Math.round(a.threshold)}ms)`);
-		}
-		lines.push("");
+		doc.heading(4, "Performance Alerts").addBlank();
+		doc.callout("warning", "Threshold Violations",
+			alerts.map((a) => `- **${a.metric}**: ${Math.round(a.value)}ms (threshold: ${Math.round(a.threshold)}ms)`),
+		);
+		doc.addBlank();
 	}
-
-	return lines;
 }
 
 /** Copies screenshot .png files from src to dest directory, removing stale dest files first. */
@@ -1751,12 +1706,14 @@ function generateReport() {
 	// Build wikilink arrays for frontmatter
 	const testSuiteLinks = (vitest?.suites ?? []).map((s) => {
 		const rel = path.relative(PLUGIN_ROOT, s.file).replace(/\\/g, "/");
-		return `"[[${rel}]]"`;
+		return `[[${rel}]]`;
 	});
-	const journeyReportLinks = journeyReportNames.map(({ title }) => `"[[${title}]]"`);
-	const journeyCanvasLinks = journeyReportNames.map(({ title }) => `"[[${title}]]"`);
+	const journeyReportLinks = journeyReportNames.map(({ title }) => `[[${title}]]`);
+	const journeyCanvasLinks = journeyReportNames.map(({ title }) => `[[${title}]]`);
 
-	const fm = {
+	const doc = Document.create("E2E Report");
+
+	doc.mergeFrontmatter({
 		type: "E2EReport",
 		mode: resolveMode(),
 		date,
@@ -1764,13 +1721,17 @@ function generateReport() {
 		passed: totalPassed,
 		failed: totalFailed,
 		skipped: totalSkipped,
-		...(totalDev > 0 ? { dev: totalDev } : {}),
+	});
+	if (totalDev > 0) doc.setFrontmatter("dev", totalDev);
+	doc.mergeFrontmatter({
 		total_actions: aggregateActions.total,
 		total_screenshots: aggregateActions.screenshots,
 		total_assertions: aggregateActions.assertions,
 		total_manual_checks: aggregateActions.manual_checks,
-		...(aggregateActions.manual_passed > 0 ? { total_manual_passed: aggregateActions.manual_passed } : {}),
-		...(aggregateActions.manual_failed > 0 ? { total_manual_failed: aggregateActions.manual_failed } : {}),
+	});
+	if (aggregateActions.manual_passed > 0) doc.setFrontmatter("total_manual_passed", aggregateActions.manual_passed);
+	if (aggregateActions.manual_failed > 0) doc.setFrontmatter("total_manual_failed", aggregateActions.manual_failed);
+	doc.mergeFrontmatter({
 		total_visual_inspections: aggregateActions.visual_inspections,
 		total_notices: aggregateActions.notices,
 		total_theme_changes: aggregateActions.theme_changes,
@@ -1778,9 +1739,13 @@ function generateReport() {
 		total_delete_files: aggregateActions.delete_files,
 		total_open_files: aggregateActions.open_files,
 		total_close_leaves: aggregateActions.close_leaves,
-		tools: allTools.length > 0
-			? "\n" + allTools.map((t) => `  - ${t}`).join("\n")
-			: "[]",
+	});
+	if (allTools.length > 0) {
+		doc.setFrontmatter("tools", allTools);
+	} else {
+		doc.setRawFrontmatter("tools", "[]");
+	}
+	doc.mergeFrontmatter({
 		duration_ms: totalDurationMs,
 		duration: formatDuration(totalDurationMs),
 		journeys: journeys.length,
@@ -1789,48 +1754,28 @@ function generateReport() {
 		trace_events: trace?.summary?.totalEvents ?? 0,
 		trace_perf_events: trace?.summary?.perfEvents ?? 0,
 		startup_p50: startupPerf ? round(percentile([...startupPerf.history].sort((a, b) => a - b), 0.5)) : 0,
-		test_suites: testSuiteLinks.length > 0
-			? "\n" + testSuiteLinks.map((l) => `  - ${l}`).join("\n")
-			: "[]",
-		journey_reports: journeyReportLinks.length > 0
-			? "\n" + journeyReportLinks.map((l) => `  - ${l}`).join("\n")
-			: "[]",
-		journey_canvases: journeyCanvasLinks.length > 0
-			? "\n" + journeyCanvasLinks.map((l) => `  - ${l}`).join("\n")
-			: "[]",
-		event_trace: `"[[Event Trace]]"`,
-		event_trace_json: `"[[Event Trace.json]]"`,
-		event_trace_csv: `"[[Event Trace.csv]]"`,
-		tags: overallStatus === "partial-pass"
-			? "\n  - report\n  - e2e\n  - partial"
-			: "\n  - report\n  - e2e",
-	};
-
-	const PREFORMATTED_KEYS = new Set(["tags", "test_suites", "journey_reports", "journey_canvases", "event_trace", "event_trace_json", "event_trace_csv", "tools"]);
-
-	const frontmatter = [
-		"---",
-		...Object.entries(fm).map(([k, v]) => {
-			if (PREFORMATTED_KEYS.has(k)) return `${k}: ${v}`;
-			return `${k}: ${yamlEscape(v)}`;
-		}),
-		"---",
-	].join("\n");
+	});
+	doc.setFrontmatter("test_suites", testSuiteLinks);
+	doc.setFrontmatter("journey_reports", journeyReportLinks);
+	doc.setFrontmatter("journey_canvases", journeyCanvasLinks);
+	doc.setRawFrontmatter("event_trace", '"[[Event Trace]]"');
+	doc.setRawFrontmatter("event_trace_json", '"[[Event Trace.json]]"');
+	doc.setRawFrontmatter("event_trace_csv", '"[[Event Trace.csv]]"');
+	const e2eTags = ["report", "e2e"];
+	if (overallStatus === "partial-pass") e2eTags.push("partial");
+	doc.setTags(e2eTags);
 
 	const reportTitleSuffix = overallStatus === "partial-pass" ? " (Partial)" : "";
-	const overallCallout = statusCallout(overallStatus);
-	const overallLabel = statusLabel(overallStatus);
 
-	const lines = [
-		"",
-		`# E2E Report${reportTitleSuffix}`,
-		"",
-		`> [!${overallCallout}] Summary — ${overallLabel}`,
-		`> Mode: **${fm.mode}** | Tests: ${totalTests} | Passed: ${totalPassed} | Failed: ${totalFailed} | Skipped: ${totalSkipped}` +
+	doc.addBlank()
+		.heading(1, `E2E Report${reportTitleSuffix}`)
+		.addBlank();
+	doc.callout(statusCallout(overallStatus), `Summary — ${statusLabel(overallStatus)}`, [
+		`Mode: **${resolveMode()}** | Tests: ${totalTests} | Passed: ${totalPassed} | Failed: ${totalFailed} | Skipped: ${totalSkipped}` +
 		(totalDev > 0 ? ` | Dev: ${totalDev}` : ""),
-		`> Duration: ${formatDuration(totalDurationMs)}`,
-		"",
-	];
+		`Duration: ${formatDuration(totalDurationMs)}`,
+	]);
+	doc.addBlank();
 
 	// ── Failures section — surfaces failed steps at the top ──
 	// Collects from two sources:
@@ -1869,94 +1814,96 @@ function generateReport() {
 	const totalFailures = failedSteps.length + vitestFailures.length;
 
 	if (totalFailures > 0) {
-		lines.push("---", "");
-		lines.push(`## Failures (${totalFailures})`, "");
+		doc.addSeparator().addBlank();
+		doc.heading(2, `Failures (${totalFailures})`).addBlank();
 
 		// Journey-level failures (rich context)
 		for (const { journeyTitle, stepResult } of failedSteps) {
 			const s = stepResult.step;
 			const stepLabel = `Step ${s.guideSection}: ${s.title}`;
 
-			lines.push(`### ${stepLabel} [FAIL]`);
-			lines.push("");
-			lines.push(
-				`> [!danger] ${journeyTitle} — ${stepLabel} (${formatDuration(stepResult.durationMs)})`,
-			);
+			doc.heading(3, `${stepLabel} [FAIL]`);
+			doc.addBlank();
+
+			const dangerLines = [];
 			if (stepResult.error) {
-				lines.push(`> **Error**: ${stepResult.error}`);
+				dangerLines.push(`**Error**: ${stepResult.error}`);
 			}
-			lines.push("");
+			doc.callout("danger", `${journeyTitle} — ${stepLabel} (${formatDuration(stepResult.durationMs)})`, dangerLines);
+			doc.addBlank();
 
 			// Compact error trace for quick diagnosis
 			if (stepResult.errorContext) {
 				const ctx = stepResult.errorContext;
-				lines.push("> [!bug] Trace");
+				const traceLines = [];
 
 				if (ctx.domSnapshot) {
 					const ds = ctx.domSnapshot;
-					lines.push(
-						`> View: \`${ds.activeViewType}\` | Leaves: ${ds.leafCount} | Modal: ${ds.hasModal ? "yes" : "no"}`,
+					traceLines.push(
+						`View: \`${ds.activeViewType}\` | Leaves: ${ds.leafCount} | Modal: ${ds.hasModal ? "yes" : "no"}`,
 					);
 					if (ds.notices && ds.notices.length > 0) {
-						lines.push(
-							`> Notices: ${ds.notices.map((n) => `\`${n.substring(0, 80)}\``).join(", ")}`,
+						traceLines.push(
+							`Notices: ${ds.notices.map((n) => `\`${n.substring(0, 80)}\``).join(", ")}`,
 						);
 					}
 				}
 
 				if (ctx.recentEvents && ctx.recentEvents.length > 0) {
-					lines.push(">");
-					lines.push("> **Recent Events**:");
+					traceLines.push("");
+					traceLines.push("**Recent Events**:");
 					for (const e of ctx.recentEvents) {
-						lines.push(`> - \`${e.type}\` (${e.relativeMs}ms ago)`);
+						traceLines.push(`- \`${e.type}\` (${e.relativeMs}ms ago)`);
 					}
 				}
 
 				if (ctx.consoleErrors && ctx.consoleErrors.length > 0) {
-					lines.push(">");
-					lines.push("> **Console Errors**:");
+					traceLines.push("");
+					traceLines.push("**Console Errors**:");
 					for (const e of ctx.consoleErrors) {
-						lines.push(`> - \`${e.substring(0, 120)}\``);
+						traceLines.push(`- \`${e.substring(0, 120)}\``);
 					}
 				}
 
 				if (ctx.pluginState) {
-					lines.push(">");
-					lines.push(
-						`> Plugin: loaded=${ctx.pluginState.loaded}, services=${ctx.pluginState.serviceCount}`,
+					traceLines.push("");
+					traceLines.push(
+						`Plugin: loaded=${ctx.pluginState.loaded}, services=${ctx.pluginState.serviceCount}`,
 					);
 				}
-				lines.push("");
+
+				doc.callout("bug", "Trace", traceLines);
+				doc.addBlank();
 			}
 
-			lines.push(`Details: [[${journeyTitle}#${stepLabel} FAIL]] | Canvas: [[${journeyTitle}.canvas|Canvas]]`);
-			lines.push("");
+			doc.text(`Details: [[${journeyTitle}#${stepLabel} FAIL]] | Canvas: [[${journeyTitle}.canvas|Canvas]]`);
+			doc.addBlank();
 		}
 
 		// Vitest-level failures (catches retries that passed in journey runner
 		// but are still recorded as failed by vitest's first-attempt tracking)
 		if (vitestFailures.length > 0) {
 			if (failedSteps.length > 0) {
-				lines.push("---", "");
+				doc.addSeparator().addBlank();
 			}
-			const label = failedSteps.length > 0
-				? "### Vitest Failures (not captured by journey runner)"
-				: "### Test Runner Failures";
-			lines.push(label, "");
+			const vtLabel = failedSteps.length > 0
+				? "Vitest Failures (not captured by journey runner)"
+				: "Test Runner Failures";
+			doc.heading(3, vtLabel).addBlank();
 
 			for (const { suite, testCase, hookError } of vitestFailures) {
 				const dur = testCase.durationMs > 0 ? ` (${formatDuration(testCase.durationMs)})` : "";
-				lines.push(`> [!danger] ${suite} — ${testCase.name}${dur}`);
+				const vtLines = [];
 				if (testCase.error) {
-					// First line of vitest error (often includes the assertion message)
 					const firstLine = testCase.error.split("\n")[0].substring(0, 200);
-					lines.push(`> **Error**: ${firstLine}`);
+					vtLines.push(`**Error**: ${firstLine}`);
 				}
 				if (hookError && !testCase.error) {
 					const firstLine = hookError.split("\n")[0].substring(0, 200);
-					lines.push(`> **Hook error**: ${firstLine}`);
+					vtLines.push(`**Hook error**: ${firstLine}`);
 				}
-				lines.push("");
+				doc.callout("danger", `${suite} — ${testCase.name}${dur}`, vtLines);
+				doc.addBlank();
 			}
 		}
 	}
@@ -1972,74 +1919,65 @@ function generateReport() {
 	}
 
 	if (stepsWithWarnings.length > 0) {
-		lines.push("---", "");
-		lines.push(`## Warnings (${stepsWithWarnings.length})`, "");
+		doc.addSeparator().addBlank();
+		doc.heading(2, `Warnings (${stepsWithWarnings.length})`).addBlank();
 
 		for (const { journeyTitle, stepResult } of stepsWithWarnings) {
 			const s = stepResult.step;
 			const stepLabel = `Step ${s.guideSection}: ${s.title}`;
-			lines.push(`> [!warning] ${journeyTitle} — ${stepLabel}`);
-			for (const w of stepResult.warnings) {
-				// Extract just the user-provided reason (after "Reason: ") if present
+			const warnLines = stepResult.warnings.map((w) => {
 				const reasonMatch = w.match(/\nReason:\s*(.+)/);
-				const reason = reasonMatch ? reasonMatch[1].trim() : w;
-				lines.push(`> ${reason}`);
-			}
-			lines.push("");
+				return reasonMatch ? reasonMatch[1].trim() : w;
+			});
+			doc.callout("warning", `${journeyTitle} — ${stepLabel}`, warnLines);
+			doc.addBlank();
 		}
 	}
 
 	// Action coverage summary (aggregate across all journeys)
 	if (aggregateActions.total > 0) {
-		lines.push("---", "");
-		lines.push("## Action Coverage", "");
-		lines.push(
-			`> [!abstract] ${aggregateActions.total} actions across ${journeys.length} journeys`,
-		);
+		doc.addSeparator().addBlank();
+		doc.heading(2, "Action Coverage").addBlank();
 		const lifecycleCount = aggregateActions.create_files + aggregateActions.delete_files + aggregateActions.open_files + aggregateActions.close_leaves;
-		lines.push(
-			`> Screenshots: **${aggregateActions.screenshots}** | Assertions: **${aggregateActions.assertions}** | Manual QA: **${aggregateActions.manual_checks}**` +
+		doc.callout("abstract", `${aggregateActions.total} actions across ${journeys.length} journeys`, [
+			`Screenshots: **${aggregateActions.screenshots}** | Assertions: **${aggregateActions.assertions}** | Manual QA: **${aggregateActions.manual_checks}**` +
 			(aggregateActions.visual_inspections > 0 ? ` | Visual: **${aggregateActions.visual_inspections}**` : "") +
 			` | Notices: **${aggregateActions.notices}**` +
 			(aggregateActions.theme_changes > 0 ? ` | Themes: **${aggregateActions.theme_changes}**` : "") +
 			(lifecycleCount > 0 ? ` | Lifecycle: **${lifecycleCount}**` : ""),
-		);
-		lines.push(
-			`> Tools: ${allTools.map((t) => `\`${t}\``).join(" ")}`,
-		);
-		lines.push("");
+			`Tools: ${allTools.map((t) => `\`${t}\``).join(" ")}`,
+		]);
+		doc.addBlank();
 
 		// Per-journey breakdown table
 		if (journeyReportNames.length > 1) {
-			lines.push("| Journey | Actions | Screenshots | Assertions | Manual | Notices | Lifecycle | Tools |");
-			lines.push("|---|---|---|---|---|---|---|---|");
+			const rows = [];
 			for (const { title, data } of journeyReportNames) {
 				const stats = perJourneyStats.get(data.journey);
 				if (!stats) continue;
 				const lc = stats.create_files + stats.delete_files + stats.open_files + stats.close_leaves;
-				lines.push(
-					`| [[${title}]] | ${stats.total} | ${stats.screenshots} | ${stats.assertions} | ${stats.manual_checks} | ${stats.notices} | ${lc} | ${stats.tools.length} |`,
-				);
+				rows.push([`[[${title}]]`, String(stats.total), String(stats.screenshots), String(stats.assertions), String(stats.manual_checks), String(stats.notices), String(lc), String(stats.tools.length)]);
 			}
-			lines.push("");
+			doc.table(["Journey", "Actions", "Screenshots", "Assertions", "Manual", "Notices", "Lifecycle", "Tools"], rows);
+			doc.addBlank();
 		}
 	}
 
 	// Units Under Test — show test source files for context
 	if (vitest && vitest.suites.length > 0) {
-		lines.push("---", "");
-		lines.push("## Units Under Test", "");
-		for (const suite of vitest.suites) {
+		doc.addSeparator().addBlank();
+		doc.heading(2, "Units Under Test").addBlank();
+		doc.list(vitest.suites.map((suite) => {
 			const relativePath = path.relative(PLUGIN_ROOT, suite.file).replace(/\\/g, "/");
-			lines.push(`- \`${relativePath}\``);
-		}
-		lines.push("");
+			return `\`${relativePath}\``;
+		}));
+		doc.addBlank();
 	}
 
 	// Test suites section (uses reconciled data for accurate status)
 	if (reconciled) {
-		lines.push("---", "");
-		lines.push("## Test Suites", "");
+		doc.addSeparator().addBlank();
+		doc.heading(2, "Test Suites").addBlank();
 
 		// Build lookup of test names with visual-inspection warnings
 		// so the checklist can render [~] instead of [x] for partial-pass steps
@@ -2055,46 +1993,32 @@ function generateReport() {
 		}
 
 		for (const suite of reconciled.suites) {
-			// Use reconciled counts when available (journey suites), else raw vitest
 			const sPassed = suite.reconciledPassed ?? suite.passed;
 			const sFailed = suite.reconciledFailed ?? suite.failed;
 			const sSkipped = suite.reconciledSkipped ?? suite.skipped;
 			const sDev = suite.reconciledDev ?? 0;
 			const sTotal = suite.cases.length;
 			const suiteStatus = resolveStatus(sPassed, sFailed, sTotal, sSkipped + sDev);
-			const callout = statusCallout(suiteStatus);
-			const icon = statusLabel(suiteStatus);
 
-			lines.push(`### ${suite.name}`);
-			lines.push("");
+			doc.heading(3, suite.name);
+			doc.addBlank();
 			const summaryParts = [`${sPassed}/${sTotal} passed`];
 			if (sSkipped > 0) summaryParts.push(`${sSkipped} skipped`);
 			if (sDev > 0) summaryParts.push(`${sDev} dev`);
-			lines.push(`> [!${callout}] ${icon} — ${summaryParts.join(", ")}`);
-
-			// Show hook error so the reader can see WHERE the chain broke
+			const hookLines = [];
 			if (suite.hookError) {
 				const firstLine = suite.hookError.split("\n")[0].substring(0, 200);
-				lines.push(`> **Hook failure**: ${firstLine}`);
+				hookLines.push(`**Hook failure**: ${firstLine}`);
 			}
-
-			lines.push("");
+			doc.callout(statusCallout(suiteStatus), `${statusLabel(suiteStatus)} — ${summaryParts.join(", ")}`, hookLines);
+			doc.addBlank();
 
 			for (const c of suite.cases) {
-				// Use reconciledStatus when available (journey steps), else raw vitest status
 				const status = c.reconciledStatus ?? c.status;
 
-				// Markers:
-				//   [x] passed   — test ran and passed
-				//   [~] warned   — test passed but has visual-inspection warnings
-				//   [!] failed   — test ran and failed (Obsidian renders as important)
-				//   [ ] blocked  — never ran because a hook or prior test failed
-				//   [-] skipped  — intentionally skipped (not due to failure)
-				//   [-] dev      — dev-mode step (not yet implemented)
 				let mark;
 				let suffix = "";
 				if (status === "passed") {
-					// Check if this test has visual-inspection warnings
 					const hasWarning = warningItBlocks.size > 0 &&
 						[...warningItBlocks].some((w) => c.name.includes(w));
 					mark = hasWarning ? "[~]" : "[x]";
@@ -2119,33 +2043,32 @@ function generateReport() {
 				const displayName = c.name.includes(" > ")
 					? c.name.substring(c.name.lastIndexOf(" > ") + 3)
 					: c.name;
-				lines.push(`- ${mark} ${displayName}${dur}${blocked}${suffix}`);
+				doc.text(`- ${mark} ${displayName}${dur}${blocked}${suffix}`);
 
 				if (c.error) {
-					lines.push(`  > Error: ${c.error.split("\n")[0]}`);
+					doc.text(`  > Error: ${c.error.split("\n")[0]}`);
 				}
 			}
-			lines.push("");
+			doc.addBlank();
 		}
 	}
 
 	// Performance section (from data.json startup history)
-	lines.push(...buildPerfLines(startupPerf));
+	buildPerfLines(startupPerf, doc);
 
 	// Event trace section (from latest event-trace.json)
-	lines.push(...buildEventTraceLines(trace));
+	buildEventTraceLines(trace, doc);
 
 	// Journey summary section — wikilinks to dedicated journey reports
 	if (journeyReportNames.length > 0) {
-		lines.push("---", "");
-		lines.push("## Journeys", "");
+		doc.addSeparator().addBlank();
+		doc.heading(2, "Journeys").addBlank();
 
 		for (const { title, data } of journeyReportNames) {
 			const jSkipped = data.skipped ?? 0;
 			const jDevStopped = data.devStopped === true;
 			const jDevSteps = data.dev ?? 0;
 			const jStatus = resolveStatus(data.passed ?? 0, data.failed ?? 0, data.totalSteps ?? 0, jSkipped, false, jDevStopped);
-			const callout = statusCallout(jStatus);
 			const stats = perJourneyStats.get(data.journey);
 			const jTitleSuffix = jStatus === "partial-pass" ? " (Partial)"
 				: jStatus === "dev-stopped" ? " (Dev)" : "";
@@ -2155,30 +2078,27 @@ function generateReport() {
 					? `${data.passed ?? 0}/${data.totalSteps ?? 0} steps (${jSkipped} skipped)`
 					: `${data.passed ?? 0}/${data.totalSteps ?? 0} steps`;
 
-			lines.push(`### Journey: ${title}${jTitleSuffix}`);
-			lines.push("");
-			lines.push(
-				`> [!${callout}] ${statusLabel(jStatus)} — ` +
-				`${jStepsSummary} | ` +
-				`${formatDuration(data.durationMs ?? 0)}`,
-			);
+			doc.heading(3, `Journey: ${title}${jTitleSuffix}`);
+			doc.addBlank();
+			const jCalloutLines = [];
 			if (stats && stats.total > 0) {
 				const lc = stats.create_files + stats.delete_files + stats.open_files + stats.close_leaves;
-				lines.push(
-					`> Actions: ${stats.total} | Screenshots: ${stats.screenshots} | Assertions: ${stats.assertions} | Manual: ${stats.manual_checks}` +
+				jCalloutLines.push(
+					`Actions: ${stats.total} | Screenshots: ${stats.screenshots} | Assertions: ${stats.assertions} | Manual: ${stats.manual_checks}` +
 					(stats.visual_inspections > 0 ? ` | Visual: ${stats.visual_inspections}` : "") +
 					` | Notices: ${stats.notices}` +
 					(stats.theme_changes > 0 ? ` | Themes: ${stats.theme_changes}` : "") +
 					(lc > 0 ? ` | Lifecycle: ${lc}` : ""),
 				);
 			}
-			lines.push("");
-			lines.push(`Full details: [[${title}]] | Canvas: [[${title}.canvas|Canvas]]`);
-			lines.push("");
+			doc.callout(statusCallout(jStatus), `${statusLabel(jStatus)} — ${jStepsSummary} | ${formatDuration(data.durationMs ?? 0)}`, jCalloutLines);
+			doc.addBlank();
+			doc.text(`Full details: [[${title}]] | Canvas: [[${title}.canvas|Canvas]]`);
+			doc.addBlank();
 		}
 	}
 
-	const content = frontmatter + lines.join("\n");
+	const content = doc.toString();
 
 	const safeTimestamp = now.toISOString().replace(/:/g, "-");
 	const e2ePartialSuffix = overallStatus === "partial-pass" ? " (Partial)" : "";

@@ -13,6 +13,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { ROOT } from "../src/infrastructure/config.mjs";
+import { Document } from "../src/infrastructure/document.mjs";
 
 // Resolve external dep from the plugin's node_modules (not installed in CLI project)
 const depPath = pathToFileURL(path.join(ROOT, "node_modules", "@pythonidaer", "complexity-report", "integration", "eslint", "index.js")).href;
@@ -21,14 +22,6 @@ const { runESLintComplexityCheck } = await import(depPath);
 const COMPLEXITY_JSON = path.join(ROOT, "complexity", "complexity-report.json");
 const OUTPUT_DIR = path.join(ROOT, "docs", "reports", "complexity");
 const STABLE_PATH = path.join(OUTPUT_DIR, "Complexity Report.md");
-
-function yamlEscape(value) {
-	if (value === null || value === undefined) return "null";
-	if (typeof value === "boolean" || typeof value === "number") return String(value);
-	const str = String(value);
-	if (/[:\n\r\t#'"{}[\],&*?]|^\s|\s$/.test(str)) return JSON.stringify(str);
-	return str;
-}
 
 /**
  * Parse complexity values from ESLint messages.
@@ -105,51 +98,53 @@ function generateReport(data, entries) {
 		node_version: process.version,
 	};
 
-	const frontmatter = ["---", ...Object.entries(fm).map(([k, v]) => `${k}: ${yamlEscape(v)}`), "---"].join("\n");
-
 	const topOffenders = entries
 		.sort((a, b) => b.complexity - a.complexity)
 		.slice(0, 25);
 
-	const body = [
-		"",
-		"# Complexity Report",
-		"",
-		"> [!info] Summary",
-		`> Files: ${totalFiles} | Functions: ${totalFunctions} | Above threshold (>10): ${aboveThreshold}`,
-		`> Max: ${maxComplexity} | Avg: ${avgComplexity.toFixed(1)} | Median: ${medianComplexity}`,
-		"",
-		"## Distribution",
-		"",
-		"| Range | Count | % |",
-		"|-------|------:|--:|",
-		...Object.entries(distribution).map(
-			([range, count]) =>
-				`| ${range} | ${count} | ${((count / totalFunctions) * 100).toFixed(1)}% |`
-		),
-		"",
-		"## Top 25 Most Complex Functions",
-		"",
-		"| # | Complexity | File | Line |",
-		"|--:|----------:|------|-----:|",
-		...topOffenders.map(
-			(e, i) => `| ${i + 1} | ${e.complexity} | \`${e.file}\` | ${e.line} |`
-		),
-		"",
-		"## Domain Breakdown",
-		"",
-		"| Domain | Functions | Above 10 | Max | Avg |",
-		"|--------|----------:|---------:|----:|----:|",
-		...Object.entries(domainMap)
-			.sort((a, b) => b[1].above10 - a[1].above10)
-			.map(
-				([domain, stats]) =>
-					`| ${domain} | ${stats.functions} | ${stats.above10} | ${stats.maxComplexity} | ${(stats.totalComplexity / stats.functions).toFixed(1)} |`
-			),
-		"",
-	].join("\n");
+	const doc = Document.create("Complexity Report")
+		.mergeFrontmatter(fm)
+		.addBlank()
+		.heading(1, "Complexity Report")
+		.addBlank()
+		.callout("info", "Summary", [
+			`Files: ${totalFiles} | Functions: ${totalFunctions} | Above threshold (>10): ${aboveThreshold}`,
+			`Max: ${maxComplexity} | Avg: ${avgComplexity.toFixed(1)} | Median: ${medianComplexity}`,
+		])
+		.addBlank()
+		.heading(2, "Distribution")
+		.addBlank()
+		.table(
+			["Range", "Count", "%"],
+			Object.entries(distribution).map(([range, count]) => [
+				range, String(count), `${((count / totalFunctions) * 100).toFixed(1)}%`,
+			]),
+			{ alignRight: [1, 2] },
+		)
+		.addBlank()
+		.heading(2, "Top 25 Most Complex Functions")
+		.addBlank()
+		.table(
+			["#", "Complexity", "File", "Line"],
+			topOffenders.map((e, i) => [String(i + 1), String(e.complexity), `\`${e.file}\``, String(e.line)]),
+			{ alignRight: [0, 1, 3] },
+		)
+		.addBlank()
+		.heading(2, "Domain Breakdown")
+		.addBlank()
+		.table(
+			["Domain", "Functions", "Above 10", "Max", "Avg"],
+			Object.entries(domainMap)
+				.sort((a, b) => b[1].above10 - a[1].above10)
+				.map(([domain, stats]) => [
+					domain, String(stats.functions), String(stats.above10),
+					String(stats.maxComplexity), (stats.totalComplexity / stats.functions).toFixed(1),
+				]),
+			{ alignRight: [1, 2, 3, 4] },
+		)
+		.addBlank();
 
-	return frontmatter + body;
+	return doc.toString();
 }
 
 async function main() {

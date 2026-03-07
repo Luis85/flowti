@@ -3,6 +3,7 @@
  */
 
 import { toPascal, toCamel } from "./naming.mjs";
+import { Document } from "../../infrastructure/document.mjs";
 
 // ══════════════════════════════════════════════════════════════════════
 // Hub templates
@@ -199,45 +200,37 @@ export function hubCssTemplate(pascal, kebab) {
 }
 
 export function hubPrdTemplate(pascal) {
-	return `---
-type: Feature
-domain: ${pascal}
-stage: draft
-version: 1
-tags:
-  - feature
-  - ${pascal.toLowerCase()}
----
-
-# ${pascal} Hub
-
-## Problem Statement
-
-Describe the problem this hub solves.
-
-## Goals
-
-1. Goal one
-2. Goal two
-
-## Scope
-
-### In Scope
-- Item one
-- Item two
-
-### Out of Scope
-- Deferred item
-
-## Solution
-
-Describe the solution approach.
-
-## Acceptance Criteria
-
-- [ ] Criterion one
-- [ ] Criterion two
-`;
+	return Document.create(`${pascal} Hub`)
+		.mergeFrontmatter({ type: "Feature", domain: pascal, stage: "draft", version: 1 })
+		.setTags(["feature", pascal.toLowerCase()])
+		.addBlank()
+		.heading(1, `${pascal} Hub`)
+		.addBlank()
+		.heading(2, "Problem Statement")
+		.addBlank()
+		.text("Describe the problem this hub solves.")
+		.addBlank()
+		.heading(2, "Goals")
+		.addBlank()
+		.orderedList(["Goal one", "Goal two"])
+		.addBlank()
+		.heading(2, "Scope")
+		.addBlank()
+		.heading(3, "In Scope")
+		.list(["Item one", "Item two"])
+		.addBlank()
+		.heading(3, "Out of Scope")
+		.list(["Deferred item"])
+		.addBlank()
+		.heading(2, "Solution")
+		.addBlank()
+		.text("Describe the solution approach.")
+		.addBlank()
+		.heading(2, "Acceptance Criteria")
+		.addBlank()
+		.list(["[ ] Criterion one", "[ ] Criterion two"])
+		.addBlank()
+		.toString();
 }
 
 export function hubJourneyTemplate(pascal, kebab) {

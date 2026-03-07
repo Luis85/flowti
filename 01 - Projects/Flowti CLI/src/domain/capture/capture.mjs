@@ -7,6 +7,7 @@ import path from "node:path";
 import { VAULT_ROOT, getCaptureDir } from "../../infrastructure/config.mjs";
 import { RESET, BOLD, DIM, GREEN, RED, CYAN, YELLOW, printHeader, printMenu } from "../../infrastructure/ui.mjs";
 import { createRL, ask } from "../../infrastructure/readline.mjs";
+import { Document } from "../../infrastructure/document.mjs";
 
 // ── Constants ───────────────────────────────────────────────────────
 
@@ -34,23 +35,17 @@ function createCaptureFile(type, title, body) {
 		return null;
 	}
 
-	const now = new Date().toISOString();
-	const lines = [
-		"---",
-		`type: ${type}`,
-		`date: ${now}`,
-		"---",
-		"",
-		`# ${title}`,
-	];
+	const doc = Document.create(title)
+		.mergeFrontmatter({ type, date: new Date().toISOString() })
+		.addBlank()
+		.heading(1, title);
 
 	if (body) {
-		lines.push("", body);
+		doc.addBlank().text(body);
 	}
 
-	lines.push("");
-
-	fs.writeFileSync(filePath, lines.join("\n"), "utf-8");
+	doc.addBlank();
+	doc.save(filePath);
 	const relPath = path.relative(VAULT_ROOT, filePath);
 	console.log(`\n  ${GREEN}✓${RESET} Created: ${relPath}`);
 	return filePath;

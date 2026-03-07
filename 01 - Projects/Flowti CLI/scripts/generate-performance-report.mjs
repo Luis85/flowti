@@ -10,6 +10,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "../src/infrastructure/config.mjs";
+import { Document } from "../src/infrastructure/document.mjs";
 
 // The plugin stores state in the Obsidian vault's plugin data folder.
 // During builds the data.json may be at the vault root's plugin dir.
@@ -18,14 +19,6 @@ const DATA_JSON_CANDIDATES = [
 	path.join(ROOT, "data.json"),
 ];
 const OUTPUT_DIR = path.join(ROOT, "docs", "reports", "performance");
-
-function yamlEscape(value) {
-	if (value === null || value === undefined) return "null";
-	if (typeof value === "boolean" || typeof value === "number") return String(value);
-	const str = String(value);
-	if (/[:\n\r\t#'"{}[\],&*?]|^\s|\s$/.test(str)) return JSON.stringify(str);
-	return str;
-}
 
 function percentile(sorted, p) {
 	if (sorted.length === 0) return 0;
@@ -74,30 +67,29 @@ function main() {
 		data_json_size_bytes: data ? JSON.stringify(data).length : 0,
 	};
 
-	const frontmatter = ["---", ...Object.entries(fm).map(([k, v]) => `${k}: ${yamlEscape(v)}`), "---"].join("\n");
-
-	const body = [
-		"",
-		"# Performance Report",
-		"",
-		"> [!info] Summary",
-		`> Last startup: ${fm.startup_total_ms}ms | p50: ${fm.startup_p50}ms | p95: ${fm.startup_p95}ms | Max: ${fm.startup_max}ms`,
-		`> Measurements: ${fm.startup_measurements} | data.json: ${formatBytes(fm.data_json_size_bytes)}`,
-		"",
-		"## Startup History",
-		"",
-		`| # | Duration |`,
-		`| - | -------- |`,
-		...startupHistory.map((ms, i) => `| ${i + 1} | ${round(ms)}ms |`),
-		"",
-	].join("\n");
+	const doc = Document.create("Performance Report")
+		.mergeFrontmatter(fm)
+		.addBlank()
+		.heading(1, "Performance Report")
+		.addBlank()
+		.callout("info", "Summary", [
+			`Last startup: ${fm.startup_total_ms}ms | p50: ${fm.startup_p50}ms | p95: ${fm.startup_p95}ms | Max: ${fm.startup_max}ms`,
+			`Measurements: ${fm.startup_measurements} | data.json: ${formatBytes(fm.data_json_size_bytes)}`,
+		])
+		.addBlank()
+		.heading(2, "Startup History")
+		.addBlank()
+		.table(
+			["#", "Duration"],
+			startupHistory.map((ms, i) => [String(i + 1), `${round(ms)}ms`]),
+		)
+		.addBlank();
 
 	const safeTimestamp = now.toISOString().replace(/:/g, "-");
 	const filename = `${safeTimestamp}-performance-report.md`;
 	const outputPath = path.join(OUTPUT_DIR, filename);
 
-	fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-	fs.writeFileSync(outputPath, frontmatter + body, "utf-8");
+	doc.save(outputPath);
 
 	console.log(`[report] PerformanceReport written: ${outputPath}`);
 }

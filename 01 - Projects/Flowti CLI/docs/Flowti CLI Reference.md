@@ -1,11 +1,12 @@
 ---
 type: CLIReference
-date: "2026-03-07T13:52:53.374Z"
+date: "2026-03-07T15:24:14.020Z"
 sections: 9
 cli_commands: 25
 npm_scripts: 38
 report_generators: 14
 ---
+
 # Flowti CLI Reference
 
 > [!info] Summary
@@ -50,6 +51,18 @@ MAKE — Scaffold boilerplate code from Flowti patterns.
 - package.json with focused npm scripts
 
      Prompts: plugin name, plugin ID, author
+
+  3) New Application
+     Scaffolds a full DDD Obsidian plugin project under 01 - Projects/:
+- Working EventBus (~80 LOC) with type-safe events
+- Infrastructure layer (events, errors, services)
+- Vitest + happy-dom + obsidian-stub test setup
+- Starter EventBus test (4 tests, passing on first run)
+- esbuild config with CSS pipeline
+- AppError base class with code + context
+- 17 files total, ready to npm install && npm run build
+
+     Prompts: app name, app ID, author
 
 ### CONFIGURATION
 
@@ -307,7 +320,7 @@ Use this to quickly check project health before starting work.
 All commands can be run directly without the interactive menu:
 
 | Command | Description |
-|---------|-------------|
+|---|---|
 | `npm run flowti -- help` | Show help (optionally for a section) |
 | `npm run flowti -- build` | Fast build (esbuild only, no reports) |
 | `npm run flowti -- build:increment` | Full CI pipeline: check → build → test → e2e → docs → distribute |
@@ -337,7 +350,7 @@ All commands can be run directly without the interactive menu:
 ## npm Scripts
 
 | Script | Command |
-|--------|---------|
+|---|---|
 | `test` | `npm run check && vitest run` |
 | `test:watch` | `npm run check && vitest` |
 | `test:ui` | `npm run check && vitest --ui` |
@@ -382,7 +395,7 @@ All commands can be run directly without the interactive menu:
 14 report generators are configured in `flowti.config.json`:
 
 | ID | Label | Script |
-|----|-------|--------|
+|---|---|---|
 | test | Test Report | `generate-test-report.mjs` |
 | coverage | Coverage Report | `generate-coverage-report.mjs` |
 | build | Build Report | `generate-build-report.mjs` |
@@ -405,7 +418,7 @@ Scaffold output paths (`flowti.config.json` → `make`):
 ### Hub Paths
 
 | Key | Path |
-|-----|------|
+|---|---|
 | `make.hub.src` | `src` |
 | `make.hub.ui` | `src/ui` |
 | `make.hub.domain` | `src/domain` |
@@ -419,13 +432,13 @@ Scaffold output paths (`flowti.config.json` → `make`):
 ### Plugin Paths
 
 | Key | Path |
-|-----|------|
+|---|---|
 | `make.plugin.output` | `../` |
 
 ## Configuration Files
 
 | File | Purpose |
-|------|---------|
+|---|---|
 | `flowti.config.json` | CLI config: paths, build settings, report scripts, make paths |
 | `build-endpoints.json` | Distribution endpoints for multi-vault deploy |
 | `manifest.json` | Obsidian plugin metadata (id, version, author) |

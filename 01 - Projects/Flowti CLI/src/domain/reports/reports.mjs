@@ -11,6 +11,7 @@ import { createRL, ask } from "../../infrastructure/readline.mjs";
 import { findLatestReport, parseFrontmatter } from "../../infrastructure/fs.mjs";
 import { runMenu } from "../../infrastructure/menu.mjs";
 import { showHelp } from "../help/help.mjs";
+import { Document } from "../../infrastructure/document.mjs";
 
 const rptCfg = cliConfig.reports ?? {};
 
@@ -127,42 +128,31 @@ async function auditMenu() {
 	}
 
 	const now = new Date();
-	const lines = [
-		"---",
-		"type: Audit",
-		`name: "${auditName}"`,
-		`date: "${now.toISOString()}"`,
-		"tags:",
-		"  - audit",
-		"  - review",
-		"---",
-		"",
-		`# Audit: ${auditName}`,
-		"",
-		`> Generated: ${now.toISOString().slice(0, 16).replace("T", " ")}`,
-		"",
-	];
+	const doc = Document.create(auditName)
+		.mergeFrontmatter({ type: "Audit", name: auditName, date: now.toISOString() })
+		.setTags(["audit", "review"])
+		.addBlank()
+		.heading(1, `Audit: ${auditName}`)
+		.addBlank()
+		.quote(`Generated: ${now.toISOString().slice(0, 16).replace("T", " ")}`)
+		.addBlank();
 
 	for (const section of sections) {
-		lines.push(`## ${section.label}`);
-		lines.push("");
-		lines.push(`> Source: ${section.file}`);
-		lines.push("");
+		doc.heading(2, section.label).addBlank();
+		doc.quote(`Source: ${section.file}`).addBlank();
 		if (section.data && Object.keys(section.data).length > 0) {
-			lines.push("| Metric | Value |");
-			lines.push("|---|---|");
-			for (const [key, value] of Object.entries(section.data)) {
-				if (key === "tags" || key === "type") continue;
-				lines.push(`| ${key} | ${value} |`);
-			}
+			const rows = Object.entries(section.data)
+				.filter(([key]) => key !== "tags" && key !== "type")
+				.map(([key, value]) => [key, String(value)]);
+			doc.table(["Metric", "Value"], rows);
 		} else {
-			lines.push("*No data available.*");
+			doc.text("*No data available.*");
 		}
-		lines.push("");
+		doc.addBlank();
 	}
 
 	const auditPath = path.join(auditDir, `${auditName}.md`);
-	fs.writeFileSync(auditPath, lines.join("\n"), "utf-8");
+	doc.save(auditPath);
 	console.log(`  ${GREEN}✓${RESET} Audit written to: ${path.relative(ROOT, auditPath)}\n`);
 }
 

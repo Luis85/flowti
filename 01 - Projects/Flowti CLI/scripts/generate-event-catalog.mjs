@@ -10,17 +10,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "../src/infrastructure/config.mjs";
+import { Document } from "../src/infrastructure/document.mjs";
 
 const CATALOG_PATH = path.join(ROOT, "src", "infrastructure", "events", "catalog.ts");
 const OUTPUT_DIR = path.join(ROOT, "docs", "reference");
-
-function yamlEscape(value) {
-	if (value === null || value === undefined) return "null";
-	if (typeof value === "boolean" || typeof value === "number") return String(value);
-	const str = String(value);
-	if (/[:\n\r\t#'"{}[\],&*?]|^\s|\s$/.test(str)) return JSON.stringify(str);
-	return str;
-}
 
 /**
  * Extract EVENT_CATEGORIES from the source.
@@ -127,43 +120,36 @@ function main() {
 		domains: uniqueDomains.size,
 	};
 
-	const frontmatter = ["---", ...Object.entries(fm).map(([k, v]) => `${k}: ${yamlEscape(v)}`), "---"].join("\n");
-
-	const bodyLines = [
-		"",
-		"# Event Catalog",
-		"",
-		"> [!info] Summary",
-		`> Total events: ${fm.total_events} | Categories: ${fm.categories} | Domains: ${fm.domains}`,
-		"",
-		"## Domain Summary",
-		"",
-		"| Domain | Events |",
-		"|--------|--------|",
-	];
-
-	for (const [domain, count] of sortedDomains) {
-		bodyLines.push(`| ${domain} | ${count} |`);
-	}
-	bodyLines.push("");
+	const doc = Document.create("Event Catalog")
+		.mergeFrontmatter(fm)
+		.addBlank()
+		.heading(1, "Event Catalog")
+		.addBlank()
+		.callout("info", "Summary", [
+			`Total events: ${fm.total_events} | Categories: ${fm.categories} | Domains: ${fm.domains}`,
+		])
+		.addBlank()
+		.heading(2, "Domain Summary")
+		.addBlank()
+		.table(
+			["Domain", "Events"],
+			sortedDomains.map(([domain, count]) => [domain, String(count)]),
+		)
+		.addBlank();
 
 	for (const [category, entries] of groups) {
-		bodyLines.push(`## ${category}`, "");
-		bodyLines.push("| Event | Description | Direction | Domain | Services | Stability | Visibility |");
-		bodyLines.push("|-------|-------------|-----------|--------|----------|-----------|------------|");
-		for (const e of entries) {
-			bodyLines.push(
-				`| \`${e.type}\` | ${e.description} | ${e.direction} | ${e.domain} | ${e.services} | ${e.stability} | ${e.visibility} |`,
-			);
-		}
-		bodyLines.push("");
+		doc.heading(2, category).addBlank();
+		doc.table(
+			["Event", "Description", "Direction", "Domain", "Services", "Stability", "Visibility"],
+			entries.map((e) => [`\`${e.type}\``, e.description, e.direction, e.domain, e.services, e.stability, e.visibility]),
+		);
+		doc.addBlank();
 	}
 
 	const filename = "Event Catalog.md";
 	const outputPath = path.join(OUTPUT_DIR, filename);
 
-	fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-	fs.writeFileSync(outputPath, frontmatter + bodyLines.join("\n"), "utf-8");
+	doc.save(outputPath);
 
 	console.log(`[report] EventCatalog written (${events.length} events): ${outputPath}`);
 }

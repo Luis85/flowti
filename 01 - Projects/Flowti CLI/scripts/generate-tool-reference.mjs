@@ -10,17 +10,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "../src/infrastructure/config.mjs";
+import { Document } from "../src/infrastructure/document.mjs";
 
 const CATALOG_PATH = path.join(ROOT, "tests", "e2e", "helpers", "toolCatalog.ts");
 const OUTPUT_DIR = path.join(ROOT, "docs", "reference");
-
-function yamlEscape(value) {
-	if (value === null || value === undefined) return "null";
-	if (typeof value === "boolean" || typeof value === "number") return String(value);
-	const str = String(value);
-	if (/[:\n\r\t#'"{}[\],&*?]|^\s|\s$/.test(str)) return JSON.stringify(str);
-	return str;
-}
 
 /**
  * Extract a balanced brace block starting at `pos` (which must be `{`).
@@ -254,109 +247,94 @@ function main() {
 		return a.localeCompare(b);
 	});
 
-	const fm = {
-		type: "ToolReference",
-		date,
-		total_tools: tools.length,
-		categories: sortedCategories.length,
-		tags: `\n${allTags.map((t) => `  - ${t}`).join("\n")}`,
-	};
-
-	const frontmatter = [
-		"---",
-		...Object.entries(fm).map(([k, v]) =>
-			k === "tags" ? `${k}: ${v}` : `${k}: ${yamlEscape(v)}`
-		),
-		"---",
-	].join("\n");
-
-	const bodyLines = [
-		"",
-		"# Journey Runner Tool Reference",
-		"",
-		"> [!info] Summary",
-		`> Total tools: **${fm.total_tools}** | Categories: **${fm.categories}**`,
-		`> Tags: ${allTags.length > 0 ? allTags.map((t) => `\`${t}\``).join(" ") : "_none_"}`,
-		"",
-		"> [!tip] Common field",
-		"> All tools accept an optional `description` field (string) for human-readable context in reports.",
-		"",
-		"---",
-		"",
-	];
+	const doc = Document.create("Journey Runner Tool Reference")
+		.mergeFrontmatter({
+			type: "ToolReference",
+			date,
+			total_tools: tools.length,
+			categories: sortedCategories.length,
+		})
+		.setTags(allTags)
+		.addBlank()
+		.heading(1, "Journey Runner Tool Reference")
+		.addBlank()
+		.callout("info", "Summary", [
+			`Total tools: **${tools.length}** | Categories: **${sortedCategories.length}**`,
+			`Tags: ${allTags.length > 0 ? allTags.map((t) => `\`${t}\``).join(" ") : "_none_"}`,
+		])
+		.addBlank()
+		.callout("tip", "Common field", [
+			"All tools accept an optional `description` field (string) for human-readable context in reports.",
+		])
+		.addBlank()
+		.addSeparator()
+		.addBlank();
 
 	// Quick-reference table
-	bodyLines.push("## Quick Reference", "");
-	bodyLines.push("| Tool | Description | Tags |");
-	bodyLines.push("|------|-------------|------|");
-	for (const tool of tools) {
-		const tags = tool.tags.length > 0 ? tool.tags.map((t) => `\`${t}\``).join(" ") : "";
-		bodyLines.push(`| \`${tool.name}\` | ${tool.description} | ${tags} |`);
-	}
-	bodyLines.push("", "---", "");
+	doc.heading(2, "Quick Reference").addBlank();
+	doc.table(
+		["Tool", "Description", "Tags"],
+		tools.map((t) => [
+			`\`${t.name}\``,
+			t.description,
+			t.tags.length > 0 ? t.tags.map((tag) => `\`${tag}\``).join(" ") : "",
+		]),
+	);
+	doc.addBlank().addSeparator().addBlank();
 
 	// Detailed sections by category
 	for (const category of sortedCategories) {
 		const categoryTools = groups.get(category);
 		const label = category.charAt(0).toUpperCase() + category.slice(1);
-		bodyLines.push(`## ${label} Tools`, "");
+		doc.heading(2, `${label} Tools`).addBlank();
 
 		for (const tool of categoryTools) {
-			bodyLines.push(`### \`${tool.name}\``, "");
-			bodyLines.push(`> ${tool.description}`, "");
+			doc.heading(3, `\`${tool.name}\``).addBlank();
+			doc.quote(tool.description).addBlank();
 
 			if (tool.tags.length > 0) {
-				bodyLines.push(`**Tags**: ${tool.tags.map((t) => `\`${t}\``).join(" ")}`, "");
+				doc.text(`**Tags**: ${tool.tags.map((t) => `\`${t}\``).join(" ")}`).addBlank();
 			}
 
 			if (tool.useCases.length > 0) {
-				bodyLines.push("**When to use**:", "");
-				for (const uc of tool.useCases) {
-					bodyLines.push(`- ${uc}`);
-				}
-				bodyLines.push("");
+				doc.text("**When to use**:").addBlank();
+				doc.list(tool.useCases).addBlank();
 			}
 
 			if (tool.params.length > 0) {
-				bodyLines.push("**Parameters**:", "");
-				bodyLines.push("| Param | Type | Required | Description |");
-				bodyLines.push("|-------|------|----------|-------------|");
-				for (const p of tool.params) {
-					const req = p.required ? "Yes" : "No";
-					let desc = p.description;
-					if (p.values) {
-						desc += ` — \`${p.values.join("` \\| `")}\``;
-					}
-					bodyLines.push(`| \`${p.name}\` | \`${p.type}\` | ${req} | ${desc} |`);
-				}
-				bodyLines.push("");
+				doc.text("**Parameters**:").addBlank();
+				doc.table(
+					["Param", "Type", "Required", "Description"],
+					tool.params.map((p) => {
+						let desc = p.description;
+						if (p.values) desc += ` — \`${p.values.join("` \\| `")}\``;
+						return [`\`${p.name}\``, `\`${p.type}\``, p.required ? "Yes" : "No", desc];
+					}),
+				);
+				doc.addBlank();
 			}
 
-			// Common description field note (all tools accept an optional description)
 			if (tool.params.length === 0) {
-				bodyLines.push("*No parameters — use as-is.*", "");
+				doc.text("*No parameters — use as-is.*").addBlank();
 			}
 
 			if (tool.examples.length > 0) {
-				bodyLines.push("**Examples**:", "");
+				doc.text("**Examples**:").addBlank();
 				for (const ex of tool.examples) {
-					bodyLines.push(`*${ex.title}*`);
-					bodyLines.push("```json");
-					bodyLines.push(JSON.stringify(ex.action, null, 2));
-					bodyLines.push("```");
-					bodyLines.push("");
+					doc.text(`*${ex.title}*`);
+					doc.codeBlock("json", JSON.stringify(ex.action, null, 2));
+					doc.addBlank();
 				}
 			}
 
-			bodyLines.push("---", "");
+			doc.addSeparator().addBlank();
 		}
 	}
 
 	const filename = "Tool Reference.md";
 	const outputPath = path.join(OUTPUT_DIR, filename);
 
-	fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-	fs.writeFileSync(outputPath, frontmatter + bodyLines.join("\n"), "utf-8");
+	doc.save(outputPath);
 
 	console.log(`[report] ToolReference written (${tools.length} tools): ${outputPath}`);
 }

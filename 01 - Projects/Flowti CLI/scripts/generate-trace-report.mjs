@@ -10,19 +10,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { VAULT_ROOT, ROOT } from "../src/infrastructure/config.mjs";
+import { Document } from "../src/infrastructure/document.mjs";
+
 const OUTPUT_DIR = path.join(ROOT, "docs", "reports", "traceability");
 const DOCS_DIR = path.join(ROOT, "docs");
 
 // Vault inbox is relative to the git root
 const VAULT_INBOX = path.join(VAULT_ROOT, "00 - Connectivity", "inbox");
-
-function yamlEscape(value) {
-	if (value === null || value === undefined) return "null";
-	if (typeof value === "boolean" || typeof value === "number") return String(value);
-	const str = String(value);
-	if (/[:\n\r\t#'"{}[\],&*?]|^\s|\s$/.test(str)) return JSON.stringify(str);
-	return str;
-}
 
 function parseFrontmatter(content) {
 	const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
@@ -173,60 +167,54 @@ function main() {
 
 	const coverage = docs.length > 0 ? Math.round(((docs.length - gaps.length) / docs.length) * 10000) / 100 : 100;
 
-	const reportFm = {
-		type: "TraceConformanceReport",
-		date: now.toISOString(),
-		documents_scanned: docs.length,
-		gaps_found: gaps.length,
-		coverage_pct: coverage,
-	};
-
-	const frontmatter = ["---", ...Object.entries(reportFm).map(([k, v]) => `${k}: ${yamlEscape(v)}`), "---"].join(
-		"\n",
-	);
-
-	const bodyLines = [
-		"",
-		"# Trace Conformance Report",
-		"",
-		`> [!info] Summary`,
-		`> Documents scanned: ${docs.length} | Gaps found: ${gaps.length}`,
-		`> Coverage: ${coverage}%`,
-		"",
-	];
+	const doc = Document.create("Trace Conformance Report")
+		.mergeFrontmatter({
+			type: "TraceConformanceReport",
+			date: now.toISOString(),
+			documents_scanned: docs.length,
+			gaps_found: gaps.length,
+			coverage_pct: coverage,
+		})
+		.addBlank()
+		.heading(1, "Trace Conformance Report")
+		.addBlank()
+		.callout("info", "Summary", [
+			`Documents scanned: ${docs.length} | Gaps found: ${gaps.length}`,
+			`Coverage: ${coverage}%`,
+		])
+		.addBlank();
 
 	if (gaps.length > 0) {
-		bodyLines.push("## Gaps by Category", "");
-		bodyLines.push("| Gap Type | Count | Documents |");
-		bodyLines.push("|----------|-------|-----------|");
-		for (const [gapType, items] of Object.entries(gapsByType)) {
-			const docIds = items.map((g) => `[[${g.documentId}]]`).join(", ");
-			bodyLines.push(`| ${gapType} | ${items.length} | ${docIds} |`);
-		}
-		bodyLines.push("");
+		doc.heading(2, "Gaps by Category").addBlank();
+		doc.table(
+			["Gap Type", "Count", "Documents"],
+			Object.entries(gapsByType).map(([gapType, items]) => [
+				gapType,
+				String(items.length),
+				items.map((g) => Document.wikilink(g.documentId)).join(", "),
+			]),
+		);
+		doc.addBlank();
 
-		bodyLines.push("## Gap Details", "");
-		for (const gap of gaps) {
-			bodyLines.push(`- **[[${gap.documentId}]]** (${gap.documentType}): ${gap.description}`);
-		}
-		bodyLines.push("");
+		doc.heading(2, "Gap Details").addBlank();
+		doc.list(
+			gaps.map((gap) => `**${Document.wikilink(gap.documentId)}** (${gap.documentType}): ${gap.description}`),
+		);
+		doc.addBlank();
 	} else {
-		bodyLines.push("> [!success] All documents have complete traceability links.", "");
+		doc.callout("success", "All documents have complete traceability links.").addBlank();
 	}
-
-	const content = frontmatter + bodyLines.join("\n");
 
 	if (dryRun) {
 		console.log("[trace] DRY RUN — would generate:");
-		console.log(content);
+		console.log(doc.toString());
 		return;
 	}
 
 	const safeTimestamp = now.toISOString().replace(/:/g, "-");
 	const filename = `${safeTimestamp}-trace-conformance-report.md`;
-	fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 	const outputPath = path.join(OUTPUT_DIR, filename);
-	fs.writeFileSync(outputPath, content, "utf-8");
+	doc.save(outputPath);
 	console.log(`[report] TraceConformanceReport written: ${outputPath}`);
 }
 

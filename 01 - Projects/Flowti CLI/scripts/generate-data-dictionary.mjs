@@ -10,17 +10,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "../src/infrastructure/config.mjs";
+import { Document } from "../src/infrastructure/document.mjs";
 
 const REGISTRY_PATH = path.join(ROOT, "src", "domain", "docs", "entityTypeRegistry.ts");
 const OUTPUT_DIR = path.join(ROOT, "docs", "reference");
-
-function yamlEscape(value) {
-	if (value === null || value === undefined) return "null";
-	if (typeof value === "boolean" || typeof value === "number") return String(value);
-	const str = String(value);
-	if (/[:\n\r\t#'"{}[\],&*?]|^\s|\s$/.test(str)) return JSON.stringify(str);
-	return str;
-}
 
 /**
  * Extract ENTITY_TYPE_REGISTRY entries from TypeScript source.
@@ -154,69 +147,58 @@ function main() {
 		total_fields: totalFields,
 	};
 
-	const frontmatter = [
-		"---",
-		...Object.entries(fm).map(([k, v]) => `${k}: ${yamlEscape(v)}`),
-		"---",
-	].join("\n");
-
-	const bodyLines = [
-		"",
-		"# Data Dictionary",
-		"",
-		"> [!info] Summary",
-		`> Total types: ${fm.total_types} | Groups: ${fm.groups} | Total fields: ${fm.total_fields}`,
-		"",
-		"## Group Summary",
-		"",
-		"| Group | Types |",
-		"|-------|-------|",
-	];
-
-	for (const [group, typesList] of groups) {
-		bodyLines.push(`| ${groupLabel(group)} | ${typesList.length} |`);
-	}
-	bodyLines.push("");
+	const doc = Document.create("Data Dictionary")
+		.mergeFrontmatter(fm)
+		.addBlank()
+		.heading(1, "Data Dictionary")
+		.addBlank()
+		.callout("info", "Summary", [
+			`Total types: ${fm.total_types} | Groups: ${fm.groups} | Total fields: ${fm.total_fields}`,
+		])
+		.addBlank()
+		.heading(2, "Group Summary")
+		.addBlank()
+		.table(
+			["Group", "Types"],
+			[...groups].map(([group, typesList]) => [groupLabel(group), String(typesList.length)]),
+		)
+		.addBlank();
 
 	// Type overview table
-	bodyLines.push("## Type Overview", "");
-	bodyLines.push("| Type | Group | Tab | Folder | Fields | Description |");
-	bodyLines.push("|------|-------|-----|--------|--------|-------------|");
-	for (const entity of entities) {
-		bodyLines.push(
-			`| ${entity.typeName} | ${groupLabel(entity.group)} | ${entity.tab} | \`${entity.folder}\` | ${entity.fields.length} | ${entity.description} |`,
-		);
-	}
-	bodyLines.push("");
+	doc.heading(2, "Type Overview").addBlank();
+	doc.table(
+		["Type", "Group", "Tab", "Folder", "Fields", "Description"],
+		entities.map((e) => [e.typeName, groupLabel(e.group), e.tab, `\`${e.folder}\``, String(e.fields.length), e.description]),
+	);
+	doc.addBlank();
 
 	// Detailed sections per group
 	for (const [group, typesList] of groups) {
-		bodyLines.push(`## ${groupLabel(group)} Types`, "");
+		doc.heading(2, `${groupLabel(group)} Types`).addBlank();
 
 		for (const entity of typesList) {
-			bodyLines.push(`### ${entity.typeName}`, "");
-			bodyLines.push(`> ${entity.description}`, "");
-			bodyLines.push(`- **Tab**: ${entity.tab}`);
-			bodyLines.push(`- **Folder**: \`${entity.folder}\``);
-			bodyLines.push(`- **Name field**: \`${entity.nameField}\``);
-			bodyLines.push(`- **File pattern**: \`${entity.filePattern}\``);
-			bodyLines.push("");
+			doc.heading(3, entity.typeName).addBlank();
+			doc.quote(entity.description).addBlank();
+			doc.list([
+				`**Tab**: ${entity.tab}`,
+				`**Folder**: \`${entity.folder}\``,
+				`**Name field**: \`${entity.nameField}\``,
+				`**File pattern**: \`${entity.filePattern}\``,
+			]);
+			doc.addBlank();
 
-			bodyLines.push("| Field | Type | Required | Description |");
-			bodyLines.push("|-------|------|----------|-------------|");
-			for (const field of entity.fields) {
-				const req = field.required ? "Yes" : "No";
-				bodyLines.push(`| \`${field.name}\` | ${field.type} | ${req} | ${field.description} |`);
-			}
-			bodyLines.push("");
+			doc.table(
+				["Field", "Type", "Required", "Description"],
+				entity.fields.map((f) => [`\`${f.name}\``, f.type, f.required ? "Yes" : "No", f.description]),
+			);
+			doc.addBlank();
 		}
 	}
 
 	const filename = "Data Dictionary.md";
 	const outputPath = path.join(OUTPUT_DIR, filename);
 
-	fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-	fs.writeFileSync(outputPath, frontmatter + bodyLines.join("\n"), "utf-8");
+	doc.save(outputPath);
 
 	console.log(`[report] DataDictionary written (${entities.length} types, ${totalFields} fields): ${outputPath}`);
 }

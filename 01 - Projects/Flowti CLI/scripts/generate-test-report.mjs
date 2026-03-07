@@ -11,6 +11,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "../src/infrastructure/config.mjs";
+import { Document } from "../src/infrastructure/document.mjs";
 
 const buildTypeArg = process.argv.find((a) => a.startsWith("--build-type="));
 const buildType = buildTypeArg ? buildTypeArg.split("=")[1] : "flow";
@@ -22,14 +23,6 @@ const DATA_JSON_CANDIDATES = [
 	path.resolve(ROOT, "..", "..", ".obsidian", "plugins", "flowti-ibde", "data.json"),
 	path.join(ROOT, "data.json"),
 ];
-
-function yamlEscape(value) {
-	if (value === null || value === undefined) return "null";
-	if (typeof value === "boolean" || typeof value === "number") return String(value);
-	const str = String(value);
-	if (/[:\n\r\t#'"{}[\],&*?]|^\s|\s$/.test(str)) return JSON.stringify(str);
-	return str;
-}
 
 function round(n) {
 	return Math.round(n * 100) / 100;
@@ -60,8 +53,8 @@ function loadPerfData() {
 	return null;
 }
 
-function buildPerfSection(perfResult) {
-	if (!perfResult) return { fm: {}, body: "" };
+function buildPerfSection(perfResult, doc) {
+	if (!perfResult) return {};
 
 	const { data, sizeBytes } = perfResult;
 	const perfState = data?.perfAggregator ?? {};
@@ -73,24 +66,22 @@ function buildPerfSection(perfResult) {
 	const startupMax = round(sorted[sorted.length - 1] ?? 0);
 	const lastStartup = round(startupHistory[startupHistory.length - 1] ?? 0);
 
-	const fm = {
+	doc
+		.heading(2, "Performance")
+		.addBlank()
+		.callout("tip", "Startup", [
+			`Last: ${lastStartup}ms | p50: ${startupP50}ms | p95: ${startupP95}ms | Max: ${startupMax}ms`,
+			`Measurements: ${startupHistory.length} | data.json: ${formatBytes(sizeBytes)}`,
+		])
+		.addBlank();
+
+	return {
 		startup_p50: startupP50,
 		startup_p95: startupP95,
 		startup_max: startupMax,
 		startup_measurements: startupHistory.length,
 		data_json_size_bytes: sizeBytes,
 	};
-
-	const lines = [
-		"## Performance",
-		"",
-		"> [!tip] Startup",
-		`> Last: ${lastStartup}ms | p50: ${startupP50}ms | p95: ${startupP95}ms | Max: ${startupMax}ms`,
-		`> Measurements: ${startupHistory.length} | data.json: ${formatBytes(sizeBytes)}`,
-		"",
-	];
-
-	return { fm, body: lines.join("\n") };
 }
 
 function main() {
@@ -111,8 +102,6 @@ function main() {
 	const startTime = json.startTime ?? 0;
 	const duration = startTime > 0 ? Date.now() - startTime : 0;
 
-	const perf = buildPerfSection(loadPerfData());
-
 	const fm = {
 		type: "TestReport",
 		build_type: buildType,
@@ -124,30 +113,29 @@ function main() {
 		suites,
 		duration_ms: duration > 0 ? duration : 0,
 		success: json.success ?? failed === 0,
-		...perf.fm,
 	};
 
-	const frontmatter = ["---", ...Object.entries(fm).map(([k, v]) => `${k}: ${yamlEscape(v)}`), "---"].join("\n");
+	const doc = Document.create("Test Report")
+		.mergeFrontmatter(fm)
+		.addBlank()
+		.heading(1, "Test Report")
+		.addBlank()
+		.callout("info", "Summary", [
+			`Total: ${fm.total} | Passed: ${fm.passed} | Failed: ${fm.failed} | Skipped: ${fm.skipped}`,
+			`Suites: ${fm.suites} | Duration: ${fm.duration_ms}ms`,
+			`Result: ${fm.success ? "PASS" : "FAIL"}`,
+		])
+		.addBlank();
 
-	const body = [
-		"",
-		"# Test Report",
-		"",
-		"> [!info] Summary",
-		`> Total: ${fm.total} | Passed: ${fm.passed} | Failed: ${fm.failed} | Skipped: ${fm.skipped}`,
-		`> Suites: ${fm.suites} | Duration: ${fm.duration_ms}ms`,
-		`> Result: ${fm.success ? "PASS" : "FAIL"}`,
-		"",
-		perf.body,
-	].join("\n");
+	const perfFm = buildPerfSection(loadPerfData(), doc);
+	doc.mergeFrontmatter(perfFm);
 
 	const safeTimestamp = now.toISOString().replace(/:/g, "-");
 	const prefix = buildType === "full" ? "" : `${buildType}-`;
 	const filename = `${safeTimestamp}-${prefix}test-report.md`;
 	const outputPath = path.join(OUTPUT_DIR, filename);
 
-	fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-	fs.writeFileSync(outputPath, frontmatter + body, "utf-8");
+	doc.save(outputPath);
 
 	console.log(`[report] TestReport written: ${outputPath}`);
 }

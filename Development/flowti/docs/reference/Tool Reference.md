@@ -1,9 +1,9 @@
 ---
 type: ToolReference
-date: "2026-03-07T13:08:52.805Z"
+date: "2026-03-07T15:24:13.817Z"
 total_tools: 35
 categories: 7
-tags: 
+tags:
   - assert
   - feedback
   - interactive
@@ -12,6 +12,7 @@ tags:
   - navigation
   - performance
 ---
+
 # Journey Runner Tool Reference
 
 > [!info] Summary
@@ -26,7 +27,7 @@ tags:
 ## Quick Reference
 
 | Tool | Description | Tags |
-|------|-------------|------|
+|---|---|---|
 | `command` | Execute an Obsidian command by ID |  |
 | `click` | Click a DOM element by CSS selector |  |
 | `input` | Type text into an input field |  |
@@ -82,7 +83,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `type` | `string` | Yes | Assertion type — `visible` \| `not-visible` \| `text` \| `event` \| `leaf` \| `eval` \| `count` \| `attr` |
 | `selector` | `string` | No | CSS selector (for visible, not-visible, text, count, attr) |
 | `contains` | `string` | No | Expected text substring (for text) |
@@ -130,7 +131,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `selector` | `string` | Yes | CSS selector for the element to click |
 
 **Examples**:
@@ -166,7 +167,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `id` | `string` | Yes | Command ID (e.g. "flowti:open-user-hub") |
 
 **Examples**:
@@ -202,7 +203,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `event` | `string` | Yes | EventBus event name |
 | `payload` | `object` | No | Event payload (string values support {{variable}} interpolation) |
 
@@ -235,7 +236,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `code` | `string` | Yes | JavaScript code to execute (supports {{variable}} interpolation) |
 | `store` | `string` | No | Store the result in a named variable |
 | `expect` | `object` | No | Assertion on the result: { type: "equals", value } | { type: "truthy" } | { type: "json", match } |
@@ -277,7 +278,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `path` | `string` | Yes | Vault-relative path of the file (supports {{variable}}) |
 | `mode` | `string` | Yes | Operation mode — `set` \| `read` |
 | `property` | `string` | Yes | Frontmatter property name |
@@ -324,7 +325,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `selector` | `string` | Yes | CSS selector for the element to highlight |
 | `style` | `string` | No | Highlight style (default: "element") — `element` \| `button` \| `input` |
 | `target` | `string` | No | DOM context (default: "dom") — `dom` \| `webview` |
@@ -365,7 +366,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `selector` | `string` | Yes | CSS selector for the input element |
 | `value` | `string` | Yes | Text to type into the input |
 
@@ -395,7 +396,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `instruction` | `string` | Yes | What the operator should do manually |
 | `timeout` | `number` | No | Timeout in ms before auto-failing (default: 300000) |
 | `interactive` | `boolean` | No | If false, auto-approve — appears only on reports (default: true) |
@@ -425,7 +426,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `hub` | `string` | Yes | Hub ID (e.g. "flowti-user-hub") |
 | `viewType` | `string` | Yes | View type (e.g. "flowti-user-hub") |
 | `tab` | `string` | Yes | Tab ID (e.g. "sessions") |
@@ -457,7 +458,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `message` | `string` | Yes | Message to display (supports {{variable}} interpolation) |
 | `duration` | `number` | No | Duration in ms (default: 5000) |
 | `style` | `string` | No | Visual style — `success` \| `error` |
@@ -496,7 +497,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `event` | `string` | Yes | Event type to search for (supports {{variable}}) |
 | `limit` | `number` | No | Maximum number of events to return (default: 10) |
 | `store` | `string` | No | Store the JSON result in a named variable |
@@ -527,7 +528,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `label` | `string` | Yes | Text to match against the ribbon button's aria-label (partial match) |
 
 **Examples**:
@@ -555,7 +556,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `label` | `string` | No | Label for filename: {stepId}--{label}.png (auto-numbered if omitted) |
 
 **Examples**:
@@ -583,7 +584,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `selector` | `string` | Yes | CSS selector for the <select> element |
 | `value` | `string` | Yes | The option value to select |
 
@@ -613,7 +614,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `selector` | `string` | Yes | CSS selector for the input element |
 | `value` | `string` | Yes | Value to set (supports {{variable}}) |
 | `dispatchEvent` | `boolean` | No | Dispatch input/change events (default: true) |
@@ -644,7 +645,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `theme` | `string` | Yes | Theme name ("obsidian" for dark, "moonstone" for light) |
 
 **Examples**:
@@ -680,7 +681,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `ms` | `number` | Yes | Milliseconds to wait |
 
 **Examples**:
@@ -712,7 +713,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `selector` | `string` | Yes | CSS selector for the element whose textContent is parsed as a number |
 | `operator` | `string` | Yes | Comparison operator — `eq` \| `gt` \| `gte` \| `lt` \| `lte` |
 | `value` | `number` | Yes | Value to compare against |
@@ -746,7 +747,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `selector` | `string` | Yes | CSS selector for the element to check |
 | `contains` | `string` | Yes | Expected text (checked via textContent.includes) |
 
@@ -778,7 +779,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `selector` | `string` | Yes | CSS selector for the input, textarea, or select element |
 | `equals` | `string` | No | Expected exact value (el.value === expected) |
 | `contains` | `string` | No | Expected substring (el.value.includes(substr)) |
@@ -820,7 +821,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `actions` | `array` | Yes | Array of read-only assertion sub-actions (assert, assert-text, assert-number, assert-value, eval without store) |
 
 **Examples**:
@@ -864,7 +865,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `id` | `string` | Yes | Unique ID to match start/stop pairs |
 | `mode` | `string` | Yes | Show or dismiss the spinner — `start` \| `stop` |
 | `message` | `string` | No | Message shown alongside the spinner (start only, supports {{variable}}) |
@@ -909,7 +910,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `prompt` | `string` | Yes | Prompt describing what to inspect (supports {{variable}}) |
 | `timeout` | `number` | No | Timeout in ms before auto-failing (default: 300000) |
 | `interactive` | `boolean` | No | If false, auto-approve — appears only on reports (default: true) |
@@ -943,7 +944,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `viewType` | `string` | Yes | View type of leaves to close (e.g. "flowti-user-hub") |
 
 **Examples**:
@@ -998,7 +999,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `from` | `string` | Yes | Source file path — absolute or vault-relative (supports {{variable}}) |
 | `to` | `string` | Yes | Destination file path — absolute or vault-relative (supports {{variable}}) |
 
@@ -1039,7 +1040,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `path` | `string` | Yes | Vault-relative path for the new file (supports {{variable}}) |
 | `content` | `string` | Yes | File content (supports {{variable}}) |
 | `store` | `string` | No | Store the created path in a named variable |
@@ -1072,7 +1073,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `path` | `string` | Yes | Vault-relative path of the file to delete (supports {{variable}}) |
 
 **Examples**:
@@ -1102,7 +1103,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `from` | `string` | Yes | Source file path — absolute or vault-relative (supports {{variable}}) |
 | `to` | `string` | Yes | Destination file path — absolute or vault-relative (supports {{variable}}) |
 
@@ -1143,7 +1144,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `path` | `string` | Yes | Vault-relative path of the file to open (supports {{variable}}) |
 
 **Examples**:
@@ -1173,7 +1174,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `url` | `string` | Yes | URL to open (supports {{variable}}) |
 
 **Examples**:
@@ -1203,7 +1204,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `id` | `string` | Yes | Seed file identifier (e.g. "welcome-note", "all", "folders") |
 | `mode` | `string` | No | Operation mode (default: "create") — `create` \| `verify` \| `delete` |
 
@@ -1246,7 +1247,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `message` | `string` | Yes | Log line to append (supports {{variable}}) |
 
 **Examples**:
@@ -1278,7 +1279,7 @@ tags:
 **Parameters**:
 
 | Param | Type | Required | Description |
-|-------|------|----------|-------------|
+|---|---|---|---|
 | `selector` | `string` | Yes | CSS selector for the element to scroll into view |
 | `target` | `string` | No | DOM context (default: "dom") — `dom` \| `webview` |
 | `behavior` | `string` | No | Scroll behavior (default: "smooth") — `smooth` \| `instant` |
