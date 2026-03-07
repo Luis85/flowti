@@ -17,7 +17,8 @@ const VAULT_ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
 const CLI_PROJECT = path.join(VAULT_ROOT, "01 - Projects", "Flowti CLI");
 
 export function redirect(scriptName, subdir = "scripts") {
-	const script = path.join(CLI_PROJECT, subdir, scriptName);
+	const tsName = scriptName.replace(/\.mjs$/, ".js");
+	const script = path.join(CLI_PROJECT, "dist", subdir, tsName);
 	const result = spawnSync(process.execPath, [script, ...process.argv.slice(2)], { stdio: "inherit" });
 	process.exit(result.status ?? 0);
 }
