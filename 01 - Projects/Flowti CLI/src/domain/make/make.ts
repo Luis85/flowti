@@ -1,5 +1,7 @@
 /**
  * make.ts — Scaffolding menu and commands for hubs, plugins, and applications.
+ *
+ * All scaffolding writes to the selected project's root folder.
  */
 
 import fs from "node:fs";
@@ -7,7 +9,7 @@ import path from "node:path";
 import { ROOT, VAULT_ROOT, config, manifest } from "../../infrastructure/config.js";
 import { RESET, BOLD, DIM, GREEN, RED, CYAN } from "../../infrastructure/ui.js";
 import { createRL, ask } from "../../infrastructure/readline.js";
-import { writeFile } from "../../infrastructure/fs.js";
+import { writeFileAt } from "../../infrastructure/fs.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { showHelp } from "../help/help.js";
 import { toKebab, toPascal, getMakePaths } from "./naming.js";
@@ -29,11 +31,11 @@ import {
 
 // ── Interactive menu ────────────────────────────────────────────────
 
-export async function menu(): Promise<MenuResult> {
+export async function menu(projectRoot: string): Promise<MenuResult> {
 	return runMenu("Make", [
-		{ key: "1", label: "New Hub (within Flowti)", action: makeHub },
-		{ key: "2", label: "New Plugin (standalone Obsidian plugin)", action: makePlugin },
-		{ key: "3", label: "New Application (DDD Obsidian plugin under Projects)", action: makeApp },
+		{ key: "1", label: "New Hub", action: () => makeHub(projectRoot) },
+		{ key: "2", label: "New Plugin (standalone Obsidian plugin)", action: () => makePlugin(projectRoot) },
+		{ key: "3", label: "New Application (DDD Obsidian plugin)", action: () => makeApp(projectRoot) },
 		{ separator: true },
 		{ key: "?", label: "Help", action: () => { showHelp("make"); } },
 		{ key: "b", label: "Back", action: () => "main" as const },
@@ -43,10 +45,12 @@ export async function menu(): Promise<MenuResult> {
 
 // ── Hub scaffolding ─────────────────────────────────────────────────
 
-async function makeHub(): Promise<void> {
+async function makeHub(projectRoot: string): Promise<void> {
 	const { printHeader } = await import("../../infrastructure/ui.js");
 	printHeader("New Hub");
 	const paths = getMakePaths();
+
+	console.log(`  ${DIM}Project root: ${projectRoot}${RESET}\n`);
 
 	const rl = createRL();
 	const name = await ask(rl, "Hub name (e.g., Inventory)");
@@ -67,7 +71,7 @@ async function makeHub(): Promise<void> {
 	console.log(`  ${DIM}ID: ${kebab} | Icon: ${icon} | Type: ${hubType} | Tabs: ${tabs.join(", ")}${RESET}`);
 	console.log();
 
-	console.log(`  ${DIM}Output paths (from flowti.config.json):${RESET}`);
+	console.log(`  ${DIM}Output paths:${RESET}`);
 	console.log(`    UI:       ${paths.ui}/${kebab}/`);
 	console.log(`    Domain:   ${paths.domain}/${kebab}/`);
 	console.log(`    Provider: ${paths.hubDomain}/`);
@@ -84,26 +88,28 @@ async function makeHub(): Promise<void> {
 
 	console.log();
 	let created = 0;
+	const w = (rel: string, content: string): void => { if (writeFileAt(projectRoot, rel, content)) created++; };
 
-	if (writeFile(`${paths.ui}/${kebab}/${pascal}HubView.ts`, hubViewTemplate(pascal, kebab, hubType, icon, tabs))) created++;
-	if (writeFile(`${paths.ui}/${kebab}/types.ts`, hubTypesTemplate(pascal, tabs))) created++;
-	if (writeFile(`${paths.domain}/${kebab}/events.ts`, hubEventsTemplate(pascal))) created++;
-	if (writeFile(`${paths.domain}/${kebab}/${pascal}Service.ts`, hubServiceTemplate(pascal))) created++;
-	if (writeFile(`${paths.hubDomain}/${pascal}HubProvider.ts`, hubProviderTemplate(pascal, kebab, icon))) created++;
-	if (writeFile(`${paths.tests}/${kebab}/${pascal}HubView.test.ts`, hubTestTemplate(pascal, kebab))) created++;
+	w(`${paths.ui}/${kebab}/${pascal}HubView.ts`, hubViewTemplate(pascal, kebab, hubType, icon, tabs));
+	w(`${paths.ui}/${kebab}/types.ts`, hubTypesTemplate(pascal, tabs));
+	w(`${paths.domain}/${kebab}/events.ts`, hubEventsTemplate(pascal));
+	w(`${paths.domain}/${kebab}/${pascal}Service.ts`, hubServiceTemplate(pascal));
+	w(`${paths.hubDomain}/${pascal}HubProvider.ts`, hubProviderTemplate(pascal, kebab, icon));
+	w(`${paths.tests}/${kebab}/${pascal}HubView.test.ts`, hubTestTemplate(pascal, kebab));
 
-	const cssFiles = fs.existsSync(path.join(ROOT, paths.css))
-		? fs.readdirSync(path.join(ROOT, paths.css)).filter((f) => f.endsWith(".css")).sort()
+	const cssDir = path.join(projectRoot, paths.css);
+	const cssFiles = fs.existsSync(cssDir)
+		? fs.readdirSync(cssDir).filter((f) => f.endsWith(".css")).sort()
 		: [];
 	const maxNum = cssFiles.reduce((max, f) => {
 		const m = f.match(/^(\d+)/);
 		return m ? Math.max(max, parseInt(m[1], 10)) : max;
 	}, 0);
 	const cssNum = String(maxNum + 1).padStart(2, "0");
-	if (writeFile(`${paths.css}/${cssNum}-${kebab}.css`, hubCssTemplate(pascal, kebab))) created++;
+	w(`${paths.css}/${cssNum}-${kebab}.css`, hubCssTemplate(pascal, kebab));
 
-	if (writeFile(`${paths.docs}/${pascal}/${pascal} Hub.md`, hubPrdTemplate(pascal))) created++;
-	if (writeFile(`${paths.journeys}/${kebab}.journey.json`, hubJourneyTemplate(pascal, kebab))) created++;
+	w(`${paths.docs}/${pascal}/${pascal} Hub.md`, hubPrdTemplate(pascal));
+	w(`${paths.journeys}/${kebab}.journey.json`, hubJourneyTemplate(pascal, kebab));
 
 	console.log(`\n  ${GREEN}✓${RESET} Created ${created} files for ${pascal} Hub.\n`);
 
@@ -122,12 +128,11 @@ async function makeHub(): Promise<void> {
 
 // ── Plugin scaffolding ──────────────────────────────────────────────
 
-async function makePlugin(): Promise<void> {
+async function makePlugin(projectRoot: string): Promise<void> {
 	const { printHeader } = await import("../../infrastructure/ui.js");
 	printHeader("New Plugin");
 
-	const outputBase = (config as Record<string, unknown>).make as Record<string, Record<string, string>> | undefined;
-	const pluginOutput = outputBase?.plugin?.output ?? "../";
+	console.log(`  ${DIM}Project root: ${projectRoot}${RESET}\n`);
 
 	const rl = createRL();
 	const name = await ask(rl, "Plugin name (e.g., My Plugin)");
@@ -136,20 +141,18 @@ async function makePlugin(): Promise<void> {
 	const defaultId = toKebab(name);
 	const pluginId = await ask(rl, "Plugin ID", defaultId);
 	const author = await ask(rl, "Author", (manifest as Record<string, unknown>).author as string ?? "");
-	const outputDir = await ask(rl, "Output folder", pluginOutput);
 	rl.close();
 
-	const pluginRoot = path.join(outputDir, pluginId);
-	const absRoot = path.resolve(ROOT, pluginRoot);
+	const pluginRoot = path.join(projectRoot, pluginId);
 
 	console.log();
 	console.log(`  ${BOLD}Scaffolding: ${name}${RESET}`);
 	console.log(`  ${DIM}ID: ${pluginId} | Author: ${author}${RESET}`);
-	console.log(`  ${DIM}Output: ${absRoot}${RESET}`);
+	console.log(`  ${DIM}Output: ${pluginRoot}${RESET}`);
 	console.log();
 
-	if (fs.existsSync(absRoot)) {
-		console.log(`  ${RED}Folder already exists: ${absRoot}${RESET}\n`);
+	if (fs.existsSync(pluginRoot)) {
+		console.log(`  ${RED}Folder already exists: ${pluginRoot}${RESET}\n`);
 		return;
 	}
 
@@ -160,10 +163,7 @@ async function makePlugin(): Promise<void> {
 
 	console.log();
 	let created = 0;
-
-	const w = (rel: string, content: string): void => {
-		if (writeFile(path.join(pluginRoot, rel), content)) created++;
-	};
+	const w = (rel: string, content: string): void => { if (writeFileAt(pluginRoot, rel, content)) created++; };
 
 	w("manifest.json", pluginManifestTemplate(name, pluginId, author));
 	w("package.json", pluginPackageTemplate(name, pluginId));
@@ -180,7 +180,7 @@ async function makePlugin(): Promise<void> {
 	console.log(`\n  ${GREEN}✓${RESET} Created ${created} files for ${name}.\n`);
 
 	console.log(`  ${BOLD}Next steps:${RESET}`);
-	console.log(`    1. ${CYAN}cd ${absRoot}${RESET}`);
+	console.log(`    1. ${CYAN}cd "${pluginRoot}"${RESET}`);
 	console.log(`    2. ${CYAN}npm install${RESET}`);
 	console.log(`    3. ${CYAN}npm run build:dev${RESET}`);
 	console.log(`    4. Open the vault containing this plugin in Obsidian`);
@@ -189,9 +189,11 @@ async function makePlugin(): Promise<void> {
 
 // ── Application scaffolding ─────────────────────────────────────────
 
-async function makeApp(): Promise<void> {
+async function makeApp(projectRoot: string): Promise<void> {
 	const { printHeader } = await import("../../infrastructure/ui.js");
 	printHeader("New Application");
+
+	console.log(`  ${DIM}Project root: ${projectRoot}${RESET}\n`);
 
 	const rl = createRL();
 	const name = await ask(rl, "App name (e.g., My App)");
@@ -203,16 +205,14 @@ async function makeApp(): Promise<void> {
 	rl.close();
 
 	const pascal = toPascal(name);
-	const appRoot = path.relative(ROOT, path.join(VAULT_ROOT, "01 - Projects", appId));
-	const absRoot = path.resolve(ROOT, appRoot);
+	const appRoot = path.join(projectRoot, appId);
 
 	console.log();
 	console.log(`  ${BOLD}Scaffolding: ${name}${RESET}`);
 	console.log(`  ${DIM}ID: ${appId} | Author: ${author}${RESET}`);
-	console.log(`  ${DIM}Output: ${absRoot}${RESET}`);
+	console.log(`  ${DIM}Output: ${appRoot}${RESET}`);
 	console.log();
 
-	console.log(`  ${DIM}File tree:${RESET}`);
 	const tree = [
 		"css/00-base.css", "src/main.ts", "src/infrastructure/events/EventBus.ts",
 		"src/infrastructure/events/types.ts", "src/infrastructure/events/events.ts",
@@ -221,13 +221,14 @@ async function makeApp(): Promise<void> {
 		"tests/infrastructure/EventBus.test.ts", "manifest.json", "package.json",
 		"tsconfig.json", "esbuild.config.mjs", "vitest.config.ts", ".gitignore",
 	];
+	console.log(`  ${DIM}File tree:${RESET}`);
 	for (const f of tree) {
 		console.log(`    ${DIM}${f}${RESET}`);
 	}
 	console.log();
 
-	if (fs.existsSync(absRoot)) {
-		console.log(`  ${RED}Folder already exists: ${absRoot}${RESET}\n`);
+	if (fs.existsSync(appRoot)) {
+		console.log(`  ${RED}Folder already exists: ${appRoot}${RESET}\n`);
 		return;
 	}
 
@@ -238,10 +239,7 @@ async function makeApp(): Promise<void> {
 
 	console.log();
 	let created = 0;
-
-	const w = (rel: string, content: string): void => {
-		if (writeFile(path.join(appRoot, rel), content)) created++;
-	};
+	const w = (rel: string, content: string): void => { if (writeFileAt(appRoot, rel, content)) created++; };
 
 	w("manifest.json", appManifestTemplate(name, appId, author));
 	w("package.json", appPackageTemplate(name, appId));
@@ -264,7 +262,7 @@ async function makeApp(): Promise<void> {
 	console.log(`\n  ${GREEN}✓${RESET} Created ${created} files for ${name}.\n`);
 
 	console.log(`  ${BOLD}Next steps:${RESET}`);
-	console.log(`    1. ${CYAN}cd "${absRoot}"${RESET}`);
+	console.log(`    1. ${CYAN}cd "${appRoot}"${RESET}`);
 	console.log(`    2. ${CYAN}npm install${RESET}`);
 	console.log(`    3. ${CYAN}npm run build${RESET}`);
 	console.log(`    4. ${CYAN}npm test${RESET}`);
@@ -292,19 +290,21 @@ export const commands = {
 		console.log(`\n  ${CYAN}▸${RESET} Scaffolding: ${pascal} Hub\n`);
 
 		let created = 0;
-		if (writeFile(`${paths.ui}/${kebab}/${pascal}HubView.ts`, hubViewTemplate(pascal, kebab, hubType, icon, tabs))) created++;
-		if (writeFile(`${paths.ui}/${kebab}/types.ts`, hubTypesTemplate(pascal, tabs))) created++;
-		if (writeFile(`${paths.domain}/${kebab}/events.ts`, hubEventsTemplate(pascal))) created++;
-		if (writeFile(`${paths.domain}/${kebab}/${pascal}Service.ts`, hubServiceTemplate(pascal))) created++;
-		if (writeFile(`${paths.hubDomain}/${pascal}HubProvider.ts`, hubProviderTemplate(pascal, kebab, icon))) created++;
-		if (writeFile(`${paths.tests}/${kebab}/${pascal}HubView.test.ts`, hubTestTemplate(pascal, kebab))) created++;
+		const w = (rel: string, content: string): void => { if (writeFileAt(ROOT, rel, content)) created++; };
+
+		w(`${paths.ui}/${kebab}/${pascal}HubView.ts`, hubViewTemplate(pascal, kebab, hubType, icon, tabs));
+		w(`${paths.ui}/${kebab}/types.ts`, hubTypesTemplate(pascal, tabs));
+		w(`${paths.domain}/${kebab}/events.ts`, hubEventsTemplate(pascal));
+		w(`${paths.domain}/${kebab}/${pascal}Service.ts`, hubServiceTemplate(pascal));
+		w(`${paths.hubDomain}/${pascal}HubProvider.ts`, hubProviderTemplate(pascal, kebab, icon));
+		w(`${paths.tests}/${kebab}/${pascal}HubView.test.ts`, hubTestTemplate(pascal, kebab));
 
 		const cssFiles = fs.existsSync(path.join(ROOT, paths.css))
 			? fs.readdirSync(path.join(ROOT, paths.css)).filter((f) => f.endsWith(".css")).sort() : [];
 		const maxNum = cssFiles.reduce((max, f) => { const m = f.match(/^(\d+)/); return m ? Math.max(max, parseInt(m[1], 10)) : max; }, 0);
-		if (writeFile(`${paths.css}/${String(maxNum + 1).padStart(2, "0")}-${kebab}.css`, hubCssTemplate(pascal, kebab))) created++;
-		if (writeFile(`${paths.docs}/${pascal}/${pascal} Hub.md`, hubPrdTemplate(pascal))) created++;
-		if (writeFile(`${paths.journeys}/${kebab}.journey.json`, hubJourneyTemplate(pascal, kebab))) created++;
+		w(`${paths.css}/${String(maxNum + 1).padStart(2, "0")}-${kebab}.css`, hubCssTemplate(pascal, kebab));
+		w(`${paths.docs}/${pascal}/${pascal} Hub.md`, hubPrdTemplate(pascal));
+		w(`${paths.journeys}/${kebab}.journey.json`, hubJourneyTemplate(pascal, kebab));
 
 		console.log(`\n  ${GREEN}✓${RESET} Created ${created} files.\n`);
 	},
@@ -319,18 +319,17 @@ export const commands = {
 		const appId = (flags.id as string) ?? toKebab(name);
 		const author = (flags.author as string) ?? (manifest as Record<string, unknown>).author as string ?? "";
 		const pascal = toPascal(name);
-		const appRoot = path.relative(ROOT, path.join(VAULT_ROOT, "01 - Projects", appId));
-		const absRoot = path.resolve(ROOT, appRoot);
+		const appRoot = path.resolve(VAULT_ROOT, "01 - Projects", appId);
 
-		if (fs.existsSync(absRoot)) {
-			console.log(`\n  ${RED}Folder already exists: ${absRoot}${RESET}\n`);
+		if (fs.existsSync(appRoot)) {
+			console.log(`\n  ${RED}Folder already exists: ${appRoot}${RESET}\n`);
 			process.exit(1);
 		}
 
 		console.log(`\n  ${CYAN}▸${RESET} Scaffolding: ${name}\n`);
 
 		let created = 0;
-		const w = (rel: string, content: string): void => { if (writeFile(path.join(appRoot, rel), content)) created++; };
+		const w = (rel: string, content: string): void => { if (writeFileAt(appRoot, rel, content)) created++; };
 
 		w("manifest.json", appManifestTemplate(name, appId, author));
 		w("package.json", appPackageTemplate(name, appId));
@@ -350,32 +349,29 @@ export const commands = {
 		w("tests/mocks/obsidian-stub.ts", appObsidianStubTemplate());
 		w("tests/infrastructure/EventBus.test.ts", appEventBusTestTemplate());
 
-		console.log(`\n  ${GREEN}✓${RESET} Created ${created} files at ${absRoot}\n`);
+		console.log(`\n  ${GREEN}✓${RESET} Created ${created} files at ${appRoot}\n`);
 	},
 
 	"make:plugin": (flags: Record<string, string | boolean>) => {
 		const name = flags.name;
 		if (!name || typeof name !== "string") {
 			console.log(`\n  ${RED}--name is required.${RESET}`);
-			console.log(`  ${DIM}Usage: npm run flowti -- make:plugin --name="My Plugin" [--id=my-plugin] [--author=Name] [--output=../]${RESET}\n`);
+			console.log(`  ${DIM}Usage: npm run flowti -- make:plugin --name="My Plugin" [--id=my-plugin] [--author=Name]${RESET}\n`);
 			process.exit(1);
 		}
 		const pluginId = (flags.id as string) ?? toKebab(name);
 		const author = (flags.author as string) ?? (manifest as Record<string, unknown>).author as string ?? "";
-		const outputBase = (config as Record<string, unknown>).make as Record<string, Record<string, string>> | undefined;
-		const outputDir = (flags.output as string) ?? outputBase?.plugin?.output ?? "../";
-		const pluginRoot = path.join(outputDir, pluginId);
-		const absRoot = path.resolve(ROOT, pluginRoot);
+		const pluginRoot = path.resolve(ROOT, "..", pluginId);
 
-		if (fs.existsSync(absRoot)) {
-			console.log(`\n  ${RED}Folder already exists: ${absRoot}${RESET}\n`);
+		if (fs.existsSync(pluginRoot)) {
+			console.log(`\n  ${RED}Folder already exists: ${pluginRoot}${RESET}\n`);
 			process.exit(1);
 		}
 
 		console.log(`\n  ${CYAN}▸${RESET} Scaffolding: ${name}\n`);
 
 		let created = 0;
-		const w = (rel: string, content: string): void => { if (writeFile(path.join(pluginRoot, rel), content)) created++; };
+		const w = (rel: string, content: string): void => { if (writeFileAt(pluginRoot, rel, content)) created++; };
 
 		w("manifest.json", pluginManifestTemplate(name, pluginId, author));
 		w("package.json", pluginPackageTemplate(name, pluginId));
@@ -389,6 +385,6 @@ export const commands = {
 		w("src/ui/.gitkeep", "");
 		w("tests/.gitkeep", "");
 
-		console.log(`\n  ${GREEN}✓${RESET} Created ${created} files at ${absRoot}\n`);
+		console.log(`\n  ${GREEN}✓${RESET} Created ${created} files at ${pluginRoot}\n`);
 	},
 };

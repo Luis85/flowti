@@ -42,6 +42,7 @@ export const pkg = loadJson<{ version: string }>(PKG_PATH) ?? { version: "?" };
 // ── Projects directory ───────────────────────────────────────────────
 
 export const PROJECTS_DIR: string = path.join(VAULT_ROOT, cliConfig.projectsFolder ?? "01 - Projects");
+export const DEVELOPMENT_DIR: string = path.join(VAULT_ROOT, "Development");
 
 // ── Capture config ──────────────────────────────────────────────────
 

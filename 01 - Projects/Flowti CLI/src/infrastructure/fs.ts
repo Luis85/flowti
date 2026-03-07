@@ -8,7 +8,11 @@ import { ROOT } from "./config.js";
 import { RESET, GREEN, YELLOW } from "./ui.js";
 
 export function writeFile(relPath: string, content: string): boolean {
-	const absPath = path.join(ROOT, relPath);
+	return writeFileAt(ROOT, relPath, content);
+}
+
+export function writeFileAt(basePath: string, relPath: string, content: string): boolean {
+	const absPath = path.join(basePath, relPath);
 	const dir = path.dirname(absPath);
 	fsNode.mkdirSync(dir, { recursive: true });
 	if (fsNode.existsSync(absPath)) {

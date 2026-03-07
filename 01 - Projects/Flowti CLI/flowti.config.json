@@ -1,0 +1,9 @@
+{
+	"name": "flowti-cli",
+	"tools": {
+		"build": "npm run build",
+		"review": "npm test",
+		"reports": "npm run reports",
+		"devtools": "npm run dev"
+	}
+}

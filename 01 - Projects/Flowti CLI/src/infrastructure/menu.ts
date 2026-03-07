@@ -59,6 +59,6 @@ export async function runMenu(
 		}
 
 		const result = await match.action();
-		if (result === "main" || result === "quit") return result;
+		if (result === "main" || result === "quit" || result === "start") return result;
 	}
 }

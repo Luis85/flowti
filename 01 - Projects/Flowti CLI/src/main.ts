@@ -3,19 +3,22 @@
  *
  * Thin orchestrator — all business logic lives in domain modules.
  *
+ * Flow:
+ *   Start Menu (Load/Create/Import) → Project Detail Menu → ...
+ *
  * Usage:
  *   npm run flowti              Interactive menu
  *   npm run flowti help         Full man-page
  *   npm run flowti help build   Section-specific help
  *
- * Configuration: flowti-cli.config.json (CLI project configs/)
+ * Configuration: configs/flowti-cli.config.json
  * No external dependencies — uses only Node.js built-ins.
  */
 
 // ── Infrastructure ──────────────────────────────────────────────────
 
 import { parseArgs } from "./infrastructure/args.js";
-import { printBanner, RESET, DIM, RED, YELLOW } from "./infrastructure/ui.js";
+import { printBanner, RESET, DIM, RED, YELLOW, CYAN } from "./infrastructure/ui.js";
 import { runMenu } from "./infrastructure/menu.js";
 
 // ── Domain modules ──────────────────────────────────────────────────
@@ -30,12 +33,13 @@ import { commands as reviewCmds } from "./domain/review/review.js";
 import { commands as publishCmds } from "./domain/publish/publish.js";
 import { commands as reportsCmds } from "./domain/reports/reports.js";
 import { commands as captureCmds } from "./domain/capture/capture.js";
-import { commands as projectCmds, projectSelectionMenu } from "./domain/project/project.js";
-import { getSelectedProject } from "./infrastructure/state.js";
+import { commands as projectCmds, startMenu } from "./domain/project/project.js";
+import { getSelectedProject, getProjectSource, clearSelectedProject } from "./infrastructure/state.js";
+import { initializeProject } from "./domain/project/project-config.js";
 
-// ── Main menu definition ────────────────────────────────────────────
+// ── Main menu builder ───────────────────────────────────────────────
 
-import { mainMenuItems } from "./mainMenu.js";
+import { buildProjectDetailMenu } from "./mainMenu.js";
 
 // ── Command registry ────────────────────────────────────────────────
 
@@ -92,15 +96,27 @@ async function handleCliArgs(): Promise<boolean> {
 	return true;
 }
 
-// ── Interactive main menu ───────────────────────────────────────────
+// ── Project detail menu (inner loop) ────────────────────────────────
 
-async function mainMenu(): Promise<void> {
-	const project = getSelectedProject();
-	console.log(`  ${DIM}Main Menu${RESET}  ${DIM}[${project}]${RESET}\n`);
-	const result = await runMenu(null, mainMenuItems);
-	if (result === "quit") {
-		console.log(`\n  ${DIM}Goodbye.${RESET}\n`);
-		process.exit(0);
+async function projectDetailLoop(): Promise<"start" | "quit"> {
+	// eslint-disable-next-line no-constant-condition
+	while (true) {
+		const project = getSelectedProject();
+		const source = getProjectSource();
+		const ctx = project ? initializeProject(project) : null;
+		const label = ctx?.config.name ?? project ?? "Unknown";
+		const sourceLabel = source === "development" ? `${DIM}Development/${RESET}` : "";
+
+		console.log(`  ${DIM}Project:${RESET} ${sourceLabel}${CYAN}${label}${RESET}`);
+		if (ctx?.pkg) {
+			console.log(`  ${DIM}${ctx.pkg.name ?? ""}@${ctx.pkg.version ?? "?"}${RESET}`);
+		}
+		console.log();
+
+		const menuItems = buildProjectDetailMenu();
+		const result = await runMenu(null, menuItems);
+		if (result === "quit") return "quit";
+		if (result === "start") return "start";
 	}
 }
 
@@ -115,13 +131,24 @@ async function main(): Promise<void> {
 	printBanner();
 	checkFirstRun();
 
-	if (!getSelectedProject()) {
-		await projectSelectionMenu();
-	}
-
+	// Outer loop: Start Menu → Project Detail → back to Start Menu
 	// eslint-disable-next-line no-constant-condition
 	while (true) {
-		await mainMenu();
+		if (!getSelectedProject()) {
+			const startResult = await startMenu();
+			if (startResult === "quit") {
+				console.log(`\n  ${DIM}Goodbye.${RESET}\n`);
+				process.exit(0);
+			}
+		}
+
+		const detailResult = await projectDetailLoop();
+		if (detailResult === "quit") {
+			console.log(`\n  ${DIM}Goodbye.${RESET}\n`);
+			process.exit(0);
+		}
+		// detailResult === "start" → clear project and loop back to start menu
+		clearSelectedProject();
 	}
 }
 
