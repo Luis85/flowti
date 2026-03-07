@@ -28,17 +28,23 @@ export interface MakePaths {
 	components: string;
 }
 
+const DEFAULT_MAKE_PATHS: MakePaths = {
+	ui: "src/ui",
+	domain: "src/domain",
+	hubDomain: "src/domain/hub",
+	tests: "tests/ui",
+	css: "css",
+	docs: "docs/features",
+	journeys: "tests/e2e/journeys",
+	components: "src/ui/components",
+};
+
 export function getMakePaths(): MakePaths {
 	const hub = (config as Record<string, unknown>).make as Record<string, Record<string, string>> | undefined;
 	const h = hub?.hub ?? {};
-	return {
-		ui: h.ui ?? "src/ui",
-		domain: h.domain ?? "src/domain",
-		hubDomain: h.hubDomain ?? "src/domain/hub",
-		tests: h.tests ?? "tests/ui",
-		css: h.css ?? "css",
-		docs: h.docs ?? "docs/features",
-		journeys: h.journeys ?? "tests/e2e/journeys",
-		components: h.components ?? "src/ui/components",
-	};
+	const result = { ...DEFAULT_MAKE_PATHS };
+	for (const key of Object.keys(result) as (keyof MakePaths)[]) {
+		if (h[key]) result[key] = h[key];
+	}
+	return result;
 }

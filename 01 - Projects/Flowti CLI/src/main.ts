@@ -44,6 +44,7 @@ import { buildProjectDetailMenu } from "./mainMenu.js";
 // ── Command registry ────────────────────────────────────────────────
 
 import type { CommandHandler } from "./types.js";
+import { log } from "./infrastructure/logger.js";
 
 const allCommands: Record<string, CommandHandler> = {
 	...helpCmds,
@@ -91,30 +92,32 @@ async function handleCliArgs(): Promise<boolean> {
 	}
 
 	// Unknown command
-	console.log(`\n  ${YELLOW}Unknown command: ${command}${RESET}`);
-	console.log(`  ${DIM}Run "npm run flowti -- help" for available commands.${RESET}\n`);
+	log(`\n  ${YELLOW}Unknown command: ${command}${RESET}`);
+	log(`  ${DIM}Run "npm run flowti -- help" for available commands.${RESET}\n`);
 	return true;
 }
 
 // ── Project detail menu (inner loop) ────────────────────────────────
 
+function printProjectBanner(): void {
+	const project = getSelectedProject();
+	const source = getProjectSource();
+	const ctx = project ? initializeProject(project) : null;
+	const label = ctx?.config.name ?? project ?? "Unknown";
+	const sourceLabel = source === "development" ? `${DIM}Development/${RESET}` : "";
+
+	log(`  ${DIM}Project:${RESET} ${sourceLabel}${CYAN}${label}${RESET}`);
+	if (ctx?.pkg) {
+		log(`  ${DIM}${ctx.pkg.name ?? ""}@${ctx.pkg.version ?? "?"}${RESET}`);
+	}
+	log();
+}
+
 async function projectDetailLoop(): Promise<"start" | "quit"> {
-	// eslint-disable-next-line no-constant-condition
+
 	while (true) {
-		const project = getSelectedProject();
-		const source = getProjectSource();
-		const ctx = project ? initializeProject(project) : null;
-		const label = ctx?.config.name ?? project ?? "Unknown";
-		const sourceLabel = source === "development" ? `${DIM}Development/${RESET}` : "";
-
-		console.log(`  ${DIM}Project:${RESET} ${sourceLabel}${CYAN}${label}${RESET}`);
-		if (ctx?.pkg) {
-			console.log(`  ${DIM}${ctx.pkg.name ?? ""}@${ctx.pkg.version ?? "?"}${RESET}`);
-		}
-		console.log();
-
-		const menuItems = buildProjectDetailMenu();
-		const result = await runMenu(null, menuItems);
+		printProjectBanner();
+		const result = await runMenu(null, buildProjectDetailMenu());
 		if (result === "quit") return "quit";
 		if (result === "start") return "start";
 	}
@@ -132,19 +135,19 @@ async function main(): Promise<void> {
 	checkFirstRun();
 
 	// Outer loop: Start Menu → Project Detail → back to Start Menu
-	// eslint-disable-next-line no-constant-condition
+	 
 	while (true) {
 		if (!getSelectedProject()) {
 			const startResult = await startMenu();
 			if (startResult === "quit") {
-				console.log(`\n  ${DIM}Goodbye.${RESET}\n`);
+				log(`\n  ${DIM}Goodbye.${RESET}\n`);
 				process.exit(0);
 			}
 		}
 
 		const detailResult = await projectDetailLoop();
 		if (detailResult === "quit") {
-			console.log(`\n  ${DIM}Goodbye.${RESET}\n`);
+			log(`\n  ${DIM}Goodbye.${RESET}\n`);
 			process.exit(0);
 		}
 		// detailResult === "start" → clear project and loop back to start menu

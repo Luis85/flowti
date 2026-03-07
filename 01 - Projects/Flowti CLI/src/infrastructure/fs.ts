@@ -6,6 +6,7 @@ import fsNode from "node:fs";
 import path from "node:path";
 import { ROOT } from "./config.js";
 import { RESET, GREEN, YELLOW } from "./ui.js";
+import { log } from "./logger.js";
 
 export function writeFile(relPath: string, content: string): boolean {
 	return writeFileAt(ROOT, relPath, content);
@@ -16,11 +17,11 @@ export function writeFileAt(basePath: string, relPath: string, content: string):
 	const dir = path.dirname(absPath);
 	fsNode.mkdirSync(dir, { recursive: true });
 	if (fsNode.existsSync(absPath)) {
-		console.log(`    ${YELLOW}skip${RESET}  ${relPath} (already exists)`);
+		log(`    ${YELLOW}skip${RESET}  ${relPath} (already exists)`);
 		return false;
 	}
 	fsNode.writeFileSync(absPath, content, "utf-8");
-	console.log(`    ${GREEN}create${RESET}  ${relPath}`);
+	log(`    ${GREEN}create${RESET}  ${relPath}`);
 	return true;
 }
 

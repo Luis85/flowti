@@ -9,6 +9,7 @@ import { createRL, ask } from "../../infrastructure/readline.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { showHelp } from "../help/help.js";
 import type { MenuResult } from "../../types.js";
+import { log } from "../../infrastructure/logger.js";
 
 const cmd = (config as Record<string, Record<string, Record<string, string>>>).review?.commands ?? {};
 
@@ -29,7 +30,7 @@ export async function menu(): Promise<MenuResult> {
 			action: () => { run(cmd.release ?? "npm run build:release", "Publishing..."); },
 		},
 		{ key: "4", label: "Teardown test vault", action: async () => {
-			console.log(`\n  ${YELLOW}This will reset the test vault to a fresh state.${RESET}`);
+			log(`\n  ${YELLOW}This will reset the test vault to a fresh state.${RESET}`);
 			const rl = createRL();
 			const confirm = await ask(rl, "Continue? (y/N)", "N");
 			rl.close();
@@ -38,7 +39,7 @@ export async function menu(): Promise<MenuResult> {
 			}
 		}},
 		{ key: "5", label: "Rebuild (teardown → prerequisites → installer)", action: async () => {
-			console.log(`\n  ${YELLOW}This will teardown and rebuild the test vault from scratch.${RESET}`);
+			log(`\n  ${YELLOW}This will teardown and rebuild the test vault from scratch.${RESET}`);
 			const rl = createRL();
 			const confirm = await ask(rl, "Continue? (y/N)", "N");
 			rl.close();

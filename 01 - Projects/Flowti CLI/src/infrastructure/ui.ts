@@ -4,6 +4,7 @@
 
 import { manifest } from "./config.js";
 import type { MenuEntry } from "../types.js";
+import { log } from "./logger.js";
 
 // ── ANSI escape codes ────────────────────────────────────────────────
 
@@ -18,30 +19,30 @@ export const YELLOW = "\x1b[33m";
 // ── Printing primitives ─────────────────────────────────────────────
 
 export function printBanner(): void {
-	console.log();
-	console.log(`  ${BOLD}${"═".repeat(50)}${RESET}`);
-	console.log(`  ${BOLD}  Flowti CLI${RESET}  ${DIM}v${manifest.version}${RESET}`);
-	console.log(`  ${BOLD}${"═".repeat(50)}${RESET}`);
-	console.log();
+	log();
+	log(`  ${BOLD}${"═".repeat(50)}${RESET}`);
+	log(`  ${BOLD}  Flowti CLI${RESET}  ${DIM}v${manifest.version}${RESET}`);
+	log(`  ${BOLD}${"═".repeat(50)}${RESET}`);
+	log();
 }
 
 export function printHeader(title: string): void {
-	console.log(`\n  ${BOLD}${"─".repeat(50)}${RESET}`);
-	console.log(`  ${BOLD}  ${title}${RESET}`);
-	console.log(`  ${BOLD}${"─".repeat(50)}${RESET}\n`);
+	log(`\n  ${BOLD}${"─".repeat(50)}${RESET}`);
+	log(`  ${BOLD}  ${title}${RESET}`);
+	log(`  ${BOLD}${"─".repeat(50)}${RESET}\n`);
 }
 
 export function printMenu(items: MenuEntry[]): void {
 	for (const item of items) {
 		if ("separator" in item) {
-			console.log();
+			log();
 			continue;
 		}
 		if (item.disabled) {
-			console.log(`    ${DIM}${item.key}) ${item.label}${RESET}`);
+			log(`    ${DIM}${item.key}) ${item.label}${RESET}`);
 		} else {
-			console.log(`    ${item.key}) ${item.label}`);
+			log(`    ${item.key}) ${item.label}`);
 		}
 	}
-	console.log();
+	log();
 }

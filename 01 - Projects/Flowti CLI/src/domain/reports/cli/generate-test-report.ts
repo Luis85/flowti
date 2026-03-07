@@ -9,36 +9,67 @@
 import fs from "node:fs";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
+import { log } from "../../../infrastructure/logger.js";
 
 const svc = new ReportService();
 const REPORT_JSON = svc.subdir("tests/testreport.json");
 
+interface TestStats {
+	passed: number;
+	failed: number;
+	skipped: number;
+	total: number;
+	suites: number;
+	durationMs: number;
+	success: boolean;
+}
+
+function extractTestStats(json: Record<string, unknown>): TestStats {
+	const passed = (json.numPassedTests as number) ?? 0;
+	const failed = (json.numFailedTests as number) ?? 0;
+	const skipped = (json.numPendingTests as number) ?? 0;
+	const total = (json.numTotalTests as number) ?? passed + failed + skipped;
+	const results = json.testResults as unknown[] | undefined;
+	const suites = results?.length ?? (json.numTotalTestSuites as number) ?? 0;
+	const startTime = json.startTime as number | undefined;
+	const durationMs = startTime ? Math.max(0, Date.now() - startTime) : 0;
+	return { passed, failed, skipped, total, suites, durationMs, success: (json.success as boolean) ?? failed === 0 };
+}
+
+function addSuitesTable(doc: Document, json: Record<string, unknown>): void {
+	const testResults = json.testResults as Array<{ name: string; status: string; assertionResults?: Array<{ status: string }> }> | undefined;
+	if (!testResults || testResults.length === 0) return;
+
+	doc.heading(2, "Suites").addBlank();
+	const rows = testResults.map((suite) => {
+		const rel = suite.name.replace(/\\/g, "/").split("Flowti CLI/").pop() ?? suite.name;
+		const tests = suite.assertionResults?.length ?? 0;
+		const p = suite.assertionResults?.filter((a) => a.status === "passed").length ?? 0;
+		return [rel, String(tests), String(p), suite.status === "passed" ? "PASS" : "FAIL"];
+	});
+	doc.table(["Suite", "Tests", "Passed", "Status"], rows, { alignRight: [1, 2] }).addBlank();
+}
+
 function main(): void {
 	if (!fs.existsSync(REPORT_JSON)) {
-		console.log("[cli-report] No testreport.json found — run tests with --reporter=json first.");
+		log("[cli-report] No testreport.json found — run tests with --reporter=json first.");
 		return;
 	}
 
-	const json = JSON.parse(fs.readFileSync(REPORT_JSON, "utf-8"));
-
-	const passed: number = json.numPassedTests ?? 0;
-	const failed: number = json.numFailedTests ?? 0;
-	const skipped: number = json.numPendingTests ?? 0;
-	const total: number = json.numTotalTests ?? passed + failed + skipped;
-	const suites: number = json.testResults?.length ?? json.numTotalTestSuites ?? 0;
-	const durationMs: number = json.startTime ? Date.now() - json.startTime : 0;
+	const json = JSON.parse(fs.readFileSync(REPORT_JSON, "utf-8")) as Record<string, unknown>;
+	const stats = extractTestStats(json);
 
 	const fm: Record<string, string | number | boolean> = {
 		type: "TestReport",
 		project: "flowti-cli",
 		date: new Date().toISOString(),
-		passed,
-		failed,
-		skipped,
-		total,
-		suites,
-		duration_ms: Math.max(0, durationMs),
-		success: json.success ?? failed === 0,
+		passed: stats.passed,
+		failed: stats.failed,
+		skipped: stats.skipped,
+		total: stats.total,
+		suites: stats.suites,
+		duration_ms: stats.durationMs,
+		success: stats.success,
 	};
 
 	const doc = Document.create("CLI Test Report")
@@ -47,23 +78,13 @@ function main(): void {
 		.heading(1, "CLI Test Report")
 		.addBlank()
 		.callout("info", "Summary", [
-			`Total: ${total} | Passed: ${passed} | Failed: ${failed} | Skipped: ${skipped}`,
-			`Suites: ${suites} | Duration: ${fm.duration_ms}ms`,
-			`Result: ${fm.success ? "PASS" : "FAIL"}`,
+			`Total: ${stats.total} | Passed: ${stats.passed} | Failed: ${stats.failed} | Skipped: ${stats.skipped}`,
+			`Suites: ${stats.suites} | Duration: ${stats.durationMs}ms`,
+			`Result: ${stats.success ? "PASS" : "FAIL"}`,
 		])
 		.addBlank();
 
-	const testResults = json.testResults as Array<{ name: string; status: string; assertionResults?: Array<{ status: string }> }> | undefined;
-	if (testResults && testResults.length > 0) {
-		doc.heading(2, "Suites").addBlank();
-		const rows = testResults.map((suite) => {
-			const rel = suite.name.replace(/\\/g, "/").split("Flowti CLI/").pop() ?? suite.name;
-			const tests = suite.assertionResults?.length ?? 0;
-			const p = suite.assertionResults?.filter((a) => a.status === "passed").length ?? 0;
-			return [rel, String(tests), String(p), suite.status === "passed" ? "PASS" : "FAIL"];
-		});
-		doc.table(["Suite", "Tests", "Passed", "Status"], rows, { alignRight: [1, 2] }).addBlank();
-	}
+	addSuitesTable(doc, json);
 
 	const outputPath = svc.save(doc, {
 		subdir: "tests",
@@ -72,7 +93,7 @@ function main(): void {
 		sourceJson: REPORT_JSON,
 	});
 
-	console.log(`[cli-report] TestReport written: ${outputPath}`);
+	log(`[cli-report] TestReport written: ${outputPath}`);
 }
 
 main();

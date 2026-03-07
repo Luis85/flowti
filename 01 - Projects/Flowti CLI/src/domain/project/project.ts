@@ -8,12 +8,16 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { execSync } from "node:child_process";
 import { PROJECTS_DIR, DEVELOPMENT_DIR } from "../../infrastructure/config.js";
 import { getSelectedProject, setSelectedProject } from "../../infrastructure/state.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { createRL, ask } from "../../infrastructure/readline.js";
-import { RESET, DIM, GREEN, RED, CYAN } from "../../infrastructure/ui.js";
+import { RESET, DIM, GREEN, RED, CYAN, BOLD } from "../../infrastructure/ui.js";
+import { PROJECT_TEMPLATES, PROJECT_TEMPLATE_IDS } from "../make/make.js";
 import type { MenuEntry, MenuResult } from "../../types.js";
+import type { ProjectTemplateId } from "../make/make.js";
+import { log } from "../../infrastructure/logger.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -50,7 +54,7 @@ async function loadProjectMenu(): Promise<MenuResult> {
 	const current = getSelectedProject();
 
 	if (projects.length === 0) {
-		console.log(`\n  ${DIM}No project folders found in ${PROJECTS_DIR}${RESET}\n`);
+		log(`\n  ${DIM}No project folders found in ${PROJECTS_DIR}${RESET}\n`);
 		return "main";
 	}
 
@@ -61,7 +65,7 @@ async function loadProjectMenu(): Promise<MenuResult> {
 			label: `${name}${marker}`,
 			action: (): MenuResult => {
 				setSelectedProject(name, "projects");
-				console.log(`\n  ${GREEN}Selected:${RESET} ${name}\n`);
+				log(`\n  ${GREEN}Selected:${RESET} ${name}\n`);
 				return "quit";
 			},
 		};
@@ -84,20 +88,69 @@ async function createProjectMenu(): Promise<MenuResult> {
 	rl.close();
 
 	if (!name) {
-		console.log(`\n  ${DIM}Cancelled.${RESET}\n`);
+		log(`\n  ${DIM}Cancelled.${RESET}\n`);
 		return "main";
 	}
 
 	const projectPath = path.join(PROJECTS_DIR, name);
 	if (fs.existsSync(projectPath)) {
-		console.log(`\n  ${RED}Project already exists:${RESET} ${name}\n`);
+		log(`\n  ${RED}Project already exists:${RESET} ${name}\n`);
 		return "main";
 	}
 
+	// Template selection
+	const templateItems: MenuEntry[] = PROJECT_TEMPLATE_IDS.map((id, i) => ({
+		key: String(i + 1),
+		label: PROJECT_TEMPLATES[id].label,
+		action: (): MenuResult => {
+			scaffoldFromTemplate(id, projectPath, name);
+			return "quit";
+		},
+	}));
+
+	templateItems.push(
+		{
+			key: "g",
+			label: "From GitHub URL",
+			action: () => cloneFromGitHub(projectPath, name),
+		},
+		{ separator: true },
+		{ key: "b", label: "Back", action: () => "main" as const },
+	);
+
+	const result = await runMenu(`Create Project: ${name}`, templateItems);
+	if (result === "quit") {
+		setSelectedProject(name, "projects");
+		log(`  ${GREEN}Selected:${RESET} ${name}\n`);
+	}
+	return result === "quit" ? "quit" : "main";
+}
+
+function scaffoldFromTemplate(templateId: ProjectTemplateId, projectPath: string, name: string): void {
 	fs.mkdirSync(projectPath, { recursive: true });
-	setSelectedProject(name, "projects");
-	console.log(`\n  ${GREEN}Created and selected:${RESET} ${name}\n`);
-	return "quit";
+	log(`\n  ${BOLD}Scaffolding:${RESET} ${name}\n`);
+	PROJECT_TEMPLATES[templateId].scaffold(projectPath, name);
+}
+
+async function cloneFromGitHub(projectPath: string, name: string): Promise<MenuResult> {
+	const rl = createRL();
+	const url = await ask(rl, "GitHub URL");
+	rl.close();
+
+	if (!url) {
+		log(`\n  ${DIM}Cancelled.${RESET}\n`);
+		return "main";
+	}
+
+	log(`\n  ${CYAN}▸${RESET} Cloning ${url}...\n`);
+	try {
+		execSync(`git clone "${url}" "${projectPath}"`, { stdio: "inherit" });
+		log(`\n  ${GREEN}✓${RESET} Cloned into ${name}.\n`);
+		return "quit";
+	} catch {
+		log(`\n  ${RED}Clone failed.${RESET} Check the URL and try again.\n`);
+		return "main";
+	}
 }
 
 // ── Import Project (from Development/) ──────────────────────────────
@@ -106,7 +159,7 @@ async function importProjectMenu(): Promise<MenuResult> {
 	const devProjects = listDevelopmentProjects();
 
 	if (devProjects.length === 0) {
-		console.log(`\n  ${DIM}No projects found in ${DEVELOPMENT_DIR}${RESET}\n`);
+		log(`\n  ${DIM}No projects found in ${DEVELOPMENT_DIR}${RESET}\n`);
 		return "main";
 	}
 
@@ -115,7 +168,7 @@ async function importProjectMenu(): Promise<MenuResult> {
 		label: name,
 		action: (): MenuResult => {
 			setSelectedProject(name, "development");
-			console.log(`\n  ${GREEN}Imported:${RESET} ${name} ${DIM}(Development/${name})${RESET}\n`);
+			log(`\n  ${GREEN}Imported:${RESET} ${name} ${DIM}(Development/${name})${RESET}\n`);
 			return "quit";
 		},
 	}));
@@ -140,13 +193,13 @@ export async function startMenu(): Promise<"selected" | "quit"> {
 		{ key: "q", label: "Quit", action: () => "quit" as const },
 	];
 
-	// eslint-disable-next-line no-constant-condition
+	 
 	while (true) {
 		const current = getSelectedProject();
 		const result = await runMenu("Start Menu", startItems, {
 			beforeMenu: () => {
 				if (current) {
-					console.log(`  ${DIM}Current project: ${CYAN}${current}${RESET}\n`);
+					log(`  ${DIM}Current project: ${CYAN}${current}${RESET}\n`);
 				}
 			},
 		});

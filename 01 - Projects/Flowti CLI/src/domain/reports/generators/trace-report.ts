@@ -11,6 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { VAULT_ROOT, ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
+import { log } from "../../../infrastructure/logger.js";
 
 interface ScanResult {
 	id: string;
@@ -31,6 +32,14 @@ const DOCS_DIR: string = path.join(ROOT, "docs");
 // Vault inbox is relative to the git root
 const VAULT_INBOX: string = path.join(VAULT_ROOT, "00 - Connectivity", "inbox");
 
+function parseScalar(rawValue: string): unknown {
+	if (rawValue === "true") return true;
+	if (rawValue === "false") return false;
+	if (/^-?\d+$/.test(rawValue)) return parseInt(rawValue, 10);
+	if (/^-?\d+\.\d+$/.test(rawValue)) return parseFloat(rawValue);
+	return rawValue.replace(/^["']|["']$/g, "");
+}
+
 function parseFrontmatter(content: string): Record<string, unknown> | null {
 	const match: RegExpMatchArray | null = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 	if (!match) return null;
@@ -42,35 +51,27 @@ function parseFrontmatter(content: string): Record<string, unknown> | null {
 
 	for (const line of lines) {
 		if (inArray && /^\s+-\s+/.test(line)) {
-			const value: string = line.replace(/^\s+-\s+/, "").replace(/^["']|["']$/g, "");
+			const value = line.replace(/^\s+-\s+/, "").replace(/^["']|["']$/g, "");
 			(fm[currentKey!] as string[]).push(value);
 			continue;
 		}
 
-		const kvMatch: RegExpMatchArray | null = line.match(/^(\w[\w_]*):\s*(.*)/);
-		if (!kvMatch) {
-			inArray = false;
-			continue;
-		}
+		const kvMatch = line.match(/^(\w[\w_]*):\s*(.*)/);
+		if (!kvMatch) { inArray = false; continue; }
 
-		const key: string = kvMatch[1];
-		const rawValue: string = kvMatch[2].trim();
+		const key = kvMatch[1];
+		const rawValue = kvMatch[2].trim();
 
 		if (rawValue === "" || rawValue === "[]") {
 			currentKey = key;
-			fm[key] = rawValue === "[]" ? [] : [];
+			fm[key] = [];
 			inArray = rawValue === "";
 			continue;
 		}
 
 		inArray = false;
 		currentKey = null;
-
-		if (rawValue === "true") fm[key] = true;
-		else if (rawValue === "false") fm[key] = false;
-		else if (/^-?\d+$/.test(rawValue)) fm[key] = parseInt(rawValue, 10);
-		else if (/^-?\d+\.\d+$/.test(rawValue)) fm[key] = parseFloat(rawValue);
-		else fm[key] = rawValue.replace(/^["']|["']$/g, "");
+		fm[key] = parseScalar(rawValue);
 	}
 
 	return fm;
@@ -90,145 +91,118 @@ function scanDir(dir: string, docType: string): ScanResult[] {
 	return results;
 }
 
-function main(): void {
-	const dryRun: boolean = process.argv.includes("--dry-run");
-
-	// Collect documents
+function collectDocuments(): ScanResult[] {
 	const docs: ScanResult[] = [
 		...scanDir(path.join(DOCS_DIR, "inbox"), "inbox"),
 		...scanDir(VAULT_INBOX, "inbox"),
-		...scanDir(DOCS_DIR, "pbi").filter((d: ScanResult) => d.id.startsWith("PBI-")),
+		...scanDir(DOCS_DIR, "pbi").filter((d) => d.id.startsWith("PBI-")),
 		...scanDir(path.join(DOCS_DIR, "cycles"), "cycle"),
 		...scanDir(path.join(DOCS_DIR, "debt"), "tech_debt"),
 	];
 
-	// Also scan top-level docs for PBIs that might not be in a subfolder
-	const topDocs: ScanResult[] = scanDir(DOCS_DIR, "pbi").filter((d: ScanResult) => d.id.startsWith("PBI-"));
+	const topDocs = scanDir(DOCS_DIR, "pbi").filter((d) => d.id.startsWith("PBI-"));
 	for (const td of topDocs) {
-		if (!docs.some((d: ScanResult) => d.id === td.id)) docs.push(td);
+		if (!docs.some((d) => d.id === td.id)) docs.push(td);
 	}
+	return docs;
+}
 
-	// Run conformance checks inline (avoid importing TS from Node)
+function checkInbox(doc: ScanResult, stage: string): TraceGap[] {
+	if (!doc.frontmatter.parent && stage !== "backlog") {
+		return [{ documentId: doc.id, documentType: "inbox", gapType: "unlinked_inbox", description: `Inbox item missing parent link (stage: ${stage || "unknown"})` }];
+	}
+	return [];
+}
+
+function checkPbi(doc: ScanResult, stage: string): TraceGap[] {
 	const gaps: TraceGap[] = [];
-
-	for (const doc of docs) {
-		const fm: Record<string, unknown> = doc.frontmatter;
-		const stage: string = String(fm.stage ?? "");
-
-		if (doc.type === "inbox") {
-			if (!fm.parent && stage !== "backlog") {
-				gaps.push({
-					documentId: doc.id,
-					documentType: "inbox",
-					gapType: "unlinked_inbox",
-					description: `Inbox item missing parent link (stage: ${stage || "unknown"})`,
-				});
-			}
-		}
-
-		if (doc.type === "pbi") {
-			if (stage === "delivered" && !fm.delivered_in) {
-				gaps.push({
-					documentId: doc.id,
-					documentType: "pbi",
-					gapType: "delivered_without_cycle",
-					description: "PBI is delivered but missing delivered_in link to cycle",
-				});
-			}
-			if (!fm.feature) {
-				gaps.push({
-					documentId: doc.id,
-					documentType: "pbi",
-					gapType: "orphaned_pbi",
-					description: "PBI missing feature link to PRD",
-				});
-			}
-		}
-
-		if (doc.type === "cycle") {
-			if (stage === "done" && (!Array.isArray(fm.pbis) || fm.pbis.length === 0)) {
-				gaps.push({
-					documentId: doc.id,
-					documentType: "cycle",
-					gapType: "cycle_without_pbi_refs",
-					description: "Completed cycle has no PBI references",
-				});
-			}
-		}
-
-		if (doc.type === "tech_debt") {
-			const status: string = String(fm.status ?? fm.stage ?? "");
-			if (status === "resolved" && !fm.resolved_in) {
-				gaps.push({
-					documentId: doc.id,
-					documentType: "tech_debt",
-					gapType: "resolved_debt_without_cycle",
-					description: "Tech debt is resolved but missing resolved_in link to cycle",
-				});
-			}
-		}
+	if (stage === "delivered" && !doc.frontmatter.delivered_in) {
+		gaps.push({ documentId: doc.id, documentType: "pbi", gapType: "delivered_without_cycle", description: "PBI is delivered but missing delivered_in link to cycle" });
 	}
+	if (!doc.frontmatter.feature) {
+		gaps.push({ documentId: doc.id, documentType: "pbi", gapType: "orphaned_pbi", description: "PBI missing feature link to PRD" });
+	}
+	return gaps;
+}
 
-	// Build report
-	const now: Date = new Date();
+function checkCycle(doc: ScanResult, stage: string): TraceGap[] {
+	if (stage === "done" && (!Array.isArray(doc.frontmatter.pbis) || doc.frontmatter.pbis.length === 0)) {
+		return [{ documentId: doc.id, documentType: "cycle", gapType: "cycle_without_pbi_refs", description: "Completed cycle has no PBI references" }];
+	}
+	return [];
+}
+
+function checkTechDebt(doc: ScanResult): TraceGap[] {
+	const status = String(doc.frontmatter.status ?? doc.frontmatter.stage ?? "");
+	if (status === "resolved" && !doc.frontmatter.resolved_in) {
+		return [{ documentId: doc.id, documentType: "tech_debt", gapType: "resolved_debt_without_cycle", description: "Tech debt is resolved but missing resolved_in link to cycle" }];
+	}
+	return [];
+}
+
+function findGaps(docs: ScanResult[]): TraceGap[] {
+	const checkers: Record<string, (doc: ScanResult, stage: string) => TraceGap[]> = {
+		inbox: checkInbox,
+		pbi: checkPbi,
+		cycle: checkCycle,
+		tech_debt: (d) => checkTechDebt(d),
+	};
+	const gaps: TraceGap[] = [];
+	for (const doc of docs) {
+		const stage = String(doc.frontmatter.stage ?? "");
+		const checker = checkers[doc.type];
+		if (checker) gaps.push(...checker(doc, stage));
+	}
+	return gaps;
+}
+
+function buildTraceReportDoc(docs: ScanResult[], gaps: TraceGap[]): Document {
 	const gapsByType: Record<string, TraceGap[]> = {};
 	for (const gap of gaps) {
-		const key: string = gap.gapType;
-		if (!gapsByType[key]) gapsByType[key] = [];
-		gapsByType[key].push(gap);
+		if (!gapsByType[gap.gapType]) gapsByType[gap.gapType] = [];
+		gapsByType[gap.gapType].push(gap);
 	}
 
-	const coverage: number = docs.length > 0 ? Math.round(((docs.length - gaps.length) / docs.length) * 10000) / 100 : 100;
+	const coverage = docs.length > 0 ? Math.round(((docs.length - gaps.length) / docs.length) * 10000) / 100 : 100;
 
 	const reportDoc = Document.create("Trace Conformance Report")
-		.mergeFrontmatter({
-			type: "TraceConformanceReport",
-			date: now.toISOString(),
-			documents_scanned: docs.length,
-			gaps_found: gaps.length,
-			coverage_pct: coverage,
-		})
+		.mergeFrontmatter({ type: "TraceConformanceReport", date: new Date().toISOString(), documents_scanned: docs.length, gaps_found: gaps.length, coverage_pct: coverage })
 		.addBlank()
 		.heading(1, "Trace Conformance Report")
 		.addBlank()
-		.callout("info", "Summary", [
-			`Documents scanned: ${docs.length} | Gaps found: ${gaps.length}`,
-			`Coverage: ${coverage}%`,
-		])
+		.callout("info", "Summary", [`Documents scanned: ${docs.length} | Gaps found: ${gaps.length}`, `Coverage: ${coverage}%`])
 		.addBlank();
 
 	if (gaps.length > 0) {
 		reportDoc.heading(2, "Gaps by Category").addBlank();
-		reportDoc.table(
-			["Gap Type", "Count", "Documents"],
-			Object.entries(gapsByType).map(([gapType, items]: [string, TraceGap[]]) => [
-				gapType,
-				String(items.length),
-				items.map((g: TraceGap) => Document.wikilink(g.documentId)).join(", "),
-			]),
-		);
+		reportDoc.table(["Gap Type", "Count", "Documents"], Object.entries(gapsByType).map(([gapType, items]) => [gapType, String(items.length), items.map((g) => Document.wikilink(g.documentId)).join(", ")]));
 		reportDoc.addBlank();
-
 		reportDoc.heading(2, "Gap Details").addBlank();
-		reportDoc.list(
-			gaps.map((gap: TraceGap) => `**${Document.wikilink(gap.documentId)}** (${gap.documentType}): ${gap.description}`),
-		);
+		reportDoc.list(gaps.map((gap) => `**${Document.wikilink(gap.documentId)}** (${gap.documentType}): ${gap.description}`));
 		reportDoc.addBlank();
 	} else {
 		reportDoc.callout("success", "All documents have complete traceability links.").addBlank();
 	}
 
+	return reportDoc;
+}
+
+function main(): void {
+	const dryRun = process.argv.includes("--dry-run");
+	const docs = collectDocuments();
+	const gaps = findGaps(docs);
+	const reportDoc = buildTraceReportDoc(docs, gaps);
+
 	if (dryRun) {
-		console.log("[trace] DRY RUN — would generate:");
-		console.log(reportDoc.toString());
+		log("[trace] DRY RUN — would generate:");
+		log(reportDoc.toString());
 		return;
 	}
 
-	const safeTimestamp: string = now.toISOString().replace(/:/g, "-");
-	const filename: string = `${safeTimestamp}-trace-conformance-report.md`;
-	const outputPath: string = path.join(OUTPUT_DIR, filename);
+	const safeTimestamp = new Date().toISOString().replace(/:/g, "-");
+	const outputPath = path.join(OUTPUT_DIR, `${safeTimestamp}-trace-conformance-report.md`);
 	reportDoc.save(outputPath);
-	console.log(`[report] TraceConformanceReport written: ${outputPath}`);
+	log(`[report] TraceConformanceReport written: ${outputPath}`);
 }
 
 main();

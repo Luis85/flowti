@@ -11,6 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
+import { log } from "../../../infrastructure/logger.js";
 
 interface EntityField {
 	name: string;
@@ -132,7 +133,7 @@ function groupLabel(group: string): string {
 
 function main(): void {
 	if (!fs.existsSync(REGISTRY_PATH)) {
-		console.log("[report] entityTypeRegistry.ts not found — skipping data dictionary generation.");
+		log("[report] entityTypeRegistry.ts not found — skipping data dictionary generation.");
 		return;
 	}
 
@@ -140,7 +141,7 @@ function main(): void {
 	const entities: EntityType[] = extractEntityTypes(source);
 
 	if (entities.length === 0) {
-		console.log("[report] No entity types extracted from registry — skipping.");
+		log("[report] No entity types extracted from registry — skipping.");
 		return;
 	}
 
@@ -218,7 +219,7 @@ function main(): void {
 
 	doc.save(outputPath);
 
-	console.log(`[report] DataDictionary written (${entities.length} types, ${totalFields} fields): ${outputPath}`);
+	log(`[report] DataDictionary written (${entities.length} types, ${totalFields} fields): ${outputPath}`);
 }
 
 main();

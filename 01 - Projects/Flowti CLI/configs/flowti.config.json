@@ -5,9 +5,18 @@
 		"reports": "npm run reports",
 		"devtools": "npm run dev"
 	},
+	"make": {
+		"templates": []
+	},
 	"reports": {
 		"dir": "reports",
-		"allCommand": "npm run reports"
+		"allCommand": "npm run reports",
+		"generators": [
+			{ "label": "Test Report", "command": "npx tsx src/domain/reports/cli/generate-test-report.ts" },
+			{ "label": "Coverage Report", "command": "npx tsx src/domain/reports/cli/generate-coverage-report.ts" },
+			{ "label": "Codebase Report", "command": "npx tsx src/domain/reports/cli/generate-codebase-report.ts" },
+			{ "label": "Complexity Report", "command": "npx tsx src/domain/reports/cli/generate-complexity-report.ts" }
+		]
 	},
 	"docs": {
 		"generators": [

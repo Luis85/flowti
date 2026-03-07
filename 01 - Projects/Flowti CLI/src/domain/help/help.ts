@@ -2,7 +2,8 @@
  * help.ts — CLI help system (man-pages).
  */
 
-import { RESET, BOLD, DIM, CYAN, GREEN, RED, YELLOW } from "../../infrastructure/ui.js";
+import { RESET, BOLD, DIM, CYAN, GREEN, YELLOW } from "../../infrastructure/ui.js";
+import { log } from "../../infrastructure/logger.js";
 
 // ── Help content ────────────────────────────────────────────────────
 
@@ -226,11 +227,12 @@ export const HELP: Record<string, string> = {
 
   ${BOLD}PROJECT DETAIL MENU (key 5)${RESET}
     ${CYAN}1) Run All Reports${RESET}
-       Runs the project's configured reports command.
+       Runs the project's configured reports command and generates
+       a Project Summary with risks, improvements, and state overview.
        ${DIM}→ Reads reports.allCommand or tools.reports from flowti.config.json${RESET}
 
-    ${CYAN}2) Project Status Report${RESET}
-       Generates a snapshot of source stats, git status, and config.
+    ${CYAN}2..n) Individual generators${RESET}
+       Run a single report generator from reports.generators config.
 
   ${BOLD}NON-INTERACTIVE (plugin)${RESET}
     ${CYAN}1) Build all reports${RESET}
@@ -345,11 +347,11 @@ export function showHelp(section?: string): void {
 	const key = section?.toLowerCase() ?? "main";
 	const content = HELP[key];
 	if (!content) {
-		console.log(`\n  ${YELLOW}No help available for "${section}".${RESET}`);
-		console.log(`  ${DIM}Available sections: ${Object.keys(HELP).join(", ")}${RESET}\n`);
+		log(`\n  ${YELLOW}No help available for "${section}".${RESET}`);
+		log(`  ${DIM}Available sections: ${Object.keys(HELP).join(", ")}${RESET}\n`);
 		return;
 	}
-	console.log(content);
+	log(content);
 }
 
 export const commands = {

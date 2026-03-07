@@ -11,6 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { CLI_PROJECT, PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
+import { log } from "../../../infrastructure/logger.js";
 
 const HELP_PATH: string = path.join(CLI_PROJECT, "src", "domain", "help", "help.ts");
 const PLUGIN_CONFIG_PATH: string = path.join(PLUGIN_ROOT, "flowti.config.json");
@@ -65,70 +66,31 @@ function extractHelpSections(source: string): Map<string, string> {
 	return sections;
 }
 
+type LineRule = { pattern: RegExp; transform: (m: RegExpMatchArray) => string[] };
+
+const LINE_RULES: LineRule[] = [
+	{ pattern: /^([A-Z][A-Z\s()]+)$/, transform: (m) => [`### ${m[1].trim()}`, ""] },
+	{ pattern: /^(\d+)\)\s+(.+)/, transform: (m) => [`**${m[1]}) ${m[2]}**`, ""] },
+	{ pattern: /^([a-z])\)\s+(.+)/, transform: (m) => [`**${m[1]}) ${m[2]}**`, ""] },
+	{ pattern: /^→\s+(.+)/, transform: (m) => [`\`${m[1]}\``, ""] },
+	{ pattern: /^(\s{2,})(npm run \S+|node \S+|obsidian \S+)\s{2,}(.+)/, transform: (m) => [`- \`${m[2].trim()}\` — ${m[3].trim()}`] },
+	{ pattern: /^(\s{2,})(--\S+)\s{3,}(.+)/, transform: (m) => [`- \`${m[2]}\` — ${m[3].trim()}`] },
+	{ pattern: /^(\s{2,})((?:make|reports|capture|tools|docs)\.\S+)\s{2,}(.+)/, transform: (m) => [`- \`${m[2]}\` — ${m[3].trim()}`] },
+	{ pattern: /^(\s{2,})(\S+\.(?:json|md))\s{2,}(.+)/, transform: (m) => [`- \`${m[2]}\` — ${m[3].trim()}`] },
+	{ pattern: /^(\s+)-\s+(.+)/, transform: (m) => [`- ${m[2]}`] },
+];
+
+function transformLine(line: string): string[] {
+	for (const rule of LINE_RULES) {
+		const m = line.match(rule.pattern);
+		if (m) return rule.transform(m);
+	}
+	return [line];
+}
+
 /** Convert a help section into markdown. */
 function sectionToMarkdown(content: string): string {
-	const lines: string[] = content.split("\n");
-	const mdLines: string[] = [];
-
-	for (const line of lines) {
-		const headerMatch = line.match(/^([A-Z][A-Z\s()]+)$/);
-		if (headerMatch) {
-			mdLines.push(`### ${headerMatch[1].trim()}`, "");
-			continue;
-		}
-
-		const optionMatch = line.match(/^(\d+)\)\s+(.+)/);
-		if (optionMatch) {
-			mdLines.push(`**${optionMatch[1]}) ${optionMatch[2]}**`, "");
-			continue;
-		}
-
-		const letterMatch = line.match(/^([a-z])\)\s+(.+)/);
-		if (letterMatch) {
-			mdLines.push(`**${letterMatch[1]}) ${letterMatch[2]}**`, "");
-			continue;
-		}
-
-		const arrowMatch = line.match(/^→\s+(.+)/);
-		if (arrowMatch) {
-			mdLines.push(`\`${arrowMatch[1]}\``, "");
-			continue;
-		}
-
-		const cmdDescMatch = line.match(/^(\s{2,})(npm run \S+|node \S+|obsidian \S+)\s{2,}(.+)/);
-		if (cmdDescMatch) {
-			mdLines.push(`- \`${cmdDescMatch[2].trim()}\` — ${cmdDescMatch[3].trim()}`);
-			continue;
-		}
-
-		const kvMatch = line.match(/^(\s{2,})(--\S+)\s{3,}(.+)/);
-		if (kvMatch) {
-			mdLines.push(`- \`${kvMatch[2]}\` — ${kvMatch[3].trim()}`);
-			continue;
-		}
-
-		const configMatch = line.match(/^(\s{2,})((?:make|reports|capture|tools|docs)\.\S+)\s{2,}(.+)/);
-		if (configMatch) {
-			mdLines.push(`- \`${configMatch[2]}\` — ${configMatch[3].trim()}`);
-			continue;
-		}
-
-		const fileMatch = line.match(/^(\s{2,})(\S+\.(?:json|md))\s{2,}(.+)/);
-		if (fileMatch) {
-			mdLines.push(`- \`${fileMatch[2]}\` — ${fileMatch[3].trim()}`);
-			continue;
-		}
-
-		const bulletMatch = line.match(/^(\s+)-\s+(.+)/);
-		if (bulletMatch) {
-			mdLines.push(`- ${bulletMatch[2]}`);
-			continue;
-		}
-
-		mdLines.push(line);
-	}
-
-	return mdLines.join("\n");
+	return content.split("\n").flatMap(transformLine).join("\n");
 }
 
 interface CliCommand { command: string; description: string }
@@ -170,56 +132,43 @@ function loadJson<T>(filePath: string): T | null {
 	catch { return null; }
 }
 
-function main(): void {
-	const now = new Date();
-	const date = now.toISOString();
+interface PluginData {
+	helpSections: Map<string, string>;
+	scriptEntries: NpmScript[];
+	reportScripts: ReportScript[];
+	docGenerators: DocGenerator[];
+	makeConfig: Record<string, Record<string, string>>;
+}
 
-	// Load help sections
-	let helpSections = new Map<string, string>();
-	if (fs.existsSync(HELP_PATH)) {
-		const source = fs.readFileSync(HELP_PATH, "utf-8");
-		helpSections = extractHelpSections(source);
-	}
+function loadHelpSections(): Map<string, string> {
+	if (!fs.existsSync(HELP_PATH)) return new Map();
+	return extractHelpSections(fs.readFileSync(HELP_PATH, "utf-8"));
+}
 
-	// Load plugin data
+function extractScriptEntries(pluginPkg: Record<string, unknown> | undefined): NpmScript[] {
+	const npmScripts = pluginPkg?.scripts as Record<string, string> ?? {};
+	return Object.entries(npmScripts).map(([name, script]) => ({ name, script }));
+}
+
+function extractPluginEntries(pluginConfig: Record<string, unknown> | undefined, pluginPkg: Record<string, unknown> | undefined): Omit<PluginData, "helpSections"> {
+	return {
+		scriptEntries: extractScriptEntries(pluginPkg),
+		reportScripts: ((pluginConfig?.reports as Record<string, unknown>)?.scripts as ReportScript[]) ?? [],
+		docGenerators: ((pluginConfig?.docs as Record<string, unknown>)?.generators as DocGenerator[]) ?? [],
+		makeConfig: (pluginConfig?.make ?? {}) as Record<string, Record<string, string>>,
+	};
+}
+
+function loadPluginData(): PluginData {
 	const pluginConfig = loadJson<Record<string, unknown>>(PLUGIN_CONFIG_PATH);
 	const pluginPkg = loadJson<Record<string, unknown>>(PLUGIN_PKG_PATH);
+	return {
+		helpSections: loadHelpSections(),
+		...extractPluginEntries(pluginConfig ?? undefined, pluginPkg ?? undefined),
+	};
+}
 
-	const npmScripts = pluginPkg?.scripts as Record<string, string> ?? {};
-	const scriptEntries: NpmScript[] = Object.entries(npmScripts).map(([name, script]) => ({ name, script }));
-	const reportScripts: ReportScript[] = ((pluginConfig?.reports as Record<string, unknown>)?.scripts as ReportScript[]) ?? [];
-	const docGenerators: DocGenerator[] = ((pluginConfig?.docs as Record<string, unknown>)?.generators as DocGenerator[]) ?? [];
-	const makeConfig = (pluginConfig?.make ?? {}) as Record<string, Record<string, string>>;
-
-	const sectionCount = helpSections.size;
-	const commandCount = CLI_COMMANDS.length;
-	const scriptCount = scriptEntries.length;
-	const reportCount = reportScripts.length;
-	const docGenCount = docGenerators.length;
-
-	// Build document
-	const doc = Document.create("Flowti CLI Reference")
-		.mergeFrontmatter({
-			type: "CLIReference",
-			date,
-			sections: sectionCount,
-			cli_commands: commandCount,
-			npm_scripts: scriptCount,
-			report_generators: reportCount,
-			doc_generators: docGenCount,
-		})
-		.addBlank()
-		.heading(1, "Flowti CLI Reference")
-		.addBlank()
-		.callout("info", "Summary", [
-			`CLI commands: ${commandCount} | Help sections: ${sectionCount} | npm scripts: ${scriptCount}`,
-			`Report generators: ${reportCount} | Doc generators: ${docGenCount}`,
-		])
-		.addBlank()
-		.addSeparator()
-		.addBlank();
-
-	// Quick Start
+function addQuickStartAndArchitecture(doc: Document): void {
 	doc.heading(2, "Quick Start").addBlank();
 	doc.codeBlock("bash", [
 		"npm run flowti              # Interactive menu (Start → Project → Detail)",
@@ -229,7 +178,6 @@ function main(): void {
 	].join("\n"));
 	doc.addBlank();
 
-	// Architecture
 	doc.heading(2, "Architecture").addBlank();
 	doc.text("The CLI is project-centric. On launch you select a project, then work within its context:").addBlank();
 	doc.codeBlock("", [
@@ -249,111 +197,114 @@ function main(): void {
 		"       └─ i) Info          Project diagnostics",
 	].join("\n"));
 	doc.addBlank();
+}
 
-	// Help sections (skip main — already covered by Architecture)
-	const sectionTitles: Record<string, string> = {
-		main: "Overview",
-		make: "Make (Scaffolding)",
-		build: "Build",
-		review: "Review (E2E)",
-		publish: "Publish",
-		reports: "Reports",
-		devtools: "Dev Tools",
-		capture: "Capture",
-		info: "Info",
-	};
+const SECTION_TITLES: Record<string, string> = {
+	main: "Overview",
+	make: "Make (Scaffolding)",
+	build: "Build",
+	review: "Review (E2E)",
+	publish: "Publish",
+	reports: "Reports",
+	devtools: "Dev Tools",
+	capture: "Capture",
+	info: "Info",
+};
 
+function addHelpSections(doc: Document, helpSections: Map<string, string>): void {
 	for (const [key, content] of helpSections) {
 		if (key === "main") continue;
-		const title = sectionTitles[key] ?? key;
-		doc.heading(2, title).addBlank();
+		doc.heading(2, SECTION_TITLES[key] ?? key).addBlank();
 		doc.text(sectionToMarkdown(content)).addBlank();
 	}
+}
 
-	// Non-Interactive Commands
+function addPluginSections(doc: Document, data: PluginData): void {
+	if (data.scriptEntries.length > 0) {
+		doc.heading(2, "npm Scripts (Plugin)").addBlank();
+		doc.table(["Script", "Command"], data.scriptEntries.map((s) => [`\`${s.name}\``, `\`${s.script}\``]));
+		doc.addBlank();
+	}
+	if (data.reportScripts.length > 0) {
+		doc.heading(2, "Report Generators").addBlank();
+		doc.text(`${data.reportScripts.length} report generators configured in \`flowti.config.json\`:`).addBlank();
+		doc.table(["ID", "Label", "Script"], data.reportScripts.map((r) => [r.id, r.label, `\`${r.script}\``]));
+		doc.addBlank();
+	}
+	if (data.docGenerators.length > 0) {
+		doc.heading(2, "Documentation Generators").addBlank();
+		doc.text(`${data.docGenerators.length} documentation generators configured in \`flowti.config.json\`:`).addBlank();
+		doc.table(["Label", "Command"], data.docGenerators.map((g) => [g.label, `\`${g.command}\``]));
+		doc.addBlank();
+	}
+}
+
+function addMakeConfig(doc: Document, makeConfig: Record<string, Record<string, string>>): void {
+	if (Object.keys(makeConfig).length === 0) return;
+	doc.heading(2, "Make Configuration").addBlank();
+	doc.text("Scaffold output paths (`flowti.config.json` → `make`):").addBlank();
+	for (const [section, label] of [["hub", "Hub Paths"], ["plugin", "Plugin Paths"]] as const) {
+		if (makeConfig[section]) {
+			doc.heading(3, label).addBlank();
+			doc.table(["Key", "Path"], Object.entries(makeConfig[section]).map(([k, v]) => [`\`make.${section}.${k}\``, `\`${v}\``]));
+			doc.addBlank();
+		}
+	}
+}
+
+function main(): void {
+	const date = new Date().toISOString();
+	const data = loadPluginData();
+	const commandCount = CLI_COMMANDS.length;
+
+	const doc = Document.create("Flowti CLI Reference")
+		.mergeFrontmatter({
+			type: "CLIReference",
+			date,
+			sections: data.helpSections.size,
+			cli_commands: commandCount,
+			npm_scripts: data.scriptEntries.length,
+			report_generators: data.reportScripts.length,
+			doc_generators: data.docGenerators.length,
+		})
+		.addBlank()
+		.heading(1, "Flowti CLI Reference")
+		.addBlank()
+		.callout("info", "Summary", [
+			`CLI commands: ${commandCount} | Help sections: ${data.helpSections.size} | npm scripts: ${data.scriptEntries.length}`,
+			`Report generators: ${data.reportScripts.length} | Doc generators: ${data.docGenerators.length}`,
+		])
+		.addBlank()
+		.addSeparator()
+		.addBlank();
+
+	addQuickStartAndArchitecture(doc);
+	addHelpSections(doc, data.helpSections);
+
 	doc.heading(2, "Non-Interactive Commands").addBlank();
 	doc.text("All commands can be run directly without the interactive menu:").addBlank();
-	doc.table(
-		["Command", "Description"],
-		CLI_COMMANDS.map((cmd) => [`\`npm run flowti -- ${cmd.command}\``, cmd.description]),
-	);
+	doc.table(["Command", "Description"], CLI_COMMANDS.map((cmd) => [`\`npm run flowti -- ${cmd.command}\``, cmd.description]));
 	doc.addBlank();
 
-	// npm Scripts
-	if (scriptEntries.length > 0) {
-		doc.heading(2, "npm Scripts (Plugin)").addBlank();
-		doc.table(
-			["Script", "Command"],
-			scriptEntries.map((s) => [`\`${s.name}\``, `\`${s.script}\``]),
-		);
-		doc.addBlank();
-	}
+	addPluginSections(doc, data);
+	addMakeConfig(doc, data.makeConfig);
 
-	// Report Generators
-	if (reportScripts.length > 0) {
-		doc.heading(2, "Report Generators").addBlank();
-		doc.text(`${reportCount} report generators configured in \`flowti.config.json\`:`).addBlank();
-		doc.table(
-			["ID", "Label", "Script"],
-			reportScripts.map((r) => [r.id, r.label, `\`${r.script}\``]),
-		);
-		doc.addBlank();
-	}
-
-	// Documentation Generators
-	if (docGenerators.length > 0) {
-		doc.heading(2, "Documentation Generators").addBlank();
-		doc.text(`${docGenCount} documentation generators configured in \`flowti.config.json\`:`).addBlank();
-		doc.table(
-			["Label", "Command"],
-			docGenerators.map((g) => [g.label, `\`${g.command}\``]),
-		);
-		doc.addBlank();
-	}
-
-	// Make Configuration
-	if (Object.keys(makeConfig).length > 0) {
-		doc.heading(2, "Make Configuration").addBlank();
-		doc.text("Scaffold output paths (`flowti.config.json` → `make`):").addBlank();
-		if (makeConfig.hub) {
-			doc.heading(3, "Hub Paths").addBlank();
-			doc.table(
-				["Key", "Path"],
-				Object.entries(makeConfig.hub).map(([k, v]) => [`\`make.hub.${k}\``, `\`${v}\``]),
-			);
-			doc.addBlank();
-		}
-		if (makeConfig.plugin) {
-			doc.heading(3, "Plugin Paths").addBlank();
-			doc.table(
-				["Key", "Path"],
-				Object.entries(makeConfig.plugin).map(([k, v]) => [`\`make.plugin.${k}\``, `\`${v}\``]),
-			);
-			doc.addBlank();
-		}
-	}
-
-	// Configuration Files
 	doc.heading(2, "Configuration Files").addBlank();
-	doc.table(
-		["File", "Purpose"],
-		[
-			["`flowti-cli.config.json`", "Global CLI config: projects folder, capture paths, onboarding"],
-			["`flowti.config.json`", "Per-project config: tools, build/test/review/publish commands, reports, docs"],
-			["`build-endpoints.json`", "Distribution endpoints for multi-vault deploy"],
-			["`manifest.json`", "Obsidian plugin metadata (id, version, author)"],
-			["`package.json`", "npm scripts, dependencies"],
-		],
-	);
+	doc.table(["File", "Purpose"], [
+		["`flowti-cli.config.json`", "Global CLI config: projects folder, capture paths, onboarding"],
+		["`flowti.config.json`", "Per-project config: tools, build/test/review/publish commands, reports, docs"],
+		["`build-endpoints.json`", "Distribution endpoints for multi-vault deploy"],
+		["`manifest.json`", "Obsidian plugin metadata (id, version, author)"],
+		["`package.json`", "npm scripts, dependencies"],
+	]);
 	doc.addBlank();
 
-	// Save
 	fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 	const outputPath = path.join(OUTPUT_DIR, "Flowti CLI Reference.md");
 	doc.save(outputPath);
 
-	console.log(
-		`[report] CLIReference written (${commandCount} commands, ${sectionCount} sections, ${docGenCount} doc generators): ${outputPath}`,
+	log(
+		`[report] CLIReference written (${commandCount} commands, ${data.helpSections.size} sections, ${data.docGenerators.length} doc generators): ${outputPath}`,
 	);
 }
 

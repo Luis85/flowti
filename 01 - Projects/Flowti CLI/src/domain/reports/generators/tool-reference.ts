@@ -11,6 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
+import { log } from "../../../infrastructure/logger.js";
 
 interface ToolParam {
 	name: string;
@@ -141,36 +142,38 @@ function extractExamples(block: string): ToolExample[] {
  * Extract params array: `params: [{ name, type, required, description, values? }, ...]`.
  * Returns array of { name, type, required, description, values? }.
  */
+function parseParamBlock(objBlock: string): ToolParam | null {
+	const name = extractStringField(objBlock, "name");
+	if (!name) return null;
+
+	const type = extractStringField(objBlock, "type") ?? "string";
+	const requiredMatch = /required:\s*(true|false)/.exec(objBlock);
+	const required = requiredMatch ? requiredMatch[1] === "true" : false;
+	const description = extractStringField(objBlock, "description") ?? "";
+	const values = extractStringArrayField(objBlock, "values");
+
+	return { name, type, required, description, values: values.length > 0 ? values : undefined };
+}
+
 function extractParams(block: string): ToolParam[] {
 	const regex = /params:\s*\[/s;
 	const m = regex.exec(block);
 	if (!m) return [];
 
-	const arrContent: string | null = extractBracketBlock(block, m.index + m[0].length - 1);
+	const arrContent = extractBracketBlock(block, m.index + m[0].length - 1);
 	if (!arrContent) return [];
 
 	const params: ToolParam[] = [];
 	const objRegex = /\{/g;
 	let objMatch: RegExpExecArray | null;
 	while ((objMatch = objRegex.exec(arrContent)) !== null) {
-		const objBlock: string | null = extractBlock(arrContent, objMatch.index);
+		const objBlock = extractBlock(arrContent, objMatch.index);
 		if (!objBlock) continue;
 
-		const name: string | null = extractStringField(objBlock, "name");
-		if (!name) {
-			objRegex.lastIndex = objMatch.index + (objBlock ? objBlock.length : 1);
-			continue;
-		}
+		const param = parseParamBlock(objBlock);
+		if (param) params.push(param);
 
-		const type: string = extractStringField(objBlock, "type") ?? "string";
-		const requiredMatch = /required:\s*(true|false)/.exec(objBlock);
-		const required: boolean = requiredMatch ? requiredMatch[1] === "true" : false;
-		const description: string = extractStringField(objBlock, "description") ?? "";
-		const values: string[] = extractStringArrayField(objBlock, "values");
-
-		params.push({ name, type, required, description, values: values.length > 0 ? values : undefined });
-
-		objRegex.lastIndex = objMatch.index + objBlock.length;
+		objRegex.lastIndex = objMatch.index + (objBlock ? objBlock.length : 1);
 	}
 
 	return params;
@@ -231,134 +234,103 @@ function extractToolMeta(source: string): ToolMeta[] {
 	return tools;
 }
 
-function main(): void {
-	if (!fs.existsSync(CATALOG_PATH)) {
-		console.log("[report] Tool catalog source not found — skipping.");
-		return;
-	}
-
-	const source: string = fs.readFileSync(CATALOG_PATH, "utf-8");
-	const tools: ToolMeta[] = extractToolMeta(source);
-
-	if (tools.length === 0) {
-		console.log("[report] No tools extracted from catalog — skipping.");
-		return;
-	}
-
-	const now = new Date();
-	const date: string = now.toISOString();
-
-	// Collect unique tags
-	const allTags: string[] = [...new Set(tools.flatMap((t: ToolMeta) => t.tags))].sort();
-
-	// Group tools by tag category (tools with no tags go into "general")
+function groupToolsByTag(tools: ToolMeta[]): { groups: Map<string, ToolMeta[]>; sortedCategories: string[] } {
 	const groups: Map<string, ToolMeta[]> = new Map();
 	for (const tool of tools) {
-		const category: string = tool.tags.length > 0 ? tool.tags[0] : "general";
-		const existing: ToolMeta[] = groups.get(category) ?? [];
+		const category = tool.tags.length > 0 ? tool.tags[0] : "general";
+		const existing = groups.get(category) ?? [];
 		existing.push(tool);
 		groups.set(category, existing);
 	}
 	for (const [, list] of groups) {
-		list.sort((a: ToolMeta, b: ToolMeta) => a.name.localeCompare(b.name));
+		list.sort((a, b) => a.name.localeCompare(b.name));
 	}
-	// Sort categories: "general" first, then alphabetical
-	const sortedCategories: string[] = Array.from(groups.keys()).sort((a: string, b: string) => {
+	const sortedCategories = Array.from(groups.keys()).sort((a, b) => {
 		if (a === "general") return -1;
 		if (b === "general") return 1;
 		return a.localeCompare(b);
 	});
+	return { groups, sortedCategories };
+}
+
+function renderToolDetail(doc: Document, tool: ToolMeta): void {
+	doc.heading(3, `\`${tool.name}\``).addBlank();
+	doc.quote(tool.description).addBlank();
+
+	if (tool.tags.length > 0) doc.text(`**Tags**: ${tool.tags.map((t) => `\`${t}\``).join(" ")}`).addBlank();
+	if (tool.useCases.length > 0) { doc.text("**When to use**:").addBlank(); doc.list(tool.useCases).addBlank(); }
+
+	if (tool.params.length > 0) {
+		doc.text("**Parameters**:").addBlank();
+		doc.table(
+			["Param", "Type", "Required", "Description"],
+			tool.params.map((p) => {
+				let desc = p.description;
+				if (p.values) desc += ` — \`${p.values.join("` \\| `")}\``;
+				return [`\`${p.name}\``, `\`${p.type}\``, p.required ? "Yes" : "No", desc];
+			}),
+		);
+		doc.addBlank();
+	} else {
+		doc.text("*No parameters — use as-is.*").addBlank();
+	}
+
+	if (tool.examples.length > 0) {
+		doc.text("**Examples**:").addBlank();
+		for (const ex of tool.examples) {
+			doc.text(`*${ex.title}*`);
+			doc.codeBlock("json", JSON.stringify(ex.action, null, 2));
+			doc.addBlank();
+		}
+	}
+
+	doc.addSeparator().addBlank();
+}
+
+function main(): void {
+	if (!fs.existsSync(CATALOG_PATH)) {
+		log("[report] Tool catalog source not found — skipping.");
+		return;
+	}
+
+	const tools = extractToolMeta(fs.readFileSync(CATALOG_PATH, "utf-8"));
+	if (tools.length === 0) {
+		log("[report] No tools extracted from catalog — skipping.");
+		return;
+	}
+
+	const allTags = [...new Set(tools.flatMap((t) => t.tags))].sort();
+	const { groups, sortedCategories } = groupToolsByTag(tools);
 
 	const doc = Document.create("Journey Runner Tool Reference")
-		.mergeFrontmatter({
-			type: "ToolReference",
-			date,
-			total_tools: tools.length,
-			categories: sortedCategories.length,
-		})
+		.mergeFrontmatter({ type: "ToolReference", date: new Date().toISOString(), total_tools: tools.length, categories: sortedCategories.length })
 		.setTags(allTags)
 		.addBlank()
 		.heading(1, "Journey Runner Tool Reference")
 		.addBlank()
 		.callout("info", "Summary", [
 			`Total tools: **${tools.length}** | Categories: **${sortedCategories.length}**`,
-			`Tags: ${allTags.length > 0 ? allTags.map((t: string) => `\`${t}\``).join(" ") : "_none_"}`,
+			`Tags: ${allTags.length > 0 ? allTags.map((t) => `\`${t}\``).join(" ") : "_none_"}`,
 		])
 		.addBlank()
-		.callout("tip", "Common field", [
-			"All tools accept an optional `description` field (string) for human-readable context in reports.",
-		])
+		.callout("tip", "Common field", ["All tools accept an optional `description` field (string) for human-readable context in reports."])
 		.addBlank()
 		.addSeparator()
 		.addBlank();
 
-	// Quick-reference table
 	doc.heading(2, "Quick Reference").addBlank();
-	doc.table(
-		["Tool", "Description", "Tags"],
-		tools.map((t: ToolMeta) => [
-			`\`${t.name}\``,
-			t.description,
-			t.tags.length > 0 ? t.tags.map((tag: string) => `\`${tag}\``).join(" ") : "",
-		]),
-	);
+	doc.table(["Tool", "Description", "Tags"], tools.map((t) => [`\`${t.name}\``, t.description, t.tags.map((tag) => `\`${tag}\``).join(" ")]));
 	doc.addBlank().addSeparator().addBlank();
 
-	// Detailed sections by category
 	for (const category of sortedCategories) {
-		const categoryTools: ToolMeta[] = groups.get(category)!;
-		const label: string = category.charAt(0).toUpperCase() + category.slice(1);
+		const label = category.charAt(0).toUpperCase() + category.slice(1);
 		doc.heading(2, `${label} Tools`).addBlank();
-
-		for (const tool of categoryTools) {
-			doc.heading(3, `\`${tool.name}\``).addBlank();
-			doc.quote(tool.description).addBlank();
-
-			if (tool.tags.length > 0) {
-				doc.text(`**Tags**: ${tool.tags.map((t: string) => `\`${t}\``).join(" ")}`).addBlank();
-			}
-
-			if (tool.useCases.length > 0) {
-				doc.text("**When to use**:").addBlank();
-				doc.list(tool.useCases).addBlank();
-			}
-
-			if (tool.params.length > 0) {
-				doc.text("**Parameters**:").addBlank();
-				doc.table(
-					["Param", "Type", "Required", "Description"],
-					tool.params.map((p: ToolParam) => {
-						let desc: string = p.description;
-						if (p.values) desc += ` — \`${p.values.join("` \\| `")}\``;
-						return [`\`${p.name}\``, `\`${p.type}\``, p.required ? "Yes" : "No", desc];
-					}),
-				);
-				doc.addBlank();
-			}
-
-			if (tool.params.length === 0) {
-				doc.text("*No parameters — use as-is.*").addBlank();
-			}
-
-			if (tool.examples.length > 0) {
-				doc.text("**Examples**:").addBlank();
-				for (const ex of tool.examples) {
-					doc.text(`*${ex.title}*`);
-					doc.codeBlock("json", JSON.stringify(ex.action, null, 2));
-					doc.addBlank();
-				}
-			}
-
-			doc.addSeparator().addBlank();
-		}
+		for (const tool of groups.get(category)!) renderToolDetail(doc, tool);
 	}
 
-	const filename: string = "Tool Reference.md";
-	const outputPath: string = path.join(OUTPUT_DIR, filename);
-
+	const outputPath = path.join(OUTPUT_DIR, "Tool Reference.md");
 	doc.save(outputPath);
-
-	console.log(`[report] ToolReference written (${tools.length} tools): ${outputPath}`);
+	log(`[report] ToolReference written (${tools.length} tools): ${outputPath}`);
 }
 
 main();

@@ -13,6 +13,7 @@ import { CLI_PROJECT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { RESET, DIM, GREEN, CYAN } from "../../../infrastructure/ui.js";
 import { ReportService } from "./report-service.js";
+import { log } from "../../../infrastructure/logger.js";
 
 interface ReportSection {
 	label: string;
@@ -77,9 +78,9 @@ function ensureReportsExist(sections: ReportSection[], projectPath: string): voi
 	const missing = sections.filter((s) => !fs.existsSync(s.stablePath));
 	if (missing.length === 0) return;
 
-	console.log(`\n  ${DIM}Generating missing reports...${RESET}`);
+	log(`\n  ${DIM}Generating missing reports...${RESET}`);
 	for (const section of missing) {
-		console.log(`  ${CYAN}▸${RESET} ${section.label}`);
+		log(`  ${CYAN}▸${RESET} ${section.label}`);
 		try {
 			execSync(section.generateCommand, {
 				cwd: projectPath,
@@ -87,7 +88,7 @@ function ensureReportsExist(sections: ReportSection[], projectPath: string): voi
 				timeout: 120_000,
 			});
 		} catch {
-			console.log(`  ${DIM}(skipped — ${section.label} generation failed)${RESET}`);
+			log(`  ${DIM}(skipped — ${section.label} generation failed)${RESET}`);
 		}
 	}
 }
@@ -145,14 +146,14 @@ export async function generateProjectStatusReport(projectPath?: string): Promise
 	const projectName = path.basename(resolvedPath);
 	const outputPath = svc.stablePath("Project Status Report.md");
 
-	console.log(`\n  ${CYAN}▸${RESET} Generating Project Status Report...\n`);
+	log(`\n  ${CYAN}▸${RESET} Generating Project Status Report...\n`);
 	ensureReportsExist(sections, resolvedPath);
 
 	const content = buildStatusReport(sections, projectName);
 	fs.mkdirSync(svc.reportsDir, { recursive: true });
 	fs.writeFileSync(outputPath, content, "utf-8");
 
-	console.log(`\n  ${GREEN}✓${RESET} Project Status Report written: ${outputPath}\n`);
+	log(`\n  ${GREEN}✓${RESET} Project Status Report written: ${outputPath}\n`);
 }
 
 // Direct invocation support: tsx src/domain/reports/cli/generate-status-report.ts

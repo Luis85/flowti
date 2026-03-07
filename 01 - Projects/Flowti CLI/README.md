@@ -157,4 +157,4 @@ When a project is selected for the first time, the CLI auto-scaffolds this confi
 
 - PRD: [Flowti CLI PRD.md](Flowti%20CLI%20PRD.md)
 - Architecture: [docs/Architecture.md](docs/Architecture.md)
-- CLI Reference: [docs/Flowti CLI Reference.md](docs/Flowti%20CLI%20Reference.md)
+- CLI Reference: generated via `npx tsx src/domain/reports/generators/cli-reference.ts`

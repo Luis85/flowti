@@ -7,6 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ROOT, VAULT_ROOT, cliConfig } from "../../infrastructure/config.js";
 import { RESET, BOLD, DIM, GREEN, RED, CYAN, YELLOW } from "../../infrastructure/ui.js";
+import { log } from "../../infrastructure/logger.js";
 
 const onb = cliConfig.onboarding ?? {};
 const pluginId = onb.pluginId ?? "flowti-ibde";
@@ -41,12 +42,12 @@ export function checkPrerequisites(): void {
 	}
 
 	if (missing.length > 0) {
-		console.log(`\n  ${RED}${BOLD}Missing prerequisites:${RESET}\n`);
+		log(`\n  ${RED}${BOLD}Missing prerequisites:${RESET}\n`);
 		for (const dep of missing) {
-			console.log(`  ${RED}✗${RESET} ${dep.name}`);
-			console.log(`    ${DIM}→ ${dep.instruction}${RESET}\n`);
+			log(`  ${RED}✗${RESET} ${dep.name}`);
+			log(`    ${DIM}→ ${dep.instruction}${RESET}\n`);
 		}
-		console.log(`  ${DIM}Install the above, then run flowti again.${RESET}\n`);
+		log(`  ${DIM}Install the above, then run flowti again.${RESET}\n`);
 		process.exit(2);
 	}
 }
@@ -55,14 +56,14 @@ export function ensureDependencies(): void {
 	const nodeModulesPath = path.join(ROOT, "node_modules");
 	if (fs.existsSync(nodeModulesPath)) return;
 
-	console.log(`\n  ${YELLOW}Dependencies not installed.${RESET}`);
-	console.log(`  ${CYAN}▸${RESET} Running npm install...\n`);
+	log(`\n  ${YELLOW}Dependencies not installed.${RESET}`);
+	log(`  ${CYAN}▸${RESET} Running npm install...\n`);
 
 	try {
 		execSync("npm install", { cwd: ROOT, stdio: "inherit" });
-		console.log(`\n  ${GREEN}✓${RESET} Dependencies installed.\n`);
+		log(`\n  ${GREEN}✓${RESET} Dependencies installed.\n`);
 	} catch {
-		console.log(`\n  ${RED}✗${RESET} npm install failed. Check errors above and try again.\n`);
+		log(`\n  ${RED}✗${RESET} npm install failed. Check errors above and try again.\n`);
 		process.exit(1);
 	}
 }
@@ -70,7 +71,7 @@ export function ensureDependencies(): void {
 export function checkFirstRun(): void {
 	const mainJs = path.join(VAULT_ROOT, ".obsidian", "plugins", pluginId, "main.js");
 	if (!fs.existsSync(mainJs)) {
-		console.log(`  ${YELLOW}Plugin not yet built.${RESET} Select ${BOLD}Build${RESET} (option 2) to get started.\n`);
+		log(`  ${YELLOW}Plugin not yet built.${RESET} Select ${BOLD}Build${RESET} (option 2) to get started.\n`);
 	}
 }
 
@@ -78,9 +79,9 @@ export function showPostBuildGuidance(): void {
 	const mainJs = path.join(VAULT_ROOT, ".obsidian", "plugins", pluginId, "main.js");
 	if (!fs.existsSync(mainJs)) return;
 
-	console.log(`  ${GREEN}${BOLD}Plugin built successfully!${RESET}\n`);
-	console.log(`  ${BOLD}Next steps:${RESET}`);
-	console.log(`    1. Open this folder as an Obsidian vault: ${DIM}${VAULT_ROOT}${RESET}`);
-	console.log(`    2. Go to ${CYAN}Settings → Community Plugins → Enable "Flowti - IBDE"${RESET}`);
-	console.log(`    3. Follow the Installer Wizard to set up your vault\n`);
+	log(`  ${GREEN}${BOLD}Plugin built successfully!${RESET}\n`);
+	log(`  ${BOLD}Next steps:${RESET}`);
+	log(`    1. Open this folder as an Obsidian vault: ${DIM}${VAULT_ROOT}${RESET}`);
+	log(`    2. Go to ${CYAN}Settings → Community Plugins → Enable "Flowti - IBDE"${RESET}`);
+	log(`    3. Follow the Installer Wizard to set up your vault\n`);
 }

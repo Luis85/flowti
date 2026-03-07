@@ -13,6 +13,7 @@ import path from "node:path";
 
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
+import { log } from "../../../infrastructure/logger.js";
 
 interface ESLintMessage {
 	message: string;
@@ -171,12 +172,12 @@ async function main(): Promise<void> {
 	// Run ESLint complexity check directly — produces JSON only, no HTML
 	try {
 		await runESLintComplexityCheck(ROOT);
-	} catch (err) {
+	} catch {
 		console.warn("[report] ESLint complexity check failed — checking for existing JSON.");
 	}
 
 	if (!fs.existsSync(COMPLEXITY_JSON)) {
-		console.log("[report] No complexity-report.json found — skipping complexity report.");
+		log("[report] No complexity-report.json found — skipping complexity report.");
 		return;
 	}
 
@@ -196,7 +197,7 @@ async function main(): Promise<void> {
 	// Write stable report (overwrite)
 	fs.writeFileSync(STABLE_PATH, content, "utf-8");
 
-	console.log(`[report] ComplexityReport written: ${timestampedPath}`);
+	log(`[report] ComplexityReport written: ${timestampedPath}`);
 }
 
 main();

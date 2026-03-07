@@ -12,6 +12,7 @@
  */
 
 import { execFileSync } from "node:child_process";
+import { log } from "../../infrastructure/logger.js";
 
 const PLUGIN_ID = "flowti-ibde";
 
@@ -37,7 +38,7 @@ function isCliAvailable(): boolean {
 
 function main(): void {
 	if (!isCliAvailable()) {
-		console.log("[cli] Obsidian CLI not available — skipping reload.");
+		log("[cli] Obsidian CLI not available — skipping reload.");
 		return;
 	}
 
@@ -53,7 +54,7 @@ function main(): void {
 			timeout: 10_000,
 			windowsHide: true,
 		});
-		console.log(`[cli] Plugin reloaded: ${PLUGIN_ID}`);
+		log(`[cli] Plugin reloaded: ${PLUGIN_ID}`);
 	} catch (err) {
 		console.warn(
 			`[cli] Reload failed (non-fatal): ${err instanceof Error ? err.message : err}`,

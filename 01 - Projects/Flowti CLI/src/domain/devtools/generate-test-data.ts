@@ -32,7 +32,7 @@ function hasFlag(name: string): boolean {
 }
 
 if (hasFlag("help") || hasFlag("h")) {
-	console.log(`
+	log(`
 Supply Chain Analytics Test Data Generator
 
 Usage:
@@ -56,6 +56,7 @@ const DRY_RUN: boolean = hasFlag("dry-run");
 
 // Default output: vault test data folder
 import { VAULT_ROOT } from "../../infrastructure/config.js";
+import { log } from "../../infrastructure/logger.js";
 const DEFAULT_OUT: string = join(VAULT_ROOT, "03 - Resources", "Test Data", "Analytics");
 const OUT_DIR: string = resolve(getArg("out", DEFAULT_OUT) as string);
 
@@ -433,12 +434,12 @@ const files: FileEntry[] = [
 	{ name: "PurchaseOrders.csv", generate: generatePurchaseOrders },
 ];
 
-console.log(`\nSupply Chain Analytics Test Data Generator`);
-console.log(`──────────────────────────────────────────`);
-console.log(`Range:  ${FROM} to ${rangeTo.year}-${String(rangeTo.month).padStart(2, "0")} (${ALL_MONTHS.length} months)`);
-console.log(`Seed:   ${SEED_INPUT}`);
-console.log(`Output: ${OUT_DIR}`);
-console.log();
+log(`\nSupply Chain Analytics Test Data Generator`);
+log(`──────────────────────────────────────────`);
+log(`Range:  ${FROM} to ${rangeTo.year}-${String(rangeTo.month).padStart(2, "0")} (${ALL_MONTHS.length} months)`);
+log(`Seed:   ${SEED_INPUT}`);
+log(`Output: ${OUT_DIR}`);
+log();
 
 if (!DRY_RUN && !existsSync(OUT_DIR)) {
 	mkdirSync(OUT_DIR, { recursive: true });
@@ -455,14 +456,14 @@ for (const { name, generate } of files) {
 	totalRows += dataRows;
 
 	if (DRY_RUN) {
-		console.log(`  ${name.padEnd(22)} ${String(dataRows).padStart(4)} rows`);
+		log(`  ${name.padEnd(22)} ${String(dataRows).padStart(4)} rows`);
 	} else {
 		writeFileSync(join(OUT_DIR, name), content);
-		console.log(`  ${name.padEnd(22)} ${String(dataRows).padStart(4)} rows  -> written`);
+		log(`  ${name.padEnd(22)} ${String(dataRows).padStart(4)} rows  -> written`);
 	}
 }
 
-console.log(`${"─".repeat(42)}`);
-console.log(`  Total: ${totalRows} rows across ${files.length} files`);
-if (DRY_RUN) console.log(`\n  (dry run — no files written)`);
-console.log();
+log(`${"─".repeat(42)}`);
+log(`  Total: ${totalRows} rows across ${files.length} files`);
+if (DRY_RUN) log(`\n  (dry run — no files written)`);
+log();

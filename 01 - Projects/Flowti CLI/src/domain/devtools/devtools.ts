@@ -9,6 +9,7 @@ import { createRL, ask } from "../../infrastructure/readline.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { showHelp } from "../help/help.js";
 import type { MenuResult } from "../../types.js";
+import { log } from "../../infrastructure/logger.js";
 
 const cmd = (config as Record<string, Record<string, Record<string, string>>>).devtools?.commands ?? {};
 
@@ -18,16 +19,16 @@ export async function menu(): Promise<MenuResult> {
 			run(cmd.reload ?? "node scripts/cli-reload.mjs", "Reloading plugin...");
 		}},
 		{ key: "2", label: "Dev console (Obsidian)", action: () => {
-			console.log(`\n  ${DIM}Press Ctrl+C to stop the console stream.${RESET}\n`);
+			log(`\n  ${DIM}Press Ctrl+C to stop the console stream.${RESET}\n`);
 			run(cmd.console ?? "obsidian dev:console", "Opening dev console...");
 		}},
 		{ key: "3", label: "Dev errors (Obsidian)", action: () => {
-			console.log(`\n  ${DIM}Press Ctrl+C to stop the error stream.${RESET}\n`);
+			log(`\n  ${DIM}Press Ctrl+C to stop the error stream.${RESET}\n`);
 			run(cmd.errors ?? "obsidian dev:errors", "Opening error stream...");
 		}},
 		{ key: "4", label: "Fix frontmatter (ADR-030)", action: async () => {
 			const fmCmd = cmd.fixFrontmatter ?? "node scripts/fix-frontmatter.mjs";
-			console.log(`\n  ${CYAN}▸${RESET} Running frontmatter check (dry-run)...\n`);
+			log(`\n  ${CYAN}▸${RESET} Running frontmatter check (dry-run)...\n`);
 			run(`${fmCmd} --dry-run`, "Scanning docs/ for frontmatter issues...");
 			const rl = createRL();
 			const apply = await ask(rl, "Apply fixes? (y/N)", "N");

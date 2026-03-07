@@ -5,7 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ROOT, config } from "../../infrastructure/config.js";
-import { RESET, BOLD, DIM, GREEN, RED, CYAN, YELLOW, printHeader } from "../../infrastructure/ui.js";
+import { RESET, DIM, GREEN, RED, CYAN, YELLOW, printHeader } from "../../infrastructure/ui.js";
 import { run } from "../../infrastructure/shell.js";
 import { createRL, ask } from "../../infrastructure/readline.js";
 import { findLatestReport, parseFrontmatter } from "../../infrastructure/fs.js";
@@ -13,15 +13,26 @@ import { runMenu } from "../../infrastructure/menu.js";
 import { showHelp } from "../help/help.js";
 import { Document } from "../../infrastructure/document.js";
 import type { MenuResult } from "../../types.js";
+import { log } from "../../infrastructure/logger.js";
 
-const rptCfg = (config as Record<string, unknown>).reports as Record<string, unknown> ?? {};
+interface RptCfg {
+	allCommand?: string;
+	dir?: string;
+	outputDir?: string;
+	auditSubdir?: string;
+	categories?: Array<{ dir: string; label: string }>;
+	stableReports?: Array<{ file: string; label: string }>;
+	scripts?: Array<{ id: string; label: string; script: string }>;
+}
+
+const rptCfg: RptCfg = ((config as Record<string, unknown>).reports as RptCfg) ?? {};
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
 interface ReportScript { id: string; label: string; script: string }
 
 function getReportScripts(): ReportScript[] {
-	return ((config as Record<string, unknown>).reports as Record<string, unknown>)?.scripts as ReportScript[] ?? [];
+	return rptCfg.scripts ?? [];
 }
 
 // ── Interactive menu ────────────────────────────────────────────────
@@ -45,19 +56,19 @@ export async function menu(): Promise<MenuResult> {
 async function selectReportMenu(): Promise<void> {
 	const scripts = getReportScripts();
 	if (!scripts.length) {
-		console.log(`\n  ${YELLOW}No report scripts configured in flowti.config.json.${RESET}\n`);
+		log(`\n  ${YELLOW}No report scripts configured in flowti.config.json.${RESET}\n`);
 		return;
 	}
 
 	printHeader("Select Report");
 	for (let i = 0; i < scripts.length; i++) {
 		const num = String(i + 1).padStart(2, " ");
-		console.log(`    ${num}) ${scripts[i].label}`);
+		log(`    ${num}) ${scripts[i].label}`);
 	}
-	console.log();
-	console.log(`     ${DIM}a) All reports${RESET}`);
-	console.log(`     ${DIM}b) Back${RESET}`);
-	console.log();
+	log();
+	log(`     ${DIM}a) All reports${RESET}`);
+	log(`     ${DIM}b) Back${RESET}`);
+	log();
 
 	const rl = createRL();
 	const choice = await ask(rl, "Choice", "b");
@@ -74,16 +85,46 @@ async function selectReportMenu(): Promise<void> {
 		const script = scripts[idx];
 		const scriptPath = path.join(ROOT, "scripts", script.script);
 		if (!fs.existsSync(scriptPath)) {
-			console.log(`\n  ${RED}Script not found: ${script.script}${RESET}\n`);
+			log(`\n  ${RED}Script not found: ${script.script}${RESET}\n`);
 			return;
 		}
 		run(`node scripts/${script.script}`, `Generating ${script.label}...`);
 	} else {
-		console.log("\n  Invalid choice.\n");
+		log("\n  Invalid choice.\n");
 	}
 }
 
 // ── Audit sub-menu ──────────────────────────────────────────────────
+
+const DEFAULT_CATEGORIES = [
+	{ dir: "builds", label: "Build" },
+	{ dir: "tests", label: "Unit Tests" },
+	{ dir: "coverage", label: "Coverage" },
+	{ dir: "performance", label: "Performance" },
+	{ dir: "cycles", label: "Cycle" },
+	{ dir: "complexity", label: "Complexity" },
+];
+
+const DEFAULT_STABLE_REPORTS = [
+	{ file: "traceability/Trace Conformance Report.md", label: "Traceability" },
+	{ file: "e2e/E2E Report.md", label: "E2E Tests" },
+];
+
+function collectAuditSections(reportsDir: string): Array<{ label: string; data: Record<string, string>; file: string }> {
+	const sections: Array<{ label: string; data: Record<string, string>; file: string }> = [];
+
+	for (const cat of rptCfg.categories ?? DEFAULT_CATEGORIES) {
+		const latest = findLatestReport(path.join(reportsDir, cat.dir));
+		if (latest) sections.push({ label: cat.label, data: parseFrontmatter(latest), file: path.basename(latest) });
+	}
+
+	for (const sr of rptCfg.stableReports ?? DEFAULT_STABLE_REPORTS) {
+		const filePath = path.join(reportsDir, sr.file);
+		if (fs.existsSync(filePath)) sections.push({ label: sr.label, data: parseFrontmatter(filePath), file: sr.file });
+	}
+
+	return sections;
+}
 
 async function auditMenu(): Promise<void> {
 	const rl = createRL();
@@ -91,45 +132,13 @@ async function auditMenu(): Promise<void> {
 	const auditName = await ask(rl, "Audit name", defaultName);
 	rl.close();
 
-	console.log(`\n  ${CYAN}▸${RESET} Generating audit: ${auditName}\n`);
+	log(`\n  ${CYAN}▸${RESET} Generating audit: ${auditName}\n`);
 
-	const reportsDir = path.join(ROOT, (rptCfg.dir ?? rptCfg.outputDir ?? "docs/reports") as string);
+	const reportsDir = path.join(ROOT, rptCfg.dir ?? rptCfg.outputDir ?? "docs/reports");
 	const auditDir = path.join(reportsDir, rptCfg.auditSubdir ?? "audits");
-
 	try { fs.mkdirSync(auditDir, { recursive: true }); } catch { /* ignore */ }
 
-	const sections: Array<{ label: string; data: Record<string, string>; file: string }> = [];
-	const reportCategories = rptCfg.categories ?? [
-		{ dir: "builds", label: "Build" },
-		{ dir: "tests", label: "Unit Tests" },
-		{ dir: "coverage", label: "Coverage" },
-		{ dir: "performance", label: "Performance" },
-		{ dir: "cycles", label: "Cycle" },
-		{ dir: "complexity", label: "Complexity" },
-	];
-
-	for (const cat of reportCategories) {
-		const catDir = path.join(reportsDir, cat.dir);
-		const latest = findLatestReport(catDir);
-		if (latest) {
-			const fm = parseFrontmatter(latest);
-			sections.push({ label: cat.label, data: fm, file: path.basename(latest) });
-		}
-	}
-
-	const stableReports = rptCfg.stableReports ?? [
-		{ file: "traceability/Trace Conformance Report.md", label: "Traceability" },
-		{ file: "e2e/E2E Report.md", label: "E2E Tests" },
-	];
-
-	for (const sr of stableReports) {
-		const filePath = path.join(reportsDir, sr.file);
-		if (fs.existsSync(filePath)) {
-			const fm = parseFrontmatter(filePath);
-			sections.push({ label: sr.label, data: fm, file: sr.file });
-		}
-	}
-
+	const sections = collectAuditSections(reportsDir);
 	const now = new Date();
 	const doc = Document.create(auditName)
 		.mergeFrontmatter({ type: "Audit", name: auditName, date: now.toISOString() })
@@ -156,7 +165,7 @@ async function auditMenu(): Promise<void> {
 
 	const auditPath = path.join(auditDir, `${auditName}.md`);
 	doc.save(auditPath);
-	console.log(`  ${GREEN}✓${RESET} Audit written to: ${path.relative(ROOT, auditPath)}\n`);
+	log(`  ${GREEN}✓${RESET} Audit written to: ${path.relative(ROOT, auditPath)}\n`);
 }
 
 // ── Non-interactive commands ────────────────────────────────────────
@@ -167,7 +176,7 @@ export const commands = {
 	},
 	"reports:audit": () => {
 		run(rptCfg.allCommand ?? "npm run generate:reports", "Generating reports for audit...");
-		console.log(`  ${GREEN}✓${RESET} Reports generated. Use interactive mode for full audit.\n`);
+		log(`  ${GREEN}✓${RESET} Reports generated. Use interactive mode for full audit.\n`);
 	},
 	"report:*": (_flags: Record<string, string | boolean>, _rawArgs: string[], command?: string) => {
 		const reportId = command!.substring("report:".length);
@@ -176,8 +185,8 @@ export const commands = {
 		if (script) {
 			run(`node scripts/${script.script}`, `Generating ${script.label}...`);
 		} else {
-			console.log(`\n  ${RED}Unknown report: ${reportId}${RESET}`);
-			console.log(`  ${DIM}Available: ${scripts.map((s) => s.id).join(", ")}${RESET}\n`);
+			log(`\n  ${RED}Unknown report: ${reportId}${RESET}`);
+			log(`  ${DIM}Available: ${scripts.map((s) => s.id).join(", ")}${RESET}\n`);
 		}
 	},
 };

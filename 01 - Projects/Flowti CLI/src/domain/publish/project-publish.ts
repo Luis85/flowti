@@ -11,68 +11,65 @@ import { RESET, DIM, GREEN, RED, CYAN, YELLOW } from "../../infrastructure/ui.js
 import { runIn } from "../../infrastructure/shell.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import type { MenuResult, PublishConfig, PublishEndpoint } from "../../types.js";
+import { log } from "../../infrastructure/logger.js";
 
 // ── Distribute artifacts to endpoints ───────────────────────────────
 
+function validateDistributeConfig(config: PublishConfig, projectPath: string): string | null {
+	if ((config.endpoints ?? []).length === 0) {
+		return `\n  ${YELLOW}No publish endpoints configured.${RESET}\n  ${DIM}Add "endpoints" to the "publish" section in flowti.config.json.${RESET}\n`;
+	}
+	if (!config.outDir) {
+		return `\n  ${YELLOW}No outDir configured.${RESET}\n  ${DIM}Add "outDir" to the "publish" section in flowti.config.json.${RESET}\n`;
+	}
+	const srcDir = path.resolve(projectPath, config.outDir);
+	if (!fs.existsSync(srcDir)) {
+		return `\n  ${RED}Output directory not found: ${srcDir}${RESET}\n  ${DIM}Run build first.${RESET}\n`;
+	}
+	return null;
+}
+
+function copyArtifacts(srcDir: string, targetDir: string, artifacts: string[]): void {
+	for (const artifact of artifacts) {
+		const src = path.join(srcDir, artifact);
+		const dest = path.join(targetDir, artifact);
+		if (!fs.existsSync(src)) {
+			log(`    ${YELLOW}skip${RESET}  ${artifact} (not found)`);
+			continue;
+		}
+		fs.mkdirSync(path.dirname(dest), { recursive: true });
+		fs.copyFileSync(src, dest);
+		log(`    ${GREEN}copy${RESET}  ${artifact}`);
+	}
+}
+
+function distributeToEndpoint(ep: PublishEndpoint, srcDir: string, artifacts: string[]): void {
+	log(`\n  ${CYAN}▸${RESET} ${ep.name} → ${ep.path}`);
+	const targetDir = path.resolve(ep.path);
+
+	if (ep.clean && fs.existsSync(targetDir)) cleanEndpoint(targetDir, artifacts);
+	fs.mkdirSync(targetDir, { recursive: true });
+
+	if (artifacts.length > 0) {
+		copyArtifacts(srcDir, targetDir, artifacts);
+	} else {
+		const copied = copyDir(srcDir, targetDir);
+		log(`    ${GREEN}copy${RESET}  ${copied} files`);
+	}
+}
+
 function distribute(projectPath: string, config: PublishConfig): number {
-	const outDir = config.outDir;
+	const error = validateDistributeConfig(config, projectPath);
+	if (error) { log(error); return 1; }
+
 	const artifacts = config.artifacts ?? [];
 	const endpoints = config.endpoints ?? [];
+	const srcDir = path.resolve(projectPath, config.outDir!);
 
-	if (endpoints.length === 0) {
-		console.log(`\n  ${YELLOW}No publish endpoints configured.${RESET}`);
-		console.log(`  ${DIM}Add "endpoints" to the "publish" section in flowti.config.json.${RESET}\n`);
-		return 1;
-	}
+	for (const ep of endpoints) distributeToEndpoint(ep, srcDir, artifacts);
 
-	if (!outDir) {
-		console.log(`\n  ${YELLOW}No outDir configured.${RESET}`);
-		console.log(`  ${DIM}Add "outDir" to the "publish" section in flowti.config.json.${RESET}\n`);
-		return 1;
-	}
-
-	const srcDir = path.resolve(projectPath, outDir);
-	if (!fs.existsSync(srcDir)) {
-		console.log(`\n  ${RED}Output directory not found: ${srcDir}${RESET}`);
-		console.log(`  ${DIM}Run build first.${RESET}\n`);
-		return 1;
-	}
-
-	let failed = 0;
-
-	for (const ep of endpoints) {
-		console.log(`\n  ${CYAN}▸${RESET} ${ep.name} → ${ep.path}`);
-		const targetDir = path.resolve(ep.path);
-
-		if (ep.clean && fs.existsSync(targetDir)) {
-			cleanEndpoint(targetDir, artifacts);
-		}
-
-		fs.mkdirSync(targetDir, { recursive: true });
-
-		if (artifacts.length > 0) {
-			for (const artifact of artifacts) {
-				const src = path.join(srcDir, artifact);
-				const dest = path.join(targetDir, artifact);
-				if (!fs.existsSync(src)) {
-					console.log(`    ${YELLOW}skip${RESET}  ${artifact} (not found)`);
-					continue;
-				}
-				fs.mkdirSync(path.dirname(dest), { recursive: true });
-				fs.copyFileSync(src, dest);
-				console.log(`    ${GREEN}copy${RESET}  ${artifact}`);
-			}
-		} else {
-			// Copy all files from outDir
-			const copied = copyDir(srcDir, targetDir);
-			console.log(`    ${GREEN}copy${RESET}  ${copied} files`);
-		}
-	}
-
-	if (failed === 0) {
-		console.log(`\n  ${GREEN}✓${RESET} Distributed to ${endpoints.length} endpoint(s).\n`);
-	}
-	return failed;
+	log(`\n  ${GREEN}✓${RESET} Distributed to ${endpoints.length} endpoint(s).\n`);
+	return 0;
 }
 
 function cleanEndpoint(targetDir: string, artifacts: string[]): void {
@@ -114,13 +111,13 @@ export async function publishMenu(projectPath: string, config: PublishConfig): P
 		const buildIcon = buildPassed ? `${GREEN}✓${RESET}` : `${DIM}○${RESET}`;
 		const testIcon = testPassed ? `${GREEN}✓${RESET}` : `${DIM}○${RESET}`;
 		const distIcon = `${DIM}○${RESET}`;
-		console.log(`    ${DIM}Pipeline:${RESET}  ${buildIcon} Build  →  ${testIcon} Test  →  ${distIcon} Distribute`);
+		log(`    ${DIM}Pipeline:${RESET}  ${buildIcon} Build  →  ${testIcon} Test  →  ${distIcon} Distribute`);
 		if (endpoints.length > 0) {
-			console.log(`    ${DIM}Endpoints:${RESET} ${endpoints.map((e: PublishEndpoint) => e.name).join(", ")}`);
+			log(`    ${DIM}Endpoints:${RESET} ${endpoints.map((e: PublishEndpoint) => e.name).join(", ")}`);
 		} else {
-			console.log(`    ${YELLOW}No endpoints configured${RESET}`);
+			log(`    ${YELLOW}No endpoints configured${RESET}`);
 		}
-		console.log();
+		log();
 	};
 
 	return runMenu("Publish", [
@@ -140,21 +137,21 @@ export async function publishMenu(projectPath: string, config: PublishConfig): P
 			action: () => { distribute(projectPath, config); },
 		},
 		{ key: "a", label: "Run all (build → test → distribute)", action: () => {
-			console.log(`\n  ${CYAN}▸${RESET} Running full publish pipeline...\n`);
+			log(`\n  ${CYAN}▸${RESET} Running full publish pipeline...\n`);
 			const buildCode = runIn(buildCmd, projectPath, "Step 1/3: Build");
 			buildPassed = buildCode === 0;
 			if (!buildPassed) {
-				console.log(`  ${RED}Pipeline stopped — build failed.${RESET}\n`);
+				log(`  ${RED}Pipeline stopped — build failed.${RESET}\n`);
 				testPassed = false;
 				return;
 			}
 			const testCode = runIn(testCmd, projectPath, "Step 2/3: Test");
 			testPassed = testCode === 0;
 			if (!testPassed) {
-				console.log(`  ${RED}Pipeline stopped — tests failed.${RESET}\n`);
+				log(`  ${RED}Pipeline stopped — tests failed.${RESET}\n`);
 				return;
 			}
-			console.log(`\n  ${CYAN}▸${RESET} Step 3/3: Distribute\n`);
+			log(`\n  ${CYAN}▸${RESET} Step 3/3: Distribute\n`);
 			distribute(projectPath, config);
 		}},
 		{ separator: true },

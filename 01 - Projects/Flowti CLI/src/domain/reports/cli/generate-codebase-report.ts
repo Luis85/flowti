@@ -10,6 +10,7 @@
 import fs from "node:fs";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
+import { log } from "../../../infrastructure/logger.js";
 
 const svc = new ReportService();
 const CODEBASE_JSON = svc.subdir("codebase/codebase.json");
@@ -62,17 +63,8 @@ function countModulesByDomain(node: TypeDocNode): Record<string, number> {
 	return domains;
 }
 
-function main(): void {
-	if (!fs.existsSync(CODEBASE_JSON)) {
-		console.log("[cli-report] No codebase.json found — run `npm run docs` first.");
-		return;
-	}
-
-	const data: TypeDocNode = JSON.parse(fs.readFileSync(CODEBASE_JSON, "utf-8"));
-	const counts = countByKind(data);
-	const domains = countModulesByDomain(data);
-
-	const fm: Record<string, string | number> = {
+function buildFrontmatter(data: TypeDocNode, counts: Record<number, number>): Record<string, string | number> {
+	return {
 		type: "CodebaseReport",
 		project: "flowti-cli",
 		date: new Date().toISOString(),
@@ -86,6 +78,18 @@ function main(): void {
 		properties: counts[KIND.PROPERTY] || 0,
 		constructors: counts[KIND.CONSTRUCTOR] || 0,
 	};
+}
+
+function main(): void {
+	if (!fs.existsSync(CODEBASE_JSON)) {
+		log("[cli-report] No codebase.json found — run `npm run docs` first.");
+		return;
+	}
+
+	const data: TypeDocNode = JSON.parse(fs.readFileSync(CODEBASE_JSON, "utf-8"));
+	const counts = countByKind(data);
+	const domains = countModulesByDomain(data);
+	const fm = buildFrontmatter(data, counts);
 
 	const doc = Document.create("CLI Codebase Report")
 		.mergeFrontmatter(fm)
@@ -114,7 +118,7 @@ function main(): void {
 		sourceJson: CODEBASE_JSON,
 	});
 
-	console.log(`[cli-report] CodebaseReport written: ${outputPath}`);
+	log(`[cli-report] CodebaseReport written: ${outputPath}`);
 }
 
 main();

@@ -10,6 +10,7 @@ import { runMenu } from "../../infrastructure/menu.js";
 import { showHelp } from "../help/help.js";
 import { showPostBuildGuidance } from "../onboarding/onboarding.js";
 import type { MenuResult } from "../../types.js";
+import { log } from "../../infrastructure/logger.js";
 
 const cfg = config as Record<string, Record<string, Record<string, string>>>;
 const buildCmd = cfg.build?.commands ?? {};
@@ -36,8 +37,8 @@ export async function menu(): Promise<MenuResult> {
 			const reload = await ask(rl, "Auto-reload plugin on save? (y/N)", "N");
 			rl.close();
 			const reloadFlag = reload.toLowerCase() === "y" ? " --reload" : "";
-			console.log(`\n  ${CYAN}▸${RESET} Starting watch mode...${reloadFlag ? ` ${DIM}(with auto-reload)${RESET}` : ""}\n`);
-			console.log(`  ${DIM}Press Ctrl+C to stop.${RESET}\n`);
+			log(`\n  ${CYAN}▸${RESET} Starting watch mode...${reloadFlag ? ` ${DIM}(with auto-reload)${RESET}` : ""}\n`);
+			log(`  ${DIM}Press Ctrl+C to stop.${RESET}\n`);
 			run(`${buildCmd.watch ?? "node esbuild.config.mjs --watch"}${reloadFlag}`, "Watch mode");
 		}},
 		{ key: "5", label: "Distribute (copy to endpoint vaults)", action: () => {

@@ -11,6 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
+import { log } from "../../../infrastructure/logger.js";
 
 const CODEBASE_JSON = path.join(ROOT, "docs", "reports", "codebase", "codebase.json");
 const OUTPUT_DIR = path.join(ROOT, "docs", "reports", "codebase");
@@ -51,18 +52,8 @@ function countByKind(node: TypeDocNode): Record<number, number> {
 	return counts;
 }
 
-function main(): void {
-	if (!fs.existsSync(CODEBASE_JSON)) {
-		console.log("[report] No codebase.json found — run typedoc first.");
-		return;
-	}
-
-	const data: TypeDocNode = JSON.parse(fs.readFileSync(CODEBASE_JSON, "utf-8"));
-	const now = new Date();
-	const date = now.toISOString();
-	const counts = countByKind(data);
-
-	const fm: Record<string, string | number> = {
+function buildCodebaseFm(data: TypeDocNode, counts: Record<number, number>, date: string): Record<string, string | number> {
+	return {
 		type: "CodebaseReport",
 		date,
 		schema_version: data.schemaVersion || "unknown",
@@ -75,6 +66,18 @@ function main(): void {
 		properties: counts[KIND.PROPERTY] || 0,
 		constructors: counts[KIND.CONSTRUCTOR] || 0,
 	};
+}
+
+function main(): void {
+	if (!fs.existsSync(CODEBASE_JSON)) {
+		log("[report] No codebase.json found — run typedoc first.");
+		return;
+	}
+
+	const data: TypeDocNode = JSON.parse(fs.readFileSync(CODEBASE_JSON, "utf-8"));
+	const now = new Date();
+	const counts = countByKind(data);
+	const fm = buildCodebaseFm(data, counts, now.toISOString());
 
 	const doc = Document.create("Codebase Report")
 		.mergeFrontmatter(fm)
@@ -89,12 +92,10 @@ function main(): void {
 		.addBlank();
 
 	const safeTimestamp = now.toISOString().replace(/:/g, "-");
-	const filename = `${safeTimestamp}-codebase-report.md`;
-	const outputPath = path.join(OUTPUT_DIR, filename);
-
+	const outputPath = path.join(OUTPUT_DIR, `${safeTimestamp}-codebase-report.md`);
 	doc.save(outputPath);
 
-	console.log(`[report] CodebaseReport written: ${outputPath}`);
+	log(`[report] CodebaseReport written: ${outputPath}`);
 }
 
 main();

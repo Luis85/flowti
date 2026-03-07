@@ -31,6 +31,7 @@ import path from "node:path";
 import readline from "node:readline";
 
 import { VAULT_ROOT, PLUGIN_ROOT } from "../../infrastructure/config.js";
+import { log } from "../../infrastructure/logger.js";
 const PROJECTS_ROOT: string = path.resolve(VAULT_ROOT, "..");
 const TEST_VAULT: string = process.env.E2E_VAULT_DIR ?? path.join(PROJECTS_ROOT, "flowti-e2e");
 const VAULT_NAME: string = path.basename(TEST_VAULT);
@@ -74,7 +75,7 @@ function collapseFileExplorer(): void {
 			`obsidian vault=${VAULT_NAME} eval code="(() => { const explorer = app.workspace.getLeavesOfType('file-explorer')[0]; if (explorer && explorer.view) { const foldStatus = explorer.view.fileItems; if (foldStatus) { Object.values(foldStatus).forEach(item => { if (item.collapsed !== undefined) item.setCollapsed(true); }); } } })()"`,
 			{ stdio: "pipe", timeout: 10_000 },
 		);
-		console.log("  \x1b[32m✓\x1b[0m File navigator folders collapsed");
+		log("  \x1b[32m✓\x1b[0m File navigator folders collapsed");
 	} catch {
 		// Non-fatal — file explorer may not be visible
 	}
@@ -142,11 +143,11 @@ function checkPrerequisites(): PrerequisiteResults {
 }
 
 function printPrerequisites(results: PrerequisiteResults): void {
-	const ok: (msg: string) => void = (msg) => console.log(`  \x1b[32m✓\x1b[0m ${msg}`);
-	const fail: (msg: string) => void = (msg) => console.log(`  \x1b[31m✗\x1b[0m ${msg}`);
-	const info: (msg: string) => void = (msg) => console.log(`  \x1b[33m○\x1b[0m ${msg}`);
+	const ok: (msg: string) => void = (msg) => log(`  \x1b[32m✓\x1b[0m ${msg}`);
+	const fail: (msg: string) => void = (msg) => log(`  \x1b[31m✗\x1b[0m ${msg}`);
+	const info: (msg: string) => void = (msg) => log(`  \x1b[33m○\x1b[0m ${msg}`);
 
-	console.log("\n  Prerequisites (local):\n");
+	log("\n  Prerequisites (local):\n");
 
 	if (results.vaultExists) ok(`Test vault exists: ${TEST_VAULT}`);
 	else fail(`Test vault missing: ${TEST_VAULT}`);
@@ -163,7 +164,7 @@ function printPrerequisites(results: PrerequisiteResults): void {
 	if (results.testDataPresent) ok("Test data CSV present");
 	else info("Test data missing (generated during setup)");
 
-	console.log();
+	log();
 }
 
 // ── Teardown to fresh state ─────────────────────────────────────────
@@ -182,9 +183,9 @@ async function performTeardown(): Promise<void> {
 		);
 		// Wait for async deletions
 		await new Promise<void>((r) => setTimeout(r, 1000));
-		console.log("  \x1b[32m✓\x1b[0m Vault content deleted (via Obsidian API)");
+		log("  \x1b[32m✓\x1b[0m Vault content deleted (via Obsidian API)");
 	} catch {
-		console.log("  \x1b[31m✗\x1b[0m Failed to delete vault content (is Obsidian running?)");
+		log("  \x1b[31m✗\x1b[0m Failed to delete vault content (is Obsidian running?)");
 	}
 
 	// 2. Purge ghost file index entries
@@ -194,7 +195,7 @@ async function performTeardown(): Promise<void> {
 			{ stdio: "pipe", timeout: 30_000 },
 		);
 		await new Promise<void>((r) => setTimeout(r, 500));
-		console.log("  \x1b[32m✓\x1b[0m Ghost entries purged");
+		log("  \x1b[32m✓\x1b[0m Ghost entries purged");
 	} catch {
 		// Non-fatal — ghost entries will be cleaned on next globalSetup
 	}
@@ -205,12 +206,12 @@ async function performTeardown(): Promise<void> {
 			const data = JSON.parse(fs.readFileSync(DATA_JSON_PATH, "utf-8")) as Record<string, unknown>;
 			data.installer = { installed: false, completedSteps: {} };
 			fs.writeFileSync(DATA_JSON_PATH, JSON.stringify(data), "utf-8");
-			console.log("  \x1b[32m✓\x1b[0m Installer state reset");
+			log("  \x1b[32m✓\x1b[0m Installer state reset");
 		} catch {
-			console.log("  \x1b[31m✗\x1b[0m Failed to reset data.json");
+			log("  \x1b[31m✗\x1b[0m Failed to reset data.json");
 		}
 	} else {
-		console.log("  \x1b[33m○\x1b[0m data.json not found (already fresh)");
+		log("  \x1b[33m○\x1b[0m data.json not found (already fresh)");
 	}
 
 	// 4. Deactivate plugin
@@ -220,9 +221,9 @@ async function performTeardown(): Promise<void> {
 			{ stdio: "pipe", timeout: 10_000 },
 		);
 		await new Promise<void>((r) => setTimeout(r, 1000));
-		console.log("  \x1b[32m✓\x1b[0m Plugin deactivated");
+		log("  \x1b[32m✓\x1b[0m Plugin deactivated");
 	} catch {
-		console.log("  \x1b[33m○\x1b[0m Plugin deactivation skipped (may not be loaded)");
+		log("  \x1b[33m○\x1b[0m Plugin deactivation skipped (may not be loaded)");
 	}
 
 	// 5. Clear workspace layout
@@ -230,7 +231,7 @@ async function performTeardown(): Promise<void> {
 	if (fs.existsSync(workspacePath)) {
 		try {
 			fs.rmSync(workspacePath, { force: true });
-			console.log("  \x1b[32m✓\x1b[0m Workspace layout cleared");
+			log("  \x1b[32m✓\x1b[0m Workspace layout cleared");
 		} catch {
 			// Non-fatal
 		}
@@ -239,30 +240,30 @@ async function performTeardown(): Promise<void> {
 	// 6. Collapse all folders in the file navigator
 	collapseFileExplorer();
 
-	console.log("\n  \x1b[32m✓\x1b[0m Fresh state.\n");
+	log("\n  \x1b[32m✓\x1b[0m Fresh state.\n");
 }
 
 /**
  * Interactive teardown — prompts for confirmation before proceeding.
  */
 async function teardownVault(): Promise<void> {
-	console.log("\n  Teardown will:");
-	console.log("    - Delete all vault content (except .obsidian/)");
-	console.log("    - Reset installer state (data.json → installed: false)");
-	console.log("    - Deactivate plugin");
-	console.log("    - Clear workspace layout");
-	console.log("    - Collapse file navigator folders\n");
+	log("\n  Teardown will:");
+	log("    - Delete all vault content (except .obsidian/)");
+	log("    - Reset installer state (data.json → installed: false)");
+	log("    - Deactivate plugin");
+	log("    - Clear workspace layout");
+	log("    - Collapse file navigator folders\n");
 
 	const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 	const proceed = await askYesNo(rl, "Proceed?", true);
 	rl.close();
 
 	if (!proceed) {
-		console.log("\n  Teardown cancelled.\n");
+		log("\n  Teardown cancelled.\n");
 		return;
 	}
 
-	console.log();
+	log();
 	await performTeardown();
 }
 
@@ -295,9 +296,9 @@ function loadJourneyEntries(): JourneyEntry[] {
 }
 
 function printJourneyTable(entries: JourneyEntry[]): void {
-	console.log("\n  Available Journeys:\n");
-	console.log("  #  Ch  Name                          Steps  Description");
-	console.log("  " + "-".repeat(78));
+	log("\n  Available Journeys:\n");
+	log("  #  Ch  Name                          Steps  Description");
+	log("  " + "-".repeat(78));
 	for (let i = 0; i < entries.length; i++) {
 		const e = entries[i];
 		const num = String(i + 1).padStart(2, " ");
@@ -305,9 +306,9 @@ function printJourneyTable(entries: JourneyEntry[]): void {
 		const name = e.name.padEnd(28);
 		const steps = String(e.steps).padStart(5);
 		const desc = e.description.length > 40 ? e.description.slice(0, 37) + "..." : e.description;
-		console.log(`  ${num}  ${ch}  ${name}  ${steps}  ${desc}`);
+		log(`  ${num}  ${ch}  ${name}  ${steps}  ${desc}`);
 	}
-	console.log();
+	log();
 }
 
 // ── Session config prompt ───────────────────────────────────────────
@@ -326,7 +327,7 @@ async function promptSessionConfig(rl: readline.Interface, entries: JourneyEntry
 	const journeyInput = await ask(rl, 'Enter journey numbers (e.g. "2" or "1 3 4") or "all"');
 
 	if (!journeyInput) {
-		console.log("\n  No selection — exiting.\n");
+		log("\n  No selection — exiting.\n");
 		process.exit(0);
 	}
 
@@ -336,13 +337,13 @@ async function promptSessionConfig(rl: readline.Interface, entries: JourneyEntry
 	} else {
 		const indices = journeyInput.split(/[\s,]+/).map(Number).filter((n) => n >= 1 && n <= entries.length);
 		if (indices.length === 0) {
-			console.log("\n  Invalid selection — exiting.\n");
+			log("\n  Invalid selection — exiting.\n");
 			process.exit(1);
 		}
 		selectedSlugs = indices.map((i) => entries[i - 1].slug);
 	}
 
-	console.log();
+	log();
 
 	// Step selection — per-journey step filtering
 	const stepFilter = await promptStepFilter(rl, selectedSlugs);
@@ -371,6 +372,61 @@ async function promptSessionConfig(rl: readline.Interface, entries: JourneyEntry
 	return { sessionName, selectedSlugs, includeInstaller, includePrerequisites, stepFilter };
 }
 
+/** Prints the step table for a journey definition. */
+function printStepTable(def: Record<string, unknown>, steps: Array<Record<string, unknown>>): void {
+	const setupSteps = (def.setup as Array<Record<string, unknown>>) ?? [];
+	const teardownSteps = (def.teardown as Array<Record<string, unknown>>) ?? [];
+	const dim = "\x1b[2m";
+	const reset = "\x1b[0m";
+	log(`  Steps for ${def.journey} (${steps.length} steps):\n`);
+	log("    #  ID                          Title");
+	log("   " + "-".repeat(62));
+
+	for (const s of setupSteps) {
+		const id = ((s.id as string) ?? "setup").padEnd(26);
+		log(`${dim}   ·  ${id}  ${s.title}  [setup]${reset}`);
+	}
+	for (let i = 0; i < steps.length; i++) {
+		const s = steps[i];
+		const num = String(i + 1).padStart(3);
+		const id = ((s.id as string) ?? `step-${i + 1}`).padEnd(26);
+		log(`  ${num}  ${id}  ${s.title}`);
+	}
+	for (const s of teardownSteps) {
+		const id = ((s.id as string) ?? "teardown").padEnd(26);
+		log(`${dim}   ·  ${id}  ${s.title}  [teardown]${reset}`);
+	}
+	log();
+}
+
+/** Parses a step input string like "1 3 5-7" into step IDs from the steps array. */
+function parseStepInput(input: string, steps: Array<Record<string, unknown>>): string[] {
+	const ids: string[] = [];
+	for (const token of input.split(/[\s,]+/)) {
+		const range = token.match(/^(\d+)-(\d+)$/);
+		if (range) {
+			const lo = Number(range[1]);
+			const hi = Number(range[2]);
+			for (let n = lo; n <= hi; n++) {
+				if (n >= 1 && n <= steps.length) ids.push(steps[n - 1].id as string);
+			}
+		} else {
+			const n = Number(token);
+			if (n >= 1 && n <= steps.length) ids.push(steps[n - 1].id as string);
+		}
+	}
+	return ids;
+}
+
+/** Resolves step filter from user input string. */
+function resolveStepFilter(input: string, steps: Array<Record<string, unknown>>): "all" | string[] {
+	const normalized = input.trim().toLowerCase();
+	if (normalized === "all" || normalized === "") return "all";
+	if (normalized === "none") return [];
+	const ids = parseStepInput(input, steps);
+	return ids.length > 0 ? ids : "all";
+}
+
 /**
  * Prompts the user to select steps for each journey.
  * Returns a map of { slug: "all" | string[] } where string[] contains step IDs.
@@ -387,70 +443,20 @@ async function promptStepFilter(rl: readline.Interface, selectedSlugs: string[])
 
 		const def = JSON.parse(fs.readFileSync(journeyPath, "utf-8")) as Record<string, unknown>;
 		const steps = (def.steps as Array<Record<string, unknown>>) ?? [];
-		const setupSteps = (def.setup as Array<Record<string, unknown>>) ?? [];
-		const teardownSteps = (def.teardown as Array<Record<string, unknown>>) ?? [];
 		if (steps.length === 0) {
 			stepFilter[slug] = "all";
 			continue;
 		}
 
-		// Print step table with grayed-out setup/teardown
-		const dim = "\x1b[2m";   // dim (gray)
-		const reset = "\x1b[0m";
-		console.log(`  Steps for ${def.journey} (${steps.length} steps):\n`);
-		console.log("    #  ID                          Title");
-		console.log("   " + "-".repeat(62));
-
-		for (const s of setupSteps) {
-			const id = ((s.id as string) ?? "setup").padEnd(26);
-			console.log(`${dim}   ·  ${id}  ${s.title}  [setup]${reset}`);
-		}
-
-		for (let i = 0; i < steps.length; i++) {
-			const s = steps[i];
-			const num = String(i + 1).padStart(3);
-			const id = ((s.id as string) ?? `step-${i + 1}`).padEnd(26);
-			console.log(`  ${num}  ${id}  ${s.title}`);
-		}
-
-		for (const s of teardownSteps) {
-			const id = ((s.id as string) ?? "teardown").padEnd(26);
-			console.log(`${dim}   ·  ${id}  ${s.title}  [teardown]${reset}`);
-		}
-
-		console.log();
-
+		printStepTable(def, steps);
 		const stepInput = await ask(rl, 'Steps (numbers/ranges, "all", or "none")', "all");
-		const normalized = stepInput.trim().toLowerCase();
-
-		if (normalized === "all" || normalized === "") {
-			stepFilter[slug] = "all";
-		} else if (normalized === "none") {
-			stepFilter[slug] = [];
-		} else {
-			// Parse "1 3 5-7" into step IDs
-			const ids: string[] = [];
-			for (const token of stepInput.split(/[\s,]+/)) {
-				const range = token.match(/^(\d+)-(\d+)$/);
-				if (range) {
-					const lo = Number(range[1]);
-					const hi = Number(range[2]);
-					for (let n = lo; n <= hi; n++) {
-						if (n >= 1 && n <= steps.length) ids.push(steps[n - 1].id as string);
-					}
-				} else {
-					const n = Number(token);
-					if (n >= 1 && n <= steps.length) ids.push(steps[n - 1].id as string);
-				}
-			}
-			stepFilter[slug] = ids.length > 0 ? ids : "all";
-		}
+		stepFilter[slug] = resolveStepFilter(stepInput, steps);
 
 		const sel = stepFilter[slug];
 		if (sel === "all") {
-			console.log(`  → All ${steps.length} steps selected\n`);
+			log(`  → All ${steps.length} steps selected\n`);
 		} else {
-			console.log(`  → ${sel.length} of ${steps.length} steps selected\n`);
+			log(`  → ${sel.length} of ${steps.length} steps selected\n`);
 		}
 	}
 
@@ -466,42 +472,48 @@ interface TestStats {
 	skipped: number;
 }
 
+/** Extracts test stats from the vitest JSON reporter format (testResults array). */
+function extractStatsFromTestResults(testResults: Array<Record<string, unknown>>): TestStats {
+	let totalTests = 0, passed = 0, failed = 0, skipped = 0;
+	const statusCounters: Record<string, () => void> = {
+		passed: () => passed++,
+		failed: () => failed++,
+	};
+	for (const suite of testResults) {
+		if (!Array.isArray(suite.assertionResults)) continue;
+		for (const test of suite.assertionResults as Array<Record<string, unknown>>) {
+			totalTests++;
+			const counter = statusCounters[test.status as string];
+			if (counter) counter(); else skipped++;
+		}
+	}
+	return { totalTests, passed, failed, skipped };
+}
+
 /**
  * Reads vitest JSON report and returns test result stats.
  */
 function readTestStats(): TestStats {
 	const reportPath = path.join(PLUGIN_ROOT, "docs", "reports", "tests", "testreport.json");
-	let totalTests = 0;
-	let passed = 0;
-	let failed = 0;
-	let skipped = 0;
+	if (!fs.existsSync(reportPath)) return { totalTests: 0, passed: 0, failed: 0, skipped: 0 };
 
-	if (fs.existsSync(reportPath)) {
-		try {
-			const report = JSON.parse(fs.readFileSync(reportPath, "utf-8")) as Record<string, unknown>;
-			if (report.numTotalTests != null) {
-				totalTests = report.numTotalTests as number;
-				passed = (report.numPassedTests as number) ?? 0;
-				failed = (report.numFailedTests as number) ?? 0;
-				skipped = (report.numPendingTests as number) ?? 0;
-			} else if (Array.isArray(report.testResults)) {
-				// Vitest JSON reporter format
-				for (const suite of report.testResults as Array<Record<string, unknown>>) {
-					if (!Array.isArray(suite.assertionResults)) continue;
-					for (const test of suite.assertionResults as Array<Record<string, unknown>>) {
-						totalTests++;
-						if (test.status === "passed") passed++;
-						else if (test.status === "failed") failed++;
-						else skipped++;
-					}
-				}
-			}
-		} catch {
-			// Report parsing failed — show zeros
+	try {
+		const report = JSON.parse(fs.readFileSync(reportPath, "utf-8")) as Record<string, unknown>;
+		if (report.numTotalTests != null) {
+			return {
+				totalTests: report.numTotalTests as number,
+				passed: (report.numPassedTests as number) ?? 0,
+				failed: (report.numFailedTests as number) ?? 0,
+				skipped: (report.numPendingTests as number) ?? 0,
+			};
 		}
+		if (Array.isArray(report.testResults)) {
+			return extractStatsFromTestResults(report.testResults as Array<Record<string, unknown>>);
+		}
+	} catch {
+		// Report parsing failed — show zeros
 	}
-
-	return { totalTests, passed, failed, skipped };
+	return { totalTests: 0, passed: 0, failed: 0, skipped: 0 };
 }
 
 function printSummary(sessionName: string, selectedNames: string[], startTime: number, stats: TestStats): void {
@@ -509,31 +521,24 @@ function printSummary(sessionName: string, selectedNames: string[], startTime: n
 	const failColor = stats.failed > 0 ? "\x1b[31m" : "\x1b[32m";
 	const reset = "\x1b[0m";
 
-	console.log(`\n  ${"=".repeat(60)}`);
-	console.log(`  Session Summary: ${sessionName}`);
-	console.log(`  ${"=".repeat(60)}\n`);
-	console.log(`  Duration:     ${duration}s`);
-	console.log(`  Journeys:     ${selectedNames.length} (${selectedNames.join(", ")})`);
-	console.log(`  Tests:        ${stats.totalTests} total`);
-	console.log(`  Passed:       \x1b[32m${stats.passed}${reset}`);
-	console.log(`  Failed:       ${failColor}${stats.failed}${reset}`);
-	console.log(`  Skipped:      ${stats.skipped}`);
-	console.log(`  Report:       docs/reports/e2e/E2E Report.md`);
-	console.log();
+	log(`\n  ${"=".repeat(60)}`);
+	log(`  Session Summary: ${sessionName}`);
+	log(`  ${"=".repeat(60)}\n`);
+	log(`  Duration:     ${duration}s`);
+	log(`  Journeys:     ${selectedNames.length} (${selectedNames.join(", ")})`);
+	log(`  Tests:        ${stats.totalTests} total`);
+	log(`  Passed:       \x1b[32m${stats.passed}${reset}`);
+	log(`  Failed:       ${failColor}${stats.failed}${reset}`);
+	log(`  Skipped:      ${stats.skipped}`);
+	log(`  Report:       docs/reports/e2e/E2E Report.md`);
+	log();
 }
 
 // ── Session note ────────────────────────────────────────────────────
 
-/**
- * Writes a Markdown session note to the test vault at:
- *   03 - Resources/Sessions/{sessionName}/{sessionName}.md
- */
-function writeSessionNote(sessionName: string, config: SessionConfig, selectedNames: string[], prereqResults: PrerequisiteResults, stats: TestStats, startTime: number, exitCode: number): string {
-	const now = new Date();
-	const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-	const status = exitCode === 0 ? "passed" : "failed";
-
-	const lines: string[] = [
+/** Builds the session note frontmatter lines. */
+function buildSessionFrontmatter(sessionName: string, config: SessionConfig, stats: TestStats, status: string, duration: string, now: Date): string[] {
+	return [
 		"---",
 		"type: E2ESession",
 		`session: ${yamlStr(sessionName)}`,
@@ -552,6 +557,38 @@ function writeSessionNote(sessionName: string, config: SessionConfig, selectedNa
 		"  - e2e",
 		"  - session",
 		"---",
+	];
+}
+
+/** Builds the prerequisite check table rows. */
+function buildPrereqRows(prereqResults: PrerequisiteResults): string[] {
+	return [
+		`| Test vault exists | ${prereqResults.vaultExists ? "✓" : "✗"} |`,
+		`| Plugin artifacts | ${prereqResults.artifactsPresent ? "✓" : "✗"} |`,
+		`| Obsidian CLI responsive | ${prereqResults.cliResponsive ? "✓" : "✗"} |`,
+		`| Vault installed | ${prereqResults.vaultInstalled ? "✓" : "○ not yet"} |`,
+		`| Test data present | ${prereqResults.testDataPresent ? "✓" : "○ generated during setup"} |`,
+	];
+}
+
+/**
+ * Writes a Markdown session note to the test vault at:
+ *   03 - Resources/Sessions/{sessionName}/{sessionName}.md
+ */
+function writeSessionNote(sessionName: string, config: SessionConfig, selectedNames: string[], prereqResults: PrerequisiteResults, stats: TestStats, startTime: number, exitCode: number): string {
+	const now = new Date();
+	const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+	const status = exitCode === 0 ? "passed" : "failed";
+
+	const journeyEntries = loadJourneyEntries();
+	const journeyRows = config.selectedSlugs.map((slug, i) => {
+		const name = selectedNames[i] || slug;
+		const entry = journeyEntries.find((e) => e.slug === slug);
+		return `| ${i + 1} | ${name} | ${entry ? entry.steps : "?"} |`;
+	});
+
+	const lines: string[] = [
+		...buildSessionFrontmatter(sessionName, config, stats, status, duration, now),
 		"",
 		`# E2E Session: ${sessionName}`,
 		"",
@@ -574,11 +611,7 @@ function writeSessionNote(sessionName: string, config: SessionConfig, selectedNa
 		"",
 		`| Check | Status |`,
 		`|---|---|`,
-		`| Test vault exists | ${prereqResults.vaultExists ? "✓" : "✗"} |`,
-		`| Plugin artifacts | ${prereqResults.artifactsPresent ? "✓" : "✗"} |`,
-		`| Obsidian CLI responsive | ${prereqResults.cliResponsive ? "✓" : "✗"} |`,
-		`| Vault installed | ${prereqResults.vaultInstalled ? "✓" : "○ not yet"} |`,
-		`| Test data present | ${prereqResults.testDataPresent ? "✓" : "○ generated during setup"} |`,
+		...buildPrereqRows(prereqResults),
 		"",
 		"---",
 		"",
@@ -586,12 +619,7 @@ function writeSessionNote(sessionName: string, config: SessionConfig, selectedNa
 		"",
 		`| # | Journey | Steps |`,
 		`|---|---|---|`,
-		...config.selectedSlugs.map((slug, i) => {
-			const name = selectedNames[i] || slug;
-			const entry = loadJourneyEntries().find((e) => e.slug === slug);
-			const steps = entry ? entry.steps : "?";
-			return `| ${i + 1} | ${name} | ${steps} |`;
-		}),
+		...journeyRows,
 		"",
 		"---",
 		"",
@@ -622,14 +650,14 @@ function writeSessionNote(sessionName: string, config: SessionConfig, selectedNa
 	const notePath = path.join(sessionDir, `${sessionName}.md`);
 	fs.mkdirSync(sessionDir, { recursive: true });
 	fs.writeFileSync(notePath, content, "utf-8");
-	console.log(`[e2e] Session note written: ${notePath}`);
+	log(`[e2e] Session note written: ${notePath}`);
 
 	// Mirror to dev vault
 	const devSessionDir = path.join(PLUGIN_ROOT, "docs", "reports", "e2e", "sessions", sessionName);
 	const devNotePath = path.join(devSessionDir, `${sessionName}.md`);
 	fs.mkdirSync(devSessionDir, { recursive: true });
 	fs.writeFileSync(devNotePath, content, "utf-8");
-	console.log(`[e2e] Session note mirrored: ${devNotePath}`);
+	log(`[e2e] Session note mirrored: ${devNotePath}`);
 
 	return notePath;
 }
@@ -649,14 +677,14 @@ function yamlStr(value: string): string {
  * Returns 0 on success, non-zero on failure.
  */
 function quickBuildAndDeploy(): number {
-	console.log("\n  Quick build (esbuild → deploy → reload)...\n");
+	log("\n  Quick build (esbuild → deploy → reload)...\n");
 
 	// 1. Run esbuild production build
 	try {
 		execSync("node esbuild.config.mjs --production", { stdio: "inherit" });
-		console.log("\n  \x1b[32m✓\x1b[0m Build completed");
+		log("\n  \x1b[32m✓\x1b[0m Build completed");
 	} catch (err) {
-		console.log("\n  \x1b[31m✗\x1b[0m Build failed");
+		log("\n  \x1b[31m✗\x1b[0m Build failed");
 		return (err as { status?: number }).status ?? 1;
 	}
 
@@ -671,10 +699,10 @@ function quickBuildAndDeploy(): number {
 			fs.copyFileSync(src, dest);
 			copied++;
 		} else {
-			console.log(`  \x1b[33m○\x1b[0m Artifact not found: ${artifact}`);
+			log(`  \x1b[33m○\x1b[0m Artifact not found: ${artifact}`);
 		}
 	}
-	console.log(`  \x1b[32m✓\x1b[0m Deployed ${copied} artifacts to test vault`);
+	log(`  \x1b[32m✓\x1b[0m Deployed ${copied} artifacts to test vault`);
 
 	// 3. Reload plugin in Obsidian
 	try {
@@ -682,9 +710,9 @@ function quickBuildAndDeploy(): number {
 			`obsidian vault=${VAULT_NAME} eval code="(async () => { await app.plugins.disablePlugin('${PLUGIN_ID}'); await app.plugins.enablePlugin('${PLUGIN_ID}'); return 'reloaded'; })()"`,
 			{ stdio: "pipe", timeout: 15_000 },
 		);
-		console.log("  \x1b[32m✓\x1b[0m Plugin reloaded in Obsidian\n");
+		log("  \x1b[32m✓\x1b[0m Plugin reloaded in Obsidian\n");
 	} catch {
-		console.log("  \x1b[33m○\x1b[0m Plugin reload skipped (Obsidian may not be running)\n");
+		log("  \x1b[33m○\x1b[0m Plugin reload skipped (Obsidian may not be running)\n");
 	}
 
 	return 0;
@@ -733,146 +761,104 @@ function readBuildStats(): BuildStats {
 	};
 }
 
-/**
- * Generates the Increment State Report — a consolidated snapshot of all
- * quality metrics at the time of the increment build.
- * Written to both the test vault root and dev vault root.
- */
-function generateIncrementStateReport(exitCode: number, duration: string, stats: BuildStats): { testPath: string; devPath: string } {
-	const DEV_VAULT_ROOT = path.resolve(PLUGIN_ROOT, "..", "..");
-	const now = new Date();
-	const status = exitCode === 0 ? "pass" : "fail";
+/** Shared metric extraction from BuildStats. */
+interface ExtractedMetrics {
+	b: Record<string, unknown>;
+	t: Record<string, unknown>;
+	c: Record<string, unknown>;
+	e: Record<string, unknown>;
+	p: Record<string, unknown>;
+	cy: Record<string, unknown>;
+	sizeKb: number;
+	linesPct: number;
+	branchesPct: number;
+	functionsPct: number;
+	cycle: string | number;
+}
 
-	const b: Record<string, unknown> = stats.build ?? {};
-	const t: Record<string, unknown> = stats.test ?? {};
-	const c: Record<string, unknown> = stats.coverage ?? {};
-	const e: Record<string, unknown> = stats.e2e ?? {};
-	const p: Record<string, unknown> = stats.performance ?? {};
-	const cy: Record<string, unknown> = stats.cycle ?? {};
-	const ut = stats.unitTests;
+function extractReportMaps(stats: BuildStats): { b: Record<string, unknown>; t: Record<string, unknown>; c: Record<string, unknown>; e: Record<string, unknown>; p: Record<string, unknown>; cy: Record<string, unknown> } {
+	return {
+		b: stats.build ?? {},
+		t: stats.test ?? {},
+		c: stats.coverage ?? {},
+		e: stats.e2e ?? {},
+		p: stats.performance ?? {},
+		cy: stats.cycle ?? {},
+	};
+}
 
-	const sizeKb = b.total_bytes ? Math.round(b.total_bytes as number / 1024) : 0;
-	const linesPct = (c.lines_pct ?? c.line_pct ?? c.line_percent ?? 0) as number;
-	const branchesPct = (c.branches_pct ?? 0) as number;
-	const functionsPct = (c.functions_pct ?? 0) as number;
-	const cycle = (cy.cycle ?? cy.number ?? "") as string | number;
+function extractCoverageMetrics(c: Record<string, unknown>): { linesPct: number; branchesPct: number; functionsPct: number } {
+	return {
+		linesPct: (c.lines_pct ?? c.line_pct ?? c.line_percent ?? 0) as number,
+		branchesPct: (c.branches_pct ?? 0) as number,
+		functionsPct: (c.functions_pct ?? 0) as number,
+	};
+}
 
-	const lines: string[] = [
-		"---",
-		"type: IncrementStateReport",
-		`date: "${now.toISOString()}"`,
-		`status: ${status}`,
-		`duration_s: ${duration}`,
-		...(cycle ? [`cycle: ${cycle}`] : []),
-		`plugin_version: ${b.plugin_version ?? "?"}`,
-		"# Build",
-		`bundle_size_kb: ${sizeKb}`,
-		`build_duration_ms: ${b.duration_ms ?? 0}`,
-		`build_warnings: ${b.warnings_count ?? 0}`,
-		`build_errors: ${b.errors_count ?? 0}`,
-		"# Unit Tests",
-		`unit_total: ${ut.totalTests}`,
-		`unit_passed: ${ut.passed}`,
-		`unit_failed: ${ut.failed}`,
-		`unit_skipped: ${ut.skipped}`,
-		`unit_suites: ${t.suites ?? 0}`,
-		"# Coverage",
-		`lines_pct: ${linesPct}`,
-		`branches_pct: ${branchesPct}`,
-		`functions_pct: ${functionsPct}`,
-		"# E2E",
-		`e2e_total: ${e.total_tests ?? 0}`,
-		`e2e_passed: ${e.passed ?? 0}`,
-		`e2e_failed: ${e.failed ?? 0}`,
-		`e2e_journeys: ${e.journeys ?? 0}`,
-		`e2e_actions: ${e.total_actions ?? 0}`,
-		"# Performance",
-		`startup_p50_ms: ${p.startup_p50 ?? t.startup_p50 ?? 0}`,
-		`startup_p95_ms: ${p.startup_p95 ?? t.startup_p95 ?? 0}`,
-		"tags:",
-		"  - increment",
-		"  - state-report",
-		"---",
-		"",
-		"# Increment State Report",
-		"",
-		`> [!${status === "pass" ? "success" : "danger"}] **${status.toUpperCase()}** — ${now.toISOString().slice(0, 16).replace("T", " ")}`,
-		...(cycle ? [`> Cycle ${cycle} | ` + `v${b.plugin_version ?? "?"} | ${duration}s`] : [`> v${b.plugin_version ?? "?"} | ${duration}s`]),
-		"",
-		"## Build",
-		"",
-		"| Metric | Value |",
-		"|---|---|",
-		`| Bundle Size | ${sizeKb} KB |`,
-		`| Build Duration | ${b.duration_ms ?? "?"} ms |`,
-		`| Plugin Version | ${b.plugin_version ?? "?"} |`,
-		`| Warnings | ${b.warnings_count ?? 0} |`,
-		`| Errors | ${b.errors_count ?? 0} |`,
-		"",
-		"## Unit Tests",
-		"",
-	];
+function extractMetrics(stats: BuildStats): ExtractedMetrics {
+	const maps = extractReportMaps(stats);
+	const cov = extractCoverageMetrics(maps.c);
+	return {
+		...maps,
+		sizeKb: maps.b.total_bytes ? Math.round(maps.b.total_bytes as number / 1024) : 0,
+		...cov,
+		cycle: (maps.cy.cycle ?? maps.cy.number ?? "") as string | number,
+	};
+}
 
+/** Builds the unit tests markdown section. */
+function buildUnitTestsSection(ut: TestStats, t: Record<string, unknown>): string[] {
+	const lines = ["## Unit Tests", ""];
 	if (ut.totalTests > 0) {
 		const icon = ut.failed === 0 ? "success" : "danger";
 		lines.push(`> [!${icon}] ${ut.passed}/${ut.totalTests} passed | ${t.suites ?? "?"} suites`);
-		lines.push("");
-		lines.push("| Metric | Value |");
-		lines.push("|---|---|");
-		lines.push(`| Total | ${ut.totalTests} |`);
-		lines.push(`| Passed | ${ut.passed} |`);
-		lines.push(`| Failed | ${ut.failed} |`);
-		lines.push(`| Skipped | ${ut.skipped} |`);
-		lines.push(`| Suites | ${t.suites ?? "?"} |`);
+		lines.push("", "| Metric | Value |", "|---|---|");
+		lines.push(`| Total | ${ut.totalTests} |`, `| Passed | ${ut.passed} |`, `| Failed | ${ut.failed} |`, `| Skipped | ${ut.skipped} |`, `| Suites | ${t.suites ?? "?"} |`);
 		if (t.duration_ms) lines.push(`| Duration | ${Math.round(t.duration_ms as number / 1000)}s |`);
 	} else {
 		lines.push("> No unit test data available.");
 	}
 	lines.push("");
+	return lines;
+}
 
-	lines.push("## Coverage");
-	lines.push("");
+/** Builds the coverage markdown section. */
+function buildCoverageSection(linesPct: number, branchesPct: number, functionsPct: number, c: Record<string, unknown>): string[] {
+	const lines = ["## Coverage", ""];
 	if (linesPct > 0) {
-		lines.push("| Metric | Value |");
-		lines.push("|---|---|");
-		lines.push(`| Lines | ${linesPct}% |`);
-		lines.push(`| Branches | ${branchesPct}% |`);
-		lines.push(`| Functions | ${functionsPct}% |`);
+		lines.push("| Metric | Value |", "|---|---|");
+		lines.push(`| Lines | ${linesPct}% |`, `| Branches | ${branchesPct}% |`, `| Functions | ${functionsPct}% |`);
 		if (c.files_covered) lines.push(`| Files | ${c.files_covered} |`);
 	} else {
 		lines.push("> No coverage data available.");
 	}
 	lines.push("");
+	return lines;
+}
 
-	lines.push("## E2E Tests");
-	lines.push("");
+/** Builds the E2E tests markdown section. */
+function buildE2eSection(e: Record<string, unknown>): string[] {
+	const lines = ["## E2E Tests", ""];
 	if (((e.total_tests as number) ?? 0) > 0) {
 		const icon = ((e.failed as number) ?? 0) === 0 ? "success" : "danger";
 		lines.push(`> [!${icon}] ${e.passed}/${e.total_tests} passed | ${e.journeys ?? "?"} journeys`);
-		lines.push("");
-		lines.push("| Metric | Value |");
-		lines.push("|---|---|");
-		lines.push(`| Total | ${e.total_tests} |`);
-		lines.push(`| Passed | ${e.passed} |`);
-		lines.push(`| Failed | ${e.failed} |`);
-		lines.push(`| Journeys | ${e.journeys} |`);
-		lines.push(`| Actions | ${e.total_actions} |`);
-		lines.push(`| Screenshots | ${e.total_screenshots ?? "?"} |`);
+		lines.push("", "| Metric | Value |", "|---|---|");
+		lines.push(`| Total | ${e.total_tests} |`, `| Passed | ${e.passed} |`, `| Failed | ${e.failed} |`, `| Journeys | ${e.journeys} |`, `| Actions | ${e.total_actions} |`, `| Screenshots | ${e.total_screenshots ?? "?"} |`);
 		if (e.duration) lines.push(`| Duration | ${e.duration} |`);
 	} else {
 		lines.push("> No E2E data available.");
 	}
 	lines.push("");
+	return lines;
+}
 
-	lines.push("## Performance");
-	lines.push("");
+/** Builds the performance markdown section. */
+function buildPerformanceSection(p: Record<string, unknown>, t: Record<string, unknown>): string[] {
+	const lines = ["## Performance", ""];
 	const p50 = p.startup_p50 ?? t.startup_p50;
 	if (p50) {
-		lines.push("| Metric | Value |");
-		lines.push("|---|---|");
-		lines.push(`| Startup p50 | ${p50} ms |`);
-		lines.push(`| Startup p95 | ${p.startup_p95 ?? t.startup_p95 ?? "?"} ms |`);
-		lines.push(`| Startup Max | ${p.startup_max ?? t.startup_max ?? "?"} ms |`);
+		lines.push("| Metric | Value |", "|---|---|");
+		lines.push(`| Startup p50 | ${p50} ms |`, `| Startup p95 | ${p.startup_p95 ?? t.startup_p95 ?? "?"} ms |`, `| Startup Max | ${p.startup_max ?? t.startup_max ?? "?"} ms |`);
 		if (p.data_json_size_bytes || t.data_json_size_bytes) {
 			const djSize = (p.data_json_size_bytes ?? t.data_json_size_bytes) as number;
 			lines.push(`| data.json | ${(djSize / (1024 * 1024)).toFixed(1)} MB |`);
@@ -881,6 +867,109 @@ function generateIncrementStateReport(exitCode: number, duration: string, stats:
 		lines.push("> No performance data available.");
 	}
 	lines.push("");
+	return lines;
+}
+
+/** Builds the build table section. */
+function buildBuildTable(sizeKb: number, b: Record<string, unknown>): string[] {
+	return [
+		"## Build", "",
+		"| Metric | Value |", "|---|---|",
+		`| Bundle Size | ${sizeKb} KB |`,
+		`| Build Duration | ${b.duration_ms ?? "?"} ms |`,
+		`| Plugin Version | ${b.plugin_version ?? "?"} |`,
+		`| Warnings | ${b.warnings_count ?? 0} |`,
+		`| Errors | ${b.errors_count ?? 0} |`,
+		"",
+	];
+}
+
+/** Builds the state report frontmatter (shared by increment and publish). */
+function buildStateReportFrontmatter(type: string, status: string, duration: string, now: Date, m: ExtractedMetrics, ut: TestStats): string[] {
+	return [
+		"---",
+		`type: ${type}`,
+		`date: "${now.toISOString()}"`,
+		`status: ${status}`,
+		`duration_s: ${duration}`,
+		...(m.cycle ? [`cycle: ${m.cycle}`] : []),
+		`plugin_version: ${m.b.plugin_version ?? "?"}`,
+		"# Build",
+		`bundle_size_kb: ${m.sizeKb}`,
+		`build_duration_ms: ${m.b.duration_ms ?? 0}`,
+		`build_warnings: ${m.b.warnings_count ?? 0}`,
+		`build_errors: ${m.b.errors_count ?? 0}`,
+		"# Unit Tests",
+		`unit_total: ${ut.totalTests}`,
+		`unit_passed: ${ut.passed}`,
+		`unit_failed: ${ut.failed}`,
+		`unit_skipped: ${ut.skipped}`,
+		`unit_suites: ${m.t.suites ?? 0}`,
+		"# Coverage",
+		`lines_pct: ${m.linesPct}`,
+		`branches_pct: ${m.branchesPct}`,
+		`functions_pct: ${m.functionsPct}`,
+	];
+}
+
+/** Builds the state report header line (callout + cycle info). */
+function buildStateReportHeader(title: string, status: string, duration: string, now: Date, m: ExtractedMetrics): string[] {
+	return [
+		"",
+		`# ${title}`,
+		"",
+		`> [!${status === "pass" ? "success" : "danger"}] **${status.toUpperCase()}** — ${now.toISOString().slice(0, 16).replace("T", " ")}`,
+		...(m.cycle ? [`> Cycle ${m.cycle} | v${m.b.plugin_version ?? "?"} | ${duration}s`] : [`> v${m.b.plugin_version ?? "?"} | ${duration}s`]),
+		"",
+	];
+}
+
+/**
+ * Generates the Increment State Report — a consolidated snapshot of all
+ * quality metrics at the time of the increment build.
+ * Written to both the test vault root and dev vault root.
+ */
+function buildE2eFrontmatterLines(e: Record<string, unknown>): string[] {
+	return [
+		"# E2E",
+		`e2e_total: ${e.total_tests ?? 0}`,
+		`e2e_passed: ${e.passed ?? 0}`,
+		`e2e_failed: ${e.failed ?? 0}`,
+		`e2e_journeys: ${e.journeys ?? 0}`,
+		`e2e_actions: ${e.total_actions ?? 0}`,
+	];
+}
+
+function buildPerfFrontmatterLines(p: Record<string, unknown>, t: Record<string, unknown>): string[] {
+	return [
+		"# Performance",
+		`startup_p50_ms: ${p.startup_p50 ?? t.startup_p50 ?? 0}`,
+		`startup_p95_ms: ${p.startup_p95 ?? t.startup_p95 ?? 0}`,
+	];
+}
+
+function generateIncrementStateReport(exitCode: number, duration: string, stats: BuildStats): { testPath: string; devPath: string } {
+	const DEV_VAULT_ROOT = path.resolve(PLUGIN_ROOT, "..", "..");
+	const now = new Date();
+	const status = exitCode === 0 ? "pass" : "fail";
+	const m = extractMetrics(stats);
+	const ut = stats.unitTests;
+
+	const lines: string[] = [
+		...buildStateReportFrontmatter("IncrementStateReport", status, duration, now, m, ut),
+		...buildE2eFrontmatterLines(m.e),
+		...buildPerfFrontmatterLines(m.p, m.t),
+		"tags:",
+		"  - increment",
+		"  - state-report",
+		"---",
+		...buildStateReportHeader("Increment State Report", status, duration, now, m),
+		...buildBuildTable(m.sizeKb, m.b),
+		...buildUnitTestsSection(ut, m.t),
+		...buildCoverageSection(m.linesPct, m.branchesPct, m.functionsPct, m.c),
+		...buildE2eSection(m.e),
+		...buildPerformanceSection(m.p, m.t),
+	];
 
 	const content = lines.join("\n");
 	const filename = "Increment State Report.md";
@@ -888,61 +977,71 @@ function generateIncrementStateReport(exitCode: number, duration: string, stats:
 	// Write to test vault root
 	const testPath = path.join(TEST_VAULT, filename);
 	fs.writeFileSync(testPath, content, "utf-8");
-	console.log(`  \x1b[32m✓\x1b[0m Increment State Report: ${testPath}`);
+	log(`  \x1b[32m✓\x1b[0m Increment State Report: ${testPath}`);
 
 	// Write to dev vault root
 	const devPath = path.join(DEV_VAULT_ROOT, filename);
 	fs.writeFileSync(devPath, content, "utf-8");
-	console.log(`  \x1b[32m✓\x1b[0m Increment State Report: ${devPath}`);
+	log(`  \x1b[32m✓\x1b[0m Increment State Report: ${devPath}`);
 
 	return { testPath, devPath };
+}
+
+/** Prints build info lines to console. */
+function printBuildInfo(build: Record<string, unknown>): void {
+	const red = "\x1b[31m";
+	const reset = "\x1b[0m";
+	const sizeKb = build.total_bytes ? Math.round(build.total_bytes as number / 1024) : "?";
+	log(`  Bundle:       ${sizeKb} KB`);
+	log(`  Version:      ${build.plugin_version ?? "?"}`);
+	if ((build.warnings_count as number) > 0) {
+		log(`  Warnings:     ${red}${build.warnings_count}${reset}`);
+	}
+}
+
+/** Prints unit test stats line to console. */
+function printTestStatsLine(ut: TestStats): void {
+	const green = "\x1b[32m";
+	const red = "\x1b[31m";
+	const dim = "\x1b[2m";
+	const reset = "\x1b[0m";
+	const failColor = ut.failed > 0 ? red : green;
+	log(`  Tests:        ${green}${ut.passed}${reset} passed, ${failColor}${ut.failed}${reset} failed, ${dim}${ut.skipped} skipped${reset} ${dim}(${ut.totalTests} total)${reset}`);
+}
+
+/** Prints coverage percentage line to console. */
+function printCoverageLine(coverage: Record<string, unknown>): void {
+	const pct = coverage.line_pct ?? coverage.lines_pct ?? coverage.line_percent;
+	if (pct != null) {
+		log(`  Coverage:     ${pct}%`);
+	}
 }
 
 function printIncrementSummary(exitCode: number, duration: string, stats: BuildStats): void {
 	const reset = "\x1b[0m";
 	const green = "\x1b[32m";
 	const red = "\x1b[31m";
-	const dim = "\x1b[2m";
 	const statusIcon = exitCode === 0 ? `${green}✓ PASS${reset}` : `${red}✗ FAIL${reset}`;
 
-	console.log(`\n  ${"═".repeat(50)}`);
-	console.log(`  Increment Build Results`);
-	console.log(`  ${"═".repeat(50)}\n`);
-	console.log(`  Status:       ${statusIcon}`);
-	console.log(`  Duration:     ${duration}s`);
+	log(`\n  ${"═".repeat(50)}`);
+	log(`  Increment Build Results`);
+	log(`  ${"═".repeat(50)}\n`);
+	log(`  Status:       ${statusIcon}`);
+	log(`  Duration:     ${duration}s`);
 
-	if (stats.build) {
-		const sizeKb = stats.build.total_bytes ? Math.round(stats.build.total_bytes as number / 1024) : "?";
-		console.log(`  Bundle:       ${sizeKb} KB`);
-		console.log(`  Version:      ${stats.build.plugin_version ?? "?"}`);
-		if ((stats.build.warnings_count as number) > 0) {
-			console.log(`  Warnings:     ${red}${stats.build.warnings_count}${reset}`);
-		}
-	}
+	if (stats.build) printBuildInfo(stats.build);
+	if (stats.unitTests.totalTests > 0) printTestStatsLine(stats.unitTests);
+	if (stats.coverage) printCoverageLine(stats.coverage);
 
-	const ut = stats.unitTests;
-	if (ut.totalTests > 0) {
-		const failColor = ut.failed > 0 ? red : green;
-		console.log(`  Tests:        ${green}${ut.passed}${reset} passed, ${failColor}${ut.failed}${reset} failed, ${dim}${ut.skipped} skipped${reset} ${dim}(${ut.totalTests} total)${reset}`);
-	}
-
-	if (stats.coverage) {
-		const cov = stats.coverage;
-		const pct = cov.line_pct ?? cov.lines_pct ?? cov.line_percent;
-		if (pct != null) {
-			console.log(`  Coverage:     ${pct}%`);
-		}
-	}
-
-	console.log();
+	log();
 }
 
 async function runIncrementBuild(): Promise<number> {
 	// Teardown test vault to fresh state so E2E runs the full journey with installer
-	console.log("\n  Preparing test vault for full journey...\n");
+	log("\n  Preparing test vault for full journey...\n");
 	await performTeardown();
 
-	console.log("  Starting increment build (check → build → test → e2e → docs → distribute)...\n");
+	log("  Starting increment build (check → build → test → e2e → docs → distribute)...\n");
 	const startTime = Date.now();
 	let exitCode: number;
 	try {
@@ -964,39 +1063,35 @@ function printPublishSummary(exitCode: number, duration: string, stats: BuildSta
 	const reset = "\x1b[0m";
 	const green = "\x1b[32m";
 	const red = "\x1b[31m";
-	const dim = "\x1b[2m";
 	const statusIcon = exitCode === 0 ? `${green}✓ PASS${reset}` : `${red}✗ FAIL${reset}`;
 
-	console.log(`\n  ${"═".repeat(50)}`);
-	console.log(`  Publish Results`);
-	console.log(`  ${"═".repeat(50)}\n`);
-	console.log(`  Status:       ${statusIcon}`);
-	console.log(`  Duration:     ${duration}s`);
+	log(`\n  ${"═".repeat(50)}`);
+	log(`  Publish Results`);
+	log(`  ${"═".repeat(50)}\n`);
+	log(`  Status:       ${statusIcon}`);
+	log(`  Duration:     ${duration}s`);
 
-	if (stats.build) {
-		const sizeKb = stats.build.total_bytes ? Math.round(stats.build.total_bytes as number / 1024) : "?";
-		console.log(`  Bundle:       ${sizeKb} KB`);
-		console.log(`  Version:      ${stats.build.plugin_version ?? "?"}`);
-		if ((stats.build.warnings_count as number) > 0) {
-			console.log(`  Warnings:     ${red}${stats.build.warnings_count}${reset}`);
-		}
+	if (stats.build) printBuildInfo(stats.build);
+	if (stats.unitTests.totalTests > 0) printTestStatsLine(stats.unitTests);
+	if (stats.coverage) printCoverageLine(stats.coverage);
+
+	log();
+}
+
+/** Builds the traceability markdown section. */
+function buildTraceabilitySection(tr: Record<string, unknown>): string[] {
+	const lines = ["## Traceability", ""];
+	if (((tr.total_events as number) ?? 0) > 0) {
+		const pct = tr.linked && tr.total_events ? Math.round((tr.linked as number / (tr.total_events as number)) * 100) : 0;
+		const icon = ((tr.unlinked as number) ?? 0) === 0 ? "success" : "warning";
+		lines.push(`> [!${icon}] ${tr.linked}/${tr.total_events} linked (${pct}%)`);
+		lines.push("", "| Metric | Value |", "|---|---|");
+		lines.push(`| Total Events | ${tr.total_events} |`, `| Linked | ${tr.linked} |`, `| Unlinked | ${tr.unlinked} |`);
+	} else {
+		lines.push("> No traceability data available.");
 	}
-
-	const ut = stats.unitTests;
-	if (ut.totalTests > 0) {
-		const failColor = ut.failed > 0 ? red : green;
-		console.log(`  Tests:        ${green}${ut.passed}${reset} passed, ${failColor}${ut.failed}${reset} failed, ${dim}${ut.skipped} skipped${reset} ${dim}(${ut.totalTests} total)${reset}`);
-	}
-
-	if (stats.coverage) {
-		const cov = stats.coverage;
-		const pct = cov.line_pct ?? cov.lines_pct ?? cov.line_percent;
-		if (pct != null) {
-			console.log(`  Coverage:     ${pct}%`);
-		}
-	}
-
-	console.log();
+	lines.push("");
+	return lines;
 }
 
 /**
@@ -1004,144 +1099,38 @@ function printPublishSummary(exitCode: number, duration: string, stats: BuildSta
  * quality metrics at the time of the release publish.
  * Written to the dev vault root.
  */
-function generatePublishStateReport(exitCode: number, duration: string, stats: BuildStats): { devPath: string } {
-	const DEV_VAULT_ROOT = path.resolve(PLUGIN_ROOT, "..", "..");
-	const now = new Date();
-	const status = exitCode === 0 ? "pass" : "fail";
-
-	const b: Record<string, unknown> = stats.build ?? {};
-	const t: Record<string, unknown> = stats.test ?? {};
-	const c: Record<string, unknown> = stats.coverage ?? {};
-	const p: Record<string, unknown> = stats.performance ?? {};
-	const cy: Record<string, unknown> = stats.cycle ?? {};
-	const tr: Record<string, unknown> = stats.traceability ?? {};
-	const ut = stats.unitTests;
-
-	const sizeKb = b.total_bytes ? Math.round(b.total_bytes as number / 1024) : 0;
-	const linesPct = (c.lines_pct ?? c.line_pct ?? c.line_percent ?? 0) as number;
-	const branchesPct = (c.branches_pct ?? 0) as number;
-	const functionsPct = (c.functions_pct ?? 0) as number;
-	const cycle = (cy.cycle ?? cy.number ?? "") as string | number;
-
-	const lines: string[] = [
-		"---",
-		"type: PublishStateReport",
-		`date: "${now.toISOString()}"`,
-		`status: ${status}`,
-		`duration_s: ${duration}`,
-		...(cycle ? [`cycle: ${cycle}`] : []),
-		`plugin_version: ${b.plugin_version ?? "?"}`,
-		"# Build",
-		`bundle_size_kb: ${sizeKb}`,
-		`build_duration_ms: ${b.duration_ms ?? 0}`,
-		`build_warnings: ${b.warnings_count ?? 0}`,
-		`build_errors: ${b.errors_count ?? 0}`,
-		"# Unit Tests",
-		`unit_total: ${ut.totalTests}`,
-		`unit_passed: ${ut.passed}`,
-		`unit_failed: ${ut.failed}`,
-		`unit_skipped: ${ut.skipped}`,
-		`unit_suites: ${t.suites ?? 0}`,
-		"# Coverage",
-		`lines_pct: ${linesPct}`,
-		`branches_pct: ${branchesPct}`,
-		`functions_pct: ${functionsPct}`,
+function buildTraceFrontmatterLines(tr: Record<string, unknown>): string[] {
+	return [
 		"# Traceability",
 		`trace_total: ${tr.total_events ?? 0}`,
 		`trace_linked: ${tr.linked ?? 0}`,
 		`trace_unlinked: ${tr.unlinked ?? 0}`,
-		"# Performance",
-		`startup_p50_ms: ${p.startup_p50 ?? t.startup_p50 ?? 0}`,
-		`startup_p95_ms: ${p.startup_p95 ?? t.startup_p95 ?? 0}`,
+	];
+}
+
+function generatePublishStateReport(exitCode: number, duration: string, stats: BuildStats): { devPath: string } {
+	const DEV_VAULT_ROOT = path.resolve(PLUGIN_ROOT, "..", "..");
+	const now = new Date();
+	const status = exitCode === 0 ? "pass" : "fail";
+	const m = extractMetrics(stats);
+	const ut = stats.unitTests;
+	const tr: Record<string, unknown> = stats.traceability ?? {};
+
+	const lines: string[] = [
+		...buildStateReportFrontmatter("PublishStateReport", status, duration, now, m, ut),
+		...buildTraceFrontmatterLines(tr),
+		...buildPerfFrontmatterLines(m.p, m.t),
 		"tags:",
 		"  - publish",
 		"  - state-report",
 		"---",
-		"",
-		"# Publish State Report",
-		"",
-		`> [!${status === "pass" ? "success" : "danger"}] **${status.toUpperCase()}** — ${now.toISOString().slice(0, 16).replace("T", " ")}`,
-		...(cycle ? [`> Cycle ${cycle} | v${b.plugin_version ?? "?"} | ${duration}s`] : [`> v${b.plugin_version ?? "?"} | ${duration}s`]),
-		"",
-		"## Build",
-		"",
-		"| Metric | Value |",
-		"|---|---|",
-		`| Bundle Size | ${sizeKb} KB |`,
-		`| Build Duration | ${b.duration_ms ?? "?"} ms |`,
-		`| Plugin Version | ${b.plugin_version ?? "?"} |`,
-		`| Warnings | ${b.warnings_count ?? 0} |`,
-		`| Errors | ${b.errors_count ?? 0} |`,
-		"",
-		"## Unit Tests",
-		"",
+		...buildStateReportHeader("Publish State Report", status, duration, now, m),
+		...buildBuildTable(m.sizeKb, m.b),
+		...buildUnitTestsSection(ut, m.t),
+		...buildCoverageSection(m.linesPct, m.branchesPct, m.functionsPct, m.c),
+		...buildTraceabilitySection(tr),
+		...buildPerformanceSection(m.p, m.t),
 	];
-
-	if (ut.totalTests > 0) {
-		const icon = ut.failed === 0 ? "success" : "danger";
-		lines.push(`> [!${icon}] ${ut.passed}/${ut.totalTests} passed | ${t.suites ?? "?"} suites`);
-		lines.push("");
-		lines.push("| Metric | Value |");
-		lines.push("|---|---|");
-		lines.push(`| Total | ${ut.totalTests} |`);
-		lines.push(`| Passed | ${ut.passed} |`);
-		lines.push(`| Failed | ${ut.failed} |`);
-		lines.push(`| Skipped | ${ut.skipped} |`);
-		lines.push(`| Suites | ${t.suites ?? "?"} |`);
-		if (t.duration_ms) lines.push(`| Duration | ${Math.round(t.duration_ms as number / 1000)}s |`);
-	} else {
-		lines.push("> No unit test data available.");
-	}
-	lines.push("");
-
-	lines.push("## Coverage");
-	lines.push("");
-	if (linesPct > 0) {
-		lines.push("| Metric | Value |");
-		lines.push("|---|---|");
-		lines.push(`| Lines | ${linesPct}% |`);
-		lines.push(`| Branches | ${branchesPct}% |`);
-		lines.push(`| Functions | ${functionsPct}% |`);
-		if (c.files_covered) lines.push(`| Files | ${c.files_covered} |`);
-	} else {
-		lines.push("> No coverage data available.");
-	}
-	lines.push("");
-
-	lines.push("## Traceability");
-	lines.push("");
-	if (((tr.total_events as number) ?? 0) > 0) {
-		const pct = tr.linked && tr.total_events ? Math.round((tr.linked as number / (tr.total_events as number)) * 100) : 0;
-		const icon = ((tr.unlinked as number) ?? 0) === 0 ? "success" : "warning";
-		lines.push(`> [!${icon}] ${tr.linked}/${tr.total_events} linked (${pct}%)`);
-		lines.push("");
-		lines.push("| Metric | Value |");
-		lines.push("|---|---|");
-		lines.push(`| Total Events | ${tr.total_events} |`);
-		lines.push(`| Linked | ${tr.linked} |`);
-		lines.push(`| Unlinked | ${tr.unlinked} |`);
-	} else {
-		lines.push("> No traceability data available.");
-	}
-	lines.push("");
-
-	lines.push("## Performance");
-	lines.push("");
-	const p50 = p.startup_p50 ?? t.startup_p50;
-	if (p50) {
-		lines.push("| Metric | Value |");
-		lines.push("|---|---|");
-		lines.push(`| Startup p50 | ${p50} ms |`);
-		lines.push(`| Startup p95 | ${p.startup_p95 ?? t.startup_p95 ?? "?"} ms |`);
-		lines.push(`| Startup Max | ${p.startup_max ?? t.startup_max ?? "?"} ms |`);
-		if (p.data_json_size_bytes || t.data_json_size_bytes) {
-			const djSize = (p.data_json_size_bytes ?? t.data_json_size_bytes) as number;
-			lines.push(`| data.json | ${(djSize / (1024 * 1024)).toFixed(1)} MB |`);
-		}
-	} else {
-		lines.push("> No performance data available.");
-	}
-	lines.push("");
 
 	const content = lines.join("\n");
 	const filename = "Publish State Report.md";
@@ -1149,13 +1138,13 @@ function generatePublishStateReport(exitCode: number, duration: string, stats: B
 	// Write to dev vault root
 	const devPath = path.join(DEV_VAULT_ROOT, filename);
 	fs.writeFileSync(devPath, content, "utf-8");
-	console.log(`  \x1b[32m✓\x1b[0m Publish State Report: ${devPath}`);
+	log(`  \x1b[32m✓\x1b[0m Publish State Report: ${devPath}`);
 
 	return { devPath };
 }
 
 function runPublish(): number {
-	console.log("\n  Starting publish (check → build → test → docs → publish)...\n");
+	log("\n  Starting publish (check → build → test → docs → publish)...\n");
 	const startTime = Date.now();
 	let exitCode: number;
 	try {
@@ -1176,6 +1165,15 @@ interface ViewResult {
 	exitCode: number;
 }
 
+/** Prints a status banner for a result view. */
+function printResultBanner(label: string, exitCode: number): void {
+	const statusIcon = exitCode === 0 ? "\x1b[32m✓ PASS\x1b[0m" : "\x1b[31m✗ FAIL\x1b[0m";
+	log(`  ${"─".repeat(50)}`);
+	log(`  ${label}: ${statusIcon}`);
+	log(`  ${"─".repeat(50)}`);
+	log();
+}
+
 /**
  * Post-publish result view — shows after a publish completes.
  * Offers publish-specific actions before returning to the main menu.
@@ -1185,47 +1183,47 @@ interface ViewResult {
  *   - "quit"  — exit the process
  */
 async function publishResultView(exitCode: number): Promise<ViewResult> {
-	// eslint-disable-next-line no-constant-condition
+
 	while (true) {
-		const statusIcon = exitCode === 0 ? "\x1b[32m✓ PASS\x1b[0m" : "\x1b[31m✗ FAIL\x1b[0m";
-		console.log(`  ${"─".repeat(50)}`);
-		console.log(`  Publish: ${statusIcon}`);
-		console.log(`  ${"─".repeat(50)}`);
-		console.log();
-
+		printResultBanner("Publish", exitCode);
 		const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-		console.log("    r) Re-run publish");
-		console.log("    a) Generate audit");
-		console.log("    m) Back to main menu");
-		console.log("    q) Quit");
-		console.log();
-		const choice = await ask(rl, "Choice", "m");
+		log("    r) Re-run publish");
+		log("    a) Generate audit");
+		log("    m) Back to main menu");
+		log("    q) Quit");
+		log();
+		const choice = (await ask(rl, "Choice", "m")).toLowerCase();
 
-		if (choice === "q" || choice === "Q") {
-			rl.close();
-			return { action: "quit", exitCode };
-		}
-
-		if (choice === "m" || choice === "M") {
-			rl.close();
-			return { action: "main", exitCode };
-		}
-
-		if (choice === "a" || choice === "A") {
-			await generateAudit(rl);
-			rl.close();
-			continue;
-		}
-
-		if (choice === "r" || choice === "R") {
-			rl.close();
-			exitCode = runPublish();
-			continue;
-		}
+		if (choice === "q") { rl.close(); return { action: "quit", exitCode }; }
+		if (choice === "m") { rl.close(); return { action: "main", exitCode }; }
+		if (choice === "a") { await generateAudit(rl); rl.close(); continue; }
+		if (choice === "r") { rl.close(); exitCode = runPublish(); continue; }
 
 		rl.close();
-		console.log("\n  Invalid choice — try again.\n");
+		log("\n  Invalid choice — try again.\n");
 	}
+}
+
+/** Prints increment menu and returns the user's choice. */
+function printIncrementMenu(exitCode: number): void {
+	const dim = "\x1b[2m";
+	const reset = "\x1b[0m";
+	log(exitCode === 0 ? "    p) Publish the increment" : `    ${dim}p) Publish the increment (requires successful build)${reset}`);
+	log("    r) Re-run increment build");
+	log("    a) Generate audit");
+	log("    m) Back to main menu");
+	log("    q) Quit");
+	log();
+}
+
+/** Handles the publish choice from the increment result view. */
+async function handleIncrementPublish(exitCode: number): Promise<ViewResult | null> {
+	if (exitCode !== 0) {
+		log("\n  Cannot publish — increment build did not pass.\n");
+		return null;
+	}
+	const publishExitCode = runPublish();
+	return publishResultView(publishExitCode);
 }
 
 /**
@@ -1237,68 +1235,33 @@ async function publishResultView(exitCode: number): Promise<ViewResult> {
  *   - "quit"  — exit the process
  */
 async function incrementResultView(exitCode: number): Promise<ViewResult> {
-	// eslint-disable-next-line no-constant-condition
+
 	while (true) {
-		const dim = "\x1b[2m";
-		const reset = "\x1b[0m";
-		const statusIcon = exitCode === 0 ? "\x1b[32m✓ PASS\x1b[0m" : "\x1b[31m✗ FAIL\x1b[0m";
-		console.log(`  ${"─".repeat(50)}`);
-		console.log(`  Increment Build: ${statusIcon}`);
-		console.log(`  ${"─".repeat(50)}`);
-		console.log();
-
+		printResultBanner("Increment Build", exitCode);
 		const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-		console.log(exitCode === 0 ? "    p) Publish the increment" : `    ${dim}p) Publish the increment (requires successful build)${reset}`);
-		console.log("    r) Re-run increment build");
-		console.log("    a) Generate audit");
-		console.log("    m) Back to main menu");
-		console.log("    q) Quit");
-		console.log();
-		const choice = await ask(rl, "Choice", exitCode === 0 ? "p" : "m");
+		printIncrementMenu(exitCode);
+		const choice = (await ask(rl, "Choice", exitCode === 0 ? "p" : "m")).toLowerCase();
 
-		if (choice === "q" || choice === "Q") {
+		if (choice === "q") { rl.close(); return { action: "quit", exitCode }; }
+		if (choice === "m") { rl.close(); return { action: "main", exitCode }; }
+		if (choice === "a") { await generateAudit(rl); rl.close(); continue; }
+		if (choice === "r") { rl.close(); exitCode = await runIncrementBuild(); continue; }
+		if (choice === "p") {
 			rl.close();
-			return { action: "quit", exitCode };
-		}
-
-		if (choice === "m" || choice === "M") {
-			rl.close();
-			return { action: "main", exitCode };
-		}
-
-		if (choice === "p" || choice === "P") {
-			if (exitCode !== 0) {
-				rl.close();
-				console.log("\n  Cannot publish — increment build did not pass.\n");
-				continue;
-			}
-			rl.close();
-			const publishExitCode = runPublish();
-			const result = await publishResultView(publishExitCode);
-			return result;
-		}
-
-		if (choice === "a" || choice === "A") {
-			await generateAudit(rl);
-			rl.close();
-			continue;
-		}
-
-		if (choice === "r" || choice === "R") {
-			rl.close();
-			exitCode = await runIncrementBuild();
+			const result = await handleIncrementPublish(exitCode);
+			if (result) return result;
 			continue;
 		}
 
 		rl.close();
-		console.log("\n  Invalid choice — try again.\n");
+		log("\n  Invalid choice — try again.\n");
 	}
 }
 
 // ── Rebuild (teardown + prerequisites + installer) ──────────────────
 
 async function runRebuild(): Promise<number> {
-	console.log("\n  Rebuilding vault (teardown → prerequisites → installer)...\n");
+	log("\n  Rebuilding vault (teardown → prerequisites → installer)...\n");
 
 	// 1. Teardown
 	await teardownVault();
@@ -1317,9 +1280,9 @@ async function runRebuild(): Promise<number> {
 	delete process.env.E2E_RUN_INSTALLER;
 
 	if (exitCode === 0) {
-		console.log("\n  \x1b[32m✓\x1b[0m Rebuild completed successfully.\n");
+		log("\n  \x1b[32m✓\x1b[0m Rebuild completed successfully.\n");
 	} else {
-		console.log("\n  \x1b[31m✗\x1b[0m Rebuild failed.\n");
+		log("\n  \x1b[31m✗\x1b[0m Rebuild failed.\n");
 	}
 
 	return exitCode;
@@ -1328,6 +1291,16 @@ async function runRebuild(): Promise<number> {
 // ── Audit generation ────────────────────────────────────────────────
 
 const REPORTS_DIR: string = path.join(PLUGIN_ROOT, "docs", "reports");
+
+/** Coerces a raw YAML string value to a typed JS value. */
+function parseYamlValue(raw: string): unknown {
+	if (raw === "true") return true;
+	if (raw === "false") return false;
+	if (raw === "null") return null;
+	if (/^-?\d+(\.\d+)?$/.test(raw)) return Number(raw);
+	if (raw.startsWith('"') && raw.endsWith('"')) return raw.slice(1, -1);
+	return raw;
+}
 
 /**
  * Parses YAML frontmatter from a markdown file.
@@ -1342,15 +1315,7 @@ function parseFrontmatter(filePath: string): Record<string, unknown> | null {
 		for (const line of match[1].split("\n")) {
 			const colonIdx = line.indexOf(":");
 			if (colonIdx === -1) continue;
-			const key = line.slice(0, colonIdx).trim();
-			let value: unknown = line.slice(colonIdx + 1).trim();
-			// Parse simple YAML values
-			if (value === "true") value = true;
-			else if (value === "false") value = false;
-			else if (value === "null") value = null;
-			else if (/^-?\d+(\.\d+)?$/.test(value as string)) value = Number(value);
-			else if ((value as string).startsWith('"') && (value as string).endsWith('"')) value = (value as string).slice(1, -1);
-			fm[key] = value;
+			fm[line.slice(0, colonIdx).trim()] = parseYamlValue(line.slice(colonIdx + 1).trim());
 		}
 		return fm;
 	} catch {
@@ -1374,159 +1339,136 @@ function findLatestReport(dir: string): string | null {
 	}
 }
 
-/**
- * Generates an audit note consolidating metrics from all available reports.
- * Creates the note in both the test vault and dev vault.
- */
-async function generateAudit(rl: readline.Interface): Promise<void> {
-	const defaultName = new Date().toISOString().slice(0, 10) + "-audit";
-	const auditName = await ask(rl, "Audit name", defaultName);
-
-	console.log(`\n  Generating audit: ${auditName}...\n`);
-
-	// Collect latest report data from each category
+/** Collects the latest report sources from all categories. */
+function collectReportSources(): Record<string, ReportSource> {
 	const sources: Record<string, ReportSource> = {};
 
-	// Build report (latest timestamped)
-	const buildFile = findLatestReport(path.join(REPORTS_DIR, "builds"));
-	if (buildFile) sources.build = { file: buildFile, fm: parseFrontmatter(buildFile) };
+	const timestampedDirs: Array<[string, string]> = [
+		["build", "builds"], ["test", "tests"], ["coverage", "coverage"],
+		["performance", "performance"], ["cycle", "cycles"],
+	];
+	for (const [key, dir] of timestampedDirs) {
+		const file = findLatestReport(path.join(REPORTS_DIR, dir));
+		if (file) sources[key] = { file, fm: parseFrontmatter(file) };
+	}
 
-	// Test report (latest timestamped)
-	const testFile = findLatestReport(path.join(REPORTS_DIR, "tests"));
-	if (testFile) sources.test = { file: testFile, fm: parseFrontmatter(testFile) };
+	const stableFiles: Array<[string, string]> = [
+		["e2e", path.join(REPORTS_DIR, "e2e", "E2E Report.md")],
+		["traceability", path.join(REPORTS_DIR, "traceability", "Trace Conformance Report.md")],
+	];
+	for (const [key, filePath] of stableFiles) {
+		if (fs.existsSync(filePath)) sources[key] = { file: filePath, fm: parseFrontmatter(filePath) };
+	}
 
-	// Coverage report (latest timestamped)
-	const coverageFile = findLatestReport(path.join(REPORTS_DIR, "coverage"));
-	if (coverageFile) sources.coverage = { file: coverageFile, fm: parseFrontmatter(coverageFile) };
+	return sources;
+}
 
-	// Performance report (latest timestamped)
-	const perfFile = findLatestReport(path.join(REPORTS_DIR, "performance"));
-	if (perfFile) sources.performance = { file: perfFile, fm: parseFrontmatter(perfFile) };
-
-	// Cycle report (latest timestamped)
-	const cycleFile = findLatestReport(path.join(REPORTS_DIR, "cycles"));
-	if (cycleFile) sources.cycle = { file: cycleFile, fm: parseFrontmatter(cycleFile) };
-
-	// E2E report (stable name)
-	const e2eFile = path.join(REPORTS_DIR, "e2e", "E2E Report.md");
-	if (fs.existsSync(e2eFile)) sources.e2e = { file: e2eFile, fm: parseFrontmatter(e2eFile) };
-
-	// Trace conformance report (stable name)
-	const traceFile = path.join(REPORTS_DIR, "traceability", "Trace Conformance Report.md");
-	if (fs.existsSync(traceFile)) sources.traceability = { file: traceFile, fm: parseFrontmatter(traceFile) };
-
-	// Determine overall health
-	const buildFm: Record<string, unknown> = sources.build?.fm ?? {};
-	const testFm: Record<string, unknown> = sources.test?.fm ?? {};
-	const e2eFm: Record<string, unknown> = sources.e2e?.fm ?? {};
-	const perfFm: Record<string, unknown> = sources.performance?.fm ?? {};
-	const cycleFm: Record<string, unknown> = sources.cycle?.fm ?? {};
-
-	const hasFailures = ((testFm.failed as number) ?? 0) > 0 || ((e2eFm.failed as number) ?? 0) > 0 || ((buildFm.errors_count as number) ?? 0) > 0;
-	const overallStatus = hasFailures ? "fail" : "pass";
-	const currentCycle = (cycleFm.cycle ?? cycleFm.number ?? "") as string | number;
-
-	const now = new Date();
-	const lines: string[] = [
-		"---",
-		"type: E2EAudit",
-		`name: ${yamlStr(auditName)}`,
-		`date: "${now.toISOString()}"`,
-		`overall_status: ${overallStatus}`,
-		...(currentCycle ? [`cycle: ${currentCycle}`] : []),
+function buildAuditBuildFrontmatter(buildFm: Record<string, unknown>): string[] {
+	return [
 		"# Build",
 		`build_size_kb: ${buildFm.total_bytes ? Math.round(buildFm.total_bytes as number / 1024) : 0}`,
 		`build_duration_ms: ${buildFm.duration_ms ?? 0}`,
 		`build_warnings: ${buildFm.warnings_count ?? 0}`,
 		`build_errors: ${buildFm.errors_count ?? 0}`,
+	];
+}
+
+function buildAuditUnitFrontmatter(testFm: Record<string, unknown>): string[] {
+	return [
 		"# Unit Tests",
 		`unit_tests_total: ${testFm.total ?? 0}`,
 		`unit_tests_passed: ${testFm.passed ?? 0}`,
 		`unit_tests_failed: ${testFm.failed ?? 0}`,
 		`unit_tests_skipped: ${testFm.skipped ?? 0}`,
 		`unit_tests_suites: ${testFm.suites ?? 0}`,
+	];
+}
+
+function buildAuditE2eFrontmatter(e2eFm: Record<string, unknown>): string[] {
+	return [
 		"# E2E",
 		`e2e_tests_total: ${e2eFm.total_tests ?? 0}`,
 		`e2e_passed: ${e2eFm.passed ?? 0}`,
 		`e2e_failed: ${e2eFm.failed ?? 0}`,
 		`e2e_journeys: ${e2eFm.journeys ?? 0}`,
 		`e2e_actions: ${e2eFm.total_actions ?? 0}`,
+	];
+}
+
+/** Builds the audit frontmatter lines. */
+function buildAuditFrontmatter(auditName: string, overallStatus: string, currentCycle: string | number, now: Date, buildFm: Record<string, unknown>, testFm: Record<string, unknown>, e2eFm: Record<string, unknown>, perfFm: Record<string, unknown>): string[] {
+	return [
+		"---",
+		"type: E2EAudit",
+		`name: ${yamlStr(auditName)}`,
+		`date: "${now.toISOString()}"`,
+		`overall_status: ${overallStatus}`,
+		...(currentCycle ? [`cycle: ${currentCycle}`] : []),
+		...buildAuditBuildFrontmatter(buildFm),
+		...buildAuditUnitFrontmatter(testFm),
+		...buildAuditE2eFrontmatter(e2eFm),
 		"# Performance",
 		`startup_p50_ms: ${perfFm.startup_p50 ?? testFm.startup_p50 ?? 0}`,
 		"tags:",
 		"  - audit",
 		"  - review",
 		"---",
-		"",
-		`# Audit: ${auditName}`,
-		"",
-		`> [!${overallStatus === "pass" ? "success" : "danger"}] Overall: **${overallStatus.toUpperCase()}**`,
-		`> Date: ${now.toISOString().slice(0, 16).replace("T", " ")}`,
-		"",
-		"## Build",
-		"",
 	];
+}
 
-	if (sources.build) {
-		lines.push("| Metric | Value |");
-		lines.push("|---|---|");
+/** Builds the audit build section. */
+function buildAuditBuildSection(buildFm: Record<string, unknown>, hasSource: boolean): string[] {
+	const lines = ["## Build", ""];
+	if (hasSource) {
+		lines.push("| Metric | Value |", "|---|---|");
 		lines.push(`| Bundle Size | ${buildFm.total_bytes ? Math.round(buildFm.total_bytes as number / 1024) + " KB" : "N/A"} |`);
 		lines.push(`| Build Duration | ${buildFm.duration_ms ?? "N/A"} ms |`);
-		lines.push(`| Warnings | ${buildFm.warnings_count ?? 0} |`);
-		lines.push(`| Errors | ${buildFm.errors_count ?? 0} |`);
-		lines.push(`| Plugin Version | ${buildFm.plugin_version ?? "N/A"} |`);
+		lines.push(`| Warnings | ${buildFm.warnings_count ?? 0} |`, `| Errors | ${buildFm.errors_count ?? 0} |`, `| Plugin Version | ${buildFm.plugin_version ?? "N/A"} |`);
 	} else {
 		lines.push("> No build report available.");
 	}
 	lines.push("");
+	return lines;
+}
 
-	lines.push("---", "");
-	lines.push("## Unit Tests");
-	lines.push("");
-	if (sources.test) {
+/** Builds the audit unit tests section. */
+function buildAuditTestSection(testFm: Record<string, unknown>, hasSource: boolean): string[] {
+	const lines = ["---", "", "## Unit Tests", ""];
+	if (hasSource) {
 		const icon = ((testFm.failed as number) ?? 0) === 0 ? "success" : "danger";
 		lines.push(`> [!${icon}] ${testFm.passed}/${testFm.total} passed | ${testFm.suites ?? "?"} suites`);
-		lines.push("");
-		lines.push("| Metric | Value |");
-		lines.push("|---|---|");
-		lines.push(`| Total | ${testFm.total} |`);
-		lines.push(`| Passed | ${testFm.passed} |`);
-		lines.push(`| Failed | ${testFm.failed} |`);
-		lines.push(`| Skipped | ${testFm.skipped} |`);
-		lines.push(`| Suites | ${testFm.suites} |`);
+		lines.push("", "| Metric | Value |", "|---|---|");
+		lines.push(`| Total | ${testFm.total} |`, `| Passed | ${testFm.passed} |`, `| Failed | ${testFm.failed} |`, `| Skipped | ${testFm.skipped} |`, `| Suites | ${testFm.suites} |`);
 		lines.push(`| Duration | ${testFm.duration_ms ? Math.round(testFm.duration_ms as number / 1000) + "s" : "N/A"} |`);
 	} else {
 		lines.push("> No test report available.");
 	}
 	lines.push("");
+	return lines;
+}
 
-	lines.push("---", "");
-	lines.push("## E2E Tests");
-	lines.push("");
-	if (sources.e2e) {
+/** Builds the audit E2E section. */
+function buildAuditE2eSection(e2eFm: Record<string, unknown>, hasSource: boolean): string[] {
+	const lines = ["---", "", "## E2E Tests", ""];
+	if (hasSource) {
 		const icon = ((e2eFm.failed as number) ?? 0) === 0 ? "success" : "danger";
 		lines.push(`> [!${icon}] ${e2eFm.passed}/${e2eFm.total_tests} passed | ${e2eFm.journeys ?? "?"} journeys`);
-		lines.push("");
-		lines.push("| Metric | Value |");
-		lines.push("|---|---|");
-		lines.push(`| Total Tests | ${e2eFm.total_tests} |`);
-		lines.push(`| Passed | ${e2eFm.passed} |`);
-		lines.push(`| Failed | ${e2eFm.failed} |`);
-		lines.push(`| Journeys | ${e2eFm.journeys} |`);
-		lines.push(`| Actions | ${e2eFm.total_actions} |`);
-		lines.push(`| Screenshots | ${e2eFm.total_screenshots} |`);
+		lines.push("", "| Metric | Value |", "|---|---|");
+		lines.push(`| Total Tests | ${e2eFm.total_tests} |`, `| Passed | ${e2eFm.passed} |`, `| Failed | ${e2eFm.failed} |`);
+		lines.push(`| Journeys | ${e2eFm.journeys} |`, `| Actions | ${e2eFm.total_actions} |`, `| Screenshots | ${e2eFm.total_screenshots} |`);
 		lines.push(`| Duration | ${e2eFm.duration ?? "N/A"} |`);
 	} else {
 		lines.push("> No E2E report available.");
 	}
 	lines.push("");
+	return lines;
+}
 
-	lines.push("---", "");
-	lines.push("## Performance");
-	lines.push("");
-	if (sources.performance || testFm.startup_p50) {
-		lines.push("| Metric | Value |");
-		lines.push("|---|---|");
+/** Builds the audit performance section. */
+function buildAuditPerfSection(perfFm: Record<string, unknown>, testFm: Record<string, unknown>, hasSource: boolean): string[] {
+	const lines = ["---", "", "## Performance", ""];
+	if (hasSource || testFm.startup_p50) {
+		lines.push("| Metric | Value |", "|---|---|");
 		lines.push(`| Startup p50 | ${perfFm.startup_p50 ?? testFm.startup_p50 ?? "N/A"} ms |`);
 		lines.push(`| Startup p95 | ${perfFm.startup_p95 ?? testFm.startup_p95 ?? "N/A"} ms |`);
 		lines.push(`| Startup Max | ${perfFm.startup_max ?? testFm.startup_max ?? "N/A"} ms |`);
@@ -1534,47 +1476,113 @@ async function generateAudit(rl: readline.Interface): Promise<void> {
 		lines.push("> No performance data available.");
 	}
 	lines.push("");
+	return lines;
+}
 
-	lines.push("---", "");
-	lines.push("## Report Sources");
-	lines.push("");
+/** Builds the report sources section for the audit. */
+function buildAuditSourcesSection(sources: Record<string, ReportSource>): string[] {
+	const lines = ["---", "", "## Report Sources", ""];
+	const sourceMap: Array<[string, string]> = [
+		["build", "Build"], ["test", "Tests"], ["coverage", "Coverage"],
+		["performance", "Performance"], ["cycle", "Cycle"],
+	];
 	const reportLinks: string[] = [];
-	if (sources.build) reportLinks.push(`- Build: \`${path.basename(sources.build.file)}\``);
-	if (sources.test) reportLinks.push(`- Tests: \`${path.basename(sources.test.file)}\``);
-	if (sources.coverage) reportLinks.push(`- Coverage: \`${path.basename(sources.coverage.file)}\``);
+	for (const [key, label] of sourceMap) {
+		if (sources[key]) reportLinks.push(`- ${label}: \`${path.basename(sources[key].file)}\``);
+	}
 	if (sources.e2e) reportLinks.push("- E2E: [[E2E Report]]");
-	if (sources.performance) reportLinks.push(`- Performance: \`${path.basename(sources.performance.file)}\``);
 	if (sources.traceability) reportLinks.push("- Traceability: [[Trace Conformance Report]]");
-	if (sources.cycle) reportLinks.push(`- Cycle: \`${path.basename(sources.cycle.file)}\``);
 	lines.push(...(reportLinks.length > 0 ? reportLinks : ["> No reports found."]));
 	lines.push("");
+	return lines;
+}
 
-	const content = lines.join("\n");
-
-	// Write to test vault
+/** Writes the audit note to both test and dev vaults, and opens in Obsidian. */
+function writeAndOpenAudit(auditName: string, content: string): void {
 	const testAuditDir = path.join(TEST_VAULT, "03 - Resources", "Reviews", "Audits", auditName);
 	const testAuditPath = path.join(testAuditDir, `${auditName}.md`);
 	fs.mkdirSync(testAuditDir, { recursive: true });
 	fs.writeFileSync(testAuditPath, content, "utf-8");
-	console.log(`  \x1b[32m✓\x1b[0m Audit written: ${testAuditPath}`);
+	log(`  \x1b[32m✓\x1b[0m Audit written: ${testAuditPath}`);
 
-	// Mirror to dev vault
 	const devAuditDir = path.join(PLUGIN_ROOT, "docs", "reports", "e2e", "audits", auditName);
 	const devAuditPath = path.join(devAuditDir, `${auditName}.md`);
 	fs.mkdirSync(devAuditDir, { recursive: true });
 	fs.writeFileSync(devAuditPath, content, "utf-8");
-	console.log(`  \x1b[32m✓\x1b[0m Audit mirrored: ${devAuditPath}`);
+	log(`  \x1b[32m✓\x1b[0m Audit mirrored: ${devAuditPath}`);
 
-	// Open in test vault
 	try {
 		execSync(
 			`obsidian vault=${VAULT_NAME} open "03 - Resources/Reviews/Audits/${auditName}/${auditName}.md"`,
 			{ stdio: "pipe", timeout: 10_000 },
 		);
-		console.log("  \x1b[32m✓\x1b[0m Audit opened in Obsidian\n");
+		log("  \x1b[32m✓\x1b[0m Audit opened in Obsidian\n");
 	} catch {
-		console.log("  \x1b[33m○\x1b[0m Could not open audit in Obsidian\n");
+		log("  \x1b[33m○\x1b[0m Could not open audit in Obsidian\n");
 	}
+}
+
+/**
+ * Generates an audit note consolidating metrics from all available reports.
+ * Creates the note in both the test vault and dev vault.
+ */
+interface AuditFrontmatters {
+	buildFm: Record<string, unknown>;
+	testFm: Record<string, unknown>;
+	e2eFm: Record<string, unknown>;
+	perfFm: Record<string, unknown>;
+	cycleFm: Record<string, unknown>;
+}
+
+function extractSourceFm(sources: Record<string, ReportSource>, key: string): Record<string, unknown> {
+	return sources[key]?.fm ?? {};
+}
+
+function extractAuditFrontmatters(sources: Record<string, ReportSource>): AuditFrontmatters {
+	return {
+		buildFm: extractSourceFm(sources, "build"),
+		testFm: extractSourceFm(sources, "test"),
+		e2eFm: extractSourceFm(sources, "e2e"),
+		perfFm: extractSourceFm(sources, "performance"),
+		cycleFm: extractSourceFm(sources, "cycle"),
+	};
+}
+
+function determineAuditStatus(fm: AuditFrontmatters): { overallStatus: string; currentCycle: string | number } {
+	const hasFailures = ((fm.testFm.failed as number) ?? 0) > 0 || ((fm.e2eFm.failed as number) ?? 0) > 0 || ((fm.buildFm.errors_count as number) ?? 0) > 0;
+	return {
+		overallStatus: hasFailures ? "fail" : "pass",
+		currentCycle: (fm.cycleFm.cycle ?? fm.cycleFm.number ?? "") as string | number,
+	};
+}
+
+async function generateAudit(rl: readline.Interface): Promise<void> {
+	const defaultName = new Date().toISOString().slice(0, 10) + "-audit";
+	const auditName = await ask(rl, "Audit name", defaultName);
+
+	log(`\n  Generating audit: ${auditName}...\n`);
+
+	const sources = collectReportSources();
+	const fm = extractAuditFrontmatters(sources);
+	const { overallStatus, currentCycle } = determineAuditStatus(fm);
+	const now = new Date();
+
+	const lines: string[] = [
+		...buildAuditFrontmatter(auditName, overallStatus, currentCycle, now, fm.buildFm, fm.testFm, fm.e2eFm, fm.perfFm),
+		"",
+		`# Audit: ${auditName}`,
+		"",
+		`> [!${overallStatus === "pass" ? "success" : "danger"}] Overall: **${overallStatus.toUpperCase()}**`,
+		`> Date: ${now.toISOString().slice(0, 16).replace("T", " ")}`,
+		"",
+		...buildAuditBuildSection(fm.buildFm, !!sources.build),
+		...buildAuditTestSection(fm.testFm, !!sources.test),
+		...buildAuditE2eSection(fm.e2eFm, !!sources.e2e),
+		...buildAuditPerfSection(fm.perfFm, fm.testFm, !!sources.performance),
+		...buildAuditSourcesSection(sources),
+	];
+
+	writeAndOpenAudit(auditName, lines.join("\n"));
 }
 
 // ── Interactive session ─────────────────────────────────────────────
@@ -1587,81 +1595,66 @@ async function generateAudit(rl: readline.Interface): Promise<void> {
  *   - "main"  — return to main menu
  *   - "quit"  — exit the process
  */
+/** Prints session view banner. */
+function printSessionBanner(config: SessionConfig, entries: JourneyEntry[], exitCode: number): void {
+	const statusIcon = exitCode === 0 ? "\x1b[32m✓ PASS\x1b[0m" : "\x1b[31m✗ FAIL\x1b[0m";
+	const journeyNames = config.selectedSlugs.map((slug) => {
+		const entry = entries.find((e) => e.slug === slug);
+		return entry ? entry.name : slug;
+	});
+	log(`\n  ${"─".repeat(50)}`);
+	log(`  Session: ${config.sessionName}`);
+	log(`  Status:  ${statusIcon}`);
+	log(`  Tests:   ${journeyNames.join(", ")}`);
+	log(`  ${"─".repeat(50)}`);
+	log();
+}
+
+/** Handles the "build and re-run" choice in the session view. */
+async function handleBuildAndRerun(currentConfig: SessionConfig, entries: JourneyEntry[], prereqResults: PrerequisiteResults): Promise<{ config: SessionConfig; exitCode: number }> {
+	const buildResult = quickBuildAndDeploy();
+	if (buildResult !== 0) return { config: currentConfig, exitCode: buildResult };
+	const rerunConfig = rerunWithFreshTimestamp(currentConfig, entries);
+	const exitCode = await executeSession(rerunConfig, entries, prereqResults);
+	return { config: rerunConfig, exitCode };
+}
+
 async function sessionView(config: SessionConfig, entries: JourneyEntry[], prereqResults: PrerequisiteResults, exitCode: number): Promise<ViewResult> {
 	let currentConfig = config;
 	let currentExitCode = exitCode;
 
-	// eslint-disable-next-line no-constant-condition
 	while (true) {
-		const statusIcon = currentExitCode === 0 ? "\x1b[32m✓ PASS\x1b[0m" : "\x1b[31m✗ FAIL\x1b[0m";
-		const journeyNames = currentConfig.selectedSlugs.map((slug) => {
-			const entry = entries.find((e) => e.slug === slug);
-			return entry ? entry.name : slug;
-		});
-
-		console.log(`\n  ${"─".repeat(50)}`);
-		console.log(`  Session: ${currentConfig.sessionName}`);
-		console.log(`  Status:  ${statusIcon}`);
-		console.log(`  Tests:   ${journeyNames.join(", ")}`);
-		console.log(`  ${"─".repeat(50)}`);
-		console.log();
-
+		printSessionBanner(currentConfig, entries, currentExitCode);
 		const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-		console.log("    r) Re-run");
-		console.log("    b) Build and re-run");
-		console.log("    d) Build only (no re-run)");
-		console.log("    e) Edit test selection");
-		console.log("    a) Generate audit");
-		console.log("    m) Back to main menu");
-		console.log("    q) Quit");
-		console.log();
-		const choice = await ask(rl, "Choice", "r");
+		log("    r) Re-run");
+		log("    b) Build and re-run");
+		log("    d) Build only (no re-run)");
+		log("    e) Edit test selection");
+		log("    a) Generate audit");
+		log("    m) Back to main menu");
+		log("    q) Quit");
+		log();
+		const choice = (await ask(rl, "Choice", "r")).toLowerCase();
 
-		if (choice === "q" || choice === "Q") {
-			rl.close();
-			return { action: "quit", exitCode: currentExitCode };
-		}
-
-		if (choice === "m" || choice === "M") {
-			rl.close();
-			return { action: "main", exitCode: currentExitCode };
-		}
-
-		if (choice === "a" || choice === "A") {
-			await generateAudit(rl);
-			rl.close();
-			continue;
-		}
-
-		if (choice === "r" || choice === "R") {
+		if (choice === "q") { rl.close(); return { action: "quit", exitCode: currentExitCode }; }
+		if (choice === "m") { rl.close(); return { action: "main", exitCode: currentExitCode }; }
+		if (choice === "a") { await generateAudit(rl); rl.close(); continue; }
+		if (choice === "d") { rl.close(); quickBuildAndDeploy(); continue; }
+		if (choice === "r") {
 			rl.close();
 			const rerunConfig = rerunWithFreshTimestamp(currentConfig, entries);
 			currentExitCode = await executeSession(rerunConfig, entries, prereqResults);
 			currentConfig = rerunConfig;
 			continue;
 		}
-
-		if (choice === "b" || choice === "B") {
+		if (choice === "b") {
 			rl.close();
-			const buildResult = quickBuildAndDeploy();
-			if (buildResult !== 0) {
-				currentExitCode = buildResult;
-				continue;
-			}
-			const rerunConfig = rerunWithFreshTimestamp(currentConfig, entries);
-			currentExitCode = await executeSession(rerunConfig, entries, prereqResults);
-			currentConfig = rerunConfig;
+			const result = await handleBuildAndRerun(currentConfig, entries, prereqResults);
+			currentConfig = result.config;
+			currentExitCode = result.exitCode;
 			continue;
 		}
-
-		if (choice === "d" || choice === "D") {
-			rl.close();
-			quickBuildAndDeploy();
-			continue;
-		}
-
-		if (choice === "e" || choice === "E") {
-			// Re-enter test selection with current journeys pre-loaded
+		if (choice === "e") {
 			const editConfig = await promptSessionConfig(rl, entries, prereqResults);
 			rl.close();
 			currentExitCode = await executeSession(editConfig, entries, prereqResults);
@@ -1670,133 +1663,130 @@ async function sessionView(config: SessionConfig, entries: JourneyEntry[], prere
 		}
 
 		rl.close();
-		console.log("\n  Invalid choice — try again.\n");
+		log("\n  Invalid choice — try again.\n");
 	}
 }
 
+/** Validates prerequisites and exits if critical ones are missing. */
+function validatePrerequisites(prereqResults: PrerequisiteResults): void {
+	if (!prereqResults.vaultExists) {
+		log("  Cannot proceed — test vault does not exist.");
+		log(`  Create it by running: npm run test:e2e\n`);
+		process.exit(1);
+	}
+	if (!prereqResults.cliResponsive) {
+		log("  Cannot proceed — Obsidian is not running or CLI not responsive.");
+		log("  Start Obsidian with the test vault open, then try again.\n");
+		process.exit(1);
+	}
+}
+
+/** Prints the main interactive menu. */
+function printMainMenu(incrementPassed: boolean): void {
+	const dim = "\x1b[2m";
+	const reset = "\x1b[0m";
+	log("  What would you like to do?");
+	log("    1) Start test session");
+	log("    2) Build the increment");
+	log(incrementPassed ? "    3) Publish the increment" : `    ${dim}3) Publish the increment (requires successful build)${reset}`);
+	log("    4) Generate audit");
+	log("    5) Teardown test vault to fresh state");
+	log("    6) Rebuild (teardown → prerequisites → installer)");
+	log("    q) Quit");
+	log();
+}
+
+/** Handles the increment build choice (option 2). Returns updated state. */
+async function handleIncrementChoice(): Promise<{ exitCode: number; incrementPassed: boolean; quit: boolean }> {
+	const exitCode = await runIncrementBuild();
+	let incrementPassed = exitCode === 0;
+	const result = await incrementResultView(exitCode);
+	if (result.exitCode === 0) incrementPassed = true;
+	return { exitCode: result.exitCode, incrementPassed, quit: result.action === "quit" };
+}
+
+/** Handles the publish choice (option 3). Returns updated state. */
+async function handlePublishChoice(): Promise<{ exitCode: number; quit: boolean }> {
+	const exitCode = runPublish();
+	const result = await publishResultView(exitCode);
+	return { exitCode: result.exitCode, quit: result.action === "quit" };
+}
+
+/** Handles the test session choice (option 1). Returns updated state. */
+async function handleTestSessionChoice(rl: readline.Interface, prereqResults: PrerequisiteResults): Promise<{ exitCode: number; quit: boolean }> {
+	const entries = loadJourneyEntries();
+	if (entries.length === 0) {
+		rl.close();
+		log("  No journey files found.\n");
+		return { exitCode: 0, quit: false };
+	}
+	const config = await promptSessionConfig(rl, entries, prereqResults);
+	rl.close();
+	const exitCode = await executeSession(config, entries, prereqResults);
+	const result = await sessionView(config, entries, prereqResults, exitCode);
+	return { exitCode: result.exitCode, quit: result.action === "quit" };
+}
+
+interface InteractiveState {
+	lastExitCode: number;
+	incrementPassed: boolean;
+}
+
+async function handleMainMenuChoice(choice: string, rl: readline.Interface, prereqResults: PrerequisiteResults, state: InteractiveState): Promise<{ handled: boolean; state: InteractiveState }> {
+	if (choice === "q") { rl.close(); log("\n  Goodbye.\n"); process.exit(state.lastExitCode); }
+	if (choice === "4") { await generateAudit(rl); rl.close(); return { handled: true, state }; }
+	if (choice === "5") { rl.close(); await teardownVault(); return { handled: true, state }; }
+	if (choice === "6") { rl.close(); return { handled: true, state: { ...state, lastExitCode: await runRebuild() } }; }
+	return { handled: false, state };
+}
+
+async function handleBuildMenuChoice(choice: string, rl: readline.Interface, prereqResults: PrerequisiteResults, state: InteractiveState): Promise<{ handled: boolean; state: InteractiveState }> {
+	if (choice === "2") {
+		rl.close();
+		const result = await handleIncrementChoice();
+		const updated = { lastExitCode: result.exitCode, incrementPassed: state.incrementPassed || result.incrementPassed };
+		if (result.quit) { log("\n  Goodbye.\n"); process.exit(updated.lastExitCode); }
+		return { handled: true, state: updated };
+	}
+	if (choice === "3") {
+		rl.close();
+		if (!state.incrementPassed) { log("\n  Cannot publish — no successful increment build in this session.\n  Run option 2 first.\n"); return { handled: true, state }; }
+		const result = await handlePublishChoice();
+		if (result.quit) { log("\n  Goodbye.\n"); process.exit(result.exitCode); }
+		return { handled: true, state: { ...state, lastExitCode: result.exitCode } };
+	}
+	if (choice === "1") {
+		const result = await handleTestSessionChoice(rl, prereqResults);
+		if (result.quit) { log("\n  Goodbye.\n"); process.exit(result.exitCode); }
+		return { handled: true, state: { ...state, lastExitCode: result.exitCode } };
+	}
+	return { handled: false, state };
+}
+
 async function interactiveSession(): Promise<void> {
-	let lastExitCode = 0;
-	let incrementPassed = false;
+	let state: InteractiveState = { lastExitCode: 0, incrementPassed: false };
 
-	// eslint-disable-next-line no-constant-condition
 	while (true) {
-		console.log(`\n  ${"=".repeat(50)}`);
-		console.log("  Flowti E2E Test Session");
-		console.log(`  ${"=".repeat(50)}`);
+		log(`\n  ${"=".repeat(50)}`);
+		log("  Flowti E2E Test Session");
+		log(`  ${"=".repeat(50)}`);
 
-		// 1. Check prerequisites
 		const prereqResults = checkPrerequisites();
 		printPrerequisites(prereqResults);
+		validatePrerequisites(prereqResults);
 
-		if (!prereqResults.vaultExists) {
-			console.log("  Cannot proceed — test vault does not exist.");
-			console.log(`  Create it by running: npm run test:e2e\n`);
-			process.exit(1);
-		}
-
-		if (!prereqResults.cliResponsive) {
-			console.log("  Cannot proceed — Obsidian is not running or CLI not responsive.");
-			console.log("  Start Obsidian with the test vault open, then try again.\n");
-			process.exit(1);
-		}
-
-		// 2. Choose action
 		const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-		const dim = "\x1b[2m";
-		const reset = "\x1b[0m";
-		console.log("  What would you like to do?");
-		console.log("    1) Start test session");
-		console.log("    2) Build the increment");
-		console.log(incrementPassed ? "    3) Publish the increment" : `    ${dim}3) Publish the increment (requires successful build)${reset}`);
-		console.log("    4) Generate audit");
-		console.log("    5) Teardown test vault to fresh state");
-		console.log("    6) Rebuild (teardown → prerequisites → installer)");
-		console.log("    q) Quit");
-		console.log();
-		const choice = await ask(rl, "Choice", "1");
+		printMainMenu(state.incrementPassed);
+		const choice = (await ask(rl, "Choice", "1")).toLowerCase();
 
-		if (choice === "q" || choice === "Q") {
-			rl.close();
-			console.log("\n  Goodbye.\n");
-			process.exit(lastExitCode);
-		}
+		const mainResult = await handleMainMenuChoice(choice, rl, prereqResults, state);
+		if (mainResult.handled) { state = mainResult.state; continue; }
 
-		if (choice === "2") {
-			rl.close();
-			lastExitCode = await runIncrementBuild();
-			if (lastExitCode === 0) incrementPassed = true;
-			const result = await incrementResultView(lastExitCode);
-			lastExitCode = result.exitCode;
-			if (lastExitCode === 0) incrementPassed = true;
-			if (result.action === "quit") {
-				console.log("\n  Goodbye.\n");
-				process.exit(lastExitCode);
-			}
-			continue;
-		}
+		const buildResult = await handleBuildMenuChoice(choice, rl, prereqResults, state);
+		if (buildResult.handled) { state = buildResult.state; continue; }
 
-		if (choice === "3") {
-			if (!incrementPassed) {
-				rl.close();
-				console.log("\n  Cannot publish — no successful increment build in this session.\n  Run option 2 first.\n");
-				continue;
-			}
-			rl.close();
-			lastExitCode = runPublish();
-			const result = await publishResultView(lastExitCode);
-			lastExitCode = result.exitCode;
-			if (result.action === "quit") {
-				console.log("\n  Goodbye.\n");
-				process.exit(lastExitCode);
-			}
-			continue;
-		}
-
-		if (choice === "4") {
-			await generateAudit(rl);
-			rl.close();
-			continue;
-		}
-
-		if (choice === "5") {
-			rl.close();
-			await teardownVault();
-			continue;
-		}
-
-		if (choice === "6") {
-			rl.close();
-			lastExitCode = await runRebuild();
-			continue;
-		}
-
-		if (choice !== "1") {
-			rl.close();
-			console.log("\n  Invalid choice — try again.\n");
-			continue;
-		}
-
-		// 3. Load journeys and prompt for session config
-		const entries = loadJourneyEntries();
-		if (entries.length === 0) {
-			rl.close();
-			console.log("  No journey files found.\n");
-			continue;
-		}
-
-		const config = await promptSessionConfig(rl, entries, prereqResults);
 		rl.close();
-
-		// 4. Execute and enter session view
-		lastExitCode = await executeSession(config, entries, prereqResults);
-		const result = await sessionView(config, entries, prereqResults, lastExitCode);
-		lastExitCode = result.exitCode;
-
-		if (result.action === "quit") {
-			console.log("\n  Goodbye.\n");
-			process.exit(lastExitCode);
-		}
-		// "main" → loop continues to main menu
+		log("\n  Invalid choice — try again.\n");
 	}
 }
 
@@ -1814,83 +1804,87 @@ function rerunWithFreshTimestamp(prevConfig: SessionConfig, entries: JourneyEntr
 	};
 }
 
-/**
- * Executes a test session: sets env vars, runs vitest, generates report, writes session note.
- * Returns the vitest exit code.
- */
-async function executeSession(config: SessionConfig, entries: JourneyEntry[], prereqResults: PrerequisiteResults): Promise<number> {
-	// 4. Configure env vars
+function buildStepFilterEnv(stepFilter: Record<string, "all" | string[]>): string | null {
+	const parts: string[] = [];
+	for (const [slug, filter] of Object.entries(stepFilter)) {
+		if (filter !== "all" && Array.isArray(filter) && filter.length > 0) {
+			parts.push(`${slug}:${filter.join(",")}`);
+		}
+	}
+	return parts.length > 0 ? parts.join(";") : null;
+}
+
+/** Configures environment variables for the E2E session. */
+function configureSessionEnv(config: SessionConfig): void {
 	const allSlugs = [...config.selectedSlugs];
 	if (config.includeInstaller && !allSlugs.includes("installer")) {
 		allSlugs.unshift("installer");
 	}
-
 	process.env.E2E_JOURNEY = allSlugs.join(",");
 	process.env.E2E_SESSION_NAME = config.sessionName;
+	if (config.includeInstaller) process.env.E2E_RUN_INSTALLER = "true";
+	if (config.includePrerequisites) process.env.E2E_RUN_PREREQUISITES = "true";
 
-	if (config.includeInstaller) {
-		process.env.E2E_RUN_INSTALLER = "true";
-	}
-	if (config.includePrerequisites) {
-		process.env.E2E_RUN_PREREQUISITES = "true";
-	}
-
-	// Step filter — encode as E2E_STEPS env var
 	if (config.stepFilter) {
-		const parts: string[] = [];
-		for (const [slug, filter] of Object.entries(config.stepFilter)) {
-			if (filter === "all") continue;
-			if (Array.isArray(filter) && filter.length > 0) {
-				parts.push(`${slug}:${filter.join(",")}`);
-			}
-		}
-		if (parts.length > 0) {
-			process.env.E2E_STEPS = parts.join(";");
-		}
+		const stepsEnv = buildStepFilterEnv(config.stepFilter);
+		if (stepsEnv) process.env.E2E_STEPS = stepsEnv;
 	}
+}
 
-	// 5. Print session banner
-	const selectedNames = config.selectedSlugs.map((slug) => {
-		const entry = entries.find((e) => e.slug === slug);
-		return entry ? entry.name : slug;
-	});
-
-	const hasStepFilter = config.stepFilter && Object.values(config.stepFilter).some((f) => f !== "all");
-	console.log(`\n  Starting session "${config.sessionName}"...`);
-	console.log(`    Journeys:       ${selectedNames.join(", ")}`);
-	if (hasStepFilter) {
-		for (const [slug, filter] of Object.entries(config.stepFilter)) {
-			if (filter !== "all" && Array.isArray(filter)) {
-				console.log(`    Steps (${slug}): ${filter.join(", ")}`);
-			}
-		}
-	}
-	console.log(`    Installer:      ${config.includeInstaller ? "yes" : "no"}`);
-	console.log(`    Prerequisites:  ${config.includePrerequisites ? "force" : "skip"}`);
-	console.log();
-
-	// 6. Run tests
-	const startTime = Date.now();
-	const exitCode = runVitest();
-
-	// 7. Generate report and open
-	generateReportAndOpen();
-
-	// 8. Summary and session note
-	const stats = readTestStats();
-	printSummary(config.sessionName, selectedNames, startTime, stats);
-	const notePath = writeSessionNote(config.sessionName, config, selectedNames, prereqResults, stats, startTime, exitCode);
-	console.log(`  Session note: ${notePath}\n`);
-
-	// 9. Collapse file explorer folders
-	collapseFileExplorer();
-
-	// Clean env vars for next iteration
+/** Cleans up environment variables after a session run. */
+function cleanSessionEnv(): void {
 	delete process.env.E2E_JOURNEY;
 	delete process.env.E2E_SESSION_NAME;
 	delete process.env.E2E_RUN_INSTALLER;
 	delete process.env.E2E_RUN_PREREQUISITES;
 	delete process.env.E2E_STEPS;
+}
+
+/** Prints the session execution banner. */
+function printExecutionBanner(config: SessionConfig, selectedNames: string[]): void {
+	log(`\n  Starting session "${config.sessionName}"...`);
+	log(`    Journeys:       ${selectedNames.join(", ")}`);
+	const hasStepFilter = config.stepFilter && Object.values(config.stepFilter).some((f) => f !== "all");
+	if (hasStepFilter) {
+		for (const [slug, filter] of Object.entries(config.stepFilter)) {
+			if (filter !== "all" && Array.isArray(filter)) {
+				log(`    Steps (${slug}): ${filter.join(", ")}`);
+			}
+		}
+	}
+	log(`    Installer:      ${config.includeInstaller ? "yes" : "no"}`);
+	log(`    Prerequisites:  ${config.includePrerequisites ? "force" : "skip"}`);
+	log();
+}
+
+/** Resolves journey slug to display name. */
+function resolveJourneyNames(slugs: string[], entries: JourneyEntry[]): string[] {
+	return slugs.map((slug) => {
+		const entry = entries.find((e) => e.slug === slug);
+		return entry ? entry.name : slug;
+	});
+}
+
+/**
+ * Executes a test session: sets env vars, runs vitest, generates report, writes session note.
+ * Returns the vitest exit code.
+ */
+async function executeSession(config: SessionConfig, entries: JourneyEntry[], prereqResults: PrerequisiteResults): Promise<number> {
+	configureSessionEnv(config);
+
+	const selectedNames = resolveJourneyNames(config.selectedSlugs, entries);
+	printExecutionBanner(config, selectedNames);
+
+	const startTime = Date.now();
+	const exitCode = runVitest();
+	generateReportAndOpen();
+
+	const stats = readTestStats();
+	printSummary(config.sessionName, selectedNames, startTime, stats);
+	const notePath = writeSessionNote(config.sessionName, config, selectedNames, prereqResults, stats, startTime, exitCode);
+	log(`  Session note: ${notePath}\n`);
+	collapseFileExplorer();
+	cleanSessionEnv();
 
 	return exitCode;
 }
@@ -1909,79 +1903,49 @@ function runVitest(): number {
 	return exitCode;
 }
 
-function generateReportAndOpen(): void {
-	console.log("\n[e2e] Generating E2E report (this may take a moment)...\n");
-	let reportVaultPath: string | null = null;
-
+/** Generates the E2E report and returns the vault-relative path, or null. */
+function generateReport(): string | null {
 	try {
-		const output = execSync("node scripts/generate-e2e-report.mjs", {
-			encoding: "utf-8",
-		});
-		console.log(output);
-
+		const output = execSync("node scripts/generate-e2e-report.mjs", { encoding: "utf-8" });
+		log(output);
 		const match = output.match(/E2EReport written:\s*(.+)/);
-		if (match) {
-			const absolutePath = match[1].trim();
-			const vaultRelative = path.relative(TEST_VAULT, absolutePath).replace(/\\/g, "/");
-			reportVaultPath = vaultRelative;
-		}
+		if (match) return path.relative(TEST_VAULT, match[1].trim()).replace(/\\/g, "/");
 	} catch {
 		// Report generation failure shouldn't mask test failures
 	}
+	return null;
+}
 
-	if (reportVaultPath) {
-		console.log("[e2e] Opening report in Obsidian...");
+/** Restores installer state and re-enables the plugin after E2E run. */
+function restorePluginState(): void {
+	if (fs.existsSync(DATA_JSON_PATH)) {
 		try {
-			execSync(
-				`obsidian vault=${VAULT_NAME} open path="${reportVaultPath}"`,
-				{ stdio: "pipe" },
-			);
-		} catch {
-			// best-effort
-		}
-
-		try {
-			execSync(
-				`obsidian vault=${VAULT_NAME} eval code="(() => { const existing = app.workspace.getLeavesOfType('outline')[0]; if (existing) { app.workspace.revealLeaf(existing); return; } const leaf = app.workspace.getRightLeaf(false); if (leaf) leaf.setViewState({ type: 'outline', active: true }); })()"`,
-				{ stdio: "pipe" },
-			);
-		} catch {
-			// best-effort
-		}
-
-		// Restore installed state before re-enabling the plugin.
-		// globalTeardown resets installer.installed=false when E2E_RUN_INSTALLER
-		// was set, but re-enabling the plugin with installed=false triggers the
-		// installer wizard. We restore it here so the plugin loads normally.
-		if (fs.existsSync(DATA_JSON_PATH)) {
-			try {
-				const data = JSON.parse(fs.readFileSync(DATA_JSON_PATH, "utf-8")) as Record<string, unknown>;
-				if (data.installer && (data.installer as Record<string, unknown>).installed === false) {
-					(data.installer as Record<string, unknown>).installed = true;
-					fs.writeFileSync(DATA_JSON_PATH, JSON.stringify(data), "utf-8");
-				}
-			} catch {
-				// best-effort
+			const data = JSON.parse(fs.readFileSync(DATA_JSON_PATH, "utf-8")) as Record<string, unknown>;
+			if (data.installer && (data.installer as Record<string, unknown>).installed === false) {
+				(data.installer as Record<string, unknown>).installed = true;
+				fs.writeFileSync(DATA_JSON_PATH, JSON.stringify(data), "utf-8");
 			}
-		}
-
-		try {
-			execSync(
-				`obsidian vault=${VAULT_NAME} eval code="app.plugins.enablePlugin('${PLUGIN_ID}')"`,
-				{ stdio: "pipe" },
-			);
 		} catch {
 			// best-effort
 		}
+	}
+	try { execSync(`obsidian vault=${VAULT_NAME} eval code="app.plugins.enablePlugin('${PLUGIN_ID}')"`, { stdio: "pipe" }); } catch { /* best-effort */ }
+	try { execSync(`obsidian vault=${VAULT_NAME} eval code="(() => { try { app.commands.executeCommandById('${PLUGIN_ID}:flowti:open-event-log'); } catch(e) {} })()"`, { stdio: "pipe" }); } catch { /* best-effort */ }
+}
 
-		try {
-			execSync(
-				`obsidian vault=${VAULT_NAME} eval code="(() => { try { app.commands.executeCommandById('${PLUGIN_ID}:flowti:open-event-log'); } catch(e) {} })()"`,
-				{ stdio: "pipe" },
-			);
-		} catch {
-			// best-effort
-		}
+/** Opens the report in Obsidian and sets up the workspace. */
+function openReportInObsidian(reportVaultPath: string): void {
+	log("[e2e] Opening report in Obsidian...");
+	try { execSync(`obsidian vault=${VAULT_NAME} open path="${reportVaultPath}"`, { stdio: "pipe" }); } catch { /* best-effort */ }
+	try { execSync(`obsidian vault=${VAULT_NAME} eval code="(() => { const existing = app.workspace.getLeavesOfType('outline')[0]; if (existing) { app.workspace.revealLeaf(existing); return; } const leaf = app.workspace.getRightLeaf(false); if (leaf) leaf.setViewState({ type: 'outline', active: true }); })()"`, { stdio: "pipe" }); } catch { /* best-effort */ }
+}
+
+function generateReportAndOpen(): void {
+	log("\n[e2e] Generating E2E report (this may take a moment)...\n");
+	const reportVaultPath = generateReport();
+	if (reportVaultPath) {
+		openReportInObsidian(reportVaultPath);
+		restorePluginState();
 	}
 }
 
@@ -1995,18 +1959,18 @@ if (isListMode) {
 	const journeyArg = process.argv.find((a) => a.startsWith("--journey="));
 	if (journeyArg) {
 		process.env.E2E_JOURNEY = journeyArg.split("=")[1];
-		console.log(`[e2e] Journey filter: ${process.env.E2E_JOURNEY}`);
+		log(`[e2e] Journey filter: ${process.env.E2E_JOURNEY}`);
 	}
 
 	// When installer or prerequisites are explicitly requested, force a fresh run
 	const journeys = (process.env.E2E_JOURNEY ?? "").split(",").map((j) => j.trim());
 	if (journeys.includes("installer")) {
 		process.env.E2E_RUN_INSTALLER = "true";
-		console.log("[e2e] Installer forced (explicitly requested).");
+		log("[e2e] Installer forced (explicitly requested).");
 	}
 	if (journeys.includes("prerequisites")) {
 		process.env.E2E_RUN_PREREQUISITES = "true";
-		console.log("[e2e] Prerequisites forced (explicitly requested).");
+		log("[e2e] Prerequisites forced (explicitly requested).");
 	}
 
 	const exitCode = runVitest();

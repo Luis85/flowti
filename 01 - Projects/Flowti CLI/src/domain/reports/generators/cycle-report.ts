@@ -10,7 +10,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "../../../infrastructure/config.js";
-import { Document } from "../../../infrastructure/document.js";
+import { Document, type FrontmatterValue } from "../../../infrastructure/document.js";
+import { log } from "../../../infrastructure/logger.js";
 
 const CYCLES_DIR: string = path.join(ROOT, "docs", "cycles");
 const OUTPUT_DIR: string = path.join(ROOT, "docs", "reports", "cycles");
@@ -19,6 +20,14 @@ const OUTPUT_DIR: string = path.join(ROOT, "docs", "reports", "cycles");
  * Parse YAML frontmatter from a markdown string.
  * Returns the frontmatter as a plain object.
  */
+function parseScalar(rawValue: string): unknown {
+	if (rawValue === "true") return true;
+	if (rawValue === "false") return false;
+	if (/^-?\d+$/.test(rawValue)) return parseInt(rawValue, 10);
+	if (/^-?\d+\.\d+$/.test(rawValue)) return parseFloat(rawValue);
+	return rawValue.replace(/^["']|["']$/g, "");
+}
+
 function parseFrontmatter(content: string): Record<string, unknown> | null {
 	const match: RegExpMatchArray | null = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 	if (!match) return null;
@@ -29,40 +38,28 @@ function parseFrontmatter(content: string): Record<string, unknown> | null {
 	let inArray: boolean = false;
 
 	for (const line of lines) {
-		// Array item (indented with "- ")
 		if (inArray && /^\s+-\s+/.test(line)) {
 			const value: string = line.replace(/^\s+-\s+/, "").replace(/^["']|["']$/g, "");
 			(fm[currentKey!] as string[]).push(value);
 			continue;
 		}
 
-		// Key-value pair
 		const kvMatch: RegExpMatchArray | null = line.match(/^(\w[\w_]*):\s*(.*)/);
-		if (!kvMatch) {
-			inArray = false;
-			continue;
-		}
+		if (!kvMatch) { inArray = false; continue; }
 
 		const key: string = kvMatch[1];
 		const rawValue: string = kvMatch[2].trim();
 
-		// Empty value followed by array items
 		if (rawValue === "" || rawValue === "[]") {
 			currentKey = key;
-			fm[key] = rawValue === "[]" ? [] : [];
+			fm[key] = [];
 			inArray = rawValue === "";
 			continue;
 		}
 
-		// Scalar value
 		inArray = false;
 		currentKey = null;
-
-		if (rawValue === "true") fm[key] = true;
-		else if (rawValue === "false") fm[key] = false;
-		else if (/^-?\d+$/.test(rawValue)) fm[key] = parseInt(rawValue, 10);
-		else if (/^-?\d+\.\d+$/.test(rawValue)) fm[key] = parseFloat(rawValue);
-		else fm[key] = rawValue.replace(/^["']|["']$/g, "");
+		fm[key] = parseScalar(rawValue);
 	}
 
 	return fm;
@@ -93,42 +90,92 @@ function findLatestDoneCycle(): { file: string; frontmatter: Record<string, unkn
 	return best;
 }
 
-function main(): void {
-	const latest = findLatestDoneCycle();
-	if (!latest) {
-		console.log("[report] No completed cycle document found — skipping cycle report.");
-		return;
-	}
+interface CycleReportData extends Record<string, FrontmatterValue> {
+	type: string;
+	date: string;
+	cycle: number;
+	stage: string;
+	date_planned: string;
+	date_completed: string;
+	increments: number;
+	estimated_increments: number;
+	tests_added: number;
+	total_tests: number;
+	suites_added: number;
+	total_suites: number;
+	pbis_delivered: number;
+	debt_resolved: number;
+}
 
-	const fm: Record<string, unknown> = latest.frontmatter;
-	const now: Date = new Date();
-	const date: string = now.toISOString();
+function fmNum(fm: Record<string, unknown>, key: string, fallback = 0): number {
+	return (fm[key] as number) ?? fallback;
+}
 
-	const preCycleTests: number = (fm.pre_cycle_tests as number) ?? 0;
-	const totalTests: number = (fm.total_tests_after as number) ?? preCycleTests;
-	const preCycleSuites: number = (fm.pre_cycle_suites as number) ?? 0;
-	const totalSuites: number = (fm.total_test_files_after as number) ?? preCycleSuites;
-	const pbis: string[] = (fm.pbis as string[]) ?? [];
-	const techDebt: string[] = (fm.tech_debt as string[]) ?? [];
+function fmStr(fm: Record<string, unknown>, key: string, fallback = ""): string {
+	return (fm[key] as string) ?? fallback;
+}
 
-	const report = {
+function fmArr(fm: Record<string, unknown>, key: string): string[] {
+	return (fm[key] as string[]) ?? [];
+}
+
+function buildCycleReportData(fm: Record<string, unknown>, date: string): CycleReportData {
+	const preCycleTests = fmNum(fm, "pre_cycle_tests");
+	const totalTests = fmNum(fm, "total_tests_after", preCycleTests);
+	const preCycleSuites = fmNum(fm, "pre_cycle_suites");
+	const totalSuites = fmNum(fm, "total_test_files_after", preCycleSuites);
+	const increments = fmNum(fm, "actual_increments", fmNum(fm, "estimated_increments"));
+
+	return {
 		type: "CycleReport",
 		date,
-		cycle: (fm.cycle as number) ?? 0,
-		stage: (fm.stage as string) ?? "unknown",
-		date_planned: (fm.date_planned as string) ?? "",
-		date_completed: (fm.date_completed as string) ?? "",
-		increments: (fm.actual_increments as number) ?? (fm.estimated_increments as number) ?? 0,
-		estimated_increments: (fm.estimated_increments as number) ?? 0,
+		cycle: fmNum(fm, "cycle"),
+		stage: fmStr(fm, "stage", "unknown"),
+		date_planned: fmStr(fm, "date_planned"),
+		date_completed: fmStr(fm, "date_completed"),
+		increments,
+		estimated_increments: fmNum(fm, "estimated_increments"),
 		tests_added: totalTests - preCycleTests,
 		total_tests: totalTests,
 		suites_added: totalSuites - preCycleSuites,
 		total_suites: totalSuites,
-		pbis_delivered: pbis.length,
-		debt_resolved: techDebt.length,
+		pbis_delivered: fmArr(fm, "pbis").length,
+		debt_resolved: fmArr(fm, "tech_debt").length,
 	};
+}
 
-	const cycleDocTitle: string = latest.file.replace(/\.md$/, "");
+function collectReportLinks(): string[] {
+	const links: string[] = [];
+	const reportDirs: { dir: string; suffix: string }[] = [
+		{ dir: path.join(ROOT, "docs", "reports", "tests"), suffix: "test-report.md" },
+		{ dir: path.join(ROOT, "docs", "reports", "coverage"), suffix: "coverage-report.md" },
+		{ dir: path.join(ROOT, "docs", "reports", "codebase"), suffix: "codebase-report.md" },
+		{ dir: path.join(ROOT, "docs", "reports", "builds"), suffix: "build-report" },
+	];
+	for (const { dir, suffix } of reportDirs) {
+		if (!fs.existsSync(dir)) continue;
+		const files = fs.readdirSync(dir).filter((f) => f.endsWith(".md") && f.includes(suffix));
+		if (files.length > 0) {
+			files.sort();
+			links.push(files[files.length - 1].replace(/\.md$/, ""));
+		}
+	}
+	return links;
+}
+
+function main(): void {
+	const latest = findLatestDoneCycle();
+	if (!latest) {
+		log("[report] No completed cycle document found — skipping cycle report.");
+		return;
+	}
+
+	const fm = latest.frontmatter;
+	const now = new Date();
+	const report = buildCycleReportData(fm, now.toISOString());
+	const pbis = (fm.pbis as string[]) ?? [];
+	const techDebt = (fm.tech_debt as string[]) ?? [];
+	const cycleDocTitle = latest.file.replace(/\.md$/, "");
 
 	const doc = Document.create(`Cycle ${report.cycle} Report`)
 		.mergeFrontmatter(report)
@@ -148,49 +195,21 @@ function main(): void {
 		.list([Document.wikilink(cycleDocTitle)])
 		.addBlank();
 
-	if (pbis.length > 0) {
-		doc.heading(2, "PBIs Delivered").addBlank();
-		doc.list(pbis);
-		doc.addBlank();
-	}
+	if (pbis.length > 0) { doc.heading(2, "PBIs Delivered").addBlank(); doc.list(pbis); doc.addBlank(); }
+	if (techDebt.length > 0) { doc.heading(2, "Tech Debt Resolved").addBlank(); doc.list(techDebt); doc.addBlank(); }
 
-	if (techDebt.length > 0) {
-		doc.heading(2, "Tech Debt Resolved").addBlank();
-		doc.list(techDebt);
-		doc.addBlank();
-	}
-
-	// Find latest reports to link as related artifacts
-	const reportLinks: string[] = [];
-	const reportDirs: { dir: string; suffix: string }[] = [
-		{ dir: path.join(ROOT, "docs", "reports", "tests"), suffix: "test-report.md" },
-		{ dir: path.join(ROOT, "docs", "reports", "coverage"), suffix: "coverage-report.md" },
-		{ dir: path.join(ROOT, "docs", "reports", "codebase"), suffix: "codebase-report.md" },
-		{ dir: path.join(ROOT, "docs", "reports", "builds"), suffix: "build-report" },
-	];
-	for (const { dir, suffix } of reportDirs) {
-		if (!fs.existsSync(dir)) continue;
-		const files: string[] = fs.readdirSync(dir).filter((f: string) => f.endsWith(".md") && f.includes(suffix));
-		if (files.length > 0) {
-			files.sort();
-			const latestReport: string = files[files.length - 1].replace(/\.md$/, "");
-			reportLinks.push(latestReport);
-		}
-	}
-
+	const reportLinks = collectReportLinks();
 	if (reportLinks.length > 0) {
 		doc.heading(2, "Related Reports").addBlank();
-		doc.list(reportLinks.map((link: string) => Document.wikilink(link)));
+		doc.list(reportLinks.map((link) => Document.wikilink(link)));
 		doc.addBlank();
 	}
 
-	const safeTimestamp: string = now.toISOString().replace(/:/g, "-");
-	const filename: string = `${safeTimestamp}-cycle-${report.cycle}-report.md`;
-	const outputPath: string = path.join(OUTPUT_DIR, filename);
-
+	const safeTimestamp = now.toISOString().replace(/:/g, "-");
+	const outputPath = path.join(OUTPUT_DIR, `${safeTimestamp}-cycle-${report.cycle}-report.md`);
 	doc.save(outputPath);
 
-	console.log(`[report] CycleReport written: ${outputPath}`);
+	log(`[report] CycleReport written: ${outputPath}`);
 }
 
 main();

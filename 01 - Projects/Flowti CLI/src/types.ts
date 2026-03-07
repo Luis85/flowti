@@ -86,11 +86,37 @@ export interface ReviewConfig {
 	rebuild?: string;
 }
 
+export interface ReportGenerator {
+	label: string;
+	command: string;
+}
+
+export interface SummaryThresholds {
+	/** Minimum line coverage percentage (default: 80) */
+	coverageLines?: number;
+	/** Minimum branch coverage percentage (default: 70) */
+	coverageBranches?: number;
+	/** Maximum cyclomatic complexity per function (default: 15) */
+	maxComplexity?: number;
+	/** Maximum percentage of functions above complexity threshold (default: 5) */
+	complexityAboveThresholdPct?: number;
+	/** Maximum startup time in ms (default: 5000) */
+	startupMs?: number;
+	/** Maximum allowed eslint warnings (default: 0) */
+	eslintWarnings?: number;
+	/** Lint command to run for collecting warnings (default: "npm run lint") */
+	lintCommand?: string;
+}
+
 export interface ReportsConfig {
 	/** Relative path from project root to the reports directory (default: "docs/reports") */
 	dir?: string;
 	/** Command to generate all reports */
 	allCommand?: string;
+	/** Individual report generators */
+	generators?: ReportGenerator[];
+	/** Thresholds for the summary report analysis */
+	thresholds?: SummaryThresholds;
 }
 
 export interface DocGenerator {
@@ -105,9 +131,17 @@ export interface DocsConfig {
 	generators?: DocGenerator[];
 }
 
+export type MakeTemplateId = "hub" | "plugin" | "app" | "cli";
+
+export interface MakeConfig {
+	/** Which Make templates are available for this project */
+	templates?: MakeTemplateId[];
+}
+
 export interface ProjectConfig {
 	name: string;
 	tools?: Partial<Record<FlowtiToolId, string>>;
+	make?: MakeConfig;
 	reports?: ReportsConfig;
 	docs?: DocsConfig;
 	publish?: PublishConfig;

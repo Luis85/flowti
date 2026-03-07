@@ -12,6 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
+import { log } from "../../../infrastructure/logger.js";
 
 const buildTypeArg = process.argv.find((a) => a.startsWith("--build-type="));
 const buildType = buildTypeArg ? buildTypeArg.split("=")[1] : "flow";
@@ -89,35 +90,48 @@ function buildPerfSection(perfResult: PerfData | null, doc: Document): Record<st
 	};
 }
 
+interface TestReportStats {
+	passed: number;
+	failed: number;
+	skipped: number;
+	total: number;
+	suites: number;
+	duration_ms: number;
+	success: boolean;
+}
+
+function jsonNum(json: Record<string, unknown>, key: string, fallback = 0): number {
+	return (json[key] as number) ?? fallback;
+}
+
+function extractStats(json: Record<string, unknown>): TestReportStats {
+	const passed = jsonNum(json, "numPassedTests");
+	const failed = jsonNum(json, "numFailedTests");
+	const skipped = jsonNum(json, "numPendingTests");
+	const total = jsonNum(json, "numTotalTests", passed + failed + skipped);
+	const results = json.testResults as unknown[] | undefined;
+	const suites = results?.length ?? jsonNum(json, "numTotalTestSuites");
+	const startTime = jsonNum(json, "startTime");
+	const duration = startTime > 0 ? Date.now() - startTime : 0;
+	const success = (json.success as boolean) ?? failed === 0;
+	return { passed, failed, skipped, total, suites, duration_ms: Math.max(0, duration), success };
+}
+
 function main(): void {
 	if (!fs.existsSync(REPORT_JSON)) {
-		console.log("[report] No testreport.json found — run tests first.");
+		log("[report] No testreport.json found — run tests first.");
 		return;
 	}
 
-	const json = JSON.parse(fs.readFileSync(REPORT_JSON, "utf-8"));
+	const json = JSON.parse(fs.readFileSync(REPORT_JSON, "utf-8")) as Record<string, unknown>;
 	const now = new Date();
-	const date = now.toISOString();
-
-	const passed: number = json.numPassedTests ?? 0;
-	const failed: number = json.numFailedTests ?? 0;
-	const skipped: number = json.numPendingTests ?? 0;
-	const total: number = json.numTotalTests ?? passed + failed + skipped;
-	const suites: number = json.testResults?.length ?? json.numTotalTestSuites ?? 0;
-	const startTime: number = json.startTime ?? 0;
-	const duration: number = startTime > 0 ? Date.now() - startTime : 0;
+	const stats = extractStats(json);
 
 	const fm: Record<string, string | number | boolean> = {
 		type: "TestReport",
 		build_type: buildType,
-		date,
-		passed,
-		failed,
-		skipped,
-		total,
-		suites,
-		duration_ms: duration > 0 ? duration : 0,
-		success: json.success ?? failed === 0,
+		date: now.toISOString(),
+		...stats,
 	};
 
 	const doc = Document.create("Test Report")
@@ -126,23 +140,20 @@ function main(): void {
 		.heading(1, "Test Report")
 		.addBlank()
 		.callout("info", "Summary", [
-			`Total: ${fm.total} | Passed: ${fm.passed} | Failed: ${fm.failed} | Skipped: ${fm.skipped}`,
-			`Suites: ${fm.suites} | Duration: ${fm.duration_ms}ms`,
-			`Result: ${fm.success ? "PASS" : "FAIL"}`,
+			`Total: ${stats.total} | Passed: ${stats.passed} | Failed: ${stats.failed} | Skipped: ${stats.skipped}`,
+			`Suites: ${stats.suites} | Duration: ${stats.duration_ms}ms`,
+			`Result: ${stats.success ? "PASS" : "FAIL"}`,
 		])
 		.addBlank();
 
-	const perfFm = buildPerfSection(loadPerfData(), doc);
-	doc.mergeFrontmatter(perfFm);
+	doc.mergeFrontmatter(buildPerfSection(loadPerfData(), doc));
 
 	const safeTimestamp = now.toISOString().replace(/:/g, "-");
 	const prefix = buildType === "full" ? "" : `${buildType}-`;
-	const filename = `${safeTimestamp}-${prefix}test-report.md`;
-	const outputPath = path.join(OUTPUT_DIR, filename);
-
+	const outputPath = path.join(OUTPUT_DIR, `${safeTimestamp}-${prefix}test-report.md`);
 	doc.save(outputPath);
 
-	console.log(`[report] TestReport written: ${outputPath}`);
+	log(`[report] TestReport written: ${outputPath}`);
 }
 
 main();

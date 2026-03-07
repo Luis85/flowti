@@ -8,6 +8,7 @@
 import { printHeader, printMenu } from "./ui.js";
 import { createRL, ask } from "./readline.js";
 import type { MenuEntry, MenuItem, MenuOptions, MenuResult } from "../types.js";
+import { log } from ".//logger.js";
 
 /**
  * Run an interactive menu loop.
@@ -23,42 +24,47 @@ import type { MenuEntry, MenuItem, MenuOptions, MenuResult } from "../types.js";
  * `disabled` may be a boolean or a function returning boolean
  * (re-evaluated each iteration for stateful menus).
  */
+function resolveDisabled(item: MenuItem): boolean {
+	return typeof item.disabled === "function" ? item.disabled() : !!item.disabled;
+}
+
+function resolveDisplayItems(items: MenuEntry[]): MenuEntry[] {
+	return items.map((item) => {
+		if ("separator" in item) return item;
+		return { ...item, disabled: resolveDisabled(item) };
+	});
+}
+
+const EXIT_RESULTS: Set<string> = new Set(["main", "quit", "start"]);
+
+function isExitResult(result: unknown): result is MenuResult {
+	return typeof result === "string" && EXIT_RESULTS.has(result);
+}
+
+function findMatch(items: MenuEntry[], choice: string): MenuItem | null {
+	return items.find((i): i is MenuItem => "key" in i && i.key === choice.toLowerCase()) ?? null;
+}
+
 export async function runMenu(
 	title: string | null,
 	items: MenuEntry[],
 	options: MenuOptions & { beforeMenu?: () => void } = {},
 ): Promise<MenuResult> {
-	// eslint-disable-next-line no-constant-condition
+
 	while (true) {
 		if (title) printHeader(title);
 		if (options.beforeMenu) options.beforeMenu();
-
-		const displayItems: MenuEntry[] = items.map((item) => {
-			if ("separator" in item) return item;
-			return {
-				...item,
-				disabled: typeof item.disabled === "function" ? item.disabled() : item.disabled,
-			};
-		});
-		printMenu(displayItems);
+		printMenu(resolveDisplayItems(items));
 
 		const rl = createRL();
 		const choice = await ask(rl, "Choice", options.defaultChoice ?? "1");
 		rl.close();
 
-		const match = items.find((i): i is MenuItem => "key" in i && i.key === choice.toLowerCase());
-		if (!match) {
-			console.log("\n  Invalid choice — try again.\n");
-			continue;
-		}
-
-		const isDisabled = typeof match.disabled === "function" ? match.disabled() : match.disabled;
-		if (isDisabled) {
-			if (match.disabledMessage) console.log(match.disabledMessage);
-			continue;
-		}
+		const match = findMatch(items, choice);
+		if (!match) { log("\n  Invalid choice — try again.\n"); continue; }
+		if (resolveDisabled(match)) { if (match.disabledMessage) log(match.disabledMessage); continue; }
 
 		const result = await match.action();
-		if (result === "main" || result === "quit" || result === "start") return result;
+		if (isExitResult(result)) return result;
 	}
 }

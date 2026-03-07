@@ -11,9 +11,10 @@
  * Safe to re-run — skips files that already have the required fields.
  */
 
-import { readFileSync, writeFileSync, readdirSync, statSync } from "fs";
+import { readFileSync, writeFileSync, readdirSync } from "fs";
 import { join, resolve } from "path";
 import { PLUGIN_ROOT } from "../../infrastructure/config.js";
+import { log } from "../../infrastructure/logger.js";
 
 const DOCS_ROOT: string = resolve(PLUGIN_ROOT, "docs");
 const DRY_RUN: boolean = process.argv.includes("--dry-run");
@@ -21,10 +22,6 @@ const DRY_RUN: boolean = process.argv.includes("--dry-run");
 let fixed: number = 0;
 let skipped: number = 0;
 let errors: number = 0;
-
-function log(msg: string): void {
-	console.log(msg);
-}
 
 /**
  * Parse YAML frontmatter from a markdown file.
@@ -64,6 +61,26 @@ function replaceField(content: string, fieldName: string, newValue: string): str
 }
 
 /**
+ * Apply a single field rule to the content, returning updated content and whether it changed.
+ */
+function applyFieldRule(
+	content: string, filePath: string,
+	fields: Record<string, string>,
+	rule: { field: string; value: string; action: string },
+): { content: string; changed: boolean } {
+	const { field, value, action } = rule;
+	if (action === "add" && !fields[field]) {
+		log(`  ADD ${field}: ${value} → ${filePath}`);
+		return { content: insertField(content, field, value), changed: true };
+	}
+	if (action === "replace" && fields[field] !== value) {
+		log(`  REPLACE ${field}: ${fields[field]} → ${value} in ${filePath}`);
+		return { content: replaceField(content, field, value), changed: true };
+	}
+	return { content, changed: false };
+}
+
+/**
  * Process a single file: check and fix frontmatter.
  */
 function processFile(filePath: string, requiredFields: Array<{ field: string; value: string; action: string }>): void {
@@ -78,24 +95,14 @@ function processFile(filePath: string, requiredFields: Array<{ field: string; va
 
 		let modified: boolean = false;
 
-		for (const { field, value, action } of requiredFields) {
-			if (action === "add" && !parsed.fields[field]) {
-				content = insertField(content, field, value);
-				log(`  ADD ${field}: ${value} → ${filePath}`);
-				modified = true;
-			} else if (action === "replace" && parsed.fields[field] !== value) {
-				content = replaceField(content, field, value);
-				log(`  REPLACE ${field}: ${parsed.fields[field]} → ${value} in ${filePath}`);
-				modified = true;
-			} else if (action === "add" && parsed.fields[field]) {
-				// Already has the field — skip
-			}
+		for (const rule of requiredFields) {
+			const result = applyFieldRule(content, filePath, parsed.fields, rule);
+			content = result.content;
+			if (result.changed) modified = true;
 		}
 
 		if (modified) {
-			if (!DRY_RUN) {
-				writeFileSync(filePath, content, "utf-8");
-			}
+			if (!DRY_RUN) writeFileSync(filePath, content, "utf-8");
 			fixed++;
 		} else {
 			skipped++;

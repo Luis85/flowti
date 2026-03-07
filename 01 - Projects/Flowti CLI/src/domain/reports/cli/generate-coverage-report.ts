@@ -10,6 +10,7 @@
 import fs from "node:fs";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
+import { log } from "../../../infrastructure/logger.js";
 
 const svc = new ReportService();
 const COVERAGE_JSON = svc.subdir("coverage/coverage-final.json");
@@ -21,19 +22,20 @@ interface CoverageEntry {
 	f?: Record<string, number>;
 }
 
+function collectCounts(entry: CoverageEntry, kind: "statements" | "branches" | "functions"): number[] {
+	if (kind === "statements") return Object.values(entry.s ?? {});
+	if (kind === "branches") return Object.values(entry.b ?? {}).flat();
+	return Object.values(entry.f ?? {});
+}
+
 function computeCoverage(entries: CoverageEntry[], kind: "statements" | "branches" | "functions"): number {
 	let covered = 0;
 	let total = 0;
 
 	for (const entry of entries) {
-		if (kind === "statements") {
-			for (const v of Object.values(entry.s ?? {})) { total++; if (v > 0) covered++; }
-		} else if (kind === "branches") {
-			for (const branches of Object.values(entry.b ?? {})) {
-				for (const v of branches) { total++; if (v > 0) covered++; }
-			}
-		} else {
-			for (const v of Object.values(entry.f ?? {})) { total++; if (v > 0) covered++; }
+		for (const v of collectCounts(entry, kind)) {
+			total++;
+			if (v > 0) covered++;
 		}
 	}
 
@@ -50,7 +52,7 @@ function fileCoverage(entry: CoverageEntry): { statements: number; branches: num
 
 function main(): void {
 	if (!fs.existsSync(COVERAGE_JSON)) {
-		console.log("[cli-report] No coverage-final.json found — run vitest --coverage first.");
+		log("[cli-report] No coverage-final.json found — run vitest --coverage first.");
 		return;
 	}
 
@@ -104,7 +106,7 @@ function main(): void {
 		sourceJson: COVERAGE_JSON,
 	});
 
-	console.log(`[cli-report] CoverageReport written: ${outputPath}`);
+	log(`[cli-report] CoverageReport written: ${outputPath}`);
 }
 
 main();

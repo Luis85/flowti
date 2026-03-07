@@ -5,9 +5,32 @@
 		"reports": "npm run generate:reports",
 		"devtools": "npm run dev:reload"
 	},
+	"make": {
+		"templates": ["hub", "plugin", "app"]
+	},
 	"reports": {
 		"dir": "docs/reports",
-		"allCommand": "npm run generate:reports"
+		"allCommand": "npm run generate:reports",
+		"generators": [
+			{ "label": "Test Report", "command": "node scripts/generate-test-report.mjs" },
+			{ "label": "Coverage Report", "command": "node scripts/generate-coverage-report.mjs" },
+			{ "label": "Build Report", "command": "node scripts/generate-build-report.mjs" },
+			{ "label": "Codebase Report", "command": "node scripts/generate-codebase-report.mjs" },
+			{ "label": "Cycle Report", "command": "node scripts/generate-cycle-report.mjs" },
+			{ "label": "Trace Report", "command": "node scripts/generate-trace-report.mjs" },
+			{ "label": "Performance Report", "command": "node scripts/generate-performance-report.mjs" },
+			{ "label": "Complexity Report", "command": "node scripts/generate-complexity-report.mjs" },
+			{ "label": "E2E Report", "command": "node scripts/generate-e2e-report.mjs" }
+		],
+		"thresholds": {
+			"coverageLines": 80,
+			"coverageBranches": 70,
+			"maxComplexity": 15,
+			"complexityAboveThresholdPct": 5,
+			"startupMs": 5000,
+			"eslintWarnings": 0,
+			"lintCommand": "npm run lint"
+		}
 	},
 	"docs": {
 		"generators": [

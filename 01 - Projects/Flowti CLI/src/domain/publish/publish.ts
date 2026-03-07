@@ -8,6 +8,7 @@ import { run } from "../../infrastructure/shell.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { showHelp } from "../help/help.js";
 import type { MenuResult } from "../../types.js";
+import { log } from "../../infrastructure/logger.js";
 
 const cmd = (config as Record<string, Record<string, Record<string, string>>>).publish?.commands ?? {};
 
@@ -19,7 +20,7 @@ export async function menu(): Promise<MenuResult> {
 		const buildIcon = buildPassed ? `${GREEN}✓${RESET}` : `${DIM}○${RESET}`;
 		const testIcon = testPassed ? `${GREEN}✓${RESET}` : `${DIM}○${RESET}`;
 		const publishIcon = `${DIM}○${RESET}`;
-		console.log(`    ${DIM}Pipeline:${RESET}  ${buildIcon} Build  →  ${testIcon} Test  →  ${publishIcon} Publish\n`);
+		log(`    ${DIM}Pipeline:${RESET}  ${buildIcon} Build  →  ${testIcon} Test  →  ${publishIcon} Publish\n`);
 	};
 
 	return runMenu("Publish", [
@@ -39,18 +40,18 @@ export async function menu(): Promise<MenuResult> {
 			action: () => { run(cmd.release ?? "npm run build:release", "Publishing..."); },
 		},
 		{ key: "a", label: "Run all (build → test → publish)", action: () => {
-			console.log(`\n  ${CYAN}▸${RESET} Running full publish pipeline...\n`);
+			log(`\n  ${CYAN}▸${RESET} Running full publish pipeline...\n`);
 			const buildCode = run(cmd.increment ?? "npm run build:increment", "Step 1/3: Building increment...");
 			buildPassed = buildCode === 0;
 			if (!buildPassed) {
-				console.log(`  ${RED}Pipeline stopped — build failed.${RESET}\n`);
+				log(`  ${RED}Pipeline stopped — build failed.${RESET}\n`);
 				testPassed = false;
 				return;
 			}
 			const testCode = run(cmd.e2e ?? "npm run test:e2e", "Step 2/3: Running E2E tests...");
 			testPassed = testCode === 0;
 			if (!testPassed) {
-				console.log(`  ${RED}Pipeline stopped — tests failed.${RESET}\n`);
+				log(`  ${RED}Pipeline stopped — tests failed.${RESET}\n`);
 				return;
 			}
 			run(cmd.release ?? "npm run build:release", "Step 3/3: Publishing...");

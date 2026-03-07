@@ -11,6 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
+import { log } from "../../../infrastructure/logger.js";
 
 const buildTypeArg = process.argv.find((a) => a.startsWith("--build-type="));
 const buildType = buildTypeArg ? buildTypeArg.split("=")[1] : "flow";
@@ -24,28 +25,20 @@ interface CoverageEntry {
 	f?: Record<string, number>;
 }
 
+function collectCovCounts(entry: CoverageEntry, kind: string): number[] {
+	if (kind === "statements") return Object.values(entry.s ?? {});
+	if (kind === "branches") return Object.values(entry.b ?? {}).flat();
+	return Object.values(entry.f ?? {});
+}
+
 function computeCoverage(entries: CoverageEntry[], kind: string): number {
 	let covered = 0;
 	let total = 0;
 
 	for (const entry of entries) {
-		if (kind === "statements") {
-			for (const v of Object.values(entry.s ?? {})) {
-				total++;
-				if (v > 0) covered++;
-			}
-		} else if (kind === "branches") {
-			for (const branches of Object.values(entry.b ?? {})) {
-				for (const v of branches) {
-					total++;
-					if (v > 0) covered++;
-				}
-			}
-		} else {
-			for (const v of Object.values(entry.f ?? {})) {
-				total++;
-				if (v > 0) covered++;
-			}
+		for (const v of collectCovCounts(entry, kind)) {
+			total++;
+			if (v > 0) covered++;
 		}
 	}
 
@@ -55,7 +48,7 @@ function computeCoverage(entries: CoverageEntry[], kind: string): number {
 
 function main(): void {
 	if (!fs.existsSync(COVERAGE_JSON)) {
-		console.log("[report] No coverage-final.json found — run tests with --coverage first.");
+		log("[report] No coverage-final.json found — run tests with --coverage first.");
 		return;
 	}
 
@@ -94,7 +87,7 @@ function main(): void {
 
 	doc.save(outputPath);
 
-	console.log(`[report] CoverageReport written: ${outputPath}`);
+	log(`[report] CoverageReport written: ${outputPath}`);
 }
 
 main();

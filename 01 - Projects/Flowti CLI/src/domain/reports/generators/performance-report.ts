@@ -11,6 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
+import { log } from "../../../infrastructure/logger.js";
 
 // The plugin stores state in the Obsidian vault's plugin data folder.
 // During builds the data.json may be at the vault root's plugin dir.
@@ -42,7 +43,7 @@ function main(): void {
 		if (fs.existsSync(candidate)) {
 			try {
 				data = JSON.parse(fs.readFileSync(candidate, "utf-8"));
-				console.log(`[report] Read data.json from: ${candidate}`);
+				log(`[report] Read data.json from: ${candidate}`);
 				break;
 			} catch { /* try next */ }
 		}
@@ -91,7 +92,7 @@ function main(): void {
 
 	doc.save(outputPath);
 
-	console.log(`[report] PerformanceReport written: ${outputPath}`);
+	log(`[report] PerformanceReport written: ${outputPath}`);
 }
 
 main();

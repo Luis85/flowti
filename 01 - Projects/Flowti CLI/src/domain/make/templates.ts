@@ -319,6 +319,7 @@ export function pluginEsbuildTemplate(pluginId: string): string {
 import { builtinModules } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
+import { log } from "../../infrastructure/logger.js";
 
 const isWatch = process.argv.includes("--watch");
 const prod = !isWatch;
@@ -367,13 +368,13 @@ const run = async () => {
 
 \tif (isWatch) {
 \t\tawait ctx.watch();
-\t\tconsole.log("[build] Watching...", OUTDIR);
+\t\tlog("[build] Watching...", OUTDIR);
 \t\treturn;
 \t}
 
 \tawait ctx.rebuild();
 \tawait ctx.dispose();
-\tconsole.log("[build] Done.", OUTDIR);
+\tlog("[build] Done.", OUTDIR);
 };
 
 run().catch((err) => { console.error(err); process.exit(1); });
@@ -387,11 +388,11 @@ export function pluginMainTemplate(pluginName: string): string {
 export default class ${pascal}Plugin extends Plugin {
 
 \tasync onload(): Promise<void> {
-\t\tconsole.log(\`[${pluginName}] loaded\`);
+\t\tlog(\`[${pluginName}] loaded\`);
 \t}
 
 \tasync onunload(): Promise<void> {
-\t\tconsole.log(\`[${pluginName}] unloaded\`);
+\t\tlog(\`[${pluginName}] unloaded\`);
 \t}
 }
 `;

@@ -5,10 +5,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { VAULT_ROOT, getCaptureDir } from "../../infrastructure/config.js";
-import { RESET, BOLD, DIM, GREEN, RED, YELLOW, printHeader, printMenu } from "../../infrastructure/ui.js";
+import { RESET, DIM, GREEN, RED, YELLOW, printHeader, printMenu } from "../../infrastructure/ui.js";
 import { createRL, ask } from "../../infrastructure/readline.js";
 import { Document } from "../../infrastructure/document.js";
 import type { MenuResult } from "../../types.js";
+import { log } from "../../infrastructure/logger.js";
 
 // ── Constants ───────────────────────────────────────────────────────
 
@@ -32,7 +33,7 @@ function createCaptureFile(type: string, title: string, body: string): string | 
 	const filePath = path.join(dir, filename);
 
 	if (fs.existsSync(filePath)) {
-		console.log(`\n  ${YELLOW}File already exists:${RESET} ${filename}`);
+		log(`\n  ${YELLOW}File already exists:${RESET} ${filename}`);
 		return null;
 	}
 
@@ -48,21 +49,21 @@ function createCaptureFile(type: string, title: string, body: string): string | 
 	doc.addBlank();
 	doc.save(filePath);
 	const relPath = path.relative(VAULT_ROOT, filePath);
-	console.log(`\n  ${GREEN}✓${RESET} Created: ${relPath}`);
+	log(`\n  ${GREEN}✓${RESET} Created: ${relPath}`);
 	return filePath;
 }
 
 // ── Capture Idea ────────────────────────────────────────────────────
 
 async function captureIdeaLoop(): Promise<void> {
-	// eslint-disable-next-line no-constant-condition
+	 
 	while (true) {
 		const rl = createRL();
 		const idea = await ask(rl, "Idea");
 		rl.close();
 
 		if (!idea) {
-			console.log(`\n  ${YELLOW}No idea entered — skipped.${RESET}`);
+			log(`\n  ${YELLOW}No idea entered — skipped.${RESET}`);
 		} else {
 			const title = idea.length > 60 ? idea.slice(0, 60).trim() : idea;
 			createCaptureFile("Idea", title, idea);
@@ -79,7 +80,7 @@ async function captureIdeaLoop(): Promise<void> {
 // ── Capture Note ────────────────────────────────────────────────────
 
 async function captureNoteLoop(): Promise<void> {
-	// eslint-disable-next-line no-constant-condition
+	 
 	while (true) {
 		printHeader("Capture Note — Type");
 		printMenu(NOTE_TYPES.map((t, i) => ({ key: String(i + 1), label: t, action: () => {} })));
@@ -90,7 +91,7 @@ async function captureNoteLoop(): Promise<void> {
 
 		const typeIdx = parseInt(typeChoice, 10) - 1;
 		if (typeIdx < 0 || typeIdx >= NOTE_TYPES.length) {
-			console.log(`\n  ${RED}Invalid type — skipped.${RESET}`);
+			log(`\n  ${RED}Invalid type — skipped.${RESET}`);
 			return;
 		}
 
@@ -101,7 +102,7 @@ async function captureNoteLoop(): Promise<void> {
 		rl2.close();
 
 		if (!title) {
-			console.log(`\n  ${YELLOW}No title entered — skipped.${RESET}`);
+			log(`\n  ${YELLOW}No title entered — skipped.${RESET}`);
 		} else {
 			createCaptureFile(type, title, "");
 		}
@@ -133,8 +134,8 @@ export const commands = {
 	"capture:idea": (flags: Record<string, string | boolean>) => {
 		const text = flags.text;
 		if (!text || typeof text !== "string") {
-			console.log(`\n  ${RED}Missing --text flag.${RESET}`);
-			console.log(`  ${DIM}Usage: npm run flowti -- capture:idea --text="My idea"${RESET}\n`);
+			log(`\n  ${RED}Missing --text flag.${RESET}`);
+			log(`  ${DIM}Usage: npm run flowti -- capture:idea --text="My idea"${RESET}\n`);
 			return;
 		}
 		const title = text.length > 60 ? text.slice(0, 60).trim() : text;
@@ -144,14 +145,14 @@ export const commands = {
 		const type = flags.type;
 		const title = flags.title;
 		if (!type || typeof type !== "string" || !title || typeof title !== "string") {
-			console.log(`\n  ${RED}Missing --type and/or --title flag.${RESET}`);
-			console.log(`  ${DIM}Usage: npm run flowti -- capture:note --type=task --title="My note"${RESET}\n`);
+			log(`\n  ${RED}Missing --type and/or --title flag.${RESET}`);
+			log(`  ${DIM}Usage: npm run flowti -- capture:note --type=task --title="My note"${RESET}\n`);
 			return;
 		}
 		const normalized = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
 		if (!NOTE_TYPES.includes(normalized)) {
-			console.log(`\n  ${RED}Invalid type: ${type}${RESET}`);
-			console.log(`  ${DIM}Valid types: ${NOTE_TYPES.join(", ")}${RESET}\n`);
+			log(`\n  ${RED}Invalid type: ${type}${RESET}`);
+			log(`  ${DIM}Valid types: ${NOTE_TYPES.join(", ")}${RESET}\n`);
 			return;
 		}
 		createCaptureFile(normalized, title, "");

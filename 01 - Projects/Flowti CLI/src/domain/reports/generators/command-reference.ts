@@ -11,6 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
+import { log } from "../../../infrastructure/logger.js";
 
 interface CommandMeta {
 	id: string;
@@ -75,7 +76,7 @@ function capitalize(s: string): string {
 
 function main(): void {
 	if (!fs.existsSync(REGISTRY_PATH)) {
-		console.log("[report] CommandRegistry source not found — skipping.");
+		log("[report] CommandRegistry source not found — skipping.");
 		return;
 	}
 
@@ -83,7 +84,7 @@ function main(): void {
 	const commands: CommandMeta[] = extractCommandMeta(source);
 
 	if (commands.length === 0) {
-		console.log("[report] No commands extracted from registry — skipping.");
+		log("[report] No commands extracted from registry — skipping.");
 		return;
 	}
 
@@ -134,7 +135,7 @@ function main(): void {
 
 	doc.save(outputPath);
 
-	console.log(`[report] CommandReference written (${commands.length} commands): ${outputPath}`);
+	log(`[report] CommandReference written (${commands.length} commands): ${outputPath}`);
 }
 
 main();

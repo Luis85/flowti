@@ -15,7 +15,7 @@ import {
   knowledgebaseMenu,
   isKnowledgebaseAvailable,
 } from "./domain/knowledgebase/knowledgebase.js";
-import { generateProjectStatusReport } from "./domain/reports/cli/generate-status-report.js";
+import { generateSummaryReport } from "./domain/reports/cli/generate-summary-report.js";
 import { buildWithReport } from "./domain/reports/cli/generate-build-report.js";
 import { runIn } from "./infrastructure/shell.js";
 import { getSelectedProject } from "./infrastructure/state.js";
@@ -134,27 +134,35 @@ export function buildProjectDetailMenu(): MenuEntry[] {
     action: async () => {
       const { runMenu } = await import("./infrastructure/menu.js");
       const reportMenuItems: MenuEntry[] = [];
-
       const reportsCmd = ctx.config.reports?.allCommand ?? ctx.config.tools?.["reports"];
+      const generators = ctx.config.reports?.generators ?? [];
+
+      // "Run All" — runs allCommand + generates summary
       if (reportsCmd) {
         reportMenuItems.push({
           key: "1",
           label: "Run All Reports",
           action: () => {
             runIn(reportsCmd, ctx.path, "Reports");
+            generateSummaryReport(ctx.path);
             return "main" as const;
           },
         });
       }
 
-      reportMenuItems.push({
-        key: "2",
-        label: "Project Status Report",
-        action: async () => {
-          await generateProjectStatusReport(ctx.path);
-          return "main" as const;
-        },
-      });
+      // Individual generators
+      const offset = reportsCmd ? 2 : 1;
+      for (let i = 0; i < generators.length; i++) {
+        const gen = generators[i];
+        reportMenuItems.push({
+          key: String(i + offset),
+          label: gen.label,
+          action: () => {
+            runIn(gen.command, ctx.path, gen.label);
+            return "main" as const;
+          },
+        });
+      }
 
       reportMenuItems.push(
         { separator: true },

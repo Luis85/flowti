@@ -10,7 +10,6 @@
  *   - Starter test suite
  */
 
-import { toPascal } from "./naming.js";
 
 export function appManifestTemplate(name: string, id: string, author: string): string {
 	return JSON.stringify({
@@ -126,13 +125,13 @@ const run = async () => {
 
 \tif (isWatch) {
 \t\tawait ctx.watch();
-\t\tconsole.log("[build] Watching...", OUTDIR);
+\t\tlog("[build] Watching...", OUTDIR);
 \t\treturn;
 \t}
 
 \tawait ctx.rebuild();
 \tawait ctx.dispose();
-\tconsole.log("[build] Done.", OUTDIR);
+\tlog("[build] Done.", OUTDIR);
 };
 
 run().catch((err) => { console.error(err); process.exit(1); });
@@ -168,7 +167,7 @@ export default class ${pascal}Plugin extends Plugin {
 \tasync onload(): Promise<void> {
 \t\tthis.eventBus = new EventBus();
 
-\t\tconsole.log(\`[${name}] loaded\`);
+\t\tlog(\`[${name}] loaded\`);
 \t\tawait this.eventBus.emit("app.loaded", {});
 \t}
 
@@ -176,7 +175,7 @@ export default class ${pascal}Plugin extends Plugin {
 \t\tawait this.eventBus.emit("app.unloaded", {});
 \t\tthis.eventBus.clear();
 
-\t\tconsole.log(\`[${name}] unloaded\`);
+\t\tlog(\`[${name}] unloaded\`);
 \t}
 }
 `;
@@ -473,6 +472,7 @@ export function appEventBusTestTemplate(): string {
 	return `import { describe, it, expect, beforeEach } from "vitest";
 import { EventBus } from "../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../src/infrastructure/events/types";
+import { log } from "../../infrastructure/logger.js";
 
 describe("EventBus", () => {
 \tlet bus: IEventBus;

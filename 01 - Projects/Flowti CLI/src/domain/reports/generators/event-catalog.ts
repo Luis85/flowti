@@ -11,6 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
+import { log } from "../../../infrastructure/logger.js";
 
 interface CatalogEntry {
 	type: string;
@@ -85,85 +86,77 @@ function extractCatalogEntries(source: string): CatalogEntry[] {
 	return entries;
 }
 
-function main(): void {
-	if (!fs.existsSync(CATALOG_PATH)) {
-		console.log("[report] catalog.ts not found — skipping event catalog generation.");
-		return;
-	}
-
-	const source: string = fs.readFileSync(CATALOG_PATH, "utf-8");
-	const categories: string[] = extractCategories(source);
-	const events: CatalogEntry[] = extractCatalogEntries(source);
-
-	if (events.length === 0) {
-		console.log("[report] No events extracted from catalog — skipping.");
-		return;
-	}
-
-	const now: Date = new Date();
-	const date: string = now.toISOString();
-
-	// Group by category in display order
+function groupByCategory(categories: string[], events: CatalogEntry[]): Map<string, CatalogEntry[]> {
 	const groups: Map<string, CatalogEntry[]> = new Map();
 	for (const cat of categories) groups.set(cat, []);
 	for (const event of events) {
-		const list: CatalogEntry[] | undefined = groups.get(event.category);
+		const list = groups.get(event.category);
 		if (list) list.push(event);
 		else groups.set(event.category, [event]);
 	}
-	// Remove empty categories
 	for (const [cat, entries] of groups) {
 		if (entries.length === 0) groups.delete(cat);
 	}
+	return groups;
+}
 
-	// Domain summary
-	const domainCounts: Map<string, number> = new Map();
-	for (const e of events) {
-		domainCounts.set(e.domain, (domainCounts.get(e.domain) ?? 0) + 1);
+function getDomainSummary(events: CatalogEntry[]): [string, number][] {
+	const counts: Map<string, number> = new Map();
+	for (const e of events) counts.set(e.domain, (counts.get(e.domain) ?? 0) + 1);
+	return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+}
+
+function main(): void {
+	if (!fs.existsSync(CATALOG_PATH)) {
+		log("[report] catalog.ts not found — skipping event catalog generation.");
+		return;
 	}
-	const sortedDomains: [string, number][] = [...domainCounts.entries()].sort((a: [string, number], b: [string, number]) => a[0].localeCompare(b[0]));
-	const uniqueDomains: Set<string> = new Set(events.map((e: CatalogEntry) => e.domain));
 
-	const fm = {
-		type: "EventCatalog",
-		date,
-		total_events: events.length,
-		categories: groups.size,
-		domains: uniqueDomains.size,
-	};
+	const source = fs.readFileSync(CATALOG_PATH, "utf-8");
+	const categories = extractCategories(source);
+	const events = extractCatalogEntries(source);
+
+	if (events.length === 0) {
+		log("[report] No events extracted from catalog — skipping.");
+		return;
+	}
+
+	const groups = groupByCategory(categories, events);
+	const sortedDomains = getDomainSummary(events);
+	const uniqueDomains = new Set(events.map((e) => e.domain));
 
 	const doc = Document.create("Event Catalog")
-		.mergeFrontmatter(fm)
+		.mergeFrontmatter({
+			type: "EventCatalog",
+			date: new Date().toISOString(),
+			total_events: events.length,
+			categories: groups.size,
+			domains: uniqueDomains.size,
+		})
 		.addBlank()
 		.heading(1, "Event Catalog")
 		.addBlank()
 		.callout("info", "Summary", [
-			`Total events: ${fm.total_events} | Categories: ${fm.categories} | Domains: ${fm.domains}`,
+			`Total events: ${events.length} | Categories: ${groups.size} | Domains: ${uniqueDomains.size}`,
 		])
 		.addBlank()
 		.heading(2, "Domain Summary")
 		.addBlank()
-		.table(
-			["Domain", "Events"],
-			sortedDomains.map(([domain, count]: [string, number]) => [domain, String(count)]),
-		)
+		.table(["Domain", "Events"], sortedDomains.map(([domain, count]) => [domain, String(count)]))
 		.addBlank();
 
 	for (const [category, entries] of groups) {
 		doc.heading(2, category).addBlank();
 		doc.table(
 			["Event", "Description", "Direction", "Domain", "Services", "Stability", "Visibility"],
-			entries.map((e: CatalogEntry) => [`\`${e.type}\``, e.description, e.direction, e.domain, e.services, e.stability, e.visibility]),
+			entries.map((e) => [`\`${e.type}\``, e.description, e.direction, e.domain, e.services, e.stability, e.visibility]),
 		);
 		doc.addBlank();
 	}
 
-	const filename: string = "Event Catalog.md";
-	const outputPath: string = path.join(OUTPUT_DIR, filename);
-
+	const outputPath = path.join(OUTPUT_DIR, "Event Catalog.md");
 	doc.save(outputPath);
-
-	console.log(`[report] EventCatalog written (${events.length} events): ${outputPath}`);
+	log(`[report] EventCatalog written (${events.length} events): ${outputPath}`);
 }
 
 main();

@@ -65,6 +65,14 @@ export function searchVault(query: string): string[] {
 	}
 }
 
+function matchesMdFile(fullPath: string, name: string, lowerQuery: string): boolean {
+	if (name.toLowerCase().includes(lowerQuery)) return true;
+	try {
+		const content = fs.readFileSync(fullPath, "utf-8");
+		return content.toLowerCase().includes(lowerQuery);
+	} catch { return false; }
+}
+
 function filesystemSearch(query: string): string[] {
 	const matches: string[] = [];
 	const lowerQuery = query.toLowerCase();
@@ -72,28 +80,17 @@ function filesystemSearch(query: string): string[] {
 	function walk(dir: string, rel: string): void {
 		if (matches.length >= 50) return;
 		let entries: fs.Dirent[];
-		try {
-			entries = fs.readdirSync(dir, { withFileTypes: true });
-		} catch {
-			return;
-		}
+		try { entries = fs.readdirSync(dir, { withFileTypes: true }); }
+		catch { return; }
+
 		for (const e of entries) {
 			if (e.name.startsWith(".") || e.name === "node_modules") continue;
 			const fullPath = path.join(dir, e.name);
 			const relPath = rel ? `${rel}/${e.name}` : e.name;
 			if (e.isDirectory()) {
 				walk(fullPath, relPath);
-			} else if (e.name.endsWith(".md")) {
-				if (e.name.toLowerCase().includes(lowerQuery)) {
-					matches.push(relPath);
-				} else {
-					try {
-						const content = fs.readFileSync(fullPath, "utf-8");
-						if (content.toLowerCase().includes(lowerQuery)) {
-							matches.push(relPath);
-						}
-					} catch { /* skip unreadable */ }
-				}
+			} else if (e.name.endsWith(".md") && matchesMdFile(fullPath, e.name, lowerQuery)) {
+				matches.push(relPath);
 			}
 		}
 	}

@@ -11,11 +11,12 @@ import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { VAULT_ROOT } from "../../infrastructure/config.js";
-import { RESET, BOLD, DIM, GREEN, RED, CYAN, YELLOW } from "../../infrastructure/ui.js";
+import { RESET, BOLD, DIM, GREEN, CYAN, YELLOW } from "../../infrastructure/ui.js";
 import { runIn } from "../../infrastructure/shell.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { createRL, ask } from "../../infrastructure/readline.js";
 import type { MenuEntry, MenuResult, ReviewConfig } from "../../types.js";
+import { log } from "../../infrastructure/logger.js";
 
 // ── Journey scanning ────────────────────────────────────────────────
 
@@ -58,7 +59,7 @@ function resolveTestVault(projectPath: string, config: ReviewConfig): string {
 function ensureTestVault(vaultPath: string): boolean {
 	if (fs.existsSync(vaultPath)) return true;
 	fs.mkdirSync(vaultPath, { recursive: true });
-	console.log(`  ${GREEN}Created test vault:${RESET} ${vaultPath}\n`);
+	log(`  ${GREEN}Created test vault:${RESET} ${vaultPath}\n`);
 	return true;
 }
 
@@ -76,11 +77,11 @@ export async function reviewMenu(projectPath: string, config: ReviewConfig): Pro
 
 	const beforeMenu = (): void => {
 		const vaultExists = fs.existsSync(testVault);
-		console.log(`    ${DIM}Journeys:${RESET}   ${journeys.length} found in ${journeysDir}`);
-		console.log(`    ${DIM}Test vault:${RESET} ${vaultExists ? `${GREEN}exists${RESET}` : `${YELLOW}not created${RESET}`} ${DIM}(${testVault})${RESET}`);
+		log(`    ${DIM}Journeys:${RESET}   ${journeys.length} found in ${journeysDir}`);
+		log(`    ${DIM}Test vault:${RESET} ${vaultExists ? `${GREEN}exists${RESET}` : `${YELLOW}not created${RESET}`} ${DIM}(${testVault})${RESET}`);
 		const buildIcon = buildPassed ? `${GREEN}✓${RESET}` : `${DIM}○${RESET}`;
-		console.log(`    ${DIM}Pipeline:${RESET}  ${buildIcon} Build  →  ${DIM}○${RESET} E2E`);
-		console.log();
+		log(`    ${DIM}Pipeline:${RESET}  ${buildIcon} Build  →  ${DIM}○${RESET} E2E`);
+		log();
 	};
 
 	const items: MenuEntry[] = [
@@ -141,13 +142,13 @@ export async function reviewMenu(projectPath: string, config: ReviewConfig): Pro
 	if (journeys.length > 0) {
 		items.push(
 			{ key: "l", label: "List journeys", action: () => {
-				console.log(`\n  ${BOLD}Journeys${RESET} ${DIM}(${journeysDir})${RESET}\n`);
+				log(`\n  ${BOLD}Journeys${RESET} ${DIM}(${journeysDir})${RESET}\n`);
 				for (const j of journeys) {
 					const title = j.meta.journey ?? j.name;
 					const desc = j.meta.description ? `${DIM} — ${j.meta.description}${RESET}` : "";
-					console.log(`    ${CYAN}${title}${RESET}${desc}`);
+					log(`    ${CYAN}${title}${RESET}${desc}`);
 				}
-				console.log();
+				log();
 			}},
 		);
 	}
@@ -156,7 +157,7 @@ export async function reviewMenu(projectPath: string, config: ReviewConfig): Pro
 	items.push(
 		{ key: "v", label: "Create/ensure test vault", action: () => {
 			ensureTestVault(testVault);
-			console.log(`  ${GREEN}✓${RESET} Test vault ready: ${testVault}\n`);
+			log(`  ${GREEN}✓${RESET} Test vault ready: ${testVault}\n`);
 		}},
 		{ key: "o", label: "Open test vault in Explorer", action: () => {
 			ensureTestVault(testVault);
@@ -169,7 +170,7 @@ export async function reviewMenu(projectPath: string, config: ReviewConfig): Pro
 	if (config.teardown) {
 		items.push(
 			{ key: "t", label: "Teardown test vault", action: async () => {
-				console.log(`\n  ${YELLOW}This will reset the test vault to a fresh state.${RESET}`);
+				log(`\n  ${YELLOW}This will reset the test vault to a fresh state.${RESET}`);
 				const rl = createRL();
 				const confirm = await ask(rl, "Continue? (y/N)", "N");
 				rl.close();
@@ -183,7 +184,7 @@ export async function reviewMenu(projectPath: string, config: ReviewConfig): Pro
 	if (config.rebuild) {
 		items.push(
 			{ key: "x", label: "Rebuild test vault (teardown + setup)", action: async () => {
-				console.log(`\n  ${YELLOW}This will teardown and rebuild the test vault from scratch.${RESET}`);
+				log(`\n  ${YELLOW}This will teardown and rebuild the test vault from scratch.${RESET}`);
 				const rl = createRL();
 				const confirm = await ask(rl, "Continue? (y/N)", "N");
 				rl.close();

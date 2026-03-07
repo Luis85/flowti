@@ -13,6 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
+import { log } from "../../../infrastructure/logger.js";
 
 const OUTPUT_DIR = path.join(ROOT, "docs", "reports", "builds");
 const MANIFEST_PATH = path.join(ROOT, "manifest.json");
@@ -48,41 +49,33 @@ interface OutputEntry {
 	bytes: number;
 }
 
-function main(): void {
-	const args = parseArgs();
-	const metafilePath = args.metafile || process.env.BUILD_METAFILE;
+interface ByteSummary {
+	totalBytes: number;
+	jsBytes: number;
+	cssBytes: number;
+	otherBytes: number;
+	outputs: OutputEntry[];
+}
 
-	if (!metafilePath || !fs.existsSync(metafilePath)) {
-		console.log("[report] No metafile found — skipping build report.");
-		return;
+function collectOutputs(metafile: Record<string, unknown>): ByteSummary {
+	const result: ByteSummary = { totalBytes: 0, jsBytes: 0, cssBytes: 0, otherBytes: 0, outputs: [] };
+	const outputs = metafile?.outputs as Record<string, { bytes?: number }> | undefined;
+	if (!outputs) return result;
+
+	for (const [file, info] of Object.entries(outputs)) {
+		const bytes = info.bytes || 0;
+		result.totalBytes += bytes;
+		if (file.endsWith(".js")) result.jsBytes += bytes;
+		else if (file.endsWith(".css")) result.cssBytes += bytes;
+		else result.otherBytes += bytes;
+		result.outputs.push({ file: path.basename(file), bytes });
 	}
+	return result;
+}
 
-	const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, "utf-8"));
-	const metafile = JSON.parse(fs.readFileSync(metafilePath, "utf-8"));
-	const isRelease = args.release === "true";
-	const buildType = args["build-type"];
-	const duration = parseInt(args.duration || "0", 10);
-	const warningsCount = parseInt(args.warnings || "0", 10);
-	const errorsCount = parseInt(args.errors || "0", 10);
-	const now = new Date();
-
-	let totalBytes = 0;
-	let jsBytes = 0;
-	let cssBytes = 0;
-	let otherBytes = 0;
-	const outputs: OutputEntry[] = [];
-
-	if (metafile?.outputs) {
-		for (const [file, info] of Object.entries(metafile.outputs) as [string, { bytes?: number }][]) {
-			const bytes = info.bytes || 0;
-			totalBytes += bytes;
-			if (file.endsWith(".js")) jsBytes += bytes;
-			else if (file.endsWith(".css")) cssBytes += bytes;
-			else otherBytes += bytes;
-			outputs.push({ file: path.basename(file), bytes });
-		}
-	}
-
+function buildBuildFm(
+	manifest: Record<string, string>, now: Date, args: Record<string, string>, sizes: ByteSummary,
+): Record<string, string | number | boolean> {
 	const fm: Record<string, string | number | boolean> = {
 		type: "BuildReport",
 		plugin_id: manifest.id,
@@ -90,49 +83,69 @@ function main(): void {
 		mode: "production",
 		build_time_iso: now.toISOString(),
 		build_time_local: safeLocalTime(now),
-		duration_ms: duration,
+		duration_ms: parseInt(args.duration || "0", 10),
 		minified: true,
 		sourcemap: false,
-		warnings_count: warningsCount,
-		errors_count: errorsCount,
-		total_bytes: totalBytes,
-		js_bytes: jsBytes,
-		css_bytes: cssBytes,
-		other_bytes: otherBytes,
+		warnings_count: parseInt(args.warnings || "0", 10),
+		errors_count: parseInt(args.errors || "0", 10),
+		total_bytes: sizes.totalBytes,
+		js_bytes: sizes.jsBytes,
+		css_bytes: sizes.cssBytes,
+		other_bytes: sizes.otherBytes,
 		node_version: process.version,
 	};
-
 	if (process.env.GITHUB_SHA) fm.git_commit = process.env.GITHUB_SHA;
+	return fm;
+}
+
+function main(): void {
+	const args = parseArgs();
+	const metafilePath = args.metafile || process.env.BUILD_METAFILE;
+
+	if (!metafilePath || !fs.existsSync(metafilePath)) {
+		log("[report] No metafile found — skipping build report.");
+		return;
+	}
+
+	const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, "utf-8")) as Record<string, string>;
+	const metafile = JSON.parse(fs.readFileSync(metafilePath, "utf-8")) as Record<string, unknown>;
+	const now = new Date();
+	const sizes = collectOutputs(metafile);
+	const fm = buildBuildFm(manifest, now, args, sizes);
+
+	const duration = fm.duration_ms as number;
+	const warningsCount = fm.warnings_count as number;
+	const errorsCount = fm.errors_count as number;
 
 	const doc = Document.create("Build Report").mergeFrontmatter(fm);
 
-	// Optional template body
 	if (fs.existsSync(TEMPLATE_PATH)) {
-		const templateBody = fs.readFileSync(TEMPLATE_PATH, "utf-8").trim();
-		doc.addBlank().text(templateBody);
+		doc.addBlank().text(fs.readFileSync(TEMPLATE_PATH, "utf-8").trim());
 	}
 
 	doc.addBlank()
 		.callout("info", "Build Summary", [
 			`Mode: production`,
 			`Duration: ${duration} ms`,
-			`Bundle Size: ${humanBytes(totalBytes)}`,
+			`Bundle Size: ${humanBytes(sizes.totalBytes)}`,
 			`Warnings: ${warningsCount}`,
 			`Errors: ${errorsCount}`,
 		])
 		.addBlank();
 
-	if (outputs.length > 0) {
+	if (sizes.outputs.length > 0) {
 		doc.heading(2, "Outputs")
 			.addBlank()
 			.table(
 				["File", "Size"],
-				outputs.sort((a, b) => b.bytes - a.bytes).map((o) => [o.file, humanBytes(o.bytes)]),
+				sizes.outputs.sort((a, b) => b.bytes - a.bytes).map((o) => [o.file, humanBytes(o.bytes)]),
 				{ alignRight: [1] },
 			)
 			.addBlank();
 	}
 
+	const isRelease = args.release === "true";
+	const buildType = args["build-type"];
 	const safeTimestamp = now.toISOString().replace(/:/g, "-");
 	const prefix = buildType === "increment"
 		? "increment-build-report"
@@ -142,7 +155,7 @@ function main(): void {
 
 	doc.save(outputPath);
 
-	console.log(`[report] BuildReport written: ${outputPath}`);
+	log(`[report] BuildReport written: ${outputPath}`);
 }
 
 main();

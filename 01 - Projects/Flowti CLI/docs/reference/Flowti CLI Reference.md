@@ -1,6 +1,6 @@
 ---
 type: CLIReference
-date: "2026-03-07T20:52:16.144Z"
+date: "2026-03-07T21:28:18.554Z"
 sections: 9
 cli_commands: 25
 npm_scripts: 37
@@ -214,11 +214,12 @@ Each project configures its reports dir and generators in flowti.config.json.
 
 PROJECT DETAIL MENU (key 5)
   1) Run All Reports
-     Runs the project's configured reports command.
+     Runs the project's configured reports command and generates
+     a Project Summary with risks, improvements, and state overview.
      → Reads reports.allCommand or tools.reports from flowti.config.json
 
-  2) Project Status Report
-     Generates a snapshot of source stats, git status, and config.
+  2..n) Individual generators
+     Run a single report generator from reports.generators config.
 
 NON-INTERACTIVE (plugin)
   1) Build all reports
