@@ -3,7 +3,7 @@ domain: Flowti
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
 stage: development_ready
-version: 1
+version: 2
 maturity: L1
 created: 2026-03-07
 updated: 2026-03-07
@@ -37,11 +37,12 @@ tags:
 
 ## 1. Problem Statement
 
-Flowti's development workflow relies on 37 npm scripts, 14 report generators, and an esbuild pipeline with multiple flags. A new developer pulling the repository faces:
+Managing multiple development projects across an Obsidian vault involves:
 
-- **Discovery friction** — no single entry point to understand available commands, pipelines, and scaffolding tools.
-- **Script sprawl** — dozens of npm scripts with overlapping names (`build`, `build:only`, `build:full`, `build:increment`, `build:release`, `build:distribution`) that are difficult to navigate without tribal knowledge.
-- **No scaffolding** — creating a new Hub or Plugin requires copy-pasting from existing code and manually wiring domain events, tests, CSS layers, and documentation.
+- **Discovery friction** — no single entry point to understand available commands, pipelines, and scaffolding tools across projects.
+- **Script sprawl** — each project has its own npm scripts with overlapping names that are difficult to navigate without tribal knowledge.
+- **No scaffolding** — creating a new Hub, Plugin, or Component requires copy-pasting from existing code and manually wiring domain events, tests, CSS layers, and documentation.
+- **Per-project configuration** — each project has different build commands, test runners, publish endpoints, and review workflows, but no unified way to manage them.
 - **AI Agent gap** — LLM-based coding agents cannot explore interactive menus; they need deterministic, non-interactive commands with predictable output and exit codes.
 - **Stale documentation** — CLI capabilities change with every cycle, but manual documentation drifts out of sync.
 
@@ -51,12 +52,14 @@ Flowti's development workflow relies on 37 npm scripts, 14 report generators, an
 
 After implementation, developers and AI agents will have:
 
-- A single `npm run flowti` entry point with an interactive menu system and contextual help.
-- Non-interactive commands for every action (`npm run flowti -- build`, `npm run flowti -- make:hub --name=X`), enabling scripted pipelines and AI agent tool use.
-- Hub and Plugin scaffolding that generates production-ready boilerplate following Flowti's DDD, EventBus, and BaseHubView patterns.
-- Auto-generated CLI reference documentation that stays in sync with the source — generated on every increment build.
-- A gated publish pipeline that enforces build-then-test-then-release sequencing.
-- Man-pages accessible via `?` in any interactive menu or `npm run flowti -- help [section]`.
+- A single entry point (`./flowti.cmd` or `npm run dev`) with a two-stage interactive menu: project selection → project detail.
+- Per-project configuration via `configs/flowti.config.json` with auto-scaffolding from `package.json` on first selection.
+- 7 project tools: Make, Build, Review, Publish, Reports, Dev Tools, Npm Scripts — some always available, some config-mapped.
+- Hub, Plugin, and Component scaffolding that generates production-ready boilerplate following Flowti's DDD, EventBus, and BaseHubView patterns.
+- A gated publish pipeline that enforces build → test → distribute sequencing per project.
+- E2E review with test vault isolation (created outside the git repository).
+- Non-interactive commands for AI agent tool use with deterministic exit codes.
+- Auto-generated reports (test, coverage, codebase, complexity) per project.
 
 ---
 
@@ -64,16 +67,17 @@ After implementation, developers and AI agents will have:
 
 ### In Scope
 
-- Interactive CLI menu system (7 top-level menus)
-- Non-interactive command dispatch for all actions
-- Hub scaffolding (9 files: view, types, events, service, provider, test, CSS, PRD, journey)
-- Plugin scaffolding (6 files: manifest, package.json, tsconfig, esbuild, main.ts, .gitignore)
-- Man-page system (8 help sections)
-- Auto-generated CLI Reference vault note (`docs/reference/Flowti CLI Reference.md`)
-- Gated publish pipeline with session-scoped state tracking
+- Two-stage interactive menu (project selection → project detail with 7 tools)
+- Project discovery from two directories (`01 - Projects/` and `Development/`)
+- Per-project configuration via `configs/flowti.config.json` with auto-scaffolding
+- Hub, Plugin, and Component scaffolding
+- Gated publish pipeline with per-project endpoints
+- E2E review with test vault isolation (outside git repository)
+- Report generation (test, coverage, codebase, complexity)
+- Man-page system with contextual help
 - Info command with live project diagnostics
-- Developer onboarding journey (build from source, activate, explore)
-- AI Agent compatibility (deterministic exit codes, structured output, `--` flag syntax)
+- Non-interactive command dispatch for AI agent tool use
+- Persistent state (selected project, project source) via `.flowti-state.json`
 
 ### Out of Scope
 
@@ -91,11 +95,13 @@ After implementation, developers and AI agents will have:
 
 | Entry Point | Command | Context |
 |-------------|---------|---------|
-| Interactive menu | `npm run flowti` | Full menu system with navigation, help, and status |
-| Section help | `npm run flowti -- help build` | Contextual man-page for a specific section |
-| Quick build | `npm run flowti -- build` | Fast build without reports (~2s) |
-| Scaffold hub | `npm run flowti -- make:hub --name=Inventory` | Non-interactive hub generation |
-| Project info | `npm run flowti -- info` | Live project stats, git status, config health |
+| Interactive menu | `./flowti.cmd` or `npm run dev` | Two-stage menu: select project → project tools |
+| Quick build | Select project → key `2` | Run the project's configured build command |
+| Scaffold | Select project → key `1` | Generate hub, plugin, component, or journey files |
+| Review | Select project → key `3` | E2E journey review with test vault management |
+| Publish | Select project → key `4` | Gated pipeline: build → test → distribute |
+| Reports | Select project → key `5` | Run the project's configured reports command |
+| Npm scripts | Select project → key `7` | Browse and run any script from package.json |
 | In-menu help | Press `?` in any menu | Contextual help for the current menu |
 
 ### AI Agent (Tool Use)
@@ -103,11 +109,11 @@ After implementation, developers and AI agents will have:
 | Capability | Command | Expected Output |
 |-----------|---------|----------------|
 | Discover commands | `npm run flowti -- help` | Structured help text (parseable) |
-| Build plugin | `npm run flowti -- build` | Exit 0 on success, non-zero on failure |
+| Build project | `npm run flowti -- build` | Exit 0 on success, non-zero on failure |
 | Run tests | `npm run flowti -- test` | Exit 0 if all tests pass |
 | Scaffold code | `npm run flowti -- make:hub --name=X --tabs=a,b` | File list output, exit 0 |
 | Check project | `npm run flowti -- info` | Structured project metadata |
-| Generate docs | `npm run flowti -- report:cli-ref` | Updated docs/reference/Flowti CLI Reference.md |
+| Generate reports | `npm run flowti -- reports` | Generated report files |
 
 ---
 
@@ -115,12 +121,14 @@ After implementation, developers and AI agents will have:
 
 ### FR-01: Interactive Menu System
 
-- [x] FR-01.1: Main menu with 7 options (Make, Build, Review, Publish, Reports, Dev Tools, Info)
-- [x] FR-01.2: Sub-menus with numbered options and separator support
-- [x] FR-01.3: ANSI color output (cyan options, green success, red errors, dim hints)
-- [x] FR-01.4: Quit with `q` from any menu, return to main with `b`
-- [x] FR-01.5: Help with `?` in any menu showing contextual man-page
-- [x] FR-01.6: Command execution with timing display
+- [x] FR-01.1: Start menu listing projects from `01 - Projects/` and `Development/` directories
+- [x] FR-01.2: Project detail menu with 7 tools (Make, Build, Review, Publish, Reports, Dev Tools, Npm Scripts)
+- [x] FR-01.3: Sub-menus with numbered options and separator support
+- [x] FR-01.4: ANSI color output (cyan options, green success, red errors, dim hints)
+- [x] FR-01.5: Quit with `q` from any menu, return to start menu with `b`
+- [x] FR-01.6: Help with `?` in any menu showing contextual man-page
+- [x] FR-01.7: Command execution with timing display
+- [x] FR-01.8: Persistent state — selected project remembered across sessions via `.flowti-state.json`
 
 ### FR-02: Non-Interactive Commands
 
@@ -191,13 +199,14 @@ After implementation, developers and AI agents will have:
 - [x] FR-08.4: Display git status (branch, commit, clean/dirty)
 - [x] FR-08.5: Display config health (report count, endpoints file, config file)
 
-### FR-09: Configuration
+### FR-09: Per-Project Configuration
 
-- [x] FR-09.1: `flowti.config.json` as single configuration source
-- [x] FR-09.2: Configurable make paths (`make.hub.*`, `make.plugin.output`)
-- [x] FR-09.3: Report script registry (`reports.scripts[]`)
-- [x] FR-09.4: Path configuration (`paths.pluginRoot`, `paths.pluginOutput`, etc.)
-- [x] FR-09.5: Build configuration (`build.entry`, `build.minify`, `build.sourcemap`)
+- [x] FR-09.1: Each project configured via `configs/flowti.config.json`
+- [x] FR-09.2: Auto-scaffolding — config created from `package.json` on first project selection
+- [x] FR-09.3: Mappable tools (`tools.build`, `tools.reports`, `tools.devtools`) enable/disable menu items per project
+- [x] FR-09.4: Publish config (`publish.build`, `publish.test`, `publish.outDir`, `publish.artifacts`, `publish.endpoints[]`)
+- [x] FR-09.5: Review config (`review.journeysDir`, `review.runner`, `review.build`, `review.test`)
+- [x] FR-09.6: CLI kernel config in `flowti-cli.config.json` — subsystem mappings, projects folder, capture directories
 
 ### FR-10: Developer Onboarding Journey
 
@@ -213,25 +222,26 @@ After implementation, developers and AI agents will have:
 
 No runtime data model changes. The CLI operates at build-time only.
 
-**Project location:** `01 - Projects/Flowti CLI/` (kernel-space, see [Architecture](../../../01%20-%20Projects/Flowti%20CLI/docs/Architecture.md))
+**Project location:** `01 - Projects/Flowti CLI/` (see [Architecture](docs/Architecture.md))
 
 **Configuration files:**
 
 | File | Location | Purpose |
 |------|----------|---------|
-| `flowti-cli.config.json` | `01 - Projects/Flowti CLI/` | Kernel config: subsystem path mappings |
-| `flowti.config.json` | `Development/flowti/` | Plugin project config: paths, build, make, reports |
-| `build-endpoints.json` | `Development/flowti/` | Distribution endpoints for multi-vault deploy |
-| `manifest.json` | `Development/flowti/` | Obsidian plugin metadata (consumed by info command) |
-| `package.json` | `Development/flowti/` | npm scripts (consumed by info command and documentation generator) |
+| `flowti-cli.config.json` | `01 - Projects/Flowti CLI/configs/` | Kernel config: projects folder, subsystem mappings, capture dirs |
+| `.flowti-state.json` | `01 - Projects/Flowti CLI/configs/` | Persistent state: selected project, project source |
+| `flowti.config.json` | `<project>/configs/` | Per-project config: tool mappings, publish, review settings |
+| `package.json` | `<project>/` | npm scripts (consumed by auto-scaffolding, info, npm scripts menu) |
 
 **Generated artifacts:**
 
 | Artifact | Path | Trigger |
 |----------|------|---------|
-| CLI Reference | `docs/reference/Flowti CLI Reference.md` | Increment build, `report:cli-ref` |
-| Hub boilerplate | `src/ui/<hub>/`, `src/domain/<hub>/`, `tests/ui/<hub>/` | `make:hub` command |
-| Plugin boilerplate | `../<plugin-id>/` | `make:plugin` command |
+| Hub boilerplate | `<project>/src/ui/<hub>/`, `src/domain/<hub>/` | `make:hub` command |
+| Plugin boilerplate | `Development/<plugin-id>/` | `make:plugin` command |
+| Component boilerplate | `<project>/src/ui/components/<name>/` | `make:component` command |
+| Reports | `<cli>/docs/reports/{complexity,tests,coverage,codebase}/` | `npm run reports` |
+| Test vault | `C:\Projects\<project>-e2e\` | Review → Create test vault |
 
 ---
 
@@ -263,7 +273,7 @@ No adapter changes. The CLI uses Node.js built-ins exclusively (readline, child_
 |-------------|--------|
 | CLI startup time | < 100ms |
 | Fast build (`npm run flowti -- build`) | < 3s |
-| No external dependencies | Node.js built-ins only (readline, fs, path, child_process) |
+| No production dependencies | Dev tooling only (TypeScript, Vitest, tsx, ESLint); runtime uses Node.js built-ins |
 | Cross-platform | Windows, macOS, Linux |
 | AI Agent compatibility | Deterministic exit codes, no interactive prompts in non-interactive mode |
 | Generated docs accuracy | Auto-generated from source; always reflects current CLI state |
@@ -276,27 +286,27 @@ No adapter changes. The CLI uses Node.js built-ins exclusively (readline, child_
 
 | Risk | Mitigation |
 |------|------------|
-| CLI source grows beyond maintainability | Single-file design keeps cognitive load low; HELP object is declarative |
-| Generated docs drift from CLI behavior | Generator parses CLI source directly; no manual sync required |
+| CLI source grows beyond maintainability | Modular domain structure (make/, publish/, review/, reports/) keeps cognitive load low |
+| Per-project config divergence | Auto-scaffolding from package.json ensures consistent defaults |
 | Hub template drift from BaseHubView API | Templates reference stable patterns from ADR-024; test validates compilation |
 | AI agent cannot parse CLI output | Non-interactive mode returns clean stdout; exit codes are deterministic |
 | Scaffolded code doesn't compile | E2E journey validates build after scaffold |
+| Test vault accumulation on disk | Test vaults outside git; user manages lifecycle via Review menu |
 | Node.js readline quirks on Windows | Tested on Windows; ANSI colors gracefully degrade |
 
 ---
 
 ## 12. Acceptance Criteria
 
-- [x] `npm run flowti` starts interactive menu and quits cleanly with `q`
-- [x] `npm run flowti -- build` completes a fast build with exit code 0
-- [x] `npm run flowti -- help` displays all sections and commands
-- [x] `npm run flowti -- info` shows accurate plugin metadata and git status
-- [x] `npm run flowti -- make:hub --name=Test --tabs=overview,items` generates 9 files
-- [x] `npm run flowti -- make:plugin --name="Test Plugin"` generates 6 files in correct directory
-- [x] `npm run flowti -- report:cli-ref` generates up-to-date CLI Reference vault note
-- [x] Generated CLI Reference includes non-interactive command table, npm scripts, and report generators
-- [x] Pressing `?` in Build menu shows Build help section
-- [x] `npm test` passes with all tests green (CLI is build-time, does not affect test suite)
+- [x] `npm run dev` starts interactive menu with project selection and quits cleanly with `q`
+- [x] Selecting a project shows detail menu with 7 tools (Make, Build, Review, Publish, Reports, Dev Tools, Npm Scripts)
+- [x] Projects without `flowti.config.json` get auto-scaffolded config on first selection
+- [x] Mappable tools (Build, Reports, Dev Tools) disabled when not configured
+- [x] Review creates test vault outside git repository
+- [x] Publish pipeline enforces build → test → distribute gating
+- [x] `npm run build` compiles TypeScript to `bin/` without errors
+- [x] `npm test` passes with all 51 tests green
+- [x] Pressing `?` in any menu shows contextual help
 - [ ] Developer onboarding E2E journey passes against live Obsidian instance
 - [ ] AI agent can use non-interactive commands to build, test, and scaffold without human intervention
 
@@ -306,10 +316,43 @@ No adapter changes. The CLI uses Node.js built-ins exclusively (readline, child_
 
 - [x] All FR-01 through FR-09 implemented and manually verified
 - [ ] FR-10 (E2E journey) implemented and passing
-- [x] CLI Reference auto-generated on every increment build
-- [x] Man-pages cover all 7 menus with accurate descriptions
-- [x] Non-interactive commands tested for all 25 command variants
-- [x] No external dependencies added to package.json
-- [ ] README updated with CLI section and developer onboarding instructions
-- [x] `flowti.config.json` documents all CLI configuration options
+- [x] Two-stage menu (start → project detail) working for both project directories
+- [x] Per-project auto-scaffolding generates valid `flowti.config.json`
+- [x] Man-pages cover all tool menus with accurate descriptions
+- [x] TypeScript strict mode with Vitest test suite (51 tests)
+- [x] No production dependencies — dev tooling only
+- [x] README, Architecture, and PRD updated to reflect project-centric architecture
 - [ ] Developer onboarding scenario tested end-to-end
+
+---
+
+## 14. Improvements
+
+Planned improvements to evolve the CLI beyond its current state:
+
+### Short-Term
+
+| ID | Improvement | Description |
+|----|-------------|-------------|
+| IMP-01 | **Non-interactive command dispatch** | Add `--project=<name>` flag to all commands so AI agents and scripts can target a specific project without interactive selection |
+| IMP-02 | **Component scaffolding** | Extend Make tool with component templates (UI component, service, event handler) following established DDD patterns |
+| IMP-03 | **Journey scaffolding** | Extend Make tool with E2E journey templates that generate test files, config JSON, and canvas stubs |
+| IMP-04 | **Report archive navigation** | Reports menu should list past reports from `docs/reports/` subdirectories with timestamps |
+
+### Medium-Term
+
+| ID | Improvement | Description |
+|----|-------------|-------------|
+| IMP-05 | **Project health dashboard** | Aggregate project stats (test count, coverage, build status, last activity) into a summary view |
+| IMP-06 | **Config validation** | Validate `flowti.config.json` against a schema with helpful error messages for misconfigured projects |
+| IMP-07 | **Review pipeline gating** | Add build → test gating to Review (like Publish) before running E2E journeys |
+| IMP-08 | **Capture integration** | Idea capture from CLI — quick-add notes to vault inbox or project-specific inbox |
+
+### Long-Term
+
+| ID | Improvement | Description |
+|----|-------------|-------------|
+| IMP-09 | **Plugin marketplace publishing** | Extend Publish with BRAT/community plugin release workflow |
+| IMP-10 | **Cross-project dependencies** | Detect and visualize dependencies between projects (e.g., CLI depends on plugin patterns) |
+| IMP-11 | **CI/CD integration** | Generate GitHub Actions workflows from project config for automated build/test/publish |
+| IMP-12 | **Self-update mechanism** | CLI checks for updates and can rebuild itself when source changes are detected |

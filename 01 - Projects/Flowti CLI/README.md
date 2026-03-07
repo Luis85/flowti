@@ -1,6 +1,6 @@
 # Flowti CLI
 
-The Flowti CLI is the **kernel-space orchestrator** for the Flowti IBDE (Integrated Business Development Environment). It manages plugin development workflows, scaffolding, builds, testing, reporting, and publishing — all from a single command-line tool.
+The Flowti CLI is a **project-centric development orchestrator** for the Flowti ecosystem. It manages multiple projects with per-project configuration, scaffolding, builds, testing, reporting, code analysis, and publishing — all from a single interactive command-line tool.
 
 ## Quick Start
 
@@ -14,152 +14,150 @@ From the vault root (`c:\Projects\flowti`):
 ./flowti.sh
 ```
 
-On first run, the CLI automatically:
-1. **Checks prerequisites** — verifies Git and Node.js v16+ are installed (exits with download links if missing)
-2. **Installs dependencies** — detects missing `node_modules` and runs `npm install`
-3. **Guides you** — if the plugin hasn't been built yet, prompts you to select Build
-4. **Post-build guidance** — after a successful build, shows next steps to activate the plugin in Obsidian
+Or from the CLI project directly:
+
+```bash
+npm run dev
+```
 
 ## Architecture
 
-The CLI follows a **kernel-space architecture**:
+The CLI follows a **project-centric architecture** with two layers:
 
-| Layer | Component | Access |
-|-------|-----------|--------|
-| **Kernel** | Flowti CLI | Privileged — full filesystem, process, git access |
-| **Kernel Subsystem** | Plugin Development (`Development/flowti/`) | Privileged — source code, tests, build pipeline |
-| **User Space** | Built Plugin (`.obsidian/plugins/flowti-ibde/`) | Restricted — Obsidian sandbox, EventBus only |
-| **Host** | Obsidian | Provides runtime, CLI tools for sync and automation |
+| Layer | Purpose |
+|-------|---------|
+| **CLI Core** | Menu system, shell execution, state management, document builder |
+| **Per-Project** | Each project has its own `configs/flowti.config.json` with tool mappings, publish endpoints, and review settings |
+
+Projects are discovered from two directories:
+- **Projects** (`01 - Projects/`) — standalone projects (CLI, libraries, tools)
+- **Development** (`Development/`) — plugin development projects
 
 See [Architecture.md](docs/Architecture.md) for the full design document.
-
-## Onboarding Flow
-
-```
-flowti.cmd
-  → checkPrerequisites()     Git, Node.js v16+ — exits with install links if missing
-  → ensureDependencies()     Auto-runs npm install if node_modules is missing
-  → checkFirstRun()          Hints "select Build" if plugin not yet built
-  → Main Menu
-    → Build → showPostBuildGuidance()   Guides user to open Obsidian + activate plugin
-```
-
-**Exit codes:** `0` = success, `1` = failure, `2` = missing prerequisites.
 
 ## Project Structure
 
 ```
 01 - Projects/Flowti CLI/
 ├── src/
-│   └── flowti-cli.mjs          # CLI source (~2000 LOC, zero dependencies)
+│   ├── main.ts                     # Entry point (two-loop: start → project detail)
+│   ├── mainMenu.ts                 # Project detail menu builder
+│   ├── types.ts                    # Shared type definitions
+│   ├── domain/
+│   │   ├── make/                   # Scaffolding (hub, plugin, component, journey)
+│   │   ├── publish/                # Gated publish pipeline (build → test → distribute)
+│   │   ├── review/                 # E2E journey review (test vault, runner)
+│   │   ├── project/                # Project config detection and scaffolding
+│   │   ├── info/                   # Project info and diagnostics
+│   │   ├── help/                   # Man-page system
+│   │   ├── capture/                # Idea and note capture
+│   │   ├── knowledgebase/          # Obsidian knowledgebase integration
+│   │   ├── reports/                # Report generators (test, coverage, codebase, complexity, status)
+│   │   └── devtools/               # Developer tools (reload, frontmatter fix)
+│   └── infrastructure/
+│       ├── config.ts               # Path resolution and config loading
+│       ├── menu.ts                 # Data-driven menu engine
+│       ├── shell.ts                # Shell execution wrappers
+│       ├── state.ts                # Persistent CLI state
+│       ├── document.ts             # Markdown document builder (YAML FM, tables, callouts)
+│       ├── ui.ts                   # ANSI color output and menu rendering
+│       ├── readline.ts             # Interactive input
+│       └── fs.ts                   # File system helpers
+├── tests/                          # Vitest test suites (51 tests)
 ├── configs/
-│   └── flowti-cli.config.json  # Kernel config — maps to managed subsystems
-├── README.md                   # This file
-└── docs/
-    └── Architecture.md         # Kernel-space design document
-
-Vault Root (c:\Projects\flowti\)
-├── flowti.cmd                  # Windows entry point
-├── flowti.sh                   # Unix entry point
-└── Development/flowti/
-    └── scripts/flowti-cli.mjs  # Redirect stub (backwards compatibility)
+│   ├── flowti-cli.config.json      # CLI kernel config (subsystem mappings)
+│   ├── flowti.config.json          # CLI's own project config
+│   ├── tsconfig.json               # TypeScript configuration
+│   ├── vitest.config.ts            # Vitest configuration
+│   ├── eslint.config.mjs           # ESLint configuration
+│   └── typedoc.json                # TypeDoc configuration
+├── docs/
+│   ├── Architecture.md             # Architecture design document
+│   ├── Flowti CLI Reference.md     # Auto-generated CLI reference
+│   └── reports/                    # Generated reports (complexity, coverage, tests, codebase)
+├── package.json                    # npm scripts and devDependencies
+├── Flowti CLI PRD.md               # Product Requirements Document
+└── README.md                       # This file
 ```
 
 ## Interactive Mode
 
-Run without arguments for the interactive menu:
+Run without arguments for the two-stage interactive menu:
 
-```
-flowti.cmd
-```
+### Start Menu (Project Selection)
 
-**Main Menu:**
+| Key | Description |
+|-----|-------------|
+| 1-N | Select a project from the projects directory |
+| d | Switch to development projects |
+| q | Quit |
 
-| Key | Section | Description |
-|-----|---------|-------------|
-| 1 | Make | Scaffold new hub or plugin from templates |
-| 2 | Build | Fast build, full build, watch, distribute |
-| 3 | Review | E2E test sessions, teardown, rebuild |
-| 4 | Publish | Build, test, publish pipeline |
-| 5 | Reports | Generate vault reports (14 generators) |
-| 6 | Dev Tools | Plugin reload, console, errors, frontmatter, test data |
-| 7 | Info | Project stats, version, config overview |
-| ? | Help | Contextual man-pages |
-| q | Quit | Exit CLI |
+### Project Detail Menu
 
-## Non-Interactive Mode (AI Agent / CI)
+| Key | Tool | Description |
+|-----|------|-------------|
+| 1 | Make | Scaffold new hub, plugin, component, or journey |
+| 2 | Build | Run the project's build command (mapped tool) |
+| 3 | Review | E2E journey review, test vault management |
+| 4 | Publish | Gated pipeline: build → test → distribute to endpoints |
+| 5 | Reports | Run the project's reports command (mapped tool) |
+| 6 | Dev Tools | Run the project's dev command (mapped tool) |
+| 7 | Npm Scripts | Run any npm script from the project's package.json |
 
-Every CLI capability is available as a deterministic, non-interactive command with structured exit codes:
+Tools 2, 5, 6 are **mappable** — enabled when the project's `flowti.config.json` maps them to a command. Tools 1, 3, 4 are **always available**.
 
-```bash
-# Build
-flowti.cmd build              # Fast build (esbuild, production)
-flowti.cmd build:full         # Full build (lint + type-check + test + build)
-flowti.cmd build:watch        # Watch mode (esbuild, incremental)
+## Per-Project Configuration
 
-# Information
-flowti.cmd info               # Project metadata and stats
-flowti.cmd help               # Full man-page
-flowti.cmd help build         # Section-specific help
-
-# Reports
-flowti.cmd reports:all        # Generate all 14 reports
-flowti.cmd reports:cli-ref    # Generate CLI Reference only
-
-# Development
-flowti.cmd dev:check          # Lint + type-check (no tests)
-flowti.cmd dev:reload         # Hot-reload plugin in Obsidian
-flowti.cmd dev:testdata       # Generate test fixtures
-
-# Testing
-flowti.cmd test:unit          # Run unit tests
-flowti.cmd test:coverage      # Run tests with coverage
-flowti.cmd test:e2e           # Run E2E journey tests
-
-# Publishing
-flowti.cmd publish:increment  # Increment build pipeline
-flowti.cmd publish:dist       # Distribution build
-flowti.cmd publish:release    # Full release build
-```
-
-**Exit codes:** `0` = success, `1` = failure, `2` = config error.
-
-## Configuration
-
-The CLI reads its subsystem mapping from `configs/flowti-cli.config.json`:
+Each project stores its config in `configs/flowti.config.json`:
 
 ```json
 {
-  "subsystems": {
-    "plugin": {
-      "root": "Development/flowti",
-      "config": "flowti.config.json",
-      "manifest": "manifest.json",
-      "package": "package.json",
-      "scripts": "scripts"
-    }
+  "name": "my-project",
+  "tools": {
+    "build": "npm run build",
+    "reports": "npm run reports",
+    "devtools": "npm run dev"
+  },
+  "publish": {
+    "build": "npm run build",
+    "test": "npm test",
+    "outDir": "dist",
+    "artifacts": ["main.js", "styles.css"],
+    "endpoints": [
+      { "name": "Local", "path": "../output", "clean": true }
+    ]
+  },
+  "review": {
+    "journeysDir": "tests/e2e/journeys",
+    "runner": "npm run test:e2e",
+    "build": "npm run build",
+    "test": "npm test"
   }
 }
 ```
 
-The plugin project's own configuration lives at `Development/flowti/flowti.config.json`.
+When a project is selected for the first time, the CLI auto-scaffolds this config from `package.json` scripts.
 
-## Auto-Generated Documentation
+## npm Scripts
 
-On every increment build, the CLI generates a **Flowti CLI Reference** vault note at `Development/flowti/docs/reference/Flowti CLI Reference.md`. This note contains:
-
-- All non-interactive commands with descriptions
-- All npm scripts with their command chains
-- Report generator inventory
-- Make configuration and templates
-- Configuration file reference
+| Script | Description |
+|--------|-------------|
+| `dev` | Run CLI in development mode via tsx |
+| `build` | Compile TypeScript to `bin/` |
+| `test` | Type-check + run vitest |
+| `check` | Type-check only (tsc --noEmit) |
+| `lint` | ESLint source |
+| `analysis` | Run complexity-analysis (coverage + decision points) |
+| `reports` | Generate all reports (test, coverage, codebase, complexity) |
+| `report:complexity` | Generate complexity report from analysis data |
+| `report:status` | Generate project status report |
 
 ## Dependencies
 
-**Zero external dependencies.** The CLI uses only Node.js built-ins: `child_process`, `fs`, `path`, `readline`.
+**Dev dependencies only.** The CLI has no production dependencies. Dev tooling: TypeScript, Vitest, Vite, tsx, ESLint, TypeDoc, `@pythonidaer/complexity-report`.
 
 ## Related Documents
 
-- PRD: `Development/flowti/docs/features/Flowti CLI/Flowti CLI PRD.md`
-- Auto-generated reference: `Development/flowti/docs/reference/Flowti CLI Reference.md`
-- Architecture: `docs/Architecture.md` (this project)
+- PRD: [Flowti CLI PRD.md](Flowti%20CLI%20PRD.md)
+- Architecture: [docs/Architecture.md](docs/Architecture.md)
+- CLI Reference: [docs/Flowti CLI Reference.md](docs/Flowti%20CLI%20Reference.md)

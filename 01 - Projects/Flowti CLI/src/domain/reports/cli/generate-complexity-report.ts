@@ -1,7 +1,7 @@
 /**
  * generate-complexity-report.ts — CLI project complexity report generator.
  *
- * Reads coverage/analysis.json (produced by `npm run analysis`) and generates
+ * Reads docs/reports/coverage/analysis.json (produced by `npm run analysis`) and generates
  * a markdown ComplexityReport with coverage, decision points, and top files.
  *
  * Usage: npm run analysis && tsx src/domain/reports/cli/generate-complexity-report.ts
@@ -12,7 +12,7 @@ import path from "node:path";
 import { CLI_PROJECT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 
-const ANALYSIS_JSON = path.join(CLI_PROJECT, "coverage", "analysis.json");
+const ANALYSIS_JSON = path.join(CLI_PROJECT, "docs", "reports", "coverage", "analysis.json");
 const OUTPUT_DIR = path.join(CLI_PROJECT, "docs", "reports", "complexity");
 const STABLE_PATH = path.join(CLI_PROJECT, "docs", "reports", "Complexity Report.md");
 
@@ -58,7 +58,7 @@ function pct(value: number | undefined): string {
 
 function main(): void {
 	if (!fs.existsSync(ANALYSIS_JSON)) {
-		console.log("[cli-report] No coverage/analysis.json found — run `npm run analysis` first.");
+		console.log("[cli-report] No docs/reports/coverage/analysis.json found — run `npm run analysis` first.");
 		return;
 	}
 

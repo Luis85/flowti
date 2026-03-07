@@ -13,7 +13,7 @@
 		"check": "tsc --project configs/tsconfig.json --noEmit",
 		"lint": "eslint --config configs/eslint.config.mjs src/",
 		"docs": "typedoc --options configs/typedoc.json",
-		"analysis": "complexity-analysis",
+		"analysis": "tsx scripts/run-analysis.ts",
 		"report:test": "npm run test:coverage && tsx src/domain/reports/cli/generate-test-report.ts",
 		"report:coverage": "npm run test:coverage && tsx src/domain/reports/cli/generate-coverage-report.ts",
 		"report:codebase": "npm run docs && tsx src/domain/reports/cli/generate-codebase-report.ts",

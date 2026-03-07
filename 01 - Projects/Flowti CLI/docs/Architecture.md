@@ -1,137 +1,155 @@
 ---
 type: Architecture
 domain: CLI
-title: Flowti CLI — Kernel-Space Architecture
-version: 1
+title: Flowti CLI — Project-Centric Architecture
+version: 2
 created: 2026-03-07
+updated: 2026-03-07
 ---
 
-# Flowti CLI — Kernel-Space Architecture
+# Flowti CLI — Project-Centric Architecture
 
 ## Mental Model
 
-The Flowti ecosystem follows a **kernel-space / user-space** architecture, inspired by operating system design:
+The Flowti CLI is a **project-centric orchestrator** that manages multiple development projects within an Obsidian vault. Each project gets its own configuration, tools, and workflows.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        HOST: Obsidian                       │
-│  Provides runtime, vault access, CLI tools (sync, automate) │
+│                      Obsidian Vault                          │
+│                   (c:\Projects\flowti\)                      │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  ┌───────────────────── KERNEL SPACE ─────────────────────┐ │
-│  │                                                         │ │
-│  │  ┌─────────────────────┐   ┌─────────────────────────┐ │ │
-│  │  │   Flowti CLI        │   │  Plugin Development     │ │ │
-│  │  │   (Orchestrator)    │──▶│  (Subsystem)            │ │ │
-│  │  │                     │   │                         │ │ │
-│  │  │  - Build pipeline   │   │  - src/ (TypeScript)    │ │ │
-│  │  │  - Scaffolding      │   │  - tests/ (Vitest)      │ │ │
-│  │  │  - Report generation│   │  - esbuild.config.mjs   │ │ │
-│  │  │  - E2E orchestration│   │  - flowti.config.json   │ │ │
-│  │  │  - Publishing       │   │  - package.json         │ │ │
-│  │  └─────────────────────┘   └───────────┬─────────────┘ │ │
-│  │                                         │ build         │ │
-│  └─────────────────────────────────────────┼───────────────┘ │
-│                                             ▼                │
-│  ┌───────────────────── USER SPACE ───────────────────────┐  │
-│  │                                                         │  │
-│  │  .obsidian/plugins/flowti-ibde/                         │  │
-│  │  ├── main.js          (bundled plugin)                  │  │
-│  │  ├── manifest.json    (plugin metadata)                 │  │
-│  │  └── styles.css       (plugin styles)                   │  │
-│  │                                                         │  │
-│  │  Restricted access: Obsidian API sandbox only           │  │
-│  │  Communication: EventBus (internal), EventBridge (API)  │  │
-│  └─────────────────────────────────────────────────────────┘  │
-│                                                               │
-└───────────────────────────────────────────────────────────────┘
+│  ┌────────────────── CLI Core ──────────────────────────┐   │
+│  │  01 - Projects/Flowti CLI/                           │   │
+│  │                                                       │   │
+│  │  Infrastructure: menu, shell, state, document, UI     │   │
+│  │  Domain: make, publish, review, reports, info, help   │   │
+│  └──────────┬────────────────────────┬──────────────────┘   │
+│             │                        │                      │
+│    ┌────────▼────────┐     ┌─────────▼─────────┐           │
+│    │  01 - Projects/  │     │  Development/      │           │
+│    │                  │     │                    │           │
+│    │  Flowti CLI      │     │  flowti (plugin)   │           │
+│    │  Project B       │     │  Project C         │           │
+│    │  Project C       │     │  ...               │           │
+│    │  ...             │     │                    │           │
+│    └──────────────────┘     └────────────────────┘           │
+│                                                             │
+│    Each project has:                                        │
+│    ├── configs/flowti.config.json  (tools, publish, review) │
+│    ├── package.json                (scripts, dependencies)  │
+│    └── src/                        (source code)            │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## Privilege Levels
+## Two-Loop Architecture
 
-### Kernel Space (Privileged)
+The CLI runs two nested loops:
 
-Components in kernel space have **full access** to the filesystem, process management, git, and external tools.
+```
+Start Menu Loop
+  │
+  ├── List projects (from PROJECTS_DIR or DEVELOPMENT_DIR)
+  ├── User selects a project → persisted in .flowti-state.json
+  │
+  └── Project Detail Loop
+        │
+        ├── initializeProject() → reads package.json, flowti.config.json
+        ├── buildProjectDetailMenu() → 7 tools + utilities
+        ├── User selects a tool → action runs in project directory
+        │
+        ├── "b" → Back → clears selected project → returns to Start Menu
+        └── "q" → Quit
+```
 
-**Flowti CLI** — The orchestrator:
-- Manages the entire development lifecycle
-- Spawns child processes (esbuild, vitest, tsc, eslint)
-- Reads/writes files anywhere in the vault
-- Executes git operations
-- Generates documentation and reports
-- No external npm dependencies (Node.js built-ins only)
+## Per-Project Configuration
 
-**Plugin Development** — The subsystem:
-- TypeScript source code compiled by esbuild
-- Test infrastructure (7,500+ Vitest tests)
-- Build configuration and scripts
-- Domain-driven architecture (DDD)
+Each project is configured via `configs/flowti.config.json`:
 
-### User Space (Restricted)
+```json
+{
+  "name": "project-name",
+  "tools": {
+    "build": "npm run build",
+    "reports": "npm run reports",
+    "devtools": "npm run dev"
+  },
+  "publish": { ... },
+  "review": { ... }
+}
+```
 
-The **built plugin** runs inside Obsidian's sandbox:
-- Can only access vault files through Obsidian's API
-- Cannot spawn processes or access the filesystem directly
-- Communicates via EventBus (internal) and EventBridge (Obsidian API bridge)
-- Has no knowledge of the kernel-space components
+**Auto-scaffolding**: When a project is selected for the first time and has a `package.json` but no `flowti.config.json`, the CLI auto-creates one by mapping well-known script names to Flowti tool keys.
 
-### Host Layer
+## Tool Categories
 
-**Obsidian** provides:
-- Plugin runtime environment
-- Vault filesystem abstraction
-- CLI tools for sync, automation, and agent workflows
-- Command palette, workspace, and UI framework
+### Always Available (project-independent logic)
+
+| Key | Tool | Description |
+|-----|------|-------------|
+| 1 | Make | Scaffold hub, plugin, component, or journey files |
+| 3 | Review | E2E journey scanning, test vault management, gated pipeline |
+| 4 | Publish | Build → Test → Distribute to configured endpoints |
+
+### Mappable (project-configured commands)
+
+| Key | Tool | Config Key | Description |
+|-----|------|-----------|-------------|
+| 2 | Build | `tools.build` | Run the project's build command |
+| 5 | Reports | `tools.reports` | Run the project's report generation |
+| 6 | Dev Tools | `tools.devtools` | Run the project's dev/watch command |
+
+### Submenu
+
+| Key | Tool | Description |
+|-----|------|-------------|
+| 7 | Npm Scripts | List and run any script from `package.json` |
 
 ## Path Resolution
 
-The CLI resolves paths through its kernel config (`configs/flowti-cli.config.json`):
-
 ```
-CLI_DIR          = 01 - Projects/Flowti CLI/src/
+CLI_PROJECT      = 01 - Projects/Flowti CLI/
 VAULT_ROOT       = ../../                          → c:\Projects\flowti\
-PLUGIN_ROOT      = VAULT_ROOT + subsystems.plugin.root  → Development/flowti/
-CONFIG_PATH      = PLUGIN_ROOT + subsystems.plugin.config
-MANIFEST_PATH    = PLUGIN_ROOT + subsystems.plugin.manifest
-PKG_PATH         = PLUGIN_ROOT + subsystems.plugin.package
+PROJECTS_DIR     = VAULT_ROOT + projectsFolder     → 01 - Projects/
+DEVELOPMENT_DIR  = VAULT_ROOT + Development/
 ```
 
-This allows the CLI to be invoked from **any location** while always resolving paths relative to the vault root.
+Project paths are resolved dynamically based on the selected project's source:
+- `"projects"` → `PROJECTS_DIR/<name>`
+- `"development"` → `DEVELOPMENT_DIR/<name>`
 
-## Entry Points
+## Test Vault Isolation
 
-```
-c:\Projects\flowti\
-├── flowti.cmd              → node "01 - Projects/Flowti CLI/src/flowti-cli.mjs" %*
-├── flowti.sh               → node "$DIR/01 - Projects/Flowti CLI/src/flowti-cli.mjs" "$@"
-└── Development/flowti/
-    ├── package.json        → "flowti": "node \"../../01 - Projects/Flowti CLI/src/flowti-cli.mjs\""
-    └── scripts/
-        └── flowti-cli.mjs  → redirect stub (backwards compatibility)
-```
-
-All entry points converge on the same CLI source at `01 - Projects/Flowti CLI/src/flowti-cli.mjs`.
-
-## Subsystem Communication
+The Review tool creates test vaults **outside the git repository** to prevent test artifacts from polluting the vault:
 
 ```
-CLI (kernel)                    Plugin Dev (subsystem)
-    │                               │
-    ├── reads ──────────────────────▶ flowti.config.json
-    ├── reads ──────────────────────▶ manifest.json
-    ├── reads ──────────────────────▶ package.json
-    ├── spawns ─────────────────────▶ esbuild (build)
-    ├── spawns ─────────────────────▶ vitest (test)
-    ├── spawns ─────────────────────▶ tsc + eslint (check)
-    ├── spawns ─────────────────────▶ scripts/*.mjs (reports)
-    ├── writes ─────────────────────▶ docs/reference/*.md
-    └── reads ──────────────────────▶ src/**/*.ts (info, make)
+c:\Projects\
+├── flowti\                    ← Obsidian vault (git repo)
+│   └── 01 - Projects\
+│       └── Flowti CLI\        ← project
+├── Flowti CLI-e2e\            ← test vault (auto-created, outside git)
+└── flowti-e2e\                ← test vault for plugin project
 ```
+
+## Infrastructure Layer
+
+| Module | Purpose |
+|--------|---------|
+| `config.ts` | Path resolution, CLI config loading, JSON helpers |
+| `menu.ts` | Generic data-driven menu loop with disabled items, separators, beforeMenu hooks |
+| `shell.ts` | `run()`, `runIn()`, `runSilent()` — shell execution with timing and status |
+| `state.ts` | Persistent state (`selectedProject`, `projectSource`) via `.flowti-state.json` |
+| `document.ts` | Fluent markdown builder (YAML frontmatter, tables, callouts, code blocks) |
+| `ui.ts` | ANSI color constants, `printHeader()`, `printMenu()` |
+| `readline.ts` | `createRL()`, `ask()` — interactive input |
+| `fs.ts` | `parseFrontmatter()`, `writeFileAt()`, `countFiles()` |
 
 ## Design Principles
 
-1. **Zero Dependencies** — The CLI uses only Node.js built-ins. No `node_modules` required for the CLI itself.
-2. **Config-Driven** — All paths and subsystem mappings come from `flowti-cli.config.json`, not hardcoded.
-3. **Dual-Mode** — Every capability works both interactively (human developer) and non-interactively (AI agent / CI).
-4. **Self-Documenting** — The CLI auto-generates its own reference documentation on every increment build.
-5. **Backwards Compatible** — A redirect stub at the old location ensures `npm run flowti` works unchanged.
+1. **Project-Centric** — Every tool operates on the selected project's directory, not a hardcoded path.
+2. **Config-Driven** — Tool availability and behavior determined by per-project `flowti.config.json`.
+3. **Auto-Scaffolding** — Projects get a working config on first selection, inferred from `package.json`.
+4. **Gated Pipelines** — Publish and Review enforce build → test → action sequencing with visual state.
+5. **Test Vault Isolation** — E2E test vaults are created outside the git repository.
+6. **TypeScript + Vitest** — Strict TypeScript, Vitest for testing, tsx for development.
