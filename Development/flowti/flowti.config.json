@@ -1,0 +1,48 @@
+{
+	"paths": {
+		"pluginRoot": "Development/flowti",
+		"pluginOutput": ".obsidian/plugins/flowti-ibde",
+		"reports": "docs/reports",
+		"e2eVault": "../flowti-e2e",
+		"endpointsFile": "build-endpoints.json"
+	},
+	"build": {
+		"entry": "src/main.ts",
+		"minify": true,
+		"sourcemap": false
+	},
+	"make": {
+		"hub": {
+			"src": "src",
+			"ui": "src/ui",
+			"domain": "src/domain",
+			"hubDomain": "src/domain/hub",
+			"tests": "tests/ui",
+			"css": "css",
+			"docs": "docs/features",
+			"journeys": "tests/e2e/journeys",
+			"components": "src/ui/components"
+		},
+		"plugin": {
+			"output": "../"
+		}
+	},
+	"reports": {
+		"scripts": [
+			{ "id": "test",         "label": "Test Report",         "script": "generate-test-report.mjs" },
+			{ "id": "coverage",     "label": "Coverage Report",     "script": "generate-coverage-report.mjs" },
+			{ "id": "build",        "label": "Build Report",        "script": "generate-build-report.mjs" },
+			{ "id": "codebase",     "label": "Codebase Report",     "script": "generate-codebase-report.mjs" },
+			{ "id": "cycle",        "label": "Cycle Report",        "script": "generate-cycle-report.mjs" },
+			{ "id": "trace",        "label": "Trace Report",        "script": "generate-trace-report.mjs" },
+			{ "id": "command-ref",  "label": "Command Reference",   "script": "generate-command-reference.mjs" },
+			{ "id": "event-catalog","label": "Event Catalog",       "script": "generate-event-catalog.mjs" },
+			{ "id": "dictionary",   "label": "Data Dictionary",     "script": "generate-data-dictionary.mjs" },
+			{ "id": "performance",  "label": "Performance Report",  "script": "generate-performance-report.mjs" },
+			{ "id": "complexity",   "label": "Complexity Report",   "script": "generate-complexity-report.mjs" },
+			{ "id": "tool-ref",     "label": "Tool Reference",      "script": "generate-tool-reference.mjs" },
+			{ "id": "e2e",          "label": "E2E Report",          "script": "generate-e2e-report.mjs" },
+			{ "id": "cli-ref",      "label": "CLI Reference",       "script": "generate-cli-reference.mjs" }
+		]
+	}
+}

@@ -1,54 +1,139 @@
----
-type: PluginReadme
-title: Flowti - IBDE
-description: The Integrated Business Development Environment
-stage: development
-platform: Obsidian (Desktop)
-license: MIT
-author: Luis Mendez
-aliases:
-  - Flowti IBDE
-  - Flowti
-  - Flowti Readme
-  - Flowti Plugin
----
-
 # Flowti - IBDE
 
 The **Integrated Business Development Environment** - An Obsidian plugin that implements the Flowti IBDE concept: a framework for describing, managing, and visualizing digital twins of business processes inside a knowledge base by providing tools for systemic documenting and executing captured processes.
 
 > If you can think about it, you can build it!
 
+---
+
+## Getting Started
+
+### For Developers
+
+```bash
+# 1. Clone and install
+git clone <repo-url>
+cd Development/flowti
+npm install
+
+# 2. Build the plugin from source
+npm run flowti -- build
+
+# 3. Open the repo root as an Obsidian vault, then activate the plugin
+#    Settings → Community Plugins → Enable "Flowti - IBDE"
+
+# 4. Complete the Installer wizard that appears on first launch
+```
+
+### Explore the CLI
+
+Once installed, the Flowti CLI is your single entry point for all development workflows:
+
+```bash
+npm run flowti              # Interactive menu
+npm run flowti -- help      # Full command reference
+npm run flowti -- info      # Project stats, git status, config health
+```
+
+### For AI Agents
+
+AI coding agents can use the CLI in non-interactive mode as a tool. All commands return deterministic exit codes (0 = success) and produce structured output on stdout:
+
+```bash
+npm run flowti -- build             # Build plugin (~2s)
+npm run flowti -- test              # Type check + lint + vitest
+npm run flowti -- info              # Project metadata
+npm run flowti -- help              # Discover all commands
+npm run flowti -- make:hub --name=X # Scaffold a new Hub
+```
 
 ---
 
-## How to get started
+## Flowti CLI
 
-The easiest way is to clone this repo and open it as a Vault in Obsidian.
+The Flowti CLI (`npm run flowti`) provides an interactive and non-interactive interface for building, testing, scaffolding, and publishing the plugin. No external dependencies — uses only Node.js built-ins.
 
-Then open the Vault folder in a terminal and build the Plugin from source.
+### Main Menu
 
-1. `npm i`
-2. `npm run build`
-3. Restart Obsidian then activate the Plugin
-4. Finish the Installer
+```
+1) Make        Scaffold new hub or plugin from templates
+2) Build       Build the plugin (fast, full, watch, distribute)
+3) Review      E2E test sessions, vault management
+4) Publish     Gated pipeline: build → test → publish
+5) Reports     Generate vault reports (14 generators)
+6) Dev Tools   Plugin reload, console, frontmatter, test data
+7) Info        Project stats, version, config
+?) Help        Contextual man-pages
+q) Quit
+```
+
+### Non-Interactive Commands
+
+All commands can be run directly without the interactive menu:
+
+| Command | Description |
+|---------|-------------|
+| `npm run flowti -- build` | Fast build (esbuild only, no reports) |
+| `npm run flowti -- build:increment` | Full CI: check → build → test → e2e → docs → distribute |
+| `npm run flowti -- build:watch` | Watch mode (add `--reload` for hot-reload) |
+| `npm run flowti -- test` | Type check + lint + vitest |
+| `npm run flowti -- test:e2e` | Build + flow tests + E2E suite |
+| `npm run flowti -- reports` | Generate all 14 report notes |
+| `npm run flowti -- report:{id}` | Generate a single report (e.g. `report:test`) |
+| `npm run flowti -- make:hub --name=X` | Scaffold a new hub |
+| `npm run flowti -- make:plugin --name=X` | Scaffold a new plugin |
+| `npm run flowti -- info` | Show project stats, version, config |
+| `npm run flowti -- help [section]` | Show help (sections: make, build, review, publish, reports, devtools, info) |
+
+### Scaffolding
+
+**New Hub** — generates 9 files following BaseHubView + DDD patterns:
+
+```bash
+npm run flowti -- make:hub --name=Inventory --icon=package --type=domain --tabs=overview,items
+```
+
+Creates: UI view, domain types, domain events, domain service, hub provider, test file, CSS layer, PRD stub, E2E journey stub.
+
+**New Plugin** — generates a standalone Obsidian plugin from Flowti patterns:
+
+```bash
+npm run flowti -- make:plugin --name="My Plugin" --id=my-plugin --author="Author Name"
+```
+
+Creates: manifest.json, package.json, tsconfig.json, esbuild.config.mjs, main.ts, .gitignore — with DDD structure, EventBus, and CSS pipeline.
+
+### Configuration
+
+All CLI settings live in `flowti.config.json`:
+
+```json
+{
+  "paths":   { "pluginRoot", "pluginOutput", "reports", "e2eVault", "endpointsFile" },
+  "build":   { "entry", "minify", "sourcemap" },
+  "make":    { "hub": { "ui", "domain", "tests", "css", "docs", "journeys" }, "plugin": { "output" } },
+  "reports": { "scripts": [{ "id", "label", "script" }] }
+}
+```
+
+### Auto-Generated Documentation
+
+The CLI auto-generates its own reference documentation on every increment build:
+
+- **Output**: `docs/reference/Flowti CLI Reference.md` — queryable vault note with YAML frontmatter
+- **Content**: 25 CLI commands, 8 help sections, 37 npm scripts, 14 report generators, make config
+- **Generate manually**: `npm run flowti -- report:cli-ref`
 
 ---
 
 ## Roadmap
 
 1. ~~Automated Documentation Coverage of all created Domains, Services, Events, Flows~~ Done
-2. ~~Test-coverage in every aspect of the Test Pyramid, finalized with an end-to-end test-suite built on top of Obsidian CLI~~ Done (6,023 tests + 69 E2E tests)
+2. ~~Test-coverage in every aspect of the Test Pyramid, finalized with an end-to-end test-suite built on top of Obsidian CLI~~ Done (7,697 tests + 8 E2E journeys)
 3. Automated Release Pipeline from Plugin View to Git
 4. Release v0.0.1
 5. ...
 6. Release v1.0.0
-
----
-
-## Product Features
-
-![[Development/flowti/docs/02 - Features.base#Product Features|02 - Features]]
 
 ---
 
@@ -65,11 +150,7 @@ Flowti IBDE turns an Obsidian vault into an integrated environment for business 
 | 3 | **Type Safety** | Full TypeScript with Zod validation at system boundaries |
 | 4 | **Loose Coupling** | Event-driven architecture; components communicate through events, not direct references |
 
-Read more about: 
-
-- [[Frontend Architecture]]
-- [[Backend Architecture]]
-- [[Testplan and Teststrategy]]
+See `docs/Frontend Architecture.md` and `docs/Backend Architecture.md` for detailed architecture documentation.
 
 ---
 
@@ -132,7 +213,6 @@ Services perform file and frontmatter operations by emitting request events (e.g
 
 Commands, views, and services are defined declaratively in registry files and bound to Obsidian during plugin initialization. Adding a new command, view, or service requires only a new entry in the respective registry.
 
-
 ---
 
 ## 5. Building Block View
@@ -142,10 +222,8 @@ Commands, views, and services are defined declaratively in registry files and bo
 ```
 src/
 ├── main.ts                          # Plugin lifecycle orchestrator
-├── dataExchangeSetup.ts             # Data Exchange UI wiring
-├── sessionSetup.ts                  # Session UI wiring
 ├── infrastructure/
-│   ├── events/                      # EventBus, EventBridge, FlowtiEventMap (343+ events)
+│   ├── events/                      # EventBus, EventBridge, FlowtiEventMap (406+ events)
 │   ├── errors/                      # Typed error hierarchy + ErrorService
 │   ├── logger/                      # Logging with optional event trace
 │   ├── services/                    # DI container with topological init
@@ -175,16 +253,16 @@ src/
 │   ├── subscription/                # Event watchers with filters
 │   ├── train/                       # TrainService — canvas trains, branch merge, sync
 │   └── user/                        # User identity
-├── ui/                              # 111 files
-│   ├── analytics/                   # Analytics Hub components (16 files)
-│   ├── catalog/                     # Event Catalog components (15 files)
-│   ├── hub/                         # Data Exchange Hub components (21 files)
-│   ├── csv/                         # CSV import wizard components (10 files)
-│   ├── export/                      # Export wizard components (7 files)
-│   ├── session/                     # Session Workspace components (19 files)
-│   ├── train/                       # Train Hub components (15 files)
-│   ├── userHub/                     # User Hub components (11 files)
-│   └── *.ts                         # Orchestrator views + modals (178 files total)
+├── ui/                              # Presentation layer
+│   ├── analytics/                   # Analytics Hub
+│   ├── catalog/                     # Event Catalog
+│   ├── hub/                         # Data Exchange Hub
+│   ├── testManagement/              # Test Management Hub
+│   ├── userHub/                     # User Hub
+│   ├── train/                       # Train Hub
+│   ├── session/                     # Session Workspace
+│   ├── csv/                         # CSV import wizard
+│   └── export/                      # Export wizard
 └── utils/                           # Shared helpers (glob, persistence, types)
 ```
 
@@ -209,11 +287,10 @@ src/
 | **Data Exchange** | CSV import/export with column mapping, conflict strategies, formula resolution, multi-source pipelines |
 | **Discovery** | Vault scanning for user-defined events via frontmatter |
 | **Event Definition** | Custom event mapping rules: source event + file pattern → domain event with payload extraction |
-| **Hub Registry** | Cross-hub summary aggregation with providers for Event Catalog, Data Exchange, and User Hub |
+| **Hub Registry** | Cross-hub summary aggregation with providers for all Hub views |
 | **Inbox** | Unified inbox with mappers for subscription, import, and export events; CRUD with 500-item eviction |
 | **Ingestion** | File monitoring with job queue, time-windowed batching, retry with exponential backoff, catch-up scans |
 | **Installer** | Step-based first-run pipeline (user creation, folder scaffolding, extensible) |
-| **Nudge** | Time-based session start prompts with 60s interval scheduler, midnight rollover, dismissed-today tracking |
 | **Session** | Timed documentation workspaces with 9 types, activity tracking, goals, decisions, templates, daily tracking |
 | **Subscription** | Event watchers with path/extension/name filters; wildcard listener matching |
 
@@ -221,13 +298,13 @@ src/
 
 | View | Purpose |
 |------|---------|
-| **Event Catalog** | 8-tab master-detail view: Dashboard, Domains, Services, Events, Flows, Systems, Actors, Products |
+| **Event Catalog** | 6-tab master-detail view: Domains, Services, Events, Flows, Systems, Actors |
 | **Data Exchange Hub** | 7-page master-detail hub: Dashboard, Imports, Exports, Reports, Properties, Pipelines, Types |
-| **User Hub** | Personal cockpit: Dashboard (session cards, nudges, inbox, hub summaries), Inbox, Sessions, Preferences |
+| **User Hub** | Personal cockpit: Dashboard, Inbox, Sessions, Commands, Preferences, Health |
+| **Analytics Hub** | Dashboard builder with queries, chart tiles, stat cards, and date range filtering |
+| **Test Management Hub** | Quality hub: Journeys, Pyramid, Coverage, Compliance, Feature Quality, Features, Processes, Products |
+| **Train Hub** | Canvas trains with branches, merge, and sync |
 | **Session Workspace** | Focused session view: timer, goals, decisions, activity, context bindings, output artifacts |
-| **CSV Action View** | Per-file CSV handler with column preview landing page and inline 4-page import wizard |
-| **Export View** | 4-page export wizard with column scanning, preview, and native save dialog |
-| **Event Log** | Activity feed with category/type filters and subscribed/all modes |
 
 ### Frontend Architecture
 
@@ -238,28 +315,19 @@ Complex views follow the **Orchestrator + Component** pattern:
 - **State** — no external libraries; orchestrators declare private state, expose `getState()` / `setState(partial)`, and debounce re-renders via `scheduleRender()` (16ms)
 - **File-driven entities** — Domains, services, flows, systems, actors, and products are Markdown files with typed frontmatter, merged with code-registered catalog metadata
 
-Both major views share extracted helpers to avoid duplication:
-
-| Helper Module | Key Exports |
-|---------------|-------------|
-| `catalog/helpers.ts` | `buildSplitLayout()` (shared DOM layout), `openOrCreateEventDoc()`, `renderSubscriptionForm()` / `renderSubscriptionRow()`, frontmatter parsing, cross-reference finders |
-| `hub/helpers.ts` | `renderStepBar()` (wizard stepper), `renderConfigDropdown()`, `openEventInCatalog()` |
-
 Document creation is centralized through the **DocService** via `doc.create` events — UI components never call `fileSystemClient.createFile()` directly for documentation files.
-
-See [[Frontend Architecture]] for the full view inventory, component architecture, state management details, and tech debt assessment.
 
 ### Documentation
 
-| Directory | Count | Description |
-|-----------|-------|-------------|
-| `docs/components/` | 125 | Per-component documentation with dependencies, state, events, and cross-references |
-| `docs/flows/` | 28 | End-to-end user journeys crossing multiple views and services |
-| `docs/sitemap/` | 12 | View-level documentation with descriptions and use case summaries |
-| `docs/features/` | 354 | Feature specifications, PRDs, PBIs, and related documents |
-| `docs/decisions/` | 36 | Architecture Decision Records (ADR-001 through ADR-031 + related) |
-| `docs/cycles/` | 56 | Development cycle planning and retrospectives (Cycles 1-48 + Release Prep + C49-C55) |
-| `docs/debt/` | 129 | Technical debt items (TD-01 through TD-129, 32 open / 80 resolved / 11 mitigated) |
+| Directory | Description |
+|-----------|-------------|
+| `docs/components/` | Per-component documentation with dependencies, state, events, and cross-references |
+| `docs/flows/` | End-to-end user journeys crossing multiple views and services |
+| `docs/features/` | Feature specifications, PRDs, PBIs, and related documents |
+| `docs/decisions/` | Architecture Decision Records (ADR-001 through ADR-031+) |
+| `docs/cycles/` | Development cycle planning and retrospectives |
+| `docs/debt/` | Technical debt items (132 tracked, 89 resolved, 11 mitigated) |
+| `docs/reference/` | Auto-generated references: Command Reference, Event Catalog, Data Dictionary, CLI Reference, Tool Reference |
 
 ---
 
@@ -284,9 +352,9 @@ Plugin.onload()
     │   └── initializeViewRegistry()
     │
     ├── Phase 3: Registration
-    │   ├── registerAllServices()    # 20 services (src/infrastructure/services/registry.ts)
-    │   ├── registerAllCommands()    # 24 core commands (src/infrastructure/commands/registry.ts)
-    │   └── registerAllViews()       # 3 core views (src/infrastructure/views/registry.ts)
+    │   ├── registerAllServices()    # 20 services
+    │   ├── registerAllCommands()    # 24 core commands
+    │   └── registerAllViews()       # Hub views + Session Workspace
     │
     ├── Phase 4: Service Initialization
     │   └── services.initializeAll() # Topological dependency resolution
@@ -297,37 +365,10 @@ Plugin.onload()
     │   └── bindCommands()           # Register with command palette
     │
     └── Phase 6: Post-load (on layout ready)
-        ├── settingsService.load()
-        ├── userService.load()
-        ├── installerService.load()
+        ├── Load all services (settings, user, installer, discovery, ...)
         ├── InstallerWizardModal.showIfNeeded()
-        ├── eventFilterService.load()
-        ├── eventNotifyService.load()
-        ├── discoveryService.load()
-        ├── subscriptionService.load()
-        ├── ingestionService.load()
-        ├── eventDefinitionService.load()
-        ├── dataExchangeService.load()
-        ├── inboxService.load()
-        ├── sessionService.load()
-        ├── nudgeService.load() + start()
-        ├── DataExchangeSetup (views, commands, file menus, callbacks)
-        ├── setupHubRegistry() (User Hub, Session Workspace, 4 session commands)
-        ├── registerSessionFileMenu() (right-click add-to-session, create-session)
-        ├── ingestionService.runCatchUp() (if watchFolders configured)
-        ├── eventBridge.registerVaultListeners()
+        ├── Setup hub registry, session, data exchange wiring
         └── emit("plugin.ready")
-```
-
-### Shutdown (reverse order)
-
-```
-Plugin.onunload()
-    ├── EventBridge.dispose()    # Unsubscribe EventBus handlers
-    ├── services.disposeAll()    # Dispose in reverse init order
-    ├── commands.clear()
-    ├── views.clear()
-    └── eventBus.clear()         # Last, so unloaded listeners still fire
 ```
 
 ### Event Flow: File Operation
@@ -352,15 +393,11 @@ Service                 EventBus              EventBridge           Obsidian
 
 ## 7. Deployment View
 
-The plugin is built locally and deployed directly into the Obsidian vault's plugin directory. Additional vaults can receive builds automatically via the distribution system.
-
 ```
-Development/flowti/          # Source code
+Development/flowti/              # Source code
     │
-    │  npm run build             (flow tests → esbuild production)
-    │  npm run build:increment   (check → build → coverage → E2E → docs → reports → distribute)
-    │  npm run build:release     (check → build → coverage → docs → esbuild --publish)
-    │  npm run build:distribution (check → build → coverage → docs → esbuild --distribution)
+    │  npm run flowti -- build           (fast esbuild production)
+    │  npm run flowti -- build:increment (full CI pipeline)
     │
     ▼
 .obsidian/plugins/flowti-ibde/   # Primary output (always)
@@ -379,7 +416,7 @@ Configured endpoint vaults       # Additional vaults via build-endpoints.json
 
 ### Distribution
 
-The `build:distribution` command distributes build artifacts to additional Obsidian vaults, avoiding manual copy-paste. Endpoints are configured in `docs/reports/build-endpoints.json`:
+The `build:distribution` command distributes build artifacts to additional Obsidian vaults. Endpoints are configured in `build-endpoints.json`:
 
 ```json
 {
@@ -389,14 +426,6 @@ The `build:distribution` command distributes build artifacts to additional Obsid
   ]
 }
 ```
-
-- **Safety**: endpoint folder basename must match the plugin ID
-- **Clean list**: only known build artifacts are removed before copying (`data.json` is never touched)
-- **Env override**: `BUILD_ENDPOINTS_FILE=path/to/endpoints.json`
-
-### Build Reports
-
-Every production build generates a Markdown report in `docs/reports/builds/` with YAML frontmatter (version, duration, bundle size, warnings, errors).
 
 ---
 
@@ -409,23 +438,12 @@ The EventBus is the backbone of the application. All event types are defined in 
 | Category | Events | Direction |
 |----------|--------|-----------|
 | **Plugin Lifecycle** | `plugin.loading`, `plugin.loaded`, `plugin.ready`, `plugin.unloading`, `plugin.unloaded` | Plugin → Listeners |
-| **File Requests** | `file.create.request`, `file.read.request`, `file.update.request`, `file.delete.request`, `file.move.request`, `file.rename.request` | Service → EventBridge |
+| **File Requests** | `file.create.request`, `file.read.request`, `file.update.request`, `file.delete.request` | Service → EventBridge |
 | **File Responses** | `file.create.response`, `file.read.response`, etc. | EventBridge → Service |
 | **File Notifications** | `file.created`, `file.modified`, `file.deleted`, `file.renamed` | EventBridge → Services |
 | **Frontmatter** | `frontmatter.get.*`, `frontmatter.update.*`, `frontmatter.set.*` | Service ↔ EventBridge |
 | **Workspace** | `workspace.leaf-changed`, `workspace.file-opened`, `workspace.layout-changed` | EventBridge → Services |
-| **Metadata Cache** | `metadata.changed`, `metadata.resolved` | EventBridge → Services |
 | **User / Settings** | `user.created`, `user.updated`, `settings.changed`, etc. | Service → Listeners |
-| **Errors / Logging** | `error.occurred`, `error.handled`, `log.entry`, `log.error` | Service → Listeners |
-
-### Event Trace (Debug Mode)
-
-When `debugMode` is enabled in settings, the LoggerService registers a wildcard `*` listener that logs every event (except `log.*`) to the developer console:
-
-```
-[Flowti:EventTrace] file.created { path: "notes/new.md", source: "obsidian" }
-[Flowti:EventTrace] metadata.changed { path: "notes/new.md", frontmatter: { ... } }
-```
 
 ### Error Handling
 
@@ -441,10 +459,7 @@ All custom classes use the `ft-` prefix to avoid Obsidian conflicts. Views use O
 /* View layout: */ .ft-view-root, .ft-view-dashboard, .ft-view-split
 /* Spacing:     */ .ft-p-*, .ft-m-*, .ft-mt-*, .ft-mb-*, .ft-px-*, .ft-py-*
 /* Typography:  */ .ft-heading, .ft-text-muted, .ft-text-sm, .ft-font-bold
-/* Appearance:  */ .ft-icon-muted, .ft-icon-faint, .ft-icon-subtle, .ft-cursor-pointer
 ```
-
-Use the Component Showcase view (`Flowti: Open Component Showcase`) to preview all available components.
 
 ---
 
@@ -458,7 +473,7 @@ Use the Component Showcase view (`Flowti: Open Component Showcase`) to preview a
 | **Zod for validation** | Runtime schema validation at system boundaries (settings, user data) with TypeScript type inference |
 | **Topological service initialization** | ServiceContainer resolves dependency order automatically, preventing manual ordering errors |
 | **No barrel exports** | Each module is imported directly to keep dependency graphs explicit and avoid circular imports |
-| **DDD folder structure** | `infrastructure/` (generic plumbing), `domain/` (business logic per bounded context), `ui/` (presentation) - new domains can be added without touching core infrastructure |
+| **DDD folder structure** | `infrastructure/`, `domain/`, `ui/` - new domains can be added without touching core infrastructure |
 | **Per-domain event ownership** | Each domain defines its own event types; the central `FlowtiEventMap` composes them via interface extension |
 
 ---
@@ -468,37 +483,35 @@ Use the Component Showcase view (`Flowti: Open Component Showcase`) to preview a
 | Risk | Mitigation |
 |------|------------|
 | Obsidian API changes | EventBridge isolates all platform calls; only one file needs updating |
-| Event bus as bottleneck | Wildcard listeners are O(n); event trace is disabled in production. 7 wildcard listeners, all properly filtered |
+| Event bus as bottleneck | Wildcard listeners are O(n); event trace is disabled in production |
 | No persistence encryption | Plugin data is stored as plain JSON via Obsidian's `saveData` |
-| EventBridge boundary erosion | ~112 direct Obsidian API calls in UI layer; acceptable for read-only access patterns |
 
-132 technical debt items tracked in `docs/debt/TD-01` through `TD-132` (0 open, 89 resolved, 11 mitigated). Categories span event/communication, data/storage, testing/quality, architecture/performance, domain logic, file system, and documentation. See `docs/debt/` for individual items.
+132 technical debt items tracked in `docs/debt/` (0 open, 89 resolved, 11 mitigated).
 
 ---
 
 ## 11. Testing
 
-Every component has a corresponding test suite. Tests run as part of the verification pipeline (`npm test`) and must pass before the plugin is bundled. The release pipeline (`npm run build:release`) includes full test coverage. The test infrastructure uses Vitest with a custom `obsidian-stub.ts` mock that provides minimal stubs for Obsidian's API surface.
+Every component has a corresponding test suite. Tests run as part of the verification pipeline (`npm test`) and must pass before the plugin is bundled. The test infrastructure uses Vitest with a custom `obsidian-stub.ts` mock.
 
-**Current metrics (Mar 2026):** 6,023 tests across 261 suites. 69 E2E tests across 4 journeys (Installer, Getting Started, Component Library, Canvas Session).
+**Current metrics (Mar 2026):** 7,697 tests across 323 suites. 8 E2E journeys (Prerequisites, Installer, Getting Started, Component Library, Canvas Session, Tool Reference, Journey Builder, Test Management Hub).
 
 ```bash
 # Unit + Integration
-npm test              # Verification: eslint → tsc → vitest (the standard check command)
-npm run test:watch    # Verification + Vitest watch mode
-npm run test:ui       # Verification + Vitest UI with browser-based report
-npm run test:coverage # Verification + coverage report
-npm run test:flows    # Flow integration tests only (41 suites)
+npm test                      # eslint → tsc → vitest
+npm run test:coverage         # With coverage report
 
 # End-to-End (Obsidian CLI)
 npm run test:e2e              # Full E2E suite (all journeys)
 npm run test:e2e:quick        # Installer + Getting Started only
 npm run test:e2e:journeys     # All journeys (excl. installer)
-npm run test:e2e:components   # Component Library journey
-npm run test:e2e:canvas-session # Canvas Session journey
+
+# Via Flowti CLI
+npm run flowti -- test        # Same as npm test
+npm run flowti -- test:e2e    # Same as npm run test:e2e
 ```
 
-E2E tests run against a live Obsidian instance via the Obsidian CLI (`key=value` syntax). A dedicated test vault (`flowti-e2e`) is scaffolded automatically. Each journey produces screenshots, event traces (CSV), and a JourneyConfig meta file for living documentation.
+E2E tests run against a live Obsidian instance via the Obsidian CLI. A dedicated test vault (`flowti-e2e`) is scaffolded automatically. Each journey produces screenshots, event traces, and a JourneyConfig meta file for living documentation.
 
 ---
 
@@ -508,7 +521,7 @@ E2E tests run against a live Obsidian instance via the Obsidian CLI (`key=value`
 
 - [Node.js](https://nodejs.org) (v16+)
 - [Git](https://git-scm.com)
-- [Obsidian](https://obsidian.md)
+- [Obsidian](https://obsidian.md) (v1.12+ for CLI features)
 
 ### Setup
 
@@ -528,33 +541,30 @@ npm install
 The output is automatically placed in `.obsidian/plugins/flowti-ibde/`.
 
 ```bash
-npm run build               # Flow tests → esbuild --production
-npm run build:only          # esbuild only (no tests, fast iteration)
-npm run build:dev           # Watch mode with hot-reload
-npm run build:increment     # Full increment pipeline: check → build → test → e2e → docs → distribute
-npm run build:release       # Full release pipeline: check → build → test → docs → esbuild --publish
-npm run build:distribution  # Full distribution: check → build → test → docs → distribute
+npm run flowti -- build             # Fast build (~2s, esbuild only)
+npm run flowti -- build:watch       # Watch mode with hot-reload
+npm run flowti -- build:increment   # Full CI: check → build → test → e2e → docs → distribute
 ```
 
 ### Verification
 
 ```bash
-npm test              # Standard verification: eslint → tsc → vitest
-npm run check         # Type-check + lint only (no tests)
-npm run docs          # Generate TypeDoc documentation
+npm run flowti -- test              # eslint → tsc → vitest
+npm run flowti -- dev:check         # Type-check + lint only (no tests)
+npm run flowti -- info              # Project health overview
 ```
 
 ### Pipeline Summary
 
 | Goal | Command | What runs |
 |------|---------|-----------|
-| Verify changes | `npm test` | eslint → tsc → vitest |
-| Fast bundle | `npm run build:only` | esbuild --production |
-| Gated bundle | `npm run build` | flow tests → esbuild --production |
-| Dev watch | `npm run build:dev` | esbuild --watch |
-| Increment | `npm run build:increment` | check → build → coverage → e2e → docs → reports → distribute |
-| Release build | `npm run build:release` | check → build → coverage → docs → esbuild --publish |
-| Distribute | `npm run build:distribution` | check → build → coverage → docs → distribute |
+| Fast build | `npm run flowti -- build` | esbuild --production |
+| Dev watch | `npm run flowti -- build:watch` | esbuild --watch |
+| Verify | `npm run flowti -- test` | eslint → tsc → vitest |
+| Increment | `npm run flowti -- build:increment` | check → build → coverage → e2e → docs → reports → distribute |
+| Reports | `npm run flowti -- reports` | 14 report generators |
+| Scaffold hub | `npm run flowti -- make:hub --name=X` | 9 boilerplate files |
+| Scaffold plugin | `npm run flowti -- make:plugin --name=X` | 6 boilerplate files |
 
 ### Extending the Plugin
 
@@ -583,6 +593,11 @@ npm run docs          # Generate TypeDoc documentation
 "task.completed": { taskId: string };
 ```
 
+**Scaffold a new Hub** — the fastest way to add a complete Hub with all wiring:
+```bash
+npm run flowti -- make:hub --name=TaskBoard --icon=kanban --tabs=board,backlog,archive
+```
+
 ---
 
 ## Glossary
@@ -590,18 +605,13 @@ npm run docs          # Generate TypeDoc documentation
 | Term | Definition |
 |------|-----------|
 | **IBDE** | Integrated Business Development Environment |
-| **EventBus** | Central publish/subscribe system for decoupled communication (343+ event types) |
+| **EventBus** | Central publish/subscribe system for decoupled communication (406+ event types) |
 | **EventBridge** | Translation layer between Obsidian's API and the internal EventBus |
 | **FileSystemClient** | Promise-based API for file/frontmatter operations via events |
 | **ServiceContainer** | Dependency injection container with lifecycle management (20 services) |
 | **Digital Twin** | A structured representation of a business process or entity in Markdown |
-| **Orchestrator** | Thin `ItemView` subclass owning state, lifecycle, and navigation for a complex view |
-| **Component** | Plain TypeScript class rendering a tab or panel, receiving dependencies via injection |
 | **BaseHubView** | Abstract base class for all Hub views; internally uses WorkspaceShell for shared chrome |
 | **WorkspaceShell** | Shared UI chrome (ribbon, tab bar, content area, status bar) used by all Hubs |
-| **Event Catalog** | The primary view for browsing events, domains, services, flows, systems, actors, and products |
-| **Data Exchange Hub** | The central management view for CSV imports, exports, pipelines, and data documentation |
-| **Session** | A time-boxed documentation workspace with 6-state lifecycle (idle → active → paused → completed → archived) |
-| **Train** | A Train of Thought — canvas-based brainstorming with branches and merge |
+| **Session** | A time-boxed documentation workspace with 6-state lifecycle |
 | **Journey** | An E2E test scenario exercising a complete user workflow against a live Obsidian instance |
-| **JourneyConfig** | Living documentation meta file describing E2E steps, events, commands, and interactions |
+| **Flowti CLI** | Interactive and non-interactive development tooling (`npm run flowti`) |

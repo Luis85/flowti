@@ -1,0 +1,233 @@
+{
+	"journey": "Developer Onboarding",
+	"chapter": 9,
+	"description": "Validates the developer onboarding experience: a new contributor pulls the repo, installs dependencies, builds the plugin from source via the Flowti CLI, activates it in Obsidian, and explores the available capabilities. Tests both human-interactive and AI-agent non-interactive CLI usage patterns.",
+	"testSource": "tests/e2e/95-journey-developer-onboarding.test.ts",
+	"reportPath": "docs/journeys/Developer Onboarding/Developer Onboarding.md",
+	"canvasPath": "docs/journeys/Developer Onboarding/Developer Onboarding.canvas",
+	"tools": [],
+	"lifecycle": {
+		"enablePlugin": true,
+		"checkInstalled": true,
+		"startTrace": true,
+		"openActivityLog": false
+	},
+	"gateFlags": ["_e2eInstallerDone"],
+	"setup": [
+		{
+			"id": "chapter-header",
+			"title": "Log chapter start",
+			"guideSection": 0,
+			"actions": [
+				{ "tool": "write-run-log", "message": "\n## Chapter 9: Developer Onboarding\n" }
+			]
+		},
+		{
+			"id": "gate-check",
+			"title": "Verify installer has completed",
+			"guideSection": 0,
+			"actions": [
+				{
+					"tool": "eval",
+					"code": "return !!window._e2eInstallerDone",
+					"expect": { "type": "truthy" },
+					"description": "Installer gate flag is set"
+				}
+			]
+		}
+	],
+	"steps": [
+		{
+			"id": "01-cli-help",
+			"title": "CLI help is accessible",
+			"guideSection": 1,
+			"description": "A new developer runs 'npm run flowti -- help' to discover available commands. The help output should list all 7 menu sections and the non-interactive command reference.",
+			"expectedInput": "npm dependencies installed",
+			"expectedOutput": "Help text printed to stdout with all menu sections",
+			"swimlane": "customer",
+			"interactions": ["terminal: npm run flowti -- help"],
+			"actions": [
+				{ "tool": "notice", "message": "Step 1: Verifying CLI help is accessible", "description": "Progress notice" },
+				{
+					"tool": "eval",
+					"code": "const { execSync } = require('child_process'); const out = execSync('node scripts/flowti-cli.mjs help', { cwd: app.vault.adapter.basePath + '/Development/flowti', encoding: 'utf-8' }); return out.includes('MAIN MENU') && out.includes('Make') && out.includes('Build') && out.includes('NON-INTERACTIVE COMMANDS')",
+					"expect": { "type": "truthy" },
+					"description": "CLI help output contains main menu and non-interactive commands section"
+				},
+				{ "tool": "screenshot", "label": "cli-help", "description": "CLI help verification" }
+			]
+		},
+		{
+			"id": "02-cli-info",
+			"title": "CLI info shows project metadata",
+			"guideSection": 2,
+			"description": "Developer runs 'npm run flowti -- info' to see project stats: plugin version, source file counts, git status, and config health.",
+			"expectedInput": "Plugin built and installed",
+			"expectedOutput": "Info output with plugin name, version, source stats, and git status",
+			"swimlane": "customer",
+			"interactions": ["terminal: npm run flowti -- info"],
+			"actions": [
+				{ "tool": "notice", "message": "Step 2: Verifying CLI info command", "description": "Progress notice" },
+				{
+					"tool": "eval",
+					"code": "const { execSync } = require('child_process'); const out = execSync('node scripts/flowti-cli.mjs info', { cwd: app.vault.adapter.basePath + '/Development/flowti', encoding: 'utf-8' }); return out.includes('Flowti') && out.includes('Version') && out.includes('Source')",
+					"expect": { "type": "truthy" },
+					"description": "CLI info output contains plugin metadata and source stats"
+				},
+				{ "tool": "screenshot", "label": "cli-info", "description": "CLI info verification" }
+			]
+		},
+		{
+			"id": "03-cli-build",
+			"title": "Fast build completes successfully",
+			"guideSection": 3,
+			"description": "Developer runs 'npm run flowti -- build' for a fast build. This should complete in under 5 seconds and produce main.js in the plugin output directory.",
+			"expectedInput": "Dependencies installed, source code present",
+			"expectedOutput": "Build completes with exit code 0, main.js is present",
+			"swimlane": "frontstage",
+			"interactions": ["terminal: npm run flowti -- build"],
+			"actions": [
+				{ "tool": "notice", "message": "Step 3: Running fast build via CLI", "description": "Progress notice" },
+				{
+					"tool": "eval",
+					"code": "const { execSync } = require('child_process'); try { execSync('node scripts/flowti-cli.mjs build', { cwd: app.vault.adapter.basePath + '/Development/flowti', encoding: 'utf-8', timeout: 15000 }); return true; } catch(e) { return false; }",
+					"expect": { "type": "truthy" },
+					"description": "CLI build command completes with exit code 0"
+				},
+				{
+					"tool": "eval",
+					"code": "const fs = require('fs'); return fs.existsSync(app.vault.adapter.basePath + '/.obsidian/plugins/flowti-ibde/main.js')",
+					"expect": { "type": "truthy" },
+					"description": "main.js exists in plugin output directory"
+				},
+				{ "tool": "screenshot", "label": "cli-build", "description": "Fast build verification" }
+			]
+		},
+		{
+			"id": "04-plugin-active",
+			"title": "Plugin is active in Obsidian",
+			"guideSection": 4,
+			"description": "After building and enabling the plugin, verify it is loaded and the plugin.ready event has fired.",
+			"expectedInput": "Plugin built and enabled",
+			"expectedOutput": "Plugin is loaded, EventBus is functional",
+			"swimlane": "frontstage",
+			"interactions": ["obsidian: Verify plugin status"],
+			"actions": [
+				{ "tool": "notice", "message": "Step 4: Verifying plugin is active", "description": "Progress notice" },
+				{
+					"tool": "eval",
+					"code": "const plugin = app.plugins.getPlugin('flowti-ibde'); return !!plugin && typeof plugin.eventBus !== 'undefined'",
+					"expect": { "type": "truthy" },
+					"description": "Plugin is loaded and EventBus is available"
+				},
+				{ "tool": "screenshot", "label": "plugin-active", "description": "Plugin active in Obsidian" }
+			]
+		},
+		{
+			"id": "05-open-user-hub",
+			"title": "Open the User Hub",
+			"guideSection": 5,
+			"description": "Developer opens the User Hub via the command palette to explore the main dashboard — the first thing a new user sees after installation.",
+			"expectedInput": "Plugin active, installer completed",
+			"expectedOutput": "User Hub view is open with dashboard visible",
+			"swimlane": "customer",
+			"uiContext": {
+				"view": "flowti-user-hub",
+				"viewName": "User Hub",
+				"tab": "sessions",
+				"tabName": "Sessions"
+			},
+			"commands": ["flowti:open-user-hub"],
+			"interactions": ["command: Open User Hub"],
+			"actions": [
+				{ "tool": "notice", "message": "Step 5: Opening User Hub", "description": "Progress notice" },
+				{ "tool": "command", "id": "flowti:open-user-hub", "description": "Open User Hub via command" },
+				{ "tool": "wait", "ms": 1000 },
+				{ "tool": "assert", "type": "leaf", "viewType": "flowti-user-hub", "description": "User Hub leaf is open" },
+				{ "tool": "screenshot", "label": "user-hub-open", "description": "User Hub open after onboarding" }
+			]
+		},
+		{
+			"id": "06-open-event-catalog",
+			"title": "Explore the Event Catalog",
+			"guideSection": 6,
+			"description": "Developer opens the Event Catalog to understand the domain model. This is the primary tool for describing business domains, services, and event flows.",
+			"expectedInput": "Plugin active",
+			"expectedOutput": "Event Catalog view is open",
+			"swimlane": "customer",
+			"uiContext": {
+				"view": "flowti-event-catalog",
+				"viewName": "Event Catalog",
+				"tab": "domains",
+				"tabName": "Domains"
+			},
+			"commands": ["flowti:open-event-catalog"],
+			"interactions": ["command: Open Event Catalog"],
+			"actions": [
+				{ "tool": "notice", "message": "Step 6: Opening Event Catalog", "description": "Progress notice" },
+				{ "tool": "close-leaves", "viewType": "flowti-user-hub", "description": "Close User Hub first" },
+				{ "tool": "command", "id": "flowti:open-event-catalog", "description": "Open Event Catalog" },
+				{ "tool": "wait", "ms": 1000 },
+				{ "tool": "assert", "type": "leaf", "viewType": "flowti-event-catalog", "description": "Event Catalog leaf is open" },
+				{ "tool": "screenshot", "label": "event-catalog-open", "description": "Event Catalog exploration" }
+			]
+		},
+		{
+			"id": "07-cli-section-help",
+			"title": "CLI section help is detailed",
+			"guideSection": 7,
+			"description": "Developer explores help for specific sections. Each section provides detailed options, flags, and typical usage.",
+			"expectedInput": "CLI available",
+			"expectedOutput": "Section help for 'build' and 'make' contains expected content",
+			"swimlane": "customer",
+			"interactions": ["terminal: npm run flowti -- help build"],
+			"actions": [
+				{ "tool": "notice", "message": "Step 7: Verifying section help", "description": "Progress notice" },
+				{
+					"tool": "eval",
+					"code": "const { execSync } = require('child_process'); const out = execSync('node scripts/flowti-cli.mjs help build', { cwd: app.vault.adapter.basePath + '/Development/flowti', encoding: 'utf-8' }); return out.includes('ESBUILD FLAGS') && out.includes('--production') && out.includes('Watch mode')",
+					"expect": { "type": "truthy" },
+					"description": "Build help contains esbuild flags and watch mode documentation"
+				},
+				{
+					"tool": "eval",
+					"code": "const { execSync } = require('child_process'); const out = execSync('node scripts/flowti-cli.mjs help make', { cwd: app.vault.adapter.basePath + '/Development/flowti', encoding: 'utf-8' }); return out.includes('New Hub') && out.includes('New Plugin') && out.includes('CONFIGURATION')",
+					"expect": { "type": "truthy" },
+					"description": "Make help contains hub and plugin scaffolding options"
+				},
+				{ "tool": "screenshot", "label": "cli-section-help", "description": "Section help verification" }
+			]
+		},
+		{
+			"id": "08-cli-docs-generated",
+			"title": "CLI reference documentation is auto-generated",
+			"guideSection": 8,
+			"description": "Verify that the CLI Reference vault note exists and contains accurate command metadata. This document is auto-generated from the CLI source on every increment build.",
+			"expectedInput": "At least one build has been run",
+			"expectedOutput": "Flowti CLI Reference.md exists with valid frontmatter and command tables",
+			"swimlane": "backstage",
+			"interactions": ["verify: docs/reference/Flowti CLI Reference.md"],
+			"actions": [
+				{ "tool": "notice", "message": "Step 8: Verifying auto-generated CLI docs", "description": "Progress notice" },
+				{
+					"tool": "eval",
+					"code": "const { execSync } = require('child_process'); execSync('node scripts/generate-cli-reference.mjs', { cwd: app.vault.adapter.basePath + '/Development/flowti', encoding: 'utf-8' }); const fs = require('fs'); const content = fs.readFileSync(app.vault.adapter.basePath + '/Development/flowti/docs/reference/Flowti CLI Reference.md', 'utf-8'); return content.includes('type: CLIReference') && content.includes('Non-Interactive Commands') && content.includes('npm Scripts')",
+					"expect": { "type": "truthy" },
+					"description": "CLI Reference note exists with valid frontmatter and command tables"
+				},
+				{ "tool": "screenshot", "label": "cli-docs", "description": "Auto-generated CLI documentation" }
+			]
+		}
+	],
+	"teardown": [
+		{
+			"id": "cleanup",
+			"title": "Close all hub views",
+			"guideSection": 0,
+			"actions": [
+				{ "tool": "close-leaves", "viewType": "flowti-event-catalog", "description": "Close Event Catalog" },
+				{ "tool": "close-leaves", "viewType": "flowti-user-hub", "description": "Close User Hub" }
+			]
+		}
+	]
+}

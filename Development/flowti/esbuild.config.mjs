@@ -125,6 +125,7 @@ const isPublic = process.argv.includes("--publish");
 const doDistribution = process.argv.includes("--distribution");
 const isIncrement = process.argv.includes("--increment");
 const doReload = process.argv.includes("--reload");
+const noReports = process.argv.includes("--no-reports");
 const prod = !isWatch;
 
 // Paths
@@ -275,6 +276,7 @@ const generateReportNotes = () => {
 		path.resolve(__dirname, "scripts", "generate-performance-report.mjs"),
 		path.resolve(__dirname, "scripts", "generate-complexity-report.mjs"),
 		path.resolve(__dirname, "scripts", "generate-e2e-report.mjs"),
+		path.resolve(__dirname, "scripts", "generate-cli-reference.mjs"),
 	];
 
 	for (const script of scripts) {
@@ -516,7 +518,7 @@ const run = async () => {
 		const result = await ctx.rebuild();
 
 		writeBuildReport(result, startTime);
-		generateReportNotes();
+		if (!noReports) generateReportNotes();
 
 		// mark build failure on esbuild errors
 		if (result?.errors?.length) process.exitCode = 1;
