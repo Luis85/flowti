@@ -61,7 +61,7 @@
 	},
 	"reports": {
 		"allCommand": "npm run generate:reports",
-		"outputDir": "docs/reports",
+		"outputDir": "reports",
 		"auditSubdir": "audits",
 		"categories": [
 			{ "dir": "builds", "label": "Build" },

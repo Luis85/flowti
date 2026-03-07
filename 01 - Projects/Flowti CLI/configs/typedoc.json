@@ -7,7 +7,7 @@
 	"outputs": [
 		{
 			"name": "json",
-			"path": "../docs/reports/codebase/codebase.json"
+			"path": "../reports/codebase/codebase.json"
 		}
 	],
 

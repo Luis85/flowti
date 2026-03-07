@@ -1,19 +1,17 @@
 /**
  * generate-test-report.ts — CLI project test report generator.
  *
- * Reads vitest JSON output and generates a markdown TestReport
- * for the CLI project itself.
+ * Reads vitest JSON output and generates a markdown TestReport.
  *
  * Usage: tsx src/domain/reports/cli/generate-test-report.ts
  */
 
 import fs from "node:fs";
-import path from "node:path";
-import { CLI_PROJECT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
+import { ReportService } from "./report-service.js";
 
-const REPORT_JSON = path.join(CLI_PROJECT, "docs", "reports", "tests", "testreport.json");
-const OUTPUT_DIR = path.join(CLI_PROJECT, "docs", "reports", "tests");
+const svc = new ReportService();
+const REPORT_JSON = svc.subdir("tests/testreport.json");
 
 function main(): void {
 	if (!fs.existsSync(REPORT_JSON)) {
@@ -22,7 +20,6 @@ function main(): void {
 	}
 
 	const json = JSON.parse(fs.readFileSync(REPORT_JSON, "utf-8"));
-	const now = new Date();
 
 	const passed: number = json.numPassedTests ?? 0;
 	const failed: number = json.numFailedTests ?? 0;
@@ -34,7 +31,7 @@ function main(): void {
 	const fm: Record<string, string | number | boolean> = {
 		type: "TestReport",
 		project: "flowti-cli",
-		date: now.toISOString(),
+		date: new Date().toISOString(),
 		passed,
 		failed,
 		skipped,
@@ -56,7 +53,6 @@ function main(): void {
 		])
 		.addBlank();
 
-	// Per-suite breakdown
 	const testResults = json.testResults as Array<{ name: string; status: string; assertionResults?: Array<{ status: string }> }> | undefined;
 	if (testResults && testResults.length > 0) {
 		doc.heading(2, "Suites").addBlank();
@@ -69,12 +65,12 @@ function main(): void {
 		doc.table(["Suite", "Tests", "Passed", "Status"], rows, { alignRight: [1, 2] }).addBlank();
 	}
 
-	const safeTimestamp = now.toISOString().replace(/:/g, "-");
-	const outputPath = path.join(OUTPUT_DIR, `${safeTimestamp}-test-report.md`);
-	doc.save(outputPath);
-
-	// Stable path
-	doc.save(path.join(OUTPUT_DIR, "Test Report.md"));
+	const outputPath = svc.save(doc, {
+		subdir: "tests",
+		slug: "test-report",
+		stableFilename: "Test Report.md",
+		sourceJson: REPORT_JSON,
+	});
 
 	console.log(`[cli-report] TestReport written: ${outputPath}`);
 }

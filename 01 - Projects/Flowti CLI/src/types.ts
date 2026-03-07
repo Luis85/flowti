@@ -59,8 +59,6 @@ export interface FlowtiToolDef {
 }
 
 export const FLOWTI_TOOLS: FlowtiToolDef[] = [
-	{ id: "build", key: "2", label: "Build" },
-	{ id: "reports", key: "5", label: "Reports" },
 	{ id: "devtools", key: "6", label: "Dev Tools" },
 ];
 
@@ -88,9 +86,17 @@ export interface ReviewConfig {
 	rebuild?: string;
 }
 
+export interface ReportsConfig {
+	/** Relative path from project root to the reports directory (default: "docs/reports") */
+	dir?: string;
+	/** Command to generate all reports */
+	allCommand?: string;
+}
+
 export interface ProjectConfig {
 	name: string;
 	tools?: Partial<Record<FlowtiToolId, string>>;
+	reports?: ReportsConfig;
 	publish?: PublishConfig;
 	review?: ReviewConfig;
 }

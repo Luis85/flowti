@@ -2,18 +2,17 @@
  * generate-codebase-report.ts — CLI project codebase report generator.
  *
  * Reads the TypeDoc codebase.json produced by `npm run docs` and
- * generates a markdown CodebaseReport for the CLI project.
+ * generates a markdown CodebaseReport.
  *
  * Usage: tsx src/domain/reports/cli/generate-codebase-report.ts
  */
 
 import fs from "node:fs";
-import path from "node:path";
-import { CLI_PROJECT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
+import { ReportService } from "./report-service.js";
 
-const CODEBASE_JSON = path.join(CLI_PROJECT, "docs", "reports", "codebase", "codebase.json");
-const OUTPUT_DIR = path.join(CLI_PROJECT, "docs", "reports", "codebase");
+const svc = new ReportService();
+const CODEBASE_JSON = svc.subdir("codebase/codebase.json");
 
 const KIND: Record<string, number> = {
 	MODULE: 2,
@@ -70,14 +69,13 @@ function main(): void {
 	}
 
 	const data: TypeDocNode = JSON.parse(fs.readFileSync(CODEBASE_JSON, "utf-8"));
-	const now = new Date();
 	const counts = countByKind(data);
 	const domains = countModulesByDomain(data);
 
 	const fm: Record<string, string | number> = {
 		type: "CodebaseReport",
 		project: "flowti-cli",
-		date: now.toISOString(),
+		date: new Date().toISOString(),
 		schema_version: data.schemaVersion || "unknown",
 		modules: counts[KIND.MODULE] || 0,
 		classes: counts[KIND.CLASS] || 0,
@@ -101,7 +99,6 @@ function main(): void {
 		])
 		.addBlank();
 
-	// Domain breakdown
 	if (Object.keys(domains).length > 0) {
 		doc.heading(2, "Modules by Domain").addBlank();
 		const rows = Object.entries(domains)
@@ -110,10 +107,12 @@ function main(): void {
 		doc.table(["Domain", "Modules"], rows, { alignRight: [1] }).addBlank();
 	}
 
-	const safeTimestamp = now.toISOString().replace(/:/g, "-");
-	const outputPath = path.join(OUTPUT_DIR, `${safeTimestamp}-codebase-report.md`);
-	doc.save(outputPath);
-	doc.save(path.join(OUTPUT_DIR, "Codebase Report.md"));
+	const outputPath = svc.save(doc, {
+		subdir: "codebase",
+		slug: "codebase-report",
+		stableFilename: "Codebase Report.md",
+		sourceJson: CODEBASE_JSON,
+	});
 
 	console.log(`[cli-report] CodebaseReport written: ${outputPath}`);
 }

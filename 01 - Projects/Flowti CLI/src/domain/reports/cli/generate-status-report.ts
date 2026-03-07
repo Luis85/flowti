@@ -2,7 +2,7 @@
  * generate-status-report.ts — Project Status Report generator.
  *
  * Consolidates all 4 CLI reports (test, coverage, codebase, complexity)
- * into a single "Project Status Report.md" at the CLI project root.
+ * into a single "Project Status Report.md" in the reports directory.
  * Generates any missing reports before consolidating.
  */
 
@@ -12,9 +12,7 @@ import { execSync } from "node:child_process";
 import { CLI_PROJECT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { RESET, DIM, GREEN, CYAN } from "../../../infrastructure/ui.js";
-
-const REPORTS_DIR = path.join(CLI_PROJECT, "docs", "reports");
-const OUTPUT_PATH = path.join(CLI_PROJECT, "Project Status Report.md");
+import { ReportService } from "./report-service.js";
 
 interface ReportSection {
 	label: string;
@@ -22,28 +20,30 @@ interface ReportSection {
 	generateCommand: string;
 }
 
-const SECTIONS: ReportSection[] = [
-	{
-		label: "Tests",
-		stablePath: path.join(REPORTS_DIR, "tests", "Test Report.md"),
-		generateCommand: "npm run report:test",
-	},
-	{
-		label: "Coverage",
-		stablePath: path.join(REPORTS_DIR, "coverage", "Coverage Report.md"),
-		generateCommand: "npm run report:coverage",
-	},
-	{
-		label: "Codebase",
-		stablePath: path.join(REPORTS_DIR, "codebase", "Codebase Report.md"),
-		generateCommand: "npm run report:codebase",
-	},
-	{
-		label: "Complexity",
-		stablePath: path.join(REPORTS_DIR, "complexity", "Complexity Report.md"),
-		generateCommand: "npm run report:complexity",
-	},
-];
+function buildSections(svc: ReportService): ReportSection[] {
+	return [
+		{
+			label: "Tests",
+			stablePath: svc.stablePath("Test Report.md"),
+			generateCommand: "npm run report:test",
+		},
+		{
+			label: "Coverage",
+			stablePath: svc.stablePath("Coverage Report.md"),
+			generateCommand: "npm run report:coverage",
+		},
+		{
+			label: "Codebase",
+			stablePath: svc.stablePath("Codebase Report.md"),
+			generateCommand: "npm run report:codebase",
+		},
+		{
+			label: "Complexity",
+			stablePath: svc.stablePath("Complexity Report.md"),
+			generateCommand: "npm run report:complexity",
+		},
+	];
+}
 
 interface ParsedFrontmatter {
 	[key: string]: string;
@@ -70,12 +70,11 @@ function parseFrontmatter(content: string): { frontmatter: ParsedFrontmatter; bo
 
 function extractBody(content: string): string {
 	const { body } = parseFrontmatter(content);
-	// Strip the H1 heading (already captured by the consolidated report)
 	return body.replace(/^#\s+.+\n*/, "").trim();
 }
 
-function ensureReportsExist(): void {
-	const missing = SECTIONS.filter((s) => !fs.existsSync(s.stablePath));
+function ensureReportsExist(sections: ReportSection[], projectPath: string): void {
+	const missing = sections.filter((s) => !fs.existsSync(s.stablePath));
 	if (missing.length === 0) return;
 
 	console.log(`\n  ${DIM}Generating missing reports...${RESET}`);
@@ -83,7 +82,7 @@ function ensureReportsExist(): void {
 		console.log(`  ${CYAN}▸${RESET} ${section.label}`);
 		try {
 			execSync(section.generateCommand, {
-				cwd: CLI_PROJECT,
+				cwd: projectPath,
 				stdio: "pipe",
 				timeout: 120_000,
 			});
@@ -93,16 +92,15 @@ function ensureReportsExist(): void {
 	}
 }
 
-function buildStatusReport(): string {
+function buildStatusReport(sections: ReportSection[], projectName: string): string {
 	const now = new Date();
 
 	const doc = Document.create("Project Status Report")
 		.setFrontmatter("type", "ProjectStatusReport")
-		.setFrontmatter("project", "flowti-cli")
+		.setFrontmatter("project", projectName)
 		.setFrontmatter("date", now.toISOString());
 
-	// Collect stats from each report's frontmatter
-	for (const section of SECTIONS) {
+	for (const section of sections) {
 		if (!fs.existsSync(section.stablePath)) continue;
 		const content = fs.readFileSync(section.stablePath, "utf-8");
 		const { frontmatter } = parseFrontmatter(content);
@@ -119,8 +117,7 @@ function buildStatusReport(): string {
 		.text(`Generated: ${now.toISOString().replace("T", " ").substring(0, 19)}`)
 		.addBlank();
 
-	// Embed each report's body content
-	for (const section of SECTIONS) {
+	for (const section of sections) {
 		doc.heading(2, section.label).addBlank();
 
 		if (!fs.existsSync(section.stablePath)) {
@@ -140,16 +137,22 @@ function buildStatusReport(): string {
 	return doc.toString();
 }
 
-/** Interactive entry point — called from the project detail menu. */
-export async function generateProjectStatusReport(): Promise<void> {
+/** Interactive entry point — called from the Reports submenu. */
+export async function generateProjectStatusReport(projectPath?: string): Promise<void> {
+	const resolvedPath = projectPath ?? CLI_PROJECT;
+	const svc = new ReportService(resolvedPath);
+	const sections = buildSections(svc);
+	const projectName = path.basename(resolvedPath);
+	const outputPath = svc.stablePath("Project Status Report.md");
+
 	console.log(`\n  ${CYAN}▸${RESET} Generating Project Status Report...\n`);
-	ensureReportsExist();
+	ensureReportsExist(sections, resolvedPath);
 
-	const content = buildStatusReport();
-	fs.mkdirSync(path.dirname(OUTPUT_PATH), { recursive: true });
-	fs.writeFileSync(OUTPUT_PATH, content, "utf-8");
+	const content = buildStatusReport(sections, projectName);
+	fs.mkdirSync(svc.reportsDir, { recursive: true });
+	fs.writeFileSync(outputPath, content, "utf-8");
 
-	console.log(`\n  ${GREEN}✓${RESET} Project Status Report written: ${OUTPUT_PATH}\n`);
+	console.log(`\n  ${GREEN}✓${RESET} Project Status Report written: ${outputPath}\n`);
 }
 
 // Direct invocation support: tsx src/domain/reports/cli/generate-status-report.ts

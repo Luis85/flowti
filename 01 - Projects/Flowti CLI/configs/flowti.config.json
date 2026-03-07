@@ -4,5 +4,9 @@
 		"build": "npm run build",
 		"reports": "npm run reports",
 		"devtools": "npm run dev"
+	},
+	"reports": {
+		"dir": "reports",
+		"allCommand": "npm run reports"
 	}
 }

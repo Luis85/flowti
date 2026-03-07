@@ -16,6 +16,7 @@ import {
   isKnowledgebaseAvailable,
 } from "./domain/knowledgebase/knowledgebase.js";
 import { generateProjectStatusReport } from "./domain/reports/cli/generate-status-report.js";
+import { buildWithReport } from "./domain/reports/cli/generate-build-report.js";
 import { runIn } from "./infrastructure/shell.js";
 import { getSelectedProject } from "./infrastructure/state.js";
 import { initializeProject } from "./domain/project/project-config.js";
@@ -89,8 +90,28 @@ export function buildProjectDetailMenu(): MenuEntry[] {
     action: () => makeMenu(ctx.path),
   });
 
-  // 2 — Build (mappable tool)
-  items.push(toolItems.find((t) => t.key === "2")!);
+  // 2 — Build (with Build Report)
+  {
+    const buildCmd = ctx.config.tools?.["build"];
+    if (buildCmd) {
+      items.push({
+        key: "2",
+        label: "Build",
+        action: () => {
+          buildWithReport(buildCmd, ctx.path);
+          return "main" as const;
+        },
+      });
+    } else {
+      items.push({
+        key: "2",
+        label: "Build",
+        action: () => "main" as const,
+        disabled: true,
+        disabledMessage: '\n  Build is not mapped. Add "build" to tools in flowti.config.json.\n',
+      });
+    }
+  }
 
   // 3 — Review (always available)
   items.push({
@@ -106,8 +127,44 @@ export function buildProjectDetailMenu(): MenuEntry[] {
     action: () => publishMenu(ctx.path, ctx.config.publish ?? {}),
   });
 
-  // 5 — Reports (mappable tool)
-  items.push(toolItems.find((t) => t.key === "5")!);
+  // 5 — Reports (submenu)
+  items.push({
+    key: "5",
+    label: "Reports",
+    action: async () => {
+      const { runMenu } = await import("./infrastructure/menu.js");
+      const reportMenuItems: MenuEntry[] = [];
+
+      const reportsCmd = ctx.config.reports?.allCommand ?? ctx.config.tools?.["reports"];
+      if (reportsCmd) {
+        reportMenuItems.push({
+          key: "1",
+          label: "Run All Reports",
+          action: () => {
+            runIn(reportsCmd, ctx.path, "Reports");
+            return "main" as const;
+          },
+        });
+      }
+
+      reportMenuItems.push({
+        key: "2",
+        label: "Project Status Report",
+        action: async () => {
+          await generateProjectStatusReport(ctx.path);
+          return "main" as const;
+        },
+      });
+
+      reportMenuItems.push(
+        { separator: true },
+        { key: "b", label: "Back", action: () => "main" as const },
+      );
+
+      await runMenu("reports", reportMenuItems);
+      return "main" as const;
+    },
+  });
 
   // 6 — Dev Tools (mappable tool)
   items.push(toolItems.find((t) => t.key === "6")!);
@@ -149,14 +206,6 @@ export function buildProjectDetailMenu(): MenuEntry[] {
       label: "Info",
       action: () => {
         showInfo();
-        return "main" as const;
-      },
-    },
-    {
-      key: "s",
-      label: "Project Status Report",
-      action: async () => {
-        await generateProjectStatusReport();
         return "main" as const;
       },
     },

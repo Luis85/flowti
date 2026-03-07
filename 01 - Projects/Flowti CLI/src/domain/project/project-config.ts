@@ -105,3 +105,11 @@ export function initializeProject(name: string, source?: ProjectSource): Project
 		scripts: pkg?.scripts ?? {},
 	};
 }
+
+// ── Reports directory ────────────────────────────────────────────────
+
+const DEFAULT_REPORTS_DIR = "docs/reports";
+
+export function getReportsDir(projectPath: string, config: ProjectConfig): string {
+	return path.join(projectPath, config.reports?.dir ?? DEFAULT_REPORTS_DIR);
+}
