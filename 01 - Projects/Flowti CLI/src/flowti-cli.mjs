@@ -15,21 +15,25 @@
 // ── Infrastructure ──────────────────────────────────────────────────
 
 import { parseArgs } from "./infrastructure/args.mjs";
-import { printBanner, printMenu, RESET, DIM, RED, YELLOW } from "./infrastructure/ui.mjs";
-import { createRL, ask } from "./infrastructure/readline.mjs";
+import { printBanner, RESET, DIM, RED, YELLOW } from "./infrastructure/ui.mjs";
+import { runMenu } from "./infrastructure/menu.mjs";
 
 // ── Domain modules ──────────────────────────────────────────────────
 
 import { checkPrerequisites, ensureDependencies, checkFirstRun } from "./domain/onboarding/onboarding.mjs";
 import { showHelp, commands as helpCmds } from "./domain/help/help.mjs";
-import { showInfo, commands as infoCmds } from "./domain/info/info.mjs";
-import { menu as buildMenu, commands as buildCmds } from "./domain/build/build.mjs";
-import { menu as devToolsMenu, commands as devToolsCmds } from "./domain/devtools/devtools.mjs";
-import { menu as makeMenu, commands as makeCmds } from "./domain/make/make.mjs";
-import { menu as reviewMenu, commands as reviewCmds } from "./domain/review/review.mjs";
-import { menu as publishMenu, commands as publishCmds } from "./domain/publish/publish.mjs";
-import { menu as reportsMenu, commands as reportsCmds } from "./domain/reports/reports.mjs";
-import { captureIdea, captureNote, commands as captureCmds } from "./domain/capture/capture.mjs";
+import { commands as infoCmds } from "./domain/info/info.mjs";
+import { commands as buildCmds } from "./domain/build/build.mjs";
+import { commands as devToolsCmds } from "./domain/devtools/devtools.mjs";
+import { commands as makeCmds } from "./domain/make/make.mjs";
+import { commands as reviewCmds } from "./domain/review/review.mjs";
+import { commands as publishCmds } from "./domain/publish/publish.mjs";
+import { commands as reportsCmds } from "./domain/reports/reports.mjs";
+import { commands as captureCmds } from "./domain/capture/capture.mjs";
+
+// ── Main menu definition ────────────────────────────────────────────
+
+import { mainMenuItems } from "./mainMenu.mjs";
 
 // ── Command registry ────────────────────────────────────────────────
 
@@ -84,44 +88,8 @@ async function handleCliArgs() {
 // ── Interactive main menu ───────────────────────────────────────────
 
 async function mainMenu() {
-	console.log(`  ${DIM}Main Menu${RESET}`);
-	console.log();
-	printMenu([
-		{ key: "1", label: "Make" },
-		{ key: "2", label: "Build" },
-		{ key: "3", label: "Review" },
-		{ key: "4", label: "Publish" },
-		{ key: "5", label: "Reports" },
-		{ key: "6", label: "Dev Tools" },
-		{ key: "7", label: "Info" },
-		{ separator: true },
-		{ key: "8", label: "Capture Idea" },
-		{ key: "9", label: "Capture Note" },
-		{ separator: true },
-		{ key: "?", label: "Help" },
-		{ key: "q", label: "Quit" },
-	]);
-
-	const rl = createRL();
-	const choice = await ask(rl, "Choice", "1");
-	rl.close();
-
-	switch (choice.toLowerCase()) {
-		case "1": return await makeMenu();
-		case "2": return await buildMenu();
-		case "3": return await reviewMenu();
-		case "4": return await publishMenu();
-		case "5": return await reportsMenu();
-		case "6": return await devToolsMenu();
-		case "7": showInfo(); return "main";
-		case "8": return await captureIdea();
-		case "9": return await captureNote();
-		case "?": showHelp("main"); return "main";
-		case "q": return "quit";
-		default:
-			console.log("\n  Invalid choice — try again.\n");
-			return "main";
-	}
+	console.log(`  ${DIM}Main Menu${RESET}\n`);
+	return runMenu(null, mainMenuItems);
 }
 
 // ── Entry point ─────────────────────────────────────────────────────

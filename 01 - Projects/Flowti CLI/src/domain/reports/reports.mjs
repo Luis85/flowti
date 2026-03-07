@@ -5,10 +5,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ROOT, config, cliConfig } from "../../infrastructure/config.mjs";
-import { RESET, BOLD, DIM, GREEN, RED, CYAN, YELLOW, printHeader, printMenu } from "../../infrastructure/ui.mjs";
+import { RESET, BOLD, DIM, GREEN, RED, CYAN, YELLOW, printHeader } from "../../infrastructure/ui.mjs";
 import { run } from "../../infrastructure/shell.mjs";
 import { createRL, ask } from "../../infrastructure/readline.mjs";
 import { findLatestReport, parseFrontmatter } from "../../infrastructure/fs.mjs";
+import { runMenu } from "../../infrastructure/menu.mjs";
 import { showHelp } from "../help/help.mjs";
 
 const rptCfg = cliConfig.reports ?? {};
@@ -22,44 +23,17 @@ function getReportScripts() {
 // ── Interactive menu ────────────────────────────────────────────────
 
 export async function menu() {
-	// eslint-disable-next-line no-constant-condition
-	while (true) {
-		printHeader("Reports");
-		printMenu([
-			{ key: "1", label: "Build all reports" },
-			{ key: "2", label: "Build selected report" },
-			{ key: "3", label: "Build audit report" },
-			{ separator: true },
-			{ key: "?", label: "Help" },
-			{ key: "b", label: "Back" },
-			{ key: "q", label: "Quit" },
-		]);
-
-		const rl = createRL();
-		const choice = await ask(rl, "Choice", "1");
-		rl.close();
-
-		switch (choice.toLowerCase()) {
-			case "1":
-				run(rptCfg.allCommand ?? "npm run generate:reports", "Generating all reports...");
-				break;
-			case "2":
-				await selectReportMenu();
-				break;
-			case "3":
-				await auditMenu();
-				break;
-			case "?":
-				showHelp("reports");
-				break;
-			case "b":
-				return "main";
-			case "q":
-				return "quit";
-			default:
-				console.log("\n  Invalid choice — try again.\n");
-		}
-	}
+	return runMenu("Reports", [
+		{ key: "1", label: "Build all reports", action: () => {
+			run(rptCfg.allCommand ?? "npm run generate:reports", "Generating all reports...");
+		}},
+		{ key: "2", label: "Build selected report", action: selectReportMenu },
+		{ key: "3", label: "Build audit report", action: auditMenu },
+		{ separator: true },
+		{ key: "?", label: "Help", action: () => { showHelp("reports"); } },
+		{ key: "b", label: "Back", action: () => "main" },
+		{ key: "q", label: "Quit", action: () => "quit" },
+	]);
 }
 
 // ── Select report sub-menu ──────────────────────────────────────────

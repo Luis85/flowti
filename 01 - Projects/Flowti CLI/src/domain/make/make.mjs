@@ -5,9 +5,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ROOT, config, manifest } from "../../infrastructure/config.mjs";
-import { RESET, BOLD, DIM, GREEN, RED, CYAN, YELLOW, printHeader, printMenu } from "../../infrastructure/ui.mjs";
+import { RESET, BOLD, DIM, GREEN, RED, CYAN, YELLOW, printHeader } from "../../infrastructure/ui.mjs";
 import { createRL, ask } from "../../infrastructure/readline.mjs";
 import { writeFile } from "../../infrastructure/fs.mjs";
+import { runMenu } from "../../infrastructure/menu.mjs";
 import { showHelp } from "../help/help.mjs";
 import { toKebab, toPascal, getMakePaths } from "./naming.mjs";
 import {
@@ -21,40 +22,14 @@ import {
 // ── Interactive menu ────────────────────────────────────────────────
 
 export async function menu() {
-	// eslint-disable-next-line no-constant-condition
-	while (true) {
-		printHeader("Make");
-		printMenu([
-			{ key: "1", label: "New Hub (within Flowti)" },
-			{ key: "2", label: "New Plugin (standalone Obsidian plugin)" },
-			{ separator: true },
-			{ key: "?", label: "Help" },
-			{ key: "b", label: "Back" },
-			{ key: "q", label: "Quit" },
-		]);
-
-		const rl = createRL();
-		const choice = await ask(rl, "Choice", "1");
-		rl.close();
-
-		switch (choice.toLowerCase()) {
-			case "1":
-				await makeHub();
-				break;
-			case "2":
-				await makePlugin();
-				break;
-			case "?":
-				showHelp("make");
-				break;
-			case "b":
-				return "main";
-			case "q":
-				return "quit";
-			default:
-				console.log("\n  Invalid choice — try again.\n");
-		}
-	}
+	return runMenu("Make", [
+		{ key: "1", label: "New Hub (within Flowti)", action: makeHub },
+		{ key: "2", label: "New Plugin (standalone Obsidian plugin)", action: makePlugin },
+		{ separator: true },
+		{ key: "?", label: "Help", action: () => { showHelp("make"); } },
+		{ key: "b", label: "Back", action: () => "main" },
+		{ key: "q", label: "Quit", action: () => "quit" },
+	]);
 }
 
 // ── Hub scaffolding ─────────────────────────────────────────────────
