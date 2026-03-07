@@ -8,43 +8,33 @@ The **Integrated Business Development Environment** - An Obsidian plugin that im
 
 ## Getting Started
 
-### 1. Clone and Install
+### 1. Clone and Start
 
 ```bash
 git clone <repo-url>
-cd Development/flowti
-npm install
+flowti.cmd
 ```
+
+The CLI automatically checks prerequisites (Git, Node.js v16+), installs dependencies if needed, and guides you through the setup.
 
 ### 2. Build the Plugin
 
-From the vault root (`c:\Projects\flowti`):
+Select **Build** (option 2) from the interactive menu, or run:
 
 ```bash
-# Windows
 flowti.cmd build
-
-# Unix / Git Bash
-./flowti.sh build
 ```
 
-Or from the plugin development folder:
-
-```bash
-cd Development/flowti
-npm run flowti -- build
-```
+After a successful build, the CLI tells you the next steps.
 
 ### 3. Activate in Obsidian
 
 Open the repo root as an Obsidian vault, then enable the plugin:
 **Settings → Community Plugins → Enable "Flowti - IBDE"**
 
-Complete the Installer wizard that appears on first launch.
+Complete the Installer wizard that appears on first launch. The CLI returns to the normal main menu.
 
 ### 4. Explore the CLI
-
-The Flowti CLI is your single entry point for all development workflows:
 
 ```bash
 flowti.cmd                  # Interactive menu

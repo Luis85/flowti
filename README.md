@@ -4,9 +4,6 @@
 
 > Goal of this project is to provide a simple tool which documents itself and it's usage to iterate quickly and to codify what I learned.
 
-This is a pre-configured Obsidian Vault, ready to go as documentation system called "Flowti - IBDE" an integrated business development environment and management system.
-Goal of this framework is to provide all necessary utilities to describe and visualize digital twins of things.
-
 This document describes how to get the current implementation up and running.
 The Repository consists of multiple parts, the Flowti Framework, a combination of PKM, Design, and Play-testing, the Foreign Folder Mapper to connect to shared folders, and the OneSeater - Motorsport Manager, an example implementation of Flowti in a game environment. All provided as source in `Development`.
 
@@ -36,40 +33,34 @@ Third: [[How can AI help to improve product-development quality]]?
 
 Before we get started, make sure the following things are in place:
 
-- Git is installed
-- Node is installed
+- [Git](https://git-scm.com/downloads) is installed
+- [Node.js](https://nodejs.org) v16+ is installed
 - [Obsidian](https://obsidian.md) is installed
-- Obsidian Git Community Plugin is installed and  enabled
-- Obsidian CLI is activated
+
+The Flowti CLI will verify these automatically and guide you if anything is missing.
 
 ---
 
 ## Tutorial - How to get in
 
-### Step 1 - Clone and install
+### Step 1 - Clone and start the CLI
 
 ```bash
 git clone <repo-url>
-cd Development/flowti
-npm install
+flowti.cmd
 ```
 
-Open the repository root as an **Obsidian vault**.
+The CLI checks your environment (Git, Node.js) and installs dependencies automatically on first run. If the plugin hasn't been built yet, it will tell you.
 
-### Step 2 - Build and activate the plugin
+### Step 2 - Build the plugin
 
-From the vault root, use the **Flowti CLI**:
+Select **Build** (option 2) from the interactive menu, or run:
 
 ```bash
-# Windows
 flowti.cmd build
-
-# Unix / Git Bash
-./flowti.sh build
 ```
 
-Then in Obsidian: **Settings → Community Plugins → Enable "Flowti - IBDE"**.
-The Installer Wizard appears on first launch — follow the steps to scaffold your vault.
+After a successful build, the CLI guides you to the next step: open this folder as an **Obsidian vault**, then **Settings → Community Plugins → Enable "Flowti - IBDE"**. The Installer Wizard appears on first launch — follow the steps to scaffold your vault.
 
 ### Step 3 - Explore and start your journey
 

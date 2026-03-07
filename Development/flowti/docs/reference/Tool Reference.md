@@ -1,7 +1,7 @@
 ---
 type: ToolReference
-date: "2026-03-03T14:55:30.120Z"
-total_tools: 34
+date: "2026-03-07T12:13:39.341Z"
+total_tools: 35
 categories: 7
 tags: 
   - assert
@@ -10,12 +10,13 @@ tags:
   - lifecycle
   - logging
   - navigation
+  - performance
 ---
 # Journey Runner Tool Reference
 
 > [!info] Summary
-> Total tools: **34** | Categories: **7**
-> Tags: `assert` `feedback` `interactive` `lifecycle` `logging` `navigation`
+> Total tools: **35** | Categories: **7**
+> Tags: `assert` `feedback` `interactive` `lifecycle` `logging` `navigation` `performance`
 
 > [!tip] Common field
 > All tools accept an optional `description` field (string) for human-readable context in reports.
@@ -60,6 +61,7 @@ tags:
 | `assert-value` | Assert that a form element's value matches an expected string | `assert` |
 | `select` | Select an option from a <select> dropdown by value |  |
 | `spinner` | Show or hide a persistent loading spinner notice | `feedback` |
+| `parallel-group` | Batch multiple read-only assertions into a single subprocess eval call | `assert` `performance` |
 
 ---
 
@@ -798,6 +800,48 @@ tags:
   "tool": "assert-value",
   "selector": "textarea.description",
   "contains": "step"
+}
+```
+
+---
+
+### `parallel-group`
+
+> Batch multiple read-only assertions into a single subprocess eval call
+
+**Tags**: `assert` `performance`
+
+**When to use**:
+
+- Batch visibility checks for a group of UI elements
+- Run multiple independent assertions in one CLI call to reduce IPC overhead
+- Get all-at-once failure reporting instead of stopping at the first failure
+
+**Parameters**:
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `actions` | `array` | Yes | Array of read-only assertion sub-actions (assert, assert-text, assert-number, assert-value, eval without store) |
+
+**Examples**:
+
+*Batch visibility assertions*
+```json
+{
+  "tool": "parallel-group",
+  "description": "Verify form elements",
+  "actions": [
+    {
+      "tool": "assert",
+      "type": "visible",
+      "selector": "[data-test-id='form']"
+    },
+    {
+      "tool": "assert",
+      "type": "visible",
+      "selector": "[data-test-id='submit-btn']"
+    }
+  ]
 }
 ```
 
