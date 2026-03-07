@@ -9,10 +9,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-
-const CLI_PROJECT = path.resolve(import.meta.dirname, "..");
-const VAULT_ROOT = path.resolve(CLI_PROJECT, "..", "..");
-const PLUGIN_ROOT = path.resolve(VAULT_ROOT, "Development", "flowti");
+import { CLI_PROJECT, PLUGIN_ROOT } from "../src/infrastructure/config.mjs";
 
 const HELP_PATH = path.join(CLI_PROJECT, "src", "domain", "help", "help.mjs");
 const CONFIG_PATH = path.join(PLUGIN_ROOT, "flowti.config.json");

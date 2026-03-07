@@ -10,9 +10,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-const CLI_PROJECT = path.resolve(import.meta.dirname, "..");
-const VAULT_ROOT = path.resolve(CLI_PROJECT, "..", "..");
-const ROOT = path.resolve(VAULT_ROOT, "Development", "flowti");
+import { ROOT } from "../src/infrastructure/config.mjs";
 
 const buildTypeArg = process.argv.find((a) => a.startsWith("--build-type="));
 const buildType = buildTypeArg ? buildTypeArg.split("=")[1] : "flow";

@@ -2,11 +2,15 @@
  * build.mjs — Build commands and interactive menu.
  */
 
+import { cliConfig } from "../../infrastructure/config.mjs";
 import { RESET, DIM, CYAN, printHeader, printMenu } from "../../infrastructure/ui.mjs";
 import { run } from "../../infrastructure/shell.mjs";
 import { createRL, ask } from "../../infrastructure/readline.mjs";
 import { showHelp } from "../help/help.mjs";
 import { showPostBuildGuidance } from "../onboarding/onboarding.mjs";
+
+const buildCmd = cliConfig.build?.commands ?? {};
+const testCmd = cliConfig.test?.commands ?? {};
 
 // ── Interactive menu ────────────────────────────────────────────────
 
@@ -32,17 +36,17 @@ export async function menu() {
 
 		switch (choice.toLowerCase()) {
 			case "1": {
-				const code = run("node esbuild.config.mjs --production --no-reports", "Building (fast)...");
+				const code = run(buildCmd.fast ?? "node esbuild.config.mjs --production --no-reports", "Building (fast)...");
 				if (code === 0) showPostBuildGuidance();
 				break;
 			}
 			case "2": {
-				const code = run("npm run build:increment", "Building increment (full pipeline)...");
+				const code = run(buildCmd.increment ?? "npm run build:increment", "Building increment (full pipeline)...");
 				if (code === 0) showPostBuildGuidance();
 				break;
 			}
 			case "3": {
-				const code = run("npm run build:full", "Building full (flow tests + reports)...");
+				const code = run(buildCmd.full ?? "npm run build:full", "Building full (flow tests + reports)...");
 				if (code === 0) showPostBuildGuidance();
 				break;
 			}
@@ -53,11 +57,11 @@ export async function menu() {
 				const reloadFlag = reload.toLowerCase() === "y" ? " --reload" : "";
 				console.log(`\n  ${CYAN}▸${RESET} Starting watch mode...${reloadFlag ? ` ${DIM}(with auto-reload)${RESET}` : ""}\n`);
 				console.log(`  ${DIM}Press Ctrl+C to stop.${RESET}\n`);
-				run(`node esbuild.config.mjs --watch${reloadFlag}`, "Watch mode");
+				run(`${buildCmd.watch ?? "node esbuild.config.mjs --watch"}${reloadFlag}`, "Watch mode");
 				break;
 			}
 			case "5":
-				run("node esbuild.config.mjs --production --no-reports --distribution", "Distributing build...");
+				run(buildCmd.distribute ?? "node esbuild.config.mjs --production --no-reports --distribution", "Distributing build...");
 				break;
 			case "?":
 				showHelp("build");
@@ -76,31 +80,31 @@ export async function menu() {
 
 export const commands = {
 	"build": () => {
-		const code = run("node esbuild.config.mjs --production --no-reports", "Building (fast)...");
+		const code = run(buildCmd.fast ?? "node esbuild.config.mjs --production --no-reports", "Building (fast)...");
 		if (code === 0) showPostBuildGuidance();
 	},
 	"build:increment": () => {
-		const code = run("npm run build:increment", "Building increment (full pipeline)...");
+		const code = run(buildCmd.increment ?? "npm run build:increment", "Building increment (full pipeline)...");
 		if (code === 0) showPostBuildGuidance();
 	},
 	"build:full": () => {
-		const code = run("npm run build:full", "Building full (flow tests + reports)...");
+		const code = run(buildCmd.full ?? "npm run build:full", "Building full (flow tests + reports)...");
 		if (code === 0) showPostBuildGuidance();
 	},
 	"build:watch": (flags) => {
 		const reloadFlag = flags.reload ? " --reload" : "";
-		run(`node esbuild.config.mjs --watch${reloadFlag}`, "Watch mode...");
+		run(`${buildCmd.watch ?? "node esbuild.config.mjs --watch"}${reloadFlag}`, "Watch mode...");
 	},
 	"build:distribute": () => {
-		run("node esbuild.config.mjs --production --no-reports --distribution", "Distributing build...");
+		run(buildCmd.distribute ?? "node esbuild.config.mjs --production --no-reports --distribution", "Distributing build...");
 	},
 	"test": () => {
-		run("npm run check && vitest run", "Running tests...");
+		run(testCmd.unit ?? "npm run check && vitest run", "Running tests...");
 	},
 	"test:increment": () => {
-		run("npm run test:increment", "Running increment tests...");
+		run(testCmd.increment ?? "npm run test:increment", "Running increment tests...");
 	},
 	"test:e2e": () => {
-		run("npm run test:e2e", "Running E2E tests...");
+		run(testCmd.e2e ?? "npm run test:e2e", "Running E2E tests...");
 	},
 };

@@ -5,8 +5,12 @@
 import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { ROOT, VAULT_ROOT } from "../../infrastructure/config.mjs";
+import { ROOT, VAULT_ROOT, cliConfig } from "../../infrastructure/config.mjs";
 import { RESET, BOLD, DIM, GREEN, RED, CYAN, YELLOW } from "../../infrastructure/ui.mjs";
+
+const onb = cliConfig.onboarding ?? {};
+const pluginId = onb.pluginId ?? "flowti-ibde";
+const nodeMinVersion = onb.nodeMinVersion ?? 16;
 
 export function checkPrerequisites() {
 	const missing = [];
@@ -23,10 +27,10 @@ export function checkPrerequisites() {
 	try {
 		const nodeVersion = execSync("node --version", { encoding: "utf-8", windowsHide: true }).trim();
 		const major = parseInt(nodeVersion.replace("v", "").split(".")[0], 10);
-		if (major < 16) {
+		if (major < nodeMinVersion) {
 			missing.push({
-				name: `Node.js (found ${nodeVersion}, need v16+)`,
-				instruction: "Download Node.js v16+ from https://nodejs.org",
+				name: `Node.js (found ${nodeVersion}, need v${nodeMinVersion}+)`,
+				instruction: `Download Node.js v${nodeMinVersion}+ from https://nodejs.org`,
 			});
 		}
 	} catch {
@@ -64,14 +68,14 @@ export function ensureDependencies() {
 }
 
 export function checkFirstRun() {
-	const mainJs = path.join(VAULT_ROOT, ".obsidian", "plugins", "flowti-ibde", "main.js");
+	const mainJs = path.join(VAULT_ROOT, ".obsidian", "plugins", pluginId, "main.js");
 	if (!fs.existsSync(mainJs)) {
 		console.log(`  ${YELLOW}Plugin not yet built.${RESET} Select ${BOLD}Build${RESET} (option 2) to get started.\n`);
 	}
 }
 
 export function showPostBuildGuidance() {
-	const mainJs = path.join(VAULT_ROOT, ".obsidian", "plugins", "flowti-ibde", "main.js");
+	const mainJs = path.join(VAULT_ROOT, ".obsidian", "plugins", pluginId, "main.js");
 	if (!fs.existsSync(mainJs)) return;
 
 	console.log(`  ${GREEN}${BOLD}Plugin built successfully!${RESET}\n`);

@@ -2,10 +2,13 @@
  * devtools.mjs — Developer utilities menu and commands.
  */
 
+import { cliConfig } from "../../infrastructure/config.mjs";
 import { RESET, DIM, CYAN, printHeader, printMenu } from "../../infrastructure/ui.mjs";
 import { run } from "../../infrastructure/shell.mjs";
 import { createRL, ask } from "../../infrastructure/readline.mjs";
 import { showHelp } from "../help/help.mjs";
+
+const cmd = cliConfig.devtools?.commands ?? {};
 
 // ── Interactive menu ────────────────────────────────────────────────
 
@@ -33,35 +36,36 @@ export async function menu() {
 
 		switch (choice.toLowerCase()) {
 			case "1":
-				run("node scripts/cli-reload.mjs", "Reloading plugin...");
+				run(cmd.reload ?? "node scripts/cli-reload.mjs", "Reloading plugin...");
 				break;
 			case "2":
 				console.log(`\n  ${DIM}Press Ctrl+C to stop the console stream.${RESET}\n`);
-				run("obsidian dev:console", "Opening dev console...");
+				run(cmd.console ?? "obsidian dev:console", "Opening dev console...");
 				break;
 			case "3":
 				console.log(`\n  ${DIM}Press Ctrl+C to stop the error stream.${RESET}\n`);
-				run("obsidian dev:errors", "Opening error stream...");
+				run(cmd.errors ?? "obsidian dev:errors", "Opening error stream...");
 				break;
 			case "4": {
+				const fmCmd = cmd.fixFrontmatter ?? "node scripts/fix-frontmatter.mjs";
 				console.log(`\n  ${CYAN}▸${RESET} Running frontmatter check (dry-run)...\n`);
-				run("node scripts/fix-frontmatter.mjs --dry-run", "Scanning docs/ for frontmatter issues...");
+				run(`${fmCmd} --dry-run`, "Scanning docs/ for frontmatter issues...");
 				const applyRl = createRL();
 				const apply = await ask(applyRl, "Apply fixes? (y/N)", "N");
 				applyRl.close();
 				if (apply.toLowerCase() === "y") {
-					run("node scripts/fix-frontmatter.mjs", "Fixing frontmatter...");
+					run(fmCmd, "Fixing frontmatter...");
 				}
 				break;
 			}
 			case "5":
-				run("node scripts/generate-test-data.mjs", "Generating test data CSVs...");
+				run(cmd.testdata ?? "node scripts/generate-test-data.mjs", "Generating test data CSVs...");
 				break;
 			case "6":
-				run("npm run check", "Running lint + tsc...");
+				run(cmd.check ?? "npm run check", "Running lint + tsc...");
 				break;
 			case "7":
-				run("npm run lint", "Running ESLint...");
+				run(cmd.lint ?? "npm run lint", "Running ESLint...");
 				break;
 			case "?":
 				showHelp("devtools");
@@ -80,25 +84,26 @@ export async function menu() {
 
 export const commands = {
 	"dev:reload": () => {
-		run("node scripts/cli-reload.mjs", "Reloading plugin...");
+		run(cmd.reload ?? "node scripts/cli-reload.mjs", "Reloading plugin...");
 	},
 	"dev:console": () => {
-		run("obsidian dev:console", "Opening dev console...");
+		run(cmd.console ?? "obsidian dev:console", "Opening dev console...");
 	},
 	"dev:errors": () => {
-		run("obsidian dev:errors", "Opening error stream...");
+		run(cmd.errors ?? "obsidian dev:errors", "Opening error stream...");
 	},
 	"dev:check": () => {
-		run("npm run check", "Running lint + tsc...");
+		run(cmd.check ?? "npm run check", "Running lint + tsc...");
 	},
 	"dev:lint": () => {
-		run("npm run lint", "Running ESLint...");
+		run(cmd.lint ?? "npm run lint", "Running ESLint...");
 	},
 	"dev:fix-frontmatter": (flags) => {
+		const fmCmd = cmd.fixFrontmatter ?? "node scripts/fix-frontmatter.mjs";
 		const dryRun = flags["dry-run"] ? " --dry-run" : "";
-		run(`node scripts/fix-frontmatter.mjs${dryRun}`, `Fixing frontmatter${dryRun ? " (dry-run)" : ""}...`);
+		run(`${fmCmd}${dryRun}`, `Fixing frontmatter${dryRun ? " (dry-run)" : ""}...`);
 	},
 	"dev:testdata": () => {
-		run("node scripts/generate-test-data.mjs", "Generating test data CSVs...");
+		run(cmd.testdata ?? "node scripts/generate-test-data.mjs", "Generating test data CSVs...");
 	},
 };

@@ -1,64 +1,12 @@
 /**
- * cli-reload.mjs
- *
- * Reloads the flowti-ibde plugin via Obsidian CLI.
- * Gracefully exits if the CLI is not available or Obsidian is not running.
- *
- * Usage: node scripts/cli-reload.mjs [--vault=<name>]
- *
- * Exit codes:
- *   0 — reload successful or CLI not available (non-fatal)
- *   1 — unexpected error
+ * Redirect stub — delegates to the CLI project.
+ * Source: 01 - Projects/Flowti CLI/scripts/cli-reload.mjs
  */
 
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
+import path from "node:path";
 
-const PLUGIN_ID = "flowti-ibde";
-
-function parseVaultArg() {
-	for (const arg of process.argv.slice(2)) {
-		if (arg.startsWith("--vault=")) return arg.slice("--vault=".length);
-	}
-	return undefined;
-}
-
-function isCliAvailable() {
-	try {
-		execFileSync("obsidian", ["version"], {
-			encoding: "utf-8",
-			timeout: 3000,
-			windowsHide: true,
-		});
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-function main() {
-	if (!isCliAvailable()) {
-		console.log("[cli] Obsidian CLI not available — skipping reload.");
-		return;
-	}
-
-	const vault = parseVaultArg();
-	const args = vault
-		? [`vault=${vault}`, "plugin:reload", `id=${PLUGIN_ID}`]
-		: ["plugin:reload", `id=${PLUGIN_ID}`];
-
-	try {
-		execFileSync("obsidian", args, {
-			encoding: "utf-8",
-			stdio: "inherit",
-			timeout: 10_000,
-			windowsHide: true,
-		});
-		console.log(`[cli] Plugin reloaded: ${PLUGIN_ID}`);
-	} catch (err) {
-		console.warn(
-			`[cli] Reload failed (non-fatal): ${err instanceof Error ? err.message : err}`,
-		);
-	}
-}
-
-main();
+const VAULT_ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
+const SCRIPT = path.join(VAULT_ROOT, "01 - Projects", "Flowti CLI", "scripts", "cli-reload.mjs");
+const result = spawnSync(process.execPath, [SCRIPT, ...process.argv.slice(2)], { stdio: "inherit" });
+process.exit(result.status ?? 0);

@@ -26,9 +26,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-const CLI_PROJECT = path.resolve(import.meta.dirname, "..");
-const VAULT_ROOT = path.resolve(CLI_PROJECT, "..", "..");
-const PLUGIN_ROOT = path.resolve(VAULT_ROOT, "Development", "flowti");
+import { VAULT_ROOT, PLUGIN_ROOT } from "../src/infrastructure/config.mjs";
 
 // Vitest JSON lives in the plugin source (temp artifact)
 const VITEST_RESULTS = path.join(PLUGIN_ROOT, "docs", "reports", "e2e", "e2e-results.json");

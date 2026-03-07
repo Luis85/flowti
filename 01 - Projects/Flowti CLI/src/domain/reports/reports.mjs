@@ -4,12 +4,14 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { ROOT, config } from "../../infrastructure/config.mjs";
+import { ROOT, config, cliConfig } from "../../infrastructure/config.mjs";
 import { RESET, BOLD, DIM, GREEN, RED, CYAN, YELLOW, printHeader, printMenu } from "../../infrastructure/ui.mjs";
 import { run } from "../../infrastructure/shell.mjs";
 import { createRL, ask } from "../../infrastructure/readline.mjs";
 import { findLatestReport, parseFrontmatter } from "../../infrastructure/fs.mjs";
 import { showHelp } from "../help/help.mjs";
+
+const rptCfg = cliConfig.reports ?? {};
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -39,7 +41,7 @@ export async function menu() {
 
 		switch (choice.toLowerCase()) {
 			case "1":
-				run("npm run generate:reports", "Generating all reports...");
+				run(rptCfg.allCommand ?? "npm run generate:reports", "Generating all reports...");
 				break;
 			case "2":
 				await selectReportMenu();
@@ -85,7 +87,7 @@ async function selectReportMenu() {
 
 	if (choice.toLowerCase() === "b") return;
 	if (choice.toLowerCase() === "a") {
-		run("npm run generate:reports", "Generating all reports...");
+		run(rptCfg.allCommand ?? "npm run generate:reports", "Generating all reports...");
 		return;
 	}
 
@@ -113,13 +115,13 @@ async function auditMenu() {
 
 	console.log(`\n  ${CYAN}▸${RESET} Generating audit: ${auditName}\n`);
 
-	const reportsDir = path.join(ROOT, "docs", "reports");
-	const auditDir = path.join(reportsDir, "audits");
+	const reportsDir = path.join(ROOT, rptCfg.outputDir ?? "docs/reports");
+	const auditDir = path.join(reportsDir, rptCfg.auditSubdir ?? "audits");
 
 	try { fs.mkdirSync(auditDir, { recursive: true }); } catch { /* ignore */ }
 
 	const sections = [];
-	const reportCategories = [
+	const reportCategories = rptCfg.categories ?? [
 		{ dir: "builds", label: "Build" },
 		{ dir: "tests", label: "Unit Tests" },
 		{ dir: "coverage", label: "Coverage" },
@@ -137,7 +139,7 @@ async function auditMenu() {
 		}
 	}
 
-	const stableReports = [
+	const stableReports = rptCfg.stableReports ?? [
 		{ file: "traceability/Trace Conformance Report.md", label: "Traceability" },
 		{ file: "e2e/E2E Report.md", label: "E2E Tests" },
 	];
@@ -194,10 +196,10 @@ async function auditMenu() {
 
 export const commands = {
 	reports: () => {
-		run("npm run generate:reports", "Generating all reports...");
+		run(rptCfg.allCommand ?? "npm run generate:reports", "Generating all reports...");
 	},
 	"reports:audit": () => {
-		run("npm run generate:reports", "Generating reports for audit...");
+		run(rptCfg.allCommand ?? "npm run generate:reports", "Generating reports for audit...");
 		console.log(`  ${GREEN}✓${RESET} Reports generated. Use interactive mode for full audit.\n`);
 	},
 	"report:*": (flags, _rawArgs, command) => {

@@ -9,9 +9,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-const CLI_PROJECT = path.resolve(import.meta.dirname, "..");
-const VAULT_ROOT = path.resolve(CLI_PROJECT, "..", "..");
-const ROOT = path.resolve(VAULT_ROOT, "Development", "flowti");
+import { ROOT } from "../src/infrastructure/config.mjs";
 
 const CODEBASE_JSON = path.join(ROOT, "docs", "reports", "codebase", "codebase.json");
 const OUTPUT_DIR = path.join(ROOT, "docs", "reports", "codebase");

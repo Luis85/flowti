@@ -9,9 +9,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-const CLI_PROJECT = path.resolve(import.meta.dirname, "..");
-const VAULT_ROOT = path.resolve(CLI_PROJECT, "..", "..");
-const ROOT = path.resolve(VAULT_ROOT, "Development", "flowti");
+import { ROOT } from "../src/infrastructure/config.mjs";
 
 const REGISTRY_PATH = path.join(ROOT, "src", "infrastructure", "commands", "registry.ts");
 const OUTPUT_DIR = path.join(ROOT, "docs", "reference");

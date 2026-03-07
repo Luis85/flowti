@@ -12,9 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-const CLI_PROJECT = path.resolve(import.meta.dirname, "..");
-const VAULT_ROOT = path.resolve(CLI_PROJECT, "..", "..");
-const ROOT = path.resolve(VAULT_ROOT, "Development", "flowti");
+import { ROOT } from "../src/infrastructure/config.mjs";
 
 // Resolve external dep from the plugin's node_modules (not installed in CLI project)
 const depPath = pathToFileURL(path.join(ROOT, "node_modules", "@pythonidaer", "complexity-report", "integration", "eslint", "index.js")).href;
