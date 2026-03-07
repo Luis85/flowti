@@ -46,31 +46,45 @@ Before we get started, make sure the following things are in place:
 
 ## Tutorial - How to get in
 
-### Step 1 - Clone the repo
+### Step 1 - Clone and install
 
-- Copy the repo url
-- Open Obsidian
-- Create a new Vault
-- Open the Command Palette
-- Git Clone into `/05 - Public Vault`
-- Comeback to the Readme but now from inside your Vault
+```bash
+git clone <repo-url>
+cd Development/flowti
+npm install
+```
 
-### Step 2 - Plugins
+Open the repository root as an **Obsidian vault**.
 
-In order to use the plugins, you must build them from source. You'll find the available plugins in `/Development/` with build instructions in their `README`.
+### Step 2 - Build and activate the plugin
 
-1. Build and install the `Flowti - IBDE` Plugin -> [[Development/flowti/README|README]]
-2. Build and install the `Foreign Folder Watcher` to import from outside folders
-3. Build and install the `OneSeater - Motorsport Manager` to play with a gamified implementation
+From the vault root, use the **Flowti CLI**:
 
-To update, you need to `git pull` from remote and build the plugin again.
+```bash
+# Windows
+flowti.cmd build
 
-### Step 3 - Start your journey
+# Unix / Git Bash
+./flowti.sh build
+```
 
-1. Start a new journey by taking a train. 
-2. Hit `ctrl+p` and enter `Start Traing of Thoughts`
-3. ...
-4. Profit
+Then in Obsidian: **Settings → Community Plugins → Enable "Flowti - IBDE"**.
+The Installer Wizard appears on first launch — follow the steps to scaffold your vault.
+
+### Step 3 - Explore and start your journey
+
+```bash
+flowti.cmd              # Interactive menu — discover all capabilities
+flowti.cmd help         # Full command reference
+flowti.cmd info         # Project stats, version, config health
+```
+
+In Obsidian, hit `Ctrl+P` and try:
+- **Open User Hub** — your personal dashboard (sessions, inbox, commands)
+- **Open Event Catalog** — explore domains, services, events, and flows
+- **Start Train of Thoughts** — begin a new documentation journey
+
+For the full onboarding walkthrough, see [[03 - Resources/Documentation/Tutorials/Tutorial - How to get in|Tutorial - How to get in]].
 
 ---
 ## Current Ideas and Concepts to work on

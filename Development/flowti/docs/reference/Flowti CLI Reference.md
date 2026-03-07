@@ -1,15 +1,15 @@
 ---
 type: CLIReference
-date: "2026-03-07T10:55:20.953Z"
+date: "2026-03-07T11:40:36.826Z"
 sections: 8
 cli_commands: 25
-npm_scripts: 37
+npm_scripts: 38
 report_generators: 14
 ---
 # Flowti CLI Reference
 
 > [!info] Summary
-> CLI commands: 25 | Help sections: 8 | npm scripts: 37 | Report generators: 14
+> CLI commands: 25 | Help sections: 8 | npm scripts: 38 | Report generators: 14
 
 ---
 
@@ -317,7 +317,8 @@ All commands can be run directly without the interactive menu:
 | `test:e2e:tool-showcase` | `npm run build:only && vitest run tests/flows/ && node scripts/run-e2e.mjs --journey=tool-showcase` |
 | `test:e2e:tool-reference` | `npm run build:only && vitest run tests/flows/ && node scripts/run-e2e.mjs --journey=tool-reference` |
 | `test:e2e:journey-builder` | `npm run build:only && vitest run tests/flows/ && node scripts/run-e2e.mjs --journey=journey-builder` |
-| `test:e2e:journeys` | `npm run build:only && vitest run tests/flows/ && node scripts/run-e2e.mjs --journey=getting-started,component-library,canvas-session,tool-showcase,tool-reference,journey-builder` |
+| `test:e2e:developer-onboarding` | `npm run build:only && vitest run tests/flows/ && node scripts/run-e2e.mjs --journey=developer-onboarding` |
+| `test:e2e:journeys` | `npm run build:only && vitest run tests/flows/ && node scripts/run-e2e.mjs --journey=getting-started,component-library,canvas-session,tool-showcase,tool-reference,journey-builder,developer-onboarding` |
 | `test:e2e:quick` | `npm run build:only && vitest run tests/flows/ && node scripts/run-e2e.mjs --journey=installer,getting-started` |
 | `test:e2e:list` | `npm run build:only && vitest run tests/flows/ && node scripts/run-e2e.mjs --list` |
 | `review` | `npm run build:only && vitest run tests/flows/ && node scripts/run-e2e.mjs --list` |
@@ -337,7 +338,7 @@ All commands can be run directly without the interactive menu:
 | `docs` | `typedoc` |
 | `test:increment` | `npm run check && npm run build:only && vitest run --coverage` |
 | `reports` | `npm run generate:reports` |
-| `flowti` | `node scripts/flowti-cli.mjs` |
+| `flowti` | `node "../../01 - Projects/Flowti CLI/src/flowti-cli.mjs"` |
 | `generate:testdata` | `node scripts/generate-test-data.mjs` |
 | `generate:reports` | `node scripts/generate-test-report.mjs && node scripts/generate-coverage-report.mjs && node scripts/generate-codebase-report.mjs && node scripts/generate-cycle-report.mjs && node scripts/generate-trace-report.mjs && node scripts/generate-command-reference.mjs && node scripts/generate-event-catalog.mjs && node scripts/generate-data-dictionary.mjs && node scripts/generate-performance-report.mjs && node scripts/generate-complexity-report.mjs && node scripts/generate-tool-reference.mjs && node scripts/generate-cli-reference.mjs` |
 | `version` | `node version-bump.mjs && git add manifest.json versions.json` |

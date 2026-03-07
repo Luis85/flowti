@@ -213,14 +213,17 @@ After implementation, developers and AI agents will have:
 
 No runtime data model changes. The CLI operates at build-time only.
 
+**Project location:** `01 - Projects/Flowti CLI/` (kernel-space, see [Architecture](../../../01%20-%20Projects/Flowti%20CLI/docs/Architecture.md))
+
 **Configuration files:**
 
-| File | Purpose |
-|------|---------|
-| `flowti.config.json` | CLI configuration: paths, build settings, make paths, report scripts |
-| `build-endpoints.json` | Distribution endpoints for multi-vault deploy |
-| `manifest.json` | Obsidian plugin metadata (consumed by info command) |
-| `package.json` | npm scripts (consumed by info command and documentation generator) |
+| File | Location | Purpose |
+|------|----------|---------|
+| `flowti-cli.config.json` | `01 - Projects/Flowti CLI/` | Kernel config: subsystem path mappings |
+| `flowti.config.json` | `Development/flowti/` | Plugin project config: paths, build, make, reports |
+| `build-endpoints.json` | `Development/flowti/` | Distribution endpoints for multi-vault deploy |
+| `manifest.json` | `Development/flowti/` | Obsidian plugin metadata (consumed by info command) |
+| `package.json` | `Development/flowti/` | npm scripts (consumed by info command and documentation generator) |
 
 **Generated artifacts:**
 

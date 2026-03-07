@@ -77,13 +77,14 @@
       "Bash(git -C c:/Projects/flowti status -s -- Development/flowti/)",
       "Bash({)",
       "Bash(})",
-      "Bash(wc -l src/**/*.ts src/*.ts)",
-      "Bash(npx complexity-report --output-dir complexity)",
-      "Bash(npx complexity-analysis)",
-      "Bash(node scripts/generate-complexity-report.mjs)",
-      "Bash(npx complexity-report --help)",
-      "Bash(node -e \"const d=require\\(''fs''\\).readFileSync\\(''/dev/stdin'',''utf-8''\\);const p=JSON.parse\\(d\\);console.log\\(''bin:'',JSON.stringify\\(p.bin\\)\\);console.log\\(''main:'',p.main\\)\")",
-      "Bash(node -e \"const p=JSON.parse\\(require\\(''fs''\\).readFileSync\\(''node_modules/@pythonidaer/complexity-report/package.json'',''utf-8''\\)\\);console.log\\(''bin:'',JSON.stringify\\(p.bin\\)\\);console.log\\(''main:'',p.main\\)\")"
+      "Bash(node \"01 - Projects/Flowti CLI/flowti-cli.mjs\" info)",
+      "Bash(node \"01 - Projects/Flowti CLI/flowti-cli.mjs\" help)",
+      "Bash(node \"01 - Projects/Flowti CLI/flowti-cli.mjs\" build)",
+      "Bash(node scripts/flowti-cli.mjs info)",
+      "Bash(./flowti.cmd info)",
+      "Bash(node \"../../01 - Projects/Flowti CLI/flowti-cli.mjs\" info)",
+      "Bash(node scripts/generate-cli-reference.mjs)",
+      "Bash(node \"01 - Projects/Flowti CLI/src/flowti-cli.mjs\" info)"
     ]
   }
 }

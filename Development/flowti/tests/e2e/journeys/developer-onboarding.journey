@@ -50,7 +50,7 @@
 				{ "tool": "notice", "message": "Step 1: Verifying CLI help is accessible", "description": "Progress notice" },
 				{
 					"tool": "eval",
-					"code": "const { execSync } = require('child_process'); const out = execSync('node scripts/flowti-cli.mjs help', { cwd: app.vault.adapter.basePath + '/Development/flowti', encoding: 'utf-8' }); return out.includes('MAIN MENU') && out.includes('Make') && out.includes('Build') && out.includes('NON-INTERACTIVE COMMANDS')",
+					"code": "const { execSync } = require('child_process'); const out = execSync('node \"01 - Projects/Flowti CLI/src/flowti-cli.mjs\" help', { cwd: app.vault.adapter.basePath, encoding: 'utf-8' }); return out.includes('MAIN MENU') && out.includes('Make') && out.includes('Build') && out.includes('NON-INTERACTIVE COMMANDS')",
 					"expect": { "type": "truthy" },
 					"description": "CLI help output contains main menu and non-interactive commands section"
 				},
@@ -70,7 +70,7 @@
 				{ "tool": "notice", "message": "Step 2: Verifying CLI info command", "description": "Progress notice" },
 				{
 					"tool": "eval",
-					"code": "const { execSync } = require('child_process'); const out = execSync('node scripts/flowti-cli.mjs info', { cwd: app.vault.adapter.basePath + '/Development/flowti', encoding: 'utf-8' }); return out.includes('Flowti') && out.includes('Version') && out.includes('Source')",
+					"code": "const { execSync } = require('child_process'); const out = execSync('node \"01 - Projects/Flowti CLI/src/flowti-cli.mjs\" info', { cwd: app.vault.adapter.basePath, encoding: 'utf-8' }); return out.includes('Flowti') && out.includes('Version') && out.includes('Source')",
 					"expect": { "type": "truthy" },
 					"description": "CLI info output contains plugin metadata and source stats"
 				},
@@ -90,7 +90,7 @@
 				{ "tool": "notice", "message": "Step 3: Running fast build via CLI", "description": "Progress notice" },
 				{
 					"tool": "eval",
-					"code": "const { execSync } = require('child_process'); try { execSync('node scripts/flowti-cli.mjs build', { cwd: app.vault.adapter.basePath + '/Development/flowti', encoding: 'utf-8', timeout: 15000 }); return true; } catch(e) { return false; }",
+					"code": "const { execSync } = require('child_process'); try { execSync('node \"01 - Projects/Flowti CLI/src/flowti-cli.mjs\" build', { cwd: app.vault.adapter.basePath, encoding: 'utf-8', timeout: 15000 }); return true; } catch(e) { return false; }",
 					"expect": { "type": "truthy" },
 					"description": "CLI build command completes with exit code 0"
 				},
@@ -185,13 +185,13 @@
 				{ "tool": "notice", "message": "Step 7: Verifying section help", "description": "Progress notice" },
 				{
 					"tool": "eval",
-					"code": "const { execSync } = require('child_process'); const out = execSync('node scripts/flowti-cli.mjs help build', { cwd: app.vault.adapter.basePath + '/Development/flowti', encoding: 'utf-8' }); return out.includes('ESBUILD FLAGS') && out.includes('--production') && out.includes('Watch mode')",
+					"code": "const { execSync } = require('child_process'); const out = execSync('node \"01 - Projects/Flowti CLI/src/flowti-cli.mjs\" help build', { cwd: app.vault.adapter.basePath, encoding: 'utf-8' }); return out.includes('ESBUILD FLAGS') && out.includes('--production') && out.includes('Watch mode')",
 					"expect": { "type": "truthy" },
 					"description": "Build help contains esbuild flags and watch mode documentation"
 				},
 				{
 					"tool": "eval",
-					"code": "const { execSync } = require('child_process'); const out = execSync('node scripts/flowti-cli.mjs help make', { cwd: app.vault.adapter.basePath + '/Development/flowti', encoding: 'utf-8' }); return out.includes('New Hub') && out.includes('New Plugin') && out.includes('CONFIGURATION')",
+					"code": "const { execSync } = require('child_process'); const out = execSync('node \"01 - Projects/Flowti CLI/src/flowti-cli.mjs\" help make', { cwd: app.vault.adapter.basePath, encoding: 'utf-8' }); return out.includes('New Hub') && out.includes('New Plugin') && out.includes('CONFIGURATION')",
 					"expect": { "type": "truthy" },
 					"description": "Make help contains hub and plugin scaffolding options"
 				},

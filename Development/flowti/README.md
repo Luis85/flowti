@@ -8,50 +8,70 @@ The **Integrated Business Development Environment** - An Obsidian plugin that im
 
 ## Getting Started
 
-### For Developers
+### 1. Clone and Install
 
 ```bash
-# 1. Clone and install
 git clone <repo-url>
 cd Development/flowti
 npm install
-
-# 2. Build the plugin from source
-npm run flowti -- build
-
-# 3. Open the repo root as an Obsidian vault, then activate the plugin
-#    Settings → Community Plugins → Enable "Flowti - IBDE"
-
-# 4. Complete the Installer wizard that appears on first launch
 ```
 
-### Explore the CLI
+### 2. Build the Plugin
 
-Once installed, the Flowti CLI is your single entry point for all development workflows:
+From the vault root (`c:\Projects\flowti`):
 
 ```bash
-npm run flowti              # Interactive menu
-npm run flowti -- help      # Full command reference
-npm run flowti -- info      # Project stats, git status, config health
+# Windows
+flowti.cmd build
+
+# Unix / Git Bash
+./flowti.sh build
 ```
+
+Or from the plugin development folder:
+
+```bash
+cd Development/flowti
+npm run flowti -- build
+```
+
+### 3. Activate in Obsidian
+
+Open the repo root as an Obsidian vault, then enable the plugin:
+**Settings → Community Plugins → Enable "Flowti - IBDE"**
+
+Complete the Installer wizard that appears on first launch.
+
+### 4. Explore the CLI
+
+The Flowti CLI is your single entry point for all development workflows:
+
+```bash
+flowti.cmd                  # Interactive menu
+flowti.cmd help             # Full command reference
+flowti.cmd info             # Project stats, git status, config health
+flowti.cmd help build       # Section-specific help
+```
+
+The CLI lives at `01 - Projects/Flowti CLI/` and follows a kernel-space architecture — see the [CLI README](../../01%20-%20Projects/Flowti%20CLI/README.md) and [Architecture](../../01%20-%20Projects/Flowti%20CLI/docs/Architecture.md) for details.
 
 ### For AI Agents
 
 AI coding agents can use the CLI in non-interactive mode as a tool. All commands return deterministic exit codes (0 = success) and produce structured output on stdout:
 
 ```bash
-npm run flowti -- build             # Build plugin (~2s)
-npm run flowti -- test              # Type check + lint + vitest
-npm run flowti -- info              # Project metadata
-npm run flowti -- help              # Discover all commands
-npm run flowti -- make:hub --name=X # Scaffold a new Hub
+flowti.cmd build                    # Build plugin (~2s)
+flowti.cmd test                     # Type check + lint + vitest
+flowti.cmd info                     # Project metadata
+flowti.cmd help                     # Discover all commands
+flowti.cmd make:hub --name=X        # Scaffold a new Hub
 ```
 
 ---
 
 ## Flowti CLI
 
-The Flowti CLI (`npm run flowti`) provides an interactive and non-interactive interface for building, testing, scaffolding, and publishing the plugin. No external dependencies — uses only Node.js built-ins.
+The Flowti CLI (`flowti.cmd` / `./flowti.sh`) provides an interactive and non-interactive interface for building, testing, scaffolding, and publishing the plugin. Zero external dependencies — uses only Node.js built-ins. Source: `01 - Projects/Flowti CLI/`.
 
 ### Main Menu
 
@@ -69,28 +89,28 @@ q) Quit
 
 ### Non-Interactive Commands
 
-All commands can be run directly without the interactive menu:
+All commands can be run directly without the interactive menu. Use `flowti.cmd <command>` from vault root or `npm run flowti -- <command>` from `Development/flowti/`:
 
 | Command | Description |
 |---------|-------------|
-| `npm run flowti -- build` | Fast build (esbuild only, no reports) |
-| `npm run flowti -- build:increment` | Full CI: check → build → test → e2e → docs → distribute |
-| `npm run flowti -- build:watch` | Watch mode (add `--reload` for hot-reload) |
-| `npm run flowti -- test` | Type check + lint + vitest |
-| `npm run flowti -- test:e2e` | Build + flow tests + E2E suite |
-| `npm run flowti -- reports` | Generate all 14 report notes |
-| `npm run flowti -- report:{id}` | Generate a single report (e.g. `report:test`) |
-| `npm run flowti -- make:hub --name=X` | Scaffold a new hub |
-| `npm run flowti -- make:plugin --name=X` | Scaffold a new plugin |
-| `npm run flowti -- info` | Show project stats, version, config |
-| `npm run flowti -- help [section]` | Show help (sections: make, build, review, publish, reports, devtools, info) |
+| `flowti.cmd build` | Fast build (esbuild only, no reports) |
+| `flowti.cmd build:increment` | Full CI: check → build → test → e2e → docs → distribute |
+| `flowti.cmd build:watch` | Watch mode (add `--reload` for hot-reload) |
+| `flowti.cmd test` | Type check + lint + vitest |
+| `flowti.cmd test:e2e` | Build + flow tests + E2E suite |
+| `flowti.cmd reports` | Generate all 14 report notes |
+| `flowti.cmd report:{id}` | Generate a single report (e.g. `report:test`) |
+| `flowti.cmd make:hub --name=X` | Scaffold a new hub |
+| `flowti.cmd make:plugin --name=X` | Scaffold a new plugin |
+| `flowti.cmd info` | Show project stats, version, config |
+| `flowti.cmd help [section]` | Show help (sections: make, build, review, publish, reports, devtools, info) |
 
 ### Scaffolding
 
 **New Hub** — generates 9 files following BaseHubView + DDD patterns:
 
 ```bash
-npm run flowti -- make:hub --name=Inventory --icon=package --type=domain --tabs=overview,items
+flowti.cmd make:hub --name=Inventory --icon=package --type=domain --tabs=overview,items
 ```
 
 Creates: UI view, domain types, domain events, domain service, hub provider, test file, CSS layer, PRD stub, E2E journey stub.
@@ -98,7 +118,7 @@ Creates: UI view, domain types, domain events, domain service, hub provider, tes
 **New Plugin** — generates a standalone Obsidian plugin from Flowti patterns:
 
 ```bash
-npm run flowti -- make:plugin --name="My Plugin" --id=my-plugin --author="Author Name"
+flowti.cmd make:plugin --name="My Plugin" --id=my-plugin --author="Author Name"
 ```
 
 Creates: manifest.json, package.json, tsconfig.json, esbuild.config.mjs, main.ts, .gitignore — with DDD structure, EventBus, and CSS pipeline.
@@ -122,7 +142,7 @@ The CLI auto-generates its own reference documentation on every increment build:
 
 - **Output**: `docs/reference/Flowti CLI Reference.md` — queryable vault note with YAML frontmatter
 - **Content**: 25 CLI commands, 8 help sections, 37 npm scripts, 14 report generators, make config
-- **Generate manually**: `npm run flowti -- report:cli-ref`
+- **Generate manually**: `flowti.cmd report:cli-ref`
 
 ---
 
@@ -396,8 +416,8 @@ Service                 EventBus              EventBridge           Obsidian
 ```
 Development/flowti/              # Source code
     │
-    │  npm run flowti -- build           (fast esbuild production)
-    │  npm run flowti -- build:increment (full CI pipeline)
+    │  flowti.cmd build                  (fast esbuild production)
+    │  flowti.cmd build:increment        (full CI pipeline)
     │
     ▼
 .obsidian/plugins/flowti-ibde/   # Primary output (always)
@@ -416,7 +436,7 @@ Configured endpoint vaults       # Additional vaults via build-endpoints.json
 
 ### Distribution
 
-The `build:distribution` command distributes build artifacts to additional Obsidian vaults. Endpoints are configured in `build-endpoints.json`:
+The `flowti.cmd build:dist` command distributes build artifacts to additional Obsidian vaults. Endpoints are configured in `build-endpoints.json`:
 
 ```json
 {
@@ -494,21 +514,20 @@ All custom classes use the `ft-` prefix to avoid Obsidian conflicts. Views use O
 
 Every component has a corresponding test suite. Tests run as part of the verification pipeline (`npm test`) and must pass before the plugin is bundled. The test infrastructure uses Vitest with a custom `obsidian-stub.ts` mock.
 
-**Current metrics (Mar 2026):** 7,697 tests across 323 suites. 8 E2E journeys (Prerequisites, Installer, Getting Started, Component Library, Canvas Session, Tool Reference, Journey Builder, Test Management Hub).
+**Current metrics (Mar 2026):** 7,697 tests across 331 suites. 9 E2E journeys (Prerequisites, Installer, Getting Started, Component Library, Canvas Session, Tool Reference, Journey Builder, Test Management Hub, Developer Onboarding).
 
 ```bash
 # Unit + Integration
-npm test                      # eslint → tsc → vitest
-npm run test:coverage         # With coverage report
+flowti.cmd test               # eslint → tsc → vitest
+flowti.cmd test:coverage      # With coverage report
 
 # End-to-End (Obsidian CLI)
-npm run test:e2e              # Full E2E suite (all journeys)
-npm run test:e2e:quick        # Installer + Getting Started only
-npm run test:e2e:journeys     # All journeys (excl. installer)
+flowti.cmd test:e2e           # Full E2E suite (all journeys)
+flowti.cmd test:e2e:quick     # Installer + Getting Started only
 
-# Via Flowti CLI
-npm run flowti -- test        # Same as npm test
-npm run flowti -- test:e2e    # Same as npm run test:e2e
+# Or from Development/flowti/:
+npm test                      # eslint → tsc → vitest
+npm run test:e2e              # Full E2E suite
 ```
 
 E2E tests run against a live Obsidian instance via the Obsidian CLI. A dedicated test vault (`flowti-e2e`) is scaffolded automatically. Each journey produces screenshots, event traces, and a JourneyConfig meta file for living documentation.
@@ -541,30 +560,30 @@ npm install
 The output is automatically placed in `.obsidian/plugins/flowti-ibde/`.
 
 ```bash
-npm run flowti -- build             # Fast build (~2s, esbuild only)
-npm run flowti -- build:watch       # Watch mode with hot-reload
-npm run flowti -- build:increment   # Full CI: check → build → test → e2e → docs → distribute
+flowti.cmd build                    # Fast build (~2s, esbuild only)
+flowti.cmd build:watch              # Watch mode with hot-reload
+flowti.cmd build:increment          # Full CI: check → build → test → e2e → docs → distribute
 ```
 
 ### Verification
 
 ```bash
-npm run flowti -- test              # eslint → tsc → vitest
-npm run flowti -- dev:check         # Type-check + lint only (no tests)
-npm run flowti -- info              # Project health overview
+flowti.cmd test                     # eslint → tsc → vitest
+flowti.cmd dev:check                # Type-check + lint only (no tests)
+flowti.cmd info                     # Project health overview
 ```
 
 ### Pipeline Summary
 
 | Goal | Command | What runs |
 |------|---------|-----------|
-| Fast build | `npm run flowti -- build` | esbuild --production |
-| Dev watch | `npm run flowti -- build:watch` | esbuild --watch |
-| Verify | `npm run flowti -- test` | eslint → tsc → vitest |
-| Increment | `npm run flowti -- build:increment` | check → build → coverage → e2e → docs → reports → distribute |
-| Reports | `npm run flowti -- reports` | 14 report generators |
-| Scaffold hub | `npm run flowti -- make:hub --name=X` | 9 boilerplate files |
-| Scaffold plugin | `npm run flowti -- make:plugin --name=X` | 6 boilerplate files |
+| Fast build | `flowti.cmd build` | esbuild --production |
+| Dev watch | `flowti.cmd build:watch` | esbuild --watch |
+| Verify | `flowti.cmd test` | eslint → tsc → vitest |
+| Increment | `flowti.cmd build:increment` | check → build → coverage → e2e → docs → reports → distribute |
+| Reports | `flowti.cmd reports` | 14 report generators |
+| Scaffold hub | `flowti.cmd make:hub --name=X` | 9 boilerplate files |
+| Scaffold plugin | `flowti.cmd make:plugin --name=X` | 6 boilerplate files |
 
 ### Extending the Plugin
 
@@ -595,7 +614,7 @@ npm run flowti -- info              # Project health overview
 
 **Scaffold a new Hub** — the fastest way to add a complete Hub with all wiring:
 ```bash
-npm run flowti -- make:hub --name=TaskBoard --icon=kanban --tabs=board,backlog,archive
+flowti.cmd make:hub --name=TaskBoard --icon=kanban --tabs=board,backlog,archive
 ```
 
 ---
@@ -614,4 +633,4 @@ npm run flowti -- make:hub --name=TaskBoard --icon=kanban --tabs=board,backlog,a
 | **WorkspaceShell** | Shared UI chrome (ribbon, tab bar, content area, status bar) used by all Hubs |
 | **Session** | A time-boxed documentation workspace with 6-state lifecycle |
 | **Journey** | An E2E test scenario exercising a complete user workflow against a live Obsidian instance |
-| **Flowti CLI** | Interactive and non-interactive development tooling (`npm run flowti`) |
+| **Flowti CLI** | Interactive and non-interactive development tooling (`flowti.cmd` / `./flowti.sh`). Source: `01 - Projects/Flowti CLI/` |

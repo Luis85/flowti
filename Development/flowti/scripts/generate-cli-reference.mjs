@@ -13,8 +13,9 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
+const VAULT_ROOT = path.resolve(ROOT, "..", "..");
 
-const CLI_PATH = path.join(ROOT, "scripts", "flowti-cli.mjs");
+const CLI_PATH = path.join(VAULT_ROOT, "01 - Projects", "Flowti CLI", "src", "flowti-cli.mjs");
 const CONFIG_PATH = path.join(ROOT, "flowti.config.json");
 const PKG_PATH = path.join(ROOT, "package.json");
 const OUTPUT_DIR = path.join(ROOT, "docs", "reference");
