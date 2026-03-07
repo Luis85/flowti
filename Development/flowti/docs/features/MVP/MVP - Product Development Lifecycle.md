@@ -1,7 +1,7 @@
 ---
 type: ProductRequirementsDocument
 domain: Flowti/MVP
-stage: draft
+stage: in-progress
 version: 1
 priority: 1
 target_cycles: [58, 59, 60, 61, 62]

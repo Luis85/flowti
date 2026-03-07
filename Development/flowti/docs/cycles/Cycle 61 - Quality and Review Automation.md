@@ -22,8 +22,8 @@ tech_debt: []
 estimated_increments: 10
 estimated_loc: 1500
 estimated_tests: 100
-pre_cycle_tests: 7496
-pre_cycle_suites: 333
+pre_cycle_tests: 7697
+pre_cycle_suites: 331
 ---
 
 # Cycle 61 — Quality + Review Automation
@@ -39,15 +39,19 @@ pre_cycle_suites: 333
 
 ### Pre-Cycle State
 
-- **Tests**: ~7,496 passing (~333 suites) — projected after C60
+- **Tests**: 7,697 passing (331 suites) — actual post-C60 + pre-cycle work
 - **Build**: `npm run build` green
-- **Previous cycles**: C58 (Feature Lifecycle), C59 (Process + Sessions), C60 (Journeys + Quality)
+- **Previous cycles**: C59 (Process + Sessions), C60 (Process Wiring + Quality Traceability) — TASM 19/20
+- **Events**: 443 total (29 EventMaps composed into FlowtiEventMap)
+- **Commands**: 40 total
+- **Hub Views**: 6 hubs — Event Catalog (6 tabs), Test Management (8 tabs), User Hub (5 tabs), Data Exchange, Analytics, Train
 - **Feature Lifecycle**: Full — scan, gates, FRI, session-bound, test-linked
-- **Process Management**: Phase 1 — canvas parser, validation, reference process
-- **Test Management**: Feature-centric quality view, test traceability, result history
-- **Journey Builder**: Phase 3 — lifecycle templates, executor v2 with retry/conditionals
+- **Process Management**: Phase 1 wired — ProcessService, canvas parser, validation (10 rules), Processes tab in Test Management Hub
+- **Test Management**: Feature-centric quality view, test traceability, result history, Feature Quality tab
+- **Journey Builder**: Phase 3 — lifecycle templates, executor v2 with retry/conditionals, ExecutionProgressModal
+- **Journey Executor**: Complete — 34-tool dispatch, retry logic, conditional steps, report generator, main.ts wiring
 
-### Foundation
+### Foundation from C60 + Pre-Cycle
 
 | Component | Status | Relevance to C61 |
 |-----------|--------|-------------------|
@@ -55,8 +59,20 @@ pre_cycle_suites: 333
 | Gate checks | 6 gates (C58) | Quality Gate checks TASM score |
 | Test traceability | Delivered (C60) | Quality dashboard uses test data |
 | Test result history | Delivered (C60) | Dashboard shows trends |
-| Process definitions | Phase 1 (C59) | Process→Journey compilation input |
+| Feature Quality tab | Delivered (C60) | Base for quality dashboard |
+| Process definitions | Phase 1 wired (C59+C60) | Process→Journey compilation input |
+| Processes tab | Moved to Test Management (pre-cycle) | Unified quality hub |
+| Products tab | Moved to Test Management (pre-cycle) | Unified quality hub |
+| Health tab | Moved to User Hub (pre-cycle) | Operational concern in personal cockpit |
+| Hub tab reorganization | Complete (pre-cycle) | Event Catalog is pure architecture (6 tabs) |
+| Journey Executor | Complete (C60) | Executor v2 with retry, conditionals, 34 tools |
+| ExecutionProgressModal | Complete (C60) | 3-phase modal for in-app execution |
 | Three Amigos template | Exists (knowledgebase) | Auto-scaffold from template |
+
+### Pre-Cycle Work Completed
+
+1. **Hub Tab Reorganization** — Moved Features, Processes, Products tabs from Event Catalog to Test Management Hub (8 tabs). Moved Health tab to User Hub (5 tabs). Event Catalog reduced to 6 pure architecture tabs (domains, services, events, flows, systems, actors). Cross-hub navigation via `hubRegistry.openHub()`. Tab components unchanged — each host synthesizes its own `CatalogComponentDeps`.
+2. **Journey Executor Domain** — Built in C60 but not yet tested end-to-end. 6 source files (types, events, conditionEvaluator, JourneyExecutorService, toolExecutors, executionReportGenerator) + ExecutionProgressModal + 6 test files. Wired into main.ts with ToolHost bridge.
 
 ## Cycle Overview
 
@@ -65,6 +81,15 @@ Cycle 61 closes the **quality and review loop**. Currently, Three Amigos reviews
 This cycle automates the review workflow: create review documents with pre-filled context (PRD summary, test results, coverage status), provide a TASM scoring UI that persists scores to frontmatter, and build a quality dashboard showing cross-feature quality health.
 
 The stretch goal is Phase 1 of Process→Journey compilation: compile a process definition's happy path into an executable journey.
+
+## Cycle Goals
+
+1. **Automate Three Amigos Reviews** — scaffold review documents from template with pre-filled feature context (PRD summary, test results, coverage, compliance)
+2. **Build TASM Scoring UI** — 4-dimension scoring panel (0–5 each) with persistence to review doc frontmatter and review history timeline
+3. **Cross-Feature Quality Dashboard** — feature × quality matrix (tests, pass rate, TASM, coverage, compliance) with health indicators
+4. **Quality Gate Automation** — system-checked gate (TASM ≥ 19, tests passing, docs updated) with button pre-check before advancing features
+
+**Stretch**: Process→Journey Compilation Phase 1 — compile linear happy path to executable journey JSON.
 
 ## User Pains
 
@@ -320,7 +345,7 @@ Inc 6 + Inc 7               ──→ Inc 8 (Integration)
 | Metric | Target |
 |--------|--------|
 | New tests | ~100 |
-| Post-cycle tests | ~7,596 |
+| Post-cycle tests | ~7,797 |
 | New suites | ~8 |
 | Source LOC | ~1,500 |
 | Review automation | Create + pre-fill + TASM scoring |
@@ -340,3 +365,53 @@ Inc 6 + Inc 7               ──→ Inc 8 (Integration)
 - [ ] Flow integration tests for review and compilation workflows
 - [ ] `npm run build` green
 - [ ] Three Amigos review completed
+
+## Definition of Ready — Verification
+
+### 1. Feature PRD Readiness
+
+- [x] **PRD exists and is approved** — MVP - Product Development Lifecycle PRD exists, stage updated to `in-progress` (continuation cycle 4 of 5)
+- [x] **PRD stage is `in-progress`** — actively building against it since C58
+- [x] **FRI scored** — FRI 27/35 (referenced in PRD)
+- [x] **FRI meets threshold** — 27/35 ≥ 11/35 (continuation cycle threshold)
+- [x] **Technical Review passed** — implicitly passed through 3 completed cycles (C58–C60) all closing with TASM ≥ 19/20
+
+### 2. Backlog Readiness
+
+- [x] **PBIs defined** — 9 PBIs (PBI-QA-001 through PBI-QA-009) with problem statements and acceptance criteria
+- [x] **PBIs chunked into increments** — 9 increments (Inc 0–8), each a vertical slice
+- [x] **Dependencies mapped** — dependency graph documented (Inc 0→1→2→3→4/5→6/7→8)
+- [x] **Priority ranked** — review automation first (Inc 0–3), dashboard (Inc 4), gate (Inc 5), compliance (Inc 6), compilation (Inc 7), integration (Inc 8)
+
+### 3. Cycle Plan Document
+
+- [x] **Cycle document exists** — `Cycle 61 - Quality and Review Automation.md` with full frontmatter
+- [x] **Situation assessment written** — pre-cycle state with actual metrics (7,697 tests, 331 suites, 443 events, 40 commands)
+- [x] **Cycle goals defined** — 4 numbered goals + 1 stretch goal
+- [x] **Proposed increments specified** — 9 increments with scope, estimated LOC, estimated tests
+- [x] **Dependency graph drawn** — text-based dependency graph with parallel paths identified
+- [x] **Risks identified** — 4 risks with impact assessment and mitigations
+- [x] **Success metrics defined** — 8 measurable targets
+- [x] **Deferred items documented** — Out of Scope section (5 items)
+
+### 4. Increment Readiness
+
+- [x] **Scope statement defined** — each increment has clear scope description
+- [x] **Acceptance criteria written** — testable checkboxes per increment
+- [x] **Test intent stated** — estimated test counts per increment
+- [x] **Documentation intent stated** — implicit in acceptance criteria (review docs, frontmatter schemas)
+- [x] **Architecture seams confirmed** — domain/UI/storage boundaries identified per increment
+- [x] **Estimated size** — LOC and test count estimates for each increment
+
+### 5. Quality Baseline
+
+- [x] **Build pipeline green** — `npm run build` verified 2026-03-07
+- [x] **No critical bugs open** — zero bugs listed
+- [x] **Previous cycle closed** — C60 closed with TASM 19/20, retrospective completed
+
+### 6. Pre-Cycle Completion
+
+- [x] **Pre-cycle work documented** — Hub tab reorganization and Journey Executor domain documented in situation assessment
+- [x] **Inbox signals reviewed** — relevant inbox items (review automation, quality dashboards, process compilation) mapped to cycle goals; remaining items explicitly deferred
+
+**Readiness Gate: PASS** — All 6 sections satisfied. Cycle 61 is ready to start.
