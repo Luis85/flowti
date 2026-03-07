@@ -17,9 +17,9 @@
 		"report:test": "npm run test:coverage && tsx src/domain/reports/cli/generate-test-report.ts",
 		"report:coverage": "npm run test:coverage && tsx src/domain/reports/cli/generate-coverage-report.ts",
 		"report:codebase": "npm run docs && tsx src/domain/reports/cli/generate-codebase-report.ts",
-		"report:complexity": "tsx src/domain/reports/cli/generate-complexity-report.ts",
+		"report:complexity": "npm run analysis && tsx src/domain/reports/cli/generate-complexity-report.ts",
 		"report:status": "tsx src/domain/reports/cli/generate-status-report.ts",
-		"reports": "npm run test:coverage && tsx src/domain/reports/cli/generate-test-report.ts && tsx src/domain/reports/cli/generate-coverage-report.ts && npm run report:codebase && npm run report:complexity"
+		"reports": "npm run analysis && tsx src/domain/reports/cli/generate-test-report.ts && tsx src/domain/reports/cli/generate-coverage-report.ts && npm run report:codebase && tsx src/domain/reports/cli/generate-complexity-report.ts"
 	},
 	"devDependencies": {
 		"@pythonidaer/complexity-report": "^1.0.18",
