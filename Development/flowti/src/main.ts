@@ -459,8 +459,6 @@ export default class FlowtiBasePlugin extends Plugin {
 				collapsedCategories: this.collapsedCategories,
 			},
 			getOnboardingService: () => this.onboardingService!,
-			getFeatureLifecycleService: () => this.featureLifecycleService,
-			getProcessService: () => this.processService,
 		});
 	}
 
@@ -1018,7 +1016,13 @@ export default class FlowtiBasePlugin extends Plugin {
 		});
 		await this.timedServiceLoad("testManagementService", () => this.testManagementService!.load());
 		this.safeRegisterView(VIEW_TYPE_TEST_MANAGEMENT_HUB, (leaf) =>
-			new TestManagementHubView(leaf, this.eventBus, this.testManagementService!, this.onboardingService!),
+			new TestManagementHubView(
+				leaf, this.eventBus, this.testManagementService!, this.onboardingService!,
+				this.featureLifecycleService ?? undefined,
+				this.processService ?? undefined,
+				this.hubRegistry ?? undefined,
+				() => this.settings,
+			),
 		);
 
 		// Feature Lifecycle — PRD scanning, stage management, gate checks

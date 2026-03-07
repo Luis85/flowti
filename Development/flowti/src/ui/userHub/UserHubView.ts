@@ -14,6 +14,17 @@ import type { NudgeService } from "../../domain/nudge/NudgeService";
 import type { SessionService } from "../../domain/session/SessionService";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { FlowtiSettings } from "../../domain/settings/settings";
+import { DEFAULT_ENTITY_PATHS } from "../../domain/settings/settings";
+import { createVaultQueryService, createWorkspaceService } from "../../infrastructure/services/ObsidianAdapters";
+import { resolveEntityPath } from "../eventDocTemplate";
+import type { CatalogComponentDeps, CatalogState, DomainEntry, ServiceEntry, FlowEntry, SystemEntry, ActorEntry, ProductEntry } from "../catalog/types";
+import { HealthTab } from "../catalog/HealthTab";
+import { DomainsTab } from "../catalog/DomainsTab";
+import { ServicesTab } from "../catalog/ServicesTab";
+import { FlowsTab } from "../catalog/FlowsTab";
+import { SystemsTab } from "../catalog/SystemsTab";
+import { ActorsTab } from "../catalog/ActorsTab";
+import { ProductsTab } from "../catalog/ProductsTab";
 import { BaseHubView, type TabDef } from "../BaseHubView";
 import type { OnboardingService } from "../../domain/onboarding/OnboardingService";
 import { UserHubDashboard } from "./UserHubDashboard";
@@ -54,6 +65,21 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 	private sessions!: UserHubSessions;
 	private commands!: UserHubCommands;
 	private preferences!: UserHubPreferences;
+
+	// Health tab + entity scanners
+	private healthTab: HealthTab | null = null;
+	private healthDomainScanner: DomainsTab | null = null;
+	private healthServiceScanner: ServicesTab | null = null;
+	private healthFlowScanner: FlowsTab | null = null;
+	private healthSystemScanner: SystemsTab | null = null;
+	private healthActorScanner: ActorsTab | null = null;
+	private healthProductScanner: ProductsTab | null = null;
+	private healthDomainEntries: DomainEntry[] = [];
+	private healthServiceEntries: ServiceEntry[] = [];
+	private healthFlowEntries: FlowEntry[] = [];
+	private healthSystemEntries: SystemEntry[] = [];
+	private healthActorEntries: ActorEntry[] = [];
+	private healthProductEntries: ProductEntry[] = [];
 
 	// State
 	private state!: UserHubState;
@@ -123,6 +149,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 			{ id: "inbox", label: "Inbox", icon: "inbox", searchPlaceholder: "Search inbox..." },
 			{ id: "commands", label: "Commands", icon: "terminal", searchPlaceholder: "Search commands..." },
 			{ id: "preferences", label: "Preferences", icon: "settings", searchPlaceholder: "" },
+			{ id: "health", label: "Health", icon: "heart-pulse", searchPlaceholder: "Search checks..." },
 		];
 	}
 
@@ -168,6 +195,21 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 		} else if (tabId === "preferences") {
 			this.preferences.renderMaster();
 			this.preferences.renderDetail();
+		} else if (tabId === "health") {
+			// Scan all entities for health checks
+			this.healthDomainScanner?.scan();
+			this.healthDomainEntries = this.healthDomainScanner?.getEntries() ?? [];
+			this.healthServiceScanner?.scan();
+			this.healthServiceEntries = this.healthServiceScanner?.getEntries() ?? [];
+			this.healthFlowScanner?.scan();
+			this.healthFlowEntries = this.healthFlowScanner?.getEntries() ?? [];
+			this.healthSystemScanner?.scan();
+			this.healthSystemEntries = this.healthSystemScanner?.getEntries() ?? [];
+			this.healthActorScanner?.scan();
+			this.healthActorEntries = this.healthActorScanner?.getEntries() ?? [];
+			this.healthProductScanner?.scan();
+			this.healthProductEntries = this.healthProductScanner?.getEntries() ?? [];
+			this.healthTab?.render();
 		}
 	}
 
@@ -235,6 +277,16 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 		this.sessions = new UserHubSessions(this.masterTreeEl, this.detailPanelEl, deps);
 		this.commands = new UserHubCommands(this.masterTreeEl, this.detailPanelEl, deps);
 		this.preferences = new UserHubPreferences(this.masterTreeEl, this.detailPanelEl, deps);
+
+		// Health tab + entity scanners
+		const catalogDeps = this.buildHealthCatalogDeps();
+		this.healthDomainScanner = new DomainsTab(this.masterTreeEl, this.detailPanelEl, catalogDeps);
+		this.healthServiceScanner = new ServicesTab(this.masterTreeEl, this.detailPanelEl, catalogDeps);
+		this.healthFlowScanner = new FlowsTab(this.masterTreeEl, this.detailPanelEl, catalogDeps);
+		this.healthSystemScanner = new SystemsTab(this.masterTreeEl, this.detailPanelEl, catalogDeps);
+		this.healthActorScanner = new ActorsTab(this.masterTreeEl, this.detailPanelEl, catalogDeps);
+		this.healthProductScanner = new ProductsTab(this.masterTreeEl, this.detailPanelEl, catalogDeps);
+		this.healthTab = new HealthTab(this.masterTreeEl, this.detailPanelEl, catalogDeps);
 
 		// Re-render when inbox changes
 		this.addUnsubscribe(
@@ -457,6 +509,61 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 	private hasTrainForSession(sessionId: string): boolean {
 		if (!this.trainService) return false;
 		return this.trainService.getAllTrains().some((t) => t.sessionId === sessionId);
+	}
+
+	// ── Health tab catalog deps ────────────────────────────
+
+	private buildHealthCatalogDeps(): CatalogComponentDeps {
+		return {
+			app: this.app,
+			vaultQuery: createVaultQueryService(this.app),
+			workspace: createWorkspaceService(this.app),
+			eventBus: this.eventBus,
+			getState: () => this.buildHealthCatalogState(),
+			navigation: {
+				navigateToTab: () => { /* no-op */ },
+				navigateToEvent: (t) => void this.hubRegistry.openHub("event-catalog", "events", t),
+				navigateToDomain: (d) => void this.hubRegistry.openHub("event-catalog", "domains", d),
+				navigateToService: (s) => void this.hubRegistry.openHub("event-catalog", "services", s),
+				navigateToFlow: (f) => void this.hubRegistry.openHub("event-catalog", "flows", f),
+				navigateToSystem: (s) => void this.hubRegistry.openHub("event-catalog", "systems", s),
+				navigateToActor: (a) => void this.hubRegistry.openHub("event-catalog", "actors", a),
+				navigateToProduct: (p) => void this.hubRegistry.openHub("test-management", "products", p),
+				openActivityLog: () => { /* no-op */ },
+				openSubscriptionManager: () => { /* no-op */ },
+			},
+			scheduleRender: () => this.scheduleRender(),
+			getEntityFolder: (entity) => resolveEntityPath(
+				this.state.settings.docsRootPath,
+				(this.state.settings.entityPaths ?? DEFAULT_ENTITY_PATHS)[entity],
+			),
+			createEntity: () => { /* no-op */ },
+		};
+	}
+
+	private buildHealthCatalogState(): CatalogState {
+		return {
+			discoveredEvents: [],
+			excludedTypes: new Set(),
+			notifiedTypes: new Set(),
+			subscriptions: [],
+			definitions: [],
+			domainEntries: this.healthDomainEntries,
+			serviceEntries: this.healthServiceEntries,
+			categoryEntries: [],
+			flowEntries: this.healthFlowEntries,
+			systemEntries: this.healthSystemEntries,
+			actorEntries: this.healthActorEntries,
+			productEntries: this.healthProductEntries,
+			catalogCategories: [],
+			catalogDomains: [],
+			catalogServices: [],
+			showSystemEvents: this.state.settings.showSystemEvents,
+			collapsedCategories: new Set(),
+			docsRootPath: this.state.settings.docsRootPath,
+			entityPaths: this.state.settings.entityPaths ?? DEFAULT_ENTITY_PATHS,
+			filterText: this.filterText,
+		};
 	}
 
 	/** Open the Train Main View (tab) or Timeline Sidebar depending on location. */

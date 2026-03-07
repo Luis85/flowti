@@ -35,21 +35,14 @@ import {
 	FlowsTab,
 	SystemsTab,
 	ActorsTab,
-	ProductsTab,
 	EventsTab,
-	HealthTab,
-	FeaturesTab,
-	ProcessesTab,
 } from ".";
 import { BaseHubView, type TabDef } from "../BaseHubView";
 import type { OnboardingService } from "../../domain/onboarding/OnboardingService";
-import type { FeatureLifecycleService } from "../../domain/featureLifecycle/FeatureLifecycleService";
-import type { ProcessService } from "../../domain/process/ProcessService";
-import { computeProcessCompliance } from "../../domain/process/complianceCalculator";
 import { VIEW_TYPE_EVENT_CATALOG } from "../../domain/hub/types";
 export { VIEW_TYPE_EVENT_CATALOG };
 
-export type CatalogTab = "events" | "domains" | "services" | "flows" | "systems" | "actors" | "products" | "health" | "features" | "processes";
+export type CatalogTab = "events" | "domains" | "services" | "flows" | "systems" | "actors";
 
 /**
  * Master-Detail view for browsing and managing all events.
@@ -97,20 +90,12 @@ export class EventCatalogView extends BaseHubView<CatalogTab> {
 	private flowsTab: FlowsTab | null = null;
 	private systemsTab: SystemsTab | null = null;
 	private actorsTab: ActorsTab | null = null;
-	private productsTab: ProductsTab | null = null;
 	private eventsTab: EventsTab | null = null;
-	private healthTab: HealthTab | null = null;
-	private featuresTab: FeaturesTab | null = null;
-	private processesTab: ProcessesTab | null = null;
-	private featureLifecycleService: FeatureLifecycleService | null = null;
-	private processService: ProcessService | null = null;
 
-	constructor(leaf: WorkspaceLeaf, eventBus: IEventBus, state: ViewStateProvider, onboardingService: OnboardingService, featureLifecycleService?: FeatureLifecycleService, processService?: ProcessService) {
+	constructor(leaf: WorkspaceLeaf, eventBus: IEventBus, state: ViewStateProvider, onboardingService: OnboardingService) {
 		super(leaf, eventBus);
 		this.state = state;
 		this.onboardingService = onboardingService;
-		this.featureLifecycleService = featureLifecycleService ?? null;
-		this.processService = processService ?? null;
 	}
 
 	// ─────────────────────────────────────────────────────────────
@@ -145,10 +130,6 @@ export class EventCatalogView extends BaseHubView<CatalogTab> {
 			{ id: "flows", label: "Flows", icon: "git-branch", searchPlaceholder: "Search flows..." },
 			{ id: "systems", label: "Systems", icon: "layout-grid", searchPlaceholder: "Search systems..." },
 			{ id: "actors", label: "Actors", icon: "users", searchPlaceholder: "Search actors..." },
-			{ id: "products", label: "Products", icon: "package", searchPlaceholder: "Search products..." },
-			{ id: "health", label: "Health", icon: "heart-pulse", searchPlaceholder: "Search checks..." },
-			{ id: "features", label: "Features", icon: "sparkles", searchPlaceholder: "Search features..." },
-			{ id: "processes", label: "Processes", icon: "waypoints", searchPlaceholder: "Search processes..." },
 		];
 	}
 
@@ -248,31 +229,10 @@ export class EventCatalogView extends BaseHubView<CatalogTab> {
 		this.flowsTab = new FlowsTab(this.masterTreeEl, this.detailPanelEl, deps);
 		this.systemsTab = new SystemsTab(this.masterTreeEl, this.detailPanelEl, deps);
 		this.actorsTab = new ActorsTab(this.masterTreeEl, this.detailPanelEl, deps);
-		this.productsTab = new ProductsTab(this.masterTreeEl, this.detailPanelEl, deps);
-		this.healthTab = new HealthTab(this.masterTreeEl, this.detailPanelEl, deps);
 		this.eventsTab = new EventsTab(
 			this.masterTreeEl, this.detailPanelEl,
 			this.settingsPanel, this.countBadge, deps,
 		);
-		this.featuresTab = new FeaturesTab(this.masterTreeEl, this.detailPanelEl, deps, {
-			getFeatures: () => this.featureLifecycleService?.getFeatures() ?? [],
-			getFeaturesByStage: () => this.featureLifecycleService?.getFeaturesByStage() ?? {
-				idea: [], draft: [], approved: [], "in-progress": [], review: [], done: [],
-			},
-			onFeatureSelect: (name) => {
-				this.featuresTab!.setSelectedFeature(name);
-			},
-			getProcessCompliance: (featureName) => {
-				const feature = this.featureLifecycleService?.getFeatures().find((f) => f.name === featureName);
-				if (!feature) return undefined;
-				return computeProcessCompliance(feature);
-			},
-		});
-		this.processesTab = new ProcessesTab(this.masterTreeEl, this.detailPanelEl, deps, {
-			getProcesses: () => this.processService?.getProcesses() ?? [],
-			validateProcess: (def) => this.processService?.validateProcess(def) ?? { findings: [], errorCount: 0, warningCount: 0, infoCount: 0, valid: true },
-		});
-
 		// Subscribe to events
 		this.subscribeToEvents();
 
@@ -305,8 +265,6 @@ export class EventCatalogView extends BaseHubView<CatalogTab> {
 		this.systemEntries = this.systemsTab!.getEntries();
 		this.actorsTab!.scan();
 		this.actorEntries = this.actorsTab!.getEntries();
-		this.productsTab!.scan();
-		this.productEntries = this.productsTab!.getEntries();
 
 		this.dashboard!.render();
 		this.updateCountBadge();
@@ -338,32 +296,6 @@ export class EventCatalogView extends BaseHubView<CatalogTab> {
 				this.actorsTab!.render();
 				this.actorEntries = this.actorsTab!.getEntries();
 				break;
-			case "products":
-				this.productsTab!.render();
-				this.productEntries = this.productsTab!.getEntries();
-				break;
-			case "health":
-				// Scan all entities for fresh data (same as dashboard)
-				this.domainsTab!.scan();
-				this.domainEntries = this.domainsTab!.getEntries();
-				this.servicesTab!.scan();
-				this.serviceEntries = this.servicesTab!.getEntries();
-				this.flowsTab!.scan();
-				this.flowEntries = this.flowsTab!.getEntries();
-				this.systemsTab!.scan();
-				this.systemEntries = this.systemsTab!.getEntries();
-				this.actorsTab!.scan();
-				this.actorEntries = this.actorsTab!.getEntries();
-				this.productsTab!.scan();
-				this.productEntries = this.productsTab!.getEntries();
-				this.healthTab!.render();
-				break;
-			case "features":
-				this.featuresTab!.render();
-				break;
-			case "processes":
-				this.processesTab!.render();
-				break;
 		}
 		this.updateCountBadge();
 	}
@@ -383,8 +315,6 @@ export class EventCatalogView extends BaseHubView<CatalogTab> {
 			case "flows": this.navigateToFlow(entityId); break;
 			case "systems": this.navigateToSystem(entityId); break;
 			case "actors": this.navigateToActor(entityId); break;
-			case "products": this.navigateToProduct(entityId); break;
-			case "features": this.navigateToFeature(entityId); break;
 		}
 	}
 
@@ -634,30 +564,6 @@ export class EventCatalogView extends BaseHubView<CatalogTab> {
 					: `${actors.length} actors`;
 				break;
 			}
-			case "products": {
-				const products = this.productEntries;
-				const filteredProducts = this.filterText
-					? products.filter((p) =>
-						p.name.toLowerCase().includes(this.filterText) ||
-						p.description.toLowerCase().includes(this.filterText))
-					: products;
-				this.countBadge.textContent = this.filterText
-					? `${filteredProducts.length} / ${products.length} products`
-					: `${products.length} products`;
-				break;
-			}
-			case "health": {
-				const report = this.healthTab!.getReport();
-				const passing = report.checks.filter((c) => c.severity === "pass").length;
-				this.countBadge.textContent = `${passing} / ${report.checks.length} passing`;
-				break;
-			}
-			case "features":
-				this.countBadge.textContent = this.featuresTab!.getCountText();
-				break;
-			case "processes":
-				this.countBadge.textContent = this.processesTab!.getCountText();
-				break;
 		}
 	}
 
@@ -682,7 +588,7 @@ export class EventCatalogView extends BaseHubView<CatalogTab> {
 				navigateToFlow: (f) => this.navigateToFlow(f),
 				navigateToSystem: (s) => this.navigateToSystem(s),
 				navigateToActor: (a) => this.navigateToActor(a),
-				navigateToProduct: (p) => this.navigateToProduct(p),
+				navigateToProduct: () => { /* products moved to Test Management hub */ },
 				openActivityLog: () => this.openActivityLog(),
 				openSubscriptionManager: () => {
 					new SubscriptionManagerModal(this.app, this.eventBus).open();
@@ -730,7 +636,6 @@ export class EventCatalogView extends BaseHubView<CatalogTab> {
 			case "flows": void this.flowsTab!.createDoc(name); break;
 			case "systems": void this.systemsTab!.createDoc(name); break;
 			case "actors": void this.actorsTab!.createDoc(name); break;
-			case "products": void this.productsTab!.createDoc(name); break;
 		}
 	}
 
@@ -767,16 +672,6 @@ export class EventCatalogView extends BaseHubView<CatalogTab> {
 	private navigateToActor(actor: string): void {
 		this.actorsTab!.setSelectedActor(actor);
 		this.navigateTo("actors");
-	}
-
-	private navigateToProduct(product: string): void {
-		this.productsTab!.setSelectedProduct(product);
-		this.navigateTo("products");
-	}
-
-	private navigateToFeature(feature: string): void {
-		this.featuresTab!.setSelectedFeature(feature);
-		this.navigateTo("features");
 	}
 
 	private openActivityLog(): void {

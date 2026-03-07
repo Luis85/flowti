@@ -22,7 +22,7 @@ export type { InboxItem } from "../../domain/inbox/types";
 // Tabs
 // ─────────────────────────────────────────────────────────────
 
-export type UserHubTab = "sessions" | "inbox" | "commands" | "preferences";
+export type UserHubTab = "sessions" | "inbox" | "commands" | "preferences" | "health";
 
 export type PreferencesCategory = "dashboard" | "profile" | "inbox" | "sessions" | "nudges" | "trains";
 
