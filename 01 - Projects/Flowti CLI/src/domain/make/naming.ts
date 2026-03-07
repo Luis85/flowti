@@ -17,7 +17,7 @@ export function toCamel(name: string): string {
 	return pascal.charAt(0).toLowerCase() + pascal.slice(1);
 }
 
-interface MakePaths {
+export interface MakePaths {
 	ui: string;
 	domain: string;
 	hubDomain: string;

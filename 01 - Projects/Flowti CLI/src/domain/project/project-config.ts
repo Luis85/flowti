@@ -60,8 +60,6 @@ function scaffoldProjectConfig(projectPath: string, pkg: PackageJson): ProjectCo
 
 	// Auto-map well-known script names to Flowti tool keys
 	if (scripts["build"]) tools.build = "npm run build";
-	if (scripts["test"]) tools.review = "npm test";
-	else if (scripts["check"]) tools.review = "npm run check";
 	if (scripts["reports"]) tools.reports = "npm run reports";
 	if (scripts["dev"]) tools.devtools = "npm run dev";
 

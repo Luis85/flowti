@@ -50,7 +50,7 @@ export interface CliState {
 
 // ── Per-project configuration ──────────────────────────────────────
 
-export type FlowtiToolId = "build" | "review" | "reports" | "devtools";
+export type FlowtiToolId = "build" | "reports" | "devtools";
 
 export interface FlowtiToolDef {
 	id: FlowtiToolId;
@@ -60,7 +60,6 @@ export interface FlowtiToolDef {
 
 export const FLOWTI_TOOLS: FlowtiToolDef[] = [
 	{ id: "build", key: "2", label: "Build" },
-	{ id: "review", key: "3", label: "Review" },
 	{ id: "reports", key: "5", label: "Reports" },
 	{ id: "devtools", key: "6", label: "Dev Tools" },
 ];
@@ -79,10 +78,21 @@ export interface PublishConfig {
 	endpoints?: PublishEndpoint[];
 }
 
+export interface ReviewConfig {
+	journeysDir?: string;
+	testVault?: string;
+	runner?: string;
+	build?: string;
+	test?: string;
+	teardown?: string;
+	rebuild?: string;
+}
+
 export interface ProjectConfig {
 	name: string;
 	tools?: Partial<Record<FlowtiToolId, string>>;
 	publish?: PublishConfig;
+	review?: ReviewConfig;
 }
 
 // ── CLI configuration ───────────────────────────────────────────────

@@ -7,6 +7,7 @@
 
 import { menu as makeMenu } from "./domain/make/make.js";
 import { publishMenu } from "./domain/publish/project-publish.js";
+import { reviewMenu } from "./domain/review/project-review.js";
 import { showInfo } from "./domain/info/info.js";
 import { showHelp } from "./domain/help/help.js";
 import { captureIdea, captureNote } from "./domain/capture/capture.js";
@@ -19,14 +20,14 @@ import { runIn } from "./infrastructure/shell.js";
 import { getSelectedProject } from "./infrastructure/state.js";
 import { initializeProject } from "./domain/project/project-config.js";
 import { FLOWTI_TOOLS } from "./types.js";
-import type { MenuEntry, ProjectConfig } from "./types.js";
+import type { MenuEntry, MenuItem, ProjectConfig } from "./types.js";
 
 // ── Build Flowti tool items (top-level, disabled if unmapped) ────────
 
 function buildToolItems(
   projectPath: string,
   config: ProjectConfig,
-): MenuEntry[] {
+): MenuItem[] {
   const tools = config.tools ?? {};
   return FLOWTI_TOOLS.map((def) => {
     const cmd = tools[def.id];
@@ -59,8 +60,8 @@ function buildScriptItems(
   const names = Object.keys(scripts);
   if (names.length === 0) return [];
 
-  return names.map((name) => ({
-    key: name,
+  return names.map((name, i) => ({
+    key: String(i + 1),
     label: `npm run ${name}`,
     action: () => {
       runIn(`npm run ${name}`, projectPath, name);
@@ -81,22 +82,53 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 
   const items: MenuEntry[] = [];
 
-  // Make (always available)
+  // 1 — Make (always available)
   items.push({
     key: "1",
     label: "Make",
     action: () => makeMenu(ctx.path),
   });
 
-  // Flowti tools (disabled if unmapped)
-  items.push(...toolItems);
+  // 2 — Build (mappable tool)
+  items.push(toolItems.find((t) => t.key === "2")!);
 
-  // Publish (always available)
+  // 3 — Review (always available)
+  items.push({
+    key: "3",
+    label: "Review",
+    action: () => reviewMenu(ctx.path, ctx.config.review ?? {}),
+  });
+
+  // 4 — Publish (always available)
   items.push({
     key: "4",
     label: "Publish",
     action: () => publishMenu(ctx.path, ctx.config.publish ?? {}),
   });
+
+  // 5 — Reports (mappable tool)
+  items.push(toolItems.find((t) => t.key === "5")!);
+
+  // 6 — Dev Tools (mappable tool)
+  items.push(toolItems.find((t) => t.key === "6")!);
+
+  // 7 — Npm Scripts
+  if (scriptItems.length > 0) {
+    items.push({
+      key: "7",
+      label: "Npm Scripts",
+      action: async () => {
+        const { runMenu } = await import("./infrastructure/menu.js");
+        const scriptMenuItems: MenuEntry[] = [
+          ...scriptItems,
+          { separator: true },
+          { key: "b", label: "Back", action: () => "main" as const },
+        ];
+        await runMenu("npm scripts", scriptMenuItems);
+        return "main" as const;
+      },
+    });
+  }
 
   items.push({ separator: true });
 
@@ -113,6 +145,14 @@ export function buildProjectDetailMenu(): MenuEntry[] {
         "\n  Knowledgebase requires Obsidian CLI and an initialized vault.\n",
     },
     {
+      key: "i",
+      label: "Info",
+      action: () => {
+        showInfo();
+        return "main" as const;
+      },
+    },
+    {
       key: "s",
       label: "Project Status Report",
       action: async () => {
@@ -122,36 +162,10 @@ export function buildProjectDetailMenu(): MenuEntry[] {
     },
   );
 
-  // All npm scripts submenu
-  if (scriptItems.length > 0) {
-    items.push({
-      key: "r",
-      label: "Run npm script...",
-      action: async () => {
-        const { runMenu } = await import("./infrastructure/menu.js");
-        const scriptMenuItems: MenuEntry[] = [
-          ...scriptItems,
-          { separator: true },
-          { key: "b", label: "Back", action: () => "main" as const },
-        ];
-        await runMenu("npm scripts", scriptMenuItems);
-        return "main" as const;
-      },
-    });
-  }
-
   items.push({ separator: true });
 
   // Navigation
   items.push(
-    {
-      key: "i",
-      label: "Info",
-      action: () => {
-        showInfo();
-        return "main" as const;
-      },
-    },
     { key: "b", label: "Back to Start Menu", action: () => "start" as const },
     {
       key: "?",

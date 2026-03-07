@@ -1,0 +1,203 @@
+/**
+ * project-review.ts — E2E journey review for the selected project.
+ *
+ * Scans for .journey files, provides a gated pipeline (build → test → E2E),
+ * and manages a dedicated test vault for the project.
+ *
+ * Configured via flowti.config.json "review" section.
+ */
+
+import { execSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+import { VAULT_ROOT } from "../../infrastructure/config.js";
+import { RESET, BOLD, DIM, GREEN, RED, CYAN, YELLOW } from "../../infrastructure/ui.js";
+import { runIn } from "../../infrastructure/shell.js";
+import { runMenu } from "../../infrastructure/menu.js";
+import { createRL, ask } from "../../infrastructure/readline.js";
+import type { MenuEntry, MenuResult, ReviewConfig } from "../../types.js";
+
+// ── Journey scanning ────────────────────────────────────────────────
+
+interface JourneyFile {
+	name: string;
+	path: string;
+	meta: { journey?: string; description?: string };
+}
+
+function scanJourneys(projectPath: string, journeysDir: string): JourneyFile[] {
+	const dir = path.resolve(projectPath, journeysDir);
+	if (!fs.existsSync(dir)) return [];
+
+	return fs.readdirSync(dir)
+		.filter((f) => f.endsWith(".journey") || f.endsWith(".journey.json"))
+		.sort()
+		.map((f) => {
+			const fullPath = path.join(dir, f);
+			let meta: Record<string, unknown> = {};
+			try {
+				meta = JSON.parse(fs.readFileSync(fullPath, "utf-8")) as Record<string, unknown>;
+			} catch { /* ignore */ }
+			return {
+				name: f.replace(/\.journey(\.json)?$/, ""),
+				path: fullPath,
+				meta: { journey: meta.journey as string | undefined, description: meta.description as string | undefined },
+			};
+		});
+}
+
+// ── Test vault management ───────────────────────────────────────────
+
+function resolveTestVault(projectPath: string, config: ReviewConfig): string {
+	const baseDir = path.resolve(VAULT_ROOT, "..");
+	if (config.testVault) return path.resolve(baseDir, config.testVault);
+	const projectName = path.basename(projectPath);
+	return path.resolve(baseDir, `${projectName}-e2e`);
+}
+
+function ensureTestVault(vaultPath: string): boolean {
+	if (fs.existsSync(vaultPath)) return true;
+	fs.mkdirSync(vaultPath, { recursive: true });
+	console.log(`  ${GREEN}Created test vault:${RESET} ${vaultPath}\n`);
+	return true;
+}
+
+// ── Interactive review menu ─────────────────────────────────────────
+
+export async function reviewMenu(projectPath: string, config: ReviewConfig): Promise<MenuResult> {
+	const journeysDir = config.journeysDir ?? "tests/e2e/journeys";
+	const journeys = scanJourneys(projectPath, journeysDir);
+	const testVault = resolveTestVault(projectPath, config);
+	let buildPassed = false;
+
+	const buildCmd = config.build ?? "npm run build";
+	const testCmd = config.test ?? "npm test";
+	const runnerCmd = config.runner;
+
+	const beforeMenu = (): void => {
+		const vaultExists = fs.existsSync(testVault);
+		console.log(`    ${DIM}Journeys:${RESET}   ${journeys.length} found in ${journeysDir}`);
+		console.log(`    ${DIM}Test vault:${RESET} ${vaultExists ? `${GREEN}exists${RESET}` : `${YELLOW}not created${RESET}`} ${DIM}(${testVault})${RESET}`);
+		const buildIcon = buildPassed ? `${GREEN}✓${RESET}` : `${DIM}○${RESET}`;
+		console.log(`    ${DIM}Pipeline:${RESET}  ${buildIcon} Build  →  ${DIM}○${RESET} E2E`);
+		console.log();
+	};
+
+	const items: MenuEntry[] = [
+		{ key: "1", label: "Build the project", action: () => {
+			const code = runIn(buildCmd, projectPath, "Build");
+			buildPassed = code === 0;
+		}},
+		{ key: "2", label: "Run unit tests", action: () => {
+			runIn(testCmd, projectPath, "Unit tests");
+		}},
+	];
+
+	// Journey-specific items
+	if (journeys.length > 0) {
+		if (runnerCmd) {
+			items.push(
+				{ key: "3", label: "Run all journeys", action: () => {
+					ensureTestVault(testVault);
+					runIn(runnerCmd, projectPath, "All journeys");
+				}},
+				{ key: "j", label: "Run specific journey...", action: async () => {
+					const journeyItems = journeys.map((j, i) => ({
+						key: String(i + 1),
+						label: j.meta.journey ?? j.name,
+						action: () => {
+							ensureTestVault(testVault);
+							runIn(`${runnerCmd} --journey=${j.name}`, projectPath, j.meta.journey ?? j.name);
+							return "main" as const;
+						},
+					}));
+					journeyItems.push(
+						{ key: "b", label: "Back", action: () => "main" as const },
+					);
+					await runMenu("Journeys", [
+						...journeyItems,
+						{ separator: true } as const,
+						{ key: "b", label: "Back", action: () => "main" as const },
+					]);
+					return "main" as const;
+				}},
+			);
+		} else {
+			items.push(
+				{ key: "3", label: "Run E2E tests",
+					disabled: () => !buildPassed,
+					disabledMessage: `\n  ${YELLOW}Build first (option 1).${RESET}\n`,
+					action: () => {
+						ensureTestVault(testVault);
+						const e2eCmd = `npx vitest run tests/e2e/`;
+						runIn(e2eCmd, projectPath, "E2E tests");
+					},
+				},
+			);
+		}
+	}
+
+	// Journey listing
+	if (journeys.length > 0) {
+		items.push(
+			{ key: "l", label: "List journeys", action: () => {
+				console.log(`\n  ${BOLD}Journeys${RESET} ${DIM}(${journeysDir})${RESET}\n`);
+				for (const j of journeys) {
+					const title = j.meta.journey ?? j.name;
+					const desc = j.meta.description ? `${DIM} — ${j.meta.description}${RESET}` : "";
+					console.log(`    ${CYAN}${title}${RESET}${desc}`);
+				}
+				console.log();
+			}},
+		);
+	}
+
+	// Test vault management
+	items.push(
+		{ key: "v", label: "Create/ensure test vault", action: () => {
+			ensureTestVault(testVault);
+			console.log(`  ${GREEN}✓${RESET} Test vault ready: ${testVault}\n`);
+		}},
+		{ key: "o", label: "Open test vault in Explorer", action: () => {
+			ensureTestVault(testVault);
+			try {
+				execSync(`explorer "${testVault}"`, { windowsHide: true });
+			} catch { /* explorer returns non-zero even on success */ }
+		}},
+	);
+
+	if (config.teardown) {
+		items.push(
+			{ key: "t", label: "Teardown test vault", action: async () => {
+				console.log(`\n  ${YELLOW}This will reset the test vault to a fresh state.${RESET}`);
+				const rl = createRL();
+				const confirm = await ask(rl, "Continue? (y/N)", "N");
+				rl.close();
+				if (confirm.toLowerCase() === "y") {
+					runIn(config.teardown!, projectPath, "Teardown test vault");
+				}
+			}},
+		);
+	}
+
+	if (config.rebuild) {
+		items.push(
+			{ key: "x", label: "Rebuild test vault (teardown + setup)", action: async () => {
+				console.log(`\n  ${YELLOW}This will teardown and rebuild the test vault from scratch.${RESET}`);
+				const rl = createRL();
+				const confirm = await ask(rl, "Continue? (y/N)", "N");
+				rl.close();
+				if (confirm.toLowerCase() === "y") {
+					runIn(config.rebuild!, projectPath, "Rebuild test vault");
+				}
+			}},
+		);
+	}
+
+	return runMenu("Review", [
+		...items,
+		{ separator: true },
+		{ key: "b", label: "Back", action: () => "main" as const },
+		{ key: "q", label: "Quit", action: () => "quit" as const },
+	], { beforeMenu });
+}

@@ -12,19 +12,19 @@ import path from "node:path";
 
 // ── Types ────────────────────────────────────────────────────────────
 
-type FrontmatterValue = string | number | boolean | null | undefined | string[] | RawValue;
+export type FrontmatterValue = string | number | boolean | null | undefined | string[] | RawValue;
 
-interface BodyLine {
+export interface BodyLine {
 	prefix: string;
 	content: string;
 }
 
-interface RawValue {
+export interface RawValue {
 	[RAW]: true;
 	value: string;
 }
 
-interface TableOptions {
+export interface TableOptions {
 	alignRight?: number[];
 }
 

@@ -14,8 +14,9 @@ import { Document } from "../../../infrastructure/document.js";
 
 const { runESLintComplexityCheck } = await import("@pythonidaer/complexity-report/integration/eslint/index.js");
 
-const COMPLEXITY_JSON = path.join(CLI_PROJECT, "complexity", "complexity-report.json");
+const LIBRARY_JSON = path.join(CLI_PROJECT, "complexity", "complexity-report.json");
 const OUTPUT_DIR = path.join(CLI_PROJECT, "docs", "reports", "complexity");
+const COMPLEXITY_JSON = path.join(OUTPUT_DIR, "complexity-report.json");
 
 interface ESLintMessage { message: string; line: number }
 interface ESLintResult { filePath: string; messages: ESLintMessage[] }
@@ -36,12 +37,19 @@ function extractEntries(data: ESLintResult[]): ComplexityEntry[] {
 	return entries;
 }
 
-function main(): void {
+async function main(): Promise<void> {
 	// Run ESLint complexity check on CLI source
 	try {
-		runESLintComplexityCheck(CLI_PROJECT);
+		await runESLintComplexityCheck(CLI_PROJECT);
 	} catch {
-		console.warn("[cli-report] ESLint complexity check failed — checking for existing JSON.");
+		// Library may throw even after writing — that's fine
+	}
+
+	// Move library output into docs/reports/complexity/ and clean up temp dir
+	if (fs.existsSync(LIBRARY_JSON)) {
+		fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+		fs.copyFileSync(LIBRARY_JSON, COMPLEXITY_JSON);
+		fs.rmSync(path.join(CLI_PROJECT, "complexity"), { recursive: true, force: true });
 	}
 
 	if (!fs.existsSync(COMPLEXITY_JSON)) {
@@ -100,4 +108,4 @@ function main(): void {
 	console.log(`[cli-report] ComplexityReport written: ${outputPath}`);
 }
 
-main();
+await main();

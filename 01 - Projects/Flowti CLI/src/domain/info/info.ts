@@ -105,6 +105,23 @@ export function showInfo(): void {
 		console.log();
 	}
 
+	// ── Review ──────────────────────────────────────────────────
+	const review = ctx.config.review;
+	if (review) {
+		const journeysDir = review.journeysDir ?? "tests/e2e/journeys";
+		const journeysPath = path.join(ctx.path, journeysDir);
+		const journeyCount = fs.existsSync(journeysPath)
+			? fs.readdirSync(journeysPath).filter((f) => f.endsWith(".journey") || f.endsWith(".journey.json")).length
+			: 0;
+		console.log(`  ${BOLD}Review${RESET}`);
+		console.log(`    Journeys:        ${journeyCount} in ${journeysDir}`);
+		if (review.testVault) console.log(`    Test vault:      ${DIM}${review.testVault}${RESET}`);
+		if (review.runner) console.log(`    Runner:          ${DIM}${review.runner}${RESET}`);
+		if (review.build) console.log(`    Build:           ${DIM}${review.build}${RESET}`);
+		if (review.test) console.log(`    Test:            ${DIM}${review.test}${RESET}`);
+		console.log();
+	}
+
 	// ── Git ──────────────────────────────────────────────────────
 	const branch = runSilent(`git -C "${ctx.path}" rev-parse --abbrev-ref HEAD`);
 	const commit = runSilent(`git -C "${ctx.path}" rev-parse --short HEAD`);
