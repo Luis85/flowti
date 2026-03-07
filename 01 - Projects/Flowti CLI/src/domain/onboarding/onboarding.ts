@@ -2,31 +2,48 @@
  * onboarding.ts — Environment checks and first-run guidance.
  */
 
-import { execSync } from "node:child_process";
 import path from "node:path";
 import { ROOT, VAULT_ROOT, cliConfig } from "../../infrastructure/config.js";
 import { disk } from "../../infrastructure/filesystem.js";
+import { shell } from "../../infrastructure/shell.js";
 import { RESET, BOLD, DIM, GREEN, RED, CYAN, YELLOW } from "../../infrastructure/ui.js";
 import { log } from "../../infrastructure/logger.js";
+import type { IFileSystem, IShell } from "../../types.js";
 
 const onb = cliConfig.onboarding ?? {};
 const pluginId = onb.pluginId ?? "flowti-ibde";
 const nodeMinVersion = onb.nodeMinVersion ?? 16;
 
-export function checkPrerequisites(): void {
+export interface OnboardingDeps {
+	fs?: IFileSystem;
+	sh?: IShell;
+	exit?: (code: number) => void;
+}
+
+const defaults: Required<OnboardingDeps> = {
+	fs: disk,
+	sh: shell,
+	exit: (code: number) => process.exit(code),
+};
+
+export function checkPrerequisites(deps: OnboardingDeps = {}): void {
+	const { sh, exit } = { ...defaults, ...deps };
 	const missing: Array<{ name: string; instruction: string }> = [];
 
-	try {
-		execSync("git --version", { stdio: "ignore", windowsHide: true });
-	} catch {
+	if (!sh.check("git --version")) {
 		missing.push({
 			name: "Git",
 			instruction: "Download and install from https://git-scm.com/downloads",
 		});
 	}
 
-	try {
-		const nodeVersion = execSync("node --version", { encoding: "utf-8", windowsHide: true }).trim();
+	const nodeVersion = sh.runSilent("node --version");
+	if (!nodeVersion) {
+		missing.push({
+			name: "Node.js",
+			instruction: "Download and install from https://nodejs.org",
+		});
+	} else {
 		const major = parseInt(nodeVersion.replace("v", "").split(".")[0], 10);
 		if (major < nodeMinVersion) {
 			missing.push({
@@ -34,11 +51,6 @@ export function checkPrerequisites(): void {
 				instruction: `Download Node.js v${nodeMinVersion}+ from https://nodejs.org`,
 			});
 		}
-	} catch {
-		missing.push({
-			name: "Node.js",
-			instruction: "Download and install from https://nodejs.org",
-		});
 	}
 
 	if (missing.length > 0) {
@@ -48,36 +60,39 @@ export function checkPrerequisites(): void {
 			log(`    ${DIM}→ ${dep.instruction}${RESET}\n`);
 		}
 		log(`  ${DIM}Install the above, then run flowti again.${RESET}\n`);
-		process.exit(2);
+		exit(2);
 	}
 }
 
-export function ensureDependencies(): void {
+export function ensureDependencies(deps: OnboardingDeps = {}): void {
+	const { fs, sh, exit } = { ...defaults, ...deps };
 	const nodeModulesPath = path.join(ROOT, "node_modules");
-	if (disk.existsSync(nodeModulesPath)) return;
+	if (fs.existsSync(nodeModulesPath)) return;
 
 	log(`\n  ${YELLOW}Dependencies not installed.${RESET}`);
 	log(`  ${CYAN}▸${RESET} Running npm install...\n`);
 
-	try {
-		execSync("npm install", { cwd: ROOT, stdio: "inherit" });
+	const code = sh.run("npm install", { cwd: ROOT, label: "npm install" });
+	if (code === 0) {
 		log(`\n  ${GREEN}✓${RESET} Dependencies installed.\n`);
-	} catch {
+	} else {
 		log(`\n  ${RED}✗${RESET} npm install failed. Check errors above and try again.\n`);
-		process.exit(1);
+		exit(1);
 	}
 }
 
-export function checkFirstRun(): void {
+export function checkFirstRun(deps: OnboardingDeps = {}): void {
+	const { fs } = { ...defaults, ...deps };
 	const mainJs = path.join(VAULT_ROOT, ".obsidian", "plugins", pluginId, "main.js");
-	if (!disk.existsSync(mainJs)) {
+	if (!fs.existsSync(mainJs)) {
 		log(`  ${YELLOW}Plugin not yet built.${RESET} Select ${BOLD}Build${RESET} (option 2) to get started.\n`);
 	}
 }
 
-export function showPostBuildGuidance(): void {
+export function showPostBuildGuidance(deps: OnboardingDeps = {}): void {
+	const { fs } = { ...defaults, ...deps };
 	const mainJs = path.join(VAULT_ROOT, ".obsidian", "plugins", pluginId, "main.js");
-	if (!disk.existsSync(mainJs)) return;
+	if (!fs.existsSync(mainJs)) return;
 
 	log(`  ${GREEN}${BOLD}Plugin built successfully!${RESET}\n`);
 	log(`  ${BOLD}Next steps:${RESET}`);

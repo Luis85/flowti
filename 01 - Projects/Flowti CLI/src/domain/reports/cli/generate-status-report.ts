@@ -8,7 +8,7 @@
 
 import path from "node:path";
 import { disk } from "../../../infrastructure/filesystem.js";
-import { execSync } from "node:child_process";
+import { shell } from "../../../infrastructure/shell.js";
 import { CLI_PROJECT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { RESET, DIM, GREEN, CYAN } from "../../../infrastructure/ui.js";
@@ -81,13 +81,8 @@ function ensureReportsExist(sections: ReportSection[], projectPath: string): voi
 	log(`\n  ${DIM}Generating missing reports...${RESET}`);
 	for (const section of missing) {
 		log(`  ${CYAN}▸${RESET} ${section.label}`);
-		try {
-			execSync(section.generateCommand, {
-				cwd: projectPath,
-				stdio: "pipe",
-				timeout: 120_000,
-			});
-		} catch {
+		const result = shell.runSilent(section.generateCommand, { cwd: projectPath });
+		if (result === null) {
 			log(`  ${DIM}(skipped — ${section.label} generation failed)${RESET}`);
 		}
 	}

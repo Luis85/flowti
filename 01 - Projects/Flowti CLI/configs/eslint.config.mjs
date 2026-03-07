@@ -43,6 +43,7 @@ export default [
 			}],
 
 			// Route all file I/O through infrastructure/filesystem.ts — ban direct node:fs usage
+			// Route all shell execution through infrastructure/shell.ts — ban direct child_process usage
 			"no-restricted-imports": ["error", {
 				paths: [{
 					name: "node:fs",
@@ -50,14 +51,29 @@ export default [
 				}, {
 					name: "fs",
 					message: "Use { disk } from infrastructure/filesystem.js instead.",
+				}, {
+					name: "node:child_process",
+					message: "Use { shell } from infrastructure/shell.js instead.",
+				}, {
+					name: "child_process",
+					message: "Use { shell } from infrastructure/shell.js instead.",
 				}],
 			}],
 		},
 	},
 
 	// Allow node:fs in the filesystem service and types (type-only import for interface signatures)
+	// Allow node:child_process in the shell service and legacy orchestration files
 	{
-		files: ["src/infrastructure/filesystem.ts", "src/types.ts"],
+		files: [
+			"src/infrastructure/filesystem.ts",
+			"src/infrastructure/shell.ts",
+			"src/types.ts",
+			// Legacy orchestration — too complex to refactor now, isolated scripts
+			"src/domain/review/run-e2e.ts",
+			"src/domain/devtools/cli-reload.ts",
+			"src/domain/knowledgebase/vault-service.ts",
+		],
 		rules: {
 			"no-restricted-imports": "off",
 		},

@@ -8,7 +8,7 @@
 
 import { disk } from "../../infrastructure/filesystem.js";
 import path from "node:path";
-import { execSync } from "node:child_process";
+import { shell } from "../../infrastructure/shell.js";
 import { PROJECTS_DIR, DEVELOPMENT_DIR } from "../../infrastructure/config.js";
 import { getSelectedProject, setSelectedProject } from "../../infrastructure/state.js";
 import { runMenu } from "../../infrastructure/menu.js";
@@ -143,14 +143,13 @@ async function cloneFromGitHub(projectPath: string, name: string): Promise<MenuR
 	}
 
 	log(`\n  ${CYAN}▸${RESET} Cloning ${url}...\n`);
-	try {
-		execSync(`git clone "${url}" "${projectPath}"`, { stdio: "inherit" });
-		log(`\n  ${GREEN}✓${RESET} Cloned into ${name}.\n`);
-		return "quit";
-	} catch {
+	const code = shell.run(`git clone "${url}" "${projectPath}"`);
+	if (code !== 0) {
 		log(`\n  ${RED}Clone failed.${RESET} Check the URL and try again.\n`);
 		return "main";
 	}
+	log(`\n  ${GREEN}✓${RESET} Cloned into ${name}.\n`);
+	return "quit";
 }
 
 // ── Import Project (from Development/) ──────────────────────────────

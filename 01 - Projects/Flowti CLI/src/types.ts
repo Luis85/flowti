@@ -25,6 +25,17 @@ export interface IFileSystem {
 	statSync(path: string): fs.Stats;
 }
 
+// ── Shell execution abstraction ──────────────────────────────────────
+
+export interface IShell {
+	/** Run a command with inherited stdio, return exit code. */
+	run(cmd: string, opts?: { cwd?: string; label?: string }): number;
+	/** Run a command silently, return trimmed stdout or null on error. */
+	runSilent(cmd: string, opts?: { cwd?: string }): string | null;
+	/** Run a command and check if it succeeds (exit code 0). */
+	check(cmd: string): boolean;
+}
+
 // ── CLI argument parsing ────────────────────────────────────────────
 
 export interface ParsedArgs {

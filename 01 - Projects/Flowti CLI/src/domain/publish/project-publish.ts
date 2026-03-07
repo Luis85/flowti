@@ -8,7 +8,7 @@
 import { disk } from "../../infrastructure/filesystem.js";
 import path from "node:path";
 import { RESET, DIM, GREEN, RED, CYAN, YELLOW } from "../../infrastructure/ui.js";
-import { runIn } from "../../infrastructure/shell.js";
+import { shell } from "../../infrastructure/shell.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import type { MenuResult, PublishConfig, PublishEndpoint } from "../../types.js";
 import { log } from "../../infrastructure/logger.js";
@@ -122,14 +122,14 @@ export async function publishMenu(projectPath: string, config: PublishConfig): P
 
 	return runMenu("Publish", [
 		{ key: "1", label: "Build", action: () => {
-			const code = runIn(buildCmd, projectPath, "Build");
+			const code = shell.run(buildCmd, { cwd: projectPath, label: "Build" });
 			buildPassed = code === 0;
 			if (!buildPassed) testPassed = false;
 		}},
 		{ key: "2", label: "Test",
 			disabled: () => !buildPassed,
 			disabledMessage: `\n  ${YELLOW}Build first (option 1).${RESET}\n`,
-			action: () => { testPassed = runIn(testCmd, projectPath, "Test") === 0; },
+			action: () => { testPassed = shell.run(testCmd, { cwd: projectPath, label: "Test" }) === 0; },
 		},
 		{ key: "3", label: "Distribute to endpoints",
 			disabled: () => !testPassed,
@@ -138,14 +138,14 @@ export async function publishMenu(projectPath: string, config: PublishConfig): P
 		},
 		{ key: "a", label: "Run all (build → test → distribute)", action: () => {
 			log(`\n  ${CYAN}▸${RESET} Running full publish pipeline...\n`);
-			const buildCode = runIn(buildCmd, projectPath, "Step 1/3: Build");
+			const buildCode = shell.run(buildCmd, { cwd: projectPath, label: "Step 1/3: Build" });
 			buildPassed = buildCode === 0;
 			if (!buildPassed) {
 				log(`  ${RED}Pipeline stopped — build failed.${RESET}\n`);
 				testPassed = false;
 				return;
 			}
-			const testCode = runIn(testCmd, projectPath, "Step 2/3: Test");
+			const testCode = shell.run(testCmd, { cwd: projectPath, label: "Step 2/3: Test" });
 			testPassed = testCode === 0;
 			if (!testPassed) {
 				log(`  ${RED}Pipeline stopped — tests failed.${RESET}\n`);

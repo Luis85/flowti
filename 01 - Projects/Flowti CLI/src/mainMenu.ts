@@ -17,7 +17,7 @@ import {
 } from "./domain/knowledgebase/knowledgebase.js";
 import { generateSummaryReport } from "./domain/reports/cli/generate-summary-report.js";
 import { buildWithReport } from "./domain/reports/cli/generate-build-report.js";
-import { runIn } from "./infrastructure/shell.js";
+import { shell } from "./infrastructure/shell.js";
 import { getSelectedProject } from "./infrastructure/state.js";
 import { initializeProject } from "./domain/project/project-config.js";
 import { FLOWTI_TOOLS } from "./types.js";
@@ -37,7 +37,7 @@ function buildToolItems(
         key: def.key,
         label: def.label,
         action: () => {
-          runIn(cmd, projectPath, def.label);
+          shell.run(cmd, { cwd: projectPath, label: def.label });
           return "main" as const;
         },
       };
@@ -65,7 +65,7 @@ function buildScriptItems(
     key: String(i + 1),
     label: `npm run ${name}`,
     action: () => {
-      runIn(`npm run ${name}`, projectPath, name);
+      shell.run(`npm run ${name}`, { cwd: projectPath, label: name });
       return "main" as const;
     },
   }));
@@ -143,7 +143,7 @@ export function buildProjectDetailMenu(): MenuEntry[] {
           key: "1",
           label: "Run All Reports",
           action: () => {
-            runIn(reportsCmd, ctx.path, "Reports");
+            shell.run(reportsCmd, { cwd: ctx.path, label: "Reports" });
             generateSummaryReport(ctx.path);
             return "main" as const;
           },
@@ -158,7 +158,7 @@ export function buildProjectDetailMenu(): MenuEntry[] {
           key: String(i + offset),
           label: gen.label,
           action: () => {
-            runIn(gen.command, ctx.path, gen.label);
+            shell.run(gen.command, { cwd: ctx.path, label: gen.label });
             return "main" as const;
           },
         });
@@ -225,7 +225,7 @@ export function buildProjectDetailMenu(): MenuEntry[] {
               key: "1",
               label: "Generate All",
               action: () => {
-                runIn(allCmd, ctx.path, "Documentation");
+                shell.run(allCmd, { cwd: ctx.path, label: "Documentation" });
                 return "main" as const;
               },
             });
@@ -237,7 +237,7 @@ export function buildProjectDetailMenu(): MenuEntry[] {
               key: String(allCmd ? i + 2 : i + 1),
               label: gen.label,
               action: () => {
-                runIn(gen.command, ctx.path, gen.label);
+                shell.run(gen.command, { cwd: ctx.path, label: gen.label });
                 return "main" as const;
               },
             });

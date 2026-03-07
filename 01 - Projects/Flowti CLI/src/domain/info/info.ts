@@ -5,7 +5,7 @@
 import path from "node:path";
 import { disk } from "../../infrastructure/filesystem.js";
 import { RESET, BOLD, DIM, GREEN, YELLOW, printHeader } from "../../infrastructure/ui.js";
-import { runSilent } from "../../infrastructure/shell.js";
+import { shell } from "../../infrastructure/shell.js";
 import { countFiles } from "../../infrastructure/fs.js";
 import { getSelectedProject, getProjectSource } from "../../infrastructure/state.js";
 import { initializeProject } from "../project/project-config.js";
@@ -111,9 +111,9 @@ function printReview(ctx: ProjectContext): void {
 }
 
 function printGit(ctx: ProjectContext): void {
-	const branch = runSilent(`git -C "${ctx.path}" rev-parse --abbrev-ref HEAD`);
-	const commit = runSilent(`git -C "${ctx.path}" rev-parse --short HEAD`);
-	const dirty = runSilent(`git -C "${ctx.path}" status --porcelain`);
+	const branch = shell.runSilent(`git -C "${ctx.path}" rev-parse --abbrev-ref HEAD`);
+	const commit = shell.runSilent(`git -C "${ctx.path}" rev-parse --short HEAD`);
+	const dirty = shell.runSilent(`git -C "${ctx.path}" status --porcelain`);
 
 	if (!branch && !commit) return;
 	log(`  ${BOLD}Git${RESET}`);

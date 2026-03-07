@@ -4,7 +4,7 @@
 
 import { config } from "../../infrastructure/config.js";
 import { RESET, YELLOW } from "../../infrastructure/ui.js";
-import { run } from "../../infrastructure/shell.js";
+import { shell } from "../../infrastructure/shell.js";
 import { createRL, ask } from "../../infrastructure/readline.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { showHelp } from "../help/help.js";
@@ -18,16 +18,16 @@ export async function menu(): Promise<MenuResult> {
 
 	return runMenu("Review", [
 		{ key: "1", label: "Start test session (interactive E2E)", action: () => {
-			run(cmd.e2e ?? "node scripts/run-e2e.mjs --list", "Starting interactive E2E session...");
+			shell.run(cmd.e2e ?? "node scripts/run-e2e.mjs --list", { label: "Starting interactive E2E session..." });
 		}},
 		{ key: "2", label: "Build the increment", action: () => {
-			const code = run(cmd.increment ?? "npm run build:increment", "Building increment...");
+			const code = shell.run(cmd.increment ?? "npm run build:increment", { label: "Building increment..." });
 			if (code === 0) incrementPassed = true;
 		}},
 		{ key: "3", label: "Publish the increment",
 			disabled: () => !incrementPassed,
 			disabledMessage: `\n  ${YELLOW}Cannot publish — run a successful increment build first (option 2).${RESET}\n`,
-			action: () => { run(cmd.release ?? "npm run build:release", "Publishing..."); },
+			action: () => { shell.run(cmd.release ?? "npm run build:release", { label: "Publishing..." }); },
 		},
 		{ key: "4", label: "Teardown test vault", action: async () => {
 			log(`\n  ${YELLOW}This will reset the test vault to a fresh state.${RESET}`);
@@ -35,7 +35,7 @@ export async function menu(): Promise<MenuResult> {
 			const confirm = await ask(rl, "Continue? (y/N)", "N");
 			rl.close();
 			if (confirm.toLowerCase() === "y") {
-				run(cmd.teardown ?? "node scripts/run-e2e.mjs --teardown", "Tearing down test vault...");
+				shell.run(cmd.teardown ?? "node scripts/run-e2e.mjs --teardown", { label: "Tearing down test vault..." });
 			}
 		}},
 		{ key: "5", label: "Rebuild (teardown → prerequisites → installer)", action: async () => {
@@ -44,7 +44,7 @@ export async function menu(): Promise<MenuResult> {
 			const confirm = await ask(rl, "Continue? (y/N)", "N");
 			rl.close();
 			if (confirm.toLowerCase() === "y") {
-				run(cmd.rebuild ?? "node scripts/run-e2e.mjs --rebuild", "Rebuilding test vault...");
+				shell.run(cmd.rebuild ?? "node scripts/run-e2e.mjs --rebuild", { label: "Rebuilding test vault..." });
 			}
 		}},
 		{ separator: true },
@@ -56,6 +56,6 @@ export async function menu(): Promise<MenuResult> {
 
 export const commands = {
 	review: () => {
-		run(cmd.e2e ?? "node scripts/run-e2e.mjs --list", "Starting interactive E2E session...");
+		shell.run(cmd.e2e ?? "node scripts/run-e2e.mjs --list", { label: "Starting interactive E2E session..." });
 	},
 };

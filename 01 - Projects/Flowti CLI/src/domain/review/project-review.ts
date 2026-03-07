@@ -7,12 +7,11 @@
  * Configured via flowti.config.json "review" section.
  */
 
-import { execSync } from "node:child_process";
 import path from "node:path";
 import { disk } from "../../infrastructure/filesystem.js";
 import { VAULT_ROOT } from "../../infrastructure/config.js";
 import { RESET, BOLD, DIM, GREEN, CYAN, YELLOW } from "../../infrastructure/ui.js";
-import { runIn } from "../../infrastructure/shell.js";
+import { shell } from "../../infrastructure/shell.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { createRL, ask } from "../../infrastructure/readline.js";
 import type { MenuEntry, MenuResult, ReviewConfig } from "../../types.js";
@@ -86,11 +85,11 @@ export async function reviewMenu(projectPath: string, config: ReviewConfig): Pro
 
 	const items: MenuEntry[] = [
 		{ key: "1", label: "Build the project", action: () => {
-			const code = runIn(buildCmd, projectPath, "Build");
+			const code = shell.run(buildCmd, { cwd: projectPath, label: "Build" });
 			buildPassed = code === 0;
 		}},
 		{ key: "2", label: "Run unit tests", action: () => {
-			runIn(testCmd, projectPath, "Unit tests");
+			shell.run(testCmd, { cwd: projectPath, label: "Unit tests" });
 		}},
 	];
 
@@ -100,7 +99,7 @@ export async function reviewMenu(projectPath: string, config: ReviewConfig): Pro
 			items.push(
 				{ key: "3", label: "Run all journeys", action: () => {
 					ensureTestVault(testVault);
-					runIn(runnerCmd, projectPath, "All journeys");
+					shell.run(runnerCmd, { cwd: projectPath, label: "All journeys" });
 				}},
 				{ key: "j", label: "Run specific journey...", action: async () => {
 					const journeyItems = journeys.map((j, i) => ({
@@ -108,7 +107,7 @@ export async function reviewMenu(projectPath: string, config: ReviewConfig): Pro
 						label: j.meta.journey ?? j.name,
 						action: () => {
 							ensureTestVault(testVault);
-							runIn(`${runnerCmd} --journey=${j.name}`, projectPath, j.meta.journey ?? j.name);
+							shell.run(`${runnerCmd} --journey=${j.name}`, { cwd: projectPath, label: j.meta.journey ?? j.name });
 							return "main" as const;
 						},
 					}));
@@ -131,7 +130,7 @@ export async function reviewMenu(projectPath: string, config: ReviewConfig): Pro
 					action: () => {
 						ensureTestVault(testVault);
 						const e2eCmd = `npx vitest run tests/e2e/`;
-						runIn(e2eCmd, projectPath, "E2E tests");
+						shell.run(e2eCmd, { cwd: projectPath, label: "E2E tests" });
 					},
 				},
 			);
@@ -161,9 +160,7 @@ export async function reviewMenu(projectPath: string, config: ReviewConfig): Pro
 		}},
 		{ key: "o", label: "Open test vault in Explorer", action: () => {
 			ensureTestVault(testVault);
-			try {
-				execSync(`explorer "${testVault}"`, { windowsHide: true });
-			} catch { /* explorer returns non-zero even on success */ }
+			shell.runSilent(`explorer "${testVault}"`);
 		}},
 	);
 
@@ -175,7 +172,7 @@ export async function reviewMenu(projectPath: string, config: ReviewConfig): Pro
 				const confirm = await ask(rl, "Continue? (y/N)", "N");
 				rl.close();
 				if (confirm.toLowerCase() === "y") {
-					runIn(config.teardown!, projectPath, "Teardown test vault");
+					shell.run(config.teardown!, { cwd: projectPath, label: "Teardown test vault" });
 				}
 			}},
 		);
@@ -189,7 +186,7 @@ export async function reviewMenu(projectPath: string, config: ReviewConfig): Pro
 				const confirm = await ask(rl, "Continue? (y/N)", "N");
 				rl.close();
 				if (confirm.toLowerCase() === "y") {
-					runIn(config.rebuild!, projectPath, "Rebuild test vault");
+					shell.run(config.rebuild!, { cwd: projectPath, label: "Rebuild test vault" });
 				}
 			}},
 		);

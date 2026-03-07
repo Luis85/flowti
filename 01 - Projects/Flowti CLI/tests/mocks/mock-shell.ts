@@ -1,0 +1,49 @@
+/**
+ * mock-shell.ts — In-memory IShell for tests.
+ *
+ * Usage:
+ *   const sh = createMockShell({ "git --version": "git version 2.43.0" });
+ *   sh.runSilent("git --version"); // "git version 2.43.0"
+ *   sh.check("git --version");     // true
+ *   sh.run("npm install");         // 0 (default success)
+ */
+
+import type { IShell } from "../../src/types.js";
+
+export interface MockShellOptions {
+	/** Map command → stdout (for runSilent). Missing = null (failure). */
+	outputs?: Record<string, string>;
+	/** Map command → exit code (for run). Missing = 0 (success). */
+	exitCodes?: Record<string, number>;
+	/** Commands that should fail check(). By default all succeed. */
+	failChecks?: string[];
+}
+
+export function createMockShell(opts: MockShellOptions = {}): IShell & {
+	calls: Array<{ method: string; cmd: string; opts?: Record<string, unknown> }>;
+} {
+	const outputs = opts.outputs ?? {};
+	const exitCodes = opts.exitCodes ?? {};
+	const failChecks = new Set(opts.failChecks ?? []);
+
+	const calls: Array<{ method: string; cmd: string; opts?: Record<string, unknown> }> = [];
+
+	return {
+		calls,
+
+		run(cmd: string, runOpts?: { cwd?: string; label?: string }): number {
+			calls.push({ method: "run", cmd, opts: runOpts });
+			return exitCodes[cmd] ?? 0;
+		},
+
+		runSilent(cmd: string, runOpts?: { cwd?: string }): string | null {
+			calls.push({ method: "runSilent", cmd, opts: runOpts });
+			return outputs[cmd] ?? null;
+		},
+
+		check(cmd: string): boolean {
+			calls.push({ method: "check", cmd });
+			return !failChecks.has(cmd);
+		},
+	};
+}
