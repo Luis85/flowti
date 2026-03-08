@@ -5,7 +5,7 @@
 import { config } from "../../infrastructure/config.js";
 import { RESET, YELLOW } from "../../infrastructure/ui.js";
 import { shell } from "../../infrastructure/shell.js";
-import { createRL, ask } from "../../infrastructure/readline.js";
+import { input } from "../../infrastructure/input.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { showHelp } from "../help/help.js";
 import type { MenuResult } from "../../infrastructure/types.js";
@@ -31,18 +31,14 @@ export async function menu(): Promise<MenuResult> {
 		},
 		{ key: "4", label: "Teardown test vault", action: async () => {
 			log(`\n  ${YELLOW}This will reset the test vault to a fresh state.${RESET}`);
-			const rl = createRL();
-			const confirm = await ask(rl, "Continue? (y/N)", "N");
-			rl.close();
+			const confirm = await input.ask("Continue? (y/N)", "N");
 			if (confirm.toLowerCase() === "y") {
 				shell.run(cmd.teardown ?? "node scripts/run-e2e.mjs --teardown", { label: "Tearing down test vault..." });
 			}
 		}},
 		{ key: "5", label: "Rebuild (teardown → prerequisites → installer)", action: async () => {
 			log(`\n  ${YELLOW}This will teardown and rebuild the test vault from scratch.${RESET}`);
-			const rl = createRL();
-			const confirm = await ask(rl, "Continue? (y/N)", "N");
-			rl.close();
+			const confirm = await input.ask("Continue? (y/N)", "N");
 			if (confirm.toLowerCase() === "y") {
 				shell.run(cmd.rebuild ?? "node scripts/run-e2e.mjs --rebuild", { label: "Rebuilding test vault..." });
 			}

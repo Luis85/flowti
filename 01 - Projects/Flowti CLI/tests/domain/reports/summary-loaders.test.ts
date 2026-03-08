@@ -26,6 +26,7 @@ import * as fsMod from "../../../src/infrastructure/filesystem.js";
 import {
 	parseFrontmatter,
 	parseLintOutput,
+	parseLintSummary,
 	discoverReports,
 	readTestReportJson,
 	aggregateCoverageJson,
@@ -34,6 +35,7 @@ import {
 	findLatestMd,
 	DEFAULT_THRESHOLDS,
 	resolveThresholds,
+	parseTypedocOutput,
 } from "../../../src/domain/reports/cli/summary-loaders.js";
 import { readProjectConfig } from "../../../src/domain/project/project-config.js";
 
@@ -81,6 +83,29 @@ describe("parseFrontmatter", () => {
 		const fm = parseFrontmatter("---\nvalid: yes\n  indented: no\n---");
 		expect(fm.valid).toBe("yes");
 		expect(fm.indented).toBeUndefined();
+	});
+});
+
+// ── parseLintSummary ─────────────────────────────────────────────────
+
+describe("parseLintSummary", () => {
+	it("extracts errors and warnings from ESLint summary line", () => {
+		const result = parseLintSummary("5 problems (2 errors, 3 warnings)");
+		expect(result).toEqual({ errors: 2, warnings: 3 });
+	});
+
+	it("falls back to counting keywords when no summary line", () => {
+		const result = parseLintSummary("some error here\nanother error\nwarning about thing");
+		expect(result).toEqual({ errors: 2, warnings: 1 });
+	});
+
+	it("returns zeros for empty input", () => {
+		expect(parseLintSummary("")).toEqual({ errors: 0, warnings: 0 });
+	});
+
+	it("handles singular problem", () => {
+		const result = parseLintSummary("1 problem (1 error, 0 warnings)");
+		expect(result).toEqual({ errors: 1, warnings: 0 });
 	});
 });
 
@@ -352,5 +377,55 @@ describe("resolveThresholds", () => {
 		const t = resolveThresholds("/project");
 		expect(t.coverageLines).toBe(90);
 		expect(t.maxComplexity).toBe(15); // default preserved
+	});
+});
+
+// ── parseTypedocOutput ──────────────────────────────────────────────
+
+describe("parseTypedocOutput", () => {
+	it("parses warnings from typedoc output", () => {
+		const output = [
+			"[warning] SomeType, defined in src/a.ts, is referenced but not included",
+			"[info] json generated at ./reports/codebase/codebase.json",
+			"[warning] Found 0 errors and 1 warnings",
+		].join("\n");
+		const result = parseTypedocOutput(output);
+		expect(result.warnings).toBe(1);
+		expect(result.errors).toBe(0);
+		expect(result.issues).toHaveLength(1);
+		expect(result.issues[0].severity).toBe("warning");
+		expect(result.issues[0].message).toContain("SomeType");
+	});
+
+	it("parses errors from typedoc output", () => {
+		const output = [
+			"[error] Unable to resolve module src/missing.ts",
+			"[warning] Unused type in src/b.ts",
+			"[warning] Found 1 errors and 1 warnings",
+		].join("\n");
+		const result = parseTypedocOutput(output);
+		expect(result.errors).toBe(1);
+		expect(result.warnings).toBe(1);
+		expect(result.issues).toHaveLength(2);
+	});
+
+	it("returns zeros for empty output", () => {
+		const result = parseTypedocOutput("");
+		expect(result.warnings).toBe(0);
+		expect(result.errors).toBe(0);
+		expect(result.issues).toHaveLength(0);
+	});
+
+	it("skips summary line (Found N errors and M warnings)", () => {
+		const output = "[warning] Found 0 errors and 3 warnings";
+		const result = parseTypedocOutput(output);
+		expect(result.issues).toHaveLength(0);
+	});
+
+	it("returns zeros for clean output (info only)", () => {
+		const output = "[info] json generated at ./reports/codebase.json";
+		const result = parseTypedocOutput(output);
+		expect(result.warnings).toBe(0);
+		expect(result.errors).toBe(0);
 	});
 });

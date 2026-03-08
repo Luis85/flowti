@@ -19,6 +19,7 @@ import type {
 	JsonDataSources,
 	DetailedSources,
 	LintResult,
+	TypeDocResult,
 } from "./summary-types.js";
 import { n, d } from "./summary-formatters.js";
 import {
@@ -27,6 +28,7 @@ import {
 	loadJsonDataSources,
 	loadDetailedSources,
 	collectLintWarnings,
+	collectTypedocWarnings,
 } from "./summary-loaders.js";
 import { analyzeReports } from "./summary-analyzers.js";
 import {
@@ -46,6 +48,7 @@ function buildSummaryReport(
 	snapshots: ReportSnapshot[],
 	findings: Finding[],
 	lint: LintResult | null,
+	typedoc: TypeDocResult | null,
 	thresholds: Required<SummaryThresholds>,
 	projectName: string,
 	json: JsonDataSources,
@@ -64,7 +67,7 @@ function buildSummaryReport(
 		risks,
 		improvements,
 		positives,
-		...promoteFrontmatter(snapshots, json, lint, detailed),
+		...promoteFrontmatter(snapshots, json, lint, typedoc, detailed),
 	};
 
 	const doc = Document.create("Project Summary")
@@ -80,10 +83,10 @@ function buildSummaryReport(
 		return doc;
 	}
 
-	renderOverview(doc, json, detailed, lint, thresholds, findings);
+	renderOverview(doc, json, detailed, lint, typedoc, thresholds, findings);
 	renderRisks(doc, findings);
 	renderImprovements(doc, findings);
-	renderWarnings(doc, lint);
+	renderWarnings(doc, lint, typedoc);
 	renderDomainMetrics(doc, detailed);
 	renderDomainDetails(doc, snapshots, json, detailed);
 	renderMetricsDictionary(doc);
@@ -121,8 +124,15 @@ export function generateSummaryReport(projectPath: string): void {
 		log(`  ${DIM}Lint: ${lint.errors} errors, ${lint.warnings} warnings${RESET}`);
 	}
 
-	const findings = analyzeReports(snapshots, thresholds, lint, json, detailed);
-	const doc = buildSummaryReport(snapshots, findings, lint, thresholds, projectName, json, detailed);
+	let typedoc: TypeDocResult | null = null;
+	if (thresholds.typedocCommand) {
+		log(`  ${DIM}Running TypeDoc: ${thresholds.typedocCommand}${RESET}`);
+		typedoc = collectTypedocWarnings(projectPath, thresholds.typedocCommand);
+		log(`  ${DIM}TypeDoc: ${typedoc.errors} errors, ${typedoc.warnings} warnings${RESET}`);
+	}
+
+	const findings = analyzeReports(snapshots, thresholds, lint, typedoc, json, detailed);
+	const doc = buildSummaryReport(snapshots, findings, lint, typedoc, thresholds, projectName, json, detailed);
 
 	const stablePath = svc.stablePath("Project Summary.md");
 	disk.mkdirSync(svc.reportsDir, { recursive: true });
@@ -144,13 +154,14 @@ export function generateSummaryReport(projectPath: string): void {
 		date: clock.iso(),
 		reportsAnalyzed: snapshots.length,
 		summary: { risks, improvements, positives },
-		metrics: promoteFrontmatter(snapshots, json, lint, detailed),
+		metrics: promoteFrontmatter(snapshots, json, lint, typedoc, detailed),
 		findings: {
 			risks: findings.filter((f) => f.category === "risk").map((f) => ({ message: f.message, details: f.details })),
 			improvements: findings.filter((f) => f.category === "improvement").map((f) => ({ message: f.message, details: f.details })),
 			positives: findings.filter((f) => f.category === "positive").map((f) => ({ message: f.message, details: f.details })),
 		},
 		lint: lint ? { errors: lint.errors, warnings: lint.warnings, breakdown: lint.breakdown, issues: lint.issues } : null,
+		typedoc: typedoc ? { errors: typedoc.errors, warnings: typedoc.warnings, issues: typedoc.issues } : null,
 		thresholds,
 		reports: snapshots.map((s) => ({ label: s.label, file: s.file, frontmatter: s.frontmatter })),
 		jsonSources: { tests: json.tests ?? null, coverage: json.coverage ?? null },

@@ -5,7 +5,7 @@
 import { config } from "../../infrastructure/config.js";
 import { RESET, DIM, CYAN } from "../../infrastructure/ui.js";
 import { shell } from "../../infrastructure/shell.js";
-import { createRL, ask } from "../../infrastructure/readline.js";
+import { input } from "../../infrastructure/input.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { showHelp } from "../help/help.js";
 import type { MenuResult } from "../../infrastructure/types.js";
@@ -30,9 +30,7 @@ export async function menu(): Promise<MenuResult> {
 			const fmCmd = cmd.fixFrontmatter ?? "node scripts/fix-frontmatter.mjs";
 			log(`\n  ${CYAN}▸${RESET} Running frontmatter check (dry-run)...\n`);
 			shell.run(`${fmCmd} --dry-run`, { label: "Scanning docs/ for frontmatter issues..." });
-			const rl = createRL();
-			const apply = await ask(rl, "Apply fixes? (y/N)", "N");
-			rl.close();
+			const apply = await input.ask("Apply fixes? (y/N)", "N");
 			if (apply.toLowerCase() === "y") {
 				shell.run(fmCmd, { label: "Fixing frontmatter..." });
 			}

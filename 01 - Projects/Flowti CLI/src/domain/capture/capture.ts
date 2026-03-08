@@ -6,7 +6,7 @@ import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
 import { VAULT_ROOT, getCaptureDir } from "../../infrastructure/config.js";
 import { RESET, DIM, GREEN, RED, YELLOW, printHeader, printMenu } from "../../infrastructure/ui.js";
-import { createRL, ask } from "../../infrastructure/readline.js";
+import { input } from "../../infrastructure/input.js";
 import { Document } from "../../infrastructure/document.js";
 import { clock } from "../../infrastructure/clock.js";
 import type { MenuResult } from "../../infrastructure/types.js";
@@ -57,11 +57,8 @@ function createCaptureFile(type: string, title: string, body: string): string | 
 // ── Capture Idea ────────────────────────────────────────────────────
 
 async function captureIdeaLoop(): Promise<void> {
-	 
 	while (true) {
-		const rl = createRL();
-		const idea = await ask(rl, "Idea");
-		rl.close();
+		const idea = await input.ask("Idea");
 
 		if (!idea) {
 			log(`\n  ${YELLOW}No idea entered — skipped.${RESET}`);
@@ -70,9 +67,7 @@ async function captureIdeaLoop(): Promise<void> {
 			createCaptureFile("Idea", title, idea);
 		}
 
-		const rl2 = createRL();
-		const next = await ask(rl2, `${DIM}(a)${RESET}nother or ${DIM}(b)${RESET}ack`, "b");
-		rl2.close();
+		const next = await input.ask(`${DIM}(a)${RESET}nother or ${DIM}(b)${RESET}ack`, "b");
 
 		if (next.toLowerCase() !== "a") return;
 	}
@@ -81,14 +76,11 @@ async function captureIdeaLoop(): Promise<void> {
 // ── Capture Note ────────────────────────────────────────────────────
 
 async function captureNoteLoop(): Promise<void> {
-	 
 	while (true) {
 		printHeader("Capture Note — Type");
 		printMenu(NOTE_TYPES.map((t, i) => ({ key: String(i + 1), label: t, action: () => {} })));
 
-		const rl = createRL();
-		const typeChoice = await ask(rl, "Type", "3");
-		rl.close();
+		const typeChoice = await input.ask("Type", "3");
 
 		const typeIdx = parseInt(typeChoice, 10) - 1;
 		if (typeIdx < 0 || typeIdx >= NOTE_TYPES.length) {
@@ -98,9 +90,7 @@ async function captureNoteLoop(): Promise<void> {
 
 		const type = NOTE_TYPES[typeIdx];
 
-		const rl2 = createRL();
-		const title = await ask(rl2, "Title");
-		rl2.close();
+		const title = await input.ask("Title");
 
 		if (!title) {
 			log(`\n  ${YELLOW}No title entered — skipped.${RESET}`);
@@ -108,9 +98,7 @@ async function captureNoteLoop(): Promise<void> {
 			createCaptureFile(type, title, "");
 		}
 
-		const rl3 = createRL();
-		const next = await ask(rl3, `${DIM}(a)${RESET}nother or ${DIM}(b)${RESET}ack`, "b");
-		rl3.close();
+		const next = await input.ask(`${DIM}(a)${RESET}nother or ${DIM}(b)${RESET}ack`, "b");
 
 		if (next.toLowerCase() !== "a") return;
 	}

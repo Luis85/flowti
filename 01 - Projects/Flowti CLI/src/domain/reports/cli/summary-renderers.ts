@@ -12,6 +12,7 @@ import type {
 	JsonDataSources,
 	DetailedSources,
 	LintResult,
+	TypeDocResult,
 	DomainMetrics,
 } from "./summary-types.js";
 import { fm } from "./summary-analyzers.js";
@@ -198,44 +199,61 @@ function flattenFindings(findings: Finding[]): string[] {
 	return lines;
 }
 
+function testKpi(json: JsonDataSources): string | null {
+	if (!json.tests) return null;
+	const t = json.tests;
+	const icon = t.numFailedTests > 0 ? "🔴" : "🟢";
+	return `${icon} **Tests**: ${n(t.numPassedTests)}/${n(t.numTotalTests)} passed (${n(t.numTotalTestSuites)} suites)`;
+}
+
+function coverageKpi(json: JsonDataSources, threshold: number): string | null {
+	if (!json.coverage) return null;
+	const c = json.coverage;
+	const icon = c.linesPct < threshold ? "🟡" : "🟢";
+	return `${icon} **Coverage**: ${c.linesPct}% lines, ${c.branchesPct}% branches, ${c.functionsPct}% functions`;
+}
+
+function complexityKpi(detailed: DetailedSources, threshold: number): string | null {
+	const cf = detailed.complexityFunctions?.summary;
+	if (!cf) return null;
+	const icon = cf.maxComplexity > threshold ? "🟡" : "🟢";
+	return `${icon} **Complexity**: max ${cf.maxComplexity}, avg ${cf.avgComplexity}, median ${cf.medianComplexity}`;
+}
+
+function lintKpi(lint: LintResult | null, warnThreshold: number): string | null {
+	if (!lint) return null;
+	const icon = lint.errors > 0 ? "🔴" : lint.warnings > warnThreshold ? "🟡" : "🟢";
+	return `${icon} **Lint**: ${lint.errors} errors, ${lint.warnings} warnings`;
+}
+
+function typedocKpi(typedoc: TypeDocResult | null, warnThreshold: number): string | null {
+	if (!typedoc) return null;
+	const icon = typedoc.errors > 0 ? "🔴" : typedoc.warnings > warnThreshold ? "🟡" : "🟢";
+	return `${icon} **TypeDoc**: ${typedoc.errors} errors, ${typedoc.warnings} warnings`;
+}
+
+function codebaseKpi(detailed: DetailedSources): string | null {
+	if (detailed.perFile.length === 0) return null;
+	const metrics = buildDomainMetrics(detailed);
+	const totals = metrics.reduce((acc, m) => { acc.loc += m.loc; acc.files += m.files; return acc; }, { loc: 0, files: 0 });
+	return `📊 **Codebase**: ${n(totals.loc)} LOC across ${n(totals.files)} files (${n(metrics.length)} domains)`;
+}
+
 export function buildHealthKpis(
 	json: JsonDataSources,
 	detailed: DetailedSources,
 	lint: LintResult | null,
+	typedoc: TypeDocResult | null,
 	thresholds: Required<SummaryThresholds>,
 ): string[] {
-	const kpis: string[] = [];
-
-	if (json.tests) {
-		const t = json.tests;
-		const icon = t.numFailedTests > 0 ? "🔴" : "🟢";
-		kpis.push(`${icon} **Tests**: ${n(t.numPassedTests)}/${n(t.numTotalTests)} passed (${n(t.numTotalTestSuites)} suites)`);
-	}
-
-	if (json.coverage) {
-		const c = json.coverage;
-		const icon = c.linesPct < thresholds.coverageLines ? "🟡" : "🟢";
-		kpis.push(`${icon} **Coverage**: ${c.linesPct}% lines, ${c.branchesPct}% branches, ${c.functionsPct}% functions`);
-	}
-
-	const cf = detailed.complexityFunctions?.summary;
-	if (cf) {
-		const icon = cf.maxComplexity > thresholds.maxComplexity ? "🟡" : "🟢";
-		kpis.push(`${icon} **Complexity**: max ${cf.maxComplexity}, avg ${cf.avgComplexity}, median ${cf.medianComplexity}`);
-	}
-
-	if (lint) {
-		const icon = lint.errors > 0 ? "🔴" : lint.warnings > thresholds.eslintWarnings ? "🟡" : "🟢";
-		kpis.push(`${icon} **Lint**: ${lint.errors} errors, ${lint.warnings} warnings`);
-	}
-
-	if (detailed.perFile.length > 0) {
-		const metrics = buildDomainMetrics(detailed);
-		const totals = metrics.reduce((acc, m) => { acc.loc += m.loc; acc.files += m.files; return acc; }, { loc: 0, files: 0 });
-		kpis.push(`📊 **Codebase**: ${n(totals.loc)} LOC across ${n(totals.files)} files (${n(metrics.length)} domains)`);
-	}
-
-	return kpis;
+	return [
+		testKpi(json),
+		coverageKpi(json, thresholds.coverageLines),
+		complexityKpi(detailed, thresholds.maxComplexity),
+		lintKpi(lint, thresholds.eslintWarnings),
+		typedocKpi(typedoc, thresholds.typedocWarnings),
+		codebaseKpi(detailed),
+	].filter((k): k is string => k !== null);
 }
 
 export function renderOverview(
@@ -243,12 +261,13 @@ export function renderOverview(
 	json: JsonDataSources,
 	detailed: DetailedSources,
 	lint: LintResult | null,
+	typedoc: TypeDocResult | null,
 	thresholds: Required<SummaryThresholds>,
 	findings: Finding[],
 ): void {
 	doc.heading(2, "Overview").addBlank();
 
-	const kpis = buildHealthKpis(json, detailed, lint, thresholds);
+	const kpis = buildHealthKpis(json, detailed, lint, typedoc, thresholds);
 	const risks = findings.filter((f) => f.category === "risk").length;
 	const improvements = findings.filter((f) => f.category === "improvement").length;
 	const positives = findings.filter((f) => f.category === "positive").length;
@@ -271,6 +290,7 @@ export function renderOverview(
 			["Functions above threshold", `<= ${thresholds.complexityAboveThresholdPct}%`],
 			["Startup p95", `<= ${thresholds.startupMs}ms`],
 			["Eslint warnings", `<= ${thresholds.eslintWarnings}`],
+			["TypeDoc warnings", `<= ${thresholds.typedocWarnings}`],
 		],
 	).addBlank();
 }
@@ -307,31 +327,41 @@ export function renderImprovements(doc: Document, findings: Finding[]): void {
 	}
 }
 
-export function renderWarnings(doc: Document, lint: LintResult | null): void {
-	if (!lint || (lint.errors === 0 && lint.warnings === 0)) return;
+export function renderWarnings(doc: Document, lint: LintResult | null, typedoc: TypeDocResult | null): void {
+	const hasLint = lint && (lint.errors > 0 || lint.warnings > 0);
+	const hasTypedoc = typedoc && (typedoc.errors > 0 || typedoc.warnings > 0);
+	if (!hasLint && !hasTypedoc) return;
 
 	doc.heading(2, "Warnings").addBlank();
 
-	if (lint.breakdown.length > 0) {
-		doc.heading(3, "Lint Summary by Rule").addBlank();
-		doc.table(
-			["Rule", "Count"],
-			lint.breakdown.map((w) => [w.rule, String(w.count)]),
-		).addBlank();
+	if (hasLint) {
+		if (lint.breakdown.length > 0) {
+			doc.heading(3, "Lint Summary by Rule").addBlank();
+			doc.table(
+				["Rule", "Count"],
+				lint.breakdown.map((w) => [w.rule, String(w.count)]),
+			).addBlank();
+		}
+
+		if (lint.issues.length > 0) {
+			doc.heading(3, "All Lint Issues").addBlank();
+			doc.table(
+				["File", "Line", "Severity", "Message", "Rule"],
+				lint.issues.map((i) => [
+					`\`${i.file}\``,
+					String(i.line),
+					i.severity,
+					i.message,
+					i.rule,
+				]),
+			).addBlank();
+		}
 	}
 
-	if (lint.issues.length > 0) {
-		doc.heading(3, "All Lint Issues").addBlank();
-		doc.table(
-			["File", "Line", "Severity", "Message", "Rule"],
-			lint.issues.map((i) => [
-				`\`${i.file}\``,
-				String(i.line),
-				i.severity,
-				i.message,
-				i.rule,
-			]),
-		).addBlank();
+	if (hasTypedoc) {
+		const summary = `TypeDoc: ${typedoc.errors} error(s), ${typedoc.warnings} warning(s)`;
+		const lines = typedoc.issues.map((i) => `**${i.severity}** — ${i.message}`);
+		doc.callout("warning", summary, lines).addBlank();
 	}
 }
 
@@ -425,6 +455,7 @@ export function promoteFrontmatter(
 	snapshots: ReportSnapshot[],
 	json: JsonDataSources,
 	lint: LintResult | null,
+	typedoc: TypeDocResult | null,
 	detailed: DetailedSources,
 ): Record<string, string | number | boolean> {
 	const fmData: Record<string, string | number | boolean> = {};
@@ -434,6 +465,10 @@ export function promoteFrontmatter(
 	if (lint) {
 		fmData.eslint_warnings = lint.warnings;
 		fmData.eslint_errors = lint.errors;
+	}
+	if (typedoc) {
+		fmData.typedoc_warnings = typedoc.warnings;
+		fmData.typedoc_errors = typedoc.errors;
 	}
 	promoteAggregates(fmData, detailed);
 	return fmData;
@@ -477,6 +512,9 @@ export const METRICS_DICTIONARY: Array<[string, string, string]> = [
 	["eslint_errors", "Number of ESLint rule violations at error severity", "eslint (live run)"],
 	["eslint_warnings", "Number of ESLint rule violations at warning severity", "eslint (live run)"],
 	["lint_rules_violated", "Breakdown of violated rules with occurrence counts", "eslint (live run)"],
+
+	["typedoc_errors", "Number of TypeDoc errors found during documentation generation", "typedoc (live run)"],
+	["typedoc_warnings", "Number of TypeDoc warnings found during documentation generation", "typedoc (live run)"],
 
 	["domains", "Number of unique domain/infrastructure buckets in the codebase", "aggregated"],
 	["domain_loc", "Lines of code per domain bucket", "aggregated"],

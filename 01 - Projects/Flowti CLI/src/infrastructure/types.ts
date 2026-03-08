@@ -36,6 +36,8 @@ export interface IShell {
 	check(cmd: string): boolean;
 	/** Run an executable file with args, return trimmed stdout or null on error. */
 	execFile(cmd: string, args: string[], opts?: { timeout?: number; stdio?: string }): string | null;
+	/** Run a command capturing both stdout and stderr, return combined output. */
+	runCapture(cmd: string, opts?: { cwd?: string; timeout?: number }): string;
 }
 
 // ── Process abstraction ──────────────────────────────────────────────
@@ -155,6 +157,10 @@ export interface SummaryThresholds {
 	eslintWarnings?: number;
 	/** Lint command to run for collecting warnings (default: "npm run lint") */
 	lintCommand?: string;
+	/** TypeDoc command to run for collecting warnings (default: "npm run docs") */
+	typedocCommand?: string;
+	/** Maximum allowed TypeDoc warnings (default: 0) */
+	typedocWarnings?: number;
 }
 
 export interface ReportsConfig {

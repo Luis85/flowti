@@ -12,7 +12,7 @@ import { shell } from "../../infrastructure/shell.js";
 import { PROJECTS_DIR, DEVELOPMENT_DIR } from "../../infrastructure/config.js";
 import { getSelectedProject, setSelectedProject } from "../../infrastructure/state.js";
 import { runMenu } from "../../infrastructure/menu.js";
-import { createRL, ask } from "../../infrastructure/readline.js";
+import { input } from "../../infrastructure/input.js";
 import { RESET, DIM, GREEN, RED, CYAN, BOLD } from "../../infrastructure/ui.js";
 import { PROJECT_TEMPLATES, PROJECT_TEMPLATE_IDS } from "../make/make.js";
 import type { MenuEntry, MenuResult } from "../../infrastructure/types.js";
@@ -83,9 +83,7 @@ async function loadProjectMenu(): Promise<MenuResult> {
 // ── Create Project ──────────────────────────────────────────────────
 
 async function createProjectMenu(): Promise<MenuResult> {
-	const rl = createRL();
-	const name = await ask(rl, "Project name");
-	rl.close();
+	const name = await input.ask("Project name");
 
 	if (!name) {
 		log(`\n  ${DIM}Cancelled.${RESET}\n`);
@@ -133,9 +131,7 @@ function scaffoldFromTemplate(templateId: ProjectTemplateId, projectPath: string
 }
 
 async function cloneFromGitHub(projectPath: string, name: string): Promise<MenuResult> {
-	const rl = createRL();
-	const url = await ask(rl, "GitHub URL");
-	rl.close();
+	const url = await input.ask("GitHub URL");
 
 	if (!url) {
 		log(`\n  ${DIM}Cancelled.${RESET}\n`);

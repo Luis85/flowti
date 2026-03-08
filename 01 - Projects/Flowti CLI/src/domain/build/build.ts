@@ -5,7 +5,7 @@
 import { config } from "../../infrastructure/config.js";
 import { RESET, DIM, CYAN } from "../../infrastructure/ui.js";
 import { shell } from "../../infrastructure/shell.js";
-import { createRL, ask } from "../../infrastructure/readline.js";
+import { input } from "../../infrastructure/input.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { showHelp } from "../help/help.js";
 import { showPostBuildGuidance } from "../onboarding/onboarding.js";
@@ -33,9 +33,7 @@ export async function menu(): Promise<MenuResult> {
 			if (code === 0) showPostBuildGuidance();
 		}},
 		{ key: "4", label: "Watch mode (live rebuild on save)", action: async () => {
-			const rl = createRL();
-			const reload = await ask(rl, "Auto-reload plugin on save? (y/N)", "N");
-			rl.close();
+			const reload = await input.ask("Auto-reload plugin on save? (y/N)", "N");
 			const reloadFlag = reload.toLowerCase() === "y" ? " --reload" : "";
 			log(`\n  ${CYAN}▸${RESET} Starting watch mode...${reloadFlag ? ` ${DIM}(with auto-reload)${RESET}` : ""}\n`);
 			log(`  ${DIM}Press Ctrl+C to stop.${RESET}\n`);

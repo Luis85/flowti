@@ -24,6 +24,8 @@ import type {
 	LintResult,
 	LintIssue,
 	ReportDef,
+	TypeDocResult,
+	TypeDocIssue,
 } from "./summary-types.js";
 
 // ── Defaults ─────────────────────────────────────────────────────────
@@ -36,6 +38,8 @@ export const DEFAULT_THRESHOLDS: Required<SummaryThresholds> = {
 	startupMs: 5000,
 	eslintWarnings: 0,
 	lintCommand: "npm run lint",
+	typedocCommand: "npm run docs",
+	typedocWarnings: 0,
 };
 
 export function resolveThresholds(projectPath: string): Required<SummaryThresholds> {
@@ -265,39 +269,41 @@ export function collectLintWarnings(projectPath: string, command: string): LintR
 	return parseLintOutput(output ?? "", projectPath);
 }
 
-export function parseLintOutput(output: string, projectRoot = ""): LintResult {
-	const summaryMatch = output.match(/(\d+)\s+problems?\s*\((\d+)\s+errors?,\s*(\d+)\s+warnings?\)/);
-	const errors = summaryMatch ? parseInt(summaryMatch[2], 10) : (output.match(/\berror\b/gi) ?? []).length;
-	const warnings = summaryMatch ? parseInt(summaryMatch[3], 10) : (output.match(/\bwarning\b/gi) ?? []).length;
+export function parseLintSummary(output: string): { errors: number; warnings: number } {
+	const m = output.match(/(\d+)\s+problems?\s*\((\d+)\s+errors?,\s*(\d+)\s+warnings?\)/);
+	if (m) return { errors: parseInt(m[2], 10), warnings: parseInt(m[3], 10) };
+	return {
+		errors: (output.match(/\berror\b/gi) ?? []).length,
+		warnings: (output.match(/\bwarning\b/gi) ?? []).length,
+	};
+}
 
+function isFilePath(line: string): boolean {
+	return /^[A-Z]:\\/.test(line) || line.startsWith("/");
+}
+
+function normalizeFilePath(line: string, projectRoot: string): string {
+	let file = projectRoot
+		? line.replace(projectRoot.replace(/\\/g, "\\"), "").replace(/^[\\/]/, "")
+		: line;
+	return file.replace(/\\/g, "/");
+}
+
+export function parseLintOutput(output: string, projectRoot = ""): LintResult {
+	const { errors, warnings } = parseLintSummary(output);
 	const ruleCounts: Record<string, number> = {};
 	const issues: LintIssue[] = [];
-	const lines = output.split("\n");
 	let currentFile = "";
 
-	for (const line of lines) {
-		if (/^[A-Z]:\\/.test(line) || line.startsWith("/")) {
-			currentFile = projectRoot
-				? line.replace(projectRoot.replace(/\\/g, "\\"), "").replace(/^[\\/]/, "")
-				: line;
-			currentFile = currentFile.replace(/\\/g, "/");
+	for (const line of output.split("\n")) {
+		if (isFilePath(line)) {
+			currentFile = normalizeFilePath(line, projectRoot);
 			continue;
 		}
-
-		const issueMatch = line.match(/^\s+(\d+):(\d+)\s+(warning|error)\s+(.+?)\s{2,}(\S+)\s*$/);
-		if (issueMatch) {
-			const rule = issueMatch[5];
-			const severity = issueMatch[3] as "warning" | "error";
-			ruleCounts[rule] = (ruleCounts[rule] ?? 0) + 1;
-			issues.push({
-				file: currentFile,
-				line: parseInt(issueMatch[1], 10),
-				col: parseInt(issueMatch[2], 10),
-				severity,
-				message: issueMatch[4].trim(),
-				rule,
-			});
-		}
+		const m = line.match(/^\s+(\d+):(\d+)\s+(warning|error)\s+(.+?)\s{2,}(\S+)\s*$/);
+		if (!m) continue;
+		ruleCounts[m[5]] = (ruleCounts[m[5]] ?? 0) + 1;
+		issues.push({ file: currentFile, line: parseInt(m[1], 10), col: parseInt(m[2], 10), severity: m[3] as "warning" | "error", message: m[4].trim(), rule: m[5] });
 	}
 
 	const breakdown = Object.entries(ruleCounts)
@@ -305,4 +311,36 @@ export function parseLintOutput(output: string, projectRoot = ""): LintResult {
 		.sort((a, b) => b.count - a.count);
 
 	return { errors, warnings, breakdown, issues };
+}
+
+// ── TypeDoc collection ──────────────────────────────────────────────
+
+function stripAnsi(text: string): string {
+	// eslint-disable-next-line no-control-regex
+	return text.replace(/\x1b\[[0-9;]*m/g, "");
+}
+
+export function parseTypedocOutput(output: string): TypeDocResult {
+	const issues: TypeDocIssue[] = [];
+	for (const raw of output.split("\n")) {
+		const line = stripAnsi(raw);
+		const warnMatch = line.match(/^\[warning]\s+(.+)/);
+		if (warnMatch && !warnMatch[1].startsWith("Found ")) {
+			issues.push({ severity: "warning", message: warnMatch[1] });
+			continue;
+		}
+		const errMatch = line.match(/^\[error]\s+(.+)/);
+		if (errMatch && !errMatch[1].startsWith("Found ")) {
+			issues.push({ severity: "error", message: errMatch[1] });
+		}
+	}
+	const warnings = issues.filter((i) => i.severity === "warning").length;
+	const errors = issues.filter((i) => i.severity === "error").length;
+	return { warnings, errors, issues };
+}
+
+export function collectTypedocWarnings(projectPath: string, command: string): TypeDocResult {
+	// TypeDoc writes warnings/errors to stderr, so we capture both streams
+	const combined = shell.runCapture(command, { cwd: projectPath, timeout: 30_000 });
+	return parseTypedocOutput(combined);
 }

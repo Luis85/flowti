@@ -115,6 +115,17 @@ export interface IstanbulFileCoverage {
 	fnMap: Record<string, unknown>;
 }
 
+export interface TypeDocIssue {
+	severity: "warning" | "error";
+	message: string;
+}
+
+export interface TypeDocResult {
+	warnings: number;
+	errors: number;
+	issues: TypeDocIssue[];
+}
+
 export interface ReportDef {
 	subdir: string;
 	label: string;

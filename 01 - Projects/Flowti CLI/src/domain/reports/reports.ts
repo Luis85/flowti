@@ -7,7 +7,7 @@ import { disk } from "../../infrastructure/filesystem.js";
 import { ROOT, config } from "../../infrastructure/config.js";
 import { RESET, DIM, GREEN, RED, CYAN, YELLOW, printHeader } from "../../infrastructure/ui.js";
 import { shell } from "../../infrastructure/shell.js";
-import { createRL, ask } from "../../infrastructure/readline.js";
+import { input } from "../../infrastructure/input.js";
 import { findLatestReport, parseFrontmatter } from "../../infrastructure/fs.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { showHelp } from "../help/help.js";
@@ -71,9 +71,7 @@ async function selectReportMenu(): Promise<void> {
 	log(`     ${DIM}b) Back${RESET}`);
 	log();
 
-	const rl = createRL();
-	const choice = await ask(rl, "Choice", "b");
-	rl.close();
+	const choice = await input.ask("Choice", "b");
 
 	if (choice.toLowerCase() === "b") return;
 	if (choice.toLowerCase() === "a") {
@@ -128,10 +126,8 @@ function collectAuditSections(reportsDir: string): Array<{ label: string; data: 
 }
 
 async function auditMenu(): Promise<void> {
-	const rl = createRL();
 	const defaultName = clock.iso().slice(0, 10) + "-audit";
-	const auditName = await ask(rl, "Audit name", defaultName);
-	rl.close();
+	const auditName = await input.ask("Audit name", defaultName);
 
 	log(`\n  ${CYAN}▸${RESET} Generating audit: ${auditName}\n`);
 

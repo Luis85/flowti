@@ -6,7 +6,7 @@
  * availability and vault initialization.
  */
 
-import { createRL, ask } from "../../infrastructure/readline.js";
+import { input } from "../../infrastructure/input.js";
 import { printHeader, BOLD, RESET, DIM, CYAN, YELLOW, GREEN } from "../../infrastructure/ui.js";
 import { isCliAvailable, isVaultInitialized, listFolder, readMarkdownFile, searchVault } from "./vault-service.js";
 import type { MenuResult } from "../../infrastructure/types.js";
@@ -70,7 +70,6 @@ function resolveSelectedPath(currentPath: string, name: string): string {
 export async function knowledgebaseMenu(): Promise<MenuResult> {
 	let currentPath = "";
 
-
 	while (true) {
 		printHeader("Knowledgebase" + (currentPath ? ` — ${currentPath}` : ""));
 
@@ -79,9 +78,7 @@ export async function knowledgebaseMenu(): Promise<MenuResult> {
 
 		printNavHints(currentPath);
 
-		const rl = createRL();
-		const choice = await ask(rl, "Choice");
-		rl.close();
+		const choice = await input.ask("Choice");
 
 		if (choice === "q") return "main";
 		if (choice === "b" && currentPath) { currentPath = navigateBack(currentPath); continue; }
@@ -118,7 +115,6 @@ async function viewFile(filePath: string): Promise<void> {
 	}
 
 	const body = lines.slice(start).join("\n").trim();
-	// Indent all lines for cleaner terminal display
 	for (const line of body.split("\n")) {
 		log(`  ${line}`);
 	}
@@ -127,15 +123,11 @@ async function viewFile(filePath: string): Promise<void> {
 	log(`  ${DIM}${filePath}${RESET}`);
 	log();
 
-	const rl = createRL();
-	await ask(rl, "Press Enter to continue");
-	rl.close();
+	await input.ask("Press Enter to continue");
 }
 
 async function searchMode(): Promise<void> {
-	const rl = createRL();
-	const query = await ask(rl, "Search");
-	rl.close();
+	const query = await input.ask("Search");
 
 	if (!query) return;
 
@@ -144,9 +136,7 @@ async function searchMode(): Promise<void> {
 
 	if (results.length === 0) {
 		log(`\n  No results found for "${query}"\n`);
-		const rl2 = createRL();
-		await ask(rl2, "Press Enter to continue");
-		rl2.close();
+		await input.ask("Press Enter to continue");
 		return;
 	}
 
@@ -165,9 +155,7 @@ async function searchMode(): Promise<void> {
 	}
 
 	log();
-	const rl2 = createRL();
-	const choice = await ask(rl2, "Open # or Enter to go back");
-	rl2.close();
+	const choice = await input.ask("Open # or Enter to go back");
 
 	const num = parseInt(choice, 10);
 	const selected = indexMap.get(num);

@@ -11,6 +11,7 @@ import {
 	checkAvgComplexity,
 	checkTopFunctions,
 	checkDecisionPointDensity,
+	resolveComplexityValues,
 	analyzeComplexity,
 	checkZeroCoverage,
 	checkLowCoverage,
@@ -21,9 +22,10 @@ import {
 	analyzeTraceability,
 	analyzeE2e,
 	analyzeLint,
+	analyzeTypedoc,
 	analyzeReports,
 } from "../../../src/domain/reports/cli/summary-analyzers.js";
-import type { ReportSnapshot, JsonDataSources, DetailedSources, LintResult } from "../../../src/domain/reports/cli/summary-types.js";
+import type { ReportSnapshot, JsonDataSources, DetailedSources, LintResult, TypeDocResult } from "../../../src/domain/reports/cli/summary-types.js";
 import type { SummaryThresholds } from "../../../src/infrastructure/types.js";
 
 function snap(label: string, frontmatter: Record<string, string> = {}): ReportSnapshot {
@@ -38,6 +40,8 @@ const THRESHOLDS: Required<SummaryThresholds> = {
 	startupMs: 5000,
 	eslintWarnings: 0,
 	lintCommand: "npm run lint",
+	typedocCommand: "npm run docs",
+	typedocWarnings: 0,
 };
 
 const EMPTY_JSON: JsonDataSources = {};
@@ -284,6 +288,35 @@ describe("analyzeComplexity", () => {
 	});
 });
 
+// ── resolveComplexityValues ───────────────────────────────────────────
+
+describe("resolveComplexityValues", () => {
+	it("uses detailed data when available", () => {
+		const detailed: DetailedSources = {
+			perFile: [],
+			topComplexFiles: [],
+			complexityFunctions: {
+				summary: { totalFunctions: 100, maxComplexity: 25, avgComplexity: 4, medianComplexity: 3, totalComplexity: 400, aboveThreshold10: 8, aboveThreshold15: 2 },
+				functions: [],
+			},
+		};
+		const v = resolveComplexityValues(snap("Complexity"), detailed);
+		expect(v.maxC).toBe(25);
+		expect(v.avgC).toBe(4);
+		expect(v.totalFunctions).toBe(100);
+		expect(v.aboveThreshold).toBe(8);
+	});
+
+	it("falls back to frontmatter when no detailed data", () => {
+		const v = resolveComplexityValues(snap("Complexity", { max_complexity: "15", avg_complexity: "3", median_complexity: "2", total_functions: "50", above_threshold: "5" }));
+		expect(v.maxC).toBe(15);
+		expect(v.avgC).toBe(3);
+		expect(v.medianC).toBe(2);
+		expect(v.totalFunctions).toBe(50);
+		expect(v.aboveThreshold).toBe(5);
+	});
+});
+
 // ── checkTopFunctions ────────────────────────────────────────────────
 
 describe("checkTopFunctions", () => {
@@ -500,6 +533,43 @@ describe("analyzeLint", () => {
 	});
 });
 
+// ── analyzeTypedoc ──────────────────────────────────────────────────
+
+describe("analyzeTypedoc", () => {
+	it("returns empty for null input", () => {
+		expect(analyzeTypedoc(null, THRESHOLDS)).toEqual([]);
+	});
+
+	it("reports risk for errors", () => {
+		const td: TypeDocResult = { errors: 2, warnings: 0, issues: [
+			{ severity: "error", message: "Cannot resolve module" },
+			{ severity: "error", message: "Missing export" },
+		] };
+		const findings = analyzeTypedoc(td, THRESHOLDS);
+		expect(findings[0].category).toBe("risk");
+		expect(findings[0].message).toContain("2 TypeDoc error(s)");
+		expect(findings[0].details).toHaveLength(2);
+	});
+
+	it("reports improvement for warnings above threshold", () => {
+		const td: TypeDocResult = { errors: 0, warnings: 3, issues: [
+			{ severity: "warning", message: "Unused type A" },
+			{ severity: "warning", message: "Unused type B" },
+			{ severity: "warning", message: "Unused type C" },
+		] };
+		const findings = analyzeTypedoc(td, THRESHOLDS);
+		expect(findings[0].category).toBe("improvement");
+		expect(findings[0].message).toContain("3 TypeDoc warning(s)");
+	});
+
+	it("reports positive when clean", () => {
+		const td: TypeDocResult = { errors: 0, warnings: 0, issues: [] };
+		const findings = analyzeTypedoc(td, THRESHOLDS);
+		expect(findings[0].category).toBe("positive");
+		expect(findings[0].message).toContain("No TypeDoc errors or warnings");
+	});
+});
+
 // ── analyzeReports (dispatch) ───────────────────────────────────────
 
 describe("analyzeReports", () => {
@@ -508,19 +578,19 @@ describe("analyzeReports", () => {
 			snap("Tests", { total: "50", passed: "50", failed: "0", suites: "5" }),
 			snap("Build", { success: "true", duration_ms: "1000" }),
 		];
-		const findings = analyzeReports(snapshots, THRESHOLDS, null, EMPTY_JSON, EMPTY_DETAILED);
+		const findings = analyzeReports(snapshots, THRESHOLDS, null, null, EMPTY_JSON, EMPTY_DETAILED);
 		expect(findings.length).toBeGreaterThanOrEqual(2);
 	});
 
 	it("includes lint findings", () => {
 		const lint: LintResult = { errors: 0, warnings: 0, breakdown: [], issues: [] };
-		const findings = analyzeReports([], THRESHOLDS, lint, EMPTY_JSON, EMPTY_DETAILED);
+		const findings = analyzeReports([], THRESHOLDS, lint, null, EMPTY_JSON, EMPTY_DETAILED);
 		expect(findings.some((f) => f.message.includes("No eslint"))).toBe(true);
 	});
 
 	it("skips unknown report labels", () => {
 		const snapshots: ReportSnapshot[] = [snap("UnknownReport", { foo: "bar" })];
-		const findings = analyzeReports(snapshots, THRESHOLDS, null, EMPTY_JSON, EMPTY_DETAILED);
+		const findings = analyzeReports(snapshots, THRESHOLDS, null, null, EMPTY_JSON, EMPTY_DETAILED);
 		expect(findings).toEqual([]);
 	});
 });

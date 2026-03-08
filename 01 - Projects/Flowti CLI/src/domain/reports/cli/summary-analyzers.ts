@@ -13,6 +13,7 @@ import type {
 	DetailedSources,
 	FileCoverageStats,
 	LintResult,
+	TypeDocResult,
 } from "./summary-types.js";
 
 // ── Frontmatter helpers ──────────────────────────────────────────────
@@ -197,26 +198,35 @@ export function checkDecisionPointDensity(detailed: DetailedSources): Finding | 
 	};
 }
 
-export function analyzeComplexity(snap: ReportSnapshot, thresholds: Required<SummaryThresholds>, detailed?: DetailedSources): Finding[] {
-	const cf = detailed?.complexityFunctions?.summary;
-	const maxC = cf?.maxComplexity ?? fm(snap, "max_complexity");
-	const avgC = cf?.avgComplexity ?? fm(snap, "avg_complexity", "average_complexity");
-	const medianC = cf?.medianComplexity ?? fm(snap, "median_complexity");
-	const totalFunctions = cf?.totalFunctions ?? fm(snap, "total_functions");
-	const aboveThreshold = cf?.aboveThreshold10 ?? fm(snap, "above_threshold");
+interface ComplexityValues {
+	maxC: number;
+	avgC: number;
+	medianC: number;
+	totalFunctions: number;
+	aboveThreshold: number;
+}
 
-	const findings: Finding[] = [];
+export function resolveComplexityValues(snap: ReportSnapshot, detailed?: DetailedSources): ComplexityValues {
+	const cf = detailed?.complexityFunctions?.summary;
+	return {
+		maxC: cf?.maxComplexity ?? fm(snap, "max_complexity"),
+		avgC: cf?.avgComplexity ?? fm(snap, "avg_complexity", "average_complexity"),
+		medianC: cf?.medianComplexity ?? fm(snap, "median_complexity"),
+		totalFunctions: cf?.totalFunctions ?? fm(snap, "total_functions"),
+		aboveThreshold: cf?.aboveThreshold10 ?? fm(snap, "above_threshold"),
+	};
+}
+
+export function analyzeComplexity(snap: ReportSnapshot, thresholds: Required<SummaryThresholds>, detailed?: DetailedSources): Finding[] {
+	const v = resolveComplexityValues(snap, detailed);
 	const checks = [
-		checkMaxComplexity(maxC, thresholds.maxComplexity),
-		checkAboveThreshold(totalFunctions, aboveThreshold, thresholds.complexityAboveThresholdPct),
-		checkAvgComplexity(avgC, medianC),
+		checkMaxComplexity(v.maxC, thresholds.maxComplexity),
+		checkAboveThreshold(v.totalFunctions, v.aboveThreshold, thresholds.complexityAboveThresholdPct),
+		checkAvgComplexity(v.avgC, v.medianC),
 		detailed ? checkTopFunctions(detailed) : null,
 		detailed ? checkDecisionPointDensity(detailed) : null,
 	];
-	for (const result of checks) {
-		if (result) findings.push(result);
-	}
-	return findings;
+	return checks.filter((r): r is Finding => r !== null);
 }
 
 export function analyzeCodebase(snap: ReportSnapshot): Finding[] {
@@ -322,6 +332,28 @@ export function analyzeLint(lint: LintResult | null, thresholds: Required<Summar
 	return findings;
 }
 
+export function analyzeTypedoc(typedoc: TypeDocResult | null, thresholds: Required<SummaryThresholds>): Finding[] {
+	if (!typedoc) return [];
+	const findings: Finding[] = [];
+	if (typedoc.errors > 0) {
+		findings.push({
+			category: "risk",
+			message: `${typedoc.errors} TypeDoc error(s) found:`,
+			details: typedoc.issues.filter((i) => i.severity === "error").slice(0, 10).map((i) => i.message),
+		});
+	}
+	if (typedoc.warnings > thresholds.typedocWarnings) {
+		findings.push({
+			category: "improvement",
+			message: `${typedoc.warnings} TypeDoc warning(s) — threshold is ${thresholds.typedocWarnings}:`,
+			details: typedoc.issues.filter((i) => i.severity === "warning").slice(0, 10).map((i) => i.message),
+		});
+	} else if (typedoc.warnings === 0 && typedoc.errors === 0) {
+		findings.push({ category: "positive", message: "No TypeDoc errors or warnings." });
+	}
+	return findings;
+}
+
 // ── Analysis dispatch ────────────────────────────────────────────────
 
 type AnalyzerFn = (snap: ReportSnapshot, thresholds: Required<SummaryThresholds>, json: JsonDataSources, detailed: DetailedSources) => Finding[];
@@ -338,12 +370,17 @@ const ANALYZERS: Record<string, AnalyzerFn> = {
 	"E2E Tests": (snap) => analyzeE2e(snap),
 };
 
-export function analyzeReports(snapshots: ReportSnapshot[], thresholds: Required<SummaryThresholds>, lint: LintResult | null, json: JsonDataSources, detailed: DetailedSources): Finding[] {
+export function analyzeReports(
+	snapshots: ReportSnapshot[], thresholds: Required<SummaryThresholds>,
+	lint: LintResult | null, typedoc: TypeDocResult | null,
+	json: JsonDataSources, detailed: DetailedSources,
+): Finding[] {
 	const findings: Finding[] = [];
 	for (const snap of snapshots) {
 		const analyzer = ANALYZERS[snap.label];
 		if (analyzer) findings.push(...analyzer(snap, thresholds, json, detailed));
 	}
 	findings.push(...analyzeLint(lint, thresholds));
+	findings.push(...analyzeTypedoc(typedoc, thresholds));
 	return findings;
 }

@@ -2,9 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 let askResponses: string[] = [];
 
-vi.mock("../../src/infrastructure/readline.js", () => ({
-	createRL: () => ({ close: vi.fn() }),
-	ask: vi.fn(() => Promise.resolve(askResponses.shift() ?? "q")),
+vi.mock("../../src/infrastructure/input.js", () => ({
+	input: {
+		ask: vi.fn(() => Promise.resolve(askResponses.shift() ?? "q")),
+	},
 }));
 
 vi.mock("../../src/infrastructure/ui.js", () => ({

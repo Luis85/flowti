@@ -15,7 +15,6 @@ import {
   knowledgebaseMenu,
   isKnowledgebaseAvailable,
 } from "./knowledgebase/knowledgebase.js";
-import { generateSummaryReport } from "./reports/cli/generate-summary-report.js";
 import { buildWithReport } from "./reports/cli/generate-build-report.js";
 import { shell } from "../infrastructure/shell.js";
 import { getSelectedProject } from "../infrastructure/state.js";
@@ -144,7 +143,6 @@ export function buildProjectDetailMenu(): MenuEntry[] {
           label: "Run All Reports",
           action: () => {
             shell.run(reportsCmd, { cwd: ctx.path, label: "Reports" });
-            generateSummaryReport(ctx.path);
             return "main" as const;
           },
         });

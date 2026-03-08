@@ -6,7 +6,7 @@
  */
 
 import { printHeader, printMenu } from "./ui.js";
-import { createRL, ask } from "./readline.js";
+import { input } from "./input.js";
 import type { MenuEntry, MenuItem, MenuOptions, MenuResult } from "./types.js";
 import { log } from ".//logger.js";
 
@@ -56,9 +56,7 @@ export async function runMenu(
 		if (options.beforeMenu) options.beforeMenu();
 		printMenu(resolveDisplayItems(items));
 
-		const rl = createRL();
-		const choice = await ask(rl, "Choice", options.defaultChoice ?? "1");
-		rl.close();
+		const choice = await input.ask("Choice", options.defaultChoice ?? "1");
 
 		const match = findMatch(items, choice);
 		if (!match) { log("\n  Invalid choice — try again.\n"); continue; }

@@ -8,7 +8,7 @@ import { paths as nodePaths } from "../../infrastructure/paths.js";
 import { disk } from "../../infrastructure/filesystem.js";
 import { ROOT, VAULT_ROOT, manifest } from "../../infrastructure/config.js";
 import { RESET, BOLD, DIM, GREEN, RED, CYAN } from "../../infrastructure/ui.js";
-import { createRL, ask } from "../../infrastructure/readline.js";
+import { input } from "../../infrastructure/input.js";
 import { writeFileAt } from "../../infrastructure/fs.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { showHelp } from "../help/help.js";
@@ -173,17 +173,15 @@ async function makeHub(projectRoot: string): Promise<void> {
 
 	log(`  ${DIM}Project root: ${projectRoot}${RESET}\n`);
 
-	const rl = createRL();
-	const name = await ask(rl, "Hub name (e.g., Inventory)");
-	if (!name) { rl.close(); return; }
+	const name = await input.ask("Hub name (e.g., Inventory)");
+	if (!name) return;
 
 	const kebab = toKebab(name);
 	const pascal = toPascal(name);
 
-	const icon = await ask(rl, "Lucide icon", "layout-grid");
-	const hubType = await ask(rl, "Hub type (system/domain/user)", "domain");
-	const tabsRaw = await ask(rl, "Initial tabs (comma-separated)", "overview,items");
-	rl.close();
+	const icon = await input.ask("Lucide icon", "layout-grid");
+	const hubType = await input.ask("Hub type (system/domain/user)", "domain");
+	const tabsRaw = await input.ask("Initial tabs (comma-separated)", "overview,items");
 
 	const tabs = tabsRaw.split(",").map((t) => t.trim()).filter(Boolean);
 
@@ -202,9 +200,7 @@ async function makeHub(projectRoot: string): Promise<void> {
 	log(`    Journey:  ${paths.journeys}/`);
 	log();
 
-	const confirmRl = createRL();
-	const proceed = await ask(confirmRl, "Create files? (Y/n)", "Y");
-	confirmRl.close();
+	const proceed = await input.ask("Create files? (Y/n)", "Y");
 	if (proceed.toLowerCase() === "n") return;
 
 	log();
@@ -255,14 +251,12 @@ async function makePlugin(projectRoot: string): Promise<void> {
 
 	log(`  ${DIM}Project root: ${projectRoot}${RESET}\n`);
 
-	const rl = createRL();
-	const name = await ask(rl, "Plugin name (e.g., My Plugin)");
-	if (!name) { rl.close(); return; }
+	const name = await input.ask("Plugin name (e.g., My Plugin)");
+	if (!name) return;
 
 	const defaultId = toKebab(name);
-	const pluginId = await ask(rl, "Plugin ID", defaultId);
-	const author = await ask(rl, "Author", (manifest as Record<string, unknown>).author as string ?? "");
-	rl.close();
+	const pluginId = await input.ask("Plugin ID", defaultId);
+	const author = await input.ask("Author", (manifest as Record<string, unknown>).author as string ?? "");
 
 	const pluginRoot = nodePaths.join(projectRoot, pluginId);
 
@@ -277,9 +271,7 @@ async function makePlugin(projectRoot: string): Promise<void> {
 		return;
 	}
 
-	const confirmRl = createRL();
-	const proceed = await ask(confirmRl, "Create plugin? (Y/n)", "Y");
-	confirmRl.close();
+	const proceed = await input.ask("Create plugin? (Y/n)", "Y");
 	if (proceed.toLowerCase() === "n") return;
 
 	log();
@@ -316,14 +308,12 @@ async function makeApp(projectRoot: string): Promise<void> {
 
 	log(`  ${DIM}Project root: ${projectRoot}${RESET}\n`);
 
-	const rl = createRL();
-	const name = await ask(rl, "App name (e.g., My App)");
-	if (!name) { rl.close(); return; }
+	const name = await input.ask("App name (e.g., My App)");
+	if (!name) return;
 
 	const defaultId = toKebab(name);
-	const appId = await ask(rl, "App ID", defaultId);
-	const author = await ask(rl, "Author", (manifest as Record<string, unknown>).author as string ?? "");
-	rl.close();
+	const appId = await input.ask("App ID", defaultId);
+	const author = await input.ask("Author", (manifest as Record<string, unknown>).author as string ?? "");
 
 	const pascal = toPascal(name);
 	const appRoot = nodePaths.join(projectRoot, appId);
@@ -353,9 +343,7 @@ async function makeApp(projectRoot: string): Promise<void> {
 		return;
 	}
 
-	const confirmRl = createRL();
-	const proceed = await ask(confirmRl, "Create application? (Y/n)", "Y");
-	confirmRl.close();
+	const proceed = await input.ask("Create application? (Y/n)", "Y");
 	if (proceed.toLowerCase() === "n") return;
 
 	log();
@@ -399,13 +387,11 @@ async function makeCliApp(projectRoot: string): Promise<void> {
 
 	log(`  ${DIM}Project root: ${projectRoot}${RESET}\n`);
 
-	const rl = createRL();
-	const name = await ask(rl, "App name (e.g., My CLI)");
-	if (!name) { rl.close(); return; }
+	const name = await input.ask("App name (e.g., My CLI)");
+	if (!name) return;
 
 	const defaultId = toKebab(name);
-	const appId = await ask(rl, "App ID", defaultId);
-	rl.close();
+	const appId = await input.ask("App ID", defaultId);
 
 	const cliRoot = nodePaths.join(projectRoot, appId);
 
@@ -420,9 +406,7 @@ async function makeCliApp(projectRoot: string): Promise<void> {
 		return;
 	}
 
-	const confirmRl = createRL();
-	const proceed = await ask(confirmRl, "Create CLI app? (Y/n)", "Y");
-	confirmRl.close();
+	const proceed = await input.ask("Create CLI app? (Y/n)", "Y");
 	if (proceed.toLowerCase() === "n") return;
 
 	log();

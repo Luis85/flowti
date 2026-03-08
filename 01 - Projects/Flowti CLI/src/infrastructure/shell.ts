@@ -5,7 +5,7 @@
  * Production code uses the `shell` singleton; tests inject a mock.
  */
 
-import { execSync, execFileSync } from "node:child_process";
+import { execSync, execFileSync, spawnSync } from "node:child_process";
 import { ROOT } from "./config.js";
 import { RESET, GREEN, RED, CYAN, DIM } from "./ui.js";
 import { log } from "./logger.js";
@@ -49,6 +49,18 @@ class NodeShell implements IShell {
 		} catch {
 			return false;
 		}
+	}
+
+	runCapture(cmd: string, opts: { cwd?: string; timeout?: number } = {}): string {
+		const result = spawnSync(cmd, {
+			cwd: opts.cwd ?? ROOT,
+			encoding: "utf-8",
+			timeout: opts.timeout ?? 30_000,
+			windowsHide: true,
+			shell: true,
+			stdio: ["pipe", "pipe", "pipe"],
+		});
+		return (result.stdout ?? "") + "\n" + (result.stderr ?? "");
 	}
 
 	execFile(cmd: string, args: string[], opts: { timeout?: number; stdio?: string } = {}): string | null {

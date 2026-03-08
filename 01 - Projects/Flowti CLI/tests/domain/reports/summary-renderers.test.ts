@@ -24,6 +24,7 @@ import type {
 	JsonDataSources,
 	DetailedSources,
 	LintResult,
+	TypeDocResult,
 	Finding,
 } from "../../../src/domain/reports/cli/summary-types.js";
 import type { SummaryThresholds } from "../../../src/infrastructure/types.js";
@@ -42,6 +43,8 @@ const THRESHOLDS: Required<SummaryThresholds> = {
 	startupMs: 5000,
 	eslintWarnings: 0,
 	lintCommand: "npm run lint",
+	typedocCommand: "npm run docs",
+	typedocWarnings: 0,
 };
 
 const EMPTY_JSON: JsonDataSources = {};
@@ -261,7 +264,7 @@ describe("promoteFrontmatter", () => {
 			coverage: { linesPct: 90, branchesPct: 80, functionsPct: 95, statementsPct: 89, filesCovered: 20 },
 		};
 		const lint: LintResult = { warnings: 3, errors: 0, breakdown: [], issues: [] };
-		const result = promoteFrontmatter([], json, lint, EMPTY_DETAILED);
+		const result = promoteFrontmatter([], json, lint, null, EMPTY_DETAILED);
 		expect(result.total_tests).toBe(50);
 		expect(result.coverage_lines_pct).toBe(90);
 		expect(result.eslint_warnings).toBe(3);
@@ -269,7 +272,7 @@ describe("promoteFrontmatter", () => {
 	});
 
 	it("omits lint when null", () => {
-		const result = promoteFrontmatter([], EMPTY_JSON, null, EMPTY_DETAILED);
+		const result = promoteFrontmatter([], EMPTY_JSON, null, null, EMPTY_DETAILED);
 		expect(result.eslint_warnings).toBeUndefined();
 	});
 });
@@ -278,14 +281,14 @@ describe("promoteFrontmatter", () => {
 
 describe("buildHealthKpis", () => {
 	it("returns empty for no data", () => {
-		expect(buildHealthKpis(EMPTY_JSON, EMPTY_DETAILED, null, THRESHOLDS)).toEqual([]);
+		expect(buildHealthKpis(EMPTY_JSON, EMPTY_DETAILED, null, null, THRESHOLDS)).toEqual([]);
 	});
 
 	it("includes test KPI", () => {
 		const json: JsonDataSources = {
 			tests: { numTotalTests: 50, numPassedTests: 50, numFailedTests: 0, numPendingTests: 0, numTotalTestSuites: 5, numPassedTestSuites: 5, numFailedTestSuites: 0, success: true },
 		};
-		const kpis = buildHealthKpis(json, EMPTY_DETAILED, null, THRESHOLDS);
+		const kpis = buildHealthKpis(json, EMPTY_DETAILED, null, null, THRESHOLDS);
 		expect(kpis).toHaveLength(1);
 		expect(kpis[0]).toContain("Tests");
 		expect(kpis[0]).toContain("50/50");
@@ -295,14 +298,14 @@ describe("buildHealthKpis", () => {
 		const json: JsonDataSources = {
 			coverage: { linesPct: 60, branchesPct: 50, functionsPct: 70, statementsPct: 60, filesCovered: 10 },
 		};
-		const kpis = buildHealthKpis(json, EMPTY_DETAILED, null, THRESHOLDS);
+		const kpis = buildHealthKpis(json, EMPTY_DETAILED, null, null, THRESHOLDS);
 		expect(kpis[0]).toContain("Coverage");
 		expect(kpis[0]).toContain("60%");
 	});
 
 	it("includes lint KPI", () => {
 		const lint: LintResult = { warnings: 3, errors: 1, breakdown: [], issues: [] };
-		const kpis = buildHealthKpis(EMPTY_JSON, EMPTY_DETAILED, lint, THRESHOLDS);
+		const kpis = buildHealthKpis(EMPTY_JSON, EMPTY_DETAILED, lint, null, THRESHOLDS);
 		expect(kpis[0]).toContain("Lint");
 		expect(kpis[0]).toContain("1 errors");
 	});
@@ -316,7 +319,7 @@ describe("buildHealthKpis", () => {
 				functions: [],
 			},
 		};
-		const kpis = buildHealthKpis(EMPTY_JSON, detailed, null, THRESHOLDS);
+		const kpis = buildHealthKpis(EMPTY_JSON, detailed, null, null, THRESHOLDS);
 		expect(kpis[0]).toContain("Complexity");
 		expect(kpis[0]).toContain("max 20");
 	});
@@ -326,7 +329,7 @@ describe("buildHealthKpis", () => {
 			perFile: [{ file: "src/a.ts", loc: 500, stmtTotal: 200, stmtCovered: 150, stmtPct: 75, fnTotal: 20, fnUncovered: 3 }],
 			topComplexFiles: [],
 		};
-		const kpis = buildHealthKpis(EMPTY_JSON, detailed, null, THRESHOLDS);
+		const kpis = buildHealthKpis(EMPTY_JSON, detailed, null, null, THRESHOLDS);
 		expect(kpis[0]).toContain("Codebase");
 		expect(kpis[0]).toContain("500 LOC");
 	});
@@ -344,7 +347,7 @@ describe("renderOverview", () => {
 			{ category: "positive", message: "All good" },
 			{ category: "improvement", message: "Could be better" },
 		];
-		const out = docString((doc) => renderOverview(doc, json, EMPTY_DETAILED, null, THRESHOLDS, findings));
+		const out = docString((doc) => renderOverview(doc, json, EMPTY_DETAILED, null, null, THRESHOLDS, findings));
 		expect(out).toContain("## Overview");
 		expect(out).toContain("100/100 passed");
 		expect(out).toContain("90% lines");
@@ -356,7 +359,7 @@ describe("renderOverview", () => {
 
 	it("includes lint KPI when provided", () => {
 		const lint: LintResult = { warnings: 5, errors: 1, breakdown: [], issues: [] };
-		const out = docString((doc) => renderOverview(doc, EMPTY_JSON, EMPTY_DETAILED, lint, THRESHOLDS, []));
+		const out = docString((doc) => renderOverview(doc, EMPTY_JSON, EMPTY_DETAILED, lint, null, THRESHOLDS, []));
 		expect(out).toContain("1 errors");
 		expect(out).toContain("5 warnings");
 	});
@@ -366,7 +369,7 @@ describe("renderOverview", () => {
 			perFile: [{ file: "src/domain/a/x.ts", loc: 500, stmtTotal: 200, stmtCovered: 150, stmtPct: 75, fnTotal: 20, fnUncovered: 3 }],
 			topComplexFiles: [],
 		};
-		const out = docString((doc) => renderOverview(doc, EMPTY_JSON, detailed, null, THRESHOLDS, []));
+		const out = docString((doc) => renderOverview(doc, EMPTY_JSON, detailed, null, null, THRESHOLDS, []));
 		expect(out).toContain("500 LOC");
 		expect(out).toContain("1 files");
 	});
@@ -465,13 +468,13 @@ describe("renderImprovements", () => {
 
 describe("renderWarnings", () => {
 	it("renders nothing for null lint", () => {
-		const out = docString((doc) => renderWarnings(doc, null));
+		const out = docString((doc) => renderWarnings(doc, null, null));
 		expect(out).not.toContain("Warnings");
 	});
 
 	it("renders nothing for clean lint", () => {
 		const lint: LintResult = { warnings: 0, errors: 0, breakdown: [], issues: [] };
-		const out = docString((doc) => renderWarnings(doc, lint));
+		const out = docString((doc) => renderWarnings(doc, lint, null));
 		expect(out).not.toContain("Warnings");
 	});
 
@@ -482,7 +485,7 @@ describe("renderWarnings", () => {
 			breakdown: [{ rule: "no-unused-vars", count: 2 }, { rule: "no-any", count: 1 }],
 			issues: [{ file: "src/a.ts", line: 10, col: 5, severity: "warning", message: "unused var", rule: "no-unused-vars" }],
 		};
-		const out = docString((doc) => renderWarnings(doc, lint));
+		const out = docString((doc) => renderWarnings(doc, lint, null));
 		expect(out).toContain("## Warnings");
 		expect(out).toContain("Lint Summary by Rule");
 		expect(out).toContain("no-unused-vars");
@@ -577,5 +580,78 @@ describe("renderMetricsDictionary", () => {
 			expect(entry).toHaveLength(3);
 			expect(entry[0].length).toBeGreaterThan(0);
 		}
+	});
+
+	it("includes TypeDoc metrics", () => {
+		const metrics = METRICS_DICTIONARY.map(([name]) => name);
+		expect(metrics).toContain("typedoc_errors");
+		expect(metrics).toContain("typedoc_warnings");
+	});
+});
+
+// ── TypeDoc integration ─────────────────────────────────────────────
+
+describe("TypeDoc in buildHealthKpis", () => {
+	it("includes TypeDoc KPI with green icon when clean", () => {
+		const td: TypeDocResult = { errors: 0, warnings: 0, issues: [] };
+		const kpis = buildHealthKpis(EMPTY_JSON, EMPTY_DETAILED, null, td, THRESHOLDS);
+		expect(kpis[0]).toContain("TypeDoc");
+		expect(kpis[0]).toContain("0 errors");
+	});
+
+	it("shows red icon for TypeDoc errors", () => {
+		const td: TypeDocResult = { errors: 2, warnings: 1, issues: [] };
+		const kpis = buildHealthKpis(EMPTY_JSON, EMPTY_DETAILED, null, td, THRESHOLDS);
+		const tdKpi = kpis.find((k) => k.includes("TypeDoc"))!;
+		expect(tdKpi).toContain("🔴");
+		expect(tdKpi).toContain("2 errors");
+	});
+
+	it("shows yellow icon for warnings above threshold", () => {
+		const td: TypeDocResult = { errors: 0, warnings: 3, issues: [] };
+		const kpis = buildHealthKpis(EMPTY_JSON, EMPTY_DETAILED, null, td, THRESHOLDS);
+		const tdKpi = kpis.find((k) => k.includes("TypeDoc"))!;
+		expect(tdKpi).toContain("🟡");
+	});
+});
+
+describe("TypeDoc in renderWarnings", () => {
+	it("renders TypeDoc issues as warning callout", () => {
+		const td: TypeDocResult = { errors: 0, warnings: 1, issues: [{ severity: "warning", message: "Unused type" }] };
+		const out = docString((doc) => renderWarnings(doc, null, td));
+		expect(out).toContain("## Warnings");
+		expect(out).toContain("[!warning]");
+		expect(out).toContain("Unused type");
+	});
+
+	it("renders both lint and TypeDoc when both have issues", () => {
+		const lint: LintResult = { warnings: 1, errors: 0, breakdown: [{ rule: "no-unused", count: 1 }], issues: [{ file: "a.ts", line: 1, col: 1, severity: "warning", message: "x", rule: "no-unused" }] };
+		const td: TypeDocResult = { errors: 0, warnings: 1, issues: [{ severity: "warning", message: "Missing ref" }] };
+		const out = docString((doc) => renderWarnings(doc, lint, td));
+		expect(out).toContain("Lint Summary by Rule");
+		expect(out).toContain("[!warning]");
+	});
+});
+
+describe("TypeDoc in promoteFrontmatter", () => {
+	it("promotes TypeDoc counts to frontmatter", () => {
+		const td: TypeDocResult = { errors: 1, warnings: 5, issues: [] };
+		const result = promoteFrontmatter([], EMPTY_JSON, null, td, EMPTY_DETAILED);
+		expect(result.typedoc_warnings).toBe(5);
+		expect(result.typedoc_errors).toBe(1);
+	});
+
+	it("omits TypeDoc when null", () => {
+		const result = promoteFrontmatter([], EMPTY_JSON, null, null, EMPTY_DETAILED);
+		expect(result.typedoc_warnings).toBeUndefined();
+		expect(result.typedoc_errors).toBeUndefined();
+	});
+});
+
+describe("TypeDoc in renderOverview", () => {
+	it("includes TypeDoc threshold in table", () => {
+		const out = docString((doc) => renderOverview(doc, EMPTY_JSON, EMPTY_DETAILED, null, null, THRESHOLDS, []));
+		expect(out).toContain("TypeDoc warnings");
+		expect(out).toContain("<= 0");
 	});
 });
