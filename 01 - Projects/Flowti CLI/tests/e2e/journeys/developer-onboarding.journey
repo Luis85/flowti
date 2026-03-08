@@ -1,0 +1,113 @@
+{
+	"journey": "Developer Onboarding",
+	"chapter": 6,
+	"description": "Install CLI, create project, build, and explore — the full onboarding flow for a new developer.",
+	"type": "functional",
+	"category": "cli",
+	"tools": [
+		"command",
+		"assert"
+	],
+	"lifecycle": {
+		"enablePlugin": false,
+		"checkInstalled": false,
+		"startTrace": false,
+		"openActivityLog": false
+	},
+	"steps": [
+		{
+			"id": "onboard-01",
+			"title": "Bootstrap CLI",
+			"guideSection": 1,
+			"description": "Run the bootstrap entry point to verify CLI starts without error.",
+			"actions": [
+				{
+					"tool": "command",
+					"id": "node .flowti/bin help"
+				},
+				{
+					"tool": "assert",
+					"type": "exit-code",
+					"expected": 0
+				}
+			]
+		},
+		{
+			"id": "onboard-02",
+			"title": "Show help",
+			"guideSection": 1,
+			"description": "Verify help command outputs usage information.",
+			"actions": [
+				{
+					"tool": "command",
+					"id": "flowti help"
+				},
+				{
+					"tool": "assert",
+					"type": "exit-code",
+					"expected": 0
+				}
+			]
+		},
+		{
+			"id": "onboard-03",
+			"title": "Create a new project via scaffold",
+			"guideSection": 2,
+			"description": "Scaffold a new project non-interactively.",
+			"actions": [
+				{
+					"tool": "command",
+					"id": "flowti scaffold:new --name=TestProject --definition=flowti-project"
+				},
+				{
+					"tool": "assert",
+					"type": "exit-code",
+					"expected": 0
+				}
+			]
+		},
+		{
+			"id": "onboard-04",
+			"title": "Show project info",
+			"guideSection": 3,
+			"description": "Run info command to verify project is recognized.",
+			"actions": [
+				{
+					"tool": "command",
+					"id": "flowti info --project=TestProject"
+				},
+				{
+					"tool": "assert",
+					"type": "exit-code",
+					"expected": 0
+				}
+			]
+		},
+		{
+			"id": "onboard-05",
+			"title": "Verify all non-interactive commands return exit 0",
+			"guideSection": 4,
+			"description": "Run help variants and scaffold:list to verify clean exit codes.",
+			"actions": [
+				{
+					"tool": "command",
+					"id": "flowti help build"
+				},
+				{
+					"tool": "assert",
+					"type": "exit-code",
+					"expected": 0
+				},
+				{
+					"tool": "command",
+					"id": "flowti scaffold:list"
+				},
+				{
+					"tool": "assert",
+					"type": "exit-code",
+					"expected": 0
+				}
+			]
+		}
+	]
+}

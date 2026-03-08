@@ -38,7 +38,7 @@ vi.mock("../../../src/infrastructure/shell.js", () => ({
 import { runGenerator, hasGenerator, listGeneratorIds } from "../../../src/domain/reports/generator-registry.js";
 
 describe("ReportGeneratorRegistry", () => {
-	it("has all 6 built-in generators registered", () => {
+	it("has all 7 built-in generators registered", () => {
 		const ids = listGeneratorIds();
 		expect(ids).toContain("test");
 		expect(ids).toContain("coverage");
@@ -46,7 +46,8 @@ describe("ReportGeneratorRegistry", () => {
 		expect(ids).toContain("complexity");
 		expect(ids).toContain("status");
 		expect(ids).toContain("summary");
-		expect(ids).toHaveLength(6);
+		expect(ids).toContain("entity-reference");
+		expect(ids).toHaveLength(7);
 	});
 
 	it("hasGenerator returns true for registered IDs", () => {

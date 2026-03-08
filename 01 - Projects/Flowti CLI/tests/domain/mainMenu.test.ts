@@ -327,17 +327,8 @@ describe("buildProjectDetailMenu", () => {
 			);
 		});
 
-		it("Update Documentation is disabled when no docs config", () => {
+		it("Update Documentation is always available even without docs config", async () => {
 			setupProject({ docs: undefined });
-			const items = buildProjectDetailMenu();
-			const docs = findItem(items, "d")!;
-			expect(docs.disabled).toBe(true);
-			expect(docs.disabledMessage).toContain("No documentation generators");
-			expect(docs.action()).toBe("main");
-		});
-
-		it("Update Documentation with allCommand shows Generate All", async () => {
-			setupProject({ docs: { allCommand: "npm run docs:all" } });
 			const items = buildProjectDetailMenu();
 			const docs = findItem(items, "d")!;
 			expect(docs.disabled).toBeUndefined();
@@ -345,10 +336,21 @@ describe("buildProjectDetailMenu", () => {
 			await docs.action();
 
 			const submenuItems = (mockRunMenu.mock.calls[0][1] as MenuEntry[]).filter(isMenuItem);
-			expect(submenuItems.some((m) => m.label === "Generate All")).toBe(true);
+			expect(submenuItems.some((m) => m.label === "Update All")).toBe(true);
+			expect(submenuItems.some((m) => m.label === "Entity Reference")).toBe(true);
 		});
 
-		it("Update Documentation with generators lists them", async () => {
+		it("Update Documentation always shows Update All as first item", async () => {
+			setupProject({ docs: { allCommand: "npm run docs:all" } });
+			const items = buildProjectDetailMenu();
+			await findItem(items, "d")!.action();
+
+			const submenuItems = (mockRunMenu.mock.calls[0][1] as MenuEntry[]).filter(isMenuItem);
+			expect(submenuItems[0].label).toBe("Update All");
+			expect(submenuItems[0].key).toBe("1");
+		});
+
+		it("Update Documentation with generators lists them after Update All", async () => {
 			setupProject({
 				docs: {
 					generators: [{ label: "API Docs", command: "npm run docs:api" }],
@@ -361,7 +363,7 @@ describe("buildProjectDetailMenu", () => {
 			expect(submenuItems.some((m) => m.label === "API Docs")).toBe(true);
 		});
 
-		it("Update Documentation generator key offsets when allCommand present", async () => {
+		it("Update Documentation config generator key offsets after Update All", async () => {
 			setupProject({
 				docs: {
 					allCommand: "npm run docs:all",
@@ -376,7 +378,7 @@ describe("buildProjectDetailMenu", () => {
 			expect(gen.key).toBe("2");
 		});
 
-		it("Update Documentation generator key starts at 1 when no allCommand", async () => {
+		it("Update Documentation includes Entity Reference as built-in generator", async () => {
 			setupProject({
 				docs: {
 					generators: [{ label: "API", command: "npm run docs:api" }],
@@ -386,8 +388,9 @@ describe("buildProjectDetailMenu", () => {
 			await findItem(items, "d")!.action();
 
 			const submenuItems = (mockRunMenu.mock.calls[0][1] as MenuEntry[]).filter(isMenuItem);
-			const gen = submenuItems.find((m) => m.label === "API")!;
-			expect(gen.key).toBe("1");
+			const entityRef = submenuItems.find((m) => m.label === "Entity Reference")!;
+			expect(entityRef).toBeDefined();
+			expect(entityRef.key).toBe("3");
 		});
 
 		it("Knowledgebase disabled evaluator calls isKnowledgebaseAvailable", () => {

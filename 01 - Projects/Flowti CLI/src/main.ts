@@ -36,7 +36,7 @@ import { commands as reportsCmds } from "./domain/reports/reports.js";
 import { commands as captureCmds } from "./domain/capture/capture.js";
 import { commands as eventsCmds } from "./domain/events/event-catalog.js";
 import { commands as scaffoldCmds } from "./domain/scaffold/scaffold.js";
-import { commands as projectCmds, startMenu } from "./domain/project/project.js";
+import { commands as projectCmds, startMenu, listProjects } from "./domain/project/project.js";
 import { getSelectedProject, clearSelectedProject } from "./infrastructure/state.js";
 import { initializeProject } from "./domain/project/project-config.js";
 
@@ -68,10 +68,24 @@ const allCommands = {
 /** Commands that work without a project context. */
 const PROJECT_FREE = new Set(["help", "project", "capture:idea", "capture:note", "scaffold:new", "scaffold:list"]);
 
-function resolveProjectContext(flags: Record<string, string | boolean>): ProjectContext | null {
-	const projectName = typeof flags.project === "string" ? flags.project : getSelectedProject();
-	if (!projectName) return null;
-	return initializeProject(projectName);
+type ProjectResolution =
+	| { ok: true; project: ProjectContext | null }
+	| { ok: false; name: string; available: string[] };
+
+function resolveProjectContext(flags: Record<string, string | boolean>): ProjectResolution {
+	const explicit = typeof flags.project === "string" ? flags.project : null;
+	const projectName = explicit ?? getSelectedProject();
+	if (!projectName) return { ok: true, project: null };
+
+	// Validate explicit --project flag against known projects
+	if (explicit) {
+		const available = listProjects();
+		if (!available.includes(explicit)) {
+			return { ok: false, name: explicit, available };
+		}
+	}
+
+	return { ok: true, project: initializeProject(projectName) };
 }
 
 // ── Non-interactive dispatch ────────────────────────────────────────
@@ -81,8 +95,21 @@ async function handleCliArgs(): Promise<boolean> {
 	if (!rawArgs.length) return false;
 
 	const { command, flags } = parseArgs(rawArgs);
-	const project = resolveProjectContext(flags);
+	const resolution = resolveProjectContext(flags);
 
+	if (!resolution.ok) {
+		log(`\n  ${RED}Unknown project: "${resolution.name}"${RESET}`);
+		if (resolution.available.length > 0) {
+			log(`  ${DIM}Available projects:${RESET}`);
+			for (const p of resolution.available) log(`    ${DIM}•${RESET} ${p}`);
+		} else {
+			log(`  ${DIM}No projects found. Run "flowti project" to create one.${RESET}`);
+		}
+		log();
+		return true;
+	}
+
+	const project = resolution.project;
 	const result = resolveCommand(command, flags, rawArgs, allCommands, PROJECT_FREE, reportsCmds["report:*"], project);
 
 	switch (result.action) {

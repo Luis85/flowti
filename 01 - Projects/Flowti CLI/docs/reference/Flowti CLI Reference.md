@@ -1,8 +1,8 @@
 ---
 type: CLIReference
-date: "2026-03-08T17:17:18.012Z"
+date: "2026-03-08T21:03:15.932Z"
 sections: 10
-cli_commands: 25
+cli_commands: 26
 npm_scripts: 37
 report_generators: 14
 doc_generators: 0
@@ -11,7 +11,7 @@ doc_generators: 0
 # Flowti CLI Reference
 
 > [!info] Summary
-> CLI commands: 25 | Help sections: 10 | npm scripts: 37
+> CLI commands: 26 | Help sections: 10 | npm scripts: 37
 > Report generators: 14 | Doc generators: 0
 
 ---
@@ -19,10 +19,10 @@ doc_generators: 0
 ## Quick Start
 
 ```bash
-npm run flowti              # Interactive menu (Start → Project → Detail)
-npm run flowti -- build     # Non-interactive: fast build
-npm run flowti -- help      # Show full help
-npm run flowti -- info      # Project stats
+flowti                      # Interactive menu (Start → Project → Detail)
+flowti build                # Non-interactive: fast build
+flowti help                 # Show full help
+flowti info                 # Project stats
 ```
 
 ## Architecture
@@ -36,11 +36,12 @@ Start Menu (Load / Create / Import)
        ├─ 2) Build         Build + Build Report
        ├─ 3) Review        E2E test sessions
        ├─ 4) Publish       Gated release pipeline
+       ├─ c) Components    Browse project components
+       ├─ e) Events        Event catalog (list, add)
        ├─ 5) Reports       Report generators
-       ├─ 6) Dev Tools     Plugin utilities
-       ├─ 7) Npm Scripts   Browse package.json scripts
-       ├─ 8) Capture Idea  Quick-capture to inbox
-       ├─ 9) Capture Note  Typed note capture
+       ├─ 6) Npm Scripts   Browse package.json scripts
+       ├─ 7) Capture Idea  Quick-capture to inbox
+       ├─ 8) Capture Note  Typed note capture
        ├─ d) Documentation Generate reference docs
        ├─ k) Knowledgebase Vault search (Obsidian CLI)
        └─ i) Info          Project diagnostics
@@ -48,55 +49,33 @@ Start Menu (Load / Create / Import)
 
 ## Make (Scaffolding)
 
-MAKE — Scaffold boilerplate code from Flowti patterns.
+MAKE — Scaffold in-project boilerplate from Flowti patterns.
+
+Note: To create a new project, use "Create Project" from the Start Menu
+or run: flowti scaffold:new
 
 ### OPTIONS
 
-  1) New Hub
-     Scaffolds a complete hub within the Flowti plugin:
-- UI view (BaseHubView subclass with tabs)
-- Domain layer (service stub, events, types)
-- Hub provider (HubDashboardProvider for cross-hub)
-- Test file (vitest + happy-dom setup)
-- CSS layer file
-- Feature PRD document
-- E2E journey stub
+  1) New E2E Journey
+     Scaffolds a journey definition with test entry and canvas:
+- Journey definition (.journey file)
+- Test entry point
+- Journey canvas (for Obsidian)
 
-     Prompts: hub name, icon, hub type, initial tabs
+     Prompts: journey name, slug, description
 
-  2) New Plugin
-     Scaffolds a standalone Obsidian plugin following Flowti patterns:
-- DDD folder structure (infrastructure, domain, ui)
-- EventBus backbone
-- BaseHubView base class
-- esbuild config with CSS pipeline
-- TypeScript, ESLint, Vitest setup
-- package.json with focused npm scripts
+  2) Add Component
+     Scaffolds a component from a declarative JSON definition.
+     8 component kinds available: component, layout, page, ui-component,
+     system, container, c4-component, person.
 
-     Prompts: plugin name, plugin ID, author
-
-  3) New Application
-     Scaffolds a full DDD Obsidian plugin project under 01 - Projects/:
-- Working EventBus (~80 LOC) with type-safe events
-- Infrastructure layer (events, errors, services)
-- Vitest + happy-dom + obsidian-stub test setup
-- Starter EventBus test (4 tests, passing on first run)
-- esbuild config with CSS pipeline
-- AppError base class with code + context
-- 17 files total, ready to npm install && npm run build
-
-     Prompts: app name, app ID, author
+     Generates: documentation, test file, definition JSON,
+     and optionally a Storybook story file.
 
 ### CONFIGURATION
 
-  Output paths are configurable in flowti.config.json under "make":
-- `make.hub.ui` — UI source folder (default: src/ui)
-- `make.hub.domain` — Domain source folder (default: src/domain)
-- `make.hub.tests` — Test folder (default: tests/ui)
-- `make.hub.css` — CSS folder (default: css)
-- `make.hub.docs` — Feature docs folder (default: docs/features)
-- `make.hub.journeys` — E2E journeys folder (default: tests/e2e/journeys)
-    make.plugin.output Plugin output folder (default: ../)
+  Available templates are configurable in flowti.config.json under "make":
+- `make.templates` — Array of template IDs (default: ["journey", "component"])
 
 ## Build
 
@@ -307,12 +286,12 @@ CAPTURE — Quick-capture ideas and notes into the vault.
   followed by a heading and optional body text.
 
 NON-INTERACTIVE
-  npm run flowti -- capture:idea --text "My idea here"
-  npm run flowti -- capture:note --type task --title "Fix login"
+  flowti capture:idea --text "My idea here"
+  flowti capture:note --type task --title "Fix login"
 
 ### CONFIGURATION
 
-  Capture paths are configurable in flowti-cli.config.json:
+  Capture paths are configurable in .flowti/config.json:
 - `capture.idea` — Idea folder (default: 00 - Connectivity/inbox)
 - `capture.task` — Task folder
 - `capture.bug` — Bug folder
@@ -376,31 +355,32 @@ All commands can be run directly without the interactive menu:
 
 | Command | Description |
 |---|---|
-| `npm run flowti -- help` | Show help (optionally for a section) |
-| `npm run flowti -- build` | Fast build (esbuild only, no reports) |
-| `npm run flowti -- build:increment` | Full CI pipeline: check → build → test → e2e → docs → distribute |
-| `npm run flowti -- build:full` | Flow tests → build → all reports |
-| `npm run flowti -- build:watch` | Watch mode with hot-reload (add --reload) |
-| `npm run flowti -- build:distribute` | Build + distribute to endpoints |
-| `npm run flowti -- test` | Type check + lint + vitest |
-| `npm run flowti -- test:increment` | Check + build + vitest with coverage |
-| `npm run flowti -- test:e2e` | Build + flow tests + E2E suite |
-| `npm run flowti -- review` | List E2E journeys (interactive session) |
-| `npm run flowti -- publish` | Build release pipeline |
-| `npm run flowti -- publish:all` | Increment → E2E → release (stops on failure) |
-| `npm run flowti -- reports` | Generate all report notes |
-| `npm run flowti -- report:{id}` | Generate a single report by ID (e.g. report:test) |
-| `npm run flowti -- dev:reload` | Reload plugin in Obsidian via CLI |
-| `npm run flowti -- dev:console` | Open Obsidian developer console stream |
-| `npm run flowti -- dev:errors` | Open Obsidian error stream |
-| `npm run flowti -- dev:check` | Run lint + tsc (no tests) |
-| `npm run flowti -- dev:lint` | Run ESLint on src/ |
-| `npm run flowti -- make:hub` | Scaffold a new hub (--name required, --icon, --type, --tabs) |
-| `npm run flowti -- make:plugin` | Scaffold a new plugin (--name required, --id, --author) |
-| `npm run flowti -- make:app` | Scaffold a new DDD application (--name required, --id, --author) |
-| `npm run flowti -- capture:idea` | Capture an idea (--text="...") |
-| `npm run flowti -- capture:note` | Capture a typed note (--type, --title="...") |
-| `npm run flowti -- info` | Show project stats, version, config |
+| `flowti help` | Show help (optionally for a section) |
+| `flowti build` | Fast build (esbuild only, no reports) |
+| `flowti build:increment` | Full CI pipeline: check → build → test → e2e → docs → distribute |
+| `flowti build:full` | Flow tests → build → all reports |
+| `flowti build:watch` | Watch mode with hot-reload (add --reload) |
+| `flowti build:distribute` | Build + distribute to endpoints |
+| `flowti test` | Type check + lint + vitest |
+| `flowti test:increment` | Check + build + vitest with coverage |
+| `flowti test:e2e` | Build + flow tests + E2E suite |
+| `flowti review` | List E2E journeys (interactive session) |
+| `flowti publish` | Build release pipeline |
+| `flowti publish:all` | Increment → E2E → release (stops on failure) |
+| `flowti reports` | Generate all report notes |
+| `flowti report:{id}` | Generate a single report by ID (e.g. report:test) |
+| `flowti dev:reload` | Reload plugin in Obsidian via CLI |
+| `flowti dev:console` | Open Obsidian developer console stream |
+| `flowti dev:errors` | Open Obsidian error stream |
+| `flowti dev:check` | Run lint + tsc (no tests) |
+| `flowti dev:lint` | Run ESLint on src/ |
+| `flowti make:plugin` | Scaffold a new plugin (--name required, --id, --author) |
+| `flowti make:app` | Scaffold a new DDD application (--name required, --id, --author) |
+| `flowti capture:idea` | Capture an idea (--text="...") |
+| `flowti capture:note` | Capture a typed note (--type, --title="...") |
+| `flowti events:list` | List all events in the project event catalog |
+| `flowti events:add` | Add an event (--name="user.created" --domain="user") |
+| `flowti info` | Show project stats, version, config |
 
 ## npm Scripts (Plugin)
 
@@ -469,20 +449,6 @@ All commands can be run directly without the interactive menu:
 
 Scaffold output paths (`flowti.config.json` → `make`):
 
-### Hub Paths
-
-| Key | Path |
-|---|---|
-| `make.hub.src` | `src` |
-| `make.hub.ui` | `src/ui` |
-| `make.hub.domain` | `src/domain` |
-| `make.hub.hubDomain` | `src/domain/hub` |
-| `make.hub.tests` | `tests/ui` |
-| `make.hub.css` | `css` |
-| `make.hub.docs` | `docs/features` |
-| `make.hub.journeys` | `tests/e2e/journeys` |
-| `make.hub.components` | `src/ui/components` |
-
 ### Plugin Paths
 
 | Key | Path |
@@ -493,7 +459,7 @@ Scaffold output paths (`flowti.config.json` → `make`):
 
 | File | Purpose |
 |---|---|
-| `flowti-cli.config.json` | Global CLI config: projects folder, capture paths, onboarding |
+| `.flowti/config.json` | Global CLI config: projects folder, capture paths, onboarding |
 | `flowti.config.json` | Per-project config: tools, build/test/review/publish commands, reports, docs |
 | `build-endpoints.json` | Distribution endpoints for multi-vault deploy |
 | `manifest.json` | Obsidian plugin metadata (id, version, author) |

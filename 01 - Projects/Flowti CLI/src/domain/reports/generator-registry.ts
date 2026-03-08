@@ -12,6 +12,7 @@ import { generateCodebaseReport } from "./cli/generate-codebase-report.js";
 import { generateComplexityReport } from "./cli/generate-complexity-report.js";
 import { generateProjectStatusReport } from "./cli/generate-status-report.js";
 import { generateSummaryReport } from "./cli/generate-summary-report.js";
+import { generateEntityReference } from "./generators/entity-reference.js";
 
 /** Built-in generator registry: maps generator IDs to functions. */
 const GENERATORS: ReadonlyMap<string, GeneratorFn> = new Map<string, GeneratorFn>([
@@ -21,6 +22,7 @@ const GENERATORS: ReadonlyMap<string, GeneratorFn> = new Map<string, GeneratorFn
 	["complexity", generateComplexityReport],
 	["status", generateProjectStatusReport],
 	["summary", generateSummaryReport],
+	["entity-reference", generateEntityReference],
 ]);
 
 /** Run a generator by its ID. Returns null if the ID is unknown. */

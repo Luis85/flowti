@@ -20,7 +20,11 @@ import {
 import { buildWithReport } from "./reports/cli/generate-build-report.js";
 import { runAllReports } from "./reports/report-runner.js";
 import { runGenerator } from "./reports/generator-registry.js";
+import { browseArchive } from "./reports/report-archive.js";
+import { getReportsDir } from "./project/project-config.js";
 import { shell } from "../infrastructure/shell.js";
+import { log } from "../infrastructure/logger.js";
+import { RESET, GREEN, RED } from "../infrastructure/ui.js";
 import { getSelectedProject } from "../infrastructure/state.js";
 import { initializeProject } from "./project/project-config.js";
 import type { MenuEntry } from "../infrastructure/types.js";
@@ -155,6 +159,16 @@ export function buildProjectDetailMenu(): MenuEntry[] {
         });
       }
 
+      // Archive browser
+      reportMenuItems.push(
+        { separator: true },
+        {
+          key: "a",
+          label: "Browse Archive",
+          action: () => browseArchive(getReportsDir(ctx.path, ctx.config)),
+        },
+      );
+
       reportMenuItems.push(
         { separator: true },
         { key: "b", label: "Back", action: () => "main" as const },
@@ -196,60 +210,78 @@ export function buildProjectDetailMenu(): MenuEntry[] {
   // d — Update Documentation
   {
     const docsConfig = ctx.config.docs;
-    const generators = docsConfig?.generators ?? [];
+    const configGenerators = docsConfig?.generators ?? [];
     const allCmd = docsConfig?.allCommand;
-    const hasAny = generators.length > 0 || !!allCmd;
 
-    if (hasAny) {
-      items.push({
-        key: "d",
-        label: "Update Documentation",
-        action: async () => {
-          const { runMenu } = await import("../infrastructure/menu.js");
-          const docsMenuItems: MenuEntry[] = [];
+    // Built-in reference generators (always available)
+    const builtinDocs = [
+      { label: "Entity Reference", generatorId: "entity-reference" },
+    ];
 
-          if (allCmd) {
-            docsMenuItems.push({
-              key: "1",
-              label: "Generate All",
-              action: () => {
-                shell.run(allCmd, { cwd: ctx.path, label: "Documentation" });
-                return "main" as const;
-              },
-            });
-          }
+    items.push({
+      key: "d",
+      label: "Update Documentation",
+      action: async () => {
+        const { runMenu } = await import("../infrastructure/menu.js");
+        const docsMenuItems: MenuEntry[] = [];
+        let keyIdx = 1;
 
-          for (let i = 0; i < generators.length; i++) {
-            const gen = generators[i];
-            docsMenuItems.push({
-              key: String(allCmd ? i + 2 : i + 1),
-              label: gen.label,
-              action: () => {
-                shell.run(gen.command, { cwd: ctx.path, label: gen.label });
-                return "main" as const;
-              },
-            });
-          }
+        // "Update All" — runs allCommand (if set), config generators, and built-in generators
+        docsMenuItems.push({
+          key: String(keyIdx++),
+          label: "Update All",
+          action: () => {
+            if (allCmd) shell.run(allCmd, { cwd: ctx.path, label: "Documentation (all)" });
+            for (const gen of configGenerators) {
+              shell.run(gen.command, { cwd: ctx.path, label: gen.label });
+            }
+            for (const doc of builtinDocs) {
+              const result = runGenerator(doc.generatorId, ctx.path);
+              if (result && !result.success) {
+                log(`  ${RED}${doc.label}: failed${RESET}`);
+              } else {
+                log(`  ${GREEN}${doc.label}: done${RESET}`);
+              }
+            }
+            return "main" as const;
+          },
+        });
 
-          docsMenuItems.push(
-            { separator: true },
-            { key: "b", label: "Back", action: () => "main" as const },
-          );
+        docsMenuItems.push({ separator: true });
 
-          await runMenu("documentation", docsMenuItems);
-          return "main" as const;
-        },
-      });
-    } else {
-      items.push({
-        key: "d",
-        label: "Update Documentation",
-        action: () => "main" as const,
-        disabled: true,
-        disabledMessage:
-          '\n  No documentation generators configured. Add "docs" to flowti.config.json.\n',
-      });
-    }
+        // Config-defined generators
+        for (const gen of configGenerators) {
+          docsMenuItems.push({
+            key: String(keyIdx++),
+            label: gen.label,
+            action: () => {
+              shell.run(gen.command, { cwd: ctx.path, label: gen.label });
+              return "main" as const;
+            },
+          });
+        }
+
+        // Built-in reference generators
+        for (const doc of builtinDocs) {
+          docsMenuItems.push({
+            key: String(keyIdx++),
+            label: doc.label,
+            action: () => {
+              runGenerator(doc.generatorId, ctx.path);
+              return "main" as const;
+            },
+          });
+        }
+
+        docsMenuItems.push(
+          { separator: true },
+          { key: "b", label: "Back", action: () => "main" as const },
+        );
+
+        await runMenu("documentation", docsMenuItems, { defaultChoice: "1" });
+        return "main" as const;
+      },
+    });
   }
 
   items.push(
