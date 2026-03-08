@@ -1,57 +1,18 @@
 /**
- * review.ts — E2E testing and vault management menu and commands.
+ * review.ts — Non-interactive review commands.
+ *
+ * Commands resolve scripts from the project's flowti.config.json review section.
+ * The interactive Review menu lives in project-review.ts.
  */
 
-import { config } from "../../infrastructure/config.js";
-import { RESET, YELLOW } from "../../infrastructure/ui.js";
 import { shell } from "../../infrastructure/shell.js";
-import { input } from "../../infrastructure/input.js";
-import { runMenu } from "../../infrastructure/menu.js";
-import { showHelp } from "../help/help.js";
-import type { MenuResult } from "../../infrastructure/types.js";
-import { log } from "../../infrastructure/logger.js";
+import type { ProjectContext } from "../../infrastructure/types.js";
 
-const cmd = (config as Record<string, Record<string, Record<string, string>>>).review?.commands ?? {};
+// ── Non-interactive commands ────────────────────────────────────────
 
-export async function menu(): Promise<MenuResult> {
-	let incrementPassed = false;
-
-	return runMenu("Review", [
-		{ key: "1", label: "Start test session (interactive E2E)", action: () => {
-			shell.run(cmd.e2e ?? "node scripts/run-e2e.mjs --list", { label: "Starting interactive E2E session..." });
-		}},
-		{ key: "2", label: "Build the increment", action: () => {
-			const code = shell.run(cmd.increment ?? "npm run build:increment", { label: "Building increment..." });
-			if (code === 0) incrementPassed = true;
-		}},
-		{ key: "3", label: "Publish the increment",
-			disabled: () => !incrementPassed,
-			disabledMessage: `\n  ${YELLOW}Cannot publish — run a successful increment build first (option 2).${RESET}\n`,
-			action: () => { shell.run(cmd.release ?? "npm run build:release", { label: "Publishing..." }); },
-		},
-		{ key: "4", label: "Teardown test vault", action: async () => {
-			log(`\n  ${YELLOW}This will reset the test vault to a fresh state.${RESET}`);
-			const confirm = await input.ask("Continue? (y/N)", "N");
-			if (confirm.toLowerCase() === "y") {
-				shell.run(cmd.teardown ?? "node scripts/run-e2e.mjs --teardown", { label: "Tearing down test vault..." });
-			}
-		}},
-		{ key: "5", label: "Rebuild (teardown → prerequisites → installer)", action: async () => {
-			log(`\n  ${YELLOW}This will teardown and rebuild the test vault from scratch.${RESET}`);
-			const confirm = await input.ask("Continue? (y/N)", "N");
-			if (confirm.toLowerCase() === "y") {
-				shell.run(cmd.rebuild ?? "node scripts/run-e2e.mjs --rebuild", { label: "Rebuilding test vault..." });
-			}
-		}},
-		{ separator: true },
-		{ key: "?", label: "Help", action: () => { showHelp("review"); } },
-		{ key: "b", label: "Back", action: () => "main" as const },
-		{ key: "q", label: "Quit", action: () => "quit" as const },
-	]);
-}
-
-export const commands = {
-	review: () => {
-		shell.run(cmd.e2e ?? "node scripts/run-e2e.mjs --list", { label: "Starting interactive E2E session..." });
+export const commands: Record<string, (flags: Record<string, string | boolean>, rawArgs: string[], command?: string, project?: ProjectContext) => void> = {
+	review: (_f, _r, _c, p) => {
+		const cmd = p?.config.review?.runner ?? "npm test";
+		shell.run(cmd, { cwd: p?.path, label: "Starting review session..." });
 	},
 };

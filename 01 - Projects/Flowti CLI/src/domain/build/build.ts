@@ -1,83 +1,52 @@
 /**
- * build.ts — Build commands and interactive menu.
+ * build.ts — Build commands (non-interactive).
+ *
+ * Commands resolve scripts from the project's package.json and run
+ * them in the project directory. The interactive Build menu lives
+ * in the Project Detail Menu (mainMenu.ts).
  */
 
-import { config } from "../../infrastructure/config.js";
-import { RESET, DIM, CYAN } from "../../infrastructure/ui.js";
 import { shell } from "../../infrastructure/shell.js";
-import { input } from "../../infrastructure/input.js";
-import { runMenu } from "../../infrastructure/menu.js";
-import { showHelp } from "../help/help.js";
-import { showPostBuildGuidance } from "../onboarding/onboarding.js";
-import type { MenuResult } from "../../infrastructure/types.js";
-import { log } from "../../infrastructure/logger.js";
+import type { ProjectContext } from "../../infrastructure/types.js";
 
-const cfg = config as Record<string, Record<string, Record<string, string>>>;
-const buildCmd = cfg.build?.commands ?? {};
-const testCmd = cfg.test?.commands ?? {};
+// ── Helpers ──────────────────────────────────────────────────────────
 
-// ── Interactive menu ────────────────────────────────────────────────
-
-export async function menu(): Promise<MenuResult> {
-	return runMenu("Build", [
-		{ key: "1", label: "Build (fast — no tests, no reports)", action: () => {
-			const code = shell.run(buildCmd.fast ?? "node esbuild.config.mjs --production --no-reports", { label: "Building (fast)..." });
-			if (code === 0) showPostBuildGuidance();
-		}},
-		{ key: "2", label: "Build increment (check → build → test → reports → distribute)", action: () => {
-			const code = shell.run(buildCmd.increment ?? "npm run build:increment", { label: "Building increment (full pipeline)..." });
-			if (code === 0) showPostBuildGuidance();
-		}},
-		{ key: "3", label: "Build full (flow tests → build → reports)", action: () => {
-			const code = shell.run(buildCmd.full ?? "npm run build:full", { label: "Building full (flow tests + reports)..." });
-			if (code === 0) showPostBuildGuidance();
-		}},
-		{ key: "4", label: "Watch mode (live rebuild on save)", action: async () => {
-			const reload = await input.ask("Auto-reload plugin on save? (y/N)", "N");
-			const reloadFlag = reload.toLowerCase() === "y" ? " --reload" : "";
-			log(`\n  ${CYAN}▸${RESET} Starting watch mode...${reloadFlag ? ` ${DIM}(with auto-reload)${RESET}` : ""}\n`);
-			log(`  ${DIM}Press Ctrl+C to stop.${RESET}\n`);
-			shell.run(`${buildCmd.watch ?? "node esbuild.config.mjs --watch"}${reloadFlag}`, { label: "Watch mode" });
-		}},
-		{ key: "5", label: "Distribute (copy to endpoint vaults)", action: () => {
-			shell.run(buildCmd.distribute ?? "node esbuild.config.mjs --production --no-reports --distribution", { label: "Distributing build..." });
-		}},
-		{ separator: true },
-		{ key: "?", label: "Help", action: () => { showHelp("build"); } },
-		{ key: "b", label: "Back", action: () => "main" as const },
-		{ key: "q", label: "Quit", action: () => "quit" as const },
-	]);
+/** Pick the first available npm script, or fall back to a default. */
+function pick(p: ProjectContext | undefined, candidates: string[], fallback: string): string {
+	if (p) {
+		for (const name of candidates) {
+			if (p.scripts[name]) return name === "test" ? "npm test" : `npm run ${name}`;
+		}
+	}
+	return fallback;
 }
 
 // ── Non-interactive commands ────────────────────────────────────────
 
-export const commands = {
-	"build": () => {
-		const code = shell.run(buildCmd.fast ?? "node esbuild.config.mjs --production --no-reports", { label: "Building (fast)..." });
-		if (code === 0) showPostBuildGuidance();
+export const commands: Record<string, (flags: Record<string, string | boolean>, rawArgs: string[], command?: string, project?: ProjectContext) => void> = {
+	"build": (_f, _r, _c, p) => {
+		shell.run(pick(p, ["build"], "npm run build"), { cwd: p?.path, label: "Building..." });
 	},
-	"build:increment": () => {
-		const code = shell.run(buildCmd.increment ?? "npm run build:increment", { label: "Building increment (full pipeline)..." });
-		if (code === 0) showPostBuildGuidance();
+	"build:increment": (_f, _r, _c, p) => {
+		shell.run(pick(p, ["build:increment", "build"], "npm run build"), { cwd: p?.path, label: "Building increment..." });
 	},
-	"build:full": () => {
-		const code = shell.run(buildCmd.full ?? "npm run build:full", { label: "Building full (flow tests + reports)..." });
-		if (code === 0) showPostBuildGuidance();
+	"build:full": (_f, _r, _c, p) => {
+		shell.run(pick(p, ["build:full", "build"], "npm run build"), { cwd: p?.path, label: "Building full..." });
 	},
-	"build:watch": (flags: Record<string, string | boolean>) => {
+	"build:watch": (flags, _r, _c, p) => {
 		const reloadFlag = flags.reload ? " --reload" : "";
-		shell.run(`${buildCmd.watch ?? "node esbuild.config.mjs --watch"}${reloadFlag}`, { label: "Watch mode..." });
+		shell.run(`${pick(p, ["build:dev", "build:watch"], "npm run build -- --watch")}${reloadFlag}`, { cwd: p?.path, label: "Watch mode..." });
 	},
-	"build:distribute": () => {
-		shell.run(buildCmd.distribute ?? "node esbuild.config.mjs --production --no-reports --distribution", { label: "Distributing build..." });
+	"build:distribute": (_f, _r, _c, p) => {
+		shell.run(pick(p, ["build:distribute", "build"], "npm run build"), { cwd: p?.path, label: "Distributing build..." });
 	},
-	"test": () => {
-		shell.run(testCmd.unit ?? "npm run check && vitest run", { label: "Running tests..." });
+	"test": (_f, _r, _c, p) => {
+		shell.run(pick(p, ["test"], "npm test"), { cwd: p?.path, label: "Running tests..." });
 	},
-	"test:increment": () => {
-		shell.run(testCmd.increment ?? "npm run test:increment", { label: "Running increment tests..." });
+	"test:increment": (_f, _r, _c, p) => {
+		shell.run(pick(p, ["test:increment", "test"], "npm test"), { cwd: p?.path, label: "Running increment tests..." });
 	},
-	"test:e2e": () => {
-		shell.run(testCmd.e2e ?? "npm run test:e2e", { label: "Running E2E tests..." });
+	"test:e2e": (_f, _r, _c, p) => {
+		shell.run(pick(p, ["test:e2e", "test"], "npm test"), { cwd: p?.path, label: "Running E2E tests..." });
 	},
 };

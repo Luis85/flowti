@@ -84,10 +84,19 @@ export interface MenuOptions {
 
 // ── Command dispatch ────────────────────────────────────────────────
 
+/** Resolved project context passed to non-interactive command handlers. */
+export interface ProjectContext {
+	path: string;
+	pkg: { name?: string; version?: string; scripts?: Record<string, string> } | null;
+	config: ProjectConfig;
+	scripts: Record<string, string>;
+}
+
 export type CommandHandler = (
 	flags: Record<string, string | boolean>,
 	rawArgs: string[],
 	command?: string,
+	project?: ProjectContext,
 ) => void | Promise<void>;
 
 // ── Persistent state ────────────────────────────────────────────────

@@ -25,10 +25,9 @@ export const HELP: Record<string, string> = {
     ${CYAN}3) Review${RESET}       E2E test sessions, vault management
     ${CYAN}4) Publish${RESET}      Gated pipeline: build → test → publish
     ${CYAN}5) Reports${RESET}      Run all reports, project status report
-    ${CYAN}6) Dev Tools${RESET}    Plugin reload, console, frontmatter, test data
-    ${CYAN}7) Npm Scripts${RESET}  Browse and run scripts from package.json
-    ${CYAN}8) Capture Idea${RESET} Quick-capture an idea to vault inbox
-    ${CYAN}9) Capture Note${RESET} Capture a typed note (Task, Bug, Note, ...)
+    ${CYAN}6) Npm Scripts${RESET}  Browse and run scripts from package.json
+    ${CYAN}7) Capture Idea${RESET} Quick-capture an idea to vault inbox
+    ${CYAN}8) Capture Note${RESET} Capture a typed note (Task, Bug, Note, ...)
     ${CYAN}d) Documentation${RESET} Generate reference docs (per-project generators)
     ${CYAN}k) Knowledgebase${RESET} Browse and search vault content (requires Obsidian CLI)
     ${CYAN}i) Info${RESET}         Project stats, version, config
@@ -40,20 +39,22 @@ export const HELP: Record<string, string> = {
     manifest.json            Plugin metadata (id, version)
 
   ${BOLD}NON-INTERACTIVE COMMANDS${RESET}
-    npm run flowti -- build              Fast build
-    npm run flowti -- build:full         Flow tests + build + reports
-    npm run flowti -- build:increment    Full CI pipeline
+    ${DIM}Most commands run against the selected project. Use --project=<name>
+    to override, or select a project first with: npm run flowti -- project${RESET}
+
+    npm run flowti -- build              Build the project
+    npm run flowti -- build:full         Full build pipeline
+    npm run flowti -- build:increment    CI pipeline (check → build → test → reports)
     npm run flowti -- build:watch        Watch mode (add --reload for hot-reload)
     npm run flowti -- build:distribute   Build + distribute to endpoints
-    npm run flowti -- test               Type check + lint + vitest
-    npm run flowti -- test:increment     Check + build + coverage
-    npm run flowti -- test:e2e           Build + flow tests + E2E
-    npm run flowti -- review             List E2E journeys
+    npm run flowti -- test               Run tests
+    npm run flowti -- test:increment     Increment tests
+    npm run flowti -- test:e2e           E2E tests
+    npm run flowti -- review             Start E2E review session
     npm run flowti -- publish            Build release
-    npm run flowti -- publish:all        Increment + E2E + release
+    npm run flowti -- publish:all        Build + test pipeline
     npm run flowti -- reports            Generate all reports
-    npm run flowti -- report:{id}        Generate a single report (e.g. report:test)
-    npm run flowti -- dev:reload         Reload plugin in Obsidian
+    npm run flowti -- report:{id}        Generate a single report
     npm run flowti -- dev:check          Lint + tsc
     npm run flowti -- dev:lint           ESLint only
     npm run flowti -- make:hub --name=X  Scaffold a new hub

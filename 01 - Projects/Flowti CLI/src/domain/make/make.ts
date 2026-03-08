@@ -421,8 +421,8 @@ async function makeCliApp(projectRoot: string): Promise<void> {
 
 // ── Non-interactive commands ────────────────────────────────────────
 
-export const commands = {
-	"make:hub": (flags: Record<string, string | boolean>) => {
+export const commands: Record<string, (flags: Record<string, string | boolean>, rawArgs: string[], command?: string, project?: import("../../infrastructure/types.js").ProjectContext) => void> = {
+	"make:hub": (flags, _r, _c, project) => {
 		const name = flags.name;
 		if (!name || typeof name !== "string") {
 			log(`\n  ${RED}--name is required.${RESET}`);
@@ -438,7 +438,8 @@ export const commands = {
 
 		log(`\n  ${CYAN}▸${RESET} Scaffolding: ${pascal} Hub\n`);
 
-		const { write: w, created } = createFileWriter(ROOT);
+		const root = project?.path ?? ROOT;
+		const { write: w, created } = createFileWriter(root);
 
 		w(`${paths.ui}/${kebab}/${pascal}HubView.ts`, hubViewTemplate(pascal, kebab, hubType, icon, tabs));
 		w(`${paths.ui}/${kebab}/types.ts`, hubTypesTemplate(pascal, tabs));
@@ -447,8 +448,8 @@ export const commands = {
 		w(`${paths.hubDomain}/${pascal}HubProvider.ts`, hubProviderTemplate(pascal, kebab, icon));
 		w(`${paths.tests}/${kebab}/${pascal}HubView.test.ts`, hubTestTemplate(pascal, kebab));
 
-		const cssFiles = disk.existsSync(nodePaths.join(ROOT, paths.css))
-			? disk.readdirSync(nodePaths.join(ROOT, paths.css)).filter((f) => f.endsWith(".css")).sort() : [];
+		const cssFiles = disk.existsSync(nodePaths.join(root, paths.css))
+			? disk.readdirSync(nodePaths.join(root, paths.css)).filter((f) => f.endsWith(".css")).sort() : [];
 		const maxNum = cssFiles.reduce((max, f) => { const m = f.match(/^(\d+)/); return m ? Math.max(max, parseInt(m[1], 10)) : max; }, 0);
 		w(`${paths.css}/${String(maxNum + 1).padStart(2, "0")}-${kebab}.css`, hubCssTemplate(pascal, kebab));
 		w(`${paths.docs}/${pascal}/${pascal} Hub.md`, hubPrdTemplate(pascal));
@@ -457,7 +458,7 @@ export const commands = {
 		log(`\n  ${GREEN}✓${RESET} Created ${created} files.\n`);
 	},
 
-	"make:app": (flags: Record<string, string | boolean>) => {
+	"make:app": (flags) => {
 		const name = flags.name;
 		if (!name || typeof name !== "string") {
 			log(`\n  ${RED}--name is required.${RESET}`);
@@ -499,7 +500,7 @@ export const commands = {
 		log(`\n  ${GREEN}✓${RESET} Created ${created} files at ${appRoot}\n`);
 	},
 
-	"make:cli": (flags: Record<string, string | boolean>) => {
+	"make:cli": (flags) => {
 		const name = flags.name;
 		if (!name || typeof name !== "string") {
 			log(`\n  ${RED}--name is required.${RESET}`);
@@ -528,7 +529,7 @@ export const commands = {
 		log(`\n  ${GREEN}✓${RESET} Created ${created} files at ${cliRoot}\n`);
 	},
 
-	"make:plugin": (flags: Record<string, string | boolean>) => {
+	"make:plugin": (flags) => {
 		const name = flags.name;
 		if (!name || typeof name !== "string") {
 			log(`\n  ${RED}--name is required.${RESET}`);

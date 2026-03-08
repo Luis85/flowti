@@ -111,10 +111,9 @@ Run without arguments for the two-stage interactive menu:
 | 3 | Review | E2E journey review, test vault management |
 | 4 | Publish | Gated pipeline: build → test → distribute to endpoints |
 | 5 | Reports | Run all reports or individual generators |
-| 6 | Dev Tools | Plugin reload, console, frontmatter fix, test data |
-| 7 | Npm Scripts | Run any npm script from the project's package.json |
-| 8 | Capture Idea | Quick-capture an idea to vault inbox |
-| 9 | Capture Note | Capture a typed note (Task, Bug, Note, Documentation, Idea) |
+| 6 | Npm Scripts | Run any npm script from the project's package.json |
+| 7 | Capture Idea | Quick-capture an idea to vault inbox |
+| 8 | Capture Note | Capture a typed note (Task, Bug, Note, Documentation, Idea) |
 | d | Documentation | Generate reference docs (per-project generators) |
 | k | Knowledgebase | Browse and search vault content (requires Obsidian CLI) |
 | i | Info | Project stats, version, config |

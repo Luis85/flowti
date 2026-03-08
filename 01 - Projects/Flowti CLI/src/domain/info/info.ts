@@ -9,8 +9,8 @@ import { shell } from "../../infrastructure/shell.js";
 import { countFiles } from "../../infrastructure/fs.js";
 import { getSelectedProject, getProjectSource } from "../../infrastructure/state.js";
 import { initializeProject } from "../project/project-config.js";
-import type { ProjectContext } from "../project/project-config.js";
 import { FLOWTI_TOOLS } from "../../infrastructure/types.js";
+import type { ProjectContext } from "../../infrastructure/types.js";
 import { log } from "../../infrastructure/logger.js";
 
 function printFileCount(dir: string, label: string): void {
@@ -147,6 +147,6 @@ export function showInfo(): void {
 	printGit(ctx);
 }
 
-export const commands = {
+export const commands: Record<string, (flags: Record<string, string | boolean>, rawArgs: string[], command?: string, project?: ProjectContext) => void> = {
 	info: () => { showInfo(); },
 };

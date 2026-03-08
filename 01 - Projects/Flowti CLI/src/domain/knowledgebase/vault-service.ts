@@ -9,7 +9,6 @@ import { shell } from "../../infrastructure/shell.js";
 import { paths } from "../../infrastructure/paths.js";
 import { disk } from "../../infrastructure/filesystem.js";
 import { VAULT_ROOT } from "../../infrastructure/config.js";
-import type { DirEntry } from "../../infrastructure/types.js";
 
 let _cliAvailable: boolean | null = null;
 
@@ -44,54 +43,11 @@ export function readMarkdownFile(filePath: string): string | null {
 
 export function searchVault(query: string): string[] {
 	const output = shell.execFile("obsidian", ["search", `query=${query}`, "format=json"]);
-	if (output) {
-		try {
-			const results = JSON.parse(output) as Array<string | { path: string }>;
-			return results.map((r) => (typeof r === "string" ? r : r.path));
-		} catch {
-			// JSON parse failed, fall through to filesystem search
-		}
-	}
-	return filesystemSearch(query);
-}
-
-function matchesMdFile(fullPath: string, name: string, lowerQuery: string): boolean {
-	if (name.toLowerCase().includes(lowerQuery)) return true;
+	if (!output) return [];
 	try {
-		const content = disk.readFileSync(fullPath, "utf-8");
-		return content.toLowerCase().includes(lowerQuery);
-	} catch { return false; }
-}
-
-function processEntry(
-	e: DirEntry, dir: string, rel: string, lowerQuery: string, matches: string[],
-	walk: (dir: string, rel: string) => void,
-): void {
-	if (e.name.startsWith(".") || e.name === "node_modules") return;
-	const fullPath = paths.join(dir, e.name);
-	const relPath = rel ? `${rel}/${e.name}` : e.name;
-	if (e.isDirectory()) {
-		walk(fullPath, relPath);
-	} else if (e.name.endsWith(".md") && matchesMdFile(fullPath, e.name, lowerQuery)) {
-		matches.push(relPath);
+		const results = JSON.parse(output) as Array<string | { path: string }>;
+		return results.map((r) => (typeof r === "string" ? r : r.path));
+	} catch {
+		return [];
 	}
-}
-
-function filesystemSearch(query: string): string[] {
-	const matches: string[] = [];
-	const lowerQuery = query.toLowerCase();
-
-	function walk(dir: string, rel: string): void {
-		if (matches.length >= 50) return;
-		let entries: DirEntry[];
-		try { entries = disk.readdirSync(dir, { withFileTypes: true }); }
-		catch { return; }
-
-		for (const e of entries) {
-			processEntry(e, dir, rel, lowerQuery, matches, walk);
-		}
-	}
-
-	walk(VAULT_ROOT, "");
-	return matches;
 }

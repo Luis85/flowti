@@ -130,57 +130,13 @@ describe("searchVault", () => {
 		expect(searchVault("query")).toEqual(["a.md", "b.md"]);
 	});
 
-	it("falls back to filesystem search on invalid JSON", () => {
+	it("returns empty array on invalid JSON from CLI", () => {
 		mockExecFile.mockReturnValue("not json" as any);
-		mockReaddirSync.mockReturnValue([]);
-		const results = searchVault("test");
-		expect(results).toEqual([]);
+		expect(searchVault("test")).toEqual([]);
 	});
 
-	it("falls back to filesystem search when CLI returns null", () => {
+	it("returns empty array when CLI returns null", () => {
 		mockExecFile.mockReturnValue(null as any);
-		mockReaddirSync.mockReturnValue([
-			{ name: "match.md", isDirectory: () => false },
-		] as any);
-		mockReadFileSync.mockReturnValue("contains test keyword");
-		const results = searchVault("test");
-		expect(results).toEqual(["match.md"]);
-	});
-
-	it("filesystem search matches by filename", () => {
-		mockExecFile.mockReturnValue(null as any);
-		mockReaddirSync.mockReturnValue([
-			{ name: "my-test-note.md", isDirectory: () => false },
-		] as any);
-		const results = searchVault("test");
-		expect(results).toEqual(["my-test-note.md"]);
-	});
-
-	it("filesystem search recurses into subdirectories", () => {
-		mockExecFile.mockReturnValue(null as any);
-		mockReaddirSync
-			.mockReturnValueOnce([
-				{ name: "sub", isDirectory: () => true },
-				{ name: "root.md", isDirectory: () => false },
-			] as any)
-			.mockReturnValueOnce([
-				{ name: "nested.md", isDirectory: () => false },
-			] as any);
-		mockReadFileSync.mockReturnValue("has search term");
-		const results = searchVault("search");
-		expect(results).toContain("root.md");
-		expect(results).toContain("sub/nested.md");
-	});
-
-	it("filesystem search skips hidden files and node_modules", () => {
-		mockExecFile.mockReturnValue(null as any);
-		mockReaddirSync.mockReturnValue([
-			{ name: ".hidden", isDirectory: () => true },
-			{ name: "node_modules", isDirectory: () => true },
-			{ name: "visible.md", isDirectory: () => false },
-		] as any);
-		mockReadFileSync.mockReturnValue("match");
-		const results = searchVault("match");
-		expect(results).toEqual(["visible.md"]);
+		expect(searchVault("test")).toEqual([]);
 	});
 });

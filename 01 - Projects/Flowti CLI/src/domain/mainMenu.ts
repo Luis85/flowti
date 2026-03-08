@@ -19,37 +19,7 @@ import { buildWithReport } from "./reports/cli/generate-build-report.js";
 import { shell } from "../infrastructure/shell.js";
 import { getSelectedProject } from "../infrastructure/state.js";
 import { initializeProject } from "./project/project-config.js";
-import { FLOWTI_TOOLS } from "../infrastructure/types.js";
-import type { MenuEntry, MenuItem, ProjectConfig } from "../infrastructure/types.js";
-
-// ── Build Flowti tool items (top-level, disabled if unmapped) ────────
-
-function buildToolItems(
-  projectPath: string,
-  config: ProjectConfig,
-): MenuItem[] {
-  const tools = config.tools ?? {};
-  return FLOWTI_TOOLS.map((def) => {
-    const cmd = tools[def.id];
-    if (cmd) {
-      return {
-        key: def.key,
-        label: def.label,
-        action: () => {
-          shell.run(cmd, { cwd: projectPath, label: def.label });
-          return "main" as const;
-        },
-      };
-    }
-    return {
-      key: def.key,
-      label: def.label,
-      action: () => "main" as const,
-      disabled: true,
-      disabledMessage: `\n  ${def.label} is not mapped. Add "${def.id}" to tools in flowti.config.json.\n`,
-    };
-  });
-}
+import type { MenuEntry } from "../infrastructure/types.js";
 
 // ── Build script listing from package.json ──────────────────────────
 
@@ -77,7 +47,6 @@ export function buildProjectDetailMenu(): MenuEntry[] {
   if (!projectName) return buildFallbackMenu();
 
   const ctx = initializeProject(projectName);
-  const toolItems = buildToolItems(ctx.path, ctx.config);
   const scriptItems = buildScriptItems(ctx.path, ctx.scripts);
 
   const items: MenuEntry[] = [];
@@ -107,7 +76,8 @@ export function buildProjectDetailMenu(): MenuEntry[] {
         label: "Build",
         action: () => "main" as const,
         disabled: true,
-        disabledMessage: '\n  Build is not mapped. Add "build" to tools in flowti.config.json.\n',
+        disabledMessage:
+          '\n  Build is not mapped. Add "build" to tools in flowti.config.json.\n',
       });
     }
   }
@@ -126,6 +96,8 @@ export function buildProjectDetailMenu(): MenuEntry[] {
     action: () => publishMenu(ctx.path, ctx.config.publish ?? {}),
   });
 
+  items.push({ separator: true });
+
   // 5 — Reports (submenu)
   items.push({
     key: "5",
@@ -133,7 +105,8 @@ export function buildProjectDetailMenu(): MenuEntry[] {
     action: async () => {
       const { runMenu } = await import("../infrastructure/menu.js");
       const reportMenuItems: MenuEntry[] = [];
-      const reportsCmd = ctx.config.reports?.allCommand ?? ctx.config.tools?.["reports"];
+      const reportsCmd =
+        ctx.config.reports?.allCommand ?? ctx.config.tools?.["reports"];
       const generators = ctx.config.reports?.generators ?? [];
 
       // "Run All" — runs allCommand + generates summary
@@ -172,13 +145,10 @@ export function buildProjectDetailMenu(): MenuEntry[] {
     },
   });
 
-  // 6 — Dev Tools (mappable tool)
-  items.push(toolItems.find((t) => t.key === "6")!);
-
-  // 7 — Npm Scripts
+  // 6 — Npm Scripts
   if (scriptItems.length > 0) {
     items.push({
-      key: "7",
+      key: "6",
       label: "Npm Scripts",
       action: async () => {
         const { runMenu } = await import("../infrastructure/menu.js");
@@ -197,8 +167,8 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 
   // Project-level utilities
   items.push(
-    { key: "8", label: "Capture Idea", action: captureIdea },
-    { key: "9", label: "Capture Note", action: captureNote },
+    { key: "7", label: "Capture Idea", action: captureIdea },
+    { key: "8", label: "Capture Note", action: captureNote },
   );
 
   items.push({ separator: true });
@@ -256,7 +226,8 @@ export function buildProjectDetailMenu(): MenuEntry[] {
         label: "Update Documentation",
         action: () => "main" as const,
         disabled: true,
-        disabledMessage: '\n  No documentation generators configured. Add "docs" to flowti.config.json.\n',
+        disabledMessage:
+          '\n  No documentation generators configured. Add "docs" to flowti.config.json.\n',
       });
     }
   }

@@ -10,7 +10,7 @@ import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
 import { PROJECTS_DIR, DEVELOPMENT_DIR } from "../../infrastructure/config.js";
 import { getProjectSource } from "../../infrastructure/state.js";
-import type { ProjectConfig, ProjectSource, FlowtiToolId } from "../../infrastructure/types.js";
+import type { ProjectConfig, ProjectSource, ProjectContext, FlowtiToolId } from "../../infrastructure/types.js";
 
 const CONFIGS_DIR = "configs";
 const FLOWTI_CONFIG = "flowti.config.json";
@@ -76,13 +76,6 @@ function scaffoldProjectConfig(projectPath: string, pkg: PackageJson): ProjectCo
 }
 
 // ── Initialize project ──────────────────────────────────────────────
-
-export interface ProjectContext {
-	path: string;
-	pkg: PackageJson | null;
-	config: ProjectConfig;
-	scripts: Record<string, string>;
-}
 
 export function initializeProject(name: string, source?: ProjectSource): ProjectContext {
 	const projectPath = resolveProjectPath(name, source);

@@ -54,11 +54,7 @@ vi.mock("../../src/infrastructure/menu.js", () => ({
 }));
 
 vi.mock("../../src/infrastructure/types.js", async () => {
-	return {
-		FLOWTI_TOOLS: [
-			{ id: "devtools", key: "6", label: "Dev Tools" },
-		],
-	};
+	return {};
 });
 
 // ── Imports (after mocks) ────────────────────────────────────────────
@@ -196,31 +192,10 @@ describe("buildProjectDetailMenu", () => {
 			expect(result).toBe("main");
 		});
 
-		it("Dev Tools item is disabled when devtools is not mapped", () => {
-			setupProject({ tools: {} });
-			const items = buildProjectDetailMenu();
-			const devtools = findItem(items, "6")!;
-			expect(devtools.disabled).toBe(true);
-			expect(devtools.disabledMessage).toContain("not mapped");
-			expect(devtools.action()).toBe("main");
-		});
-
-		it("Dev Tools item runs shell command when mapped", () => {
-			const sh = createMockShell();
-			Object.assign(shellMod, { shell: sh });
-			setupProject({ tools: { devtools: "npm run dev" } });
-			const items = buildProjectDetailMenu();
-			const devtools = findItem(items, "6")!;
-			expect(devtools.disabled).toBeUndefined();
-			devtools.action();
-			expect(sh.calls).toHaveLength(1);
-			expect(sh.calls[0].cmd).toBe("npm run dev");
-		});
-
 		it("Npm Scripts item appears when scripts exist", () => {
 			setupProject({ scripts: { test: "vitest", lint: "eslint ." } });
 			const items = buildProjectDetailMenu();
-			const scripts = findItem(items, "7");
+			const scripts = findItem(items, "6");
 			expect(scripts).toBeDefined();
 			expect(scripts!.label).toBe("Npm Scripts");
 		});
@@ -228,7 +203,7 @@ describe("buildProjectDetailMenu", () => {
 		it("Npm Scripts item does not appear when no scripts", () => {
 			setupProject({ scripts: {} });
 			const items = buildProjectDetailMenu();
-			const scripts = findItem(items, "7");
+			const scripts = findItem(items, "6");
 			expect(scripts).toBeUndefined();
 		});
 
@@ -237,7 +212,7 @@ describe("buildProjectDetailMenu", () => {
 			Object.assign(shellMod, { shell: sh });
 			setupProject({ scripts: { test: "vitest", lint: "eslint ." } });
 			const items = buildProjectDetailMenu();
-			const scripts = findItem(items, "7")!;
+			const scripts = findItem(items, "6")!;
 
 			await scripts.action();
 
@@ -254,7 +229,7 @@ describe("buildProjectDetailMenu", () => {
 			Object.assign(shellMod, { shell: sh });
 			setupProject({ scripts: { test: "vitest" } });
 			const items = buildProjectDetailMenu();
-			const scripts = findItem(items, "7")!;
+			const scripts = findItem(items, "6")!;
 			await scripts.action();
 
 			const submenuItems = (mockRunMenu.mock.calls[0][1] as MenuEntry[]).filter(isMenuItem);
@@ -412,8 +387,8 @@ describe("buildProjectDetailMenu", () => {
 		it("includes Capture Idea and Capture Note items", () => {
 			setupProject();
 			const items = buildProjectDetailMenu();
-			expect(findItem(items, "8")!.label).toBe("Capture Idea");
-			expect(findItem(items, "9")!.label).toBe("Capture Note");
+			expect(findItem(items, "7")!.label).toBe("Capture Idea");
+			expect(findItem(items, "8")!.label).toBe("Capture Note");
 		});
 
 		it("includes Info, Help, Back, Quit navigation items", () => {

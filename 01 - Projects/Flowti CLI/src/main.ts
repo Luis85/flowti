@@ -44,7 +44,7 @@ import { buildProjectDetailMenu } from "./domain/mainMenu.js";
 
 // ── Command registry ────────────────────────────────────────────────
 
-import type { CommandHandler } from "./infrastructure/types.js";
+import type { CommandHandler, ProjectContext } from "./infrastructure/types.js";
 import { log, error } from "./infrastructure/logger.js";
 
 const allCommands: Record<string, CommandHandler> = {
@@ -60,6 +60,15 @@ const allCommands: Record<string, CommandHandler> = {
 	...projectCmds,
 };
 
+/** Commands that work without a project context. */
+const PROJECT_FREE = new Set(["help", "project", "capture:idea", "capture:note"]);
+
+function resolveProjectContext(flags: Record<string, string | boolean>): ProjectContext | null {
+	const projectName = typeof flags.project === "string" ? flags.project : getSelectedProject();
+	if (!projectName) return null;
+	return initializeProject(projectName);
+}
+
 // ── Non-interactive dispatch ────────────────────────────────────────
 
 async function handleCliArgs(): Promise<boolean> {
@@ -74,11 +83,20 @@ async function handleCliArgs(): Promise<boolean> {
 		return true;
 	}
 
+	// Resolve project context for project-scoped commands
+	const project = resolveProjectContext(flags);
+
 	// Direct command match
 	if (command) {
 		const handler = allCommands[command];
 		if (handler) {
-			handler(flags, rawArgs, command);
+			if (!project && !PROJECT_FREE.has(command)) {
+				log(`\n  ${RED}No project selected.${RESET}`);
+				log(`  ${DIM}Select a project first: npm run flowti -- project${RESET}`);
+				log(`  ${DIM}Or specify one:          npm run flowti -- ${command} --project=<name>${RESET}\n`);
+				return true;
+			}
+			await handler(flags, rawArgs, command, project ?? undefined);
 			return true;
 		}
 	}
@@ -87,7 +105,12 @@ async function handleCliArgs(): Promise<boolean> {
 	if (command?.startsWith("report:")) {
 		const reportHandler = reportsCmds["report:*"];
 		if (reportHandler) {
-			reportHandler(flags, rawArgs, command);
+			if (!project) {
+				log(`\n  ${RED}No project selected.${RESET}`);
+				log(`  ${DIM}Select a project first or use --project=<name>${RESET}\n`);
+				return true;
+			}
+			await reportHandler(flags, rawArgs, command, project);
 			return true;
 		}
 	}
