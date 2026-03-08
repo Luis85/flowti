@@ -6,7 +6,7 @@ stage: development_ready
 version: 2
 maturity: L1
 created: 2026-03-07
-updated: 2026-03-07
+updated: 2026-03-08
 supplier_prd: "[[Developer Experience PRD]]"
 related_events: []
 maturity_score_strategy: 3
@@ -52,12 +52,13 @@ Managing multiple development projects across an Obsidian vault involves:
 
 After implementation, developers and AI agents will have:
 
-- A single entry point (`./flowti.cmd` or `npm run dev`) with a two-stage interactive menu: project selection → project detail.
+- A single entry point (`./flowti.cmd` → `node .flowti/bin`) with a two-stage interactive menu: project selection → project detail.
 - Per-project configuration via `configs/flowti.config.json` with auto-scaffolding from `package.json` on first selection.
 - 7 project tools: Make, Build, Review, Publish, Reports, Dev Tools, Npm Scripts — some always available, some config-mapped.
 - Hub, Plugin, and Component scaffolding that generates production-ready boilerplate following Flowti's DDD, EventBus, and BaseHubView patterns.
 - A gated publish pipeline that enforces build → test → distribute sequencing per project.
-- E2E review with test vault isolation (created outside the git repository).
+- E2E review with test vault isolation (created outside the git repository, with CLI build copied in).
+- Distribution to external endpoints (e.g., `C:\Projects\distribute`) via publish pipeline.
 - Non-interactive commands for AI agent tool use with deterministic exit codes.
 - Auto-generated reports (test, coverage, codebase, complexity) per project.
 
@@ -77,7 +78,7 @@ After implementation, developers and AI agents will have:
 - Man-page system with contextual help
 - Info command with live project diagnostics
 - Non-interactive command dispatch for AI agent tool use
-- Persistent state (selected project, project source) via `.flowti-state.json`
+- Persistent state (selected project, project source) via `.flowti/var/state.json`
 
 ### Out of Scope
 
@@ -128,7 +129,7 @@ After implementation, developers and AI agents will have:
 - [x] FR-01.5: Quit with `q` from any menu, return to start menu with `b`
 - [x] FR-01.6: Help with `?` in any menu showing contextual man-page
 - [x] FR-01.7: Command execution with timing display
-- [x] FR-01.8: Persistent state — selected project remembered across sessions via `.flowti-state.json`
+- [x] FR-01.8: Persistent state — selected project remembered across sessions via `.flowti/var/state.json`
 
 ### FR-02: Non-Interactive Commands
 
@@ -229,7 +230,8 @@ No runtime data model changes. The CLI operates at build-time only.
 | File | Location | Purpose |
 |------|----------|---------|
 | `flowti-cli.config.json` | `01 - Projects/Flowti CLI/configs/` | Kernel config: projects folder, subsystem mappings, capture dirs |
-| `.flowti-state.json` | `01 - Projects/Flowti CLI/configs/` | Persistent state: selected project, project source |
+| `.flowti/var/state.json` | `<vault-root>/.flowti/var/` | Persistent state: selected project, project source |
+| `.flowti/config.json` | `<vault-root>/.flowti/` | Vault-level config: CLI source project path |
 | `flowti.config.json` | `<project>/configs/` | Per-project config: tool mappings, publish, review settings |
 | `package.json` | `<project>/` | npm scripts (consumed by auto-scaffolding, info, npm scripts menu) |
 
@@ -305,7 +307,7 @@ No adapter changes. The CLI uses Node.js built-ins exclusively (readline, child_
 - [x] Review creates test vault outside git repository
 - [x] Publish pipeline enforces build → test → distribute gating
 - [x] `npm run build` compiles TypeScript to `bin/` without errors
-- [x] `npm test` passes with all 51 tests green
+- [x] `npm test` passes with all 1045 tests green
 - [x] Pressing `?` in any menu shows contextual help
 - [ ] Developer onboarding E2E journey passes against live Obsidian instance
 - [ ] AI agent can use non-interactive commands to build, test, and scaffold without human intervention
@@ -319,7 +321,7 @@ No adapter changes. The CLI uses Node.js built-ins exclusively (readline, child_
 - [x] Two-stage menu (start → project detail) working for both project directories
 - [x] Per-project auto-scaffolding generates valid `flowti.config.json`
 - [x] Man-pages cover all tool menus with accurate descriptions
-- [x] TypeScript strict mode with Vitest test suite (51 tests)
+- [x] TypeScript strict mode with Vitest test suite (1045 tests, 61 suites)
 - [x] No production dependencies — dev tooling only
 - [x] README, Architecture, and PRD updated to reflect project-centric architecture
 - [ ] Developer onboarding scenario tested end-to-end

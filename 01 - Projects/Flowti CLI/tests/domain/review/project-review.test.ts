@@ -21,6 +21,11 @@ vi.mock("../../../src/infrastructure/config.js", () => ({
 	VAULT_ROOT: "/vault",
 }));
 
+vi.mock("../../../src/infrastructure/test-vault.js", () => ({
+	resolveTestVaultRoot: (name: string, _vaultRoot: string) => `/vaults/${name}`,
+	scaffoldTestVault: vi.fn(),
+}));
+
 vi.mock("../../../src/infrastructure/ui.js", () => ({
 	RESET: "", BOLD: "", DIM: "", GREEN: "", CYAN: "", YELLOW: "",
 }));
@@ -214,7 +219,7 @@ describe("reviewMenu", () => {
 		expect(mockRunMenu).toHaveBeenCalledOnce();
 	});
 
-	it("ensure vault action creates directory", async () => {
+	it("ensure vault action scaffolds test vault when missing", async () => {
 		const config: ReviewConfig = {};
 		mockRunMenu.mockImplementation(async (_title, items) => {
 			const vaultItem = (items as Array<{ key: string; action: () => void }>).find((i) => i.key === "v");
@@ -224,7 +229,23 @@ describe("reviewMenu", () => {
 
 		await reviewMenu(projectPath, config);
 
-		expect(mockDisk.mkdirSync).toHaveBeenCalled();
+		const { scaffoldTestVault } = await import("../../../src/infrastructure/test-vault.js");
+		expect(vi.mocked(scaffoldTestVault)).toHaveBeenCalled();
+	});
+
+	it("ensure vault action skips scaffold when vault exists", async () => {
+		const config: ReviewConfig = {};
+		mockDisk.existsSync.mockReturnValue(true);
+		mockRunMenu.mockImplementation(async (_title, items) => {
+			const vaultItem = (items as Array<{ key: string; action: () => void }>).find((i) => i.key === "v");
+			vaultItem?.action();
+			return "main";
+		});
+
+		await reviewMenu(projectPath, config);
+
+		const { scaffoldTestVault } = await import("../../../src/infrastructure/test-vault.js");
+		expect(vi.mocked(scaffoldTestVault)).not.toHaveBeenCalled();
 	});
 
 	it("build action sets buildPassed on success", async () => {

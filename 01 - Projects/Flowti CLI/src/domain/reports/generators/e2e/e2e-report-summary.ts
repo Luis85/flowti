@@ -220,14 +220,14 @@ function appendCompactEventsAndErrors(lines: string[], ctx: ErrorContext): void 
 	}
 }
 
-function buildCompactTraceLines(ctx: ErrorContext): string[] {
+export function buildCompactTraceLines(ctx: ErrorContext): string[] {
 	const lines: string[] = [];
 	appendCompactDomLines(lines, ctx);
 	appendCompactEventsAndErrors(lines, ctx);
 	return lines;
 }
 
-function collectVitestFailures(vitest: VitestResults | null): Array<{ suite: string; testCase: VitestCase; hookError: string | null }> {
+export function collectVitestFailures(vitest: VitestResults | null): Array<{ suite: string; testCase: VitestCase; hookError: string | null }> {
 	if (!vitest) return [];
 	const failures: Array<{ suite: string; testCase: VitestCase; hookError: string | null }> = [];
 	for (const suite of vitest.suites) {
@@ -316,7 +316,7 @@ function renderWarningsSection(doc: InstanceType<typeof Document>, journeyReport
 
 // ── Action Coverage ─────────────────────────────────────────────
 
-function buildJourneyStatsLine(stats: ActionStatsReturn): string {
+export function buildJourneyStatsLine(stats: ActionStatsReturn): string {
 	const lc = stats.create_files + stats.delete_files + stats.open_files + stats.close_leaves;
 	return `Actions: ${stats.total} | Screenshots: ${stats.screenshots} | Assertions: ${stats.assertions} | Manual: ${stats.manual_checks}` +
 		(stats.visual_inspections > 0 ? ` | Visual: ${stats.visual_inspections}` : "") +
@@ -360,7 +360,7 @@ function renderActionCoverageSection(
 
 // ── Test Suites ─────────────────────────────────────────────────
 
-function caseMarkAndSuffix(status: string, caseName: string, warningItBlocks: Set<string>, suiteHookFailed: boolean): { mark: string; suffix: string } {
+export function caseMarkAndSuffix(status: string, caseName: string, warningItBlocks: Set<string>, suiteHookFailed: boolean): { mark: string; suffix: string } {
 	if (status === "passed") {
 		const hasWarning = warningItBlocks.size > 0 && [...warningItBlocks].some((w) => caseName.includes(w));
 		return { mark: hasWarning ? "[~]" : "[x]", suffix: "" };
@@ -371,7 +371,7 @@ function caseMarkAndSuffix(status: string, caseName: string, warningItBlocks: Se
 	return { mark: suiteHookFailed ? "[ ]" : "[-]", suffix: "" };
 }
 
-function collectWarningItBlocks(journeyReportNames: Array<{ title: string; data: Record<string, unknown> }>): Set<string> {
+export function collectWarningItBlocks(journeyReportNames: Array<{ title: string; data: Record<string, unknown> }>): Set<string> {
 	const warningItBlocks = new Set<string>();
 	for (const { data } of journeyReportNames) {
 		for (const sr of ((data.steps as StepResult[]) ?? [])) {
@@ -430,7 +430,7 @@ function renderTestSuitesSection(
 
 // ── Journeys Summary ────────────────────────────────────────────
 
-function resolveJourneyStatus(data: Record<string, unknown>): { status: string; suffix: string; stepsSummary: string } {
+export function resolveJourneyStatus(data: Record<string, unknown>): { status: string; suffix: string; stepsSummary: string } {
 	const jSkipped = (data.skipped as number) ?? 0;
 	const jDevStopped = (data.devStopped as boolean) === true;
 	const jPassed = (data.passed as number) ?? 0;
@@ -485,7 +485,7 @@ export function computeReconciledTotals(vitest: VitestResults | null, journeys: 
 	return { ...counts, overallStatus, totalDurationMs: vitest?.durationMs ?? 0 };
 }
 
-function collectFailedSteps(journeyReportNames: Array<{ title: string; data: Record<string, unknown> }>): Array<{ journeyTitle: string; stepResult: StepResult }> {
+export function collectFailedSteps(journeyReportNames: Array<{ title: string; data: Record<string, unknown> }>): Array<{ journeyTitle: string; stepResult: StepResult }> {
 	const failedSteps: Array<{ journeyTitle: string; stepResult: StepResult }> = [];
 	for (const { title, data } of journeyReportNames) {
 		for (const sr of ((data.steps as StepResult[]) ?? [])) {

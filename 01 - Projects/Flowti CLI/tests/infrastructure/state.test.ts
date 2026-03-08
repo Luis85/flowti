@@ -2,13 +2,15 @@ import { describe, it, expect, vi } from "vitest";
 import { createMockFs } from "../mocks/mock-fs.js";
 
 vi.mock("../../src/infrastructure/config.js", () => ({
-	CLI_PROJECT: "/mock/cli-project",
+	VAULT_ROOT: "/mock/vault",
+	CLI_PROJECT: "/mock/vault/01 - Projects/Flowti CLI",
 }));
 
 import { loadState, saveState } from "../../src/infrastructure/state.js";
 
-// State path is: CLI_PROJECT + "/configs/.flowti-state.json"
-const STATE_PATH = "/mock/cli-project/configs/.flowti-state.json";
+// State path is: VAULT_ROOT + "/.flowti/var/state.json"
+const STATE_DIR = "/mock/vault/.flowti/var";
+const STATE_PATH = "/mock/vault/.flowti/var/state.json";
 
 describe("loadState", () => {
 	it("returns parsed state from file", () => {

@@ -14,7 +14,7 @@ import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
 import { clock } from "../../../infrastructure/clock.js";
 
-interface ToolParam {
+export interface ToolParam {
 	name: string;
 	type: string;
 	required: boolean;
@@ -22,12 +22,12 @@ interface ToolParam {
 	values?: string[];
 }
 
-interface ToolExample {
+export interface ToolExample {
 	title: string;
 	action: Record<string, unknown>;
 }
 
-interface ToolMeta {
+export interface ToolMeta {
 	name: string;
 	description: string;
 	tags: string[];
@@ -43,7 +43,7 @@ const OUTPUT_DIR: string = paths.join(PLUGIN_ROOT, "docs", "reference");
  * Extract a balanced brace block starting at `pos` (which must be `{`).
  * Returns the content between `{` and `}` (inclusive), or null.
  */
-function extractBlock(source: string, pos: number): string | null {
+export function extractBlock(source: string, pos: number): string | null {
 	if (source[pos] !== "{") return null;
 	let depth: number = 0;
 	for (let i = pos; i < source.length; i++) {
@@ -58,7 +58,7 @@ function extractBlock(source: string, pos: number): string | null {
  * Extract a balanced bracket block starting at `pos` (which must be `[`).
  * Returns the content between `[` and `]` (inclusive), or null.
  */
-function extractBracketBlock(source: string, pos: number): string | null {
+export function extractBracketBlock(source: string, pos: number): string | null {
 	if (source[pos] !== "[") return null;
 	let depth: number = 0;
 	for (let i = pos; i < source.length; i++) {
@@ -73,7 +73,7 @@ function extractBracketBlock(source: string, pos: number): string | null {
  * Extract a string field value: `fieldName: "value"`.
  * Handles escaped quotes inside the string (e.g. `"default: \"dom\""`).
  */
-function extractStringField(block: string, fieldName: string): string | null {
+export function extractStringField(block: string, fieldName: string): string | null {
 	const regex = new RegExp(`${fieldName}:\\s*"((?:[^"\\\\]|\\\\.)*)"`, "s");
 	const m = block.match(regex);
 	if (!m) return null;
@@ -84,7 +84,7 @@ function extractStringField(block: string, fieldName: string): string | null {
 /**
  * Extract a string array field: `fieldName: ["a", "b", ...]`.
  */
-function extractStringArrayField(block: string, fieldName: string): string[] {
+export function extractStringArrayField(block: string, fieldName: string): string[] {
 	const regex = new RegExp(`${fieldName}:\\s*\\[`, "s");
 	const m = regex.exec(block);
 	if (!m) return [];
@@ -186,7 +186,7 @@ function extractParams(block: string): ToolParam[] {
  * Note: TS source uses double-quoted strings; single quotes inside string
  * values (e.g. CSS selectors) are valid JSON and must NOT be replaced.
  */
-function tsObjectToJson(tsBlock: string): string {
+export function tsObjectToJson(tsBlock: string): string {
 	let json: string = tsBlock;
 	// Quote unquoted keys: `key:` → `"key":`
 	json = json.replace(/(\{|,)\s*(\w+)\s*:/g, '$1 "$2":');

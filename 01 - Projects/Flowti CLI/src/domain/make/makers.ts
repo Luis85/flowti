@@ -1,7 +1,7 @@
 /**
  * makers.ts — Interactive scaffolding functions for the Make menu.
  *
- * Each maker prompts the user for input, then writes the scaffolded files.
+ * Each maker prompts the user for input, builds a pure plan, then writes files.
  */
 
 import { paths as nodePaths } from "../../infrastructure/paths.js";
@@ -14,22 +14,18 @@ import { toKebab, toPascal, getMakePaths } from "./naming.js";
 import { readProjectConfig } from "../project/project-config.js";
 import { createFileWriter } from "./templates/file-writer.js";
 import {
-	manifestTemplate, packageTemplate, tsconfigTemplate,
-	esbuildTemplate, vitestTemplate, gitignoreTemplate,
-} from "./templates/config.js";
-import {
-	hubViewTemplate, hubTypesTemplate, hubEventsTemplate, hubServiceTemplate,
-	hubProviderTemplate, hubTestTemplate, hubCssTemplate, hubPrdTemplate,
-	hubJourneyTemplate,
-} from "./templates/hub.js";
-import { pluginMainTemplate } from "./templates/plugin.js";
-import {
-	appMainTemplate, appEventBusTemplate, appEventTypesTemplate, appEventsTemplate,
-	appErrorTypesTemplate, appCssTemplate, appObsidianStubTemplate,
-	appEventBusTestTemplate,
-} from "./templates/app.js";
-import { cliMainTemplate, cliMainTestTemplate } from "./templates/cli.js";
-import { journeyDefinitionTemplate, journeyTestTemplate, journeyCanvasTemplate } from "./templates/journey.js";
+	buildHubPlan, buildPluginPlan, buildAppPlan, buildCliAppPlan, buildJourneyPlan,
+	computeNextCssNumber,
+} from "./plans.js";
+import type { FileEntry } from "./plans.js";
+
+// ── Shared helpers ──────────────────────────────────────────────────
+
+function writePlan(basePath: string, files: FileEntry[]): number {
+	const writer = createFileWriter(basePath);
+	for (const f of files) writer.write(f.path, f.content);
+	return writer.created;
+}
 
 // ── Hub scaffolding ─────────────────────────────────────────────────
 
@@ -72,28 +68,14 @@ export async function makeHub(projectRoot: string): Promise<void> {
 	if (proceed.toLowerCase() === "n") return;
 
 	log();
-	const { write: w, created } = createFileWriter(projectRoot);
-
-	w(`${paths.ui}/${kebab}/${pascal}HubView.ts`, hubViewTemplate(pascal, kebab, hubType, icon, tabs));
-	w(`${paths.ui}/${kebab}/types.ts`, hubTypesTemplate(pascal, tabs));
-	w(`${paths.domain}/${kebab}/events.ts`, hubEventsTemplate(pascal));
-	w(`${paths.domain}/${kebab}/${pascal}Service.ts`, hubServiceTemplate(pascal));
-	w(`${paths.hubDomain}/${pascal}HubProvider.ts`, hubProviderTemplate(pascal, kebab, icon));
-	w(`${paths.tests}/${kebab}/${pascal}HubView.test.ts`, hubTestTemplate(pascal, kebab));
-
 	const cssDir = nodePaths.join(projectRoot, paths.css);
 	const cssFiles = disk.existsSync(cssDir)
 		? disk.readdirSync(cssDir).filter((f) => f.endsWith(".css")).sort()
 		: [];
-	const maxNum = cssFiles.reduce((max, f) => {
-		const m = f.match(/^(\d+)/);
-		return m ? Math.max(max, parseInt(m[1], 10)) : max;
-	}, 0);
-	const cssNum = String(maxNum + 1).padStart(2, "0");
-	w(`${paths.css}/${cssNum}-${kebab}.css`, hubCssTemplate(pascal, kebab));
+	const cssNum = computeNextCssNumber(cssFiles);
 
-	w(`${paths.docs}/${pascal}/${pascal} Hub.md`, hubPrdTemplate(pascal));
-	w(`${paths.journeys}/${kebab}.journey.json`, hubJourneyTemplate(pascal, kebab));
+	const files = buildHubPlan({ pascal, kebab, hubType, icon, tabs, paths, cssNum });
+	const created = writePlan(projectRoot, files);
 
 	log(`\n  ${GREEN}✓${RESET} Created ${created} files for ${pascal} Hub.\n`);
 
@@ -142,19 +124,8 @@ export async function makePlugin(projectRoot: string): Promise<void> {
 	if (proceed.toLowerCase() === "n") return;
 
 	log();
-	const { write: w, created } = createFileWriter(pluginRoot);
-
-	w("manifest.json", manifestTemplate({ id: pluginId, name, author }));
-	w("package.json", packageTemplate("plugin", name, pluginId));
-	w("tsconfig.json", tsconfigTemplate("plugin"));
-	w("esbuild.config.mjs", esbuildTemplate(pluginId));
-	w(".gitignore", gitignoreTemplate("plugin"));
-	w("src/main.ts", pluginMainTemplate(name));
-	w("css/00-base.css", `/* ── Base styles for ${name} ── */\n`);
-	w("src/infrastructure/events/.gitkeep", "");
-	w("src/domain/.gitkeep", "");
-	w("src/ui/.gitkeep", "");
-	w("tests/.gitkeep", "");
+	const files = buildPluginPlan({ name, pluginId, author });
+	const created = writePlan(pluginRoot, files);
 
 	log(`\n  ${GREEN}✓${RESET} Created ${created} files for ${name}.\n`);
 
@@ -190,20 +161,6 @@ export async function makeApp(projectRoot: string): Promise<void> {
 	log(`  ${DIM}Output: ${appRoot}${RESET}`);
 	log();
 
-	const tree = [
-		"css/00-base.css", "src/main.ts", "src/infrastructure/events/EventBus.ts",
-		"src/infrastructure/events/types.ts", "src/infrastructure/events/events.ts",
-		"src/infrastructure/errors/types.ts", "src/infrastructure/services/.gitkeep",
-		"src/domain/.gitkeep", "src/ui/.gitkeep", "tests/mocks/obsidian-stub.ts",
-		"tests/infrastructure/EventBus.test.ts", "manifest.json", "package.json",
-		"tsconfig.json", "esbuild.config.mjs", "vitest.config.ts", ".gitignore",
-	];
-	log(`  ${DIM}File tree:${RESET}`);
-	for (const f of tree) {
-		log(`    ${DIM}${f}${RESET}`);
-	}
-	log();
-
 	if (disk.existsSync(appRoot)) {
 		log(`  ${RED}Folder already exists: ${appRoot}${RESET}\n`);
 		return;
@@ -213,25 +170,8 @@ export async function makeApp(projectRoot: string): Promise<void> {
 	if (proceed.toLowerCase() === "n") return;
 
 	log();
-	const { write: w, created } = createFileWriter(appRoot);
-
-	w("manifest.json", manifestTemplate({ id: appId, name, author }));
-	w("package.json", packageTemplate("app", name, appId));
-	w("tsconfig.json", tsconfigTemplate("app"));
-	w("esbuild.config.mjs", esbuildTemplate(appId));
-	w("vitest.config.ts", vitestTemplate("app"));
-	w(".gitignore", gitignoreTemplate("app"));
-	w("css/00-base.css", appCssTemplate(name));
-	w("src/main.ts", appMainTemplate(name, pascal));
-	w("src/infrastructure/events/EventBus.ts", appEventBusTemplate());
-	w("src/infrastructure/events/types.ts", appEventTypesTemplate());
-	w("src/infrastructure/events/events.ts", appEventsTemplate());
-	w("src/infrastructure/errors/types.ts", appErrorTypesTemplate());
-	w("src/infrastructure/services/.gitkeep", "");
-	w("src/domain/.gitkeep", "");
-	w("src/ui/.gitkeep", "");
-	w("tests/mocks/obsidian-stub.ts", appObsidianStubTemplate());
-	w("tests/infrastructure/EventBus.test.ts", appEventBusTestTemplate());
+	const files = buildAppPlan({ name, appId, author, pascal });
+	const created = writePlan(appRoot, files);
 
 	log(`\n  ${GREEN}✓${RESET} Created ${created} files for ${name}.\n`);
 
@@ -275,14 +215,8 @@ export async function makeCliApp(projectRoot: string): Promise<void> {
 	if (proceed.toLowerCase() === "n") return;
 
 	log();
-	const { write: w, created } = createFileWriter(cliRoot);
-
-	w("package.json", packageTemplate("cli", name, appId));
-	w("tsconfig.json", tsconfigTemplate("cli"));
-	w("vitest.config.ts", vitestTemplate("cli"));
-	w(".gitignore", gitignoreTemplate("cli"));
-	w("src/main.ts", cliMainTemplate(name));
-	w("tests/main.test.ts", cliMainTestTemplate(name));
+	const files = buildCliAppPlan({ name, appId });
+	const created = writePlan(cliRoot, files);
 
 	log(`\n  ${GREEN}✓${RESET} Created ${created} files for ${name}.\n`);
 
@@ -329,19 +263,12 @@ export async function makeJourney(projectRoot: string): Promise<void> {
 	if (proceed.toLowerCase() === "n") return;
 
 	log();
-	const { write: w, created } = createFileWriter(projectRoot);
-
-	// Journey definition
-	w(nodePaths.join(journeysDir, `${slug}.journey`), journeyDefinitionTemplate(name, slug, description));
-
-	// Test file (vitest entry point)
 	const testDir = nodePaths.dirname(journeysDir);
 	const testFileNumber = getNextTestFileNumber(nodePaths.resolve(projectRoot, testDir));
-	w(nodePaths.join(testDir, `${testFileNumber}-journey-${slug}.test.ts`), journeyTestTemplate(slug));
-
-	// Vault documentation: journey canvas + config placeholder
 	const docsDir = nodePaths.join("docs", "journeys", name);
-	w(nodePaths.join(docsDir, `${name}.canvas`), journeyCanvasTemplate(name));
+
+	const files = buildJourneyPlan({ name, slug, description, journeysDir, testDir, testFileNumber, docsDir });
+	const created = writePlan(projectRoot, files);
 
 	log(`\n  ${GREEN}✓${RESET} Created ${created} files for journey "${name}".\n`);
 

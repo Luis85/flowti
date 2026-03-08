@@ -11,4 +11,4 @@ export {
 	type ManifestOptions, type ProjectKind,
 } from "./templates/config.js";
 
-export { createFileWriter, type WriteResult } from "./templates/file-writer.js";
+export { createFileWriter, type FileWriter } from "./templates/file-writer.js";

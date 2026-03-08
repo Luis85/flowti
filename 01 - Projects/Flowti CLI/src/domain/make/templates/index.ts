@@ -8,7 +8,7 @@ export {
 	type ManifestOptions, type ProjectKind,
 } from "./config.js";
 
-export { createFileWriter, type WriteResult } from "./file-writer.js";
+export { createFileWriter, type FileWriter } from "./file-writer.js";
 
 export {
 	hubViewTemplate, hubTypesTemplate, hubEventsTemplate, hubServiceTemplate,

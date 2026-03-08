@@ -16,6 +16,7 @@ import { runMenu } from "../../infrastructure/menu.js";
 import { input } from "../../infrastructure/input.js";
 import type { MenuEntry, MenuResult, ReviewConfig } from "../../infrastructure/types.js";
 import { log } from "../../infrastructure/logger.js";
+import { resolveTestVaultRoot, scaffoldTestVault } from "../../infrastructure/test-vault.js";
 
 // ── Journey scanning ────────────────────────────────────────────────
 
@@ -49,15 +50,17 @@ function scanJourneys(projectPath: string, journeysDir: string): JourneyFile[] {
 // ── Test vault management ───────────────────────────────────────────
 
 function resolveTestVault(projectPath: string, config: ReviewConfig): string {
-	const baseDir = paths.resolve(VAULT_ROOT, "..");
-	if (config.testVault) return paths.resolve(baseDir, config.testVault);
+	if (config.testVault) {
+		return resolveTestVaultRoot(config.testVault, VAULT_ROOT);
+	}
 	const projectName = paths.basename(projectPath);
-	return paths.resolve(baseDir, `${projectName}-e2e`);
+	return resolveTestVaultRoot(`${projectName}-e2e`, VAULT_ROOT);
 }
 
 function ensureTestVault(vaultPath: string): boolean {
 	if (disk.existsSync(vaultPath)) return true;
-	disk.mkdirSync(vaultPath, { recursive: true });
+	const sourceBinDir = paths.join(VAULT_ROOT, ".flowti", "bin");
+	scaffoldTestVault(vaultPath, { name: paths.basename(vaultPath), sourceBinDir }, disk);
 	log(`  ${GREEN}Created test vault:${RESET} ${vaultPath}\n`);
 	return true;
 }

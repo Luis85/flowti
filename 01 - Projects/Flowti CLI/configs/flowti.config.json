@@ -23,5 +23,21 @@
 			{ "label": "Codebase (TypeDoc)", "command": "npm run docs" },
 			{ "label": "CLI Reference", "command": "npx tsx src/domain/reports/generators/cli-reference.ts" }
 		]
+	},
+	"publish": {
+		"build": "npm run build",
+		"test": "npm test",
+		"outDir": "../..",
+		"artifacts": [
+			"flowti.cmd",
+			".flowti/config.json",
+			".flowti/bin/index.js",
+			".flowti/bin/main.js",
+			".flowti/bin/main.js.map",
+			".flowti/bin/package.json"
+		],
+		"endpoints": [
+			{ "name": "Distribute", "path": "C:/Projects/distribute", "clean": true }
+		]
 	}
 }

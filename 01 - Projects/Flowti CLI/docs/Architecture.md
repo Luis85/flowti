@@ -2,9 +2,9 @@
 type: Architecture
 domain: CLI
 title: Flowti CLI — Project-Centric Architecture
-version: 2
+version: 3
 created: 2026-03-07
-updated: 2026-03-07
+updated: 2026-03-08
 ---
 
 # Flowti CLI — Project-Centric Architecture
@@ -51,7 +51,7 @@ The CLI runs two nested loops:
 Start Menu Loop
   │
   ├── List projects (from PROJECTS_DIR or DEVELOPMENT_DIR)
-  ├── User selects a project → persisted in .flowti-state.json
+  ├── User selects a project → persisted in .flowti/var/state.json
   │
   └── Project Detail Loop
         │
@@ -119,16 +119,31 @@ Project paths are resolved dynamically based on the selected project's source:
 - `"projects"` → `PROJECTS_DIR/<name>`
 - `"development"` → `DEVELOPMENT_DIR/<name>`
 
+## Invocation Chain
+
+```
+flowti.cmd → node .flowti/bin → .flowti/bin/index.js (bootstrap) → .flowti/bin/main.js (CLI)
+```
+
+1. **`flowti.cmd`** — Windows launcher: `node "%~dp0.flowti\bin" %*`
+2. **`node .flowti/bin`** — Node resolves to `index.js` via `package.json` `{"type":"module"}`
+3. **`index.js`** (bootstrap) — derives vault root, reads `.flowti/config.json`, installs deps if missing, builds if missing, then runs `main.js`
+4. **`main.js`** (CLI) — esbuild bundle, two-loop interactive menu or non-interactive dispatch
+
+Source: `src/boot/bootstrap.mjs` → deployed as `.flowti/bin/index.js` during build.
+
 ## Test Vault Isolation
 
-The Review tool creates test vaults **outside the git repository** to prevent test artifacts from polluting the vault:
+The Review tool creates test vaults **outside the git repository** to prevent test artifacts from polluting the vault. When scaffolding a test vault, the current CLI build is copied into `.flowti/bin/` so `node .flowti/bin` works in the test vault.
 
 ```
 c:\Projects\
 ├── flowti\                    ← Obsidian vault (git repo)
+│   ├── .flowti/bin/           ← CLI build (index.js, main.js, package.json)
 │   └── 01 - Projects\
-│       └── Flowti CLI\        ← project
+│       └── Flowti CLI\        ← project source
 ├── Flowti CLI-e2e\            ← test vault (auto-created, outside git)
+│   └── .flowti/bin/           ← copied CLI build
 └── flowti-e2e\                ← test vault for plugin project
 ```
 
@@ -137,13 +152,21 @@ c:\Projects\
 | Module | Purpose |
 |--------|---------|
 | `config.ts` | Path resolution, CLI config loading, JSON helpers |
+| `dispatch.ts` | Pure command dispatch logic (non-interactive → command handler) |
 | `menu.ts` | Generic data-driven menu loop with disabled items, separators, beforeMenu hooks |
 | `shell.ts` | `run()`, `runIn()`, `runSilent()` — shell execution with timing and status |
-| `state.ts` | Persistent state (`selectedProject`, `projectSource`) via `.flowti-state.json` |
+| `state.ts` | Persistent state (`selectedProject`, `projectSource`) via `.flowti/var/state.json` |
 | `document.ts` | Fluent markdown builder (YAML frontmatter, tables, callouts, code blocks) |
 | `ui.ts` | ANSI color constants, `printHeader()`, `printMenu()` |
-| `readline.ts` | `createRL()`, `ask()` — interactive input |
+| `input.ts` | `createRL()`, `ask()` — interactive input |
 | `fs.ts` | `parseFrontmatter()`, `writeFileAt()`, `countFiles()` |
+| `filesystem.ts` | `IFileSystem` abstraction for testability |
+| `paths.ts` | Path utilities (resolve, join, dirname, basename) |
+| `proc.ts` | Process abstraction (exit, argv, cwd, env) |
+| `clock.ts` | Clock abstraction (ISO timestamps) |
+| `logger.ts` | Logging abstraction |
+| `test-vault.ts` | Test vault scaffold/teardown (outside git, copies CLI build via `sourceBinDir`) |
+| `types.ts` | Infrastructure type definitions |
 
 ## Design Principles
 
@@ -151,5 +174,6 @@ c:\Projects\
 2. **Config-Driven** — Tool availability and behavior determined by per-project `flowti.config.json`.
 3. **Auto-Scaffolding** — Projects get a working config on first selection, inferred from `package.json`.
 4. **Gated Pipelines** — Publish and Review enforce build → test → action sequencing with visual state.
-5. **Test Vault Isolation** — E2E test vaults are created outside the git repository.
+5. **Test Vault Isolation** — E2E test vaults are created outside the git repository, with CLI build copied in.
 6. **TypeScript + Vitest** — Strict TypeScript, Vitest for testing, tsx for development.
+7. **Testable Infrastructure** — All I/O behind abstractions (`IFileSystem`, `paths`, `proc`, `clock`) for unit testing.

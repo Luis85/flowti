@@ -46,12 +46,12 @@ The Flowti CLI will verify these automatically and guide you if anything is miss
 ### Step 1 - Clone and start the CLI
 
 ```bash
-git clone [<repo-url>](https://github.com/Luis85/flowti.git)
+git clone https://github.com/Luis85/flowti.git
 cd flowti
 .\flowti.cmd
 ```
 
-The CLI checks your environment (Git, Node.js) and installs dependencies automatically on first run. If the plugin hasn't been built yet, it will tell you.
+On first run, the bootstrap (`node .flowti/bin`) checks your environment (Git, Node.js), installs dependencies automatically, and builds the CLI if needed. No manual `npm install` required.
 
 ### Step 2 - Build the plugin
 

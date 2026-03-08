@@ -44,10 +44,11 @@ import { buildProjectDetailMenu } from "./domain/mainMenu.js";
 
 // ── Command registry ────────────────────────────────────────────────
 
-import type { CommandHandler, ProjectContext } from "./infrastructure/types.js";
+import type { ProjectContext } from "./infrastructure/types.js";
 import { log, error } from "./infrastructure/logger.js";
+import { resolveCommand } from "./infrastructure/dispatch.js";
 
-const allCommands: Record<string, CommandHandler> = {
+const allCommands = {
 	...helpCmds,
 	...infoCmds,
 	...buildCmds,
@@ -76,49 +77,29 @@ async function handleCliArgs(): Promise<boolean> {
 	if (!rawArgs.length) return false;
 
 	const { command, flags } = parseArgs(rawArgs);
-
-	// Help is special — may have a sub-section as positional arg
-	if (command === "help") {
-		showHelp(Object.keys(flags)[0] ?? rawArgs[1] ?? "main");
-		return true;
-	}
-
-	// Resolve project context for project-scoped commands
 	const project = resolveProjectContext(flags);
 
-	// Direct command match
-	if (command) {
-		const handler = allCommands[command];
-		if (handler) {
-			if (!project && !PROJECT_FREE.has(command)) {
-				log(`\n  ${RED}No project selected.${RESET}`);
-				log(`  ${DIM}Select a project first: npm run flowti -- project${RESET}`);
-				log(`  ${DIM}Or specify one:          npm run flowti -- ${command} --project=<name>${RESET}\n`);
-				return true;
-			}
-			await handler(flags, rawArgs, command, project ?? undefined);
-			return true;
-		}
-	}
+	const result = resolveCommand(command, flags, rawArgs, allCommands, PROJECT_FREE, reportsCmds["report:*"], project);
 
-	// Wildcard report commands (report:test, report:coverage, etc.)
-	if (command?.startsWith("report:")) {
-		const reportHandler = reportsCmds["report:*"];
-		if (reportHandler) {
-			if (!project) {
-				log(`\n  ${RED}No project selected.${RESET}`);
-				log(`  ${DIM}Select a project first or use --project=<name>${RESET}\n`);
-				return true;
-			}
-			await reportHandler(flags, rawArgs, command, project);
+	switch (result.action) {
+		case "help":
+			showHelp(result.section);
 			return true;
-		}
+		case "run":
+			await result.handler(flags, rawArgs, result.command, result.project);
+			return true;
+		case "no-project":
+			log(`\n  ${RED}No project selected.${RESET}`);
+			log(`  ${DIM}Select a project first: npm run flowti -- project${RESET}`);
+			log(`  ${DIM}Or specify one:          npm run flowti -- ${result.command} --project=<name>${RESET}\n`);
+			return true;
+		case "unknown":
+			log(`\n  ${YELLOW}Unknown command: ${result.command}${RESET}`);
+			log(`  ${DIM}Run "npm run flowti -- help" for available commands.${RESET}\n`);
+			return true;
+		case "none":
+			return false;
 	}
-
-	// Unknown command
-	log(`\n  ${YELLOW}Unknown command: ${command}${RESET}`);
-	log(`  ${DIM}Run "npm run flowti -- help" for available commands.${RESET}\n`);
-	return true;
 }
 
 // ── Project detail menu (inner loop) ────────────────────────────────

@@ -7,11 +7,11 @@ The Flowti CLI is a **project-centric development orchestrator** for the Flowti 
 From the vault root (`c:\Projects\flowti`):
 
 ```bash
-# Windows
-./flowti.cmd
+# Windows — invokes node .flowti/bin (bootstrap → build → run)
+.\flowti.cmd
 ```
 
-Or from the CLI project directly:
+Or from any project that has the flowti script configured:
 
 ```bash
 npm run flowti
@@ -32,21 +32,47 @@ Projects are discovered from two directories:
 
 See [Architecture.md](docs/Architecture.md) for the full design document.
 
+### Invocation Chain
+
+```
+flowti.cmd → node .flowti/bin → .flowti/bin/index.js (bootstrap) → .flowti/bin/main.js (CLI)
+```
+
+The bootstrap (`src/boot/bootstrap.mjs`, deployed as `.flowti/bin/index.js`) handles the full lifecycle:
+1. Derives vault root from its own location (`.flowti/bin/` → `../../`)
+2. Reads `.flowti/config.json` to locate the CLI source project
+3. Installs dependencies (`npm ci`) if `node_modules` is missing
+4. Builds the CLI (`npm run build`) if `.flowti/bin/main.js` is missing
+5. Runs the compiled CLI, forwarding all arguments
+
+### Vault Layout
+
+```
+<vault-root>/
+├── .flowti/
+│   ├── config.json          # Vault-level config (source project path)
+│   ├── var/state.json       # Persistent state (selected project)
+│   └── bin/
+│       ├── index.js         # Bootstrap (deployed from src/boot/bootstrap.mjs)
+│       ├── main.js          # Compiled CLI (esbuild bundle)
+│       ├── main.js.map      # Source map
+│       └── package.json     # { "type": "module" }
+├── flowti.cmd               # Windows launcher
+├── 01 - Projects/           # Projects directory
+└── Development/             # Development projects
+```
+
 ## Project Structure
 
 ```
 01 - Projects/Flowti CLI/
 ├── src/
 │   ├── main.ts                     # Entry point (two-loop: start → project detail)
-│   ├── types.ts                    # Shared type definitions
+│   ├── boot/
+│   │   └── bootstrap.mjs           # Frictionless launcher (deployed as .flowti/bin/index.js)
 │   ├── domain/
 │   │   ├── mainMenu.ts             # Project detail menu builder
-│   │   ├── make/                   # Scaffolding (hub, plugin, app)
-│   │   │   ├── make.ts             # Interactive + non-interactive scaffold commands
-│   │   │   ├── template-service.ts # Centralized template generation (manifest, package, tsconfig, ...)
-│   │   │   ├── templates.ts        # Plugin-specific templates (main.ts, CSS)
-│   │   │   ├── appTemplates.ts     # App-specific templates (main.ts, CSS, EventBus)
-│   │   │   └── naming.ts           # Naming conventions (kebab, pascal, camel)
+│   │   ├── make/                   # Scaffolding (hub, plugin, app, journey)
 │   │   ├── publish/                # Gated publish pipeline (build → test → distribute)
 │   │   ├── review/                 # E2E journey review (test vault, runner)
 │   │   ├── project/                # Project config detection and scaffolding
@@ -54,29 +80,33 @@ See [Architecture.md](docs/Architecture.md) for the full design document.
 │   │   ├── help/                   # Man-page system (9 sections)
 │   │   ├── capture/                # Idea and note capture
 │   │   ├── knowledgebase/          # Obsidian vault browser and search
+│   │   ├── e2e/                    # E2E test session management
 │   │   ├── reports/                # Report pipeline (summary, build, cli-reference, ...)
-│   │   │   ├── cli/                # Summary report (analyzers, renderers, loaders, formatters)
-│   │   │   └── generators/         # Individual generators (codebase, complexity, data-dictionary, ...)
 │   │   ├── build/                  # Build command wrapper
+│   │   ├── onboarding/             # Prerequisites checks (git, node)
 │   │   └── devtools/               # Developer tools (reload, frontmatter fix, test data)
 │   └── infrastructure/
 │       ├── config.ts               # Path resolution and config loading
+│       ├── dispatch.ts             # Pure command dispatch logic
+│       ├── test-vault.ts           # Test vault lifecycle (scaffold, teardown)
 │       ├── menu.ts                 # Data-driven menu engine
 │       ├── shell.ts                # Shell execution wrappers
-│       ├── state.ts                # Persistent CLI state
+│       ├── state.ts                # Persistent CLI state (.flowti/var/state.json)
 │       ├── document.ts             # Markdown document builder (YAML FM, tables, callouts)
 │       ├── ui.ts                   # ANSI color output and menu rendering
 │       ├── input.ts                # Interactive input
+│       ├── proc.ts                 # Process abstraction (exit, argv, cwd, env)
 │       ├── clock.ts                # Clock abstraction (ISO timestamps)
 │       ├── logger.ts               # Logging abstraction
-│       ├── filesystem.ts           # File system abstraction (disk)
+│       ├── filesystem.ts           # File system abstraction (IFileSystem)
 │       ├── paths.ts                # Path utilities
 │       ├── fs.ts                   # Frontmatter parser and file helpers
 │       └── types.ts                # Infrastructure type definitions
-├── tests/                          # Vitest test suites (758 tests, 235 suites)
+├── tests/                          # Vitest test suites (1045 tests, 61 suites)
 ├── configs/
 │   ├── flowti-cli.config.json      # CLI kernel config (subsystem mappings)
-│   ├── flowti.config.json          # CLI's own project config
+│   ├── flowti.config.json          # CLI's own project config (tools, publish, reports)
+│   ├── esbuild.config.mjs          # Build: bundles to .flowti/bin/main.js + deploys bootstrap
 │   ├── tsconfig.json               # TypeScript configuration
 │   ├── vitest.config.ts            # Vitest configuration
 │   ├── eslint.config.mjs           # ESLint configuration
@@ -158,7 +188,7 @@ When a project is selected for the first time, the CLI auto-scaffolds this confi
 | Script | Description |
 |--------|-------------|
 | `dev` | Run CLI in development mode via tsx |
-| `build` | Compile TypeScript to `bin/` |
+| `build` | Bundle to `.flowti/bin/main.js` + deploy bootstrap as `index.js` |
 | `test` | Type-check + lint + vitest |
 | `check` | Type-check only (tsc --noEmit) |
 | `lint` | ESLint source |

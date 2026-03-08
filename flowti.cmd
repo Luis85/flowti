@@ -1,2 +1,2 @@
 @echo off
-node "%~dp0bootstrap.mjs" %*
+node "%~dp0.flowti\bin" %*

@@ -14,14 +14,14 @@ import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
 import { clock } from "../../../infrastructure/clock.js";
 
-interface EntityField {
+export interface EntityField {
 	name: string;
 	type: string;
 	required: boolean;
 	description: string;
 }
 
-interface EntityType {
+export interface EntityType {
 	typeName: string;
 	group: string;
 	tab: string;
@@ -35,7 +35,7 @@ interface EntityType {
 const REGISTRY_PATH: string = paths.join(PLUGIN_ROOT, "src", "domain", "docs", "entityTypeRegistry.ts");
 const OUTPUT_DIR: string = paths.join(PLUGIN_ROOT, "docs", "reference");
 
-function findMatchingBrace(source: string, openPos: number): number {
+export function findMatchingBrace(source: string, openPos: number): number {
 	let depth = 0;
 	for (let i = openPos; i < source.length; i++) {
 		if (source[i] === "{") depth++;
@@ -51,7 +51,7 @@ function findMatchingBrace(source: string, openPos: number): number {
  * Extract ENTITY_TYPE_REGISTRY entries from TypeScript source.
  * Each entry is a multi-line object in the array.
  */
-function extractEntityTypes(source: string): EntityType[] {
+export function extractEntityTypes(source: string): EntityType[] {
 	const entries: EntityType[] = [];
 
 	// Find the ENTITY_TYPE_REGISTRY array
@@ -83,7 +83,7 @@ function extractEntityTypes(source: string): EntityType[] {
 	return entries;
 }
 
-function parseEntityBlock(block: string): EntityType | null {
+export function parseEntityBlock(block: string): EntityType | null {
 	const get = (key: string): string => {
 		const m: RegExpMatchArray | null = block.match(new RegExp(`${key}:\\s*"([^"]*?)"`));
 		return m ? m[1] : "";
@@ -128,7 +128,7 @@ const GROUP_LABELS: Record<string, string> = {
 	special: "Special",
 };
 
-function groupLabel(group: string): string {
+export function groupLabel(group: string): string {
 	return GROUP_LABELS[group] || group.charAt(0).toUpperCase() + group.slice(1);
 }
 

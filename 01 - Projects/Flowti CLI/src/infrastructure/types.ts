@@ -225,22 +225,36 @@ export interface ProjectConfig {
 
 // ── CLI configuration ───────────────────────────────────────────────
 
+// ── CLI configuration ───────────────────────────────────────────
+
+export interface SubsystemPluginConfig {
+	root?: string;
+	config?: string;
+	manifest?: string;
+	package?: string;
+	scripts?: string;
+}
+
+export interface OnboardingConfig {
+	nodeMinVersion?: number;
+	pluginId?: string;
+}
+
+export interface TestingConfig {
+	/** Name of the test vault directory (created as sibling to vault root). */
+	vault?: string;
+}
+
 export interface FlowtiCliConfig {
 	version?: string;
+	/** Relative path from vault root to CLI source project. */
+	source?: string;
 	defaultAuthor?: string;
 	projectsFolder?: string;
 	subsystems?: {
-		plugin?: {
-			root?: string;
-			config?: string;
-			manifest?: string;
-			package?: string;
-			scripts?: string;
-		};
+		plugin?: SubsystemPluginConfig;
 	};
 	capture?: Record<string, string>;
-	onboarding?: {
-		nodeMinVersion?: number;
-		pluginId?: string;
-	};
+	onboarding?: OnboardingConfig;
+	testing?: TestingConfig;
 }

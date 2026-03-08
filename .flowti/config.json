@@ -1,0 +1,25 @@
+{
+	"version": "1.0.0",
+	"source": "01 - Projects/Flowti CLI",
+	"projectsFolder": "01 - Projects",
+	"subsystems": {
+		"plugin": {
+			"root": "Development/flowti",
+			"config": "flowti.config.json",
+			"manifest": "manifest.json",
+			"package": "package.json",
+			"scripts": "scripts"
+		}
+	},
+	"capture": {
+		"idea": "00 - Connectivity/inbox",
+		"task": "00 - Connectivity/inbox",
+		"bug": "00 - Connectivity/inbox",
+		"note": "00 - Connectivity/inbox",
+		"documentation": "00 - Connectivity/inbox"
+	},
+	"onboarding": {
+		"nodeMinVersion": 16,
+		"pluginId": "flowti-ibde"
+	}
+}

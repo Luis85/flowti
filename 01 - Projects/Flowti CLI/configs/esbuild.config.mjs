@@ -1,5 +1,5 @@
 /**
- * esbuild.config.mjs — Bundles the Flowti CLI into a single main.js.
+ * esbuild.config.mjs — Bundles the Flowti CLI into .flowti/bin/main.js.
  *
  * Usage:
  *   node configs/esbuild.config.mjs           Build once
@@ -9,15 +9,21 @@
 import esbuild from "esbuild";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { mkdirSync, copyFileSync, writeFileSync } from "node:fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "..");
+const vaultRoot = path.resolve(projectRoot, "..", "..");
+const outDir = path.join(vaultRoot, ".flowti", "bin");
 const isWatch = process.argv.includes("--watch");
+
+// Ensure output directory exists
+mkdirSync(outDir, { recursive: true });
 
 const options = {
 	entryPoints: [path.join(projectRoot, "src/main.ts")],
 	bundle: true,
-	outfile: path.join(projectRoot, "bin/main.js"),
+	outfile: path.join(outDir, "main.js"),
 	platform: "node",
 	format: "esm",
 	target: "node22",
@@ -39,5 +45,15 @@ if (isWatch) {
 	console.log("  Watching for changes...");
 } else {
 	await esbuild.build(options);
-	console.log("  Built: bin/main.js");
+	// Deploy bootstrap as index.js + package.json so `node .flowti/bin` works
+	copyFileSync(
+		path.join(projectRoot, "src", "boot", "bootstrap.mjs"),
+		path.join(outDir, "index.js"),
+	);
+	writeFileSync(
+		path.join(outDir, "package.json"),
+		'{ "type": "module" }\n',
+	);
+	console.log(`  Built: .flowti/bin/main.js`);
+	console.log(`  Copied: .flowti/bin/index.js`);
 }
