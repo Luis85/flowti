@@ -25,13 +25,17 @@ interface TestStats {
 	success: boolean;
 }
 
+function num(json: Record<string, unknown>, key: string, fallback = 0): number {
+	return (json[key] as number) ?? fallback;
+}
+
 function extractTestStats(json: Record<string, unknown>): TestStats {
-	const passed = (json.numPassedTests as number) ?? 0;
-	const failed = (json.numFailedTests as number) ?? 0;
-	const skipped = (json.numPendingTests as number) ?? 0;
-	const total = (json.numTotalTests as number) ?? passed + failed + skipped;
+	const passed = num(json, "numPassedTests");
+	const failed = num(json, "numFailedTests");
+	const skipped = num(json, "numPendingTests");
+	const total = num(json, "numTotalTests", passed + failed + skipped);
 	const results = json.testResults as unknown[] | undefined;
-	const suites = results?.length ?? (json.numTotalTestSuites as number) ?? 0;
+	const suites = results?.length ?? num(json, "numTotalTestSuites");
 	const startTime = json.startTime as number | undefined;
 	const durationMs = startTime ? Math.max(0, clock.ms() - startTime) : 0;
 	return { passed, failed, skipped, total, suites, durationMs, success: (json.success as boolean) ?? failed === 0 };

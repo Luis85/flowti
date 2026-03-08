@@ -38,6 +38,7 @@ import {
 	renderImprovements,
 	renderWarnings,
 	renderDomainMetrics,
+	renderTopFilesByLoc,
 	renderDomainDetails,
 	renderMetricsDictionary,
 } from "./summary-renderers.js";
@@ -88,6 +89,7 @@ function buildSummaryReport(
 	renderImprovements(doc, findings);
 	renderWarnings(doc, lint, typedoc);
 	renderDomainMetrics(doc, detailed);
+	renderTopFilesByLoc(doc, detailed);
 	renderDomainDetails(doc, snapshots, json, detailed);
 	renderMetricsDictionary(doc);
 

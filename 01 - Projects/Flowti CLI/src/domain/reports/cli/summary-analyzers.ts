@@ -35,13 +35,19 @@ export function fmStr(snap: ReportSnapshot, key: string): string {
 
 // ── Per-report analyzers ─────────────────────────────────────────────
 
+export interface TestValues { total: number; passed: number; failed: number; suites: number; success: boolean }
+
+export function resolveTestValues(snap: ReportSnapshot, json: JsonDataSources): TestValues {
+	if (json.tests) {
+		const t = json.tests;
+		return { total: t.numTotalTests, passed: t.numPassedTests, failed: t.numFailedTests, suites: t.numTotalTestSuites, success: t.success };
+	}
+	return { total: fm(snap, "total"), passed: fm(snap, "passed"), failed: fm(snap, "failed"), suites: fm(snap, "suites"), success: fmStr(snap, "success") !== "false" };
+}
+
 export function analyzeTests(snap: ReportSnapshot, json: JsonDataSources): Finding[] {
+	const { total, passed, failed, suites, success } = resolveTestValues(snap, json);
 	const findings: Finding[] = [];
-	const total = json.tests ? json.tests.numTotalTests : fm(snap, "total");
-	const passed = json.tests ? json.tests.numPassedTests : fm(snap, "passed");
-	const failed = json.tests ? json.tests.numFailedTests : fm(snap, "failed");
-	const suites = json.tests ? json.tests.numTotalTestSuites : fm(snap, "suites");
-	const success = json.tests ? json.tests.success : fmStr(snap, "success") !== "false";
 
 	if (total === 0) {
 		findings.push({ category: "risk", message: "Test report shows 0 tests — test data may not have been collected." });

@@ -32,6 +32,7 @@ import { log } from "../../infrastructure/logger.js";
 import { paths } from "../../infrastructure/paths.js";
 import { shell } from "../../infrastructure/shell.js";
 import { proc } from "../../infrastructure/proc.js";
+import { parseFrontmatterContent } from "../../infrastructure/frontmatter.js";
 import { createRL } from "../../infrastructure/readline.js";
 import type { ReadlineInterface } from "../../infrastructure/readline.js";
 const PROJECTS_ROOT: string = paths.resolve(VAULT_ROOT, "..");
@@ -1268,32 +1269,9 @@ async function runRebuild(): Promise<number> {
 
 const REPORTS_DIR: string = paths.join(PLUGIN_ROOT, "docs", "reports");
 
-/** Coerces a raw YAML string value to a typed JS value. */
-function parseYamlValue(raw: string): unknown {
-	if (raw === "true") return true;
-	if (raw === "false") return false;
-	if (raw === "null") return null;
-	if (/^-?\d+(\.\d+)?$/.test(raw)) return Number(raw);
-	if (raw.startsWith('"') && raw.endsWith('"')) return raw.slice(1, -1);
-	return raw;
-}
-
-/**
- * Parses YAML frontmatter from a markdown file.
- * Returns the frontmatter as a key-value object, or null if no frontmatter found.
- */
 function parseFrontmatter(filePath: string): Record<string, unknown> | null {
 	try {
-		const content = disk.readFileSync(filePath, "utf-8");
-		const match = content.match(/^---\n([\s\S]*?)\n---/);
-		if (!match) return null;
-		const fm: Record<string, unknown> = {};
-		for (const line of match[1].split("\n")) {
-			const colonIdx = line.indexOf(":");
-			if (colonIdx === -1) continue;
-			fm[line.slice(0, colonIdx).trim()] = parseYamlValue(line.slice(colonIdx + 1).trim());
-		}
-		return fm;
+		return parseFrontmatterContent(disk.readFileSync(filePath, "utf-8"));
 	} catch {
 		return null;
 	}

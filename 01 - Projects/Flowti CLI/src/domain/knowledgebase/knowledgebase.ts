@@ -9,6 +9,7 @@
 import { input } from "../../infrastructure/input.js";
 import { printHeader, BOLD, RESET, DIM, CYAN, YELLOW, GREEN } from "../../infrastructure/ui.js";
 import { isCliAvailable, isVaultInitialized, listFolder, readMarkdownFile, searchVault } from "./vault-service.js";
+import { showHelp } from "../help/help.js";
 import type { MenuResult } from "../../infrastructure/types.js";
 import { log } from "../../infrastructure/logger.js";
 
@@ -59,7 +60,7 @@ function renderFolderListing(
 function printNavHints(currentPath: string): void {
 	const nav: string[] = [];
 	if (currentPath) nav.push(`${YELLOW}b${RESET})ack`);
-	nav.push(`${YELLOW}s${RESET})earch`, `${YELLOW}q${RESET})uit`);
+	nav.push(`${YELLOW}s${RESET})earch`, `${YELLOW}?${RESET})help`, `${YELLOW}q${RESET})uit`);
 	log(`  ${nav.join("  ")}\n`);
 }
 
@@ -83,6 +84,7 @@ export async function knowledgebaseMenu(): Promise<MenuResult> {
 		if (choice === "q") return "main";
 		if (choice === "b" && currentPath) { currentPath = navigateBack(currentPath); continue; }
 		if (choice === "s") { await searchMode(); continue; }
+		if (choice === "?") { showHelp("knowledgebase"); continue; }
 
 		const selected = indexMap.get(parseInt(choice, 10));
 		if (!selected) { log("\n  Invalid choice — try again.\n"); continue; }

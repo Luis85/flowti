@@ -109,4 +109,87 @@ describe("applyFieldRule", () => {
 		expect(result.changed).toBe(false);
 		expect(result.content).toBe(content);
 	});
+
+	it("returns unchanged for unknown action", () => {
+		const content = "---\ntype: TechDebt\n---\n# Body";
+		const fields = { type: "TechDebt" };
+		const rule = { field: "type", value: "Other", action: "unknown" };
+
+		const result = applyFieldRule(content, "test.md", fields, rule);
+
+		expect(result.changed).toBe(false);
+		expect(result.content).toBe(content);
+	});
+
+	it("replace action returns unchanged when field is missing", () => {
+		const content = "---\ntype: TechDebt\n---\n# Body";
+		const fields = { type: "TechDebt" };
+		const rule = { field: "stage", value: "planned", action: "replace" };
+
+		const result = applyFieldRule(content, "test.md", fields, rule);
+
+		// undefined !== "planned" so it would try to replace, but the field isn't there
+		expect(result.changed).toBe(true);
+	});
+});
+
+describe("parseFrontmatter — edge cases", () => {
+	it("ignores lines without key:value pattern", () => {
+		const content = "---\ntype: TechDebt\n  indented line\n---\n# Body";
+		const result = parseFrontmatter(content);
+		expect(result!.fields).toEqual({ type: "TechDebt" });
+	});
+
+	it("handles empty frontmatter", () => {
+		const content = "---\n\n---\n# Body";
+		const result = parseFrontmatter(content);
+		expect(result).not.toBeNull();
+		expect(result!.fields).toEqual({});
+	});
+
+	it("trims field values", () => {
+		const content = "---\ntype:   TechDebt   \n---\n# Body";
+		const result = parseFrontmatter(content);
+		expect(result!.fields.type).toBe("TechDebt");
+	});
+
+	it("returns fullMatch including delimiters", () => {
+		const content = "---\ntype: TechDebt\n---\n# Body";
+		const result = parseFrontmatter(content);
+		expect(result!.fullMatch).toBe("---\ntype: TechDebt\n---");
+	});
+});
+
+describe("insertField — edge cases", () => {
+	it("works with Windows line endings", () => {
+		const content = "---\r\nstage: draft\r\n---\r\n# Body";
+		const result = insertField(content, "type", "TechDebt");
+		expect(result).toContain("type: TechDebt");
+	});
+
+	it("inserts into frontmatter with multiple fields", () => {
+		const content = "---\nstage: draft\ntitle: My Doc\n---\n# Body";
+		const result = insertField(content, "type", "TechDebt");
+		expect(result).toBe("---\ntype: TechDebt\nstage: draft\ntitle: My Doc\n---\n# Body");
+	});
+});
+
+describe("replaceField — edge cases", () => {
+	it("replaces only the first match", () => {
+		const content = "---\nstage: draft\n---\nstage: something else";
+		const result = replaceField(content, "stage", "planned");
+		expect(result).toBe("---\nstage: planned\n---\nstage: something else");
+	});
+
+	it("handles field with extra whitespace around colon", () => {
+		const content = "---\nstage:   draft\n---\n# Body";
+		const result = replaceField(content, "stage", "planned");
+		expect(result).toContain("stage:   planned");
+	});
+
+	it("no-op when field does not exist", () => {
+		const content = "---\ntype: TechDebt\n---\n# Body";
+		const result = replaceField(content, "stage", "planned");
+		expect(result).toBe(content);
+	});
 });

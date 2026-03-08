@@ -63,6 +63,20 @@ function matchesMdFile(fullPath: string, name: string, lowerQuery: string): bool
 	} catch { return false; }
 }
 
+function processEntry(
+	e: DirEntry, dir: string, rel: string, lowerQuery: string, matches: string[],
+	walk: (dir: string, rel: string) => void,
+): void {
+	if (e.name.startsWith(".") || e.name === "node_modules") return;
+	const fullPath = paths.join(dir, e.name);
+	const relPath = rel ? `${rel}/${e.name}` : e.name;
+	if (e.isDirectory()) {
+		walk(fullPath, relPath);
+	} else if (e.name.endsWith(".md") && matchesMdFile(fullPath, e.name, lowerQuery)) {
+		matches.push(relPath);
+	}
+}
+
 function filesystemSearch(query: string): string[] {
 	const matches: string[] = [];
 	const lowerQuery = query.toLowerCase();
@@ -74,14 +88,7 @@ function filesystemSearch(query: string): string[] {
 		catch { return; }
 
 		for (const e of entries) {
-			if (e.name.startsWith(".") || e.name === "node_modules") continue;
-			const fullPath = paths.join(dir, e.name);
-			const relPath = rel ? `${rel}/${e.name}` : e.name;
-			if (e.isDirectory()) {
-				walk(fullPath, relPath);
-			} else if (e.name.endsWith(".md") && matchesMdFile(fullPath, e.name, lowerQuery)) {
-				matches.push(relPath);
-			}
+			processEntry(e, dir, rel, lowerQuery, matches, walk);
 		}
 	}
 

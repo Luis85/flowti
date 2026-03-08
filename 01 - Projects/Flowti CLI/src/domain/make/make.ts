@@ -9,7 +9,10 @@ import { disk } from "../../infrastructure/filesystem.js";
 import { ROOT, VAULT_ROOT, manifest } from "../../infrastructure/config.js";
 import { RESET, BOLD, DIM, GREEN, RED, CYAN } from "../../infrastructure/ui.js";
 import { input } from "../../infrastructure/input.js";
-import { createFileWriter } from "./template-service.js";
+import {
+	createFileWriter, manifestTemplate, packageTemplate, tsconfigTemplate,
+	esbuildTemplate, vitestTemplate, gitignoreTemplate,
+} from "./template-service.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { showHelp } from "../help/help.js";
 import { toKebab, toPascal, getMakePaths } from "./naming.js";
@@ -18,21 +21,14 @@ import type { MenuEntry, MenuResult, MakeTemplateId } from "../../infrastructure
 import {
 	hubViewTemplate, hubTypesTemplate, hubEventsTemplate, hubServiceTemplate,
 	hubProviderTemplate, hubTestTemplate, hubCssTemplate, hubPrdTemplate,
-	hubJourneyTemplate, pluginManifestTemplate, pluginPackageTemplate,
-	pluginTsconfigTemplate, pluginEsbuildTemplate, pluginMainTemplate,
-	pluginGitignoreTemplate,
+	hubJourneyTemplate, pluginMainTemplate,
 } from "./templates.js";
 import {
-	appManifestTemplate, appPackageTemplate, appTsconfigTemplate,
-	appEsbuildTemplate, appVitestTemplate, appMainTemplate,
-	appEventBusTemplate, appEventTypesTemplate, appEventsTemplate,
+	appMainTemplate, appEventBusTemplate, appEventTypesTemplate, appEventsTemplate,
 	appErrorTypesTemplate, appCssTemplate, appObsidianStubTemplate,
-	appEventBusTestTemplate, appGitignoreTemplate,
+	appEventBusTestTemplate,
 } from "./appTemplates.js";
-import {
-	cliPackageTemplate, cliTsconfigTemplate, cliMainTemplate,
-	cliMainTestTemplate, cliVitestTemplate, cliGitignoreTemplate,
-} from "./cliTemplates.js";
+import { cliMainTemplate, cliMainTestTemplate } from "./cliTemplates.js";
 import { log } from "../../infrastructure/logger.js";
 import { proc } from "../../infrastructure/proc.js";
 
@@ -91,11 +87,11 @@ function scaffoldPlugin(projectPath: string, name: string): void {
 	const author = (manifest as Record<string, unknown>).author as string ?? "";
 	const { write: w, report } = createFileWriter(projectPath);
 
-	w("manifest.json", pluginManifestTemplate(name, id, author));
-	w("package.json", pluginPackageTemplate(name, id));
-	w("tsconfig.json", pluginTsconfigTemplate());
-	w("esbuild.config.mjs", pluginEsbuildTemplate(id));
-	w(".gitignore", pluginGitignoreTemplate());
+	w("manifest.json", manifestTemplate({ id, name, author }));
+	w("package.json", packageTemplate("plugin", name, id));
+	w("tsconfig.json", tsconfigTemplate("plugin"));
+	w("esbuild.config.mjs", esbuildTemplate(id));
+	w(".gitignore", gitignoreTemplate("plugin"));
 	w("src/main.ts", pluginMainTemplate(name));
 	w("css/00-base.css", `/* ── Base styles for ${name} ── */\n`);
 	w("src/infrastructure/events/.gitkeep", "");
@@ -112,12 +108,12 @@ function scaffoldApp(projectPath: string, name: string): void {
 	const author = (manifest as Record<string, unknown>).author as string ?? "";
 	const { write: w, report } = createFileWriter(projectPath);
 
-	w("manifest.json", appManifestTemplate(name, id, author));
-	w("package.json", appPackageTemplate(name, id));
-	w("tsconfig.json", appTsconfigTemplate());
-	w("esbuild.config.mjs", appEsbuildTemplate(id));
-	w("vitest.config.ts", appVitestTemplate());
-	w(".gitignore", appGitignoreTemplate());
+	w("manifest.json", manifestTemplate({ id, name, author }));
+	w("package.json", packageTemplate("app", name, id));
+	w("tsconfig.json", tsconfigTemplate("app"));
+	w("esbuild.config.mjs", esbuildTemplate(id));
+	w("vitest.config.ts", vitestTemplate("app"));
+	w(".gitignore", gitignoreTemplate("app"));
 	w("css/00-base.css", appCssTemplate(name));
 	w("src/main.ts", appMainTemplate(name, pascal));
 	w("src/infrastructure/events/EventBus.ts", appEventBusTemplate());
@@ -137,10 +133,10 @@ function scaffoldCli(projectPath: string, name: string): void {
 	const id = toKebab(name);
 	const { write: w, report } = createFileWriter(projectPath);
 
-	w("package.json", cliPackageTemplate(name, id));
-	w("tsconfig.json", cliTsconfigTemplate());
-	w("vitest.config.ts", cliVitestTemplate());
-	w(".gitignore", cliGitignoreTemplate());
+	w("package.json", packageTemplate("cli", name, id));
+	w("tsconfig.json", tsconfigTemplate("cli"));
+	w("vitest.config.ts", vitestTemplate("cli"));
+	w(".gitignore", gitignoreTemplate("cli"));
 	w("src/main.ts", cliMainTemplate(name));
 	w("tests/main.test.ts", cliMainTestTemplate(name));
 
@@ -273,11 +269,11 @@ async function makePlugin(projectRoot: string): Promise<void> {
 	log();
 	const { write: w, created } = createFileWriter(pluginRoot);
 
-	w("manifest.json", pluginManifestTemplate(name, pluginId, author));
-	w("package.json", pluginPackageTemplate(name, pluginId));
-	w("tsconfig.json", pluginTsconfigTemplate());
-	w("esbuild.config.mjs", pluginEsbuildTemplate(pluginId));
-	w(".gitignore", pluginGitignoreTemplate());
+	w("manifest.json", manifestTemplate({ id: pluginId, name, author }));
+	w("package.json", packageTemplate("plugin", name, pluginId));
+	w("tsconfig.json", tsconfigTemplate("plugin"));
+	w("esbuild.config.mjs", esbuildTemplate(pluginId));
+	w(".gitignore", gitignoreTemplate("plugin"));
 	w("src/main.ts", pluginMainTemplate(name));
 	w("css/00-base.css", `/* ── Base styles for ${name} ── */\n`);
 	w("src/infrastructure/events/.gitkeep", "");
@@ -344,12 +340,12 @@ async function makeApp(projectRoot: string): Promise<void> {
 	log();
 	const { write: w, created } = createFileWriter(appRoot);
 
-	w("manifest.json", appManifestTemplate(name, appId, author));
-	w("package.json", appPackageTemplate(name, appId));
-	w("tsconfig.json", appTsconfigTemplate());
-	w("esbuild.config.mjs", appEsbuildTemplate(appId));
-	w("vitest.config.ts", appVitestTemplate());
-	w(".gitignore", appGitignoreTemplate());
+	w("manifest.json", manifestTemplate({ id: appId, name, author }));
+	w("package.json", packageTemplate("app", name, appId));
+	w("tsconfig.json", tsconfigTemplate("app"));
+	w("esbuild.config.mjs", esbuildTemplate(appId));
+	w("vitest.config.ts", vitestTemplate("app"));
+	w(".gitignore", gitignoreTemplate("app"));
 	w("css/00-base.css", appCssTemplate(name));
 	w("src/main.ts", appMainTemplate(name, pascal));
 	w("src/infrastructure/events/EventBus.ts", appEventBusTemplate());
@@ -406,10 +402,10 @@ async function makeCliApp(projectRoot: string): Promise<void> {
 	log();
 	const { write: w, created } = createFileWriter(cliRoot);
 
-	w("package.json", cliPackageTemplate(name, appId));
-	w("tsconfig.json", cliTsconfigTemplate());
-	w("vitest.config.ts", cliVitestTemplate());
-	w(".gitignore", cliGitignoreTemplate());
+	w("package.json", packageTemplate("cli", name, appId));
+	w("tsconfig.json", tsconfigTemplate("cli"));
+	w("vitest.config.ts", vitestTemplate("cli"));
+	w(".gitignore", gitignoreTemplate("cli"));
 	w("src/main.ts", cliMainTemplate(name));
 	w("tests/main.test.ts", cliMainTestTemplate(name));
 
@@ -482,12 +478,12 @@ export const commands = {
 
 		const { write: w, created } = createFileWriter(appRoot);
 
-		w("manifest.json", appManifestTemplate(name, appId, author));
-		w("package.json", appPackageTemplate(name, appId));
-		w("tsconfig.json", appTsconfigTemplate());
-		w("esbuild.config.mjs", appEsbuildTemplate(appId));
-		w("vitest.config.ts", appVitestTemplate());
-		w(".gitignore", appGitignoreTemplate());
+		w("manifest.json", manifestTemplate({ id: appId, name, author }));
+		w("package.json", packageTemplate("app", name, appId));
+		w("tsconfig.json", tsconfigTemplate("app"));
+		w("esbuild.config.mjs", esbuildTemplate(appId));
+		w("vitest.config.ts", vitestTemplate("app"));
+		w(".gitignore", gitignoreTemplate("app"));
 		w("css/00-base.css", appCssTemplate(name));
 		w("src/main.ts", appMainTemplate(name, pascal));
 		w("src/infrastructure/events/EventBus.ts", appEventBusTemplate());
@@ -522,10 +518,10 @@ export const commands = {
 
 		const { write: w, created } = createFileWriter(cliRoot);
 
-		w("package.json", cliPackageTemplate(name, appId));
-		w("tsconfig.json", cliTsconfigTemplate());
-		w("vitest.config.ts", cliVitestTemplate());
-		w(".gitignore", cliGitignoreTemplate());
+		w("package.json", packageTemplate("cli", name, appId));
+		w("tsconfig.json", tsconfigTemplate("cli"));
+		w("vitest.config.ts", vitestTemplate("cli"));
+		w(".gitignore", gitignoreTemplate("cli"));
 		w("src/main.ts", cliMainTemplate(name));
 		w("tests/main.test.ts", cliMainTestTemplate(name));
 
@@ -552,11 +548,11 @@ export const commands = {
 
 		const { write: w, created } = createFileWriter(pluginRoot);
 
-		w("manifest.json", pluginManifestTemplate(name, pluginId, author));
-		w("package.json", pluginPackageTemplate(name, pluginId));
-		w("tsconfig.json", pluginTsconfigTemplate());
-		w("esbuild.config.mjs", pluginEsbuildTemplate(pluginId));
-		w(".gitignore", pluginGitignoreTemplate());
+		w("manifest.json", manifestTemplate({ id: pluginId, name, author }));
+		w("package.json", packageTemplate("plugin", name, pluginId));
+		w("tsconfig.json", tsconfigTemplate("plugin"));
+		w("esbuild.config.mjs", esbuildTemplate(pluginId));
+		w(".gitignore", gitignoreTemplate("plugin"));
 		w("src/main.ts", pluginMainTemplate(name));
 		w("css/00-base.css", `/* ── Base styles for ${name} ── */\n`);
 		w("src/infrastructure/events/.gitkeep", "");

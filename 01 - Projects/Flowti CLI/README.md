@@ -38,19 +38,27 @@ See [Architecture.md](docs/Architecture.md) for the full design document.
 01 - Projects/Flowti CLI/
 ├── src/
 │   ├── main.ts                     # Entry point (two-loop: start → project detail)
-│   ├── mainMenu.ts                 # Project detail menu builder
 │   ├── types.ts                    # Shared type definitions
 │   ├── domain/
-│   │   ├── make/                   # Scaffolding (hub, plugin, component, journey)
+│   │   ├── mainMenu.ts             # Project detail menu builder
+│   │   ├── make/                   # Scaffolding (hub, plugin, app)
+│   │   │   ├── make.ts             # Interactive + non-interactive scaffold commands
+│   │   │   ├── template-service.ts # Centralized template generation (manifest, package, tsconfig, ...)
+│   │   │   ├── templates.ts        # Plugin-specific templates (main.ts, CSS)
+│   │   │   ├── appTemplates.ts     # App-specific templates (main.ts, CSS, EventBus)
+│   │   │   └── naming.ts           # Naming conventions (kebab, pascal, camel)
 │   │   ├── publish/                # Gated publish pipeline (build → test → distribute)
 │   │   ├── review/                 # E2E journey review (test vault, runner)
 │   │   ├── project/                # Project config detection and scaffolding
 │   │   ├── info/                   # Project info and diagnostics
-│   │   ├── help/                   # Man-page system
+│   │   ├── help/                   # Man-page system (9 sections)
 │   │   ├── capture/                # Idea and note capture
-│   │   ├── knowledgebase/          # Obsidian knowledgebase integration
-│   │   ├── reports/                # Report generators (test, coverage, codebase, complexity, status)
-│   │   └── devtools/               # Developer tools (reload, frontmatter fix)
+│   │   ├── knowledgebase/          # Obsidian vault browser and search
+│   │   ├── reports/                # Report pipeline (summary, build, cli-reference, ...)
+│   │   │   ├── cli/                # Summary report (analyzers, renderers, loaders, formatters)
+│   │   │   └── generators/         # Individual generators (codebase, complexity, data-dictionary, ...)
+│   │   ├── build/                  # Build command wrapper
+│   │   └── devtools/               # Developer tools (reload, frontmatter fix, test data)
 │   └── infrastructure/
 │       ├── config.ts               # Path resolution and config loading
 │       ├── menu.ts                 # Data-driven menu engine
@@ -58,9 +66,14 @@ See [Architecture.md](docs/Architecture.md) for the full design document.
 │       ├── state.ts                # Persistent CLI state
 │       ├── document.ts             # Markdown document builder (YAML FM, tables, callouts)
 │       ├── ui.ts                   # ANSI color output and menu rendering
-│       ├── readline.ts             # Interactive input
-│       └── fs.ts                   # File system helpers
-├── tests/                          # Vitest test suites (51 tests)
+│       ├── input.ts                # Interactive input
+│       ├── clock.ts                # Clock abstraction (ISO timestamps)
+│       ├── logger.ts               # Logging abstraction
+│       ├── filesystem.ts           # File system abstraction (disk)
+│       ├── paths.ts                # Path utilities
+│       ├── fs.ts                   # Frontmatter parser and file helpers
+│       └── types.ts                # Infrastructure type definitions
+├── tests/                          # Vitest test suites (758 tests, 235 suites)
 ├── configs/
 │   ├── flowti-cli.config.json      # CLI kernel config (subsystem mappings)
 │   ├── flowti.config.json          # CLI's own project config
@@ -70,8 +83,8 @@ See [Architecture.md](docs/Architecture.md) for the full design document.
 │   └── typedoc.json                # TypeDoc configuration
 ├── docs/
 │   ├── Architecture.md             # Architecture design document
-│   ├── Flowti CLI Reference.md     # Auto-generated CLI reference
-│   └── reports/                    # Generated reports (complexity, coverage, tests, codebase)
+│   └── reports/                    # Generated reports (summary, complexity, coverage, tests, codebase, builds)
+├── reports/                        # Stable report outputs (Project Summary.md)
 ├── package.json                    # npm scripts and devDependencies
 ├── Flowti CLI PRD.md               # Product Requirements Document
 └── README.md                       # This file
@@ -93,15 +106,21 @@ Run without arguments for the two-stage interactive menu:
 
 | Key | Tool | Description |
 |-----|------|-------------|
-| 1 | Make | Scaffold new hub, plugin, component, or journey |
-| 2 | Build | Run the project's build command (mapped tool) |
+| 1 | Make | Scaffold new hub, plugin, or application |
+| 2 | Build | Run the project's build command (generates Build Report) |
 | 3 | Review | E2E journey review, test vault management |
 | 4 | Publish | Gated pipeline: build → test → distribute to endpoints |
-| 5 | Reports | Run the project's reports command (mapped tool) |
-| 6 | Dev Tools | Run the project's dev command (mapped tool) |
+| 5 | Reports | Run all reports or individual generators |
+| 6 | Dev Tools | Plugin reload, console, frontmatter fix, test data |
 | 7 | Npm Scripts | Run any npm script from the project's package.json |
+| 8 | Capture Idea | Quick-capture an idea to vault inbox |
+| 9 | Capture Note | Capture a typed note (Task, Bug, Note, Documentation, Idea) |
+| d | Documentation | Generate reference docs (per-project generators) |
+| k | Knowledgebase | Browse and search vault content (requires Obsidian CLI) |
+| i | Info | Project stats, version, config |
+| ? | Help | Contextual man-page help |
 
-Tools 2, 5, 6 are **mappable** — enabled when the project's `flowti.config.json` maps them to a command. Tools 1, 3, 4 are **always available**.
+Tools 2, 6 are **mappable** — enabled when the project's `flowti.config.json` maps them to a command. Tools 1, 3, 4 are **always available**. Knowledgebase requires Obsidian CLI 1.12+.
 
 ## Per-Project Configuration
 
@@ -141,13 +160,17 @@ When a project is selected for the first time, the CLI auto-scaffolds this confi
 |--------|-------------|
 | `dev` | Run CLI in development mode via tsx |
 | `build` | Compile TypeScript to `bin/` |
-| `test` | Type-check + run vitest |
+| `test` | Type-check + lint + vitest |
 | `check` | Type-check only (tsc --noEmit) |
 | `lint` | ESLint source |
-| `analysis` | Run complexity-analysis (coverage + decision points) |
-| `reports` | Generate all reports (test, coverage, codebase, complexity) |
+| `analysis` | Run complexity analysis (coverage + decision points) |
+| `reports` | Generate all reports (test, coverage, codebase, complexity, summary) |
+| `report:test` | Generate test report |
+| `report:coverage` | Generate coverage report |
+| `report:codebase` | Generate codebase report |
 | `report:complexity` | Generate complexity report from analysis data |
-| `report:status` | Generate project status report |
+| `report:status` | Generate project summary report |
+| `docs` | Generate TypeDoc documentation |
 
 ## Dependencies
 

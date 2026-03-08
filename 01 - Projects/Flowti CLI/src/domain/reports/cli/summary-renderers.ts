@@ -360,6 +360,42 @@ export function renderWarnings(doc: Document, lint: LintResult | null, typedoc: 
 	if (hasTypedoc) renderTypedocWarnings(doc, typedoc);
 }
 
+export function renderTopFilesByLoc(doc: Document, detailed: DetailedSources): void {
+	if (detailed.perFile.length === 0) return;
+
+	const sorted = [...detailed.perFile].sort((a, b) => b.loc - a.loc).slice(0, 10);
+	if (sorted.length === 0) return;
+
+	// Build a map of max complexity per file from complexity functions data
+	const complexityMap = new Map<string, number>();
+	if (detailed.complexityFunctions) {
+		for (const fn of detailed.complexityFunctions.functions) {
+			const rel = fn.file.replace(/.*Flowti CLI[\\/]/, "").replace(/\\/g, "/");
+			const current = complexityMap.get(rel) ?? 0;
+			if (fn.complexity > current) complexityMap.set(rel, fn.complexity);
+		}
+	}
+
+	// Build a map of decision points per file
+	const dpMap = new Map<string, number>();
+	for (const f of detailed.topComplexFiles) {
+		dpMap.set(f.file, f.decisionPointCount);
+	}
+
+	doc.heading(2, "Top 10 Files by LOC").addBlank();
+	doc.table(
+		["#", "File", "LOC", "Coverage %", "Max Complexity", "Decision Pts"],
+		sorted.map((f, i) => [
+			n(i + 1),
+			`\`${f.file}\``,
+			n(f.loc),
+			`${f.stmtPct}%`,
+			n(complexityMap.get(f.file) ?? 0),
+			n(dpMap.get(f.file) ?? 0),
+		]),
+	).addBlank();
+}
+
 export function renderDomainDetails(doc: Document, snapshots: ReportSnapshot[], json: JsonDataSources, detailed: DetailedSources): void {
 	doc.heading(2, "Report Details").addBlank();
 	for (const snap of snapshots) {

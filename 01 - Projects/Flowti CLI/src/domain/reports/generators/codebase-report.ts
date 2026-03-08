@@ -53,19 +53,23 @@ function countByKind(node: TypeDocNode): Record<number, number> {
 	return counts;
 }
 
+function countOf(counts: Record<number, number>, kind: number): number {
+	return counts[kind] || 0;
+}
+
 function buildCodebaseFm(data: TypeDocNode, counts: Record<number, number>, date: string): Record<string, string | number> {
 	return {
 		type: "CodebaseReport",
 		date,
 		schema_version: data.schemaVersion || "unknown",
-		modules: counts[KIND.MODULE] || 0,
-		classes: counts[KIND.CLASS] || 0,
-		interfaces: counts[KIND.INTERFACE] || 0,
-		functions: counts[KIND.FUNCTION] || 0,
-		type_aliases: counts[KIND.TYPE_ALIAS] || 0,
-		methods: counts[KIND.METHOD] || 0,
-		properties: counts[KIND.PROPERTY] || 0,
-		constructors: counts[KIND.CONSTRUCTOR] || 0,
+		modules: countOf(counts, KIND.MODULE),
+		classes: countOf(counts, KIND.CLASS),
+		interfaces: countOf(counts, KIND.INTERFACE),
+		functions: countOf(counts, KIND.FUNCTION),
+		type_aliases: countOf(counts, KIND.TYPE_ALIAS),
+		methods: countOf(counts, KIND.METHOD),
+		properties: countOf(counts, KIND.PROPERTY),
+		constructors: countOf(counts, KIND.CONSTRUCTOR),
 	};
 }
 

@@ -83,7 +83,7 @@ async function captureNoteLoop(): Promise<void> {
 		const typeChoice = await input.ask("Type", "3");
 
 		const typeIdx = parseInt(typeChoice, 10) - 1;
-		if (typeIdx < 0 || typeIdx >= NOTE_TYPES.length) {
+		if (isNaN(typeIdx) || typeIdx < 0 || typeIdx >= NOTE_TYPES.length) {
 			log(`\n  ${RED}Invalid type — skipped.${RESET}`);
 			return;
 		}

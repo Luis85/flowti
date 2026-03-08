@@ -74,15 +74,7 @@ function printTools(ctx: ProjectContext): void {
 	log();
 }
 
-function printPublish(ctx: ProjectContext): void {
-	const pub = ctx.config.publish;
-	if (!pub) return;
-	const endpoints = pub.endpoints ?? [];
-	log(`  ${BOLD}Publish${RESET}`);
-	if (pub.build) log(`    Build:       ${DIM}${pub.build}${RESET}`);
-	if (pub.test) log(`    Test:        ${DIM}${pub.test}${RESET}`);
-	if (pub.outDir) log(`    Output:      ${DIM}${pub.outDir}${RESET}`);
-	if (pub.artifacts?.length) log(`    Artifacts:   ${DIM}${pub.artifacts.join(", ")}${RESET}`);
+function printEndpoints(endpoints: Array<{ name: string; path: string }>): void {
 	if (endpoints.length > 0) {
 		for (const ep of endpoints) {
 			log(`    ${GREEN}${ep.name}${RESET}${DIM} → ${ep.path}${RESET}`);
@@ -90,6 +82,17 @@ function printPublish(ctx: ProjectContext): void {
 	} else {
 		log(`    ${DIM}No endpoints configured${RESET}`);
 	}
+}
+
+function printPublish(ctx: ProjectContext): void {
+	const pub = ctx.config.publish;
+	if (!pub) return;
+	log(`  ${BOLD}Publish${RESET}`);
+	if (pub.build) log(`    Build:       ${DIM}${pub.build}${RESET}`);
+	if (pub.test) log(`    Test:        ${DIM}${pub.test}${RESET}`);
+	if (pub.outDir) log(`    Output:      ${DIM}${pub.outDir}${RESET}`);
+	if (pub.artifacts?.length) log(`    Artifacts:   ${DIM}${pub.artifacts.join(", ")}${RESET}`);
+	printEndpoints(pub.endpoints ?? []);
 	log();
 }
 

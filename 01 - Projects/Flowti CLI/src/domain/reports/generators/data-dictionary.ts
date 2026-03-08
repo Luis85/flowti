@@ -35,6 +35,18 @@ interface EntityType {
 const REGISTRY_PATH: string = paths.join(ROOT, "src", "domain", "docs", "entityTypeRegistry.ts");
 const OUTPUT_DIR: string = paths.join(ROOT, "docs", "reference");
 
+function findMatchingBrace(source: string, openPos: number): number {
+	let depth = 0;
+	for (let i = openPos; i < source.length; i++) {
+		if (source[i] === "{") depth++;
+		else if (source[i] === "}") {
+			depth--;
+			if (depth === 0) return i;
+		}
+	}
+	return openPos;
+}
+
 /**
  * Extract ENTITY_TYPE_REGISTRY entries from TypeScript source.
  * Each entry is a multi-line object in the array.
@@ -55,19 +67,7 @@ function extractEntityTypes(source: string): EntityType[] {
 		const openBrace: number = dataSection.indexOf("{", pos);
 		if (openBrace === -1) break;
 
-		// Find matching close brace
-		let depth: number = 0;
-		let end: number = openBrace;
-		for (let i: number = openBrace; i < dataSection.length; i++) {
-			if (dataSection[i] === "{") depth++;
-			else if (dataSection[i] === "}") {
-				depth--;
-				if (depth === 0) {
-					end = i;
-					break;
-				}
-			}
-		}
+		const end: number = findMatchingBrace(dataSection, openBrace);
 
 		const block: string = dataSection.slice(openBrace, end + 1);
 

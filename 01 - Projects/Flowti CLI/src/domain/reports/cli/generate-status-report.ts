@@ -90,47 +90,44 @@ function ensureReportsExist(sections: ReportSection[], projectPath: string): voi
 	}
 }
 
-function buildStatusReport(sections: ReportSection[], projectName: string): string {
-	const now = clock.now();
+const SKIP_FM_KEYS = new Set(["type", "project", "date"]);
 
-	const doc = Document.create("Project Status Report")
-		.setFrontmatter("type", "ProjectStatusReport")
-		.setFrontmatter("project", projectName)
-		.setFrontmatter("date", now.toISOString());
-
+function promoteSectionFrontmatter(doc: Document, sections: ReportSection[]): void {
 	for (const section of sections) {
 		if (!disk.existsSync(section.stablePath)) continue;
 		const content = disk.readFileSync(section.stablePath, "utf-8");
 		const { frontmatter } = parseFrontmatter(content);
 		const prefix = section.label.toLowerCase();
 		for (const [key, value] of Object.entries(frontmatter)) {
-			if (key === "type" || key === "project" || key === "date") continue;
-			doc.setFrontmatter(`${prefix}_${key}`, value);
+			if (!SKIP_FM_KEYS.has(key)) doc.setFrontmatter(`${prefix}_${key}`, value);
 		}
 	}
+}
 
-	doc.addBlank()
-		.heading(1, "Project Status Report")
-		.addBlank()
-		.text(`Generated: ${now.toISOString().replace("T", " ").substring(0, 19)}`)
-		.addBlank();
-
+function renderSectionBodies(doc: Document, sections: ReportSection[]): void {
 	for (const section of sections) {
 		doc.heading(2, section.label).addBlank();
-
 		if (!disk.existsSync(section.stablePath)) {
 			doc.callout("warning", "Missing", [`${section.label} report not available.`]).addBlank();
 			continue;
 		}
-
-		const content = disk.readFileSync(section.stablePath, "utf-8");
-		const body = extractBody(content);
-		if (body) {
-			doc.text(body).addBlank();
-		}
-
+		const body = extractBody(disk.readFileSync(section.stablePath, "utf-8"));
+		if (body) doc.text(body).addBlank();
 		doc.addSeparator().addBlank();
 	}
+}
+
+function buildStatusReport(sections: ReportSection[], projectName: string): string {
+	const now = clock.now();
+	const doc = Document.create("Project Status Report")
+		.setFrontmatter("type", "ProjectStatusReport")
+		.setFrontmatter("project", projectName)
+		.setFrontmatter("date", now.toISOString());
+
+	promoteSectionFrontmatter(doc, sections);
+	doc.addBlank().heading(1, "Project Status Report").addBlank()
+		.text(`Generated: ${now.toISOString().replace("T", " ").substring(0, 19)}`).addBlank();
+	renderSectionBodies(doc, sections);
 
 	return doc.toString();
 }
