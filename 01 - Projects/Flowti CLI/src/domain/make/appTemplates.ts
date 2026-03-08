@@ -10,150 +10,29 @@
  *   - Starter test suite
  */
 
+import {
+	manifestTemplate, packageTemplate, tsconfigTemplate,
+	esbuildTemplate, vitestTemplate, gitignoreTemplate,
+} from "./template-service.js";
 
 export function appManifestTemplate(name: string, id: string, author: string): string {
-	return JSON.stringify({
-		id,
-		name,
-		version: "0.0.1",
-		minAppVersion: "1.12.4",
-		description: `${name} — an Obsidian plugin.`,
-		author,
-		isDesktopOnly: true,
-	}, null, "\t") + "\n";
+	return manifestTemplate({ id, name, author });
 }
 
 export function appPackageTemplate(name: string, id: string): string {
-	return JSON.stringify({
-		name: id,
-		version: "0.0.1",
-		description: name,
-		main: "main.js",
-		scripts: {
-			"build": "node esbuild.config.mjs --production",
-			"build:dev": "node esbuild.config.mjs --watch",
-			"test": "npm run check && vitest run",
-			"check": "npm run lint && tsc -noEmit -skipLibCheck",
-			"lint": "eslint ./src/",
-		},
-		devDependencies: {
-			"@typescript-eslint/eslint-plugin": "^8.0.0",
-			"@typescript-eslint/parser": "^8.0.0",
-			"@vitest/coverage-v8": "^4.0.0",
-			"builtin-modules": "^5.0.0",
-			"esbuild": "^0.27.0",
-			"happy-dom": "^20.0.0",
-			"obsidian": "latest",
-			"tslib": "^2.8.0",
-			"typescript": "^5.9.0",
-			"vitest": "^4.0.0",
-		},
-		dependencies: {},
-	}, null, "\t") + "\n";
+	return packageTemplate("app", name, id);
 }
 
 export function appTsconfigTemplate(): string {
-	return JSON.stringify({
-		compilerOptions: {
-			target: "ES2022",
-			module: "ESNext",
-			moduleResolution: "bundler",
-			lib: ["ES2022", "DOM"],
-			strict: true,
-			esModuleInterop: true,
-			skipLibCheck: true,
-			outDir: "./dist",
-			declaration: true,
-			sourceMap: true,
-			types: ["node", "vitest/globals"],
-		},
-		include: ["src/**/*.ts", "tests/**/*.ts"],
-		exclude: ["node_modules"],
-	}, null, "\t") + "\n";
+	return tsconfigTemplate("app");
 }
 
 export function appEsbuildTemplate(id: string): string {
-	return `import esbuild from "esbuild";
-import { builtinModules } from "node:module";
-import fs from "node:fs";
-import path from "node:path";
-
-const isWatch = process.argv.includes("--watch");
-const prod = !isWatch;
-
-const OUTDIR = path.resolve(process.cwd(), "..", "..", ".obsidian", "plugins", "${id}");
-
-const concatCSS = () => {
-\tconst cssDir = path.resolve(import.meta.dirname, "css");
-\tif (!fs.existsSync(cssDir)) return;
-\tconst files = fs.readdirSync(cssDir).filter((f) => f.endsWith(".css")).sort();
-\tif (!files.length) return;
-\tconst header = "/* Auto-generated from css/ — do not edit directly */\\n\\n";
-\tconst parts = files.map((f) => fs.readFileSync(path.join(cssDir, f), "utf-8"));
-\tfs.writeFileSync(path.resolve(import.meta.dirname, "styles.css"), header + parts.join("\\n"), "utf-8");
-};
-
-const syncAssets = () => {
-\tconcatCSS();
-\tfor (const file of ["manifest.json", "styles.css"]) {
-\t\tconst src = path.resolve(import.meta.dirname, file);
-\t\tif (fs.existsSync(src)) {
-\t\t\tfs.mkdirSync(OUTDIR, { recursive: true });
-\t\t\tfs.copyFileSync(src, path.join(OUTDIR, file));
-\t\t}
-\t}
-};
-
-const run = async () => {
-\tfs.mkdirSync(OUTDIR, { recursive: true });
-
-\tconst ctx = await esbuild.context({
-\t\tentryPoints: ["src/main.ts"],
-\t\tbundle: true,
-\t\toutdir: OUTDIR,
-\t\tformat: "cjs",
-\t\ttarget: "node16",
-\t\tplatform: "node",
-\t\tsourcemap: prod ? false : "inline",
-\t\texternal: ["obsidian", "electron", ...builtinModules.flatMap((m) => [m, \`node:\${m}\`])],
-\t\ttreeShaking: true,
-\t\tminify: prod,
-\t\tlogLevel: "info",
-\t});
-
-\tsyncAssets();
-
-\tif (isWatch) {
-\t\tawait ctx.watch();
-\t\tlog("[build] Watching...", OUTDIR);
-\t\treturn;
-\t}
-
-\tawait ctx.rebuild();
-\tawait ctx.dispose();
-\tlog("[build] Done.", OUTDIR);
-};
-
-run().catch((err) => { console.error(err); process.exit(1); });
-`;
+	return esbuildTemplate(id);
 }
 
 export function appVitestTemplate(): string {
-	return `import { defineConfig } from "vitest/config";
-
-export default defineConfig({
-\ttest: {
-\t\tglobals: true,
-\t\tenvironment: "happy-dom",
-\t\tsetupFiles: ["tests/mocks/obsidian-stub.ts"],
-\t\tcoverage: {
-\t\t\tprovider: "v8",
-\t\t\treporter: ["text", "json-summary"],
-\t\t\tinclude: ["src/**/*.ts"],
-\t\t},
-\t},
-});
-`;
+	return vitestTemplate("app");
 }
 
 export function appMainTemplate(name: string, pascal: string): string {
@@ -526,10 +405,5 @@ describe("EventBus", () => {
 }
 
 export function appGitignoreTemplate(): string {
-	return `node_modules/
-dist/
-main.js
-styles.css
-*.js.map
-`;
+	return gitignoreTemplate("app");
 }

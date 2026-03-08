@@ -327,42 +327,37 @@ export function renderImprovements(doc: Document, findings: Finding[]): void {
 	}
 }
 
+function renderLintWarnings(doc: Document, lint: LintResult): void {
+	if (lint.breakdown.length > 0) {
+		doc.heading(3, "Lint Summary by Rule").addBlank();
+		doc.table(
+			["Rule", "Count"],
+			lint.breakdown.map((w) => [w.rule, String(w.count)]),
+		).addBlank();
+	}
+	if (lint.issues.length > 0) {
+		doc.heading(3, "All Lint Issues").addBlank();
+		doc.table(
+			["File", "Line", "Severity", "Message", "Rule"],
+			lint.issues.map((i) => [`\`${i.file}\``, String(i.line), i.severity, i.message, i.rule]),
+		).addBlank();
+	}
+}
+
+function renderTypedocWarnings(doc: Document, typedoc: TypeDocResult): void {
+	const summary = `TypeDoc: ${typedoc.errors} error(s), ${typedoc.warnings} warning(s)`;
+	const lines = typedoc.issues.map((i) => `**${i.severity}** — ${i.message}`);
+	doc.callout("warning", summary, lines).addBlank();
+}
+
 export function renderWarnings(doc: Document, lint: LintResult | null, typedoc: TypeDocResult | null): void {
 	const hasLint = lint && (lint.errors > 0 || lint.warnings > 0);
 	const hasTypedoc = typedoc && (typedoc.errors > 0 || typedoc.warnings > 0);
 	if (!hasLint && !hasTypedoc) return;
 
 	doc.heading(2, "Warnings").addBlank();
-
-	if (hasLint) {
-		if (lint.breakdown.length > 0) {
-			doc.heading(3, "Lint Summary by Rule").addBlank();
-			doc.table(
-				["Rule", "Count"],
-				lint.breakdown.map((w) => [w.rule, String(w.count)]),
-			).addBlank();
-		}
-
-		if (lint.issues.length > 0) {
-			doc.heading(3, "All Lint Issues").addBlank();
-			doc.table(
-				["File", "Line", "Severity", "Message", "Rule"],
-				lint.issues.map((i) => [
-					`\`${i.file}\``,
-					String(i.line),
-					i.severity,
-					i.message,
-					i.rule,
-				]),
-			).addBlank();
-		}
-	}
-
-	if (hasTypedoc) {
-		const summary = `TypeDoc: ${typedoc.errors} error(s), ${typedoc.warnings} warning(s)`;
-		const lines = typedoc.issues.map((i) => `**${i.severity}** — ${i.message}`);
-		doc.callout("warning", summary, lines).addBlank();
-	}
+	if (hasLint) renderLintWarnings(doc, lint);
+	if (hasTypedoc) renderTypedocWarnings(doc, typedoc);
 }
 
 export function renderDomainDetails(doc: Document, snapshots: ReportSnapshot[], json: JsonDataSources, detailed: DetailedSources): void {

@@ -13,58 +13,10 @@ import { ROOT } from "../../../infrastructure/config.js";
 import { Document, type FrontmatterValue } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
 import { clock } from "../../../infrastructure/clock.js";
+import { parseFrontmatterContent } from "../../../infrastructure/frontmatter.js";
 
 const CYCLES_DIR: string = paths.join(ROOT, "docs", "cycles");
 const OUTPUT_DIR: string = paths.join(ROOT, "docs", "reports", "cycles");
-
-/**
- * Parse YAML frontmatter from a markdown string.
- * Returns the frontmatter as a plain object.
- */
-function parseScalar(rawValue: string): unknown {
-	if (rawValue === "true") return true;
-	if (rawValue === "false") return false;
-	if (/^-?\d+$/.test(rawValue)) return parseInt(rawValue, 10);
-	if (/^-?\d+\.\d+$/.test(rawValue)) return parseFloat(rawValue);
-	return rawValue.replace(/^["']|["']$/g, "");
-}
-
-function parseFrontmatter(content: string): Record<string, unknown> | null {
-	const match: RegExpMatchArray | null = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-	if (!match) return null;
-
-	const fm: Record<string, unknown> = {};
-	const lines: string[] = match[1].split(/\r?\n/);
-	let currentKey: string | null = null;
-	let inArray: boolean = false;
-
-	for (const line of lines) {
-		if (inArray && /^\s+-\s+/.test(line)) {
-			const value: string = line.replace(/^\s+-\s+/, "").replace(/^["']|["']$/g, "");
-			(fm[currentKey!] as string[]).push(value);
-			continue;
-		}
-
-		const kvMatch: RegExpMatchArray | null = line.match(/^(\w[\w_]*):\s*(.*)/);
-		if (!kvMatch) { inArray = false; continue; }
-
-		const key: string = kvMatch[1];
-		const rawValue: string = kvMatch[2].trim();
-
-		if (rawValue === "" || rawValue === "[]") {
-			currentKey = key;
-			fm[key] = [];
-			inArray = rawValue === "";
-			continue;
-		}
-
-		inArray = false;
-		currentKey = null;
-		fm[key] = parseScalar(rawValue);
-	}
-
-	return fm;
-}
 
 /**
  * Find the latest cycle document with stage: done.
@@ -79,7 +31,7 @@ function findLatestDoneCycle(): { file: string; frontmatter: Record<string, unkn
 
 	for (const file of files) {
 		const content: string = disk.readFileSync(paths.join(CYCLES_DIR, file), "utf-8");
-		const fm: Record<string, unknown> | null = parseFrontmatter(content);
+		const fm: Record<string, unknown> | null = parseFrontmatterContent(content);
 		if (!fm || fm.stage !== "done") continue;
 		const cycle: number = (fm.cycle as number) ?? 0;
 		if (cycle > bestCycle) {

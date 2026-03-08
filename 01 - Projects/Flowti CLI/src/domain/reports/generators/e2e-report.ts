@@ -2138,14 +2138,12 @@ interface ReconciledTotals {
 	totalDev: number; totalTests: number; overallStatus: string; totalDurationMs: number;
 }
 
+const EMPTY_COUNTS = { totalPassed: 0, totalFailed: 0, totalSkipped: 0, totalDev: 0, totalTests: 0 } as const;
+
 function extractReconciledCounts(reconciled: ReturnType<typeof reconcileResults>): { totalPassed: number; totalFailed: number; totalSkipped: number; totalDev: number; totalTests: number } {
-	return {
-		totalPassed: reconciled?.totalPassed ?? 0,
-		totalFailed: reconciled?.totalFailed ?? 0,
-		totalSkipped: reconciled?.totalSkipped ?? 0,
-		totalDev: reconciled?.totalDev ?? 0,
-		totalTests: reconciled?.totalTests ?? 0,
-	};
+	if (!reconciled) return { ...EMPTY_COUNTS };
+	const { totalPassed, totalFailed, totalSkipped, totalDev = 0, totalTests } = reconciled;
+	return { totalPassed, totalFailed, totalSkipped, totalDev, totalTests };
 }
 
 function computeReconciledTotals(vitest: VitestResults | null, journeys: JourneyEntry[]): ReconciledTotals {

@@ -223,14 +223,19 @@ export interface ComplexityValues {
 	aboveThreshold: number;
 }
 
+/** Resolve a single complexity field: prefer JSON summary, fall back to frontmatter. */
+function resolveField(cfValue: number | undefined, snap: ReportSnapshot, ...fmKeys: string[]): number {
+	return cfValue ?? fm(snap, ...fmKeys);
+}
+
 export function resolveComplexityValues(snap: ReportSnapshot, detailed?: DetailedSources): ComplexityValues {
 	const cf = detailed?.complexityFunctions?.summary;
 	return {
-		maxC: cf?.maxComplexity ?? fm(snap, "max_complexity"),
-		avgC: cf?.avgComplexity ?? fm(snap, "avg_complexity", "average_complexity"),
-		medianC: cf?.medianComplexity ?? fm(snap, "median_complexity"),
-		totalFunctions: cf?.totalFunctions ?? fm(snap, "total_functions"),
-		aboveThreshold: cf?.aboveThreshold10 ?? fm(snap, "above_threshold"),
+		maxC: resolveField(cf?.maxComplexity, snap, "max_complexity"),
+		avgC: resolveField(cf?.avgComplexity, snap, "avg_complexity", "average_complexity"),
+		medianC: resolveField(cf?.medianComplexity, snap, "median_complexity"),
+		totalFunctions: resolveField(cf?.totalFunctions, snap, "total_functions"),
+		aboveThreshold: resolveField(cf?.aboveThreshold10, snap, "above_threshold"),
 	};
 }
 

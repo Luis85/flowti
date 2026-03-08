@@ -9,7 +9,7 @@ import { disk } from "../../infrastructure/filesystem.js";
 import { ROOT, VAULT_ROOT, manifest } from "../../infrastructure/config.js";
 import { RESET, BOLD, DIM, GREEN, RED, CYAN } from "../../infrastructure/ui.js";
 import { input } from "../../infrastructure/input.js";
-import { writeFileAt } from "../../infrastructure/fs.js";
+import { createFileWriter } from "./template-service.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { showHelp } from "../help/help.js";
 import { toKebab, toPascal, getMakePaths } from "./naming.js";
@@ -89,8 +89,7 @@ export interface ProjectTemplate {
 function scaffoldPlugin(projectPath: string, name: string): void {
 	const id = toKebab(name);
 	const author = (manifest as Record<string, unknown>).author as string ?? "";
-	let created = 0;
-	const w = (rel: string, content: string): void => { if (writeFileAt(projectPath, rel, content)) created++; };
+	const { write: w, report } = createFileWriter(projectPath);
 
 	w("manifest.json", pluginManifestTemplate(name, id, author));
 	w("package.json", pluginPackageTemplate(name, id));
@@ -104,15 +103,14 @@ function scaffoldPlugin(projectPath: string, name: string): void {
 	w("src/ui/.gitkeep", "");
 	w("tests/.gitkeep", "");
 
-	log(`  ${GREEN}✓${RESET} Created ${created} files (Starter Plugin).\n`);
+	report("Starter Plugin");
 }
 
 function scaffoldApp(projectPath: string, name: string): void {
 	const id = toKebab(name);
 	const pascal = toPascal(name);
 	const author = (manifest as Record<string, unknown>).author as string ?? "";
-	let created = 0;
-	const w = (rel: string, content: string): void => { if (writeFileAt(projectPath, rel, content)) created++; };
+	const { write: w, report } = createFileWriter(projectPath);
 
 	w("manifest.json", appManifestTemplate(name, id, author));
 	w("package.json", appPackageTemplate(name, id));
@@ -132,13 +130,12 @@ function scaffoldApp(projectPath: string, name: string): void {
 	w("tests/mocks/obsidian-stub.ts", appObsidianStubTemplate());
 	w("tests/infrastructure/EventBus.test.ts", appEventBusTestTemplate());
 
-	log(`  ${GREEN}✓${RESET} Created ${created} files (DDD Application).\n`);
+	report("DDD Application");
 }
 
 function scaffoldCli(projectPath: string, name: string): void {
 	const id = toKebab(name);
-	let created = 0;
-	const w = (rel: string, content: string): void => { if (writeFileAt(projectPath, rel, content)) created++; };
+	const { write: w, report } = createFileWriter(projectPath);
 
 	w("package.json", cliPackageTemplate(name, id));
 	w("tsconfig.json", cliTsconfigTemplate());
@@ -147,7 +144,7 @@ function scaffoldCli(projectPath: string, name: string): void {
 	w("src/main.ts", cliMainTemplate(name));
 	w("tests/main.test.ts", cliMainTestTemplate(name));
 
-	log(`  ${GREEN}✓${RESET} Created ${created} files (CLI App).\n`);
+	report("CLI App");
 }
 
 function scaffoldEmpty(projectPath: string, _name: string): void {
@@ -204,8 +201,7 @@ async function makeHub(projectRoot: string): Promise<void> {
 	if (proceed.toLowerCase() === "n") return;
 
 	log();
-	let created = 0;
-	const w = (rel: string, content: string): void => { if (writeFileAt(projectRoot, rel, content)) created++; };
+	const { write: w, created, report } = createFileWriter(projectRoot);
 
 	w(`${paths.ui}/${kebab}/${pascal}HubView.ts`, hubViewTemplate(pascal, kebab, hubType, icon, tabs));
 	w(`${paths.ui}/${kebab}/types.ts`, hubTypesTemplate(pascal, tabs));
@@ -275,8 +271,7 @@ async function makePlugin(projectRoot: string): Promise<void> {
 	if (proceed.toLowerCase() === "n") return;
 
 	log();
-	let created = 0;
-	const w = (rel: string, content: string): void => { if (writeFileAt(pluginRoot, rel, content)) created++; };
+	const { write: w, created } = createFileWriter(pluginRoot);
 
 	w("manifest.json", pluginManifestTemplate(name, pluginId, author));
 	w("package.json", pluginPackageTemplate(name, pluginId));
@@ -347,8 +342,7 @@ async function makeApp(projectRoot: string): Promise<void> {
 	if (proceed.toLowerCase() === "n") return;
 
 	log();
-	let created = 0;
-	const w = (rel: string, content: string): void => { if (writeFileAt(appRoot, rel, content)) created++; };
+	const { write: w, created } = createFileWriter(appRoot);
 
 	w("manifest.json", appManifestTemplate(name, appId, author));
 	w("package.json", appPackageTemplate(name, appId));
@@ -410,8 +404,7 @@ async function makeCliApp(projectRoot: string): Promise<void> {
 	if (proceed.toLowerCase() === "n") return;
 
 	log();
-	let created = 0;
-	const w = (rel: string, content: string): void => { if (writeFileAt(cliRoot, rel, content)) created++; };
+	const { write: w, created } = createFileWriter(cliRoot);
 
 	w("package.json", cliPackageTemplate(name, appId));
 	w("tsconfig.json", cliTsconfigTemplate());
@@ -449,8 +442,7 @@ export const commands = {
 
 		log(`\n  ${CYAN}▸${RESET} Scaffolding: ${pascal} Hub\n`);
 
-		let created = 0;
-		const w = (rel: string, content: string): void => { if (writeFileAt(ROOT, rel, content)) created++; };
+		const { write: w, created } = createFileWriter(ROOT);
 
 		w(`${paths.ui}/${kebab}/${pascal}HubView.ts`, hubViewTemplate(pascal, kebab, hubType, icon, tabs));
 		w(`${paths.ui}/${kebab}/types.ts`, hubTypesTemplate(pascal, tabs));
@@ -488,8 +480,7 @@ export const commands = {
 
 		log(`\n  ${CYAN}▸${RESET} Scaffolding: ${name}\n`);
 
-		let created = 0;
-		const w = (rel: string, content: string): void => { if (writeFileAt(appRoot, rel, content)) created++; };
+		const { write: w, created } = createFileWriter(appRoot);
 
 		w("manifest.json", appManifestTemplate(name, appId, author));
 		w("package.json", appPackageTemplate(name, appId));
@@ -529,8 +520,7 @@ export const commands = {
 
 		log(`\n  ${CYAN}▸${RESET} Scaffolding: ${name}\n`);
 
-		let created = 0;
-		const w = (rel: string, content: string): void => { if (writeFileAt(cliRoot, rel, content)) created++; };
+		const { write: w, created } = createFileWriter(cliRoot);
 
 		w("package.json", cliPackageTemplate(name, appId));
 		w("tsconfig.json", cliTsconfigTemplate());
@@ -560,8 +550,7 @@ export const commands = {
 
 		log(`\n  ${CYAN}▸${RESET} Scaffolding: ${name}\n`);
 
-		let created = 0;
-		const w = (rel: string, content: string): void => { if (writeFileAt(pluginRoot, rel, content)) created++; };
+		const { write: w, created } = createFileWriter(pluginRoot);
 
 		w("manifest.json", pluginManifestTemplate(name, pluginId, author));
 		w("package.json", pluginPackageTemplate(name, pluginId));

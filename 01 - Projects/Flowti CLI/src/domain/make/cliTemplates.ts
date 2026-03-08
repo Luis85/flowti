@@ -4,45 +4,14 @@
  * Creates a Node.js ESM CLI project with TypeScript and Vitest.
  */
 
+import { packageTemplate, tsconfigTemplate, vitestTemplate, gitignoreTemplate } from "./template-service.js";
+
 export function cliPackageTemplate(name: string, id: string): string {
-	return JSON.stringify({
-		name: id,
-		version: "0.0.1",
-		type: "module",
-		description: name,
-		scripts: {
-			"dev": "node --import tsx src/main.ts",
-			"build": "tsc",
-			"test": "vitest run",
-			"check": "tsc --noEmit",
-		},
-		devDependencies: {
-			"@types/node": "^22.0.0",
-			"tsx": "^4.0.0",
-			"typescript": "^5.9.0",
-			"vitest": "^4.0.0",
-		},
-		dependencies: {},
-	}, null, "\t") + "\n";
+	return packageTemplate("cli", name, id);
 }
 
 export function cliTsconfigTemplate(): string {
-	return JSON.stringify({
-		compilerOptions: {
-			target: "ES2022",
-			module: "NodeNext",
-			moduleResolution: "NodeNext",
-			strict: true,
-			esModuleInterop: true,
-			outDir: "dist",
-			rootDir: ".",
-			declaration: true,
-			sourceMap: true,
-			skipLibCheck: true,
-		},
-		include: ["src/**/*.ts"],
-		exclude: ["node_modules", "dist"],
-	}, null, "\t") + "\n";
+	return tsconfigTemplate("cli");
 }
 
 export function cliMainTemplate(name: string): string {
@@ -82,18 +51,9 @@ describe("${name}", () => {
 }
 
 export function cliVitestTemplate(): string {
-	return `import { defineConfig } from "vitest/config";
-
-export default defineConfig({
-\ttest: {
-\t\tinclude: ["tests/**/*.test.ts"],
-\t},
-});
-`;
+	return vitestTemplate("cli");
 }
 
 export function cliGitignoreTemplate(): string {
-	return `node_modules/
-dist/
-`;
+	return gitignoreTemplate("cli");
 }

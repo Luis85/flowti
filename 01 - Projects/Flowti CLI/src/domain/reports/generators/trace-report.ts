@@ -14,6 +14,7 @@ import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
 import { proc } from "../../../infrastructure/proc.js";
 import { clock } from "../../../infrastructure/clock.js";
+import { parseFrontmatterContent } from "../../../infrastructure/frontmatter.js";
 
 interface ScanResult {
 	id: string;
@@ -34,51 +35,6 @@ const DOCS_DIR: string = paths.join(ROOT, "docs");
 // Vault inbox is relative to the git root
 const VAULT_INBOX: string = paths.join(VAULT_ROOT, "00 - Connectivity", "inbox");
 
-function parseScalar(rawValue: string): unknown {
-	if (rawValue === "true") return true;
-	if (rawValue === "false") return false;
-	if (/^-?\d+$/.test(rawValue)) return parseInt(rawValue, 10);
-	if (/^-?\d+\.\d+$/.test(rawValue)) return parseFloat(rawValue);
-	return rawValue.replace(/^["']|["']$/g, "");
-}
-
-function parseFrontmatter(content: string): Record<string, unknown> | null {
-	const match: RegExpMatchArray | null = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-	if (!match) return null;
-
-	const fm: Record<string, unknown> = {};
-	const lines: string[] = match[1].split(/\r?\n/);
-	let currentKey: string | null = null;
-	let inArray: boolean = false;
-
-	for (const line of lines) {
-		if (inArray && /^\s+-\s+/.test(line)) {
-			const value = line.replace(/^\s+-\s+/, "").replace(/^["']|["']$/g, "");
-			(fm[currentKey!] as string[]).push(value);
-			continue;
-		}
-
-		const kvMatch = line.match(/^(\w[\w_]*):\s*(.*)/);
-		if (!kvMatch) { inArray = false; continue; }
-
-		const key = kvMatch[1];
-		const rawValue = kvMatch[2].trim();
-
-		if (rawValue === "" || rawValue === "[]") {
-			currentKey = key;
-			fm[key] = [];
-			inArray = rawValue === "";
-			continue;
-		}
-
-		inArray = false;
-		currentKey = null;
-		fm[key] = parseScalar(rawValue);
-	}
-
-	return fm;
-}
-
 function scanDir(dir: string, docType: string): ScanResult[] {
 	const results: ScanResult[] = [];
 	if (!disk.existsSync(dir)) return results;
@@ -86,7 +42,7 @@ function scanDir(dir: string, docType: string): ScanResult[] {
 	const files: string[] = disk.readdirSync(dir).filter((f: string) => f.endsWith(".md"));
 	for (const file of files) {
 		const content: string = disk.readFileSync(paths.join(dir, file), "utf-8");
-		const fm: Record<string, unknown> | null = parseFrontmatter(content);
+		const fm: Record<string, unknown> | null = parseFrontmatterContent(content);
 		if (!fm) continue;
 		results.push({ id: file.replace(/\.md$/, ""), type: docType, frontmatter: fm });
 	}
