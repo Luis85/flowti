@@ -139,6 +139,31 @@ export function analyzeBuild(snap: ReportSnapshot): Finding[] {
 	return findings;
 }
 
+export function checkMaxComplexity(maxC: number, threshold: number): Finding | null {
+	if (maxC <= 0) return null;
+	if (maxC > threshold * 2) {
+		return { category: "risk", message: `Maximum cyclomatic complexity is ${maxC} — far exceeds threshold of ${threshold}. Refactor the most complex functions.` };
+	}
+	if (maxC > threshold) {
+		return { category: "improvement", message: `Maximum complexity at ${maxC} — exceeds threshold of ${threshold}.` };
+	}
+	return { category: "positive", message: `Maximum complexity at ${maxC} — within threshold of ${threshold}.` };
+}
+
+export function checkAboveThreshold(totalFunctions: number, aboveThreshold: number, targetPct: number): Finding | null {
+	if (totalFunctions <= 0 || aboveThreshold <= 0) return null;
+	const pct = (aboveThreshold / totalFunctions) * 100;
+	if (pct > targetPct) {
+		return { category: "improvement", message: `${aboveThreshold} functions (${pct.toFixed(1)}%) exceed complexity threshold of 10. Target: <${targetPct}%.` };
+	}
+	return null;
+}
+
+export function checkAvgComplexity(avgC: number, medianC: number): Finding | null {
+	if (avgC <= 0) return null;
+	return { category: avgC > 5 ? "improvement" : "positive", message: `Average complexity: ${avgC} (median: ${medianC || "?"}).` };
+}
+
 export function analyzeComplexity(snap: ReportSnapshot, thresholds: Required<SummaryThresholds>, detailed?: DetailedSources): Finding[] {
 	const findings: Finding[] = [];
 	const cf = detailed?.complexityFunctions?.summary;
@@ -149,29 +174,14 @@ export function analyzeComplexity(snap: ReportSnapshot, thresholds: Required<Sum
 	const totalFunctions = cf?.totalFunctions ?? fm(snap, "total_functions");
 	const aboveThreshold = cf?.aboveThreshold10 ?? fm(snap, "above_threshold");
 
-	if (maxC > thresholds.maxComplexity * 2) {
-		findings.push({ category: "risk",
-			message: `Maximum cyclomatic complexity is ${maxC} — far exceeds threshold of ${thresholds.maxComplexity}. Refactor the most complex functions.` });
-	} else if (maxC > thresholds.maxComplexity) {
-		findings.push({ category: "improvement",
-			message: `Maximum complexity at ${maxC} — exceeds threshold of ${thresholds.maxComplexity}.` });
-	} else if (maxC > 0) {
-		findings.push({ category: "positive",
-			message: `Maximum complexity at ${maxC} — within threshold of ${thresholds.maxComplexity}.` });
-	}
+	const maxResult = checkMaxComplexity(maxC, thresholds.maxComplexity);
+	if (maxResult) findings.push(maxResult);
 
-	if (totalFunctions > 0 && aboveThreshold > 0) {
-		const pct = (aboveThreshold / totalFunctions) * 100;
-		if (pct > thresholds.complexityAboveThresholdPct) {
-			findings.push({ category: "improvement",
-				message: `${aboveThreshold} functions (${pct.toFixed(1)}%) exceed complexity threshold of 10. Target: <${thresholds.complexityAboveThresholdPct}%.` });
-		}
-	}
+	const aboveResult = checkAboveThreshold(totalFunctions, aboveThreshold, thresholds.complexityAboveThresholdPct);
+	if (aboveResult) findings.push(aboveResult);
 
-	if (avgC > 0) {
-		findings.push({ category: avgC > 5 ? "improvement" : "positive",
-			message: `Average complexity: ${avgC} (median: ${medianC || "?"}).` });
-	}
+	const avgResult = checkAvgComplexity(avgC, medianC);
+	if (avgResult) findings.push(avgResult);
 
 	if (detailed?.complexityFunctions) {
 		const topFns = detailed.complexityFunctions.functions.slice(0, 7);

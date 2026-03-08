@@ -60,7 +60,7 @@ async function runESLintComplexity(): Promise<ESLint.LintResult[]> {
 		overrideConfigFile: ESLINT_CONFIG,
 		ignorePatterns: [
 			"**/__tests__/**", "**/*.test.{js,ts,tsx}", "**/*.spec.{js,ts,tsx}",
-			"complexity/**", "dist/**", "build/**", "node_modules/**", "**/coverage/**",
+			"complexity/**", "dist/**", "build/**", "bin/**", "node_modules/**", "**/coverage/**",
 		],
 		overrideConfig: { rules: { complexity: ["warn", { max: 0, variant }] } },
 	});

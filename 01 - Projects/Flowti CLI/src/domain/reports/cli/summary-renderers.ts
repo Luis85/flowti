@@ -321,15 +321,7 @@ export function renderDomainDetails(doc: Document, snapshots: ReportSnapshot[], 
 
 // ── Frontmatter promotion ────────────────────────────────────────────
 
-export function promoteFrontmatter(
-	snapshots: ReportSnapshot[],
-	json: JsonDataSources,
-	lint: LintResult | null,
-	detailed: DetailedSources,
-): Record<string, string | number | boolean> {
-	const fmData: Record<string, string | number | boolean> = {};
-
-	// Coverage
+export function promoteCoverage(fmData: Record<string, string | number | boolean>, snapshots: ReportSnapshot[], json: JsonDataSources): void {
 	if (json.coverage) {
 		fmData.coverage_lines_pct = json.coverage.linesPct;
 		fmData.coverage_branches_pct = json.coverage.branchesPct;
@@ -344,8 +336,9 @@ export function promoteFrontmatter(
 			if (bp > 0) fmData.coverage_branches_pct = bp;
 		}
 	}
+}
 
-	// Tests
+export function promoteTests(fmData: Record<string, string | number | boolean>, snapshots: ReportSnapshot[], json: JsonDataSources): void {
 	if (json.tests) {
 		fmData.total_tests = json.tests.numTotalTests;
 		fmData.total_suites = json.tests.numTotalTestSuites;
@@ -358,8 +351,9 @@ export function promoteFrontmatter(
 			if (t > 0) fmData.total_tests = t;
 		}
 	}
+}
 
-	// Complexity
+export function promoteComplexity(fmData: Record<string, string | number | boolean>, snapshots: ReportSnapshot[], detailed: DetailedSources): void {
 	const cf = detailed.complexityFunctions?.summary;
 	if (cf) {
 		fmData.max_complexity = cf.maxComplexity;
@@ -374,35 +368,45 @@ export function promoteFrontmatter(
 			if (mc > 0) fmData.max_complexity = mc;
 		}
 	}
+}
 
-	// Lint
+export function promoteAggregates(fmData: Record<string, string | number | boolean>, detailed: DetailedSources): void {
+	if (detailed.perFile.length === 0) return;
+	const metrics = buildDomainMetrics(detailed);
+	const totals = metrics.reduce(
+		(acc, m) => {
+			acc.loc += m.loc;
+			acc.files += m.files;
+			acc.fns += m.functions;
+			acc.uncovFns += m.uncoveredFns;
+			acc.dps += m.decisionPoints;
+			return acc;
+		},
+		{ loc: 0, files: 0, fns: 0, uncovFns: 0, dps: 0 },
+	);
+	fmData.total_loc = totals.loc;
+	fmData.total_files = totals.files;
+	fmData.total_functions = totals.fns;
+	fmData.uncovered_functions = totals.uncovFns;
+	fmData.total_decision_points = totals.dps;
+	fmData.domains = metrics.length;
+}
+
+export function promoteFrontmatter(
+	snapshots: ReportSnapshot[],
+	json: JsonDataSources,
+	lint: LintResult | null,
+	detailed: DetailedSources,
+): Record<string, string | number | boolean> {
+	const fmData: Record<string, string | number | boolean> = {};
+	promoteCoverage(fmData, snapshots, json);
+	promoteTests(fmData, snapshots, json);
+	promoteComplexity(fmData, snapshots, detailed);
 	if (lint) {
 		fmData.eslint_warnings = lint.warnings;
 		fmData.eslint_errors = lint.errors;
 	}
-
-	// Aggregated metrics
-	if (detailed.perFile.length > 0) {
-		const metrics = buildDomainMetrics(detailed);
-		const totals = metrics.reduce(
-			(acc, m) => {
-				acc.loc += m.loc;
-				acc.files += m.files;
-				acc.fns += m.functions;
-				acc.uncovFns += m.uncoveredFns;
-				acc.dps += m.decisionPoints;
-				return acc;
-			},
-			{ loc: 0, files: 0, fns: 0, uncovFns: 0, dps: 0 },
-		);
-		fmData.total_loc = totals.loc;
-		fmData.total_files = totals.files;
-		fmData.total_functions = totals.fns;
-		fmData.uncovered_functions = totals.uncovFns;
-		fmData.total_decision_points = totals.dps;
-		fmData.domains = metrics.length;
-	}
-
+	promoteAggregates(fmData, detailed);
 	return fmData;
 }
 
