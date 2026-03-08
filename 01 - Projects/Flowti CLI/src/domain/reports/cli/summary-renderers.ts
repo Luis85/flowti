@@ -172,6 +172,19 @@ export function renderDomainMetrics(doc: Document, detailed: DetailedSources): v
 
 // ── Section renderers ────────────────────────────────────────────────
 
+export function parseDetailColumns(details: string[]): { headers: string[]; rows: string[][] } {
+	const SEP = " — ";
+	const hasSep = details.every((d) => d.includes(SEP));
+	if (!hasSep) {
+		return { headers: ["Detail"], rows: details.map((d) => [d]) };
+	}
+	const rows = details.map((d) => {
+		const idx = d.indexOf(SEP);
+		return [d.slice(0, idx), d.slice(idx + SEP.length)];
+	});
+	return { headers: ["File", "Info"], rows };
+}
+
 function flattenFindings(findings: Finding[]): string[] {
 	const lines: string[] = [];
 	for (const f of findings) {
@@ -185,16 +198,12 @@ function flattenFindings(findings: Finding[]): string[] {
 	return lines;
 }
 
-export function renderOverview(
-	doc: Document,
+export function buildHealthKpis(
 	json: JsonDataSources,
 	detailed: DetailedSources,
 	lint: LintResult | null,
 	thresholds: Required<SummaryThresholds>,
-	findings: Finding[],
-): void {
-	doc.heading(2, "Overview").addBlank();
-
+): string[] {
 	const kpis: string[] = [];
 
 	if (json.tests) {
@@ -226,6 +235,20 @@ export function renderOverview(
 		kpis.push(`📊 **Codebase**: ${n(totals.loc)} LOC across ${n(totals.files)} files (${n(metrics.length)} domains)`);
 	}
 
+	return kpis;
+}
+
+export function renderOverview(
+	doc: Document,
+	json: JsonDataSources,
+	detailed: DetailedSources,
+	lint: LintResult | null,
+	thresholds: Required<SummaryThresholds>,
+	findings: Finding[],
+): void {
+	doc.heading(2, "Overview").addBlank();
+
+	const kpis = buildHealthKpis(json, detailed, lint, thresholds);
 	const risks = findings.filter((f) => f.category === "risk").length;
 	const improvements = findings.filter((f) => f.category === "improvement").length;
 	const positives = findings.filter((f) => f.category === "positive").length;
@@ -265,12 +288,18 @@ export function renderImprovements(doc: Document, findings: Finding[]): void {
 
 	if (improvements.length > 0) {
 		doc.heading(2, "Improvements").addBlank();
-		doc.callout("tip", "Opportunities", flattenFindings(improvements)).addBlank();
+		for (const imp of improvements) {
+			doc.callout("tip", imp.message, []).addBlank();
+			if (imp.details && imp.details.length > 0) {
+				const { headers, rows } = parseDetailColumns(imp.details);
+				doc.table(headers, rows).addBlank();
+			}
+		}
 	}
 
 	if (positives.length > 0) {
 		doc.heading(2, "Strengths").addBlank();
-		doc.callout("success", "What's working well", flattenFindings(positives)).addBlank();
+		doc.callout("success", "What's working well", positives.map((f) => f.message)).addBlank();
 	}
 
 	if (improvements.length === 0 && positives.length === 0 && findings.filter((f) => f.category === "risk").length === 0) {

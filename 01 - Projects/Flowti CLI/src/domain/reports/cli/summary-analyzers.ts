@@ -11,6 +11,7 @@ import type {
 	Finding,
 	JsonDataSources,
 	DetailedSources,
+	FileCoverageStats,
 	LintResult,
 } from "./summary-types.js";
 
@@ -65,12 +66,45 @@ export function checkLineCoverage(linesPct: number, thresholds: Required<Summary
 	return { category: "positive", message: `Line coverage meets target at ${linesPct}% (threshold: ${thresholds.coverageLines}%).` };
 }
 
+export function checkZeroCoverage(perFile: FileCoverageStats[]): Finding | null {
+	const zeroCov = perFile.filter((f) => f.stmtPct === 0 && f.stmtTotal > 5);
+	if (zeroCov.length === 0) return null;
+	const top = zeroCov.sort((a, b) => b.stmtTotal - a.stmtTotal).slice(0, 8);
+	return {
+		category: "improvement",
+		message: `${zeroCov.length} source file(s) have zero test coverage — prioritize adding tests for the largest:`,
+		details: top.map((f) => `\`${f.file}\` (${f.stmtTotal} statements, ${f.fnTotal} functions)`),
+	};
+}
+
+export function checkLowCoverage(perFile: FileCoverageStats[]): Finding | null {
+	const lowCov = perFile.filter((f) => f.stmtPct > 0 && f.stmtPct < 30).sort((a, b) => a.stmtPct - b.stmtPct);
+	if (lowCov.length === 0) return null;
+	const top = lowCov.slice(0, 5);
+	return {
+		category: "improvement",
+		message: `${lowCov.length} source file(s) have coverage below 30% — quick wins for improvement:`,
+		details: top.map((f) => `\`${f.file}\` at ${f.stmtPct}% (${f.stmtCovered}/${f.stmtTotal} statements)`),
+	};
+}
+
+export function checkUncoveredFunctions(perFile: FileCoverageStats[]): Finding | null {
+	const uncovFns = perFile.filter((f) => f.fnUncovered > 5).sort((a, b) => b.fnUncovered - a.fnUncovered);
+	if (uncovFns.length === 0) return null;
+	const top = uncovFns.slice(0, 5);
+	return {
+		category: "improvement",
+		message: "Files with the most uncovered functions — add targeted unit tests:",
+		details: top.map((f) => `\`${f.file}\` — ${f.fnUncovered}/${f.fnTotal} functions uncovered`),
+	};
+}
+
 export function analyzeCoverage(snap: ReportSnapshot, thresholds: Required<SummaryThresholds>, json: JsonDataSources, detailed?: DetailedSources): Finding[] {
-	const findings: Finding[] = [];
 	const linesPct = json.coverage ? json.coverage.linesPct : fm(snap, "lines_pct", "lines", "line_coverage");
 	const branchesPct = json.coverage ? json.coverage.branchesPct : fm(snap, "branches_pct", "branches", "branch_coverage");
 	const functionsPct = json.coverage ? json.coverage.functionsPct : fm(snap, "functions_pct", "functions", "function_coverage");
 
+	const findings: Finding[] = [];
 	const lineResult = checkLineCoverage(linesPct, thresholds);
 	if (lineResult) findings.push(lineResult);
 
@@ -85,35 +119,13 @@ export function analyzeCoverage(snap: ReportSnapshot, thresholds: Required<Summa
 	}
 
 	if (detailed && detailed.perFile.length > 0) {
-		const zeroCov = detailed.perFile.filter((f) => f.stmtPct === 0 && f.stmtTotal > 5);
-		const lowCov = detailed.perFile.filter((f) => f.stmtPct > 0 && f.stmtPct < 30).sort((a, b) => a.stmtPct - b.stmtPct);
-		const uncovFns = detailed.perFile.filter((f) => f.fnUncovered > 5).sort((a, b) => b.fnUncovered - a.fnUncovered);
-
-		if (zeroCov.length > 0) {
-			const top = zeroCov.sort((a, b) => b.stmtTotal - a.stmtTotal).slice(0, 8);
-			findings.push({
-				category: "improvement",
-				message: `${zeroCov.length} source file(s) have zero test coverage — prioritize adding tests for the largest:`,
-				details: top.map((f) => `\`${f.file}\` (${f.stmtTotal} statements, ${f.fnTotal} functions)`),
-			});
-		}
-
-		if (lowCov.length > 0) {
-			const top = lowCov.slice(0, 5);
-			findings.push({
-				category: "improvement",
-				message: `${lowCov.length} source file(s) have coverage below 30% — quick wins for improvement:`,
-				details: top.map((f) => `\`${f.file}\` at ${f.stmtPct}% (${f.stmtCovered}/${f.stmtTotal} statements)`),
-			});
-		}
-
-		if (uncovFns.length > 0) {
-			const top = uncovFns.slice(0, 5);
-			findings.push({
-				category: "improvement",
-				message: `Files with the most uncovered functions — add targeted unit tests:`,
-				details: top.map((f) => `\`${f.file}\` — ${f.fnUncovered}/${f.fnTotal} functions uncovered`),
-			});
+		const detailChecks = [
+			checkZeroCoverage(detailed.perFile),
+			checkLowCoverage(detailed.perFile),
+			checkUncoveredFunctions(detailed.perFile),
+		];
+		for (const result of detailChecks) {
+			if (result) findings.push(result);
 		}
 	}
 
@@ -164,45 +176,46 @@ export function checkAvgComplexity(avgC: number, medianC: number): Finding | nul
 	return { category: avgC > 5 ? "improvement" : "positive", message: `Average complexity: ${avgC} (median: ${medianC || "?"}).` };
 }
 
-export function analyzeComplexity(snap: ReportSnapshot, thresholds: Required<SummaryThresholds>, detailed?: DetailedSources): Finding[] {
-	const findings: Finding[] = [];
-	const cf = detailed?.complexityFunctions?.summary;
+export function checkTopFunctions(detailed: DetailedSources): Finding | null {
+	const fns = detailed.complexityFunctions?.functions;
+	if (!fns || fns.length === 0) return null;
+	const topFns = fns.slice(0, 7);
+	return {
+		category: "improvement",
+		message: "Most complex functions — candidates for decomposition:",
+		details: topFns.map((f) => `\`${f.file}:${f.line}\` — \`${f.functionName}\` (complexity ${f.complexity})`),
+	};
+}
 
+export function checkDecisionPointDensity(detailed: DetailedSources): Finding | null {
+	if (detailed.topComplexFiles.length === 0) return null;
+	const top = detailed.topComplexFiles.slice(0, 7);
+	return {
+		category: "improvement",
+		message: "Files with the highest decision-point density:",
+		details: top.map((f) => `\`${f.file}\` — ${f.decisionPointCount} decision points`),
+	};
+}
+
+export function analyzeComplexity(snap: ReportSnapshot, thresholds: Required<SummaryThresholds>, detailed?: DetailedSources): Finding[] {
+	const cf = detailed?.complexityFunctions?.summary;
 	const maxC = cf?.maxComplexity ?? fm(snap, "max_complexity");
 	const avgC = cf?.avgComplexity ?? fm(snap, "avg_complexity", "average_complexity");
 	const medianC = cf?.medianComplexity ?? fm(snap, "median_complexity");
 	const totalFunctions = cf?.totalFunctions ?? fm(snap, "total_functions");
 	const aboveThreshold = cf?.aboveThreshold10 ?? fm(snap, "above_threshold");
 
-	const maxResult = checkMaxComplexity(maxC, thresholds.maxComplexity);
-	if (maxResult) findings.push(maxResult);
-
-	const aboveResult = checkAboveThreshold(totalFunctions, aboveThreshold, thresholds.complexityAboveThresholdPct);
-	if (aboveResult) findings.push(aboveResult);
-
-	const avgResult = checkAvgComplexity(avgC, medianC);
-	if (avgResult) findings.push(avgResult);
-
-	if (detailed?.complexityFunctions) {
-		const topFns = detailed.complexityFunctions.functions.slice(0, 7);
-		if (topFns.length > 0) {
-			findings.push({
-				category: "improvement",
-				message: "Most complex functions — candidates for decomposition:",
-				details: topFns.map((f) => `\`${f.file}:${f.line}\` — \`${f.functionName}\` (complexity ${f.complexity})`),
-			});
-		}
+	const findings: Finding[] = [];
+	const checks = [
+		checkMaxComplexity(maxC, thresholds.maxComplexity),
+		checkAboveThreshold(totalFunctions, aboveThreshold, thresholds.complexityAboveThresholdPct),
+		checkAvgComplexity(avgC, medianC),
+		detailed ? checkTopFunctions(detailed) : null,
+		detailed ? checkDecisionPointDensity(detailed) : null,
+	];
+	for (const result of checks) {
+		if (result) findings.push(result);
 	}
-
-	if (detailed && detailed.topComplexFiles.length > 0) {
-		const top = detailed.topComplexFiles.slice(0, 7);
-		findings.push({
-			category: "improvement",
-			message: "Files with the highest decision-point density:",
-			details: top.map((f) => `\`${f.file}\` — ${f.decisionPointCount} decision points`),
-		});
-	}
-
 	return findings;
 }
 

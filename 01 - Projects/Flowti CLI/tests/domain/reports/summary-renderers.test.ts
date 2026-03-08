@@ -15,6 +15,8 @@ import {
 	renderDomainMetrics,
 	renderDomainDetails,
 	renderMetricsDictionary,
+	parseDetailColumns,
+	buildHealthKpis,
 	METRICS_DICTIONARY,
 } from "../../../src/domain/reports/cli/summary-renderers.js";
 import type {
@@ -272,6 +274,64 @@ describe("promoteFrontmatter", () => {
 	});
 });
 
+// ── buildHealthKpis ──────────────────────────────────────────────────
+
+describe("buildHealthKpis", () => {
+	it("returns empty for no data", () => {
+		expect(buildHealthKpis(EMPTY_JSON, EMPTY_DETAILED, null, THRESHOLDS)).toEqual([]);
+	});
+
+	it("includes test KPI", () => {
+		const json: JsonDataSources = {
+			tests: { numTotalTests: 50, numPassedTests: 50, numFailedTests: 0, numPendingTests: 0, numTotalTestSuites: 5, numPassedTestSuites: 5, numFailedTestSuites: 0, success: true },
+		};
+		const kpis = buildHealthKpis(json, EMPTY_DETAILED, null, THRESHOLDS);
+		expect(kpis).toHaveLength(1);
+		expect(kpis[0]).toContain("Tests");
+		expect(kpis[0]).toContain("50/50");
+	});
+
+	it("includes coverage KPI with yellow icon below threshold", () => {
+		const json: JsonDataSources = {
+			coverage: { linesPct: 60, branchesPct: 50, functionsPct: 70, statementsPct: 60, filesCovered: 10 },
+		};
+		const kpis = buildHealthKpis(json, EMPTY_DETAILED, null, THRESHOLDS);
+		expect(kpis[0]).toContain("Coverage");
+		expect(kpis[0]).toContain("60%");
+	});
+
+	it("includes lint KPI", () => {
+		const lint: LintResult = { warnings: 3, errors: 1, breakdown: [], issues: [] };
+		const kpis = buildHealthKpis(EMPTY_JSON, EMPTY_DETAILED, lint, THRESHOLDS);
+		expect(kpis[0]).toContain("Lint");
+		expect(kpis[0]).toContain("1 errors");
+	});
+
+	it("includes complexity KPI from detailed data", () => {
+		const detailed: DetailedSources = {
+			perFile: [],
+			topComplexFiles: [],
+			complexityFunctions: {
+				summary: { totalFunctions: 50, maxComplexity: 20, avgComplexity: 3, medianComplexity: 2, totalComplexity: 150, aboveThreshold10: 3, aboveThreshold15: 1 },
+				functions: [],
+			},
+		};
+		const kpis = buildHealthKpis(EMPTY_JSON, detailed, null, THRESHOLDS);
+		expect(kpis[0]).toContain("Complexity");
+		expect(kpis[0]).toContain("max 20");
+	});
+
+	it("includes codebase KPI from perFile", () => {
+		const detailed: DetailedSources = {
+			perFile: [{ file: "src/a.ts", loc: 500, stmtTotal: 200, stmtCovered: 150, stmtPct: 75, fnTotal: 20, fnUncovered: 3 }],
+			topComplexFiles: [],
+		};
+		const kpis = buildHealthKpis(EMPTY_JSON, detailed, null, THRESHOLDS);
+		expect(kpis[0]).toContain("Codebase");
+		expect(kpis[0]).toContain("500 LOC");
+	});
+});
+
 // ── renderOverview ───────────────────────────────────────────────────
 
 describe("renderOverview", () => {
@@ -332,17 +392,60 @@ describe("renderRisks", () => {
 	});
 });
 
+// ── parseDetailColumns ───────────────────────────────────────────────
+
+describe("parseDetailColumns", () => {
+	it("splits on em-dash separator into File and Info columns", () => {
+		const result = parseDetailColumns(["`src/a.ts` — 10 decision points", "`src/b.ts` — 5 decision points"]);
+		expect(result.headers).toEqual(["File", "Info"]);
+		expect(result.rows).toEqual([["`src/a.ts`", "10 decision points"], ["`src/b.ts`", "5 decision points"]]);
+	});
+
+	it("falls back to single Detail column when no separator", () => {
+		const result = parseDetailColumns(["plain detail line", "another line"]);
+		expect(result.headers).toEqual(["Detail"]);
+		expect(result.rows).toEqual([["plain detail line"], ["another line"]]);
+	});
+
+	it("falls back when not all lines have separator", () => {
+		const result = parseDetailColumns(["`file` — info", "no separator here"]);
+		expect(result.headers).toEqual(["Detail"]);
+	});
+
+	it("splits on first separator only", () => {
+		const result = parseDetailColumns(["`a` — foo — bar"]);
+		expect(result.rows).toEqual([["`a`", "foo — bar"]]);
+	});
+});
+
 // ── renderImprovements ───────────────────────────────────────────────
 
 describe("renderImprovements", () => {
-	it("renders improvements and strengths", () => {
+	it("renders each improvement as its own callout with columnar table", () => {
 		const findings: Finding[] = [
 			{ category: "improvement", message: "Refactor X" },
-			{ category: "positive", message: "Tests solid" },
+			{ category: "improvement", message: "Reduce complexity", details: ["`src/a.ts:10` — `foo` (complexity 25)", "`src/b.ts:20` — `bar` (complexity 18)"] },
 		];
 		const out = docString((doc) => renderImprovements(doc, findings));
 		expect(out).toContain("## Improvements");
 		expect(out).toContain("Refactor X");
+		expect(out).toContain("Reduce complexity");
+		expect(out).toContain("| File |");
+		expect(out).toContain("| Info |");
+		expect(out).toContain("foo");
+		expect(out).toContain("bar");
+	});
+
+	it("renders improvement without details as callout only (no table)", () => {
+		const findings: Finding[] = [{ category: "improvement", message: "Simple suggestion" }];
+		const out = docString((doc) => renderImprovements(doc, findings));
+		expect(out).toContain("Simple suggestion");
+		expect(out).not.toContain("| File |");
+	});
+
+	it("renders strengths section", () => {
+		const findings: Finding[] = [{ category: "positive", message: "Tests solid" }];
+		const out = docString((doc) => renderImprovements(doc, findings));
 		expect(out).toContain("## Strengths");
 		expect(out).toContain("Tests solid");
 	});

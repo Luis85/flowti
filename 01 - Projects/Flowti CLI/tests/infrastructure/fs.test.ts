@@ -13,7 +13,16 @@ vi.mock("../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
 }));
 
-import { writeFileAt, countFiles, findLatestReport, parseFrontmatter } from "../../src/infrastructure/fs.js";
+import { writeFile, writeFileAt, countFiles, findLatestReport, parseFrontmatter } from "../../src/infrastructure/fs.js";
+
+describe("writeFile", () => {
+	it("delegates to writeFileAt with ROOT as base", () => {
+		const fs = createMockFs();
+		const result = writeFile("src/hello.ts", "content", fs);
+		expect(result).toBe(true);
+		expect(fs.files.get("/project/src/hello.ts")).toBe("content");
+	});
+});
 
 describe("writeFileAt", () => {
 	it("creates a new file and returns true", () => {

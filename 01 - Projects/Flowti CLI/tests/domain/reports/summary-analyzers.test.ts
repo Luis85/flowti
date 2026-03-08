@@ -9,7 +9,12 @@ import {
 	checkMaxComplexity,
 	checkAboveThreshold,
 	checkAvgComplexity,
+	checkTopFunctions,
+	checkDecisionPointDensity,
 	analyzeComplexity,
+	checkZeroCoverage,
+	checkLowCoverage,
+	checkUncoveredFunctions,
 	analyzeCodebase,
 	analyzeCycle,
 	analyzePerformance,
@@ -276,6 +281,94 @@ describe("analyzeComplexity", () => {
 		expect(findings.some((f) => f.message.includes("far exceeds"))).toBe(true);
 		expect(findings.some((f) => f.message.includes("candidates for decomposition"))).toBe(true);
 		expect(findings.some((f) => f.message.includes("decision-point density"))).toBe(true);
+	});
+});
+
+// ── checkTopFunctions ────────────────────────────────────────────────
+
+describe("checkTopFunctions", () => {
+	it("returns null when no complexity data", () => {
+		expect(checkTopFunctions({ perFile: [], topComplexFiles: [] })).toBeNull();
+	});
+
+	it("returns finding with top functions", () => {
+		const detailed: DetailedSources = {
+			perFile: [],
+			topComplexFiles: [],
+			complexityFunctions: {
+				summary: { totalFunctions: 10, maxComplexity: 20, avgComplexity: 5, medianComplexity: 3, totalComplexity: 50, aboveThreshold10: 2, aboveThreshold15: 1 },
+				functions: [{ file: "src/a.ts", functionName: "foo", line: 10, complexity: 20 }],
+			},
+		};
+		const result = checkTopFunctions(detailed)!;
+		expect(result.category).toBe("improvement");
+		expect(result.message).toContain("candidates for decomposition");
+		expect(result.details![0]).toContain("foo");
+	});
+});
+
+// ── checkDecisionPointDensity ────────────────────────────────────────
+
+describe("checkDecisionPointDensity", () => {
+	it("returns null when no files", () => {
+		expect(checkDecisionPointDensity({ perFile: [], topComplexFiles: [] })).toBeNull();
+	});
+
+	it("returns finding with top files", () => {
+		const result = checkDecisionPointDensity({ perFile: [], topComplexFiles: [{ file: "src/big.ts", decisionPointCount: 100 }] })!;
+		expect(result.category).toBe("improvement");
+		expect(result.details![0]).toContain("100 decision points");
+	});
+});
+
+// ── checkZeroCoverage ────────────────────────────────────────────────
+
+describe("checkZeroCoverage", () => {
+	it("returns null when no zero-coverage files", () => {
+		expect(checkZeroCoverage([{ file: "a.ts", loc: 100, stmtTotal: 50, stmtCovered: 50, stmtPct: 100, fnTotal: 5, fnUncovered: 0 }])).toBeNull();
+	});
+
+	it("returns finding for zero-coverage files with >5 statements", () => {
+		const result = checkZeroCoverage([
+			{ file: "a.ts", loc: 100, stmtTotal: 50, stmtCovered: 0, stmtPct: 0, fnTotal: 5, fnUncovered: 5 },
+			{ file: "b.ts", loc: 10, stmtTotal: 3, stmtCovered: 0, stmtPct: 0, fnTotal: 1, fnUncovered: 1 },
+		])!;
+		expect(result.category).toBe("improvement");
+		expect(result.message).toContain("1 source file(s)");
+		expect(result.details![0]).toContain("a.ts");
+	});
+});
+
+// ── checkLowCoverage ─────────────────────────────────────────────────
+
+describe("checkLowCoverage", () => {
+	it("returns null when no low-coverage files", () => {
+		expect(checkLowCoverage([{ file: "a.ts", loc: 100, stmtTotal: 50, stmtCovered: 50, stmtPct: 100, fnTotal: 5, fnUncovered: 0 }])).toBeNull();
+	});
+
+	it("returns finding for files below 30%", () => {
+		const result = checkLowCoverage([
+			{ file: "a.ts", loc: 100, stmtTotal: 50, stmtCovered: 10, stmtPct: 20, fnTotal: 5, fnUncovered: 4 },
+		])!;
+		expect(result.category).toBe("improvement");
+		expect(result.message).toContain("coverage below 30%");
+		expect(result.details![0]).toContain("20%");
+	});
+});
+
+// ── checkUncoveredFunctions ──────────────────────────────────────────
+
+describe("checkUncoveredFunctions", () => {
+	it("returns null when few uncovered functions", () => {
+		expect(checkUncoveredFunctions([{ file: "a.ts", loc: 100, stmtTotal: 50, stmtCovered: 50, stmtPct: 100, fnTotal: 5, fnUncovered: 2 }])).toBeNull();
+	});
+
+	it("returns finding for files with >5 uncovered functions", () => {
+		const result = checkUncoveredFunctions([
+			{ file: "a.ts", loc: 100, stmtTotal: 50, stmtCovered: 10, stmtPct: 20, fnTotal: 20, fnUncovered: 15 },
+		])!;
+		expect(result.category).toBe("improvement");
+		expect(result.details![0]).toContain("15/20 functions uncovered");
 	});
 });
 
