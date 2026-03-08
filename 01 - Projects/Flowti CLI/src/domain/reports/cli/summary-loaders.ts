@@ -8,6 +8,7 @@
 import { paths } from "../../../infrastructure/paths.js";
 import { disk } from "../../../infrastructure/filesystem.js";
 import { shell } from "../../../infrastructure/shell.js";
+import { parseFrontmatterStrings } from "../../../infrastructure/frontmatter.js";
 import { readProjectConfig } from "../../project/project-config.js";
 import type { SummaryThresholds } from "../../../infrastructure/types.js";
 import type {
@@ -197,22 +198,9 @@ export function loadJsonDataSources(reportsDir: string): JsonDataSources {
 	};
 }
 
-// ── Frontmatter parser ───────────────────────────────────────────────
+// ── Frontmatter parser (delegates to shared infrastructure) ─────────
 
-export function parseFrontmatter(content: string): ParsedFrontmatter {
-	const lines = content.split("\n");
-	const fm: ParsedFrontmatter = {};
-	if (lines[0]?.trim() !== "---") return fm;
-
-	const endIdx = lines.indexOf("---", 1);
-	if (endIdx <= 0) return fm;
-
-	for (let i = 1; i < endIdx; i++) {
-		const match = lines[i].match(/^(\w[\w_]*)\s*:\s*(.*)$/);
-		if (match) fm[match[1]] = match[2].replace(/^["']|["']$/g, "");
-	}
-	return fm;
-}
+export const parseFrontmatter: (content: string) => ParsedFrontmatter = parseFrontmatterStrings;
 
 // ── Report discovery ─────────────────────────────────────────────────
 

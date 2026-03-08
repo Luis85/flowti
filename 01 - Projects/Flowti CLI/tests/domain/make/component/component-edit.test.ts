@@ -37,7 +37,8 @@ vi.mock("../../../../src/infrastructure/proc.js", () => ({
 import { disk } from "../../../../src/infrastructure/filesystem.js";
 import { proc } from "../../../../src/infrastructure/proc.js";
 import { commands } from "../../../../src/domain/make/component/component-edit.js";
-import { splitFrontmatter, joinFrontmatter, extractPropFlags } from "../../../../src/domain/make/component/component-edit.js";
+import { splitFrontmatter, joinFrontmatter } from "../../../../src/infrastructure/frontmatter.js";
+import { extractPropFlags } from "../../../../src/domain/make/component/component-edit.js";
 import type { ProjectContext } from "../../../../src/infrastructure/types.js";
 
 const PROJECT: ProjectContext = {
@@ -56,24 +57,20 @@ beforeEach(() => {
 describe("splitFrontmatter", () => {
 	it("parses valid frontmatter", () => {
 		const content = "---\ntype: component\nstatus: draft\n---\n# Heading\n";
-		const { fm, body, hasFm } = splitFrontmatter(content);
-		expect(hasFm).toBe(true);
-		expect(fm).toEqual({ type: "component", status: "draft" });
-		expect(body).toBe("# Heading\n");
+		const result = splitFrontmatter(content);
+		expect(result).not.toBeNull();
+		expect(result!.frontmatter).toEqual({ type: "component", status: "draft" });
+		expect(result!.body).toBe("\n# Heading\n");
 	});
 
-	it("returns no frontmatter when missing", () => {
+	it("returns null when no frontmatter", () => {
 		const content = "# Just a heading\nNo frontmatter.";
-		const { fm, body, hasFm } = splitFrontmatter(content);
-		expect(hasFm).toBe(false);
-		expect(fm).toEqual({});
-		expect(body).toBe(content);
+		expect(splitFrontmatter(content)).toBeNull();
 	});
 
-	it("handles frontmatter without closing delimiter", () => {
+	it("returns null for unclosed frontmatter", () => {
 		const content = "---\nkey: value\nno closing";
-		const { hasFm } = splitFrontmatter(content);
-		expect(hasFm).toBe(false);
+		expect(splitFrontmatter(content)).toBeNull();
 	});
 });
 

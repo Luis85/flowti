@@ -8,32 +8,12 @@
 import { disk } from "../../../infrastructure/filesystem.js";
 import { paths } from "../../../infrastructure/paths.js";
 import { runMenu } from "../../../infrastructure/menu.js";
+import { parseFrontmatterStrings } from "../../../infrastructure/frontmatter.js";
 import { log } from "../../../infrastructure/logger.js";
 import { RESET, BOLD, DIM, GREEN } from "../../../infrastructure/ui.js";
 import type { MenuEntry, MenuResult } from "../../../infrastructure/types.js";
 import type { ProjectComponent, ComponentKind } from "./component-types.js";
 import { COMPONENT_KINDS } from "./component-types.js";
-
-// ── Frontmatter parsing ─────────────────────────────────────────────
-
-const FM_DELIMITER = /^---\s*$/;
-
-function parseFrontmatter(content: string): Record<string, string> {
-	const lines = content.split("\n");
-	if (!FM_DELIMITER.test(lines[0])) return {};
-
-	const result: Record<string, string> = {};
-	for (let i = 1; i < lines.length; i++) {
-		if (FM_DELIMITER.test(lines[i])) break;
-		const colon = lines[i].indexOf(":");
-		if (colon > 0) {
-			const key = lines[i].slice(0, colon).trim();
-			const value = lines[i].slice(colon + 1).trim();
-			result[key] = value;
-		}
-	}
-	return result;
-}
 
 // ── Component discovery ─────────────────────────────────────────────
 
@@ -49,7 +29,7 @@ export function listProjectComponents(projectRoot: string): ProjectComponent[] {
 	for (const file of files) {
 		try {
 			const content = disk.readFileSync(paths.join(componentsDir, file), "utf-8");
-			const fm = parseFrontmatter(content);
+			const fm = parseFrontmatterStrings(content);
 			const name = file.replace(/\.md$/, "");
 			const component: ProjectComponent = {
 				name: fm.name ?? name,

@@ -9,6 +9,7 @@ import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
 import { clock } from "../../infrastructure/clock.js";
 import { Document } from "../../infrastructure/document.js";
+import { parseFrontmatterStrings } from "../../infrastructure/frontmatter.js";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -33,22 +34,6 @@ export interface EventFlowGraph {
 
 function eventsDir(projectPath: string): string {
 	return paths.join(projectPath, "docs", "events");
-}
-
-function extractFrontmatter(content: string): Record<string, string> {
-	const match = content.match(/^---\n([\s\S]*?)\n---/);
-	if (!match) return {};
-
-	const result: Record<string, string> = {};
-	for (const line of match[1].split("\n")) {
-		const idx = line.indexOf(":");
-		if (idx > 0) {
-			const key = line.slice(0, idx).trim();
-			const value = line.slice(idx + 1).trim();
-			result[key] = value;
-		}
-	}
-	return result;
 }
 
 function parseCommaSeparated(value: string): string[] {
@@ -86,7 +71,7 @@ export function buildEventFlowGraph(projectPath: string): EventFlowGraph {
 
 	for (const file of files) {
 		const content = disk.readFileSync(paths.join(dir, file), "utf-8");
-		const fm = extractFrontmatter(content);
+		const fm = parseFrontmatterStrings(content);
 		const eventName = fm.name ?? file.replace(/\.md$/, "");
 
 		nodeMap.set(eventName, { type: "event", name: eventName, domain: fm.domain ?? "" });

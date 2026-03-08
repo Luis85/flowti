@@ -10,51 +10,14 @@
 
 import { paths } from "../../../infrastructure/paths.js";
 import { disk } from "../../../infrastructure/filesystem.js";
+import { splitFrontmatter, joinFrontmatter } from "../../../infrastructure/frontmatter.js";
 import { RESET, DIM, GREEN, RED } from "../../../infrastructure/ui.js";
 import { log } from "../../../infrastructure/logger.js";
 import { proc } from "../../../infrastructure/proc.js";
 import { toKebab } from "../naming.js";
 import type { CommandHandler } from "../../../infrastructure/types.js";
 
-// ── Frontmatter helpers ─────────────────────────────────────────────
-
-const FM_DELIMITER = /^---\s*$/;
-
-/** Parse frontmatter lines into key-value pairs, returning the body separately. */
-export function splitFrontmatter(content: string): { fm: Record<string, string>; body: string; hasFm: boolean } {
-	const lines = content.split("\n");
-	if (!FM_DELIMITER.test(lines[0])) return { fm: {}, body: content, hasFm: false };
-
-	const fm: Record<string, string> = {};
-	let endIndex = -1;
-	for (let i = 1; i < lines.length; i++) {
-		if (FM_DELIMITER.test(lines[i])) {
-			endIndex = i;
-			break;
-		}
-		const colon = lines[i].indexOf(":");
-		if (colon > 0) {
-			const key = lines[i].slice(0, colon).trim();
-			const value = lines[i].slice(colon + 1).trim();
-			fm[key] = value;
-		}
-	}
-
-	if (endIndex < 0) return { fm: {}, body: content, hasFm: false };
-
-	const body = lines.slice(endIndex + 1).join("\n");
-	return { fm, body, hasFm: true };
-}
-
-/** Serialize frontmatter object back to YAML block + body. */
-export function joinFrontmatter(fm: Record<string, string>, body: string): string {
-	const lines = ["---"];
-	for (const [key, value] of Object.entries(fm)) {
-		lines.push(`${key}: ${value}`);
-	}
-	lines.push("---");
-	return lines.join("\n") + body;
-}
+// ── Helpers ─────────────────────────────────────────────────────────
 
 /** Extract --prop.* flags from a flags object. */
 export function extractPropFlags(flags: Record<string, string | boolean>): Record<string, string> {
@@ -100,18 +63,19 @@ function editComponentCommand(): CommandHandler {
 		}
 
 		const content = disk.readFileSync(docPath, "utf-8");
-		const { fm, body, hasFm } = splitFrontmatter(content);
+		const parsed = splitFrontmatter(content);
 
-		if (!hasFm) {
+		if (!parsed) {
 			log(`\n  ${RED}No frontmatter found in ${kebab}.md${RESET}\n`);
 			return proc.exit(1);
 		}
 
+		const fm = parsed.frontmatter;
 		for (const [key, value] of Object.entries(propUpdates)) {
 			fm[key] = value;
 		}
 
-		const updated = joinFrontmatter(fm, body);
+		const updated = joinFrontmatter(fm, parsed.body);
 		disk.writeFileSync(docPath, updated, "utf-8");
 
 		const propList = Object.entries(propUpdates).map(([k, v]) => `${k}=${v}`).join(", ");

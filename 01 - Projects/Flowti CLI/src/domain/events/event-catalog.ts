@@ -16,6 +16,7 @@ import { input } from "../../infrastructure/input.js";
 import { Document } from "../../infrastructure/document.js";
 import { clock } from "../../infrastructure/clock.js";
 import { runMenu } from "../../infrastructure/menu.js";
+import { parseFrontmatterStrings } from "../../infrastructure/frontmatter.js";
 import { toKebab } from "../make/naming.js";
 import { log } from "../../infrastructure/logger.js";
 import type { MenuResult, MenuEntry } from "../../infrastructure/types.js";
@@ -75,7 +76,7 @@ export function listEvents(projectPath: string): { name: string; domain: string;
 
 	for (const file of files) {
 		const content = disk.readFileSync(paths.join(dir, file), "utf-8");
-		const fm = extractFrontmatter(content);
+		const fm = parseFrontmatterStrings(content);
 		events.push({
 			name: fm.name ?? file.replace(/\.md$/, ""),
 			domain: fm.domain ?? "",
@@ -85,22 +86,6 @@ export function listEvents(projectPath: string): { name: string; domain: string;
 	}
 
 	return events.sort((a, b) => a.name.localeCompare(b.name));
-}
-
-function extractFrontmatter(content: string): Record<string, string> {
-	const match = content.match(/^---\n([\s\S]*?)\n---/);
-	if (!match) return {};
-
-	const result: Record<string, string> = {};
-	for (const line of match[1].split("\n")) {
-		const idx = line.indexOf(":");
-		if (idx > 0) {
-			const key = line.slice(0, idx).trim();
-			const value = line.slice(idx + 1).trim();
-			result[key] = value;
-		}
-	}
-	return result;
 }
 
 interface SiblingLinks {

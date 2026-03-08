@@ -9,6 +9,7 @@
 import { paths } from "../../../infrastructure/paths.js";
 import { disk } from "../../../infrastructure/filesystem.js";
 import { Document } from "../../../infrastructure/document.js";
+import { splitFrontmatter as splitFm } from "../../../infrastructure/frontmatter.js";
 import { RESET, DIM, GREEN, CYAN } from "../../../infrastructure/ui.js";
 import { clock } from "../../../infrastructure/clock.js";
 import { ReportService } from "./report-service.js";
@@ -50,27 +51,10 @@ function buildSections(svc: ReportService, projectPath: string): ReportSection[]
 	];
 }
 
-interface ParsedFrontmatter {
-	[key: string]: string;
-}
-
-function parseFrontmatter(content: string): { frontmatter: ParsedFrontmatter; body: string } {
-	const lines = content.split("\n");
-	const fm: ParsedFrontmatter = {};
-	let bodyStart = 0;
-
-	if (lines[0]?.trim() === "---") {
-		const endIdx = lines.indexOf("---", 1);
-		if (endIdx > 0) {
-			for (let i = 1; i < endIdx; i++) {
-				const match = lines[i].match(/^(\w[\w_]*)\s*:\s*(.*)$/);
-				if (match) fm[match[1]] = match[2].replace(/^["']|["']$/g, "");
-			}
-			bodyStart = endIdx + 1;
-		}
-	}
-
-	return { frontmatter: fm, body: lines.slice(bodyStart).join("\n").trim() };
+function parseFrontmatter(content: string): { frontmatter: Record<string, string>; body: string } {
+	const result = splitFm(content);
+	if (!result) return { frontmatter: {}, body: content.trim() };
+	return { frontmatter: result.frontmatter, body: result.body.trim() };
 }
 
 function extractBody(content: string): string {

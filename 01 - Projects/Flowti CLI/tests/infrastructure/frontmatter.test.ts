@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseScalar, parseFrontmatterContent } from "../../src/infrastructure/frontmatter.js";
+import { parseScalar, parseFrontmatterContent, parseFrontmatterStrings, splitFrontmatter, joinFrontmatter } from "../../src/infrastructure/frontmatter.js";
 
 describe("parseScalar", () => {
 	it("parses booleans", () => {
@@ -66,5 +66,77 @@ describe("parseFrontmatterContent", () => {
 		const md = `---\ndate: "2026-01-01"\n---`;
 		const result = parseFrontmatterContent(md);
 		expect(result).toEqual({ date: "2026-01-01" });
+	});
+});
+
+// ── parseFrontmatterStrings ─────────────────────────────────────────
+
+describe("parseFrontmatterStrings", () => {
+	it("returns empty object when no frontmatter", () => {
+		expect(parseFrontmatterStrings("# Heading\nBody")).toEqual({});
+	});
+
+	it("parses key-value pairs as strings", () => {
+		const md = "---\nname: Hello\ncount: 5\nenabled: true\n---\nBody";
+		expect(parseFrontmatterStrings(md)).toEqual({ name: "Hello", count: "5", enabled: "true" });
+	});
+
+	it("strips quotes from values", () => {
+		const md = '---\nname: "hello"\nother: \'world\'\n---';
+		expect(parseFrontmatterStrings(md)).toEqual({ name: "hello", other: "world" });
+	});
+
+	it("handles Windows line endings", () => {
+		const md = "---\r\nkey: value\r\n---\r\nBody";
+		expect(parseFrontmatterStrings(md)).toEqual({ key: "value" });
+	});
+});
+
+// ── splitFrontmatter ────────────────────────────────────────────────
+
+describe("splitFrontmatter", () => {
+	it("returns null when no frontmatter", () => {
+		expect(splitFrontmatter("# Heading\nBody")).toBeNull();
+	});
+
+	it("splits frontmatter and body", () => {
+		const md = "---\ntype: doc\n---\n\n# Title\nBody";
+		const result = splitFrontmatter(md);
+		expect(result).not.toBeNull();
+		expect(result!.frontmatter).toEqual({ type: "doc" });
+		expect(result!.body).toBe("\n\n# Title\nBody");
+	});
+
+	it("returns null for unclosed frontmatter", () => {
+		expect(splitFrontmatter("---\nkey: value\nno closing")).toBeNull();
+	});
+
+	it("handles empty body after frontmatter", () => {
+		const md = "---\nkey: val\n---";
+		const result = splitFrontmatter(md);
+		expect(result).not.toBeNull();
+		expect(result!.frontmatter).toEqual({ key: "val" });
+		expect(result!.body).toBe("");
+	});
+});
+
+// ── joinFrontmatter ─────────────────────────────────────────────────
+
+describe("joinFrontmatter", () => {
+	it("serializes frontmatter and body", () => {
+		const result = joinFrontmatter({ type: "component", status: "active" }, "\n# Title\n");
+		expect(result).toBe("---\ntype: component\nstatus: active\n---\n# Title\n");
+	});
+
+	it("handles empty frontmatter", () => {
+		const result = joinFrontmatter({}, "\n# Title\n");
+		expect(result).toBe("---\n---\n# Title\n");
+	});
+
+	it("roundtrips with splitFrontmatter", () => {
+		const original = "---\ntype: event\nname: test\n---\n\n# Body";
+		const split = splitFrontmatter(original);
+		const joined = joinFrontmatter(split!.frontmatter, split!.body);
+		expect(joined).toBe(original);
 	});
 });

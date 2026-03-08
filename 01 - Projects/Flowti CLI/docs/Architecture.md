@@ -2,7 +2,7 @@
 type: Architecture
 domain: CLI
 title: Flowti CLI — Architecture Document
-version: 8
+version: 9
 created: 2026-03-07
 updated: 2026-03-08
 status: living-document
@@ -18,7 +18,7 @@ status: living-document
 
 The Flowti CLI is a **definition-driven project orchestrator** that ships as a self-contained Node.js binary. It manages multi-project development workflows — scaffolding, building, testing, reviewing, publishing, and reporting — from a single interactive menu or via non-interactive commands for AI agent tool use.
 
-**Scale**: 150 source files, 86 test files (1,342 tests, 81 suites), 15 domain modules, 19 infrastructure modules. Zero production dependencies — runs on Node.js built-ins only.
+**Scale**: 150 source files, 86 test files (1,346 tests, 81 suites), 15 domain modules, 19 infrastructure modules. Zero production dependencies — runs on Node.js built-ins only.
 
 ---
 
@@ -416,7 +416,7 @@ The CLI separates **reports** (timestamped snapshots in `reports/`) from **refer
 
 `component-makers.ts` prompts for property values during interactive scaffolding via `collectPropertyValues()`. Properties rendered in frontmatter and Properties table by Document-based templates.
 
-`component-edit.ts` provides `edit:component --name=X --prop.key=value` for post-creation property editing. Pure helpers: `splitFrontmatter()`, `joinFrontmatter()`, `extractPropFlags()`. 15 new tests.
+`component-edit.ts` provides `edit:component --name=X --prop.key=value` for post-creation property editing. Uses shared `splitFrontmatter()`/`joinFrontmatter()` from `infrastructure/frontmatter.ts` and local `extractPropFlags()`. 15 new tests.
 
 ### 4.9 Event Flow Visualization (IMP-16) — DONE
 
@@ -433,7 +433,20 @@ Markdown doc templates (`component-doc.ts`, `c4-doc.ts`) refactored from raw str
 
 `Document` extended with `toLines(): string[]` for array output. Four output modes: `Document` (compose further), `toString()` (string), `toLines()` (array), `save()` (write to disk).
 
-### ~~4.11 E2E Onboarding Journey (FR-12)~~ — moved to 4.5 (DONE)
+### 4.11 Frontmatter Consolidation (D-22) — DONE
+
+Consolidated 7 duplicate frontmatter parsers into `infrastructure/frontmatter.ts` — the single source of truth for all frontmatter operations. Four exports:
+
+| Function | Signature | Purpose |
+|---|---|---|
+| `parseFrontmatterContent` | `(content) → Record<string, unknown> \| null` | Typed scalars + arrays |
+| `parseFrontmatterStrings` | `(content) → Record<string, string>` | String-only values |
+| `splitFrontmatter` | `(content) → { frontmatter, body } \| null` | Parse + body separation |
+| `joinFrontmatter` | `(fm, body) → string` | Serialize back to markdown |
+
+**Replaced duplicates in**: `event-catalog.ts`, `event-flow.ts`, `component-list.ts`, `component-edit.ts`, `summary-loaders.ts`, `generate-status-report.ts`, `fs.ts`. The specialized `devtools/frontmatter-utils.ts` (field insertion/replacement for fix-frontmatter) remains separate. 11 new tests.
+
+### ~~4.12 E2E Onboarding Journey (FR-12)~~ — moved to 4.5 (DONE)
 
 ---
 
@@ -460,7 +473,7 @@ All items delivered. 45 new tests for config validation, `--project` flag with i
 
 ### Phase 2: Component & Event Enrichment — COMPLETE
 
-All 5 items delivered plus Document service refactor. 86 new tests. 0 lint warnings (down from 19).
+All items delivered plus Document service refactor and frontmatter consolidation. 97 new tests. 0 lint warnings (down from 19).
 
 | # | Task | Status | Files |
 |---|------|--------|-------|
@@ -471,8 +484,11 @@ All 5 items delivered plus Document service refactor. 86 new tests. 0 lint warni
 | 2.5 | **Event flow visualization** (IMP-16) | DONE | `event-flow.ts` (new), `event-catalog.ts` (menu) |
 | 2.6 | **Document-based templates** (D-19) | DONE | `component-doc.ts`, `c4-doc.ts` (refactored), `document.ts` (toLines), `component-types.ts` |
 | 2.7 | **Lint cleanup** (19 warnings → 0) | DONE | 13 files split/refactored for complexity and max-lines |
+| 2.8 | **Frontmatter consolidation** (D-22) | DONE | `infrastructure/frontmatter.ts` (4 exports), 7 domain files refactored |
+| 2.9 | **Local type alias audit** (6.12) | DONE | No remaining duplicates — all domain files use shared `infrastructure/types.ts` |
+| 2.10 | **Report label fix** ("Tests" → "Test") | DONE | `summary-loaders.ts`, `summary-details.ts`, `summary-promotion.ts`, `summary-analyzers-ext.ts`, `report-archive.ts` |
 
-**Milestone**: C4 entities form a navigable hierarchy. Components are editable post-creation. Event catalog supports full lifecycle. Document service is the sole markdown renderer for doc templates. 1,342 tests, 81 suites. 0 lint errors, 0 warnings.
+**Milestone**: C4 entities form a navigable hierarchy. Components are editable post-creation. Event catalog supports full lifecycle. Document service is the sole markdown renderer for doc templates. Frontmatter parsing consolidated to single infrastructure module. 1,346 tests, 81 suites. 0 lint errors, 0 warnings.
 
 ### Phase 3: Project Health & Storybook Integration
 
@@ -588,11 +604,9 @@ flowti info --format=json
 
 **Gap**: The 3 non-doc component templates (`component-test.ts`, `component-definition.ts`, `component-story.ts`) generate TypeScript/JSON and correctly use raw strings. No action needed — `Document` is for markdown only. However, if additional markdown templates are added in future, they should use `Document` from day one.
 
-### 6.9 Event Catalog Frontmatter Parsing
+### ~~6.9 Event Catalog Frontmatter Parsing~~ — RESOLVED (4.11)
 
-**Current**: `event-catalog.ts` has its own `extractFrontmatter()` that does naive line-by-line YAML parsing. `component-edit.ts` has `splitFrontmatter()`/`joinFrontmatter()` — also naive. Meanwhile, `infrastructure/frontmatter.ts` provides a more robust `parseFrontmatter()`.
-
-**Debt**: Three separate frontmatter parsers with slightly different capabilities. Should consolidate onto a single `infrastructure/frontmatter.ts` implementation for consistency and to gain YAML edge-case handling in one place.
+Consolidated 7 duplicate parsers into `infrastructure/frontmatter.ts`. See section 4.11.
 
 ### 6.10 Coverage Gap
 
@@ -609,11 +623,9 @@ flowti info --format=json
 
 **Target**: Apply the same extraction pattern used in Phase 2 (helper functions, file splits) to the top 10 most complex files. Focus on files that are actively modified — stable complex files are lower priority.
 
-### 6.12 Local Type Aliases
+### ~~6.12 Local Type Aliases~~ — RESOLVED
 
-**Current**: Some domain files still define local `type` aliases (e.g. flag helpers, handler types) instead of importing from `infrastructure/types.ts`. This was cleaned up for `CommandHandler` but may exist elsewhere.
-
-**Target**: Audit all domain files for local type aliases that duplicate shared types. Replace with imports.
+Audit complete. All domain files correctly import shared types from `infrastructure/types.ts`. No remaining duplicates found. Domain-specific types (e.g. `KBChoice`, `AnalyzerFn`, `LineRule`) are appropriately local.
 
 ---
 
@@ -638,6 +650,7 @@ flowti info --format=json
 | `infrastructure/shell.ts` | Shell execution (`run`, `runSilent`, `runCaptureStatus`) |
 | `infrastructure/state.ts` | Persistent state (`.flowti/var/state.json`) |
 | `infrastructure/document.ts` | Fluent Markdown builder — 4 output modes: `Document` (compose), `toString()`, `toLines()`, `save()` |
+| `infrastructure/frontmatter.ts` | Single source of truth for YAML frontmatter — parse (typed/string/split) + serialize (`joinFrontmatter`) |
 | `infrastructure/menu.ts` | Generic data-driven menu loop |
 | `infrastructure/ui.ts` | ANSI colors, `printBanner()`, `printMenu()` |
 | `infrastructure/input.ts` | Interactive input (`ask()`, `createRL()`) |
@@ -703,3 +716,4 @@ flowti info --format=json
 | D-19 | Document-based doc templates | Markdown doc templates return `Document` (not raw strings); gains YAML escaping, standardized rendering, 4 output modes |
 | D-20 | `CommandHandler` from shared types | Domain modules import `CommandHandler` from `infrastructure/types.ts`; eliminates local type aliases, resolves TypeDoc warnings |
 | D-21 | Event domain split into 5 files | `event-catalog.ts` (interactive), `event-commands.ts` (non-interactive), `event-payload.ts`, `event-versioning.ts`, `event-flow.ts`; each under 300 LOC |
+| D-22 | Frontmatter consolidation | 7 duplicate parsers replaced by 4 shared functions in `infrastructure/frontmatter.ts`; single source of truth for parse + serialize |
