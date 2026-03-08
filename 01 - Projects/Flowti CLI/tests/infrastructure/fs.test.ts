@@ -1,10 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { createMockFs } from "../mocks/mock-fs.js";
 
-vi.mock("../../src/infrastructure/config.js", () => ({
-	ROOT: "/project",
-}));
-
 vi.mock("../../src/infrastructure/ui.js", () => ({
 	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", CYAN: "", YELLOW: "",
 }));
@@ -13,16 +9,7 @@ vi.mock("../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
 }));
 
-import { writeFile, writeFileAt, countFiles, findLatestReport, parseFrontmatter } from "../../src/infrastructure/fs.js";
-
-describe("writeFile", () => {
-	it("delegates to writeFileAt with ROOT as base", () => {
-		const fs = createMockFs();
-		const result = writeFile("src/hello.ts", "content", fs);
-		expect(result).toBe(true);
-		expect(fs.files.get("/project/src/hello.ts")).toBe("content");
-	});
-});
+import { writeFileAt, countFiles, findLatestReport, parseFrontmatter } from "../../src/infrastructure/fs.js";
 
 describe("writeFileAt", () => {
 	it("creates a new file and returns true", () => {

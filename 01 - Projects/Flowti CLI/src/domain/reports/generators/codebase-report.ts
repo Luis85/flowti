@@ -9,13 +9,13 @@
 
 import { disk } from "../../../infrastructure/filesystem.js";
 import { paths } from "../../../infrastructure/paths.js";
-import { ROOT } from "../../../infrastructure/config.js";
+import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
 import { clock } from "../../../infrastructure/clock.js";
 
-const CODEBASE_JSON = paths.join(ROOT, "docs", "reports", "codebase", "codebase.json");
-const OUTPUT_DIR = paths.join(ROOT, "docs", "reports", "codebase");
+const CODEBASE_JSON = paths.join(PLUGIN_ROOT, "docs", "reports", "codebase", "codebase.json");
+const OUTPUT_DIR = paths.join(PLUGIN_ROOT, "docs", "reports", "codebase");
 
 /** TypeDoc reflection kind values */
 const KIND: Record<string, number> = {

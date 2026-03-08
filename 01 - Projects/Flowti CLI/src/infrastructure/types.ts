@@ -200,6 +200,8 @@ export type MakeTemplateId = "hub" | "plugin" | "app" | "cli";
 export interface MakeConfig {
 	/** Which Make templates are available for this project */
 	templates?: MakeTemplateId[];
+	/** Override default hub scaffolding paths */
+	hub?: Partial<Record<string, string>>;
 }
 
 export interface ProjectConfig {
@@ -215,6 +217,8 @@ export interface ProjectConfig {
 // ── CLI configuration ───────────────────────────────────────────────
 
 export interface FlowtiCliConfig {
+	version?: string;
+	defaultAuthor?: string;
 	projectsFolder?: string;
 	subsystems?: {
 		plugin?: {

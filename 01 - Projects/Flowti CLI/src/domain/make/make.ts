@@ -6,7 +6,7 @@
 
 import { paths as nodePaths } from "../../infrastructure/paths.js";
 import { disk } from "../../infrastructure/filesystem.js";
-import { ROOT, VAULT_ROOT, manifest } from "../../infrastructure/config.js";
+import { PROJECTS_DIR, cliConfig } from "../../infrastructure/config.js";
 import { RESET, BOLD, DIM, GREEN, RED, CYAN } from "../../infrastructure/ui.js";
 import { input } from "../../infrastructure/input.js";
 import {
@@ -84,7 +84,7 @@ export interface ProjectTemplate {
 
 function scaffoldPlugin(projectPath: string, name: string): void {
 	const id = toKebab(name);
-	const author = (manifest as Record<string, unknown>).author as string ?? "";
+	const author = cliConfig.defaultAuthor ?? "";
 	const { write: w, report } = createFileWriter(projectPath);
 
 	w("manifest.json", manifestTemplate({ id, name, author }));
@@ -105,7 +105,7 @@ function scaffoldPlugin(projectPath: string, name: string): void {
 function scaffoldApp(projectPath: string, name: string): void {
 	const id = toKebab(name);
 	const pascal = toPascal(name);
-	const author = (manifest as Record<string, unknown>).author as string ?? "";
+	const author = cliConfig.defaultAuthor ?? "";
 	const { write: w, report } = createFileWriter(projectPath);
 
 	w("manifest.json", manifestTemplate({ id, name, author }));
@@ -162,7 +162,8 @@ export const PROJECT_TEMPLATE_IDS: ProjectTemplateId[] = ["app", "plugin", "cli"
 async function makeHub(projectRoot: string): Promise<void> {
 	const { printHeader } = await import("../../infrastructure/ui.js");
 	printHeader("New Hub");
-	const paths = getMakePaths();
+	const projectConfig = readProjectConfig(projectRoot);
+	const paths = getMakePaths(projectConfig);
 
 	log(`  ${DIM}Project root: ${projectRoot}${RESET}\n`);
 
@@ -248,7 +249,7 @@ async function makePlugin(projectRoot: string): Promise<void> {
 
 	const defaultId = toKebab(name);
 	const pluginId = await input.ask("Plugin ID", defaultId);
-	const author = await input.ask("Author", (manifest as Record<string, unknown>).author as string ?? "");
+	const author = await input.ask("Author", cliConfig.defaultAuthor ?? "");
 
 	const pluginRoot = nodePaths.join(projectRoot, pluginId);
 
@@ -304,7 +305,7 @@ async function makeApp(projectRoot: string): Promise<void> {
 
 	const defaultId = toKebab(name);
 	const appId = await input.ask("App ID", defaultId);
-	const author = await input.ask("Author", (manifest as Record<string, unknown>).author as string ?? "");
+	const author = await input.ask("Author", cliConfig.defaultAuthor ?? "");
 
 	const pascal = toPascal(name);
 	const appRoot = nodePaths.join(projectRoot, appId);
@@ -434,11 +435,15 @@ export const commands: Record<string, (flags: Record<string, string | boolean>, 
 		const icon = (flags.icon as string) ?? "layout-grid";
 		const hubType = (flags.type as string) ?? "domain";
 		const tabs = ((flags.tabs as string) ?? "overview,items").split(",").map((t) => t.trim());
-		const paths = getMakePaths();
+		const paths = getMakePaths(project?.config);
 
 		log(`\n  ${CYAN}▸${RESET} Scaffolding: ${pascal} Hub\n`);
 
-		const root = project?.path ?? ROOT;
+		if (!project) {
+			log(`\n  ${RED}No project selected. Use --project to specify a project.${RESET}\n`);
+			proc.exit(1);
+		}
+		const root = project.path;
 		const { write: w, created } = createFileWriter(root);
 
 		w(`${paths.ui}/${kebab}/${pascal}HubView.ts`, hubViewTemplate(pascal, kebab, hubType, icon, tabs));
@@ -466,9 +471,9 @@ export const commands: Record<string, (flags: Record<string, string | boolean>, 
 			proc.exit(1);
 		}
 		const appId = (flags.id as string) ?? toKebab(name);
-		const author = (flags.author as string) ?? (manifest as Record<string, unknown>).author as string ?? "";
+		const author = (flags.author as string) ?? cliConfig.defaultAuthor ?? "";
 		const pascal = toPascal(name);
-		const appRoot = nodePaths.resolve(VAULT_ROOT, "01 - Projects", appId);
+		const appRoot = nodePaths.resolve(PROJECTS_DIR, appId);
 
 		if (disk.existsSync(appRoot)) {
 			log(`\n  ${RED}Folder already exists: ${appRoot}${RESET}\n`);
@@ -508,7 +513,7 @@ export const commands: Record<string, (flags: Record<string, string | boolean>, 
 			proc.exit(1);
 		}
 		const appId = (flags.id as string) ?? toKebab(name);
-		const cliRoot = nodePaths.resolve(VAULT_ROOT, "01 - Projects", appId);
+		const cliRoot = nodePaths.resolve(PROJECTS_DIR, appId);
 
 		if (disk.existsSync(cliRoot)) {
 			log(`\n  ${RED}Folder already exists: ${cliRoot}${RESET}\n`);
@@ -537,8 +542,8 @@ export const commands: Record<string, (flags: Record<string, string | boolean>, 
 			proc.exit(1);
 		}
 		const pluginId = (flags.id as string) ?? toKebab(name);
-		const author = (flags.author as string) ?? (manifest as Record<string, unknown>).author as string ?? "";
-		const pluginRoot = nodePaths.resolve(ROOT, "..", pluginId);
+		const author = (flags.author as string) ?? cliConfig.defaultAuthor ?? "";
+		const pluginRoot = nodePaths.resolve(PROJECTS_DIR, pluginId);
 
 		if (disk.existsSync(pluginRoot)) {
 			log(`\n  ${RED}Folder already exists: ${pluginRoot}${RESET}\n`);

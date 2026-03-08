@@ -9,14 +9,14 @@
 
 import { disk } from "../../../infrastructure/filesystem.js";
 import { paths } from "../../../infrastructure/paths.js";
-import { ROOT } from "../../../infrastructure/config.js";
+import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document, type FrontmatterValue } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
 import { clock } from "../../../infrastructure/clock.js";
 import { parseFrontmatterContent } from "../../../infrastructure/frontmatter.js";
 
-const CYCLES_DIR: string = paths.join(ROOT, "docs", "cycles");
-const OUTPUT_DIR: string = paths.join(ROOT, "docs", "reports", "cycles");
+const CYCLES_DIR: string = paths.join(PLUGIN_ROOT, "docs", "cycles");
+const OUTPUT_DIR: string = paths.join(PLUGIN_ROOT, "docs", "reports", "cycles");
 
 /**
  * Find the latest cycle document with stage: done.
@@ -100,10 +100,10 @@ function buildCycleReportData(fm: Record<string, unknown>, date: string): CycleR
 function collectReportLinks(): string[] {
 	const links: string[] = [];
 	const reportDirs: { dir: string; suffix: string }[] = [
-		{ dir: paths.join(ROOT, "docs", "reports", "tests"), suffix: "test-report.md" },
-		{ dir: paths.join(ROOT, "docs", "reports", "coverage"), suffix: "coverage-report.md" },
-		{ dir: paths.join(ROOT, "docs", "reports", "codebase"), suffix: "codebase-report.md" },
-		{ dir: paths.join(ROOT, "docs", "reports", "builds"), suffix: "build-report" },
+		{ dir: paths.join(PLUGIN_ROOT, "docs", "reports", "tests"), suffix: "test-report.md" },
+		{ dir: paths.join(PLUGIN_ROOT, "docs", "reports", "coverage"), suffix: "coverage-report.md" },
+		{ dir: paths.join(PLUGIN_ROOT, "docs", "reports", "codebase"), suffix: "codebase-report.md" },
+		{ dir: paths.join(PLUGIN_ROOT, "docs", "reports", "builds"), suffix: "build-report" },
 	];
 	for (const { dir, suffix } of reportDirs) {
 		if (!disk.existsSync(dir)) continue;

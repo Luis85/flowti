@@ -3,7 +3,7 @@
  */
 
 import { paths } from "../../infrastructure/paths.js";
-import { ROOT, VAULT_ROOT, cliConfig } from "../../infrastructure/config.js";
+import { PLUGIN_ROOT, VAULT_ROOT, cliConfig } from "../../infrastructure/config.js";
 import { disk } from "../../infrastructure/filesystem.js";
 import { shell } from "../../infrastructure/shell.js";
 import { RESET, BOLD, DIM, GREEN, RED, CYAN, YELLOW } from "../../infrastructure/ui.js";
@@ -65,15 +65,15 @@ export function checkPrerequisites(deps: OnboardingDeps = {}): void {
 	}
 }
 
-export function ensureDependencies(deps: OnboardingDeps = {}): void {
+export function ensureDependencies(projectPath: string = PLUGIN_ROOT, deps: OnboardingDeps = {}): void {
 	const { fs, sh, exit } = { ...defaults, ...deps };
-	const nodeModulesPath = paths.join(ROOT, "node_modules");
+	const nodeModulesPath = paths.join(projectPath, "node_modules");
 	if (fs.existsSync(nodeModulesPath)) return;
 
 	log(`\n  ${YELLOW}Dependencies not installed.${RESET}`);
 	log(`  ${CYAN}▸${RESET} Running npm install...\n`);
 
-	const code = sh.run("npm install", { cwd: ROOT, label: "npm install" });
+	const code = sh.run("npm install", { cwd: projectPath, label: "npm install" });
 	if (code === 0) {
 		log(`\n  ${GREEN}✓${RESET} Dependencies installed.\n`);
 	} else {

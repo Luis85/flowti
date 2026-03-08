@@ -2,7 +2,7 @@
  * ui.ts — ANSI constants and terminal output primitives.
  */
 
-import { manifest } from "./config.js";
+import { cliConfig } from "./config.js";
 import type { MenuEntry } from "./types.js";
 import { log } from "./logger.js";
 
@@ -21,7 +21,7 @@ export const YELLOW = "\x1b[33m";
 export function printBanner(): void {
 	log();
 	log(`  ${BOLD}${"═".repeat(50)}${RESET}`);
-	log(`  ${BOLD}  Flowti CLI${RESET}  ${DIM}v${manifest.version}${RESET}`);
+	log(`  ${BOLD}  Flowti CLI${RESET}  ${DIM}v${cliConfig.version ?? "0.0.0"}${RESET}`);
 	log(`  ${BOLD}${"═".repeat(50)}${RESET}`);
 	log();
 }

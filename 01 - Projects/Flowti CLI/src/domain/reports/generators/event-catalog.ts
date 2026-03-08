@@ -9,7 +9,7 @@
 
 import { disk } from "../../../infrastructure/filesystem.js";
 import { paths } from "../../../infrastructure/paths.js";
-import { ROOT } from "../../../infrastructure/config.js";
+import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
 import { clock } from "../../../infrastructure/clock.js";
@@ -26,8 +26,8 @@ interface CatalogEntry {
 	tags: string[];
 }
 
-const CATALOG_PATH: string = paths.join(ROOT, "src", "infrastructure", "events", "catalog.ts");
-const OUTPUT_DIR: string = paths.join(ROOT, "docs", "reference");
+const CATALOG_PATH: string = paths.join(PLUGIN_ROOT, "src", "infrastructure", "events", "catalog.ts");
+const OUTPUT_DIR: string = paths.join(PLUGIN_ROOT, "docs", "reference");
 
 /**
  * Extract EVENT_CATEGORIES from the source.

@@ -9,7 +9,7 @@
 
 import { disk } from "../../../infrastructure/filesystem.js";
 import { paths } from "../../../infrastructure/paths.js";
-import { ROOT } from "../../../infrastructure/config.js";
+import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
 import { clock } from "../../../infrastructure/clock.js";
@@ -23,8 +23,8 @@ interface CommandMeta {
 	icon?: string;
 }
 
-const REGISTRY_PATH: string = paths.join(ROOT, "src", "infrastructure", "commands", "registry.ts");
-const OUTPUT_DIR: string = paths.join(ROOT, "docs", "reference");
+const REGISTRY_PATH: string = paths.join(PLUGIN_ROOT, "src", "infrastructure", "commands", "registry.ts");
+const OUTPUT_DIR: string = paths.join(PLUGIN_ROOT, "docs", "reference");
 
 /**
  * Extract command metadata from registry.ts source.

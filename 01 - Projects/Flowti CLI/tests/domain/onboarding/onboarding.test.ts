@@ -7,7 +7,7 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 }));
 
 vi.mock("../../../src/infrastructure/config.js", () => ({
-	ROOT: "/mock/root",
+	PLUGIN_ROOT: "/mock/root",
 	VAULT_ROOT: "/mock/vault",
 	cliConfig: { onboarding: { nodeMinVersion: 16, pluginId: "flowti-ibde" } },
 }));
@@ -95,7 +95,7 @@ describe("ensureDependencies", () => {
 	it("skips when node_modules exists", () => {
 		const fs = createMockFs({ "/mock/root/node_modules/placeholder": "" });
 		const sh = createMockShell();
-		ensureDependencies({ fs, sh });
+		ensureDependencies("/mock/root", { fs, sh });
 		expect(sh.calls).toHaveLength(0);
 	});
 
@@ -103,16 +103,17 @@ describe("ensureDependencies", () => {
 		const fs = createMockFs();
 		const sh = createMockShell();
 		const exit = vi.fn();
-		ensureDependencies({ fs, sh, exit });
+		ensureDependencies("/mock/root", { fs, sh, exit });
 		expect(sh.calls).toHaveLength(1);
 		expect(sh.calls[0].cmd).toBe("npm install");
+		expect(sh.calls[0].opts?.cwd).toBe("/mock/root");
 	});
 
 	it("exits on npm install failure", () => {
 		const fs = createMockFs();
 		const sh = createMockShell({ exitCodes: { "npm install": 1 } });
 		const exit = vi.fn();
-		ensureDependencies({ fs, sh, exit });
+		ensureDependencies("/mock/root", { fs, sh, exit });
 		expect(exit).toHaveBeenCalledWith(1);
 	});
 });

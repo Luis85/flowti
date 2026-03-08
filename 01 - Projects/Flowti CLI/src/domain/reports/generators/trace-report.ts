@@ -9,7 +9,7 @@
 
 import { disk } from "../../../infrastructure/filesystem.js";
 import { paths } from "../../../infrastructure/paths.js";
-import { VAULT_ROOT, ROOT } from "../../../infrastructure/config.js";
+import { VAULT_ROOT, PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
 import { proc } from "../../../infrastructure/proc.js";
@@ -29,8 +29,8 @@ interface TraceGap {
 	description: string;
 }
 
-const OUTPUT_DIR: string = paths.join(ROOT, "docs", "reports", "traceability");
-const DOCS_DIR: string = paths.join(ROOT, "docs");
+const OUTPUT_DIR: string = paths.join(PLUGIN_ROOT, "docs", "reports", "traceability");
+const DOCS_DIR: string = paths.join(PLUGIN_ROOT, "docs");
 
 // Vault inbox is relative to the git root
 const VAULT_INBOX: string = paths.join(VAULT_ROOT, "00 - Connectivity", "inbox");

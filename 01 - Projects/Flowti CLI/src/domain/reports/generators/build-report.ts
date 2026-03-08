@@ -11,15 +11,15 @@
 
 import { disk } from "../../../infrastructure/filesystem.js";
 import { paths } from "../../../infrastructure/paths.js";
-import { ROOT } from "../../../infrastructure/config.js";
+import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
 import { proc } from "../../../infrastructure/proc.js";
 import { clock } from "../../../infrastructure/clock.js";
 
-const OUTPUT_DIR = paths.join(ROOT, "docs", "reports", "builds");
-const MANIFEST_PATH = paths.join(ROOT, "manifest.json");
-const TEMPLATE_PATH = paths.join(ROOT, "docs", "templates", "Build Report.md");
+const OUTPUT_DIR = paths.join(PLUGIN_ROOT, "docs", "reports", "builds");
+const MANIFEST_PATH = paths.join(PLUGIN_ROOT, "manifest.json");
+const TEMPLATE_PATH = paths.join(PLUGIN_ROOT, "docs", "templates", "Build Report.md");
 
 function humanBytes(bytes: number): string {
 	const units = ["B", "KB", "MB", "GB"];

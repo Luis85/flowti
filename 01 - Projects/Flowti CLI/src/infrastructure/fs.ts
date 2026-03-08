@@ -3,15 +3,10 @@
  */
 
 import { paths } from "./paths.js";
-import { ROOT } from "./config.js";
 import { disk } from "./filesystem.js";
 import { RESET, GREEN, YELLOW } from "./ui.js";
 import { log } from "./logger.js";
 import type { IFileSystem } from "./types.js";
-
-export function writeFile(relPath: string, content: string, fs: IFileSystem = disk): boolean {
-	return writeFileAt(ROOT, relPath, content, fs);
-}
 
 export function writeFileAt(basePath: string, relPath: string, content: string, fs: IFileSystem = disk): boolean {
 	const absPath = paths.join(basePath, relPath);

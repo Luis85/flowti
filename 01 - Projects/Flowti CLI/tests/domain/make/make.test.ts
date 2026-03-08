@@ -2,10 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createMockFs } from "../../mocks/mock-fs.js";
 
 vi.mock("../../../src/infrastructure/config.js", () => ({
-	ROOT: "/mock/root",
-	VAULT_ROOT: "/mock/vault",
-	config: {},
-	manifest: { author: "Test Author" },
+	PROJECTS_DIR: "/mock/vault/01 - Projects",
+	cliConfig: { defaultAuthor: "Test Author" },
 }));
 
 vi.mock("../../../src/infrastructure/ui.js", () => ({
@@ -184,6 +182,13 @@ describe("scaffoldApp", () => {
 // ── Non-interactive commands ────────────────────────────────────────
 
 describe("make:hub command", () => {
+	const mockProject = {
+		path: "/mock/project",
+		pkg: { name: "test", version: "1.0.0" },
+		config: { name: "test" },
+		scripts: {},
+	};
+
 	beforeEach(() => {
 		vi.mocked(writeFileAt).mockReset().mockReturnValue(true);
 		vi.mocked(log).mockReset();
@@ -193,14 +198,20 @@ describe("make:hub command", () => {
 	});
 
 	it("logs error and exits when --name is missing", () => {
-		expect(() => commands["make:hub"]({})).toThrow("proc.exit called");
+		expect(() => commands["make:hub"]({}, [], "make:hub", mockProject)).toThrow("proc.exit called");
 
 		expect(vi.mocked(log)).toHaveBeenCalledWith(expect.stringContaining("--name is required"));
 		expect(vi.mocked(proc.exit)).toHaveBeenCalledWith(1);
 	});
 
+	it("exits when no project is provided", () => {
+		expect(() => commands["make:hub"]({ name: "Inventory" })).toThrow("proc.exit called");
+
+		expect(vi.mocked(log)).toHaveBeenCalledWith(expect.stringContaining("No project selected"));
+	});
+
 	it("creates hub files with default options", () => {
-		commands["make:hub"]({ name: "Inventory" });
+		commands["make:hub"]({ name: "Inventory" }, [], "make:hub", mockProject);
 
 		// 9 files: view, types, events, service, provider, test, css, prd, journey
 		expect(vi.mocked(writeFileAt).mock.calls.length).toBeGreaterThanOrEqual(9);
@@ -218,7 +229,7 @@ describe("make:hub command", () => {
 	});
 
 	it("uses custom icon and tabs from flags", () => {
-		commands["make:hub"]({ name: "Stock", icon: "package", tabs: "list,detail,settings" });
+		commands["make:hub"]({ name: "Stock", icon: "package", tabs: "list,detail,settings" }, [], "make:hub", mockProject);
 
 		const paths = vi.mocked(writeFileAt).mock.calls.map((c) => c[1] as string);
 		expect(paths.some((p) => p.includes("StockHubView.ts"))).toBe(true);

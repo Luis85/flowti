@@ -5,7 +5,7 @@ vi.mock("node:child_process", () => ({
 }));
 
 vi.mock("../../src/infrastructure/config.js", () => ({
-	ROOT: "/project",
+	CLI_PROJECT: "/project",
 }));
 
 vi.mock("../../src/infrastructure/ui.js", () => ({
@@ -27,7 +27,7 @@ describe("shell.run", () => {
 		expect(shell.run("npm test")).toBe(0);
 	});
 
-	it("uses ROOT as default cwd", () => {
+	it("uses CLI_PROJECT as default cwd", () => {
 		mockedExec.mockReturnValue(Buffer.from(""));
 		shell.run("npm test");
 		expect(mockedExec).toHaveBeenCalledWith("npm test", expect.objectContaining({ cwd: "/project" }));
@@ -61,7 +61,7 @@ describe("shell.runSilent", () => {
 		expect(shell.runSilent("bad-cmd")).toBeNull();
 	});
 
-	it("uses ROOT as default cwd", () => {
+	it("uses CLI_PROJECT as default cwd", () => {
 		mockedExec.mockReturnValue("output" as unknown as Buffer);
 		shell.runSilent("git status");
 		expect(mockedExec).toHaveBeenCalledWith("git status", expect.objectContaining({ cwd: "/project" }));

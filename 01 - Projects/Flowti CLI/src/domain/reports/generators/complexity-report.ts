@@ -11,7 +11,7 @@
 import { disk } from "../../../infrastructure/filesystem.js";
 import { paths } from "../../../infrastructure/paths.js";
 
-import { ROOT } from "../../../infrastructure/config.js";
+import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log, warn } from "../../../infrastructure/logger.js";
 import { clock } from "../../../infrastructure/clock.js";
@@ -41,8 +41,8 @@ interface DomainStats {
 
 const { runESLintComplexityCheck } = await import("@pythonidaer/complexity-report/integration/eslint/index.js");
 
-const COMPLEXITY_JSON: string = paths.join(ROOT, "complexity", "complexity-report.json");
-const OUTPUT_DIR: string = paths.join(ROOT, "docs", "reports", "complexity");
+const COMPLEXITY_JSON: string = paths.join(PLUGIN_ROOT, "complexity", "complexity-report.json");
+const OUTPUT_DIR: string = paths.join(PLUGIN_ROOT, "docs", "reports", "complexity");
 const STABLE_PATH: string = paths.join(OUTPUT_DIR, "Complexity Report.md");
 
 /**
@@ -51,7 +51,7 @@ const STABLE_PATH: string = paths.join(OUTPUT_DIR, "Complexity Report.md");
  * Reason is hardcoded path handling in the plugin which breaks on windows.
  */
 function extractComplexityEntries(data: ESLintResult[]): ComplexityEntry[] {
-	const rootNorm: string = ROOT.replace(/\\/g, "/");
+	const rootNorm: string = PLUGIN_ROOT.replace(/\\/g, "/");
 	const entries: ComplexityEntry[] = [];
 	for (const file of data) {
 		const absNorm: string = file.filePath.replace(/\\/g, "/");
@@ -172,7 +172,7 @@ function generateReport(data: ESLintResult[], entries: ComplexityEntry[]): strin
 async function main(): Promise<void> {
 	// Run ESLint complexity check directly — produces JSON only, no HTML
 	try {
-		await runESLintComplexityCheck(ROOT);
+		await runESLintComplexityCheck(PLUGIN_ROOT);
 	} catch {
 		warn("[report] ESLint complexity check failed — checking for existing JSON.");
 	}

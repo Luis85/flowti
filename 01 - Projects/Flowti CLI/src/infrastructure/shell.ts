@@ -6,7 +6,7 @@
  */
 
 import { execSync, execFileSync, spawnSync } from "node:child_process";
-import { ROOT } from "./config.js";
+import { CLI_PROJECT } from "./config.js";
 import { RESET, GREEN, RED, CYAN, DIM } from "./ui.js";
 import { log } from "./logger.js";
 import { clock } from "./clock.js";
@@ -14,7 +14,7 @@ import type { IShell } from "./types.js";
 
 class NodeShell implements IShell {
 	run(cmd: string, opts: { cwd?: string; label?: string } = {}): number {
-		const cwd = opts.cwd ?? ROOT;
+		const cwd = opts.cwd ?? CLI_PROJECT;
 		const startTime = clock.ms();
 		log(`\n  ${CYAN}▸${RESET} ${opts.label ?? cmd}\n`);
 		try {
@@ -32,7 +32,7 @@ class NodeShell implements IShell {
 	runSilent(cmd: string, opts: { cwd?: string } = {}): string | null {
 		try {
 			return execSync(cmd, {
-				cwd: opts.cwd ?? ROOT,
+				cwd: opts.cwd ?? CLI_PROJECT,
 				encoding: "utf-8",
 				timeout: 10_000,
 				windowsHide: true,
@@ -53,7 +53,7 @@ class NodeShell implements IShell {
 
 	runCapture(cmd: string, opts: { cwd?: string; timeout?: number } = {}): string {
 		const result = spawnSync(cmd, {
-			cwd: opts.cwd ?? ROOT,
+			cwd: opts.cwd ?? CLI_PROJECT,
 			encoding: "utf-8",
 			timeout: opts.timeout ?? 30_000,
 			windowsHide: true,

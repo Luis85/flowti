@@ -10,7 +10,7 @@
 
 import { disk } from "../../../infrastructure/filesystem.js";
 import { paths } from "../../../infrastructure/paths.js";
-import { ROOT } from "../../../infrastructure/config.js";
+import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
 import { proc } from "../../../infrastructure/proc.js";
@@ -19,12 +19,12 @@ import { clock } from "../../../infrastructure/clock.js";
 const buildTypeArg = proc.argv().find((a) => a.startsWith("--build-type="));
 const buildType = buildTypeArg ? buildTypeArg.split("=")[1] : "flow";
 
-const REPORT_JSON = paths.join(ROOT, "docs", "reports", "tests", "testreport.json");
-const OUTPUT_DIR = paths.join(ROOT, "docs", "reports", "tests");
+const REPORT_JSON = paths.join(PLUGIN_ROOT, "docs", "reports", "tests", "testreport.json");
+const OUTPUT_DIR = paths.join(PLUGIN_ROOT, "docs", "reports", "tests");
 
 const DATA_JSON_CANDIDATES: string[] = [
-	paths.resolve(ROOT, "..", "..", ".obsidian", "plugins", "flowti-ibde", "data.json"),
-	paths.join(ROOT, "data.json"),
+	paths.resolve(PLUGIN_ROOT, "..", "..", ".obsidian", "plugins", "flowti-ibde", "data.json"),
+	paths.join(PLUGIN_ROOT, "data.json"),
 ];
 
 function round(n: number): number {
