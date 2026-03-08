@@ -10,18 +10,17 @@ import { showHelp } from "../help/help.js";
 import { readProjectConfig } from "../project/project-config.js";
 import { log } from "../../infrastructure/logger.js";
 import type { MenuEntry, MenuResult, MakeTemplateId } from "../../infrastructure/types.js";
-import { makeHub, makeJourney } from "./makers.js";
+import { makeJourney } from "./makers.js";
 import { componentMenu } from "./component/component-makers.js";
 
 // ── Template registry ───────────────────────────────────────────────
 
 const TEMPLATE_DEFS: Record<MakeTemplateId, { label: string; action: (root: string) => Promise<void | MenuResult> }> = {
-	hub: { label: "New Hub", action: makeHub },
 	journey: { label: "New E2E Journey", action: makeJourney },
 	component: { label: "Add Component", action: componentMenu },
 };
 
-const ALL_TEMPLATES: MakeTemplateId[] = ["hub", "journey", "component"];
+const ALL_TEMPLATES: MakeTemplateId[] = ["journey", "component"];
 
 export function getAvailableTemplates(projectRoot: string): MakeTemplateId[] {
 	const cfg = readProjectConfig(projectRoot);

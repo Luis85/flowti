@@ -1,14 +1,8 @@
 /**
  * templates.ts — Re-export shim for backward compatibility.
  *
- * Implementation moved to templates/hub.ts, templates/journey.ts, templates/plugin.ts.
+ * Implementation moved to templates/journey.ts, templates/plugin.ts.
  */
-
-export {
-	hubViewTemplate, hubTypesTemplate, hubEventsTemplate, hubServiceTemplate,
-	hubProviderTemplate, hubTestTemplate, hubCssTemplate, hubPrdTemplate,
-	hubJourneyTemplate,
-} from "./templates/hub.js";
 
 export {
 	journeyDefinitionTemplate, journeyTestTemplate, journeyCanvasTemplate,

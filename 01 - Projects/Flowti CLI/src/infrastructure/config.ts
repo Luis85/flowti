@@ -1,28 +1,24 @@
 /**
  * config.ts — Kernel-space path resolution and configuration loading.
  *
- * Resolution strategy (vault-root-first):
- *   1. Walk up from import.meta.dirname looking for .flowti/config.json
- *   2. Fallback: look for configs/flowti-cli.config.json (legacy layout)
+ * Resolution strategy:
+ *   1. FLOWTI_VAULT_ROOT env var — set by bootstrap.mjs (production)
+ *   2. Walk up from process.cwd() looking for .flowti/config.json (dev/tsx)
  *
- * Runtime locations:
- *   Bundle:  .flowti/bin/main.js      → vault root is ../..
- *   Boot:    .flowti/bin/index.js     → bootstraps then runs main.js
- *   tsx dev: src/infrastructure/      → walk up to find .flowti/
+ * Configuration: .flowti/config.json at the vault root.
  */
 
 import { paths } from "./paths.js";
 import type { FlowtiCliConfig } from "./types.js";
 import { disk } from "./filesystem.js";
+import { proc } from "./proc.js";
 
 // ── Path resolution ──────────────────────────────────────────────────
 
-const CLI_DIR: string = import.meta.dirname;
-
-/** Walk up from `dir` looking for `.flowti/config.json` (new layout). */
+/** Walk up from `dir` looking for `.flowti/config.json`. */
 function findVaultRoot(dir: string): string | null {
 	let candidate = dir;
-	for (let i = 0; i < 6; i++) {
+	for (let i = 0; i < 10; i++) {
 		if (disk.existsSync(paths.join(candidate, ".flowti", "config.json"))) {
 			return candidate;
 		}
@@ -33,37 +29,34 @@ function findVaultRoot(dir: string): string | null {
 	return null;
 }
 
-/** Walk up from `dir` looking for `configs/flowti-cli.config.json` (legacy layout). */
-function findProjectRoot(dir: string): string | null {
-	let candidate = dir;
-	for (let i = 0; i < 6; i++) {
-		if (disk.existsSync(paths.join(candidate, "configs", "flowti-cli.config.json"))) {
-			return candidate;
-		}
-		const parent = paths.resolve(candidate, "..");
-		if (parent === candidate) break;
-		candidate = parent;
+/**
+ * Resolve the vault root directory.
+ *
+ * 1. FLOWTI_VAULT_ROOT env var (set by bootstrap in production)
+ * 2. Walk up from process.cwd() to find .flowti/config.json (dev mode)
+ */
+function resolveVaultRoot(): string {
+	const fromEnv = proc.env()["FLOWTI_VAULT_ROOT"];
+	if (fromEnv && disk.existsSync(paths.join(fromEnv, ".flowti", "config.json"))) {
+		return fromEnv;
 	}
-	return null;
+
+	const fromCwd = findVaultRoot(proc.cwd());
+	if (fromCwd) return fromCwd;
+
+	throw new Error(
+		"[flowti] Cannot locate vault root.\n" +
+		"  Set FLOWTI_VAULT_ROOT or run from within the vault directory.",
+	);
 }
 
-// ── Resolution: try vault-root-first, then legacy ────────────────────
+// ── Resolution ───────────────────────────────────────────────────────
 
-let resolvedVaultRoot: string;
-let resolvedCliProject: string;
-let resolvedConfig: FlowtiCliConfig;
-
-const vaultRoot = findVaultRoot(CLI_DIR);
-if (vaultRoot) {
-	resolvedVaultRoot = vaultRoot;
-	resolvedConfig = JSON.parse(disk.readFileSync(paths.join(vaultRoot, ".flowti", "config.json"), "utf-8"));
-	resolvedCliProject = paths.resolve(vaultRoot, resolvedConfig.source ?? "01 - Projects/Flowti CLI");
-} else {
-	const projectRoot = findProjectRoot(CLI_DIR);
-	resolvedCliProject = projectRoot ?? paths.resolve(CLI_DIR, "..", "..");
-	resolvedConfig = JSON.parse(disk.readFileSync(paths.join(resolvedCliProject, "configs", "flowti-cli.config.json"), "utf-8"));
-	resolvedVaultRoot = paths.resolve(resolvedCliProject, "..", "..");
-}
+const resolvedVaultRoot: string = resolveVaultRoot();
+const resolvedConfig: FlowtiCliConfig = JSON.parse(
+	disk.readFileSync(paths.join(resolvedVaultRoot, ".flowti", "config.json"), "utf-8"),
+);
+const resolvedCliProject: string = paths.resolve(resolvedVaultRoot, resolvedConfig.source ?? "01 - Projects/Flowti CLI");
 
 export const VAULT_ROOT: string = resolvedVaultRoot;
 export const CLI_PROJECT: string = resolvedCliProject;

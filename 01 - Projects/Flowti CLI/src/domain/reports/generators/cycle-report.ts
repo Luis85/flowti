@@ -4,7 +4,7 @@
  * Reads the latest completed cycle document and generates a CycleReport
  * vault note with queryable YAML frontmatter.
  *
- * Usage: npx tsx scripts/generate-cycle-report.ts
+ * Usage: npm run reports (part of reports pipeline)
  */
 
 import { disk } from "../../../infrastructure/filesystem.js";

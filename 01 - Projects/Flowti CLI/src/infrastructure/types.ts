@@ -220,13 +220,11 @@ export interface DocsConfig {
 	generators?: DocGenerator[];
 }
 
-export type MakeTemplateId = "hub" | "journey" | "component";
+export type MakeTemplateId = "journey" | "component";
 
 export interface MakeConfig {
 	/** Which Make templates are available for this project */
 	templates?: MakeTemplateId[];
-	/** Override default hub scaffolding paths */
-	hub?: Partial<Record<string, string>>;
 }
 
 export interface ProjectConfig {

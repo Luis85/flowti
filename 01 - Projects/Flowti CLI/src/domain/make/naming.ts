@@ -18,7 +18,6 @@ export function toCamel(name: string): string {
 export interface MakePaths {
 	ui: string;
 	domain: string;
-	hubDomain: string;
 	tests: string;
 	css: string;
 	docs: string;
@@ -29,7 +28,6 @@ export interface MakePaths {
 const DEFAULT_MAKE_PATHS: MakePaths = {
 	ui: "src/ui",
 	domain: "src/domain",
-	hubDomain: "src/domain/hub",
 	tests: "tests/ui",
 	css: "css",
 	docs: "docs/features",
@@ -37,11 +35,6 @@ const DEFAULT_MAKE_PATHS: MakePaths = {
 	components: "src/ui/components",
 };
 
-export function getMakePaths(projectConfig?: { make?: { hub?: Partial<MakePaths> } } | null): MakePaths {
-	const h = projectConfig?.make?.hub ?? {};
-	const result = { ...DEFAULT_MAKE_PATHS };
-	for (const key of Object.keys(result) as (keyof MakePaths)[]) {
-		if (h[key]) result[key] = h[key];
-	}
-	return result;
+export function getMakePaths(): MakePaths {
+	return { ...DEFAULT_MAKE_PATHS };
 }

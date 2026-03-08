@@ -5,11 +5,6 @@ vi.mock("../../../src/infrastructure/config.js", () => ({
 }));
 
 import {
-	hubViewTemplate,
-	hubEventsTemplate,
-	hubServiceTemplate,
-	hubCssTemplate,
-	hubJourneyTemplate,
 	pluginManifestTemplate,
 	pluginPackageTemplate,
 } from "../../../src/domain/make/templates.js";
@@ -26,100 +21,6 @@ import {
 	cliMainTemplate,
 	cliMainTestTemplate,
 } from "../../../src/domain/make/cliTemplates.js";
-
-// ══════════════════════════════════════════════════════════════════════
-// Hub templates
-// ══════════════════════════════════════════════════════════════════════
-
-describe("hubViewTemplate", () => {
-	const result = hubViewTemplate("Catalog", "catalog", "domain", "list", ["items", "settings"]);
-
-	it("contains the class name", () => {
-		expect(result).toContain("class CatalogHubView");
-	});
-
-	it("contains the VIEW_TYPE constant", () => {
-		expect(result).toContain("VIEW_TYPE_CATALOG_HUB");
-	});
-
-	it("contains the hub ID", () => {
-		expect(result).toContain('"catalog-hub"');
-	});
-
-	it("contains the hub type", () => {
-		expect(result).toContain('"domain"');
-	});
-
-	it("contains the icon", () => {
-		expect(result).toContain('"list"');
-	});
-
-	it("contains tab definitions", () => {
-		expect(result).toContain('"items"');
-		expect(result).toContain('"settings"');
-	});
-});
-
-describe("hubEventsTemplate", () => {
-	const result = hubEventsTemplate("Catalog");
-
-	it("contains the EventMap interface", () => {
-		expect(result).toContain("interface CatalogEventMap");
-	});
-
-	it("contains camelCase event names", () => {
-		expect(result).toContain('"catalog.created"');
-		expect(result).toContain('"catalog.updated"');
-		expect(result).toContain('"catalog.deleted"');
-	});
-});
-
-describe("hubServiceTemplate", () => {
-	const result = hubServiceTemplate("Catalog");
-
-	it("contains the Service class", () => {
-		expect(result).toContain("class CatalogService");
-	});
-
-	it("accepts an IEventBus dependency", () => {
-		expect(result).toContain("IEventBus");
-	});
-});
-
-describe("hubCssTemplate", () => {
-	const result = hubCssTemplate("Catalog", "catalog");
-
-	it("contains a selector with the kebab name", () => {
-		expect(result).toContain(".ft-catalog-hub");
-	});
-
-	it("contains the pascal name in the comment", () => {
-		expect(result).toContain("Catalog Hub");
-	});
-});
-
-describe("hubJourneyTemplate", () => {
-	const result = hubJourneyTemplate("Catalog", "catalog");
-
-	it("returns valid JSON", () => {
-		expect(() => JSON.parse(result)).not.toThrow();
-	});
-
-	it("contains the journey name", () => {
-		const parsed = JSON.parse(result);
-		expect(parsed.name).toBe("Catalog Hub");
-	});
-
-	it("contains the slug", () => {
-		const parsed = JSON.parse(result);
-		expect(parsed.slug).toBe("catalog");
-	});
-
-	it("contains at least one step", () => {
-		const parsed = JSON.parse(result);
-		expect(parsed.steps.length).toBeGreaterThan(0);
-	});
-});
 
 // ══════════════════════════════════════════════════════════════════════
 // Plugin templates

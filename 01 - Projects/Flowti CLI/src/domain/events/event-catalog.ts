@@ -343,7 +343,7 @@ export const commands: Record<string, (flags: Record<string, string | boolean>, 
 		const name = flags.name;
 		if (!name || typeof name !== "string") {
 			log(`\n  ${RED}Missing --name flag.${RESET}`);
-			log(`  ${DIM}Usage: npm run flowti -- events:add --name="user.created" --domain="user"${RESET}\n`);
+			log(`  ${DIM}Usage: flowti events:add --name="user.created" --domain="user"${RESET}\n`);
 			return;
 		}
 		const domain = typeof flags.domain === "string" ? flags.domain : "core";

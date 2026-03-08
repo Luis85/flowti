@@ -20,10 +20,11 @@ From the vault root:
 .\flowti.cmd
 ```
 
-Or from any project that has the flowti script configured:
+Non-interactive commands:
 
 ```bash
-npm run flowti
+flowti help
+flowti build --project="Flowti CLI"
 ```
 
 ## Architecture
@@ -77,7 +78,7 @@ The Flowti CLI provides these capabilities as a runtime:
 |---------|-------------|
 | **Project Management** | Create, open, and configure projects |
 | **Components** | C4 architecture entities (System, Container, Component, Person) with docs, tests, and definitions |
-| **Make** | Scaffold hubs, journeys, and components from declarative JSON definitions |
+| **Make** | Scaffold journeys and components from declarative JSON definitions |
 | **Build** | Run the project's configured build command |
 | **Tests** | Run test suites via project configuration |
 | **Reports** | Generate test, coverage, codebase, and complexity reports |
@@ -96,7 +97,7 @@ The Flowti CLI provides these capabilities as a runtime:
 │   │   ├── mainMenu.ts             # Project detail menu builder
 │   │   ├── scaffold/               # Project creation from JSON definitions
 │   │   │   └── definitions/        # Bundled scaffold definitions (JSON)
-│   │   ├── make/                   # In-project scaffolding (hub, journey, component)
+│   │   ├── make/                   # In-project scaffolding (journey, component)
 │   │   │   └── component/          # Component system (C4 entities)
 │   │   │       └── definitions/    # Bundled component definitions (JSON)
 │   │   ├── publish/                # Gated publish pipeline (build → test → distribute)
@@ -130,7 +131,6 @@ The Flowti CLI provides these capabilities as a runtime:
 │       └── types.ts                # Infrastructure type definitions
 ├── tests/                          # Vitest test suites (1135 tests, 70 suites)
 ├── configs/
-│   ├── flowti-cli.config.json      # CLI kernel config (subsystem mappings)
 │   ├── flowti.config.json          # CLI's own project config (tools, publish, reports)
 │   ├── esbuild.config.mjs          # Build: bundles to .flowti/bin/main.js + deploys bootstrap
 │   ├── tsconfig.json               # TypeScript configuration
@@ -162,7 +162,7 @@ Run without arguments for the two-stage interactive menu:
 
 | Key | Tool | Description |
 |-----|------|-------------|
-| 1 | Make | Scaffold new hub, journey, or component (C4 entities) |
+| 1 | Make | Scaffold new journey or component (C4 entities) |
 | 2 | Build | Run the project's build command (generates Build Report) |
 | 3 | Review | E2E journey review, test vault management |
 | 4 | Publish | Gated pipeline: build → test → distribute to endpoints |
@@ -225,7 +225,7 @@ Each project stores its config in `configs/flowti.config.json`:
     "test": "npm test"
   },
   "make": {
-    "templates": ["hub", "journey", "component"]
+    "templates": ["journey", "component"]
   }
 }
 ```
@@ -253,4 +253,4 @@ When a project is selected for the first time, the CLI auto-scaffolds this confi
 
 - PRD: [Flowti CLI PRD.md](Flowti%20CLI%20PRD.md)
 - Architecture: [docs/Architecture.md](docs/Architecture.md)
-- CLI Reference: generated via `npm run reports`
+- CLI Reference: generated via `flowti reports` or `npm run reports`

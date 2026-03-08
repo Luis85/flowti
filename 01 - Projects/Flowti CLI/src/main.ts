@@ -7,11 +7,11 @@
  *   Start Menu (Open/Create) → Project Detail Menu → ...
  *
  * Usage:
- *   npm run flowti              Interactive menu
- *   npm run flowti help         Full man-page
- *   npm run flowti help build   Section-specific help
+ *   flowti              Interactive menu
+ *   flowti help         Full man-page
+ *   flowti help build   Section-specific help
  *
- * Configuration: configs/flowti-cli.config.json
+ * Configuration: .flowti/config.json
  * No external dependencies — uses only Node.js built-ins.
  */
 
@@ -94,12 +94,12 @@ async function handleCliArgs(): Promise<boolean> {
 			return true;
 		case "no-project":
 			log(`\n  ${RED}No project selected.${RESET}`);
-			log(`  ${DIM}Select a project first: npm run flowti -- project${RESET}`);
-			log(`  ${DIM}Or specify one:          npm run flowti -- ${result.command} --project=<name>${RESET}\n`);
+			log(`  ${DIM}Select a project first: flowti project${RESET}`);
+			log(`  ${DIM}Or specify one:          flowti ${result.command} --project=<name>${RESET}\n`);
 			return true;
 		case "unknown":
 			log(`\n  ${YELLOW}Unknown command: ${result.command}${RESET}`);
-			log(`  ${DIM}Run "npm run flowti -- help" for available commands.${RESET}\n`);
+			log(`  ${DIM}Run "flowti help" for available commands.${RESET}\n`);
 			return true;
 		case "none":
 			return false;

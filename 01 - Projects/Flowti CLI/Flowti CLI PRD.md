@@ -2,18 +2,18 @@
 domain: Flowti
 type: ProductRequirementsDocument
 stage: in-progress
-version: 3
+version: 4
 maturity: L2
 created: 2026-03-07
 updated: 2026-03-08
 related_events: []
 maturity_score_strategy: 3
-maturity_score_scope: 4
+maturity_score_scope: 5
 maturity_score_architecture: 4
-maturity_score_event_integration: 1
-maturity_score_data_model: 3
+maturity_score_event_integration: 3
+maturity_score_data_model: 4
 maturity_score_ui_consistency: 3
-maturity_score_validation_testing: 3
+maturity_score_validation_testing: 4
 business_value: 4
 implementation_cost: 2
 maintenance_cost: 2
@@ -28,6 +28,9 @@ tags:
   - automation
   - ai-agent
   - definition-driven
+  - event-catalog
+  - storybook
+  - ecs
 ---
 
 # PRD: Flowti CLI
@@ -56,16 +59,18 @@ After implementation, developers and AI agents will have:
 - A **definition-driven** scaffolding system where JSON definitions are the single source of truth.
 - A two-stage interactive menu: project selection (open/create) → project detail.
 - Per-project configuration via `configs/flowti.config.json` with auto-scaffolding from `package.json`.
-- **Base feature set**: Project Management, Components, Make, Build, Tests, Reports, Review, Publish.
-- **Component system** with C4 architecture support (System, Container, Component, Person).
-- Hub, Component, and Journey scaffolding from declarative JSON definitions.
+- **Base feature set**: Project Management, Components, Events, Make, Build, Tests, Reports, Review, Publish.
+- **Component system** with 8 types: C4 architecture (System, Container, Component, Person) plus UI building blocks (Layout, Page, UI Component) and a generic Component.
+- **Event Catalog** for per-project domain event documentation with auto-discovered wikilinks.
+- Hub, Component, and Journey scaffolding from declarative JSON definitions with optional Storybook story generation.
 - A gated publish pipeline that enforces build → test → distribute sequencing per project.
 - E2E review with test vault isolation (created outside the git repository, with CLI build copied in).
 - Non-interactive commands for AI agent tool use with deterministic exit codes.
-- Auto-generated reports (test, coverage, codebase, complexity) per project.
+- Auto-generated reports (test, coverage, codebase, complexity, status, summary) per project with prerequisite chaining and warning surfacing.
 - **Obsidian opt-in** — vault features (knowledgebase, capture) are optional, not required.
 - **Progressive opt-in** — start small, expand into more features and workflows as needed. All restrictions, tests, and quality gates are opt-in features that improve the final product, not mandatory barriers.
-- **Resilient report generation** — report runs never stop on failure; broken reports are signals to collect, not blockers.
+- **Resilient report generation** — report runs never stop on failure; broken reports are signals to collect, not blockers. Generators declare prerequisites, surface warnings (lint, TypeDoc, coverage, complexity), and the run summary displays comprehensive issue lists.
+- **Component properties** — ECS-compatible key-value pairs (typed, with defaults and descriptions) on component definitions, rendered in documentation, definitions, and Storybook stories.
 
 ---
 
@@ -93,11 +98,13 @@ All features, restrictions, and quality gates exist to improve the quality of th
 - Project discovery from configured projects directory (`01 - Projects/`)
 - Project creation from bundled scaffold definitions
 - Per-project configuration via `configs/flowti.config.json` with auto-scaffolding
-- Component system with C4 architecture entities (5 types)
+- Component system with 8 types (5 C4 + 3 UI building blocks) and ECS-compatible properties
+- Storybook story file generation for UI components (layout, page, ui-component)
+- Event Catalog per project (interactive + non-interactive) with wikilink auto-discovery
 - Hub and Journey scaffolding from declarative definitions
 - Gated publish pipeline with per-project endpoints
 - E2E review with test vault isolation (outside git repository)
-- Resilient report generation (test, coverage, codebase, complexity, status, summary) — never stops on failure
+- Resilient report generation (test, coverage, codebase, complexity, status, summary) — never stops on failure, with prerequisite chaining and warning surfacing
 - Man-page system with contextual help
 - Info command with live project diagnostics
 - Non-interactive command dispatch for AI agent tool use
@@ -122,26 +129,31 @@ All features, restrictions, and quality gates exist to improve the quality of th
 |-------------|---------|---------|
 | Interactive menu | `./flowti.cmd` or `npm run dev` | Two-stage menu: select/create project → project tools |
 | Quick build | Select project → key `2` | Run the project's configured build command |
-| Scaffold | Select project → key `1` | Generate hub, component, or journey files |
-| Components | Select project → key `c` | Browse project components with C4 metadata |
+| Scaffold | Select project → key `1` | Generate component or journey files |
+| Components | Select project → key `c` | Browse project components with C4 metadata and properties |
+| Events | Select project → key `e` | Event catalog: list, add, and browse domain events |
 | Review | Select project → key `3` | E2E journey review with test vault management |
 | Publish | Select project → key `4` | Gated pipeline: build → test → distribute |
-| Reports | Select project → key `5` | Run the project's configured reports command |
+| Reports | Select project → key `5` | Run all reports with prerequisites and warning summary |
 | Npm scripts | Select project → key `6` | Browse and run any script from package.json |
+| Capture | Select project → key `7`/`8` | Quick-capture ideas and typed notes |
+| Documentation | Select project → key `d` | Generate reference docs (TypeDoc, CLI Reference) |
 | In-menu help | Press `?` in any menu | Contextual help for the current menu |
 
 ### AI Agent (Tool Use)
 
 | Capability | Command | Expected Output |
 |-----------|---------|----------------|
-| Discover commands | `npm run flowti -- help` | Structured help text (parseable) |
-| Build project | `npm run flowti -- build` | Exit 0 on success, non-zero on failure |
-| Run tests | `npm run flowti -- test` | Exit 0 if all tests pass |
-| Scaffold hub | `npm run flowti -- make:hub --name=X --tabs=a,b` | File list output, exit 0 |
-| Add component | `npm run flowti -- make:component --name=X` | File list output, exit 0 |
-| Add C4 system | `npm run flowti -- make:system --name=X` | File list output, exit 0 |
-| Check project | `npm run flowti -- info` | Structured project metadata |
-| Generate reports | `npm run flowti -- reports` | Generated report files |
+| Discover commands | `flowti help` | Structured help text (parseable) |
+| Build project | `flowti build` | Exit 0 on success, non-zero on failure |
+| Run tests | `flowti test` | Exit 0 if all tests pass |
+| Add component | `flowti make:component --name=X` | File list output, exit 0 |
+| Add C4 system | `flowti make:system --name=X` | File list output, exit 0 |
+| List events | `flowti events:list` | Event names with domain and version |
+| Add event | `flowti events:add --name=X --domain=Y` | Created file path, exit 0 |
+| Capture idea | `flowti capture:idea --text="..."` | Created file path, exit 0 |
+| Check project | `flowti info` | Structured project metadata |
+| Generate reports | `flowti reports` | Generated report files with warning summary |
 
 ---
 
@@ -161,102 +173,108 @@ All features, restrictions, and quality gates exist to improve the quality of th
 
 ### FR-02: Non-Interactive Commands
 
-- [x] FR-02.1: All interactive actions available as `npm run flowti -- <command>` with `--flag=value` syntax
+- [x] FR-02.1: All interactive actions available as `flowti <command>` with `--flag=value` syntax
 - [x] FR-02.2: Deterministic exit codes (0=success, non-zero=failure)
 - [x] FR-02.3: Build commands: `build`, `build:full`, `build:increment`, `build:watch`, `build:distribute`
 - [x] FR-02.4: Test commands: `test`, `test:increment`, `test:e2e`
 - [x] FR-02.5: Publish commands: `publish`, `publish:all`
 - [x] FR-02.6: Report commands: `reports`, `report:{id}`, `reports:audit`
 - [x] FR-02.7: Dev tool commands: `dev:reload`, `dev:console`, `dev:errors`, `dev:check`, `dev:lint`, `dev:fix-frontmatter`, `dev:testdata`
-- [x] FR-02.8: Make commands: `make:hub --name=X`, `make:component --name=X`, `make:system --name=X`, `make:container --name=X`, `make:c4-component --name=X`, `make:person --name=X`
+- [x] FR-02.8: Make commands: `make:component --name=X`, `make:layout --name=X`, `make:page --name=X`, `make:ui-component --name=X`, `make:system --name=X`, `make:container --name=X`, `make:c4-component --name=X`, `make:person --name=X`, `make:app --name=X`
 - [x] FR-02.9: Info and help: `info`, `help [section]`
+- [x] FR-02.10: Event Catalog commands: `events:list`, `events:add --name=X --domain=Y [--version] [--description] [--producers] [--consumers]`
+- [x] FR-02.11: Capture commands: `capture:idea --text="..."`, `capture:note --type=X --title="..."`
 
-### FR-03: Hub Scaffolding
+### FR-03: Component System (C4 Architecture + UI Building Blocks)
 
-- [x] FR-03.1: Prompt for hub name, icon, hub type (domain/utility/analytics), initial tabs
-- [x] FR-03.2: Generate BaseHubView subclass with TabDef[], onTabRender, constructor
-- [x] FR-03.3: Generate domain types (page union, tab definitions)
-- [x] FR-03.4: Generate domain events (EventMap interface with hub lifecycle events)
-- [x] FR-03.5: Generate domain service stub (EventBus constructor, dispose pattern)
-- [x] FR-03.6: Generate HubDashboardProvider (cross-hub summary integration)
-- [x] FR-03.7: Generate vitest test file (happy-dom, BaseHubView mock patterns)
-- [x] FR-03.8: Generate CSS layer file (auto-numbered based on existing layers)
-- [x] FR-03.9: Generate feature PRD stub document
-- [x] FR-03.10: Generate E2E journey stub JSON
-- [x] FR-03.11: Skip existing files without overwriting
+- [x] FR-03.1: Eight component types: Generic Component, Layout, Page, UI Component, C4 System, C4 Container, C4 Component, C4 Person
+- [x] FR-03.2: Declarative JSON definitions bundled into binary (not read from filesystem)
+- [x] FR-03.3: Template registry mapping templateId → render function
+- [x] FR-03.4: Pure plan builder: `buildComponentPlan(vars, definition, registry) → FileEntry[]`
+- [x] FR-03.5: Each component generates documentation (Markdown + YAML frontmatter), test file, and definition JSON
+- [x] FR-03.6: C4 entities include c4Level, technology, containedBy, and kind-specific documentation sections
+- [x] FR-03.7: Component discovery via `docs/components/*.md` frontmatter scanning
+- [x] FR-03.8: Interactive component browser with kind labels and status display
+- [x] FR-03.9: Non-interactive commands: `make:component`, `make:layout`, `make:page`, `make:ui-component`, `make:system`, `make:container`, `make:c4-component`, `make:person`
+- [x] FR-03.10: Variable interpolation in definition file paths (`{{kebab}}`, `{{pascal}}`, etc.)
+- [x] FR-03.11: Configurable per-project via `make.templates` in `flowti.config.json`
+- [x] FR-03.12: ECS-compatible component properties — typed key-value pairs (`string | number | boolean`) with defaults and descriptions
+- [x] FR-03.13: Properties rendered in documentation tables, definition JSON defaults, and Storybook argTypes
+- [x] FR-03.14: Storybook story file generation (`.stories.ts`) with Meta/StoryObj, autodocs, and kind-aware folder organization
 
-### FR-04: Component System (C4 Architecture)
+### FR-04: Man-Page System
 
-- [x] FR-04.1: Five component types: Generic Component, C4 System, C4 Container, C4 Component, C4 Person
-- [x] FR-04.2: Declarative JSON definitions bundled into binary (not read from filesystem)
-- [x] FR-04.3: Template registry mapping templateId → render function
-- [x] FR-04.4: Pure plan builder: `buildComponentPlan(vars, definition, registry) → FileEntry[]`
-- [x] FR-04.5: Each component generates documentation (Markdown + YAML frontmatter), test file, and definition JSON
-- [x] FR-04.6: C4 entities include c4Level, technology, containedBy, and kind-specific documentation sections
-- [x] FR-04.7: Component discovery via `docs/components/*.md` frontmatter scanning
-- [x] FR-04.8: Interactive component browser with type and status display
-- [x] FR-04.9: Non-interactive commands: `make:component`, `make:system`, `make:container`, `make:c4-component`, `make:person`
-- [x] FR-04.10: Variable interpolation in definition file paths (`{{kebab}}`, `{{pascal}}`, etc.)
-- [x] FR-04.11: Configurable per-project via `make.templates` in `flowti.config.json`
+- [x] FR-04.1: 8 help sections (main, make, build, review, publish, reports, devtools, info)
+- [x] FR-04.2: Accessible via `flowti help [section]`
+- [x] FR-04.3: Accessible via `?` in interactive menu context
+- [x] FR-04.4: Each section documents options, commands, flags, and typical usage
 
-### FR-05: Man-Page System
+### FR-05: Gated Publish Pipeline
 
-- [x] FR-05.1: 8 help sections (main, make, build, review, publish, reports, devtools, info)
-- [x] FR-05.2: Accessible via `npm run flowti -- help [section]`
-- [x] FR-05.3: Accessible via `?` in interactive menu context
-- [x] FR-05.4: Each section documents options, commands, flags, and typical usage
+- [x] FR-04.1: Three-stage pipeline: Build -> Test -> Publish
+- [x] FR-04.2: Session-scoped state (build pass unlocks test, test pass unlocks publish)
+- [x] FR-04.3: "Run all" option that executes stages sequentially, stopping on failure
+- [x] FR-04.4: Visual pipeline state indicator (checkmark/circle per stage)
 
-### FR-06: Gated Publish Pipeline
+### FR-06: Auto-Generated CLI Documentation
 
-- [x] FR-06.1: Three-stage pipeline: Build -> Test -> Publish
-- [x] FR-06.2: Session-scoped state (build pass unlocks test, test pass unlocks publish)
-- [x] FR-06.3: "Run all" option that executes stages sequentially, stopping on failure
-- [x] FR-06.4: Visual pipeline state indicator (checkmark/circle per stage)
+- [x] FR-05.1: Generator script that parses CLI source
+- [x] FR-05.2: Strips ANSI codes, extracts HELP sections, maps command descriptions
+- [x] FR-05.3: Outputs vault note with YAML frontmatter (`type: CLIReference`)
+- [x] FR-05.4: Includes tables: non-interactive commands, npm scripts, report generators, make config
+- [x] FR-05.5: Runs automatically as part of `npm run generate:reports` and increment builds
+- [x] FR-05.6: Registered in `flowti.config.json` as report `cli-ref`
 
-### FR-07: Auto-Generated CLI Documentation
+### FR-07: Info Command
 
-- [x] FR-07.1: Generator script that parses CLI source
-- [x] FR-07.2: Strips ANSI codes, extracts HELP sections, maps command descriptions
-- [x] FR-07.3: Outputs vault note with YAML frontmatter (`type: CLIReference`)
-- [x] FR-07.4: Includes tables: non-interactive commands, npm scripts, report generators, make config
-- [x] FR-07.5: Runs automatically as part of `npm run generate:reports` and increment builds
-- [x] FR-07.6: Registered in `flowti.config.json` as report `cli-ref`
+- [x] FR-06.1: Display project metadata (name, version)
+- [x] FR-06.2: Display source statistics (TS files, test files, CSS layers, scripts)
+- [x] FR-06.3: Display dependency counts (production, development, npm scripts)
+- [x] FR-06.4: Display git status (branch, commit, clean/dirty)
+- [x] FR-06.5: Display config health (report count, endpoints file, config file)
 
-### FR-08: Info Command
+### FR-08: Per-Project Configuration
 
-- [x] FR-08.1: Display project metadata (name, version)
-- [x] FR-08.2: Display source statistics (TS files, test files, CSS layers, scripts)
-- [x] FR-08.3: Display dependency counts (production, development, npm scripts)
-- [x] FR-08.4: Display git status (branch, commit, clean/dirty)
-- [x] FR-08.5: Display config health (report count, endpoints file, config file)
+- [x] FR-07.1: Each project configured via `configs/flowti.config.json`
+- [x] FR-07.2: Auto-scaffolding — config created from `package.json` on first project selection
+- [x] FR-07.3: Mappable tools (`tools.build`, `tools.reports`, `tools.devtools`) enable/disable menu items per project
+- [x] FR-07.4: Publish config (`publish.build`, `publish.test`, `publish.outDir`, `publish.artifacts`, `publish.endpoints[]`)
+- [x] FR-07.5: Review config (`review.journeysDir`, `review.runner`, `review.build`, `review.test`)
+- [x] FR-07.6: CLI kernel config in `.flowti/config.json` — subsystem mappings, projects folder, capture directories
+- [x] FR-07.7: Make template config (`make.templates`) to control available scaffolding options per project
 
-### FR-09: Per-Project Configuration
+### FR-09: Scaffold Definitions (Project Creation)
 
-- [x] FR-09.1: Each project configured via `configs/flowti.config.json`
-- [x] FR-09.2: Auto-scaffolding — config created from `package.json` on first project selection
-- [x] FR-09.3: Mappable tools (`tools.build`, `tools.reports`, `tools.devtools`) enable/disable menu items per project
-- [x] FR-09.4: Publish config (`publish.build`, `publish.test`, `publish.outDir`, `publish.artifacts`, `publish.endpoints[]`)
-- [x] FR-09.5: Review config (`review.journeysDir`, `review.runner`, `review.build`, `review.test`)
-- [x] FR-09.6: CLI kernel config in `flowti-cli.config.json` — subsystem mappings, projects folder, capture directories
-- [x] FR-09.7: Make template config (`make.templates`) to control available scaffolding options per project
+- [x] FR-08.1: JSON scaffold definitions bundled into binary via direct import
+- [x] FR-08.2: Definition validation on load (required fields, file mappings)
+- [x] FR-08.3: Variable interpolation in prompts and file paths
+- [x] FR-08.4: Interactive prompts collected from definition
+- [x] FR-08.5: "From GitHub" option for cloning external templates
+- [x] FR-08.6: Post-create commands (npm install, git init)
 
-### FR-10: Scaffold Definitions (Project Creation)
+### FR-10: Resilient Report Generation
 
-- [x] FR-10.1: JSON scaffold definitions bundled into binary via direct import
-- [x] FR-10.2: Definition validation on load (required fields, file mappings)
-- [x] FR-10.3: Variable interpolation in prompts and file paths
-- [x] FR-10.4: Interactive prompts collected from definition
-- [x] FR-10.5: "From GitHub" option for cloning external templates
-- [x] FR-10.6: Post-create commands (npm install, git init)
+- [x] FR-09.1: "Run All Reports" runs each generator independently — never stops on failure
+- [x] FR-09.2: Collect pass/fail/duration per generator
+- [x] FR-09.3: Always print a run summary after all generators complete
+- [x] FR-09.4: Failed reports are signals (visible in summary), not blockers
+- [x] FR-09.5: Only publish pipelines enforce strict gating; report generation is resilient
+- [x] FR-09.6: Individual report generators (`report:{id}`) still run standalone
+- [x] FR-09.7: Generators declare `prerequisites` (e.g. `npm run test:coverage`) that run before generation; shared prerequisites are deduplicated across generators
+- [x] FR-09.8: Generators return `warnings[]` for non-fatal issues (coverage below threshold, lint warnings, TypeDoc warnings, high complexity)
+- [x] FR-09.9: Run summary uses three-state icons: `✓` passed, `⚠` passed with warnings, `✗` failed
+- [x] FR-09.10: Summary Report surfaces individual lint issues (file:line, message, rule) and TypeDoc issues in the run summary
 
-### FR-11: Resilient Report Generation
+### FR-11: Event Catalog
 
-- [x] FR-11.1: "Run All Reports" runs each generator independently — never stops on failure
-- [x] FR-11.2: Collect pass/fail/duration per generator
-- [x] FR-11.3: Always print a run summary after all generators complete
-- [x] FR-11.4: Failed reports are signals (visible in summary), not blockers
-- [x] FR-11.5: Only publish pipelines enforce strict gating; report generation is resilient
-- [x] FR-11.6: Individual report generators (`report:{id}`) still run standalone
+- [x] FR-11.1: Per-project event catalog stored in `docs/events/` as Markdown files
+- [x] FR-11.2: Interactive event catalog menu (List Events, Add Event) accessible via key `e`
+- [x] FR-11.3: Non-interactive commands: `events:list`, `events:add --name=X --domain=Y`
+- [x] FR-11.4: Event definition includes name, domain, version, description, producers, consumers, payload schema
+- [x] FR-11.5: Generated Markdown includes YAML frontmatter, producers/consumers lists, payload table
+- [x] FR-11.6: Auto-discovered wikilinks to sibling files (tests, sources, configs, definitions, components, journeys)
+- [x] FR-11.7: Duplicate detection — refuses to overwrite existing event files
+- [x] FR-11.8: Events sorted alphabetically in list view
 
 ### FR-12: Developer Onboarding Journey
 
@@ -275,7 +293,7 @@ No runtime data model changes. The CLI operates at build-time only.
 
 | File | Location | Purpose |
 |------|----------|---------|
-| `flowti-cli.config.json` | `01 - Projects/Flowti CLI/configs/` | Kernel config: projects folder, subsystem mappings, capture dirs |
+| `.flowti/config.json` | `<vault-root>/.flowti/` | Kernel config: projects folder, subsystem mappings, capture dirs |
 | `.flowti/var/state.json` | `<vault-root>/.flowti/var/` | Persistent state: selected project |
 | `.flowti/config.json` | `<vault-root>/.flowti/` | Vault-level config: CLI source project path |
 | `flowti.config.json` | `<project>/configs/` | Per-project config: tool mappings, publish, review, make settings |
@@ -287,6 +305,9 @@ No runtime data model changes. The CLI operates at build-time only.
 |------------|--------|---------|
 | `flowti-project.json` | `src/domain/scaffold/definitions/` | Scaffold definition for new Flowti projects |
 | `component.json` | `src/domain/make/component/definitions/` | Generic component definition |
+| `layout.json` | `src/domain/make/component/definitions/` | Layout component (direction, gap, padding properties) |
+| `page.json` | `src/domain/make/component/definitions/` | Page component (title, route, authenticated properties) |
+| `ui-component.json` | `src/domain/make/component/definitions/` | UI component (variant, disabled, visible properties) |
 | `c4-system.json` | `src/domain/make/component/definitions/` | C4 System definition (level 1) |
 | `c4-container.json` | `src/domain/make/component/definitions/` | C4 Container definition (level 2) |
 | `c4-component.json` | `src/domain/make/component/definitions/` | C4 Component definition (level 3) |
@@ -297,10 +318,13 @@ No runtime data model changes. The CLI operates at build-time only.
 | Artifact | Path | Trigger |
 |----------|------|---------|
 | Hub boilerplate | `<project>/src/ui/<hub>/`, `src/domain/<hub>/` | `make:hub` command |
-| Component docs | `<project>/docs/components/<name>.md` | `make:component` / `make:system` / etc. |
-| Component tests | `<project>/tests/components/<name>.test.ts` | `make:component` / `make:system` / etc. |
-| Component defs | `<project>/src/components/<name>/<name>.json` | `make:component` / `make:system` / etc. |
-| Reports | `<cli>/docs/reports/{complexity,tests,coverage,codebase}/` | `npm run reports` |
+| Component docs | `<project>/docs/components/<name>.md` | `make:component` / `make:layout` / `make:system` / etc. |
+| Component tests | `<project>/tests/components/<name>.test.ts` | `make:component` / `make:layout` / etc. |
+| Component defs | `<project>/src/components/<name>/<name>.json` | `make:component` / `make:layout` / etc. |
+| Storybook stories | `<project>/src/components/<name>/<name>.stories.ts` | `make:layout` / `make:page` / `make:ui-component` |
+| Event catalog | `<project>/docs/events/<name>.md` | `events:add` command |
+| Reports | `<cli>/reports/{tests,coverage,codebase,complexity,summary}/` | `npm run reports` or interactive Reports menu |
+| Stable reports | `<cli>/reports/{Test,Coverage,Codebase,Complexity,Project Status,Project Summary} Report.md` | Latest report per type |
 | Test vault | `C:\Projects\<project>-e2e\` | Review → Create test vault |
 
 ---
@@ -333,7 +357,7 @@ No adapter changes. The CLI uses Node.js built-ins exclusively (readline, child_
 |-------------|--------|
 | CLI startup time | < 100ms |
 | Self-contained binary | `node .flowti/bin` requires no source tree |
-| Fast build (`npm run flowti -- build`) | < 3s |
+| Fast build (`flowti build`) | < 3s |
 | No production dependencies | Dev tooling only (TypeScript, Vitest, tsx, ESLint); runtime uses Node.js built-ins |
 | Cross-platform | Windows, macOS, Linux |
 | AI Agent compatibility | Deterministic exit codes, no interactive prompts in non-interactive mode |
@@ -370,13 +394,15 @@ No adapter changes. The CLI uses Node.js built-ins exclusively (readline, child_
 - [x] Selecting a project shows detail menu with tools
 - [x] Projects without `flowti.config.json` get auto-scaffolded config on first selection
 - [x] Mappable tools (Build, Reports) disabled when not configured
-- [x] Component system creates docs, tests, and definitions for all 5 types
+- [x] Component system creates docs, tests, definitions, and Storybook stories for all 8 types
 - [x] Review creates test vault outside git repository
 - [x] Publish pipeline enforces build → test → distribute gating
 - [x] `npm run build` compiles and bundles to `.flowti/bin/main.js` without errors
-- [x] `npm test` passes with all 1143 tests green
+- [x] `npm test` passes with all 1187 tests green (73 suites)
 - [x] Pressing `?` in any menu shows contextual help
-- [x] Report generation runs resiliently — failed reports don't stop the run
+- [x] Report generation runs resiliently — failed reports don't stop the run; warnings surfaced in summary
+- [x] Event Catalog creates, lists, and auto-links domain events per project
+- [x] Report prerequisites run before generation; shared prerequisites deduplicated
 - [ ] Developer onboarding E2E journey passes
 - [ ] AI agent can use non-interactive commands to build, test, and scaffold without human intervention
 
@@ -388,11 +414,12 @@ No adapter changes. The CLI uses Node.js built-ins exclusively (readline, child_
 - [ ] FR-12 (E2E onboarding journey) implemented and passing
 - [x] Two-stage menu (start → project detail) working
 - [x] Project creation from bundled scaffold definitions
-- [x] Component system with 5 C4 entity types
-- [x] Resilient report generation with per-generator pass/fail tracking
+- [x] Component system with 8 types (5 C4 + 3 UI), properties, and Storybook stories
+- [x] Event Catalog with interactive and non-interactive commands
+- [x] Resilient report generation with prerequisites, warnings, and comprehensive run summary
 - [x] Per-project auto-scaffolding generates valid `flowti.config.json`
 - [x] Man-pages cover all tool menus with accurate descriptions
-- [x] TypeScript strict mode with Vitest test suite (1143 tests, 71 suites)
+- [x] TypeScript strict mode with Vitest test suite (1187 tests, 73 suites)
 - [x] No production dependencies — dev tooling only, binary is self-contained
 - [x] README, Architecture, and PRD updated to reflect definition-driven architecture
 - [ ] Developer onboarding scenario tested end-to-end
@@ -403,14 +430,22 @@ No adapter changes. The CLI uses Node.js built-ins exclusively (readline, child_
 
 Planned improvements to evolve the CLI beyond its current state:
 
+### Completed
+
+| ID | Improvement | Status |
+|----|-------------|--------|
+| ~~IMP-02~~ | **Journey scaffolding** | Done — Make tool generates E2E journey test files, config JSON, and canvas stubs |
+| ~~IMP-08~~ | **Capture integration** | Done — `capture:idea` and `capture:note` commands with interactive and non-interactive modes |
+
 ### Short-Term
 
 | ID | Improvement | Description |
 |----|-------------|-------------|
 | IMP-01 | **Non-interactive project selection** | Add `--project=<name>` flag to all commands so AI agents and scripts can target a specific project without interactive selection |
-| IMP-02 | **Journey scaffolding** | Extend Make tool with E2E journey templates that generate test files, config JSON, and canvas stubs |
-| IMP-03 | **Report archive navigation** | Reports menu should list past reports from `docs/reports/` subdirectories with timestamps |
-| IMP-04 | **Component relationships** | Visualize containedBy/contains relationships between C4 entities |
+| IMP-03 | **Report archive navigation** | Reports menu should list past reports from `reports/` subdirectories with timestamps |
+| IMP-04 | **Component relationships** | Visualize containedBy/contains relationships between C4 entities in the component browser |
+| IMP-14 | **Event Catalog enrichment** | Add payload field editor to interactive flow; support event versioning (v1 → v2 migration notes) |
+| IMP-15 | **Component property editor** | Interactive prompt for adding/editing properties when scaffolding components |
 
 ### Medium-Term
 
@@ -419,8 +454,9 @@ Planned improvements to evolve the CLI beyond its current state:
 | IMP-05 | **Project health dashboard** | Aggregate project stats (test count, coverage, build status, last activity) into a summary view |
 | IMP-06 | **Config validation** | Validate `flowti.config.json` against a schema with helpful error messages for misconfigured projects |
 | IMP-07 | **Review pipeline gating** | Add build → test gating to Review (like Publish) before running E2E journeys |
-| IMP-08 | **Capture integration** | Idea capture from CLI — quick-add notes to vault inbox or project-specific inbox |
 | IMP-09 | **Definition marketplace** | Allow projects to register custom definitions that extend the CLI's scaffolding capabilities |
+| IMP-16 | **Event flow visualization** | Generate producer → event → consumer diagrams from Event Catalog data |
+| IMP-17 | **Storybook integration** | Auto-detect Storybook in project and add `storybook:dev` / `storybook:build` to dev tools menu |
 
 ### Long-Term
 
@@ -430,3 +466,4 @@ Planned improvements to evolve the CLI beyond its current state:
 | IMP-11 | **CI/CD integration** | Generate GitHub Actions workflows from project config for automated build/test/publish |
 | IMP-12 | **Self-update mechanism** | CLI checks for updates and can rebuild itself when source changes are detected |
 | IMP-13 | **Plugin system** | Allow projects to register CLI plugins that add custom commands and tools |
+| IMP-18 | **Event contract testing** | Validate event payloads against Event Catalog definitions at test time |

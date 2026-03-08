@@ -12,15 +12,15 @@ export const HELP: Record<string, string> = {
   ${BOLD}FLOWTI CLI${RESET} — Project-centric developer tooling for the Flowti ecosystem.
 
   ${BOLD}USAGE${RESET}
-    npm run flowti              Start interactive menu
-    npm run flowti help         Show this help
-    npm run flowti help build   Show help for a specific section
+    flowti                      Start interactive menu
+    flowti help                 Show this help
+    flowti help build           Show help for a specific section
 
   ${BOLD}WORKFLOW${RESET}
     Start Menu → Open/Create project → Project Detail Menu
 
   ${BOLD}PROJECT DETAIL MENU${RESET}
-    ${CYAN}1) Make${RESET}         Scaffold in-project boilerplate (hub, journey)
+    ${CYAN}1) Make${RESET}         Scaffold in-project boilerplate (journey, component)
     ${CYAN}2) Build${RESET}        Build the project (generates Build Report)
     ${CYAN}3) Review${RESET}       E2E test sessions, vault management
     ${CYAN}4) Publish${RESET}      Gated pipeline: build → test → publish
@@ -33,37 +33,36 @@ export const HELP: Record<string, string> = {
     ${CYAN}i) Info${RESET}         Project stats, version, config
 
   ${BOLD}CONFIGURATION${RESET}
-    flowti-cli.config.json   Global CLI config (projects folder, capture, onboarding)
+    .flowti/config.json      Global CLI config (projects folder, capture, onboarding)
     flowti.config.json       Per-project config (tools, reports, docs, build commands)
     build-endpoints.json     Distribution endpoints (multi-vault deploy)
     manifest.json            Plugin metadata (id, version)
 
   ${BOLD}NON-INTERACTIVE COMMANDS${RESET}
     ${DIM}Most commands run against the selected project. Use --project=<name>
-    to override, or select a project first with: npm run flowti -- project${RESET}
+    to override, or select a project first with: flowti project${RESET}
 
-    npm run flowti -- build              Build the project
-    npm run flowti -- build:full         Full build pipeline
-    npm run flowti -- build:increment    CI pipeline (check → build → test → reports)
-    npm run flowti -- build:watch        Watch mode (add --reload for hot-reload)
-    npm run flowti -- build:distribute   Build + distribute to endpoints
-    npm run flowti -- test               Run tests
-    npm run flowti -- test:increment     Increment tests
-    npm run flowti -- test:e2e           E2E tests
-    npm run flowti -- review             Start E2E review session
-    npm run flowti -- publish            Build release
-    npm run flowti -- publish:all        Build + test pipeline
-    npm run flowti -- reports            Generate all reports
-    npm run flowti -- report:{id}        Generate a single report
-    npm run flowti -- dev:check          Lint + tsc
-    npm run flowti -- dev:lint           ESLint only
-    npm run flowti -- make:hub --name=X  Scaffold a new hub
-    npm run flowti -- scaffold:new       Create a new Flowti project
-    npm run flowti -- scaffold:list      List available scaffold definitions
-    npm run flowti -- capture:idea --text="..." Capture an idea
-    npm run flowti -- capture:note --type=task --title="..." Capture a note
-    npm run flowti -- info               Show project info
-    npm run flowti -- help [section]     Show help
+    flowti build              Build the project
+    flowti build:full         Full build pipeline
+    flowti build:increment    CI pipeline (check → build → test → reports)
+    flowti build:watch        Watch mode (add --reload for hot-reload)
+    flowti build:distribute   Build + distribute to endpoints
+    flowti test               Run tests
+    flowti test:increment     Increment tests
+    flowti test:e2e           E2E tests
+    flowti review             Start E2E review session
+    flowti publish            Build release
+    flowti publish:all        Build + test pipeline
+    flowti reports            Generate all reports
+    flowti report:{id}        Generate a single report
+    flowti dev:check          Lint + tsc
+    flowti dev:lint           ESLint only
+    flowti scaffold:new       Create a new Flowti project
+    flowti scaffold:list      List available scaffold definitions
+    flowti capture:idea --text="..." Capture an idea
+    flowti capture:note --type=task --title="..." Capture a note
+    flowti info               Show project info
+    flowti help [section]     Show help
 
   ${BOLD}HELP${RESET}
     Press ${CYAN}?${RESET} in any menu for contextual help.
@@ -73,22 +72,10 @@ export const HELP: Record<string, string> = {
   ${BOLD}MAKE${RESET} — Scaffold in-project boilerplate from Flowti patterns.
 
   ${DIM}Note: To create a new project, use "Create Project" from the Start Menu
-  or run: npm run flowti -- scaffold:new${RESET}
+  or run: flowti scaffold:new${RESET}
 
   ${BOLD}OPTIONS${RESET}
-    ${CYAN}1) New Hub${RESET}
-       Scaffolds a complete hub within the project:
-       - UI view (BaseHubView subclass with tabs)
-       - Domain layer (service stub, events, types)
-       - Hub provider (HubDashboardProvider for cross-hub)
-       - Test file (vitest + happy-dom setup)
-       - CSS layer file
-       - Feature PRD document
-       - E2E journey stub
-
-       ${DIM}Prompts: hub name, icon, hub type, initial tabs${RESET}
-
-    ${CYAN}2) New E2E Journey${RESET}
+    ${CYAN}1) New E2E Journey${RESET}
        Scaffolds a journey definition with test entry and canvas:
        - Journey definition (.journey file)
        - Test entry point
@@ -96,14 +83,17 @@ export const HELP: Record<string, string> = {
 
        ${DIM}Prompts: journey name, slug, description${RESET}
 
+    ${CYAN}2) Add Component${RESET}
+       Scaffolds a component from a declarative JSON definition.
+       8 component kinds available: component, layout, page, ui-component,
+       system, container, c4-component, person.
+
+       ${DIM}Generates: documentation, test file, definition JSON,
+       and optionally a Storybook story file.${RESET}
+
   ${BOLD}CONFIGURATION${RESET}
-    Output paths are configurable in flowti.config.json under "make":
-      make.hub.ui        UI source folder (default: src/ui)
-      make.hub.domain    Domain source folder (default: src/domain)
-      make.hub.tests     Test folder (default: tests/ui)
-      make.hub.css       CSS folder (default: css)
-      make.hub.docs      Feature docs folder (default: docs/features)
-      make.hub.journeys  E2E journeys folder (default: tests/e2e/journeys)
+    Available templates are configurable in flowti.config.json under "make":
+      make.templates     Array of template IDs (default: ["journey", "component"])
 `,
 
 	build: `
@@ -303,11 +293,11 @@ export const HELP: Record<string, string> = {
     followed by a heading and optional body text.
 
   ${BOLD}NON-INTERACTIVE${RESET}
-    npm run flowti -- capture:idea --text "My idea here"
-    npm run flowti -- capture:note --type task --title "Fix login"
+    flowti capture:idea --text "My idea here"
+    flowti capture:note --type task --title "Fix login"
 
   ${BOLD}CONFIGURATION${RESET}
-    Capture paths are configurable in flowti-cli.config.json:
+    Capture paths are configurable in .flowti/config.json:
       capture.idea            Idea folder (default: 00 - Connectivity/inbox)
       capture.task            Task folder
       capture.bug             Bug folder

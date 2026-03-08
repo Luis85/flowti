@@ -4,7 +4,7 @@
  * Scans vault documents for traceability gaps and generates a
  * Trace Conformance Report with queryable YAML frontmatter.
  *
- * Usage: npx tsx scripts/generate-trace-report.ts [--dry-run]
+ * Usage: npm run reports (part of reports pipeline)
  */
 
 import { disk } from "../../../infrastructure/filesystem.js";

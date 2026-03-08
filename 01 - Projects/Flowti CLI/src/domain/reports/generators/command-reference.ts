@@ -4,7 +4,7 @@
  * Reads command metadata from the CommandRegistry source and generates
  * a Command Reference vault note with queryable YAML frontmatter.
  *
- * Usage: npx tsx scripts/generate-command-reference.ts
+ * Usage: npm run report:cli-reference (part of reports pipeline)
  */
 
 import { disk } from "../../../infrastructure/filesystem.js";

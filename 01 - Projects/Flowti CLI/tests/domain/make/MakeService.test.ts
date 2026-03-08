@@ -46,16 +46,16 @@ describe("getAvailableTemplates", () => {
 	it("returns all templates when no project config", () => {
 		vi.mocked(readProjectConfig).mockReturnValue(null);
 		const templates = getAvailableTemplates("/mock/project");
-		expect(templates).toEqual(["hub", "journey", "component"]);
+		expect(templates).toEqual(["journey", "component"]);
 	});
 
 	it("returns configured templates when config exists", () => {
 		vi.mocked(readProjectConfig).mockReturnValue({
-			make: { templates: ["hub", "journey"] },
+			make: { templates: ["journey"] },
 		} as ReturnType<typeof readProjectConfig>);
 
 		const templates = getAvailableTemplates("/mock/project");
-		expect(templates).toEqual(["hub", "journey"]);
+		expect(templates).toEqual(["journey"]);
 	});
 
 	it("returns empty array when config specifies no templates", () => {
@@ -93,8 +93,8 @@ describe("menu", () => {
 		await menu("/mock/project");
 
 		expect(vi.mocked(runMenu)).toHaveBeenCalledWith("Make", expect.arrayContaining([
-			expect.objectContaining({ key: "1", label: "New Hub" }),
-			expect.objectContaining({ key: "2", label: "New E2E Journey" }),
+			expect.objectContaining({ key: "1", label: "New E2E Journey" }),
+			expect.objectContaining({ key: "2", label: "Add Component" }),
 		]));
 	});
 
@@ -113,7 +113,7 @@ describe("menu", () => {
 
 	it("respects configured template subset", async () => {
 		vi.mocked(readProjectConfig).mockReturnValue({
-			make: { templates: ["hub", "journey"] },
+			make: { templates: ["journey"] },
 		} as ReturnType<typeof readProjectConfig>);
 		vi.mocked(runMenu).mockResolvedValue("main");
 
@@ -121,8 +121,7 @@ describe("menu", () => {
 
 		const items = vi.mocked(runMenu).mock.calls[0][1] as Array<{ key?: string; label?: string }>;
 		const labels = items.filter((i) => "label" in i).map((i) => i.label);
-		expect(labels).toContain("New Hub");
 		expect(labels).toContain("New E2E Journey");
-		// Only hub and journey are available, no other templates exist
+		expect(labels).not.toContain("Add Component");
 	});
 });

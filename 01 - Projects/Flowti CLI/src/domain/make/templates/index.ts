@@ -11,12 +11,6 @@ export {
 export { createFileWriter, type FileWriter } from "./file-writer.js";
 
 export {
-	hubViewTemplate, hubTypesTemplate, hubEventsTemplate, hubServiceTemplate,
-	hubProviderTemplate, hubTestTemplate, hubCssTemplate, hubPrdTemplate,
-	hubJourneyTemplate,
-} from "./hub.js";
-
-export {
 	journeyDefinitionTemplate, journeyTestTemplate, journeyCanvasTemplate,
 } from "./journey.js";
 

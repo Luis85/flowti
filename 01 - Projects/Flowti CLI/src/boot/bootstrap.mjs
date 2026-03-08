@@ -75,5 +75,6 @@ if (!existsSync(BIN_ENTRY)) {
 const result = spawnSync(process.execPath, [BIN_ENTRY, ...process.argv.slice(2)], {
 	stdio: "inherit",
 	cwd: VAULT_ROOT,
+	env: { ...process.env, FLOWTI_VAULT_ROOT: VAULT_ROOT },
 });
 process.exit(result.status ?? 0);

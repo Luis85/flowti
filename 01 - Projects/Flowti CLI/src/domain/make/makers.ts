@@ -10,12 +10,11 @@ import { cliConfig } from "../../infrastructure/config.js";
 import { RESET, BOLD, DIM, GREEN, RED, CYAN } from "../../infrastructure/ui.js";
 import { input } from "../../infrastructure/input.js";
 import { log } from "../../infrastructure/logger.js";
-import { toKebab, toPascal, getMakePaths } from "./naming.js";
+import { toKebab, toPascal } from "./naming.js";
 import { readProjectConfig } from "../project/project-config.js";
 import { createFileWriter } from "./templates/file-writer.js";
 import {
-	buildHubPlan, buildPluginPlan, buildAppPlan, buildCliAppPlan, buildJourneyPlan,
-	computeNextCssNumber,
+	buildPluginPlan, buildAppPlan, buildCliAppPlan, buildJourneyPlan,
 } from "./plans.js";
 import type { FileEntry } from "./plans.js";
 
@@ -25,71 +24,6 @@ function writePlan(basePath: string, files: FileEntry[]): number {
 	const writer = createFileWriter(basePath);
 	for (const f of files) writer.write(f.path, f.content);
 	return writer.created;
-}
-
-// ── Hub scaffolding ─────────────────────────────────────────────────
-
-export async function makeHub(projectRoot: string): Promise<void> {
-	const { printHeader } = await import("../../infrastructure/ui.js");
-	printHeader("New Hub");
-	const projectConfig = readProjectConfig(projectRoot);
-	const paths = getMakePaths(projectConfig);
-
-	log(`  ${DIM}Project root: ${projectRoot}${RESET}\n`);
-
-	const name = await input.ask("Hub name (e.g., Inventory)");
-	if (!name) return;
-
-	const kebab = toKebab(name);
-	const pascal = toPascal(name);
-
-	const icon = await input.ask("Lucide icon", "layout-grid");
-	const hubType = await input.ask("Hub type (system/domain/user)", "domain");
-	const tabsRaw = await input.ask("Initial tabs (comma-separated)", "overview,items");
-
-	const tabs = tabsRaw.split(",").map((t) => t.trim()).filter(Boolean);
-
-	log();
-	log(`  ${BOLD}Scaffolding: ${pascal} Hub${RESET}`);
-	log(`  ${DIM}ID: ${kebab} | Icon: ${icon} | Type: ${hubType} | Tabs: ${tabs.join(", ")}${RESET}`);
-	log();
-
-	log(`  ${DIM}Output paths:${RESET}`);
-	log(`    UI:       ${paths.ui}/${kebab}/`);
-	log(`    Domain:   ${paths.domain}/${kebab}/`);
-	log(`    Provider: ${paths.hubDomain}/`);
-	log(`    Tests:    ${paths.tests}/${kebab}/`);
-	log(`    CSS:      ${paths.css}/`);
-	log(`    Docs:     ${paths.docs}/${pascal}/`);
-	log(`    Journey:  ${paths.journeys}/`);
-	log();
-
-	const proceed = await input.ask("Create files? (Y/n)", "Y");
-	if (proceed.toLowerCase() === "n") return;
-
-	log();
-	const cssDir = nodePaths.join(projectRoot, paths.css);
-	const cssFiles = disk.existsSync(cssDir)
-		? disk.readdirSync(cssDir).filter((f) => f.endsWith(".css")).sort()
-		: [];
-	const cssNum = computeNextCssNumber(cssFiles);
-
-	const files = buildHubPlan({ pascal, kebab, hubType, icon, tabs, paths, cssNum });
-	const created = writePlan(projectRoot, files);
-
-	log(`\n  ${GREEN}✓${RESET} Created ${created} files for ${pascal} Hub.\n`);
-
-	log(`  ${BOLD}Next steps:${RESET}`);
-	log(`    1. Add VIEW_TYPE constant to ${DIM}src/domain/hub/types.ts${RESET}:`);
-	log(`       ${CYAN}export const VIEW_TYPE_${pascal.toUpperCase()}_HUB = "flowti-${kebab}-hub";${RESET}`);
-	log(`    2. Register view in ${DIM}src/main.ts${RESET} → onLayoutReady():`);
-	log(`       ${CYAN}this.safeRegisterView(VIEW_TYPE_${pascal.toUpperCase()}_HUB, (leaf) =>${RESET}`);
-	log(`       ${CYAN}  new ${pascal}HubView(leaf, this.eventBus));${RESET}`);
-	log(`    3. Register provider in ${DIM}src/main.ts${RESET} → setupHubRegistry():`);
-	log(`       ${CYAN}this.hubRegistry.register(new ${pascal}HubProvider());${RESET}`);
-	log(`    4. Add ${pascal}EventMap to ${DIM}src/infrastructure/events/events.ts${RESET}`);
-	log(`    5. Add ribbon icon for the hub`);
-	log();
 }
 
 // ── Plugin scaffolding ──────────────────────────────────────────────

@@ -4,7 +4,7 @@
  * Reads entity type metadata from entityTypeRegistry.ts source and generates
  * a Data Dictionary reference document with queryable YAML frontmatter.
  *
- * Usage: npx tsx scripts/generate-data-dictionary.ts
+ * Usage: npm run reports (part of reports pipeline)
  */
 
 import { disk } from "../../../infrastructure/filesystem.js";

@@ -4,7 +4,7 @@
  * Generates a "Flowti CLI Reference" document from the HELP sections
  * in domain/help/help.ts and the current CLI/plugin configuration.
  *
- * Usage: npx tsx src/domain/reports/generators/cli-reference.ts
+ * Usage: npm run report:cli-reference
  */
 
 import { disk } from "../../../infrastructure/filesystem.js";
@@ -74,7 +74,7 @@ const LINE_RULES: LineRule[] = [
 	{ pattern: /^(\d+)\)\s+(.+)/, transform: (m) => [`**${m[1]}) ${m[2]}**`, ""] },
 	{ pattern: /^([a-z])\)\s+(.+)/, transform: (m) => [`**${m[1]}) ${m[2]}**`, ""] },
 	{ pattern: /^→\s+(.+)/, transform: (m) => [`\`${m[1]}\``, ""] },
-	{ pattern: /^(\s{2,})(npm run \S+|node \S+|obsidian \S+)\s{2,}(.+)/, transform: (m) => [`- \`${m[2].trim()}\` — ${m[3].trim()}`] },
+	{ pattern: /^(\s{2,})(flowti \S+|npm run \S+|node \S+|obsidian \S+)\s{2,}(.+)/, transform: (m) => [`- \`${m[2].trim()}\` — ${m[3].trim()}`] },
 	{ pattern: /^(\s{2,})(--\S+)\s{3,}(.+)/, transform: (m) => [`- \`${m[2]}\` — ${m[3].trim()}`] },
 	{ pattern: /^(\s{2,})((?:make|reports|capture|tools|docs)\.\S+)\s{2,}(.+)/, transform: (m) => [`- \`${m[2]}\` — ${m[3].trim()}`] },
 	{ pattern: /^(\s{2,})(\S+\.(?:json|md))\s{2,}(.+)/, transform: (m) => [`- \`${m[2]}\` — ${m[3].trim()}`] },
@@ -120,7 +120,6 @@ const CLI_COMMANDS: CliCommand[] = [
 	{ command: "dev:errors", description: "Open Obsidian error stream" },
 	{ command: "dev:check", description: "Run lint + tsc (no tests)" },
 	{ command: "dev:lint", description: "Run ESLint on src/" },
-	{ command: "make:hub", description: "Scaffold a new hub (--name required, --icon, --type, --tabs)" },
 	{ command: "make:plugin", description: "Scaffold a new plugin (--name required, --id, --author)" },
 	{ command: "make:app", description: "Scaffold a new DDD application (--name required, --id, --author)" },
 	{ command: "capture:idea", description: 'Capture an idea (--text="...")' },
@@ -174,10 +173,10 @@ function loadPluginData(): PluginData {
 function addQuickStartAndArchitecture(doc: Document): void {
 	doc.heading(2, "Quick Start").addBlank();
 	doc.codeBlock("bash", [
-		"npm run flowti              # Interactive menu (Start → Project → Detail)",
-		"npm run flowti -- build     # Non-interactive: fast build",
-		"npm run flowti -- help      # Show full help",
-		"npm run flowti -- info      # Project stats",
+		"flowti                      # Interactive menu (Start → Project → Detail)",
+		"flowti build                # Non-interactive: fast build",
+		"flowti help                 # Show full help",
+		"flowti info                 # Project stats",
 	].join("\n"));
 	doc.addBlank();
 
@@ -247,7 +246,7 @@ function addMakeConfig(doc: Document, makeConfig: Record<string, Record<string, 
 	if (Object.keys(makeConfig).length === 0) return;
 	doc.heading(2, "Make Configuration").addBlank();
 	doc.text("Scaffold output paths (`flowti.config.json` → `make`):").addBlank();
-	for (const [section, label] of [["hub", "Hub Paths"], ["plugin", "Plugin Paths"]] as const) {
+	for (const [section, label] of [["plugin", "Plugin Paths"]] as const) {
 		if (makeConfig[section]) {
 			doc.heading(3, label).addBlank();
 			doc.table(["Key", "Path"], Object.entries(makeConfig[section]).map(([k, v]) => [`\`make.${section}.${k}\``, `\`${v}\``]));
@@ -287,7 +286,7 @@ function main(): void {
 
 	doc.heading(2, "Non-Interactive Commands").addBlank();
 	doc.text("All commands can be run directly without the interactive menu:").addBlank();
-	doc.table(["Command", "Description"], CLI_COMMANDS.map((cmd) => [`\`npm run flowti -- ${cmd.command}\``, cmd.description]));
+	doc.table(["Command", "Description"], CLI_COMMANDS.map((cmd) => [`\`flowti ${cmd.command}\``, cmd.description]));
 	doc.addBlank();
 
 	addPluginSections(doc, data);
@@ -295,7 +294,7 @@ function main(): void {
 
 	doc.heading(2, "Configuration Files").addBlank();
 	doc.table(["File", "Purpose"], [
-		["`flowti-cli.config.json`", "Global CLI config: projects folder, capture paths, onboarding"],
+		["`.flowti/config.json`", "Global CLI config: projects folder, capture paths, onboarding"],
 		["`flowti.config.json`", "Per-project config: tools, build/test/review/publish commands, reports, docs"],
 		["`build-endpoints.json`", "Distribution endpoints for multi-vault deploy"],
 		["`manifest.json`", "Obsidian plugin metadata (id, version, author)"],

@@ -4,7 +4,7 @@
  * Reads event catalog metadata from catalog.ts source and generates
  * an Event Catalog reference document with queryable YAML frontmatter.
  *
- * Usage: npx tsx scripts/generate-event-catalog.ts
+ * Usage: npm run reports (part of reports pipeline)
  */
 
 import { disk } from "../../../infrastructure/filesystem.js";

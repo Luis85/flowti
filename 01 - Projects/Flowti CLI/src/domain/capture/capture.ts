@@ -124,7 +124,7 @@ export const commands = {
 		const text = flags.text;
 		if (!text || typeof text !== "string") {
 			log(`\n  ${RED}Missing --text flag.${RESET}`);
-			log(`  ${DIM}Usage: npm run flowti -- capture:idea --text="My idea"${RESET}\n`);
+			log(`  ${DIM}Usage: flowti capture:idea --text="My idea"${RESET}\n`);
 			return;
 		}
 		const title = text.length > 60 ? text.slice(0, 60).trim() : text;
@@ -135,7 +135,7 @@ export const commands = {
 		const title = flags.title;
 		if (!type || typeof type !== "string" || !title || typeof title !== "string") {
 			log(`\n  ${RED}Missing --type and/or --title flag.${RESET}`);
-			log(`  ${DIM}Usage: npm run flowti -- capture:note --type=task --title="My note"${RESET}\n`);
+			log(`  ${DIM}Usage: flowti capture:note --type=task --title="My note"${RESET}\n`);
 			return;
 		}
 		const normalized = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();

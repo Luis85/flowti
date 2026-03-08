@@ -28,7 +28,7 @@ interface ReportSection {
 function buildSections(svc: ReportService, projectPath: string): ReportSection[] {
 	return [
 		{
-			label: "Tests",
+			label: "Test",
 			stablePath: svc.stablePath("Test Report.md"),
 			generator: generateTestReport,
 		},

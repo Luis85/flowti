@@ -5,24 +5,12 @@ vi.mock("../../../src/infrastructure/config.js", () => ({
 }));
 
 import {
-	buildHubPlan,
 	buildPluginPlan,
 	buildAppPlan,
 	buildCliAppPlan,
 	buildJourneyPlan,
 	computeNextCssNumber,
 } from "../../../src/domain/make/plans.js";
-import type { MakePaths } from "../../../src/domain/make/naming.js";
-
-const STUB_PATHS: MakePaths = {
-	ui: "src/ui",
-	domain: "src/domain",
-	hubDomain: "src/domain/hub",
-	tests: "tests",
-	css: "css",
-	docs: "docs",
-	journeys: "tests/e2e/journeys",
-};
 
 // ── computeNextCssNumber ────────────────────────────────────────────
 
@@ -41,42 +29,6 @@ describe("computeNextCssNumber", () => {
 
 	it("pads to two digits", () => {
 		expect(computeNextCssNumber(["08-foo.css"])).toBe("09");
-	});
-});
-
-// ── buildHubPlan ────────────────────────────────────────────────────
-
-describe("buildHubPlan", () => {
-	const files = buildHubPlan({
-		pascal: "Inventory",
-		kebab: "inventory",
-		hubType: "domain",
-		icon: "box",
-		tabs: ["overview", "items"],
-		paths: STUB_PATHS,
-		cssNum: "10",
-	});
-
-	it("returns 9 files", () => {
-		expect(files).toHaveLength(9);
-	});
-
-	it("includes the hub view file", () => {
-		expect(files.some((f) => f.path === "src/ui/inventory/InventoryHubView.ts")).toBe(true);
-	});
-
-	it("includes the CSS file with correct number", () => {
-		expect(files.some((f) => f.path === "css/10-inventory.css")).toBe(true);
-	});
-
-	it("includes the journey file", () => {
-		expect(files.some((f) => f.path === "tests/e2e/journeys/inventory.journey.json")).toBe(true);
-	});
-
-	it("all files have non-empty content", () => {
-		for (const f of files) {
-			expect(f.content).toBeDefined();
-		}
 	});
 });
 
