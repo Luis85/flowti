@@ -12,6 +12,14 @@ vi.mock("../../../src/infrastructure/filesystem.js", () => ({
 	disk: {},
 }));
 
+vi.mock("../../../src/infrastructure/logger.js", () => ({
+	log: vi.fn(),
+}));
+
+vi.mock("../../../src/infrastructure/ui.js", () => ({
+	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", CYAN: "", YELLOW: "",
+}));
+
 import * as filesystemMod from "../../../src/infrastructure/filesystem.js";
 import {
 	resolveProjectPath,
@@ -64,20 +72,44 @@ describe("readProjectConfig", () => {
 			"/project/configs/flowti.config.json": JSON.stringify(config),
 		});
 		setDisk(fs);
-		expect(readProjectConfig("/project")).toEqual(config);
+		const result = readProjectConfig("/project");
+		expect(result.config).toEqual(config);
+		expect(result.warnings).toEqual([]);
 	});
 
-	it("returns null when config does not exist", () => {
+	it("returns null config when file does not exist", () => {
 		setDisk(createMockFs());
-		expect(readProjectConfig("/project")).toBeNull();
+		const result = readProjectConfig("/project");
+		expect(result.config).toBeNull();
 	});
 
-	it("returns null for corrupt JSON", () => {
+	it("returns null config for corrupt JSON", () => {
 		const fs = createMockFs({
 			"/project/configs/flowti.config.json": "broken",
 		});
 		setDisk(fs);
-		expect(readProjectConfig("/project")).toBeNull();
+		const result = readProjectConfig("/project");
+		expect(result.config).toBeNull();
+	});
+
+	it("returns null config with errors for invalid config (missing name)", () => {
+		const fs = createMockFs({
+			"/project/configs/flowti.config.json": JSON.stringify({ tools: {} }),
+		});
+		setDisk(fs);
+		const result = readProjectConfig("/project");
+		expect(result.config).toBeNull();
+	});
+
+	it("returns config with warnings for unknown keys", () => {
+		const config = { name: "valid", unknownKey: true };
+		const fs = createMockFs({
+			"/project/configs/flowti.config.json": JSON.stringify(config),
+		});
+		setDisk(fs);
+		const result = readProjectConfig("/project");
+		expect(result.config).toEqual(config);
+		expect(result.warnings).toContainEqual(expect.stringContaining("unknownKey"));
 	});
 });
 

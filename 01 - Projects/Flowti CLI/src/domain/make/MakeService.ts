@@ -23,7 +23,7 @@ const TEMPLATE_DEFS: Record<MakeTemplateId, { label: string; action: (root: stri
 const ALL_TEMPLATES: MakeTemplateId[] = ["journey", "component"];
 
 export function getAvailableTemplates(projectRoot: string): MakeTemplateId[] {
-	const cfg = readProjectConfig(projectRoot);
+	const { config: cfg } = readProjectConfig(projectRoot);
 	return cfg?.make?.templates ?? ALL_TEMPLATES;
 }
 

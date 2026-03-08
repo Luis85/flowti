@@ -92,6 +92,8 @@ export interface ProjectContext {
 	pkg: { name?: string; version?: string; scripts?: Record<string, string> } | null;
 	config: ProjectConfig;
 	scripts: Record<string, string>;
+	/** Non-fatal config validation warnings (present if config has issues). */
+	configWarnings?: string[];
 }
 
 export type CommandHandler = (

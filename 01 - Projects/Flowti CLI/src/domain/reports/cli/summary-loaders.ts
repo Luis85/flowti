@@ -43,7 +43,7 @@ export const DEFAULT_THRESHOLDS: Required<SummaryThresholds> = {
 };
 
 export function resolveThresholds(projectPath: string): Required<SummaryThresholds> {
-	const cfg = readProjectConfig(projectPath);
+	const { config: cfg } = readProjectConfig(projectPath);
 	const t = cfg?.reports?.thresholds ?? {};
 	return { ...DEFAULT_THRESHOLDS, ...t };
 }

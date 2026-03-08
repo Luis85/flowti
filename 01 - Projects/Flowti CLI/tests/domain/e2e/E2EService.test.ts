@@ -23,7 +23,7 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 }));
 
 vi.mock("../../../src/domain/project/project-config.js", () => ({
-	readProjectConfig: vi.fn(() => null),
+	readProjectConfig: vi.fn(() => ({ config: null, warnings: [] })),
 }));
 
 vi.mock("../../../src/domain/e2e/e2e-runner.js", () => ({

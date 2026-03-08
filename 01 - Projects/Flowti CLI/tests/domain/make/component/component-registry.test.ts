@@ -12,7 +12,7 @@ describe("loadComponentDefinitions", () => {
 		const component = definitions.find((d) => d.id === "component");
 		expect(component).toBeDefined();
 		expect(component!.kind).toBe("component");
-		expect(component!.label).toBe("Component");
+		expect(component!.label).toBe("Component - generic");
 	});
 
 	it("includes all C4 entity types", () => {

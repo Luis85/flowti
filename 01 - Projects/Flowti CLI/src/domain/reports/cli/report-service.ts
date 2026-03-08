@@ -18,7 +18,7 @@ export class ReportService {
 
 	constructor(projectPath: string = CLI_PROJECT) {
 		this.projectPath = projectPath;
-		const config = readProjectConfig(projectPath);
+		const { config } = readProjectConfig(projectPath);
 		this.reportsDir = paths.join(projectPath, config?.reports?.dir ?? "reports");
 	}
 
@@ -64,7 +64,7 @@ export class ReportService {
 
 	/** Resolve the coverage subdirectory path (relative, for CLI args). */
 	get coverageDir(): string {
-		const config = readProjectConfig(this.projectPath);
+		const { config } = readProjectConfig(this.projectPath);
 		const reportsRel = config?.reports?.dir ?? "reports";
 		return `${reportsRel}/coverage`;
 	}

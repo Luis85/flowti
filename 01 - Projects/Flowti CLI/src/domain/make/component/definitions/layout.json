@@ -1,7 +1,7 @@
 {
 	"id": "layout",
 	"kind": "layout",
-	"label": "Layout",
+	"label": "Layout - UI Component",
 	"description": "A layout component — defines the spatial arrangement of child components.",
 	"prompts": [
 		{ "variable": "description", "label": "Description", "default": "", "required": false },

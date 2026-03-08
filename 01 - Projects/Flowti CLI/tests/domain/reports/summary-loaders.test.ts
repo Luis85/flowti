@@ -47,7 +47,7 @@ function setDisk(fs: ReturnType<typeof createMockFs>): void {
 
 beforeEach(() => {
 	vi.clearAllMocks();
-	mockReadConfig.mockReturnValue(null);
+	mockReadConfig.mockReturnValue({ config: null, warnings: [] });
 });
 
 // ── parseFrontmatter ─────────────────────────────────────────────────
@@ -367,13 +367,13 @@ describe("loadComplexityFunctions", () => {
 
 describe("resolveThresholds", () => {
 	it("returns defaults when no config", () => {
-		mockReadConfig.mockReturnValue(null);
+		mockReadConfig.mockReturnValue({ config: null, warnings: [] });
 		const t = resolveThresholds("/project");
 		expect(t).toEqual(DEFAULT_THRESHOLDS);
 	});
 
 	it("merges config overrides with defaults", () => {
-		mockReadConfig.mockReturnValue({ reports: { thresholds: { coverageLines: 90 } } });
+		mockReadConfig.mockReturnValue({ config: { reports: { thresholds: { coverageLines: 90 } } }, warnings: [] });
 		const t = resolveThresholds("/project");
 		expect(t.coverageLines).toBe(90);
 		expect(t.maxComplexity).toBe(15); // default preserved

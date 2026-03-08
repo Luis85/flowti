@@ -27,35 +27,36 @@ function setDisk(mockFs: ReturnType<typeof createMockFs>): void {
 
 beforeEach(() => {
 	mockReadConfig.mockReset();
+	mockReadConfig.mockReturnValue({ config: null, warnings: [] });
 });
 
 describe("ReportService", () => {
 	it("uses default reports dir when no config", () => {
-		mockReadConfig.mockReturnValue(null);
+		mockReadConfig.mockReturnValue({ config: null, warnings: [] });
 		const svc = new ReportService("/my-project");
 		expect(svc.reportsDir).toBe(path.join("/my-project", "reports"));
 	});
 
 	it("uses configured reports dir", () => {
-		mockReadConfig.mockReturnValue({ reports: { dir: "output/reports" } });
+		mockReadConfig.mockReturnValue({ config: { reports: { dir: "output/reports" } }, warnings: [] });
 		const svc = new ReportService("/my-project");
 		expect(svc.reportsDir).toBe(path.join("/my-project", "output/reports"));
 	});
 
 	it("subdir resolves within reports dir", () => {
-		mockReadConfig.mockReturnValue(null);
+		mockReadConfig.mockReturnValue({ config: null, warnings: [] });
 		const svc = new ReportService("/proj");
 		expect(svc.subdir("tests")).toBe(path.join("/proj", "reports", "tests"));
 	});
 
 	it("stablePath resolves within reports dir", () => {
-		mockReadConfig.mockReturnValue(null);
+		mockReadConfig.mockReturnValue({ config: null, warnings: [] });
 		const svc = new ReportService("/proj");
 		expect(svc.stablePath("Test Report.md")).toBe(path.join("/proj", "reports", "Test Report.md"));
 	});
 
 	it("save writes timestamped and stable files", () => {
-		mockReadConfig.mockReturnValue(null);
+		mockReadConfig.mockReturnValue({ config: null, warnings: [] });
 		const fs = createMockFs();
 		setDisk(fs);
 
@@ -78,7 +79,7 @@ describe("ReportService", () => {
 	});
 
 	it("save copies source JSON when provided and exists", () => {
-		mockReadConfig.mockReturnValue(null);
+		mockReadConfig.mockReturnValue({ config: null, warnings: [] });
 		const fs = createMockFs({
 			"/data/source.json": '{"data": true}',
 		});
@@ -100,7 +101,7 @@ describe("ReportService", () => {
 	});
 
 	it("save skips JSON copy when source does not exist", () => {
-		mockReadConfig.mockReturnValue(null);
+		mockReadConfig.mockReturnValue({ config: null, warnings: [] });
 		const fs = createMockFs();
 		setDisk(fs);
 
@@ -119,13 +120,13 @@ describe("ReportService", () => {
 	});
 
 	it("coverageDir uses config or default", () => {
-		mockReadConfig.mockReturnValue({ reports: { dir: "custom/reports" } });
+		mockReadConfig.mockReturnValue({ config: { reports: { dir: "custom/reports" } }, warnings: [] });
 		const svc = new ReportService("/proj");
 		expect(svc.coverageDir).toBe("custom/reports/coverage");
 	});
 
 	it("coverageDir defaults to reports/coverage", () => {
-		mockReadConfig.mockReturnValue(null);
+		mockReadConfig.mockReturnValue({ config: null, warnings: [] });
 		const svc = new ReportService("/proj");
 		expect(svc.coverageDir).toBe("reports/coverage");
 	});

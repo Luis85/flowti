@@ -18,7 +18,7 @@ vi.mock("../../../src/domain/help/help.js", () => ({
 }));
 
 vi.mock("../../../src/domain/project/project-config.js", () => ({
-	readProjectConfig: vi.fn(() => null),
+	readProjectConfig: vi.fn(() => ({ config: null, warnings: [] })),
 }));
 
 vi.mock("../../../src/infrastructure/input.js", () => ({
@@ -44,24 +44,20 @@ import { menu, getAvailableTemplates } from "../../../src/domain/make/MakeServic
 
 describe("getAvailableTemplates", () => {
 	it("returns all templates when no project config", () => {
-		vi.mocked(readProjectConfig).mockReturnValue(null);
+		vi.mocked(readProjectConfig).mockReturnValue({ config: null, warnings: [] });
 		const templates = getAvailableTemplates("/mock/project");
 		expect(templates).toEqual(["journey", "component"]);
 	});
 
 	it("returns configured templates when config exists", () => {
-		vi.mocked(readProjectConfig).mockReturnValue({
-			make: { templates: ["journey"] },
-		} as ReturnType<typeof readProjectConfig>);
+		vi.mocked(readProjectConfig).mockReturnValue({ config: { name: "test", make: { templates: ["journey"] } }, warnings: [] });
 
 		const templates = getAvailableTemplates("/mock/project");
 		expect(templates).toEqual(["journey"]);
 	});
 
 	it("returns empty array when config specifies no templates", () => {
-		vi.mocked(readProjectConfig).mockReturnValue({
-			make: { templates: [] },
-		} as ReturnType<typeof readProjectConfig>);
+		vi.mocked(readProjectConfig).mockReturnValue({ config: { name: "test", make: { templates: [] } }, warnings: [] });
 
 		const templates = getAvailableTemplates("/mock/project");
 		expect(templates).toEqual([]);
@@ -76,9 +72,7 @@ describe("menu", () => {
 	});
 
 	it("returns main when no templates configured", async () => {
-		vi.mocked(readProjectConfig).mockReturnValue({
-			make: { templates: [] },
-		} as ReturnType<typeof readProjectConfig>);
+		vi.mocked(readProjectConfig).mockReturnValue({ config: { name: "test", make: { templates: [] } }, warnings: [] });
 
 		const result = await menu("/mock/project");
 
@@ -87,7 +81,7 @@ describe("menu", () => {
 	});
 
 	it("calls runMenu with available templates", async () => {
-		vi.mocked(readProjectConfig).mockReturnValue(null);
+		vi.mocked(readProjectConfig).mockReturnValue({ config: null, warnings: [] });
 		vi.mocked(runMenu).mockResolvedValue("main");
 
 		await menu("/mock/project");
@@ -99,7 +93,7 @@ describe("menu", () => {
 	});
 
 	it("includes back and quit items", async () => {
-		vi.mocked(readProjectConfig).mockReturnValue(null);
+		vi.mocked(readProjectConfig).mockReturnValue({ config: null, warnings: [] });
 		vi.mocked(runMenu).mockResolvedValue("main");
 
 		await menu("/mock/project");
@@ -112,9 +106,7 @@ describe("menu", () => {
 	});
 
 	it("respects configured template subset", async () => {
-		vi.mocked(readProjectConfig).mockReturnValue({
-			make: { templates: ["journey"] },
-		} as ReturnType<typeof readProjectConfig>);
+		vi.mocked(readProjectConfig).mockReturnValue({ config: { name: "test", make: { templates: ["journey"] } }, warnings: [] });
 		vi.mocked(runMenu).mockResolvedValue("main");
 
 		await menu("/mock/project");

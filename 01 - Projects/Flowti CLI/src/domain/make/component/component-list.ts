@@ -66,14 +66,14 @@ export function listProjectComponents(projectRoot: string): ProjectComponent[] {
 // ── Component browser menu ──────────────────────────────────────────
 
 const KIND_LABELS: Record<ComponentKind, string> = {
-	"component": "Component",
-	"layout": "Layout",
-	"page": "Page",
-	"ui-component": "UI Component",
-	"system": "System",
-	"container": "Container",
-	"c4-component": "C4 Component",
-	"person": "Person",
+  component: "Component",
+  "ui-component": "UI Component",
+  layout: "Layout",
+  page: "Page",
+  system: "System",
+  container: "Container",
+  "c4-component": "C4 Component",
+  person: "Person",
 };
 
 export async function componentListMenu(projectRoot: string): Promise<MenuResult> {

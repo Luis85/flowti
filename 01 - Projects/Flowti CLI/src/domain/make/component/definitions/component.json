@@ -1,7 +1,7 @@
 {
 	"id": "component",
 	"kind": "component",
-	"label": "Component",
+	"label": "Component - generic",
 	"description": "A generic component — the base building block of a project.",
 	"prompts": [
 		{ "variable": "description", "label": "Description", "default": "", "required": false },

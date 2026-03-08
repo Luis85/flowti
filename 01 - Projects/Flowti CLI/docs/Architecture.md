@@ -93,7 +93,7 @@ flowti.cmd
 │                                                       │
 │  ┌────────────── Project Detail Menu ──────────────┐  │
 │  │                                                  │  │
-│  │  1  Make           (scaffold hub/component/etc.) │  │
+│  │  1  Make           (scaffold journey/component)   │  │
 │  │  2  Build          (mapped from config)          │  │
 │  │  3  Review         (E2E, test vault)             │  │
 │  │  4  Publish        (gated pipeline)              │  │
@@ -358,7 +358,7 @@ All I/O is behind abstractions (`IFileSystem`, `IShell`, `IProcess`, `clock`), m
 
 ## 4. Target Architecture
 
-The target architecture extends the status quo to fulfill all PRD v4 requirements, particularly the incomplete items (FR-13) and the planned improvements (IMP-01 through IMP-18).
+The target architecture extends the status quo to fulfill all PRD v4 requirements, particularly the incomplete items (FR-12) and the planned improvements (IMP-01 through IMP-18).
 
 ### 4.1 Target: Non-Interactive Project Selection (IMP-01)
 
@@ -448,7 +448,7 @@ Reports Menu:
 
 **Target**: `make:component --name=X` prompts for property values. An `edit:component` command allows adding/editing properties on existing components.
 
-### 4.7 Target: E2E Onboarding Journey (FR-13)
+### 4.7 Target: E2E Onboarding Journey (FR-12)
 
 **Current**: Five E2E journey tests exist but the developer onboarding journey (install CLI → create project → build → explore) is not implemented.
 
@@ -475,7 +475,7 @@ These items address gaps in the current implementation that affect reliability a
 |---|------|--------|--------|-------|
 | 1.1 | **Config validation** (IMP-06) | S | High | New: `scaffold/config-schema.ts`. Modify: `project-config.ts` |
 | 1.2 | **Non-interactive project selection** (IMP-01) | S | High | Modify: `main.ts`, `dispatch.ts` |
-| 1.3 | **Developer onboarding E2E journey** (FR-13) | M | Medium | New: `tests/e2e/60-journey-developer-onboarding.test.ts` |
+| 1.3 | **Developer onboarding E2E journey** (FR-12) | M | Medium | New: `tests/e2e/60-journey-developer-onboarding.test.ts` |
 | 1.4 | **Report archive browsing** (IMP-03) | S | Medium | Modify: `mainMenu.ts`, New: `reports/report-archive.ts` |
 
 **Milestone**: All PRD v4 acceptance criteria passing. Full test coverage of config edge cases. AI agents can target projects by name.
@@ -654,7 +654,7 @@ This already works for external commands. The improvement is allowing projects t
 |--------|-----------|----------------|
 | Project | `project.ts`, `project-config.ts` | Project selection, initialization, auto-scaffolding |
 | Scaffold | `scaffold-service.ts`, `scaffold-plan.ts`, `scaffold-schema.ts` | Project creation from JSON definitions |
-| Make | `MakeService.ts`, `makers.ts`, `make-commands.ts` | In-project scaffolding (hub, journey, component) |
+| Make | `MakeService.ts`, `makers.ts`, `make-commands.ts` | In-project scaffolding (journey, component) |
 | Component | `component-registry.ts`, `component-plan.ts`, `component-types.ts` | 8-kind component system with ECS properties |
 | Reports | `report-runner.ts`, `generator-registry.ts`, 6 generators | Resilient report generation with prerequisites |
 | Review | `project-review.ts`, `E2EService.ts` | E2E test execution, test vault management |

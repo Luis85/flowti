@@ -54,7 +54,7 @@ vi.mock("../../../src/infrastructure/clock.js", () => ({
 }));
 
 vi.mock("../../../src/domain/project/project-config.js", () => ({
-	readProjectConfig: vi.fn(() => null),
+	readProjectConfig: vi.fn(() => ({ config: null, warnings: [] })),
 }));
 
 // Mock the ReportService class to avoid its constructor side effects

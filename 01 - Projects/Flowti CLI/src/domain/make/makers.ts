@@ -177,7 +177,7 @@ export async function makeJourney(projectRoot: string): Promise<void> {
 	const slug = await input.ask("Journey slug", defaultSlug);
 	const description = await input.ask("Description", `E2E journey for ${name}.`);
 
-	const cfg = readProjectConfig(projectRoot);
+	const { config: cfg } = readProjectConfig(projectRoot);
 	const journeysDir = cfg?.review?.journeysDir ?? "tests/e2e/journeys";
 	const journeysPath = nodePaths.resolve(projectRoot, journeysDir);
 	const journeyFile = nodePaths.join(journeysPath, `${slug}.journey`);

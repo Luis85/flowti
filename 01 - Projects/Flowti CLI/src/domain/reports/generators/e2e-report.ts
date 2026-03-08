@@ -15,7 +15,7 @@ import { generateE2EReport } from "./e2e/e2e-report-summary.js";
 let _e2e: E2EPaths | null = null;
 function e2e(): E2EPaths {
 	if (!_e2e) {
-		const config = readProjectConfig(PLUGIN_ROOT);
+		const { config } = readProjectConfig(PLUGIN_ROOT);
 		_e2e = resolveE2EPaths(PLUGIN_ROOT, config?.review);
 	}
 	return _e2e;

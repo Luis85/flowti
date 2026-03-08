@@ -9,7 +9,10 @@
 import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
 import { PROJECTS_DIR } from "../../infrastructure/config.js";
+import { log } from "../../infrastructure/logger.js";
+import { YELLOW, DIM, RESET, RED } from "../../infrastructure/ui.js";
 import type { ProjectConfig, ProjectContext, FlowtiToolId } from "../../infrastructure/types.js";
+import { validateProjectConfig } from "./config-schema.js";
 
 const CONFIGS_DIR = "configs";
 const FLOWTI_CONFIG = "flowti.config.json";
@@ -40,14 +43,35 @@ export function readPackageJson(projectPath: string): PackageJson | null {
 
 // ── Flowti project config ───────────────────────────────────────────
 
-export function readProjectConfig(projectPath: string): ProjectConfig | null {
+export interface ReadConfigResult {
+	config: ProjectConfig | null;
+	warnings: string[];
+}
+
+export function readProjectConfig(projectPath: string): ReadConfigResult {
 	const cfgPath = paths.join(projectPath, CONFIGS_DIR, FLOWTI_CONFIG);
-	if (!disk.existsSync(cfgPath)) return null;
+	if (!disk.existsSync(cfgPath)) return { config: null, warnings: [] };
+	let parsed: unknown;
 	try {
-		return JSON.parse(disk.readFileSync(cfgPath, "utf-8")) as ProjectConfig;
+		parsed = JSON.parse(disk.readFileSync(cfgPath, "utf-8"));
 	} catch {
-		return null;
+		return { config: null, warnings: [] };
 	}
+
+	const { errors, warnings } = validateProjectConfig(parsed);
+
+	if (errors.length > 0) {
+		log(`\n  ${RED}Invalid config: ${cfgPath}${RESET}`);
+		for (const e of errors) log(`    ${RED}• ${e}${RESET}`);
+		return { config: null, warnings };
+	}
+
+	if (warnings.length > 0) {
+		log(`\n  ${YELLOW}Config warnings: ${cfgPath}${RESET}`);
+		for (const w of warnings) log(`    ${DIM}• ${w}${RESET}`);
+	}
+
+	return { config: parsed as ProjectConfig, warnings };
 }
 
 function scaffoldProjectConfig(projectPath: string, pkg: PackageJson): ProjectConfig {
@@ -77,7 +101,8 @@ export function initializeProject(name: string): ProjectContext {
 	const projectPath = resolveProjectPath(name);
 	const pkg = readPackageJson(projectPath);
 
-	let config = readProjectConfig(projectPath);
+	const { config: loadedConfig, warnings } = readProjectConfig(projectPath);
+	let config = loadedConfig;
 
 	if (!config && pkg) {
 		config = scaffoldProjectConfig(projectPath, pkg);
@@ -92,6 +117,7 @@ export function initializeProject(name: string): ProjectContext {
 		pkg,
 		config,
 		scripts: pkg?.scripts ?? {},
+		configWarnings: warnings.length > 0 ? warnings : undefined,
 	};
 }
 

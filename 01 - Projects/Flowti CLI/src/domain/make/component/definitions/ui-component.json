@@ -1,7 +1,7 @@
 {
 	"id": "ui-component",
 	"kind": "ui-component",
-	"label": "UI Component",
+	"label": "UI Component - generic",
 	"description": "A UI component — a reusable, self-contained user interface element.",
 	"prompts": [
 		{ "variable": "description", "label": "Description", "default": "", "required": false },
