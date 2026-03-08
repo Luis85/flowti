@@ -6,7 +6,7 @@
  */
 
 import fsNode from "node:fs";
-import type { IFileSystem, DirEntry } from "../types.js";
+import type { IFileSystem, DirEntry } from "./types.js";
 
 class NodeFileSystem implements IFileSystem {
 	readFileSync(path: string, encoding: BufferEncoding): string {

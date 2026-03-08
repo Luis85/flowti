@@ -7,7 +7,7 @@ import { RESET, DIM, GREEN, RED, CYAN, YELLOW } from "../../infrastructure/ui.js
 import { shell } from "../../infrastructure/shell.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { showHelp } from "../help/help.js";
-import type { MenuResult } from "../../types.js";
+import type { MenuResult } from "../../infrastructure/types.js";
 import { log } from "../../infrastructure/logger.js";
 import { proc } from "../../infrastructure/proc.js";
 

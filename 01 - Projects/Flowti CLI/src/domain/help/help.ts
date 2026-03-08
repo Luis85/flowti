@@ -251,7 +251,7 @@ export const HELP: Record<string, string> = {
     Reference:    docs/reference/{name}.md
 
   ${BOLD}CONFIGURATION${RESET}
-    reports.dir         Output directory (default: docs/reports)
+    reports.dir         Output directory (default: reports)
     reports.allCommand  Command to generate all reports
     reports.scripts     Array of { id, label, script } generators
 `,

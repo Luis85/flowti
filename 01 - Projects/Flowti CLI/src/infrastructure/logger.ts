@@ -5,7 +5,9 @@
  * enforced everywhere else. This is the ONLY file that may call console directly.
  */
 
-/* eslint-disable no-console */
+export function debug(...args: unknown[]): void {
+	console.debug(...args);
+}
 
 export function log(...args: unknown[]): void {
 	console.log(...args);

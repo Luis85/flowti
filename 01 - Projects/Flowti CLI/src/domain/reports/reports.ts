@@ -13,7 +13,7 @@ import { runMenu } from "../../infrastructure/menu.js";
 import { showHelp } from "../help/help.js";
 import { Document } from "../../infrastructure/document.js";
 import { clock } from "../../infrastructure/clock.js";
-import type { MenuResult } from "../../types.js";
+import type { MenuResult } from "../../infrastructure/types.js";
 import { log } from "../../infrastructure/logger.js";
 
 interface RptCfg {

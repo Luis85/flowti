@@ -5,23 +5,23 @@
  * package.json scripts, and static utilities.
  */
 
-import { menu as makeMenu } from "./domain/make/make.js";
-import { publishMenu } from "./domain/publish/project-publish.js";
-import { reviewMenu } from "./domain/review/project-review.js";
-import { showInfo } from "./domain/info/info.js";
-import { showHelp } from "./domain/help/help.js";
-import { captureIdea, captureNote } from "./domain/capture/capture.js";
+import { menu as makeMenu } from "./make/make.js";
+import { publishMenu } from "./publish/project-publish.js";
+import { reviewMenu } from "./review/project-review.js";
+import { showInfo } from "./info/info.js";
+import { showHelp } from "./help/help.js";
+import { captureIdea, captureNote } from "./capture/capture.js";
 import {
   knowledgebaseMenu,
   isKnowledgebaseAvailable,
-} from "./domain/knowledgebase/knowledgebase.js";
-import { generateSummaryReport } from "./domain/reports/cli/generate-summary-report.js";
-import { buildWithReport } from "./domain/reports/cli/generate-build-report.js";
-import { shell } from "./infrastructure/shell.js";
-import { getSelectedProject } from "./infrastructure/state.js";
-import { initializeProject } from "./domain/project/project-config.js";
-import { FLOWTI_TOOLS } from "./types.js";
-import type { MenuEntry, MenuItem, ProjectConfig } from "./types.js";
+} from "./knowledgebase/knowledgebase.js";
+import { generateSummaryReport } from "./reports/cli/generate-summary-report.js";
+import { buildWithReport } from "./reports/cli/generate-build-report.js";
+import { shell } from "../infrastructure/shell.js";
+import { getSelectedProject } from "../infrastructure/state.js";
+import { initializeProject } from "./project/project-config.js";
+import { FLOWTI_TOOLS } from "../infrastructure/types.js";
+import type { MenuEntry, MenuItem, ProjectConfig } from "../infrastructure/types.js";
 
 // ── Build Flowti tool items (top-level, disabled if unmapped) ────────
 
@@ -132,7 +132,7 @@ export function buildProjectDetailMenu(): MenuEntry[] {
     key: "5",
     label: "Reports",
     action: async () => {
-      const { runMenu } = await import("./infrastructure/menu.js");
+      const { runMenu } = await import("../infrastructure/menu.js");
       const reportMenuItems: MenuEntry[] = [];
       const reportsCmd = ctx.config.reports?.allCommand ?? ctx.config.tools?.["reports"];
       const generators = ctx.config.reports?.generators ?? [];
@@ -183,7 +183,7 @@ export function buildProjectDetailMenu(): MenuEntry[] {
       key: "7",
       label: "Npm Scripts",
       action: async () => {
-        const { runMenu } = await import("./infrastructure/menu.js");
+        const { runMenu } = await import("../infrastructure/menu.js");
         const scriptMenuItems: MenuEntry[] = [
           ...scriptItems,
           { separator: true },
@@ -202,7 +202,7 @@ export function buildProjectDetailMenu(): MenuEntry[] {
     { key: "8", label: "Capture Idea", action: captureIdea },
     { key: "9", label: "Capture Note", action: captureNote },
   );
-  
+
   items.push({ separator: true });
 
   // d — Update Documentation
@@ -217,7 +217,7 @@ export function buildProjectDetailMenu(): MenuEntry[] {
         key: "d",
         label: "Update Documentation",
         action: async () => {
-          const { runMenu } = await import("./infrastructure/menu.js");
+          const { runMenu } = await import("../infrastructure/menu.js");
           const docsMenuItems: MenuEntry[] = [];
 
           if (allCmd) {

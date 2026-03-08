@@ -9,7 +9,7 @@ import { createRL, ask } from "../../infrastructure/readline.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { showHelp } from "../help/help.js";
 import { showPostBuildGuidance } from "../onboarding/onboarding.js";
-import type { MenuResult } from "../../types.js";
+import type { MenuResult } from "../../infrastructure/types.js";
 import { log } from "../../infrastructure/logger.js";
 
 const cfg = config as Record<string, Record<string, Record<string, string>>>;

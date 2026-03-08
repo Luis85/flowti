@@ -6,7 +6,7 @@
  *   fs.readFileSync("/path/to/file.json", "utf-8"); // '{"key": "value"}'
  */
 
-import type { IFileSystem, DirEntry } from "../../src/types.js";
+import type { IFileSystem, DirEntry } from "../../src/infrastructure/types.js";
 import path from "node:path";
 
 export function createMockFs(files: Record<string, string> = {}): IFileSystem & {

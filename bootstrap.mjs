@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_PROJECT = resolve(__dirname, "01 - Projects", "Flowti CLI");
-const BIN_ENTRY = resolve(CLI_PROJECT, "bin", "src", "main.js");
+const BIN_ENTRY = resolve(CLI_PROJECT, "bin", "main.js");
 const NODE_MODULES = resolve(CLI_PROJECT, "node_modules");
 
 function run(cmd, args, cwd) {

@@ -40,11 +40,11 @@ import { initializeProject } from "./domain/project/project-config.js";
 
 // ── Main menu builder ───────────────────────────────────────────────
 
-import { buildProjectDetailMenu } from "./mainMenu.js";
+import { buildProjectDetailMenu } from "./domain/mainMenu.js";
 
 // ── Command registry ────────────────────────────────────────────────
 
-import type { CommandHandler } from "./types.js";
+import type { CommandHandler } from "./infrastructure/types.js";
 import { log, error } from "./infrastructure/logger.js";
 
 const allCommands: Record<string, CommandHandler> = {

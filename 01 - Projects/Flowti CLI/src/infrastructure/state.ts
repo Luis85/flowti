@@ -7,7 +7,7 @@
 import { paths } from "./paths.js";
 import { CLI_PROJECT } from "./config.js";
 import { disk } from "./filesystem.js";
-import type { CliState, ProjectSource, IFileSystem } from "../types.js";
+import type { CliState, ProjectSource, IFileSystem } from "./types.js";
 
 const STATE_PATH = paths.join(CLI_PROJECT, "configs", ".flowti-state.json");
 

@@ -9,7 +9,7 @@
 import { createRL, ask } from "../../infrastructure/readline.js";
 import { printHeader, BOLD, RESET, DIM, CYAN, YELLOW, GREEN } from "../../infrastructure/ui.js";
 import { isCliAvailable, isVaultInitialized, listFolder, readMarkdownFile, searchVault } from "./vault-service.js";
-import type { MenuResult } from "../../types.js";
+import type { MenuResult } from "../../infrastructure/types.js";
 import { log } from "../../infrastructure/logger.js";
 
 export function isKnowledgebaseAvailable(): boolean {

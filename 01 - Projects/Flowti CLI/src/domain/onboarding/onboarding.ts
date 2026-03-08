@@ -9,7 +9,7 @@ import { shell } from "../../infrastructure/shell.js";
 import { RESET, BOLD, DIM, GREEN, RED, CYAN, YELLOW } from "../../infrastructure/ui.js";
 import { log } from "../../infrastructure/logger.js";
 import { proc } from "../../infrastructure/proc.js";
-import type { IFileSystem, IShell } from "../../types.js";
+import type { IFileSystem, IShell } from "../../infrastructure/types.js";
 
 const onb = cliConfig.onboarding ?? {};
 const pluginId = onb.pluginId ?? "flowti-ibde";

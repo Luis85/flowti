@@ -158,7 +158,7 @@ export interface SummaryThresholds {
 }
 
 export interface ReportsConfig {
-	/** Relative path from project root to the reports directory (default: "docs/reports") */
+	/** Relative path from project root to the reports directory (default: "reports") */
 	dir?: string;
 	/** Command to generate all reports */
 	allCommand?: string;

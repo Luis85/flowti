@@ -159,8 +159,8 @@ describe("getReportsDir", () => {
 		expect(result).toBe(n("/project", "custom/reports"));
 	});
 
-	it("defaults to docs/reports", () => {
+	it("defaults to reports", () => {
 		const result = getReportsDir("/project", { name: "test" });
-		expect(result).toBe(n("/project", "docs/reports"));
+		expect(result).toBe(n("/project", "reports"));
 	});
 });

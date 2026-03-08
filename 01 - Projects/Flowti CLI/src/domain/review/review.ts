@@ -8,7 +8,7 @@ import { shell } from "../../infrastructure/shell.js";
 import { createRL, ask } from "../../infrastructure/readline.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { showHelp } from "../help/help.js";
-import type { MenuResult } from "../../types.js";
+import type { MenuResult } from "../../infrastructure/types.js";
 import { log } from "../../infrastructure/logger.js";
 
 const cmd = (config as Record<string, Record<string, Record<string, string>>>).review?.commands ?? {};

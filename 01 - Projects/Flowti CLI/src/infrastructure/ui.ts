@@ -3,7 +3,7 @@
  */
 
 import { manifest } from "./config.js";
-import type { MenuEntry } from "../types.js";
+import type { MenuEntry } from "./types.js";
 import { log } from "./logger.js";
 
 // ── ANSI escape codes ────────────────────────────────────────────────

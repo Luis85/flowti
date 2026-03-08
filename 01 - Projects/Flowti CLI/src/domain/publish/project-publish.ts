@@ -10,7 +10,7 @@ import { paths } from "../../infrastructure/paths.js";
 import { RESET, DIM, GREEN, RED, CYAN, YELLOW } from "../../infrastructure/ui.js";
 import { shell } from "../../infrastructure/shell.js";
 import { runMenu } from "../../infrastructure/menu.js";
-import type { MenuResult, PublishConfig, PublishEndpoint } from "../../types.js";
+import type { MenuResult, PublishConfig, PublishEndpoint } from "../../infrastructure/types.js";
 import { log } from "../../infrastructure/logger.js";
 
 // ── Distribute artifacts to endpoints ───────────────────────────────

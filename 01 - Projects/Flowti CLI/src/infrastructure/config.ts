@@ -3,16 +3,28 @@
  */
 
 import { paths } from "./paths.js";
-import type { FlowtiCliConfig } from "../types.js";
+import type { FlowtiCliConfig } from "./types.js";
 import { disk } from "./filesystem.js";
 
 // ── Path resolution ──────────────────────────────────────────────────
 
-const CLI_DIR: string = import.meta.dirname;                                // src/infrastructure/ or bin/src/infrastructure/
-const RAW_ROOT: string = paths.resolve(CLI_DIR, "..", "..");
-export const CLI_PROJECT: string = paths.basename(RAW_ROOT) === "bin"        // compiled output lives one level deeper
-	? paths.resolve(RAW_ROOT, "..")
-	: RAW_ROOT;
+const CLI_DIR: string = import.meta.dirname;
+// Resolve project root from runtime location:
+//   tsx:    src/infrastructure/ → ../../ = project root
+//   bundle: bin/               → ../    = project root
+function findProjectRoot(dir: string): string {
+	let candidate = dir;
+	// Walk up until we find configs/flowti-cli.config.json
+	for (let i = 0; i < 4; i++) {
+		if (disk.existsSync(paths.join(candidate, "configs", "flowti-cli.config.json"))) {
+			return candidate;
+		}
+		candidate = paths.resolve(candidate, "..");
+	}
+	// Fallback: assume two levels up from src/infrastructure/
+	return paths.resolve(dir, "..", "..");
+}
+export const CLI_PROJECT: string = findProjectRoot(CLI_DIR);
 export const cliConfig: FlowtiCliConfig = JSON.parse(disk.readFileSync(paths.join(CLI_PROJECT, "configs", "flowti-cli.config.json"), "utf-8"));
 
 export const VAULT_ROOT: string = paths.resolve(CLI_PROJECT, "..", "..");

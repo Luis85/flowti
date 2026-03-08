@@ -8,10 +8,10 @@ export default defineConfig({
 		globals: true,
 		coverage: {
 			provider: "v8",
-			reportsDirectory: "docs/reports/coverage",
+			reportsDirectory: "reports/coverage",
 			reporter: ["json", "text"],
 			include: ["src/**/*.ts"],
-			exclude: ["src/vendor.d.ts"],
+			exclude: ["configs/vendor.d.ts"],
 		},
 	},
 });

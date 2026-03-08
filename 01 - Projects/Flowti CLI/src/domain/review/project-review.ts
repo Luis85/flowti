@@ -14,7 +14,7 @@ import { RESET, BOLD, DIM, GREEN, CYAN, YELLOW } from "../../infrastructure/ui.j
 import { shell } from "../../infrastructure/shell.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { createRL, ask } from "../../infrastructure/readline.js";
-import type { MenuEntry, MenuResult, ReviewConfig } from "../../types.js";
+import type { MenuEntry, MenuResult, ReviewConfig } from "../../infrastructure/types.js";
 import { log } from "../../infrastructure/logger.js";
 
 // ── Journey scanning ────────────────────────────────────────────────

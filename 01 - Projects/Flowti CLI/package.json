@@ -4,8 +4,8 @@
 	"type": "module",
 	"private": true,
 	"scripts": {
-		"dev": "tsx src/main.ts",
-		"build": "tsc --project configs/tsconfig.json",
+		"dev": "node configs/esbuild.config.mjs --watch",
+		"build": "node configs/esbuild.config.mjs",
 		"test": "npm run check && vitest run --config configs/vitest.config.ts",
 		"test:watch": "vitest --config configs/vitest.config.ts",
 		"test:ui": "vitest --config configs/vitest.config.ts --ui",
@@ -19,7 +19,8 @@
 		"report:codebase": "npm run docs && tsx src/domain/reports/cli/generate-codebase-report.ts",
 		"report:complexity": "npm run analysis && tsx src/domain/reports/cli/generate-complexity-report.ts",
 		"report:status": "tsx src/domain/reports/cli/generate-status-report.ts",
-		"reports": "npm run check && npm run docs && npm run analysis && tsx src/domain/reports/cli/generate-test-report.ts && tsx src/domain/reports/cli/generate-coverage-report.ts && tsx src/domain/reports/cli/generate-codebase-report.ts && tsx src/domain/reports/cli/generate-complexity-report.ts"
+		"report:summary": "tsx src/domain/reports/cli/generate-summary-report.ts",
+		"reports": "npm run check && npm run test:coverage && npm run docs && npm run analysis && tsx src/domain/reports/cli/generate-test-report.ts && tsx src/domain/reports/cli/generate-coverage-report.ts && tsx src/domain/reports/cli/generate-codebase-report.ts && tsx src/domain/reports/cli/generate-complexity-report.ts && tsx src/domain/reports/cli/generate-summary-report.ts"
 	},
 	"devDependencies": {
 		"@pythonidaer/complexity-report": "^1.0.18",
@@ -28,6 +29,7 @@
 		"@typescript-eslint/parser": "^8.56.1",
 		"@vitest/coverage-v8": "^4.0.18",
 		"@vitest/ui": "^4.0.18",
+		"esbuild": "^0.25.12",
 		"eslint": "^10.0.3",
 		"tsx": "^4.21.0",
 		"typedoc": "^0.28.17",

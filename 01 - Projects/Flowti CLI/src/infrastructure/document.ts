@@ -9,7 +9,7 @@
 
 import { paths } from "./paths.js";
 import { disk } from "./filesystem.js";
-import type { IFileSystem } from "../types.js";
+import type { IFileSystem } from "./types.js";
 
 // ── Types ────────────────────────────────────────────────────────────
 

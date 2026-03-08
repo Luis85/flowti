@@ -10,7 +10,7 @@ import { countFiles } from "../../infrastructure/fs.js";
 import { getSelectedProject, getProjectSource } from "../../infrastructure/state.js";
 import { initializeProject } from "../project/project-config.js";
 import type { ProjectContext } from "../project/project-config.js";
-import { FLOWTI_TOOLS } from "../../types.js";
+import { FLOWTI_TOOLS } from "../../infrastructure/types.js";
 import { log } from "../../infrastructure/logger.js";
 
 function printFileCount(dir: string, label: string): void {

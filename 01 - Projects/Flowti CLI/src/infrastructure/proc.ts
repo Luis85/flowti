@@ -5,7 +5,7 @@
  * should go through this service for testability.
  */
 
-import type { IProcess } from "../types.js";
+import type { IProcess } from "./types.js";
 
 class NodeProcess implements IProcess {
 	exit(code: number): never {

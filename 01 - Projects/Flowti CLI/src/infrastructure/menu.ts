@@ -7,7 +7,7 @@
 
 import { printHeader, printMenu } from "./ui.js";
 import { createRL, ask } from "./readline.js";
-import type { MenuEntry, MenuItem, MenuOptions, MenuResult } from "../types.js";
+import type { MenuEntry, MenuItem, MenuOptions, MenuResult } from "./types.js";
 import { log } from ".//logger.js";
 
 /**

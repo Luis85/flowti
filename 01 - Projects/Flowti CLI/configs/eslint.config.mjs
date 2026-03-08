@@ -22,8 +22,11 @@ export default [
 			"@typescript-eslint": tseslint,
 		},
 		rules: {
-			// Cyclomatic complexity — warn at 15, consider refactoring above this
-			complexity: ["error", 15],
+			// Cyclomatic complexity — warn at 10, hard cap at 15 enforced by complexity report
+			complexity: ["warn", 10],
+
+			// File size — warn at 300 LOC (excluding blanks/comments), enforce decomposition
+			"max-lines": ["warn", { max: 300, skipBlankLines: true, skipComments: true }],
 
 			// Unused vars — error, but allow unused function args
 			"no-unused-vars": "off",
@@ -38,15 +41,13 @@ export default [
 
 			// ── Architecture enforcement ───────────────────────────────────────
 			// These rules enforce the centralized service pattern:
-			//   console.*    → { log, warn, error } from infrastructure/logger.js
+			//   console.*    → { debug, log, warn, error } from infrastructure/logger.js
 			//   process.*    → { proc }              from infrastructure/proc.js
 			//   node:fs      → { disk }              from infrastructure/filesystem.js
 			//   child_process→ { shell }             from infrastructure/shell.js
 			//   node:path    → { paths }             from infrastructure/paths.js
 
-			"no-console": ["error", {
-				allow: ["debug"],
-			}],
+			"no-console": "error",
 
 			"no-restricted-properties": ["error",
 				{ object: "process", property: "exit", message: "Use { proc } from infrastructure/proc.js instead." },
@@ -95,11 +96,13 @@ export default [
 			"src/infrastructure/proc.ts",
 			"src/infrastructure/clock.ts",
 			"src/infrastructure/readline.ts",
-			"src/types.ts", 
+			"src/infrastructure/logger.ts",
+			"src/types.ts",
 		],
 		rules: {
 			"no-restricted-imports": "off",
 			"no-restricted-properties": "off",
+			"no-console": "off",
 		},
 	},
 
@@ -117,6 +120,7 @@ export default [
 			"no-restricted-imports": "off",
 			"no-restricted-properties": "off",
 			"no-console": "off",
+			"max-lines": "off",
 		},
 	},
 ];

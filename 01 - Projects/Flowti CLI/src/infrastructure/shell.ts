@@ -10,7 +10,7 @@ import { ROOT } from "./config.js";
 import { RESET, GREEN, RED, CYAN, DIM } from "./ui.js";
 import { log } from "./logger.js";
 import { clock } from "./clock.js";
-import type { IShell } from "../types.js";
+import type { IShell } from "./types.js";
 
 class NodeShell implements IShell {
 	run(cmd: string, opts: { cwd?: string; label?: string } = {}): number {

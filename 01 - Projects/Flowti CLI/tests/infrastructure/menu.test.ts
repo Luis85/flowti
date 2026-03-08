@@ -26,7 +26,7 @@ vi.mock("../../src/infrastructure/logger.js", () => ({
 }));
 
 import { runMenu } from "../../src/infrastructure/menu.js";
-import type { MenuEntry } from "../../src/types.js";
+import type { MenuEntry } from "../../src/infrastructure/types.js";
 
 beforeEach(() => {
 	vi.clearAllMocks();

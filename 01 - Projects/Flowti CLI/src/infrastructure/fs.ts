@@ -7,7 +7,7 @@ import { ROOT } from "./config.js";
 import { disk } from "./filesystem.js";
 import { RESET, GREEN, YELLOW } from "./ui.js";
 import { log } from "./logger.js";
-import type { IFileSystem } from "../types.js";
+import type { IFileSystem } from "./types.js";
 
 export function writeFile(relPath: string, content: string, fs: IFileSystem = disk): boolean {
 	return writeFileAt(ROOT, relPath, content, fs);

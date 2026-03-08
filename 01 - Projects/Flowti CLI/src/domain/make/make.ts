@@ -14,7 +14,7 @@ import { runMenu } from "../../infrastructure/menu.js";
 import { showHelp } from "../help/help.js";
 import { toKebab, toPascal, getMakePaths } from "./naming.js";
 import { readProjectConfig } from "../project/project-config.js";
-import type { MenuEntry, MenuResult, MakeTemplateId } from "../../types.js";
+import type { MenuEntry, MenuResult, MakeTemplateId } from "../../infrastructure/types.js";
 import {
 	hubViewTemplate, hubTypesTemplate, hubEventsTemplate, hubServiceTemplate,
 	hubProviderTemplate, hubTestTemplate, hubCssTemplate, hubPrdTemplate,

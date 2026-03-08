@@ -8,7 +8,7 @@
  *   sh.run("npm install");         // 0 (default success)
  */
 
-import type { IShell } from "../../src/types.js";
+import type { IShell } from "../../src/infrastructure/types.js";
 
 export interface MockShellOptions {
 	/** Map command → stdout (for runSilent). Missing = null (failure). */

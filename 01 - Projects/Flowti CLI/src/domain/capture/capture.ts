@@ -9,7 +9,7 @@ import { RESET, DIM, GREEN, RED, YELLOW, printHeader, printMenu } from "../../in
 import { createRL, ask } from "../../infrastructure/readline.js";
 import { Document } from "../../infrastructure/document.js";
 import { clock } from "../../infrastructure/clock.js";
-import type { MenuResult } from "../../types.js";
+import type { MenuResult } from "../../infrastructure/types.js";
 import { log } from "../../infrastructure/logger.js";
 
 // ── Constants ───────────────────────────────────────────────────────

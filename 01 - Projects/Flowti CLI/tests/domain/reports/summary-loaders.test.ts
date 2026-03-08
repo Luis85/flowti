@@ -1,0 +1,356 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { createMockFs } from "../../mocks/mock-fs.js";
+
+vi.mock("../../../src/infrastructure/filesystem.js", () => ({
+	disk: {},
+}));
+
+vi.mock("../../../src/infrastructure/paths.js", async () => {
+	const path = await import("node:path");
+	return { paths: { ...path, sep: "/" } };
+});
+
+vi.mock("../../../src/infrastructure/shell.js", () => ({
+	shell: { runSilent: vi.fn() },
+}));
+
+vi.mock("../../../src/domain/project/project-config.js", () => ({
+	readProjectConfig: vi.fn(),
+}));
+
+vi.mock("../../../src/infrastructure/config.js", () => ({
+	CLI_PROJECT: "/mock/cli",
+}));
+
+import * as fsMod from "../../../src/infrastructure/filesystem.js";
+import {
+	parseFrontmatter,
+	parseLintOutput,
+	discoverReports,
+	readTestReportJson,
+	aggregateCoverageJson,
+	loadAnalysisTopFiles,
+	loadComplexityFunctions,
+	findLatestMd,
+	DEFAULT_THRESHOLDS,
+	resolveThresholds,
+} from "../../../src/domain/reports/cli/summary-loaders.js";
+import { readProjectConfig } from "../../../src/domain/project/project-config.js";
+
+const mockReadConfig = readProjectConfig as ReturnType<typeof vi.fn>;
+
+function setDisk(fs: ReturnType<typeof createMockFs>): void {
+	Object.assign(fsMod, { disk: fs });
+}
+
+beforeEach(() => {
+	vi.clearAllMocks();
+	mockReadConfig.mockReturnValue(null);
+});
+
+// ── parseFrontmatter ─────────────────────────────────────────────────
+
+describe("parseFrontmatter", () => {
+	it("parses YAML frontmatter between --- delimiters", () => {
+		const content = "---\ntype: TestReport\ntotal: 42\n---\n# Body";
+		const fm = parseFrontmatter(content);
+		expect(fm.type).toBe("TestReport");
+		expect(fm.total).toBe("42");
+	});
+
+	it("returns empty object when no frontmatter", () => {
+		expect(parseFrontmatter("# Just a heading")).toEqual({});
+	});
+
+	it("returns empty object when only opening delimiter", () => {
+		expect(parseFrontmatter("---\nkey: value\nno closing")).toEqual({});
+	});
+
+	it("strips quotes from values", () => {
+		const fm = parseFrontmatter('---\nname: "hello"\nother: \'world\'\n---');
+		expect(fm.name).toBe("hello");
+		expect(fm.other).toBe("world");
+	});
+
+	it("handles keys with underscores", () => {
+		const fm = parseFrontmatter("---\nmax_complexity: 15\n---");
+		expect(fm.max_complexity).toBe("15");
+	});
+
+	it("ignores lines without key-value pattern", () => {
+		const fm = parseFrontmatter("---\nvalid: yes\n  indented: no\n---");
+		expect(fm.valid).toBe("yes");
+		expect(fm.indented).toBeUndefined();
+	});
+});
+
+// ── parseLintOutput ──────────────────────────────────────────────────
+
+describe("parseLintOutput", () => {
+	it("parses ESLint summary line", () => {
+		const output = "\n\n✖ 5 problems (2 errors, 3 warnings)\n";
+		const result = parseLintOutput(output);
+		expect(result.errors).toBe(2);
+		expect(result.warnings).toBe(3);
+	});
+
+	it("parses individual issue lines with file context", () => {
+		const output = [
+			"/project/src/foo.ts",
+			"  10:5  warning  Unexpected console statement  no-console",
+			"  20:1  error    Missing return type            @typescript-eslint/explicit-function-return-type",
+			"",
+			"✖ 2 problems (1 error, 1 warning)",
+		].join("\n");
+
+		const result = parseLintOutput(output, "/project/");
+		expect(result.issues).toHaveLength(2);
+		expect(result.issues[0].file).toBe("src/foo.ts");
+		expect(result.issues[0].line).toBe(10);
+		expect(result.issues[0].severity).toBe("warning");
+		expect(result.issues[0].rule).toBe("no-console");
+		expect(result.issues[1].severity).toBe("error");
+	});
+
+	it("returns breakdown sorted by count", () => {
+		const output = [
+			"/src/a.ts",
+			"  1:1  warning  msg  rule-a",
+			"  2:1  warning  msg  rule-b",
+			"  3:1  warning  msg  rule-a",
+			"",
+			"✖ 3 problems (0 errors, 3 warnings)",
+		].join("\n");
+
+		const result = parseLintOutput(output);
+		expect(result.breakdown[0]).toEqual({ rule: "rule-a", count: 2 });
+		expect(result.breakdown[1]).toEqual({ rule: "rule-b", count: 1 });
+	});
+
+	it("handles empty output", () => {
+		const result = parseLintOutput("");
+		expect(result.errors).toBe(0);
+		expect(result.warnings).toBe(0);
+		expect(result.issues).toHaveLength(0);
+	});
+
+	it("handles Windows paths in file headers", () => {
+		const output = [
+			"C:\\Projects\\src\\bar.ts",
+			"  5:3  warning  Some warning  complexity",
+			"",
+			"✖ 1 problem (0 errors, 1 warning)",
+		].join("\n");
+
+		const result = parseLintOutput(output);
+		expect(result.issues).toHaveLength(1);
+		expect(result.issues[0].file).toContain("bar.ts");
+	});
+});
+
+// ── readTestReportJson ───────────────────────────────────────────────
+
+describe("readTestReportJson", () => {
+	it("returns parsed test data when file exists", () => {
+		const fs = createMockFs({
+			"/reports/tests/testreport.json": JSON.stringify({
+				numTotalTests: 100,
+				numPassedTests: 98,
+				numFailedTests: 2,
+				success: false,
+			}),
+		});
+		setDisk(fs);
+
+		const result = readTestReportJson("/reports");
+		expect(result).toBeDefined();
+		expect(result!.numTotalTests).toBe(100);
+		expect(result!.numPassedTests).toBe(98);
+		expect(result!.numFailedTests).toBe(2);
+		expect(result!.success).toBe(false);
+	});
+
+	it("returns undefined when file does not exist", () => {
+		setDisk(createMockFs());
+		expect(readTestReportJson("/reports")).toBeUndefined();
+	});
+
+	it("fills defaults for missing fields", () => {
+		const fs = createMockFs({
+			"/reports/tests/testreport.json": JSON.stringify({ numTotalTests: 5 }),
+		});
+		setDisk(fs);
+
+		const result = readTestReportJson("/reports");
+		expect(result!.numTotalTests).toBe(5);
+		expect(result!.numPendingTests).toBe(0);
+		expect(result!.success).toBe(false);
+	});
+});
+
+// ── aggregateCoverageJson ────────────────────────────────────────────
+
+describe("aggregateCoverageJson", () => {
+	it("aggregates coverage from Istanbul format", () => {
+		const coverage = {
+			"/src/a.ts": {
+				s: { "0": 1, "1": 1, "2": 0 },
+				b: { "0": [1, 0] },
+				f: { "0": 1, "1": 0 },
+				statementMap: {}, branchMap: {}, fnMap: {},
+			},
+		};
+		const fs = createMockFs({
+			"/reports/coverage/coverage-final.json": JSON.stringify(coverage),
+		});
+		setDisk(fs);
+
+		const result = aggregateCoverageJson("/reports");
+		expect(result).toBeDefined();
+		expect(result!.statementsPct).toBeCloseTo(66.67, 1);
+		expect(result!.branchesPct).toBe(50);
+		expect(result!.functionsPct).toBe(50);
+		expect(result!.filesCovered).toBe(1);
+	});
+
+	it("returns undefined when file does not exist", () => {
+		setDisk(createMockFs());
+		expect(aggregateCoverageJson("/reports")).toBeUndefined();
+	});
+});
+
+// ── findLatestMd ─────────────────────────────────────────────────────
+
+describe("findLatestMd", () => {
+	it("returns latest timestamped markdown file", () => {
+		const fs = createMockFs({
+			"/reports/tests/2026-01-01-test.md": "old",
+			"/reports/tests/2026-03-08-test.md": "new",
+		});
+		setDisk(fs);
+
+		const result = findLatestMd("/reports/tests");
+		expect(result).toContain("2026-03-08-test.md");
+	});
+
+	it("returns null for empty directory", () => {
+		setDisk(createMockFs());
+		expect(findLatestMd("/nonexistent")).toBeNull();
+	});
+
+	it("ignores non-timestamped files", () => {
+		const fs = createMockFs({
+			"/reports/tests/README.md": "readme",
+		});
+		setDisk(fs);
+
+		expect(findLatestMd("/reports/tests")).toBeNull();
+	});
+});
+
+// ── discoverReports ──────────────────────────────────────────────────
+
+describe("discoverReports", () => {
+	it("discovers reports from timestamped files", () => {
+		const fs = createMockFs({
+			"/reports/tests/2026-03-08-test-report.md": "---\ntotal: 100\n---\n# Tests",
+			"/reports/coverage/2026-03-08-coverage.md": "---\nlines_pct: 85\n---\n# Coverage",
+		});
+		setDisk(fs);
+
+		const snapshots = discoverReports("/reports");
+		expect(snapshots).toHaveLength(2);
+		expect(snapshots[0].label).toBe("Tests");
+		expect(snapshots[0].frontmatter.total).toBe("100");
+		expect(snapshots[1].label).toBe("Coverage");
+	});
+
+	it("prefers stable name over timestamped for configured reports", () => {
+		const fs = createMockFs({
+			"/reports/complexity/Complexity Report.md": "---\nmax_complexity: 12\n---\n# Complexity",
+			"/reports/complexity/2026-01-01-old.md": "---\nmax_complexity: 5\n---\n# Old",
+		});
+		setDisk(fs);
+
+		const snapshots = discoverReports("/reports");
+		const complexity = snapshots.find((s) => s.label === "Complexity");
+		expect(complexity).toBeDefined();
+		expect(complexity!.frontmatter.max_complexity).toBe("12");
+	});
+
+	it("returns empty array when no reports exist", () => {
+		setDisk(createMockFs());
+		expect(discoverReports("/reports")).toEqual([]);
+	});
+});
+
+// ── loadAnalysisTopFiles ─────────────────────────────────────────────
+
+describe("loadAnalysisTopFiles", () => {
+	it("loads and sorts files by decision point count", () => {
+		const data = {
+			summary: { totalDecisionPoints: 20 },
+			files: [
+				{ file: "src/a.ts", decisionPointCount: 5 },
+				{ file: "src/b.ts", decisionPointCount: 15 },
+				{ file: "src/c.ts", decisionPointCount: 0 },
+			],
+		};
+		const fs = createMockFs({
+			"/reports/coverage/analysis.json": JSON.stringify(data),
+		});
+		setDisk(fs);
+
+		const result = loadAnalysisTopFiles("/reports", 10);
+		expect(result).toHaveLength(2); // c.ts filtered out (0 DPs)
+		expect(result[0].file).toBe("src/b.ts");
+		expect(result[0].decisionPointCount).toBe(15);
+	});
+
+	it("returns empty array when file does not exist", () => {
+		setDisk(createMockFs());
+		expect(loadAnalysisTopFiles("/reports", 10)).toEqual([]);
+	});
+});
+
+// ── loadComplexityFunctions ──────────────────────────────────────────
+
+describe("loadComplexityFunctions", () => {
+	it("loads complexity functions data", () => {
+		const data = {
+			summary: { totalFunctions: 10, maxComplexity: 8, avgComplexity: 3.2, medianComplexity: 2, totalComplexity: 32, aboveThreshold10: 0, aboveThreshold15: 0 },
+			functions: [{ file: "src/a.ts", functionName: "foo", line: 10, complexity: 8 }],
+		};
+		const fs = createMockFs({
+			"/reports/coverage/complexity-functions.json": JSON.stringify(data),
+		});
+		setDisk(fs);
+
+		const result = loadComplexityFunctions("/reports");
+		expect(result).toBeDefined();
+		expect(result!.summary.maxComplexity).toBe(8);
+		expect(result!.functions).toHaveLength(1);
+	});
+
+	it("returns undefined when file does not exist", () => {
+		setDisk(createMockFs());
+		expect(loadComplexityFunctions("/reports")).toBeUndefined();
+	});
+});
+
+// ── resolveThresholds ────────────────────────────────────────────────
+
+describe("resolveThresholds", () => {
+	it("returns defaults when no config", () => {
+		mockReadConfig.mockReturnValue(null);
+		const t = resolveThresholds("/project");
+		expect(t).toEqual(DEFAULT_THRESHOLDS);
+	});
+
+	it("merges config overrides with defaults", () => {
+		mockReadConfig.mockReturnValue({ reports: { thresholds: { coverageLines: 90 } } });
+		const t = resolveThresholds("/project");
+		expect(t.coverageLines).toBe(90);
+		expect(t.maxComplexity).toBe(15); // default preserved
+	});
+});

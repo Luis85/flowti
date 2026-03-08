@@ -15,7 +15,7 @@ import { runMenu } from "../../infrastructure/menu.js";
 import { createRL, ask } from "../../infrastructure/readline.js";
 import { RESET, DIM, GREEN, RED, CYAN, BOLD } from "../../infrastructure/ui.js";
 import { PROJECT_TEMPLATES, PROJECT_TEMPLATE_IDS } from "../make/make.js";
-import type { MenuEntry, MenuResult } from "../../types.js";
+import type { MenuEntry, MenuResult } from "../../infrastructure/types.js";
 import type { ProjectTemplateId } from "../make/make.js";
 import { log } from "../../infrastructure/logger.js";
 

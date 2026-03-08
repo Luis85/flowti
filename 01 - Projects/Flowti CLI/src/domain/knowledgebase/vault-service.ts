@@ -9,7 +9,7 @@ import { shell } from "../../infrastructure/shell.js";
 import { paths } from "../../infrastructure/paths.js";
 import { disk } from "../../infrastructure/filesystem.js";
 import { VAULT_ROOT } from "../../infrastructure/config.js";
-import type { DirEntry } from "../../types.js";
+import type { DirEntry } from "../../infrastructure/types.js";
 
 let _cliAvailable: boolean | null = null;
 

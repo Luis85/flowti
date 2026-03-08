@@ -7,7 +7,7 @@
  *   p.exit(0); // throws MockExitError with code 0
  */
 
-import type { IProcess } from "../../src/types.js";
+import type { IProcess } from "../../src/infrastructure/types.js";
 
 export class MockExitError extends Error {
 	constructor(public readonly code: number) {

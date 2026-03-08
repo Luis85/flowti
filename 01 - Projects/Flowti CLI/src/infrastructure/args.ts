@@ -2,7 +2,7 @@
  * args.ts — CLI argument parsing.
  */
 
-import type { ParsedArgs } from "../types.js";
+import type { ParsedArgs } from "./types.js";
 
 export function parseArgs(args: string[]): ParsedArgs {
 	const result: ParsedArgs = { command: null, flags: {} };
