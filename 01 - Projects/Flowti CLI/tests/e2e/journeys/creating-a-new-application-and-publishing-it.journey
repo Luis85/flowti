@@ -1,0 +1,56 @@
+{
+	"journey": "Creating a new Application and Publishing it",
+	"chapter": 1,
+	"description": "E2E journey for Creating a new Application and Publishing it.",
+	"type": "functional",
+	"category": "general",
+	"tools": [
+		"command",
+		"wait",
+		"screenshot",
+		"assert"
+	],
+	"lifecycle": {
+		"enablePlugin": true,
+		"checkInstalled": true,
+		"startTrace": true,
+		"openActivityLog": true
+	},
+	"steps": [
+		{
+			"id": "creating-a-new-application-and-publishing-it-01",
+			"title": "Open Creating a new Application and Publishing it",
+			"guideSection": 1,
+			"description": "Navigate to the Creating a new Application and Publishing it feature.",
+			"actions": [
+				{
+					"tool": "command",
+					"id": "flowti:open-creating-a-new-application-and-publishing-it"
+				},
+				{
+					"tool": "wait",
+					"ms": 500
+				},
+				{
+					"tool": "screenshot"
+				}
+			]
+		},
+		{
+			"id": "creating-a-new-application-and-publishing-it-02",
+			"title": "Verify Creating a new Application and Publishing it is displayed",
+			"guideSection": 1,
+			"description": "Assert that the Creating a new Application and Publishing it view loaded correctly.",
+			"actions": [
+				{
+					"tool": "assert",
+					"type": "visible",
+					"selector": ".flowti-container"
+				},
+				{
+					"tool": "screenshot"
+				}
+			]
+		}
+	]
+}

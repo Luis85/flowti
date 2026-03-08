@@ -1,0 +1,56 @@
+{
+	"journey": "Creating a new Project and start to work",
+	"chapter": 1,
+	"description": "E2E journey for Creating a new Project and start to work.",
+	"type": "functional",
+	"category": "general",
+	"tools": [
+		"command",
+		"wait",
+		"screenshot",
+		"assert"
+	],
+	"lifecycle": {
+		"enablePlugin": true,
+		"checkInstalled": true,
+		"startTrace": true,
+		"openActivityLog": true
+	},
+	"steps": [
+		{
+			"id": "creating-a-new-project-and-start-to-work-01",
+			"title": "Open Creating a new Project and start to work",
+			"guideSection": 1,
+			"description": "Navigate to the Creating a new Project and start to work feature.",
+			"actions": [
+				{
+					"tool": "command",
+					"id": "flowti:open-creating-a-new-project-and-start-to-work"
+				},
+				{
+					"tool": "wait",
+					"ms": 500
+				},
+				{
+					"tool": "screenshot"
+				}
+			]
+		},
+		{
+			"id": "creating-a-new-project-and-start-to-work-02",
+			"title": "Verify Creating a new Project and start to work is displayed",
+			"guideSection": 1,
+			"description": "Assert that the Creating a new Project and start to work view loaded correctly.",
+			"actions": [
+				{
+					"tool": "assert",
+					"type": "visible",
+					"selector": ".flowti-container"
+				},
+				{
+					"tool": "screenshot"
+				}
+			]
+		}
+	]
+}

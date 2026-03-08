@@ -1,0 +1,56 @@
+{
+	"journey": "Getting Started",
+	"chapter": 1,
+	"description": "The Onboarding and Installation before starting",
+	"type": "functional",
+	"category": "general",
+	"tools": [
+		"command",
+		"wait",
+		"screenshot",
+		"assert"
+	],
+	"lifecycle": {
+		"enablePlugin": true,
+		"checkInstalled": true,
+		"startTrace": true,
+		"openActivityLog": true
+	},
+	"steps": [
+		{
+			"id": "getting-started-01",
+			"title": "Open Getting Started",
+			"guideSection": 1,
+			"description": "Navigate to the Getting Started feature.",
+			"actions": [
+				{
+					"tool": "command",
+					"id": "flowti:open-getting-started"
+				},
+				{
+					"tool": "wait",
+					"ms": 500
+				},
+				{
+					"tool": "screenshot"
+				}
+			]
+		},
+		{
+			"id": "getting-started-02",
+			"title": "Verify Getting Started is displayed",
+			"guideSection": 1,
+			"description": "Assert that the Getting Started view loaded correctly.",
+			"actions": [
+				{
+					"tool": "assert",
+					"type": "visible",
+					"selector": ".flowti-container"
+				},
+				{
+					"tool": "screenshot"
+				}
+			]
+		}
+	]
+}
