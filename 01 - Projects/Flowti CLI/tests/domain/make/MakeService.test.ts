@@ -46,7 +46,7 @@ describe("getAvailableTemplates", () => {
 	it("returns all templates when no project config", () => {
 		vi.mocked(readProjectConfig).mockReturnValue(null);
 		const templates = getAvailableTemplates("/mock/project");
-		expect(templates).toEqual(["hub", "plugin", "app", "cli", "journey"]);
+		expect(templates).toEqual(["hub", "journey", "component"]);
 	});
 
 	it("returns configured templates when config exists", () => {
@@ -94,10 +94,7 @@ describe("menu", () => {
 
 		expect(vi.mocked(runMenu)).toHaveBeenCalledWith("Make", expect.arrayContaining([
 			expect.objectContaining({ key: "1", label: "New Hub" }),
-			expect.objectContaining({ key: "2", label: expect.stringContaining("Plugin") }),
-			expect.objectContaining({ key: "3", label: expect.stringContaining("Application") }),
-			expect.objectContaining({ key: "4", label: expect.stringContaining("CLI") }),
-			expect.objectContaining({ key: "5", label: expect.stringContaining("Journey") }),
+			expect.objectContaining({ key: "2", label: "New E2E Journey" }),
 		]));
 	});
 
@@ -126,6 +123,6 @@ describe("menu", () => {
 		const labels = items.filter((i) => "label" in i).map((i) => i.label);
 		expect(labels).toContain("New Hub");
 		expect(labels).toContain("New E2E Journey");
-		expect(labels).not.toContain("New CLI App (Node.js ESM)");
+		// Only hub and journey are available, no other templates exist
 	});
 });

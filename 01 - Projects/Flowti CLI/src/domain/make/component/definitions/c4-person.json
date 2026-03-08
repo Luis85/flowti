@@ -1,0 +1,24 @@
+{
+	"id": "c4-person",
+	"kind": "person",
+	"label": "Person (C4)",
+	"description": "A C4 Person — an actor who interacts with the system.",
+	"prompts": [
+		{ "variable": "description", "label": "Description", "default": "", "required": true },
+		{ "variable": "owner", "label": "Owner / team", "default": "", "required": false }
+	],
+	"files": [
+		{ "path": "docs/components/{{kebab}}.md", "templateId": "c4-doc" },
+		{ "path": "tests/components/{{kebab}}.test.ts", "templateId": "component-test" },
+		{ "path": "src/components/{{kebab}}/{{kebab}}.json", "templateId": "component-definition" }
+	],
+	"metadata": {
+		"type": "person",
+		"c4Level": 0,
+		"relationships": []
+	},
+	"nextSteps": [
+		"Edit docs/components/{{kebab}}.md to describe the person/actor",
+		"Define relationships to systems they interact with"
+	]
+}

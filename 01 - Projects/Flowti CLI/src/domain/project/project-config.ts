@@ -8,20 +8,16 @@
 
 import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
-import { PROJECTS_DIR, DEVELOPMENT_DIR } from "../../infrastructure/config.js";
-import { getProjectSource } from "../../infrastructure/state.js";
-import type { ProjectConfig, ProjectSource, ProjectContext, FlowtiToolId } from "../../infrastructure/types.js";
+import { PROJECTS_DIR } from "../../infrastructure/config.js";
+import type { ProjectConfig, ProjectContext, FlowtiToolId } from "../../infrastructure/types.js";
 
 const CONFIGS_DIR = "configs";
 const FLOWTI_CONFIG = "flowti.config.json";
 
 // ── Path resolution ─────────────────────────────────────────────────
 
-export function resolveProjectPath(name: string, source?: ProjectSource): string {
-	const s = source ?? getProjectSource();
-	return s === "development"
-		? paths.join(DEVELOPMENT_DIR, name)
-		: paths.join(PROJECTS_DIR, name);
+export function resolveProjectPath(name: string): string {
+	return paths.join(PROJECTS_DIR, name);
 }
 
 // ── Package.json ────────────────────────────────────────────────────
@@ -77,8 +73,8 @@ function scaffoldProjectConfig(projectPath: string, pkg: PackageJson): ProjectCo
 
 // ── Initialize project ──────────────────────────────────────────────
 
-export function initializeProject(name: string, source?: ProjectSource): ProjectContext {
-	const projectPath = resolveProjectPath(name, source);
+export function initializeProject(name: string): ProjectContext {
+	const projectPath = resolveProjectPath(name);
 	const pkg = readPackageJson(projectPath);
 
 	let config = readProjectConfig(projectPath);

@@ -6,6 +6,7 @@
  */
 
 import { menu as makeMenu } from "./make/make.js";
+import { componentListMenu } from "./make/component/component-list.js";
 import { publishMenu } from "./publish/project-publish.js";
 import { reviewMenu } from "./review/project-review.js";
 import { showInfo } from "./info/info.js";
@@ -94,6 +95,13 @@ export function buildProjectDetailMenu(): MenuEntry[] {
     key: "4",
     label: "Publish",
     action: () => publishMenu(ctx.path, ctx.config.publish ?? {}),
+  });
+
+  // c — Components (browse project components)
+  items.push({
+    key: "c",
+    label: "Components",
+    action: () => componentListMenu(ctx.path),
   });
 
   items.push({ separator: true });

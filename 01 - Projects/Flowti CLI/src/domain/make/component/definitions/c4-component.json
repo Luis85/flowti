@@ -1,0 +1,29 @@
+{
+	"id": "c4-component",
+	"kind": "c4-component",
+	"label": "Component (C4)",
+	"description": "A C4 Component — a functional unit within a container.",
+	"prompts": [
+		{ "variable": "description", "label": "Description", "default": "", "required": true },
+		{ "variable": "technology", "label": "Technology / pattern", "default": "", "required": false },
+		{ "variable": "containedBy", "label": "Parent container", "default": "", "required": false },
+		{ "variable": "owner", "label": "Owner / team", "default": "", "required": false }
+	],
+	"files": [
+		{ "path": "docs/components/{{kebab}}.md", "templateId": "c4-doc" },
+		{ "path": "tests/components/{{kebab}}.test.ts", "templateId": "component-test" },
+		{ "path": "src/components/{{kebab}}/{{kebab}}.json", "templateId": "component-definition" }
+	],
+	"metadata": {
+		"type": "c4-component",
+		"c4Level": 3,
+		"technology": "",
+		"containedBy": "",
+		"interfaces": [],
+		"relationships": []
+	},
+	"nextSteps": [
+		"Edit docs/components/{{kebab}}.md to describe the component",
+		"Implement the component interface"
+	]
+}

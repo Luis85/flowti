@@ -32,10 +32,10 @@ describe("loadState", () => {
 describe("saveState", () => {
 	it("merges and writes state to file", () => {
 		const fs = createMockFs({ [STATE_PATH]: JSON.stringify({ selectedProject: "old" }) });
-		saveState({ projectSource: "development" }, fs);
+		saveState({ selectedProject: "updated" }, fs);
 
 		const written = JSON.parse(fs.files.get(STATE_PATH)!);
-		expect(written).toEqual({ selectedProject: "old", projectSource: "development" });
+		expect(written).toEqual({ selectedProject: "updated" });
 	});
 
 	it("creates state file when it does not exist", () => {
@@ -47,20 +47,18 @@ describe("saveState", () => {
 	});
 
 	it("overwrites existing keys", () => {
-		const fs = createMockFs({ [STATE_PATH]: JSON.stringify({ selectedProject: "old", projectSource: "projects" }) });
+		const fs = createMockFs({ [STATE_PATH]: JSON.stringify({ selectedProject: "old" }) });
 		saveState({ selectedProject: "new" }, fs);
 
 		const written = JSON.parse(fs.files.get(STATE_PATH)!);
 		expect(written.selectedProject).toBe("new");
-		expect(written.projectSource).toBe("projects");
 	});
 
 	it("can clear values with undefined", () => {
-		const fs = createMockFs({ [STATE_PATH]: JSON.stringify({ selectedProject: "old", projectSource: "development" }) });
-		saveState({ selectedProject: undefined, projectSource: undefined }, fs);
+		const fs = createMockFs({ [STATE_PATH]: JSON.stringify({ selectedProject: "old" }) });
+		saveState({ selectedProject: undefined }, fs);
 
 		const written = JSON.parse(fs.files.get(STATE_PATH)!);
 		expect(written.selectedProject).toBeUndefined();
-		expect(written.projectSource).toBeUndefined();
 	});
 });

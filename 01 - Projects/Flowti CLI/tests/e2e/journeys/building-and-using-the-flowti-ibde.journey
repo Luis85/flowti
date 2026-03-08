@@ -1,0 +1,56 @@
+{
+	"journey": "Building and Using the Flowti IBDE",
+	"chapter": 1,
+	"description": "E2E journey for Building and Using the Flowti IBDE.",
+	"type": "functional",
+	"category": "general",
+	"tools": [
+		"command",
+		"wait",
+		"screenshot",
+		"assert"
+	],
+	"lifecycle": {
+		"enablePlugin": true,
+		"checkInstalled": true,
+		"startTrace": true,
+		"openActivityLog": true
+	},
+	"steps": [
+		{
+			"id": "building-and-using-the-flowti-ibde-01",
+			"title": "Open Building and Using the Flowti IBDE",
+			"guideSection": 1,
+			"description": "Navigate to the Building and Using the Flowti IBDE feature.",
+			"actions": [
+				{
+					"tool": "command",
+					"id": "flowti:open-building-and-using-the-flowti-ibde"
+				},
+				{
+					"tool": "wait",
+					"ms": 500
+				},
+				{
+					"tool": "screenshot"
+				}
+			]
+		},
+		{
+			"id": "building-and-using-the-flowti-ibde-02",
+			"title": "Verify Building and Using the Flowti IBDE is displayed",
+			"guideSection": 1,
+			"description": "Assert that the Building and Using the Flowti IBDE view loaded correctly.",
+			"actions": [
+				{
+					"tool": "assert",
+					"type": "visible",
+					"selector": ".flowti-container"
+				},
+				{
+					"tool": "screenshot"
+				}
+			]
+		}
+	]
+}

@@ -7,7 +7,7 @@ import { disk } from "../../infrastructure/filesystem.js";
 import { RESET, BOLD, DIM, GREEN, YELLOW, printHeader } from "../../infrastructure/ui.js";
 import { shell } from "../../infrastructure/shell.js";
 import { countFiles } from "../../infrastructure/fs.js";
-import { getSelectedProject, getProjectSource } from "../../infrastructure/state.js";
+import { getSelectedProject } from "../../infrastructure/state.js";
 import { initializeProject } from "../project/project-config.js";
 import { FLOWTI_TOOLS } from "../../infrastructure/types.js";
 import type { ProjectContext } from "../../infrastructure/types.js";
@@ -21,11 +21,10 @@ function printFileCount(dir: string, label: string): void {
 	log(`    ${label}${count} ${ext} files`);
 }
 
-function printIdentity(ctx: ProjectContext, source: string): void {
+function printIdentity(ctx: ProjectContext): void {
 	log(`  ${BOLD}Project${RESET}`);
 	log(`    Name:           ${ctx.config.name}`);
 	if (ctx.pkg?.version) log(`    Version:        ${ctx.pkg.version}`);
-	log(`    Source:         ${source === "development" ? "Development" : "Projects"}`);
 	log(`    Path:           ${ctx.path}`);
 	log();
 }
@@ -135,10 +134,9 @@ export function showInfo(): void {
 		return;
 	}
 
-	const source = getProjectSource();
-	const ctx = initializeProject(projectName, source);
+	const ctx = initializeProject(projectName);
 
-	printIdentity(ctx, source);
+	printIdentity(ctx);
 	printSourceFiles(ctx);
 	printDependencies(ctx);
 	printTools(ctx);

@@ -1,0 +1,28 @@
+{
+	"id": "c4-container",
+	"kind": "container",
+	"label": "Container (C4)",
+	"description": "A C4 Container — a deployable unit within a system.",
+	"prompts": [
+		{ "variable": "description", "label": "Description", "default": "", "required": true },
+		{ "variable": "technology", "label": "Technology (e.g., Node.js, PostgreSQL)", "default": "", "required": false },
+		{ "variable": "containedBy", "label": "Parent system", "default": "", "required": false },
+		{ "variable": "owner", "label": "Owner / team", "default": "", "required": false }
+	],
+	"files": [
+		{ "path": "docs/components/{{kebab}}.md", "templateId": "c4-doc" },
+		{ "path": "tests/components/{{kebab}}.test.ts", "templateId": "component-test" },
+		{ "path": "src/components/{{kebab}}/{{kebab}}.json", "templateId": "component-definition" }
+	],
+	"metadata": {
+		"type": "container",
+		"c4Level": 2,
+		"technology": "",
+		"containedBy": "",
+		"relationships": []
+	},
+	"nextSteps": [
+		"Edit docs/components/{{kebab}}.md to describe the container",
+		"Add components using: flowti make:c4-component"
+	]
+}

@@ -1,16 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import path from "node:path";
 import { createMockFs } from "../../mocks/mock-fs.js";
 
-// Mock config module to control PROJECTS_DIR and DEVELOPMENT_DIR
+// Mock config module to control PROJECTS_DIR
 vi.mock("../../../src/infrastructure/config.js", () => ({
 	PROJECTS_DIR: "/mock/projects",
-	DEVELOPMENT_DIR: "/mock/dev",
-}));
-
-// Mock state module for getProjectSource
-vi.mock("../../../src/infrastructure/state.js", () => ({
-	getProjectSource: vi.fn(() => "projects"),
 }));
 
 // Mock filesystem module — we'll replace `disk` per test
@@ -19,7 +13,6 @@ vi.mock("../../../src/infrastructure/filesystem.js", () => ({
 }));
 
 import * as filesystemMod from "../../../src/infrastructure/filesystem.js";
-import { getProjectSource } from "../../../src/infrastructure/state.js";
 import {
 	resolveProjectPath,
 	readPackageJson,
@@ -37,17 +30,8 @@ function n(...parts: string[]): string {
 }
 
 describe("resolveProjectPath", () => {
-	it("resolves to projects dir by default", () => {
-		(getProjectSource as ReturnType<typeof vi.fn>).mockReturnValue("projects");
+	it("resolves to projects dir", () => {
 		expect(resolveProjectPath("my-app")).toBe(n("/mock/projects", "my-app"));
-	});
-
-	it("resolves to development dir when source is 'development'", () => {
-		expect(resolveProjectPath("my-app", "development")).toBe(n("/mock/dev", "my-app"));
-	});
-
-	it("resolves to projects dir when source is 'projects'", () => {
-		expect(resolveProjectPath("my-app", "projects")).toBe(n("/mock/projects", "my-app"));
 	});
 });
 
@@ -98,10 +82,6 @@ describe("readProjectConfig", () => {
 });
 
 describe("initializeProject", () => {
-	beforeEach(() => {
-		(getProjectSource as ReturnType<typeof vi.fn>).mockReturnValue("projects");
-	});
-
 	it("returns existing config when both package.json and config exist", () => {
 		const pkg = { name: "test", scripts: { build: "tsc" } };
 		const config = { name: "test-config", tools: {} };
@@ -140,17 +120,6 @@ describe("initializeProject", () => {
 		expect(ctx.scripts).toEqual({});
 	});
 
-	it("resolves development source correctly", () => {
-		const pkg = { name: "dev-proj" };
-		const fs = createMockFs({
-			"/mock/dev/dev-proj/package.json": JSON.stringify(pkg),
-		});
-		setDisk(fs);
-
-		const ctx = initializeProject("dev-proj", "development");
-		expect(ctx.path).toBe(n("/mock/dev", "dev-proj"));
-		expect(ctx.pkg).toEqual(pkg);
-	});
 });
 
 describe("getReportsDir", () => {

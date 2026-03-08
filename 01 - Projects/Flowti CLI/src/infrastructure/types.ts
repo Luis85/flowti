@@ -101,11 +101,8 @@ export type CommandHandler = (
 
 // ── Persistent state ────────────────────────────────────────────────
 
-export type ProjectSource = "projects" | "development";
-
 export interface CliState {
 	selectedProject?: string;
-	projectSource?: ProjectSource;
 }
 
 // ── Per-project configuration ──────────────────────────────────────
@@ -204,7 +201,7 @@ export interface DocsConfig {
 	generators?: DocGenerator[];
 }
 
-export type MakeTemplateId = "hub" | "plugin" | "app" | "cli" | "journey";
+export type MakeTemplateId = "hub" | "journey" | "component";
 
 export interface MakeConfig {
 	/** Which Make templates are available for this project */

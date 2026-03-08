@@ -5,7 +5,7 @@
  *   1. Prerequisites check (git + node available)
  *   2. Config resolution (.flowti/config.json exists and is valid)
  *   3. State starts empty (no project selected)
- *   4. Project creation (scaffold a CLI app via template)
+ *   4. Project creation (scaffold a project via definition)
  *   5. Project selection persists in state
  *
  * Uses a MockTestVault so no real I/O occurs — safe for npm test.
@@ -27,7 +27,6 @@ vi.mock("../../src/infrastructure/config.js", () => ({
 	VAULT_ROOT: "/test-vaults/flowti-cli-test",
 	CLI_PROJECT: "/test-vaults/flowti-cli-test/01 - Projects/Flowti CLI",
 	PROJECTS_DIR: "/test-vaults/flowti-cli-test/01 - Projects",
-	DEVELOPMENT_DIR: "/test-vaults/flowti-cli-test/Development",
 	PLUGIN_ROOT: "/test-vaults/flowti-cli-test/Development/flowti",
 	cliConfig: {
 		version: "1.0.0",
@@ -41,7 +40,6 @@ vi.mock("../../src/infrastructure/config.js", () => ({
 
 vi.mock("../../src/infrastructure/state.js", () => ({
 	getSelectedProject: vi.fn(() => null),
-	getProjectSource: vi.fn(() => "projects"),
 	setSelectedProject: vi.fn(),
 	clearSelectedProject: vi.fn(),
 	loadState: vi.fn(() => ({})),
@@ -78,15 +76,12 @@ vi.mock("../../src/infrastructure/proc.js", () => ({
 	proc: { exit: vi.fn(), argv: () => [], cwd: () => "/mock", env: () => ({}) },
 }));
 
-// Mock make module to avoid pulling in the full template dependency tree
-vi.mock("../../src/domain/make/make.js", () => ({
-	PROJECT_TEMPLATES: {
-		app: { label: "Application (DDD Obsidian plugin with EventBus)", scaffold: vi.fn() },
-		plugin: { label: "Starter Plugin (basic Obsidian plugin)", scaffold: vi.fn() },
-		cli: { label: "CLI App (Node.js ESM with TypeScript)", scaffold: vi.fn() },
-		empty: { label: "Empty", scaffold: vi.fn() },
-	},
-	PROJECT_TEMPLATE_IDS: ["app", "plugin", "cli", "empty"],
+// Mock scaffold module to avoid pulling in the full definition dependency tree
+vi.mock("../../src/domain/scaffold/scaffold.js", () => ({
+	scaffold: vi.fn(() => ({ created: 5, outputPath: "/mock/output" })),
+	listDefinitions: vi.fn(() => [
+		{ id: "flowti-project", label: "Flowti Project", description: "Full Flowti project with CLI integration." },
+	]),
 }));
 
 // ── Imports (after mocks) ───────────────────────────────────────────
@@ -100,7 +95,7 @@ import { setSelectedProject, getSelectedProject, loadState, saveState } from "..
 import { checkPrerequisites } from "../../src/domain/onboarding/onboarding.js";
 import { listProjects, startMenu } from "../../src/domain/project/project.js";
 import { resolveCommand } from "../../src/infrastructure/dispatch.js";
-import { PROJECT_TEMPLATES } from "../../src/domain/make/make.js";
+import { scaffold as scaffoldProject } from "../../src/domain/scaffold/scaffold.js";
 import {
 	resolveTestVaultRoot,
 	resolveTestVaultLayout,
@@ -353,7 +348,7 @@ describe("Phase 5: Project creation flow", () => {
 		expect(projects).toEqual([]);
 	});
 
-	it("scaffolds a CLI project via the Create Project menu", async () => {
+	it("scaffolds a project via the Create Project menu", async () => {
 		vi.mocked(input.ask).mockResolvedValue("my-first-app");
 
 		let callCount = 0;
@@ -366,9 +361,9 @@ describe("Phase 5: Project creation flow", () => {
 				return "quit";
 			}
 			if (callCount === 2) {
-				// Template selection — pick "CLI App" (key 3)
+				// Scaffold selection — pick first definition (key 1)
 				const arr = items as Array<{ key?: string; action?: () => unknown }>;
-				const result = arr.find((i) => i.key === "3")?.action?.();
+				const result = arr.find((i) => i.key === "1")?.action?.();
 				expect(result).toBe("quit");
 				return "quit";
 			}
@@ -377,41 +372,15 @@ describe("Phase 5: Project creation flow", () => {
 
 		await startMenu();
 
-		// Template scaffold was called with correct path and name
-		expect(PROJECT_TEMPLATES.cli.scaffold).toHaveBeenCalledWith(
-			expect.stringContaining("my-first-app"),
-			"my-first-app",
-		);
-
-		// Project was selected and persisted in state
-		expect(setSelectedProject).toHaveBeenCalledWith("my-first-app", "projects");
-	});
-
-	it("scaffolds a DDD Application project via template", async () => {
-		vi.mocked(input.ask).mockResolvedValue("my-ddd-app");
-
-		let callCount = 0;
-		vi.mocked(runMenu).mockImplementation(async (_title, items) => {
-			callCount++;
-			if (callCount === 1) {
-				const arr = items as Array<{ key?: string; action?: () => unknown }>;
-				await (arr.find((i) => i.key === "2")?.action?.() as Promise<unknown>);
-				return "quit";
-			}
-			if (callCount === 2) {
-				// Template selection — pick "Application" (key 1)
-				const arr = items as Array<{ key?: string; action?: () => unknown }>;
-				arr.find((i) => i.key === "1")?.action?.();
-				return "quit";
-			}
-			return "main";
+		// Scaffold was called with correct options
+		expect(scaffoldProject).toHaveBeenCalledWith({
+			definitionId: "flowti-project",
+			name: "my-first-app",
+			outputDir: expect.stringContaining("my-first-app"),
 		});
 
-		await startMenu();
-		expect(PROJECT_TEMPLATES.app.scaffold).toHaveBeenCalledWith(
-			expect.stringContaining("my-ddd-app"),
-			"my-ddd-app",
-		);
+		// Project was selected and persisted in state
+		expect(setSelectedProject).toHaveBeenCalledWith("my-first-app");
 	});
 
 	it("clones from GitHub URL", async () => {
@@ -443,7 +412,7 @@ describe("Phase 5: Project creation flow", () => {
 		expect(sh.calls).toHaveLength(1);
 		expect(sh.calls[0].cmd).toContain("git clone");
 		expect(sh.calls[0].cmd).toContain("https://github.com/test/repo");
-		expect(setSelectedProject).toHaveBeenCalledWith("cloned-project", "projects");
+		expect(setSelectedProject).toHaveBeenCalledWith("cloned-project");
 	});
 
 	it("rejects duplicate project name", async () => {
@@ -504,7 +473,7 @@ describe("Phase 6: Full lifecycle", () => {
 			}
 			if (callCount === 2) {
 				const arr = items as Array<{ key?: string; action?: () => unknown }>;
-				arr.find((i) => i.key === "3")?.action?.(); // CLI template
+				arr.find((i) => i.key === "1")?.action?.(); // First scaffold definition
 				return "quit";
 			}
 			return "main";
@@ -513,12 +482,13 @@ describe("Phase 6: Full lifecycle", () => {
 		await startMenu();
 
 		// 5. Scaffold was called
-		expect(PROJECT_TEMPLATES.cli.scaffold).toHaveBeenCalledWith(
-			expect.stringContaining("hello-world"),
-			"hello-world",
-		);
+		expect(scaffoldProject).toHaveBeenCalledWith({
+			definitionId: "flowti-project",
+			name: "hello-world",
+			outputDir: expect.stringContaining("hello-world"),
+		});
 
 		// 6. Project was selected
-		expect(setSelectedProject).toHaveBeenCalledWith("hello-world", "projects");
+		expect(setSelectedProject).toHaveBeenCalledWith("hello-world");
 	});
 });

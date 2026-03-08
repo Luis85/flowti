@@ -7,7 +7,7 @@
 import { paths } from "./paths.js";
 import { VAULT_ROOT, CLI_PROJECT } from "./config.js";
 import { disk } from "./filesystem.js";
-import type { CliState, ProjectSource, IFileSystem } from "./types.js";
+import type { CliState, IFileSystem } from "./types.js";
 
 const STATE_DIR = paths.join(VAULT_ROOT, ".flowti", "var");
 const STATE_PATH = paths.join(STATE_DIR, "state.json");
@@ -46,14 +46,10 @@ export function getSelectedProject(): string | null {
 	return loadState().selectedProject ?? null;
 }
 
-export function getProjectSource(): ProjectSource {
-	return loadState().projectSource ?? "projects";
-}
-
-export function setSelectedProject(name: string, source: ProjectSource = "projects"): void {
-	saveState({ selectedProject: name, projectSource: source });
+export function setSelectedProject(name: string): void {
+	saveState({ selectedProject: name });
 }
 
 export function clearSelectedProject(): void {
-	saveState({ selectedProject: undefined, projectSource: undefined });
+	saveState({ selectedProject: undefined });
 }

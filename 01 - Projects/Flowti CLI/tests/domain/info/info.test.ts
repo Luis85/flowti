@@ -4,7 +4,6 @@ const mockLog = vi.fn();
 const mockPrintHeader = vi.fn();
 const mockCountFiles = vi.fn(() => 42);
 const mockGetSelectedProject = vi.fn(() => "test-project");
-const mockGetProjectSource = vi.fn(() => "projects");
 const mockRunSilent = vi.fn(() => "main");
 
 // Shared mock filesystem state
@@ -54,7 +53,6 @@ vi.mock("../../../src/infrastructure/config.js", () => ({
 
 vi.mock("../../../src/infrastructure/state.js", () => ({
 	getSelectedProject: () => mockGetSelectedProject(),
-	getProjectSource: () => mockGetProjectSource(),
 }));
 
 vi.mock("../../../src/infrastructure/fs.js", () => ({
@@ -100,7 +98,6 @@ beforeEach(() => {
 	files.clear();
 	dirs.clear();
 	mockGetSelectedProject.mockReturnValue("test-project");
-	mockGetProjectSource.mockReturnValue("projects");
 	mockRunSilent.mockReturnValue("main");
 	// package.json for printDependencies
 	files.set("/projects/test-project/package.json", JSON.stringify({
@@ -115,7 +112,7 @@ describe("showInfo", () => {
 		showInfo();
 		expect(output()).toContain("test-project");
 		expect(output()).toContain("1.0.0");
-		expect(output()).toContain("Projects");
+		expect(output()).toContain("/projects/test-project");
 	});
 
 	it("prints source file counts when directories exist", () => {

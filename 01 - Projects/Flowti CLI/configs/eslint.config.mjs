@@ -116,6 +116,8 @@ export default [
 			"src/domain/make/templates.ts",
 			"src/domain/make/appTemplates.ts",
 			"src/domain/make/cliTemplates.ts",
+			"src/domain/scaffold/templates/shared-templates.ts",
+			"src/domain/scaffold/templates/project-templates.ts",
 		],
 		rules: {
 			"no-restricted-imports": "off",

@@ -1,0 +1,26 @@
+{
+	"id": "component",
+	"kind": "component",
+	"label": "Component",
+	"description": "A generic component — the base building block of a project.",
+	"prompts": [
+		{ "variable": "description", "label": "Description", "default": "", "required": false },
+		{ "variable": "owner", "label": "Owner / team", "default": "", "required": false }
+	],
+	"files": [
+		{ "path": "docs/components/{{kebab}}.md", "templateId": "component-doc" },
+		{ "path": "tests/components/{{kebab}}.test.ts", "templateId": "component-test" },
+		{ "path": "src/components/{{kebab}}/{{kebab}}.json", "templateId": "component-definition" }
+	],
+	"metadata": {
+		"type": "component",
+		"status": "draft",
+		"interfaces": [],
+		"dependencies": []
+	},
+	"nextSteps": [
+		"Edit docs/components/{{kebab}}.md to fill in the specification",
+		"Implement the component in src/components/{{kebab}}/",
+		"Run tests: npm test"
+	]
+}

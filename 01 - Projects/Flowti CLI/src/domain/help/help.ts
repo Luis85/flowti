@@ -17,10 +17,10 @@ export const HELP: Record<string, string> = {
     npm run flowti help build   Show help for a specific section
 
   ${BOLD}WORKFLOW${RESET}
-    Start Menu → Select/Create/Import project → Project Detail Menu
+    Start Menu → Open/Create project → Project Detail Menu
 
   ${BOLD}PROJECT DETAIL MENU${RESET}
-    ${CYAN}1) Make${RESET}         Scaffold new hub, plugin, or application from templates
+    ${CYAN}1) Make${RESET}         Scaffold in-project boilerplate (hub, journey)
     ${CYAN}2) Build${RESET}        Build the project (generates Build Report)
     ${CYAN}3) Review${RESET}       E2E test sessions, vault management
     ${CYAN}4) Publish${RESET}      Gated pipeline: build → test → publish
@@ -58,8 +58,8 @@ export const HELP: Record<string, string> = {
     npm run flowti -- dev:check          Lint + tsc
     npm run flowti -- dev:lint           ESLint only
     npm run flowti -- make:hub --name=X  Scaffold a new hub
-    npm run flowti -- make:plugin --name=X  Scaffold a new plugin
-    npm run flowti -- make:app --name=X  Scaffold a new DDD application
+    npm run flowti -- scaffold:new       Create a new Flowti project
+    npm run flowti -- scaffold:list      List available scaffold definitions
     npm run flowti -- capture:idea --text="..." Capture an idea
     npm run flowti -- capture:note --type=task --title="..." Capture a note
     npm run flowti -- info               Show project info
@@ -70,11 +70,14 @@ export const HELP: Record<string, string> = {
 `,
 
 	make: `
-  ${BOLD}MAKE${RESET} — Scaffold boilerplate code from Flowti patterns.
+  ${BOLD}MAKE${RESET} — Scaffold in-project boilerplate from Flowti patterns.
+
+  ${DIM}Note: To create a new project, use "Create Project" from the Start Menu
+  or run: npm run flowti -- scaffold:new${RESET}
 
   ${BOLD}OPTIONS${RESET}
     ${CYAN}1) New Hub${RESET}
-       Scaffolds a complete hub within the Flowti plugin:
+       Scaffolds a complete hub within the project:
        - UI view (BaseHubView subclass with tabs)
        - Domain layer (service stub, events, types)
        - Hub provider (HubDashboardProvider for cross-hub)
@@ -85,28 +88,13 @@ export const HELP: Record<string, string> = {
 
        ${DIM}Prompts: hub name, icon, hub type, initial tabs${RESET}
 
-    ${CYAN}2) New Plugin${RESET}
-       Scaffolds a standalone Obsidian plugin following Flowti patterns:
-       - DDD folder structure (infrastructure, domain, ui)
-       - EventBus backbone
-       - BaseHubView base class
-       - esbuild config with CSS pipeline
-       - TypeScript, ESLint, Vitest setup
-       - package.json with focused npm scripts
+    ${CYAN}2) New E2E Journey${RESET}
+       Scaffolds a journey definition with test entry and canvas:
+       - Journey definition (.journey file)
+       - Test entry point
+       - Journey canvas (for Obsidian)
 
-       ${DIM}Prompts: plugin name, plugin ID, author${RESET}
-
-    ${CYAN}3) New Application${RESET}
-       Scaffolds a full DDD Obsidian plugin project under 01 - Projects/:
-       - Working EventBus (~80 LOC) with type-safe events
-       - Infrastructure layer (events, errors, services)
-       - Vitest + happy-dom + obsidian-stub test setup
-       - Starter EventBus test (4 tests, passing on first run)
-       - esbuild config with CSS pipeline
-       - AppError base class with code + context
-       - 17 files total, ready to npm install && npm run build
-
-       ${DIM}Prompts: app name, app ID, author${RESET}
+       ${DIM}Prompts: journey name, slug, description${RESET}
 
   ${BOLD}CONFIGURATION${RESET}
     Output paths are configurable in flowti.config.json under "make":
@@ -116,7 +104,6 @@ export const HELP: Record<string, string> = {
       make.hub.css       CSS folder (default: css)
       make.hub.docs      Feature docs folder (default: docs/features)
       make.hub.journeys  E2E journeys folder (default: tests/e2e/journeys)
-      make.plugin.output Plugin output folder (default: ../)
 `,
 
 	build: `

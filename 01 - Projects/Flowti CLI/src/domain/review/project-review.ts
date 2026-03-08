@@ -17,6 +17,7 @@ import { input } from "../../infrastructure/input.js";
 import type { MenuEntry, MenuResult, ReviewConfig } from "../../infrastructure/types.js";
 import { log } from "../../infrastructure/logger.js";
 import { resolveTestVaultRoot, scaffoldTestVault } from "../../infrastructure/test-vault.js";
+import { makeJourney } from "../make/makers.js";
 
 // ── Journey scanning ────────────────────────────────────────────────
 
@@ -154,6 +155,14 @@ export async function reviewMenu(projectPath: string, config: ReviewConfig): Pro
 			}},
 		);
 	}
+
+	// Journey creation
+	items.push(
+		{ key: "n", label: "New journey", action: async () => {
+			await makeJourney(projectPath);
+			return "main" as const;
+		}},
+	);
 
 	// Test vault management
 	items.push(

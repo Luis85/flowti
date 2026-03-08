@@ -1,6 +1,6 @@
 ---
 type: CLIReference
-date: "2026-03-08T14:50:37.053Z"
+date: "2026-03-08T17:17:18.012Z"
 sections: 10
 cli_commands: 25
 npm_scripts: 37
@@ -439,7 +439,7 @@ All commands can be run directly without the interactive menu:
 | `docs` | `typedoc` |
 | `test:increment` | `npm run check && npm run build && vitest run --coverage` |
 | `reports` | `npm run generate:reports` |
-| `flowti` | `node "../../01 - Projects/Flowti CLI/bin/main.js"` |
+| `flowti` | `node "../../.flowti/bin"` |
 | `generate:testdata` | `node scripts/generate-test-data.mjs` |
 | `generate:reports` | `node scripts/generate-test-report.mjs && node scripts/generate-coverage-report.mjs && node scripts/generate-codebase-report.mjs && node scripts/generate-cycle-report.mjs && node scripts/generate-trace-report.mjs && node scripts/generate-command-reference.mjs && node scripts/generate-event-catalog.mjs && node scripts/generate-data-dictionary.mjs && node scripts/generate-performance-report.mjs && node scripts/generate-complexity-report.mjs && node scripts/generate-tool-reference.mjs && node scripts/generate-cli-reference.mjs` |
 | `version` | `node version-bump.mjs && git add manifest.json versions.json` |

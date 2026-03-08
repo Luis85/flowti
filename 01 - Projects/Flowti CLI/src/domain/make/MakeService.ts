@@ -10,19 +10,18 @@ import { showHelp } from "../help/help.js";
 import { readProjectConfig } from "../project/project-config.js";
 import { log } from "../../infrastructure/logger.js";
 import type { MenuEntry, MenuResult, MakeTemplateId } from "../../infrastructure/types.js";
-import { makeHub, makePlugin, makeApp, makeCliApp, makeJourney } from "./makers.js";
+import { makeHub, makeJourney } from "./makers.js";
+import { componentMenu } from "./component/component-makers.js";
 
 // ── Template registry ───────────────────────────────────────────────
 
-const TEMPLATE_DEFS: Record<MakeTemplateId, { label: string; action: (root: string) => Promise<void> }> = {
+const TEMPLATE_DEFS: Record<MakeTemplateId, { label: string; action: (root: string) => Promise<void | MenuResult> }> = {
 	hub: { label: "New Hub", action: makeHub },
-	plugin: { label: "New Plugin (standalone Obsidian plugin)", action: makePlugin },
-	app: { label: "New Application (DDD Obsidian plugin)", action: makeApp },
-	cli: { label: "New CLI App (Node.js ESM)", action: makeCliApp },
 	journey: { label: "New E2E Journey", action: makeJourney },
+	component: { label: "Add Component", action: componentMenu },
 };
 
-const ALL_TEMPLATES: MakeTemplateId[] = ["hub", "plugin", "app", "cli", "journey"];
+const ALL_TEMPLATES: MakeTemplateId[] = ["hub", "journey", "component"];
 
 export function getAvailableTemplates(projectRoot: string): MakeTemplateId[] {
 	const cfg = readProjectConfig(projectRoot);

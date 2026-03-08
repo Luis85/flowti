@@ -4,13 +4,11 @@ import { createMockShell } from "../../mocks/mock-shell.js";
 
 vi.mock("../../../src/infrastructure/config.js", () => ({
 	PROJECTS_DIR: "/mock/projects",
-	DEVELOPMENT_DIR: "/mock/dev",
 }));
 
 vi.mock("../../../src/infrastructure/state.js", () => ({
 	getSelectedProject: vi.fn(() => null),
 	setSelectedProject: vi.fn(),
-	getProjectSource: vi.fn(() => "projects"),
 }));
 
 vi.mock("../../../src/infrastructure/filesystem.js", () => ({
@@ -49,14 +47,11 @@ vi.mock("../../../src/infrastructure/menu.js", () => ({
 	runMenu: vi.fn(),
 }));
 
-vi.mock("../../../src/domain/make/make.js", () => ({
-	PROJECT_TEMPLATES: {
-		app: { label: "Application", scaffold: vi.fn() },
-		plugin: { label: "Plugin", scaffold: vi.fn() },
-		cli: { label: "CLI", scaffold: vi.fn() },
-		empty: { label: "Empty", scaffold: vi.fn() },
-	},
-	PROJECT_TEMPLATE_IDS: ["app", "plugin", "cli", "empty"],
+vi.mock("../../../src/domain/scaffold/scaffold.js", () => ({
+	scaffold: vi.fn(() => ({ created: 5, outputPath: "/mock/output" })),
+	listDefinitions: vi.fn(() => [
+		{ id: "flowti-project", label: "Flowti Project", description: "Full Flowti project." },
+	]),
 }));
 
 import * as fsMod from "../../../src/infrastructure/filesystem.js";
@@ -65,7 +60,7 @@ import { log } from "../../../src/infrastructure/logger.js";
 import { input } from "../../../src/infrastructure/input.js";
 import { runMenu } from "../../../src/infrastructure/menu.js";
 import { getSelectedProject, setSelectedProject } from "../../../src/infrastructure/state.js";
-import { PROJECT_TEMPLATES } from "../../../src/domain/make/make.js";
+import { scaffold as scaffoldProject } from "../../../src/domain/scaffold/scaffold.js";
 import { listProjects, getProjectPath, startMenu, commands } from "../../../src/domain/project/project.js";
 
 function setDisk(mockFs: ReturnType<typeof createMockFs>): void {
@@ -135,9 +130,8 @@ describe("startMenu", () => {
 		expect(runMenu).toHaveBeenCalledWith(
 			"Start Menu",
 			expect.arrayContaining([
-				expect.objectContaining({ key: "1", label: "Load Project" }),
+				expect.objectContaining({ key: "1", label: "Open Project" }),
 				expect.objectContaining({ key: "2", label: "Create Project" }),
-				expect.objectContaining({ key: "3", label: "Import Project" }),
 				expect.objectContaining({ key: "q", label: "Quit" }),
 			]),
 			expect.objectContaining({ beforeMenu: expect.any(Function) }),
@@ -190,9 +184,9 @@ describe("startMenu", () => {
 	});
 });
 
-// ── Load Project submenu ────────────────────────────────────────────
+// ── Open Project submenu ─────────────────────────────────────────────
 
-describe("startMenu – Load Project", () => {
+describe("startMenu – Open Project", () => {
 	it("logs message when no projects exist", async () => {
 		const mockFs = createMockFs();
 		mockFs.readdirSync = () => { throw new Error("ENOENT"); };
@@ -249,7 +243,7 @@ describe("startMenu – Load Project", () => {
 
 		await startMenu();
 
-		expect(setSelectedProject).toHaveBeenCalledWith("alpha", "projects");
+		expect(setSelectedProject).toHaveBeenCalledWith("alpha");
 	});
 
 	it("marks currently selected project", async () => {
@@ -333,7 +327,7 @@ describe("startMenu – Create Project", () => {
 		expect(logCalls.some((c) => typeof c === "string" && c.includes("already exists"))).toBe(true);
 	});
 
-	it("scaffolds from template selection", async () => {
+	it("scaffolds from definition selection", async () => {
 		const mockFs = createMockFs();
 		setDisk(mockFs);
 		vi.mocked(input.ask).mockResolvedValue("new-project");
@@ -349,7 +343,7 @@ describe("startMenu – Create Project", () => {
 				return "quit";
 			}
 			if (callCount === 2) {
-				// Template selection — pick first template (app)
+				// Template selection — pick first scaffold definition
 				const arr = items as Array<{ key?: string; action?: () => unknown }>;
 				const result = arr.find((i) => i.key === "1")?.action?.();
 				expect(result).toBe("quit");
@@ -360,8 +354,11 @@ describe("startMenu – Create Project", () => {
 
 		await startMenu();
 
-		expect(PROJECT_TEMPLATES.app.scaffold).toHaveBeenCalled();
-		expect(setSelectedProject).toHaveBeenCalledWith("new-project", "projects");
+		expect(scaffoldProject).toHaveBeenCalledWith(expect.objectContaining({
+			definitionId: "flowti-project",
+			name: "new-project",
+		}));
+		expect(setSelectedProject).toHaveBeenCalledWith("new-project");
 	});
 
 	it("offers GitHub clone option", async () => {
@@ -462,66 +459,6 @@ describe("startMenu – Create Project", () => {
 
 		const logCalls = vi.mocked(log).mock.calls.map((c) => c[0]);
 		expect(logCalls.some((c) => typeof c === "string" && c.includes("Cancelled"))).toBe(true);
-	});
-});
-
-// ── Import Project submenu ──────────────────────────────────────────
-
-describe("startMenu – Import Project", () => {
-	it("logs message when no development projects found", async () => {
-		const mockFs = createMockFs();
-		mockFs.readdirSync = (dirPath: string) => {
-			if (typeof dirPath === "string" && dirPath.includes("dev")) throw new Error("ENOENT");
-			throw new Error("ENOENT");
-		};
-		setDisk(mockFs);
-		vi.mocked(getSelectedProject).mockReturnValue(null);
-
-		let callCount = 0;
-		vi.mocked(runMenu).mockImplementation(async (_title, items) => {
-			callCount++;
-			if (callCount === 1) {
-				const arr = items as Array<{ key?: string; action?: () => unknown }>;
-				await (arr.find((i) => i.key === "3")?.action?.() as Promise<unknown>);
-				return "quit";
-			}
-			return "main";
-		});
-
-		await startMenu();
-
-		const logCalls = vi.mocked(log).mock.calls.map((c) => c[0]);
-		expect(logCalls.some((c) => typeof c === "string" && c.includes("No projects found"))).toBe(true);
-	});
-
-	it("imports a development project", async () => {
-		const mockFs = createMockFs({
-			"/mock/dev/my-lib/package.json": "{}",
-		});
-		setDisk(mockFs);
-		vi.mocked(getSelectedProject).mockReturnValue(null);
-
-		let callCount = 0;
-		vi.mocked(runMenu).mockImplementation(async (_title, items) => {
-			callCount++;
-			if (callCount === 1) {
-				const arr = items as Array<{ key?: string; action?: () => unknown }>;
-				await (arr.find((i) => i.key === "3")?.action?.() as Promise<unknown>);
-				return "quit";
-			}
-			if (callCount === 2) {
-				// Import menu — select first dev project
-				const arr = items as Array<{ key?: string; action?: () => unknown }>;
-				const result = arr.find((i) => i.key === "1")?.action?.();
-				expect(result).toBe("quit");
-				return "quit";
-			}
-			return "main";
-		});
-
-		await startMenu();
-
-		expect(setSelectedProject).toHaveBeenCalledWith("my-lib", "development");
 	});
 });
 

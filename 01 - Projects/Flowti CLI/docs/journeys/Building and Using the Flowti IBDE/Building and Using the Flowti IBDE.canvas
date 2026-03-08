@@ -1,0 +1,14 @@
+{
+	"nodes": [
+		{
+			"id": "title",
+			"type": "text",
+			"text": "# Building and Using the Flowti IBDE Journey",
+			"x": 0,
+			"y": 0,
+			"width": 400,
+			"height": 100
+		}
+	],
+	"edges": []
+}

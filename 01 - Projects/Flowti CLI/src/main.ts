@@ -4,7 +4,7 @@
  * Thin orchestrator — all business logic lives in domain modules.
  *
  * Flow:
- *   Start Menu (Load/Create/Import) → Project Detail Menu → ...
+ *   Start Menu (Open/Create) → Project Detail Menu → ...
  *
  * Usage:
  *   npm run flowti              Interactive menu
@@ -34,8 +34,9 @@ import { commands as reviewCmds } from "./domain/review/review.js";
 import { commands as publishCmds } from "./domain/publish/publish.js";
 import { commands as reportsCmds } from "./domain/reports/reports.js";
 import { commands as captureCmds } from "./domain/capture/capture.js";
+import { commands as scaffoldCmds } from "./domain/scaffold/scaffold.js";
 import { commands as projectCmds, startMenu } from "./domain/project/project.js";
-import { getSelectedProject, getProjectSource, clearSelectedProject } from "./infrastructure/state.js";
+import { getSelectedProject, clearSelectedProject } from "./infrastructure/state.js";
 import { initializeProject } from "./domain/project/project-config.js";
 
 // ── Main menu builder ───────────────────────────────────────────────
@@ -58,11 +59,12 @@ const allCommands = {
 	...publishCmds,
 	...reportsCmds,
 	...captureCmds,
+	...scaffoldCmds,
 	...projectCmds,
 };
 
 /** Commands that work without a project context. */
-const PROJECT_FREE = new Set(["help", "project", "capture:idea", "capture:note"]);
+const PROJECT_FREE = new Set(["help", "project", "capture:idea", "capture:note", "scaffold:new", "scaffold:list"]);
 
 function resolveProjectContext(flags: Record<string, string | boolean>): ProjectContext | null {
 	const projectName = typeof flags.project === "string" ? flags.project : getSelectedProject();
@@ -106,12 +108,10 @@ async function handleCliArgs(): Promise<boolean> {
 
 function printProjectBanner(): void {
 	const project = getSelectedProject();
-	const source = getProjectSource();
 	const ctx = project ? initializeProject(project) : null;
 	const label = ctx?.config.name ?? project ?? "Unknown";
-	const sourceLabel = source === "development" ? `${DIM}Development/${RESET}` : "";
 
-	log(`  ${DIM}Project:${RESET} ${sourceLabel}${CYAN}${label}${RESET}`);
+	log(`  ${DIM}Project:${RESET} ${CYAN}${label}${RESET}`);
 	if (ctx?.pkg) {
 		log(`  ${DIM}${ctx.pkg.name ?? ""}@${ctx.pkg.version ?? "?"}${RESET}`);
 	}
