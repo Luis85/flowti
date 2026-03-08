@@ -21,8 +21,8 @@ const options = {
 	platform: "node",
 	format: "esm",
 	target: "node22",
-	sourcemap: true,
-	minify: false,
+	sourcemap: !isWatch,
+	minify: !isWatch,
 	banner: { js: "#!/usr/bin/env node" },
 	external: [
 		"node:*",

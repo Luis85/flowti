@@ -54,16 +54,25 @@ describe("journeyDefinitionTemplate", () => {
 describe("journeyTestTemplate", () => {
 	const result = journeyTestTemplate("getting-started");
 
-	it("contains executeJourney import", () => {
-		expect(result).toContain("executeJourney");
+	it("uses describe.skip to prevent running without Obsidian", () => {
+		expect(result).toContain("describe.skip");
 	});
 
-	it("contains the journey slug in the path", () => {
+	it("contains the journey slug in the describe name", () => {
+		expect(result).toContain('Journey: getting-started');
+	});
+
+	it("contains the journey slug in the journey path", () => {
 		expect(result).toContain("getting-started.journey");
 	});
 
-	it("contains fs import for reading config", () => {
-		expect(result).toContain("node:fs");
+	it("contains commented executeJourney code", () => {
+		expect(result).toContain("executeJourney");
+	});
+
+	it("contains run instructions", () => {
+		expect(result).toContain("npm run test:e2e");
+		expect(result).toContain("--journey=getting-started");
 	});
 });
 

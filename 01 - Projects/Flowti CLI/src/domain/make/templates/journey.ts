@@ -43,15 +43,30 @@ export function journeyDefinitionTemplate(name: string, kebab: string, descripti
 }
 
 export function journeyTestTemplate(kebab: string): string {
-	return `import { executeJourney } from "./helpers/journeyExecutor";
-import type { JourneyDefinition } from "./helpers/journeyTypes";
-import * as fs from "node:fs";
-import * as path from "node:path";
+	return `import { describe, it } from "vitest";
 
-const configPath = path.join(__dirname, "journeys", "${kebab}.journey");
-const definition = JSON.parse(fs.readFileSync(configPath, "utf-8")) as JourneyDefinition;
+// E2E journey tests require a running Obsidian instance.
+// Run via: npm run test:e2e -- --journey=${kebab}
+//
+// To execute manually:
+//   1. Start Obsidian with the test vault
+//   2. npx vitest run tests/e2e/<this-file> --config configs/vitest.config.ts
+//
+// The journey definition is loaded from: tests/e2e/journeys/${kebab}.journey
 
-executeJourney(definition);
+describe.skip("Journey: ${kebab}", () => {
+\tit("executes the ${kebab} journey", () => {
+\t\t// Implementation requires journeyExecutor helper and a running Obsidian instance
+\t\t// Remove .skip and uncomment below to run:
+\t\t//
+\t\t// const { executeJourney } = await import("./helpers/journeyExecutor");
+\t\t// const fs = await import("node:fs");
+\t\t// const path = await import("node:path");
+\t\t// const configPath = path.join(__dirname, "journeys", "${kebab}.journey");
+\t\t// const definition = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+\t\t// await executeJourney(definition);
+\t});
+});
 `;
 }
 

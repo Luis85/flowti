@@ -265,8 +265,8 @@ export function discoverReports(reportsDir: string): ReportSnapshot[] {
 // ── Eslint collection ────────────────────────────────────────────────
 
 export function collectLintWarnings(projectPath: string, command: string): LintResult {
-	const output = shell.runSilent(command, { cwd: projectPath });
-	return parseLintOutput(output ?? "", projectPath);
+	const output = shell.runCapture(command, { cwd: projectPath });
+	return parseLintOutput(output, projectPath);
 }
 
 export function parseLintSummary(output: string): { errors: number; warnings: number } {
@@ -283,7 +283,7 @@ function isFilePath(line: string): boolean {
 }
 
 function normalizeFilePath(line: string, projectRoot: string): string {
-	let file = projectRoot
+	const file = projectRoot
 		? line.replace(projectRoot.replace(/\\/g, "\\"), "").replace(/^[\\/]/, "")
 		: line;
 	return file.replace(/\\/g, "/");

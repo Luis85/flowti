@@ -1,7 +1,7 @@
 ---
 type: CLIReference
-date: "2026-03-07T21:28:18.554Z"
-sections: 9
+date: "2026-03-08T14:50:37.053Z"
+sections: 10
 cli_commands: 25
 npm_scripts: 37
 report_generators: 14
@@ -11,7 +11,7 @@ doc_generators: 0
 # Flowti CLI Reference
 
 > [!info] Summary
-> CLI commands: 25 | Help sections: 9 | npm scripts: 37
+> CLI commands: 25 | Help sections: 10 | npm scripts: 37
 > Report generators: 14 | Doc generators: 0
 
 ---
@@ -240,7 +240,7 @@ NON-INTERACTIVE (plugin)
 
 ### CONFIGURATION
 
-- `reports.dir` — Output directory (default: docs/reports)
+- `reports.dir` — Output directory (default: reports)
 - `reports.allCommand` — Command to generate all reports
 - `reports.scripts` — Array of { id, label, script } generators
 
@@ -320,6 +320,42 @@ NON-INTERACTIVE
 - `capture.documentation` — Documentation folder
 
   All paths are relative to the vault root.
+
+## knowledgebase
+
+KNOWLEDGEBASE — Browse and search vault content.
+
+### NAVIGATION
+
+  The knowledgebase provides an interactive file browser for the
+  Obsidian vault. Folders and markdown files are listed with
+  numbered entries — type a number to navigate into a folder
+  or view a file.
+
+### COMMANDS
+
+  1..n  Select a folder or file by number
+  b      Go back to parent folder
+  s      Search vault content (filename + full-text)
+  ?      Show this help
+  q      Return to project menu
+
+### SEARCH
+
+  Type s to enter search mode. Enter a query to search across
+  all markdown files in the vault. Results show up to 20 matches.
+  Select a result number to view the file.
+
+  Search uses the Obsidian CLI when available, with a filesystem
+  fallback that checks filenames and content (capped at 50 results).
+
+### REQUIREMENTS
+
+- Obsidian CLI 1.12+ (obsidian version)
+- An initialized vault (.obsidian/ directory exists)
+
+  If either requirement is missing, the knowledgebase menu item
+  in the Project Detail Menu will be disabled.
 
 ## Info
 
@@ -403,7 +439,7 @@ All commands can be run directly without the interactive menu:
 | `docs` | `typedoc` |
 | `test:increment` | `npm run check && npm run build && vitest run --coverage` |
 | `reports` | `npm run generate:reports` |
-| `flowti` | `node "../../01 - Projects/Flowti CLI/bin/src/main.js"` |
+| `flowti` | `node "../../01 - Projects/Flowti CLI/bin/main.js"` |
 | `generate:testdata` | `node scripts/generate-test-data.mjs` |
 | `generate:reports` | `node scripts/generate-test-report.mjs && node scripts/generate-coverage-report.mjs && node scripts/generate-codebase-report.mjs && node scripts/generate-cycle-report.mjs && node scripts/generate-trace-report.mjs && node scripts/generate-command-reference.mjs && node scripts/generate-event-catalog.mjs && node scripts/generate-data-dictionary.mjs && node scripts/generate-performance-report.mjs && node scripts/generate-complexity-report.mjs && node scripts/generate-tool-reference.mjs && node scripts/generate-cli-reference.mjs` |
 | `version` | `node version-bump.mjs && git add manifest.json versions.json` |

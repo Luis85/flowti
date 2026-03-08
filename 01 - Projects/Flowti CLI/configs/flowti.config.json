@@ -6,7 +6,7 @@
 		"devtools": "npm run dev"
 	},
 	"make": {
-		"templates": []
+		"templates": ["journey"]
 	},
 	"reports": {
 		"dir": "reports",

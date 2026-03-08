@@ -7,7 +7,7 @@ import { paths } from "../../infrastructure/paths.js";
 import { shell } from "../../infrastructure/shell.js";
 import { log } from "../../infrastructure/logger.js";
 import type { E2EPaths } from "./e2e-paths.js";
-import type { SessionConfig, JourneyEntry, PrerequisiteResults, TestStats } from "./e2e-types.js";
+import type { SessionConfig, JourneyEntry, PrerequisiteResults } from "./e2e-types.js";
 import { collapseFileExplorer } from "./e2e-prerequisites.js";
 import {
 	configureSessionEnv,

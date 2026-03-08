@@ -10,7 +10,7 @@
 		"test:watch": "vitest --config configs/vitest.config.ts",
 		"test:ui": "vitest --config configs/vitest.config.ts --ui",
 		"test:coverage": "vitest run --config configs/vitest.config.ts --coverage --reporter=json --outputFile=reports/tests/testreport.json",
-		"check": "tsc --project configs/tsconfig.json --noEmit",
+		"check": "npm run lint && tsc --project configs/tsconfig.json --noEmit",
 		"lint": "eslint --config configs/eslint.config.mjs src/",
 		"docs": "typedoc --options configs/typedoc.json",
 		"analysis": "tsx src/domain/reports/cli/run-analysis.ts",

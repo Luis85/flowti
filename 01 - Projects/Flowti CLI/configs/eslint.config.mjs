@@ -97,7 +97,8 @@ export default [
 			"src/infrastructure/clock.ts",
 			"src/infrastructure/readline.ts",
 			"src/infrastructure/logger.ts",
-			"src/types.ts",
+			"src/infrastructure/input.ts",
+			"src/infrastructure/types.ts",
 		],
 		rules: {
 			"no-restricted-imports": "off",
