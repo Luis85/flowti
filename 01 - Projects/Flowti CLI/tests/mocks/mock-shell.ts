@@ -56,5 +56,10 @@ export function createMockShell(opts: MockShellOptions = {}): IShell & {
 			calls.push({ method: "execFile", cmd: key, opts: execOpts });
 			return outputs[key] ?? null;
 		},
+
+		runCaptureStatus(cmd: string, runOpts?: { cwd?: string; timeout?: number }): { output: string; exitCode: number } {
+			calls.push({ method: "runCaptureStatus", cmd, opts: runOpts });
+			return { output: outputs[cmd] ?? "", exitCode: exitCodes[cmd] ?? 0 };
+		},
 	};
 }

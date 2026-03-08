@@ -6,19 +6,31 @@
 		"devtools": "npm run dev"
 	},
 	"make": {
-		"templates": ["journey"]
+		"templates": ["hub", "journey", "component"]
 	},
 	"reports": {
 		"dir": "reports",
-		"allCommand": "npm run reports",
 		"generators": [
 			{ "label": "Test Report", "command": "npx tsx src/domain/reports/cli/generate-test-report.ts" },
 			{ "label": "Coverage Report", "command": "npx tsx src/domain/reports/cli/generate-coverage-report.ts" },
 			{ "label": "Codebase Report", "command": "npx tsx src/domain/reports/cli/generate-codebase-report.ts" },
-			{ "label": "Complexity Report", "command": "npx tsx src/domain/reports/cli/generate-complexity-report.ts" }
-		]
+			{ "label": "Complexity Report", "command": "npx tsx src/domain/reports/cli/generate-complexity-report.ts" },
+			{ "label": "Status Report", "command": "npx tsx src/domain/reports/cli/generate-status-report.ts" },
+			{ "label": "Summary Report", "command": "npx tsx src/domain/reports/cli/generate-summary-report.ts" }
+		],
+		"thresholds": {
+			"coverageLines": 80,
+			"coverageBranches": 70,
+			"maxComplexity": 15,
+			"complexityAboveThresholdPct": 5,
+			"eslintWarnings": 0,
+			"lintCommand": "npm run lint",
+			"typedocCommand": "npm run docs",
+			"typedocWarnings": 0
+		}
 	},
 	"docs": {
+		"allCommand": "npm run docs",
 		"generators": [
 			{ "label": "Codebase (TypeDoc)", "command": "npm run docs" },
 			{ "label": "CLI Reference", "command": "npx tsx src/domain/reports/generators/cli-reference.ts" }
@@ -39,5 +51,10 @@
 		"endpoints": [
 			{ "name": "Distribute", "path": "C:/Projects/distribute", "clean": true }
 		]
+	},
+	"review": {
+		"journeysDir": "tests/e2e",
+		"build": "npm run build",
+		"test": "npm test"
 	}
 }

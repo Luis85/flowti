@@ -1,47 +1,59 @@
 ---
 type: Architecture
 domain: CLI
-title: Flowti CLI — Project-Centric Architecture
-version: 3
+title: Flowti CLI — Definition-Driven Architecture
+version: 4
 created: 2026-03-07
 updated: 2026-03-08
 ---
 
-# Flowti CLI — Project-Centric Architecture
+# Flowti CLI — Definition-Driven Architecture
 
 ## Mental Model
 
-The Flowti CLI is a **project-centric orchestrator** that manages multiple development projects within an Obsidian vault. Each project gets its own configuration, tools, and workflows.
+The Flowti CLI is a **definition-driven project orchestrator** that ships as a self-contained Node.js binary. It processes declarative JSON definitions to scaffold projects, create components, and manage workflows. The source tree is never required at runtime.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      Obsidian Vault                          │
-│                   (c:\Projects\flowti\)                      │
+│                      Vault Root                               │
+│                   (c:\Projects\flowti\)                        │
 ├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌────────────────── CLI Core ──────────────────────────┐   │
-│  │  01 - Projects/Flowti CLI/                           │   │
-│  │                                                       │   │
-│  │  Infrastructure: menu, shell, state, document, UI     │   │
-│  │  Domain: make, publish, review, reports, info, help   │   │
-│  └──────────┬────────────────────────┬──────────────────┘   │
-│             │                        │                      │
-│    ┌────────▼────────┐     ┌─────────▼─────────┐           │
-│    │  01 - Projects/  │     │  Development/      │           │
-│    │                  │     │                    │           │
-│    │  Flowti CLI      │     │  flowti (plugin)   │           │
-│    │  Project B       │     │  Project C         │           │
-│    │  Project C       │     │  ...               │           │
-│    │  ...             │     │                    │           │
-│    └──────────────────┘     └────────────────────┘           │
-│                                                             │
-│    Each project has:                                        │
-│    ├── configs/flowti.config.json  (tools, publish, review) │
-│    ├── package.json                (scripts, dependencies)  │
-│    └── src/                        (source code)            │
-│                                                             │
+│                                                               │
+│  ┌────────────────── CLI Binary ──────────────────────────┐   │
+│  │  .flowti/bin/main.js (self-contained esbuild bundle)   │   │
+│  │                                                         │   │
+│  │  Bundled:  Scaffold definitions (JSON)                  │   │
+│  │            Component definitions (JSON)                 │   │
+│  │            Template functions                           │   │
+│  │            All infrastructure                           │   │
+│  └──────────┬──────────────────────────────────────────────┘   │
+│             │                                                  │
+│    ┌────────▼────────────────────────────────────────┐         │
+│    │  01 - Projects/                                  │         │
+│    │                                                  │         │
+│    │  Flowti CLI  ← CLI's own source (dev only)       │         │
+│    │  Project A   ← user project                      │         │
+│    │  Project B   ← user project                      │         │
+│    │  ...                                             │         │
+│    └──────────────────────────────────────────────────┘         │
+│                                                               │
+│    Each project has:                                          │
+│    ├── configs/flowti.config.json  (tools, publish, review)   │
+│    ├── package.json                (scripts, dependencies)    │
+│    ├── docs/components/            (component documentation)  │
+│    └── src/                        (source code)              │
+│                                                               │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+## Core Principles
+
+1. **Self-Contained Binary** — `node .flowti/bin` is the sole runtime. All definitions, templates, and logic are bundled by esbuild. No filesystem reads to source-adjacent files at runtime.
+2. **Definition-Driven** — JSON definitions are the single source of truth for scaffolding and components. The CLI is a processor/orchestrator of definitions, not a code generator with magic numbers.
+3. **Deterministic** — Same inputs produce the same outputs. No hidden state, no environment-dependent behavior.
+4. **Type-Safe Config** — `flowti.config.json` per project, `.flowti/` at vault level. All configuration is typed and validated.
+5. **Obsidian Opt-In** — The CLI works standalone. Knowledgebase and vault-specific features are optional.
+6. **Testable Infrastructure** — All I/O behind abstractions (`IFileSystem`, `paths`, `proc`, `clock`) for unit testing.
 
 ## Two-Loop Architecture
 
@@ -50,18 +62,61 @@ The CLI runs two nested loops:
 ```
 Start Menu Loop
   │
-  ├── List projects (from PROJECTS_DIR or DEVELOPMENT_DIR)
+  ├── List projects (from configured projects directory)
+  ├── Create new project (from bundled scaffold definitions)
   ├── User selects a project → persisted in .flowti/var/state.json
   │
   └── Project Detail Loop
         │
         ├── initializeProject() → reads package.json, flowti.config.json
-        ├── buildProjectDetailMenu() → 7 tools + utilities
+        ├── buildProjectDetailMenu() → tools + utilities
         ├── User selects a tool → action runs in project directory
         │
         ├── "b" → Back → clears selected project → returns to Start Menu
         └── "q" → Quit
 ```
+
+## Definition-Driven Architecture
+
+The CLI avoids hardcoded scaffolding logic. Instead, it uses a layered definition system:
+
+### Scaffold Definitions (Project Creation)
+
+```
+ScaffoldDefinition (JSON, bundled)
+  ├── id, name, description
+  ├── prompts[]           ← user inputs to collect
+  ├── files[]             ← file mappings with {{variable}} interpolation
+  └── postCreate[]        ← commands to run after creation
+```
+
+Definitions are imported directly in TypeScript (`import def from "./definitions/x.json"`) so esbuild inlines them into the binary. No filesystem reads at runtime.
+
+### Component Definitions (C4 Entities)
+
+```
+ComponentDefinition (JSON, bundled)
+  ├── id, label, description
+  ├── kind: ComponentKind         ← component | system | container | c4-component | person
+  ├── c4Level?: number            ← 0=person, 1=system, 2=container, 3=component
+  ├── prompts[]                   ← user inputs (name, description, technology, etc.)
+  ├── files[]                     ← templateId + path with {{variable}} interpolation
+  └── nextSteps[]                 ← guidance after creation
+```
+
+The component pipeline: `ComponentDefinition + ComponentVariables → buildComponentPlan() → FileEntry[]`
+
+This is a pure function — no I/O. The plan is then written by `createFileWriter()`.
+
+### Template Registry
+
+Template functions are registered in a `ComponentTemplateRegistry`:
+
+```typescript
+Record<templateId, (vars: ComponentVariables, def: ComponentDefinition) => string>
+```
+
+This separates the "what to create" (definitions) from the "how to render" (templates).
 
 ## Per-Project Configuration
 
@@ -76,7 +131,10 @@ Each project is configured via `configs/flowti.config.json`:
     "devtools": "npm run dev"
   },
   "publish": { ... },
-  "review": { ... }
+  "review": { ... },
+  "make": {
+    "templates": ["hub", "journey", "component"]
+  }
 }
 ```
 
@@ -88,9 +146,10 @@ Each project is configured via `configs/flowti.config.json`:
 
 | Key | Tool | Description |
 |-----|------|-------------|
-| 1 | Make | Scaffold hub, plugin, component, or journey files |
+| 1 | Make | Scaffold hub, journey, or component (C4 entities) |
 | 3 | Review | E2E journey scanning, test vault management, gated pipeline |
 | 4 | Publish | Build → Test → Distribute to configured endpoints |
+| c | Components | Browse project components with metadata |
 
 ### Mappable (project-configured commands)
 
@@ -98,13 +157,7 @@ Each project is configured via `configs/flowti.config.json`:
 |-----|------|-----------|-------------|
 | 2 | Build | `tools.build` | Run the project's build command |
 | 5 | Reports | `tools.reports` | Run the project's report generation |
-| 6 | Dev Tools | `tools.devtools` | Run the project's dev/watch command |
-
-### Submenu
-
-| Key | Tool | Description |
-|-----|------|-------------|
-| 7 | Npm Scripts | List and run any script from `package.json` |
+| 6 | Npm Scripts | — | List and run any script from `package.json` |
 
 ## Path Resolution
 
@@ -112,12 +165,9 @@ Each project is configured via `configs/flowti.config.json`:
 CLI_PROJECT      = 01 - Projects/Flowti CLI/
 VAULT_ROOT       = ../../                          → c:\Projects\flowti\
 PROJECTS_DIR     = VAULT_ROOT + projectsFolder     → 01 - Projects/
-DEVELOPMENT_DIR  = VAULT_ROOT + Development/
 ```
 
-Project paths are resolved dynamically based on the selected project's source:
-- `"projects"` → `PROJECTS_DIR/<name>`
-- `"development"` → `DEVELOPMENT_DIR/<name>`
+All project paths are resolved relative to `PROJECTS_DIR`.
 
 ## Invocation Chain
 
@@ -128,9 +178,18 @@ flowti.cmd → node .flowti/bin → .flowti/bin/index.js (bootstrap) → .flowti
 1. **`flowti.cmd`** — Windows launcher: `node "%~dp0.flowti\bin" %*`
 2. **`node .flowti/bin`** — Node resolves to `index.js` via `package.json` `{"type":"module"}`
 3. **`index.js`** (bootstrap) — derives vault root, reads `.flowti/config.json`, installs deps if missing, builds if missing, then runs `main.js`
-4. **`main.js`** (CLI) — esbuild bundle, two-loop interactive menu or non-interactive dispatch
+4. **`main.js`** (CLI) — esbuild bundle with all definitions inlined, two-loop interactive menu or non-interactive dispatch
 
 Source: `src/boot/bootstrap.mjs` → deployed as `.flowti/bin/index.js` during build.
+
+## Bundling Constraint
+
+The CLI is bundled by esbuild into a single `main.js`. This means:
+
+- **`import.meta.dirname`** resolves to `.flowti/bin/`, not the source tree — cannot be used to locate source-adjacent files.
+- **JSON definitions must be imported directly** (`import def from "./definitions/x.json"`) so esbuild inlines them.
+- **No runtime filesystem reads for definitions** — everything the CLI needs is in the bundle.
+- **Scripts that run as separate processes** (reports, analysis) are invoked via `shell.run()` in the project directory, not from the bundle.
 
 ## Test Vault Isolation
 
@@ -138,13 +197,12 @@ The Review tool creates test vaults **outside the git repository** to prevent te
 
 ```
 c:\Projects\
-├── flowti\                    ← Obsidian vault (git repo)
+├── flowti\                    ← Vault (git repo)
 │   ├── .flowti/bin/           ← CLI build (index.js, main.js, package.json)
 │   └── 01 - Projects\
-│       └── Flowti CLI\        ← project source
+│       └── Flowti CLI\        ← CLI source (dev only)
 ├── Flowti CLI-e2e\            ← test vault (auto-created, outside git)
 │   └── .flowti/bin/           ← copied CLI build
-└── flowti-e2e\                ← test vault for plugin project
 ```
 
 ## Infrastructure Layer
@@ -155,7 +213,7 @@ c:\Projects\
 | `dispatch.ts` | Pure command dispatch logic (non-interactive → command handler) |
 | `menu.ts` | Generic data-driven menu loop with disabled items, separators, beforeMenu hooks |
 | `shell.ts` | `run()`, `runIn()`, `runSilent()` — shell execution with timing and status |
-| `state.ts` | Persistent state (`selectedProject`, `projectSource`) via `.flowti/var/state.json` |
+| `state.ts` | Persistent state (`selectedProject`) via `.flowti/var/state.json` |
 | `document.ts` | Fluent markdown builder (YAML frontmatter, tables, callouts, code blocks) |
 | `ui.ts` | ANSI color constants, `printHeader()`, `printMenu()` |
 | `input.ts` | `createRL()`, `ask()` — interactive input |
@@ -167,13 +225,3 @@ c:\Projects\
 | `logger.ts` | Logging abstraction |
 | `test-vault.ts` | Test vault scaffold/teardown (outside git, copies CLI build via `sourceBinDir`) |
 | `types.ts` | Infrastructure type definitions |
-
-## Design Principles
-
-1. **Project-Centric** — Every tool operates on the selected project's directory, not a hardcoded path.
-2. **Config-Driven** — Tool availability and behavior determined by per-project `flowti.config.json`.
-3. **Auto-Scaffolding** — Projects get a working config on first selection, inferred from `package.json`.
-4. **Gated Pipelines** — Publish and Review enforce build → test → action sequencing with visual state.
-5. **Test Vault Isolation** — E2E test vaults are created outside the git repository, with CLI build copied in.
-6. **TypeScript + Vitest** — Strict TypeScript, Vitest for testing, tsx for development.
-7. **Testable Infrastructure** — All I/O behind abstractions (`IFileSystem`, `paths`, `proc`, `clock`) for unit testing.

@@ -3,24 +3,36 @@
  *
  * Commands resolve scripts and paths from the project's flowti.config.json.
  * The interactive Reports menu lives in mainMenu.ts.
+ *
+ * The "reports" command runs all generators resiliently — a failed report
+ * does not stop the run. Use "report:{id}" for individual generators.
  */
 
 import { RESET, DIM, GREEN, RED } from "../../infrastructure/ui.js";
 import { shell } from "../../infrastructure/shell.js";
 import type { ProjectContext } from "../../infrastructure/types.js";
 import { log } from "../../infrastructure/logger.js";
+import { runAllReports } from "./report-runner.js";
 
 // ── Non-interactive commands ────────────────────────────────────────
 
 export const commands: Record<string, (flags: Record<string, string | boolean>, rawArgs: string[], command?: string, project?: ProjectContext) => void> = {
 	reports: (_f, _r, _c, p) => {
-		const cmd = p?.config.reports?.allCommand ?? p?.config.tools?.["reports"] ?? "npm run generate:reports";
-		shell.run(cmd, { cwd: p?.path, label: "Generating all reports..." });
+		const generators = p?.config.reports?.generators ?? [];
+		if (generators.length === 0) {
+			log(`\n  ${DIM}No report generators configured.${RESET}\n`);
+			return;
+		}
+		runAllReports(generators, p!.path);
 	},
 	"reports:audit": (_f, _r, _c, p) => {
-		const cmd = p?.config.reports?.allCommand ?? p?.config.tools?.["reports"] ?? "npm run generate:reports";
-		shell.run(cmd, { cwd: p?.path, label: "Generating reports for audit..." });
-		log(`  ${GREEN}✓${RESET} Reports generated. Use interactive mode for full audit.\n`);
+		const generators = p?.config.reports?.generators ?? [];
+		if (generators.length === 0) {
+			log(`\n  ${DIM}No report generators configured.${RESET}\n`);
+			return;
+		}
+		const result = runAllReports(generators, p!.path);
+		log(`  ${GREEN}✓${RESET} Audit complete: ${result.passed} passed, ${result.failed} failed.\n`);
 	},
 	"report:*": (_flags, _rawArgs, command, p) => {
 		const reportId = command!.substring("report:".length);

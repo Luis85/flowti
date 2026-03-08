@@ -38,6 +38,8 @@ export interface IShell {
 	execFile(cmd: string, args: string[], opts?: { timeout?: number; stdio?: string }): string | null;
 	/** Run a command capturing both stdout and stderr, return combined output. */
 	runCapture(cmd: string, opts?: { cwd?: string; timeout?: number }): string;
+	/** Run a command capturing output and exit code. */
+	runCaptureStatus(cmd: string, opts?: { cwd?: string; timeout?: number }): { output: string; exitCode: number };
 }
 
 // ── Process abstraction ──────────────────────────────────────────────

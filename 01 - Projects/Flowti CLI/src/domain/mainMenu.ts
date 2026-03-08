@@ -17,6 +17,7 @@ import {
   isKnowledgebaseAvailable,
 } from "./knowledgebase/knowledgebase.js";
 import { buildWithReport } from "./reports/cli/generate-build-report.js";
+import { runAllReports } from "./reports/report-runner.js";
 import { shell } from "../infrastructure/shell.js";
 import { getSelectedProject } from "../infrastructure/state.js";
 import { initializeProject } from "./project/project-config.js";
@@ -113,24 +114,22 @@ export function buildProjectDetailMenu(): MenuEntry[] {
     action: async () => {
       const { runMenu } = await import("../infrastructure/menu.js");
       const reportMenuItems: MenuEntry[] = [];
-      const reportsCmd =
-        ctx.config.reports?.allCommand ?? ctx.config.tools?.["reports"];
       const generators = ctx.config.reports?.generators ?? [];
 
-      // "Run All" — runs allCommand + generates summary
-      if (reportsCmd) {
+      // "Run All" — runs each generator resiliently, never stops on failure
+      if (generators.length > 0) {
         reportMenuItems.push({
           key: "1",
           label: "Run All Reports",
           action: () => {
-            shell.run(reportsCmd, { cwd: ctx.path, label: "Reports" });
+            runAllReports(generators, ctx.path);
             return "main" as const;
           },
         });
       }
 
       // Individual generators
-      const offset = reportsCmd ? 2 : 1;
+      const offset = generators.length > 0 ? 2 : 1;
       for (let i = 0; i < generators.length; i++) {
         const gen = generators[i];
         reportMenuItems.push({

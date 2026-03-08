@@ -37,6 +37,10 @@ vi.mock("../../src/domain/reports/cli/generate-build-report.js", () => ({
 	buildWithReport: vi.fn(),
 }));
 
+vi.mock("../../src/domain/reports/report-runner.js", () => ({
+	runAllReports: vi.fn(() => ({ generators: [], totalDurationMs: 0, passed: 0, failed: 0 })),
+}));
+
 vi.mock("../../src/infrastructure/shell.js", () => ({
 	shell: {},
 }));
@@ -239,8 +243,8 @@ describe("buildProjectDetailMenu", () => {
 			expect(result).toBe("main");
 		});
 
-		it("Reports submenu includes Run All when allCommand is configured", async () => {
-			setupProject({ reports: { allCommand: "npm run reports" } });
+		it("Reports submenu includes Run All when generators are configured", async () => {
+			setupProject({ reports: { generators: [{ label: "Test", command: "npm run report:test" }] } });
 			const items = buildProjectDetailMenu();
 			const reports = findItem(items, "5")!;
 
@@ -250,7 +254,7 @@ describe("buildProjectDetailMenu", () => {
 			expect(submenuItems.some((m) => m.label === "Run All Reports")).toBe(true);
 		});
 
-		it("Reports submenu omits Run All when no allCommand", async () => {
+		it("Reports submenu omits Run All when no generators", async () => {
 			setupProject({ reports: {} });
 			const items = buildProjectDetailMenu();
 			const reports = findItem(items, "5")!;
@@ -280,12 +284,11 @@ describe("buildProjectDetailMenu", () => {
 			expect(submenuItems.some((m) => m.label === "Coverage")).toBe(true);
 		});
 
-		it("Reports generator key offsets by 2 when allCommand present", async () => {
+		it("Reports generator key offsets by 2 when Run All present", async () => {
 			const sh = createMockShell();
 			Object.assign(shellMod, { shell: sh });
 			setupProject({
 				reports: {
-					allCommand: "npm run reports",
 					generators: [{ label: "Test", command: "npm run report:test" }],
 				},
 			});
@@ -299,17 +302,24 @@ describe("buildProjectDetailMenu", () => {
 			expect(testReport.key).toBe("2");
 		});
 
-		it("Reports Run All action runs shell command", async () => {
-			const sh = createMockShell();
-			Object.assign(shellMod, { shell: sh });
-			setupProject({ reports: { allCommand: "npm run reports" } });
+		it("Reports Run All action calls runAllReports", async () => {
+			setupProject({
+				reports: {
+					generators: [{ label: "Test", command: "npm run report:test" }],
+				},
+			});
 			const items = buildProjectDetailMenu();
 			await findItem(items, "5")!.action();
 
 			const submenuItems = (mockRunMenu.mock.calls[0][1] as MenuEntry[]).filter(isMenuItem);
 			const runAll = submenuItems.find((m) => m.label === "Run All Reports")!;
 			runAll.action();
-			expect(sh.calls[0].cmd).toBe("npm run reports");
+
+			const { runAllReports } = await import("../../src/domain/reports/report-runner.js");
+			expect(runAllReports).toHaveBeenCalledWith(
+				[{ label: "Test", command: "npm run report:test" }],
+				expect.any(String),
+			);
 		});
 
 		it("Update Documentation is disabled when no docs config", () => {
