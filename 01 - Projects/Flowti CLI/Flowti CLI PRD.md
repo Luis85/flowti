@@ -1,11 +1,11 @@
 ---
 domain: Flowti
 type: ProductRequirementsDocument
-stage: in-progress
-version: 4
+stage: complete
+version: 5
 maturity: L2
 created: 2026-03-07
-updated: 2026-03-08
+updated: 2026-03-09
 related_events: []
 maturity_score_strategy: 3
 maturity_score_scope: 5
@@ -280,10 +280,10 @@ All features, restrictions, and quality gates exist to improve the quality of th
 
 ### FR-12: Developer Onboarding Journey
 
-- [ ] FR-12.1: E2E journey testing the full onboarding flow: install CLI → create project → build → explore
-- [ ] FR-12.2: Verify CLI help output is accessible and correct
-- [ ] FR-12.3: Verify non-interactive build completes successfully
-- [ ] FR-12.4: Verify Info command returns valid project data
+- [x] FR-12.1: E2E journey testing the full onboarding flow: install CLI → create project → build → explore
+- [x] FR-12.2: Verify CLI help output is accessible and correct
+- [x] FR-12.3: Verify non-interactive build completes successfully
+- [x] FR-12.4: Verify Info command returns valid project data
 
 ---
 
@@ -400,20 +400,19 @@ No adapter changes. The CLI uses Node.js built-ins exclusively (readline, child_
 - [x] Review creates test vault outside git repository
 - [x] Publish pipeline enforces build → test → distribute gating
 - [x] `npm run build` compiles and bundles to `.flowti/bin/main.js` without errors
-- [x] `npm test` passes with all 1187 tests green (73 suites)
+- [x] `npm test` passes with all 1,451 tests green (88 suites)
 - [x] Pressing `?` in any menu shows contextual help
 - [x] Report generation runs resiliently — failed reports don't stop the run; warnings surfaced in summary
 - [x] Event Catalog creates, lists, and auto-links domain events per project
 - [x] Report prerequisites run before generation; shared prerequisites deduplicated
-- [ ] Developer onboarding E2E journey passes
-- [ ] AI agent can use non-interactive commands to build, test, and scaffold without human intervention
+- [x] Developer onboarding E2E journey passes (7 tests in `60-journey-developer-onboarding.test.ts`)
+- [x] AI agent can use non-interactive commands to build, test, and scaffold without human intervention (`--project=<name>` flag, `--format=json` output)
 
 ---
 
 ## 13. Definition of Done
 
-- [x] All FR-01 through FR-11 implemented and verified
-- [ ] FR-12 (E2E onboarding journey) implemented and passing
+- [x] All FR-01 through FR-12 implemented and verified
 - [x] Two-stage menu (start → project detail) working
 - [x] Project creation from bundled scaffold definitions
 - [x] Component system with 8 types (5 C4 + 3 UI), properties, and Storybook stories
@@ -421,10 +420,10 @@ No adapter changes. The CLI uses Node.js built-ins exclusively (readline, child_
 - [x] Resilient report generation with prerequisites, warnings, and comprehensive run summary
 - [x] Per-project auto-scaffolding generates valid `flowti.config.json`
 - [x] Man-pages cover all tool menus with accurate descriptions
-- [x] TypeScript strict mode with Vitest test suite (1187 tests, 73 suites)
+- [x] TypeScript strict mode with Vitest test suite (1,451 tests, 88 suites)
 - [x] No production dependencies — dev tooling only, binary is self-contained
 - [x] README, Architecture, and PRD updated to reflect definition-driven architecture
-- [ ] Developer onboarding scenario tested end-to-end
+- [x] Developer onboarding scenario tested end-to-end
 
 ---
 
@@ -436,29 +435,29 @@ Planned improvements to evolve the CLI beyond its current state:
 
 | ID | Improvement | Status |
 |----|-------------|--------|
+| ~~IMP-01~~ | **Non-interactive project selection** | Done — `--project=<name>` flag on all commands; `resolveProjectContext()` in `main.ts` (Phase 1.2) |
 | ~~IMP-02~~ | **Journey scaffolding** | Done — Make tool generates E2E journey test files, config JSON, and canvas stubs |
+| ~~IMP-03~~ | **Report archive navigation** | Done — Reports menu lists past reports from `reports/` subdirectories with timestamps (Phase 1.4) |
+| ~~IMP-04~~ | **Component relationships** | Done — C4 hierarchy with containedBy/contains, ancestry paths, siblings in component browser (Phase 2.1) |
+| ~~IMP-06~~ | **Config validation** | Done — 45 validation rules in `config-schema.ts` with helpful error messages (Phase 1.1) |
 | ~~IMP-08~~ | **Capture integration** | Done — `capture:idea` and `capture:note` commands with interactive and non-interactive modes |
+| ~~IMP-14~~ | **Event Catalog enrichment** | Done — Payload field editor (`event-payload.ts`) and versioning with migration notes (`event-versioning.ts`) (Phase 2.3–2.4) |
+| ~~IMP-15~~ | **Component property editor** | Done — Interactive prompt for adding/editing properties via `collectPropertyValues()` and `component-edit.ts` (Phase 2.2) |
+| ~~IMP-16~~ | **Event flow visualization** | Done — Producer → event → consumer diagrams from Event Catalog data (`event-flow.ts`) (Phase 2.5) |
 
 ### Short-Term
 
 | ID | Improvement | Description |
 |----|-------------|-------------|
-| IMP-01 | **Non-interactive project selection** | Add `--project=<name>` flag to all commands so AI agents and scripts can target a specific project without interactive selection |
-| IMP-03 | **Report archive navigation** | Reports menu should list past reports from `reports/` subdirectories with timestamps |
-| IMP-04 | **Component relationships** | Visualize containedBy/contains relationships between C4 entities in the component browser |
-| IMP-14 | **Event Catalog enrichment** | Add payload field editor to interactive flow; support event versioning (v1 → v2 migration notes) |
-| IMP-15 | **Component property editor** | Interactive prompt for adding/editing properties when scaffolding components |
+| IMP-05 | **Project health dashboard** | Aggregate project stats (test count, coverage, build status, last activity) into a summary view |
+| IMP-07 | **Review pipeline gating** | Add build → test gating to Review (like Publish) before running E2E journeys |
+| IMP-17 | **Storybook integration** | Opt-in per project via Components menu. CLI installs Storybook into `<project>/component-library/`, wraps its npm scripts (dev/build) from the Components menu, and Make Components generates story files targeting the installed instance |
 
 ### Medium-Term
 
 | ID | Improvement | Description |
 |----|-------------|-------------|
-| IMP-05 | **Project health dashboard** | Aggregate project stats (test count, coverage, build status, last activity) into a summary view |
-| IMP-06 | **Config validation** | Validate `flowti.config.json` against a schema with helpful error messages for misconfigured projects |
-| IMP-07 | **Review pipeline gating** | Add build → test gating to Review (like Publish) before running E2E journeys |
 | IMP-09 | **Definition marketplace** | Allow projects to register custom definitions that extend the CLI's scaffolding capabilities |
-| IMP-16 | **Event flow visualization** | Generate producer → event → consumer diagrams from Event Catalog data |
-| IMP-17 | **Storybook integration** | Auto-detect Storybook in project and add `storybook:dev` / `storybook:build` to dev tools menu |
 
 ### Long-Term
 

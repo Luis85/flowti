@@ -2,7 +2,7 @@
 type: Architecture
 domain: CLI
 title: Flowti CLI — Architecture Document
-version: 12
+version: 14
 created: 2026-03-07
 updated: 2026-03-09
 status: living-document
@@ -18,7 +18,7 @@ status: living-document
 
 The Flowti CLI is a **definition-driven project orchestrator** that ships as a self-contained Node.js binary. It manages multi-project development workflows — scaffolding, building, testing, reviewing, publishing, and reporting — from a single interactive menu or via non-interactive commands for AI agent tool use.
 
-**Scale**: 153 source files, 93 test files (1,440 tests, 88 suites), 15 domain modules, 22 infrastructure modules. Zero production dependencies — runs on Node.js built-ins only.
+**Scale**: 154 source files, 93 test files (1,451 tests, 88 suites), 15 domain modules, 21 infrastructure modules. Zero production dependencies — runs on Node.js built-ins only.
 
 ---
 
@@ -146,7 +146,7 @@ flowti.cmd
 └───────────┬──────────────────────────────────────────────────┘
             │
 ┌───────────▼──────────────────────────────────────────────────┐
-│                  Infrastructure Layer (22 modules)            │
+│                  Infrastructure Layer (21 modules)            │
 │                                                              │
 │  ┌────────┐ ┌──────────┐ ┌────────┐ ┌─────────┐ ┌────────┐  │
 │  │ config │ │ dispatch │ │  menu  │ │  shell  │ │  state │  │
@@ -157,9 +157,12 @@ flowti.cmd
 │  ┌────────┐ ┌──────────┐ ┌────────┐ ┌─────────┐ ┌────────┐  │
 │  │ paths  │ │   proc   │ │ clock  │ │ logger  │ │  args  │  │
 │  └────────┘ └──────────┘ └────────┘ └─────────┘ └────────┘  │
-│  ┌────────────┐ ┌─────────────┐ ┌─────────────┐ ┌────────┐  │
-│  │ test-vault │ │ frontmatter │ │   readline  │ │ types  │  │
-│  └────────────┘ └─────────────┘ └─────────────┘ └────────┘  │
+│  ┌────────────┐ ┌─────────────┐ ┌────────┐ ┌──────────────┐  │
+│  │ test-vault │ │ frontmatter │ │ errors │ │cmd-registry  │  │
+│  └────────────┘ └─────────────┘ └────────┘ └──────────────┘  │
+│  ┌────────┐ ┌────────┐                                       │
+│  │ output │ │ types  │                                       │
+│  └────────┘ └────────┘                                       │
 │                                                              │
 │  All I/O behind abstractions: IFileSystem, IShell, IProcess  │
 │  All time behind clock abstraction                           │
@@ -368,7 +371,7 @@ All I/O is behind abstractions (`IFileSystem`, `IShell`, `IProcess`, `clock`), m
 
 ## 4. Target Architecture
 
-The target architecture extends the status quo to fulfill all PRD v4 requirements, particularly the incomplete items (FR-12) and the planned improvements (IMP-01 through IMP-18).
+The target architecture extends the status quo to fulfill all PRD v5 requirements. All functional requirements (FR-01 through FR-12) are complete. Remaining work targets planned improvements (IMP-05 through IMP-18).
 
 ### 4.1 Non-Interactive Project Selection (IMP-01) — DONE
 
@@ -463,7 +466,53 @@ Two error classes in `infrastructure/errors.ts`:
 - `scaffold-plan.ts` / `component-plan.ts` (unknown template) → `InternalError` (broken definition)
 - `report-runner.ts` (prerequisite failed) → kept as `Error` (caught internally by resilient runner)
 
-### ~~4.13 E2E Onboarding Journey (FR-12)~~ — moved to 4.5 (DONE)
+### 4.13 Input Consolidation (D-28) — DONE
+
+Two overlapping input modules (`readline.ts` with manual `createRL()`/`rl.close()` lifecycle, and `input.ts` with auto-managed `ask()`) consolidated into a single `input.ts` abstraction. Added `askYesNo(question, defaultNo?)` to the `IInput` interface. E2E domain (5 files) migrated from passing readline interfaces through function parameters to using `input.ask()` / `input.askYesNo()` directly. Duplicate `ask()`/`askYesNo()` removed from `e2e-helpers.ts`. ESLint config updated. `readline.ts` deleted. 11 new tests.
+
+### 4.14 Storybook Integration (IMP-17) — PLANNED
+
+Storybook becomes an **opt-in, per-project component library** managed entirely from the Components menu (`c`).
+
+**Design:**
+
+```
+Components Menu (key "c")
+  ├── Browse components          (existing)
+  ├── Add component (Make)       (existing — generates .stories.ts)
+  ├── Edit component             (existing)
+  ├── ─────────────
+  ├── s) Storybook dev           (new — wraps npm script)
+  ├── b) Storybook build         (new — wraps npm script)
+  └── i) Install Storybook       (new — one-time setup)
+```
+
+**Opt-in flow:**
+1. User selects "Install Storybook" from the Components menu
+2. CLI scaffolds `<project>/component-library/` with Storybook config, `package.json`, and starter structure
+3. Runs `npm install` in `component-library/`
+4. Sets `components.storybook: true` in `flowti.config.json`
+5. Subsequent `make:*` commands generate `.stories.ts` files that reference the component-library Storybook instance
+
+**Config addition** (`flowti.config.json`):
+```json
+{
+  "components": {
+    "storybook": true,
+    "storybookDir": "component-library"
+  }
+}
+```
+
+**Make integration**: Story files already generated for layout, page, and ui-component kinds. With Storybook installed, the Make flow adds a post-creation step to verify the story is loadable. Component definitions unchanged — the story template (`component-story.ts`) already produces valid Storybook files.
+
+**Files:**
+- New: `domain/make/component/storybook-service.ts` — install, detect, wrap npm scripts
+- Modify: `component-list.ts` — add Storybook menu items (conditional on `components.storybook`)
+- Modify: `config-schema.ts` — validate `components.storybook` and `components.storybookDir`
+- Modify: component definitions — potentially add story file to C4 kinds when Storybook is enabled
+
+### ~~4.15 E2E Onboarding Journey (FR-12)~~ — moved to 4.5 (DONE)
 
 ---
 
@@ -509,8 +558,10 @@ All items delivered plus Document service refactor, frontmatter consolidation, s
 | 2.13 | **Menu builder extraction** (6.3) | DONE | `domain/menu-builders.ts` (new), `mainMenu.ts` (350→190 LOC) |
 | 2.14 | **Structured error handling** (6.6) | DONE | `infrastructure/errors.ts` (new), `main.ts`, `config.ts`, `command-registry.ts`, `scaffold-plan.ts`, `component-plan.ts` |
 | 2.15 | **Structured CLI output** (6.4) | DONE | `infrastructure/output.ts` (new), `info.ts` (collectProjectInfo), `event-commands.ts` (events:list --format=json) |
+| 2.16 | **Input consolidation** (D-28) | DONE | `infrastructure/input.ts` (askYesNo), `readline.ts` (deleted), `e2e-helpers.ts`, `e2e-interactive.ts`, `e2e-session.ts`, `e2e-audit.ts`, `e2e-teardown.ts` |
+| 2.17 | **Complexity extraction** (collectProjectInfo) | DONE | `info.ts` (19→3 helpers: collectSourceInfo, collectDependencyInfo, collectGitInfo) |
 
-**Milestone**: C4 entities form a navigable hierarchy. Components are editable post-creation. Event catalog supports full lifecycle. Document service is the sole markdown renderer for doc templates. Frontmatter parsing consolidated to single infrastructure module. Command registration typed with collision detection. Menu construction extracted into pure builder functions. Structured error handling established. `--format=json` output pattern established. 1,440 tests, 88 suites. 0 lint errors, 0 warnings.
+**Milestone**: C4 entities form a navigable hierarchy. Components are editable post-creation. Event catalog supports full lifecycle. Document service is the sole markdown renderer for doc templates. Frontmatter parsing consolidated to single infrastructure module. Command registration typed with collision detection. Menu construction extracted into pure builder functions. Structured error handling established. `--format=json` output pattern established. Single input abstraction for all interactive prompts. 1,451 tests, 88 suites. 0 lint errors, 0 warnings.
 
 ### Phase 3: Project Health & Storybook Integration
 
@@ -520,10 +571,10 @@ Aggregate project metrics and integrate with the broader development ecosystem.
 |---|------|--------|--------|-------|
 | 3.1 | **Project health dashboard** (IMP-05) | M | High | New: `domain/health/health.ts` |
 | 3.2 | **Review pipeline gating** (IMP-07) | S | Medium | Modify: `review/project-review.ts` |
-| 3.3 | **Storybook integration** (IMP-17) | S | Medium | Modify: `mainMenu.ts`, `devtools.ts` |
+| 3.3 | **Storybook integration** (IMP-17) | M | High | New: `domain/make/component/storybook-service.ts`, Modify: `component-list.ts`, `component-makers.ts`, definitions, `config-schema.ts` |
 | 3.4 | **Definition marketplace** (IMP-09) | L | Medium | New: `domain/scaffold/marketplace.ts` |
 
-**Milestone**: Projects have a health score. Review enforces quality gates. Storybook is a first-class tool.
+**Milestone**: Projects have a health score. Review enforces quality gates. Storybook is a first-class, opt-in component library tool managed from the Components menu.
 
 ### Phase 4: Cross-Project & Automation
 
@@ -632,7 +683,7 @@ Audit complete. All domain files correctly import shared types from `infrastruct
 | `infrastructure/command-registry.ts` | Typed command registry — collision detection, domain metadata, derived project-free set |
 | `infrastructure/menu.ts` | Generic data-driven menu loop |
 | `infrastructure/ui.ts` | ANSI colors, `printBanner()`, `printMenu()` |
-| `infrastructure/input.ts` | Interactive input (`ask()`, `createRL()`) |
+| `infrastructure/input.ts` | Interactive input — `ask()`, `askYesNo()` (sole input abstraction, replaces readline.ts) |
 | `infrastructure/clock.ts` | Time abstraction (ISO timestamps) |
 | `infrastructure/proc.ts` | Process abstraction (exit, argv, cwd, env) |
 | `infrastructure/paths.ts` | Path utilities |
@@ -701,3 +752,4 @@ Audit complete. All domain files correctly import shared types from `infrastruct
 | D-25 | Submenu builder extraction | Pure `MenuEntry[]` builder functions in `menu-builders.ts`; mainMenu.ts delegates submenu construction; builders are independently testable |
 | D-26 | Structured error types | `CliError` (message + guidance, clean display) vs `InternalError` (stack trace for debugging); `formatError()` routes display; global catch boundary in main.ts |
 | D-27 | Structured CLI output | `resolveFormat(flags)` + `printOutput(format, data, renderer)` in `output.ts`; commands extract pure data (e.g. `collectProjectInfo()`), then format at the boundary; `--format=json` for AI agent consumption |
+| D-28 | Input consolidation | `readline.ts` deleted; `input.ts` is the sole input abstraction (`ask`, `askYesNo`); E2E domain migrated from manual `createRL()`/`rl.close()` to `input.*`; duplicate `ask`/`askYesNo` removed from `e2e-helpers.ts` |
