@@ -7,6 +7,7 @@
  */
 
 import type { CommandHandler } from "./types.js";
+import { InternalError } from "./errors.js";
 
 export interface CommandMeta {
 	handler: CommandHandler;
@@ -30,7 +31,7 @@ export class CommandRegistry {
 		for (const [key, handler] of Object.entries(reg.commands)) {
 			if (this.entries.has(key)) {
 				const existing = this.entries.get(key)!;
-				throw new Error(
+				throw new InternalError(
 					`Command "${key}" collision: registered by "${existing.domain}" and "${reg.domain}"`,
 				);
 			}

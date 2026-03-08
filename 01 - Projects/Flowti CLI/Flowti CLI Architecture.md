@@ -2,7 +2,7 @@
 type: Architecture
 domain: CLI
 title: Flowti CLI — Architecture Document
-version: 10
+version: 11
 created: 2026-03-07
 updated: 2026-03-08
 status: living-document
@@ -18,7 +18,7 @@ status: living-document
 
 The Flowti CLI is a **definition-driven project orchestrator** that ships as a self-contained Node.js binary. It manages multi-project development workflows — scaffolding, building, testing, reviewing, publishing, and reporting — from a single interactive menu or via non-interactive commands for AI agent tool use.
 
-**Scale**: 152 source files, 87 test files (1,365 tests, 82 suites), 15 domain modules, 20 infrastructure modules. Zero production dependencies — runs on Node.js built-ins only.
+**Scale**: 153 source files, 92 test files (1,433 tests, 87 suites), 15 domain modules, 21 infrastructure modules. Zero production dependencies — runs on Node.js built-ins only.
 
 ---
 
@@ -446,7 +446,24 @@ Consolidated 7 duplicate frontmatter parsers into `infrastructure/frontmatter.ts
 
 **Replaced duplicates in**: `event-catalog.ts`, `event-flow.ts`, `component-list.ts`, `component-edit.ts`, `summary-loaders.ts`, `generate-status-report.ts`, `fs.ts`. The specialized `devtools/frontmatter-utils.ts` (field insertion/replacement for fix-frontmatter) remains separate. 11 new tests.
 
-### ~~4.12 E2E Onboarding Journey (FR-12)~~ — moved to 4.5 (DONE)
+### 4.12 Structured Error Handling (D-26) — DONE
+
+Two error classes in `infrastructure/errors.ts`:
+
+| Class | Use Case | Display |
+|-------|----------|---------|
+| `CliError(message, guidance)` | User-facing: missing config, invalid input, failed prerequisites | Message + guidance, no stack trace |
+| `InternalError(message)` | Developer bug: broken invariants, missing registry entries | Full stack trace |
+
+`formatError(err)` formats any error for display. `isCliError(err)` type guard for catch blocks. The global catch in `main()` routes `CliError` to clean output and everything else to debug output.
+
+**Throw site classification:**
+- `config.ts` (vault root not found) → `CliError` with recovery guidance
+- `command-registry.ts` (key collision) → `InternalError` (programming bug)
+- `scaffold-plan.ts` / `component-plan.ts` (unknown template) → `InternalError` (broken definition)
+- `report-runner.ts` (prerequisite failed) → kept as `Error` (caught internally by resilient runner)
+
+### ~~4.13 E2E Onboarding Journey (FR-12)~~ — moved to 4.5 (DONE)
 
 ---
 
@@ -490,8 +507,9 @@ All items delivered plus Document service refactor and frontmatter consolidation
 | 2.11 | **Events domain facade** (6.1) | DONE | `domain/events/events.ts` (re-exports commands + eventCatalogMenu) |
 | 2.12 | **Typed CommandRegistry** (6.2) | DONE | `infrastructure/command-registry.ts` (new), `main.ts` (refactored to registerDomain) |
 | 2.13 | **Menu builder extraction** (6.3) | DONE | `domain/menu-builders.ts` (new), `mainMenu.ts` (350→190 LOC) |
+| 2.14 | **Structured error handling** (6.6) | DONE | `infrastructure/errors.ts` (new), `main.ts`, `config.ts`, `command-registry.ts`, `scaffold-plan.ts`, `component-plan.ts` |
 
-**Milestone**: C4 entities form a navigable hierarchy. Components are editable post-creation. Event catalog supports full lifecycle. Document service is the sole markdown renderer for doc templates. Frontmatter parsing consolidated to single infrastructure module. Command registration typed with collision detection. Menu construction extracted into pure builder functions. 1,365 tests, 82 suites. 0 lint errors, 0 warnings.
+**Milestone**: C4 entities form a navigable hierarchy. Components are editable post-creation. Event catalog supports full lifecycle. Document service is the sole markdown renderer for doc templates. Frontmatter parsing consolidated to single infrastructure module. Command registration typed with collision detection. Menu construction extracted into pure builder functions. Structured error handling established. 1,433 tests, 87 suites. 0 lint errors, 0 warnings.
 
 ### Phase 3: Project Health & Storybook Integration
 
@@ -546,7 +564,6 @@ Events domain now has a facade file (`events.ts`) re-exporting `commands` and `e
 ### ~~6.3 Menu Builder Abstraction~~ — RESOLVED
 
 Submenu construction extracted from `mainMenu.ts` into `menu-builders.ts`. Three pure builder functions (`buildReportsSubmenu`, `buildDocsSubmenu`, `buildNpmScriptsSubmenu`) reduce mainMenu.ts from ~350 to ~190 lines. Each builder returns `MenuEntry[]` and is independently testable. See D-25.
-```
 
 ### 6.4 Structured CLI Output
 
@@ -565,11 +582,9 @@ flowti info --format=json
 
 **Target**: Generators self-register via convention. Projects can provide custom generators in their config (already works for external commands). The improvement is allowing projects to register internal generator functions without modifying registry source.
 
-### 6.6 Error Handling Consistency
+### ~~6.6 Error Handling Consistency~~ — RESOLVED
 
-**Current**: Some domains catch errors and log them, others let them propagate to `main.ts`. There is no unified error boundary or error reporting pattern.
-
-**Target**: Introduce `CliError` (user-facing, with guidance) vs. `InternalError` (bug, with stack trace). The top-level catch in `main()` formats them differently.
+`CliError` (user-facing, with guidance) and `InternalError` (developer bug, with stack trace) in `infrastructure/errors.ts`. The top-level catch in `main()` formats them differently via `formatError()`. Existing throw sites refactored: `config.ts` → `CliError`, `command-registry.ts`/`scaffold-plan.ts`/`component-plan.ts` → `InternalError`. `isCliError()` type guard available for catch blocks. 12 new tests. See D-26.
 
 ### 6.7 State Expansion
 
@@ -634,6 +649,7 @@ Audit complete. All domain files correctly import shared types from `infrastruct
 | `infrastructure/state.ts` | Persistent state (`.flowti/var/state.json`) |
 | `infrastructure/document.ts` | Fluent Markdown builder — 4 output modes: `Document` (compose), `toString()`, `toLines()`, `save()` |
 | `infrastructure/frontmatter.ts` | Single source of truth for YAML frontmatter — parse (typed/string/split) + serialize (`joinFrontmatter`) |
+| `infrastructure/errors.ts` | Structured error types — `CliError` (user-facing + guidance), `InternalError` (developer bug), `formatError()`, `isCliError()` |
 | `infrastructure/command-registry.ts` | Typed command registry — collision detection, domain metadata, derived project-free set |
 | `infrastructure/menu.ts` | Generic data-driven menu loop |
 | `infrastructure/ui.ts` | ANSI colors, `printBanner()`, `printMenu()` |
@@ -704,3 +720,4 @@ Audit complete. All domain files correctly import shared types from `infrastruct
 | D-23 | Domain facade pattern | Multi-file domains expose a facade (`events.ts`) re-exporting public API; `main.ts` imports from facade, not internals |
 | D-24 | Typed CommandRegistry | Class-based registry replaces spread-merge; collision detection at registration time; domain metadata preserved |
 | D-25 | Submenu builder extraction | Pure `MenuEntry[]` builder functions in `menu-builders.ts`; mainMenu.ts delegates submenu construction; builders are independently testable |
+| D-26 | Structured error types | `CliError` (message + guidance, clean display) vs `InternalError` (stack trace for debugging); `formatError()` routes display; global catch boundary in main.ts |

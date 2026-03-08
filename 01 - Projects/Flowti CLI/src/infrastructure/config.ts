@@ -12,6 +12,7 @@ import { paths } from "./paths.js";
 import type { FlowtiCliConfig } from "./types.js";
 import { disk } from "./filesystem.js";
 import { proc } from "./proc.js";
+import { CliError } from "./errors.js";
 
 // ── Path resolution ──────────────────────────────────────────────────
 
@@ -44,9 +45,9 @@ function resolveVaultRoot(): string {
 	const fromCwd = findVaultRoot(proc.cwd());
 	if (fromCwd) return fromCwd;
 
-	throw new Error(
-		"[flowti] Cannot locate vault root.\n" +
-		"  Set FLOWTI_VAULT_ROOT or run from within the vault directory.",
+	throw new CliError(
+		"Cannot locate vault root.",
+		"Set FLOWTI_VAULT_ROOT or run from within the vault directory.",
 	);
 }
 

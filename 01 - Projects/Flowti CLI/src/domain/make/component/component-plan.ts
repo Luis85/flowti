@@ -5,6 +5,7 @@
  */
 
 import type { ComponentVariables, ComponentDefinition, ComponentTemplateFn } from "./component-types.js";
+import { InternalError } from "../../../infrastructure/errors.js";
 
 export interface FileEntry {
 	path: string;
@@ -27,7 +28,7 @@ export function buildComponentPlan(
 	return def.files.map((f) => {
 		const templateFn = templates.get(f.templateId);
 		if (!templateFn) {
-			throw new Error(`Unknown component template: "${f.templateId}"`);
+			throw new InternalError(`Unknown component template: "${f.templateId}"`);
 		}
 		const result = templateFn(vars, def);
 		return {

@@ -7,6 +7,7 @@
 
 import type { ScaffoldContext, ScaffoldDefinition, FileEntry } from "./scaffold-types.js";
 import type { TemplateRegistry } from "./templates/template-registry.js";
+import { InternalError } from "../../infrastructure/errors.js";
 
 // ── Interpolation ────────────────────────────────────────────────────
 
@@ -49,7 +50,7 @@ export function buildScaffoldPlan(ctx: ScaffoldContext, registry: TemplateRegist
 		const resolvedPath = interpolate(mapping.path, varMap);
 		const templateFn = registry.resolve(mapping.templateId);
 		if (!templateFn) {
-			throw new Error(`Unknown templateId "${mapping.templateId}" for file "${resolvedPath}".`);
+			throw new InternalError(`Unknown templateId "${mapping.templateId}" for file "${resolvedPath}".`);
 		}
 		const content = templateFn(ctx.vars, ctx.definition);
 		entries.push({ path: resolvedPath, content });

@@ -50,6 +50,7 @@ import type { ProjectContext } from "./infrastructure/types.js";
 import { log, error } from "./infrastructure/logger.js";
 import { resolveCommand } from "./infrastructure/dispatch.js";
 import { CommandRegistry } from "./infrastructure/command-registry.js";
+import { CliError, formatError } from "./infrastructure/errors.js";
 
 const registry = new CommandRegistry();
 registry.registerDomain({ domain: "help",     commands: helpCmds,     projectFree: ["help"] });
@@ -186,6 +187,10 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-	error(`\n  ${RED}Fatal error:${RESET}`, err);
+	if (err instanceof CliError) {
+		error(`\n  ${RED}${formatError(err)}${RESET}\n`);
+	} else {
+		error(`\n  ${RED}Fatal error:${RESET}`, err);
+	}
 	proc.exit(1);
 });

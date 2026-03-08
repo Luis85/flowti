@@ -16,13 +16,13 @@ import type { MenuEntry } from "../infrastructure/types.js";
 
 // ── Types ──────────────────────────────────────────────────────────
 
-interface ReportGenerator {
+export interface ReportGenerator {
 	id?: string;
 	label: string;
 	command?: string;
 }
 
-interface DocsGenerator {
+export interface DocsGenerator {
 	label: string;
 	command: string;
 }
