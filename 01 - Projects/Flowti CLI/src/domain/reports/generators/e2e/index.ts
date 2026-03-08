@@ -9,3 +9,9 @@ export { generateJourneyReport, extractJourneyFields, buildErrorContextLines } f
 export { generateJourneyCanvas, formatActionText } from "./e2e-report-canvas.js";
 export { readLatestEventTrace, readStartupPerf, buildPerfLines, buildEventTraceLines, buildPerfEventStats, classifyPerfEvent, parsePerfPayload } from "./e2e-report-perf.js";
 export { generateE2EReport, writeJourneyOutputs, aggregateJourneyStats, computeReconciledTotals, cleanupResults } from "./e2e-report-summary.js";
+export {
+	buildCompactTraceLines, buildJourneyStatsLine,
+	caseMarkAndSuffix, collectVitestFailures, collectWarningItBlocks,
+	resolveJourneyStatus,
+} from "./e2e-report-sections.js";
+export { buildE2EFrontmatter } from "./e2e-report-frontmatter.js";

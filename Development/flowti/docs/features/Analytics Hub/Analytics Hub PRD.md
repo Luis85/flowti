@@ -1,5 +1,5 @@
 ---
-domain: Analytics
+domain: Flowti/Plugin/Analytics
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
 stage: delivered

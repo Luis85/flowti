@@ -1,8 +1,8 @@
 filters:
   and:
-    - file.folder.containsAny("features")
     - file.ext == "md"
     - '!file.folder.contains("backlog")'
+    - type == "ProductRequirementsDocument"
 views:
   - type: table
     name: Product Features
@@ -18,7 +18,6 @@ views:
       - domain
       - plugin
       - file.folder
-      - type
     columnSize:
       file.name: 276
       note.stage: 117

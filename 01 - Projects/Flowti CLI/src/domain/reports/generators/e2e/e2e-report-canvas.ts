@@ -6,9 +6,16 @@
 
 import type {
 	CanvasEdge, CanvasJourneyFields, CanvasNode, CanvasResult,
-	ManualVerification, StepAction, StepDefinition, StepResult, TraceData,
+	StepAction, StepDefinition, StepResult, TraceData,
 } from "./e2e-report-types.js";
-import { formatDuration, resolveVars } from "./e2e-report-utils.js";
+import { formatDuration } from "./e2e-report-utils.js";
+import {
+	actionColor, formatActionText, buildCanvasConfigLines,
+} from "./e2e-report-canvas-helpers.js";
+import {
+	extractCanvasJourneyFields, resolveStepCanvasColor,
+	resolveStepScreenshotPath, buildCanvasEventsText,
+} from "./e2e-report-canvas-nodes.js";
 
 // ── Layout Constants ────────────────────────────────────────────
 
@@ -38,19 +45,6 @@ const IMPROVEMENT_WIDTH = ACTION_GROUP_WIDTH * 2;
 const IMPROVEMENT_HEIGHT = ACTION_GROUP_HEIGHT_DEFAULT * 3;
 const IMPROVEMENT_GAP = ACTION_GROUP_HEIGHT_DEFAULT * 2;
 
-// ── Color Maps ──────────────────────────────────────────────────
-
-const ACTION_COLOR_MAP: Record<string, string> = {
-	"screenshot": "6", "assert": "4", "manual": "3", "visual-inspection": "3",
-	"notice": "5", "emit": "1", "theme": "2",
-	"create-file": "0", "delete-file": "0", "open-file": "0", "close-leaves": "0",
-};
-
-function actionColor(tool: string): string | undefined {
-	return ACTION_COLOR_MAP[tool];
-}
-
-const CANVAS_STATUS_COLOR: Record<string, string> = { pass: "4", "partial-pass": "5", fail: "1" };
 const CANVAS_CHECKBOX_MAP: Record<string, string> = { pass: "[x]", fail: "[!]" };
 
 function canvasCheckbox(status: string, hasWarnings: boolean): string {
@@ -67,128 +61,8 @@ function stripPrefix(id: string): string {
 	return id.replace(`${CANVAS_PREFIX}n-`, "").replace(`${CANVAS_PREFIX}g-`, "");
 }
 
-// ── Action Text Formatting ──────────────────────────────────────
-
-function formatAssertText(action: StepAction, r: (s: string) => string, desc: string): string {
-	if (action.type === "visible" || action.type === "not-visible" || action.type === "text") {
-		return `**assert ${action.type}** \`${action.selector}\`${desc}`;
-	}
-	if (action.type === "event") return `**assert event** \`${r(action.event ?? "")}\`${desc}`;
-	if (action.type === "leaf") return `**assert leaf** \`${r(action.viewType ?? "")}\`${desc}`;
-	return `**assert ${action.type}**${desc}`;
-}
-
-type ActionFormatter = (action: StepAction, r: (s: string) => string, desc: string) => string;
-
-const ACTION_FORMAT_MAP: Record<string, ActionFormatter> = {
-	"command": (a, r, d) => `**command** \`${r(a.id ?? "")}\`${d}`,
-	"click": (a, _r, d) => `**click** \`${a.selector}\`${d}`,
-	"input": (a, r, d) => `**input** \`${a.selector}\`\n→ "${r(a.value ?? "")}"${d}`,
-	"highlight": (a, _r, d) => `**highlight** \`${a.selector}\` [${a.style ?? "element"}]${d}`,
-	"wait": (a) => `**wait** ${a.ms}ms`,
-	"screenshot": (a, _r, d) => `**screenshot** ${a.label ?? "(auto)"}${d}`,
-	"navigate": (a, r, d) => `**navigate** ${r(a.hub ?? "")} → ${r(a.tab ?? "")}${d}`,
-	"assert": formatAssertText,
-	"emit": (a, r, d) => `**emit** \`${r(a.event ?? "")}\`${d}`,
-	"eval": (a, _r, d) => `**eval**${a.store ? ` → \`${a.store}\`` : ""}${d}`,
-	"notice": (a, r, d) => `**notice** ${r(a.message ?? "")}${d}`,
-	"manual": (a, r) => `**manual**\n${r(a.instruction ?? "")}`,
-	"visual-inspection": (a, r) => `**visual-inspection**\n${r(a.prompt ?? "")}`,
-	"theme": (a, r, d) => `**theme** → \`${r(a.theme ?? "")}\`${d}`,
-	"create-file": (a, r, d) => `**create-file** \`${r(a.path ?? "")}\`${d}`,
-	"delete-file": (a, r, d) => `**delete-file** \`${r(a.path ?? "")}\`${d}`,
-	"open-file": (a, r, d) => `**open-file** \`${r(a.path ?? "")}\`${d}`,
-	"close-leaves": (a, r, d) => `**close-leaves** \`${r(a.viewType ?? "")}\`${d}`,
-};
-
-export function formatActionText(action: StepAction, vars?: Record<string, string>): string {
-	const desc = action.description ? `\n${action.description}` : "";
-	const r = (s: string): string => resolveVars(s, vars);
-	const formatter = ACTION_FORMAT_MAP[action.tool];
-	return formatter ? formatter(action, r, desc) : `**${action.tool}**${desc}`;
-}
-
-// ── Config Card Lines ───────────────────────────────────────────
-
-function appendConfigDescriptionLines(lines: string[], s: StepDefinition): void {
-	if (s.description) { lines.push(s.description); lines.push(""); }
-	if (s.expectedInput) lines.push(`**Input**: ${s.expectedInput}`);
-	if (s.expectedOutput) lines.push(`**Expected**: ${s.expectedOutput}`);
-	if (s.expectedInput || s.expectedOutput) lines.push("");
-}
-
-function appendConfigUiContextLines(lines: string[], s: StepDefinition): void {
-	const ui = s.uiContext;
-	if (ui?.viewName) lines.push(`**View**: ${ui.viewName} (\`${ui.view}\`)`);
-	if (ui?.tabName) lines.push(`**Tab**: ${ui.tabName} (\`${ui.tab}\`)`);
-	if (ui?.components?.length) lines.push(`**Components**: ${ui.components.map((c) => `\`${c}\``).join(" ")}`);
-}
-
-function appendConfigMetadataLines(lines: string[], s: StepDefinition): void {
-	if (s.events?.length) lines.push(`**Events**: ${s.events.map((e) => `\`${e}\``).join(" ")}`);
-	if (s.commands?.length) lines.push(`**Commands**: ${s.commands.map((c) => `\`${c}\``).join(" ")}`);
-	if (s.queries?.length) lines.push(`**Queries**: ${s.queries.map((q) => `\`${q}\``).join(" ")}`);
-	if (s.interactions?.length) lines.push(`**Interactions**: ${s.interactions.map((i) => `*${i}*`).join(", ")}`);
-}
-
-function appendManualResultLines(lines: string[], manualResults: ManualVerification[]): void {
-	const allPassed = manualResults.every((m) => m.status === "pass");
-	lines.push("", allPassed ? "**Manual QA — PASSED**:" : "**Manual QA — FAILED**:");
-	for (const m of manualResults) {
-		lines.push(`- ${m.status === "pass" ? "\u2713" : "\u2717"} ${m.instruction}`);
-		if (m.notes) lines.push(`  *Notes*: ${m.notes}`);
-	}
-}
-
-function appendCanvasManualLines(lines: string[], stepResult: StepResult, vars: Record<string, string>): void {
-	const manualActions = (stepResult.step.actions ?? []).filter((a) => a.tool === "manual");
-	const manualResults = stepResult.manualVerifications ?? [];
-	if (manualResults.length > 0) {
-		appendManualResultLines(lines, manualResults);
-	} else if (manualActions.length > 0) {
-		lines.push("", "**Manual QA**:");
-		for (const m of manualActions) lines.push(`- [ ] ${resolveVars(m.instruction ?? "", vars)}`);
-	}
-}
-
-function appendCanvasVisualLines(lines: string[], stepResult: StepResult, vars: Record<string, string>): void {
-	const viActions = (stepResult.step.actions ?? []).filter((a) => a.tool === "visual-inspection");
-	if (viActions.length === 0) return;
-	const hasWarnings = stepResult.warnings && stepResult.warnings.length > 0;
-	lines.push("", hasWarnings ? "**Visual Inspection — FAILED**:" : "**Visual Inspection**:");
-	for (const vi of viActions) lines.push(`- ${resolveVars(vi.prompt ?? "", vars)}`);
-	if (hasWarnings) {
-		for (const w of stepResult.warnings!) lines.push(`**Reason**: ${w}`);
-	}
-}
-
-function buildCanvasConfigLines(
-	stepResult: StepResult, journeySlug: string, canvasVars: Record<string, string>,
-): string[] {
-	const s = stepResult.step;
-	const hasStepWarnings = stepResult.warnings && stepResult.warnings.length > 0;
-	const cb = canvasCheckbox(stepResult.status, !!hasStepWarnings);
-	const durationStr = stepResult.durationMs ? formatDuration(stepResult.durationMs) : "";
-
-	const lines: string[] = [];
-	lines.push(`**describe** ${s.describeBlock ?? journeySlug ?? ""}`);
-	lines.push(`- ${cb} **it** ${s.itBlock ?? `${s.guideSection} — ${s.title}`} (${durationStr})`);
-	lines.push("");
-
-	appendConfigDescriptionLines(lines, s);
-	appendConfigUiContextLines(lines, s);
-	appendConfigMetadataLines(lines, s);
-	appendCanvasManualLines(lines, stepResult, canvasVars);
-	appendCanvasVisualLines(lines, stepResult, canvasVars);
-
-	const noticeActions = (s.actions ?? []).filter((a) => a.tool === "notice");
-	if (noticeActions.length > 0) {
-		lines.push("", `**Notices**: ${noticeActions.map((n) => `*${resolveVars(n.message ?? "", canvasVars)}*`).join(", ")}`);
-	}
-	if (stepResult.error) { lines.push("", `**Error**: ${stepResult.error}`); }
-
-	return lines;
-}
+// Re-export formatActionText for external consumers
+export { formatActionText } from "./e2e-report-canvas-helpers.js";
 
 // ── Node Builders ───────────────────────────────────────────────
 
@@ -259,26 +133,6 @@ function buildActionNodes(
 	return { nodes: actionNodes, edges: actionEdges };
 }
 
-function buildCanvasEventsText(steps: StepResult[], passedSteps: number, failedSteps: number, durationMs: number, trace: TraceData | null): string {
-	const lines: string[] = ["## Events Summary"];
-	lines.push(`**Steps**: ${passedSteps} passed, ${failedSteps} failed`);
-	lines.push(`**Duration**: ${formatDuration(durationMs)}`);
-	lines.push("");
-
-	for (const sr of steps) {
-		const cb = sr.status === "pass" ? "[x]" : sr.status === "fail" ? "[!]" : "[ ]";
-		lines.push(`- ${cb} ${sr.step.itBlock ?? `${sr.step.guideSection} — ${sr.step.title}`} (${formatDuration(sr.durationMs)})`);
-	}
-
-	if (trace?.summary?.eventFrequency) {
-		const sorted = Object.entries(trace.summary.eventFrequency).sort((a, b) => b[1] - a[1]).slice(0, 8);
-		lines.push("", "### Top Events", "| Event | Count |", "|---|---|");
-		for (const [type, count] of sorted) lines.push(`| \`${type}\` | ${count} |`);
-	}
-
-	return lines.join("\n");
-}
-
 function buildCanvasStartNodes(journeyTitle: string, dateStr: string, configFilePath: string | null, circleCenterY: number): { nodes: CanvasNode[]; edges: CanvasEdge[] } {
 	const nodes: CanvasNode[] = [];
 	const edges: CanvasEdge[] = [];
@@ -299,17 +153,6 @@ function buildCanvasStartNodes(journeyTitle: string, dateStr: string, configFile
 	return { nodes, edges };
 }
 
-function resolveStepCanvasColor(stepResult: StepResult): string | undefined {
-	const hasStepWarnings = stepResult.warnings && stepResult.warnings.length > 0;
-	const effectiveStatus = (stepResult.status === "pass" && hasStepWarnings) ? "partial-pass" : stepResult.status;
-	return CANVAS_STATUS_COLOR[effectiveStatus];
-}
-
-function resolveStepScreenshotPath(stepResult: StepResult, screenshotBasePath: string): string | null {
-	const stepScreenshots = stepResult.screenshotFiles ?? (stepResult.screenshotFile ? [stepResult.screenshotFile] : []);
-	return stepScreenshots.length > 0 ? `${screenshotBasePath}/${stepScreenshots[0]}` : null;
-}
-
 function buildStepGroupAndConfigNodes(
 	s: StepDefinition, stepResult: StepResult, groupX: number, journeySlug: string,
 	canvasVars: Record<string, string>, screenshotBasePath: string,
@@ -325,7 +168,7 @@ function buildStepGroupAndConfigNodes(
 
 	const configNode: CanvasNode = {
 		id: nId(`${s.id}-config`), type: "text",
-		text: buildCanvasConfigLines(stepResult, journeySlug, canvasVars).join("\n"),
+		text: buildCanvasConfigLines(stepResult, journeySlug, canvasVars, canvasCheckbox).join("\n"),
 		x: groupX + INNER_MARGIN_LEFT, y: 16, width: ACTION_WIDTH, height: GROUP_HEIGHT - 16 - ACTION_MARGIN_BOTTOM,
 	};
 	if (stepColor) configNode.color = stepColor;
@@ -373,21 +216,6 @@ function buildCanvasEndNodes(
 	}];
 	const edges: CanvasEdge[] = [{ id: eId("events", "end"), fromNode: nId("events"), fromSide: "right", toNode: nId("end"), toSide: "left" }];
 	return { nodes, edges };
-}
-
-function extractCanvasJourneyFields(data: Record<string, unknown>): CanvasJourneyFields {
-	const journeySlug = (data.journey as string) ?? "unknown";
-	return {
-		canvasVars: (data.variables as Record<string, string>) ?? {},
-		journeySlug,
-		journeyTitle: journeySlug.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
-		steps: (data.steps as StepResult[]) ?? [],
-		passedSteps: (data.passed as number) ?? 0,
-		failedSteps: (data.failed as number) ?? 0,
-		skippedSteps: (data.skipped as number) ?? 0,
-		totalSteps: (data.totalSteps as number) ?? 0,
-		durationMs: (data.durationMs as number) ?? 0,
-	};
 }
 
 function buildCanvasStepGroups(

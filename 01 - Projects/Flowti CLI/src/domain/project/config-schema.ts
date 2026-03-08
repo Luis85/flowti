@@ -91,6 +91,20 @@ function validateMake(cfg: Record<string, unknown>, warnings: string[]): void {
 	}
 }
 
+function validateGeneratorEntry(entry: unknown, index: number, errors: string[]): void {
+	if (!entry || typeof entry !== "object") {
+		errors.push(`reports.generators[${index}]: must be an object.`);
+		return;
+	}
+	const gen = entry as Record<string, unknown>;
+	if (typeof gen.label !== "string" || gen.label.length === 0) {
+		errors.push(`reports.generators[${index}]: missing "label".`);
+	}
+	if (!gen.id && !gen.command) {
+		errors.push(`reports.generators[${index}]: must have "id" or "command" (or both).`);
+	}
+}
+
 function validateReportGenerators(cfg: Record<string, unknown>, errors: string[]): void {
 	if (cfg.reports === undefined) return;
 	if (!cfg.reports || typeof cfg.reports !== "object") {
@@ -107,17 +121,21 @@ function validateReportGenerators(cfg: Record<string, unknown>, errors: string[]
 		return;
 	}
 	for (let i = 0; i < (reports.generators as unknown[]).length; i++) {
-		const gen = (reports.generators as unknown[])[i] as Record<string, unknown>;
-		if (!gen || typeof gen !== "object") {
-			errors.push(`reports.generators[${i}]: must be an object.`);
-			continue;
-		}
-		if (typeof gen.label !== "string" || gen.label.length === 0) {
-			errors.push(`reports.generators[${i}]: missing "label".`);
-		}
-		if (!gen.id && !gen.command) {
-			errors.push(`reports.generators[${i}]: must have "id" or "command" (or both).`);
-		}
+		validateGeneratorEntry((reports.generators as unknown[])[i], i, errors);
+	}
+}
+
+function validateEndpointEntry(entry: unknown, index: number, errors: string[]): void {
+	if (!entry || typeof entry !== "object") {
+		errors.push(`publish.endpoints[${index}]: must be an object.`);
+		return;
+	}
+	const ep = entry as Record<string, unknown>;
+	if (typeof ep.name !== "string" || ep.name.length === 0) {
+		errors.push(`publish.endpoints[${index}]: missing "name".`);
+	}
+	if (typeof ep.path !== "string" || ep.path.length === 0) {
+		errors.push(`publish.endpoints[${index}]: missing "path".`);
 	}
 }
 
@@ -134,17 +152,21 @@ function validatePublishEndpoints(cfg: Record<string, unknown>, errors: string[]
 		return;
 	}
 	for (let i = 0; i < (publish.endpoints as unknown[]).length; i++) {
-		const ep = (publish.endpoints as unknown[])[i] as Record<string, unknown>;
-		if (!ep || typeof ep !== "object") {
-			errors.push(`publish.endpoints[${i}]: must be an object.`);
-			continue;
-		}
-		if (typeof ep.name !== "string" || ep.name.length === 0) {
-			errors.push(`publish.endpoints[${i}]: missing "name".`);
-		}
-		if (typeof ep.path !== "string" || ep.path.length === 0) {
-			errors.push(`publish.endpoints[${i}]: missing "path".`);
-		}
+		validateEndpointEntry((publish.endpoints as unknown[])[i], i, errors);
+	}
+}
+
+function validateDocGeneratorEntry(entry: unknown, index: number, errors: string[]): void {
+	if (!entry || typeof entry !== "object") {
+		errors.push(`docs.generators[${index}]: must be an object.`);
+		return;
+	}
+	const gen = entry as Record<string, unknown>;
+	if (typeof gen.label !== "string") {
+		errors.push(`docs.generators[${index}]: missing "label".`);
+	}
+	if (typeof gen.command !== "string") {
+		errors.push(`docs.generators[${index}]: missing "command".`);
 	}
 }
 
@@ -161,17 +183,7 @@ function validateDocs(cfg: Record<string, unknown>, errors: string[]): void {
 		return;
 	}
 	for (let i = 0; i < (docs.generators as unknown[]).length; i++) {
-		const gen = (docs.generators as unknown[])[i] as Record<string, unknown>;
-		if (!gen || typeof gen !== "object") {
-			errors.push(`docs.generators[${i}]: must be an object.`);
-			continue;
-		}
-		if (typeof gen.label !== "string") {
-			errors.push(`docs.generators[${i}]: missing "label".`);
-		}
-		if (typeof gen.command !== "string") {
-			errors.push(`docs.generators[${i}]: missing "command".`);
-		}
+		validateDocGeneratorEntry((docs.generators as unknown[])[i], i, errors);
 	}
 }
 

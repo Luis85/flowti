@@ -13,15 +13,17 @@ vi.mock("../../../../../src/infrastructure/clock.js", () => ({
 vi.mock("../../../../../src/infrastructure/config.js", () => ({ PLUGIN_ROOT: "/mock" }));
 
 import {
-	collectVitestFailures,
 	collectFailedSteps,
-	resolveJourneyStatus,
+	aggregateJourneyStats,
+} from "../../../../../src/domain/reports/generators/e2e/e2e-report-summary.js";
+import {
+	collectVitestFailures,
 	collectWarningItBlocks,
 	caseMarkAndSuffix,
 	buildCompactTraceLines,
 	buildJourneyStatsLine,
-	aggregateJourneyStats,
-} from "../../../../../src/domain/reports/generators/e2e/e2e-report-summary.js";
+	resolveJourneyStatus,
+} from "../../../../../src/domain/reports/generators/e2e/e2e-report-sections.js";
 import type { ErrorContext, StepResult, VitestResults } from "../../../../../src/domain/reports/generators/e2e/e2e-report-types.js";
 
 // ── caseMarkAndSuffix ───────────────────────────────────────────────

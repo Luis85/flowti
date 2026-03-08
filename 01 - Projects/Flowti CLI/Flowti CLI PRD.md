@@ -31,6 +31,8 @@ tags:
   - event-catalog
   - storybook
   - ecs
+  - core
+plugin: "[[01 - Projects/Flowti CLI/README|README]]"
 ---
 
 # PRD: Flowti CLI

@@ -68,11 +68,26 @@ function resolveSelectedPath(currentPath: string, name: string): string {
 	return currentPath ? `${currentPath}/${name}` : name;
 }
 
+function buildKBHeader(currentPath: string): string {
+	return currentPath ? `Knowledgebase — ${currentPath}` : "Knowledgebase";
+}
+
+type KBChoice = "quit" | "back" | "search" | "help" | "invalid" | { entry: { name: string; isDir: boolean } };
+
+function classifyKBChoice(choice: string, currentPath: string, indexMap: Map<number, { name: string; isDir: boolean }>): KBChoice {
+	if (choice === "q") return "quit";
+	if (choice === "b" && currentPath) return "back";
+	if (choice === "s") return "search";
+	if (choice === "?") return "help";
+	const selected = indexMap.get(parseInt(choice, 10));
+	return selected ? { entry: selected } : "invalid";
+}
+
 export async function knowledgebaseMenu(): Promise<MenuResult> {
 	let currentPath = "";
 
 	while (true) {
-		printHeader("Knowledgebase" + (currentPath ? ` — ${currentPath}` : ""));
+		printHeader(buildKBHeader(currentPath));
 
 		const { indexMap, isEmpty } = renderFolderListing(currentPath);
 		if (isEmpty) log(`  ${DIM}(empty folder)${RESET}\n`);
@@ -80,17 +95,16 @@ export async function knowledgebaseMenu(): Promise<MenuResult> {
 		printNavHints(currentPath);
 
 		const choice = await input.ask("Choice");
+		const action = classifyKBChoice(choice, currentPath, indexMap);
 
-		if (choice === "q") return "main";
-		if (choice === "b" && currentPath) { currentPath = navigateBack(currentPath); continue; }
-		if (choice === "s") { await searchMode(); continue; }
-		if (choice === "?") { showHelp("knowledgebase"); continue; }
+		if (action === "quit") return "main";
+		if (action === "back") { currentPath = navigateBack(currentPath); continue; }
+		if (action === "search") { await searchMode(); continue; }
+		if (action === "help") { showHelp("knowledgebase"); continue; }
+		if (action === "invalid") { log("\n  Invalid choice — try again.\n"); continue; }
 
-		const selected = indexMap.get(parseInt(choice, 10));
-		if (!selected) { log("\n  Invalid choice — try again.\n"); continue; }
-
-		const selectedPath = resolveSelectedPath(currentPath, selected.name);
-		if (selected.isDir) { currentPath = selectedPath; } else { await viewFile(selectedPath); }
+		const selectedPath = resolveSelectedPath(currentPath, action.entry.name);
+		if (action.entry.isDir) { currentPath = selectedPath; } else { await viewFile(selectedPath); }
 	}
 }
 

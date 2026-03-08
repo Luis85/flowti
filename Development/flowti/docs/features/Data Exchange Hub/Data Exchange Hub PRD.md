@@ -1,5 +1,5 @@
 ---
-domain: Flowti
+domain: Flowti/Plugin/Integration
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
 stage: done

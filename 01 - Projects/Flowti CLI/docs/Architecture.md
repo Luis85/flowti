@@ -2,7 +2,7 @@
 type: Architecture
 domain: CLI
 title: Flowti CLI — Architecture Document
-version: 6
+version: 7
 created: 2026-03-07
 updated: 2026-03-08
 status: living-document
@@ -18,7 +18,7 @@ status: living-document
 
 The Flowti CLI is a **definition-driven project orchestrator** that ships as a self-contained Node.js binary. It manages multi-project development workflows — scaffolding, building, testing, reviewing, publishing, and reporting — from a single interactive menu or via non-interactive commands for AI agent tool use.
 
-**Scale**: 132 source files, 82 test files (1,232 tests, 77 suites), 15 domain modules, 19 infrastructure modules. Zero production dependencies — runs on Node.js built-ins only.
+**Scale**: 132 source files, 83 test files (1,256 tests, 78 suites), 15 domain modules, 19 infrastructure modules. Zero production dependencies — runs on Node.js built-ins only.
 
 ---
 
@@ -38,7 +38,7 @@ The Flowti CLI is a **definition-driven project orchestrator** that ships as a s
 │  │  Bundled:  Scaffold definitions (JSON)                    │     │
 │  │            Component definitions (8 kinds, JSON)          │     │
 │  │            Template functions (6 registries)              │     │
-│  │            Generator functions (7 report types)           │     │
+│  │            Generator functions (6 report + 2 reference)   │     │
 │  │            All infrastructure + domain logic              │     │
 │  └────────────┬──────────────────────────────────────────────┘     │
 │               │                                                    │
@@ -106,7 +106,7 @@ flowti.cmd
 │  │  7  Capture Idea                                 │  │
 │  │  8  Capture Note                                 │  │
 │  │  ─────────────────────────────────────────       │  │
-│  │  d  Documentation  (Update All, Entity Reference) │  │
+│  │  d  Documentation  (Update All, CLI/Entity Ref.)  │  │
 │  │  k  Knowledgebase  (Obsidian opt-in)             │  │
 │  │  i  Info           (project diagnostics)         │  │
 │  │  ─────────────────────────────────────────       │  │
@@ -186,7 +186,8 @@ process.argv → parseArgs() → { command, flags }
                          └───────────────────────────┘
 
 PROJECT_FREE commands: help, project, capture:*, scaffold:*
-All others require --project=<name> or a persisted selection.
+All others (reports, report:*, docs, build, review, publish, etc.)
+require --project=<name> or a persisted selection.
 ```
 
 ### 2.6 Definition-Driven Scaffolding
@@ -240,51 +241,60 @@ Record<templateId, (vars: ComponentVariables, def: ComponentDefinition) => strin
 
 Separates "what to create" (definitions) from "how to render" (templates). Templates are pure functions that return file content as a string.
 
-### 2.7 Report Generation Architecture
+### 2.7 Report & Reference Generation Architecture
+
+The CLI separates **reports** (timestamped point-in-time snapshots) from **references** (stable living documents). Both use the same `GeneratorFn` type but different registries and output patterns.
 
 ```
 ┌──────────────────── Report Pipeline ──────────────────────┐
 │                                                            │
-│  flowti.config.json                                        │
-│    generators: [                                           │
-│      { id: "test",       prerequisites: ["npm run ..."] }, │
-│      { id: "coverage",   prerequisites: ["npm run ..."] }, │
-│      { id: "codebase",   prerequisites: ["npm run docs"] },│
-│      { id: "complexity", prerequisites: ["npm run ..."] }, │
-│      { id: "status" },                                     │
-│      { id: "summary" },                                    │
-│    ]                                                       │
+│  flowti reports  (or interactive Reports menu)             │
+│                                                            │
+│  flowti.config.json → reports.generators[]                 │
+│    ├── { id: "test",       prerequisites: [...] }          │
+│    ├── { id: "coverage",   prerequisites: [...] }          │
+│    ├── { id: "codebase",   prerequisites: [...] }          │
+│    ├── { id: "complexity", prerequisites: [...] }          │
+│    ├── { id: "status" }                                    │
+│    └── { id: "summary" }                                   │
 │                                                            │
 │  runAllReports(generators, projectPath)                     │
-│    │                                                       │
-│    ├── Deduplicate prerequisites across all generators      │
-│    ├── For each generator:                                 │
-│    │   ├── Run prerequisites (skip already completed)      │
-│    │   ├── Look up in GeneratorRegistry (by ID)            │
-│    │   │   ├── Found → call GeneratorFn(projectPath)       │
-│    │   │   └── Not found → fallback to shell command       │
-│    │   ├── Collect: success, duration, output, warnings    │
-│    │   └── Never stop on failure                           │
-│    │                                                       │
-│    └── Print Run Summary                                   │
-│        ├── ✓  passed                                       │
-│        ├── ⚠  passed with warnings (lint, TypeDoc, etc.)   │
-│        └── ✗  failed (with error details)                  │
+│    ├── Deduplicate prerequisites                           │
+│    ├── For each: prereqs → registry lookup → GeneratorFn   │
+│    ├── Collect: success, duration, output, warnings        │
+│    └── Never stop on failure → Print Run Summary           │
 │                                                            │
-│  Generator Registry (7 built-in):                          │
-│    test → generateTestReport                               │
-│    coverage → generateCoverageReport                       │
-│    codebase → generateCodebaseReport                       │
-│    complexity → generateComplexityReport                   │
-│    status → generateProjectStatusReport                    │
-│    summary → generateSummaryReport                         │
+│  Report Registry (6 built-in):                             │
+│    test, coverage, codebase, complexity, status, summary   │
+│                                                            │
+│  Output: ReportService.save()                              │
+│    ├── reports/{subdir}/{timestamp}-{slug}.md  (archived)  │
+│    ├── reports/{Title}.md                      (stable)    │
+│    └── reports/{subdir}/{slug}.json            (data copy) │
+└────────────────────────────────────────────────────────────┘
+
+┌──────────────────── Reference Pipeline ───────────────────┐
+│                                                            │
+│  flowti docs  (or interactive Documentation menu)          │
+│                                                            │
+│  1. Config generators (e.g. TypeDoc → shell command)       │
+│  2. Built-in reference generators (via ReferenceRegistry)  │
+│                                                            │
+│  Reference Registry (2 built-in):                          │
+│    cli-reference    → generateCliReference                 │
 │    entity-reference → generateEntityReference              │
+│                                                            │
+│  Output: ReportService.saveReference()                     │
+│    └── docs/reference/{Title}.md               (stable)   │
+│         (configurable via docs.referenceDir)               │
 └────────────────────────────────────────────────────────────┘
 ```
 
-**Resilience**: The runner never stops on failure. Each generator runs independently. Failed reports are signals captured in the summary, not blockers.
+**Resilience**: The report runner never stops on failure. Each generator runs independently. Failed reports are signals captured in the summary, not blockers.
 
 **Warnings**: Generators return `warnings?: string[]` for non-fatal issues (coverage below threshold, lint warnings, TypeDoc warnings, high complexity). The summary displays individual lint issues with file:line detail.
+
+**Self-contained**: All generators run in-process via the binary. No npm script indirection — the CLI is the sole orchestrator. `npm run` is only used for tool prerequisites that require external binaries (vitest, typedoc, complexity-report).
 
 ### 2.8 E2E Review & Test Vault
 
@@ -373,14 +383,19 @@ The target architecture extends the status quo to fulfill all PRD v4 requirement
 
 `report-archive.ts` discovers timestamped `.md` files in report subdirectories. Reports menu has "Browse Archive" (`key: "a"`) that lists categories and lets users view past reports.
 
-### 4.4 Entity Reference Generator — DONE
+### 4.4 Reference Generation System — DONE
 
-`generators/entity-reference.ts` generates the entity dictionary of the CLI ecosystem. 9 entities (Flowti Project, Journey, Component, Component Library, Test, Test Suite, Event, Event Catalog, Report) with description, purpose, locations, config keys, commands, artifacts, and relationships.
+The CLI separates **reports** (timestamped snapshots in `reports/`) from **references** (stable living documents in `docs/reference/`). Each has its own registry and service method.
 
-Wired into:
-- Generator registry as 7th built-in generator (`entity-reference`)
-- Documentation menu as built-in generator (always available)
-- "Update All" runs config generators + built-in generators (Entity Reference)
+**Reference Registry** (`reference-registry.ts`): 2 built-in generators:
+- `entity-reference` — Entity dictionary (9 entities with description, purpose, locations, config keys, commands, artifacts, relationships)
+- `cli-reference` — CLI command reference (non-interactive commands, help sections, npm scripts, config files)
+
+**ReportService.saveReference()**: Writes a single stable file to `docs/reference/` (configurable via `docs.referenceDir`). No timestamps, no archive copies.
+
+**CLI command**: `flowti docs` runs config generators (e.g. TypeDoc) + all built-in reference generators.
+
+**Interactive**: Documentation menu → "Update All" runs config generators + reference generators. Individual generators listed as separate menu items.
 
 ### 4.5 Developer Onboarding E2E Journey (FR-12) — DONE
 
@@ -432,10 +447,14 @@ All items delivered. 45 new tests for config validation, `--project` flag with i
 | 1.2 | **Non-interactive project selection** (IMP-01) | DONE | `main.ts` (resolveProjectContext), `project.ts` (listProjects) |
 | 1.3 | **Developer onboarding E2E journey** (FR-12) | DONE | `tests/e2e/60-journey-developer-onboarding.test.ts` (7 tests) |
 | 1.4 | **Report archive browsing** (IMP-03) | DONE | `reports/report-archive.ts`, `mainMenu.ts` |
-| 1.5 | **Entity Reference generator** | DONE | `reports/generators/entity-reference.ts`, `generator-registry.ts` |
+| 1.5 | **Entity Reference generator** | DONE | `reports/generators/entity-reference.ts`, `reference-registry.ts` |
 | 1.6 | **Documentation menu redesign** | DONE | `mainMenu.ts` (Update All + built-in generators) |
+| 1.7 | **Report/Reference separation** | DONE | `reference-registry.ts`, `report-service.ts` (saveReference), `generator-registry.ts` (6 reports) |
+| 1.8 | **CLI Reference as reference generator** | DONE | `generators/cli-reference.ts` (GeneratorFn pattern), `reference-registry.ts` |
+| 1.9 | **`flowti docs` command** | DONE | `reports/reports.ts` (docs command: config generators + built-in references) |
+| 1.10 | **npm script cleanup** | DONE | `package.json` (17→10 scripts), `flowti.config.json` (remove npm indirections) |
 
-**Milestone**: All PRD v4 acceptance criteria passing. 1,232 tests, 77 suites. 0 lint errors.
+**Milestone**: All PRD v4 acceptance criteria passing. 1,256 tests, 78 suites. 0 lint errors, 19 warnings.
 
 ### Phase 2: Component & Event Enrichment
 
@@ -540,22 +559,9 @@ flowti info --format=json
 
 ### 6.5 Report Generator Plugin Pattern
 
-**Current**: The generator registry is a hardcoded `Map<string, GeneratorFn>`. Adding a new report type requires modifying `generator-registry.ts`.
+**Current**: Two separate registries (`generator-registry.ts` for reports, `reference-registry.ts` for references) with hardcoded `Map<string, GeneratorFn>`. Adding a new type requires modifying a registry file. External commands are supported via config.
 
-**Target**: Generators self-register via a decorator or convention. Projects can provide custom generators in their config:
-
-```json
-{
-  "reports": {
-    "generators": [
-      { "id": "test", "label": "Test Report" },
-      { "id": "custom", "label": "Custom Report", "command": "tsx scripts/my-report.ts" }
-    ]
-  }
-}
-```
-
-This already works for external commands. The improvement is allowing projects to register internal generator functions.
+**Target**: Generators self-register via convention. Projects can provide custom generators in their config (already works for external commands). The improvement is allowing projects to register internal generator functions without modifying registry source.
 
 ### 6.6 Error Handling Consistency
 
@@ -613,7 +619,7 @@ This already works for external commands. The improvement is allowing projects t
 | Scaffold | `scaffold-service.ts`, `scaffold-plan.ts`, `scaffold-schema.ts` | Project creation from JSON definitions |
 | Make | `MakeService.ts`, `makers.ts`, `make-commands.ts` | In-project scaffolding (journey, component) |
 | Component | `component-registry.ts`, `component-plan.ts`, `component-types.ts` | 8-kind component system with ECS properties |
-| Reports | `report-runner.ts`, `generator-registry.ts`, 7 generators, `report-archive.ts` | Resilient report generation with prerequisites, archive browsing |
+| Reports | `report-runner.ts`, `generator-registry.ts` (6 reports), `reference-registry.ts` (2 refs), `report-archive.ts` | Resilient report generation, reference documents, archive browsing |
 | Review | `project-review.ts`, `E2EService.ts` | E2E test execution, test vault management |
 | Publish | `project-publish.ts` | Gated build → test → distribute pipeline |
 | Events | `event-catalog.ts` | Per-project domain event documentation |
@@ -652,3 +658,8 @@ This already works for external commands. The improvement is allowing projects t
 | D-11 | Entity Reference as built-in generator | Self-documenting ecosystem; entities tracked in code, not wiki |
 | D-12 | Documentation menu always available | Built-in generators (Entity Reference) ensure "Update All" is never empty |
 | D-13 | ReadConfigResult wrapper | Config loading returns `{ config, warnings }` for structured error reporting |
+| D-14 | Separate report/reference registries | Reports (timestamped snapshots) vs references (stable living docs) have fundamentally different output patterns |
+| D-15 | `saveReference()` method | Single file to `docs/reference/` — no timestamps, no JSON copies, configurable via `docs.referenceDir` |
+| D-16 | `flowti docs` as first-class command | CLI binary owns documentation generation; eliminates npm script indirection for reference docs |
+| D-17 | Lean package.json (10 scripts) | Heavy lifting done by CLI binary; npm scripts only for external tool invocation (vitest, typedoc, eslint) |
+| D-18 | No standalone entry points in generators | Generators are callable via registry only; eliminates `process.argv` lint violations and dead code |

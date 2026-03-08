@@ -31,7 +31,7 @@ import {
 	collectLintWarnings,
 	collectTypedocWarnings,
 } from "./summary-loaders.js";
-import { analyzeReports } from "./summary-analyzers.js";
+import { analyzeReports } from "./summary-analyzers-ext.js";
 import {
 	promoteFrontmatter,
 	renderOverview,
@@ -155,6 +155,36 @@ function buildJsonOutput(
 	};
 }
 
+function appendLintWarnings(warnings: string[], lint: LintResult | null): void {
+	if (!lint || (lint.errors === 0 && lint.warnings === 0)) return;
+	warnings.push(`Lint: ${lint.errors} error(s), ${lint.warnings} warning(s)`);
+	for (const issue of lint.issues) {
+		const icon = issue.severity === "error" ? "✗" : "⚠";
+		warnings.push(`  ${icon} ${issue.file}:${issue.line} ${issue.message} (${issue.rule})`);
+	}
+}
+
+function appendTypedocWarnings(warnings: string[], typedoc: TypeDocResult | null): void {
+	if (!typedoc || (typedoc.errors === 0 && typedoc.warnings === 0)) return;
+	warnings.push(`TypeDoc: ${typedoc.errors} error(s), ${typedoc.warnings} warning(s)`);
+	for (const issue of typedoc.issues) {
+		const icon = issue.severity === "error" ? "✗" : "⚠";
+		warnings.push(`  ${icon} ${issue.message}`);
+	}
+}
+
+function collectOutputWarnings(
+	snapshots: ReportSnapshot[], risks: number,
+	lint: LintResult | null, typedoc: TypeDocResult | null,
+): string[] {
+	const warnings: string[] = [];
+	if (snapshots.length === 0) warnings.push("No reports found — run report generators first");
+	if (risks > 0) warnings.push(`${risks} risk(s) detected`);
+	appendLintWarnings(warnings, lint);
+	appendTypedocWarnings(warnings, typedoc);
+	return warnings;
+}
+
 export function generateSummaryReport(projectPath: string): GeneratorOutput {
 	const svc = new ReportService(projectPath);
 	const projectName = paths.basename(projectPath);
@@ -195,23 +225,7 @@ export function generateSummaryReport(projectPath: string): GeneratorOutput {
 	log(`    ${timestampedPath}`);
 	log(`    ${jsonPath}\n`);
 
-	const warnings: string[] = [];
-	if (snapshots.length === 0) warnings.push("No reports found — run report generators first");
-	if (risks > 0) warnings.push(`${risks} risk(s) detected`);
-
-	if (lint && (lint.errors > 0 || lint.warnings > 0)) {
-		warnings.push(`Lint: ${lint.errors} error(s), ${lint.warnings} warning(s)`);
-		for (const issue of lint.issues) {
-			warnings.push(`  ${issue.severity === "error" ? "✗" : "⚠"} ${issue.file}:${issue.line} ${issue.message} (${issue.rule})`);
-		}
-	}
-
-	if (typedoc && (typedoc.errors > 0 || typedoc.warnings > 0)) {
-		warnings.push(`TypeDoc: ${typedoc.errors} error(s), ${typedoc.warnings} warning(s)`);
-		for (const issue of typedoc.issues) {
-			warnings.push(`  ${issue.severity === "error" ? "✗" : "⚠"} ${issue.message}`);
-		}
-	}
+	const warnings = collectOutputWarnings(snapshots, risks, lint, typedoc);
 
 	return {
 		success: true,

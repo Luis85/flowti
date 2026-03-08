@@ -1,5 +1,5 @@
 ---
-domain: Session
+domain: Flowti/Plugin/PKM
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
 stage: done
@@ -27,7 +27,6 @@ tags:
   - capture
   - train-of-thought
   - innovation
-  - core
 planned_in:
   - "[[Cycle 13 - Train of Thoughts]]"
   - "[[Cycle 14 - Train View Polish]]"

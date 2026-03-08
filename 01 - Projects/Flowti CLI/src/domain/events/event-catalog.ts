@@ -150,6 +150,23 @@ function discoverSiblingLinks(projectPath: string, kebab: string): SiblingLinks 
 	return links;
 }
 
+function renderListOrPlaceholder(doc: Document, items: string[], placeholder: string): void {
+	if (items.length > 0) {
+		doc.list(items);
+	} else {
+		doc.text(placeholder);
+	}
+}
+
+function collectFileLinks(links: SiblingLinks): string[] {
+	const fileLinks: string[] = [];
+	for (const rel of links.tests) fileLinks.push(`- [[${rel}|Test]]`);
+	for (const rel of links.sources) fileLinks.push(`- [[${rel}|Source]]`);
+	for (const rel of links.configs) fileLinks.push(`- [[${rel}|Config]]`);
+	for (const rel of links.definitions) fileLinks.push(`- [[${rel}|Definition]]`);
+	return fileLinks;
+}
+
 /** Create an event markdown file from a definition. */
 export function createEventFile(projectPath: string, def: EventDefinition): string | null {
 	const dir = eventsDir(projectPath);
@@ -183,24 +200,14 @@ export function createEventFile(projectPath: string, def: EventDefinition): stri
 		doc.text(def.description).addBlank();
 	}
 
-	// Producers & Consumers
 	doc.heading(2, "Producers").addBlank();
-	if (def.producers.length > 0) {
-		doc.list(def.producers);
-	} else {
-		doc.text("<!-- List systems/services that emit this event. -->");
-	}
+	renderListOrPlaceholder(doc, def.producers, "<!-- List systems/services that emit this event. -->");
 	doc.addBlank();
 
 	doc.heading(2, "Consumers").addBlank();
-	if (def.consumers.length > 0) {
-		doc.list(def.consumers);
-	} else {
-		doc.text("<!-- List systems/services that subscribe to this event. -->");
-	}
+	renderListOrPlaceholder(doc, def.consumers, "<!-- List systems/services that subscribe to this event. -->");
 	doc.addBlank();
 
-	// Payload schema
 	doc.heading(2, "Payload").addBlank();
 	if (def.payload.length > 0) {
 		doc.table(
@@ -212,36 +219,19 @@ export function createEventFile(projectPath: string, def: EventDefinition): stri
 	}
 	doc.addBlank();
 
-	// Sibling wikilinks — auto-discover related files
 	const links = discoverSiblingLinks(projectPath, kebab);
 
 	doc.heading(2, "Related Components").addBlank();
-	if (links.components.length > 0) {
-		doc.list(links.components.map((c) => `[[${c}]]`));
-	} else {
-		doc.text("<!-- Link components that produce or consume this event. -->");
-	}
+	renderListOrPlaceholder(doc, links.components.map((c) => `[[${c}]]`), "<!-- Link components that produce or consume this event. -->");
 	doc.addBlank();
 
 	doc.heading(2, "Journeys").addBlank();
-	if (links.journeys.length > 0) {
-		doc.list(links.journeys.map((j) => `[[${j}]]`));
-	} else {
-		doc.text("<!-- Link user journeys where this event plays a role. -->");
-	}
+	renderListOrPlaceholder(doc, links.journeys.map((j) => `[[${j}]]`), "<!-- Link user journeys where this event plays a role. -->");
 	doc.addBlank();
 
 	doc.heading(2, "Related Files").addBlank();
-	const fileLinks: string[] = [];
-	for (const rel of links.tests) fileLinks.push(`- [[${rel}|Test]]`);
-	for (const rel of links.sources) fileLinks.push(`- [[${rel}|Source]]`);
-	for (const rel of links.configs) fileLinks.push(`- [[${rel}|Config]]`);
-	for (const rel of links.definitions) fileLinks.push(`- [[${rel}|Definition]]`);
-	if (fileLinks.length > 0) {
-		doc.text(fileLinks.join("\n"));
-	} else {
-		doc.text("<!-- Related test, source, config, and definition files will be linked here. -->");
-	}
+	const fileLinks = collectFileLinks(links);
+	renderListOrPlaceholder(doc, fileLinks, "<!-- Related test, source, config, and definition files will be linked here. -->");
 	doc.addBlank();
 
 	doc.save(filePath);

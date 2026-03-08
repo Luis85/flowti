@@ -23,6 +23,19 @@ import type { ProjectContext } from "../../../infrastructure/types.js";
 
 type CommandHandler = (flags: Record<string, string | boolean>, rawArgs: string[], command?: string, project?: ProjectContext) => void;
 
+function buildComponentVars(name: string, flags: Record<string, string | boolean>): ComponentVariables {
+	return {
+		name,
+		kebab: toKebab(name),
+		pascal: toPascal(name),
+		camel: toCamel(name),
+		description: String(flags.description ?? ""),
+		technology: String(flags.technology ?? ""),
+		containedBy: String(flags.containedBy ?? ""),
+		owner: String(flags.owner ?? ""),
+	};
+}
+
 function makeComponentCommand(definitionId: string): CommandHandler {
 	return (flags, _r, _c, project) => {
 		const name = flags.name;
@@ -44,27 +57,13 @@ function makeComponentCommand(definitionId: string): CommandHandler {
 			proc.exit(1);
 		}
 
-		const kebab = toKebab(name);
-		const pascal = toPascal(name);
-		const camel = toCamel(name);
+		const vars = buildComponentVars(name, flags);
 
-		const docPath = paths.join(project.path, "docs", "components", `${kebab}.md`);
+		const docPath = paths.join(project.path, "docs", "components", `${vars.kebab}.md`);
 		if (disk.existsSync(docPath)) {
-			log(`\n  ${RED}Component already exists:${RESET} ${kebab}\n`);
+			log(`\n  ${RED}Component already exists:${RESET} ${vars.kebab}\n`);
 			proc.exit(1);
 		}
-
-		// Build variables from flags
-		const vars: ComponentVariables = {
-			name,
-			kebab,
-			pascal,
-			camel,
-			description: String(flags.description ?? ""),
-			technology: String(flags.technology ?? ""),
-			containedBy: String(flags.containedBy ?? ""),
-			owner: String(flags.owner ?? ""),
-		};
 
 		log(`\n  ${CYAN}▸${RESET} Adding ${def.label}: ${name}\n`);
 

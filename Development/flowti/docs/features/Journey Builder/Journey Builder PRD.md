@@ -1,5 +1,5 @@
 ---
-domain: Flowti
+domain: Flowti/Plugin/Journeys
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
 stage: in-progress

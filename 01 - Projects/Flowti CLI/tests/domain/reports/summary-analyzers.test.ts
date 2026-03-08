@@ -18,13 +18,15 @@ import {
 	checkUncoveredFunctions,
 	analyzeCodebase,
 	analyzeCycle,
+} from "../../../src/domain/reports/cli/summary-analyzers.js";
+import {
 	analyzePerformance,
 	analyzeTraceability,
 	analyzeE2e,
 	analyzeLint,
 	analyzeTypedoc,
 	analyzeReports,
-} from "../../../src/domain/reports/cli/summary-analyzers.js";
+} from "../../../src/domain/reports/cli/summary-analyzers-ext.js";
 import type { ReportSnapshot, JsonDataSources, DetailedSources, LintResult, TypeDocResult } from "../../../src/domain/reports/cli/summary-types.js";
 import type { SummaryThresholds } from "../../../src/infrastructure/types.js";
 

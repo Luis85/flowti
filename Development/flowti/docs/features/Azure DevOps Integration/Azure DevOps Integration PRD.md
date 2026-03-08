@@ -1,6 +1,6 @@
 ---
 type: ProductRequirementsDocument
-domain: Signal
+domain: Flowti/Plugin/Integration
 stage: delivered
 version: 3
 maturity: L3

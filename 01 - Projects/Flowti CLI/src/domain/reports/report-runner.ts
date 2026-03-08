@@ -32,6 +32,45 @@ export interface ReportRunResult {
 	failed: number;
 }
 
+// ── Runner helpers ──────────────────────────────────────────────────
+
+function runPrerequisites(
+	prereqs: string[] | undefined,
+	projectPath: string,
+	completedPrereqs: Set<string>,
+): void {
+	if (!prereqs) return;
+	for (const prereq of prereqs) {
+		if (completedPrereqs.has(prereq)) continue;
+		log(`    ${DIM}prerequisite: ${prereq}${RESET}`);
+		const { exitCode } = shell.runCaptureStatus(prereq, { cwd: projectPath });
+		completedPrereqs.add(prereq);
+		if (exitCode !== 0) {
+			throw new Error(`Prerequisite failed (exit ${exitCode}): ${prereq}`);
+		}
+	}
+}
+
+function executeGenerator(
+	gen: ReportGenerator,
+	projectPath: string,
+): { output: GeneratorOutput | null; success: boolean; error?: string } {
+	if (gen.id && hasGenerator(gen.id)) {
+		const output = runGenerator(gen.id, projectPath);
+		if (!output) return { output: null, success: false, error: "Generator returned null" };
+		return {
+			output,
+			success: output.success,
+			error: output.success ? undefined : "Generator reported failure (missing data source)",
+		};
+	}
+	if (gen.command) {
+		const { exitCode } = shell.runCaptureStatus(gen.command, { cwd: projectPath });
+		return { output: null, success: exitCode === 0, error: exitCode !== 0 ? `Command exited with code ${exitCode}` : undefined };
+	}
+	return { output: null, success: false, error: `Unknown generator: "${gen.id ?? gen.label}"` };
+}
+
 // ── Runner ──────────────────────────────────────────────────────────
 
 export function runAllReports(
@@ -43,7 +82,6 @@ export function runAllReports(
 
 	log(`\n  ${CYAN}▸${RESET} Running ${generators.length} report generator(s)...\n`);
 
-	// Deduplicate prerequisites across all generators to avoid running the same command twice.
 	const completedPrereqs = new Set<string>();
 
 	for (const gen of generators) {
@@ -51,54 +89,25 @@ export function runAllReports(
 		log(`  ${CYAN}▸${RESET} ${gen.label}`);
 		const start = clock.ms();
 
-		let output: GeneratorOutput | null = null;
-		let error: string | undefined;
-		let success = false;
+		let result: { output: GeneratorOutput | null; success: boolean; error?: string };
 
 		try {
-			// Run prerequisites (skipping any already completed in this run)
-			if (gen.prerequisites) {
-				for (const prereq of gen.prerequisites) {
-					if (completedPrereqs.has(prereq)) continue;
-					log(`    ${DIM}prerequisite: ${prereq}${RESET}`);
-					const { exitCode } = shell.runCaptureStatus(prereq, { cwd: projectPath });
-					completedPrereqs.add(prereq);
-					if (exitCode !== 0) {
-						throw new Error(`Prerequisite failed (exit ${exitCode}): ${prereq}`);
-					}
-				}
-			}
-
-			// Internal generator (by ID) takes priority
-			if (gen.id && hasGenerator(gen.id)) {
-				output = runGenerator(gen.id, projectPath);
-				if (output) {
-					success = output.success;
-					if (!success) error = "Generator reported failure (missing data source)";
-				}
-			} else if (gen.command) {
-				// Fallback: external command (for projects with custom scripts)
-				const { exitCode } = shell.runCaptureStatus(gen.command, { cwd: projectPath });
-				success = exitCode === 0;
-				if (!success) error = `Command exited with code ${exitCode}`;
-			} else {
-				error = `Unknown generator: "${gen.id ?? gen.label}"`;
-			}
+			runPrerequisites(gen.prerequisites, projectPath, completedPrereqs);
+			result = executeGenerator(gen, projectPath);
 		} catch (err) {
-			error = err instanceof Error ? err.message : String(err);
+			result = { output: null, success: false, error: err instanceof Error ? err.message : String(err) };
 		}
 
 		const durationMs = clock.ms() - start;
 		const dur = (durationMs / 1000).toFixed(1);
 
-		if (success) {
+		if (result.success) {
 			log(`  ${GREEN}✓${RESET} ${gen.label} ${DIM}(${dur}s)${RESET}`);
 		} else {
 			log(`  ${RED}✗${RESET} ${gen.label} ${DIM}(${dur}s)${RESET}`);
 		}
 
-		const warnings = output?.warnings;
-		results.push({ id: genId, label: gen.label, success, durationMs, output, error, warnings });
+		results.push({ id: genId, label: gen.label, success: result.success, durationMs, output: result.output, error: result.error, warnings: result.output?.warnings });
 	}
 
 	const totalDurationMs = clock.ms() - runStart;
@@ -110,29 +119,50 @@ export function runAllReports(
 	return { generators: results, totalDurationMs, passed, failed };
 }
 
+// ── Summary helpers ─────────────────────────────────────────────────
+
+function formatResultIcon(r: GeneratorResult): string {
+	const hasWarnings = r.warnings && r.warnings.length > 0;
+	if (!r.success) return `${RED}✗${RESET}`;
+	return hasWarnings ? `${YELLOW}⚠${RESET}` : `${GREEN}✓${RESET}`;
+}
+
+function printResultWarnings(warnings: string[]): void {
+	for (const w of warnings) {
+		if (w.startsWith("  ")) {
+			log(`        ${DIM}${w.trim()}${RESET}`);
+		} else {
+			log(`      ${YELLOW}⚠${RESET} ${w}`);
+		}
+	}
+}
+
+function buildSummaryLine(results: GeneratorResult[], totalSec: string): string {
+	const passed = results.filter((r) => r.success).length;
+	const failed = results.filter((r) => !r.success).length;
+	const warned = results.filter((r) => r.warnings && r.warnings.length > 0).length;
+	const parts: string[] = [];
+	parts.push(`${GREEN}${passed} passed${RESET}`);
+	if (warned > 0) parts.push(`${YELLOW}${warned} with warnings${RESET}`);
+	if (failed > 0) parts.push(`${RED}${failed} failed${RESET}`);
+	parts.push(`${DIM}(${totalSec}s)${RESET}`);
+	return `  ${parts.join(", ")}`;
+}
+
 // ── Summary ─────────────────────────────────────────────────────────
 
 function printRunSummary(results: GeneratorResult[], totalMs: number): void {
 	const totalSec = (totalMs / 1000).toFixed(1);
-	const passed = results.filter((r) => r.success).length;
-	const failed = results.filter((r) => !r.success).length;
 
 	log(`\n  ${BOLD}Report Run Summary${RESET}\n`);
 
 	for (const r of results) {
-		const hasWarnings = r.warnings && r.warnings.length > 0;
-		const icon = !r.success ? `${RED}✗${RESET}` : hasWarnings ? `${YELLOW}⚠${RESET}` : `${GREEN}✓${RESET}`;
+		const icon = formatResultIcon(r);
 		const dur = (r.durationMs / 1000).toFixed(1);
 		const suffix = r.error ? ` — ${RED}${r.error}${RESET}` : "";
 		log(`    ${icon} ${r.label} ${DIM}(${dur}s)${RESET}${suffix}`);
-		if (hasWarnings) {
-			for (const w of r.warnings!) {
-				if (w.startsWith("  ")) {
-					log(`        ${DIM}${w.trim()}${RESET}`);
-				} else {
-					log(`      ${YELLOW}⚠${RESET} ${w}`);
-				}
-			}
+		if (r.warnings && r.warnings.length > 0) {
+			printResultWarnings(r.warnings);
 		}
 	}
 
@@ -145,15 +175,7 @@ function printRunSummary(results: GeneratorResult[], totalMs: number): void {
 		}
 	}
 
-	// Totals
 	log();
-	const warned = results.filter((r) => r.warnings && r.warnings.length > 0).length;
-	const parts: string[] = [];
-	parts.push(`${GREEN}${passed} passed${RESET}`);
-	if (warned > 0) parts.push(`${YELLOW}${warned} with warnings${RESET}`);
-	if (failed > 0) parts.push(`${RED}${failed} failed${RESET}`);
-	parts.push(`${DIM}(${totalSec}s)${RESET}`);
-
-	log(`  ${parts.join(", ")}`);
+	log(buildSummaryLine(results, totalSec));
 	log();
 }
