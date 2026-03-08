@@ -61,6 +61,7 @@ vi.mock("../../src/infrastructure/state.js", () => ({
 
 vi.mock("../../src/domain/project/project-config.js", () => ({
 	initializeProject: vi.fn(),
+	getReportsDir: vi.fn(() => "/projects/my-project/reports"),
 }));
 
 vi.mock("../../src/infrastructure/menu.js", () => ({

@@ -1,6 +1,6 @@
 # Flowti CLI
 
-The Flowti CLI is a **definition-driven project orchestrator** that provides the complete runtime for managing Flowti projects. It ships as a self-contained Node.js binary (`node .flowti/bin`) — no source tree required.
+The Flowti CLI is a **definition-driven project orchestrator** that provides the complete runtime for managing Flowti projects. It ships as a self-contained Node.js binary (`node .flowti/bin`).
 
 ## Principles
 
@@ -39,7 +39,7 @@ The CLI follows a **definition-driven, project-centric architecture**:
 
 Projects are discovered from the configured projects directory (`01 - Projects/`).
 
-See [Architecture.md](docs/Architecture.md) for the full design document.
+See [Architecture.md](Flowti%20CLI%20Architecture.md) for the full design document.
 
 ### Invocation Chain
 
@@ -252,5 +252,5 @@ When a project is selected for the first time, the CLI auto-scaffolds this confi
 ## Related Documents
 
 - PRD: [Flowti CLI PRD.md](Flowti%20CLI%20PRD.md)
-- Architecture: [docs/Architecture.md](docs/Architecture.md)
+- Architecture: [Architecture.md](Flowti%20CLI%20Architecture.md)
 - CLI Reference: generated via `flowti reports` or `npm run reports`

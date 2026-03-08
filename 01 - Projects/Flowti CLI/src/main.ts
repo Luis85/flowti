@@ -34,7 +34,7 @@ import { commands as reviewCmds } from "./domain/review/review.js";
 import { commands as publishCmds } from "./domain/publish/publish.js";
 import { commands as reportsCmds } from "./domain/reports/reports.js";
 import { commands as captureCmds } from "./domain/capture/capture.js";
-import { commands as eventsCmds } from "./domain/events/event-commands.js";
+import { commands as eventsCmds } from "./domain/events/events.js";
 import { commands as scaffoldCmds } from "./domain/scaffold/scaffold.js";
 import { commands as projectCmds, startMenu, listProjects } from "./domain/project/project.js";
 import { getSelectedProject, clearSelectedProject } from "./infrastructure/state.js";
@@ -49,24 +49,22 @@ import { buildProjectDetailMenu } from "./domain/mainMenu.js";
 import type { ProjectContext } from "./infrastructure/types.js";
 import { log, error } from "./infrastructure/logger.js";
 import { resolveCommand } from "./infrastructure/dispatch.js";
+import { CommandRegistry } from "./infrastructure/command-registry.js";
 
-const allCommands = {
-	...helpCmds,
-	...infoCmds,
-	...buildCmds,
-	...devToolsCmds,
-	...makeCmds,
-	...reviewCmds,
-	...publishCmds,
-	...reportsCmds,
-	...captureCmds,
-	...eventsCmds,
-	...scaffoldCmds,
-	...projectCmds,
-};
-
-/** Commands that work without a project context. */
-const PROJECT_FREE = new Set(["help", "project", "capture:idea", "capture:note", "scaffold:new", "scaffold:list"]);
+const registry = new CommandRegistry();
+registry.registerDomain({ domain: "help",     commands: helpCmds,     projectFree: ["help"] });
+registry.registerDomain({ domain: "info",     commands: infoCmds });
+registry.registerDomain({ domain: "build",    commands: buildCmds });
+registry.registerDomain({ domain: "devtools", commands: devToolsCmds });
+registry.registerDomain({ domain: "make",     commands: makeCmds });
+registry.registerDomain({ domain: "review",   commands: reviewCmds });
+registry.registerDomain({ domain: "publish",  commands: publishCmds });
+registry.registerDomain({ domain: "reports",  commands: reportsCmds });
+registry.registerDomain({ domain: "capture",  commands: captureCmds,  projectFree: ["capture:idea", "capture:note"] });
+registry.registerDomain({ domain: "events",   commands: eventsCmds });
+registry.registerDomain({ domain: "scaffold", commands: scaffoldCmds, projectFree: ["scaffold:new", "scaffold:list"] });
+registry.registerDomain({ domain: "project",  commands: projectCmds,  projectFree: ["project"] });
+registry.setWildcard("reports", reportsCmds["report:*"]);
 
 type ProjectResolution =
 	| { ok: true; project: ProjectContext | null }
@@ -110,7 +108,7 @@ async function handleCliArgs(): Promise<boolean> {
 	}
 
 	const project = resolution.project;
-	const result = resolveCommand(command, flags, rawArgs, allCommands, PROJECT_FREE, reportsCmds["report:*"], project);
+	const result = resolveCommand(command, flags, rawArgs, registry.handlers, registry.projectFreeSet, registry.wildcard, project);
 
 	switch (result.action) {
 		case "help":

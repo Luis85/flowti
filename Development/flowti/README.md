@@ -43,7 +43,7 @@ flowti.cmd info             # Project stats, git status, config health
 flowti.cmd help build       # Section-specific help
 ```
 
-The CLI lives at `01 - Projects/Flowti CLI/` and follows a kernel-space architecture — see the [CLI README](../../01%20-%20Projects/Flowti%20CLI/README.md) and [Architecture](../../01%20-%20Projects/Flowti%20CLI/docs/Architecture.md) for details.
+The CLI lives at `01 - Projects/Flowti CLI/` and follows a kernel-space architecture — see the [CLI README](../../01%20-%20Projects/Flowti%20CLI/README.md) and [Flowti CLI Architecture](Flowti%20CLI%20Architecture.md) for details.
 
 ### For AI Agents
 

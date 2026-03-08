@@ -2,7 +2,7 @@
 type: Architecture
 domain: CLI
 title: Flowti CLI — Architecture Document
-version: 9
+version: 10
 created: 2026-03-07
 updated: 2026-03-08
 status: living-document
@@ -18,7 +18,7 @@ status: living-document
 
 The Flowti CLI is a **definition-driven project orchestrator** that ships as a self-contained Node.js binary. It manages multi-project development workflows — scaffolding, building, testing, reviewing, publishing, and reporting — from a single interactive menu or via non-interactive commands for AI agent tool use.
 
-**Scale**: 150 source files, 86 test files (1,346 tests, 81 suites), 15 domain modules, 19 infrastructure modules. Zero production dependencies — runs on Node.js built-ins only.
+**Scale**: 152 source files, 87 test files (1,365 tests, 82 suites), 15 domain modules, 20 infrastructure modules. Zero production dependencies — runs on Node.js built-ins only.
 
 ---
 
@@ -487,8 +487,11 @@ All items delivered plus Document service refactor and frontmatter consolidation
 | 2.8 | **Frontmatter consolidation** (D-22) | DONE | `infrastructure/frontmatter.ts` (4 exports), 7 domain files refactored |
 | 2.9 | **Local type alias audit** (6.12) | DONE | No remaining duplicates — all domain files use shared `infrastructure/types.ts` |
 | 2.10 | **Report label fix** ("Tests" → "Test") | DONE | `summary-loaders.ts`, `summary-details.ts`, `summary-promotion.ts`, `summary-analyzers-ext.ts`, `report-archive.ts` |
+| 2.11 | **Events domain facade** (6.1) | DONE | `domain/events/events.ts` (re-exports commands + eventCatalogMenu) |
+| 2.12 | **Typed CommandRegistry** (6.2) | DONE | `infrastructure/command-registry.ts` (new), `main.ts` (refactored to registerDomain) |
+| 2.13 | **Menu builder extraction** (6.3) | DONE | `domain/menu-builders.ts` (new), `mainMenu.ts` (350→190 LOC) |
 
-**Milestone**: C4 entities form a navigable hierarchy. Components are editable post-creation. Event catalog supports full lifecycle. Document service is the sole markdown renderer for doc templates. Frontmatter parsing consolidated to single infrastructure module. 1,346 tests, 81 suites. 0 lint errors, 0 warnings.
+**Milestone**: C4 entities form a navigable hierarchy. Components are editable post-creation. Event catalog supports full lifecycle. Document service is the sole markdown renderer for doc templates. Frontmatter parsing consolidated to single infrastructure module. Command registration typed with collision detection. Menu construction extracted into pure builder functions. 1,365 tests, 82 suites. 0 lint errors, 0 warnings.
 
 ### Phase 3: Project Health & Storybook Integration
 
@@ -532,38 +535,17 @@ Long-term vision for multi-project management and CI/CD integration.
 
 Structural improvements to address as the codebase grows:
 
-### 6.1 Domain Module Consistency
+### ~~6.1 Domain Module Consistency~~ — PARTIALLY RESOLVED
 
-**Current**: Domain modules export `commands` and menu functions inconsistently. Some have a facade file (`make.ts`, `scaffold.ts`), others expose internals directly.
+Events domain now has a facade file (`events.ts`) re-exporting `commands` and `eventCatalogMenu`. Other domains (make, scaffold) already had facades. Remaining domains can adopt the pattern as they grow. See D-23.
 
-**Target**: Every domain follows the same pattern:
-```
-domain/<name>/
-  ├── <name>.ts          ← facade: exports { commands, menu }
-  ├── <name>-service.ts  ← orchestrator (if needed)
-  ├── <name>-types.ts    ← domain types
-  └── ...                ← internal modules
-```
+### ~~6.2 Command Registry Typing~~ — RESOLVED
 
-### 6.2 Command Registry Typing
+`CommandRegistry` class (`infrastructure/command-registry.ts`) replaces spread-based command merging. Detects key collisions at registration time, tracks domain metadata, derives project-free set. `main.ts` uses `registry.registerDomain()` with explicit domain names and project-free lists. 12 new tests. See D-24.
 
-**Current**: `allCommands` in `main.ts` merges all domain command maps with the spread operator. No type-level enforcement that command keys don't collide.
+### ~~6.3 Menu Builder Abstraction~~ — RESOLVED
 
-**Target**: Introduce a `CommandRegistry` class that detects collisions at registration time and supports command metadata (help text, required flags, project requirement).
-
-### 6.3 Menu Builder Abstraction
-
-**Current**: `buildProjectDetailMenu()` in `mainMenu.ts` is 300 lines of imperative menu construction with inline lambdas.
-
-**Target**: Declarative menu definition similar to how component definitions work:
-
-```typescript
-const MENU_DEF: ToolMenuDef[] = [
-  { key: "1", tool: "make",      always: true },
-  { key: "2", tool: "build",     configKey: "tools.build" },
-  { key: "5", tool: "reports",   submenu: reportMenuBuilder },
-  ...
-];
+Submenu construction extracted from `mainMenu.ts` into `menu-builders.ts`. Three pure builder functions (`buildReportsSubmenu`, `buildDocsSubmenu`, `buildNpmScriptsSubmenu`) reduce mainMenu.ts from ~350 to ~190 lines. Each builder returns `MenuEntry[]` and is independently testable. See D-25.
 ```
 
 ### 6.4 Structured CLI Output
@@ -637,7 +619,8 @@ Audit complete. All domain files correctly import shared types from `infrastruct
 |------|---------|
 | `src/main.ts` | Interactive CLI orchestrator, command dispatch |
 | `src/boot/bootstrap.mjs` | Zero-install launcher (deployed to `.flowti/bin/index.js`) |
-| `src/domain/mainMenu.ts` | Project detail menu builder |
+| `src/domain/mainMenu.ts` | Project detail menu builder (delegates submenus to `menu-builders.ts`) |
+| `src/domain/menu-builders.ts` | Pure submenu builders — Reports, Documentation, Npm Scripts |
 | `src/infrastructure/dispatch.ts` | Pure command resolution (no I/O) |
 
 ### Infrastructure
@@ -651,6 +634,7 @@ Audit complete. All domain files correctly import shared types from `infrastruct
 | `infrastructure/state.ts` | Persistent state (`.flowti/var/state.json`) |
 | `infrastructure/document.ts` | Fluent Markdown builder — 4 output modes: `Document` (compose), `toString()`, `toLines()`, `save()` |
 | `infrastructure/frontmatter.ts` | Single source of truth for YAML frontmatter — parse (typed/string/split) + serialize (`joinFrontmatter`) |
+| `infrastructure/command-registry.ts` | Typed command registry — collision detection, domain metadata, derived project-free set |
 | `infrastructure/menu.ts` | Generic data-driven menu loop |
 | `infrastructure/ui.ts` | ANSI colors, `printBanner()`, `printMenu()` |
 | `infrastructure/input.ts` | Interactive input (`ask()`, `createRL()`) |
@@ -717,3 +701,6 @@ Audit complete. All domain files correctly import shared types from `infrastruct
 | D-20 | `CommandHandler` from shared types | Domain modules import `CommandHandler` from `infrastructure/types.ts`; eliminates local type aliases, resolves TypeDoc warnings |
 | D-21 | Event domain split into 5 files | `event-catalog.ts` (interactive), `event-commands.ts` (non-interactive), `event-payload.ts`, `event-versioning.ts`, `event-flow.ts`; each under 300 LOC |
 | D-22 | Frontmatter consolidation | 7 duplicate parsers replaced by 4 shared functions in `infrastructure/frontmatter.ts`; single source of truth for parse + serialize |
+| D-23 | Domain facade pattern | Multi-file domains expose a facade (`events.ts`) re-exporting public API; `main.ts` imports from facade, not internals |
+| D-24 | Typed CommandRegistry | Class-based registry replaces spread-merge; collision detection at registration time; domain metadata preserved |
+| D-25 | Submenu builder extraction | Pure `MenuEntry[]` builder functions in `menu-builders.ts`; mainMenu.ts delegates submenu construction; builders are independently testable |
