@@ -1,7 +1,11 @@
 /**
  * c4-doc.ts — Markdown documentation template for C4 architecture entities.
+ *
+ * Uses the Document builder for YAML-safe frontmatter and standardized rendering.
  */
 
+import { Document } from "../../../../infrastructure/document.js";
+import { clock } from "../../../../infrastructure/clock.js";
 import type { ComponentVariables, ComponentDefinition } from "../component-types.js";
 
 const C4_LABELS: Record<string, string> = {
@@ -31,35 +35,53 @@ const KIND_SECTIONS: Record<string, [string, string][]> = {
 	],
 };
 
-function buildFrontmatter(vars: ComponentVariables, def: ComponentDefinition): string[] {
+function applyOptionalFields(doc: Document, vars: ComponentVariables, def: ComponentDefinition): void {
+	if (vars.technology) doc.setFrontmatter("technology", vars.technology);
+	if (vars.containedBy) doc.setFrontmatter("containedBy", vars.containedBy);
+	if (vars.owner) doc.setFrontmatter("owner", vars.owner);
+	for (const prop of def.properties) {
+		const val = vars[`prop.${prop.key}`];
+		if (val != null && val !== "") doc.setFrontmatter(prop.key, val);
+	}
+}
+
+function applyFrontmatter(doc: Document, vars: ComponentVariables, def: ComponentDefinition): void {
 	const meta = def.metadata;
 	const c4Label = C4_LABELS[def.kind] ?? def.kind;
 	const c4Level = meta.c4Level != null ? String(meta.c4Level) : "";
 
-	const lines = ["---", `type: ${String(meta.type ?? def.kind)}`, `c4: ${c4Label}`];
-	if (c4Level) lines.push(`c4Level: ${c4Level}`);
-	lines.push(`status: draft`);
-	lines.push(`created: ${new Date().toISOString().slice(0, 10)}`);
-	if (vars.technology) lines.push(`technology: ${vars.technology}`);
-	if (vars.containedBy) lines.push(`containedBy: ${vars.containedBy}`);
-	if (vars.owner) lines.push(`owner: ${vars.owner}`);
-	lines.push("---", "");
-	return lines;
+	doc.setFrontmatter("type", String(meta.type ?? def.kind));
+	doc.setFrontmatter("c4", c4Label);
+	if (c4Level) doc.setFrontmatter("c4Level", c4Level);
+	doc.setFrontmatter("status", "draft");
+	doc.setFrontmatter("created", clock.iso().slice(0, 10));
+	applyOptionalFields(doc, vars, def);
 }
 
-export function c4DocTemplate(vars: ComponentVariables, def: ComponentDefinition): string {
+export function c4DocTemplate(vars: ComponentVariables, def: ComponentDefinition): Document {
 	const c4Label = C4_LABELS[def.kind] ?? def.kind;
-	const lines = buildFrontmatter(vars, def);
+	const doc = Document.create(vars.name);
+	applyFrontmatter(doc, vars, def);
 
-	lines.push(`# ${vars.name}`, "", `> C4 ${c4Label}`, "");
-	if (vars.description) lines.push(vars.description, "");
+	doc.addBlank()
+		.heading(1, vars.name)
+		.addBlank()
+		.quote(`C4 ${c4Label}`)
+		.addBlank();
+
+	if (vars.description) doc.text(vars.description).addBlank();
 
 	const sections = KIND_SECTIONS[def.kind] ?? [];
 	for (const [heading, placeholder] of sections) {
-		const content = placeholder === "{{technology}}" ? (vars.technology || "<!-- Describe the technology stack. -->") : placeholder;
-		lines.push(`## ${heading}`, "", content, "");
+		const content = placeholder === "{{technology}}"
+			? (vars.technology || "<!-- Describe the technology stack. -->")
+			: placeholder;
+		doc.heading(2, heading).addBlank().text(content).addBlank();
 	}
 
-	lines.push("## Relationships", "", "<!-- Describe relationships to other components. -->", "");
-	return lines.join("\n") + "\n";
+	doc.heading(2, "Relationships").addBlank()
+		.text("<!-- Describe relationships to other components. -->")
+		.addBlank();
+
+	return doc;
 }

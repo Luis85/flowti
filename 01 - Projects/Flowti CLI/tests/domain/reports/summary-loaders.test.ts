@@ -285,7 +285,7 @@ describe("discoverReports", () => {
 
 		const snapshots = discoverReports("/reports");
 		expect(snapshots).toHaveLength(2);
-		expect(snapshots[0].label).toBe("Tests");
+		expect(snapshots[0].label).toBe("Test");
 		expect(snapshots[0].frontmatter.total).toBe("100");
 		expect(snapshots[1].label).toBe("Coverage");
 	});

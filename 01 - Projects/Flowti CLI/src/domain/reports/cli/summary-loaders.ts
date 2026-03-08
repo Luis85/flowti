@@ -217,7 +217,7 @@ export function parseFrontmatter(content: string): ParsedFrontmatter {
 // ── Report discovery ─────────────────────────────────────────────────
 
 export const REPORT_DEFS: ReportDef[] = [
-	{ subdir: "tests", label: "Tests" },
+	{ subdir: "tests", label: "Test" },
 	{ subdir: "coverage", label: "Coverage" },
 	{ subdir: "builds", label: "Build" },
 	{ subdir: "codebase", label: "Codebase" },

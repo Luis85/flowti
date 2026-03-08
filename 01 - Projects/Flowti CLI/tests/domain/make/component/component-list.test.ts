@@ -33,7 +33,13 @@ vi.mock("../../../../src/infrastructure/logger.js", () => ({
 }));
 
 import { disk } from "../../../../src/infrastructure/filesystem.js";
-import { listProjectComponents, buildComponentTree } from "../../../../src/domain/make/component/component-list.js";
+import {
+	listProjectComponents,
+	buildComponentTree,
+	enrichComponentRelationships,
+	buildAncestryPath,
+	findSiblings,
+} from "../../../../src/domain/make/component/component-list.js";
 import type { ProjectComponent } from "../../../../src/domain/make/component/component-types.js";
 
 describe("listProjectComponents", () => {
@@ -192,5 +198,130 @@ describe("buildComponentTree", () => {
 			"Sys A", "Container A1", "Sys B", "Container B1",
 		]);
 		expect(tree.map((t) => t.depth)).toEqual([0, 1, 0, 1]);
+	});
+});
+
+describe("enrichComponentRelationships", () => {
+	function comp(overrides: Partial<ProjectComponent> & { name: string }): ProjectComponent {
+		return { kind: "component", status: "active", path: "", ...overrides };
+	}
+
+	it("populates contains[] from containedBy", () => {
+		const components = [
+			comp({ name: "Platform", kind: "system" }),
+			comp({ name: "Backend", kind: "container", containedBy: "Platform" }),
+			comp({ name: "Frontend", kind: "container", containedBy: "Platform" }),
+			comp({ name: "API", kind: "c4-component", containedBy: "Backend" }),
+		];
+		enrichComponentRelationships(components);
+
+		const platform = components.find((c) => c.name === "Platform")!;
+		expect(platform.contains).toEqual(["Backend", "Frontend"]);
+
+		const backend = components.find((c) => c.name === "Backend")!;
+		expect(backend.contains).toEqual(["API"]);
+	});
+
+	it("assigns empty contains[] to components with no children", () => {
+		const components = [
+			comp({ name: "Leaf", kind: "c4-component", containedBy: "Parent" }),
+			comp({ name: "Standalone" }),
+		];
+		enrichComponentRelationships(components);
+
+		expect(components[0].contains).toEqual([]);
+		expect(components[1].contains).toEqual([]);
+	});
+
+	it("handles empty array", () => {
+		const components: ProjectComponent[] = [];
+		enrichComponentRelationships(components);
+		expect(components).toEqual([]);
+	});
+
+	it("is called automatically by listProjectComponents", () => {
+		vi.mocked(disk.existsSync).mockReturnValue(true);
+		vi.mocked(disk.readdirSync).mockReturnValue(["parent.md", "child.md"] as never);
+		vi.mocked(disk.readFileSync).mockImplementation((path: string) => {
+			if (path.includes("parent")) {
+				return "---\ntype: system\nstatus: active\nname: Parent\n---\n";
+			}
+			return "---\ntype: container\nstatus: active\nname: Child\ncontainedBy: Parent\n---\n";
+		});
+
+		const components = listProjectComponents("/project");
+		const parent = components.find((c) => c.name === "Parent")!;
+		expect(parent.contains).toEqual(["Child"]);
+	});
+});
+
+describe("buildAncestryPath", () => {
+	function comp(overrides: Partial<ProjectComponent> & { name: string }): ProjectComponent {
+		return { kind: "component", status: "active", path: "", ...overrides };
+	}
+
+	it("returns single name for root component", () => {
+		const root = comp({ name: "Platform", kind: "system" });
+		expect(buildAncestryPath(root, [root])).toBe("Platform");
+	});
+
+	it("builds full path for deeply nested component", () => {
+		const components = [
+			comp({ name: "Platform", kind: "system" }),
+			comp({ name: "Backend", kind: "container", containedBy: "Platform" }),
+			comp({ name: "API", kind: "c4-component", containedBy: "Backend" }),
+		];
+		const api = components[2];
+		expect(buildAncestryPath(api, components)).toBe("Platform > Backend > API");
+	});
+
+	it("handles orphan with missing parent gracefully", () => {
+		const orphan = comp({ name: "Orphan", kind: "container", containedBy: "Missing" });
+		expect(buildAncestryPath(orphan, [orphan])).toBe("Orphan");
+	});
+
+	it("handles circular containment without infinite loop", () => {
+		const components = [
+			comp({ name: "A", kind: "container", containedBy: "B" }),
+			comp({ name: "B", kind: "container", containedBy: "A" }),
+		];
+		const path = buildAncestryPath(components[0], components);
+		expect(path).toContain("A");
+		expect(path).toContain("B");
+	});
+});
+
+describe("findSiblings", () => {
+	function comp(overrides: Partial<ProjectComponent> & { name: string }): ProjectComponent {
+		return { kind: "component", status: "active", path: "", ...overrides };
+	}
+
+	it("returns siblings with the same parent", () => {
+		const components = [
+			comp({ name: "Platform", kind: "system" }),
+			comp({ name: "Backend", kind: "container", containedBy: "Platform" }),
+			comp({ name: "Frontend", kind: "container", containedBy: "Platform" }),
+			comp({ name: "Mobile", kind: "container", containedBy: "Platform" }),
+		];
+		const siblings = findSiblings(components[1], components);
+		expect(siblings.map((c) => c.name)).toEqual(["Frontend", "Mobile"]);
+	});
+
+	it("returns empty array when no siblings exist", () => {
+		const components = [
+			comp({ name: "Platform", kind: "system" }),
+			comp({ name: "Backend", kind: "container", containedBy: "Platform" }),
+		];
+		expect(findSiblings(components[1], components)).toEqual([]);
+	});
+
+	it("groups root-level components as siblings (containedBy undefined)", () => {
+		const components = [
+			comp({ name: "Sys A", kind: "system" }),
+			comp({ name: "Sys B", kind: "system" }),
+			comp({ name: "Sys C", kind: "system" }),
+		];
+		const siblings = findSiblings(components[0], components);
+		expect(siblings.map((c) => c.name)).toEqual(["Sys B", "Sys C"]);
 	});
 });

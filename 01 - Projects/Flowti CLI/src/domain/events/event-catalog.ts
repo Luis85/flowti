@@ -11,14 +11,17 @@
 
 import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
-import { RESET, DIM, GREEN, RED, YELLOW, CYAN, BOLD, printHeader } from "../../infrastructure/ui.js";
+import { RESET, DIM, GREEN, YELLOW, CYAN, BOLD, printHeader } from "../../infrastructure/ui.js";
 import { input } from "../../infrastructure/input.js";
 import { Document } from "../../infrastructure/document.js";
 import { clock } from "../../infrastructure/clock.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { toKebab } from "../make/naming.js";
 import { log } from "../../infrastructure/logger.js";
-import type { MenuResult, MenuEntry, ProjectContext } from "../../infrastructure/types.js";
+import type { MenuResult, MenuEntry } from "../../infrastructure/types.js";
+import { renderVersionHistory } from "./event-versioning.js";
+import { collectPayloadFields, collectVersioningInfo } from "./event-payload.js";
+import { saveEventFlowDoc } from "./event-flow.js";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -30,6 +33,8 @@ export interface EventDefinition {
 	producers: string[];
 	consumers: string[];
 	payload: EventPayloadField[];
+	previousVersion?: string;
+	migrationNotes?: string;
 }
 
 export interface EventPayloadField {
@@ -53,7 +58,7 @@ function sanitizeFilename(name: string): string {
 		.slice(0, 80);
 }
 
-function parseCommaSeparated(value: string): string[] {
+export function parseCommaSeparated(value: string): string[] {
 	return value
 		.split(",")
 		.map((s) => s.trim())
@@ -181,17 +186,21 @@ export function createEventFile(projectPath: string, def: EventDefinition): stri
 		return null;
 	}
 
+	const frontmatter: Record<string, string> = {
+		type: "Event",
+		name: def.name,
+		domain: def.domain,
+		version: def.version,
+		status: "draft",
+		date: clock.iso(),
+		producers: def.producers.join(", "),
+		consumers: def.consumers.join(", "),
+	};
+	if (def.previousVersion) frontmatter.previous_version = def.previousVersion;
+	if (def.migrationNotes) frontmatter.migration_notes = def.migrationNotes;
+
 	const doc = Document.create(def.name)
-		.mergeFrontmatter({
-			type: "Event",
-			name: def.name,
-			domain: def.domain,
-			version: def.version,
-			status: "draft",
-			date: clock.iso(),
-			producers: def.producers.join(", "),
-			consumers: def.consumers.join(", "),
-		})
+		.mergeFrontmatter(frontmatter)
 		.addBlank()
 		.heading(1, def.name)
 		.addBlank();
@@ -218,6 +227,8 @@ export function createEventFile(projectPath: string, def: EventDefinition): stri
 		doc.text("<!-- Define the event payload fields. -->");
 	}
 	doc.addBlank();
+
+	renderVersionHistory(doc, def);
 
 	const links = discoverSiblingLinks(projectPath, kebab);
 
@@ -251,6 +262,8 @@ async function addEventInteractive(projectPath: string): Promise<void> {
 	const description = await input.ask("Description", "");
 	const producersRaw = await input.ask("Producers (comma-separated)", "");
 	const consumersRaw = await input.ask("Consumers (comma-separated)", "");
+	const payload = await collectPayloadFields();
+	const versioning = await collectVersioningInfo();
 
 	const def: EventDefinition = {
 		name,
@@ -259,14 +272,14 @@ async function addEventInteractive(projectPath: string): Promise<void> {
 		description,
 		producers: parseCommaSeparated(producersRaw),
 		consumers: parseCommaSeparated(consumersRaw),
-		payload: [],
+		payload,
+		...versioning,
 	};
 
 	const filePath = createEventFile(projectPath, def);
 	if (filePath) {
 		const relPath = paths.relative(projectPath, filePath);
 		log(`\n  ${GREEN}✓${RESET} Created: ${relPath}`);
-		log(`  ${DIM}Edit the file to add payload fields and link components/journeys.${RESET}\n`);
 	}
 }
 
@@ -306,6 +319,16 @@ export async function eventCatalogMenu(projectPath: string): Promise<MenuResult>
 				return "main" as const;
 			},
 		},
+		{
+			key: "3",
+			label: "Event Flow Diagram",
+			action: () => {
+				const filePath = saveEventFlowDoc(projectPath);
+				const relPath = paths.relative(projectPath, filePath);
+				log(`\n  ${GREEN}✓${RESET} Generated: ${relPath}\n`);
+				return "main" as const;
+			},
+		},
 		{ separator: true },
 		{ key: "b", label: "Back", action: () => "main" as const },
 		{ key: "q", label: "Quit", action: () => "quit" as const },
@@ -314,38 +337,3 @@ export async function eventCatalogMenu(projectPath: string): Promise<MenuResult>
 	return runMenu("Event Catalog", items);
 }
 
-// ── Non-interactive commands ───────────────────────────────────────
-
-export const commands: Record<string, (flags: Record<string, string | boolean>, rawArgs: string[], command?: string, project?: ProjectContext) => void> = {
-	"events:list": (_flags, _rawArgs, _command, project) => {
-		if (!project) return;
-		const events = listEvents(project.path);
-		if (events.length === 0) {
-			log(`\n  ${DIM}No events defined.${RESET}\n`);
-			return;
-		}
-		for (const evt of events) {
-			log(`  ${evt.name} [${evt.domain}] v${evt.version}`);
-		}
-	},
-	"events:add": (flags, _rawArgs, _command, project) => {
-		if (!project) return;
-		const name = flags.name;
-		if (!name || typeof name !== "string") {
-			log(`\n  ${RED}Missing --name flag.${RESET}`);
-			log(`  ${DIM}Usage: flowti events:add --name="user.created" --domain="user"${RESET}\n`);
-			return;
-		}
-		const domain = typeof flags.domain === "string" ? flags.domain : "core";
-		const version = typeof flags.version === "string" ? flags.version : "1.0.0";
-		const description = typeof flags.description === "string" ? flags.description : "";
-		const producers = typeof flags.producers === "string" ? parseCommaSeparated(flags.producers) : [];
-		const consumers = typeof flags.consumers === "string" ? parseCommaSeparated(flags.consumers) : [];
-
-		const def: EventDefinition = { name, domain, version, description, producers, consumers, payload: [] };
-		const filePath = createEventFile(project.path, def);
-		if (filePath) {
-			log(`\n  ${GREEN}✓${RESET} Created: ${paths.relative(project.path, filePath)}\n`);
-		}
-	},
-};

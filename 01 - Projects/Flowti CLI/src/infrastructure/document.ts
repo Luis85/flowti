@@ -206,6 +206,10 @@ export class Document {
 		return parts.join("\n");
 	}
 
+	toLines(): string[] {
+		return this.toString().split("\n");
+	}
+
 	save(absolutePath: string, fs: IFileSystem = disk): void {
 		const dir = paths.dirname(absolutePath);
 		fs.mkdirSync(dir, { recursive: true });

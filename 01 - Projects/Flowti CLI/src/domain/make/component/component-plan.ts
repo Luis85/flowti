@@ -29,9 +29,10 @@ export function buildComponentPlan(
 		if (!templateFn) {
 			throw new Error(`Unknown component template: "${f.templateId}"`);
 		}
+		const result = templateFn(vars, def);
 		return {
 			path: interpolatePath(f.path, vars),
-			content: templateFn(vars, def),
+			content: result.toString(),
 		};
 	});
 }

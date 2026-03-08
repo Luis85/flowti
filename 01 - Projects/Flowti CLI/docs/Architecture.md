@@ -2,7 +2,7 @@
 type: Architecture
 domain: CLI
 title: Flowti CLI — Architecture Document
-version: 7
+version: 8
 created: 2026-03-07
 updated: 2026-03-08
 status: living-document
@@ -18,13 +18,12 @@ status: living-document
 
 The Flowti CLI is a **definition-driven project orchestrator** that ships as a self-contained Node.js binary. It manages multi-project development workflows — scaffolding, building, testing, reviewing, publishing, and reporting — from a single interactive menu or via non-interactive commands for AI agent tool use.
 
-**Scale**: 132 source files, 83 test files (1,256 tests, 78 suites), 15 domain modules, 19 infrastructure modules. Zero production dependencies — runs on Node.js built-ins only.
+**Scale**: 150 source files, 86 test files (1,342 tests, 81 suites), 15 domain modules, 19 infrastructure modules. Zero production dependencies — runs on Node.js built-ins only.
 
 ---
 
 ## 2. Status Quo
 
-[[2026-03-08T20-24-55.237Z-project-summary]]]]
 ### 2.1 System Context
 
 ```
@@ -236,10 +235,10 @@ Pipeline:  prompts → variables → buildComponentPlan() → FileEntry[] → fi
 #### Template Registry
 
 ```typescript
-Record<templateId, (vars: ComponentVariables, def: ComponentDefinition) => string>
+type ComponentTemplateFn = (vars: ComponentVariables, def: ComponentDefinition) => string | Document;
 ```
 
-Separates "what to create" (definitions) from "how to render" (templates). Templates are pure functions that return file content as a string.
+Separates "what to create" (definitions) from "how to render" (templates). Templates are pure functions. Markdown doc templates (`component-doc`, `c4-doc`) return a `Document` for YAML-safe frontmatter and standardized rendering. Non-markdown templates (test, definition, story) return raw strings. The plan builder calls `.toString()` at the boundary.
 
 ### 2.7 Report & Reference Generation Architecture
 
@@ -401,37 +400,40 @@ The CLI separates **reports** (timestamped snapshots in `reports/`) from **refer
 
 `tests/e2e/60-journey-developer-onboarding.test.ts` — 7 tests covering: help, help build, scaffold:list, unknown command handling, invalid `--project` validation, journey JSON validity. Uses `spawnSync` with `tsx` to run CLI directly.
 
-### 4.6 Target: Component Relationships (IMP-04)
+### 4.6 Component Relationships (IMP-04) — DONE
 
-**Current**: C4 entities have `containedBy` in metadata but it's just a string. No visualization or traversal.
+`component-list.ts` provides `enrichComponentRelationships()` which populates `contains[]` by reversing `containedBy` edges. `buildAncestryPath()` builds a "System > Container > Component" breadcrumb with circular reference guard. `findSiblings()` returns components sharing the same parent. The component detail view shows ancestry, children, and siblings. 11 new tests.
 
-**Target**: The Component browser shows parent/child relationships and can navigate between related components.
+### 4.7 Event Catalog Enrichment (IMP-14) — DONE
 
-```
-  System: Flowti Platform
-    ├── Container: Plugin Runtime
-    │   ├── Component: EventBus
-    │   └── Component: StorageEngine
-    └── Container: CLI
-        ├── Component: ScaffoldService
-        └── Component: ReportRunner
-```
+**Payload field editor** (`event-payload.ts`): Interactive loop prompts for field name, type, required, description. Non-interactive via `--payload="userId:string:required:The user ID,..."`.
 
-**Implementation**: Add `containedBy` and `contains` cross-references to component frontmatter. The component browser reads all component docs and builds a tree.
+**Event versioning** (`event-versioning.ts`): `versionEvent()` updates frontmatter + appends version history. `events:version` CLI command. `renderVersionHistory()` adds a Version History section to event docs.
 
-### 4.7 Target: Event Catalog Enrichment (IMP-14)
+**Event commands** (`event-commands.ts`): Extracted non-interactive commands (`events:list`, `events:add`, `events:flow`, `events:version`) from `event-catalog.ts` for separation of concerns.
 
-**Current**: Event Catalog supports `events:add` with basic fields (name, domain, version, description, producers, consumers). No payload field editor or versioning.
+### 4.8 Component Property Editor (IMP-15) — DONE
 
-**Target**: Interactive payload field editor during `events:add`. Event versioning with migration notes between versions.
+`component-makers.ts` prompts for property values during interactive scaffolding via `collectPropertyValues()`. Properties rendered in frontmatter and Properties table by Document-based templates.
 
-### 4.8 Target: Component Property Editor (IMP-15)
+`component-edit.ts` provides `edit:component --name=X --prop.key=value` for post-creation property editing. Pure helpers: `splitFrontmatter()`, `joinFrontmatter()`, `extractPropFlags()`. 15 new tests.
 
-**Current**: Properties are defined in JSON definitions and rendered during scaffolding. No interactive editing after creation.
+### 4.9 Event Flow Visualization (IMP-16) — DONE
 
-**Target**: `make:component --name=X` prompts for property values. An `edit:component` command allows adding/editing properties on existing components.
+`event-flow.ts` builds a directed graph from event producer/consumer metadata. Three renderers:
+- `renderMermaidFlowchart()` — full Mermaid `graph LR` diagram
+- `renderMermaidByDomain()` — per-domain Mermaid diagrams
+- `generateEventFlowDoc()` — complete Document with all flow diagrams
 
-### ~~4.9 E2E Onboarding Journey (FR-12)~~ — moved to 4.5 (DONE)
+`saveEventFlowDoc()` writes to `docs/events/Event Flow.md`. Interactive menu item + `events:flow` command with optional `--domain` filter. 27 new tests.
+
+### 4.10 Document Service as Template Foundation (D-19) — DONE
+
+Markdown doc templates (`component-doc.ts`, `c4-doc.ts`) refactored from raw string concatenation to the fluent `Document` builder. Gains YAML-safe frontmatter escaping via `yamlEscape()` and standardized rendering. `ComponentTemplateFn` return type widened to `string | Document`. Plan builders call `.toString()` at the boundary.
+
+`Document` extended with `toLines(): string[]` for array output. Four output modes: `Document` (compose further), `toString()` (string), `toLines()` (array), `save()` (write to disk).
+
+### ~~4.11 E2E Onboarding Journey (FR-12)~~ — moved to 4.5 (DONE)
 
 ---
 
@@ -454,21 +456,23 @@ All items delivered. 45 new tests for config validation, `--project` flag with i
 | 1.9 | **`flowti docs` command** | DONE | `reports/reports.ts` (docs command: config generators + built-in references) |
 | 1.10 | **npm script cleanup** | DONE | `package.json` (17→10 scripts), `flowti.config.json` (remove npm indirections) |
 
-**Milestone**: All PRD v4 acceptance criteria passing. 1,256 tests, 78 suites. 0 lint errors, 19 warnings.
+**Milestone**: All PRD v4 acceptance criteria passing. 1,256 tests, 78 suites. 0 lint errors, 0 warnings.
 
-### Phase 2: Component & Event Enrichment
+### Phase 2: Component & Event Enrichment — COMPLETE
 
-Deepens the two newest domain features with cross-references and richer editing.
+All 5 items delivered plus Document service refactor. 86 new tests. 0 lint warnings (down from 19).
 
-| # | Task | Effort | Impact | Files |
-|---|------|--------|--------|-------|
-| 2.1 | **Component relationships** (IMP-04) | M | High | Modify: `component-list.ts`, `component-types.ts` |
-| 2.2 | **Component property editor** (IMP-15) | M | Medium | Modify: `component-makers.ts`, `component-commands.ts` |
-| 2.3 | **Event payload field editor** (IMP-14) | M | Medium | Modify: `event-catalog.ts` |
-| 2.4 | **Event versioning** (IMP-14) | S | Low | Modify: `event-catalog.ts` |
-| 2.5 | **Event flow visualization** (IMP-16) | L | Medium | New: `events/event-flow.ts` |
+| # | Task | Status | Files |
+|---|------|--------|-------|
+| 2.1 | **Component relationships** (IMP-04) | DONE | `component-list.ts` (enrichment, ancestry, siblings), `component-types.ts` (contains[]) |
+| 2.2 | **Component property editor** (IMP-15) | DONE | `component-makers.ts` (collectPropertyValues), `component-edit.ts` (new), `make-commands.ts` |
+| 2.3 | **Event payload field editor** (IMP-14) | DONE | `event-payload.ts` (new), `event-catalog.ts` |
+| 2.4 | **Event versioning** (IMP-14) | DONE | `event-versioning.ts` (new), `event-commands.ts` (new) |
+| 2.5 | **Event flow visualization** (IMP-16) | DONE | `event-flow.ts` (new), `event-catalog.ts` (menu) |
+| 2.6 | **Document-based templates** (D-19) | DONE | `component-doc.ts`, `c4-doc.ts` (refactored), `document.ts` (toLines), `component-types.ts` |
+| 2.7 | **Lint cleanup** (19 warnings → 0) | DONE | 13 files split/refactored for complexity and max-lines |
 
-**Milestone**: C4 entities form a navigable hierarchy. Components are editable post-creation. Event catalog supports full lifecycle.
+**Milestone**: C4 entities form a navigable hierarchy. Components are editable post-creation. Event catalog supports full lifecycle. Document service is the sole markdown renderer for doc templates. 1,342 tests, 81 suites. 0 lint errors, 0 warnings.
 
 ### Phase 3: Project Health & Storybook Integration
 
@@ -578,6 +582,39 @@ flowti info --format=json
 - Last run timestamps per generator (for stale report detection)
 - Publish pipeline state (persisted across sessions)
 
+### 6.8 Document Service Adoption Gap
+
+**Current**: 5 of 7 doc-generating domains use the `Document` builder. The scaffold shared templates (`shared-templates.ts`, `project-templates.ts`) still use raw string concatenation because they generate JSON, TypeScript, and config files — not markdown.
+
+**Gap**: The 3 non-doc component templates (`component-test.ts`, `component-definition.ts`, `component-story.ts`) generate TypeScript/JSON and correctly use raw strings. No action needed — `Document` is for markdown only. However, if additional markdown templates are added in future, they should use `Document` from day one.
+
+### 6.9 Event Catalog Frontmatter Parsing
+
+**Current**: `event-catalog.ts` has its own `extractFrontmatter()` that does naive line-by-line YAML parsing. `component-edit.ts` has `splitFrontmatter()`/`joinFrontmatter()` — also naive. Meanwhile, `infrastructure/frontmatter.ts` provides a more robust `parseFrontmatter()`.
+
+**Debt**: Three separate frontmatter parsers with slightly different capabilities. Should consolidate onto a single `infrastructure/frontmatter.ts` implementation for consistency and to gain YAML edge-case handling in one place.
+
+### 6.10 Coverage Gap
+
+**Current**: Statement coverage 52%, branch coverage 49%. Core infrastructure and domain logic is well-tested, but several domains have thin coverage:
+- Report generators — tested via output shape, not edge cases
+- Interactive flows — hard to test without mock readline refactoring
+- E2E orchestration — integration-tested but unit coverage is low
+
+**Target**: Prioritize coverage for pure functions (generators, plan builders, parsers). Interactive flows can remain lower-coverage since they're thin wrappers over tested infrastructure.
+
+### 6.11 Complexity Hotspots
+
+**Current**: 57 files exceed the complexity threshold (>15 decision points). Most are report generators and E2E helpers with many conditional sections.
+
+**Target**: Apply the same extraction pattern used in Phase 2 (helper functions, file splits) to the top 10 most complex files. Focus on files that are actively modified — stable complex files are lower priority.
+
+### 6.12 Local Type Aliases
+
+**Current**: Some domain files still define local `type` aliases (e.g. flag helpers, handler types) instead of importing from `infrastructure/types.ts`. This was cleaned up for `CommandHandler` but may exist elsewhere.
+
+**Target**: Audit all domain files for local type aliases that duplicate shared types. Replace with imports.
+
 ---
 
 ## 7. Key File Reference
@@ -600,7 +637,7 @@ flowti info --format=json
 | `infrastructure/filesystem.ts` | `IFileSystem` abstraction (`disk` singleton) |
 | `infrastructure/shell.ts` | Shell execution (`run`, `runSilent`, `runCaptureStatus`) |
 | `infrastructure/state.ts` | Persistent state (`.flowti/var/state.json`) |
-| `infrastructure/document.ts` | Fluent Markdown builder (frontmatter, tables, callouts) |
+| `infrastructure/document.ts` | Fluent Markdown builder — 4 output modes: `Document` (compose), `toString()`, `toLines()`, `save()` |
 | `infrastructure/menu.ts` | Generic data-driven menu loop |
 | `infrastructure/ui.ts` | ANSI colors, `printBanner()`, `printMenu()` |
 | `infrastructure/input.ts` | Interactive input (`ask()`, `createRL()`) |
@@ -618,11 +655,11 @@ flowti info --format=json
 | Project | `project.ts`, `project-config.ts` | Project selection, initialization, auto-scaffolding |
 | Scaffold | `scaffold-service.ts`, `scaffold-plan.ts`, `scaffold-schema.ts` | Project creation from JSON definitions |
 | Make | `MakeService.ts`, `makers.ts`, `make-commands.ts` | In-project scaffolding (journey, component) |
-| Component | `component-registry.ts`, `component-plan.ts`, `component-types.ts` | 8-kind component system with ECS properties |
+| Component | `component-registry.ts`, `component-plan.ts`, `component-types.ts`, `component-list.ts`, `component-edit.ts` | 8-kind component system with ECS properties, C4 hierarchy, post-creation editing |
 | Reports | `report-runner.ts`, `generator-registry.ts` (6 reports), `reference-registry.ts` (2 refs), `report-archive.ts` | Resilient report generation, reference documents, archive browsing |
 | Review | `project-review.ts`, `E2EService.ts` | E2E test execution, test vault management |
 | Publish | `project-publish.ts` | Gated build → test → distribute pipeline |
-| Events | `event-catalog.ts` | Per-project domain event documentation |
+| Events | `event-catalog.ts`, `event-commands.ts`, `event-payload.ts`, `event-versioning.ts`, `event-flow.ts` | Event documentation, payload editing, versioning, flow visualization |
 | Build | `build.ts` | Build command dispatch |
 | Capture | `capture.ts` | Quick-capture ideas and typed notes |
 | Help | `help.ts` | 8-section man-page system |
@@ -663,3 +700,6 @@ flowti info --format=json
 | D-16 | `flowti docs` as first-class command | CLI binary owns documentation generation; eliminates npm script indirection for reference docs |
 | D-17 | Lean package.json (10 scripts) | Heavy lifting done by CLI binary; npm scripts only for external tool invocation (vitest, typedoc, eslint) |
 | D-18 | No standalone entry points in generators | Generators are callable via registry only; eliminates `process.argv` lint violations and dead code |
+| D-19 | Document-based doc templates | Markdown doc templates return `Document` (not raw strings); gains YAML escaping, standardized rendering, 4 output modes |
+| D-20 | `CommandHandler` from shared types | Domain modules import `CommandHandler` from `infrastructure/types.ts`; eliminates local type aliases, resolves TypeDoc warnings |
+| D-21 | Event domain split into 5 files | `event-catalog.ts` (interactive), `event-commands.ts` (non-interactive), `event-payload.ts`, `event-versioning.ts`, `event-flow.ts`; each under 300 LOC |

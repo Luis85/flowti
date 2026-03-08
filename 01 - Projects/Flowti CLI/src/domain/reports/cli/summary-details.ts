@@ -162,7 +162,7 @@ export function renderDomainDetails(doc: Document, snapshots: ReportSnapshot[], 
 		doc.heading(3, snap.label).addBlank();
 		doc.quote(`Source: ${snap.file}`).addBlank();
 
-		if (snap.label === "Tests" && json.tests) { renderTestCard(doc, snap, json); continue; }
+		if (snap.label === "Test" && json.tests) { renderTestCard(doc, snap, json); continue; }
 		if (snap.label === "Coverage" && json.coverage) { renderCoverageCard(doc, json); continue; }
 		if (snap.label === "Complexity" && detailed.complexityFunctions) { renderComplexityCard(doc, snap, detailed); continue; }
 		renderDefaultCard(doc, snap);

@@ -63,7 +63,55 @@ export function listProjectComponents(projectRoot: string): ProjectComponent[] {
 		} catch { /* skip unreadable */ }
 	}
 
-	return components.sort((a, b) => a.name.localeCompare(b.name));
+	const sorted = components.sort((a, b) => a.name.localeCompare(b.name));
+	enrichComponentRelationships(sorted);
+	return sorted;
+}
+
+// ── Relationship enrichment ──────────────────────────────────────────
+
+/**
+ * Populates the `contains[]` property on each component by reversing
+ * the `containedBy` relationship. Mutates the input array in place.
+ */
+export function enrichComponentRelationships(components: ProjectComponent[]): void {
+	const childrenMap = new Map<string, string[]>();
+	for (const comp of components) {
+		if (comp.containedBy) {
+			const list = childrenMap.get(comp.containedBy) ?? [];
+			list.push(comp.name);
+			childrenMap.set(comp.containedBy, list);
+		}
+	}
+	for (const comp of components) {
+		comp.contains = childrenMap.get(comp.name) ?? [];
+	}
+}
+
+/**
+ * Builds the full ancestry path for a component (e.g. "System > Container > Component").
+ */
+export function buildAncestryPath(component: ProjectComponent, allComponents: ProjectComponent[]): string {
+	const byName = new Map(allComponents.map((c) => [c.name, c]));
+	const parts: string[] = [];
+	let current: ProjectComponent | undefined = component;
+	const visited = new Set<string>();
+	while (current) {
+		if (visited.has(current.name)) break;
+		visited.add(current.name);
+		parts.unshift(current.name);
+		current = current.containedBy ? byName.get(current.containedBy) : undefined;
+	}
+	return parts.join(" > ");
+}
+
+/**
+ * Finds sibling components (same parent, excluding self).
+ */
+export function findSiblings(component: ProjectComponent, allComponents: ProjectComponent[]): ProjectComponent[] {
+	return allComponents.filter(
+		(c) => c.name !== component.name && c.containedBy === component.containedBy,
+	);
 }
 
 // ── Component browser menu ──────────────────────────────────────────
@@ -175,12 +223,23 @@ function showComponentDetail(projectRoot: string, component: ProjectComponent, a
 	log(`    Type:     ${KIND_LABELS[component.kind] ?? component.kind}`);
 	log(`    Status:   ${component.status}`);
 	if (component.c4Level != null) log(`    C4 Level: ${component.c4Level}`);
-	if (component.containedBy) log(`    Parent:   ${component.containedBy}`);
 
-	// Show children
-	const children = allComponents.filter((c) => c.containedBy === component.name);
+	// Ancestry path (only when component has a parent)
+	if (component.containedBy) {
+		const ancestry = buildAncestryPath(component, allComponents);
+		log(`    Path:     ${ancestry}`);
+	}
+
+	// Children
+	const children = component.contains ?? allComponents.filter((c) => c.containedBy === component.name).map((c) => c.name);
 	if (children.length > 0) {
-		log(`    Children: ${children.map((c) => c.name).join(", ")}`);
+		log(`    Children: ${children.join(", ")}`);
+	}
+
+	// Siblings
+	const siblings = findSiblings(component, allComponents);
+	if (siblings.length > 0) {
+		log(`    Siblings: ${siblings.map((c) => c.name).join(", ")}`);
 	}
 
 	log(`    Doc:      ${component.path}`);

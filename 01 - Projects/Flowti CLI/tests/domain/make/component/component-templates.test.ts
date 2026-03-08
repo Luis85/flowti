@@ -19,8 +19,9 @@ function def(overrides: Partial<ComponentDefinition> = {}): ComponentDefinition 
 }
 
 describe("componentDocTemplate", () => {
-	it("generates valid YAML frontmatter", () => {
-		const output = componentDocTemplate(vars(), def());
+	it("returns a Document with valid YAML frontmatter", () => {
+		const doc = componentDocTemplate(vars(), def());
+		const output = doc.toString();
 		expect(output).toMatch(/^---\n/);
 		expect(output).toContain("type: component");
 		expect(output).toContain("status: draft");
@@ -28,24 +29,31 @@ describe("componentDocTemplate", () => {
 	});
 
 	it("includes the component name as heading", () => {
-		const output = componentDocTemplate(vars(), def());
+		const output = componentDocTemplate(vars(), def()).toString();
 		expect(output).toContain("# Auth Service");
 	});
 
 	it("includes description when provided", () => {
-		const output = componentDocTemplate(vars({ description: "Handles authentication." }), def());
+		const output = componentDocTemplate(vars({ description: "Handles authentication." }), def()).toString();
 		expect(output).toContain("Handles authentication.");
 	});
 
 	it("includes owner when provided", () => {
-		const output = componentDocTemplate(vars({ owner: "Platform Team" }), def());
+		const output = componentDocTemplate(vars({ owner: "Platform Team" }), def()).toString();
 		expect(output).toContain("owner: Platform Team");
+	});
+
+	it("supports toLines() output", () => {
+		const lines = componentDocTemplate(vars(), def()).toLines();
+		expect(Array.isArray(lines)).toBe(true);
+		expect(lines[0]).toBe("---");
+		expect(lines).toContain("# Auth Service");
 	});
 });
 
 describe("c4DocTemplate", () => {
-	it("generates C4 System doc with boundaries section", () => {
-		const output = c4DocTemplate(vars(), def({ kind: "system", metadata: { type: "system", c4Level: 1 } }));
+	it("returns a Document for C4 System with boundaries section", () => {
+		const output = c4DocTemplate(vars(), def({ kind: "system", metadata: { type: "system", c4Level: 1 } })).toString();
 		expect(output).toContain("c4: System");
 		expect(output).toContain("c4Level: 1");
 		expect(output).toContain("## Boundaries");
@@ -56,7 +64,7 @@ describe("c4DocTemplate", () => {
 		const output = c4DocTemplate(
 			vars({ technology: "Node.js", containedBy: "payment-system" }),
 			def({ kind: "container", metadata: { type: "container", c4Level: 2 } }),
-		);
+		).toString();
 		expect(output).toContain("c4: Container");
 		expect(output).toContain("technology: Node.js");
 		expect(output).toContain("containedBy: payment-system");
@@ -64,16 +72,22 @@ describe("c4DocTemplate", () => {
 	});
 
 	it("generates C4 Component doc with responsibilities section", () => {
-		const output = c4DocTemplate(vars(), def({ kind: "c4-component", metadata: { type: "c4-component", c4Level: 3 } }));
+		const output = c4DocTemplate(vars(), def({ kind: "c4-component", metadata: { type: "c4-component", c4Level: 3 } })).toString();
 		expect(output).toContain("c4: Component");
 		expect(output).toContain("## Responsibilities");
 	});
 
 	it("generates C4 Person doc with role section", () => {
-		const output = c4DocTemplate(vars(), def({ kind: "person", metadata: { type: "person", c4Level: 0 } }));
+		const output = c4DocTemplate(vars(), def({ kind: "person", metadata: { type: "person", c4Level: 0 } })).toString();
 		expect(output).toContain("c4: Person");
 		expect(output).toContain("## Role");
 		expect(output).toContain("## Interactions");
+	});
+
+	it("supports toLines() output", () => {
+		const lines = c4DocTemplate(vars(), def({ kind: "system", metadata: { type: "system", c4Level: 1 } })).toLines();
+		expect(Array.isArray(lines)).toBe(true);
+		expect(lines[0]).toBe("---");
 	});
 });
 
@@ -139,14 +153,14 @@ describe("componentDocTemplate — properties table", () => {
 					{ key: "gap", type: "string", default: "0", description: "Spacing" },
 				],
 			}),
-		);
+		).toString();
 		expect(output).toContain("## Properties");
 		expect(output).toContain("| direction | string | vertical | Layout direction |");
 		expect(output).toContain("| gap | string | 0 | Spacing |");
 	});
 
 	it("omits Properties section when definition has no properties", () => {
-		const output = componentDocTemplate(vars(), def());
+		const output = componentDocTemplate(vars(), def()).toString();
 		expect(output).not.toContain("## Properties");
 	});
 });

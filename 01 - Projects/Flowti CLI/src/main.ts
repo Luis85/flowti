@@ -34,7 +34,7 @@ import { commands as reviewCmds } from "./domain/review/review.js";
 import { commands as publishCmds } from "./domain/publish/publish.js";
 import { commands as reportsCmds } from "./domain/reports/reports.js";
 import { commands as captureCmds } from "./domain/capture/capture.js";
-import { commands as eventsCmds } from "./domain/events/event-catalog.js";
+import { commands as eventsCmds } from "./domain/events/event-commands.js";
 import { commands as scaffoldCmds } from "./domain/scaffold/scaffold.js";
 import { commands as projectCmds, startMenu, listProjects } from "./domain/project/project.js";
 import { getSelectedProject, clearSelectedProject } from "./infrastructure/state.js";

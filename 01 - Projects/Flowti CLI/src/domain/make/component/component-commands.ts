@@ -19,9 +19,7 @@ import { createFileWriter } from "../templates/file-writer.js";
 import { buildComponentPlan } from "./component-plan.js";
 import { loadComponentDefinitions, createComponentTemplateRegistry } from "./component-registry.js";
 import type { ComponentVariables } from "./component-types.js";
-import type { ProjectContext } from "../../../infrastructure/types.js";
-
-type CommandHandler = (flags: Record<string, string | boolean>, rawArgs: string[], command?: string, project?: ProjectContext) => void;
+import type { CommandHandler } from "../../../infrastructure/types.js";
 
 function buildComponentVars(name: string, flags: Record<string, string | boolean>): ComponentVariables {
 	return {

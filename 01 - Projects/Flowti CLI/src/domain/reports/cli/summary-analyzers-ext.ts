@@ -125,7 +125,7 @@ export function analyzeTypedoc(typedoc: TypeDocResult | null, thresholds: Requir
 type AnalyzerFn = (snap: ReportSnapshot, thresholds: Required<SummaryThresholds>, json: JsonDataSources, detailed: DetailedSources) => Finding[];
 
 const ANALYZERS: Record<string, AnalyzerFn> = {
-	Tests: (snap, _t, json) => analyzeTests(snap, json),
+	Test: (snap, _t, json) => analyzeTests(snap, json),
 	Coverage: (snap, t, json, d) => analyzeCoverage(snap, t, json, d),
 	Build: (snap) => analyzeBuild(snap),
 	Complexity: (snap, t, _j, d) => analyzeComplexity(snap, t, d),

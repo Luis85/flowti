@@ -89,6 +89,12 @@ vi.mock("../../../src/infrastructure/input.js", () => ({
 }));
 
 import { createEventFile, listEvents, type EventDefinition } from "../../../src/domain/events/event-catalog.js";
+import { commands } from "../../../src/domain/events/event-commands.js";
+import { parsePayloadFlag, collectPayloadFields, collectVersioningInfo } from "../../../src/domain/events/event-payload.js";
+import { versionEvent } from "../../../src/domain/events/event-versioning.js";
+import { input } from "../../../src/infrastructure/input.js";
+
+const mockInput = input as { ask: ReturnType<typeof vi.fn> };
 
 function makeEventDef(overrides: Partial<EventDefinition> = {}): EventDefinition {
 	return {
@@ -275,5 +281,261 @@ describe("listEvents", () => {
 		const events = listEvents("/test/project");
 		expect(events[0].domain).toBe("core");
 		expect(events[0].version).toBe("2.0.0");
+	});
+});
+
+// ── Payload field tests ───────────────────────────────────────────
+
+describe("parsePayloadFlag", () => {
+	it("parses a single field definition", () => {
+		const fields = parsePayloadFlag("userId:string:required:The user ID");
+		expect(fields).toHaveLength(1);
+		expect(fields[0]).toEqual({
+			name: "userId",
+			type: "string",
+			required: true,
+			description: "The user ID",
+		});
+	});
+
+	it("parses multiple comma-separated fields", () => {
+		const fields = parsePayloadFlag("userId:string:required:The user ID,email:string:required:User email");
+		expect(fields).toHaveLength(2);
+		expect(fields[0].name).toBe("userId");
+		expect(fields[1].name).toBe("email");
+		expect(fields[1].required).toBe(true);
+	});
+
+	it("defaults to string type for invalid types", () => {
+		const fields = parsePayloadFlag("data:unknown:optional:Some data");
+		expect(fields[0].type).toBe("string");
+	});
+
+	it("marks fields as not required when not 'required'", () => {
+		const fields = parsePayloadFlag("data:string:optional:Some data");
+		expect(fields[0].required).toBe(false);
+	});
+
+	it("handles all valid field types", () => {
+		for (const type of ["string", "number", "boolean", "object", "array"]) {
+			const fields = parsePayloadFlag(`field:${type}:required:desc`);
+			expect(fields[0].type).toBe(type);
+		}
+	});
+
+	it("filters out empty field names", () => {
+		const fields = parsePayloadFlag(":string:required:desc");
+		expect(fields).toHaveLength(0);
+	});
+});
+
+describe("collectPayloadFields (interactive)", () => {
+	it("returns empty array when user declines", async () => {
+		mockInput.ask.mockResolvedValueOnce("n");
+		const fields = await collectPayloadFields();
+		expect(fields).toEqual([]);
+	});
+
+	it("collects a single payload field", async () => {
+		mockInput.ask
+			.mockResolvedValueOnce("Y")       // Add payload fields?
+			.mockResolvedValueOnce("userId")   // Field name
+			.mockResolvedValueOnce("string")   // Type
+			.mockResolvedValueOnce("Y")        // Required?
+			.mockResolvedValueOnce("The user ID") // Description
+			.mockResolvedValueOnce("n");       // Add another?
+
+		const fields = await collectPayloadFields();
+		expect(fields).toHaveLength(1);
+		expect(fields[0]).toEqual({
+			name: "userId",
+			type: "string",
+			required: true,
+			description: "The user ID",
+		});
+	});
+
+	it("collects multiple payload fields", async () => {
+		mockInput.ask
+			.mockResolvedValueOnce("Y")       // Add payload fields?
+			.mockResolvedValueOnce("userId")   // Field 1 name
+			.mockResolvedValueOnce("string")   // Field 1 type
+			.mockResolvedValueOnce("Y")        // Field 1 required
+			.mockResolvedValueOnce("ID")       // Field 1 desc
+			.mockResolvedValueOnce("Y")        // Add another?
+			.mockResolvedValueOnce("age")      // Field 2 name
+			.mockResolvedValueOnce("number")   // Field 2 type
+			.mockResolvedValueOnce("n")        // Field 2 not required
+			.mockResolvedValueOnce("Age")      // Field 2 desc
+			.mockResolvedValueOnce("n");       // No more
+
+		const fields = await collectPayloadFields();
+		expect(fields).toHaveLength(2);
+		expect(fields[1].type).toBe("number");
+		expect(fields[1].required).toBe(false);
+	});
+
+	it("stops when field name is empty", async () => {
+		mockInput.ask
+			.mockResolvedValueOnce("Y")  // Add payload fields?
+			.mockResolvedValueOnce("");   // Empty field name = stop
+
+		const fields = await collectPayloadFields();
+		expect(fields).toEqual([]);
+	});
+});
+
+describe("collectVersioningInfo (interactive)", () => {
+	it("returns empty when user declines", async () => {
+		mockInput.ask.mockResolvedValueOnce("N");
+		const info = await collectVersioningInfo();
+		expect(info).toEqual({});
+	});
+
+	it("collects previous version and migration notes", async () => {
+		mockInput.ask
+			.mockResolvedValueOnce("y")                  // Is new version?
+			.mockResolvedValueOnce("1.0.0")              // Previous version
+			.mockResolvedValueOnce("Added email field");  // Migration notes
+
+		const info = await collectVersioningInfo();
+		expect(info).toEqual({
+			previousVersion: "1.0.0",
+			migrationNotes: "Added email field",
+		});
+	});
+});
+
+// ── Version history tests ─────────────────────────────────────────
+
+describe("version history in createEventFile", () => {
+	it("renders Version History section with current version", () => {
+		createEventFile("/test/project", makeEventDef());
+		const content = readMockFile("docs/events/");
+
+		expect(content).toContain("## Version History");
+		expect(content).toContain("**v1.0.0**");
+		expect(content).toContain("2026-03-08");
+	});
+
+	it("includes migration notes when previousVersion is set", () => {
+		createEventFile("/test/project", makeEventDef({
+			name: "user.updated",
+			version: "2.0.0",
+			previousVersion: "1.0.0",
+			migrationNotes: "Added email field",
+		}));
+		const content = readMockFile("docs/events/");
+
+		expect(content).toContain("## Version History");
+		expect(content).toContain("**v2.0.0**");
+		expect(content).toContain("Migrated from v1.0.0: Added email field");
+	});
+
+	it("includes previous_version and migration_notes in frontmatter", () => {
+		createEventFile("/test/project", makeEventDef({
+			name: "user.v2",
+			version: "2.0.0",
+			previousVersion: "1.0.0",
+			migrationNotes: "Breaking change",
+		}));
+		const content = readMockFile("docs/events/");
+
+		expect(content).toContain("previous_version: 1.0.0");
+		expect(content).toContain("migration_notes: Breaking change");
+	});
+
+	it("does not include previous_version in frontmatter when not set", () => {
+		createEventFile("/test/project", makeEventDef());
+		const content = readMockFile("docs/events/");
+
+		expect(content).not.toContain("previous_version:");
+		expect(content).not.toContain("migration_notes:");
+	});
+});
+
+// ── events:version command tests ──────────────────────────────────
+
+describe("versionEvent", () => {
+	it("updates version in frontmatter of existing event", () => {
+		createEventFile("/test/project", makeEventDef({ name: "user.created" }));
+		const result = versionEvent("/test/project", "user.created", "2.0.0", "Added email field");
+
+		expect(result).toBe(true);
+		const content = readMockFile("docs/events/");
+		expect(content).toContain("version: 2.0.0");
+		expect(content).toContain("previous_version: 1.0.0");
+		expect(content).toContain("migration_notes: Added email field");
+	});
+
+	it("appends to Version History section", () => {
+		createEventFile("/test/project", makeEventDef({ name: "order.placed" }));
+		versionEvent("/test/project", "order.placed", "2.0.0", "Added tracking field");
+
+		const content = readMockFile("docs/events/");
+		expect(content).toContain("## Version History");
+		expect(content).toContain("**v2.0.0**");
+		expect(content).toContain("Migrated from v1.0.0: Added tracking field");
+	});
+
+	it("returns false when event does not exist", () => {
+		const result = versionEvent("/test/project", "nonexistent.event", "2.0.0", "notes");
+		expect(result).toBe(false);
+	});
+});
+
+// ── Non-interactive --payload flag tests ──────────────────────────
+
+describe("events:add --payload flag", () => {
+	it("creates event with payload fields from --payload flag", () => {
+		const handler = commands["events:add"];
+		const project = { path: "/test/project", pkg: null, config: { name: "test" }, scripts: {} };
+
+		handler(
+			{
+				name: "order.placed",
+				domain: "order",
+				payload: "orderId:string:required:The order ID,total:number:required:Order total",
+			},
+			[], undefined, project,
+		);
+
+		const content = readMockFile("docs/events/");
+		expect(content).toContain("| orderId | string | yes | The order ID |");
+		expect(content).toContain("| total | number | yes | Order total |");
+	});
+
+	it("creates event without payload when --payload flag is missing", () => {
+		const handler = commands["events:add"];
+		const project = { path: "/test/project", pkg: null, config: { name: "test" }, scripts: {} };
+
+		handler({ name: "simple.event", domain: "core" }, [], undefined, project);
+
+		const content = readMockFile("docs/events/");
+		expect(content).toContain("## Payload");
+		expect(content).toContain("<!-- Define the event payload fields. -->");
+	});
+});
+
+// ── events:version command handler tests ──────────────────────────
+
+describe("events:version command", () => {
+	it("is registered in commands", () => {
+		expect(commands["events:version"]).toBeDefined();
+	});
+
+	it("updates event version via command handler", () => {
+		createEventFile("/test/project", makeEventDef({ name: "cmd.event" }));
+		const project = { path: "/test/project", pkg: null, config: { name: "test" }, scripts: {} };
+
+		commands["events:version"](
+			{ name: "cmd.event", version: "3.0.0", migration: "Major rewrite" },
+			[], undefined, project,
+		);
+
+		const content = readMockFile("docs/events/");
+		expect(content).toContain("version: 3.0.0");
+		expect(content).toContain("previous_version: 1.0.0");
+		expect(content).toContain("migration_notes: Major rewrite");
 	});
 });

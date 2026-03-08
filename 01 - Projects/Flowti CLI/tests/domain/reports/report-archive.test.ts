@@ -44,7 +44,7 @@ describe("discoverArchiveCategories", () => {
 
 		const categories = discoverArchiveCategories("/reports");
 		expect(categories).toHaveLength(2);
-		expect(categories[0].label).toBe("Tests");
+		expect(categories[0].label).toBe("Test");
 		expect(categories[0].files).toHaveLength(2);
 		// Most recent first
 		expect(categories[0].files[0]).toBe("2026-03-08-test-report.md");
@@ -85,7 +85,7 @@ describe("discoverArchiveCategories", () => {
 
 		const categories = discoverArchiveCategories("/reports");
 		expect(categories).toHaveLength(1);
-		expect(categories[0].label).toBe("Tests");
+		expect(categories[0].label).toBe("Test");
 	});
 
 	it("sorts files most recent first", () => {

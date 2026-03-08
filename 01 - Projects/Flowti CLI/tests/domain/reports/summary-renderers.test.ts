@@ -181,13 +181,13 @@ describe("promoteTests", () => {
 
 	it("falls back to frontmatter", () => {
 		const fmData: Record<string, string | number | boolean> = {};
-		promoteTests(fmData, [snap("Tests", { total: "500" })], {});
+		promoteTests(fmData, [snap("Test", { total: "500" })], {});
 		expect(fmData.total_tests).toBe(500);
 	});
 
 	it("skips zero total from frontmatter", () => {
 		const fmData: Record<string, string | number | boolean> = {};
-		promoteTests(fmData, [snap("Tests", { total: "0" })], {});
+		promoteTests(fmData, [snap("Test", { total: "0" })], {});
 		expect(fmData.total_tests).toBeUndefined();
 	});
 });
@@ -526,8 +526,8 @@ describe("renderDomainDetails", () => {
 		const json: JsonDataSources = {
 			tests: { numTotalTests: 50, numPassedTests: 50, numFailedTests: 0, numPendingTests: 0, numTotalTestSuites: 5, numPassedTestSuites: 5, numFailedTestSuites: 0, success: true },
 		};
-		const out = docString((doc) => renderDomainDetails(doc, [snap("Tests")], json, EMPTY_DETAILED));
-		expect(out).toContain("### Tests");
+		const out = docString((doc) => renderDomainDetails(doc, [snap("Test")], json, EMPTY_DETAILED));
+		expect(out).toContain("### Test");
 		expect(out).toContain("total tests");
 		expect(out).toContain("50");
 	});

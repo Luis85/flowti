@@ -7,8 +7,10 @@
  */
 
 import { commands as componentCommands } from "./component/component-commands.js";
+import { commands as editCommands } from "./component/component-edit.js";
 import type { ProjectContext } from "../../infrastructure/types.js";
 
 export const commands: Record<string, (flags: Record<string, string | boolean>, rawArgs: string[], command?: string, project?: ProjectContext) => void> = {
 	...componentCommands,
+	...editCommands,
 };

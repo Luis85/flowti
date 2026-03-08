@@ -43,7 +43,7 @@ export function promoteTests(fmData: Record<string, string | number | boolean>, 
 		fmData.tests_failed = json.tests.numFailedTests;
 	} else {
 		for (const snap of snapshots) {
-			if (snap.label !== "Tests") continue;
+			if (snap.label !== "Test") continue;
 			const t = fm(snap, "total");
 			if (t > 0) fmData.total_tests = t;
 		}

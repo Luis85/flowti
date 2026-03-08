@@ -27,6 +27,34 @@ function writePlan(basePath: string, files: FileEntry[]): number {
 	return writer.created;
 }
 
+// ── Interactive helpers ──────────────────────────────────────────────
+
+async function collectDefinitionPrompts(def: ComponentDefinition): Promise<Record<string, string> | null> {
+	const vars: Record<string, string> = {};
+	for (const prompt of def.prompts) {
+		const answer = await input.ask(prompt.label, prompt.default ?? "");
+		if (prompt.required && !answer) {
+			log(`\n  ${RED}Required: ${prompt.label}${RESET}\n`);
+			return null;
+		}
+		vars[prompt.variable] = answer;
+	}
+	return vars;
+}
+
+async function collectPropertyValues(def: ComponentDefinition): Promise<Record<string, string>> {
+	const values: Record<string, string> = {};
+	if (def.properties.length === 0) return values;
+	log(`\n  ${BOLD}Properties:${RESET}`);
+	for (const prop of def.properties) {
+		const hint = prop.description ? ` — ${prop.description}` : "";
+		const label = `${prop.key} (${prop.type}${hint})`;
+		const defaultVal = prop.default != null ? String(prop.default) : "";
+		values[`prop.${prop.key}`] = await input.ask(label, defaultVal);
+	}
+	return values;
+}
+
 // ── Interactive maker ───────────────────────────────────────────────
 
 async function makeComponentInteractive(projectRoot: string, def: ComponentDefinition): Promise<void> {
@@ -38,34 +66,23 @@ async function makeComponentInteractive(projectRoot: string, def: ComponentDefin
 	const name = await input.ask("Component name");
 	if (!name) return;
 
-	const kebab = toKebab(name);
-	const pascal = toPascal(name);
-	const camel = toCamel(name);
+	const extraVars = await collectDefinitionPrompts(def);
+	if (!extraVars) return;
 
-	// Resolve additional prompts from the definition
-	const extraVars: Record<string, string> = {};
-	for (const prompt of def.prompts) {
-		const answer = await input.ask(prompt.label, prompt.default ?? "");
-		if (prompt.required && !answer) {
-			log(`\n  ${RED}Required: ${prompt.label}${RESET}\n`);
-			return;
-		}
-		extraVars[prompt.variable] = answer;
-	}
+	const propertyValues = await collectPropertyValues(def);
+	const vars: ComponentVariables = {
+		name, kebab: toKebab(name), pascal: toPascal(name), camel: toCamel(name),
+		...extraVars, ...propertyValues,
+	};
 
-	const vars: ComponentVariables = { name, kebab, pascal, camel, ...extraVars };
-
-	// Check for existing component
-	const docPath = paths.join(projectRoot, "docs", "components", `${kebab}.md`);
+	const docPath = paths.join(projectRoot, "docs", "components", `${vars.kebab}.md`);
 	if (disk.existsSync(docPath)) {
-		log(`\n  ${RED}Component already exists:${RESET} ${kebab}\n`);
+		log(`\n  ${RED}Component already exists:${RESET} ${vars.kebab}\n`);
 		return;
 	}
 
-	log();
-	log(`  ${BOLD}Adding: ${name}${RESET} ${DIM}(${def.label})${RESET}`);
-	log(`  ${DIM}ID: ${kebab}${RESET}`);
-	log();
+	log(`\n  ${BOLD}Adding: ${name}${RESET} ${DIM}(${def.label})${RESET}`);
+	log(`  ${DIM}ID: ${vars.kebab}${RESET}\n`);
 
 	const proceed = await input.ask("Create files? (Y/n)", "Y");
 	if (proceed.toLowerCase() === "n") return;
@@ -79,9 +96,7 @@ async function makeComponentInteractive(projectRoot: string, def: ComponentDefin
 	const steps = resolveNextSteps(def, vars);
 	if (steps.length > 0) {
 		log(`  ${BOLD}Next steps:${RESET}`);
-		for (const step of steps) {
-			log(`    ${CYAN}▸${RESET} ${step}`);
-		}
+		for (const step of steps) log(`    ${CYAN}▸${RESET} ${step}`);
 		log();
 	}
 }

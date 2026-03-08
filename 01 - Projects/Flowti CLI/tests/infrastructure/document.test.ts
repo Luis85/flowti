@@ -158,6 +158,33 @@ describe("Document", () => {
 		});
 	});
 
+	describe("toLines", () => {
+		it("returns body as string array", () => {
+			const doc = Document.create("Test")
+				.heading(1, "Title")
+				.addBlank()
+				.text("Body text");
+			const lines = doc.toLines();
+			expect(lines).toEqual(["# Title", "", "Body text"]);
+		});
+
+		it("includes frontmatter lines", () => {
+			const doc = Document.create("Test")
+				.setFrontmatter("type", "Note")
+				.addBlank()
+				.heading(1, "Title");
+			const lines = doc.toLines();
+			expect(lines[0]).toBe("---");
+			expect(lines).toContain("type: Note");
+			expect(lines).toContain("# Title");
+		});
+
+		it("returns empty array for empty document", () => {
+			const doc = Document.create("Empty");
+			expect(doc.toLines()).toEqual([""]);
+		});
+	});
+
 	describe("combined output", () => {
 		it("renders frontmatter + body", () => {
 			const doc = Document.create("Test")

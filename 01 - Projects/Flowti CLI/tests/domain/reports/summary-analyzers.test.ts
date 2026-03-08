@@ -87,19 +87,19 @@ describe("fmStr", () => {
 
 describe("analyzeTests", () => {
 	it("reports risk when 0 tests", () => {
-		const findings = analyzeTests(snap("Tests", { total: "0" }), EMPTY_JSON);
+		const findings = analyzeTests(snap("Test", { total: "0" }), EMPTY_JSON);
 		expect(findings[0].category).toBe("risk");
 		expect(findings[0].message).toContain("0 tests");
 	});
 
 	it("reports risk when tests fail", () => {
-		const findings = analyzeTests(snap("Tests", { total: "10", passed: "8", failed: "2" }), EMPTY_JSON);
+		const findings = analyzeTests(snap("Test", { total: "10", passed: "8", failed: "2" }), EMPTY_JSON);
 		expect(findings[0].category).toBe("risk");
 		expect(findings[0].message).toContain("2 test(s) failing");
 	});
 
 	it("reports positive when all pass", () => {
-		const findings = analyzeTests(snap("Tests", { total: "50", passed: "50", failed: "0", suites: "5" }), EMPTY_JSON);
+		const findings = analyzeTests(snap("Test", { total: "50", passed: "50", failed: "0", suites: "5" }), EMPTY_JSON);
 		expect(findings[0].category).toBe("positive");
 		expect(findings[0].message).toContain("50 tests passing");
 	});
@@ -108,7 +108,7 @@ describe("analyzeTests", () => {
 		const json: JsonDataSources = {
 			tests: { numTotalTests: 100, numPassedTests: 100, numFailedTests: 0, numPendingTests: 0, numTotalTestSuites: 10, numPassedTestSuites: 10, numFailedTestSuites: 0, success: true },
 		};
-		const findings = analyzeTests(snap("Tests"), json);
+		const findings = analyzeTests(snap("Test"), json);
 		expect(findings[0].category).toBe("positive");
 		expect(findings[0].message).toContain("100 tests");
 	});
@@ -117,7 +117,7 @@ describe("analyzeTests", () => {
 		const json: JsonDataSources = {
 			tests: { numTotalTests: 10, numPassedTests: 10, numFailedTests: 0, numPendingTests: 0, numTotalTestSuites: 1, numPassedTestSuites: 1, numFailedTestSuites: 0, success: false },
 		};
-		const findings = analyzeTests(snap("Tests"), json);
+		const findings = analyzeTests(snap("Test"), json);
 		expect(findings.some((f) => f.message.includes("FAILURE"))).toBe(true);
 	});
 });
@@ -577,7 +577,7 @@ describe("analyzeTypedoc", () => {
 describe("analyzeReports", () => {
 	it("dispatches to correct analyzers", () => {
 		const snapshots: ReportSnapshot[] = [
-			snap("Tests", { total: "50", passed: "50", failed: "0", suites: "5" }),
+			snap("Test", { total: "50", passed: "50", failed: "0", suites: "5" }),
 			snap("Build", { success: "true", duration_ms: "1000" }),
 		];
 		const findings = analyzeReports(snapshots, THRESHOLDS, null, null, EMPTY_JSON, EMPTY_DETAILED);

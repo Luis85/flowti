@@ -64,7 +64,9 @@ export interface ComponentVariables {
 
 // ── Template function signature ─────────────────────────────────────
 
-export type ComponentTemplateFn = (vars: ComponentVariables, def: ComponentDefinition) => string;
+import type { Document } from "../../../infrastructure/document.js";
+
+export type ComponentTemplateFn = (vars: ComponentVariables, def: ComponentDefinition) => string | Document;
 
 // ── Project component (read from existing project) ──────────────────
 
@@ -77,4 +79,6 @@ export interface ProjectComponent {
 	c4Level?: number;
 	/** Name of the parent component (C4 containment relationship). */
 	containedBy?: string;
+	/** Names of child components (computed from containedBy). */
+	contains?: string[];
 }

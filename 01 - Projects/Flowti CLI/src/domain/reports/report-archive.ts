@@ -22,7 +22,7 @@ export interface ArchiveCategory {
 // ── Pure logic ───────────────────────────────────────────────────────
 
 const REPORT_CATEGORIES = [
-	{ subdir: "tests", label: "Tests" },
+	{ subdir: "tests", label: "Test" },
 	{ subdir: "coverage", label: "Coverage" },
 	{ subdir: "builds", label: "Build" },
 	{ subdir: "codebase", label: "Codebase" },
