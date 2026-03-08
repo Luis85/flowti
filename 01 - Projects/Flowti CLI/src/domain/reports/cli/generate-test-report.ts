@@ -2,8 +2,6 @@
  * generate-test-report.ts — CLI project test report generator.
  *
  * Reads vitest JSON output and generates a markdown TestReport.
- *
- * Usage: tsx src/domain/reports/cli/generate-test-report.ts
  */
 
 import { disk } from "../../../infrastructure/filesystem.js";
@@ -11,9 +9,7 @@ import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
 import { log } from "../../../infrastructure/logger.js";
 import { clock } from "../../../infrastructure/clock.js";
-
-const svc = new ReportService();
-const REPORT_JSON = svc.subdir("tests/testreport.json");
+import type { GeneratorOutput } from "../../../infrastructure/types.js";
 
 interface TestStats {
 	passed: number;
@@ -55,13 +51,16 @@ function addSuitesTable(doc: Document, json: Record<string, unknown>): void {
 	doc.table(["Suite", "Tests", "Passed", "Status"], rows, { alignRight: [1, 2] }).addBlank();
 }
 
-function main(): void {
-	if (!disk.existsSync(REPORT_JSON)) {
+export function generateTestReport(projectPath: string): GeneratorOutput {
+	const svc = new ReportService(projectPath);
+	const reportJson = svc.subdir("tests/testreport.json");
+
+	if (!disk.existsSync(reportJson)) {
 		log("[cli-report] No testreport.json found — run tests with --reporter=json first.");
-		return;
+		return { success: false, outputPath: "", metrics: {} };
 	}
 
-	const json = JSON.parse(disk.readFileSync(REPORT_JSON, "utf-8")) as Record<string, unknown>;
+	const json = JSON.parse(disk.readFileSync(reportJson, "utf-8")) as Record<string, unknown>;
 	const stats = extractTestStats(json);
 
 	const fm: Record<string, string | number | boolean> = {
@@ -95,10 +94,29 @@ function main(): void {
 		subdir: "tests",
 		slug: "test-report",
 		stableFilename: "Test Report.md",
-		sourceJson: REPORT_JSON,
+		sourceJson: reportJson,
 	});
 
-	log(`[cli-report] TestReport written: ${outputPath}`);
+	log(`[cli-report] Test Report`);
+	log(`  Total: ${stats.total} | Passed: ${stats.passed} | Failed: ${stats.failed} | Skipped: ${stats.skipped}`);
+	log(`  Suites: ${stats.suites} | Duration: ${stats.durationMs}ms | Result: ${stats.success ? "PASS" : "FAIL"}`);
+	log(`  Written: ${outputPath}`);
+
+	const warnings: string[] = [];
+	if (stats.failed > 0) warnings.push(`${stats.failed} test(s) failed`);
+
+	return {
+		success: true,
+		outputPath,
+		metrics: { total: stats.total, passed: stats.passed, failed: stats.failed, skipped: stats.skipped, suites: stats.suites },
+		warnings: warnings.length > 0 ? warnings : undefined,
+	};
 }
 
-main();
+// Self-invocation when run directly via tsx
+import { CLI_PROJECT } from "../../../infrastructure/config.js";
+
+// eslint-disable-next-line no-restricted-properties
+if (process.argv[1]?.includes("generate-test-report")) {
+	generateTestReport(CLI_PROJECT);
+}

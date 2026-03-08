@@ -15,6 +15,7 @@ function makeDef(overrides: Partial<ComponentDefinition> = {}): ComponentDefinit
 			{ path: "src/components/{{kebab}}/{{kebab}}.json", templateId: "def" },
 		],
 		metadata: { type: "component", status: "draft" },
+		properties: [],
 		nextSteps: ["Edit docs/components/{{kebab}}.md"],
 		...overrides,
 	};

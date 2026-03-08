@@ -10,19 +10,21 @@
 	},
 	"reports": {
 		"dir": "reports",
+		"allCommand": "npm run reports",
 		"generators": [
-			{ "label": "Test Report", "command": "npx tsx src/domain/reports/cli/generate-test-report.ts" },
-			{ "label": "Coverage Report", "command": "npx tsx src/domain/reports/cli/generate-coverage-report.ts" },
-			{ "label": "Codebase Report", "command": "npx tsx src/domain/reports/cli/generate-codebase-report.ts" },
-			{ "label": "Complexity Report", "command": "npx tsx src/domain/reports/cli/generate-complexity-report.ts" },
-			{ "label": "Status Report", "command": "npx tsx src/domain/reports/cli/generate-status-report.ts" },
-			{ "label": "Summary Report", "command": "npx tsx src/domain/reports/cli/generate-summary-report.ts" }
+			{ "id": "test", "label": "Test Report", "prerequisites": ["npm run test:coverage"] },
+			{ "id": "coverage", "label": "Coverage Report", "prerequisites": ["npm run test:coverage"] },
+			{ "id": "codebase", "label": "Codebase Report", "prerequisites": ["npm run docs"] },
+			{ "id": "complexity", "label": "Complexity Report", "prerequisites": ["npm run analysis"] },
+			{ "id": "status", "label": "Status Report" },
+			{ "id": "summary", "label": "Summary Report" }
 		],
 		"thresholds": {
 			"coverageLines": 80,
 			"coverageBranches": 70,
 			"maxComplexity": 15,
 			"complexityAboveThresholdPct": 5,
+			"startupMs": 5000,
 			"eslintWarnings": 0,
 			"lintCommand": "npm run lint",
 			"typedocCommand": "npm run docs",
@@ -30,10 +32,10 @@
 		}
 	},
 	"docs": {
-		"allCommand": "npm run docs",
+		"allCommand": "npm run docs && npm run report:cli-reference",
 		"generators": [
 			{ "label": "Codebase (TypeDoc)", "command": "npm run docs" },
-			{ "label": "CLI Reference", "command": "npx tsx src/domain/reports/generators/cli-reference.ts" }
+			{ "label": "CLI Reference", "command": "npm run report:cli-reference" }
 		]
 	},
 	"publish": {

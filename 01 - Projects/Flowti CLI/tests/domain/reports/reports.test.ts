@@ -25,14 +25,20 @@ vi.mock("../../../src/infrastructure/clock.js", () => {
 	};
 });
 
+// Mock the generator registry
+const mockRunGenerator = vi.fn();
+const mockHasGenerator = vi.fn();
+vi.mock("../../../src/domain/reports/generator-registry.js", () => ({
+	runGenerator: (...args: unknown[]) => mockRunGenerator(...args),
+	hasGenerator: (...args: unknown[]) => mockHasGenerator(...args),
+}));
+
 import * as shellMod from "../../../src/infrastructure/shell.js";
 import { commands } from "../../../src/domain/reports/reports.js";
 import type { ProjectContext } from "../../../src/infrastructure/types.js";
 
 function makeProject(opts?: {
-	allCommand?: string;
-	generators?: Array<{ label: string; command: string }>;
-	tools?: Record<string, string>;
+	generators?: Array<{ id?: string; label: string; command?: string }>;
 }): ProjectContext {
 	return {
 		path: "/test/project",
@@ -40,110 +46,109 @@ function makeProject(opts?: {
 		config: {
 			name: "test",
 			reports: {
-				allCommand: opts?.allCommand,
 				generators: opts?.generators,
 			},
-			tools: opts?.tools,
 		},
 		scripts: {},
 	};
 }
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+	vi.clearAllMocks();
+	mockHasGenerator.mockReturnValue(true);
+	mockRunGenerator.mockReturnValue({ success: true, outputPath: "/test/report.md", metrics: {} });
+});
 
 describe("reports commands", () => {
-	it("reports runs each generator resiliently", () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
+	it("reports runs all generators via registry", () => {
 		const project = makeProject({
 			generators: [
-				{ label: "Test Report", command: "node scripts/generate-test-report.mjs" },
-				{ label: "Coverage Report", command: "node scripts/generate-coverage-report.mjs" },
+				{ id: "test", label: "Test Report" },
+				{ id: "coverage", label: "Coverage Report" },
 			],
 		});
 
 		commands["reports"]({}, [], "reports", project);
 
-		const captureCalls = sh.calls.filter((c) => c.method === "runCaptureStatus");
-		expect(captureCalls).toHaveLength(2);
-		expect(captureCalls[0].cmd).toContain("test-report");
-		expect(captureCalls[1].cmd).toContain("coverage-report");
+		expect(mockRunGenerator).toHaveBeenCalledTimes(2);
+		expect(mockRunGenerator).toHaveBeenCalledWith("test", "/test/project");
+		expect(mockRunGenerator).toHaveBeenCalledWith("coverage", "/test/project");
 	});
 
 	it("reports continues when a generator fails", () => {
-		const sh = createMockShell({
-			exitCodes: { "node scripts/generate-test-report.mjs": 1 },
-		});
-		Object.assign(shellMod, { shell: sh });
+		mockRunGenerator
+			.mockReturnValueOnce({ success: false, outputPath: "", metrics: {} })
+			.mockReturnValueOnce({ success: true, outputPath: "", metrics: {} });
+
 		const project = makeProject({
 			generators: [
-				{ label: "Test Report", command: "node scripts/generate-test-report.mjs" },
-				{ label: "Coverage Report", command: "node scripts/generate-coverage-report.mjs" },
+				{ id: "test", label: "Test Report" },
+				{ id: "coverage", label: "Coverage Report" },
 			],
 		});
 
 		commands["reports"]({}, [], "reports", project);
 
-		// Both were attempted despite first failing
-		const captureCalls = sh.calls.filter((c) => c.method === "runCaptureStatus");
-		expect(captureCalls).toHaveLength(2);
+		expect(mockRunGenerator).toHaveBeenCalledTimes(2);
 	});
 
 	it("reports logs message when no generators configured", async () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
 		const { log } = await import("../../../src/infrastructure/logger.js");
 		const project = makeProject({ generators: [] });
 
 		commands["reports"]({}, [], "reports", project);
 
-		expect(sh.calls).toHaveLength(0);
+		expect(mockRunGenerator).not.toHaveBeenCalled();
 		expect(log).toHaveBeenCalled();
 	});
 
 	it("reports:audit runs all generators and logs audit summary", async () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
 		const { log } = await import("../../../src/infrastructure/logger.js");
 		const project = makeProject({
-			generators: [
-				{ label: "Test Report", command: "node scripts/generate-test-report.mjs" },
-			],
+			generators: [{ id: "test", label: "Test Report" }],
 		});
 
 		commands["reports:audit"]({}, [], "reports:audit", project);
 
-		const captureCalls = sh.calls.filter((c) => c.method === "runCaptureStatus");
-		expect(captureCalls).toHaveLength(1);
+		expect(mockRunGenerator).toHaveBeenCalledTimes(1);
 		const output = (log as ReturnType<typeof vi.fn>).mock.calls.flat().join(" ");
 		expect(output).toContain("Audit complete");
 	});
 
-	it("report:* runs matching generator by command content", () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
+	it("report:* runs matching internal generator by ID", () => {
 		const project = makeProject({
-			generators: [
-				{ label: "Test Report", command: "node scripts/generate-test-report.mjs" },
-				{ label: "Coverage Report", command: "node scripts/generate-coverage-report.mjs" },
-			],
+			generators: [{ id: "test", label: "Test Report" }],
 		});
 
 		commands["report:*"]({}, [], "report:test", project);
 
+		expect(mockRunGenerator).toHaveBeenCalledWith("test", "/test/project");
+	});
+
+	it("report:* falls back to external command when not in registry", () => {
+		mockHasGenerator.mockReturnValue(false);
+		const sh = createMockShell();
+		Object.assign(shellMod, { shell: sh });
+
+		const project = makeProject({
+			generators: [{ id: "custom", label: "Custom Report", command: "node scripts/generate-custom.mjs" }],
+		});
+
+		commands["report:*"]({}, [], "report:custom", project);
+
 		const runCalls = sh.calls.filter((c) => c.method === "run");
 		expect(runCalls).toHaveLength(1);
-		expect(runCalls[0].cmd).toContain("test-report");
-		expect(runCalls[0].opts?.cwd).toBe("/test/project");
+		expect(runCalls[0].cmd).toContain("generate-custom");
 	});
 
 	it("report:* logs error for unknown report", async () => {
+		mockHasGenerator.mockReturnValue(false);
 		const sh = createMockShell();
 		Object.assign(shellMod, { shell: sh });
 		const { log } = await import("../../../src/infrastructure/logger.js");
 		const mockLog = log as ReturnType<typeof vi.fn>;
 		const project = makeProject({
-			generators: [{ label: "Test Report", command: "node scripts/generate-test-report.mjs" }],
+			generators: [{ id: "test", label: "Test Report" }],
 		});
 
 		commands["report:*"]({}, [], "report:nonexistent", project);

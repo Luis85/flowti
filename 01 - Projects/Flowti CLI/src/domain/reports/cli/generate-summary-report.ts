@@ -13,6 +13,7 @@ import { ReportService } from "./report-service.js";
 import { log } from "../../../infrastructure/logger.js";
 import { clock } from "../../../infrastructure/clock.js";
 import type { SummaryThresholds } from "../../../infrastructure/types.js";
+import type { GeneratorOutput } from "../../../infrastructure/types.js";
 import type {
 	ReportSnapshot,
 	Finding,
@@ -39,8 +40,6 @@ import {
 	renderWarnings,
 	renderDomainMetrics,
 	renderTopFilesByLoc,
-	renderDomainDetails,
-	renderMetricsDictionary,
 } from "./summary-renderers.js";
 
 // ── Document builder ─────────────────────────────────────────────────
@@ -90,8 +89,15 @@ function buildSummaryReport(
 	renderWarnings(doc, lint, typedoc);
 	renderDomainMetrics(doc, detailed);
 	renderTopFilesByLoc(doc, detailed);
-	renderDomainDetails(doc, snapshots, json, detailed);
-	renderMetricsDictionary(doc);
+
+	// Wikilinks to baseline reports (details live there, not duplicated here)
+	doc.heading(2, "Baseline Reports").addBlank();
+	const reportLinks = snapshots.map((s) => `- [[${s.label} Report]]`);
+	if (reportLinks.length > 0) {
+		doc.text(reportLinks.join("\n")).addBlank();
+	} else {
+		doc.text("_No baseline reports found._").addBlank();
+	}
 
 	return doc;
 }
@@ -149,7 +155,7 @@ function buildJsonOutput(
 	};
 }
 
-export function generateSummaryReport(projectPath: string): void {
+export function generateSummaryReport(projectPath: string): GeneratorOutput {
 	const svc = new ReportService(projectPath);
 	const projectName = paths.basename(projectPath);
 	const thresholds = resolveThresholds(projectPath);
@@ -188,6 +194,31 @@ export function generateSummaryReport(projectPath: string): void {
 	log(`    ${stablePath}`);
 	log(`    ${timestampedPath}`);
 	log(`    ${jsonPath}\n`);
+
+	const warnings: string[] = [];
+	if (snapshots.length === 0) warnings.push("No reports found — run report generators first");
+	if (risks > 0) warnings.push(`${risks} risk(s) detected`);
+
+	if (lint && (lint.errors > 0 || lint.warnings > 0)) {
+		warnings.push(`Lint: ${lint.errors} error(s), ${lint.warnings} warning(s)`);
+		for (const issue of lint.issues) {
+			warnings.push(`  ${issue.severity === "error" ? "✗" : "⚠"} ${issue.file}:${issue.line} ${issue.message} (${issue.rule})`);
+		}
+	}
+
+	if (typedoc && (typedoc.errors > 0 || typedoc.warnings > 0)) {
+		warnings.push(`TypeDoc: ${typedoc.errors} error(s), ${typedoc.warnings} warning(s)`);
+		for (const issue of typedoc.issues) {
+			warnings.push(`  ${issue.severity === "error" ? "✗" : "⚠"} ${issue.message}`);
+		}
+	}
+
+	return {
+		success: true,
+		outputPath: stablePath,
+		metrics: { risks, improvements, positives, reportsAnalyzed: snapshots.length },
+		warnings: warnings.length > 0 ? warnings : undefined,
+	};
 }
 
 // Self-invocation when run directly via tsx

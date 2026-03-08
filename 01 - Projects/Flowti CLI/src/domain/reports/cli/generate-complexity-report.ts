@@ -1,21 +1,16 @@
 /**
  * generate-complexity-report.ts — CLI project complexity report generator.
  *
- * Reads coverage/analysis.json (produced by `npm run analysis`) and generates
- * a markdown ComplexityReport with coverage, decision points, and top files.
- *
- * Usage: npm run analysis && tsx src/domain/reports/cli/generate-complexity-report.ts
+ * Reads coverage/analysis.json and generates a markdown ComplexityReport
+ * with coverage, decision points, and top files.
  */
 
 import { disk } from "../../../infrastructure/filesystem.js";
-import { CLI_PROJECT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
 import { log } from "../../../infrastructure/logger.js";
 import { clock } from "../../../infrastructure/clock.js";
-
-const svc = new ReportService();
-const ANALYSIS_JSON = svc.subdir("coverage/analysis.json");
+import type { GeneratorOutput } from "../../../infrastructure/types.js";
 
 // ── Types matching analysis.json shape ──────────────────────────────
 
@@ -45,8 +40,8 @@ interface AnalysisData {
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
-function relPath(absPath: string): string {
-	const rootNorm = CLI_PROJECT.replace(/\\/g, "/");
+function relPath(absPath: string, projectPath: string): string {
+	const rootNorm = projectPath.replace(/\\/g, "/");
 	const norm = absPath.replace(/\\/g, "/");
 	return norm.startsWith(rootNorm) ? norm.substring(rootNorm.length + 1) : norm;
 }
@@ -74,14 +69,14 @@ function buildComplexityFm(summary: AnalysisSummary, srcFiles: AnalysisFile[]): 
 	return fm;
 }
 
-function addTopDPSection(doc: Document, srcFiles: AnalysisFile[], hasCoverage: boolean): void {
+function addTopDPSection(doc: Document, srcFiles: AnalysisFile[], hasCoverage: boolean, projectPath: string): void {
 	const topDP = [...srcFiles].sort((a, b) => b.decisionPointCount - a.decisionPointCount).slice(0, 15);
 	if (topDP.length === 0) return;
 
 	doc.heading(2, "Top Files by Decision Points").addBlank();
 	const headers = hasCoverage ? ["#", "DPs", "Stmts", "Branch", "File"] : ["#", "DPs", "File"];
 	const rows = topDP.map((f, i) => {
-		const rel = `\`${relPath(f.file)}\``;
+		const rel = `\`${relPath(f.file, projectPath)}\``;
 		return hasCoverage
 			? [String(i + 1), String(f.decisionPointCount), pct(f.statements), pct(f.branches), rel]
 			: [String(i + 1), String(f.decisionPointCount), rel];
@@ -107,7 +102,7 @@ function addDPTypeSection(doc: Document, srcFiles: AnalysisFile[], totalDP: numb
 	).addBlank();
 }
 
-function addLowCoverageSection(doc: Document, srcFiles: AnalysisFile[]): void {
+function addLowCoverageSection(doc: Document, srcFiles: AnalysisFile[], projectPath: string): void {
 	const lowCov = [...srcFiles]
 		.filter((f) => f.statements !== undefined && f.statements < 50)
 		.sort((a, b) => (a.statements ?? 0) - (b.statements ?? 0))
@@ -117,21 +112,24 @@ function addLowCoverageSection(doc: Document, srcFiles: AnalysisFile[]): void {
 	doc.heading(2, "Low Coverage Files (<50%)").addBlank();
 	doc.table(
 		["#", "Stmts", "Branch", "Funcs", "File"],
-		lowCov.map((f, i) => [String(i + 1), pct(f.statements), pct(f.branches), pct(f.functions), `\`${relPath(f.file)}\``]),
+		lowCov.map((f, i) => [String(i + 1), pct(f.statements), pct(f.branches), pct(f.functions), `\`${relPath(f.file, projectPath)}\``]),
 		{ alignRight: [0, 1, 2, 3] },
 	).addBlank();
 }
 
-function main(): void {
-	if (!disk.existsSync(ANALYSIS_JSON)) {
-		log("[cli-report] No analysis.json found — run `npm run analysis` first.");
-		return;
+export function generateComplexityReport(projectPath: string): GeneratorOutput {
+	const svc = new ReportService(projectPath);
+	const analysisJson = svc.subdir("coverage/analysis.json");
+
+	if (!disk.existsSync(analysisJson)) {
+		log("[cli-report] No analysis.json found — run analysis first.");
+		return { success: false, outputPath: "", metrics: {} };
 	}
 
-	const data: AnalysisData = JSON.parse(disk.readFileSync(ANALYSIS_JSON, "utf-8"));
+	const data: AnalysisData = JSON.parse(disk.readFileSync(analysisJson, "utf-8"));
 	const { summary, files } = data;
 	const hasCoverage = summary.statements !== undefined;
-	const srcFiles = files.filter((f) => !relPath(f.file).startsWith("bin/"));
+	const srcFiles = files.filter((f) => !relPath(f.file, projectPath).startsWith("bin/"));
 	const fm = buildComplexityFm(summary, srcFiles);
 
 	const doc = Document.create("CLI Complexity Report")
@@ -150,18 +148,40 @@ function main(): void {
 		`Total: ${summary.totalDecisionPoints} across ${summary.filesWithDecisionPoints} files`,
 	]).addBlank();
 
-	addTopDPSection(doc, srcFiles, hasCoverage);
+	addTopDPSection(doc, srcFiles, hasCoverage, projectPath);
 	addDPTypeSection(doc, srcFiles, summary.totalDecisionPoints);
-	if (hasCoverage) addLowCoverageSection(doc, srcFiles);
+	if (hasCoverage) addLowCoverageSection(doc, srcFiles, projectPath);
 
 	const outputPath = svc.save(doc, {
 		subdir: "complexity",
 		slug: "complexity-report",
 		stableFilename: "Complexity Report.md",
-		sourceJson: ANALYSIS_JSON,
+		sourceJson: analysisJson,
 	});
 
-	log(`[cli-report] ComplexityReport written: ${outputPath}`);
+	log(`[cli-report] Complexity Report`);
+	log(`  Decision Points: ${summary.totalDecisionPoints} across ${summary.filesWithDecisionPoints} files`);
+	if (hasCoverage) {
+		log(`  Coverage — Statements: ${pct(summary.statements)} | Branches: ${pct(summary.branches)} | Functions: ${pct(summary.functions)}`);
+	}
+	log(`  Written: ${outputPath}`);
+
+	const warnings: string[] = [];
+	const highComplexity = srcFiles.filter((f) => f.decisionPointCount > 15);
+	if (highComplexity.length > 0) warnings.push(`${highComplexity.length} file(s) exceed complexity threshold (>15 DPs)`);
+
+	return {
+		success: true,
+		outputPath,
+		metrics: { totalDecisionPoints: summary.totalDecisionPoints, filesWithDecisionPoints: summary.filesWithDecisionPoints },
+		warnings: warnings.length > 0 ? warnings : undefined,
+	};
 }
 
-main();
+// Self-invocation when run directly via tsx
+import { CLI_PROJECT } from "../../../infrastructure/config.js";
+
+// eslint-disable-next-line no-restricted-properties
+if (process.argv[1]?.includes("generate-complexity-report")) {
+	generateComplexityReport(CLI_PROJECT);
+}

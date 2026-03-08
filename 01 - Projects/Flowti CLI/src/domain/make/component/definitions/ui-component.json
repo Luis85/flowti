@@ -1,0 +1,32 @@
+{
+	"id": "ui-component",
+	"kind": "ui-component",
+	"label": "UI Component",
+	"description": "A UI component — a reusable, self-contained user interface element.",
+	"prompts": [
+		{ "variable": "description", "label": "Description", "default": "", "required": false },
+		{ "variable": "owner", "label": "Owner / team", "default": "", "required": false }
+	],
+	"files": [
+		{ "path": "docs/components/{{kebab}}.md", "templateId": "component-doc" },
+		{ "path": "tests/components/{{kebab}}.test.ts", "templateId": "component-test" },
+		{ "path": "src/components/{{kebab}}/{{kebab}}.json", "templateId": "component-definition" },
+		{ "path": "src/components/{{kebab}}/{{kebab}}.stories.ts", "templateId": "component-story" }
+	],
+	"metadata": {
+		"type": "ui-component",
+		"status": "draft",
+		"interfaces": [],
+		"dependencies": []
+	},
+	"properties": [
+		{ "key": "variant", "type": "string", "default": "default", "description": "Visual variant" },
+		{ "key": "disabled", "type": "boolean", "default": false, "description": "Whether the component is disabled" },
+		{ "key": "visible", "type": "boolean", "default": true, "description": "Whether the component is visible" }
+	],
+	"nextSteps": [
+		"Edit docs/components/{{kebab}}.md to describe the component behavior",
+		"Implement the component in src/components/{{kebab}}/",
+		"Run tests: npm test"
+	]
+}

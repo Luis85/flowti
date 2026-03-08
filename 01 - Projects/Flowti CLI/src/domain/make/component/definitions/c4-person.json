@@ -17,6 +17,7 @@
 		"c4Level": 0,
 		"relationships": []
 	},
+	"properties": [],
 	"nextSteps": [
 		"Edit docs/components/{{kebab}}.md to describe the person/actor",
 		"Define relationships to systems they interact with"

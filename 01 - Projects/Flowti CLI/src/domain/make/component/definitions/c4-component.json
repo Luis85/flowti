@@ -22,6 +22,7 @@
 		"interfaces": [],
 		"relationships": []
 	},
+	"properties": [],
 	"nextSteps": [
 		"Edit docs/components/{{kebab}}.md to describe the component",
 		"Implement the component interface"

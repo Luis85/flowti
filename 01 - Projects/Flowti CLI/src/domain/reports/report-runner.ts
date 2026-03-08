@@ -1,32 +1,28 @@
 /**
  * report-runner.ts — Resilient report generation runner.
  *
- * Runs all configured generators, never stops on failure.
- * Captures output per generator, extracts warnings and errors,
- * and always produces a categorized summary at the end.
- * Failed reports are signals, not blockers.
+ * Runs all configured generators by calling internal functions directly.
+ * Never stops on failure — a broken report is a signal, not a blocker.
+ * Always produces a categorized summary at the end.
  */
 
 import { shell } from "../../infrastructure/shell.js";
-import { RESET, DIM, GREEN, RED, CYAN, BOLD, YELLOW } from "../../infrastructure/ui.js";
+import { RESET, DIM, GREEN, RED, YELLOW, CYAN, BOLD } from "../../infrastructure/ui.js";
 import { log } from "../../infrastructure/logger.js";
 import { clock } from "../../infrastructure/clock.js";
-import type { ReportGenerator } from "../../infrastructure/types.js";
+import type { ReportGenerator, GeneratorOutput } from "../../infrastructure/types.js";
+import { runGenerator, hasGenerator } from "./generator-registry.js";
 
 // ── Types ───────────────────────────────────────────────────────────
 
-export interface OutputIssue {
-	level: "error" | "warning";
-	message: string;
-}
-
 export interface GeneratorResult {
+	id: string;
 	label: string;
-	command: string;
-	exitCode: number;
+	success: boolean;
 	durationMs: number;
-	output: string;
-	issues: OutputIssue[];
+	output: GeneratorOutput | null;
+	error?: string;
+	warnings?: string[];
 }
 
 export interface ReportRunResult {
@@ -34,55 +30,6 @@ export interface ReportRunResult {
 	totalDurationMs: number;
 	passed: number;
 	failed: number;
-}
-
-// ── Output parsing ──────────────────────────────────────────────────
-
-const ERROR_PATTERNS = [
-	/\berror\b/i,
-	/\bfailed\b/i,
-	/\bfatal\b/i,
-	/\bERR!\b/,
-	/\bERROR\b/,
-	/\bException\b/,
-	/\bthrow\b/i,
-	/\bnot found\b/i,
-	/Cannot find/i,
-];
-
-const WARNING_PATTERNS = [
-	/\bwarn(ing)?\b/i,
-	/\bWARN\b/,
-	/\bdeprecated\b/i,
-	/\bskipped?\b/i,
-];
-
-const NOISE_PATTERNS = [
-	/^\s*$/,
-	/^\s*at\s+/,
-	/node_modules/,
-	/^\s*\^/,
-];
-
-function parseIssues(output: string): OutputIssue[] {
-	const issues: OutputIssue[] = [];
-	const seen = new Set<string>();
-
-	for (const line of output.split("\n")) {
-		const trimmed = line.trim();
-		if (!trimmed || NOISE_PATTERNS.some((p) => p.test(trimmed))) continue;
-		if (seen.has(trimmed)) continue;
-
-		const isError = ERROR_PATTERNS.some((p) => p.test(trimmed));
-		const isWarning = !isError && WARNING_PATTERNS.some((p) => p.test(trimmed));
-
-		if (isError || isWarning) {
-			seen.add(trimmed);
-			issues.push({ level: isError ? "error" : "warning", message: trimmed });
-		}
-	}
-
-	return issues;
 }
 
 // ── Runner ──────────────────────────────────────────────────────────
@@ -96,26 +43,67 @@ export function runAllReports(
 
 	log(`\n  ${CYAN}▸${RESET} Running ${generators.length} report generator(s)...\n`);
 
+	// Deduplicate prerequisites across all generators to avoid running the same command twice.
+	const completedPrereqs = new Set<string>();
+
 	for (const gen of generators) {
+		const genId = gen.id ?? gen.label.toLowerCase().replace(/\s+/g, "-");
 		log(`  ${CYAN}▸${RESET} ${gen.label}`);
 		const start = clock.ms();
-		const { output, exitCode } = shell.runCaptureStatus(gen.command, { cwd: projectPath });
+
+		let output: GeneratorOutput | null = null;
+		let error: string | undefined;
+		let success = false;
+
+		try {
+			// Run prerequisites (skipping any already completed in this run)
+			if (gen.prerequisites) {
+				for (const prereq of gen.prerequisites) {
+					if (completedPrereqs.has(prereq)) continue;
+					log(`    ${DIM}prerequisite: ${prereq}${RESET}`);
+					const { exitCode } = shell.runCaptureStatus(prereq, { cwd: projectPath });
+					completedPrereqs.add(prereq);
+					if (exitCode !== 0) {
+						throw new Error(`Prerequisite failed (exit ${exitCode}): ${prereq}`);
+					}
+				}
+			}
+
+			// Internal generator (by ID) takes priority
+			if (gen.id && hasGenerator(gen.id)) {
+				output = runGenerator(gen.id, projectPath);
+				if (output) {
+					success = output.success;
+					if (!success) error = "Generator reported failure (missing data source)";
+				}
+			} else if (gen.command) {
+				// Fallback: external command (for projects with custom scripts)
+				const { exitCode } = shell.runCaptureStatus(gen.command, { cwd: projectPath });
+				success = exitCode === 0;
+				if (!success) error = `Command exited with code ${exitCode}`;
+			} else {
+				error = `Unknown generator: "${gen.id ?? gen.label}"`;
+			}
+		} catch (err) {
+			error = err instanceof Error ? err.message : String(err);
+		}
+
 		const durationMs = clock.ms() - start;
 		const dur = (durationMs / 1000).toFixed(1);
-		const issues = parseIssues(output);
 
-		if (exitCode === 0) {
+		if (success) {
 			log(`  ${GREEN}✓${RESET} ${gen.label} ${DIM}(${dur}s)${RESET}`);
 		} else {
 			log(`  ${RED}✗${RESET} ${gen.label} ${DIM}(${dur}s)${RESET}`);
 		}
 
-		results.push({ label: gen.label, command: gen.command, exitCode, durationMs, output, issues });
+		const warnings = output?.warnings;
+		results.push({ id: genId, label: gen.label, success, durationMs, output, error, warnings });
 	}
 
 	const totalDurationMs = clock.ms() - runStart;
-	const passed = results.filter((r) => r.exitCode === 0).length;
-	const failed = results.filter((r) => r.exitCode !== 0).length;
+	const passed = results.filter((r) => r.success).length;
+	const failed = results.filter((r) => !r.success).length;
 
 	printRunSummary(results, totalDurationMs);
 
@@ -126,52 +114,44 @@ export function runAllReports(
 
 function printRunSummary(results: GeneratorResult[], totalMs: number): void {
 	const totalSec = (totalMs / 1000).toFixed(1);
-	const passed = results.filter((r) => r.exitCode === 0).length;
-	const failed = results.filter((r) => r.exitCode !== 0).length;
+	const passed = results.filter((r) => r.success).length;
+	const failed = results.filter((r) => !r.success).length;
 
 	log(`\n  ${BOLD}Report Run Summary${RESET}\n`);
 
 	for (const r of results) {
-		const icon = r.exitCode === 0 ? `${GREEN}✓${RESET}` : `${RED}✗${RESET}`;
+		const hasWarnings = r.warnings && r.warnings.length > 0;
+		const icon = !r.success ? `${RED}✗${RESET}` : hasWarnings ? `${YELLOW}⚠${RESET}` : `${GREEN}✓${RESET}`;
 		const dur = (r.durationMs / 1000).toFixed(1);
-		const errorCount = r.issues.filter((i) => i.level === "error").length;
-		const warnCount = r.issues.filter((i) => i.level === "warning").length;
-
-		let suffix = "";
-		if (errorCount > 0 || warnCount > 0) {
-			const parts: string[] = [];
-			if (errorCount > 0) parts.push(`${RED}${errorCount} error(s)${RESET}`);
-			if (warnCount > 0) parts.push(`${YELLOW}${warnCount} warning(s)${RESET}`);
-			suffix = ` — ${parts.join(", ")}`;
-		}
-
+		const suffix = r.error ? ` — ${RED}${r.error}${RESET}` : "";
 		log(`    ${icon} ${r.label} ${DIM}(${dur}s)${RESET}${suffix}`);
+		if (hasWarnings) {
+			for (const w of r.warnings!) {
+				if (w.startsWith("  ")) {
+					log(`        ${DIM}${w.trim()}${RESET}`);
+				} else {
+					log(`      ${YELLOW}⚠${RESET} ${w}`);
+				}
+			}
+		}
 	}
 
-	// Detailed issues by generator
-	const generatorsWithIssues = results.filter((r) => r.issues.length > 0);
-	if (generatorsWithIssues.length > 0) {
-		log(`\n  ${BOLD}Issues by Generator${RESET}\n`);
-		for (const r of generatorsWithIssues) {
-			log(`    ${BOLD}${r.label}${RESET}`);
-			for (const issue of r.issues) {
-				const icon = issue.level === "error" ? `${RED}E${RESET}` : `${YELLOW}W${RESET}`;
-				log(`      ${icon} ${issue.message}`);
-			}
-			log();
+	// Detailed errors
+	const failedResults = results.filter((r) => r.error);
+	if (failedResults.length > 0) {
+		log(`\n  ${BOLD}Issues${RESET}\n`);
+		for (const r of failedResults) {
+			log(`    ${RED}✗${RESET} ${BOLD}${r.label}${RESET}: ${r.error}`);
 		}
 	}
 
 	// Totals
 	log();
-	const totalErrors = results.reduce((s, r) => s + r.issues.filter((i) => i.level === "error").length, 0);
-	const totalWarnings = results.reduce((s, r) => s + r.issues.filter((i) => i.level === "warning").length, 0);
-
+	const warned = results.filter((r) => r.warnings && r.warnings.length > 0).length;
 	const parts: string[] = [];
 	parts.push(`${GREEN}${passed} passed${RESET}`);
+	if (warned > 0) parts.push(`${YELLOW}${warned} with warnings${RESET}`);
 	if (failed > 0) parts.push(`${RED}${failed} failed${RESET}`);
-	if (totalErrors > 0) parts.push(`${RED}${totalErrors} error(s)${RESET}`);
-	if (totalWarnings > 0) parts.push(`${YELLOW}${totalWarnings} warning(s)${RESET}`);
 	parts.push(`${DIM}(${totalSec}s)${RESET}`);
 
 	log(`  ${parts.join(", ")}`);

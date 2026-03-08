@@ -1,9 +1,0 @@
-{
-	"id": "my-test-app",
-	"name": "My Test App",
-	"version": "0.0.1",
-	"minAppVersion": "1.12.4",
-	"description": "My Test App — an Obsidian plugin.",
-	"author": "Luis Mendez",
-	"isDesktopOnly": true
-}

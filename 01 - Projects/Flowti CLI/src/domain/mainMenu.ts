@@ -12,12 +12,14 @@ import { reviewMenu } from "./review/project-review.js";
 import { showInfo } from "./info/info.js";
 import { showHelp } from "./help/help.js";
 import { captureIdea, captureNote } from "./capture/capture.js";
+import { eventCatalogMenu } from "./events/event-catalog.js";
 import {
   knowledgebaseMenu,
   isKnowledgebaseAvailable,
 } from "./knowledgebase/knowledgebase.js";
 import { buildWithReport } from "./reports/cli/generate-build-report.js";
 import { runAllReports } from "./reports/report-runner.js";
+import { runGenerator } from "./reports/generator-registry.js";
 import { shell } from "../infrastructure/shell.js";
 import { getSelectedProject } from "../infrastructure/state.js";
 import { initializeProject } from "./project/project-config.js";
@@ -105,6 +107,13 @@ export function buildProjectDetailMenu(): MenuEntry[] {
     action: () => componentListMenu(ctx.path),
   });
 
+  // e — Events (event catalog)
+  items.push({
+    key: "e",
+    label: "Events",
+    action: () => eventCatalogMenu(ctx.path),
+  });
+
   items.push({ separator: true });
 
   // 5 — Reports (submenu)
@@ -136,7 +145,11 @@ export function buildProjectDetailMenu(): MenuEntry[] {
           key: String(i + offset),
           label: gen.label,
           action: () => {
-            shell.run(gen.command, { cwd: ctx.path, label: gen.label });
+            if (gen.id) {
+              runGenerator(gen.id, ctx.path);
+            } else if (gen.command) {
+              shell.run(gen.command, { cwd: ctx.path, label: gen.label });
+            }
             return "main" as const;
           },
         });

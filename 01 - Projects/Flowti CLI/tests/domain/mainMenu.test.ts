@@ -41,6 +41,11 @@ vi.mock("../../src/domain/reports/report-runner.js", () => ({
 	runAllReports: vi.fn(() => ({ generators: [], totalDurationMs: 0, passed: 0, failed: 0 })),
 }));
 
+vi.mock("../../src/domain/reports/generator-registry.js", () => ({
+	runGenerator: vi.fn(() => ({ success: true, outputPath: "", metrics: {} })),
+	hasGenerator: vi.fn(() => true),
+}));
+
 vi.mock("../../src/infrastructure/shell.js", () => ({
 	shell: {},
 }));
@@ -244,7 +249,7 @@ describe("buildProjectDetailMenu", () => {
 		});
 
 		it("Reports submenu includes Run All when generators are configured", async () => {
-			setupProject({ reports: { generators: [{ label: "Test", command: "npm run report:test" }] } });
+			setupProject({ reports: { generators: [{ id: "test", label: "Test" }] } });
 			const items = buildProjectDetailMenu();
 			const reports = findItem(items, "5")!;
 
@@ -269,8 +274,8 @@ describe("buildProjectDetailMenu", () => {
 			setupProject({
 				reports: {
 					generators: [
-						{ label: "Test Report", command: "npm run report:test" },
-						{ label: "Coverage", command: "npm run report:coverage" },
+						{ id: "test", label: "Test Report" },
+						{ id: "coverage", label: "Coverage" },
 					],
 				},
 			});
@@ -289,7 +294,7 @@ describe("buildProjectDetailMenu", () => {
 			Object.assign(shellMod, { shell: sh });
 			setupProject({
 				reports: {
-					generators: [{ label: "Test", command: "npm run report:test" }],
+					generators: [{ id: "test", label: "Test" }],
 				},
 			});
 			const items = buildProjectDetailMenu();
@@ -305,7 +310,7 @@ describe("buildProjectDetailMenu", () => {
 		it("Reports Run All action calls runAllReports", async () => {
 			setupProject({
 				reports: {
-					generators: [{ label: "Test", command: "npm run report:test" }],
+					generators: [{ id: "test", label: "Test" }],
 				},
 			});
 			const items = buildProjectDetailMenu();
@@ -317,7 +322,7 @@ describe("buildProjectDetailMenu", () => {
 
 			const { runAllReports } = await import("../../src/domain/reports/report-runner.js");
 			expect(runAllReports).toHaveBeenCalledWith(
-				[{ label: "Test", command: "npm run report:test" }],
+				[{ id: "test", label: "Test" }],
 				expect.any(String),
 			);
 		});

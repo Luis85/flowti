@@ -3,47 +3,49 @@
  *
  * Consolidates all 4 CLI reports (test, coverage, codebase, complexity)
  * into a single "Project Status Report.md" in the reports directory.
- * Generates any missing reports before consolidating.
+ * Generates any missing reports by calling generators directly.
  */
 
 import { paths } from "../../../infrastructure/paths.js";
-import { proc } from "../../../infrastructure/proc.js";
 import { disk } from "../../../infrastructure/filesystem.js";
-import { shell } from "../../../infrastructure/shell.js";
-import { CLI_PROJECT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { RESET, DIM, GREEN, CYAN } from "../../../infrastructure/ui.js";
 import { clock } from "../../../infrastructure/clock.js";
 import { ReportService } from "./report-service.js";
 import { log } from "../../../infrastructure/logger.js";
+import { generateTestReport } from "./generate-test-report.js";
+import { generateCoverageReport } from "./generate-coverage-report.js";
+import { generateCodebaseReport } from "./generate-codebase-report.js";
+import { generateComplexityReport } from "./generate-complexity-report.js";
+import type { GeneratorOutput, GeneratorFn } from "../../../infrastructure/types.js";
 
 interface ReportSection {
 	label: string;
 	stablePath: string;
-	generateCommand: string;
+	generator: GeneratorFn;
 }
 
-function buildSections(svc: ReportService): ReportSection[] {
+function buildSections(svc: ReportService, projectPath: string): ReportSection[] {
 	return [
 		{
 			label: "Tests",
 			stablePath: svc.stablePath("Test Report.md"),
-			generateCommand: "npm run report:test",
+			generator: generateTestReport,
 		},
 		{
 			label: "Coverage",
 			stablePath: svc.stablePath("Coverage Report.md"),
-			generateCommand: "npm run report:coverage",
+			generator: generateCoverageReport,
 		},
 		{
 			label: "Codebase",
 			stablePath: svc.stablePath("Codebase Report.md"),
-			generateCommand: "npm run report:codebase",
+			generator: generateCodebaseReport,
 		},
 		{
 			label: "Complexity",
 			stablePath: svc.stablePath("Complexity Report.md"),
-			generateCommand: "npm run report:complexity",
+			generator: generateComplexityReport,
 		},
 	];
 }
@@ -76,18 +78,22 @@ function extractBody(content: string): string {
 	return body.replace(/^#\s+.+\n*/, "").trim();
 }
 
-function ensureReportsExist(sections: ReportSection[], projectPath: string): void {
+function ensureReportsExist(sections: ReportSection[], projectPath: string): string[] {
 	const missing = sections.filter((s) => !disk.existsSync(s.stablePath));
-	if (missing.length === 0) return;
+	if (missing.length === 0) return [];
 
 	log(`\n  ${DIM}Generating missing reports...${RESET}`);
+	const failures: string[] = [];
 	for (const section of missing) {
 		log(`  ${CYAN}▸${RESET} ${section.label}`);
-		const result = shell.runSilent(section.generateCommand, { cwd: projectPath });
-		if (result === null) {
-			log(`  ${DIM}(skipped — ${section.label} generation failed)${RESET}`);
+		try {
+			const result = section.generator(projectPath);
+			if (!result.success) failures.push(section.label);
+		} catch {
+			failures.push(section.label);
 		}
 	}
+	return failures;
 }
 
 const SKIP_FM_KEYS = new Set(["type", "project", "date"]);
@@ -132,24 +138,31 @@ function buildStatusReport(sections: ReportSection[], projectName: string): stri
 	return doc.toString();
 }
 
-/** Interactive entry point — called from the Reports submenu. */
-export async function generateProjectStatusReport(projectPath?: string): Promise<void> {
-	const resolvedPath = projectPath ?? CLI_PROJECT;
-	const svc = new ReportService(resolvedPath);
-	const sections = buildSections(svc);
-	const projectName = paths.basename(resolvedPath);
+/** Generate the project status report. */
+export function generateProjectStatusReport(projectPath: string): GeneratorOutput {
+	const svc = new ReportService(projectPath);
+	const sections = buildSections(svc, projectPath);
+	const projectName = paths.basename(projectPath);
 	const outputPath = svc.stablePath("Project Status Report.md");
 
 	log(`\n  ${CYAN}▸${RESET} Generating Project Status Report...\n`);
-	ensureReportsExist(sections, resolvedPath);
+	const failures = ensureReportsExist(sections, projectPath);
 
 	const content = buildStatusReport(sections, projectName);
 	disk.mkdirSync(svc.reportsDir, { recursive: true });
 	disk.writeFileSync(outputPath, content, "utf-8");
 
+	const available = sections.filter((s) => disk.existsSync(s.stablePath)).length;
+	const warnings = failures.length > 0 ? [`${failures.length} sub-report(s) failed: ${failures.join(", ")}`] : undefined;
+
 	log(`\n  ${GREEN}✓${RESET} Project Status Report written: ${outputPath}\n`);
+
+	return { success: true, outputPath, metrics: { sections: available }, warnings };
 }
 
 // Direct invocation support: tsx src/domain/reports/cli/generate-status-report.ts
+import { proc } from "../../../infrastructure/proc.js";
+import { CLI_PROJECT } from "../../../infrastructure/config.js";
+
 const isDirectRun = proc.argv().some((a) => a.replace(/\\/g, "/").includes("generate-status-report"));
-if (isDirectRun) generateProjectStatusReport();
+if (isDirectRun) generateProjectStatusReport(CLI_PROJECT);

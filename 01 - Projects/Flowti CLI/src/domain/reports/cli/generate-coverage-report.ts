@@ -3,8 +3,6 @@
  *
  * Reads V8 coverage-final.json produced by vitest --coverage
  * and generates a markdown CoverageReport.
- *
- * Usage: tsx src/domain/reports/cli/generate-coverage-report.ts
  */
 
 import { disk } from "../../../infrastructure/filesystem.js";
@@ -12,9 +10,7 @@ import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
 import { log } from "../../../infrastructure/logger.js";
 import { clock } from "../../../infrastructure/clock.js";
-
-const svc = new ReportService();
-const COVERAGE_JSON = svc.subdir("coverage/coverage-final.json");
+import type { GeneratorOutput } from "../../../infrastructure/types.js";
 
 interface CoverageEntry {
 	path: string;
@@ -51,13 +47,16 @@ function fileCoverage(entry: CoverageEntry): { statements: number; branches: num
 	};
 }
 
-function main(): void {
-	if (!disk.existsSync(COVERAGE_JSON)) {
+export function generateCoverageReport(projectPath: string): GeneratorOutput {
+	const svc = new ReportService(projectPath);
+	const coverageJson = svc.subdir("coverage/coverage-final.json");
+
+	if (!disk.existsSync(coverageJson)) {
 		log("[cli-report] No coverage-final.json found — run vitest --coverage first.");
-		return;
+		return { success: false, outputPath: "", metrics: {} };
 	}
 
-	const json: Record<string, CoverageEntry> = JSON.parse(disk.readFileSync(COVERAGE_JSON, "utf-8"));
+	const json: Record<string, CoverageEntry> = JSON.parse(disk.readFileSync(coverageJson, "utf-8"));
 	const entries = Object.values(json);
 
 	const stmtPct = computeCoverage(entries, "statements");
@@ -104,10 +103,30 @@ function main(): void {
 		subdir: "coverage",
 		slug: "coverage-report",
 		stableFilename: "Coverage Report.md",
-		sourceJson: COVERAGE_JSON,
+		sourceJson: coverageJson,
 	});
 
-	log(`[cli-report] CoverageReport written: ${outputPath}`);
+	log(`[cli-report] Coverage Report`);
+	log(`  Statements: ${stmtPct}% | Branches: ${branchPct}% | Functions: ${fnPct}%`);
+	log(`  Files: ${entries.length}`);
+	log(`  Written: ${outputPath}`);
+
+	const warnings: string[] = [];
+	if (stmtPct < 80) warnings.push(`Statement coverage ${stmtPct}% (< 80%)`);
+	if (branchPct < 70) warnings.push(`Branch coverage ${branchPct}% (< 70%)`);
+
+	return {
+		success: true,
+		outputPath,
+		metrics: { statements: stmtPct, branches: branchPct, functions: fnPct, files: entries.length },
+		warnings: warnings.length > 0 ? warnings : undefined,
+	};
 }
 
-main();
+// Self-invocation when run directly via tsx
+import { CLI_PROJECT } from "../../../infrastructure/config.js";
+
+// eslint-disable-next-line no-restricted-properties
+if (process.argv[1]?.includes("generate-coverage-report")) {
+	generateCoverageReport(CLI_PROJECT);
+}

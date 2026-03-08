@@ -155,9 +155,26 @@ export interface ReviewConfig {
 }
 
 export interface ReportGenerator {
+	/** Generator ID — resolved via the internal registry. */
+	id?: string;
 	label: string;
-	command: string;
+	/** External command — used when no internal generator is registered for the ID. */
+	command?: string;
+	/** Commands to run before this generator (e.g. "npm run test:coverage"). */
+	prerequisites?: string[];
 }
+
+/** Result returned by an internal report generator function. */
+export interface GeneratorOutput {
+	success: boolean;
+	outputPath: string;
+	metrics: Record<string, string | number>;
+	/** Non-fatal issues surfaced in the Report Run Summary. */
+	warnings?: string[];
+}
+
+/** A callable report generator function. */
+export type GeneratorFn = (projectPath: string) => GeneratorOutput;
 
 export interface SummaryThresholds {
 	/** Minimum line coverage percentage (default: 80) */

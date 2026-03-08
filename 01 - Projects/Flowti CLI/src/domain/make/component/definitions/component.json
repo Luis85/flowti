@@ -18,6 +18,7 @@
 		"interfaces": [],
 		"dependencies": []
 	},
+	"properties": [],
 	"nextSteps": [
 		"Edit docs/components/{{kebab}}.md to fill in the specification",
 		"Implement the component in src/components/{{kebab}}/",

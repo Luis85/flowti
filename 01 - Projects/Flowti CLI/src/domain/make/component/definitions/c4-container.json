@@ -21,6 +21,7 @@
 		"containedBy": "",
 		"relationships": []
 	},
+	"properties": [],
 	"nextSteps": [
 		"Edit docs/components/{{kebab}}.md to describe the container",
 		"Add components using: flowti make:c4-component"

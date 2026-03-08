@@ -26,7 +26,7 @@ import { buildScaffoldPlan, resolveNextSteps } from "./scaffold-plan.js";
 // Definitions are imported directly so esbuild inlines them into the bundle.
 // Adding a new definition: import it here and add to BUNDLED_DEFINITIONS.
 
-import flowtiProjectDef from "./definitions/flowti-project.json";
+import flowtiProjectDef from "./definitions/flowti-project.json" with { type: "json" };
 
 const BUNDLED_DEFINITIONS: unknown[] = [flowtiProjectDef];
 

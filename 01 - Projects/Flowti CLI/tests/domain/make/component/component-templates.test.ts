@@ -3,6 +3,7 @@ import { componentDocTemplate } from "../../../../src/domain/make/component/temp
 import { c4DocTemplate } from "../../../../src/domain/make/component/templates/c4-doc.js";
 import { componentTestTemplate } from "../../../../src/domain/make/component/templates/component-test.js";
 import { componentDefinitionTemplate } from "../../../../src/domain/make/component/templates/component-definition.js";
+import { componentStoryTemplate } from "../../../../src/domain/make/component/templates/component-story.js";
 import type { ComponentVariables, ComponentDefinition } from "../../../../src/domain/make/component/component-types.js";
 
 function vars(overrides: Partial<ComponentVariables> = {}): ComponentVariables {
@@ -12,7 +13,7 @@ function vars(overrides: Partial<ComponentVariables> = {}): ComponentVariables {
 function def(overrides: Partial<ComponentDefinition> = {}): ComponentDefinition {
 	return {
 		id: "component", kind: "component", label: "Component", description: "Test.",
-		prompts: [], files: [], metadata: { type: "component", status: "draft" }, nextSteps: [],
+		prompts: [], files: [], metadata: { type: "component", status: "draft" }, properties: [], nextSteps: [],
 		...overrides,
 	};
 }
@@ -104,5 +105,97 @@ describe("componentDefinitionTemplate", () => {
 		expect(parsed.description).toBe("Authenticates users");
 		expect(parsed.technology).toBe("JWT");
 		expect(parsed.owner).toBe("Security");
+	});
+
+	it("includes properties with defaults when definition has properties", () => {
+		const output = componentDefinitionTemplate(
+			vars(),
+			def({
+				properties: [
+					{ key: "direction", type: "string", default: "vertical" },
+					{ key: "gap", type: "string", default: "0" },
+					{ key: "visible", type: "boolean", default: true },
+				],
+			}),
+		);
+		const parsed = JSON.parse(output);
+		expect(parsed.properties).toEqual({ direction: "vertical", gap: "0", visible: true });
+	});
+
+	it("omits properties when definition has no properties", () => {
+		const output = componentDefinitionTemplate(vars(), def());
+		const parsed = JSON.parse(output);
+		expect(parsed.properties).toBeUndefined();
+	});
+});
+
+describe("componentDocTemplate — properties table", () => {
+	it("renders a Properties table when definition has properties", () => {
+		const output = componentDocTemplate(
+			vars(),
+			def({
+				properties: [
+					{ key: "direction", type: "string", default: "vertical", description: "Layout direction" },
+					{ key: "gap", type: "string", default: "0", description: "Spacing" },
+				],
+			}),
+		);
+		expect(output).toContain("## Properties");
+		expect(output).toContain("| direction | string | vertical | Layout direction |");
+		expect(output).toContain("| gap | string | 0 | Spacing |");
+	});
+
+	it("omits Properties section when definition has no properties", () => {
+		const output = componentDocTemplate(vars(), def());
+		expect(output).not.toContain("## Properties");
+	});
+});
+
+describe("componentStoryTemplate", () => {
+	it("generates a Storybook story with autodocs tag", () => {
+		const output = componentStoryTemplate(vars(), def({ kind: "ui-component" }));
+		expect(output).toContain('tags: ["autodocs"]');
+		expect(output).toContain("import { AuthService }");
+		expect(output).toContain("export const Default: Story = {};");
+	});
+
+	it("uses Components folder for ui-component kind", () => {
+		const output = componentStoryTemplate(vars(), def({ kind: "ui-component" }));
+		expect(output).toContain('title: "Components/AuthService"');
+	});
+
+	it("uses Layouts folder for layout kind", () => {
+		const output = componentStoryTemplate(vars(), def({ kind: "layout" }));
+		expect(output).toContain('title: "Layouts/AuthService"');
+	});
+
+	it("uses Pages folder for page kind", () => {
+		const output = componentStoryTemplate(vars(), def({ kind: "page" }));
+		expect(output).toContain('title: "Pages/AuthService"');
+	});
+
+	it("includes argTypes and args when definition has properties", () => {
+		const output = componentStoryTemplate(
+			vars(),
+			def({
+				kind: "ui-component",
+				properties: [
+					{ key: "variant", type: "string", default: "default", description: "Visual variant" },
+					{ key: "disabled", type: "boolean", default: false, description: "Whether disabled" },
+				],
+			}),
+		);
+		expect(output).toContain("argTypes:");
+		expect(output).toContain('variant: { control: "text", description: "Visual variant" }');
+		expect(output).toContain('disabled: { control: "boolean", description: "Whether disabled" }');
+		expect(output).toContain("args:");
+		expect(output).toContain('variant: "default"');
+		expect(output).toContain("disabled: false");
+	});
+
+	it("omits argTypes and args when no properties", () => {
+		const output = componentStoryTemplate(vars(), def({ kind: "ui-component" }));
+		expect(output).not.toContain("argTypes:");
+		expect(output).not.toContain("args:");
 	});
 });

@@ -19,6 +19,17 @@ export function componentDocTemplate(vars: ComponentVariables, def: ComponentDef
 		lines.push(vars.description, "");
 	}
 	lines.push("## Purpose", "", "<!-- Describe what this component does and why it exists. -->", "");
+
+	if (def.properties.length > 0) {
+		lines.push("## Properties", "");
+		lines.push("| Key | Type | Default | Description |");
+		lines.push("|-----|------|---------|-------------|");
+		for (const prop of def.properties) {
+			lines.push(`| ${prop.key} | ${prop.type} | ${prop.default ?? "—"} | ${prop.description ?? ""} |`);
+		}
+		lines.push("");
+	}
+
 	lines.push("## Interfaces", "", "<!-- List the public interfaces this component exposes. -->", "");
 	lines.push("## Dependencies", "", "<!-- List components this depends on. -->", "");
 	return lines.join("\n") + "\n";

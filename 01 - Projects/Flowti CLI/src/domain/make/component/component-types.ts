@@ -8,9 +8,14 @@
 
 // ── Component kinds ─────────────────────────────────────────────────
 
-export type ComponentKind = "component" | "system" | "container" | "c4-component" | "person";
+export type ComponentKind =
+	| "component" | "layout" | "page" | "ui-component"
+	| "system" | "container" | "c4-component" | "person";
 
-export const COMPONENT_KINDS: ComponentKind[] = ["component", "system", "container", "c4-component", "person"];
+export const COMPONENT_KINDS: ComponentKind[] = [
+	"component", "layout", "page", "ui-component",
+	"system", "container", "c4-component", "person",
+];
 
 // ── Component definition (JSON blueprint) ───────────────────────────
 
@@ -28,6 +33,13 @@ export interface ComponentFileMapping {
 	templateId: string;
 }
 
+export interface ComponentProperty {
+	key: string;
+	type: "string" | "number" | "boolean";
+	default?: string | number | boolean;
+	description?: string;
+}
+
 export interface ComponentDefinition {
 	id: string;
 	kind: ComponentKind;
@@ -36,6 +48,7 @@ export interface ComponentDefinition {
 	prompts: ComponentPrompt[];
 	files: ComponentFileMapping[];
 	metadata: Record<string, unknown>;
+	properties: ComponentProperty[];
 	nextSteps: string[];
 }
 

@@ -1,0 +1,33 @@
+{
+	"id": "page",
+	"kind": "page",
+	"label": "Page",
+	"description": "A page component — a routable top-level view that composes layouts and UI components.",
+	"prompts": [
+		{ "variable": "description", "label": "Description", "default": "", "required": false },
+		{ "variable": "owner", "label": "Owner / team", "default": "", "required": false }
+	],
+	"files": [
+		{ "path": "docs/components/{{kebab}}.md", "templateId": "component-doc" },
+		{ "path": "tests/components/{{kebab}}.test.ts", "templateId": "component-test" },
+		{ "path": "src/components/{{kebab}}/{{kebab}}.json", "templateId": "component-definition" },
+		{ "path": "src/components/{{kebab}}/{{kebab}}.stories.ts", "templateId": "component-story" }
+	],
+	"metadata": {
+		"type": "page",
+		"status": "draft",
+		"route": "",
+		"interfaces": [],
+		"dependencies": []
+	},
+	"properties": [
+		{ "key": "title", "type": "string", "default": "", "description": "Page title" },
+		{ "key": "route", "type": "string", "default": "", "description": "Route path for navigation" },
+		{ "key": "authenticated", "type": "boolean", "default": false, "description": "Whether the page requires authentication" }
+	],
+	"nextSteps": [
+		"Edit docs/components/{{kebab}}.md to describe the page purpose",
+		"Compose layouts and UI components in src/components/{{kebab}}/",
+		"Run tests: npm test"
+	]
+}

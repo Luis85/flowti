@@ -4,8 +4,8 @@ import { loadComponentDefinitions, createComponentTemplateRegistry } from "../..
 describe("loadComponentDefinitions", () => {
 	const definitions = loadComponentDefinitions();
 
-	it("loads all 5 bundled definitions", () => {
-		expect(definitions).toHaveLength(5);
+	it("loads all 8 bundled definitions", () => {
+		expect(definitions).toHaveLength(8);
 	});
 
 	it("includes the generic component", () => {
@@ -23,6 +23,19 @@ describe("loadComponentDefinitions", () => {
 		expect(ids).toContain("c4-person");
 	});
 
+	it("includes the UI building block types", () => {
+		const ids = definitions.map((d) => d.id);
+		expect(ids).toContain("layout");
+		expect(ids).toContain("page");
+		expect(ids).toContain("ui-component");
+	});
+
+	it("UI building blocks have correct kinds", () => {
+		expect(definitions.find((d) => d.id === "layout")!.kind).toBe("layout");
+		expect(definitions.find((d) => d.id === "page")!.kind).toBe("page");
+		expect(definitions.find((d) => d.id === "ui-component")!.kind).toBe("ui-component");
+	});
+
 	it("each definition has required fields", () => {
 		for (const def of definitions) {
 			expect(def.id).toBeTruthy();
@@ -32,6 +45,7 @@ describe("loadComponentDefinitions", () => {
 			expect(Array.isArray(def.prompts)).toBe(true);
 			expect(Array.isArray(def.files)).toBe(true);
 			expect(def.metadata).toBeDefined();
+			expect(Array.isArray(def.properties)).toBe(true);
 			expect(Array.isArray(def.nextSteps)).toBe(true);
 		}
 	});

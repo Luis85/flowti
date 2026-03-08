@@ -1,0 +1,32 @@
+{
+	"id": "layout",
+	"kind": "layout",
+	"label": "Layout",
+	"description": "A layout component — defines the spatial arrangement of child components.",
+	"prompts": [
+		{ "variable": "description", "label": "Description", "default": "", "required": false },
+		{ "variable": "owner", "label": "Owner / team", "default": "", "required": false }
+	],
+	"files": [
+		{ "path": "docs/components/{{kebab}}.md", "templateId": "component-doc" },
+		{ "path": "tests/components/{{kebab}}.test.ts", "templateId": "component-test" },
+		{ "path": "src/components/{{kebab}}/{{kebab}}.json", "templateId": "component-definition" },
+		{ "path": "src/components/{{kebab}}/{{kebab}}.stories.ts", "templateId": "component-story" }
+	],
+	"metadata": {
+		"type": "layout",
+		"status": "draft",
+		"interfaces": [],
+		"dependencies": []
+	},
+	"properties": [
+		{ "key": "direction", "type": "string", "default": "vertical", "description": "Layout direction: vertical or horizontal" },
+		{ "key": "gap", "type": "string", "default": "0", "description": "Spacing between child elements" },
+		{ "key": "padding", "type": "string", "default": "0", "description": "Internal padding" }
+	],
+	"nextSteps": [
+		"Edit docs/components/{{kebab}}.md to describe the layout structure",
+		"Define child slot positions in src/components/{{kebab}}/",
+		"Run tests: npm test"
+	]
+}

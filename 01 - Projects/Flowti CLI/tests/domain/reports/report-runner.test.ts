@@ -25,76 +25,72 @@ vi.mock("../../../src/infrastructure/clock.js", () => {
 	};
 });
 
+// Mock the generator registry — return controlled outputs
+const mockRunGenerator = vi.fn();
+const mockHasGenerator = vi.fn();
+vi.mock("../../../src/domain/reports/generator-registry.js", () => ({
+	runGenerator: (...args: unknown[]) => mockRunGenerator(...args),
+	hasGenerator: (...args: unknown[]) => mockHasGenerator(...args),
+}));
+
 import * as shellMod from "../../../src/infrastructure/shell.js";
 import { runAllReports } from "../../../src/domain/reports/report-runner.js";
 import type { ReportGenerator } from "../../../src/infrastructure/types.js";
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+	vi.clearAllMocks();
+	mockHasGenerator.mockReturnValue(true);
+	mockRunGenerator.mockReturnValue({ success: true, outputPath: "/test/report.md", metrics: {} });
+});
 
 const generators: ReportGenerator[] = [
-	{ label: "Test Report", command: "npx tsx generate-test-report.ts" },
-	{ label: "Coverage Report", command: "npx tsx generate-coverage-report.ts" },
-	{ label: "Codebase Report", command: "npx tsx generate-codebase-report.ts" },
+	{ id: "test", label: "Test Report" },
+	{ id: "coverage", label: "Coverage Report" },
+	{ id: "codebase", label: "Codebase Report" },
 ];
-
-function captureStatusCalls(sh: ReturnType<typeof createMockShell>) {
-	return sh.calls.filter((c) => c.method === "runCaptureStatus");
-}
 
 describe("runAllReports", () => {
 	it("runs all generators and returns results", () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
-
 		const result = runAllReports(generators, "/project");
 
-		expect(captureStatusCalls(sh)).toHaveLength(3);
+		expect(mockRunGenerator).toHaveBeenCalledTimes(3);
 		expect(result.generators).toHaveLength(3);
 		expect(result.passed).toBe(3);
 		expect(result.failed).toBe(0);
 	});
 
 	it("continues after a generator fails", () => {
-		const sh = createMockShell({ exitCodes: { "npx tsx generate-coverage-report.ts": 1 } });
-		Object.assign(shellMod, { shell: sh });
+		mockRunGenerator
+			.mockReturnValueOnce({ success: true, outputPath: "", metrics: {} })
+			.mockReturnValueOnce({ success: false, outputPath: "", metrics: {} })
+			.mockReturnValueOnce({ success: true, outputPath: "", metrics: {} });
 
 		const result = runAllReports(generators, "/project");
 
-		// All 3 were attempted
-		expect(captureStatusCalls(sh)).toHaveLength(3);
+		expect(mockRunGenerator).toHaveBeenCalledTimes(3);
 		expect(result.passed).toBe(2);
 		expect(result.failed).toBe(1);
-		expect(result.generators[1].exitCode).not.toBe(0);
 	});
 
 	it("handles all generators failing", () => {
-		const sh = createMockShell({
-			exitCodes: Object.fromEntries(generators.map((g) => [g.command, 1])),
-		});
-		Object.assign(shellMod, { shell: sh });
+		mockRunGenerator.mockReturnValue({ success: false, outputPath: "", metrics: {} });
 
 		const result = runAllReports(generators, "/project");
 
-		expect(captureStatusCalls(sh)).toHaveLength(3);
+		expect(mockRunGenerator).toHaveBeenCalledTimes(3);
 		expect(result.passed).toBe(0);
 		expect(result.failed).toBe(3);
 	});
 
-	it("passes correct cwd to each generator", () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
-
+	it("passes correct projectPath to each generator", () => {
 		runAllReports(generators, "/my/project");
 
-		for (const call of captureStatusCalls(sh)) {
-			expect(call.opts?.cwd).toBe("/my/project");
+		for (const call of mockRunGenerator.mock.calls) {
+			expect(call[1]).toBe("/my/project");
 		}
 	});
 
 	it("records duration per generator", () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
-
 		const result = runAllReports(generators, "/project");
 
 		for (const gen of result.generators) {
@@ -104,20 +100,19 @@ describe("runAllReports", () => {
 	});
 
 	it("returns empty results for empty generators list", () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
-
 		const result = runAllReports([], "/project");
 
-		expect(captureStatusCalls(sh)).toHaveLength(0);
+		expect(mockRunGenerator).not.toHaveBeenCalled();
 		expect(result.generators).toHaveLength(0);
 		expect(result.passed).toBe(0);
 		expect(result.failed).toBe(0);
 	});
 
 	it("logs a summary after all generators run", async () => {
-		const sh = createMockShell({ exitCodes: { "npx tsx generate-coverage-report.ts": 1 } });
-		Object.assign(shellMod, { shell: sh });
+		mockRunGenerator
+			.mockReturnValueOnce({ success: true, outputPath: "", metrics: {} })
+			.mockReturnValueOnce({ success: false, outputPath: "", metrics: {} })
+			.mockReturnValueOnce({ success: true, outputPath: "", metrics: {} });
 		const { log } = await import("../../../src/infrastructure/logger.js");
 		const mockLog = log as ReturnType<typeof vi.fn>;
 
@@ -129,66 +124,96 @@ describe("runAllReports", () => {
 		expect(output).toContain("1 failed");
 	});
 
-	it("extracts errors from generator output", () => {
-		const sh = createMockShell({
-			outputs: { "npx tsx generate-test-report.ts": "Error: Cannot find testreport.json\nsome normal line" },
-		});
-		Object.assign(shellMod, { shell: sh });
+	it("catches exceptions from generators", () => {
+		mockRunGenerator
+			.mockReturnValueOnce({ success: true, outputPath: "", metrics: {} })
+			.mockImplementationOnce(() => { throw new Error("Generator crashed"); })
+			.mockReturnValueOnce({ success: true, outputPath: "", metrics: {} });
 
 		const result = runAllReports(generators, "/project");
 
-		const testGen = result.generators[0];
-		expect(testGen.issues.length).toBeGreaterThan(0);
-		expect(testGen.issues[0].level).toBe("error");
-		expect(testGen.issues[0].message).toContain("Cannot find");
+		expect(result.passed).toBe(2);
+		expect(result.failed).toBe(1);
+		expect(result.generators[1].error).toContain("Generator crashed");
 	});
 
-	it("extracts warnings from generator output", () => {
-		const sh = createMockShell({
-			outputs: { "npx tsx generate-coverage-report.ts": "Warning: low coverage detected\nAll good otherwise" },
-		});
+	it("handles unknown generator ID gracefully", () => {
+		mockHasGenerator.mockReturnValue(false);
+		mockRunGenerator.mockReturnValue(null);
+
+		const unknownGens: ReportGenerator[] = [{ id: "nonexistent", label: "Unknown" }];
+		const result = runAllReports(unknownGens, "/project");
+
+		expect(result.failed).toBe(1);
+		expect(result.generators[0].error).toContain("Unknown generator");
+	});
+
+	it("falls back to external command when no internal generator exists", () => {
+		mockHasGenerator.mockReturnValue(false);
+		const sh = createMockShell();
 		Object.assign(shellMod, { shell: sh });
 
+		const externalGens: ReportGenerator[] = [
+			{ label: "Custom Report", command: "node scripts/generate-custom.mjs" },
+		];
+
+		const result = runAllReports(externalGens, "/project");
+
+		expect(result.passed).toBe(1);
+		const captureCalls = sh.calls.filter((c) => c.method === "runCaptureStatus");
+		expect(captureCalls).toHaveLength(1);
+		expect(captureCalls[0].cmd).toBe("node scripts/generate-custom.mjs");
+	});
+
+	it("records generator IDs in results", () => {
 		const result = runAllReports(generators, "/project");
 
-		const covGen = result.generators[1];
-		expect(covGen.issues.some((i) => i.level === "warning")).toBe(true);
+		expect(result.generators[0].id).toBe("test");
+		expect(result.generators[1].id).toBe("coverage");
+		expect(result.generators[2].id).toBe("codebase");
 	});
 
-	it("logs issues categorized by generator in summary", async () => {
-		const sh = createMockShell({
-			outputs: {
-				"npx tsx generate-test-report.ts": "Error: missing input",
-				"npx tsx generate-coverage-report.ts": "Warning: threshold not met",
-			},
-		});
+	it("runs prerequisites before the generator", () => {
+		const sh = createMockShell();
 		Object.assign(shellMod, { shell: sh });
-		const { log } = await import("../../../src/infrastructure/logger.js");
-		const mockLog = log as ReturnType<typeof vi.fn>;
 
-		runAllReports(generators, "/project");
+		const gens: ReportGenerator[] = [
+			{ id: "test", label: "Test Report", prerequisites: ["npm run test:coverage"] },
+		];
+		const result = runAllReports(gens, "/project");
 
-		const output = mockLog.mock.calls.flat().join(" ");
-		expect(output).toContain("Issues by Generator");
-		expect(output).toContain("Test Report");
-		expect(output).toContain("Coverage Report");
+		const captureCalls = sh.calls.filter((c) => c.method === "runCaptureStatus");
+		expect(captureCalls).toHaveLength(1);
+		expect(captureCalls[0].cmd).toBe("npm run test:coverage");
+		expect(result.passed).toBe(1);
 	});
 
-	it("reports total error and warning counts", async () => {
-		const sh = createMockShell({
-			outputs: {
-				"npx tsx generate-test-report.ts": "Error: file not found",
-				"npx tsx generate-coverage-report.ts": "Warning: deprecated API\nError: parse failed",
-			},
-		});
+	it("deduplicates shared prerequisites across generators", () => {
+		const sh = createMockShell();
 		Object.assign(shellMod, { shell: sh });
-		const { log } = await import("../../../src/infrastructure/logger.js");
-		const mockLog = log as ReturnType<typeof vi.fn>;
 
-		runAllReports(generators, "/project");
+		const gens: ReportGenerator[] = [
+			{ id: "test", label: "Test Report", prerequisites: ["npm run test:coverage"] },
+			{ id: "coverage", label: "Coverage Report", prerequisites: ["npm run test:coverage"] },
+		];
+		runAllReports(gens, "/project");
 
-		const output = mockLog.mock.calls.flat().join(" ");
-		expect(output).toContain("error(s)");
-		expect(output).toContain("warning(s)");
+		const captureCalls = sh.calls.filter((c) => c.method === "runCaptureStatus");
+		expect(captureCalls).toHaveLength(1);
+	});
+
+	it("fails the generator when a prerequisite fails", () => {
+		const sh = createMockShell({ exitCodes: { "npm run broken": 1 } });
+		Object.assign(shellMod, { shell: sh });
+
+		const gens: ReportGenerator[] = [
+			{ id: "test", label: "Test Report", prerequisites: ["npm run broken"] },
+		];
+		const result = runAllReports(gens, "/project");
+
+		expect(result.failed).toBe(1);
+		expect(result.generators[0].error).toContain("Prerequisite failed");
+		// Generator should NOT have been called
+		expect(mockRunGenerator).not.toHaveBeenCalled();
 	});
 });

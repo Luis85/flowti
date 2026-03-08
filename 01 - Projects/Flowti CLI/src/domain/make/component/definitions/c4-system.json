@@ -20,6 +20,7 @@
 		"boundaries": [],
 		"relationships": []
 	},
+	"properties": [],
 	"nextSteps": [
 		"Edit docs/components/{{kebab}}.md to describe the system boundary",
 		"Add containers using: flowti make:container"

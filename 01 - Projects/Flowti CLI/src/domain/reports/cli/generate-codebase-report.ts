@@ -3,8 +3,6 @@
  *
  * Reads the TypeDoc codebase.json produced by `npm run docs` and
  * generates a markdown CodebaseReport.
- *
- * Usage: tsx src/domain/reports/cli/generate-codebase-report.ts
  */
 
 import { disk } from "../../../infrastructure/filesystem.js";
@@ -12,9 +10,7 @@ import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
 import { log } from "../../../infrastructure/logger.js";
 import { clock } from "../../../infrastructure/clock.js";
-
-const svc = new ReportService();
-const CODEBASE_JSON = svc.subdir("codebase/codebase.json");
+import type { GeneratorOutput } from "../../../infrastructure/types.js";
 
 const KIND: Record<string, number> = {
 	MODULE: 2,
@@ -85,13 +81,16 @@ function buildFrontmatter(data: TypeDocNode, counts: Record<number, number>): Re
 	};
 }
 
-function main(): void {
-	if (!disk.existsSync(CODEBASE_JSON)) {
+export function generateCodebaseReport(projectPath: string): GeneratorOutput {
+	const svc = new ReportService(projectPath);
+	const codebaseJson = svc.subdir("codebase/codebase.json");
+
+	if (!disk.existsSync(codebaseJson)) {
 		log("[cli-report] No codebase.json found — run `npm run docs` first.");
-		return;
+		return { success: false, outputPath: "", metrics: {} };
 	}
 
-	const data: TypeDocNode = JSON.parse(disk.readFileSync(CODEBASE_JSON, "utf-8"));
+	const data: TypeDocNode = JSON.parse(disk.readFileSync(codebaseJson, "utf-8"));
 	const counts = countByKind(data);
 	const domains = countModulesByDomain(data);
 	const fm = buildFrontmatter(data, counts);
@@ -120,10 +119,25 @@ function main(): void {
 		subdir: "codebase",
 		slug: "codebase-report",
 		stableFilename: "Codebase Report.md",
-		sourceJson: CODEBASE_JSON,
+		sourceJson: codebaseJson,
 	});
 
-	log(`[cli-report] CodebaseReport written: ${outputPath}`);
+	log(`[cli-report] Codebase Report`);
+	log(`  Modules: ${fm.modules} | Classes: ${fm.classes} | Interfaces: ${fm.interfaces}`);
+	log(`  Functions: ${fm.functions} | Type Aliases: ${fm.type_aliases}`);
+	log(`  Written: ${outputPath}`);
+
+	return {
+		success: true,
+		outputPath,
+		metrics: { modules: fm.modules as number, classes: fm.classes as number, interfaces: fm.interfaces as number, functions: fm.functions as number },
+	};
 }
 
-main();
+// Self-invocation when run directly via tsx
+import { CLI_PROJECT } from "../../../infrastructure/config.js";
+
+// eslint-disable-next-line no-restricted-properties
+if (process.argv[1]?.includes("generate-codebase-report")) {
+	generateCodebaseReport(CLI_PROJECT);
+}

@@ -1,7 +1,7 @@
 ---
 domain: Flowti
 type: ProductRequirementsDocument
-stage: development_ready
+stage: in-progress
 version: 3
 maturity: L2
 created: 2026-03-07

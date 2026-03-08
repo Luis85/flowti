@@ -9,7 +9,7 @@ import { disk } from "../../../infrastructure/filesystem.js";
 import { paths } from "../../../infrastructure/paths.js";
 import { runMenu } from "../../../infrastructure/menu.js";
 import { log } from "../../../infrastructure/logger.js";
-import { RESET, BOLD, DIM, GREEN, CYAN } from "../../../infrastructure/ui.js";
+import { RESET, BOLD, DIM, GREEN } from "../../../infrastructure/ui.js";
 import type { MenuEntry, MenuResult } from "../../../infrastructure/types.js";
 import type { ProjectComponent, ComponentKind } from "./component-types.js";
 import { COMPONENT_KINDS } from "./component-types.js";
@@ -67,6 +67,9 @@ export function listProjectComponents(projectRoot: string): ProjectComponent[] {
 
 const KIND_LABELS: Record<ComponentKind, string> = {
 	"component": "Component",
+	"layout": "Layout",
+	"page": "Page",
+	"ui-component": "UI Component",
 	"system": "System",
 	"container": "Container",
 	"c4-component": "C4 Component",
