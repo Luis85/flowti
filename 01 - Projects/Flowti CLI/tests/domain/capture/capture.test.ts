@@ -14,11 +14,6 @@ vi.mock("../../../src/infrastructure/filesystem.js", () => ({
 	disk: {},
 }));
 
-vi.mock("../../../src/infrastructure/readline.js", () => ({
-	createRL: vi.fn(),
-	ask: vi.fn(),
-}));
-
 vi.mock("../../../src/infrastructure/ui.js", () => ({
 	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", YELLOW: "", CYAN: "",
 	printHeader: vi.fn(),

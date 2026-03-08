@@ -117,3 +117,98 @@ describe("input.ask", () => {
 		expect(result).toBe("custom");
 	});
 });
+
+describe("input.askYesNo", () => {
+	it("returns true when user enters 'y'", async () => {
+		mockQuestion.mockImplementation((_prompt: string, cb: (answer: string) => void) => {
+			cb("y");
+		});
+
+		expect(await input.askYesNo("Proceed?")).toBe(true);
+	});
+
+	it("returns true when user enters 'yes'", async () => {
+		mockQuestion.mockImplementation((_prompt: string, cb: (answer: string) => void) => {
+			cb("yes");
+		});
+
+		expect(await input.askYesNo("Proceed?")).toBe(true);
+	});
+
+	it("returns true when user enters 'Y' (case-insensitive)", async () => {
+		mockQuestion.mockImplementation((_prompt: string, cb: (answer: string) => void) => {
+			cb("Y");
+		});
+
+		expect(await input.askYesNo("Proceed?")).toBe(true);
+	});
+
+	it("returns false when user enters 'n'", async () => {
+		mockQuestion.mockImplementation((_prompt: string, cb: (answer: string) => void) => {
+			cb("n");
+		});
+
+		expect(await input.askYesNo("Proceed?")).toBe(false);
+	});
+
+	it("returns false on empty input when defaultNo is true", async () => {
+		mockQuestion.mockImplementation((_prompt: string, cb: (answer: string) => void) => {
+			cb("");
+		});
+
+		expect(await input.askYesNo("Proceed?", true)).toBe(false);
+	});
+
+	it("returns true on empty input when defaultNo is false", async () => {
+		mockQuestion.mockImplementation((_prompt: string, cb: (answer: string) => void) => {
+			cb("");
+		});
+
+		expect(await input.askYesNo("Proceed?", false)).toBe(true);
+	});
+
+	it("defaults to defaultNo=true when not specified", async () => {
+		mockQuestion.mockImplementation((_prompt: string, cb: (answer: string) => void) => {
+			cb("");
+		});
+
+		expect(await input.askYesNo("Proceed?")).toBe(false);
+	});
+
+	it("shows (y/N) hint when defaultNo is true", async () => {
+		mockQuestion.mockImplementation((_prompt: string, cb: (answer: string) => void) => {
+			cb("y");
+		});
+
+		await input.askYesNo("Proceed?", true);
+		const promptArg = mockQuestion.mock.calls[0][0] as string;
+		expect(promptArg).toContain("(y/N)");
+	});
+
+	it("shows (Y/n) hint when defaultNo is false", async () => {
+		mockQuestion.mockImplementation((_prompt: string, cb: (answer: string) => void) => {
+			cb("y");
+		});
+
+		await input.askYesNo("Proceed?", false);
+		const promptArg = mockQuestion.mock.calls[0][0] as string;
+		expect(promptArg).toContain("(Y/n)");
+	});
+
+	it("closes the readline interface after receiving answer", async () => {
+		mockQuestion.mockImplementation((_prompt: string, cb: (answer: string) => void) => {
+			cb("y");
+		});
+
+		await input.askYesNo("Proceed?");
+		expect(mockClose).toHaveBeenCalled();
+	});
+
+	it("trims whitespace from answer", async () => {
+		mockQuestion.mockImplementation((_prompt: string, cb: (answer: string) => void) => {
+			cb("  y  ");
+		});
+
+		expect(await input.askYesNo("Proceed?")).toBe(true);
+	});
+});

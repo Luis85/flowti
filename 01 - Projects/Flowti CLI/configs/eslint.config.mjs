@@ -77,10 +77,10 @@ export default [
 					message: "Use { paths } from infrastructure/paths.js instead.",
 				}, {
 					name: "node:readline",
-					message: "Use { createRL, ask } from infrastructure/readline.js instead.",
+					message: "Use { input } from infrastructure/input.js instead.",
 				}, {
 					name: "readline",
-					message: "Use { createRL, ask } from infrastructure/readline.js instead.",
+					message: "Use { input } from infrastructure/input.js instead.",
 				}],
 			}],
 		},
@@ -95,7 +95,6 @@ export default [
 			"src/infrastructure/paths.ts",
 			"src/infrastructure/proc.ts",
 			"src/infrastructure/clock.ts",
-			"src/infrastructure/readline.ts",
 			"src/infrastructure/logger.ts",
 			"src/infrastructure/input.ts",
 			"src/infrastructure/types.ts",

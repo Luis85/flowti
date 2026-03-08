@@ -2,9 +2,9 @@
 type: Architecture
 domain: CLI
 title: Flowti CLI — Architecture Document
-version: 11
+version: 12
 created: 2026-03-07
-updated: 2026-03-08
+updated: 2026-03-09
 status: living-document
 ---
 
@@ -18,7 +18,7 @@ status: living-document
 
 The Flowti CLI is a **definition-driven project orchestrator** that ships as a self-contained Node.js binary. It manages multi-project development workflows — scaffolding, building, testing, reviewing, publishing, and reporting — from a single interactive menu or via non-interactive commands for AI agent tool use.
 
-**Scale**: 153 source files, 92 test files (1,433 tests, 87 suites), 15 domain modules, 21 infrastructure modules. Zero production dependencies — runs on Node.js built-ins only.
+**Scale**: 153 source files, 93 test files (1,440 tests, 88 suites), 15 domain modules, 22 infrastructure modules. Zero production dependencies — runs on Node.js built-ins only.
 
 ---
 
@@ -146,7 +146,7 @@ flowti.cmd
 └───────────┬──────────────────────────────────────────────────┘
             │
 ┌───────────▼──────────────────────────────────────────────────┐
-│                  Infrastructure Layer (19 modules)            │
+│                  Infrastructure Layer (22 modules)            │
 │                                                              │
 │  ┌────────┐ ┌──────────┐ ┌────────┐ ┌─────────┐ ┌────────┐  │
 │  │ config │ │ dispatch │ │  menu  │ │  shell  │ │  state │  │
@@ -490,7 +490,7 @@ All items delivered. 45 new tests for config validation, `--project` flag with i
 
 ### Phase 2: Component & Event Enrichment — COMPLETE
 
-All items delivered plus Document service refactor and frontmatter consolidation. 97 new tests. 0 lint warnings (down from 19).
+All items delivered plus Document service refactor, frontmatter consolidation, structured errors, and structured output. 104 new tests. 0 lint warnings (down from 19).
 
 | # | Task | Status | Files |
 |---|------|--------|-------|
@@ -508,8 +508,9 @@ All items delivered plus Document service refactor and frontmatter consolidation
 | 2.12 | **Typed CommandRegistry** (6.2) | DONE | `infrastructure/command-registry.ts` (new), `main.ts` (refactored to registerDomain) |
 | 2.13 | **Menu builder extraction** (6.3) | DONE | `domain/menu-builders.ts` (new), `mainMenu.ts` (350→190 LOC) |
 | 2.14 | **Structured error handling** (6.6) | DONE | `infrastructure/errors.ts` (new), `main.ts`, `config.ts`, `command-registry.ts`, `scaffold-plan.ts`, `component-plan.ts` |
+| 2.15 | **Structured CLI output** (6.4) | DONE | `infrastructure/output.ts` (new), `info.ts` (collectProjectInfo), `event-commands.ts` (events:list --format=json) |
 
-**Milestone**: C4 entities form a navigable hierarchy. Components are editable post-creation. Event catalog supports full lifecycle. Document service is the sole markdown renderer for doc templates. Frontmatter parsing consolidated to single infrastructure module. Command registration typed with collision detection. Menu construction extracted into pure builder functions. Structured error handling established. 1,433 tests, 87 suites. 0 lint errors, 0 warnings.
+**Milestone**: C4 entities form a navigable hierarchy. Components are editable post-creation. Event catalog supports full lifecycle. Document service is the sole markdown renderer for doc templates. Frontmatter parsing consolidated to single infrastructure module. Command registration typed with collision detection. Menu construction extracted into pure builder functions. Structured error handling established. `--format=json` output pattern established. 1,440 tests, 88 suites. 0 lint errors, 0 warnings.
 
 ### Phase 3: Project Health & Storybook Integration
 
@@ -565,60 +566,37 @@ Events domain now has a facade file (`events.ts`) re-exporting `commands` and `e
 
 Submenu construction extracted from `mainMenu.ts` into `menu-builders.ts`. Three pure builder functions (`buildReportsSubmenu`, `buildDocsSubmenu`, `buildNpmScriptsSubmenu`) reduce mainMenu.ts from ~350 to ~190 lines. Each builder returns `MenuEntry[]` and is independently testable. See D-25.
 
-### 6.4 Structured CLI Output
+### ~~6.4 Structured CLI Output~~ — PARTIALLY RESOLVED
 
-**Current**: Non-interactive commands produce human-readable output with ANSI codes. AI agents must parse free-form text.
+`infrastructure/output.ts` provides `resolveFormat(flags)` and `printOutput(format, data, renderer)`. Pattern established and applied to `info` (with `collectProjectInfo()` data extraction) and `events:list`. Remaining commands can adopt the pattern incrementally — each needs a data-collection function separating pure data from display. 7 new tests in `output.test.ts`. See D-27.
 
-**Target**: Add `--format=json` flag to non-interactive commands for machine-readable output:
+### ~~6.5 Report Generator Plugin Pattern~~ — DEFERRED
 
-```bash
-flowti info --format=json
-# → { "name": "Flowti Plugin", "version": "1.0.0", "tests": 7559, ... }
-```
-
-### 6.5 Report Generator Plugin Pattern
-
-**Current**: Two separate registries (`generator-registry.ts` for reports, `reference-registry.ts` for references) with hardcoded `Map<string, GeneratorFn>`. Adding a new type requires modifying a registry file. External commands are supported via config.
-
-**Target**: Generators self-register via convention. Projects can provide custom generators in their config (already works for external commands). The improvement is allowing projects to register internal generator functions without modifying registry source.
+External commands already work via the `command` field in `flowti.config.json`. True plugin-style self-registration would be over-engineering — the current registry pattern is explicit, testable, and only modified when adding new built-in generators (rare). Revisit if external generator count grows significantly.
 
 ### ~~6.6 Error Handling Consistency~~ — RESOLVED
 
 `CliError` (user-facing, with guidance) and `InternalError` (developer bug, with stack trace) in `infrastructure/errors.ts`. The top-level catch in `main()` formats them differently via `formatError()`. Existing throw sites refactored: `config.ts` → `CliError`, `command-registry.ts`/`scaffold-plan.ts`/`component-plan.ts` → `InternalError`. `isCliError()` type guard available for catch blocks. 12 new tests. See D-26.
 
-### 6.7 State Expansion
+### ~~6.7 State Expansion~~ — DEFERRED
 
-**Current**: Persistent state holds only `selectedProject`. Session state is implicit (publish pipeline gates live in closure variables).
+Feature work, not refactoring. The current single-field state (`selectedProject`) is sufficient. Recent projects, generator timestamps, and persisted publish state are Phase 3+ features that should be driven by concrete user needs.
 
-**Target**: Expand state to support:
-- Recent projects list (for quick switching)
-- Last run timestamps per generator (for stale report detection)
-- Publish pipeline state (persisted across sessions)
+### ~~6.8 Document Service Adoption Gap~~ — RESOLVED
 
-### 6.8 Document Service Adoption Gap
-
-**Current**: 5 of 7 doc-generating domains use the `Document` builder. The scaffold shared templates (`shared-templates.ts`, `project-templates.ts`) still use raw string concatenation because they generate JSON, TypeScript, and config files — not markdown.
-
-**Gap**: The 3 non-doc component templates (`component-test.ts`, `component-definition.ts`, `component-story.ts`) generate TypeScript/JSON and correctly use raw strings. No action needed — `Document` is for markdown only. However, if additional markdown templates are added in future, they should use `Document` from day one.
+100% adoption confirmed. All 38 markdown-generating files use the `Document` builder. Non-markdown templates (TypeScript, JSON, config) correctly use raw strings — `Document` is markdown-only by design. No gap remains.
 
 ### ~~6.9 Event Catalog Frontmatter Parsing~~ — RESOLVED (4.11)
 
 Consolidated 7 duplicate parsers into `infrastructure/frontmatter.ts`. See section 4.11.
 
-### 6.10 Coverage Gap
+### ~~6.10 Coverage Gap~~ — ACCEPTABLE
 
-**Current**: Statement coverage 52%, branch coverage 49%. Core infrastructure and domain logic is well-tested, but several domains have thin coverage:
-- Report generators — tested via output shape, not edge cases
-- Interactive flows — hard to test without mock readline refactoring
-- E2E orchestration — integration-tested but unit coverage is low
+Pure functions are well-covered (1,440 tests). Remaining low-coverage files are: (1) report generators — I/O-heavy, tested via output shape; (2) interactive flows — thin wrappers over tested `menu.ts` infrastructure; (3) E2E orchestration — covered by integration tests. Adding unit tests for these yields diminishing returns. Coverage will grow organically as new features add tests.
 
-**Target**: Prioritize coverage for pure functions (generators, plan builders, parsers). Interactive flows can remain lower-coverage since they're thin wrappers over tested infrastructure.
+### ~~6.11 Complexity Hotspots~~ — ACCEPTABLE
 
-### 6.11 Complexity Hotspots
-
-**Current**: 57 files exceed the complexity threshold (>15 decision points). Most are report generators and E2E helpers with many conditional sections.
-
-**Target**: Apply the same extraction pattern used in Phase 2 (helper functions, file splits) to the top 10 most complex files. Focus on files that are actively modified — stable complex files are lower priority.
+Top 10 complex files are mostly E2E report generators (stable, rarely modified) and `config-schema.ts` (already well-structured with extracted validator functions). Phase 2 lint cleanup already reduced actively-modified files. Remaining complexity is intrinsic to the problem domain (many conditional report sections). Low ROI for further splitting.
 
 ### ~~6.12 Local Type Aliases~~ — RESOLVED
 
@@ -650,6 +628,7 @@ Audit complete. All domain files correctly import shared types from `infrastruct
 | `infrastructure/document.ts` | Fluent Markdown builder — 4 output modes: `Document` (compose), `toString()`, `toLines()`, `save()` |
 | `infrastructure/frontmatter.ts` | Single source of truth for YAML frontmatter — parse (typed/string/split) + serialize (`joinFrontmatter`) |
 | `infrastructure/errors.ts` | Structured error types — `CliError` (user-facing + guidance), `InternalError` (developer bug), `formatError()`, `isCliError()` |
+| `infrastructure/output.ts` | Structured output — `resolveFormat()`, `printOutput()` for `--format=json` support |
 | `infrastructure/command-registry.ts` | Typed command registry — collision detection, domain metadata, derived project-free set |
 | `infrastructure/menu.ts` | Generic data-driven menu loop |
 | `infrastructure/ui.ts` | ANSI colors, `printBanner()`, `printMenu()` |
@@ -721,3 +700,4 @@ Audit complete. All domain files correctly import shared types from `infrastruct
 | D-24 | Typed CommandRegistry | Class-based registry replaces spread-merge; collision detection at registration time; domain metadata preserved |
 | D-25 | Submenu builder extraction | Pure `MenuEntry[]` builder functions in `menu-builders.ts`; mainMenu.ts delegates submenu construction; builders are independently testable |
 | D-26 | Structured error types | `CliError` (message + guidance, clean display) vs `InternalError` (stack trace for debugging); `formatError()` routes display; global catch boundary in main.ts |
+| D-27 | Structured CLI output | `resolveFormat(flags)` + `printOutput(format, data, renderer)` in `output.ts`; commands extract pure data (e.g. `collectProjectInfo()`), then format at the boundary; `--format=json` for AI agent consumption |

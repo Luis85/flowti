@@ -6,10 +6,10 @@ import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
 import { shell } from "../../infrastructure/shell.js";
 import { log } from "../../infrastructure/logger.js";
-import type { ReadlineInterface } from "../../infrastructure/readline.js";
+import { input } from "../../infrastructure/input.js";
 import type { E2EPaths } from "./e2e-paths.js";
 import type { ReportSource, AuditFrontmatters } from "./e2e-types.js";
-import { ask, yamlStr } from "./e2e-helpers.js";
+import { yamlStr } from "./e2e-helpers.js";
 import { collectReportSources } from "./e2e-build.js";
 
 // ── Audit frontmatter builders ──────────────────────────────────────
@@ -195,9 +195,9 @@ function determineAuditStatus(fm: AuditFrontmatters): { overallStatus: string; c
 
 // ── Public: generate audit ──────────────────────────────────────────
 
-export async function generateAudit(rl: ReadlineInterface, e2e: E2EPaths): Promise<void> {
+export async function generateAudit(e2e: E2EPaths): Promise<void> {
 	const defaultName = new Date().toISOString().slice(0, 10) + "-audit";
-	const auditName = await ask(rl, "Audit name", defaultName);
+	const auditName = await input.ask("Audit name", defaultName);
 
 	log(`\n  Generating audit: ${auditName}...\n`);
 

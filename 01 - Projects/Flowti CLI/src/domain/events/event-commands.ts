@@ -6,6 +6,7 @@ import { paths } from "../../infrastructure/paths.js";
 import { RESET, DIM, GREEN, RED } from "../../infrastructure/ui.js";
 import { log } from "../../infrastructure/logger.js";
 import type { ProjectContext } from "../../infrastructure/types.js";
+import { resolveFormat, printOutput } from "../../infrastructure/output.js";
 import { listEvents, createEventFile, parseCommaSeparated } from "./event-catalog.js";
 import type { EventDefinition } from "./event-catalog.js";
 import { parsePayloadFlag } from "./event-payload.js";
@@ -25,9 +26,14 @@ function flagList(flags: Record<string, string | boolean>, key: string): string[
 // ── Commands ──────────────────────────────────────────────────────
 
 export const commands: Record<string, (flags: Record<string, string | boolean>, rawArgs: string[], command?: string, project?: ProjectContext) => void> = {
-	"events:list": (_flags, _rawArgs, _command, project) => {
+	"events:list": (flags, _rawArgs, _command, project) => {
 		if (!project) return;
 		const events = listEvents(project.path);
+		const format = resolveFormat(flags);
+		if (format === "json") {
+			printOutput(format, events, () => {});
+			return;
+		}
 		if (events.length === 0) { log(`\n  ${DIM}No events defined.${RESET}\n`); return; }
 		for (const evt of events) log(`  ${evt.name} [${evt.domain}] v${evt.version}`);
 	},

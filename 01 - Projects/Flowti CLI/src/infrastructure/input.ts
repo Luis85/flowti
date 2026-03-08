@@ -11,6 +11,11 @@ import { RESET, DIM } from "./ui.js";
 
 export interface IInput {
 	ask(question: string, defaultValue?: string): Promise<string>;
+	askYesNo(question: string, defaultNo?: boolean): Promise<boolean>;
+}
+
+function formatPrompt(question: string, suffix: string): string {
+	return `  ${question}${suffix}: `;
 }
 
 export const input: IInput = {
@@ -18,9 +23,25 @@ export const input: IInput = {
 		const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 		return new Promise((resolve) => {
 			const suffix = defaultValue ? ` ${DIM}(${defaultValue})${RESET}` : "";
-			rl.question(`  ${question}${suffix}: `, (answer) => {
+			rl.question(formatPrompt(question, suffix), (answer) => {
 				rl.close();
 				resolve(answer.trim() || defaultValue);
+			});
+		});
+	},
+
+	async askYesNo(question: string, defaultNo = true): Promise<boolean> {
+		const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+		return new Promise((resolve) => {
+			const hint = defaultNo ? "(y/N)" : "(Y/n)";
+			rl.question(formatPrompt(question, ` ${hint}`), (answer) => {
+				rl.close();
+				const trimmed = answer.trim().toLowerCase();
+				if (!trimmed) {
+					resolve(!defaultNo);
+					return;
+				}
+				resolve(trimmed === "y" || trimmed === "yes");
 			});
 		});
 	},

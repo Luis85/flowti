@@ -6,10 +6,9 @@ import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
 import { log } from "../../infrastructure/logger.js";
 import { proc } from "../../infrastructure/proc.js";
-import type { ReadlineInterface } from "../../infrastructure/readline.js";
+import { input } from "../../infrastructure/input.js";
 import type { E2EPaths } from "./e2e-paths.js";
 import type { JourneyEntry, SessionConfig, PrerequisiteResults, TestStats } from "./e2e-types.js";
-import { ask, askYesNo } from "./e2e-helpers.js";
 
 // ── Journey loading ─────────────────────────────────────────────────
 
@@ -101,7 +100,7 @@ function resolveStepFilter(input: string, steps: Array<Record<string, unknown>>)
 	return ids.length > 0 ? ids : "all";
 }
 
-async function promptStepFilter(rl: ReadlineInterface, selectedSlugs: string[], e2e: E2EPaths): Promise<Record<string, "all" | string[]>> {
+async function promptStepFilter(selectedSlugs: string[], e2e: E2EPaths): Promise<Record<string, "all" | string[]>> {
 	const stepFilter: Record<string, "all" | string[]> = {};
 
 	for (const slug of selectedSlugs) {
@@ -119,7 +118,7 @@ async function promptStepFilter(rl: ReadlineInterface, selectedSlugs: string[], 
 		}
 
 		printStepTable(def, steps);
-		const stepInput = await ask(rl, 'Steps (numbers/ranges, "all", or "none")', "all");
+		const stepInput = await input.ask('Steps (numbers/ranges, "all", or "none")', "all");
 		stepFilter[slug] = resolveStepFilter(stepInput, steps);
 
 		const sel = stepFilter[slug];
@@ -135,9 +134,9 @@ async function promptStepFilter(rl: ReadlineInterface, selectedSlugs: string[], 
 
 // ── Session config prompt ───────────────────────────────────────────
 
-export async function promptSessionConfig(rl: ReadlineInterface, entries: JourneyEntry[], prereqResults: PrerequisiteResults, e2e: E2EPaths): Promise<SessionConfig> {
+export async function promptSessionConfig(entries: JourneyEntry[], prereqResults: PrerequisiteResults, e2e: E2EPaths): Promise<SessionConfig> {
 	printJourneyTable(entries);
-	const journeyInput = await ask(rl, 'Enter journey numbers (e.g. "2" or "1 3 4") or "all"');
+	const journeyInput = await input.ask('Enter journey numbers (e.g. "2" or "1 3 4") or "all"');
 
 	if (!journeyInput) {
 		log("\n  No selection — exiting.\n");
@@ -158,25 +157,25 @@ export async function promptSessionConfig(rl: ReadlineInterface, entries: Journe
 
 	log();
 
-	const stepFilter = await promptStepFilter(rl, selectedSlugs, e2e);
+	const stepFilter = await promptStepFilter(selectedSlugs, e2e);
 
 	const timestamp = new Date().toISOString().replace(/:/g, "-").slice(0, 19);
 	const journeySuffix = selectedSlugs.length === entries.length
 		? "all"
 		: selectedSlugs.join("+");
 	const autoName = `${timestamp} ${journeySuffix}`;
-	const sessionName = await ask(rl, "Session name (Enter for auto)", autoName);
+	const sessionName = await input.ask("Session name (Enter for auto)", autoName);
 
 	const installerLabel = prereqResults.vaultInstalled
 		? "Include installer? (force)"
 		: "Include installer? (not installed)";
-	const includeInstaller = await askYesNo(rl, installerLabel, prereqResults.vaultInstalled);
+	const includeInstaller = await input.askYesNo(installerLabel, prereqResults.vaultInstalled);
 
 	const prereqsMet = prereqResults.vaultInstalled && prereqResults.vaultExists && prereqResults.artifactsPresent;
 	const prereqLabel = prereqsMet
 		? "Include prerequisites? (force)"
 		: "Include prerequisites? (not yet passed)";
-	const includePrerequisites = await askYesNo(rl, prereqLabel, prereqsMet);
+	const includePrerequisites = await input.askYesNo(prereqLabel, prereqsMet);
 
 	return { sessionName, selectedSlugs, includeInstaller, includePrerequisites, stepFilter };
 }

@@ -1,7 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
 
-vi.mock("../../../src/infrastructure/readline.js", () => ({}));
-
 import { yamlStr } from "../../../src/domain/e2e/e2e-helpers.js";
 
 describe("yamlStr", () => {

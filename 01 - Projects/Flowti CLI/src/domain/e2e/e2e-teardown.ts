@@ -7,9 +7,8 @@ import { paths } from "../../infrastructure/paths.js";
 import { shell } from "../../infrastructure/shell.js";
 import { log } from "../../infrastructure/logger.js";
 import { proc } from "../../infrastructure/proc.js";
-import { createRL } from "../../infrastructure/readline.js";
+import { input } from "../../infrastructure/input.js";
 import type { E2EPaths } from "./e2e-paths.js";
-import { askYesNo } from "./e2e-helpers.js";
 import { collapseFileExplorer } from "./e2e-prerequisites.js";
 
 /**
@@ -91,9 +90,7 @@ export async function teardownVault(e2e: E2EPaths): Promise<void> {
 	log("    - Clear workspace layout");
 	log("    - Collapse file navigator folders\n");
 
-	const rl = createRL();
-	const proceed = await askYesNo(rl, "Proceed?", true);
-	rl.close();
+	const proceed = await input.askYesNo("Proceed?", true);
 
 	if (!proceed) {
 		log("\n  Teardown cancelled.\n");

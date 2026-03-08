@@ -4,10 +4,9 @@
 
 import { log } from "../../infrastructure/logger.js";
 import { proc } from "../../infrastructure/proc.js";
-import { createRL } from "../../infrastructure/readline.js";
+import { input } from "../../infrastructure/input.js";
 import type { E2EPaths } from "./e2e-paths.js";
 import type { SessionConfig, JourneyEntry, PrerequisiteResults, ViewResult, InteractiveState } from "./e2e-types.js";
-import { ask } from "./e2e-helpers.js";
 import { checkPrerequisites, printPrerequisites, validatePrerequisites } from "./e2e-prerequisites.js";
 import { teardownVault, runRebuild } from "./e2e-teardown.js";
 import { loadJourneyEntries, promptSessionConfig, rerunWithFreshTimestamp } from "./e2e-session.js";
@@ -30,20 +29,18 @@ function printResultBanner(label: string, exitCode: number): void {
 async function publishResultView(exitCode: number, e2e: E2EPaths): Promise<ViewResult> {
 	while (true) {
 		printResultBanner("Publish", exitCode);
-		const rl = createRL();
 		log("    r) Re-run publish");
 		log("    a) Generate audit");
 		log("    m) Back to main menu");
 		log("    q) Quit");
 		log();
-		const choice = (await ask(rl, "Choice", "m")).toLowerCase();
+		const choice = (await input.ask("Choice", "m")).toLowerCase();
 
-		if (choice === "q") { rl.close(); return { action: "quit", exitCode }; }
-		if (choice === "m") { rl.close(); return { action: "main", exitCode }; }
-		if (choice === "a") { await generateAudit(rl, e2e); rl.close(); continue; }
-		if (choice === "r") { rl.close(); exitCode = runPublish(e2e); continue; }
+		if (choice === "q") return { action: "quit", exitCode };
+		if (choice === "m") return { action: "main", exitCode };
+		if (choice === "a") { await generateAudit(e2e); continue; }
+		if (choice === "r") { exitCode = runPublish(e2e); continue; }
 
-		rl.close();
 		log("\n  Invalid choice — try again.\n");
 	}
 }
@@ -73,22 +70,19 @@ async function handleIncrementPublish(exitCode: number, e2e: E2EPaths): Promise<
 async function incrementResultView(exitCode: number, e2e: E2EPaths): Promise<ViewResult> {
 	while (true) {
 		printResultBanner("Increment Build", exitCode);
-		const rl = createRL();
 		printIncrementMenu(exitCode);
-		const choice = (await ask(rl, "Choice", exitCode === 0 ? "p" : "m")).toLowerCase();
+		const choice = (await input.ask("Choice", exitCode === 0 ? "p" : "m")).toLowerCase();
 
-		if (choice === "q") { rl.close(); return { action: "quit", exitCode }; }
-		if (choice === "m") { rl.close(); return { action: "main", exitCode }; }
-		if (choice === "a") { await generateAudit(rl, e2e); rl.close(); continue; }
-		if (choice === "r") { rl.close(); exitCode = await runIncrementBuild(e2e); continue; }
+		if (choice === "q") return { action: "quit", exitCode };
+		if (choice === "m") return { action: "main", exitCode };
+		if (choice === "a") { await generateAudit(e2e); continue; }
+		if (choice === "r") { exitCode = await runIncrementBuild(e2e); continue; }
 		if (choice === "p") {
-			rl.close();
 			const result = await handleIncrementPublish(exitCode, e2e);
 			if (result) return result;
 			continue;
 		}
 
-		rl.close();
 		log("\n  Invalid choice — try again.\n");
 	}
 }
@@ -123,7 +117,6 @@ async function sessionView(config: SessionConfig, entries: JourneyEntry[], prere
 
 	while (true) {
 		printSessionBanner(currentConfig, entries, currentExitCode);
-		const rl = createRL();
 		log("    r) Re-run");
 		log("    b) Build and re-run");
 		log("    d) Build only (no re-run)");
@@ -132,35 +125,31 @@ async function sessionView(config: SessionConfig, entries: JourneyEntry[], prere
 		log("    m) Back to main menu");
 		log("    q) Quit");
 		log();
-		const choice = (await ask(rl, "Choice", "r")).toLowerCase();
+		const choice = (await input.ask("Choice", "r")).toLowerCase();
 
-		if (choice === "q") { rl.close(); return { action: "quit", exitCode: currentExitCode }; }
-		if (choice === "m") { rl.close(); return { action: "main", exitCode: currentExitCode }; }
-		if (choice === "a") { await generateAudit(rl, e2e); rl.close(); continue; }
-		if (choice === "d") { rl.close(); quickBuildAndDeploy(e2e); continue; }
+		if (choice === "q") return { action: "quit", exitCode: currentExitCode };
+		if (choice === "m") return { action: "main", exitCode: currentExitCode };
+		if (choice === "a") { await generateAudit(e2e); continue; }
+		if (choice === "d") { quickBuildAndDeploy(e2e); continue; }
 		if (choice === "r") {
-			rl.close();
 			const rerunConfig = rerunWithFreshTimestamp(currentConfig, entries);
 			currentExitCode = await executeSession(rerunConfig, entries, prereqResults, e2e);
 			currentConfig = rerunConfig;
 			continue;
 		}
 		if (choice === "b") {
-			rl.close();
 			const result = await handleBuildAndRerun(currentConfig, entries, prereqResults, e2e);
 			currentConfig = result.config;
 			currentExitCode = result.exitCode;
 			continue;
 		}
 		if (choice === "e") {
-			const editConfig = await promptSessionConfig(rl, entries, prereqResults, e2e);
-			rl.close();
+			const editConfig = await promptSessionConfig(entries, prereqResults, e2e);
 			currentExitCode = await executeSession(editConfig, entries, prereqResults, e2e);
 			currentConfig = editConfig;
 			continue;
 		}
 
-		rl.close();
 		log("\n  Invalid choice — try again.\n");
 	}
 }
@@ -195,49 +184,44 @@ async function handlePublishChoice(e2e: E2EPaths): Promise<{ exitCode: number; q
 	return { exitCode: result.exitCode, quit: result.action === "quit" };
 }
 
-async function handleTestSessionChoice(rl: ReturnType<typeof createRL>, prereqResults: PrerequisiteResults, e2e: E2EPaths): Promise<{ exitCode: number; quit: boolean }> {
+async function handleTestSessionChoice(prereqResults: PrerequisiteResults, e2e: E2EPaths): Promise<{ exitCode: number; quit: boolean }> {
 	const entries = loadJourneyEntries(e2e);
 	if (entries.length === 0) {
-		rl.close();
 		log("  No journey files found.\n");
 		return { exitCode: 0, quit: false };
 	}
-	const config = await promptSessionConfig(rl, entries, prereqResults, e2e);
-	rl.close();
+	const config = await promptSessionConfig(entries, prereqResults, e2e);
 	const exitCode = await executeSession(config, entries, prereqResults, e2e);
 	const result = await sessionView(config, entries, prereqResults, exitCode, e2e);
 	return { exitCode: result.exitCode, quit: result.action === "quit" };
 }
 
-async function handleMainMenuChoice(choice: string, rl: ReturnType<typeof createRL>, prereqResults: PrerequisiteResults, state: InteractiveState, e2e: E2EPaths): Promise<{ handled: boolean; state: InteractiveState }> {
-	if (choice === "q") { rl.close(); log("\n  Goodbye.\n"); proc.exit(state.lastExitCode); }
-	if (choice === "4") { await generateAudit(rl, e2e); rl.close(); return { handled: true, state }; }
-	if (choice === "5") { rl.close(); await teardownVault(e2e); return { handled: true, state }; }
+async function handleMainMenuChoice(choice: string, prereqResults: PrerequisiteResults, state: InteractiveState, e2e: E2EPaths): Promise<{ handled: boolean; state: InteractiveState }> {
+	if (choice === "q") { log("\n  Goodbye.\n"); proc.exit(state.lastExitCode); }
+	if (choice === "4") { await generateAudit(e2e); return { handled: true, state }; }
+	if (choice === "5") { await teardownVault(e2e); return { handled: true, state }; }
 	if (choice === "6") {
-		rl.close();
 		const rebuildCode = await runRebuild(e2e, () => runVitest(e2e), () => generateReportAndOpen(e2e));
 		return { handled: true, state: { ...state, lastExitCode: rebuildCode } };
 	}
 	return { handled: false, state };
 }
 
-async function handleBuildMenuChoice(choice: string, rl: ReturnType<typeof createRL>, prereqResults: PrerequisiteResults, state: InteractiveState, e2e: E2EPaths): Promise<{ handled: boolean; state: InteractiveState }> {
+async function handleBuildMenuChoice(choice: string, prereqResults: PrerequisiteResults, state: InteractiveState, e2e: E2EPaths): Promise<{ handled: boolean; state: InteractiveState }> {
 	if (choice === "2") {
-		rl.close();
 		const result = await handleIncrementChoice(e2e);
 		const updated = { lastExitCode: result.exitCode, incrementPassed: state.incrementPassed || result.incrementPassed };
 		if (result.quit) { log("\n  Goodbye.\n"); proc.exit(updated.lastExitCode); }
 		return { handled: true, state: updated };
 	}
 	if (choice === "3") {
-		rl.close();
 		if (!state.incrementPassed) { log("\n  Cannot publish — no successful increment build in this session.\n  Run option 2 first.\n"); return { handled: true, state }; }
 		const result = await handlePublishChoice(e2e);
 		if (result.quit) { log("\n  Goodbye.\n"); proc.exit(result.exitCode); }
 		return { handled: true, state: { ...state, lastExitCode: result.exitCode } };
 	}
 	if (choice === "1") {
-		const result = await handleTestSessionChoice(rl, prereqResults, e2e);
+		const result = await handleTestSessionChoice(prereqResults, e2e);
 		if (result.quit) { log("\n  Goodbye.\n"); proc.exit(result.exitCode); }
 		return { handled: true, state: { ...state, lastExitCode: result.exitCode } };
 	}
@@ -258,17 +242,15 @@ export async function interactiveSession(e2e: E2EPaths): Promise<void> {
 		printPrerequisites(prereqResults, e2e);
 		validatePrerequisites(prereqResults);
 
-		const rl = createRL();
 		printMainMenu(state.incrementPassed);
-		const choice = (await ask(rl, "Choice", "1")).toLowerCase();
+		const choice = (await input.ask("Choice", "1")).toLowerCase();
 
-		const mainResult = await handleMainMenuChoice(choice, rl, prereqResults, state, e2e);
+		const mainResult = await handleMainMenuChoice(choice, prereqResults, state, e2e);
 		if (mainResult.handled) { state = mainResult.state; continue; }
 
-		const buildResult = await handleBuildMenuChoice(choice, rl, prereqResults, state, e2e);
+		const buildResult = await handleBuildMenuChoice(choice, prereqResults, state, e2e);
 		if (buildResult.handled) { state = buildResult.state; continue; }
 
-		rl.close();
 		log("\n  Invalid choice — try again.\n");
 	}
 }

@@ -27,7 +27,9 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
 }));
 
-vi.mock("../../../src/infrastructure/readline.js", () => ({}));
+vi.mock("../../../src/infrastructure/input.js", () => ({
+	input: { ask: vi.fn(), askYesNo: vi.fn() },
+}));
 
 import { disk } from "../../../src/infrastructure/filesystem.js";
 import { proc } from "../../../src/infrastructure/proc.js";
