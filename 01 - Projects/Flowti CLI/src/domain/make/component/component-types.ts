@@ -73,4 +73,8 @@ export interface ProjectComponent {
 	kind: ComponentKind;
 	status: string;
 	path: string;
+	/** C4 level (1=System, 2=Container, 3=Component, 0=Person). */
+	c4Level?: number;
+	/** Name of the parent component (C4 containment relationship). */
+	containedBy?: string;
 }

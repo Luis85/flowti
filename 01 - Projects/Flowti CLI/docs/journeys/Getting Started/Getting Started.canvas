@@ -1,14 +1,10 @@
 {
-	"nodes": [
-		{
-			"id": "title",
-			"type": "text",
-			"text": "# Getting Started Journey",
-			"x": 0,
-			"y": 0,
-			"width": 400,
-			"height": 100
-		}
+	"nodes":[
+		{"id":"title","type":"text","text":"# Getting Started Journey","x":0,"y":0,"width":400,"height":100}
 	],
-	"edges": []
+	"edges":[],
+	"metadata":{
+		"version":"1.0-1.0",
+		"frontmatter":{}
+	}
 }

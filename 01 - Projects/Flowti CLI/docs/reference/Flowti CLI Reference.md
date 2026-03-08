@@ -1,18 +1,18 @@
 ---
 type: CLIReference
-date: "2026-03-08T21:03:15.932Z"
+date: "2026-03-08T21:35:11.106Z"
 sections: 10
-cli_commands: 26
-npm_scripts: 37
-report_generators: 14
-doc_generators: 0
+cli_commands: 27
+npm_scripts: 10
+report_generators: 0
+doc_generators: 1
 ---
 
 # Flowti CLI Reference
 
 > [!info] Summary
-> CLI commands: 26 | Help sections: 10 | npm scripts: 37
-> Report generators: 14 | Doc generators: 0
+> CLI commands: 27 | Help sections: 10 | npm scripts: 10
+> Report generators: 0 | Doc generators: 1
 
 ---
 
@@ -369,6 +369,7 @@ All commands can be run directly without the interactive menu:
 | `flowti publish:all` | Increment → E2E → release (stops on failure) |
 | `flowti reports` | Generate all report notes |
 | `flowti report:{id}` | Generate a single report by ID (e.g. report:test) |
+| `flowti docs` | Generate all reference documents (CLI Reference, Entity Reference) |
 | `flowti dev:reload` | Reload plugin in Obsidian via CLI |
 | `flowti dev:console` | Open Obsidian developer console stream |
 | `flowti dev:errors` | Open Obsidian error stream |
@@ -386,74 +387,28 @@ All commands can be run directly without the interactive menu:
 
 | Script | Command |
 |---|---|
-| `test` | `npm run check && vitest run` |
-| `test:watch` | `npm run check && vitest` |
-| `test:ui` | `npm run check && vitest --ui` |
-| `test:coverage` | `npm run check && npm run build && vitest run --coverage` |
-| `test:flows` | `npm run build && vitest run tests/flows/ --coverage` |
-| `test:e2e` | `npm run build && vitest run tests/flows/ && node scripts/run-e2e.mjs` |
-| `test:e2e:installer` | `npm run build && vitest run tests/flows/ && node scripts/run-e2e.mjs --journey=installer` |
-| `test:e2e:getting-started` | `npm run build && vitest run tests/flows/ && node scripts/run-e2e.mjs --journey=getting-started` |
-| `test:e2e:components` | `npm run build && vitest run tests/flows/ && node scripts/run-e2e.mjs --journey=component-library` |
-| `test:e2e:canvas-session` | `npm run build && vitest run tests/flows/ && node scripts/run-e2e.mjs --journey=canvas-session` |
-| `test:e2e:tool-showcase` | `npm run build && vitest run tests/flows/ && node scripts/run-e2e.mjs --journey=tool-showcase` |
-| `test:e2e:tool-reference` | `npm run build && vitest run tests/flows/ && node scripts/run-e2e.mjs --journey=tool-reference` |
-| `test:e2e:journey-builder` | `npm run build && vitest run tests/flows/ && node scripts/run-e2e.mjs --journey=journey-builder` |
-| `test:e2e:developer-onboarding` | `npm run build && vitest run tests/flows/ && node scripts/run-e2e.mjs --journey=developer-onboarding` |
-| `test:e2e:journeys` | `npm run build && vitest run tests/flows/ && node scripts/run-e2e.mjs --journey=getting-started,component-library,canvas-session,tool-showcase,tool-reference,journey-builder,developer-onboarding` |
-| `test:e2e:quick` | `npm run build && vitest run tests/flows/ && node scripts/run-e2e.mjs --journey=installer,getting-started` |
-| `test:e2e:list` | `npm run build && vitest run tests/flows/ && node scripts/run-e2e.mjs --list` |
-| `review` | `npm run test:e2e:list` |
-| `report:e2e` | `node scripts/generate-e2e-report.mjs` |
-| `build` | `node esbuild.config.mjs --production --no-reports` |
-| `build:dev` | `node esbuild.config.mjs --watch` |
-| `build:full` | `npm run test:flows && node esbuild.config.mjs --production` |
-| `dev:reload` | `node scripts/cli-reload.mjs` |
-| `dev:console` | `obsidian dev:console` |
-| `dev:errors` | `obsidian dev:errors` |
-| `build:release` | `npm run check && npm run build && vitest run --coverage && npm run docs && node esbuild.config.mjs --publish` |
-| `build:increment` | `npm run check && npm run build && vitest run --coverage && node scripts/run-e2e.mjs && npm run docs && node esbuild.config.mjs --increment --distribution` |
-| `build:distribution` | `npm run check && npm run build && vitest run --coverage && npm run docs && node esbuild.config.mjs --distribution` |
-| `check` | `npm run lint && tsc -noEmit -skipLibCheck` |
-| `lint` | `eslint ./src/` |
-| `docs` | `typedoc` |
-| `test:increment` | `npm run check && npm run build && vitest run --coverage` |
-| `reports` | `npm run generate:reports` |
-| `flowti` | `node "../../.flowti/bin"` |
-| `generate:testdata` | `node scripts/generate-test-data.mjs` |
-| `generate:reports` | `node scripts/generate-test-report.mjs && node scripts/generate-coverage-report.mjs && node scripts/generate-codebase-report.mjs && node scripts/generate-cycle-report.mjs && node scripts/generate-trace-report.mjs && node scripts/generate-command-reference.mjs && node scripts/generate-event-catalog.mjs && node scripts/generate-data-dictionary.mjs && node scripts/generate-performance-report.mjs && node scripts/generate-complexity-report.mjs && node scripts/generate-tool-reference.mjs && node scripts/generate-cli-reference.mjs` |
-| `version` | `node version-bump.mjs && git add manifest.json versions.json` |
+| `dev` | `node configs/esbuild.config.mjs --watch` |
+| `build` | `node configs/esbuild.config.mjs` |
+| `test` | `npm run check && vitest run --config configs/vitest.config.ts` |
+| `test:watch` | `vitest --config configs/vitest.config.ts` |
+| `test:ui` | `vitest --config configs/vitest.config.ts --ui` |
+| `test:coverage` | `vitest run --config configs/vitest.config.ts --coverage --reporter=json --outputFile=reports/tests/testreport.json` |
+| `check` | `npm run lint && tsc --project configs/tsconfig.json --noEmit` |
+| `lint` | `eslint --config configs/eslint.config.mjs src/` |
+| `typedoc` | `typedoc --options configs/typedoc.json` |
+| `analysis` | `tsx src/domain/reports/cli/run-analysis.ts` |
 
-## Report Generators
+## Documentation Generators
 
-14 report generators configured in `flowti.config.json`:
+1 documentation generators configured in `flowti.config.json`:
 
-| ID | Label | Script |
-|---|---|---|
-| test | Test Report | `generate-test-report.mjs` |
-| coverage | Coverage Report | `generate-coverage-report.mjs` |
-| build | Build Report | `generate-build-report.mjs` |
-| codebase | Codebase Report | `generate-codebase-report.mjs` |
-| cycle | Cycle Report | `generate-cycle-report.mjs` |
-| trace | Trace Report | `generate-trace-report.mjs` |
-| command-ref | Command Reference | `generate-command-reference.mjs` |
-| event-catalog | Event Catalog | `generate-event-catalog.mjs` |
-| dictionary | Data Dictionary | `generate-data-dictionary.mjs` |
-| performance | Performance Report | `generate-performance-report.mjs` |
-| complexity | Complexity Report | `generate-complexity-report.mjs` |
-| tool-ref | Tool Reference | `generate-tool-reference.mjs` |
-| e2e | E2E Report | `generate-e2e-report.mjs` |
-| cli-ref | CLI Reference | `generate-cli-reference.mjs` |
+| Label | Command |
+|---|---|
+| Codebase (TypeDoc) | `npm run typedoc` |
 
 ## Make Configuration
 
 Scaffold output paths (`flowti.config.json` → `make`):
-
-### Plugin Paths
-
-| Key | Path |
-|---|---|
-| `make.plugin.output` | `../` |
 
 ## Configuration Files
 

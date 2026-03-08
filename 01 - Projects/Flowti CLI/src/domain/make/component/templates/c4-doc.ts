@@ -11,16 +11,32 @@ const C4_LABELS: Record<string, string> = {
 	person: "Person",
 };
 
-export function c4DocTemplate(vars: ComponentVariables, def: ComponentDefinition): string {
+/** Kind-specific markdown sections appended after the description. */
+const KIND_SECTIONS: Record<string, [string, string][]> = {
+	system: [
+		["Boundaries", "<!-- Define what is inside and outside this system. -->"],
+		["Containers", "<!-- List the containers that compose this system. -->"],
+	],
+	container: [
+		["Technology", "{{technology}}"],
+		["Components", "<!-- List the components within this container. -->"],
+	],
+	"c4-component": [
+		["Responsibilities", "<!-- Describe what this component is responsible for. -->"],
+		["Interfaces", "<!-- List the interfaces this component exposes. -->"],
+	],
+	person: [
+		["Role", "<!-- Describe this actor's role and goals. -->"],
+		["Interactions", "<!-- List the systems this person interacts with. -->"],
+	],
+};
+
+function buildFrontmatter(vars: ComponentVariables, def: ComponentDefinition): string[] {
 	const meta = def.metadata;
 	const c4Label = C4_LABELS[def.kind] ?? def.kind;
 	const c4Level = meta.c4Level != null ? String(meta.c4Level) : "";
 
-	const lines = [
-		"---",
-		`type: ${String(meta.type ?? def.kind)}`,
-		`c4: ${c4Label}`,
-	];
+	const lines = ["---", `type: ${String(meta.type ?? def.kind)}`, `c4: ${c4Label}`];
 	if (c4Level) lines.push(`c4Level: ${c4Level}`);
 	lines.push(`status: draft`);
 	lines.push(`created: ${new Date().toISOString().slice(0, 10)}`);
@@ -28,26 +44,20 @@ export function c4DocTemplate(vars: ComponentVariables, def: ComponentDefinition
 	if (vars.containedBy) lines.push(`containedBy: ${vars.containedBy}`);
 	if (vars.owner) lines.push(`owner: ${vars.owner}`);
 	lines.push("---", "");
+	return lines;
+}
 
-	lines.push(`# ${vars.name}`, "");
-	lines.push(`> C4 ${c4Label}`, "");
+export function c4DocTemplate(vars: ComponentVariables, def: ComponentDefinition): string {
+	const c4Label = C4_LABELS[def.kind] ?? def.kind;
+	const lines = buildFrontmatter(vars, def);
 
-	if (vars.description) {
-		lines.push(vars.description, "");
-	}
+	lines.push(`# ${vars.name}`, "", `> C4 ${c4Label}`, "");
+	if (vars.description) lines.push(vars.description, "");
 
-	if (def.kind === "system") {
-		lines.push("## Boundaries", "", "<!-- Define what is inside and outside this system. -->", "");
-		lines.push("## Containers", "", "<!-- List the containers that compose this system. -->", "");
-	} else if (def.kind === "container") {
-		lines.push("## Technology", "", vars.technology || "<!-- Describe the technology stack. -->", "");
-		lines.push("## Components", "", "<!-- List the components within this container. -->", "");
-	} else if (def.kind === "c4-component") {
-		lines.push("## Responsibilities", "", "<!-- Describe what this component is responsible for. -->", "");
-		lines.push("## Interfaces", "", "<!-- List the interfaces this component exposes. -->", "");
-	} else if (def.kind === "person") {
-		lines.push("## Role", "", "<!-- Describe this actor's role and goals. -->", "");
-		lines.push("## Interactions", "", "<!-- List the systems this person interacts with. -->", "");
+	const sections = KIND_SECTIONS[def.kind] ?? [];
+	for (const [heading, placeholder] of sections) {
+		const content = placeholder === "{{technology}}" ? (vars.technology || "<!-- Describe the technology stack. -->") : placeholder;
+		lines.push(`## ${heading}`, "", content, "");
 	}
 
 	lines.push("## Relationships", "", "<!-- Describe relationships to other components. -->", "");

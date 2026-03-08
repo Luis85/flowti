@@ -40,7 +40,7 @@ const THRESHOLDS: Required<SummaryThresholds> = {
 	startupMs: 5000,
 	eslintWarnings: 0,
 	lintCommand: "npm run lint",
-	typedocCommand: "npm run docs",
+	typedocCommand: "npm run typedoc",
 	typedocWarnings: 0,
 };
 

@@ -2,7 +2,6 @@
 	"name": "flowti-cli",
 	"tools": {
 		"build": "npm run build",
-		"reports": "npm run reports",
 		"devtools": "npm run dev"
 	},
 	"make": {
@@ -10,11 +9,10 @@
 	},
 	"reports": {
 		"dir": "reports",
-		"allCommand": "npm run reports",
 		"generators": [
 			{ "id": "test", "label": "Test Report", "prerequisites": ["npm run test:coverage"] },
 			{ "id": "coverage", "label": "Coverage Report", "prerequisites": ["npm run test:coverage"] },
-			{ "id": "codebase", "label": "Codebase Report", "prerequisites": ["npm run docs"] },
+			{ "id": "codebase", "label": "Codebase Report", "prerequisites": ["npm run typedoc"] },
 			{ "id": "complexity", "label": "Complexity Report", "prerequisites": ["npm run analysis"] },
 			{ "id": "status", "label": "Status Report" },
 			{ "id": "summary", "label": "Summary Report" }
@@ -27,15 +25,13 @@
 			"startupMs": 5000,
 			"eslintWarnings": 0,
 			"lintCommand": "npm run lint",
-			"typedocCommand": "npm run docs",
+			"typedocCommand": "npm run typedoc",
 			"typedocWarnings": 0
 		}
 	},
 	"docs": {
-		"allCommand": "npm run docs && npm run report:cli-reference",
 		"generators": [
-			{ "label": "Codebase (TypeDoc)", "command": "npm run docs" },
-			{ "label": "CLI Reference", "command": "npm run report:cli-reference" }
+			{ "label": "Codebase (TypeDoc)", "command": "npm run typedoc" }
 		]
 	},
 	"publish": {

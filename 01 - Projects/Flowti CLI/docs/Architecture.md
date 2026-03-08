@@ -2,7 +2,7 @@
 type: Architecture
 domain: CLI
 title: Flowti CLI — Architecture Document
-version: 5
+version: 6
 created: 2026-03-07
 updated: 2026-03-08
 status: living-document
@@ -18,7 +18,7 @@ status: living-document
 
 The Flowti CLI is a **definition-driven project orchestrator** that ships as a self-contained Node.js binary. It manages multi-project development workflows — scaffolding, building, testing, reviewing, publishing, and reporting — from a single interactive menu or via non-interactive commands for AI agent tool use.
 
-**Scale**: 131 source files, 83 test files (1,187 tests, 73 suites), 15 domain modules, 19 infrastructure modules. Zero production dependencies — runs on Node.js built-ins only.
+**Scale**: 132 source files, 82 test files (1,232 tests, 77 suites), 15 domain modules, 19 infrastructure modules. Zero production dependencies — runs on Node.js built-ins only.
 
 ---
 
@@ -38,7 +38,7 @@ The Flowti CLI is a **definition-driven project orchestrator** that ships as a s
 │  │  Bundled:  Scaffold definitions (JSON)                    │     │
 │  │            Component definitions (8 kinds, JSON)          │     │
 │  │            Template functions (6 registries)              │     │
-│  │            Generator functions (6 report types)           │     │
+│  │            Generator functions (7 report types)           │     │
 │  │            All infrastructure + domain logic              │     │
 │  └────────────┬──────────────────────────────────────────────┘     │
 │               │                                                    │
@@ -106,7 +106,7 @@ flowti.cmd
 │  │  7  Capture Idea                                 │  │
 │  │  8  Capture Note                                 │  │
 │  │  ─────────────────────────────────────────       │  │
-│  │  d  Documentation  (TypeDoc, CLI Reference)      │  │
+│  │  d  Documentation  (Update All, Entity Reference) │  │
 │  │  k  Knowledgebase  (Obsidian opt-in)             │  │
 │  │  i  Info           (project diagnostics)         │  │
 │  │  ─────────────────────────────────────────       │  │
@@ -271,13 +271,14 @@ Separates "what to create" (definitions) from "how to render" (templates). Templ
 │        ├── ⚠  passed with warnings (lint, TypeDoc, etc.)   │
 │        └── ✗  failed (with error details)                  │
 │                                                            │
-│  Generator Registry (6 built-in):                          │
+│  Generator Registry (7 built-in):                          │
 │    test → generateTestReport                               │
 │    coverage → generateCoverageReport                       │
 │    codebase → generateCodebaseReport                       │
 │    complexity → generateComplexityReport                   │
 │    status → generateProjectStatusReport                    │
 │    summary → generateSummaryReport                         │
+│    entity-reference → generateEntityReference              │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -360,65 +361,32 @@ All I/O is behind abstractions (`IFileSystem`, `IShell`, `IProcess`, `clock`), m
 
 The target architecture extends the status quo to fulfill all PRD v4 requirements, particularly the incomplete items (FR-12) and the planned improvements (IMP-01 through IMP-18).
 
-### 4.1 Target: Non-Interactive Project Selection (IMP-01)
+### 4.1 Non-Interactive Project Selection (IMP-01) — DONE
 
-**Current**: Non-interactive commands require either a persisted project selection or fail with a "no project" error. AI agents cannot target a specific project without first running the interactive menu.
+`resolveProjectContext()` in `main.ts` validates `--project=<name>` against available projects. Invalid names show available alternatives. `PROJECT_FREE` commands bypass project resolution.
 
-**Target**: All commands accept `--project=<name>` to select a project inline.
+### 4.2 Config Validation (IMP-06) — DONE
 
-```
-flowti build --project="Flowti Plugin"
-flowti reports --project="Flowti CLI"
-flowti scaffold:new --name="My Project"
-```
+`config-schema.ts` provides `validateProjectConfig(raw): ConfigValidationResult` with 45 test cases. `readProjectConfig()` returns `ReadConfigResult { config, warnings }`. Validates: required `name`, tool commands, make templates, report generators, publish endpoints, docs generators, review config, unknown keys.
 
-**Implementation**: `resolveProjectContext()` in `main.ts` already reads `flags.project`. The change is ensuring all command handlers propagate the resolved `ProjectContext` correctly and that the `PROJECT_FREE` set is reviewed (some commands should accept optional project context).
+### 4.3 Report Archive Navigation (IMP-03) — DONE
 
-### 4.2 Target: Config Validation (IMP-06)
+`report-archive.ts` discovers timestamped `.md` files in report subdirectories. Reports menu has "Browse Archive" (`key: "a"`) that lists categories and lets users view past reports.
 
-**Current**: `flowti.config.json` is loaded with `JSON.parse()` and consumed as a typed interface, but no runtime validation occurs. Misconfigured files cause opaque runtime errors.
+### 4.4 Entity Reference Generator — DONE
 
-**Target**: Schema validation with clear error messages on project load.
+`generators/entity-reference.ts` generates the entity dictionary of the CLI ecosystem. 9 entities (Flowti Project, Journey, Component, Component Library, Test, Test Suite, Event, Event Catalog, Report) with description, purpose, locations, config keys, commands, artifacts, and relationships.
 
-```
-┌─────────────────────── Config Pipeline ───────────────────────┐
-│                                                                │
-│  flowti.config.json → loadJson() → validateConfig() → config  │
-│                                        │                       │
-│                              ┌─────────┴──────────┐           │
-│                              │ ValidationResult    │           │
-│                              │  errors: string[]   │           │
-│                              │  warnings: string[] │           │
-│                              └────────────────────┘           │
-│                                                                │
-│  Validate: required fields, tool command existence,            │
-│  publish endpoint paths, report generator IDs                  │
-└────────────────────────────────────────────────────────────────┘
-```
+Wired into:
+- Generator registry as 7th built-in generator (`entity-reference`)
+- Documentation menu as built-in generator (always available)
+- "Update All" runs config generators + built-in generators (Entity Reference)
 
-**Design**: Reuse the `validateDefinition()` pattern from scaffold-schema. Pure validation function, no I/O.
+### 4.5 Developer Onboarding E2E Journey (FR-12) — DONE
 
-### 4.3 Target: Report Archive Navigation (IMP-03)
+`tests/e2e/60-journey-developer-onboarding.test.ts` — 7 tests covering: help, help build, scaffold:list, unknown command handling, invalid `--project` validation, journey JSON validity. Uses `spawnSync` with `tsx` to run CLI directly.
 
-**Current**: Reports menu only shows "Run All" and individual generators. Past reports exist on disk but aren't browsable from the CLI.
-
-**Target**: Reports menu gains a "Browse Archive" option that lists timestamped reports from subdirectories.
-
-```
-Reports Menu:
-  1  Run All Reports
-  2  Test Report
-  3  Coverage Report
-  ...
-  ─────────────────
-  a  Browse Archive    ← NEW
-     └── tests/
-         ├── 2026-03-08T12-00-00-test-report.md
-         ├── 2026-03-07T09-30-00-test-report.md
-         └── ...
-```
-
-### 4.4 Target: Component Relationships (IMP-04)
+### 4.6 Target: Component Relationships (IMP-04)
 
 **Current**: C4 entities have `containedBy` in metadata but it's just a string. No visualization or traversal.
 
@@ -436,49 +404,38 @@ Reports Menu:
 
 **Implementation**: Add `containedBy` and `contains` cross-references to component frontmatter. The component browser reads all component docs and builds a tree.
 
-### 4.5 Target: Event Catalog Enrichment (IMP-14)
+### 4.7 Target: Event Catalog Enrichment (IMP-14)
 
 **Current**: Event Catalog supports `events:add` with basic fields (name, domain, version, description, producers, consumers). No payload field editor or versioning.
 
 **Target**: Interactive payload field editor during `events:add`. Event versioning with migration notes between versions.
 
-### 4.6 Target: Component Property Editor (IMP-15)
+### 4.8 Target: Component Property Editor (IMP-15)
 
 **Current**: Properties are defined in JSON definitions and rendered during scaffolding. No interactive editing after creation.
 
 **Target**: `make:component --name=X` prompts for property values. An `edit:component` command allows adding/editing properties on existing components.
 
-### 4.7 Target: E2E Onboarding Journey (FR-12)
-
-**Current**: Five E2E journey tests exist but the developer onboarding journey (install CLI → create project → build → explore) is not implemented.
-
-**Target**: Full E2E coverage of the onboarding flow.
-
-```
-Journey: Developer Onboarding
-  1. Install CLI (node .flowti/bin — bootstrap)
-  2. Create project (scaffold:new --name=TestProject)
-  3. Build project (build)
-  4. Explore (info, help, components)
-  5. Verify: all commands return exit 0
-```
+### ~~4.9 E2E Onboarding Journey (FR-12)~~ — moved to 4.5 (DONE)
 
 ---
 
 ## 5. Development Roadmap
 
-### Phase 1: Foundation Hardening (current state → solid base)
+### Phase 1: Foundation Hardening — COMPLETE
 
-These items address gaps in the current implementation that affect reliability and developer experience.
+All items delivered. 45 new tests for config validation, `--project` flag with invalid-name handling, report archive browser, Entity Reference generator with Documentation menu redesign.
 
-| # | Task | Effort | Impact | Files |
-|---|------|--------|--------|-------|
-| 1.1 | **Config validation** (IMP-06) | S | High | New: `scaffold/config-schema.ts`. Modify: `project-config.ts` |
-| 1.2 | **Non-interactive project selection** (IMP-01) | S | High | Modify: `main.ts`, `dispatch.ts` |
-| 1.3 | **Developer onboarding E2E journey** (FR-12) | M | Medium | New: `tests/e2e/60-journey-developer-onboarding.test.ts` |
-| 1.4 | **Report archive browsing** (IMP-03) | S | Medium | Modify: `mainMenu.ts`, New: `reports/report-archive.ts` |
+| # | Task | Status | Files |
+|---|------|--------|-------|
+| 1.1 | **Config validation** (IMP-06) | DONE | `project/config-schema.ts`, `project-config.ts` (ReadConfigResult) |
+| 1.2 | **Non-interactive project selection** (IMP-01) | DONE | `main.ts` (resolveProjectContext), `project.ts` (listProjects) |
+| 1.3 | **Developer onboarding E2E journey** (FR-12) | DONE | `tests/e2e/60-journey-developer-onboarding.test.ts` (7 tests) |
+| 1.4 | **Report archive browsing** (IMP-03) | DONE | `reports/report-archive.ts`, `mainMenu.ts` |
+| 1.5 | **Entity Reference generator** | DONE | `reports/generators/entity-reference.ts`, `generator-registry.ts` |
+| 1.6 | **Documentation menu redesign** | DONE | `mainMenu.ts` (Update All + built-in generators) |
 
-**Milestone**: All PRD v4 acceptance criteria passing. Full test coverage of config edge cases. AI agents can target projects by name.
+**Milestone**: All PRD v4 acceptance criteria passing. 1,232 tests, 77 suites. 0 lint errors.
 
 ### Phase 2: Component & Event Enrichment
 
@@ -656,7 +613,7 @@ This already works for external commands. The improvement is allowing projects t
 | Scaffold | `scaffold-service.ts`, `scaffold-plan.ts`, `scaffold-schema.ts` | Project creation from JSON definitions |
 | Make | `MakeService.ts`, `makers.ts`, `make-commands.ts` | In-project scaffolding (journey, component) |
 | Component | `component-registry.ts`, `component-plan.ts`, `component-types.ts` | 8-kind component system with ECS properties |
-| Reports | `report-runner.ts`, `generator-registry.ts`, 6 generators | Resilient report generation with prerequisites |
+| Reports | `report-runner.ts`, `generator-registry.ts`, 7 generators, `report-archive.ts` | Resilient report generation with prerequisites, archive browsing |
 | Review | `project-review.ts`, `E2EService.ts` | E2E test execution, test vault management |
 | Publish | `project-publish.ts` | Gated build → test → distribute pipeline |
 | Events | `event-catalog.ts` | Per-project domain event documentation |
@@ -692,3 +649,6 @@ This already works for external commands. The improvement is allowing projects t
 | D-08 | Test vaults outside git | Prevent E2E artifacts from polluting the vault repository |
 | D-09 | Zero production dependencies | Minimizes supply chain risk; Node.js built-ins are sufficient |
 | D-10 | Component properties as ECS | Aligns with game-engine entity-component-system patterns; composable |
+| D-11 | Entity Reference as built-in generator | Self-documenting ecosystem; entities tracked in code, not wiki |
+| D-12 | Documentation menu always available | Built-in generators (Entity Reference) ensure "Update All" is never empty |
+| D-13 | ReadConfigResult wrapper | Config loading returns `{ config, warnings }` for structured error reporting |

@@ -20,6 +20,7 @@ import {
 import { buildWithReport } from "./reports/cli/generate-build-report.js";
 import { runAllReports } from "./reports/report-runner.js";
 import { runGenerator } from "./reports/generator-registry.js";
+import { runReference } from "./reports/reference-registry.js";
 import { browseArchive } from "./reports/report-archive.js";
 import { getReportsDir } from "./project/project-config.js";
 import { shell } from "../infrastructure/shell.js";
@@ -215,6 +216,7 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 
     // Built-in reference generators (always available)
     const builtinDocs = [
+      { label: "CLI Reference", generatorId: "cli-reference" },
       { label: "Entity Reference", generatorId: "entity-reference" },
     ];
 
@@ -236,7 +238,7 @@ export function buildProjectDetailMenu(): MenuEntry[] {
               shell.run(gen.command, { cwd: ctx.path, label: gen.label });
             }
             for (const doc of builtinDocs) {
-              const result = runGenerator(doc.generatorId, ctx.path);
+              const result = runReference(doc.generatorId, ctx.path);
               if (result && !result.success) {
                 log(`  ${RED}${doc.label}: failed${RESET}`);
               } else {
@@ -267,7 +269,7 @@ export function buildProjectDetailMenu(): MenuEntry[] {
             key: String(keyIdx++),
             label: doc.label,
             action: () => {
-              runGenerator(doc.generatorId, ctx.path);
+              runReference(doc.generatorId, ctx.path);
               return "main" as const;
             },
           });

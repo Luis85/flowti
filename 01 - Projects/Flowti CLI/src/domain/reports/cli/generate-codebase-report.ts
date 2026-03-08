@@ -1,7 +1,7 @@
 /**
  * generate-codebase-report.ts — CLI project codebase report generator.
  *
- * Reads the TypeDoc codebase.json produced by `npm run docs` and
+ * Reads the TypeDoc codebase.json produced by `npm run typedoc` and
  * generates a markdown CodebaseReport.
  */
 
@@ -86,7 +86,7 @@ export function generateCodebaseReport(projectPath: string): GeneratorOutput {
 	const codebaseJson = svc.subdir("codebase/codebase.json");
 
 	if (!disk.existsSync(codebaseJson)) {
-		log("[cli-report] No codebase.json found — run `npm run docs` first.");
+		log("[cli-report] No codebase.json found — run `npm run typedoc` first.");
 		return { success: false, outputPath: "", metrics: {} };
 	}
 
@@ -132,12 +132,4 @@ export function generateCodebaseReport(projectPath: string): GeneratorOutput {
 		outputPath,
 		metrics: { modules: fm.modules as number, classes: fm.classes as number, interfaces: fm.interfaces as number, functions: fm.functions as number },
 	};
-}
-
-// Self-invocation when run directly via tsx
-import { CLI_PROJECT } from "../../../infrastructure/config.js";
-
-// eslint-disable-next-line no-restricted-properties
-if (process.argv[1]?.includes("generate-codebase-report")) {
-	generateCodebaseReport(CLI_PROJECT);
 }

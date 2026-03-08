@@ -225,12 +225,8 @@ export function generateEntityReference(projectPath: string): GeneratorOutput {
 		doc.addSeparator().addBlank();
 	}
 
-	// Save
-	const outputPath = svc.save(doc, {
-		subdir: "reference",
-		slug: "entity-reference",
-		stableFilename: "Entity Reference.md",
-	});
+	// Save — reference document (stable only, no timestamps)
+	const outputPath = svc.saveReference(doc, "Entity Reference.md");
 
 	log(`  Entity Reference: ${entities.length} entities → ${outputPath}`);
 

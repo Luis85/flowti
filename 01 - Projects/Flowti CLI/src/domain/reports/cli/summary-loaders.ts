@@ -38,7 +38,7 @@ export const DEFAULT_THRESHOLDS: Required<SummaryThresholds> = {
 	startupMs: 5000,
 	eslintWarnings: 0,
 	lintCommand: "npm run lint",
-	typedocCommand: "npm run docs",
+	typedocCommand: "npm run typedoc",
 	typedocWarnings: 0,
 };
 
@@ -316,7 +316,6 @@ export function parseLintOutput(output: string, projectRoot = ""): LintResult {
 // ── TypeDoc collection ──────────────────────────────────────────────
 
 function stripAnsi(text: string): string {
-	// eslint-disable-next-line no-control-regex
 	return text.replace(/\x1b\[[0-9;]*m/g, "");
 }
 

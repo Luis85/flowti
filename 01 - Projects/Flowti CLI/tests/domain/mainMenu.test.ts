@@ -46,6 +46,11 @@ vi.mock("../../src/domain/reports/generator-registry.js", () => ({
 	hasGenerator: vi.fn(() => true),
 }));
 
+vi.mock("../../src/domain/reports/reference-registry.js", () => ({
+	runReference: vi.fn(() => ({ success: true, outputPath: "", metrics: {} })),
+	hasReference: vi.fn(() => true),
+}));
+
 vi.mock("../../src/infrastructure/shell.js", () => ({
 	shell: {},
 }));
@@ -378,7 +383,7 @@ describe("buildProjectDetailMenu", () => {
 			expect(gen.key).toBe("2");
 		});
 
-		it("Update Documentation includes Entity Reference as built-in generator", async () => {
+		it("Update Documentation includes CLI Reference and Entity Reference as built-in generators", async () => {
 			setupProject({
 				docs: {
 					generators: [{ label: "API", command: "npm run docs:api" }],
@@ -388,9 +393,12 @@ describe("buildProjectDetailMenu", () => {
 			await findItem(items, "d")!.action();
 
 			const submenuItems = (mockRunMenu.mock.calls[0][1] as MenuEntry[]).filter(isMenuItem);
+			const cliRef = submenuItems.find((m) => m.label === "CLI Reference")!;
 			const entityRef = submenuItems.find((m) => m.label === "Entity Reference")!;
+			expect(cliRef).toBeDefined();
+			expect(cliRef.key).toBe("3");
 			expect(entityRef).toBeDefined();
-			expect(entityRef.key).toBe("3");
+			expect(entityRef.key).toBe("4");
 		});
 
 		it("Knowledgebase disabled evaluator calls isKnowledgebaseAvailable", () => {

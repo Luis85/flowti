@@ -177,11 +177,3 @@ export function generateComplexityReport(projectPath: string): GeneratorOutput {
 		warnings: warnings.length > 0 ? warnings : undefined,
 	};
 }
-
-// Self-invocation when run directly via tsx
-import { CLI_PROJECT } from "../../../infrastructure/config.js";
-
-// eslint-disable-next-line no-restricted-properties
-if (process.argv[1]?.includes("generate-complexity-report")) {
-	generateComplexityReport(CLI_PROJECT);
-}

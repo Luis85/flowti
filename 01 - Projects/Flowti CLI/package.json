@@ -12,16 +12,8 @@
 		"test:coverage": "vitest run --config configs/vitest.config.ts --coverage --reporter=json --outputFile=reports/tests/testreport.json",
 		"check": "npm run lint && tsc --project configs/tsconfig.json --noEmit",
 		"lint": "eslint --config configs/eslint.config.mjs src/",
-		"docs": "typedoc --options configs/typedoc.json",
-		"analysis": "tsx src/domain/reports/cli/run-analysis.ts",
-		"report:test": "npm run test:coverage && tsx src/domain/reports/cli/generate-test-report.ts",
-		"report:coverage": "npm run test:coverage && tsx src/domain/reports/cli/generate-coverage-report.ts",
-		"report:codebase": "npm run docs && tsx src/domain/reports/cli/generate-codebase-report.ts",
-		"report:complexity": "npm run analysis && tsx src/domain/reports/cli/generate-complexity-report.ts",
-		"report:status": "tsx src/domain/reports/cli/generate-status-report.ts",
-		"report:summary": "tsx src/domain/reports/cli/generate-summary-report.ts",
-		"report:cli-reference": "tsx src/domain/reports/generators/cli-reference.ts",
-		"reports": "npm run check && npm run test:coverage && npm run docs && npm run analysis && tsx src/domain/reports/cli/generate-test-report.ts && tsx src/domain/reports/cli/generate-coverage-report.ts && tsx src/domain/reports/cli/generate-codebase-report.ts && tsx src/domain/reports/cli/generate-complexity-report.ts && tsx src/domain/reports/cli/generate-status-report.ts && tsx src/domain/reports/cli/generate-summary-report.ts && tsx src/domain/reports/generators/cli-reference.ts"
+		"typedoc": "typedoc --options configs/typedoc.json",
+		"analysis": "tsx src/domain/reports/cli/run-analysis.ts"
 	},
 	"devDependencies": {
 		"@pythonidaer/complexity-report": "^1.0.18",

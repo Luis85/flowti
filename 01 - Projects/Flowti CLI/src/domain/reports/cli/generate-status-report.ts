@@ -159,10 +159,3 @@ export function generateProjectStatusReport(projectPath: string): GeneratorOutpu
 
 	return { success: true, outputPath, metrics: { sections: available }, warnings };
 }
-
-// Direct invocation support: tsx src/domain/reports/cli/generate-status-report.ts
-import { proc } from "../../../infrastructure/proc.js";
-import { CLI_PROJECT } from "../../../infrastructure/config.js";
-
-const isDirectRun = proc.argv().some((a) => a.replace(/\\/g, "/").includes("generate-status-report"));
-if (isDirectRun) generateProjectStatusReport(CLI_PROJECT);

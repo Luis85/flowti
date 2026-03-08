@@ -15,11 +15,13 @@ import type { Document } from "../../../infrastructure/document.js";
 export class ReportService {
 	readonly projectPath: string;
 	readonly reportsDir: string;
+	readonly referenceDir: string;
 
 	constructor(projectPath: string = CLI_PROJECT) {
 		this.projectPath = projectPath;
 		const { config } = readProjectConfig(projectPath);
 		this.reportsDir = paths.join(projectPath, config?.reports?.dir ?? "reports");
+		this.referenceDir = paths.join(projectPath, config?.docs?.referenceDir ?? "docs/reference");
 	}
 
 	/** Resolve an absolute path to a subdirectory within the reports dir. */
@@ -59,6 +61,20 @@ export class ReportService {
 			disk.copyFileSync(opts.sourceJson, jsonSnapshot);
 		}
 
+		return outputPath;
+	}
+
+	/**
+	 * Save a reference document (stable file only, no timestamps).
+	 * Reference docs live in docs/reference/ — they are living documents,
+	 * not point-in-time snapshots like reports.
+	 *
+	 * Returns the output path.
+	 */
+	saveReference(doc: Document, filename: string): string {
+		disk.mkdirSync(this.referenceDir, { recursive: true });
+		const outputPath = paths.join(this.referenceDir, filename);
+		doc.save(outputPath);
 		return outputPath;
 	}
 

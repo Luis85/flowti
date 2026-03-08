@@ -1,29 +1,28 @@
 /**
- * generate-cli-reference.ts
+ * cli-reference.ts — CLI Reference generator.
  *
  * Generates a "Flowti CLI Reference" document from the HELP sections
- * in domain/help/help.ts and the current CLI/plugin configuration.
+ * in domain/help/help.ts and the current project configuration.
  *
- * Usage: npm run report:cli-reference
+ * Can be run standalone (npm run report:cli-reference) or via the
+ * reference registry from the Documentation menu.
  */
 
 import { disk } from "../../../infrastructure/filesystem.js";
 import { paths } from "../../../infrastructure/paths.js";
-import { CLI_PROJECT, PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
 import { log } from "../../../infrastructure/logger.js";
 import { clock } from "../../../infrastructure/clock.js";
+import { ReportService } from "../cli/report-service.js";
+import type { GeneratorOutput } from "../../../infrastructure/types.js";
 
-const HELP_PATH: string = paths.join(CLI_PROJECT, "src", "domain", "help", "help.ts");
-const PLUGIN_CONFIG_PATH: string = paths.join(PLUGIN_ROOT, "flowti.config.json");
-const PLUGIN_PKG_PATH: string = paths.join(PLUGIN_ROOT, "package.json");
-const OUTPUT_DIR: string = paths.join(CLI_PROJECT, "docs", "reference");
+// ── Help section extraction ──────────────────────────────────────────
 
 /**
  * Extract HELP sections from the help module source.
  * Returns a Map<string, string> of section name -> cleaned content.
  */
-function extractHelpSections(source: string): Map<string, string> {
+export function extractHelpSections(source: string): Map<string, string> {
 	const sections: Map<string, string> = new Map();
 
 	const helpStart: number = source.indexOf("export const HELP");
@@ -67,6 +66,8 @@ function extractHelpSections(source: string): Map<string, string> {
 	return sections;
 }
 
+// ── Line transformation rules ────────────────────────────────────────
+
 type LineRule = { pattern: RegExp; transform: (m: RegExpMatchArray) => string[] };
 
 const LINE_RULES: LineRule[] = [
@@ -94,10 +95,12 @@ function sectionToMarkdown(content: string): string {
 	return content.split("\n").flatMap(transformLine).join("\n");
 }
 
+// ── Data types ───────────────────────────────────────────────────────
+
 interface CliCommand { command: string; description: string }
 interface NpmScript { name: string; script: string }
 interface ReportScript { id: string; label: string; script: string }
-interface DocGenerator { label: string; command: string }
+interface CliDocGenerator { label: string; command: string }
 
 /** Non-interactive CLI commands. */
 const CLI_COMMANDS: CliCommand[] = [
@@ -115,6 +118,7 @@ const CLI_COMMANDS: CliCommand[] = [
 	{ command: "publish:all", description: "Increment → E2E → release (stops on failure)" },
 	{ command: "reports", description: "Generate all report notes" },
 	{ command: "report:{id}", description: "Generate a single report by ID (e.g. report:test)" },
+	{ command: "docs", description: "Generate all reference documents (CLI Reference, Entity Reference)" },
 	{ command: "dev:reload", description: "Reload plugin in Obsidian via CLI" },
 	{ command: "dev:console", description: "Open Obsidian developer console stream" },
 	{ command: "dev:errors", description: "Open Obsidian error stream" },
@@ -129,6 +133,8 @@ const CLI_COMMANDS: CliCommand[] = [
 	{ command: "info", description: "Show project stats, version, config" },
 ];
 
+// ── Data loading ─────────────────────────────────────────────────────
+
 function loadJson<T>(filePath: string): T | null {
 	try { return JSON.parse(disk.readFileSync(filePath, "utf-8")) as T; }
 	catch { return null; }
@@ -138,13 +144,14 @@ interface PluginData {
 	helpSections: Map<string, string>;
 	scriptEntries: NpmScript[];
 	reportScripts: ReportScript[];
-	docGenerators: DocGenerator[];
+	docGenerators: CliDocGenerator[];
 	makeConfig: Record<string, Record<string, string>>;
 }
 
-function loadHelpSections(): Map<string, string> {
-	if (!disk.existsSync(HELP_PATH)) return new Map();
-	return extractHelpSections(disk.readFileSync(HELP_PATH, "utf-8"));
+function loadHelpSections(projectPath: string): Map<string, string> {
+	const helpPath = paths.join(projectPath, "src", "domain", "help", "help.ts");
+	if (!disk.existsSync(helpPath)) return new Map();
+	return extractHelpSections(disk.readFileSync(helpPath, "utf-8"));
 }
 
 function extractScriptEntries(pluginPkg: Record<string, unknown> | undefined): NpmScript[] {
@@ -156,19 +163,23 @@ function extractPluginEntries(pluginConfig: Record<string, unknown> | undefined,
 	return {
 		scriptEntries: extractScriptEntries(pluginPkg),
 		reportScripts: ((pluginConfig?.reports as Record<string, unknown>)?.scripts as ReportScript[]) ?? [],
-		docGenerators: ((pluginConfig?.docs as Record<string, unknown>)?.generators as DocGenerator[]) ?? [],
+		docGenerators: ((pluginConfig?.docs as Record<string, unknown>)?.generators as CliDocGenerator[]) ?? [],
 		makeConfig: (pluginConfig?.make ?? {}) as Record<string, Record<string, string>>,
 	};
 }
 
-function loadPluginData(): PluginData {
-	const pluginConfig = loadJson<Record<string, unknown>>(PLUGIN_CONFIG_PATH);
-	const pluginPkg = loadJson<Record<string, unknown>>(PLUGIN_PKG_PATH);
+function loadPluginData(projectPath: string): PluginData {
+	const configPath = paths.join(projectPath, "configs", "flowti.config.json");
+	const pkgPath = paths.join(projectPath, "package.json");
+	const pluginConfig = loadJson<Record<string, unknown>>(configPath);
+	const pluginPkg = loadJson<Record<string, unknown>>(pkgPath);
 	return {
-		helpSections: loadHelpSections(),
+		helpSections: loadHelpSections(projectPath),
 		...extractPluginEntries(pluginConfig ?? undefined, pluginPkg ?? undefined),
 	};
 }
+
+// ── Document builders ────────────────────────────────────────────────
 
 function addQuickStartAndArchitecture(doc: Document): void {
 	doc.heading(2, "Quick Start").addBlank();
@@ -255,15 +266,17 @@ function addMakeConfig(doc: Document, makeConfig: Record<string, Record<string, 
 	}
 }
 
-function main(): void {
-	const date = clock.iso();
-	const data = loadPluginData();
+// ── Generator function ───────────────────────────────────────────────
+
+export function generateCliReference(projectPath: string): GeneratorOutput {
+	const svc = new ReportService(projectPath);
+	const data = loadPluginData(projectPath);
 	const commandCount = CLI_COMMANDS.length;
 
 	const doc = Document.create("Flowti CLI Reference")
 		.mergeFrontmatter({
 			type: "CLIReference",
-			date,
+			date: clock.iso(),
 			sections: data.helpSections.size,
 			cli_commands: commandCount,
 			npm_scripts: data.scriptEntries.length,
@@ -302,13 +315,19 @@ function main(): void {
 	]);
 	doc.addBlank();
 
-	disk.mkdirSync(OUTPUT_DIR, { recursive: true });
-	const outputPath = paths.join(OUTPUT_DIR, "Flowti CLI Reference.md");
-	doc.save(outputPath);
+	// Save — reference document (stable only, no timestamps)
+	const outputPath = svc.saveReference(doc, "Flowti CLI Reference.md");
 
-	log(
-		`[report] CLIReference written (${commandCount} commands, ${data.helpSections.size} sections, ${data.docGenerators.length} doc generators): ${outputPath}`,
-	);
+	log(`  CLI Reference: ${commandCount} commands, ${data.helpSections.size} sections → ${outputPath}`);
+
+	return {
+		success: true,
+		outputPath,
+		metrics: {
+			cli_commands: commandCount,
+			help_sections: data.helpSections.size,
+			npm_scripts: data.scriptEntries.length,
+		},
+	};
 }
 
-main();

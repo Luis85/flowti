@@ -130,4 +130,46 @@ describe("ReportService", () => {
 		const svc = new ReportService("/proj");
 		expect(svc.coverageDir).toBe("reports/coverage");
 	});
+
+	it("referenceDir defaults to docs/reference", () => {
+		mockReadConfig.mockReturnValue({ config: null, warnings: [] });
+		const svc = new ReportService("/proj");
+		expect(svc.referenceDir).toBe(path.join("/proj", "docs/reference"));
+	});
+
+	it("referenceDir uses configured docs.referenceDir", () => {
+		mockReadConfig.mockReturnValue({ config: { docs: { referenceDir: "output/ref" } }, warnings: [] });
+		const svc = new ReportService("/proj");
+		expect(svc.referenceDir).toBe(path.join("/proj", "output/ref"));
+	});
+
+	it("saveReference writes a single file to referenceDir", () => {
+		mockReadConfig.mockReturnValue({ config: null, warnings: [] });
+		const fs = createMockFs();
+		setDisk(fs);
+
+		const svc = new ReportService("/proj");
+		const doc = Document.create("Test Ref").text("Reference content");
+
+		const result = svc.saveReference(doc, "My Reference.md");
+
+		expect(result).toBe(path.join("/proj", "docs/reference", "My Reference.md"));
+		const written = [...fs.files.keys()].find(k => k.endsWith("My Reference.md"));
+		expect(written).toBeDefined();
+	});
+
+	it("saveReference creates referenceDir if it does not exist", () => {
+		mockReadConfig.mockReturnValue({ config: null, warnings: [] });
+		const fs = createMockFs();
+		setDisk(fs);
+
+		const svc = new ReportService("/proj");
+		const doc = Document.create("Test").text("Content");
+
+		svc.saveReference(doc, "Ref.md");
+
+		// The file should have been written (which implies dir was created)
+		const refFile = [...fs.files.keys()].find(k => k.endsWith("Ref.md"));
+		expect(refFile).toBeDefined();
+	});
 });

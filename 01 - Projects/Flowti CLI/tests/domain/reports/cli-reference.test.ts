@@ -5,12 +5,17 @@ vi.mock("../../../src/infrastructure/filesystem.js", () => ({
 		existsSync: vi.fn(() => false),
 		readFileSync: vi.fn(() => ""),
 		mkdirSync: vi.fn(),
+		writeFileSync: vi.fn(),
 	},
 }));
 
 vi.mock("../../../src/infrastructure/paths.js", () => ({
 	paths: {
 		join: (...args: string[]) => args.join("/"),
+		dirname: (p: string) => p.split("/").slice(0, -1).join("/") || "/",
+		basename: (p: string) => p.split("/").pop() ?? "",
+		resolve: (...args: string[]) => args.join("/"),
+		sep: "/",
 	},
 }));
 
@@ -18,25 +23,6 @@ vi.mock("../../../src/infrastructure/config.js", () => ({
 	CLI_PROJECT: "/cli",
 	PLUGIN_ROOT: "/plugin",
 }));
-
-vi.mock("../../../src/infrastructure/document.js", () => {
-	const mockDoc = {
-		mergeFrontmatter: vi.fn().mockReturnThis(),
-		addBlank: vi.fn().mockReturnThis(),
-		heading: vi.fn().mockReturnThis(),
-		callout: vi.fn().mockReturnThis(),
-		text: vi.fn().mockReturnThis(),
-		table: vi.fn().mockReturnThis(),
-		addSeparator: vi.fn().mockReturnThis(),
-		codeBlock: vi.fn().mockReturnThis(),
-		save: vi.fn(),
-	};
-	return {
-		Document: {
-			create: vi.fn(() => mockDoc),
-		},
-	};
-});
 
 vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
@@ -46,18 +32,18 @@ vi.mock("../../../src/infrastructure/clock.js", () => ({
 	clock: { iso: () => "2026-01-01T00:00:00Z" },
 }));
 
+vi.mock("../../../src/domain/project/project-config.js", () => ({
+	readProjectConfig: vi.fn(() => ({ config: null, warnings: [] })),
+}));
+
 import { disk } from "../../../src/infrastructure/filesystem.js";
-import { Document } from "../../../src/infrastructure/document.js";
+import { generateCliReference, extractHelpSections } from "../../../src/domain/reports/generators/cli-reference.js";
 
 const mockDisk = vi.mocked(disk);
 
 beforeEach(() => {
 	vi.clearAllMocks();
 });
-
-// We need to test the module's pure functions. Since they're not exported,
-// we test them indirectly by running the module and checking Document calls.
-// To test extractHelpSections and transformLine we need to import the module.
 
 // Helper: build a minimal HELP source
 function buildHelpSource(sections: Record<string, string>): string {
@@ -67,8 +53,41 @@ function buildHelpSource(sections: Record<string, string>): string {
 	return `export const HELP: Record<string, string> = {\n${entries}\n};`;
 }
 
-describe("cli-reference generator", () => {
-	it("generates document when help source exists", async () => {
+describe("extractHelpSections", () => {
+	it("extracts sections from HELP source", () => {
+		const source = buildHelpSource({ main: "Overview text", build: "Build commands" });
+		const sections = extractHelpSections(source);
+		expect(sections.size).toBe(2);
+		expect(sections.get("main")).toBe("Overview text");
+		expect(sections.get("build")).toBe("Build commands");
+	});
+
+	it("returns empty map when no HELP export found", () => {
+		const sections = extractHelpSections("const x = 1;");
+		expect(sections.size).toBe(0);
+	});
+
+	it("strips ANSI escape code placeholders", () => {
+		const source = `export const HELP: Record<string, string> = {
+	build: \`\${BOLD}BUILD\${RESET} \${CYAN}commands\${RESET}\`,
+};`;
+		const sections = extractHelpSections(source);
+		expect(sections.get("build")).toBe("BUILD commands");
+	});
+});
+
+describe("generateCliReference", () => {
+	it("returns success with metrics", () => {
+		mockDisk.existsSync.mockReturnValue(false);
+
+		const result = generateCliReference("/test/project");
+
+		expect(result.success).toBe(true);
+		expect(result.outputPath).toContain("Flowti CLI Reference.md");
+		expect(result.metrics.cli_commands).toBeGreaterThan(0);
+	});
+
+	it("generates document when help source exists", () => {
 		const helpSource = buildHelpSource({
 			main: "Main help overview",
 			build: "Build commands\n  npm run build    Build the project",
@@ -82,40 +101,33 @@ describe("cli-reference generator", () => {
 			return "{}";
 		});
 
-		// Re-import to trigger main()
-		vi.resetModules();
-		await import("../../../src/domain/reports/generators/cli-reference.js");
+		const result = generateCliReference("/test/project");
 
-		const mockCreate = vi.mocked(Document.create);
-		expect(mockCreate).toHaveBeenCalledWith("Flowti CLI Reference");
+		expect(result.success).toBe(true);
+		expect(result.metrics.help_sections).toBe(2);
+		expect(result.metrics.npm_scripts).toBe(1);
 	});
 
-	it("handles missing help file", async () => {
+	it("handles missing help file gracefully", () => {
 		mockDisk.existsSync.mockReturnValue(false);
 		mockDisk.readFileSync.mockImplementation(() => { throw new Error("not found"); });
 
-		vi.resetModules();
-		await import("../../../src/domain/reports/generators/cli-reference.js");
+		const result = generateCliReference("/test/project");
 
-		// Should still create the document (with empty sections)
-		const mockCreate = vi.mocked(Document.create);
-		expect(mockCreate).toHaveBeenCalledWith("Flowti CLI Reference");
+		expect(result.success).toBe(true);
+		expect(result.metrics.help_sections).toBe(0);
 	});
 
-	it("handles missing plugin config/package files", async () => {
-		mockDisk.existsSync.mockImplementation((p: string) => {
-			if (typeof p === "string" && p.includes("help.ts")) return false;
-			return false;
-		});
+	it("writes to reference directory (not reports)", () => {
+		mockDisk.existsSync.mockReturnValue(false);
 
-		vi.resetModules();
-		await import("../../../src/domain/reports/generators/cli-reference.js");
+		const result = generateCliReference("/test/project");
 
-		const mockCreate = vi.mocked(Document.create);
-		expect(mockCreate).toHaveBeenCalled();
+		expect(result.outputPath).toContain("docs/reference");
+		expect(result.outputPath).toContain("Flowti CLI Reference.md");
 	});
 
-	it("processes plugin config with report scripts", async () => {
+	it("processes plugin config with report scripts", () => {
 		const pluginConfig = {
 			reports: {
 				scripts: [
@@ -140,35 +152,8 @@ describe("cli-reference generator", () => {
 			return "{}";
 		});
 
-		vi.resetModules();
-		await import("../../../src/domain/reports/generators/cli-reference.js");
+		const result = generateCliReference("/test/project");
 
-		const mockCreate = vi.mocked(Document.create);
-		expect(mockCreate).toHaveBeenCalled();
-	});
-
-	it("extracts help sections with ANSI escape codes stripped", async () => {
-		const helpSource = `export const HELP: Record<string, string> = {
-	build: \`
-  \${BOLD}BUILD COMMANDS\${RESET}
-
-  \${CYAN}npm run build\${RESET}    Build the project
-  \${DIM}--watch\${RESET}          Watch mode\`,
-};`;
-
-		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readFileSync.mockImplementation((filePath: string) => {
-			if (typeof filePath === "string" && filePath.includes("help.ts")) return helpSource;
-			if (typeof filePath === "string" && filePath.includes("flowti.config.json")) return "{}";
-			if (typeof filePath === "string" && filePath.includes("package.json")) return "{}";
-			return "{}";
-		});
-
-		vi.resetModules();
-		await import("../../../src/domain/reports/generators/cli-reference.js");
-
-		const mockCreate = vi.mocked(Document.create);
-		expect(mockCreate).toHaveBeenCalled();
-		// The module should have called heading with "Build" section
+		expect(result.success).toBe(true);
 	});
 });

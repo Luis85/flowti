@@ -51,12 +51,15 @@ export function listProjectComponents(projectRoot: string): ProjectComponent[] {
 			const content = disk.readFileSync(paths.join(componentsDir, file), "utf-8");
 			const fm = parseFrontmatter(content);
 			const name = file.replace(/\.md$/, "");
-			components.push({
+			const component: ProjectComponent = {
 				name: fm.name ?? name,
 				kind: (COMPONENT_KINDS.includes(fm.type as ComponentKind) ? fm.type : "component") as ComponentKind,
 				status: fm.status ?? "unknown",
 				path: paths.join(COMPONENTS_DIR, file),
-			});
+			};
+			if (fm.c4Level) component.c4Level = Number(fm.c4Level);
+			if (fm.containedBy) component.containedBy = fm.containedBy;
+			components.push(component);
 		} catch { /* skip unreadable */ }
 	}
 
@@ -76,6 +79,62 @@ const KIND_LABELS: Record<ComponentKind, string> = {
   person: "Person",
 };
 
+// ── Tree ordering ────────────────────────────────────────────────────
+
+/** C4 level sort priority (lower = higher in tree). Non-C4 kinds sort last. */
+const C4_SORT_ORDER: Record<string, number> = {
+	system: 1,
+	container: 2,
+	"c4-component": 3,
+	person: 4,
+};
+
+/**
+ * Builds a display-ordered list of components with indentation depth.
+ * C4 entities are grouped by containment: systems first, then their
+ * containers, then their components. Non-C4 components follow at the end.
+ */
+export function buildComponentTree(components: ProjectComponent[]): { component: ProjectComponent; depth: number }[] {
+	const c4 = components.filter((c) => C4_SORT_ORDER[c.kind] != null);
+	const nonC4 = components.filter((c) => C4_SORT_ORDER[c.kind] == null);
+
+	// Sort C4 by level, then alphabetically
+	c4.sort((a, b) => (C4_SORT_ORDER[a.kind] ?? 99) - (C4_SORT_ORDER[b.kind] ?? 99) || a.name.localeCompare(b.name));
+
+	// Build parent→children map
+	const childrenOf = new Map<string, ProjectComponent[]>();
+	const roots: ProjectComponent[] = [];
+	for (const comp of c4) {
+		if (comp.containedBy) {
+			const siblings = childrenOf.get(comp.containedBy) ?? [];
+			siblings.push(comp);
+			childrenOf.set(comp.containedBy, siblings);
+		} else {
+			roots.push(comp);
+		}
+	}
+
+	// DFS to flatten tree with depth
+	const result: { component: ProjectComponent; depth: number }[] = [];
+	function walk(node: ProjectComponent, depth: number): void {
+		result.push({ component: node, depth });
+		const children = childrenOf.get(node.name) ?? [];
+		for (const child of children) walk(child, depth + 1);
+	}
+	for (const root of roots) walk(root, 0);
+
+	// Orphaned C4 entries (containedBy references a non-existent parent)
+	const placed = new Set(result.map((r) => r.component.name));
+	for (const comp of c4) {
+		if (!placed.has(comp.name)) result.push({ component: comp, depth: 0 });
+	}
+
+	// Non-C4 components at the end (flat)
+	for (const comp of nonC4) result.push({ component: comp, depth: 0 });
+
+	return result;
+}
+
 export async function componentListMenu(projectRoot: string): Promise<MenuResult> {
 	const components = listProjectComponents(projectRoot);
 
@@ -87,14 +146,16 @@ export async function componentListMenu(projectRoot: string): Promise<MenuResult
 
 	log(`\n  ${BOLD}${components.length} component(s)${RESET}\n`);
 
-	const items: MenuEntry[] = components.map((c, i) => {
+	const tree = buildComponentTree(components);
+	const items: MenuEntry[] = tree.map(({ component: c, depth }, i) => {
 		const kindLabel = KIND_LABELS[c.kind] ?? c.kind;
 		const statusColor = c.status === "active" ? GREEN : DIM;
+		const indent = depth > 0 ? "  ".repeat(depth) + "└ " : "";
 		return {
 			key: String(i + 1),
-			label: `${c.name}  ${DIM}${kindLabel}${RESET}  ${statusColor}${c.status}${RESET}`,
+			label: `${indent}${c.name}  ${DIM}${kindLabel}${RESET}  ${statusColor}${c.status}${RESET}`,
 			action: () => {
-				showComponentDetail(projectRoot, c);
+				showComponentDetail(projectRoot, c, components);
 				return "main" as const;
 			},
 		};
@@ -108,11 +169,20 @@ export async function componentListMenu(projectRoot: string): Promise<MenuResult
 	return runMenu("Components", items);
 }
 
-function showComponentDetail(projectRoot: string, component: ProjectComponent): void {
+function showComponentDetail(projectRoot: string, component: ProjectComponent, allComponents: ProjectComponent[]): void {
 	log();
 	log(`  ${BOLD}${component.name}${RESET}`);
 	log(`    Type:     ${KIND_LABELS[component.kind] ?? component.kind}`);
 	log(`    Status:   ${component.status}`);
+	if (component.c4Level != null) log(`    C4 Level: ${component.c4Level}`);
+	if (component.containedBy) log(`    Parent:   ${component.containedBy}`);
+
+	// Show children
+	const children = allComponents.filter((c) => c.containedBy === component.name);
+	if (children.length > 0) {
+		log(`    Children: ${children.map((c) => c.name).join(", ")}`);
+	}
+
 	log(`    Doc:      ${component.path}`);
 
 	// Check for definition JSON

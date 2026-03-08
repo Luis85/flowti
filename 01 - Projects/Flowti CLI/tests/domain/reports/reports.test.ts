@@ -33,12 +33,21 @@ vi.mock("../../../src/domain/reports/generator-registry.js", () => ({
 	hasGenerator: (...args: unknown[]) => mockHasGenerator(...args),
 }));
 
+// Mock the reference registry
+const mockRunReference = vi.fn();
+const mockListReferenceIds = vi.fn();
+vi.mock("../../../src/domain/reports/reference-registry.js", () => ({
+	runReference: (...args: unknown[]) => mockRunReference(...args),
+	listReferenceIds: () => mockListReferenceIds(),
+}));
+
 import * as shellMod from "../../../src/infrastructure/shell.js";
 import { commands } from "../../../src/domain/reports/reports.js";
 import type { ProjectContext } from "../../../src/infrastructure/types.js";
 
 function makeProject(opts?: {
 	generators?: Array<{ id?: string; label: string; command?: string }>;
+	docs?: { generators?: Array<{ label: string; command: string }> };
 }): ProjectContext {
 	return {
 		path: "/test/project",
@@ -48,6 +57,7 @@ function makeProject(opts?: {
 			reports: {
 				generators: opts?.generators,
 			},
+			docs: opts?.docs,
 		},
 		scripts: {},
 	};
@@ -57,6 +67,8 @@ beforeEach(() => {
 	vi.clearAllMocks();
 	mockHasGenerator.mockReturnValue(true);
 	mockRunGenerator.mockReturnValue({ success: true, outputPath: "/test/report.md", metrics: {} });
+	mockRunReference.mockReturnValue({ success: true, outputPath: "/test/ref.md", metrics: {} });
+	mockListReferenceIds.mockReturnValue(["cli-reference", "entity-reference"]);
 });
 
 describe("reports commands", () => {
@@ -156,5 +168,46 @@ describe("reports commands", () => {
 		expect(sh.calls).toHaveLength(0);
 		const output = mockLog.mock.calls.flat().join(" ");
 		expect(output).toContain("Unknown report");
+	});
+
+	it("docs runs config generators via shell", () => {
+		const sh = createMockShell();
+		Object.assign(shellMod, { shell: sh });
+
+		const project = makeProject({
+			docs: {
+				generators: [{ label: "TypeDoc", command: "npm run typedoc" }],
+			},
+		});
+
+		commands["docs"]({}, [], "docs", project);
+
+		const captureCalls = sh.calls.filter((c) => c.method === "runCaptureStatus");
+		expect(captureCalls).toHaveLength(1);
+		expect(captureCalls[0].cmd).toBe("npm run typedoc");
+	});
+
+	it("docs runs built-in reference generators", () => {
+		const sh = createMockShell();
+		Object.assign(shellMod, { shell: sh });
+
+		const project = makeProject({ docs: {} });
+
+		commands["docs"]({}, [], "docs", project);
+
+		expect(mockRunReference).toHaveBeenCalledWith("cli-reference", "/test/project");
+		expect(mockRunReference).toHaveBeenCalledWith("entity-reference", "/test/project");
+	});
+
+	it("docs works without docs config", () => {
+		const sh = createMockShell();
+		Object.assign(shellMod, { shell: sh });
+
+		const project = makeProject();
+
+		commands["docs"]({}, [], "docs", project);
+
+		// Still runs built-in references
+		expect(mockRunReference).toHaveBeenCalledTimes(2);
 	});
 });

@@ -193,7 +193,7 @@ export interface SummaryThresholds {
 	eslintWarnings?: number;
 	/** Lint command to run for collecting warnings (default: "npm run lint") */
 	lintCommand?: string;
-	/** TypeDoc command to run for collecting warnings (default: "npm run docs") */
+	/** TypeDoc command to run for collecting warnings (default: "npm run typedoc") */
 	typedocCommand?: string;
 	/** Maximum allowed TypeDoc warnings (default: 0) */
 	typedocWarnings?: number;
@@ -220,6 +220,8 @@ export interface DocsConfig {
 	allCommand?: string;
 	/** Individual documentation generators */
 	generators?: DocGenerator[];
+	/** Directory for reference documents (default: "docs/reference") */
+	referenceDir?: string;
 }
 
 export type MakeTemplateId = "journey" | "component";
