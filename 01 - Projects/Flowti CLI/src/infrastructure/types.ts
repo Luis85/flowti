@@ -137,12 +137,21 @@ export interface PublishConfig {
 }
 
 export interface ReviewConfig {
+	/** Directory containing journey test definitions (relative to project root) */
 	journeysDir?: string;
+	/** Path to the E2E test vault (absolute, or relative to vault root) */
 	testVault?: string;
+	/** Plugin ID for Obsidian plugin testing */
+	pluginId?: string;
+	/** Review runner command */
 	runner?: string;
+	/** Build command for review cycle */
 	build?: string;
+	/** Test command for review cycle */
 	test?: string;
+	/** E2E teardown command */
 	teardown?: string;
+	/** E2E rebuild command */
 	rebuild?: string;
 }
 
@@ -195,7 +204,7 @@ export interface DocsConfig {
 	generators?: DocGenerator[];
 }
 
-export type MakeTemplateId = "hub" | "plugin" | "app" | "cli";
+export type MakeTemplateId = "hub" | "plugin" | "app" | "cli" | "journey";
 
 export interface MakeConfig {
 	/** Which Make templates are available for this project */

@@ -24,7 +24,7 @@ import { runMenu } from "./infrastructure/menu.js";
 
 // ── Domain modules ──────────────────────────────────────────────────
 
-import { checkPrerequisites, ensureDependencies, checkFirstRun } from "./domain/onboarding/onboarding.js";
+import { checkPrerequisites } from "./domain/onboarding/onboarding.js";
 import { showHelp, commands as helpCmds } from "./domain/help/help.js";
 import { commands as infoCmds } from "./domain/info/info.js";
 import { commands as buildCmds } from "./domain/build/build.js";
@@ -151,12 +151,10 @@ async function projectDetailLoop(): Promise<"start" | "quit"> {
 
 async function main(): Promise<void> {
 	checkPrerequisites();
-	ensureDependencies();
 
 	if (await handleCliArgs()) return;
 
 	printBanner();
-	checkFirstRun();
 
 	// Outer loop: Start Menu → Project Detail → back to Start Menu
 	 

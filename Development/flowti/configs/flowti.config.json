@@ -32,6 +32,16 @@
 			"lintCommand": "npm run lint"
 		}
 	},
+	"review": {
+		"journeysDir": "tests/e2e/journeys",
+		"testVault": "../flowti-e2e",
+		"pluginId": "flowti-ibde",
+		"runner": "npm run test:e2e:list",
+		"build": "npm run build:increment",
+		"test": "npm run test:e2e",
+		"teardown": "node scripts/run-e2e.mjs --teardown",
+		"rebuild": "node scripts/run-e2e.mjs --rebuild"
+	},
 	"docs": {
 		"generators": [
 			{ "label": "Command Reference", "command": "node scripts/generate-command-reference.mjs" },

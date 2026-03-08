@@ -22,6 +22,7 @@ import {
 	hubViewTemplate, hubTypesTemplate, hubEventsTemplate, hubServiceTemplate,
 	hubProviderTemplate, hubTestTemplate, hubCssTemplate, hubPrdTemplate,
 	hubJourneyTemplate, pluginMainTemplate,
+	journeyDefinitionTemplate, journeyTestTemplate, journeyCanvasTemplate,
 } from "./templates.js";
 import {
 	appMainTemplate, appEventBusTemplate, appEventTypesTemplate, appEventsTemplate,
@@ -39,9 +40,10 @@ const TEMPLATE_DEFS: Record<MakeTemplateId, { label: string; action: (root: stri
 	plugin: { label: "New Plugin (standalone Obsidian plugin)", action: makePlugin },
 	app: { label: "New Application (DDD Obsidian plugin)", action: makeApp },
 	cli: { label: "New CLI App (Node.js ESM)", action: makeCliApp },
+	journey: { label: "New E2E Journey", action: makeJourney },
 };
 
-const ALL_TEMPLATES: MakeTemplateId[] = ["hub", "plugin", "app", "cli"];
+const ALL_TEMPLATES: MakeTemplateId[] = ["hub", "plugin", "app", "cli", "journey"];
 
 function getAvailableTemplates(projectRoot: string): MakeTemplateId[] {
 	const cfg = readProjectConfig(projectRoot);
@@ -418,6 +420,79 @@ async function makeCliApp(projectRoot: string): Promise<void> {
 	log(`    3. ${CYAN}npm run dev${RESET}`);
 	log(`    4. ${CYAN}npm test${RESET}`);
 	log();
+}
+
+// ── make:journey ────────────────────────────────────────────────────
+
+async function makeJourney(projectRoot: string): Promise<void> {
+	const { printHeader } = await import("../../infrastructure/ui.js");
+	printHeader("New E2E Journey");
+
+	log(`  ${DIM}Project root: ${projectRoot}${RESET}\n`);
+
+	const name = await input.ask("Journey name (e.g., Getting Started)");
+	if (!name) return;
+
+	const defaultSlug = toKebab(name);
+	const slug = await input.ask("Journey slug", defaultSlug);
+	const description = await input.ask("Description", `E2E journey for ${name}.`);
+
+	const cfg = readProjectConfig(projectRoot);
+	const journeysDir = cfg?.review?.journeysDir ?? "tests/e2e/journeys";
+	const journeysPath = nodePaths.resolve(projectRoot, journeysDir);
+	const journeyFile = nodePaths.join(journeysPath, `${slug}.journey`);
+
+	log();
+	log(`  ${BOLD}Scaffolding: ${name}${RESET}`);
+	log(`  ${DIM}Slug: ${slug}${RESET}`);
+	log(`  ${DIM}Journey file: ${journeyFile}${RESET}`);
+	log();
+
+	if (disk.existsSync(journeyFile)) {
+		log(`  ${RED}Journey already exists: ${journeyFile}${RESET}\n`);
+		return;
+	}
+
+	const proceed = await input.ask("Create journey? (Y/n)", "Y");
+	if (proceed.toLowerCase() === "n") return;
+
+	log();
+	const { write: w, created } = createFileWriter(projectRoot);
+
+	// Journey definition
+	w(nodePaths.join(journeysDir, `${slug}.journey`), journeyDefinitionTemplate(name, slug, description));
+
+	// Test file (vitest entry point)
+	const testDir = nodePaths.dirname(journeysDir);
+	const testFileNumber = getNextTestFileNumber(nodePaths.resolve(projectRoot, testDir));
+	w(nodePaths.join(testDir, `${testFileNumber}-journey-${slug}.test.ts`), journeyTestTemplate(slug));
+
+	// Vault documentation: journey canvas + config placeholder
+	const docsDir = nodePaths.join("docs", "journeys", name);
+	w(nodePaths.join(docsDir, `${name}.canvas`), journeyCanvasTemplate(name));
+
+	log(`\n  ${GREEN}✓${RESET} Created ${created} files for journey "${name}".\n`);
+
+	log(`  ${BOLD}Created files:${RESET}`);
+	log(`    ${CYAN}${journeysDir}/${slug}.journey${RESET}     — Journey definition`);
+	log(`    ${CYAN}${testDir}/${testFileNumber}-journey-${slug}.test.ts${RESET}  — Test entry`);
+	log(`    ${CYAN}${docsDir}/${name}.canvas${RESET}       — Journey canvas`);
+	log();
+	log(`  ${BOLD}Next steps:${RESET}`);
+	log(`    1. Edit ${CYAN}${slug}.journey${RESET} to define your steps and actions`);
+	log(`    2. Design the journey canvas in Obsidian`);
+	log(`    3. Run ${CYAN}npm run test:e2e -- --journey=${slug}${RESET} to test`);
+	log();
+}
+
+/** Scans test directory for numbered journey files and returns the next available number (e.g., "50"). */
+function getNextTestFileNumber(testDir: string): string {
+	if (!disk.existsSync(testDir)) return "10";
+	const files = disk.readdirSync(testDir).filter((f) => f.match(/^\d+-journey-/));
+	if (files.length === 0) return "10";
+	const numbers = files.map((f) => parseInt(f.split("-")[0], 10)).filter((n) => !isNaN(n));
+	const maxNum = Math.max(...numbers);
+	return String(maxNum + 10);
 }
 
 // ── Non-interactive commands ────────────────────────────────────────
