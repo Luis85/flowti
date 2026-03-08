@@ -96,6 +96,57 @@ function buildSummaryReport(
 
 // ── Entry point ──────────────────────────────────────────────────────
 
+function logDataSources(snapshots: ReportSnapshot[], json: JsonDataSources, detailed: DetailedSources): void {
+	const jsonLabels = [json.tests && "tests", json.coverage && "coverage"].filter(Boolean);
+	log(`  ${DIM}Found ${snapshots.length} reports: ${snapshots.map((s) => s.label).join(", ")}${RESET}`);
+	if (jsonLabels.length > 0) log(`  ${DIM}JSON sources: ${jsonLabels.join(", ")}${RESET}`);
+	if (detailed.perFile.length > 0) log(`  ${DIM}Per-file coverage: ${detailed.perFile.length} files${RESET}`);
+}
+
+function runLintCheck(projectPath: string, command: string | undefined): LintResult | null {
+	if (!command) return null;
+	log(`  ${DIM}Running lint: ${command}${RESET}`);
+	const result = collectLintWarnings(projectPath, command);
+	log(`  ${DIM}Lint: ${result.errors} errors, ${result.warnings} warnings${RESET}`);
+	return result;
+}
+
+function runTypedocCheck(projectPath: string, command: string | undefined): TypeDocResult | null {
+	if (!command) return null;
+	log(`  ${DIM}Running TypeDoc: ${command}${RESET}`);
+	const result = collectTypedocWarnings(projectPath, command);
+	log(`  ${DIM}TypeDoc: ${result.errors} errors, ${result.warnings} warnings${RESET}`);
+	return result;
+}
+
+function categorizeFindingsBy(findings: Finding[], category: string): { message: string; details?: string[] }[] {
+	return findings.filter((f) => f.category === category).map((f) => ({ message: f.message, details: f.details }));
+}
+
+function buildJsonOutput(
+	projectName: string, snapshots: ReportSnapshot[], findings: Finding[],
+	lint: LintResult | null, typedoc: TypeDocResult | null,
+	thresholds: Required<SummaryThresholds>, json: JsonDataSources, detailed: DetailedSources,
+): Record<string, unknown> {
+	const risks = categorizeFindingsBy(findings, "risk");
+	const improvements = categorizeFindingsBy(findings, "improvement");
+	const positives = categorizeFindingsBy(findings, "positive");
+	return {
+		type: "ProjectSummary",
+		project: projectName,
+		date: clock.iso(),
+		reportsAnalyzed: snapshots.length,
+		summary: { risks: risks.length, improvements: improvements.length, positives: positives.length },
+		metrics: promoteFrontmatter(snapshots, json, lint, typedoc, detailed),
+		findings: { risks, improvements, positives },
+		lint: lint ? { errors: lint.errors, warnings: lint.warnings, breakdown: lint.breakdown, issues: lint.issues } : null,
+		typedoc: typedoc ? { errors: typedoc.errors, warnings: typedoc.warnings, issues: typedoc.issues } : null,
+		thresholds,
+		reports: snapshots.map((s) => ({ label: s.label, file: s.file, frontmatter: s.frontmatter })),
+		jsonSources: { tests: json.tests ?? null, coverage: json.coverage ?? null },
+	};
+}
+
 export function generateSummaryReport(projectPath: string): void {
 	const svc = new ReportService(projectPath);
 	const projectName = paths.basename(projectPath);
@@ -106,30 +157,10 @@ export function generateSummaryReport(projectPath: string): void {
 	const snapshots = discoverReports(svc.reportsDir);
 	const json = loadJsonDataSources(svc.reportsDir);
 	const detailed = loadDetailedSources(svc.reportsDir, projectPath);
-	const jsonLabels: string[] = [];
-	if (json.tests) jsonLabels.push("tests");
-	if (json.coverage) jsonLabels.push("coverage");
-	log(`  ${DIM}Found ${snapshots.length} reports: ${snapshots.map((s) => s.label).join(", ")}${RESET}`);
-	if (jsonLabels.length > 0) {
-		log(`  ${DIM}JSON sources: ${jsonLabels.join(", ")}${RESET}`);
-	}
-	if (detailed.perFile.length > 0) {
-		log(`  ${DIM}Per-file coverage: ${detailed.perFile.length} files${RESET}`);
-	}
+	logDataSources(snapshots, json, detailed);
 
-	let lint: LintResult | null = null;
-	if (thresholds.lintCommand) {
-		log(`  ${DIM}Running lint: ${thresholds.lintCommand}${RESET}`);
-		lint = collectLintWarnings(projectPath, thresholds.lintCommand);
-		log(`  ${DIM}Lint: ${lint.errors} errors, ${lint.warnings} warnings${RESET}`);
-	}
-
-	let typedoc: TypeDocResult | null = null;
-	if (thresholds.typedocCommand) {
-		log(`  ${DIM}Running TypeDoc: ${thresholds.typedocCommand}${RESET}`);
-		typedoc = collectTypedocWarnings(projectPath, thresholds.typedocCommand);
-		log(`  ${DIM}TypeDoc: ${typedoc.errors} errors, ${typedoc.warnings} warnings${RESET}`);
-	}
+	const lint = runLintCheck(projectPath, thresholds.lintCommand);
+	const typedoc = runTypedocCheck(projectPath, thresholds.typedocCommand);
 
 	const findings = analyzeReports(snapshots, thresholds, lint, typedoc, json, detailed);
 	const doc = buildSummaryReport(snapshots, findings, lint, typedoc, thresholds, projectName, json, detailed);
@@ -144,32 +175,13 @@ export function generateSummaryReport(projectPath: string): void {
 	const timestampedPath = paths.join(summaryDir, `${safeTimestamp}-project-summary.md`);
 	doc.save(timestampedPath);
 
-	const risks = findings.filter((f) => f.category === "risk").length;
-	const improvements = findings.filter((f) => f.category === "improvement").length;
-	const positives = findings.filter((f) => f.category === "positive").length;
-
-	const jsonData = {
-		type: "ProjectSummary",
-		project: projectName,
-		date: clock.iso(),
-		reportsAnalyzed: snapshots.length,
-		summary: { risks, improvements, positives },
-		metrics: promoteFrontmatter(snapshots, json, lint, typedoc, detailed),
-		findings: {
-			risks: findings.filter((f) => f.category === "risk").map((f) => ({ message: f.message, details: f.details })),
-			improvements: findings.filter((f) => f.category === "improvement").map((f) => ({ message: f.message, details: f.details })),
-			positives: findings.filter((f) => f.category === "positive").map((f) => ({ message: f.message, details: f.details })),
-		},
-		lint: lint ? { errors: lint.errors, warnings: lint.warnings, breakdown: lint.breakdown, issues: lint.issues } : null,
-		typedoc: typedoc ? { errors: typedoc.errors, warnings: typedoc.warnings, issues: typedoc.issues } : null,
-		thresholds,
-		reports: snapshots.map((s) => ({ label: s.label, file: s.file, frontmatter: s.frontmatter })),
-		jsonSources: { tests: json.tests ?? null, coverage: json.coverage ?? null },
-	};
-
+	const jsonData = buildJsonOutput(projectName, snapshots, findings, lint, typedoc, thresholds, json, detailed);
 	const jsonPath = paths.join(summaryDir, `${safeTimestamp}-project-summary.json`);
 	disk.writeFileSync(jsonPath, JSON.stringify(jsonData, null, "\t"), "utf-8");
 
+	const risks = categorizeFindingsBy(findings, "risk").length;
+	const improvements = categorizeFindingsBy(findings, "improvement").length;
+	const positives = categorizeFindingsBy(findings, "positive").length;
 	log(`\n  ${GREEN}✓${RESET} Project Summary: ${risks} risk(s), ${improvements} improvement(s), ${positives} strength(s)`);
 	log(`    ${stablePath}`);
 	log(`    ${timestampedPath}`);

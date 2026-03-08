@@ -100,36 +100,53 @@ export function checkUncoveredFunctions(perFile: FileCoverageStats[]): Finding |
 	};
 }
 
-export function analyzeCoverage(snap: ReportSnapshot, thresholds: Required<SummaryThresholds>, json: JsonDataSources, detailed?: DetailedSources): Finding[] {
-	const linesPct = json.coverage ? json.coverage.linesPct : fm(snap, "lines_pct", "lines", "line_coverage");
-	const branchesPct = json.coverage ? json.coverage.branchesPct : fm(snap, "branches_pct", "branches", "branch_coverage");
-	const functionsPct = json.coverage ? json.coverage.functionsPct : fm(snap, "functions_pct", "functions", "function_coverage");
-
-	const findings: Finding[] = [];
-	const lineResult = checkLineCoverage(linesPct, thresholds);
-	if (lineResult) findings.push(lineResult);
-
-	if (branchesPct > 0 && branchesPct < thresholds.coverageBranches) {
-		findings.push({ category: "improvement",
-			message: `Branch coverage at ${branchesPct}% — below target of ${thresholds.coverageBranches}%.` });
+export function checkBranchCoverage(branchesPct: number, threshold: number): Finding | null {
+	if (branchesPct > 0 && branchesPct < threshold) {
+		return { category: "improvement", message: `Branch coverage at ${branchesPct}% — below target of ${threshold}%.` };
 	}
+	return null;
+}
 
+export function checkFunctionCoverage(functionsPct: number): Finding | null {
 	if (functionsPct > 0 && functionsPct < 60) {
-		findings.push({ category: "improvement",
-			message: `Function coverage at ${functionsPct}% — consider adding tests for uncovered functions.` });
+		return { category: "improvement", message: `Function coverage at ${functionsPct}% — consider adding tests for uncovered functions.` };
 	}
+	return null;
+}
 
+function collectDetailFindings(perFile: FileCoverageStats[]): Finding[] {
+	return [
+		checkZeroCoverage(perFile),
+		checkLowCoverage(perFile),
+		checkUncoveredFunctions(perFile),
+	].filter((r): r is Finding => r !== null);
+}
+
+export interface CoverageValues {
+	linesPct: number;
+	branchesPct: number;
+	functionsPct: number;
+}
+
+export function resolveCoverageValues(snap: ReportSnapshot, json: JsonDataSources): CoverageValues {
+	return {
+		linesPct: json.coverage ? json.coverage.linesPct : fm(snap, "lines_pct", "lines", "line_coverage"),
+		branchesPct: json.coverage ? json.coverage.branchesPct : fm(snap, "branches_pct", "branches", "branch_coverage"),
+		functionsPct: json.coverage ? json.coverage.functionsPct : fm(snap, "functions_pct", "functions", "function_coverage"),
+	};
+}
+
+export function analyzeCoverage(snap: ReportSnapshot, thresholds: Required<SummaryThresholds>, json: JsonDataSources, detailed?: DetailedSources): Finding[] {
+	const { linesPct, branchesPct, functionsPct } = resolveCoverageValues(snap, json);
+	const checks = [
+		checkLineCoverage(linesPct, thresholds),
+		checkBranchCoverage(branchesPct, thresholds.coverageBranches),
+		checkFunctionCoverage(functionsPct),
+	];
+	const findings = checks.filter((r): r is Finding => r !== null);
 	if (detailed && detailed.perFile.length > 0) {
-		const detailChecks = [
-			checkZeroCoverage(detailed.perFile),
-			checkLowCoverage(detailed.perFile),
-			checkUncoveredFunctions(detailed.perFile),
-		];
-		for (const result of detailChecks) {
-			if (result) findings.push(result);
-		}
+		findings.push(...collectDetailFindings(detailed.perFile));
 	}
-
 	return findings;
 }
 
@@ -198,7 +215,7 @@ export function checkDecisionPointDensity(detailed: DetailedSources): Finding | 
 	};
 }
 
-interface ComplexityValues {
+export interface ComplexityValues {
 	maxC: number;
 	avgC: number;
 	medianC: number;

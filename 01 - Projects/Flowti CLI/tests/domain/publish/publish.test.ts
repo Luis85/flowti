@@ -95,3 +95,39 @@ describe("publish commands", () => {
 		mockExit.mockRestore();
 	});
 });
+
+describe("menu", () => {
+	it("calls runMenu with Publish title and pipeline items", async () => {
+		const { runMenu } = await import("../../../src/infrastructure/menu.js");
+		vi.mocked(runMenu).mockResolvedValue("main");
+
+		const { menu } = await import("../../../src/domain/publish/publish.js");
+		await menu();
+
+		expect(runMenu).toHaveBeenCalledWith(
+			"Publish",
+			expect.arrayContaining([
+				expect.objectContaining({ key: "1" }),
+				expect.objectContaining({ key: "2" }),
+				expect.objectContaining({ key: "3" }),
+			]),
+			expect.objectContaining({ beforeMenu: expect.any(Function) }),
+		);
+	});
+
+	it("beforeMenu renders pipeline status", async () => {
+		const { runMenu } = await import("../../../src/infrastructure/menu.js");
+		const { log } = await import("../../../src/infrastructure/logger.js");
+		let capturedBeforeMenu: (() => void) | undefined;
+		vi.mocked(runMenu).mockImplementation(async (_title, _items, opts) => {
+			capturedBeforeMenu = opts?.beforeMenu;
+			return "main";
+		});
+
+		const { menu } = await import("../../../src/domain/publish/publish.js");
+		await menu();
+
+		capturedBeforeMenu?.();
+		expect(log).toHaveBeenCalled();
+	});
+});
