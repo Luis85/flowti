@@ -2,7 +2,7 @@
 type: Architecture
 domain: CLI
 title: Flowti CLI — Architecture Document
-version: 16
+version: 17
 created: 2026-03-07
 updated: 2026-03-09
 status: living-document
@@ -10,7 +10,7 @@ status: living-document
 
 # Flowti CLI — Architecture Document
 
-> Living document. Reflects the current implementation (status quo) and the target architecture derived from PRD v7. Updated as the codebase evolves.
+> Living document. Reflects the current implementation (status quo) and the target architecture derived from PRD v8. Updated as the codebase evolves.
 
 ---
 
@@ -381,9 +381,9 @@ All I/O is behind abstractions (`IFileSystem`, `IShell`, `IProcess`, `clock`), m
 
 ---
 
-## 4. Target Architecture
+## 4. Architecture Evolution
 
-The target architecture extends the status quo to fulfill all PRD v7 requirements. All functional requirements (FR-01 through FR-14) are complete. Remaining work targets planned improvements (IMP-10 through IMP-18).
+This section documents completed architectural work (4.1–4.16) and the target architecture vision (4.17+) derived from PRD v8. All core functional requirements (FR-01 through FR-14) are complete. FR-15 through FR-19 are partially implemented. The target architecture addresses gaps identified in the PRD Feature Maturity Assessment (Section 14) and the Feature Development Roadmap (Section 16).
 
 ### 4.1 Non-Interactive Project Selection (IMP-01) — DONE
 
@@ -572,6 +572,371 @@ Previously only format 1 was captured, causing TS compilation errors during Type
 
 ---
 
+### 4.18 Target Architecture: Future State
+
+The target architecture evolves the CLI from a **tool orchestrator** into a **project intelligence platform**. The core principles (self-contained binary, definition-driven, zero dependencies, progressive opt-in) remain unchanged. The evolution adds three architectural capabilities:
+
+1. **Execution Engine** — AI Tools and Plugins gain runtime execution with parameter substitution, output capture, and exit code propagation
+2. **Health Intelligence** — Health metrics become actionable through scoring, trends, and non-interactive access
+3. **Contract System** — Event contracts become a test-time validation layer, bridging documentation and runtime
+
+#### 4.18.1 Target Layer Architecture
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                       Entry Point                            │
+│  main.ts — orchestrator (two-loop menu + command dispatch)   │
+└───────────┬──────────────────────────────────────────────────┘
+            │
+┌───────────▼──────────────────────────────────────────────────┐
+│                       Domain Layer (18+ modules)             │
+│                                                              │
+│  ── Core (stable, Deep maturity) ──────────────────────────  │
+│  Project │ Scaffold │ Make │ Build │ Reports │ Events        │
+│  Review  │ Publish  │ Help │ Info  │ Capture │ Onboarding    │
+│  DevTools│ Knowledgebase                                     │
+│                                                              │
+│  ── Extensibility (Functional → Deep) ─────────────────────  │
+│  Plugins │ AI Tools │ Health                                 │
+│                                                              │
+│  ── New Subsystems (target) ───────────────────────────────  │
+│  ┌──────────────────┐ ┌────────────────┐ ┌───────────────┐  │
+│  │ Execution Engine │ │ Health Pipeline│ │Contract System│  │
+│  │ (IMP-21, IMP-24) │ │ (IMP-20, 26)  │ │ (IMP-18)      │  │
+│  │                  │ │                │ │               │  │
+│  │ Plugin runner    │ │ CLI command    │ │ Payload       │  │
+│  │ with exit codes  │ │ health scoring │ │ validation    │  │
+│  │                  │ │                │ │               │  │
+│  │ AI Tool executor │ │ Snapshot       │ │ TypeScript    │  │
+│  │ with param subst.│ │ persistence   │ │ codegen       │  │
+│  │                  │ │                │ │               │  │
+│  │ Output capture   │ │ Trend analysis │ │ CI gate       │  │
+│  │ + error routing  │ │ + regression  │ │ integration   │  │
+│  └──────────────────┘ └────────────────┘ └───────────────┘  │
+│                                                              │
+└───────────┬──────────────────────────────────────────────────┘
+            │
+┌───────────▼──────────────────────────────────────────────────┐
+│                  Infrastructure Layer (21+ modules)           │
+│                                                              │
+│  ── Existing (unchanged) ──────────────────────────────────  │
+│  config │ dispatch │ menu │ shell │ state │ document │ ui    │
+│  input  │ fs │ filesystem │ paths │ proc │ clock │ logger   │
+│  args   │ frontmatter │ errors │ output │ cmd-registry      │
+│  test-vault │ types                                          │
+│                                                              │
+│  ── Extended (target) ─────────────────────────────────────  │
+│  ┌──────────────────┐ ┌────────────────┐                     │
+│  │ shell.ts         │ │ state.ts       │                     │
+│  │ + runCapture()   │ │ + health[]     │                     │
+│  │   returns stdout │ │ + trends       │                     │
+│  │   stderr, code   │ │ + timestamps   │                     │
+│  └──────────────────┘ └────────────────┘                     │
+│                                                              │
+│  ┌──────────────────┐                                        │
+│  │ config-schema.ts │                                        │
+│  │ + path checks    │                                        │
+│  │ + command exists  │                                        │
+│  │ + cross-field    │                                        │
+│  └──────────────────┘                                        │
+└──────────────────────────────────────────────────────────────┘
+```
+
+#### 4.18.2 Execution Engine Architecture
+
+The Execution Engine unifies plugin and AI tool runtime into a shared subsystem. Currently, plugins run via `shell.run()` but discard exit codes. AI Tools are metadata-only.
+
+**Target design:**
+
+```
+┌──────────────── Execution Engine ──────────────────────┐
+│                                                         │
+│  ExecutionRequest                                       │
+│  ├── command: string          (shell command template)  │
+│  ├── params: Record<string, string>  (substitutions)   │
+│  ├── cwd?: string             (working directory)       │
+│  ├── timeout?: number         (max execution ms)        │
+│  └── source: "plugin" | "ai-tool"                       │
+│                                                         │
+│  ExecutionResult                                        │
+│  ├── exitCode: number                                   │
+│  ├── stdout: string                                     │
+│  ├── stderr: string                                     │
+│  ├── duration: number                                   │
+│  └── success: boolean                                   │
+│                                                         │
+│  execute(request): ExecutionResult                       │
+│    1. Substitute {{param}} in command string             │
+│    2. shell.runCapture(command, cwd)                     │
+│    3. Return structured result with exit code            │
+│    4. Route errors to CliError (user) or log (internal)  │
+│                                                         │
+│  Plugin commands:                                       │
+│    Before: shell.run(cmd)  → void (exit code lost)      │
+│    After:  execute(req)    → result (exit code surfaced) │
+│                                                         │
+│  AI Tool execution (new):                               │
+│    ai:run --tool=X --param1=val1                         │
+│    → Build ExecutionRequest from tool definition         │
+│    → Substitute params into run command                  │
+│    → execute(req) → display result                       │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Key decisions:**
+- Shared `ExecutionRequest`/`ExecutionResult` types for plugins and AI tools
+- `shell.runCapture()` added to infrastructure (returns stdout + stderr + exitCode)
+- Parameter substitution uses `{{paramName}}` syntax (same as scaffold definitions)
+- Timeout defaults to 60s, configurable per command
+
+#### 4.18.3 Health Intelligence Architecture
+
+The Health Dashboard evolves from an interactive-only display into a full metrics pipeline with scoring, persistence, and trend analysis.
+
+**Target design:**
+
+```
+┌──────────────── Health Pipeline ───────────────────────┐
+│                                                         │
+│  collectHealth(ctx)          ← existing (unchanged)     │
+│       │                                                 │
+│       ▼                                                 │
+│  HealthSnapshot              ← existing type            │
+│  ├── source: { files, loc }                             │
+│  ├── tests: { total, passed, failed }                   │
+│  ├── coverage: { lines, branches }                      │
+│  ├── build: { status, duration }                        │
+│  ├── lint: { errors, warnings }                         │
+│  ├── git: { branch, dirty, ahead }                      │
+│  └── components: { total, byKind }                      │
+│                                                         │
+│  ── New: Scoring ────────────────────────────────────   │
+│  scoreHealth(snapshot, thresholds): HealthScore          │
+│  ├── per-category score (0–100)                         │
+│  ├── overall grade (A–F)                                │
+│  └── thresholds from flowti.config.json                 │
+│       { coverage: { min: 80 }, lint: { maxWarnings: 0 }}│
+│                                                         │
+│  ── New: Persistence ────────────────────────────────   │
+│  saveHealthSnapshot(snapshot, score)                     │
+│  ├── .flowti/var/health-history.json                    │
+│  ├── Rolling window (last 30 snapshots)                 │
+│  └── Timestamped entries for trend analysis             │
+│                                                         │
+│  ── New: Trends ─────────────────────────────────────   │
+│  analyzeHealthTrends(history): HealthTrend[]            │
+│  ├── Delta per category (improved/regressed/stable)     │
+│  ├── Regression alerts (score dropped > threshold)      │
+│  └── Sparkline-style indicators in display              │
+│                                                         │
+│  ── New: CLI Command ────────────────────────────────   │
+│  flowti health [--project=X] [--format=json]            │
+│  ├── Non-interactive: score + snapshot                   │
+│  ├── --format=json: structured output for AI agents     │
+│  └── Interactive: existing displayHealth() + trends     │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Config addition** (`flowti.config.json`):
+```json
+{
+  "health": {
+    "thresholds": {
+      "coverage": { "min": 80, "target": 95 },
+      "lint": { "maxErrors": 0, "maxWarnings": 10 },
+      "tests": { "minPassed": 100 },
+      "complexity": { "maxAverage": 15 }
+    }
+  }
+}
+```
+
+#### 4.18.4 Contract System Architecture
+
+Event contracts evolve from metadata parsing into a test-time validation layer and TypeScript code generator.
+
+**Target design:**
+
+```
+┌──────────────── Contract System ───────────────────────┐
+│                                                         │
+│  ── Existing (unchanged) ────────────────────────────   │
+│  parsePayloadTable(content) → PayloadField[]            │
+│  loadEventContracts(dir)    → EventContract[]           │
+│  validateContracts(cs)      → ContractValidationResult  │
+│  generateContractsJson(cs)  → string                    │
+│                                                         │
+│  ── New: Vitest Integration ─────────────────────────   │
+│  createContractValidator(contractsDir)                   │
+│    → (eventName, payload) → ValidationResult            │
+│                                                         │
+│  Usage in test files:                                   │
+│    const validate = createContractValidator("docs/events")│
+│    expect(validate("user.created", payload)).toPass()   │
+│                                                         │
+│  Validates:                                             │
+│    ✓ All required fields present                        │
+│    ✓ Field types match contract                         │
+│    ✓ No unknown fields (strict mode, opt-in)            │
+│    ✓ Nested object structure                            │
+│                                                         │
+│  ── New: TypeScript Codegen ─────────────────────────   │
+│  generateTypeScript(contracts): string                   │
+│    → export interface UserCreatedPayload { ... }        │
+│    → export type EventPayloads = { ... }                │
+│                                                         │
+│  CLI command: events:codegen --out=types/events.ts      │
+│                                                         │
+│  ── New: CI Gate (Phase 6) ──────────────────────────   │
+│  events:contracts --validate --strict                    │
+│    → Exit 1 if any contract violation found             │
+│    → Integrates into publish pipeline as prerequisite    │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+#### 4.18.5 Enhanced Capture Architecture
+
+Capture evolves from single-line text input to a structured note system with metadata and retrieval.
+
+**Target design:**
+
+```
+┌──────────────── Enhanced Capture ──────────────────────┐
+│                                                         │
+│  ── Existing ────────────────────────────────────────   │
+│  capture:idea --text="..."                              │
+│  capture:note --type=X --title="..."                    │
+│                                                         │
+│  ── New: Metadata ───────────────────────────────────   │
+│  capture:idea --text="..." --tags=ux,perf --priority=1  │
+│  capture:note --type=X --title="..." --tags=...         │
+│                                                         │
+│  Generated frontmatter:                                 │
+│    type: Idea | Task | Bug | Note | Documentation       │
+│    tags: [ux, perf]                                     │
+│    priority: 1                                          │
+│    created: 2026-03-09T...                              │
+│    status: inbox                                        │
+│                                                         │
+│  ── New: Retrieval ──────────────────────────────────   │
+│  capture:search --tag=ux [--type=Idea] [--format=json]  │
+│  capture:list [--recent=7d] [--format=json]             │
+│                                                         │
+│  ── New: Batch Import ───────────────────────────────   │
+│  capture:import --file=ideas.md                         │
+│    → Parse markdown list → individual capture files      │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+#### 4.18.6 Target Non-Interactive Command Surface
+
+The complete target CLI surface for AI agent tool use:
+
+```
+flowti <command> [--project=<name>] [--format=json] [flags]
+
+── Core (existing, stable) ──────────────────────────────
+help [section]                    info
+build                             test
+publish                           publish:all
+reports                           report:{id}
+make:component --name=X           make:layout --name=X
+make:page --name=X                make:ui-component --name=X
+make:system --name=X              make:container --name=X
+make:c4-component --name=X        make:person --name=X
+events:list                       events:add --name=X --domain=Y
+events:flow                       events:version --name=X --version=Y
+events:contracts                  capture:idea --text="..."
+capture:note --type=X --title=Y   project:deps
+scaffold:list                     scaffold:new --name=X
+scaffold:marketplace              scaffold:import --file=X
+plugin:list                       plugin:validate
+plugin:new                        plugin:reference
+ai:list                           ai:validate
+ai:new                            ai:reference
+docs                              edit:component --name=X
+
+── Target (new commands) ────────────────────────────────
+health [--format=json]            ← FR-15.5
+ai:run --tool=X [--params]        ← FR-14 / IMP-24
+events:codegen --out=X            ← FR-18.7
+capture:search --tag=X            ← IMP-22
+capture:list [--recent=7d]        ← IMP-22
+capture:import --file=X           ← IMP-22
+review:clean                      ← Phase 4.6
+publish --dry-run                 ← Phase 4.5
+scaffold:export --file=X          ← FR-17.6
+ci:generate                       ← IMP-11
+update                            ← IMP-12
+```
+
+#### 4.18.7 Target Configuration Schema
+
+The full target configuration schema for `flowti.config.json`:
+
+```json
+{
+  "name": "my-project",
+  "tools": {
+    "build": "npm run build",
+    "reports": "npm run reports",
+    "devtools": "npm run dev"
+  },
+  "components": {
+    "storybook": true,
+    "storybookDir": "component-library"
+  },
+  "make": {
+    "templates": ["journey", "component"]
+  },
+  "reports": {
+    "generators": [
+      { "id": "test", "prerequisites": ["npm run test:coverage"] },
+      { "id": "coverage" },
+      { "id": "codebase" },
+      { "id": "complexity" },
+      { "id": "status" },
+      { "id": "summary" }
+    ]
+  },
+  "publish": {
+    "build": "npm run build",
+    "test": "npm test",
+    "outDir": "dist",
+    "artifacts": ["main.js"],
+    "endpoints": [
+      { "name": "Local", "path": "../output", "clean": true }
+    ]
+  },
+  "review": {
+    "journeysDir": "tests/e2e/journeys",
+    "runner": "npm run test:e2e",
+    "build": "npm run build",
+    "test": "npm test"
+  },
+  "docs": {
+    "allCommand": "npm run typedoc",
+    "referenceDir": "docs/reference"
+  },
+  "health": {
+    "thresholds": {
+      "coverage": { "min": 80, "target": 95 },
+      "lint": { "maxErrors": 0, "maxWarnings": 10 },
+      "tests": { "minPassed": 100 },
+      "complexity": { "maxAverage": 15 }
+    }
+  }
+}
+```
+
+The `health` section is the only new top-level key. All other config sections are unchanged.
+
+---
+
 ## 5. Development Roadmap
 
 ### Phase 1: Foundation Hardening — COMPLETE
@@ -646,19 +1011,53 @@ Vault-level extensibility via plugins and AI tool definitions. Both managed from
 
 **Milestone**: CLI extensibility via vault-level plugins and AI tools. Start Menu has 5 entries (Open, Create, Plugins, AI Tools, Quit). Plugin commands auto-registered with collision detection. 1,724 tests, 98 suites. 0 lint errors, 0 warnings.
 
-### Phase 4: Cross-Project & Automation
+### Phase 4: Hardening (Next)
 
-Long-term vision for multi-project management and CI/CD integration.
+Elevate all "Functional" features to "Deep" maturity. Fix correctness issues. Make all features accessible to AI agents via non-interactive commands. See PRD v8 Section 16, Phase 4.
 
-| # | Task | Effort | Impact | Files |
-|---|------|--------|--------|-------|
-| 4.1 | **Cross-project dependencies** (IMP-10) | L | High | New: `domain/project/dependencies.ts` |
-| 4.2 | **CI/CD workflow generation** (IMP-11) | L | Medium | New: `domain/build/ci-generator.ts` |
-| 4.3 | **Self-update mechanism** (IMP-12) | M | Medium | Modify: `boot/bootstrap.mjs` |
-| ~~4.4~~ | ~~**Plugin system** (IMP-13)~~ | ~~XL~~ | ~~High~~ | Done — Phase 3.5 |
-| 4.5 | **Event contract testing** (IMP-18) | M | Medium | New: `domain/events/contract-testing.ts` |
+| # | Task | Effort | Impact | FR / IMP | New / Modify |
+|---|------|--------|--------|----------|--------------|
+| 4.1 | **Health CLI command** — non-interactive `health` with `--format=json` | S | High | FR-15.5, IMP-20 | Modify: `health/health.ts` (add command handler), `main.ts` (register) |
+| 4.2 | **Plugin exit code propagation** — surface `shell.run()` exit codes | S | High | FR-13, IMP-21 | Modify: `plugins/plugin-commands.ts`, New: `infrastructure/shell.ts` (`runCapture`) |
+| 4.3 | **Config deep validation** — path/command existence checks | M | Medium | FR-08, IMP-23 | Modify: `project/config-schema.ts` (add validators), tests |
+| 4.4 | **Health scoring** — grades (0–100) with configurable thresholds | M | Medium | FR-15.6, IMP-20 | New: `health/health-scoring.ts`, Modify: `types.ts` (HealthScore), config-schema (health section) |
+| 4.5 | **Publish dry-run** — `publish --dry-run` previews without copying | S | Medium | FR-05 | Modify: `publish/project-publish.ts` (dry-run flag) |
+| 4.6 | **Review cleanup** — `review:clean` removes stale test vaults | S | Low | FR-12 | Modify: `review/project-review.ts` (cleanup command) |
 
-**Milestone**: CLI manages inter-project relationships. CI/CD is generated from config. Plugin extensibility.
+**Milestone**: All `Functional` features promoted to `Deep`. `flowti health` available for AI agents. Plugins report failures. Config validation catches real errors.
+
+**Exit criteria**: PRD Feature Maturity Assessment shows no `Functional` entries.
+
+### Phase 5: Depth (Medium-Term)
+
+Turn "Shallow" features into useful, reliable tools. Introduce the Execution Engine (4.18.2), Health Intelligence pipeline (4.18.3), and Contract System (4.18.4).
+
+| # | Task | Effort | Impact | FR / IMP | New / Modify |
+|---|------|--------|--------|----------|--------------|
+| 5.1 | **Capture enrichment** — tags, structured fields, search/retrieve | M | High | FR-02.11, IMP-22 | Modify: `capture/capture.ts` (tags, search), New: `capture/capture-search.ts` |
+| 5.2 | **Event contract validation** — Vitest integration + `--validate` flag | L | High | FR-18.6, IMP-18 | New: `events/contract-validator.ts`, export `createContractValidator()` |
+| 5.3 | **Health trends** — snapshot persistence + delta indicators | M | Medium | FR-15.7, IMP-26 | New: `health/health-trends.ts`, Modify: `state.ts` (health history) |
+| 5.4 | **AI Tool execution** — `ai:run` with parameter substitution | L | Medium | FR-14, IMP-24 | New: `ai-tools/ai-tool-executor.ts`, shared `ExecutionEngine` in infrastructure |
+| 5.5 | **Marketplace export** — `scaffold:export` + remote import | M | Low | FR-17.6, IMP-25 | Modify: `scaffold/marketplace.ts` (export command) |
+| 5.6 | **Event TypeScript codegen** — `events:codegen --out=X` | M | Low | FR-18.7, IMP-18 | New: `events/contract-codegen.ts` |
+
+**Milestone**: Capture is a useful note system with tags and search. Event contracts integrate into test pipelines. Health provides actionable trend data. AI Tools can execute commands.
+
+**Exit criteria**: PRD Feature Maturity Assessment shows no `Shallow` entries.
+
+### Phase 6: Ecosystem (Long-Term)
+
+Make the CLI a force multiplier across projects and teams.
+
+| # | Task | Effort | Impact | FR / IMP | New / Modify |
+|---|------|--------|--------|----------|--------------|
+| 6.1 | **CI/CD generation** — `flowti ci:generate` outputs GitHub Actions YAML | L | High | IMP-11 | New: `domain/build/ci-generator.ts` |
+| 6.2 | **Interactive dependency browser** — terminal project graph | L | Medium | FR-16.5, IMP-27 | New: `project/project-deps-browser.ts` |
+| 6.3 | **Self-update** — detect source changes, rebuild binary | M | Medium | IMP-12 | Modify: `boot/bootstrap.mjs` (source hash check) |
+| 6.4 | **Plugin lifecycle hooks** — `onInstall`/`onUpdate`/`onRemove` | L | Low | FR-13 | Modify: `plugins/plugin-types.ts`, `plugin-loader.ts` (hook execution) |
+| 6.5 | **Cross-vault sharing** — remote plugin/definition registry | XL | Low | FR-17, FR-13, IMP-25 | New: `domain/registry/` (remote discovery, install) |
+
+**Milestone**: CLI generates CI pipelines. Projects explorable interactively. Plugin ecosystem supports lifecycle management.
 
 ### Effort Legend
 
@@ -765,17 +1164,17 @@ Audit complete. All domain files correctly import shared types from `infrastruct
 
 | Domain | Key Files | Responsibility |
 |--------|-----------|----------------|
-| Project | `project.ts`, `project-config.ts` | Project selection, initialization, auto-scaffolding |
-| Scaffold | `scaffold-service.ts`, `scaffold-plan.ts`, `scaffold-schema.ts` | Project creation from JSON definitions |
+| Project | `project.ts`, `project-config.ts`, `project-deps.ts` | Project selection, initialization, auto-scaffolding, cross-project dependency detection |
+| Scaffold | `scaffold-service.ts`, `scaffold-plan.ts`, `scaffold-schema.ts`, `marketplace.ts` | Project creation from JSON definitions, local definition marketplace |
 | Make | `MakeService.ts`, `makers.ts`, `make-commands.ts` | In-project scaffolding (journey, component) |
 | Component | `component-registry.ts`, `component-plan.ts`, `component-types.ts`, `component-list.ts`, `component-edit.ts`, `storybook-service.ts` | 8-kind component system with properties, actions, variants, states (Storybook-compatible), C4 hierarchy, post-creation editing, opt-in Storybook |
 | Reports | `report-runner.ts`, `generator-registry.ts` (6 reports), `reference-registry.ts` (2 refs), `report-archive.ts` | Resilient report generation, reference documents, archive browsing |
 | Review | `project-review.ts`, `E2EService.ts` | E2E test execution, test vault management |
 | Publish | `project-publish.ts` | Gated build → test → distribute pipeline |
-| Events | `event-catalog.ts`, `event-commands.ts`, `event-payload.ts`, `event-versioning.ts`, `event-flow.ts` | Event documentation, payload editing, versioning, flow visualization |
+| Events | `event-catalog.ts`, `event-commands.ts`, `event-payload.ts`, `event-versioning.ts`, `event-flow.ts`, `event-contracts.ts` | Event documentation, payload editing, versioning, flow visualization, contract parsing/validation |
 | Build | `build.ts` | Build command dispatch |
 | Capture | `capture.ts` | Quick-capture ideas and typed notes |
-| Help | `help.ts` | 8-section man-page system |
+| Help | `help.ts` | 10-section man-page system |
 | Info | `info.ts` | Project diagnostics display |
 | DevTools | `devtools.ts`, `cli-reload.ts`, `fix-frontmatter.ts` | Development utilities |
 | Onboarding | `onboarding.ts` | Node.js version check, prerequisite validation |
@@ -836,3 +1235,11 @@ Audit complete. All domain files correctly import shared types from `infrastruct
 | D-36 | Flat-file AI tool definitions | AI tools are simple JSON documents (`<name>.json` in `.flowti/ai-tools/`); no subdirectory needed — tools are self-contained metadata |
 | D-37 | Domain reference generators (not registry) | Plugin and AI Tool references use standalone generators invoked from their own commands, not the central ReferenceRegistry; decouples vault-level domains from per-project report pipeline |
 | D-38 | Plugin command namespacing | Plugin commands registered as `plugin:<pluginName>:<cmdName>` to avoid collisions with built-in commands; collision detection at registration time |
+| D-39 | Shared Execution Engine | Plugins and AI Tools use the same `ExecutionRequest`/`ExecutionResult` types and shared `execute()` function; avoids duplicating shell execution logic |
+| D-40 | `shell.runCapture()` for structured output | New infrastructure method returns `{ stdout, stderr, exitCode }` instead of void; enables exit code propagation without breaking existing `shell.run()` callers |
+| D-41 | Health scoring in config, not code | Thresholds live in `flowti.config.json` (`health.thresholds`), not hardcoded; projects adopt scoring when ready (progressive opt-in) |
+| D-42 | Health history in `.flowti/var/` | Snapshots persisted in `health-history.json` alongside `state.json`; rolling window (30 entries) prevents unbounded growth |
+| D-43 | Contract validator as exported function | `createContractValidator(contractsDir)` returns a reusable validator function; test files import and call it — no CLI dependency in test code |
+| D-44 | TypeScript codegen from contracts | `events:codegen` generates interfaces from payload tables; output is a standalone `.ts` file with no imports — copy-pasteable into any project |
+| D-45 | Capture tags as frontmatter arrays | Tags stored as YAML arrays in frontmatter (`tags: [ux, perf]`); searchable via existing `parseFrontmatterContent()` infrastructure |
+| D-46 | Feature Maturity as architectural driver | PRD Section 14 (Feature Maturity Assessment) drives roadmap priorities; each phase targets specific maturity promotions (Shallow→Functional→Deep) |
