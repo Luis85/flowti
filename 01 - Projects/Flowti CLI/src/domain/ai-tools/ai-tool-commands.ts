@@ -15,7 +15,6 @@ import {
 	loadAiTools,
 	validateToolDefinition,
 	scaffoldAiTool,
-	generateToolReference,
 	discoverToolFiles,
 	AI_TOOLS_DIR,
 } from "./ai-tool-loader.js";
