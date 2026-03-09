@@ -218,10 +218,13 @@ function buildCommandHandlers(
 		const def: PluginCommandDef = cmdDef;
 
 		handlers[key] = () => {
-			shellRunner.run(def.run, {
+			const exitCode = shellRunner.run(def.run, {
 				cwd: projectPath,
 				label: `[${manifest.name}] ${def.description}`,
 			});
+			if (exitCode !== 0) {
+				process.exitCode = exitCode;
+			}
 		};
 	}
 

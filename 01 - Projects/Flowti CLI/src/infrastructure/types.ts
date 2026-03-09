@@ -238,6 +238,14 @@ export interface ComponentsConfig {
 	storybookDir?: string;
 }
 
+export interface HealthConfig {
+	thresholds?: {
+		coverage?: { min?: number; target?: number };
+		lint?: { maxErrors?: number; maxWarnings?: number };
+		tests?: { minPassed?: number };
+	};
+}
+
 export interface ProjectConfig {
 	name: string;
 	tools?: Partial<Record<FlowtiToolId, string>>;
@@ -247,6 +255,7 @@ export interface ProjectConfig {
 	docs?: DocsConfig;
 	publish?: PublishConfig;
 	review?: ReviewConfig;
+	health?: HealthConfig;
 }
 
 // ── CLI configuration ───────────────────────────────────────────────

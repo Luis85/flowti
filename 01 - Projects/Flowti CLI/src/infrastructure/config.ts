@@ -57,7 +57,17 @@ const resolvedVaultRoot: string = resolveVaultRoot();
 const resolvedConfig: FlowtiCliConfig = JSON.parse(
 	disk.readFileSync(paths.join(resolvedVaultRoot, ".flowti", "config.json"), "utf-8"),
 );
-const resolvedCliProject: string = paths.resolve(resolvedVaultRoot, resolvedConfig.source ?? "01 - Projects/Flowti CLI");
+const resolvedCliProject: string = resolveCliProject(resolvedVaultRoot, resolvedConfig);
+
+/**
+ * Resolve the CLI project source path.
+ * Falls back to vault root if source directory doesn't exist (standalone mode).
+ */
+function resolveCliProject(vaultRoot: string, config: FlowtiCliConfig): string {
+	const candidate = paths.resolve(vaultRoot, config.source ?? "01 - Projects/Flowti CLI");
+	if (disk.existsSync(candidate)) return candidate;
+	return vaultRoot;
+}
 
 export const VAULT_ROOT: string = resolvedVaultRoot;
 export const CLI_PROJECT: string = resolvedCliProject;

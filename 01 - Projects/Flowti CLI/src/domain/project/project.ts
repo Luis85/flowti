@@ -106,8 +106,8 @@ async function createProjectMenu(): Promise<MenuResult> {
 	templateItems.push(
 		{
 			key: "g",
-			label: "From GitHub URL",
-			action: () => cloneFromGitHub(projectPath, name),
+			label: "Load Git Project from Remote",
+			action: () => addGitSubmodule(projectPath, name),
 		},
 		{ separator: true },
 		{ key: "b", label: "Back", action: () => "main" as const },
@@ -121,43 +121,59 @@ async function createProjectMenu(): Promise<MenuResult> {
 	return result === "quit" ? "quit" : "main";
 }
 
-async function cloneFromGitHub(projectPath: string, name: string): Promise<MenuResult> {
-	const url = await input.ask("GitHub URL");
+async function addGitSubmodule(projectPath: string, name: string): Promise<MenuResult> {
+	const url = await input.ask("Git remote URL");
 
 	if (!url) {
 		log(`\n  ${DIM}Cancelled.${RESET}\n`);
 		return "main";
 	}
 
-	log(`\n  ${CYAN}▸${RESET} Cloning ${url}...\n`);
-	const code = shell.run(`git clone "${url}" "${projectPath}"`);
+	log(`\n  ${CYAN}▸${RESET} Adding submodule ${url}...\n`);
+	const code = shell.run(`git submodule add "${url}" "${projectPath}"`);
 	if (code !== 0) {
-		log(`\n  ${RED}Clone failed.${RESET} Check the URL and try again.\n`);
+		log(`\n  ${RED}Submodule add failed.${RESET} Check the URL and try again.\n`);
 		return "main";
 	}
-	log(`\n  ${GREEN}✓${RESET} Cloned into ${name}.\n`);
+	log(`\n  ${GREEN}✓${RESET} Added ${name} as submodule.\n`);
 	return "quit";
 }
 
 // ── Start Menu ──────────────────────────────────────────────────────
 
 export async function startMenu(): Promise<"selected" | "quit"> {
-	const startItems: MenuEntry[] = [
-		{ key: "1", label: "Open Project", action: openProjectMenu },
-		{ key: "2", label: "Create Project", action: createProjectMenu },
-		{ separator: true },
-		{ key: "p", label: "Plugins", action: pluginsMenu },
-		{ key: "a", label: "AI Tools", action: aiToolsMenu },
-		{ separator: true },
-		{ key: "q", label: "Quit", action: () => "quit" as const },
-	];
-
 	while (true) {
+		const projects = listProjects();
 		const current = getSelectedProject();
+		const hasProjects = projects.length > 0;
+
+		const startItems: MenuEntry[] = [];
+
+		if (hasProjects) {
+			startItems.push(
+				{ key: "1", label: "Open Project", action: openProjectMenu },
+				{ key: "2", label: "Create Project", action: createProjectMenu },
+			);
+		} else {
+			startItems.push(
+				{ key: "1", label: "Create Your First Project", action: createProjectMenu },
+			);
+		}
+
+		startItems.push(
+			{ separator: true },
+			{ key: "p", label: "Plugins", action: pluginsMenu },
+			{ key: "a", label: "AI Tools", action: aiToolsMenu },
+			{ separator: true },
+			{ key: "q", label: "Quit", action: () => "quit" as const },
+		);
+
 		const result = await runMenu("Start Menu", startItems, {
 			beforeMenu: () => {
 				if (current) {
 					log(`  ${DIM}Current project: ${CYAN}${current}${RESET}\n`);
+				} else if (!hasProjects) {
+					log(`  ${DIM}No projects yet. Create one to get started.${RESET}\n`);
 				}
 			},
 		});

@@ -121,7 +121,11 @@ describe("getProjectPath", () => {
 // ── startMenu ───────────────────────────────────────────────────────
 
 describe("startMenu", () => {
-	it("calls runMenu with Start Menu title and correct items", async () => {
+	it("calls runMenu with Start Menu title and correct items when projects exist", async () => {
+		const mockFs = createMockFs({
+			"/mock/projects/my-project/package.json": "{}",
+		});
+		setDisk(mockFs);
 		vi.mocked(getSelectedProject).mockReturnValue("my-project");
 		vi.mocked(runMenu).mockResolvedValue("quit");
 
@@ -136,6 +140,28 @@ describe("startMenu", () => {
 			]),
 			expect.objectContaining({ beforeMenu: expect.any(Function) }),
 		);
+	});
+
+	it("shows Create Your First Project when no projects exist", async () => {
+		const mockFs = createMockFs();
+		mockFs.readdirSync = () => { throw new Error("ENOENT"); };
+		setDisk(mockFs);
+		vi.mocked(getSelectedProject).mockReturnValue(null);
+		vi.mocked(runMenu).mockResolvedValue("quit");
+
+		await startMenu();
+
+		expect(runMenu).toHaveBeenCalledWith(
+			"Start Menu",
+			expect.arrayContaining([
+				expect.objectContaining({ key: "1", label: "Create Your First Project" }),
+				expect.objectContaining({ key: "q", label: "Quit" }),
+			]),
+			expect.objectContaining({ beforeMenu: expect.any(Function) }),
+		);
+		// Should NOT contain Open Project
+		const items = vi.mocked(runMenu).mock.calls[0][1] as Array<{ label?: string }>;
+		expect(items.some((i) => i.label === "Open Project")).toBe(false);
 	});
 
 	it("returns 'selected' when quitting with a selected project", async () => {
@@ -187,31 +213,23 @@ describe("startMenu", () => {
 // ── Open Project submenu ─────────────────────────────────────────────
 
 describe("startMenu – Open Project", () => {
-	it("logs message when no projects exist", async () => {
+	it("beforeMenu logs 'No projects yet' when no projects exist", async () => {
 		const mockFs = createMockFs();
 		mockFs.readdirSync = () => { throw new Error("ENOENT"); };
 		setDisk(mockFs);
 		vi.mocked(getSelectedProject).mockReturnValue(null);
 
-		// First call: startMenu runs runMenu for "Start Menu"
-		// We invoke the Load Project action, which calls loadProjectMenu
-		let callCount = 0;
-		vi.mocked(runMenu).mockImplementation(async (title, items) => {
-			callCount++;
-			if (callCount === 1) {
-				// Start Menu — invoke "Load Project"
-				const arr = items as Array<{ key?: string; action?: () => unknown }>;
-				const loadAction = arr.find((i) => i.key === "1");
-				await (loadAction?.action?.() as Promise<unknown>);
-				return "quit"; // quit after
-			}
-			return "main";
+		let capturedBeforeMenu: (() => void) | undefined;
+		vi.mocked(runMenu).mockImplementation(async (_title, _items, opts) => {
+			capturedBeforeMenu = opts?.beforeMenu;
+			return "quit";
 		});
 
 		await startMenu();
+		capturedBeforeMenu?.();
 
 		const logCalls = vi.mocked(log).mock.calls.map((c) => c[0]);
-		expect(logCalls.some((c) => typeof c === "string" && c.includes("No project folders found"))).toBe(true);
+		expect(logCalls.some((c) => typeof c === "string" && c.includes("No projects yet"))).toBe(true);
 	});
 
 	it("lists projects and selects one", async () => {
@@ -282,6 +300,9 @@ describe("startMenu – Open Project", () => {
 
 describe("startMenu – Create Project", () => {
 	it("cancels when name is empty", async () => {
+		const mockFs = createMockFs();
+		mockFs.readdirSync = () => { throw new Error("ENOENT"); };
+		setDisk(mockFs);
 		vi.mocked(input.ask).mockResolvedValue("");
 		vi.mocked(getSelectedProject).mockReturnValue(null);
 
@@ -290,7 +311,7 @@ describe("startMenu – Create Project", () => {
 			callCount++;
 			if (callCount === 1) {
 				const arr = items as Array<{ key?: string; action?: () => unknown }>;
-				await (arr.find((i) => i.key === "2")?.action?.() as Promise<unknown>);
+				await (arr.find((i) => i.key === "1")?.action?.() as Promise<unknown>);
 				return "quit";
 			}
 			return "main";
@@ -337,9 +358,9 @@ describe("startMenu – Create Project", () => {
 		vi.mocked(runMenu).mockImplementation(async (title, items) => {
 			callCount++;
 			if (callCount === 1) {
-				// Start Menu — Create Project
+				// Start Menu — Create Your First Project (key 1 when no projects)
 				const arr = items as Array<{ key?: string; action?: () => unknown }>;
-				await (arr.find((i) => i.key === "2")?.action?.() as Promise<unknown>);
+				await (arr.find((i) => i.key === "1")?.action?.() as Promise<unknown>);
 				return "quit";
 			}
 			if (callCount === 2) {
@@ -361,12 +382,12 @@ describe("startMenu – Create Project", () => {
 		expect(setSelectedProject).toHaveBeenCalledWith("new-project");
 	});
 
-	it("offers GitHub clone option", async () => {
+	it("adds git submodule from remote URL", async () => {
 		const mockFs = createMockFs();
 		setDisk(mockFs);
 		vi.mocked(input.ask)
 			.mockResolvedValueOnce("gh-project") // project name
-			.mockResolvedValueOnce("https://github.com/test/repo"); // github url
+			.mockResolvedValueOnce("https://github.com/test/repo"); // remote url
 		vi.mocked(getSelectedProject).mockReturnValue(null);
 		const sh = createMockShell();
 		setShell(sh);
@@ -376,11 +397,11 @@ describe("startMenu – Create Project", () => {
 			callCount++;
 			if (callCount === 1) {
 				const arr = items as Array<{ key?: string; action?: () => unknown }>;
-				await (arr.find((i) => i.key === "2")?.action?.() as Promise<unknown>);
+				await (arr.find((i) => i.key === "1")?.action?.() as Promise<unknown>);
 				return "quit";
 			}
 			if (callCount === 2) {
-				// Template selection — pick GitHub clone (key "g")
+				// Template selection — pick git submodule (key "g")
 				const arr = items as Array<{ key?: string; action?: () => unknown }>;
 				const result = await (arr.find((i) => i.key === "g")?.action?.() as Promise<unknown>);
 				expect(result).toBe("quit");
@@ -392,10 +413,10 @@ describe("startMenu – Create Project", () => {
 		await startMenu();
 
 		expect(sh.calls).toHaveLength(1);
-		expect(sh.calls[0].cmd).toContain("git clone");
+		expect(sh.calls[0].cmd).toContain("git submodule add");
 	});
 
-	it("handles failed GitHub clone", async () => {
+	it("handles failed git submodule add", async () => {
 		const mockFs = createMockFs();
 		setDisk(mockFs);
 		vi.mocked(input.ask)
@@ -405,7 +426,7 @@ describe("startMenu – Create Project", () => {
 		const sh = createMockShell();
 		sh.run = (cmd: string, opts?: Record<string, unknown>) => {
 			(sh.calls as Array<{ method: string; cmd: string; opts?: Record<string, unknown> }>).push({ method: "run", cmd, opts });
-			return cmd.includes("git clone") ? 1 : 0;
+			return cmd.includes("git submodule add") ? 1 : 0;
 		};
 		setShell(sh);
 
@@ -414,7 +435,7 @@ describe("startMenu – Create Project", () => {
 			callCount++;
 			if (callCount === 1) {
 				const arr = items as Array<{ key?: string; action?: () => unknown }>;
-				await (arr.find((i) => i.key === "2")?.action?.() as Promise<unknown>);
+				await (arr.find((i) => i.key === "1")?.action?.() as Promise<unknown>);
 				return "quit";
 			}
 			if (callCount === 2) {
@@ -428,10 +449,10 @@ describe("startMenu – Create Project", () => {
 		await startMenu();
 
 		const logCalls = vi.mocked(log).mock.calls.map((c) => c[0]);
-		expect(logCalls.some((c) => typeof c === "string" && c.includes("Clone failed"))).toBe(true);
+		expect(logCalls.some((c) => typeof c === "string" && c.includes("Submodule add failed"))).toBe(true);
 	});
 
-	it("cancels GitHub clone when URL is empty", async () => {
+	it("cancels git submodule add when URL is empty", async () => {
 		const mockFs = createMockFs();
 		setDisk(mockFs);
 		vi.mocked(input.ask)
@@ -444,7 +465,7 @@ describe("startMenu – Create Project", () => {
 			callCount++;
 			if (callCount === 1) {
 				const arr = items as Array<{ key?: string; action?: () => unknown }>;
-				await (arr.find((i) => i.key === "2")?.action?.() as Promise<unknown>);
+				await (arr.find((i) => i.key === "1")?.action?.() as Promise<unknown>);
 				return "quit";
 			}
 			if (callCount === 2) {

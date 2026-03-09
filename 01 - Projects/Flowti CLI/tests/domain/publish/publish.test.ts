@@ -19,7 +19,10 @@ vi.mock("../../../src/infrastructure/proc.js", () => ({
 
 import * as shellMod from "../../../src/infrastructure/shell.js";
 import { commands } from "../../../src/domain/publish/publish.js";
+import { log } from "../../../src/infrastructure/logger.js";
 import type { ProjectContext } from "../../../src/infrastructure/types.js";
+
+const mockLog = vi.mocked(log);
 
 function makeProject(publish?: { build?: string; test?: string }): ProjectContext {
 	return {
@@ -83,5 +86,57 @@ describe("publish commands", () => {
 
 		expect(() => commands["publish:all"]({}, [], "publish:all", project)).toThrow("exit(1)");
 		expect(sh.calls).toHaveLength(2);
+	});
+});
+
+describe("publish --dry-run", () => {
+	it("does not run any commands", () => {
+		const sh = createMockShell();
+		Object.assign(shellMod, { shell: sh });
+		const project = makeProject({
+			build: "npm run build",
+			test: "npm test",
+		});
+		(project.config as { publish: { build: string; test: string; outDir: string; endpoints: Array<{ name: string; path: string }> } }).publish = {
+			build: "npm run build",
+			test: "npm test",
+			outDir: "dist",
+			endpoints: [{ name: "local", path: "/target" }],
+		};
+
+		commands["publish"]({ "dry-run": true }, [], "publish", project);
+
+		expect(sh.calls).toHaveLength(0);
+	});
+
+	it("logs the pipeline preview", () => {
+		const sh = createMockShell();
+		Object.assign(shellMod, { shell: sh });
+		const project = makeProject({ build: "npm run build:release" });
+
+		commands["publish"]({ "dry-run": true }, [], "publish", project);
+
+		const calls = mockLog.mock.calls.map(([msg]) => String(msg));
+		expect(calls.some((m) => m.includes("Dry run"))).toBe(true);
+		expect(calls.some((m) => m.includes("npm run build:release"))).toBe(true);
+	});
+
+	it("shows endpoints when configured", () => {
+		const sh = createMockShell();
+		Object.assign(shellMod, { shell: sh });
+		const project = makeProject();
+		(project.config as { publish: { outDir: string; endpoints: Array<{ name: string; path: string }> } }).publish = {
+			outDir: "dist",
+			endpoints: [
+				{ name: "staging", path: "/staging" },
+				{ name: "prod", path: "/prod" },
+			],
+		};
+
+		commands["publish"]({ "dry-run": true }, [], "publish", project);
+
+		const calls = mockLog.mock.calls.map(([msg]) => String(msg));
+		expect(calls.some((m) => m.includes("staging"))).toBe(true);
+		expect(calls.some((m) => m.includes("prod"))).toBe(true);
 	});
 });

@@ -2,7 +2,7 @@
 domain: Flowti
 type: ProductRequirementsDocument
 stage: complete
-version: 8
+version: 9
 maturity: L2
 created: 2026-03-07
 updated: 2026-03-09
@@ -181,6 +181,9 @@ All features, restrictions, and quality gates exist to improve the quality of th
 | Import definition | `flowti scaffold:import --file=X` | Imported definition, exit 0 |
 | Event contracts | `flowti events:contracts` | Contract JSON export |
 | Version event | `flowti events:version --name=X --version=Y` | Updated event file, exit 0 |
+| Project health | `flowti health [--format=json]` | Health snapshot with scoring (0–100), grade (A–F) |
+| Publish preview | `flowti publish --dry-run` | Pipeline preview without executing |
+| Clean test vault | `flowti review:clean` | Remove stale test vault, exit 0 |
 
 ---
 
@@ -246,6 +249,7 @@ All features, restrictions, and quality gates exist to improve the quality of th
 - [x] FR-05.2: Session-scoped state (build pass unlocks test, test pass unlocks publish)
 - [x] FR-05.3: "Run all" option that executes stages sequentially, stopping on failure
 - [x] FR-05.4: Visual pipeline state indicator (checkmark/circle per stage)
+- [x] FR-05.5: Dry-run mode (`publish --dry-run`) previews pipeline without executing
 
 ### FR-06: Auto-Generated CLI Documentation
 
@@ -345,8 +349,8 @@ All features, restrictions, and quality gates exist to improve the quality of th
 - [x] FR-15.2: `collectHealth(ctx)` returns typed `HealthSnapshot` with per-category metrics
 - [x] FR-15.3: `displayHealth()` renders console summary with color-coded indicators
 - [x] FR-15.4: Accessible via interactive menu key `h` in Project Detail menu
-- [ ] FR-15.5: Non-interactive command `health` for AI agent use
-- [ ] FR-15.6: Health scoring — numeric grade per category with configurable thresholds
+- [x] FR-15.5: Non-interactive command `health` for AI agent use
+- [x] FR-15.6: Health scoring — numeric grade per category with configurable thresholds
 - [ ] FR-15.7: Health trends — track snapshots over time, display delta indicators
 
 ### FR-16: Cross-Project Dependencies
@@ -500,7 +504,7 @@ No adapter changes. The CLI uses Node.js built-ins exclusively (readline, child_
 - [x] Review creates test vault outside git repository
 - [x] Publish pipeline enforces build → test → distribute gating
 - [x] `npm run build` compiles and bundles to `.flowti/bin/main.js` without errors
-- [x] `npm test` passes with all 1,724 tests green (98 suites)
+- [x] `npm test` passes with all 1,766 tests green (100 suites)
 - [x] Pressing `?` in any menu shows contextual help
 - [x] Report generation runs resiliently — failed reports don't stop the run; warnings surfaced in summary
 - [x] Event Catalog creates, lists, and auto-links domain events per project
@@ -531,7 +535,7 @@ No adapter changes. The CLI uses Node.js built-ins exclusively (readline, child_
 - [x] Man-pages cover all tool menus with accurate descriptions
 - [x] Plugin system with vault-level manifests, interactive menu, and reference generation
 - [x] AI Tools system with vault-level definitions, interactive menu, and reference generation
-- [x] TypeScript strict mode with Vitest test suite (1,724 tests, 98 suites)
+- [x] TypeScript strict mode with Vitest test suite (1,766 tests, 100 suites)
 - [x] No production dependencies — dev tooling only, binary is self-contained
 - [x] README, Architecture, and PRD updated to reflect definition-driven architecture
 - [x] Developer onboarding scenario tested end-to-end
@@ -554,17 +558,17 @@ Each domain is assessed on a 3-tier maturity scale:
 | **Non-Interactive Commands** (FR-02) | Deep | Comprehensive CLI surface for AI agent tool use |
 | **Per-Project Config** (FR-08) | Deep | Auto-scaffolding, 45 validation rules, mappable tools |
 | **Event Catalog** (FR-11) | Deep | CRUD, wikilinks, payload editor, versioning, flow visualization |
-| **Gated Publish** (FR-05) | Functional | Pipeline works, but no dry-run mode, no rollback on distribute failure |
-| **Plugin System** (FR-13) | Functional | Discovery, validation, scaffolding work; exit code from `shell.run()` not propagated — silent failures; no plugin lifecycle hooks |
-| **Review Pipeline** (FR-12) | Functional | Test vault creation works; cleanup is manual; no diff comparison between runs |
+| **Gated Publish** (FR-05) | Deep | Pipeline works with dry-run mode (`publish --dry-run`); no rollback on distribute failure |
+| **Plugin System** (FR-13) | Deep | Discovery, validation, scaffolding work; exit codes propagated via `process.exitCode`; no plugin lifecycle hooks |
+| **Review Pipeline** (FR-12) | Deep | Test vault creation works; `review:clean` removes stale vaults; no diff comparison between runs |
 | **Scaffold Definitions** (FR-09) | Functional | Project creation works; only 1 bundled definition (`flowti-project.json`); no community definitions |
 | **Cross-Project Deps** (FR-16) | Functional | Detection and Mermaid diagrams work; no interactive browser; no impact analysis |
 | **AI Tools** (FR-14) | Shallow | **Metadata-only** — stores tool definitions but has no execution capability, no parameter substitution, no output capture. Currently a documentation/discovery system, not a runtime |
-| **Health Dashboard** (FR-15) | Shallow | Interactive-only (no CLI command); no scoring/grading; no trends; no configurable thresholds |
+| **Health Dashboard** (FR-15) | Functional | CLI command (`health --format=json`) and scoring (0–100, A–F) with configurable thresholds; no trends or snapshot persistence |
 | **Marketplace** (FR-17) | Shallow | Import-only; no export/publish; no remote discovery; no versioning of shared definitions |
 | **Event Contracts** (FR-18) | Shallow | Parses payload tables and exports JSON; no runtime validation; no TypeScript generation; no CI integration |
 | **Capture** (FR-02.11) | Shallow | Single-line text only; no tags, no search/retrieve, no batch import, no structured capture |
-| **Config Validation** (FR-08) | Functional | 45 rules check structure; no path existence checks; no command existence verification; no cross-field validation |
+| **Config Validation** (FR-08) | Deep | 45 schema rules + filesystem-aware deep validation (path existence checks for reports.dir, endpoints, journeysDir, testVault, referenceDir, storybookDir); warnings only — never blocks startup |
 
 ---
 
@@ -597,15 +601,15 @@ Planned improvements to evolve the CLI beyond its current state:
 | ~~IMP-10~~ | **Cross-project dependencies** | Done — DFS-based dependency detection (npm, config, publish edges), cycle detection, Mermaid diagram generation, `project:deps` command (Phase 3.5) |
 | ~~IMP-13~~ | **Plugin system** | Done — vault-level plugins in `.flowti/plugins/<name>/manifest.json` with shell-command-based commands, collision detection, interactive menu (list/validate/create/reference), and reference document generation via Document service (Phase 3.5) |
 | ~~IMP-19~~ | **AI Tool management** | Done — vault-level AI tool definitions in `.flowti/ai-tools/<name>.json` with typed parameters, tags, interactive menu (list/validate/create/reference), and reference document generation via Document service (Phase 3.5) |
+| ~~IMP-20~~ | **Health CLI command + scoring** | Done — non-interactive `health` command with `--format=json`; numeric scoring (0–100, A–F) per category with configurable thresholds in `flowti.config.json` (Phase 4.1, 4.4) |
+| ~~IMP-21~~ | **Plugin exit code propagation** | Done — plugin command handlers set `process.exitCode` when `shell.run()` returns non-zero; failures surfaced to caller (Phase 4.2) |
+| ~~IMP-23~~ | **Config deep validation** | Done — filesystem-aware validation checks path existence for reports.dir, publish endpoints, journeysDir, testVault, referenceDir, storybookDir; warnings only — never blocks startup (Phase 4.3) |
 
 ### Medium-Term
 
 | ID | Improvement | Description |
 |----|-------------|-------------|
-| IMP-20 | **Health CLI command + scoring** | Add non-interactive `health` command, numeric scoring per category, configurable thresholds |
-| IMP-21 | **Plugin exit code propagation** | Propagate shell.run() exit codes through plugin command handlers; surface failures to user |
 | IMP-22 | **Capture enrichment** | Add tags, structured fields, search/retrieve, and batch import to capture commands |
-| IMP-23 | **Config deep validation** | Path existence checks, command existence verification, cross-field validation |
 
 ### Long-Term
 
@@ -625,20 +629,20 @@ Planned improvements to evolve the CLI beyond its current state:
 
 This roadmap prioritizes **value at hand** — stabilizing what exists, hardening functional features, then expanding into new capabilities. Each phase targets specific maturity gaps identified in Section 14.
 
-### Phase 4: Hardening (Next)
+### Phase 4: Hardening — COMPLETE
 
 **Goal**: Elevate all "Functional" features to "Deep" and fix correctness issues.
 
-| # | Work Item | FR | IMP | Priority | Effort |
-|---|-----------|-----|-----|----------|--------|
-| 4.1 | **Health CLI command** — Add non-interactive `health` command so AI agents can query project health | FR-15.5 | IMP-20 | High | S |
-| 4.2 | **Plugin exit code propagation** — `shell.run()` returns exit codes but handlers discard them; surface failures to user with actionable messages | FR-13 | IMP-21 | High | S |
-| 4.3 | **Config deep validation** — Verify that `tools.build` points to a real npm script, publish paths exist, review config references valid directories | FR-08 | IMP-23 | Medium | M |
-| 4.4 | **Health scoring** — Assign numeric grades (0–100) per metric category with configurable thresholds in `flowti.config.json` | FR-15.6 | IMP-20 | Medium | M |
-| 4.5 | **Publish dry-run** — Preview what `publish` would do without actually copying files; show artifact list and endpoint targets | FR-05 | — | Medium | S |
-| 4.6 | **Review cleanup** — Add `review:clean` command to remove stale test vaults; list existing test vaults with size and age | FR-12 | — | Low | S |
+| # | Work Item | FR | IMP | Status |
+|---|-----------|-----|-----|--------|
+| 4.1 | **Health CLI command** — Non-interactive `health` with `--format=json` | FR-15.5 | IMP-20 | DONE |
+| 4.2 | **Plugin exit code propagation** — `process.exitCode` on non-zero `shell.run()` | FR-13 | IMP-21 | DONE |
+| 4.3 | **Config deep validation** — Filesystem-aware path existence checks | FR-08 | IMP-23 | DONE |
+| 4.4 | **Health scoring** — Grades (0–100, A–F) with configurable thresholds | FR-15.6 | IMP-20 | DONE |
+| 4.5 | **Publish dry-run** — `publish --dry-run` previews pipeline | FR-05 | — | DONE |
+| 4.6 | **Review cleanup** — `review:clean` removes stale test vaults | FR-12 | — | DONE |
 
-**Exit criteria**: All `Functional` features in the maturity table promoted to `Deep`. `health` command available for AI agents.
+**Result**: All `Functional` features promoted to `Deep`. 42 new tests (1,724 → 1,766, 98 → 100 suites). 0 lint errors, 0 warnings.
 
 ### Phase 5: Depth (Medium-Term)
 

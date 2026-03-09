@@ -13,7 +13,9 @@ import { RESET, BOLD, DIM, GREEN, RED, YELLOW } from "../../infrastructure/ui.js
 import { countFiles } from "../../infrastructure/fs.js";
 import { parseFrontmatterContent } from "../../infrastructure/frontmatter.js";
 import { log } from "../../infrastructure/logger.js";
-import type { ProjectContext } from "../../infrastructure/types.js";
+import { resolveFormat, printOutput } from "../../infrastructure/output.js";
+import type { ProjectContext, CommandHandler } from "../../infrastructure/types.js";
+import { scoreHealth, type HealthThresholds, DEFAULT_THRESHOLDS } from "./health-scoring.js";
 
 // ── Data types ───────────────────────────────────────────────────────
 
@@ -217,3 +219,43 @@ export function displayHealth(h: HealthSnapshot): void {
 		log(`  ${DIM}No report data found. Run reports first to populate the dashboard.${RESET}\n`);
 	}
 }
+
+// ── Non-interactive command ─────────────────────────────────────────
+
+function mergeDefaults<T extends Record<string, unknown>>(partial: Partial<T> | undefined, defaults: T): T {
+	if (!partial) return defaults;
+	const result = { ...defaults };
+	for (const key of Object.keys(defaults) as (keyof T)[]) {
+		if (partial[key] !== undefined) result[key] = partial[key] as T[keyof T];
+	}
+	return result;
+}
+
+function resolveThresholds(project: ProjectContext): HealthThresholds {
+	const cfg = project.config.health?.thresholds;
+	if (!cfg) return DEFAULT_THRESHOLDS;
+	return {
+		coverage: mergeDefaults(cfg.coverage, DEFAULT_THRESHOLDS.coverage),
+		lint: mergeDefaults(cfg.lint, DEFAULT_THRESHOLDS.lint),
+		tests: mergeDefaults(cfg.tests, DEFAULT_THRESHOLDS.tests),
+	};
+}
+
+export const commands: Record<string, CommandHandler> = {
+	health: (flags, _rawArgs, _command, project) => {
+		if (!project) {
+			log(`\n  ${RED}No project selected.${RESET}`);
+			log(`  ${DIM}Select a project first: flowti project${RESET}`);
+			log(`  ${DIM}Or specify one:          flowti health --project=<name>${RESET}\n`);
+			return;
+		}
+		const snapshot = collectHealth(project);
+		const thresholds = resolveThresholds(project);
+		const score = scoreHealth(snapshot, thresholds);
+		const format = resolveFormat(flags);
+		printOutput(format, { ...snapshot, score }, (data) => {
+			displayHealth(data as HealthSnapshot);
+			log(`  ${BOLD}Score:${RESET} ${score.overall}/100 (${score.grade})\n`);
+		});
+	},
+};

@@ -8,11 +8,30 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
 }));
 
+vi.mock("../../../src/infrastructure/filesystem.js", () => ({
+	disk: {
+		existsSync: vi.fn(() => false),
+		rmSync: vi.fn(),
+	},
+}));
+
+vi.mock("../../../src/infrastructure/config.js", () => ({
+	VAULT_ROOT: "/vault",
+}));
+
+vi.mock("../../../src/infrastructure/test-vault.js", () => ({
+	resolveTestVaultRoot: vi.fn((name: string, root: string) => `${root}/../${name}`),
+}));
+
 import { commands } from "../../../src/domain/review/review.js";
 import { shell } from "../../../src/infrastructure/shell.js";
+import { disk } from "../../../src/infrastructure/filesystem.js";
+import { log } from "../../../src/infrastructure/logger.js";
 import type { ProjectContext } from "../../../src/infrastructure/types.js";
 
 const mockShell = vi.mocked(shell);
+const mockDisk = vi.mocked(disk);
+const mockLog = vi.mocked(log);
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -87,5 +106,34 @@ describe("review:all command", () => {
 	it("does nothing without project context", () => {
 		commands["review:all"]({}, [], "review:all", undefined);
 		expect(mockShell.run).not.toHaveBeenCalled();
+	});
+});
+
+describe("review:clean command", () => {
+	it("removes test vault when it exists", () => {
+		mockDisk.existsSync.mockReturnValue(true);
+		const p = makeProject({ config: { name: "test-project", review: { testVault: "my-e2e-vault" } } });
+
+		commands["review:clean"]({}, [], "review:clean", p);
+
+		expect(mockDisk.rmSync).toHaveBeenCalledTimes(1);
+		const calls = mockLog.mock.calls.map(([msg]) => String(msg));
+		expect(calls.some((m) => m.includes("Removed"))).toBe(true);
+	});
+
+	it("reports when no test vault found", () => {
+		mockDisk.existsSync.mockReturnValue(false);
+		const p = makeProject({ config: { name: "test-project" } });
+
+		commands["review:clean"]({}, [], "review:clean", p);
+
+		expect(mockDisk.rmSync).not.toHaveBeenCalled();
+		const calls = mockLog.mock.calls.map(([msg]) => String(msg));
+		expect(calls.some((m) => m.includes("not found") || m.includes("does not exist"))).toBe(true);
+	});
+
+	it("does nothing without project context", () => {
+		commands["review:clean"]({}, [], "review:clean", undefined);
+		expect(mockDisk.rmSync).not.toHaveBeenCalled();
 	});
 });

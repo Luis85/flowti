@@ -14,5 +14,6 @@ export const paths = {
 	basename: path.basename,
 	relative: path.relative,
 	extname: path.extname,
+	isAbsolute: path.isAbsolute,
 	sep: path.sep,
 };

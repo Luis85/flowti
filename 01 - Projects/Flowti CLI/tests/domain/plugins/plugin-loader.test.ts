@@ -228,6 +228,34 @@ describe("loadPluginFile", () => {
 		expect(sh.calls[0].cmd).toBe("echo hello");
 		expect(sh.calls[0].opts?.cwd).toBe("/vault");
 	});
+
+	it("propagates non-zero exit code from shell.run", () => {
+		const fs = createMockFs({ "/vault/.flowti/plugins/test-plugin/manifest.json": validJson });
+		const sh = createMockShell({ exitCodes: { "echo hello": 1 } });
+		const result = loadPluginFile("/vault/.flowti/plugins/test-plugin/manifest.json", fs, sh, "/vault");
+
+		// Save original and capture process.exitCode
+		const origExitCode = process.exitCode;
+		result.commands["plugin:test-plugin:greet"]({}, [], "plugin:test-plugin:greet");
+
+		expect(process.exitCode).toBe(1);
+
+		// Restore
+		process.exitCode = origExitCode;
+	});
+
+	it("does not set exit code on success", () => {
+		const fs = createMockFs({ "/vault/.flowti/plugins/test-plugin/manifest.json": validJson });
+		const sh = createMockShell(); // exit code 0 by default
+		const result = loadPluginFile("/vault/.flowti/plugins/test-plugin/manifest.json", fs, sh, "/vault");
+
+		const origExitCode = process.exitCode;
+		process.exitCode = undefined;
+		result.commands["plugin:test-plugin:greet"]({}, [], "plugin:test-plugin:greet");
+
+		expect(process.exitCode).toBeUndefined();
+		process.exitCode = origExitCode;
+	});
 });
 
 // ── loadPlugins ─────────────────────────────────────────────────────

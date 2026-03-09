@@ -2,7 +2,7 @@
 type: Architecture
 domain: CLI
 title: Flowti CLI — Architecture Document
-version: 17
+version: 18
 created: 2026-03-07
 updated: 2026-03-09
 status: living-document
@@ -18,7 +18,7 @@ status: living-document
 
 The Flowti CLI is a **definition-driven project orchestrator** that ships as a self-contained Node.js binary. It manages multi-project development workflows — scaffolding, building, testing, reviewing, publishing, and reporting — from a single interactive menu or via non-interactive commands for AI agent tool use.
 
-**Scale**: 171 source files, 108 test files (1,724 tests, 98 suites), 18 domain modules, 21 infrastructure modules. Zero production dependencies — runs on Node.js built-ins only.
+**Scale**: 171 source files, 110 test files (1,766 tests, 100 suites), 18 domain modules, 21 infrastructure modules. Zero production dependencies — runs on Node.js built-ins only.
 
 ---
 
@@ -644,7 +644,7 @@ The target architecture evolves the CLI from a **tool orchestrator** into a **pr
 
 #### 4.18.2 Execution Engine Architecture
 
-The Execution Engine unifies plugin and AI tool runtime into a shared subsystem. Currently, plugins run via `shell.run()` but discard exit codes. AI Tools are metadata-only.
+The Execution Engine unifies plugin and AI tool runtime into a shared subsystem. Plugins now propagate exit codes via `process.exitCode` (Phase 4.2). AI Tools are metadata-only.
 
 **Target design:**
 
@@ -672,8 +672,8 @@ The Execution Engine unifies plugin and AI tool runtime into a shared subsystem.
 │    4. Route errors to CliError (user) or log (internal)  │
 │                                                         │
 │  Plugin commands:                                       │
-│    Before: shell.run(cmd)  → void (exit code lost)      │
-│    After:  execute(req)    → result (exit code surfaced) │
+│    Done:   shell.run(cmd)  → process.exitCode (Phase 4) │
+│    Target: execute(req)    → result (full capture)       │
 │                                                         │
 │  AI Tool execution (new):                               │
 │    ai:run --tool=X --param1=val1                         │
@@ -843,7 +843,9 @@ flowti <command> [--project=<name>] [--format=json] [flags]
 help [section]                    info
 build                             test
 publish                           publish:all
+publish --dry-run                 review:clean
 reports                           report:{id}
+health [--format=json]            edit:component --name=X
 make:component --name=X           make:layout --name=X
 make:page --name=X                make:ui-component --name=X
 make:system --name=X              make:container --name=X
@@ -858,17 +860,14 @@ plugin:list                       plugin:validate
 plugin:new                        plugin:reference
 ai:list                           ai:validate
 ai:new                            ai:reference
-docs                              edit:component --name=X
+docs
 
 ── Target (new commands) ────────────────────────────────
-health [--format=json]            ← FR-15.5
 ai:run --tool=X [--params]        ← FR-14 / IMP-24
 events:codegen --out=X            ← FR-18.7
 capture:search --tag=X            ← IMP-22
 capture:list [--recent=7d]        ← IMP-22
 capture:import --file=X           ← IMP-22
-review:clean                      ← Phase 4.6
-publish --dry-run                 ← Phase 4.5
 scaffold:export --file=X          ← FR-17.6
 ci:generate                       ← IMP-11
 update                            ← IMP-12
@@ -995,7 +994,7 @@ Aggregate project metrics and integrate with the broader development ecosystem.
 | 3.3 | **Storybook v10 integration** (IMP-17) | DONE | High | New: `storybook-service.ts` (install, detect, dev/build), Modify: `component-list.ts` (dynamic disabled menu gating), `config-schema.ts` (components validation), `types.ts` (ComponentsConfig), component data model expanded with `actions`, `variants`, `states`, `icon`, `heroImage`, `images[]`, `domain` for full Storybook v10 compatibility, self-contained render function pattern in stories, stories excluded from tsconfig/typedoc, TypeDoc TS error parsing, npm scripts submenu persistence, 37 new tests |
 | 3.4 | **Definition marketplace** (IMP-09) | L | Medium | New: `domain/scaffold/marketplace.ts` |
 
-**Milestone**: Projects have a health score. Review enforces quality gates. Storybook v10 is a first-class, opt-in component library tool managed from the Components menu with dynamic state-aware gating. Component data model expanded with icon, heroImage, images, domain for rich documentation and Storybook parameters. TypeDoc error parsing captures both native and TS compilation errors. 1,724 tests, 98 suites. 0 lint errors, 0 warnings.
+**Milestone**: Projects have a health score. Review enforces quality gates. Storybook v10 is a first-class, opt-in component library tool managed from the Components menu with dynamic state-aware gating. Component data model expanded with icon, heroImage, images, domain for rich documentation and Storybook parameters. TypeDoc error parsing captures both native and TS compilation errors. 1,724 tests, 98 suites (grew to 1,766 tests, 100 suites after Phase 4). 0 lint errors, 0 warnings.
 
 ### Phase 3.5: Plugin System & AI Tools — COMPLETE
 
@@ -1011,22 +1010,20 @@ Vault-level extensibility via plugins and AI tool definitions. Both managed from
 
 **Milestone**: CLI extensibility via vault-level plugins and AI tools. Start Menu has 5 entries (Open, Create, Plugins, AI Tools, Quit). Plugin commands auto-registered with collision detection. 1,724 tests, 98 suites. 0 lint errors, 0 warnings.
 
-### Phase 4: Hardening (Next)
+### Phase 4: Hardening — COMPLETE
 
-Elevate all "Functional" features to "Deep" maturity. Fix correctness issues. Make all features accessible to AI agents via non-interactive commands. See PRD v8 Section 16, Phase 4.
+All items delivered. 42 new tests (1,724 → 1,766, 98 → 100 suites). Health scoring, plugin exit codes, config deep validation, publish dry-run, review cleanup. 0 new lint warnings.
 
-| # | Task | Effort | Impact | FR / IMP | New / Modify |
-|---|------|--------|--------|----------|--------------|
-| 4.1 | **Health CLI command** — non-interactive `health` with `--format=json` | S | High | FR-15.5, IMP-20 | Modify: `health/health.ts` (add command handler), `main.ts` (register) |
-| 4.2 | **Plugin exit code propagation** — surface `shell.run()` exit codes | S | High | FR-13, IMP-21 | Modify: `plugins/plugin-commands.ts`, New: `infrastructure/shell.ts` (`runCapture`) |
-| 4.3 | **Config deep validation** — path/command existence checks | M | Medium | FR-08, IMP-23 | Modify: `project/config-schema.ts` (add validators), tests |
-| 4.4 | **Health scoring** — grades (0–100) with configurable thresholds | M | Medium | FR-15.6, IMP-20 | New: `health/health-scoring.ts`, Modify: `types.ts` (HealthScore), config-schema (health section) |
-| 4.5 | **Publish dry-run** — `publish --dry-run` previews without copying | S | Medium | FR-05 | Modify: `publish/project-publish.ts` (dry-run flag) |
-| 4.6 | **Review cleanup** — `review:clean` removes stale test vaults | S | Low | FR-12 | Modify: `review/project-review.ts` (cleanup command) |
+| # | Task | Status | Files |
+|---|------|--------|-------|
+| 4.1 | **Health CLI command** (FR-15.5, IMP-20) | DONE | Modify: `health/health.ts` (commands handler with `--format=json`), `main.ts` (register health domain), 4 new tests |
+| 4.2 | **Plugin exit code propagation** (FR-13, IMP-21) | DONE | Modify: `plugins/plugin-loader.ts` (`process.exitCode` on non-zero), 2 new tests |
+| 4.3 | **Config deep validation** (FR-08, IMP-23) | DONE | New: `project/config-deep-validation.ts` (filesystem-aware validation, warnings only), Modify: `project-config.ts` (wire into initializeProject), `paths.ts` (isAbsolute), `config-schema.ts` (health key), 12 new tests |
+| 4.4 | **Health scoring** (FR-15.6, IMP-20) | DONE | New: `health/health-scoring.ts` (scoreHealth, letterGrade, DEFAULT_THRESHOLDS), Modify: `types.ts` (HealthConfig), 18 new tests |
+| 4.5 | **Publish dry-run** (FR-05) | DONE | Modify: `publish/publish.ts` (dry-run flag, displayDryRun, resolvePublishConfig), 3 new tests |
+| 4.6 | **Review cleanup** (FR-12) | DONE | Modify: `review/review.ts` (review:clean command, resolveTestVault), 3 new tests |
 
-**Milestone**: All `Functional` features promoted to `Deep`. `flowti health` available for AI agents. Plugins report failures. Config validation catches real errors.
-
-**Exit criteria**: PRD Feature Maturity Assessment shows no `Functional` entries.
+**Milestone**: All `Functional` features promoted to `Deep`. `flowti health` available for AI agents. Plugins report failures via `process.exitCode`. Config validation catches filesystem-level issues. 1,766 tests, 100 suites. 0 lint errors, 0 warnings.
 
 ### Phase 5: Depth (Medium-Term)
 
@@ -1112,7 +1109,7 @@ Consolidated 7 duplicate parsers into `infrastructure/frontmatter.ts`. See secti
 
 ### ~~6.10 Coverage Gap~~ — ACCEPTABLE
 
-Pure functions are well-covered (1,724 tests). Remaining low-coverage files are: (1) report generators — I/O-heavy, tested via output shape; (2) interactive flows — thin wrappers over tested `menu.ts` infrastructure; (3) E2E orchestration — covered by integration tests. Adding unit tests for these yields diminishing returns. Coverage will grow organically as new features add tests.
+Pure functions are well-covered (1,766 tests). Remaining low-coverage files are: (1) report generators — I/O-heavy, tested via output shape; (2) interactive flows — thin wrappers over tested `menu.ts` infrastructure; (3) E2E orchestration — covered by integration tests. Adding unit tests for these yields diminishing returns. Coverage will grow organically as new features add tests.
 
 ### ~~6.11 Complexity Hotspots~~ — ACCEPTABLE
 
@@ -1164,7 +1161,7 @@ Audit complete. All domain files correctly import shared types from `infrastruct
 
 | Domain | Key Files | Responsibility |
 |--------|-----------|----------------|
-| Project | `project.ts`, `project-config.ts`, `project-deps.ts` | Project selection, initialization, auto-scaffolding, cross-project dependency detection |
+| Project | `project.ts`, `project-config.ts`, `project-deps.ts`, `config-deep-validation.ts` | Project selection, initialization, auto-scaffolding, cross-project dependency detection, filesystem-aware config validation |
 | Scaffold | `scaffold-service.ts`, `scaffold-plan.ts`, `scaffold-schema.ts`, `marketplace.ts` | Project creation from JSON definitions, local definition marketplace |
 | Make | `MakeService.ts`, `makers.ts`, `make-commands.ts` | In-project scaffolding (journey, component) |
 | Component | `component-registry.ts`, `component-plan.ts`, `component-types.ts`, `component-list.ts`, `component-edit.ts`, `storybook-service.ts` | 8-kind component system with properties, actions, variants, states (Storybook-compatible), C4 hierarchy, post-creation editing, opt-in Storybook |
@@ -1181,14 +1178,14 @@ Audit complete. All domain files correctly import shared types from `infrastruct
 | Knowledgebase | `knowledgebase.ts`, `vault-service.ts` | Obsidian vault interaction (opt-in) |
 | Plugins | `plugin-loader.ts`, `plugin-commands.ts`, `plugin-reference.ts`, `plugin-types.ts` | Vault-level plugin discovery, validation, scaffolding, reference generation |
 | AI Tools | `ai-tool-loader.ts`, `ai-tool-commands.ts`, `ai-tool-reference.ts`, `ai-tool-types.ts` | Vault-level AI tool definition management, validation, scaffolding, reference generation |
-| Health | `health.ts` | Project health dashboard — aggregates test/coverage/lint/git metrics |
+| Health | `health.ts`, `health-scoring.ts` | Project health dashboard — aggregates test/coverage/lint/git metrics, scoring (0–100) with configurable thresholds, `health` CLI command with `--format=json` |
 
 ### Configuration
 
 | File | Scope | Purpose |
 |------|-------|---------|
 | `.flowti/config.json` | Vault | CLI source path, projects folder, subsystems, capture dirs |
-| `<project>/configs/flowti.config.json` | Per-project | Tools, make, reports, docs, publish, review |
+| `<project>/configs/flowti.config.json` | Per-project | Tools, make, reports, docs, publish, review, health |
 | `<project>/package.json` | Per-project | npm scripts, dependencies |
 
 ---
@@ -1236,7 +1233,7 @@ Audit complete. All domain files correctly import shared types from `infrastruct
 | D-37 | Domain reference generators (not registry) | Plugin and AI Tool references use standalone generators invoked from their own commands, not the central ReferenceRegistry; decouples vault-level domains from per-project report pipeline |
 | D-38 | Plugin command namespacing | Plugin commands registered as `plugin:<pluginName>:<cmdName>` to avoid collisions with built-in commands; collision detection at registration time |
 | D-39 | Shared Execution Engine | Plugins and AI Tools use the same `ExecutionRequest`/`ExecutionResult` types and shared `execute()` function; avoids duplicating shell execution logic |
-| D-40 | `shell.runCapture()` for structured output | New infrastructure method returns `{ stdout, stderr, exitCode }` instead of void; enables exit code propagation without breaking existing `shell.run()` callers |
+| D-40 | Plugin exit code propagation via `process.exitCode` | Plugin command handlers set `process.exitCode = exitCode` when `shell.run()` returns non-zero; simpler than adding `shell.runCapture()` — existing `shell.run()` already returns exit codes, handlers just weren't surfacing them. `shell.runCapture()` deferred to IMP-24 (AI Tool execution) where stdout/stderr capture is actually needed |
 | D-41 | Health scoring in config, not code | Thresholds live in `flowti.config.json` (`health.thresholds`), not hardcoded; projects adopt scoring when ready (progressive opt-in) |
 | D-42 | Health history in `.flowti/var/` | Snapshots persisted in `health-history.json` alongside `state.json`; rolling window (30 entries) prevents unbounded growth |
 | D-43 | Contract validator as exported function | `createContractValidator(contractsDir)` returns a reusable validator function; test files import and call it — no CLI dependency in test code |

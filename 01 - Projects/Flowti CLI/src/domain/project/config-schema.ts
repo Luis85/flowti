@@ -15,7 +15,7 @@ export interface ConfigValidationResult {
 const VALID_TOOL_IDS: FlowtiToolId[] = ["build", "reports", "devtools"];
 const VALID_MAKE_TEMPLATES: MakeTemplateId[] = ["journey", "component"];
 const KNOWN_TOP_LEVEL_KEYS = new Set([
-	"name", "tools", "make", "components", "reports", "docs", "publish", "review",
+	"name", "tools", "make", "components", "reports", "docs", "publish", "review", "health",
 ]);
 
 /** Validate a raw object as a ProjectConfig. */

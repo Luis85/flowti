@@ -36,7 +36,20 @@ vi.mock("../../../src/infrastructure/frontmatter.js", () => ({
 	parseFrontmatterContent: vi.fn(() => null),
 }));
 
-import { collectHealth, displayHealth, type HealthSnapshot } from "../../../src/domain/health/health.js";
+// Use a ref that gets populated after imports
+const logRef = { fn: null as null | ((...args: unknown[]) => void) };
+vi.mock("../../../src/infrastructure/output.js", () => ({
+	resolveFormat: vi.fn((flags: Record<string, string | boolean>) => flags.format === "json" ? "json" : "text"),
+	printOutput: vi.fn((format: string, data: unknown, renderer: (d: unknown) => void) => {
+		if (format === "json") {
+			logRef.fn?.(JSON.stringify(data));
+		} else {
+			renderer(data);
+		}
+	}),
+}));
+
+import { collectHealth, displayHealth, commands, type HealthSnapshot } from "../../../src/domain/health/health.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
 import { shell } from "../../../src/infrastructure/shell.js";
 import { countFiles } from "../../../src/infrastructure/fs.js";
@@ -49,6 +62,7 @@ const mockShell = vi.mocked(shell);
 const mockCountFiles = vi.mocked(countFiles);
 const mockParseFM = vi.mocked(parseFrontmatterContent);
 const mockLog = vi.mocked(log);
+logRef.fn = mockLog;
 
 function makeCtx(overrides: Partial<ProjectContext> = {}): ProjectContext {
 	return {
@@ -247,5 +261,61 @@ describe("displayHealth", () => {
 		const calls = mockLog.mock.calls.map(([msg]) => String(msg));
 		expect(calls.some((m) => m.includes("Coverage"))).toBe(false);
 		expect(calls.some((m) => m.includes("Build"))).toBe(false);
+	});
+});
+
+describe("commands.health", () => {
+	it("displays health in text format by default", () => {
+		mockDisk.existsSync.mockReturnValue(false);
+		mockShell.runSilent.mockReturnValue(null);
+
+		commands.health({}, [], "health", makeCtx());
+
+		const calls = mockLog.mock.calls.map(([msg]) => String(msg));
+		expect(calls.some((m) => m.includes("Project Health"))).toBe(true);
+	});
+
+	it("outputs JSON when --format=json is specified", () => {
+		mockDisk.existsSync.mockReturnValue(false);
+		mockShell.runSilent.mockReturnValue(null);
+
+		commands.health({ format: "json" }, [], "health", makeCtx());
+
+		const calls = mockLog.mock.calls.map(([msg]) => String(msg));
+		const jsonCall = calls.find((m) => m.startsWith("{"));
+		expect(jsonCall).toBeDefined();
+		const parsed = JSON.parse(jsonCall!);
+		expect(parsed.name).toBe("test-project");
+	});
+
+	it("requires a project context", () => {
+		commands.health({}, [], "health", undefined);
+
+		const calls = mockLog.mock.calls.map(([msg]) => String(msg));
+		expect(calls.some((m) => m.includes("No project selected"))).toBe(true);
+	});
+
+	it("includes all snapshot fields in JSON output", () => {
+		mockDisk.existsSync.mockImplementation((p) => String(p).includes("src"));
+		mockCountFiles.mockReturnValue(10);
+		mockShell.runSilent.mockImplementation((cmd: string) => {
+			if (cmd.includes("rev-parse")) return "main";
+			if (cmd.includes("status")) return "";
+			return null;
+		});
+
+		commands.health({ format: "json" }, [], "health", makeCtx());
+
+		const calls = mockLog.mock.calls.map(([msg]) => String(msg));
+		const jsonCall = calls.find((m) => m.startsWith("{"));
+		const parsed = JSON.parse(jsonCall!);
+		expect(parsed).toHaveProperty("name");
+		expect(parsed).toHaveProperty("source");
+		expect(parsed).toHaveProperty("tests");
+		expect(parsed).toHaveProperty("coverage");
+		expect(parsed).toHaveProperty("build");
+		expect(parsed).toHaveProperty("lint");
+		expect(parsed).toHaveProperty("git");
+		expect(parsed).toHaveProperty("components");
 	});
 });

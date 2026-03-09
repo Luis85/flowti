@@ -13,6 +13,7 @@ import { log } from "../../infrastructure/logger.js";
 import { YELLOW, DIM, RESET, RED } from "../../infrastructure/ui.js";
 import type { ProjectConfig, ProjectContext, FlowtiToolId } from "../../infrastructure/types.js";
 import { validateProjectConfig } from "./config-schema.js";
+import { validateConfigDeep } from "./config-deep-validation.js";
 
 const CONFIGS_DIR = "configs";
 const FLOWTI_CONFIG = "flowti.config.json";
@@ -112,12 +113,19 @@ export function initializeProject(name: string): ProjectContext {
 		config = { name };
 	}
 
+	// Deep validation: check configured paths exist on disk
+	const deep = validateConfigDeep(config, projectPath, disk);
+	if (deep.warnings.length > 0) {
+		for (const w of deep.warnings) log(`    ${DIM}• ${w}${RESET}`);
+	}
+	const allWarnings = [...warnings, ...deep.warnings];
+
 	return {
 		path: projectPath,
 		pkg,
 		config,
 		scripts: pkg?.scripts ?? {},
-		configWarnings: warnings.length > 0 ? warnings : undefined,
+		configWarnings: allWarnings.length > 0 ? allWarnings : undefined,
 	};
 }
 

@@ -348,6 +348,22 @@ describe("Phase 5: Project creation flow", () => {
 		expect(projects).toEqual([]);
 	});
 
+	it("shows 'Create Your First Project' when no projects exist", async () => {
+		let capturedItems: Array<{ key?: string; label?: string }> = [];
+		vi.mocked(runMenu).mockImplementation(async (_title, items) => {
+			capturedItems = items as Array<{ key?: string; label?: string }>;
+			return "quit";
+		});
+
+		await startMenu();
+
+		// No "Open Project" option
+		expect(capturedItems.find((i) => i.label?.includes("Open Project"))).toBeUndefined();
+		// "Create Your First Project" at key 1
+		const createItem = capturedItems.find((i) => i.key === "1");
+		expect(createItem?.label).toContain("Create Your First Project");
+	});
+
 	it("scaffolds a project via the Create Project menu", async () => {
 		vi.mocked(input.ask).mockResolvedValue("my-first-app");
 
@@ -355,9 +371,9 @@ describe("Phase 5: Project creation flow", () => {
 		vi.mocked(runMenu).mockImplementation(async (_title, items) => {
 			callCount++;
 			if (callCount === 1) {
-				// Start Menu — invoke "Create Project" (key 2)
+				// Start Menu — no projects, so "Create" is at key 1
 				const arr = items as Array<{ key?: string; action?: () => unknown }>;
-				await (arr.find((i) => i.key === "2")?.action?.() as Promise<unknown>);
+				await (arr.find((i) => i.key === "1")?.action?.() as Promise<unknown>);
 				return "quit";
 			}
 			if (callCount === 2) {
@@ -383,7 +399,7 @@ describe("Phase 5: Project creation flow", () => {
 		expect(setSelectedProject).toHaveBeenCalledWith("my-first-app");
 	});
 
-	it("clones from GitHub URL", async () => {
+	it("adds git submodule from remote URL", async () => {
 		const sh = createMockShell();
 		setShell(sh);
 		vi.mocked(input.ask)
@@ -394,12 +410,13 @@ describe("Phase 5: Project creation flow", () => {
 		vi.mocked(runMenu).mockImplementation(async (_title, items) => {
 			callCount++;
 			if (callCount === 1) {
+				// No projects — "Create" is at key 1
 				const arr = items as Array<{ key?: string; action?: () => unknown }>;
-				await (arr.find((i) => i.key === "2")?.action?.() as Promise<unknown>);
+				await (arr.find((i) => i.key === "1")?.action?.() as Promise<unknown>);
 				return "quit";
 			}
 			if (callCount === 2) {
-				// Template selection — pick "From GitHub URL" (key g)
+				// Template selection — pick "Load Git Project from Remote" (key g)
 				const arr = items as Array<{ key?: string; action?: () => unknown }>;
 				await (arr.find((i) => i.key === "g")?.action?.() as Promise<unknown>);
 				return "quit";
@@ -410,7 +427,7 @@ describe("Phase 5: Project creation flow", () => {
 		await startMenu();
 
 		expect(sh.calls).toHaveLength(1);
-		expect(sh.calls[0].cmd).toContain("git clone");
+		expect(sh.calls[0].cmd).toContain("git submodule add");
 		expect(sh.calls[0].cmd).toContain("https://github.com/test/repo");
 		expect(setSelectedProject).toHaveBeenCalledWith("cloned-project");
 	});
@@ -461,14 +478,14 @@ describe("Phase 6: Full lifecycle", () => {
 		// 3. No projects yet
 		expect(listProjects()).toEqual([]);
 
-		// 4. Create a project via the Start Menu
+		// 4. Create a project via the Start Menu (no projects — key 1 is Create)
 		vi.mocked(input.ask).mockResolvedValue("hello-world");
 		let callCount = 0;
 		vi.mocked(runMenu).mockImplementation(async (_title, items) => {
 			callCount++;
 			if (callCount === 1) {
 				const arr = items as Array<{ key?: string; action?: () => unknown }>;
-				await (arr.find((i) => i.key === "2")?.action?.() as Promise<unknown>);
+				await (arr.find((i) => i.key === "1")?.action?.() as Promise<unknown>);
 				return "quit";
 			}
 			if (callCount === 2) {

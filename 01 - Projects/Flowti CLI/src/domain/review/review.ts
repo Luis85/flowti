@@ -6,10 +6,24 @@
  */
 
 import { shell } from "../../infrastructure/shell.js";
+import { disk } from "../../infrastructure/filesystem.js";
+import { paths } from "../../infrastructure/paths.js";
+import { VAULT_ROOT } from "../../infrastructure/config.js";
+import { RESET, DIM, GREEN, YELLOW } from "../../infrastructure/ui.js";
 import { log } from "../../infrastructure/logger.js";
+import { resolveTestVaultRoot } from "../../infrastructure/test-vault.js";
 import type { ProjectContext } from "../../infrastructure/types.js";
 
 // ── Non-interactive commands ────────────────────────────────────────
+
+function resolveTestVault(p: ProjectContext): string {
+	const config = p.config.review ?? {};
+	if (config.testVault) {
+		return resolveTestVaultRoot(config.testVault, VAULT_ROOT);
+	}
+	const projectName = paths.basename(p.path);
+	return resolveTestVaultRoot(`${projectName}-e2e`, VAULT_ROOT);
+}
 
 function runGatedPipeline(p: ProjectContext): void {
 	const review = p.config.review ?? {};
@@ -34,5 +48,15 @@ export const commands: Record<string, (flags: Record<string, string | boolean>, 
 	"review:all": (_f, _r, _c, p) => {
 		if (!p) return;
 		runGatedPipeline(p);
+	},
+	"review:clean": (_f, _r, _c, p) => {
+		if (!p) return;
+		const vaultPath = resolveTestVault(p);
+		if (!disk.existsSync(vaultPath)) {
+			log(`\n  ${YELLOW}Test vault does not exist: ${vaultPath}${RESET}\n`);
+			return;
+		}
+		disk.rmSync(vaultPath, { recursive: true, force: true });
+		log(`\n  ${GREEN}Removed${RESET} test vault: ${DIM}${vaultPath}${RESET}\n`);
 	},
 };

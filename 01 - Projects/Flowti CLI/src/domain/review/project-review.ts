@@ -9,7 +9,7 @@
 
 import { paths } from "../../infrastructure/paths.js";
 import { disk } from "../../infrastructure/filesystem.js";
-import { VAULT_ROOT } from "../../infrastructure/config.js";
+import { VAULT_ROOT, CLI_PROJECT } from "../../infrastructure/config.js";
 import { RESET, BOLD, DIM, GREEN, RED, CYAN, YELLOW } from "../../infrastructure/ui.js";
 import { shell } from "../../infrastructure/shell.js";
 import { runMenu } from "../../infrastructure/menu.js";
@@ -59,11 +59,38 @@ function resolveTestVault(projectPath: string, config: ReviewConfig): string {
 }
 
 function ensureTestVault(vaultPath: string): boolean {
-	if (disk.existsSync(vaultPath)) return true;
+	// Always build a fresh CLI binary before scaffolding/refreshing
+	log(`\n  ${CYAN}▸${RESET} Building CLI...\n`);
+	const buildCode = shell.run("npm run build", { cwd: CLI_PROJECT, label: "CLI build" });
+	if (buildCode !== 0) {
+		log(`  ${RED}CLI build failed — cannot provision test vault.${RESET}\n`);
+		return false;
+	}
+
 	const sourceBinDir = paths.join(VAULT_ROOT, ".flowti", "bin");
-	scaffoldTestVault(vaultPath, { name: paths.basename(vaultPath), sourceBinDir }, disk);
-	log(`  ${GREEN}Created test vault:${RESET} ${vaultPath}\n`);
+	const isNew = !disk.existsSync(vaultPath);
+
+	if (isNew) {
+		scaffoldTestVault(vaultPath, { name: paths.basename(vaultPath), sourceBinDir }, disk);
+		log(`  ${GREEN}Created test vault:${RESET} ${vaultPath}\n`);
+	} else {
+		// Vault exists — refresh the CLI binary from the fresh build
+		refreshTestVaultBin(vaultPath, sourceBinDir);
+		log(`  ${GREEN}Refreshed CLI build in test vault.${RESET}\n`);
+	}
 	return true;
+}
+
+function refreshTestVaultBin(vaultPath: string, sourceBinDir: string): void {
+	const binDir = paths.join(vaultPath, ".flowti", "bin");
+	disk.mkdirSync(binDir, { recursive: true });
+	const binFiles = ["main.js", "main.js.map", "index.js"];
+	for (const file of binFiles) {
+		const src = paths.join(sourceBinDir, file);
+		if (disk.existsSync(src)) {
+			disk.copyFileSync(src, paths.join(binDir, file));
+		}
+	}
 }
 
 // ── Interactive review menu ─────────────────────────────────────────

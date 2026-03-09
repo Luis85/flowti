@@ -36,81 +36,80 @@ if (existsSync(CONFIG_PATH)) {
 	config = JSON.parse(readFileSync(CONFIG_PATH, "utf-8"));
 }
 
-const SOURCE_DIR = resolve(VAULT_ROOT, config.source ?? "01 - Projects/Flowti CLI");
 const BIN_ENTRY = resolve(VAULT_ROOT, ".flowti", "bin", "main.js");
-const NODE_MODULES = resolve(SOURCE_DIR, "node_modules");
+const SOURCE_DIR = resolve(VAULT_ROOT, config.source ?? "01 - Projects/Flowti CLI");
+const HAS_SOURCE = existsSync(SOURCE_DIR);
 
-// ── Gate: source must exist ──────────────────────────────────────────
+// ── Standalone mode ──────────────────────────────────────────────────
+//
+// If main.js already exists, the CLI can run without the source tree.
+// This enables test vaults and distributed installs where only .flowti/bin/
+// is present. Source-dependent steps (npm ci, build, rebuild) are skipped.
 
-if (!existsSync(SOURCE_DIR)) {
-	console.error(`[flowti] Source folder not found: ${SOURCE_DIR}`);
-	console.error(`[flowti] Clone the full repository or set "source" in .flowti/config.json`);
-	process.exit(1);
-}
-
-// ── Helpers ──────────────────────────────────────────────────────────
-
-function run(cmd, args, cwd) {
-	const result = spawnSync(cmd, args, { stdio: "inherit", cwd, shell: true });
-	if (result.status !== 0) {
-		process.exit(result.status ?? 1);
+if (!HAS_SOURCE) {
+	if (!existsSync(BIN_ENTRY)) {
+		console.error(`[flowti] CLI binary not found: ${BIN_ENTRY}`);
+		console.error(`[flowti] Source folder not found: ${SOURCE_DIR}`);
+		console.error(`[flowti] Either clone the full repository, set "source" in .flowti/config.json,`);
+		console.error(`[flowti] or copy the CLI binary into .flowti/bin/main.js`);
+		process.exit(1);
 	}
-}
+	// Binary exists — run standalone (skip npm ci / build / rebuild checks)
+} else {
+	// ── Dev mode: source tree available — ensure build is current ─────
 
-/**
- * Recursively find the newest mtime (ms) among .ts files in a directory.
- */
-function getNewestMtime(dir) {
-	let newest = 0;
-	let entries;
-	try {
-		entries = readdirSync(dir, { withFileTypes: true });
-	} catch {
-		return 0;
-	}
-	for (const entry of entries) {
-		const fullPath = join(dir, entry.name);
-		if (entry.isDirectory()) {
-			const sub = getNewestMtime(fullPath);
-			if (sub > newest) newest = sub;
-		} else if (entry.isFile() && entry.name.endsWith(".ts")) {
-			const mtime = statSync(fullPath).mtimeMs;
-			if (mtime > newest) newest = mtime;
+	const NODE_MODULES = resolve(SOURCE_DIR, "node_modules");
+
+	function run(cmd, args, cwd) {
+		const result = spawnSync(cmd, args, { stdio: "inherit", cwd, shell: true });
+		if (result.status !== 0) {
+			process.exit(result.status ?? 1);
 		}
 	}
-	return newest;
-}
 
-/**
- * Returns true if any .ts file in src/ is newer than the compiled binary.
- */
-function needsRebuild() {
-	if (!existsSync(BIN_ENTRY)) return true;
-	const binaryMtime = statSync(BIN_ENTRY).mtimeMs;
-	const srcDir = resolve(SOURCE_DIR, "src");
-	const newestSource = getNewestMtime(srcDir);
-	return newestSource > binaryMtime;
-}
+	function getNewestMtime(dir) {
+		let newest = 0;
+		let entries;
+		try {
+			entries = readdirSync(dir, { withFileTypes: true });
+		} catch {
+			return 0;
+		}
+		for (const entry of entries) {
+			const fullPath = join(dir, entry.name);
+			if (entry.isDirectory()) {
+				const sub = getNewestMtime(fullPath);
+				if (sub > newest) newest = sub;
+			} else if (entry.isFile() && entry.name.endsWith(".ts")) {
+				const mtime = statSync(fullPath).mtimeMs;
+				if (mtime > newest) newest = mtime;
+			}
+		}
+		return newest;
+	}
 
-// ── 1. Install dependencies if missing ───────────────────────────────
+	function needsRebuild() {
+		if (!existsSync(BIN_ENTRY)) return true;
+		const binaryMtime = statSync(BIN_ENTRY).mtimeMs;
+		const srcDir = resolve(SOURCE_DIR, "src");
+		const newestSource = getNewestMtime(srcDir);
+		return newestSource > binaryMtime;
+	}
 
-if (!existsSync(NODE_MODULES)) {
-	console.log("[flowti] Installing dependencies...");
-	run("npm", ["ci"], SOURCE_DIR);
-}
+	if (!existsSync(NODE_MODULES)) {
+		console.log("[flowti] Installing dependencies...");
+		run("npm", ["ci"], SOURCE_DIR);
+	}
 
-// ── 2. Build if .flowti/bin/main.js is missing ───────────────────────
+	if (!existsSync(BIN_ENTRY)) {
+		console.log("[flowti] Building CLI...");
+		run("npm", ["run", "build"], SOURCE_DIR);
+	}
 
-if (!existsSync(BIN_ENTRY)) {
-	console.log("[flowti] Building CLI...");
-	run("npm", ["run", "build"], SOURCE_DIR);
-}
-
-// ── 3. Auto-rebuild if source is newer than binary ───────────────────
-
-if (needsRebuild()) {
-	console.log("[flowti] Source changes detected, rebuilding...");
-	run("npm", ["run", "build"], SOURCE_DIR);
+	if (needsRebuild()) {
+		console.log("[flowti] Source changes detected, rebuilding...");
+		run("npm", ["run", "build"], SOURCE_DIR);
+	}
 }
 
 // ── 4. Run the compiled CLI ──────────────────────────────────────────
