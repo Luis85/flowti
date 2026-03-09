@@ -3,6 +3,8 @@
 	"kind": "c4-component",
 	"label": "Component (C4)",
 	"description": "A C4 Component — a functional unit within a container.",
+	"icon": "puzzle",
+	"images": [],
 	"prompts": [
 		{ "variable": "description", "label": "Description", "default": "", "required": true },
 		{ "variable": "technology", "label": "Technology / pattern", "default": "", "required": false },
@@ -23,6 +25,9 @@
 		"relationships": []
 	},
 	"properties": [],
+	"actions": [],
+	"variants": [],
+	"states": [],
 	"nextSteps": [
 		"Edit docs/components/{{kebab}}.md to describe the component",
 		"Implement the component interface"

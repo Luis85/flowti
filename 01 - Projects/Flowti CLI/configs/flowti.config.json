@@ -7,6 +7,10 @@
 	"make": {
 		"templates": ["journey", "component"]
 	},
+	"components": {
+		"storybook": true,
+		"storybookDir": "component-library"
+	},
 	"reports": {
 		"dir": "reports",
 		"generators": [
@@ -30,9 +34,11 @@
 		}
 	},
 	"docs": {
+		"allCommand": "npm run typedoc",
 		"generators": [
 			{ "label": "Codebase (TypeDoc)", "command": "npm run typedoc" }
-		]
+		],
+		"referenceDir": "docs/reference"
 	},
 	"publish": {
 		"build": "npm run build",

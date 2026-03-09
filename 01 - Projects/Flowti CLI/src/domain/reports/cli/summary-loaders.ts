@@ -311,6 +311,7 @@ export function parseTypedocOutput(output: string): TypeDocResult {
 	const issues: TypeDocIssue[] = [];
 	for (const raw of output.split("\n")) {
 		const line = stripAnsi(raw);
+		// TypeDoc's own [warning]/[error] messages
 		const warnMatch = line.match(/^\[warning]\s+(.+)/);
 		if (warnMatch && !warnMatch[1].startsWith("Found ")) {
 			issues.push({ severity: "warning", message: warnMatch[1] });
@@ -319,6 +320,12 @@ export function parseTypedocOutput(output: string): TypeDocResult {
 		const errMatch = line.match(/^\[error]\s+(.+)/);
 		if (errMatch && !errMatch[1].startsWith("Found ")) {
 			issues.push({ severity: "error", message: errMatch[1] });
+			continue;
+		}
+		// TypeScript compilation errors emitted by typedoc (e.g. "src/file.ts:10:5 - error TS2352: ...")
+		const tsMatch = line.match(/^(.+?:\d+:\d+)\s*-\s*error\s+(TS\d+:\s*.+)/);
+		if (tsMatch) {
+			issues.push({ severity: "error", message: `${tsMatch[1]} — ${tsMatch[2]}` });
 		}
 	}
 	const warnings = issues.filter((i) => i.severity === "warning").length;

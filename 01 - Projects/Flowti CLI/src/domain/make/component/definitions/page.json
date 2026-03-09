@@ -3,6 +3,8 @@
 	"kind": "page",
 	"label": "Page - UI Component",
 	"description": "A page component — a routable top-level view that composes layouts and UI components.",
+	"icon": "file-text",
+	"images": [],
 	"prompts": [
 		{ "variable": "description", "label": "Description", "default": "", "required": false },
 		{ "variable": "owner", "label": "Owner / team", "default": "", "required": false }
@@ -24,6 +26,18 @@
 		{ "key": "title", "type": "string", "default": "", "description": "Page title" },
 		{ "key": "route", "type": "string", "default": "", "description": "Route path for navigation" },
 		{ "key": "authenticated", "type": "boolean", "default": false, "description": "Whether the page requires authentication" }
+	],
+	"actions": [
+		{ "name": "onNavigate", "description": "Fired when the page is navigated to" },
+		{ "name": "onLeave", "description": "Fired when the user leaves the page" }
+	],
+	"variants": [
+		{ "name": "authenticated", "label": "Authenticated", "props": { "authenticated": true, "title": "Dashboard" } },
+		{ "name": "public", "label": "Public", "props": { "authenticated": false, "title": "Home" } }
+	],
+	"states": [
+		{ "name": "loading", "label": "Loading", "description": "Page content is loading", "props": { "title": "Loading..." } },
+		{ "name": "error", "label": "Error", "description": "Page failed to load", "props": { "title": "Error" } }
 	],
 	"nextSteps": [
 		"Edit docs/components/{{kebab}}.md to describe the page purpose",

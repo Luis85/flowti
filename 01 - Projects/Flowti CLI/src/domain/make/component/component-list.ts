@@ -11,9 +11,10 @@ import { runMenu } from "../../../infrastructure/menu.js";
 import { parseFrontmatterStrings } from "../../../infrastructure/frontmatter.js";
 import { log } from "../../../infrastructure/logger.js";
 import { RESET, BOLD, DIM, GREEN } from "../../../infrastructure/ui.js";
-import type { MenuEntry, MenuResult } from "../../../infrastructure/types.js";
+import type { MenuEntry, MenuResult, ComponentsConfig } from "../../../infrastructure/types.js";
 import type { ProjectComponent, ComponentKind } from "./component-types.js";
 import { COMPONENT_KINDS } from "./component-types.js";
+import { isStorybookInstalled, installStorybook, runStorybookDev, runStorybookBuild } from "./storybook-service.js";
 
 // ── Component discovery ─────────────────────────────────────────────
 
@@ -163,16 +164,16 @@ export function buildComponentTree(components: ProjectComponent[]): { component:
 	return result;
 }
 
-export async function componentListMenu(projectRoot: string): Promise<MenuResult> {
+export async function componentListMenu(projectRoot: string, componentsConfig?: ComponentsConfig): Promise<MenuResult> {
 	const components = listProjectComponents(projectRoot);
+	const config = componentsConfig ?? {};
 
 	if (components.length === 0) {
 		log(`\n  ${DIM}No components found in ${COMPONENTS_DIR}/${RESET}`);
 		log(`  ${DIM}Use Make → Add Component to create one.${RESET}\n`);
-		return "main";
+	} else {
+		log(`\n  ${BOLD}${components.length} component(s)${RESET}\n`);
 	}
-
-	log(`\n  ${BOLD}${components.length} component(s)${RESET}\n`);
 
 	const tree = buildComponentTree(components);
 	const items: MenuEntry[] = tree.map(({ component: c, depth }, i) => {
@@ -188,6 +189,36 @@ export async function componentListMenu(projectRoot: string): Promise<MenuResult
 			},
 		};
 	});
+
+	// Storybook items (conditional on opt-in, dynamically gated)
+	if (config.storybook) {
+		const projectName = paths.basename(projectRoot);
+		const sbInstalled = () => isStorybookInstalled(projectRoot, config);
+		items.push(
+			{ separator: true },
+			{
+				key: "i",
+				label: "Install Storybook",
+				action: () => { installStorybook(projectRoot, projectName, config); },
+				disabled: sbInstalled,
+				disabledMessage: "\n  Storybook is already installed.\n",
+			},
+			{
+				key: "s",
+				label: "Storybook dev",
+				action: () => { runStorybookDev(projectRoot, config); },
+				disabled: () => !sbInstalled(),
+				disabledMessage: "\n  Storybook not installed. Use \"Install Storybook\" first.\n",
+			},
+			{
+				key: "k",
+				label: "Storybook build",
+				action: () => { runStorybookBuild(projectRoot, config); },
+				disabled: () => !sbInstalled(),
+				disabledMessage: "\n  Storybook not installed. Use \"Install Storybook\" first.\n",
+			},
+		);
+	}
 
 	items.push(
 		{ separator: true },

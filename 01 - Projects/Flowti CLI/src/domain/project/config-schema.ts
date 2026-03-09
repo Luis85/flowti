@@ -15,7 +15,7 @@ export interface ConfigValidationResult {
 const VALID_TOOL_IDS: FlowtiToolId[] = ["build", "reports", "devtools"];
 const VALID_MAKE_TEMPLATES: MakeTemplateId[] = ["journey", "component"];
 const KNOWN_TOP_LEVEL_KEYS = new Set([
-	"name", "tools", "make", "reports", "docs", "publish", "review",
+	"name", "tools", "make", "components", "reports", "docs", "publish", "review",
 ]);
 
 /** Validate a raw object as a ProjectConfig. */
@@ -32,6 +32,7 @@ export function validateProjectConfig(raw: unknown): ConfigValidationResult {
 	validateName(cfg, errors);
 	validateTools(cfg, errors);
 	validateMake(cfg, warnings);
+	validateComponents(cfg, warnings);
 	validateReportGenerators(cfg, errors);
 	validatePublishEndpoints(cfg, errors);
 	validateDocs(cfg, errors);
@@ -88,6 +89,21 @@ function validateMake(cfg: Record<string, unknown>, warnings: string[]): void {
 				warnings.push(`make.templates: unknown template "${tmpl}". Valid: ${VALID_MAKE_TEMPLATES.join(", ")}.`);
 			}
 		}
+	}
+}
+
+function validateComponents(cfg: Record<string, unknown>, warnings: string[]): void {
+	if (cfg.components === undefined) return;
+	if (!cfg.components || typeof cfg.components !== "object") {
+		warnings.push('"components" must be an object.');
+		return;
+	}
+	const components = cfg.components as Record<string, unknown>;
+	if (components.storybook !== undefined && typeof components.storybook !== "boolean") {
+		warnings.push('"components.storybook" must be a boolean.');
+	}
+	if (components.storybookDir !== undefined && typeof components.storybookDir !== "string") {
+		warnings.push('"components.storybookDir" must be a string.');
 	}
 }
 

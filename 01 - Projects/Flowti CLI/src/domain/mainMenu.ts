@@ -11,6 +11,7 @@ import { componentListMenu } from "./make/component/component-list.js";
 import { publishMenu } from "./publish/project-publish.js";
 import { reviewMenu } from "./review/project-review.js";
 import { showInfo } from "./info/info.js";
+import { collectHealth, displayHealth } from "./health/health.js";
 import { showHelp } from "./help/help.js";
 import { captureIdea, captureNote } from "./capture/capture.js";
 import { eventCatalogMenu } from "./events/events.js";
@@ -82,7 +83,7 @@ export function buildProjectDetailMenu(): MenuEntry[] {
   items.push({
     key: "c",
     label: "Components",
-    action: () => componentListMenu(ctx.path),
+    action: () => componentListMenu(ctx.path, ctx.config.components),
   });
 
   items.push({
@@ -157,6 +158,15 @@ export function buildProjectDetailMenu(): MenuEntry[] {
       disabled: () => !isKnowledgebaseAvailable(),
       disabledMessage:
         "\n  Knowledgebase requires Obsidian CLI and an initialized vault.\n",
+    },
+    {
+      key: "h",
+      label: "Health",
+      action: () => {
+        const health = collectHealth(ctx);
+        displayHealth(health);
+        return "main" as const;
+      },
     },
     {
       key: "i",

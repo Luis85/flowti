@@ -40,15 +40,56 @@ export interface ComponentProperty {
 	description?: string;
 }
 
+/** An event handler the component emits (e.g. onClick, onChange). */
+export interface ComponentAction {
+	name: string;
+	description?: string;
+}
+
+/** A named preset of property values rendered as an individual Storybook story. */
+export interface ComponentVariant {
+	name: string;
+	label?: string;
+	/** Property overrides for this variant. */
+	props: Record<string, string | number | boolean>;
+}
+
+/** An image associated with the component (screenshot, mockup, diagram, etc.). */
+export interface ComponentImage {
+	src: string;
+	alt?: string;
+	role?: "screenshot" | "mockup" | "diagram" | "photo" | "icon";
+}
+
+/** An interactive state the component can be in (e.g. hover, loading, error). */
+export interface ComponentState {
+	name: string;
+	label?: string;
+	description?: string;
+	/** Property overrides that represent this state. */
+	props: Record<string, string | number | boolean>;
+}
+
 export interface ComponentDefinition {
 	id: string;
 	kind: ComponentKind;
 	label: string;
 	description: string;
+	/** Business domain this component belongs to (e.g. "auth", "checkout", "analytics"). */
+	domain?: string;
+	/** Icon identifier (e.g. "lock", "cart", "chart-bar"). */
+	icon?: string;
+	/** Primary hero image for documentation and Storybook. */
+	heroImage?: string;
+	/** Additional images (screenshots, mockups, diagrams). */
+	images?: ComponentImage[];
 	prompts: ComponentPrompt[];
 	files: ComponentFileMapping[];
 	metadata: Record<string, unknown>;
 	properties: ComponentProperty[];
+	actions: ComponentAction[];
+	variants: ComponentVariant[];
+	states: ComponentState[];
 	nextSteps: string[];
 }
 

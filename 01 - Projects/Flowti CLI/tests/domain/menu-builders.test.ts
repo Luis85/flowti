@@ -237,11 +237,11 @@ describe("buildNpmScriptsSubmenu", () => {
 		expect(sh.calls[0].opts).toEqual({ cwd: "/proj", label: "test" });
 	});
 
-	it("script action returns 'main'", () => {
+	it("script action returns undefined to stay in submenu", () => {
 		const sh = createMockShell();
 		Object.assign(shellMod, { shell: sh });
 		const items = buildNpmScriptsSubmenu("/proj", { test: "vitest" });
-		expect(findByLabel(items, "npm run test")!.action()).toBe("main");
+		expect(findByLabel(items, "npm run test")!.action()).toBeUndefined();
 	});
 
 	it("returns empty scripts with just Back", () => {

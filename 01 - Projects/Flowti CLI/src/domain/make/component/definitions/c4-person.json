@@ -3,6 +3,8 @@
 	"kind": "person",
 	"label": "Person (C4)",
 	"description": "A C4 Person — an actor who interacts with the system.",
+	"icon": "user",
+	"images": [],
 	"prompts": [
 		{ "variable": "description", "label": "Description", "default": "", "required": true },
 		{ "variable": "owner", "label": "Owner / team", "default": "", "required": false }
@@ -18,6 +20,9 @@
 		"relationships": []
 	},
 	"properties": [],
+	"actions": [],
+	"variants": [],
+	"states": [],
 	"nextSteps": [
 		"Edit docs/components/{{kebab}}.md to describe the person/actor",
 		"Define relationships to systems they interact with"

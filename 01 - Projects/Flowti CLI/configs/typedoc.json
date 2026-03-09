@@ -14,7 +14,10 @@
 	"exclude": [
 		"**/node_modules/**",
 		"**/tests/**",
-		"**/bin/**"
+		"**/bin/**",
+		"**/*.stories.ts",
+		"**/*.stories.tsx",
+		"**/component-library/**"
 	],
 
 	"name": "Flowti CLI",

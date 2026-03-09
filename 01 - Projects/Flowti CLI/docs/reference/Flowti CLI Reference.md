@@ -1,6 +1,6 @@
 ---
 type: CLIReference
-date: "2026-03-08T21:35:11.106Z"
+date: "2026-03-09T01:01:21.512Z"
 sections: 10
 cli_commands: 27
 npm_scripts: 10

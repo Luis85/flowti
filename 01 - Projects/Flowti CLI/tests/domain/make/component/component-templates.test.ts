@@ -13,7 +13,8 @@ function vars(overrides: Partial<ComponentVariables> = {}): ComponentVariables {
 function def(overrides: Partial<ComponentDefinition> = {}): ComponentDefinition {
 	return {
 		id: "component", kind: "component", label: "Component", description: "Test.",
-		prompts: [], files: [], metadata: { type: "component", status: "draft" }, properties: [], nextSteps: [],
+		prompts: [], files: [], metadata: { type: "component", status: "draft" },
+		properties: [], actions: [], variants: [], states: [], nextSteps: [],
 		...overrides,
 	};
 }
@@ -166,10 +167,11 @@ describe("componentDocTemplate — properties table", () => {
 });
 
 describe("componentStoryTemplate", () => {
-	it("generates a Storybook story with autodocs tag", () => {
+	it("generates a Storybook story with autodocs tag and render function", () => {
 		const output = componentStoryTemplate(vars(), def({ kind: "ui-component" }));
 		expect(output).toContain('tags: ["autodocs"]');
-		expect(output).toContain("import { AuthService }");
+		expect(output).toContain("render: (args) => {");
+		expect(output).toContain('el.className = "auth-service"');
 		expect(output).toContain("export const Default: Story = {};");
 	});
 
@@ -210,6 +212,245 @@ describe("componentStoryTemplate", () => {
 	it("omits argTypes and args when no properties", () => {
 		const output = componentStoryTemplate(vars(), def({ kind: "ui-component" }));
 		expect(output).not.toContain("argTypes:");
-		expect(output).not.toContain("args:");
+		expect(output).not.toMatch(/^\targs:/m);
+	});
+
+	it("includes action imports and argTypes for actions", () => {
+		const output = componentStoryTemplate(
+			vars(),
+			def({
+				kind: "ui-component",
+				actions: [
+					{ name: "onClick", description: "Clicked" },
+					{ name: "onFocus" },
+				],
+			}),
+		);
+		expect(output).toContain('import { action } from "storybook/actions"');
+		expect(output).toContain('onClick: { action: "onClick", description: "Clicked" }');
+		expect(output).toContain('onFocus: { action: "onFocus" }');
+		expect(output).toContain('onClick: action("onClick")');
+		expect(output).toContain('onFocus: action("onFocus")');
+	});
+
+	it("does not import actions addon when no actions defined", () => {
+		const output = componentStoryTemplate(vars(), def({ kind: "ui-component" }));
+		expect(output).not.toContain("storybook/actions");
+	});
+
+	it("generates named story exports for variants", () => {
+		const output = componentStoryTemplate(
+			vars(),
+			def({
+				kind: "ui-component",
+				variants: [
+					{ name: "primary", label: "Primary", props: { variant: "primary" } },
+					{ name: "secondary", label: "Secondary", props: { variant: "secondary" } },
+				],
+			}),
+		);
+		expect(output).toContain("export const Primary: Story = {");
+		expect(output).toContain('variant: "primary"');
+		expect(output).toContain("export const Secondary: Story = {");
+		expect(output).toContain('variant: "secondary"');
+	});
+
+	it("generates named story exports for states", () => {
+		const output = componentStoryTemplate(
+			vars(),
+			def({
+				kind: "ui-component",
+				states: [
+					{ name: "loading", label: "Loading", description: "Content loading", props: { title: "Loading..." } },
+					{ name: "disabled", label: "Disabled", props: { disabled: true } },
+				],
+			}),
+		);
+		expect(output).toContain("export const Loading: Story = {");
+		expect(output).toContain('title: "Loading..."');
+		expect(output).toContain("export const Disabled: Story = {");
+		expect(output).toContain("disabled: true");
+	});
+
+	it("combines properties, actions, variants and states in one story", () => {
+		const output = componentStoryTemplate(
+			vars(),
+			def({
+				kind: "ui-component",
+				properties: [{ key: "visible", type: "boolean", default: true }],
+				actions: [{ name: "onClick" }],
+				variants: [{ name: "primary", props: { visible: true } }],
+				states: [{ name: "hidden", props: { visible: false } }],
+			}),
+		);
+		expect(output).toContain("argTypes:");
+		expect(output).toContain('visible: { control: "boolean" }');
+		expect(output).toContain('onClick: { action: "onClick" }');
+		expect(output).toContain("export const Primary: Story = {");
+		expect(output).toContain("export const Hidden: Story = {");
+	});
+});
+
+describe("componentDocTemplate — actions, variants, states tables", () => {
+	it("renders Actions table when definition has actions", () => {
+		const output = componentDocTemplate(
+			vars(),
+			def({ actions: [{ name: "onClick", description: "Clicked" }] }),
+		).toString();
+		expect(output).toContain("## Actions");
+		expect(output).toContain("| onClick | Clicked |");
+	});
+
+	it("omits Actions section when no actions", () => {
+		const output = componentDocTemplate(vars(), def()).toString();
+		expect(output).not.toContain("## Actions");
+	});
+
+	it("renders Variants table when definition has variants", () => {
+		const output = componentDocTemplate(
+			vars(),
+			def({ variants: [{ name: "primary", label: "Primary", props: { variant: "primary" } }] }),
+		).toString();
+		expect(output).toContain("## Variants");
+		expect(output).toContain("primary");
+	});
+
+	it("omits Variants section when no variants", () => {
+		const output = componentDocTemplate(vars(), def()).toString();
+		expect(output).not.toContain("## Variants");
+	});
+
+	it("renders States table when definition has states", () => {
+		const output = componentDocTemplate(
+			vars(),
+			def({ states: [{ name: "loading", label: "Loading", description: "Loading state", props: { title: "..." } }] }),
+		).toString();
+		expect(output).toContain("## States");
+		expect(output).toContain("loading");
+	});
+
+	it("omits States section when no states", () => {
+		const output = componentDocTemplate(vars(), def()).toString();
+		expect(output).not.toContain("## States");
+	});
+});
+
+describe("componentDefinitionTemplate — actions, variants, states", () => {
+	it("includes actions list in JSON when actions defined", () => {
+		const output = componentDefinitionTemplate(
+			vars(),
+			def({ actions: [{ name: "onClick" }, { name: "onFocus" }] }),
+		);
+		const parsed = JSON.parse(output);
+		expect(parsed.actions).toEqual(["onClick", "onFocus"]);
+	});
+
+	it("omits actions from JSON when no actions", () => {
+		const output = componentDefinitionTemplate(vars(), def());
+		const parsed = JSON.parse(output);
+		expect(parsed.actions).toBeUndefined();
+	});
+
+	it("includes variants map in JSON when variants defined", () => {
+		const output = componentDefinitionTemplate(
+			vars(),
+			def({ variants: [{ name: "primary", props: { variant: "primary" } }] }),
+		);
+		const parsed = JSON.parse(output);
+		expect(parsed.variants).toEqual({ primary: { variant: "primary" } });
+	});
+
+	it("includes states map in JSON when states defined", () => {
+		const output = componentDefinitionTemplate(
+			vars(),
+			def({ states: [{ name: "loading", props: { title: "..." } }] }),
+		);
+		const parsed = JSON.parse(output);
+		expect(parsed.states).toEqual({ loading: { title: "..." } });
+	});
+
+	it("includes domain, icon, heroImage in JSON when defined", () => {
+		const output = componentDefinitionTemplate(
+			vars(),
+			def({ domain: "auth", icon: "lock", heroImage: "hero.png" }),
+		);
+		const parsed = JSON.parse(output);
+		expect(parsed.domain).toBe("auth");
+		expect(parsed.icon).toBe("lock");
+		expect(parsed.heroImage).toBe("hero.png");
+	});
+
+	it("includes images array in JSON when defined", () => {
+		const output = componentDefinitionTemplate(
+			vars(),
+			def({ images: [{ src: "screenshot.png", alt: "Screenshot", role: "screenshot" }] }),
+		);
+		const parsed = JSON.parse(output);
+		expect(parsed.images).toEqual([{ src: "screenshot.png", alt: "Screenshot", role: "screenshot" }]);
+	});
+
+	it("omits domain/icon/heroImage/images when not defined", () => {
+		const output = componentDefinitionTemplate(vars(), def());
+		const parsed = JSON.parse(output);
+		expect(parsed.domain).toBeUndefined();
+		expect(parsed.icon).toBeUndefined();
+		expect(parsed.heroImage).toBeUndefined();
+		expect(parsed.images).toBeUndefined();
+	});
+});
+
+describe("componentDocTemplate — icon, domain, heroImage, images", () => {
+	it("includes domain and icon in frontmatter", () => {
+		const output = componentDocTemplate(vars(), def({ domain: "checkout", icon: "cart" })).toString();
+		expect(output).toContain("domain: checkout");
+		expect(output).toContain("icon: cart");
+	});
+
+	it("omits domain and icon when not defined", () => {
+		const output = componentDocTemplate(vars(), def()).toString();
+		expect(output).not.toContain("domain:");
+		expect(output).not.toContain("icon:");
+	});
+
+	it("renders Images section with hero image", () => {
+		const output = componentDocTemplate(vars(), def({ heroImage: "hero.png" })).toString();
+		expect(output).toContain("## Images");
+		expect(output).toContain("![Hero](hero.png)");
+	});
+
+	it("renders Images section with gallery images", () => {
+		const output = componentDocTemplate(
+			vars(),
+			def({ images: [
+				{ src: "a.png", alt: "Screenshot A", role: "screenshot" },
+				{ src: "b.png", role: "mockup" },
+			] }),
+		).toString();
+		expect(output).toContain("## Images");
+		expect(output).toContain("![Screenshot A](a.png)");
+		expect(output).toContain("![[mockup]](b.png)");
+	});
+
+	it("omits Images section when no heroImage and no images", () => {
+		const output = componentDocTemplate(vars(), def()).toString();
+		expect(output).not.toContain("## Images");
+	});
+});
+
+describe("componentStoryTemplate — parameters block", () => {
+	it("includes icon, domain and heroImage in parameters", () => {
+		const output = componentStoryTemplate(
+			vars(),
+			def({ kind: "ui-component", icon: "lock", heroImage: "hero.png", domain: "auth" }),
+		);
+		expect(output).toContain("parameters:");
+		expect(output).toContain('icon: "lock"');
+		expect(output).toContain('heroImage: "hero.png"');
+		expect(output).toContain('domain: "auth"');
+	});
+
+	it("omits parameters block when no icon/heroImage/domain", () => {
+		const output = componentStoryTemplate(vars(), def({ kind: "ui-component" }));
+		expect(output).not.toContain("parameters:");
 	});
 });

@@ -155,7 +155,7 @@ describe("componentDocTemplate property frontmatter", () => {
 			prompts: [],
 			files: [],
 			metadata: { type: "component", status: "draft" },
-			properties: [],
+			properties: [], actions: [], variants: [], states: [],
 			nextSteps: [],
 		};
 

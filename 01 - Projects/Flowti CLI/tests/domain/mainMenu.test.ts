@@ -251,7 +251,7 @@ describe("buildProjectDetailMenu", () => {
 			const testItem = submenuItems.find((m) => m.label === "npm run test")!;
 			const result = testItem.action();
 			expect(sh.calls[0].cmd).toBe("npm run test");
-			expect(result).toBe("main");
+			expect(result).toBeUndefined();
 		});
 
 		it("Reports submenu includes Run All when generators are configured", async () => {

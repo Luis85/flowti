@@ -157,7 +157,6 @@ export function buildNpmScriptsSubmenu(
 		label: `npm run ${name}`,
 		action: () => {
 			shell.run(`npm run ${name}`, { cwd: projectPath, label: name });
-			return "main" as const;
 		},
 	}));
 

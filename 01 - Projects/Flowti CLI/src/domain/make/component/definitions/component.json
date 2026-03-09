@@ -3,6 +3,8 @@
 	"kind": "component",
 	"label": "Component - generic",
 	"description": "A generic component — the base building block of a project.",
+	"icon": "box",
+	"images": [],
 	"prompts": [
 		{ "variable": "description", "label": "Description", "default": "", "required": false },
 		{ "variable": "owner", "label": "Owner / team", "default": "", "required": false }
@@ -19,6 +21,9 @@
 		"dependencies": []
 	},
 	"properties": [],
+	"actions": [],
+	"variants": [],
+	"states": [],
 	"nextSteps": [
 		"Edit docs/components/{{kebab}}.md to fill in the specification",
 		"Implement the component in src/components/{{kebab}}/",

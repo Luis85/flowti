@@ -27,7 +27,7 @@ vi.mock("../../../src/infrastructure/test-vault.js", () => ({
 }));
 
 vi.mock("../../../src/infrastructure/ui.js", () => ({
-	RESET: "", BOLD: "", DIM: "", GREEN: "", CYAN: "", YELLOW: "",
+	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", CYAN: "", YELLOW: "",
 }));
 
 vi.mock("../../../src/infrastructure/shell.js", () => ({
@@ -248,26 +248,208 @@ describe("reviewMenu", () => {
 		expect(vi.mocked(scaffoldTestVault)).not.toHaveBeenCalled();
 	});
 
-	it("build action sets buildPassed on success", async () => {
+	it("test is disabled until build passes", async () => {
 		const config: ReviewConfig = {};
-		mockShell.run.mockReturnValue(0);
-		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readdirSync.mockReturnValue(["test.journey"] as unknown as ReturnType<typeof disk.readdirSync>);
-		mockDisk.readFileSync.mockReturnValue("{}");
 
-		let disabledAfterBuild = true;
+		let testDisabledBeforeBuild = false;
+		let testDisabledAfterBuild = false;
 		mockRunMenu.mockImplementation(async (_title, items) => {
-			// Build first
+			const testItem = (items as Array<{ key: string; disabled?: () => boolean }>).find((i) => i.key === "2");
+			testDisabledBeforeBuild = testItem?.disabled?.() ?? false;
+
+			// Build succeeds
+			mockShell.run.mockReturnValue(0);
 			const buildItem = (items as Array<{ key: string; action: () => void }>).find((i) => i.key === "1");
 			buildItem?.action();
-			// Check if E2E is now enabled
-			const e2eItem = (items as Array<{ key: string; disabled?: () => boolean }>).find((i) => i.key === "3");
-			disabledAfterBuild = e2eItem?.disabled?.() ?? false;
+
+			testDisabledAfterBuild = testItem?.disabled?.() ?? false;
 			return "main";
 		});
 
 		await reviewMenu(projectPath, config);
 
-		expect(disabledAfterBuild).toBe(false);
+		expect(testDisabledBeforeBuild).toBe(true);
+		expect(testDisabledAfterBuild).toBe(false);
+	});
+
+	it("E2E is disabled until build and test pass", async () => {
+		const config: ReviewConfig = {};
+		mockDisk.existsSync.mockReturnValue(true);
+		mockDisk.readdirSync.mockReturnValue(["test.journey"] as unknown as ReturnType<typeof disk.readdirSync>);
+		mockDisk.readFileSync.mockReturnValue("{}");
+
+		let e2eDisabledBeforeBuild = false;
+		let e2eDisabledAfterBuildOnly = false;
+		let e2eDisabledAfterBuildAndTest = false;
+		mockRunMenu.mockImplementation(async (_title, items) => {
+			const e2eItem = (items as Array<{ key: string; disabled?: () => boolean }>).find((i) => i.key === "3");
+			e2eDisabledBeforeBuild = e2eItem?.disabled?.() ?? false;
+
+			// Build succeeds
+			mockShell.run.mockReturnValue(0);
+			const buildItem = (items as Array<{ key: string; action: () => void }>).find((i) => i.key === "1");
+			buildItem?.action();
+			e2eDisabledAfterBuildOnly = e2eItem?.disabled?.() ?? false;
+
+			// Test succeeds
+			const testItem = (items as Array<{ key: string; action: () => void }>).find((i) => i.key === "2");
+			testItem?.action();
+			e2eDisabledAfterBuildAndTest = e2eItem?.disabled?.() ?? false;
+
+			return "main";
+		});
+
+		await reviewMenu(projectPath, config);
+
+		expect(e2eDisabledBeforeBuild).toBe(true);
+		expect(e2eDisabledAfterBuildOnly).toBe(true);
+		expect(e2eDisabledAfterBuildAndTest).toBe(false);
+	});
+
+	it("failed build resets testPassed", async () => {
+		const config: ReviewConfig = {};
+		mockDisk.existsSync.mockReturnValue(true);
+		mockDisk.readdirSync.mockReturnValue(["test.journey"] as unknown as ReturnType<typeof disk.readdirSync>);
+		mockDisk.readFileSync.mockReturnValue("{}");
+
+		let e2eDisabledAfterFailedBuild = false;
+		mockRunMenu.mockImplementation(async (_title, items) => {
+			const buildItem = (items as Array<{ key: string; action: () => void }>).find((i) => i.key === "1");
+			const testItem = (items as Array<{ key: string; action: () => void }>).find((i) => i.key === "2");
+			const e2eItem = (items as Array<{ key: string; disabled?: () => boolean }>).find((i) => i.key === "3");
+
+			// Build succeeds, test succeeds
+			mockShell.run.mockReturnValue(0);
+			buildItem?.action();
+			testItem?.action();
+
+			// Build fails — should reset testPassed
+			mockShell.run.mockReturnValue(1);
+			buildItem?.action();
+			e2eDisabledAfterFailedBuild = e2eItem?.disabled?.() ?? false;
+
+			return "main";
+		});
+
+		await reviewMenu(projectPath, config);
+
+		expect(e2eDisabledAfterFailedBuild).toBe(true);
+	});
+
+	it("includes 'Run all' item when journeys exist", async () => {
+		const config: ReviewConfig = {};
+		mockDisk.existsSync.mockReturnValue(true);
+		mockDisk.readdirSync.mockReturnValue(["test.journey"] as unknown as ReturnType<typeof disk.readdirSync>);
+		mockDisk.readFileSync.mockReturnValue("{}");
+
+		await reviewMenu(projectPath, config);
+
+		const [, items] = mockRunMenu.mock.calls[0];
+		const keys = (items as Array<{ key?: string }>).filter((i) => "key" in i).map((i) => i.key);
+		expect(keys).toContain("a");
+	});
+
+	it("'Run all' stops on build failure", async () => {
+		const config: ReviewConfig = { build: "make build", test: "make test" };
+		mockDisk.existsSync.mockReturnValue(true);
+		mockDisk.readdirSync.mockReturnValue(["test.journey"] as unknown as ReturnType<typeof disk.readdirSync>);
+		mockDisk.readFileSync.mockReturnValue("{}");
+		mockShell.run.mockReturnValue(1);
+
+		mockRunMenu.mockImplementation(async (_title, items) => {
+			const runAllItem = (items as Array<{ key: string; action: () => void }>).find((i) => i.key === "a");
+			runAllItem?.action();
+			return "main";
+		});
+
+		await reviewMenu(projectPath, config);
+
+		expect(mockShell.run).toHaveBeenCalledTimes(1); // only build, no test or E2E
+		expect(mockShell.run).toHaveBeenCalledWith("make build", expect.objectContaining({ label: "Step 1/3: Build" }));
+	});
+
+	it("'Run all' stops on test failure", async () => {
+		const config: ReviewConfig = { build: "make build", test: "make test" };
+		mockDisk.existsSync.mockReturnValue(true);
+		mockDisk.readdirSync.mockReturnValue(["test.journey"] as unknown as ReturnType<typeof disk.readdirSync>);
+		mockDisk.readFileSync.mockReturnValue("{}");
+		mockShell.run
+			.mockReturnValueOnce(0)  // build passes
+			.mockReturnValueOnce(1); // test fails
+
+		mockRunMenu.mockImplementation(async (_title, items) => {
+			const runAllItem = (items as Array<{ key: string; action: () => void }>).find((i) => i.key === "a");
+			runAllItem?.action();
+			return "main";
+		});
+
+		await reviewMenu(projectPath, config);
+
+		expect(mockShell.run).toHaveBeenCalledTimes(2); // build + test, no E2E
+	});
+
+	it("'Run all' runs all three stages on success", async () => {
+		const config: ReviewConfig = { build: "make build", test: "make test", runner: "npm run e2e" };
+		mockDisk.existsSync.mockReturnValue(true);
+		mockDisk.readdirSync.mockReturnValue(["test.journey"] as unknown as ReturnType<typeof disk.readdirSync>);
+		mockDisk.readFileSync.mockReturnValue("{}");
+		mockShell.run.mockReturnValue(0);
+
+		mockRunMenu.mockImplementation(async (_title, items) => {
+			const runAllItem = (items as Array<{ key: string; action: () => void }>).find((i) => i.key === "a");
+			runAllItem?.action();
+			return "main";
+		});
+
+		await reviewMenu(projectPath, config);
+
+		expect(mockShell.run).toHaveBeenCalledTimes(3); // build + test + E2E
+		expect(mockShell.run).toHaveBeenCalledWith("make build", expect.objectContaining({ label: "Step 1/3: Build" }));
+		expect(mockShell.run).toHaveBeenCalledWith("make test", expect.objectContaining({ label: "Step 2/3: Test" }));
+		expect(mockShell.run).toHaveBeenCalledWith("npm run e2e", expect.objectContaining({ label: "E2E tests" }));
+	});
+
+	it("pipeline display shows three stages", async () => {
+		const config: ReviewConfig = {};
+		const logMessages: string[] = [];
+		const { log: mockLog } = await import("../../../src/infrastructure/logger.js");
+		vi.mocked(mockLog).mockImplementation((...args: unknown[]) => {
+			if (args.length > 0) logMessages.push(String(args[0]));
+		});
+
+		mockRunMenu.mockImplementation(async (_title, _items, opts) => {
+			(opts as { beforeMenu?: () => void })?.beforeMenu?.();
+			return "main";
+		});
+
+		await reviewMenu(projectPath, config);
+
+		const pipelineLine = logMessages.find((m) => m.includes("Pipeline:"));
+		expect(pipelineLine).toBeDefined();
+		expect(pipelineLine).toContain("Build");
+		expect(pipelineLine).toContain("Test");
+		expect(pipelineLine).toContain("E2E");
+	});
+
+	it("E2E gated behind test when runner configured", async () => {
+		const config: ReviewConfig = { runner: "npm run e2e" };
+		mockDisk.existsSync.mockReturnValue(true);
+		mockDisk.readdirSync.mockReturnValue(["test.journey"] as unknown as ReturnType<typeof disk.readdirSync>);
+		mockDisk.readFileSync.mockReturnValue("{}");
+
+		let runAllDisabled = false;
+		let journeyDisabled = false;
+		mockRunMenu.mockImplementation(async (_title, items) => {
+			const runAllItem = (items as Array<{ key: string; disabled?: () => boolean }>).find((i) => i.key === "3");
+			const journeyItem = (items as Array<{ key: string; disabled?: () => boolean }>).find((i) => i.key === "j");
+			runAllDisabled = runAllItem?.disabled?.() ?? false;
+			journeyDisabled = journeyItem?.disabled?.() ?? false;
+			return "main";
+		});
+
+		await reviewMenu(projectPath, config);
+
+		expect(runAllDisabled).toBe(true);
+		expect(journeyDisabled).toBe(true);
 	});
 });

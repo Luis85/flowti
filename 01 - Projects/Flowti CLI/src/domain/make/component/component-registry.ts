@@ -26,14 +26,14 @@ import c4ComponentDef from "./definitions/c4-component.json" with { type: "json"
 import c4PersonDef from "./definitions/c4-person.json" with { type: "json" };
 
 const BUNDLED_DEFINITIONS: ComponentDefinition[] = [
-	componentDef as ComponentDefinition,
-	layoutDef as ComponentDefinition,
-	pageDef as ComponentDefinition,
-	uiComponentDef as ComponentDefinition,
-	c4SystemDef as ComponentDefinition,
-	c4ContainerDef as ComponentDefinition,
-	c4ComponentDef as ComponentDefinition,
-	c4PersonDef as ComponentDefinition,
+	componentDef as unknown as ComponentDefinition,
+	layoutDef as unknown as ComponentDefinition,
+	pageDef as unknown as ComponentDefinition,
+	uiComponentDef as unknown as ComponentDefinition,
+	c4SystemDef as unknown as ComponentDefinition,
+	c4ContainerDef as unknown as ComponentDefinition,
+	c4ComponentDef as unknown as ComponentDefinition,
+	c4PersonDef as unknown as ComponentDefinition,
 ];
 
 export function loadComponentDefinitions(): ComponentDefinition[] {

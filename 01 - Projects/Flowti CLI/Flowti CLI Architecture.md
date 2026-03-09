@@ -2,7 +2,7 @@
 type: Architecture
 domain: CLI
 title: Flowti CLI — Architecture Document
-version: 14
+version: 15
 created: 2026-03-07
 updated: 2026-03-09
 status: living-document
@@ -18,7 +18,7 @@ status: living-document
 
 The Flowti CLI is a **definition-driven project orchestrator** that ships as a self-contained Node.js binary. It manages multi-project development workflows — scaffolding, building, testing, reviewing, publishing, and reporting — from a single interactive menu or via non-interactive commands for AI agent tool use.
 
-**Scale**: 154 source files, 93 test files (1,451 tests, 88 suites), 15 domain modules, 21 infrastructure modules. Zero production dependencies — runs on Node.js built-ins only.
+**Scale**: 154 source files, 96 test files (1,532 tests, 91 suites), 15 domain modules, 21 infrastructure modules. Zero production dependencies — runs on Node.js built-ins only.
 
 ---
 
@@ -470,9 +470,9 @@ Two error classes in `infrastructure/errors.ts`:
 
 Two overlapping input modules (`readline.ts` with manual `createRL()`/`rl.close()` lifecycle, and `input.ts` with auto-managed `ask()`) consolidated into a single `input.ts` abstraction. Added `askYesNo(question, defaultNo?)` to the `IInput` interface. E2E domain (5 files) migrated from passing readline interfaces through function parameters to using `input.ask()` / `input.askYesNo()` directly. Duplicate `ask()`/`askYesNo()` removed from `e2e-helpers.ts`. ESLint config updated. `readline.ts` deleted. 11 new tests.
 
-### 4.14 Storybook Integration (IMP-17) — PLANNED
+### 4.14 Storybook Integration (IMP-17) — DONE
 
-Storybook becomes an **opt-in, per-project component library** managed entirely from the Components menu (`c`).
+Storybook v10 (`@storybook/html` + `@storybook/html-vite`) becomes an **opt-in, per-project component library** managed entirely from the Components menu (`c`).
 
 **Design:**
 
@@ -482,17 +482,19 @@ Components Menu (key "c")
   ├── Add component (Make)       (existing — generates .stories.ts)
   ├── Edit component             (existing)
   ├── ─────────────
-  ├── s) Storybook dev           (new — wraps npm script)
-  ├── b) Storybook build         (new — wraps npm script)
-  └── i) Install Storybook       (new — one-time setup)
+  ├── s) Storybook dev           (dynamic — enabled when installed)
+  ├── k) Storybook build         (dynamic — enabled when installed)
+  └── i) Install Storybook       (dynamic — disabled when installed)
 ```
+
+Menu items use **dynamic `disabled` functions** re-evaluated each loop iteration, so installing Storybook immediately enables dev/build without restarting.
 
 **Opt-in flow:**
 1. User selects "Install Storybook" from the Components menu
-2. CLI scaffolds `<project>/component-library/` with Storybook config, `package.json`, and starter structure
+2. CLI scaffolds `<project>/component-library/` with Storybook v10 config, `package.json`, and starter structure
 3. Runs `npm install` in `component-library/`
 4. Sets `components.storybook: true` in `flowti.config.json`
-5. Subsequent `make:*` commands generate `.stories.ts` files that reference the component-library Storybook instance
+5. Subsequent `make:*` commands generate `.stories.ts` files targeting the installed instance
 
 **Config addition** (`flowti.config.json`):
 ```json
@@ -504,15 +506,53 @@ Components Menu (key "c")
 }
 ```
 
-**Make integration**: Story files already generated for layout, page, and ui-component kinds. With Storybook installed, the Make flow adds a post-creation step to verify the story is loadable. Component definitions unchanged — the story template (`component-story.ts`) already produces valid Storybook files.
+**Storybook v10 specifics:**
+- No `react`/`react-dom` dependencies (pure HTML framework)
+- Autodocs via `tags: ["autodocs"]` in preview (not `docs.autodocs` in main)
+- Actions imported from `storybook/actions` (not `@storybook/addon-actions`)
+- Stories path: `../../src/components/**/*.stories.@(ts|tsx)` (relative to `.storybook/`)
+- Stories excluded from `tsconfig.json` and `typedoc.json` to prevent TS compilation errors
+
+**Story template — render function pattern**: Stories are **self-contained** — they do not import component modules. Instead, each story's `render: (args) => { ... }` creates DOM elements directly:
+- Properties mapped to `el.dataset.*` attributes and `el.textContent`
+- Actions wired as `el.addEventListener()` handlers
+- No component class import needed — stories work even before the component module exists
+
+**Component data model** (`ComponentDefinition`): Expanded for full Storybook compatibility. Each component definition now carries:
+- `properties` — configurable attributes (type, default, description) → Storybook controls
+- `actions` — event handlers (onClick, onFocus, etc.) → Storybook action loggers via `storybook/actions`
+- `variants` — named presets of prop combinations (Primary, Secondary, etc.) → individual named story exports
+- `states` — interactive states with prop overrides (hover, loading, disabled, etc.) → individual named story exports
+- `icon` — component icon identifier → Storybook parameters
+- `heroImage` — hero image path → Storybook parameters
+- `images[]` — additional image assets → documentation
+- `domain` — business domain classification → Storybook parameters and documentation
+
+This means a single `ComponentDefinition` carries everything needed to generate a complete, multi-story Storybook file with controls, actions, variant stories, and state stories — all from the JSON blueprint.
 
 **Files:**
-- New: `domain/make/component/storybook-service.ts` — install, detect, wrap npm scripts
-- Modify: `component-list.ts` — add Storybook menu items (conditional on `components.storybook`)
+- New: `domain/make/component/storybook-service.ts` — install, detect, wrap npm scripts (Storybook v10)
+- Modify: `component-types.ts` — added `ComponentAction`, `ComponentVariant`, `ComponentState`, `icon`, `heroImage`, `images[]`, `domain`
+- Modify: `component-story.ts` — self-contained render function (DOM creation), kind-aware folder organization, `storybook/actions` import, parameters block (icon, heroImage, domain)
+- Modify: `component-doc.ts` — renders Actions, Variants, States, Images tables and domain in documentation
+- Modify: `component-definition.ts` — includes all expanded fields in generated JSON
+- Modify: `component-list.ts` — dynamic Storybook menu items (disabled functions for state-aware gating)
 - Modify: `config-schema.ts` — validate `components.storybook` and `components.storybookDir`
-- Modify: component definitions — potentially add story file to C4 kinds when Storybook is enabled
+- Modify: all 8 JSON definitions — added `actions`, `variants`, `states` arrays (meaningful defaults for UI kinds, empty for C4)
 
-### ~~4.15 E2E Onboarding Journey (FR-12)~~ — moved to 4.5 (DONE)
+### 4.15 Npm Scripts Submenu Persistence — DONE
+
+Running an npm script from the project detail menu's "Npm Scripts" submenu now **returns to the submenu** instead of the project main menu. Script actions return `undefined` (stay in menu loop) instead of `"main"`. This matches user expectations — after running a script, you typically want to run another or review options, not navigate back to the top.
+
+### 4.16 TypeDoc Error Parsing Enhancement — DONE
+
+`parseTypedocOutput()` in `summary-loaders.ts` now captures **two error formats**:
+1. TypeDoc's own messages: `[warning] ...` / `[error] ...`
+2. TypeScript compilation errors emitted by TypeDoc: `file.ts:line:col - error TSxxxx: ...`
+
+Previously only format 1 was captured, causing TS compilation errors during TypeDoc runs to be silently lost. The summary report now surfaces both.
+
+### ~~4.17 E2E Onboarding Journey (FR-12)~~ — moved to 4.5 (DONE)
 
 ---
 
@@ -561,7 +601,7 @@ All items delivered plus Document service refactor, frontmatter consolidation, s
 | 2.16 | **Input consolidation** (D-28) | DONE | `infrastructure/input.ts` (askYesNo), `readline.ts` (deleted), `e2e-helpers.ts`, `e2e-interactive.ts`, `e2e-session.ts`, `e2e-audit.ts`, `e2e-teardown.ts` |
 | 2.17 | **Complexity extraction** (collectProjectInfo) | DONE | `info.ts` (19→3 helpers: collectSourceInfo, collectDependencyInfo, collectGitInfo) |
 
-**Milestone**: C4 entities form a navigable hierarchy. Components are editable post-creation. Event catalog supports full lifecycle. Document service is the sole markdown renderer for doc templates. Frontmatter parsing consolidated to single infrastructure module. Command registration typed with collision detection. Menu construction extracted into pure builder functions. Structured error handling established. `--format=json` output pattern established. Single input abstraction for all interactive prompts. 1,451 tests, 88 suites. 0 lint errors, 0 warnings.
+**Milestone**: C4 entities form a navigable hierarchy. Components are editable post-creation. Event catalog supports full lifecycle. Document service is the sole markdown renderer for doc templates. Frontmatter parsing consolidated to single infrastructure module. Command registration typed with collision detection. Menu construction extracted into pure builder functions. Structured error handling established. `--format=json` output pattern established. Single input abstraction for all interactive prompts. 1,451 tests, 88 suites → grew to 1,532 tests, 91 suites after Phase 3. 0 lint errors, 0 warnings.
 
 ### Phase 3: Project Health & Storybook Integration
 
@@ -569,12 +609,12 @@ Aggregate project metrics and integrate with the broader development ecosystem.
 
 | # | Task | Effort | Impact | Files |
 |---|------|--------|--------|-------|
-| 3.1 | **Project health dashboard** (IMP-05) | M | High | New: `domain/health/health.ts` |
-| 3.2 | **Review pipeline gating** (IMP-07) | S | Medium | Modify: `review/project-review.ts` |
-| 3.3 | **Storybook integration** (IMP-17) | M | High | New: `domain/make/component/storybook-service.ts`, Modify: `component-list.ts`, `component-makers.ts`, definitions, `config-schema.ts` |
+| 3.1 | **Project health dashboard** (IMP-05) | DONE | High | New: `domain/health/health.ts` (`collectHealth`, `displayHealth`, `HealthSnapshot`), Modify: `mainMenu.ts` (health menu item), 20 new tests |
+| 3.2 | **Review pipeline gating** (IMP-07) | DONE | Medium | `review/project-review.ts` (build→test→E2E gating), `review/review.ts` (review:all command), 15 new tests |
+| 3.3 | **Storybook v10 integration** (IMP-17) | DONE | High | New: `storybook-service.ts` (install, detect, dev/build), Modify: `component-list.ts` (dynamic disabled menu gating), `config-schema.ts` (components validation), `types.ts` (ComponentsConfig), component data model expanded with `actions`, `variants`, `states`, `icon`, `heroImage`, `images[]`, `domain` for full Storybook v10 compatibility, self-contained render function pattern in stories, stories excluded from tsconfig/typedoc, TypeDoc TS error parsing, npm scripts submenu persistence, 37 new tests |
 | 3.4 | **Definition marketplace** (IMP-09) | L | Medium | New: `domain/scaffold/marketplace.ts` |
 
-**Milestone**: Projects have a health score. Review enforces quality gates. Storybook is a first-class, opt-in component library tool managed from the Components menu.
+**Milestone**: Projects have a health score. Review enforces quality gates. Storybook v10 is a first-class, opt-in component library tool managed from the Components menu with dynamic state-aware gating. Component data model expanded with icon, heroImage, images, domain for rich documentation and Storybook parameters. TypeDoc error parsing captures both native and TS compilation errors. 1,532 tests, 91 suites. 0 lint errors, 0 warnings.
 
 ### Phase 4: Cross-Project & Automation
 
@@ -643,7 +683,7 @@ Consolidated 7 duplicate parsers into `infrastructure/frontmatter.ts`. See secti
 
 ### ~~6.10 Coverage Gap~~ — ACCEPTABLE
 
-Pure functions are well-covered (1,440 tests). Remaining low-coverage files are: (1) report generators — I/O-heavy, tested via output shape; (2) interactive flows — thin wrappers over tested `menu.ts` infrastructure; (3) E2E orchestration — covered by integration tests. Adding unit tests for these yields diminishing returns. Coverage will grow organically as new features add tests.
+Pure functions are well-covered (1,532 tests). Remaining low-coverage files are: (1) report generators — I/O-heavy, tested via output shape; (2) interactive flows — thin wrappers over tested `menu.ts` infrastructure; (3) E2E orchestration — covered by integration tests. Adding unit tests for these yields diminishing returns. Coverage will grow organically as new features add tests.
 
 ### ~~6.11 Complexity Hotspots~~ — ACCEPTABLE
 
@@ -698,7 +738,7 @@ Audit complete. All domain files correctly import shared types from `infrastruct
 | Project | `project.ts`, `project-config.ts` | Project selection, initialization, auto-scaffolding |
 | Scaffold | `scaffold-service.ts`, `scaffold-plan.ts`, `scaffold-schema.ts` | Project creation from JSON definitions |
 | Make | `MakeService.ts`, `makers.ts`, `make-commands.ts` | In-project scaffolding (journey, component) |
-| Component | `component-registry.ts`, `component-plan.ts`, `component-types.ts`, `component-list.ts`, `component-edit.ts` | 8-kind component system with ECS properties, C4 hierarchy, post-creation editing |
+| Component | `component-registry.ts`, `component-plan.ts`, `component-types.ts`, `component-list.ts`, `component-edit.ts`, `storybook-service.ts` | 8-kind component system with properties, actions, variants, states (Storybook-compatible), C4 hierarchy, post-creation editing, opt-in Storybook |
 | Reports | `report-runner.ts`, `generator-registry.ts` (6 reports), `reference-registry.ts` (2 refs), `report-archive.ts` | Resilient report generation, reference documents, archive browsing |
 | Review | `project-review.ts`, `E2EService.ts` | E2E test execution, test vault management |
 | Publish | `project-publish.ts` | Gated build → test → distribute pipeline |
@@ -753,3 +793,8 @@ Audit complete. All domain files correctly import shared types from `infrastruct
 | D-26 | Structured error types | `CliError` (message + guidance, clean display) vs `InternalError` (stack trace for debugging); `formatError()` routes display; global catch boundary in main.ts |
 | D-27 | Structured CLI output | `resolveFormat(flags)` + `printOutput(format, data, renderer)` in `output.ts`; commands extract pure data (e.g. `collectProjectInfo()`), then format at the boundary; `--format=json` for AI agent consumption |
 | D-28 | Input consolidation | `readline.ts` deleted; `input.ts` is the sole input abstraction (`ask`, `askYesNo`); E2E domain migrated from manual `createRL()`/`rl.close()` to `input.*`; duplicate `ask`/`askYesNo` removed from `e2e-helpers.ts` |
+| D-29 | Storybook v10 (not v8) | v10 removes react/react-dom peer deps, moves actions to `storybook/actions`, uses `tags: ["autodocs"]` in preview; pure HTML framework aligns with CLI's zero-dependency philosophy |
+| D-30 | Self-contained story render functions | Stories create DOM elements directly in `render: (args) => { ... }` instead of importing component modules; stories work before components exist; no broken imports |
+| D-31 | Dynamic menu disabled functions | `MenuItem.disabled` accepts `() => boolean` re-evaluated each menu loop iteration; enables state-aware gating (e.g. Storybook install status changes mid-session) |
+| D-32 | Stories excluded from tsconfig + typedoc | Story files import from `storybook/actions` which isn't in the project's node_modules; TypeDoc's `exclude` only filters output, not TS compilation; tsconfig exclude prevents compilation errors |
+| D-33 | Npm scripts submenu persistence | Script actions return `undefined` (stay in loop) not `"main"` (exit to parent); users typically run multiple scripts in sequence |

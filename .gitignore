@@ -44,3 +44,4 @@ build-endpoints.json
 /** Flowti CLI runtime (generated) **/
 /.flowti/bin/
 /.flowti/var/
+/01 - Projects/Flowti CLI/component-library/

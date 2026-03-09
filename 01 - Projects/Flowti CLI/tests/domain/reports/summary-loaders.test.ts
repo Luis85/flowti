@@ -428,4 +428,31 @@ describe("parseTypedocOutput", () => {
 		expect(result.warnings).toBe(0);
 		expect(result.errors).toBe(0);
 	});
+
+	it("parses TypeScript compilation errors from typedoc", () => {
+		const output = [
+			"src/domain/make/component/component-registry.ts:32:2 - error TS2352: Conversion of type ...",
+			"src/domain/make/component/storybook-service.ts:46:7 - error TS2554: Expected 3 arguments",
+			"[info] Found 2 errors and 0 warnings",
+		].join("\n");
+		const result = parseTypedocOutput(output);
+		expect(result.errors).toBe(2);
+		expect(result.warnings).toBe(0);
+		expect(result.issues).toHaveLength(2);
+		expect(result.issues[0].severity).toBe("error");
+		expect(result.issues[0].message).toContain("TS2352");
+		expect(result.issues[0].message).toContain("component-registry.ts:32:2");
+		expect(result.issues[1].message).toContain("TS2554");
+	});
+
+	it("combines TypeDoc warnings and TS compilation errors", () => {
+		const output = [
+			"[warning] SomeType is not exported",
+			"src/file.ts:10:5 - error TS2345: Argument of type ...",
+		].join("\n");
+		const result = parseTypedocOutput(output);
+		expect(result.errors).toBe(1);
+		expect(result.warnings).toBe(1);
+		expect(result.issues).toHaveLength(2);
+	});
 });

@@ -3,6 +3,8 @@
 	"kind": "ui-component",
 	"label": "UI Component - generic",
 	"description": "A UI component — a reusable, self-contained user interface element.",
+	"icon": "component",
+	"images": [],
 	"prompts": [
 		{ "variable": "description", "label": "Description", "default": "", "required": false },
 		{ "variable": "owner", "label": "Owner / team", "default": "", "required": false }
@@ -23,6 +25,21 @@
 		{ "key": "variant", "type": "string", "default": "default", "description": "Visual variant" },
 		{ "key": "disabled", "type": "boolean", "default": false, "description": "Whether the component is disabled" },
 		{ "key": "visible", "type": "boolean", "default": true, "description": "Whether the component is visible" }
+	],
+	"actions": [
+		{ "name": "onClick", "description": "Fired when the component is clicked" },
+		{ "name": "onFocus", "description": "Fired when the component receives focus" },
+		{ "name": "onBlur", "description": "Fired when the component loses focus" }
+	],
+	"variants": [
+		{ "name": "primary", "label": "Primary", "props": { "variant": "primary" } },
+		{ "name": "secondary", "label": "Secondary", "props": { "variant": "secondary" } },
+		{ "name": "disabled", "label": "Disabled", "props": { "variant": "default", "disabled": true } }
+	],
+	"states": [
+		{ "name": "hover", "label": "Hover", "description": "Mouse hovering over the component", "props": { "variant": "default" } },
+		{ "name": "focus", "label": "Focus", "description": "Component has keyboard focus", "props": { "variant": "default" } },
+		{ "name": "disabled", "label": "Disabled", "description": "Component is non-interactive", "props": { "disabled": true, "visible": true } }
 	],
 	"nextSteps": [
 		"Edit docs/components/{{kebab}}.md to describe the component behavior",

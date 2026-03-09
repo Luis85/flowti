@@ -147,7 +147,7 @@ The bootstrap (`src/boot/bootstrap.mjs`, deployed as `.flowti/bin/index.js`) han
 │       ├── args.ts                 # CLI argument parser
 │       ├── fs.ts                   # File helpers (countFiles, writeFile)
 │       └── test-vault.ts           # Test vault scaffold/teardown
-├── tests/                          # Vitest test suites (1,451 tests, 88 suites)
+├── tests/                          # Vitest test suites (1,532 tests, 91 suites)
 ├── configs/
 │   ├── flowti.config.json          # CLI's own project config (tools, publish, reports)
 │   ├── esbuild.config.mjs          # Build: bundles to .flowti/bin/main.js + deploys bootstrap
@@ -155,12 +155,15 @@ The bootstrap (`src/boot/bootstrap.mjs`, deployed as `.flowti/bin/index.js`) han
 │   ├── vitest.config.ts            # Vitest configuration
 │   ├── eslint.config.mjs           # ESLint configuration
 │   └── typedoc.json                # TypeDoc configuration
+├── component-library/              # Opt-in Storybook v10 instance (installed via Components menu)
+│   ├── .storybook/                 # Storybook config (main.ts, preview.ts)
+│   └── package.json               # Storybook dependencies (@storybook/html v10)
 ├── docs/
 │   └── reports/                    # Generated reports
 ├── reports/                        # Stable report outputs (Project Summary.md)
 ├── package.json                    # npm scripts and devDependencies
 ├── Flowti CLI PRD.md               # Product Requirements Document
-├── Flowti CLI Architecture.md      # Architecture Document (v13)
+├── Flowti CLI Architecture.md      # Architecture Document (v15)
 └── README.md                       # This file
 ```
 
@@ -219,12 +222,14 @@ Components are the base building blocks of Flowti projects, supporting C4 archit
 | `make:person` | C4 Person | 0 | Actor interacting with the system |
 
 Each component generates:
-- **Documentation** — Markdown with YAML frontmatter (type, status, C4 metadata, properties)
+- **Documentation** — Markdown with YAML frontmatter (type, status, C4 metadata, properties, icon, domain)
 - **Test file** — Vitest skeleton
 - **Definition** — JSON metadata file
-- **Story** — Storybook story (layout, page, ui-component only)
+- **Story** — Storybook v10 story with self-contained render function (layout, page, ui-component only)
 
-Components support **ECS-compatible properties** (typed key-value pairs with defaults), **C4 hierarchy** (containedBy/contains relationships, ancestry paths, siblings), and **post-creation editing** via `edit:component`.
+Components support **ECS-compatible properties** (typed key-value pairs with defaults), **actions** (event handlers → Storybook action loggers), **variants** and **states** (named story exports), **icon/heroImage/images/domain** metadata, **C4 hierarchy** (containedBy/contains relationships, ancestry paths, siblings), and **post-creation editing** via `edit:component`.
+
+**Storybook** is opt-in per project. Install via the Components menu (`i`), then run dev server (`s`) or build (`k`). Story files are self-contained — they create DOM elements directly without importing component modules.
 
 ## Per-Project Configuration
 
@@ -237,6 +242,10 @@ Each project stores its config in `configs/flowti.config.json`:
     "build": "npm run build",
     "reports": "npm run reports",
     "devtools": "npm run dev"
+  },
+  "components": {
+    "storybook": true,
+    "storybookDir": "component-library"
   },
   "publish": {
     "build": "npm run build",
@@ -255,6 +264,10 @@ Each project stores its config in `configs/flowti.config.json`:
   },
   "make": {
     "templates": ["journey", "component"]
+  },
+  "docs": {
+    "allCommand": "npm run typedoc",
+    "referenceDir": "docs/reference"
   }
 }
 ```

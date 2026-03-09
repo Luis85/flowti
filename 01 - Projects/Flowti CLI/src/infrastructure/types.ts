@@ -231,10 +231,18 @@ export interface MakeConfig {
 	templates?: MakeTemplateId[];
 }
 
+export interface ComponentsConfig {
+	/** Whether Storybook is enabled for this project */
+	storybook?: boolean;
+	/** Directory name for the Storybook component library (default: "component-library") */
+	storybookDir?: string;
+}
+
 export interface ProjectConfig {
 	name: string;
 	tools?: Partial<Record<FlowtiToolId, string>>;
 	make?: MakeConfig;
+	components?: ComponentsConfig;
 	reports?: ReportsConfig;
 	docs?: DocsConfig;
 	publish?: PublishConfig;

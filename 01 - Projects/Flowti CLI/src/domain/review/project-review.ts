@@ -10,7 +10,7 @@
 import { paths } from "../../infrastructure/paths.js";
 import { disk } from "../../infrastructure/filesystem.js";
 import { VAULT_ROOT } from "../../infrastructure/config.js";
-import { RESET, BOLD, DIM, GREEN, CYAN, YELLOW } from "../../infrastructure/ui.js";
+import { RESET, BOLD, DIM, GREEN, RED, CYAN, YELLOW } from "../../infrastructure/ui.js";
 import { shell } from "../../infrastructure/shell.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { input } from "../../infrastructure/input.js";
@@ -73,6 +73,7 @@ export async function reviewMenu(projectPath: string, config: ReviewConfig): Pro
 	const journeys = scanJourneys(projectPath, journeysDir);
 	const testVault = resolveTestVault(projectPath, config);
 	let buildPassed = false;
+	let testPassed = false;
 
 	const buildCmd = config.build ?? "npm run build";
 	const testCmd = config.test ?? "npm test";
@@ -83,54 +84,68 @@ export async function reviewMenu(projectPath: string, config: ReviewConfig): Pro
 		log(`    ${DIM}Journeys:${RESET}   ${journeys.length} found in ${journeysDir}`);
 		log(`    ${DIM}Test vault:${RESET} ${vaultExists ? `${GREEN}exists${RESET}` : `${YELLOW}not created${RESET}`} ${DIM}(${testVault})${RESET}`);
 		const buildIcon = buildPassed ? `${GREEN}✓${RESET}` : `${DIM}○${RESET}`;
-		log(`    ${DIM}Pipeline:${RESET}  ${buildIcon} Build  →  ${DIM}○${RESET} E2E`);
+		const testIcon = testPassed ? `${GREEN}✓${RESET}` : `${DIM}○${RESET}`;
+		log(`    ${DIM}Pipeline:${RESET}  ${buildIcon} Build  →  ${testIcon} Test  →  ${DIM}○${RESET} E2E`);
 		log();
 	};
 
 	const items: MenuEntry[] = [
-		{ key: "1", label: "Build the project", action: () => {
+		{ key: "1", label: "Build", action: () => {
 			const code = shell.run(buildCmd, { cwd: projectPath, label: "Build" });
 			buildPassed = code === 0;
+			if (!buildPassed) testPassed = false;
 		}},
-		{ key: "2", label: "Run unit tests", action: () => {
-			shell.run(testCmd, { cwd: projectPath, label: "Unit tests" });
-		}},
+		{ key: "2", label: "Test",
+			disabled: () => !buildPassed,
+			disabledMessage: `\n  ${YELLOW}Build first (option 1).${RESET}\n`,
+			action: () => {
+				testPassed = shell.run(testCmd, { cwd: projectPath, label: "Test" }) === 0;
+			},
+		},
 	];
 
-	// Journey-specific items
+	// Journey-specific items — gated behind build + test
 	if (journeys.length > 0) {
+		const e2eDisabled = (): boolean => !testPassed;
+		const e2eDisabledMessage = `\n  ${YELLOW}Build and test first.${RESET}\n`;
+
 		if (runnerCmd) {
 			items.push(
-				{ key: "3", label: "Run all journeys", action: () => {
-					ensureTestVault(testVault);
-					shell.run(runnerCmd, { cwd: projectPath, label: "All journeys" });
-				}},
-				{ key: "j", label: "Run specific journey...", action: async () => {
-					const journeyItems = journeys.map((j, i) => ({
-						key: String(i + 1),
-						label: j.meta.journey ?? j.name,
-						action: () => {
-							ensureTestVault(testVault);
-							shell.run(`${runnerCmd} --journey=${j.name}`, { cwd: projectPath, label: j.meta.journey ?? j.name });
-							return "main" as const;
-						},
-					}));
-					journeyItems.push(
-						{ key: "b", label: "Back", action: () => "main" as const },
-					);
-					await runMenu("Journeys", [
-						...journeyItems,
-						{ separator: true } as const,
-						{ key: "b", label: "Back", action: () => "main" as const },
-					]);
-					return "main" as const;
-				}},
+				{ key: "3", label: "Run all journeys",
+					disabled: e2eDisabled,
+					disabledMessage: e2eDisabledMessage,
+					action: () => {
+						ensureTestVault(testVault);
+						shell.run(runnerCmd, { cwd: projectPath, label: "All journeys" });
+					},
+				},
+				{ key: "j", label: "Run specific journey...",
+					disabled: e2eDisabled,
+					disabledMessage: e2eDisabledMessage,
+					action: async () => {
+						const journeyItems = journeys.map((j, i) => ({
+							key: String(i + 1),
+							label: j.meta.journey ?? j.name,
+							action: () => {
+								ensureTestVault(testVault);
+								shell.run(`${runnerCmd} --journey=${j.name}`, { cwd: projectPath, label: j.meta.journey ?? j.name });
+								return "main" as const;
+							},
+						}));
+						await runMenu("Journeys", [
+							...journeyItems,
+							{ separator: true } as const,
+							{ key: "b", label: "Back", action: () => "main" as const },
+						]);
+						return "main" as const;
+					},
+				},
 			);
 		} else {
 			items.push(
 				{ key: "3", label: "Run E2E tests",
-					disabled: () => !buildPassed,
-					disabledMessage: `\n  ${YELLOW}Build first (option 1).${RESET}\n`,
+					disabled: e2eDisabled,
+					disabledMessage: e2eDisabledMessage,
 					action: () => {
 						ensureTestVault(testVault);
 						const e2eCmd = `npx vitest run tests/e2e/`;
@@ -139,6 +154,30 @@ export async function reviewMenu(projectPath: string, config: ReviewConfig): Pro
 				},
 			);
 		}
+
+		// Run all: build → test → E2E (sequential, stops on failure)
+		items.push(
+			{ key: "a", label: "Run all (build → test → E2E)", action: () => {
+				log(`\n  ${CYAN}▸${RESET} Running full review pipeline...\n`);
+				const buildCode = shell.run(buildCmd, { cwd: projectPath, label: "Step 1/3: Build" });
+				buildPassed = buildCode === 0;
+				if (!buildPassed) {
+					log(`  ${RED}Pipeline stopped — build failed.${RESET}\n`);
+					testPassed = false;
+					return;
+				}
+				const testCode = shell.run(testCmd, { cwd: projectPath, label: "Step 2/3: Test" });
+				testPassed = testCode === 0;
+				if (!testPassed) {
+					log(`  ${RED}Pipeline stopped — tests failed.${RESET}\n`);
+					return;
+				}
+				log(`\n  ${CYAN}▸${RESET} Step 3/3: E2E\n`);
+				ensureTestVault(testVault);
+				const e2eCmd = runnerCmd ?? `npx vitest run tests/e2e/`;
+				shell.run(e2eCmd, { cwd: projectPath, label: "E2E tests" });
+			}},
+		);
 	}
 
 	// Journey listing

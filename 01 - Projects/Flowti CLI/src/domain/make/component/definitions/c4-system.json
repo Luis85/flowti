@@ -3,6 +3,8 @@
 	"kind": "system",
 	"label": "System (C4)",
 	"description": "A C4 System — the highest-level abstraction boundary.",
+	"icon": "globe",
+	"images": [],
 	"prompts": [
 		{ "variable": "description", "label": "Description", "default": "", "required": true },
 		{ "variable": "technology", "label": "Technology stack", "default": "", "required": false },
@@ -21,6 +23,9 @@
 		"relationships": []
 	},
 	"properties": [],
+	"actions": [],
+	"variants": [],
+	"states": [],
 	"nextSteps": [
 		"Edit docs/components/{{kebab}}.md to describe the system boundary",
 		"Add containers using: flowti make:container"

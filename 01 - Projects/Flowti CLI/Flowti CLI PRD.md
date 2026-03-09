@@ -2,7 +2,7 @@
 domain: Flowti
 type: ProductRequirementsDocument
 stage: complete
-version: 5
+version: 6
 maturity: L2
 created: 2026-03-07
 updated: 2026-03-09
@@ -202,7 +202,8 @@ All features, restrictions, and quality gates exist to improve the quality of th
 - [x] FR-03.11: Configurable per-project via `make.templates` in `flowti.config.json`
 - [x] FR-03.12: ECS-compatible component properties — typed key-value pairs (`string | number | boolean`) with defaults and descriptions
 - [x] FR-03.13: Properties rendered in documentation tables, definition JSON defaults, and Storybook argTypes
-- [x] FR-03.14: Storybook story file generation (`.stories.ts`) with Meta/StoryObj, autodocs, and kind-aware folder organization
+- [x] FR-03.14: Storybook v10 story file generation (`.stories.ts`) with self-contained render functions, Meta/StoryObj, autodocs via tags, kind-aware folder organization, and `storybook/actions` integration
+- [x] FR-03.15: Extended component data model — `icon`, `heroImage`, `images[]`, `domain` fields on `ComponentDefinition` for rich documentation and Storybook parameters
 
 ### FR-04: Man-Page System
 
@@ -265,7 +266,7 @@ All features, restrictions, and quality gates exist to improve the quality of th
 - [x] FR-09.7: Generators declare `prerequisites` (e.g. `npm run test:coverage`) that run before generation; shared prerequisites are deduplicated across generators
 - [x] FR-09.8: Generators return `warnings[]` for non-fatal issues (coverage below threshold, lint warnings, TypeDoc warnings, high complexity)
 - [x] FR-09.9: Run summary uses three-state icons: `✓` passed, `⚠` passed with warnings, `✗` failed
-- [x] FR-09.10: Summary Report surfaces individual lint issues (file:line, message, rule) and TypeDoc issues in the run summary
+- [x] FR-09.10: Summary Report surfaces individual lint issues (file:line, message, rule) and TypeDoc issues (both native `[warning]`/`[error]` and TS compilation errors) in the run summary
 
 ### FR-11: Event Catalog
 
@@ -400,7 +401,7 @@ No adapter changes. The CLI uses Node.js built-ins exclusively (readline, child_
 - [x] Review creates test vault outside git repository
 - [x] Publish pipeline enforces build → test → distribute gating
 - [x] `npm run build` compiles and bundles to `.flowti/bin/main.js` without errors
-- [x] `npm test` passes with all 1,451 tests green (88 suites)
+- [x] `npm test` passes with all 1,532 tests green (91 suites)
 - [x] Pressing `?` in any menu shows contextual help
 - [x] Report generation runs resiliently — failed reports don't stop the run; warnings surfaced in summary
 - [x] Event Catalog creates, lists, and auto-links domain events per project
@@ -420,7 +421,7 @@ No adapter changes. The CLI uses Node.js built-ins exclusively (readline, child_
 - [x] Resilient report generation with prerequisites, warnings, and comprehensive run summary
 - [x] Per-project auto-scaffolding generates valid `flowti.config.json`
 - [x] Man-pages cover all tool menus with accurate descriptions
-- [x] TypeScript strict mode with Vitest test suite (1,451 tests, 88 suites)
+- [x] TypeScript strict mode with Vitest test suite (1,532 tests, 91 suites)
 - [x] No production dependencies — dev tooling only, binary is self-contained
 - [x] README, Architecture, and PRD updated to reflect definition-driven architecture
 - [x] Developer onboarding scenario tested end-to-end
@@ -444,6 +445,7 @@ Planned improvements to evolve the CLI beyond its current state:
 | ~~IMP-14~~ | **Event Catalog enrichment** | Done — Payload field editor (`event-payload.ts`) and versioning with migration notes (`event-versioning.ts`) (Phase 2.3–2.4) |
 | ~~IMP-15~~ | **Component property editor** | Done — Interactive prompt for adding/editing properties via `collectPropertyValues()` and `component-edit.ts` (Phase 2.2) |
 | ~~IMP-16~~ | **Event flow visualization** | Done — Producer → event → consumer diagrams from Event Catalog data (`event-flow.ts`) (Phase 2.5) |
+| ~~IMP-17~~ | **Storybook v10 integration** | Done — Opt-in per project via Components menu. CLI installs Storybook v10 into `<project>/component-library/`, wraps npm scripts (dev/build) with dynamic disabled gating, Make generates self-contained `.stories.ts` with render functions, component data model expanded (icon, heroImage, images, domain, actions, variants, states) (Phase 3.3) |
 
 ### Short-Term
 
@@ -451,7 +453,6 @@ Planned improvements to evolve the CLI beyond its current state:
 |----|-------------|-------------|
 | IMP-05 | **Project health dashboard** | Aggregate project stats (test count, coverage, build status, last activity) into a summary view |
 | IMP-07 | **Review pipeline gating** | Add build → test gating to Review (like Publish) before running E2E journeys |
-| IMP-17 | **Storybook integration** | Opt-in per project via Components menu. CLI installs Storybook into `<project>/component-library/`, wraps its npm scripts (dev/build) from the Components menu, and Make Components generates story files targeting the installed instance |
 
 ### Medium-Term
 

@@ -225,6 +225,33 @@ describe("validateProjectConfig", () => {
 		});
 	});
 
+	describe("components", () => {
+		it("accepts valid components config", () => {
+			const { warnings } = validateProjectConfig(valid({ components: { storybook: true, storybookDir: "sb" } }));
+			expect(warnings).toEqual([]);
+		});
+
+		it("accepts empty components object", () => {
+			const { warnings } = validateProjectConfig(valid({ components: {} }));
+			expect(warnings).toEqual([]);
+		});
+
+		it("warns on non-object components", () => {
+			const { warnings } = validateProjectConfig(valid({ components: "bad" }));
+			expect(warnings).toContainEqual(expect.stringContaining('"components" must be an object'));
+		});
+
+		it("warns on non-boolean storybook", () => {
+			const { warnings } = validateProjectConfig(valid({ components: { storybook: "yes" } }));
+			expect(warnings).toContainEqual(expect.stringContaining('"components.storybook" must be a boolean'));
+		});
+
+		it("warns on non-string storybookDir", () => {
+			const { warnings } = validateProjectConfig(valid({ components: { storybookDir: 42 } }));
+			expect(warnings).toContainEqual(expect.stringContaining('"components.storybookDir" must be a string'));
+		});
+	});
+
 	describe("unknown keys", () => {
 		it("warns on unknown top-level keys", () => {
 			const { warnings } = validateProjectConfig(valid({ unknownKey: true }));
@@ -233,7 +260,7 @@ describe("validateProjectConfig", () => {
 
 		it("does not warn on known keys", () => {
 			const { warnings } = validateProjectConfig({
-				name: "Test", tools: {}, make: {}, reports: {}, docs: {}, publish: {}, review: {},
+				name: "Test", tools: {}, make: {}, components: {}, reports: {}, docs: {}, publish: {}, review: {},
 			});
 			expect(warnings).toEqual([]);
 		});

@@ -3,6 +3,8 @@
 	"kind": "container",
 	"label": "Container (C4)",
 	"description": "A C4 Container — a deployable unit within a system.",
+	"icon": "package",
+	"images": [],
 	"prompts": [
 		{ "variable": "description", "label": "Description", "default": "", "required": true },
 		{ "variable": "technology", "label": "Technology (e.g., Node.js, PostgreSQL)", "default": "", "required": false },
@@ -22,6 +24,9 @@
 		"relationships": []
 	},
 	"properties": [],
+	"actions": [],
+	"variants": [],
+	"states": [],
 	"nextSteps": [
 		"Edit docs/components/{{kebab}}.md to describe the container",
 		"Add components using: flowti make:c4-component"
