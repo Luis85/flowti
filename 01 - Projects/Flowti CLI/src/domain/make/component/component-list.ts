@@ -15,6 +15,7 @@ import type { MenuEntry, MenuResult, ComponentsConfig } from "../../../infrastru
 import type { ProjectComponent, ComponentKind } from "./component-types.js";
 import { COMPONENT_KINDS } from "./component-types.js";
 import { isStorybookInstalled, installStorybook, runStorybookDev, runStorybookBuild } from "./storybook-service.js";
+import { componentMenu } from "./component-makers.js";
 
 // ── Component discovery ─────────────────────────────────────────────
 
@@ -190,35 +191,42 @@ export async function componentListMenu(projectRoot: string, componentsConfig?: 
 		};
 	});
 
-	// Storybook items (conditional on opt-in, dynamically gated)
-	if (config.storybook) {
-		const projectName = paths.basename(projectRoot);
-		const sbInstalled = () => isStorybookInstalled(projectRoot, config);
-		items.push(
-			{ separator: true },
-			{
-				key: "i",
-				label: "Install Storybook",
-				action: () => { installStorybook(projectRoot, projectName, config); },
-				disabled: sbInstalled,
-				disabledMessage: "\n  Storybook is already installed.\n",
-			},
-			{
-				key: "s",
-				label: "Storybook dev",
-				action: () => { runStorybookDev(projectRoot, config); },
-				disabled: () => !sbInstalled(),
-				disabledMessage: "\n  Storybook not installed. Use \"Install Storybook\" first.\n",
-			},
-			{
-				key: "k",
-				label: "Storybook build",
-				action: () => { runStorybookBuild(projectRoot, config); },
-				disabled: () => !sbInstalled(),
-				disabledMessage: "\n  Storybook not installed. Use \"Install Storybook\" first.\n",
-			},
-		);
-	}
+	// Add component
+	items.push(
+		{ separator: true },
+		{ key: "c", label: "Add Component", action: async () => {
+			await componentMenu(projectRoot);
+			return "main" as const;
+		}},
+	);
+
+	// Storybook items — always available, gated by installation status
+	const projectName = paths.basename(projectRoot);
+	const sbInstalled = () => isStorybookInstalled(projectRoot, config);
+	items.push(
+		{ separator: true },
+		{
+			key: "i",
+			label: "Install Storybook",
+			action: () => { installStorybook(projectRoot, projectName, config); },
+			disabled: sbInstalled,
+			disabledMessage: "\n  Storybook is already installed.\n",
+		},
+		{
+			key: "s",
+			label: "Storybook dev",
+			action: () => { runStorybookDev(projectRoot, config); },
+			disabled: () => !sbInstalled(),
+			disabledMessage: "\n  Storybook not installed. Use \"Install Storybook\" first.\n",
+		},
+		{
+			key: "k",
+			label: "Storybook build",
+			action: () => { runStorybookBuild(projectRoot, config); },
+			disabled: () => !sbInstalled(),
+			disabledMessage: "\n  Storybook not installed. Use \"Install Storybook\" first.\n",
+		},
+	);
 
 	items.push(
 		{ separator: true },

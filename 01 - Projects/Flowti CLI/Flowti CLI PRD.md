@@ -2,18 +2,18 @@
 domain: Flowti
 type: ProductRequirementsDocument
 stage: complete
-version: 9
+version: 10
 maturity: L2
 created: 2026-03-07
 updated: 2026-03-09
 related_events: []
-maturity_score_strategy: 3
+maturity_score_strategy: 4
 maturity_score_scope: 5
 maturity_score_architecture: 4
 maturity_score_event_integration: 3
 maturity_score_data_model: 4
 maturity_score_ui_consistency: 3
-maturity_score_validation_testing: 4
+maturity_score_validation_testing: 5
 business_value: 4
 implementation_cost: 2
 maintenance_cost: 2
@@ -59,14 +59,16 @@ After implementation, developers and AI agents will have:
 
 - A **self-contained binary** (`node .flowti/bin`) with no source tree dependency.
 - A **definition-driven** scaffolding system where JSON definitions are the single source of truth.
-- A two-stage interactive menu: project selection (open/create/plugins/ai-tools) → project detail.
+- An **adaptive two-stage interactive menu**: project selection (open/create/plugins/ai-tools) → project detail. Start menu adapts when no projects exist ("Create Your First Project").
 - Per-project configuration via `configs/flowti.config.json` with auto-scaffolding from `package.json`.
 - **Base feature set**: Project Management, Components, Events, Make, Build, Tests, Reports, Review, Publish, Plugins, AI Tools, Health, Dependencies.
 - **Component system** with 8 types: C4 architecture (System, Container, Component, Person) plus UI building blocks (Layout, Page, UI Component) and a generic Component.
 - **Event Catalog** for per-project domain event documentation with auto-discovered wikilinks.
 - Component and Journey scaffolding from declarative JSON definitions with optional Storybook story generation.
 - A gated publish pipeline that enforces build → test → distribute sequencing per project.
-- E2E review with test vault isolation (created outside the git repository, with CLI build copied in).
+- E2E review with test vault isolation (created outside the git repository, with fresh CLI build on every ensure/refresh).
+- **Standalone mode** — binary runs without source tree present; bootstrap detects mode automatically.
+- **Git submodule projects** — load remote git repositories as submodules instead of clones.
 - Non-interactive commands for AI agent tool use with deterministic exit codes.
 - Auto-generated reports (test, coverage, codebase, complexity, status, summary) per project with prerequisite chaining and warning surfacing.
 - **Plugin system** — vault-level plugins in `.flowti/plugins/<name>/manifest.json` with shell-command-based commands, interactive management menu, and auto-generated reference documentation.
@@ -123,6 +125,8 @@ All features, restrictions, and quality gates exist to improve the quality of th
 - Event versioning — version bumping with migration notes
 - Non-interactive command dispatch for AI agent tool use
 - Persistent state (selected project) via `.flowti/var/state.json`
+- Standalone CLI mode — run from compiled binary without source tree
+- Git submodule project loading from remote URLs
 
 ### Out of Scope
 
@@ -184,6 +188,7 @@ All features, restrictions, and quality gates exist to improve the quality of th
 | Project health | `flowti health [--format=json]` | Health snapshot with scoring (0–100), grade (A–F) |
 | Publish preview | `flowti publish --dry-run` | Pipeline preview without executing |
 | Clean test vault | `flowti review:clean` | Remove stale test vault, exit 0 |
+| Review pipeline | `flowti review:all` | Build → test → E2E with fail-fast gating |
 
 ---
 
@@ -191,8 +196,8 @@ All features, restrictions, and quality gates exist to improve the quality of th
 
 ### FR-01: Interactive Menu System
 
-- [x] FR-01.1: Start menu listing projects from configured projects directory
-- [x] FR-01.2: Project creation from bundled scaffold definitions
+- [x] FR-01.1: Adaptive start menu — lists projects when they exist; shows "Create Your First Project" when empty
+- [x] FR-01.2: Project creation from bundled scaffold definitions or git submodule from remote URL
 - [x] FR-01.3: Project detail menu with tools (Make, Build, Review, Publish, Reports, Npm Scripts, etc.)
 - [x] FR-01.4: Sub-menus with numbered options and separator support
 - [x] FR-01.5: ANSI color output (cyan options, green success, red errors, dim hints)
@@ -284,7 +289,7 @@ All features, restrictions, and quality gates exist to improve the quality of th
 - [x] FR-09.2: Definition validation on load (required fields, file mappings)
 - [x] FR-09.3: Variable interpolation in prompts and file paths
 - [x] FR-09.4: Interactive prompts collected from definition
-- [x] FR-09.5: "From GitHub" option for cloning external templates
+- [x] FR-09.5: "Load Git Project from Remote" option — adds remote repository as a git submodule
 - [x] FR-09.6: Post-create commands (npm install, git init)
 
 ### FR-10: Resilient Report Generation
@@ -386,6 +391,31 @@ All features, restrictions, and quality gates exist to improve the quality of th
 - [x] FR-19.2: `versionEvent()` bumps event version with migration notes appended to document
 - [x] FR-19.3: Non-interactive command `events:version --name=X --version=Y --migration="..."` for AI agent use
 - [ ] FR-19.4: Breaking change detection — flag payload removals or type changes between versions
+
+### FR-20: Standalone CLI Mode
+
+- [x] FR-20.1: Bootstrap two-mode design — dev mode (source tree present) vs standalone mode (binary only)
+- [x] FR-20.2: When source tree is absent but `.flowti/bin/main.js` exists, run directly without npm ci / build / rebuild
+- [x] FR-20.3: `CLI_PROJECT` fallback — `config.ts` resolves to vault root when source directory doesn't exist
+- [x] FR-20.4: Clear error messaging when neither source tree nor compiled binary exist
+- [x] FR-20.5: Test vault provisioning — Review menu builds CLI fresh and copies binary into test vault on every ensure/refresh
+
+### FR-21: Agent-Native Interface
+
+- [ ] FR-21.1: `--json` output flag on all commands for machine-readable structured output
+- [ ] FR-21.2: `--yes` flag for non-interactive/CI mode — skip all confirmation prompts
+- [ ] FR-21.3: `--quiet` and `--verbose` global flags for output control
+- [ ] FR-21.4: `--no-color` flag for CI environments (disable ANSI codes)
+- [ ] FR-21.5: Post-command next-step suggestions — after every operation, suggest what to do next
+- [ ] FR-21.6: Shell completion generation — `flowti completions bash|zsh|fish|powershell`
+- [ ] FR-21.7: Progress indicators — spinners for < 3s operations, progress bars for > 3s
+
+### FR-22: Quality Gates
+
+- [ ] FR-22.1: Configurable quality gates in `flowti.config.json` — pass/fail thresholds that block publish
+- [ ] FR-22.2: `npm audit` integration in health scoring
+- [ ] FR-22.3: Technical debt estimation — remediation time from lint and complexity metrics
+- [ ] FR-22.4: Report diff mode — compare current report against previous, highlight changes
 
 ---
 
@@ -489,6 +519,42 @@ No adapter changes. The CLI uses Node.js built-ins exclusively (readline, child_
 | Scaffolded code doesn't compile | E2E journey validates build after scaffold |
 | Test vault accumulation on disk | Test vaults outside git; user manages lifecycle via Review menu |
 | esbuild bundling breaks runtime reads | All definitions imported directly (not read from fs); enforced by architecture |
+| AI agents can't parse structured output | `--json` flag planned (IMP-28); currently text-only output |
+| Single scaffold definition limits adoption | Marketplace and remote templates planned (IMP-25); community definitions via `scaffold:import` |
+| No security in health scoring | `npm audit` integration planned (IMP-41); currently coverage/lint/test only |
+| Plugin ecosystem has no lifecycle | Lifecycle hooks planned (IMP-37); current plugins are stateless shell commands |
+
+---
+
+## 11.1 Competitive Landscape (March 2026)
+
+### Market Positioning
+
+Flowti CLI occupies a unique niche: **vault-native project management CLI**. No existing tool combines knowledge management (Obsidian vault), project scaffolding, health scoring, report generation, and AI tool configs in a single CLI binary. The vault IS the memory — a genuine differentiator as AI agents demand persistent context.
+
+### Competitive Gaps (Prioritized)
+
+| Gap | Competitors | Impact | Addressed By |
+|-----|-------------|--------|--------------|
+| **No `--json` output** | GitHub CLI, Vercel CLI — all support structured output | Critical for CI and AI agent integration | IMP-28 (Phase 5.1) |
+| **No quality gates** | SonarQube (Quality Gates), CodeClimate (pass/fail) | Publish pipeline has no automated quality enforcement | IMP-29 (Phase 5.2) |
+| **No scaffold `--dry-run`** | Plop, Hygen, Cookiecutter — all support preview | Table-stakes for scaffolders | IMP-30 (Phase 5.3) |
+| **No progress indicators** | Atlassian's #3 CLI UX principle | Users lack feedback on long operations | IMP-31 (Phase 5.5) |
+| **No MCP server** | Fastest-adopted standard (Linux Foundation 2025) | AI agents can't consume CLI programmatically | IMP-38 (Phase 7.1) |
+| **No template versioning** | Cookiecutter, Copier (re-apply updated templates) | Scaffolded projects drift from template updates | IMP-40 (Phase 7.9) |
+| **No affected detection** | Nx, Turborepo (git-based change detection) | Review pipeline runs everything regardless of changes | IMP-36 (Phase 7.5) |
+| **No health trends** | CodeClimate (maintainability trends) | Point-in-time snapshots less useful than trends | IMP-26 (Phase 6.3) |
+| **1 scaffold definition** | Yeoman (10K+ generators), Cookiecutter (7K+ templates) | Limited out-of-box value for new users | IMP-25 (Phase 6.7) |
+
+### Defensible Advantages
+
+| Advantage              | Why It Matters                                                                              |
+| ---------------------- | ------------------------------------------------------------------------------------------- |
+| **Vault-native**       | Reports, docs, events, components are Obsidian notes — queryable, linkable, searchable      |
+| **Zero dependencies**  | No npm install, no lock file conflicts, self-contained binary                               |
+| **Progressive opt-in** | Start with nothing, grow into quality gates — no upfront ceremony                           |
+| **AI-agent aware**     | Non-interactive commands with deterministic exit codes                                      |
+| **Definition-driven**  | JSON definitions are the single source of truth — auditable, diffable, version-controllable |
 
 ---
 
@@ -504,7 +570,7 @@ No adapter changes. The CLI uses Node.js built-ins exclusively (readline, child_
 - [x] Review creates test vault outside git repository
 - [x] Publish pipeline enforces build → test → distribute gating
 - [x] `npm run build` compiles and bundles to `.flowti/bin/main.js` without errors
-- [x] `npm test` passes with all 1,766 tests green (100 suites)
+- [x] `npm test` passes with all 1,777 tests green (101 suites)
 - [x] Pressing `?` in any menu shows contextual help
 - [x] Report generation runs resiliently — failed reports don't stop the run; warnings surfaced in summary
 - [x] Event Catalog creates, lists, and auto-links domain events per project
@@ -520,12 +586,16 @@ No adapter changes. The CLI uses Node.js built-ins exclusively (readline, child_
 - [x] Scaffold marketplace discovers local definitions and allows import via `scaffold:import`
 - [x] Event contracts parse payload tables and export structured JSON
 - [x] Event versioning bumps versions with migration notes via `events:version`
+- [x] Standalone mode — `node .flowti/bin` runs without source tree; bootstrap auto-detects mode
+- [x] Adaptive Start Menu — no projects shows "Create Your First Project"; projects exist shows "Open Project" + "Create Project"
+- [x] Git submodule loading — "Load Git Project from Remote" adds repository as submodule
+- [x] Test vault provisioning — Review menu builds CLI fresh and refreshes binary on every ensure
 
 ---
 
 ## 13. Definition of Done
 
-- [x] All FR-01 through FR-19 implemented (FR-15 through FR-19 partial — see Feature Maturity Assessment)
+- [x] All FR-01 through FR-22 implemented (FR-15 through FR-19 partial, FR-21/FR-22 planned — see Feature Maturity Assessment)
 - [x] Two-stage menu (start → project detail) working
 - [x] Project creation from bundled scaffold definitions
 - [x] Component system with 8 types (5 C4 + 3 UI), properties, and Storybook stories
@@ -535,7 +605,7 @@ No adapter changes. The CLI uses Node.js built-ins exclusively (readline, child_
 - [x] Man-pages cover all tool menus with accurate descriptions
 - [x] Plugin system with vault-level manifests, interactive menu, and reference generation
 - [x] AI Tools system with vault-level definitions, interactive menu, and reference generation
-- [x] TypeScript strict mode with Vitest test suite (1,766 tests, 100 suites)
+- [x] TypeScript strict mode with Vitest test suite (1,777 tests, 101 suites)
 - [x] No production dependencies — dev tooling only, binary is self-contained
 - [x] README, Architecture, and PRD updated to reflect definition-driven architecture
 - [x] Developer onboarding scenario tested end-to-end
@@ -569,6 +639,9 @@ Each domain is assessed on a 3-tier maturity scale:
 | **Event Contracts** (FR-18) | Shallow | Parses payload tables and exports JSON; no runtime validation; no TypeScript generation; no CI integration |
 | **Capture** (FR-02.11) | Shallow | Single-line text only; no tags, no search/retrieve, no batch import, no structured capture |
 | **Config Validation** (FR-08) | Deep | 45 schema rules + filesystem-aware deep validation (path existence checks for reports.dir, endpoints, journeysDir, testVault, referenceDir, storybookDir); warnings only — never blocks startup |
+| **Standalone CLI** (FR-20) | Deep | Bootstrap two-mode (dev/standalone), config fallback, test vault fresh build + refresh |
+| **Agent-Native Interface** (FR-21) | Shallow | Deterministic exit codes work; no `--json`, `--yes`, `--quiet`, `--verbose`, `--no-color`, shell completions, or progress indicators |
+| **Quality Gates** (FR-22) | Not Started | Planned — configurable thresholds, npm audit, debt estimation, report diffs |
 
 ---
 
@@ -610,6 +683,13 @@ Planned improvements to evolve the CLI beyond its current state:
 | ID | Improvement | Description |
 |----|-------------|-------------|
 | IMP-22 | **Capture enrichment** | Add tags, structured fields, search/retrieve, and batch import to capture commands |
+| IMP-28 | **`--json` output flag** | Structured JSON output on all commands for CI pipelines and AI agent consumption. Table-stakes for modern CLIs |
+| IMP-29 | **Quality Gates** | Configurable pass/fail thresholds in `flowti.config.json` that block `flowti publish` (coverage, lint score, test count). Inspired by SonarQube Quality Gates |
+| IMP-30 | **Scaffold dry-run** | `--dry-run` flag for scaffold/make commands — preview generated files without writing to disk |
+| IMP-31 | **Progress indicators** | Spinners for < 3s operations, progress bars for > 3s. Standard UX for long-running report generation and E2E runs |
+| IMP-32 | **Report diff mode** | `reports --diff` compares current report against previous — shows new issues, resolved issues, score changes |
+| IMP-33 | **Post-command suggestions** | After every operation, suggest the logical next step (e.g., after `make:component`, suggest `flowti build`) |
+| IMP-34 | **Global output flags** | `--quiet`, `--verbose`, `--no-color`, `--yes` flags for CI environments and scripting |
 
 ### Long-Term
 
@@ -622,6 +702,17 @@ Planned improvements to evolve the CLI beyond its current state:
 | IMP-25 | **Marketplace export** | Publish scaffold definitions for sharing across vaults; remote definition discovery |
 | IMP-26 | **Health trends** | Track health snapshots over time; display delta indicators and regression alerts |
 | IMP-27 | **Interactive dependency browser** | Visual project graph explorer with impact analysis for changes |
+| IMP-35 | **Shell completions** | `flowti completions bash\|zsh\|fish\|powershell` generates tab-completion scripts. Standard in GitHub CLI, Vercel CLI |
+| IMP-36 | **Changed-based selective review** | Only re-run review stages for projects affected by changes (git diff analysis). Inspired by Nx/Turborepo affected detection |
+| IMP-37 | **Plugin lifecycle hooks** | `onBeforeScaffold`, `onAfterReview`, `onBeforePublish` hooks in plugin manifests for ecosystem extensibility |
+| IMP-38 | **MCP server mode** | `flowti serve --mcp` exposes CLI capabilities as an MCP server for AI agent consumption. MCP is the fastest-adopted developer standard (donated to Linux Foundation 2025) |
+| IMP-39 | **AGENTS.md generation** | `flowti agents:generate` produces an `AGENTS.md` file describing all available commands, flags, and output formats for AI coding agents |
+| IMP-40 | **Template versioning** | Re-apply updated scaffold definitions to existing projects with conflict resolution (inspired by Cookiecutter/Copier) |
+| IMP-41 | **npm audit integration** | Include `npm audit` results in health scoring — security vulnerability count as a health metric |
+| IMP-42 | **Technical debt estimation** | Express lint issues and complexity violations as estimated remediation time (hours/days), inspired by SonarQube |
+| IMP-43 | **Report caching** | Hash-based invalidation — skip report generation when inputs haven't changed since last run |
+| IMP-44 | **HTML report export** | Generate HTML reports for sharing outside Obsidian; useful for stakeholders without vault access |
+| IMP-45 | **Parallel report generation** | Declare dependencies between generators; run independent generators in parallel for faster execution |
 
 ---
 
@@ -642,36 +733,62 @@ This roadmap prioritizes **value at hand** — stabilizing what exists, hardenin
 | 4.5 | **Publish dry-run** — `publish --dry-run` previews pipeline | FR-05 | — | DONE |
 | 4.6 | **Review cleanup** — `review:clean` removes stale test vaults | FR-12 | — | DONE |
 
-**Result**: All `Functional` features promoted to `Deep`. 42 new tests (1,724 → 1,766, 98 → 100 suites). 0 lint errors, 0 warnings.
+**Result**: All `Functional` features promoted to `Deep`. 53 new tests (1,724 → 1,777, 98 → 101 suites). Standalone CLI mode, adaptive Start Menu, git submodule projects, test vault fresh build.
 
-### Phase 5: Depth (Medium-Term)
+### Phase 5: Agent-Native & DX (Medium-Term)
+
+**Goal**: Make every command usable by both humans and AI agents. Close the DX gap with modern CLIs.
+
+| # | Work Item | FR | IMP | Priority | Effort |
+|---|-----------|-----|-----|----------|--------|
+| 5.1 | **`--json` output flag** — Structured JSON output on all commands for CI and AI agent consumption | FR-21.1 | IMP-28 | Critical | L |
+| 5.2 | **Quality Gates** — Configurable thresholds that block `flowti publish` (coverage, lint, tests, security) | FR-22.1 | IMP-29 | High | M |
+| 5.3 | **Scaffold `--dry-run`** — Preview generated files without writing; table-stakes for scaffolders | FR-21 | IMP-30 | High | S |
+| 5.4 | **Global output flags** — `--quiet`, `--verbose`, `--no-color`, `--yes` for CI environments | FR-21 | IMP-34 | High | M |
+| 5.5 | **Progress indicators** — Spinners (< 3s) and progress bars (> 3s) for long-running operations | FR-21.7 | IMP-31 | Medium | M |
+| 5.6 | **Post-command suggestions** — After operations, suggest the logical next step | FR-21.5 | IMP-33 | Medium | S |
+| 5.7 | **Report diff mode** — Compare current vs previous; show new issues, resolved issues, score changes | FR-22.4 | IMP-32 | Medium | M |
+
+**Exit criteria**: Every command supports `--json`. Publish is gated by quality thresholds. CI pipelines can run Flowti CLI headlessly. AI agents get structured output.
+
+### Phase 6: Depth (Medium-Term)
 
 **Goal**: Turn "Shallow" features into useful, reliable tools.
 
 | # | Work Item | FR | IMP | Priority | Effort |
 |---|-----------|-----|-----|----------|--------|
-| 5.1 | **Capture enrichment** — Tags (`--tags=x,y`), structured fields, search/retrieve (`capture:search --tag=X`), batch import from file | FR-02.11 | IMP-22 | High | M |
-| 5.2 | **Event contract validation** — Validate event payloads against Event Catalog definitions in Vitest; `events:contracts --validate` flag | FR-18.6 | IMP-18 | High | L |
-| 5.3 | **Health trends** — Persist `HealthSnapshot` history; display delta indicators (improved/regressed/stable) per category; alert on regressions | FR-15.7 | IMP-26 | Medium | M |
-| 5.4 | **AI Tool execution** — Execute tool definitions: `ai:run --tool=X --param1=val1`; parameter substitution in `run` command; capture stdout/stderr | FR-14 | IMP-24 | Medium | L |
-| 5.5 | **Marketplace export** — `scaffold:export` packages a definition for sharing; `scaffold:import --url=X` imports from remote | FR-17.6 | IMP-25 | Low | M |
-| 5.6 | **Event TypeScript codegen** — Generate TypeScript interfaces from event contracts: `events:codegen --out=types/events.ts` | FR-18.7 | IMP-18 | Low | M |
+| 6.1 | **Capture enrichment** — Tags (`--tags=x,y`), structured fields, search/retrieve (`capture:search --tag=X`), batch import from file | FR-02.11 | IMP-22 | High | M |
+| 6.2 | **Event contract validation** — Validate event payloads against Event Catalog definitions in Vitest; `events:contracts --validate` flag | FR-18.6 | IMP-18 | High | L |
+| 6.3 | **Health trends** — Persist `HealthSnapshot` history; display delta indicators (improved/regressed/stable) per category; alert on regressions | FR-15.7 | IMP-26 | Medium | M |
+| 6.4 | **AI Tool execution** — Execute tool definitions: `ai:run --tool=X --param1=val1`; parameter substitution in `run` command; capture stdout/stderr | FR-14 | IMP-24 | Medium | L |
+| 6.5 | **npm audit integration** — Include security vulnerability count in health scoring | FR-22.2 | IMP-41 | Medium | S |
+| 6.6 | **Technical debt estimation** — Express lint/complexity violations as remediation time (hours/days) | FR-22.3 | IMP-42 | Low | M |
+| 6.7 | **Marketplace export** — `scaffold:export` packages a definition for sharing; `scaffold:import --url=X` imports from remote | FR-17.6 | IMP-25 | Low | M |
+| 6.8 | **Event TypeScript codegen** — Generate TypeScript interfaces from event contracts: `events:codegen --out=types/events.ts` | FR-18.7 | IMP-18 | Low | M |
 
-**Exit criteria**: Capture is a useful note system. Event contracts integrate into test pipelines. Health provides actionable trend data.
+**Exit criteria**: Capture is a useful note system. Event contracts integrate into test pipelines. Health provides actionable trend data with security awareness.
 
-### Phase 6: Ecosystem (Long-Term)
+### Phase 7: Ecosystem (Long-Term)
 
-**Goal**: Make the CLI a force multiplier across projects and teams.
+**Goal**: Make the CLI a force multiplier across projects, teams, and AI agents.
 
 | # | Work Item | FR | IMP | Priority | Effort |
 |---|-----------|-----|-----|----------|--------|
-| 6.1 | **CI/CD generation** — `flowti ci:generate` outputs GitHub Actions YAML from project config (build, test, publish stages) | — | IMP-11 | High | L |
-| 6.2 | **Interactive dependency browser** — Visual project graph in terminal with impact analysis ("if I change X, what rebuilds?") | FR-16.5 | IMP-27 | Medium | L |
-| 6.3 | **Self-update** — `flowti update` detects source changes and rebuilds `.flowti/bin/main.js`; version check against source hash | — | IMP-12 | Medium | M |
-| 6.4 | **Plugin lifecycle hooks** — `onInstall`, `onUpdate`, `onRemove` hooks in plugin manifests; migration support between plugin versions | FR-13 | — | Low | L |
-| 6.5 | **Cross-vault sharing** — Remote plugin/definition registry; `flowti install <plugin>` from curated list | FR-17, FR-13 | IMP-25 | Low | XL |
+| 7.1 | **MCP server mode** — `flowti serve --mcp` exposes CLI as an MCP server for AI agents | FR-21 | IMP-38 | High | L |
+| 7.2 | **AGENTS.md generation** — Auto-generate agent instructions describing all commands, flags, and output formats | — | IMP-39 | High | S |
+| 7.3 | **CI/CD generation** — `flowti ci:generate` outputs GitHub Actions YAML from project config | — | IMP-11 | High | L |
+| 7.4 | **Shell completions** — `flowti completions bash\|zsh\|fish\|powershell` | FR-21.6 | IMP-35 | Medium | M |
+| 7.5 | **Changed-based selective review** — Only re-run affected stages (git diff analysis) | — | IMP-36 | Medium | L |
+| 7.6 | **Report caching** — Hash-based invalidation; skip generation when inputs unchanged | — | IMP-43 | Medium | M |
+| 7.7 | **Parallel report generation** — Declare generator dependencies; run independent generators concurrently | — | IMP-45 | Medium | M |
+| 7.8 | **Interactive dependency browser** — Visual project graph with impact analysis | FR-16.5 | IMP-27 | Medium | L |
+| 7.9 | **Template versioning** — Re-apply updated scaffold definitions to existing projects with diff resolution | — | IMP-40 | Medium | L |
+| 7.10 | **HTML report export** — Generate shareable reports for stakeholders without vault access | — | IMP-44 | Low | M |
+| 7.11 | **Self-update** — `flowti update` detects source changes and rebuilds binary | — | IMP-12 | Low | M |
+| 7.12 | **Plugin lifecycle hooks** — `onBeforeScaffold`, `onAfterReview`, `onBeforePublish` hooks in manifests | FR-13 | IMP-37 | Low | L |
+| 7.13 | **Cross-vault sharing** — Remote plugin/definition registry; `flowti install <plugin>` | FR-17, FR-13 | IMP-25 | Low | XL |
 
-**Exit criteria**: CLI can generate CI pipelines. Project dependencies are explorable interactively. Plugin ecosystem supports lifecycle management.
+**Exit criteria**: AI agents can consume CLI via MCP or structured JSON. CI pipelines are auto-generated. Reports are cacheable and parallelizable. Plugin ecosystem supports lifecycle management.
 
 ### Effort Key
 
@@ -680,4 +797,5 @@ This roadmap prioritizes **value at hand** — stabilizing what exists, hardenin
 | S | < 1 day |
 | M | 1–3 days |
 | L | 3–5 days |
+| XL | 1–2 weeks |
 | XL | > 5 days |

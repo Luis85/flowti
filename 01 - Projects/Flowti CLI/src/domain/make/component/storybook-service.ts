@@ -9,7 +9,8 @@ import { disk } from "../../../infrastructure/filesystem.js";
 import { paths } from "../../../infrastructure/paths.js";
 import { shell } from "../../../infrastructure/shell.js";
 import { log } from "../../../infrastructure/logger.js";
-import { RESET, DIM, GREEN, RED, YELLOW } from "../../../infrastructure/ui.js";
+import { RESET, DIM, GREEN, RED, YELLOW, CYAN } from "../../../infrastructure/ui.js";
+import { isCliAvailable, isVaultInitialized } from "../../knowledgebase/vault-service.js";
 import type { ComponentsConfig } from "../../../infrastructure/types.js";
 
 const DEFAULT_STORYBOOK_DIR = "component-library";
@@ -55,6 +56,9 @@ function writeStorybookConfig(sbDir: string): void {
 const config: StorybookConfig = {
 	stories: ["../../src/components/**/*.stories.@(ts|tsx)"],
 	framework: "@storybook/html-vite",
+	core: {
+		disableTelemetry: true,
+	},
 };
 
 export default config;
@@ -102,7 +106,16 @@ export function installStorybook(projectPath: string, projectName: string, confi
 	}
 
 	log(`\n  ${GREEN}✓${RESET} Storybook installed at ${sbDir}\n`);
-	log(`  ${DIM}Add "components": { "storybook": true } to flowti.config.json to enable.${RESET}\n`);
+	return true;
+}
+
+// ── Obsidian Web Viewer ──────────────────────────────────────────────
+
+const DEFAULT_STORYBOOK_PORT = 6006;
+
+function openInObsidianWebViewer(url: string): boolean {
+	if (!isCliAvailable() || !isVaultInitialized()) return false;
+	shell.runSilent(`obsidian web url=${url} newtab`);
 	return true;
 }
 
@@ -113,6 +126,10 @@ export function runStorybookDev(projectPath: string, config: ComponentsConfig): 
 	if (!isStorybookInstalled(projectPath, config)) {
 		log(`\n  ${YELLOW}Storybook not installed.${RESET} Use "Install Storybook" first.\n`);
 		return;
+	}
+	const url = `http://localhost:${DEFAULT_STORYBOOK_PORT}`;
+	if (openInObsidianWebViewer(url)) {
+		log(`  ${CYAN}▸${RESET} Opening ${url} in Obsidian Web Viewer\n`);
 	}
 	shell.run("npm run storybook", { cwd: sbDir, label: "Storybook dev" });
 }

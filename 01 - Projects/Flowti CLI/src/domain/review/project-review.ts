@@ -9,7 +9,7 @@
 
 import { paths } from "../../infrastructure/paths.js";
 import { disk } from "../../infrastructure/filesystem.js";
-import { VAULT_ROOT, CLI_PROJECT } from "../../infrastructure/config.js";
+import { VAULT_ROOT } from "../../infrastructure/config.js";
 import { RESET, BOLD, DIM, GREEN, RED, CYAN, YELLOW } from "../../infrastructure/ui.js";
 import { shell } from "../../infrastructure/shell.js";
 import { runMenu } from "../../infrastructure/menu.js";
@@ -59,24 +59,23 @@ function resolveTestVault(projectPath: string, config: ReviewConfig): string {
 }
 
 function ensureTestVault(vaultPath: string): boolean {
-	// Always build a fresh CLI binary before scaffolding/refreshing
-	log(`\n  ${CYAN}▸${RESET} Building CLI...\n`);
-	const buildCode = shell.run("npm run build", { cwd: CLI_PROJECT, label: "CLI build" });
-	if (buildCode !== 0) {
-		log(`  ${RED}CLI build failed — cannot provision test vault.${RESET}\n`);
+	const sourceBinDir = paths.join(VAULT_ROOT, ".flowti", "bin");
+
+	// The compiled binary must already exist — we never rebuild from source here.
+	if (!disk.existsSync(paths.join(sourceBinDir, "main.js"))) {
+		log(`  ${RED}No CLI binary found at ${sourceBinDir}${RESET}`);
+		log(`  ${DIM}Run the build from the source project first.${RESET}\n`);
 		return false;
 	}
 
-	const sourceBinDir = paths.join(VAULT_ROOT, ".flowti", "bin");
 	const isNew = !disk.existsSync(vaultPath);
 
 	if (isNew) {
 		scaffoldTestVault(vaultPath, { name: paths.basename(vaultPath), sourceBinDir }, disk);
 		log(`  ${GREEN}Created test vault:${RESET} ${vaultPath}\n`);
 	} else {
-		// Vault exists — refresh the CLI binary from the fresh build
 		refreshTestVaultBin(vaultPath, sourceBinDir);
-		log(`  ${GREEN}Refreshed CLI build in test vault.${RESET}\n`);
+		log(`  ${GREEN}Refreshed CLI binary in test vault.${RESET}\n`);
 	}
 	return true;
 }
@@ -142,7 +141,7 @@ export async function reviewMenu(projectPath: string, config: ReviewConfig): Pro
 					disabled: e2eDisabled,
 					disabledMessage: e2eDisabledMessage,
 					action: () => {
-						ensureTestVault(testVault);
+						if (!ensureTestVault(testVault)) return;
 						shell.run(runnerCmd, { cwd: projectPath, label: "All journeys" });
 					},
 				},
@@ -154,7 +153,7 @@ export async function reviewMenu(projectPath: string, config: ReviewConfig): Pro
 							key: String(i + 1),
 							label: j.meta.journey ?? j.name,
 							action: () => {
-								ensureTestVault(testVault);
+								if (!ensureTestVault(testVault)) return "main" as const;
 								shell.run(`${runnerCmd} --journey=${j.name}`, { cwd: projectPath, label: j.meta.journey ?? j.name });
 								return "main" as const;
 							},
@@ -174,7 +173,7 @@ export async function reviewMenu(projectPath: string, config: ReviewConfig): Pro
 					disabled: e2eDisabled,
 					disabledMessage: e2eDisabledMessage,
 					action: () => {
-						ensureTestVault(testVault);
+						if (!ensureTestVault(testVault)) return;
 						const e2eCmd = `npx vitest run tests/e2e/`;
 						shell.run(e2eCmd, { cwd: projectPath, label: "E2E tests" });
 					},
@@ -200,7 +199,7 @@ export async function reviewMenu(projectPath: string, config: ReviewConfig): Pro
 					return;
 				}
 				log(`\n  ${CYAN}▸${RESET} Step 3/3: E2E\n`);
-				ensureTestVault(testVault);
+				if (!ensureTestVault(testVault)) return;
 				const e2eCmd = runnerCmd ?? `npx vitest run tests/e2e/`;
 				shell.run(e2eCmd, { cwd: projectPath, label: "E2E tests" });
 			}},
@@ -233,12 +232,14 @@ export async function reviewMenu(projectPath: string, config: ReviewConfig): Pro
 	// Test vault management
 	items.push(
 		{ key: "v", label: "Create/ensure test vault", action: () => {
-			ensureTestVault(testVault);
-			log(`  ${GREEN}✓${RESET} Test vault ready: ${testVault}\n`);
+			if (ensureTestVault(testVault)) {
+				log(`  ${GREEN}✓${RESET} Test vault ready: ${testVault}\n`);
+			}
 		}},
 		{ key: "o", label: "Open test vault in Explorer", action: () => {
-			ensureTestVault(testVault);
-			shell.runSilent(`explorer "${testVault}"`);
+			if (ensureTestVault(testVault)) {
+				shell.runSilent(`explorer "${testVault}"`);
+			}
 		}},
 	);
 

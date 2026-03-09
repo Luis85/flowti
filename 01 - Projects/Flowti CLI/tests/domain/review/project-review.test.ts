@@ -20,7 +20,6 @@ vi.mock("../../../src/infrastructure/filesystem.js", () => ({
 
 vi.mock("../../../src/infrastructure/config.js", () => ({
 	VAULT_ROOT: "/vault",
-	CLI_PROJECT: "/vault/01 - Projects/Flowti CLI",
 }));
 
 vi.mock("../../../src/infrastructure/test-vault.js", () => ({
@@ -221,9 +220,13 @@ describe("reviewMenu", () => {
 		expect(mockRunMenu).toHaveBeenCalledOnce();
 	});
 
-	it("ensure vault action builds CLI and scaffolds test vault when missing", async () => {
+	it("ensure vault action copies binary and scaffolds test vault when missing", async () => {
 		const config: ReviewConfig = {};
-		mockShell.run.mockReturnValue(0);
+		// Binary exists at source, but test vault does not
+		mockDisk.existsSync.mockImplementation((p: string) => {
+			if (typeof p === "string" && p.includes("main.js")) return true; // binary exists
+			return false; // vault does not exist
+		});
 		mockRunMenu.mockImplementation(async (_title, items) => {
 			const vaultItem = (items as Array<{ key: string; action: () => void }>).find((i) => i.key === "v");
 			vaultItem?.action();
@@ -232,20 +235,16 @@ describe("reviewMenu", () => {
 
 		await reviewMenu(projectPath, config);
 
-		// Should build CLI first
-		expect(mockShell.run).toHaveBeenCalledWith("npm run build", expect.objectContaining({
-			cwd: "/vault/01 - Projects/Flowti CLI",
-			label: "CLI build",
-		}));
-		// Then scaffold the vault
+		// Should NOT run npm run build — just copy existing binary
+		expect(mockShell.run).not.toHaveBeenCalled();
+		// Should scaffold the vault
 		const { scaffoldTestVault } = await import("../../../src/infrastructure/test-vault.js");
 		expect(vi.mocked(scaffoldTestVault)).toHaveBeenCalled();
 	});
 
-	it("ensure vault action builds CLI and refreshes bin when vault exists", async () => {
+	it("ensure vault action copies binary and refreshes bin when vault exists", async () => {
 		const config: ReviewConfig = {};
-		mockShell.run.mockReturnValue(0);
-		mockDisk.existsSync.mockReturnValue(true);
+		mockDisk.existsSync.mockReturnValue(true); // both binary and vault exist
 		mockRunMenu.mockImplementation(async (_title, items) => {
 			const vaultItem = (items as Array<{ key: string; action: () => void }>).find((i) => i.key === "v");
 			vaultItem?.action();
@@ -254,10 +253,8 @@ describe("reviewMenu", () => {
 
 		await reviewMenu(projectPath, config);
 
-		// Should build CLI
-		expect(mockShell.run).toHaveBeenCalledWith("npm run build", expect.objectContaining({
-			cwd: "/vault/01 - Projects/Flowti CLI",
-		}));
+		// Should NOT run npm run build
+		expect(mockShell.run).not.toHaveBeenCalled();
 		// Should NOT scaffold (vault already exists)
 		const { scaffoldTestVault } = await import("../../../src/infrastructure/test-vault.js");
 		expect(vi.mocked(scaffoldTestVault)).not.toHaveBeenCalled();
@@ -265,9 +262,9 @@ describe("reviewMenu", () => {
 		expect(mockDisk.copyFileSync).toHaveBeenCalled();
 	});
 
-	it("ensure vault action aborts when CLI build fails", async () => {
+	it("ensure vault action aborts when no binary found", async () => {
 		const config: ReviewConfig = {};
-		mockShell.run.mockReturnValue(1); // build fails
+		mockDisk.existsSync.mockReturnValue(false); // no binary, no vault
 		mockRunMenu.mockImplementation(async (_title, items) => {
 			const vaultItem = (items as Array<{ key: string; action: () => void }>).find((i) => i.key === "v");
 			vaultItem?.action();
@@ -435,11 +432,10 @@ describe("reviewMenu", () => {
 
 		await reviewMenu(projectPath, config);
 
-		// build + test + CLI build (ensureTestVault) + E2E = 4 calls
-		expect(mockShell.run).toHaveBeenCalledTimes(4);
+		// build + test + E2E = 3 calls (ensureTestVault just copies binary, no shell call)
+		expect(mockShell.run).toHaveBeenCalledTimes(3);
 		expect(mockShell.run).toHaveBeenCalledWith("make build", expect.objectContaining({ label: "Step 1/3: Build" }));
 		expect(mockShell.run).toHaveBeenCalledWith("make test", expect.objectContaining({ label: "Step 2/3: Test" }));
-		expect(mockShell.run).toHaveBeenCalledWith("npm run build", expect.objectContaining({ label: "CLI build" }));
 		expect(mockShell.run).toHaveBeenCalledWith("npm run e2e", expect.objectContaining({ label: "E2E tests" }));
 	});
 

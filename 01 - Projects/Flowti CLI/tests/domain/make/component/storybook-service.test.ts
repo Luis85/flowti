@@ -18,11 +18,16 @@ vi.mock("../../../../src/infrastructure/paths.js", () => ({
 }));
 
 vi.mock("../../../../src/infrastructure/shell.js", () => ({
-	shell: { run: vi.fn(() => 0) },
+	shell: { run: vi.fn(() => 0), runSilent: vi.fn() },
 }));
 
 vi.mock("../../../../src/infrastructure/ui.js", () => ({
-	RESET: "", DIM: "", GREEN: "", RED: "", YELLOW: "",
+	RESET: "", DIM: "", GREEN: "", RED: "", YELLOW: "", CYAN: "",
+}));
+
+vi.mock("../../../../src/domain/knowledgebase/vault-service.js", () => ({
+	isCliAvailable: vi.fn(() => false),
+	isVaultInitialized: vi.fn(() => false),
 }));
 
 vi.mock("../../../../src/infrastructure/logger.js", () => ({
@@ -38,10 +43,13 @@ import {
 } from "../../../../src/domain/make/component/storybook-service.js";
 import { disk } from "../../../../src/infrastructure/filesystem.js";
 import { shell } from "../../../../src/infrastructure/shell.js";
+import { isCliAvailable, isVaultInitialized } from "../../../../src/domain/knowledgebase/vault-service.js";
 import type { ComponentsConfig } from "../../../../src/infrastructure/types.js";
 
 const mockDisk = vi.mocked(disk);
 const mockShell = vi.mocked(shell);
+const mockCliAvailable = vi.mocked(isCliAvailable);
+const mockVaultInitialized = vi.mocked(isVaultInitialized);
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -157,6 +165,41 @@ describe("runStorybookDev", () => {
 		runStorybookDev("/project", {});
 
 		expect(mockShell.run).not.toHaveBeenCalled();
+	});
+
+	it("opens Obsidian Web Viewer when CLI available and vault initialized", () => {
+		mockDisk.existsSync.mockReturnValue(true);
+		mockCliAvailable.mockReturnValue(true);
+		mockVaultInitialized.mockReturnValue(true);
+
+		runStorybookDev("/project", {});
+
+		expect(mockShell.runSilent).toHaveBeenCalledWith(
+			"obsidian web url=http://localhost:6006 newtab",
+		);
+		// Still runs the dev server
+		expect(mockShell.run).toHaveBeenCalledWith("npm run storybook", expect.anything());
+	});
+
+	it("skips Web Viewer when Obsidian CLI not available", () => {
+		mockDisk.existsSync.mockReturnValue(true);
+		mockCliAvailable.mockReturnValue(false);
+		mockVaultInitialized.mockReturnValue(true);
+
+		runStorybookDev("/project", {});
+
+		expect(mockShell.runSilent).not.toHaveBeenCalled();
+		expect(mockShell.run).toHaveBeenCalledWith("npm run storybook", expect.anything());
+	});
+
+	it("skips Web Viewer when not in an Obsidian vault", () => {
+		mockDisk.existsSync.mockReturnValue(true);
+		mockCliAvailable.mockReturnValue(true);
+		mockVaultInitialized.mockReturnValue(false);
+
+		runStorybookDev("/project", {});
+
+		expect(mockShell.runSilent).not.toHaveBeenCalled();
 	});
 });
 

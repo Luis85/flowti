@@ -40,6 +40,12 @@
       "type": "file",
       "ctime": 1771777450597,
       "path": "01 - Projects/Private/The Book/The Book.md"
+    },
+    {
+      "type": "url",
+      "ctime": 1773053783352,
+      "url": "https://help.obsidian.md/cli",
+      "title": "Obsidian CLI - Obsidian Help"
     }
   ]
 }
