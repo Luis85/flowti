@@ -37,6 +37,12 @@ import { commands as captureCmds } from "./domain/capture/capture.js";
 import { commands as eventsCmds } from "./domain/events/events.js";
 import { commands as scaffoldCmds } from "./domain/scaffold/scaffold.js";
 import { commands as projectCmds, startMenu, listProjects } from "./domain/project/project.js";
+import { commands as projectDepsCmds } from "./domain/project/project-deps.js";
+import { commands as pluginCmds, loadPlugins, detectCollisions } from "./domain/plugins/plugins.js";
+import { commands as aiToolsCmds } from "./domain/ai-tools/ai-tools.js";
+import { disk } from "./infrastructure/filesystem.js";
+import { shell } from "./infrastructure/shell.js";
+import { VAULT_ROOT } from "./infrastructure/config.js";
 import { getSelectedProject, clearSelectedProject } from "./infrastructure/state.js";
 import { initializeProject } from "./domain/project/project-config.js";
 
@@ -63,9 +69,51 @@ registry.registerDomain({ domain: "publish",  commands: publishCmds });
 registry.registerDomain({ domain: "reports",  commands: reportsCmds });
 registry.registerDomain({ domain: "capture",  commands: captureCmds,  projectFree: ["capture:idea", "capture:note"] });
 registry.registerDomain({ domain: "events",   commands: eventsCmds });
-registry.registerDomain({ domain: "scaffold", commands: scaffoldCmds, projectFree: ["scaffold:new", "scaffold:list"] });
-registry.registerDomain({ domain: "project",  commands: projectCmds,  projectFree: ["project"] });
+registry.registerDomain({ domain: "scaffold", commands: scaffoldCmds, projectFree: ["scaffold:new", "scaffold:list", "scaffold:marketplace"] });
+registry.registerDomain({ domain: "project",  commands: { ...projectCmds, ...projectDepsCmds },  projectFree: ["project", "project:deps"] });
+registry.registerDomain({ domain: "plugins",  commands: pluginCmds,  projectFree: ["plugin:list", "plugin:validate", "plugin:new", "plugin:reference"] });
+registry.registerDomain({ domain: "ai-tools", commands: aiToolsCmds, projectFree: ["ai:list", "ai:validate", "ai:new", "ai:reference"] });
 registry.setWildcard("reports", reportsCmds["report:*"]);
+
+let pluginsRegistered = false;
+
+// ── Plugin loading ──────────────────────────────────────────────────
+
+function registerProjectPlugins(_project: ProjectContext): void {
+	const plugins = loadPlugins(VAULT_ROOT, disk, shell);
+	const validPlugins = plugins.filter((p) => p.valid);
+	if (validPlugins.length === 0) return;
+
+	const collisions = detectCollisions(validPlugins, new Set(registry.keys()));
+	for (const msg of collisions) {
+		log(`  ${YELLOW}Plugin warning: ${msg}${RESET}`);
+	}
+
+	// Collect all non-colliding plugin commands
+	const builtinKeys = new Set(registry.keys());
+	const pluginHandlers: Record<string, (flags: Record<string, string | boolean>, rawArgs: string[], command?: string, project?: ProjectContext) => void> = {};
+	const projectFreeKeys: string[] = [];
+
+	for (const plugin of validPlugins) {
+		for (const [key, handler] of Object.entries(plugin.commands)) {
+			if (builtinKeys.has(key)) continue; // skip collisions
+			pluginHandlers[key] = handler;
+			// Check if command is marked projectFree in manifest
+			const cmdName = key.replace(`plugin:${plugin.manifest.name}:`, "");
+			if (plugin.manifest.commands[cmdName]?.projectFree) {
+				projectFreeKeys.push(key);
+			}
+		}
+	}
+
+	if (Object.keys(pluginHandlers).length > 0) {
+		registry.registerDomain({
+			domain: "plugins:project",
+			commands: pluginHandlers,
+			projectFree: projectFreeKeys,
+		});
+	}
+}
 
 type ProjectResolution =
 	| { ok: true; project: ProjectContext | null }
@@ -84,7 +132,12 @@ function resolveProjectContext(flags: Record<string, string | boolean>): Project
 		}
 	}
 
-	return { ok: true, project: initializeProject(projectName) };
+	const project = initializeProject(projectName);
+	if (project && !pluginsRegistered) {
+		registerProjectPlugins(project);
+		pluginsRegistered = true;
+	}
+	return { ok: true, project };
 }
 
 // ── Non-interactive dispatch ────────────────────────────────────────
@@ -183,6 +236,7 @@ async function main(): Promise<void> {
 		}
 		// detailResult === "start" → clear project and loop back to start menu
 		clearSelectedProject();
+		pluginsRegistered = false;
 	}
 }
 

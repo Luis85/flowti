@@ -2,14 +2,17 @@
  * scaffold-commands.ts — Non-interactive CLI commands for the scaffold domain.
  *
  * Commands:
- *   scaffold:new  --name=X [--definition=flowti-project] [--author=Y] [--output=path]
+ *   scaffold:new          --name=X [--definition=flowti-project] [--author=Y] [--output=path]
  *   scaffold:list
+ *   scaffold:marketplace  [--project=path]
+ *   scaffold:import       --file=<path> [--project=path]
  */
 
 import { RESET, DIM, GREEN, RED, CYAN } from "../../infrastructure/ui.js";
 import { log } from "../../infrastructure/logger.js";
 import type { CommandHandler } from "../../infrastructure/types.js";
-import { scaffold, listDefinitions } from "./scaffold-service.js";
+import { scaffold, listDefinitions, BUNDLED_DEFINITIONS, getKnownTemplateIds } from "./scaffold-service.js";
+import { displayMarketplaceCommand, importDefinitionCommand } from "./marketplace.js";
 
 export const commands: Record<string, CommandHandler> = {
 	"scaffold:new": (flags) => {
@@ -48,5 +51,28 @@ export const commands: Record<string, CommandHandler> = {
 			log(`    ${GREEN}${def.id}${RESET}  ${def.label}`);
 			log(`    ${DIM}${def.description}${RESET}\n`);
 		}
+	},
+
+	"scaffold:marketplace": (_flags, _rawArgs, _command, project) => {
+		const knownIds = getKnownTemplateIds();
+		displayMarketplaceCommand(BUNDLED_DEFINITIONS, project?.path, knownIds);
+	},
+
+	"scaffold:import": (flags, _rawArgs, _command, project) => {
+		const file = flags.file as string | undefined;
+
+		if (!file) {
+			log(`\n  ${RED}Missing required flag: --file${RESET}\n  Usage: scaffold:import --file=<path>\n`);
+			return;
+		}
+
+		if (!project) {
+			log(`\n  ${RED}No project selected.${RESET}`);
+			log(`  ${DIM}Select a project first or use --project=<name>${RESET}\n`);
+			return;
+		}
+
+		const knownIds = getKnownTemplateIds();
+		importDefinitionCommand(file, project.path, knownIds);
 	},
 };

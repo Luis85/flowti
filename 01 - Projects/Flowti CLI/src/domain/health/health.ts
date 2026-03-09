@@ -53,10 +53,10 @@ function collectTestMetrics(reportsDir: string): HealthSnapshot["tests"] {
 	const fm = readReportFrontmatter(paths.join(reportsDir, "Test Report.md"));
 	if (!fm) return null;
 	return {
-		total: Number(fm.total_tests ?? 0),
+		total: Number(fm.total ?? fm.total_tests ?? 0),
 		passed: Number(fm.passed ?? 0),
 		failed: Number(fm.failed ?? 0),
-		suites: Number(fm.total_suites ?? 0),
+		suites: Number(fm.suites ?? fm.total_suites ?? 0),
 	};
 }
 
@@ -64,7 +64,7 @@ function collectCoverageMetrics(reportsDir: string): HealthSnapshot["coverage"] 
 	const fm = readReportFrontmatter(paths.join(reportsDir, "Coverage Report.md"));
 	if (!fm) return null;
 	return {
-		lines: Number(fm.lines_pct ?? 0),
+		lines: Number(fm.lines_pct ?? fm.statements_pct ?? 0),
 		branches: Number(fm.branches_pct ?? 0),
 		functions: Number(fm.functions_pct ?? 0),
 	};
@@ -82,10 +82,12 @@ function collectBuildMetrics(reportsDir: string): HealthSnapshot["build"] {
 function collectLintMetrics(reportsDir: string): HealthSnapshot["lint"] {
 	const fm = readReportFrontmatter(paths.join(reportsDir, "Project Summary.md"));
 	if (!fm) return null;
-	if (fm.lint_errors === undefined && fm.lint_warnings === undefined) return null;
+	const hasLint = fm.eslint_errors !== undefined || fm.eslint_warnings !== undefined
+		|| fm.lint_errors !== undefined || fm.lint_warnings !== undefined;
+	if (!hasLint) return null;
 	return {
-		errors: Number(fm.lint_errors ?? 0),
-		warnings: Number(fm.lint_warnings ?? 0),
+		errors: Number(fm.eslint_errors ?? fm.lint_errors ?? 0),
+		warnings: Number(fm.eslint_warnings ?? fm.lint_warnings ?? 0),
 	};
 }
 

@@ -2,7 +2,7 @@
 domain: Flowti
 type: ProductRequirementsDocument
 stage: complete
-version: 6
+version: 7
 maturity: L2
 created: 2026-03-07
 updated: 2026-03-09
@@ -59,9 +59,9 @@ After implementation, developers and AI agents will have:
 
 - A **self-contained binary** (`node .flowti/bin`) with no source tree dependency.
 - A **definition-driven** scaffolding system where JSON definitions are the single source of truth.
-- A two-stage interactive menu: project selection (open/create) → project detail.
+- A two-stage interactive menu: project selection (open/create/plugins/ai-tools) → project detail.
 - Per-project configuration via `configs/flowti.config.json` with auto-scaffolding from `package.json`.
-- **Base feature set**: Project Management, Components, Events, Make, Build, Tests, Reports, Review, Publish.
+- **Base feature set**: Project Management, Components, Events, Make, Build, Tests, Reports, Review, Publish, Plugins, AI Tools.
 - **Component system** with 8 types: C4 architecture (System, Container, Component, Person) plus UI building blocks (Layout, Page, UI Component) and a generic Component.
 - **Event Catalog** for per-project domain event documentation with auto-discovered wikilinks.
 - Hub, Component, and Journey scaffolding from declarative JSON definitions with optional Storybook story generation.
@@ -69,6 +69,8 @@ After implementation, developers and AI agents will have:
 - E2E review with test vault isolation (created outside the git repository, with CLI build copied in).
 - Non-interactive commands for AI agent tool use with deterministic exit codes.
 - Auto-generated reports (test, coverage, codebase, complexity, status, summary) per project with prerequisite chaining and warning surfacing.
+- **Plugin system** — vault-level plugins in `.flowti/plugins/<name>/manifest.json` with shell-command-based commands, interactive management menu, and auto-generated reference documentation.
+- **AI Tools** — vault-level AI agent tool definitions in `.flowti/ai-tools/<name>.json` with typed parameters, tags, interactive management menu, and auto-generated reference documentation.
 - **Obsidian opt-in** — vault features (knowledgebase, capture) are optional, not required.
 - **Progressive opt-in** — start small, expand into more features and workflows as needed. All restrictions, tests, and quality gates are opt-in features that improve the final product, not mandatory barriers.
 - **Resilient report generation** — report runs never stop on failure; broken reports are signals to collect, not blockers. Generators declare prerequisites, surface warnings (lint, TypeDoc, coverage, complexity), and the run summary displays comprehensive issue lists.
@@ -129,7 +131,7 @@ All features, restrictions, and quality gates exist to improve the quality of th
 
 | Entry Point | Command | Context |
 |-------------|---------|---------|
-| Interactive menu | `./flowti.cmd` or `npm run dev` | Two-stage menu: select/create project → project tools |
+| Interactive menu | `./flowti.cmd` or `npm run dev` | Two-stage menu: select/create project, manage plugins/AI tools → project tools |
 | Quick build | Select project → key `2` | Run the project's configured build command |
 | Scaffold | Select project → key `1` | Generate component or journey files |
 | Components | Select project → key `c` | Browse project components with C4 metadata and properties |
@@ -156,6 +158,14 @@ All features, restrictions, and quality gates exist to improve the quality of th
 | Capture idea | `flowti capture:idea --text="..."` | Created file path, exit 0 |
 | Check project | `flowti info` | Structured project metadata |
 | Generate reports | `flowti reports` | Generated report files with warning summary |
+| List plugins | `flowti plugin:list` | Installed plugins with validation status |
+| Validate plugins | `flowti plugin:validate` | Plugin manifest validation results |
+| Create plugin | `flowti plugin:new` | Scaffolded plugin directory, exit 0 |
+| Plugin reference | `flowti plugin:reference` | Generated reference doc |
+| List AI tools | `flowti ai:list` | AI tool definitions with validation status |
+| Validate AI tools | `flowti ai:validate` | Tool definition validation results |
+| Create AI tool | `flowti ai:new` | Scaffolded tool definition, exit 0 |
+| AI tool reference | `flowti ai:reference` | Generated reference doc |
 
 ---
 
@@ -286,6 +296,31 @@ All features, restrictions, and quality gates exist to improve the quality of th
 - [x] FR-12.3: Verify non-interactive build completes successfully
 - [x] FR-12.4: Verify Info command returns valid project data
 
+### FR-13: Plugin System
+
+- [x] FR-13.1: Vault-level plugin directory at `.flowti/plugins/<name>/manifest.json`
+- [x] FR-13.2: Plugin manifest schema with name, version, description, and commands
+- [x] FR-13.3: Command validation — required fields (run), optional fields (description, projectFree)
+- [x] FR-13.4: Plugin discovery — scan subdirectories for `manifest.json` files
+- [x] FR-13.5: Plugin commands namespaced as `plugin:<pluginName>:<commandName>` and registered in CommandRegistry
+- [x] FR-13.6: Plugin collision detection — detects command key conflicts across plugins and built-in commands
+- [x] FR-13.7: Interactive Plugins menu (Start Menu → `p`): List, Validate, Create, Generate Reference
+- [x] FR-13.8: Non-interactive commands: `plugin:list`, `plugin:validate`, `plugin:new`, `plugin:reference`
+- [x] FR-13.9: Plugin scaffolding — `scaffoldPlugin()` creates directory with starter `manifest.json`
+- [x] FR-13.10: Plugin Reference document generated via Document service to `docs/reference/Plugin Reference.md`
+
+### FR-14: AI Tool Management
+
+- [x] FR-14.1: Vault-level AI tool directory at `.flowti/ai-tools/<name>.json`
+- [x] FR-14.2: Tool definition schema with name, description, version, run command, optional cwd, params, and tags
+- [x] FR-14.3: Typed parameters — name, type (`string | number | boolean | file | directory`), required flag, description
+- [x] FR-14.4: Tool validation with warnings for missing optional fields
+- [x] FR-14.5: Tool discovery — scan directory for `.json` files
+- [x] FR-14.6: Interactive AI Tools menu (Start Menu → `a`): List, Validate, Create, Generate Reference
+- [x] FR-14.7: Non-interactive commands: `ai:list`, `ai:validate`, `ai:new`, `ai:reference`
+- [x] FR-14.8: Tool scaffolding — `scaffoldAiTool()` creates starter JSON definition
+- [x] FR-14.9: AI Tool Reference document generated via Document service to `docs/reference/AI Tool Reference.md`
+
 ---
 
 ## 6. Data Model Impact
@@ -299,6 +334,8 @@ No runtime data model changes. The CLI operates at build-time only.
 | `.flowti/config.json` | `<vault-root>/.flowti/` | Kernel config: projects folder, subsystem mappings, capture dirs |
 | `.flowti/var/state.json` | `<vault-root>/.flowti/var/` | Persistent state: selected project |
 | `.flowti/config.json` | `<vault-root>/.flowti/` | Vault-level config: CLI source project path |
+| `.flowti/plugins/<name>/manifest.json` | `<vault-root>/.flowti/plugins/` | Plugin manifests (vault-level) |
+| `.flowti/ai-tools/<name>.json` | `<vault-root>/.flowti/ai-tools/` | AI tool definitions (vault-level) |
 | `flowti.config.json` | `<project>/configs/` | Per-project config: tool mappings, publish, review, make settings |
 | `package.json` | `<project>/` | npm scripts (consumed by auto-scaffolding, info, npm scripts menu) |
 
@@ -328,6 +365,8 @@ No runtime data model changes. The CLI operates at build-time only.
 | Event catalog | `<project>/docs/events/<name>.md` | `events:add` command |
 | Reports | `<cli>/reports/{tests,coverage,codebase,complexity,summary}/` | `npm run reports` or interactive Reports menu |
 | Stable reports | `<cli>/reports/{Test,Coverage,Codebase,Complexity,Project Status,Project Summary} Report.md` | Latest report per type |
+| Plugin Reference | `<cli>/docs/reference/Plugin Reference.md` | `plugin:reference` command |
+| AI Tool Reference | `<cli>/docs/reference/AI Tool Reference.md` | `ai:reference` command |
 | Test vault | `C:\Projects\<project>-e2e\` | Review → Create test vault |
 
 ---
@@ -401,19 +440,23 @@ No adapter changes. The CLI uses Node.js built-ins exclusively (readline, child_
 - [x] Review creates test vault outside git repository
 - [x] Publish pipeline enforces build → test → distribute gating
 - [x] `npm run build` compiles and bundles to `.flowti/bin/main.js` without errors
-- [x] `npm test` passes with all 1,532 tests green (91 suites)
+- [x] `npm test` passes with all 1,724 tests green (98 suites)
 - [x] Pressing `?` in any menu shows contextual help
 - [x] Report generation runs resiliently — failed reports don't stop the run; warnings surfaced in summary
 - [x] Event Catalog creates, lists, and auto-links domain events per project
 - [x] Report prerequisites run before generation; shared prerequisites deduplicated
 - [x] Developer onboarding E2E journey passes (7 tests in `60-journey-developer-onboarding.test.ts`)
+- [x] Plugin system discovers, validates, and scaffolds plugins from `.flowti/plugins/`
+- [x] AI Tools system discovers, validates, and scaffolds tool definitions from `.flowti/ai-tools/`
+- [x] Plugin and AI Tool Reference documents generated via Document service to `docs/reference/`
+- [x] Start Menu includes Plugins (`p`) and AI Tools (`a`) entries
 - [x] AI agent can use non-interactive commands to build, test, and scaffold without human intervention (`--project=<name>` flag, `--format=json` output)
 
 ---
 
 ## 13. Definition of Done
 
-- [x] All FR-01 through FR-12 implemented and verified
+- [x] All FR-01 through FR-14 implemented and verified
 - [x] Two-stage menu (start → project detail) working
 - [x] Project creation from bundled scaffold definitions
 - [x] Component system with 8 types (5 C4 + 3 UI), properties, and Storybook stories
@@ -421,7 +464,9 @@ No adapter changes. The CLI uses Node.js built-ins exclusively (readline, child_
 - [x] Resilient report generation with prerequisites, warnings, and comprehensive run summary
 - [x] Per-project auto-scaffolding generates valid `flowti.config.json`
 - [x] Man-pages cover all tool menus with accurate descriptions
-- [x] TypeScript strict mode with Vitest test suite (1,532 tests, 91 suites)
+- [x] Plugin system with vault-level manifests, interactive menu, and reference generation
+- [x] AI Tools system with vault-level definitions, interactive menu, and reference generation
+- [x] TypeScript strict mode with Vitest test suite (1,724 tests, 98 suites)
 - [x] No production dependencies — dev tooling only, binary is self-contained
 - [x] README, Architecture, and PRD updated to reflect definition-driven architecture
 - [x] Developer onboarding scenario tested end-to-end
@@ -446,19 +491,21 @@ Planned improvements to evolve the CLI beyond its current state:
 | ~~IMP-15~~ | **Component property editor** | Done — Interactive prompt for adding/editing properties via `collectPropertyValues()` and `component-edit.ts` (Phase 2.2) |
 | ~~IMP-16~~ | **Event flow visualization** | Done — Producer → event → consumer diagrams from Event Catalog data (`event-flow.ts`) (Phase 2.5) |
 | ~~IMP-17~~ | **Storybook v10 integration** | Done — Opt-in per project via Components menu. CLI installs Storybook v10 into `<project>/component-library/`, wraps npm scripts (dev/build) with dynamic disabled gating, Make generates self-contained `.stories.ts` with render functions, component data model expanded (icon, heroImage, images, domain, actions, variants, states) (Phase 3.3) |
-
-### Short-Term
-
-| ID | Improvement | Description |
-|----|-------------|-------------|
-| IMP-05 | **Project health dashboard** | Aggregate project stats (test count, coverage, build status, last activity) into a summary view |
-| IMP-07 | **Review pipeline gating** | Add build → test gating to Review (like Publish) before running E2E journeys |
+| ~~IMP-05~~ | **Project health dashboard** | Done — `collectHealth()` aggregates test/coverage/lint/git metrics into `HealthSnapshot`; `displayHealth()` renders console summary (Phase 3.1) |
+| ~~IMP-07~~ | **Review pipeline gating** | Done — `review:all` runs build → test → E2E with fail-fast gating; interactive Review menu uses `disabled` functions tied to `buildPassed`/`testPassed` state (Phase 3.2) |
 
 ### Medium-Term
 
 | ID | Improvement | Description |
 |----|-------------|-------------|
 | IMP-09 | **Definition marketplace** | Allow projects to register custom definitions that extend the CLI's scaffolding capabilities |
+
+### Recently Completed
+
+| ID | Improvement | Status |
+|----|-------------|--------|
+| ~~IMP-13~~ | **Plugin system** | Done — vault-level plugins in `.flowti/plugins/<name>/manifest.json` with shell-command-based commands, collision detection, interactive menu (list/validate/create/reference), and reference document generation via Document service (Phase 3.5) |
+| ~~IMP-19~~ | **AI Tool management** | Done — vault-level AI tool definitions in `.flowti/ai-tools/<name>.json` with typed parameters, tags, interactive menu (list/validate/create/reference), and reference document generation via Document service (Phase 3.5) |
 
 ### Long-Term
 
@@ -467,5 +514,4 @@ Planned improvements to evolve the CLI beyond its current state:
 | IMP-10 | **Cross-project dependencies** | Detect and visualize dependencies between projects |
 | IMP-11 | **CI/CD integration** | Generate GitHub Actions workflows from project config for automated build/test/publish |
 | IMP-12 | **Self-update mechanism** | CLI checks for updates and can rebuild itself when source changes are detected |
-| IMP-13 | **Plugin system** | Allow projects to register CLI plugins that add custom commands and tools |
 | IMP-18 | **Event contract testing** | Validate event payloads against Event Catalog definitions at test time |

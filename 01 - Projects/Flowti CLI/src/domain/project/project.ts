@@ -16,6 +16,8 @@ import { RESET, DIM, GREEN, RED, CYAN } from "../../infrastructure/ui.js";
 import { scaffold as scaffoldProject, listDefinitions } from "../scaffold/scaffold.js";
 import type { MenuEntry, MenuResult } from "../../infrastructure/types.js";
 import { log } from "../../infrastructure/logger.js";
+import { pluginsMenu } from "../plugins/plugins.js";
+import { aiToolsMenu } from "../ai-tools/ai-tools.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -143,6 +145,9 @@ export async function startMenu(): Promise<"selected" | "quit"> {
 	const startItems: MenuEntry[] = [
 		{ key: "1", label: "Open Project", action: openProjectMenu },
 		{ key: "2", label: "Create Project", action: createProjectMenu },
+		{ separator: true },
+		{ key: "p", label: "Plugins", action: pluginsMenu },
+		{ key: "a", label: "AI Tools", action: aiToolsMenu },
 		{ separator: true },
 		{ key: "q", label: "Quit", action: () => "quit" as const },
 	];

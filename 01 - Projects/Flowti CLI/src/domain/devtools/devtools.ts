@@ -5,6 +5,7 @@
  */
 
 import { shell } from "../../infrastructure/shell.js";
+import { rebuildCli } from "./self-update.js";
 import type { ProjectContext } from "../../infrastructure/types.js";
 
 // ── Non-interactive commands ────────────────────────────────────────
@@ -33,5 +34,8 @@ export const commands: Record<string, (flags: Record<string, string | boolean>, 
 	},
 	"dev:testdata": (_f, _r, _c, p) => {
 		shell.run("node scripts/generate-test-data.mjs", { cwd: p?.path, label: "Generating test data CSVs..." });
+	},
+	"dev:rebuild": (_f, _r, _c, p) => {
+		rebuildCli(p?.path ?? "", shell);
 	},
 };

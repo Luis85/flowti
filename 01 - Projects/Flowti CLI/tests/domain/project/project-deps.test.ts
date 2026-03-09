@@ -1,0 +1,548 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { createMockFs } from "../../mocks/mock-fs.js";
+
+vi.mock("../../../src/infrastructure/config.js", () => ({
+	PROJECTS_DIR: "/mock/projects",
+}));
+
+vi.mock("../../../src/infrastructure/filesystem.js", () => ({
+	disk: {},
+}));
+
+vi.mock("../../../src/infrastructure/paths.js", async () => {
+	const path = await import("node:path");
+	return {
+		paths: {
+			join: (...args: string[]) => path.default.join(...args).replace(/\\/g, "/"),
+			resolve: (...args: string[]) => path.default.join(...args).replace(/\\/g, "/"),
+			dirname: (p: string) => path.default.dirname(p).replace(/\\/g, "/"),
+			basename: path.default.basename,
+		},
+	};
+});
+
+vi.mock("../../../src/infrastructure/ui.js", () => ({
+	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", CYAN: "", YELLOW: "",
+}));
+
+vi.mock("../../../src/infrastructure/logger.js", () => ({
+	log: vi.fn(),
+}));
+
+vi.mock("../../../src/infrastructure/state.js", () => ({
+	getSelectedProject: vi.fn(() => null),
+	setSelectedProject: vi.fn(),
+}));
+
+vi.mock("../../../src/infrastructure/menu.js", () => ({
+	runMenu: vi.fn(),
+}));
+
+vi.mock("../../../src/infrastructure/input.js", () => ({
+	input: { ask: vi.fn() },
+}));
+
+vi.mock("../../../src/infrastructure/shell.js", () => ({
+	shell: {},
+}));
+
+vi.mock("../../../src/domain/scaffold/scaffold.js", () => ({
+	scaffold: vi.fn(),
+	listDefinitions: vi.fn(() => []),
+}));
+
+import * as fsMod from "../../../src/infrastructure/filesystem.js";
+import { log } from "../../../src/infrastructure/logger.js";
+import {
+	detectNpmDeps,
+	detectConfigDeps,
+	detectCycles,
+	buildDependencyGraph,
+	renderDependencyTree,
+	renderMermaidDeps,
+	displayDependencyGraph,
+	handleProjectDeps,
+} from "../../../src/domain/project/project-deps.js";
+import type { ProjectDependency, DependencyGraph } from "../../../src/domain/project/project-deps.js";
+
+function setDisk(mockFs: ReturnType<typeof createMockFs>): void {
+	Object.assign(fsMod, { disk: mockFs });
+}
+
+beforeEach(() => vi.clearAllMocks());
+
+// ── detectNpmDeps ──────────────────────────────────────────────────
+
+describe("detectNpmDeps", () => {
+	it("detects dependency when package.json references sibling project npm name", () => {
+		const mockFs = createMockFs({
+			"/mock/projects/app-a/package.json": JSON.stringify({
+				name: "app-a",
+				dependencies: { "shared-lib": "^1.0.0" },
+			}),
+		});
+		setDisk(mockFs);
+
+		const npmNameMap = new Map([
+			["app-a", "app-a"],
+			["shared-lib", "lib-shared"],
+		]);
+
+		const deps = detectNpmDeps("app-a", "/mock/projects/app-a", npmNameMap);
+
+		expect(deps).toHaveLength(1);
+		expect(deps[0]).toEqual({
+			from: "app-a",
+			to: "lib-shared",
+			type: "npm",
+			detail: "dependencies.shared-lib",
+		});
+	});
+
+	it("detects devDependency references", () => {
+		const mockFs = createMockFs({
+			"/mock/projects/app-a/package.json": JSON.stringify({
+				name: "app-a",
+				devDependencies: { "test-utils": "^2.0.0" },
+			}),
+		});
+		setDisk(mockFs);
+
+		const npmNameMap = new Map([
+			["app-a", "app-a"],
+			["test-utils", "utils-proj"],
+		]);
+
+		const deps = detectNpmDeps("app-a", "/mock/projects/app-a", npmNameMap);
+
+		expect(deps).toHaveLength(1);
+		expect(deps[0].type).toBe("npm");
+		expect(deps[0].detail).toBe("devDependencies.test-utils");
+	});
+
+	it("returns empty array when no package.json exists", () => {
+		const mockFs = createMockFs();
+		setDisk(mockFs);
+
+		const deps = detectNpmDeps("app-a", "/mock/projects/app-a", new Map());
+		expect(deps).toEqual([]);
+	});
+
+	it("ignores dependencies that are not sibling projects", () => {
+		const mockFs = createMockFs({
+			"/mock/projects/app-a/package.json": JSON.stringify({
+				name: "app-a",
+				dependencies: { "lodash": "^4.0.0", "express": "^4.0.0" },
+			}),
+		});
+		setDisk(mockFs);
+
+		const npmNameMap = new Map([["app-a", "app-a"]]);
+		const deps = detectNpmDeps("app-a", "/mock/projects/app-a", npmNameMap);
+		expect(deps).toEqual([]);
+	});
+
+	it("does not create self-dependency", () => {
+		const mockFs = createMockFs({
+			"/mock/projects/app-a/package.json": JSON.stringify({
+				name: "app-a",
+				dependencies: { "app-a": "^1.0.0" },
+			}),
+		});
+		setDisk(mockFs);
+
+		const npmNameMap = new Map([["app-a", "app-a"]]);
+		const deps = detectNpmDeps("app-a", "/mock/projects/app-a", npmNameMap);
+		expect(deps).toEqual([]);
+	});
+
+	it("handles malformed package.json gracefully", () => {
+		const mockFs = createMockFs({
+			"/mock/projects/app-a/package.json": "not json",
+		});
+		setDisk(mockFs);
+
+		const deps = detectNpmDeps("app-a", "/mock/projects/app-a", new Map());
+		expect(deps).toEqual([]);
+	});
+});
+
+// ── detectConfigDeps ───────────────────────────────────────────────
+
+describe("detectConfigDeps", () => {
+	it("detects publish endpoint referencing another project", () => {
+		const mockFs = createMockFs({
+			"/mock/projects/cli/configs/flowti.config.json": JSON.stringify({
+				name: "cli",
+				publish: {
+					endpoints: [
+						{ name: "plugin-output", path: "../plugin-app/dist" },
+					],
+				},
+			}),
+		});
+		setDisk(mockFs);
+
+		const deps = detectConfigDeps("cli", "/mock/projects/cli", ["cli", "plugin-app"]);
+
+		expect(deps).toHaveLength(1);
+		expect(deps[0]).toEqual({
+			from: "cli",
+			to: "plugin-app",
+			type: "publish",
+			detail: expect.stringContaining("plugin-output"),
+		});
+	});
+
+	it("returns empty when no config exists", () => {
+		const mockFs = createMockFs();
+		setDisk(mockFs);
+
+		const deps = detectConfigDeps("cli", "/mock/projects/cli", ["cli", "other"]);
+		expect(deps).toEqual([]);
+	});
+
+	it("returns empty when no publish endpoints", () => {
+		const mockFs = createMockFs({
+			"/mock/projects/cli/configs/flowti.config.json": JSON.stringify({
+				name: "cli",
+			}),
+		});
+		setDisk(mockFs);
+
+		const deps = detectConfigDeps("cli", "/mock/projects/cli", ["cli", "other"]);
+		expect(deps).toEqual([]);
+	});
+
+	it("does not create self-dependency from config", () => {
+		const mockFs = createMockFs({
+			"/mock/projects/cli/configs/flowti.config.json": JSON.stringify({
+				name: "cli",
+				publish: {
+					endpoints: [{ name: "self", path: "../cli/dist" }],
+				},
+			}),
+		});
+		setDisk(mockFs);
+
+		const deps = detectConfigDeps("cli", "/mock/projects/cli", ["cli"]);
+		expect(deps).toEqual([]);
+	});
+
+	it("handles malformed config gracefully", () => {
+		const mockFs = createMockFs({
+			"/mock/projects/cli/configs/flowti.config.json": "bad json",
+		});
+		setDisk(mockFs);
+
+		const deps = detectConfigDeps("cli", "/mock/projects/cli", ["cli", "other"]);
+		expect(deps).toEqual([]);
+	});
+});
+
+// ── detectCycles ───────────────────────────────────────────────────
+
+describe("detectCycles", () => {
+	it("returns empty array when no cycles exist", () => {
+		const edges: ProjectDependency[] = [
+			{ from: "A", to: "B", type: "npm", detail: "" },
+			{ from: "B", to: "C", type: "npm", detail: "" },
+		];
+
+		expect(detectCycles(edges)).toEqual([]);
+	});
+
+	it("detects a simple cycle (A → B → A)", () => {
+		const edges: ProjectDependency[] = [
+			{ from: "A", to: "B", type: "npm", detail: "" },
+			{ from: "B", to: "A", type: "npm", detail: "" },
+		];
+
+		const cycles = detectCycles(edges);
+		expect(cycles.length).toBeGreaterThanOrEqual(1);
+
+		// At least one cycle should contain both A and B
+		const flat = cycles.flat();
+		expect(flat).toContain("A");
+		expect(flat).toContain("B");
+	});
+
+	it("detects a transitive cycle (A → B → C → A)", () => {
+		const edges: ProjectDependency[] = [
+			{ from: "A", to: "B", type: "npm", detail: "" },
+			{ from: "B", to: "C", type: "npm", detail: "" },
+			{ from: "C", to: "A", type: "npm", detail: "" },
+		];
+
+		const cycles = detectCycles(edges);
+		expect(cycles.length).toBeGreaterThanOrEqual(1);
+
+		const flat = cycles.flat();
+		expect(flat).toContain("A");
+		expect(flat).toContain("B");
+		expect(flat).toContain("C");
+	});
+
+	it("returns empty for no edges", () => {
+		expect(detectCycles([])).toEqual([]);
+	});
+
+	it("handles disconnected components", () => {
+		const edges: ProjectDependency[] = [
+			{ from: "A", to: "B", type: "npm", detail: "" },
+			{ from: "C", to: "D", type: "npm", detail: "" },
+		];
+
+		expect(detectCycles(edges)).toEqual([]);
+	});
+});
+
+// ── renderDependencyTree ───────────────────────────────────────────
+
+describe("renderDependencyTree", () => {
+	it("renders tree with dependencies", () => {
+		const graph: DependencyGraph = {
+			projects: ["app", "lib"],
+			edges: [
+				{ from: "app", to: "lib", type: "npm", detail: "dependencies.lib" },
+			],
+			cycles: [],
+		};
+
+		const output = renderDependencyTree(graph);
+		expect(output).toContain("app");
+		expect(output).toContain("└──");
+		expect(output).toContain("lib");
+		expect(output).toContain("[npm]");
+	});
+
+	it("shows (no dependencies) for isolated projects", () => {
+		const graph: DependencyGraph = {
+			projects: ["standalone"],
+			edges: [],
+			cycles: [],
+		};
+
+		const output = renderDependencyTree(graph);
+		expect(output).toContain("standalone");
+		expect(output).toContain("(no dependencies)");
+	});
+
+	it("shows circular dependency warnings", () => {
+		const graph: DependencyGraph = {
+			projects: ["A", "B"],
+			edges: [
+				{ from: "A", to: "B", type: "npm", detail: "" },
+				{ from: "B", to: "A", type: "npm", detail: "" },
+			],
+			cycles: [["A", "B", "A"]],
+		};
+
+		const output = renderDependencyTree(graph);
+		expect(output).toContain("Circular Dependencies");
+		expect(output).toContain("A");
+	});
+
+	it("returns 'No projects found.' when graph has no projects", () => {
+		const graph: DependencyGraph = { projects: [], edges: [], cycles: [] };
+		expect(renderDependencyTree(graph)).toBe("No projects found.");
+	});
+
+	it("uses ├── for non-last deps and └── for last dep", () => {
+		const graph: DependencyGraph = {
+			projects: ["app", "lib-a", "lib-b"],
+			edges: [
+				{ from: "app", to: "lib-a", type: "npm", detail: "dep.a" },
+				{ from: "app", to: "lib-b", type: "npm", detail: "dep.b" },
+			],
+			cycles: [],
+		};
+
+		const output = renderDependencyTree(graph);
+		expect(output).toContain("├──");
+		expect(output).toContain("└──");
+	});
+});
+
+// ── renderMermaidDeps ──────────────────────────────────────────────
+
+describe("renderMermaidDeps", () => {
+	it("renders graph LR with edges", () => {
+		const graph: DependencyGraph = {
+			projects: ["app", "lib"],
+			edges: [
+				{ from: "app", to: "lib", type: "npm", detail: "" },
+			],
+			cycles: [],
+		};
+
+		const output = renderMermaidDeps(graph);
+		expect(output).toContain("graph LR");
+		expect(output).toContain("app");
+		expect(output).toContain("lib");
+		expect(output).toContain("|npm|");
+	});
+
+	it("renders isolated nodes without edges", () => {
+		const graph: DependencyGraph = {
+			projects: ["standalone"],
+			edges: [],
+			cycles: [],
+		};
+
+		const output = renderMermaidDeps(graph);
+		expect(output).toContain("graph LR");
+		expect(output).toContain("standalone");
+	});
+
+	it("renders comment when no projects exist", () => {
+		const graph: DependencyGraph = { projects: [], edges: [], cycles: [] };
+		const output = renderMermaidDeps(graph);
+		expect(output).toContain("No projects found");
+	});
+
+	it("deduplicates edges", () => {
+		const graph: DependencyGraph = {
+			projects: ["A", "B"],
+			edges: [
+				{ from: "A", to: "B", type: "npm", detail: "dep1" },
+				{ from: "A", to: "B", type: "npm", detail: "dep2" },
+			],
+			cycles: [],
+		};
+
+		const output = renderMermaidDeps(graph);
+		// Should only have one A --> B edge line (plus graph LR header)
+		const edgeLines = output.split("\n").filter((l) => l.includes("-->"));
+		expect(edgeLines).toHaveLength(1);
+	});
+
+	it("includes isolated projects alongside connected ones", () => {
+		const graph: DependencyGraph = {
+			projects: ["A", "B", "C"],
+			edges: [
+				{ from: "A", to: "B", type: "npm", detail: "" },
+			],
+			cycles: [],
+		};
+
+		const output = renderMermaidDeps(graph);
+		expect(output).toContain("A");
+		expect(output).toContain("B");
+		expect(output).toContain("C");
+	});
+});
+
+// ── buildDependencyGraph ───────────────────────────────────────────
+
+describe("buildDependencyGraph", () => {
+	it("builds graph from multiple projects with npm deps", () => {
+		const mockFs = createMockFs({
+			"/mock/projects/app/package.json": JSON.stringify({
+				name: "@org/app",
+				dependencies: { "@org/lib": "^1.0.0" },
+			}),
+			"/mock/projects/lib/package.json": JSON.stringify({
+				name: "@org/lib",
+			}),
+		});
+		setDisk(mockFs);
+
+		const graph = buildDependencyGraph();
+
+		expect(graph.projects).toEqual(["app", "lib"]);
+		expect(graph.edges).toHaveLength(1);
+		expect(graph.edges[0].from).toBe("app");
+		expect(graph.edges[0].to).toBe("lib");
+		expect(graph.edges[0].type).toBe("npm");
+		expect(graph.cycles).toEqual([]);
+	});
+
+	it("handles empty projects directory", () => {
+		const mockFs = createMockFs();
+		mockFs.readdirSync = () => { throw new Error("ENOENT"); };
+		setDisk(mockFs);
+
+		const graph = buildDependencyGraph();
+		expect(graph.projects).toEqual([]);
+		expect(graph.edges).toEqual([]);
+		expect(graph.cycles).toEqual([]);
+	});
+
+	it("detects cycles in built graph", () => {
+		const mockFs = createMockFs({
+			"/mock/projects/A/package.json": JSON.stringify({
+				name: "pkg-a",
+				dependencies: { "pkg-b": "^1.0.0" },
+			}),
+			"/mock/projects/B/package.json": JSON.stringify({
+				name: "pkg-b",
+				dependencies: { "pkg-a": "^1.0.0" },
+			}),
+		});
+		setDisk(mockFs);
+
+		const graph = buildDependencyGraph();
+		expect(graph.cycles.length).toBeGreaterThanOrEqual(1);
+	});
+});
+
+// ── displayDependencyGraph ─────────────────────────────────────────
+
+describe("displayDependencyGraph", () => {
+	it("displays no-projects message for empty graph", () => {
+		const graph: DependencyGraph = { projects: [], edges: [], cycles: [] };
+		displayDependencyGraph(graph);
+
+		const logCalls = vi.mocked(log).mock.calls.map((c) => c[0]);
+		expect(logCalls.some((c) => typeof c === "string" && c.includes("No projects found"))).toBe(true);
+	});
+
+	it("displays projects with their dependencies", () => {
+		const graph: DependencyGraph = {
+			projects: ["app", "lib"],
+			edges: [{ from: "app", to: "lib", type: "npm", detail: "dependencies.lib" }],
+			cycles: [],
+		};
+
+		displayDependencyGraph(graph);
+
+		const logCalls = vi.mocked(log).mock.calls.map((c) => c[0]);
+		const allOutput = logCalls.filter((c) => typeof c === "string").join("\n");
+		expect(allOutput).toContain("app");
+		expect(allOutput).toContain("lib");
+		expect(allOutput).toContain("Mermaid");
+	});
+
+	it("displays cycle warnings", () => {
+		const graph: DependencyGraph = {
+			projects: ["A", "B"],
+			edges: [
+				{ from: "A", to: "B", type: "npm", detail: "" },
+				{ from: "B", to: "A", type: "npm", detail: "" },
+			],
+			cycles: [["A", "B", "A"]],
+		};
+
+		displayDependencyGraph(graph);
+
+		const logCalls = vi.mocked(log).mock.calls.map((c) => c[0]);
+		const allOutput = logCalls.filter((c) => typeof c === "string").join("\n");
+		expect(allOutput).toContain("Circular Dependencies");
+	});
+});
+
+// ── handleProjectDeps ──────────────────────────────────────────────
+
+describe("handleProjectDeps", () => {
+	it("builds and displays the dependency graph", () => {
+		const mockFs = createMockFs({
+			"/mock/projects/my-app/package.json": JSON.stringify({ name: "my-app" }),
+		});
+		setDisk(mockFs);
+
+		handleProjectDeps();
+
+		expect(vi.mocked(log)).toHaveBeenCalled();
+	});
+});

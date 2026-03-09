@@ -2,6 +2,7 @@
  * event-commands.ts — Non-interactive CLI commands for the Event Catalog.
  */
 
+import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
 import { RESET, DIM, GREEN, RED } from "../../infrastructure/ui.js";
 import { log } from "../../infrastructure/logger.js";
@@ -12,6 +13,8 @@ import type { EventDefinition } from "./event-catalog.js";
 import { parsePayloadFlag } from "./event-payload.js";
 import { versionCommands } from "./event-versioning.js";
 import { saveEventFlowDoc } from "./event-flow.js";
+import { loadEventContracts, validateContracts, generateContractsJson } from "./event-contracts.js";
+import type { ContractIssue } from "./event-contracts.js";
 
 // ── Flag helpers ──────────────────────────────────────────────────
 
@@ -58,6 +61,64 @@ export const commands: Record<string, (flags: Record<string, string | boolean>, 
 		};
 		const filePath = createEventFile(project.path, def);
 		if (filePath) log(`\n  ${GREEN}✓${RESET} Created: ${paths.relative(project.path, filePath)}\n`);
+	},
+	"events:validate": (flags, _rawArgs, _command, project) => {
+		if (!project) return;
+		const dir = paths.join(project.path, "docs", "events");
+		const contracts = loadEventContracts(dir);
+		if (contracts.length === 0) {
+			log(`\n  ${DIM}No events found in docs/events/.${RESET}\n`);
+			return;
+		}
+		const result = validateContracts(contracts);
+		const format = resolveFormat(flags);
+		if (format === "json") {
+			printOutput(format, result, () => {});
+			return;
+		}
+		log(`\n  Validated ${contracts.length} event contract(s).\n`);
+		if (result.issues.length === 0) {
+			log(`  ${GREEN}✓${RESET} All contracts are valid.\n`);
+			return;
+		}
+		const errors = result.issues.filter((i: ContractIssue) => i.severity === "error");
+		const warnings = result.issues.filter((i: ContractIssue) => i.severity === "warning");
+		for (const issue of errors) {
+			const fieldTag = issue.field ? ` → ${issue.field}` : "";
+			log(`  ${RED}✗${RESET} ${issue.event}${fieldTag}: ${issue.message}`);
+		}
+		for (const issue of warnings) {
+			const fieldTag = issue.field ? ` → ${issue.field}` : "";
+			log(`  ${DIM}⚠${RESET} ${issue.event}${fieldTag}: ${issue.message}`);
+		}
+		log();
+		if (result.valid) {
+			log(`  ${GREEN}✓${RESET} ${errors.length} error(s), ${warnings.length} warning(s) — contracts valid.\n`);
+		} else {
+			log(`  ${RED}✗${RESET} ${errors.length} error(s), ${warnings.length} warning(s) — contracts invalid.\n`);
+		}
+	},
+	"events:contracts": (flags, _rawArgs, _command, project) => {
+		if (!project) return;
+		const dir = paths.join(project.path, "docs", "events");
+		const contracts = loadEventContracts(dir);
+		if (contracts.length === 0) {
+			log(`\n  ${DIM}No events found in docs/events/.${RESET}\n`);
+			return;
+		}
+		const format = resolveFormat(flags);
+		if (format === "json") {
+			printOutput(format, contracts, () => {});
+			return;
+		}
+		const outPath = typeof flags.out === "string"
+			? paths.resolve(project.path, flags.out)
+			: paths.join(dir, "contracts.json");
+		const json = generateContractsJson(contracts);
+		const outDir = paths.dirname(outPath);
+		disk.mkdirSync(outDir, { recursive: true });
+		disk.writeFileSync(outPath, json, "utf-8");
+		log(`\n  ${GREEN}✓${RESET} Generated: ${paths.relative(project.path, outPath)} (${contracts.length} contracts)\n`);
 	},
 	...versionCommands,
 };

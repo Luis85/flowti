@@ -2,7 +2,7 @@
 type: Architecture
 domain: CLI
 title: Flowti CLI — Architecture Document
-version: 15
+version: 16
 created: 2026-03-07
 updated: 2026-03-09
 status: living-document
@@ -10,7 +10,7 @@ status: living-document
 
 # Flowti CLI — Architecture Document
 
-> Living document. Reflects the current implementation (status quo) and the target architecture derived from PRD v4. Updated as the codebase evolves.
+> Living document. Reflects the current implementation (status quo) and the target architecture derived from PRD v7. Updated as the codebase evolves.
 
 ---
 
@@ -18,7 +18,7 @@ status: living-document
 
 The Flowti CLI is a **definition-driven project orchestrator** that ships as a self-contained Node.js binary. It manages multi-project development workflows — scaffolding, building, testing, reviewing, publishing, and reporting — from a single interactive menu or via non-interactive commands for AI agent tool use.
 
-**Scale**: 154 source files, 96 test files (1,532 tests, 91 suites), 15 domain modules, 21 infrastructure modules. Zero production dependencies — runs on Node.js built-ins only.
+**Scale**: 171 source files, 108 test files (1,724 tests, 98 suites), 18 domain modules, 21 infrastructure modules. Zero production dependencies — runs on Node.js built-ins only.
 
 ---
 
@@ -37,7 +37,7 @@ The Flowti CLI is a **definition-driven project orchestrator** that ships as a s
 │  │  Bundled:  Scaffold definitions (JSON)                    │     │
 │  │            Component definitions (8 kinds, JSON)          │     │
 │  │            Template functions (6 registries)              │     │
-│  │            Generator functions (6 report + 2 reference)   │     │
+│  │            Generator functions (6 report + 4 reference)   │     │
 │  │            All infrastructure + domain logic              │     │
 │  └────────────┬──────────────────────────────────────────────┘     │
 │               │                                                    │
@@ -52,6 +52,8 @@ The Flowti CLI is a **definition-driven project orchestrator** that ships as a s
 │                                                                   │
 │       .flowti/var/state.json     ← persistent CLI state           │
 │       .flowti/config.json        ← vault-level configuration      │
+│       .flowti/plugins/           ← vault-level plugin manifests   │
+│       .flowti/ai-tools/          ← vault-level AI tool defs       │
 │                                                                   │
 │       Each project has:                                           │
 │       ├── configs/flowti.config.json   (tools, publish, review)   │
@@ -86,6 +88,8 @@ flowti.cmd
 │                                                       │
 │  ┌─ Open Project (list from 01 - Projects/)           │
 │  ├─ Create Project (bundled scaffold definitions)     │
+│  ├─ Plugins (list, validate, create, reference)       │
+│  ├─ AI Tools (list, validate, create, reference)      │
 │  └─ Quit                                              │
 │                                                       │
 │  Selection persisted → .flowti/var/state.json         │
@@ -125,7 +129,7 @@ flowti.cmd
 └───────────┬──────────────────────────────────────────────────┘
             │
 ┌───────────▼──────────────────────────────────────────────────┐
-│                       Domain Layer (15 modules)              │
+│                       Domain Layer (18 modules)              │
 │                                                              │
 │  ┌─────────┐ ┌──────────┐ ┌────────┐ ┌─────────┐            │
 │  │ Project │ │ Scaffold │ │  Make  │ │  Build  │            │
@@ -139,6 +143,9 @@ flowti.cmd
 │  ┌───────────┐ ┌──────────┐ ┌──────────────────┐            │
 │  │Onboarding │ │ DevTools │ │ Knowledgebase    │            │
 │  └───────────┘ └──────────┘ └──────────────────┘            │
+│  ┌─────────┐ ┌──────────┐ ┌──────────────────┐              │
+│  │ Plugins │ │ AI Tools │ │     Health       │              │
+│  └─────────┘ └──────────┘ └──────────────────┘              │
 │                                                              │
 │  Each domain exports:                                        │
 │    commands: Record<string, CommandHandler>  (non-interactive)│
@@ -187,7 +194,8 @@ process.argv → parseArgs() → { command, flags }
                          │  └── "none"   → interactive│
                          └───────────────────────────┘
 
-PROJECT_FREE commands: help, project, capture:*, scaffold:*
+PROJECT_FREE commands: help, project, capture:*, scaffold:*,
+  plugin:*, ai:*
 All others (reports, report:*, docs, build, review, publish, etc.)
 require --project=<name> or a persisted selection.
 ```
@@ -286,6 +294,10 @@ The CLI separates **reports** (timestamped point-in-time snapshots) from **refer
 │    cli-reference    → generateCliReference                 │
 │    entity-reference → generateEntityReference              │
 │                                                            │
+│  Domain Reference Generators (2 standalone):               │
+│    plugin:reference  → generatePluginReference             │
+│    ai:reference      → generateAiToolReference             │
+│                                                            │
 │  Output: ReportService.saveReference()                     │
 │    └── docs/reference/{Title}.md               (stable)   │
 │         (configurable via docs.referenceDir)               │
@@ -371,7 +383,7 @@ All I/O is behind abstractions (`IFileSystem`, `IShell`, `IProcess`, `clock`), m
 
 ## 4. Target Architecture
 
-The target architecture extends the status quo to fulfill all PRD v5 requirements. All functional requirements (FR-01 through FR-12) are complete. Remaining work targets planned improvements (IMP-05 through IMP-18).
+The target architecture extends the status quo to fulfill all PRD v7 requirements. All functional requirements (FR-01 through FR-14) are complete. Remaining work targets planned improvements (IMP-10 through IMP-18).
 
 ### 4.1 Non-Interactive Project Selection (IMP-01) — DONE
 
@@ -393,11 +405,15 @@ The CLI separates **reports** (timestamped snapshots in `reports/`) from **refer
 - `entity-reference` — Entity dictionary (9 entities with description, purpose, locations, config keys, commands, artifacts, relationships)
 - `cli-reference` — CLI command reference (non-interactive commands, help sections, npm scripts, config files)
 
+**Domain Reference Generators** (standalone, outside registry):
+- `plugin:reference` — Plugin Reference listing all installed plugins, commands, versions, and validation status
+- `ai:reference` — AI Tool Reference listing all tool definitions, parameters, tags, and validation status
+
 **ReportService.saveReference()**: Writes a single stable file to `docs/reference/` (configurable via `docs.referenceDir`). No timestamps, no archive copies.
 
 **CLI command**: `flowti docs` runs config generators (e.g. TypeDoc) + all built-in reference generators.
 
-**Interactive**: Documentation menu → "Update All" runs config generators + reference generators. Individual generators listed as separate menu items.
+**Interactive**: Documentation menu → "Update All" runs config generators + reference generators. Plugin and AI Tool references are generated via their own menus and commands (`plugin:reference`, `ai:reference`).
 
 ### 4.5 Developer Onboarding E2E Journey (FR-12) — DONE
 
@@ -601,7 +617,7 @@ All items delivered plus Document service refactor, frontmatter consolidation, s
 | 2.16 | **Input consolidation** (D-28) | DONE | `infrastructure/input.ts` (askYesNo), `readline.ts` (deleted), `e2e-helpers.ts`, `e2e-interactive.ts`, `e2e-session.ts`, `e2e-audit.ts`, `e2e-teardown.ts` |
 | 2.17 | **Complexity extraction** (collectProjectInfo) | DONE | `info.ts` (19→3 helpers: collectSourceInfo, collectDependencyInfo, collectGitInfo) |
 
-**Milestone**: C4 entities form a navigable hierarchy. Components are editable post-creation. Event catalog supports full lifecycle. Document service is the sole markdown renderer for doc templates. Frontmatter parsing consolidated to single infrastructure module. Command registration typed with collision detection. Menu construction extracted into pure builder functions. Structured error handling established. `--format=json` output pattern established. Single input abstraction for all interactive prompts. 1,451 tests, 88 suites → grew to 1,532 tests, 91 suites after Phase 3. 0 lint errors, 0 warnings.
+**Milestone**: C4 entities form a navigable hierarchy. Components are editable post-creation. Event catalog supports full lifecycle. Document service is the sole markdown renderer for doc templates. Frontmatter parsing consolidated to single infrastructure module. Command registration typed with collision detection. Menu construction extracted into pure builder functions. Structured error handling established. `--format=json` output pattern established. Single input abstraction for all interactive prompts. 1,451 tests, 88 suites → grew to 1,724 tests, 98 suites after Phase 3. 0 lint errors, 0 warnings.
 
 ### Phase 3: Project Health & Storybook Integration
 
@@ -614,7 +630,21 @@ Aggregate project metrics and integrate with the broader development ecosystem.
 | 3.3 | **Storybook v10 integration** (IMP-17) | DONE | High | New: `storybook-service.ts` (install, detect, dev/build), Modify: `component-list.ts` (dynamic disabled menu gating), `config-schema.ts` (components validation), `types.ts` (ComponentsConfig), component data model expanded with `actions`, `variants`, `states`, `icon`, `heroImage`, `images[]`, `domain` for full Storybook v10 compatibility, self-contained render function pattern in stories, stories excluded from tsconfig/typedoc, TypeDoc TS error parsing, npm scripts submenu persistence, 37 new tests |
 | 3.4 | **Definition marketplace** (IMP-09) | L | Medium | New: `domain/scaffold/marketplace.ts` |
 
-**Milestone**: Projects have a health score. Review enforces quality gates. Storybook v10 is a first-class, opt-in component library tool managed from the Components menu with dynamic state-aware gating. Component data model expanded with icon, heroImage, images, domain for rich documentation and Storybook parameters. TypeDoc error parsing captures both native and TS compilation errors. 1,532 tests, 91 suites. 0 lint errors, 0 warnings.
+**Milestone**: Projects have a health score. Review enforces quality gates. Storybook v10 is a first-class, opt-in component library tool managed from the Components menu with dynamic state-aware gating. Component data model expanded with icon, heroImage, images, domain for rich documentation and Storybook parameters. TypeDoc error parsing captures both native and TS compilation errors. 1,724 tests, 98 suites. 0 lint errors, 0 warnings.
+
+### Phase 3.5: Plugin System & AI Tools — COMPLETE
+
+Vault-level extensibility via plugins and AI tool definitions. Both managed from the Start Menu with full CRUD and reference document generation.
+
+| # | Task | Status | Files |
+|---|------|--------|-------|
+| 3.5.1 | **Plugin system** (IMP-13, FR-13) | DONE | New: `domain/plugins/` (plugin-loader.ts, plugin-commands.ts, plugin-reference.ts, plugin-types.ts, plugins.ts facade), 32 tests |
+| 3.5.2 | **AI Tool management** (IMP-19, FR-14) | DONE | New: `domain/ai-tools/` (ai-tool-loader.ts, ai-tool-commands.ts, ai-tool-reference.ts, ai-tool-types.ts, ai-tools.ts facade), 30 tests |
+| 3.5.3 | **Start Menu extension** | DONE | Modify: `project.ts` (Plugins `p`, AI Tools `a` entries), `main.ts` (register domains + project-free commands) |
+| 3.5.4 | **Reference generation** | DONE | Plugin and AI Tool Reference documents generated via Document service to `docs/reference/` |
+| 3.5.5 | **Health dashboard fix** | DONE | Modify: `health.ts` (frontmatter key fallbacks for coverage, tests, lint metrics) |
+
+**Milestone**: CLI extensibility via vault-level plugins and AI tools. Start Menu has 5 entries (Open, Create, Plugins, AI Tools, Quit). Plugin commands auto-registered with collision detection. 1,724 tests, 98 suites. 0 lint errors, 0 warnings.
 
 ### Phase 4: Cross-Project & Automation
 
@@ -625,7 +655,7 @@ Long-term vision for multi-project management and CI/CD integration.
 | 4.1 | **Cross-project dependencies** (IMP-10) | L | High | New: `domain/project/dependencies.ts` |
 | 4.2 | **CI/CD workflow generation** (IMP-11) | L | Medium | New: `domain/build/ci-generator.ts` |
 | 4.3 | **Self-update mechanism** (IMP-12) | M | Medium | Modify: `boot/bootstrap.mjs` |
-| 4.4 | **Plugin system** (IMP-13) | XL | High | New: `domain/plugins/` |
+| ~~4.4~~ | ~~**Plugin system** (IMP-13)~~ | ~~XL~~ | ~~High~~ | Done — Phase 3.5 |
 | 4.5 | **Event contract testing** (IMP-18) | M | Medium | New: `domain/events/contract-testing.ts` |
 
 **Milestone**: CLI manages inter-project relationships. CI/CD is generated from config. Plugin extensibility.
@@ -683,7 +713,7 @@ Consolidated 7 duplicate parsers into `infrastructure/frontmatter.ts`. See secti
 
 ### ~~6.10 Coverage Gap~~ — ACCEPTABLE
 
-Pure functions are well-covered (1,532 tests). Remaining low-coverage files are: (1) report generators — I/O-heavy, tested via output shape; (2) interactive flows — thin wrappers over tested `menu.ts` infrastructure; (3) E2E orchestration — covered by integration tests. Adding unit tests for these yields diminishing returns. Coverage will grow organically as new features add tests.
+Pure functions are well-covered (1,724 tests). Remaining low-coverage files are: (1) report generators — I/O-heavy, tested via output shape; (2) interactive flows — thin wrappers over tested `menu.ts` infrastructure; (3) E2E orchestration — covered by integration tests. Adding unit tests for these yields diminishing returns. Coverage will grow organically as new features add tests.
 
 ### ~~6.11 Complexity Hotspots~~ — ACCEPTABLE
 
@@ -750,6 +780,9 @@ Audit complete. All domain files correctly import shared types from `infrastruct
 | DevTools | `devtools.ts`, `cli-reload.ts`, `fix-frontmatter.ts` | Development utilities |
 | Onboarding | `onboarding.ts` | Node.js version check, prerequisite validation |
 | Knowledgebase | `knowledgebase.ts`, `vault-service.ts` | Obsidian vault interaction (opt-in) |
+| Plugins | `plugin-loader.ts`, `plugin-commands.ts`, `plugin-reference.ts`, `plugin-types.ts` | Vault-level plugin discovery, validation, scaffolding, reference generation |
+| AI Tools | `ai-tool-loader.ts`, `ai-tool-commands.ts`, `ai-tool-reference.ts`, `ai-tool-types.ts` | Vault-level AI tool definition management, validation, scaffolding, reference generation |
+| Health | `health.ts` | Project health dashboard — aggregates test/coverage/lint/git metrics |
 
 ### Configuration
 
@@ -798,3 +831,8 @@ Audit complete. All domain files correctly import shared types from `infrastruct
 | D-31 | Dynamic menu disabled functions | `MenuItem.disabled` accepts `() => boolean` re-evaluated each menu loop iteration; enables state-aware gating (e.g. Storybook install status changes mid-session) |
 | D-32 | Stories excluded from tsconfig + typedoc | Story files import from `storybook/actions` which isn't in the project's node_modules; TypeDoc's `exclude` only filters output, not TS compilation; tsconfig exclude prevents compilation errors |
 | D-33 | Npm scripts submenu persistence | Script actions return `undefined` (stay in loop) not `"main"` (exit to parent); users typically run multiple scripts in sequence |
+| D-34 | Vault-level plugins (not project-level) | Plugins extend the CLI itself, not individual projects; `.flowti/plugins/` is vault-scoped, discoverable from any project context |
+| D-35 | Subdirectory-based plugin manifests | Each plugin gets `<name>/manifest.json` (not flat `<name>.json`); enables future assets, scripts, or config per-plugin |
+| D-36 | Flat-file AI tool definitions | AI tools are simple JSON documents (`<name>.json` in `.flowti/ai-tools/`); no subdirectory needed — tools are self-contained metadata |
+| D-37 | Domain reference generators (not registry) | Plugin and AI Tool references use standalone generators invoked from their own commands, not the central ReferenceRegistry; decouples vault-level domains from per-project report pipeline |
+| D-38 | Plugin command namespacing | Plugin commands registered as `plugin:<pluginName>:<cmdName>` to avoid collisions with built-in commands; collision detection at registration time |

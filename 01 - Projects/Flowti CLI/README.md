@@ -36,7 +36,7 @@ The CLI follows a **DDD layered architecture** with strict dependency rules:
 
 ```
 Entry Point (main.ts)
-  └── Domain Layer (15 modules)
+  └── Domain Layer (18 modules)
         └── Infrastructure Layer (21 modules)
 ```
 
@@ -45,7 +45,7 @@ Entry Point (main.ts)
 | Layer | Purpose |
 |-------|---------|
 | **Entry Point** | Two-loop menu system + command dispatch via `CommandRegistry` |
-| **Domain** | Business logic — scaffold, make, build, publish, review, reports, events, capture, info, help, onboarding, knowledgebase, devtools, e2e |
+| **Domain** | Business logic — scaffold, make, build, publish, review, reports, events, capture, info, help, onboarding, knowledgebase, devtools, e2e, plugins, ai-tools, health |
 | **Infrastructure** | I/O abstractions — filesystem, shell, input, state, config, document builder, frontmatter, errors, output, command-registry, menu, ui, clock, proc, paths, logger, args, test-vault, types |
 
 See [Flowti CLI Architecture.md](Flowti%20CLI%20Architecture.md) for the full design document.
@@ -70,6 +70,8 @@ The bootstrap (`src/boot/bootstrap.mjs`, deployed as `.flowti/bin/index.js`) han
 ├── .flowti/
 │   ├── config.json          # Vault-level config (source project path)
 │   ├── var/state.json       # Persistent state (selected project)
+│   ├── plugins/             # Vault-level plugin manifests (<name>/manifest.json)
+│   ├── ai-tools/            # Vault-level AI tool definitions (<name>.json)
 │   └── bin/
 │       ├── index.js         # Bootstrap (deployed from src/boot/bootstrap.mjs)
 │       ├── main.js          # Compiled CLI (esbuild bundle, self-contained)
@@ -94,6 +96,9 @@ The bootstrap (`src/boot/bootstrap.mjs`, deployed as `.flowti/bin/index.js`) han
 | **Review** | E2E journey review with test vault isolation |
 | **Publish** | Gated pipeline: build → test → distribute to endpoints |
 | **Capture** | Quick-capture ideas and typed notes to vault inbox |
+| **Plugins** | Vault-level CLI plugins — list, validate, create, reference |
+| **AI Tools** | Vault-level AI agent tool definitions — list, validate, create, reference |
+| **Health** | Project health dashboard — tests, coverage, lint, git metrics |
 | **Info** | Project diagnostics with `--format=json` for AI agents |
 
 ## Project Structure
@@ -120,8 +125,11 @@ The bootstrap (`src/boot/bootstrap.mjs`, deployed as `.flowti/bin/index.js`) han
 │   │   ├── capture/                # Idea and note capture
 │   │   ├── knowledgebase/          # Obsidian vault browser and search (opt-in)
 │   │   ├── events/                 # Event catalog, payload editor, versioning, flow
+│   │   ├── plugins/                # Vault-level plugin system (.flowti/plugins/)
+│   │   ├── ai-tools/               # Vault-level AI tool management (.flowti/ai-tools/)
+│   │   ├── health/                 # Project health dashboard
 │   │   ├── e2e/                    # E2E test session management
-│   │   ├── reports/                # Report pipeline (6 generators + 2 references)
+│   │   ├── reports/                # Report pipeline (6 generators + 4 references)
 │   │   ├── build/                  # Build command wrapper
 │   │   ├── onboarding/             # Prerequisites checks (git, node)
 │   │   └── devtools/               # Developer tools
@@ -147,7 +155,7 @@ The bootstrap (`src/boot/bootstrap.mjs`, deployed as `.flowti/bin/index.js`) han
 │       ├── args.ts                 # CLI argument parser
 │       ├── fs.ts                   # File helpers (countFiles, writeFile)
 │       └── test-vault.ts           # Test vault scaffold/teardown
-├── tests/                          # Vitest test suites (1,532 tests, 91 suites)
+├── tests/                          # Vitest test suites (1,724 tests, 98 suites)
 ├── configs/
 │   ├── flowti.config.json          # CLI's own project config (tools, publish, reports)
 │   ├── esbuild.config.mjs          # Build: bundles to .flowti/bin/main.js + deploys bootstrap
@@ -159,6 +167,7 @@ The bootstrap (`src/boot/bootstrap.mjs`, deployed as `.flowti/bin/index.js`) han
 │   ├── .storybook/                 # Storybook config (main.ts, preview.ts)
 │   └── package.json               # Storybook dependencies (@storybook/html v10)
 ├── docs/
+│   ├── reference/                  # Generated references (CLI, Entity, Plugin, AI Tool)
 │   └── reports/                    # Generated reports
 ├── reports/                        # Stable report outputs (Project Summary.md)
 ├── package.json                    # npm scripts and devDependencies
@@ -175,8 +184,10 @@ Run without arguments for the two-stage interactive menu:
 
 | Key | Description |
 |-----|-------------|
-| 1-N | Open an existing project |
-| + | Create a new project (from scaffold definitions) |
+| 1 | Open an existing project |
+| 2 | Create a new project (from scaffold definitions) |
+| p | Plugins — list, validate, create, generate reference |
+| a | AI Tools — list, validate, create, generate reference |
 | q | Quit |
 
 ### Project Detail Menu

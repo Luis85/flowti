@@ -90,7 +90,7 @@ describe("collectHealth", () => {
 		expect(h.source!.files).toBe(42);
 	});
 
-	it("collects test metrics from report frontmatter", () => {
+	it("collects test metrics from report frontmatter (legacy keys)", () => {
 		mockDisk.existsSync.mockImplementation((p) => String(p).includes("Test Report"));
 		mockParseFM.mockReturnValue({ total_tests: 100, passed: 98, failed: 2, total_suites: 10 });
 
@@ -98,17 +98,33 @@ describe("collectHealth", () => {
 		expect(h.tests).toEqual({ total: 100, passed: 98, failed: 2, suites: 10 });
 	});
 
+	it("collects test metrics from report frontmatter (current keys)", () => {
+		mockDisk.existsSync.mockImplementation((p) => String(p).includes("Test Report"));
+		mockParseFM.mockReturnValue({ total: 1722, passed: 1722, failed: 0, suites: 103 });
+
+		const h = collectHealth(makeCtx());
+		expect(h.tests).toEqual({ total: 1722, passed: 1722, failed: 0, suites: 103 });
+	});
+
 	it("returns null tests when no test report", () => {
 		const h = collectHealth(makeCtx());
 		expect(h.tests).toBeNull();
 	});
 
-	it("collects coverage metrics from report", () => {
+	it("collects coverage metrics from report (lines_pct key)", () => {
 		mockDisk.existsSync.mockImplementation((p) => String(p).includes("Coverage Report"));
 		mockParseFM.mockReturnValue({ lines_pct: 85.5, branches_pct: 72.3, functions_pct: 90.1 });
 
 		const h = collectHealth(makeCtx());
 		expect(h.coverage).toEqual({ lines: 85.5, branches: 72.3, functions: 90.1 });
+	});
+
+	it("collects coverage metrics from report (statements_pct key)", () => {
+		mockDisk.existsSync.mockImplementation((p) => String(p).includes("Coverage Report"));
+		mockParseFM.mockReturnValue({ statements_pct: 55.66, branches_pct: 52.59, functions_pct: 58.8 });
+
+		const h = collectHealth(makeCtx());
+		expect(h.coverage).toEqual({ lines: 55.66, branches: 52.59, functions: 58.8 });
 	});
 
 	it("collects build metrics from report", () => {

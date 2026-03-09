@@ -7,6 +7,8 @@
  */
 
 export { commands } from "./scaffold-commands.js";
-export { menu, scaffold, listDefinitions } from "./scaffold-service.js";
+export { menu, scaffold, listDefinitions, loadAllDefinitionsFromProject, getKnownTemplateIds, BUNDLED_DEFINITIONS } from "./scaffold-service.js";
 export type { ScaffoldOptions } from "./scaffold-service.js";
 export type { ScaffoldDefinition, ScaffoldVariables, FileEntry } from "./scaffold-types.js";
+export type { MarketplaceEntry, ImportResult } from "./marketplace.js";
+export { buildMarketplaceListing, discoverLocalDefinitions, validateAndClassify, importDefinition, displayMarketplace } from "./marketplace.js";

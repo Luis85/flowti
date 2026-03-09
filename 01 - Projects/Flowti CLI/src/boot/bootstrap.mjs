@@ -11,15 +11,16 @@
  *   2. Reads .flowti/config.json to locate the CLI source project
  *   3. Ensures node_modules are installed (npm ci if missing)
  *   4. Builds the CLI if .flowti/bin/main.js is missing
- *   5. Runs the compiled CLI, forwarding all arguments
+ *   5. Auto-rebuilds if source files are newer than the binary
+ *   6. Runs the compiled CLI, forwarding all arguments
  *
  * If there is no source folder, the script errors out — this means
  * the user needs the full repository, not just the .flowti/ distribution.
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync, readdirSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { resolve, dirname } from "node:path";
+import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -56,6 +57,41 @@ function run(cmd, args, cwd) {
 	}
 }
 
+/**
+ * Recursively find the newest mtime (ms) among .ts files in a directory.
+ */
+function getNewestMtime(dir) {
+	let newest = 0;
+	let entries;
+	try {
+		entries = readdirSync(dir, { withFileTypes: true });
+	} catch {
+		return 0;
+	}
+	for (const entry of entries) {
+		const fullPath = join(dir, entry.name);
+		if (entry.isDirectory()) {
+			const sub = getNewestMtime(fullPath);
+			if (sub > newest) newest = sub;
+		} else if (entry.isFile() && entry.name.endsWith(".ts")) {
+			const mtime = statSync(fullPath).mtimeMs;
+			if (mtime > newest) newest = mtime;
+		}
+	}
+	return newest;
+}
+
+/**
+ * Returns true if any .ts file in src/ is newer than the compiled binary.
+ */
+function needsRebuild() {
+	if (!existsSync(BIN_ENTRY)) return true;
+	const binaryMtime = statSync(BIN_ENTRY).mtimeMs;
+	const srcDir = resolve(SOURCE_DIR, "src");
+	const newestSource = getNewestMtime(srcDir);
+	return newestSource > binaryMtime;
+}
+
 // ── 1. Install dependencies if missing ───────────────────────────────
 
 if (!existsSync(NODE_MODULES)) {
@@ -70,7 +106,14 @@ if (!existsSync(BIN_ENTRY)) {
 	run("npm", ["run", "build"], SOURCE_DIR);
 }
 
-// ── 3. Run the compiled CLI ──────────────────────────────────────────
+// ── 3. Auto-rebuild if source is newer than binary ───────────────────
+
+if (needsRebuild()) {
+	console.log("[flowti] Source changes detected, rebuilding...");
+	run("npm", ["run", "build"], SOURCE_DIR);
+}
+
+// ── 4. Run the compiled CLI ──────────────────────────────────────────
 
 const result = spawnSync(process.execPath, [BIN_ENTRY, ...process.argv.slice(2)], {
 	stdio: "inherit",

@@ -21,6 +21,7 @@ import { sharedTemplates } from "./templates/shared-templates.js";
 import { projectTemplates } from "./templates/project-templates.js";
 import { validateDefinition } from "./scaffold-schema.js";
 import { buildScaffoldPlan, resolveNextSteps } from "./scaffold-plan.js";
+import { loadAllDefinitions, resolveDefinitionsDir } from "./marketplace.js";
 
 // ── Definition loading ───────────────────────────────────────────────
 // Definitions are imported directly so esbuild inlines them into the bundle.
@@ -28,11 +29,29 @@ import { buildScaffoldPlan, resolveNextSteps } from "./scaffold-plan.js";
 
 import flowtiProjectDef from "./definitions/flowti-project.json" with { type: "json" };
 
-const BUNDLED_DEFINITIONS: unknown[] = [flowtiProjectDef];
+export const BUNDLED_DEFINITIONS: unknown[] = [flowtiProjectDef];
 
 function loadDefinitions(): ScaffoldDefinition[] {
 	return BUNDLED_DEFINITIONS
 		.filter(raw => validateDefinition(raw).length === 0) as ScaffoldDefinition[];
+}
+
+/**
+ * Load all definitions — bundled plus project-local (configs/definitions/).
+ *
+ * Local definitions are validated against the known template IDs
+ * from the default registry.
+ */
+export function loadAllDefinitionsFromProject(projectRoot?: string): ScaffoldDefinition[] {
+	const registry = createDefaultRegistry();
+	const knownIds = registry.ids();
+	const localDir = projectRoot ? resolveDefinitionsDir(projectRoot) : "";
+	return loadAllDefinitions(BUNDLED_DEFINITIONS, localDir, knownIds);
+}
+
+/** Get the known template IDs from the default registry. */
+export function getKnownTemplateIds(): string[] {
+	return createDefaultRegistry().ids();
 }
 
 // ── Registry setup ───────────────────────────────────────────────────

@@ -8,6 +8,7 @@
 
 import { shell } from "../../infrastructure/shell.js";
 import type { ProjectContext } from "../../infrastructure/types.js";
+import { handleProjectCi } from "./ci-generator.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -49,4 +50,5 @@ export const commands: Record<string, (flags: Record<string, string | boolean>, 
 	"test:e2e": (_f, _r, _c, p) => {
 		shell.run(pick(p, ["test:e2e", "test"], "npm test"), { cwd: p?.path, label: "Running E2E tests..." });
 	},
+	"project:ci": handleProjectCi,
 };
