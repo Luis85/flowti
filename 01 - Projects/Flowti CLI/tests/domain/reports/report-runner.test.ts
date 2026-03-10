@@ -55,8 +55,8 @@ const generators: ReportGenerator[] = [
 ];
 
 describe("runAllReports", () => {
-	it("runs all generators and returns results", () => {
-		const result = runAllReports(generators, "/project");
+	it("runs all generators and returns results", async () => {
+		const result = await runAllReports(generators, "/project");
 
 		expect(mockRunGenerator).toHaveBeenCalledTimes(3);
 		expect(result.generators).toHaveLength(3);
@@ -64,39 +64,39 @@ describe("runAllReports", () => {
 		expect(result.failed).toBe(0);
 	});
 
-	it("continues after a generator fails", () => {
+	it("continues after a generator fails", async () => {
 		mockRunGenerator
 			.mockReturnValueOnce({ success: true, outputPath: "", metrics: {} })
 			.mockReturnValueOnce({ success: false, outputPath: "", metrics: {} })
 			.mockReturnValueOnce({ success: true, outputPath: "", metrics: {} });
 
-		const result = runAllReports(generators, "/project");
+		const result = await runAllReports(generators, "/project");
 
 		expect(mockRunGenerator).toHaveBeenCalledTimes(3);
 		expect(result.passed).toBe(2);
 		expect(result.failed).toBe(1);
 	});
 
-	it("handles all generators failing", () => {
+	it("handles all generators failing", async () => {
 		mockRunGenerator.mockReturnValue({ success: false, outputPath: "", metrics: {} });
 
-		const result = runAllReports(generators, "/project");
+		const result = await runAllReports(generators, "/project");
 
 		expect(mockRunGenerator).toHaveBeenCalledTimes(3);
 		expect(result.passed).toBe(0);
 		expect(result.failed).toBe(3);
 	});
 
-	it("passes correct projectPath to each generator", () => {
-		runAllReports(generators, "/my/project");
+	it("passes correct projectPath to each generator", async () => {
+		await runAllReports(generators, "/my/project");
 
 		for (const call of mockRunGenerator.mock.calls) {
 			expect(call[1]).toBe("/my/project");
 		}
 	});
 
-	it("records duration per generator", () => {
-		const result = runAllReports(generators, "/project");
+	it("records duration per generator", async () => {
+		const result = await runAllReports(generators, "/project");
 
 		for (const gen of result.generators) {
 			expect(gen.durationMs).toBeGreaterThan(0);
@@ -104,8 +104,8 @@ describe("runAllReports", () => {
 		expect(result.totalDurationMs).toBeGreaterThan(0);
 	});
 
-	it("returns empty results for empty generators list", () => {
-		const result = runAllReports([], "/project");
+	it("returns empty results for empty generators list", async () => {
+		const result = await runAllReports([], "/project");
 
 		expect(mockRunGenerator).not.toHaveBeenCalled();
 		expect(result.generators).toHaveLength(0);
@@ -121,7 +121,7 @@ describe("runAllReports", () => {
 		const { log } = await import("../../../src/infrastructure/logger.js");
 		const mockLog = log as ReturnType<typeof vi.fn>;
 
-		runAllReports(generators, "/project");
+		await runAllReports(generators, "/project");
 
 		const output = mockLog.mock.calls.flat().join(" ");
 		expect(output).toContain("Report Run Summary");
@@ -129,31 +129,31 @@ describe("runAllReports", () => {
 		expect(output).toContain("1 failed");
 	});
 
-	it("catches exceptions from generators", () => {
+	it("catches exceptions from generators", async () => {
 		mockRunGenerator
 			.mockReturnValueOnce({ success: true, outputPath: "", metrics: {} })
 			.mockImplementationOnce(() => { throw new Error("Generator crashed"); })
 			.mockReturnValueOnce({ success: true, outputPath: "", metrics: {} });
 
-		const result = runAllReports(generators, "/project");
+		const result = await runAllReports(generators, "/project");
 
 		expect(result.passed).toBe(2);
 		expect(result.failed).toBe(1);
 		expect(result.generators[1].error).toContain("Generator crashed");
 	});
 
-	it("handles unknown generator ID gracefully", () => {
+	it("handles unknown generator ID gracefully", async () => {
 		mockHasGenerator.mockReturnValue(false);
 		mockRunGenerator.mockReturnValue(null);
 
 		const unknownGens: ReportGenerator[] = [{ id: "nonexistent", label: "Unknown" }];
-		const result = runAllReports(unknownGens, "/project");
+		const result = await runAllReports(unknownGens, "/project");
 
 		expect(result.failed).toBe(1);
 		expect(result.generators[0].error).toContain("Unknown generator: \"nonexistent\"");
 	});
 
-	it("falls back to external command when no internal generator exists", () => {
+	it("falls back to external command when no internal generator exists", async () => {
 		mockHasGenerator.mockReturnValue(false);
 		const sh = createMockShell();
 		Object.assign(shellMod, { shell: sh });
@@ -162,7 +162,7 @@ describe("runAllReports", () => {
 			{ label: "Custom Report", command: "node scripts/generate-custom.mjs" },
 		];
 
-		const result = runAllReports(externalGens, "/project");
+		const result = await runAllReports(externalGens, "/project");
 
 		expect(result.passed).toBe(1);
 		const captureCalls = sh.calls.filter((c) => c.method === "runCaptureStatus");
@@ -170,22 +170,22 @@ describe("runAllReports", () => {
 		expect(captureCalls[0].cmd).toBe("node scripts/generate-custom.mjs");
 	});
 
-	it("records generator IDs in results", () => {
-		const result = runAllReports(generators, "/project");
+	it("records generator IDs in results", async () => {
+		const result = await runAllReports(generators, "/project");
 
 		expect(result.generators[0].id).toBe("test");
 		expect(result.generators[1].id).toBe("coverage");
 		expect(result.generators[2].id).toBe("codebase");
 	});
 
-	it("runs prerequisites before the generator", () => {
+	it("runs prerequisites before the generator", async () => {
 		const sh = createMockShell();
 		Object.assign(shellMod, { shell: sh });
 
 		const gens: ReportGenerator[] = [
 			{ id: "test", label: "Test Report", prerequisites: ["npm run test:coverage"] },
 		];
-		const result = runAllReports(gens, "/project");
+		const result = await runAllReports(gens, "/project");
 
 		const captureCalls = sh.calls.filter((c) => c.method === "runCaptureStatus");
 		expect(captureCalls).toHaveLength(1);
@@ -193,7 +193,7 @@ describe("runAllReports", () => {
 		expect(result.passed).toBe(1);
 	});
 
-	it("deduplicates shared prerequisites across generators", () => {
+	it("deduplicates shared prerequisites across generators", async () => {
 		const sh = createMockShell();
 		Object.assign(shellMod, { shell: sh });
 
@@ -201,20 +201,20 @@ describe("runAllReports", () => {
 			{ id: "test", label: "Test Report", prerequisites: ["npm run test:coverage"] },
 			{ id: "coverage", label: "Coverage Report", prerequisites: ["npm run test:coverage"] },
 		];
-		runAllReports(gens, "/project");
+		await runAllReports(gens, "/project");
 
 		const captureCalls = sh.calls.filter((c) => c.method === "runCaptureStatus");
 		expect(captureCalls).toHaveLength(1);
 	});
 
-	it("fails the generator when a prerequisite fails", () => {
+	it("fails the generator when a prerequisite fails", async () => {
 		const sh = createMockShell({ exitCodes: { "npm run broken": 1 } });
 		Object.assign(shellMod, { shell: sh });
 
 		const gens: ReportGenerator[] = [
 			{ id: "test", label: "Test Report", prerequisites: ["npm run broken"] },
 		];
-		const result = runAllReports(gens, "/project");
+		const result = await runAllReports(gens, "/project");
 
 		expect(result.failed).toBe(1);
 		expect(result.generators[0].error).toContain("Prerequisite failed");
@@ -222,21 +222,21 @@ describe("runAllReports", () => {
 		expect(mockRunGenerator).not.toHaveBeenCalled();
 	});
 
-	it("runs in phased mode when parallel option is set", () => {
-		const result = runAllReports(generators, "/project", { parallel: true });
+	it("runs in phased mode when parallel option is set", async () => {
+		const result = await runAllReports(generators, "/project", { parallel: true });
 
 		expect(mockRunGenerator).toHaveBeenCalledTimes(3);
 		expect(result.passed).toBe(3);
 		expect(result.failed).toBe(0);
 	});
 
-	it("phased mode respects dependency ordering", () => {
+	it("phased mode respects dependency ordering", async () => {
 		const phasedGens: ReportGenerator[] = [
 			{ id: "test", label: "Test Report" },
 			{ id: "status", label: "Status Report" },
 		];
 
-		const result = runAllReports(phasedGens, "/project", { parallel: true });
+		const result = await runAllReports(phasedGens, "/project", { parallel: true });
 
 		expect(result.passed).toBe(2);
 		// test should run before status

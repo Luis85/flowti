@@ -61,7 +61,7 @@ export function buildReportsSubmenu(
 			key: "1",
 			label: "Run All Reports",
 			action: async () => {
-				runAllReports(generators, projectPath);
+				await runAllReports(generators, projectPath);
 				await input.waitForEnter();
 				return "main" as const;
 			},

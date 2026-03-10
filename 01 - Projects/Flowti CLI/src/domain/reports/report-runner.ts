@@ -47,12 +47,12 @@ export interface RunOptions {
  * prerequisite execution, dependency resolution, output capture,
  * resilient error handling, and summary logging.
  */
-export function runAllReports(
+export async function runAllReports(
 	generators: ReportGenerator[],
 	projectPath: string,
 	options: RunOptions = {},
-): ReportRunResult {
-	const pipelineResult = runReportPipeline(generators, projectPath, {
+): Promise<ReportRunResult> {
+	const pipelineResult = await runReportPipeline(generators, projectPath, {
 		parallel: options.parallel,
 	});
 

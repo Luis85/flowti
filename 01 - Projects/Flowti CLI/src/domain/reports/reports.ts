@@ -27,22 +27,22 @@ import { exportReportToHtml } from "./html-export.js";
 
 // ── Non-interactive commands ────────────────────────────────────────
 
-export const commands: Record<string, (flags: Record<string, string | boolean>, rawArgs: string[], command?: string, project?: ProjectContext) => void> = {
-	reports: (flags, _r, _c, p) => {
+export const commands: Record<string, (flags: Record<string, string | boolean>, rawArgs: string[], command?: string, project?: ProjectContext) => void | Promise<void>> = {
+	reports: async (flags, _r, _c, p) => {
 		const generators = p?.config.reports?.generators ?? [];
 		if (generators.length === 0) {
 			log(`\n  ${DIM}No report generators configured.${RESET}\n`);
 			return;
 		}
-		runAllReports(generators, p!.path, { parallel: !!flags.parallel });
+		await runAllReports(generators, p!.path, { parallel: !!flags.parallel });
 	},
-	"reports:audit": (flags, _r, _c, p) => {
+	"reports:audit": async (flags, _r, _c, p) => {
 		const generators = p?.config.reports?.generators ?? [];
 		if (generators.length === 0) {
 			log(`\n  ${DIM}No report generators configured.${RESET}\n`);
 			return;
 		}
-		const result = runAllReports(generators, p!.path, { parallel: !!flags.parallel });
+		const result = await runAllReports(generators, p!.path, { parallel: !!flags.parallel });
 		log(`  ${GREEN}✓${RESET} Audit complete: ${result.passed} passed, ${result.failed} failed.\n`);
 	},
 	docs: (_f, _r, _c, p) => {

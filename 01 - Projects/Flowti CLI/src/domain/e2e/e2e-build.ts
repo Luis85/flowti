@@ -10,8 +10,6 @@ import { log } from "../../infrastructure/logger.js";
 import { parseFrontmatterContent } from "../../infrastructure/frontmatter.js";
 import type { E2EPaths } from "./e2e-paths.js";
 import type { TestStats, BuildStats, ReportSource } from "./e2e-types.js";
-import { performTeardown } from "./e2e-teardown.js";
-import { generateIncrementStateReport, generatePublishStateReport } from "./e2e-state-reports.js";
 
 // ── Test stats ──────────────────────────────────────────────────────
 
@@ -164,96 +162,21 @@ export function quickBuildAndDeploy(e2e: E2EPaths): number {
 	return 0;
 }
 
-// ── Console summary printers ────────────────────────────────────────
+// ── Increment / Publish execution (pipeline-based) ──────────────────
 
-function printBuildInfo(build: Record<string, unknown>): void {
-	const red = "\x1b[31m";
-	const reset = "\x1b[0m";
-	const sizeKb = build.total_bytes ? Math.round(build.total_bytes as number / 1024) : "?";
-	log(`  Bundle:       ${sizeKb} KB`);
-	log(`  Version:      ${build.plugin_version ?? "?"}`);
-	if ((build.warnings_count as number) > 0) {
-		log(`  Warnings:     ${red}${build.warnings_count}${reset}`);
-	}
-}
-
-function printTestStatsLine(ut: TestStats): void {
-	const green = "\x1b[32m";
-	const red = "\x1b[31m";
-	const dim = "\x1b[2m";
-	const reset = "\x1b[0m";
-	const failColor = ut.failed > 0 ? red : green;
-	log(`  Tests:        ${green}${ut.passed}${reset} passed, ${failColor}${ut.failed}${reset} failed, ${dim}${ut.skipped} skipped${reset} ${dim}(${ut.totalTests} total)${reset}`);
-}
-
-function printCoverageLine(coverage: Record<string, unknown>): void {
-	const pct = coverage.line_pct ?? coverage.lines_pct ?? coverage.line_percent;
-	if (pct != null) {
-		log(`  Coverage:     ${pct}%`);
-	}
-}
-
-export function printIncrementSummary(exitCode: number, duration: string, stats: BuildStats): void {
-	const reset = "\x1b[0m";
-	const green = "\x1b[32m";
-	const red = "\x1b[31m";
-	const statusIcon = exitCode === 0 ? `${green}✓ PASS${reset}` : `${red}✗ FAIL${reset}`;
-
-	log(`\n  ${"═".repeat(50)}`);
-	log(`  Increment Build Results`);
-	log(`  ${"═".repeat(50)}\n`);
-	log(`  Status:       ${statusIcon}`);
-	log(`  Duration:     ${duration}s`);
-
-	if (stats.build) printBuildInfo(stats.build);
-	if (stats.unitTests.totalTests > 0) printTestStatsLine(stats.unitTests);
-	if (stats.coverage) printCoverageLine(stats.coverage);
-
-	log();
-}
-
-export function printPublishSummary(exitCode: number, duration: string, stats: BuildStats): void {
-	const reset = "\x1b[0m";
-	const green = "\x1b[32m";
-	const red = "\x1b[31m";
-	const statusIcon = exitCode === 0 ? `${green}✓ PASS${reset}` : `${red}✗ FAIL${reset}`;
-
-	log(`\n  ${"═".repeat(50)}`);
-	log(`  Publish Results`);
-	log(`  ${"═".repeat(50)}\n`);
-	log(`  Status:       ${statusIcon}`);
-	log(`  Duration:     ${duration}s`);
-
-	if (stats.build) printBuildInfo(stats.build);
-	if (stats.unitTests.totalTests > 0) printTestStatsLine(stats.unitTests);
-	if (stats.coverage) printCoverageLine(stats.coverage);
-
-	log();
-}
-
-// ── Increment / Publish execution ───────────────────────────────────
+import { runPipeline } from "../../infrastructure/pipeline/pipeline-runner.js";
+import { buildIncrementPipeline } from "./pipelines/increment-pipeline.js";
+import { buildPublishPipeline } from "./pipelines/publish-pipeline.js";
 
 export async function runIncrementBuild(e2e: E2EPaths): Promise<number> {
 	log("\n  Preparing test vault for full journey...\n");
-	await performTeardown(e2e);
-
-	log("  Starting increment build (check → build → test → e2e → docs → distribute)...\n");
-	const startTime = Date.now();
-	const exitCode = shell.run("npm run build:increment", { cwd: e2e.projectRoot });
-	const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-	const stats = readBuildStats(e2e);
-	printIncrementSummary(exitCode, duration, stats);
-	generateIncrementStateReport(exitCode, duration, stats, e2e);
-	return exitCode;
+	const steps = buildIncrementPipeline(e2e);
+	const result = await runPipeline(steps, e2e.projectRoot, { label: "Increment Build" });
+	return result.failed > 0 ? 1 : 0;
 }
 
-export function runPublish(e2e: E2EPaths): number {
-	log("\n  Starting publish (check → build → test → docs → publish)...\n");
-	const startTime = Date.now();
-	const exitCode = shell.run("npm run build:release", { cwd: e2e.projectRoot });
-	const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-	const stats = readBuildStats(e2e);
-	printPublishSummary(exitCode, duration, stats);
-	generatePublishStateReport(exitCode, duration, stats, e2e);
-	return exitCode;
+export async function runPublish(e2e: E2EPaths): Promise<number> {
+	const steps = buildPublishPipeline(e2e);
+	const result = await runPipeline(steps, e2e.projectRoot, { label: "Publish" });
+	return result.failed > 0 ? 1 : 0;
 }

@@ -1,6 +1,7 @@
 {
 	"nodes":[
 		{"id":"503aff305fed1757","type":"group","x":-240,"y":5280,"width":5727,"height":1200,"label":"Views and Improvements"},
+		{"id":"68dd7eaa4f3de939","type":"group","x":3080,"y":-590,"width":300,"height":180,"label":"Agent inner-workings"},
 		{"id":"922fd2d4c3d71baf","type":"group","x":1240,"y":-1690,"width":300,"height":1580,"label":"Output"},
 		{"id":"39fcb04a6dfb4db0","type":"group","x":1740,"y":-1210,"width":1580,"height":500,"label":"Solution"},
 		{"id":"f1ab36403ad8330d","type":"group","x":1740,"y":-590,"width":1280,"height":600,"label":"Simulation Environment - Product Development"},
@@ -58,7 +59,6 @@
 		{"id":"465ea026f73d543a","type":"group","x":420,"y":2760,"width":300,"height":260,"label":"Product Design"},
 		{"id":"24159a8220ba5876","type":"group","x":4120,"y":-1650,"width":300,"height":260,"label":"Jobs to be done"},
 		{"id":"eb56d8b9c2c758f2","type":"group","x":1800,"y":2710,"width":620,"height":120,"color":"2","label":"Sitemap"},
-		{"id":"68dd7eaa4f3de939","type":"group","x":3080,"y":-590,"width":300,"height":180,"label":"Agent inner-workings"},
 		{"id":"ac6b4ec2959f3db2","type":"group","x":3330,"y":2700,"width":300,"height":110,"color":"6","label":"Problemspace"},
 		{"id":"2262b012353cf0dd","type":"group","x":3330,"y":2880,"width":300,"height":110,"color":"6","label":"Solutionspace"},
 		{
@@ -655,26 +655,6 @@
 			"height":60
 		},
 		{
-			"id":"2e0565ab4efb1be3",
-			"type":"text",
-			"text":"Memory.md",
-			"styleAttributes":{},
-			"x":3100,
-			"y":-570,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"b9177294d5574203",
-			"type":"text",
-			"text":"Topics",
-			"styleAttributes":{},
-			"x":3100,
-			"y":-490,
-			"width":260,
-			"height":60
-		},
-		{
 			"id":"6b4577ab4a415979",
 			"type":"text",
 			"text":"Claude - Software-Architect",
@@ -1012,17 +992,6 @@
 			"y":3090,
 			"width":260,
 			"height":60
-		},
-		{
-			"id":"6575e2e5f6c1e713",
-			"type":"text",
-			"text":"Planned Increment",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1260,
-			"y":-1070,
-			"width":260,
-			"height":60,
-			"color":"5"
 		},
 		{
 			"id":"7acc9f51e55be341",
@@ -1570,16 +1539,6 @@
 			"height":60
 		},
 		{
-			"id":"8e89498c443630b7",
-			"type":"text",
-			"text":"How can Flowti execute this process?",
-			"styleAttributes":{},
-			"x":-20,
-			"y":-930,
-			"width":260,
-			"height":60
-		},
-		{
 			"id":"ade7a1ce1fd55366",
 			"type":"text",
 			"text":"How can this become the baseline canvas when designing a new process?",
@@ -1588,28 +1547,6 @@
 			"y":-1020,
 			"width":260,
 			"height":60
-		},
-		{
-			"id":"4fea4d5d896f7410",
-			"type":"text",
-			"text":"Accepted Product Increment",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1260,
-			"y":-490,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"c3266d01ce6c410d",
-			"type":"text",
-			"text":"New Product Increment",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1260,
-			"y":-840,
-			"width":260,
-			"height":60,
-			"color":"5"
 		},
 		{
 			"id":"1baa2d48ccea8665",
@@ -1865,28 +1802,6 @@
 			"color":"6"
 		},
 		{
-			"id":"6819f68b4fb6e079",
-			"type":"text",
-			"text":"Release Candidate",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-210,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"451128bf614c6d39",
-			"type":"text",
-			"text":"Testplan and Teststrategy",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-410,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
 			"id":"e3ba873355ab536a",
 			"type":"text",
 			"text":"Idea to Solution Workflow",
@@ -1896,17 +1811,6 @@
 			"width":260,
 			"height":60,
 			"color":"5"
-		},
-		{
-			"id":"5333dff10cb150dd",
-			"type":"text",
-			"text":"Maintain",
-			"styleAttributes":{"textAlign":"center"},
-			"x":860,
-			"y":-70,
-			"width":260,
-			"height":60,
-			"color":"2"
 		},
 		{
 			"id":"f24519715c7a4071",
@@ -1929,6 +1833,102 @@
 			"width":260,
 			"height":60,
 			"color":"6"
+		},
+		{
+			"id":"2e0565ab4efb1be3",
+			"type":"text",
+			"text":"Memory.md",
+			"styleAttributes":{},
+			"x":3100,
+			"y":-570,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"b9177294d5574203",
+			"type":"text",
+			"text":"Topics",
+			"styleAttributes":{},
+			"x":3100,
+			"y":-490,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"6575e2e5f6c1e713",
+			"type":"text",
+			"text":"Planned Increment",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1260,
+			"y":-1070,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"8e89498c443630b7",
+			"type":"text",
+			"text":"How can Flowti execute this process?",
+			"styleAttributes":{},
+			"x":-20,
+			"y":-930,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"4fea4d5d896f7410",
+			"type":"text",
+			"text":"Accepted Product Increment",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1260,
+			"y":-490,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"c3266d01ce6c410d",
+			"type":"text",
+			"text":"New Product Increment",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1260,
+			"y":-840,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"6819f68b4fb6e079",
+			"type":"text",
+			"text":"Release Candidate",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-210,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"451128bf614c6d39",
+			"type":"text",
+			"text":"Testplan and Teststrategy",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-410,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"5333dff10cb150dd",
+			"type":"text",
+			"text":"Maintain",
+			"styleAttributes":{"textAlign":"center"},
+			"x":860,
+			"y":-70,
+			"width":260,
+			"height":60,
+			"color":"2"
 		}
 	],
 	"edges":[

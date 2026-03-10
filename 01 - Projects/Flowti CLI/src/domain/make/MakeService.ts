@@ -6,6 +6,7 @@
 
 import { DIM, RESET } from "../../infrastructure/ui.js";
 import { runMenu } from "../../infrastructure/menu.js";
+import { input } from "../../infrastructure/input.js";
 import { showHelp } from "../../ui/help.js";
 import { readProjectConfig } from "../project/project-config.js";
 import { log } from "../../infrastructure/logger.js";
@@ -44,7 +45,7 @@ export async function menu(projectRoot: string): Promise<MenuResult> {
 
 	items.push(
 		{ separator: true },
-		{ key: "?", label: "Help", action: () => { showHelp("make"); } },
+		{ key: "?", label: "Help", action: async () => { showHelp("make"); await input.waitForEnter(); } },
 		{ key: "b", label: "Back", action: () => "main" as const },
 		{ key: "q", label: "Quit", action: () => "quit" as const },
 	);

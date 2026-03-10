@@ -22,5 +22,5 @@ if (isListMode) {
 } else {
 	const journeyArg = proc.argv().find((a) => a.startsWith("--journey="));
 	const journeyFilter = journeyArg ? journeyArg.split("=")[1] : undefined;
-	runE2ESuite(journeyFilter);
+	await runE2ESuite(journeyFilter);
 }

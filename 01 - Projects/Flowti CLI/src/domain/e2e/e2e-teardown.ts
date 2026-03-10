@@ -6,10 +6,11 @@ import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
 import { shell } from "../../infrastructure/shell.js";
 import { log } from "../../infrastructure/logger.js";
-import { proc } from "../../infrastructure/proc.js";
 import { input } from "../../infrastructure/input.js";
+import { runPipeline } from "../../infrastructure/pipeline/pipeline-runner.js";
 import type { E2EPaths } from "./e2e-paths.js";
 import { collapseFileExplorer } from "./e2e-prerequisites.js";
+import { buildRebuildPipeline } from "./pipelines/rebuild-pipeline.js";
 
 /**
  * Performs the actual teardown steps (non-interactive).
@@ -102,29 +103,18 @@ export async function teardownVault(e2e: E2EPaths): Promise<void> {
 }
 
 /**
- * Rebuild: teardown + prerequisites + installer run.
+ * Rebuild: teardown + prerequisites + installer run via pipeline.
  */
-export async function runRebuild(e2e: E2EPaths, runVitest: () => number, generateReportAndOpen: () => void): Promise<number> {
+export async function runRebuild(e2e: E2EPaths): Promise<number> {
 	log("\n  Rebuilding vault (teardown → prerequisites → installer)...\n");
 
-	await teardownVault(e2e);
-
-	proc.env().E2E_JOURNEY = "prerequisites,installer";
-	proc.env().E2E_RUN_PREREQUISITES = "true";
-	proc.env().E2E_RUN_INSTALLER = "true";
-
-	const exitCode = runVitest();
-	generateReportAndOpen();
-
-	delete proc.env().E2E_JOURNEY;
-	delete proc.env().E2E_RUN_PREREQUISITES;
-	delete proc.env().E2E_RUN_INSTALLER;
-
-	if (exitCode === 0) {
-		log("\n  \x1b[32m✓\x1b[0m Rebuild completed successfully.\n");
-	} else {
-		log("\n  \x1b[31m✗\x1b[0m Rebuild failed.\n");
+	const proceed = await input.askYesNo("This will teardown and rebuild the vault. Proceed?", true);
+	if (!proceed) {
+		log("\n  Rebuild cancelled.\n");
+		return 0;
 	}
 
-	return exitCode;
+	const steps = buildRebuildPipeline(e2e);
+	const result = await runPipeline(steps, e2e.projectRoot, { label: "Rebuild" });
+	return result.failed > 0 ? 1 : 0;
 }

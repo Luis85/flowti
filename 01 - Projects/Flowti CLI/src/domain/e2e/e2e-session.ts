@@ -8,7 +8,8 @@ import { log } from "../../infrastructure/logger.js";
 import { proc } from "../../infrastructure/proc.js";
 import { input } from "../../infrastructure/input.js";
 import type { E2EPaths } from "./e2e-paths.js";
-import type { JourneyEntry, SessionConfig, PrerequisiteResults, TestStats } from "./e2e-types.js";
+import type { JourneyEntry, SessionConfig, PrerequisiteResults } from "./e2e-types.js";
+import { printJourneyTable } from "../../ui/e2e/e2e-formatters.js";
 
 // ── Journey loading ─────────────────────────────────────────────────
 
@@ -30,49 +31,12 @@ export function loadJourneyEntries(e2e: E2EPaths): JourneyEntry[] {
 	});
 }
 
-export function printJourneyTable(entries: JourneyEntry[]): void {
-	log("\n  Available Journeys:\n");
-	log("  #  Ch  Name                          Steps  Description");
-	log("  " + "-".repeat(78));
-	for (let i = 0; i < entries.length; i++) {
-		const e = entries[i];
-		const num = String(i + 1).padStart(2, " ");
-		const ch = String(e.chapter).padStart(2, " ");
-		const name = e.name.padEnd(28);
-		const steps = String(e.steps).padStart(5);
-		const desc = e.description.length > 40 ? e.description.slice(0, 37) + "..." : e.description;
-		log(`  ${num}  ${ch}  ${name}  ${steps}  ${desc}`);
-	}
-	log();
-}
+/** @deprecated Use `printJourneyTable` from `ui/e2e/e2e-formatters.ts` instead. */
+export { printJourneyTable } from "../../ui/e2e/e2e-formatters.js";
 
 // ── Step filtering ──────────────────────────────────────────────────
 
-function printStepTable(def: Record<string, unknown>, steps: Array<Record<string, unknown>>): void {
-	const setupSteps = (def.setup as Array<Record<string, unknown>>) ?? [];
-	const teardownSteps = (def.teardown as Array<Record<string, unknown>>) ?? [];
-	const dim = "\x1b[2m";
-	const reset = "\x1b[0m";
-	log(`  Steps for ${def.journey} (${steps.length} steps):\n`);
-	log("    #  ID                          Title");
-	log("   " + "-".repeat(62));
-
-	for (const s of setupSteps) {
-		const id = ((s.id as string) ?? "setup").padEnd(26);
-		log(`${dim}   ·  ${id}  ${s.title}  [setup]${reset}`);
-	}
-	for (let i = 0; i < steps.length; i++) {
-		const s = steps[i];
-		const num = String(i + 1).padStart(3);
-		const id = ((s.id as string) ?? `step-${i + 1}`).padEnd(26);
-		log(`  ${num}  ${id}  ${s.title}`);
-	}
-	for (const s of teardownSteps) {
-		const id = ((s.id as string) ?? "teardown").padEnd(26);
-		log(`${dim}   ·  ${id}  ${s.title}  [teardown]${reset}`);
-	}
-	log();
-}
+import { printStepTable } from "../../ui/e2e/e2e-formatters.js";
 
 function parseStepInput(input: string, steps: Array<Record<string, unknown>>): string[] {
 	const ids: string[] = [];
@@ -236,41 +200,11 @@ export function resolveJourneyNames(slugs: string[], entries: JourneyEntry[]): s
 	});
 }
 
-export function printExecutionBanner(config: SessionConfig, selectedNames: string[]): void {
-	log(`\n  Starting session "${config.sessionName}"...`);
-	log(`    Journeys:       ${selectedNames.join(", ")}`);
-	const hasStepFilter = config.stepFilter && Object.values(config.stepFilter).some((f) => f !== "all");
-	if (hasStepFilter) {
-		for (const [slug, filter] of Object.entries(config.stepFilter)) {
-			if (filter !== "all" && Array.isArray(filter)) {
-				log(`    Steps (${slug}): ${filter.join(", ")}`);
-			}
-		}
-	}
-	log(`    Installer:      ${config.includeInstaller ? "yes" : "no"}`);
-	log(`    Prerequisites:  ${config.includePrerequisites ? "force" : "skip"}`);
-	log();
-}
+/** @deprecated Use `printExecutionBanner` from `ui/e2e/e2e-formatters.ts` instead. */
+export { printExecutionBanner } from "../../ui/e2e/e2e-formatters.js";
 
 // ── Re-export session note functions ─────────────────────────────────
 export { buildSessionFrontmatter, buildPrereqRows, writeSessionNote } from "./e2e-session-note.js";
 
-// ── Summary printing ────────────────────────────────────────────────
-
-export function printSummary(sessionName: string, selectedNames: string[], startTime: number, stats: TestStats): void {
-	const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-	const failColor = stats.failed > 0 ? "\x1b[31m" : "\x1b[32m";
-	const reset = "\x1b[0m";
-
-	log(`\n  ${"=".repeat(60)}`);
-	log(`  Session Summary: ${sessionName}`);
-	log(`  ${"=".repeat(60)}\n`);
-	log(`  Duration:     ${duration}s`);
-	log(`  Journeys:     ${selectedNames.length} (${selectedNames.join(", ")})`);
-	log(`  Tests:        ${stats.totalTests} total`);
-	log(`  Passed:       \x1b[32m${stats.passed}${reset}`);
-	log(`  Failed:       ${failColor}${stats.failed}${reset}`);
-	log(`  Skipped:      ${stats.skipped}`);
-	log(`  Report:       docs/reports/e2e/E2E Report.md`);
-	log();
-}
+/** @deprecated Use `printSessionSummary` from `ui/e2e/e2e-formatters.ts` instead. */
+export { printSessionSummary as printSummary } from "../../ui/e2e/e2e-formatters.js";

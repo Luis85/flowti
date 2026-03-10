@@ -19,8 +19,8 @@ export interface PipelineStep {
 	dependencies?: string[];
 	/** Shell commands to run before execute(); output is stored in the context. */
 	prerequisites?: string[];
-	/** The work function. Receives the pipeline context for dependency data. */
-	execute: (ctx: PipelineContext) => StepOutput;
+	/** The work function. Receives the pipeline context for dependency data. May be async. */
+	execute: (ctx: PipelineContext) => StepOutput | Promise<StepOutput>;
 }
 
 /** What a step produces when it completes. */

@@ -25,16 +25,16 @@ function step(id: string, overrides: Partial<PipelineStep> = {}): PipelineStep {
 describe("runPipeline", () => {
 	// ── Basic execution ──────────────────────────────────────────────
 
-	it("runs a single step successfully", () => {
+	it("runs a single step successfully", async () => {
 		const deps = createDeps();
-		const result = runPipeline([step("test")], "/project", {}, deps);
+		const result = await runPipeline([step("test")], "/project", {}, deps);
 		expect(result.passed).toBe(1);
 		expect(result.failed).toBe(0);
 		expect(result.steps).toHaveLength(1);
 		expect(result.steps[0].success).toBe(true);
 	});
 
-	it("runs multiple steps in order", () => {
+	it("runs multiple steps in order", async () => {
 		const order: string[] = [];
 		const deps = createDeps();
 		const steps = [
@@ -42,13 +42,13 @@ describe("runPipeline", () => {
 			step("second", { execute: () => { order.push("second"); return { success: true }; } }),
 			step("third", { execute: () => { order.push("third"); return { success: true }; } }),
 		];
-		runPipeline(steps, "/project", {}, deps);
+		await runPipeline(steps, "/project", {}, deps);
 		expect(order).toEqual(["first", "second", "third"]);
 	});
 
-	it("returns empty result for no steps", () => {
+	it("returns empty result for no steps", async () => {
 		const deps = createDeps();
-		const result = runPipeline([], "/project", {}, deps);
+		const result = await runPipeline([], "/project", {}, deps);
 		expect(result.steps).toHaveLength(0);
 		expect(result.passed).toBe(0);
 		expect(result.failed).toBe(0);
@@ -56,32 +56,32 @@ describe("runPipeline", () => {
 
 	// ── Resilient execution ──────────────────────────────────────────
 
-	it("catches step exceptions and records as failed", () => {
+	it("catches step exceptions and records as failed", async () => {
 		const deps = createDeps();
 		const steps = [
 			step("broken", { execute: () => { throw new Error("boom"); } }),
 		];
-		const result = runPipeline(steps, "/project", {}, deps);
+		const result = await runPipeline(steps, "/project", {}, deps);
 		expect(result.failed).toBe(1);
 		expect(result.steps[0].error).toBe("boom");
 		expect(result.steps[0].success).toBe(false);
 	});
 
-	it("continues after a step failure", () => {
+	it("continues after a step failure", async () => {
 		const deps = createDeps();
 		const steps = [
 			step("fail", { execute: () => ({ success: false }) }),
 			step("pass", { execute: () => ({ success: true }) }),
 		];
-		const result = runPipeline(steps, "/project", {}, deps);
+		const result = await runPipeline(steps, "/project", {}, deps);
 		expect(result.passed).toBe(1);
 		expect(result.failed).toBe(1);
 		expect(result.steps).toHaveLength(2);
 	});
 
-	it("records step that reports failure (not exception)", () => {
+	it("records step that reports failure (not exception)", async () => {
 		const deps = createDeps();
-		const result = runPipeline(
+		const result = await runPipeline(
 			[step("soft-fail", { execute: () => ({ success: false }) })],
 			"/project", {}, deps,
 		);
@@ -91,18 +91,18 @@ describe("runPipeline", () => {
 
 	// ── Metrics and warnings ─────────────────────────────────────────
 
-	it("captures step metrics", () => {
+	it("captures step metrics", async () => {
 		const deps = createDeps();
-		const result = runPipeline(
+		const result = await runPipeline(
 			[step("metrics", { execute: () => ({ success: true, metrics: { tests: 42 } }) })],
 			"/project", {}, deps,
 		);
 		expect(result.steps[0].output?.metrics).toEqual({ tests: 42 });
 	});
 
-	it("captures step warnings", () => {
+	it("captures step warnings", async () => {
 		const deps = createDeps();
-		const result = runPipeline(
+		const result = await runPipeline(
 			[step("warned", { execute: () => ({ success: true, warnings: ["low coverage"] }) })],
 			"/project", {}, deps,
 		);
@@ -111,7 +111,7 @@ describe("runPipeline", () => {
 
 	// ── Prerequisites ────────────────────────────────────────────────
 
-	it("runs prerequisites before step execution", () => {
+	it("runs prerequisites before step execution", async () => {
 		const order: string[] = [];
 		const deps = createDeps();
 		(deps.runCommand as ReturnType<typeof vi.fn>).mockImplementation((cmd: string) => {
@@ -124,21 +124,21 @@ describe("runPipeline", () => {
 				execute: () => { order.push("execute:test"); return { success: true }; },
 			}),
 		];
-		runPipeline(steps, "/project", {}, deps);
+		await runPipeline(steps, "/project", {}, deps);
 		expect(order).toEqual(["prereq:npm run build", "execute:test"]);
 	});
 
-	it("deduplicates prerequisites across steps", () => {
+	it("deduplicates prerequisites across steps", async () => {
 		const deps = createDeps();
 		const steps = [
 			step("a", { prerequisites: ["npm run build"] }),
 			step("b", { prerequisites: ["npm run build"] }),
 		];
-		runPipeline(steps, "/project", {}, deps);
+		await runPipeline(steps, "/project", {}, deps);
 		expect(deps.runCommand).toHaveBeenCalledTimes(1);
 	});
 
-	it("stores prerequisite output in context for downstream steps", () => {
+	it("stores prerequisite output in context for downstream steps", async () => {
 		const deps = createDeps();
 		(deps.runCommand as ReturnType<typeof vi.fn>).mockReturnValue({
 			output: "lint output here",
@@ -154,14 +154,14 @@ describe("runPipeline", () => {
 				},
 			}),
 		];
-		runPipeline(steps, "/project", {}, deps);
+		await runPipeline(steps, "/project", {}, deps);
 		expect(capturedOutput).toBe("lint output here");
 	});
 
-	it("fails step when prerequisite fails", () => {
+	it("fails step when prerequisite fails", async () => {
 		const deps = createDeps();
 		(deps.runCommand as ReturnType<typeof vi.fn>).mockReturnValue({ output: "", exitCode: 1 });
-		const result = runPipeline(
+		const result = await runPipeline(
 			[step("test", { prerequisites: ["npm run bad"] })],
 			"/project", {}, deps,
 		);
@@ -171,7 +171,7 @@ describe("runPipeline", () => {
 
 	// ── Step data passing ────────────────────────────────────────────
 
-	it("stores step data for downstream consumption", () => {
+	it("stores step data for downstream consumption", async () => {
 		const deps = createDeps();
 		let receivedData: Record<string, unknown> | undefined;
 		const steps = [
@@ -185,13 +185,13 @@ describe("runPipeline", () => {
 				},
 			}),
 		];
-		runPipeline(steps, "/project", {}, deps);
+		await runPipeline(steps, "/project", {}, deps);
 		expect(receivedData).toEqual({ count: 5 });
 	});
 
 	// ── Context access ───────────────────────────────────────────────
 
-	it("passes project path through context", () => {
+	it("passes project path through context", async () => {
 		const deps = createDeps();
 		let receivedPath: string | undefined;
 		const steps = [
@@ -199,11 +199,11 @@ describe("runPipeline", () => {
 				execute: (ctx) => { receivedPath = ctx.projectPath; return { success: true }; },
 			}),
 		];
-		runPipeline(steps, "/my/project", {}, deps);
+		await runPipeline(steps, "/my/project", {}, deps);
 		expect(receivedPath).toBe("/my/project");
 	});
 
-	it("step can read prior step results from context", () => {
+	it("step can read prior step results from context", async () => {
 		const deps = createDeps();
 		let priorResult: unknown;
 		const steps = [
@@ -215,14 +215,14 @@ describe("runPipeline", () => {
 				},
 			}),
 		];
-		runPipeline(steps, "/project", {}, deps);
+		await runPipeline(steps, "/project", {}, deps);
 		expect(priorResult).toBeDefined();
 		expect((priorResult as { success: boolean }).success).toBe(true);
 	});
 
 	// ── Phased execution ─────────────────────────────────────────────
 
-	it("runs steps in dependency-ordered phases", () => {
+	it("runs steps in dependency-ordered phases", async () => {
 		const order: string[] = [];
 		const deps = createDeps();
 		const steps = [
@@ -234,11 +234,11 @@ describe("runPipeline", () => {
 				execute: () => { order.push("test"); return { success: true }; },
 			}),
 		];
-		runPipeline(steps, "/project", { phased: true }, deps);
+		await runPipeline(steps, "/project", { phased: true }, deps);
 		expect(order).toEqual(["test", "summary"]);
 	});
 
-	it("skips dependent step when dependency failed (phased mode)", () => {
+	it("skips dependent step when dependency failed (phased mode)", async () => {
 		const deps = createDeps();
 		const steps = [
 			step("base", { execute: () => ({ success: false }) }),
@@ -247,7 +247,7 @@ describe("runPipeline", () => {
 				execute: () => ({ success: true }),
 			}),
 		];
-		const result = runPipeline(steps, "/project", { phased: true }, deps);
+		const result = await runPipeline(steps, "/project", { phased: true }, deps);
 		const derived = result.steps.find((s) => s.id === "derived");
 		expect(derived?.success).toBe(false);
 		expect(derived?.error).toContain("Dependency failed");
@@ -255,31 +255,31 @@ describe("runPipeline", () => {
 
 	// ── Timing ───────────────────────────────────────────────────────
 
-	it("records step duration", () => {
+	it("records step duration", async () => {
 		const deps = createDeps();
-		const result = runPipeline([step("timed")], "/project", {}, deps);
+		const result = await runPipeline([step("timed")], "/project", {}, deps);
 		expect(result.steps[0].durationMs).toBeGreaterThanOrEqual(0);
 	});
 
-	it("records total pipeline duration", () => {
+	it("records total pipeline duration", async () => {
 		const deps = createDeps();
-		const result = runPipeline([step("a"), step("b")], "/project", {}, deps);
+		const result = await runPipeline([step("a"), step("b")], "/project", {}, deps);
 		expect(result.totalDurationMs).toBeGreaterThanOrEqual(0);
 	});
 
 	// ── Logging ──────────────────────────────────────────────────────
 
-	it("logs step start and completion", () => {
+	it("logs step start and completion", async () => {
 		const deps = createDeps();
-		runPipeline([step("test")], "/project", {}, deps);
+		await runPipeline([step("test")], "/project", {}, deps);
 		const calls = (deps.log as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0]);
 		expect(calls.some((c: string) => c.includes("Test"))).toBe(true);
 		expect(calls.some((c: string) => c.includes("✓"))).toBe(true);
 	});
 
-	it("logs failure with ✗", () => {
+	it("logs failure with ✗", async () => {
 		const deps = createDeps();
-		runPipeline(
+		await runPipeline(
 			[step("broken", { execute: () => { throw new Error("fail"); } })],
 			"/project", {}, deps,
 		);
@@ -287,10 +287,27 @@ describe("runPipeline", () => {
 		expect(calls.some((c: string) => c.includes("✗"))).toBe(true);
 	});
 
-	it("uses custom run label", () => {
+	it("uses custom run label", async () => {
 		const deps = createDeps();
-		runPipeline([step("a")], "/project", { label: "Report Run" }, deps);
+		await runPipeline([step("a")], "/project", { label: "Report Run" }, deps);
 		const calls = (deps.log as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0]);
 		expect(calls.some((c: string) => c.includes("Report Run"))).toBe(true);
+	});
+
+	// ── Async step support ──────────────────────────────────────────
+
+	it("awaits async steps correctly", async () => {
+		const deps = createDeps();
+		const steps = [
+			step("async-step", {
+				execute: async () => {
+					await new Promise<void>((r) => setTimeout(r, 1));
+					return { success: true, data: { value: "resolved" } };
+				},
+			}),
+		];
+		const result = await runPipeline(steps, "/project", {}, deps);
+		expect(result.passed).toBe(1);
+		expect(result.steps[0].success).toBe(true);
 	});
 });

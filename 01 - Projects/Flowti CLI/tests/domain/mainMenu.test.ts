@@ -146,11 +146,11 @@ describe("buildProjectDetailMenu", () => {
 			expect(result).toBe("main");
 		});
 
-		it("fallback Help action calls showHelp and returns 'main'", () => {
+		it("fallback Help action calls showHelp and returns 'main'", async () => {
 			mockGetSelected.mockReturnValue(null);
 			const items = buildProjectDetailMenu();
 			const help = findItem(items, "?")!;
-			const result = help.action();
+			const result = await help.action();
 			expect(showHelp).toHaveBeenCalledWith("main");
 			expect(result).toBe("main");
 		});
@@ -452,10 +452,10 @@ describe("buildProjectDetailMenu", () => {
 			expect(result).toBe("main");
 		});
 
-		it("Help action calls showHelp and returns 'main'", () => {
+		it("Help action calls showHelp and returns 'main'", async () => {
 			setupProject();
 			const items = buildProjectDetailMenu();
-			const result = findItem(items, "?")!.action();
+			const result = await findItem(items, "?")!.action();
 			expect(showHelp).toHaveBeenCalledWith("main");
 			expect(result).toBe("main");
 		});

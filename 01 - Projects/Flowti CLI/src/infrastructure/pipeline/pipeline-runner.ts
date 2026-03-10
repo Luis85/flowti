@@ -7,6 +7,7 @@
  *   - Resilient per-step error handling (never crashes the run)
  *   - Structured result collection and summary logging
  *   - Injectable dependencies for full testability
+ *   - Async step support (steps may return Promise<StepOutput>)
  *
  * The runner is domain-agnostic. Report generation, test execution,
  * journey execution, and process execution all use this engine.
@@ -48,12 +49,12 @@ const DEFAULT_DEPS: PipelineDeps = {
  * @param deps     Injectable dependencies (defaults to production shell/clock/log).
  * @returns        Aggregate pipeline result with per-step details.
  */
-export function runPipeline(
+export async function runPipeline(
 	steps: PipelineStep[],
 	projectPath: string,
 	options: PipelineOptions = {},
 	deps: PipelineDeps = DEFAULT_DEPS,
-): PipelineResult {
+): Promise<PipelineResult> {
 	const ctx = createPipelineContext(projectPath);
 	const runStart = deps.now();
 	const runLabel = options.label ?? "Pipeline Run";
@@ -68,12 +69,12 @@ export function runPipeline(
  * Run a pipeline with a pre-existing context (for domain adapters
  * that need to pass the context to steps).
  */
-export function runPipelineWithContext(
+export async function runPipelineWithContext(
 	steps: PipelineStep[],
 	ctx: PipelineContext,
 	options: PipelineOptions = {},
 	deps: PipelineDeps = DEFAULT_DEPS,
-): PipelineResult {
+): Promise<PipelineResult> {
 	const runStart = deps.now();
 	const runLabel = options.label ?? "Pipeline Run";
 
@@ -85,19 +86,19 @@ export function runPipelineWithContext(
 
 // ── Linear execution ─────────────────────────────────────────────────
 
-function runLinear(
+async function runLinear(
 	steps: PipelineStep[],
 	ctx: PipelineContext,
 	runLabel: string,
 	deps: PipelineDeps,
 	runStart: number,
-): PipelineResult {
+): Promise<PipelineResult> {
 	deps.log(`\n  ${CYAN}▸${RESET} ${runLabel}: ${steps.length} step(s)...\n`);
 
 	const completedPrereqs = new Set<string>();
 
 	for (const step of steps) {
-		const result = executeStep(step, ctx, completedPrereqs, deps);
+		const result = await executeStep(step, ctx, completedPrereqs, deps);
 		ctx.pushResult(result);
 	}
 
@@ -106,13 +107,13 @@ function runLinear(
 
 // ── Phased execution ─────────────────────────────────────────────────
 
-function runPhased(
+async function runPhased(
 	steps: PipelineStep[],
 	ctx: PipelineContext,
 	runLabel: string,
 	deps: PipelineDeps,
 	runStart: number,
-): PipelineResult {
+): Promise<PipelineResult> {
 	const phases = resolvePhases(steps);
 	const completedPrereqs = new Set<string>();
 
@@ -133,7 +134,7 @@ function runPhased(
 
 		for (const step of phase.steps) {
 			if (failedIds.has(step.id)) continue;
-			const result = executeStep(step, ctx, completedPrereqs, deps, phase.phase);
+			const result = await executeStep(step, ctx, completedPrereqs, deps, phase.phase);
 			ctx.pushResult(result);
 		}
 	}
@@ -143,13 +144,13 @@ function runPhased(
 
 // ── Step execution ───────────────────────────────────────────────────
 
-function executeStep(
+async function executeStep(
 	step: PipelineStep,
 	ctx: PipelineContext,
 	completedPrereqs: Set<string>,
 	deps: PipelineDeps,
 	phase?: number,
-): StepResult {
+): Promise<StepResult> {
 	deps.log(`  ${CYAN}▸${RESET} ${step.label}`);
 	const start = deps.now();
 
@@ -167,8 +168,8 @@ function executeStep(
 			throw new Error(depFailure);
 		}
 
-		// Execute the step
-		output = step.execute(ctx);
+		// Execute the step (may be sync or async)
+		output = await step.execute(ctx);
 		success = output.success;
 
 		// Store step data if provided

@@ -1,23 +1,21 @@
 /**
- * e2e-runner.ts — Vitest execution, report pipeline, and session orchestration.
+ * e2e-runner.ts — E2E execution orchestration via the generic pipeline.
+ *
+ * All E2E workflows are composed as pipeline steps and executed through
+ * the resilient pipeline runner. Individual operations (vitest, report
+ * generation, plugin restore) remain as focused functions for reuse.
  */
 
 import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
 import { shell } from "../../infrastructure/shell.js";
 import { log } from "../../infrastructure/logger.js";
+import { runPipeline } from "../../infrastructure/pipeline/pipeline-runner.js";
 import type { E2EPaths } from "./e2e-paths.js";
 import type { SessionConfig, JourneyEntry, PrerequisiteResults } from "./e2e-types.js";
-import { collapseFileExplorer } from "./e2e-prerequisites.js";
-import {
-	configureSessionEnv,
-	cleanSessionEnv,
-	printExecutionBanner,
-	resolveJourneyNames,
-	printSummary,
-	writeSessionNote,
-} from "./e2e-session.js";
-import { readTestStats } from "./e2e-build.js";
+import { resolveJourneyNames } from "./e2e-session.js";
+import { printExecutionBanner } from "../../ui/e2e/e2e-formatters.js";
+import { buildSessionPipeline } from "./pipelines/session-pipeline.js";
 
 // ── Vitest execution ────────────────────────────────────────────────
 
@@ -25,7 +23,7 @@ export function runVitest(e2e: E2EPaths): number {
 	return shell.run("npx vitest run --config tests/e2e/vitest.e2e.config.ts", { cwd: e2e.projectRoot });
 }
 
-// ── Report pipeline ─────────────────────────────────────────────────
+// ── Report generation ───────────────────────────────────────────────
 
 export function generateReport(e2e: E2EPaths): string | null {
 	const output = shell.runSilent("node scripts/generate-e2e-report.mjs", { cwd: e2e.projectRoot });
@@ -68,24 +66,23 @@ export function generateReportAndOpen(e2e: E2EPaths): void {
 	}
 }
 
-// ── Session execution ───────────────────────────────────────────────
+// ── Session execution (pipeline-based) ──────────────────────────────
 
 export async function executeSession(config: SessionConfig, entries: JourneyEntry[], prereqResults: PrerequisiteResults, e2e: E2EPaths): Promise<number> {
-	configureSessionEnv(config);
-
 	const selectedNames = resolveJourneyNames(config.selectedSlugs, entries);
 	printExecutionBanner(config, selectedNames);
 
 	const startTime = Date.now();
-	const exitCode = runVitest(e2e);
-	generateReportAndOpen(e2e);
+	const steps = buildSessionPipeline(e2e, {
+		config,
+		entries,
+		prereqResults,
+		startTime,
+	});
 
-	const stats = readTestStats(e2e);
-	printSummary(config.sessionName, selectedNames, startTime, stats);
-	const notePath = writeSessionNote(config.sessionName, config, selectedNames, prereqResults, stats, startTime, exitCode, e2e);
-	log(`  Session note: ${notePath}\n`);
-	collapseFileExplorer(e2e);
-	cleanSessionEnv();
+	const result = await runPipeline(steps, e2e.projectRoot, {
+		label: `E2E Session: ${config.sessionName}`,
+	});
 
-	return exitCode;
+	return result.failed > 0 ? 1 : 0;
 }

@@ -68,7 +68,7 @@ beforeEach(() => {
 });
 
 describe("reports commands", () => {
-	it("reports runs all generators via registry", () => {
+	it("reports runs all generators via registry", async () => {
 		const project = makeProject({
 			generators: [
 				{ id: "test", label: "Test Report" },
@@ -76,14 +76,14 @@ describe("reports commands", () => {
 			],
 		});
 
-		commands["reports"]({}, [], "reports", project);
+		await commands["reports"]({}, [], "reports", project);
 
 		expect(mockRunGenerator).toHaveBeenCalledTimes(2);
 		expect(mockRunGenerator).toHaveBeenCalledWith("test", "/test/project", expect.anything());
 		expect(mockRunGenerator).toHaveBeenCalledWith("coverage", "/test/project", expect.anything());
 	});
 
-	it("reports continues when a generator fails", () => {
+	it("reports continues when a generator fails", async () => {
 		mockRunGenerator
 			.mockReturnValueOnce({ success: false, outputPath: "", metrics: {} })
 			.mockReturnValueOnce({ success: true, outputPath: "", metrics: {} });
@@ -95,7 +95,7 @@ describe("reports commands", () => {
 			],
 		});
 
-		commands["reports"]({}, [], "reports", project);
+		await commands["reports"]({}, [], "reports", project);
 
 		expect(mockRunGenerator).toHaveBeenCalledTimes(2);
 	});
@@ -104,7 +104,7 @@ describe("reports commands", () => {
 		const { log } = await import("../../../src/infrastructure/logger.js");
 		const project = makeProject({ generators: [] });
 
-		commands["reports"]({}, [], "reports", project);
+		await commands["reports"]({}, [], "reports", project);
 
 		expect(mockRunGenerator).not.toHaveBeenCalled();
 		expect(log).toHaveBeenCalled();
@@ -116,7 +116,7 @@ describe("reports commands", () => {
 			generators: [{ id: "test", label: "Test Report" }],
 		});
 
-		commands["reports:audit"]({}, [], "reports:audit", project);
+		await commands["reports:audit"]({}, [], "reports:audit", project);
 
 		expect(mockRunGenerator).toHaveBeenCalledTimes(1);
 		const output = (log as ReturnType<typeof vi.fn>).mock.calls.flat().join(" ");

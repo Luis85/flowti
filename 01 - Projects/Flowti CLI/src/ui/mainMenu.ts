@@ -212,8 +212,9 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 		{
 			key: "?",
 			label: "Help",
-			action: () => {
+			action: async () => {
 				showHelp("main");
+				await input.waitForEnter();
 				return "main" as const;
 			},
 		},
@@ -238,8 +239,9 @@ function buildFallbackMenu(): MenuEntry[] {
 		{
 			key: "?",
 			label: "Help",
-			action: () => {
+			action: async () => {
 				showHelp("main");
+				await input.waitForEnter();
 				return "main" as const;
 			},
 		},

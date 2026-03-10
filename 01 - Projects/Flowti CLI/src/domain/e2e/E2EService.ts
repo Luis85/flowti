@@ -8,10 +8,11 @@
 import { PLUGIN_ROOT } from "../../infrastructure/config.js";
 import { log } from "../../infrastructure/logger.js";
 import { proc } from "../../infrastructure/proc.js";
+import { runPipeline } from "../../infrastructure/pipeline/pipeline-runner.js";
 import type { ReviewConfig } from "../../infrastructure/types.js";
 import { resolveE2EPaths, type E2EPaths } from "./e2e-paths.js";
 import { readProjectConfig } from "../project/project-config.js";
-import { runVitest, generateReportAndOpen } from "./e2e-runner.js";
+import { buildSuitePipeline } from "./pipelines/suite-pipeline.js";
 import { interactiveSession } from "./e2e-interactive.js";
 
 // ── Lazy singleton (backward compat for script entry point) ─────────
@@ -45,7 +46,7 @@ export async function startInteractiveSession(e2e?: E2EPaths): Promise<void> {
 }
 
 /** Run a non-interactive E2E suite with optional journey filter. */
-export function runE2ESuite(journeyFilter?: string, e2e?: E2EPaths): never {
+export async function runE2ESuite(journeyFilter?: string, e2e?: E2EPaths): Promise<never> {
 	const resolved = e2e ?? defaultE2E();
 
 	if (journeyFilter) {
@@ -64,7 +65,7 @@ export function runE2ESuite(journeyFilter?: string, e2e?: E2EPaths): never {
 		log("[e2e] Prerequisites forced (explicitly requested).");
 	}
 
-	const exitCode = runVitest(resolved);
-	generateReportAndOpen(resolved);
-	proc.exit(exitCode);
+	const steps = buildSuitePipeline(resolved);
+	const result = await runPipeline(steps, resolved.projectRoot, { label: "E2E Suite" });
+	proc.exit(result.failed > 0 ? 1 : 0);
 }

@@ -53,30 +53,8 @@ export function checkPrerequisites(e2e: E2EPaths): PrerequisiteResults {
 	return results;
 }
 
-export function printPrerequisites(results: PrerequisiteResults, e2e: E2EPaths): void {
-	const ok: (msg: string) => void = (msg) => log(`  \x1b[32m✓\x1b[0m ${msg}`);
-	const fail: (msg: string) => void = (msg) => log(`  \x1b[31m✗\x1b[0m ${msg}`);
-	const info: (msg: string) => void = (msg) => log(`  \x1b[33m○\x1b[0m ${msg}`);
-
-	log("\n  Prerequisites (local):\n");
-
-	if (results.vaultExists) ok(`Test vault exists: ${e2e.testVault}`);
-	else fail(`Test vault missing: ${e2e.testVault}`);
-
-	if (results.artifactsPresent) ok("Plugin artifacts: main.js, manifest.json, styles.css");
-	else fail(`Plugin artifacts missing: ${results.missingArtifacts.join(", ")}`);
-
-	if (results.cliResponsive) ok("Obsidian CLI responsive");
-	else fail("Obsidian CLI not responsive (is Obsidian running?)");
-
-	if (results.vaultInstalled) ok("Vault installed (data.json → installer.installed = true)");
-	else info("Vault not installed (installer will run)");
-
-	if (results.testDataPresent) ok("Test data CSV present");
-	else info("Test data missing (generated during setup)");
-
-	log();
-}
+/** @deprecated Use `printPrerequisites` from `ui/e2e/e2e-formatters.ts` instead. */
+export { printPrerequisites } from "../../ui/e2e/e2e-formatters.js";
 
 /** Validates prerequisites and exits if critical ones are missing. */
 export function validatePrerequisites(prereqResults: PrerequisiteResults): void {

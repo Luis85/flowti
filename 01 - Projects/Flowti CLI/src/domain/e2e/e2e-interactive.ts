@@ -1,5 +1,8 @@
 /**
  * e2e-interactive.ts — Interactive menus, session views, and result views.
+ *
+ * Orchestrates user interaction for E2E sessions. All formatting is
+ * delegated to ui/e2e/e2e-formatters.ts (DDD presentation separation).
  */
 
 import { log } from "../../infrastructure/logger.js";
@@ -7,22 +10,19 @@ import { proc } from "../../infrastructure/proc.js";
 import { input } from "../../infrastructure/input.js";
 import type { E2EPaths } from "./e2e-paths.js";
 import type { SessionConfig, JourneyEntry, PrerequisiteResults, ViewResult, InteractiveState } from "./e2e-types.js";
-import { checkPrerequisites, printPrerequisites, validatePrerequisites } from "./e2e-prerequisites.js";
+import { checkPrerequisites, validatePrerequisites } from "./e2e-prerequisites.js";
 import { teardownVault, runRebuild } from "./e2e-teardown.js";
 import { loadJourneyEntries, promptSessionConfig, rerunWithFreshTimestamp } from "./e2e-session.js";
 import { quickBuildAndDeploy, runIncrementBuild, runPublish } from "./e2e-build.js";
 import { generateAudit } from "./e2e-audit.js";
-import { runVitest, generateReportAndOpen, executeSession } from "./e2e-runner.js";
-
-// ── Result banners ──────────────────────────────────────────────────
-
-function printResultBanner(label: string, exitCode: number): void {
-	const statusIcon = exitCode === 0 ? "\x1b[32m✓ PASS\x1b[0m" : "\x1b[31m✗ FAIL\x1b[0m";
-	log(`  ${"─".repeat(50)}`);
-	log(`  ${label}: ${statusIcon}`);
-	log(`  ${"─".repeat(50)}`);
-	log();
-}
+import { executeSession } from "./e2e-runner.js";
+import {
+	printPrerequisites,
+	printResultBanner,
+	printSessionBanner,
+	printMainMenu,
+	printIncrementMenu,
+} from "../../ui/e2e/e2e-formatters.js";
 
 // ── Publish result view ─────────────────────────────────────────────
 
@@ -39,7 +39,7 @@ async function publishResultView(exitCode: number, e2e: E2EPaths): Promise<ViewR
 		if (choice === "q") return { action: "quit", exitCode };
 		if (choice === "m") return { action: "main", exitCode };
 		if (choice === "a") { await generateAudit(e2e); continue; }
-		if (choice === "r") { exitCode = runPublish(e2e); continue; }
+		if (choice === "r") { exitCode = await runPublish(e2e); continue; }
 
 		log("\n  Invalid choice — try again.\n");
 	}
@@ -47,23 +47,12 @@ async function publishResultView(exitCode: number, e2e: E2EPaths): Promise<ViewR
 
 // ── Increment result view ───────────────────────────────────────────
 
-function printIncrementMenu(exitCode: number): void {
-	const dim = "\x1b[2m";
-	const reset = "\x1b[0m";
-	log(exitCode === 0 ? "    p) Publish the increment" : `    ${dim}p) Publish the increment (requires successful build)${reset}`);
-	log("    r) Re-run increment build");
-	log("    a) Generate audit");
-	log("    m) Back to main menu");
-	log("    q) Quit");
-	log();
-}
-
 async function handleIncrementPublish(exitCode: number, e2e: E2EPaths): Promise<ViewResult | null> {
 	if (exitCode !== 0) {
 		log("\n  Cannot publish — increment build did not pass.\n");
 		return null;
 	}
-	const publishExitCode = runPublish(e2e);
+	const publishExitCode = await runPublish(e2e);
 	return publishResultView(publishExitCode, e2e);
 }
 
@@ -88,20 +77,6 @@ async function incrementResultView(exitCode: number, e2e: E2EPaths): Promise<Vie
 }
 
 // ── Session view ────────────────────────────────────────────────────
-
-function printSessionBanner(config: SessionConfig, entries: JourneyEntry[], exitCode: number): void {
-	const statusIcon = exitCode === 0 ? "\x1b[32m✓ PASS\x1b[0m" : "\x1b[31m✗ FAIL\x1b[0m";
-	const journeyNames = config.selectedSlugs.map((slug) => {
-		const entry = entries.find((e) => e.slug === slug);
-		return entry ? entry.name : slug;
-	});
-	log(`\n  ${"─".repeat(50)}`);
-	log(`  Session: ${config.sessionName}`);
-	log(`  Status:  ${statusIcon}`);
-	log(`  Tests:   ${journeyNames.join(", ")}`);
-	log(`  ${"─".repeat(50)}`);
-	log();
-}
 
 async function handleBuildAndRerun(currentConfig: SessionConfig, entries: JourneyEntry[], prereqResults: PrerequisiteResults, e2e: E2EPaths): Promise<{ config: SessionConfig; exitCode: number }> {
 	const buildResult = quickBuildAndDeploy(e2e);
@@ -154,21 +129,7 @@ async function sessionView(config: SessionConfig, entries: JourneyEntry[], prere
 	}
 }
 
-// ── Main menu ───────────────────────────────────────────────────────
-
-function printMainMenu(incrementPassed: boolean): void {
-	const dim = "\x1b[2m";
-	const reset = "\x1b[0m";
-	log("  What would you like to do?");
-	log("    1) Start test session");
-	log("    2) Build the increment");
-	log(incrementPassed ? "    3) Publish the increment" : `    ${dim}3) Publish the increment (requires successful build)${reset}`);
-	log("    4) Generate audit");
-	log("    5) Teardown test vault to fresh state");
-	log("    6) Rebuild (teardown → prerequisites → installer)");
-	log("    q) Quit");
-	log();
-}
+// ── Main menu handlers ──────────────────────────────────────────────
 
 async function handleIncrementChoice(e2e: E2EPaths): Promise<{ exitCode: number; incrementPassed: boolean; quit: boolean }> {
 	const exitCode = await runIncrementBuild(e2e);
@@ -179,7 +140,7 @@ async function handleIncrementChoice(e2e: E2EPaths): Promise<{ exitCode: number;
 }
 
 async function handlePublishChoice(e2e: E2EPaths): Promise<{ exitCode: number; quit: boolean }> {
-	const exitCode = runPublish(e2e);
+	const exitCode = await runPublish(e2e);
 	const result = await publishResultView(exitCode, e2e);
 	return { exitCode: result.exitCode, quit: result.action === "quit" };
 }
@@ -201,7 +162,7 @@ async function handleMainMenuChoice(choice: string, prereqResults: PrerequisiteR
 	if (choice === "4") { await generateAudit(e2e); return { handled: true, state }; }
 	if (choice === "5") { await teardownVault(e2e); return { handled: true, state }; }
 	if (choice === "6") {
-		const rebuildCode = await runRebuild(e2e, () => runVitest(e2e), () => generateReportAndOpen(e2e));
+		const rebuildCode = await runRebuild(e2e);
 		return { handled: true, state: { ...state, lastExitCode: rebuildCode } };
 	}
 	return { handled: false, state };

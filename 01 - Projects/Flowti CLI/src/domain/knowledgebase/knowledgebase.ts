@@ -103,7 +103,7 @@ export async function knowledgebaseMenu(): Promise<MenuResult> {
 		if (action === "back") return "main";
 		if (action === "up") { currentPath = navigateBack(currentPath); continue; }
 		if (action === "search") { await searchMode(); continue; }
-		if (action === "help") { showHelp("knowledgebase"); continue; }
+		if (action === "help") { showHelp("knowledgebase"); await input.waitForEnter(); continue; }
 		if (action === "invalid") { log("\n  Invalid choice — try again.\n"); continue; }
 
 		const selectedPath = resolveSelectedPath(currentPath, action.entry.name);
