@@ -26,33 +26,49 @@ function pick(p: ProjectContext | undefined, candidates: string[], fallback: str
 	return fallback;
 }
 
+/**
+ * Resolve a build/test command: config.build.commands[mode] → legacy scripts → fallback.
+ */
+function resolveBuildCommand(p: ProjectContext | undefined, mode: string, scriptCandidates: string[], fallback: string): string {
+	const cmd = p?.config.build?.commands?.[mode];
+	if (cmd) return cmd;
+	return pick(p, scriptCandidates, fallback);
+}
+
+function resolveTestCommand(p: ProjectContext | undefined, mode: string, scriptCandidates: string[], fallback: string): string {
+	const cmd = p?.config.test?.commands?.[mode];
+	if (cmd) return cmd;
+	return pick(p, scriptCandidates, fallback);
+}
+
 // ── Non-interactive commands ────────────────────────────────────────
 
 export const commands: Record<string, (flags: Record<string, string | boolean>, rawArgs: string[], command?: string, project?: ProjectContext) => void> = {
 	"build": (_f, _r, _c, p) => {
-		shell.run(pick(p, ["build"], "npm run build"), { cwd: p?.path, label: "Building..." });
+		shell.run(resolveBuildCommand(p, "fast", ["build"], "npm run build"), { cwd: p?.path, label: "Building..." });
 	},
 	"build:increment": (_f, _r, _c, p) => {
-		shell.run(pick(p, ["build:increment", "build"], "npm run build"), { cwd: p?.path, label: "Building increment..." });
+		shell.run(resolveBuildCommand(p, "increment", ["build:increment", "build"], "npm run build"), { cwd: p?.path, label: "Building increment..." });
 	},
 	"build:full": (_f, _r, _c, p) => {
-		shell.run(pick(p, ["build:full", "build"], "npm run build"), { cwd: p?.path, label: "Building full..." });
+		shell.run(resolveBuildCommand(p, "full", ["build:full", "build"], "npm run build"), { cwd: p?.path, label: "Building full..." });
 	},
 	"build:watch": (flags, _r, _c, p) => {
+		const resolved = resolveBuildCommand(p, "watch", ["build:dev", "build:watch"], "npm run build -- --watch");
 		const reloadFlag = flags.reload ? " --reload" : "";
-		shell.run(`${pick(p, ["build:dev", "build:watch"], "npm run build -- --watch")}${reloadFlag}`, { cwd: p?.path, label: "Watch mode..." });
+		shell.run(`${resolved}${reloadFlag}`, { cwd: p?.path, label: "Watch mode..." });
 	},
 	"build:distribute": (_f, _r, _c, p) => {
-		shell.run(pick(p, ["build:distribute", "build"], "npm run build"), { cwd: p?.path, label: "Distributing build..." });
+		shell.run(resolveBuildCommand(p, "distribute", ["build:distribute", "build"], "npm run build"), { cwd: p?.path, label: "Distributing build..." });
 	},
 	"test": (_f, _r, _c, p) => {
-		shell.run(pick(p, ["test"], "npm test"), { cwd: p?.path, label: "Running tests..." });
+		shell.run(resolveTestCommand(p, "unit", ["test"], "npm test"), { cwd: p?.path, label: "Running tests..." });
 	},
 	"test:increment": (_f, _r, _c, p) => {
-		shell.run(pick(p, ["test:increment", "test"], "npm test"), { cwd: p?.path, label: "Running increment tests..." });
+		shell.run(resolveTestCommand(p, "increment", ["test:increment", "test"], "npm test"), { cwd: p?.path, label: "Running increment tests..." });
 	},
 	"test:e2e": (_f, _r, _c, p) => {
-		shell.run(pick(p, ["test:e2e", "test"], "npm test"), { cwd: p?.path, label: "Running E2E tests..." });
+		shell.run(resolveTestCommand(p, "e2e", ["test:e2e", "test"], "npm test"), { cwd: p?.path, label: "Running E2E tests..." });
 	},
 	"build:check": (flags, _r, _c, p) => {
 		if (!p) return;

@@ -72,7 +72,7 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 	});
 
 	{
-		const buildCmd = ctx.config.tools?.["build"];
+		const buildCmd = ctx.config.build?.commands?.["fast"] ?? ctx.config.tools?.["build"];
 		if (buildCmd) {
 			items.push({
 				key: "5",
@@ -90,7 +90,7 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 				action: () => "main" as const,
 				disabled: true,
 				disabledMessage:
-					'\n  Build is not mapped. Add "build" to tools in flowti.config.json.\n',
+					'\n  Build is not mapped. Add build.commands.fast or tools.build to flowti.config.json.\n',
 			});
 		}
 	}

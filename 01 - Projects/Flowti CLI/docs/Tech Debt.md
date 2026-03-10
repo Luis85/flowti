@@ -19,11 +19,11 @@ source: "[[Development Roadmap]]"
 
 | Severity | Count | Estimated Hours |
 |----------|-------|-----------------|
-| Critical | 3 | 28h |
-| High | 7 | 32h |
-| Medium | 8 | 20h |
+| Critical | 3 (1 resolved) | 28h |
+| High | 7 (1 resolved) | 32h |
+| Medium | 8 (3 resolved) | 20h |
 | Low | 5 | 8h |
-| **Total** | **23** | **88h** |
+| **Total** | **23 (6 resolved)** | **88h (17h resolved)** |
 
 ---
 
@@ -358,10 +358,10 @@ When the CLI manages Plugin builds, it needs to understand the CSS pipeline. Cur
 
 | ID | Status | Resolved In | Notes |
 |----|--------|-------------|-------|
-| TD-01 | Open | — | Blocks Phase 8 |
-| TD-02 | Open | — | Quick fix |
+| TD-01 | Resolved | Pre-Phase 8 | Schema extended: type, build.commands, test.commands, devtools.commands, paths |
+| TD-02 | Resolved | Pre-Phase 8 | FLOWTI_TOOLS now has build, reports, devtools |
 | TD-03 | Open | — | Ongoing refactoring |
-| TD-04 | Open | — | Config migration |
+| TD-04 | Resolved | Pre-Phase 8 | Dependencies moved to flowti.config.json, legacy map removed |
 | TD-05 | Open | — | Phase 8 enabler |
 | TD-06 | Open | — | Phase 8 enabler |
 | TD-07 | Open | — | Phase 8 enabler |
@@ -369,11 +369,11 @@ When the CLI manages Plugin builds, it needs to understand the CSS pipeline. Cur
 | TD-09 | Open | — | Refactoring |
 | TD-10 | Open | — | Test quality |
 | TD-11 | Open | — | Phase 8 enabler |
-| TD-12 | Open | — | Clean architecture |
-| TD-13 | Open | — | Consistency |
+| TD-12 | Resolved | Pre-Phase 8 | Constructor accepts opts; coverageDir uses stored relDir |
+| TD-13 | Resolved | Pre-Phase 8 | 6 non-E2E files migrated to clock abstraction |
 | TD-14 | Open | — | Minor |
 | TD-15 | Open | — | Test coverage |
-| TD-16 | Open | — | Phase 8 blocker |
+| TD-16 | Resolved | Pre-Phase 8 | ProjectTarget type added, wired into config + validation |
 | TD-17 | Open | — | Deferred from P5 |
 | TD-18 | Open | — | Deferred from P1 |
 | TD-19 | Open | — | Deferred from P5 |

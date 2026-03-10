@@ -7,6 +7,7 @@
  */
 
 import { createHash } from "node:crypto";
+import { clock } from "../../infrastructure/clock.js";
 import type { FileEntry } from "./scaffold-types.js";
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -59,7 +60,7 @@ export function buildFileHashes(files: FileEntry[]): Record<string, string> {
 export function createManifest(definitionId: string, files: FileEntry[]): ScaffoldManifest {
 	return {
 		definitionId,
-		createdAt: new Date().toISOString(),
+		createdAt: clock.iso(),
 		fileHashes: buildFileHashes(files),
 	};
 }

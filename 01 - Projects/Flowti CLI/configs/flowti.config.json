@@ -18,8 +18,8 @@
 			{ "id": "coverage", "label": "Coverage Report", "prerequisites": ["npm run test:coverage"] },
 			{ "id": "codebase", "label": "Codebase Report", "prerequisites": ["npm run typedoc"] },
 			{ "id": "complexity", "label": "Complexity Report", "prerequisites": ["npm run analysis"] },
-			{ "id": "status", "label": "Status Report" },
-			{ "id": "summary", "label": "Summary Report" }
+			{ "id": "status", "label": "Status Report", "dependencies": ["test", "coverage", "codebase", "complexity"] },
+			{ "id": "summary", "label": "Summary Report", "dependencies": ["test", "coverage", "codebase", "complexity", "status"] }
 		],
 		"thresholds": {
 			"coverageLines": 80,

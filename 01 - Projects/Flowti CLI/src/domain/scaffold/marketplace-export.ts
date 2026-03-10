@@ -7,6 +7,7 @@
 
 import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
+import { clock } from "../../infrastructure/clock.js";
 import type { IFileSystem } from "../../infrastructure/types.js";
 import { loadAiTools, AI_TOOLS_DIR } from "../ai-tools/ai-tool-loader.js";
 import { discoverPluginFiles, PLUGINS_DIR } from "../plugins/plugin-loader.js";
@@ -56,7 +57,7 @@ export function exportBundle(
 	projectRoot: string | undefined,
 	fs: IFileSystem = disk,
 ): ExportBundle {
-	const now = new Date().toISOString();
+	const now = clock.iso();
 	const vaultName = paths.basename(vaultRoot);
 
 	// AI tools

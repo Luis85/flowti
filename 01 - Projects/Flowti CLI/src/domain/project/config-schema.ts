@@ -5,7 +5,7 @@
  * Returns errors (fatal) and warnings (non-fatal) for clear diagnostics.
  */
 
-import type { FlowtiToolId, MakeTemplateId } from "../../infrastructure/types.js";
+import type { FlowtiToolId, MakeTemplateId, ProjectTarget } from "../../infrastructure/types.js";
 
 export interface ConfigValidationResult {
 	errors: string[];
@@ -14,8 +14,10 @@ export interface ConfigValidationResult {
 
 const VALID_TOOL_IDS: FlowtiToolId[] = ["build", "reports", "devtools"];
 const VALID_MAKE_TEMPLATES: MakeTemplateId[] = ["journey", "component"];
+const VALID_PROJECT_TYPES: ProjectTarget[] = ["project", "typescript", "typescript-cli", "obsidian-plugin"];
 const KNOWN_TOP_LEVEL_KEYS = new Set([
-	"name", "tools", "make", "components", "reports", "docs", "publish", "review", "health",
+	"name", "type", "tools", "build", "test", "devtools", "paths",
+	"make", "components", "reports", "docs", "publish", "review", "health",
 ]);
 
 /** Validate a raw object as a ProjectConfig. */
@@ -30,7 +32,12 @@ export function validateProjectConfig(raw: unknown): ConfigValidationResult {
 	const cfg = raw as Record<string, unknown>;
 
 	validateName(cfg, errors);
+	validateType(cfg, warnings);
 	validateTools(cfg, errors);
+	validateCommandsMap(cfg, "build", warnings);
+	validateCommandsMap(cfg, "test", warnings);
+	validateCommandsMap(cfg, "devtools", warnings);
+	validatePaths(cfg, warnings);
 	validateMake(cfg, warnings);
 	validateComponents(cfg, warnings);
 	validateReportGenerators(cfg, errors);
@@ -52,6 +59,48 @@ export function isValidProjectConfig(raw: unknown): boolean {
 function validateName(cfg: Record<string, unknown>, errors: string[]): void {
 	if (typeof cfg.name !== "string" || cfg.name.length === 0) {
 		errors.push('Missing or empty required field: "name".');
+	}
+}
+
+function validateType(cfg: Record<string, unknown>, warnings: string[]): void {
+	if (cfg.type === undefined) return;
+	if (typeof cfg.type !== "string" || !VALID_PROJECT_TYPES.includes(cfg.type as ProjectTarget)) {
+		warnings.push(`"type" must be one of: ${VALID_PROJECT_TYPES.join(", ")}.`);
+	}
+}
+
+function validateCommandsMap(cfg: Record<string, unknown>, key: string, warnings: string[]): void {
+	if (cfg[key] === undefined) return;
+	if (!cfg[key] || typeof cfg[key] !== "object") {
+		warnings.push(`"${key}" must be an object.`);
+		return;
+	}
+	const section = cfg[key] as Record<string, unknown>;
+	if (section.commands !== undefined) {
+		if (!section.commands || typeof section.commands !== "object") {
+			warnings.push(`"${key}.commands" must be an object.`);
+			return;
+		}
+		const cmds = section.commands as Record<string, unknown>;
+		for (const name of Object.keys(cmds)) {
+			if (typeof cmds[name] !== "string") {
+				warnings.push(`${key}.commands.${name}: value must be a string.`);
+			}
+		}
+	}
+}
+
+function validatePaths(cfg: Record<string, unknown>, warnings: string[]): void {
+	if (cfg.paths === undefined) return;
+	if (!cfg.paths || typeof cfg.paths !== "object") {
+		warnings.push('"paths" must be an object.');
+		return;
+	}
+	const p = cfg.paths as Record<string, unknown>;
+	for (const key of Object.keys(p)) {
+		if (typeof p[key] !== "string") {
+			warnings.push(`paths.${key}: value must be a string.`);
+		}
 	}
 }
 

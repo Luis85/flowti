@@ -233,7 +233,7 @@ describe("runAllReports", () => {
 	it("phased mode respects dependency ordering", async () => {
 		const phasedGens: ReportGenerator[] = [
 			{ id: "test", label: "Test Report" },
-			{ id: "status", label: "Status Report" },
+			{ id: "status", label: "Status Report", dependencies: ["test"] },
 		];
 
 		const result = await runAllReports(phasedGens, "/project", { parallel: true });

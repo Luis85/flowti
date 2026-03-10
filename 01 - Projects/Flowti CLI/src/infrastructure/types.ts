@@ -137,7 +137,9 @@ export interface FlowtiToolDef {
 }
 
 export const FLOWTI_TOOLS: FlowtiToolDef[] = [
-	{ id: "devtools", key: "6", label: "Dev Tools" },
+	{ id: "build", key: "5", label: "Build" },
+	{ id: "reports", key: "8", label: "Reporting" },
+	{ id: "devtools", key: "t", label: "Dev Tools" },
 ];
 
 export interface PublishEndpoint {
@@ -284,9 +286,59 @@ export interface HealthConfig {
 	qualityGates?: QualityGateConfig;
 }
 
+// ── Project type discrimination ─────────────────────────────────────
+
+/** The four project archetypes the CLI can manage. */
+export type ProjectTarget = "project" | "typescript" | "typescript-cli" | "obsidian-plugin";
+
+// ── Named command maps ──────────────────────────────────────────────
+
+/** Named build modes (e.g., fast, increment, full, watch, distribute). */
+export interface BuildConfig {
+	/** Named build commands keyed by mode. */
+	commands?: Record<string, string>;
+}
+
+/** Named test presets (e.g., unit, flows, e2e, increment). */
+export interface TestConfig {
+	/** Named test commands keyed by preset. */
+	commands?: Record<string, string>;
+}
+
+/** Named devtools commands (e.g., reload, console, check, lint). */
+export interface DevToolsConfig {
+	/** Named devtools commands keyed by action. */
+	commands?: Record<string, string>;
+}
+
+/** Project-specific path mappings for non-standard layouts. */
+export interface PathsConfig {
+	/** Root of plugin source (relative to vault root). */
+	pluginRoot?: string;
+	/** Plugin output directory (relative to vault root). */
+	pluginOutput?: string;
+	/** Reports output directory (relative to project root). */
+	reports?: string;
+	/** E2E test vault path (absolute, or relative to vault root). */
+	e2eVault?: string;
+}
+
+// ── Project configuration ───────────────────────────────────────────
+
 export interface ProjectConfig {
 	name: string;
+	/** Project archetype — drives feature availability and scaffold selection. */
+	type?: ProjectTarget;
+	/** Legacy tool mappings (simple command strings). */
 	tools?: Partial<Record<FlowtiToolId, string>>;
+	/** Named build commands by mode. */
+	build?: BuildConfig;
+	/** Named test commands by preset. */
+	test?: TestConfig;
+	/** Named devtools commands by action. */
+	devtools?: DevToolsConfig;
+	/** Project-specific path mappings. */
+	paths?: PathsConfig;
 	make?: MakeConfig;
 	components?: ComponentsConfig;
 	reports?: ReportsConfig;

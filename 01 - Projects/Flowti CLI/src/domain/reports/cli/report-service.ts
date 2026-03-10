@@ -12,16 +12,30 @@ import { clock } from "../../../infrastructure/clock.js";
 import { readProjectConfig } from "../../project/project-config.js";
 import type { Document } from "../../../infrastructure/document.js";
 
+export interface ReportServiceOptions {
+	reportsDir?: string;
+	referenceDir?: string;
+}
+
 export class ReportService {
 	readonly projectPath: string;
 	readonly reportsDir: string;
 	readonly referenceDir: string;
+	private readonly reportsRelDir: string;
 
-	constructor(projectPath: string = CLI_PROJECT) {
+	constructor(projectPath: string = CLI_PROJECT, opts?: ReportServiceOptions) {
 		this.projectPath = projectPath;
-		const { config } = readProjectConfig(projectPath);
-		this.reportsDir = paths.join(projectPath, config?.reports?.dir ?? "reports");
-		this.referenceDir = paths.join(projectPath, config?.docs?.referenceDir ?? "docs/reference");
+		if (opts?.reportsDir && opts?.referenceDir) {
+			this.reportsDir = opts.reportsDir;
+			this.referenceDir = opts.referenceDir;
+			this.reportsRelDir = "reports";
+		} else {
+			const { config } = readProjectConfig(projectPath);
+			const relDir = config?.reports?.dir ?? "reports";
+			this.reportsRelDir = relDir;
+			this.reportsDir = opts?.reportsDir ?? paths.join(projectPath, relDir);
+			this.referenceDir = opts?.referenceDir ?? paths.join(projectPath, config?.docs?.referenceDir ?? "docs/reference");
+		}
 	}
 
 	/** Resolve an absolute path to a subdirectory within the reports dir. */
@@ -78,10 +92,8 @@ export class ReportService {
 		return outputPath;
 	}
 
-	/** Resolve the coverage subdirectory path (relative, for CLI args). */
+	/** Resolve the coverage subdirectory path (relative to project root). */
 	get coverageDir(): string {
-		const { config } = readProjectConfig(this.projectPath);
-		const reportsRel = config?.reports?.dir ?? "reports";
-		return `${reportsRel}/coverage`;
+		return `${this.reportsRelDir}/coverage`;
 	}
 }

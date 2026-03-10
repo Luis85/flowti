@@ -9,6 +9,7 @@
 import { createHash } from "node:crypto";
 import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
+import { clock } from "../../infrastructure/clock.js";
 
 // ── Path defaults ─────────────────────────────────────────────────────
 
@@ -110,7 +111,7 @@ export function saveManifest(
 
 export function createManifest(fileHashes: Record<string, string>): BuildManifest {
 	return {
-		builtAt: new Date().toISOString(),
+		builtAt: clock.iso(),
 		sourceHash: aggregateHash(fileHashes),
 		fileCount: Object.keys(fileHashes).length,
 		files: fileHashes,

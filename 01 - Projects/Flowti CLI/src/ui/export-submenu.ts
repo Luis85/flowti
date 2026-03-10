@@ -24,7 +24,8 @@ export function buildExportSubmenu(
 				const { VAULT_ROOT } = await import("../infrastructure/config.js");
 				const bundle = exportBundle(VAULT_ROOT, projectPath);
 				const total = bundle.aiTools.length + bundle.plugins.length + bundle.scaffolds.length;
-				const outputPath = paths.join(projectPath, "exports", `flowti-bundle-${new Date().toISOString().split("T")[0]}.json`);
+				const { clock } = await import("../infrastructure/clock.js");
+				const outputPath = paths.join(projectPath, "exports", `flowti-bundle-${clock.iso().split("T")[0]}.json`);
 				saveBundle(bundle, outputPath);
 				log(`\n  ${GREEN}✓${RESET} Exported ${total} definitions → ${DIM}${outputPath}${RESET}\n`);
 				return "main" as const;

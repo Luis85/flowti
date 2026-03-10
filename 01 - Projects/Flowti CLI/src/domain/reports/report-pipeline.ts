@@ -20,22 +20,11 @@ import type { ReportGenerator } from "../../infrastructure/types.js";
 import { shell } from "../../infrastructure/shell.js";
 import { runGenerator, hasGenerator } from "./generator-registry.js";
 
-// ── Legacy dependency map (bridge during migration) ──────────────────
-
-/**
- * Built-in dependencies for generators that haven't declared them
- * in config yet. Once all generators declare their own dependencies
- * in flowti.config.json, this map can be removed.
- */
-const LEGACY_DEPENDENCIES: Record<string, string[]> = {
-	status: ["test", "coverage", "codebase", "complexity"],
-	summary: ["test", "coverage", "codebase", "complexity", "status"],
-};
+// ── Dependency resolution ─────────────────────────────────────────────
 
 function resolveDependencies(gen: ReportGenerator): string[] | undefined {
 	if (gen.dependencies && gen.dependencies.length > 0) return gen.dependencies;
-	const id = gen.id ?? gen.label.toLowerCase().replace(/\s+/g, "-");
-	return LEGACY_DEPENDENCIES[id];
+	return undefined;
 }
 
 // ── Step adapter ─────────────────────────────────────────────────────
