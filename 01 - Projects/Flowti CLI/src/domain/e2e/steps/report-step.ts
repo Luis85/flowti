@@ -2,18 +2,17 @@
  * report-step.ts — PipelineStep for generating and opening the E2E report.
  */
 
-import type { PipelineStep, StepOutput } from "../../../infrastructure/pipeline/pipeline-types.js";
+import type { PipelineStep, StepOutput, PipelineContext } from "../../../infrastructure/pipeline/pipeline-types.js";
 import type { E2EPaths } from "../e2e-paths.js";
 import { generateReport, openReportInObsidian, restorePluginState } from "../e2e-runner.js";
-import { log } from "../../../infrastructure/logger.js";
 
 export function createReportStep(e2e: E2EPaths): PipelineStep {
 	return {
 		id: "e2e:report",
 		label: "E2E Report",
 		dependencies: ["e2e:vitest"],
-		execute(): StepOutput {
-			log("\n[e2e] Generating E2E report (this may take a moment)...\n");
+		execute(ctx: PipelineContext): StepOutput {
+			ctx.log("\n[e2e] Generating E2E report (this may take a moment)...\n");
 			const reportVaultPath = generateReport(e2e);
 
 			if (reportVaultPath) {

@@ -12,7 +12,7 @@ import { disk } from "../../../infrastructure/filesystem.js";
 import { paths } from "../../../infrastructure/paths.js";
 import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
-import { log } from "../../../infrastructure/logger.js";
+
 import { proc } from "../../../infrastructure/proc.js";
 import { clock } from "../../../infrastructure/clock.js";
 
@@ -121,7 +121,6 @@ function extractStats(json: Record<string, unknown>): TestReportStats {
 
 function main(): void {
 	if (!disk.existsSync(REPORT_JSON)) {
-		log("[report] No testreport.json found — run tests first.");
 		return;
 	}
 
@@ -154,8 +153,6 @@ function main(): void {
 	const prefix = buildType === "full" ? "" : `${buildType}-`;
 	const outputPath = paths.join(OUTPUT_DIR, `${safeTimestamp}-${prefix}test-report.md`);
 	doc.save(outputPath);
-
-	log(`[report] TestReport written: ${outputPath}`);
 }
 
 main();

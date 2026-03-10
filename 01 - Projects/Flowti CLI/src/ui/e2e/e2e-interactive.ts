@@ -3,26 +3,29 @@
  *
  * Orchestrates user interaction for E2E sessions. All formatting is
  * delegated to ui/e2e/e2e-formatters.ts (DDD presentation separation).
+ *
+ * This is a view-controller — it lives in the UI layer because it
+ * renders menus, takes user input, and dispatches to domain operations.
  */
 
-import { log } from "../../infrastructure/logger.js";
 import { proc } from "../../infrastructure/proc.js";
 import { input } from "../../infrastructure/input.js";
-import type { E2EPaths } from "./e2e-paths.js";
-import type { SessionConfig, JourneyEntry, PrerequisiteResults, ViewResult, InteractiveState } from "./e2e-types.js";
-import { checkPrerequisites, validatePrerequisites } from "./e2e-prerequisites.js";
-import { teardownVault, runRebuild } from "./e2e-teardown.js";
-import { loadJourneyEntries, promptSessionConfig, rerunWithFreshTimestamp } from "./e2e-session.js";
-import { quickBuildAndDeploy, runIncrementBuild, runPublish } from "./e2e-build.js";
-import { generateAudit } from "./e2e-audit.js";
-import { executeSession } from "./e2e-runner.js";
+import { log } from "../../infrastructure/logger.js";
+import type { E2EPaths } from "../../domain/e2e/e2e-paths.js";
+import type { SessionConfig, JourneyEntry, PrerequisiteResults, ViewResult, InteractiveState } from "../../domain/e2e/e2e-types.js";
+import { checkPrerequisites, validatePrerequisites } from "../../domain/e2e/e2e-prerequisites.js";
+import { teardownVault, runRebuild } from "../../domain/e2e/e2e-teardown.js";
+import { loadJourneyEntries, promptSessionConfig, rerunWithFreshTimestamp } from "../../domain/e2e/e2e-session.js";
+import { quickBuildAndDeploy, runIncrementBuild, runPublish } from "../../domain/e2e/e2e-build.js";
+import { generateAudit } from "../../domain/e2e/e2e-audit.js";
+import { executeSession } from "../../domain/e2e/e2e-runner.js";
 import {
 	printPrerequisites,
 	printResultBanner,
 	printSessionBanner,
 	printMainMenu,
 	printIncrementMenu,
-} from "../../ui/e2e/e2e-formatters.js";
+} from "./e2e-formatters.js";
 
 // ── Publish result view ─────────────────────────────────────────────
 

@@ -9,8 +9,6 @@
 import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
 import { PROJECTS_DIR } from "../../infrastructure/config.js";
-import { log } from "../../infrastructure/logger.js";
-import { YELLOW, DIM, RESET, RED } from "../../infrastructure/ui.js";
 import type { ProjectConfig, ProjectContext, FlowtiToolId } from "../../infrastructure/types.js";
 import { validateProjectConfig } from "./config-schema.js";
 import { validateConfigDeep } from "./config-deep-validation.js";
@@ -62,14 +60,7 @@ export function readProjectConfig(projectPath: string): ReadConfigResult {
 	const { errors, warnings } = validateProjectConfig(parsed);
 
 	if (errors.length > 0) {
-		log(`\n  ${RED}Invalid config: ${cfgPath}${RESET}`);
-		for (const e of errors) log(`    ${RED}• ${e}${RESET}`);
-		return { config: null, warnings };
-	}
-
-	if (warnings.length > 0) {
-		log(`\n  ${YELLOW}Config warnings: ${cfgPath}${RESET}`);
-		for (const w of warnings) log(`    ${DIM}• ${w}${RESET}`);
+		return { config: null, warnings: [...errors, ...warnings] };
 	}
 
 	return { config: parsed as ProjectConfig, warnings };
@@ -115,9 +106,6 @@ export function initializeProject(name: string): ProjectContext {
 
 	// Deep validation: check configured paths exist on disk
 	const deep = validateConfigDeep(config, projectPath, disk);
-	if (deep.warnings.length > 0) {
-		for (const w of deep.warnings) log(`    ${DIM}• ${w}${RESET}`);
-	}
 	const allWarnings = [...warnings, ...deep.warnings];
 
 	return {

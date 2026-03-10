@@ -18,19 +18,17 @@
  */
 
 import { menu as makeMenu } from "../domain/make/make.js";
-import { componentListMenu } from "../domain/make/component/component-list.js";
+import { componentListMenu } from "./menus/component-list-menu.js";
 import { publishMenu } from "../domain/publish/project-publish.js";
 import { reviewMenu } from "../domain/review/project-review.js";
-import { showInfo } from "../domain/info/info.js";
+import { showInfo } from "./info-display.js";
 import { collectHealth } from "../domain/health/health.js";
 import { displayHealth } from "./health-display.js";
 import { showHelp } from "./help.js";
-import { captureIdea, captureNote, captureBug } from "../domain/capture/capture.js";
+import { captureIdea, captureNote, captureBug } from "./menus/capture-menu.js";
 import { eventCatalogMenu } from "../domain/events/events.js";
-import {
-	knowledgebaseMenu,
-	isKnowledgebaseAvailable,
-} from "../domain/knowledgebase/knowledgebase.js";
+import { isKnowledgebaseAvailable } from "../domain/knowledgebase/knowledgebase.js";
+import { knowledgebaseMenu } from "./menus/knowledgebase-menu.js";
 import { buildWithReport } from "../domain/reports/cli/generate-build-report.js";
 import { getReportsDir } from "../domain/project/project-config.js";
 import {

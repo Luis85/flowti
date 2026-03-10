@@ -8,9 +8,7 @@
 import { paths } from "../../../infrastructure/paths.js";
 import { disk } from "../../../infrastructure/filesystem.js";
 import { Document } from "../../../infrastructure/document.js";
-import { RESET, GREEN, CYAN, DIM } from "../../../infrastructure/ui.js";
 import { ReportService } from "./report-service.js";
-import { log } from "../../../infrastructure/logger.js";
 import { clock } from "../../../infrastructure/clock.js";
 import type { SummaryThresholds } from "../../../infrastructure/types.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
@@ -151,26 +149,26 @@ function renderGeneratorRun(doc: Document, results: readonly StepResult[]): void
 
 // ── Entry point ──────────────────────────────────────────────────────
 
-function logDataSources(snapshots: ReportSnapshot[], json: JsonDataSources, detailed: DetailedSources): void {
+function logDataSources(snapshots: ReportSnapshot[], json: JsonDataSources, detailed: DetailedSources, log: (msg: string) => void): void {
 	const jsonLabels = [json.tests && "tests", json.coverage && "coverage"].filter(Boolean);
-	log(`  ${DIM}Found ${snapshots.length} reports: ${snapshots.map((s) => s.label).join(", ")}${RESET}`);
-	if (jsonLabels.length > 0) log(`  ${DIM}JSON sources: ${jsonLabels.join(", ")}${RESET}`);
-	if (detailed.perFile.length > 0) log(`  ${DIM}Per-file coverage: ${detailed.perFile.length} files${RESET}`);
+	log(`Found ${snapshots.length} reports: ${snapshots.map((s) => s.label).join(", ")}`);
+	if (jsonLabels.length > 0) log(`JSON sources: ${jsonLabels.join(", ")}`);
+	if (detailed.perFile.length > 0) log(`Per-file coverage: ${detailed.perFile.length} files`);
 }
 
-function runLintCheck(projectPath: string, command: string | undefined, ctx?: PipelineContext): LintResult | null {
+function runLintCheck(projectPath: string, command: string | undefined, log: (msg: string) => void, ctx?: PipelineContext): LintResult | null {
 	if (!command) return null;
-	log(`  ${DIM}Running lint: ${command}${RESET}`);
+	log(`Running lint: ${command}`);
 	const result = collectLintWarnings(projectPath, command, ctx);
-	log(`  ${DIM}Lint: ${result.errors} errors, ${result.warnings} warnings${RESET}`);
+	log(`Lint: ${result.errors} errors, ${result.warnings} warnings`);
 	return result;
 }
 
-function runTypedocCheck(projectPath: string, command: string | undefined, ctx?: PipelineContext): TypeDocResult | null {
+function runTypedocCheck(projectPath: string, command: string | undefined, log: (msg: string) => void, ctx?: PipelineContext): TypeDocResult | null {
 	if (!command) return null;
-	log(`  ${DIM}Running TypeDoc: ${command}${RESET}`);
+	log(`Running TypeDoc: ${command}`);
 	const result = collectTypedocWarnings(projectPath, command, ctx);
-	log(`  ${DIM}TypeDoc: ${result.errors} errors, ${result.warnings} warnings${RESET}`);
+	log(`TypeDoc: ${result.errors} errors, ${result.warnings} warnings`);
 	return result;
 }
 
@@ -261,16 +259,17 @@ export function generateSummaryReport(projectPath: string, ctx?: PipelineContext
 	const svc = new ReportService(projectPath);
 	const projectName = paths.basename(projectPath);
 	const thresholds = resolveThresholds(projectPath);
+	const log = (msg: string) => ctx?.log(msg);
 
-	log(`\n  ${CYAN}▸${RESET} Generating Project Summary...\n`);
+	ctx?.log("Generating Project Summary...");
 
 	const snapshots = discoverReports(svc.reportsDir);
 	const json = loadJsonDataSources(svc.reportsDir);
 	const detailed = loadDetailedSources(svc.reportsDir, projectPath);
-	logDataSources(snapshots, json, detailed);
+	logDataSources(snapshots, json, detailed, log);
 
-	const lint = runLintCheck(projectPath, thresholds.lintCommand, ctx);
-	const typedoc = runTypedocCheck(projectPath, thresholds.typedocCommand, ctx);
+	const lint = runLintCheck(projectPath, thresholds.lintCommand, log, ctx);
+	const typedoc = runTypedocCheck(projectPath, thresholds.typedocCommand, log, ctx);
 
 	const runResults = ctx ? ctx.getResults() : [];
 	const findings = analyzeReports(snapshots, thresholds, lint, typedoc, json, detailed, projectPath, runResults);
@@ -293,10 +292,10 @@ export function generateSummaryReport(projectPath: string, ctx?: PipelineContext
 	const risks = categorizeFindingsBy(findings, "risk").length;
 	const improvements = categorizeFindingsBy(findings, "improvement").length;
 	const positives = categorizeFindingsBy(findings, "positive").length;
-	log(`\n  ${GREEN}✓${RESET} Project Summary: ${risks} risk(s), ${improvements} improvement(s), ${positives} strength(s)`);
-	log(`    ${stablePath}`);
-	log(`    ${timestampedPath}`);
-	log(`    ${jsonPath}\n`);
+	ctx?.log(`Project Summary: ${risks} risk(s), ${improvements} improvement(s), ${positives} strength(s)`);
+	ctx?.log(`  ${stablePath}`);
+	ctx?.log(`  ${timestampedPath}`);
+	ctx?.log(`  ${jsonPath}`);
 
 	const warnings = collectOutputWarnings(snapshots, risks, lint, typedoc, runResults);
 

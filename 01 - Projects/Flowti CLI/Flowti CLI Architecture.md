@@ -2,7 +2,7 @@
 type: Architecture
 domain: CLI
 title: Flowti CLI — Architecture Document
-version: 19
+version: 20
 created: 2026-03-07
 updated: 2026-03-10
 status: living-document
@@ -18,7 +18,7 @@ status: living-document
 
 The Flowti CLI is a **definition-driven project orchestrator** that ships as a self-contained Node.js binary. It manages multi-project development workflows — scaffolding, building, testing, reviewing, publishing, and reporting — from a single interactive menu or via non-interactive commands for AI agent tool use.
 
-**Scale**: 258 source files, 146 test files (2,572 tests, 141 suites), 18 domain modules, 29 infrastructure modules, 15 controllers, 30 UI view files. Zero production dependencies — runs on Node.js built-ins only.
+**Scale**: 281 source files, 152 test files (2,592 tests, 147 suites), 18 domain modules, 29 infrastructure modules, 15 controllers, 30 UI view files. Zero production dependencies — runs on Node.js built-ins only.
 
 ---
 
@@ -212,10 +212,29 @@ flowti.cmd
 │  All I/O behind abstractions: IFileSystem, IShell, IProcess  │
 │  All time behind clock abstraction                           │
 │  request-response.ts: CliRequest, CliResponse, adapt()       │
+│                                                              │
+│  ┌─────────────────────┐ ┌──────────────────┐                │
+│  │ pipeline/           │ │ event-bus.ts      │                │
+│  │ pipeline-runner.ts  │ │ cli-events.ts     │                │
+│  │ pipeline-context.ts │ │ (ICliBus factory) │                │
+│  │ pipeline-types.ts   │ │                   │                │
+│  └─────────────────────┘ └──────────────────┘                │
+└──────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────┐
+│                    Scripts Layer (4 files)                    │
+│                                                              │
+│  src/scripts/ — standalone CLI entry points with main()      │
+│  ┌──────────────┐ ┌───────────────┐ ┌──────────────────────┐ │
+│  │ cli-reload   │ │fix-frontmatter│ │ generate-test-data   │ │
+│  └──────────────┘ └───────────────┘ └──────────────────────┘ │
+│  ┌──────────────┐                                            │
+│  │ run-analysis │  May import from infrastructure/ directly  │
+│  └──────────────┘                                            │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-**Dependency rule**: Controller → Domain → Infrastructure. Controller → UI (renderers). Never Infrastructure → Domain. Never Domain → Domain (cross-domain). `main.ts` is the sole composition root.
+**Dependency rule**: Controller → Domain → Infrastructure. Controller → UI (renderers). Never Infrastructure → Domain. Never Domain → Domain (cross-domain). Scripts → Infrastructure + Domain (they are entry points, not domain logic). `main.ts` is the sole composition root.
 
 ### 2.5 Non-Interactive Command Dispatch (MVC)
 
@@ -712,7 +731,81 @@ export const commands = Object.fromEntries(
 
 ---
 
-### 4.19 Target Architecture: Future State
+### 4.19 Domain Layer Purification — Injectable Log Pattern (Phase 7.6) — DONE
+
+Strict enforcement of the DDD boundary rule: **domain files must never import `logger.js` or `ui.js`**. All 24 violating domain files were purified using an injectable callback pattern instead of a full EventBus (deferred to Phase 8).
+
+**Pattern — injectable `log` callback:**
+
+Domain functions that need to emit progress messages accept an optional `log` parameter:
+
+```typescript
+// Generator signature — extracts log from pipeline context
+export function generateTestReport(
+  projectPath: string,
+  ctx?: PipelineContext,
+): GeneratorOutput {
+  const log = (msg: string) => ctx?.log(msg);
+  // ... pure logic, uses log() for progress
+}
+```
+
+**Pipeline context wiring:**
+
+```
+Controller (passes log from logger.js)
+  → report-runner.ts (RunOptions.log)
+    → report-pipeline.ts (options.log)
+      → pipeline-context.ts (ctx.log)
+        → generator functions (ctx?.log)
+```
+
+**New architectural layer — `src/scripts/`:**
+
+Standalone CLI scripts with `main()` entry points are **not domain logic** — they are executable entry points that wire infrastructure to domain services. Moved out of domain:
+
+| Original Location | New Location |
+|---|---|
+| `domain/devtools/cli-reload.ts` | `scripts/cli-reload.ts` |
+| `domain/devtools/fix-frontmatter.ts` | `scripts/fix-frontmatter.ts` |
+| `domain/devtools/generate-test-data.ts` | `scripts/generate-test-data.ts` |
+| `domain/reports/cli/run-analysis.ts` | `scripts/run-analysis.ts` |
+
+Scripts are allowed to import from `infrastructure/` (they sit outside the domain layer).
+
+**E2E domain cleanup:**
+
+- `e2e-interactive.ts` moved from `domain/e2e/` to `ui/e2e/` (it's a view-controller with menus and prompts)
+- `journey-test-runner.ts` default logger changed from `console.log` to no-op `() => {}`
+- Pipeline step files (`build-step.ts`, `session-note-step.ts`, `report-step.ts`) use `ctx.log()` instead of imported `log()`
+
+**EventBus infrastructure (created, not yet wired):**
+
+- `infrastructure/event-bus.ts` — synchronous, factory-based `createCliBus()`, error-isolated handlers
+- `infrastructure/cli-events.ts` — composed `CliEventMap` from domain event maps
+- `domain/reports/report-events.ts` — `ReportEventMap` (progress, warning, written)
+- `domain/e2e/e2e-events.ts` — `E2EEventMap` (step progress, prereq result, build progress, teardown, session)
+- `ui/cli-event-renderer.ts` — ANSI renderer that subscribes to bus events
+
+The EventBus is ready for Phase 8 when the Plugin integration requires cross-domain communication. Currently all progress flows through the simpler injectable `log` callback.
+
+**Verification:**
+- `grep -rl "from.*infrastructure/logger" src/domain/` → zero files
+- `grep -rl "from.*infrastructure/ui" src/domain/` → zero files
+- `grep -rl "console\.log" src/domain/` → zero files (except template strings in `make/templates/`)
+
+**Updated layer diagram** (§2.4): The layer architecture now includes 5 layers:
+
+```
+Entry Point (main.ts)
+  → Controller Layer (15 controllers)
+    → UI / View Layer (30 display renderers)
+      → Domain Layer (18 modules — pure, no I/O, no presentation)
+        → Infrastructure Layer (29 modules + pipeline/ + event-bus)
+Scripts Layer (4 standalone scripts — outside domain, uses infrastructure directly)
+```
+
+### 4.20 Target Architecture: Future State
 
 The target architecture evolves the CLI from a **tool orchestrator** into a **project intelligence platform**. The core principles (self-contained binary, definition-driven, zero dependencies, progressive opt-in) remain unchanged. The evolution adds three architectural capabilities:
 

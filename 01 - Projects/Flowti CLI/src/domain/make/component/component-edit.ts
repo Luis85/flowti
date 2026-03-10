@@ -11,11 +11,10 @@
 import { paths } from "../../../infrastructure/paths.js";
 import { disk } from "../../../infrastructure/filesystem.js";
 import { splitFrontmatter, joinFrontmatter } from "../../../infrastructure/frontmatter.js";
-import { RESET, DIM, GREEN, RED } from "../../../infrastructure/ui.js";
-import { log } from "../../../infrastructure/logger.js";
 import { proc } from "../../../infrastructure/proc.js";
 import { toKebab } from "../naming.js";
 import type { CommandHandler } from "../../../infrastructure/types.js";
+import { renderError, renderSuccess } from "../../../ui/common-renderers.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -36,13 +35,15 @@ function editComponentCommand(): CommandHandler {
 	return (flags, _r, _c, project) => {
 		const name = flags.name;
 		if (!name || typeof name !== "string") {
-			log(`\n  ${RED}--name is required.${RESET}`);
-			log(`  ${DIM}Usage: flowti edit:component --name=MyComponent --prop.status=active${RESET}\n`);
+			renderError({
+				error: "--name is required.",
+				hint: "Usage: flowti edit:component --name=MyComponent --prop.status=active",
+			});
 			return proc.exit(1);
 		}
 
 		if (!project) {
-			log(`\n  ${RED}No project selected.${RESET}\n`);
+			renderError({ error: "No project selected." });
 			return proc.exit(1);
 		}
 
@@ -50,15 +51,19 @@ function editComponentCommand(): CommandHandler {
 		const docPath = paths.join(project.path, "docs", "components", `${kebab}.md`);
 
 		if (!disk.existsSync(docPath)) {
-			log(`\n  ${RED}Component not found:${RESET} ${kebab}`);
-			log(`  ${DIM}Expected file: ${docPath}${RESET}\n`);
+			renderError({
+				error: `Component not found: ${kebab}`,
+				hint: `Expected file: ${docPath}`,
+			});
 			return proc.exit(1);
 		}
 
 		const propUpdates = extractPropFlags(flags);
 		if (Object.keys(propUpdates).length === 0) {
-			log(`\n  ${RED}No properties specified.${RESET}`);
-			log(`  ${DIM}Use --prop.key=value to update properties.${RESET}\n`);
+			renderError({
+				error: "No properties specified.",
+				hint: "Use --prop.key=value to update properties.",
+			});
 			return proc.exit(1);
 		}
 
@@ -66,7 +71,7 @@ function editComponentCommand(): CommandHandler {
 		const parsed = splitFrontmatter(content);
 
 		if (!parsed) {
-			log(`\n  ${RED}No frontmatter found in ${kebab}.md${RESET}\n`);
+			renderError({ error: `No frontmatter found in ${kebab}.md` });
 			return proc.exit(1);
 		}
 
@@ -79,7 +84,7 @@ function editComponentCommand(): CommandHandler {
 		disk.writeFileSync(docPath, updated, "utf-8");
 
 		const propList = Object.entries(propUpdates).map(([k, v]) => `${k}=${v}`).join(", ");
-		log(`\n  ${GREEN}✓${RESET} Updated ${kebab}: ${propList}\n`);
+		renderSuccess({ message: `Updated ${kebab}: ${propList}` });
 	};
 }
 

@@ -55,7 +55,7 @@ export async function runPipeline(
 	options: PipelineOptions = {},
 	deps: PipelineDeps = DEFAULT_DEPS,
 ): Promise<PipelineResult> {
-	const ctx = createPipelineContext(projectPath);
+	const ctx = createPipelineContext(projectPath, deps.log);
 	const runStart = deps.now();
 	const runLabel = options.label ?? "Pipeline Run";
 

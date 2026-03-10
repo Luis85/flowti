@@ -9,8 +9,6 @@
 
 import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
-import { log } from "../../infrastructure/logger.js";
-import { DIM, RESET, GREEN, CYAN, YELLOW } from "../../infrastructure/ui.js";
 import type { ProjectContext, CommandHandler } from "../../infrastructure/types.js";
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -154,28 +152,22 @@ export function generateWorkflowYaml(config: CiConfig): string {
 	return lines.join("\n");
 }
 
-/** Display a preview of the generated workflow YAML. */
-export function displayWorkflowPreview(yaml: string): void {
-	log(`\n  ${CYAN}Generated CI workflow:${RESET}\n`);
-	for (const line of yaml.split("\n")) {
-		log(`  ${DIM}│${RESET} ${line}`);
-	}
-	log();
+// ── Data models ─────────────────────────────────────────────────────
+
+export interface CiResult {
+	yaml: string;
+	dryRun: boolean;
+	outputPath?: string;
 }
 
 // ── Command handler ──────────────────────────────────────────────────
 
-export const handleProjectCi: CommandHandler = (_flags, _rawArgs, _command, project) => {
-	if (!project) return;
-
-	const dryRun = _flags["dry-run"] === true;
+export function runProjectCi(project: ProjectContext, dryRun: boolean): CiResult {
 	const ciConfig = extractCiConfig(project);
 	const yaml = generateWorkflowYaml(ciConfig);
 
 	if (dryRun) {
-		displayWorkflowPreview(yaml);
-		log(`  ${YELLOW}Dry run — no files written.${RESET}\n`);
-		return;
+		return { yaml, dryRun: true };
 	}
 
 	// Write .github/workflows/ci.yml relative to the project path
@@ -187,6 +179,12 @@ export const handleProjectCi: CommandHandler = (_flags, _rawArgs, _command, proj
 	const outputPath = paths.join(workflowsDir, "ci.yml");
 	disk.writeFileSync(outputPath, yaml, "utf-8");
 
-	displayWorkflowPreview(yaml);
-	log(`  ${GREEN}Wrote${RESET} ${DIM}${outputPath}${RESET}\n`);
+	return { yaml, dryRun: false, outputPath };
+}
+
+export const handleProjectCi: CommandHandler = (_flags, _rawArgs, _command, project) => {
+	if (!project) return;
+	// Delegate to controller layer for display — kept for backward compatibility
+	const dryRun = _flags["dry-run"] === true;
+	runProjectCi(project, dryRun);
 };

@@ -12,7 +12,7 @@ import { paths } from "../infrastructure/paths.js";
 import { listEvents, createEventFile, parseCommaSeparated } from "../domain/events/event-catalog.js";
 import type { EventDefinition } from "../domain/events/event-catalog.js";
 import { parsePayloadFlag } from "../domain/events/event-payload.js";
-import { versionCommands } from "../domain/events/event-versioning.js";
+import { versionEvent } from "../domain/events/event-versioning.js";
 import { saveEventFlowDoc } from "../domain/events/event-flow.js";
 import { loadEventContracts, validateContracts, generateContractsJson, validatePayload, findContract } from "../domain/events/event-contracts.js";
 import { generateEventTypes } from "../domain/events/event-codegen.js";
@@ -22,11 +22,13 @@ import {
 	renderEventList, renderEventFlowCreated, renderEventAdded,
 	renderContractValidation, renderPayloadValidation,
 	renderContractsGenerated, renderCodegenGenerated, renderEmpty,
+	renderVersionEvent,
 } from "../ui/events-display.js";
 import type {
 	EventListModel, EventFlowCreatedModel, EventAddedModel,
 	ContractValidationModel, PayloadValidationModel,
 	ContractsGeneratedModel, CodegenGeneratedModel, EmptyModel,
+	VersionEventModel,
 } from "../ui/events-display.js";
 
 // ── Flag helpers ────────────────────────────────────────────────────
@@ -173,20 +175,39 @@ const actions: Record<string, ControllerAction> = {
 			renderCodegenGenerated,
 		);
 	},
+
+	"events:version": (req) => {
+		if (!req.project) return;
+		const name = req.flags.name;
+		const version = req.flags.version;
+		const migration = req.flags.migration;
+
+		if (!name || typeof name !== "string" || !version || typeof version !== "string") {
+			return dataResponse<ErrorModel>(
+				{ error: "Missing required flags.", hint: 'Usage: flowti events:version --name="user.created" --version="2.0.0" --migration="Added email field"' },
+				renderError,
+			);
+		}
+
+		const migrationNotes = typeof migration === "string" ? migration : "";
+		const result = versionEvent(req.project.path, name, version, migrationNotes);
+
+		if (!result.success) {
+			return dataResponse<ErrorModel>({ error: result.error ?? "Version update failed." }, renderError);
+		}
+
+		const model: VersionEventModel = {
+			success: true,
+			name: result.name,
+			newVersion: result.newVersion,
+			previousVersion: result.previousVersion,
+		};
+		return dataResponse(model, renderVersionEvent);
+	},
 };
-
-// ── Merge version commands ──────────────────────────────────────────
-
-// Version commands use legacy signature — wrap them via adapt
-const adaptedVersionCommands = Object.fromEntries(
-	Object.entries(versionCommands).map(([key, handler]) => [key, handler]),
-);
 
 // ── Adapted commands ────────────────────────────────────────────────
 
-export const commands: Record<string, CommandHandler> = {
-	...Object.fromEntries(
-		Object.entries(actions).map(([key, action]) => [key, adapt(action)]),
-	),
-	...adaptedVersionCommands,
-};
+export const commands: Record<string, CommandHandler> = Object.fromEntries(
+	Object.entries(actions).map(([key, action]) => [key, adapt(action)]),
+);

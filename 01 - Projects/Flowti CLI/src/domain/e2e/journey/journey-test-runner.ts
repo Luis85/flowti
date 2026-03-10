@@ -26,7 +26,6 @@ import { disk } from "../../../infrastructure/filesystem.js";
 import { paths } from "../../../infrastructure/paths.js";
 import { proc } from "../../../infrastructure/proc.js";
 import { shell } from "../../../infrastructure/shell.js";
-import { log } from "../../../infrastructure/logger.js";
 import type {
 	JourneyDefinition,
 	JourneyStep,
@@ -42,7 +41,7 @@ import type { EnvironmentRegistry } from "./journey-environment.js";
 
 // ── Default deps (using infrastructure wrappers) ─────────────────────
 
-export function createDefaultDeps(): ToolDeps {
+export function createDefaultDeps(logger: (msg: string) => void = () => {}): ToolDeps {
 	return {
 		exec(cmd, execOpts) {
 			return shell.runCaptureDetailed(cmd, {
@@ -58,7 +57,7 @@ export function createDefaultDeps(): ToolDeps {
 		},
 		exists: (filePath) => disk.existsSync(filePath),
 		mkdir: (dirPath) => disk.mkdirSync(dirPath, { recursive: true }),
-		log: (msg) => log(msg),
+		log: (msg) => logger(msg),
 		sleep: (waitMs) => new Promise((resolve) => setTimeout(resolve, waitMs)),
 	};
 }

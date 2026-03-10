@@ -5,7 +5,6 @@
 import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
 import { shell } from "../../infrastructure/shell.js";
-import { log } from "../../infrastructure/logger.js";
 import { input } from "../../infrastructure/input.js";
 import type { E2EPaths } from "./e2e-paths.js";
 import type { ReportSource, AuditFrontmatters } from "./e2e-types.js";
@@ -146,26 +145,26 @@ function buildAuditSourcesSection(sources: Record<string, ReportSource>): string
 
 // ── Write & open ────────────────────────────────────────────────────
 
-function writeAndOpenAudit(auditName: string, content: string, e2e: E2EPaths): void {
+function writeAndOpenAudit(auditName: string, content: string, e2e: E2EPaths, log: (msg: string) => void = () => {}): void {
 	const testAuditDir = paths.join(e2e.testVault, "03 - Resources", "Reviews", "Audits", auditName);
 	const testAuditPath = paths.join(testAuditDir, `${auditName}.md`);
 	disk.mkdirSync(testAuditDir, { recursive: true });
 	disk.writeFileSync(testAuditPath, content, "utf-8");
-	log(`  \x1b[32m✓\x1b[0m Audit written: ${testAuditPath}`);
+	log(`  ✓ Audit written: ${testAuditPath}`);
 
 	const devAuditDir = paths.join(e2e.projectRoot, "docs", "reports", "e2e", "audits", auditName);
 	const devAuditPath = paths.join(devAuditDir, `${auditName}.md`);
 	disk.mkdirSync(devAuditDir, { recursive: true });
 	disk.writeFileSync(devAuditPath, content, "utf-8");
-	log(`  \x1b[32m✓\x1b[0m Audit mirrored: ${devAuditPath}`);
+	log(`  ✓ Audit mirrored: ${devAuditPath}`);
 
 	const openResult = shell.runSilent(
 		`obsidian vault=${e2e.vaultName} open "03 - Resources/Reviews/Audits/${auditName}/${auditName}.md"`,
 	);
 	if (openResult !== null) {
-		log("  \x1b[32m✓\x1b[0m Audit opened in Obsidian\n");
+		log("  ✓ Audit opened in Obsidian");
 	} else {
-		log("  \x1b[33m○\x1b[0m Could not open audit in Obsidian\n");
+		log("  ○ Could not open audit in Obsidian");
 	}
 }
 
@@ -195,11 +194,11 @@ function determineAuditStatus(fm: AuditFrontmatters): { overallStatus: string; c
 
 // ── Public: generate audit ──────────────────────────────────────────
 
-export async function generateAudit(e2e: E2EPaths): Promise<void> {
+export async function generateAudit(e2e: E2EPaths, log: (msg: string) => void = () => {}): Promise<void> {
 	const defaultName = new Date().toISOString().slice(0, 10) + "-audit";
 	const auditName = await input.ask("Audit name", defaultName);
 
-	log(`\n  Generating audit: ${auditName}...\n`);
+	log(`Generating audit: ${auditName}...`);
 
 	const sources = collectReportSources(e2e);
 	const fm = extractAuditFrontmatters(sources);
@@ -221,5 +220,5 @@ export async function generateAudit(e2e: E2EPaths): Promise<void> {
 		...buildAuditSourcesSection(sources),
 	];
 
-	writeAndOpenAudit(auditName, lines.join("\n"), e2e);
+	writeAndOpenAudit(auditName, lines.join("\n"), e2e, log);
 }

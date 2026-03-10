@@ -4,8 +4,6 @@
  * Extracted from fix-frontmatter.ts for testability.
  */
 
-import { log } from "../../infrastructure/logger.js";
-
 /**
  * Parse YAML frontmatter from a markdown file.
  * Returns { frontmatter: string, body: string, fields: Record<string, string> }
@@ -44,21 +42,19 @@ export function replaceField(content: string, fieldName: string, newValue: strin
 }
 
 /**
- * Apply a single field rule to the content, returning updated content and whether it changed.
+ * Apply a single field rule to the content, returning updated content, whether it changed, and an optional log message.
  */
 export function applyFieldRule(
 	content: string, filePath: string,
 	fields: Record<string, string>,
 	rule: { field: string; value: string; action: string },
-): { content: string; changed: boolean } {
+): { content: string; changed: boolean; message?: string } {
 	const { field, value, action } = rule;
 	if (action === "add" && !fields[field]) {
-		log(`  ADD ${field}: ${value} → ${filePath}`);
-		return { content: insertField(content, field, value), changed: true };
+		return { content: insertField(content, field, value), changed: true, message: `  ADD ${field}: ${value} → ${filePath}` };
 	}
 	if (action === "replace" && fields[field] !== value) {
-		log(`  REPLACE ${field}: ${fields[field]} → ${value} in ${filePath}`);
-		return { content: replaceField(content, field, value), changed: true };
+		return { content: replaceField(content, field, value), changed: true, message: `  REPLACE ${field}: ${fields[field]} → ${value} in ${filePath}` };
 	}
 	return { content, changed: false };
 }

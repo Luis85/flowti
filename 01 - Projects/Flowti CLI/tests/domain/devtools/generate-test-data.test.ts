@@ -63,7 +63,7 @@ describe("generate-test-data", () => {
 	it("generates 8 CSV files in default output directory", async () => {
 		const { fs } = setupMocks();
 
-		await import("../../../src/domain/devtools/generate-test-data.js");
+		await import("../../../src/scripts/generate-test-data.js");
 
 		const files = [...fs.files.keys()];
 		const csvFiles = files.filter(f => f.endsWith(".csv"));
@@ -73,7 +73,7 @@ describe("generate-test-data", () => {
 	it("generates expected file names", async () => {
 		const { fs } = setupMocks();
 
-		await import("../../../src/domain/devtools/generate-test-data.js");
+		await import("../../../src/scripts/generate-test-data.js");
 
 		const files = [...fs.files.keys()];
 		const basenames = files.filter(f => f.endsWith(".csv")).map(f => f.split("/").pop());
@@ -90,7 +90,7 @@ describe("generate-test-data", () => {
 	it("generates CSVs with headers", async () => {
 		const { fs } = setupMocks();
 
-		await import("../../../src/domain/devtools/generate-test-data.js");
+		await import("../../../src/scripts/generate-test-data.js");
 
 		const files = [...fs.files.entries()];
 		const customers = files.find(([k]) => k.includes("Customers.csv"));
@@ -109,7 +109,7 @@ describe("generate-test-data", () => {
 	it("generates correct number of static reference rows", async () => {
 		const { fs } = setupMocks();
 
-		await import("../../../src/domain/devtools/generate-test-data.js");
+		await import("../../../src/scripts/generate-test-data.js");
 
 		const files = [...fs.files.entries()];
 		const customers = files.find(([k]) => k.includes("Customers.csv"));
@@ -128,7 +128,7 @@ describe("generate-test-data", () => {
 	it("dry-run mode does not write files", async () => {
 		const { fs } = setupMocks({ dryRun: true });
 
-		await import("../../../src/domain/devtools/generate-test-data.js");
+		await import("../../../src/scripts/generate-test-data.js");
 
 		const files = [...fs.files.keys()];
 		const csvFiles = files.filter(f => f.endsWith(".csv"));
@@ -138,7 +138,7 @@ describe("generate-test-data", () => {
 	it("dry-run logs row counts without writing", async () => {
 		setupMocks({ dryRun: true });
 
-		await import("../../../src/domain/devtools/generate-test-data.js");
+		await import("../../../src/scripts/generate-test-data.js");
 
 		const output = mockLog.mock.calls.flat().join(" ");
 		expect(output).toContain("dry run");
@@ -148,7 +148,7 @@ describe("generate-test-data", () => {
 	it("creates output directory if it does not exist", async () => {
 		const { fs } = setupMocks();
 
-		await import("../../../src/domain/devtools/generate-test-data.js");
+		await import("../../../src/scripts/generate-test-data.js");
 
 		// The default output dir should have been created
 		expect(fs.dirs.size).toBeGreaterThan(0);
@@ -157,7 +157,7 @@ describe("generate-test-data", () => {
 	it("uses custom output directory via --out flag", async () => {
 		const { fs } = setupMocks({ argv: ["--out", "/custom/output"] });
 
-		await import("../../../src/domain/devtools/generate-test-data.js");
+		await import("../../../src/scripts/generate-test-data.js");
 
 		const files = [...fs.files.keys()];
 		const csvFiles = files.filter(f => f.endsWith(".csv"));
@@ -167,13 +167,13 @@ describe("generate-test-data", () => {
 
 	it("uses custom seed via --seed flag for reproducibility", async () => {
 		const { fs: fs1 } = setupMocks({ argv: ["--seed", "100"] });
-		await import("../../../src/domain/devtools/generate-test-data.js");
+		await import("../../../src/scripts/generate-test-data.js");
 		const sales1 = [...fs1.files.entries()].find(([k]) => k.includes("Sales.csv"));
 
 		vi.resetModules();
 
 		const { fs: fs2 } = setupMocks({ argv: ["--seed", "100"] });
-		await import("../../../src/domain/devtools/generate-test-data.js");
+		await import("../../../src/scripts/generate-test-data.js");
 		const sales2 = [...fs2.files.entries()].find(([k]) => k.includes("Sales.csv"));
 
 		expect(sales1![1]).toBe(sales2![1]);
@@ -181,13 +181,13 @@ describe("generate-test-data", () => {
 
 	it("different seeds produce different output", async () => {
 		const { fs: fs1 } = setupMocks({ argv: ["--seed", "100"] });
-		await import("../../../src/domain/devtools/generate-test-data.js");
+		await import("../../../src/scripts/generate-test-data.js");
 		const sales1 = [...fs1.files.entries()].find(([k]) => k.includes("Sales.csv"));
 
 		vi.resetModules();
 
 		const { fs: fs2 } = setupMocks({ argv: ["--seed", "999"] });
-		await import("../../../src/domain/devtools/generate-test-data.js");
+		await import("../../../src/scripts/generate-test-data.js");
 		const sales2 = [...fs2.files.entries()].find(([k]) => k.includes("Sales.csv"));
 
 		expect(sales1![1]).not.toBe(sales2![1]);
@@ -196,7 +196,7 @@ describe("generate-test-data", () => {
 	it("uses custom date range via --from and --to flags", async () => {
 		const { fs } = setupMocks({ argv: ["--from", "2025-01", "--to", "2025-03"] });
 
-		await import("../../../src/domain/devtools/generate-test-data.js");
+		await import("../../../src/scripts/generate-test-data.js");
 
 		// Budget should have exactly 3 months * 3 categories = 9 rows
 		const budget = [...fs.files.entries()].find(([k]) => k.includes("Budget.csv"));
@@ -209,7 +209,7 @@ describe("generate-test-data", () => {
 		const { proc: p } = setupMocks({ argv: ["--help"] });
 
 		try {
-			await import("../../../src/domain/devtools/generate-test-data.js");
+			await import("../../../src/scripts/generate-test-data.js");
 		} catch (e) {
 			// MockExitError is expected
 			expect(e).toBeInstanceOf(MockExitError);
@@ -225,7 +225,7 @@ describe("generate-test-data", () => {
 	it("logs total row count summary", async () => {
 		setupMocks();
 
-		await import("../../../src/domain/devtools/generate-test-data.js");
+		await import("../../../src/scripts/generate-test-data.js");
 
 		const output = mockLog.mock.calls.flat().join(" ");
 		expect(output).toContain("Total:");
@@ -235,7 +235,7 @@ describe("generate-test-data", () => {
 	it("Budget CSV contains category data", async () => {
 		const { fs } = setupMocks();
 
-		await import("../../../src/domain/devtools/generate-test-data.js");
+		await import("../../../src/scripts/generate-test-data.js");
 
 		const budget = [...fs.files.entries()].find(([k]) => k.includes("Budget.csv"));
 		expect(budget![1]).toContain("Electronics");
@@ -246,7 +246,7 @@ describe("generate-test-data", () => {
 	it("CustomerOrders CSV contains order IDs", async () => {
 		const { fs } = setupMocks();
 
-		await import("../../../src/domain/devtools/generate-test-data.js");
+		await import("../../../src/scripts/generate-test-data.js");
 
 		const orders = [...fs.files.entries()].find(([k]) => k.includes("CustomerOrders.csv"));
 		expect(orders![1]).toContain("ORD-");
@@ -255,7 +255,7 @@ describe("generate-test-data", () => {
 	it("PurchaseOrders CSV contains PO IDs and statuses", async () => {
 		const { fs } = setupMocks();
 
-		await import("../../../src/domain/devtools/generate-test-data.js");
+		await import("../../../src/scripts/generate-test-data.js");
 
 		const pos = [...fs.files.entries()].find(([k]) => k.includes("PurchaseOrders.csv"));
 		expect(pos![1]).toContain("PO-");
@@ -268,7 +268,7 @@ describe("generate-test-data", () => {
 	it("Inventory CSV contains item IDs and supplier IDs", async () => {
 		const { fs } = setupMocks();
 
-		await import("../../../src/domain/devtools/generate-test-data.js");
+		await import("../../../src/scripts/generate-test-data.js");
 
 		const inv = [...fs.files.entries()].find(([k]) => k.includes("Inventory.csv"));
 		expect(inv![1]).toContain("ITM-");
@@ -278,7 +278,7 @@ describe("generate-test-data", () => {
 	it("Sales CSV contains item and supplier references", async () => {
 		const { fs } = setupMocks();
 
-		await import("../../../src/domain/devtools/generate-test-data.js");
+		await import("../../../src/scripts/generate-test-data.js");
 
 		const sales = [...fs.files.entries()].find(([k]) => k.includes("Sales.csv"));
 		expect(sales![1]).toContain("ITM-");
@@ -288,7 +288,7 @@ describe("generate-test-data", () => {
 	it("Inventory has one row per item per month", async () => {
 		const { fs } = setupMocks({ argv: ["--from", "2025-01", "--to", "2025-02"] });
 
-		await import("../../../src/domain/devtools/generate-test-data.js");
+		await import("../../../src/scripts/generate-test-data.js");
 
 		const inv = [...fs.files.entries()].find(([k]) => k.includes("Inventory.csv"));
 		const rows = inv![1].trimEnd().split("\n").length - 1;
@@ -299,7 +299,7 @@ describe("generate-test-data", () => {
 	it("Budget has one row per category per month", async () => {
 		const { fs } = setupMocks({ argv: ["--from", "2025-06", "--to", "2025-06"] });
 
-		await import("../../../src/domain/devtools/generate-test-data.js");
+		await import("../../../src/scripts/generate-test-data.js");
 
 		const budget = [...fs.files.entries()].find(([k]) => k.includes("Budget.csv"));
 		const rows = budget![1].trimEnd().split("\n").length - 1;

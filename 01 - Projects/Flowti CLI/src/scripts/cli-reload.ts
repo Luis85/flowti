@@ -9,11 +9,14 @@
  * Exit codes:
  *   0 — reload successful or CLI not available (non-fatal)
  *   1 — unexpected error
+ *
+ * NOTE: This is a standalone CLI script. It uses log()/warn() directly
+ * for console output. Domain modules should not import from this file.
  */
 
-import { shell } from "../../infrastructure/shell.js";
-import { log, warn } from "../../infrastructure/logger.js";
-import { proc } from "../../infrastructure/proc.js";
+import { shell } from "../infrastructure/shell.js";
+import { log, warn } from "../infrastructure/logger.js";
+import { proc } from "../infrastructure/proc.js";
 
 const PLUGIN_ID = "flowti-ibde";
 

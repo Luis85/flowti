@@ -8,8 +8,6 @@
 import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
 import { clock } from "../../infrastructure/clock.js";
-import { RESET, DIM, GREEN, RED } from "../../infrastructure/ui.js";
-import { log } from "../../infrastructure/logger.js";
 import type { ProjectContext } from "../../infrastructure/types.js";
 import type { Document } from "../../infrastructure/document.js";
 import type { EventDefinition } from "./event-catalog.js";
@@ -97,17 +95,24 @@ function appendVersionHistory(
 	return content + `\n## Version History\n\n${entry}\n`;
 }
 
+export interface VersionEventResult {
+	success: boolean;
+	name: string;
+	newVersion: string;
+	previousVersion: string;
+	error?: string;
+}
+
 /** Execute the events:version command. */
 export function versionEvent(
 	projectPath: string,
 	name: string,
 	newVersion: string,
 	migrationNotes: string,
-): boolean {
+): VersionEventResult {
 	const dir = eventsDir(projectPath);
 	if (!disk.existsSync(dir)) {
-		log(`\n  ${RED}No events directory found.${RESET}\n`);
-		return false;
+		return { success: false, name, newVersion, previousVersion: "", error: "No events directory found." };
 	}
 
 	// Find the event file by scanning frontmatter
@@ -128,8 +133,7 @@ export function versionEvent(
 	}
 
 	if (!targetFile) {
-		log(`\n  ${RED}Event not found:${RESET} ${name}\n`);
-		return false;
+		return { success: false, name, newVersion, previousVersion, error: `Event not found: ${name}` };
 	}
 
 	let content = disk.readFileSync(targetFile, "utf-8");
@@ -137,27 +141,23 @@ export function versionEvent(
 	content = appendVersionHistory(content, newVersion, previousVersion, migrationNotes);
 	disk.writeFileSync(targetFile, content, "utf-8");
 
-	log(`\n  ${GREEN}✓${RESET} Updated ${name} to v${newVersion}`);
-	log(`  ${DIM}Previous version: v${previousVersion}${RESET}\n`);
-	return true;
+	return { success: true, name, newVersion, previousVersion };
 }
 
-// ── Non-interactive command ────────────────────────────────────────
+// ── Non-interactive command (legacy signature — will be moved to controller) ──
 
-export const versionCommands: Record<string, (flags: Record<string, string | boolean>, rawArgs: string[], command?: string, project?: ProjectContext) => void> = {
+export const versionCommands: Record<string, (flags: Record<string, string | boolean>, rawArgs: string[], command?: string, project?: ProjectContext) => VersionEventResult | undefined> = {
 	"events:version": (flags, _rawArgs, _command, project) => {
-		if (!project) return;
+		if (!project) return undefined;
 		const name = flags.name;
 		const version = flags.version;
 		const migration = flags.migration;
 
 		if (!name || typeof name !== "string" || !version || typeof version !== "string") {
-			log(`\n  ${RED}Missing required flags.${RESET}`);
-			log(`  ${DIM}Usage: flowti events:version --name="user.created" --version="2.0.0" --migration="Added email field"${RESET}\n`);
-			return;
+			return { success: false, name: "", newVersion: "", previousVersion: "", error: "Missing required flags. Usage: flowti events:version --name=\"user.created\" --version=\"2.0.0\" --migration=\"Added email field\"" };
 		}
 
 		const migrationNotes = typeof migration === "string" ? migration : "";
-		versionEvent(project.path, name, version, migrationNotes);
+		return versionEvent(project.path, name, version, migrationNotes);
 	},
 };

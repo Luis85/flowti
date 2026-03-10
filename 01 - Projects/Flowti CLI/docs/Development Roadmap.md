@@ -2,7 +2,7 @@
 type: Roadmap
 domain: CLI
 title: Flowti CLI — Development Roadmap
-version: 2
+version: 3
 created: 2026-03-09
 updated: 2026-03-10
 status: active
@@ -20,25 +20,28 @@ plugin_integration: "[[Plugin Integration Analysis]]"
 
 ## Current State (2026-03-10)
 
-| Metric | Value | Δ from v1 |
+| Metric | Value | Δ from v2 |
 |--------|-------|-----------|
-| Source files | 258 | +87 |
-| Test files | 146 | +28 |
-| Tests passing | 2,572 (141 suites) | +311 |
-| Source LOC | ~62,022 | +38,759 |
+| Source files | 281 | +23 |
+| Test files | 152 | +6 |
+| Tests passing | 2,592 (147 suites) | +20 |
+| Source LOC | ~62,000 | — |
 | Domains | 18 | — |
-| Controllers | 15 | NEW |
-| UI view files | 30 | NEW |
-| Infrastructure modules | 29 | +8 |
+| Controllers | 15 | — |
+| UI view files | 30 | — |
+| Infrastructure modules | 29 | — |
 | Non-interactive commands | 84 | — |
 | Dependencies | 0 (runtime) | — |
 | Feature Requests (PRD) | 22 (FR-01 – FR-22) | — |
 | Improvements (PRD) | 45 (IMP-01 – IMP-45) | — |
-| Completed FRs | 22/22 | +2 |
-| Completed IMPs | 30/45 (67%) | +10 |
-| E2E environment providers | 5 (cli, typescript, obsidian-vault, obsidian-plugin, webapp) | NEW |
-| Pipeline domains | 2 (reports, docs) | NEW |
-| Journey base tools | 9 | NEW |
+| Completed FRs | 22/22 | — |
+| Completed IMPs | 30/45 (67%) | — |
+| E2E environment providers | 5 (cli, typescript, obsidian-vault, obsidian-plugin, webapp) | — |
+| Pipeline domains | 2 (reports, docs) | — |
+| Journey base tools | 9 | — |
+| Scripts layer | 4 standalone scripts | NEW |
+| EventBus infrastructure | created, not yet wired | NEW |
+| Domain layer violations | 0 (was 24) | RESOLVED |
 
 ---
 
@@ -404,6 +407,26 @@ New files: `src/domain/health/quality-gate.ts`, updated `publish.ts`.
 
 ---
 
+## Phase 7.6: Domain Layer Purification — COMPLETE
+
+**Goal**: Enforce strict DDD boundary rule — domain files must never import `logger.js`, `ui.js`, or use `console.log()`. Purify all 24 violating domain files.
+
+| # | Work Item | Effort | Status |
+|---|-----------|--------|--------|
+| 7.6.1 | Create EventBus infrastructure (`event-bus.ts`, `cli-events.ts`, event maps, renderer) | M | ✅ DONE |
+| 7.6.2 | Add `ctx.log()` to PipelineContext, wire through pipeline runner | S | ✅ DONE |
+| 7.6.3 | Purify 6 report generators — replace `log()` imports with `ctx?.log()` | M | ✅ DONE |
+| 7.6.4 | Purify 5 E2E domain files — replace `console.log` with injectable callbacks | M | ✅ DONE |
+| 7.6.5 | Move 4 standalone scripts to `src/scripts/` (outside domain layer) | S | ✅ DONE |
+| 7.6.6 | Move `e2e-interactive.ts` to `ui/e2e/` (view-controller, not domain) | S | ✅ DONE |
+| 7.6.7 | Wire `log` through full chain: controller → runner → pipeline → context → generators | S | ✅ DONE |
+
+**Result**: Zero domain layer violations. `grep -rl "from.*infrastructure/logger" src/domain/` returns empty. EventBus ready for Phase 8 but not yet wired — the simpler injectable `log` callback is sufficient for now.
+
+**Architecture docs updated**: Architecture v20 (§4.19), Tech Debt v2 (4 new items: TD-25–TD-28).
+
+---
+
 ## Phase 8: Plugin Integration
 
 **Goal**: Make the Flowti Plugin a fully managed project within the Flowti CLI ecosystem. Unify build, test, report, and E2E pipelines so both CLI and Plugin share the same toolchain.
@@ -583,6 +606,7 @@ See [[Plugin Integration Analysis]] for detailed gap analysis and migration plan
 ✓ Phase 6 (depth)            COMPLETE — 8/8 items
 ✓ Phase 7 (ecosystem)        COMPLETE — 10/10 items
 ✓ Phase 7.5 (MVC refactor)   COMPLETE — 15 controllers, 11 renderers, TD-24 resolved
+✓ Phase 7.6 (domain purity)  COMPLETE — 24 violations → 0, EventBus infra, scripts layer
 ► Phase 8 (plugin integration) NEXT — 9 sub-phases, ~42 work items
   Phase 9 (convergence)       FUTURE — shared infra, MCP, CI/CD gen
 ```
@@ -591,10 +615,10 @@ See [[Plugin Integration Analysis]] for detailed gap analysis and migration plan
 
 ## Key Metrics to Track
 
-| Metric | Phase 7 (actual) | Phase 8 Target | Phase 9 Target |
-|--------|-------------------|----------------|----------------|
-| Tests | 2,565 | 2,800+ | 3,000+ |
-| Test suites | 140 | 155+ | 165+ |
+| Metric | Phase 7.6 (actual) | Phase 8 Target | Phase 9 Target |
+|--------|---------------------|----------------|----------------|
+| Tests | 2,592 | 2,800+ | 3,000+ |
+| Test suites | 147 | 160+ | 170+ |
 | Managed project types | 1 (typescript) | 4 (project, typescript, typescript-cli, obsidian-plugin) | 4 |
 | Report pipeline steps | 8 internal + ext | 8 internal + 14 script-based | 22+ |
 | Doc pipeline steps | 2 internal + ext | 2 internal + 4 script-based | 6+ |

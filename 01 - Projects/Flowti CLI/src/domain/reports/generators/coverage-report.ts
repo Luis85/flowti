@@ -11,7 +11,7 @@ import { disk } from "../../../infrastructure/filesystem.js";
 import { paths } from "../../../infrastructure/paths.js";
 import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
-import { log } from "../../../infrastructure/logger.js";
+
 import { proc } from "../../../infrastructure/proc.js";
 import { clock } from "../../../infrastructure/clock.js";
 
@@ -50,7 +50,6 @@ function computeCoverage(entries: CoverageEntry[], kind: string): number {
 
 function main(): void {
 	if (!disk.existsSync(COVERAGE_JSON)) {
-		log("[report] No coverage-final.json found — run tests with --coverage first.");
 		return;
 	}
 
@@ -87,8 +86,6 @@ function main(): void {
 	const outputPath = paths.join(OUTPUT_DIR, filename);
 
 	doc.save(outputPath);
-
-	log(`[report] CoverageReport written: ${outputPath}`);
 }
 
 main();

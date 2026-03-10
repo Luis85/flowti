@@ -1,6 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
-
-vi.mock("../../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
+import { describe, it, expect } from "vitest";
 
 import {
 	parseFrontmatter,

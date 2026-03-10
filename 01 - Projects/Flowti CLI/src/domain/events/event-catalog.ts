@@ -11,18 +11,11 @@
 
 import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
-import { RESET, DIM, GREEN, YELLOW, CYAN, BOLD, printHeader } from "../../infrastructure/ui.js";
-import { input } from "../../infrastructure/input.js";
 import { Document } from "../../infrastructure/document.js";
 import { clock } from "../../infrastructure/clock.js";
-import { runMenu } from "../../infrastructure/menu.js";
 import { parseFrontmatterStrings } from "../../infrastructure/frontmatter.js";
 import { toKebab } from "../make/naming.js";
-import { log } from "../../infrastructure/logger.js";
-import type { MenuResult, MenuEntry } from "../../infrastructure/types.js";
 import { renderVersionHistory } from "./event-versioning.js";
-import { collectPayloadFields, collectVersioningInfo } from "./event-payload.js";
-import { saveEventFlowDoc } from "./event-flow.js";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -157,6 +150,12 @@ function collectFileLinks(links: SiblingLinks): string[] {
 	return fileLinks;
 }
 
+export interface CreateEventResult {
+	filePath: string | null;
+	alreadyExists: boolean;
+	filename?: string;
+}
+
 /** Create an event markdown file from a definition. */
 export function createEventFile(projectPath: string, def: EventDefinition): string | null {
 	const dir = eventsDir(projectPath);
@@ -167,7 +166,6 @@ export function createEventFile(projectPath: string, def: EventDefinition): stri
 	const filePath = paths.join(dir, filename);
 
 	if (disk.existsSync(filePath)) {
-		log(`\n  ${YELLOW}Event already exists:${RESET} ${filename}`);
 		return null;
 	}
 
@@ -234,91 +232,4 @@ export function createEventFile(projectPath: string, def: EventDefinition): stri
 	return filePath;
 }
 
-// ── Interactive flow ───────────────────────────────────────────────
-
-async function addEventInteractive(projectPath: string): Promise<void> {
-	printHeader("Add Event");
-
-	const name = await input.ask("Event name");
-	if (!name) return;
-
-	const domain = await input.ask("Domain", "core");
-	const version = await input.ask("Version", "1.0.0");
-	const description = await input.ask("Description", "");
-	const producersRaw = await input.ask("Producers (comma-separated)", "");
-	const consumersRaw = await input.ask("Consumers (comma-separated)", "");
-	const payload = await collectPayloadFields();
-	const versioning = await collectVersioningInfo();
-
-	const def: EventDefinition = {
-		name,
-		domain,
-		version,
-		description,
-		producers: parseCommaSeparated(producersRaw),
-		consumers: parseCommaSeparated(consumersRaw),
-		payload,
-		...versioning,
-	};
-
-	const filePath = createEventFile(projectPath, def);
-	if (filePath) {
-		const relPath = paths.relative(projectPath, filePath);
-		log(`\n  ${GREEN}✓${RESET} Created: ${relPath}`);
-	}
-}
-
-function listEventsInteractive(projectPath: string): void {
-	const events = listEvents(projectPath);
-
-	if (events.length === 0) {
-		log(`\n  ${DIM}No events defined yet. Use "Add Event" to create one.${RESET}\n`);
-		return;
-	}
-
-	log(`\n  ${BOLD}Events (${events.length})${RESET}\n`);
-	for (const evt of events) {
-		const domainTag = evt.domain ? ` ${DIM}[${evt.domain}]${RESET}` : "";
-		log(`  ${CYAN}▸${RESET} ${evt.name}${domainTag} ${DIM}v${evt.version}${RESET}`);
-	}
-	log();
-}
-
-// ── Interactive menu ───────────────────────────────────────────────
-
-export async function eventCatalogMenu(projectPath: string): Promise<MenuResult> {
-	const items: MenuEntry[] = [
-		{
-			key: "1",
-			label: "List Events",
-			action: () => {
-				listEventsInteractive(projectPath);
-				return "main" as const;
-			},
-		},
-		{
-			key: "2",
-			label: "Add Event",
-			action: async () => {
-				await addEventInteractive(projectPath);
-				return "main" as const;
-			},
-		},
-		{
-			key: "3",
-			label: "Event Flow Diagram",
-			action: () => {
-				const filePath = saveEventFlowDoc(projectPath);
-				const relPath = paths.relative(projectPath, filePath);
-				log(`\n  ${GREEN}✓${RESET} Generated: ${relPath}\n`);
-				return "main" as const;
-			},
-		},
-		{ separator: true },
-		{ key: "b", label: "Back", action: () => "main" as const },
-		{ key: "q", label: "Quit", action: () => "quit" as const },
-	];
-
-	return runMenu("Event Catalog", items);
-}
 

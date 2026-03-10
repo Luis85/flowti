@@ -9,9 +9,7 @@ import { paths } from "../../../infrastructure/paths.js";
 import { disk } from "../../../infrastructure/filesystem.js";
 import { shell } from "../../../infrastructure/shell.js";
 import { Document } from "../../../infrastructure/document.js";
-import { RESET, GREEN, RED, CYAN, DIM } from "../../../infrastructure/ui.js";
 import { ReportService } from "./report-service.js";
-import { log } from "../../../infrastructure/logger.js";
 import { clock } from "../../../infrastructure/clock.js";
 import { recordBuild, resolveBuildPaths } from "../../build/build-freshness.js";
 
@@ -25,18 +23,14 @@ export interface BuildResult {
 
 function runBuild(cmd: string, cwd: string): BuildResult {
 	const startTime = clock.ms();
-	log(`\n  ${CYAN}▸${RESET} Build\n`);
 
 	const output = shell.runSilent(cmd, { cwd });
 	const durationMs = clock.ms() - startTime;
 
 	if (output !== null) {
-		log(output);
-		log(`  ${GREEN}✓${RESET} Done ${DIM}(${(durationMs / 1000).toFixed(1)}s)${RESET}\n`);
 		return { command: cmd, exitCode: 0, durationMs, output, errors: "" };
 	}
 
-	log(`\n  ${RED}✗${RESET} Failed ${DIM}(${(durationMs / 1000).toFixed(1)}s)${RESET}\n`);
 	return { command: cmd, exitCode: 1, durationMs, output: "", errors: "Build command failed" };
 }
 
@@ -121,8 +115,7 @@ function generateReport(result: BuildResult, projectPath: string): string {
  */
 export function buildWithReport(cmd: string, projectPath: string): number {
 	const result = runBuild(cmd, projectPath);
-	const outputPath = generateReport(result, projectPath);
-	log(`  ${CYAN}▸${RESET} Build Report: ${outputPath}\n`);
+	generateReport(result, projectPath);
 
 	if (result.exitCode === 0) {
 		const { srcDir, binDir } = resolveBuildPaths(projectPath);

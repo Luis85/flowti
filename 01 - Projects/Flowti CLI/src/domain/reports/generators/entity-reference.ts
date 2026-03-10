@@ -9,7 +9,7 @@
  */
 
 import { Document } from "../../../infrastructure/document.js";
-import { log } from "../../../infrastructure/logger.js";
+
 import { clock } from "../../../infrastructure/clock.js";
 import { ReportService } from "../cli/report-service.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
@@ -292,8 +292,6 @@ export function generateEntityReference(projectPath: string): GeneratorOutput {
 
 	// Save — reference document (stable only, no timestamps)
 	const outputPath = svc.saveReference(doc, "Entity Reference.md");
-
-	log(`  Entity Reference: ${entities.length} entities → ${outputPath}`);
 
 	return {
 		success: true,

@@ -2,7 +2,7 @@
 domain: Flowti
 type: ProductRequirementsDocument
 stage: active
-version: 11
+version: 12
 maturity: L2
 created: 2026-03-07
 updated: 2026-03-10
@@ -179,23 +179,29 @@ All query commands support `--format=json`. All operations return deterministic 
 
 ## 7. Architecture
 
-The CLI follows a **DDD layered architecture** with strict dependency rules:
+The CLI follows a **DDD + MVC layered architecture** with strict dependency rules:
 
 ```
 Entry Point (main.ts)
-  └── Domain Layer (18 modules)
-        └── Infrastructure Layer (21 modules)
+  → Controller Layer (15 controllers)
+    → UI / View Layer (30 display renderers)
+      → Domain Layer (18 modules — pure, no I/O, no presentation)
+        → Infrastructure Layer (29 modules + pipeline + event-bus)
+Scripts Layer (4 standalone entry points)
 ```
 
-**Dependency rule**: Domain → Infrastructure. Never Infrastructure → Domain. Never Domain → Domain (cross-domain). `main.ts` is the sole composition root.
+**Dependency rule**: Controller → Domain → Infrastructure. Controller → UI (renderers). Never Infrastructure → Domain. Never Domain → Domain (cross-domain). `main.ts` is the sole composition root.
 
 | Layer | Purpose |
 |-------|---------|
 | **Entry Point** | Two-loop menu system + command dispatch via `CommandRegistry` |
-| **Domain** | Business logic — scaffold, make, build, publish, review, reports, events, capture, info, help, onboarding, knowledgebase, devtools, e2e, plugins, ai-tools, health |
-| **Infrastructure** | I/O abstractions — filesystem, shell, input, state, config, document builder, frontmatter, errors, output, command-registry, menu, ui, clock, proc, paths, logger, args, pipeline |
+| **Controller** | Thin handlers: parse flags, call domain services, return `CliResponse<T>` with typed data + renderer |
+| **UI / View** | Display renderers: take typed data models, produce ANSI-formatted console output |
+| **Domain** | Pure business logic — scaffold, make, build, publish, review, reports, events, capture, info, help, onboarding, knowledgebase, devtools, e2e, plugins, ai-tools, health |
+| **Infrastructure** | I/O abstractions — filesystem, shell, input, state, config, document builder, frontmatter, errors, output, command-registry, menu, ui, clock, proc, paths, logger, args, pipeline, event-bus |
+| **Scripts** | Standalone CLI entry points (`main()` functions) that wire infrastructure to domain services |
 
-All I/O is behind typed abstractions (`disk`, `shell`, `paths`, `proc`, `log`). No domain code imports `node:fs`, `node:child_process`, or `node:path` directly.
+All I/O is behind typed abstractions (`disk`, `shell`, `paths`, `proc`, `log`). No domain code imports `node:fs`, `node:child_process`, or `node:path` directly. Domain files never import `logger.js` or `ui.js` — progress is communicated via injectable `log` callbacks or the EventBus.
 
 ### Invocation Chain
 
@@ -323,17 +329,20 @@ Flowti CLI occupies a unique niche: **vault-native project management CLI**. No 
 
 | Metric | Value |
 |--------|-------|
-| Source files | 239 |
-| Test suites | 140 |
-| Tests passing | 2,565 |
+| Source files | 281 |
+| Test files | 152 (147 suites) |
+| Tests passing | 2,592 |
 | Source LOC | ~62,000 |
 | Domain modules | 18 |
-| Infrastructure modules | 21 |
+| Controllers | 15 |
+| UI view files | 30 |
+| Infrastructure modules | 29 |
 | Non-interactive commands | 84 |
 | Runtime dependencies | 0 |
 | Scaffold definitions | 1 (3 more planned) |
 | Report generators | 8 (6 report + 2 reference) |
 | E2E environment providers | 5 |
+| Technical debt items | 28 (9 resolved) |
 
 ---
 
@@ -341,6 +350,6 @@ Flowti CLI occupies a unique niche: **vault-native project management CLI**. No 
 
 - **[[Product Backlog]]** — Feature requirements, acceptance criteria, and improvements
 - **[[Development Roadmap]]** — Phased execution plan (Phases 5–9)
-- **[[Tech Debt]]** — Technical debt register (22 items, 72h estimated)
+- **[[Tech Debt]]** — Technical debt register (28 items, 108h estimated)
 - **[[Plugin Integration Analysis]]** — Gap analysis for Flowti Plugin integration
 - **[[01 - Projects/Flowti CLI/README|README]]** — Quick start, architecture overview, project structure

@@ -1,17 +1,16 @@
 /**
  * capture.ts — Quick capture of ideas and notes into the vault.
+ *
+ * Pure domain logic — no display or interactive I/O.
+ * Interactive menus live in ui/menus/capture-menu.ts.
  */
 
 import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
 import { VAULT_ROOT, getCaptureDir } from "../../infrastructure/config.js";
-import { RESET, DIM, GREEN, RED, YELLOW, printHeader, printMenu } from "../../infrastructure/ui.js";
-import { input } from "../../infrastructure/input.js";
 import { Document } from "../../infrastructure/document.js";
 import { clock } from "../../infrastructure/clock.js";
 import { parseFrontmatterContent } from "../../infrastructure/frontmatter.js";
-import type { MenuResult } from "../../infrastructure/types.js";
-import { log } from "../../infrastructure/logger.js";
 
 // ── Constants ───────────────────────────────────────────────────────
 
@@ -40,7 +39,6 @@ export function createCaptureFile(type: string, title: string, body: string, tag
 	const filePath = paths.join(dir, filename);
 
 	if (disk.existsSync(filePath)) {
-		log(`\n  ${YELLOW}File already exists:${RESET} ${filename}`);
 		return null;
 	}
 
@@ -58,88 +56,7 @@ export function createCaptureFile(type: string, title: string, body: string, tag
 
 	doc.addBlank();
 	doc.save(filePath);
-	const relPath = paths.relative(VAULT_ROOT, filePath);
-	log(`\n  ${GREEN}✓${RESET} Created: ${relPath}`);
 	return filePath;
-}
-
-// ── Capture Idea ────────────────────────────────────────────────────
-
-async function captureIdeaLoop(): Promise<void> {
-	while (true) {
-		const idea = await input.ask("Idea");
-
-		if (!idea) {
-			log(`\n  ${YELLOW}No idea entered — skipped.${RESET}`);
-		} else {
-			const title = idea.length > 60 ? idea.slice(0, 60).trim() : idea;
-			createCaptureFile("Idea", title, idea);
-		}
-
-		const next = await input.ask(`${DIM}(a)${RESET}nother or ${DIM}(b)${RESET}ack`, "b");
-
-		if (next.toLowerCase() !== "a") return;
-	}
-}
-
-// ── Capture Note ────────────────────────────────────────────────────
-
-async function captureNoteLoop(): Promise<void> {
-	while (true) {
-		printHeader("Capture Note — Type");
-		printMenu(NOTE_TYPES.map((t, i) => ({ key: String(i + 1), label: t, action: () => {} })));
-
-		const typeChoice = await input.ask("Type", "3");
-
-		const typeIdx = parseInt(typeChoice, 10) - 1;
-		if (isNaN(typeIdx) || typeIdx < 0 || typeIdx >= NOTE_TYPES.length) {
-			log(`\n  ${RED}Invalid type — skipped.${RESET}`);
-			return;
-		}
-
-		const type = NOTE_TYPES[typeIdx];
-
-		const title = await input.ask("Title");
-
-		if (!title) {
-			log(`\n  ${YELLOW}No title entered — skipped.${RESET}`);
-		} else {
-			createCaptureFile(type, title, "");
-		}
-
-		const next = await input.ask(`${DIM}(a)${RESET}nother or ${DIM}(b)${RESET}ack`, "b");
-
-		if (next.toLowerCase() !== "a") return;
-	}
-}
-
-// ── Interactive entry points (called directly from main menu) ───────
-
-export async function captureIdea(): Promise<MenuResult> {
-	printHeader("Capture Idea");
-	await captureIdeaLoop();
-	return "main";
-}
-
-export async function captureNote(): Promise<MenuResult> {
-	await captureNoteLoop();
-	return "main";
-}
-
-export async function captureBug(): Promise<MenuResult> {
-	printHeader("Capture Bug");
-	while (true) {
-		const title = await input.ask("Bug title");
-		if (!title) {
-			log(`\n  ${YELLOW}No title entered — skipped.${RESET}`);
-		} else {
-			const description = await input.ask("Description (optional)");
-			createCaptureFile("Bug", title, description || "");
-		}
-		const next = await input.ask(`${DIM}(a)${RESET}nother or ${DIM}(b)${RESET}ack`, "b");
-		if (next.toLowerCase() !== "a") break;
-	}
-	return "main";
 }
 
 // ── Import helper ───────────────────────────────────────────────────

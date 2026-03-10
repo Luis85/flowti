@@ -13,12 +13,17 @@
  *   node scripts/generate-test-data.ts --seed 123               # reproducible output
  *   node scripts/generate-test-data.ts --out ./my-folder        # custom output directory
  *   node scripts/generate-test-data.ts --dry-run                # preview row counts only
+ *
+ * NOTE: This is a standalone CLI script. It uses log() directly for
+ * console output. Domain modules should not import from this file.
  */
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
-import { proc } from "../../infrastructure/proc.js";
-import { clock } from "../../infrastructure/clock.js";
-import type { YearMonth } from "./test-data-generators.js";
+import { disk } from "../infrastructure/filesystem.js";
+import { paths } from "../infrastructure/paths.js";
+import { proc } from "../infrastructure/proc.js";
+import { clock } from "../infrastructure/clock.js";
+import { VAULT_ROOT } from "../infrastructure/config.js";
+import { log } from "../infrastructure/logger.js";
+import type { YearMonth } from "../domain/devtools/test-data-generators.js";
 import {
 	setSeed,
 	generateItems,
@@ -29,7 +34,7 @@ import {
 	generateCustomerOrders,
 	generateInventory,
 	generatePurchaseOrders,
-} from "./test-data-generators.js";
+} from "../domain/devtools/test-data-generators.js";
 
 // ── CLI argument parsing ────────────────────────────────
 
@@ -69,8 +74,6 @@ const SEED_INPUT: number = Number(getArg("seed", "42"));
 const DRY_RUN: boolean = hasFlag("dry-run");
 
 // Default output: vault test data folder
-import { VAULT_ROOT } from "../../infrastructure/config.js";
-import { log } from "../../infrastructure/logger.js";
 const DEFAULT_OUT: string = paths.join(VAULT_ROOT, "03 - Resources", "Test Data", "Analytics");
 const OUT_DIR: string = paths.resolve(getArg("out", DEFAULT_OUT) as string);
 

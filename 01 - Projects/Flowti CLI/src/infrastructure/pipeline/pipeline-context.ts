@@ -12,11 +12,17 @@ export class PipelineContextImpl implements PipelineContext {
 	private readonly results: StepResult[] = [];
 	private readonly commandOutputs = new Map<string, string>();
 	private readonly stepDataMap = new Map<string, Record<string, unknown>>();
+	private readonly logFn: (message: string) => void;
 
 	readonly projectPath: string;
 
-	constructor(projectPath: string) {
+	constructor(projectPath: string, logFn: (message: string) => void = () => {}) {
 		this.projectPath = projectPath;
+		this.logFn = logFn;
+	}
+
+	log(message: string): void {
+		this.logFn(message);
 	}
 
 	pushResult(result: StepResult): void {
@@ -49,6 +55,6 @@ export class PipelineContextImpl implements PipelineContext {
 }
 
 /** Create a fresh pipeline context for a run. */
-export function createPipelineContext(projectPath: string): PipelineContext {
-	return new PipelineContextImpl(projectPath);
+export function createPipelineContext(projectPath: string, logFn?: (message: string) => void): PipelineContext {
+	return new PipelineContextImpl(projectPath, logFn);
 }

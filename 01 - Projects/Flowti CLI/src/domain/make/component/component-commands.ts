@@ -11,8 +11,6 @@
 
 import { paths } from "../../../infrastructure/paths.js";
 import { disk } from "../../../infrastructure/filesystem.js";
-import { RESET, DIM, GREEN, RED, CYAN } from "../../../infrastructure/ui.js";
-import { log } from "../../../infrastructure/logger.js";
 import { proc } from "../../../infrastructure/proc.js";
 import { toKebab, toPascal, toCamel } from "../naming.js";
 import { createFileWriter } from "../templates/file-writer.js";
@@ -21,6 +19,8 @@ import { loadComponentDefinitions, createComponentTemplateRegistry } from "./com
 import type { ComponentVariables } from "./component-types.js";
 import type { CommandHandler } from "../../../infrastructure/types.js";
 import { showSuggestions, afterMakeComponent } from "../../../infrastructure/suggestions.js";
+import { renderError, renderSuccess } from "../../../ui/common-renderers.js";
+import { renderComponentAdding } from "../../../ui/make-renderers.js";
 
 function buildComponentVars(name: string, flags: Record<string, string | boolean>): ComponentVariables {
 	return {
@@ -39,20 +39,22 @@ function makeComponentCommand(definitionId: string): CommandHandler {
 	return (flags, _r, _c, project) => {
 		const name = flags.name;
 		if (!name || typeof name !== "string") {
-			log(`\n  ${RED}--name is required.${RESET}`);
-			log(`  ${DIM}Usage: flowti make:${definitionId} --name=MyComponent [--description="..."]${RESET}\n`);
+			renderError({
+				error: "--name is required.",
+				hint: `Usage: flowti make:${definitionId} --name=MyComponent [--description="..."]`,
+			});
 			proc.exit(1);
 		}
 
 		if (!project) {
-			log(`\n  ${RED}No project selected.${RESET}\n`);
+			renderError({ error: "No project selected." });
 			proc.exit(1);
 		}
 
 		const definitions = loadComponentDefinitions();
 		const def = definitions.find((d) => d.id === definitionId);
 		if (!def) {
-			log(`\n  ${RED}Unknown component type: ${definitionId}${RESET}\n`);
+			renderError({ error: `Unknown component type: ${definitionId}` });
 			proc.exit(1);
 		}
 
@@ -60,11 +62,11 @@ function makeComponentCommand(definitionId: string): CommandHandler {
 
 		const docPath = paths.join(project.path, "docs", "components", `${vars.kebab}.md`);
 		if (disk.existsSync(docPath)) {
-			log(`\n  ${RED}Component already exists:${RESET} ${vars.kebab}\n`);
+			renderError({ error: `Component already exists: ${vars.kebab}` });
 			proc.exit(1);
 		}
 
-		log(`\n  ${CYAN}▸${RESET} Adding ${def.label}: ${name}\n`);
+		renderComponentAdding(def.label, name);
 
 		const templates = createComponentTemplateRegistry();
 		const plan = buildComponentPlan(vars, def, templates);
@@ -72,7 +74,7 @@ function makeComponentCommand(definitionId: string): CommandHandler {
 		const writer = createFileWriter(project.path);
 		for (const f of plan) writer.write(f.path, f.content);
 
-		log(`\n  ${GREEN}✓${RESET} Created ${writer.created} files.\n`);
+		renderSuccess({ message: `Created ${writer.created} files.` });
 		showSuggestions(afterMakeComponent(name));
 	};
 }

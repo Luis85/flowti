@@ -20,17 +20,6 @@ vi.mock("../../../../src/infrastructure/config.js", () => ({
 	cliConfig: {},
 }));
 
-vi.mock("../../../../src/infrastructure/ui.js", () => ({
-	RESET: "", BOLD: "", DIM: "", GREEN: "", CYAN: "",
-}));
-
-vi.mock("../../../../src/infrastructure/menu.js", () => ({
-	runMenu: vi.fn(),
-}));
-
-vi.mock("../../../../src/infrastructure/logger.js", () => ({
-	log: vi.fn(),
-}));
 
 import { disk } from "../../../../src/infrastructure/filesystem.js";
 import {

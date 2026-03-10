@@ -10,10 +10,8 @@ import { paths } from "../../../infrastructure/paths.js";
 import { disk } from "../../../infrastructure/filesystem.js";
 import { Document } from "../../../infrastructure/document.js";
 import { splitFrontmatter as splitFm } from "../../../infrastructure/frontmatter.js";
-import { RESET, DIM, GREEN, CYAN } from "../../../infrastructure/ui.js";
 import { clock } from "../../../infrastructure/clock.js";
 import { ReportService } from "./report-service.js";
-import { log } from "../../../infrastructure/logger.js";
 import { generateTestReport } from "./generate-test-report.js";
 import { generateCoverageReport } from "./generate-coverage-report.js";
 import { generateCodebaseReport } from "./generate-codebase-report.js";
@@ -63,14 +61,14 @@ function extractBody(content: string): string {
 	return body.replace(/^#\s+.+\n*/, "").trim();
 }
 
-function ensureReportsExist(sections: ReportSection[], projectPath: string): string[] {
+function ensureReportsExist(sections: ReportSection[], projectPath: string, log: (msg: string) => void): string[] {
 	const missing = sections.filter((s) => !disk.existsSync(s.stablePath));
 	if (missing.length === 0) return [];
 
-	log(`\n  ${DIM}Generating missing reports...${RESET}`);
+	log("Generating missing reports...");
 	const failures: string[] = [];
 	for (const section of missing) {
-		log(`  ${CYAN}▸${RESET} ${section.label}`);
+		log(`  ▸ ${section.label}`);
 		try {
 			const result = section.generator(projectPath);
 			if (!result.success) failures.push(section.label);
@@ -147,14 +145,15 @@ function buildStatusReport(sections: ReportSection[], projectName: string, proje
 }
 
 /** Generate the project status report. */
-export function generateProjectStatusReport(projectPath: string): GeneratorOutput {
+export function generateProjectStatusReport(projectPath: string, ctx?: import("../../../infrastructure/pipeline/pipeline-types.js").PipelineContext): GeneratorOutput {
+	const log = (msg: string) => ctx?.log(msg);
 	const svc = new ReportService(projectPath);
 	const sections = buildSections(svc, projectPath);
 	const projectName = paths.basename(projectPath);
 	const outputPath = svc.stablePath("Project Status Report.md");
 
-	log(`\n  ${CYAN}▸${RESET} Generating Project Status Report...\n`);
-	const failures = ensureReportsExist(sections, projectPath);
+	log("Generating Project Status Report...");
+	const failures = ensureReportsExist(sections, projectPath, log);
 
 	const content = buildStatusReport(sections, projectName, projectPath);
 	disk.mkdirSync(svc.reportsDir, { recursive: true });
@@ -163,7 +162,7 @@ export function generateProjectStatusReport(projectPath: string): GeneratorOutpu
 	const available = sections.filter((s) => disk.existsSync(s.stablePath)).length;
 	const warnings = failures.length > 0 ? [`${failures.length} sub-report(s) failed: ${failures.join(", ")}`] : undefined;
 
-	log(`\n  ${GREEN}✓${RESET} Project Status Report written: ${outputPath}\n`);
+	log(`Project Status Report written: ${outputPath}`);
 
 	return { success: true, outputPath, metrics: { sections: available }, warnings };
 }

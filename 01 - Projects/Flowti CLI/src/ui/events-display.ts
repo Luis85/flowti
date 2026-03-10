@@ -117,3 +117,15 @@ export function renderCodegenGenerated(data: CodegenGeneratedModel): void {
 export function renderEmpty(data: EmptyModel): void {
 	log(`\n  ${DIM}${data.message}${RESET}\n`);
 }
+
+export interface VersionEventModel {
+	success: boolean;
+	name: string;
+	newVersion: string;
+	previousVersion: string;
+}
+
+export function renderVersionEvent(data: VersionEventModel): void {
+	log(`\n  ${GREEN}✓${RESET} Updated ${data.name} to v${data.newVersion}`);
+	log(`  ${DIM}Previous version: v${data.previousVersion}${RESET}\n`);
+}

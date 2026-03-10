@@ -11,7 +11,7 @@ import { disk } from "../../../infrastructure/filesystem.js";
 import { paths } from "../../../infrastructure/paths.js";
 import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document, type FrontmatterValue } from "../../../infrastructure/document.js";
-import { log } from "../../../infrastructure/logger.js";
+
 import { clock } from "../../../infrastructure/clock.js";
 import { parseFrontmatterContent } from "../../../infrastructure/frontmatter.js";
 
@@ -119,7 +119,6 @@ function collectReportLinks(): string[] {
 function main(): void {
 	const latest = findLatestDoneCycle();
 	if (!latest) {
-		log("[report] No completed cycle document found — skipping cycle report.");
 		return;
 	}
 
@@ -161,8 +160,6 @@ function main(): void {
 	const safeTimestamp = clock.safeIso();
 	const outputPath = paths.join(OUTPUT_DIR, `${safeTimestamp}-cycle-${report.cycle}-report.md`);
 	doc.save(outputPath);
-
-	log(`[report] CycleReport written: ${outputPath}`);
 }
 
 main();

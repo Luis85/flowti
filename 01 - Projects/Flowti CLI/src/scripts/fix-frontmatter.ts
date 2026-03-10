@@ -9,14 +9,17 @@
  * Usage: node scripts/fix-frontmatter.ts [--dry-run]
  *
  * Safe to re-run — skips files that already have the required fields.
+ *
+ * NOTE: This is a standalone CLI script. It uses log() directly for
+ * console output. Domain modules should not import from this file.
  */
 
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
-import { PLUGIN_ROOT } from "../../infrastructure/config.js";
-import { log } from "../../infrastructure/logger.js";
-import { proc } from "../../infrastructure/proc.js";
-import { parseFrontmatter, applyFieldRule } from "./frontmatter-utils.js";
+import { disk } from "../infrastructure/filesystem.js";
+import { paths } from "../infrastructure/paths.js";
+import { PLUGIN_ROOT } from "../infrastructure/config.js";
+import { log } from "../infrastructure/logger.js";
+import { proc } from "../infrastructure/proc.js";
+import { parseFrontmatter, applyFieldRule } from "../domain/devtools/frontmatter-utils.js";
 
 const DOCS_ROOT: string = paths.resolve(PLUGIN_ROOT, "docs");
 const DRY_RUN: boolean = proc.argv().includes("--dry-run");
@@ -43,7 +46,10 @@ function processFile(filePath: string, requiredFields: Array<{ field: string; va
 		for (const rule of requiredFields) {
 			const result = applyFieldRule(content, filePath, parsed.fields, rule);
 			content = result.content;
-			if (result.changed) modified = true;
+			if (result.changed) {
+				modified = true;
+				if (result.message) log(result.message);
+			}
 		}
 
 		if (modified) {

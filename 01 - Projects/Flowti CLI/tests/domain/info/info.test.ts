@@ -87,7 +87,7 @@ vi.mock("../../../src/domain/project/project-config.js", () => ({
 	initializeProject: () => defaultCtx,
 }));
 
-import { showInfo } from "../../../src/domain/info/info.js";
+import { showInfo } from "../../../src/ui/info-display.js";
 
 function output(): string {
 	return mockLog.mock.calls.map((c: unknown[]) => String(c[0] ?? "")).join("\n");

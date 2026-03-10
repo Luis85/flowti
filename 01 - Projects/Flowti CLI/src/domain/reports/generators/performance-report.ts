@@ -11,7 +11,7 @@ import { disk } from "../../../infrastructure/filesystem.js";
 import { paths } from "../../../infrastructure/paths.js";
 import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
-import { log } from "../../../infrastructure/logger.js";
+
 import { clock } from "../../../infrastructure/clock.js";
 
 // The plugin stores state in the Obsidian vault's plugin data folder.
@@ -44,7 +44,6 @@ function main(): void {
 		if (disk.existsSync(candidate)) {
 			try {
 				data = JSON.parse(disk.readFileSync(candidate, "utf-8"));
-				log(`[report] Read data.json from: ${candidate}`);
 				break;
 			} catch { /* try next */ }
 		}
@@ -91,8 +90,6 @@ function main(): void {
 	const outputPath = paths.join(OUTPUT_DIR, filename);
 
 	doc.save(outputPath);
-
-	log(`[report] PerformanceReport written: ${outputPath}`);
 }
 
 main();

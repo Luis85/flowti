@@ -11,7 +11,7 @@ import { disk } from "../../../infrastructure/filesystem.js";
 import { paths } from "../../../infrastructure/paths.js";
 import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
-import { log } from "../../../infrastructure/logger.js";
+
 import { clock } from "../../../infrastructure/clock.js";
 
 export interface ToolParam {
@@ -290,13 +290,11 @@ function renderToolDetail(doc: Document, tool: ToolMeta): void {
 
 function main(): void {
 	if (!disk.existsSync(CATALOG_PATH)) {
-		log("[report] Tool catalog source not found — skipping.");
 		return;
 	}
 
 	const tools = extractToolMeta(disk.readFileSync(CATALOG_PATH, "utf-8"));
 	if (tools.length === 0) {
-		log("[report] No tools extracted from catalog — skipping.");
 		return;
 	}
 
@@ -331,7 +329,6 @@ function main(): void {
 
 	const outputPath = paths.join(OUTPUT_DIR, "Tool Reference.md");
 	doc.save(outputPath);
-	log(`[report] ToolReference written (${tools.length} tools): ${outputPath}`);
 }
 
 main();

@@ -38,11 +38,6 @@ vi.mock("../../../../src/infrastructure/shell.js", () => ({
 	},
 }));
 
-vi.mock("../../../../src/infrastructure/ui.js", () => ({
-	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", YELLOW: "", CYAN: "",
-	printHeader: vi.fn(),
-}));
-
 vi.mock("../../../../src/infrastructure/input.js", () => ({
 	input: { ask: vi.fn().mockResolvedValue("q"), waitForEnter: vi.fn().mockResolvedValue(undefined) },
 }));
@@ -56,8 +51,23 @@ vi.mock("../../../../src/domain/knowledgebase/vault-service.js", () => ({
 	isVaultInitialized: vi.fn(() => false),
 }));
 
-vi.mock("../../../../src/infrastructure/logger.js", () => ({
-	log: vi.fn(),
+vi.mock("../../../../src/ui/storybook-renderers.js", () => ({
+	renderStorybookAlreadyInstalled: vi.fn(),
+	renderStorybookInstalling: vi.fn(),
+	renderStorybookInstallFailed: vi.fn(),
+	renderStorybookInstallSuccess: vi.fn(),
+	renderStorybookNotInstalled: vi.fn(),
+	renderStorybookAlreadyRunning: vi.fn(),
+	renderStorybookStarting: vi.fn(),
+	renderStorybookFailedToStart: vi.fn(),
+	renderStorybookFailOutput: vi.fn(),
+	renderStorybookTimeout: vi.fn(),
+	renderStorybookReady: vi.fn(),
+	renderStorybookStopped: vi.fn(),
+	renderStorybookNotRunning: vi.fn(),
+	renderStorybookView: vi.fn(),
+	renderStorybookBrowserContext: vi.fn(),
+	renderStorybookOpenedIn: vi.fn(),
 }));
 
 import {
@@ -286,10 +296,10 @@ describe("runStorybookDev", () => {
 		await runStorybookDev("/project", {});
 
 		expect(mockShell.runSilent).not.toHaveBeenCalled();
-		// Should log the diagnostic output
-		const { log: mockLog } = await import("../../../../src/infrastructure/logger.js");
-		const logCalls = vi.mocked(mockLog).mock.calls.map(([msg]) => msg);
-		expect(logCalls.some((msg) => String(msg).includes("Output"))).toBe(true);
+		// Should call the failure renderers
+		const { renderStorybookFailedToStart, renderStorybookFailOutput } = await import("../../../../src/ui/storybook-renderers.js");
+		expect(vi.mocked(renderStorybookFailedToStart)).toHaveBeenCalled();
+		expect(vi.mocked(renderStorybookFailOutput)).toHaveBeenCalled();
 	});
 
 	it("stops storybook when user presses Enter in live view", async () => {

@@ -24,7 +24,12 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
 }));
 
-import { isKnowledgebaseAvailable, knowledgebaseMenu } from "../../../src/domain/knowledgebase/knowledgebase.js";
+vi.mock("../../../src/ui/help.js", () => ({
+	showHelp: vi.fn(),
+}));
+
+import { isKnowledgebaseAvailable } from "../../../src/domain/knowledgebase/knowledgebase.js";
+import { knowledgebaseMenu } from "../../../src/ui/menus/knowledgebase-menu.js";
 import { listFolder, readMarkdownFile, searchVault } from "../../../src/domain/knowledgebase/vault-service.js";
 import { input } from "../../../src/infrastructure/input.js";
 import { log } from "../../../src/infrastructure/logger.js";

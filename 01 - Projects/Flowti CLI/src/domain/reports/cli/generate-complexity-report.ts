@@ -8,7 +8,6 @@
 import { disk } from "../../../infrastructure/filesystem.js";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
-import { log } from "../../../infrastructure/logger.js";
 import { clock } from "../../../infrastructure/clock.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
 
@@ -117,7 +116,8 @@ function addLowCoverageSection(doc: Document, srcFiles: AnalysisFile[], projectP
 	).addBlank();
 }
 
-export function generateComplexityReport(projectPath: string): GeneratorOutput {
+export function generateComplexityReport(projectPath: string, ctx?: import("../../../infrastructure/pipeline/pipeline-types.js").PipelineContext): GeneratorOutput {
+	const log = (msg: string) => ctx?.log(msg);
 	const svc = new ReportService(projectPath);
 	const analysisJson = svc.subdir("coverage/analysis.json");
 

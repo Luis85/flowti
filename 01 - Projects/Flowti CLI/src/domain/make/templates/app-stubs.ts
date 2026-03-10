@@ -125,8 +125,6 @@ export function appEventBusTestTemplate(): string {
 	return `import { describe, it, expect, beforeEach } from "vitest";
 import { EventBus } from "../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../src/infrastructure/events/types";
-import { log } from "../../infrastructure/logger.js";
-
 describe("EventBus", () => {
 \tlet bus: IEventBus;
 

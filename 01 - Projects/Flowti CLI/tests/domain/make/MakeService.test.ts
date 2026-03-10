@@ -13,7 +13,7 @@ vi.mock("../../../src/infrastructure/menu.js", () => ({
 	runMenu: vi.fn(),
 }));
 
-vi.mock("../../../src/domain/help/help.js", () => ({
+vi.mock("../../../src/ui/help.js", () => ({
 	showHelp: vi.fn(),
 }));
 
@@ -40,7 +40,8 @@ vi.mock("../../../src/infrastructure/fs.js", () => ({
 import { log } from "../../../src/infrastructure/logger.js";
 import { runMenu } from "../../../src/infrastructure/menu.js";
 import { readProjectConfig } from "../../../src/domain/project/project-config.js";
-import { menu, getAvailableTemplates } from "../../../src/domain/make/MakeService.js";
+import { getAvailableTemplates } from "../../../src/domain/make/MakeService.js";
+import { menu } from "../../../src/ui/menus/make-menu.js";
 
 describe("getAvailableTemplates", () => {
 	it("returns all templates when no project config", () => {

@@ -11,7 +11,7 @@
 import { disk } from "../../../infrastructure/filesystem.js";
 import { paths } from "../../../infrastructure/paths.js";
 import { Document } from "../../../infrastructure/document.js";
-import { log } from "../../../infrastructure/logger.js";
+
 import { clock } from "../../../infrastructure/clock.js";
 import { ReportService } from "../cli/report-service.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
@@ -332,8 +332,6 @@ export function generateCliReference(projectPath: string): GeneratorOutput {
 
 	// Save — reference document (stable only, no timestamps)
 	const outputPath = svc.saveReference(doc, "Flowti CLI Reference.md");
-
-	log(`  CLI Reference: ${commandCount} commands, ${data.helpSections.size} sections → ${outputPath}`);
 
 	return {
 		success: true,

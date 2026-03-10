@@ -43,18 +43,20 @@ beforeEach(() => {
 // ── versionEvent ─────────────────────────────────────────────────────
 
 describe("versionEvent", () => {
-	it("returns false when events directory does not exist", () => {
+	it("returns failure when events directory does not exist", () => {
 		mockDisk.existsSync.mockReturnValue(false);
 		const result = versionEvent("/proj", "user.created", "2.0.0", "Added email");
-		expect(result).toBe(false);
+		expect(result.success).toBe(false);
+		expect(result.error).toContain("No events directory");
 	});
 
-	it("returns false when event name is not found", () => {
+	it("returns failure when event name is not found", () => {
 		mockDisk.existsSync.mockReturnValue(true);
 		mockDisk.readdirSync.mockReturnValue(["other-event.md"]);
 		mockDisk.readFileSync.mockReturnValue("---\nname: other.event\nversion: 1.0.0\n---\n");
 		const result = versionEvent("/proj", "user.created", "2.0.0", "Added email");
-		expect(result).toBe(false);
+		expect(result.success).toBe(false);
+		expect(result.error).toContain("Event not found");
 	});
 
 	it("updates the version in frontmatter", () => {
@@ -66,7 +68,8 @@ describe("versionEvent", () => {
 
 		const result = versionEvent("/proj", "user.created", "2.0.0", "Added email field");
 
-		expect(result).toBe(true);
+		expect(result.success).toBe(true);
+		expect(result.previousVersion).toBe("1.0.0");
 		const written = mockDisk.writeFileSync.mock.calls[0][1] as string;
 		expect(written).toContain("version: 2.0.0");
 		expect(written).toContain("previous_version: 1.0.0");

@@ -4,4 +4,4 @@
  * Re-exports commands and menu for consistent domain imports.
  */
 
-export { eventCatalogMenu } from "./event-catalog.js";
+export { eventCatalogMenu } from "../../ui/menus/event-catalog-menu.js";

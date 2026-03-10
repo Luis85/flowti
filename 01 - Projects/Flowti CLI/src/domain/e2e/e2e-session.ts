@@ -4,7 +4,6 @@
 
 import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
-import { log } from "../../infrastructure/logger.js";
 import { proc } from "../../infrastructure/proc.js";
 import { input } from "../../infrastructure/input.js";
 import type { E2EPaths } from "./e2e-paths.js";
@@ -64,7 +63,7 @@ function resolveStepFilter(input: string, steps: Array<Record<string, unknown>>)
 	return ids.length > 0 ? ids : "all";
 }
 
-async function promptStepFilter(selectedSlugs: string[], e2e: E2EPaths): Promise<Record<string, "all" | string[]>> {
+async function promptStepFilter(selectedSlugs: string[], e2e: E2EPaths, log: (msg: string) => void = () => {}): Promise<Record<string, "all" | string[]>> {
 	const stepFilter: Record<string, "all" | string[]> = {};
 
 	for (const slug of selectedSlugs) {
@@ -87,9 +86,9 @@ async function promptStepFilter(selectedSlugs: string[], e2e: E2EPaths): Promise
 
 		const sel = stepFilter[slug];
 		if (sel === "all") {
-			log(`  → All ${steps.length} steps selected\n`);
+			log(`  → All ${steps.length} steps selected`);
 		} else {
-			log(`  → ${sel.length} of ${steps.length} steps selected\n`);
+			log(`  → ${sel.length} of ${steps.length} steps selected`);
 		}
 	}
 
@@ -98,12 +97,12 @@ async function promptStepFilter(selectedSlugs: string[], e2e: E2EPaths): Promise
 
 // ── Session config prompt ───────────────────────────────────────────
 
-export async function promptSessionConfig(entries: JourneyEntry[], prereqResults: PrerequisiteResults, e2e: E2EPaths): Promise<SessionConfig> {
+export async function promptSessionConfig(entries: JourneyEntry[], prereqResults: PrerequisiteResults, e2e: E2EPaths, log: (msg: string) => void = () => {}): Promise<SessionConfig> {
 	printJourneyTable(entries);
 	const journeyInput = await input.ask('Enter journey numbers (e.g. "2" or "1 3 4") or "all"');
 
 	if (!journeyInput) {
-		log("\n  No selection — exiting.\n");
+		log("  No selection — exiting.");
 		proc.exit(0);
 	}
 
@@ -113,15 +112,13 @@ export async function promptSessionConfig(entries: JourneyEntry[], prereqResults
 	} else {
 		const indices = journeyInput.split(/[\s,]+/).map(Number).filter((n) => n >= 1 && n <= entries.length);
 		if (indices.length === 0) {
-			log("\n  Invalid selection — exiting.\n");
+			log("  Invalid selection — exiting.");
 			proc.exit(1);
 		}
 		selectedSlugs = indices.map((i) => entries[i - 1].slug);
 	}
 
-	log();
-
-	const stepFilter = await promptStepFilter(selectedSlugs, e2e);
+	const stepFilter = await promptStepFilter(selectedSlugs, e2e, log);
 
 	const timestamp = new Date().toISOString().replace(/:/g, "-").slice(0, 19);
 	const journeySuffix = selectedSlugs.length === entries.length

@@ -11,14 +11,14 @@
  *   4. merge (inline)              → analysis.json
  */
 
-import { paths } from "../../../infrastructure/paths.js";
-import { shell } from "../../../infrastructure/shell.js";
-import { disk } from "../../../infrastructure/filesystem.js";
-import { CLI_PROJECT } from "../../../infrastructure/config.js";
-import { ReportService } from "./report-service.js";
-import { log } from "../../../infrastructure/logger.js";
-import { analyzeComplexity } from "./complexity-analyzer.js";
-import type { AnalysisResult } from "./complexity-analyzer.js";
+import { paths } from "../infrastructure/paths.js";
+import { shell } from "../infrastructure/shell.js";
+import { disk } from "../infrastructure/filesystem.js";
+import { CLI_PROJECT } from "../infrastructure/config.js";
+import { ReportService } from "../domain/reports/cli/report-service.js";
+import { log } from "../infrastructure/logger.js";
+import { analyzeComplexity } from "../domain/reports/cli/complexity-analyzer.js";
+import type { AnalysisResult } from "../domain/reports/cli/complexity-analyzer.js";
 
 const svc = new ReportService();
 
@@ -159,9 +159,9 @@ function coverageFields(cov: CoverageSummaryFile): Record<string, unknown> {
 	};
 }
 
-const EMPTY_DP = { decisionPointCount: 0, decisionPoints: [] as import("./complexity-analyzer.js").DecisionPoint[], decisionPointLines: [] as number[], decisionPointLineRanges: [] as string[] };
+const EMPTY_DP = { decisionPointCount: 0, decisionPoints: [] as import("../domain/reports/cli/complexity-analyzer.js").DecisionPoint[], decisionPointLines: [] as number[], decisionPointLineRanges: [] as string[] };
 
-function complexityFields(dp: import("./complexity-analyzer.js").FileAnalysis | undefined, uncoveredLines: Set<number>): Record<string, unknown> {
+function complexityFields(dp: import("../domain/reports/cli/complexity-analyzer.js").FileAnalysis | undefined, uncoveredLines: Set<number>): Record<string, unknown> {
 	const d = dp ?? EMPTY_DP;
 	return {
 		decisionPointCount: d.decisionPointCount,
@@ -175,7 +175,7 @@ function complexityFields(dp: import("./complexity-analyzer.js").FileAnalysis | 
 function mergeFileEntry(
 	file: string,
 	cov: CoverageSummaryFile | undefined,
-	dp: import("./complexity-analyzer.js").FileAnalysis | undefined,
+	dp: import("../domain/reports/cli/complexity-analyzer.js").FileAnalysis | undefined,
 ): Record<string, unknown> {
 	const uncoveredSet = new Set(cov?.uncoveredLines ?? []);
 	return {

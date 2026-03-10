@@ -11,7 +11,7 @@ import { disk } from "../../../infrastructure/filesystem.js";
 import { paths } from "../../../infrastructure/paths.js";
 import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
-import { log } from "../../../infrastructure/logger.js";
+
 import { clock } from "../../../infrastructure/clock.js";
 
 interface CatalogEntry {
@@ -109,7 +109,6 @@ function getDomainSummary(events: CatalogEntry[]): [string, number][] {
 
 function main(): void {
 	if (!disk.existsSync(CATALOG_PATH)) {
-		log("[report] catalog.ts not found — skipping event catalog generation.");
 		return;
 	}
 
@@ -118,7 +117,6 @@ function main(): void {
 	const events = extractCatalogEntries(source);
 
 	if (events.length === 0) {
-		log("[report] No events extracted from catalog — skipping.");
 		return;
 	}
 
@@ -157,7 +155,6 @@ function main(): void {
 
 	const outputPath = paths.join(OUTPUT_DIR, "Event Catalog.md");
 	doc.save(outputPath);
-	log(`[report] EventCatalog written (${events.length} events): ${outputPath}`);
 }
 
 main();

@@ -109,6 +109,7 @@ function createMockContext(): PipelineContext {
 		startTime: Date.now(),
 		getStepData: (id: string) => data.get(id),
 		setStepData: (id: string, value: unknown) => data.set(id, value),
+		log: () => {},
 	};
 }
 

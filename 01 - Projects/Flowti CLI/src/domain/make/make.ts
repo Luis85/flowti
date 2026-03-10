@@ -5,9 +5,13 @@
  * Project creation is handled by the Scaffold domain.
  *
  * Implementation lives in focused modules:
- *   - MakeService.ts     — template registry & interactive menu
- *   - makers.ts          — interactive scaffolding functions
+ *   - MakeService.ts     — template registry (pure domain)
+ *   - makers.ts          — pure utility functions
  *   - templates/          — decomposed template generators
+ *
+ * Interactive menus live in src/ui/menus/:
+ *   - make-menu.ts       — interactive Make menu
+ *   - make-makers.ts     — interactive scaffolding functions
  */
 
-export { menu } from "./MakeService.js";
+export { menu } from "../../ui/menus/make-menu.js";

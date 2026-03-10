@@ -80,10 +80,10 @@ export function toReportStep(gen: ReportGenerator): PipelineStep {
 export async function runReportPipeline(
 	generators: ReportGenerator[],
 	projectPath: string,
-	options?: { parallel?: boolean },
+	options?: { parallel?: boolean; log?: (msg: string) => void },
 ): Promise<PipelineResult> {
 	const steps = generators.map(toReportStep);
-	const ctx = createPipelineContext(projectPath);
+	const ctx = createPipelineContext(projectPath, options?.log);
 
 	return runPipelineWithContext(steps, ctx, {
 		phased: options?.parallel,

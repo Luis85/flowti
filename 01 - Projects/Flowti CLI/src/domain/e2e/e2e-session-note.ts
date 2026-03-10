@@ -4,7 +4,6 @@
 
 import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
-import { log } from "../../infrastructure/logger.js";
 import type { E2EPaths } from "./e2e-paths.js";
 import type { SessionConfig, PrerequisiteResults, TestStats } from "./e2e-types.js";
 import { yamlStr } from "./e2e-helpers.js";
@@ -45,7 +44,7 @@ export function buildPrereqRows(prereqResults: PrerequisiteResults): string[] {
 	];
 }
 
-export function writeSessionNote(sessionName: string, config: SessionConfig, selectedNames: string[], prereqResults: PrerequisiteResults, stats: TestStats, startTime: number, exitCode: number, e2e: E2EPaths): string {
+export function writeSessionNote(sessionName: string, config: SessionConfig, selectedNames: string[], prereqResults: PrerequisiteResults, stats: TestStats, startTime: number, exitCode: number, e2e: E2EPaths, log: (msg: string) => void = () => {}): string {
 	const now = new Date();
 	const duration = ((Date.now() - startTime) / 1000).toFixed(1);
 	const status = exitCode === 0 ? "passed" : "failed";

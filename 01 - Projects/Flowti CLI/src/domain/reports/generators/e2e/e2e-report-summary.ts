@@ -6,7 +6,7 @@
 
 import { disk } from "../../../../infrastructure/filesystem.js";
 import { paths } from "../../../../infrastructure/paths.js";
-import { log } from "../../../../infrastructure/logger.js";
+
 import { clock } from "../../../../infrastructure/clock.js";
 import { Document } from "../../../../infrastructure/document.js";
 import type {
@@ -34,12 +34,11 @@ import { buildE2EFrontmatter } from "./e2e-report-frontmatter.js";
 
 // ── File I/O Helpers ────────────────────────────────────────────
 
-/** Writes content to a file and logs the output path. */
-function writeReport(dir: string, filename: string, content: string, label: string): void {
+/** Writes content to a file. */
+function writeReport(dir: string, filename: string, content: string, _label?: string): void {
 	disk.mkdirSync(dir, { recursive: true });
 	const outputPath = paths.join(dir, filename);
 	disk.writeFileSync(outputPath, content, "utf-8");
-	log(`[report] ${label}: ${outputPath}`);
 }
 
 /** Copies screenshot .png files from src to dest directory, removing stale dest files first. */
@@ -239,7 +238,6 @@ export function generateE2EReport(e2e: E2EPaths): void {
 	const journeys = readJourneyResults(journeysDir);
 
 	if (!vitest && journeys.length === 0) {
-		log("[report] No E2E results found — run E2E tests first.");
 		return;
 	}
 

@@ -31,7 +31,7 @@ vi.mock("../../../src/domain/e2e/e2e-runner.js", () => ({
 	generateReportAndOpen: vi.fn(),
 }));
 
-vi.mock("../../../src/domain/e2e/e2e-interactive.js", () => ({
+vi.mock("../../../src/ui/e2e/e2e-interactive.js", () => ({
 	interactiveSession: vi.fn(async () => {}),
 }));
 

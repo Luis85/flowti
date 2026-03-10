@@ -54,6 +54,14 @@ vi.mock("../../../src/domain/scaffold/scaffold.js", () => ({
 	]),
 }));
 
+vi.mock("../../../src/ui/menus/plugins-menu.js", () => ({
+	pluginsMenu: vi.fn(() => "main"),
+}));
+
+vi.mock("../../../src/ui/menus/ai-tools-menu.js", () => ({
+	aiToolsMenu: vi.fn(() => "main"),
+}));
+
 import * as fsMod from "../../../src/infrastructure/filesystem.js";
 import * as shellMod from "../../../src/infrastructure/shell.js";
 import { log } from "../../../src/infrastructure/logger.js";

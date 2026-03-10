@@ -38,6 +38,8 @@ export interface ReportRunResult {
 export interface RunOptions {
 	/** Run generators in dependency-aware phases (independent generators run first). */
 	parallel?: boolean;
+	/** Optional log function for generator progress messages. */
+	log?: (msg: string) => void;
 }
 
 /**
@@ -54,6 +56,7 @@ export async function runAllReports(
 ): Promise<ReportRunResult> {
 	const pipelineResult = await runReportPipeline(generators, projectPath, {
 		parallel: options.parallel,
+		log: options.log,
 	});
 
 	return toReportRunResult(pipelineResult);

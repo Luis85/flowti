@@ -6,9 +6,11 @@
 
 import { paths } from "../infrastructure/paths.js";
 import { disk } from "../infrastructure/filesystem.js";
-import { RESET, BOLD, DIM, GREEN, YELLOW } from "../infrastructure/ui.js";
+import { RESET, BOLD, DIM, GREEN, YELLOW, printHeader } from "../infrastructure/ui.js";
 import { shell } from "../infrastructure/shell.js";
 import { countFiles } from "../infrastructure/fs.js";
+import { getSelectedProject } from "../infrastructure/state.js";
+import { initializeProject } from "../domain/project/project-config.js";
 import { FLOWTI_TOOLS } from "../infrastructure/types.js";
 import type { ProjectContext } from "../infrastructure/types.js";
 import type { ProjectInfo } from "../domain/info/info.js";
@@ -184,4 +186,19 @@ export function displayInfoFromContext(ctx: ProjectContext): void {
 	printPublish(ctx);
 	printReview(ctx);
 	printGit(ctx);
+}
+
+// ── Interactive entry point ─────────────────────────────────────────
+
+export function showInfo(): void {
+	printHeader("Project Info");
+
+	const projectName = getSelectedProject();
+	if (!projectName) {
+		log(`  ${DIM}No project selected.${RESET}\n`);
+		return;
+	}
+
+	const ctx = initializeProject(projectName);
+	displayInfoFromContext(ctx);
 }

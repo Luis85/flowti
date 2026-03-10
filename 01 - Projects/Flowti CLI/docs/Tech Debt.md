@@ -2,7 +2,7 @@
 type: TechDebt
 domain: CLI
 title: Flowti CLI — Technical Debt Register
-version: 1
+version: 2
 created: 2026-03-10
 updated: 2026-03-10
 status: active
@@ -21,9 +21,9 @@ source: "[[Development Roadmap]]"
 |----------|-------|-----------------|
 | Critical | 3 (1 resolved) | 28h |
 | High | 8 (2 resolved) | 40h |
-| Medium | 8 (5 resolved) | 20h |
+| Medium | 12 (5 resolved) | 32h |
 | Low | 5 | 8h |
-| **Total** | **24 (9 resolved)** | **96h (31h resolved)** |
+| **Total** | **28 (9 resolved)** | **108h (31h resolved)** |
 
 ---
 
@@ -323,6 +323,49 @@ There's no `project.type` field in `ProjectConfig`. The CLI doesn't know whether
 **Effort**: M (3h)
 **Phase 8 item**: 8.0.1
 
+### TD-25: Controller Test Gap — 15 Controllers, 0 Dedicated Test Files
+
+**Domain**: tests/controller
+**Files**: `src/controller/*.ts` (15 files)
+**Impact**: Controllers are tested indirectly via domain tests, but lack dedicated request→response assertions
+
+The MVC refactoring (TD-24) created 15 controllers with the `CliRequest → ControllerAction → CliResponse<T>` pattern. None have dedicated test files asserting the controller layer — flag parsing, `adapt()` bridging, `dataResponse()` construction, and `handleResponse()` dispatch are only tested incidentally.
+
+**Remediation**: Create `tests/controller/` directory with one test file per controller. Test: correct model returned for given flags, `--format=json` produces valid JSON, error cases return correct exit codes.
+**Effort**: L (8h)
+**Priority**: High — controllers are the API surface for AI agents
+
+### TD-26: EventBus Infrastructure Created But Not Wired
+
+**Domain**: infrastructure/event-bus
+**Files**: `src/infrastructure/event-bus.ts`, `src/infrastructure/cli-events.ts`, `src/ui/cli-event-renderer.ts`
+**Impact**: EventBus exists but nothing emits or subscribes to events at runtime
+
+The EventBus was created during Phase 7.6 (domain purification) as infrastructure for Phase 8. Domain functions use the simpler injectable `log` callback pattern. The bus, event maps, and renderer are tested but not wired into `main.ts`.
+
+**Remediation**: Wire in Phase 8 when Plugin integration requires cross-domain event communication. No immediate action needed — the injectable log pattern is sufficient for current needs.
+**Effort**: S (2h)
+
+### TD-27: Naming Inconsistency — kebab-case vs PascalCase Services
+
+**Domain**: domain (cross-cutting)
+**Impact**: Inconsistent file naming creates navigation friction
+
+Most domain files use `kebab-case.ts` (e.g., `report-runner.ts`, `scaffold-service.ts`), but some use `PascalCase.ts` (e.g., `E2EService.ts`, `MakeService.ts`, `ReportService` class in `report-service.ts`). The convention should be consistent.
+
+**Remediation**: Standardize on `kebab-case.ts` for all files. Class names remain PascalCase (TypeScript convention).
+**Effort**: S (2h)
+
+### TD-28: `new Date()` Usage in E2E Domain Files
+
+**Domain**: domain/e2e
+**Impact**: Timestamps in E2E files can't be controlled in tests
+
+Several E2E domain files use `new Date()` directly instead of the `clock` abstraction from `infrastructure/clock.ts`. This makes test assertions on timestamps fragile.
+
+**Remediation**: Replace `new Date()` with `clock.now()` in E2E domain files. The `clock` abstraction already exists and is used elsewhere.
+**Effort**: S (1h)
+
 ---
 
 ## Low
@@ -406,3 +449,7 @@ When the CLI manages Plugin builds, it needs to understand the CSS pipeline. Cur
 | TD-22 | Open | — | Phase 8 blocker (scaffold + import) |
 | TD-23 | Open | — | Phase 8.5 blocker (E2E migration) |
 | TD-24 | Resolved | Pre-Phase 8 | MVC refactoring: 15 controllers, 11 display renderers, request-response abstraction |
+| TD-25 | Open | — | Controller test gap (15 controllers, 0 test files) |
+| TD-26 | Open | — | EventBus created, not wired (deferred to Phase 8) |
+| TD-27 | Open | — | Naming inconsistency (kebab vs PascalCase files) |
+| TD-28 | Open | — | `new Date()` in E2E domain files |

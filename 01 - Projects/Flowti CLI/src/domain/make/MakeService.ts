@@ -1,54 +1,16 @@
 /**
  * MakeService.ts — Make domain orchestrator.
  *
- * Manages template registry, available templates, and the interactive make menu.
+ * Manages template registry and available templates.
+ * Interactive menu moved to src/ui/menus/make-menu.ts.
  */
 
-import { DIM, RESET } from "../../infrastructure/ui.js";
-import { runMenu } from "../../infrastructure/menu.js";
-import { input } from "../../infrastructure/input.js";
-import { showHelp } from "../../ui/help.js";
 import { readProjectConfig } from "../project/project-config.js";
-import { log } from "../../infrastructure/logger.js";
-import type { MenuEntry, MenuResult, MakeTemplateId } from "../../infrastructure/types.js";
-import { makeJourney } from "./makers.js";
-import { componentMenu } from "./component/component-makers.js";
-
-// ── Template registry ───────────────────────────────────────────────
-
-const TEMPLATE_DEFS: Record<MakeTemplateId, { label: string; action: (root: string) => Promise<void | MenuResult> }> = {
-	journey: { label: "New E2E Journey", action: makeJourney },
-	component: { label: "Add Component", action: componentMenu },
-};
+import type { MakeTemplateId } from "../../infrastructure/types.js";
 
 const ALL_TEMPLATES: MakeTemplateId[] = ["journey", "component"];
 
 export function getAvailableTemplates(projectRoot: string): MakeTemplateId[] {
 	const { config: cfg } = readProjectConfig(projectRoot);
 	return cfg?.make?.templates ?? ALL_TEMPLATES;
-}
-
-// ── Interactive menu ────────────────────────────────────────────────
-
-export async function menu(projectRoot: string): Promise<MenuResult> {
-	const available = getAvailableTemplates(projectRoot);
-
-	if (available.length === 0) {
-		log(`\n  ${DIM}No Make templates configured for this project.${RESET}\n`);
-		return "main";
-	}
-
-	const items: MenuEntry[] = available.map((id, i) => {
-		const def = TEMPLATE_DEFS[id];
-		return { key: String(i + 1), label: def.label, action: () => def.action(projectRoot) };
-	});
-
-	items.push(
-		{ separator: true },
-		{ key: "?", label: "Help", action: async () => { showHelp("make"); await input.waitForEnter(); } },
-		{ key: "b", label: "Back", action: () => "main" as const },
-		{ key: "q", label: "Quit", action: () => "quit" as const },
-	);
-
-	return runMenu("Make", items);
 }

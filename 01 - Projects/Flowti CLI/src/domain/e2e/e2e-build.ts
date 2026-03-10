@@ -6,7 +6,6 @@
 import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
 import { shell } from "../../infrastructure/shell.js";
-import { log } from "../../infrastructure/logger.js";
 import { parseFrontmatterContent } from "../../infrastructure/frontmatter.js";
 import type { E2EPaths } from "./e2e-paths.js";
 import type { TestStats, BuildStats, ReportSource } from "./e2e-types.js";
@@ -124,14 +123,14 @@ export function collectReportSources(e2e: E2EPaths): Record<string, ReportSource
 
 // ── Quick build + deploy ────────────────────────────────────────────
 
-export function quickBuildAndDeploy(e2e: E2EPaths): number {
-	log("\n  Quick build (esbuild → deploy → reload)...\n");
+export function quickBuildAndDeploy(e2e: E2EPaths, log: (msg: string) => void = () => {}): number {
+	log("Quick build (esbuild → deploy → reload)...");
 
 	const buildExitCode = shell.run("node esbuild.config.mjs --production", { cwd: e2e.projectRoot });
 	if (buildExitCode === 0) {
-		log("\n  \x1b[32m✓\x1b[0m Build completed");
+		log("  ✓ Build completed");
 	} else {
-		log("\n  \x1b[31m✗\x1b[0m Build failed");
+		log("  ✗ Build failed");
 		return buildExitCode;
 	}
 
@@ -145,18 +144,18 @@ export function quickBuildAndDeploy(e2e: E2EPaths): number {
 			disk.copyFileSync(src, dest);
 			copied++;
 		} else {
-			log(`  \x1b[33m○\x1b[0m Artifact not found: ${artifact}`);
+			log(`  ○ Artifact not found: ${artifact}`);
 		}
 	}
-	log(`  \x1b[32m✓\x1b[0m Deployed ${copied} artifacts to test vault`);
+	log(`  ✓ Deployed ${copied} artifacts to test vault`);
 
 	const reloadResult = shell.runSilent(
 		`obsidian vault=${e2e.vaultName} eval code="(async () => { await app.plugins.disablePlugin('${e2e.pluginId}'); await app.plugins.enablePlugin('${e2e.pluginId}'); return 'reloaded'; })()"`,
 	);
 	if (reloadResult !== null) {
-		log("  \x1b[32m✓\x1b[0m Plugin reloaded in Obsidian\n");
+		log("  ✓ Plugin reloaded in Obsidian");
 	} else {
-		log("  \x1b[33m○\x1b[0m Plugin reload skipped (Obsidian may not be running)\n");
+		log("  ○ Plugin reload skipped (Obsidian may not be running)");
 	}
 
 	return 0;
@@ -168,8 +167,8 @@ import { runPipeline } from "../../infrastructure/pipeline/pipeline-runner.js";
 import { buildIncrementPipeline } from "./pipelines/increment-pipeline.js";
 import { buildPublishPipeline } from "./pipelines/publish-pipeline.js";
 
-export async function runIncrementBuild(e2e: E2EPaths): Promise<number> {
-	log("\n  Preparing test vault for full journey...\n");
+export async function runIncrementBuild(e2e: E2EPaths, log: (msg: string) => void = () => {}): Promise<number> {
+	log("Preparing test vault for full journey...");
 	const steps = buildIncrementPipeline(e2e);
 	const result = await runPipeline(steps, e2e.projectRoot, { label: "Increment Build" });
 	return result.failed > 0 ? 1 : 0;

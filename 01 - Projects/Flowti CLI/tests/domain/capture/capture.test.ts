@@ -64,7 +64,8 @@ vi.mock("../../../src/infrastructure/proc.js", () => ({
 import * as filesystemMod from "../../../src/infrastructure/filesystem.js";
 import { log } from "../../../src/infrastructure/logger.js";
 import { commands } from "../../../src/controller/capture.controller.js";
-import { captureIdea, captureNote, searchCaptures } from "../../../src/domain/capture/capture.js";
+import { searchCaptures } from "../../../src/domain/capture/capture.js";
+import { captureIdea, captureNote } from "../../../src/ui/menus/capture-menu.js";
 import { input } from "../../../src/infrastructure/input.js";
 import { printHeader } from "../../../src/infrastructure/ui.js";
 
@@ -127,8 +128,6 @@ describe("commands['capture:idea']", () => {
 		setDisk(fs);
 		commands["capture:idea"]({ text: "My idea" });
 		expect(fs.files.get("/mock/vault/inbox/idea/My idea.md")).toBe("existing");
-		const output = mockLog.mock.calls.flat().join(" ");
-		expect(output).toContain("already exists");
 	});
 });
 

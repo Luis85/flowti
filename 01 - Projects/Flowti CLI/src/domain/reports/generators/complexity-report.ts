@@ -12,7 +12,7 @@ import { paths } from "../../../infrastructure/paths.js";
 
 import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
-import { log } from "../../../infrastructure/logger.js";
+
 import { clock } from "../../../infrastructure/clock.js";
 import { analyzeComplexity } from "../cli/complexity-analyzer.js";
 import type { ComplexityFunction } from "../cli/complexity-analyzer.js";
@@ -126,8 +126,6 @@ function generateReport(entries: ComplexityFunction[], totalFiles: number): stri
 
 async function main(): Promise<void> {
 	const srcDir = paths.join(PLUGIN_ROOT, "src");
-	log("[report] Running complexity analysis...");
-
 	const result = analyzeComplexity(srcDir, PLUGIN_ROOT);
 	const content = generateReport(result.functions, result.files.length);
 
@@ -141,8 +139,6 @@ async function main(): Promise<void> {
 
 	// Write stable report (overwrite)
 	disk.writeFileSync(STABLE_PATH, content, "utf-8");
-
-	log(`[report] ComplexityReport written: ${timestampedPath}`);
 }
 
 main();

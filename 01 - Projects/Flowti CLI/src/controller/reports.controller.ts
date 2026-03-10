@@ -10,6 +10,7 @@ import type { CommandHandler } from "../infrastructure/types.js";
 import { shell } from "../infrastructure/shell.js";
 import { disk } from "../infrastructure/filesystem.js";
 import { paths } from "../infrastructure/paths.js";
+import { log } from "../infrastructure/logger.js";
 import { runAllReports } from "../domain/reports/report-runner.js";
 import { runAllDocs } from "../domain/reports/doc-runner.js";
 import { runGenerator, hasGenerator } from "../domain/reports/generator-registry.js";
@@ -41,13 +42,13 @@ const actions: Record<string, ControllerAction> = {
 	reports: async (req) => {
 		const generators = req.project?.config.reports?.generators ?? [];
 		if (generators.length === 0) return noGeneratorsResponse();
-		await runAllReports(generators, req.project!.path, { parallel: !!req.flags.parallel });
+		await runAllReports(generators, req.project!.path, { parallel: !!req.flags.parallel, log });
 	},
 
 	"reports:audit": async (req) => {
 		const generators = req.project?.config.reports?.generators ?? [];
 		if (generators.length === 0) return noGeneratorsResponse();
-		const result = await runAllReports(generators, req.project!.path, { parallel: !!req.flags.parallel });
+		const result = await runAllReports(generators, req.project!.path, { parallel: !!req.flags.parallel, log });
 		const model: AuditResultModel = { passed: result.passed, failed: result.failed };
 		return dataResponse(model, renderAuditResult);
 	},

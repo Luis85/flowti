@@ -13,7 +13,7 @@ import { disk } from "../../../infrastructure/filesystem.js";
 import { paths } from "../../../infrastructure/paths.js";
 import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
-import { log } from "../../../infrastructure/logger.js";
+
 import { proc } from "../../../infrastructure/proc.js";
 import { clock } from "../../../infrastructure/clock.js";
 
@@ -106,7 +106,6 @@ function main(): void {
 	const metafilePath = args.metafile || proc.env().BUILD_METAFILE;
 
 	if (!metafilePath || !disk.existsSync(metafilePath)) {
-		log("[report] No metafile found — skipping build report.");
 		return;
 	}
 
@@ -157,8 +156,6 @@ function main(): void {
 	const outputPath = paths.join(OUTPUT_DIR, filename);
 
 	doc.save(outputPath);
-
-	log(`[report] BuildReport written: ${outputPath}`);
 }
 
 main();

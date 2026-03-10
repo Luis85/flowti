@@ -12,7 +12,7 @@ vi.mock("../../src/domain/reports/generator-registry.js", () => ({
 	runReference: vi.fn(() => ({ success: true, outputPath: "" })),
 }));
 
-vi.mock("../../src/domain/reports/report-archive.js", () => ({
+vi.mock("../../src/ui/menus/report-archive-menu.js", () => ({
 	browseArchive: vi.fn(() => "main"),
 }));
 
@@ -39,7 +39,7 @@ import { buildReportsSubmenu, buildDocsSubmenu, buildNpmScriptsSubmenu } from ".
 import { runAllReports } from "../../src/domain/reports/report-runner.js";
 import { runGenerator } from "../../src/domain/reports/generator-registry.js";
 import { runReference } from "../../src/domain/reports/generator-registry.js";
-import { browseArchive } from "../../src/domain/reports/report-archive.js";
+import { browseArchive } from "../../src/ui/menus/report-archive-menu.js";
 import type { MenuItem, MenuEntry } from "../../src/infrastructure/types.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────

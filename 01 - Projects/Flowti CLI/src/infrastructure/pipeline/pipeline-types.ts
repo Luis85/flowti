@@ -79,6 +79,9 @@ export interface PipelineContext {
 	/** Retrieve previously captured command output. */
 	getCommandOutput(command: string): string | undefined;
 
+	/** Emit a progress message (wired to PipelineDeps.log by the runner). */
+	log(message: string): void;
+
 	/** Store arbitrary step data for downstream consumption. */
 	setStepData(stepId: string, data: Record<string, unknown>): void;
 	/** Retrieve step data set by a prior step. */

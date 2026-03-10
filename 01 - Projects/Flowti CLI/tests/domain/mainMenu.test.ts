@@ -7,7 +7,7 @@ vi.mock("../../src/domain/make/make.js", () => ({
 	menu: vi.fn(() => "main"),
 }));
 
-vi.mock("../../src/domain/make/component/component-list.js", () => ({
+vi.mock("../../src/ui/menus/component-list-menu.js", () => ({
 	componentListMenu: vi.fn(() => "main"),
 }));
 
@@ -19,8 +19,10 @@ vi.mock("../../src/domain/review/project-review.js", () => ({
 	reviewMenu: vi.fn(() => "main"),
 }));
 
-vi.mock("../../src/domain/info/info.js", () => ({
+vi.mock("../../src/ui/info-display.js", () => ({
 	showInfo: vi.fn(),
+	displayInfo: vi.fn(),
+	displayInfoFromContext: vi.fn(),
 }));
 
 vi.mock("../../src/ui/help.js", () => ({
@@ -34,8 +36,11 @@ vi.mock("../../src/domain/capture/capture.js", () => ({
 }));
 
 vi.mock("../../src/domain/knowledgebase/knowledgebase.js", () => ({
-	knowledgebaseMenu: vi.fn(() => "main"),
 	isKnowledgebaseAvailable: vi.fn(() => true),
+}));
+
+vi.mock("../../src/ui/menus/knowledgebase-menu.js", () => ({
+	knowledgebaseMenu: vi.fn(() => "main"),
 }));
 
 vi.mock("../../src/domain/health/health.js", () => ({
@@ -96,7 +101,7 @@ import * as shellMod from "../../src/infrastructure/shell.js";
 import { getSelectedProject } from "../../src/infrastructure/state.js";
 import { initializeProject } from "../../src/domain/project/project-config.js";
 import { buildProjectDetailMenu } from "../../src/ui/mainMenu.js";
-import { showInfo } from "../../src/domain/info/info.js";
+import { showInfo } from "../../src/ui/info-display.js";
 import { showHelp } from "../../src/ui/help.js";
 import { buildWithReport } from "../../src/domain/reports/cli/generate-build-report.js";
 import { isKnowledgebaseAvailable } from "../../src/domain/knowledgebase/knowledgebase.js";

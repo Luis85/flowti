@@ -7,7 +7,6 @@
 import { disk } from "../../../infrastructure/filesystem.js";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
-import { log } from "../../../infrastructure/logger.js";
 import { clock } from "../../../infrastructure/clock.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
 
@@ -51,7 +50,8 @@ function addSuitesTable(doc: Document, json: Record<string, unknown>): void {
 	doc.table(["Suite", "Tests", "Passed", "Status"], rows, { alignRight: [1, 2] }).addBlank();
 }
 
-export function generateTestReport(projectPath: string): GeneratorOutput {
+export function generateTestReport(projectPath: string, ctx?: import("../../../infrastructure/pipeline/pipeline-types.js").PipelineContext): GeneratorOutput {
+	const log = (msg: string) => ctx?.log(msg);
 	const svc = new ReportService(projectPath);
 	const reportJson = svc.subdir("tests/testreport.json");
 

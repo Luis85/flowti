@@ -11,10 +11,11 @@ import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler, ProjectContext } from "../infrastructure/types.js";
 import { shell } from "../infrastructure/shell.js";
-import { handleProjectCi } from "../domain/build/ci-generator.js";
+import { runProjectCi } from "../domain/build/ci-generator.js";
 import { checkFreshness, recordBuild, resolveBuildPaths } from "../domain/build/build-freshness.js";
 import {
 	renderFreshnessCheck, renderBuildAuto, renderBuildRecorded,
+	renderCiDryRun, renderCiWritten,
 	type BuildAutoModel, type BuildRecordedModel,
 } from "../ui/build-display.js";
 
@@ -102,7 +103,13 @@ const actions: Record<string, ControllerAction> = {
 		return dataResponse(model, renderBuildRecorded);
 	},
 	"project:ci": (req) => {
-		handleProjectCi(req.flags, req.rawArgs, req.command, req.project);
+		if (!req.project) return;
+		const result = runProjectCi(req.project, req.flags["dry-run"] === true);
+		if (result.dryRun) {
+			renderCiDryRun(result.yaml);
+		} else if (result.outputPath) {
+			renderCiWritten(result.yaml, result.outputPath);
+		}
 	},
 };
 

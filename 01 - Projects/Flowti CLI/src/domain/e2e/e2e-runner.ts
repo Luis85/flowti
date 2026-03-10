@@ -9,7 +9,6 @@
 import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
 import { shell } from "../../infrastructure/shell.js";
-import { log } from "../../infrastructure/logger.js";
 import { runPipeline } from "../../infrastructure/pipeline/pipeline-runner.js";
 import type { E2EPaths } from "./e2e-paths.js";
 import type { SessionConfig, JourneyEntry, PrerequisiteResults } from "./e2e-types.js";
@@ -25,7 +24,7 @@ export function runVitest(e2e: E2EPaths): number {
 
 // ── Report generation ───────────────────────────────────────────────
 
-export function generateReport(e2e: E2EPaths): string | null {
+export function generateReport(e2e: E2EPaths, log: (msg: string) => void = () => {}): string | null {
 	const output = shell.runSilent("node scripts/generate-e2e-report.mjs", { cwd: e2e.projectRoot });
 	if (output !== null) {
 		log(output);
@@ -51,17 +50,17 @@ export function restorePluginState(e2e: E2EPaths): void {
 	shell.runSilent(`obsidian vault=${e2e.vaultName} eval code="(() => { try { app.commands.executeCommandById('${e2e.pluginId}:flowti:open-event-log'); } catch(e) {} })()"`);
 }
 
-export function openReportInObsidian(reportVaultPath: string, e2e: E2EPaths): void {
+export function openReportInObsidian(reportVaultPath: string, e2e: E2EPaths, log: (msg: string) => void = () => {}): void {
 	log("[e2e] Opening report in Obsidian...");
 	shell.runSilent(`obsidian vault=${e2e.vaultName} open path="${reportVaultPath}"`);
 	shell.runSilent(`obsidian vault=${e2e.vaultName} eval code="(() => { const existing = app.workspace.getLeavesOfType('outline')[0]; if (existing) { app.workspace.revealLeaf(existing); return; } const leaf = app.workspace.getRightLeaf(false); if (leaf) leaf.setViewState({ type: 'outline', active: true }); })()"`);
 }
 
-export function generateReportAndOpen(e2e: E2EPaths): void {
-	log("\n[e2e] Generating E2E report (this may take a moment)...\n");
-	const reportVaultPath = generateReport(e2e);
+export function generateReportAndOpen(e2e: E2EPaths, log: (msg: string) => void = () => {}): void {
+	log("[e2e] Generating E2E report (this may take a moment)...");
+	const reportVaultPath = generateReport(e2e, log);
 	if (reportVaultPath) {
-		openReportInObsidian(reportVaultPath, e2e);
+		openReportInObsidian(reportVaultPath, e2e, log);
 		restorePluginState(e2e);
 	}
 }

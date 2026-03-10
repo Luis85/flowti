@@ -50,6 +50,10 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
 }));
 
+vi.mock("../../../src/domain/make/makers.js", () => ({
+	makeJourney: vi.fn(),
+}));
+
 import { reviewMenu } from "../../../src/domain/review/project-review.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
 import { shell } from "../../../src/infrastructure/shell.js";

@@ -1,173 +1,79 @@
 /**
- * ai-tool-commands.ts — Command handlers for AI tool management.
+ * ai-tool-commands.ts — Pure domain logic for AI tool management.
  *
- * Provides interactive menu and CLI commands for managing AI agent tools.
+ * Data-mapping functions and parameter substitution.
+ * Interactive menu lives in ui/menus/ai-tools-menu.ts.
  */
 
-import { log } from "../../infrastructure/logger.js";
-import { RESET, DIM, GREEN, RED, YELLOW, CYAN } from "../../infrastructure/ui.js";
 import { disk } from "../../infrastructure/filesystem.js";
-import { input } from "../../infrastructure/input.js";
-import { VAULT_ROOT, CLI_PROJECT } from "../../infrastructure/config.js";
-import { runMenu } from "../../infrastructure/menu.js";
-import type { MenuEntry, MenuResult } from "../../infrastructure/types.js";
+import { paths } from "../../infrastructure/paths.js";
 import {
-	loadAiTools,
 	validateToolDefinition,
-	scaffoldAiTool,
 	discoverToolFiles,
 	AI_TOOLS_DIR,
 } from "./ai-tool-loader.js";
-import { paths } from "../../infrastructure/paths.js";
-import type { LoadedAiTool } from "./ai-tool-types.js";
-import { generateAiToolReference } from "./ai-tool-reference.js";
+import type { LoadedAiTool, AiToolParam } from "./ai-tool-types.js";
 
-// ── Display helpers ──────────────────────────────────────────────────
+// ── Data mapping (domain → display model) ────────────────────────────
 
-function displayValidTool(tool: LoadedAiTool): void {
-	log(`    ${DIM}Run: ${tool.definition.run}${RESET}`);
-	const params = tool.definition.params ?? [];
-	if (params.length > 0) {
-		log(`    ${DIM}Params:${RESET}`);
-		for (const p of params) {
-			const req = p.required ? ` ${YELLOW}(required)${RESET}` : "";
-			log(`      ${DIM}•${RESET} ${p.name} (${p.type})${req}`);
-		}
-	}
-	const tags = tool.definition.tags ?? [];
-	if (tags.length > 0) {
-		log(`    ${DIM}Tags: ${tags.join(", ")}${RESET}`);
-	}
+export interface ToolListItem {
+	name: string;
+	version: string | null;
+	description: string;
+	run: string;
+	params: AiToolParam[];
+	tags: string[];
+	valid: boolean;
+	errors: string[];
 }
 
-function displayToolList(tools: LoadedAiTool[]): void {
-	if (tools.length === 0) {
-		log(`\n  ${DIM}No AI tools found in ${AI_TOOLS_DIR}/${RESET}\n`);
-		return;
-	}
-
-	log(`\n  ${CYAN}AI Tools${RESET}\n`);
-
-	for (const tool of tools) {
-		const status = tool.valid ? `${GREEN}✓${RESET}` : `${RED}✗${RESET}`;
-		const version = tool.definition.version ? ` ${DIM}v${tool.definition.version}${RESET}` : "";
-
-		log(`  ${status} ${tool.definition.name}${version}`);
-		log(`    ${DIM}${tool.definition.description || "(no description)"}${RESET}`);
-
-		if (tool.valid) {
-			displayValidTool(tool);
-		} else {
-			for (const err of tool.errors) {
-				log(`    ${RED}${err}${RESET}`);
-			}
-		}
-		log();
-	}
+export interface ToolValidationItem {
+	file: string;
+	valid: boolean;
+	errors: string[];
+	warnings: string[];
 }
 
-function displayValidation(vaultRoot: string): void {
+export function toToolListItems(tools: LoadedAiTool[]): ToolListItem[] {
+	return tools.map((tool) => ({
+		name: tool.definition.name,
+		version: tool.definition.version ?? null,
+		description: tool.definition.description || "",
+		run: tool.definition.run,
+		params: (tool.definition.params ?? []).map((p) => ({
+			...p,
+			required: p.required ?? false,
+		})),
+		tags: tool.definition.tags ?? [],
+		valid: tool.valid,
+		errors: [...tool.errors],
+	}));
+}
+
+export function toToolValidationItems(vaultRoot: string): ToolValidationItem[] {
 	const toolsDir = paths.join(vaultRoot, AI_TOOLS_DIR);
 	const files = discoverToolFiles(toolsDir, disk);
-
-	if (files.length === 0) {
-		log(`\n  ${DIM}No AI tool files found in ${AI_TOOLS_DIR}/${RESET}\n`);
-		return;
-	}
-
-	log(`\n  ${CYAN}AI Tool Validation${RESET}\n`);
-
-	for (const file of files) {
+	return files.map((file) => {
 		const fileName = paths.basename(file);
 		try {
 			const raw = JSON.parse(disk.readFileSync(file, "utf-8")) as unknown;
 			const result = validateToolDefinition(raw);
-
-			if (result.valid) {
-				log(`  ${GREEN}✓${RESET} ${fileName}`);
-			} else {
-				log(`  ${RED}✗${RESET} ${fileName}`);
-			}
-
-			for (const err of result.errors) {
-				log(`    ${RED}Error: ${err}${RESET}`);
-			}
-			for (const warn of result.warnings) {
-				log(`    ${YELLOW}Warning: ${warn}${RESET}`);
-			}
+			return {
+				file: fileName,
+				valid: result.valid,
+				errors: [...result.errors],
+				warnings: [...result.warnings],
+			};
 		} catch (err: unknown) {
 			const message = err instanceof Error ? err.message : String(err);
-			log(`  ${RED}✗${RESET} ${fileName}`);
-			log(`    ${RED}Parse error: ${message}${RESET}`);
+			return {
+				file: fileName,
+				valid: false,
+				errors: [`Parse error: ${message}`],
+				warnings: [],
+			};
 		}
-	}
-	log();
-}
-
-// ── Interactive menu ─────────────────────────────────────────────────
-
-export async function aiToolsMenu(): Promise<MenuResult> {
-	const items: MenuEntry[] = [
-		{
-			key: "1",
-			label: "List Tools",
-			action: () => {
-				const tools = loadAiTools(VAULT_ROOT, disk);
-				displayToolList(tools);
-				return "main" as const;
-			},
-		},
-		{
-			key: "2",
-			label: "Validate Tools",
-			action: () => {
-				displayValidation(VAULT_ROOT);
-				return "main" as const;
-			},
-		},
-		{
-			key: "3",
-			label: "Create Tool",
-			action: async () => {
-				const name = await input.ask("Tool name (lowercase, hyphens/underscores)");
-				if (!name) {
-					log(`\n  ${DIM}Cancelled.${RESET}\n`);
-					return "main" as const;
-				}
-				const desc = await input.ask("Description");
-				const run = await input.ask("Shell command to run");
-				if (!run) {
-					log(`\n  ${DIM}Cancelled.${RESET}\n`);
-					return "main" as const;
-				}
-				const result = scaffoldAiTool(VAULT_ROOT, name, desc || "An AI tool", run, disk);
-				if ("error" in result) {
-					log(`\n  ${RED}${result.error}${RESET}\n`);
-				} else {
-					log(`\n  ${GREEN}✓${RESET} Created tool at ${DIM}${result.path}${RESET}`);
-					log(`  ${DIM}Edit the JSON file to add parameters and tags.${RESET}\n`);
-				}
-				return "main" as const;
-			},
-		},
-		{
-			key: "4",
-			label: "Generate Reference",
-			action: () => {
-				const tools = loadAiTools(VAULT_ROOT, disk);
-				const doc = generateAiToolReference(tools);
-				const outputPath = paths.join(CLI_PROJECT, "docs", "reference", "AI Tool Reference.md");
-				doc.save(outputPath);
-				log(`\n  ${GREEN}✓${RESET} Reference saved to ${DIM}${outputPath}${RESET}\n`);
-				return "main" as const;
-			},
-		},
-		{ separator: true },
-		{ key: "b", label: "Back", action: () => "quit" as const },
-	];
-
-	await runMenu("AI Tools", items);
-	return "main";
+	});
 }
 
 // ── Param substitution ──────────────────────────────────────────────

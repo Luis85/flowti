@@ -37,7 +37,7 @@ async function runCliReload(shellOpts: Parameters<typeof createMockShell>[0] = {
 	Object.assign(procMod, { proc: p });
 
 	// Dynamic import to trigger module-level main() execution
-	await import("../../../src/domain/devtools/cli-reload.js");
+	await import("../../../src/scripts/cli-reload.js");
 
 	return { sh, p };
 }

@@ -11,7 +11,7 @@ import { disk } from "../../../infrastructure/filesystem.js";
 import { paths } from "../../../infrastructure/paths.js";
 import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
-import { log } from "../../../infrastructure/logger.js";
+
 import { clock } from "../../../infrastructure/clock.js";
 
 const CODEBASE_JSON = paths.join(PLUGIN_ROOT, "docs", "reports", "codebase", "codebase.json");
@@ -75,7 +75,6 @@ function buildCodebaseFm(data: TypeDocNode, counts: Record<number, number>, date
 
 function main(): void {
 	if (!disk.existsSync(CODEBASE_JSON)) {
-		log("[report] No codebase.json found — run typedoc first.");
 		return;
 	}
 
@@ -99,8 +98,6 @@ function main(): void {
 	const safeTimestamp = clock.safeIso();
 	const outputPath = paths.join(OUTPUT_DIR, `${safeTimestamp}-codebase-report.md`);
 	doc.save(outputPath);
-
-	log(`[report] CodebaseReport written: ${outputPath}`);
 }
 
 main();

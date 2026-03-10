@@ -41,7 +41,7 @@ vi.mock("../../../../src/infrastructure/menu.js", () => ({
 
 import { disk } from "../../../../src/infrastructure/filesystem.js";
 import { input } from "../../../../src/infrastructure/input.js";
-import { componentMenu } from "../../../../src/domain/make/component/component-makers.js";
+import { componentMenu } from "../../../../src/ui/menus/component-makers-menu.js";
 import { runMenu } from "../../../../src/infrastructure/menu.js";
 import type { ComponentDefinition, ComponentVariables } from "../../../../src/domain/make/component/component-types.js";
 

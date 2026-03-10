@@ -1,13 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../../../src/infrastructure/ui.js", () => ({
-	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", CYAN: "", YELLOW: "",
-}));
-
-vi.mock("../../../src/infrastructure/logger.js", () => ({
-	log: vi.fn(),
-}));
-
 vi.mock("../../../src/infrastructure/filesystem.js", () => ({
 	disk: {
 		existsSync: vi.fn().mockReturnValue(false),
@@ -26,11 +18,10 @@ import {
 	extractCiConfig,
 	buildWorkflowSteps,
 	generateWorkflowYaml,
-	displayWorkflowPreview,
+	runProjectCi,
 	handleProjectCi,
 } from "../../../src/domain/build/ci-generator.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
-import { log } from "../../../src/infrastructure/logger.js";
 import type { ProjectContext } from "../../../src/infrastructure/types.js";
 
 /** Create a project context with the given overrides. */
@@ -314,37 +305,32 @@ describe("generateWorkflowYaml", () => {
 	});
 });
 
-// ── displayWorkflowPreview ───────────────────────────────────────────
+// ── runProjectCi ─────────────────────────────────────────────────────
 
-describe("displayWorkflowPreview", () => {
-	it("outputs each line of the YAML", () => {
-		const yaml = "name: CI\non:\n  push:";
-		displayWorkflowPreview(yaml);
-
-		const logFn = log as ReturnType<typeof vi.fn>;
-		const calls = logFn.mock.calls.map((c: unknown[]) => c[0] as string).filter(Boolean);
-		// Should contain the yaml lines
-		expect(calls.some((c: string) => c.includes("name: CI"))).toBe(true);
-		expect(calls.some((c: string) => c.includes("push:"))).toBe(true);
-	});
-});
-
-// ── handleProjectCi (command handler) ────────────────────────────────
-
-describe("handleProjectCi", () => {
-	it("does nothing when no project is provided", () => {
-		handleProjectCi({}, [], "project:ci", undefined);
-
-		expect(disk.writeFileSync).not.toHaveBeenCalled();
-	});
-
-	it("writes ci.yml when not dry-run", () => {
+describe("runProjectCi", () => {
+	it("returns yaml and dryRun flag in dry-run mode", () => {
 		const project = makeProject({
 			config: { name: "test", tools: { build: "npm run build" } },
 		});
 
-		handleProjectCi({}, [], "project:ci", project);
+		const result = runProjectCi(project, true);
 
+		expect(result.dryRun).toBe(true);
+		expect(result.yaml).toContain("name: CI");
+		expect(result.outputPath).toBeUndefined();
+		expect(disk.writeFileSync).not.toHaveBeenCalled();
+		expect(disk.mkdirSync).not.toHaveBeenCalled();
+	});
+
+	it("writes ci.yml and returns outputPath when not dry-run", () => {
+		const project = makeProject({
+			config: { name: "test", tools: { build: "npm run build" } },
+		});
+
+		const result = runProjectCi(project, false);
+
+		expect(result.dryRun).toBe(false);
+		expect(result.outputPath).toBe("/test/project/.github/workflows/ci.yml");
 		expect(disk.mkdirSync).toHaveBeenCalledWith(
 			"/test/project/.github/workflows",
 			{ recursive: true },
@@ -356,35 +342,11 @@ describe("handleProjectCi", () => {
 		);
 	});
 
-	it("does not write files in dry-run mode", () => {
-		const project = makeProject({
-			config: { name: "test", tools: { build: "npm run build" } },
-		});
-
-		handleProjectCi({ "dry-run": true }, [], "project:ci", project);
-
-		expect(disk.writeFileSync).not.toHaveBeenCalled();
-		expect(disk.mkdirSync).not.toHaveBeenCalled();
-	});
-
-	it("displays preview in dry-run mode", () => {
-		const project = makeProject({
-			config: { name: "test", tools: { build: "npm run build" } },
-		});
-
-		handleProjectCi({ "dry-run": true }, [], "project:ci", project);
-
-		const logFn = log as ReturnType<typeof vi.fn>;
-		const output = logFn.mock.calls.map((c: unknown[]) => String(c[0] ?? "")).join("\n");
-		expect(output).toContain("name: CI");
-		expect(output).toContain("Dry run");
-	});
-
 	it("skips mkdir when workflows dir already exists", () => {
 		const project = makeProject();
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 
-		handleProjectCi({}, [], "project:ci", project);
+		runProjectCi(project, false);
 
 		expect(disk.mkdirSync).not.toHaveBeenCalled();
 		expect(disk.writeFileSync).toHaveBeenCalled();
@@ -399,11 +361,20 @@ describe("handleProjectCi", () => {
 			scripts: { test: "vitest run", build: "esbuild" },
 		});
 
-		handleProjectCi({}, [], "project:ci", project);
+		const result = runProjectCi(project, false);
 
-		const writtenYaml = vi.mocked(disk.writeFileSync).mock.calls[0][1] as string;
-		expect(writtenYaml).toContain("run: npm run build");
-		expect(writtenYaml).toContain("run: npm test");
-		expect(writtenYaml).toContain("run: npm run reports");
+		expect(result.yaml).toContain("run: npm run build");
+		expect(result.yaml).toContain("run: npm test");
+		expect(result.yaml).toContain("run: npm run reports");
+	});
+});
+
+// ── handleProjectCi (backward compat) ───────────────────────────────
+
+describe("handleProjectCi", () => {
+	it("does nothing when no project is provided", () => {
+		handleProjectCi({}, [], "project:ci", undefined);
+
+		expect(disk.writeFileSync).not.toHaveBeenCalled();
 	});
 });

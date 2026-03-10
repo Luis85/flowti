@@ -11,7 +11,7 @@ import { disk } from "../../../infrastructure/filesystem.js";
 import { paths } from "../../../infrastructure/paths.js";
 import { VAULT_ROOT, PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
-import { log } from "../../../infrastructure/logger.js";
+
 import { proc } from "../../../infrastructure/proc.js";
 import { clock } from "../../../infrastructure/clock.js";
 import { parseFrontmatterContent } from "../../../infrastructure/frontmatter.js";
@@ -152,15 +152,12 @@ function main(): void {
 	const reportDoc = buildTraceReportDoc(docs, gaps);
 
 	if (dryRun) {
-		log("[trace] DRY RUN — would generate:");
-		log(reportDoc.toString());
 		return;
 	}
 
 	const safeTimestamp = clock.safeIso();
 	const outputPath = paths.join(OUTPUT_DIR, `${safeTimestamp}-trace-conformance-report.md`);
 	reportDoc.save(outputPath);
-	log(`[report] TraceConformanceReport written: ${outputPath}`);
 }
 
 main();

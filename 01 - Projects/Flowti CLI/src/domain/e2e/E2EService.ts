@@ -6,14 +6,13 @@
  */
 
 import { PLUGIN_ROOT } from "../../infrastructure/config.js";
-import { log } from "../../infrastructure/logger.js";
 import { proc } from "../../infrastructure/proc.js";
 import { runPipeline } from "../../infrastructure/pipeline/pipeline-runner.js";
 import type { ReviewConfig } from "../../infrastructure/types.js";
 import { resolveE2EPaths, type E2EPaths } from "./e2e-paths.js";
 import { readProjectConfig } from "../project/project-config.js";
 import { buildSuitePipeline } from "./pipelines/suite-pipeline.js";
-import { interactiveSession } from "./e2e-interactive.js";
+import { interactiveSession } from "../../ui/e2e/e2e-interactive.js";
 
 // ── Lazy singleton (backward compat for script entry point) ─────────
 
@@ -46,7 +45,7 @@ export async function startInteractiveSession(e2e?: E2EPaths): Promise<void> {
 }
 
 /** Run a non-interactive E2E suite with optional journey filter. */
-export async function runE2ESuite(journeyFilter?: string, e2e?: E2EPaths): Promise<never> {
+export async function runE2ESuite(journeyFilter?: string, e2e?: E2EPaths, log: (msg: string) => void = () => {}): Promise<never> {
 	const resolved = e2e ?? defaultE2E();
 
 	if (journeyFilter) {

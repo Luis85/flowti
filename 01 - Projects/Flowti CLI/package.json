@@ -13,7 +13,7 @@
     "check": "npm run lint && tsc --project configs/tsconfig.json --noEmit",
     "lint": "eslint --config configs/eslint.config.mjs src/",
     "typedoc": "typedoc --options configs/typedoc.json",
-    "analysis": "tsx src/domain/reports/cli/run-analysis.ts"
+    "analysis": "tsx src/scripts/run-analysis.ts"
   },
   "devDependencies": {
 "@types/node": "^25.3.5",

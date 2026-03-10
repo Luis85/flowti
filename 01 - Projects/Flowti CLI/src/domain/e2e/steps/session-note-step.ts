@@ -9,7 +9,6 @@ import { writeSessionNote } from "../e2e-session-note.js";
 import { readTestStats } from "../e2e-build.js";
 import { resolveJourneyNames } from "../e2e-session.js";
 import { printSessionSummary } from "../../../ui/e2e/e2e-formatters.js";
-import { log } from "../../../infrastructure/logger.js";
 
 export interface SessionNoteStepOptions {
 	config: SessionConfig;
@@ -42,7 +41,7 @@ export function createSessionNoteStep(e2e: E2EPaths, opts: SessionNoteStepOption
 				e2e,
 			);
 
-			log(`  Session note: ${notePath}\n`);
+			ctx.log(`  Session note: ${notePath}\n`);
 
 			return {
 				success: true,

@@ -29,7 +29,7 @@ vi.mock("../../../src/domain/scaffold/scaffold-service.js", () => ({
 	getKnownTemplateIds: vi.fn(() => new Set()),
 }));
 
-vi.mock("../../../src/domain/scaffold/marketplace.js", () => ({
+vi.mock("../../../src/ui/menus/marketplace-menu.js", () => ({
 	displayMarketplaceCommand: vi.fn(),
 	importDefinitionCommand: vi.fn(),
 }));

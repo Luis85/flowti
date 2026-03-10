@@ -22,12 +22,9 @@ vi.mock("../../../../src/infrastructure/config.js", () => ({
 	cliConfig: {},
 }));
 
-vi.mock("../../../../src/infrastructure/ui.js", () => ({
-	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", CYAN: "",
-}));
-
-vi.mock("../../../../src/infrastructure/logger.js", () => ({
-	log: vi.fn(),
+vi.mock("../../../../src/ui/common-renderers.js", () => ({
+	renderError: vi.fn(),
+	renderSuccess: vi.fn(),
 }));
 
 vi.mock("../../../../src/infrastructure/proc.js", () => ({

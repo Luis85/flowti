@@ -11,7 +11,7 @@ import { disk } from "../../../infrastructure/filesystem.js";
 import { paths } from "../../../infrastructure/paths.js";
 import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
-import { log } from "../../../infrastructure/logger.js";
+
 import { clock } from "../../../infrastructure/clock.js";
 
 interface CommandMeta {
@@ -77,7 +77,6 @@ function capitalize(s: string): string {
 
 function main(): void {
 	if (!disk.existsSync(REGISTRY_PATH)) {
-		log("[report] CommandRegistry source not found — skipping.");
 		return;
 	}
 
@@ -85,7 +84,6 @@ function main(): void {
 	const commands: CommandMeta[] = extractCommandMeta(source);
 
 	if (commands.length === 0) {
-		log("[report] No commands extracted from registry — skipping.");
 		return;
 	}
 
@@ -134,8 +132,6 @@ function main(): void {
 	const outputPath: string = paths.join(OUTPUT_DIR, filename);
 
 	doc.save(outputPath);
-
-	log(`[report] CommandReference written (${commands.length} commands): ${outputPath}`);
 }
 
 main();

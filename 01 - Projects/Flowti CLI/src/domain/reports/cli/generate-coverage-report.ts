@@ -8,7 +8,6 @@
 import { disk } from "../../../infrastructure/filesystem.js";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
-import { log } from "../../../infrastructure/logger.js";
 import { clock } from "../../../infrastructure/clock.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
 
@@ -47,7 +46,8 @@ function fileCoverage(entry: CoverageEntry): { statements: number; branches: num
 	};
 }
 
-export function generateCoverageReport(projectPath: string): GeneratorOutput {
+export function generateCoverageReport(projectPath: string, ctx?: import("../../../infrastructure/pipeline/pipeline-types.js").PipelineContext): GeneratorOutput {
+	const log = (msg: string) => ctx?.log(msg);
 	const svc = new ReportService(projectPath);
 	const coverageJson = svc.subdir("coverage/coverage-final.json");
 

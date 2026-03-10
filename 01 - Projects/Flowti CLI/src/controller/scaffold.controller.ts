@@ -8,7 +8,7 @@ import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler } from "../infrastructure/types.js";
 import { scaffold, scaffoldDryRun, listDefinitions, BUNDLED_DEFINITIONS, getKnownTemplateIds } from "../domain/scaffold/scaffold-service.js";
-import { displayMarketplaceCommand, importDefinitionCommand } from "../domain/scaffold/marketplace.js";
+import { displayMarketplaceCommand, importDefinitionCommand } from "../ui/menus/marketplace-menu.js";
 import { exportBundle, saveBundle, loadBundle, importAiToolsFromBundle } from "../domain/scaffold/marketplace-export.js";
 import { VAULT_ROOT } from "../infrastructure/config.js";
 import { afterScaffold } from "../infrastructure/suggestions.js";

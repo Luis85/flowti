@@ -11,7 +11,7 @@ import { disk } from "../../../infrastructure/filesystem.js";
 import { paths } from "../../../infrastructure/paths.js";
 import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
-import { log } from "../../../infrastructure/logger.js";
+
 import { clock } from "../../../infrastructure/clock.js";
 
 export interface EntityField {
@@ -134,7 +134,6 @@ export function groupLabel(group: string): string {
 
 function main(): void {
 	if (!disk.existsSync(REGISTRY_PATH)) {
-		log("[report] entityTypeRegistry.ts not found — skipping data dictionary generation.");
 		return;
 	}
 
@@ -142,7 +141,6 @@ function main(): void {
 	const entities: EntityType[] = extractEntityTypes(source);
 
 	if (entities.length === 0) {
-		log("[report] No entity types extracted from registry — skipping.");
 		return;
 	}
 
@@ -218,8 +216,6 @@ function main(): void {
 	const outputPath: string = paths.join(OUTPUT_DIR, filename);
 
 	doc.save(outputPath);
-
-	log(`[report] DataDictionary written (${entities.length} types, ${totalFields} fields): ${outputPath}`);
 }
 
 main();

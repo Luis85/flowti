@@ -26,19 +26,17 @@ vi.mock("../../../src/infrastructure/shell.js", () => ({
 	shell: {},
 }));
 
-import { log } from "../../../src/infrastructure/logger.js";
 import {
 	checkPrerequisites,
+	checkPrerequisiteIssues,
 	ensureDependencies,
-	checkFirstRun,
-	showPostBuildGuidance,
+	getFirstRunStatus,
+	getPostBuildGuidance,
 } from "../../../src/domain/onboarding/onboarding.js";
 import { createMockFs } from "../../mocks/mock-fs.js";
 import { createMockShell } from "../../mocks/mock-shell.js";
 
-const mockLog = log as ReturnType<typeof vi.fn>;
-
-beforeEach(() => mockLog.mockClear());
+beforeEach(() => vi.clearAllMocks());
 
 describe("checkPrerequisites", () => {
 	it("passes when git and node are available", () => {
@@ -58,8 +56,6 @@ describe("checkPrerequisites", () => {
 		});
 		checkPrerequisites({ sh: mockSh, exit: mockExit });
 		expect(mockExit).toHaveBeenCalledWith(2);
-		const output = mockLog.mock.calls.flat().join(" ");
-		expect(output).toContain("Git");
 	});
 
 	it("exits when node is missing", () => {
@@ -67,8 +63,6 @@ describe("checkPrerequisites", () => {
 		const mockSh = createMockShell({ failChecks: [] });
 		checkPrerequisites({ sh: mockSh, exit: mockExit });
 		expect(mockExit).toHaveBeenCalledWith(2);
-		const output = mockLog.mock.calls.flat().join(" ");
-		expect(output).toContain("Node.js");
 	});
 
 	it("exits when node version is too old", () => {
@@ -78,8 +72,39 @@ describe("checkPrerequisites", () => {
 		});
 		checkPrerequisites({ sh: mockSh, exit: mockExit });
 		expect(mockExit).toHaveBeenCalledWith(2);
-		const output = mockLog.mock.calls.flat().join(" ");
-		expect(output).toContain("v14.0.0");
+	});
+});
+
+describe("checkPrerequisiteIssues", () => {
+	it("returns empty when git and node are available", () => {
+		const mockSh = createMockShell({
+			outputs: { "node --version": "v20.0.0" },
+		});
+		const issues = checkPrerequisiteIssues({ sh: mockSh });
+		expect(issues).toEqual([]);
+	});
+
+	it("reports Git when git is missing", () => {
+		const mockSh = createMockShell({
+			failChecks: ["git --version"],
+			outputs: { "node --version": "v20.0.0" },
+		});
+		const issues = checkPrerequisiteIssues({ sh: mockSh });
+		expect(issues.some(i => i.name.includes("Git"))).toBe(true);
+	});
+
+	it("reports Node.js when node is missing", () => {
+		const mockSh = createMockShell({ failChecks: [] });
+		const issues = checkPrerequisiteIssues({ sh: mockSh });
+		expect(issues.some(i => i.name.includes("Node.js"))).toBe(true);
+	});
+
+	it("reports version mismatch when node is too old", () => {
+		const mockSh = createMockShell({
+			outputs: { "node --version": "v14.0.0" },
+		});
+		const issues = checkPrerequisiteIssues({ sh: mockSh });
+		expect(issues.some(i => i.name.includes("v14.0.0"))).toBe(true);
 	});
 });
 
@@ -111,36 +136,35 @@ describe("ensureDependencies", () => {
 	});
 });
 
-describe("checkFirstRun", () => {
-	it("logs guidance when plugin is not built", () => {
+describe("getFirstRunStatus", () => {
+	it("returns pluginBuilt=false when plugin is not built", () => {
 		const mockFs = createMockFs();
-		checkFirstRun({ fs: mockFs });
-		const output = mockLog.mock.calls.flat().join(" ");
-		expect(output).toContain("not yet built");
+		const status = getFirstRunStatus({ fs: mockFs });
+		expect(status.pluginBuilt).toBe(false);
 	});
 
-	it("stays silent when plugin is already built", () => {
+	it("returns pluginBuilt=true when plugin is already built", () => {
 		const mockFs = createMockFs({
 			"/vault/.obsidian/plugins/flowti-ibde/main.js": "content",
 		});
-		checkFirstRun({ fs: mockFs });
-		expect(mockLog).not.toHaveBeenCalled();
+		const status = getFirstRunStatus({ fs: mockFs });
+		expect(status.pluginBuilt).toBe(true);
 	});
 });
 
-describe("showPostBuildGuidance", () => {
-	it("shows guidance when plugin is built", () => {
+describe("getPostBuildGuidance", () => {
+	it("returns show=true when plugin is built", () => {
 		const mockFs = createMockFs({
 			"/vault/.obsidian/plugins/flowti-ibde/main.js": "content",
 		});
-		showPostBuildGuidance({ fs: mockFs });
-		const output = mockLog.mock.calls.flat().join(" ");
-		expect(output).toContain("built successfully");
+		const guidance = getPostBuildGuidance({ fs: mockFs });
+		expect(guidance.show).toBe(true);
+		expect(guidance.vaultRoot).toBe("/vault");
 	});
 
-	it("stays silent when plugin is not built", () => {
+	it("returns show=false when plugin is not built", () => {
 		const mockFs = createMockFs();
-		showPostBuildGuidance({ fs: mockFs });
-		expect(mockLog).not.toHaveBeenCalled();
+		const guidance = getPostBuildGuidance({ fs: mockFs });
+		expect(guidance.show).toBe(false);
 	});
 });

@@ -491,7 +491,7 @@ describe("versionEvent", () => {
 		createEventFile("/test/project", makeEventDef({ name: "user.created" }));
 		const result = versionEvent("/test/project", "user.created", "2.0.0", "Added email field");
 
-		expect(result).toBe(true);
+		expect(result.success).toBe(true);
 		const content = readMockFile("docs/events/");
 		expect(content).toContain("version: 2.0.0");
 		expect(content).toContain("previous_version: 1.0.0");
@@ -508,9 +508,9 @@ describe("versionEvent", () => {
 		expect(content).toContain("Migrated from v1.0.0: Added tracking field");
 	});
 
-	it("returns false when event does not exist", () => {
+	it("returns failure when event does not exist", () => {
 		const result = versionEvent("/test/project", "nonexistent.event", "2.0.0", "notes");
-		expect(result).toBe(false);
+		expect(result.success).toBe(false);
 	});
 });
 

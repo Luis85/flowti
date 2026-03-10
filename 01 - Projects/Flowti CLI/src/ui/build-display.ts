@@ -48,3 +48,23 @@ export function renderBuildAuto(data: BuildAutoModel): void {
 export function renderBuildRecorded(data: BuildRecordedModel): void {
 	log(`  ${GREEN}✓${RESET} Build manifest recorded: ${data.fileCount} files, hash ${data.hashPrefix}…\n`);
 }
+
+// ── CI workflow renderers ───────────────────────────────────────────
+
+export function renderWorkflowPreview(yaml: string): void {
+	log(`\n  ${CYAN}Generated CI workflow:${RESET}\n`);
+	for (const line of yaml.split("\n")) {
+		log(`  ${DIM}│${RESET} ${line}`);
+	}
+	log();
+}
+
+export function renderCiDryRun(yaml: string): void {
+	renderWorkflowPreview(yaml);
+	log(`  ${YELLOW}Dry run — no files written.${RESET}\n`);
+}
+
+export function renderCiWritten(yaml: string, outputPath: string): void {
+	renderWorkflowPreview(yaml);
+	log(`  ${GREEN}Wrote${RESET} ${DIM}${outputPath}${RESET}\n`);
+}

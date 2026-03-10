@@ -1,13 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+
+vi.mock("../../../src/infrastructure/logger.js", () => ({
+	log: vi.fn((...args: unknown[]) => console.log(...args)),
+}));
+
+vi.mock("../../../src/infrastructure/ui.js", () => ({
+	RESET: "", DIM: "", BOLD: "", GREEN: "", RED: "", CYAN: "", YELLOW: "",
+}));
+
 import {
 	discoverLocalDefinitions,
 	validateAndClassify,
 	buildMarketplaceListing,
 	importDefinition,
 	resolveDefinitionsDir,
-	displayMarketplace,
 } from "../../../src/domain/scaffold/marketplace.js";
 import type { MarketplaceEntry } from "../../../src/domain/scaffold/marketplace.js";
+import { displayMarketplace } from "../../../src/ui/menus/marketplace-menu.js";
 import type { IFileSystem } from "../../../src/infrastructure/types.js";
 
 // ── Fixtures ─────────────────────────────────────────────────────────

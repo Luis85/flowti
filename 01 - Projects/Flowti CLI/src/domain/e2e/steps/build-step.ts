@@ -5,7 +5,6 @@
 import type { PipelineStep, StepOutput, PipelineContext } from "../../../infrastructure/pipeline/pipeline-types.js";
 import type { E2EPaths } from "../e2e-paths.js";
 import { shell } from "../../../infrastructure/shell.js";
-import { log } from "../../../infrastructure/logger.js";
 import { quickBuildAndDeploy, readBuildStats } from "../e2e-build.js";
 import { generateIncrementStateReport, generatePublishStateReport } from "../e2e-state-reports.js";
 import { printIncrementSummary, printPublishSummary } from "../../../ui/e2e/e2e-formatters.js";
@@ -31,7 +30,7 @@ export function createIncrementBuildStep(e2e: E2EPaths): PipelineStep {
 		label: "Increment Build",
 		dependencies: ["e2e:teardown"],
 		execute(ctx: PipelineContext): StepOutput {
-			log("  Starting increment build (check → build → test → e2e → docs → distribute)...\n");
+			ctx.log("  Starting increment build (check → build → test → e2e → docs → distribute)...\n");
 			const startTime = Date.now();
 			const exitCode = shell.run("npm run build:increment", { cwd: e2e.projectRoot });
 			const duration = ((Date.now() - startTime) / 1000).toFixed(1);
@@ -56,7 +55,7 @@ export function createPublishStep(e2e: E2EPaths): PipelineStep {
 		id: "e2e:publish",
 		label: "Publish",
 		execute(ctx: PipelineContext): StepOutput {
-			log("  Starting publish (check → build → test → docs → publish)...\n");
+			ctx.log("  Starting publish (check → build → test → docs → publish)...\n");
 			const startTime = Date.now();
 			const exitCode = shell.run("npm run build:release", { cwd: e2e.projectRoot });
 			const duration = ((Date.now() - startTime) / 1000).toFixed(1);
