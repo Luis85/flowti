@@ -8,9 +8,6 @@
 
 import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
-import { PROJECTS_DIR } from "../../infrastructure/config.js";
-import { log } from "../../infrastructure/logger.js";
-import { RESET, DIM, GREEN, YELLOW, RED, CYAN, BOLD } from "../../infrastructure/ui.js";
 import { listProjects, getProjectPath } from "./project.js";
 import type { ProjectConfig, PublishEndpoint } from "../../infrastructure/types.js";
 
@@ -219,157 +216,74 @@ export function buildDependencyGraph(): DependencyGraph {
 	return { projects, edges, cycles };
 }
 
-// ── Rendering ──────────────────────────────────────────────────────
+// ── Query helpers ──────────────────────────────────────────────────
 
-function groupEdgesBySource(edges: ProjectDependency[]): Map<string, ProjectDependency[]> {
-	const map = new Map<string, ProjectDependency[]>();
-	for (const edge of edges) {
-		if (!map.has(edge.from)) map.set(edge.from, []);
-		map.get(edge.from)!.push(edge);
-	}
-	return map;
+/** Find all projects that depend on the given project (reverse dependencies). */
+export function findReverseDeps(graph: DependencyGraph, projectName: string): ProjectDependency[] {
+	return graph.edges.filter((e) => e.to === projectName);
 }
 
-/** Render the dependency graph as a text-based tree. */
-export function renderDependencyTree(graph: DependencyGraph): string {
-	if (graph.projects.length === 0) return "No projects found.";
-
-	const lines: string[] = ["Project Dependencies:", ""];
-	const edgesBySource = groupEdgesBySource(graph.edges);
-
-	for (const project of graph.projects) {
-		const deps = edgesBySource.get(project) ?? [];
-		if (deps.length === 0) {
-			lines.push(`  ${project}  (no dependencies)`);
-		} else {
-			lines.push(`  ${project}`);
-			for (let i = 0; i < deps.length; i++) {
-				const prefix = i === deps.length - 1 ? "└──" : "├──";
-				lines.push(`    ${prefix} ${deps[i].to}  [${deps[i].type}] ${deps[i].detail}`);
-			}
-		}
-	}
-
-	if (graph.cycles.length > 0) {
-		lines.push("", "Circular Dependencies:");
-		for (const cycle of graph.cycles) {
-			lines.push(`  ⚠ ${cycle.join(" → ")}`);
-		}
-	}
-
-	return lines.join("\n");
+/** Find all direct dependencies of a given project. */
+export function findDirectDeps(graph: DependencyGraph, projectName: string): ProjectDependency[] {
+	return graph.edges.filter((e) => e.from === projectName);
 }
 
-/** Render the dependency graph as a Mermaid diagram. */
-export function renderMermaidDeps(graph: DependencyGraph): string {
-	const lines: string[] = ["graph LR"];
+/** Filter edges by dependency type. */
+export function filterByType(edges: ProjectDependency[], type: ProjectDependency["type"]): ProjectDependency[] {
+	return edges.filter((e) => e.type === type);
+}
 
-	if (graph.edges.length === 0) {
-		// Show isolated nodes
-		for (const project of graph.projects) {
-			const id = nodeId(project);
-			lines.push(`  ${id}["${project}"]`);
+function findMax(countMap: Map<string, number>): { name: string; count: number } | null {
+	let best: { name: string; count: number } | null = null;
+	for (const [name, count] of countMap) {
+		if (!best || count > best.count) {
+			best = { name, count };
 		}
-		if (graph.projects.length === 0) {
-			lines.push("  %% No projects found");
-		}
-		return lines.join("\n");
 	}
+	return best;
+}
 
-	const seen = new Set<string>();
-	for (const edge of graph.edges) {
-		const fromId = nodeId(edge.from);
-		const toId = nodeId(edge.to);
-		const key = `${fromId}-->${toId}`;
-		if (seen.has(key)) continue;
-		seen.add(key);
-		lines.push(`  ${fromId}["${edge.from}"] -->|${edge.type}| ${toId}["${edge.to}"]`);
-	}
-
-	// Add isolated projects (no edges)
+/** Compute stats for the dependency graph. */
+export function graphStats(graph: DependencyGraph): {
+	projects: number;
+	edges: number;
+	cycles: number;
+	isolated: number;
+	mostDeps: { name: string; count: number } | null;
+	mostDependedOn: { name: string; count: number } | null;
+} {
 	const connected = new Set<string>();
 	for (const edge of graph.edges) {
 		connected.add(edge.from);
 		connected.add(edge.to);
 	}
-	for (const project of graph.projects) {
-		if (!connected.has(project)) {
-			lines.push(`  ${nodeId(project)}["${project}"]`);
-		}
+	const isolated = graph.projects.filter((p) => !connected.has(p)).length;
+
+	const outCount = new Map<string, number>();
+	for (const edge of graph.edges) {
+		outCount.set(edge.from, (outCount.get(edge.from) ?? 0) + 1);
 	}
 
-	return lines.join("\n");
-}
-
-function nodeId(name: string): string {
-	return name.replace(/[^a-zA-Z0-9]/g, "_");
-}
-
-// ── Console display ────────────────────────────────────────────────
-
-function displayProjectDeps(graph: DependencyGraph): void {
-	const edgesBySource = groupEdgesBySource(graph.edges);
-
-	for (const project of graph.projects) {
-		const deps = edgesBySource.get(project) ?? [];
-		if (deps.length === 0) {
-			log(`  ${CYAN}${project}${RESET}  ${DIM}(no dependencies)${RESET}`);
-		} else {
-			log(`  ${CYAN}${project}${RESET}`);
-			for (let i = 0; i < deps.length; i++) {
-				const prefix = i === deps.length - 1 ? "└──" : "├──";
-				const typeColor = deps[i].type === "npm" ? GREEN : YELLOW;
-				log(`    ${DIM}${prefix}${RESET} ${deps[i].to}  ${typeColor}[${deps[i].type}]${RESET} ${DIM}${deps[i].detail}${RESET}`);
-			}
-		}
-	}
-}
-
-/** Display the dependency graph with ANSI colors. */
-export function displayDependencyGraph(graph: DependencyGraph): void {
-	log();
-
-	if (graph.projects.length === 0) {
-		log(`  ${DIM}No projects found in ${PROJECTS_DIR}${RESET}`);
-		log();
-		return;
+	const inCount = new Map<string, number>();
+	for (const edge of graph.edges) {
+		inCount.set(edge.to, (inCount.get(edge.to) ?? 0) + 1);
 	}
 
-	log(`  ${BOLD}Project Dependencies${RESET}`);
-	log(`  ${DIM}${"─".repeat(46)}${RESET}`);
-	log();
-
-	displayProjectDeps(graph);
-
-	if (graph.cycles.length > 0) {
-		log();
-		log(`  ${RED}${BOLD}Circular Dependencies Detected${RESET}`);
-		for (const cycle of graph.cycles) {
-			log(`  ${RED}⚠${RESET} ${cycle.join(` ${RED}→${RESET} `)}`);
-		}
-	}
-
-	log();
-	log(`  ${DIM}Projects: ${graph.projects.length}  Dependencies: ${graph.edges.length}  Cycles: ${graph.cycles.length}${RESET}`);
-	log();
-
-	const mermaid = renderMermaidDeps(graph);
-	log(`  ${BOLD}Mermaid Diagram${RESET}`);
-	log(`  ${DIM}${"─".repeat(46)}${RESET}`);
-	log();
-	for (const line of mermaid.split("\n")) {
-		log(`  ${line}`);
-	}
-	log();
+	return {
+		projects: graph.projects.length,
+		edges: graph.edges.length,
+		cycles: graph.cycles.length,
+		isolated,
+		mostDeps: findMax(outCount),
+		mostDependedOn: findMax(inCount),
+	};
 }
 
-// ── Command handler ────────────────────────────────────────────────
-
-export function handleProjectDeps(): void {
-	const graph = buildDependencyGraph();
-	displayDependencyGraph(graph);
-}
-
-export const commands = {
-	"project:deps": handleProjectDeps,
-};
+// Re-export display and command functions from the display module
+export {
+	renderDependencyTree,
+	renderMermaidDeps,
+	displayDependencyGraph,
+	handleProjectDeps,
+	commands,
+} from "../../ui/deps-display.js";

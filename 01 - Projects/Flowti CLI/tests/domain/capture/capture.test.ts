@@ -7,7 +7,7 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 
 vi.mock("../../../src/infrastructure/config.js", () => ({
 	VAULT_ROOT: "/mock/vault",
-	getCaptureDir: vi.fn((type: string) => `/mock/vault/inbox/${type}`),
+	getCaptureDir: vi.fn((type: string) => type ? `/mock/vault/inbox/${type}` : "/mock/vault/inbox"),
 }));
 
 vi.mock("../../../src/infrastructure/filesystem.js", () => ({
@@ -28,11 +28,22 @@ vi.mock("../../../src/infrastructure/clock.js", () => ({
 	clock: { iso: () => "2025-06-15T10:30:00.000Z", now: () => new Date("2025-06-15T10:30:00.000Z"), ms: () => 0, safeIso: () => "" },
 }));
 
+const capturedJson: unknown[] = [];
+vi.mock("../../../src/infrastructure/output.js", () => ({
+	resolveFormat: vi.fn((flags: Record<string, string | boolean>) => flags.format === "json" ? "json" : "text"),
+	printOutput: vi.fn((fmt: string, data: unknown, render: () => void) => {
+		if (fmt === "json") { capturedJson.push(data); } else { render(); }
+	}),
+}));
+
 vi.mock("../../../src/infrastructure/paths.js", () => ({
 	paths: {
 		join: (...parts: string[]) => parts.join("/"),
 		relative: (_from: string, to: string) => to,
 		dirname: (p: string) => p.split("/").slice(0, -1).join("/"),
+		isAbsolute: (p: string) => p.startsWith("/"),
+		cwd: () => "/mock",
+		sep: "/",
 	},
 }));
 
@@ -43,7 +54,7 @@ vi.mock("../../../src/infrastructure/document.js", async () => {
 
 import * as filesystemMod from "../../../src/infrastructure/filesystem.js";
 import { log } from "../../../src/infrastructure/logger.js";
-import { commands, captureIdea, captureNote } from "../../../src/domain/capture/capture.js";
+import { commands, captureIdea, captureNote, searchCaptures } from "../../../src/domain/capture/capture.js";
 import { input } from "../../../src/infrastructure/input.js";
 import { printHeader } from "../../../src/infrastructure/ui.js";
 
@@ -57,6 +68,7 @@ function setDisk(mockFs: ReturnType<typeof createMockFs>): void {
 
 beforeEach(() => {
 	vi.clearAllMocks();
+	capturedJson.length = 0;
 });
 
 describe("commands['capture:idea']", () => {
@@ -413,5 +425,210 @@ describe("captureNote()", () => {
 			const files = [...fs.files.keys()];
 			expect(files.some(f => f.includes(`Test-${types[i]}`))).toBe(true);
 		}
+	});
+});
+
+// ── Tags ────────────────────────────────────────────────────────────
+
+describe("capture:idea --tags", () => {
+	it("adds tags to frontmatter", () => {
+		const fs = createMockFs();
+		setDisk(fs);
+		commands["capture:idea"]({ text: "Tagged idea", tags: "urgent,feature" });
+		const files = [...fs.files.keys()];
+		const created = files.find(f => f.includes("Tagged idea"));
+		expect(created).toBeDefined();
+		const content = fs.files.get(created!)!;
+		expect(content).toContain("urgent");
+		expect(content).toContain("feature");
+	});
+
+	it("handles empty tags gracefully", () => {
+		const fs = createMockFs();
+		setDisk(fs);
+		commands["capture:idea"]({ text: "No tags" });
+		const files = [...fs.files.keys()];
+		const created = files.find(f => f.includes("No tags"));
+		expect(created).toBeDefined();
+		const content = fs.files.get(created!)!;
+		expect(content).not.toContain("tags:");
+	});
+
+	it("trims whitespace from tags", () => {
+		const fs = createMockFs();
+		setDisk(fs);
+		commands["capture:idea"]({ text: "Spaced tags", tags: " urgent , bug " });
+		const files = [...fs.files.keys()];
+		const created = files.find(f => f.includes("Spaced tags"));
+		const content = fs.files.get(created!)!;
+		expect(content).toContain("urgent");
+		expect(content).toContain("bug");
+	});
+});
+
+describe("capture:note --tags", () => {
+	it("adds tags to note frontmatter", () => {
+		const fs = createMockFs();
+		setDisk(fs);
+		commands["capture:note"]({ type: "task", title: "Tagged task", tags: "p1,backend" });
+		const files = [...fs.files.keys()];
+		const created = files.find(f => f.includes("Tagged task"));
+		expect(created).toBeDefined();
+		const content = fs.files.get(created!)!;
+		expect(content).toContain("p1");
+		expect(content).toContain("backend");
+	});
+});
+
+// ── Search ──────────────────────────────────────────────────────────
+
+describe("capture:search", () => {
+	it("errors when --query is missing", () => {
+		const fs = createMockFs();
+		setDisk(fs);
+		commands["capture:search"]({ }, []);
+		const output = mockLog.mock.calls.flat().join(" ");
+		expect(output).toContain("Missing --query flag");
+	});
+
+	it("returns results matching query", () => {
+		const fs = createMockFs({
+			"/mock/vault/inbox/idea/My great idea.md": "---\ntype: Idea\ndate: 2025-06-15\ntags:\n  - urgent\n---\n# My great idea\n\nSome body text",
+			"/mock/vault/inbox/task/Fix login.md": "---\ntype: Task\ndate: 2025-06-15\n---\n# Fix login\n",
+		});
+		// readdirSync needs to handle the base dir and subdirs
+		fs.dirs.add("/mock/vault/inbox");
+		fs.dirs.add("/mock/vault/inbox/idea");
+		fs.dirs.add("/mock/vault/inbox/task");
+		setDisk(fs);
+		const results = searchCaptures("great");
+		expect(results).toHaveLength(1);
+		expect(results[0].title).toBe("My great idea");
+		expect(results[0].type).toBe("Idea");
+		expect(results[0].tags).toContain("urgent");
+	});
+
+	it("filters by type", () => {
+		const fs = createMockFs({
+			"/mock/vault/inbox/idea/Idea one.md": "---\ntype: Idea\ndate: 2025-06-15\n---\n# Idea one\n",
+			"/mock/vault/inbox/task/Task one.md": "---\ntype: Task\ndate: 2025-06-15\n---\n# Task one\n",
+		});
+		fs.dirs.add("/mock/vault/inbox");
+		fs.dirs.add("/mock/vault/inbox/idea");
+		fs.dirs.add("/mock/vault/inbox/task");
+		setDisk(fs);
+		const results = searchCaptures("one", "Idea");
+		expect(results).toHaveLength(1);
+		expect(results[0].type).toBe("Idea");
+	});
+
+	it("filters by tag", () => {
+		const fs = createMockFs({
+			"/mock/vault/inbox/idea/Tagged.md": "---\ntype: Idea\ndate: 2025-06-15\ntags:\n  - urgent\n---\n# Tagged\n",
+			"/mock/vault/inbox/idea/Untagged.md": "---\ntype: Idea\ndate: 2025-06-15\n---\n# Untagged\n",
+		});
+		fs.dirs.add("/mock/vault/inbox");
+		fs.dirs.add("/mock/vault/inbox/idea");
+		setDisk(fs);
+		const results = searchCaptures("idea", undefined, "urgent");
+		expect(results).toHaveLength(1);
+		expect(results[0].title).toBe("Tagged");
+	});
+
+	it("returns empty for no matches", () => {
+		const fs = createMockFs({
+			"/mock/vault/inbox/idea/Something.md": "---\ntype: Idea\ndate: 2025-06-15\n---\n# Something\n",
+		});
+		fs.dirs.add("/mock/vault/inbox");
+		fs.dirs.add("/mock/vault/inbox/idea");
+		setDisk(fs);
+		const results = searchCaptures("nonexistent");
+		expect(results).toHaveLength(0);
+	});
+
+	it("outputs JSON with --format=json", () => {
+		const fs = createMockFs({
+			"/mock/vault/inbox/idea/My idea.md": "---\ntype: Idea\ndate: 2025-06-15\n---\n# My idea\n",
+		});
+		fs.dirs.add("/mock/vault/inbox");
+		fs.dirs.add("/mock/vault/inbox/idea");
+		setDisk(fs);
+		commands["capture:search"]({ query: "idea", format: "json" }, []);
+		expect(capturedJson).toHaveLength(1);
+		const data = capturedJson[0] as Array<Record<string, unknown>>;
+		expect(data).toHaveLength(1);
+		expect(data[0].type).toBe("Idea");
+	});
+});
+
+// ── Batch Import ────────────────────────────────────────────────────
+
+describe("capture:import", () => {
+	it("errors when --file is missing", () => {
+		const fs = createMockFs();
+		setDisk(fs);
+		commands["capture:import"]({ }, []);
+		const output = mockLog.mock.calls.flat().join(" ");
+		expect(output).toContain("Missing --file flag");
+	});
+
+	it("errors when file does not exist", () => {
+		const fs = createMockFs();
+		setDisk(fs);
+		commands["capture:import"]({ file: "/nope.json" }, []);
+		const output = mockLog.mock.calls.flat().join(" ");
+		expect(output).toContain("File not found");
+	});
+
+	it("imports items from a JSON file", () => {
+		const items = [
+			{ type: "Idea", title: "First idea", body: "Details", tags: ["urgent"] },
+			{ type: "Task", title: "Fix it", body: "" },
+		];
+		const fs = createMockFs({
+			"/import.json": JSON.stringify(items),
+		});
+		setDisk(fs);
+		commands["capture:import"]({ file: "/import.json" }, []);
+		const files = [...fs.files.keys()];
+		expect(files.some(f => f.includes("First idea"))).toBe(true);
+		expect(files.some(f => f.includes("Fix it"))).toBe(true);
+		const output = mockLog.mock.calls.flat().join(" ");
+		expect(output).toContain("Imported 2 item");
+	});
+
+	it("skips items without title", () => {
+		const items = [
+			{ type: "Idea", title: "Good" },
+			{ type: "Note" },
+		];
+		const fs = createMockFs({
+			"/import.json": JSON.stringify(items),
+		});
+		setDisk(fs);
+		commands["capture:import"]({ file: "/import.json" }, []);
+		const output = mockLog.mock.calls.flat().join(" ");
+		expect(output).toContain("Imported 1 item");
+		expect(output).toContain("1 skipped");
+	});
+
+	it("errors on invalid JSON", () => {
+		const fs = createMockFs({
+			"/bad.json": "not json",
+		});
+		setDisk(fs);
+		commands["capture:import"]({ file: "/bad.json" }, []);
+		const output = mockLog.mock.calls.flat().join(" ");
+		expect(output).toContain("Failed to parse JSON");
+	});
+
+	it("errors when JSON is not an array", () => {
+		const fs = createMockFs({
+			"/obj.json": JSON.stringify({ title: "not array" }),
+		});
+		setDisk(fs);
+		commands["capture:import"]({ file: "/obj.json" }, []);
+		const output = mockLog.mock.calls.flat().join(" ");
+		expect(output).toContain("Expected a JSON array");
 	});
 });

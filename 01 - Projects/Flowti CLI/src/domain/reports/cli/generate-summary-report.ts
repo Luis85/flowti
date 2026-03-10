@@ -32,6 +32,7 @@ import {
 	collectTypedocWarnings,
 } from "./summary-loaders.js";
 import { analyzeReports } from "./summary-analyzers-ext.js";
+import { getRunResults } from "../run-context.js";
 import {
 	promoteFrontmatter,
 	renderOverview,
@@ -59,6 +60,9 @@ function buildSummaryReport(
 	const improvements = findings.filter((f) => f.category === "improvement").length;
 	const positives = findings.filter((f) => f.category === "positive").length;
 
+	const runResults = getRunResults();
+	const generatorsFailed = runResults.filter((r) => !r.success).length;
+
 	const fmData: Record<string, string | number | boolean> = {
 		type: "ProjectSummary",
 		project: projectName,
@@ -67,6 +71,8 @@ function buildSummaryReport(
 		risks,
 		improvements,
 		positives,
+		generators_run: runResults.length,
+		generators_failed: generatorsFailed,
 		...promoteFrontmatter(snapshots, json, lint, typedoc, detailed),
 	};
 
@@ -84,6 +90,7 @@ function buildSummaryReport(
 	}
 
 	renderOverview(doc, json, detailed, lint, typedoc, thresholds, findings);
+	renderGeneratorRun(doc);
 	renderRisks(doc, findings);
 	renderImprovements(doc, findings);
 	renderWarnings(doc, lint, typedoc);
@@ -100,6 +107,47 @@ function buildSummaryReport(
 	}
 
 	return doc;
+}
+
+// ── Generator run renderer ───────────────────────────────────────────
+
+function renderGeneratorRun(doc: Document): void {
+	const results = getRunResults();
+	if (results.length === 0) return;
+
+	const failed = results.filter((r) => !r.success);
+	const warned = results.filter((r) => r.success && r.warnings && r.warnings.length > 0);
+	const passed = results.filter((r) => r.success).length;
+
+	doc.heading(2, "Generator Run").addBlank();
+
+	if (failed.length > 0) {
+		doc.callout("danger", `${failed.length} Generator(s) Failed`, failed.map((r) => {
+			const dur = (r.durationMs / 1000).toFixed(1);
+			return `**${r.label}** (${dur}s) — ${r.error ?? "unknown error"}`;
+		})).addBlank();
+	}
+
+	if (warned.length > 0) {
+		const warnLines: string[] = [];
+		for (const r of warned) {
+			for (const w of r.warnings!) {
+				warnLines.push(`**${r.label}**: ${w}`);
+			}
+		}
+		doc.callout("warning", "Generator Warnings", warnLines).addBlank();
+	}
+
+	doc.table(
+		["Generator", "Status", "Duration"],
+		results.map((r) => [
+			r.label,
+			r.success ? (r.warnings?.length ? "⚠ Warnings" : "✓ Passed") : "✗ Failed",
+			`${(r.durationMs / 1000).toFixed(1)}s`,
+		]),
+	).addBlank();
+
+	doc.quote(`**Total**: ${passed} passed, ${failed.length} failed, ${warned.length} with warnings`).addBlank();
 }
 
 // ── Entry point ──────────────────────────────────────────────────────
@@ -152,7 +200,31 @@ function buildJsonOutput(
 		thresholds,
 		reports: snapshots.map((s) => ({ label: s.label, file: s.file, frontmatter: s.frontmatter })),
 		jsonSources: { tests: json.tests ?? null, coverage: json.coverage ?? null },
+		generatorRun: buildGeneratorRunJson(),
 	};
+}
+
+function buildGeneratorRunJson(): Record<string, unknown> | null {
+	const results = getRunResults();
+	if (results.length === 0) return null;
+	const passed = results.filter((r) => r.success).length;
+	const failed = results.filter((r) => !r.success);
+	return {
+		total: results.length,
+		passed,
+		failed: failed.length,
+		failures: failed.map((r) => ({ id: r.id, label: r.label, error: r.error ?? "unknown" })),
+	};
+}
+
+function appendGeneratorRunWarnings(warnings: string[]): void {
+	const results = getRunResults();
+	const failed = results.filter((r) => !r.success);
+	if (failed.length === 0) return;
+	warnings.push(`${failed.length} generator(s) failed during this run:`);
+	for (const r of failed) {
+		warnings.push(`  ✗ ${r.label}: ${r.error ?? "unknown error"}`);
+	}
 }
 
 function appendLintWarnings(warnings: string[], lint: LintResult | null): void {
@@ -180,6 +252,7 @@ function collectOutputWarnings(
 	const warnings: string[] = [];
 	if (snapshots.length === 0) warnings.push("No reports found — run report generators first");
 	if (risks > 0) warnings.push(`${risks} risk(s) detected`);
+	appendGeneratorRunWarnings(warnings);
 	appendLintWarnings(warnings, lint);
 	appendTypedocWarnings(warnings, typedoc);
 	return warnings;
@@ -200,7 +273,7 @@ export function generateSummaryReport(projectPath: string): GeneratorOutput {
 	const lint = runLintCheck(projectPath, thresholds.lintCommand);
 	const typedoc = runTypedocCheck(projectPath, thresholds.typedocCommand);
 
-	const findings = analyzeReports(snapshots, thresholds, lint, typedoc, json, detailed);
+	const findings = analyzeReports(snapshots, thresholds, lint, typedoc, json, detailed, projectPath);
 	const doc = buildSummaryReport(snapshots, findings, lint, typedoc, thresholds, projectName, json, detailed);
 
 	const stablePath = svc.stablePath("Project Summary.md");

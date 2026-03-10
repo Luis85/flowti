@@ -1,4 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { BackgroundProcess } from "../../../../src/infrastructure/types.js";
+
+function createMockBackgroundProcess(overrides?: Partial<BackgroundProcess>): BackgroundProcess {
+	return {
+		running: true,
+		output: [],
+		kill: vi.fn(),
+		onOutput: vi.fn(() => vi.fn()),
+		waitForOutput: vi.fn().mockResolvedValue("Storybook ready!"),
+		...overrides,
+	};
+}
 
 vi.mock("../../../../src/infrastructure/filesystem.js", () => ({
 	disk: {
@@ -14,15 +26,29 @@ vi.mock("../../../../src/infrastructure/paths.js", () => ({
 		join: (...args: string[]) => args.join("/"),
 		basename: (p: string) => p.split("/").pop(),
 		dirname: (p: string) => p.split("/").slice(0, -1).join("/"),
+		sep: "/",
 	},
 }));
 
 vi.mock("../../../../src/infrastructure/shell.js", () => ({
-	shell: { run: vi.fn(() => 0), runSilent: vi.fn() },
+	shell: {
+		run: vi.fn(() => 0),
+		runSilent: vi.fn(),
+		spawnBackground: vi.fn(),
+	},
 }));
 
 vi.mock("../../../../src/infrastructure/ui.js", () => ({
-	RESET: "", DIM: "", GREEN: "", RED: "", YELLOW: "", CYAN: "",
+	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", YELLOW: "", CYAN: "",
+	printHeader: vi.fn(),
+}));
+
+vi.mock("../../../../src/infrastructure/input.js", () => ({
+	input: { ask: vi.fn().mockResolvedValue("q"), waitForEnter: vi.fn().mockResolvedValue(undefined) },
+}));
+
+vi.mock("../../../../src/infrastructure/config.js", () => ({
+	VAULT_ROOT: "/vault",
 }));
 
 vi.mock("../../../../src/domain/knowledgebase/vault-service.js", () => ({
@@ -40,6 +66,10 @@ import {
 	installStorybook,
 	runStorybookDev,
 	runStorybookBuild,
+	isStorybookRunning,
+	stopStorybook,
+	isInsideVault,
+	extractLocalUrl,
 } from "../../../../src/domain/make/component/storybook-service.js";
 import { disk } from "../../../../src/infrastructure/filesystem.js";
 import { shell } from "../../../../src/infrastructure/shell.js";
@@ -54,6 +84,8 @@ const mockVaultInitialized = vi.mocked(isVaultInitialized);
 beforeEach(() => {
 	vi.clearAllMocks();
 	mockDisk.existsSync.mockReturnValue(false);
+	// Ensure storybook process state is clean
+	if (isStorybookRunning()) stopStorybook();
 });
 
 describe("resolveStorybookDir", () => {
@@ -89,7 +121,6 @@ describe("installStorybook", () => {
 		expect(result).toBe(true);
 		expect(mockDisk.mkdirSync).toHaveBeenCalled();
 		expect(mockDisk.writeFileSync).toHaveBeenCalled();
-		// Should write package.json, main.ts, preview.ts
 		const writeCalls = mockDisk.writeFileSync.mock.calls.map(([path]) => path);
 		expect(writeCalls.some((p) => String(p).includes("package.json"))).toBe(true);
 		expect(writeCalls.some((p) => String(p).includes("main.ts"))).toBe(true);
@@ -134,7 +165,7 @@ describe("installStorybook", () => {
 		}));
 	});
 
-	it("writes package.json with project name", () => {
+	it("writes package.json with --no-open flag", () => {
 		mockShell.run.mockReturnValue(0);
 
 		installStorybook("/project", "my-project", {});
@@ -143,63 +174,165 @@ describe("installStorybook", () => {
 		expect(pkgCall).toBeDefined();
 		const content = JSON.parse(pkgCall![1] as string);
 		expect(content.name).toBe("my-project-component-library");
-		expect(content.scripts.storybook).toBeDefined();
+		expect(content.scripts.storybook).toContain("--no-open");
 		expect(content.scripts["build-storybook"]).toBeDefined();
 		expect(content.devDependencies.storybook).toBe("^10.0.0");
-		expect(content.devDependencies["@storybook/html-vite"]).toBe("^10.0.0");
+	});
+});
+
+describe("extractLocalUrl", () => {
+	it("extracts localhost URL from output lines", () => {
+		const lines = [
+			"storybook v10.2.16",
+			"Local:                http://localhost:6007/",
+			"On your network:      http://192.168.1.1:6007/",
+		];
+		expect(extractLocalUrl(lines)).toBe("http://localhost:6007");
+	});
+
+	it("returns default URL when no match found", () => {
+		expect(extractLocalUrl(["no url here"])).toBe("http://localhost:6006");
+	});
+
+	it("handles port 6006 in output", () => {
+		const lines = ["Local: http://localhost:6006/"];
+		expect(extractLocalUrl(lines)).toBe("http://localhost:6006");
+	});
+});
+
+describe("isInsideVault", () => {
+	it("returns true for a path inside the vault", () => {
+		expect(isInsideVault("/vault/01 - Projects/MyApp")).toBe(true);
+	});
+
+	it("returns false for a path outside the vault", () => {
+		expect(isInsideVault("/other/project")).toBe(false);
+	});
+
+	it("returns true for the vault root itself", () => {
+		expect(isInsideVault("/vault")).toBe(true);
 	});
 });
 
 describe("runStorybookDev", () => {
-	it("runs storybook dev when installed", () => {
+	it("spawns storybook in background when installed", async () => {
 		mockDisk.existsSync.mockReturnValue(true);
+		const mockProcess = createMockBackgroundProcess();
+		mockShell.spawnBackground.mockReturnValue(mockProcess);
 
-		runStorybookDev("/project", {});
+		await runStorybookDev("/project", {});
 
-		expect(mockShell.run).toHaveBeenCalledWith("npm run storybook", expect.objectContaining({
-			cwd: "/project/component-library",
-		}));
+		expect(mockShell.spawnBackground).toHaveBeenCalledWith(
+			expect.stringContaining("storybook dev -p"),
+			expect.objectContaining({ cwd: "/project/component-library", env: { CI: "true" } }),
+		);
 	});
 
-	it("warns when not installed", () => {
-		runStorybookDev("/project", {});
+	it("warns when not installed", async () => {
+		await runStorybookDev("/project", {});
 
-		expect(mockShell.run).not.toHaveBeenCalled();
+		expect(mockShell.spawnBackground).not.toHaveBeenCalled();
 	});
 
-	it("opens Obsidian Web Viewer when CLI available and vault initialized", () => {
+	it("waits for ready signal before opening browser", async () => {
+		mockDisk.existsSync.mockReturnValue(true);
+		const mockProcess = createMockBackgroundProcess();
+		mockShell.spawnBackground.mockReturnValue(mockProcess);
+
+		await runStorybookDev("/project", {});
+
+		expect(mockProcess.waitForOutput).toHaveBeenCalledWith(
+			expect.any(RegExp),
+			expect.any(Number),
+		);
+	});
+
+	it("opens Obsidian Web Viewer when inside vault and CLI available", async () => {
 		mockDisk.existsSync.mockReturnValue(true);
 		mockCliAvailable.mockReturnValue(true);
 		mockVaultInitialized.mockReturnValue(true);
+		const mockProcess = createMockBackgroundProcess();
+		mockShell.spawnBackground.mockReturnValue(mockProcess);
 
-		runStorybookDev("/project", {});
+		await runStorybookDev("/vault/project", {});
 
 		expect(mockShell.runSilent).toHaveBeenCalledWith(
 			"obsidian web url=http://localhost:6006 newtab",
 		);
-		// Still runs the dev server
-		expect(mockShell.run).toHaveBeenCalledWith("npm run storybook", expect.anything());
 	});
 
-	it("skips Web Viewer when Obsidian CLI not available", () => {
+	it("opens default browser when outside vault", async () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockCliAvailable.mockReturnValue(false);
-		mockVaultInitialized.mockReturnValue(true);
+		const mockProcess = createMockBackgroundProcess();
+		mockShell.spawnBackground.mockReturnValue(mockProcess);
 
-		runStorybookDev("/project", {});
+		await runStorybookDev("/other/project", {});
 
-		expect(mockShell.runSilent).not.toHaveBeenCalled();
-		expect(mockShell.run).toHaveBeenCalledWith("npm run storybook", expect.anything());
+		// Should have called runSilent with a browser-open command
+		expect(mockShell.runSilent).toHaveBeenCalled();
+		const call = mockShell.runSilent.mock.calls[0][0];
+		expect(call).toContain("http://localhost:6006");
 	});
 
-	it("skips Web Viewer when not in an Obsidian vault", () => {
+	it("reports failure with output when process exits before ready", async () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockCliAvailable.mockReturnValue(true);
-		mockVaultInitialized.mockReturnValue(false);
+		const mockProcess = createMockBackgroundProcess({
+			running: false,
+			output: ["npm ERR! Missing script: storybook", "npm ERR! To see a list of scripts, run: npm run"],
+			waitForOutput: vi.fn().mockResolvedValue(null),
+		});
+		mockShell.spawnBackground.mockReturnValue(mockProcess);
 
-		runStorybookDev("/project", {});
+		await runStorybookDev("/project", {});
 
 		expect(mockShell.runSilent).not.toHaveBeenCalled();
+		// Should log the diagnostic output
+		const { log: mockLog } = await import("../../../../src/infrastructure/logger.js");
+		const logCalls = vi.mocked(mockLog).mock.calls.map(([msg]) => msg);
+		expect(logCalls.some((msg) => String(msg).includes("Output"))).toBe(true);
+	});
+
+	it("stops storybook when user presses Enter in live view", async () => {
+		mockDisk.existsSync.mockReturnValue(true);
+		const mockProcess = createMockBackgroundProcess();
+		mockShell.spawnBackground.mockReturnValue(mockProcess);
+
+		await runStorybookDev("/project", {});
+
+		expect(mockProcess.kill).toHaveBeenCalled();
+		expect(isStorybookRunning()).toBe(false);
+	});
+
+	it("does not stream live output to terminal", async () => {
+		mockDisk.existsSync.mockReturnValue(true);
+		const mockProcess = createMockBackgroundProcess();
+		mockShell.spawnBackground.mockReturnValue(mockProcess);
+
+		await runStorybookDev("/project", {});
+
+		expect(mockProcess.onOutput).not.toHaveBeenCalled();
+	});
+});
+
+describe("stopStorybook", () => {
+	it("does nothing when no process is running", () => {
+		stopStorybook();
+		// Should not throw, just log
+	});
+});
+
+describe("isStorybookRunning", () => {
+	it("returns false when no process started", () => {
+		expect(isStorybookRunning()).toBe(false);
+	});
+
+	it("returns false after dev completes (user stops via view)", async () => {
+		mockDisk.existsSync.mockReturnValue(true);
+		const mockProcess = createMockBackgroundProcess();
+		mockShell.spawnBackground.mockReturnValue(mockProcess);
+
+		await runStorybookDev("/project", {});
+		expect(isStorybookRunning()).toBe(false);
 	});
 });
 

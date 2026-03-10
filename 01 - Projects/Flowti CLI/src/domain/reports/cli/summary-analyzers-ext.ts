@@ -14,6 +14,7 @@ import type {
 	LintResult,
 	TypeDocResult,
 } from "./summary-types.js";
+import type { GeneratorResult } from "../report-runner.js";
 import {
 	fm,
 	analyzeTests,
@@ -23,6 +24,8 @@ import {
 	analyzeCodebase,
 	analyzeCycle,
 } from "./summary-analyzers.js";
+import { getRunResults } from "../run-context.js";
+import { checkFreshness, resolveBuildPaths } from "../../build/build-freshness.js";
 
 // ── Extended analyzers ──────────────────────────────────────────────
 
@@ -120,6 +123,69 @@ export function analyzeTypedoc(typedoc: TypeDocResult | null, thresholds: Requir
 	return findings;
 }
 
+// ── Build freshness analyzer ─────────────────────────────────────────
+
+export function analyzeBuildFreshness(projectPath: string): Finding[] {
+	try {
+		const { srcDir, binDir } = resolveBuildPaths(projectPath);
+		const check = checkFreshness(srcDir, binDir);
+		if (check.needsRebuild) {
+			const details: string[] = [];
+			if (check.added.length > 0) details.push(`${check.added.length} file(s) added`);
+			if (check.modified.length > 0) details.push(`${check.modified.length} file(s) modified`);
+			if (check.removed.length > 0) details.push(`${check.removed.length} file(s) removed`);
+			return [{ category: "improvement", message: `Build is stale: ${check.reason}`, details }];
+		}
+		return [{ category: "positive", message: "Build is fresh — no rebuild needed." }];
+	} catch {
+		return [];
+	}
+}
+
+// ── Generator run analyzer ──────────────────────────────────────────
+
+/**
+ * Analyze the current report generation run for failures and warnings.
+ * Reads accumulated results from the run context (populated by report-runner).
+ */
+export function analyzeGeneratorRun(runResults?: readonly GeneratorResult[]): Finding[] {
+	const results = runResults ?? getRunResults();
+	if (results.length === 0) return [];
+
+	const findings: Finding[] = [];
+	const failed = results.filter((r) => !r.success);
+	const warned = results.filter((r) => r.success && r.warnings && r.warnings.length > 0);
+
+	if (failed.length > 0) {
+		findings.push({
+			category: "risk",
+			message: `${failed.length} report generator(s) failed during this run:`,
+			details: failed.map((r) => `**${r.label}** — ${r.error ?? "unknown error"}`),
+		});
+	}
+
+	if (warned.length > 0) {
+		const allWarnings: string[] = [];
+		for (const r of warned) {
+			for (const w of r.warnings!) {
+				allWarnings.push(`**${r.label}**: ${w}`);
+			}
+		}
+		findings.push({
+			category: "improvement",
+			message: `${allWarnings.length} warning(s) from report generators:`,
+			details: allWarnings,
+		});
+	}
+
+	const passed = results.filter((r) => r.success).length;
+	if (passed > 0 && failed.length === 0) {
+		findings.push({ category: "positive", message: `All ${passed} report generator(s) completed successfully.` });
+	}
+
+	return findings;
+}
+
 // ── Analysis dispatch ────────────────────────────────────────────────
 
 type AnalyzerFn = (snap: ReportSnapshot, thresholds: Required<SummaryThresholds>, json: JsonDataSources, detailed: DetailedSources) => Finding[];
@@ -140,6 +206,7 @@ export function analyzeReports(
 	snapshots: ReportSnapshot[], thresholds: Required<SummaryThresholds>,
 	lint: LintResult | null, typedoc: TypeDocResult | null,
 	json: JsonDataSources, detailed: DetailedSources,
+	projectPath?: string,
 ): Finding[] {
 	const findings: Finding[] = [];
 	for (const snap of snapshots) {
@@ -148,5 +215,7 @@ export function analyzeReports(
 	}
 	findings.push(...analyzeLint(lint, thresholds));
 	findings.push(...analyzeTypedoc(typedoc, thresholds));
+	if (projectPath) findings.push(...analyzeBuildFreshness(projectPath));
+	findings.push(...analyzeGeneratorRun());
 	return findings;
 }

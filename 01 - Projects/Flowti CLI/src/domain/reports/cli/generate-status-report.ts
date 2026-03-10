@@ -19,6 +19,7 @@ import { generateCoverageReport } from "./generate-coverage-report.js";
 import { generateCodebaseReport } from "./generate-codebase-report.js";
 import { generateComplexityReport } from "./generate-complexity-report.js";
 import type { GeneratorOutput, GeneratorFn } from "../../../infrastructure/types.js";
+import { checkFreshness, resolveBuildPaths } from "../../build/build-freshness.js";
 
 interface ReportSection {
 	label: string;
@@ -107,7 +108,29 @@ function renderSectionBodies(doc: Document, sections: ReportSection[]): void {
 	}
 }
 
-function buildStatusReport(sections: ReportSection[], projectName: string): string {
+function renderBuildFreshness(doc: Document, projectPath: string): void {
+	const { srcDir, binDir } = resolveBuildPaths(projectPath);
+
+	doc.heading(2, "Build Freshness").addBlank();
+	try {
+		const freshness = checkFreshness(srcDir, binDir);
+		doc.setFrontmatter("build_fresh", String(!freshness.needsRebuild));
+		if (!freshness.needsRebuild) {
+			doc.callout("tip", "Up to date", ["Build output matches source."]).addBlank();
+		} else {
+			const lines = [freshness.reason];
+			if (freshness.added.length > 0) lines.push(`Added: ${freshness.added.length} file(s)`);
+			if (freshness.modified.length > 0) lines.push(`Modified: ${freshness.modified.length} file(s)`);
+			if (freshness.removed.length > 0) lines.push(`Removed: ${freshness.removed.length} file(s)`);
+			doc.callout("warning", "Rebuild needed", lines).addBlank();
+		}
+	} catch {
+		doc.callout("warning", "Unavailable", ["Could not determine build freshness."]).addBlank();
+	}
+	doc.addSeparator().addBlank();
+}
+
+function buildStatusReport(sections: ReportSection[], projectName: string, projectPath: string): string {
 	const now = clock.now();
 	const doc = Document.create("Project Status Report")
 		.setFrontmatter("type", "ProjectStatusReport")
@@ -118,6 +141,7 @@ function buildStatusReport(sections: ReportSection[], projectName: string): stri
 	doc.addBlank().heading(1, "Project Status Report").addBlank()
 		.text(`Generated: ${now.toISOString().replace("T", " ").substring(0, 19)}`).addBlank();
 	renderSectionBodies(doc, sections);
+	renderBuildFreshness(doc, projectPath);
 
 	return doc.toString();
 }
@@ -132,7 +156,7 @@ export function generateProjectStatusReport(projectPath: string): GeneratorOutpu
 	log(`\n  ${CYAN}▸${RESET} Generating Project Status Report...\n`);
 	const failures = ensureReportsExist(sections, projectPath);
 
-	const content = buildStatusReport(sections, projectName);
+	const content = buildStatusReport(sections, projectName, projectPath);
 	disk.mkdirSync(svc.reportsDir, { recursive: true });
 	disk.writeFileSync(outputPath, content, "utf-8");
 

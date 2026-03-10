@@ -17,11 +17,12 @@ export function componentStoryTemplate(vars: ComponentVariables, def: ComponentD
 
 	const metaBlock = buildMetaBlock(def);
 	const stories = buildStoryExports(def);
-	const paramsBlock = buildParametersBlock(def);
+	const paramsBlock = buildParametersBlock(vars, def);
 	const renderFn = buildRenderFunction(vars, def);
 
 	return `import type { Meta, StoryObj } from "@storybook/html";
-${hasActions ? `import { action } from "storybook/actions";\n` : ""}
+${hasActions ? `import { action } from "storybook/actions";\n` : ""}import componentDoc from "../../../docs/components/${vars.kebab}.md?raw";
+
 const meta: Meta = {
 \ttitle: "${kindToFolder(def.kind)}/${vars.pascal}",
 \ttags: ["autodocs"],${metaBlock}${paramsBlock}
@@ -86,12 +87,12 @@ function buildMetaBlock(def: ComponentDefinition): string {
 	return block;
 }
 
-function buildParametersBlock(def: ComponentDefinition): string {
+function buildParametersBlock(vars: ComponentVariables, def: ComponentDefinition): string {
 	const params: string[] = [];
+	params.push(`\t\tdocs: { description: { component: componentDoc } },`);
 	if (def.icon) params.push(`\t\ticon: "${def.icon}",`);
 	if (def.heroImage) params.push(`\t\theroImage: "${def.heroImage}",`);
 	if (def.domain) params.push(`\t\tdomain: "${def.domain}",`);
-	if (params.length === 0) return "";
 	return `\n\tparameters: {\n${params.join("\n")}\n\t},`;
 }
 

@@ -7,6 +7,10 @@ vi.mock("../../src/domain/make/make.js", () => ({
 	menu: vi.fn(() => "main"),
 }));
 
+vi.mock("../../src/domain/make/component/component-list.js", () => ({
+	componentListMenu: vi.fn(() => "main"),
+}));
+
 vi.mock("../../src/domain/publish/project-publish.js", () => ({
 	publishMenu: vi.fn(() => "main"),
 }));
@@ -19,18 +23,28 @@ vi.mock("../../src/domain/info/info.js", () => ({
 	showInfo: vi.fn(),
 }));
 
-vi.mock("../../src/domain/help/help.js", () => ({
+vi.mock("../../src/ui/help.js", () => ({
 	showHelp: vi.fn(),
 }));
 
 vi.mock("../../src/domain/capture/capture.js", () => ({
 	captureIdea: vi.fn(() => "main"),
 	captureNote: vi.fn(() => "main"),
+	captureBug: vi.fn(() => "main"),
 }));
 
 vi.mock("../../src/domain/knowledgebase/knowledgebase.js", () => ({
 	knowledgebaseMenu: vi.fn(() => "main"),
 	isKnowledgebaseAvailable: vi.fn(() => true),
+}));
+
+vi.mock("../../src/domain/health/health.js", () => ({
+	collectHealth: vi.fn(() => ({})),
+	displayHealth: vi.fn(),
+}));
+
+vi.mock("../../src/domain/events/events.js", () => ({
+	eventCatalogMenu: vi.fn(() => "main"),
 }));
 
 vi.mock("../../src/domain/reports/cli/generate-build-report.js", () => ({
@@ -64,6 +78,10 @@ vi.mock("../../src/domain/project/project-config.js", () => ({
 	getReportsDir: vi.fn(() => "/projects/my-project/reports"),
 }));
 
+vi.mock("../../src/infrastructure/input.js", () => ({
+	input: { ask: vi.fn(), askYesNo: vi.fn(), waitForEnter: vi.fn(() => Promise.resolve()) },
+}));
+
 vi.mock("../../src/infrastructure/menu.js", () => ({
 	runMenu: vi.fn(),
 }));
@@ -77,9 +95,9 @@ vi.mock("../../src/infrastructure/types.js", async () => {
 import * as shellMod from "../../src/infrastructure/shell.js";
 import { getSelectedProject } from "../../src/infrastructure/state.js";
 import { initializeProject } from "../../src/domain/project/project-config.js";
-import { buildProjectDetailMenu } from "../../src/domain/mainMenu.js";
+import { buildProjectDetailMenu } from "../../src/ui/mainMenu.js";
 import { showInfo } from "../../src/domain/info/info.js";
-import { showHelp } from "../../src/domain/help/help.js";
+import { showHelp } from "../../src/ui/help.js";
 import { buildWithReport } from "../../src/domain/reports/cli/generate-build-report.js";
 import { isKnowledgebaseAvailable } from "../../src/domain/knowledgebase/knowledgebase.js";
 import { runMenu } from "../../src/infrastructure/menu.js";
@@ -160,6 +178,7 @@ describe("buildProjectDetailMenu", () => {
 			docs?: Record<string, unknown>;
 			review?: Record<string, unknown>;
 			publish?: Record<string, unknown>;
+			components?: unknown;
 		} = {}) {
 			mockGetSelected.mockReturnValue("my-project");
 			const ctx = {
@@ -172,6 +191,7 @@ describe("buildProjectDetailMenu", () => {
 					docs: overrides.docs,
 					review: overrides.review,
 					publish: overrides.publish,
+					components: overrides.components,
 				},
 				scripts: overrides.scripts ?? {},
 			};
@@ -179,85 +199,61 @@ describe("buildProjectDetailMenu", () => {
 			return ctx;
 		}
 
+		// ── Capture section (keys 1-3) ──────────────────────────────
+
+		it("includes Capture Idea, Capture Note, Capture Bug items", () => {
+			setupProject();
+			const items = buildProjectDetailMenu();
+			expect(findItem(items, "1")!.label).toBe("Capture Idea");
+			expect(findItem(items, "2")!.label).toBe("Capture Note");
+			expect(findItem(items, "3")!.label).toBe("Capture Bug");
+		});
+
+		// ── Core workflow (keys 4-8) ────────────────────────────────
+
 		it("includes Make, Build, Review, Publish, Reports items", () => {
 			setupProject();
 			const items = buildProjectDetailMenu();
-			expect(findItem(items, "1")!.label).toBe("Make");
-			expect(findItem(items, "2")!.label).toBe("Build");
-			expect(findItem(items, "3")!.label).toBe("Review");
-			expect(findItem(items, "4")!.label).toBe("Publish");
-			expect(findItem(items, "5")!.label).toBe("Reports");
+			expect(findItem(items, "4")!.label).toBe("Make");
+			expect(findItem(items, "5")!.label).toBe("Build");
+			expect(findItem(items, "6")!.label).toBe("Review");
+			expect(findItem(items, "7")!.label).toBe("Publish");
+			expect(findItem(items, "8")!.label).toBe("Reporting");
 		});
 
 		it("Build is disabled when no build tool is mapped", () => {
 			setupProject({ tools: {} });
 			const items = buildProjectDetailMenu();
-			const build = findItem(items, "2")!;
+			const build = findItem(items, "5")!;
 			expect(build.disabled).toBe(true);
 			expect(build.action()).toBe("main");
 		});
 
-		it("Build calls buildWithReport when build tool is mapped", () => {
+		it("Build calls buildWithReport when build tool is mapped", async () => {
 			setupProject({ tools: { build: "npm run build" } });
 			const items = buildProjectDetailMenu();
-			const build = findItem(items, "2")!;
+			const build = findItem(items, "5")!;
 			expect(build.disabled).toBeUndefined();
-			const result = build.action();
+			const result = await build.action();
 			expect(buildWithReport).toHaveBeenCalledWith("npm run build", "/projects/my-project");
 			expect(result).toBe("main");
 		});
 
-		it("Npm Scripts item appears when scripts exist", () => {
-			setupProject({ scripts: { test: "vitest", lint: "eslint ." } });
-			const items = buildProjectDetailMenu();
-			const scripts = findItem(items, "6");
-			expect(scripts).toBeDefined();
-			expect(scripts!.label).toBe("Npm Scripts");
-		});
+		// ── Project management section ──────────────────────────────
 
-		it("Npm Scripts item does not appear when no scripts", () => {
-			setupProject({ scripts: {} });
+		it("Npm Scripts is no longer in the main menu (moved to Dev Tools)", () => {
+			setupProject({ scripts: { test: "vitest" } });
 			const items = buildProjectDetailMenu();
-			const scripts = findItem(items, "6");
+			const scripts = findItem(items, "n");
 			expect(scripts).toBeUndefined();
 		});
 
-		it("Npm Scripts submenu runs runMenu with script entries", async () => {
-			const sh = createMockShell();
-			Object.assign(shellMod, { shell: sh });
-			setupProject({ scripts: { test: "vitest", lint: "eslint ." } });
-			const items = buildProjectDetailMenu();
-			const scripts = findItem(items, "6")!;
-
-			await scripts.action();
-
-			expect(mockRunMenu).toHaveBeenCalledWith("npm scripts", expect.any(Array));
-			const submenuItems = mockRunMenu.mock.calls[0][1] as MenuEntry[];
-			const menuEntries = submenuItems.filter(isMenuItem);
-			expect(menuEntries.some((m) => m.label === "npm run test")).toBe(true);
-			expect(menuEntries.some((m) => m.label === "npm run lint")).toBe(true);
-			expect(menuEntries.some((m) => m.key === "b")).toBe(true);
-		});
-
-		it("script item action runs the command via shell", async () => {
-			const sh = createMockShell();
-			Object.assign(shellMod, { shell: sh });
-			setupProject({ scripts: { test: "vitest" } });
-			const items = buildProjectDetailMenu();
-			const scripts = findItem(items, "6")!;
-			await scripts.action();
-
-			const submenuItems = (mockRunMenu.mock.calls[0][1] as MenuEntry[]).filter(isMenuItem);
-			const testItem = submenuItems.find((m) => m.label === "npm run test")!;
-			const result = testItem.action();
-			expect(sh.calls[0].cmd).toBe("npm run test");
-			expect(result).toBeUndefined();
-		});
+		// ── Reports submenu ─────────────────────────────────────────
 
 		it("Reports submenu includes Run All when generators are configured", async () => {
 			setupProject({ reports: { generators: [{ id: "test", label: "Test" }] } });
 			const items = buildProjectDetailMenu();
-			const reports = findItem(items, "5")!;
+			const reports = findItem(items, "8")!;
 
 			await reports.action();
 
@@ -268,7 +264,7 @@ describe("buildProjectDetailMenu", () => {
 		it("Reports submenu omits Run All when no generators", async () => {
 			setupProject({ reports: {} });
 			const items = buildProjectDetailMenu();
-			const reports = findItem(items, "5")!;
+			const reports = findItem(items, "8")!;
 
 			await reports.action();
 
@@ -286,7 +282,7 @@ describe("buildProjectDetailMenu", () => {
 				},
 			});
 			const items = buildProjectDetailMenu();
-			const reports = findItem(items, "5")!;
+			const reports = findItem(items, "8")!;
 
 			await reports.action();
 
@@ -304,7 +300,7 @@ describe("buildProjectDetailMenu", () => {
 				},
 			});
 			const items = buildProjectDetailMenu();
-			await findItem(items, "5")!.action();
+			await findItem(items, "8")!.action();
 
 			const submenuItems = (mockRunMenu.mock.calls[0][1] as MenuEntry[]).filter(isMenuItem);
 			const runAll = submenuItems.find((m) => m.label === "Run All Reports")!;
@@ -320,7 +316,7 @@ describe("buildProjectDetailMenu", () => {
 				},
 			});
 			const items = buildProjectDetailMenu();
-			await findItem(items, "5")!.action();
+			await findItem(items, "8")!.action();
 
 			const submenuItems = (mockRunMenu.mock.calls[0][1] as MenuEntry[]).filter(isMenuItem);
 			const runAll = submenuItems.find((m) => m.label === "Run All Reports")!;
@@ -332,6 +328,8 @@ describe("buildProjectDetailMenu", () => {
 				expect.any(String),
 			);
 		});
+
+		// ── Documentation submenu ───────────────────────────────────
 
 		it("Update Documentation is always available even without docs config", async () => {
 			setupProject({ docs: undefined });
@@ -402,6 +400,8 @@ describe("buildProjectDetailMenu", () => {
 			expect(entityRef.key).toBe("4");
 		});
 
+		// ── Knowledgebase ───────────────────────────────────────────
+
 		it("Knowledgebase disabled evaluator calls isKnowledgebaseAvailable", () => {
 			vi.mocked(isKnowledgebaseAvailable).mockReturnValue(false);
 			setupProject();
@@ -411,12 +411,29 @@ describe("buildProjectDetailMenu", () => {
 			expect(disabledFn()).toBe(true);
 		});
 
-		it("includes Capture Idea and Capture Note items", () => {
+		// ── Advanced tools section ──────────────────────────────────
+
+		it("includes Components, Events, Dependencies, Dev Tools items", () => {
 			setupProject();
 			const items = buildProjectDetailMenu();
-			expect(findItem(items, "7")!.label).toBe("Capture Idea");
-			expect(findItem(items, "8")!.label).toBe("Capture Note");
+			expect(findItem(items, "c")!.label).toBe("Components");
+			expect(findItem(items, "e")!.label).toBe("Events");
+			expect(findItem(items, "g")!.label).toBe("Dependencies");
+			expect(findItem(items, "t")!.label).toBe("Dev Tools");
+			expect(findItem(items, "s")).toBeUndefined();
+			expect(findItem(items, "x")).toBeUndefined();
 		});
+
+		// ── Health ──────────────────────────────────────────────────
+
+		it("includes Health item with key 'h'", () => {
+			setupProject();
+			const items = buildProjectDetailMenu();
+			const health = findItem(items, "h")!;
+			expect(health.label).toBe("Health");
+		});
+
+		// ── Navigation ──────────────────────────────────────────────
 
 		it("includes Info, Help, Back, Quit navigation items", () => {
 			setupProject();
@@ -427,10 +444,10 @@ describe("buildProjectDetailMenu", () => {
 			expect(findItem(items, "q")!.label).toBe("Quit");
 		});
 
-		it("Info action calls showInfo and returns 'main'", () => {
+		it("Info action calls showInfo and returns 'main'", async () => {
 			setupProject();
 			const items = buildProjectDetailMenu();
-			const result = findItem(items, "i")!.action();
+			const result = await findItem(items, "i")!.action();
 			expect(showInfo).toHaveBeenCalled();
 			expect(result).toBe("main");
 		});

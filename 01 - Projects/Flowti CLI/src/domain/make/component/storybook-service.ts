@@ -1,19 +1,26 @@
 /**
  * storybook-service.ts — Storybook lifecycle management for projects.
  *
- * Handles installation, detection, and npm script wrapping for the
- * opt-in Storybook component library.
+ * Handles installation, detection, background launching, and vault-aware
+ * browser opening for the opt-in Storybook component library.
  */
 
 import { disk } from "../../../infrastructure/filesystem.js";
 import { paths } from "../../../infrastructure/paths.js";
 import { shell } from "../../../infrastructure/shell.js";
+import { input } from "../../../infrastructure/input.js";
 import { log } from "../../../infrastructure/logger.js";
-import { RESET, DIM, GREEN, RED, YELLOW, CYAN } from "../../../infrastructure/ui.js";
+import { printHeader } from "../../../infrastructure/ui.js";
+import { RESET, BOLD, DIM, GREEN, RED, YELLOW, CYAN } from "../../../infrastructure/ui.js";
+import { VAULT_ROOT } from "../../../infrastructure/config.js";
 import { isCliAvailable, isVaultInitialized } from "../../knowledgebase/vault-service.js";
-import type { ComponentsConfig } from "../../../infrastructure/types.js";
+import type { ComponentsConfig, BackgroundProcess } from "../../../infrastructure/types.js";
 
 const DEFAULT_STORYBOOK_DIR = "component-library";
+const DEFAULT_STORYBOOK_PORT = 6006;
+const READY_PATTERN = /Storybook ready/;
+const LOCAL_URL_PATTERN = /https?:\/\/localhost:\d+/;
+const READY_TIMEOUT_MS = 120_000;
 
 // ── Detection ────────────────────────────────────────────────────────
 
@@ -35,7 +42,7 @@ function writePackageJson(sbDir: string, projectName: string): void {
 		private: true,
 		type: "module",
 		scripts: {
-			"storybook": "storybook dev -p 6006",
+			"storybook": "storybook dev -p 6006 --no-open",
 			"build-storybook": "storybook build",
 		},
 		devDependencies: {
@@ -109,9 +116,25 @@ export function installStorybook(projectPath: string, projectName: string, confi
 	return true;
 }
 
-// ── Obsidian Web Viewer ──────────────────────────────────────────────
+// ── Vault detection ──────────────────────────────────────────────────
 
-const DEFAULT_STORYBOOK_PORT = 6006;
+/** Check whether a project path lives inside the Obsidian vault. */
+export function isInsideVault(projectPath: string): boolean {
+	try {
+		let resolved = paths.resolve(projectPath);
+		let vault = paths.resolve(VAULT_ROOT);
+		// Windows paths are case-insensitive
+		if (process.platform === "win32") {
+			resolved = resolved.toLowerCase();
+			vault = vault.toLowerCase();
+		}
+		return resolved.startsWith(vault + paths.sep) || resolved === vault;
+	} catch {
+		return false;
+	}
+}
+
+// ── Browser opening ──────────────────────────────────────────────────
 
 function openInObsidianWebViewer(url: string): boolean {
 	if (!isCliAvailable() || !isVaultInitialized()) return false;
@@ -119,19 +142,115 @@ function openInObsidianWebViewer(url: string): boolean {
 	return true;
 }
 
+function openInDefaultBrowser(url: string): void {
+	const cmd = process.platform === "win32" ? `start "" "${url}"`
+		: process.platform === "darwin" ? `open "${url}"`
+		: `xdg-open "${url}"`;
+	shell.runSilent(cmd);
+}
+
+function openStorybookUrl(projectPath: string, url: string): void {
+	const inVault = isInsideVault(projectPath);
+	if (!inVault) {
+		log(`  ${DIM}Not inside vault — using default browser${RESET}\n`);
+	} else if (!isCliAvailable()) {
+		log(`  ${DIM}Obsidian CLI not available — using default browser${RESET}\n`);
+	} else if (!isVaultInitialized()) {
+		log(`  ${DIM}Vault not initialized — using default browser${RESET}\n`);
+	}
+
+	if (inVault && openInObsidianWebViewer(url)) {
+		log(`  ${CYAN}▸${RESET} Opened in Obsidian Web Viewer\n`);
+	} else {
+		openInDefaultBrowser(url);
+		log(`  ${CYAN}▸${RESET} Opened in default browser\n`);
+	}
+}
+
+// ── URL extraction ──────────────────────────────────────────────────
+
+/** Extract the localhost URL from Storybook's output (it reports the actual port). */
+export function extractLocalUrl(outputLines: string[]): string {
+	for (const line of outputLines) {
+		const match = LOCAL_URL_PATTERN.exec(line);
+		if (match) return match[0];
+	}
+	return `http://localhost:${DEFAULT_STORYBOOK_PORT}`;
+}
+
+// ── Background process management ───────────────────────────────────
+
+let activeProcess: BackgroundProcess | null = null;
+
+export function isStorybookRunning(): boolean {
+	return activeProcess?.running === true;
+}
+
+export function stopStorybook(): void {
+	if (activeProcess?.running) {
+		activeProcess.kill();
+		activeProcess = null;
+		log(`\n  ${GREEN}✓${RESET} Storybook stopped.\n`);
+	} else {
+		log(`\n  ${DIM}Storybook is not running.${RESET}\n`);
+	}
+}
+
+// ── Live output view ────────────────────────────────────────────────
+
+async function enterStorybookView(projectPath: string, url: string): Promise<void> {
+	printHeader("Storybook");
+	log(`  ${GREEN}✓${RESET} Running at ${BOLD}${url}${RESET}`);
+	log(`  ${DIM}Press Enter to stop${RESET}\n`);
+
+	await input.waitForEnter();
+	stopStorybook();
+}
+
 // ── Script wrappers ──────────────────────────────────────────────────
 
-export function runStorybookDev(projectPath: string, config: ComponentsConfig): void {
+export async function runStorybookDev(projectPath: string, config: ComponentsConfig): Promise<void> {
 	const sbDir = resolveStorybookDir(projectPath, config);
 	if (!isStorybookInstalled(projectPath, config)) {
 		log(`\n  ${YELLOW}Storybook not installed.${RESET} Use "Install Storybook" first.\n`);
 		return;
 	}
-	const url = `http://localhost:${DEFAULT_STORYBOOK_PORT}`;
-	if (openInObsidianWebViewer(url)) {
-		log(`  ${CYAN}▸${RESET} Opening ${url} in Obsidian Web Viewer\n`);
+
+	if (isStorybookRunning()) {
+		log(`\n  ${YELLOW}Storybook is already running.${RESET}\n`);
+		return;
 	}
-	shell.run("npm run storybook", { cwd: sbDir, label: "Storybook dev" });
+
+	log(`\n  ${CYAN}▸${RESET} Starting Storybook...\n`);
+
+	// CI=true makes Storybook auto-select the next free port without prompting
+	activeProcess = shell.spawnBackground(
+		`npx storybook dev -p ${DEFAULT_STORYBOOK_PORT} --no-open`,
+		{ cwd: sbDir, env: { CI: "true" } },
+	);
+
+	const readyLine = await activeProcess.waitForOutput(READY_PATTERN, READY_TIMEOUT_MS);
+
+	if (!readyLine) {
+		if (!activeProcess.running) {
+			log(`  ${RED}✗${RESET} Storybook failed to start.\n`);
+			const lines = activeProcess.output;
+			if (lines.length > 0) {
+				log(`  ${DIM}Output:${RESET}\n`);
+				for (const line of lines.slice(-20)) log(`    ${DIM}${line}${RESET}`);
+				log();
+			}
+			activeProcess = null;
+		} else {
+			log(`  ${YELLOW}⚠${RESET} Timed out waiting for Storybook — it may still be loading.\n`);
+		}
+		return;
+	}
+
+	const url = extractLocalUrl(activeProcess.output);
+	log(`  ${GREEN}✓${RESET} Storybook ready at ${DIM}${url}${RESET}\n`);
+	openStorybookUrl(projectPath, url);
+	await enterStorybookView(projectPath, url);
 }
 
 export function runStorybookBuild(projectPath: string, config: ComponentsConfig): void {

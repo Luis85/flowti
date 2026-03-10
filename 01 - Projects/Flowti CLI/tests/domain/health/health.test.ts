@@ -17,7 +17,7 @@ vi.mock("../../../src/infrastructure/paths.js", () => ({
 }));
 
 vi.mock("../../../src/infrastructure/shell.js", () => ({
-	shell: { runSilent: vi.fn(() => null) },
+	shell: { runSilent: vi.fn(() => null), runCaptureStatus: vi.fn(() => ({ exitCode: 1, stdout: "" })) },
 }));
 
 vi.mock("../../../src/infrastructure/ui.js", () => ({
@@ -49,7 +49,7 @@ vi.mock("../../../src/infrastructure/output.js", () => ({
 	}),
 }));
 
-import { collectHealth, displayHealth, commands, type HealthSnapshot } from "../../../src/domain/health/health.js";
+import { collectHealth, displayHealth, parseAuditJson, commands, type HealthSnapshot } from "../../../src/domain/health/health.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
 import { shell } from "../../../src/infrastructure/shell.js";
 import { countFiles } from "../../../src/infrastructure/fs.js";
@@ -202,6 +202,7 @@ describe("displayHealth", () => {
 		build: { success: true, durationMs: 1500 },
 		lint: { errors: 0, warnings: 0 },
 		git: { branch: "main", status: "clean" },
+		security: null,
 		components: 5,
 	};
 
@@ -244,6 +245,7 @@ describe("displayHealth", () => {
 			build: null,
 			lint: null,
 			git: null,
+			security: null,
 			components: 0,
 		});
 		const calls = mockLog.mock.calls.map(([msg]) => String(msg));
@@ -316,6 +318,45 @@ describe("commands.health", () => {
 		expect(parsed).toHaveProperty("build");
 		expect(parsed).toHaveProperty("lint");
 		expect(parsed).toHaveProperty("git");
+		expect(parsed).toHaveProperty("security");
 		expect(parsed).toHaveProperty("components");
+	});
+});
+
+// ── parseAuditJson ──────────────────────────────────────────────────
+
+describe("parseAuditJson", () => {
+	it("parses npm audit v2 metadata format", () => {
+		const json = JSON.stringify({
+			metadata: {
+				vulnerabilities: { critical: 1, high: 2, moderate: 3, low: 4, info: 0, total: 10 },
+			},
+		});
+		const result = parseAuditJson(json);
+		expect(result).toEqual({ critical: 1, high: 2, moderate: 3, low: 4, info: 0, total: 10 });
+	});
+
+	it("parses npm audit v3 flat vulnerabilities format", () => {
+		const json = JSON.stringify({
+			vulnerabilities: { critical: 0, high: 1, moderate: 2, low: 0, info: 0, total: 3 },
+		});
+		const result = parseAuditJson(json);
+		expect(result).toEqual({ critical: 0, high: 1, moderate: 2, low: 0, info: 0, total: 3 });
+	});
+
+	it("returns null for invalid JSON", () => {
+		expect(parseAuditJson("not json")).toBeNull();
+	});
+
+	it("returns null when no vulnerabilities key exists", () => {
+		expect(parseAuditJson(JSON.stringify({ auditReportVersion: 2 }))).toBeNull();
+	});
+
+	it("computes total when not provided", () => {
+		const json = JSON.stringify({
+			metadata: { vulnerabilities: { critical: 1, high: 2, moderate: 3, low: 4 } },
+		});
+		const result = parseAuditJson(json);
+		expect(result!.total).toBe(10);
 	});
 });

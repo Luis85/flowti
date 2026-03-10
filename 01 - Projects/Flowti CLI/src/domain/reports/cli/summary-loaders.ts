@@ -10,6 +10,7 @@ import { disk } from "../../../infrastructure/filesystem.js";
 import { shell } from "../../../infrastructure/shell.js";
 import { parseFrontmatterStrings } from "../../../infrastructure/frontmatter.js";
 import { readProjectConfig } from "../../project/project-config.js";
+import { getCommandOutput } from "../run-context.js";
 import type { SummaryThresholds } from "../../../infrastructure/types.js";
 import type {
 	ParsedFrontmatter,
@@ -253,7 +254,8 @@ export function discoverReports(reportsDir: string): ReportSnapshot[] {
 // ── Eslint collection ────────────────────────────────────────────────
 
 export function collectLintWarnings(projectPath: string, command: string): LintResult {
-	const output = shell.runCapture(command, { cwd: projectPath });
+	const cached = getCommandOutput(command);
+	const output = cached ?? shell.runCapture(command, { cwd: projectPath });
 	return parseLintOutput(output, projectPath);
 }
 
@@ -334,7 +336,8 @@ export function parseTypedocOutput(output: string): TypeDocResult {
 }
 
 export function collectTypedocWarnings(projectPath: string, command: string): TypeDocResult {
-	// TypeDoc writes warnings/errors to stderr, so we capture both streams
-	const combined = shell.runCapture(command, { cwd: projectPath, timeout: 30_000 });
+	// Reuse output from a prior prerequisite run if available
+	const cached = getCommandOutput(command);
+	const combined = cached ?? shell.runCapture(command, { cwd: projectPath, timeout: 30_000 });
 	return parseTypedocOutput(combined);
 }

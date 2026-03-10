@@ -51,6 +51,18 @@ vi.mock("../../../src/domain/scaffold/scaffold.js", () => ({
 	listDefinitions: vi.fn(() => []),
 }));
 
+const capturedJson: unknown[] = [];
+vi.mock("../../../src/infrastructure/output.js", () => ({
+	resolveFormat: vi.fn((flags: Record<string, string | boolean>) => flags.format === "json" ? "json" : "text"),
+	printOutput: vi.fn((fmt: string, data: unknown, render: () => void) => {
+		if (fmt === "json") {
+			capturedJson.push(data);
+		} else {
+			render();
+		}
+	}),
+}));
+
 import * as fsMod from "../../../src/infrastructure/filesystem.js";
 import { log } from "../../../src/infrastructure/logger.js";
 import {
@@ -62,6 +74,11 @@ import {
 	renderMermaidDeps,
 	displayDependencyGraph,
 	handleProjectDeps,
+	findReverseDeps,
+	findDirectDeps,
+	filterByType,
+	graphStats,
+	commands,
 } from "../../../src/domain/project/project-deps.js";
 import type { ProjectDependency, DependencyGraph } from "../../../src/domain/project/project-deps.js";
 
@@ -69,7 +86,10 @@ function setDisk(mockFs: ReturnType<typeof createMockFs>): void {
 	Object.assign(fsMod, { disk: mockFs });
 }
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+	vi.clearAllMocks();
+	capturedJson.length = 0;
+});
 
 // ── detectNpmDeps ──────────────────────────────────────────────────
 
@@ -544,5 +564,136 @@ describe("handleProjectDeps", () => {
 		handleProjectDeps();
 
 		expect(vi.mocked(log)).toHaveBeenCalled();
+	});
+});
+
+// ── project:deps --json ───────────────────────────────────────────
+
+describe("project:deps --json", () => {
+	it("outputs DependencyGraph as JSON with --format=json", () => {
+		const mockFs = createMockFs({
+			"/mock/projects/app/package.json": JSON.stringify({
+				name: "@org/app",
+				dependencies: { "@org/lib": "^1.0.0" },
+			}),
+			"/mock/projects/lib/package.json": JSON.stringify({
+				name: "@org/lib",
+			}),
+		});
+		setDisk(mockFs);
+
+		commands["project:deps"]({ format: "json" }, []);
+
+		expect(capturedJson).toHaveLength(1);
+		const graph = capturedJson[0] as DependencyGraph;
+		expect(graph.projects).toEqual(["app", "lib"]);
+		expect(graph.edges).toHaveLength(1);
+		expect(graph.edges[0].from).toBe("app");
+		expect(graph.edges[0].to).toBe("lib");
+		expect(graph.cycles).toEqual([]);
+	});
+
+	it("outputs text display when no --format flag", () => {
+		const mockFs = createMockFs({
+			"/mock/projects/my-app/package.json": JSON.stringify({ name: "my-app" }),
+		});
+		setDisk(mockFs);
+
+		commands["project:deps"]({}, []);
+
+		expect(capturedJson).toHaveLength(0);
+		expect(vi.mocked(log)).toHaveBeenCalled();
+	});
+});
+
+// ── Query helpers ──────────────────────────────────────────────────
+
+const sampleGraph: DependencyGraph = {
+	projects: ["app", "lib", "tools", "standalone"],
+	edges: [
+		{ from: "app", to: "lib", type: "npm", detail: "dependencies.lib" },
+		{ from: "app", to: "tools", type: "npm", detail: "devDependencies.tools" },
+		{ from: "tools", to: "lib", type: "publish", detail: "publish.endpoints[dist]" },
+	],
+	cycles: [],
+};
+
+describe("findReverseDeps", () => {
+	it("returns projects that depend on the given project", () => {
+		const result = findReverseDeps(sampleGraph, "lib");
+		expect(result).toHaveLength(2);
+		expect(result.map((d) => d.from).sort()).toEqual(["app", "tools"]);
+	});
+
+	it("returns empty for project with no dependents", () => {
+		expect(findReverseDeps(sampleGraph, "app")).toEqual([]);
+	});
+
+	it("returns empty for isolated project", () => {
+		expect(findReverseDeps(sampleGraph, "standalone")).toEqual([]);
+	});
+});
+
+describe("findDirectDeps", () => {
+	it("returns direct dependencies of a project", () => {
+		const result = findDirectDeps(sampleGraph, "app");
+		expect(result).toHaveLength(2);
+		expect(result.map((d) => d.to).sort()).toEqual(["lib", "tools"]);
+	});
+
+	it("returns empty for project with no deps", () => {
+		expect(findDirectDeps(sampleGraph, "standalone")).toEqual([]);
+	});
+});
+
+describe("filterByType", () => {
+	it("filters edges by npm type", () => {
+		const result = filterByType(sampleGraph.edges, "npm");
+		expect(result).toHaveLength(2);
+		expect(result.every((e) => e.type === "npm")).toBe(true);
+	});
+
+	it("filters edges by publish type", () => {
+		const result = filterByType(sampleGraph.edges, "publish");
+		expect(result).toHaveLength(1);
+		expect(result[0].from).toBe("tools");
+	});
+
+	it("returns empty for type with no matches", () => {
+		expect(filterByType(sampleGraph.edges, "config")).toEqual([]);
+	});
+});
+
+describe("graphStats", () => {
+	it("computes correct stats", () => {
+		const stats = graphStats(sampleGraph);
+		expect(stats.projects).toBe(4);
+		expect(stats.edges).toBe(3);
+		expect(stats.cycles).toBe(0);
+		expect(stats.isolated).toBe(1); // standalone
+	});
+
+	it("identifies project with most dependencies", () => {
+		const stats = graphStats(sampleGraph);
+		expect(stats.mostDeps).toEqual({ name: "app", count: 2 });
+	});
+
+	it("identifies most depended-on project", () => {
+		const stats = graphStats(sampleGraph);
+		expect(stats.mostDependedOn).toEqual({ name: "lib", count: 2 });
+	});
+
+	it("handles empty graph", () => {
+		const stats = graphStats({ projects: [], edges: [], cycles: [] });
+		expect(stats.projects).toBe(0);
+		expect(stats.isolated).toBe(0);
+		expect(stats.mostDeps).toBeNull();
+		expect(stats.mostDependedOn).toBeNull();
+	});
+
+	it("handles graph with all isolated projects", () => {
+		const stats = graphStats({ projects: ["a", "b", "c"], edges: [], cycles: [] });
+		expect(stats.isolated).toBe(3);
+		expect(stats.mostDeps).toBeNull();
 	});
 });

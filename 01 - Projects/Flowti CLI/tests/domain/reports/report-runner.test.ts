@@ -33,6 +33,11 @@ vi.mock("../../../src/domain/reports/generator-registry.js", () => ({
 	hasGenerator: (...args: unknown[]) => mockHasGenerator(...args),
 }));
 
+vi.mock("../../../src/domain/reports/report-phases.js", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/domain/reports/report-phases.js")>("../../../src/domain/reports/report-phases.js");
+	return actual;
+});
+
 import * as shellMod from "../../../src/infrastructure/shell.js";
 import { runAllReports } from "../../../src/domain/reports/report-runner.js";
 import type { ReportGenerator } from "../../../src/infrastructure/types.js";
@@ -216,4 +221,28 @@ describe("runAllReports", () => {
 		// Generator should NOT have been called
 		expect(mockRunGenerator).not.toHaveBeenCalled();
 	});
+
+	it("runs in phased mode when parallel option is set", () => {
+		const result = runAllReports(generators, "/project", { parallel: true });
+
+		expect(mockRunGenerator).toHaveBeenCalledTimes(3);
+		expect(result.passed).toBe(3);
+		expect(result.failed).toBe(0);
+	});
+
+	it("phased mode respects dependency ordering", () => {
+		const phasedGens: ReportGenerator[] = [
+			{ id: "test", label: "Test Report" },
+			{ id: "status", label: "Status Report" },
+		];
+
+		const result = runAllReports(phasedGens, "/project", { parallel: true });
+
+		expect(result.passed).toBe(2);
+		// test should run before status
+		const testIdx = result.generators.findIndex((g) => g.id === "test");
+		const statusIdx = result.generators.findIndex((g) => g.id === "status");
+		expect(testIdx).toBeLessThan(statusIdx);
+	});
+
 });

@@ -8,8 +8,10 @@ import { log } from "../../infrastructure/logger.js";
 import { RESET, DIM, GREEN, RED, YELLOW, CYAN } from "../../infrastructure/ui.js";
 import { disk } from "../../infrastructure/filesystem.js";
 import { input } from "../../infrastructure/input.js";
+import { shell } from "../../infrastructure/shell.js";
 import { VAULT_ROOT, CLI_PROJECT } from "../../infrastructure/config.js";
 import { runMenu } from "../../infrastructure/menu.js";
+import { resolveFormat, printOutput } from "../../infrastructure/output.js";
 import type { CommandHandler, MenuEntry, MenuResult } from "../../infrastructure/types.js";
 import {
 	loadAiTools,
@@ -19,7 +21,7 @@ import {
 	AI_TOOLS_DIR,
 } from "./ai-tool-loader.js";
 import { paths } from "../../infrastructure/paths.js";
-import type { LoadedAiTool } from "./ai-tool-types.js";
+import type { AiToolParam, LoadedAiTool } from "./ai-tool-types.js";
 import { generateAiToolReference } from "./ai-tool-reference.js";
 
 // ── Display helpers ──────────────────────────────────────────────────
@@ -173,13 +175,40 @@ export async function aiToolsMenu(): Promise<MenuResult> {
 // ── Exported command handlers ────────────────────────────────────────
 
 export const commands: Record<string, CommandHandler> = {
-	"ai:list": () => {
+	"ai:list": (flags) => {
 		const tools = loadAiTools(VAULT_ROOT, disk);
-		displayToolList(tools);
+		const format = resolveFormat(flags);
+		printOutput(format, tools.map((t) => ({
+			name: t.definition.name,
+			version: t.definition.version ?? null,
+			description: t.definition.description,
+			run: t.definition.run,
+			params: t.definition.params ?? [],
+			tags: t.definition.tags ?? [],
+			valid: t.valid,
+			errors: t.errors,
+		})), () => displayToolList(tools));
 	},
 
-	"ai:validate": () => {
-		displayValidation(VAULT_ROOT);
+	"ai:validate": (flags) => {
+		const format = resolveFormat(flags);
+		if (format === "json") {
+			const toolsDir = paths.join(VAULT_ROOT, AI_TOOLS_DIR);
+			const files = discoverToolFiles(toolsDir, disk);
+			const results = files.map((file) => {
+				const fileName = paths.basename(file);
+				try {
+					const raw = JSON.parse(disk.readFileSync(file, "utf-8")) as unknown;
+					const result = validateToolDefinition(raw);
+					return { file: fileName, ...result };
+				} catch (err: unknown) {
+					return { file: fileName, valid: false, errors: [err instanceof Error ? err.message : String(err)], warnings: [] };
+				}
+			});
+			log(JSON.stringify(results));
+		} else {
+			displayValidation(VAULT_ROOT);
+		}
 	},
 
 	"ai:new": async () => {
@@ -209,4 +238,93 @@ export const commands: Record<string, CommandHandler> = {
 		doc.save(outputPath);
 		log(`\n  ${GREEN}✓${RESET} Reference saved to ${DIM}${outputPath}${RESET}\n`);
 	},
+
+	"ai:run": (flags) => {
+		const toolName = flags.tool;
+		if (!toolName || typeof toolName !== "string") {
+			log(`\n  ${RED}Missing --tool flag.${RESET}`);
+			log(`  ${DIM}Usage: flowti ai:run --tool=<name> [--param1=value1]${RESET}\n`);
+			return;
+		}
+
+		const tools = loadAiTools(VAULT_ROOT, disk);
+		const tool = validateToolSelection(toolName, tools);
+		if (!tool) return;
+
+		const params = tool.definition.params ?? [];
+		if (!validateRequiredParams(params, flags)) return;
+
+		// Substitute params in command
+		const cmd = substituteParams(tool.definition.run, params, flags);
+		const cwd = tool.definition.cwd ? paths.join(VAULT_ROOT, tool.definition.cwd) : VAULT_ROOT;
+
+		if (flags["dry-run"]) {
+			log(`\n  ${DIM}Dry run:${RESET} ${cmd}`);
+			log(`  ${DIM}cwd:${RESET} ${cwd}\n`);
+			return;
+		}
+
+		log(`\n  ${CYAN}▸${RESET} Running ${toolName}...`);
+		const { exitCode } = shell.runCaptureStatus(cmd, { cwd });
+		if (exitCode === 0) {
+			log(`  ${GREEN}✓${RESET} ${toolName} completed.\n`);
+		} else {
+			log(`  ${RED}✗${RESET} ${toolName} failed (exit ${exitCode}).\n`);
+		}
+	},
 };
+
+// ── ai:run helpers ──────────────────────────────────────────────────
+
+/** Resolve and validate the selected tool, logging errors if invalid. Returns the tool or undefined. */
+function validateToolSelection(
+	toolName: string,
+	tools: LoadedAiTool[],
+): LoadedAiTool | undefined {
+	const tool = tools.find((t) => t.definition.name === toolName);
+	if (!tool) {
+		log(`\n  ${RED}Tool not found: ${toolName}${RESET}`);
+		const names = tools.map((t) => t.definition.name);
+		if (names.length > 0) log(`  ${DIM}Available: ${names.join(", ")}${RESET}`);
+		log();
+		return undefined;
+	}
+	if (!tool.valid) {
+		log(`\n  ${RED}Tool "${toolName}" has validation errors:${RESET}`);
+		for (const err of tool.errors) log(`  ${RED}•${RESET} ${err}`);
+		log();
+		return undefined;
+	}
+	return tool;
+}
+
+/** Check that all required params are present in flags. Returns true when valid. */
+function validateRequiredParams(
+	params: AiToolParam[],
+	flags: Record<string, string | boolean>,
+): boolean {
+	const missing = params.filter((p) => p.required && flags[p.name] === undefined);
+	if (missing.length > 0) {
+		log(`\n  ${RED}Missing required parameter${missing.length > 1 ? "s" : ""}:${RESET}`);
+		for (const p of missing) log(`  ${RED}•${RESET} --${p.name}: ${p.description}`);
+		log();
+		return false;
+	}
+	return true;
+}
+
+// ── Param substitution ──────────────────────────────────────────────
+
+/** Replace {{param}} placeholders in a command string with flag values. */
+export function substituteParams(
+	command: string,
+	params: { name: string; default?: string | number | boolean }[],
+	flags: Record<string, string | boolean>,
+): string {
+	let result = command;
+	for (const p of params) {
+		const value = flags[p.name] ?? p.default ?? "";
+		result = result.replace(new RegExp(`\\{\\{${p.name}\\}\\}`, "g"), String(value));
+	}
+	return result;
+}

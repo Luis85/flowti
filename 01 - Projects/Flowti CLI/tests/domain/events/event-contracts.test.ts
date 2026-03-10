@@ -53,6 +53,8 @@ import {
 	validateContracts,
 	generateContractsJson,
 	isValidType,
+	validatePayload,
+	findContract,
 } from "../../../src/domain/events/event-contracts.js";
 import type {
 	EventContract,
@@ -524,5 +526,106 @@ describe("loadEventContracts", () => {
 
 		const contracts = loadEventContracts("/project/docs/events");
 		expect(contracts.map((c) => c.name)).toEqual(["a.event", "m.event", "z.event"]);
+	});
+});
+
+// ── Runtime payload validation ──────────────────────────────────────
+
+describe("validatePayload", () => {
+	const contract: EventContract = {
+		name: "user.created",
+		domain: "user",
+		version: "1.0.0",
+		description: "User was created",
+		producers: ["AuthService"],
+		consumers: ["EmailService"],
+		payload: [
+			{ field: "id", type: "string", required: true, description: "User ID" },
+			{ field: "email", type: "string", required: true, description: "Email" },
+			{ field: "age", type: "number", required: false, description: "Age" },
+			{ field: "active", type: "boolean", required: false, description: "Is active" },
+			{ field: "metadata", type: "object", required: false, description: "Extra data" },
+			{ field: "roles", type: "array", required: false, description: "User roles" },
+		],
+	};
+
+	it("accepts valid payload with all required fields", () => {
+		const result = validatePayload(contract, { id: "123", email: "a@b.com" });
+		expect(result.valid).toBe(true);
+		expect(result.errors).toHaveLength(0);
+	});
+
+	it("accepts valid payload with optional fields", () => {
+		const result = validatePayload(contract, {
+			id: "123", email: "a@b.com", age: 30, active: true, metadata: { x: 1 }, roles: ["admin"],
+		});
+		expect(result.valid).toBe(true);
+	});
+
+	it("rejects payload missing required fields", () => {
+		const result = validatePayload(contract, { id: "123" });
+		expect(result.valid).toBe(false);
+		expect(result.errors).toContain('Missing required field "email".');
+	});
+
+	it("rejects payload with wrong types", () => {
+		const result = validatePayload(contract, { id: 123, email: "a@b.com" });
+		expect(result.valid).toBe(false);
+		expect(result.errors.some((e) => e.includes('"id"') && e.includes("string"))).toBe(true);
+	});
+
+	it("rejects unknown fields", () => {
+		const result = validatePayload(contract, { id: "123", email: "a@b.com", unknown: true });
+		expect(result.valid).toBe(false);
+		expect(result.errors).toContain('Unknown field "unknown" not in contract.');
+	});
+
+	it("validates boolean type correctly", () => {
+		const result = validatePayload(contract, { id: "1", email: "a@b.com", active: "yes" });
+		expect(result.valid).toBe(false);
+		expect(result.errors.some((e) => e.includes('"active"') && e.includes("boolean"))).toBe(true);
+	});
+
+	it("validates object type correctly", () => {
+		const result = validatePayload(contract, { id: "1", email: "a@b.com", metadata: [1, 2] });
+		expect(result.valid).toBe(false);
+		expect(result.errors.some((e) => e.includes('"metadata"') && e.includes("object"))).toBe(true);
+	});
+
+	it("validates array type correctly", () => {
+		const result = validatePayload(contract, { id: "1", email: "a@b.com", roles: "admin" });
+		expect(result.valid).toBe(false);
+		expect(result.errors.some((e) => e.includes('"roles"') && e.includes("array"))).toBe(true);
+	});
+
+	it("accepts null for optional fields", () => {
+		const result = validatePayload(contract, { id: "1", email: "a@b.com", age: null });
+		expect(result.valid).toBe(true);
+	});
+
+	it("accepts PascalCase custom types with any value", () => {
+		const customContract: EventContract = {
+			name: "order.placed", domain: "order", version: "1.0.0",
+			description: "", producers: [], consumers: [],
+			payload: [{ field: "userId", type: "UserId", required: true, description: "" }],
+		};
+		const result = validatePayload(customContract, { userId: { inner: "abc" } });
+		expect(result.valid).toBe(true);
+	});
+});
+
+describe("findContract", () => {
+	const contracts: EventContract[] = [
+		{ name: "user.created", domain: "user", version: "1.0.0", description: "", producers: [], consumers: [], payload: [] },
+		{ name: "order.placed", domain: "order", version: "1.0.0", description: "", producers: [], consumers: [], payload: [] },
+	];
+
+	it("finds contract by name", () => {
+		expect(findContract(contracts, "user.created")).toBeDefined();
+		expect(findContract(contracts, "user.created")!.domain).toBe("user");
+	});
+
+	it("returns undefined for unknown name", () => {
+		expect(findContract(contracts, "unknown.event")).toBeUndefined();
 	});
 });

@@ -209,3 +209,64 @@ export function validateContracts(contracts: EventContract[]): ContractValidatio
 export function generateContractsJson(contracts: EventContract[]): string {
 	return JSON.stringify(contracts, null, 2);
 }
+
+// ── Runtime payload validation ──────────────────────────────────────
+
+export interface PayloadValidationResult {
+	valid: boolean;
+	errors: string[];
+}
+
+const TYPE_CHECKS: Record<string, (v: unknown) => boolean> = {
+	string: (v) => typeof v === "string",
+	number: (v) => typeof v === "number",
+	boolean: (v) => typeof v === "boolean",
+	object: (v) => typeof v === "object" && v !== null && !Array.isArray(v),
+	array: (v) => Array.isArray(v),
+	Date: (v) => typeof v === "string" || v instanceof Date,
+};
+
+/**
+ * Validate a runtime payload object against an event contract.
+ * Returns errors for missing required fields and type mismatches.
+ * PascalCase custom types accept any non-null value.
+ */
+export function validatePayload(contract: EventContract, payload: Record<string, unknown>): PayloadValidationResult {
+	const errors: string[] = [];
+
+	for (const field of contract.payload) {
+		const value = payload[field.field];
+
+		if (value === undefined || value === null) {
+			if (field.required) {
+				errors.push(`Missing required field "${field.field}".`);
+			}
+			continue;
+		}
+
+		const checker = TYPE_CHECKS[field.type];
+		if (checker) {
+			if (!checker(value)) {
+				errors.push(`Field "${field.field}" expected type "${field.type}" but got ${typeof value}.`);
+			}
+		}
+		// PascalCase custom types: accept any non-null value (no runtime check possible)
+	}
+
+	// Check for unknown fields
+	const knownFields = new Set(contract.payload.map((f) => f.field));
+	for (const key of Object.keys(payload)) {
+		if (!knownFields.has(key)) {
+			errors.push(`Unknown field "${key}" not in contract.`);
+		}
+	}
+
+	return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Find a contract by event name from a list of contracts.
+ */
+export function findContract(contracts: EventContract[], eventName: string): EventContract | undefined {
+	return contracts.find((c) => c.name === eventName);
+}

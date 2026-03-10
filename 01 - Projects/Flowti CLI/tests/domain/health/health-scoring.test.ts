@@ -18,6 +18,7 @@ const fullSnapshot: HealthSnapshot = {
 	build: { success: true, durationMs: 1500 },
 	lint: { errors: 0, warnings: 0 },
 	git: { branch: "main", status: "clean" },
+	security: { critical: 0, high: 0, moderate: 0, low: 0, info: 0, total: 0 },
 	components: 5,
 };
 
@@ -29,6 +30,7 @@ const emptySnapshot: HealthSnapshot = {
 	build: null,
 	lint: null,
 	git: null,
+	security: null,
 	components: 0,
 };
 
@@ -110,6 +112,7 @@ describe("scoreHealth", () => {
 		expect(score.categories).toHaveProperty("coverage");
 		expect(score.categories).toHaveProperty("build");
 		expect(score.categories).toHaveProperty("lint");
+		expect(score.categories).toHaveProperty("security");
 		expect(score.categories).toHaveProperty("git");
 	});
 
@@ -120,6 +123,57 @@ describe("scoreHealth", () => {
 		if (allHundred) {
 			expect(score.overall).toBe(100);
 		}
+	});
+});
+
+// ── security scoring ─────────────────────────────────────────────────
+
+describe("security scoring", () => {
+	it("returns 100 for zero vulnerabilities", () => {
+		const score = scoreHealth(fullSnapshot);
+		expect(score.categories.security).toBe(100);
+	});
+
+	it("penalizes critical vulnerabilities heavily", () => {
+		const snapshot = {
+			...fullSnapshot,
+			security: { critical: 1, high: 0, moderate: 0, low: 0, info: 0, total: 1 },
+		};
+		const score = scoreHealth(snapshot);
+		expect(score.categories.security).toBe(70);
+	});
+
+	it("penalizes high vulnerabilities", () => {
+		const snapshot = {
+			...fullSnapshot,
+			security: { critical: 0, high: 2, moderate: 0, low: 0, info: 0, total: 2 },
+		};
+		const score = scoreHealth(snapshot);
+		expect(score.categories.security).toBe(70);
+	});
+
+	it("penalizes moderate vulnerabilities mildly", () => {
+		const snapshot = {
+			...fullSnapshot,
+			security: { critical: 0, high: 0, moderate: 3, low: 0, info: 0, total: 3 },
+		};
+		const score = scoreHealth(snapshot);
+		expect(score.categories.security).toBe(85);
+	});
+
+	it("clamps to zero for many critical vulns", () => {
+		const snapshot = {
+			...fullSnapshot,
+			security: { critical: 5, high: 3, moderate: 10, low: 5, info: 0, total: 23 },
+		};
+		const score = scoreHealth(snapshot);
+		expect(score.categories.security).toBe(0);
+	});
+
+	it("returns 0 when security is null", () => {
+		const snapshot = { ...fullSnapshot, security: null };
+		const score = scoreHealth(snapshot);
+		expect(score.categories.security).toBe(0);
 	});
 });
 

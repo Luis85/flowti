@@ -32,8 +32,6 @@ const options = {
 	banner: { js: "#!/usr/bin/env node" },
 	external: [
 		"node:*",
-		"@pythonidaer/complexity-report",
-		"@pythonidaer/complexity-report/*",
 		"eslint",
 		"typedoc",
 	],

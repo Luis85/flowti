@@ -14,7 +14,7 @@ import { RESET, BOLD, DIM, GREEN } from "../../../infrastructure/ui.js";
 import type { MenuEntry, MenuResult, ComponentsConfig } from "../../../infrastructure/types.js";
 import type { ProjectComponent, ComponentKind } from "./component-types.js";
 import { COMPONENT_KINDS } from "./component-types.js";
-import { isStorybookInstalled, installStorybook, runStorybookDev, runStorybookBuild } from "./storybook-service.js";
+import { isStorybookInstalled, installStorybook, runStorybookDev, runStorybookBuild, isStorybookRunning, stopStorybook } from "./storybook-service.js";
 import { componentMenu } from "./component-makers.js";
 
 // ── Component discovery ─────────────────────────────────────────────
@@ -214,10 +214,17 @@ export async function componentListMenu(projectRoot: string, componentsConfig?: 
 		},
 		{
 			key: "s",
-			label: "Storybook dev",
-			action: () => { runStorybookDev(projectRoot, config); },
-			disabled: () => !sbInstalled(),
-			disabledMessage: "\n  Storybook not installed. Use \"Install Storybook\" first.\n",
+			label: "Start Storybook",
+			action: async () => { await runStorybookDev(projectRoot, config); },
+			disabled: () => !sbInstalled() || isStorybookRunning(),
+			disabledMessage: "\n  Storybook not installed or already running.\n",
+		},
+		{
+			key: "x",
+			label: "Stop Storybook",
+			action: () => { stopStorybook(); },
+			disabled: () => !isStorybookRunning(),
+			disabledMessage: "\n  Storybook is not running.\n",
 		},
 		{
 			key: "k",

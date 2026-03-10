@@ -2,7 +2,7 @@
  * cli-reference.ts — CLI Reference generator.
  *
  * Generates a "Flowti CLI Reference" document from the HELP sections
- * in domain/help/help.ts and the current project configuration.
+ * in ui/help-content.ts and the current project configuration.
  *
  * Can be run standalone (npm run report:cli-reference) or via the
  * reference registry from the Documentation menu.
@@ -128,9 +128,18 @@ const CLI_COMMANDS: CliCommand[] = [
 	{ command: "make:app", description: "Scaffold a new DDD application (--name required, --id, --author)" },
 	{ command: "capture:idea", description: 'Capture an idea (--text="...")' },
 	{ command: "capture:note", description: 'Capture a typed note (--type, --title="...")' },
+	{ command: "capture:bug", description: 'Capture a bug report (--title="...")' },
 	{ command: "events:list", description: "List all events in the project event catalog" },
 	{ command: "events:add", description: 'Add an event (--name="user.created" --domain="user")' },
 	{ command: "info", description: "Show project stats, version, config" },
+	{ command: "build:check", description: "Check build freshness (source vs dist)" },
+	{ command: "build:auto", description: "Auto-build if stale" },
+	{ command: "build:record", description: "Record build manifest" },
+	{ command: "reports:html", description: "Export all reports to HTML" },
+	{ command: "marketplace:export", description: "Export marketplace bundle" },
+	{ command: "marketplace:import", description: "Import definitions from remote registry" },
+	{ command: "health", description: "Display project health dashboard" },
+	{ command: "deps", description: "Show project dependency graph" },
 ];
 
 // ── Data loading ─────────────────────────────────────────────────────
@@ -149,7 +158,7 @@ interface PluginData {
 }
 
 function loadHelpSections(projectPath: string): Map<string, string> {
-	const helpPath = paths.join(projectPath, "src", "domain", "help", "help.ts");
+	const helpPath = paths.join(projectPath, "src", "ui", "help-content.ts");
 	if (!disk.existsSync(helpPath)) return new Map();
 	return extractHelpSections(disk.readFileSync(helpPath, "utf-8"));
 }
@@ -196,19 +205,23 @@ function addQuickStartAndArchitecture(doc: Document): void {
 	doc.codeBlock("", [
 		"Start Menu (Load / Create / Import)",
 		"  └─ Project Detail Menu",
-		"       ├─ 1) Make          Scaffold code from templates",
-		"       ├─ 2) Build         Build + Build Report",
-		"       ├─ 3) Review        E2E test sessions",
-		"       ├─ 4) Publish       Gated release pipeline",
-		"       ├─ c) Components    Browse project components",
-		"       ├─ e) Events        Event catalog (list, add)",
-		"       ├─ 5) Reports       Report generators",
-		"       ├─ 6) Npm Scripts   Browse package.json scripts",
-		"       ├─ 7) Capture Idea  Quick-capture to inbox",
-		"       ├─ 8) Capture Note  Typed note capture",
-		"       ├─ d) Documentation Generate reference docs",
-		"       ├─ k) Knowledgebase Vault search (Obsidian CLI)",
-		"       └─ i) Info          Project diagnostics",
+		"       ├─ 1-3) Capture      Idea, Note, Bug",
+		"       ├─ 4) Make           Scaffold code from templates",
+		"       ├─ 5) Build          Build + Build Report",
+		"       ├─ 6) Review         E2E test sessions",
+		"       ├─ 7) Publish        Gated release pipeline",
+		"       ├─ 8) Reports        Report generators",
+		"       ├─ d) Documentation  Generate reference docs",
+		"       ├─ n) Npm Scripts    Browse package.json scripts",
+		"       ├─ k) Knowledgebase  Vault search (Obsidian CLI)",
+		"       ├─ h) Health         Quality gate, tech debt, trends",
+		"       ├─ i) Info           Project diagnostics",
+		"       ├─ c) Components     Browse project components",
+		"       ├─ e) Events         Event catalog (list, add)",
+		"       ├─ s) Scaffold       Definitions & marketplace",
+		"       ├─ g) Dependencies   Project dependency graph",
+		"       ├─ t) Dev Tools      Type check, lint, reload",
+		"       └─ x) Export         Reports to HTML, bundles",
 	].join("\n"));
 	doc.addBlank();
 }
@@ -223,6 +236,8 @@ const SECTION_TITLES: Record<string, string> = {
 	devtools: "Dev Tools",
 	capture: "Capture",
 	info: "Info",
+	knowledgebase: "Knowledgebase",
+	health: "Health",
 };
 
 function addHelpSections(doc: Document, helpSections: Map<string, string>): void {

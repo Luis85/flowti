@@ -69,6 +69,8 @@ export async function makePlugin(projectRoot: string): Promise<void> {
 	log(`    3. ${CYAN}npm run build:dev${RESET}`);
 	log(`    4. Open the vault containing this plugin in Obsidian`);
 	log();
+
+	await input.waitForEnter();
 }
 
 // ── Application scaffolding ─────────────────────────────────────────
@@ -116,6 +118,8 @@ export async function makeApp(projectRoot: string): Promise<void> {
 	log(`    4. ${CYAN}npm test${RESET}`);
 	log(`    5. Open the vault in Obsidian and enable the plugin`);
 	log();
+
+	await input.waitForEnter();
 }
 
 // ── CLI App scaffolding ─────────────────────────────────────────────
@@ -160,6 +164,8 @@ export async function makeCliApp(projectRoot: string): Promise<void> {
 	log(`    3. ${CYAN}npm run dev${RESET}`);
 	log(`    4. ${CYAN}npm test${RESET}`);
 	log();
+
+	await input.waitForEnter();
 }
 
 // ── make:journey ────────────────────────────────────────────────────
@@ -216,6 +222,8 @@ export async function makeJourney(projectRoot: string): Promise<void> {
 	log(`    2. Design the journey canvas in Obsidian`);
 	log(`    3. Run ${CYAN}npm run test:e2e -- --journey=${slug}${RESET} to test`);
 	log();
+
+	await input.waitForEnter();
 }
 
 /** Scans test directory for numbered journey files and returns the next available number (e.g., "50"). */

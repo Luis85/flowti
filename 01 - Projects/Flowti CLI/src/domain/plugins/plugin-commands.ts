@@ -13,6 +13,7 @@ import { input } from "../../infrastructure/input.js";
 import { paths } from "../../infrastructure/paths.js";
 import { VAULT_ROOT, CLI_PROJECT } from "../../infrastructure/config.js";
 import { runMenu } from "../../infrastructure/menu.js";
+import { resolveFormat, printOutput } from "../../infrastructure/output.js";
 import type { CommandHandler, MenuEntry, MenuResult } from "../../infrastructure/types.js";
 import {
 	loadPlugins,
@@ -163,13 +164,39 @@ export async function pluginsMenu(): Promise<MenuResult> {
 // ── Exported command handlers ────────────────────────────────────────
 
 export const commands: Record<string, CommandHandler> = {
-	"plugin:list": () => {
+	"plugin:list": (flags) => {
 		const plugins = loadPlugins(VAULT_ROOT, disk, shell);
-		displayPluginList(plugins);
+		const format = resolveFormat(flags);
+		printOutput(format, plugins.map((p) => ({
+			name: p.manifest.name,
+			version: p.manifest.version ?? null,
+			description: p.manifest.description,
+			commands: Object.keys(p.commands),
+			valid: p.valid,
+			errors: p.errors,
+		})), () => displayPluginList(plugins));
 	},
 
-	"plugin:validate": () => {
-		displayValidation(VAULT_ROOT);
+	"plugin:validate": (flags) => {
+		const format = resolveFormat(flags);
+		if (format === "json") {
+			const pluginsDir = paths.join(VAULT_ROOT, PLUGINS_DIR);
+			const files = discoverPluginFiles(pluginsDir, disk);
+			const results = files.map((file) => {
+				const pluginDir = paths.dirname(file);
+				const pluginName = paths.basename(pluginDir);
+				try {
+					const raw = JSON.parse(disk.readFileSync(file, "utf-8")) as unknown;
+					const result = validateManifest(raw);
+					return { name: pluginName, ...result };
+				} catch (err: unknown) {
+					return { name: pluginName, valid: false, errors: [err instanceof Error ? err.message : String(err)], warnings: [] };
+				}
+			});
+			log(JSON.stringify(results));
+		} else {
+			displayValidation(VAULT_ROOT);
+		}
 	},
 
 	"plugin:reference": () => {

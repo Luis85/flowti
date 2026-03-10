@@ -1,9 +1,8 @@
 /**
  * generate-complexity-report.ts
  *
- * Runs ESLint complexity analysis via the @pythonidaer/complexity-report
- * programmatic API (JSON-only, no HTML generation) and produces a
- * ComplexityReport vault note with queryable YAML frontmatter.
+ * Runs TypeScript AST complexity analysis on the plugin source and produces
+ * a ComplexityReport vault note with queryable YAML frontmatter.
  *
  * Usage: node scripts/generate-complexity-report.ts [--build-type=flow|increment|full]
  */
@@ -13,24 +12,10 @@ import { paths } from "../../../infrastructure/paths.js";
 
 import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { Document } from "../../../infrastructure/document.js";
-import { log, warn } from "../../../infrastructure/logger.js";
+import { log } from "../../../infrastructure/logger.js";
 import { clock } from "../../../infrastructure/clock.js";
-
-interface ESLintMessage {
-	message: string;
-	line: number;
-}
-
-interface ESLintResult {
-	filePath: string;
-	messages: ESLintMessage[];
-}
-
-interface ComplexityEntry {
-	file: string;
-	line: number;
-	complexity: number;
-}
+import { analyzeComplexity } from "../cli/complexity-analyzer.js";
+import type { ComplexityFunction } from "../cli/complexity-analyzer.js";
 
 interface DomainStats {
 	functions: number;
@@ -39,66 +24,37 @@ interface DomainStats {
 	totalComplexity: number;
 }
 
-const { runESLintComplexityCheck } = await import("@pythonidaer/complexity-report/integration/eslint/index.js");
-
-const COMPLEXITY_JSON: string = paths.join(PLUGIN_ROOT, "complexity", "complexity-report.json");
 const OUTPUT_DIR: string = paths.join(PLUGIN_ROOT, "docs", "reports", "complexity");
 const STABLE_PATH: string = paths.join(OUTPUT_DIR, "Complexity Report.md");
 
-/**
- * Parse complexity values from ESLint messages.
- * Normalizes Windows absolute paths to plugin-relative paths.
- * Reason is hardcoded path handling in the plugin which breaks on windows.
- */
-function extractComplexityEntries(data: ESLintResult[]): ComplexityEntry[] {
-	const rootNorm: string = PLUGIN_ROOT.replace(/\\/g, "/");
-	const entries: ComplexityEntry[] = [];
-	for (const file of data) {
-		const absNorm: string = file.filePath.replace(/\\/g, "/");
-		const relPath: string = absNorm.startsWith(rootNorm)
-			? absNorm.substring(rootNorm.length + 1)
-			: absNorm;
-		for (const msg of file.messages) {
-			const match = msg.message.match(/complexity of (\d+)/);
-			if (!match) continue;
-			entries.push({
-				file: relPath,
-				line: msg.line,
-				complexity: parseInt(match[1], 10),
-			});
-		}
-	}
-	return entries;
-}
-
-function computeDistribution(entries: ComplexityEntry[]): Record<string, number> {
-	const vals: number[] = entries.map((e: ComplexityEntry) => e.complexity);
+function computeDistribution(entries: ComplexityFunction[]): Record<string, number> {
+	const vals: number[] = entries.map((e) => e.complexity);
 	return {
-		"1-5": vals.filter((v: number) => v >= 1 && v <= 5).length,
-		"6-10": vals.filter((v: number) => v >= 6 && v <= 10).length,
-		"11-20": vals.filter((v: number) => v >= 11 && v <= 20).length,
-		"21-50": vals.filter((v: number) => v >= 21 && v <= 50).length,
-		"51+": vals.filter((v: number) => v >= 51).length,
+		"1-5": vals.filter((v) => v >= 1 && v <= 5).length,
+		"6-10": vals.filter((v) => v >= 6 && v <= 10).length,
+		"11-20": vals.filter((v) => v >= 11 && v <= 20).length,
+		"21-50": vals.filter((v) => v >= 21 && v <= 50).length,
+		"51+": vals.filter((v) => v >= 51).length,
 	};
 }
 
-function generateReport(data: ESLintResult[], entries: ComplexityEntry[]): string {
+function generateReport(entries: ComplexityFunction[], totalFiles: number): string {
 	const now = clock.now();
-	const totalFiles: number = data.length;
-	const filesWithComplexity: number = data.filter((d: ESLintResult) => d.messages.length > 0).length;
-	const totalFunctions: number = entries.length;
-	const vals: number[] = entries.map((e: ComplexityEntry) => e.complexity);
-	const aboveThreshold: number = vals.filter((v: number) => v > 10).length;
-	const maxComplexity: number = vals.length > 0 ? Math.max(...vals) : 0;
-	const avgComplexity: number = vals.length > 0 ? vals.reduce((s: number, v: number) => s + v, 0) / vals.length : 0;
-	const medianComplexity: number = vals.length > 0 ? vals.sort((a: number, b: number) => a - b)[Math.floor(vals.length / 2)] : 0;
-	const distribution: Record<string, number> = computeDistribution(entries);
+	const filesWithComplexity = new Set(entries.map((e) => e.file)).size;
+	const totalFunctions = entries.length;
+	const vals = entries.map((e) => e.complexity);
+	const aboveThreshold = vals.filter((v) => v > 10).length;
+	const maxComplexity = vals.length > 0 ? Math.max(...vals) : 0;
+	const avgComplexity = vals.length > 0 ? vals.reduce((s, v) => s + v, 0) / vals.length : 0;
+	const sorted = [...vals].sort((a, b) => a - b);
+	const medianComplexity = vals.length > 0 ? sorted[Math.floor(vals.length / 2)] : 0;
+	const distribution = computeDistribution(entries);
 
 	// Domain breakdown: group by first path segment after src/
 	const domainMap: Record<string, DomainStats> = {};
 	for (const e of entries) {
-		const parts: string[] = e.file.replace(/^src\//, "").split("/");
-		const domain: string = parts[0] || "root";
+		const parts = e.file.replace(/^src\//, "").split("/");
+		const domain = parts[0] || "root";
 		if (!domainMap[domain]) domainMap[domain] = { functions: 0, above10: 0, maxComplexity: 0, totalComplexity: 0 };
 		domainMap[domain].functions++;
 		domainMap[domain].totalComplexity += e.complexity;
@@ -117,11 +73,10 @@ function generateReport(data: ESLintResult[], entries: ComplexityEntry[]): strin
 		max_complexity: maxComplexity,
 		avg_complexity: parseFloat(avgComplexity.toFixed(1)),
 		median_complexity: medianComplexity,
-		node_version: process.version,
 	};
 
-	const topOffenders: ComplexityEntry[] = entries
-		.sort((a: ComplexityEntry, b: ComplexityEntry) => b.complexity - a.complexity)
+	const topOffenders = entries
+		.sort((a, b) => b.complexity - a.complexity)
 		.slice(0, 25);
 
 	const doc = Document.create("Complexity Report")
@@ -138,7 +93,7 @@ function generateReport(data: ESLintResult[], entries: ComplexityEntry[]): strin
 		.addBlank()
 		.table(
 			["Range", "Count", "%"],
-			Object.entries(distribution).map(([range, count]: [string, number]) => [
+			Object.entries(distribution).map(([range, count]) => [
 				range, String(count), `${((count / totalFunctions) * 100).toFixed(1)}%`,
 			]),
 			{ alignRight: [1, 2] },
@@ -148,7 +103,7 @@ function generateReport(data: ESLintResult[], entries: ComplexityEntry[]): strin
 		.addBlank()
 		.table(
 			["#", "Complexity", "File", "Line"],
-			topOffenders.map((e: ComplexityEntry, i: number) => [String(i + 1), String(e.complexity), `\`${e.file}\``, String(e.line)]),
+			topOffenders.map((e, i) => [String(i + 1), String(e.complexity), `\`${e.file}\``, String(e.line)]),
 			{ alignRight: [0, 1, 3] },
 		)
 		.addBlank()
@@ -157,8 +112,8 @@ function generateReport(data: ESLintResult[], entries: ComplexityEntry[]): strin
 		.table(
 			["Domain", "Functions", "Above 10", "Max", "Avg"],
 			Object.entries(domainMap)
-				.sort((a: [string, DomainStats], b: [string, DomainStats]) => b[1].above10 - a[1].above10)
-				.map(([domain, stats]: [string, DomainStats]) => [
+				.sort((a, b) => b[1].above10 - a[1].above10)
+				.map(([domain, stats]) => [
 					domain, String(stats.functions), String(stats.above10),
 					String(stats.maxComplexity), (stats.totalComplexity / stats.functions).toFixed(1),
 				]),
@@ -170,28 +125,18 @@ function generateReport(data: ESLintResult[], entries: ComplexityEntry[]): strin
 }
 
 async function main(): Promise<void> {
-	// Run ESLint complexity check directly — produces JSON only, no HTML
-	try {
-		await runESLintComplexityCheck(PLUGIN_ROOT);
-	} catch {
-		warn("[report] ESLint complexity check failed — checking for existing JSON.");
-	}
+	const srcDir = paths.join(PLUGIN_ROOT, "src");
+	log("[report] Running complexity analysis...");
 
-	if (!disk.existsSync(COMPLEXITY_JSON)) {
-		log("[report] No complexity-report.json found — skipping complexity report.");
-		return;
-	}
-
-	const data: ESLintResult[] = JSON.parse(disk.readFileSync(COMPLEXITY_JSON, "utf-8"));
-	const entries: ComplexityEntry[] = extractComplexityEntries(data);
-	const content: string = generateReport(data, entries);
+	const result = analyzeComplexity(srcDir, PLUGIN_ROOT);
+	const content = generateReport(result.functions, result.files.length);
 
 	disk.mkdirSync(OUTPUT_DIR, { recursive: true });
 
 	// Write timestamped report
-	const safeTimestamp: string = clock.safeIso();
-	const filename: string = `${safeTimestamp}-complexity-report.md`;
-	const timestampedPath: string = paths.join(OUTPUT_DIR, filename);
+	const safeTimestamp = clock.safeIso();
+	const filename = `${safeTimestamp}-complexity-report.md`;
+	const timestampedPath = paths.join(OUTPUT_DIR, filename);
 	disk.writeFileSync(timestampedPath, content, "utf-8");
 
 	// Write stable report (overwrite)

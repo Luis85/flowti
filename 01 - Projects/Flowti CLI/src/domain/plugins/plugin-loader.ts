@@ -14,6 +14,7 @@ import type {
 	LoadedPlugin,
 } from "./plugin-types.js";
 import type { CommandHandler } from "../../infrastructure/types.js";
+import { validateHooks, extractHooks, wrapWithHooks } from "./plugin-hooks.js";
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -84,6 +85,7 @@ export function validateManifest(raw: unknown): PluginValidationResult {
 	const obj = raw as Record<string, unknown>;
 	validateManifestMeta(obj, errors, warnings);
 	validateManifestCommands(obj, errors, warnings);
+	errors.push(...validateHooks(obj.hooks));
 
 	return { valid: errors.length === 0, errors, warnings };
 }
@@ -135,6 +137,7 @@ export function loadPluginFile(
 		}
 
 		const manifest = raw as PluginManifest;
+		manifest.hooks = extractHooks(raw as Record<string, unknown>);
 		const commands = buildCommandHandlers(manifest, shellRunner, projectPath);
 
 		return { manifest, path: pluginPath, commands, valid: true, errors: [] };
@@ -212,16 +215,23 @@ function buildCommandHandlers(
 	projectPath: string,
 ): Record<string, CommandHandler> {
 	const handlers: Record<string, CommandHandler> = {};
+	const hooks = manifest.hooks ?? {};
 
 	for (const [cmdName, cmdDef] of Object.entries(manifest.commands)) {
 		const key = namespacedCommandKey(manifest.name, cmdName);
 		const def: PluginCommandDef = cmdDef;
 
+		const runCommand = () => shellRunner.run(def.run, {
+			cwd: projectPath,
+			label: `[${manifest.name}] ${def.description}`,
+		});
+
+		const wrappedRun = (hooks.onBeforeCommand || hooks.onAfterCommand)
+			? wrapWithHooks(hooks, shellRunner, projectPath, runCommand)
+			: runCommand;
+
 		handlers[key] = () => {
-			const exitCode = shellRunner.run(def.run, {
-				cwd: projectPath,
-				label: `[${manifest.name}] ${def.description}`,
-			});
+			const exitCode = wrappedRun();
 			if (exitCode !== 0) {
 				process.exitCode = exitCode;
 			}

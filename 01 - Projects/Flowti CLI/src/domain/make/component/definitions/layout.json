@@ -1,7 +1,7 @@
 {
 	"id": "layout",
 	"kind": "layout",
-	"label": "Layout - UI Component",
+	"label": "Layout",
 	"description": "A layout component — defines the spatial arrangement of child components.",
 	"icon": "layout-grid",
 	"images": [],

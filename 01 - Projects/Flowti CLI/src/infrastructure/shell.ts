@@ -5,12 +5,12 @@
  * Production code uses the `shell` singleton; tests inject a mock.
  */
 
-import { execSync, execFileSync, spawnSync } from "node:child_process";
+import { execSync, execFileSync, spawnSync, spawn } from "node:child_process";
 import { CLI_PROJECT } from "./config.js";
 import { RESET, GREEN, RED, CYAN, DIM } from "./ui.js";
 import { log } from "./logger.js";
 import { clock } from "./clock.js";
-import type { IShell } from "./types.js";
+import type { IShell, BackgroundProcess } from "./types.js";
 
 class NodeShell implements IShell {
 	run(cmd: string, opts: { cwd?: string; label?: string } = {}): number {
@@ -88,6 +88,90 @@ class NodeShell implements IShell {
 		} catch {
 			return null;
 		}
+	}
+
+	spawnBackground(cmd: string, opts: { cwd?: string; env?: Record<string, string> } = {}): BackgroundProcess {
+		const child = spawn(cmd, {
+			cwd: opts.cwd ?? CLI_PROJECT,
+			shell: true,
+			windowsHide: true,
+			stdio: ["ignore", "pipe", "pipe"],
+			env: opts.env ? { ...process.env, ...opts.env } : undefined,
+		});
+
+		let running = true;
+		const outputLines: string[] = [];
+		const listeners: Set<(line: string) => void> = new Set();
+
+		function collectOutput(chunk: Buffer): void {
+			const text = chunk.toString("utf-8");
+			for (const line of text.split(/\r?\n/)) {
+				if (line.trim()) {
+					outputLines.push(line);
+					for (const cb of listeners) cb(line);
+				}
+			}
+		}
+
+		child.stdout?.on("data", collectOutput);
+		child.stderr?.on("data", collectOutput);
+		child.on("exit", () => { running = false; });
+
+		return {
+			get running() { return running; },
+			get output() { return outputLines; },
+			onOutput(callback: (line: string) => void): () => void {
+				listeners.add(callback);
+				return () => { listeners.delete(callback); };
+			},
+			kill() {
+				if (running) {
+					if (process.platform === "win32" && child.pid) {
+						// On Windows with shell: true, child.kill() only kills the
+						// cmd.exe wrapper. taskkill /T kills the entire process tree.
+						try { execSync(`taskkill /T /F /PID ${child.pid}`, { stdio: "ignore", windowsHide: true }); } catch { /* already dead */ }
+					} else {
+						child.kill();
+					}
+					running = false;
+				}
+			},
+			waitForOutput(pattern: RegExp, timeoutMs = 60_000): Promise<string | null> {
+				return new Promise((resolve) => {
+					const timer = setTimeout(() => {
+						cleanup();
+						resolve(null);
+					}, timeoutMs);
+
+					function onData(chunk: Buffer): void {
+						const text = chunk.toString("utf-8");
+						for (const line of text.split(/\r?\n/)) {
+							if (pattern.test(line)) {
+								cleanup();
+								resolve(line);
+								return;
+							}
+						}
+					}
+
+					function onExit(): void {
+						cleanup();
+						resolve(null);
+					}
+
+					function cleanup(): void {
+						clearTimeout(timer);
+						child.stdout?.off("data", onData);
+						child.stderr?.off("data", onData);
+						child.off("exit", onExit);
+					}
+
+					child.stdout?.on("data", onData);
+					child.stderr?.on("data", onData);
+					child.on("exit", onExit);
+				});
+			},
+		};
 	}
 }
 

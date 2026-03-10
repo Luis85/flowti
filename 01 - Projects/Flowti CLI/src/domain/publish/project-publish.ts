@@ -102,6 +102,7 @@ function copyDir(src: string, dest: string): number {
 export async function publishMenu(projectPath: string, config: PublishConfig): Promise<MenuResult> {
 	let buildPassed = false;
 	let testPassed = false;
+	let distributePassed = false;
 
 	const buildCmd = config.build ?? "npm run build";
 	const testCmd = config.test ?? "npm test";
@@ -110,7 +111,7 @@ export async function publishMenu(projectPath: string, config: PublishConfig): P
 	const beforeMenu = (): void => {
 		const buildIcon = buildPassed ? `${GREEN}✓${RESET}` : `${DIM}○${RESET}`;
 		const testIcon = testPassed ? `${GREEN}✓${RESET}` : `${DIM}○${RESET}`;
-		const distIcon = `${DIM}○${RESET}`;
+		const distIcon = distributePassed ? `${GREEN}✓${RESET}` : `${DIM}○${RESET}`;
 		log(`    ${DIM}Pipeline:${RESET}  ${buildIcon} Build  →  ${testIcon} Test  →  ${distIcon} Distribute`);
 		if (endpoints.length > 0) {
 			log(`    ${DIM}Endpoints:${RESET} ${endpoints.map((e: PublishEndpoint) => e.name).join(", ")}`);
@@ -124,7 +125,7 @@ export async function publishMenu(projectPath: string, config: PublishConfig): P
 		{ key: "1", label: "Build", action: () => {
 			const code = shell.run(buildCmd, { cwd: projectPath, label: "Build" });
 			buildPassed = code === 0;
-			if (!buildPassed) testPassed = false;
+			if (!buildPassed) { testPassed = false; distributePassed = false; }
 		}},
 		{ key: "2", label: "Test",
 			disabled: () => !buildPassed,
@@ -134,7 +135,7 @@ export async function publishMenu(projectPath: string, config: PublishConfig): P
 		{ key: "3", label: "Distribute to endpoints",
 			disabled: () => !testPassed,
 			disabledMessage: `\n  ${YELLOW}Build and test first.${RESET}\n`,
-			action: () => { distribute(projectPath, config); },
+			action: () => { distributePassed = distribute(projectPath, config) === 0; },
 		},
 		{ key: "a", label: "Run all (build → test → distribute)", action: () => {
 			log(`\n  ${CYAN}▸${RESET} Running full publish pipeline...\n`);
@@ -152,7 +153,7 @@ export async function publishMenu(projectPath: string, config: PublishConfig): P
 				return;
 			}
 			log(`\n  ${CYAN}▸${RESET} Step 3/3: Distribute\n`);
-			distribute(projectPath, config);
+			distributePassed = distribute(projectPath, config) === 0;
 		}},
 		{ separator: true },
 		{ key: "b", label: "Back", action: () => "main" as const },

@@ -449,8 +449,14 @@ describe("componentStoryTemplate — parameters block", () => {
 		expect(output).toContain('domain: "auth"');
 	});
 
-	it("omits parameters block when no icon/heroImage/domain", () => {
+	it("always includes docs description from markdown import", () => {
 		const output = componentStoryTemplate(vars(), def({ kind: "ui-component" }));
-		expect(output).not.toContain("parameters:");
+		expect(output).toContain("parameters:");
+		expect(output).toContain("docs: { description: { component: componentDoc } }");
+	});
+
+	it("imports the component markdown file as raw string", () => {
+		const output = componentStoryTemplate(vars(), def({ kind: "ui-component" }));
+		expect(output).toContain('import componentDoc from "../../../docs/components/auth-service.md?raw"');
 	});
 });

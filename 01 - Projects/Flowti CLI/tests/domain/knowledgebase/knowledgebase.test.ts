@@ -68,9 +68,17 @@ describe("knowledgebaseMenu", () => {
 		vi.clearAllMocks();
 	});
 
-	it("returns 'main' when user types 'q'", async () => {
+	it("returns 'quit' when user types 'q'", async () => {
 		mockedListFolder.mockReturnValue([]);
 		mockedAsk.mockResolvedValueOnce("q");
+
+		const result = await knowledgebaseMenu();
+		expect(result).toBe("quit");
+	});
+
+	it("returns 'main' when user types 'b'", async () => {
+		mockedListFolder.mockReturnValue([]);
+		mockedAsk.mockResolvedValueOnce("b");
 
 		const result = await knowledgebaseMenu();
 		expect(result).toBe("main");
@@ -88,12 +96,12 @@ describe("knowledgebaseMenu", () => {
 		mockedAsk.mockResolvedValueOnce("q");
 
 		const result = await knowledgebaseMenu();
-		expect(result).toBe("main");
+		expect(result).toBe("quit");
 		expect(mockedListFolder).toHaveBeenCalledWith("");
 		expect(mockedListFolder).toHaveBeenCalledWith("subfolder");
 	});
 
-	it("navigates back when user types 'b'", async () => {
+	it("navigates up when user types 'u'", async () => {
 		// Root listing with one folder
 		mockedListFolder.mockReturnValueOnce([
 			{ name: "subfolder", isDir: true },
@@ -102,14 +110,14 @@ describe("knowledgebaseMenu", () => {
 
 		// Inside subfolder
 		mockedListFolder.mockReturnValueOnce([]);
-		mockedAsk.mockResolvedValueOnce("b"); // go back
+		mockedAsk.mockResolvedValueOnce("u"); // go up
 
 		// Back at root
 		mockedListFolder.mockReturnValueOnce([]);
 		mockedAsk.mockResolvedValueOnce("q"); // quit
 
 		const result = await knowledgebaseMenu();
-		expect(result).toBe("main");
+		expect(result).toBe("quit");
 		expect(mockedListFolder).toHaveBeenNthCalledWith(1, "");
 		expect(mockedListFolder).toHaveBeenNthCalledWith(2, "subfolder");
 		expect(mockedListFolder).toHaveBeenNthCalledWith(3, "");
@@ -139,7 +147,7 @@ describe("knowledgebaseMenu", () => {
 		mockedAsk.mockResolvedValueOnce("q");
 
 		const result = await knowledgebaseMenu();
-		expect(result).toBe("main");
+		expect(result).toBe("quit");
 		expect(mockedReadMarkdownFile).toHaveBeenCalledWith("readme.md");
 	});
 
@@ -193,7 +201,7 @@ describe("knowledgebaseMenu", () => {
 		mockedAsk.mockResolvedValueOnce("q"); // quit
 
 		const result = await knowledgebaseMenu();
-		expect(result).toBe("main");
+		expect(result).toBe("quit");
 		expect(mockedSearchVault).toHaveBeenCalledWith("test query");
 	});
 
@@ -259,9 +267,9 @@ describe("knowledgebaseMenu", () => {
 		mockedListFolder.mockReturnValueOnce([{ name: "level2", isDir: true }]);
 		mockedAsk.mockResolvedValueOnce("1");
 
-		// level1/level2, then back
+		// level1/level2, then up
 		mockedListFolder.mockReturnValueOnce([]);
-		mockedAsk.mockResolvedValueOnce("b");
+		mockedAsk.mockResolvedValueOnce("u");
 
 		// Back at level1, quit
 		mockedListFolder.mockReturnValueOnce([]);
@@ -308,17 +316,13 @@ describe("knowledgebaseMenu", () => {
 		expect(logCalls.some((msg) => typeof msg === "string" && msg.includes("data.json"))).toBe(false);
 	});
 
-	it("'b' at root does nothing (no parent to navigate to)", async () => {
+	it("'b' at root returns to main menu", async () => {
 		mockedListFolder.mockReturnValueOnce([]);
-		mockedAsk.mockResolvedValueOnce("b"); // b at root is ignored (no currentPath)
+		mockedAsk.mockResolvedValueOnce("b");
 
-		mockedListFolder.mockReturnValueOnce([]);
-		mockedAsk.mockResolvedValueOnce("q");
+		const result = await knowledgebaseMenu();
 
-		await knowledgebaseMenu();
-
-		// Should have called listFolder twice with "" (stayed at root)
-		// 'b' at root falls through to invalid choice since currentPath is ""
-		expect(mockedListFolder).toHaveBeenCalledTimes(2);
+		expect(result).toBe("main");
+		expect(mockedListFolder).toHaveBeenCalledTimes(1);
 	});
 });

@@ -12,6 +12,7 @@ import { RESET, DIM } from "./ui.js";
 export interface IInput {
 	ask(question: string, defaultValue?: string): Promise<string>;
 	askYesNo(question: string, defaultNo?: boolean): Promise<boolean>;
+	waitForEnter(): Promise<void>;
 }
 
 function formatPrompt(question: string, suffix: string): string {
@@ -26,6 +27,16 @@ export const input: IInput = {
 			rl.question(formatPrompt(question, suffix), (answer) => {
 				rl.close();
 				resolve(answer.trim() || defaultValue);
+			});
+		});
+	},
+
+	async waitForEnter(): Promise<void> {
+		const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+		return new Promise((resolve) => {
+			rl.question(`  ${DIM}Press Enter to continue${RESET} `, () => {
+				rl.close();
+				resolve();
 			});
 		});
 	},

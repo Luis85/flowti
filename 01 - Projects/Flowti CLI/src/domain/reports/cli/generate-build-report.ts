@@ -13,6 +13,7 @@ import { RESET, GREEN, RED, CYAN, DIM } from "../../../infrastructure/ui.js";
 import { ReportService } from "./report-service.js";
 import { log } from "../../../infrastructure/logger.js";
 import { clock } from "../../../infrastructure/clock.js";
+import { recordBuild, resolveBuildPaths } from "../../build/build-freshness.js";
 
 export interface BuildResult {
 	command: string;
@@ -122,5 +123,11 @@ export function buildWithReport(cmd: string, projectPath: string): number {
 	const result = runBuild(cmd, projectPath);
 	const outputPath = generateReport(result, projectPath);
 	log(`  ${CYAN}▸${RESET} Build Report: ${outputPath}\n`);
+
+	if (result.exitCode === 0) {
+		const { srcDir, binDir } = resolveBuildPaths(projectPath);
+		recordBuild(srcDir, binDir);
+	}
+
 	return result.exitCode;
 }

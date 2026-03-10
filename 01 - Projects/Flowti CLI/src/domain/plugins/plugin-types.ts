@@ -6,6 +6,7 @@
  */
 
 import type { CommandHandler } from "../../infrastructure/types.js";
+import type { PluginHooks } from "./plugin-hooks.js";
 
 /** Shape of a single command entry inside a plugin manifest. */
 export interface PluginCommandDef {
@@ -20,6 +21,7 @@ export interface PluginManifest {
 	description: string;
 	version?: string;
 	commands: Record<string, PluginCommandDef>;
+	hooks?: PluginHooks;
 }
 
 /** A plugin after discovery, validation, and command wrapping. */

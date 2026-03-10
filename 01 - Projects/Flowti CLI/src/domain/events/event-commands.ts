@@ -6,6 +6,7 @@ import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
 import { RESET, DIM, GREEN, RED } from "../../infrastructure/ui.js";
 import { log } from "../../infrastructure/logger.js";
+import { proc } from "../../infrastructure/proc.js";
 import type { ProjectContext } from "../../infrastructure/types.js";
 import { resolveFormat, printOutput } from "../../infrastructure/output.js";
 import { listEvents, createEventFile, parseCommaSeparated } from "./event-catalog.js";
@@ -13,7 +14,8 @@ import type { EventDefinition } from "./event-catalog.js";
 import { parsePayloadFlag } from "./event-payload.js";
 import { versionCommands } from "./event-versioning.js";
 import { saveEventFlowDoc } from "./event-flow.js";
-import { loadEventContracts, validateContracts, generateContractsJson } from "./event-contracts.js";
+import { loadEventContracts, validateContracts, generateContractsJson, validatePayload, findContract } from "./event-contracts.js";
+import { generateEventTypes } from "./event-codegen.js";
 import type { ContractIssue } from "./event-contracts.js";
 
 // ── Flag helpers ──────────────────────────────────────────────────
@@ -96,7 +98,48 @@ export const commands: Record<string, (flags: Record<string, string | boolean>, 
 			log(`  ${GREEN}✓${RESET} ${errors.length} error(s), ${warnings.length} warning(s) — contracts valid.\n`);
 		} else {
 			log(`  ${RED}✗${RESET} ${errors.length} error(s), ${warnings.length} warning(s) — contracts invalid.\n`);
+			proc.exit(1);
 		}
+	},
+	"events:check-payload": (flags, _rawArgs, _command, project) => {
+		if (!project) return;
+		const eventName = flags.event;
+		const payloadJson = flags.payload;
+		if (!eventName || typeof eventName !== "string" || !payloadJson || typeof payloadJson !== "string") {
+			log(`\n  ${RED}Missing --event and/or --payload flag.${RESET}`);
+			log(`  ${DIM}Usage: flowti events:check-payload --event="user.created" --payload='{"id":"1"}'${RESET}\n`);
+			return;
+		}
+		const dir = paths.join(project.path, "docs", "events");
+		const contracts = loadEventContracts(dir);
+		const contract = findContract(contracts, eventName);
+		if (!contract) {
+			log(`\n  ${RED}No contract found for event "${eventName}".${RESET}\n`);
+			proc.exit(1);
+			return;
+		}
+		let payload: Record<string, unknown>;
+		try {
+			payload = JSON.parse(payloadJson) as Record<string, unknown>;
+		} catch {
+			log(`\n  ${RED}Invalid JSON payload.${RESET}\n`);
+			proc.exit(1);
+			return;
+		}
+		const result = validatePayload(contract, payload);
+		const format = resolveFormat(flags);
+		printOutput(format, result, () => {
+			if (result.valid) {
+				log(`\n  ${GREEN}✓${RESET} Payload valid for "${eventName}".\n`);
+			} else {
+				log(`\n  ${RED}✗${RESET} Payload invalid for "${eventName}":`);
+				for (const err of result.errors) {
+					log(`    ${RED}•${RESET} ${err}`);
+				}
+				log();
+				proc.exit(1);
+			}
+		});
 	},
 	"events:contracts": (flags, _rawArgs, _command, project) => {
 		if (!project) return;
@@ -119,6 +162,23 @@ export const commands: Record<string, (flags: Record<string, string | boolean>, 
 		disk.mkdirSync(outDir, { recursive: true });
 		disk.writeFileSync(outPath, json, "utf-8");
 		log(`\n  ${GREEN}✓${RESET} Generated: ${paths.relative(project.path, outPath)} (${contracts.length} contracts)\n`);
+	},
+	"events:codegen": (flags, _rawArgs, _command, project) => {
+		if (!project) return;
+		const dir = paths.join(project.path, "docs", "events");
+		const contracts = loadEventContracts(dir);
+		if (contracts.length === 0) {
+			log(`\n  ${DIM}No events found in docs/events/.${RESET}\n`);
+			return;
+		}
+		const ts = generateEventTypes(contracts);
+		const outPath = typeof flags.out === "string"
+			? paths.resolve(project.path, flags.out)
+			: paths.join(project.path, "src", "generated", "event-types.ts");
+		const outDir = paths.dirname(outPath);
+		disk.mkdirSync(outDir, { recursive: true });
+		disk.writeFileSync(outPath, ts, "utf-8");
+		log(`\n  ${GREEN}✓${RESET} Generated: ${paths.relative(project.path, outPath)} (${contracts.length} interfaces)\n`);
 	},
 	...versionCommands,
 };

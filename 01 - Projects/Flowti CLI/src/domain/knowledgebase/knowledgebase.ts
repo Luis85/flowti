@@ -9,7 +9,7 @@
 import { input } from "../../infrastructure/input.js";
 import { printHeader, BOLD, RESET, DIM, CYAN, YELLOW, GREEN } from "../../infrastructure/ui.js";
 import { isCliAvailable, isVaultInitialized, listFolder, readMarkdownFile, searchVault } from "./vault-service.js";
-import { showHelp } from "../help/help.js";
+import { showHelp } from "../../ui/help.js";
 import type { MenuResult } from "../../infrastructure/types.js";
 import { log } from "../../infrastructure/logger.js";
 
@@ -59,9 +59,10 @@ function renderFolderListing(
 
 function printNavHints(currentPath: string): void {
 	const nav: string[] = [];
-	if (currentPath) nav.push(`${YELLOW}b${RESET})ack`);
-	nav.push(`${YELLOW}s${RESET})earch`, `${YELLOW}?${RESET})help`, `${YELLOW}q${RESET})uit`);
+	nav.push(`${YELLOW}s${RESET})earch`, `${YELLOW}?${RESET})help`);
+	if (currentPath) nav.push(`${YELLOW}u${RESET})p`);
 	log(`  ${nav.join("  ")}\n`);
+	log(`  ${YELLOW}b${RESET}) Back  ${YELLOW}q${RESET}) Quit\n`);
 }
 
 function resolveSelectedPath(currentPath: string, name: string): string {
@@ -72,11 +73,12 @@ function buildKBHeader(currentPath: string): string {
 	return currentPath ? `Knowledgebase — ${currentPath}` : "Knowledgebase";
 }
 
-type KBChoice = "quit" | "back" | "search" | "help" | "invalid" | { entry: { name: string; isDir: boolean } };
+type KBChoice = "quit" | "back" | "up" | "search" | "help" | "invalid" | { entry: { name: string; isDir: boolean } };
 
 function classifyKBChoice(choice: string, currentPath: string, indexMap: Map<number, { name: string; isDir: boolean }>): KBChoice {
 	if (choice === "q") return "quit";
-	if (choice === "b" && currentPath) return "back";
+	if (choice === "b") return "back";
+	if (choice === "u" && currentPath) return "up";
 	if (choice === "s") return "search";
 	if (choice === "?") return "help";
 	const selected = indexMap.get(parseInt(choice, 10));
@@ -97,8 +99,9 @@ export async function knowledgebaseMenu(): Promise<MenuResult> {
 		const choice = await input.ask("Choice");
 		const action = classifyKBChoice(choice, currentPath, indexMap);
 
-		if (action === "quit") return "main";
-		if (action === "back") { currentPath = navigateBack(currentPath); continue; }
+		if (action === "quit") return "quit";
+		if (action === "back") return "main";
+		if (action === "up") { currentPath = navigateBack(currentPath); continue; }
 		if (action === "search") { await searchMode(); continue; }
 		if (action === "help") { showHelp("knowledgebase"); continue; }
 		if (action === "invalid") { log("\n  Invalid choice — try again.\n"); continue; }

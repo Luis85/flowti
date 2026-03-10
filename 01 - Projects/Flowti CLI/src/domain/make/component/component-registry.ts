@@ -27,9 +27,9 @@ import c4PersonDef from "./definitions/c4-person.json" with { type: "json" };
 
 const BUNDLED_DEFINITIONS: ComponentDefinition[] = [
 	componentDef as unknown as ComponentDefinition,
+	uiComponentDef as unknown as ComponentDefinition,
 	layoutDef as unknown as ComponentDefinition,
 	pageDef as unknown as ComponentDefinition,
-	uiComponentDef as unknown as ComponentDefinition,
 	c4SystemDef as unknown as ComponentDefinition,
 	c4ContainerDef as unknown as ComponentDefinition,
 	c4ComponentDef as unknown as ComponentDefinition,

@@ -99,6 +99,8 @@ async function makeComponentInteractive(projectRoot: string, def: ComponentDefin
 		for (const step of steps) log(`    ${CYAN}▸${RESET} ${step}`);
 		log();
 	}
+
+	await input.waitForEnter();
 }
 
 // ── Component submenu ───────────────────────────────────────────────

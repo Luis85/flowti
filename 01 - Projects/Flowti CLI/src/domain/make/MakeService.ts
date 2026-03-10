@@ -6,7 +6,7 @@
 
 import { DIM, RESET } from "../../infrastructure/ui.js";
 import { runMenu } from "../../infrastructure/menu.js";
-import { showHelp } from "../help/help.js";
+import { showHelp } from "../../ui/help.js";
 import { readProjectConfig } from "../project/project-config.js";
 import { log } from "../../infrastructure/logger.js";
 import type { MenuEntry, MenuResult, MakeTemplateId } from "../../infrastructure/types.js";

@@ -102,6 +102,12 @@ export interface ScaffoldOptions {
 	outputDir?: string;
 }
 
+export interface DryRunResult {
+	files: string[];
+	outputPath: string;
+	definition: string;
+}
+
 export function scaffold(opts: ScaffoldOptions): { created: number; outputPath: string } | { error: string } {
 	const registry = createDefaultRegistry();
 	const definitions = loadDefinitions();
@@ -131,6 +137,39 @@ export function scaffold(opts: ScaffoldOptions): { created: number; outputPath: 
 	const created = writePlan(outputDir, plan);
 
 	return { created, outputPath: outputDir };
+}
+
+/**
+ * Preview scaffold output without writing any files.
+ * Returns the list of files that would be created.
+ */
+export function scaffoldDryRun(opts: ScaffoldOptions): DryRunResult | { error: string } {
+	const registry = createDefaultRegistry();
+	const definitions = loadDefinitions();
+	const def = definitions.find(d => d.id === opts.definitionId);
+
+	if (!def) {
+		return { error: `Unknown scaffold definition: "${opts.definitionId}". Available: ${definitions.map(d => d.id).join(", ")}` };
+	}
+
+	const vars = deriveVariables(opts.name, opts.author);
+	const outputDir = opts.outputDir ?? paths.join(PROJECTS_DIR, vars.name);
+
+	const unknownIds = def.files
+		.filter(f => !registry.has(f.templateId))
+		.map(f => f.templateId);
+	if (unknownIds.length > 0) {
+		return { error: `Unknown template IDs: ${unknownIds.join(", ")}` };
+	}
+
+	const ctx: ScaffoldContext = { vars, outputPath: outputDir, definition: def };
+	const plan = buildScaffoldPlan(ctx, registry);
+
+	return {
+		files: plan.map(f => f.path),
+		outputPath: outputDir,
+		definition: def.id,
+	};
 }
 
 // ── List definitions ─────────────────────────────────────────────────

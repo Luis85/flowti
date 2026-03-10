@@ -1,33 +1,32 @@
 {
-	"name": "flowti-cli",
-	"version": "1.0.0",
-	"type": "module",
-	"private": true,
-	"scripts": {
-		"dev": "node configs/esbuild.config.mjs --watch",
-		"build": "node configs/esbuild.config.mjs",
-		"test": "npm run check && vitest run --config configs/vitest.config.ts",
-		"test:watch": "vitest --config configs/vitest.config.ts",
-		"test:ui": "vitest --config configs/vitest.config.ts --ui",
-		"test:coverage": "vitest run --config configs/vitest.config.ts --coverage --reporter=json --outputFile=reports/tests/testreport.json",
-		"check": "npm run lint && tsc --project configs/tsconfig.json --noEmit",
-		"lint": "eslint --config configs/eslint.config.mjs src/",
-		"typedoc": "typedoc --options configs/typedoc.json",
-		"analysis": "tsx src/domain/reports/cli/run-analysis.ts"
-	},
-	"devDependencies": {
-		"@pythonidaer/complexity-report": "^1.0.18",
-		"@types/node": "^25.3.5",
-		"@typescript-eslint/eslint-plugin": "^8.56.1",
-		"@typescript-eslint/parser": "^8.56.1",
-		"@vitest/coverage-v8": "^4.0.18",
-		"@vitest/ui": "^4.0.18",
-		"esbuild": "^0.25.12",
-		"eslint": "^10.0.3",
-		"tsx": "^4.21.0",
-		"typedoc": "^0.28.17",
-		"typescript": "^5.9.3",
-		"vite": "^7.3.1",
-		"vitest": "^4.0.18"
-	}
+  "name": "flowti-cli",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "node configs/esbuild.config.mjs --watch",
+    "build": "node configs/esbuild.config.mjs",
+    "test": "npm run check && vitest run --config configs/vitest.config.ts",
+    "test:watch": "vitest --config configs/vitest.config.ts",
+    "test:ui": "vitest --config configs/vitest.config.ts --ui --coverage.enabled=true",
+    "test:coverage": "vitest run --config configs/vitest.config.ts --coverage --reporter=json --outputFile=reports/tests/testreport.json",
+    "check": "npm run lint && tsc --project configs/tsconfig.json --noEmit",
+    "lint": "eslint --config configs/eslint.config.mjs src/",
+    "typedoc": "typedoc --options configs/typedoc.json",
+    "analysis": "tsx src/domain/reports/cli/run-analysis.ts"
+  },
+  "devDependencies": {
+"@types/node": "^25.3.5",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
+    "@vitest/coverage-v8": "^4.0.18",
+    "@vitest/ui": "^4.0.18",
+    "esbuild": "^0.25.12",
+    "eslint": "^10.0.3",
+    "tsx": "^4.21.0",
+    "typedoc": "^0.28.17",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1",
+    "vitest": "^4.0.18"
+  }
 }

@@ -34,7 +34,7 @@ vi.mock("../../src/infrastructure/ui.js", () => ({
 // ── Imports (after mocks) ────────────────────────────────────────────
 
 import * as shellMod from "../../src/infrastructure/shell.js";
-import { buildReportsSubmenu, buildDocsSubmenu, buildNpmScriptsSubmenu } from "../../src/domain/menu-builders.js";
+import { buildReportsSubmenu, buildDocsSubmenu, buildNpmScriptsSubmenu } from "../../src/ui/menu-builders.js";
 import { runAllReports } from "../../src/domain/reports/report-runner.js";
 import { runGenerator } from "../../src/domain/reports/generator-registry.js";
 import { runReference } from "../../src/domain/reports/reference-registry.js";
@@ -96,9 +96,10 @@ describe("buildReportsSubmenu", () => {
 
 	it("generator keys start at 1 when no Run All", () => {
 		const items = buildReportsSubmenu([], "/proj", "/proj/reports");
-		// No Run All, so no key "1" generator — only Browse Archive and Back
+		// No Run All, so first items are Export to HTML and Browse Archive
 		const menuItems = items.filter(isMenuItem);
-		expect(menuItems[0].label).toBe("Browse Archive");
+		expect(menuItems[0].label).toBe("Export to HTML");
+		expect(menuItems[1].label).toBe("Browse Archive");
 	});
 
 	it("generator with id calls runGenerator", () => {

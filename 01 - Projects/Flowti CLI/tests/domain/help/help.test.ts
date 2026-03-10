@@ -4,7 +4,7 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
 }));
 
-import { HELP, showHelp } from "../../../src/domain/help/help.js";
+import { HELP, showHelp } from "../../../src/ui/help.js";
 import { log } from "../../../src/infrastructure/logger.js";
 
 const mockLog = log as ReturnType<typeof vi.fn>;
@@ -61,21 +61,21 @@ describe("showHelp", () => {
 
 describe("commands.help", () => {
 	it("shows main help when no flags or args", async () => {
-		const { commands } = await import("../../../src/domain/help/help.js");
+		const { commands } = await import("../../../src/ui/help.js");
 		mockLog.mockClear();
 		commands.help({}, []);
 		expect(mockLog).toHaveBeenCalledWith(HELP.main);
 	});
 
 	it("shows section help from flags", async () => {
-		const { commands } = await import("../../../src/domain/help/help.js");
+		const { commands } = await import("../../../src/ui/help.js");
 		mockLog.mockClear();
 		commands.help({ build: true }, []);
 		expect(mockLog).toHaveBeenCalledWith(HELP.build);
 	});
 
 	it("shows section help from rawArgs", async () => {
-		const { commands } = await import("../../../src/domain/help/help.js");
+		const { commands } = await import("../../../src/ui/help.js");
 		mockLog.mockClear();
 		commands.help({}, ["help", "make"]);
 		expect(mockLog).toHaveBeenCalledWith(HELP.make);

@@ -16,8 +16,22 @@ import { log } from "../../infrastructure/logger.js";
 import { resolveFormat, printOutput } from "../../infrastructure/output.js";
 import type { ProjectContext, CommandHandler } from "../../infrastructure/types.js";
 import { scoreHealth, type HealthThresholds, DEFAULT_THRESHOLDS } from "./health-scoring.js";
+import { saveSnapshot, loadHistory, buildTrend, type StoredSnapshot } from "./health-trends.js";
+import { estimateDebt, type DebtItem } from "./tech-debt.js";
+import { displayHealth, formatTrendLine } from "../../ui/health-display.js";
+
+export { displayHealth };
 
 // ── Data types ───────────────────────────────────────────────────────
+
+export interface SecurityMetrics {
+	critical: number;
+	high: number;
+	moderate: number;
+	low: number;
+	info: number;
+	total: number;
+}
 
 export interface HealthSnapshot {
 	name: string;
@@ -27,6 +41,7 @@ export interface HealthSnapshot {
 	build: { success: boolean; durationMs: number } | null;
 	lint: { errors: number; warnings: number } | null;
 	git: { branch: string; status: string } | null;
+	security: SecurityMetrics | null;
 	components: number;
 }
 
@@ -100,6 +115,41 @@ function collectGitMetrics(projectPath: string): HealthSnapshot["git"] {
 	return { branch, status: dirty ? "dirty" : "clean" };
 }
 
+function extractVulnCounts(data: Record<string, unknown>): Record<string, number> | null {
+	const vuln = data.metadata
+		? (data.metadata as Record<string, unknown>).vulnerabilities as Record<string, number> | undefined
+		: data.vulnerabilities as Record<string, number> | undefined;
+	return vuln ?? null;
+}
+
+function vulnCountsToMetrics(vuln: Record<string, number>): SecurityMetrics {
+	return {
+		critical: vuln.critical ?? 0,
+		high: vuln.high ?? 0,
+		moderate: vuln.moderate ?? 0,
+		low: vuln.low ?? 0,
+		info: vuln.info ?? 0,
+		total: vuln.total ?? (vuln.critical + vuln.high + vuln.moderate + vuln.low + (vuln.info ?? 0)),
+	};
+}
+
+export function parseAuditJson(json: string): SecurityMetrics | null {
+	try {
+		const data = JSON.parse(json) as Record<string, unknown>;
+		const vuln = extractVulnCounts(data);
+		if (!vuln) return null;
+		return vulnCountsToMetrics(vuln);
+	} catch { return null; }
+}
+
+function collectSecurityMetrics(projectPath: string): SecurityMetrics | null {
+	const packageJson = paths.join(projectPath, "package.json");
+	if (!disk.existsSync(packageJson)) return null;
+	const { output } = shell.runCaptureStatus("npm audit --json", { cwd: projectPath });
+	if (!output) return null;
+	return parseAuditJson(output);
+}
+
 function countComponents(projectPath: string): number {
 	const dir = paths.join(projectPath, "docs", "components");
 	if (!disk.existsSync(dir)) return 0;
@@ -116,108 +166,9 @@ export function collectHealth(ctx: ProjectContext): HealthSnapshot {
 		build: collectBuildMetrics(reportsDir),
 		lint: collectLintMetrics(reportsDir),
 		git: collectGitMetrics(ctx.path),
+		security: collectSecurityMetrics(ctx.path),
 		components: countComponents(ctx.path),
 	};
-}
-
-// ── Display ──────────────────────────────────────────────────────────
-
-function statusIcon(ok: boolean): string {
-	return ok ? `${GREEN}✓${RESET}` : `${RED}✗${RESET}`;
-}
-
-function pctColor(pct: number, threshold = 80): string {
-	if (pct >= threshold) return `${GREEN}${pct.toFixed(1)}%${RESET}`;
-	if (pct >= threshold * 0.75) return `${YELLOW}${pct.toFixed(1)}%${RESET}`;
-	return `${RED}${pct.toFixed(1)}%${RESET}`;
-}
-
-function displaySource(h: HealthSnapshot): void {
-	if (!h.source) return;
-	log(`  ${BOLD}Source${RESET}`);
-	log(`    Files:          ${h.source.files} source, ${h.source.testFiles} test`);
-	log(`    Components:     ${h.components}`);
-	log();
-}
-
-function displayTests(tests: HealthSnapshot["tests"]): void {
-	if (!tests) return;
-	log(`  ${BOLD}Tests${RESET}  ${statusIcon(tests.failed === 0)}`);
-	log(`    Total:          ${tests.total} (${tests.suites} suites)`);
-	log(`    Passed:         ${GREEN}${tests.passed}${RESET}`);
-	if (tests.failed > 0) log(`    Failed:         ${RED}${tests.failed}${RESET}`);
-	log();
-}
-
-function displayCoverage(cov: HealthSnapshot["coverage"]): void {
-	if (!cov) return;
-	log(`  ${BOLD}Coverage${RESET}`);
-	log(`    Lines:          ${pctColor(cov.lines)}`);
-	log(`    Branches:       ${pctColor(cov.branches, 70)}`);
-	log(`    Functions:      ${pctColor(cov.functions)}`);
-	log();
-}
-
-function displayBuild(build: HealthSnapshot["build"]): void {
-	if (!build) return;
-	log(`  ${BOLD}Build${RESET}  ${statusIcon(build.success)}`);
-	log(`    Duration:       ${(build.durationMs / 1000).toFixed(1)}s`);
-	log();
-}
-
-function displayLint(lint: HealthSnapshot["lint"]): void {
-	if (!lint) return;
-	log(`  ${BOLD}Lint${RESET}  ${statusIcon(lint.errors === 0 && lint.warnings === 0)}`);
-	log(`    Errors:         ${lint.errors === 0 ? `${GREEN}0${RESET}` : `${RED}${lint.errors}${RESET}`}`);
-	log(`    Warnings:       ${lint.warnings === 0 ? `${GREEN}0${RESET}` : `${YELLOW}${lint.warnings}${RESET}`}`);
-	log();
-}
-
-function displayGit(git: HealthSnapshot["git"]): void {
-	if (!git) return;
-	log(`  ${BOLD}Git${RESET}`);
-	log(`    Branch:         ${git.branch}`);
-	log(`    Status:         ${git.status === "clean" ? `${GREEN}clean${RESET}` : `${YELLOW}dirty${RESET}`}`);
-	log();
-}
-
-function goodBadIndicator(ok: boolean, label: string): string {
-	return ok ? `${GREEN}${label} ✓${RESET}` : `${RED}${label} ✗${RESET}`;
-}
-
-function goodWarnIndicator(ok: boolean, label: string): string {
-	return ok ? `${GREEN}${label} ✓${RESET}` : `${YELLOW}${label} ~${RESET}`;
-}
-
-function buildSummaryIndicators(h: HealthSnapshot): string[] {
-	const out: string[] = [];
-	if (h.tests) out.push(goodBadIndicator(h.tests.failed === 0, "Tests"));
-	if (h.coverage) out.push(goodWarnIndicator(h.coverage.lines >= 80, "Coverage"));
-	if (h.build) out.push(goodBadIndicator(h.build.success, "Build"));
-	if (h.lint) out.push(goodWarnIndicator(h.lint.errors === 0 && h.lint.warnings === 0, "Lint"));
-	if (h.git) out.push(goodWarnIndicator(h.git.status === "clean", "Git"));
-	return out;
-}
-
-export function displayHealth(h: HealthSnapshot): void {
-	log(`\n  ${BOLD}Project Health: ${h.name}${RESET}\n`);
-
-	displaySource(h);
-	displayTests(h.tests);
-	displayCoverage(h.coverage);
-	displayBuild(h.build);
-	displayLint(h.lint);
-	displayGit(h.git);
-
-	const indicators = buildSummaryIndicators(h);
-	if (indicators.length > 0) {
-		log(`  ${DIM}Summary:${RESET} ${indicators.join("  ")}`);
-		log();
-	}
-
-	if (!h.tests && !h.coverage && !h.build && !h.lint) {
-		log(`  ${DIM}No report data found. Run reports first to populate the dashboard.${RESET}\n`);
-	}
 }
 
 // ── Non-interactive command ─────────────────────────────────────────
@@ -253,9 +204,72 @@ export const commands: Record<string, CommandHandler> = {
 		const thresholds = resolveThresholds(project);
 		const score = scoreHealth(snapshot, thresholds);
 		const format = resolveFormat(flags);
-		printOutput(format, { ...snapshot, score }, (data) => {
+
+		// Show trend deltas if history exists
+		const history = loadHistory(project.path);
+		const current: StoredSnapshot = { timestamp: "", snapshot, score };
+		const trend = buildTrend(current, history);
+
+		printOutput(format, { ...snapshot, score, trend: trend.deltas }, (data) => {
 			displayHealth(data as HealthSnapshot);
-			log(`  ${BOLD}Score:${RESET} ${score.overall}/100 (${score.grade})\n`);
+			log(`  ${BOLD}Score:${RESET} ${score.overall}/100 (${score.grade})`);
+			if (trend.deltas.length > 0) {
+				log(`  ${DIM}Trend:${RESET} ${formatTrendLine(trend.deltas)}`);
+			}
+			log();
+		});
+	},
+	"health:snapshot": (_flags, _rawArgs, _command, project) => {
+		if (!project) { log(`\n  ${RED}No project selected.${RESET}\n`); return; }
+		const snapshot = collectHealth(project);
+		const thresholds = resolveThresholds(project);
+		const score = scoreHealth(snapshot, thresholds);
+		const filePath = saveSnapshot(project.path, snapshot, score);
+		log(`\n  ${GREEN}✓${RESET} Snapshot saved: ${paths.relative(project.path, filePath)}\n`);
+	},
+	"health:history": (flags, _rawArgs, _command, project) => {
+		if (!project) { log(`\n  ${RED}No project selected.${RESET}\n`); return; }
+		const history = loadHistory(project.path);
+		const format = resolveFormat(flags);
+		printOutput(format, history, () => {
+			if (history.length === 0) {
+				log(`\n  ${DIM}No health snapshots found. Run: flowti health:snapshot${RESET}\n`);
+				return;
+			}
+			log(`\n  ${BOLD}Health History${RESET} (${history.length} snapshot${history.length === 1 ? "" : "s"})\n`);
+			for (const entry of history.slice(0, 10)) {
+				const date = entry.timestamp.replace("T", " ").substring(0, 19);
+				const grade = entry.score.grade;
+				const score = entry.score.overall;
+				log(`  ${DIM}${date}${RESET}  ${grade} (${score}/100)  ${DIM}tests:${entry.snapshot.tests?.total ?? "?"}${RESET}`);
+			}
+			if (history.length > 10) {
+				log(`  ${DIM}... and ${history.length - 10} more${RESET}`);
+			}
+			log();
+		});
+	},
+	"debt:estimate": (flags, _rawArgs, _command, project) => {
+		if (!project) { log(`\n  ${RED}No project selected.${RESET}\n`); return; }
+		const snapshot = collectHealth(project);
+		const thresholds = resolveThresholds(project);
+		const score = scoreHealth(snapshot, thresholds);
+		const estimate = estimateDebt(snapshot, score);
+		const format = resolveFormat(flags);
+
+		printOutput(format, estimate, () => {
+			if (estimate.items.length === 0) {
+				log(`\n  ${GREEN}✓${RESET} ${estimate.summary}\n`);
+				return;
+			}
+			log(`\n  ${BOLD}Technical Debt Estimate${RESET}\n`);
+			const sevColor = (s: DebtItem["severity"]) =>
+				s === "critical" ? RED : s === "high" ? RED : s === "medium" ? YELLOW : DIM;
+			for (const item of estimate.items) {
+				const c = sevColor(item.severity);
+				log(`  ${c}●${RESET} ${item.category}: ${item.description}  ${DIM}~${item.estimatedHours}h${RESET}`);
+			}
+			log(`\n  ${BOLD}Total:${RESET} ~${estimate.totalHours}h  ${DIM}(${estimate.summary})${RESET}\n`);
 		});
 	},
 };

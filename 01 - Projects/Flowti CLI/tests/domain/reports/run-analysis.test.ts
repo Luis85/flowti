@@ -1,6 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createMockShell } from "../../mocks/mock-shell.js";
-import { createMockFs } from "../../mocks/mock-fs.js";
 
 // ── Mocks — must be set up before import (module runs main() at load) ─
 
@@ -25,7 +23,7 @@ vi.mock("../../../src/infrastructure/paths.js", async () => {
 
 vi.mock("../../../src/infrastructure/shell.js", () => ({
 	shell: {
-		run: vi.fn(() => 0),
+		runCaptureStatus: vi.fn(() => ({ exitCode: 0, stdout: "", stderr: "" })),
 	},
 }));
 
@@ -57,7 +55,6 @@ vi.mock("../../../src/domain/project/project-config.js", () => ({
 	readProjectConfig: vi.fn(() => ({ config: null, warnings: [] })),
 }));
 
-// Mock the ReportService class to avoid its constructor side effects
 vi.mock("../../../src/domain/reports/cli/report-service.js", () => ({
 	ReportService: vi.fn().mockImplementation(() => ({
 		coverageDir: "reports/coverage",
@@ -68,63 +65,62 @@ vi.mock("../../../src/domain/reports/cli/report-service.js", () => ({
 	})),
 }));
 
-// Mock ESLint
-vi.mock("eslint", () => ({
-	ESLint: vi.fn().mockImplementation(() => ({
-		lintFiles: vi.fn().mockResolvedValue([]),
+// Mock the complexity analyzer (replaces the old ESLint + library mocks)
+vi.mock("../../../src/domain/reports/cli/complexity-analyzer.js", () => ({
+	analyzeComplexity: vi.fn(() => ({
+		summary: {
+			totalFunctions: 2,
+			maxComplexity: 5,
+			avgComplexity: 3,
+			medianComplexity: 3,
+			totalComplexity: 6,
+			aboveThreshold10: 0,
+			aboveThreshold15: 0,
+		},
+		functions: [
+			{ file: "src/main.ts", functionName: "main", line: 1, complexity: 5 },
+			{ file: "src/utils.ts", functionName: "helper", line: 10, complexity: 1 },
+		],
+		files: [
+			{
+				file: "src/main.ts",
+				functions: [{ file: "src/main.ts", functionName: "main", line: 1, complexity: 5 }],
+				decisionPointCount: 4,
+				decisionPoints: [
+					{ line: 3, type: "IfStatement", functionLine: 1 },
+					{ line: 5, type: "ForStatement", functionLine: 1 },
+				],
+				decisionPointLines: [3, 5],
+				decisionPointLineRanges: ["3", "5"],
+			},
+			{
+				file: "src/utils.ts",
+				functions: [{ file: "src/utils.ts", functionName: "helper", line: 10, complexity: 1 }],
+				decisionPointCount: 0,
+				decisionPoints: [],
+				decisionPointLines: [],
+				decisionPointLineRanges: [],
+			},
+		],
 	})),
-}));
-
-// Mock the library imports
-vi.mock("@pythonidaer/complexity-report/integration/eslint/index.js", () => ({
-	getComplexityVariant: vi.fn(() => "standard"),
-}));
-
-vi.mock("@pythonidaer/complexity-report/function-extraction/index.js", () => ({
-	extractFunctionsFromESLintResults: vi.fn(() => []),
-}));
-
-vi.mock("@pythonidaer/complexity-report/function-boundaries/index.js", () => ({
-	findFunctionBoundaries: vi.fn(() => ({})),
-}));
-
-vi.mock("@pythonidaer/complexity-report/decision-points/index.js", () => ({
-	parseDecisionPointsAST: vi.fn().mockResolvedValue([]),
 }));
 
 // ── Now we can import (main() will run but everything is mocked) ─────
 
 import { shell } from "../../../src/infrastructure/shell.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
-import { proc } from "../../../src/infrastructure/proc.js";
-import { error } from "../../../src/infrastructure/logger.js";
-import { ESLint } from "eslint";
-import { extractFunctionsFromESLintResults } from "@pythonidaer/complexity-report/function-extraction/index.js";
-import { parseDecisionPointsAST } from "@pythonidaer/complexity-report/decision-points/index.js";
+import { analyzeComplexity } from "../../../src/domain/reports/cli/complexity-analyzer.js";
 
-const mockShellRun = vi.mocked(shell.run);
+const mockShellRunCaptureStatus = vi.mocked(shell.runCaptureStatus);
 const mockDiskExistsSync = vi.mocked(disk.existsSync);
 const mockDiskWriteFileSync = vi.mocked(disk.writeFileSync);
 const mockDiskReadFileSync = vi.mocked(disk.readFileSync);
 const mockDiskMkdirSync = vi.mocked(disk.mkdirSync);
-const mockProcExit = vi.mocked(proc.exit);
-const mockError = vi.mocked(error);
-const mockExtractFunctions = vi.mocked(extractFunctionsFromESLintResults);
-const mockParseDP = vi.mocked(parseDecisionPointsAST);
+const mockAnalyzeComplexity = vi.mocked(analyzeComplexity);
 
 beforeEach(() => {
 	vi.clearAllMocks();
 });
-
-/**
- * Since run-analysis.ts executes main() at module scope, we can't call it
- * again per-test. Instead, we test the internal logic by verifying what
- * the mocks were called with during the initial (mocked) module import,
- * and we test the pure-function logic that can be extracted.
- *
- * For thorough testing of internal functions like toRanges and
- * writeComplexityFunctions, we replicate their logic and verify equivalence.
- */
 
 // ── toRanges (replicated from source for unit testing) ───────────────
 
@@ -288,24 +284,20 @@ describe("writeComplexityFunctions logic", () => {
 
 describe("run-analysis module", () => {
 	it("mocks are properly initialized (module loaded without error)", () => {
-		// If we got here, the module loaded and main() ran with all mocks.
-		// This verifies the mock setup is complete.
 		expect(true).toBe(true);
 	});
 
-	it("ESLint mock is defined", () => {
-		expect(ESLint).toBeDefined();
+	it("analyzeComplexity mock is defined and callable", () => {
+		expect(mockAnalyzeComplexity).toBeDefined();
 	});
 
 	it("main skips vitest when coverage-final.json exists", () => {
-		// During module load, disk.existsSync was called.
-		// Verify the mock was exercised.
 		expect(mockDiskExistsSync).toBeDefined();
 	});
 
-	it("shell.run is callable for pipeline steps", () => {
-		mockShellRun("test command", { cwd: "/test" });
-		expect(mockShellRun).toHaveBeenCalledWith("test command", { cwd: "/test" });
+	it("shell.runCaptureStatus is callable for pipeline steps", () => {
+		mockShellRunCaptureStatus("test command", { cwd: "/test", timeout: 120_000 });
+		expect(mockShellRunCaptureStatus).toHaveBeenCalledWith("test command", { cwd: "/test", timeout: 120_000 });
 	});
 
 	it("disk.writeFileSync is callable for output", () => {
@@ -322,44 +314,35 @@ describe("run-analysis module", () => {
 // ── Pipeline step verification ───────────────────────────────────────
 
 describe("pipeline steps", () => {
-	it("run helper logs and runs shell command", () => {
-		// The run() helper in the source calls log() then shell.run()
-		// We verify the pattern works with our mocks
-		mockShellRun.mockReturnValue(0);
-		const result = shell.run("npx vitest run", { cwd: "/mock/cli-project" });
-		expect(result).toBe(0);
+	it("run helper logs and runs shell command via runCaptureStatus", () => {
+		mockShellRunCaptureStatus.mockReturnValue({ exitCode: 0, stdout: "", stderr: "" });
+		const result = shell.runCaptureStatus("npx vitest run", { cwd: "/mock/cli-project", timeout: 120_000 });
+		expect(result.exitCode).toBe(0);
 	});
 
-	it("tool helper constructs correct path", async () => {
-		// Replicate tool() logic
-		const path = await import("node:path");
-		const LIB_TOOLS = path.default.join("/mock/cli-project", "node_modules", "@pythonidaer", "complexity-report", "tools");
-		const result = `node "${path.default.join(LIB_TOOLS, "coverage-to-json.js")}" arg1 arg2`;
-		expect(result).toContain("coverage-to-json.js");
-		expect(result).toContain("arg1 arg2");
+	it("analyzeComplexity returns expected structure", () => {
+		const result = mockAnalyzeComplexity("/mock/cli-project/src", "/mock/cli-project");
+		expect(result.summary.totalFunctions).toBe(2);
+		expect(result.functions).toHaveLength(2);
+		expect(result.files).toHaveLength(2);
 	});
 
-	it("extractFunctionsFromESLintResults mock returns empty array", () => {
-		const result = mockExtractFunctions([], "/mock/cli-project");
-		expect(result).toEqual([]);
-	});
-
-	it("parseDecisionPointsAST mock returns empty array", async () => {
-		const result = await mockParseDP("source", {}, [], "file.ts", "/mock/cli-project", { variant: "standard" });
-		expect(result).toEqual([]);
+	it("analyzeComplexity includes decision points", () => {
+		const result = mockAnalyzeComplexity("/mock/cli-project/src", "/mock/cli-project");
+		const mainFile = result.files.find((f) => f.file === "src/main.ts");
+		expect(mainFile).toBeDefined();
+		expect(mainFile!.decisionPointCount).toBe(4);
+		expect(mainFile!.decisionPoints).toHaveLength(2);
 	});
 });
 
-describe("decision points file processing", () => {
-	it("skips file when disk.existsSync returns false", () => {
-		// The generateDecisionPoints function checks existsSync for each file
+describe("coverage processing", () => {
+	it("skips coverage conversion when coverage-final.json does not exist", () => {
 		mockDiskExistsSync.mockReturnValue(false);
 		expect(disk.existsSync("/some/path")).toBe(false);
 	});
 
-	it("handles parse error by using empty decision points", () => {
-		// The source catches errors in the try/catch and defaults to []
-		// This is the expected behavior pattern
+	it("handles disk read error gracefully", () => {
 		mockDiskExistsSync.mockReturnValue(true);
 		mockDiskReadFileSync.mockImplementation(() => { throw new Error("parse error"); });
 		expect(() => disk.readFileSync("/bad/file.ts", "utf-8")).toThrow("parse error");

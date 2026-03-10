@@ -32,7 +32,7 @@ vi.mock("../../../../src/infrastructure/logger.js", () => ({
 }));
 
 vi.mock("../../../../src/infrastructure/input.js", () => ({
-	input: { ask: vi.fn() },
+	input: { ask: vi.fn(), waitForEnter: vi.fn().mockResolvedValue(undefined) },
 }));
 
 vi.mock("../../../../src/infrastructure/menu.js", () => ({

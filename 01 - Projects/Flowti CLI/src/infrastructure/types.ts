@@ -27,6 +27,19 @@ export interface IFileSystem {
 
 // ── Shell execution abstraction ──────────────────────────────────────
 
+export interface BackgroundProcess {
+	/** Wait for a line matching the pattern in stdout/stderr; resolves with the matched line or null on timeout. */
+	waitForOutput(pattern: RegExp, timeoutMs?: number): Promise<string | null>;
+	/** Subscribe to live output lines. Returns an unsubscribe function. */
+	onOutput(callback: (line: string) => void): () => void;
+	/** Kill the background process. */
+	kill(): void;
+	/** Whether the process is still running. */
+	readonly running: boolean;
+	/** Collected output lines (stdout + stderr) for diagnostics. */
+	readonly output: string[];
+}
+
 export interface IShell {
 	/** Run a command with inherited stdio, return exit code. */
 	run(cmd: string, opts?: { cwd?: string; label?: string }): number;
@@ -40,6 +53,8 @@ export interface IShell {
 	runCapture(cmd: string, opts?: { cwd?: string; timeout?: number }): string;
 	/** Run a command capturing output and exit code. */
 	runCaptureStatus(cmd: string, opts?: { cwd?: string; timeout?: number }): { output: string; exitCode: number };
+	/** Spawn a command in the background with piped stdout/stderr. */
+	spawnBackground(cmd: string, opts?: { cwd?: string; env?: Record<string, string> }): BackgroundProcess;
 }
 
 // ── Process abstraction ──────────────────────────────────────────────
@@ -238,12 +253,27 @@ export interface ComponentsConfig {
 	storybookDir?: string;
 }
 
+export type QualityGateOperator = ">=" | "<=" | "==";
+
+export interface QualityGateRule {
+	metric: string;
+	operator: QualityGateOperator;
+	value: number;
+}
+
+export interface QualityGateConfig {
+	enabled?: boolean;
+	minScore?: number;
+	rules?: QualityGateRule[];
+}
+
 export interface HealthConfig {
 	thresholds?: {
 		coverage?: { min?: number; target?: number };
 		lint?: { maxErrors?: number; maxWarnings?: number };
 		tests?: { minPassed?: number };
 	};
+	qualityGates?: QualityGateConfig;
 }
 
 export interface ProjectConfig {

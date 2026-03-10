@@ -95,7 +95,7 @@ describe("generateCliReference", () => {
 
 		mockDisk.existsSync.mockReturnValue(true);
 		mockDisk.readFileSync.mockImplementation((filePath: string) => {
-			if (typeof filePath === "string" && filePath.includes("help.ts")) return helpSource;
+			if (typeof filePath === "string" && filePath.includes("help-content.ts")) return helpSource;
 			if (typeof filePath === "string" && filePath.includes("flowti.config.json")) return '{"reports":{"scripts":[]},"docs":{"generators":[]}}';
 			if (typeof filePath === "string" && filePath.includes("package.json")) return '{"scripts":{"test":"vitest"}}';
 			return "{}";
@@ -146,7 +146,7 @@ describe("generateCliReference", () => {
 
 		mockDisk.existsSync.mockReturnValue(true);
 		mockDisk.readFileSync.mockImplementation((filePath: string) => {
-			if (typeof filePath === "string" && filePath.includes("help.ts")) return "const x = 1;";
+			if (typeof filePath === "string" && filePath.includes("help-content.ts")) return "const x = 1;";
 			if (typeof filePath === "string" && filePath.includes("flowti.config.json")) return JSON.stringify(pluginConfig);
 			if (typeof filePath === "string" && filePath.includes("package.json")) return '{"scripts":{"build":"esbuild"}}';
 			return "{}";

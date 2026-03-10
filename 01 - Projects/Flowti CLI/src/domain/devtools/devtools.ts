@@ -15,10 +15,20 @@ export const commands: Record<string, (flags: Record<string, string | boolean>, 
 		shell.run("node scripts/cli-reload.mjs", { cwd: p?.path, label: "Reloading plugin..." });
 	},
 	"dev:console": () => {
-		shell.run("obsidian dev:console", { label: "Opening dev console..." });
+		const result = shell.runCaptureStatus("obsidian dev:console");
+		if (result.exitCode !== 0 && result.output.includes("Debugger not attached")) {
+			shell.run("obsidian dev:debug on", { label: "Enabling debug mode..." });
+			shell.run("obsidian dev:console", { label: "Opening dev console..." });
+		}
 	},
 	"dev:errors": () => {
 		shell.run("obsidian dev:errors", { label: "Opening error stream..." });
+	},
+	"dev:debug:on": () => {
+		shell.run("obsidian dev:debug on", { label: "Enabling debug mode..." });
+	},
+	"dev:debug:off": () => {
+		shell.run("obsidian dev:debug off", { label: "Disabling debug mode..." });
 	},
 	"dev:check": (_f, _r, _c, p) => {
 		const cmd = p?.scripts["check"] ? "npm run check" : "npx tsc --noEmit";

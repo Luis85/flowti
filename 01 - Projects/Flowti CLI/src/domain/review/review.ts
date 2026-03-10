@@ -9,9 +9,11 @@ import { shell } from "../../infrastructure/shell.js";
 import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
 import { VAULT_ROOT } from "../../infrastructure/config.js";
-import { RESET, DIM, GREEN, YELLOW } from "../../infrastructure/ui.js";
+import { RESET, DIM, GREEN, YELLOW, CYAN } from "../../infrastructure/ui.js";
 import { log } from "../../infrastructure/logger.js";
 import { resolveTestVaultRoot } from "../../infrastructure/test-vault.js";
+import { resolveFormat, printOutput } from "../../infrastructure/output.js";
+import { analyzeWorkingTree, analyzeBranchDiff } from "./change-analysis.js";
 import type { ProjectContext } from "../../infrastructure/types.js";
 
 // ── Non-interactive commands ────────────────────────────────────────
@@ -58,5 +60,36 @@ export const commands: Record<string, (flags: Record<string, string | boolean>, 
 		}
 		disk.rmSync(vaultPath, { recursive: true, force: true });
 		log(`\n  ${GREEN}Removed${RESET} test vault: ${DIM}${vaultPath}${RESET}\n`);
+	},
+	"review:changes": (flags, _r, _c, p) => {
+		if (!p) return;
+		const format = resolveFormat(flags);
+		const baseBranch = typeof flags.base === "string" ? flags.base : undefined;
+		const impact = baseBranch
+			? analyzeBranchDiff(p.path, baseBranch)
+			: analyzeWorkingTree(p.path);
+
+		printOutput(format, impact, () => {
+			log(`\n  ${CYAN}Change Analysis${RESET}  ${DIM}${p.config.name ?? paths.basename(p.path)}${RESET}\n`);
+			log(`  ${impact.summary}\n`);
+
+			if (impact.changedFiles.length > 0) {
+				log(`  ${DIM}Changed files:${RESET}`);
+				for (const f of impact.changedFiles) {
+					log(`    ${YELLOW}${f.status}${RESET} ${f.path}`);
+				}
+				log();
+			}
+
+			if (impact.affectedDomains.length > 0) {
+				log(`  ${DIM}Affected domains:${RESET} ${impact.affectedDomains.join(", ")}`);
+			}
+
+			if (impact.suggestedActions.length > 0) {
+				log(`  ${DIM}Suggested actions:${RESET} ${impact.suggestedActions.join(", ")}`);
+			}
+
+			log();
+		});
 	},
 };

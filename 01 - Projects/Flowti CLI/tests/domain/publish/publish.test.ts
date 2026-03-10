@@ -17,6 +17,32 @@ vi.mock("../../../src/infrastructure/proc.js", () => ({
 	proc: { exit: vi.fn((code: number) => { throw new Error(`exit(${code})`); }) },
 }));
 
+vi.mock("../../../src/infrastructure/output.js", () => ({
+	resolveFormat: vi.fn(() => "text"),
+	printOutput: vi.fn((_f: string, _d: unknown, render: () => void) => render()),
+}));
+
+vi.mock("../../../src/domain/health/health.js", () => ({
+	collectHealth: vi.fn(() => ({
+		name: "test",
+		source: null,
+		tests: { total: 100, passed: 100, failed: 0, suites: 10 },
+		coverage: { lines: 90, branches: 85, functions: 92 },
+		build: { success: true, durationMs: 3000 },
+		lint: { errors: 0, warnings: 0 },
+		git: { branch: "main", status: "clean" },
+		components: 0,
+	})),
+}));
+
+vi.mock("../../../src/domain/health/health-scoring.js", () => ({
+	scoreHealth: vi.fn(() => ({
+		overall: 90,
+		grade: "A",
+		categories: { tests: 100, coverage: 89, build: 100, lint: 100, git: 100 },
+	})),
+}));
+
 import * as shellMod from "../../../src/infrastructure/shell.js";
 import { commands } from "../../../src/domain/publish/publish.js";
 import { log } from "../../../src/infrastructure/logger.js";
@@ -138,5 +164,113 @@ describe("publish --dry-run", () => {
 		const calls = mockLog.mock.calls.map(([msg]) => String(msg));
 		expect(calls.some((m) => m.includes("staging"))).toBe(true);
 		expect(calls.some((m) => m.includes("prod"))).toBe(true);
+	});
+});
+
+// ── Quality Gates Integration ───────────────────────────────────────
+
+function makeGatedProject(gateConfig: Record<string, unknown>, publish?: { build?: string; test?: string }): ProjectContext {
+	return {
+		path: "/test/project",
+		pkg: { name: "test", version: "1.0.0" },
+		config: {
+			name: "test",
+			publish,
+			health: { qualityGates: gateConfig },
+		},
+		scripts: {},
+	};
+}
+
+describe("publish with quality gates", () => {
+	it("passes gates and publishes when rules succeed", () => {
+		const sh = createMockShell();
+		Object.assign(shellMod, { shell: sh });
+		const project = makeGatedProject(
+			{ enabled: true, rules: [{ metric: "tests.failed", operator: "==", value: 0 }] },
+			{ build: "npm run build" },
+		);
+
+		commands["publish"]({}, [], "publish", project);
+
+		expect(sh.calls).toHaveLength(1);
+		expect(sh.calls[0].cmd).toBe("npm run build");
+	});
+
+	it("blocks publish when minScore fails", () => {
+		const sh = createMockShell();
+		Object.assign(shellMod, { shell: sh });
+		const project = makeGatedProject(
+			{ enabled: true, minScore: 99 },
+			{ build: "npm run build" },
+		);
+
+		expect(() => commands["publish"]({}, [], "publish", project)).toThrow("exit(1)");
+		expect(sh.calls).toHaveLength(0);
+	});
+
+	it("skips gates with --skip-gates", () => {
+		const sh = createMockShell();
+		Object.assign(shellMod, { shell: sh });
+		const project = makeGatedProject(
+			{ enabled: true, minScore: 99 },
+			{ build: "npm run build" },
+		);
+
+		commands["publish"]({ "skip-gates": true }, [], "publish", project);
+
+		expect(sh.calls).toHaveLength(1);
+	});
+
+	it("skips gates when enabled is false", () => {
+		const sh = createMockShell();
+		Object.assign(shellMod, { shell: sh });
+		const project = makeGatedProject(
+			{ enabled: false, minScore: 99 },
+			{ build: "npm run build" },
+		);
+
+		commands["publish"]({}, [], "publish", project);
+
+		expect(sh.calls).toHaveLength(1);
+	});
+
+	it("blocks publish:all when gates fail", () => {
+		const sh = createMockShell();
+		Object.assign(shellMod, { shell: sh });
+		const project = makeGatedProject(
+			{ enabled: true, minScore: 99 },
+			{ build: "npm run build", test: "npm test" },
+		);
+
+		expect(() => commands["publish:all"]({}, [], "publish:all", project)).toThrow("exit(1)");
+		expect(sh.calls).toHaveLength(0);
+	});
+});
+
+describe("publish:check", () => {
+	it("displays gate results", () => {
+		const project = makeGatedProject({
+			enabled: true,
+			rules: [{ metric: "tests.failed", operator: "==", value: 0 }],
+		});
+
+		commands["publish:check"]({}, [], "publish:check", project);
+
+		const calls = mockLog.mock.calls.map(([msg]) => String(msg));
+		expect(calls.some((m) => m.includes("Quality Gates"))).toBe(true);
+	});
+
+	it("exits with 1 when gates fail", () => {
+		const project = makeGatedProject({ enabled: true, minScore: 99 });
+
+		expect(() => commands["publish:check"]({}, [], "publish:check", project)).toThrow("exit(1)");
+	});
+
+	it("logs error when no project", () => {
+		commands["publish:check"]({}, [], "publish:check");
+
+		const calls = mockLog.mock.calls.map(([msg]) => String(msg));
+		expect(calls.some((m) => m.includes("No project selected"))).toBe(true);
 	});
 });

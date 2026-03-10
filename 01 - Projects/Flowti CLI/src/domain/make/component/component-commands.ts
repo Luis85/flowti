@@ -20,6 +20,7 @@ import { buildComponentPlan } from "./component-plan.js";
 import { loadComponentDefinitions, createComponentTemplateRegistry } from "./component-registry.js";
 import type { ComponentVariables } from "./component-types.js";
 import type { CommandHandler } from "../../../infrastructure/types.js";
+import { showSuggestions, afterMakeComponent } from "../../../infrastructure/suggestions.js";
 
 function buildComponentVars(name: string, flags: Record<string, string | boolean>): ComponentVariables {
 	return {
@@ -72,6 +73,7 @@ function makeComponentCommand(definitionId: string): CommandHandler {
 		for (const f of plan) writer.write(f.path, f.content);
 
 		log(`\n  ${GREEN}✓${RESET} Created ${writer.created} files.\n`);
+		showSuggestions(afterMakeComponent(name));
 	};
 }
 

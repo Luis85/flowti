@@ -19,13 +19,13 @@
 
 import { parseArgs } from "./infrastructure/args.js";
 import { proc } from "./infrastructure/proc.js";
-import { printBanner, RESET, DIM, RED, YELLOW, CYAN } from "./infrastructure/ui.js";
+import { printBanner, clearScreen, RESET, DIM, RED, YELLOW, CYAN } from "./infrastructure/ui.js";
 import { runMenu } from "./infrastructure/menu.js";
 
 // ── Domain modules ──────────────────────────────────────────────────
 
 import { checkPrerequisites } from "./domain/onboarding/onboarding.js";
-import { showHelp, commands as helpCmds } from "./domain/help/help.js";
+import { showHelp, commands as helpCmds } from "./ui/help.js";
 import { commands as infoCmds } from "./domain/info/info.js";
 import { commands as buildCmds } from "./domain/build/build.js";
 import { commands as devToolsCmds } from "./domain/devtools/devtools.js";
@@ -49,18 +49,27 @@ import { initializeProject } from "./domain/project/project-config.js";
 
 // ── Main menu builder ───────────────────────────────────────────────
 
-import { buildProjectDetailMenu } from "./domain/mainMenu.js";
+import { buildProjectDetailMenu } from "./ui/mainMenu.js";
+import { printProjectStatusBanner } from "./ui/project-status-banner.js";
 
 // ── Command registry ────────────────────────────────────────────────
 
 import type { ProjectContext } from "./infrastructure/types.js";
-import { log, error } from "./infrastructure/logger.js";
+import { log, error, setLogLevel, setColorEnabled } from "./infrastructure/logger.js";
 import { resolveCommand } from "./infrastructure/dispatch.js";
 import { CommandRegistry } from "./infrastructure/command-registry.js";
 import { CliError, formatError } from "./infrastructure/errors.js";
+import { generateCompletions } from "./infrastructure/completions.js";
 
 const registry = new CommandRegistry();
 registry.registerDomain({ domain: "help",     commands: helpCmds,     projectFree: ["help"] });
+registry.registerDomain({ domain: "completions", commands: {
+	completions: (flags, rawArgs) => {
+		const shellName = rawArgs[1] ?? (typeof flags.shell === "string" ? flags.shell : "bash");
+		const script = generateCompletions(shellName, registry.keys());
+		if (script) { log(script); } else { log(`Unknown shell: ${shellName}. Supported: bash, zsh, fish, powershell`); }
+	},
+}, projectFree: ["completions"] });
 registry.registerDomain({ domain: "info",     commands: infoCmds });
 registry.registerDomain({ domain: "build",    commands: buildCmds });
 registry.registerDomain({ domain: "devtools", commands: devToolsCmds });
@@ -68,13 +77,13 @@ registry.registerDomain({ domain: "make",     commands: makeCmds });
 registry.registerDomain({ domain: "review",   commands: reviewCmds });
 registry.registerDomain({ domain: "publish",  commands: publishCmds });
 registry.registerDomain({ domain: "reports",  commands: reportsCmds });
-registry.registerDomain({ domain: "capture",  commands: captureCmds,  projectFree: ["capture:idea", "capture:note"] });
+registry.registerDomain({ domain: "capture",  commands: captureCmds,  projectFree: ["capture:idea", "capture:note", "capture:search", "capture:import"] });
 registry.registerDomain({ domain: "events",   commands: eventsCmds });
 registry.registerDomain({ domain: "health",   commands: healthCmds });
-registry.registerDomain({ domain: "scaffold", commands: scaffoldCmds, projectFree: ["scaffold:new", "scaffold:list", "scaffold:marketplace"] });
+registry.registerDomain({ domain: "scaffold", commands: scaffoldCmds, projectFree: ["scaffold:new", "scaffold:list", "scaffold:marketplace", "marketplace:export", "marketplace:import-bundle"] });
 registry.registerDomain({ domain: "project",  commands: { ...projectCmds, ...projectDepsCmds },  projectFree: ["project", "project:deps"] });
 registry.registerDomain({ domain: "plugins",  commands: pluginCmds,  projectFree: ["plugin:list", "plugin:validate", "plugin:new", "plugin:reference"] });
-registry.registerDomain({ domain: "ai-tools", commands: aiToolsCmds, projectFree: ["ai:list", "ai:validate", "ai:new", "ai:reference"] });
+registry.registerDomain({ domain: "ai-tools", commands: aiToolsCmds, projectFree: ["ai:list", "ai:validate", "ai:new", "ai:reference", "ai:run"] });
 registry.setWildcard("reports", reportsCmds["report:*"]);
 
 let pluginsRegistered = false;
@@ -144,11 +153,18 @@ function resolveProjectContext(flags: Record<string, string | boolean>): Project
 
 // ── Non-interactive dispatch ────────────────────────────────────────
 
+function applyGlobalFlags(flags: Record<string, string | boolean>): void {
+	if (flags.quiet) setLogLevel("quiet");
+	else if (flags.verbose) setLogLevel("debug");
+	if (flags["no-color"]) setColorEnabled(false);
+}
+
 async function handleCliArgs(): Promise<boolean> {
 	const rawArgs = proc.argv();
 	if (!rawArgs.length) return false;
 
 	const { command, flags } = parseArgs(rawArgs);
+	applyGlobalFlags(flags);
 	const resolution = resolveProjectContext(flags);
 
 	if (!resolution.ok) {
@@ -190,6 +206,7 @@ async function handleCliArgs(): Promise<boolean> {
 // ── Project detail menu (inner loop) ────────────────────────────────
 
 function printProjectBanner(): void {
+	clearScreen();
 	const project = getSelectedProject();
 	const ctx = project ? initializeProject(project) : null;
 	const label = ctx?.config.name ?? project ?? "Unknown";
@@ -198,6 +215,7 @@ function printProjectBanner(): void {
 	if (ctx?.pkg) {
 		log(`  ${DIM}${ctx.pkg.name ?? ""}@${ctx.pkg.version ?? "?"}${RESET}`);
 	}
+	if (ctx) printProjectStatusBanner(ctx);
 	log();
 }
 

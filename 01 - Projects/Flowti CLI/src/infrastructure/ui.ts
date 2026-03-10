@@ -16,9 +16,16 @@ export const RED = "\x1b[31m";
 export const CYAN = "\x1b[36m";
 export const YELLOW = "\x1b[33m";
 
+// ── Screen management ──────────────────────────────────────────────
+
+export function clearScreen(): void {
+	process.stdout.write("\x1b[2J\x1b[H");
+}
+
 // ── Printing primitives ─────────────────────────────────────────────
 
 export function printBanner(): void {
+	clearScreen();
 	log();
 	log(`  ${BOLD}${"═".repeat(50)}${RESET}`);
 	log(`  ${BOLD}  Flowti CLI${RESET}  ${DIM}v${cliConfig.version ?? "0.0.0"}${RESET}`);
@@ -27,6 +34,7 @@ export function printBanner(): void {
 }
 
 export function printHeader(title: string): void {
+	clearScreen();
 	log(`\n  ${BOLD}${"─".repeat(50)}${RESET}`);
 	log(`  ${BOLD}  ${title}${RESET}`);
 	log(`  ${BOLD}${"─".repeat(50)}${RESET}\n`);

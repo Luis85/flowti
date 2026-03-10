@@ -11,4 +11,4 @@ export { menu, scaffold, listDefinitions, loadAllDefinitionsFromProject, getKnow
 export type { ScaffoldOptions } from "./scaffold-service.js";
 export type { ScaffoldDefinition, ScaffoldVariables, FileEntry } from "./scaffold-types.js";
 export type { MarketplaceEntry, ImportResult } from "./marketplace.js";
-export { buildMarketplaceListing, discoverLocalDefinitions, validateAndClassify, importDefinition, displayMarketplace } from "./marketplace.js";
+export { buildMarketplaceListing, discoverLocalDefinitions, validateAndClassify, importDefinition, displayMarketplace, resolveDefinitionsDir } from "./marketplace.js";

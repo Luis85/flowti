@@ -27,6 +27,7 @@ export interface HealthScore {
 		coverage: number;
 		build: number;
 		lint: number;
+		security: number;
 		git: number;
 	};
 }
@@ -93,6 +94,16 @@ function scoreLint(snapshot: HealthSnapshot, thresholds: HealthThresholds): numb
 	return clamp(100 - errorPenalty - warningPenalty);
 }
 
+function scoreSecurity(snapshot: HealthSnapshot): number {
+	if (!snapshot.security) return 0;
+	const { critical, high, moderate, low } = snapshot.security;
+	if (critical === 0 && high === 0 && moderate === 0 && low === 0) return 100;
+
+	// Critical: -30 each, High: -15 each, Moderate: -5 each, Low: -1 each
+	const penalty = critical * 30 + high * 15 + moderate * 5 + low * 1;
+	return clamp(100 - penalty);
+}
+
 function scoreGit(snapshot: HealthSnapshot): number {
 	if (!snapshot.git) return 0;
 	return snapshot.git.status === "clean" ? 100 : 70;
@@ -105,10 +116,11 @@ function clamp(value: number): number {
 // ── Category weights ─────────────────────────────────────────────────
 
 const WEIGHTS = {
-	tests: 0.30,
-	coverage: 0.25,
+	tests: 0.25,
+	coverage: 0.20,
 	build: 0.20,
 	lint: 0.15,
+	security: 0.10,
 	git: 0.10,
 };
 
@@ -131,6 +143,7 @@ export function scoreHealth(
 		coverage: scoreCoverage(snapshot, thresholds),
 		build: scoreBuild(snapshot),
 		lint: scoreLint(snapshot, thresholds),
+		security: scoreSecurity(snapshot),
 		git: scoreGit(snapshot),
 	};
 
@@ -139,6 +152,7 @@ export function scoreHealth(
 		categories.coverage * WEIGHTS.coverage +
 		categories.build * WEIGHTS.build +
 		categories.lint * WEIGHTS.lint +
+		categories.security * WEIGHTS.security +
 		categories.git * WEIGHTS.git,
 	);
 
