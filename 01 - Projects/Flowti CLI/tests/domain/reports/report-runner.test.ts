@@ -150,7 +150,7 @@ describe("runAllReports", () => {
 		const result = runAllReports(unknownGens, "/project");
 
 		expect(result.failed).toBe(1);
-		expect(result.generators[0].error).toContain("Unknown generator");
+		expect(result.generators[0].error).toContain("Unknown generator: \"nonexistent\"");
 	});
 
 	it("falls back to external command when no internal generator exists", () => {

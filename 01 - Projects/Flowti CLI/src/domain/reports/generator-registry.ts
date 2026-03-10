@@ -6,27 +6,40 @@
  */
 
 import type { GeneratorFn, GeneratorOutput } from "../../infrastructure/types.js";
+import type { PipelineContext } from "../../infrastructure/pipeline/pipeline-types.js";
 import { generateTestReport } from "./cli/generate-test-report.js";
 import { generateCoverageReport } from "./cli/generate-coverage-report.js";
 import { generateCodebaseReport } from "./cli/generate-codebase-report.js";
 import { generateComplexityReport } from "./cli/generate-complexity-report.js";
 import { generateProjectStatusReport } from "./cli/generate-status-report.js";
 import { generateSummaryReport } from "./cli/generate-summary-report.js";
-/** Built-in generator registry: maps generator IDs to functions. */
-const GENERATORS: ReadonlyMap<string, GeneratorFn> = new Map<string, GeneratorFn>([
-	["test", generateTestReport],
-	["coverage", generateCoverageReport],
-	["codebase", generateCodebaseReport],
-	["complexity", generateComplexityReport],
-	["status", generateProjectStatusReport],
-	["summary", generateSummaryReport],
+import { generateEntityReference } from "./generators/entity-reference.js";
+import { generateCliReference } from "./generators/cli-reference.js";
+
+export type GeneratorCategory = "report" | "reference";
+
+interface RegistryEntry {
+	fn: GeneratorFn;
+	category: GeneratorCategory;
+}
+
+/** Unified generator registry: maps IDs to functions with category metadata. */
+const GENERATORS: ReadonlyMap<string, RegistryEntry> = new Map<string, RegistryEntry>([
+	["test", { fn: generateTestReport, category: "report" }],
+	["coverage", { fn: generateCoverageReport, category: "report" }],
+	["codebase", { fn: generateCodebaseReport, category: "report" }],
+	["complexity", { fn: generateComplexityReport, category: "report" }],
+	["status", { fn: generateProjectStatusReport, category: "report" }],
+	["summary", { fn: generateSummaryReport, category: "report" }],
+	["entity-reference", { fn: generateEntityReference, category: "reference" }],
+	["cli-reference", { fn: generateCliReference, category: "reference" }],
 ]);
 
-/** Run a generator by its ID. Returns null if the ID is unknown. */
-export function runGenerator(id: string, projectPath: string): GeneratorOutput | null {
-	const fn = GENERATORS.get(id);
-	if (!fn) return null;
-	return fn(projectPath);
+/** Run a generator by its ID, optionally passing pipeline context. Returns null if unknown. */
+export function runGenerator(id: string, projectPath: string, ctx?: PipelineContext): GeneratorOutput | null {
+	const entry = GENERATORS.get(id);
+	if (!entry) return null;
+	return entry.fn(projectPath, ctx);
 }
 
 /** Check if a generator ID is registered. */
@@ -37,4 +50,31 @@ export function hasGenerator(id: string): boolean {
 /** List all registered generator IDs. */
 export function listGeneratorIds(): string[] {
 	return [...GENERATORS.keys()];
+}
+
+/** List generator IDs filtered by category. */
+export function listByCategory(category: GeneratorCategory): string[] {
+	return [...GENERATORS.entries()]
+		.filter(([, entry]) => entry.category === category)
+		.map(([id]) => id);
+}
+
+// ── Reference aliases (backward compatibility) ───────────────────────
+
+/** Run a reference generator by its ID. Returns null if unknown. */
+export function runReference(id: string, projectPath: string): GeneratorOutput | null {
+	const entry = GENERATORS.get(id);
+	if (!entry || entry.category !== "reference") return null;
+	return entry.fn(projectPath);
+}
+
+/** Check if a reference ID is registered. */
+export function hasReference(id: string): boolean {
+	const entry = GENERATORS.get(id);
+	return entry !== undefined && entry.category === "reference";
+}
+
+/** List all registered reference IDs. */
+export function listReferenceIds(): string[] {
+	return listByCategory("reference");
 }

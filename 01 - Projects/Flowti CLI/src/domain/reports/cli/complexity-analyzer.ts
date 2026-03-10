@@ -84,45 +84,35 @@ function isLogicalBranch(node: ts.Node): boolean {
 
 // ── Function name extraction ────────────────────────────────────────
 
+function getConstructorName(node: ts.ConstructorDeclaration): string {
+	const parent = node.parent;
+	if (ts.isClassDeclaration(parent) && parent.name) {
+		return `${parent.name.getText()}.constructor`;
+	}
+	return "constructor";
+}
+
+function getAccessorName(node: ts.GetAccessorDeclaration | ts.SetAccessorDeclaration): string {
+	const prefix = ts.isGetAccessorDeclaration(node) ? "get " : "set ";
+	return `${prefix}${node.name.getText()}`;
+}
+
+function getAnonymousFunctionName(node: ts.ArrowFunction | ts.FunctionExpression): string {
+	const parent = node.parent;
+	if (ts.isVariableDeclaration(parent) && parent.name) return parent.name.getText();
+	if (ts.isPropertyAssignment(parent) && parent.name) return parent.name.getText();
+	if (ts.isPropertyDeclaration(parent) && parent.name) return parent.name.getText();
+	if (ts.isFunctionExpression(node) && node.name) return node.name.getText();
+	return "(anonymous)";
+}
+
 function getFunctionName(node: ts.Node): string {
-	// Named function/method
 	if (ts.isFunctionDeclaration(node) || ts.isMethodDeclaration(node)) {
 		return node.name?.getText() ?? "(anonymous)";
 	}
-	// Constructor
-	if (ts.isConstructorDeclaration(node)) {
-		const parent = node.parent;
-		if (ts.isClassDeclaration(parent) && parent.name) {
-			return `${parent.name.getText()}.constructor`;
-		}
-		return "constructor";
-	}
-	// Getter/setter
-	if (ts.isGetAccessorDeclaration(node) || ts.isSetAccessorDeclaration(node)) {
-		const prefix = ts.isGetAccessorDeclaration(node) ? "get " : "set ";
-		return `${prefix}${node.name.getText()}`;
-	}
-	// Arrow function or function expression assigned to a variable
-	if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) {
-		// Check parent: const foo = () => ...
-		const parent = node.parent;
-		if (ts.isVariableDeclaration(parent) && parent.name) {
-			return parent.name.getText();
-		}
-		// Property assignment: { foo: () => ... }
-		if (ts.isPropertyAssignment(parent) && parent.name) {
-			return parent.name.getText();
-		}
-		// Property declaration: class { foo = () => ... }
-		if (ts.isPropertyDeclaration(parent) && parent.name) {
-			return parent.name.getText();
-		}
-		// Named function expression: const x = function foo() {}
-		if (ts.isFunctionExpression(node) && node.name) {
-			return node.name.getText();
-		}
-		return "(anonymous)";
-	}
+	if (ts.isConstructorDeclaration(node)) return getConstructorName(node);
+	if (ts.isGetAccessorDeclaration(node) || ts.isSetAccessorDeclaration(node)) return getAccessorName(node);
+	if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) return getAnonymousFunctionName(node);
 	return "(anonymous)";
 }
 
@@ -258,25 +248,28 @@ function computeSummary(functions: ComplexityFunction[]): ComplexitySummary {
 
 // ── File collection ─────────────────────────────────────────────────
 
+const SKIP_DIRS = new Set(["node_modules", "__tests__"]);
+
+function isAnalyzableFile(name: string): boolean {
+	return (
+		name.endsWith(".ts") &&
+		!name.endsWith(".d.ts") &&
+		!name.endsWith(".test.ts") &&
+		!name.endsWith(".spec.ts") &&
+		!name.endsWith(".stories.ts")
+	);
+}
+
 /** Collect all source .ts files under a directory (excludes tests, .d.ts, stories). */
 export function collectSourceFiles(srcDir: string): string[] {
 	const files: string[] = [];
 
 	function walk(dir: string): void {
-		const entries = disk.readdirSync(dir, { withFileTypes: true });
-		for (const entry of entries) {
+		for (const entry of disk.readdirSync(dir, { withFileTypes: true })) {
 			const fullPath = paths.join(dir, entry.name);
-			if (entry.isDirectory()) {
-				if (entry.name === "node_modules" || entry.name === "__tests__") continue;
+			if (entry.isDirectory() && !SKIP_DIRS.has(entry.name)) {
 				walk(fullPath);
-			} else if (
-				entry.isFile() &&
-				entry.name.endsWith(".ts") &&
-				!entry.name.endsWith(".d.ts") &&
-				!entry.name.endsWith(".test.ts") &&
-				!entry.name.endsWith(".spec.ts") &&
-				!entry.name.endsWith(".stories.ts")
-			) {
+			} else if (entry.isFile() && isAnalyzableFile(entry.name)) {
 				files.push(fullPath);
 			}
 		}

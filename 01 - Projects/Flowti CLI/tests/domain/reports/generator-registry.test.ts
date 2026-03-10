@@ -38,7 +38,7 @@ vi.mock("../../../src/infrastructure/shell.js", () => ({
 import { runGenerator, hasGenerator, listGeneratorIds } from "../../../src/domain/reports/generator-registry.js";
 
 describe("ReportGeneratorRegistry", () => {
-	it("has all 6 built-in report generators registered", () => {
+	it("has all 8 built-in generators registered (6 reports + 2 references)", () => {
 		const ids = listGeneratorIds();
 		expect(ids).toContain("test");
 		expect(ids).toContain("coverage");
@@ -46,12 +46,14 @@ describe("ReportGeneratorRegistry", () => {
 		expect(ids).toContain("complexity");
 		expect(ids).toContain("status");
 		expect(ids).toContain("summary");
-		expect(ids).toHaveLength(6);
+		expect(ids).toContain("entity-reference");
+		expect(ids).toContain("cli-reference");
+		expect(ids).toHaveLength(8);
 	});
 
-	it("does not contain reference generators", () => {
-		expect(hasGenerator("entity-reference")).toBe(false);
-		expect(hasGenerator("cli-reference")).toBe(false);
+	it("includes reference generators in unified registry", () => {
+		expect(hasGenerator("entity-reference")).toBe(true);
+		expect(hasGenerator("cli-reference")).toBe(true);
 	});
 
 	it("hasGenerator returns true for registered IDs", () => {

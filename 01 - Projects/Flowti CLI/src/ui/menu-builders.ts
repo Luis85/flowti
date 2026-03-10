@@ -7,7 +7,7 @@
 
 import { runAllReports } from "../domain/reports/report-runner.js";
 import { runGenerator } from "../domain/reports/generator-registry.js";
-import { runReference } from "../domain/reports/reference-registry.js";
+import { runReference } from "../domain/reports/generator-registry.js";
 import { browseArchive } from "../domain/reports/report-archive.js";
 import { exportReportToHtml } from "../domain/reports/html-export.js";
 import { ReportService } from "../domain/reports/cli/report-service.js";
@@ -60,8 +60,9 @@ export function buildReportsSubmenu(
 		items.push({
 			key: "1",
 			label: "Run All Reports",
-			action: () => {
+			action: async () => {
 				runAllReports(generators, projectPath);
+				await input.waitForEnter();
 				return "main" as const;
 			},
 		});
@@ -73,12 +74,13 @@ export function buildReportsSubmenu(
 		items.push({
 			key: String(i + offset),
 			label: gen.label,
-			action: () => {
+			action: async () => {
 				if (gen.id) {
 					runGenerator(gen.id, projectPath);
 				} else if (gen.command) {
 					shell.run(gen.command, { cwd: projectPath, label: gen.label });
 				}
+				await input.waitForEnter();
 				return "main" as const;
 			},
 		});

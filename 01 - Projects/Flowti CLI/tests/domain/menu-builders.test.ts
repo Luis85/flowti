@@ -9,9 +9,6 @@ vi.mock("../../src/domain/reports/report-runner.js", () => ({
 
 vi.mock("../../src/domain/reports/generator-registry.js", () => ({
 	runGenerator: vi.fn(() => ({ success: true, outputPath: "", metrics: {} })),
-}));
-
-vi.mock("../../src/domain/reports/reference-registry.js", () => ({
 	runReference: vi.fn(() => ({ success: true, outputPath: "" })),
 }));
 
@@ -27,6 +24,10 @@ vi.mock("../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
 }));
 
+vi.mock("../../src/infrastructure/input.js", () => ({
+	input: { waitForEnter: vi.fn(() => Promise.resolve()) },
+}));
+
 vi.mock("../../src/infrastructure/ui.js", () => ({
 	RESET: "", GREEN: "", RED: "",
 }));
@@ -37,7 +38,7 @@ import * as shellMod from "../../src/infrastructure/shell.js";
 import { buildReportsSubmenu, buildDocsSubmenu, buildNpmScriptsSubmenu } from "../../src/ui/menu-builders.js";
 import { runAllReports } from "../../src/domain/reports/report-runner.js";
 import { runGenerator } from "../../src/domain/reports/generator-registry.js";
-import { runReference } from "../../src/domain/reports/reference-registry.js";
+import { runReference } from "../../src/domain/reports/generator-registry.js";
 import { browseArchive } from "../../src/domain/reports/report-archive.js";
 import type { MenuItem, MenuEntry } from "../../src/infrastructure/types.js";
 
@@ -74,11 +75,11 @@ describe("buildReportsSubmenu", () => {
 		expect(findByLabel(items, "Run All Reports")).toBeUndefined();
 	});
 
-	it("Run All action calls runAllReports with generators and path", () => {
+	it("Run All action calls runAllReports with generators and path", async () => {
 		const gens = [{ id: "test", label: "Test" }];
 		const items = buildReportsSubmenu(gens, "/proj", "/proj/reports");
 		const runAll = findByLabel(items, "Run All Reports")!;
-		const result = runAll.action();
+		const result = await runAll.action();
 		expect(runAllReports).toHaveBeenCalledWith(gens, "/proj");
 		expect(result).toBe("main");
 	});
@@ -102,23 +103,23 @@ describe("buildReportsSubmenu", () => {
 		expect(menuItems[1].label).toBe("Browse Archive");
 	});
 
-	it("generator with id calls runGenerator", () => {
+	it("generator with id calls runGenerator", async () => {
 		const items = buildReportsSubmenu(
 			[{ id: "test", label: "Test" }], "/proj", "/proj/reports",
 		);
 		const gen = findByLabel(items, "Test")!;
-		gen.action();
+		await gen.action();
 		expect(runGenerator).toHaveBeenCalledWith("test", "/proj");
 	});
 
-	it("generator with command calls shell.run", () => {
+	it("generator with command calls shell.run", async () => {
 		const sh = createMockShell();
 		Object.assign(shellMod, { shell: sh });
 		const items = buildReportsSubmenu(
 			[{ command: "npm run custom", label: "Custom" }], "/proj", "/proj/reports",
 		);
 		const gen = findByLabel(items, "Custom")!;
-		gen.action();
+		await gen.action();
 		expect(sh.calls[0].cmd).toBe("npm run custom");
 	});
 

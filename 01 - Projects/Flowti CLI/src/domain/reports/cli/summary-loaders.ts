@@ -10,7 +10,7 @@ import { disk } from "../../../infrastructure/filesystem.js";
 import { shell } from "../../../infrastructure/shell.js";
 import { parseFrontmatterStrings } from "../../../infrastructure/frontmatter.js";
 import { readProjectConfig } from "../../project/project-config.js";
-import { getCommandOutput } from "../run-context.js";
+import type { PipelineContext } from "../../../infrastructure/pipeline/pipeline-types.js";
 import type { SummaryThresholds } from "../../../infrastructure/types.js";
 import type {
 	ParsedFrontmatter,
@@ -253,8 +253,8 @@ export function discoverReports(reportsDir: string): ReportSnapshot[] {
 
 // ── Eslint collection ────────────────────────────────────────────────
 
-export function collectLintWarnings(projectPath: string, command: string): LintResult {
-	const cached = getCommandOutput(command);
+export function collectLintWarnings(projectPath: string, command: string, ctx?: PipelineContext): LintResult {
+	const cached = ctx?.getCommandOutput(command);
 	const output = cached ?? shell.runCapture(command, { cwd: projectPath });
 	return parseLintOutput(output, projectPath);
 }
@@ -335,9 +335,9 @@ export function parseTypedocOutput(output: string): TypeDocResult {
 	return { warnings, errors, issues };
 }
 
-export function collectTypedocWarnings(projectPath: string, command: string): TypeDocResult {
+export function collectTypedocWarnings(projectPath: string, command: string, ctx?: PipelineContext): TypeDocResult {
 	// Reuse output from a prior prerequisite run if available
-	const cached = getCommandOutput(command);
+	const cached = ctx?.getCommandOutput(command);
 	const combined = cached ?? shell.runCapture(command, { cwd: projectPath, timeout: 30_000 });
 	return parseTypedocOutput(combined);
 }

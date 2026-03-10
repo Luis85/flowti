@@ -12,12 +12,11 @@
  */
 
 import { paths } from "../../../infrastructure/paths.js";
-import { proc } from "../../../infrastructure/proc.js";
 import { shell } from "../../../infrastructure/shell.js";
 import { disk } from "../../../infrastructure/filesystem.js";
 import { CLI_PROJECT } from "../../../infrastructure/config.js";
 import { ReportService } from "./report-service.js";
-import { log, error } from "../../../infrastructure/logger.js";
+import { log } from "../../../infrastructure/logger.js";
 import { analyzeComplexity } from "./complexity-analyzer.js";
 import type { AnalysisResult } from "./complexity-analyzer.js";
 
@@ -150,30 +149,49 @@ function convertCoverageToJson(coverageFinalPath: string): CoverageSummaryOutput
 
 // ── Merge coverage + complexity → analysis.json ─────────────────────
 
+function coverageFields(cov: CoverageSummaryFile): Record<string, unknown> {
+	return {
+		statements: cov.statements,
+		branches: cov.branches,
+		functions: cov.functions,
+		lines: cov.lines,
+		uncoveredLineRanges: cov.uncoveredLineRanges,
+	};
+}
+
+const EMPTY_DP = { decisionPointCount: 0, decisionPoints: [] as import("./complexity-analyzer.js").DecisionPoint[], decisionPointLines: [] as number[], decisionPointLineRanges: [] as string[] };
+
+function complexityFields(dp: import("./complexity-analyzer.js").FileAnalysis | undefined, uncoveredLines: Set<number>): Record<string, unknown> {
+	const d = dp ?? EMPTY_DP;
+	return {
+		decisionPointCount: d.decisionPointCount,
+		decisionPoints: d.decisionPoints,
+		decisionPointLines: d.decisionPointLines,
+		decisionPointLineRanges: d.decisionPointLineRanges,
+		uncoveredDecisionPoints: d.decisionPoints.filter((p) => uncoveredLines.has(p.line)),
+	};
+}
+
+function mergeFileEntry(
+	file: string,
+	cov: CoverageSummaryFile | undefined,
+	dp: import("./complexity-analyzer.js").FileAnalysis | undefined,
+): Record<string, unknown> {
+	const uncoveredSet = new Set(cov?.uncoveredLines ?? []);
+	return {
+		file,
+		...(cov ? coverageFields(cov) : {}),
+		...complexityFields(dp, uncoveredSet),
+	};
+}
+
 function mergeAnalysis(
 	coverage: CoverageSummaryOutput | null,
 	complexity: AnalysisResult,
 ): Record<string, unknown> {
 	const dpByFile = new Map(complexity.files.map((f) => [f.file, f]));
 	const covByFile = new Map(coverage?.files.map((f) => [f.file, f]) ?? []);
-	const allFiles = new Set([...dpByFile.keys(), ...covByFile.keys()]);
-
-	const files = [...allFiles].sort().map((file) => {
-		const cov = covByFile.get(file);
-		const dp = dpByFile.get(file);
-		const uncoveredSet = new Set(cov?.uncoveredLines ?? []);
-		const uncoveredDecisionPoints = (dp?.decisionPoints ?? []).filter((p) => uncoveredSet.has(p.line));
-
-		return {
-			file,
-			...(cov ? { statements: cov.statements, branches: cov.branches, functions: cov.functions, lines: cov.lines, uncoveredLineRanges: cov.uncoveredLineRanges } : {}),
-			decisionPointCount: dp?.decisionPointCount ?? 0,
-			decisionPoints: dp?.decisionPoints ?? [],
-			decisionPointLines: dp?.decisionPointLines ?? [],
-			decisionPointLineRanges: dp?.decisionPointLineRanges ?? [],
-			uncoveredDecisionPoints,
-		};
-	});
+	const allFiles = [...new Set([...dpByFile.keys(), ...covByFile.keys()])].sort();
 
 	return {
 		summary: {
@@ -181,7 +199,7 @@ function mergeAnalysis(
 			totalDecisionPoints: complexity.files.reduce((sum, f) => sum + f.decisionPointCount, 0),
 			filesWithDecisionPoints: complexity.files.filter((f) => f.decisionPointCount > 0).length,
 		},
-		files,
+		files: allFiles.map((file) => mergeFileEntry(file, covByFile.get(file), dpByFile.get(file))),
 	};
 }
 

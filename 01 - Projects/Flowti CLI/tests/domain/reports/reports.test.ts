@@ -25,18 +25,14 @@ vi.mock("../../../src/infrastructure/clock.js", () => {
 	};
 });
 
-// Mock the generator registry
+// Mock the unified generator registry
 const mockRunGenerator = vi.fn();
 const mockHasGenerator = vi.fn();
+const mockRunReference = vi.fn();
+const mockListReferenceIds = vi.fn();
 vi.mock("../../../src/domain/reports/generator-registry.js", () => ({
 	runGenerator: (...args: unknown[]) => mockRunGenerator(...args),
 	hasGenerator: (...args: unknown[]) => mockHasGenerator(...args),
-}));
-
-// Mock the reference registry
-const mockRunReference = vi.fn();
-const mockListReferenceIds = vi.fn();
-vi.mock("../../../src/domain/reports/reference-registry.js", () => ({
 	runReference: (...args: unknown[]) => mockRunReference(...args),
 	listReferenceIds: () => mockListReferenceIds(),
 }));
@@ -83,8 +79,8 @@ describe("reports commands", () => {
 		commands["reports"]({}, [], "reports", project);
 
 		expect(mockRunGenerator).toHaveBeenCalledTimes(2);
-		expect(mockRunGenerator).toHaveBeenCalledWith("test", "/test/project");
-		expect(mockRunGenerator).toHaveBeenCalledWith("coverage", "/test/project");
+		expect(mockRunGenerator).toHaveBeenCalledWith("test", "/test/project", expect.anything());
+		expect(mockRunGenerator).toHaveBeenCalledWith("coverage", "/test/project", expect.anything());
 	});
 
 	it("reports continues when a generator fails", () => {

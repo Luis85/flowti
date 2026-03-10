@@ -179,6 +179,8 @@ export interface ReportGenerator {
 	command?: string;
 	/** Commands to run before this generator (e.g. "npm run test:coverage"). */
 	prerequisites?: string[];
+	/** IDs of other generators that must complete before this one. */
+	dependencies?: string[];
 }
 
 /** Result returned by an internal report generator function. */
@@ -190,8 +192,12 @@ export interface GeneratorOutput {
 	warnings?: string[];
 }
 
-/** A callable report generator function. */
-export type GeneratorFn = (projectPath: string) => GeneratorOutput;
+/**
+ * A callable report generator function.
+ * The optional second parameter provides pipeline context when
+ * running inside a pipeline (for accessing prior results, command outputs, etc.).
+ */
+export type GeneratorFn = (projectPath: string, ctx?: import("./pipeline/pipeline-types.js").PipelineContext) => GeneratorOutput;
 
 export interface SummaryThresholds {
 	/** Minimum line coverage percentage (default: 80) */

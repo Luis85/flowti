@@ -24,7 +24,7 @@ import {
 	analyzeCodebase,
 	analyzeCycle,
 } from "./summary-analyzers.js";
-import { getRunResults } from "../run-context.js";
+import type { StepResult } from "../../../infrastructure/pipeline/pipeline-types.js";
 import { checkFreshness, resolveBuildPaths } from "../../build/build-freshness.js";
 
 // ── Extended analyzers ──────────────────────────────────────────────
@@ -144,12 +144,15 @@ export function analyzeBuildFreshness(projectPath: string): Finding[] {
 
 // ── Generator run analyzer ──────────────────────────────────────────
 
+/** A minimal result shape accepted by the analyzer (compatible with both GeneratorResult and StepResult). */
+export type RunResultLike = Pick<GeneratorResult, "success" | "label" | "error" | "warnings">;
+
 /**
  * Analyze the current report generation run for failures and warnings.
- * Reads accumulated results from the run context (populated by report-runner).
+ * Accepts either GeneratorResult[] or StepResult[] — both are compatible.
  */
-export function analyzeGeneratorRun(runResults?: readonly GeneratorResult[]): Finding[] {
-	const results = runResults ?? getRunResults();
+export function analyzeGeneratorRun(runResults?: readonly RunResultLike[]): Finding[] {
+	const results = runResults ?? [];
 	if (results.length === 0) return [];
 
 	const findings: Finding[] = [];
@@ -207,6 +210,7 @@ export function analyzeReports(
 	lint: LintResult | null, typedoc: TypeDocResult | null,
 	json: JsonDataSources, detailed: DetailedSources,
 	projectPath?: string,
+	runResults?: readonly StepResult[],
 ): Finding[] {
 	const findings: Finding[] = [];
 	for (const snap of snapshots) {
@@ -216,6 +220,6 @@ export function analyzeReports(
 	findings.push(...analyzeLint(lint, thresholds));
 	findings.push(...analyzeTypedoc(typedoc, thresholds));
 	if (projectPath) findings.push(...analyzeBuildFreshness(projectPath));
-	findings.push(...analyzeGeneratorRun());
+	findings.push(...analyzeGeneratorRun(runResults));
 	return findings;
 }
