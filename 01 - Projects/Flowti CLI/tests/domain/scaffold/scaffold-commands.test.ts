@@ -34,7 +34,28 @@ vi.mock("../../../src/domain/scaffold/marketplace.js", () => ({
 	importDefinitionCommand: vi.fn(),
 }));
 
-import { commands } from "../../../src/domain/scaffold/scaffold-commands.js";
+vi.mock("../../../src/infrastructure/request-response.js", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/infrastructure/request-response.js")>("../../../src/infrastructure/request-response.js");
+	return actual;
+});
+
+vi.mock("../../../src/infrastructure/config.js", () => ({
+	VAULT_ROOT: "/mock/vault",
+}));
+
+vi.mock("../../../src/domain/scaffold/marketplace-export.js", () => ({
+	exportBundle: vi.fn(() => ({ vault: "test", aiTools: [], plugins: [], scaffolds: [] })),
+	saveBundle: vi.fn(),
+	loadBundle: vi.fn(),
+	importAiToolsFromBundle: vi.fn(() => 0),
+}));
+
+vi.mock("../../../src/infrastructure/suggestions.js", () => ({
+	showSuggestions: vi.fn(),
+	afterScaffold: vi.fn(() => []),
+}));
+
+import { commands } from "../../../src/controller/scaffold.controller.js";
 import { log } from "../../../src/infrastructure/logger.js";
 import { listDefinitions, scaffold, scaffoldDryRun } from "../../../src/domain/scaffold/scaffold-service.js";
 
@@ -70,12 +91,14 @@ describe("scaffold:list", () => {
 
 		commands["scaffold:list"]({ format: "json" }, []);
 
-		expect(capturedJson).toHaveLength(1);
-		const data = capturedJson[0] as Array<Record<string, unknown>>;
-		expect(data).toHaveLength(2);
-		expect(data[0].id).toBe("flowti-project");
-		expect(data[0].label).toBe("Flowti Project");
-		expect(data[1].id).toBe("obsidian-plugin");
+		const logCalls = vi.mocked(log).mock.calls.map((c) => c[0]);
+		const jsonLine = logCalls.find((c) => typeof c === "string" && c.startsWith("{"));
+		expect(jsonLine).toBeDefined();
+		const data = JSON.parse(jsonLine as string) as { definitions: Array<Record<string, unknown>> };
+		expect(data.definitions).toHaveLength(2);
+		expect(data.definitions[0].id).toBe("flowti-project");
+		expect(data.definitions[0].label).toBe("Flowti Project");
+		expect(data.definitions[1].id).toBe("obsidian-plugin");
 	});
 });
 
@@ -123,8 +146,10 @@ describe("scaffold:new --dry-run", () => {
 	it("outputs JSON with --dry-run --format=json", () => {
 		commands["scaffold:new"]({ name: "my-project", "dry-run": true, format: "json" }, []);
 
-		expect(capturedJson).toHaveLength(1);
-		const data = capturedJson[0] as Record<string, unknown>;
+		const logCalls = vi.mocked(log).mock.calls.map((c) => c[0]);
+		const jsonLine = logCalls.find((c) => typeof c === "string" && c.startsWith("{"));
+		expect(jsonLine).toBeDefined();
+		const data = JSON.parse(jsonLine as string) as Record<string, unknown>;
 		expect(data.definition).toBe("flowti-project");
 		expect(data.files).toEqual(["package.json", "tsconfig.json", "src/main.ts"]);
 	});

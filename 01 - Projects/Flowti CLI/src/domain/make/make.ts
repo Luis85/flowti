@@ -7,9 +7,7 @@
  * Implementation lives in focused modules:
  *   - MakeService.ts     — template registry & interactive menu
  *   - makers.ts          — interactive scaffolding functions
- *   - make-commands.ts   — non-interactive CLI commands
  *   - templates/          — decomposed template generators
  */
 
 export { menu } from "./MakeService.js";
-export { commands } from "./make-commands.js";

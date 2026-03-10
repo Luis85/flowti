@@ -183,9 +183,3 @@ export async function startMenu(): Promise<"selected" | "quit"> {
 		}
 	}
 }
-
-// ── CLI commands ────────────────────────────────────────────────────
-
-export const commands = {
-	project: async () => { await startMenu(); },
-};

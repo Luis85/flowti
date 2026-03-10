@@ -60,9 +60,15 @@ vi.mock("../../../src/infrastructure/output.js", () => ({
 	}),
 }));
 
+vi.mock("../../../src/infrastructure/request-response.js", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/infrastructure/request-response.js")>("../../../src/infrastructure/request-response.js");
+	return actual;
+});
+
 import { log } from "../../../src/infrastructure/logger.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
-import { commands, substituteParams } from "../../../src/domain/ai-tools/ai-tool-commands.js";
+import { commands } from "../../../src/controller/ai-tools.controller.js";
+import { substituteParams } from "../../../src/domain/ai-tools/ai-tool-commands.js";
 import { shell } from "../../../src/infrastructure/shell.js";
 import {
 	loadAiTools,
@@ -193,8 +199,10 @@ describe("ai:list --json", () => {
 
 		commands["ai:list"]({ format: "json" }, []);
 
-		expect(capturedJson).toHaveLength(1);
-		const data = capturedJson[0] as Array<Record<string, unknown>>;
+		const logCalls = vi.mocked(log).mock.calls.map((c) => c[0]);
+		const jsonLine = logCalls.find((c) => typeof c === "string" && c.startsWith("["));
+		expect(jsonLine).toBeDefined();
+		const data = JSON.parse(jsonLine as string) as Array<Record<string, unknown>>;
 		expect(data).toHaveLength(1);
 		expect(data[0].name).toBe("search");
 		expect(data[0].version).toBe("1.0");
@@ -242,7 +250,7 @@ describe("ai:reference", () => {
 		vi.mocked(loadAiTools).mockReturnValue(tools);
 		vi.mocked(generateAiToolReference).mockReturnValue({ save: saveFn } as any);
 
-		commands["ai:reference"]();
+		commands["ai:reference"]({}, [], "ai:reference");
 
 		expect(loadAiTools).toHaveBeenCalledWith("/vault", disk);
 		expect(generateAiToolReference).toHaveBeenCalledWith(tools);

@@ -9,18 +9,9 @@
 import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
 import { shell } from "../../infrastructure/shell.js";
-import { RESET, BOLD, DIM, GREEN, RED, YELLOW } from "../../infrastructure/ui.js";
 import { countFiles } from "../../infrastructure/fs.js";
 import { parseFrontmatterContent } from "../../infrastructure/frontmatter.js";
-import { log } from "../../infrastructure/logger.js";
-import { resolveFormat, printOutput } from "../../infrastructure/output.js";
-import type { ProjectContext, CommandHandler } from "../../infrastructure/types.js";
-import { scoreHealth, type HealthThresholds, DEFAULT_THRESHOLDS } from "./health-scoring.js";
-import { saveSnapshot, loadHistory, buildTrend, type StoredSnapshot } from "./health-trends.js";
-import { estimateDebt, type DebtItem } from "./tech-debt.js";
-import { displayHealth, formatTrendLine } from "../../ui/health-display.js";
-
-export { displayHealth };
+import type { ProjectContext } from "../../infrastructure/types.js";
 
 // ── Data types ───────────────────────────────────────────────────────
 
@@ -171,105 +162,3 @@ export function collectHealth(ctx: ProjectContext): HealthSnapshot {
 	};
 }
 
-// ── Non-interactive command ─────────────────────────────────────────
-
-function mergeDefaults<T extends Record<string, unknown>>(partial: Partial<T> | undefined, defaults: T): T {
-	if (!partial) return defaults;
-	const result = { ...defaults };
-	for (const key of Object.keys(defaults) as (keyof T)[]) {
-		if (partial[key] !== undefined) result[key] = partial[key] as T[keyof T];
-	}
-	return result;
-}
-
-function resolveThresholds(project: ProjectContext): HealthThresholds {
-	const cfg = project.config.health?.thresholds;
-	if (!cfg) return DEFAULT_THRESHOLDS;
-	return {
-		coverage: mergeDefaults(cfg.coverage, DEFAULT_THRESHOLDS.coverage),
-		lint: mergeDefaults(cfg.lint, DEFAULT_THRESHOLDS.lint),
-		tests: mergeDefaults(cfg.tests, DEFAULT_THRESHOLDS.tests),
-	};
-}
-
-export const commands: Record<string, CommandHandler> = {
-	health: (flags, _rawArgs, _command, project) => {
-		if (!project) {
-			log(`\n  ${RED}No project selected.${RESET}`);
-			log(`  ${DIM}Select a project first: flowti project${RESET}`);
-			log(`  ${DIM}Or specify one:          flowti health --project=<name>${RESET}\n`);
-			return;
-		}
-		const snapshot = collectHealth(project);
-		const thresholds = resolveThresholds(project);
-		const score = scoreHealth(snapshot, thresholds);
-		const format = resolveFormat(flags);
-
-		// Show trend deltas if history exists
-		const history = loadHistory(project.path);
-		const current: StoredSnapshot = { timestamp: "", snapshot, score };
-		const trend = buildTrend(current, history);
-
-		printOutput(format, { ...snapshot, score, trend: trend.deltas }, (data) => {
-			displayHealth(data as HealthSnapshot);
-			log(`  ${BOLD}Score:${RESET} ${score.overall}/100 (${score.grade})`);
-			if (trend.deltas.length > 0) {
-				log(`  ${DIM}Trend:${RESET} ${formatTrendLine(trend.deltas)}`);
-			}
-			log();
-		});
-	},
-	"health:snapshot": (_flags, _rawArgs, _command, project) => {
-		if (!project) { log(`\n  ${RED}No project selected.${RESET}\n`); return; }
-		const snapshot = collectHealth(project);
-		const thresholds = resolveThresholds(project);
-		const score = scoreHealth(snapshot, thresholds);
-		const filePath = saveSnapshot(project.path, snapshot, score);
-		log(`\n  ${GREEN}✓${RESET} Snapshot saved: ${paths.relative(project.path, filePath)}\n`);
-	},
-	"health:history": (flags, _rawArgs, _command, project) => {
-		if (!project) { log(`\n  ${RED}No project selected.${RESET}\n`); return; }
-		const history = loadHistory(project.path);
-		const format = resolveFormat(flags);
-		printOutput(format, history, () => {
-			if (history.length === 0) {
-				log(`\n  ${DIM}No health snapshots found. Run: flowti health:snapshot${RESET}\n`);
-				return;
-			}
-			log(`\n  ${BOLD}Health History${RESET} (${history.length} snapshot${history.length === 1 ? "" : "s"})\n`);
-			for (const entry of history.slice(0, 10)) {
-				const date = entry.timestamp.replace("T", " ").substring(0, 19);
-				const grade = entry.score.grade;
-				const score = entry.score.overall;
-				log(`  ${DIM}${date}${RESET}  ${grade} (${score}/100)  ${DIM}tests:${entry.snapshot.tests?.total ?? "?"}${RESET}`);
-			}
-			if (history.length > 10) {
-				log(`  ${DIM}... and ${history.length - 10} more${RESET}`);
-			}
-			log();
-		});
-	},
-	"debt:estimate": (flags, _rawArgs, _command, project) => {
-		if (!project) { log(`\n  ${RED}No project selected.${RESET}\n`); return; }
-		const snapshot = collectHealth(project);
-		const thresholds = resolveThresholds(project);
-		const score = scoreHealth(snapshot, thresholds);
-		const estimate = estimateDebt(snapshot, score);
-		const format = resolveFormat(flags);
-
-		printOutput(format, estimate, () => {
-			if (estimate.items.length === 0) {
-				log(`\n  ${GREEN}✓${RESET} ${estimate.summary}\n`);
-				return;
-			}
-			log(`\n  ${BOLD}Technical Debt Estimate${RESET}\n`);
-			const sevColor = (s: DebtItem["severity"]) =>
-				s === "critical" ? RED : s === "high" ? RED : s === "medium" ? YELLOW : DIM;
-			for (const item of estimate.items) {
-				const c = sevColor(item.severity);
-				log(`  ${c}●${RESET} ${item.category}: ${item.description}  ${DIM}~${item.estimatedHours}h${RESET}`);
-			}
-			log(`\n  ${BOLD}Total:${RESET} ~${estimate.totalHours}h  ${DIM}(${estimate.summary})${RESET}\n`);
-		});
-	},
-};

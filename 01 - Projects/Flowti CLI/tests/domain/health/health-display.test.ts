@@ -24,7 +24,8 @@ vi.mock("../../../src/infrastructure/output.js", () => ({
 	printOutput: vi.fn(),
 }));
 
-import { collectHealth, displayHealth, type HealthSnapshot } from "../../../src/domain/health/health.js";
+import { collectHealth, type HealthSnapshot } from "../../../src/domain/health/health.js";
+import { displayHealth } from "../../../src/ui/health-display.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
 import { shell } from "../../../src/infrastructure/shell.js";
 import { countFiles } from "../../../src/infrastructure/fs.js";

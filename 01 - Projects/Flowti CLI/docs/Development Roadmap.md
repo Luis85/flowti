@@ -22,12 +22,14 @@ plugin_integration: "[[Plugin Integration Analysis]]"
 
 | Metric | Value | Δ from v1 |
 |--------|-------|-----------|
-| Source files | 239 | +68 |
-| Test files | 140 | +22 |
-| Tests passing | 2,565 (140 suites) | +304 |
+| Source files | 258 | +87 |
+| Test files | 146 | +28 |
+| Tests passing | 2,572 (141 suites) | +311 |
 | Source LOC | ~62,022 | +38,759 |
 | Domains | 18 | — |
-| Infrastructure modules | 21 | — |
+| Controllers | 15 | NEW |
+| UI view files | 30 | NEW |
+| Infrastructure modules | 29 | +8 |
 | Non-interactive commands | 84 | — |
 | Dependencies | 0 (runtime) | — |
 | Feature Requests (PRD) | 22 (FR-01 – FR-22) | — |
@@ -382,6 +384,26 @@ New files: `src/domain/health/quality-gate.ts`, updated `publish.ts`.
 
 ---
 
+## Phase 7.5: MVC Refactoring (TD-24) — COMPLETE
+
+**Goal**: Separate command handling, business logic, and presentation into distinct architectural layers before Phase 8 adds 14+ new commands.
+
+| # | Work Item | Effort | Status |
+|---|-----------|--------|--------|
+| 7.5.1 | Create `CliRequest`/`CliResponse<T>` types in `infrastructure/request-response.ts` | S | ✅ DONE |
+| 7.5.2 | Create 15 controllers in `src/controller/` — one per domain | L | ✅ DONE |
+| 7.5.3 | Extract ANSI display functions into 11 `ui/*-display.ts` renderers + `common-renderers.ts` | L | ✅ DONE |
+| 7.5.4 | Remove all `log()` and ANSI imports from domain files | M | ✅ DONE |
+| 7.5.5 | Delete 8 empty domain files after command extraction | S | ✅ DONE |
+| 7.5.6 | Update all test imports to point at controllers instead of domain barrels | M | ✅ DONE |
+| 7.5.7 | Fix lint complexity warnings (ReportService constructor, renderToolList) | S | ✅ DONE |
+
+**Result**: 84 commands across 15 controllers. All domain modules are presentation-free. `--format=json` works uniformly via `handleResponse()`. New commands follow the established controller + typed model + renderer pattern.
+
+**Architecture docs updated**: Architecture v19 (§2.4, §2.5, §4.18), Tech Debt (TD-24 resolved).
+
+---
+
 ## Phase 8: Plugin Integration
 
 **Goal**: Make the Flowti Plugin a fully managed project within the Flowti CLI ecosystem. Unify build, test, report, and E2E pipelines so both CLI and Plugin share the same toolchain.
@@ -560,6 +582,7 @@ See [[Plugin Integration Analysis]] for detailed gap analysis and migration plan
 ✓ Phase 5 (agent DX)         COMPLETE — 6/7 items (progress indicators deferred)
 ✓ Phase 6 (depth)            COMPLETE — 8/8 items
 ✓ Phase 7 (ecosystem)        COMPLETE — 10/10 items
+✓ Phase 7.5 (MVC refactor)   COMPLETE — 15 controllers, 11 renderers, TD-24 resolved
 ► Phase 8 (plugin integration) NEXT — 9 sub-phases, ~42 work items
   Phase 9 (convergence)       FUTURE — shared infra, MCP, CI/CD gen
 ```

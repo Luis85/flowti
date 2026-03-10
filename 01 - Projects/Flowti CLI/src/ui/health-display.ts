@@ -8,7 +8,9 @@
 import { RESET, BOLD, DIM, GREEN, RED, YELLOW } from "../infrastructure/ui.js";
 import { log } from "../infrastructure/logger.js";
 import type { HealthSnapshot, SecurityMetrics } from "../domain/health/health.js";
-import type { TrendDelta } from "../domain/health/health-trends.js";
+import type { HealthScore } from "../domain/health/health-scoring.js";
+import type { TrendDelta, StoredSnapshot } from "../domain/health/health-trends.js";
+import type { DebtEstimate, DebtItem } from "../domain/health/tech-debt.js";
 
 // ── Display helpers ──────────────────────────────────────────────────
 
@@ -133,4 +135,61 @@ export function formatTrendLine(deltas: TrendDelta[]): string {
 		const color = d.indicator === "▲" ? GREEN : d.indicator === "▼" ? YELLOW : DIM;
 		return `${color}${d.indicator}${RESET} ${d.metric.split(".").pop()} ${DIM}${val}${RESET}`;
 	}).join("  ");
+}
+
+// ── Typed data models for controller responses ──────────────────────
+
+export interface HealthViewModel extends HealthSnapshot {
+	score: HealthScore;
+	trend: TrendDelta[];
+}
+
+export interface SnapshotSavedModel {
+	relativePath: string;
+}
+
+// ── Renderers (used as dataResponse callbacks) ──────────────────────
+
+export function renderHealthDashboard(data: HealthViewModel): void {
+	displayHealth(data);
+	log(`  ${BOLD}Score:${RESET} ${data.score.overall}/100 (${data.score.grade})`);
+	if (data.trend.length > 0) {
+		log(`  ${DIM}Trend:${RESET} ${formatTrendLine(data.trend)}`);
+	}
+	log();
+}
+
+export function renderSnapshotSaved(data: SnapshotSavedModel): void {
+	log(`\n  ${GREEN}✓${RESET} Snapshot saved: ${data.relativePath}\n`);
+}
+
+export function renderHealthHistory(data: StoredSnapshot[]): void {
+	if (data.length === 0) {
+		log(`\n  ${DIM}No health snapshots found. Run: flowti health:snapshot${RESET}\n`);
+		return;
+	}
+	log(`\n  ${BOLD}Health History${RESET} (${data.length} snapshot${data.length === 1 ? "" : "s"})\n`);
+	for (const entry of data.slice(0, 10)) {
+		const date = entry.timestamp.replace("T", " ").substring(0, 19);
+		log(`  ${DIM}${date}${RESET}  ${entry.score.grade} (${entry.score.overall}/100)  ${DIM}tests:${entry.snapshot.tests?.total ?? "?"}${RESET}`);
+	}
+	if (data.length > 10) {
+		log(`  ${DIM}... and ${data.length - 10} more${RESET}`);
+	}
+	log();
+}
+
+export function renderDebtEstimate(data: DebtEstimate): void {
+	if (data.items.length === 0) {
+		log(`\n  ${GREEN}✓${RESET} ${data.summary}\n`);
+		return;
+	}
+	log(`\n  ${BOLD}Technical Debt Estimate${RESET}\n`);
+	const sevColor = (s: DebtItem["severity"]) =>
+		s === "critical" ? RED : s === "high" ? RED : s === "medium" ? YELLOW : DIM;
+	for (const item of data.items) {
+		const c = sevColor(item.severity);
+		log(`  ${c}●${RESET} ${item.category}: ${item.description}  ${DIM}~${item.estimatedHours}h${RESET}`);
+	}
+	log(`\n  ${BOLD}Total:${RESET} ~${data.totalHours}h  ${DIM}(${data.summary})${RESET}\n`);
 }

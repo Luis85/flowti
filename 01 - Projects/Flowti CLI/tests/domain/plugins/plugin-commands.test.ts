@@ -50,7 +50,12 @@ vi.mock("../../../src/infrastructure/output.js", () => ({
 	}),
 }));
 
-import { commands } from "../../../src/domain/plugins/plugin-commands.js";
+vi.mock("../../../src/infrastructure/request-response.js", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/infrastructure/request-response.js")>("../../../src/infrastructure/request-response.js");
+	return actual;
+});
+
+import { commands } from "../../../src/controller/plugins.controller.js";
 import { log } from "../../../src/infrastructure/logger.js";
 import { loadPlugins, discoverPluginFiles, validateManifest } from "../../../src/domain/plugins/plugin-loader.js";
 import { generatePluginReference } from "../../../src/domain/plugins/plugin-reference.js";
@@ -147,8 +152,10 @@ describe("plugin:reference", () => {
 
 		commands["plugin:list"]({ format: "json" }, [], "plugin:list");
 
-		expect(capturedJson).toHaveLength(1);
-		const data = capturedJson[0] as Array<Record<string, unknown>>;
+		const logCalls = vi.mocked(log).mock.calls.map((c) => c[0]);
+		const jsonLine = logCalls.find((c) => typeof c === "string" && c.startsWith("["));
+		expect(jsonLine).toBeDefined();
+		const data = JSON.parse(jsonLine as string) as Array<Record<string, unknown>>;
 		expect(data).toHaveLength(1);
 		expect(data[0].name).toBe("test-plugin");
 		expect(data[0].version).toBe("1.0.0");

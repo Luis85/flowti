@@ -43,8 +43,18 @@ vi.mock("../../../src/domain/health/health-scoring.js", () => ({
 	})),
 }));
 
+vi.mock("../../../src/infrastructure/request-response.js", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/infrastructure/request-response.js")>("../../../src/infrastructure/request-response.js");
+	return actual;
+});
+
+vi.mock("../../../src/domain/health/quality-gate.js", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/domain/health/quality-gate.js")>("../../../src/domain/health/quality-gate.js");
+	return actual;
+});
+
 import * as shellMod from "../../../src/infrastructure/shell.js";
-import { commands } from "../../../src/domain/publish/publish.js";
+import { commands } from "../../../src/controller/publish.controller.js";
 import { log } from "../../../src/infrastructure/logger.js";
 import type { ProjectContext } from "../../../src/infrastructure/types.js";
 

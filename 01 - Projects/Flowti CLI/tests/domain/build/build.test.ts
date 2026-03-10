@@ -13,8 +13,13 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
 }));
 
+vi.mock("../../../src/infrastructure/request-response.js", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/infrastructure/request-response.js")>("../../../src/infrastructure/request-response.js");
+	return actual;
+});
+
 import * as shellMod from "../../../src/infrastructure/shell.js";
-import { commands } from "../../../src/domain/build/build.js";
+import { commands } from "../../../src/controller/build.controller.js";
 import type { ProjectContext } from "../../../src/infrastructure/types.js";
 
 /** Create a project context with the given npm scripts. */

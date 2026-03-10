@@ -20,10 +20,10 @@ source: "[[Development Roadmap]]"
 | Severity | Count | Estimated Hours |
 |----------|-------|-----------------|
 | Critical | 3 (1 resolved) | 28h |
-| High | 7 (1 resolved) | 32h |
-| Medium | 8 (3 resolved) | 20h |
+| High | 8 (2 resolved) | 40h |
+| Medium | 8 (5 resolved) | 20h |
 | Low | 5 | 8h |
-| **Total** | **23 (6 resolved)** | **88h (17h resolved)** |
+| **Total** | **24 (9 resolved)** | **96h (31h resolved)** |
 
 ---
 
@@ -190,6 +190,24 @@ The E2E domain contains the journey executor, journey loader, journey types, jou
 **Effort**: M (4h)
 **Phase 8 relevance**: Plugin's E2E tests would reuse the journey infrastructure.
 
+### TD-24: No MVC Separation — Commands Mix Business Logic and Presentation ✓ RESOLVED
+
+**Domain**: architecture (cross-cutting)
+**Status**: Resolved — Symfony-inspired MVC refactoring complete (2026-03-10)
+
+**What was done**:
+1. Created `CliRequest` / `CliResponse<T>` types in `infrastructure/request-response.ts`
+2. Created `controller/` directory with 15 controllers — thin handlers that accept `CliRequest`, call domain services, return `dataResponse(model, renderer)`
+3. Extracted all ANSI display functions from domain/ into 11 `ui/*-display.ts` view files + `ui/common-renderers.ts`
+4. Domain files retain only pure business logic (no `log()`, no ANSI imports)
+5. `handleResponse()` at the edge dispatches JSON vs human-readable output
+6. `adapt()` bridges `ControllerAction` → `CommandHandler` for `CommandRegistry`
+7. 8 empty domain files deleted after command extraction
+
+**Impact**: 84 commands across 15 controllers. All domain modules are presentation-free. `--format=json` works uniformly. New commands follow the established controller pattern.
+
+**Effort**: L (8h) — as estimated
+
 ### TD-08: Wildcard Command Pattern Limited to report:*
 
 **Domain**: infrastructure/command-registry
@@ -205,16 +223,22 @@ The wildcard pattern is useful for extensible domains but only one domain uses i
 
 ## Medium
 
-### TD-09: Summary Report Generator Complexity — 309 LOC
+### TD-09: Summary Report Generator Complexity — 309 LOC ✓ RESOLVED
 
 **Domain**: domain/reports/cli
-**File**: `src/domain/reports/cli/generate-summary-report.ts` (309 LOC)
-**Impact**: Hardest generator to maintain; mixes data loading, analysis, and rendering
+**File**: `src/domain/reports/cli/generate-summary-report.ts` (308 LOC)
+**Status**: Resolved — already fully decomposed into 8 extracted modules
 
-The summary report is the most complex generator because it aggregates data from all other reports. It loads test results, coverage, codebase metrics, complexity, build data, and lint output, then scores and renders them.
+The main `generateSummaryReport()` function is a clean 39-line orchestrator. All heavy lifting is delegated to:
+- `summary-loaders.ts` — data discovery and loading
+- `summary-analyzers.ts` + `summary-analyzers-ext.ts` — finding detection
+- `summary-renderers.ts` — document section rendering
+- `summary-formatters.ts` — number/date formatting
+- `summary-types.ts` — shared type definitions
+- `summary-promotion.ts` — frontmatter promotion
+- `summary-details.ts` — detailed metrics collection
 
-**Remediation**: Already partially decomposed into summary-loaders, summary-analyzers, summary-renderers, summary-formatters, summary-types. The main function still orchestrates too much. Extract `collectSummaryData()` and `scoreSummary()` as standalone functions.
-**Effort**: M (3h)
+**Effort**: Already addressed during Phase 7
 
 ### TD-10: No Shared Mock Factory for Shell
 
@@ -270,16 +294,16 @@ The `Document` class uses a fluent API (`doc.heading().addBlank().text()`). The 
 **Remediation**: Minor. Only address if Document is subclassed.
 **Effort**: S (1h)
 
-### TD-15: No Integration Test for docs Command
+### TD-15: No Integration Test for docs Command ✓ RESOLVED
 
 **Domain**: domain/reports
-**File**: `tests/domain/reports/reports.test.ts`
-**Impact**: `docs` command tested via mock only; no end-to-end pipeline test
+**Files**: `tests/domain/reports/doc-pipeline.test.ts`, `tests/domain/reports/doc-runner.test.ts`
+**Status**: Resolved — 20 tests across 2 test files
 
-The `docs` command now delegates to `runAllDocs()` which goes through the pipeline. But the test only verifies the delegation via a mock. There's no integration test that runs the actual pipeline with mock generators.
+- `doc-pipeline.test.ts` (12 tests): `toDocStep`, `toReferenceStep`, `buildDocSteps`, `runDocPipeline` — exercises full pipeline runner with controlled mocks
+- `doc-runner.test.ts` (8 tests): `runAllDocs` facade — continuation after failure, output conversion, timing, exception handling, null output
 
-**Remediation**: Add an integration test in `doc-pipeline.test.ts` that verifies the full pipeline flow with controlled reference generator mocks.
-**Effort**: S (1h)
+**Effort**: Already addressed during Phase 7
 
 ### TD-16: No Project Type Discrimination
 
@@ -366,13 +390,13 @@ When the CLI manages Plugin builds, it needs to understand the CSS pipeline. Cur
 | TD-06 | Open | — | Phase 8 enabler |
 | TD-07 | Open | — | Phase 8 enabler |
 | TD-08 | Open | — | Monitor |
-| TD-09 | Open | — | Refactoring |
+| TD-09 | Resolved | Phase 7 | Already decomposed into 8 modules; 39-line orchestrator |
 | TD-10 | Open | — | Test quality |
 | TD-11 | Open | — | Phase 8 enabler |
 | TD-12 | Resolved | Pre-Phase 8 | Constructor accepts opts; coverageDir uses stored relDir |
 | TD-13 | Resolved | Pre-Phase 8 | 6 non-E2E files migrated to clock abstraction |
 | TD-14 | Open | — | Minor |
-| TD-15 | Open | — | Test coverage |
+| TD-15 | Resolved | Phase 7 | 20 tests across doc-pipeline + doc-runner test files |
 | TD-16 | Resolved | Pre-Phase 8 | ProjectTarget type added, wired into config + validation |
 | TD-17 | Open | — | Deferred from P5 |
 | TD-18 | Open | — | Deferred from P1 |
@@ -381,3 +405,4 @@ When the CLI manages Plugin builds, it needs to understand the CSS pipeline. Cur
 | TD-21 | Open | — | Phase 8 |
 | TD-22 | Open | — | Phase 8 blocker (scaffold + import) |
 | TD-23 | Open | — | Phase 8.5 blocker (E2E migration) |
+| TD-24 | Resolved | Pre-Phase 8 | MVC refactoring: 15 controllers, 11 display renderers, request-response abstraction |

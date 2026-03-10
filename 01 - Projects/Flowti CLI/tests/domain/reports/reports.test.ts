@@ -39,8 +39,43 @@ vi.mock("../../../src/domain/reports/doc-runner.js", () => ({
 	runAllDocs: (...args: unknown[]) => mockRunAllDocs(...args),
 }));
 
+vi.mock("../../../src/infrastructure/request-response.js", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/infrastructure/request-response.js")>("../../../src/infrastructure/request-response.js");
+	return actual;
+});
+
+vi.mock("../../../src/infrastructure/paths.js", () => ({
+	paths: {
+		join: (...args: string[]) => args.join("/"),
+		basename: (p: string) => p.split("/").pop() || "",
+	},
+}));
+
+vi.mock("../../../src/infrastructure/filesystem.js", () => ({
+	disk: {
+		readFileSync: vi.fn(() => ""),
+		readdirSync: vi.fn(() => []),
+	},
+}));
+
+vi.mock("../../../src/domain/reports/cli/report-service.js", () => ({
+	ReportService: vi.fn().mockImplementation(() => ({ reportsDir: "/test/reports" })),
+}));
+
+vi.mock("../../../src/domain/reports/report-archive.js", () => ({
+	discoverArchiveCategories: vi.fn(() => []),
+}));
+
+vi.mock("../../../src/domain/reports/report-diff.js", () => ({
+	diffReports: vi.fn(),
+}));
+
+vi.mock("../../../src/domain/reports/html-export.js", () => ({
+	exportReportToHtml: vi.fn(),
+}));
+
 import * as shellMod from "../../../src/infrastructure/shell.js";
-import { commands } from "../../../src/domain/reports/reports.js";
+import { commands } from "../../../src/controller/reports.controller.js";
 import type { ProjectContext } from "../../../src/infrastructure/types.js";
 
 function makeProject(opts?: {

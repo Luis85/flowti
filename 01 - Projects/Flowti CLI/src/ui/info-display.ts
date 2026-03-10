@@ -1,82 +1,20 @@
 /**
- * info.ts — Project information and diagnostics for the selected project.
+ * info-display.ts — Console display helpers for project info.
  *
- * Supports --format=json for machine-readable output.
+ * Extracted from domain/info/info.ts to separate view from model.
  */
 
-import { paths } from "../../infrastructure/paths.js";
-import { disk } from "../../infrastructure/filesystem.js";
-import { RESET, BOLD, DIM, GREEN, YELLOW, printHeader } from "../../infrastructure/ui.js";
-import { shell } from "../../infrastructure/shell.js";
-import { countFiles } from "../../infrastructure/fs.js";
-import { getSelectedProject } from "../../infrastructure/state.js";
-import { initializeProject } from "../project/project-config.js";
-import { FLOWTI_TOOLS } from "../../infrastructure/types.js";
-import type { ProjectContext } from "../../infrastructure/types.js";
-import { log } from "../../infrastructure/logger.js";
+import { paths } from "../infrastructure/paths.js";
+import { disk } from "../infrastructure/filesystem.js";
+import { RESET, BOLD, DIM, GREEN, YELLOW } from "../infrastructure/ui.js";
+import { shell } from "../infrastructure/shell.js";
+import { countFiles } from "../infrastructure/fs.js";
+import { FLOWTI_TOOLS } from "../infrastructure/types.js";
+import type { ProjectContext } from "../infrastructure/types.js";
+import type { ProjectInfo } from "../domain/info/info.js";
+import { log } from "../infrastructure/logger.js";
 
-// ── Data types ───────────────────────────────────────────────────────
-
-export interface ProjectInfo {
-	name: string;
-	version?: string;
-	path: string;
-	source?: { sourceFiles: number; testFiles: number; ext: string };
-	dependencies?: { production: number; development: number; scripts: number };
-	tools: Array<{ id: string; label: string; command: string | null }>;
-	git?: { branch: string; commit: string; status: string };
-}
-
-// ── Data collection (pure-ish — reads filesystem + git) ──────────────
-
-function collectSourceInfo(projectPath: string): ProjectInfo["source"] | undefined {
-	const srcDir = paths.join(projectPath, "src");
-	const testsDir = paths.join(projectPath, "tests");
-	if (!disk.existsSync(srcDir) && !disk.existsSync(testsDir)) return undefined;
-
-	const tsCount = disk.existsSync(srcDir) ? countFiles(srcDir, ".ts") : 0;
-	const jsCount = disk.existsSync(srcDir) ? countFiles(srcDir, ".js") : 0;
-	const ext = tsCount ? ".ts" : ".js";
-	const testTs = disk.existsSync(testsDir) ? countFiles(testsDir, ".ts") : 0;
-	const testJs = disk.existsSync(testsDir) ? countFiles(testsDir, ".js") : 0;
-	return { sourceFiles: tsCount || jsCount, testFiles: testTs || testJs, ext };
-}
-
-function collectDependencyInfo(ctx: ProjectContext): ProjectInfo["dependencies"] | undefined {
-	if (!ctx.pkg) return undefined;
-	const raw = JSON.parse(disk.readFileSync(paths.join(ctx.path, "package.json"), "utf-8")) as Record<string, unknown>;
-	return {
-		production: Object.keys((raw.dependencies as Record<string, string>) ?? {}).length,
-		development: Object.keys((raw.devDependencies as Record<string, string>) ?? {}).length,
-		scripts: Object.keys(ctx.scripts).length,
-	};
-}
-
-function collectGitInfo(projectPath: string): ProjectInfo["git"] | undefined {
-	const branch = shell.runSilent(`git -C "${projectPath}" rev-parse --abbrev-ref HEAD`);
-	const commit = shell.runSilent(`git -C "${projectPath}" rev-parse --short HEAD`);
-	const dirty = shell.runSilent(`git -C "${projectPath}" status --porcelain`);
-	if (!branch && !commit) return undefined;
-	return { branch: branch ?? "?", commit: commit ?? "?", status: dirty ? "dirty" : "clean" };
-}
-
-export function collectProjectInfo(ctx: ProjectContext): ProjectInfo {
-	return {
-		name: ctx.config.name,
-		version: ctx.pkg?.version,
-		path: ctx.path,
-		tools: FLOWTI_TOOLS.map((t) => ({
-			id: t.id,
-			label: t.label,
-			command: ctx.config.tools?.[t.id] ?? null,
-		})),
-		source: collectSourceInfo(ctx.path),
-		dependencies: collectDependencyInfo(ctx),
-		git: collectGitInfo(ctx.path),
-	};
-}
-
-// ── Human-readable display ───────────────────────────────────────────
+// ── Display helpers ─────────────────────────────────────────────────
 
 function printFileCount(dir: string, label: string): void {
 	const tsCount = countFiles(dir, ".ts");
@@ -190,7 +128,55 @@ function printGit(ctx: ProjectContext): void {
 	log();
 }
 
-function displayInfo(ctx: ProjectContext): void {
+// ── Public display function ─────────────────────────────────────────
+
+export function displayInfo(data: ProjectInfo): void {
+	log(`  ${BOLD}Project${RESET}`);
+	log(`    Name:           ${data.name}`);
+	if (data.version) log(`    Version:        ${data.version}`);
+	log(`    Path:           ${data.path}`);
+	log();
+
+	if (data.source) {
+		log(`  ${BOLD}Source${RESET}`);
+		log(`    Source files:    ${data.source.sourceFiles} ${data.source.ext} files`);
+		log(`    Test files:      ${data.source.testFiles} ${data.source.ext} files`);
+		log();
+	}
+
+	if (data.dependencies) {
+		log(`  ${BOLD}Dependencies${RESET}`);
+		log(`    Production:      ${data.dependencies.production}`);
+		log(`    Development:     ${data.dependencies.development}`);
+		log(`    npm scripts:     ${data.dependencies.scripts}`);
+		log();
+	}
+
+	const mapped = data.tools.filter((t) => t.command !== null);
+	log(`  ${BOLD}Flowti Tools${RESET}`);
+	for (const tool of data.tools) {
+		if (tool.command) {
+			log(`    ${GREEN}${tool.label}${RESET}${DIM} → ${tool.command}${RESET}`);
+		} else {
+			log(`    ${DIM}${tool.label}  (not mapped)${RESET}`);
+		}
+	}
+	log(`    ${DIM}${mapped.length}/${data.tools.length} mapped${RESET}`);
+	log();
+
+	if (data.git) {
+		log(`  ${BOLD}Git${RESET}`);
+		log(`    Branch:          ${data.git.branch}`);
+		log(`    Commit:          ${data.git.commit}`);
+		log(`    Status:          ${data.git.status === "clean" ? `${GREEN}clean${RESET}` : `${YELLOW}dirty${RESET}`}`);
+		log();
+	}
+}
+
+/**
+ * @deprecated Use displayInfo(ProjectInfo) instead. Kept for backward compatibility.
+ */
+export function displayInfoFromContext(ctx: ProjectContext): void {
 	printIdentity(ctx);
 	printSourceFiles(ctx);
 	printDependencies(ctx);
@@ -198,19 +184,4 @@ function displayInfo(ctx: ProjectContext): void {
 	printPublish(ctx);
 	printReview(ctx);
 	printGit(ctx);
-}
-
-// ── Public API ───────────────────────────────────────────────────────
-
-export function showInfo(): void {
-	printHeader("Project Info");
-
-	const projectName = getSelectedProject();
-	if (!projectName) {
-		log(`  ${DIM}No project selected.${RESET}\n`);
-		return;
-	}
-
-	const ctx = initializeProject(projectName);
-	displayInfo(ctx);
 }

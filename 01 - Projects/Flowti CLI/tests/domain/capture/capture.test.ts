@@ -52,9 +52,19 @@ vi.mock("../../../src/infrastructure/document.js", async () => {
 	return { Document };
 });
 
+vi.mock("../../../src/infrastructure/request-response.js", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/infrastructure/request-response.js")>("../../../src/infrastructure/request-response.js");
+	return actual;
+});
+
+vi.mock("../../../src/infrastructure/proc.js", () => ({
+	proc: { cwd: () => "/mock", exit: vi.fn() },
+}));
+
 import * as filesystemMod from "../../../src/infrastructure/filesystem.js";
 import { log } from "../../../src/infrastructure/logger.js";
-import { commands, captureIdea, captureNote, searchCaptures } from "../../../src/domain/capture/capture.js";
+import { commands } from "../../../src/controller/capture.controller.js";
+import { captureIdea, captureNote, searchCaptures } from "../../../src/domain/capture/capture.js";
 import { input } from "../../../src/infrastructure/input.js";
 import { printHeader } from "../../../src/infrastructure/ui.js";
 
@@ -554,10 +564,12 @@ describe("capture:search", () => {
 		fs.dirs.add("/mock/vault/inbox/idea");
 		setDisk(fs);
 		commands["capture:search"]({ query: "idea", format: "json" }, []);
-		expect(capturedJson).toHaveLength(1);
-		const data = capturedJson[0] as Array<Record<string, unknown>>;
-		expect(data).toHaveLength(1);
-		expect(data[0].type).toBe("Idea");
+		const logCalls = vi.mocked(log).mock.calls.map((c) => c[0]);
+		const jsonLine = logCalls.find((c) => typeof c === "string" && c.startsWith("{"));
+		expect(jsonLine).toBeDefined();
+		const data = JSON.parse(jsonLine as string) as { query: string; results: Array<Record<string, unknown>> };
+		expect(data.results).toHaveLength(1);
+		expect(data.results[0].type).toBe("Idea");
 	});
 });
 

@@ -22,25 +22,31 @@ import { proc } from "./infrastructure/proc.js";
 import { printBanner, clearScreen, RESET, DIM, RED, YELLOW, CYAN } from "./infrastructure/ui.js";
 import { runMenu } from "./infrastructure/menu.js";
 
-// ── Domain modules ──────────────────────────────────────────────────
+// ── Domain modules (pure business logic) ────────────────────────────
 
 import { checkPrerequisites } from "./domain/onboarding/onboarding.js";
-import { showHelp, commands as helpCmds } from "./ui/help.js";
-import { commands as infoCmds } from "./domain/info/info.js";
-import { commands as buildCmds } from "./domain/build/build.js";
-import { commands as devToolsCmds } from "./domain/devtools/devtools.js";
-import { commands as makeCmds } from "./domain/make/make.js";
-import { commands as reviewCmds } from "./domain/review/review.js";
-import { commands as publishCmds } from "./domain/publish/publish.js";
-import { commands as reportsCmds } from "./domain/reports/reports.js";
-import { commands as captureCmds } from "./domain/capture/capture.js";
-import { commands as healthCmds } from "./domain/health/health.js";
-import { commands as eventsCmds } from "./domain/events/events.js";
-import { commands as scaffoldCmds } from "./domain/scaffold/scaffold.js";
-import { commands as projectCmds, startMenu, listProjects } from "./domain/project/project.js";
-import { commands as projectDepsCmds } from "./domain/project/project-deps.js";
-import { commands as pluginCmds, loadPlugins, detectCollisions } from "./domain/plugins/plugins.js";
-import { commands as aiToolsCmds } from "./domain/ai-tools/ai-tools.js";
+import { startMenu, listProjects } from "./domain/project/project.js";
+import { loadPlugins, detectCollisions } from "./domain/plugins/plugins.js";
+
+// ── Controllers (command handlers) ──────────────────────────────────
+
+import { showHelp } from "./ui/help.js";
+import { commands as helpCmds } from "./controller/help.controller.js";
+import { commands as infoCmds } from "./controller/info.controller.js";
+import { commands as buildCmds } from "./controller/build.controller.js";
+import { commands as devToolsCmds } from "./controller/devtools.controller.js";
+import { commands as makeCmds } from "./controller/make.controller.js";
+import { commands as reviewCmds } from "./controller/review.controller.js";
+import { commands as publishCmds } from "./controller/publish.controller.js";
+import { commands as reportsCmds } from "./controller/reports.controller.js";
+import { commands as captureCmds } from "./controller/capture.controller.js";
+import { commands as healthCmds } from "./controller/health.controller.js";
+import { commands as eventsCmds } from "./controller/events.controller.js";
+import { commands as scaffoldCmds } from "./controller/scaffold.controller.js";
+import { commands as projectCmds } from "./controller/project.controller.js";
+import { commands as projectDepsCmds } from "./ui/deps-display.js";
+import { commands as pluginCmds } from "./controller/plugins.controller.js";
+import { commands as aiToolsCmds } from "./controller/ai-tools.controller.js";
 import { disk } from "./infrastructure/filesystem.js";
 import { shell } from "./infrastructure/shell.js";
 import { VAULT_ROOT } from "./infrastructure/config.js";

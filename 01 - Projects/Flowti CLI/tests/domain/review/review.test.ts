@@ -23,7 +23,24 @@ vi.mock("../../../src/infrastructure/test-vault.js", () => ({
 	resolveTestVaultRoot: vi.fn((name: string, root: string) => `${root}/../${name}`),
 }));
 
-import { commands } from "../../../src/domain/review/review.js";
+vi.mock("../../../src/infrastructure/paths.js", () => ({
+	paths: {
+		join: (...args: string[]) => args.join("/"),
+		basename: (p: string) => p.split("/").pop() || "",
+	},
+}));
+
+vi.mock("../../../src/infrastructure/request-response.js", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/infrastructure/request-response.js")>("../../../src/infrastructure/request-response.js");
+	return actual;
+});
+
+vi.mock("../../../src/domain/review/change-analysis.js", () => ({
+	analyzeWorkingTree: vi.fn(),
+	analyzeBranchDiff: vi.fn(),
+}));
+
+import { commands } from "../../../src/controller/review.controller.js";
 import { shell } from "../../../src/infrastructure/shell.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
 import { log } from "../../../src/infrastructure/logger.js";

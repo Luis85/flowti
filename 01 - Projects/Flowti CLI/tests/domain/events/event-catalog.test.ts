@@ -88,8 +88,38 @@ vi.mock("../../../src/infrastructure/input.js", () => ({
 	},
 }));
 
+vi.mock("../../../src/infrastructure/proc.js", () => ({
+	proc: { exit: vi.fn(), cwd: () => "/mock" },
+}));
+
+vi.mock("../../../src/infrastructure/request-response.js", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/infrastructure/request-response.js")>("../../../src/infrastructure/request-response.js");
+	return actual;
+});
+
+vi.mock("../../../src/infrastructure/output.js", () => ({
+	resolveFormat: vi.fn(() => "text"),
+	printOutput: vi.fn((_f: string, _d: unknown, render: () => void) => render()),
+}));
+
+vi.mock("../../../src/domain/events/event-flow.js", () => ({
+	saveEventFlowDoc: vi.fn(() => "/test/project/docs/events/flow.md"),
+}));
+
+vi.mock("../../../src/domain/events/event-contracts.js", () => ({
+	loadEventContracts: vi.fn(() => []),
+	validateContracts: vi.fn(() => ({ valid: true, issues: [] })),
+	generateContractsJson: vi.fn(() => "{}"),
+	validatePayload: vi.fn(() => ({ valid: true, errors: [] })),
+	findContract: vi.fn(),
+}));
+
+vi.mock("../../../src/domain/events/event-codegen.js", () => ({
+	generateEventTypes: vi.fn(() => ""),
+}));
+
 import { createEventFile, listEvents, type EventDefinition } from "../../../src/domain/events/event-catalog.js";
-import { commands } from "../../../src/domain/events/event-commands.js";
+import { commands } from "../../../src/controller/events.controller.js";
 import { parsePayloadFlag, collectPayloadFields, collectVersioningInfo } from "../../../src/domain/events/event-payload.js";
 import { versionEvent } from "../../../src/domain/events/event-versioning.js";
 import { input } from "../../../src/infrastructure/input.js";

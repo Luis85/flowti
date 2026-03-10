@@ -9,15 +9,13 @@ import { RESET, DIM, GREEN, RED, YELLOW, printHeader, printMenu } from "../../in
 import { input } from "../../infrastructure/input.js";
 import { Document } from "../../infrastructure/document.js";
 import { clock } from "../../infrastructure/clock.js";
-import { resolveFormat, printOutput } from "../../infrastructure/output.js";
 import { parseFrontmatterContent } from "../../infrastructure/frontmatter.js";
 import type { MenuResult } from "../../infrastructure/types.js";
 import { log } from "../../infrastructure/logger.js";
-import { proc } from "../../infrastructure/proc.js";
 
 // ── Constants ───────────────────────────────────────────────────────
 
-const NOTE_TYPES = ["Task", "Bug", "Note", "Documentation", "Idea"];
+export const NOTE_TYPES = ["Task", "Bug", "Note", "Documentation", "Idea"];
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -29,12 +27,12 @@ function sanitizeFilename(name: string): string {
 		.slice(0, 80);
 }
 
-function parseTags(raw: string | boolean | undefined): string[] {
+export function parseTags(raw: string | boolean | undefined): string[] {
 	if (!raw || typeof raw !== "string") return [];
 	return raw.split(",").map((t) => t.trim()).filter(Boolean);
 }
 
-function createCaptureFile(type: string, title: string, body: string, tags: string[] = []): string | null {
+export function createCaptureFile(type: string, title: string, body: string, tags: string[] = []): string | null {
 	const dir = getCaptureDir(type.toLowerCase());
 	disk.mkdirSync(dir, { recursive: true });
 
@@ -156,7 +154,7 @@ function importSingleItem(item: unknown): boolean | null {
 	return createCaptureFile(type, title, body, tags) !== null;
 }
 
-function importCaptureItems(absPath: string): { created: number; skipped: number; error?: string } {
+export function importCaptureItems(absPath: string): { created: number; skipped: number; error?: string } {
 	try {
 		const raw = JSON.parse(disk.readFileSync(absPath, "utf-8")) as unknown;
 		if (!Array.isArray(raw)) {
@@ -176,83 +174,6 @@ function importCaptureItems(absPath: string): { created: number; skipped: number
 		return { created: 0, skipped: 0, error: `Failed to parse JSON: ${msg}` };
 	}
 }
-
-// ── Non-interactive commands ────────────────────────────────────────
-
-export const commands = {
-	"capture:idea": (flags: Record<string, string | boolean>) => {
-		const text = flags.text;
-		if (!text || typeof text !== "string") {
-			log(`\n  ${RED}Missing --text flag.${RESET}`);
-			log(`  ${DIM}Usage: flowti capture:idea --text="My idea" [--tags=a,b]${RESET}\n`);
-			return;
-		}
-		const tags = parseTags(flags.tags);
-		const title = text.length > 60 ? text.slice(0, 60).trim() : text;
-		createCaptureFile("Idea", title, text, tags);
-	},
-	"capture:note": (flags: Record<string, string | boolean>) => {
-		const type = flags.type;
-		const title = flags.title;
-		if (!type || typeof type !== "string" || !title || typeof title !== "string") {
-			log(`\n  ${RED}Missing --type and/or --title flag.${RESET}`);
-			log(`  ${DIM}Usage: flowti capture:note --type=task --title="My note" [--tags=a,b]${RESET}\n`);
-			return;
-		}
-		const normalized = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
-		if (!NOTE_TYPES.includes(normalized)) {
-			log(`\n  ${RED}Invalid type: ${type}${RESET}`);
-			log(`  ${DIM}Valid types: ${NOTE_TYPES.join(", ")}${RESET}\n`);
-			return;
-		}
-		const tags = parseTags(flags.tags);
-		createCaptureFile(normalized, title, "", tags);
-	},
-	"capture:search": (flags: Record<string, string | boolean>) => {
-		const query = flags.query;
-		if (!query || typeof query !== "string") {
-			log(`\n  ${RED}Missing --query flag.${RESET}`);
-			log(`  ${DIM}Usage: flowti capture:search --query="keyword" [--type=idea] [--tag=urgent]${RESET}\n`);
-			return;
-		}
-		const typeFilter = typeof flags.type === "string" ? flags.type.charAt(0).toUpperCase() + flags.type.slice(1).toLowerCase() : undefined;
-		const tagFilter = typeof flags.tag === "string" ? flags.tag : undefined;
-		const results = searchCaptures(query, typeFilter, tagFilter);
-		const format = resolveFormat(flags);
-		printOutput(format, results, () => {
-			if (results.length === 0) {
-				log(`\n  ${DIM}No captures matching "${query}".${RESET}\n`);
-				return;
-			}
-			log(`\n  ${GREEN}Found ${results.length} capture${results.length === 1 ? "" : "s"}:${RESET}\n`);
-			for (const r of results) {
-				const tagsStr = r.tags.length > 0 ? ` ${DIM}[${r.tags.join(", ")}]${RESET}` : "";
-				log(`  ${DIM}${r.type}${RESET}  ${r.title}${tagsStr}`);
-			}
-			log();
-		});
-	},
-	"capture:import": (flags: Record<string, string | boolean>) => {
-		const file = flags.file;
-		if (!file || typeof file !== "string") {
-			log(`\n  ${RED}Missing --file flag.${RESET}`);
-			log(`  ${DIM}Usage: flowti capture:import --file=items.json${RESET}`);
-			log(`  ${DIM}JSON format: [{ "type": "Idea", "title": "...", "body": "...", "tags": ["a"] }]${RESET}\n`);
-			return;
-		}
-		const absPath = paths.isAbsolute(file) ? file : paths.join(proc.cwd(), file);
-		if (!disk.existsSync(absPath)) {
-			log(`\n  ${RED}File not found: ${file}${RESET}\n`);
-			return;
-		}
-		const result = importCaptureItems(absPath);
-		if (result.error) {
-			log(`\n  ${RED}${result.error}${RESET}\n`);
-			return;
-		}
-		log(`\n  ${GREEN}✓${RESET} Imported ${result.created} item${result.created === 1 ? "" : "s"}${result.skipped > 0 ? `, ${result.skipped} skipped` : ""}\n`);
-	},
-};
 
 // ── Search ──────────────────────────────────────────────────────────
 

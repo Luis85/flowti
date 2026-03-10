@@ -2,9 +2,9 @@
 type: Architecture
 domain: CLI
 title: Flowti CLI — Architecture Document
-version: 18
+version: 19
 created: 2026-03-07
-updated: 2026-03-09
+updated: 2026-03-10
 status: living-document
 ---
 
@@ -18,7 +18,7 @@ status: living-document
 
 The Flowti CLI is a **definition-driven project orchestrator** that ships as a self-contained Node.js binary. It manages multi-project development workflows — scaffolding, building, testing, reviewing, publishing, and reporting — from a single interactive menu or via non-interactive commands for AI agent tool use.
 
-**Scale**: 171 source files, 110 test files (1,766 tests, 100 suites), 18 domain modules, 21 infrastructure modules. Zero production dependencies — runs on Node.js built-ins only.
+**Scale**: 258 source files, 146 test files (2,572 tests, 141 suites), 18 domain modules, 29 infrastructure modules, 15 controllers, 30 UI view files. Zero production dependencies — runs on Node.js built-ins only.
 
 ---
 
@@ -129,6 +129,44 @@ flowti.cmd
 └───────────┬──────────────────────────────────────────────────┘
             │
 ┌───────────▼──────────────────────────────────────────────────┐
+│                  Controller Layer (15 controllers)            │
+│                                                              │
+│  ┌───────────┐ ┌──────────┐ ┌────────┐ ┌─────────┐          │
+│  │ ai-tools  │ │  build   │ │capture │ │devtools │          │
+│  └───────────┘ └──────────┘ └────────┘ └─────────┘          │
+│  ┌───────────┐ ┌──────────┐ ┌────────┐ ┌─────────┐          │
+│  │  events   │ │  health  │ │  help  │ │  info   │          │
+│  └───────────┘ └──────────┘ └────────┘ └─────────┘          │
+│  ┌───────────┐ ┌──────────┐ ┌────────┐ ┌─────────┐          │
+│  │   make    │ │ plugins  │ │project │ │ publish │          │
+│  └───────────┘ └──────────┘ └────────┘ └─────────┘          │
+│  ┌───────────┐ ┌──────────┐ ┌────────┐                      │
+│  │  reports  │ │  review  │ │scaffold│                      │
+│  └───────────┘ └──────────┘ └────────┘                      │
+│                                                              │
+│  Thin handlers: CliRequest → domain service → CliResponse    │
+│  No log() calls, no ANSI — returns dataResponse(model, fn)  │
+└───────────┬──────────────────────────────────────────────────┘
+            │
+┌───────────▼──────────────────────────────────────────────────┐
+│                     UI / View Layer (30 files)                │
+│                                                              │
+│  Display renderers:       Typed data models:                 │
+│  ┌──────────────────┐     ┌───────────────────────┐          │
+│  │ health-display   │     │ HealthViewModel       │          │
+│  │ build-display    │     │ BuildAutoModel        │          │
+│  │ reports-display  │     │ AuditResultModel      │          │
+│  │ scaffold-display │     │ ScaffoldResultModel   │          │
+│  │ plugins-display  │     │ PluginListItem[]      │          │
+│  │ events-display   │     │ EventListModel        │          │
+│  │ capture-display  │     │ CaptureResultModel    │          │
+│  │ ...10 more       │     │ ...                   │          │
+│  └──────────────────┘     └───────────────────────┘          │
+│  common-renderers.ts — shared: renderError, renderSuccess    │
+│  Interactive menus remain in ui/ (mainMenu, help, reports)   │
+└───────────┬──────────────────────────────────────────────────┘
+            │
+┌───────────▼──────────────────────────────────────────────────┐
 │                       Domain Layer (18 modules)              │
 │                                                              │
 │  ┌─────────┐ ┌──────────┐ ┌────────┐ ┌─────────┐            │
@@ -147,13 +185,13 @@ flowti.cmd
 │  │ Plugins │ │ AI Tools │ │     Health       │              │
 │  └─────────┘ └──────────┘ └──────────────────┘              │
 │                                                              │
-│  Each domain exports:                                        │
-│    commands: Record<string, CommandHandler>  (non-interactive)│
-│    menu() or xxxMenu()                      (interactive)    │
+│  Pure business logic only — no log(), no ANSI, no I/O       │
+│  Exports: services, pure functions, types                    │
+│  Interactive menus delegated to ui/ layer                    │
 └───────────┬──────────────────────────────────────────────────┘
             │
 ┌───────────▼──────────────────────────────────────────────────┐
-│                  Infrastructure Layer (21 modules)            │
+│                  Infrastructure Layer (29 modules)            │
 │                                                              │
 │  ┌────────┐ ┌──────────┐ ┌────────┐ ┌─────────┐ ┌────────┐  │
 │  │ config │ │ dispatch │ │  menu  │ │  shell  │ │  state │  │
@@ -167,21 +205,22 @@ flowti.cmd
 │  ┌────────────┐ ┌─────────────┐ ┌────────┐ ┌──────────────┐  │
 │  │ test-vault │ │ frontmatter │ │ errors │ │cmd-registry  │  │
 │  └────────────┘ └─────────────┘ └────────┘ └──────────────┘  │
-│  ┌────────┐ ┌────────┐                                       │
-│  │ output │ │ types  │                                       │
-│  └────────┘ └────────┘                                       │
+│  ┌────────┐ ┌────────┐ ┌──────────────────┐                  │
+│  │ output │ │ types  │ │request-response  │                  │
+│  └────────┘ └────────┘ └──────────────────┘                  │
 │                                                              │
 │  All I/O behind abstractions: IFileSystem, IShell, IProcess  │
 │  All time behind clock abstraction                           │
+│  request-response.ts: CliRequest, CliResponse, adapt()       │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-**Dependency rule**: Domain → Infrastructure. Never Infrastructure → Domain. Never Domain → Domain (cross-domain). `main.ts` is the sole composition root.
+**Dependency rule**: Controller → Domain → Infrastructure. Controller → UI (renderers). Never Infrastructure → Domain. Never Domain → Domain (cross-domain). `main.ts` is the sole composition root.
 
-### 2.5 Non-Interactive Command Dispatch
+### 2.5 Non-Interactive Command Dispatch (MVC)
 
 ```
-process.argv → parseArgs() → { command, flags }
+process.argv → parseArgs() → { command, flags, rawArgs }
                                      │
                               resolveCommand()  ← pure function, no I/O
                                      │
@@ -192,7 +231,41 @@ process.argv → parseArgs() → { command, flags }
                          │  ├── "no-project"          │
                          │  ├── "unknown"             │
                          │  └── "none"   → interactive│
-                         └───────────────────────────┘
+                         └────────────┬──────────────┘
+                                      │ "run"
+                                      ▼
+                              CommandHandler(flags, rawArgs, command, project)
+                                      │
+                              adapt() bridges ControllerAction → CommandHandler
+                                      │
+                              ┌───────▼───────────────┐
+                              │  CliRequest            │
+                              │  ├── command: string   │
+                              │  ├── flags: Record     │
+                              │  ├── rawArgs: string[] │
+                              │  ├── project?: ctx     │
+                              │  └── format: OutputFmt │
+                              └───────┬───────────────┘
+                                      │
+                              Controller action(req)
+                              ├── Calls domain services
+                              ├── Returns CliResponse<T>
+                              │   ├── data: T (typed model)
+                              │   ├── render: (T) → void
+                              │   └── exitCode?: number
+                              └── Or returns void (fire-and-forget)
+                                      │
+                              handleResponse(response, format)
+                              ├── format=json → JSON.stringify(data)
+                              ├── format=text → render(data)
+                              └── exitCode ≠ 0 → proc.exit()
+```
+
+**Request/Response pattern** (Symfony-inspired MVC):
+- Controllers are thin: parse flags → call domain → return `dataResponse(model, renderer)`
+- Renderers live in `ui/*-display.ts` — pure functions that take typed models and call `log()` with ANSI
+- `handleResponse()` at the edge dispatches JSON vs human-readable output
+- Fire-and-forget commands (e.g. `build`, `test`) call `shell.run()` and return void
 
 PROJECT_FREE commands: help, project, capture:*, scaffold:*,
   plugin:*, ai:*
@@ -352,6 +425,7 @@ The CLI is bundled by esbuild into a single `main.js`:
 
 ```
 tests/
+├── controller/        ← Controller tests (request → response assertions)
 ├── domain/            ← Unit tests per domain (mirrors src/domain/)
 ├── infrastructure/    ← Unit tests per infrastructure module
 ├── integration/       ← Multi-module integration tests
@@ -570,9 +644,75 @@ Previously only format 1 was captured, causing TS compilation errors during Type
 
 ### ~~4.17 E2E Onboarding Journey (FR-12)~~ — moved to 4.5 (DONE)
 
+### 4.18 MVC Refactoring — Controller / UI / Domain Separation (TD-24) — DONE
+
+Symfony-inspired MVC refactoring that separates command handling, business logic, and presentation into distinct layers. All 84 non-interactive commands now flow through the Controller → Domain → UI pattern.
+
+**New layers:**
+
+| Layer | Directory | Files | Responsibility |
+|-------|-----------|-------|----------------|
+| **Controller** | `src/controller/` | 15 | Thin handlers: parse flags, call domain, return `CliResponse<T>` |
+| **UI / View** | `src/ui/*-display.ts` | 11 | Typed renderer functions: take data models, produce ANSI output |
+| **Domain** | `src/domain/` | 183 | Pure business logic: services, scoring, validation, generation |
+| **Infrastructure** | `src/infrastructure/` | 29 | I/O abstractions, request-response types, command registry |
+
+**Request-Response abstraction** (`infrastructure/request-response.ts`):
+
+```typescript
+interface CliRequest {
+  command: string;
+  flags: Record<string, unknown>;
+  rawArgs: string[];
+  project?: ProjectContext;
+  format: OutputFormat;
+}
+
+interface CliResponse<T> {
+  data: T;
+  render: (data: T) => void;
+  exitCode?: number;
+}
+
+// Factory: dataResponse(model, renderer) → CliResponse<T>
+// Bridge: adapt(action) → CommandHandler (for CommandRegistry)
+// Edge:  handleResponse(response, format) → JSON or rendered output
+```
+
+**Controller pattern** (exemplar: `health.controller.ts`):
+
+```typescript
+const actions: Record<string, ControllerAction> = {
+  health: (req) => {
+    const snapshot = collectHealth(req.project!);
+    const score = scoreHealth(snapshot);
+    const model: HealthViewModel = { snapshot, score, trend };
+    return dataResponse(model, renderHealthDashboard);
+  },
+};
+
+export const commands = Object.fromEntries(
+  Object.entries(actions).map(([key, action]) => [key, adapt(action)]),
+);
+```
+
+**Command categories:**
+
+| Pattern | Count | Behavior |
+|---------|-------|----------|
+| Data + Render | ~50 | Returns `dataResponse(model, renderer)` — supports `--format=json` |
+| Fire-and-forget | ~25 | Calls `shell.run()`, returns void |
+| Interactive menu | ~9 | Stays in `ui/` layer (menus, prompts) |
+
+**Files created**: 15 controllers, 11 display renderers (`ui/*-display.ts`), `ui/common-renderers.ts` (shared ErrorModel, SuccessModel, NoProjectModel), `infrastructure/request-response.ts`.
+
+**Files deleted**: 8 empty domain files after command extraction (build.ts, devtools.ts, review.ts, reports.ts, publish.ts, scaffold-commands.ts, event-commands.ts, make-commands.ts).
+
+**Impact**: Domain files no longer import ANSI color codes or call `log()`. Controllers have no display logic. Renderers are typed and testable. `--format=json` works uniformly via `handleResponse()`.
+
 ---
 
-### 4.18 Target Architecture: Future State
+### 4.19 Target Architecture: Future State
 
 The target architecture evolves the CLI from a **tool orchestrator** into a **project intelligence platform**. The core principles (self-contained binary, definition-driven, zero dependencies, progressive opt-in) remain unchanged. The evolution adds three architectural capabilities:
 
@@ -580,12 +720,18 @@ The target architecture evolves the CLI from a **tool orchestrator** into a **pr
 2. **Health Intelligence** — Health metrics become actionable through scoring, trends, and non-interactive access
 3. **Contract System** — Event contracts become a test-time validation layer, bridging documentation and runtime
 
-#### 4.18.1 Target Layer Architecture
+#### 4.19.1 Target Layer Architecture
+
+> **Note**: The MVC layer separation (Controller / UI / Domain) described in §4.18 is now complete. The diagram below shows the remaining target subsystems that sit within the domain and infrastructure layers.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                       Entry Point                            │
 │  main.ts — orchestrator (two-loop menu + command dispatch)   │
+└───────────┬──────────────────────────────────────────────────┘
+            │
+┌───────────▼──────────────────────────────────────────────────┐
+│  Controller Layer (15) → UI/View Layer (30) — see §2.4      │
 └───────────┬──────────────────────────────────────────────────┘
             │
 ┌───────────▼──────────────────────────────────────────────────┐
@@ -642,7 +788,7 @@ The target architecture evolves the CLI from a **tool orchestrator** into a **pr
 └──────────────────────────────────────────────────────────────┘
 ```
 
-#### 4.18.2 Execution Engine Architecture
+#### 4.19.2 Execution Engine Architecture
 
 The Execution Engine unifies plugin and AI tool runtime into a shared subsystem. Plugins now propagate exit codes via `process.exitCode` (Phase 4.2). AI Tools are metadata-only.
 
@@ -690,7 +836,7 @@ The Execution Engine unifies plugin and AI tool runtime into a shared subsystem.
 - Parameter substitution uses `{{paramName}}` syntax (same as scaffold definitions)
 - Timeout defaults to 60s, configurable per command
 
-#### 4.18.3 Health Intelligence Architecture
+#### 4.19.3 Health Intelligence Architecture
 
 The Health Dashboard evolves from an interactive-only display into a full metrics pipeline with scoring, persistence, and trend analysis.
 
@@ -753,7 +899,7 @@ The Health Dashboard evolves from an interactive-only display into a full metric
 }
 ```
 
-#### 4.18.4 Contract System Architecture
+#### 4.19.4 Contract System Architecture
 
 Event contracts evolve from metadata parsing into a test-time validation layer and TypeScript code generator.
 
@@ -797,7 +943,7 @@ Event contracts evolve from metadata parsing into a test-time validation layer a
 └─────────────────────────────────────────────────────────┘
 ```
 
-#### 4.18.5 Enhanced Capture Architecture
+#### 4.19.5 Enhanced Capture Architecture
 
 Capture evolves from single-line text input to a structured note system with metadata and retrieval.
 
@@ -832,7 +978,7 @@ Capture evolves from single-line text input to a structured note system with met
 └─────────────────────────────────────────────────────────┘
 ```
 
-#### 4.18.6 Target Non-Interactive Command Surface
+#### 4.19.6 Target Non-Interactive Command Surface
 
 The complete target CLI surface for AI agent tool use:
 
@@ -873,7 +1019,7 @@ ci:generate                       ← IMP-11
 update                            ← IMP-12
 ```
 
-#### 4.18.7 Target Configuration Schema
+#### 4.19.7 Target Configuration Schema
 
 The full target configuration schema for `flowti.config.json`:
 

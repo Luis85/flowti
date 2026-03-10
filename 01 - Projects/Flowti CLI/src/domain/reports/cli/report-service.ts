@@ -17,6 +17,23 @@ export interface ReportServiceOptions {
 	referenceDir?: string;
 }
 
+function readConfigDirs(projectPath: string) {
+	const { config } = readProjectConfig(projectPath);
+	const reportsRel = config?.reports?.dir ?? "reports";
+	const referenceRel = config?.docs?.referenceDir ?? "docs/reference";
+	return { reportsRel, referenceRel };
+}
+
+function resolveDirs(projectPath: string, opts?: ReportServiceOptions) {
+	if (opts?.reportsDir && opts?.referenceDir) {
+		return { reportsDir: opts.reportsDir, referenceDir: opts.referenceDir, reportsRelDir: "reports" };
+	}
+	const { reportsRel, referenceRel } = readConfigDirs(projectPath);
+	const reportsDir = opts?.reportsDir ?? paths.join(projectPath, reportsRel);
+	const referenceDir = opts?.referenceDir ?? paths.join(projectPath, referenceRel);
+	return { reportsDir, referenceDir, reportsRelDir: reportsRel };
+}
+
 export class ReportService {
 	readonly projectPath: string;
 	readonly reportsDir: string;
@@ -25,17 +42,10 @@ export class ReportService {
 
 	constructor(projectPath: string = CLI_PROJECT, opts?: ReportServiceOptions) {
 		this.projectPath = projectPath;
-		if (opts?.reportsDir && opts?.referenceDir) {
-			this.reportsDir = opts.reportsDir;
-			this.referenceDir = opts.referenceDir;
-			this.reportsRelDir = "reports";
-		} else {
-			const { config } = readProjectConfig(projectPath);
-			const relDir = config?.reports?.dir ?? "reports";
-			this.reportsRelDir = relDir;
-			this.reportsDir = opts?.reportsDir ?? paths.join(projectPath, relDir);
-			this.referenceDir = opts?.referenceDir ?? paths.join(projectPath, config?.docs?.referenceDir ?? "docs/reference");
-		}
+		const resolved = resolveDirs(projectPath, opts);
+		this.reportsDir = resolved.reportsDir;
+		this.referenceDir = resolved.referenceDir;
+		this.reportsRelDir = resolved.reportsRelDir;
 	}
 
 	/** Resolve an absolute path to a subdirectory within the reports dir. */

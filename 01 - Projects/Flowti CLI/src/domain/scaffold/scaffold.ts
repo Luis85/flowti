@@ -6,7 +6,6 @@
  * project structure, dependencies, and CLI tool integration.
  */
 
-export { commands } from "./scaffold-commands.js";
 export { menu, scaffold, listDefinitions, loadAllDefinitionsFromProject, getKnownTemplateIds, BUNDLED_DEFINITIONS } from "./scaffold-service.js";
 export type { ScaffoldOptions } from "./scaffold-service.js";
 export type { ScaffoldDefinition, ScaffoldVariables, FileEntry } from "./scaffold-types.js";
