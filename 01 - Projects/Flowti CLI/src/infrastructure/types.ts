@@ -53,6 +53,8 @@ export interface IShell {
 	runCapture(cmd: string, opts?: { cwd?: string; timeout?: number }): string;
 	/** Run a command capturing output and exit code. */
 	runCaptureStatus(cmd: string, opts?: { cwd?: string; timeout?: number }): { output: string; exitCode: number };
+	/** Run a command capturing stdout, stderr, and exit code separately. */
+	runCaptureDetailed(cmd: string, opts?: { cwd?: string; timeout?: number; env?: Record<string, string> }): { stdout: string; stderr: string; exitCode: number };
 	/** Spawn a command in the background with piped stdout/stderr. */
 	spawnBackground(cmd: string, opts?: { cwd?: string; env?: Record<string, string> }): BackgroundProcess;
 }

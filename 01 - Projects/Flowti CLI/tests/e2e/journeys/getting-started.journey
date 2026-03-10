@@ -1,54 +1,180 @@
 {
 	"journey": "Getting Started",
 	"chapter": 1,
-	"description": "The Onboarding and Installation before starting",
+	"description": "Bootstrap the Flowti CLI, create a project, add components, create a journey, and verify the full getting-started flow.",
 	"type": "functional",
-	"category": "general",
-	"tools": [
-		"command",
-		"wait",
-		"screenshot",
-		"assert"
-	],
+	"category": "cli",
+	"tools": ["command", "assert", "wait", "file-exists", "log"],
 	"lifecycle": {
-		"enablePlugin": true,
-		"checkInstalled": true,
-		"startTrace": true,
-		"openActivityLog": true
+		"enablePlugin": false,
+		"checkInstalled": false,
+		"startTrace": false,
+		"openActivityLog": false
 	},
 	"steps": [
 		{
-			"id": "getting-started-01",
-			"title": "Open Getting Started",
-			"guideSection": 1,
-			"description": "Navigate to the Getting Started feature.",
+			"id": "gs-01",
+			"title": "CLI bootstrap — help is available",
+			"description": "Run the CLI entry point and verify help output is returned.",
+			"acceptanceCriteria": [
+				{
+					"id": "ac-01-1",
+					"description": "CLI exits with code 0"
+				},
+				{
+					"id": "ac-01-2",
+					"description": "Help output contains available commands"
+				}
+			],
 			"actions": [
 				{
-					"tool": "command",
-					"id": "flowti:open-getting-started"
-				},
-				{
-					"tool": "wait",
-					"ms": 500
-				},
-				{
-					"tool": "screenshot"
+					"tool": "assert",
+					"type": "exit-code",
+					"command": "node dist/main.js help",
+					"expected": 0
 				}
 			]
 		},
 		{
-			"id": "getting-started-02",
-			"title": "Verify Getting Started is displayed",
-			"guideSection": 1,
-			"description": "Assert that the Getting Started view loaded correctly.",
+			"id": "gs-02",
+			"title": "List available scaffolds",
+			"description": "Verify that scaffold definitions are discoverable.",
+			"acceptanceCriteria": [
+				{
+					"id": "ac-02-1",
+					"description": "scaffold:list returns available definitions"
+				}
+			],
 			"actions": [
 				{
 					"tool": "assert",
-					"type": "visible",
-					"selector": ".flowti-container"
+					"type": "exit-code",
+					"command": "node dist/main.js scaffold:list",
+					"expected": 0
+				}
+			]
+		},
+		{
+			"id": "gs-03",
+			"title": "Create a new project via scaffold",
+			"description": "Scaffold a new project and verify the project directory structure.",
+			"acceptanceCriteria": [
+				{
+					"id": "ac-03-1",
+					"description": "scaffold:new creates the project directory"
 				},
 				{
-					"tool": "screenshot"
+					"id": "ac-03-2",
+					"description": "Project contains package.json"
+				},
+				{
+					"id": "ac-03-3",
+					"description": "Project contains flowti.config.json"
+				}
+			],
+			"components": ["scaffold-service", "scaffold-definitions"],
+			"actions": [
+				{
+					"tool": "command",
+					"id": "node dist/main.js scaffold:new --name=test-app --template=default --non-interactive"
+				},
+				{
+					"tool": "assert",
+					"type": "file-exists",
+					"path": "{{projectRoot}}/test-app/package.json"
+				},
+				{
+					"tool": "assert",
+					"type": "file-exists",
+					"path": "{{projectRoot}}/test-app/configs/flowti.config.json"
+				}
+			]
+		},
+		{
+			"id": "gs-04",
+			"title": "View project info",
+			"description": "Select the created project and retrieve its info.",
+			"acceptanceCriteria": [
+				{
+					"id": "ac-04-1",
+					"description": "info command returns project details"
+				}
+			],
+			"actions": [
+				{
+					"tool": "assert",
+					"type": "exit-code",
+					"command": "node dist/main.js info --project=test-app",
+					"expected": 0
+				}
+			]
+		},
+		{
+			"id": "gs-05",
+			"title": "Create a component",
+			"description": "Add a Layout component to the project and verify the file is created.",
+			"acceptanceCriteria": [
+				{
+					"id": "ac-05-1",
+					"description": "make:component creates the component file"
+				}
+			],
+			"components": ["component-registry", "component-makers"],
+			"actions": [
+				{
+					"tool": "command",
+					"id": "node dist/main.js make:component --project=test-app --name=AppLayout --type=layout"
+				},
+				{
+					"tool": "assert",
+					"type": "file-exists",
+					"path": "{{projectRoot}}/test-app/src/components/AppLayout.ts"
+				}
+			]
+		},
+		{
+			"id": "gs-06",
+			"title": "Create a journey",
+			"description": "Add a getting-started journey to the project using the CLI.",
+			"acceptanceCriteria": [
+				{
+					"id": "ac-06-1",
+					"description": "make:journey creates a .journey definition file"
+				},
+				{
+					"id": "ac-06-2",
+					"description": "make:journey creates a .test.ts test file"
+				}
+			],
+			"components": ["journey-builder", "journey-templates"],
+			"actions": [
+				{
+					"tool": "command",
+					"id": "node dist/main.js make:journey --project=test-app --name=smoke-test --non-interactive"
+				},
+				{
+					"tool": "assert",
+					"type": "file-exists",
+					"path": "{{projectRoot}}/test-app/tests/e2e/journeys/smoke-test.journey"
+				}
+			]
+		},
+		{
+			"id": "gs-07",
+			"title": "Run a health check",
+			"description": "Execute the health check on the project to verify project quality scoring.",
+			"acceptanceCriteria": [
+				{
+					"id": "ac-07-1",
+					"description": "health command completes without error"
+				}
+			],
+			"actions": [
+				{
+					"tool": "assert",
+					"type": "exit-code",
+					"command": "node dist/main.js health --project=test-app",
+					"expected": 0
 				}
 			]
 		}

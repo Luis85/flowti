@@ -29,8 +29,14 @@ describe("journeyDefinitionTemplate", () => {
 
 	it("contains lifecycle config", () => {
 		const parsed = JSON.parse(result);
-		expect(parsed.lifecycle.enablePlugin).toBe(true);
-		expect(parsed.lifecycle.startTrace).toBe(true);
+		expect(parsed.lifecycle.enablePlugin).toBe(false);
+		expect(parsed.lifecycle.startTrace).toBe(false);
+	});
+
+	it("steps have acceptanceCriteria", () => {
+		const parsed = JSON.parse(result);
+		expect(parsed.steps[0].acceptanceCriteria).toBeDefined();
+		expect(parsed.steps[0].acceptanceCriteria.length).toBeGreaterThan(0);
 	});
 
 	it("contains at least 2 steps", () => {
@@ -54,25 +60,27 @@ describe("journeyDefinitionTemplate", () => {
 describe("journeyTestTemplate", () => {
 	const result = journeyTestTemplate("getting-started");
 
-	it("uses describe.skip to prevent running without Obsidian", () => {
-		expect(result).toContain("describe.skip");
+	it("uses loadJourney and runStep pattern", () => {
+		expect(result).toContain("loadJourney");
+		expect(result).toContain("runStep");
+		expect(result).toContain("runJourney");
 	});
 
 	it("contains the journey slug in the describe name", () => {
 		expect(result).toContain('Journey: getting-started');
 	});
 
-	it("contains the journey slug in the journey path", () => {
-		expect(result).toContain("getting-started.journey");
+	it("contains the journey slug in loadJourney call", () => {
+		expect(result).toContain('"getting-started"');
 	});
 
-	it("contains commented executeJourney code", () => {
-		expect(result).toContain("executeJourney");
+	it("imports from journey index", () => {
+		expect(result).toContain("domain/e2e/journey/index.js");
 	});
 
-	it("contains run instructions", () => {
-		expect(result).toContain("npm run test:e2e");
-		expect(result).toContain("--journey=getting-started");
+	it("has developer extension section", () => {
+		expect(result).toContain("Developer extensions");
+		expect(result).toContain("Custom: getting-started");
 	});
 });
 

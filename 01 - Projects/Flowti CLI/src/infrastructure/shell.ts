@@ -76,6 +76,23 @@ class NodeShell implements IShell {
 		return { output, exitCode: result.status ?? 1 };
 	}
 
+	runCaptureDetailed(cmd: string, opts: { cwd?: string; timeout?: number; env?: Record<string, string> } = {}): { stdout: string; stderr: string; exitCode: number } {
+		const result = spawnSync(cmd, {
+			cwd: opts.cwd ?? CLI_PROJECT,
+			encoding: "utf-8",
+			timeout: opts.timeout ?? 30_000,
+			windowsHide: true,
+			shell: true,
+			stdio: ["pipe", "pipe", "pipe"],
+			env: opts.env ? { ...process.env, ...opts.env } : undefined,
+		});
+		return {
+			stdout: result.stdout ?? "",
+			stderr: result.stderr ?? "",
+			exitCode: result.status ?? 1,
+		};
+	}
+
 	execFile(cmd: string, args: string[], opts: { timeout?: number; stdio?: string } = {}): string | null {
 		try {
 			const result = execFileSync(cmd, args, {
