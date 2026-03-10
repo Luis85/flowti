@@ -19,7 +19,8 @@ import type { ProjectContext } from "../../infrastructure/types.js";
 import { log } from "../../infrastructure/logger.js";
 import { resolveFormat, printOutput } from "../../infrastructure/output.js";
 import { runAllReports } from "./report-runner.js";
-import { runGenerator, hasGenerator, runReference, listReferenceIds } from "./generator-registry.js";
+import { runAllDocs } from "./doc-runner.js";
+import { runGenerator, hasGenerator } from "./generator-registry.js";
 import { ReportService } from "./cli/report-service.js";
 import { discoverArchiveCategories } from "./report-archive.js";
 import { diffReports } from "./report-diff.js";
@@ -45,35 +46,9 @@ export const commands: Record<string, (flags: Record<string, string | boolean>, 
 		const result = await runAllReports(generators, p!.path, { parallel: !!flags.parallel });
 		log(`  ${GREEN}✓${RESET} Audit complete: ${result.passed} passed, ${result.failed} failed.\n`);
 	},
-	docs: (_f, _r, _c, p) => {
-		const docsConfig = p?.config.docs;
-		const configGenerators = docsConfig?.generators ?? [];
-
-		log(`\n  ${DIM}Updating documentation...${RESET}\n`);
-
-		// Run config-defined generators (e.g. TypeDoc)
-		for (const gen of configGenerators) {
-			log(`  ${DIM}▸${RESET} ${gen.label}`);
-			const { exitCode } = shell.runCaptureStatus(gen.command, { cwd: p?.path });
-			if (exitCode === 0) {
-				log(`  ${GREEN}✓${RESET} ${gen.label}`);
-			} else {
-				log(`  ${RED}✗${RESET} ${gen.label} (exit ${exitCode})`);
-			}
-		}
-
-		// Run built-in reference generators
-		for (const refId of listReferenceIds()) {
-			const label = refId.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-			const result = runReference(refId, p!.path);
-			if (result && result.success) {
-				log(`  ${GREEN}✓${RESET} ${label}`);
-			} else {
-				log(`  ${RED}✗${RESET} ${label}`);
-			}
-		}
-
-		log();
+	docs: async (_f, _r, _c, p) => {
+		const configGenerators = p?.config.docs?.generators ?? [];
+		await runAllDocs(configGenerators, p!.path);
 	},
 	"reports:diff": (flags, _r, _c, p) => {
 		if (!p) {

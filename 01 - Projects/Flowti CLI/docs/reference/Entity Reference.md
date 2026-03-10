@@ -1,7 +1,7 @@
 ---
 type: EntityReference
-date: "2026-03-09T01:53:29.939Z"
-total_entities: 9
+date: "2026-03-10T14:59:57.170Z"
+total_entities: 14
 tags:
   - reference
   - entities
@@ -16,7 +16,7 @@ The entity dictionary of the Flowti CLI ecosystem. Each entry describes what the
 
 | Entity | Commands | Related To |
 |---|---|---|
-| [[#Flowti Project\|Flowti Project]] | `project`, `scaffold:new`, `scaffold:list`, `info` | Report, Component, Event Catalog, Component Library |
+| [[#Flowti Project\|Flowti Project]] | `project`, `scaffold:new`, `scaffold:list`, `info` | Report, Component, Event Catalog, Component Library, Health Snapshot, Scaffold Definition |
 | [[#Journey\|Journey]] | `make:journey`, `e2e`, `e2e:list` | Test, Test Suite, Report |
 | [[#Component\|Component]] | `make:component`, `components` | Component Library, Flowti Project |
 | [[#Component Library\|Component Library]] | `components` | Component, Flowti Project |
@@ -25,6 +25,11 @@ The entity dictionary of the Flowti CLI ecosystem. Each entry describes what the
 | [[#Event\|Event]] | `events:add`, `events:list`, `events:export` | Event Catalog, Flowti Project |
 | [[#Event Catalog\|Event Catalog]] | `events:list`, `events:export` | Event, Flowti Project |
 | [[#Report\|Report]] | `report:test`, `report:coverage`, `report:codebase`, `report:complexity`, `report:status`, `report:summary`, `reports` | Test, Test Suite, Flowti Project |
+| [[#Build Manifest\|Build Manifest]] | `build:check`, `build:auto`, `build:record` | Flowti Project, Report |
+| [[#Plugin Hooks\|Plugin Hooks]] | — | Flowti Project |
+| [[#Scaffold Definition\|Scaffold Definition]] | `scaffold:new`, `scaffold:list`, `marketplace:import` | Flowti Project, Export Bundle |
+| [[#Export Bundle\|Export Bundle]] | `marketplace:export` | Scaffold Definition, Flowti Project |
+| [[#Health Snapshot\|Health Snapshot]] | `health` | Report, Flowti Project |
 
 ## Flowti Project
 
@@ -62,6 +67,8 @@ Config keys: `name (required), tools, make, reports, docs, publish, review`
 - [[#Component|Component]]
 - [[#Event Catalog|Event Catalog]]
 - [[#Component Library|Component Library]]
+- [[#Health Snapshot|Health Snapshot]]
+- [[#Scaffold Definition|Scaffold Definition]]
 
 ---
 
@@ -319,6 +326,156 @@ Config keys: `reports.dir, reports.generators[]`
 
 - [[#Test|Test]]
 - [[#Test Suite|Test Suite]]
+- [[#Flowti Project|Flowti Project]]
+
+---
+
+## Build Manifest
+
+A JSON record of the last successful build — source hash, timestamp, output files, and build duration.
+
+### Purpose
+
+Build freshness detection. The CLI compares source files against the manifest to determine if a rebuild is needed.
+
+### Where
+
+- src/domain/build/build-freshness.ts — freshness check, source diff
+
+### Commands
+
+- `flowti build:check`
+- `flowti build:auto`
+- `flowti build:record`
+
+### Artifacts
+
+- `.flowti/build-manifest.json`
+
+### Related Entities
+
+- [[#Flowti Project|Flowti Project]]
+- [[#Report|Report]]
+
+---
+
+## Plugin Hooks
+
+Lifecycle hooks declared by a project's flowti.config.json. Hooks run at specific points in the build/test/publish pipeline.
+
+### Purpose
+
+Extensibility. Hooks allow projects to inject custom logic (linting, formatting, validation) into the CLI pipeline without modifying CLI source.
+
+### Where
+
+- src/domain/plugins/plugin-hooks.ts — hook loading, validation, execution
+- src/domain/plugins/plugin-loader.ts — hook extraction from config
+
+### Configuration
+
+Config keys: `hooks.prebuild, hooks.postbuild, hooks.pretest, hooks.posttest`
+
+### Artifacts
+
+- `flowti.config.json (hooks section)`
+
+### Related Entities
+
+- [[#Flowti Project|Flowti Project]]
+
+---
+
+## Scaffold Definition
+
+A versioned template definition that describes how to scaffold a new project or component. Definitions can be bundled or imported from a remote registry.
+
+### Purpose
+
+Project creation and code generation. Scaffold definitions are the blueprints for new projects, with versioning and marketplace distribution.
+
+### Where
+
+- src/domain/scaffold/scaffold-schema.ts — definition schema, validation
+- src/domain/scaffold/scaffold-version.ts — version comparison, diff
+- src/domain/scaffold/remote-registry.ts — remote fetch, install
+- src/domain/scaffold/marketplace.ts — marketplace listing, import
+
+### Configuration
+
+Config keys: `scaffold.definitions`
+
+### Commands
+
+- `flowti scaffold:new`
+- `flowti scaffold:list`
+- `flowti marketplace:import`
+
+### Artifacts
+
+- `.flowti/definitions/{id}.json`
+
+### Related Entities
+
+- [[#Flowti Project|Flowti Project]]
+- [[#Export Bundle|Export Bundle]]
+
+---
+
+## Export Bundle
+
+A JSON package containing scaffold definitions, AI tool definitions, and plugin metadata for sharing across vaults.
+
+### Purpose
+
+Marketplace distribution. Bundles package multiple definitions for import into other Flowti installations.
+
+### Where
+
+- src/domain/scaffold/marketplace-export.ts — bundle creation, save
+
+### Commands
+
+- `flowti marketplace:export`
+
+### Artifacts
+
+- `exports/flowti-bundle-{date}.json`
+
+### Related Entities
+
+- [[#Scaffold Definition|Scaffold Definition]]
+- [[#Flowti Project|Flowti Project]]
+
+---
+
+## Health Snapshot
+
+A point-in-time capture of project health metrics — test results, coverage, lint warnings, complexity scores, and tech debt items.
+
+### Purpose
+
+Health tracking and trend analysis. Snapshots are saved to enable historical comparison and quality gate enforcement.
+
+### Where
+
+- src/domain/health/health.ts — snapshot collection
+- src/domain/health/health-scoring.ts — quality gate scoring
+- src/domain/health/health-trends.ts — trend persistence, delta calculation
+- src/domain/health/tech-debt.ts — debt estimation
+- src/ui/health-display.ts — console rendering
+
+### Commands
+
+- `flowti health`
+
+### Artifacts
+
+- `.flowti/health-history.json`
+
+### Related Entities
+
+- [[#Report|Report]]
 - [[#Flowti Project|Flowti Project]]
 
 ---
