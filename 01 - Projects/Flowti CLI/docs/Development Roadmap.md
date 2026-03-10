@@ -2,37 +2,41 @@
 type: Roadmap
 domain: CLI
 title: Flowti CLI — Development Roadmap
-version: 1
+version: 2
 created: 2026-03-09
-updated: 2026-03-09
+updated: 2026-03-10
 status: active
 source: "[[Flowti CLI PRD]]"
 architecture: "[[Flowti CLI Architecture]]"
+tech_debt: "[[Tech Debt]]"
+plugin_integration: "[[Plugin Integration Analysis]]"
 ---
 
 # Flowti CLI — Development Roadmap
 
-> Synthesized from PRD v10, Architecture v18, and codebase analysis (1,780 tests, 171 source files, 23,263 LOC). Prioritizes **test hardening → refactoring → features** to maintain quality as the codebase grows.
+> Synthesized from PRD v10, Architecture v18, and codebase analysis. Phases 5–7 are **complete**. Next target: **Phase 8 (Plugin Integration)** — migrate the Flowti Plugin to be a managed Flowti CLI project, unifying build, test, report, and E2E pipelines across both apps.
 
 ---
 
-## Current State (2026-03-09)
+## Current State (2026-03-10)
 
-| Metric | Value |
-|--------|-------|
-| Source files | 171 |
-| Test files | 118 |
-| Tests passing | 2,261 (126 suites) |
-| Source LOC | ~23,263 |
-| Test LOC | ~21,286 |
-| Domains | 18 |
-| Infrastructure modules | 21 |
-| Non-interactive commands | 84 |
-| Dependencies | 0 (runtime) |
-| Feature Requests (PRD) | 22 (FR-01 – FR-22) |
-| Improvements (PRD) | 45 (IMP-01 – IMP-45) |
-| Completed FRs | 20/22 (FR-21, FR-22 pending) |
-| Completed IMPs | 20/45 (44%) |
+| Metric | Value | Δ from v1 |
+|--------|-------|-----------|
+| Source files | 239 | +68 |
+| Test files | 140 | +22 |
+| Tests passing | 2,565 (140 suites) | +304 |
+| Source LOC | ~62,022 | +38,759 |
+| Domains | 18 | — |
+| Infrastructure modules | 21 | — |
+| Non-interactive commands | 84 | — |
+| Dependencies | 0 (runtime) | — |
+| Feature Requests (PRD) | 22 (FR-01 – FR-22) | — |
+| Improvements (PRD) | 45 (IMP-01 – IMP-45) | — |
+| Completed FRs | 22/22 | +2 |
+| Completed IMPs | 30/45 (67%) | +10 |
+| E2E environment providers | 5 (cli, typescript, obsidian-vault, obsidian-plugin, webapp) | NEW |
+| Pipeline domains | 2 (reports, docs) | NEW |
+| Journey base tools | 9 | NEW |
 
 ---
 
@@ -372,57 +376,224 @@ New files: `src/domain/health/quality-gate.ts`, updated `publish.ts`.
 - **`parseRegistryConfigs()`** / **`validateRegistryUrl()`** — Config helpers for registry URL management
 - **Tests**: +38 tests in `remote-registry.test.ts` (5 fetchIndex, 3 fetchEntry, 5 search, 1 filter, 3 cache, 4 installScaffold, 3 installPlugin, 3 installAiTool, 4 installFromRegistry, 3 parseConfig, 4 validateUrl)
 
-**Deferred** (revisit after Phase 7): MCP server mode (IMP-38), AGENTS.md generation (IMP-39), CI/CD generation (IMP-11).
+**Deferred** (revisit after Phase 8): MCP server mode (IMP-38), AGENTS.md generation (IMP-39), CI/CD generation (IMP-11).
 
 **Exit criteria**: Reports are cacheable and parallelizable. Plugin ecosystem supports lifecycle management. Shell completions available. Remote registries supported.
 
 ---
 
-## Suggested Execution Order
+## Phase 8: Plugin Integration
+
+**Goal**: Make the Flowti Plugin a fully managed project within the Flowti CLI ecosystem. Unify build, test, report, and E2E pipelines so both CLI and Plugin share the same toolchain.
+
+**Context**: The Flowti Plugin (480 source files, 7,697 tests, 406 events, 20 domain services) is currently a self-contained project at `Development/flowti/`. It has its own `flowti.config.json` with a **different schema** than the CLI's `ProjectConfig` type. Phase 8 bridges this gap.
+
+See [[Plugin Integration Analysis]] for detailed gap analysis and migration plan.
+
+### 8.0: Config Schema & Project Type System
+
+**Problem**: The CLI's `ProjectConfig` lacks a `type` field and the fields needed for multi-mode builds, script-based reports, and non-standard project layouts. The Plugin's `flowti.config.json` uses an incompatible schema.
+
+| # | Work Item | Priority | Effort |
+|---|-----------|----------|--------|
+| 8.0.1 | Add `ProjectTarget` type: `"project"`, `"typescript"`, `"typescript-cli"`, `"obsidian-plugin"` | Critical | S |
+| 8.0.2 | Extend `ProjectConfig` with fields for multi-mode projects (`build.commands`, `test.commands`, `devtools.commands`, `reports.scripts[]`, `paths`) | Critical | M |
+| 8.0.3 | Create 3 new scaffold definitions: `flowti-bare` (empty project), `flowti-cli` (TypeScript CLI), `flowti-obsidian-plugin` (Obsidian plugin) | High | L |
+| 8.0.4 | Implement project import flow: detect new folders in projects dir, ask type, generate `flowti.config.json` | High | M |
+| 8.0.5 | Rewrite Plugin's `flowti.config.json` to conform to `ProjectConfig` | High | M |
+| 8.0.6 | Validate config in `project-config.ts` with clear error messages | High | S |
+
+**Key principle**: The CLI's `ProjectConfig` type is the single source of truth. Projects must conform to it — there is no dual-format support or backward-compatible parsing. The Plugin rewrites its config to match.
+
+**4 Project Types**:
+
+| Type | Scaffold ID | What it creates |
+|------|-------------|-----------------|
+| **Project** | `flowti-bare` | Bare markdown project — `README.md`, `docs/`, `flowti.config.json`. No code. |
+| **TypeScript Project** | `flowti-project` | Existing definition. TS strict + Vitest + esbuild + ESLint. |
+| **TypeScript CLI** | `flowti-cli` | Like TS project + `#!/usr/bin/env node` banner, arg parser, `bin` field in package.json. |
+| **Obsidian Plugin** | `flowti-obsidian-plugin` | Obsidian plugin skeleton: `manifest.json`, `styles.css`, esbuild with Obsidian externals, `main.ts` extending `Plugin`. |
+
+**Two onboarding scenarios**:
+
+1. **Create new**: User picks a project type from the menu → scaffold creates folder + all files.
+2. **Import existing**: User copies folder into projects dir → CLI detects new folder(s), asks for confirmation → user picks project type → CLI generates `configs/flowti.config.json` and any missing management files.
+
+**Key decisions**:
+- `build.commands` map replaces `tools.build` single string (multi-mode builds)
+- `reports.scripts[]` with `{ id, label, script }` alongside `reports.generators[]` (script-based generators become external commands)
+- `paths` section added for non-standard project layouts
+- Scaffold definitions are JSON-driven, bundled into the binary via esbuild `with { type: "json" }` imports
+
+### 8.1: Build Pipeline Integration
+
+**Problem**: Plugin uses esbuild + CSS concatenation + distribution endpoints. CLI's `build` command just runs a shell script. The CLI needs to understand multi-step build pipelines.
+
+| # | Work Item | Priority | Effort |
+|---|-----------|----------|--------|
+| 8.1.1 | Extend `build.ts` to support named build modes: `fast`, `increment`, `full`, `watch`, `distribute` | High | M |
+| 8.1.2 | Support `build.commands` map in config (not just `tools.build` single string) | High | S |
+| 8.1.3 | Add CSS build awareness: `build.css` config section for concatenation pipeline | Medium | M |
+| 8.1.4 | Support `build-endpoints.json` for multi-target distribution | Medium | M |
+
+### 8.2: Test Pipeline Integration
+
+**Problem**: Plugin has 5 test presets (`unit`, `flows`, `e2e`, `increment`, `coverage`) vs CLI's single `npm test`. E2E tests require a running Obsidian instance.
+
+| # | Work Item | Priority | Effort |
+|---|-----------|----------|--------|
+| 8.2.1 | Support `test.commands` map with multiple named presets | High | S |
+| 8.2.2 | Add `test:flows` command for flow integration tests | Medium | S |
+| 8.2.3 | Wire E2E presets through `review` config (Plugin has 9 E2E journey presets) | Medium | M |
+| 8.2.4 | Support `test.coverage` config for coverage-specific options | Low | S |
+
+### 8.3: Report Pipeline Unification
+
+**Problem**: Plugin has 14 script-based report generators vs CLI's 8 internal generators. Plugin generators run as `node scripts/generate-*.mjs` — they're external commands, not internal functions.
+
+| # | Work Item | Priority | Effort |
+|---|-----------|----------|--------|
+| 8.3.1 | Support `reports.scripts[]` format alongside `reports.generators[]` in the pipeline | High | M |
+| 8.3.2 | Create `toScriptStep()` adapter in `report-pipeline.ts` — wraps script entries as pipeline steps | High | S |
+| 8.3.3 | Support `reports.categories[]` for archive organization | Medium | S |
+| 8.3.4 | Support `reports.stableReports[]` for non-timestamped reports | Medium | S |
+
+### 8.4: Documentation Pipeline
+
+**Problem**: Plugin generates 4 reference documents (Command Reference, Event Catalog, Data Dictionary, Tool Reference) via scripts. CLI generates 2 via internal functions.
+
+| # | Work Item | Priority | Effort |
+|---|-----------|----------|--------|
+| 8.4.1 | `doc-pipeline.ts` already supports external generators — verify Plugin scripts work through it | High | S |
+| 8.4.2 | Add `docs.scripts[]` format (like `reports.scripts[]`) for script-based doc generators | Medium | S |
+| 8.4.3 | Support per-project reference directory (`docs.referenceDir`) — Plugin uses `docs/reference/` | Low | S |
+
+### 8.5: E2E Infrastructure Migration
+
+**Problem**: The Plugin currently owns ~8,000 LOC of E2E testing infrastructure (ObsidianCli wrapper, journey executor, 45+ action tools, fixtures, testVault, helpers). This infrastructure belongs in the CLI — the Plugin should only be concerned with what happens inside the vault. Projects declare their testing needs via journey definition files (JSON blueprints); the CLI fulfills them.
+
+**The journey-as-blueprint model**: A journey definition is a contract. The project says *"test me like this, I need these tools"* via `requires.tools`. The CLI resolves the requirements from its environment provider registry and runs the journey.
+
+| # | Work Item | Priority | Effort |
+|---|-----------|----------|--------|
+| 8.5.1 | Migrate `ObsidianCli` wrapper (440 LOC) + types to CLI's `src/infrastructure/cli/` | Critical | M |
+| 8.5.2 | Migrate journey executor (656 LOC), action runner (1,362 LOC), journey runner (524 LOC), journey types (640 LOC) to CLI's `src/domain/e2e/` | Critical | L |
+| 8.5.3 | Migrate E2E helpers to CLI: fixtures (412), testVault (134), highlight (341), navigation (180), errorContext (158), toolCatalog (1,086), seedRegistry (175), sequencer (60), parallelGroup (478), qc (94) | High | L |
+| 8.5.4 | Migrate globalSetup (244) + globalTeardown (~200) to CLI's E2E infrastructure | High | M |
+| 8.5.5 | Add `requires.tools` resolution to journey executor — validate tool availability against provider | High | M |
+| 8.5.6 | Enhance `obsidian-plugin` environment provider with ObsidianCli-backed tool implementations | High | L |
+| 8.5.7 | Support `review.testVault` and `review.pluginId` config for plugin E2E | Medium | S |
+| 8.5.8 | Wire Plugin's 9 journey definitions through CLI's `review` domain | Medium | M |
+
+### 8.8: Plugin Cleanup
+
+**Problem**: After the E2E infrastructure migrates to the CLI, the Plugin needs cleanup. Remove migrated code, update test commands to delegate to CLI, ensure flow tests still work independently.
+
+| # | Work Item | Priority | Effort |
+|---|-----------|----------|--------|
+| 8.8.1 | Remove migrated E2E infrastructure from Plugin (`tests/e2e/helpers/`, `src/infrastructure/cli/`) | High | M |
+| 8.8.2 | Update Plugin's `test:e2e` script to invoke CLI's E2E runner | High | S |
+| 8.8.3 | Verify Plugin's flow tests (45 files, `tests/flows/`) still run independently | Medium | S |
+| 8.8.4 | Remove Plugin's `scripts/_redirect.mjs` — CLI runs generators directly | Medium | S |
+
+### 8.6: Plugin-Specific Commands
+
+**Problem**: Plugin has domain-specific devtools (`reload`, `console`, `errors`, `fixFrontmatter`, `testdata`) that the CLI can surface through its devtools domain.
+
+| # | Work Item | Priority | Effort |
+|---|-----------|----------|--------|
+| 8.6.1 | Support `devtools.commands` map in config — each entry becomes a CLI command | High | M |
+| 8.6.2 | Add Obsidian-specific devtools: `dev:reload`, `dev:console`, `dev:errors` | Medium | S |
+| 8.6.3 | Support `make.hub` template config for Plugin's Hub scaffolding (9 files per Hub) | Low | L |
+
+### 8.7: Project Onboarding & Import
+
+**Problem**: Users need a frictionless path from "I have a folder" to "it's a managed Flowti project". Both fresh creation and importing existing codebases must be easy.
+
+| # | Work Item | Priority | Effort |
+|---|-----------|----------|--------|
+| 8.7.1 | Project type detection heuristics: `manifest.json` → obsidian-plugin, `bin` in package.json → typescript-cli, `package.json` → typescript, else → project | High | S |
+| 8.7.2 | Import flow in `project.ts`: snapshot project list → prompt user to copy folder → diff to detect new folders → confirm → ask type → generate config | High | M |
+| 8.7.3 | Prerequisite checks per project type: Node.js for TS projects, Obsidian CLI for plugin projects | Medium | S |
+| 8.7.4 | Multi-folder import: when multiple new folders detected, let user pick one or import all | Medium | S |
+
+### Phase 8 Execution Order
 
 ```
-Priority 0 ──► Priority 1 ──► Phase 5 ──► Phase 6 ──► Phase 7
-(tests) ✓      (refactoring)✓  (agent DX)   (depth)     (ecosystem)
+8.0 Config & Types  ──► 8.1 Build Pipeline ──► 8.2 Test Pipeline
+        │                                              │
+        ▼                                              ▼
+8.3 Report Pipeline ──► 8.4 Doc Pipeline   ──► 8.5 E2E Migration
+        │                                              │
+        ▼                                              ▼
+8.6 Plugin Commands ──► 8.7 Onboarding     ──► 8.8 Plugin Cleanup
+```
 
-✓ Done:    T-01..T-08 (+72 tests, +8 files, +8 suites)
-✓ Done:    R-01 skipped, R-02 deferred, R-03 already exists, R-04 deferred
-✓ Done:    5.1 --json (9 commands, +10 tests)
-✓ Done:    5.2 quality gates (+35 tests)
-✓ Done:    5.3 scaffold --dry-run (+6 tests)
-✓ Done:    5.4 global flags --quiet/--verbose/--no-color (+11 tests)
-✓ Done:    5.6 post-command suggestions (+7 tests)
-✓ Done:    5.7 report diff mode (+12 tests)
-Deferred:  5.5 progress indicators (low impact — existing labels sufficient)
-Sprint 1:  Phase 5 COMPLETE (6 of 7 items done)
-Sprint 2:  6.1 (capture) + 6.2 (contracts)    (~5 days)
-Sprint 3:  6.3 (trends) + 6.4 (ai-tool exec)  (~5 days)
-Sprint 4+: Phase 7 items by priority            (ongoing)
+**Exit criteria**:
+- `flowti` CLI can load the Plugin project, run its builds, execute its test suites, generate all 14 reports
+- CLI owns all E2E infrastructure; Plugin only declares journey blueprints
+- Projects declare `requires.tools` in journey definitions; CLI resolves and provides them
+- Plugin is only concerned with Obsidian runtime (domain services, events, UI)
+
+---
+
+## Phase 9: Convergence (Future)
+
+**Goal**: Shared infrastructure between CLI and Plugin. Features that benefit both.
+
+| # | Work Item | Priority | Effort | Notes |
+|---|-----------|----------|--------|-------|
+| 9.1 | Shared event contract format between CLI event catalog and Plugin FlowtiEventMap | Medium | L | Enables cross-project event validation |
+| 9.2 | MCP server mode (IMP-38) — expose CLI as a Model Context Protocol server | Medium | XL | Deferred from Phase 7 |
+| 9.3 | AGENTS.md generation (IMP-39) — generate AI agent instruction files | Low | M | Deferred from Phase 7 |
+| 9.4 | CI/CD pipeline generation (IMP-11) — generate GitHub Actions / Azure Pipelines | Low | L | Deferred from Phase 7 |
+| 9.5 | Shared component system — unify CLI's C4/UI components with Plugin's ComponentRegistry | Low | XL | Both have component registries |
+| 9.6 | Cross-project health dashboard — aggregate health from all managed projects | Low | L | Requires 8.0 complete |
+
+---
+
+## Suggested Execution Order (Updated)
+
+```
+✓ Priority 0 (tests)         COMPLETE — +72 tests
+✓ Priority 1 (refactoring)   COMPLETE — registry exists, help tested
+✓ Phase 5 (agent DX)         COMPLETE — 6/7 items (progress indicators deferred)
+✓ Phase 6 (depth)            COMPLETE — 8/8 items
+✓ Phase 7 (ecosystem)        COMPLETE — 10/10 items
+► Phase 8 (plugin integration) NEXT — 9 sub-phases, ~42 work items
+  Phase 9 (convergence)       FUTURE — shared infra, MCP, CI/CD gen
 ```
 
 ---
 
 ## Key Metrics to Track
 
-| Metric | Current | Phase 5 Target | Phase 6 Target |
-|--------|---------|----------------|----------------|
-| Tests | 1,914 | 2,100+ | 2,300+ |
-| Test suites | 111 | 130+ | 145+ |
-| Commands with `--json` | 9 | 9 | 9 |
-| Quality gate rules | 2 (default) | 5+ | 5+ |
-| Files > 300 LOC | 8 | 6 | 4 |
-| Shallow features | 5 | 5 | 2 |
-| Deep features | 12 | 12 | 14 |
+| Metric | Phase 7 (actual) | Phase 8 Target | Phase 9 Target |
+|--------|-------------------|----------------|----------------|
+| Tests | 2,565 | 2,800+ | 3,000+ |
+| Test suites | 140 | 155+ | 165+ |
+| Managed project types | 1 (typescript) | 4 (project, typescript, typescript-cli, obsidian-plugin) | 4 |
+| Report pipeline steps | 8 internal + ext | 8 internal + 14 script-based | 22+ |
+| Doc pipeline steps | 2 internal + ext | 2 internal + 4 script-based | 6+ |
+| Config schema version | v1 | v2 (single schema) | v2 |
+| E2E journey providers | 5 | 5 (enhanced) | 5 |
 
 ---
 
 ## Appendix: Feature Maturity Progression
 
-| Feature | Current | After P0+P1 | After Phase 5 | After Phase 6 |
-|---------|---------|-------------|---------------|---------------|
-| Agent-Native (FR-21) | Shallow | Shallow | **Deep** | Deep |
-| Quality Gates (FR-22) | Not Started | Not Started | **Functional** | Deep |
-| AI Tools (FR-14) | Shallow | Shallow | Shallow | **Functional** |
-| Capture (FR-02.11) | Shallow | Shallow | Shallow | **Functional** |
-| Event Contracts (FR-18) | Shallow | Shallow | Shallow | **Functional** |
-| Health Dashboard (FR-15) | Functional | Functional | Functional | **Deep** |
-| Marketplace (FR-17) | Shallow | Shallow | Shallow | **Functional** |
+| Feature | Phase 5 | Phase 6 | Phase 7 | Phase 8 Target |
+|---------|---------|---------|---------|----------------|
+| Agent-Native (FR-21) | **Deep** | Deep | Deep | Deep |
+| Quality Gates (FR-22) | **Functional** | Deep | Deep | Deep |
+| AI Tools (FR-14) | Shallow | **Functional** | Functional | Functional |
+| Capture (FR-02.11) | Shallow | **Functional** | Functional | Functional |
+| Event Contracts (FR-18) | Shallow | **Functional** | Functional | **Deep** (cross-project) |
+| Health Dashboard (FR-15) | Functional | **Deep** | Deep | **Deep** (multi-project) |
+| Marketplace (FR-17) | Shallow | **Functional** | **Deep** | Deep |
+| Project Onboarding | Shallow | Shallow | Shallow | **Deep** (4 types, import flow) |
+| Plugin Integration | — | — | — | **Deep** |
+| Build Pipeline | Functional | Functional | Functional | **Deep** (multi-mode) |
+| Report Pipeline | Functional | Functional | **Deep** | **Deep** (script + internal) |
+| Doc Pipeline | Shallow | Shallow | Shallow | **Functional** |
+| E2E Testing | Functional | Functional | **Deep** | **Deep** (Obsidian CLI) |

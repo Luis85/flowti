@@ -304,6 +304,10 @@ When a project is selected for the first time, the CLI auto-scaffolds this confi
 
 ## Related Documents
 
-- PRD: [Flowti CLI PRD.md](Flowti%20CLI%20PRD.md)
+- PRD: [Flowti CLI PRD.md](Flowti%20CLI%20PRD.md) — Vision, capabilities, design principles
+- Backlog: [Product Backlog.md](docs/Product%20Backlog.md) — Feature requirements, acceptance criteria, improvements
+- Roadmap: [Development Roadmap.md](docs/Development%20Roadmap.md) — Phased execution plan (Phases 5–9)
+- Tech Debt: [Tech Debt.md](docs/Tech%20Debt.md) — Technical debt register
+- Plugin Integration: [Plugin Integration Analysis.md](docs/Plugin%20Integration%20Analysis.md) — Gap analysis for Flowti Plugin
 - Architecture: [Flowti CLI Architecture.md](Flowti%20CLI%20Architecture.md)
 - CLI Reference: generated via `flowti docs` or interactive Documentation menu
