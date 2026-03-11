@@ -5,16 +5,8 @@
  * for testability — tests inject a mock clock with fixed timestamps.
  */
 
-export interface IClock {
-	/** Current date/time. */
-	now(): Date;
-	/** Millisecond timestamp (like Date.now()). */
-	ms(): number;
-	/** ISO 8601 timestamp string. */
-	iso(): string;
-	/** Filename-safe timestamp (colons replaced with dashes). */
-	safeIso(): string;
-}
+import type { IClock } from "./types.js";
+export type { IClock } from "./types.js";
 
 class SystemClock implements IClock {
 	now(): Date {

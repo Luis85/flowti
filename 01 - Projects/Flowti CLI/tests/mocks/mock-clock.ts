@@ -8,7 +8,7 @@
  *   c.advance(5000); // move forward 5 seconds
  */
 
-import type { IClock } from "../../src/infrastructure/clock.js";
+import type { IClock } from "../../src/infrastructure/types.js";
 
 export interface MockClock extends IClock {
 	/** Advance the clock by the given number of milliseconds. */

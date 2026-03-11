@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { createPipelineContext } from "../../../src/infrastructure/pipeline/pipeline-context.js";
 import type { PipelineContext, StepResult } from "../../../src/infrastructure/pipeline/pipeline-types.js";
+import { createTestDeps } from "../../mocks/mock-deps.js";
 
 function makeResult(overrides: Partial<StepResult> = {}): StepResult {
 	return {
@@ -17,7 +18,7 @@ describe("PipelineContext", () => {
 	let ctx: PipelineContext;
 
 	beforeEach(() => {
-		ctx = createPipelineContext("/project");
+		ctx = createPipelineContext("/project", createTestDeps());
 	});
 
 	it("exposes the project path", () => {
@@ -104,7 +105,7 @@ describe("PipelineContext", () => {
 
 	describe("isolation", () => {
 		it("separate context instances do not share state", () => {
-			const ctx2 = createPipelineContext("/other");
+			const ctx2 = createPipelineContext("/other", createTestDeps());
 			ctx.pushResult(makeResult({ id: "only-in-ctx1" }));
 			ctx.setCommandOutput("cmd", "only-in-ctx1");
 			ctx.setStepData("data", { v: 1 });

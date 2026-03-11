@@ -1,0 +1,51 @@
+/**
+ * deps.ts — Dependency injection container for the Flowti CLI.
+ *
+ * Defines the CliDeps interface (all injectable infrastructure) and
+ * domain-specific subsets following the Interface Segregation Principle.
+ * Production code uses createDefaultDeps(); tests use createTestDeps().
+ */
+
+import type { IFileSystem, IShell, IPaths, IClock, IProcess, IInput } from "./types.js";
+import { disk } from "./filesystem.js";
+import { shell } from "./shell.js";
+import { paths } from "./paths.js";
+import { clock } from "./clock.js";
+import { proc } from "./proc.js";
+import { input } from "./input.js";
+import { log, warn } from "./logger.js";
+
+// ── Full dependency container ───────────────────────────────────────
+
+/** All injectable infrastructure dependencies. */
+export interface CliDeps {
+	readonly disk: IFileSystem;
+	readonly shell: IShell;
+	readonly paths: IPaths;
+	readonly clock: IClock;
+	readonly proc: IProcess;
+	readonly input: IInput;
+	readonly log: (msg: string) => void;
+	readonly warn: (msg: string) => void;
+}
+
+// ── Domain-specific subsets (ISP) ───────────────────────────────────
+
+/** Dependencies for report generation. */
+export type ReportDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "log">;
+
+/** Dependencies for E2E orchestration. */
+export type E2EDeps = Pick<CliDeps, "disk" | "shell" | "paths" | "clock" | "log" | "warn">;
+
+/** Dependencies for Make/scaffold operations. */
+export type MakeDeps = Pick<CliDeps, "disk" | "paths" | "input" | "log">;
+
+/** Dependencies for devtools commands. */
+export type DevToolsDeps = Pick<CliDeps, "shell" | "proc" | "log">;
+
+// ── Factory ─────────────────────────────────────────────────────────
+
+/** Create the production dependency container. */
+export function createDefaultDeps(): CliDeps {
+	return { disk, shell, paths, clock, proc, input, log, warn };
+}

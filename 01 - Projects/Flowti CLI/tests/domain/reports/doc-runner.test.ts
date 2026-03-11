@@ -10,6 +10,7 @@ vi.mock("../../../src/infrastructure/shell.js", () => ({
 
 vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
+	warn: vi.fn(),
 }));
 
 vi.mock("../../../src/infrastructure/clock.js", () => {

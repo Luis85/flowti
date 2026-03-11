@@ -19,6 +19,7 @@ import type {
 	StepOutput,
 } from "../../infrastructure/pipeline/pipeline-types.js";
 import type { DocGenerator } from "../../infrastructure/types.js";
+import { createDefaultDeps } from "../../infrastructure/deps.js";
 import { shell } from "../../infrastructure/shell.js";
 import { runReference, listReferenceIds } from "./generator-registry.js";
 
@@ -85,7 +86,7 @@ export async function runDocPipeline(
 	projectPath: string,
 ): Promise<PipelineResult> {
 	const steps = buildDocSteps(configGenerators);
-	const ctx = createPipelineContext(projectPath);
+	const ctx = createPipelineContext(projectPath, createDefaultDeps());
 
 	return runPipelineWithContext(steps, ctx, {
 		label: "Documentation",

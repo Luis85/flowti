@@ -6,8 +6,10 @@
  */
 
 import path from "node:path";
+import type { IPaths } from "./types.js";
+export type { IPaths } from "./types.js";
 
-export const paths = {
+export const paths: IPaths = {
 	join: path.join,
 	resolve: path.resolve,
 	dirname: path.dirname,

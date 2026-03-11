@@ -17,6 +17,7 @@ import type {
 	StepOutput,
 } from "../../infrastructure/pipeline/pipeline-types.js";
 import type { ReportGenerator } from "../../infrastructure/types.js";
+import { createDefaultDeps } from "../../infrastructure/deps.js";
 import { shell } from "../../infrastructure/shell.js";
 import { runGenerator, hasGenerator } from "./generator-registry.js";
 
@@ -83,7 +84,7 @@ export async function runReportPipeline(
 	options?: { parallel?: boolean; log?: (msg: string) => void },
 ): Promise<PipelineResult> {
 	const steps = generators.map(toReportStep);
-	const ctx = createPipelineContext(projectPath, options?.log);
+	const ctx = createPipelineContext(projectPath, createDefaultDeps(), options?.log);
 
 	return runPipelineWithContext(steps, ctx, {
 		phased: options?.parallel,

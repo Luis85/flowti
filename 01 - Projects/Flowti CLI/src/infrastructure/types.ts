@@ -72,6 +72,40 @@ export interface IProcess {
 	env(): Record<string, string | undefined>;
 }
 
+// ── Path operations abstraction ──────────────────────────────────────
+
+export interface IPaths {
+	join(...segments: string[]): string;
+	resolve(...segments: string[]): string;
+	dirname(p: string): string;
+	basename(p: string, ext?: string): string;
+	relative(from: string, to: string): string;
+	extname(p: string): string;
+	isAbsolute(p: string): boolean;
+	readonly sep: string;
+}
+
+// ── Clock abstraction ───────────────────────────────────────────────
+
+export interface IClock {
+	/** Current date/time. */
+	now(): Date;
+	/** Millisecond timestamp (like Date.now()). */
+	ms(): number;
+	/** ISO 8601 timestamp string. */
+	iso(): string;
+	/** Filename-safe timestamp (colons replaced with dashes). */
+	safeIso(): string;
+}
+
+// ── User input abstraction ──────────────────────────────────────────
+
+export interface IInput {
+	ask(question: string, defaultValue?: string): Promise<string>;
+	askYesNo(question: string, defaultNo?: boolean): Promise<boolean>;
+	waitForEnter(): Promise<void>;
+}
+
 // ── CLI argument parsing ────────────────────────────────────────────
 
 export interface ParsedArgs {

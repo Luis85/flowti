@@ -27,6 +27,8 @@ import { resolvePhases, collectStepPrerequisites } from "./pipeline-phases.js";
 
 // ── Default dependencies (production) ────────────────────────────────
 
+import { createDefaultDeps } from "../deps.js";
+import type { CliDeps } from "../deps.js";
 import { shell } from "../shell.js";
 import { clock } from "../clock.js";
 import { log as infraLog } from "../logger.js";
@@ -37,6 +39,11 @@ const DEFAULT_DEPS: PipelineDeps = {
 	now: () => clock.ms(),
 	log: infraLog,
 };
+
+let _defaultCliDeps: CliDeps | undefined;
+function getDefaultCliDeps(): CliDeps {
+	return (_defaultCliDeps ??= createDefaultDeps());
+}
 
 // ── Public API ───────────────────────────────────────────────────────
 
@@ -54,8 +61,9 @@ export async function runPipeline(
 	projectPath: string,
 	options: PipelineOptions = {},
 	deps: PipelineDeps = DEFAULT_DEPS,
+	cliDeps: CliDeps = getDefaultCliDeps(),
 ): Promise<PipelineResult> {
-	const ctx = createPipelineContext(projectPath, deps.log);
+	const ctx = createPipelineContext(projectPath, cliDeps, deps.log);
 	const runStart = deps.now();
 	const runLabel = options.label ?? "Pipeline Run";
 

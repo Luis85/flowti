@@ -7,6 +7,8 @@
  * execution, and process execution all use the same engine.
  */
 
+import type { CliDeps } from "../deps.js";
+
 // ── Step contract ────────────────────────────────────────────────────
 
 /** A single unit of work in a pipeline. */
@@ -66,6 +68,9 @@ export interface PipelineResult {
 export interface PipelineContext {
 	/** The project root path for this run. */
 	readonly projectPath: string;
+
+	/** Injectable dependencies — available to all pipeline steps. */
+	readonly deps: CliDeps;
 
 	/** Record a completed step result. */
 	pushResult(result: StepResult): void;
