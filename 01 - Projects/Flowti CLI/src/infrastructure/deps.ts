@@ -32,7 +32,7 @@ export interface CliDeps {
 // ── Domain-specific subsets (ISP) ───────────────────────────────────
 
 /** Dependencies for report generation. */
-export type ReportDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "log">;
+export type ReportDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "shell" | "log">;
 
 /** Dependencies for E2E orchestration. */
 export type E2EDeps = Pick<CliDeps, "disk" | "shell" | "paths" | "clock" | "log" | "warn">;

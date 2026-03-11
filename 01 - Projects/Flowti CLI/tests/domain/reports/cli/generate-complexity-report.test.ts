@@ -31,6 +31,9 @@ vi.mock("../../../../src/infrastructure/clock.js", () => ({
 vi.mock("../../../../src/domain/project/project-config.js", () => ({
 	readProjectConfig: vi.fn(() => ({ config: { reports: { dir: "reports" }, docs: { referenceDir: "docs/reference" } } })),
 }));
+vi.mock("../../../../src/domain/devtools/run-analysis.js", () => ({
+	generateAnalysisData: vi.fn(),
+}));
 
 import type { ReportDeps } from "../../../../src/infrastructure/deps.js";
 import { disk } from "../../../../src/infrastructure/filesystem.js";
@@ -38,7 +41,8 @@ import { paths } from "../../../../src/infrastructure/paths.js";
 import { clock } from "../../../../src/infrastructure/clock.js";
 import { generateComplexityReport } from "../../../../src/domain/reports/cli/generate-complexity-report.js";
 
-const mockDeps: ReportDeps = { disk, paths, clock, log: () => {} };
+const mockShell = { run: vi.fn(() => ({ stdout: "", stderr: "", exitCode: 0, success: true })) };
+const mockDeps: ReportDeps = { disk, paths, clock, shell: mockShell as any, log: () => {} };
 
 beforeEach(() => {
 	vi.clearAllMocks();

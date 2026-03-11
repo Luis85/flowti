@@ -70,6 +70,7 @@ import { runMenu } from "../../../src/infrastructure/menu.js";
 import { getSelectedProject, setSelectedProject } from "../../../src/infrastructure/state.js";
 import { scaffold as scaffoldProject } from "../../../src/domain/scaffold/scaffold.js";
 import { listProjects, getProjectPath, startMenu } from "../../../src/ui/menus/project-menu.js";
+import { paths as mockPaths } from "../../../src/infrastructure/paths.js";
 import { commands } from "../../../src/controller/project.controller.js";
 
 function setDisk(mockFs: ReturnType<typeof createMockFs>): void {
@@ -92,7 +93,7 @@ describe("listProjects", () => {
 		});
 		setDisk(mockFs);
 
-		const result = listProjects();
+		const result = listProjects({ disk: fsMod.disk });
 		expect(result).toEqual(["alpha", "beta"]);
 	});
 
@@ -102,7 +103,7 @@ describe("listProjects", () => {
 		mockFs.readdirSync = () => { throw new Error("ENOENT"); };
 		setDisk(mockFs);
 
-		expect(listProjects()).toEqual([]);
+		expect(listProjects({ disk: fsMod.disk })).toEqual([]);
 	});
 
 	it("filters out files (only directories)", () => {
@@ -112,7 +113,7 @@ describe("listProjects", () => {
 		// readme.md is a file, not a directory — should be excluded
 		setDisk(mockFs);
 
-		const result = listProjects();
+		const result = listProjects({ disk: fsMod.disk });
 		// readme.md won't appear as a directory entry
 		expect(result.includes("readme.md")).toBe(false);
 	});
@@ -122,7 +123,7 @@ describe("listProjects", () => {
 
 describe("getProjectPath", () => {
 	it("joins PROJECTS_DIR with project name", () => {
-		const result = getProjectPath("my-app");
+		const result = getProjectPath("my-app", { paths: mockPaths });
 		expect(result.replace(/\\/g, "/")).toContain("mock/projects/my-app");
 	});
 });
@@ -384,10 +385,13 @@ describe("startMenu – Create Project", () => {
 
 		await startMenu();
 
-		expect(scaffoldProject).toHaveBeenCalledWith(expect.objectContaining({
-			definitionId: "flowti-project",
-			name: "new-project",
-		}));
+		expect(scaffoldProject).toHaveBeenCalledWith(
+			expect.objectContaining({ disk: expect.anything(), paths: expect.anything() }),
+			expect.objectContaining({
+				definitionId: "flowti-project",
+				name: "new-project",
+			}),
+		);
 		expect(setSelectedProject).toHaveBeenCalledWith("new-project");
 	});
 

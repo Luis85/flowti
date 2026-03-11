@@ -208,14 +208,14 @@ describe("review.controller", () => {
 		it("analyzes the working tree by default", () => {
 			commands["review:changes"]({}, [], "review:changes", mockProject);
 
-			expect(analyzeWorkingTree).toHaveBeenCalledWith("/project");
+			expect(analyzeWorkingTree).toHaveBeenCalledWith("/project", expect.any(Object));
 			expect(analyzeBranchDiff).not.toHaveBeenCalled();
 		});
 
 		it("analyzes branch diff when --base flag is provided", () => {
 			commands["review:changes"]({ base: "main" }, [], "review:changes", mockProject);
 
-			expect(analyzeBranchDiff).toHaveBeenCalledWith("/project", "main");
+			expect(analyzeBranchDiff).toHaveBeenCalledWith("/project", expect.any(Object), "main");
 			expect(analyzeWorkingTree).not.toHaveBeenCalled();
 		});
 	});

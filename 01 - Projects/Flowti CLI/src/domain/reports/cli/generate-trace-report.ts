@@ -69,14 +69,14 @@ function collectDocuments(docsDir: string, deps: ReportDeps): ScanResult[] {
 	const vaultInbox = deps.paths.join(VAULT_ROOT, "00 - Connectivity", "inbox");
 
 	const docs: ScanResult[] = [
-		...scanDir(deps.paths.join(docsDir, "inbox"), "inbox"),
-		...scanDir(vaultInbox, "inbox"),
-		...scanDir(docsDir, "pbi").filter((d) => d.id.startsWith("PBI-")),
-		...scanDir(deps.paths.join(docsDir, "cycles"), "cycle"),
-		...scanDir(deps.paths.join(docsDir, "debt"), "tech_debt"),
+		...scanDir(deps.paths.join(docsDir, "inbox"), "inbox", deps),
+		...scanDir(vaultInbox, "inbox", deps),
+		...scanDir(docsDir, "pbi", deps).filter((d) => d.id.startsWith("PBI-")),
+		...scanDir(deps.paths.join(docsDir, "cycles"), "cycle", deps),
+		...scanDir(deps.paths.join(docsDir, "debt"), "tech_debt", deps),
 	];
 
-	const topDocs = scanDir(docsDir, "pbi").filter((d) => d.id.startsWith("PBI-"));
+	const topDocs = scanDir(docsDir, "pbi", deps).filter((d) => d.id.startsWith("PBI-"));
 	for (const td of topDocs) {
 		if (!docs.some((d) => d.id === td.id)) docs.push(td);
 	}

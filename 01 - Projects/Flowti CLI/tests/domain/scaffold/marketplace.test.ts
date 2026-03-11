@@ -8,6 +8,7 @@ vi.mock("../../../src/infrastructure/ui.js", () => ({
 	RESET: "", DIM: "", BOLD: "", GREEN: "", RED: "", CYAN: "", YELLOW: "",
 }));
 
+import path from "node:path";
 import {
 	discoverLocalDefinitions,
 	validateAndClassify,
@@ -18,6 +19,16 @@ import {
 import type { MarketplaceEntry } from "../../../src/domain/scaffold/marketplace.js";
 import { displayMarketplace } from "../../../src/ui/menus/marketplace-menu.js";
 import type { IFileSystem } from "../../../src/infrastructure/types.js";
+
+const testPaths = {
+	join: (...args: string[]) => args.join("/"),
+	basename: (p: string, ext?: string) => { const b = path.basename(p); return ext && b.endsWith(ext) ? b.slice(0, -ext.length) : b; },
+	dirname: (p: string) => path.dirname(p).replace(/\\/g, "/"),
+	resolve: (...args: string[]) => args.join("/"),
+	relative: (_from: string, to: string) => to,
+};
+
+const testPathsDeps = { paths: testPaths } as const;
 
 // ── Fixtures ─────────────────────────────────────────────────────────
 
@@ -101,7 +112,7 @@ function createMockFs(files: Record<string, string> = {}, dirs: Set<string> = ne
 
 describe("resolveDefinitionsDir", () => {
 	it("returns configs/definitions/ relative to project root", () => {
-		const result = resolveDefinitionsDir("/projects/my-app");
+		const result = resolveDefinitionsDir(testPathsDeps, "/projects/my-app");
 		expect(result).toContain("configs");
 		expect(result).toContain("definitions");
 	});
@@ -112,7 +123,7 @@ describe("resolveDefinitionsDir", () => {
 describe("discoverLocalDefinitions", () => {
 	it("returns empty array when directory does not exist", () => {
 		const fs = createMockFs();
-		const result = discoverLocalDefinitions("/nonexistent", fs);
+		const result = discoverLocalDefinitions({ disk: fs, paths: testPaths }, "/nonexistent");
 		expect(result).toEqual([]);
 	});
 
@@ -125,7 +136,7 @@ describe("discoverLocalDefinitions", () => {
 		const dirs = new Set([defsDir]);
 		const fs = createMockFs(files, dirs);
 
-		const result = discoverLocalDefinitions(defsDir, fs);
+		const result = discoverLocalDefinitions({ disk: fs, paths: testPaths }, defsDir);
 		expect(result).toHaveLength(2);
 		expect(result[0].raw).toEqual(VALID_DEF);
 		expect(result[0].path).toContain("my-scaffold.json");
@@ -140,7 +151,7 @@ describe("discoverLocalDefinitions", () => {
 		const dirs = new Set([defsDir]);
 		const fs = createMockFs(files, dirs);
 
-		const result = discoverLocalDefinitions(defsDir, fs);
+		const result = discoverLocalDefinitions({ disk: fs, paths: testPaths }, defsDir);
 		expect(result).toHaveLength(1);
 	});
 
@@ -152,7 +163,7 @@ describe("discoverLocalDefinitions", () => {
 		const dirs = new Set([defsDir]);
 		const fs = createMockFs(files, dirs);
 
-		const result = discoverLocalDefinitions(defsDir, fs);
+		const result = discoverLocalDefinitions({ disk: fs, paths: testPaths }, defsDir);
 		expect(result).toHaveLength(1);
 		expect(result[0].raw).toBeNull();
 	});
@@ -162,7 +173,7 @@ describe("discoverLocalDefinitions", () => {
 
 describe("validateAndClassify", () => {
 	it("classifies a valid bundled definition", () => {
-		const entry = validateAndClassify(VALID_DEF, "bundled");
+		const entry = validateAndClassify(testPathsDeps, VALID_DEF, "bundled");
 		expect(entry.id).toBe("test-scaffold");
 		expect(entry.label).toBe("Test Scaffold");
 		expect(entry.source).toBe("bundled");
@@ -172,37 +183,37 @@ describe("validateAndClassify", () => {
 	});
 
 	it("classifies a valid local definition", () => {
-		const entry = validateAndClassify(VALID_DEF, "local", "/path/to/def.json");
+		const entry = validateAndClassify(testPathsDeps, VALID_DEF, "local", "/path/to/def.json");
 		expect(entry.source).toBe("local");
 		expect(entry.path).toBe("/path/to/def.json");
 		expect(entry.valid).toBe(true);
 	});
 
 	it("marks invalid definitions with errors", () => {
-		const entry = validateAndClassify(INVALID_DEF, "local", "/path/to/bad.json");
+		const entry = validateAndClassify(testPathsDeps, INVALID_DEF, "local", "/path/to/bad.json");
 		expect(entry.valid).toBe(false);
 		expect(entry.errors.length).toBeGreaterThan(0);
 	});
 
 	it("validates templateIds against known list", () => {
-		const entry = validateAndClassify(VALID_DEF, "local", undefined, ["other-template"]);
+		const entry = validateAndClassify(testPathsDeps, VALID_DEF, "local", undefined, ["other-template"]);
 		expect(entry.valid).toBe(false);
 		expect(entry.errors.some(e => e.includes("templateId"))).toBe(true);
 	});
 
 	it("passes when templateIds are in known list", () => {
-		const entry = validateAndClassify(VALID_DEF, "local", undefined, ["project-main"]);
+		const entry = validateAndClassify(testPathsDeps, VALID_DEF, "local", undefined, ["project-main"]);
 		expect(entry.valid).toBe(true);
 	});
 
 	it("handles null raw gracefully", () => {
-		const entry = validateAndClassify(null, "local", "/path/to/null.json");
+		const entry = validateAndClassify(testPathsDeps, null, "local", "/path/to/null.json");
 		expect(entry.valid).toBe(false);
 		expect(entry.id).toBe("null");
 	});
 
 	it("extracts id from filename when raw has no id", () => {
-		const entry = validateAndClassify({}, "local", "/path/to/my-custom.json");
+		const entry = validateAndClassify(testPathsDeps, {}, "local", "/path/to/my-custom.json");
 		expect(entry.id).toBe("my-custom");
 	});
 });
@@ -219,10 +230,10 @@ describe("buildMarketplaceListing", () => {
 		const fs = createMockFs(files, dirs);
 
 		const entries = buildMarketplaceListing(
+			{ disk: fs, paths: testPaths },
 			[VALID_DEF],
 			defsDir,
 			["project-main", "shared-index"],
-			fs,
 		);
 
 		expect(entries).toHaveLength(2);
@@ -232,7 +243,7 @@ describe("buildMarketplaceListing", () => {
 
 	it("returns only bundled when no local directory exists", () => {
 		const fs = createMockFs();
-		const entries = buildMarketplaceListing([VALID_DEF], "/nonexistent", ["project-main"], fs);
+		const entries = buildMarketplaceListing({ disk: fs, paths: testPaths }, [VALID_DEF], "/nonexistent", ["project-main"]);
 
 		expect(entries).toHaveLength(1);
 		expect(entries[0].source).toBe("bundled");
@@ -248,10 +259,10 @@ describe("buildMarketplaceListing", () => {
 		const fs = createMockFs(files, dirs);
 
 		const entries = buildMarketplaceListing(
+			{ disk: fs, paths: testPaths },
 			[],
 			defsDir,
 			["project-main"],  // "shared-index" is NOT in the list
-			fs,
 		);
 
 		expect(entries).toHaveLength(1);
@@ -266,14 +277,14 @@ describe("importDefinition", () => {
 	it("imports a valid definition file", () => {
 		const sourcePath = "/tmp/my-def.json";
 		const projectRoot = "/project";
-		const defsDir = resolveDefinitionsDir(projectRoot);
+		const defsDir = resolveDefinitionsDir(testPathsDeps, projectRoot);
 		const files: Record<string, string> = {
 			[sourcePath]: JSON.stringify(VALID_DEF),
 		};
 		const dirs = new Set<string>();
 		const fs = createMockFs(files, dirs);
 
-		const result = importDefinition(sourcePath, projectRoot, ["project-main"], fs);
+		const result = importDefinition({ disk: fs, paths: testPaths }, sourcePath, projectRoot, ["project-main"]);
 		expect(result.success).toBe(true);
 		expect(result.errors).toEqual([]);
 		expect(fs.mkdirSync).toHaveBeenCalled();
@@ -282,7 +293,7 @@ describe("importDefinition", () => {
 
 	it("rejects when source file does not exist", () => {
 		const fs = createMockFs();
-		const result = importDefinition("/missing.json", "/project", ["project-main"], fs);
+		const result = importDefinition({ disk: fs, paths: testPaths }, "/missing.json", "/project", ["project-main"]);
 		expect(result.success).toBe(false);
 		expect(result.errors[0]).toContain("not found");
 	});
@@ -292,7 +303,7 @@ describe("importDefinition", () => {
 			"/tmp/bad.json": "{ not valid }",
 		};
 		const fs = createMockFs(files);
-		const result = importDefinition("/tmp/bad.json", "/project", [], fs);
+		const result = importDefinition({ disk: fs, paths: testPaths }, "/tmp/bad.json", "/project", []);
 		expect(result.success).toBe(false);
 		expect(result.errors[0]).toContain("parse JSON");
 	});
@@ -302,7 +313,7 @@ describe("importDefinition", () => {
 			"/tmp/invalid.json": JSON.stringify(INVALID_DEF),
 		};
 		const fs = createMockFs(files);
-		const result = importDefinition("/tmp/invalid.json", "/project", [], fs);
+		const result = importDefinition({ disk: fs, paths: testPaths }, "/tmp/invalid.json", "/project", []);
 		expect(result.success).toBe(false);
 		expect(result.errors.length).toBeGreaterThan(0);
 	});
@@ -310,7 +321,7 @@ describe("importDefinition", () => {
 	it("rejects duplicate definition ids", () => {
 		const sourcePath = "/tmp/dupe.json";
 		const projectRoot = "/project";
-		const defsDir = resolveDefinitionsDir(projectRoot);
+		const defsDir = resolveDefinitionsDir(testPathsDeps, projectRoot);
 		const files: Record<string, string> = {
 			[sourcePath]: JSON.stringify(VALID_DEF),
 			[`${defsDir}/existing.json`]: JSON.stringify(VALID_DEF),
@@ -318,7 +329,7 @@ describe("importDefinition", () => {
 		const dirs = new Set([defsDir]);
 		const fs = createMockFs(files, dirs);
 
-		const result = importDefinition(sourcePath, projectRoot, ["project-main"], fs);
+		const result = importDefinition({ disk: fs, paths: testPaths }, sourcePath, projectRoot, ["project-main"]);
 		expect(result.success).toBe(false);
 		expect(result.errors[0]).toContain("already exists");
 	});

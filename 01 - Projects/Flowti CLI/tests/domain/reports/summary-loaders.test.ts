@@ -23,6 +23,7 @@ vi.mock("../../../src/infrastructure/config.js", () => ({
 }));
 
 import * as fsMod from "../../../src/infrastructure/filesystem.js";
+import * as pathsMod from "../../../src/infrastructure/paths.js";
 import {
 	parseFrontmatter,
 	parseLintOutput,
@@ -44,6 +45,8 @@ const mockReadConfig = readProjectConfig as ReturnType<typeof vi.fn>;
 function setDisk(fs: ReturnType<typeof createMockFs>): void {
 	Object.assign(fsMod, { disk: fs });
 }
+
+function loaderDeps() { return { disk: fsMod.disk, paths: pathsMod.paths } as const; }
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -187,7 +190,7 @@ describe("readTestReportJson", () => {
 		});
 		setDisk(fs);
 
-		const result = readTestReportJson("/reports");
+		const result = readTestReportJson("/reports", loaderDeps());
 		expect(result).toBeDefined();
 		expect(result!.numTotalTests).toBe(100);
 		expect(result!.numPassedTests).toBe(98);
@@ -197,7 +200,7 @@ describe("readTestReportJson", () => {
 
 	it("returns undefined when file does not exist", () => {
 		setDisk(createMockFs());
-		expect(readTestReportJson("/reports")).toBeUndefined();
+		expect(readTestReportJson("/reports", loaderDeps())).toBeUndefined();
 	});
 
 	it("fills defaults for missing fields", () => {
@@ -206,7 +209,7 @@ describe("readTestReportJson", () => {
 		});
 		setDisk(fs);
 
-		const result = readTestReportJson("/reports");
+		const result = readTestReportJson("/reports", loaderDeps());
 		expect(result!.numTotalTests).toBe(5);
 		expect(result!.numPendingTests).toBe(0);
 		expect(result!.success).toBe(false);
@@ -230,7 +233,7 @@ describe("aggregateCoverageJson", () => {
 		});
 		setDisk(fs);
 
-		const result = aggregateCoverageJson("/reports");
+		const result = aggregateCoverageJson("/reports", loaderDeps());
 		expect(result).toBeDefined();
 		expect(result!.statementsPct).toBeCloseTo(66.67, 1);
 		expect(result!.branchesPct).toBe(50);
@@ -240,7 +243,7 @@ describe("aggregateCoverageJson", () => {
 
 	it("returns undefined when file does not exist", () => {
 		setDisk(createMockFs());
-		expect(aggregateCoverageJson("/reports")).toBeUndefined();
+		expect(aggregateCoverageJson("/reports", loaderDeps())).toBeUndefined();
 	});
 });
 
@@ -254,13 +257,13 @@ describe("findLatestMd", () => {
 		});
 		setDisk(fs);
 
-		const result = findLatestMd("/reports/tests");
+		const result = findLatestMd("/reports/tests", loaderDeps());
 		expect(result).toContain("2026-03-08-test.md");
 	});
 
 	it("returns null for empty directory", () => {
 		setDisk(createMockFs());
-		expect(findLatestMd("/nonexistent")).toBeNull();
+		expect(findLatestMd("/nonexistent", loaderDeps())).toBeNull();
 	});
 
 	it("ignores non-timestamped files", () => {
@@ -269,7 +272,7 @@ describe("findLatestMd", () => {
 		});
 		setDisk(fs);
 
-		expect(findLatestMd("/reports/tests")).toBeNull();
+		expect(findLatestMd("/reports/tests", loaderDeps())).toBeNull();
 	});
 });
 
@@ -283,7 +286,7 @@ describe("discoverReports", () => {
 		});
 		setDisk(fs);
 
-		const snapshots = discoverReports("/reports");
+		const snapshots = discoverReports("/reports", loaderDeps());
 		expect(snapshots).toHaveLength(2);
 		expect(snapshots[0].label).toBe("Test");
 		expect(snapshots[0].frontmatter.total).toBe("100");
@@ -297,7 +300,7 @@ describe("discoverReports", () => {
 		});
 		setDisk(fs);
 
-		const snapshots = discoverReports("/reports");
+		const snapshots = discoverReports("/reports", loaderDeps());
 		const complexity = snapshots.find((s) => s.label === "Complexity");
 		expect(complexity).toBeDefined();
 		expect(complexity!.frontmatter.max_complexity).toBe("12");
@@ -305,7 +308,7 @@ describe("discoverReports", () => {
 
 	it("returns empty array when no reports exist", () => {
 		setDisk(createMockFs());
-		expect(discoverReports("/reports")).toEqual([]);
+		expect(discoverReports("/reports", loaderDeps())).toEqual([]);
 	});
 });
 
@@ -326,7 +329,7 @@ describe("loadAnalysisTopFiles", () => {
 		});
 		setDisk(fs);
 
-		const result = loadAnalysisTopFiles("/reports", 10);
+		const result = loadAnalysisTopFiles("/reports", 10, loaderDeps());
 		expect(result).toHaveLength(2); // c.ts filtered out (0 DPs)
 		expect(result[0].file).toBe("src/b.ts");
 		expect(result[0].decisionPointCount).toBe(15);
@@ -334,7 +337,7 @@ describe("loadAnalysisTopFiles", () => {
 
 	it("returns empty array when file does not exist", () => {
 		setDisk(createMockFs());
-		expect(loadAnalysisTopFiles("/reports", 10)).toEqual([]);
+		expect(loadAnalysisTopFiles("/reports", 10, loaderDeps())).toEqual([]);
 	});
 });
 
@@ -351,7 +354,7 @@ describe("loadComplexityFunctions", () => {
 		});
 		setDisk(fs);
 
-		const result = loadComplexityFunctions("/reports");
+		const result = loadComplexityFunctions("/reports", loaderDeps());
 		expect(result).toBeDefined();
 		expect(result!.summary.maxComplexity).toBe(8);
 		expect(result!.functions).toHaveLength(1);
@@ -359,7 +362,7 @@ describe("loadComplexityFunctions", () => {
 
 	it("returns undefined when file does not exist", () => {
 		setDisk(createMockFs());
-		expect(loadComplexityFunctions("/reports")).toBeUndefined();
+		expect(loadComplexityFunctions("/reports", loaderDeps())).toBeUndefined();
 	});
 });
 
@@ -368,13 +371,13 @@ describe("loadComplexityFunctions", () => {
 describe("resolveThresholds", () => {
 	it("returns defaults when no config", () => {
 		mockReadConfig.mockReturnValue({ config: null, warnings: [] });
-		const t = resolveThresholds("/project");
+		const t = resolveThresholds("/project", loaderDeps());
 		expect(t).toEqual(DEFAULT_THRESHOLDS);
 	});
 
 	it("merges config overrides with defaults", () => {
 		mockReadConfig.mockReturnValue({ config: { reports: { thresholds: { coverageLines: 90 } } }, warnings: [] });
-		const t = resolveThresholds("/project");
+		const t = resolveThresholds("/project", loaderDeps());
 		expect(t.coverageLines).toBe(90);
 		expect(t.maxComplexity).toBe(15); // default preserved
 	});

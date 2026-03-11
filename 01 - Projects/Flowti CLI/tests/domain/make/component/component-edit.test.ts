@@ -23,8 +23,11 @@ vi.mock("../../../../src/infrastructure/config.js", () => ({
 }));
 
 import { disk } from "../../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../../src/infrastructure/paths.js";
 import { splitFrontmatter, joinFrontmatter } from "../../../../src/infrastructure/frontmatter.js";
 import { extractPropFlags, editComponent } from "../../../../src/domain/make/component/component-edit.js";
+
+function editDeps() { return { disk, paths } as const; }
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -84,21 +87,21 @@ describe("extractPropFlags", () => {
 
 describe("editComponent", () => {
 	it("returns error when name is missing", () => {
-		const result = editComponent(undefined, {}, "/project");
+		const result = editComponent(undefined, {}, "/project", editDeps());
 		expect(result.success).toBe(false);
 		if (!result.success) expect(result.error).toContain("--name is required");
 	});
 
 	it("returns error when component file does not exist", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(false);
-		const result = editComponent("Missing", {}, "/project");
+		const result = editComponent("Missing", {}, "/project", editDeps());
 		expect(result.success).toBe(false);
 		if (!result.success) expect(result.error).toContain("Component not found");
 	});
 
 	it("returns error when no prop flags specified", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		const result = editComponent("Test", { name: "Test" }, "/project");
+		const result = editComponent("Test", { name: "Test" }, "/project", editDeps());
 		expect(result.success).toBe(false);
 		if (!result.success) expect(result.error).toContain("No properties specified");
 	});
@@ -106,7 +109,7 @@ describe("editComponent", () => {
 	it("returns error when file has no frontmatter", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readFileSync).mockReturnValue("# No frontmatter");
-		const result = editComponent("Test", { "prop.status": "active" }, "/project");
+		const result = editComponent("Test", { "prop.status": "active" }, "/project", editDeps());
 		expect(result.success).toBe(false);
 		if (!result.success) expect(result.error).toContain("No frontmatter");
 	});
@@ -121,6 +124,7 @@ describe("editComponent", () => {
 			"Auth Service",
 			{ "prop.status": "active", "prop.technology": "React" },
 			"/project",
+			editDeps(),
 		);
 
 		expect(result.success).toBe(true);
@@ -138,7 +142,7 @@ describe("editComponent", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readFileSync).mockReturnValue("---\ntype: component\n---\n\n# Test\n");
 
-		editComponent("My Component", { "prop.status": "active" }, "/project");
+		editComponent("My Component", { "prop.status": "active" }, "/project", editDeps());
 
 		expect(disk.existsSync).toHaveBeenCalledWith("/project/docs/components/my-component.md");
 	});
@@ -147,7 +151,7 @@ describe("editComponent", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readFileSync).mockReturnValue("---\ntype: component\n---\n\n# Test\n");
 
-		const result = editComponent("Test", { "prop.status": "active" }, "/project");
+		const result = editComponent("Test", { "prop.status": "active" }, "/project", editDeps());
 
 		expect(result.success).toBe(true);
 		if (result.success) {

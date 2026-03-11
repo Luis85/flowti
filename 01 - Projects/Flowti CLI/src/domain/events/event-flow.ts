@@ -5,11 +5,9 @@
  * and renders them as Mermaid flowcharts in markdown documents.
  */
 
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
-import { clock } from "../../infrastructure/clock.js";
 import { Document } from "../../infrastructure/document.js";
 import { parseFrontmatterStrings } from "../../infrastructure/frontmatter.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -32,8 +30,8 @@ export interface EventFlowGraph {
 
 // ── Internal helpers ───────────────────────────────────────────────
 
-function eventsDir(projectPath: string): string {
-	return paths.join(projectPath, "docs", "events");
+function eventsDir(deps: Pick<CliDeps, "paths">, projectPath: string): string {
+	return deps.paths.join(projectPath, "docs", "events");
 }
 
 function parseCommaSeparated(value: string): string[] {
@@ -61,16 +59,16 @@ function addEdges(names: string[], eventName: string, type: "producer" | "consum
 }
 
 /** Read all events from docs/events/, parse frontmatter, and build a flow graph. */
-export function buildEventFlowGraph(projectPath: string): EventFlowGraph {
-	const dir = eventsDir(projectPath);
-	if (!disk.existsSync(dir)) return { nodes: [], edges: [] };
+export function buildEventFlowGraph(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string): EventFlowGraph {
+	const dir = eventsDir(deps, projectPath);
+	if (!deps.disk.existsSync(dir)) return { nodes: [], edges: [] };
 
-	const files = disk.readdirSync(dir).filter((f: string) => f.endsWith(".md"));
+	const files = deps.disk.readdirSync(dir).filter((f: string) => f.endsWith(".md"));
 	const nodeMap = new Map<string, EventFlowNode>();
 	const edges: EventFlowEdge[] = [];
 
 	for (const file of files) {
-		const content = disk.readFileSync(paths.join(dir, file), "utf-8");
+		const content = deps.disk.readFileSync(deps.paths.join(dir, file), "utf-8");
 		const fm = parseFrontmatterStrings(content);
 		const eventName = fm.name ?? file.replace(/\.md$/, "");
 
@@ -158,14 +156,14 @@ function filterGraphByEvents(graph: EventFlowGraph, eventNames: Set<string>): Ev
 }
 
 /** Generate a full markdown document with event flow diagrams. */
-export function generateEventFlowDoc(projectPath: string, domainFilter?: string): string {
-	const graph = buildEventFlowGraph(projectPath);
+export function generateEventFlowDoc(deps: Pick<CliDeps, "disk" | "paths" | "clock">, projectPath: string, domainFilter?: string): string {
+	const graph = buildEventFlowGraph(deps, projectPath);
 	const title = domainFilter ? `Event Flow — ${domainFilter}` : "Event Flow";
 
 	const doc = Document.create(title)
 		.mergeFrontmatter({
 			type: "EventFlow",
-			date: clock.iso(),
+			date: deps.clock.iso(),
 			domain: domainFilter ?? "all",
 		})
 		.addBlank()
@@ -224,11 +222,11 @@ export function generateEventFlowDoc(projectPath: string, domainFilter?: string)
 }
 
 /** Generate the event flow document and save it to docs/events/Event Flow.md. */
-export function saveEventFlowDoc(projectPath: string, domainFilter?: string): string {
-	const content = generateEventFlowDoc(projectPath, domainFilter);
-	const dir = eventsDir(projectPath);
-	disk.mkdirSync(dir, { recursive: true });
-	const filePath = paths.join(dir, "Event Flow.md");
-	disk.writeFileSync(filePath, content, "utf-8");
+export function saveEventFlowDoc(deps: Pick<CliDeps, "disk" | "paths" | "clock">, projectPath: string, domainFilter?: string): string {
+	const content = generateEventFlowDoc(deps, projectPath, domainFilter);
+	const dir = eventsDir(deps, projectPath);
+	deps.disk.mkdirSync(dir, { recursive: true });
+	const filePath = deps.paths.join(dir, "Event Flow.md");
+	deps.disk.writeFileSync(filePath, content, "utf-8");
 	return filePath;
 }

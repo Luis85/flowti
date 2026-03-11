@@ -20,6 +20,7 @@ vi.mock("../../../../src/infrastructure/shell.js", () => ({
 }));
 
 vi.mock("../../../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
+vi.mock("../../../../src/infrastructure/clock.js", () => ({ clock: { now: () => new Date(), safeIso: () => "2026-01-01T00:00:00" } }));
 vi.mock("../../../../src/infrastructure/frontmatter.js", () => ({ parseFrontmatterContent: vi.fn(() => ({})) }));
 
 vi.mock("../../../../src/ui/e2e/e2e-formatters.js", () => ({
@@ -67,6 +68,10 @@ vi.mock("../../../../src/domain/e2e/e2e-state-reports.js", () => ({
 
 import { proc } from "../../../../src/infrastructure/proc.js";
 import { shell } from "../../../../src/infrastructure/shell.js";
+import { disk } from "../../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../../src/infrastructure/paths.js";
+import { log } from "../../../../src/infrastructure/logger.js";
+import { clock } from "../../../../src/infrastructure/clock.js";
 import {
 	createEnvConfigStep,
 	createEnvCleanupStep,
@@ -83,6 +88,8 @@ import { configureSessionEnv, cleanSessionEnv } from "../../../../src/domain/e2e
 import { performTeardown } from "../../../../src/domain/e2e/e2e-teardown.js";
 import type { E2EPaths } from "../../../../src/domain/e2e/e2e-paths.js";
 import type { PipelineContext } from "../../../../src/infrastructure/pipeline/pipeline-types.js";
+
+const mockDeps = { disk, shell, paths, proc, clock, log } as const;
 
 const mockE2e: E2EPaths = {
 	projectRoot: "/project",
@@ -121,23 +128,23 @@ beforeEach(() => {
 
 describe("createEnvConfigStep", () => {
 	it("has correct id and label", () => {
-		const step = createEnvConfigStep({ sessionName: "s", selectedSlugs: [], includeInstaller: false, includePrerequisites: false, stepFilter: {} });
+		const step = createEnvConfigStep({ sessionName: "s", selectedSlugs: [], includeInstaller: false, includePrerequisites: false, stepFilter: {} }, mockDeps);
 		expect(step.id).toBe("e2e:env-config");
 		expect(step.label).toBe("Configure Environment");
 	});
 
 	it("calls configureSessionEnv and returns success", () => {
 		const config = { sessionName: "s", selectedSlugs: ["a"], includeInstaller: false, includePrerequisites: false, stepFilter: {} };
-		const step = createEnvConfigStep(config);
+		const step = createEnvConfigStep(config, mockDeps);
 		const output = step.execute(createMockContext());
 		expect(output).toEqual({ success: true });
-		expect(configureSessionEnv).toHaveBeenCalledWith(config);
+		expect(configureSessionEnv).toHaveBeenCalledWith(config, mockDeps);
 	});
 });
 
 describe("createEnvCleanupStep", () => {
 	it("has correct id and calls cleanSessionEnv", () => {
-		const step = createEnvCleanupStep();
+		const step = createEnvCleanupStep(mockDeps);
 		expect(step.id).toBe("e2e:env-cleanup");
 		const output = step.execute(createMockContext());
 		expect(output).toEqual({ success: true });
@@ -149,7 +156,7 @@ describe("createEnvCleanupStep", () => {
 
 describe("createVitestStep", () => {
 	it("has correct id and label", () => {
-		const step = createVitestStep(mockE2e);
+		const step = createVitestStep(mockE2e, mockDeps);
 		expect(step.id).toBe("e2e:vitest");
 		expect(step.label).toBe("Vitest E2E Suite");
 	});
@@ -157,7 +164,7 @@ describe("createVitestStep", () => {
 	it("returns success when vitest passes", () => {
 		mockRunVitest.mockReturnValue(0);
 		const ctx = createMockContext();
-		const step = createVitestStep(mockE2e);
+		const step = createVitestStep(mockE2e, mockDeps);
 		const output = step.execute(ctx);
 		expect(output.success).toBe(true);
 		expect(output.data).toEqual({ exitCode: 0 });
@@ -166,7 +173,7 @@ describe("createVitestStep", () => {
 	it("returns failure when vitest fails", () => {
 		mockRunVitest.mockReturnValue(1);
 		const ctx = createMockContext();
-		const step = createVitestStep(mockE2e);
+		const step = createVitestStep(mockE2e, mockDeps);
 		const output = step.execute(ctx);
 		expect(output.success).toBe(false);
 	});
@@ -174,7 +181,7 @@ describe("createVitestStep", () => {
 	it("stores exit code in pipeline context", () => {
 		mockRunVitest.mockReturnValue(0);
 		const ctx = createMockContext();
-		const step = createVitestStep(mockE2e);
+		const step = createVitestStep(mockE2e, mockDeps);
 		step.execute(ctx);
 		expect(ctx.getStepData("e2e:vitest")).toEqual({ exitCode: 0 });
 	});
@@ -184,13 +191,13 @@ describe("createVitestStep", () => {
 
 describe("createReportStep", () => {
 	it("has correct id and depends on vitest", () => {
-		const step = createReportStep(mockE2e);
+		const step = createReportStep(mockE2e, mockDeps);
 		expect(step.id).toBe("e2e:report");
 		expect(step.dependencies).toContain("e2e:vitest");
 	});
 
 	it("returns success with report path", () => {
-		const step = createReportStep(mockE2e);
+		const step = createReportStep(mockE2e, mockDeps);
 		const output = step.execute(createMockContext());
 		expect(output.success).toBe(true);
 		expect(output.outputPath).toBe("/vault-e2e/E2E Report.md");
@@ -231,16 +238,16 @@ describe("createSessionNoteStep", () => {
 
 describe("createTeardownStep", () => {
 	it("has correct id and label", () => {
-		const step = createTeardownStep(mockE2e);
+		const step = createTeardownStep(mockE2e, mockDeps);
 		expect(step.id).toBe("e2e:teardown");
 		expect(step.label).toBe("Teardown Vault");
 	});
 
 	it("calls performTeardown and returns success", async () => {
-		const step = createTeardownStep(mockE2e);
+		const step = createTeardownStep(mockE2e, mockDeps);
 		const output = await step.execute(createMockContext());
 		expect(output).toEqual({ success: true });
-		expect(performTeardown).toHaveBeenCalledWith(mockE2e);
+		expect(performTeardown).toHaveBeenCalledWith(mockE2e, mockDeps);
 	});
 });
 
@@ -248,7 +255,7 @@ describe("createTeardownStep", () => {
 
 describe("createCleanupStep", () => {
 	it("has correct id and returns success", () => {
-		const step = createCleanupStep(mockE2e);
+		const step = createCleanupStep(mockE2e, mockDeps);
 		expect(step.id).toBe("e2e:cleanup");
 		const output = step.execute(createMockContext());
 		expect(output).toEqual({ success: true });
@@ -259,13 +266,13 @@ describe("createCleanupStep", () => {
 
 describe("createQuickBuildStep", () => {
 	it("has correct id", () => {
-		const step = createQuickBuildStep(mockE2e);
+		const step = createQuickBuildStep(mockE2e, mockDeps);
 		expect(step.id).toBe("e2e:quick-build");
 	});
 
 	it("returns success when build succeeds", () => {
 		vi.mocked(shell.run).mockReturnValue(0);
-		const step = createQuickBuildStep(mockE2e);
+		const step = createQuickBuildStep(mockE2e, mockDeps);
 		const output = step.execute(createMockContext());
 		expect(output.success).toBe(true);
 	});
@@ -273,7 +280,7 @@ describe("createQuickBuildStep", () => {
 
 describe("createIncrementBuildStep", () => {
 	it("has correct id and depends on teardown", () => {
-		const step = createIncrementBuildStep(mockE2e);
+		const step = createIncrementBuildStep(mockE2e, mockDeps);
 		expect(step.id).toBe("e2e:increment-build");
 		expect(step.dependencies).toContain("e2e:teardown");
 	});
@@ -281,7 +288,7 @@ describe("createIncrementBuildStep", () => {
 	it("returns success when build passes", () => {
 		vi.mocked(shell.run).mockReturnValue(0);
 		const ctx = createMockContext();
-		const step = createIncrementBuildStep(mockE2e);
+		const step = createIncrementBuildStep(mockE2e, mockDeps);
 		const output = step.execute(ctx);
 		expect(output.success).toBe(true);
 	});
@@ -289,7 +296,7 @@ describe("createIncrementBuildStep", () => {
 	it("returns failure when build fails", () => {
 		vi.mocked(shell.run).mockReturnValue(1);
 		const ctx = createMockContext();
-		const step = createIncrementBuildStep(mockE2e);
+		const step = createIncrementBuildStep(mockE2e, mockDeps);
 		const output = step.execute(ctx);
 		expect(output.success).toBe(false);
 	});
@@ -297,7 +304,7 @@ describe("createIncrementBuildStep", () => {
 	it("stores data in pipeline context", () => {
 		vi.mocked(shell.run).mockReturnValue(0);
 		const ctx = createMockContext();
-		const step = createIncrementBuildStep(mockE2e);
+		const step = createIncrementBuildStep(mockE2e, mockDeps);
 		step.execute(ctx);
 		const data = ctx.getStepData("e2e:increment-build") as Record<string, unknown>;
 		expect(data.exitCode).toBe(0);
@@ -307,14 +314,14 @@ describe("createIncrementBuildStep", () => {
 
 describe("createPublishStep", () => {
 	it("has correct id", () => {
-		const step = createPublishStep(mockE2e);
+		const step = createPublishStep(mockE2e, mockDeps);
 		expect(step.id).toBe("e2e:publish");
 	});
 
 	it("stores data in pipeline context", () => {
 		vi.mocked(shell.run).mockReturnValue(0);
 		const ctx = createMockContext();
-		const step = createPublishStep(mockE2e);
+		const step = createPublishStep(mockE2e, mockDeps);
 		step.execute(ctx);
 		const data = ctx.getStepData("e2e:publish") as Record<string, unknown>;
 		expect(data.exitCode).toBe(0);

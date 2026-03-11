@@ -6,11 +6,14 @@
  */
 
 import { Document } from "../../infrastructure/document.js";
-import { clock } from "../../infrastructure/clock.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 import type { LoadedAiTool } from "./ai-tool-types.js";
 
-export function generateAiToolReference(tools: LoadedAiTool[]): Document {
-	const date = clock.iso();
+export function generateAiToolReference(
+	deps: Pick<CliDeps, "clock">,
+	tools: LoadedAiTool[],
+): Document {
+	const date = deps.clock.iso();
 	const valid = tools.filter((t) => t.valid);
 	const invalid = tools.filter((t) => !t.valid);
 	const allTags = [...new Set(valid.flatMap((t) => t.definition.tags ?? []))].sort();

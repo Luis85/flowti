@@ -106,8 +106,10 @@ describe("markdownToHtml", () => {
 // ── wrapHtml ────────────────────────────────────────────────────────
 
 describe("wrapHtml", () => {
+	const clockDeps = { clock: { now: () => new Date(), ms: () => Date.now(), iso: () => "2026-03-11T12:00:00.000Z", safeIso: () => "2026-03-11T12-00-00" } };
+
 	it("produces valid HTML document", () => {
-		const html = wrapHtml("Test Report", "<p>Content</p>");
+		const html = wrapHtml("Test Report", "<p>Content</p>", clockDeps);
 		expect(html).toContain("<!DOCTYPE html>");
 		expect(html).toContain("<title>Test Report</title>");
 		expect(html).toContain("<p>Content</p>");
@@ -115,25 +117,25 @@ describe("wrapHtml", () => {
 	});
 
 	it("includes inline CSS", () => {
-		const html = wrapHtml("Title", "<p>Body</p>");
+		const html = wrapHtml("Title", "<p>Body</p>", clockDeps);
 		expect(html).toContain("<style>");
 		expect(html).toContain("font-family");
 	});
 
 	it("includes metadata when provided", () => {
-		const html = wrapHtml("Title", "<p>Body</p>", { project: "my-app", score: 85 });
+		const html = wrapHtml("Title", "<p>Body</p>", clockDeps, { project: "my-app", score: 85 });
 		expect(html).toContain("project");
 		expect(html).toContain("my-app");
 		expect(html).toContain("85");
 	});
 
 	it("omits metadata block when not provided", () => {
-		const html = wrapHtml("Title", "<p>Body</p>");
+		const html = wrapHtml("Title", "<p>Body</p>", clockDeps);
 		expect(html).not.toContain("class=\"meta\"");
 	});
 
 	it("escapes title in HTML", () => {
-		const html = wrapHtml("Report <v2>", "<p>Body</p>");
+		const html = wrapHtml("Report <v2>", "<p>Body</p>", clockDeps);
 		expect(html).toContain("Report &lt;v2&gt;");
 	});
 });

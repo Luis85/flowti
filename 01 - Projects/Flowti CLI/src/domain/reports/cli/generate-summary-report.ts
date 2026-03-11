@@ -155,18 +155,18 @@ function logDataSources(snapshots: ReportSnapshot[], json: JsonDataSources, deta
 	if (detailed.perFile.length > 0) log(`Per-file coverage: ${detailed.perFile.length} files`);
 }
 
-function runLintCheck(projectPath: string, command: string | undefined, log: (msg: string) => void, ctx?: PipelineContext): LintResult | null {
+function runLintCheck(projectPath: string, command: string | undefined, log: (msg: string) => void, deps: ReportDeps, ctx?: PipelineContext): LintResult | null {
 	if (!command) return null;
 	log(`Running lint: ${command}`);
-	const result = collectLintWarnings(projectPath, command, ctx);
+	const result = collectLintWarnings(projectPath, command, { shell: deps.shell }, ctx);
 	log(`Lint: ${result.errors} errors, ${result.warnings} warnings`);
 	return result;
 }
 
-function runTypedocCheck(projectPath: string, command: string | undefined, log: (msg: string) => void, ctx?: PipelineContext): TypeDocResult | null {
+function runTypedocCheck(projectPath: string, command: string | undefined, log: (msg: string) => void, deps: ReportDeps, ctx?: PipelineContext): TypeDocResult | null {
 	if (!command) return null;
 	log(`Running TypeDoc: ${command}`);
-	const result = collectTypedocWarnings(projectPath, command, ctx);
+	const result = collectTypedocWarnings(projectPath, command, { shell: deps.shell }, ctx);
 	log(`TypeDoc: ${result.errors} errors, ${result.warnings} warnings`);
 	return result;
 }
@@ -258,21 +258,21 @@ function collectOutputWarnings(
 export function generateSummaryReport(projectPath: string, deps: ReportDeps, ctx?: PipelineContext): GeneratorOutput {
 	const svc = new ReportService(projectPath, deps);
 	const projectName = deps.paths.basename(projectPath);
-	const thresholds = resolveThresholds(projectPath);
+	const thresholds = resolveThresholds(projectPath, deps);
 	const log = (msg: string) => ctx?.log(msg);
 
 	ctx?.log("Generating Project Summary...");
 
-	const snapshots = discoverReports(svc.reportsDir);
-	const json = loadJsonDataSources(svc.reportsDir);
-	const detailed = loadDetailedSources(svc.reportsDir, projectPath);
+	const snapshots = discoverReports(svc.reportsDir, deps);
+	const json = loadJsonDataSources(svc.reportsDir, deps);
+	const detailed = loadDetailedSources(svc.reportsDir, projectPath, deps);
 	logDataSources(snapshots, json, detailed, log);
 
-	const lint = runLintCheck(projectPath, thresholds.lintCommand, log, ctx);
-	const typedoc = runTypedocCheck(projectPath, thresholds.typedocCommand, log, ctx);
+	const lint = runLintCheck(projectPath, thresholds.lintCommand, log, deps, ctx);
+	const typedoc = runTypedocCheck(projectPath, thresholds.typedocCommand, log, deps, ctx);
 
 	const runResults = ctx ? ctx.getResults() : [];
-	const findings = analyzeReports(snapshots, thresholds, lint, typedoc, json, detailed, projectPath, runResults);
+	const findings = analyzeReports(snapshots, thresholds, lint, typedoc, json, detailed, projectPath, runResults, deps);
 	const doc = buildSummaryReport(snapshots, findings, lint, typedoc, thresholds, projectName, json, detailed, runResults, deps);
 
 	const stablePath = svc.stablePath("Project Summary.md");

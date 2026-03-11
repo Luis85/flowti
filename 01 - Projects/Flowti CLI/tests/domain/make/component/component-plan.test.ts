@@ -1,7 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { buildComponentPlan, resolveNextSteps } from "../../../../src/domain/make/component/component-plan.js";
-import type { ComponentVariables, ComponentDefinition, ComponentTemplateFn } from "../../../../src/domain/make/component/component-types.js";
+import type { ComponentVariables, ComponentDefinition, ComponentTemplateFn, ComponentTemplateDeps } from "../../../../src/domain/make/component/component-types.js";
 import type { ComponentTemplateRegistry } from "../../../../src/domain/make/component/component-plan.js";
+
+const mockDeps: ComponentTemplateDeps = {
+	clock: { now: () => new Date("2026-01-01"), ms: () => 0, iso: () => "2026-01-01T00:00:00Z", safeIso: () => "2026-01-01T00-00-00" },
+};
 
 function makeDef(overrides: Partial<ComponentDefinition> = {}): ComponentDefinition {
 	return {
@@ -41,7 +45,7 @@ describe("buildComponentPlan", () => {
 			doc: () => "# Doc",
 			def: () => "{}",
 		});
-		const plan = buildComponentPlan(makeVars(), makeDef(), registry);
+		const plan = buildComponentPlan(makeVars(), makeDef(), registry, mockDeps);
 
 		expect(plan).toHaveLength(2);
 		expect(plan[0].path).toBe("docs/components/user-profile.md");
@@ -56,7 +60,7 @@ describe("buildComponentPlan", () => {
 			doc: (v, d) => `${v.name}|${d.kind}`,
 			def: () => "{}",
 		});
-		const plan = buildComponentPlan(vars, def, registry);
+		const plan = buildComponentPlan(vars, def, registry, mockDeps);
 		expect(plan[0].content).toBe("Auth Service|c4-component");
 	});
 
@@ -65,7 +69,7 @@ describe("buildComponentPlan", () => {
 			files: [{ path: "test.md", templateId: "nonexistent" }],
 		});
 		const registry = makeRegistry({});
-		expect(() => buildComponentPlan(makeVars(), def, registry)).toThrow("Unknown component template");
+		expect(() => buildComponentPlan(makeVars(), def, registry, mockDeps)).toThrow("Unknown component template");
 	});
 
 	it("handles extra variables in path interpolation", () => {

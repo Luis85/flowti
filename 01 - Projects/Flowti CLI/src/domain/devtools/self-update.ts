@@ -5,9 +5,8 @@
  * to determine if a rebuild is needed.
  */
 
-import type { IFileSystem, DirEntry } from "../../infrastructure/types.js";
+import type { IFileSystem, DirEntry, IPaths } from "../../infrastructure/types.js";
 import type { IShell } from "../../infrastructure/types.js";
-import { paths } from "../../infrastructure/paths.js";
 
 // ── Pure functions ───────────────────────────────────────────────────
 
@@ -16,7 +15,7 @@ import { paths } from "../../infrastructure/paths.js";
  * matching the given extension in a directory tree.
  * Returns 0 if no matching files are found.
  */
-export function getNewestMtime(dir: string, ext: string, fs: IFileSystem): number {
+export function getNewestMtime(dir: string, ext: string, fs: IFileSystem, paths: IPaths): number {
 	let newest = 0;
 
 	let entries: DirEntry[];
@@ -29,7 +28,7 @@ export function getNewestMtime(dir: string, ext: string, fs: IFileSystem): numbe
 	for (const entry of entries) {
 		const fullPath = paths.join(dir, entry.name);
 		if (entry.isDirectory()) {
-			const sub = getNewestMtime(fullPath, ext, fs);
+			const sub = getNewestMtime(fullPath, ext, fs, paths);
 			if (sub > newest) newest = sub;
 		} else if (entry.isFile() && entry.name.endsWith(ext)) {
 			const stat = fs.statSync(fullPath);
@@ -45,12 +44,12 @@ export function getNewestMtime(dir: string, ext: string, fs: IFileSystem): numbe
  * Check whether any source file is newer than the compiled binary.
  * Returns true if a rebuild is needed.
  */
-export function needsRebuild(srcDir: string, binaryPath: string, fs: IFileSystem): boolean {
+export function needsRebuild(srcDir: string, binaryPath: string, fs: IFileSystem, paths: IPaths): boolean {
 	if (!fs.existsSync(binaryPath)) return true;
 
 	const binaryStat = fs.statSync(binaryPath);
 	const binaryMtime = binaryStat.mtimeMs;
-	const newestSource = getNewestMtime(srcDir, ".ts", fs);
+	const newestSource = getNewestMtime(srcDir, ".ts", fs, paths);
 
 	return newestSource > binaryMtime;
 }

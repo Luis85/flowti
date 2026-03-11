@@ -45,6 +45,9 @@ vi.mock("../../../../src/infrastructure/clock.js", () => ({
 }));
 
 import { humanBytes, safeLocalTime, collectOutputs } from "../../../../src/domain/reports/generators/build-report.js";
+import { paths } from "../../../../src/infrastructure/paths.js";
+
+function buildReportDeps() { return { paths } as const; }
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -87,24 +90,24 @@ describe("build-report generator", () => {
 
 	describe("collectOutputs", () => {
 		it("returns empty summary for missing outputs", () => {
-			const result = collectOutputs({});
+			const result = collectOutputs({}, buildReportDeps());
 			expect(result.totalBytes).toBe(0);
 			expect(result.outputs).toEqual([]);
 		});
 
 		it("sums JS bytes", () => {
-			const result = collectOutputs({ outputs: { "dist/main.js": { bytes: 1000 } } });
+			const result = collectOutputs({ outputs: { "dist/main.js": { bytes: 1000 } } }, buildReportDeps());
 			expect(result.jsBytes).toBe(1000);
 			expect(result.totalBytes).toBe(1000);
 		});
 
 		it("sums CSS bytes", () => {
-			const result = collectOutputs({ outputs: { "dist/styles.css": { bytes: 500 } } });
+			const result = collectOutputs({ outputs: { "dist/styles.css": { bytes: 500 } } }, buildReportDeps());
 			expect(result.cssBytes).toBe(500);
 		});
 
 		it("sums other bytes", () => {
-			const result = collectOutputs({ outputs: { "dist/icon.svg": { bytes: 200 } } });
+			const result = collectOutputs({ outputs: { "dist/icon.svg": { bytes: 200 } } }, buildReportDeps());
 			expect(result.otherBytes).toBe(200);
 		});
 
@@ -115,7 +118,7 @@ describe("build-report generator", () => {
 					"dist/styles.css": { bytes: 300 },
 					"dist/map.json": { bytes: 100 },
 				},
-			});
+			}, buildReportDeps());
 			expect(result.totalBytes).toBe(1400);
 			expect(result.jsBytes).toBe(1000);
 			expect(result.cssBytes).toBe(300);

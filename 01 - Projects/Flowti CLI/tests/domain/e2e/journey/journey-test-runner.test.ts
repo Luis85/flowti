@@ -55,6 +55,8 @@ vi.mock("../../../../src/domain/e2e/journey/providers/index.js", () => ({
 }));
 
 import { disk } from "../../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../../src/infrastructure/paths.js";
+import { proc } from "../../../../src/infrastructure/proc.js";
 import { shell } from "../../../../src/infrastructure/shell.js";
 import { loadJourneyFile } from "../../../../src/domain/e2e/journey/journey-loader.js";
 import { executeJourney, resolveEnvironment } from "../../../../src/domain/e2e/journey/journey-executor.js";
@@ -70,13 +72,15 @@ import {
 	ensureTestVault,
 } from "../../../../src/domain/e2e/journey/journey-test-runner.js";
 
+const cliDeps = { disk, paths, proc, shell } as any;
+
 describe("createDefaultDeps", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 	});
 
 	it("returns object with all required tool deps", () => {
-		const deps = createDefaultDeps();
+		const deps = createDefaultDeps(cliDeps);
 		expect(deps.exec).toBeTypeOf("function");
 		expect(deps.readFile).toBeTypeOf("function");
 		expect(deps.writeFile).toBeTypeOf("function");
@@ -87,19 +91,19 @@ describe("createDefaultDeps", () => {
 	});
 
 	it("exec delegates to shell.runCaptureDetailed", () => {
-		const deps = createDefaultDeps();
+		const deps = createDefaultDeps(cliDeps);
 		deps.exec("echo hello", { cwd: "/tmp" });
 		expect(shell.runCaptureDetailed).toHaveBeenCalledWith("echo hello", expect.objectContaining({ cwd: "/tmp" }));
 	});
 
 	it("readFile delegates to disk.readFileSync", () => {
 		vi.mocked(disk.readFileSync).mockReturnValue("content");
-		const deps = createDefaultDeps();
+		const deps = createDefaultDeps(cliDeps);
 		expect(deps.readFile("/test.txt")).toBe("content");
 	});
 
 	it("writeFile creates directory and writes file", () => {
-		const deps = createDefaultDeps();
+		const deps = createDefaultDeps(cliDeps);
 		deps.writeFile("/dir/sub/file.txt", "data");
 		expect(disk.mkdirSync).toHaveBeenCalledWith("/dir/sub", { recursive: true });
 		expect(disk.writeFileSync).toHaveBeenCalledWith("/dir/sub/file.txt", "data", "utf-8");
@@ -107,19 +111,19 @@ describe("createDefaultDeps", () => {
 
 	it("exists delegates to disk.existsSync", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		const deps = createDefaultDeps();
+		const deps = createDefaultDeps(cliDeps);
 		expect(deps.exists("/test.txt")).toBe(true);
 	});
 
 	it("log calls the provided logger", () => {
 		const logger = vi.fn();
-		const deps = createDefaultDeps(logger);
+		const deps = createDefaultDeps(cliDeps, logger);
 		deps.log("hello");
 		expect(logger).toHaveBeenCalledWith("hello");
 	});
 
 	it("sleep returns a promise", async () => {
-		const deps = createDefaultDeps();
+		const deps = createDefaultDeps(cliDeps);
 		const start = Date.now();
 		await deps.sleep(10);
 		expect(Date.now() - start).toBeGreaterThanOrEqual(5);
@@ -132,7 +136,7 @@ describe("loadJourney", () => {
 	});
 
 	it("loads journey file from base dir + slug", () => {
-		const result = loadJourney("/project/tests/e2e", "getting-started");
+		const result = loadJourney("/project/tests/e2e", "getting-started", cliDeps);
 		expect(loadJourneyFile).toHaveBeenCalledWith(expect.any(Function), "/project/tests/e2e/journeys/getting-started.journey");
 		expect(result.journey).toBe("Test Journey");
 	});
@@ -144,7 +148,7 @@ describe("loadJourneyFromPath", () => {
 	});
 
 	it("loads journey from absolute path", () => {
-		const result = loadJourneyFromPath("/absolute/path/test.journey");
+		const result = loadJourneyFromPath("/absolute/path/test.journey", cliDeps);
 		expect(loadJourneyFile).toHaveBeenCalledWith(expect.any(Function), "/absolute/path/test.journey");
 		expect(result.journey).toBe("Test Journey");
 	});
@@ -172,7 +176,7 @@ describe("setToolDeps / resetToolDeps", () => {
 	});
 
 	it("allows overriding tool deps", async () => {
-		const customDeps = createDefaultDeps();
+		const customDeps = createDefaultDeps(cliDeps);
 		setToolDeps(customDeps);
 		await runStep({ id: "s1", title: "Test", actions: [] });
 		expect(executeJourney).toHaveBeenCalledWith(
@@ -184,7 +188,7 @@ describe("setToolDeps / resetToolDeps", () => {
 	});
 
 	it("resetToolDeps restores default behavior", () => {
-		setToolDeps(createDefaultDeps());
+		setToolDeps(createDefaultDeps(cliDeps));
 		resetToolDeps();
 		// After reset, getDeps() will create new default deps
 		// Just verify no error
@@ -196,6 +200,7 @@ describe("runStep", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		resetToolDeps();
+		setToolDeps(createDefaultDeps(cliDeps));
 	});
 
 	it("executes a single step and returns its result", async () => {
@@ -240,6 +245,7 @@ describe("runJourney", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		resetToolDeps();
+		setToolDeps(createDefaultDeps(cliDeps));
 	});
 
 	it("executes full journey with resolved environment", async () => {
@@ -258,7 +264,7 @@ describe("ensureTestVault", () => {
 
 	it("creates vault directory when it does not exist", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(false);
-		const result = ensureTestVault("/project");
+		const result = ensureTestVault("/project", "test-vault", cliDeps);
 		expect(disk.mkdirSync).toHaveBeenCalledWith("/project/../test-vault", { recursive: true });
 		expect(disk.mkdirSync).toHaveBeenCalledWith("/project/../test-vault/.obsidian", { recursive: true });
 		expect(result).toBe("/project/../test-vault");
@@ -266,13 +272,13 @@ describe("ensureTestVault", () => {
 
 	it("does not create when vault exists", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		ensureTestVault("/project");
+		ensureTestVault("/project", "test-vault", cliDeps);
 		expect(disk.mkdirSync).not.toHaveBeenCalled();
 	});
 
 	it("uses custom vault name", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(false);
-		const result = ensureTestVault("/project", "my-vault");
+		const result = ensureTestVault("/project", "my-vault", cliDeps);
 		expect(result).toBe("/project/../my-vault");
 	});
 });

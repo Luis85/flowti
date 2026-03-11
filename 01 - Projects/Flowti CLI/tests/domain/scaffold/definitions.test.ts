@@ -69,8 +69,8 @@ describe("flowti-project.json", () => {
 		expect(raw.package.devDependencies.eslint).toBeDefined();
 	});
 
-	it("includes tsx dependency", () => {
-		expect(raw.package.devDependencies.tsx).toBeDefined();
+	it("includes typedoc dependency", () => {
+		expect(raw.package.devDependencies.typedoc).toBeDefined();
 	});
 
 	it("configures flowti tools for build", () => {

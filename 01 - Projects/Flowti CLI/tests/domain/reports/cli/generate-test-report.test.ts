@@ -38,7 +38,8 @@ import { paths } from "../../../../src/infrastructure/paths.js";
 import { clock } from "../../../../src/infrastructure/clock.js";
 import { generateTestReport } from "../../../../src/domain/reports/cli/generate-test-report.js";
 
-const mockDeps: ReportDeps = { disk, paths, clock, log: () => {} };
+const mockShell = { run: vi.fn(() => ({ stdout: "", stderr: "", exitCode: 0, success: true })) };
+const mockDeps: ReportDeps = { disk, paths, clock, shell: mockShell as any, log: () => {} };
 
 beforeEach(() => {
 	vi.clearAllMocks();

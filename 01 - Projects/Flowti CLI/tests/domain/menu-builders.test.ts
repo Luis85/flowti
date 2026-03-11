@@ -85,7 +85,7 @@ describe("buildReportsSubmenu", () => {
 		const items = buildReportsSubmenu(gens, "/proj", "/proj/reports");
 		const runAll = findByLabel(items, "Run All Reports")!;
 		const result = await runAll.action();
-		expect(runAllReports).toHaveBeenCalledWith(gens, "/proj");
+		expect(runAllReports).toHaveBeenCalledWith(gens, "/proj", expect.anything());
 		expect(result).toBe("main");
 	});
 

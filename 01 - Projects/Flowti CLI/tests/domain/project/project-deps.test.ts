@@ -64,6 +64,7 @@ vi.mock("../../../src/infrastructure/output.js", () => ({
 }));
 
 import * as fsMod from "../../../src/infrastructure/filesystem.js";
+import { paths as mockPaths } from "../../../src/infrastructure/paths.js";
 import { log } from "../../../src/infrastructure/logger.js";
 import {
 	detectNpmDeps,
@@ -88,6 +89,12 @@ function setDisk(mockFs: ReturnType<typeof createMockFs>): void {
 	Object.assign(fsMod, { disk: mockFs });
 }
 
+function makeDeps(files?: Record<string, string>) {
+	const disk = createMockFs(files);
+	setDisk(disk);
+	return { disk, paths: mockPaths };
+}
+
 beforeEach(() => {
 	vi.clearAllMocks();
 	capturedJson.length = 0;
@@ -97,20 +104,19 @@ beforeEach(() => {
 
 describe("detectNpmDeps", () => {
 	it("detects dependency when package.json references sibling project npm name", () => {
-		const mockFs = createMockFs({
-			"/mock/projects/app-a/package.json": JSON.stringify({
-				name: "app-a",
-				dependencies: { "shared-lib": "^1.0.0" },
-			}),
-		});
-		setDisk(mockFs);
-
 		const npmNameMap = new Map([
 			["app-a", "app-a"],
 			["shared-lib", "lib-shared"],
 		]);
 
-		const deps = detectNpmDeps("app-a", "/mock/projects/app-a", npmNameMap);
+		const d = makeDeps({
+			"/mock/projects/app-a/package.json": JSON.stringify({
+				name: "app-a",
+				dependencies: { "shared-lib": "^1.0.0" },
+			}),
+		});
+
+		const deps = detectNpmDeps("app-a", "/mock/projects/app-a", npmNameMap, d);
 
 		expect(deps).toHaveLength(1);
 		expect(deps[0]).toEqual({
@@ -122,20 +128,19 @@ describe("detectNpmDeps", () => {
 	});
 
 	it("detects devDependency references", () => {
-		const mockFs = createMockFs({
+		const d = makeDeps({
 			"/mock/projects/app-a/package.json": JSON.stringify({
 				name: "app-a",
 				devDependencies: { "test-utils": "^2.0.0" },
 			}),
 		});
-		setDisk(mockFs);
 
 		const npmNameMap = new Map([
 			["app-a", "app-a"],
 			["test-utils", "utils-proj"],
 		]);
 
-		const deps = detectNpmDeps("app-a", "/mock/projects/app-a", npmNameMap);
+		const deps = detectNpmDeps("app-a", "/mock/projects/app-a", npmNameMap, d);
 
 		expect(deps).toHaveLength(1);
 		expect(deps[0].type).toBe("npm");
@@ -143,48 +148,44 @@ describe("detectNpmDeps", () => {
 	});
 
 	it("returns empty array when no package.json exists", () => {
-		const mockFs = createMockFs();
-		setDisk(mockFs);
+		const d = makeDeps();
 
-		const deps = detectNpmDeps("app-a", "/mock/projects/app-a", new Map());
+		const deps = detectNpmDeps("app-a", "/mock/projects/app-a", new Map(), d);
 		expect(deps).toEqual([]);
 	});
 
 	it("ignores dependencies that are not sibling projects", () => {
-		const mockFs = createMockFs({
+		const d = makeDeps({
 			"/mock/projects/app-a/package.json": JSON.stringify({
 				name: "app-a",
 				dependencies: { "lodash": "^4.0.0", "express": "^4.0.0" },
 			}),
 		});
-		setDisk(mockFs);
 
 		const npmNameMap = new Map([["app-a", "app-a"]]);
-		const deps = detectNpmDeps("app-a", "/mock/projects/app-a", npmNameMap);
+		const deps = detectNpmDeps("app-a", "/mock/projects/app-a", npmNameMap, d);
 		expect(deps).toEqual([]);
 	});
 
 	it("does not create self-dependency", () => {
-		const mockFs = createMockFs({
+		const d = makeDeps({
 			"/mock/projects/app-a/package.json": JSON.stringify({
 				name: "app-a",
 				dependencies: { "app-a": "^1.0.0" },
 			}),
 		});
-		setDisk(mockFs);
 
 		const npmNameMap = new Map([["app-a", "app-a"]]);
-		const deps = detectNpmDeps("app-a", "/mock/projects/app-a", npmNameMap);
+		const deps = detectNpmDeps("app-a", "/mock/projects/app-a", npmNameMap, d);
 		expect(deps).toEqual([]);
 	});
 
 	it("handles malformed package.json gracefully", () => {
-		const mockFs = createMockFs({
+		const d = makeDeps({
 			"/mock/projects/app-a/package.json": "not json",
 		});
-		setDisk(mockFs);
 
-		const deps = detectNpmDeps("app-a", "/mock/projects/app-a", new Map());
+		const deps = detectNpmDeps("app-a", "/mock/projects/app-a", new Map(), d);
 		expect(deps).toEqual([]);
 	});
 });
@@ -193,7 +194,7 @@ describe("detectNpmDeps", () => {
 
 describe("detectConfigDeps", () => {
 	it("detects publish endpoint referencing another project", () => {
-		const mockFs = createMockFs({
+		const d = makeDeps({
 			"/mock/projects/cli/configs/flowti.config.json": JSON.stringify({
 				name: "cli",
 				publish: {
@@ -203,9 +204,8 @@ describe("detectConfigDeps", () => {
 				},
 			}),
 		});
-		setDisk(mockFs);
 
-		const deps = detectConfigDeps("cli", "/mock/projects/cli", ["cli", "plugin-app"]);
+		const deps = detectConfigDeps("cli", "/mock/projects/cli", ["cli", "plugin-app"], d);
 
 		expect(deps).toHaveLength(1);
 		expect(deps[0]).toEqual({
@@ -217,27 +217,25 @@ describe("detectConfigDeps", () => {
 	});
 
 	it("returns empty when no config exists", () => {
-		const mockFs = createMockFs();
-		setDisk(mockFs);
+		const d = makeDeps();
 
-		const deps = detectConfigDeps("cli", "/mock/projects/cli", ["cli", "other"]);
+		const deps = detectConfigDeps("cli", "/mock/projects/cli", ["cli", "other"], d);
 		expect(deps).toEqual([]);
 	});
 
 	it("returns empty when no publish endpoints", () => {
-		const mockFs = createMockFs({
+		const d = makeDeps({
 			"/mock/projects/cli/configs/flowti.config.json": JSON.stringify({
 				name: "cli",
 			}),
 		});
-		setDisk(mockFs);
 
-		const deps = detectConfigDeps("cli", "/mock/projects/cli", ["cli", "other"]);
+		const deps = detectConfigDeps("cli", "/mock/projects/cli", ["cli", "other"], d);
 		expect(deps).toEqual([]);
 	});
 
 	it("does not create self-dependency from config", () => {
-		const mockFs = createMockFs({
+		const d = makeDeps({
 			"/mock/projects/cli/configs/flowti.config.json": JSON.stringify({
 				name: "cli",
 				publish: {
@@ -245,19 +243,17 @@ describe("detectConfigDeps", () => {
 				},
 			}),
 		});
-		setDisk(mockFs);
 
-		const deps = detectConfigDeps("cli", "/mock/projects/cli", ["cli"]);
+		const deps = detectConfigDeps("cli", "/mock/projects/cli", ["cli"], d);
 		expect(deps).toEqual([]);
 	});
 
 	it("handles malformed config gracefully", () => {
-		const mockFs = createMockFs({
+		const d = makeDeps({
 			"/mock/projects/cli/configs/flowti.config.json": "bad json",
 		});
-		setDisk(mockFs);
 
-		const deps = detectConfigDeps("cli", "/mock/projects/cli", ["cli", "other"]);
+		const deps = detectConfigDeps("cli", "/mock/projects/cli", ["cli", "other"], d);
 		expect(deps).toEqual([]);
 	});
 });
@@ -459,7 +455,7 @@ describe("renderMermaidDeps", () => {
 
 describe("buildDependencyGraph", () => {
 	it("builds graph from multiple projects with npm deps", () => {
-		const mockFs = createMockFs({
+		const d = makeDeps({
 			"/mock/projects/app/package.json": JSON.stringify({
 				name: "@org/app",
 				dependencies: { "@org/lib": "^1.0.0" },
@@ -468,9 +464,8 @@ describe("buildDependencyGraph", () => {
 				name: "@org/lib",
 			}),
 		});
-		setDisk(mockFs);
 
-		const graph = buildDependencyGraph();
+		const graph = buildDependencyGraph(d);
 
 		expect(graph.projects).toEqual(["app", "lib"]);
 		expect(graph.edges).toHaveLength(1);
@@ -481,18 +476,17 @@ describe("buildDependencyGraph", () => {
 	});
 
 	it("handles empty projects directory", () => {
-		const mockFs = createMockFs();
-		mockFs.readdirSync = () => { throw new Error("ENOENT"); };
-		setDisk(mockFs);
+		const d = makeDeps();
+		d.disk.readdirSync = () => { throw new Error("ENOENT"); };
 
-		const graph = buildDependencyGraph();
+		const graph = buildDependencyGraph(d);
 		expect(graph.projects).toEqual([]);
 		expect(graph.edges).toEqual([]);
 		expect(graph.cycles).toEqual([]);
 	});
 
 	it("detects cycles in built graph", () => {
-		const mockFs = createMockFs({
+		const d = makeDeps({
 			"/mock/projects/A/package.json": JSON.stringify({
 				name: "pkg-a",
 				dependencies: { "pkg-b": "^1.0.0" },
@@ -502,9 +496,8 @@ describe("buildDependencyGraph", () => {
 				dependencies: { "pkg-a": "^1.0.0" },
 			}),
 		});
-		setDisk(mockFs);
 
-		const graph = buildDependencyGraph();
+		const graph = buildDependencyGraph(d);
 		expect(graph.cycles.length).toBeGreaterThanOrEqual(1);
 	});
 });

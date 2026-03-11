@@ -2,14 +2,12 @@
  * e2e-prerequisites.ts — Vault validation and readiness checks.
  */
 
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
-import { shell } from "../../infrastructure/shell.js";
-import { proc } from "../../infrastructure/proc.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 import type { E2EPaths } from "./e2e-paths.js";
 import type { PrerequisiteResults } from "./e2e-types.js";
 
-export function checkPrerequisites(e2e: E2EPaths): PrerequisiteResults {
+export function checkPrerequisites(e2e: E2EPaths, deps: Pick<CliDeps, "disk" | "paths" | "shell">): PrerequisiteResults {
+	const { disk, paths, shell } = deps;
 	const results: PrerequisiteResults = {
 		vaultExists: false,
 		artifactsPresent: false,
@@ -53,25 +51,25 @@ export function checkPrerequisites(e2e: E2EPaths): PrerequisiteResults {
 }
 
 /** Validates prerequisites and exits if critical ones are missing. */
-export function validatePrerequisites(prereqResults: PrerequisiteResults, log: (msg: string) => void = () => {}): void {
+export function validatePrerequisites(prereqResults: PrerequisiteResults, deps: Pick<CliDeps, "proc" | "log">): void {
 	if (!prereqResults.vaultExists) {
-		log("  Cannot proceed — test vault does not exist.");
-		log("  Create it by running: npm run test:e2e");
-		proc.exit(1);
+		deps.log("  Cannot proceed — test vault does not exist.");
+		deps.log("  Create it by running: npm run test:e2e");
+		deps.proc.exit(1);
 	}
 	if (!prereqResults.cliResponsive) {
-		log("  Cannot proceed — Obsidian is not running or CLI not responsive.");
-		log("  Start Obsidian with the test vault open, then try again.");
-		proc.exit(1);
+		deps.log("  Cannot proceed — Obsidian is not running or CLI not responsive.");
+		deps.log("  Start Obsidian with the test vault open, then try again.");
+		deps.proc.exit(1);
 	}
 }
 
 /** Collapses all folders in the file explorer. */
-export function collapseFileExplorer(e2e: E2EPaths, log: (msg: string) => void = () => {}): void {
-	const result = shell.runSilent(
+export function collapseFileExplorer(e2e: E2EPaths, deps: Pick<CliDeps, "shell" | "log">): void {
+	const result = deps.shell.runSilent(
 		`obsidian vault=${e2e.vaultName} eval code="(() => { const explorer = app.workspace.getLeavesOfType('file-explorer')[0]; if (explorer && explorer.view) { const foldStatus = explorer.view.fileItems; if (foldStatus) { Object.values(foldStatus).forEach(item => { if (item.collapsed !== undefined) item.setCollapsed(true); }); } } })()"`,
 	);
 	if (result !== null) {
-		log("  ✓ File navigator folders collapsed");
+		deps.log("  ✓ File navigator folders collapsed");
 	}
 }

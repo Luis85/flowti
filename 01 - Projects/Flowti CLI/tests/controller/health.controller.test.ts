@@ -53,6 +53,15 @@ vi.mock("../../src/domain/health/tech-debt.js", () => ({
 		],
 	})),
 }));
+vi.mock("../../src/infrastructure/filesystem.js", () => ({
+	disk: {
+		existsSync: vi.fn(() => false),
+		readFileSync: vi.fn(() => ""),
+		writeFileSync: vi.fn(),
+		mkdirSync: vi.fn(),
+		readdirSync: vi.fn(() => []),
+	},
+}));
 vi.mock("../../src/infrastructure/paths.js", () => ({
 	paths: {
 		join: (...args: string[]) => args.join("/"),
@@ -60,6 +69,12 @@ vi.mock("../../src/infrastructure/paths.js", () => ({
 		isAbsolute: (p: string) => p.startsWith("/"),
 		resolve: (...args: string[]) => args.join("/"),
 	},
+}));
+vi.mock("../../src/infrastructure/shell.js", () => ({
+	shell: { run: vi.fn(() => 0), runSilent: vi.fn(() => null), runCaptureStatus: vi.fn(() => ({ exitCode: 0, stdout: "" })) },
+}));
+vi.mock("../../src/infrastructure/clock.js", () => ({
+	clock: { iso: () => "2026-03-10T00:00:00.000Z", now: () => new Date("2026-03-10"), ms: () => 0, safeIso: () => "" },
 }));
 vi.mock("../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
 vi.mock("../../src/infrastructure/proc.js", () => ({
@@ -103,7 +118,7 @@ describe("health.controller", () => {
 			commands.health({}, [], "health", mockProject);
 
 			expect(collectHealth).toHaveBeenCalledOnce();
-			expect(collectHealth).toHaveBeenCalledWith(mockProject);
+			expect(collectHealth).toHaveBeenCalledWith(expect.any(Object), mockProject);
 		});
 
 		it("calls scoreHealth with snapshot and thresholds", () => {
@@ -119,7 +134,7 @@ describe("health.controller", () => {
 		it("calls buildTrend with current and history", () => {
 			commands.health({}, [], "health", mockProject);
 
-			expect(loadHistory).toHaveBeenCalledWith("/project");
+			expect(loadHistory).toHaveBeenCalledWith(expect.any(Object), "/project");
 			expect(buildTrend).toHaveBeenCalledOnce();
 			expect(buildTrend).toHaveBeenCalledWith(
 				expect.objectContaining({ snapshot: MOCK_SNAPSHOT, score: MOCK_SCORE }),
@@ -177,7 +192,7 @@ describe("health.controller", () => {
 			expect(collectHealth).toHaveBeenCalledOnce();
 			expect(scoreHealth).toHaveBeenCalledOnce();
 			expect(saveSnapshot).toHaveBeenCalledOnce();
-			expect(saveSnapshot).toHaveBeenCalledWith("/project", MOCK_SNAPSHOT, MOCK_SCORE);
+			expect(saveSnapshot).toHaveBeenCalledWith(expect.any(Object), "/project", MOCK_SNAPSHOT, MOCK_SCORE);
 		});
 
 		it("returns relative path as JSON", () => {
@@ -206,7 +221,7 @@ describe("health.controller", () => {
 			commands["health:history"]({}, [], "health:history", mockProject);
 
 			expect(loadHistory).toHaveBeenCalledOnce();
-			expect(loadHistory).toHaveBeenCalledWith("/project");
+			expect(loadHistory).toHaveBeenCalledWith(expect.any(Object), "/project");
 		});
 
 		it("returns history array as JSON", () => {

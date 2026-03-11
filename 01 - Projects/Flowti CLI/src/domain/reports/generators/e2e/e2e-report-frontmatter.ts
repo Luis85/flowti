@@ -4,6 +4,7 @@
  * Frontmatter builders for the E2E summary report.
  */
 
+import type { CliDeps } from "../../../../infrastructure/deps.js";
 import type { Document } from "../../../../infrastructure/document.js";
 import type { ActionStatsReturn, StartupPerf, TraceData } from "./e2e-report-types.js";
 import { formatDuration, percentile, resolveMode, round } from "./e2e-report-utils.js";
@@ -61,9 +62,10 @@ export function buildE2EFrontmatter(
 		testSuiteLinks: string[]; journeyReportLinks: string[]; journeyCanvasLinks: string[];
 		journeyCount: number; trace: TraceData | null; startupPerf: StartupPerf | null;
 	},
+	deps: Pick<CliDeps, "proc">,
 ): void {
 	doc.mergeFrontmatter({
-		type: "E2EReport", mode: resolveMode(), date: opts.date,
+		type: "E2EReport", mode: resolveMode(deps), date: opts.date,
 		total_tests: opts.totalTests, passed: opts.totalPassed, failed: opts.totalFailed, skipped: opts.totalSkipped,
 	});
 	if (opts.totalDev > 0) doc.setFrontmatter("dev", opts.totalDev);

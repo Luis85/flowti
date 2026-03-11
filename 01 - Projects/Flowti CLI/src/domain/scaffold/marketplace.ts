@@ -7,11 +7,9 @@
  * Pure functions — no side effects beyond reading from the filesystem.
  */
 
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 import { validateDefinition } from "./scaffold-schema.js";
 import type { ScaffoldDefinition } from "./scaffold-types.js";
-import type { IFileSystem } from "../../infrastructure/types.js";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -31,8 +29,11 @@ export interface MarketplaceEntry {
 const DEFINITIONS_DIR = "configs/definitions";
 
 /** Resolve the definitions directory path for a given project root. */
-export function resolveDefinitionsDir(projectRoot: string): string {
-	return paths.join(projectRoot, DEFINITIONS_DIR);
+export function resolveDefinitionsDir(
+	deps: Pick<CliDeps, "paths">,
+	projectRoot: string,
+): string {
+	return deps.paths.join(projectRoot, DEFINITIONS_DIR);
 }
 
 // ── Discovery ────────────────────────────────────────────────────────
@@ -44,25 +45,25 @@ export function resolveDefinitionsDir(projectRoot: string): string {
  * Invalid JSON is silently skipped (the validation step will catch it).
  */
 export function discoverLocalDefinitions(
+	deps: Pick<CliDeps, "disk" | "paths">,
 	defsDir: string,
-	fs: IFileSystem = disk,
 ): { raw: unknown; path: string }[] {
-	if (!fs.existsSync(defsDir)) return [];
+	if (!deps.disk.existsSync(defsDir)) return [];
 
 	const results: { raw: unknown; path: string }[] = [];
 
 	let entries: string[];
 	try {
-		entries = fs.readdirSync(defsDir);
+		entries = deps.disk.readdirSync(defsDir);
 	} catch {
 		return [];
 	}
 
 	for (const entry of entries) {
 		if (!entry.endsWith(".json")) continue;
-		const filePath = paths.join(defsDir, entry);
+		const filePath = deps.paths.join(defsDir, entry);
 		try {
-			const content = fs.readFileSync(filePath, "utf-8");
+			const content = deps.disk.readFileSync(filePath, "utf-8");
 			const raw: unknown = JSON.parse(content);
 			results.push({ raw, path: filePath });
 		} catch {
@@ -83,6 +84,7 @@ export function discoverLocalDefinitions(
  * and optionally validates them against a known set.
  */
 export function validateAndClassify(
+	deps: Pick<CliDeps, "paths">,
 	raw: unknown,
 	source: "bundled" | "local",
 	path?: string,
@@ -90,14 +92,14 @@ export function validateAndClassify(
 ): MarketplaceEntry {
 	const errors = validateDefinition(raw, knownTemplateIds);
 	const obj = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-	const { id, label, description } = extractMetadata(obj, path);
+	const { id, label, description } = extractMetadata(deps, obj, path);
 	const templateIds = extractTemplateIds(obj);
 
 	return { id, label, description, source, path, templateIds, valid: errors.length === 0, errors };
 }
 
-function extractMetadata(obj: Record<string, unknown>, path?: string): { id: string; label: string; description: string } {
-	const id = typeof obj.id === "string" ? obj.id : path ? paths.basename(path, ".json") : "unknown";
+function extractMetadata(deps: Pick<CliDeps, "paths">, obj: Record<string, unknown>, path?: string): { id: string; label: string; description: string } {
+	const id = typeof obj.id === "string" ? obj.id : path ? deps.paths.basename(path, ".json") : "unknown";
 	const label = typeof obj.label === "string" ? obj.label : id;
 	const description = typeof obj.description === "string" ? obj.description : "";
 	return { id, label, description };
@@ -119,22 +121,22 @@ function extractTemplateIds(obj: Record<string, unknown>): string[] {
  * Local definitions are validated against the known template IDs.
  */
 export function buildMarketplaceListing(
+	deps: Pick<CliDeps, "disk" | "paths">,
 	bundled: unknown[],
 	localDir: string,
 	knownTemplateIds: string[],
-	fs: IFileSystem = disk,
 ): MarketplaceEntry[] {
 	const entries: MarketplaceEntry[] = [];
 
 	// Bundled definitions
 	for (const raw of bundled) {
-		entries.push(validateAndClassify(raw, "bundled"));
+		entries.push(validateAndClassify(deps, raw, "bundled"));
 	}
 
 	// Local definitions
-	const locals = discoverLocalDefinitions(localDir, fs);
+	const locals = discoverLocalDefinitions(deps, localDir);
 	for (const { raw, path } of locals) {
-		entries.push(validateAndClassify(raw, "local", path, knownTemplateIds));
+		entries.push(validateAndClassify(deps, raw, "local", path, knownTemplateIds));
 	}
 
 	return entries;
@@ -148,12 +150,12 @@ export function buildMarketplaceListing(
  * Returns validated ScaffoldDefinition objects ready for use.
  */
 export function loadAllDefinitions(
+	deps: Pick<CliDeps, "disk" | "paths">,
 	bundled: unknown[],
 	localDir: string,
 	knownTemplateIds: string[],
-	fs: IFileSystem = disk,
 ): ScaffoldDefinition[] {
-	const entries = buildMarketplaceListing(bundled, localDir, knownTemplateIds, fs);
+	const entries = buildMarketplaceListing(deps, bundled, localDir, knownTemplateIds);
 	return entries
 		.filter(e => e.valid)
 		.map(e => {
@@ -166,8 +168,8 @@ export function loadAllDefinitions(
 				return raw as ScaffoldDefinition;
 			}
 			// For local, re-read from disk
-			if (e.path && fs.existsSync(e.path)) {
-				const content = fs.readFileSync(e.path, "utf-8");
+			if (e.path && deps.disk.existsSync(e.path)) {
+				const content = deps.disk.readFileSync(e.path, "utf-8");
 				return JSON.parse(content) as ScaffoldDefinition;
 			}
 			return null;
@@ -190,23 +192,23 @@ export interface ImportResult {
  * after validating it.
  */
 export function importDefinition(
+	deps: Pick<CliDeps, "disk" | "paths">,
 	sourcePath: string,
 	projectRoot: string,
 	knownTemplateIds: string[],
-	fs: IFileSystem = disk,
 ): ImportResult {
-	const defsDir = resolveDefinitionsDir(projectRoot);
-	const fileName = paths.basename(sourcePath);
-	const targetPath = paths.join(defsDir, fileName);
+	const defsDir = resolveDefinitionsDir(deps, projectRoot);
+	const fileName = deps.paths.basename(sourcePath);
+	const targetPath = deps.paths.join(defsDir, fileName);
 
 	// Read and parse source file
-	if (!fs.existsSync(sourcePath)) {
+	if (!deps.disk.existsSync(sourcePath)) {
 		return { success: false, targetPath, errors: [`Source file not found: ${sourcePath}`] };
 	}
 
 	let raw: unknown;
 	try {
-		const content = fs.readFileSync(sourcePath, "utf-8");
+		const content = deps.disk.readFileSync(sourcePath, "utf-8");
 		raw = JSON.parse(content);
 	} catch {
 		return { success: false, targetPath, errors: ["Failed to parse JSON from source file."] };
@@ -220,7 +222,7 @@ export function importDefinition(
 
 	// Check for duplicate id
 	const obj = raw as Record<string, unknown>;
-	const existing = discoverLocalDefinitions(defsDir, fs);
+	const existing = discoverLocalDefinitions(deps, defsDir);
 	for (const { raw: existingRaw } of existing) {
 		if (existingRaw && typeof existingRaw === "object") {
 			const existingObj = existingRaw as Record<string, unknown>;
@@ -235,12 +237,12 @@ export function importDefinition(
 	}
 
 	// Ensure target directory exists
-	if (!fs.existsSync(defsDir)) {
-		fs.mkdirSync(defsDir, { recursive: true });
+	if (!deps.disk.existsSync(defsDir)) {
+		deps.disk.mkdirSync(defsDir, { recursive: true });
 	}
 
 	// Copy the file
-	fs.copyFileSync(sourcePath, targetPath);
+	deps.disk.copyFileSync(sourcePath, targetPath);
 
 	return { success: true, targetPath, errors: [] };
 }

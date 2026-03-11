@@ -4,7 +4,9 @@
  * Pure helper functions for build report generation.
  */
 
-import { paths } from "../../../infrastructure/paths.js";
+import type { CliDeps } from "../../../infrastructure/deps.js";
+
+export type BuildReportDeps = Pick<CliDeps, "paths">;
 
 export function humanBytes(bytes: number): string {
 	const units = ["B", "KB", "MB", "GB"];
@@ -22,12 +24,12 @@ export function safeLocalTime(d: Date): string {
 	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-interface OutputEntry {
+export interface OutputEntry {
 	file: string;
 	bytes: number;
 }
 
-interface ByteSummary {
+export interface ByteSummary {
 	totalBytes: number;
 	jsBytes: number;
 	cssBytes: number;
@@ -35,7 +37,7 @@ interface ByteSummary {
 	outputs: OutputEntry[];
 }
 
-export function collectOutputs(metafile: Record<string, unknown>): ByteSummary {
+export function collectOutputs(metafile: Record<string, unknown>, deps: BuildReportDeps): ByteSummary {
 	const result: ByteSummary = { totalBytes: 0, jsBytes: 0, cssBytes: 0, otherBytes: 0, outputs: [] };
 	const outputs = metafile?.outputs as Record<string, { bytes?: number }> | undefined;
 	if (!outputs) return result;
@@ -46,7 +48,7 @@ export function collectOutputs(metafile: Record<string, unknown>): ByteSummary {
 		if (file.endsWith(".js")) result.jsBytes += bytes;
 		else if (file.endsWith(".css")) result.cssBytes += bytes;
 		else result.otherBytes += bytes;
-		result.outputs.push({ file: paths.basename(file), bytes });
+		result.outputs.push({ file: deps.paths.basename(file), bytes });
 	}
 	return result;
 }

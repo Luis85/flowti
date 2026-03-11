@@ -5,9 +5,8 @@
  * Interactive menu lives in ui/menus/scaffold-menu.ts.
  */
 
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
 import { cliConfig, PROJECTS_DIR } from "../../infrastructure/config.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 import { createFileWriter } from "../make/templates/file-writer.js";
 import { toKebab, toPascal, toCamel } from "../make/naming.js";
 import type { ScaffoldDefinition, ScaffoldVariables, ScaffoldContext, FileEntry } from "./scaffold-types.js";
@@ -38,11 +37,14 @@ function loadDefinitions(): ScaffoldDefinition[] {
  * Local definitions are validated against the known template IDs
  * from the default registry.
  */
-export function loadAllDefinitionsFromProject(projectRoot?: string): ScaffoldDefinition[] {
+export function loadAllDefinitionsFromProject(
+	deps: Pick<CliDeps, "disk" | "paths">,
+	projectRoot?: string,
+): ScaffoldDefinition[] {
 	const registry = createDefaultRegistry();
 	const knownIds = registry.ids();
-	const localDir = projectRoot ? resolveDefinitionsDir(projectRoot) : "";
-	return loadAllDefinitions(BUNDLED_DEFINITIONS, localDir, knownIds);
+	const localDir = projectRoot ? resolveDefinitionsDir(deps, projectRoot) : "";
+	return loadAllDefinitions(deps, BUNDLED_DEFINITIONS, localDir, knownIds);
 }
 
 /** Get the known template IDs from the default registry. */
@@ -104,7 +106,10 @@ export interface DryRunResult {
 	definition: string;
 }
 
-export function scaffold(opts: ScaffoldOptions): { created: number; outputPath: string } | { error: string } {
+export function scaffold(
+	deps: Pick<CliDeps, "disk" | "paths">,
+	opts: ScaffoldOptions,
+): { created: number; outputPath: string } | { error: string } {
 	const registry = createDefaultRegistry();
 	const definitions = loadDefinitions();
 	const def = definitions.find(d => d.id === opts.definitionId);
@@ -114,9 +119,9 @@ export function scaffold(opts: ScaffoldOptions): { created: number; outputPath: 
 	}
 
 	const vars = deriveVariables(opts.name, opts.author);
-	const outputDir = opts.outputDir ?? paths.join(PROJECTS_DIR, vars.name);
+	const outputDir = opts.outputDir ?? deps.paths.join(PROJECTS_DIR, vars.name);
 
-	if (disk.existsSync(outputDir)) {
+	if (deps.disk.existsSync(outputDir)) {
 		return { error: `Directory already exists: ${outputDir}` };
 	}
 
@@ -139,7 +144,10 @@ export function scaffold(opts: ScaffoldOptions): { created: number; outputPath: 
  * Preview scaffold output without writing any files.
  * Returns the list of files that would be created.
  */
-export function scaffoldDryRun(opts: ScaffoldOptions): DryRunResult | { error: string } {
+export function scaffoldDryRun(
+	deps: Pick<CliDeps, "paths">,
+	opts: ScaffoldOptions,
+): DryRunResult | { error: string } {
 	const registry = createDefaultRegistry();
 	const definitions = loadDefinitions();
 	const def = definitions.find(d => d.id === opts.definitionId);
@@ -149,7 +157,7 @@ export function scaffoldDryRun(opts: ScaffoldOptions): DryRunResult | { error: s
 	}
 
 	const vars = deriveVariables(opts.name, opts.author);
-	const outputDir = opts.outputDir ?? paths.join(PROJECTS_DIR, vars.name);
+	const outputDir = opts.outputDir ?? deps.paths.join(PROJECTS_DIR, vars.name);
 
 	const unknownIds = def.files
 		.filter(f => !registry.has(f.templateId))

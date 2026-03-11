@@ -1,241 +1,287 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../../../../../src/infrastructure/filesystem.js", () => ({
-	disk: { existsSync: vi.fn(() => false), readFileSync: vi.fn(() => ""), mkdirSync: vi.fn(), writeFileSync: vi.fn(), readdirSync: vi.fn(() => []), rmSync: vi.fn(), copyFileSync: vi.fn() },
+	disk: {
+		existsSync: vi.fn(() => false),
+		readFileSync: vi.fn(() => ""),
+		writeFileSync: vi.fn(),
+		mkdirSync: vi.fn(),
+		rmSync: vi.fn(),
+		readdirSync: vi.fn(() => []),
+		copyFileSync: vi.fn(),
+	},
 }));
 vi.mock("../../../../../src/infrastructure/paths.js", () => ({
-	paths: { join: (...args: string[]) => args.join("/"), relative: (from: string, to: string) => to, sep: "/" },
+	paths: {
+		join: (...args: string[]) => args.join("/"),
+		resolve: (...args: string[]) => args.join("/"),
+		dirname: (p: string) => p.split("/").slice(0, -1).join("/"),
+		basename: (p: string) => p.split("/").pop() ?? "",
+		relative: (from: string, to: string) => to.replace(from + "/", ""),
+	},
 }));
-vi.mock("../../../../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
+vi.mock("../../../../../src/infrastructure/config.js", () => ({
+	PLUGIN_ROOT: "/plugin",
+}));
+vi.mock("../../../../../src/infrastructure/proc.js", () => ({
+	proc: {
+		argv: () => [] as string[],
+		env: () => ({}),
+	},
+}));
 vi.mock("../../../../../src/infrastructure/clock.js", () => ({
-	clock: { iso: () => "2026-01-01T00:00:00Z", now: () => new Date("2026-01-01T00:00:00Z"), ms: () => 1000000 },
+	clock: {
+		now: () => new Date("2026-01-01T00:00:00Z"),
+		iso: () => "2026-01-01T00:00:00.000Z",
+		ms: () => 1000000,
+		safeIso: () => "2026-01-01T00-00-00.000Z",
+	},
 }));
-vi.mock("../../../../../src/infrastructure/config.js", () => ({ PLUGIN_ROOT: "/mock" }));
+// Mock the dependent e2e report modules
+vi.mock("../../../../../src/domain/reports/generators/e2e/e2e-report-vitest.js", () => ({
+	readVitestResults: vi.fn(() => null),
+	readJourneyResults: vi.fn(() => []),
+	reconcileResults: vi.fn(() => null),
+}));
+vi.mock("../../../../../src/domain/reports/generators/e2e/e2e-report-perf.js", () => ({
+	readLatestEventTrace: vi.fn(() => null),
+	readStartupPerf: vi.fn(() => null),
+	buildPerfLines: vi.fn(),
+	buildEventTraceLines: vi.fn(),
+}));
+vi.mock("../../../../../src/domain/reports/generators/e2e/e2e-report-sections.js", () => ({
+	collectVitestFailures: vi.fn(() => []),
+	renderActionCoverageSection: vi.fn(),
+	renderFailuresSection: vi.fn(),
+	renderJourneysSummarySection: vi.fn(),
+	renderTestSuitesSection: vi.fn(),
+	renderWarningsSection: vi.fn(),
+}));
+vi.mock("../../../../../src/domain/reports/generators/e2e/e2e-report-frontmatter.js", () => ({
+	buildE2EFrontmatter: vi.fn(),
+}));
+vi.mock("../../../../../src/domain/reports/generators/e2e/e2e-report-journey.js", () => ({
+	generateJourneyReport: vi.fn(() => ({ title: "Journey Test", status: "pass", content: "# Journey" })),
+}));
+vi.mock("../../../../../src/domain/reports/generators/e2e/e2e-report-canvas.js", () => ({
+	generateJourneyCanvas: vi.fn(() => ({ nodes: [], edges: [] })),
+}));
+vi.mock("../../../../../src/domain/reports/generators/e2e/e2e-report-utils.js", () => ({
+	computeActionStats: vi.fn(() => ({
+		total: 10, screenshots: 2, assertions: 3, manual_checks: 1, manual_passed: 1, manual_failed: 0,
+		visual_inspections: 0, notices: 1, theme_changes: 0, create_files: 0, delete_files: 0,
+		open_files: 0, close_leaves: 0, tools: ["screenshot", "assert"],
+	})),
+	formatDuration: vi.fn((ms: number) => `${ms}ms`),
+	resolveMode: vi.fn(() => "full"),
+	resolveStatus: vi.fn(() => "pass"),
+	statusCallout: vi.fn(() => "success"),
+	statusLabel: vi.fn(() => "Pass"),
+	TOOL_COUNTER_MAP: {
+		screenshot: "screenshots", assert: "assertions", manual: "manual_checks",
+		"visual-inspection": "visual_inspections", notice: "notices", theme: "theme_changes",
+		"create-file": "create_files", "delete-file": "delete_files",
+		"open-file": "open_files", "close-leaves": "close_leaves",
+	},
+}));
 
+import { disk } from "../../../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../../../src/infrastructure/paths.js";
+import { proc } from "../../../../../src/infrastructure/proc.js";
 import {
-	collectFailedSteps,
 	aggregateJourneyStats,
+	computeReconciledTotals,
+	collectFailedSteps,
+	cleanupResults,
 } from "../../../../../src/domain/reports/generators/e2e/e2e-report-summary.js";
-import {
-	collectVitestFailures,
-	collectWarningItBlocks,
-	caseMarkAndSuffix,
-	buildCompactTraceLines,
-	buildJourneyStatsLine,
-	resolveJourneyStatus,
-} from "../../../../../src/domain/reports/generators/e2e/e2e-report-sections.js";
-import type { ErrorContext, StepResult, VitestResults } from "../../../../../src/domain/reports/generators/e2e/e2e-report-types.js";
+import { reconcileResults } from "../../../../../src/domain/reports/generators/e2e/e2e-report-vitest.js";
 
-// ── caseMarkAndSuffix ───────────────────────────────────────────────
-
-describe("caseMarkAndSuffix", () => {
-	it("returns checked mark for passed", () => {
-		const { mark } = caseMarkAndSuffix("passed", "test", new Set(), false);
-		expect(mark).toBe("[x]");
-	});
-
-	it("returns warning mark when passed with warnings", () => {
-		const { mark } = caseMarkAndSuffix("passed", "some test", new Set(["some test"]), false);
-		expect(mark).toBe("[~]");
-	});
-
-	it("returns fail mark for failed", () => {
-		const { mark } = caseMarkAndSuffix("failed", "test", new Set(), false);
-		expect(mark).toBe("[!]");
-	});
-
-	it("returns skip mark for skipped", () => {
-		const { mark, suffix } = caseMarkAndSuffix("skipped", "test", new Set(), false);
-		expect(mark).toBe("[-]");
-		expect(suffix).toContain("Skipped");
-	});
-
-	it("returns dev mark for dev", () => {
-		const { mark, suffix } = caseMarkAndSuffix("dev", "test", new Set(), false);
-		expect(mark).toBe("[-]");
-		expect(suffix).toContain("Dev");
-	});
-
-	it("returns empty mark for unknown when hook failed", () => {
-		const { mark } = caseMarkAndSuffix("pending", "test", new Set(), true);
-		expect(mark).toBe("[ ]");
-	});
+beforeEach(() => {
+	vi.clearAllMocks();
 });
 
-// ── collectVitestFailures ───────────────────────────────────────────
+const mockDeps = { disk, paths, proc };
 
-describe("collectVitestFailures", () => {
-	it("returns empty for null vitest", () => {
-		expect(collectVitestFailures(null)).toEqual([]);
+describe("e2e-report-summary", () => {
+	describe("aggregateJourneyStats", () => {
+		it("returns zero aggregates for empty journeys array", () => {
+			const { aggregate, perJourney } = aggregateJourneyStats([]);
+
+			expect(aggregate.total).toBe(0);
+			expect(aggregate.screenshots).toBe(0);
+			expect(aggregate.assertions).toBe(0);
+			expect(aggregate.manual_checks).toBe(0);
+			expect(aggregate.manual_passed).toBe(0);
+			expect(aggregate.manual_failed).toBe(0);
+			expect(aggregate.visual_inspections).toBe(0);
+			expect(aggregate.notices).toBe(0);
+			expect(aggregate.theme_changes).toBe(0);
+			expect(aggregate.create_files).toBe(0);
+			expect(aggregate.delete_files).toBe(0);
+			expect(aggregate.open_files).toBe(0);
+			expect(aggregate.close_leaves).toBe(0);
+			expect(aggregate.tools).toEqual([]);
+			expect(aggregate.tools_set.size).toBe(0);
+			expect(perJourney.size).toBe(0);
+		});
+
+		it("aggregates stats across multiple journeys", () => {
+			// computeActionStats is mocked to return { total: 10, screenshots: 2, assertions: 3, ... tools: ["screenshot", "assert"] }
+			const journeys = [
+				{ dir: "/results/journey-a", data: { journey: "journey-a", steps: [] } },
+				{ dir: "/results/journey-b", data: { journey: "journey-b", steps: [] } },
+			];
+
+			const { aggregate, perJourney } = aggregateJourneyStats(journeys);
+
+			// Two journeys, each contributing 10 total and 2 screenshots + 3 assertions
+			expect(aggregate.total).toBe(20);
+			expect(aggregate.screenshots).toBe(4);
+			expect(aggregate.assertions).toBe(6);
+			expect(aggregate.manual_checks).toBe(2);
+			expect(aggregate.manual_passed).toBe(2);
+			expect(aggregate.manual_failed).toBe(0);
+			expect(aggregate.notices).toBe(2);
+
+			// tools_set deduplicates across journeys
+			expect(aggregate.tools_set.has("screenshot")).toBe(true);
+			expect(aggregate.tools_set.has("assert")).toBe(true);
+			expect(aggregate.tools).toEqual(["assert", "screenshot"]); // sorted
+
+			// per-journey map has an entry for each journey
+			expect(perJourney.size).toBe(2);
+			expect(perJourney.has("journey-a")).toBe(true);
+			expect(perJourney.has("journey-b")).toBe(true);
+		});
 	});
 
-	it("collects failed test cases", () => {
-		const vitest: VitestResults = {
-			suites: [{
-				name: "Suite A", file: "a.test.ts",
-				passed: 1, failed: 1, skipped: 0, total: 2,
-				suiteHookFailed: false, hookError: null,
-				cases: [
-					{ name: "passes", status: "passed", durationMs: 10 },
-					{ name: "fails", status: "failed", durationMs: 20, error: "boom" },
-				],
-			}],
-			totalPassed: 1, totalFailed: 1, totalSkipped: 0, totalTests: 2, durationMs: 100,
-		};
+	describe("computeReconciledTotals", () => {
+		it("returns empty counts when reconcileResults returns null", () => {
+			vi.mocked(reconcileResults).mockReturnValue(null);
 
-		const failures = collectVitestFailures(vitest);
-		expect(failures).toHaveLength(1);
-		expect(failures[0].testCase.name).toBe("fails");
-		expect(failures[0].suite).toBe("Suite A");
+			const result = computeReconciledTotals(null, [], mockDeps);
+
+			expect(result.totalPassed).toBe(0);
+			expect(result.totalFailed).toBe(0);
+			expect(result.totalSkipped).toBe(0);
+			expect(result.totalDev).toBe(0);
+			expect(result.totalTests).toBe(0);
+			expect(result.totalDurationMs).toBe(0);
+			expect(typeof result.overallStatus).toBe("string");
+		});
+
+		it("computes totals from reconciled results", () => {
+			vi.mocked(reconcileResults).mockReturnValue({
+				totalPassed: 42,
+				totalFailed: 3,
+				totalSkipped: 5,
+				totalDev: 2,
+				totalTests: 52,
+				suites: [],
+			});
+
+			const vitest = {
+				totalPassed: 42, totalFailed: 3, totalSkipped: 5, totalTests: 52,
+				totalDev: 2, durationMs: 12345, suites: [],
+			};
+
+			const result = computeReconciledTotals(vitest, [], mockDeps);
+
+			expect(result.totalPassed).toBe(42);
+			expect(result.totalFailed).toBe(3);
+			expect(result.totalSkipped).toBe(5);
+			expect(result.totalDev).toBe(2);
+			expect(result.totalTests).toBe(52);
+			expect(result.totalDurationMs).toBe(12345);
+			expect(typeof result.overallStatus).toBe("string");
+		});
 	});
 
-	it("collects hook-only failures", () => {
-		const vitest: VitestResults = {
-			suites: [{
-				name: "Suite B", file: "b.test.ts",
-				passed: 0, failed: 0, skipped: 1, total: 1,
-				suiteHookFailed: true, hookError: "setup failed",
-				cases: [
-					{ name: "test", status: "skipped", durationMs: 0 },
-				],
-			}],
-			totalPassed: 0, totalFailed: 0, totalSkipped: 1, totalTests: 1, durationMs: 50,
-		};
+	describe("collectFailedSteps", () => {
+		it("returns empty array when no failed steps", () => {
+			const journeyReportNames = [
+				{
+					title: "Journey A",
+					data: {
+						steps: [
+							{ step: { id: "s1", guideSection: "setup", title: "Step 1" }, status: "pass", durationMs: 100 },
+							{ step: { id: "s2", guideSection: "setup", title: "Step 2" }, status: "skip", durationMs: 0 },
+						],
+					},
+				},
+			];
 
-		const failures = collectVitestFailures(vitest);
-		expect(failures).toHaveLength(1);
-		expect(failures[0].testCase.name).toContain("Hook failure");
-	});
-});
+			const result = collectFailedSteps(journeyReportNames);
 
-// ── collectFailedSteps ──────────────────────────────────────────────
+			expect(result).toEqual([]);
+		});
 
-describe("collectFailedSteps", () => {
-	it("returns empty for no failures", () => {
-		const journeys = [{ title: "J1", data: { steps: [{ status: "pass", step: { guideSection: "1", title: "OK" }, durationMs: 100 }] } }];
-		expect(collectFailedSteps(journeys)).toEqual([]);
-	});
+		it("collects failed steps from multiple journeys", () => {
+			const journeyReportNames = [
+				{
+					title: "Journey A",
+					data: {
+						steps: [
+							{ step: { id: "s1", guideSection: "setup", title: "Step 1" }, status: "pass", durationMs: 100 },
+							{ step: { id: "s2", guideSection: "core", title: "Step 2" }, status: "fail", durationMs: 200, error: "Assertion failed" },
+						],
+					},
+				},
+				{
+					title: "Journey B",
+					data: {
+						steps: [
+							{ step: { id: "s3", guideSection: "teardown", title: "Step 3" }, status: "fail", durationMs: 50, error: "Timeout" },
+						],
+					},
+				},
+			];
 
-	it("collects failed steps across journeys", () => {
-		const failStep: StepResult = { status: "fail", step: { guideSection: "2", title: "Bad" } as any, durationMs: 200, error: "oops" };
-		const journeys = [
-			{ title: "J1", data: { steps: [failStep] } },
-		];
-		const result = collectFailedSteps(journeys);
-		expect(result).toHaveLength(1);
-		expect(result[0].journeyTitle).toBe("J1");
-	});
-});
+			const result = collectFailedSteps(journeyReportNames);
 
-// ── resolveJourneyStatus ────────────────────────────────────────────
-
-describe("resolveJourneyStatus", () => {
-	it("returns pass for all steps passed", () => {
-		const result = resolveJourneyStatus({ passed: 5, failed: 0, totalSteps: 5, skipped: 0 });
-		expect(result.status).toBe("pass");
-		expect(result.suffix).toBe("");
-	});
-
-	it("returns fail suffix when failures exist", () => {
-		const result = resolveJourneyStatus({ passed: 3, failed: 2, totalSteps: 5, skipped: 0 });
-		expect(result.status).toBe("fail");
-	});
-
-	it("returns dev-stopped status", () => {
-		const result = resolveJourneyStatus({ passed: 2, failed: 0, totalSteps: 5, skipped: 3, devStopped: true });
-		expect(result.status).toBe("dev-stopped");
-		expect(result.suffix).toBe(" (Dev)");
-	});
-});
-
-// ── collectWarningItBlocks ──────────────────────────────────────────
-
-describe("collectWarningItBlocks", () => {
-	it("returns empty set for no warnings", () => {
-		const result = collectWarningItBlocks([{ title: "J", data: { steps: [{ status: "pass", warnings: [], step: { guideSection: "1", title: "OK" } }] } }]);
-		expect(result.size).toBe(0);
+			expect(result).toHaveLength(2);
+			expect(result[0].journeyTitle).toBe("Journey A");
+			expect(result[0].stepResult.status).toBe("fail");
+			expect(result[0].stepResult.error).toBe("Assertion failed");
+			expect(result[1].journeyTitle).toBe("Journey B");
+			expect(result[1].stepResult.status).toBe("fail");
+			expect(result[1].stepResult.error).toBe("Timeout");
+		});
 	});
 
-	it("collects warning it blocks", () => {
-		const step = { status: "pass", warnings: ["visual mismatch"], step: { guideSection: "1", title: "Check", itBlock: "1 — Check" } } as unknown as StepResult;
-		const result = collectWarningItBlocks([{ title: "J", data: { steps: [step] } }]);
-		expect(result.has("1 — Check")).toBe(true);
-	});
-});
+	describe("cleanupResults", () => {
+		it("removes vitest results file when it exists", () => {
+			vi.mocked(disk.existsSync).mockReturnValue(true);
 
-// ── buildCompactTraceLines ──────────────────────────────────────────
+			cleanupResults([], "/tmp/vitest-results.json", mockDeps);
 
-describe("buildCompactTraceLines", () => {
-	it("returns empty for empty context", () => {
-		expect(buildCompactTraceLines({} as ErrorContext)).toEqual([]);
-	});
+			expect(disk.existsSync).toHaveBeenCalledWith("/tmp/vitest-results.json");
+			expect(disk.rmSync).toHaveBeenCalledWith("/tmp/vitest-results.json", { force: true });
+		});
 
-	it("includes DOM snapshot info", () => {
-		const ctx: ErrorContext = {
-			domSnapshot: { activeViewType: "markdown", leafCount: 3, hasModal: false },
-		};
-		const lines = buildCompactTraceLines(ctx);
-		expect(lines.some((l) => l.includes("markdown"))).toBe(true);
-		expect(lines.some((l) => l.includes("Leaves: 3"))).toBe(true);
-	});
+		it("removes journey result files for each journey", () => {
+			vi.mocked(disk.existsSync).mockReturnValue(false);
 
-	it("includes recent events", () => {
-		const ctx: ErrorContext = {
-			recentEvents: [{ type: "click", relativeMs: 100 }],
-		};
-		const lines = buildCompactTraceLines(ctx);
-		expect(lines.some((l) => l.includes("click"))).toBe(true);
-	});
+			const journeys = [
+				{ dir: "/results/journey-a", data: { journey: "journey-a", steps: [] } },
+				{ dir: "/results/journey-b", data: { journey: "journey-b", steps: [] } },
+			];
 
-	it("includes console errors", () => {
-		const ctx: ErrorContext = {
-			consoleErrors: ["TypeError: boom"],
-		};
-		const lines = buildCompactTraceLines(ctx);
-		expect(lines.some((l) => l.includes("TypeError"))).toBe(true);
-	});
-});
+			cleanupResults(journeys, "/tmp/vitest-results.json", mockDeps);
 
-// ── buildJourneyStatsLine ───────────────────────────────────────────
+			expect(disk.rmSync).toHaveBeenCalledWith("/results/journey-a/journey-a-results.json", { force: true });
+			expect(disk.rmSync).toHaveBeenCalledWith("/results/journey-b/journey-b-results.json", { force: true });
+		});
 
-describe("buildJourneyStatsLine", () => {
-	it("builds stats line with basic counts", () => {
-		const stats = {
-			total: 10, screenshots: 3, assertions: 5, manual_checks: 2, manual_passed: 2, manual_failed: 0,
-			visual_inspections: 0, notices: 1, theme_changes: 0,
-			create_files: 0, delete_files: 0, open_files: 0, close_leaves: 0,
-			tools: ["screenshot", "assert"],
-		};
-		const line = buildJourneyStatsLine(stats);
-		expect(line).toContain("Actions: 10");
-		expect(line).toContain("Screenshots: 3");
-		expect(line).toContain("Assertions: 5");
-		expect(line).toContain("Manual: 2");
-		expect(line).toContain("Notices: 1");
-		expect(line).not.toContain("Visual");
-		expect(line).not.toContain("Themes");
-	});
+		it("handles missing files gracefully without throwing", () => {
+			vi.mocked(disk.existsSync).mockReturnValue(true);
+			vi.mocked(disk.rmSync).mockImplementation(() => { throw new Error("ENOENT: no such file"); });
 
-	it("includes visual and theme counts when non-zero", () => {
-		const stats = {
-			total: 5, screenshots: 1, assertions: 1, manual_checks: 0, manual_passed: 0, manual_failed: 0,
-			visual_inspections: 2, notices: 0, theme_changes: 1,
-			create_files: 0, delete_files: 0, open_files: 0, close_leaves: 0,
-			tools: [],
-		};
-		const line = buildJourneyStatsLine(stats);
-		expect(line).toContain("Visual: 2");
-		expect(line).toContain("Themes: 1");
-	});
-
-	it("includes lifecycle count when non-zero", () => {
-		const stats = {
-			total: 3, screenshots: 0, assertions: 0, manual_checks: 0, manual_passed: 0, manual_failed: 0,
-			visual_inspections: 0, notices: 0, theme_changes: 0,
-			create_files: 1, delete_files: 1, open_files: 1, close_leaves: 0,
-			tools: [],
-		};
-		const line = buildJourneyStatsLine(stats);
-		expect(line).toContain("Lifecycle: 3");
+			expect(() => cleanupResults(
+				[{ dir: "/results/journey-a", data: { journey: "journey-a", steps: [] } }],
+				"/tmp/vitest-results.json",
+				mockDeps,
+			)).not.toThrow();
+		});
 	});
 });

@@ -14,8 +14,9 @@
  */
 
 import ts from "typescript";
-import { disk } from "../../../infrastructure/filesystem.js";
-import { paths } from "../../../infrastructure/paths.js";
+import type { CliDeps } from "../../../infrastructure/deps.js";
+
+export type AnalyzerDeps = Pick<CliDeps, "disk" | "paths">;
 
 // ── Output types ────────────────────────────────────────────────────
 
@@ -261,12 +262,12 @@ function isAnalyzableFile(name: string): boolean {
 }
 
 /** Collect all source .ts files under a directory (excludes tests, .d.ts, stories). */
-export function collectSourceFiles(srcDir: string): string[] {
+export function collectSourceFiles(srcDir: string, deps: AnalyzerDeps): string[] {
 	const files: string[] = [];
 
 	function walk(dir: string): void {
-		for (const entry of disk.readdirSync(dir, { withFileTypes: true })) {
-			const fullPath = paths.join(dir, entry.name);
+		for (const entry of deps.disk.readdirSync(dir, { withFileTypes: true })) {
+			const fullPath = deps.paths.join(dir, entry.name);
 			if (entry.isDirectory() && !SKIP_DIRS.has(entry.name)) {
 				walk(fullPath);
 			} else if (entry.isFile() && isAnalyzableFile(entry.name)) {
@@ -285,14 +286,14 @@ export function collectSourceFiles(srcDir: string): string[] {
  * Analyze all TypeScript source files under `srcDir`.
  * Returns per-function complexity, decision points, and summary statistics.
  */
-export function analyzeComplexity(srcDir: string, projectRoot: string): AnalysisResult {
-	const files = collectSourceFiles(srcDir);
+export function analyzeComplexity(srcDir: string, projectRoot: string, deps: AnalyzerDeps): AnalysisResult {
+	const files = collectSourceFiles(srcDir, deps);
 	const fileAnalyses: FileAnalysis[] = [];
 	const allFunctions: ComplexityFunction[] = [];
 
 	for (const filePath of files) {
-		const content = disk.readFileSync(filePath, "utf-8");
-		const relPath = paths.relative(projectRoot, filePath).replace(/\\/g, "/");
+		const content = deps.disk.readFileSync(filePath, "utf-8");
+		const relPath = deps.paths.relative(projectRoot, filePath).replace(/\\/g, "/");
 
 		const sourceFile = ts.createSourceFile(
 			filePath,

@@ -36,12 +36,13 @@ vi.mock("../../src/infrastructure/clock.js", () => ({
 	clock: { ms: () => 1000 },
 }));
 
-import { execSync, execFileSync, spawnSync } from "node:child_process";
+import { execSync, execFileSync, spawnSync, spawn } from "node:child_process";
 import { shell } from "../../src/infrastructure/shell.js";
 
 const mockedExec = vi.mocked(execSync);
 const mockedExecFile = vi.mocked(execFileSync);
 const mockedSpawnSync = vi.mocked(spawnSync);
+const mockedSpawn = vi.mocked(spawn);
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -280,5 +281,57 @@ describe("shell.execFile", () => {
 		shell.execFile("cmd", ["arg"], { stdio: "inherit" });
 
 		expect(mockedExecFile).toHaveBeenCalledWith("cmd", ["arg"], expect.objectContaining({ stdio: "inherit" }));
+	});
+});
+
+// ── spawnBackground ──────────────────────────────────────────────────
+
+describe("shell.spawnBackground", () => {
+	it("returns a BackgroundProcess with running=true initially", () => {
+		const proc = shell.spawnBackground("node server.js");
+
+		expect(proc.running).toBe(true);
+	});
+
+	it("uses CLI_PROJECT as default cwd", () => {
+		shell.spawnBackground("node server.js");
+
+		expect(mockedSpawn).toHaveBeenCalledWith(
+			"node server.js",
+			expect.objectContaining({ cwd: "/project" }),
+		);
+	});
+
+	it("uses provided cwd", () => {
+		shell.spawnBackground("node server.js", { cwd: "/custom" });
+
+		expect(mockedSpawn).toHaveBeenCalledWith(
+			"node server.js",
+			expect.objectContaining({ cwd: "/custom" }),
+		);
+	});
+
+	it("kill() calls taskkill on Windows", () => {
+		mockedExec.mockReturnValue(Buffer.from(""));
+
+		const proc = shell.spawnBackground("node server.js");
+		proc.kill();
+
+		expect(mockedExec).toHaveBeenCalledWith(
+			"taskkill /T /F /PID 1234",
+			expect.objectContaining({ stdio: "ignore" }),
+		);
+		expect(proc.running).toBe(false);
+	});
+
+	it("passes env variables when provided", () => {
+		shell.spawnBackground("node server.js", { env: { MY_VAR: "hello" } });
+
+		expect(mockedSpawn).toHaveBeenCalledWith(
+			"node server.js",
+			expect.objectContaining({
+				env: expect.objectContaining({ MY_VAR: "hello" }),
+			}),
+		);
 	});
 });

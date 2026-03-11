@@ -74,6 +74,19 @@ vi.mock("../../../src/infrastructure/filesystem.js", () => ({
 	},
 }));
 
+vi.mock("../../../src/infrastructure/paths.js", () => ({
+	paths: {
+		join: (...parts: string[]) => parts.join("/"),
+		relative: (from: string, to: string) => {
+			const f = from.replace(/\\/g, "/").replace(/\/$/, "");
+			const t = to.replace(/\\/g, "/");
+			return t.startsWith(f + "/") ? t.slice(f.length + 1) : t;
+		},
+		dirname: (p: string) => p.split("/").slice(0, -1).join("/"),
+		sep: "/",
+	},
+}));
+
 vi.mock("../../../src/infrastructure/shell.js", () => ({
 	shell: {},
 }));
@@ -123,8 +136,12 @@ import { commands } from "../../../src/controller/events.controller.js";
 import { parsePayloadFlag, collectPayloadFields, collectVersioningInfo } from "../../../src/domain/events/event-payload.js";
 import { versionEvent } from "../../../src/domain/events/event-versioning.js";
 import { input } from "../../../src/infrastructure/input.js";
+import { disk } from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
+import { clock } from "../../../src/infrastructure/clock.js";
 
 const mockInput = input as { ask: ReturnType<typeof vi.fn> };
+const eventDeps = { disk, paths, clock } as const;
 
 function makeEventDef(overrides: Partial<EventDefinition> = {}): EventDefinition {
 	return {
@@ -150,14 +167,14 @@ beforeEach(() => {
 
 describe("createEventFile", () => {
 	it("creates a markdown file in docs/events/", () => {
-		const result = createEventFile("/test/project", makeEventDef());
+		const result = createEventFile(eventDeps, "/test/project", makeEventDef());
 		expect(result).not.toBeNull();
 		expect(normalize(result!)).toContain("docs/events/");
 		expect(result).toMatch(/\.md$/);
 	});
 
 	it("generates valid frontmatter with event metadata", () => {
-		createEventFile("/test/project", makeEventDef());
+		createEventFile(eventDeps, "/test/project", makeEventDef());
 		const content = readMockFile("docs/events/");
 
 		expect(content).toContain("type: Event");
@@ -170,7 +187,7 @@ describe("createEventFile", () => {
 	});
 
 	it("includes heading and description", () => {
-		createEventFile("/test/project", makeEventDef());
+		createEventFile(eventDeps, "/test/project", makeEventDef());
 		const content = readMockFile("docs/events/");
 
 		expect(content).toContain("# user.created");
@@ -178,7 +195,7 @@ describe("createEventFile", () => {
 	});
 
 	it("renders producers and consumers sections", () => {
-		createEventFile("/test/project", makeEventDef());
+		createEventFile(eventDeps, "/test/project", makeEventDef());
 		const content = readMockFile("docs/events/");
 
 		expect(content).toContain("## Producers");
@@ -189,7 +206,7 @@ describe("createEventFile", () => {
 	});
 
 	it("renders payload table", () => {
-		createEventFile("/test/project", makeEventDef());
+		createEventFile(eventDeps, "/test/project", makeEventDef());
 		const content = readMockFile("docs/events/");
 
 		expect(content).toContain("## Payload");
@@ -200,7 +217,7 @@ describe("createEventFile", () => {
 	});
 
 	it("includes bridging sections for components, journeys, and related files", () => {
-		createEventFile("/test/project", makeEventDef());
+		createEventFile(eventDeps, "/test/project", makeEventDef());
 		const content = readMockFile("docs/events/");
 
 		expect(content).toContain("## Related Components");
@@ -212,7 +229,7 @@ describe("createEventFile", () => {
 		// Seed a test file for user.created
 		mockFs["/test/project/tests/user.created.test.ts"] = "test content";
 		mockDirs.add("/test/project/tests");
-		createEventFile("/test/project", makeEventDef());
+		createEventFile(eventDeps, "/test/project", makeEventDef());
 		const content = readMockFile("docs/events/");
 
 		expect(content).toContain("[[tests/user.created.test.ts|Test]]");
@@ -221,7 +238,7 @@ describe("createEventFile", () => {
 	it("adds wikilinks to sibling source files when they exist", () => {
 		mockFs["/test/project/src/user.created.ts"] = "source content";
 		mockDirs.add("/test/project/src");
-		createEventFile("/test/project", makeEventDef());
+		createEventFile(eventDeps, "/test/project", makeEventDef());
 		const content = readMockFile("docs/events/");
 
 		expect(content).toContain("[[src/user.created.ts|Source]]");
@@ -230,7 +247,7 @@ describe("createEventFile", () => {
 	it("adds wikilinks to config files when they exist", () => {
 		mockFs["/test/project/configs/user.created.json"] = "{}";
 		mockDirs.add("/test/project/configs");
-		createEventFile("/test/project", makeEventDef());
+		createEventFile(eventDeps, "/test/project", makeEventDef());
 		const content = readMockFile("docs/events/");
 
 		expect(content).toContain("[[configs/user.created.json|Config]]");
@@ -239,28 +256,28 @@ describe("createEventFile", () => {
 	it("adds wikilinks to component definition files when they exist", () => {
 		mockFs["/test/project/src/components/user.created/user.created.json"] = "{}";
 		mockDirs.add("/test/project/src/components/user.created");
-		createEventFile("/test/project", makeEventDef());
+		createEventFile(eventDeps, "/test/project", makeEventDef());
 		const content = readMockFile("docs/events/");
 
 		expect(content).toContain("[[src/components/user.created/user.created.json|Definition]]");
 	});
 
 	it("shows placeholder when no sibling files exist", () => {
-		createEventFile("/test/project", makeEventDef());
+		createEventFile(eventDeps, "/test/project", makeEventDef());
 		const content = readMockFile("docs/events/");
 
 		expect(content).toContain("<!-- Related test, source, config, and definition files will be linked here. -->");
 	});
 
 	it("returns null if event already exists", () => {
-		createEventFile("/test/project", makeEventDef());
-		const result = createEventFile("/test/project", makeEventDef());
+		createEventFile(eventDeps, "/test/project", makeEventDef());
+		const result = createEventFile(eventDeps, "/test/project", makeEventDef());
 		expect(result).toBeNull();
 	});
 
 	it("handles events with no producers, consumers, or payload", () => {
 		const def = makeEventDef({ producers: [], consumers: [], payload: [], description: "" });
-		const result = createEventFile("/test/project", def);
+		const result = createEventFile(eventDeps, "/test/project", def);
 		expect(result).not.toBeNull();
 
 		const content = readMockFile("docs/events/");
@@ -274,22 +291,22 @@ describe("createEventFile", () => {
 	});
 
 	it("creates the docs/events directory if it does not exist", () => {
-		createEventFile("/test/project", makeEventDef());
+		createEventFile(eventDeps, "/test/project", makeEventDef());
 		expect(mockDirs.size).toBeGreaterThan(0);
 	});
 });
 
 describe("listEvents", () => {
 	it("returns empty array when no events exist", () => {
-		const events = listEvents("/test/project");
+		const events = listEvents(eventDeps, "/test/project");
 		expect(events).toEqual([]);
 	});
 
 	it("lists events from markdown files", () => {
-		createEventFile("/test/project", makeEventDef({ name: "user.created", domain: "user" }));
-		createEventFile("/test/project", makeEventDef({ name: "order.placed", domain: "order" }));
+		createEventFile(eventDeps, "/test/project", makeEventDef({ name: "user.created", domain: "user" }));
+		createEventFile(eventDeps, "/test/project", makeEventDef({ name: "order.placed", domain: "order" }));
 
-		const events = listEvents("/test/project");
+		const events = listEvents(eventDeps, "/test/project");
 
 		expect(events).toHaveLength(2);
 		expect(events.map((e) => e.name)).toContain("user.created");
@@ -297,18 +314,18 @@ describe("listEvents", () => {
 	});
 
 	it("returns events sorted by name", () => {
-		createEventFile("/test/project", makeEventDef({ name: "z-event", domain: "z" }));
-		createEventFile("/test/project", makeEventDef({ name: "a-event", domain: "a" }));
+		createEventFile(eventDeps, "/test/project", makeEventDef({ name: "z-event", domain: "z" }));
+		createEventFile(eventDeps, "/test/project", makeEventDef({ name: "a-event", domain: "a" }));
 
-		const events = listEvents("/test/project");
+		const events = listEvents(eventDeps, "/test/project");
 		expect(events[0].name).toBe("a-event");
 		expect(events[1].name).toBe("z-event");
 	});
 
 	it("extracts domain and version from frontmatter", () => {
-		createEventFile("/test/project", makeEventDef({ name: "test.event", domain: "core", version: "2.0.0" }));
+		createEventFile(eventDeps, "/test/project", makeEventDef({ name: "test.event", domain: "core", version: "2.0.0" }));
 
-		const events = listEvents("/test/project");
+		const events = listEvents(eventDeps, "/test/project");
 		expect(events[0].domain).toBe("core");
 		expect(events[0].version).toBe("2.0.0");
 	});
@@ -362,7 +379,7 @@ describe("parsePayloadFlag", () => {
 describe("collectPayloadFields (interactive)", () => {
 	it("returns empty array when user declines", async () => {
 		mockInput.ask.mockResolvedValueOnce("n");
-		const fields = await collectPayloadFields();
+		const fields = await collectPayloadFields(input);
 		expect(fields).toEqual([]);
 	});
 
@@ -375,7 +392,7 @@ describe("collectPayloadFields (interactive)", () => {
 			.mockResolvedValueOnce("The user ID") // Description
 			.mockResolvedValueOnce("n");       // Add another?
 
-		const fields = await collectPayloadFields();
+		const fields = await collectPayloadFields(input);
 		expect(fields).toHaveLength(1);
 		expect(fields[0]).toEqual({
 			name: "userId",
@@ -399,7 +416,7 @@ describe("collectPayloadFields (interactive)", () => {
 			.mockResolvedValueOnce("Age")      // Field 2 desc
 			.mockResolvedValueOnce("n");       // No more
 
-		const fields = await collectPayloadFields();
+		const fields = await collectPayloadFields(input);
 		expect(fields).toHaveLength(2);
 		expect(fields[1].type).toBe("number");
 		expect(fields[1].required).toBe(false);
@@ -410,7 +427,7 @@ describe("collectPayloadFields (interactive)", () => {
 			.mockResolvedValueOnce("Y")  // Add payload fields?
 			.mockResolvedValueOnce("");   // Empty field name = stop
 
-		const fields = await collectPayloadFields();
+		const fields = await collectPayloadFields(input);
 		expect(fields).toEqual([]);
 	});
 });
@@ -418,7 +435,7 @@ describe("collectPayloadFields (interactive)", () => {
 describe("collectVersioningInfo (interactive)", () => {
 	it("returns empty when user declines", async () => {
 		mockInput.ask.mockResolvedValueOnce("N");
-		const info = await collectVersioningInfo();
+		const info = await collectVersioningInfo(input);
 		expect(info).toEqual({});
 	});
 
@@ -428,7 +445,7 @@ describe("collectVersioningInfo (interactive)", () => {
 			.mockResolvedValueOnce("1.0.0")              // Previous version
 			.mockResolvedValueOnce("Added email field");  // Migration notes
 
-		const info = await collectVersioningInfo();
+		const info = await collectVersioningInfo(input);
 		expect(info).toEqual({
 			previousVersion: "1.0.0",
 			migrationNotes: "Added email field",
@@ -440,7 +457,7 @@ describe("collectVersioningInfo (interactive)", () => {
 
 describe("version history in createEventFile", () => {
 	it("renders Version History section with current version", () => {
-		createEventFile("/test/project", makeEventDef());
+		createEventFile(eventDeps, "/test/project", makeEventDef());
 		const content = readMockFile("docs/events/");
 
 		expect(content).toContain("## Version History");
@@ -449,7 +466,7 @@ describe("version history in createEventFile", () => {
 	});
 
 	it("includes migration notes when previousVersion is set", () => {
-		createEventFile("/test/project", makeEventDef({
+		createEventFile(eventDeps, "/test/project", makeEventDef({
 			name: "user.updated",
 			version: "2.0.0",
 			previousVersion: "1.0.0",
@@ -463,7 +480,7 @@ describe("version history in createEventFile", () => {
 	});
 
 	it("includes previous_version and migration_notes in frontmatter", () => {
-		createEventFile("/test/project", makeEventDef({
+		createEventFile(eventDeps, "/test/project", makeEventDef({
 			name: "user.v2",
 			version: "2.0.0",
 			previousVersion: "1.0.0",
@@ -476,7 +493,7 @@ describe("version history in createEventFile", () => {
 	});
 
 	it("does not include previous_version in frontmatter when not set", () => {
-		createEventFile("/test/project", makeEventDef());
+		createEventFile(eventDeps, "/test/project", makeEventDef());
 		const content = readMockFile("docs/events/");
 
 		expect(content).not.toContain("previous_version:");
@@ -488,8 +505,8 @@ describe("version history in createEventFile", () => {
 
 describe("versionEvent", () => {
 	it("updates version in frontmatter of existing event", () => {
-		createEventFile("/test/project", makeEventDef({ name: "user.created" }));
-		const result = versionEvent("/test/project", "user.created", "2.0.0", "Added email field");
+		createEventFile(eventDeps, "/test/project", makeEventDef({ name: "user.created" }));
+		const result = versionEvent(eventDeps, "/test/project", "user.created", "2.0.0", "Added email field");
 
 		expect(result.success).toBe(true);
 		const content = readMockFile("docs/events/");
@@ -499,8 +516,8 @@ describe("versionEvent", () => {
 	});
 
 	it("appends to Version History section", () => {
-		createEventFile("/test/project", makeEventDef({ name: "order.placed" }));
-		versionEvent("/test/project", "order.placed", "2.0.0", "Added tracking field");
+		createEventFile(eventDeps, "/test/project", makeEventDef({ name: "order.placed" }));
+		versionEvent(eventDeps, "/test/project", "order.placed", "2.0.0", "Added tracking field");
 
 		const content = readMockFile("docs/events/");
 		expect(content).toContain("## Version History");
@@ -509,7 +526,7 @@ describe("versionEvent", () => {
 	});
 
 	it("returns failure when event does not exist", () => {
-		const result = versionEvent("/test/project", "nonexistent.event", "2.0.0", "notes");
+		const result = versionEvent(eventDeps, "/test/project", "nonexistent.event", "2.0.0", "notes");
 		expect(result.success).toBe(false);
 	});
 });
@@ -555,7 +572,7 @@ describe("events:version command", () => {
 	});
 
 	it("updates event version via command handler", () => {
-		createEventFile("/test/project", makeEventDef({ name: "cmd.event" }));
+		createEventFile(eventDeps, "/test/project", makeEventDef({ name: "cmd.event" }));
 		const project = { path: "/test/project", pkg: null, config: { name: "test" }, scripts: {} };
 
 		commands["events:version"](

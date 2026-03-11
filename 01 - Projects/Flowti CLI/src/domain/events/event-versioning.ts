@@ -5,12 +5,10 @@
  * and the `events:version` command to bump event versions.
  */
 
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
-import { clock } from "../../infrastructure/clock.js";
 import type { ProjectContext } from "../../infrastructure/types.js";
 import type { Document } from "../../infrastructure/document.js";
 import type { EventDefinition } from "./event-catalog.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -22,14 +20,14 @@ export interface VersionEntry {
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-function eventsDir(projectPath: string): string {
-	return paths.join(projectPath, "docs", "events");
+function eventsDir(deps: Pick<CliDeps, "paths">, projectPath: string): string {
+	return deps.paths.join(projectPath, "docs", "events");
 }
 
 /** Render a Version History section into a Document builder. */
-export function renderVersionHistory(doc: Document, def: EventDefinition): void {
+export function renderVersionHistory(deps: Pick<CliDeps, "clock">, doc: Document, def: EventDefinition): void {
 	doc.heading(2, "Version History").addBlank();
-	doc.text(`- **v${def.version}** — ${clock.iso().slice(0, 10)}`);
+	doc.text(`- **v${def.version}** — ${deps.clock.iso().slice(0, 10)}`);
 	if (def.previousVersion && def.migrationNotes) {
 		doc.text(`  - Migrated from v${def.previousVersion}: ${def.migrationNotes}`);
 	}
@@ -69,12 +67,13 @@ function updateFrontmatterVersion(
 
 /** Append a version entry to the Version History section, or create it. */
 function appendVersionHistory(
+	deps: Pick<CliDeps, "clock">,
 	content: string,
 	newVersion: string,
 	previousVersion: string,
 	migrationNotes: string,
 ): string {
-	const entry = `- **v${newVersion}** — ${clock.iso().slice(0, 10)}\n  - Migrated from v${previousVersion}: ${migrationNotes}`;
+	const entry = `- **v${newVersion}** — ${deps.clock.iso().slice(0, 10)}\n  - Migrated from v${previousVersion}: ${migrationNotes}`;
 
 	if (content.includes("## Version History")) {
 		// Insert after the heading line
@@ -105,24 +104,25 @@ export interface VersionEventResult {
 
 /** Execute the events:version command. */
 export function versionEvent(
+	deps: Pick<CliDeps, "disk" | "paths" | "clock">,
 	projectPath: string,
 	name: string,
 	newVersion: string,
 	migrationNotes: string,
 ): VersionEventResult {
-	const dir = eventsDir(projectPath);
-	if (!disk.existsSync(dir)) {
+	const dir = eventsDir(deps, projectPath);
+	if (!deps.disk.existsSync(dir)) {
 		return { success: false, name, newVersion, previousVersion: "", error: "No events directory found." };
 	}
 
 	// Find the event file by scanning frontmatter
-	const files = disk.readdirSync(dir).filter((f: string) => f.endsWith(".md"));
+	const files = deps.disk.readdirSync(dir).filter((f: string) => f.endsWith(".md"));
 	let targetFile: string | null = null;
 	let previousVersion = "1.0.0";
 
 	for (const file of files) {
-		const filePath = paths.join(dir, file);
-		const content = disk.readFileSync(filePath, "utf-8");
+		const filePath = deps.paths.join(dir, file);
+		const content = deps.disk.readFileSync(filePath, "utf-8");
 		const nameMatch = content.match(/^name:\s*(.*)$/m);
 		if (nameMatch && nameMatch[1].trim() === name) {
 			targetFile = filePath;
@@ -136,19 +136,19 @@ export function versionEvent(
 		return { success: false, name, newVersion, previousVersion, error: `Event not found: ${name}` };
 	}
 
-	let content = disk.readFileSync(targetFile, "utf-8");
+	let content = deps.disk.readFileSync(targetFile, "utf-8");
 	content = updateFrontmatterVersion(content, newVersion, previousVersion, migrationNotes);
-	content = appendVersionHistory(content, newVersion, previousVersion, migrationNotes);
-	disk.writeFileSync(targetFile, content, "utf-8");
+	content = appendVersionHistory(deps, content, newVersion, previousVersion, migrationNotes);
+	deps.disk.writeFileSync(targetFile, content, "utf-8");
 
 	return { success: true, name, newVersion, previousVersion };
 }
 
 // ── Non-interactive command (legacy signature — will be moved to controller) ──
 
-export const versionCommands: Record<string, (flags: Record<string, string | boolean>, rawArgs: string[], command?: string, project?: ProjectContext) => VersionEventResult | undefined> = {
-	"events:version": (flags, _rawArgs, _command, project) => {
-		if (!project) return undefined;
+export const versionCommands: Record<string, (flags: Record<string, string | boolean>, rawArgs: string[], command?: string, project?: ProjectContext, deps?: Pick<CliDeps, "disk" | "paths" | "clock">) => VersionEventResult | undefined> = {
+	"events:version": (flags, _rawArgs, _command, project, deps) => {
+		if (!project || !deps) return undefined;
 		const name = flags.name;
 		const version = flags.version;
 		const migration = flags.migration;
@@ -158,6 +158,6 @@ export const versionCommands: Record<string, (flags: Record<string, string | boo
 		}
 
 		const migrationNotes = typeof migration === "string" ? migration : "";
-		return versionEvent(project.path, name, version, migrationNotes);
+		return versionEvent(deps, project.path, name, version, migrationNotes);
 	},
 };

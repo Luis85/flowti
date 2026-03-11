@@ -17,8 +17,7 @@ import type {
 	StepOutput,
 } from "../../infrastructure/pipeline/pipeline-types.js";
 import type { ReportGenerator } from "../../infrastructure/types.js";
-import { createDefaultDeps } from "../../infrastructure/deps.js";
-import { shell } from "../../infrastructure/shell.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 import { runGenerator, hasGenerator } from "./generator-registry.js";
 
 // ── Dependency resolution ─────────────────────────────────────────────
@@ -41,7 +40,7 @@ function resolveGenId(gen: ReportGenerator): string {
  * for internal generators, or runs the external command for
  * command-based generators.
  */
-export function toReportStep(gen: ReportGenerator): PipelineStep {
+export function toReportStep(gen: ReportGenerator, deps: Pick<CliDeps, "shell">): PipelineStep {
 	const id = resolveGenId(gen);
 	return {
 		id,
@@ -62,7 +61,7 @@ export function toReportStep(gen: ReportGenerator): PipelineStep {
 			}
 			// External command fallback
 			if (gen.command) {
-				const { exitCode } = shell.runCaptureStatus(gen.command, { cwd: ctx.projectPath });
+				const { exitCode } = deps.shell.runCaptureStatus(gen.command, { cwd: ctx.projectPath });
 				return { success: exitCode === 0 };
 			}
 			// No internal generator and no external command
@@ -81,10 +80,11 @@ export function toReportStep(gen: ReportGenerator): PipelineStep {
 export async function runReportPipeline(
 	generators: ReportGenerator[],
 	projectPath: string,
+	deps: CliDeps,
 	options?: { parallel?: boolean; log?: (msg: string) => void },
 ): Promise<PipelineResult> {
-	const steps = generators.map(toReportStep);
-	const ctx = createPipelineContext(projectPath, createDefaultDeps(), options?.log);
+	const steps = generators.map((gen) => toReportStep(gen, deps));
+	const ctx = createPipelineContext(projectPath, deps, options?.log);
 
 	return runPipelineWithContext(steps, ctx, {
 		phased: options?.parallel,

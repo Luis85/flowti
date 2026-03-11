@@ -6,10 +6,9 @@
  * contracts.json file for use in test assertions.
  */
 
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
 import { parseFrontmatterStrings } from "../../infrastructure/frontmatter.js";
 import type { IFileSystem } from "../../infrastructure/types.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -129,14 +128,16 @@ export function parseEventContract(name: string, content: string): EventContract
 /**
  * Load all event contracts from the events directory.
  */
-export function loadEventContracts(eventsDir: string, fs: IFileSystem = disk): EventContract[] {
-	if (!fs.existsSync(eventsDir)) return [];
+export function loadEventContracts(deps: Pick<CliDeps, "paths">, eventsDir: string, fs?: IFileSystem): EventContract[] {
+	const effectiveFs = fs;
+	if (!effectiveFs) throw new Error("IFileSystem is required — pass deps.disk");
+	if (!effectiveFs.existsSync(eventsDir)) return [];
 
-	const files = fs.readdirSync(eventsDir).filter((f: string) => f.endsWith(".md"));
+	const files = effectiveFs.readdirSync(eventsDir).filter((f: string) => f.endsWith(".md"));
 	const contracts: EventContract[] = [];
 
 	for (const file of files) {
-		const content = fs.readFileSync(paths.join(eventsDir, file), "utf-8");
+		const content = effectiveFs.readFileSync(deps.paths.join(eventsDir, file), "utf-8");
 		const baseName = file.replace(/\.md$/, "");
 		contracts.push(parseEventContract(baseName, content));
 	}

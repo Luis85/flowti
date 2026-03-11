@@ -11,15 +11,13 @@
  *   4. merge (inline)              → analysis.json
  */
 
-import { CLI_PROJECT } from "../infrastructure/config.js";
-import { ReportService } from "../domain/reports/cli/report-service.js";
-import type { CliDeps } from "../infrastructure/deps.js";
-import { analyzeComplexity } from "../domain/reports/cli/complexity-analyzer.js";
-import type { AnalysisResult } from "../domain/reports/cli/complexity-analyzer.js";
-import type { IShell } from "../infrastructure/types.js";
-
+import { CLI_PROJECT } from "../../infrastructure/config.js";
+import { ReportService } from "../reports/cli/report-service.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
+import { analyzeComplexity } from "../reports/cli/complexity-analyzer.js";
+import type { AnalysisResult } from "../reports/cli/complexity-analyzer.js";
 /** Dependencies required by the analysis pipeline. */
-export type AnalysisDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "log"> & { shell: Pick<IShell, "runCaptureStatus"> };
+export type AnalysisDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "shell" | "log">;
 
 // ── Coverage JSON conversion (inlined from library tool) ────────────
 
@@ -140,9 +138,9 @@ function coverageFields(cov: CoverageSummaryFile): Record<string, unknown> {
 	};
 }
 
-const EMPTY_DP = { decisionPointCount: 0, decisionPoints: [] as import("../domain/reports/cli/complexity-analyzer.js").DecisionPoint[], decisionPointLines: [] as number[], decisionPointLineRanges: [] as string[] };
+const EMPTY_DP = { decisionPointCount: 0, decisionPoints: [] as import("../reports/cli/complexity-analyzer.js").DecisionPoint[], decisionPointLines: [] as number[], decisionPointLineRanges: [] as string[] };
 
-function complexityFields(dp: import("../domain/reports/cli/complexity-analyzer.js").FileAnalysis | undefined, uncoveredLines: Set<number>): Record<string, unknown> {
+function complexityFields(dp: import("../reports/cli/complexity-analyzer.js").FileAnalysis | undefined, uncoveredLines: Set<number>): Record<string, unknown> {
 	const d = dp ?? EMPTY_DP;
 	return {
 		decisionPointCount: d.decisionPointCount,
@@ -156,7 +154,7 @@ function complexityFields(dp: import("../domain/reports/cli/complexity-analyzer.
 function mergeFileEntry(
 	file: string,
 	cov: CoverageSummaryFile | undefined,
-	dp: import("../domain/reports/cli/complexity-analyzer.js").FileAnalysis | undefined,
+	dp: import("../reports/cli/complexity-analyzer.js").FileAnalysis | undefined,
 ): Record<string, unknown> {
 	const uncoveredSet = new Set(cov?.uncoveredLines ?? []);
 	return {
@@ -214,7 +212,36 @@ function writeComplexityOutputs(result: AnalysisResult, outputDir: string, deps:
 	deps.log(`Wrote ${dpPath}`);
 }
 
-// ── Exported pipeline ────────────────────────────────────────────────
+// ── Analysis-only (no vitest) ────────────────────────────────────────
+
+/**
+ * Generate analysis.json from existing coverage-final.json + AST complexity.
+ * Skips vitest — expects coverage data to already exist (or runs without it).
+ */
+export function generateAnalysisData(projectPath: string, reportsDir: string, deps: Pick<AnalysisDeps, "disk" | "paths" | "log">): void {
+	const { disk, paths: p, log: logFn } = deps;
+	const outputDir = p.join(projectPath, reportsDir);
+	const coverageFinalPath = p.join(outputDir, "coverage-final.json");
+	const srcDir = p.join(projectPath, "src");
+
+	let coverage: CoverageSummaryOutput | null = null;
+	if (disk.existsSync(coverageFinalPath)) {
+		coverage = convertCoverageToJson(coverageFinalPath, deps);
+		const coverageSummaryPath = p.join(outputDir, "coverage-summary.json");
+		disk.mkdirSync(outputDir, { recursive: true });
+		disk.writeFileSync(coverageSummaryPath, JSON.stringify(coverage, null, 2), "utf-8");
+	}
+
+	const complexityResult = analyzeComplexity(srcDir, projectPath, deps);
+	writeComplexityOutputs(complexityResult, outputDir, deps);
+
+	const merged = mergeAnalysis(coverage, complexityResult);
+	const analysisPath = p.join(outputDir, "analysis.json");
+	disk.writeFileSync(analysisPath, JSON.stringify(merged, null, 2), "utf-8");
+	logFn(`Wrote ${analysisPath}`);
+}
+
+// ── Full pipeline (with vitest) ──────────────────────────────────────
 
 export function runAnalysisPipeline(deps: AnalysisDeps): void {
 	const { disk, paths: p, log: logFn, shell: sh } = deps;
@@ -257,7 +284,7 @@ export function runAnalysisPipeline(deps: AnalysisDeps): void {
 	// 3. Run complexity analysis (single-pass TypeScript AST)
 	logFn(`\nAnalyzing complexity in ${srcDir}...`);
 	const startMs = Date.now();
-	const complexityResult = analyzeComplexity(srcDir, CLI_PROJECT);
+	const complexityResult = analyzeComplexity(srcDir, CLI_PROJECT, deps);
 	const durationSec = ((Date.now() - startMs) / 1000).toFixed(1);
 	logFn(`Complexity analysis: ${complexityResult.summary.totalFunctions} functions, ${complexityResult.files.length} files (${durationSec}s)`);
 	writeComplexityOutputs(complexityResult, OUTPUT_DIR, deps);

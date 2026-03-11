@@ -2,9 +2,7 @@
  * e2e-session-note.ts — Session note generation for E2E test runs.
  */
 
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
-import { clock } from "../../infrastructure/clock.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 import type { E2EPaths } from "./e2e-paths.js";
 import type { SessionConfig, PrerequisiteResults, TestStats } from "./e2e-types.js";
 import { yamlStr } from "./e2e-helpers.js";
@@ -45,12 +43,13 @@ export function buildPrereqRows(prereqResults: PrerequisiteResults): string[] {
 	];
 }
 
-export function writeSessionNote(sessionName: string, config: SessionConfig, selectedNames: string[], prereqResults: PrerequisiteResults, stats: TestStats, startTime: number, exitCode: number, e2e: E2EPaths, log: (msg: string) => void = () => {}): string {
+export function writeSessionNote(sessionName: string, config: SessionConfig, selectedNames: string[], prereqResults: PrerequisiteResults, stats: TestStats, startTime: number, exitCode: number, e2e: E2EPaths, deps: Pick<CliDeps, "disk" | "paths" | "clock" | "log">): string {
+	const { disk, paths, clock, log } = deps;
 	const now = clock.now();
 	const duration = ((clock.ms() - startTime) / 1000).toFixed(1);
 	const status = exitCode === 0 ? "passed" : "failed";
 
-	const journeyEntries = loadJourneyEntries(e2e);
+	const journeyEntries = loadJourneyEntries(e2e, deps);
 	const journeyRows = config.selectedSlugs.map((slug, i) => {
 		const name = selectedNames[i] || slug;
 		const entry = journeyEntries.find((e) => e.slug === slug);

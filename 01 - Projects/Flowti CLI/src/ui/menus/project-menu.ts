@@ -25,7 +25,7 @@ export { listProjects, getProjectPath };
 // ── Open Project ─────────────────────────────────────────────────────
 
 async function openProjectMenu(): Promise<MenuResult> {
-	const projects = listProjects();
+	const projects = listProjects({ disk });
 	const current = getSelectedProject();
 
 	if (projects.length === 0) {
@@ -65,7 +65,7 @@ async function createProjectMenu(): Promise<MenuResult> {
 		return "main";
 	}
 
-	const projectPath = paths.join(PROJECTS_DIR, name);
+	const projectPath = getProjectPath(name, { paths });
 	if (disk.existsSync(projectPath)) {
 		log(`\n  ${RED}Project already exists:${RESET} ${name}\n`);
 		return "main";
@@ -79,7 +79,7 @@ async function createProjectMenu(): Promise<MenuResult> {
 		key: String(keyIndex++),
 		label: `${def.label}  ${DIM}${def.description}${RESET}`,
 		action: (): MenuResult => {
-			const result = scaffoldProject({ definitionId: def.id, name, outputDir: projectPath });
+			const result = scaffoldProject({ disk, paths }, { definitionId: def.id, name, outputDir: projectPath });
 			if ("error" in result) {
 				log(`\n  ${RED}${result.error}${RESET}\n`);
 				return "main";
@@ -129,7 +129,7 @@ async function addGitSubmodule(projectPath: string, name: string): Promise<MenuR
 
 export async function startMenu(): Promise<"selected" | "quit"> {
 	while (true) {
-		const projects = listProjects();
+		const projects = listProjects({ disk });
 		const current = getSelectedProject();
 		const hasProjects = projects.length > 0;
 

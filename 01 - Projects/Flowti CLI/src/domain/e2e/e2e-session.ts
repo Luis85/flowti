@@ -2,11 +2,7 @@
  * e2e-session.ts — Journey loading, session configuration, and step filtering.
  */
 
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
-import { proc } from "../../infrastructure/proc.js";
-import { input } from "../../infrastructure/input.js";
-import { clock } from "../../infrastructure/clock.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 import type { E2EPaths } from "./e2e-paths.js";
 import type { JourneyEntry, SessionConfig, PrerequisiteResults } from "./e2e-types.js";
 import type { E2ERenderer } from "./e2e-renderer.js";
@@ -14,7 +10,8 @@ import { nullRenderer } from "./e2e-renderer.js";
 
 // ── Journey loading ─────────────────────────────────────────────────
 
-export function loadJourneyEntries(e2e: E2EPaths): JourneyEntry[] {
+export function loadJourneyEntries(e2e: E2EPaths, deps: Pick<CliDeps, "disk" | "paths">): JourneyEntry[] {
+	const { disk, paths } = deps;
 	const files = disk.readdirSync(e2e.journeysDir)
 		.filter((f) => f.endsWith(".journey"))
 		.sort();
@@ -60,7 +57,8 @@ function resolveStepFilter(input: string, steps: Array<Record<string, unknown>>)
 	return ids.length > 0 ? ids : "all";
 }
 
-async function promptStepFilter(selectedSlugs: string[], e2e: E2EPaths, render: E2ERenderer, log: (msg: string) => void = () => {}): Promise<Record<string, "all" | string[]>> {
+async function promptStepFilter(selectedSlugs: string[], e2e: E2EPaths, render: E2ERenderer, deps: Pick<CliDeps, "disk" | "paths" | "input" | "log">): Promise<Record<string, "all" | string[]>> {
+	const { disk, paths } = deps;
 	const stepFilter: Record<string, "all" | string[]> = {};
 
 	for (const slug of selectedSlugs) {
@@ -78,14 +76,14 @@ async function promptStepFilter(selectedSlugs: string[], e2e: E2EPaths, render: 
 		}
 
 		render.stepTable(def, steps);
-		const stepInput = await input.ask('Steps (numbers/ranges, "all", or "none")', "all");
+		const stepInput = await deps.input.ask('Steps (numbers/ranges, "all", or "none")', "all");
 		stepFilter[slug] = resolveStepFilter(stepInput, steps);
 
 		const sel = stepFilter[slug];
 		if (sel === "all") {
-			log(`  → All ${steps.length} steps selected`);
+			deps.log(`  → All ${steps.length} steps selected`);
 		} else {
-			log(`  → ${sel.length} of ${steps.length} steps selected`);
+			deps.log(`  → ${sel.length} of ${steps.length} steps selected`);
 		}
 	}
 
@@ -94,13 +92,13 @@ async function promptStepFilter(selectedSlugs: string[], e2e: E2EPaths, render: 
 
 // ── Session config prompt ───────────────────────────────────────────
 
-export async function promptSessionConfig(entries: JourneyEntry[], prereqResults: PrerequisiteResults, e2e: E2EPaths, render: E2ERenderer = nullRenderer, log: (msg: string) => void = () => {}): Promise<SessionConfig> {
+export async function promptSessionConfig(entries: JourneyEntry[], prereqResults: PrerequisiteResults, e2e: E2EPaths, deps: Pick<CliDeps, "disk" | "paths" | "proc" | "input" | "clock" | "log">, render: E2ERenderer = nullRenderer): Promise<SessionConfig> {
 	render.journeyTable(entries);
-	const journeyInput = await input.ask('Enter journey numbers (e.g. "2" or "1 3 4") or "all"');
+	const journeyInput = await deps.input.ask('Enter journey numbers (e.g. "2" or "1 3 4") or "all"');
 
 	if (!journeyInput) {
-		log("  No selection — exiting.");
-		proc.exit(0);
+		deps.log("  No selection — exiting.");
+		deps.proc.exit(0);
 	}
 
 	let selectedSlugs: string[];
@@ -109,31 +107,31 @@ export async function promptSessionConfig(entries: JourneyEntry[], prereqResults
 	} else {
 		const indices = journeyInput.split(/[\s,]+/).map(Number).filter((n) => n >= 1 && n <= entries.length);
 		if (indices.length === 0) {
-			log("  Invalid selection — exiting.");
-			proc.exit(1);
+			deps.log("  Invalid selection — exiting.");
+			deps.proc.exit(1);
 		}
 		selectedSlugs = indices.map((i) => entries[i - 1].slug);
 	}
 
-	const stepFilter = await promptStepFilter(selectedSlugs, e2e, render, log);
+	const stepFilter = await promptStepFilter(selectedSlugs, e2e, render, deps);
 
-	const timestamp = clock.safeIso().slice(0, 19);
+	const timestamp = deps.clock.safeIso().slice(0, 19);
 	const journeySuffix = selectedSlugs.length === entries.length
 		? "all"
 		: selectedSlugs.join("+");
 	const autoName = `${timestamp} ${journeySuffix}`;
-	const sessionName = await input.ask("Session name (Enter for auto)", autoName);
+	const sessionName = await deps.input.ask("Session name (Enter for auto)", autoName);
 
 	const installerLabel = prereqResults.vaultInstalled
 		? "Include installer? (force)"
 		: "Include installer? (not installed)";
-	const includeInstaller = await input.askYesNo(installerLabel, prereqResults.vaultInstalled);
+	const includeInstaller = await deps.input.askYesNo(installerLabel, prereqResults.vaultInstalled);
 
 	const prereqsMet = prereqResults.vaultInstalled && prereqResults.vaultExists && prereqResults.artifactsPresent;
 	const prereqLabel = prereqsMet
 		? "Include prerequisites? (force)"
 		: "Include prerequisites? (not yet passed)";
-	const includePrerequisites = await input.askYesNo(prereqLabel, prereqsMet);
+	const includePrerequisites = await deps.input.askYesNo(prereqLabel, prereqsMet);
 
 	return { sessionName, selectedSlugs, includeInstaller, includePrerequisites, stepFilter };
 }
@@ -150,34 +148,36 @@ export function buildStepFilterEnv(stepFilter: Record<string, "all" | string[]>)
 	return parts.length > 0 ? parts.join(";") : null;
 }
 
-export function configureSessionEnv(config: SessionConfig): void {
+export function configureSessionEnv(config: SessionConfig, deps: Pick<CliDeps, "proc">): void {
+	const env = deps.proc.env();
 	const allSlugs = [...config.selectedSlugs];
 	if (config.includeInstaller && !allSlugs.includes("installer")) {
 		allSlugs.unshift("installer");
 	}
-	proc.env().E2E_JOURNEY = allSlugs.join(",");
-	proc.env().E2E_SESSION_NAME = config.sessionName;
-	if (config.includeInstaller) proc.env().E2E_RUN_INSTALLER = "true";
-	if (config.includePrerequisites) proc.env().E2E_RUN_PREREQUISITES = "true";
+	env.E2E_JOURNEY = allSlugs.join(",");
+	env.E2E_SESSION_NAME = config.sessionName;
+	if (config.includeInstaller) env.E2E_RUN_INSTALLER = "true";
+	if (config.includePrerequisites) env.E2E_RUN_PREREQUISITES = "true";
 
 	if (config.stepFilter) {
 		const stepsEnv = buildStepFilterEnv(config.stepFilter);
-		if (stepsEnv) proc.env().E2E_STEPS = stepsEnv;
+		if (stepsEnv) env.E2E_STEPS = stepsEnv;
 	}
 }
 
-export function cleanSessionEnv(): void {
-	delete proc.env().E2E_JOURNEY;
-	delete proc.env().E2E_SESSION_NAME;
-	delete proc.env().E2E_RUN_INSTALLER;
-	delete proc.env().E2E_RUN_PREREQUISITES;
-	delete proc.env().E2E_STEPS;
+export function cleanSessionEnv(deps: Pick<CliDeps, "proc">): void {
+	const env = deps.proc.env();
+	delete env.E2E_JOURNEY;
+	delete env.E2E_SESSION_NAME;
+	delete env.E2E_RUN_INSTALLER;
+	delete env.E2E_RUN_PREREQUISITES;
+	delete env.E2E_STEPS;
 }
 
 // ── Session utilities ───────────────────────────────────────────────
 
-export function rerunWithFreshTimestamp(prevConfig: SessionConfig, entries: JourneyEntry[]): SessionConfig {
-	const timestamp = clock.safeIso().slice(0, 19);
+export function rerunWithFreshTimestamp(prevConfig: SessionConfig, entries: JourneyEntry[], deps: Pick<CliDeps, "clock">): SessionConfig {
+	const timestamp = deps.clock.safeIso().slice(0, 19);
 	const journeySuffix = prevConfig.selectedSlugs.length === entries.length
 		? "all"
 		: prevConfig.selectedSlugs.join("+");

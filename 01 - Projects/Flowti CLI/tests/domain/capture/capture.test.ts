@@ -63,15 +63,22 @@ vi.mock("../../../src/infrastructure/proc.js", () => ({
 
 import * as filesystemMod from "../../../src/infrastructure/filesystem.js";
 import { log } from "../../../src/infrastructure/logger.js";
+import { paths } from "../../../src/infrastructure/paths.js";
+import { clock } from "../../../src/infrastructure/clock.js";
 import { commands } from "../../../src/controller/capture.controller.js";
 import { searchCaptures } from "../../../src/domain/capture/capture.js";
 import { captureIdea, captureNote } from "../../../src/ui/menus/capture-menu.js";
 import { input } from "../../../src/infrastructure/input.js";
 import { printHeader } from "../../../src/infrastructure/ui.js";
+import type { IFileSystem } from "../../../src/infrastructure/types.js";
 
 const mockLog = log as ReturnType<typeof vi.fn>;
 const mockInput = input.ask as ReturnType<typeof vi.fn>;
 const mockPrintHeader = printHeader as ReturnType<typeof vi.fn>;
+
+function capDeps(fs: IFileSystem) {
+	return { disk: fs, paths, clock } as const;
+}
 
 function setDisk(mockFs: ReturnType<typeof createMockFs>): void {
 	Object.assign(filesystemMod, { disk: mockFs });
@@ -510,7 +517,7 @@ describe("capture:search", () => {
 		fs.dirs.add("/mock/vault/inbox/idea");
 		fs.dirs.add("/mock/vault/inbox/task");
 		setDisk(fs);
-		const results = searchCaptures("great");
+		const results = searchCaptures(capDeps(fs), "great");
 		expect(results).toHaveLength(1);
 		expect(results[0].title).toBe("My great idea");
 		expect(results[0].type).toBe("Idea");
@@ -526,7 +533,7 @@ describe("capture:search", () => {
 		fs.dirs.add("/mock/vault/inbox/idea");
 		fs.dirs.add("/mock/vault/inbox/task");
 		setDisk(fs);
-		const results = searchCaptures("one", "Idea");
+		const results = searchCaptures(capDeps(fs), "one", "Idea");
 		expect(results).toHaveLength(1);
 		expect(results[0].type).toBe("Idea");
 	});
@@ -539,7 +546,7 @@ describe("capture:search", () => {
 		fs.dirs.add("/mock/vault/inbox");
 		fs.dirs.add("/mock/vault/inbox/idea");
 		setDisk(fs);
-		const results = searchCaptures("idea", undefined, "urgent");
+		const results = searchCaptures(capDeps(fs), "idea", undefined, "urgent");
 		expect(results).toHaveLength(1);
 		expect(results[0].title).toBe("Tagged");
 	});
@@ -551,7 +558,7 @@ describe("capture:search", () => {
 		fs.dirs.add("/mock/vault/inbox");
 		fs.dirs.add("/mock/vault/inbox/idea");
 		setDisk(fs);
-		const results = searchCaptures("nonexistent");
+		const results = searchCaptures(capDeps(fs), "nonexistent");
 		expect(results).toHaveLength(0);
 	});
 

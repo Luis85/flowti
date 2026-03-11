@@ -28,6 +28,9 @@ vi.mock("../../src/infrastructure/paths.js", () => ({
 		basename: vi.fn((p: string) => p.split("/").pop() ?? p),
 	},
 }));
+vi.mock("../../src/infrastructure/clock.js", () => ({
+	clock: { iso: vi.fn(() => "2026-01-01T00:00:00.000Z"), now: vi.fn(() => new Date()), ms: vi.fn(() => 0) },
+}));
 vi.mock("../../src/infrastructure/config.js", () => ({
 	VAULT_ROOT: "/vault",
 	CLI_PROJECT: "/vault/cli",
@@ -99,7 +102,7 @@ describe("ai-tools.controller", () => {
 
 			commands["ai:list"]({}, [], "ai:list", mockProject);
 
-			expect(loadAiTools).toHaveBeenCalledWith("/vault", disk);
+			expect(loadAiTools).toHaveBeenCalledWith(expect.any(Object), "/vault", disk);
 		});
 
 		it("returns tool list items when tools exist", () => {
@@ -121,7 +124,7 @@ describe("ai-tools.controller", () => {
 
 			commands["ai:list"]({}, [], "ai:list", mockProject);
 
-			expect(loadAiTools).toHaveBeenCalledWith("/vault", disk);
+			expect(loadAiTools).toHaveBeenCalledWith(expect.any(Object), "/vault", disk);
 		});
 	});
 

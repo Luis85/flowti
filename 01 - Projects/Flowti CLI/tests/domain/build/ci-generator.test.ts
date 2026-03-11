@@ -19,10 +19,13 @@ import {
 	buildWorkflowSteps,
 	generateWorkflowYaml,
 	runProjectCi,
-	handleProjectCi,
+	createHandleProjectCi,
 } from "../../../src/domain/build/ci-generator.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
 import type { ProjectContext } from "../../../src/infrastructure/types.js";
+
+function ciDeps() { return { disk, paths } as const; }
 
 /** Create a project context with the given overrides. */
 function makeProject(overrides: Partial<ProjectContext> = {}): ProjectContext {
@@ -313,7 +316,7 @@ describe("runProjectCi", () => {
 			config: { name: "test", tools: { build: "npm run build" } },
 		});
 
-		const result = runProjectCi(project, true);
+		const result = runProjectCi(project, true, ciDeps());
 
 		expect(result.dryRun).toBe(true);
 		expect(result.yaml).toContain("name: CI");
@@ -327,7 +330,7 @@ describe("runProjectCi", () => {
 			config: { name: "test", tools: { build: "npm run build" } },
 		});
 
-		const result = runProjectCi(project, false);
+		const result = runProjectCi(project, false, ciDeps());
 
 		expect(result.dryRun).toBe(false);
 		expect(result.outputPath).toBe("/test/project/.github/workflows/ci.yml");
@@ -346,7 +349,7 @@ describe("runProjectCi", () => {
 		const project = makeProject();
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 
-		runProjectCi(project, false);
+		runProjectCi(project, false, ciDeps());
 
 		expect(disk.mkdirSync).not.toHaveBeenCalled();
 		expect(disk.writeFileSync).toHaveBeenCalled();
@@ -361,7 +364,7 @@ describe("runProjectCi", () => {
 			scripts: { test: "vitest run", build: "esbuild" },
 		});
 
-		const result = runProjectCi(project, false);
+		const result = runProjectCi(project, false, ciDeps());
 
 		expect(result.yaml).toContain("run: npm run build");
 		expect(result.yaml).toContain("run: npm test");
@@ -371,9 +374,10 @@ describe("runProjectCi", () => {
 
 // ── handleProjectCi (backward compat) ───────────────────────────────
 
-describe("handleProjectCi", () => {
+describe("createHandleProjectCi", () => {
 	it("does nothing when no project is provided", () => {
-		handleProjectCi({}, [], "project:ci", undefined);
+		const handler = createHandleProjectCi(ciDeps());
+		handler({}, [], "project:ci", undefined);
 
 		expect(disk.writeFileSync).not.toHaveBeenCalled();
 	});

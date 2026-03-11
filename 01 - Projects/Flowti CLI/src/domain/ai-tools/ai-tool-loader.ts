@@ -5,8 +5,8 @@
  * Pure functions where possible. I/O is injected via IFileSystem.
  */
 
+import type { CliDeps } from "../../infrastructure/deps.js";
 import type { IFileSystem } from "../../infrastructure/types.js";
-import { paths } from "../../infrastructure/paths.js";
 import type {
 	AiToolDefinition,
 	AiToolValidationResult,
@@ -95,24 +95,25 @@ export function validateToolDefinition(raw: unknown): AiToolValidationResult {
 // ── I/O functions ────────────────────────────────────────────────────
 
 /** Discover .json tool files in the ai-tools directory. */
-export function discoverToolFiles(toolsDir: string, fs: IFileSystem): string[] {
+export function discoverToolFiles(deps: Pick<CliDeps, "paths">, toolsDir: string, fs: IFileSystem): string[] {
 	if (!fs.existsSync(toolsDir)) return [];
 
 	return fs
 		.readdirSync(toolsDir)
 		.filter((f: string) => f.endsWith(".json"))
-		.map((f: string) => paths.join(toolsDir, f));
+		.map((f: string) => deps.paths.join(toolsDir, f));
 }
 
 /** Load and validate a single AI tool file. */
 export function loadToolFile(
+	deps: Pick<CliDeps, "paths">,
 	toolPath: string,
 	fs: IFileSystem,
 ): LoadedAiTool {
 	try {
 		const raw = JSON.parse(fs.readFileSync(toolPath, "utf-8")) as unknown;
 		const validation = validateToolDefinition(raw);
-		const fileName = paths.basename(toolPath, ".json");
+		const fileName = deps.paths.basename(toolPath, ".json");
 
 		if (!validation.valid) {
 			return {
@@ -131,7 +132,7 @@ export function loadToolFile(
 		};
 	} catch (err: unknown) {
 		const message = err instanceof Error ? err.message : String(err);
-		const fileName = paths.basename(toolPath, ".json");
+		const fileName = deps.paths.basename(toolPath, ".json");
 		return {
 			definition: { name: fileName, description: "", run: "" },
 			path: toolPath,
@@ -143,16 +144,18 @@ export function loadToolFile(
 
 /** Load all AI tools from the vault-level ai-tools directory. */
 export function loadAiTools(
+	deps: Pick<CliDeps, "paths">,
 	vaultRoot: string,
 	fs: IFileSystem,
 ): LoadedAiTool[] {
-	const toolsDir = paths.join(vaultRoot, AI_TOOLS_DIR);
-	const files = discoverToolFiles(toolsDir, fs);
-	return files.map((f) => loadToolFile(f, fs));
+	const toolsDir = deps.paths.join(vaultRoot, AI_TOOLS_DIR);
+	const files = discoverToolFiles(deps, toolsDir, fs);
+	return files.map((f) => loadToolFile(deps, f, fs));
 }
 
 /** Scaffold a new AI tool definition file. */
 export function scaffoldAiTool(
+	deps: Pick<CliDeps, "paths">,
 	vaultRoot: string,
 	toolName: string,
 	description: string,
@@ -163,8 +166,8 @@ export function scaffoldAiTool(
 		return { error: "Tool name must be lowercase alphanumeric with hyphens or underscores" };
 	}
 
-	const toolsDir = paths.join(vaultRoot, AI_TOOLS_DIR);
-	const toolPath = paths.join(toolsDir, `${toolName}.json`);
+	const toolsDir = deps.paths.join(vaultRoot, AI_TOOLS_DIR);
+	const toolPath = deps.paths.join(toolsDir, `${toolName}.json`);
 
 	if (fs.existsSync(toolPath)) {
 		return { error: `Tool "${toolName}" already exists` };

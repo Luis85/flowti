@@ -7,8 +7,12 @@
 
 import { log } from "../../infrastructure/logger.js";
 import { RESET, DIM, GREEN, RED, CYAN, YELLOW, BOLD } from "../../infrastructure/ui.js";
+import { disk } from "../../infrastructure/filesystem.js";
+import { paths } from "../../infrastructure/paths.js";
 import type { MarketplaceEntry } from "../../domain/scaffold/marketplace.js";
 import { buildMarketplaceListing, resolveDefinitionsDir, importDefinition } from "../../domain/scaffold/marketplace.js";
+
+function marketplaceDeps() { return { disk, paths } as const; }
 
 // ── Display ──────────────────────────────────────────────────────────
 
@@ -70,8 +74,9 @@ export function displayMarketplaceCommand(
 	projectRoot: string | undefined,
 	knownTemplateIds: string[],
 ): void {
-	const localDir = projectRoot ? resolveDefinitionsDir(projectRoot) : "";
-	const entries = buildMarketplaceListing(bundled, localDir, knownTemplateIds);
+	const deps = marketplaceDeps();
+	const localDir = projectRoot ? resolveDefinitionsDir(deps, projectRoot) : "";
+	const entries = buildMarketplaceListing(deps, bundled, localDir, knownTemplateIds);
 	displayMarketplace(entries);
 }
 
@@ -82,7 +87,7 @@ export function importDefinitionCommand(
 	projectRoot: string,
 	knownTemplateIds: string[],
 ): void {
-	const result = importDefinition(sourcePath, projectRoot, knownTemplateIds);
+	const result = importDefinition(marketplaceDeps(), sourcePath, projectRoot, knownTemplateIds);
 
 	if (result.success) {
 		log(`\n  ${GREEN}✓${RESET} Imported definition → ${result.targetPath}\n`);

@@ -10,6 +10,7 @@
 
 import type { GeneratorOutput, DocGenerator } from "../../infrastructure/types.js";
 import type { StepResult, PipelineResult } from "../../infrastructure/pipeline/pipeline-types.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 import { runDocPipeline } from "./doc-pipeline.js";
 
 // ── Result types ─────────────────────────────────────────────────────
@@ -43,8 +44,9 @@ export interface DocRunResult {
 export async function runAllDocs(
 	configGenerators: DocGenerator[],
 	projectPath: string,
+	deps: CliDeps,
 ): Promise<DocRunResult> {
-	const pipelineResult = await runDocPipeline(configGenerators, projectPath);
+	const pipelineResult = await runDocPipeline(configGenerators, projectPath, deps);
 	return toDocRunResult(pipelineResult);
 }
 

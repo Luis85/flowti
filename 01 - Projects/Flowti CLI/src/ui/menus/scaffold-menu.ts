@@ -14,6 +14,8 @@ import { input } from "../../infrastructure/input.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import type { MenuEntry, MenuResult } from "../../infrastructure/types.js";
 import { scaffold, listDefinitions, resolvePromptDefault, deriveVariables } from "../../domain/scaffold/scaffold-service.js";
+
+function scaffoldDeps() { return { disk, paths } as const; }
 import { resolveNextSteps } from "../../domain/scaffold/scaffold-plan.js";
 import type { ScaffoldDefinition } from "../../domain/scaffold/scaffold-types.js";
 
@@ -67,7 +69,7 @@ async function runScaffoldInteractive(def: ScaffoldDefinition): Promise<void> {
 
 	log(`\n  ${CYAN}Scaffolding${RESET} ${BOLD}${name}${RESET} → ${DIM}${outputDir}${RESET}\n`);
 
-	const result = scaffold({ definitionId: def.id, name, author: extraVars.author, outputDir });
+	const result = scaffold(scaffoldDeps(), { definitionId: def.id, name, author: extraVars.author, outputDir });
 
 	if ("error" in result) {
 		log(`\n  ${RED}Scaffold failed:${RESET} ${result.error}\n`);

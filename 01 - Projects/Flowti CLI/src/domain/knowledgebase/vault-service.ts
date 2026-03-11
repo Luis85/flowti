@@ -5,27 +5,30 @@
  * through the Obsidian CLI (1.12+). All operations are read-only.
  */
 
-import { shell } from "../../infrastructure/shell.js";
-import { paths } from "../../infrastructure/paths.js";
-import { disk } from "../../infrastructure/filesystem.js";
 import { VAULT_ROOT } from "../../infrastructure/config.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 
 let _cliAvailable: boolean | null = null;
 
-export function isCliAvailable(): boolean {
+export function isCliAvailable(deps: Pick<CliDeps, "shell">): boolean {
 	if (_cliAvailable !== null) return _cliAvailable;
-	_cliAvailable = shell.execFile("obsidian", ["version"], { timeout: 3000 }) !== null;
+	_cliAvailable = deps.shell.execFile("obsidian", ["version"], { timeout: 3000 }) !== null;
 	return _cliAvailable;
 }
 
-export function isVaultInitialized(): boolean {
-	return disk.existsSync(paths.join(VAULT_ROOT, ".obsidian"));
+/** Reset the cached CLI availability flag (for testing). */
+export function resetCliAvailableCache(): void {
+	_cliAvailable = null;
 }
 
-export function listFolder(folderPath: string): { name: string; isDir: boolean }[] {
-	const abs = paths.join(VAULT_ROOT, folderPath);
-	if (!disk.existsSync(abs)) return [];
-	const entries = disk.readdirSync(abs, { withFileTypes: true });
+export function isVaultInitialized(deps: Pick<CliDeps, "disk" | "paths">): boolean {
+	return deps.disk.existsSync(deps.paths.join(VAULT_ROOT, ".obsidian"));
+}
+
+export function listFolder(folderPath: string, deps: Pick<CliDeps, "disk" | "paths">): { name: string; isDir: boolean }[] {
+	const abs = deps.paths.join(VAULT_ROOT, folderPath);
+	if (!deps.disk.existsSync(abs)) return [];
+	const entries = deps.disk.readdirSync(abs, { withFileTypes: true });
 	return entries
 		.filter((e) => !e.name.startsWith("."))
 		.map((e) => ({ name: e.name, isDir: e.isDirectory() }))
@@ -35,14 +38,14 @@ export function listFolder(folderPath: string): { name: string; isDir: boolean }
 		});
 }
 
-export function readMarkdownFile(filePath: string): string | null {
-	const abs = paths.join(VAULT_ROOT, filePath);
-	if (!disk.existsSync(abs)) return null;
-	return disk.readFileSync(abs, "utf-8");
+export function readMarkdownFile(filePath: string, deps: Pick<CliDeps, "disk" | "paths">): string | null {
+	const abs = deps.paths.join(VAULT_ROOT, filePath);
+	if (!deps.disk.existsSync(abs)) return null;
+	return deps.disk.readFileSync(abs, "utf-8");
 }
 
-export function searchVault(query: string): string[] {
-	const output = shell.execFile("obsidian", ["search", `query=${query}`, "format=json"]);
+export function searchVault(query: string, deps: Pick<CliDeps, "shell">): string[] {
+	const output = deps.shell.execFile("obsidian", ["search", `query=${query}`, "format=json"]);
 	if (!output) return [];
 	try {
 		const results = JSON.parse(output) as Array<string | { path: string }>;

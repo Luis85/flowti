@@ -25,6 +25,7 @@ import {
 	analyzeCycle,
 } from "./summary-analyzers.js";
 import type { StepResult } from "../../../infrastructure/pipeline/pipeline-types.js";
+import type { ReportDeps } from "../../../infrastructure/deps.js";
 import { checkFreshness, resolveBuildPaths } from "../../build/build-freshness.js";
 
 // ── Extended analyzers ──────────────────────────────────────────────
@@ -125,10 +126,10 @@ export function analyzeTypedoc(typedoc: TypeDocResult | null, thresholds: Requir
 
 // ── Build freshness analyzer ─────────────────────────────────────────
 
-export function analyzeBuildFreshness(projectPath: string): Finding[] {
+export function analyzeBuildFreshness(projectPath: string, deps: Pick<ReportDeps, "disk" | "paths">): Finding[] {
 	try {
-		const { srcDir, binDir } = resolveBuildPaths(projectPath);
-		const check = checkFreshness(srcDir, binDir);
+		const { srcDir, binDir } = resolveBuildPaths(projectPath, deps);
+		const check = checkFreshness(srcDir, binDir, deps);
 		if (check.needsRebuild) {
 			const details: string[] = [];
 			if (check.added.length > 0) details.push(`${check.added.length} file(s) added`);
@@ -211,6 +212,7 @@ export function analyzeReports(
 	json: JsonDataSources, detailed: DetailedSources,
 	projectPath?: string,
 	runResults?: readonly StepResult[],
+	deps?: Pick<ReportDeps, "disk" | "paths">,
 ): Finding[] {
 	const findings: Finding[] = [];
 	for (const snap of snapshots) {
@@ -219,7 +221,7 @@ export function analyzeReports(
 	}
 	findings.push(...analyzeLint(lint, thresholds));
 	findings.push(...analyzeTypedoc(typedoc, thresholds));
-	if (projectPath) findings.push(...analyzeBuildFreshness(projectPath));
+	if (projectPath && deps) findings.push(...analyzeBuildFreshness(projectPath, deps));
 	findings.push(...analyzeGeneratorRun(runResults));
 	return findings;
 }

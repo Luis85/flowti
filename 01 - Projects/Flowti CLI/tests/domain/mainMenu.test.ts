@@ -240,7 +240,7 @@ describe("buildProjectDetailMenu", () => {
 			const build = findItem(items, "5")!;
 			expect(build.disabled).toBeUndefined();
 			const result = await build.action();
-			expect(buildWithReport).toHaveBeenCalledWith("npm run build", "/projects/my-project");
+			expect(buildWithReport).toHaveBeenCalledWith("npm run build", "/projects/my-project", expect.anything());
 			expect(result).toBe("main");
 		});
 
@@ -331,6 +331,7 @@ describe("buildProjectDetailMenu", () => {
 			expect(runAllReports).toHaveBeenCalledWith(
 				[{ id: "test", label: "Test" }],
 				expect.any(String),
+				expect.anything(),
 			);
 		});
 

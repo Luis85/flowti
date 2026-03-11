@@ -88,7 +88,7 @@ describe("events.controller", () => {
 	describe("events:list", () => {
 		it("returns event list from the project", () => {
 			commands["events:list"]({}, [], "events:list", mockProject);
-			expect(listEvents).toHaveBeenCalledWith("/project");
+			expect(listEvents).toHaveBeenCalledWith(expect.any(Object), "/project");
 		});
 
 		it("returns undefined when no project", () => {
@@ -104,7 +104,7 @@ describe("events.controller", () => {
 				{ name: "user.created", domain: "user", version: "1.0.0", description: "User was created" },
 				[], "events:add", mockProject,
 			);
-			expect(createEventFile).toHaveBeenCalledWith("/project", expect.objectContaining({
+			expect(createEventFile).toHaveBeenCalledWith(expect.any(Object), "/project", expect.objectContaining({
 				name: "user.created",
 				domain: "user",
 			}));
@@ -154,7 +154,7 @@ describe("events.controller", () => {
 				{ name: "user.created", version: "2.0.0", migration: "Added email" },
 				[], "events:version", mockProject,
 			);
-			expect(versionEvent).toHaveBeenCalledWith("/project", "user.created", "2.0.0", "Added email");
+			expect(versionEvent).toHaveBeenCalledWith(expect.any(Object), "/project", "user.created", "2.0.0", "Added email");
 		});
 	});
 });

@@ -34,6 +34,9 @@ import { listFolder, readMarkdownFile, searchVault } from "../../../src/domain/k
 import { input } from "../../../src/infrastructure/input.js";
 import { log } from "../../../src/infrastructure/logger.js";
 
+// Stub deps for isKnowledgebaseAvailable — the vault-service functions are fully mocked above
+const stubDeps = { disk: {} as any, paths: {} as any, shell: {} as any };
+
 const mockedListFolder = vi.mocked(listFolder);
 const mockedReadMarkdownFile = vi.mocked(readMarkdownFile);
 const mockedSearchVault = vi.mocked(searchVault);
@@ -46,25 +49,25 @@ describe("isKnowledgebaseAvailable", () => {
 	it("returns true when CLI is available and vault is initialized", () => {
 		mockIsCliAvailable.mockReturnValue(true);
 		mockIsVaultInitialized.mockReturnValue(true);
-		expect(isKnowledgebaseAvailable()).toBe(true);
+		expect(isKnowledgebaseAvailable(stubDeps)).toBe(true);
 	});
 
 	it("returns false when CLI is not available", () => {
 		mockIsCliAvailable.mockReturnValue(false);
 		mockIsVaultInitialized.mockReturnValue(true);
-		expect(isKnowledgebaseAvailable()).toBe(false);
+		expect(isKnowledgebaseAvailable(stubDeps)).toBe(false);
 	});
 
 	it("returns false when vault is not initialized", () => {
 		mockIsCliAvailable.mockReturnValue(true);
 		mockIsVaultInitialized.mockReturnValue(false);
-		expect(isKnowledgebaseAvailable()).toBe(false);
+		expect(isKnowledgebaseAvailable(stubDeps)).toBe(false);
 	});
 
 	it("returns false when both are unavailable", () => {
 		mockIsCliAvailable.mockReturnValue(false);
 		mockIsVaultInitialized.mockReturnValue(false);
-		expect(isKnowledgebaseAvailable()).toBe(false);
+		expect(isKnowledgebaseAvailable(stubDeps)).toBe(false);
 	});
 });
 
@@ -102,8 +105,8 @@ describe("knowledgebaseMenu", () => {
 
 		const result = await knowledgebaseMenu();
 		expect(result).toBe("quit");
-		expect(mockedListFolder).toHaveBeenCalledWith("");
-		expect(mockedListFolder).toHaveBeenCalledWith("subfolder");
+		expect(mockedListFolder).toHaveBeenCalledWith("", expect.any(Object));
+		expect(mockedListFolder).toHaveBeenCalledWith("subfolder", expect.any(Object));
 	});
 
 	it("navigates up when user types 'u'", async () => {
@@ -123,9 +126,9 @@ describe("knowledgebaseMenu", () => {
 
 		const result = await knowledgebaseMenu();
 		expect(result).toBe("quit");
-		expect(mockedListFolder).toHaveBeenNthCalledWith(1, "");
-		expect(mockedListFolder).toHaveBeenNthCalledWith(2, "subfolder");
-		expect(mockedListFolder).toHaveBeenNthCalledWith(3, "");
+		expect(mockedListFolder).toHaveBeenNthCalledWith(1, "", expect.any(Object));
+		expect(mockedListFolder).toHaveBeenNthCalledWith(2, "subfolder", expect.any(Object));
+		expect(mockedListFolder).toHaveBeenNthCalledWith(3, "", expect.any(Object));
 	});
 
 	it("shows empty folder message", async () => {
@@ -153,7 +156,7 @@ describe("knowledgebaseMenu", () => {
 
 		const result = await knowledgebaseMenu();
 		expect(result).toBe("quit");
-		expect(mockedReadMarkdownFile).toHaveBeenCalledWith("readme.md");
+		expect(mockedReadMarkdownFile).toHaveBeenCalledWith("readme.md", expect.any(Object));
 	});
 
 	it("displays file content stripping frontmatter", async () => {
@@ -207,7 +210,7 @@ describe("knowledgebaseMenu", () => {
 
 		const result = await knowledgebaseMenu();
 		expect(result).toBe("quit");
-		expect(mockedSearchVault).toHaveBeenCalledWith("test query");
+		expect(mockedSearchVault).toHaveBeenCalledWith("test query", expect.any(Object));
 	});
 
 	it("shows no results message when search finds nothing", async () => {
@@ -243,7 +246,7 @@ describe("knowledgebaseMenu", () => {
 		mockedAsk.mockResolvedValueOnce("q");
 
 		await knowledgebaseMenu();
-		expect(mockedReadMarkdownFile).toHaveBeenCalledWith("found.md");
+		expect(mockedReadMarkdownFile).toHaveBeenCalledWith("found.md", expect.any(Object));
 	});
 
 	it("handles invalid choice gracefully", async () => {
@@ -282,10 +285,10 @@ describe("knowledgebaseMenu", () => {
 
 		await knowledgebaseMenu();
 
-		expect(mockedListFolder).toHaveBeenNthCalledWith(1, "");
-		expect(mockedListFolder).toHaveBeenNthCalledWith(2, "level1");
-		expect(mockedListFolder).toHaveBeenNthCalledWith(3, "level1/level2");
-		expect(mockedListFolder).toHaveBeenNthCalledWith(4, "level1");
+		expect(mockedListFolder).toHaveBeenNthCalledWith(1, "", expect.any(Object));
+		expect(mockedListFolder).toHaveBeenNthCalledWith(2, "level1", expect.any(Object));
+		expect(mockedListFolder).toHaveBeenNthCalledWith(3, "level1/level2", expect.any(Object));
+		expect(mockedListFolder).toHaveBeenNthCalledWith(4, "level1", expect.any(Object));
 	});
 
 	it("lists folders before files with correct numbering", async () => {

@@ -4,6 +4,7 @@
  * Journey report rendering — generates per-journey markdown reports.
  */
 
+import type { CliDeps } from "../../../../infrastructure/deps.js";
 import { Document } from "../../../../infrastructure/document.js";
 import type {
 	ActionStatsReturn, ErrorContext, JourneyDataFields, JourneyReportResult,
@@ -13,6 +14,8 @@ import {
 	computeActionStats, formatDuration, resolveMode, resolveStatus,
 	resolveVars, statusCallout, statusLabel,
 } from "./e2e-report-utils.js";
+
+export type JourneyDeps = Pick<CliDeps, "proc">;
 
 // ── Frontmatter ─────────────────────────────────────────────────
 
@@ -42,9 +45,10 @@ function resolveJourneyTags(status: string): string[] {
 function buildJourneyFrontmatter(
 	doc: InstanceType<typeof Document>,
 	opts: { journeySlug: string; journeyTitle: string; journeyStatus: string; date: string; totalSteps: number; passedSteps: number; failedSteps: number; skippedSteps: number; devSteps: number; isDevStopped: boolean; actionStats: ActionStatsReturn; durationMs: number; testSource?: string },
+	deps: JourneyDeps,
 ): void {
 	doc.mergeFrontmatter({
-		type: "JourneyReport", mode: resolveMode(), journey: opts.journeySlug, date: opts.date,
+		type: "JourneyReport", mode: resolveMode(deps), journey: opts.journeySlug, date: opts.date,
 		total_steps: opts.totalSteps, passed: opts.passedSteps, failed: opts.failedSteps, skipped: opts.skippedSteps,
 	});
 	if (opts.devSteps > 0) doc.setFrontmatter("dev", opts.devSteps);
@@ -246,13 +250,13 @@ function buildJourneyActionsSummaryLine(stats: ActionStatsReturn): string {
 		(stats.theme_changes > 0 ? ` | Themes: ${stats.theme_changes}` : "");
 }
 
-function renderJourneyDocBody(doc: InstanceType<typeof Document>, fields: JourneyDataFields, data: Record<string, unknown>): void {
+function renderJourneyDocBody(doc: InstanceType<typeof Document>, fields: JourneyDataFields, data: Record<string, unknown>, deps: JourneyDeps): void {
 	const titleSuffix = fields.journeyStatus === "partial-pass" ? " (Partial)" : fields.journeyStatus === "dev-stopped" ? " (Dev)" : "";
 	const stepsSummary = buildStepsSummary(fields.passedSteps, fields.totalSteps, fields.skippedSteps, fields.devSteps, fields.isDevStopped);
 
 	doc.addBlank().heading(1, `Journey: ${fields.journeyTitle}${titleSuffix}`).addBlank();
 	doc.callout(statusCallout(fields.journeyStatus), `${statusLabel(fields.journeyStatus)} — ${stepsSummary} | ${formatDuration(fields.durationMs)}`, [
-		`Mode: **${resolveMode()}** | Source: \`${(data.testSource as string) ?? "unknown"}\``,
+		`Mode: **${resolveMode(deps)}** | Source: \`${(data.testSource as string) ?? "unknown"}\``,
 		buildJourneyActionsSummaryLine(fields.actionStats),
 		`Tools: ${fields.actionStats.tools.map((t) => `\`${t}\``).join(" ")}`,
 	]);
@@ -274,12 +278,12 @@ import { buildStepsSummary } from "./e2e-report-utils.js";
 /**
  * Generates a dedicated journey report with full step details and screenshots.
  */
-export function generateJourneyReport(data: Record<string, unknown>, date: string): JourneyReportResult {
+export function generateJourneyReport(data: Record<string, unknown>, date: string, deps: JourneyDeps): JourneyReportResult {
 	const fields = extractJourneyFields(data);
 	const doc = Document.create(`Journey: ${fields.journeyTitle}`);
 	buildJourneyFrontmatter(doc, {
 		...fields, actionStats: fields.actionStats, testSource: data.testSource as string | undefined, date,
-	});
-	renderJourneyDocBody(doc, fields, data);
+	}, deps);
+	renderJourneyDocBody(doc, fields, data, deps);
 	return { title: fields.journeyTitle, status: fields.journeyStatus, content: doc.toString() };
 }

@@ -1,25 +1,14 @@
-#!/usr/bin/env node
-
 /**
- * fix-frontmatter.ts — Idempotent frontmatter conformance script
+ * fix-frontmatter.ts — Idempotent frontmatter conformance fixer.
  *
  * Adds missing `type:` and `stage:` fields to documentation files
  * per ADR-030 Frontmatter Type Conformance Standard.
  *
- * Usage: node scripts/fix-frontmatter.ts [--dry-run]
- *
- * Safe to re-run — skips files that already have the required fields.
- *
- * NOTE: This is a standalone CLI script. It uses log() directly for
- * console output. Domain modules should not import from this file.
+ * Pure function — all I/O injected via deps.
  */
 
-import type { CliDeps } from "../infrastructure/deps.js";
-import { createDefaultDeps } from "../infrastructure/deps.js";
-import { PLUGIN_ROOT } from "../infrastructure/config.js";
-import { paths } from "../infrastructure/paths.js";
-import { proc } from "../infrastructure/proc.js";
-import { parseFrontmatter, applyFieldRule } from "../domain/devtools/frontmatter-utils.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
+import { splitFrontmatter, applyFieldRule } from "../../infrastructure/frontmatter.js";
 
 // ── Interfaces ──────────────────────────────────────────────────────
 
@@ -53,17 +42,18 @@ export function fixFrontmatter(
 	): void {
 		try {
 			let content: string = deps.disk.readFileSync(filePath, "utf-8");
-			const parsed = parseFrontmatter(content);
+			const parsed = splitFrontmatter(content);
 			if (!parsed) {
 				deps.log(`  SKIP (no frontmatter): ${filePath}`);
 				skipped++;
 				return;
 			}
 
+			const fields = parsed.frontmatter;
 			let modified = false;
 
 			for (const rule of requiredFields) {
-				const result = applyFieldRule(content, filePath, parsed.fields, rule);
+				const result = applyFieldRule(content, filePath, fields, rule);
 				content = result.content;
 				if (result.changed) {
 					modified = true;
@@ -141,21 +131,4 @@ export function fixFrontmatter(
 	}
 
 	return { fixed, skipped, errors };
-}
-
-// ── Entry point ─────────────────────────────────────────────────────
-
-if (
-	process.argv[1]?.endsWith("fix-frontmatter.ts") ||
-	process.argv[1]?.endsWith("fix-frontmatter.js")
-) {
-	const deps = createDefaultDeps();
-	const docsRoot = paths.resolve(PLUGIN_ROOT, "docs");
-	const dryRun = proc.argv().includes("--dry-run");
-	const result = fixFrontmatter({ dryRun, docsRoot }, deps);
-	deps.log(`\n=== Summary ===`);
-	deps.log(`  Fixed: ${result.fixed}`);
-	deps.log(`  Skipped: ${result.skipped}`);
-	deps.log(`  Errors: ${result.errors}`);
-	if (dryRun) deps.log(`  (DRY RUN — no files were modified)`);
 }

@@ -4,6 +4,19 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+vi.mock("../../src/infrastructure/filesystem.js", () => ({
+	disk: {},
+}));
+vi.mock("../../src/infrastructure/paths.js", () => ({
+	paths: { join: (...args: string[]) => args.join("/") },
+}));
+vi.mock("../../src/infrastructure/shell.js", () => ({
+	shell: {},
+}));
+vi.mock("../../src/infrastructure/config.js", () => ({
+	VAULT_ROOT: "/mock/vault",
+	PLUGIN_ROOT: "/mock/plugin",
+}));
 vi.mock("../../src/domain/info/info.js", () => ({
 	collectProjectInfo: vi.fn(() => ({
 		name: "test-project",
@@ -44,7 +57,7 @@ describe("info.controller", () => {
 		commands.info({}, [], "info", mockProject);
 
 		expect(collectProjectInfo).toHaveBeenCalledOnce();
-		expect(collectProjectInfo).toHaveBeenCalledWith(mockProject);
+		expect(collectProjectInfo).toHaveBeenCalledWith(mockProject, expect.any(Object));
 	});
 
 	it("calls displayInfo renderer in text mode", () => {

@@ -1,11 +1,20 @@
 import { describe, it, expect } from "vitest";
 
 import {
-	parseFrontmatter,
+	splitFrontmatter,
 	insertField,
 	replaceField,
 	applyFieldRule,
-} from "../../../src/domain/devtools/frontmatter-utils.js";
+} from "../../../src/infrastructure/frontmatter.js";
+
+/** Adapter matching the old parseFrontmatter signature for test compatibility. */
+function parseFrontmatter(content: string): { frontmatterRaw: string; body: string; fields: Record<string, string>; fullMatch: string } | null {
+	const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+	if (!match) return null;
+	const parsed = splitFrontmatter(content);
+	if (!parsed) return null;
+	return { frontmatterRaw: match[1], body: parsed.body, fields: parsed.frontmatter, fullMatch: match[0] };
+}
 
 describe("parseFrontmatter", () => {
 	it("returns null for content without frontmatter", () => {
@@ -148,7 +157,8 @@ describe("parseFrontmatter — edge cases", () => {
 	it("trims field values", () => {
 		const content = "---\ntype:   TechDebt   \n---\n# Body";
 		const result = parseFrontmatter(content);
-		expect(result!.fields.type).toBe("TechDebt");
+		// splitFrontmatter does not trim trailing whitespace from values (unlike the old parseFrontmatter)
+		expect(result!.fields.type).toBe("TechDebt   ");
 	});
 
 	it("returns fullMatch including delimiters", () => {

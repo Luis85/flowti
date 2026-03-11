@@ -7,17 +7,17 @@
  */
 
 import { createHash } from "node:crypto";
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
-import { clock } from "../../infrastructure/clock.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
+
+export type FreshnessDeps = Pick<CliDeps, "disk" | "paths" | "clock">;
 
 // ── Path defaults ─────────────────────────────────────────────────────
 
 /** Resolve source and output directories for a project (centralised defaults). */
-export function resolveBuildPaths(projectPath: string): { srcDir: string; binDir: string } {
+export function resolveBuildPaths(projectPath: string, deps: Pick<FreshnessDeps, "paths">): { srcDir: string; binDir: string } {
 	return {
-		srcDir: paths.join(projectPath, "src"),
-		binDir: paths.join(projectPath, "dist"),
+		srcDir: deps.paths.join(projectPath, "src"),
+		binDir: deps.paths.join(projectPath, "dist"),
 	};
 }
 
@@ -49,20 +49,20 @@ export function hashContent(content: string): string {
 /** Walk a directory recursively, collecting .ts files and their hashes. */
 export function collectSourceHashes(
 	srcDir: string,
-	fs: { readdirSync: typeof disk.readdirSync; readFileSync: typeof disk.readFileSync; existsSync: typeof disk.existsSync } = disk,
+	deps: Pick<FreshnessDeps, "disk" | "paths">,
 ): Record<string, string> {
 	const hashes: Record<string, string> = {};
-	if (!fs.existsSync(srcDir)) return hashes;
+	if (!deps.disk.existsSync(srcDir)) return hashes;
 
 	function walk(dir: string): void {
-		const entries = fs.readdirSync(dir, { withFileTypes: true }) as { name: string; isDirectory(): boolean; isFile(): boolean }[];
+		const entries = deps.disk.readdirSync(dir, { withFileTypes: true }) as { name: string; isDirectory(): boolean; isFile(): boolean }[];
 		for (const entry of entries) {
-			const fullPath = paths.join(dir, entry.name);
+			const fullPath = deps.paths.join(dir, entry.name);
 			if (entry.isDirectory() && entry.name !== "node_modules") {
 				walk(fullPath);
 			} else if (entry.isFile() && entry.name.endsWith(".ts")) {
-				const relPath = paths.relative(srcDir, fullPath);
-				const content = fs.readFileSync(fullPath, "utf-8");
+				const relPath = deps.paths.relative(srcDir, fullPath);
+				const content = deps.disk.readFileSync(fullPath, "utf-8");
 				hashes[relPath] = hashContent(content);
 			}
 		}
@@ -83,18 +83,18 @@ export function aggregateHash(fileHashes: Record<string, string>): string {
 
 const MANIFEST_NAME = ".build-manifest.json";
 
-export function manifestPath(binDir: string): string {
-	return paths.join(binDir, MANIFEST_NAME);
+export function manifestPath(binDir: string, deps: Pick<FreshnessDeps, "paths">): string {
+	return deps.paths.join(binDir, MANIFEST_NAME);
 }
 
 export function loadManifest(
 	binDir: string,
-	fs: { existsSync: typeof disk.existsSync; readFileSync: typeof disk.readFileSync } = disk,
+	deps: Pick<FreshnessDeps, "disk" | "paths">,
 ): BuildManifest | null {
-	const mp = manifestPath(binDir);
-	if (!fs.existsSync(mp)) return null;
+	const mp = manifestPath(binDir, deps);
+	if (!deps.disk.existsSync(mp)) return null;
 	try {
-		return JSON.parse(fs.readFileSync(mp, "utf-8")) as BuildManifest;
+		return JSON.parse(deps.disk.readFileSync(mp, "utf-8")) as BuildManifest;
 	} catch {
 		return null;
 	}
@@ -103,15 +103,15 @@ export function loadManifest(
 export function saveManifest(
 	binDir: string,
 	manifest: BuildManifest,
-	fs: { writeFileSync: typeof disk.writeFileSync; mkdirSync: typeof disk.mkdirSync } = disk,
+	deps: Pick<FreshnessDeps, "disk" | "paths">,
 ): void {
-	fs.mkdirSync(binDir, { recursive: true });
-	fs.writeFileSync(manifestPath(binDir), JSON.stringify(manifest, null, "\t"), "utf-8");
+	deps.disk.mkdirSync(binDir, { recursive: true });
+	deps.disk.writeFileSync(manifestPath(binDir, deps), JSON.stringify(manifest, null, "\t"), "utf-8");
 }
 
-export function createManifest(fileHashes: Record<string, string>): BuildManifest {
+export function createManifest(fileHashes: Record<string, string>, deps: Pick<FreshnessDeps, "clock">): BuildManifest {
 	return {
-		builtAt: clock.iso(),
+		builtAt: deps.clock.iso(),
 		sourceHash: aggregateHash(fileHashes),
 		fileCount: Object.keys(fileHashes).length,
 		files: fileHashes,
@@ -153,14 +153,10 @@ function computeSourceDiff(
 export function checkFreshness(
 	srcDir: string,
 	binDir: string,
-	fs: {
-		existsSync: typeof disk.existsSync;
-		readFileSync: typeof disk.readFileSync;
-		readdirSync: typeof disk.readdirSync;
-	} = disk,
+	deps: Pick<FreshnessDeps, "disk" | "paths">,
 ): FreshnessCheck {
-	const manifest = loadManifest(binDir, fs);
-	const currentHashes = collectSourceHashes(srcDir, fs);
+	const manifest = loadManifest(binDir, deps);
+	const currentHashes = collectSourceHashes(srcDir, deps);
 	const currentHash = aggregateHash(currentHashes);
 
 	if (!manifest) {
@@ -204,16 +200,10 @@ export function checkFreshness(
 export function recordBuild(
 	srcDir: string,
 	binDir: string,
-	fs: {
-		existsSync: typeof disk.existsSync;
-		readFileSync: typeof disk.readFileSync;
-		readdirSync: typeof disk.readdirSync;
-		writeFileSync: typeof disk.writeFileSync;
-		mkdirSync: typeof disk.mkdirSync;
-	} = disk,
+	deps: Pick<FreshnessDeps, "disk" | "paths" | "clock">,
 ): BuildManifest {
-	const hashes = collectSourceHashes(srcDir, fs);
-	const manifest = createManifest(hashes);
-	saveManifest(binDir, manifest, fs);
+	const hashes = collectSourceHashes(srcDir, deps);
+	const manifest = createManifest(hashes, deps);
+	saveManifest(binDir, manifest, deps);
 	return manifest;
 }

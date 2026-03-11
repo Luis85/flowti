@@ -7,9 +7,12 @@
 import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler, ProjectContext } from "../infrastructure/types.js";
+import { disk } from "../infrastructure/filesystem.js";
+import { paths } from "../infrastructure/paths.js";
 import { shell } from "../infrastructure/shell.js";
-import { proc } from "../infrastructure/proc.js";
 import { collectHealth } from "../domain/health/health.js";
+
+function healthDeps() { return { disk, paths, shell } as const; }
 import { scoreHealth } from "../domain/health/health-scoring.js";
 import { evaluateQualityGates, type GateResult } from "../domain/health/quality-gate.js";
 import { renderDryRun, renderGateResult, renderGateBlocked, type DryRunModel, type GateBlockedModel } from "../ui/publish-display.js";
@@ -41,7 +44,7 @@ function resolvePublishConfig(p: ProjectContext | undefined): DryRunModel {
 function checkGates(p: ProjectContext): GateResult | null {
 	const gateConfig = p.config.health?.qualityGates;
 	if (!gateConfig || gateConfig.enabled === false) return null;
-	const snapshot = collectHealth(p);
+	const snapshot = collectHealth(healthDeps(), p);
 	const score = scoreHealth(snapshot);
 	return evaluateQualityGates(snapshot, score, gateConfig);
 }
@@ -109,7 +112,7 @@ const actions: Record<string, ControllerAction> = {
 
 	"publish:check": (req) => {
 		if (!req.project) return noProjectResponse("publish:check");
-		const snapshot = collectHealth(req.project);
+		const snapshot = collectHealth(healthDeps(), req.project);
 		const score = scoreHealth(snapshot);
 		const gateConfig = req.project.config.health?.qualityGates;
 		const result = evaluateQualityGates(snapshot, score, gateConfig);

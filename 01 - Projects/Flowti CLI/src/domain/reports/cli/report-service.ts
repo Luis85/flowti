@@ -15,18 +15,18 @@ export interface ReportServiceOptions {
 	referenceDir?: string;
 }
 
-function readConfigDirs(projectPath: string) {
-	const { config } = readProjectConfig(projectPath);
+function readConfigDirs(projectPath: string, p: IPaths, fs: IFileSystem) {
+	const { config } = readProjectConfig(projectPath, { disk: fs, paths: p });
 	const reportsRel = config?.reports?.dir ?? "reports";
 	const referenceRel = config?.docs?.referenceDir ?? "docs/reference";
 	return { reportsRel, referenceRel };
 }
 
-function resolveDirs(projectPath: string, p: IPaths, opts?: ReportServiceOptions) {
+function resolveDirs(projectPath: string, p: IPaths, fs: IFileSystem, opts?: ReportServiceOptions) {
 	if (opts?.reportsDir && opts?.referenceDir) {
 		return { reportsDir: opts.reportsDir, referenceDir: opts.referenceDir, reportsRelDir: "reports" };
 	}
-	const { reportsRel, referenceRel } = readConfigDirs(projectPath);
+	const { reportsRel, referenceRel } = readConfigDirs(projectPath, p, fs);
 	const reportsDir = opts?.reportsDir ?? p.join(projectPath, reportsRel);
 	const referenceDir = opts?.referenceDir ?? p.join(projectPath, referenceRel);
 	return { reportsDir, referenceDir, reportsRelDir: reportsRel };
@@ -46,7 +46,7 @@ export class ReportService {
 		this.disk = deps.disk;
 		this.paths = deps.paths;
 		this.clock = deps.clock;
-		const resolved = resolveDirs(projectPath, deps.paths, opts);
+		const resolved = resolveDirs(projectPath, deps.paths, deps.disk, opts);
 		this.reportsDir = resolved.reportsDir;
 		this.referenceDir = resolved.referenceDir;
 		this.reportsRelDir = resolved.reportsRelDir;

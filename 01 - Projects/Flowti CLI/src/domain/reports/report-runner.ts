@@ -8,6 +8,7 @@
 
 import type { GeneratorOutput, ReportGenerator } from "../../infrastructure/types.js";
 import type { StepResult, PipelineResult } from "../../infrastructure/pipeline/pipeline-types.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 import { runReportPipeline } from "./report-pipeline.js";
 
 // ── Backward-compatible types ────────────────────────────────────────
@@ -52,9 +53,10 @@ export interface RunOptions {
 export async function runAllReports(
 	generators: ReportGenerator[],
 	projectPath: string,
+	deps: CliDeps,
 	options: RunOptions = {},
 ): Promise<ReportRunResult> {
-	const pipelineResult = await runReportPipeline(generators, projectPath, {
+	const pipelineResult = await runReportPipeline(generators, projectPath, deps, {
 		parallel: options.parallel,
 		log: options.log,
 	});

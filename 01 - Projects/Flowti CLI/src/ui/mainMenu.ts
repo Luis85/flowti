@@ -27,6 +27,11 @@ import { displayHealth } from "./health-display.js";
 import { showHelp } from "./help.js";
 import { captureIdea, captureNote, captureBug } from "./menus/capture-menu.js";
 import { eventCatalogMenu } from "./menus/event-catalog-menu.js";
+import { shell } from "../infrastructure/shell.js";
+import { disk } from "../infrastructure/filesystem.js";
+import { paths } from "../infrastructure/paths.js";
+import { clock } from "../infrastructure/clock.js";
+import { log as logFn } from "../infrastructure/logger.js";
 import { isKnowledgebaseAvailable } from "../domain/knowledgebase/knowledgebase.js";
 import { knowledgebaseMenu } from "./menus/knowledgebase-menu.js";
 import { buildWithReport } from "../domain/reports/cli/generate-build-report.js";
@@ -48,7 +53,7 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 	const projectName = getSelectedProject();
 	if (!projectName) return buildFallbackMenu();
 
-	const ctx = initializeProject(projectName);
+	const ctx = initializeProject(projectName, { disk, paths });
 
 	const items: MenuEntry[] = [];
 
@@ -77,7 +82,7 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 				key: "5",
 				label: "Build",
 				action: async () => {
-					buildWithReport(buildCmd, ctx.path);
+					buildWithReport(buildCmd, ctx.path, { disk, paths, clock, shell, log: logFn });
 					await input.waitForEnter();
 					return "main" as const;
 				},
@@ -112,7 +117,7 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 		action: async () => {
 			const { runMenu } = await import("../infrastructure/menu.js");
 			const generators = ctx.config.reports?.generators ?? [];
-			const reportsDir = getReportsDir(ctx.path, ctx.config);
+			const reportsDir = getReportsDir(ctx.path, ctx.config, { paths });
 			await runMenu("reports", buildReportsSubmenu(generators, ctx.path, reportsDir));
 			return "main" as const;
 		},
@@ -142,7 +147,7 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 			key: "k",
 			label: "Knowledgebase",
 			action: knowledgebaseMenu,
-			disabled: () => !isKnowledgebaseAvailable(),
+			disabled: () => !isKnowledgebaseAvailable({ disk, paths, shell }),
 			disabledMessage:
 				"\n  Knowledgebase requires Obsidian CLI and an initialized vault.\n",
 		},
@@ -150,7 +155,7 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 			key: "h",
 			label: "Health",
 			action: async () => {
-				const health = collectHealth(ctx);
+				const health = collectHealth({ disk, paths, shell }, ctx);
 				displayHealth(health);
 				await input.waitForEnter();
 				return "main" as const;

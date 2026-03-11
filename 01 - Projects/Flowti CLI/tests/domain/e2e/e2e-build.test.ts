@@ -44,8 +44,15 @@ vi.mock("../../../src/domain/e2e/pipelines/publish-pipeline.js", () => ({
 	buildPublishPipeline: vi.fn(() => []),
 }));
 
+vi.mock("../../../src/infrastructure/clock.js", () => ({
+	clock: { now: () => new Date(), iso: () => "2026-03-08", safeIso: () => "2026-03-08T12-00-00" },
+}));
+
 import { disk } from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
 import { shell } from "../../../src/infrastructure/shell.js";
+import { log as logFn } from "../../../src/infrastructure/logger.js";
+import { clock } from "../../../src/infrastructure/clock.js";
 import { parseFrontmatterContent } from "../../../src/infrastructure/frontmatter.js";
 import { runPipeline } from "../../../src/infrastructure/pipeline/pipeline-runner.js";
 import {
@@ -57,6 +64,8 @@ import {
 	runPublish,
 } from "../../../src/domain/e2e/e2e-build.js";
 import type { E2EPaths } from "../../../src/domain/e2e/e2e-paths.js";
+
+const buildDeps = { disk, paths, shell, clock, log: logFn } as any;
 
 const mockE2e: E2EPaths = {
 	projectRoot: "/project",
@@ -85,7 +94,7 @@ beforeEach(() => {
 describe("readTestStats", () => {
 	it("returns zeros when report file does not exist", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(false);
-		const stats = readTestStats(mockE2e);
+		const stats = readTestStats(mockE2e, buildDeps);
 		expect(stats).toEqual({ totalTests: 0, passed: 0, failed: 0, skipped: 0 });
 	});
 
@@ -98,7 +107,7 @@ describe("readTestStats", () => {
 			numPendingTests: 2,
 		}));
 
-		const stats = readTestStats(mockE2e);
+		const stats = readTestStats(mockE2e, buildDeps);
 		expect(stats).toEqual({ totalTests: 100, passed: 95, failed: 3, skipped: 2 });
 	});
 
@@ -122,7 +131,7 @@ describe("readTestStats", () => {
 			],
 		}));
 
-		const stats = readTestStats(mockE2e);
+		const stats = readTestStats(mockE2e, buildDeps);
 		expect(stats).toEqual({ totalTests: 5, passed: 3, failed: 1, skipped: 1 });
 	});
 
@@ -135,7 +144,7 @@ describe("readTestStats", () => {
 			],
 		}));
 
-		const stats = readTestStats(mockE2e);
+		const stats = readTestStats(mockE2e, buildDeps);
 		expect(stats).toEqual({ totalTests: 1, passed: 1, failed: 0, skipped: 0 });
 	});
 
@@ -143,7 +152,7 @@ describe("readTestStats", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readFileSync).mockReturnValue("not json");
 
-		const stats = readTestStats(mockE2e);
+		const stats = readTestStats(mockE2e, buildDeps);
 		expect(stats).toEqual({ totalTests: 0, passed: 0, failed: 0, skipped: 0 });
 	});
 
@@ -151,7 +160,7 @@ describe("readTestStats", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readFileSync).mockReturnValue("{}");
 
-		const stats = readTestStats(mockE2e);
+		const stats = readTestStats(mockE2e, buildDeps);
 		expect(stats).toEqual({ totalTests: 0, passed: 0, failed: 0, skipped: 0 });
 	});
 });
@@ -163,7 +172,7 @@ describe("readBuildStats", () => {
 		vi.mocked(disk.readdirSync).mockImplementation(() => { throw new Error("ENOENT"); });
 		vi.mocked(disk.existsSync).mockReturnValue(false);
 
-		const stats = readBuildStats(mockE2e);
+		const stats = readBuildStats(mockE2e, buildDeps);
 		expect(stats.build).toBeNull();
 		expect(stats.test).toBeNull();
 		expect(stats.coverage).toBeNull();
@@ -178,7 +187,7 @@ describe("readBuildStats", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(false);
 		vi.mocked(parseFrontmatterContent).mockReturnValue({ plugin_version: "1.0.0" });
 
-		const stats = readBuildStats(mockE2e);
+		const stats = readBuildStats(mockE2e, buildDeps);
 		// Latest file (reverse sorted) should be used
 		expect(stats.build).toEqual({ plugin_version: "1.0.0" });
 	});
@@ -190,7 +199,7 @@ describe("readBuildStats", () => {
 		);
 		vi.mocked(parseFrontmatterContent).mockReturnValue({ total_tests: 50 });
 
-		const stats = readBuildStats(mockE2e);
+		const stats = readBuildStats(mockE2e, buildDeps);
 		expect(stats.e2e).toEqual({ total_tests: 50 });
 		expect(stats.traceability).toEqual({ total_tests: 50 });
 	});
@@ -203,7 +212,7 @@ describe("collectReportSources", () => {
 		vi.mocked(disk.readdirSync).mockImplementation(() => { throw new Error("ENOENT"); });
 		vi.mocked(disk.existsSync).mockReturnValue(false);
 
-		const sources = collectReportSources(mockE2e);
+		const sources = collectReportSources(mockE2e, buildDeps);
 		expect(Object.keys(sources)).toHaveLength(0);
 	});
 
@@ -212,7 +221,7 @@ describe("collectReportSources", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(parseFrontmatterContent).mockReturnValue({ status: "pass" });
 
-		const sources = collectReportSources(mockE2e);
+		const sources = collectReportSources(mockE2e, buildDeps);
 		expect(sources.build).toBeDefined();
 		expect(sources.build.fm).toEqual({ status: "pass" });
 		expect(sources.e2e).toBeDefined();
@@ -227,7 +236,7 @@ describe("quickBuildAndDeploy", () => {
 		vi.mocked(shell.run).mockReturnValue(0);
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 
-		const result = quickBuildAndDeploy(mockE2e);
+		const result = quickBuildAndDeploy(mockE2e, buildDeps);
 		expect(result).toBe(0);
 		expect(shell.run).toHaveBeenCalledWith("node esbuild.config.mjs --production", expect.objectContaining({ cwd: "/project" }));
 	});
@@ -235,7 +244,7 @@ describe("quickBuildAndDeploy", () => {
 	it("returns build exit code on failure without deploying", () => {
 		vi.mocked(shell.run).mockReturnValue(1);
 
-		const result = quickBuildAndDeploy(mockE2e);
+		const result = quickBuildAndDeploy(mockE2e, buildDeps);
 		expect(result).toBe(1);
 		expect(disk.copyFileSync).not.toHaveBeenCalled();
 	});
@@ -244,7 +253,7 @@ describe("quickBuildAndDeploy", () => {
 		vi.mocked(shell.run).mockReturnValue(0);
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 
-		quickBuildAndDeploy(mockE2e);
+		quickBuildAndDeploy(mockE2e, buildDeps);
 		expect(disk.copyFileSync).toHaveBeenCalledTimes(3);
 	});
 
@@ -252,7 +261,7 @@ describe("quickBuildAndDeploy", () => {
 		vi.mocked(shell.run).mockReturnValue(0);
 		vi.mocked(disk.existsSync).mockReturnValue(false);
 
-		const result = quickBuildAndDeploy(mockE2e);
+		const result = quickBuildAndDeploy(mockE2e, buildDeps);
 		expect(result).toBe(0);
 		expect(disk.copyFileSync).not.toHaveBeenCalled();
 	});
@@ -262,7 +271,7 @@ describe("quickBuildAndDeploy", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(shell.runSilent).mockReturnValue("reloaded");
 
-		quickBuildAndDeploy(mockE2e);
+		quickBuildAndDeploy(mockE2e, buildDeps);
 		expect(shell.runSilent).toHaveBeenCalledWith(expect.stringContaining("flowti-ibde"));
 	});
 });
@@ -272,13 +281,13 @@ describe("quickBuildAndDeploy", () => {
 describe("runIncrementBuild", () => {
 	it("returns 0 when pipeline has no failures", async () => {
 		vi.mocked(runPipeline).mockResolvedValue({ passed: 2, failed: 0, skipped: 0 } as never);
-		const result = await runIncrementBuild(mockE2e);
+		const result = await runIncrementBuild(mockE2e, buildDeps);
 		expect(result).toBe(0);
 	});
 
 	it("returns 1 when pipeline has failures", async () => {
 		vi.mocked(runPipeline).mockResolvedValue({ passed: 1, failed: 1, skipped: 0 } as never);
-		const result = await runIncrementBuild(mockE2e);
+		const result = await runIncrementBuild(mockE2e, buildDeps);
 		expect(result).toBe(1);
 	});
 });
@@ -286,13 +295,13 @@ describe("runIncrementBuild", () => {
 describe("runPublish", () => {
 	it("returns 0 when pipeline succeeds", async () => {
 		vi.mocked(runPipeline).mockResolvedValue({ passed: 1, failed: 0, skipped: 0 } as never);
-		const result = await runPublish(mockE2e);
+		const result = await runPublish(mockE2e, buildDeps);
 		expect(result).toBe(0);
 	});
 
 	it("returns 1 when pipeline fails", async () => {
 		vi.mocked(runPipeline).mockResolvedValue({ passed: 0, failed: 1, skipped: 0 } as never);
-		const result = await runPublish(mockE2e);
+		const result = await runPublish(mockE2e, buildDeps);
 		expect(result).toBe(1);
 	});
 });

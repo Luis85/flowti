@@ -22,6 +22,30 @@ function p(...parts: string[]): string {
 	return path.join(...parts);
 }
 
+const mockPaths = {
+	join: (...args: string[]) => path.join(...args),
+	relative: (from: string, to: string) => path.relative(from, to),
+	basename: (fp: string) => path.basename(fp),
+	dirname: (fp: string) => path.dirname(fp),
+	resolve: (...args: string[]) => path.resolve(...args),
+	sep: path.sep,
+} as never;
+
+const mockClock = {
+	iso: () => new Date().toISOString(),
+	now: () => new Date(),
+	ms: () => Date.now(),
+	safeIso: () => "2026-01-01T00-00-00",
+} as never;
+
+function diskDeps(fs: Record<string, unknown>) {
+	return { disk: fs, paths: mockPaths } as never;
+}
+
+function fullDeps(fs: Record<string, unknown>) {
+	return { disk: fs, paths: mockPaths, clock: mockClock } as never;
+}
+
 // ── hashContent ──────────────────────────────────────────────────────
 
 describe("hashContent", () => {
@@ -58,7 +82,7 @@ describe("collectSourceHashes", () => {
 			readdirSync: (fp: string) => dirs[fp] ?? [],
 		};
 
-		const hashes = collectSourceHashes(srcDir, fs as never);
+		const hashes = collectSourceHashes(srcDir, diskDeps(fs));
 		expect(Object.keys(hashes)).toHaveLength(2);
 		expect(hashes["main.ts"]).toBe(sha256("console.log('hi');"));
 		// On Windows relative path uses backslash
@@ -72,7 +96,7 @@ describe("collectSourceHashes", () => {
 			readFileSync: () => "",
 			readdirSync: () => [],
 		};
-		expect(collectSourceHashes("/missing", fs as never)).toEqual({});
+		expect(collectSourceHashes("/missing", diskDeps(fs))).toEqual({});
 	});
 
 	it("skips non-ts files", () => {
@@ -89,7 +113,7 @@ describe("collectSourceHashes", () => {
 			readdirSync: (fp: string) => dirs[fp] ?? [],
 		};
 
-		const hashes = collectSourceHashes(srcDir, fs as never);
+		const hashes = collectSourceHashes(srcDir, diskDeps(fs));
 		expect(Object.keys(hashes)).toHaveLength(1);
 		expect(hashes["main.ts"]).toBeDefined();
 	});
@@ -108,7 +132,7 @@ describe("collectSourceHashes", () => {
 			readdirSync: (fp: string) => dirs[fp] ?? [],
 		};
 
-		const hashes = collectSourceHashes(srcDir, fs as never);
+		const hashes = collectSourceHashes(srcDir, diskDeps(fs));
 		expect(Object.keys(hashes)).toHaveLength(1);
 	});
 });
@@ -144,7 +168,7 @@ describe("aggregateHash", () => {
 
 describe("manifestPath", () => {
 	it("appends .build-manifest.json to binDir", () => {
-		const mp = manifestPath("/app/bin");
+		const mp = manifestPath("/app/bin", { paths: mockPaths });
 		expect(mp).toContain(".build-manifest.json");
 		expect(mp).toContain("bin");
 	});
@@ -155,7 +179,7 @@ describe("manifestPath", () => {
 describe("loadManifest", () => {
 	it("returns null when no manifest exists", () => {
 		const fs = { existsSync: () => false, readFileSync: () => "" };
-		expect(loadManifest("/bin", fs as never)).toBeNull();
+		expect(loadManifest("/bin", diskDeps(fs))).toBeNull();
 	});
 
 	it("returns parsed manifest", () => {
@@ -164,12 +188,12 @@ describe("loadManifest", () => {
 			existsSync: () => true,
 			readFileSync: () => JSON.stringify(manifest),
 		};
-		expect(loadManifest("/bin", fs as never)).toEqual(manifest);
+		expect(loadManifest("/bin", diskDeps(fs))).toEqual(manifest);
 	});
 
 	it("returns null for invalid JSON", () => {
 		const fs = { existsSync: () => true, readFileSync: () => "not json" };
-		expect(loadManifest("/bin", fs as never)).toBeNull();
+		expect(loadManifest("/bin", diskDeps(fs))).toBeNull();
 	});
 });
 
@@ -181,7 +205,7 @@ describe("saveManifest", () => {
 			writeFileSync: (_p: string, content: string) => { written = content; },
 		};
 		const manifest = { builtAt: "2026-01-01", sourceHash: "abc", fileCount: 1, files: { "a.ts": "ha" } };
-		saveManifest("/bin", manifest, fs as never);
+		saveManifest("/bin", manifest, diskDeps(fs));
 		expect(JSON.parse(written)).toEqual(manifest);
 	});
 });
@@ -191,7 +215,7 @@ describe("saveManifest", () => {
 describe("createManifest", () => {
 	it("creates manifest with aggregate hash and file count", () => {
 		const hashes = { "a.ts": "ha", "b.ts": "hb" };
-		const manifest = createManifest(hashes);
+		const manifest = createManifest(hashes, { clock: mockClock });
 		expect(manifest.fileCount).toBe(2);
 		expect(manifest.files).toEqual(hashes);
 		expect(manifest.sourceHash).toBe(aggregateHash(hashes));
@@ -230,7 +254,7 @@ describe("checkFreshness", () => {
 
 	it("reports rebuild needed when no manifest exists", () => {
 		const fs = makeFsWithFiles({ [p(srcDir, "main.ts")]: "code" });
-		const result = checkFreshness(srcDir, binDir, fs as never);
+		const result = checkFreshness(srcDir, binDir, diskDeps(fs));
 		expect(result.needsRebuild).toBe(true);
 		expect(result.reason).toContain("No build manifest");
 		expect(result.added).toContain("main.ts");
@@ -240,7 +264,7 @@ describe("checkFreshness", () => {
 		const hashes = { "main.ts": hashContent("code") };
 		const manifest = { builtAt: "2026-01-01", sourceHash: aggregateHash(hashes), fileCount: 1, files: hashes };
 		const fs = makeFsWithFiles({ [p(srcDir, "main.ts")]: "code" }, manifest);
-		const result = checkFreshness(srcDir, binDir, fs as never);
+		const result = checkFreshness(srcDir, binDir, diskDeps(fs));
 		expect(result.needsRebuild).toBe(false);
 		expect(result.reason).toContain("up to date");
 	});
@@ -249,7 +273,7 @@ describe("checkFreshness", () => {
 		const hashes = { "main.ts": hashContent("old-code") };
 		const manifest = { builtAt: "2026-01-01", sourceHash: aggregateHash(hashes), fileCount: 1, files: hashes };
 		const fs = makeFsWithFiles({ [p(srcDir, "main.ts")]: "new-code" }, manifest);
-		const result = checkFreshness(srcDir, binDir, fs as never);
+		const result = checkFreshness(srcDir, binDir, diskDeps(fs));
 		expect(result.needsRebuild).toBe(true);
 		expect(result.modified).toContain("main.ts");
 	});
@@ -258,7 +282,7 @@ describe("checkFreshness", () => {
 		const hashes = { "main.ts": hashContent("code") };
 		const manifest = { builtAt: "2026-01-01", sourceHash: aggregateHash(hashes), fileCount: 1, files: hashes };
 		const fs = makeFsWithFiles({ [p(srcDir, "main.ts")]: "code", [p(srcDir, "new.ts")]: "new" }, manifest);
-		const result = checkFreshness(srcDir, binDir, fs as never);
+		const result = checkFreshness(srcDir, binDir, diskDeps(fs));
 		expect(result.needsRebuild).toBe(true);
 		expect(result.added).toContain("new.ts");
 	});
@@ -267,7 +291,7 @@ describe("checkFreshness", () => {
 		const hashes = { "main.ts": hashContent("code"), "old.ts": hashContent("old") };
 		const manifest = { builtAt: "2026-01-01", sourceHash: aggregateHash(hashes), fileCount: 2, files: hashes };
 		const fs = makeFsWithFiles({ [p(srcDir, "main.ts")]: "code" }, manifest);
-		const result = checkFreshness(srcDir, binDir, fs as never);
+		const result = checkFreshness(srcDir, binDir, diskDeps(fs));
 		expect(result.needsRebuild).toBe(true);
 		expect(result.removed).toContain("old.ts");
 	});
@@ -276,7 +300,7 @@ describe("checkFreshness", () => {
 		const hashes = { "main.ts": hashContent("old"), "dead.ts": hashContent("dead") };
 		const manifest = { builtAt: "2026-01-01", sourceHash: aggregateHash(hashes), fileCount: 2, files: hashes };
 		const fs = makeFsWithFiles({ [p(srcDir, "main.ts")]: "new", [p(srcDir, "added.ts")]: "x" }, manifest);
-		const result = checkFreshness(srcDir, binDir, fs as never);
+		const result = checkFreshness(srcDir, binDir, diskDeps(fs));
 		expect(result.reason).toContain("1 added");
 		expect(result.reason).toContain("1 modified");
 		expect(result.reason).toContain("1 removed");
@@ -299,7 +323,7 @@ describe("recordBuild", () => {
 			mkdirSync: () => {},
 		};
 
-		const manifest = recordBuild(srcDir, p("/proj", "bin"), fs as never);
+		const manifest = recordBuild(srcDir, p("/proj", "bin"), fullDeps(fs));
 		expect(manifest.fileCount).toBe(1);
 		expect(manifest.files["main.ts"]).toBe(hashContent("code"));
 		expect(savedData).toBeTruthy();

@@ -13,6 +13,7 @@ import { disk } from "../infrastructure/filesystem.js";
 import { input } from "../infrastructure/input.js";
 import { shell } from "../infrastructure/shell.js";
 import { paths } from "../infrastructure/paths.js";
+import { clock } from "../infrastructure/clock.js";
 import { VAULT_ROOT, CLI_PROJECT } from "../infrastructure/config.js";
 import {
 	loadAiTools,
@@ -21,6 +22,9 @@ import {
 	discoverToolFiles,
 	AI_TOOLS_DIR,
 } from "../domain/ai-tools/ai-tool-loader.js";
+
+function toolDeps() { return { disk, paths } as const; }
+function clockDeps() { return { clock } as const; }
 import type { LoadedAiTool } from "../domain/ai-tools/ai-tool-types.js";
 import { generateAiToolReference } from "../domain/ai-tools/ai-tool-reference.js";
 import { substituteParams } from "../domain/ai-tools/ai-tool-commands.js";
@@ -69,7 +73,7 @@ function isLoadedTool(result: unknown): result is LoadedAiTool {
 
 const actions: Record<string, ControllerAction> = {
 	"ai:list": () => {
-		const tools = loadAiTools(VAULT_ROOT, disk);
+		const tools = loadAiTools(toolDeps(), VAULT_ROOT, disk);
 		const model: ToolListItem[] = tools.map((t) => ({
 			name: t.definition.name,
 			version: t.definition.version ?? null,
@@ -85,7 +89,7 @@ const actions: Record<string, ControllerAction> = {
 
 	"ai:validate": () => {
 		const toolsDir = paths.join(VAULT_ROOT, AI_TOOLS_DIR);
-		const files = discoverToolFiles(toolsDir, disk);
+		const files = discoverToolFiles(toolDeps(), toolsDir, disk);
 		const results: ToolValidationItem[] = files.map((file) => {
 			const fileName = paths.basename(file);
 			try {
@@ -105,7 +109,7 @@ const actions: Record<string, ControllerAction> = {
 		const desc = await input.ask("Description");
 		const run = await input.ask("Shell command to run");
 		if (!run) return dataResponse<SuccessModel>({ message: "Cancelled." }, renderSuccess);
-		const result = scaffoldAiTool(VAULT_ROOT, name, desc || "An AI tool", run, disk);
+		const result = scaffoldAiTool(toolDeps(), VAULT_ROOT, name, desc || "An AI tool", run, disk);
 		if ("error" in result) {
 			return dataResponse<ErrorModel>({ error: result.error }, renderError);
 		}
@@ -113,8 +117,8 @@ const actions: Record<string, ControllerAction> = {
 	},
 
 	"ai:reference": () => {
-		const tools = loadAiTools(VAULT_ROOT, disk);
-		const doc = generateAiToolReference(tools);
+		const tools = loadAiTools(toolDeps(), VAULT_ROOT, disk);
+		const doc = generateAiToolReference(clockDeps(), tools);
 		const outputPath = paths.join(CLI_PROJECT, "docs", "reference", "AI Tool Reference.md");
 		doc.save(outputPath);
 		return dataResponse<SuccessModel>({ message: `Reference saved to ${outputPath}` }, renderSuccess);
@@ -128,7 +132,7 @@ const actions: Record<string, ControllerAction> = {
 				renderMissingToolFlag,
 			);
 		}
-		const tools = loadAiTools(VAULT_ROOT, disk);
+		const tools = loadAiTools(toolDeps(), VAULT_ROOT, disk);
 		const result = validateToolSelection(toolName, tools);
 		if (!isLoadedTool(result)) {
 			if ("notFound" in result) return dataResponse(result.notFound, renderToolNotFound);

@@ -43,7 +43,11 @@ import { disk } from "../../../../src/infrastructure/filesystem.js";
 import { input } from "../../../../src/infrastructure/input.js";
 import { componentMenu } from "../../../../src/ui/menus/component-makers-menu.js";
 import { runMenu } from "../../../../src/infrastructure/menu.js";
-import type { ComponentDefinition, ComponentVariables } from "../../../../src/domain/make/component/component-types.js";
+import type { ComponentDefinition, ComponentVariables, ComponentTemplateDeps } from "../../../../src/domain/make/component/component-types.js";
+
+const mockDeps: ComponentTemplateDeps = {
+	clock: { iso: () => "2026-01-01T00:00:00.000Z", ms: () => 0, now: () => new Date("2026-01-01"), safeIso: () => "2026-01-01T00-00-00" },
+};
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -100,7 +104,7 @@ describe("componentDocTemplate property frontmatter", () => {
 			"prop.disabled": "false",
 		};
 
-		const result = componentDocTemplate(vars, def).toString();
+		const result = componentDocTemplate(vars, def, mockDeps).toString();
 
 		// Frontmatter should contain property values
 		expect(result).toContain("variant: primary");
@@ -138,7 +142,7 @@ describe("componentDocTemplate property frontmatter", () => {
 			"prop.priority": "",
 		};
 
-		const result = componentDocTemplate(vars, def).toString();
+		const result = componentDocTemplate(vars, def, mockDeps).toString();
 		expect(result).not.toMatch(/^priority:/m);
 	});
 
@@ -166,7 +170,7 @@ describe("componentDocTemplate property frontmatter", () => {
 			camel: "plain",
 		};
 
-		const result = componentDocTemplate(vars, def).toString();
+		const result = componentDocTemplate(vars, def, mockDeps).toString();
 		expect(result).toContain("---");
 		expect(result).toContain("# Plain");
 		expect(result).not.toContain("## Properties");
@@ -202,7 +206,7 @@ describe("c4DocTemplate property frontmatter", () => {
 			"prop.region": "eu-west",
 		};
 
-		const result = c4DocTemplate(vars, def).toString();
+		const result = c4DocTemplate(vars, def, mockDeps).toString();
 		expect(result).toContain("region: eu-west");
 	});
 });

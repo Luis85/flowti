@@ -2,20 +2,21 @@
  * prerequisite-step.ts — PipelineStep for E2E vault prerequisite checks.
  */
 
+import type { CliDeps } from "../../../infrastructure/deps.js";
 import type { PipelineStep, StepOutput, PipelineContext } from "../../../infrastructure/pipeline/pipeline-types.js";
 import type { E2EPaths } from "../e2e-paths.js";
 import { checkPrerequisites, validatePrerequisites } from "../e2e-prerequisites.js";
 import type { E2ERenderer } from "../e2e-renderer.js";
 import { nullRenderer } from "../e2e-renderer.js";
 
-export function createPrerequisiteStep(e2e: E2EPaths, render: E2ERenderer = nullRenderer): PipelineStep {
+export function createPrerequisiteStep(e2e: E2EPaths, deps: Pick<CliDeps, "disk" | "paths" | "shell" | "proc" | "log">, render: E2ERenderer = nullRenderer): PipelineStep {
 	return {
 		id: "e2e:prerequisites",
 		label: "Prerequisites",
 		execute(ctx: PipelineContext): StepOutput {
-			const results = checkPrerequisites(e2e);
+			const results = checkPrerequisites(e2e, deps);
 			render.prerequisites(results, e2e);
-			validatePrerequisites(results);
+			validatePrerequisites(results, deps);
 
 			ctx.setStepData("e2e:prerequisites", { results });
 

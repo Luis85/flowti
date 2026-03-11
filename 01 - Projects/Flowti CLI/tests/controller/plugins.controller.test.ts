@@ -29,6 +29,9 @@ vi.mock("../../src/infrastructure/paths.js", () => ({
 vi.mock("../../src/infrastructure/input.js", () => ({
 	input: { ask: vi.fn(async () => "my-plugin") },
 }));
+vi.mock("../../src/infrastructure/clock.js", () => ({
+	clock: { iso: vi.fn(() => "2026-01-01T00:00:00.000Z"), now: vi.fn(() => new Date()), ms: vi.fn(() => 0) },
+}));
 vi.mock("../../src/infrastructure/config.js", () => ({
 	VAULT_ROOT: "/vault",
 	CLI_PROJECT: "/vault/cli",
@@ -81,7 +84,7 @@ describe("plugins.controller", () => {
 	describe("plugin:list", () => {
 		it("returns list of loaded plugins", () => {
 			commands["plugin:list"]({}, [], "plugin:list", undefined);
-			expect(loadPlugins).toHaveBeenCalledWith("/vault", expect.anything(), expect.anything());
+			expect(loadPlugins).toHaveBeenCalledWith(expect.any(Object), "/vault", expect.anything(), expect.anything());
 		});
 
 		it("maps plugins to list items with name, version, commands", () => {
@@ -94,7 +97,7 @@ describe("plugins.controller", () => {
 	describe("plugin:validate", () => {
 		it("discovers plugin files and validates manifests", () => {
 			commands["plugin:validate"]({}, [], "plugin:validate", undefined);
-			expect(discoverPluginFiles).toHaveBeenCalled();
+			expect(discoverPluginFiles).toHaveBeenCalledWith(expect.any(Object), expect.any(String), expect.anything());
 			expect(validateManifest).toHaveBeenCalled();
 		});
 
@@ -109,8 +112,8 @@ describe("plugins.controller", () => {
 	describe("plugin:reference", () => {
 		it("generates plugin reference document", () => {
 			commands["plugin:reference"]({}, [], "plugin:reference", undefined);
-			expect(loadPlugins).toHaveBeenCalled();
-			expect(generatePluginReference).toHaveBeenCalled();
+			expect(loadPlugins).toHaveBeenCalledWith(expect.any(Object), "/vault", expect.anything(), expect.anything());
+			expect(generatePluginReference).toHaveBeenCalledWith(expect.any(Object), expect.anything());
 		});
 
 		it("saves reference to docs/reference path", () => {
@@ -125,7 +128,7 @@ describe("plugins.controller", () => {
 		it("scaffolds a new plugin with user input", async () => {
 			const { scaffoldPlugin } = await import("../../src/domain/plugins/plugin-loader.js");
 			await commands["plugin:new"]({}, [], "plugin:new", undefined);
-			expect(scaffoldPlugin).toHaveBeenCalledWith("/vault", "my-plugin", expect.any(String), expect.anything());
+			expect(scaffoldPlugin).toHaveBeenCalledWith(expect.any(Object), "/vault", "my-plugin", expect.any(String), expect.anything());
 		});
 	});
 });

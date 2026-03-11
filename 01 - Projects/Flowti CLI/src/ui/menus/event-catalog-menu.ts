@@ -6,6 +6,8 @@
  */
 
 import { paths } from "../../infrastructure/paths.js";
+import { disk } from "../../infrastructure/filesystem.js";
+import { clock } from "../../infrastructure/clock.js";
 import { RESET, DIM, GREEN, CYAN, BOLD, printHeader } from "../../infrastructure/ui.js";
 import { input } from "../../infrastructure/input.js";
 import { runMenu } from "../../infrastructure/menu.js";
@@ -15,6 +17,8 @@ import { listEvents, createEventFile, parseCommaSeparated } from "../../domain/e
 import type { EventDefinition } from "../../domain/events/event-catalog.js";
 import { collectPayloadFields, collectVersioningInfo } from "../../domain/events/event-payload.js";
 import { saveEventFlowDoc } from "../../domain/events/event-flow.js";
+
+function eventDeps() { return { disk, paths, clock } as const; }
 
 // ── Interactive flow ───────────────────────────────────────────────
 
@@ -29,8 +33,8 @@ async function addEventInteractive(projectPath: string): Promise<void> {
 	const description = await input.ask("Description", "");
 	const producersRaw = await input.ask("Producers (comma-separated)", "");
 	const consumersRaw = await input.ask("Consumers (comma-separated)", "");
-	const payload = await collectPayloadFields();
-	const versioning = await collectVersioningInfo();
+	const payload = await collectPayloadFields(input);
+	const versioning = await collectVersioningInfo(input);
 
 	const def: EventDefinition = {
 		name,
@@ -43,7 +47,7 @@ async function addEventInteractive(projectPath: string): Promise<void> {
 		...versioning,
 	};
 
-	const filePath = createEventFile(projectPath, def);
+	const filePath = createEventFile(eventDeps(), projectPath, def);
 	if (filePath) {
 		const relPath = paths.relative(projectPath, filePath);
 		log(`\n  ${GREEN}✓${RESET} Created: ${relPath}`);
@@ -51,7 +55,7 @@ async function addEventInteractive(projectPath: string): Promise<void> {
 }
 
 function listEventsInteractive(projectPath: string): void {
-	const events = listEvents(projectPath);
+	const events = listEvents(eventDeps(), projectPath);
 
 	if (events.length === 0) {
 		log(`\n  ${DIM}No events defined yet. Use "Add Event" to create one.${RESET}\n`);
@@ -90,7 +94,7 @@ export async function eventCatalogMenu(projectPath: string): Promise<MenuResult>
 			key: "3",
 			label: "Event Flow Diagram",
 			action: () => {
-				const filePath = saveEventFlowDoc(projectPath);
+				const filePath = saveEventFlowDoc(eventDeps(), projectPath);
 				const relPath = paths.relative(projectPath, filePath);
 				log(`\n  ${GREEN}✓${RESET} Generated: ${relPath}\n`);
 				return "main" as const;

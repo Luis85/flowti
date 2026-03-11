@@ -38,7 +38,8 @@ import { paths } from "../../../../src/infrastructure/paths.js";
 import { clock } from "../../../../src/infrastructure/clock.js";
 import { generateCodebaseReport } from "../../../../src/domain/reports/cli/generate-codebase-report.js";
 
-const mockDeps: ReportDeps = { disk, paths, clock, log: () => {} };
+const mockShell = { run: vi.fn(() => ({ stdout: "", stderr: "", exitCode: 0, success: true })) };
+const mockDeps: ReportDeps = { disk, paths, clock, shell: mockShell as any, log: () => {} };
 
 beforeEach(() => {
 	vi.clearAllMocks();

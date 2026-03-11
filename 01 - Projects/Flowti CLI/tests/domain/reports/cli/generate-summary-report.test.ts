@@ -74,7 +74,8 @@ import { discoverReports, loadJsonDataSources, loadDetailedSources } from "../..
 import { analyzeReports } from "../../../../src/domain/reports/cli/summary-analyzers-ext.js";
 import { generateSummaryReport } from "../../../../src/domain/reports/cli/generate-summary-report.js";
 
-const mockDeps: ReportDeps = { disk, paths, clock, log: () => {} };
+const mockShell = { run: vi.fn(() => ({ stdout: "", stderr: "", exitCode: 0, success: true })) };
+const mockDeps: ReportDeps = { disk, paths, clock, shell: mockShell as any, log: () => {} };
 
 beforeEach(() => {
 	vi.clearAllMocks();

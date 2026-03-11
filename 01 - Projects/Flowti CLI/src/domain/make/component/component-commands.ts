@@ -11,8 +11,7 @@
  *   flowti make:person --name=Customer --description="End user"
  */
 
-import { paths } from "../../../infrastructure/paths.js";
-import { disk } from "../../../infrastructure/filesystem.js";
+import type { CliDeps } from "../../../infrastructure/deps.js";
 import { toKebab, toPascal, toCamel } from "../naming.js";
 import { createFileWriter } from "../templates/file-writer.js";
 import { buildComponentPlan } from "./component-plan.js";
@@ -20,6 +19,8 @@ import { loadComponentDefinitions, createComponentTemplateRegistry } from "./com
 import type { ComponentVariables } from "./component-types.js";
 import type { Suggestion } from "../../../infrastructure/suggestions.js";
 import { afterMakeComponent } from "../../../infrastructure/suggestions.js";
+
+export type ComponentCommandsDeps = Pick<CliDeps, "disk" | "paths" | "clock">;
 
 // ── Result types ─────────────────────────────────────────────────────
 
@@ -61,6 +62,7 @@ export function makeComponent(
 	name: string | undefined,
 	flags: Record<string, string | boolean>,
 	projectPath: string,
+	deps: ComponentCommandsDeps,
 ): MakeComponentOutcome {
 	if (!name || typeof name !== "string") {
 		return {
@@ -78,13 +80,13 @@ export function makeComponent(
 
 	const vars = buildComponentVars(name, flags);
 
-	const docPath = paths.join(projectPath, "docs", "components", `${vars.kebab}.md`);
-	if (disk.existsSync(docPath)) {
+	const docPath = deps.paths.join(projectPath, "docs", "components", `${vars.kebab}.md`);
+	if (deps.disk.existsSync(docPath)) {
 		return { success: false, error: `Component already exists: ${vars.kebab}` };
 	}
 
 	const templates = createComponentTemplateRegistry();
-	const plan = buildComponentPlan(vars, def, templates);
+	const plan = buildComponentPlan(vars, def, templates, { clock: deps.clock });
 
 	const writer = createFileWriter(projectPath);
 	for (const f of plan) writer.write(f.path, f.content);

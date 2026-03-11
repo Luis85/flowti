@@ -15,7 +15,7 @@ import { discoverArchiveCategories } from "../../domain/reports/report-archive.j
 import type { ArchiveCategory } from "../../domain/reports/report-archive.js";
 
 export async function browseArchive(reportsDir: string): Promise<MenuResult> {
-	const categories = discoverArchiveCategories(reportsDir);
+	const categories = discoverArchiveCategories(reportsDir, { disk, paths });
 
 	if (categories.length === 0) {
 		log(`\n  ${DIM}No archived reports found in ${reportsDir}${RESET}\n`);

@@ -131,6 +131,7 @@ describe("scaffoldMenu", () => {
 		await (items[0] as any).action();
 
 		expect(mockScaffold).toHaveBeenCalledTimes(1);
+		expect(mockScaffold).toHaveBeenCalledWith(expect.any(Object), expect.any(Object));
 		const output = mockLog.mock.calls.map((c) => c[0] ?? "").join("\n");
 		expect(output).toContain("Created 5 files");
 		expect(output).toContain("cd my-app");

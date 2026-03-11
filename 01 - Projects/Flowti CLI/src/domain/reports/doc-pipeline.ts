@@ -19,8 +19,7 @@ import type {
 	StepOutput,
 } from "../../infrastructure/pipeline/pipeline-types.js";
 import type { DocGenerator } from "../../infrastructure/types.js";
-import { createDefaultDeps } from "../../infrastructure/deps.js";
-import { shell } from "../../infrastructure/shell.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 import { runReference, listReferenceIds } from "./generator-registry.js";
 
 // ── Step adapters ────────────────────────────────────────────────────
@@ -29,13 +28,13 @@ import { runReference, listReferenceIds } from "./generator-registry.js";
  * Wrap an external DocGenerator config entry as a PipelineStep.
  * External generators run a shell command (e.g. TypeDoc).
  */
-export function toDocStep(gen: DocGenerator): PipelineStep {
+export function toDocStep(gen: DocGenerator, deps: Pick<CliDeps, "shell">): PipelineStep {
 	const id = gen.label.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
 	return {
 		id,
 		label: gen.label,
 		execute: (ctx: PipelineContext): StepOutput => {
-			const { exitCode } = shell.runCaptureStatus(gen.command, { cwd: ctx.projectPath });
+			const { exitCode } = deps.shell.runCaptureStatus(gen.command, { cwd: ctx.projectPath });
 			return { success: exitCode === 0 };
 		},
 	};
@@ -70,8 +69,8 @@ export function toReferenceStep(refId: string): PipelineStep {
  *
  * Order: external generators first (e.g. TypeDoc), then built-in references.
  */
-export function buildDocSteps(configGenerators: DocGenerator[]): PipelineStep[] {
-	const externalSteps = configGenerators.map(toDocStep);
+export function buildDocSteps(configGenerators: DocGenerator[], deps: Pick<CliDeps, "shell">): PipelineStep[] {
+	const externalSteps = configGenerators.map((gen) => toDocStep(gen, deps));
 	const referenceSteps = listReferenceIds().map(toReferenceStep);
 	return [...externalSteps, ...referenceSteps];
 }
@@ -84,9 +83,10 @@ export function buildDocSteps(configGenerators: DocGenerator[]): PipelineStep[] 
 export async function runDocPipeline(
 	configGenerators: DocGenerator[],
 	projectPath: string,
+	deps: CliDeps,
 ): Promise<PipelineResult> {
-	const steps = buildDocSteps(configGenerators);
-	const ctx = createPipelineContext(projectPath, createDefaultDeps());
+	const steps = buildDocSteps(configGenerators, deps);
+	const ctx = createPipelineContext(projectPath, deps);
 
 	return runPipelineWithContext(steps, ctx, {
 		label: "Documentation",

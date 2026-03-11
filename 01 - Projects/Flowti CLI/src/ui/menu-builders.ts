@@ -42,7 +42,7 @@ function exportAllReportsToHtml(projectPath: string): void {
 	if (entries.length === 0) { log(`\n  ${DIM}No report files found. Run reports first.${RESET}\n`); return; }
 	let exported = 0;
 	for (const entry of entries) {
-		const result = exportReportToHtml(paths.join(svc.reportsDir, entry), outputDir);
+		const result = exportReportToHtml(paths.join(svc.reportsDir, entry), outputDir, createDefaultDeps());
 		if (result) { log(`  ${GREEN}✓${RESET} ${result.title} → ${DIM}${result.outputPath}${RESET}`); exported++; }
 	}
 	log(`\n  ${exported} report${exported !== 1 ? "s" : ""} exported to ${DIM}${outputDir}${RESET}\n`);
@@ -62,7 +62,7 @@ export function buildReportsSubmenu(
 			key: "1",
 			label: "Run All Reports",
 			action: async () => {
-				await runAllReports(generators, projectPath);
+				await runAllReports(generators, projectPath, createDefaultDeps());
 				await input.waitForEnter();
 				return "main" as const;
 			},
@@ -205,7 +205,7 @@ export function buildDepsSubmenu(_projectPath: string): MenuEntry[] {
 			key: "1",
 			label: "Show Dependency Graph",
 			action: async () => {
-				const graph = buildDependencyGraph();
+				const graph = buildDependencyGraph({ disk, paths });
 				displayDependencyGraph(graph);
 				await input.waitForEnter();
 				return "main" as const;

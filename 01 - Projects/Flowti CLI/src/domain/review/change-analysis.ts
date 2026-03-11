@@ -5,7 +5,7 @@
  * based on which files were modified.
  */
 
-import { shell } from "../../infrastructure/shell.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -97,15 +97,15 @@ export function analyzeChanges(changedFiles: ChangedFile[]): ChangeImpact {
 }
 
 /** Analyze uncommitted changes in a project directory. */
-export function analyzeWorkingTree(projectPath: string): ChangeImpact {
-	const output = shell.runSilent(`git -C "${projectPath}" status --porcelain`);
+export function analyzeWorkingTree(projectPath: string, deps: Pick<CliDeps, "shell">): ChangeImpact {
+	const output = deps.shell.runSilent(`git -C "${projectPath}" status --porcelain`);
 	if (!output) return analyzeChanges([]);
 	return analyzeChanges(parseGitStatus(output));
 }
 
 /** Analyze changes between a base branch and HEAD. */
-export function analyzeBranchDiff(projectPath: string, baseBranch = "main"): ChangeImpact {
-	const output = shell.runSilent(`git -C "${projectPath}" diff --name-status ${baseBranch}...HEAD`);
+export function analyzeBranchDiff(projectPath: string, deps: Pick<CliDeps, "shell">, baseBranch = "main"): ChangeImpact {
+	const output = deps.shell.runSilent(`git -C "${projectPath}" diff --name-status ${baseBranch}...HEAD`);
 	if (!output) return analyzeChanges([]);
 	return analyzeChanges(parseGitDiffNameStatus(output));
 }

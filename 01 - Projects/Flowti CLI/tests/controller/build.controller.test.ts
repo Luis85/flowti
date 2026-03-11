@@ -76,8 +76,8 @@ describe("build.controller", () => {
 	describe("build:check", () => {
 		it("calls resolveBuildPaths and checkFreshness", () => {
 			commands["build:check"]({}, [], "build:check", mockProject);
-			expect(resolveBuildPaths).toHaveBeenCalledWith("/project");
-			expect(checkFreshness).toHaveBeenCalledWith("/project/src", "/project/dist");
+			expect(resolveBuildPaths).toHaveBeenCalledWith("/project", expect.anything());
+			expect(checkFreshness).toHaveBeenCalledWith("/project/src", "/project/dist", expect.anything());
 		});
 
 		it("returns undefined when no project", () => {
@@ -90,8 +90,8 @@ describe("build.controller", () => {
 	describe("build:record", () => {
 		it("calls recordBuild and returns model with fileCount and hashPrefix", () => {
 			commands["build:record"]({}, [], "build:record", mockProject);
-			expect(resolveBuildPaths).toHaveBeenCalledWith("/project");
-			expect(recordBuild).toHaveBeenCalledWith("/project/src", "/project/dist");
+			expect(resolveBuildPaths).toHaveBeenCalledWith("/project", expect.anything());
+			expect(recordBuild).toHaveBeenCalledWith("/project/src", "/project/dist", expect.anything());
 		});
 
 		it("returns undefined when no project", () => {
@@ -113,7 +113,7 @@ describe("build.controller", () => {
 	describe("project:ci", () => {
 		it("calls runProjectCi with the project context", () => {
 			commands["project:ci"]({ "dry-run": true }, [], "project:ci", mockProject);
-			expect(runProjectCi).toHaveBeenCalledWith(mockProject, true);
+			expect(runProjectCi).toHaveBeenCalledWith(mockProject, true, expect.anything());
 		});
 
 		it("returns undefined when no project", () => {

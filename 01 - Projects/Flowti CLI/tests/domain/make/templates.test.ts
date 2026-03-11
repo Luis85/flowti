@@ -171,8 +171,8 @@ describe("cliPackageTemplate", () => {
 		expect(JSON.parse(result).name).toBe("my-cli");
 	});
 
-	it("contains dev script", () => {
-		expect(JSON.parse(result).scripts.dev).toBeDefined();
+	it("contains build:watch script", () => {
+		expect(JSON.parse(result).scripts["build:watch"]).toBeDefined();
 	});
 });
 

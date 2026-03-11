@@ -38,13 +38,35 @@ function noGeneratorsResponse() {
 	return dataResponse(model, renderNoGenerators);
 }
 
+// ── report:* helpers ─────────────────────────────────────────────────
+
+function runInternalGenerator(reportId: string, projectPath: string) {
+	const output = runGenerator(reportId, projectPath, createDefaultDeps());
+	const model: SuccessModel = { message: output?.success ? `Generated ${reportId} → ${output.outputPath}` : `Generator ${reportId} failed.` };
+	return dataResponse(model, renderSuccess);
+}
+
+function runExternalGenerator(gen: { command?: string; label: string }, projectPath: string | undefined) {
+	const exitCode = shell.run(gen.command!, { cwd: projectPath, label: `Generating ${gen.label}...` });
+	const model: ShellCommandModel = { command: gen.command!, exitCode, label: gen.label };
+	return dataResponse(model, renderShellCommand);
+}
+
+function unknownReportResponse(reportId: string, generators: Array<{ id?: string; label: string }>) {
+	const model: UnknownReportModel = {
+		reportId,
+		available: generators.map((g) => g.id ?? g.label).join(", ") || "(none configured)",
+	};
+	return dataResponse(model, renderUnknownReport);
+}
+
 // ── Controller actions ──────────────────────────────────────────────
 
 const actions: Record<string, ControllerAction> = {
 	reports: async (req) => {
 		const generators = req.project?.config.reports?.generators ?? [];
 		if (generators.length === 0) return noGeneratorsResponse();
-		const result = await runAllReports(generators, req.project!.path, { parallel: !!req.flags.parallel, log });
+		const result = await runAllReports(generators, req.project!.path, createDefaultDeps(), { parallel: !!req.flags.parallel, log });
 		const model: ReportRunModel = { passed: result.passed, failed: result.failed, totalDurationMs: result.totalDurationMs };
 		return dataResponse(model, renderReportRun);
 	},
@@ -52,14 +74,14 @@ const actions: Record<string, ControllerAction> = {
 	"reports:audit": async (req) => {
 		const generators = req.project?.config.reports?.generators ?? [];
 		if (generators.length === 0) return noGeneratorsResponse();
-		const result = await runAllReports(generators, req.project!.path, { parallel: !!req.flags.parallel, log });
+		const result = await runAllReports(generators, req.project!.path, createDefaultDeps(), { parallel: !!req.flags.parallel, log });
 		const model: AuditResultModel = { passed: result.passed, failed: result.failed };
 		return dataResponse(model, renderAuditResult);
 	},
 
 	docs: async (req) => {
 		const configGenerators = req.project?.config.docs?.generators ?? [];
-		const result = await runAllDocs(configGenerators, req.project!.path);
+		const result = await runAllDocs(configGenerators, req.project!.path, createDefaultDeps());
 		const model: ReportRunModel = { passed: result.passed, failed: result.failed, totalDurationMs: result.totalDurationMs };
 		return dataResponse(model, renderReportRun);
 	},
@@ -67,7 +89,7 @@ const actions: Record<string, ControllerAction> = {
 	"reports:diff": (req) => {
 		if (!req.project) return noProjectResponse("reports:diff");
 		const svc = new ReportService(req.project.path, createDefaultDeps());
-		const categories = discoverArchiveCategories(svc.reportsDir);
+		const categories = discoverArchiveCategories(svc.reportsDir, { disk, paths });
 		if (categories.length === 0) {
 			const model: NoGeneratorsModel = { message: "No archived reports found. Run reports first." };
 			return dataResponse(model, renderNoGenerators);
@@ -99,7 +121,7 @@ const actions: Record<string, ControllerAction> = {
 		const exported: HtmlExportModel["exported"] = [];
 		for (const entry of entries) {
 			const mdPath = paths.join(svc.reportsDir, entry);
-			const result = exportReportToHtml(mdPath, outputDir);
+			const result = exportReportToHtml(mdPath, outputDir, createDefaultDeps());
 			if (result) exported.push({ title: result.title, outputPath: result.outputPath });
 		}
 		const model: HtmlExportModel = { exported, outputDir };
@@ -109,22 +131,10 @@ const actions: Record<string, ControllerAction> = {
 	"report:*": (req) => {
 		const reportId = req.command.substring("report:".length);
 		const generators = req.project?.config.reports?.generators ?? [];
-		if (hasGenerator(reportId)) {
-			const output = runGenerator(reportId, req.project!.path, createDefaultDeps());
-			const model: SuccessModel = { message: output?.success ? `Generated ${reportId} → ${output.outputPath}` : `Generator ${reportId} failed.` };
-			return dataResponse(model, renderSuccess);
-		}
+		if (hasGenerator(reportId)) return runInternalGenerator(reportId, req.project!.path);
 		const gen = generators.find((g) => g.id === reportId || g.label.toLowerCase().replace(/\s+/g, "-") === reportId);
-		if (gen?.command) {
-			const exitCode = shell.run(gen.command, { cwd: req.project?.path, label: `Generating ${gen.label}...` });
-			const model: ShellCommandModel = { command: gen.command, exitCode, label: gen.label };
-			return dataResponse(model, renderShellCommand);
-		}
-		const model: UnknownReportModel = {
-			reportId,
-			available: generators.map((g) => g.id ?? g.label).join(", ") || "(none configured)",
-		};
-		return dataResponse(model, renderUnknownReport);
+		if (gen?.command) return runExternalGenerator(gen, req.project?.path);
+		return unknownReportResponse(reportId, generators);
 	},
 };
 

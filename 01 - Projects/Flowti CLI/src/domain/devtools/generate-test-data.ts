@@ -1,26 +1,11 @@
-#!/usr/bin/env node
 /**
- * Generate supply chain analytics test data CSV files.
+ * generate-test-data.ts — Generate supply chain analytics test data CSV files.
  *
- * Produces 8 CSV files for the Analytics Hub test dashboard:
- *   Customers.csv, Suppliers.csv, Items.csv       (static reference data)
- *   Budget.csv, Sales.csv, CustomerOrders.csv,     (date-based transactional)
- *   Inventory.csv, PurchaseOrders.csv
- *
- * Usage:
- *   node scripts/generate-test-data.ts                          # default: Jan 2025 – today
- *   node scripts/generate-test-data.ts --from 2024-06 --to 2026-06
- *   node scripts/generate-test-data.ts --seed 123               # reproducible output
- *   node scripts/generate-test-data.ts --out ./my-folder        # custom output directory
- *   node scripts/generate-test-data.ts --dry-run                # preview row counts only
- *
- * The pure generation logic is exported as generateTestData() for
- * programmatic use and testing. The CLI entry point is at the bottom.
+ * Produces 8 CSV files for the Analytics Hub test dashboard.
+ * Pure function — all I/O injected via deps.
  */
-import type { CliDeps } from "../infrastructure/deps.js";
-import { createDefaultDeps } from "../infrastructure/deps.js";
-import { VAULT_ROOT } from "../infrastructure/config.js";
-import type { YearMonth } from "../domain/devtools/test-data-generators.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
+import type { YearMonth } from "./test-data-generators.js";
 import {
 	setSeed,
 	generateItems,
@@ -31,9 +16,9 @@ import {
 	generateCustomerOrders,
 	generateInventory,
 	generatePurchaseOrders,
-} from "../domain/devtools/test-data-generators.js";
+} from "./test-data-generators.js";
 
-// ── Public interfaces ───────────────────────────────────
+// ── Public interfaces ───────────────────────────────
 
 export interface TestDataOpts {
 	from: string;       // "YYYY-MM"
@@ -49,7 +34,7 @@ export interface TestDataResult {
 	files: Array<{ name: string; rows: number }>;
 }
 
-// ── Pure generation function ────────────────────────────
+// ── Pure generation function ────────────────────────
 
 export function generateTestData(
 	opts: TestDataOpts,
@@ -147,52 +132,4 @@ export function generateTestData(
 	deps.log("");
 
 	return { totalRows, filesWritten, files: resultFiles };
-}
-
-// ── CLI entry point ─────────────────────────────────────
-
-if (process.argv[1]?.endsWith("generate-test-data.ts") || process.argv[1]?.endsWith("generate-test-data.js")) {
-	const args: string[] = process.argv.slice(2);
-
-	const getArg = (name: string, fallback: string | null): string | null => {
-		const idx: number = args.indexOf(`--${name}`);
-		if (idx === -1 || idx + 1 >= args.length) return fallback;
-		return args[idx + 1];
-	};
-
-	const hasFlag = (name: string): boolean => {
-		return args.includes(`--${name}`);
-	};
-
-	if (hasFlag("help") || hasFlag("h")) {
-		console.log(`
-Supply Chain Analytics Test Data Generator
-
-Usage:
-  node scripts/generate-test-data.ts [options]
-
-Options:
-  --from YYYY-MM   Start month (default: 2025-01)
-  --to   YYYY-MM   End month inclusive (default: current month)
-  --seed N          PRNG seed for reproducible output (default: 42)
-  --out  PATH       Output directory (default: vault test data folder)
-  --dry-run         Print row counts without writing files
-  --help            Show this help
-`);
-		process.exit(0);
-	}
-
-	const deps = createDefaultDeps();
-	const defaultOut: string = deps.paths.join(VAULT_ROOT, "03 - Resources", "Test Data", "Analytics");
-
-	const opts: TestDataOpts = {
-		from: getArg("from", "2025-01") as string,
-		to: getArg("to", null),
-		seed: Number(getArg("seed", "42")),
-		outDir: deps.paths.resolve(getArg("out", defaultOut) as string),
-		dryRun: hasFlag("dry-run"),
-	};
-
-	const result = generateTestData(opts, deps);
-	process.exit(result.totalRows > 0 ? 0 : 1);
 }

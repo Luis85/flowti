@@ -13,10 +13,13 @@ import { adapt, dataResponse, okResponse } from "../infrastructure/request-respo
 import type { CommandHandler } from "../infrastructure/types.js";
 import { paths } from "../infrastructure/paths.js";
 import { disk } from "../infrastructure/filesystem.js";
+import { clock } from "../infrastructure/clock.js";
 import { proc } from "../infrastructure/proc.js";
 import { createCaptureFile, searchCaptures, importCaptureItems, parseTags, NOTE_TYPES } from "../domain/capture/capture.js";
 import { renderSearchResults, renderImportResult, type SearchResultsModel, type ImportResultModel } from "../ui/capture-display.js";
 import { renderError, type ErrorModel } from "../ui/common-renderers.js";
+
+function captureDeps() { return { disk, paths, clock } as const; }
 
 // ── Controller actions ──────────────────────────────────────────────
 
@@ -31,7 +34,7 @@ const actions: Record<string, ControllerAction> = {
 		}
 		const tags = parseTags(req.flags.tags);
 		const title = text.length > 60 ? text.slice(0, 60).trim() : text;
-		createCaptureFile("Idea", title, text, tags);
+		createCaptureFile(captureDeps(), "Idea", title, text, tags);
 		return okResponse();
 	},
 
@@ -52,7 +55,7 @@ const actions: Record<string, ControllerAction> = {
 			);
 		}
 		const tags = parseTags(req.flags.tags);
-		createCaptureFile(normalized, title, "", tags);
+		createCaptureFile(captureDeps(), normalized, title, "", tags);
 		return okResponse();
 	},
 
@@ -66,7 +69,7 @@ const actions: Record<string, ControllerAction> = {
 		}
 		const typeFilter = typeof req.flags.type === "string" ? req.flags.type.charAt(0).toUpperCase() + req.flags.type.slice(1).toLowerCase() : undefined;
 		const tagFilter = typeof req.flags.tag === "string" ? req.flags.tag : undefined;
-		const results = searchCaptures(query, typeFilter, tagFilter);
+		const results = searchCaptures(captureDeps(), query, typeFilter, tagFilter);
 		const model: SearchResultsModel = { query, results };
 
 		return dataResponse(model, renderSearchResults);
@@ -84,7 +87,7 @@ const actions: Record<string, ControllerAction> = {
 		if (!disk.existsSync(absPath)) {
 			return dataResponse<ErrorModel>({ error: `File not found: ${file}` }, renderError);
 		}
-		const result = importCaptureItems(absPath);
+		const result = importCaptureItems(captureDeps(), absPath);
 		if (result.error) {
 			return dataResponse<ErrorModel>({ error: result.error }, renderError);
 		}

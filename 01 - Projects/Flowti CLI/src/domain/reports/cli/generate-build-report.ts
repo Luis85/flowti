@@ -5,12 +5,13 @@
  * Called programmatically from the Build tool action, not as a standalone script.
  */
 
-import { shell } from "../../../infrastructure/shell.js";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
+import type { CliDeps } from "../../../infrastructure/deps.js";
 import type { ReportDeps } from "../../../infrastructure/deps.js";
-import { createDefaultDeps } from "../../../infrastructure/deps.js";
 import { recordBuild, resolveBuildPaths } from "../../build/build-freshness.js";
+
+export type BuildReportDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "log" | "shell">;
 
 export interface BuildResult {
 	command: string;
@@ -20,10 +21,10 @@ export interface BuildResult {
 	errors: string;
 }
 
-function runBuild(cmd: string, cwd: string, deps: ReportDeps): BuildResult {
+function runBuild(cmd: string, cwd: string, deps: BuildReportDeps): BuildResult {
 	const startTime = deps.clock.ms();
 
-	const output = shell.runSilent(cmd, { cwd });
+	const output = deps.shell.runSilent(cmd, { cwd });
 	const durationMs = deps.clock.ms() - startTime;
 
 	if (output !== null) {
@@ -112,14 +113,13 @@ function generateReport(result: BuildResult, projectPath: string, deps: ReportDe
  * Execute a build command and generate a Build Report.
  * Returns the exit code from the build.
  */
-export function buildWithReport(cmd: string, projectPath: string): number {
-	const deps = createDefaultDeps();
+export function buildWithReport(cmd: string, projectPath: string, deps: BuildReportDeps): number {
 	const result = runBuild(cmd, projectPath, deps);
 	generateReport(result, projectPath, deps);
 
 	if (result.exitCode === 0) {
-		const { srcDir, binDir } = resolveBuildPaths(projectPath);
-		recordBuild(srcDir, binDir);
+		const { srcDir, binDir } = resolveBuildPaths(projectPath, deps);
+		recordBuild(srcDir, binDir, deps);
 	}
 
 	return result.exitCode;

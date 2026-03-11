@@ -12,6 +12,8 @@ import {
 	percentile, formatBytes, buildStepsSummary, TOOL_COUNTER_MAP,
 } from "../../../../../src/domain/reports/generators/e2e/e2e-report-utils.js";
 
+const mockDeps = { proc };
+
 describe("resolveMode", () => {
 	beforeEach(() => {
 		const env = proc.env();
@@ -19,17 +21,17 @@ describe("resolveMode", () => {
 	});
 
 	it("returns 'full' when E2E_JOURNEY is not set", () => {
-		expect(resolveMode()).toBe("full");
+		expect(resolveMode(mockDeps)).toBe("full");
 	});
 
 	it("returns journey name when set", () => {
 		proc.env().E2E_JOURNEY = "getting-started";
-		expect(resolveMode()).toBe("getting-started");
+		expect(resolveMode(mockDeps)).toBe("getting-started");
 	});
 
 	it("returns comma-separated journeys", () => {
 		proc.env().E2E_JOURNEY = "installer,getting-started";
-		expect(resolveMode()).toBe("installer,getting-started");
+		expect(resolveMode(mockDeps)).toBe("installer,getting-started");
 	});
 });
 

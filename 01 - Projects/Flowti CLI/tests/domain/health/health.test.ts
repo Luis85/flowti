@@ -13,6 +13,7 @@ vi.mock("../../../src/infrastructure/paths.js", () => ({
 		resolve: (...args: string[]) => args.join("/"),
 		join: (...args: string[]) => args.join("/"),
 		basename: (p: string) => p.split("/").pop(),
+		relative: (_from: string, to: string) => to,
 	},
 }));
 
@@ -54,6 +55,7 @@ import { displayHealth } from "../../../src/ui/health-display.js";
 import { commands } from "../../../src/controller/health.controller.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
 import { shell } from "../../../src/infrastructure/shell.js";
+import { paths } from "../../../src/infrastructure/paths.js";
 import { countFiles } from "../../../src/infrastructure/fs.js";
 import { parseFrontmatterContent } from "../../../src/infrastructure/frontmatter.js";
 import { log } from "../../../src/infrastructure/logger.js";
@@ -65,6 +67,8 @@ const mockCountFiles = vi.mocked(countFiles);
 const mockParseFM = vi.mocked(parseFrontmatterContent);
 const mockLog = vi.mocked(log);
 logRef.fn = mockLog;
+
+const healthDeps = { disk, paths, shell } as const;
 
 function makeCtx(overrides: Partial<ProjectContext> = {}): ProjectContext {
 	return {
@@ -88,12 +92,12 @@ beforeEach(() => {
 
 describe("collectHealth", () => {
 	it("returns snapshot with project name", () => {
-		const h = collectHealth(makeCtx());
+		const h = collectHealth(healthDeps, makeCtx());
 		expect(h.name).toBe("test-project");
 	});
 
 	it("returns null source when src dir missing", () => {
-		const h = collectHealth(makeCtx());
+		const h = collectHealth(healthDeps, makeCtx());
 		expect(h.source).toBeNull();
 	});
 
@@ -101,7 +105,7 @@ describe("collectHealth", () => {
 		mockDisk.existsSync.mockImplementation((p) => String(p).includes("src"));
 		mockCountFiles.mockReturnValue(42);
 
-		const h = collectHealth(makeCtx());
+		const h = collectHealth(healthDeps, makeCtx());
 		expect(h.source).toBeDefined();
 		expect(h.source!.files).toBe(42);
 	});
@@ -110,7 +114,7 @@ describe("collectHealth", () => {
 		mockDisk.existsSync.mockImplementation((p) => String(p).includes("Test Report"));
 		mockParseFM.mockReturnValue({ total_tests: 100, passed: 98, failed: 2, total_suites: 10 });
 
-		const h = collectHealth(makeCtx());
+		const h = collectHealth(healthDeps, makeCtx());
 		expect(h.tests).toEqual({ total: 100, passed: 98, failed: 2, suites: 10 });
 	});
 
@@ -118,12 +122,12 @@ describe("collectHealth", () => {
 		mockDisk.existsSync.mockImplementation((p) => String(p).includes("Test Report"));
 		mockParseFM.mockReturnValue({ total: 1722, passed: 1722, failed: 0, suites: 103 });
 
-		const h = collectHealth(makeCtx());
+		const h = collectHealth(healthDeps, makeCtx());
 		expect(h.tests).toEqual({ total: 1722, passed: 1722, failed: 0, suites: 103 });
 	});
 
 	it("returns null tests when no test report", () => {
-		const h = collectHealth(makeCtx());
+		const h = collectHealth(healthDeps, makeCtx());
 		expect(h.tests).toBeNull();
 	});
 
@@ -131,7 +135,7 @@ describe("collectHealth", () => {
 		mockDisk.existsSync.mockImplementation((p) => String(p).includes("Coverage Report"));
 		mockParseFM.mockReturnValue({ lines_pct: 85.5, branches_pct: 72.3, functions_pct: 90.1 });
 
-		const h = collectHealth(makeCtx());
+		const h = collectHealth(healthDeps, makeCtx());
 		expect(h.coverage).toEqual({ lines: 85.5, branches: 72.3, functions: 90.1 });
 	});
 
@@ -139,7 +143,7 @@ describe("collectHealth", () => {
 		mockDisk.existsSync.mockImplementation((p) => String(p).includes("Coverage Report"));
 		mockParseFM.mockReturnValue({ statements_pct: 55.66, branches_pct: 52.59, functions_pct: 58.8 });
 
-		const h = collectHealth(makeCtx());
+		const h = collectHealth(healthDeps, makeCtx());
 		expect(h.coverage).toEqual({ lines: 55.66, branches: 52.59, functions: 58.8 });
 	});
 
@@ -147,7 +151,7 @@ describe("collectHealth", () => {
 		mockDisk.existsSync.mockImplementation((p) => String(p).includes("Build Report"));
 		mockParseFM.mockReturnValue({ success: true, duration_ms: 1500 });
 
-		const h = collectHealth(makeCtx());
+		const h = collectHealth(healthDeps, makeCtx());
 		expect(h.build).toEqual({ success: true, durationMs: 1500 });
 	});
 
@@ -158,7 +162,7 @@ describe("collectHealth", () => {
 			return null;
 		});
 
-		const h = collectHealth(makeCtx());
+		const h = collectHealth(healthDeps, makeCtx());
 		expect(h.git).toEqual({ branch: "main", status: "clean" });
 	});
 
@@ -169,12 +173,12 @@ describe("collectHealth", () => {
 			return null;
 		});
 
-		const h = collectHealth(makeCtx());
+		const h = collectHealth(healthDeps, makeCtx());
 		expect(h.git!.status).toBe("dirty");
 	});
 
 	it("returns null git when not in a repo", () => {
-		const h = collectHealth(makeCtx());
+		const h = collectHealth(healthDeps, makeCtx());
 		expect(h.git).toBeNull();
 	});
 
@@ -182,13 +186,13 @@ describe("collectHealth", () => {
 		mockDisk.existsSync.mockImplementation((p) => String(p).includes("components"));
 		mockDisk.readdirSync.mockReturnValue(["button.md", "card.md", "readme.txt"] as unknown as ReturnType<typeof disk.readdirSync>);
 
-		const h = collectHealth(makeCtx());
+		const h = collectHealth(healthDeps, makeCtx());
 		expect(h.components).toBe(2);
 	});
 
 	it("uses custom reports dir from config", () => {
 		const ctx = makeCtx({ config: { name: "test", reports: { dir: "custom-reports" } } });
-		collectHealth(ctx);
+		collectHealth(healthDeps, ctx);
 		// The paths.join calls should include custom-reports
 		// (verified by no errors — config is read correctly)
 		expect(true).toBe(true);

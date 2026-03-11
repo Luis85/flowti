@@ -7,6 +7,8 @@
 
 import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
+import { shell } from "../../infrastructure/shell.js";
+import { input } from "../../infrastructure/input.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { log } from "../../infrastructure/logger.js";
 import { RESET, BOLD, DIM, GREEN } from "../../infrastructure/ui.js";
@@ -22,6 +24,9 @@ import {
 import { isStorybookInstalled, installStorybook, runStorybookDev, runStorybookBuild, isStorybookRunning, stopStorybook } from "../../domain/make/component/storybook-service.js";
 import { createStorybookRenderer } from "../storybook-renderer-impl.js";
 import { componentMenu } from "./component-makers-menu.js";
+
+function listDeps() { return { disk, paths } as const; }
+function sbDeps() { return { disk, paths, shell, input } as const; }
 
 const sbRender = createStorybookRenderer();
 
@@ -85,7 +90,7 @@ function showComponentDetail(projectRoot: string, component: ProjectComponent, a
 // ── Component browser menu ──────────────────────────────────────────
 
 export async function componentListMenu(projectRoot: string, componentsConfig?: ComponentsConfig): Promise<MenuResult> {
-	const components = listProjectComponents(projectRoot);
+	const components = listProjectComponents(projectRoot, listDeps());
 	const config = componentsConfig ?? {};
 
 	if (components.length === 0) {
@@ -121,20 +126,20 @@ export async function componentListMenu(projectRoot: string, componentsConfig?: 
 
 	// Storybook items — always available, gated by installation status
 	const projectName = paths.basename(projectRoot);
-	const sbInstalled = () => isStorybookInstalled(projectRoot, config);
+	const sbInstalled = () => isStorybookInstalled(projectRoot, config, listDeps());
 	items.push(
 		{ separator: true },
 		{
 			key: "i",
 			label: "Install Storybook",
-			action: () => { installStorybook(projectRoot, projectName, config, sbRender); },
+			action: () => { installStorybook(projectRoot, projectName, config, sbDeps(), sbRender); },
 			disabled: sbInstalled,
 			disabledMessage: "\n  Storybook is already installed.\n",
 		},
 		{
 			key: "s",
 			label: "Start Storybook",
-			action: async () => { await runStorybookDev(projectRoot, config, sbRender); },
+			action: async () => { await runStorybookDev(projectRoot, config, sbDeps(), sbRender); },
 			disabled: () => !sbInstalled() || isStorybookRunning(),
 			disabledMessage: "\n  Storybook not installed or already running.\n",
 		},
@@ -148,7 +153,7 @@ export async function componentListMenu(projectRoot: string, componentsConfig?: 
 		{
 			key: "k",
 			label: "Storybook build",
-			action: () => { runStorybookBuild(projectRoot, config, sbRender); },
+			action: () => { runStorybookBuild(projectRoot, config, { disk, paths, shell }, sbRender); },
 			disabled: () => !sbInstalled(),
 			disabledMessage: "\n  Storybook not installed. Use \"Install Storybook\" first.\n",
 		},

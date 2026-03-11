@@ -1,26 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
 import path from "node:path";
 import { createMockFs } from "../../mocks/mock-fs.js";
+import type { IPaths } from "../../../src/infrastructure/types.js";
 
 // Mock config module to control PROJECTS_DIR
 vi.mock("../../../src/infrastructure/config.js", () => ({
 	PROJECTS_DIR: "/mock/projects",
 }));
 
-// Mock filesystem module — we'll replace `disk` per test
-vi.mock("../../../src/infrastructure/filesystem.js", () => ({
-	disk: {},
-}));
-
-vi.mock("../../../src/infrastructure/logger.js", () => ({
-	log: vi.fn(),
-}));
-
-vi.mock("../../../src/infrastructure/ui.js", () => ({
-	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", CYAN: "", YELLOW: "",
-}));
-
-import * as filesystemMod from "../../../src/infrastructure/filesystem.js";
 import {
 	resolveProjectPath,
 	readPackageJson,
@@ -29,8 +16,19 @@ import {
 	getReportsDir,
 } from "../../../src/domain/project/project-config.js";
 
-function setDisk(mockFs: ReturnType<typeof createMockFs>): void {
-	Object.assign(filesystemMod, { disk: mockFs });
+const mockPaths: IPaths = {
+	join: (...args: string[]) => path.join(...args),
+	resolve: (...args: string[]) => path.join(...args),
+	dirname: (p: string) => path.dirname(p),
+	basename: (p: string, ext?: string) => path.basename(p, ext),
+	relative: (from: string, to: string) => path.relative(from, to),
+	extname: (p: string) => path.extname(p),
+	isAbsolute: (p: string) => path.isAbsolute(p),
+	sep: path.sep,
+};
+
+function makeDeps(files?: Record<string, string>) {
+	return { disk: createMockFs(files), paths: mockPaths };
 }
 
 function n(...parts: string[]): string {
@@ -39,75 +37,67 @@ function n(...parts: string[]): string {
 
 describe("resolveProjectPath", () => {
 	it("resolves to projects dir", () => {
-		expect(resolveProjectPath("my-app")).toBe(n("/mock/projects", "my-app"));
+		expect(resolveProjectPath("my-app", { paths: mockPaths })).toBe(n("/mock/projects", "my-app"));
 	});
 });
 
 describe("readPackageJson", () => {
 	it("returns parsed package.json when it exists", () => {
-		const fs = createMockFs({
+		const deps = makeDeps({
 			"/project/package.json": JSON.stringify({ name: "test-pkg", version: "1.0.0" }),
 		});
-		setDisk(fs);
-		const result = readPackageJson("/project");
+		const result = readPackageJson("/project", deps);
 		expect(result).toEqual({ name: "test-pkg", version: "1.0.0" });
 	});
 
 	it("returns null when package.json does not exist", () => {
-		setDisk(createMockFs());
-		expect(readPackageJson("/project")).toBeNull();
+		expect(readPackageJson("/project", makeDeps())).toBeNull();
 	});
 
 	it("returns null for corrupt JSON", () => {
-		const fs = createMockFs({ "/project/package.json": "not json {{{" });
-		setDisk(fs);
-		expect(readPackageJson("/project")).toBeNull();
+		const deps = makeDeps({ "/project/package.json": "not json {{{" });
+		expect(readPackageJson("/project", deps)).toBeNull();
 	});
 });
 
 describe("readProjectConfig", () => {
 	it("returns parsed config when it exists", () => {
 		const config = { name: "my-project", tools: { build: "npm run build" } };
-		const fs = createMockFs({
+		const deps = makeDeps({
 			"/project/configs/flowti.config.json": JSON.stringify(config),
 		});
-		setDisk(fs);
-		const result = readProjectConfig("/project");
+		const result = readProjectConfig("/project", deps);
 		expect(result.config).toEqual(config);
 		expect(result.warnings).toEqual([]);
 	});
 
 	it("returns null config when file does not exist", () => {
-		setDisk(createMockFs());
-		const result = readProjectConfig("/project");
+		const result = readProjectConfig("/project", makeDeps());
 		expect(result.config).toBeNull();
 	});
 
 	it("returns null config for corrupt JSON", () => {
-		const fs = createMockFs({
+		const deps = makeDeps({
 			"/project/configs/flowti.config.json": "broken",
 		});
-		setDisk(fs);
-		const result = readProjectConfig("/project");
+		const result = readProjectConfig("/project", deps);
 		expect(result.config).toBeNull();
 	});
 
 	it("returns null config with errors for invalid config (missing name)", () => {
-		const fs = createMockFs({
+		const deps = makeDeps({
 			"/project/configs/flowti.config.json": JSON.stringify({ tools: {} }),
 		});
-		setDisk(fs);
-		const result = readProjectConfig("/project");
+		const result = readProjectConfig("/project", deps);
 		expect(result.config).toBeNull();
 	});
 
 	it("returns config with warnings for unknown keys", () => {
 		const config = { name: "valid", unknownKey: true };
-		const fs = createMockFs({
+		const deps = makeDeps({
 			"/project/configs/flowti.config.json": JSON.stringify(config),
 		});
-		setDisk(fs);
-		const result = readProjectConfig("/project");
+		const result = readProjectConfig("/project", deps);
 		expect(result.config).toEqual(config);
 		expect(result.warnings).toContainEqual(expect.stringContaining("unknownKey"));
 	});
@@ -117,13 +107,12 @@ describe("initializeProject", () => {
 	it("returns existing config when both package.json and config exist", () => {
 		const pkg = { name: "test", scripts: { build: "tsc" } };
 		const config = { name: "test-config", tools: {} };
-		const fs = createMockFs({
-			"/mock/projects/test/package.json": JSON.stringify(pkg),
-			"/mock/projects/test/configs/flowti.config.json": JSON.stringify(config),
+		const deps = makeDeps({
+			[n("/mock/projects", "test", "package.json")]: JSON.stringify(pkg),
+			[n("/mock/projects", "test", "configs", "flowti.config.json")]: JSON.stringify(config),
 		});
-		setDisk(fs);
 
-		const ctx = initializeProject("test");
+		const ctx = initializeProject("test", deps);
 		expect(ctx.config).toEqual(config);
 		expect(ctx.pkg).toEqual(pkg);
 		expect(ctx.scripts).toEqual({ build: "tsc" });
@@ -131,22 +120,20 @@ describe("initializeProject", () => {
 
 	it("scaffolds config when package.json exists but config does not", () => {
 		const pkg = { name: "scaffold-test", scripts: { build: "esbuild", reports: "npm run reports" } };
-		const fs = createMockFs({
-			"/mock/projects/scaffold-test/package.json": JSON.stringify(pkg),
+		const deps = makeDeps({
+			[n("/mock/projects", "scaffold-test", "package.json")]: JSON.stringify(pkg),
 		});
-		setDisk(fs);
 
-		const ctx = initializeProject("scaffold-test");
+		const ctx = initializeProject("scaffold-test", deps);
 		expect(ctx.config.name).toBe("scaffold-test");
 		expect(ctx.config.tools?.build).toBe("npm run build");
 		expect(ctx.config.tools?.reports).toBe("npm run reports");
 		// Config was written to disk
-		expect(fs.files.has("/mock/projects/scaffold-test/configs/flowti.config.json")).toBe(true);
+		expect(deps.disk.existsSync(n("/mock/projects", "scaffold-test", "configs", "flowti.config.json"))).toBe(true);
 	});
 
 	it("returns minimal config when neither package.json nor config exists", () => {
-		setDisk(createMockFs());
-		const ctx = initializeProject("empty");
+		const ctx = initializeProject("empty", makeDeps());
 		expect(ctx.config).toEqual({ name: "empty" });
 		expect(ctx.pkg).toBeNull();
 		expect(ctx.scripts).toEqual({});
@@ -156,12 +143,12 @@ describe("initializeProject", () => {
 
 describe("getReportsDir", () => {
 	it("uses config reports.dir when set", () => {
-		const result = getReportsDir("/project", { name: "test", reports: { dir: "custom/reports" } });
+		const result = getReportsDir("/project", { name: "test", reports: { dir: "custom/reports" } }, { paths: mockPaths });
 		expect(result).toBe(n("/project", "custom/reports"));
 	});
 
 	it("defaults to reports", () => {
-		const result = getReportsDir("/project", { name: "test" });
+		const result = getReportsDir("/project", { name: "test" }, { paths: mockPaths });
 		expect(result).toBe(n("/project", "reports"));
 	});
 });

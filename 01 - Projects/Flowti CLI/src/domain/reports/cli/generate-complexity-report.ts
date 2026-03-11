@@ -9,6 +9,7 @@ import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
 import type { ReportDeps } from "../../../infrastructure/deps.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
+import { generateAnalysisData } from "../../devtools/run-analysis.js";
 
 // ── Types matching analysis.json shape ──────────────────────────────
 
@@ -121,7 +122,12 @@ export function generateComplexityReport(projectPath: string, deps: ReportDeps, 
 	const analysisJson = svc.subdir("coverage/analysis.json");
 
 	if (!deps.disk.existsSync(analysisJson)) {
-		log("[cli-report] No analysis.json found — run analysis first.");
+		log("[cli-report] No analysis.json found — generating from source...");
+		generateAnalysisData(projectPath, svc.coverageDir, deps);
+	}
+
+	if (!deps.disk.existsSync(analysisJson)) {
+		log("[cli-report] Failed to generate analysis.json.");
 		return { success: false, outputPath: "", metrics: {} };
 	}
 

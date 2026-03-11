@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import path from "node:path";
 import {
 	fetchRegistryIndex,
 	fetchRegistryEntry,
@@ -18,6 +19,16 @@ import {
 	type HttpFetcher,
 } from "../../../src/domain/scaffold/remote-registry.js";
 import { createMockFs } from "../../mocks/mock-fs.js";
+
+const testPaths = {
+	join: (...args: string[]) => args.join("/"),
+	basename: (p: string, ext?: string) => { const b = path.basename(p); return ext && b.endsWith(ext) ? b.slice(0, -ext.length) : b; },
+	dirname: (p: string) => path.dirname(p).replace(/\\/g, "/"),
+	resolve: (...args: string[]) => args.join("/"),
+	relative: (_from: string, to: string) => to,
+};
+
+const testDeps = { paths: testPaths } as const;
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -158,21 +169,21 @@ describe("filterByType", () => {
 describe("cache", () => {
 	it("returns null when no cached index", () => {
 		const fs = createMockFs();
-		expect(loadCachedIndex("/vault", "test-reg", fs)).toBeNull();
+		expect(loadCachedIndex(testDeps, "/vault", "test-reg", fs)).toBeNull();
 	});
 
 	it("saves and loads cached index", () => {
 		const fs = createMockFs();
 		const index = makeIndex([makeEntry()]);
-		saveCachedIndex("/vault", "test-reg", index, fs);
-		const loaded = loadCachedIndex("/vault", "test-reg", fs);
+		saveCachedIndex(testDeps, "/vault", "test-reg", index, fs);
+		const loaded = loadCachedIndex(testDeps, "/vault", "test-reg", fs);
 		expect(loaded?.name).toBe("test-registry");
 		expect(loaded?.entries).toHaveLength(1);
 	});
 
 	it("cachePath is under .flowti/cache", () => {
-		expect(cachePath("/vault")).toContain(".flowti");
-		expect(cachePath("/vault")).toContain("cache");
+		expect(cachePath(testDeps, "/vault")).toContain(".flowti");
+		expect(cachePath(testDeps, "/vault")).toContain("cache");
 	});
 });
 
@@ -181,23 +192,23 @@ describe("cache", () => {
 describe("installScaffoldDefinition", () => {
 	it("installs a valid definition", () => {
 		const fs = createMockFs();
-		const result = installScaffoldDefinition({ id: "my-def", label: "My Def" }, "/project", fs);
+		const result = installScaffoldDefinition(testDeps, { id: "my-def", label: "My Def" }, "/project", fs);
 		expect(result.ok).toBe(true);
 	});
 
 	it("rejects invalid definition", () => {
 		const fs = createMockFs();
-		expect(installScaffoldDefinition(null, "/project", fs).ok).toBe(false);
+		expect(installScaffoldDefinition(testDeps, null, "/project", fs).ok).toBe(false);
 	});
 
 	it("rejects definition without id", () => {
 		const fs = createMockFs();
-		expect(installScaffoldDefinition({ label: "No ID" }, "/project", fs).ok).toBe(false);
+		expect(installScaffoldDefinition(testDeps, { label: "No ID" }, "/project", fs).ok).toBe(false);
 	});
 
 	it("skips existing definition", () => {
 		const fs = createMockFs({ "/project/configs/definitions/my-def.json": "{}" });
-		const result = installScaffoldDefinition({ id: "my-def" }, "/project", fs);
+		const result = installScaffoldDefinition(testDeps, { id: "my-def" }, "/project", fs);
 		expect(result.ok).toBe(false);
 		expect(result.error).toContain("already exists");
 	});
@@ -208,18 +219,18 @@ describe("installScaffoldDefinition", () => {
 describe("installPlugin", () => {
 	it("installs a valid plugin", () => {
 		const fs = createMockFs();
-		const result = installPlugin({ name: "my-plugin", description: "Test", commands: {} }, "/vault", fs);
+		const result = installPlugin(testDeps, { name: "my-plugin", description: "Test", commands: {} }, "/vault", fs);
 		expect(result.ok).toBe(true);
 	});
 
 	it("rejects plugin without name", () => {
 		const fs = createMockFs();
-		expect(installPlugin({ description: "No name" }, "/vault", fs).ok).toBe(false);
+		expect(installPlugin(testDeps, { description: "No name" }, "/vault", fs).ok).toBe(false);
 	});
 
 	it("skips existing plugin", () => {
 		const fs = createMockFs({ "/vault/.flowti/plugins/my-plugin/manifest.json": "{}" });
-		const result = installPlugin({ name: "my-plugin" }, "/vault", fs);
+		const result = installPlugin(testDeps, { name: "my-plugin" }, "/vault", fs);
 		expect(result.ok).toBe(false);
 		expect(result.error).toContain("already exists");
 	});
@@ -230,18 +241,18 @@ describe("installPlugin", () => {
 describe("installAiTool", () => {
 	it("installs a valid AI tool", () => {
 		const fs = createMockFs();
-		const result = installAiTool({ name: "my-tool", description: "Test" }, "/vault", fs);
+		const result = installAiTool(testDeps, { name: "my-tool", description: "Test" }, "/vault", fs);
 		expect(result.ok).toBe(true);
 	});
 
 	it("rejects tool without name", () => {
 		const fs = createMockFs();
-		expect(installAiTool({ description: "No name" }, "/vault", fs).ok).toBe(false);
+		expect(installAiTool(testDeps, { description: "No name" }, "/vault", fs).ok).toBe(false);
 	});
 
 	it("skips existing tool", () => {
 		const fs = createMockFs({ "/vault/.flowti/ai-tools/my-tool.json": "{}" });
-		const result = installAiTool({ name: "my-tool" }, "/vault", fs);
+		const result = installAiTool(testDeps, { name: "my-tool" }, "/vault", fs);
 		expect(result.ok).toBe(false);
 	});
 });
@@ -259,7 +270,7 @@ describe("installFromRegistry", () => {
 			"https://ex.com/plug1.json": '{"name": "plug-1", "description": "Plugin", "commands": {}}',
 		});
 		const fs = createMockFs();
-		const result = await installFromRegistry(entries, "/vault", "/project", fs, fetch);
+		const result = await installFromRegistry(testDeps, entries, "/vault", "/project", fs, fetch);
 		expect(result.installed).toEqual(["def-1", "plug-1"]);
 		expect(result.errors).toEqual([]);
 	});
@@ -268,14 +279,14 @@ describe("installFromRegistry", () => {
 		const entries = [makeEntry({ type: "scaffold", url: "https://ex.com/def.json" })];
 		const fetch = mockFetch({ "https://ex.com/def.json": '{"id": "test"}' });
 		const fs = createMockFs();
-		const result = await installFromRegistry(entries, "/vault", undefined, fs, fetch);
+		const result = await installFromRegistry(testDeps, entries, "/vault", undefined, fs, fetch);
 		expect(result.skipped).toHaveLength(1);
 	});
 
 	it("reports fetch errors", async () => {
 		const entries = [makeEntry({ url: "https://ex.com/missing.json" })];
 		const fs = createMockFs();
-		const result = await installFromRegistry(entries, "/vault", "/project", fs, mockFetch({}));
+		const result = await installFromRegistry(testDeps, entries, "/vault", "/project", fs, mockFetch({}));
 		expect(result.errors).toHaveLength(1);
 	});
 
@@ -283,7 +294,7 @@ describe("installFromRegistry", () => {
 		const entries = [makeEntry({ id: "def-1", type: "scaffold", url: "https://ex.com/def1.json" })];
 		const fetch = mockFetch({ "https://ex.com/def1.json": '{"id": "def-1"}' });
 		const fs = createMockFs({ "/project/configs/definitions/def-1.json": "{}" });
-		const result = await installFromRegistry(entries, "/vault", "/project", fs, fetch);
+		const result = await installFromRegistry(testDeps, entries, "/vault", "/project", fs, fetch);
 		expect(result.skipped).toHaveLength(1);
 	});
 });

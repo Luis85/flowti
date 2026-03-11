@@ -10,6 +10,8 @@ import type { CommandHandler, ProjectContext } from "../infrastructure/types.js"
 import { shell } from "../infrastructure/shell.js";
 import { disk } from "../infrastructure/filesystem.js";
 import { paths } from "../infrastructure/paths.js";
+import { proc } from "../infrastructure/proc.js";
+import { log as logFn } from "../infrastructure/logger.js";
 import { VAULT_ROOT } from "../infrastructure/config.js";
 import { resolveTestVaultRoot } from "../infrastructure/test-vault.js";
 import { analyzeWorkingTree, analyzeBranchDiff } from "../domain/review/change-analysis.js";
@@ -72,21 +74,21 @@ const actions: Record<string, ControllerAction> = {
 			return dataResponse(model, renderInteractiveOnly);
 		}
 		const journeyFilter = typeof req.flags.journey === "string" ? req.flags.journey : undefined;
-		await runE2ESuite(journeyFilter);
+		await runE2ESuite({ disk, shell, paths, proc, log: logFn }, journeyFilter);
 	},
 	"review:e2e:list": async (req) => {
 		if (req.format === "json") {
 			const model: InteractiveOnlyModel = { command: "review:e2e:list", error: "Interactive session list cannot produce JSON output." };
 			return dataResponse(model, renderInteractiveOnly);
 		}
-		await startInteractiveSession(interactiveSession);
+		await startInteractiveSession(interactiveSession, { disk, paths, proc });
 	},
 	"review:changes": (req) => {
 		if (!req.project) return;
 		const baseBranch = typeof req.flags.base === "string" ? req.flags.base : undefined;
 		const impact = baseBranch
-			? analyzeBranchDiff(req.project.path, baseBranch)
-			: analyzeWorkingTree(req.project.path);
+			? analyzeBranchDiff(req.project.path, { shell }, baseBranch)
+			: analyzeWorkingTree(req.project.path, { shell });
 		const projectLabel = req.project.config.name ?? paths.basename(req.project.path);
 		const model: ChangeAnalysisModel = { projectLabel, impact };
 

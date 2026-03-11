@@ -7,6 +7,10 @@
 import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler, ProjectContext } from "../infrastructure/types.js";
+import { disk } from "../infrastructure/filesystem.js";
+import { paths } from "../infrastructure/paths.js";
+import { shell } from "../infrastructure/shell.js";
+import { clock } from "../infrastructure/clock.js";
 import { collectHealth } from "../domain/health/health.js";
 import { scoreHealth, DEFAULT_THRESHOLDS, type HealthThresholds } from "../domain/health/health-scoring.js";
 import { saveSnapshot, loadHistory, buildTrend, type StoredSnapshot } from "../domain/health/health-trends.js";
@@ -16,7 +20,9 @@ import {
 	type HealthViewModel, type SnapshotSavedModel,
 } from "../ui/health-display.js";
 import { renderNoProject, type NoProjectModel } from "../ui/common-renderers.js";
-import { paths } from "../infrastructure/paths.js";
+
+function healthDeps() { return { disk, paths, shell } as const; }
+function trendDeps() { return { disk, paths, clock } as const; }
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -48,10 +54,10 @@ function noProjectResponse(command: string) {
 const actions: Record<string, ControllerAction> = {
 	health: (req) => {
 		if (!req.project) return noProjectResponse("health");
-		const snapshot = collectHealth(req.project);
+		const snapshot = collectHealth(healthDeps(), req.project);
 		const thresholds = resolveThresholds(req.project);
 		const score = scoreHealth(snapshot, thresholds);
-		const history = loadHistory(req.project.path);
+		const history = loadHistory(trendDeps(), req.project.path);
 		const current: StoredSnapshot = { timestamp: "", snapshot, score };
 		const trend = buildTrend(current, history);
 		const viewData: HealthViewModel = { ...snapshot, score, trend: trend.deltas };
@@ -61,10 +67,10 @@ const actions: Record<string, ControllerAction> = {
 
 	"health:snapshot": (req) => {
 		if (!req.project) return noProjectResponse("health:snapshot");
-		const snapshot = collectHealth(req.project);
+		const snapshot = collectHealth(healthDeps(), req.project);
 		const thresholds = resolveThresholds(req.project);
 		const score = scoreHealth(snapshot, thresholds);
-		const filePath = saveSnapshot(req.project.path, snapshot, score);
+		const filePath = saveSnapshot(trendDeps(), req.project.path, snapshot, score);
 		const model: SnapshotSavedModel = { relativePath: paths.relative(req.project.path, filePath) };
 
 		return dataResponse(model, renderSnapshotSaved);
@@ -72,14 +78,14 @@ const actions: Record<string, ControllerAction> = {
 
 	"health:history": (req) => {
 		if (!req.project) return noProjectResponse("health:history");
-		const history = loadHistory(req.project.path);
+		const history = loadHistory(trendDeps(), req.project.path);
 
 		return dataResponse(history, renderHealthHistory);
 	},
 
 	"debt:estimate": (req) => {
 		if (!req.project) return noProjectResponse("debt:estimate");
-		const snapshot = collectHealth(req.project);
+		const snapshot = collectHealth(healthDeps(), req.project);
 		const thresholds = resolveThresholds(req.project);
 		const score = scoreHealth(snapshot, thresholds);
 		const estimate = estimateDebt(snapshot, score);

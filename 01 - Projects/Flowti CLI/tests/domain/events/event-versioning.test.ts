@@ -32,9 +32,12 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 // ── Import after mocks ──────────────────────────────────────────────
 
 import { disk } from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
+import { clock } from "../../../src/infrastructure/clock.js";
 import { versionEvent, renderVersionHistory } from "../../../src/domain/events/event-versioning.js";
 
 const mockDisk = vi.mocked(disk);
+const verDeps = { disk, paths, clock } as const;
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -45,7 +48,7 @@ beforeEach(() => {
 describe("versionEvent", () => {
 	it("returns failure when events directory does not exist", () => {
 		mockDisk.existsSync.mockReturnValue(false);
-		const result = versionEvent("/proj", "user.created", "2.0.0", "Added email");
+		const result = versionEvent(verDeps, "/proj", "user.created", "2.0.0", "Added email");
 		expect(result.success).toBe(false);
 		expect(result.error).toContain("No events directory");
 	});
@@ -54,7 +57,7 @@ describe("versionEvent", () => {
 		mockDisk.existsSync.mockReturnValue(true);
 		mockDisk.readdirSync.mockReturnValue(["other-event.md"]);
 		mockDisk.readFileSync.mockReturnValue("---\nname: other.event\nversion: 1.0.0\n---\n");
-		const result = versionEvent("/proj", "user.created", "2.0.0", "Added email");
+		const result = versionEvent(verDeps, "/proj", "user.created", "2.0.0", "Added email");
 		expect(result.success).toBe(false);
 		expect(result.error).toContain("Event not found");
 	});
@@ -66,7 +69,7 @@ describe("versionEvent", () => {
 			"---\nname: user.created\nversion: 1.0.0\n---\n\n# user.created\n",
 		);
 
-		const result = versionEvent("/proj", "user.created", "2.0.0", "Added email field");
+		const result = versionEvent(verDeps, "/proj", "user.created", "2.0.0", "Added email field");
 
 		expect(result.success).toBe(true);
 		expect(result.previousVersion).toBe("1.0.0");
@@ -83,7 +86,7 @@ describe("versionEvent", () => {
 			"---\nname: user.created\nversion: 1.0.0\n---\n\n# user.created\n",
 		);
 
-		versionEvent("/proj", "user.created", "2.0.0", "Changed payload");
+		versionEvent(verDeps, "/proj", "user.created", "2.0.0", "Changed payload");
 
 		const written = mockDisk.writeFileSync.mock.calls[0][1] as string;
 		expect(written).toContain("## Version History");
@@ -98,7 +101,7 @@ describe("versionEvent", () => {
 			"---\nname: user.created\nversion: 1.0.0\n---\n\n# user.created\n\n## Version History\n\n- **v1.0.0** — 2026-01-01\n",
 		);
 
-		versionEvent("/proj", "user.created", "2.0.0", "Changed payload");
+		versionEvent(verDeps, "/proj", "user.created", "2.0.0", "Changed payload");
 
 		const written = mockDisk.writeFileSync.mock.calls[0][1] as string;
 		expect(written).toContain("**v2.0.0**");
@@ -115,7 +118,7 @@ describe("versionEvent", () => {
 			"---\nname: user.created\nversion: 1.5.0\nprevious_version: 1.0.0\nmigration_notes: Old notes\n---\n\n# user.created\n",
 		);
 
-		versionEvent("/proj", "user.created", "2.0.0", "New notes");
+		versionEvent(verDeps, "/proj", "user.created", "2.0.0", "New notes");
 
 		const written = mockDisk.writeFileSync.mock.calls[0][1] as string;
 		expect(written).not.toContain("Old notes");
@@ -135,7 +138,7 @@ describe("renderVersionHistory", () => {
 			text: (t: string) => { calls.push({ method: "text", args: [t] }); return doc; },
 		};
 
-		renderVersionHistory(doc as never, {
+		renderVersionHistory(verDeps, doc as never, {
 			name: "test.event", domain: "test", version: "1.0.0",
 			description: "", producers: [], consumers: [], payload: [],
 		});
@@ -153,7 +156,7 @@ describe("renderVersionHistory", () => {
 			text: (t: string) => { texts.push(t); return doc; },
 		};
 
-		renderVersionHistory(doc as never, {
+		renderVersionHistory(verDeps, doc as never, {
 			name: "test.event", domain: "test", version: "2.0.0",
 			description: "", producers: [], consumers: [], payload: [],
 			previousVersion: "1.0.0", migrationNotes: "Added field",

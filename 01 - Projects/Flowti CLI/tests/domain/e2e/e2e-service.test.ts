@@ -22,6 +22,14 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
 }));
 
+vi.mock("../../../src/infrastructure/filesystem.js", () => ({
+	disk: { existsSync: vi.fn(() => false), readFileSync: vi.fn(() => "{}"), writeFileSync: vi.fn() },
+}));
+
+vi.mock("../../../src/infrastructure/shell.js", () => ({
+	shell: { run: vi.fn(() => 0), runSilent: vi.fn(() => null) },
+}));
+
 vi.mock("../../../src/domain/project/project-config.js", () => ({
 	readProjectConfig: vi.fn(() => ({ config: null, warnings: [] })),
 }));
@@ -44,35 +52,41 @@ vi.mock("../../../src/domain/e2e/pipelines/suite-pipeline.js", () => ({
 }));
 
 import { proc } from "../../../src/infrastructure/proc.js";
+import { paths } from "../../../src/infrastructure/paths.js";
+import { disk } from "../../../src/infrastructure/filesystem.js";
+import { shell } from "../../../src/infrastructure/shell.js";
+import { log as logFn } from "../../../src/infrastructure/logger.js";
 import { runPipeline } from "../../../src/infrastructure/pipeline/pipeline-runner.js";
 import { interactiveSession } from "../../../src/ui/e2e/e2e-interactive.js";
 import { initE2EPaths, getE2EPaths, startInteractiveSession, runE2ESuite } from "../../../src/domain/e2e/e2e-service.js";
 
+const deps = { disk, shell, paths, proc, log: logFn } as any;
+
 describe("E2EService", () => {
 	describe("initE2EPaths", () => {
 		it("initializes and returns E2E paths", () => {
-			const e2e = initE2EPaths("/my/project");
+			const e2e = initE2EPaths("/my/project", undefined, deps);
 			expect(e2e.projectRoot).toBe("/my/project");
 			expect(e2e.pluginId).toBe("flowti-ibde");
 		});
 
 		it("uses review config when provided", () => {
-			const e2e = initE2EPaths("/my/project", { pluginId: "custom-plugin" });
+			const e2e = initE2EPaths("/my/project", { pluginId: "custom-plugin" }, deps);
 			expect(e2e.pluginId).toBe("custom-plugin");
 		});
 	});
 
 	describe("getE2EPaths", () => {
 		it("returns initialized paths after init", () => {
-			initE2EPaths("/project-a");
-			const e2e = getE2EPaths();
+			initE2EPaths("/project-a", undefined, deps);
+			const e2e = getE2EPaths(deps);
 			expect(e2e.projectRoot).toBe("/project-a");
 		});
 
 		it("returns same paths on repeated calls", () => {
-			initE2EPaths("/project-b");
-			const e2e1 = getE2EPaths();
-			const e2e2 = getE2EPaths();
+			initE2EPaths("/project-b", undefined, deps);
+			const e2e1 = getE2EPaths(deps);
+			const e2e2 = getE2EPaths(deps);
 			expect(e2e1).toBe(e2e2);
 		});
 	});
@@ -83,16 +97,16 @@ describe("E2EService", () => {
 		});
 
 		it("calls runInteractive with provided e2e paths", async () => {
-			const e2e = initE2EPaths("/my/project");
+			const e2e = initE2EPaths("/my/project", undefined, deps);
 			const mockRun = vi.fn(async () => {});
-			await startInteractiveSession(mockRun, e2e);
+			await startInteractiveSession(mockRun, deps, e2e);
 			expect(mockRun).toHaveBeenCalledWith(e2e);
 		});
 
 		it("uses default e2e paths when none provided", async () => {
-			initE2EPaths("/default/project");
+			initE2EPaths("/default/project", undefined, deps);
 			const mockRun = vi.fn(async () => {});
-			await startInteractiveSession(mockRun);
+			await startInteractiveSession(mockRun, deps);
 			expect(mockRun).toHaveBeenCalledWith(
 				expect.objectContaining({ projectRoot: "/default/project" }),
 			);
@@ -109,54 +123,54 @@ describe("E2EService", () => {
 		});
 
 		it("sets journey filter when provided", async () => {
-			const e2e = initE2EPaths("/project");
+			const e2e = initE2EPaths("/project", undefined, deps);
 			vi.mocked(runPipeline).mockResolvedValue({ steps: [], totalDurationMs: 0, passed: 1, failed: 0, skipped: 0 });
-			await runE2ESuite("getting-started", e2e);
+			await runE2ESuite(deps, "getting-started", e2e);
 			expect(proc.env().E2E_JOURNEY).toBe("getting-started");
 		});
 
 		it("auto-activates installer when journey includes installer", async () => {
-			const e2e = initE2EPaths("/project");
+			const e2e = initE2EPaths("/project", undefined, deps);
 			vi.mocked(runPipeline).mockResolvedValue({ steps: [], totalDurationMs: 0, passed: 1, failed: 0, skipped: 0 });
 			proc.env().E2E_JOURNEY = "installer,getting-started";
-			await runE2ESuite(undefined, e2e);
+			await runE2ESuite(deps, undefined, e2e);
 			expect(proc.env().E2E_RUN_INSTALLER).toBe("true");
 		});
 
 		it("auto-activates prerequisites when journey includes prerequisites", async () => {
-			const e2e = initE2EPaths("/project");
+			const e2e = initE2EPaths("/project", undefined, deps);
 			vi.mocked(runPipeline).mockResolvedValue({ steps: [], totalDurationMs: 0, passed: 1, failed: 0, skipped: 0 });
 			proc.env().E2E_JOURNEY = "prerequisites";
-			await runE2ESuite(undefined, e2e);
+			await runE2ESuite(deps, undefined, e2e);
 			expect(proc.env().E2E_RUN_PREREQUISITES).toBe("true");
 		});
 
 		it("exits with 0 when all tests pass", async () => {
-			const e2e = initE2EPaths("/project");
+			const e2e = initE2EPaths("/project", undefined, deps);
 			vi.mocked(runPipeline).mockResolvedValue({ steps: [], totalDurationMs: 0, passed: 5, failed: 0, skipped: 0 });
-			await runE2ESuite(undefined, e2e);
+			await runE2ESuite(deps, undefined, e2e);
 			expect(proc.exit).toHaveBeenCalledWith(0);
 		});
 
 		it("exits with 1 when tests fail", async () => {
-			const e2e = initE2EPaths("/project");
+			const e2e = initE2EPaths("/project", undefined, deps);
 			vi.mocked(runPipeline).mockResolvedValue({ steps: [], totalDurationMs: 0, passed: 3, failed: 2, skipped: 0 });
-			await runE2ESuite(undefined, e2e);
+			await runE2ESuite(deps, undefined, e2e);
 			expect(proc.exit).toHaveBeenCalledWith(1);
 		});
 
 		it("logs journey filter message", async () => {
-			const e2e = initE2EPaths("/project");
+			const e2e = initE2EPaths("/project", undefined, deps);
 			const log = vi.fn();
 			vi.mocked(runPipeline).mockResolvedValue({ steps: [], totalDurationMs: 0, passed: 1, failed: 0, skipped: 0 });
-			await runE2ESuite("getting-started", e2e, log);
+			await runE2ESuite({ ...deps, log }, "getting-started", e2e);
 			expect(log).toHaveBeenCalledWith(expect.stringContaining("getting-started"));
 		});
 
 		it("runs pipeline with E2E Suite label", async () => {
-			const e2e = initE2EPaths("/project");
+			const e2e = initE2EPaths("/project", undefined, deps);
 			vi.mocked(runPipeline).mockResolvedValue({ steps: [], totalDurationMs: 0, passed: 1, failed: 0, skipped: 0 });
-			await runE2ESuite(undefined, e2e);
+			await runE2ESuite(deps, undefined, e2e);
 			expect(runPipeline).toHaveBeenCalledWith(
 				expect.anything(),
 				"/project",

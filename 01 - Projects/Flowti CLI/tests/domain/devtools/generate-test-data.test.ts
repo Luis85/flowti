@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createTestDeps } from "../../mocks/mock-deps.js";
-import { generateTestData } from "../../../src/scripts/generate-test-data.js";
-import type { TestDataOpts } from "../../../src/scripts/generate-test-data.js";
+import { generateTestData } from "../../../src/domain/devtools/generate-test-data.js";
+import type { TestDataOpts } from "../../../src/domain/devtools/generate-test-data.js";
 
 function makeDeps() {
 	const deps = createTestDeps({ clock: "2025-06-15T10:30:00.000Z" });

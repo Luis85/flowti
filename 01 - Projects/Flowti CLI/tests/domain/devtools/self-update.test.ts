@@ -1,6 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { join } from "node:path";
+import path, { join } from "node:path";
 import { needsRebuild, getNewestMtime, rebuildCli } from "../../../src/domain/devtools/self-update.js";
+
+const mockPaths = {
+	join: (...args: string[]) => path.join(...args),
+	relative: (from: string, to: string) => path.relative(from, to),
+	basename: (fp: string) => path.basename(fp),
+	dirname: (fp: string) => path.dirname(fp),
+	resolve: (...args: string[]) => path.resolve(...args),
+	sep: path.sep,
+} as never;
 import type { IFileSystem, DirEntry } from "../../../src/infrastructure/types.js";
 import type { IShell } from "../../../src/infrastructure/types.js";
 import type fs from "node:fs";
@@ -68,12 +77,12 @@ function buildMockFs(tree: Record<string, MockEntry[]>, existingPaths?: Set<stri
 describe("getNewestMtime", () => {
 	it("returns 0 for empty directory", () => {
 		const fs = buildMockFs({ "/src": [] });
-		expect(getNewestMtime("/src", ".ts", fs)).toBe(0);
+		expect(getNewestMtime("/src", ".ts", fs, mockPaths)).toBe(0);
 	});
 
 	it("returns 0 for non-existent directory", () => {
 		const fs = buildMockFs({});
-		expect(getNewestMtime("/missing", ".ts", fs)).toBe(0);
+		expect(getNewestMtime("/missing", ".ts", fs, mockPaths)).toBe(0);
 	});
 
 	it("finds the newest .ts file mtime", () => {
@@ -84,7 +93,7 @@ describe("getNewestMtime", () => {
 				{ type: "file", name: "c.js", mtimeMs: 5000 },
 			],
 		});
-		expect(getNewestMtime("/src", ".ts", fs)).toBe(3000);
+		expect(getNewestMtime("/src", ".ts", fs, mockPaths)).toBe(3000);
 	});
 
 	it("ignores non-matching extensions", () => {
@@ -94,7 +103,7 @@ describe("getNewestMtime", () => {
 				{ type: "file", name: "index.js", mtimeMs: 8000 },
 			],
 		});
-		expect(getNewestMtime("/src", ".ts", fs)).toBe(0);
+		expect(getNewestMtime("/src", ".ts", fs, mockPaths)).toBe(0);
 	});
 
 	it("recurses into subdirectories", () => {
@@ -107,14 +116,14 @@ describe("getNewestMtime", () => {
 				{ type: "file", name: "helper.ts", mtimeMs: 5000 },
 			],
 		});
-		expect(getNewestMtime(join("/src"), ".ts", mockFs)).toBe(5000);
+		expect(getNewestMtime(join("/src"), ".ts", mockFs, mockPaths)).toBe(5000);
 	});
 });
 
 describe("needsRebuild", () => {
 	it("returns true when binary does not exist", () => {
 		const fs = buildMockFs({ "/src": [] }, new Set(["/src"]));
-		expect(needsRebuild("/src", "/bin/main.js", fs)).toBe(true);
+		expect(needsRebuild("/src", "/bin/main.js", fs, mockPaths)).toBe(true);
 	});
 
 	it("returns true when source is newer than binary", () => {
@@ -134,7 +143,7 @@ describe("needsRebuild", () => {
 			return origStat(path);
 		};
 
-		expect(needsRebuild("/src", "/bin/main.js", fs)).toBe(true);
+		expect(needsRebuild("/src", "/bin/main.js", fs, mockPaths)).toBe(true);
 	});
 
 	it("returns false when binary is newer than source", () => {
@@ -153,7 +162,7 @@ describe("needsRebuild", () => {
 			return origStat(path);
 		};
 
-		expect(needsRebuild("/src", "/bin/main.js", fs)).toBe(false);
+		expect(needsRebuild("/src", "/bin/main.js", fs, mockPaths)).toBe(false);
 	});
 
 	it("returns false when source and binary have same mtime", () => {
@@ -172,7 +181,7 @@ describe("needsRebuild", () => {
 			return origStat(path);
 		};
 
-		expect(needsRebuild("/src", "/bin/main.js", fs)).toBe(false);
+		expect(needsRebuild("/src", "/bin/main.js", fs, mockPaths)).toBe(false);
 	});
 });
 

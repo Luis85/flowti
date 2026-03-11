@@ -7,8 +7,7 @@
  * Returns warnings only — deep checks never block startup.
  */
 
-import type { ProjectConfig, IFileSystem } from "../../infrastructure/types.js";
-import { paths } from "../../infrastructure/paths.js";
+import type { ProjectConfig, IFileSystem, IPaths } from "../../infrastructure/types.js";
 
 export interface DeepValidationResult {
 	warnings: string[];
@@ -19,15 +18,16 @@ export function validateConfigDeep(
 	config: ProjectConfig,
 	projectPath: string,
 	fs: IFileSystem,
+	p: IPaths,
 ): DeepValidationResult {
 	const warnings: string[] = [];
 
-	checkRelativePath(fs, projectPath, config.reports?.dir, "reports.dir", warnings);
-	checkPublishEndpoints(fs, projectPath, config, warnings);
-	checkRelativePath(fs, projectPath, config.review?.journeysDir, "review.journeysDir", warnings);
-	checkAbsoluteOrRelativePath(fs, projectPath, config.review?.testVault, "review.testVault", warnings);
-	checkRelativePath(fs, projectPath, config.docs?.referenceDir, "docs.referenceDir", warnings);
-	checkStorybookDir(fs, projectPath, config, warnings);
+	checkRelativePath(fs, p, projectPath, config.reports?.dir, "reports.dir", warnings);
+	checkPublishEndpoints(fs, p, projectPath, config, warnings);
+	checkRelativePath(fs, p, projectPath, config.review?.journeysDir, "review.journeysDir", warnings);
+	checkAbsoluteOrRelativePath(fs, p, projectPath, config.review?.testVault, "review.testVault", warnings);
+	checkRelativePath(fs, p, projectPath, config.docs?.referenceDir, "docs.referenceDir", warnings);
+	checkStorybookDir(fs, p, projectPath, config, warnings);
 
 	return { warnings };
 }
@@ -36,13 +36,14 @@ export function validateConfigDeep(
 
 function checkRelativePath(
 	fs: IFileSystem,
+	p: IPaths,
 	projectPath: string,
 	relPath: string | undefined,
 	label: string,
 	warnings: string[],
 ): void {
 	if (!relPath) return;
-	const fullPath = paths.join(projectPath, relPath);
+	const fullPath = p.join(projectPath, relPath);
 	if (!fs.existsSync(fullPath)) {
 		warnings.push(`${label}: directory "${relPath}" does not exist.`);
 	}
@@ -50,6 +51,7 @@ function checkRelativePath(
 
 function checkAbsoluteOrRelativePath(
 	fs: IFileSystem,
+	p: IPaths,
 	projectPath: string,
 	configPath: string | undefined,
 	label: string,
@@ -57,9 +59,9 @@ function checkAbsoluteOrRelativePath(
 ): void {
 	if (!configPath) return;
 	// Check if absolute path first, then relative
-	const fullPath = paths.isAbsolute(configPath)
+	const fullPath = p.isAbsolute(configPath)
 		? configPath
-		: paths.join(projectPath, configPath);
+		: p.join(projectPath, configPath);
 	if (!fs.existsSync(fullPath)) {
 		warnings.push(`${label}: path "${configPath}" does not exist.`);
 	}
@@ -67,6 +69,7 @@ function checkAbsoluteOrRelativePath(
 
 function checkPublishEndpoints(
 	fs: IFileSystem,
+	p: IPaths,
 	projectPath: string,
 	config: ProjectConfig,
 	warnings: string[],
@@ -75,9 +78,9 @@ function checkPublishEndpoints(
 	if (!endpoints) return;
 	for (let i = 0; i < endpoints.length; i++) {
 		const ep = endpoints[i];
-		const fullPath = paths.isAbsolute(ep.path)
+		const fullPath = p.isAbsolute(ep.path)
 			? ep.path
-			: paths.join(projectPath, ep.path);
+			: p.join(projectPath, ep.path);
 		if (!fs.existsSync(fullPath)) {
 			warnings.push(`publish.endpoints[${i}].path: "${ep.path}" does not exist.`);
 		}
@@ -86,12 +89,13 @@ function checkPublishEndpoints(
 
 function checkStorybookDir(
 	fs: IFileSystem,
+	p: IPaths,
 	projectPath: string,
 	config: ProjectConfig,
 	warnings: string[],
 ): void {
 	if (!config.components?.storybook || !config.components.storybookDir) return;
-	const fullPath = paths.join(projectPath, config.components.storybookDir);
+	const fullPath = p.join(projectPath, config.components.storybookDir);
 	if (!fs.existsSync(fullPath)) {
 		warnings.push(`components.storybookDir: directory "${config.components.storybookDir}" does not exist.`);
 	}

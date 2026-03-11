@@ -4,16 +4,12 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "node configs/esbuild.config.mjs --watch",
     "build": "node configs/esbuild.config.mjs",
+    "build:watch": "node configs/esbuild.config.mjs --watch",
     "test": "npm run check && vitest run --config configs/vitest.config.ts",
-    "test:watch": "vitest --config configs/vitest.config.ts",
-    "test:ui": "vitest --config configs/vitest.config.ts --ui --coverage.enabled=true",
-    "test:coverage": "vitest run --config configs/vitest.config.ts --coverage --reporter=json --outputFile=reports/tests/testreport.json",
-    "check": "npm run lint && tsc --project configs/tsconfig.json --noEmit",
     "lint": "eslint --config configs/eslint.config.mjs src/",
-    "typedoc": "typedoc --options configs/typedoc.json",
-    "analysis": "tsx src/scripts/run-analysis.ts"
+    "check": "npm run lint && tsc --project configs/tsconfig.json --noEmit",
+    "typedoc": "typedoc --options configs/typedoc.json"
   },
   "devDependencies": {
 "@types/node": "^25.3.5",

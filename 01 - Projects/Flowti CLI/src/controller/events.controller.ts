@@ -9,6 +9,7 @@ import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler } from "../infrastructure/types.js";
 import { disk } from "../infrastructure/filesystem.js";
 import { paths } from "../infrastructure/paths.js";
+import { clock } from "../infrastructure/clock.js";
 import { listEvents, createEventFile, parseCommaSeparated } from "../domain/events/event-catalog.js";
 import type { EventDefinition } from "../domain/events/event-catalog.js";
 import { parsePayloadFlag } from "../domain/events/event-payload.js";
@@ -16,6 +17,8 @@ import { versionEvent } from "../domain/events/event-versioning.js";
 import { saveEventFlowDoc } from "../domain/events/event-flow.js";
 import { loadEventContracts, validateContracts, generateContractsJson, validatePayload, findContract } from "../domain/events/event-contracts.js";
 import { generateEventTypes } from "../domain/events/event-codegen.js";
+
+function eventDeps() { return { disk, paths, clock } as const; }
 import { renderError } from "../ui/common-renderers.js";
 import type { ErrorModel } from "../ui/common-renderers.js";
 import {
@@ -46,14 +49,14 @@ function flagList(flags: Record<string, string | boolean>, key: string): string[
 const actions: Record<string, ControllerAction> = {
 	"events:list": (req) => {
 		if (!req.project) return;
-		const events = listEvents(req.project.path);
+		const events = listEvents(eventDeps(), req.project.path);
 		return dataResponse<EventListModel>({ events }, renderEventList);
 	},
 
 	"events:flow": (req) => {
 		if (!req.project) return;
 		const domain = typeof req.flags.domain === "string" ? req.flags.domain : undefined;
-		const relativePath = paths.relative(req.project.path, saveEventFlowDoc(req.project.path, domain));
+		const relativePath = paths.relative(req.project.path, saveEventFlowDoc(eventDeps(), req.project.path, domain));
 		return dataResponse<EventFlowCreatedModel>({ relativePath }, renderEventFlowCreated);
 	},
 
@@ -72,7 +75,7 @@ const actions: Record<string, ControllerAction> = {
 			description: flagStr(req.flags, "description", ""), producers: flagList(req.flags, "producers"),
 			consumers: flagList(req.flags, "consumers"), payload,
 		};
-		const filePath = createEventFile(req.project.path, def);
+		const filePath = createEventFile(eventDeps(), req.project.path, def);
 		if (filePath) {
 			return dataResponse<EventAddedModel>(
 				{ relativePath: paths.relative(req.project.path, filePath) },
@@ -84,7 +87,7 @@ const actions: Record<string, ControllerAction> = {
 	"events:validate": (req) => {
 		if (!req.project) return;
 		const dir = paths.join(req.project.path, "docs", "events");
-		const contracts = loadEventContracts(dir);
+		const contracts = loadEventContracts(eventDeps(), dir, disk);
 		if (contracts.length === 0) {
 			return dataResponse<EmptyModel>({ message: "No events found in docs/events/." }, renderEmpty);
 		}
@@ -108,7 +111,7 @@ const actions: Record<string, ControllerAction> = {
 			);
 		}
 		const dir = paths.join(req.project.path, "docs", "events");
-		const contracts = loadEventContracts(dir);
+		const contracts = loadEventContracts(eventDeps(), dir, disk);
 		const contract = findContract(contracts, eventName);
 		if (!contract) {
 			return {
@@ -139,7 +142,7 @@ const actions: Record<string, ControllerAction> = {
 	"events:contracts": (req) => {
 		if (!req.project) return;
 		const dir = paths.join(req.project.path, "docs", "events");
-		const contracts = loadEventContracts(dir);
+		const contracts = loadEventContracts(eventDeps(), dir, disk);
 		if (contracts.length === 0) {
 			return dataResponse<EmptyModel>({ message: "No events found in docs/events/." }, renderEmpty);
 		}
@@ -159,7 +162,7 @@ const actions: Record<string, ControllerAction> = {
 	"events:codegen": (req) => {
 		if (!req.project) return;
 		const dir = paths.join(req.project.path, "docs", "events");
-		const contracts = loadEventContracts(dir);
+		const contracts = loadEventContracts(eventDeps(), dir, disk);
 		if (contracts.length === 0) {
 			return dataResponse<EmptyModel>({ message: "No events found in docs/events/." }, renderEmpty);
 		}
@@ -190,7 +193,7 @@ const actions: Record<string, ControllerAction> = {
 		}
 
 		const migrationNotes = typeof migration === "string" ? migration : "";
-		const result = versionEvent(req.project.path, name, version, migrationNotes);
+		const result = versionEvent(eventDeps(), req.project.path, name, version, migrationNotes);
 
 		if (!result.success) {
 			return dataResponse<ErrorModel>({ error: result.error ?? "Version update failed." }, renderError);

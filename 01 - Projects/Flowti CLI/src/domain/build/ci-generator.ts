@@ -7,9 +7,10 @@
  * Command: `project:ci [--dry-run]`
  */
 
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 import type { ProjectContext, CommandHandler } from "../../infrastructure/types.js";
+
+export type CiDeps = Pick<CliDeps, "disk" | "paths">;
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -162,7 +163,7 @@ export interface CiResult {
 
 // ── Command handler ──────────────────────────────────────────────────
 
-export function runProjectCi(project: ProjectContext, dryRun: boolean): CiResult {
+export function runProjectCi(project: ProjectContext, dryRun: boolean, deps: CiDeps): CiResult {
 	const ciConfig = extractCiConfig(project);
 	const yaml = generateWorkflowYaml(ciConfig);
 
@@ -171,20 +172,20 @@ export function runProjectCi(project: ProjectContext, dryRun: boolean): CiResult
 	}
 
 	// Write .github/workflows/ci.yml relative to the project path
-	const workflowsDir = paths.join(project.path, ".github", "workflows");
-	if (!disk.existsSync(workflowsDir)) {
-		disk.mkdirSync(workflowsDir, { recursive: true });
+	const workflowsDir = deps.paths.join(project.path, ".github", "workflows");
+	if (!deps.disk.existsSync(workflowsDir)) {
+		deps.disk.mkdirSync(workflowsDir, { recursive: true });
 	}
 
-	const outputPath = paths.join(workflowsDir, "ci.yml");
-	disk.writeFileSync(outputPath, yaml, "utf-8");
+	const outputPath = deps.paths.join(workflowsDir, "ci.yml");
+	deps.disk.writeFileSync(outputPath, yaml, "utf-8");
 
 	return { yaml, dryRun: false, outputPath };
 }
 
-export const handleProjectCi: CommandHandler = (_flags, _rawArgs, _command, project) => {
+export const createHandleProjectCi = (deps: CiDeps): CommandHandler => (_flags, _rawArgs, _command, project) => {
 	if (!project) return;
 	// Delegate to controller layer for display — kept for backward compatibility
 	const dryRun = _flags["dry-run"] === true;
-	runProjectCi(project, dryRun);
+	runProjectCi(project, dryRun, deps);
 };

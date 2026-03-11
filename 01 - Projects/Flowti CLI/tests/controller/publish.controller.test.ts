@@ -116,7 +116,7 @@ describe("publish.controller", () => {
 
 		it("returns gate check result when project is provided", () => {
 			commands["publish:check"]({}, [], "publish:check", mockProject);
-			expect(collectHealth).toHaveBeenCalledWith(mockProject);
+			expect(collectHealth).toHaveBeenCalledWith(expect.any(Object), mockProject);
 			expect(scoreHealth).toHaveBeenCalled();
 			expect(evaluateQualityGates).toHaveBeenCalled();
 		});

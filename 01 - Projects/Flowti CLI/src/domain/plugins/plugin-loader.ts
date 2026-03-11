@@ -5,8 +5,8 @@
  * Pure functions where possible. I/O is injected via IFileSystem / IShell.
  */
 
+import type { CliDeps } from "../../infrastructure/deps.js";
 import type { IFileSystem, IShell } from "../../infrastructure/types.js";
-import { paths } from "../../infrastructure/paths.js";
 import type {
 	PluginManifest,
 	PluginCommandDef,
@@ -96,7 +96,7 @@ export function validateManifest(raw: unknown): PluginValidationResult {
  * Discover plugin subdirectories containing manifest.json.
  * Scans .flowti/plugins/ for subdirectories with a manifest.json file.
  */
-export function discoverPluginFiles(pluginsDir: string, fs: IFileSystem): string[] {
+export function discoverPluginFiles(deps: Pick<CliDeps, "paths">, pluginsDir: string, fs: IFileSystem): string[] {
 	if (!fs.existsSync(pluginsDir)) return [];
 
 	const entries = fs.readdirSync(pluginsDir, { withFileTypes: true });
@@ -104,7 +104,7 @@ export function discoverPluginFiles(pluginsDir: string, fs: IFileSystem): string
 
 	for (const entry of entries) {
 		if (!entry.isDirectory()) continue;
-		const manifestPath = paths.join(pluginsDir, entry.name, MANIFEST_FILENAME);
+		const manifestPath = deps.paths.join(pluginsDir, entry.name, MANIFEST_FILENAME);
 		if (fs.existsSync(manifestPath)) {
 			manifests.push(manifestPath);
 		}
@@ -115,6 +115,7 @@ export function discoverPluginFiles(pluginsDir: string, fs: IFileSystem): string
 
 /** Load and validate a single plugin manifest. Returns a LoadedPlugin (possibly invalid). */
 export function loadPluginFile(
+	deps: Pick<CliDeps, "paths">,
 	pluginPath: string,
 	fs: IFileSystem,
 	shellRunner: IShell,
@@ -123,8 +124,8 @@ export function loadPluginFile(
 	try {
 		const raw = JSON.parse(fs.readFileSync(pluginPath, "utf-8")) as unknown;
 		const validation = validateManifest(raw);
-		const pluginDir = paths.dirname(pluginPath);
-		const dirName = paths.basename(pluginDir);
+		const pluginDir = deps.paths.dirname(pluginPath);
+		const dirName = deps.paths.basename(pluginDir);
 
 		if (!validation.valid) {
 			return {
@@ -143,8 +144,8 @@ export function loadPluginFile(
 		return { manifest, path: pluginPath, commands, valid: true, errors: [] };
 	} catch (err: unknown) {
 		const message = err instanceof Error ? err.message : String(err);
-		const pluginDir = paths.dirname(pluginPath);
-		const dirName = paths.basename(pluginDir);
+		const pluginDir = deps.paths.dirname(pluginPath);
+		const dirName = deps.paths.basename(pluginDir);
 		return {
 			manifest: { name: dirName, description: "", commands: {} },
 			path: pluginPath,
@@ -157,19 +158,21 @@ export function loadPluginFile(
 
 /** Load all plugins from the vault-level plugins directory. */
 export function loadPlugins(
+	deps: Pick<CliDeps, "paths">,
 	vaultRoot: string,
 	fs: IFileSystem,
 	shellRunner: IShell,
 ): LoadedPlugin[] {
-	const pluginsDir = paths.join(vaultRoot, PLUGINS_DIR);
-	const files = discoverPluginFiles(pluginsDir, fs);
-	return files.map((f) => loadPluginFile(f, fs, shellRunner, vaultRoot));
+	const pluginsDir = deps.paths.join(vaultRoot, PLUGINS_DIR);
+	const files = discoverPluginFiles(deps, pluginsDir, fs);
+	return files.map((f) => loadPluginFile(deps, f, fs, shellRunner, vaultRoot));
 }
 
 // ── Scaffolding ──────────────────────────────────────────────────────
 
 /** Scaffold a new plugin directory with a starter manifest.json. */
 export function scaffoldPlugin(
+	deps: Pick<CliDeps, "paths">,
 	vaultRoot: string,
 	pluginName: string,
 	description: string,
@@ -179,7 +182,7 @@ export function scaffoldPlugin(
 		return { error: "Plugin name must be lowercase alphanumeric with hyphens (e.g. \"my-plugin\")" };
 	}
 
-	const pluginDir = paths.join(vaultRoot, PLUGINS_DIR, pluginName);
+	const pluginDir = deps.paths.join(vaultRoot, PLUGINS_DIR, pluginName);
 	if (fs.existsSync(pluginDir)) {
 		return { error: `Plugin "${pluginName}" already exists` };
 	}
@@ -198,7 +201,7 @@ export function scaffoldPlugin(
 
 	fs.mkdirSync(pluginDir, { recursive: true });
 	fs.writeFileSync(
-		paths.join(pluginDir, MANIFEST_FILENAME),
+		deps.paths.join(pluginDir, MANIFEST_FILENAME),
 		JSON.stringify(manifest, null, 2),
 		"utf-8",
 	);

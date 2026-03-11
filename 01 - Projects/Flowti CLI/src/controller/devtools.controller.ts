@@ -1,15 +1,25 @@
 /**
  * devtools.controller.ts — Controller for developer utility commands.
  *
- * All devtools commands are shell runners — no data/display split needed.
+ * Most devtools commands call pure domain functions directly.
+ * Shell-based commands use resolveDevCmd for configurable overrides.
  */
 
 import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler, ProjectContext } from "../infrastructure/types.js";
 import { shell } from "../infrastructure/shell.js";
+import { log, warn } from "../infrastructure/logger.js";
+import { disk } from "../infrastructure/filesystem.js";
+import { paths } from "../infrastructure/paths.js";
+import { clock } from "../infrastructure/clock.js";
+import { VAULT_ROOT, PLUGIN_ROOT } from "../infrastructure/config.js";
 import { rebuildCli } from "../domain/devtools/self-update.js";
-import { reloadPlugin } from "../scripts/cli-reload.js";
+import { reloadPlugin } from "../domain/devtools/cli-reload.js";
+import { fixFrontmatter } from "../domain/devtools/fix-frontmatter.js";
+import { generateTestData } from "../domain/devtools/generate-test-data.js";
+import type { TestDataOpts } from "../domain/devtools/generate-test-data.js";
+import { runAnalysisPipeline } from "../domain/devtools/run-analysis.js";
 import { renderShellCommand, renderSuccess, type ShellCommandModel, type SuccessModel } from "../ui/common-renderers.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -26,7 +36,7 @@ function resolveDevCmd(p: ProjectContext | undefined, name: string, scriptName: 
 const actions: Record<string, ControllerAction> = {
 	"dev:reload": (req) => {
 		const vault = typeof req.flags.vault === "string" ? req.flags.vault : undefined;
-		const success = reloadPlugin(vault);
+		const success = reloadPlugin(vault, { shell, log, warn });
 		const model: SuccessModel = { message: success ? "Plugin reloaded." : "Obsidian CLI not available — reload skipped." };
 		return dataResponse(model, renderSuccess);
 	},
@@ -72,29 +82,34 @@ const actions: Record<string, ControllerAction> = {
 		return dataResponse(model, renderShellCommand);
 	},
 	"dev:fix-frontmatter": (req) => {
-		const resolved = resolveDevCmd(req.project, "fixFrontmatter", null, "node scripts/fix-frontmatter.mjs");
-		const dryRun = req.flags["dry-run"] ? " --dry-run" : "";
-		const cmd = `${resolved}${dryRun}`;
-		const exitCode = shell.run(cmd, { cwd: req.project?.path, label: `Fixing frontmatter${dryRun ? " (dry-run)" : ""}...` });
-		const model: ShellCommandModel = { command: cmd, exitCode, label: "dev:fix-frontmatter" };
-		return dataResponse(model, renderShellCommand);
+		const dryRun = !!req.flags["dry-run"];
+		const docsRoot = paths.resolve(PLUGIN_ROOT, "docs");
+		const result = fixFrontmatter({ dryRun, docsRoot }, { disk, paths, log });
+		const model: SuccessModel = { message: `Fixed: ${result.fixed}, Skipped: ${result.skipped}, Errors: ${result.errors}${dryRun ? " (dry-run)" : ""}` };
+		return dataResponse(model, renderSuccess);
 	},
 	"dev:testdata": (req) => {
-		const cmd = resolveDevCmd(req.project, "testdata", null, "node scripts/generate-test-data.mjs");
-		const exitCode = shell.run(cmd, { cwd: req.project?.path, label: "Generating test data CSVs..." });
-		const model: ShellCommandModel = { command: cmd, exitCode, label: "dev:testdata" };
-		return dataResponse(model, renderShellCommand);
+		const defaultOut = paths.join(VAULT_ROOT, "03 - Resources", "Test Data", "Analytics");
+		const opts: TestDataOpts = {
+			from: typeof req.flags.from === "string" ? req.flags.from : "2025-01",
+			to: typeof req.flags.to === "string" ? req.flags.to : null,
+			seed: typeof req.flags.seed === "string" ? Number(req.flags.seed) : 42,
+			outDir: paths.resolve(typeof req.flags.out === "string" ? req.flags.out : defaultOut),
+			dryRun: !!req.flags["dry-run"],
+		};
+		const result = generateTestData(opts, { disk, paths, clock, log });
+		const model: SuccessModel = { message: `Generated ${result.totalRows} rows across ${result.filesWritten} files` };
+		return dataResponse(model, renderSuccess);
 	},
 	"dev:rebuild": (req) => {
 		const exitCode = rebuildCli(req.project?.path ?? "", shell);
 		const model: ShellCommandModel = { command: "npm run build", exitCode, label: "dev:rebuild" };
 		return dataResponse(model, renderShellCommand);
 	},
-	"dev:analysis": (req) => {
-		const cmd = resolveDevCmd(req.project, "analysis", "analysis", "npx tsx src/scripts/run-analysis.ts");
-		const exitCode = shell.run(cmd, { cwd: req.project?.path, label: "Running analysis pipeline..." });
-		const model: ShellCommandModel = { command: cmd, exitCode, label: "dev:analysis" };
-		return dataResponse(model, renderShellCommand);
+	"dev:analysis": () => {
+		runAnalysisPipeline({ disk, shell, paths, clock, log });
+		const model: SuccessModel = { message: "Analysis pipeline complete." };
+		return dataResponse(model, renderSuccess);
 	},
 };
 

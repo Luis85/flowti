@@ -10,10 +10,11 @@
  * properties, and saves. Only modifies specified properties; preserves everything else.
  */
 
-import { paths } from "../../../infrastructure/paths.js";
-import { disk } from "../../../infrastructure/filesystem.js";
+import type { CliDeps } from "../../../infrastructure/deps.js";
 import { splitFrontmatter, joinFrontmatter } from "../../../infrastructure/frontmatter.js";
 import { toKebab } from "../naming.js";
+
+export type ComponentEditDeps = Pick<CliDeps, "disk" | "paths">;
 
 // ── Result types ─────────────────────────────────────────────────────
 
@@ -50,6 +51,7 @@ export function editComponent(
 	name: string | undefined,
 	flags: Record<string, string | boolean>,
 	projectPath: string,
+	deps: ComponentEditDeps,
 ): EditComponentOutcome {
 	if (!name || typeof name !== "string") {
 		return {
@@ -60,9 +62,9 @@ export function editComponent(
 	}
 
 	const kebab = toKebab(name);
-	const docPath = paths.join(projectPath, "docs", "components", `${kebab}.md`);
+	const docPath = deps.paths.join(projectPath, "docs", "components", `${kebab}.md`);
 
-	if (!disk.existsSync(docPath)) {
+	if (!deps.disk.existsSync(docPath)) {
 		return {
 			success: false,
 			error: `Component not found: ${kebab}`,
@@ -79,7 +81,7 @@ export function editComponent(
 		};
 	}
 
-	const content = disk.readFileSync(docPath, "utf-8");
+	const content = deps.disk.readFileSync(docPath, "utf-8");
 	const parsed = splitFrontmatter(content);
 
 	if (!parsed) {
@@ -92,7 +94,7 @@ export function editComponent(
 	}
 
 	const updated = joinFrontmatter(fm, parsed.body);
-	disk.writeFileSync(docPath, updated, "utf-8");
+	deps.disk.writeFileSync(docPath, updated, "utf-8");
 
 	const propList = Object.entries(propUpdates).map(([k, v]) => `${k}=${v}`).join(", ");
 	return { success: true, kebab, propList };

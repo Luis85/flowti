@@ -27,12 +27,23 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
 }));
 
+vi.mock("../../../src/infrastructure/clock.js", () => ({
+	clock: {
+		now: () => new Date("2026-03-08T12:00:00Z"),
+		ms: () => Date.now(),
+		iso: () => "2026-03-08T12:00:00.000Z",
+		safeIso: () => "2026-03-08T12-00-00",
+	},
+}));
+
 vi.mock("../../../src/infrastructure/input.js", () => ({
 	input: { ask: vi.fn(), askYesNo: vi.fn() },
 }));
 
 import { disk } from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
 import { proc } from "../../../src/infrastructure/proc.js";
+import { clock } from "../../../src/infrastructure/clock.js";
 import {
 	loadJourneyEntries,
 	resolveJourneyNames,
@@ -43,6 +54,8 @@ import {
 } from "../../../src/domain/e2e/e2e-session.js";
 import type { E2EPaths } from "../../../src/domain/e2e/e2e-paths.js";
 import type { SessionConfig, JourneyEntry } from "../../../src/domain/e2e/e2e-types.js";
+
+const deps = { disk, paths, proc, clock } as any;
 
 const mockE2e: E2EPaths = {
 	projectRoot: "/project",
@@ -69,7 +82,7 @@ describe("loadJourneyEntries", () => {
 
 	it("returns empty array when no journey files", () => {
 		vi.mocked(disk.readdirSync).mockReturnValue([] as unknown as ReturnType<typeof disk.readdirSync>);
-		const entries = loadJourneyEntries(mockE2e);
+		const entries = loadJourneyEntries(mockE2e, deps);
 		expect(entries).toEqual([]);
 	});
 
@@ -79,7 +92,7 @@ describe("loadJourneyEntries", () => {
 			.mockReturnValueOnce(JSON.stringify({ journey: "Login Flow", chapter: 1, description: "Test login", steps: [{ id: 1 }, { id: 2 }] }))
 			.mockReturnValueOnce(JSON.stringify({ journey: "Setup", chapter: 2, description: "Test setup", steps: [{ id: 1 }] }));
 
-		const entries = loadJourneyEntries(mockE2e);
+		const entries = loadJourneyEntries(mockE2e, deps);
 		expect(entries).toHaveLength(2);
 		expect(entries[0].slug).toBe("login");
 		expect(entries[0].name).toBe("Login Flow");
@@ -93,7 +106,7 @@ describe("loadJourneyEntries", () => {
 		vi.mocked(disk.readdirSync).mockReturnValue(["test.journey", "readme.md", "config.json"] as unknown as ReturnType<typeof disk.readdirSync>);
 		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({ journey: "Test", steps: [] }));
 
-		const entries = loadJourneyEntries(mockE2e);
+		const entries = loadJourneyEntries(mockE2e, deps);
 		expect(entries).toHaveLength(1);
 	});
 
@@ -101,7 +114,7 @@ describe("loadJourneyEntries", () => {
 		vi.mocked(disk.readdirSync).mockReturnValue(["unnamed.journey"] as unknown as ReturnType<typeof disk.readdirSync>);
 		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({ steps: [] }));
 
-		const entries = loadJourneyEntries(mockE2e);
+		const entries = loadJourneyEntries(mockE2e, deps);
 		expect(entries[0].name).toBe("unnamed");
 	});
 });
@@ -143,7 +156,7 @@ describe("rerunWithFreshTimestamp", () => {
 			stepFilter: {},
 		};
 
-		const result = rerunWithFreshTimestamp(prev, entries);
+		const result = rerunWithFreshTimestamp(prev, entries, deps);
 		expect(result.sessionName).not.toBe("old-session");
 		expect(result.sessionName).toContain("a");
 		expect(result.selectedSlugs).toEqual(["a"]);
@@ -158,7 +171,7 @@ describe("rerunWithFreshTimestamp", () => {
 			stepFilter: {},
 		};
 
-		const result = rerunWithFreshTimestamp(prev, entries);
+		const result = rerunWithFreshTimestamp(prev, entries, deps);
 		expect(result.sessionName).toContain("all");
 	});
 
@@ -171,7 +184,7 @@ describe("rerunWithFreshTimestamp", () => {
 			stepFilter: {},
 		};
 
-		const result = rerunWithFreshTimestamp(prev, entries);
+		const result = rerunWithFreshTimestamp(prev, entries, deps);
 		expect(result.sessionName).toContain("a");
 		expect(result.sessionName).not.toContain("all");
 	});
@@ -185,7 +198,7 @@ describe("rerunWithFreshTimestamp", () => {
 			stepFilter: { a: "all" },
 		};
 
-		const result = rerunWithFreshTimestamp(prev, entries);
+		const result = rerunWithFreshTimestamp(prev, entries, deps);
 		expect(result.includeInstaller).toBe(true);
 		expect(result.includePrerequisites).toBe(true);
 		expect(result.stepFilter).toEqual({ a: "all" });
@@ -234,7 +247,7 @@ describe("configureSessionEnv", () => {
 			includeInstaller: false,
 			includePrerequisites: false,
 			stepFilter: {},
-		});
+		}, deps);
 		expect(proc.env().E2E_JOURNEY).toBe("login,setup");
 	});
 
@@ -245,7 +258,7 @@ describe("configureSessionEnv", () => {
 			includeInstaller: false,
 			includePrerequisites: false,
 			stepFilter: {},
-		});
+		}, deps);
 		expect(proc.env().E2E_SESSION_NAME).toBe("my-session");
 	});
 
@@ -256,7 +269,7 @@ describe("configureSessionEnv", () => {
 			includeInstaller: true,
 			includePrerequisites: false,
 			stepFilter: {},
-		});
+		}, deps);
 		expect(proc.env().E2E_JOURNEY).toBe("installer,setup");
 		expect(proc.env().E2E_RUN_INSTALLER).toBe("true");
 	});
@@ -268,7 +281,7 @@ describe("configureSessionEnv", () => {
 			includeInstaller: true,
 			includePrerequisites: false,
 			stepFilter: {},
-		});
+		}, deps);
 		expect(proc.env().E2E_JOURNEY).toBe("installer,setup");
 	});
 
@@ -279,7 +292,7 @@ describe("configureSessionEnv", () => {
 			includeInstaller: false,
 			includePrerequisites: true,
 			stepFilter: {},
-		});
+		}, deps);
 		expect(proc.env().E2E_RUN_PREREQUISITES).toBe("true");
 	});
 
@@ -290,7 +303,7 @@ describe("configureSessionEnv", () => {
 			includeInstaller: false,
 			includePrerequisites: false,
 			stepFilter: { login: ["step-1", "step-2"] },
-		});
+		}, deps);
 		expect(proc.env().E2E_STEPS).toBe("login:step-1,step-2");
 	});
 });
@@ -304,7 +317,7 @@ describe("cleanSessionEnv", () => {
 		env.E2E_RUN_PREREQUISITES = "true";
 		env.E2E_STEPS = "login:step-1";
 
-		cleanSessionEnv();
+		cleanSessionEnv(deps);
 
 		expect(env.E2E_JOURNEY).toBeUndefined();
 		expect(env.E2E_SESSION_NAME).toBeUndefined();

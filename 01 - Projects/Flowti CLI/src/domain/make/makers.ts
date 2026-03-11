@@ -5,12 +5,12 @@
  * This file retains only pure utility functions.
  */
 
-import { disk } from "../../infrastructure/filesystem.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 
 /** Scans test directory for numbered journey files and returns the next available number (e.g., "50"). */
-export function getNextTestFileNumber(testDir: string): string {
-	if (!disk.existsSync(testDir)) return "10";
-	const files = disk.readdirSync(testDir).filter((f) => f.match(/^\d+-journey-/));
+export function getNextTestFileNumber(testDir: string, deps: Pick<CliDeps, "disk">): string {
+	if (!deps.disk.existsSync(testDir)) return "10";
+	const files = deps.disk.readdirSync(testDir).filter((f) => f.match(/^\d+-journey-/));
 	if (files.length === 0) return "10";
 	const numbers = files.map((f) => parseInt(f.split("-")[0], 10)).filter((n) => !isNaN(n));
 	const maxNum = Math.max(...numbers);

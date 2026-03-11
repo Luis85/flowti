@@ -39,14 +39,17 @@ export function manifestTemplate(opts: ManifestOptions): string {
 export type ProjectKind = "app" | "plugin" | "cli";
 
 const SHARED_DEPS = {
+	"@typescript-eslint/eslint-plugin": "^8.0.0",
+	"@typescript-eslint/parser": "^8.0.0",
+	"@vitest/coverage-v8": "^4.0.0",
+	"eslint": "^10.0.0",
+	"typedoc": "^0.28.0",
 	"typescript": "^5.9.0",
 	"vitest": "^4.0.0",
 } as const;
 
 const OBSIDIAN_DEPS = {
 	...SHARED_DEPS,
-	"@typescript-eslint/eslint-plugin": "^8.0.0",
-	"@typescript-eslint/parser": "^8.0.0",
 	"builtin-modules": "^5.0.0",
 	"esbuild": "^0.27.0",
 	"obsidian": "latest",
@@ -57,31 +60,35 @@ const OBSIDIAN_DEPS = {
 const SCRIPTS_BY_KIND: Record<ProjectKind, Record<string, string>> = {
 	plugin: {
 		"build": "node esbuild.config.mjs --production",
-		"build:dev": "node esbuild.config.mjs --watch",
-		"test": "vitest run",
-		"check": "tsc -noEmit -skipLibCheck",
+		"build:watch": "node esbuild.config.mjs --watch",
+		"test": "npm run check && vitest run",
 		"lint": "eslint ./src/",
+		"check": "npm run lint && tsc -noEmit -skipLibCheck",
+		"typedoc": "typedoc --options typedoc.json",
 	},
 	app: {
 		"build": "node esbuild.config.mjs --production",
-		"build:dev": "node esbuild.config.mjs --watch",
+		"build:watch": "node esbuild.config.mjs --watch",
 		"test": "npm run check && vitest run",
-		"check": "npm run lint && tsc -noEmit -skipLibCheck",
 		"lint": "eslint ./src/",
+		"check": "npm run lint && tsc -noEmit -skipLibCheck",
+		"typedoc": "typedoc --options typedoc.json",
 	},
 	cli: {
-		"dev": "node --import tsx src/main.ts",
 		"build": "tsc",
-		"test": "vitest run",
-		"check": "tsc --noEmit",
+		"build:watch": "tsc --watch",
+		"test": "npm run check && vitest run",
+		"lint": "eslint ./src/",
+		"check": "npm run lint && tsc --noEmit",
+		"typedoc": "typedoc --options typedoc.json",
 	},
 };
 
 export function packageTemplate(kind: ProjectKind, name: string, id: string): string {
 	const isObsidian = kind !== "cli";
 	const devDeps: Record<string, string> = isObsidian
-		? { ...OBSIDIAN_DEPS, ...(kind === "app" ? { "@vitest/coverage-v8": "^4.0.0" } : {}) }
-		: { "@types/node": "^22.0.0", "tsx": "^4.0.0", ...SHARED_DEPS };
+		? { ...OBSIDIAN_DEPS }
+		: { "@types/node": "^22.0.0", ...SHARED_DEPS };
 
 	return toJson({
 		name: id,

@@ -30,9 +30,10 @@ vi.mock("../../../src/domain/plugins/plugin-loader.js", () => ({
 }));
 vi.mock("../../../src/domain/scaffold/marketplace.js", () => ({
 	discoverLocalDefinitions: vi.fn(() => []),
-	resolveDefinitionsDir: vi.fn((p: string) => p + "/configs/definitions"),
+	resolveDefinitionsDir: vi.fn((_deps: unknown, p: string) => p + "/configs/definitions"),
 }));
 
+import path from "node:path";
 import { loadAiTools } from "../../../src/domain/ai-tools/ai-tool-loader.js";
 import { discoverPluginFiles } from "../../../src/domain/plugins/plugin-loader.js";
 import { discoverLocalDefinitions } from "../../../src/domain/scaffold/marketplace.js";
@@ -44,13 +45,24 @@ import {
 	type ExportBundle,
 } from "../../../src/domain/scaffold/marketplace-export.js";
 
+const testPaths = {
+	join: (...args: string[]) => args.join("/"),
+	basename: (p: string, ext?: string) => { const b = path.basename(p); return ext && b.endsWith(ext) ? b.slice(0, -ext.length) : b; },
+	dirname: (p: string) => path.dirname(p).replace(/\\/g, "/"),
+	resolve: (...args: string[]) => args.join("/"),
+	relative: (_from: string, to: string) => to,
+};
+
+const testClock = { iso: () => "2026-03-09", now: () => new Date(), ms: () => 0, safeIso: () => "2026-03-09" };
+
 beforeEach(() => {
 	vi.clearAllMocks();
 });
 
 describe("exportBundle", () => {
 	it("returns empty bundle when no definitions exist", () => {
-		const bundle = exportBundle("/vault", "/project", createMockFs());
+		const fs = createMockFs();
+		const bundle = exportBundle({ disk: fs, paths: testPaths, clock: testClock }, "/vault", "/project");
 		expect(bundle.version).toBe(1);
 		expect(bundle.vault).toBe("vault");
 		expect(bundle.aiTools).toHaveLength(0);
@@ -74,7 +86,8 @@ describe("exportBundle", () => {
 			},
 		]);
 
-		const bundle = exportBundle("/vault", undefined, createMockFs());
+		const fs = createMockFs();
+		const bundle = exportBundle({ disk: fs, paths: testPaths, clock: testClock }, "/vault", undefined);
 		expect(bundle.aiTools).toHaveLength(1);
 		expect(bundle.aiTools[0].name).toBe("search");
 	});
@@ -89,7 +102,7 @@ describe("exportBundle", () => {
 		});
 		vi.mocked(discoverPluginFiles).mockReturnValue(["/vault/.flowti/plugins/my-plugin/manifest.json"]);
 
-		const bundle = exportBundle("/vault", undefined, fs);
+		const bundle = exportBundle({ disk: fs, paths: testPaths, clock: testClock }, "/vault", undefined);
 		expect(bundle.plugins).toHaveLength(1);
 		expect(bundle.plugins[0].name).toBe("my-plugin");
 	});
@@ -99,7 +112,8 @@ describe("exportBundle", () => {
 			{ raw: { id: "my-scaffold", description: "A scaffold" }, path: "/project/configs/definitions/my-scaffold.json" },
 		]);
 
-		const bundle = exportBundle("/vault", "/project", createMockFs());
+		const fs = createMockFs();
+		const bundle = exportBundle({ disk: fs, paths: testPaths, clock: testClock }, "/vault", "/project");
 		expect(bundle.scaffolds).toHaveLength(1);
 		expect(bundle.scaffolds[0].name).toBe("my-scaffold");
 	});
@@ -117,7 +131,7 @@ describe("saveBundle", () => {
 			scaffolds: [],
 		};
 
-		const result = saveBundle(bundle, "/out/bundle.json", fs);
+		const result = saveBundle({ disk: fs, paths: testPaths }, bundle, "/out/bundle.json");
 		expect(result).toBe("/out/bundle.json");
 		expect(fs.files.has("/out/bundle.json")).toBe(true);
 		const saved = JSON.parse(fs.files.get("/out/bundle.json")!);
@@ -137,23 +151,24 @@ describe("loadBundle", () => {
 		};
 		const fs = createMockFs({ "/bundle.json": JSON.stringify(bundle) });
 
-		const loaded = loadBundle("/bundle.json", fs);
+		const loaded = loadBundle({ disk: fs }, "/bundle.json");
 		expect(loaded).not.toBeNull();
 		expect(loaded!.vault).toBe("test");
 	});
 
 	it("returns null for missing file", () => {
-		expect(loadBundle("/missing.json", createMockFs())).toBeNull();
+		const fs = createMockFs();
+		expect(loadBundle({ disk: fs }, "/missing.json")).toBeNull();
 	});
 
 	it("returns null for invalid version", () => {
 		const fs = createMockFs({ "/bad.json": JSON.stringify({ version: 99 }) });
-		expect(loadBundle("/bad.json", fs)).toBeNull();
+		expect(loadBundle({ disk: fs }, "/bad.json")).toBeNull();
 	});
 
 	it("returns null for corrupt JSON", () => {
 		const fs = createMockFs({ "/bad.json": "not json" });
-		expect(loadBundle("/bad.json", fs)).toBeNull();
+		expect(loadBundle({ disk: fs }, "/bad.json")).toBeNull();
 	});
 });
 
@@ -171,7 +186,7 @@ describe("importAiToolsFromBundle", () => {
 			scaffolds: [],
 		};
 
-		const count = importAiToolsFromBundle(bundle, "/vault", fs);
+		const count = importAiToolsFromBundle({ disk: fs, paths: testPaths }, bundle, "/vault");
 		expect(count).toBe(1);
 		expect(fs.files.has("/vault/.flowti/ai-tools/search.json")).toBe(true);
 	});
@@ -191,7 +206,7 @@ describe("importAiToolsFromBundle", () => {
 			scaffolds: [],
 		};
 
-		const count = importAiToolsFromBundle(bundle, "/vault", fs);
+		const count = importAiToolsFromBundle({ disk: fs, paths: testPaths }, bundle, "/vault");
 		expect(count).toBe(0);
 	});
 });

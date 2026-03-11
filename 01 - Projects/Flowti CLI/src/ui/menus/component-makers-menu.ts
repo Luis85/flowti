@@ -10,6 +10,7 @@
 
 import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
+import { clock } from "../../infrastructure/clock.js";
 import { input } from "../../infrastructure/input.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { log } from "../../infrastructure/logger.js";
@@ -91,7 +92,7 @@ async function makeComponentInteractive(projectRoot: string, def: ComponentDefin
 	if (proceed.toLowerCase() === "n") return;
 
 	const templates = createComponentTemplateRegistry();
-	const plan = buildComponentPlan(vars, def, templates);
+	const plan = buildComponentPlan(vars, def, templates, { clock });
 	const created = writePlan(projectRoot, plan);
 
 	log(`\n  ${GREEN}✓${RESET} Created ${created} files for ${name}.\n`);

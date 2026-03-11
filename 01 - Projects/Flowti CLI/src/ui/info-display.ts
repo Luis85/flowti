@@ -199,6 +199,6 @@ export function showInfo(): void {
 		return;
 	}
 
-	const ctx = initializeProject(projectName);
+	const ctx = initializeProject(projectName, { disk, paths });
 	displayInfoFromContext(ctx);
 }

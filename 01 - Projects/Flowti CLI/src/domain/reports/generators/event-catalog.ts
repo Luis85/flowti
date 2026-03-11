@@ -4,7 +4,7 @@
  * Pure helper functions for event catalog generation.
  */
 
-interface CatalogEntry {
+export interface CatalogEntry {
 	type: string;
 	category: string;
 	description: string;

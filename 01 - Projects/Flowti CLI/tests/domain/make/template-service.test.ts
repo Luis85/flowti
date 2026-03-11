@@ -47,7 +47,7 @@ describe("packageTemplate", () => {
 		const json = JSON.parse(packageTemplate("cli", "My CLI", "my-cli"));
 		expect(json.type).toBe("module");
 		expect(json.main).toBeUndefined();
-		expect(json.devDependencies.tsx).toBeDefined();
+		expect(json.devDependencies.typescript).toBeDefined();
 		expect(json.devDependencies.obsidian).toBeUndefined();
 	});
 });

@@ -23,6 +23,15 @@ vi.mock("../../src/domain/scaffold/marketplace-export.js", () => ({
 	loadBundle: vi.fn(),
 	importAiToolsFromBundle: vi.fn(() => 0),
 }));
+vi.mock("../../src/infrastructure/filesystem.js", () => ({
+	disk: { existsSync: vi.fn(() => false), readFileSync: vi.fn(() => "{}"), readdirSync: vi.fn(() => []), writeFileSync: vi.fn(), mkdirSync: vi.fn() },
+}));
+vi.mock("../../src/infrastructure/paths.js", () => ({
+	paths: { join: vi.fn((...args: string[]) => args.join("/")), dirname: vi.fn((p: string) => p), basename: vi.fn((p: string) => p.split("/").pop() ?? p) },
+}));
+vi.mock("../../src/infrastructure/clock.js", () => ({
+	clock: { iso: vi.fn(() => "2026-01-01T00:00:00.000Z"), now: vi.fn(() => new Date()), ms: vi.fn(() => 0), safeIso: vi.fn(() => "2026-01-01T00-00-00-000Z") },
+}));
 vi.mock("../../src/infrastructure/config.js", () => ({
 	VAULT_ROOT: "/vault",
 	cliConfig: {},
@@ -79,6 +88,7 @@ describe("scaffold.controller", () => {
 
 			expect(scaffold).toHaveBeenCalledOnce();
 			expect(scaffold).toHaveBeenCalledWith(
+				expect.any(Object),
 				expect.objectContaining({ name: "my-app", definitionId: "flowti-project" }),
 			);
 		});
@@ -89,6 +99,7 @@ describe("scaffold.controller", () => {
 			);
 
 			expect(scaffold).toHaveBeenCalledWith(
+				expect.any(Object),
 				expect.objectContaining({ definitionId: "custom-lib" }),
 			);
 		});
@@ -146,6 +157,7 @@ describe("scaffold.controller", () => {
 			);
 
 			expect(scaffold).toHaveBeenCalledWith(
+				expect.any(Object),
 				expect.objectContaining({ author: "Jane", outputDir: "/custom/dir" }),
 			);
 		});

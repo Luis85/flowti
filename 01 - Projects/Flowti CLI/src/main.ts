@@ -49,6 +49,7 @@ import { commands as pluginCmds } from "./controller/plugins.controller.js";
 import { commands as aiToolsCmds } from "./controller/ai-tools.controller.js";
 import { disk } from "./infrastructure/filesystem.js";
 import { shell } from "./infrastructure/shell.js";
+import { paths } from "./infrastructure/paths.js";
 import { VAULT_ROOT } from "./infrastructure/config.js";
 import { getSelectedProject, clearSelectedProject } from "./infrastructure/state.js";
 import { initializeProject } from "./domain/project/project-config.js";
@@ -97,7 +98,7 @@ let pluginsRegistered = false;
 // ── Plugin loading ──────────────────────────────────────────────────
 
 function registerProjectPlugins(_project: ProjectContext): void {
-	const plugins = loadPlugins(VAULT_ROOT, disk, shell);
+	const plugins = loadPlugins({ paths }, VAULT_ROOT, disk, shell);
 	const validPlugins = plugins.filter((p) => p.valid);
 	if (validPlugins.length === 0) return;
 
@@ -143,13 +144,13 @@ function resolveProjectContext(flags: Record<string, string | boolean>): Project
 
 	// Validate explicit --project flag against known projects
 	if (explicit) {
-		const available = listProjects();
+		const available = listProjects({ disk });
 		if (!available.includes(explicit)) {
 			return { ok: false, name: explicit, available };
 		}
 	}
 
-	const project = initializeProject(projectName);
+	const project = initializeProject(projectName, { disk, paths });
 	if (project && !pluginsRegistered) {
 		registerProjectPlugins(project);
 		pluginsRegistered = true;
@@ -214,7 +215,7 @@ async function handleCliArgs(): Promise<boolean> {
 function printProjectBanner(): void {
 	clearScreen();
 	const project = getSelectedProject();
-	const ctx = project ? initializeProject(project) : null;
+	const ctx = project ? initializeProject(project, { disk, paths }) : null;
 	const label = ctx?.config.name ?? project ?? "Unknown";
 
 	log(`  ${DIM}Project:${RESET} ${CYAN}${label}${RESET}`);
@@ -238,7 +239,7 @@ async function projectDetailLoop(): Promise<"start" | "quit"> {
 // ── Entry point ─────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-	checkPrerequisites();
+	checkPrerequisites({ shell, proc });
 
 	if (await handleCliArgs()) return;
 

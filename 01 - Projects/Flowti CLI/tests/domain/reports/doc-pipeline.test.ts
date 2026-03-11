@@ -38,7 +38,6 @@ vi.mock("../../../src/domain/reports/generator-registry.js", () => ({
 	listReferenceIds: () => mockListReferenceIds(),
 }));
 
-import * as shellMod from "../../../src/infrastructure/shell.js";
 import { toDocStep, toReferenceStep, buildDocSteps, runDocPipeline } from "../../../src/domain/reports/doc-pipeline.js";
 import type { DocGenerator } from "../../../src/infrastructure/types.js";
 
@@ -52,16 +51,16 @@ beforeEach(() => {
 
 describe("toDocStep", () => {
 	it("creates a step with normalized ID from label", () => {
-		const step = toDocStep({ label: "Codebase (TypeDoc)", command: "npm run typedoc" });
+		const sh = createMockShell();
+		const step = toDocStep({ label: "Codebase (TypeDoc)", command: "npm run typedoc" }, { shell: sh });
 		expect(step.id).toBe("codebase-typedoc");
 		expect(step.label).toBe("Codebase (TypeDoc)");
 	});
 
 	it("executes the shell command", () => {
 		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
 
-		const step = toDocStep({ label: "TypeDoc", command: "npm run typedoc" });
+		const step = toDocStep({ label: "TypeDoc", command: "npm run typedoc" }, { shell: sh });
 		const result = step.execute({ projectPath: "/project" } as Parameters<typeof step.execute>[0]);
 
 		const calls = sh.calls.filter((c) => c.method === "runCaptureStatus");
@@ -72,9 +71,8 @@ describe("toDocStep", () => {
 
 	it("reports failure when command exits non-zero", () => {
 		const sh = createMockShell({ exitCodes: { "npm run broken": 1 } });
-		Object.assign(shellMod, { shell: sh });
 
-		const step = toDocStep({ label: "Broken", command: "npm run broken" });
+		const step = toDocStep({ label: "Broken", command: "npm run broken" }, { shell: sh });
 		const result = step.execute({ projectPath: "/project" } as Parameters<typeof step.execute>[0]);
 
 		expect((result as { success: boolean }).success).toBe(false);
@@ -122,10 +120,11 @@ describe("toReferenceStep", () => {
 
 describe("buildDocSteps", () => {
 	it("combines external generators and built-in references", () => {
+		const sh = createMockShell();
 		const generators: DocGenerator[] = [
 			{ label: "TypeDoc", command: "npm run typedoc" },
 		];
-		const steps = buildDocSteps(generators);
+		const steps = buildDocSteps(generators, { shell: sh });
 
 		expect(steps).toHaveLength(3); // 1 external + 2 references
 		expect(steps[0].id).toBe("typedoc");
@@ -134,7 +133,8 @@ describe("buildDocSteps", () => {
 	});
 
 	it("returns only references when no external generators", () => {
-		const steps = buildDocSteps([]);
+		const sh = createMockShell();
+		const steps = buildDocSteps([], { shell: sh });
 
 		expect(steps).toHaveLength(2);
 		expect(steps[0].id).toBe("cli-reference");
@@ -142,11 +142,12 @@ describe("buildDocSteps", () => {
 	});
 
 	it("handles multiple external generators", () => {
+		const sh = createMockShell();
 		const generators: DocGenerator[] = [
 			{ label: "TypeDoc", command: "npm run typedoc" },
 			{ label: "API Docs", command: "npm run api-docs" },
 		];
-		const steps = buildDocSteps(generators);
+		const steps = buildDocSteps(generators, { shell: sh });
 
 		expect(steps).toHaveLength(4);
 		expect(steps[0].id).toBe("typedoc");
@@ -157,15 +158,20 @@ describe("buildDocSteps", () => {
 // ── runDocPipeline ───────────────────────────────────────────────────
 
 describe("runDocPipeline", () => {
+	function makeDeps(sh?: ReturnType<typeof createMockShell>) {
+		const shell = sh ?? createMockShell();
+		return { disk: {}, paths: {}, clock: {}, log: () => {}, warn: () => {}, proc: {}, input: {}, shell } as unknown as import("../../../src/infrastructure/deps.js").CliDeps;
+	}
+
 	it("runs all steps and returns pipeline result", async () => {
 		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
+		const deps = makeDeps(sh);
 
 		const generators: DocGenerator[] = [
 			{ label: "TypeDoc", command: "npm run typedoc" },
 		];
 
-		const result = await runDocPipeline(generators, "/project");
+		const result = await runDocPipeline(generators, "/project", deps);
 
 		expect(result.steps).toHaveLength(3);
 		expect(result.passed).toBe(3);
@@ -174,13 +180,13 @@ describe("runDocPipeline", () => {
 
 	it("continues after a step fails", async () => {
 		const sh = createMockShell({ exitCodes: { "npm run broken": 1 } });
-		Object.assign(shellMod, { shell: sh });
+		const deps = makeDeps(sh);
 
 		const generators: DocGenerator[] = [
 			{ label: "Broken", command: "npm run broken" },
 		];
 
-		const result = await runDocPipeline(generators, "/project");
+		const result = await runDocPipeline(generators, "/project", deps);
 
 		expect(result.steps).toHaveLength(3);
 		expect(result.passed).toBe(2);
@@ -188,7 +194,8 @@ describe("runDocPipeline", () => {
 	});
 
 	it("runs with empty generators (references only)", async () => {
-		const result = await runDocPipeline([], "/project");
+		const deps = makeDeps();
+		const result = await runDocPipeline([], "/project", deps);
 
 		expect(result.steps).toHaveLength(2);
 		expect(result.passed).toBe(2);
@@ -196,7 +203,8 @@ describe("runDocPipeline", () => {
 	});
 
 	it("records timing for each step", async () => {
-		const result = await runDocPipeline([], "/project");
+		const deps = makeDeps();
+		const result = await runDocPipeline([], "/project", deps);
 
 		for (const step of result.steps) {
 			expect(step.durationMs).toBeGreaterThan(0);

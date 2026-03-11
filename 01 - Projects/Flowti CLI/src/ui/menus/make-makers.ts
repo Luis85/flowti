@@ -185,7 +185,7 @@ export async function makeJourney(projectRoot: string): Promise<void> {
 	const slug = await input.ask("Journey slug", defaultSlug);
 	const description = await input.ask("Description", `E2E journey for ${name}.`);
 
-	const { config: cfg } = readProjectConfig(projectRoot);
+	const { config: cfg } = readProjectConfig(projectRoot, { disk, paths: nodePaths });
 	const journeysDir = cfg?.review?.journeysDir ?? "tests/e2e/journeys";
 	const journeysPath = nodePaths.resolve(projectRoot, journeysDir);
 	const journeyFile = nodePaths.join(journeysPath, `${slug}.journey`);
@@ -206,7 +206,7 @@ export async function makeJourney(projectRoot: string): Promise<void> {
 
 	log();
 	const testDir = nodePaths.dirname(journeysDir);
-	const testFileNumber = getNextTestFileNumber(nodePaths.resolve(projectRoot, testDir));
+	const testFileNumber = getNextTestFileNumber(nodePaths.resolve(projectRoot, testDir), { disk });
 	const docsDir = nodePaths.join("docs", "journeys", name);
 
 	const files = buildJourneyPlan({ name, slug, description, journeysDir, testDir, testFileNumber, docsDir });

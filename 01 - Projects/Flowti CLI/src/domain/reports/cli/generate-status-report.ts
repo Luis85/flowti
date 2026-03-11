@@ -104,12 +104,12 @@ function renderSectionBodies(doc: Document, sections: ReportSection[], disk: Rep
 	}
 }
 
-function renderBuildFreshness(doc: Document, projectPath: string): void {
-	const { srcDir, binDir } = resolveBuildPaths(projectPath);
+function renderBuildFreshness(doc: Document, projectPath: string, deps: ReportDeps): void {
+	const { srcDir, binDir } = resolveBuildPaths(projectPath, deps);
 
 	doc.heading(2, "Build Freshness").addBlank();
 	try {
-		const freshness = checkFreshness(srcDir, binDir);
+		const freshness = checkFreshness(srcDir, binDir, deps);
 		doc.setFrontmatter("build_fresh", String(!freshness.needsRebuild));
 		if (!freshness.needsRebuild) {
 			doc.callout("tip", "Up to date", ["Build output matches source."]).addBlank();
@@ -137,7 +137,7 @@ function buildStatusReport(sections: ReportSection[], projectName: string, proje
 	doc.addBlank().heading(1, "Project Status Report").addBlank()
 		.text(`Generated: ${now.toISOString().replace("T", " ").substring(0, 19)}`).addBlank();
 	renderSectionBodies(doc, sections, deps.disk);
-	renderBuildFreshness(doc, projectPath);
+	renderBuildFreshness(doc, projectPath, deps);
 
 	return doc.toString();
 }

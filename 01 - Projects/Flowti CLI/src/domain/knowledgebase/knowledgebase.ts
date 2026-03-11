@@ -5,7 +5,8 @@
  */
 
 import { isCliAvailable, isVaultInitialized } from "./vault-service.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 
-export function isKnowledgebaseAvailable(): boolean {
-	return isCliAvailable() && isVaultInitialized();
+export function isKnowledgebaseAvailable(deps: Pick<CliDeps, "disk" | "paths" | "shell">): boolean {
+	return isCliAvailable(deps) && isVaultInitialized(deps);
 }

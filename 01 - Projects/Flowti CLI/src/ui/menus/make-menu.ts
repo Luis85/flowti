@@ -8,6 +8,8 @@
 import { DIM, RESET } from "../../infrastructure/ui.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { input } from "../../infrastructure/input.js";
+import { disk } from "../../infrastructure/filesystem.js";
+import { paths } from "../../infrastructure/paths.js";
 import { showHelp } from "../help.js";
 import { log } from "../../infrastructure/logger.js";
 import type { MenuEntry, MenuResult, MakeTemplateId } from "../../infrastructure/types.js";
@@ -25,7 +27,7 @@ const TEMPLATE_DEFS: Record<MakeTemplateId, { label: string; action: (root: stri
 // ── Interactive menu ────────────────────────────────────────────────
 
 export async function menu(projectRoot: string): Promise<MenuResult> {
-	const available = getAvailableTemplates(projectRoot);
+	const available = getAvailableTemplates(projectRoot, { disk, paths });
 
 	if (available.length === 0) {
 		log(`\n  ${DIM}No Make templates configured for this project.${RESET}\n`);

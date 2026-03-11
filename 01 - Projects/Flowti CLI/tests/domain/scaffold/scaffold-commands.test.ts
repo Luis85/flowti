@@ -39,6 +39,15 @@ vi.mock("../../../src/infrastructure/request-response.js", async () => {
 	return actual;
 });
 
+vi.mock("../../../src/infrastructure/filesystem.js", () => ({
+	disk: { existsSync: vi.fn(() => false), readFileSync: vi.fn(() => "{}"), readdirSync: vi.fn(() => []), writeFileSync: vi.fn(), mkdirSync: vi.fn() },
+}));
+vi.mock("../../../src/infrastructure/paths.js", () => ({
+	paths: { join: vi.fn((...args: string[]) => args.join("/")), dirname: vi.fn((p: string) => p), basename: vi.fn((p: string) => p.split("/").pop() ?? p) },
+}));
+vi.mock("../../../src/infrastructure/clock.js", () => ({
+	clock: { iso: vi.fn(() => "2026-01-01T00:00:00.000Z"), now: vi.fn(() => new Date()), ms: vi.fn(() => 0), safeIso: vi.fn(() => "2026-01-01T00-00-00-000Z") },
+}));
 vi.mock("../../../src/infrastructure/config.js", () => ({
 	VAULT_ROOT: "/mock/vault",
 }));
@@ -112,7 +121,7 @@ describe("scaffold:new", () => {
 	it("calls scaffold and logs success", () => {
 		commands["scaffold:new"]({ name: "my-project" }, []);
 
-		expect(scaffold).toHaveBeenCalledWith(expect.objectContaining({ name: "my-project" }));
+		expect(scaffold).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({ name: "my-project" }));
 		expect(log).toHaveBeenCalledWith(expect.stringContaining("Scaffolded"));
 	});
 
@@ -129,7 +138,7 @@ describe("scaffold:new --dry-run", () => {
 	it("shows file preview without writing", () => {
 		commands["scaffold:new"]({ name: "my-project", "dry-run": true }, []);
 
-		expect(scaffoldDryRun).toHaveBeenCalledWith(expect.objectContaining({ name: "my-project" }));
+		expect(scaffoldDryRun).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({ name: "my-project" }));
 		expect(scaffold).not.toHaveBeenCalled();
 		expect(log).toHaveBeenCalledWith(expect.stringContaining("Dry run"));
 	});

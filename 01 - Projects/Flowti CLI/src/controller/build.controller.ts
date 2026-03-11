@@ -11,8 +11,13 @@ import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler, ProjectContext } from "../infrastructure/types.js";
 import { shell } from "../infrastructure/shell.js";
+import { disk } from "../infrastructure/filesystem.js";
+import { paths } from "../infrastructure/paths.js";
+import { clock } from "../infrastructure/clock.js";
 import { runProjectCi, type CiResult } from "../domain/build/ci-generator.js";
 import { checkFreshness, recordBuild, resolveBuildPaths } from "../domain/build/build-freshness.js";
+
+function freshDeps() { return { disk, paths, clock } as const; }
 import {
 	renderFreshnessCheck, renderBuildAuto, renderBuildRecorded,
 	renderCiResult,
@@ -98,15 +103,15 @@ const actions: Record<string, ControllerAction> = {
 	},
 	"build:check": (req) => {
 		if (!req.project) return;
-		const { srcDir, binDir } = resolveBuildPaths(req.project.path);
-		const check = checkFreshness(srcDir, binDir);
+		const { srcDir, binDir } = resolveBuildPaths(req.project.path, { paths });
+		const check = checkFreshness(srcDir, binDir, { disk, paths });
 
 		return dataResponse(check, renderFreshnessCheck);
 	},
 	"build:auto": (req) => {
 		if (!req.project) return;
-		const { srcDir, binDir } = resolveBuildPaths(req.project.path);
-		const check = checkFreshness(srcDir, binDir);
+		const { srcDir, binDir } = resolveBuildPaths(req.project.path, { paths });
+		const check = checkFreshness(srcDir, binDir, { disk, paths });
 
 		if (!check.needsRebuild) {
 			const model: BuildAutoModel = { check, buildRan: false, manifest: null };
@@ -114,22 +119,22 @@ const actions: Record<string, ControllerAction> = {
 		}
 
 		const exitCode = shell.run(pick(req.project, ["build"], "npm run build"), { cwd: req.project.path, label: "Rebuilding..." });
-		const manifest = exitCode === 0 ? recordBuild(srcDir, binDir) : null;
+		const manifest = exitCode === 0 ? recordBuild(srcDir, binDir, freshDeps()) : null;
 		const model: BuildAutoModel = { check, buildRan: exitCode === 0, manifest };
 
 		return dataResponse(model, renderBuildAuto);
 	},
 	"build:record": (req) => {
 		if (!req.project) return;
-		const { srcDir, binDir } = resolveBuildPaths(req.project.path);
-		const manifest = recordBuild(srcDir, binDir);
+		const { srcDir, binDir } = resolveBuildPaths(req.project.path, { paths });
+		const manifest = recordBuild(srcDir, binDir, freshDeps());
 		const model: BuildRecordedModel = { fileCount: manifest.fileCount, hashPrefix: manifest.sourceHash.slice(0, 12) };
 
 		return dataResponse(model, renderBuildRecorded);
 	},
 	"project:ci": (req) => {
 		if (!req.project) return;
-		const result = runProjectCi(req.project, req.flags["dry-run"] === true);
+		const result = runProjectCi(req.project, req.flags["dry-run"] === true, { disk, paths });
 		return dataResponse<CiResult>(result, renderCiResult);
 	},
 };
