@@ -4,7 +4,7 @@
  * Handles installation, detection, background launching, and vault-aware
  * browser opening for the opt-in Storybook component library.
  *
- * Display concerns delegated to src/ui/storybook-renderers.ts.
+ * Display concerns delegated to StorybookRenderer (injected).
  */
 
 import { disk } from "../../../infrastructure/filesystem.js";
@@ -14,24 +14,8 @@ import { input } from "../../../infrastructure/input.js";
 import { VAULT_ROOT } from "../../../infrastructure/config.js";
 import { isCliAvailable, isVaultInitialized } from "../../knowledgebase/vault-service.js";
 import type { ComponentsConfig, BackgroundProcess } from "../../../infrastructure/types.js";
-import {
-	renderStorybookAlreadyInstalled,
-	renderStorybookInstalling,
-	renderStorybookInstallFailed,
-	renderStorybookInstallSuccess,
-	renderStorybookNotInstalled,
-	renderStorybookAlreadyRunning,
-	renderStorybookStarting,
-	renderStorybookFailedToStart,
-	renderStorybookFailOutput,
-	renderStorybookTimeout,
-	renderStorybookReady,
-	renderStorybookStopped,
-	renderStorybookNotRunning,
-	renderStorybookView,
-	renderStorybookBrowserContext,
-	renderStorybookOpenedIn,
-} from "../../../ui/storybook-renderers.js";
+import type { StorybookRenderer } from "./storybook-renderer.js";
+import { nullStorybookRenderer } from "./storybook-renderer.js";
 
 const DEFAULT_STORYBOOK_DIR = "component-library";
 const DEFAULT_STORYBOOK_PORT = 6006;
@@ -104,15 +88,15 @@ export default preview;
 	disk.writeFileSync(paths.join(configDir, "preview.ts"), previewTs, "utf-8");
 }
 
-export function installStorybook(projectPath: string, projectName: string, config: ComponentsConfig): boolean {
+export function installStorybook(projectPath: string, projectName: string, config: ComponentsConfig, render: StorybookRenderer = nullStorybookRenderer): boolean {
 	const sbDir = resolveStorybookDir(projectPath, config);
 
 	if (isStorybookInstalled(projectPath, config)) {
-		renderStorybookAlreadyInstalled(sbDir);
+		render.alreadyInstalled(sbDir);
 		return true;
 	}
 
-	renderStorybookInstalling(sbDir);
+	render.installing(sbDir);
 
 	// Create directory structure
 	disk.mkdirSync(sbDir, { recursive: true });
@@ -125,11 +109,11 @@ export function installStorybook(projectPath: string, projectName: string, confi
 	// Install dependencies
 	const code = shell.run("npm install", { cwd: sbDir, label: "Installing Storybook dependencies" });
 	if (code !== 0) {
-		renderStorybookInstallFailed();
+		render.installFailed();
 		return false;
 	}
 
-	renderStorybookInstallSuccess(sbDir);
+	render.installSuccess(sbDir);
 	return true;
 }
 
@@ -166,21 +150,21 @@ function openInDefaultBrowser(url: string): void {
 	shell.runSilent(cmd);
 }
 
-function openStorybookUrl(projectPath: string, url: string): void {
+function openStorybookUrl(projectPath: string, url: string, render: StorybookRenderer): void {
 	const inVault = isInsideVault(projectPath);
 	if (!inVault) {
-		renderStorybookBrowserContext("Not inside vault — using default browser");
+		render.browserContext("Not inside vault — using default browser");
 	} else if (!isCliAvailable()) {
-		renderStorybookBrowserContext("Obsidian CLI not available — using default browser");
+		render.browserContext("Obsidian CLI not available — using default browser");
 	} else if (!isVaultInitialized()) {
-		renderStorybookBrowserContext("Vault not initialized — using default browser");
+		render.browserContext("Vault not initialized — using default browser");
 	}
 
 	if (inVault && openInObsidianWebViewer(url)) {
-		renderStorybookOpenedIn("Obsidian Web Viewer");
+		render.openedIn("Obsidian Web Viewer");
 	} else {
 		openInDefaultBrowser(url);
-		renderStorybookOpenedIn("default browser");
+		render.openedIn("default browser");
 	}
 }
 
@@ -203,39 +187,39 @@ export function isStorybookRunning(): boolean {
 	return activeProcess?.running === true;
 }
 
-export function stopStorybook(): void {
+export function stopStorybook(render: StorybookRenderer = nullStorybookRenderer): void {
 	if (activeProcess?.running) {
 		activeProcess.kill();
 		activeProcess = null;
-		renderStorybookStopped();
+		render.stopped();
 	} else {
-		renderStorybookNotRunning();
+		render.notRunning();
 	}
 }
 
 // ── Live output view ────────────────────────────────────────────────
 
-async function enterStorybookView(_projectPath: string, url: string): Promise<void> {
-	renderStorybookView(url);
+async function enterStorybookView(_projectPath: string, url: string, render: StorybookRenderer): Promise<void> {
+	render.view(url);
 	await input.waitForEnter();
-	stopStorybook();
+	stopStorybook(render);
 }
 
 // ── Script wrappers ──────────────────────────────────────────────────
 
-export async function runStorybookDev(projectPath: string, config: ComponentsConfig): Promise<void> {
+export async function runStorybookDev(projectPath: string, config: ComponentsConfig, render: StorybookRenderer = nullStorybookRenderer): Promise<void> {
 	const sbDir = resolveStorybookDir(projectPath, config);
 	if (!isStorybookInstalled(projectPath, config)) {
-		renderStorybookNotInstalled();
+		render.notInstalled();
 		return;
 	}
 
 	if (isStorybookRunning()) {
-		renderStorybookAlreadyRunning();
+		render.alreadyRunning();
 		return;
 	}
 
-	renderStorybookStarting();
+	render.starting();
 
 	// CI=true makes Storybook auto-select the next free port without prompting
 	activeProcess = shell.spawnBackground(
@@ -247,28 +231,28 @@ export async function runStorybookDev(projectPath: string, config: ComponentsCon
 
 	if (!readyLine) {
 		if (!activeProcess.running) {
-			renderStorybookFailedToStart();
+			render.failedToStart();
 			const lines = activeProcess.output;
 			if (lines.length > 0) {
-				renderStorybookFailOutput(lines.slice(-20));
+				render.failOutput(lines.slice(-20));
 			}
 			activeProcess = null;
 		} else {
-			renderStorybookTimeout();
+			render.timeout();
 		}
 		return;
 	}
 
 	const url = extractLocalUrl(activeProcess.output);
-	renderStorybookReady(url);
-	openStorybookUrl(projectPath, url);
-	await enterStorybookView(projectPath, url);
+	render.ready(url);
+	openStorybookUrl(projectPath, url, render);
+	await enterStorybookView(projectPath, url, render);
 }
 
-export function runStorybookBuild(projectPath: string, config: ComponentsConfig): void {
+export function runStorybookBuild(projectPath: string, config: ComponentsConfig, render: StorybookRenderer = nullStorybookRenderer): void {
 	const sbDir = resolveStorybookDir(projectPath, config);
 	if (!isStorybookInstalled(projectPath, config)) {
-		renderStorybookNotInstalled();
+		render.notInstalled();
 		return;
 	}
 	shell.run("npm run build-storybook", { cwd: sbDir, label: "Storybook build" });

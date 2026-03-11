@@ -7,7 +7,7 @@
  */
 
 import type { CommandHandler } from "../infrastructure/types.js";
-import { startMenu } from "../domain/project/project.js";
+import { startMenu } from "../ui/menus/project-menu.js";
 
 export const commands: Record<string, CommandHandler> = {
 	project: async () => { await startMenu(); },

@@ -11,11 +11,13 @@ vi.mock("../../src/infrastructure/paths.js", () => ({
 }));
 vi.mock("../../src/domain/scaffold/scaffold.js", () => ({
 	listDefinitions: vi.fn(),
-	displayMarketplace: vi.fn(),
 	buildMarketplaceListing: vi.fn(),
 	resolveDefinitionsDir: vi.fn(() => "/defs"),
 	BUNDLED_DEFINITIONS: [],
 	getKnownTemplateIds: vi.fn(() => new Set()),
+}));
+vi.mock("../../src/ui/menus/marketplace-menu.js", () => ({
+	displayMarketplace: vi.fn(),
 }));
 vi.mock("../../src/domain/build/build-freshness.js", () => ({
 	checkFreshness: vi.fn(),

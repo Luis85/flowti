@@ -51,7 +51,7 @@ import { runMenu } from "../../../src/infrastructure/menu.js";
 import { readProjectConfig } from "../../../src/domain/project/project-config.js";
 import {
 	menu,
-} from "../../../src/domain/make/make.js";
+} from "../../../src/ui/menus/make-menu.js";
 
 describe("menu", () => {
 	beforeEach(() => {

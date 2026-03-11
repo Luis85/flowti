@@ -20,7 +20,10 @@ import {
 	COMPONENTS_DIR,
 } from "../../domain/make/component/component-list.js";
 import { isStorybookInstalled, installStorybook, runStorybookDev, runStorybookBuild, isStorybookRunning, stopStorybook } from "../../domain/make/component/storybook-service.js";
+import { createStorybookRenderer } from "../storybook-renderer-impl.js";
 import { componentMenu } from "./component-makers-menu.js";
+
+const sbRender = createStorybookRenderer();
 
 // ── Kind labels ─────────────────────────────────────────────────────
 
@@ -124,28 +127,28 @@ export async function componentListMenu(projectRoot: string, componentsConfig?: 
 		{
 			key: "i",
 			label: "Install Storybook",
-			action: () => { installStorybook(projectRoot, projectName, config); },
+			action: () => { installStorybook(projectRoot, projectName, config, sbRender); },
 			disabled: sbInstalled,
 			disabledMessage: "\n  Storybook is already installed.\n",
 		},
 		{
 			key: "s",
 			label: "Start Storybook",
-			action: async () => { await runStorybookDev(projectRoot, config); },
+			action: async () => { await runStorybookDev(projectRoot, config, sbRender); },
 			disabled: () => !sbInstalled() || isStorybookRunning(),
 			disabledMessage: "\n  Storybook not installed or already running.\n",
 		},
 		{
 			key: "x",
 			label: "Stop Storybook",
-			action: () => { stopStorybook(); },
+			action: () => { stopStorybook(sbRender); },
 			disabled: () => !isStorybookRunning(),
 			disabledMessage: "\n  Storybook is not running.\n",
 		},
 		{
 			key: "k",
 			label: "Storybook build",
-			action: () => { runStorybookBuild(projectRoot, config); },
+			action: () => { runStorybookBuild(projectRoot, config, sbRender); },
 			disabled: () => !sbInstalled(),
 			disabledMessage: "\n  Storybook not installed. Use \"Install Storybook\" first.\n",
 		},

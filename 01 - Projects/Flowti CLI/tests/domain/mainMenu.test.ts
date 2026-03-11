@@ -3,7 +3,7 @@ import { createMockShell } from "../mocks/mock-shell.js";
 
 // ── Mocks ────────────────────────────────────────────────────────────
 
-vi.mock("../../src/domain/make/make.js", () => ({
+vi.mock("../../src/ui/menus/make-menu.js", () => ({
 	menu: vi.fn(() => "main"),
 }));
 
@@ -11,11 +11,11 @@ vi.mock("../../src/ui/menus/component-list-menu.js", () => ({
 	componentListMenu: vi.fn(() => "main"),
 }));
 
-vi.mock("../../src/domain/publish/project-publish.js", () => ({
+vi.mock("../../src/ui/menus/publish-menu.js", () => ({
 	publishMenu: vi.fn(() => "main"),
 }));
 
-vi.mock("../../src/domain/review/project-review.js", () => ({
+vi.mock("../../src/ui/menus/review-menu.js", () => ({
 	reviewMenu: vi.fn(() => "main"),
 }));
 
@@ -48,7 +48,7 @@ vi.mock("../../src/domain/health/health.js", () => ({
 	displayHealth: vi.fn(),
 }));
 
-vi.mock("../../src/domain/events/events.js", () => ({
+vi.mock("../../src/ui/menus/event-catalog-menu.js", () => ({
 	eventCatalogMenu: vi.fn(() => "main"),
 }));
 

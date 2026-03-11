@@ -14,4 +14,3 @@
  *   - make-makers.ts     — interactive scaffolding functions
  */
 
-export { menu } from "../../ui/menus/make-menu.js";

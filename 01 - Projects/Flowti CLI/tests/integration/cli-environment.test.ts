@@ -93,7 +93,7 @@ import { input } from "../../src/infrastructure/input.js";
 import { runMenu } from "../../src/infrastructure/menu.js";
 import { setSelectedProject, getSelectedProject, loadState, saveState } from "../../src/infrastructure/state.js";
 import { checkPrerequisites } from "../../src/domain/onboarding/onboarding.js";
-import { listProjects, startMenu } from "../../src/domain/project/project.js";
+import { listProjects, startMenu } from "../../src/ui/menus/project-menu.js";
 import { resolveCommand } from "../../src/infrastructure/dispatch.js";
 import { scaffold as scaffoldProject } from "../../src/domain/scaffold/scaffold.js";
 import {

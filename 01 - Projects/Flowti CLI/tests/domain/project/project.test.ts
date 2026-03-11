@@ -69,7 +69,7 @@ import { input } from "../../../src/infrastructure/input.js";
 import { runMenu } from "../../../src/infrastructure/menu.js";
 import { getSelectedProject, setSelectedProject } from "../../../src/infrastructure/state.js";
 import { scaffold as scaffoldProject } from "../../../src/domain/scaffold/scaffold.js";
-import { listProjects, getProjectPath, startMenu } from "../../../src/domain/project/project.js";
+import { listProjects, getProjectPath, startMenu } from "../../../src/ui/menus/project-menu.js";
 import { commands } from "../../../src/controller/project.controller.js";
 
 function setDisk(mockFs: ReturnType<typeof createMockFs>): void {

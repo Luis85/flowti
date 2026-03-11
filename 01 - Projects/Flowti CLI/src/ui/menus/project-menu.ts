@@ -14,27 +14,13 @@ import { runMenu } from "../../infrastructure/menu.js";
 import { input } from "../../infrastructure/input.js";
 import { RESET, DIM, GREEN, RED, CYAN } from "../../infrastructure/ui.js";
 import { scaffold as scaffoldProject, listDefinitions } from "../../domain/scaffold/scaffold.js";
+import { listProjects, getProjectPath } from "../../domain/project/project.js";
 import type { MenuEntry, MenuResult } from "../../infrastructure/types.js";
 import { log } from "../../infrastructure/logger.js";
 import { pluginsMenu } from "./plugins-menu.js";
 import { aiToolsMenu } from "./ai-tools-menu.js";
 
-// ── Helpers ──────────────────────────────────────────────────────────
-
-export function listProjects(): string[] {
-	try {
-		return disk.readdirSync(PROJECTS_DIR, { withFileTypes: true })
-			.filter((e) => e.isDirectory())
-			.map((e) => e.name)
-			.sort();
-	} catch {
-		return [];
-	}
-}
-
-export function getProjectPath(name: string): string {
-	return paths.join(PROJECTS_DIR, name);
-}
+export { listProjects, getProjectPath };
 
 // ── Open Project ─────────────────────────────────────────────────────
 

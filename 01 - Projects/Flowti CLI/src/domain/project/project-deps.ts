@@ -279,11 +279,3 @@ export function graphStats(graph: DependencyGraph): {
 	};
 }
 
-// Re-export display and command functions from the display module
-export {
-	renderDependencyTree,
-	renderMermaidDeps,
-	displayDependencyGraph,
-	handleProjectDeps,
-	commands,
-} from "../../ui/deps-display.js";

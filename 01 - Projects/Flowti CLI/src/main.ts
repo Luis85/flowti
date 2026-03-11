@@ -25,7 +25,7 @@ import { runMenu } from "./infrastructure/menu.js";
 // ── Domain modules (pure business logic) ────────────────────────────
 
 import { checkPrerequisites } from "./domain/onboarding/onboarding.js";
-import { startMenu, listProjects } from "./domain/project/project.js";
+import { startMenu, listProjects } from "./ui/menus/project-menu.js";
 import { loadPlugins, detectCollisions } from "./domain/plugins/plugins.js";
 
 // ── Controllers (command handlers) ──────────────────────────────────

@@ -8,7 +8,8 @@ import { paths } from "../infrastructure/paths.js";
 import { log } from "../infrastructure/logger.js";
 import { RESET, DIM, GREEN, RED, CYAN } from "../infrastructure/ui.js";
 import type { MenuEntry, ProjectConfig } from "../infrastructure/types.js";
-import { listDefinitions, displayMarketplace, buildMarketplaceListing, resolveDefinitionsDir, BUNDLED_DEFINITIONS, getKnownTemplateIds } from "../domain/scaffold/scaffold.js";
+import { listDefinitions, buildMarketplaceListing, resolveDefinitionsDir, BUNDLED_DEFINITIONS, getKnownTemplateIds } from "../domain/scaffold/scaffold.js";
+import { displayMarketplace } from "./menus/marketplace-menu.js";
 import { checkFreshness, resolveBuildPaths } from "../domain/build/build-freshness.js";
 
 export function buildExportSubmenu(

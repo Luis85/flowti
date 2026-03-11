@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { BackgroundProcess } from "../../../../src/infrastructure/types.js";
+import type { StorybookRenderer } from "../../../../src/domain/make/component/storybook-renderer.js";
+import { nullStorybookRenderer } from "../../../../src/domain/make/component/storybook-renderer.js";
 
 function createMockBackgroundProcess(overrides?: Partial<BackgroundProcess>): BackgroundProcess {
 	return {
@@ -9,6 +11,27 @@ function createMockBackgroundProcess(overrides?: Partial<BackgroundProcess>): Ba
 		onOutput: vi.fn(() => vi.fn()),
 		waitForOutput: vi.fn().mockResolvedValue("Storybook ready!"),
 		...overrides,
+	};
+}
+
+function createMockRenderer(): StorybookRenderer & Record<string, ReturnType<typeof vi.fn>> {
+	return {
+		alreadyInstalled: vi.fn(),
+		installing: vi.fn(),
+		installFailed: vi.fn(),
+		installSuccess: vi.fn(),
+		notInstalled: vi.fn(),
+		alreadyRunning: vi.fn(),
+		starting: vi.fn(),
+		failedToStart: vi.fn(),
+		failOutput: vi.fn(),
+		timeout: vi.fn(),
+		ready: vi.fn(),
+		stopped: vi.fn(),
+		notRunning: vi.fn(),
+		view: vi.fn(),
+		browserContext: vi.fn(),
+		openedIn: vi.fn(),
 	};
 }
 
@@ -49,25 +72,6 @@ vi.mock("../../../../src/infrastructure/config.js", () => ({
 vi.mock("../../../../src/domain/knowledgebase/vault-service.js", () => ({
 	isCliAvailable: vi.fn(() => false),
 	isVaultInitialized: vi.fn(() => false),
-}));
-
-vi.mock("../../../../src/ui/storybook-renderers.js", () => ({
-	renderStorybookAlreadyInstalled: vi.fn(),
-	renderStorybookInstalling: vi.fn(),
-	renderStorybookInstallFailed: vi.fn(),
-	renderStorybookInstallSuccess: vi.fn(),
-	renderStorybookNotInstalled: vi.fn(),
-	renderStorybookAlreadyRunning: vi.fn(),
-	renderStorybookStarting: vi.fn(),
-	renderStorybookFailedToStart: vi.fn(),
-	renderStorybookFailOutput: vi.fn(),
-	renderStorybookTimeout: vi.fn(),
-	renderStorybookReady: vi.fn(),
-	renderStorybookStopped: vi.fn(),
-	renderStorybookNotRunning: vi.fn(),
-	renderStorybookView: vi.fn(),
-	renderStorybookBrowserContext: vi.fn(),
-	renderStorybookOpenedIn: vi.fn(),
 }));
 
 import {
@@ -188,6 +192,25 @@ describe("installStorybook", () => {
 		expect(content.scripts["build-storybook"]).toBeDefined();
 		expect(content.devDependencies.storybook).toBe("^10.0.0");
 	});
+
+	it("calls renderer on install success", () => {
+		mockShell.run.mockReturnValue(0);
+		const render = createMockRenderer();
+
+		installStorybook("/project", "my-project", {}, render);
+
+		expect(render.installing).toHaveBeenCalled();
+		expect(render.installSuccess).toHaveBeenCalled();
+	});
+
+	it("calls renderer on install failure", () => {
+		mockShell.run.mockReturnValue(1);
+		const render = createMockRenderer();
+
+		installStorybook("/project", "my-project", {}, render);
+
+		expect(render.installFailed).toHaveBeenCalled();
+	});
 });
 
 describe("extractLocalUrl", () => {
@@ -238,10 +261,12 @@ describe("runStorybookDev", () => {
 		);
 	});
 
-	it("warns when not installed", async () => {
-		await runStorybookDev("/project", {});
+	it("calls notInstalled renderer when not installed", async () => {
+		const render = createMockRenderer();
+		await runStorybookDev("/project", {}, render);
 
 		expect(mockShell.spawnBackground).not.toHaveBeenCalled();
+		expect(render.notInstalled).toHaveBeenCalled();
 	});
 
 	it("waits for ready signal before opening browser", async () => {
@@ -292,14 +317,13 @@ describe("runStorybookDev", () => {
 			waitForOutput: vi.fn().mockResolvedValue(null),
 		});
 		mockShell.spawnBackground.mockReturnValue(mockProcess);
+		const render = createMockRenderer();
 
-		await runStorybookDev("/project", {});
+		await runStorybookDev("/project", {}, render);
 
 		expect(mockShell.runSilent).not.toHaveBeenCalled();
-		// Should call the failure renderers
-		const { renderStorybookFailedToStart, renderStorybookFailOutput } = await import("../../../../src/ui/storybook-renderers.js");
-		expect(vi.mocked(renderStorybookFailedToStart)).toHaveBeenCalled();
-		expect(vi.mocked(renderStorybookFailOutput)).toHaveBeenCalled();
+		expect(render.failedToStart).toHaveBeenCalled();
+		expect(render.failOutput).toHaveBeenCalled();
 	});
 
 	it("stops storybook when user presses Enter in live view", async () => {
@@ -357,9 +381,11 @@ describe("runStorybookBuild", () => {
 		}));
 	});
 
-	it("warns when not installed", () => {
-		runStorybookBuild("/project", {});
+	it("calls notInstalled renderer when not installed", () => {
+		const render = createMockRenderer();
+		runStorybookBuild("/project", {}, render);
 
 		expect(mockShell.run).not.toHaveBeenCalled();
+		expect(render.notInstalled).toHaveBeenCalled();
 	});
 });

@@ -70,17 +70,19 @@ import {
 	detectConfigDeps,
 	detectCycles,
 	buildDependencyGraph,
-	renderDependencyTree,
-	renderMermaidDeps,
-	displayDependencyGraph,
-	handleProjectDeps,
 	findReverseDeps,
 	findDirectDeps,
 	filterByType,
 	graphStats,
-	commands,
 } from "../../../src/domain/project/project-deps.js";
 import type { ProjectDependency, DependencyGraph } from "../../../src/domain/project/project-deps.js";
+import {
+	renderDependencyTree,
+	renderMermaidDeps,
+	displayDependencyGraph,
+	handleProjectDeps,
+	commands,
+} from "../../../src/ui/deps-display.js";
 
 function setDisk(mockFs: ReturnType<typeof createMockFs>): void {
 	Object.assign(fsMod, { disk: mockFs });

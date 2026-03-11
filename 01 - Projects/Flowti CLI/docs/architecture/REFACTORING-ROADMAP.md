@@ -11,16 +11,23 @@ Refactor the Flowti CLI into a fully conformant MVC+DDD application with depende
 
 ---
 
-## Current State
+## Current State (updated 2026-03-11)
 
 | Metric | Value |
 |--------|-------|
-| Controllers | 15 (12 using adapt() pattern, 3 legacy) |
-| Domain files importing UI | 20+ |
-| Domain files importing logger | 2 |
+| Controllers | 15 (13 using adapt() pattern, 2 interactive-only) |
+| Domain files importing UI | **0** |
+| Domain files importing logger | **0** |
+| Domain console.log (excl. templates) | **0** |
 | Infrastructure singletons | 9 (disk, shell, paths, clock, proc, log, input, ui, config) |
-| Tests | 3,481 passing (209 suites) |
+| Tests | 3,498 passing (211 suites) |
 | Generators registered | 15 (9 reports + 6 references) |
+
+### Completed Phases
+- **Phase 0**: CliDeps interface, createDefaultDeps(), PipelineContext.deps
+- **Phase 1**: E2ERenderer interface, all E2E domain files purified
+- **Phase 2**: MakeComponentOutcome/EditComponentOutcome types, StorybookRenderer, make.controller uses adapt()
+- **Phase 3**: All 11 domain barrel re-exports removed, listProjects/getProjectPath moved to domain
 
 ---
 
