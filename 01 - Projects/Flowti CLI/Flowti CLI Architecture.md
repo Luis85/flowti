@@ -2,15 +2,15 @@
 type: Architecture
 domain: CLI
 title: Flowti CLI — Architecture Document
-version: 20
+version: 21
 created: 2026-03-07
-updated: 2026-03-10
+updated: 2026-03-11
 status: living-document
 ---
 
 # Flowti CLI — Architecture Document
 
-> Living document. Reflects the current implementation (status quo) and the target architecture derived from PRD v8. Updated as the codebase evolves.
+> Living document. Reflects the current implementation (status quo) and the target architecture derived from PRD v13. Updated as the codebase evolves.
 
 ---
 
@@ -18,7 +18,7 @@ status: living-document
 
 The Flowti CLI is a **definition-driven project orchestrator** that ships as a self-contained Node.js binary. It manages multi-project development workflows — scaffolding, building, testing, reviewing, publishing, and reporting — from a single interactive menu or via non-interactive commands for AI agent tool use.
 
-**Scale**: 281 source files, 152 test files (2,592 tests, 147 suites), 18 domain modules, 29 infrastructure modules, 15 controllers, 30 UI view files. Zero production dependencies — runs on Node.js built-ins only.
+**Scale**: 282 source files, 170 test files (3,608 tests, 221 suites), 18 domain modules, 29 infrastructure modules, 15 controllers, 30 UI view files, 4 scaffold definitions. Zero production dependencies — runs on Node.js built-ins only.
 
 ---
 
@@ -308,7 +308,7 @@ ScaffoldDefinition (JSON, bundled)
 Pipeline:  prompts → variables → buildScaffoldPlan() → FileEntry[] → fileWriter
 ```
 
-Currently 1 bundled definition: `flowti-project.json`.
+4 bundled definitions: `flowti-project.json` (TypeScript project), `flowti-bare.json` (minimal TypeScript library), `flowti-cli.json` (CLI tool with esbuild + arg parser), `flowti-obsidian-plugin.json` (Obsidian plugin with manifest, styles, CJS externals). 5 template registries: shared (7), project (2), bare (2), cli (2), plugin (6).
 
 #### Component Definitions (8 kinds)
 
@@ -1379,7 +1379,7 @@ Audit complete. All domain files correctly import shared types from `infrastruct
 | `infrastructure/types.ts` | All cross-cutting type definitions |
 | `infrastructure/config.ts` | Vault root + CLI project path resolution |
 | `infrastructure/filesystem.ts` | `IFileSystem` abstraction (`disk` singleton) |
-| `infrastructure/shell.ts` | Shell execution (`run`, `runSilent`, `runCaptureStatus`) |
+| `infrastructure/shell.ts` | Shell execution (`run`, `runSilent`, `runCaptureStatus`, `runAsync`, `runParallel`) |
 | `infrastructure/state.ts` | Persistent state (`.flowti/var/state.json`) |
 | `infrastructure/document.ts` | Fluent Markdown builder — 4 output modes: `Document` (compose), `toString()`, `toLines()`, `save()` |
 | `infrastructure/frontmatter.ts` | Single source of truth for YAML frontmatter — parse (typed/string/split) + serialize (`joinFrontmatter`) |
@@ -1402,10 +1402,10 @@ Audit complete. All domain files correctly import shared types from `infrastruct
 |--------|-----------|----------------|
 | Project | `project.ts`, `project-config.ts`, `project-deps.ts`, `config-deep-validation.ts` | Project selection, initialization, auto-scaffolding, cross-project dependency detection, filesystem-aware config validation |
 | Scaffold | `scaffold-service.ts`, `scaffold-plan.ts`, `scaffold-schema.ts`, `marketplace.ts` | Project creation from JSON definitions, local definition marketplace |
-| Make | `MakeService.ts`, `makers.ts`, `make-commands.ts` | In-project scaffolding (journey, component) |
+| Make | `make-service.ts`, `makers.ts`, `make-commands.ts` | In-project scaffolding (journey, component) |
 | Component | `component-registry.ts`, `component-plan.ts`, `component-types.ts`, `component-list.ts`, `component-edit.ts`, `storybook-service.ts` | 8-kind component system with properties, actions, variants, states (Storybook-compatible), C4 hierarchy, post-creation editing, opt-in Storybook |
-| Reports | `report-runner.ts`, `generator-registry.ts` (6 reports), `reference-registry.ts` (2 refs), `report-archive.ts` | Resilient report generation, reference documents, archive browsing |
-| Review | `project-review.ts`, `E2EService.ts` | E2E test execution, test vault management |
+| Reports | `pipeline/report-runner.ts`, `generator-registry.ts` (6 reports + 2 refs), `pipeline/report-pipeline.ts`, `export/html-export.ts`, `export/report-archive.ts` | Resilient report generation, reference documents, archive, HTML export, diff. Organized: cli/, generators/, analysis/, export/, pipeline/ |
+| Review | `project-review.ts`, `e2e-service.ts` | E2E test execution, test vault management |
 | Publish | `project-publish.ts` | Gated build → test → distribute pipeline |
 | Events | `event-catalog.ts`, `event-commands.ts`, `event-payload.ts`, `event-versioning.ts`, `event-flow.ts`, `event-contracts.ts` | Event documentation, payload editing, versioning, flow visualization, contract parsing/validation |
 | Build | `build.ts` | Build command dispatch |

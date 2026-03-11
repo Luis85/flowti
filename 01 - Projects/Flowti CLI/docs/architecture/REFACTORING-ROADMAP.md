@@ -11,7 +11,7 @@ Refactor the Flowti CLI into a fully conformant MVC+DDD application with depende
 
 ---
 
-## Current State (updated 2026-03-11)
+## Current State (updated 2026-03-12)
 
 | Metric | Value |
 |--------|-------|
@@ -22,8 +22,11 @@ Refactor the Flowti CLI into a fully conformant MVC+DDD application with depende
 | Domain files importing logger | **0** |
 | Domain console.log (excl. templates) | **0** |
 | Infrastructure singletons | 9 (disk, shell, paths, clock, proc, log, input, ui, config) |
-| Tests | 3,492 passing (210 suites) |
+| Tests | 3,608 passing (221 suites) |
 | Generators registered | 15 (9 reports + 6 references) |
+| Scaffold definitions | 4 (project, bare/library, cli, obsidian-plugin) |
+| IShell async methods | runAsync, runParallel |
+| Reports domain | 5 sub-dirs (cli, generators, analysis, export, pipeline) |
 
 ### Completed Phases
 - **Phase 0**: CliDeps interface, createDefaultDeps(), PipelineContext.deps
@@ -550,6 +553,6 @@ node .flowti/bin --format=json report:test
 3. Every controller uses `adapt()` + `dataResponse()`
 4. Every domain function accepts a `deps` parameter
 5. `--format=json` works on every command
-6. 3,481+ tests passing
+6. 3,608+ tests passing
 7. Binary builds and starts without errors
 8. AI agent can invoke any command and parse the JSON response

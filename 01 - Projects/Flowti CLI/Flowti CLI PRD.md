@@ -2,10 +2,10 @@
 domain: Flowti
 type: ProductRequirementsDocument
 stage: active
-version: 12
+version: 13
 maturity: L2
 created: 2026-03-07
-updated: 2026-03-10
+updated: 2026-03-11
 tags:
   - cli
   - developer-experience
@@ -67,7 +67,7 @@ The CLI manages four kinds of projects. Each has a dedicated scaffold definition
 
 | Type | Scaffold ID | Description |
 |------|-------------|-------------|
-| **Project** | `flowti-bare` | Bare markdown project — `README.md`, `docs/`, `flowti.config.json`. No code, no tooling. For documentation, planning, or knowledge projects. |
+| **Library** | `flowti-bare` | Minimal TypeScript library — `src/index.ts`, `tests/`, `configs/`, tsc-only (no bundler). For utility packages and shared modules. |
 | **TypeScript Project** | `flowti-project` | Ready-to-develop TypeScript project with strict mode, Vitest, esbuild, ESLint pre-configured. |
 | **TypeScript CLI** | `flowti-cli` | TypeScript CLI tool with `#!/usr/bin/env node` banner, arg parser, `bin` field in package.json. |
 | **Obsidian Plugin** | `flowti-obsidian-plugin` | Obsidian plugin skeleton with `manifest.json`, `styles.css`, esbuild with Obsidian externals, `main.ts extends Plugin`. |
@@ -272,7 +272,7 @@ Each project stores its config in `configs/flowti.config.json`. The `ProjectConf
 }
 ```
 
-When a project is selected for the first time, the CLI auto-scaffolds this config from `package.json` scripts. Config is validated with clear error messages via schema validation (45 rules + filesystem-aware deep validation).
+When a project is selected for the first time, the CLI auto-scaffolds this config from `package.json` scripts. Config is validated with clear error messages via `config-schema.ts` (45+ rules) and `config-deep-validation.ts` (filesystem-aware deep validation).
 
 ---
 
@@ -325,13 +325,13 @@ Flowti CLI occupies a unique niche: **vault-native project management CLI**. No 
 
 ---
 
-## 12. Current State (2026-03-10)
+## 12. Current State (2026-03-11)
 
 | Metric | Value |
 |--------|-------|
-| Source files | 281 |
-| Test files | 152 (147 suites) |
-| Tests passing | 2,592 |
+| Source files | 282 |
+| Test files | 170 (221 suites) |
+| Tests passing | 3,608 |
 | Source LOC | ~62,000 |
 | Domain modules | 18 |
 | Controllers | 15 |
@@ -339,10 +339,10 @@ Flowti CLI occupies a unique niche: **vault-native project management CLI**. No 
 | Infrastructure modules | 29 |
 | Non-interactive commands | 84 |
 | Runtime dependencies | 0 |
-| Scaffold definitions | 1 (3 more planned) |
+| Scaffold definitions | 4 (project, bare/library, cli, obsidian-plugin) |
 | Report generators | 8 (6 report + 2 reference) |
 | E2E environment providers | 5 |
-| Technical debt items | 28 (9 resolved) |
+| Technical debt items | 28 (13 resolved) |
 
 ---
 
@@ -350,6 +350,6 @@ Flowti CLI occupies a unique niche: **vault-native project management CLI**. No 
 
 - **[[Product Backlog]]** — Feature requirements, acceptance criteria, and improvements
 - **[[Development Roadmap]]** — Phased execution plan (Phases 5–9)
-- **[[Tech Debt]]** — Technical debt register (28 items, 108h estimated)
+- **[[Tech Debt]]** — Technical debt register (28 items, 13 resolved)
 - **[[Plugin Integration Analysis]]** — Gap analysis for Flowti Plugin integration
 - **[[01 - Projects/Flowti CLI/README|README]]** — Quick start, architecture overview, project structure

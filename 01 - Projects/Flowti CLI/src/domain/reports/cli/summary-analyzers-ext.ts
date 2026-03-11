@@ -14,7 +14,7 @@ import type {
 	LintResult,
 	TypeDocResult,
 } from "./summary-types.js";
-import type { GeneratorResult } from "../report-runner.js";
+import type { GeneratorResult } from "../pipeline/report-runner.js";
 import {
 	fm,
 	analyzeTests,
