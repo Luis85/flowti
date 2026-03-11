@@ -52,9 +52,6 @@ export function checkPrerequisites(e2e: E2EPaths): PrerequisiteResults {
 	return results;
 }
 
-/** @deprecated Use `printPrerequisites` from `ui/e2e/e2e-formatters.ts` instead. */
-export { printPrerequisites } from "../../ui/e2e/e2e-formatters.js";
-
 /** Validates prerequisites and exits if critical ones are missing. */
 export function validatePrerequisites(prereqResults: PrerequisiteResults, log: (msg: string) => void = () => {}): void {
 	if (!prereqResults.vaultExists) {

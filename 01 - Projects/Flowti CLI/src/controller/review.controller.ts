@@ -16,6 +16,7 @@ import { resolveTestVaultRoot } from "../infrastructure/test-vault.js";
 import { analyzeWorkingTree, analyzeBranchDiff } from "../domain/review/change-analysis.js";
 import { renderChangeAnalysis, renderReviewClean, type ChangeAnalysisModel, type ReviewCleanModel } from "../ui/review-display.js";
 import { startInteractiveSession, runE2ESuite } from "../domain/review/run-e2e.js";
+import { interactiveSession } from "../ui/e2e/e2e-interactive.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -66,7 +67,7 @@ const actions: Record<string, ControllerAction> = {
 		await runE2ESuite(journeyFilter);
 	},
 	"review:e2e:list": async () => {
-		await startInteractiveSession();
+		await startInteractiveSession(interactiveSession);
 	},
 	"review:changes": (req) => {
 		if (!req.project) return;

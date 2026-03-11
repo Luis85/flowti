@@ -12,7 +12,6 @@ import type { ReviewConfig } from "../../infrastructure/types.js";
 import { resolveE2EPaths, type E2EPaths } from "./e2e-paths.js";
 import { readProjectConfig } from "../project/project-config.js";
 import { buildSuitePipeline } from "./pipelines/suite-pipeline.js";
-import { interactiveSession } from "../../ui/e2e/e2e-interactive.js";
 
 // ── Lazy singleton (backward compat for script entry point) ─────────
 
@@ -40,8 +39,8 @@ export function getE2EPaths(): E2EPaths {
 // ── Entry points ────────────────────────────────────────────────────
 
 /** Run the interactive E2E session (--list mode). */
-export async function startInteractiveSession(e2e?: E2EPaths): Promise<void> {
-	await interactiveSession(e2e ?? defaultE2E());
+export async function startInteractiveSession(runInteractive: (e2e: E2EPaths) => Promise<void>, e2e?: E2EPaths): Promise<void> {
+	await runInteractive(e2e ?? defaultE2E());
 }
 
 /** Run a non-interactive E2E suite with optional journey filter. */

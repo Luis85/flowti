@@ -11,18 +11,19 @@ vi.mock("../../../../src/domain/e2e/e2e-prerequisites.js", () => ({
 	})),
 	validatePrerequisites: vi.fn(),
 }));
-vi.mock("../../../../src/ui/e2e/e2e-formatters.js", () => ({
-	printPrerequisites: vi.fn(),
-}));
-
 import {
 	checkPrerequisites,
 	validatePrerequisites,
 } from "../../../../src/domain/e2e/e2e-prerequisites.js";
-import { printPrerequisites } from "../../../../src/ui/e2e/e2e-formatters.js";
 import { createPrerequisiteStep } from "../../../../src/domain/e2e/steps/prerequisite-step.js";
 import type { E2EPaths } from "../../../../src/domain/e2e/e2e-paths.js";
+import type { E2ERenderer } from "../../../../src/domain/e2e/e2e-renderer.js";
+import { nullRenderer } from "../../../../src/domain/e2e/e2e-renderer.js";
 import type { PipelineContext } from "../../../../src/infrastructure/pipeline/pipeline-types.js";
+
+function createMockRenderer(): E2ERenderer & { prerequisites: ReturnType<typeof vi.fn> } {
+	return { ...nullRenderer, prerequisites: vi.fn() };
+}
 
 const fakeE2e: E2EPaths = {
 	projectRoot: "/dev/flowti",
@@ -78,13 +79,14 @@ describe("createPrerequisiteStep", () => {
 		expect(checkPrerequisites).toHaveBeenCalledWith(fakeE2e);
 	});
 
-	it("calls printPrerequisites with results and e2e paths", () => {
-		const step = createPrerequisiteStep(fakeE2e);
+	it("calls renderer.prerequisites with results and e2e paths", () => {
+		const renderer = createMockRenderer();
+		const step = createPrerequisiteStep(fakeE2e, renderer);
 		const ctx = createMockContext();
 
 		step.execute(ctx);
 
-		expect(printPrerequisites).toHaveBeenCalledWith(
+		expect(renderer.prerequisites).toHaveBeenCalledWith(
 			expect.objectContaining({ vaultExists: true }),
 			fakeE2e,
 		);

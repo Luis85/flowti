@@ -82,16 +82,18 @@ describe("E2EService", () => {
 			vi.clearAllMocks();
 		});
 
-		it("calls interactiveSession with provided e2e paths", async () => {
+		it("calls runInteractive with provided e2e paths", async () => {
 			const e2e = initE2EPaths("/my/project");
-			await startInteractiveSession(e2e);
-			expect(interactiveSession).toHaveBeenCalledWith(e2e);
+			const mockRun = vi.fn(async () => {});
+			await startInteractiveSession(mockRun, e2e);
+			expect(mockRun).toHaveBeenCalledWith(e2e);
 		});
 
 		it("uses default e2e paths when none provided", async () => {
 			initE2EPaths("/default/project");
-			await startInteractiveSession();
-			expect(interactiveSession).toHaveBeenCalledWith(
+			const mockRun = vi.fn(async () => {});
+			await startInteractiveSession(mockRun);
+			expect(mockRun).toHaveBeenCalledWith(
 				expect.objectContaining({ projectRoot: "/default/project" }),
 			);
 		});

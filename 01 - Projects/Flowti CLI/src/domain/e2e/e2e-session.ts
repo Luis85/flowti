@@ -9,7 +9,8 @@ import { input } from "../../infrastructure/input.js";
 import { clock } from "../../infrastructure/clock.js";
 import type { E2EPaths } from "./e2e-paths.js";
 import type { JourneyEntry, SessionConfig, PrerequisiteResults } from "./e2e-types.js";
-import { printJourneyTable } from "../../ui/e2e/e2e-formatters.js";
+import type { E2ERenderer } from "./e2e-renderer.js";
+import { nullRenderer } from "./e2e-renderer.js";
 
 // ── Journey loading ─────────────────────────────────────────────────
 
@@ -31,12 +32,7 @@ export function loadJourneyEntries(e2e: E2EPaths): JourneyEntry[] {
 	});
 }
 
-/** @deprecated Use `printJourneyTable` from `ui/e2e/e2e-formatters.ts` instead. */
-export { printJourneyTable } from "../../ui/e2e/e2e-formatters.js";
-
 // ── Step filtering ──────────────────────────────────────────────────
-
-import { printStepTable } from "../../ui/e2e/e2e-formatters.js";
 
 function parseStepInput(input: string, steps: Array<Record<string, unknown>>): string[] {
 	const ids: string[] = [];
@@ -64,7 +60,7 @@ function resolveStepFilter(input: string, steps: Array<Record<string, unknown>>)
 	return ids.length > 0 ? ids : "all";
 }
 
-async function promptStepFilter(selectedSlugs: string[], e2e: E2EPaths, log: (msg: string) => void = () => {}): Promise<Record<string, "all" | string[]>> {
+async function promptStepFilter(selectedSlugs: string[], e2e: E2EPaths, render: E2ERenderer, log: (msg: string) => void = () => {}): Promise<Record<string, "all" | string[]>> {
 	const stepFilter: Record<string, "all" | string[]> = {};
 
 	for (const slug of selectedSlugs) {
@@ -81,7 +77,7 @@ async function promptStepFilter(selectedSlugs: string[], e2e: E2EPaths, log: (ms
 			continue;
 		}
 
-		printStepTable(def, steps);
+		render.stepTable(def, steps);
 		const stepInput = await input.ask('Steps (numbers/ranges, "all", or "none")', "all");
 		stepFilter[slug] = resolveStepFilter(stepInput, steps);
 
@@ -98,8 +94,8 @@ async function promptStepFilter(selectedSlugs: string[], e2e: E2EPaths, log: (ms
 
 // ── Session config prompt ───────────────────────────────────────────
 
-export async function promptSessionConfig(entries: JourneyEntry[], prereqResults: PrerequisiteResults, e2e: E2EPaths, log: (msg: string) => void = () => {}): Promise<SessionConfig> {
-	printJourneyTable(entries);
+export async function promptSessionConfig(entries: JourneyEntry[], prereqResults: PrerequisiteResults, e2e: E2EPaths, render: E2ERenderer = nullRenderer, log: (msg: string) => void = () => {}): Promise<SessionConfig> {
+	render.journeyTable(entries);
 	const journeyInput = await input.ask('Enter journey numbers (e.g. "2" or "1 3 4") or "all"');
 
 	if (!journeyInput) {
@@ -119,7 +115,7 @@ export async function promptSessionConfig(entries: JourneyEntry[], prereqResults
 		selectedSlugs = indices.map((i) => entries[i - 1].slug);
 	}
 
-	const stepFilter = await promptStepFilter(selectedSlugs, e2e, log);
+	const stepFilter = await promptStepFilter(selectedSlugs, e2e, render, log);
 
 	const timestamp = clock.safeIso().slice(0, 19);
 	const journeySuffix = selectedSlugs.length === entries.length
@@ -198,11 +194,5 @@ export function resolveJourneyNames(slugs: string[], entries: JourneyEntry[]): s
 	});
 }
 
-/** @deprecated Use `printExecutionBanner` from `ui/e2e/e2e-formatters.ts` instead. */
-export { printExecutionBanner } from "../../ui/e2e/e2e-formatters.js";
-
 // ── Re-export session note functions ─────────────────────────────────
 export { buildSessionFrontmatter, buildPrereqRows, writeSessionNote } from "./e2e-session-note.js";
-
-/** @deprecated Use `printSessionSummary` from `ui/e2e/e2e-formatters.ts` instead. */
-export { printSessionSummary as printSummary } from "../../ui/e2e/e2e-formatters.js";

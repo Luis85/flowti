@@ -8,7 +8,8 @@ import type { SessionConfig, JourneyEntry, PrerequisiteResults, TestStats } from
 import { writeSessionNote } from "../e2e-session-note.js";
 import { readTestStats } from "../e2e-build.js";
 import { resolveJourneyNames } from "../e2e-session.js";
-import { printSessionSummary } from "../../../ui/e2e/e2e-formatters.js";
+import type { E2ERenderer } from "../e2e-renderer.js";
+import { nullRenderer } from "../e2e-renderer.js";
 
 export interface SessionNoteStepOptions {
 	config: SessionConfig;
@@ -17,7 +18,7 @@ export interface SessionNoteStepOptions {
 	startTime: number;
 }
 
-export function createSessionNoteStep(e2e: E2EPaths, opts: SessionNoteStepOptions): PipelineStep {
+export function createSessionNoteStep(e2e: E2EPaths, opts: SessionNoteStepOptions, render: E2ERenderer = nullRenderer): PipelineStep {
 	return {
 		id: "e2e:session-note",
 		label: "Session Note",
@@ -28,7 +29,7 @@ export function createSessionNoteStep(e2e: E2EPaths, opts: SessionNoteStepOption
 			const stats: TestStats = readTestStats(e2e);
 			const selectedNames = resolveJourneyNames(opts.config.selectedSlugs, opts.entries);
 
-			printSessionSummary(opts.config.sessionName, selectedNames, opts.startTime, stats);
+			render.sessionSummary(opts.config.sessionName, selectedNames, opts.startTime, stats);
 
 			const notePath = writeSessionNote(
 				opts.config.sessionName,

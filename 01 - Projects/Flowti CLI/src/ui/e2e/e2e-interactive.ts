@@ -26,6 +26,9 @@ import {
 	printMainMenu,
 	printIncrementMenu,
 } from "./e2e-formatters.js";
+import { createE2ERenderer } from "./e2e-renderer-impl.js";
+
+const render = createE2ERenderer();
 
 // ── Publish result view ─────────────────────────────────────────────
 
@@ -85,7 +88,7 @@ async function handleBuildAndRerun(currentConfig: SessionConfig, entries: Journe
 	const buildResult = quickBuildAndDeploy(e2e);
 	if (buildResult !== 0) return { config: currentConfig, exitCode: buildResult };
 	const rerunConfig = rerunWithFreshTimestamp(currentConfig, entries);
-	const exitCode = await executeSession(rerunConfig, entries, prereqResults, e2e);
+	const exitCode = await executeSession(rerunConfig, entries, prereqResults, e2e, render);
 	return { config: rerunConfig, exitCode };
 }
 
@@ -111,7 +114,7 @@ async function sessionView(config: SessionConfig, entries: JourneyEntry[], prere
 		if (choice === "d") { quickBuildAndDeploy(e2e); continue; }
 		if (choice === "r") {
 			const rerunConfig = rerunWithFreshTimestamp(currentConfig, entries);
-			currentExitCode = await executeSession(rerunConfig, entries, prereqResults, e2e);
+			currentExitCode = await executeSession(rerunConfig, entries, prereqResults, e2e, render);
 			currentConfig = rerunConfig;
 			continue;
 		}
@@ -122,8 +125,8 @@ async function sessionView(config: SessionConfig, entries: JourneyEntry[], prere
 			continue;
 		}
 		if (choice === "e") {
-			const editConfig = await promptSessionConfig(entries, prereqResults, e2e);
-			currentExitCode = await executeSession(editConfig, entries, prereqResults, e2e);
+			const editConfig = await promptSessionConfig(entries, prereqResults, e2e, render);
+			currentExitCode = await executeSession(editConfig, entries, prereqResults, e2e, render);
 			currentConfig = editConfig;
 			continue;
 		}
@@ -154,8 +157,8 @@ async function handleTestSessionChoice(prereqResults: PrerequisiteResults, e2e: 
 		log("  No journey files found.\n");
 		return { exitCode: 0, quit: false };
 	}
-	const config = await promptSessionConfig(entries, prereqResults, e2e);
-	const exitCode = await executeSession(config, entries, prereqResults, e2e);
+	const config = await promptSessionConfig(entries, prereqResults, e2e, render);
+	const exitCode = await executeSession(config, entries, prereqResults, e2e, render);
 	const result = await sessionView(config, entries, prereqResults, exitCode, e2e);
 	return { exitCode: result.exitCode, quit: result.action === "quit" };
 }

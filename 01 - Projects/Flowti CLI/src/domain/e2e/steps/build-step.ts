@@ -7,7 +7,8 @@ import type { E2EPaths } from "../e2e-paths.js";
 import { shell } from "../../../infrastructure/shell.js";
 import { quickBuildAndDeploy, readBuildStats } from "../e2e-build.js";
 import { generateIncrementStateReport, generatePublishStateReport } from "../e2e-state-reports.js";
-import { printIncrementSummary, printPublishSummary } from "../../../ui/e2e/e2e-formatters.js";
+import type { E2ERenderer } from "../e2e-renderer.js";
+import { nullRenderer } from "../e2e-renderer.js";
 
 export function createQuickBuildStep(e2e: E2EPaths): PipelineStep {
 	return {
@@ -24,7 +25,7 @@ export function createQuickBuildStep(e2e: E2EPaths): PipelineStep {
 	};
 }
 
-export function createIncrementBuildStep(e2e: E2EPaths): PipelineStep {
+export function createIncrementBuildStep(e2e: E2EPaths, render: E2ERenderer = nullRenderer): PipelineStep {
 	return {
 		id: "e2e:increment-build",
 		label: "Increment Build",
@@ -36,7 +37,7 @@ export function createIncrementBuildStep(e2e: E2EPaths): PipelineStep {
 			const duration = ((Date.now() - startTime) / 1000).toFixed(1);
 			const stats = readBuildStats(e2e);
 
-			printIncrementSummary(exitCode, duration, stats);
+			render.incrementSummary(exitCode, duration, stats);
 			generateIncrementStateReport(exitCode, duration, stats, e2e);
 
 			ctx.setStepData("e2e:increment-build", { exitCode, duration, stats });
@@ -50,7 +51,7 @@ export function createIncrementBuildStep(e2e: E2EPaths): PipelineStep {
 	};
 }
 
-export function createPublishStep(e2e: E2EPaths): PipelineStep {
+export function createPublishStep(e2e: E2EPaths, render: E2ERenderer = nullRenderer): PipelineStep {
 	return {
 		id: "e2e:publish",
 		label: "Publish",
@@ -61,7 +62,7 @@ export function createPublishStep(e2e: E2EPaths): PipelineStep {
 			const duration = ((Date.now() - startTime) / 1000).toFixed(1);
 			const stats = readBuildStats(e2e);
 
-			printPublishSummary(exitCode, duration, stats);
+			render.publishSummary(exitCode, duration, stats);
 			generatePublishStateReport(exitCode, duration, stats, e2e);
 
 			ctx.setStepData("e2e:publish", { exitCode, duration, stats });

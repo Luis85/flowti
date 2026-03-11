@@ -7,6 +7,8 @@
 import type { PipelineStep } from "../../../infrastructure/pipeline/pipeline-types.js";
 import type { E2EPaths } from "../e2e-paths.js";
 import type { SessionConfig, JourneyEntry, PrerequisiteResults } from "../e2e-types.js";
+import type { E2ERenderer } from "../e2e-renderer.js";
+import { nullRenderer } from "../e2e-renderer.js";
 import {
 	createEnvConfigStep,
 	createVitestStep,
@@ -23,7 +25,7 @@ export interface SessionPipelineOptions {
 	startTime: number;
 }
 
-export function buildSessionPipeline(e2e: E2EPaths, opts: SessionPipelineOptions): PipelineStep[] {
+export function buildSessionPipeline(e2e: E2EPaths, opts: SessionPipelineOptions, render: E2ERenderer = nullRenderer): PipelineStep[] {
 	return [
 		createEnvConfigStep(opts.config),
 		createVitestStep(e2e),
@@ -33,7 +35,7 @@ export function buildSessionPipeline(e2e: E2EPaths, opts: SessionPipelineOptions
 			entries: opts.entries,
 			prereqResults: opts.prereqResults,
 			startTime: opts.startTime,
-		}),
+		}, render),
 		createCleanupStep(e2e),
 		createEnvCleanupStep(),
 	];

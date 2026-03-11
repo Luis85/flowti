@@ -13,7 +13,8 @@ import { runPipeline } from "../../infrastructure/pipeline/pipeline-runner.js";
 import type { E2EPaths } from "./e2e-paths.js";
 import type { SessionConfig, JourneyEntry, PrerequisiteResults } from "./e2e-types.js";
 import { resolveJourneyNames } from "./e2e-session.js";
-import { printExecutionBanner } from "../../ui/e2e/e2e-formatters.js";
+import type { E2ERenderer } from "./e2e-renderer.js";
+import { nullRenderer } from "./e2e-renderer.js";
 import { buildSessionPipeline } from "./pipelines/session-pipeline.js";
 
 // ── Vitest execution ────────────────────────────────────────────────
@@ -67,9 +68,9 @@ export function generateReportAndOpen(e2e: E2EPaths, log: (msg: string) => void 
 
 // ── Session execution (pipeline-based) ──────────────────────────────
 
-export async function executeSession(config: SessionConfig, entries: JourneyEntry[], prereqResults: PrerequisiteResults, e2e: E2EPaths): Promise<number> {
+export async function executeSession(config: SessionConfig, entries: JourneyEntry[], prereqResults: PrerequisiteResults, e2e: E2EPaths, render: E2ERenderer = nullRenderer): Promise<number> {
 	const selectedNames = resolveJourneyNames(config.selectedSlugs, entries);
-	printExecutionBanner(config, selectedNames);
+	render.executionBanner(config, selectedNames);
 
 	const startTime = Date.now();
 	const steps = buildSessionPipeline(e2e, {
@@ -77,7 +78,7 @@ export async function executeSession(config: SessionConfig, entries: JourneyEntr
 		entries,
 		prereqResults,
 		startTime,
-	});
+	}, render);
 
 	const result = await runPipeline(steps, e2e.projectRoot, {
 		label: `E2E Session: ${config.sessionName}`,
