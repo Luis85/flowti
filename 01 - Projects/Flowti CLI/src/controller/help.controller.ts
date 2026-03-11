@@ -1,15 +1,24 @@
 /**
  * help.controller.ts — Controller for the help command.
  *
- * Help display is inherently a view concern — showHelp lives in ui/help.ts.
- * This controller simply delegates.
+ * Returns help content as structured data; rendering handled by ui/help.ts.
  */
 
+import type { ControllerAction } from "../infrastructure/request-response.js";
+import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler } from "../infrastructure/types.js";
-import { showHelp } from "../ui/help.js";
+import { HELP } from "../ui/help-content.js";
+import { renderHelp, type HelpModel } from "../ui/help.js";
 
-export const commands: Record<string, CommandHandler> = {
-	help: (flags, rawArgs) => {
-		showHelp(Object.keys(flags)[0] ?? rawArgs?.[1] ?? "main");
+const actions: Record<string, ControllerAction> = {
+	help: (req) => {
+		const section = (Object.keys(req.flags)[0] ?? req.rawArgs?.[1] ?? "main").toLowerCase();
+		const content = HELP[section] ?? null;
+		const model: HelpModel = { section, content, availableSections: Object.keys(HELP) };
+		return dataResponse(model, renderHelp);
 	},
 };
+
+export const commands: Record<string, CommandHandler> = Object.fromEntries(
+	Object.entries(actions).map(([key, action]) => [key, adapt(action)]),
+);

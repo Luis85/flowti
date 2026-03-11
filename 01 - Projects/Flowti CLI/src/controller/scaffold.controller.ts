@@ -12,7 +12,7 @@ import { displayMarketplaceCommand, importDefinitionCommand } from "../ui/menus/
 import { exportBundle, saveBundle, loadBundle, importAiToolsFromBundle } from "../domain/scaffold/marketplace-export.js";
 import { VAULT_ROOT } from "../infrastructure/config.js";
 import { afterScaffold } from "../infrastructure/suggestions.js";
-import { renderError, type ErrorModel } from "../ui/common-renderers.js";
+import { renderError, renderInteractiveOnly, type ErrorModel, type InteractiveOnlyModel } from "../ui/common-renderers.js";
 import { renderNoProject, type NoProjectModel } from "../ui/common-renderers.js";
 import {
 	renderDryRunPreview, renderScaffoldResult, renderDefinitionList,
@@ -69,6 +69,10 @@ const actions: Record<string, ControllerAction> = {
 	},
 
 	"scaffold:marketplace": (req) => {
+		if (req.format === "json") {
+			const model: InteractiveOnlyModel = { command: "scaffold:marketplace", error: "Marketplace browser is interactive and cannot produce JSON output." };
+			return dataResponse(model, renderInteractiveOnly);
+		}
 		const knownIds = getKnownTemplateIds();
 		displayMarketplaceCommand(BUNDLED_DEFINITIONS, req.project?.path, knownIds);
 	},
@@ -83,6 +87,10 @@ const actions: Record<string, ControllerAction> = {
 		}
 		if (!req.project) {
 			return dataResponse<NoProjectModel>({ command: "scaffold:import" }, renderNoProject);
+		}
+		if (req.format === "json") {
+			const model: InteractiveOnlyModel = { command: "scaffold:import", error: "Import wizard is interactive and cannot produce JSON output." };
+			return dataResponse(model, renderInteractiveOnly);
 		}
 		const knownIds = getKnownTemplateIds();
 		importDefinitionCommand(file, req.project.path, knownIds);

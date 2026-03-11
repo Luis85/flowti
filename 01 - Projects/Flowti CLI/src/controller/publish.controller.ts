@@ -13,6 +13,7 @@ import { collectHealth } from "../domain/health/health.js";
 import { scoreHealth } from "../domain/health/health-scoring.js";
 import { evaluateQualityGates, type GateResult } from "../domain/health/quality-gate.js";
 import { renderDryRun, renderGateResult, renderGateBlocked, type DryRunModel, type GateBlockedModel } from "../ui/publish-display.js";
+import { renderShellCommand, type ShellCommandModel } from "../ui/common-renderers.js";
 import { renderNoProject, type NoProjectModel } from "../ui/common-renderers.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -79,7 +80,9 @@ const actions: Record<string, ControllerAction> = {
 			}
 		}
 		const { buildCmd, cwd } = resolvePublishCommands(req.project);
-		shell.run(buildCmd, { cwd, label: "Publishing..." });
+		const exitCode = shell.run(buildCmd, { cwd, label: "Publishing..." });
+		const model: ShellCommandModel = { command: buildCmd, exitCode, label: "publish" };
+		return dataResponse(model, renderShellCommand);
 	},
 
 	"publish:all": (req) => {
@@ -91,9 +94,17 @@ const actions: Record<string, ControllerAction> = {
 		}
 		const { buildCmd, testCmd, cwd } = resolvePublishCommands(req.project);
 		const b = shell.run(buildCmd, { cwd, label: "Step 1/2: Building..." });
-		if (b !== 0) proc.exit(b);
+		if (b !== 0) {
+			const model: ShellCommandModel = { command: buildCmd, exitCode: b, label: "publish:all" };
+			return { data: model, render: renderShellCommand, exitCode: b };
+		}
 		const t = shell.run(testCmd, { cwd, label: "Step 2/2: Testing..." });
-		if (t !== 0) proc.exit(t);
+		if (t !== 0) {
+			const model: ShellCommandModel = { command: testCmd, exitCode: t, label: "publish:all" };
+			return { data: model, render: renderShellCommand, exitCode: t };
+		}
+		const model: ShellCommandModel = { command: `${buildCmd} && ${testCmd}`, exitCode: 0, label: "publish:all" };
+		return dataResponse(model, renderShellCommand);
 	},
 
 	"publish:check": (req) => {

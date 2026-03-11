@@ -59,6 +59,10 @@ vi.mock("../../../src/infrastructure/filesystem.js", () => ({
 	},
 }));
 
+vi.mock("../../../src/infrastructure/deps.js", () => ({
+	createDefaultDeps: () => ({ disk: {}, paths: {}, clock: {}, log: () => {} }),
+}));
+
 vi.mock("../../../src/domain/reports/cli/report-service.js", () => ({
 	ReportService: vi.fn().mockImplementation(() => ({ reportsDir: "/test/reports" })),
 }));
@@ -116,8 +120,8 @@ describe("reports commands", () => {
 		await commands["reports"]({}, [], "reports", project);
 
 		expect(mockRunGenerator).toHaveBeenCalledTimes(2);
-		expect(mockRunGenerator).toHaveBeenCalledWith("test", "/test/project", expect.anything());
-		expect(mockRunGenerator).toHaveBeenCalledWith("coverage", "/test/project", expect.anything());
+		expect(mockRunGenerator).toHaveBeenCalledWith("test", "/test/project", expect.anything(), expect.anything());
+		expect(mockRunGenerator).toHaveBeenCalledWith("coverage", "/test/project", expect.anything(), expect.anything());
 	});
 
 	it("reports continues when a generator fails", async () => {
@@ -167,7 +171,7 @@ describe("reports commands", () => {
 
 		commands["report:*"]({}, [], "report:test", project);
 
-		expect(mockRunGenerator).toHaveBeenCalledWith("test", "/test/project");
+		expect(mockRunGenerator).toHaveBeenCalledWith("test", "/test/project", expect.anything());
 	});
 
 	it("report:* falls back to external command when not in registry", () => {

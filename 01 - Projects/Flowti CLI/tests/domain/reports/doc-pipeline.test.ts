@@ -14,6 +14,10 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 	warn: vi.fn(),
 }));
 
+vi.mock("../../../src/infrastructure/deps.js", () => ({
+	createDefaultDeps: () => ({ disk: {}, paths: {}, clock: {}, log: () => {} }),
+}));
+
 vi.mock("../../../src/infrastructure/clock.js", () => {
 	let time = 1000;
 	return {
@@ -88,9 +92,9 @@ describe("toReferenceStep", () => {
 
 	it("delegates to runReference", () => {
 		const step = toReferenceStep("entity-reference");
-		const result = step.execute({ projectPath: "/project" } as Parameters<typeof step.execute>[0]);
+		const result = step.execute({ projectPath: "/project", deps: {} } as Parameters<typeof step.execute>[0]);
 
-		expect(mockRunReference).toHaveBeenCalledWith("entity-reference", "/project");
+		expect(mockRunReference).toHaveBeenCalledWith("entity-reference", "/project", {});
 		expect((result as { success: boolean }).success).toBe(true);
 	});
 
@@ -98,7 +102,7 @@ describe("toReferenceStep", () => {
 		mockRunReference.mockReturnValue(null);
 
 		const step = toReferenceStep("cli-reference");
-		const result = step.execute({ projectPath: "/project" } as Parameters<typeof step.execute>[0]);
+		const result = step.execute({ projectPath: "/project", deps: {} } as Parameters<typeof step.execute>[0]);
 
 		expect((result as { success: boolean }).success).toBe(false);
 	});
@@ -107,7 +111,7 @@ describe("toReferenceStep", () => {
 		mockRunReference.mockReturnValue({ success: true, outputPath: "/docs/ref.md", metrics: { count: 42 } });
 
 		const step = toReferenceStep("entity-reference");
-		const result = step.execute({ projectPath: "/project" } as Parameters<typeof step.execute>[0]);
+		const result = step.execute({ projectPath: "/project", deps: {} } as Parameters<typeof step.execute>[0]);
 
 		expect((result as { outputPath: string }).outputPath).toBe("/docs/ref.md");
 		expect((result as { metrics: Record<string, number> }).metrics.count).toBe(42);

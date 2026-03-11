@@ -37,6 +37,7 @@ vi.mock("../../src/ui/publish-display.js", () => ({
 }));
 vi.mock("../../src/ui/common-renderers.js", () => ({
 	renderNoProject: vi.fn(),
+	renderShellCommand: vi.fn(),
 }));
 
 import { commands } from "../../src/controller/publish.controller.js";

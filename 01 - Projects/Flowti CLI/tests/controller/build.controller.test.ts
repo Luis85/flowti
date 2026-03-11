@@ -22,6 +22,10 @@ vi.mock("../../src/ui/build-display.js", () => ({
 	renderBuildRecorded: vi.fn(),
 	renderCiDryRun: vi.fn(),
 	renderCiWritten: vi.fn(),
+	renderCiResult: vi.fn(),
+}));
+vi.mock("../../src/ui/common-renderers.js", () => ({
+	renderShellCommand: vi.fn(),
 }));
 
 import { commands } from "../../src/controller/build.controller.js";

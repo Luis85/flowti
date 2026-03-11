@@ -10,8 +10,8 @@
 
 import { Document } from "../../../infrastructure/document.js";
 
-import { clock } from "../../../infrastructure/clock.js";
 import { ReportService } from "../cli/report-service.js";
+import type { ReportDeps } from "../../../infrastructure/deps.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
 
 // ── Entity definitions ──────────────────────────────────────────────
@@ -213,14 +213,14 @@ export const ENTITY_REGISTRY: EntityDef[] = [
 
 // ── Generator ────────────────────────────────────────────────────────
 
-export function generateEntityReference(projectPath: string): GeneratorOutput {
-	const svc = new ReportService(projectPath);
+export function generateEntityReference(projectPath: string, deps: ReportDeps): GeneratorOutput {
+	const svc = new ReportService(projectPath, deps);
 	const entities = ENTITY_REGISTRY;
 
 	const doc = Document.create("Entity Reference")
 		.mergeFrontmatter({
 			type: "EntityReference",
-			date: clock.iso(),
+			date: deps.clock.iso(),
 			total_entities: entities.length,
 			tags: ["reference", "entities", "architecture"],
 		})

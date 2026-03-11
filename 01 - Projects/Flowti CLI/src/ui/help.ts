@@ -2,7 +2,7 @@
  * help.ts — CLI help system (man-pages).
  *
  * Help content is in help-content.ts. This module provides the
- * showHelp() function and commands.help handler.
+ * renderHelp() renderer, showHelp() convenience function, and commands.
  */
 
 import { RESET, DIM, YELLOW } from "../infrastructure/ui.js";
@@ -11,17 +11,29 @@ import { HELP } from "./help-content.js";
 
 export { HELP };
 
-export function showHelp(section?: string): void {
-	const key = section?.toLowerCase() ?? "main";
-	const content = HELP[key];
-	if (!content) {
-		log(`\n  ${YELLOW}No help available for "${section}".${RESET}`);
-		log(`  ${DIM}Available sections: ${Object.keys(HELP).join(", ")}${RESET}\n`);
-		return;
-	}
-	log(content);
+export interface HelpModel {
+	section: string;
+	content: string | null;
+	availableSections: string[];
 }
 
+/** Renderer for the help controller's HelpModel. */
+export function renderHelp(model: HelpModel): void {
+	if (model.content) {
+		log(model.content);
+	} else {
+		log(`\n  ${YELLOW}No help available for "${model.section}".${RESET}`);
+		log(`  ${DIM}Available sections: ${model.availableSections.join(", ")}${RESET}\n`);
+	}
+}
+
+/** Show help for a given section (convenience wrapper around renderHelp). */
+export function showHelp(section?: string): void {
+	const key = section?.toLowerCase() ?? "main";
+	renderHelp({ section: key, content: HELP[key] ?? null, availableSections: Object.keys(HELP) });
+}
+
+/** Legacy help commands — used by main.ts and tests. */
 export const commands = {
 	help: (flags: Record<string, string | boolean>, rawArgs: string[]) => {
 		showHelp(Object.keys(flags)[0] ?? rawArgs?.[1] ?? "main");

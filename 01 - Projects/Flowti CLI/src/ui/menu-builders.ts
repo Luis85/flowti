@@ -16,6 +16,7 @@ import { paths } from "../infrastructure/paths.js";
 import { shell } from "../infrastructure/shell.js";
 import { input } from "../infrastructure/input.js";
 import { log } from "../infrastructure/logger.js";
+import { createDefaultDeps } from "../infrastructure/deps.js";
 import { RESET, DIM, GREEN, RED } from "../infrastructure/ui.js";
 import type { MenuEntry } from "../infrastructure/types.js";
 import { buildDependencyGraph } from "../domain/project/project-deps.js";
@@ -35,7 +36,7 @@ export interface DocsGenerator {
 }
 
 function exportAllReportsToHtml(projectPath: string): void {
-	const svc = new ReportService(projectPath);
+	const svc = new ReportService(projectPath, createDefaultDeps());
 	const outputDir = paths.join(svc.reportsDir, "html");
 	const entries = disk.readdirSync(svc.reportsDir).filter((f: string) => f.endsWith(".md"));
 	if (entries.length === 0) { log(`\n  ${DIM}No report files found. Run reports first.${RESET}\n`); return; }
@@ -76,7 +77,7 @@ export function buildReportsSubmenu(
 			label: gen.label,
 			action: async () => {
 				if (gen.id) {
-					runGenerator(gen.id, projectPath);
+					runGenerator(gen.id, projectPath, createDefaultDeps());
 				} else if (gen.command) {
 					shell.run(gen.command, { cwd: projectPath, label: gen.label });
 				}
@@ -129,7 +130,7 @@ export function buildDocsSubmenu(
 				shell.run(gen.command, { cwd: projectPath, label: gen.label });
 			}
 			for (const doc of BUILTIN_DOCS) {
-				const result = runReference(doc.generatorId, projectPath);
+				const result = runReference(doc.generatorId, projectPath, createDefaultDeps());
 				if (result && !result.success) {
 					log(`  ${RED}${doc.label}: failed${RESET}`);
 				} else {
@@ -158,7 +159,7 @@ export function buildDocsSubmenu(
 			key: String(keyIdx++),
 			label: doc.label,
 			action: () => {
-				runReference(doc.generatorId, projectPath);
+				runReference(doc.generatorId, projectPath, createDefaultDeps());
 				return "main" as const;
 			},
 		});

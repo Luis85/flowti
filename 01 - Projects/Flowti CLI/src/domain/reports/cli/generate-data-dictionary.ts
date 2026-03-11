@@ -5,12 +5,10 @@
  * a Data Dictionary reference document with queryable YAML frontmatter.
  */
 
-import { disk } from "../../../infrastructure/filesystem.js";
-import { paths } from "../../../infrastructure/paths.js";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
-import { clock } from "../../../infrastructure/clock.js";
 import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
+import type { ReportDeps } from "../../../infrastructure/deps.js";
 import { extractEntityTypes, groupLabel } from "../generators/data-dictionary.js";
 import type { EntityType, EntityField } from "../generators/data-dictionary.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
@@ -18,17 +16,17 @@ import type { PipelineContext } from "../../../infrastructure/pipeline/pipeline-
 
 // ── Generator ────────────────────────────────────────────────────────
 
-export function generateDataDictionary(projectPath: string, ctx?: PipelineContext): GeneratorOutput {
+export function generateDataDictionary(projectPath: string, deps: ReportDeps, ctx?: PipelineContext): GeneratorOutput {
 	const log = (msg: string) => ctx?.log(msg);
-	const svc = new ReportService(projectPath);
-	const registryPath = paths.join(PLUGIN_ROOT, "src", "domain", "docs", "entityTypeRegistry.ts");
+	const svc = new ReportService(projectPath, deps);
+	const registryPath = deps.paths.join(PLUGIN_ROOT, "src", "domain", "docs", "entityTypeRegistry.ts");
 
-	if (!disk.existsSync(registryPath)) {
+	if (!deps.disk.existsSync(registryPath)) {
 		log("[cli-report] entityTypeRegistry.ts not found — skipping data dictionary generation.");
 		return { success: false, outputPath: "", metrics: {}, error: "entityTypeRegistry.ts not found" };
 	}
 
-	const source: string = disk.readFileSync(registryPath, "utf-8");
+	const source: string = deps.disk.readFileSync(registryPath, "utf-8");
 	const entities: EntityType[] = extractEntityTypes(source);
 
 	if (entities.length === 0) {
@@ -48,7 +46,7 @@ export function generateDataDictionary(projectPath: string, ctx?: PipelineContex
 
 	const fm = {
 		type: "DataDictionary",
-		date: clock.iso(),
+		date: deps.clock.iso(),
 		total_types: entities.length,
 		groups: groups.size,
 		total_fields: totalFields,

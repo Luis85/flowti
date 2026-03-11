@@ -6,12 +6,10 @@
  * Generates any missing reports by calling generators directly.
  */
 
-import { paths } from "../../../infrastructure/paths.js";
-import { disk } from "../../../infrastructure/filesystem.js";
 import { Document } from "../../../infrastructure/document.js";
 import { splitFrontmatter as splitFm } from "../../../infrastructure/frontmatter.js";
-import { clock } from "../../../infrastructure/clock.js";
 import { ReportService } from "./report-service.js";
+import type { ReportDeps } from "../../../infrastructure/deps.js";
 import { generateTestReport } from "./generate-test-report.js";
 import { generateCoverageReport } from "./generate-coverage-report.js";
 import { generateCodebaseReport } from "./generate-codebase-report.js";
@@ -61,8 +59,8 @@ function extractBody(content: string): string {
 	return body.replace(/^#\s+.+\n*/, "").trim();
 }
 
-function ensureReportsExist(sections: ReportSection[], projectPath: string, log: (msg: string) => void): string[] {
-	const missing = sections.filter((s) => !disk.existsSync(s.stablePath));
+function ensureReportsExist(sections: ReportSection[], projectPath: string, deps: ReportDeps, log: (msg: string) => void): string[] {
+	const missing = sections.filter((s) => !deps.disk.existsSync(s.stablePath));
 	if (missing.length === 0) return [];
 
 	log("Generating missing reports...");
@@ -70,7 +68,7 @@ function ensureReportsExist(sections: ReportSection[], projectPath: string, log:
 	for (const section of missing) {
 		log(`  ▸ ${section.label}`);
 		try {
-			const result = section.generator(projectPath);
+			const result = section.generator(projectPath, deps);
 			if (!result.success) failures.push(section.label);
 		} catch {
 			failures.push(section.label);
@@ -81,7 +79,7 @@ function ensureReportsExist(sections: ReportSection[], projectPath: string, log:
 
 const SKIP_FM_KEYS = new Set(["type", "project", "date"]);
 
-function promoteSectionFrontmatter(doc: Document, sections: ReportSection[]): void {
+function promoteSectionFrontmatter(doc: Document, sections: ReportSection[], disk: ReportDeps["disk"]): void {
 	for (const section of sections) {
 		if (!disk.existsSync(section.stablePath)) continue;
 		const content = disk.readFileSync(section.stablePath, "utf-8");
@@ -93,7 +91,7 @@ function promoteSectionFrontmatter(doc: Document, sections: ReportSection[]): vo
 	}
 }
 
-function renderSectionBodies(doc: Document, sections: ReportSection[]): void {
+function renderSectionBodies(doc: Document, sections: ReportSection[], disk: ReportDeps["disk"]): void {
 	for (const section of sections) {
 		doc.heading(2, section.label).addBlank();
 		if (!disk.existsSync(section.stablePath)) {
@@ -128,38 +126,38 @@ function renderBuildFreshness(doc: Document, projectPath: string): void {
 	doc.addSeparator().addBlank();
 }
 
-function buildStatusReport(sections: ReportSection[], projectName: string, projectPath: string): string {
-	const now = clock.now();
+function buildStatusReport(sections: ReportSection[], projectName: string, projectPath: string, deps: ReportDeps): string {
+	const now = deps.clock.now();
 	const doc = Document.create("Project Status Report")
 		.setFrontmatter("type", "ProjectStatusReport")
 		.setFrontmatter("project", projectName)
 		.setFrontmatter("date", now.toISOString());
 
-	promoteSectionFrontmatter(doc, sections);
+	promoteSectionFrontmatter(doc, sections, deps.disk);
 	doc.addBlank().heading(1, "Project Status Report").addBlank()
 		.text(`Generated: ${now.toISOString().replace("T", " ").substring(0, 19)}`).addBlank();
-	renderSectionBodies(doc, sections);
+	renderSectionBodies(doc, sections, deps.disk);
 	renderBuildFreshness(doc, projectPath);
 
 	return doc.toString();
 }
 
 /** Generate the project status report. */
-export function generateProjectStatusReport(projectPath: string, ctx?: import("../../../infrastructure/pipeline/pipeline-types.js").PipelineContext): GeneratorOutput {
+export function generateProjectStatusReport(projectPath: string, deps: ReportDeps, ctx?: import("../../../infrastructure/pipeline/pipeline-types.js").PipelineContext): GeneratorOutput {
 	const log = (msg: string) => ctx?.log(msg);
-	const svc = new ReportService(projectPath);
+	const svc = new ReportService(projectPath, deps);
 	const sections = buildSections(svc, projectPath);
-	const projectName = paths.basename(projectPath);
+	const projectName = deps.paths.basename(projectPath);
 	const outputPath = svc.stablePath("Project Status Report.md");
 
 	log("Generating Project Status Report...");
-	const failures = ensureReportsExist(sections, projectPath, log);
+	const failures = ensureReportsExist(sections, projectPath, deps, log);
 
-	const content = buildStatusReport(sections, projectName, projectPath);
-	disk.mkdirSync(svc.reportsDir, { recursive: true });
-	disk.writeFileSync(outputPath, content, "utf-8");
+	const content = buildStatusReport(sections, projectName, projectPath, deps);
+	deps.disk.mkdirSync(svc.reportsDir, { recursive: true });
+	deps.disk.writeFileSync(outputPath, content, "utf-8");
 
-	const available = sections.filter((s) => disk.existsSync(s.stablePath)).length;
+	const available = sections.filter((s) => deps.disk.existsSync(s.stablePath)).length;
 	const warnings = failures.length > 0 ? [`${failures.length} sub-report(s) failed: ${failures.join(", ")}`] : undefined;
 
 	log(`Project Status Report written: ${outputPath}`);

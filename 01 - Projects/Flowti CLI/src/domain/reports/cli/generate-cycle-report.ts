@@ -5,11 +5,9 @@
  * vault note with queryable YAML frontmatter.
  */
 
-import { disk } from "../../../infrastructure/filesystem.js";
-import { paths } from "../../../infrastructure/paths.js";
 import { Document, type FrontmatterValue } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
-import { clock } from "../../../infrastructure/clock.js";
+import type { ReportDeps } from "../../../infrastructure/deps.js";
 import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { parseFrontmatterContent } from "../../../infrastructure/frontmatter.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
@@ -48,16 +46,16 @@ function fmArr(fm: Record<string, unknown>, key: string): string[] {
 	return (fm[key] as string[]) ?? [];
 }
 
-function findLatestDoneCycle(cyclesDir: string): { file: string; frontmatter: Record<string, unknown> } | null {
-	if (!disk.existsSync(cyclesDir)) return null;
+function findLatestDoneCycle(cyclesDir: string, deps: ReportDeps): { file: string; frontmatter: Record<string, unknown> } | null {
+	if (!deps.disk.existsSync(cyclesDir)) return null;
 
-	const files: string[] = disk.readdirSync(cyclesDir).filter((f: string) => f.startsWith("Cycle ") && f.endsWith(".md"));
+	const files: string[] = deps.disk.readdirSync(cyclesDir).filter((f: string) => f.startsWith("Cycle ") && f.endsWith(".md"));
 
 	let best: { file: string; frontmatter: Record<string, unknown> } | null = null;
 	let bestCycle = -1;
 
 	for (const file of files) {
-		const content: string = disk.readFileSync(paths.join(cyclesDir, file), "utf-8");
+		const content: string = deps.disk.readFileSync(deps.paths.join(cyclesDir, file), "utf-8");
 		const fm: Record<string, unknown> | null = parseFrontmatterContent(content);
 		if (!fm || fm.stage !== "done") continue;
 		const cycle: number = (fm.cycle as number) ?? 0;
@@ -95,17 +93,17 @@ function buildCycleReportData(fm: Record<string, unknown>, date: string): CycleR
 	};
 }
 
-function collectReportLinks(reportsDir: string): string[] {
+function collectReportLinks(reportsDir: string, deps: ReportDeps): string[] {
 	const links: string[] = [];
 	const reportDirs: { dir: string; suffix: string }[] = [
-		{ dir: paths.join(reportsDir, "tests"), suffix: "test-report.md" },
-		{ dir: paths.join(reportsDir, "coverage"), suffix: "coverage-report.md" },
-		{ dir: paths.join(reportsDir, "codebase"), suffix: "codebase-report.md" },
-		{ dir: paths.join(reportsDir, "builds"), suffix: "build-report" },
+		{ dir: deps.paths.join(reportsDir, "tests"), suffix: "test-report.md" },
+		{ dir: deps.paths.join(reportsDir, "coverage"), suffix: "coverage-report.md" },
+		{ dir: deps.paths.join(reportsDir, "codebase"), suffix: "codebase-report.md" },
+		{ dir: deps.paths.join(reportsDir, "builds"), suffix: "build-report" },
 	];
 	for (const { dir, suffix } of reportDirs) {
-		if (!disk.existsSync(dir)) continue;
-		const files = disk.readdirSync(dir).filter((f) => f.endsWith(".md") && f.includes(suffix));
+		if (!deps.disk.existsSync(dir)) continue;
+		const files = deps.disk.readdirSync(dir).filter((f) => f.endsWith(".md") && f.includes(suffix));
 		if (files.length > 0) {
 			files.sort();
 			links.push(files[files.length - 1].replace(/\.md$/, ""));
@@ -116,19 +114,19 @@ function collectReportLinks(reportsDir: string): string[] {
 
 // ── Generator ────────────────────────────────────────────────────────
 
-export function generateCycleReport(projectPath: string, ctx?: PipelineContext): GeneratorOutput {
+export function generateCycleReport(projectPath: string, deps: ReportDeps, ctx?: PipelineContext): GeneratorOutput {
 	const log = (msg: string) => ctx?.log(msg);
-	const svc = new ReportService(projectPath);
-	const cyclesDir = paths.join(PLUGIN_ROOT, "docs", "cycles");
+	const svc = new ReportService(projectPath, deps);
+	const cyclesDir = deps.paths.join(PLUGIN_ROOT, "docs", "cycles");
 
-	const latest = findLatestDoneCycle(cyclesDir);
+	const latest = findLatestDoneCycle(cyclesDir, deps);
 	if (!latest) {
 		log("[cli-report] No completed cycle document found — skipping cycle report.");
 		return { success: false, outputPath: "", metrics: {}, error: "No completed cycle document found" };
 	}
 
 	const fm = latest.frontmatter;
-	const date = clock.iso();
+	const date = deps.clock.iso();
 	const report = buildCycleReportData(fm, date);
 	const pbis = fmArr(fm, "pbis");
 	const techDebt = fmArr(fm, "tech_debt");
@@ -155,7 +153,7 @@ export function generateCycleReport(projectPath: string, ctx?: PipelineContext):
 	if (pbis.length > 0) { doc.heading(2, "PBIs Delivered").addBlank(); doc.list(pbis); doc.addBlank(); }
 	if (techDebt.length > 0) { doc.heading(2, "Tech Debt Resolved").addBlank(); doc.list(techDebt); doc.addBlank(); }
 
-	const reportLinks = collectReportLinks(svc.reportsDir);
+	const reportLinks = collectReportLinks(svc.reportsDir, deps);
 	if (reportLinks.length > 0) {
 		doc.heading(2, "Related Reports").addBlank();
 		doc.list(reportLinks.map((link) => Document.wikilink(link)));

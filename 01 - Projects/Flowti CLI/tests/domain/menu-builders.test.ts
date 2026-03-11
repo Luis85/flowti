@@ -32,6 +32,11 @@ vi.mock("../../src/infrastructure/ui.js", () => ({
 	RESET: "", GREEN: "", RED: "",
 }));
 
+const mockDefaultDeps = { disk: {}, paths: {}, clock: {}, log: () => {} };
+vi.mock("../../src/infrastructure/deps.js", () => ({
+	createDefaultDeps: () => mockDefaultDeps,
+}));
+
 // ── Imports (after mocks) ────────────────────────────────────────────
 
 import * as shellMod from "../../src/infrastructure/shell.js";
@@ -109,7 +114,7 @@ describe("buildReportsSubmenu", () => {
 		);
 		const gen = findByLabel(items, "Test")!;
 		await gen.action();
-		expect(runGenerator).toHaveBeenCalledWith("test", "/proj");
+		expect(runGenerator).toHaveBeenCalledWith("test", "/proj", mockDefaultDeps);
 	});
 
 	it("generator with command calls shell.run", async () => {
@@ -172,8 +177,8 @@ describe("buildDocsSubmenu", () => {
 	it("Update All runs built-in reference generators", () => {
 		const items = buildDocsSubmenu([], undefined, "/proj");
 		findItem(items, "1")!.action();
-		expect(runReference).toHaveBeenCalledWith("cli-reference", "/proj");
-		expect(runReference).toHaveBeenCalledWith("entity-reference", "/proj");
+		expect(runReference).toHaveBeenCalledWith("cli-reference", "/proj", mockDefaultDeps);
+		expect(runReference).toHaveBeenCalledWith("entity-reference", "/proj", mockDefaultDeps);
 	});
 
 	it("lists config generators after separator", () => {
@@ -197,7 +202,7 @@ describe("buildDocsSubmenu", () => {
 	it("built-in doc action calls runReference", () => {
 		const items = buildDocsSubmenu([], undefined, "/proj");
 		findByLabel(items, "CLI Reference")!.action();
-		expect(runReference).toHaveBeenCalledWith("cli-reference", "/proj");
+		expect(runReference).toHaveBeenCalledWith("cli-reference", "/proj", mockDefaultDeps);
 	});
 
 	it("includes Back item", () => {

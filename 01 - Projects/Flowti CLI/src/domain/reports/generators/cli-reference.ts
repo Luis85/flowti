@@ -8,12 +8,10 @@
  * reference registry from the Documentation menu.
  */
 
-import { disk } from "../../../infrastructure/filesystem.js";
-import { paths } from "../../../infrastructure/paths.js";
 import { Document } from "../../../infrastructure/document.js";
 
-import { clock } from "../../../infrastructure/clock.js";
 import { ReportService } from "../cli/report-service.js";
+import type { ReportDeps } from "../../../infrastructure/deps.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
 
 // ── Help section extraction ──────────────────────────────────────────
@@ -144,8 +142,8 @@ const CLI_COMMANDS: CliCommand[] = [
 
 // ── Data loading ─────────────────────────────────────────────────────
 
-function loadJson<T>(filePath: string): T | null {
-	try { return JSON.parse(disk.readFileSync(filePath, "utf-8")) as T; }
+function loadJson<T>(filePath: string, deps: ReportDeps): T | null {
+	try { return JSON.parse(deps.disk.readFileSync(filePath, "utf-8")) as T; }
 	catch { return null; }
 }
 
@@ -157,10 +155,10 @@ interface PluginData {
 	makeConfig: Record<string, Record<string, string>>;
 }
 
-function loadHelpSections(projectPath: string): Map<string, string> {
-	const helpPath = paths.join(projectPath, "src", "ui", "help-content.ts");
-	if (!disk.existsSync(helpPath)) return new Map();
-	return extractHelpSections(disk.readFileSync(helpPath, "utf-8"));
+function loadHelpSections(projectPath: string, deps: ReportDeps): Map<string, string> {
+	const helpPath = deps.paths.join(projectPath, "src", "ui", "help-content.ts");
+	if (!deps.disk.existsSync(helpPath)) return new Map();
+	return extractHelpSections(deps.disk.readFileSync(helpPath, "utf-8"));
 }
 
 function extractScriptEntries(pluginPkg: Record<string, unknown> | undefined): NpmScript[] {
@@ -177,13 +175,13 @@ function extractPluginEntries(pluginConfig: Record<string, unknown> | undefined,
 	};
 }
 
-function loadPluginData(projectPath: string): PluginData {
-	const configPath = paths.join(projectPath, "configs", "flowti.config.json");
-	const pkgPath = paths.join(projectPath, "package.json");
-	const pluginConfig = loadJson<Record<string, unknown>>(configPath);
-	const pluginPkg = loadJson<Record<string, unknown>>(pkgPath);
+function loadPluginData(projectPath: string, deps: ReportDeps): PluginData {
+	const configPath = deps.paths.join(projectPath, "configs", "flowti.config.json");
+	const pkgPath = deps.paths.join(projectPath, "package.json");
+	const pluginConfig = loadJson<Record<string, unknown>>(configPath, deps);
+	const pluginPkg = loadJson<Record<string, unknown>>(pkgPath, deps);
 	return {
-		helpSections: loadHelpSections(projectPath),
+		helpSections: loadHelpSections(projectPath, deps),
 		...extractPluginEntries(pluginConfig ?? undefined, pluginPkg ?? undefined),
 	};
 }
@@ -283,15 +281,15 @@ function addMakeConfig(doc: Document, makeConfig: Record<string, Record<string, 
 
 // ── Generator function ───────────────────────────────────────────────
 
-export function generateCliReference(projectPath: string): GeneratorOutput {
-	const svc = new ReportService(projectPath);
-	const data = loadPluginData(projectPath);
+export function generateCliReference(projectPath: string, deps: ReportDeps): GeneratorOutput {
+	const svc = new ReportService(projectPath, deps);
+	const data = loadPluginData(projectPath, deps);
 	const commandCount = CLI_COMMANDS.length;
 
 	const doc = Document.create("Flowti CLI Reference")
 		.mergeFrontmatter({
 			type: "CLIReference",
-			date: clock.iso(),
+			date: deps.clock.iso(),
 			sections: data.helpSections.size,
 			cli_commands: commandCount,
 			npm_scripts: data.scriptEntries.length,

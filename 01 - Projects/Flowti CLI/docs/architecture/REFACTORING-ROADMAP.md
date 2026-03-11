@@ -15,12 +15,14 @@ Refactor the Flowti CLI into a fully conformant MVC+DDD application with depende
 
 | Metric | Value |
 |--------|-------|
-| Controllers | 15 (13 using adapt() pattern, 2 interactive-only) |
+| Controllers | 15 (all using adapt() pattern) |
+| Actions returning data | **~110 of 113** |
+| Void-only actions | **3** (interactive menus in text mode) |
 | Domain files importing UI | **0** |
 | Domain files importing logger | **0** |
 | Domain console.log (excl. templates) | **0** |
 | Infrastructure singletons | 9 (disk, shell, paths, clock, proc, log, input, ui, config) |
-| Tests | 3,498 passing (211 suites) |
+| Tests | 3,492 passing (210 suites) |
 | Generators registered | 15 (9 reports + 6 references) |
 
 ### Completed Phases
@@ -28,6 +30,11 @@ Refactor the Flowti CLI into a fully conformant MVC+DDD application with depende
 - **Phase 1**: E2ERenderer interface, all E2E domain files purified
 - **Phase 2**: MakeComponentOutcome/EditComponentOutcome types, StorybookRenderer, make.controller uses adapt()
 - **Phase 3**: All 11 domain barrel re-exports removed, listProjects/getProjectPath moved to domain
+- **Phase 4**: All 15 generators accept deps: ReportDeps, ReportService DI, GeneratorFn type updated
+- **Phase 5**: Scripts purified — fixFrontmatter(), generateTestData(), runAnalysisPipeline() all accept deps
+- **Phase 6**: All 15 controllers use adapt() pattern, review.controller purified (no log import), HelpModel/PipelineResultModel types, defensive adapt() null handling
+- **Phase 7**: All actions return structured data — ShellCommandModel for shell runners, InteractiveOnlyModel guard for JSON mode, CiResult/ReportRunModel for composite commands, publish:all uses response exitCode instead of proc.exit()
+- **Phase 8**: Test hardening — createTestDeps() helper exists with full CliDeps mock, mock-presets factory presets verified (12 presets, 24 tests), 7 generator tests use typed ReportDeps (no `as any`), generate-test-data.test uses createTestDeps(). 62 domain files still import singletons — vi.mock() remains needed until those are converted to deps.
 
 ---
 

@@ -6,6 +6,7 @@
  */
 
 import type { GeneratorFn, GeneratorOutput } from "../../infrastructure/types.js";
+import type { ReportDeps } from "../../infrastructure/deps.js";
 import type { PipelineContext } from "../../infrastructure/pipeline/pipeline-types.js";
 import { generateTestReport } from "./cli/generate-test-report.js";
 import { generateCoverageReport } from "./cli/generate-coverage-report.js";
@@ -50,10 +51,10 @@ const GENERATORS: ReadonlyMap<string, RegistryEntry> = new Map<string, RegistryE
 ]);
 
 /** Run a generator by its ID, optionally passing pipeline context. Returns null if unknown. */
-export function runGenerator(id: string, projectPath: string, ctx?: PipelineContext): GeneratorOutput | null {
+export function runGenerator(id: string, projectPath: string, deps: ReportDeps, ctx?: PipelineContext): GeneratorOutput | null {
 	const entry = GENERATORS.get(id);
 	if (!entry) return null;
-	return entry.fn(projectPath, ctx);
+	return entry.fn(projectPath, deps, ctx);
 }
 
 /** Check if a generator ID is registered. */
@@ -76,10 +77,10 @@ export function listByCategory(category: GeneratorCategory): string[] {
 // ── Reference aliases (backward compatibility) ───────────────────────
 
 /** Run a reference generator by its ID. Returns null if unknown. */
-export function runReference(id: string, projectPath: string): GeneratorOutput | null {
+export function runReference(id: string, projectPath: string, deps: ReportDeps): GeneratorOutput | null {
 	const entry = GENERATORS.get(id);
 	if (!entry || entry.category !== "reference") return null;
-	return entry.fn(projectPath);
+	return entry.fn(projectPath, deps);
 }
 
 /** Check if a reference ID is registered. */

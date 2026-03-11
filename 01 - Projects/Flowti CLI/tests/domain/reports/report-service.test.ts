@@ -21,8 +21,16 @@ import { Document } from "../../../src/infrastructure/document.js";
 
 const mockReadConfig = readProjectConfig as ReturnType<typeof vi.fn>;
 
+const mockDeps = {
+	disk: filesystemMod.disk,
+	paths: path,
+	clock: { iso: () => "2026-01-01T00:00:00Z", safeIso: () => "2026-01-01T00-00-00Z", ms: () => 0, now: () => new Date() },
+	log: () => {},
+} as any;
+
 function setDisk(mockFs: ReturnType<typeof createMockFs>): void {
 	Object.assign(filesystemMod, { disk: mockFs });
+	mockDeps.disk = mockFs;
 }
 
 beforeEach(() => {
@@ -33,25 +41,25 @@ beforeEach(() => {
 describe("ReportService", () => {
 	it("uses default reports dir when no config", () => {
 		mockReadConfig.mockReturnValue({ config: null, warnings: [] });
-		const svc = new ReportService("/my-project");
+		const svc = new ReportService("/my-project", mockDeps);
 		expect(svc.reportsDir).toBe(path.join("/my-project", "reports"));
 	});
 
 	it("uses configured reports dir", () => {
 		mockReadConfig.mockReturnValue({ config: { reports: { dir: "output/reports" } }, warnings: [] });
-		const svc = new ReportService("/my-project");
+		const svc = new ReportService("/my-project", mockDeps);
 		expect(svc.reportsDir).toBe(path.join("/my-project", "output/reports"));
 	});
 
 	it("subdir resolves within reports dir", () => {
 		mockReadConfig.mockReturnValue({ config: null, warnings: [] });
-		const svc = new ReportService("/proj");
+		const svc = new ReportService("/proj", mockDeps);
 		expect(svc.subdir("tests")).toBe(path.join("/proj", "reports", "tests"));
 	});
 
 	it("stablePath resolves within reports dir", () => {
 		mockReadConfig.mockReturnValue({ config: null, warnings: [] });
-		const svc = new ReportService("/proj");
+		const svc = new ReportService("/proj", mockDeps);
 		expect(svc.stablePath("Test Report.md")).toBe(path.join("/proj", "reports", "Test Report.md"));
 	});
 
@@ -60,7 +68,7 @@ describe("ReportService", () => {
 		const fs = createMockFs();
 		setDisk(fs);
 
-		const svc = new ReportService("/proj");
+		const svc = new ReportService("/proj", mockDeps);
 		const doc = Document.create("Test").text("Hello");
 
 		const result = svc.save(doc, {
@@ -85,7 +93,7 @@ describe("ReportService", () => {
 		});
 		setDisk(fs);
 
-		const svc = new ReportService("/proj");
+		const svc = new ReportService("/proj", mockDeps);
 		const doc = Document.create("Test").text("Hello");
 
 		svc.save(doc, {
@@ -105,7 +113,7 @@ describe("ReportService", () => {
 		const fs = createMockFs();
 		setDisk(fs);
 
-		const svc = new ReportService("/proj");
+		const svc = new ReportService("/proj", mockDeps);
 		const doc = Document.create("Test").text("Hello");
 
 		svc.save(doc, {
@@ -121,25 +129,25 @@ describe("ReportService", () => {
 
 	it("coverageDir uses config or default", () => {
 		mockReadConfig.mockReturnValue({ config: { reports: { dir: "custom/reports" } }, warnings: [] });
-		const svc = new ReportService("/proj");
+		const svc = new ReportService("/proj", mockDeps);
 		expect(svc.coverageDir).toBe("custom/reports/coverage");
 	});
 
 	it("coverageDir defaults to reports/coverage", () => {
 		mockReadConfig.mockReturnValue({ config: null, warnings: [] });
-		const svc = new ReportService("/proj");
+		const svc = new ReportService("/proj", mockDeps);
 		expect(svc.coverageDir).toBe("reports/coverage");
 	});
 
 	it("referenceDir defaults to docs/reference", () => {
 		mockReadConfig.mockReturnValue({ config: null, warnings: [] });
-		const svc = new ReportService("/proj");
+		const svc = new ReportService("/proj", mockDeps);
 		expect(svc.referenceDir).toBe(path.join("/proj", "docs/reference"));
 	});
 
 	it("referenceDir uses configured docs.referenceDir", () => {
 		mockReadConfig.mockReturnValue({ config: { docs: { referenceDir: "output/ref" } }, warnings: [] });
-		const svc = new ReportService("/proj");
+		const svc = new ReportService("/proj", mockDeps);
 		expect(svc.referenceDir).toBe(path.join("/proj", "output/ref"));
 	});
 
@@ -148,7 +156,7 @@ describe("ReportService", () => {
 		const fs = createMockFs();
 		setDisk(fs);
 
-		const svc = new ReportService("/proj");
+		const svc = new ReportService("/proj", mockDeps);
 		const doc = Document.create("Test Ref").text("Reference content");
 
 		const result = svc.saveReference(doc, "My Reference.md");
@@ -163,7 +171,7 @@ describe("ReportService", () => {
 		const fs = createMockFs();
 		setDisk(fs);
 
-		const svc = new ReportService("/proj");
+		const svc = new ReportService("/proj", mockDeps);
 		const doc = Document.create("Test").text("Content");
 
 		svc.saveReference(doc, "Ref.md");

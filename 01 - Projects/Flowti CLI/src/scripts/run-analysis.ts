@@ -11,34 +11,15 @@
  *   4. merge (inline)              → analysis.json
  */
 
-import { paths } from "../infrastructure/paths.js";
-import { shell } from "../infrastructure/shell.js";
-import { disk } from "../infrastructure/filesystem.js";
 import { CLI_PROJECT } from "../infrastructure/config.js";
 import { ReportService } from "../domain/reports/cli/report-service.js";
-import { log } from "../infrastructure/logger.js";
+import type { CliDeps } from "../infrastructure/deps.js";
 import { analyzeComplexity } from "../domain/reports/cli/complexity-analyzer.js";
 import type { AnalysisResult } from "../domain/reports/cli/complexity-analyzer.js";
+import type { IShell } from "../infrastructure/types.js";
 
-const svc = new ReportService();
-
-// ── Configurable paths ──────────────────────────────────────────────
-const VITEST_CONFIG = paths.join(CLI_PROJECT, "configs", "vitest.config.ts");
-const COVERAGE_DIR = svc.coverageDir;
-// ─────────────────────────────────────────────────────────────────────
-
-const OUTPUT_DIR = paths.join(CLI_PROJECT, COVERAGE_DIR);
-
-/** Default timeout for shell commands (2 minutes). */
-const CMD_TIMEOUT = 120_000;
-
-function run(cmd: string): void {
-	log(`\n> ${cmd}\n`);
-	const { exitCode } = shell.runCaptureStatus(cmd, { cwd: CLI_PROJECT, timeout: CMD_TIMEOUT });
-	if (exitCode !== 0) {
-		log(`Command exited with code ${exitCode}: ${cmd}`);
-	}
-}
+/** Dependencies required by the analysis pipeline. */
+export type AnalysisDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "log"> & { shell: Pick<IShell, "runCaptureStatus"> };
 
 // ── Coverage JSON conversion (inlined from library tool) ────────────
 
@@ -92,8 +73,8 @@ interface CoverageSummaryOutput {
 	files: CoverageSummaryFile[];
 }
 
-function convertCoverageToJson(coverageFinalPath: string): CoverageSummaryOutput {
-	const raw: Record<string, IstanbulEntry> = JSON.parse(disk.readFileSync(coverageFinalPath, "utf-8"));
+function convertCoverageToJson(coverageFinalPath: string, deps: Pick<AnalysisDeps, "disk" | "paths">): CoverageSummaryOutput {
+	const raw: Record<string, IstanbulEntry> = JSON.parse(deps.disk.readFileSync(coverageFinalPath, "utf-8"));
 	const files: CoverageSummaryFile[] = [];
 	let stTotal = 0, stCovered = 0, brTotal = 0, brCovered = 0, fnTotal = 0, fnCovered = 0, lnTotal = 0, lnCovered = 0;
 
@@ -128,7 +109,7 @@ function convertCoverageToJson(coverageFinalPath: string): CoverageSummaryOutput
 		fnTotal += fT; fnCovered += fC;
 		lnTotal += lT; lnCovered += lC;
 
-		const rel = paths.relative(CLI_PROJECT, filePath).replace(/\\/g, "/");
+		const rel = deps.paths.relative(CLI_PROJECT, filePath).replace(/\\/g, "/");
 		const uncov = uncoveredLines(entry);
 		files.push({
 			file: rel,
@@ -205,14 +186,14 @@ function mergeAnalysis(
 
 // ── Write complexity outputs ────────────────────────────────────────
 
-function writeComplexityOutputs(result: AnalysisResult): void {
-	disk.mkdirSync(OUTPUT_DIR, { recursive: true });
+function writeComplexityOutputs(result: AnalysisResult, outputDir: string, deps: Pick<AnalysisDeps, "disk" | "paths" | "log">): void {
+	deps.disk.mkdirSync(outputDir, { recursive: true });
 
 	// complexity-functions.json
 	const functionsOutput = { summary: result.summary, functions: result.functions };
-	const functionsPath = paths.join(OUTPUT_DIR, "complexity-functions.json");
-	disk.writeFileSync(functionsPath, JSON.stringify(functionsOutput, null, 2), "utf-8");
-	log(`Wrote ${functionsPath}`);
+	const functionsPath = deps.paths.join(outputDir, "complexity-functions.json");
+	deps.disk.writeFileSync(functionsPath, JSON.stringify(functionsOutput, null, 2), "utf-8");
+	deps.log(`Wrote ${functionsPath}`);
 
 	// decision-points-summary.json
 	const dpOutput = {
@@ -228,48 +209,64 @@ function writeComplexityOutputs(result: AnalysisResult): void {
 			decisionPointLineRanges: f.decisionPointLineRanges,
 		})),
 	};
-	const dpPath = paths.join(OUTPUT_DIR, "decision-points-summary.json");
-	disk.writeFileSync(dpPath, JSON.stringify(dpOutput, null, 2), "utf-8");
-	log(`Wrote ${dpPath}`);
+	const dpPath = deps.paths.join(outputDir, "decision-points-summary.json");
+	deps.disk.writeFileSync(dpPath, JSON.stringify(dpOutput, null, 2), "utf-8");
+	deps.log(`Wrote ${dpPath}`);
 }
 
 // ── Exported pipeline ────────────────────────────────────────────────
 
-export function runAnalysisPipeline(): void {
-	const coverageFinalPath = paths.join(OUTPUT_DIR, "coverage-final.json");
-	const srcDir = paths.join(CLI_PROJECT, "src");
+export function runAnalysisPipeline(deps: AnalysisDeps): void {
+	const { disk, paths: p, log: logFn, shell: sh } = deps;
+
+	const svc = new ReportService(CLI_PROJECT, deps);
+	const VITEST_CONFIG = p.join(CLI_PROJECT, "configs", "vitest.config.ts");
+	const COVERAGE_DIR = svc.coverageDir;
+	const OUTPUT_DIR = p.join(CLI_PROJECT, COVERAGE_DIR);
+	const CMD_TIMEOUT = 120_000;
+
+	function run(cmd: string): void {
+		logFn(`\n> ${cmd}\n`);
+		const { exitCode } = sh.runCaptureStatus(cmd, { cwd: CLI_PROJECT, timeout: CMD_TIMEOUT });
+		if (exitCode !== 0) {
+			logFn(`Command exited with code ${exitCode}: ${cmd}`);
+		}
+	}
+
+	const coverageFinalPath = p.join(OUTPUT_DIR, "coverage-final.json");
+	const srcDir = p.join(CLI_PROJECT, "src");
 
 	// 1. Run vitest only if coverage-final.json doesn't exist yet
 	if (!disk.existsSync(coverageFinalPath)) {
 		run(`npx vitest run --config "${VITEST_CONFIG}" --coverage --coverage.reportsDirectory=${COVERAGE_DIR} --coverage.reporter=json`);
 	} else {
-		log("Skipping vitest — coverage-final.json already exists.");
+		logFn("Skipping vitest — coverage-final.json already exists.");
 	}
 
 	// 2. Convert coverage-final.json → coverage-summary.json
 	let coverage: CoverageSummaryOutput | null = null;
 	if (disk.existsSync(coverageFinalPath)) {
-		log("Converting coverage data...");
-		coverage = convertCoverageToJson(coverageFinalPath);
-		const coverageSummaryPath = paths.join(OUTPUT_DIR, "coverage-summary.json");
+		logFn("Converting coverage data...");
+		coverage = convertCoverageToJson(coverageFinalPath, deps);
+		const coverageSummaryPath = p.join(OUTPUT_DIR, "coverage-summary.json");
 		disk.mkdirSync(OUTPUT_DIR, { recursive: true });
 		disk.writeFileSync(coverageSummaryPath, JSON.stringify(coverage, null, 2), "utf-8");
-		log(`Wrote ${coverageSummaryPath}`);
+		logFn(`Wrote ${coverageSummaryPath}`);
 	}
 
 	// 3. Run complexity analysis (single-pass TypeScript AST)
-	log(`\nAnalyzing complexity in ${srcDir}...`);
+	logFn(`\nAnalyzing complexity in ${srcDir}...`);
 	const startMs = Date.now();
 	const complexityResult = analyzeComplexity(srcDir, CLI_PROJECT);
 	const durationSec = ((Date.now() - startMs) / 1000).toFixed(1);
-	log(`Complexity analysis: ${complexityResult.summary.totalFunctions} functions, ${complexityResult.files.length} files (${durationSec}s)`);
-	writeComplexityOutputs(complexityResult);
+	logFn(`Complexity analysis: ${complexityResult.summary.totalFunctions} functions, ${complexityResult.files.length} files (${durationSec}s)`);
+	writeComplexityOutputs(complexityResult, OUTPUT_DIR, deps);
 
 	// 4. Merge coverage + complexity → analysis.json
 	const merged = mergeAnalysis(coverage, complexityResult);
-	const analysisPath = paths.join(OUTPUT_DIR, "analysis.json");
+	const analysisPath = p.join(OUTPUT_DIR, "analysis.json");
 	disk.writeFileSync(analysisPath, JSON.stringify(merged, null, 2), "utf-8");
-	log(`Wrote ${analysisPath}`);
+	logFn(`Wrote ${analysisPath}`);
 
-	log(`\nAnalysis complete. Output: ${COVERAGE_DIR}/analysis.json`);
+	logFn(`\nAnalysis complete. Output: ${COVERAGE_DIR}/analysis.json`);
 }

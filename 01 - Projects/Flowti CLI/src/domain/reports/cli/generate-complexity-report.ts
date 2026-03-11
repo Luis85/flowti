@@ -5,10 +5,9 @@
  * with coverage, decision points, and top files.
  */
 
-import { disk } from "../../../infrastructure/filesystem.js";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
-import { clock } from "../../../infrastructure/clock.js";
+import type { ReportDeps } from "../../../infrastructure/deps.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
 
 // ── Types matching analysis.json shape ──────────────────────────────
@@ -51,7 +50,7 @@ function pct(value: number | undefined): string {
 
 // ── Main ────────────────────────────────────────────────────────────
 
-function buildComplexityFm(summary: AnalysisSummary, srcFiles: AnalysisFile[]): Record<string, string | number> {
+function buildComplexityFm(summary: AnalysisSummary, srcFiles: AnalysisFile[], clock: ReportDeps["clock"]): Record<string, string | number> {
 	const fm: Record<string, string | number> = {
 		type: "ComplexityReport",
 		project: "flowti-cli",
@@ -116,21 +115,21 @@ function addLowCoverageSection(doc: Document, srcFiles: AnalysisFile[], projectP
 	).addBlank();
 }
 
-export function generateComplexityReport(projectPath: string, ctx?: import("../../../infrastructure/pipeline/pipeline-types.js").PipelineContext): GeneratorOutput {
+export function generateComplexityReport(projectPath: string, deps: ReportDeps, ctx?: import("../../../infrastructure/pipeline/pipeline-types.js").PipelineContext): GeneratorOutput {
 	const log = (msg: string) => ctx?.log(msg);
-	const svc = new ReportService(projectPath);
+	const svc = new ReportService(projectPath, deps);
 	const analysisJson = svc.subdir("coverage/analysis.json");
 
-	if (!disk.existsSync(analysisJson)) {
+	if (!deps.disk.existsSync(analysisJson)) {
 		log("[cli-report] No analysis.json found — run analysis first.");
 		return { success: false, outputPath: "", metrics: {} };
 	}
 
-	const data: AnalysisData = JSON.parse(disk.readFileSync(analysisJson, "utf-8"));
+	const data: AnalysisData = JSON.parse(deps.disk.readFileSync(analysisJson, "utf-8"));
 	const { summary, files } = data;
 	const hasCoverage = summary.statements !== undefined;
 	const srcFiles = files.filter((f) => !relPath(f.file, projectPath).startsWith("bin/"));
-	const fm = buildComplexityFm(summary, srcFiles);
+	const fm = buildComplexityFm(summary, srcFiles, deps.clock);
 
 	const doc = Document.create("CLI Complexity Report")
 		.mergeFrontmatter(fm)

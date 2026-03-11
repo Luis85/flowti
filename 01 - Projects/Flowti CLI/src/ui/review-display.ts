@@ -20,6 +20,11 @@ export interface ReviewCleanModel {
 	vaultPath: string;
 }
 
+export interface PipelineResultModel {
+	stoppedAt: string | null;
+	reason: string | null;
+}
+
 // ── Renderers ────────────────────────────────────────────────────────
 
 export function renderChangeAnalysis(data: ChangeAnalysisModel): void {
@@ -33,6 +38,12 @@ export function renderChangeAnalysis(data: ChangeAnalysisModel): void {
 	if (data.impact.affectedDomains.length > 0) log(`  ${DIM}Affected domains:${RESET} ${data.impact.affectedDomains.join(", ")}`);
 	if (data.impact.suggestedActions.length > 0) log(`  ${DIM}Suggested actions:${RESET} ${data.impact.suggestedActions.join(", ")}`);
 	log();
+}
+
+export function renderPipelineResult(data: PipelineResultModel): void {
+	if (data.stoppedAt) {
+		log(`Pipeline stopped — ${data.reason ?? `${data.stoppedAt} failed`}.`);
+	}
 }
 
 export function renderReviewClean(data: ReviewCleanModel): void {

@@ -51,7 +51,7 @@ export function toReferenceStep(refId: string): PipelineStep {
 		id: refId,
 		label,
 		execute: (ctx: PipelineContext): StepOutput => {
-			const output = runReference(refId, ctx.projectPath);
+			const output = runReference(refId, ctx.projectPath, ctx.deps);
 			if (!output) return { success: false, warnings: [`Reference "${refId}" returned no output`] };
 			return {
 				success: output.success,

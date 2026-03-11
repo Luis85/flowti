@@ -41,7 +41,7 @@ export function createRequest(
 		flags,
 		rawArgs,
 		project,
-		format: flags.format === "json" ? "json" : "text",
+		format: flags?.format === "json" ? "json" : "text",
 	};
 }
 
@@ -118,7 +118,7 @@ import type { CommandHandler } from "./types.js";
  */
 export function adapt(action: ControllerAction): CommandHandler {
 	return (flags, rawArgs, command, project) => {
-		const req = createRequest(command ?? "", flags, rawArgs, project);
+		const req = createRequest(command ?? "", flags ?? {}, rawArgs ?? [], project);
 		const result = action(req);
 		if (result && typeof (result as Promise<unknown>).then === "function") {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any

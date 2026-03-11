@@ -250,10 +250,11 @@ export type GeneratorOutput = GeneratorSuccess | GeneratorFailure;
 
 /**
  * A callable report generator function.
- * The optional second parameter provides pipeline context when
+ * Receives infrastructure deps for testability (no singleton imports).
+ * The optional third parameter provides pipeline context when
  * running inside a pipeline (for accessing prior results, command outputs, etc.).
  */
-export type GeneratorFn = (projectPath: string, ctx?: import("./pipeline/pipeline-types.js").PipelineContext) => GeneratorOutput;
+export type GeneratorFn = (projectPath: string, deps: import("./deps.js").ReportDeps, ctx?: import("./pipeline/pipeline-types.js").PipelineContext) => GeneratorOutput;
 
 export interface SummaryThresholds {
 	/** Minimum line coverage percentage (default: 80) */

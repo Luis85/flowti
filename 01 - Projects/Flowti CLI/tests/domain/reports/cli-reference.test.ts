@@ -37,9 +37,12 @@ vi.mock("../../../src/domain/project/project-config.js", () => ({
 }));
 
 import { disk } from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
+import { clock } from "../../../src/infrastructure/clock.js";
 import { generateCliReference, extractHelpSections } from "../../../src/domain/reports/generators/cli-reference.js";
 
 const mockDisk = vi.mocked(disk);
+const mockDeps = { disk, paths, clock, log: () => {} } as any;
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -80,7 +83,7 @@ describe("generateCliReference", () => {
 	it("returns success with metrics", () => {
 		mockDisk.existsSync.mockReturnValue(false);
 
-		const result = generateCliReference("/test/project");
+		const result = generateCliReference("/test/project", mockDeps);
 
 		expect(result.success).toBe(true);
 		expect(result.outputPath).toContain("Flowti CLI Reference.md");
@@ -101,7 +104,7 @@ describe("generateCliReference", () => {
 			return "{}";
 		});
 
-		const result = generateCliReference("/test/project");
+		const result = generateCliReference("/test/project", mockDeps);
 
 		expect(result.success).toBe(true);
 		expect(result.metrics.help_sections).toBe(2);
@@ -112,7 +115,7 @@ describe("generateCliReference", () => {
 		mockDisk.existsSync.mockReturnValue(false);
 		mockDisk.readFileSync.mockImplementation(() => { throw new Error("not found"); });
 
-		const result = generateCliReference("/test/project");
+		const result = generateCliReference("/test/project", mockDeps);
 
 		expect(result.success).toBe(true);
 		expect(result.metrics.help_sections).toBe(0);
@@ -121,7 +124,7 @@ describe("generateCliReference", () => {
 	it("writes to reference directory (not reports)", () => {
 		mockDisk.existsSync.mockReturnValue(false);
 
-		const result = generateCliReference("/test/project");
+		const result = generateCliReference("/test/project", mockDeps);
 
 		expect(result.outputPath).toContain("docs/reference");
 		expect(result.outputPath).toContain("Flowti CLI Reference.md");
@@ -152,7 +155,7 @@ describe("generateCliReference", () => {
 			return "{}";
 		});
 
-		const result = generateCliReference("/test/project");
+		const result = generateCliReference("/test/project", mockDeps);
 
 		expect(result.success).toBe(true);
 	});

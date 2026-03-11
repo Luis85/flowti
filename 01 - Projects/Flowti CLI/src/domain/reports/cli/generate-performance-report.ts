@@ -5,11 +5,9 @@
  * generates a PerformanceReport vault note with queryable YAML frontmatter.
  */
 
-import { disk } from "../../../infrastructure/filesystem.js";
-import { paths } from "../../../infrastructure/paths.js";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
-import { clock } from "../../../infrastructure/clock.js";
+import type { ReportDeps } from "../../../infrastructure/deps.js";
 import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { percentile, round, formatBytes } from "../generators/performance-report.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
@@ -17,29 +15,29 @@ import type { PipelineContext } from "../../../infrastructure/pipeline/pipeline-
 
 // ── Data loading ─────────────────────────────────────────────────────
 
-function findDataJson(): string | null {
+function findDataJson(deps: ReportDeps): string | null {
 	const candidates: string[] = [
-		paths.resolve(PLUGIN_ROOT, "..", "..", ".obsidian", "plugins", "flowti-ibde", "data.json"),
-		paths.join(PLUGIN_ROOT, "data.json"),
+		deps.paths.resolve(PLUGIN_ROOT, "..", "..", ".obsidian", "plugins", "flowti-ibde", "data.json"),
+		deps.paths.join(PLUGIN_ROOT, "data.json"),
 	];
 	for (const candidate of candidates) {
-		if (disk.existsSync(candidate)) return candidate;
+		if (deps.disk.existsSync(candidate)) return candidate;
 	}
 	return null;
 }
 
 // ── Generator ────────────────────────────────────────────────────────
 
-export function generatePerformanceReport(projectPath: string, ctx?: PipelineContext): GeneratorOutput {
+export function generatePerformanceReport(projectPath: string, deps: ReportDeps, ctx?: PipelineContext): GeneratorOutput {
 	const log = (msg: string) => ctx?.log(msg);
-	const svc = new ReportService(projectPath);
+	const svc = new ReportService(projectPath, deps);
 
-	const dataJsonPath = findDataJson();
+	const dataJsonPath = findDataJson(deps);
 	let data: Record<string, unknown> | null = null;
 
 	if (dataJsonPath) {
 		try {
-			data = JSON.parse(disk.readFileSync(dataJsonPath, "utf-8")) as Record<string, unknown>;
+			data = JSON.parse(deps.disk.readFileSync(dataJsonPath, "utf-8")) as Record<string, unknown>;
 			log(`[cli-report] Read data.json from: ${dataJsonPath}`);
 		} catch {
 			log("[cli-report] Failed to parse data.json.");
@@ -54,7 +52,7 @@ export function generatePerformanceReport(projectPath: string, ctx?: PipelineCon
 	const fm: Record<string, string | number> = {
 		type: "PerformanceReport",
 		project: "flowti-cli",
-		date: clock.iso(),
+		date: deps.clock.iso(),
 		startup_total_ms: round(startupHistory[startupHistory.length - 1] ?? 0),
 		startup_measurements: startupHistory.length,
 		startup_p50: round(percentile(sorted, 0.5)),

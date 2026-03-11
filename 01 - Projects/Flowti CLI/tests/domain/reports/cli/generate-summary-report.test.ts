@@ -66,10 +66,15 @@ vi.mock("../../../../src/domain/reports/cli/summary-formatters.js", () => ({
 	d: vi.fn(() => "Jan 1, 2026"),
 }));
 
+import type { ReportDeps } from "../../../../src/infrastructure/deps.js";
 import { disk } from "../../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../../src/infrastructure/paths.js";
+import { clock } from "../../../../src/infrastructure/clock.js";
 import { discoverReports, loadJsonDataSources, loadDetailedSources } from "../../../../src/domain/reports/cli/summary-loaders.js";
 import { analyzeReports } from "../../../../src/domain/reports/cli/summary-analyzers-ext.js";
 import { generateSummaryReport } from "../../../../src/domain/reports/cli/generate-summary-report.js";
+
+const mockDeps: ReportDeps = { disk, paths, clock, log: () => {} };
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -79,7 +84,7 @@ describe("generateSummaryReport", () => {
 	it("generates summary report with no reports found", () => {
 		vi.mocked(discoverReports).mockReturnValue([]);
 
-		const result = generateSummaryReport("/project");
+		const result = generateSummaryReport("/project", mockDeps);
 
 		expect(result.success).toBe(true);
 		expect(result.outputPath).toBeTruthy();
@@ -89,7 +94,7 @@ describe("generateSummaryReport", () => {
 	it("warns when no reports found", () => {
 		vi.mocked(discoverReports).mockReturnValue([]);
 
-		const result = generateSummaryReport("/project");
+		const result = generateSummaryReport("/project", mockDeps);
 
 		expect(result.warnings).toBeDefined();
 		expect(result.warnings!.some(w => w.includes("No reports found"))).toBe(true);
@@ -101,7 +106,7 @@ describe("generateSummaryReport", () => {
 			{ label: "Coverage", file: "Coverage Report.md", frontmatter: { type: "CoverageReport" } },
 		]);
 
-		const result = generateSummaryReport("/project");
+		const result = generateSummaryReport("/project", mockDeps);
 
 		expect(result.success).toBe(true);
 		expect(result.metrics!.reportsAnalyzed).toBe(2);
@@ -117,7 +122,7 @@ describe("generateSummaryReport", () => {
 			{ category: "improvement", message: "Add more tests" },
 		]);
 
-		const result = generateSummaryReport("/project");
+		const result = generateSummaryReport("/project", mockDeps);
 
 		expect(result.metrics!.risks).toBe(2);
 		expect(result.metrics!.improvements).toBe(1);
@@ -128,7 +133,7 @@ describe("generateSummaryReport", () => {
 	it("writes stable and timestamped markdown plus JSON", () => {
 		vi.mocked(discoverReports).mockReturnValue([]);
 
-		generateSummaryReport("/project");
+		generateSummaryReport("/project", mockDeps);
 
 		// Should call writeFileSync for JSON
 		expect(disk.writeFileSync).toHaveBeenCalled();
@@ -154,7 +159,7 @@ describe("generateSummaryReport", () => {
 			getStepData: vi.fn(),
 		};
 
-		const result = generateSummaryReport("/project", ctx as any);
+		const result = generateSummaryReport("/project", mockDeps, ctx as any);
 
 		expect(result.success).toBe(true);
 	});
@@ -175,7 +180,7 @@ describe("generateSummaryReport", () => {
 			getStepData: vi.fn(),
 		};
 
-		generateSummaryReport("/project", ctx as any);
+		generateSummaryReport("/project", mockDeps, ctx as any);
 
 		expect(logFn).toHaveBeenCalled();
 	});
@@ -188,7 +193,7 @@ describe("generateSummaryReport", () => {
 			{ category: "positive", message: "All tests passing" },
 		]);
 
-		const result = generateSummaryReport("/project");
+		const result = generateSummaryReport("/project", mockDeps);
 
 		expect(result.metrics!.risks).toBe(0);
 		expect(result.metrics!.positives).toBe(1);

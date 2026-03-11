@@ -51,7 +51,7 @@ export function toReportStep(gen: ReportGenerator): PipelineStep {
 		execute: (ctx: PipelineContext): StepOutput => {
 			// Internal generator takes priority
 			if (gen.id && hasGenerator(gen.id)) {
-				const output = runGenerator(gen.id, ctx.projectPath, ctx);
+				const output = runGenerator(gen.id, ctx.projectPath, ctx.deps, ctx);
 				if (!output) return { success: false, warnings: [`Generator "${gen.id}" returned no output`] };
 				return {
 					success: output.success,

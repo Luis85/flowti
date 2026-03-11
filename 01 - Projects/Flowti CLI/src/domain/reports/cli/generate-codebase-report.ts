@@ -5,10 +5,9 @@
  * generates a markdown CodebaseReport.
  */
 
-import { disk } from "../../../infrastructure/filesystem.js";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
-import { clock } from "../../../infrastructure/clock.js";
+import type { ReportDeps } from "../../../infrastructure/deps.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
 
 const KIND: Record<string, number> = {
@@ -63,7 +62,7 @@ function countOf(counts: Record<number, number>, kind: number): number {
 	return counts[kind] || 0;
 }
 
-function buildFrontmatter(data: TypeDocNode, counts: Record<number, number>): Record<string, string | number> {
+function buildFrontmatter(data: TypeDocNode, counts: Record<number, number>, clock: ReportDeps["clock"]): Record<string, string | number> {
 	return {
 		type: "CodebaseReport",
 		project: "flowti-cli",
@@ -80,20 +79,20 @@ function buildFrontmatter(data: TypeDocNode, counts: Record<number, number>): Re
 	};
 }
 
-export function generateCodebaseReport(projectPath: string, ctx?: import("../../../infrastructure/pipeline/pipeline-types.js").PipelineContext): GeneratorOutput {
+export function generateCodebaseReport(projectPath: string, deps: ReportDeps, ctx?: import("../../../infrastructure/pipeline/pipeline-types.js").PipelineContext): GeneratorOutput {
 	const log = (msg: string) => ctx?.log(msg);
-	const svc = new ReportService(projectPath);
+	const svc = new ReportService(projectPath, deps);
 	const codebaseJson = svc.subdir("codebase/codebase.json");
 
-	if (!disk.existsSync(codebaseJson)) {
+	if (!deps.disk.existsSync(codebaseJson)) {
 		log("[cli-report] No codebase.json found — run `npm run typedoc` first.");
 		return { success: false, outputPath: "", metrics: {} };
 	}
 
-	const data: TypeDocNode = JSON.parse(disk.readFileSync(codebaseJson, "utf-8"));
+	const data: TypeDocNode = JSON.parse(deps.disk.readFileSync(codebaseJson, "utf-8"));
 	const counts = countByKind(data);
 	const domains = countModulesByDomain(data);
-	const fm = buildFrontmatter(data, counts);
+	const fm = buildFrontmatter(data, counts, deps.clock);
 
 	const doc = Document.create("CLI Codebase Report")
 		.mergeFrontmatter(fm)

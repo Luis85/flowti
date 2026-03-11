@@ -5,12 +5,10 @@
  * an Event Catalog reference document with queryable YAML frontmatter.
  */
 
-import { disk } from "../../../infrastructure/filesystem.js";
-import { paths } from "../../../infrastructure/paths.js";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
-import { clock } from "../../../infrastructure/clock.js";
 import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
+import type { ReportDeps } from "../../../infrastructure/deps.js";
 import { extractCategories, extractCatalogEntries } from "../generators/event-catalog.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
 import type { PipelineContext } from "../../../infrastructure/pipeline/pipeline-types.js";
@@ -53,17 +51,17 @@ function getDomainSummary(events: CatalogEntry[]): [string, number][] {
 
 // ── Generator ────────────────────────────────────────────────────────
 
-export function generateEventCatalog(projectPath: string, ctx?: PipelineContext): GeneratorOutput {
+export function generateEventCatalog(projectPath: string, deps: ReportDeps, ctx?: PipelineContext): GeneratorOutput {
 	const log = (msg: string) => ctx?.log(msg);
-	const svc = new ReportService(projectPath);
-	const catalogPath = paths.join(PLUGIN_ROOT, "src", "infrastructure", "events", "catalog.ts");
+	const svc = new ReportService(projectPath, deps);
+	const catalogPath = deps.paths.join(PLUGIN_ROOT, "src", "infrastructure", "events", "catalog.ts");
 
-	if (!disk.existsSync(catalogPath)) {
+	if (!deps.disk.existsSync(catalogPath)) {
 		log("[cli-report] catalog.ts not found — skipping event catalog generation.");
 		return { success: false, outputPath: "", metrics: {}, error: "catalog.ts not found" };
 	}
 
-	const source = disk.readFileSync(catalogPath, "utf-8");
+	const source = deps.disk.readFileSync(catalogPath, "utf-8");
 	const categories = extractCategories(source);
 	const events = extractCatalogEntries(source);
 
@@ -79,7 +77,7 @@ export function generateEventCatalog(projectPath: string, ctx?: PipelineContext)
 	const doc = Document.create("Event Catalog")
 		.mergeFrontmatter({
 			type: "EventCatalog",
-			date: clock.iso(),
+			date: deps.clock.iso(),
 			total_events: events.length,
 			categories: groups.size,
 			domains: uniqueDomains.size,

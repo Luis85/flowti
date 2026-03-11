@@ -5,12 +5,10 @@
  * a Journey Runner Tool Reference vault note with queryable YAML frontmatter.
  */
 
-import { disk } from "../../../infrastructure/filesystem.js";
-import { paths } from "../../../infrastructure/paths.js";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
-import { clock } from "../../../infrastructure/clock.js";
 import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
+import type { ReportDeps } from "../../../infrastructure/deps.js";
 import {
 	extractBlock,
 	extractBracketBlock,
@@ -188,17 +186,17 @@ function renderToolDetail(doc: Document, tool: ToolMeta): void {
 
 // ── Generator ────────────────────────────────────────────────────────
 
-export function generateToolReference(projectPath: string, ctx?: PipelineContext): GeneratorOutput {
+export function generateToolReference(projectPath: string, deps: ReportDeps, ctx?: PipelineContext): GeneratorOutput {
 	const log = (msg: string) => ctx?.log(msg);
-	const svc = new ReportService(projectPath);
-	const catalogPath = paths.join(PLUGIN_ROOT, "tests", "e2e", "helpers", "toolCatalog.ts");
+	const svc = new ReportService(projectPath, deps);
+	const catalogPath = deps.paths.join(PLUGIN_ROOT, "tests", "e2e", "helpers", "toolCatalog.ts");
 
-	if (!disk.existsSync(catalogPath)) {
+	if (!deps.disk.existsSync(catalogPath)) {
 		log("[cli-report] Tool catalog source not found — skipping.");
 		return { success: false, outputPath: "", metrics: {}, error: "Tool catalog source not found" };
 	}
 
-	const tools = extractToolMeta(disk.readFileSync(catalogPath, "utf-8"));
+	const tools = extractToolMeta(deps.disk.readFileSync(catalogPath, "utf-8"));
 	if (tools.length === 0) {
 		log("[cli-report] No tools extracted from catalog — skipping.");
 		return { success: false, outputPath: "", metrics: {}, error: "No tools extracted from catalog" };
@@ -210,7 +208,7 @@ export function generateToolReference(projectPath: string, ctx?: PipelineContext
 	const doc = Document.create("Journey Runner Tool Reference")
 		.mergeFrontmatter({
 			type: "ToolReference",
-			date: clock.iso(),
+			date: deps.clock.iso(),
 			total_tools: tools.length,
 			categories: sortedCategories.length,
 		})

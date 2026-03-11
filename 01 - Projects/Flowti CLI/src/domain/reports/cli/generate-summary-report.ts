@@ -5,11 +5,9 @@
  * All logic is delegated to the summary-* modules.
  */
 
-import { paths } from "../../../infrastructure/paths.js";
-import { disk } from "../../../infrastructure/filesystem.js";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
-import { clock } from "../../../infrastructure/clock.js";
+import type { ReportDeps } from "../../../infrastructure/deps.js";
 import type { SummaryThresholds } from "../../../infrastructure/types.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
 import type {
@@ -53,8 +51,9 @@ function buildSummaryReport(
 	json: JsonDataSources,
 	detailed: DetailedSources,
 	runResults: readonly StepResult[],
+	deps: ReportDeps,
 ): Document {
-	const now = clock.now();
+	const now = deps.clock.now();
 	const risks = findings.filter((f) => f.category === "risk").length;
 	const improvements = findings.filter((f) => f.category === "improvement").length;
 	const positives = findings.filter((f) => f.category === "positive").length;
@@ -181,6 +180,7 @@ function buildJsonOutput(
 	lint: LintResult | null, typedoc: TypeDocResult | null,
 	thresholds: Required<SummaryThresholds>, json: JsonDataSources, detailed: DetailedSources,
 	runResults: readonly StepResult[],
+	deps: ReportDeps,
 ): Record<string, unknown> {
 	const risks = categorizeFindingsBy(findings, "risk");
 	const improvements = categorizeFindingsBy(findings, "improvement");
@@ -188,7 +188,7 @@ function buildJsonOutput(
 	return {
 		type: "ProjectSummary",
 		project: projectName,
-		date: clock.iso(),
+		date: deps.clock.iso(),
 		reportsAnalyzed: snapshots.length,
 		summary: { risks: risks.length, improvements: improvements.length, positives: positives.length },
 		metrics: promoteFrontmatter(snapshots, json, lint, typedoc, detailed),
@@ -255,9 +255,9 @@ function collectOutputWarnings(
 	return warnings;
 }
 
-export function generateSummaryReport(projectPath: string, ctx?: PipelineContext): GeneratorOutput {
-	const svc = new ReportService(projectPath);
-	const projectName = paths.basename(projectPath);
+export function generateSummaryReport(projectPath: string, deps: ReportDeps, ctx?: PipelineContext): GeneratorOutput {
+	const svc = new ReportService(projectPath, deps);
+	const projectName = deps.paths.basename(projectPath);
 	const thresholds = resolveThresholds(projectPath);
 	const log = (msg: string) => ctx?.log(msg);
 
@@ -273,21 +273,21 @@ export function generateSummaryReport(projectPath: string, ctx?: PipelineContext
 
 	const runResults = ctx ? ctx.getResults() : [];
 	const findings = analyzeReports(snapshots, thresholds, lint, typedoc, json, detailed, projectPath, runResults);
-	const doc = buildSummaryReport(snapshots, findings, lint, typedoc, thresholds, projectName, json, detailed, runResults);
+	const doc = buildSummaryReport(snapshots, findings, lint, typedoc, thresholds, projectName, json, detailed, runResults, deps);
 
 	const stablePath = svc.stablePath("Project Summary.md");
-	disk.mkdirSync(svc.reportsDir, { recursive: true });
+	deps.disk.mkdirSync(svc.reportsDir, { recursive: true });
 	doc.save(stablePath);
 
 	const summaryDir = svc.subdir("summary");
-	disk.mkdirSync(summaryDir, { recursive: true });
-	const safeTimestamp = clock.safeIso();
-	const timestampedPath = paths.join(summaryDir, `${safeTimestamp}-project-summary.md`);
+	deps.disk.mkdirSync(summaryDir, { recursive: true });
+	const safeTimestamp = deps.clock.safeIso();
+	const timestampedPath = deps.paths.join(summaryDir, `${safeTimestamp}-project-summary.md`);
 	doc.save(timestampedPath);
 
-	const jsonData = buildJsonOutput(projectName, snapshots, findings, lint, typedoc, thresholds, json, detailed, runResults);
-	const jsonPath = paths.join(summaryDir, `${safeTimestamp}-project-summary.json`);
-	disk.writeFileSync(jsonPath, JSON.stringify(jsonData, null, "\t"), "utf-8");
+	const jsonData = buildJsonOutput(projectName, snapshots, findings, lint, typedoc, thresholds, json, detailed, runResults, deps);
+	const jsonPath = deps.paths.join(summaryDir, `${safeTimestamp}-project-summary.json`);
+	deps.disk.writeFileSync(jsonPath, JSON.stringify(jsonData, null, "\t"), "utf-8");
 
 	const risks = categorizeFindingsBy(findings, "risk").length;
 	const improvements = categorizeFindingsBy(findings, "improvement").length;

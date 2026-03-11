@@ -32,8 +32,13 @@ vi.mock("../../../../src/domain/project/project-config.js", () => ({
 	readProjectConfig: vi.fn(() => ({ config: { reports: { dir: "reports" }, docs: { referenceDir: "docs/reference" } } })),
 }));
 
+import type { ReportDeps } from "../../../../src/infrastructure/deps.js";
 import { disk } from "../../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../../src/infrastructure/paths.js";
+import { clock } from "../../../../src/infrastructure/clock.js";
 import { generateCoverageReport } from "../../../../src/domain/reports/cli/generate-coverage-report.js";
+
+const mockDeps: ReportDeps = { disk, paths, clock, log: () => {} };
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -43,7 +48,7 @@ describe("generateCoverageReport", () => {
 	it("returns failure when coverage-final.json does not exist", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(false);
 
-		const result = generateCoverageReport("/project");
+		const result = generateCoverageReport("/project", mockDeps);
 
 		expect(result.success).toBe(false);
 		expect(result.outputPath).toBe("");
@@ -60,7 +65,7 @@ describe("generateCoverageReport", () => {
 			},
 		}));
 
-		const result = generateCoverageReport("/project");
+		const result = generateCoverageReport("/project", mockDeps);
 
 		expect(result.success).toBe(true);
 		expect(result.outputPath).toBeTruthy();
@@ -81,7 +86,7 @@ describe("generateCoverageReport", () => {
 			},
 		}));
 
-		const result = generateCoverageReport("/project");
+		const result = generateCoverageReport("/project", mockDeps);
 
 		expect(result.metrics!.statements).toBe(100);
 		expect(result.metrics!.branches).toBe(100);
@@ -99,7 +104,7 @@ describe("generateCoverageReport", () => {
 			},
 		}));
 
-		const result = generateCoverageReport("/project");
+		const result = generateCoverageReport("/project", mockDeps);
 
 		expect(result.warnings).toBeDefined();
 		expect(result.warnings!.some(w => w.includes("Statement coverage"))).toBe(true);
@@ -116,7 +121,7 @@ describe("generateCoverageReport", () => {
 			},
 		}));
 
-		const result = generateCoverageReport("/project");
+		const result = generateCoverageReport("/project", mockDeps);
 
 		expect(result.warnings).toBeDefined();
 		expect(result.warnings!.some(w => w.includes("Branch coverage"))).toBe(true);
@@ -126,7 +131,7 @@ describe("generateCoverageReport", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({}));
 
-		const result = generateCoverageReport("/project");
+		const result = generateCoverageReport("/project", mockDeps);
 
 		expect(result.success).toBe(true);
 		expect(result.metrics!.files).toBe(0);
@@ -140,7 +145,7 @@ describe("generateCoverageReport", () => {
 			},
 		}));
 
-		const result = generateCoverageReport("/project");
+		const result = generateCoverageReport("/project", mockDeps);
 
 		expect(result.success).toBe(true);
 	});
@@ -152,7 +157,7 @@ describe("generateCoverageReport", () => {
 		const logFn = vi.fn();
 		const ctx = { log: logFn, projectPath: "/project", getResults: () => [], pushResult: vi.fn(), getStepResult: vi.fn(), setCommandOutput: vi.fn(), getCommandOutput: vi.fn(), setStepData: vi.fn(), getStepData: vi.fn() };
 
-		generateCoverageReport("/project", ctx as any);
+		generateCoverageReport("/project", mockDeps, ctx as any);
 
 		expect(logFn).toHaveBeenCalled();
 	});

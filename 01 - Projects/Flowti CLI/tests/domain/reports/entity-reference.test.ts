@@ -35,10 +35,15 @@ vi.mock("../../../src/domain/project/project-config.js", () => ({
 }));
 
 import * as fsMod from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
+import { clock } from "../../../src/infrastructure/clock.js";
 import { ENTITY_REGISTRY, generateEntityReference } from "../../../src/domain/reports/generators/entity-reference.js";
+
+const mockDeps = { disk: fsMod.disk, paths, clock, log: () => {} } as any;
 
 function setDisk(fs: ReturnType<typeof createMockFs>): void {
 	Object.assign(fsMod, { disk: fs });
+	mockDeps.disk = fs;
 }
 
 describe("ENTITY_REGISTRY", () => {
@@ -94,7 +99,7 @@ describe("generateEntityReference", () => {
 		const fs = createMockFs();
 		setDisk(fs);
 
-		const result = generateEntityReference("/mock/project");
+		const result = generateEntityReference("/mock/project", mockDeps);
 
 		expect(result.success).toBe(true);
 		expect(result.outputPath).toBeTruthy();
@@ -105,7 +110,7 @@ describe("generateEntityReference", () => {
 		const fs = createMockFs();
 		setDisk(fs);
 
-		generateEntityReference("/mock/project");
+		generateEntityReference("/mock/project", mockDeps);
 
 		const written = [...fs.files.entries()];
 		const mdFile = written.find(([k]) => k.endsWith(".md"));
@@ -121,7 +126,7 @@ describe("generateEntityReference", () => {
 		const fs = createMockFs();
 		setDisk(fs);
 
-		generateEntityReference("/mock/project");
+		generateEntityReference("/mock/project", mockDeps);
 
 		const written = [...fs.files.entries()];
 		const mdFile = written.find(([k]) => k.endsWith(".md"));
@@ -136,7 +141,7 @@ describe("generateEntityReference", () => {
 		const fs = createMockFs();
 		setDisk(fs);
 
-		generateEntityReference("/mock/project");
+		generateEntityReference("/mock/project", mockDeps);
 
 		const written = [...fs.files.entries()];
 		const mdFile = written.find(([k]) => k.endsWith(".md"));

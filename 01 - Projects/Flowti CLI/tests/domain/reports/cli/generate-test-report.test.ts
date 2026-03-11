@@ -32,8 +32,13 @@ vi.mock("../../../../src/domain/project/project-config.js", () => ({
 	readProjectConfig: vi.fn(() => ({ config: { reports: { dir: "reports" }, docs: { referenceDir: "docs/reference" } } })),
 }));
 
+import type { ReportDeps } from "../../../../src/infrastructure/deps.js";
 import { disk } from "../../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../../src/infrastructure/paths.js";
+import { clock } from "../../../../src/infrastructure/clock.js";
 import { generateTestReport } from "../../../../src/domain/reports/cli/generate-test-report.js";
+
+const mockDeps: ReportDeps = { disk, paths, clock, log: () => {} };
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -43,7 +48,7 @@ describe("generateTestReport", () => {
 	it("returns failure when testreport.json does not exist", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(false);
 
-		const result = generateTestReport("/project");
+		const result = generateTestReport("/project", mockDeps);
 
 		expect(result.success).toBe(false);
 		expect(result.outputPath).toBe("");
@@ -61,7 +66,7 @@ describe("generateTestReport", () => {
 			startTime: 999000,
 		}));
 
-		const result = generateTestReport("/project");
+		const result = generateTestReport("/project", mockDeps);
 
 		expect(result.success).toBe(true);
 		expect(result.outputPath).toBeTruthy();
@@ -84,7 +89,7 @@ describe("generateTestReport", () => {
 			success: false,
 		}));
 
-		const result = generateTestReport("/project");
+		const result = generateTestReport("/project", mockDeps);
 
 		expect(result.warnings).toBeDefined();
 		expect(result.warnings![0]).toContain("3 test(s) failed");
@@ -100,7 +105,7 @@ describe("generateTestReport", () => {
 			success: true,
 		}));
 
-		const result = generateTestReport("/project");
+		const result = generateTestReport("/project", mockDeps);
 
 		expect(result.warnings).toBeUndefined();
 	});
@@ -118,7 +123,7 @@ describe("generateTestReport", () => {
 			success: true,
 		}));
 
-		const result = generateTestReport("/project");
+		const result = generateTestReport("/project", mockDeps);
 
 		expect(result.metrics).toEqual(expect.objectContaining({ suites: 2 }));
 	});
@@ -135,7 +140,7 @@ describe("generateTestReport", () => {
 		const logFn = vi.fn();
 		const ctx = { log: logFn, projectPath: "/project", getResults: () => [], pushResult: vi.fn(), getStepResult: vi.fn(), setCommandOutput: vi.fn(), getCommandOutput: vi.fn(), setStepData: vi.fn(), getStepData: vi.fn() };
 
-		generateTestReport("/project", ctx as any);
+		generateTestReport("/project", mockDeps, ctx as any);
 
 		expect(logFn).toHaveBeenCalled();
 	});

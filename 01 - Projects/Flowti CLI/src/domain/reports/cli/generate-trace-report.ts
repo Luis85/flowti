@@ -5,11 +5,9 @@
  * TraceConformanceReport with queryable YAML frontmatter.
  */
 
-import { disk } from "../../../infrastructure/filesystem.js";
-import { paths } from "../../../infrastructure/paths.js";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
-import { clock } from "../../../infrastructure/clock.js";
+import type { ReportDeps } from "../../../infrastructure/deps.js";
 import { PLUGIN_ROOT, VAULT_ROOT } from "../../../infrastructure/config.js";
 import { scanDir } from "../generators/trace-report.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
@@ -67,15 +65,15 @@ function checkTechDebt(doc: ScanResult): TraceGap[] {
 
 // ── Document collection and gap finding ──────────────────────────────
 
-function collectDocuments(docsDir: string): ScanResult[] {
-	const vaultInbox = paths.join(VAULT_ROOT, "00 - Connectivity", "inbox");
+function collectDocuments(docsDir: string, deps: ReportDeps): ScanResult[] {
+	const vaultInbox = deps.paths.join(VAULT_ROOT, "00 - Connectivity", "inbox");
 
 	const docs: ScanResult[] = [
-		...scanDir(paths.join(docsDir, "inbox"), "inbox"),
+		...scanDir(deps.paths.join(docsDir, "inbox"), "inbox"),
 		...scanDir(vaultInbox, "inbox"),
 		...scanDir(docsDir, "pbi").filter((d) => d.id.startsWith("PBI-")),
-		...scanDir(paths.join(docsDir, "cycles"), "cycle"),
-		...scanDir(paths.join(docsDir, "debt"), "tech_debt"),
+		...scanDir(deps.paths.join(docsDir, "cycles"), "cycle"),
+		...scanDir(deps.paths.join(docsDir, "debt"), "tech_debt"),
 	];
 
 	const topDocs = scanDir(docsDir, "pbi").filter((d) => d.id.startsWith("PBI-"));
@@ -103,7 +101,7 @@ function findGaps(docs: ScanResult[]): TraceGap[] {
 
 // ── Document builder ─────────────────────────────────────────────────
 
-function buildTraceReportDoc(docs: ScanResult[], gaps: TraceGap[]): Document {
+function buildTraceReportDoc(docs: ScanResult[], gaps: TraceGap[], deps: ReportDeps): Document {
 	const gapsByType: Record<string, TraceGap[]> = {};
 	for (const gap of gaps) {
 		if (!gapsByType[gap.gapType]) gapsByType[gap.gapType] = [];
@@ -116,7 +114,7 @@ function buildTraceReportDoc(docs: ScanResult[], gaps: TraceGap[]): Document {
 		.mergeFrontmatter({
 			type: "TraceConformanceReport",
 			project: "flowti-cli",
-			date: clock.iso(),
+			date: deps.clock.iso(),
 			documents_scanned: docs.length,
 			gaps_found: gaps.length,
 			coverage_pct: coverage,
@@ -154,14 +152,14 @@ function buildTraceReportDoc(docs: ScanResult[], gaps: TraceGap[]): Document {
 
 // ── Generator ────────────────────────────────────────────────────────
 
-export function generateTraceReport(projectPath: string, ctx?: PipelineContext): GeneratorOutput {
+export function generateTraceReport(projectPath: string, deps: ReportDeps, ctx?: PipelineContext): GeneratorOutput {
 	const log = (msg: string) => ctx?.log(msg);
-	const svc = new ReportService(projectPath);
-	const docsDir = paths.join(PLUGIN_ROOT, "docs");
+	const svc = new ReportService(projectPath, deps);
+	const docsDir = deps.paths.join(PLUGIN_ROOT, "docs");
 
-	const docs = collectDocuments(docsDir);
+	const docs = collectDocuments(docsDir, deps);
 	const gaps = findGaps(docs);
-	const reportDoc = buildTraceReportDoc(docs, gaps);
+	const reportDoc = buildTraceReportDoc(docs, gaps, deps);
 
 	const outputPath = svc.save(reportDoc, {
 		subdir: "traceability",

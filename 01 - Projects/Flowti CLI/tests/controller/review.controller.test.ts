@@ -63,6 +63,7 @@ vi.mock("../../src/domain/review/change-analysis.js", () => ({
 vi.mock("../../src/ui/review-display.js", () => ({
 	renderChangeAnalysis: vi.fn(),
 	renderReviewClean: vi.fn(),
+	renderPipelineResult: vi.fn(),
 }));
 
 // ── Imports ──────────────────────────────────────────────────────
@@ -71,6 +72,7 @@ import { commands } from "../../src/controller/review.controller.js";
 import { shell } from "../../src/infrastructure/shell.js";
 import { disk } from "../../src/infrastructure/filesystem.js";
 import { log } from "../../src/infrastructure/logger.js";
+import { renderPipelineResult } from "../../src/ui/review-display.js";
 import { analyzeWorkingTree, analyzeBranchDiff } from "../../src/domain/review/change-analysis.js";
 
 const mockProject = {
@@ -149,7 +151,9 @@ describe("review.controller", () => {
 			commands["review:all"]({}, [], "review:all", mockProject);
 
 			expect(shell.run).toHaveBeenCalledTimes(1);
-			expect(log).toHaveBeenCalledWith("Pipeline stopped — build failed.");
+			expect(renderPipelineResult).toHaveBeenCalledWith(
+				expect.objectContaining({ stoppedAt: "build", reason: "build failed" }),
+			);
 		});
 
 		it("stops the pipeline when tests fail", () => {
@@ -160,7 +164,9 @@ describe("review.controller", () => {
 			commands["review:all"]({}, [], "review:all", mockProject);
 
 			expect(shell.run).toHaveBeenCalledTimes(2);
-			expect(log).toHaveBeenCalledWith("Pipeline stopped — tests failed.");
+			expect(renderPipelineResult).toHaveBeenCalledWith(
+				expect.objectContaining({ stoppedAt: "test", reason: "tests failed" }),
+			);
 		});
 	});
 
