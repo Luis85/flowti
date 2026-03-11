@@ -36,7 +36,7 @@ vi.mock("../../../src/domain/reports/generator-registry.js", () => ({
 
 // Mock the doc runner (docs command now delegates to pipeline)
 const mockRunAllDocs = vi.fn();
-vi.mock("../../../src/domain/reports/doc-runner.js", () => ({
+vi.mock("../../../src/domain/reports/pipeline/doc-runner.js", () => ({
 	runAllDocs: (...args: unknown[]) => mockRunAllDocs(...args),
 }));
 
@@ -67,15 +67,15 @@ vi.mock("../../../src/domain/reports/cli/report-service.js", () => ({
 	ReportService: vi.fn().mockImplementation(() => ({ reportsDir: "/test/reports" })),
 }));
 
-vi.mock("../../../src/domain/reports/report-archive.js", () => ({
+vi.mock("../../../src/domain/reports/export/report-archive.js", () => ({
 	discoverArchiveCategories: vi.fn(() => []),
 }));
 
-vi.mock("../../../src/domain/reports/report-diff.js", () => ({
+vi.mock("../../../src/domain/reports/export/report-diff.js", () => ({
 	diffReports: vi.fn(),
 }));
 
-vi.mock("../../../src/domain/reports/html-export.js", () => ({
+vi.mock("../../../src/domain/reports/export/html-export.js", () => ({
 	exportReportToHtml: vi.fn(),
 }));
 

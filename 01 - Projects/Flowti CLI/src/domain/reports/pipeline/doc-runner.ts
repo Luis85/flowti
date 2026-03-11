@@ -8,9 +8,9 @@
  * (CLI Reference, Entity Reference) are both first-class pipeline steps.
  */
 
-import type { GeneratorOutput, DocGenerator } from "../../infrastructure/types.js";
-import type { StepResult, PipelineResult } from "../../infrastructure/pipeline/pipeline-types.js";
-import type { CliDeps } from "../../infrastructure/deps.js";
+import type { GeneratorOutput, DocGenerator } from "../../../infrastructure/types.js";
+import type { StepResult, PipelineResult } from "../../../infrastructure/pipeline/pipeline-types.js";
+import type { CliDeps } from "../../../infrastructure/deps.js";
 import { runDocPipeline } from "./doc-pipeline.js";
 
 // ── Result types ─────────────────────────────────────────────────────

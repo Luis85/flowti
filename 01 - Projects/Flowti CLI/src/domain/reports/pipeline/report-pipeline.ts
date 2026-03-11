@@ -8,17 +8,17 @@
  * without changing existing generator implementations.
  */
 
-import { runPipelineWithContext } from "../../infrastructure/pipeline/pipeline-runner.js";
-import { createPipelineContext } from "../../infrastructure/pipeline/pipeline-context.js";
+import { runPipelineWithContext } from "../../../infrastructure/pipeline/pipeline-runner.js";
+import { createPipelineContext } from "../../../infrastructure/pipeline/pipeline-context.js";
 import type {
 	PipelineStep,
 	PipelineResult,
 	PipelineContext,
 	StepOutput,
-} from "../../infrastructure/pipeline/pipeline-types.js";
-import type { ReportGenerator } from "../../infrastructure/types.js";
-import type { CliDeps } from "../../infrastructure/deps.js";
-import { runGenerator, hasGenerator } from "./generator-registry.js";
+} from "../../../infrastructure/pipeline/pipeline-types.js";
+import type { ReportGenerator } from "../../../infrastructure/types.js";
+import type { CliDeps } from "../../../infrastructure/deps.js";
+import { runGenerator, hasGenerator } from "../generator-registry.js";
 
 // ── Dependency resolution ─────────────────────────────────────────────
 

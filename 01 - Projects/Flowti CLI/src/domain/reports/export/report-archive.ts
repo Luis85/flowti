@@ -4,7 +4,7 @@
  * Pure domain logic only. Interactive browsing is in ui/menus/report-archive-menu.ts.
  */
 
-import type { CliDeps } from "../../infrastructure/deps.js";
+import type { CliDeps } from "../../../infrastructure/deps.js";
 
 // ── Archive entry types ──────────────────────────────────────────────
 

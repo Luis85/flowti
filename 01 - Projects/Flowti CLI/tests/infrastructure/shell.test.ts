@@ -18,6 +18,10 @@ vi.mock("node:child_process", () => ({
 			pid: 1234,
 		};
 	}),
+	exec: vi.fn((_cmd: string, _opts: unknown, cb: (err: Error | null, stdout: string, stderr: string) => void) => {
+		cb(null, "", "");
+		return { stdin: { end: vi.fn() } };
+	}),
 }));
 
 vi.mock("../../src/infrastructure/config.js", () => ({
@@ -36,13 +40,14 @@ vi.mock("../../src/infrastructure/clock.js", () => ({
 	clock: { ms: () => 1000 },
 }));
 
-import { execSync, execFileSync, spawnSync, spawn } from "node:child_process";
+import { execSync, execFileSync, spawnSync, spawn, exec } from "node:child_process";
 import { shell } from "../../src/infrastructure/shell.js";
 
 const mockedExec = vi.mocked(execSync);
 const mockedExecFile = vi.mocked(execFileSync);
 const mockedSpawnSync = vi.mocked(spawnSync);
 const mockedSpawn = vi.mocked(spawn);
+const mockedExecAsync = vi.mocked(exec);
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -333,5 +338,103 @@ describe("shell.spawnBackground", () => {
 				env: expect.objectContaining({ MY_VAR: "hello" }),
 			}),
 		);
+	});
+});
+
+// ── runAsync ─────────────────────────────────────────────────────────
+
+describe("shell.runAsync", () => {
+	it("resolves with output and exit code 0 on success", async () => {
+		mockedExecAsync.mockImplementation((_cmd: any, _opts: any, cb: any) => {
+			cb(null, "async output", "");
+			return { stdin: { end: vi.fn() } } as any;
+		});
+
+		const result = await shell.runAsync("npm test");
+
+		expect(result.exitCode).toBe(0);
+		expect(result.output).toContain("async output");
+	});
+
+	it("resolves with exit code from error", async () => {
+		mockedExecAsync.mockImplementation((_cmd: any, _opts: any, cb: any) => {
+			cb({ code: 42 }, "", "error msg");
+			return { stdin: { end: vi.fn() } } as any;
+		});
+
+		const result = await shell.runAsync("bad-cmd");
+
+		expect(result.exitCode).toBe(42);
+	});
+
+	it("defaults to exit code 1 when error has no code", async () => {
+		mockedExecAsync.mockImplementation((_cmd: any, _opts: any, cb: any) => {
+			cb(new Error("oops"), "", "");
+			return { stdin: { end: vi.fn() } } as any;
+		});
+
+		const result = await shell.runAsync("bad-cmd");
+
+		expect(result.exitCode).toBe(1);
+	});
+
+	it("uses CLI_PROJECT as default cwd", async () => {
+		mockedExecAsync.mockImplementation((_cmd: any, _opts: any, cb: any) => {
+			cb(null, "", "");
+			return { stdin: { end: vi.fn() } } as any;
+		});
+
+		await shell.runAsync("npm test");
+
+		expect(mockedExecAsync).toHaveBeenCalledWith(
+			"npm test",
+			expect.objectContaining({ cwd: "/project" }),
+			expect.any(Function),
+		);
+	});
+});
+
+// ── runParallel ──────────────────────────────────────────────────────
+
+describe("shell.runParallel", () => {
+	it("runs all commands and returns results in order", async () => {
+		let callCount = 0;
+		mockedExecAsync.mockImplementation((_cmd: any, _opts: any, cb: any) => {
+			callCount++;
+			cb(null, `output-${callCount}`, "");
+			return { stdin: { end: vi.fn() } } as any;
+		});
+
+		const results = await shell.runParallel(["cmd1", "cmd2", "cmd3"]);
+
+		expect(results).toHaveLength(3);
+		expect(results[0].output).toContain("output-1");
+		expect(results[1].output).toContain("output-2");
+		expect(results[2].output).toContain("output-3");
+	});
+
+	it("returns empty array for empty input", async () => {
+		const results = await shell.runParallel([]);
+
+		expect(results).toEqual([]);
+	});
+
+	it("handles mixed success and failure", async () => {
+		let callCount = 0;
+		mockedExecAsync.mockImplementation((_cmd: any, _opts: any, cb: any) => {
+			callCount++;
+			if (callCount === 2) {
+				cb({ code: 1 }, "", "fail");
+			} else {
+				cb(null, "ok", "");
+			}
+			return { stdin: { end: vi.fn() } } as any;
+		});
+
+		const results = await shell.runParallel(["cmd1", "cmd2", "cmd3"]);
+
+		expect(results[0].exitCode).toBe(0);
+		expect(results[1].exitCode).toBe(1);
+		expect(results[2].exitCode).toBe(0);
 	});
 });

@@ -14,7 +14,7 @@ import {
 	renderHtmlExport,
 	renderUnknownReport,
 } from "../../src/ui/reports-display.js";
-import type { ReportDiff } from "../../src/domain/reports/report-diff.js";
+import type { ReportDiff } from "../../src/domain/reports/export/report-diff.js";
 
 const mockLog = log as ReturnType<typeof vi.fn>;
 const output = () => mockLog.mock.calls.map((c: unknown[]) => c[0] ?? "").join("\n");

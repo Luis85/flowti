@@ -38,7 +38,7 @@ vi.mock("../../../src/domain/reports/generator-registry.js", () => ({
 	listReferenceIds: () => mockListReferenceIds(),
 }));
 
-import { toDocStep, toReferenceStep, buildDocSteps, runDocPipeline } from "../../../src/domain/reports/doc-pipeline.js";
+import { toDocStep, toReferenceStep, buildDocSteps, runDocPipeline } from "../../../src/domain/reports/pipeline/doc-pipeline.js";
 import type { DocGenerator } from "../../../src/infrastructure/types.js";
 
 beforeEach(() => {

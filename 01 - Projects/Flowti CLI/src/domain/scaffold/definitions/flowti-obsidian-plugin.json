@@ -1,0 +1,78 @@
+{
+	"id": "flowti-obsidian-plugin",
+	"label": "Flowti Obsidian Plugin",
+	"description": "Obsidian plugin: TypeScript strict, Vitest, esbuild CJS bundle. Includes Plugin class, manifest, and styles scaffold.",
+	"prompts": [
+		{
+			"variable": "author",
+			"label": "Author name",
+			"default": "{{cliConfig.defaultAuthor}}",
+			"required": false
+		}
+	],
+	"package": {
+		"type": "module",
+		"scripts": {
+			"build": "node configs/esbuild.config.mjs --production",
+			"build:watch": "node configs/esbuild.config.mjs --watch",
+			"test": "npm run check && vitest run --config configs/vitest.config.ts",
+			"lint": "eslint --config configs/eslint.config.mjs src/",
+			"check": "npm run lint && tsc --project configs/tsconfig.json --noEmit",
+			"typedoc": "typedoc --options configs/typedoc.json"
+		},
+		"devDependencies": {
+			"@types/node": "^22.0.0",
+			"@typescript-eslint/eslint-plugin": "^8.0.0",
+			"@typescript-eslint/parser": "^8.0.0",
+			"@vitest/coverage-v8": "^4.0.0",
+			"builtin-modules": "^4.0.0",
+			"esbuild": "^0.25.0",
+			"eslint": "^10.0.0",
+			"obsidian": "latest",
+			"typedoc": "^0.28.0",
+			"typescript": "^5.9.0",
+			"vitest": "^4.0.0"
+		}
+	},
+	"flowtiConfig": {
+		"tools": {
+			"build": "npm run build",
+			"devtools": "npm run build:watch"
+		},
+		"publish": {
+			"build": "npm run build",
+			"test": "npm test",
+			"outDir": "dist",
+			"artifacts": ["main.js", "manifest.json", "styles.css"]
+		},
+		"review": {
+			"build": "npm run build",
+			"test": "npm test"
+		}
+	},
+	"directories": [
+		"src",
+		"tests",
+		"configs",
+		"docs"
+	],
+	"files": [
+		{ "path": "package.json", "templateId": "package-json" },
+		{ "path": "configs/tsconfig.json", "templateId": "plugin-tsconfig" },
+		{ "path": "configs/vitest.config.ts", "templateId": "vitest-config" },
+		{ "path": "configs/esbuild.config.mjs", "templateId": "plugin-esbuild-config" },
+		{ "path": "configs/eslint.config.mjs", "templateId": "eslint-config" },
+		{ "path": "configs/flowti.config.json", "templateId": "flowti-config" },
+		{ "path": ".gitignore", "templateId": "gitignore" },
+		{ "path": "manifest.json", "templateId": "plugin-manifest" },
+		{ "path": "styles.css", "templateId": "plugin-styles" },
+		{ "path": "src/main.ts", "templateId": "plugin-main" },
+		{ "path": "tests/main.test.ts", "templateId": "plugin-main-test" }
+	],
+	"nextSteps": [
+		"cd \"{{outputPath}}\"",
+		"npm install",
+		"npm test",
+		"npm run build:watch"
+	]
+}

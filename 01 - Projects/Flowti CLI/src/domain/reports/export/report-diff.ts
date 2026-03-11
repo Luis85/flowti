@@ -5,7 +5,7 @@
  * compute deltas between numeric fields, and format a human-readable diff.
  */
 
-import { parseFrontmatterContent } from "../../infrastructure/frontmatter.js";
+import { parseFrontmatterContent } from "../../../infrastructure/frontmatter.js";
 
 // ── Types ────────────────────────────────────────────────────────────
 

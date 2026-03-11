@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { analyzeGeneratorRun } from "../../../src/domain/reports/cli/summary-analyzers-ext.js";
-import type { GeneratorResult } from "../../../src/domain/reports/report-runner.js";
+import type { GeneratorResult } from "../../../src/domain/reports/pipeline/report-runner.js";
 
 function makeResult(overrides: Partial<GeneratorResult> = {}): GeneratorResult {
 	return {

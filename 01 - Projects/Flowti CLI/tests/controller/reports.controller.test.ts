@@ -26,10 +26,10 @@ vi.mock("../../src/infrastructure/paths.js", () => ({
 		basename: vi.fn((p: string) => p.split("/").pop() ?? p),
 	},
 }));
-vi.mock("../../src/domain/reports/report-runner.js", () => ({
+vi.mock("../../src/domain/reports/pipeline/report-runner.js", () => ({
 	runAllReports: vi.fn(async () => ({ passed: 3, failed: 0, totalDurationMs: 42 })),
 }));
-vi.mock("../../src/domain/reports/doc-runner.js", () => ({
+vi.mock("../../src/domain/reports/pipeline/doc-runner.js", () => ({
 	runAllDocs: vi.fn(async () => ({ passed: 0, failed: 0, totalDurationMs: 0 })),
 }));
 vi.mock("../../src/domain/reports/generator-registry.js", () => ({
@@ -47,13 +47,13 @@ vi.mock("../../src/domain/reports/cli/report-service.js", () => ({
 		}
 	},
 }));
-vi.mock("../../src/domain/reports/report-archive.js", () => ({
+vi.mock("../../src/domain/reports/export/report-archive.js", () => ({
 	discoverArchiveCategories: vi.fn(() => []),
 }));
-vi.mock("../../src/domain/reports/report-diff.js", () => ({
+vi.mock("../../src/domain/reports/export/report-diff.js", () => ({
 	diffReports: vi.fn(() => ({ deltas: [] })),
 }));
-vi.mock("../../src/domain/reports/html-export.js", () => ({
+vi.mock("../../src/domain/reports/export/html-export.js", () => ({
 	exportReportToHtml: vi.fn(() => ({ title: "Test Report", outputPath: "/out/test.html" })),
 }));
 vi.mock("../../src/ui/reports-display.js", () => ({
@@ -72,8 +72,8 @@ vi.mock("../../src/ui/common-renderers.js", () => ({
 }));
 
 import { commands } from "../../src/controller/reports.controller.js";
-import { runAllReports } from "../../src/domain/reports/report-runner.js";
-import { discoverArchiveCategories } from "../../src/domain/reports/report-archive.js";
+import { runAllReports } from "../../src/domain/reports/pipeline/report-runner.js";
+import { discoverArchiveCategories } from "../../src/domain/reports/export/report-archive.js";
 import { disk } from "../../src/infrastructure/filesystem.js";
 
 const mockProject = {

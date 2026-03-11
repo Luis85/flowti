@@ -5,8 +5,8 @@
  * No external dependencies — uses regex-based lightweight markdown conversion.
  */
 
-import type { ReportDeps } from "../../infrastructure/deps.js";
-import { splitFrontmatter } from "../../infrastructure/frontmatter.js";
+import type { ReportDeps } from "../../../infrastructure/deps.js";
+import { splitFrontmatter } from "../../../infrastructure/frontmatter.js";
 
 // ── Types ────────────────────────────────────────────────────────────
 

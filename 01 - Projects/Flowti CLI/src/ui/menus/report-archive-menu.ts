@@ -11,8 +11,8 @@ import { runMenu } from "../../infrastructure/menu.js";
 import { log } from "../../infrastructure/logger.js";
 import { RESET, DIM, BOLD, CYAN, GREEN } from "../../infrastructure/ui.js";
 import type { MenuEntry, MenuResult } from "../../infrastructure/types.js";
-import { discoverArchiveCategories } from "../../domain/reports/report-archive.js";
-import type { ArchiveCategory } from "../../domain/reports/report-archive.js";
+import { discoverArchiveCategories } from "../../domain/reports/export/report-archive.js";
+import type { ArchiveCategory } from "../../domain/reports/export/report-archive.js";
 
 export async function browseArchive(reportsDir: string): Promise<MenuResult> {
 	const categories = discoverArchiveCategories(reportsDir, { disk, paths });

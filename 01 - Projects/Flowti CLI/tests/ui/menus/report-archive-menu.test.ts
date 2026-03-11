@@ -18,16 +18,16 @@ vi.mock("../../../src/infrastructure/paths.js", () => ({
 		dirname: (p: string) => p.split("/").slice(0, -1).join("/"),
 	},
 }));
-vi.mock("../../../src/domain/reports/report-archive.js", () => ({
+vi.mock("../../../src/domain/reports/export/report-archive.js", () => ({
 	discoverArchiveCategories: vi.fn(() => []),
 }));
 
 import { log } from "../../../src/infrastructure/logger.js";
 import { runMenu } from "../../../src/infrastructure/menu.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
-import { discoverArchiveCategories } from "../../../src/domain/reports/report-archive.js";
+import { discoverArchiveCategories } from "../../../src/domain/reports/export/report-archive.js";
 import { browseArchive } from "../../../src/ui/menus/report-archive-menu.js";
-import type { ArchiveCategory } from "../../../src/domain/reports/report-archive.js";
+import type { ArchiveCategory } from "../../../src/domain/reports/export/report-archive.js";
 
 const mockLog = vi.mocked(log);
 const mockRunMenu = vi.mocked(runMenu);

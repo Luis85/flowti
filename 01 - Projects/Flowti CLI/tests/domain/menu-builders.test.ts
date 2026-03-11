@@ -3,7 +3,7 @@ import { createMockShell } from "../mocks/mock-shell.js";
 
 // ── Mocks ────────────────────────────────────────────────────────────
 
-vi.mock("../../src/domain/reports/report-runner.js", () => ({
+vi.mock("../../src/domain/reports/pipeline/report-runner.js", () => ({
 	runAllReports: vi.fn(() => ({ generators: [], totalDurationMs: 0, passed: 0, failed: 0 })),
 }));
 
@@ -41,7 +41,7 @@ vi.mock("../../src/infrastructure/deps.js", () => ({
 
 import * as shellMod from "../../src/infrastructure/shell.js";
 import { buildReportsSubmenu, buildDocsSubmenu, buildNpmScriptsSubmenu } from "../../src/ui/menu-builders.js";
-import { runAllReports } from "../../src/domain/reports/report-runner.js";
+import { runAllReports } from "../../src/domain/reports/pipeline/report-runner.js";
 import { runGenerator } from "../../src/domain/reports/generator-registry.js";
 import { runReference } from "../../src/domain/reports/generator-registry.js";
 import { browseArchive } from "../../src/ui/menus/report-archive-menu.js";

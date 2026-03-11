@@ -13,13 +13,13 @@ import { disk } from "../infrastructure/filesystem.js";
 import { paths } from "../infrastructure/paths.js";
 import { log } from "../infrastructure/logger.js";
 import { createDefaultDeps } from "../infrastructure/deps.js";
-import { runAllReports } from "../domain/reports/report-runner.js";
-import { runAllDocs } from "../domain/reports/doc-runner.js";
+import { runAllReports } from "../domain/reports/pipeline/report-runner.js";
+import { runAllDocs } from "../domain/reports/pipeline/doc-runner.js";
 import { runGenerator, hasGenerator } from "../domain/reports/generator-registry.js";
 import { ReportService } from "../domain/reports/cli/report-service.js";
-import { discoverArchiveCategories } from "../domain/reports/report-archive.js";
-import { diffReports } from "../domain/reports/report-diff.js";
-import { exportReportToHtml } from "../domain/reports/html-export.js";
+import { discoverArchiveCategories } from "../domain/reports/export/report-archive.js";
+import { diffReports } from "../domain/reports/export/report-diff.js";
+import { exportReportToHtml } from "../domain/reports/export/html-export.js";
 import {
 	renderNoGenerators, renderAuditResult, renderReportDiff,
 	renderHtmlExport, renderUnknownReport, renderReportRun,

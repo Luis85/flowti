@@ -6,9 +6,9 @@
  * so existing consumers (reports.ts, tests) continue to work.
  */
 
-import type { GeneratorOutput, ReportGenerator } from "../../infrastructure/types.js";
-import type { StepResult, PipelineResult } from "../../infrastructure/pipeline/pipeline-types.js";
-import type { CliDeps } from "../../infrastructure/deps.js";
+import type { GeneratorOutput, ReportGenerator } from "../../../infrastructure/types.js";
+import type { StepResult, PipelineResult } from "../../../infrastructure/pipeline/pipeline-types.js";
+import type { CliDeps } from "../../../infrastructure/deps.js";
 import { runReportPipeline } from "./report-pipeline.js";
 
 // ── Backward-compatible types ────────────────────────────────────────

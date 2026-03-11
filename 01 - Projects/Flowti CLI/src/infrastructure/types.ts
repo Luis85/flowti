@@ -57,6 +57,10 @@ export interface IShell {
 	runCaptureDetailed(cmd: string, opts?: { cwd?: string; timeout?: number; env?: Record<string, string> }): { stdout: string; stderr: string; exitCode: number };
 	/** Spawn a command in the background with piped stdout/stderr. */
 	spawnBackground(cmd: string, opts?: { cwd?: string; env?: Record<string, string> }): BackgroundProcess;
+	/** Run a command asynchronously, return exit code and captured output. */
+	runAsync(cmd: string, opts?: { cwd?: string; timeout?: number }): Promise<{ output: string; exitCode: number }>;
+	/** Run multiple commands in parallel, return results in order. */
+	runParallel(cmds: string[], opts?: { cwd?: string; timeout?: number }): Promise<{ output: string; exitCode: number }[]>;
 }
 
 // ── Process abstraction ──────────────────────────────────────────────

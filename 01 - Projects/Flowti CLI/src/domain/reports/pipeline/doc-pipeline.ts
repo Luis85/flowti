@@ -10,17 +10,17 @@
  * pipeline steps alongside external generators like TypeDoc.
  */
 
-import { runPipelineWithContext } from "../../infrastructure/pipeline/pipeline-runner.js";
-import { createPipelineContext } from "../../infrastructure/pipeline/pipeline-context.js";
+import { runPipelineWithContext } from "../../../infrastructure/pipeline/pipeline-runner.js";
+import { createPipelineContext } from "../../../infrastructure/pipeline/pipeline-context.js";
 import type {
 	PipelineStep,
 	PipelineResult,
 	PipelineContext,
 	StepOutput,
-} from "../../infrastructure/pipeline/pipeline-types.js";
-import type { DocGenerator } from "../../infrastructure/types.js";
-import type { CliDeps } from "../../infrastructure/deps.js";
-import { runReference, listReferenceIds } from "./generator-registry.js";
+} from "../../../infrastructure/pipeline/pipeline-types.js";
+import type { DocGenerator } from "../../../infrastructure/types.js";
+import type { CliDeps } from "../../../infrastructure/deps.js";
+import { runReference, listReferenceIds } from "../generator-registry.js";
 
 // ── Step adapters ────────────────────────────────────────────────────
 

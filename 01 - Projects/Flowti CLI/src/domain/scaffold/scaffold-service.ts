@@ -14,6 +14,9 @@ import { createTemplateRegistry, registerAll } from "./templates/template-regist
 import type { TemplateRegistry } from "./templates/template-registry.js";
 import { sharedTemplates } from "./templates/shared-templates.js";
 import { projectTemplates } from "./templates/project-templates.js";
+import { bareTemplates } from "./templates/bare-templates.js";
+import { cliTemplates } from "./templates/cli-templates.js";
+import { pluginTemplates } from "./templates/plugin-templates.js";
 import { validateDefinition } from "./scaffold-schema.js";
 import { buildScaffoldPlan } from "./scaffold-plan.js";
 import { loadAllDefinitions, resolveDefinitionsDir } from "./marketplace.js";
@@ -23,8 +26,11 @@ import { loadAllDefinitions, resolveDefinitionsDir } from "./marketplace.js";
 // Adding a new definition: import it here and add to BUNDLED_DEFINITIONS.
 
 import flowtiProjectDef from "./definitions/flowti-project.json" with { type: "json" };
+import flowtiBareDef from "./definitions/flowti-bare.json" with { type: "json" };
+import flowtiCliDef from "./definitions/flowti-cli.json" with { type: "json" };
+import flowtiPluginDef from "./definitions/flowti-obsidian-plugin.json" with { type: "json" };
 
-export const BUNDLED_DEFINITIONS: unknown[] = [flowtiProjectDef];
+export const BUNDLED_DEFINITIONS: unknown[] = [flowtiProjectDef, flowtiBareDef, flowtiCliDef, flowtiPluginDef];
 
 function loadDefinitions(): ScaffoldDefinition[] {
 	return BUNDLED_DEFINITIONS
@@ -58,6 +64,9 @@ function createDefaultRegistry(): TemplateRegistry {
 	const registry = createTemplateRegistry();
 	registerAll(registry, sharedTemplates);
 	registerAll(registry, projectTemplates);
+	registerAll(registry, bareTemplates);
+	registerAll(registry, cliTemplates);
+	registerAll(registry, pluginTemplates);
 	return registry;
 }
 

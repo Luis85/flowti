@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createMockFs } from "../../mocks/mock-fs.js";
-import { discoverArchiveCategories } from "../../../src/domain/reports/report-archive.js";
+import { discoverArchiveCategories } from "../../../src/domain/reports/export/report-archive.js";
 import path from "node:path";
 
 function makeDeps(files: Record<string, string> = {}) {

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
 	markdownToHtml,
 	wrapHtml,
-} from "../../../src/domain/reports/html-export.js";
+} from "../../../src/domain/reports/export/html-export.js";
 
 // ── markdownToHtml ──────────────────────────────────────────────────
 

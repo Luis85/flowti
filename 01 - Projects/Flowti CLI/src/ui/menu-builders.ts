@@ -5,11 +5,11 @@
  * Each builder returns a MenuEntry[] for use with runMenu().
  */
 
-import { runAllReports } from "../domain/reports/report-runner.js";
+import { runAllReports } from "../domain/reports/pipeline/report-runner.js";
 import { runGenerator } from "../domain/reports/generator-registry.js";
 import { runReference } from "../domain/reports/generator-registry.js";
 import { browseArchive } from "./menus/report-archive-menu.js";
-import { exportReportToHtml } from "../domain/reports/html-export.js";
+import { exportReportToHtml } from "../domain/reports/export/html-export.js";
 import { ReportService } from "../domain/reports/cli/report-service.js";
 import { disk } from "../infrastructure/filesystem.js";
 import { paths } from "../infrastructure/paths.js";

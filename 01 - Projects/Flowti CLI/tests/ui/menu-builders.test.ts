@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../../src/domain/reports/report-runner.js", () => ({
+vi.mock("../../src/domain/reports/pipeline/report-runner.js", () => ({
 	runAllReports: vi.fn(),
 }));
 vi.mock("../../src/domain/reports/generator-registry.js", () => ({
@@ -10,7 +10,7 @@ vi.mock("../../src/domain/reports/generator-registry.js", () => ({
 vi.mock("../../src/ui/menus/report-archive-menu.js", () => ({
 	browseArchive: vi.fn(),
 }));
-vi.mock("../../src/domain/reports/html-export.js", () => ({
+vi.mock("../../src/domain/reports/export/html-export.js", () => ({
 	exportReportToHtml: vi.fn(),
 }));
 vi.mock("../../src/domain/reports/cli/report-service.js", () => ({

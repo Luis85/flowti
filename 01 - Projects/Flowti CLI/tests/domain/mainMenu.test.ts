@@ -56,7 +56,7 @@ vi.mock("../../src/domain/reports/cli/generate-build-report.js", () => ({
 	buildWithReport: vi.fn(),
 }));
 
-vi.mock("../../src/domain/reports/report-runner.js", () => ({
+vi.mock("../../src/domain/reports/pipeline/report-runner.js", () => ({
 	runAllReports: vi.fn(() => ({ generators: [], totalDurationMs: 0, passed: 0, failed: 0 })),
 }));
 
@@ -327,7 +327,7 @@ describe("buildProjectDetailMenu", () => {
 			const runAll = submenuItems.find((m) => m.label === "Run All Reports")!;
 			runAll.action();
 
-			const { runAllReports } = await import("../../src/domain/reports/report-runner.js");
+			const { runAllReports } = await import("../../src/domain/reports/pipeline/report-runner.js");
 			expect(runAllReports).toHaveBeenCalledWith(
 				[{ id: "test", label: "Test" }],
 				expect.any(String),

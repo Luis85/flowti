@@ -33,7 +33,7 @@ vi.mock("../../../src/domain/reports/generator-registry.js", () => ({
 	listReferenceIds: () => mockListReferenceIds(),
 }));
 
-import { runAllDocs } from "../../../src/domain/reports/doc-runner.js";
+import { runAllDocs } from "../../../src/domain/reports/pipeline/doc-runner.js";
 
 beforeEach(() => {
 	vi.clearAllMocks();

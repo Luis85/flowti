@@ -5,7 +5,7 @@
  * Production code uses the `shell` singleton; tests inject a mock.
  */
 
-import { execSync, execFileSync, spawnSync, spawn } from "node:child_process";
+import { execSync, execFileSync, spawnSync, spawn, exec } from "node:child_process";
 import { CLI_PROJECT } from "./config.js";
 import { RESET, GREEN, RED, CYAN, DIM } from "./ui.js";
 import { log } from "./logger.js";
@@ -189,6 +189,26 @@ class NodeShell implements IShell {
 				});
 			},
 		};
+	}
+
+	runAsync(cmd: string, opts: { cwd?: string; timeout?: number } = {}): Promise<{ output: string; exitCode: number }> {
+		return new Promise((resolve) => {
+			const child = exec(cmd, {
+				cwd: opts.cwd ?? CLI_PROJECT,
+				encoding: "utf-8",
+				timeout: opts.timeout ?? 120_000,
+				windowsHide: true,
+			}, (error, stdout, stderr) => {
+				const output = (stdout ?? "") + "\n" + (stderr ?? "");
+				const exitCode = error ? (error as { code?: number }).code ?? 1 : 0;
+				resolve({ output, exitCode });
+			});
+			child.stdin?.end();
+		});
+	}
+
+	runParallel(cmds: string[], opts: { cwd?: string; timeout?: number } = {}): Promise<{ output: string; exitCode: number }[]> {
+		return Promise.all(cmds.map((cmd) => this.runAsync(cmd, opts)));
 	}
 }
 

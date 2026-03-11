@@ -6,7 +6,7 @@
 
 import { log } from "../infrastructure/logger.js";
 import { RESET, DIM, GREEN, RED, CYAN, YELLOW } from "../infrastructure/ui.js";
-import type { ReportDiff } from "../domain/reports/report-diff.js";
+import type { ReportDiff } from "../domain/reports/export/report-diff.js";
 
 // ── Data models ──────────────────────────────────────────────────────
 

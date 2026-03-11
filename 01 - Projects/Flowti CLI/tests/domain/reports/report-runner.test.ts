@@ -62,7 +62,7 @@ import { clock } from "../../../src/infrastructure/clock.js";
 import { log, warn } from "../../../src/infrastructure/logger.js";
 import { proc } from "../../../src/infrastructure/proc.js";
 import { input } from "../../../src/infrastructure/input.js";
-import { runAllReports } from "../../../src/domain/reports/report-runner.js";
+import { runAllReports } from "../../../src/domain/reports/pipeline/report-runner.js";
 import type { ReportGenerator } from "../../../src/infrastructure/types.js";
 
 const reportDeps = { disk, shell: shellMod.shell, paths, clock, proc, input, log, warn } as any;
