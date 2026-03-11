@@ -15,6 +15,7 @@ import { log } from "../infrastructure/logger.js";
 import { resolveTestVaultRoot } from "../infrastructure/test-vault.js";
 import { analyzeWorkingTree, analyzeBranchDiff } from "../domain/review/change-analysis.js";
 import { renderChangeAnalysis, renderReviewClean, type ChangeAnalysisModel, type ReviewCleanModel } from "../ui/review-display.js";
+import { startInteractiveSession, runE2ESuite } from "../domain/review/run-e2e.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -59,6 +60,13 @@ const actions: Record<string, ControllerAction> = {
 
 		const model: ReviewCleanModel = { removed: exists, vaultPath };
 		return dataResponse(model, renderReviewClean);
+	},
+	"review:e2e": async (req) => {
+		const journeyFilter = typeof req.flags.journey === "string" ? req.flags.journey : undefined;
+		await runE2ESuite(journeyFilter);
+	},
+	"review:e2e:list": async () => {
+		await startInteractiveSession();
 	},
 	"review:changes": (req) => {
 		if (!req.project) return;

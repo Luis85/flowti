@@ -1,9 +1,11 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../../../../src/infrastructure/filesystem.js", () => ({
 	disk: {
 		existsSync: vi.fn(() => false),
 		readFileSync: vi.fn(() => ""),
+		writeFileSync: vi.fn(),
+		mkdirSync: vi.fn(),
 	},
 }));
 
@@ -36,6 +38,10 @@ import {
 	extractStringArrayField,
 	tsObjectToJson,
 } from "../../../../src/domain/reports/generators/tool-reference.js";
+
+beforeEach(() => {
+	vi.clearAllMocks();
+});
 
 // ── Tests ────────────────────────────────────────────────────────────
 
@@ -135,5 +141,62 @@ describe("tsObjectToJson", () => {
 		const input = '{ "already-quoted": "value" }';
 		const result = tsObjectToJson(input);
 		expect(result).toContain('"already-quoted"');
+	});
+});
+
+describe("groupToolsByTag", () => {
+	interface ToolMeta { name: string; tags: string[] }
+
+	function groupToolsByTag(tools: ToolMeta[]) {
+		const groups = new Map<string, ToolMeta[]>();
+		for (const tool of tools) {
+			const category = tool.tags.length > 0 ? tool.tags[0] : "general";
+			const existing = groups.get(category) ?? [];
+			existing.push(tool);
+			groups.set(category, existing);
+		}
+		for (const [, list] of groups) {
+			list.sort((a, b) => a.name.localeCompare(b.name));
+		}
+		const sortedCategories = Array.from(groups.keys()).sort((a, b) => {
+			if (a === "general") return -1;
+			if (b === "general") return 1;
+			return a.localeCompare(b);
+		});
+		return { groups, sortedCategories };
+	}
+
+	it("groups by first tag", () => {
+		const tools = [
+			{ name: "tool-a", tags: ["nav"] },
+			{ name: "tool-b", tags: ["assert"] },
+			{ name: "tool-c", tags: ["nav"] },
+		];
+		const { groups } = groupToolsByTag(tools);
+		expect(groups.get("nav")).toHaveLength(2);
+		expect(groups.get("assert")).toHaveLength(1);
+	});
+
+	it("uses 'general' for tools without tags", () => {
+		const { groups } = groupToolsByTag([{ name: "tool-x", tags: [] }]);
+		expect(groups.get("general")).toHaveLength(1);
+	});
+
+	it("sorts 'general' first", () => {
+		const tools = [
+			{ name: "a", tags: [] },
+			{ name: "b", tags: ["z-category"] },
+		];
+		const { sortedCategories } = groupToolsByTag(tools);
+		expect(sortedCategories[0]).toBe("general");
+	});
+
+	it("sorts tools within category alphabetically", () => {
+		const tools = [
+			{ name: "zebra", tags: ["nav"] },
+			{ name: "alpha", tags: ["nav"] },
+		];
+		const { groups } = groupToolsByTag(tools);
+		expect(groups.get("nav")![0].name).toBe("alpha");
 	});
 });

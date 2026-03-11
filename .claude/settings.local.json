@@ -97,7 +97,8 @@
       "Bash(npm run analysis)",
       "Bash(npm run report:complexity)",
       "Bash(npx eslint --config configs/eslint.config.mjs src/)",
-      "Bash(node .flowti/bin build)"
+      "Bash(node .flowti/bin build)",
+      "Bash(node .flowti/bin)"
     ]
   }
 }

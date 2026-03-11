@@ -1,5 +1,5 @@
 /**
- * E2EService.ts — E2E domain orchestrator.
+ * e2e-service.ts — E2E domain orchestrator.
  *
  * Provides project-aware entry points for E2E operations.
  * All methods resolve paths from the project's ReviewConfig.

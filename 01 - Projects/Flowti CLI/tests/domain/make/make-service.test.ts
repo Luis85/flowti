@@ -40,7 +40,7 @@ vi.mock("../../../src/infrastructure/fs.js", () => ({
 import { log } from "../../../src/infrastructure/logger.js";
 import { runMenu } from "../../../src/infrastructure/menu.js";
 import { readProjectConfig } from "../../../src/domain/project/project-config.js";
-import { getAvailableTemplates } from "../../../src/domain/make/MakeService.js";
+import { getAvailableTemplates } from "../../../src/domain/make/make-service.js";
 import { menu } from "../../../src/ui/menus/make-menu.js";
 
 describe("getAvailableTemplates", () => {

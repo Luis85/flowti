@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createMockShell } from "../../mocks/mock-shell.js";
-import { createMockProc } from "../../mocks/mock-proc.js";
 
 vi.mock("../../../src/infrastructure/shell.js", () => ({
 	shell: {},
@@ -11,97 +10,87 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 	warn: vi.fn(),
 }));
 
-vi.mock("../../../src/infrastructure/proc.js", () => ({
-	proc: {},
-}));
-
 import * as shellMod from "../../../src/infrastructure/shell.js";
-import * as procMod from "../../../src/infrastructure/proc.js";
 import { log, warn } from "../../../src/infrastructure/logger.js";
+import { reloadPlugin } from "../../../src/scripts/cli-reload.js";
 
 const mockLog = log as ReturnType<typeof vi.fn>;
 const mockWarn = warn as ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
 	vi.clearAllMocks();
-	// Reset module cache so cli-reload.ts re-runs main()
-	vi.resetModules();
 });
 
-async function runCliReload(shellOpts: Parameters<typeof createMockShell>[0] = {}, argv: string[] = []) {
-	// Re-mock with specific options before importing the module
-	const sh = createMockShell(shellOpts);
+function setupShell(opts: Parameters<typeof createMockShell>[0] = {}) {
+	const sh = createMockShell(opts);
 	Object.assign(shellMod, { shell: sh });
-
-	const p = createMockProc({ argv });
-	Object.assign(procMod, { proc: p });
-
-	// Dynamic import to trigger module-level main() execution
-	await import("../../../src/scripts/cli-reload.js");
-
-	return { sh, p };
+	return sh;
 }
 
 describe("cli-reload", () => {
-	it("skips reload when CLI is not available", async () => {
-		// execFile returns null => CLI not available
-		const { sh } = await runCliReload({ outputs: {} });
+	it("skips reload when CLI is not available", () => {
+		const sh = setupShell({ outputs: {} });
 
-		// First call is the version check; it returns null (not available)
+		const result = reloadPlugin();
+
+		expect(result).toBe(false);
 		expect(sh.calls[0].cmd).toContain("obsidian version");
 		expect(mockLog).toHaveBeenCalledWith(expect.stringContaining("not available"));
 	});
 
-	it("reloads plugin when CLI is available", async () => {
-		const { sh } = await runCliReload({
+	it("reloads plugin when CLI is available", () => {
+		const sh = setupShell({
 			outputs: {
 				"obsidian version": "1.12.0",
 				"obsidian plugin:reload id=flowti-ibde": "ok",
 			},
 		});
 
-		// Should call version check then reload
+		const result = reloadPlugin();
+
+		expect(result).toBe(true);
 		expect(sh.calls.length).toBeGreaterThanOrEqual(2);
 		expect(sh.calls[1].cmd).toContain("plugin:reload");
 		expect(sh.calls[1].cmd).toContain("id=flowti-ibde");
 		expect(mockLog).toHaveBeenCalledWith(expect.stringContaining("Plugin reloaded"));
 	});
 
-	it("passes vault arg when --vault flag is provided", async () => {
-		const { sh } = await runCliReload(
-			{
-				outputs: {
-					"obsidian version": "1.12.0",
-					"obsidian vault=myVault plugin:reload id=flowti-ibde": "ok",
-				},
+	it("passes vault arg when vault parameter is provided", () => {
+		const sh = setupShell({
+			outputs: {
+				"obsidian version": "1.12.0",
+				"obsidian vault=myVault plugin:reload id=flowti-ibde": "ok",
 			},
-			["--vault=myVault"],
-		);
+		});
+
+		reloadPlugin("myVault");
 
 		expect(sh.calls.length).toBeGreaterThanOrEqual(2);
 		expect(sh.calls[1].cmd).toContain("vault=myVault");
 	});
 
-	it("warns when reload fails (non-fatal)", async () => {
-		// version returns a value (available), but reload returns null (failure)
-		const { sh } = await runCliReload({
+	it("warns when reload fails (non-fatal)", () => {
+		setupShell({
 			outputs: {
 				"obsidian version": "1.12.0",
-				// reload key not present => returns null
 			},
 		});
 
-		expect(sh.calls.length).toBeGreaterThanOrEqual(2);
+		const result = reloadPlugin();
+
+		expect(result).toBe(false);
 		expect(mockWarn).toHaveBeenCalledWith(expect.stringContaining("Reload failed"));
 	});
 
-	it("omits vault arg when --vault flag is not present", async () => {
-		const { sh } = await runCliReload({
+	it("omits vault arg when no vault provided", () => {
+		const sh = setupShell({
 			outputs: {
 				"obsidian version": "1.12.0",
 				"obsidian plugin:reload id=flowti-ibde": "ok",
 			},
 		});
+
+		reloadPlugin();
 
 		expect(sh.calls[1].cmd).not.toContain("vault=");
 	});

@@ -18,8 +18,13 @@ vi.mock("../../../src/infrastructure/request-response.js", async () => {
 	return actual;
 });
 
+vi.mock("../../../src/scripts/cli-reload.js", () => ({
+	reloadPlugin: vi.fn(() => true),
+}));
+
 import * as shellMod from "../../../src/infrastructure/shell.js";
 import { commands } from "../../../src/controller/devtools.controller.js";
+import { reloadPlugin } from "../../../src/scripts/cli-reload.js";
 import type { ProjectContext } from "../../../src/infrastructure/types.js";
 
 function makeProject(scripts: Record<string, string> = {}): ProjectContext {
@@ -34,15 +39,12 @@ function makeProject(scripts: Record<string, string> = {}): ProjectContext {
 beforeEach(() => vi.clearAllMocks());
 
 describe("devtools commands", () => {
-	it("dev:reload runs reload command in project dir", () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
+	it("dev:reload calls reloadPlugin directly", () => {
 		const project = makeProject();
 
 		commands["dev:reload"]({}, [], "dev:reload", project);
 
-		expect(sh.calls[0].cmd).toBe("node scripts/cli-reload.mjs");
-		expect(sh.calls[0].opts?.cwd).toBe("/test/project");
+		expect(reloadPlugin).toHaveBeenCalledWith(undefined);
 	});
 
 	it("dev:console runs console command", () => {

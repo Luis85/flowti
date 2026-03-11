@@ -1,0 +1,172 @@
+/**
+ * scaffold.controller.test.ts — Tests for the scaffold controller.
+ */
+
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+vi.mock("../../src/domain/scaffold/scaffold-service.js", () => ({
+	scaffold: vi.fn(() => ({ created: 5, outputPath: "/projects/my-project" })),
+	scaffoldDryRun: vi.fn(() => ({
+		files: ["package.json", "src/main.ts", "README.md"],
+		outputPath: "/projects/my-project",
+		definition: "flowti-project",
+	})),
+	listDefinitions: vi.fn(() => [
+		{ id: "flowti-project", label: "Flowti Project", description: "Standard project scaffold" },
+	]),
+	BUNDLED_DEFINITIONS: [],
+	getKnownTemplateIds: vi.fn(() => ["readme", "gitignore", "package-json"]),
+}));
+vi.mock("../../src/domain/scaffold/marketplace-export.js", () => ({
+	exportBundle: vi.fn(() => ({ aiTools: [], plugins: [], scaffolds: [], vault: "test" })),
+	saveBundle: vi.fn(),
+	loadBundle: vi.fn(),
+	importAiToolsFromBundle: vi.fn(() => 0),
+}));
+vi.mock("../../src/infrastructure/config.js", () => ({
+	VAULT_ROOT: "/vault",
+	cliConfig: {},
+	PROJECTS_DIR: "/vault/projects",
+}));
+vi.mock("../../src/infrastructure/suggestions.js", () => ({
+	afterScaffold: vi.fn((name: string) => [
+		{ label: `cd ${name}`, description: "Enter project directory" },
+	]),
+}));
+vi.mock("../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
+vi.mock("../../src/infrastructure/proc.js", () => ({
+	proc: { exit: vi.fn(), argv: () => [], cwd: () => "/", env: () => ({}) },
+}));
+vi.mock("../../src/ui/menus/marketplace-menu.js", () => ({
+	displayMarketplaceCommand: vi.fn(),
+	importDefinitionCommand: vi.fn(),
+}));
+vi.mock("../../src/ui/scaffold-display.js", () => ({
+	renderDryRunPreview: vi.fn(),
+	renderScaffoldResult: vi.fn(),
+	renderDefinitionList: vi.fn(),
+	renderExportPreview: vi.fn(),
+	renderExportSaved: vi.fn(),
+	renderBundleImported: vi.fn(),
+}));
+vi.mock("../../src/ui/common-renderers.js", () => ({
+	renderError: vi.fn(),
+	renderNoProject: vi.fn(),
+}));
+
+import { commands } from "../../src/controller/scaffold.controller.js";
+import { scaffold, scaffoldDryRun, listDefinitions } from "../../src/domain/scaffold/scaffold-service.js";
+import { log } from "../../src/infrastructure/logger.js";
+
+const logMock = log as ReturnType<typeof vi.fn>;
+
+const mockProject = {
+	name: "test-project",
+	path: "/project",
+	config: { name: "test", reports: { generators: [] }, health: {} },
+	pkg: { name: "test-project", version: "1.0.0", scripts: {} },
+	scripts: {},
+};
+
+describe("scaffold.controller", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	describe("scaffold:new", () => {
+		it("calls scaffold with name and default definition", () => {
+			commands["scaffold:new"]({ name: "my-app" }, [], "scaffold:new", mockProject);
+
+			expect(scaffold).toHaveBeenCalledOnce();
+			expect(scaffold).toHaveBeenCalledWith(
+				expect.objectContaining({ name: "my-app", definitionId: "flowti-project" }),
+			);
+		});
+
+		it("passes custom definition ID", () => {
+			commands["scaffold:new"](
+				{ name: "my-lib", definition: "custom-lib" }, [], "scaffold:new", mockProject,
+			);
+
+			expect(scaffold).toHaveBeenCalledWith(
+				expect.objectContaining({ definitionId: "custom-lib" }),
+			);
+		});
+
+		it("returns error when --name is missing", () => {
+			commands["scaffold:new"]({ format: "json" }, [], "scaffold:new");
+
+			expect(scaffold).not.toHaveBeenCalled();
+			expect(logMock).toHaveBeenCalledOnce();
+			const output = JSON.parse(logMock.mock.calls[0][0] as string);
+			expect(output).toHaveProperty("error");
+			expect(output.error).toContain("--name");
+		});
+
+		it("returns ScaffoldResultModel as JSON", () => {
+			commands["scaffold:new"](
+				{ name: "my-app", format: "json" }, [], "scaffold:new",
+			);
+
+			expect(logMock).toHaveBeenCalledOnce();
+			const output = JSON.parse(logMock.mock.calls[0][0] as string);
+			expect(output).toHaveProperty("created", 5);
+			expect(output).toHaveProperty("outputPath", "/projects/my-project");
+			expect(output).toHaveProperty("suggestions");
+		});
+
+		it("returns dry-run preview when --dry-run flag is set", () => {
+			commands["scaffold:new"](
+				{ name: "my-app", "dry-run": true, format: "json" }, [], "scaffold:new",
+			);
+
+			expect(scaffoldDryRun).toHaveBeenCalledOnce();
+			expect(scaffold).not.toHaveBeenCalled();
+			expect(logMock).toHaveBeenCalledOnce();
+			const output = JSON.parse(logMock.mock.calls[0][0] as string);
+			expect(output).toHaveProperty("files");
+			expect(output.files).toContain("package.json");
+		});
+
+		it("returns error when scaffold returns an error", () => {
+			(scaffold as ReturnType<typeof vi.fn>).mockReturnValueOnce({ error: "Definition not found" });
+
+			commands["scaffold:new"](
+				{ name: "bad-project", format: "json" }, [], "scaffold:new",
+			);
+
+			expect(logMock).toHaveBeenCalledOnce();
+			const output = JSON.parse(logMock.mock.calls[0][0] as string);
+			expect(output).toHaveProperty("error", "Definition not found");
+		});
+
+		it("passes author and output flags", () => {
+			commands["scaffold:new"](
+				{ name: "my-app", author: "Jane", output: "/custom/dir" }, [], "scaffold:new",
+			);
+
+			expect(scaffold).toHaveBeenCalledWith(
+				expect.objectContaining({ author: "Jane", outputDir: "/custom/dir" }),
+			);
+		});
+	});
+
+	describe("scaffold:list", () => {
+		it("calls listDefinitions", () => {
+			commands["scaffold:list"]({}, [], "scaffold:list");
+
+			expect(listDefinitions).toHaveBeenCalledOnce();
+		});
+
+		it("returns definitions list as JSON", () => {
+			commands["scaffold:list"]({ format: "json" }, [], "scaffold:list");
+
+			expect(logMock).toHaveBeenCalledOnce();
+			const output = JSON.parse(logMock.mock.calls[0][0] as string);
+			expect(output).toHaveProperty("definitions");
+			expect(output.definitions).toHaveLength(1);
+			expect(output.definitions[0]).toHaveProperty("id", "flowti-project");
+			expect(output.definitions[0]).toHaveProperty("label", "Flowti Project");
+		});
+	});
+});

@@ -1,7 +1,7 @@
 /**
  * make-menu.ts — Interactive Make menu.
  *
- * Moved from domain/make/MakeService.ts to separate display/input
+ * Moved from domain/make/make-service.ts to separate display/input
  * concerns from pure domain logic.
  */
 
@@ -11,7 +11,7 @@ import { input } from "../../infrastructure/input.js";
 import { showHelp } from "../help.js";
 import { log } from "../../infrastructure/logger.js";
 import type { MenuEntry, MenuResult, MakeTemplateId } from "../../infrastructure/types.js";
-import { getAvailableTemplates } from "../../domain/make/MakeService.js";
+import { getAvailableTemplates } from "../../domain/make/make-service.js";
 import { makeJourney } from "./make-makers.js";
 import { componentMenu } from "./component-makers-menu.js";
 

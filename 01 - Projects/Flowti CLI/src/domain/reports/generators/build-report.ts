@@ -1,27 +1,12 @@
 /**
  * generate-build-report.ts
  *
- * Reads esbuild metafile JSON (passed via --metafile arg or BUILD_METAFILE env)
- * and generates a BuildReport vault note with queryable YAML frontmatter.
- *
- * Usage: node scripts/generate-build-report.ts --metafile=path/to/metafile.json [--release] [--duration=ms]
- *
- * Can also be called from esbuild.config.mjs by writing the metafile to a temp location.
+ * Pure helper functions for build report generation.
  */
 
-import { disk } from "../../../infrastructure/filesystem.js";
 import { paths } from "../../../infrastructure/paths.js";
-import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
-import { Document } from "../../../infrastructure/document.js";
 
-import { proc } from "../../../infrastructure/proc.js";
-import { clock } from "../../../infrastructure/clock.js";
-
-const OUTPUT_DIR = paths.join(PLUGIN_ROOT, "docs", "reports", "builds");
-const MANIFEST_PATH = paths.join(PLUGIN_ROOT, "manifest.json");
-const TEMPLATE_PATH = paths.join(PLUGIN_ROOT, "docs", "templates", "Build Report.md");
-
-function humanBytes(bytes: number): string {
+export function humanBytes(bytes: number): string {
 	const units = ["B", "KB", "MB", "GB"];
 	let i = 0;
 	let n = bytes;
@@ -32,18 +17,9 @@ function humanBytes(bytes: number): string {
 	return `${n.toFixed(i === 0 ? 0 : 2)} ${units[i]}`;
 }
 
-function safeLocalTime(d: Date): string {
+export function safeLocalTime(d: Date): string {
 	const pad = (n: number): string => String(n).padStart(2, "0");
 	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
-
-function parseArgs(): Record<string, string> {
-	const args: Record<string, string> = {};
-	for (const arg of proc.argv()) {
-		const [key, ...rest] = arg.replace(/^--/, "").split("=");
-		args[key] = rest.join("=") || "true";
-	}
-	return args;
 }
 
 interface OutputEntry {
@@ -59,7 +35,7 @@ interface ByteSummary {
 	outputs: OutputEntry[];
 }
 
-function collectOutputs(metafile: Record<string, unknown>): ByteSummary {
+export function collectOutputs(metafile: Record<string, unknown>): ByteSummary {
 	const result: ByteSummary = { totalBytes: 0, jsBytes: 0, cssBytes: 0, otherBytes: 0, outputs: [] };
 	const outputs = metafile?.outputs as Record<string, { bytes?: number }> | undefined;
 	if (!outputs) return result;
@@ -75,87 +51,3 @@ function collectOutputs(metafile: Record<string, unknown>): ByteSummary {
 	return result;
 }
 
-function buildBuildFm(
-	manifest: Record<string, string>, now: Date, args: Record<string, string>, sizes: ByteSummary,
-): Record<string, string | number | boolean> {
-	const fm: Record<string, string | number | boolean> = {
-		type: "BuildReport",
-		plugin_id: manifest.id,
-		plugin_version: manifest.version,
-		mode: "production",
-		build_time_iso: now.toISOString(),
-		build_time_local: safeLocalTime(now),
-		duration_ms: parseInt(args.duration || "0", 10),
-		minified: true,
-		sourcemap: false,
-		warnings_count: parseInt(args.warnings || "0", 10),
-		errors_count: parseInt(args.errors || "0", 10),
-		total_bytes: sizes.totalBytes,
-		js_bytes: sizes.jsBytes,
-		css_bytes: sizes.cssBytes,
-		other_bytes: sizes.otherBytes,
-		node_version: process.version,
-	};
-	const sha = proc.env().GITHUB_SHA;
-	if (sha) fm.git_commit = sha;
-	return fm;
-}
-
-function main(): void {
-	const args = parseArgs();
-	const metafilePath = args.metafile || proc.env().BUILD_METAFILE;
-
-	if (!metafilePath || !disk.existsSync(metafilePath)) {
-		return;
-	}
-
-	const manifest = JSON.parse(disk.readFileSync(MANIFEST_PATH, "utf-8")) as Record<string, string>;
-	const metafile = JSON.parse(disk.readFileSync(metafilePath, "utf-8")) as Record<string, unknown>;
-	const now = clock.now();
-	const sizes = collectOutputs(metafile);
-	const fm = buildBuildFm(manifest, now, args, sizes);
-
-	const duration = fm.duration_ms as number;
-	const warningsCount = fm.warnings_count as number;
-	const errorsCount = fm.errors_count as number;
-
-	const doc = Document.create("Build Report").mergeFrontmatter(fm);
-
-	if (disk.existsSync(TEMPLATE_PATH)) {
-		doc.addBlank().text(disk.readFileSync(TEMPLATE_PATH, "utf-8").trim());
-	}
-
-	doc.addBlank()
-		.callout("info", "Build Summary", [
-			`Mode: production`,
-			`Duration: ${duration} ms`,
-			`Bundle Size: ${humanBytes(sizes.totalBytes)}`,
-			`Warnings: ${warningsCount}`,
-			`Errors: ${errorsCount}`,
-		])
-		.addBlank();
-
-	if (sizes.outputs.length > 0) {
-		doc.heading(2, "Outputs")
-			.addBlank()
-			.table(
-				["File", "Size"],
-				sizes.outputs.sort((a, b) => b.bytes - a.bytes).map((o) => [o.file, humanBytes(o.bytes)]),
-				{ alignRight: [1] },
-			)
-			.addBlank();
-	}
-
-	const isRelease = args.release === "true";
-	const buildType = args["build-type"];
-	const safeTimestamp = clock.safeIso();
-	const prefix = buildType === "increment"
-		? "increment-build-report"
-		: isRelease ? "release-build-report" : "build-report";
-	const filename = `${safeTimestamp}-${prefix}.${manifest.version}.md`;
-	const outputPath = paths.join(OUTPUT_DIR, filename);
-
-	doc.save(outputPath);
-}
-
-main();

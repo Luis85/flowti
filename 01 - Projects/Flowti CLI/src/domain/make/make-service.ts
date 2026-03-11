@@ -1,5 +1,5 @@
 /**
- * MakeService.ts — Make domain orchestrator.
+ * make-service.ts — Make domain orchestrator.
  *
  * Manages template registry and available templates.
  * Interactive menu moved to src/ui/menus/make-menu.ts.

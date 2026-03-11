@@ -1,18 +1,8 @@
 /**
  * generate-data-dictionary.ts
  *
- * Reads entity type metadata from entityTypeRegistry.ts source and generates
- * a Data Dictionary reference document with queryable YAML frontmatter.
- *
- * Usage: npm run reports (part of reports pipeline)
+ * Pure helper functions for data dictionary generation.
  */
-
-import { disk } from "../../../infrastructure/filesystem.js";
-import { paths } from "../../../infrastructure/paths.js";
-import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
-import { Document } from "../../../infrastructure/document.js";
-
-import { clock } from "../../../infrastructure/clock.js";
 
 export interface EntityField {
 	name: string;
@@ -31,9 +21,6 @@ export interface EntityType {
 	description: string;
 	fields: EntityField[];
 }
-
-const REGISTRY_PATH: string = paths.join(PLUGIN_ROOT, "src", "domain", "docs", "entityTypeRegistry.ts");
-const OUTPUT_DIR: string = paths.join(PLUGIN_ROOT, "docs", "reference");
 
 export function findMatchingBrace(source: string, openPos: number): number {
 	let depth = 0;
@@ -131,91 +118,3 @@ const GROUP_LABELS: Record<string, string> = {
 export function groupLabel(group: string): string {
 	return GROUP_LABELS[group] || group.charAt(0).toUpperCase() + group.slice(1);
 }
-
-function main(): void {
-	if (!disk.existsSync(REGISTRY_PATH)) {
-		return;
-	}
-
-	const source: string = disk.readFileSync(REGISTRY_PATH, "utf-8");
-	const entities: EntityType[] = extractEntityTypes(source);
-
-	if (entities.length === 0) {
-		return;
-	}
-
-	const date: string = clock.iso();
-
-	// Group by group
-	const groups: Map<string, EntityType[]> = new Map();
-	for (const entity of entities) {
-		const existing: EntityType[] = groups.get(entity.group) ?? [];
-		existing.push(entity);
-		groups.set(entity.group, existing);
-	}
-
-	const totalFields: number = entities.reduce((sum: number, e: EntityType) => sum + e.fields.length, 0);
-
-	const fm = {
-		type: "DataDictionary",
-		date,
-		total_types: entities.length,
-		groups: groups.size,
-		total_fields: totalFields,
-	};
-
-	const doc = Document.create("Data Dictionary")
-		.mergeFrontmatter(fm)
-		.addBlank()
-		.heading(1, "Data Dictionary")
-		.addBlank()
-		.callout("info", "Summary", [
-			`Total types: ${fm.total_types} | Groups: ${fm.groups} | Total fields: ${fm.total_fields}`,
-		])
-		.addBlank()
-		.heading(2, "Group Summary")
-		.addBlank()
-		.table(
-			["Group", "Types"],
-			[...groups].map(([group, typesList]: [string, EntityType[]]) => [groupLabel(group), String(typesList.length)]),
-		)
-		.addBlank();
-
-	// Type overview table
-	doc.heading(2, "Type Overview").addBlank();
-	doc.table(
-		["Type", "Group", "Tab", "Folder", "Fields", "Description"],
-		entities.map((e: EntityType) => [e.typeName, groupLabel(e.group), e.tab, `\`${e.folder}\``, String(e.fields.length), e.description]),
-	);
-	doc.addBlank();
-
-	// Detailed sections per group
-	for (const [group, typesList] of groups) {
-		doc.heading(2, `${groupLabel(group)} Types`).addBlank();
-
-		for (const entity of typesList) {
-			doc.heading(3, entity.typeName).addBlank();
-			doc.quote(entity.description).addBlank();
-			doc.list([
-				`**Tab**: ${entity.tab}`,
-				`**Folder**: \`${entity.folder}\``,
-				`**Name field**: \`${entity.nameField}\``,
-				`**File pattern**: \`${entity.filePattern}\``,
-			]);
-			doc.addBlank();
-
-			doc.table(
-				["Field", "Type", "Required", "Description"],
-				entity.fields.map((f: EntityField) => [`\`${f.name}\``, f.type, f.required ? "Yes" : "No", f.description]),
-			);
-			doc.addBlank();
-		}
-	}
-
-	const filename: string = "Data Dictionary.md";
-	const outputPath: string = paths.join(OUTPUT_DIR, filename);
-
-	doc.save(outputPath);
-}
-
-main();

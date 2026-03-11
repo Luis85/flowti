@@ -187,14 +187,32 @@ export interface ReportGenerator {
 	dependencies?: string[];
 }
 
-/** Result returned by an internal report generator function. */
-export interface GeneratorOutput {
-	success: boolean;
+/** Successful generator result — output written, metrics collected. */
+export interface GeneratorSuccess {
+	success: true;
 	outputPath: string;
 	metrics: Record<string, string | number>;
 	/** Non-fatal issues surfaced in the Report Run Summary. */
 	warnings?: string[];
 }
+
+/** Failed generator result — may still contain partial output. */
+export interface GeneratorFailure {
+	success: false;
+	outputPath: string;
+	metrics: Record<string, string | number>;
+	/** Non-fatal issues surfaced in the Report Run Summary. */
+	warnings?: string[];
+	/** Error message describing the failure cause. */
+	error?: string;
+}
+
+/**
+ * Result returned by an internal report generator function.
+ * Discriminated union on `success` — enables exhaustive matching
+ * and type narrowing after `if (output.success)` checks.
+ */
+export type GeneratorOutput = GeneratorSuccess | GeneratorFailure;
 
 /**
  * A callable report generator function.

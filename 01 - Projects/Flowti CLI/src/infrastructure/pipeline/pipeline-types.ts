@@ -94,6 +94,8 @@ export interface PipelineContext {
 export interface PipelineOptions {
 	/** Use dependency-aware phased execution (default: false = linear order). */
 	phased?: boolean;
+	/** Run steps within the same phase concurrently (default: false). Requires phased=true. */
+	concurrent?: boolean;
 	/** Label for this pipeline run (used in log summary header). */
 	label?: string;
 }

@@ -1,5 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createMockProc, MockExitError } from "../mocks/mock-proc.js";
+
+beforeEach(() => {
+	vi.clearAllMocks();
+});
 
 describe("createMockProc", () => {
 	it("returns configured argv", () => {
@@ -37,5 +41,50 @@ describe("createMockProc", () => {
 		try { p.exit(0); } catch { /* expected */ }
 		try { p.exit(1); } catch { /* expected */ }
 		expect(p.exits).toEqual([0, 1]);
+	});
+
+	it("returns configured env variables", () => {
+		const p = createMockProc({ env: { NODE_ENV: "test", FLOWTI_VAULT_ROOT: "/vault" } });
+		expect(p.env()).toEqual({ NODE_ENV: "test", FLOWTI_VAULT_ROOT: "/vault" });
+	});
+
+	it("returns empty env by default", () => {
+		const p = createMockProc();
+		expect(p.env()).toEqual({});
+	});
+
+	it("MockExitError has correct name property", () => {
+		const err = new MockExitError(1);
+		expect(err.name).toBe("MockExitError");
+		expect(err.message).toContain("process.exit(1)");
+	});
+
+	it("MockExitError is instance of Error", () => {
+		const err = new MockExitError(0);
+		expect(err).toBeInstanceOf(Error);
+	});
+});
+
+// ── IProcess interface contract ────────────────────────────────────
+
+describe("IProcess interface contract", () => {
+	it("argv returns an array", () => {
+		const p = createMockProc({ argv: ["build", "--watch"] });
+		const args = p.argv();
+		expect(Array.isArray(args)).toBe(true);
+		expect(args).toEqual(["build", "--watch"]);
+	});
+
+	it("cwd returns a string", () => {
+		const p = createMockProc({ cwd: "/my/dir" });
+		expect(typeof p.cwd()).toBe("string");
+	});
+
+	it("exit throws and records each call", () => {
+		const p = createMockProc();
+		expect(() => p.exit(0)).toThrow(MockExitError);
+		expect(() => p.exit(1)).toThrow(MockExitError);
+		expect(() => p.exit(127)).toThrow(MockExitError);
+		expect(p.exits).toEqual([0, 1, 127]);
 	});
 });

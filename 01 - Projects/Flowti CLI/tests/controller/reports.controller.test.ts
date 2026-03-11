@@ -1,0 +1,166 @@
+/**
+ * reports.controller.test.ts — Tests for the reports controller.
+ */
+
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+vi.mock("../../src/infrastructure/shell.js", () => ({
+	shell: { run: vi.fn(() => 0) },
+}));
+vi.mock("../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
+vi.mock("../../src/infrastructure/filesystem.js", () => ({
+	disk: {
+		existsSync: vi.fn(() => true),
+		readFileSync: vi.fn(() => "# Report\nlines: 100\n"),
+		readdirSync: vi.fn(() => []),
+		writeFileSync: vi.fn(),
+		mkdirSync: vi.fn(),
+	},
+}));
+vi.mock("../../src/infrastructure/paths.js", () => ({
+	paths: {
+		join: vi.fn((...args: string[]) => args.join("/")),
+		resolve: vi.fn((...args: string[]) => args.join("/")),
+		relative: vi.fn((_a: string, b: string) => b),
+		dirname: vi.fn((p: string) => p.split("/").slice(0, -1).join("/")),
+		basename: vi.fn((p: string) => p.split("/").pop() ?? p),
+	},
+}));
+vi.mock("../../src/domain/reports/report-runner.js", () => ({
+	runAllReports: vi.fn(async () => ({ passed: 3, failed: 0 })),
+}));
+vi.mock("../../src/domain/reports/doc-runner.js", () => ({
+	runAllDocs: vi.fn(async () => {}),
+}));
+vi.mock("../../src/domain/reports/generator-registry.js", () => ({
+	runGenerator: vi.fn(),
+	hasGenerator: vi.fn(() => false),
+}));
+vi.mock("../../src/domain/reports/cli/report-service.js", () => ({
+	ReportService: class {
+		reportsDir: string;
+		constructor(projectPath: string) {
+			this.reportsDir = `${projectPath}/reports`;
+		}
+	},
+}));
+vi.mock("../../src/domain/reports/report-archive.js", () => ({
+	discoverArchiveCategories: vi.fn(() => []),
+}));
+vi.mock("../../src/domain/reports/report-diff.js", () => ({
+	diffReports: vi.fn(() => ({ deltas: [] })),
+}));
+vi.mock("../../src/domain/reports/html-export.js", () => ({
+	exportReportToHtml: vi.fn(() => ({ title: "Test Report", outputPath: "/out/test.html" })),
+}));
+vi.mock("../../src/ui/reports-display.js", () => ({
+	renderNoGenerators: vi.fn(),
+	renderAuditResult: vi.fn(),
+	renderReportDiff: vi.fn(),
+	renderHtmlExport: vi.fn(),
+	renderUnknownReport: vi.fn(),
+}));
+vi.mock("../../src/ui/common-renderers.js", () => ({
+	renderNoProject: vi.fn(),
+	renderError: vi.fn(),
+}));
+
+import { commands } from "../../src/controller/reports.controller.js";
+import { runAllReports } from "../../src/domain/reports/report-runner.js";
+import { discoverArchiveCategories } from "../../src/domain/reports/report-archive.js";
+import { disk } from "../../src/infrastructure/filesystem.js";
+
+const mockProject = {
+	path: "/project",
+	pkg: { name: "test", version: "1.0.0" },
+	config: {
+		name: "test",
+		build: { commands: {} },
+		test: { commands: {} },
+		reports: { generators: [] },
+		health: {},
+	},
+	scripts: {},
+};
+
+const mockProjectWithGenerators = {
+	...mockProject,
+	config: {
+		...mockProject.config,
+		reports: {
+			generators: [
+				{ id: "test", label: "Test Report" },
+				{ id: "coverage", label: "Coverage Report" },
+			],
+		},
+	},
+};
+
+describe("reports.controller", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	// ── reports (no generators) ───────────────────────────────────
+	describe("reports", () => {
+		it("returns noGenerators message when no generators configured", () => {
+			// Synchronous return path — no generators means no await needed
+			const result = commands["reports"]({}, [], "reports", mockProject);
+			// The adapt wrapper calls handleResponse which calls renderNoGenerators
+			// We verify indirectly: runAllReports should NOT be called
+			expect(runAllReports).not.toHaveBeenCalled();
+		});
+
+		it("calls runAllReports when generators are configured", async () => {
+			await commands["reports"]({}, [], "reports", mockProjectWithGenerators);
+			expect(runAllReports).toHaveBeenCalled();
+		});
+	});
+
+	// ── reports:audit ─────────────────────────────────────────────
+	describe("reports:audit", () => {
+		it("returns noGenerators when no generators configured", () => {
+			commands["reports:audit"]({}, [], "reports:audit", mockProject);
+			expect(runAllReports).not.toHaveBeenCalled();
+		});
+
+		it("calls runAllReports and returns audit result", async () => {
+			await commands["reports:audit"]({}, [], "reports:audit", mockProjectWithGenerators);
+			expect(runAllReports).toHaveBeenCalled();
+		});
+	});
+
+	// ── reports:diff ──────────────────────────────────────────────
+	describe("reports:diff", () => {
+		it("returns noProject when no project provided", () => {
+			commands["reports:diff"]({}, [], "reports:diff", undefined);
+			// Should not throw — returns noProject response
+		});
+
+		it("returns no-archives message when no categories found", () => {
+			vi.mocked(discoverArchiveCategories).mockReturnValue([]);
+			commands["reports:diff"]({}, [], "reports:diff", mockProject);
+			expect(discoverArchiveCategories).toHaveBeenCalled();
+		});
+	});
+
+	// ── reports:html ──────────────────────────────────────────────
+	describe("reports:html", () => {
+		it("returns noProject when no project provided", () => {
+			commands["reports:html"]({}, [], "reports:html", undefined);
+			// Should not throw
+		});
+
+		it("returns no-reports message when no .md files found", () => {
+			vi.mocked(disk.readdirSync).mockReturnValue([]);
+			commands["reports:html"]({}, [], "reports:html", mockProject);
+			// No error expected — renders "No report files found" message
+		});
+
+		it("exports HTML when .md files exist", () => {
+			vi.mocked(disk.readdirSync).mockReturnValue(["test-report.md", "coverage-report.md"] as unknown as string[]);
+			commands["reports:html"]({}, [], "reports:html", mockProject);
+			expect(disk.readdirSync).toHaveBeenCalled();
+		});
+	});
+});

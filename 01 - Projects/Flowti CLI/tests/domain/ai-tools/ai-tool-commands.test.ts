@@ -68,7 +68,11 @@ vi.mock("../../../src/infrastructure/request-response.js", async () => {
 import { log } from "../../../src/infrastructure/logger.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
 import { commands } from "../../../src/controller/ai-tools.controller.js";
-import { substituteParams } from "../../../src/domain/ai-tools/ai-tool-commands.js";
+import {
+	substituteParams,
+	toToolListItems,
+	toToolValidationItems,
+} from "../../../src/domain/ai-tools/ai-tool-commands.js";
 import { shell } from "../../../src/infrastructure/shell.js";
 import {
 	loadAiTools,
@@ -392,5 +396,286 @@ describe("ai:run", () => {
 		commands["ai:run"]({ tool: "lint" }, []);
 
 		expect(shell.runCaptureStatus).toHaveBeenCalledWith("eslint .", { cwd: "/vault/src" });
+	});
+});
+
+// ── toToolListItems (pure domain function) ───────────────────────────
+
+describe("toToolListItems", () => {
+	it("returns empty array for empty input", () => {
+		expect(toToolListItems([])).toEqual([]);
+	});
+
+	it("maps a valid tool to a list item", () => {
+		const tools: LoadedAiTool[] = [
+			{
+				definition: {
+					name: "search",
+					description: "Search docs",
+					run: "grep {{q}} .",
+					version: "1.0",
+					params: [{ name: "q", type: "string", required: true }],
+					tags: ["search", "util"],
+				},
+				path: "/vault/.flowti/ai-tools/search.json",
+				valid: true,
+				errors: [],
+			},
+		];
+
+		const items = toToolListItems(tools);
+
+		expect(items).toHaveLength(1);
+		expect(items[0].name).toBe("search");
+		expect(items[0].version).toBe("1.0");
+		expect(items[0].description).toBe("Search docs");
+		expect(items[0].run).toBe("grep {{q}} .");
+		expect(items[0].params).toEqual([{ name: "q", type: "string", required: true }]);
+		expect(items[0].tags).toEqual(["search", "util"]);
+		expect(items[0].valid).toBe(true);
+		expect(items[0].errors).toEqual([]);
+	});
+
+	it("maps version to null when not present", () => {
+		const tools: LoadedAiTool[] = [
+			{
+				definition: { name: "t", description: "", run: "echo" },
+				path: "/p",
+				valid: true,
+				errors: [],
+			},
+		];
+
+		const items = toToolListItems(tools);
+
+		expect(items[0].version).toBeNull();
+	});
+
+	it("defaults params to empty array when not present", () => {
+		const tools: LoadedAiTool[] = [
+			{
+				definition: { name: "t", description: "", run: "echo" },
+				path: "/p",
+				valid: true,
+				errors: [],
+			},
+		];
+
+		const items = toToolListItems(tools);
+
+		expect(items[0].params).toEqual([]);
+	});
+
+	it("defaults tags to empty array when not present", () => {
+		const tools: LoadedAiTool[] = [
+			{
+				definition: { name: "t", description: "", run: "echo" },
+				path: "/p",
+				valid: true,
+				errors: [],
+			},
+		];
+
+		const items = toToolListItems(tools);
+
+		expect(items[0].tags).toEqual([]);
+	});
+
+	it("defaults required to false on params when not set", () => {
+		const tools: LoadedAiTool[] = [
+			{
+				definition: {
+					name: "t",
+					description: "",
+					run: "echo",
+					params: [{ name: "x", type: "string" }],
+				},
+				path: "/p",
+				valid: true,
+				errors: [],
+			},
+		];
+
+		const items = toToolListItems(tools);
+
+		expect(items[0].params[0].required).toBe(false);
+	});
+
+	it("maps invalid tool with errors", () => {
+		const tools: LoadedAiTool[] = [
+			{
+				definition: { name: "bad", description: "", run: "" },
+				path: "/p",
+				valid: false,
+				errors: ["Missing run", "Invalid name"],
+			},
+		];
+
+		const items = toToolListItems(tools);
+
+		expect(items[0].valid).toBe(false);
+		expect(items[0].errors).toEqual(["Missing run", "Invalid name"]);
+	});
+
+	it("creates a copy of the errors array", () => {
+		const origErrors = ["err"];
+		const tools: LoadedAiTool[] = [
+			{
+				definition: { name: "t", description: "", run: "" },
+				path: "/p",
+				valid: false,
+				errors: origErrors,
+			},
+		];
+
+		const items = toToolListItems(tools);
+		items[0].errors.push("extra");
+
+		expect(origErrors).toHaveLength(1);
+	});
+
+	it("maps multiple tools", () => {
+		const tools: LoadedAiTool[] = [
+			{
+				definition: { name: "a", description: "A", run: "echo a" },
+				path: "/a",
+				valid: true,
+				errors: [],
+			},
+			{
+				definition: { name: "b", description: "B", run: "echo b" },
+				path: "/b",
+				valid: false,
+				errors: ["bad"],
+			},
+		];
+
+		const items = toToolListItems(tools);
+
+		expect(items).toHaveLength(2);
+		expect(items[0].name).toBe("a");
+		expect(items[1].name).toBe("b");
+	});
+});
+
+// ── toToolValidationItems (pure domain function) ─────────────────────
+
+describe("toToolValidationItems", () => {
+	it("returns empty array when no tool files discovered", () => {
+		vi.mocked(discoverToolFiles).mockReturnValue([]);
+
+		const items = toToolValidationItems("/vault");
+
+		expect(items).toEqual([]);
+		expect(discoverToolFiles).toHaveBeenCalledWith("/vault/.flowti/ai-tools", disk);
+	});
+
+	it("validates a valid tool definition", () => {
+		vi.mocked(discoverToolFiles).mockReturnValue([
+			"/vault/.flowti/ai-tools/search.json",
+		]);
+		vi.mocked(disk.readFileSync).mockReturnValue(
+			JSON.stringify({ name: "search", description: "s", run: "grep" }),
+		);
+		vi.mocked(validateToolDefinition).mockReturnValue({ valid: true, errors: [], warnings: [] });
+
+		const items = toToolValidationItems("/vault");
+
+		expect(items).toHaveLength(1);
+		expect(items[0]).toEqual({
+			file: "search.json",
+			valid: true,
+			errors: [],
+			warnings: [],
+		});
+	});
+
+	it("reports errors and warnings from validation", () => {
+		vi.mocked(discoverToolFiles).mockReturnValue([
+			"/vault/.flowti/ai-tools/bad.json",
+		]);
+		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({ name: "bad" }));
+		vi.mocked(validateToolDefinition).mockReturnValue({
+			valid: false,
+			errors: ["Missing run field"],
+			warnings: ["No description"],
+		});
+
+		const items = toToolValidationItems("/vault");
+
+		expect(items[0].valid).toBe(false);
+		expect(items[0].errors).toEqual(["Missing run field"]);
+		expect(items[0].warnings).toEqual(["No description"]);
+	});
+
+	it("handles JSON parse error gracefully", () => {
+		vi.mocked(discoverToolFiles).mockReturnValue([
+			"/vault/.flowti/ai-tools/corrupt.json",
+		]);
+		vi.mocked(disk.readFileSync).mockImplementation(() => {
+			throw new SyntaxError("Unexpected end of JSON input");
+		});
+
+		const items = toToolValidationItems("/vault");
+
+		expect(items[0]).toEqual({
+			file: "corrupt.json",
+			valid: false,
+			errors: ["Parse error: Unexpected end of JSON input"],
+			warnings: [],
+		});
+	});
+
+	it("handles non-Error thrown value", () => {
+		vi.mocked(discoverToolFiles).mockReturnValue([
+			"/vault/.flowti/ai-tools/weird.json",
+		]);
+		vi.mocked(disk.readFileSync).mockImplementation(() => {
+			throw 42;
+		});
+
+		const items = toToolValidationItems("/vault");
+
+		expect(items[0].errors[0]).toBe("Parse error: 42");
+	});
+
+	it("validates multiple tool files", () => {
+		vi.mocked(discoverToolFiles).mockReturnValue([
+			"/vault/.flowti/ai-tools/good.json",
+			"/vault/.flowti/ai-tools/bad.json",
+		]);
+		vi.mocked(disk.readFileSync)
+			.mockReturnValueOnce(JSON.stringify({ name: "good" }))
+			.mockImplementationOnce(() => { throw new SyntaxError("parse fail"); });
+		vi.mocked(validateToolDefinition).mockReturnValue({ valid: true, errors: [], warnings: [] });
+
+		const items = toToolValidationItems("/vault");
+
+		expect(items).toHaveLength(2);
+		expect(items[0].file).toBe("good.json");
+		expect(items[0].valid).toBe(true);
+		expect(items[1].file).toBe("bad.json");
+		expect(items[1].valid).toBe(false);
+	});
+
+	it("copies errors and warnings arrays (mutation safe)", () => {
+		const origErrors = ["e"];
+		const origWarnings = ["w"];
+		vi.mocked(discoverToolFiles).mockReturnValue([
+			"/vault/.flowti/ai-tools/t.json",
+		]);
+		vi.mocked(disk.readFileSync).mockReturnValue("{}");
+		vi.mocked(validateToolDefinition).mockReturnValue({
+			valid: false,
+			errors: origErrors,
+			warnings: origWarnings,
+		});
+
+		const items = toToolValidationItems("/vault");
+		items[0].errors.push("x");
+		items[0].warnings.push("x");
+
+		expect(origErrors).toHaveLength(1);
+		expect(origWarnings).toHaveLength(1);
 	});
 });

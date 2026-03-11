@@ -6,6 +6,7 @@ import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
 import { shell } from "../../infrastructure/shell.js";
 import { input } from "../../infrastructure/input.js";
+import { clock } from "../../infrastructure/clock.js";
 import type { E2EPaths } from "./e2e-paths.js";
 import type { ReportSource, AuditFrontmatters } from "./e2e-types.js";
 import { yamlStr } from "./e2e-helpers.js";
@@ -195,7 +196,7 @@ function determineAuditStatus(fm: AuditFrontmatters): { overallStatus: string; c
 // ── Public: generate audit ──────────────────────────────────────────
 
 export async function generateAudit(e2e: E2EPaths, log: (msg: string) => void = () => {}): Promise<void> {
-	const defaultName = new Date().toISOString().slice(0, 10) + "-audit";
+	const defaultName = clock.iso().slice(0, 10) + "-audit";
 	const auditName = await input.ask("Audit name", defaultName);
 
 	log(`Generating audit: ${auditName}...`);
@@ -203,7 +204,7 @@ export async function generateAudit(e2e: E2EPaths, log: (msg: string) => void = 
 	const sources = collectReportSources(e2e);
 	const fm = extractAuditFrontmatters(sources);
 	const { overallStatus, currentCycle } = determineAuditStatus(fm);
-	const now = new Date();
+	const now = clock.now();
 
 	const lines: string[] = [
 		...buildAuditFrontmatter(auditName, overallStatus, currentCycle, now, fm.buildFm, fm.testFm, fm.e2eFm, fm.perfFm),

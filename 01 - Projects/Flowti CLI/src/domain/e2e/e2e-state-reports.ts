@@ -5,6 +5,7 @@
 
 import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
+import { clock } from "../../infrastructure/clock.js";
 import type { E2EPaths } from "./e2e-paths.js";
 import type { TestStats, BuildStats, ExtractedMetrics } from "./e2e-types.js";
 
@@ -202,7 +203,7 @@ export function buildTraceFrontmatterLines(tr: Record<string, unknown>): string[
 
 export function generateIncrementStateReport(exitCode: number, duration: string, stats: BuildStats, e2e: E2EPaths, log: (msg: string) => void = () => {}): { testPath: string; devPath: string } {
 	const DEV_VAULT_ROOT = paths.resolve(e2e.projectRoot, "..", "..");
-	const now = new Date();
+	const now = clock.now();
 	const status = exitCode === 0 ? "pass" : "fail";
 	const m = extractMetrics(stats);
 	const ut = stats.unitTests;
@@ -241,7 +242,7 @@ export function generateIncrementStateReport(exitCode: number, duration: string,
 
 export function generatePublishStateReport(exitCode: number, duration: string, stats: BuildStats, e2e: E2EPaths, log: (msg: string) => void = () => {}): { devPath: string } {
 	const DEV_VAULT_ROOT = paths.resolve(e2e.projectRoot, "..", "..");
-	const now = new Date();
+	const now = clock.now();
 	const status = exitCode === 0 ? "pass" : "fail";
 	const m = extractMetrics(stats);
 	const ut = stats.unitTests;

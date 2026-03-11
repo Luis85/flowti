@@ -15,6 +15,13 @@ import { generateProjectStatusReport } from "./cli/generate-status-report.js";
 import { generateSummaryReport } from "./cli/generate-summary-report.js";
 import { generateEntityReference } from "./generators/entity-reference.js";
 import { generateCliReference } from "./generators/cli-reference.js";
+import { generateCycleReport } from "./cli/generate-cycle-report.js";
+import { generatePerformanceReport } from "./cli/generate-performance-report.js";
+import { generateTraceReport } from "./cli/generate-trace-report.js";
+import { generateEventCatalog } from "./cli/generate-event-catalog.js";
+import { generateCommandReference } from "./cli/generate-command-reference.js";
+import { generateDataDictionary } from "./cli/generate-data-dictionary.js";
+import { generateToolReference } from "./cli/generate-tool-reference.js";
 
 export type GeneratorCategory = "report" | "reference";
 
@@ -33,6 +40,13 @@ const GENERATORS: ReadonlyMap<string, RegistryEntry> = new Map<string, RegistryE
 	["summary", { fn: generateSummaryReport, category: "report" }],
 	["entity-reference", { fn: generateEntityReference, category: "reference" }],
 	["cli-reference", { fn: generateCliReference, category: "reference" }],
+	["cycle", { fn: generateCycleReport, category: "report" }],
+	["performance", { fn: generatePerformanceReport, category: "report" }],
+	["trace", { fn: generateTraceReport, category: "report" }],
+	["event-catalog", { fn: generateEventCatalog, category: "reference" }],
+	["command-reference", { fn: generateCommandReference, category: "reference" }],
+	["data-dictionary", { fn: generateDataDictionary, category: "reference" }],
+	["tool-reference", { fn: generateToolReference, category: "reference" }],
 ]);
 
 /** Run a generator by its ID, optionally passing pipeline context. Returns null if unknown. */

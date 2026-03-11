@@ -9,6 +9,7 @@ import { adapt } from "../infrastructure/request-response.js";
 import type { CommandHandler, ProjectContext } from "../infrastructure/types.js";
 import { shell } from "../infrastructure/shell.js";
 import { rebuildCli } from "../domain/devtools/self-update.js";
+import { reloadPlugin } from "../scripts/cli-reload.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -23,7 +24,8 @@ function resolveDevCmd(p: ProjectContext | undefined, name: string, scriptName: 
 
 const actions: Record<string, ControllerAction> = {
 	"dev:reload": (req) => {
-		shell.run(resolveDevCmd(req.project, "reload", null, "node scripts/cli-reload.mjs"), { cwd: req.project?.path, label: "Reloading plugin..." });
+		const vault = typeof req.flags.vault === "string" ? req.flags.vault : undefined;
+		reloadPlugin(vault);
 	},
 	"dev:console": (req) => {
 		const cmd = resolveDevCmd(req.project, "console", null, "obsidian dev:console");
@@ -60,6 +62,9 @@ const actions: Record<string, ControllerAction> = {
 	},
 	"dev:rebuild": (req) => {
 		rebuildCli(req.project?.path ?? "", shell);
+	},
+	"dev:analysis": (req) => {
+		shell.run(resolveDevCmd(req.project, "analysis", "analysis", "npx tsx src/scripts/run-analysis.ts"), { cwd: req.project?.path, label: "Running analysis pipeline..." });
 	},
 };
 

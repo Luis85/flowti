@@ -60,7 +60,7 @@ export async function runPipeline(
 	const runLabel = options.label ?? "Pipeline Run";
 
 	if (options.phased) {
-		return runPhased(steps, ctx, runLabel, deps, runStart);
+		return runPhased(steps, ctx, runLabel, deps, runStart, !!options.concurrent);
 	}
 	return runLinear(steps, ctx, runLabel, deps, runStart);
 }
@@ -79,7 +79,7 @@ export async function runPipelineWithContext(
 	const runLabel = options.label ?? "Pipeline Run";
 
 	if (options.phased) {
-		return runPhased(steps, ctx, runLabel, deps, runStart);
+		return runPhased(steps, ctx, runLabel, deps, runStart, !!options.concurrent);
 	}
 	return runLinear(steps, ctx, runLabel, deps, runStart);
 }
@@ -113,11 +113,13 @@ async function runPhased(
 	runLabel: string,
 	deps: PipelineDeps,
 	runStart: number,
+	concurrent: boolean = false,
 ): Promise<PipelineResult> {
 	const phases = resolvePhases(steps);
 	const completedPrereqs = new Set<string>();
 
-	deps.log(`\n  ${CYAN}▸${RESET} ${runLabel}: ${steps.length} step(s) in ${phases.length} phase(s)...\n`);
+	const modeLabel = concurrent ? "concurrent" : "sequential";
+	deps.log(`\n  ${CYAN}▸${RESET} ${runLabel}: ${steps.length} step(s) in ${phases.length} phase(s) [${modeLabel}]...\n`);
 
 	for (const phase of phases) {
 		if (phases.length > 1) {
@@ -132,10 +134,18 @@ async function runPhased(
 			[...ctx.getResults()].filter((r) => !r.success).map((r) => r.id),
 		);
 
-		for (const step of phase.steps) {
-			if (failedIds.has(step.id)) continue;
-			const result = await executeStep(step, ctx, completedPrereqs, deps, phase.phase);
-			ctx.pushResult(result);
+		const pending = phase.steps.filter((s) => !failedIds.has(s.id));
+
+		if (concurrent && pending.length > 1) {
+			const results = await Promise.all(
+				pending.map((step) => executeStep(step, ctx, completedPrereqs, deps, phase.phase)),
+			);
+			for (const result of results) ctx.pushResult(result);
+		} else {
+			for (const step of pending) {
+				const result = await executeStep(step, ctx, completedPrereqs, deps, phase.phase);
+				ctx.pushResult(result);
+			}
 		}
 	}
 

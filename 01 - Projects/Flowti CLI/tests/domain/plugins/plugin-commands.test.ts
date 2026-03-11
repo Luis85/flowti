@@ -60,6 +60,10 @@ import { log } from "../../../src/infrastructure/logger.js";
 import { loadPlugins, discoverPluginFiles, validateManifest } from "../../../src/domain/plugins/plugin-loader.js";
 import { generatePluginReference } from "../../../src/domain/plugins/plugin-reference.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
+import {
+	toPluginListItems,
+	toPluginValidationItems,
+} from "../../../src/domain/plugins/plugin-commands.js";
 import type { LoadedPlugin } from "../../../src/domain/plugins/plugin-types.js";
 
 beforeEach(() => {
@@ -200,5 +204,207 @@ describe("plugin:reference", () => {
 		expect(generatePluginReference).toHaveBeenCalled();
 		expect(saveFn).toHaveBeenCalledWith(expect.stringContaining("Plugin Reference.md"));
 		expect(log).toHaveBeenCalledWith(expect.stringContaining("Reference saved"));
+	});
+});
+
+// ── toPluginListItems (pure domain function) ─────────────────────────
+
+describe("toPluginListItems", () => {
+	it("returns empty array for empty input", () => {
+		expect(toPluginListItems([])).toEqual([]);
+	});
+
+	it("maps a valid plugin to a list item", () => {
+		const plugin = makePlugin();
+
+		const items = toPluginListItems([plugin]);
+
+		expect(items).toHaveLength(1);
+		expect(items[0].name).toBe("test-plugin");
+		expect(items[0].version).toBe("1.0.0");
+		expect(items[0].description).toBe("A test plugin");
+		expect(items[0].commands).toEqual(["plugin:test-plugin:deploy"]);
+		expect(items[0].valid).toBe(true);
+		expect(items[0].errors).toEqual([]);
+	});
+
+	it("maps version to null when not present", () => {
+		const plugin = makePlugin({
+			manifest: { name: "no-ver", description: "d", commands: {} },
+		});
+
+		const items = toPluginListItems([plugin]);
+
+		expect(items[0].version).toBeNull();
+	});
+
+	it("maps empty description to empty string", () => {
+		const plugin = makePlugin({
+			manifest: { name: "p", description: "", commands: {} },
+		});
+
+		const items = toPluginListItems([plugin]);
+
+		expect(items[0].description).toBe("");
+	});
+
+	it("maps invalid plugin with errors", () => {
+		const plugin = makePlugin({
+			valid: false,
+			errors: ["Missing commands", "Bad format"],
+		});
+
+		const items = toPluginListItems([plugin]);
+
+		expect(items[0].valid).toBe(false);
+		expect(items[0].errors).toEqual(["Missing commands", "Bad format"]);
+	});
+
+	it("creates a copy of the errors array (mutation safe)", () => {
+		const originalErrors = ["err1"];
+		const plugin = makePlugin({ errors: originalErrors });
+
+		const items = toPluginListItems([plugin]);
+		items[0].errors.push("extra");
+
+		expect(originalErrors).toHaveLength(1);
+	});
+
+	it("maps multiple plugins", () => {
+		const plugins = [
+			makePlugin(),
+			makePlugin({
+				manifest: { name: "second", description: "Two", version: "2.0", commands: {} },
+				commands: {},
+			}),
+		];
+
+		const items = toPluginListItems(plugins);
+
+		expect(items).toHaveLength(2);
+		expect(items[0].name).toBe("test-plugin");
+		expect(items[1].name).toBe("second");
+	});
+});
+
+// ── toPluginValidationItems (pure domain function) ───────────────────
+
+describe("toPluginValidationItems", () => {
+	it("returns empty array when no plugin files discovered", () => {
+		vi.mocked(discoverPluginFiles).mockReturnValue([]);
+
+		const items = toPluginValidationItems("/vault");
+
+		expect(items).toEqual([]);
+		expect(discoverPluginFiles).toHaveBeenCalledWith("/vault/.flowti/plugins", disk);
+	});
+
+	it("validates a valid manifest", () => {
+		vi.mocked(discoverPluginFiles).mockReturnValue([
+			"/vault/.flowti/plugins/my-plugin/manifest.json",
+		]);
+		vi.mocked(disk.readFileSync).mockReturnValue(
+			JSON.stringify({ name: "my-plugin", description: "ok", commands: {} }),
+		);
+		vi.mocked(validateManifest).mockReturnValue({ valid: true, errors: [], warnings: [] });
+
+		const items = toPluginValidationItems("/vault");
+
+		expect(items).toHaveLength(1);
+		expect(items[0]).toEqual({
+			name: "my-plugin",
+			valid: true,
+			errors: [],
+			warnings: [],
+		});
+	});
+
+	it("validates an invalid manifest with errors and warnings", () => {
+		vi.mocked(discoverPluginFiles).mockReturnValue([
+			"/vault/.flowti/plugins/broken/manifest.json",
+		]);
+		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({ name: "broken" }));
+		vi.mocked(validateManifest).mockReturnValue({
+			valid: false,
+			errors: ["Missing commands field"],
+			warnings: ["No version specified"],
+		});
+
+		const items = toPluginValidationItems("/vault");
+
+		expect(items[0].valid).toBe(false);
+		expect(items[0].errors).toEqual(["Missing commands field"]);
+		expect(items[0].warnings).toEqual(["No version specified"]);
+	});
+
+	it("handles JSON parse error gracefully", () => {
+		vi.mocked(discoverPluginFiles).mockReturnValue([
+			"/vault/.flowti/plugins/corrupt/manifest.json",
+		]);
+		vi.mocked(disk.readFileSync).mockImplementation(() => {
+			throw new SyntaxError("Unexpected token");
+		});
+
+		const items = toPluginValidationItems("/vault");
+
+		expect(items[0]).toEqual({
+			name: "corrupt",
+			valid: false,
+			errors: ["Parse error: Unexpected token"],
+			warnings: [],
+		});
+	});
+
+	it("handles non-Error thrown value", () => {
+		vi.mocked(discoverPluginFiles).mockReturnValue([
+			"/vault/.flowti/plugins/weird/manifest.json",
+		]);
+		vi.mocked(disk.readFileSync).mockImplementation(() => {
+			throw "string error";
+		});
+
+		const items = toPluginValidationItems("/vault");
+
+		expect(items[0].errors[0]).toBe("Parse error: string error");
+	});
+
+	it("validates multiple plugin files", () => {
+		vi.mocked(discoverPluginFiles).mockReturnValue([
+			"/vault/.flowti/plugins/good/manifest.json",
+			"/vault/.flowti/plugins/bad/manifest.json",
+		]);
+		vi.mocked(disk.readFileSync)
+			.mockReturnValueOnce(JSON.stringify({ name: "good" }))
+			.mockImplementationOnce(() => { throw new SyntaxError("bad JSON"); });
+		vi.mocked(validateManifest).mockReturnValue({ valid: true, errors: [], warnings: [] });
+
+		const items = toPluginValidationItems("/vault");
+
+		expect(items).toHaveLength(2);
+		expect(items[0].name).toBe("good");
+		expect(items[0].valid).toBe(true);
+		expect(items[1].name).toBe("bad");
+		expect(items[1].valid).toBe(false);
+	});
+
+	it("copies errors and warnings arrays (mutation safe)", () => {
+		const origErrors = ["err"];
+		const origWarnings = ["warn"];
+		vi.mocked(discoverPluginFiles).mockReturnValue([
+			"/vault/.flowti/plugins/p/manifest.json",
+		]);
+		vi.mocked(disk.readFileSync).mockReturnValue("{}");
+		vi.mocked(validateManifest).mockReturnValue({
+			valid: false,
+			errors: origErrors,
+			warnings: origWarnings,
+		});
+
+		const items = toPluginValidationItems("/vault");
+		items[0].errors.push("extra");
+		items[0].warnings.push("extra");
+
+		expect(origErrors).toHaveLength(1);
+		expect(origWarnings).toHaveLength(1);
 	});
 });

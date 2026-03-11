@@ -1,95 +1,22 @@
 /**
  * generate-performance-report.ts
  *
- * Reads persisted performance state (data.json perf key) and generates
- * a PerformanceReport vault note with queryable YAML frontmatter.
- *
- * Usage: node scripts/generate-performance-report.ts
+ * Pure helper functions for performance report generation.
  */
 
-import { disk } from "../../../infrastructure/filesystem.js";
-import { paths } from "../../../infrastructure/paths.js";
-import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
-import { Document } from "../../../infrastructure/document.js";
-
-import { clock } from "../../../infrastructure/clock.js";
-
-// The plugin stores state in the Obsidian vault's plugin data folder.
-// During builds the data.json may be at the vault root's plugin dir.
-const DATA_JSON_CANDIDATES: string[] = [
-	paths.resolve(PLUGIN_ROOT, "..", "..", ".obsidian", "plugins", "flowti-ibde", "data.json"),
-	paths.join(PLUGIN_ROOT, "data.json"),
-];
-const OUTPUT_DIR = paths.join(PLUGIN_ROOT, "docs", "reports", "performance");
-
-function percentile(sorted: number[], p: number): number {
+export function percentile(sorted: number[], p: number): number {
 	if (sorted.length === 0) return 0;
 	const index = Math.ceil(p * sorted.length) - 1;
 	return sorted[Math.max(0, index)];
 }
 
-function round(n: number): number {
+export function round(n: number): number {
 	return Math.round(n * 100) / 100;
 }
 
-function formatBytes(bytes: number): string {
+export function formatBytes(bytes: number): string {
 	if (bytes < 1024) return `${bytes}B`;
 	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
 	return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
-function main(): void {
-	let data: Record<string, unknown> | null = null;
-	for (const candidate of DATA_JSON_CANDIDATES) {
-		if (disk.existsSync(candidate)) {
-			try {
-				data = JSON.parse(disk.readFileSync(candidate, "utf-8"));
-				break;
-			} catch { /* try next */ }
-		}
-	}
-
-	const date = clock.iso();
-
-	// Extract perf state (may not exist yet)
-	const perfState = (data as Record<string, unknown>)?.perfAggregator as Record<string, unknown> ?? {};
-	const startupHistory: number[] = (perfState.startupHistory as number[]) ?? [];
-	const sorted = [...startupHistory].sort((a, b) => a - b);
-
-	const fm: Record<string, string | number> = {
-		type: "PerformanceReport",
-		date,
-		startup_total_ms: round(startupHistory[startupHistory.length - 1] ?? 0),
-		startup_measurements: startupHistory.length,
-		startup_p50: round(percentile(sorted, 0.5)),
-		startup_p95: round(percentile(sorted, 0.95)),
-		startup_max: round(sorted[sorted.length - 1] ?? 0),
-		data_json_size_bytes: data ? JSON.stringify(data).length : 0,
-	};
-
-	const doc = Document.create("Performance Report")
-		.mergeFrontmatter(fm)
-		.addBlank()
-		.heading(1, "Performance Report")
-		.addBlank()
-		.callout("info", "Summary", [
-			`Last startup: ${fm.startup_total_ms}ms | p50: ${fm.startup_p50}ms | p95: ${fm.startup_p95}ms | Max: ${fm.startup_max}ms`,
-			`Measurements: ${fm.startup_measurements} | data.json: ${formatBytes(fm.data_json_size_bytes as number)}`,
-		])
-		.addBlank()
-		.heading(2, "Startup History")
-		.addBlank()
-		.table(
-			["#", "Duration"],
-			startupHistory.map((ms, i) => [String(i + 1), `${round(ms)}ms`]),
-		)
-		.addBlank();
-
-	const safeTimestamp = clock.safeIso();
-	const filename = `${safeTimestamp}-performance-report.md`;
-	const outputPath = paths.join(OUTPUT_DIR, filename);
-
-	doc.save(outputPath);
-}
-
-main();

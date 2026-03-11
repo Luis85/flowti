@@ -310,4 +310,79 @@ describe("runPipeline", () => {
 		expect(result.passed).toBe(1);
 		expect(result.steps[0].success).toBe(true);
 	});
+
+	// ── Concurrent phased execution ─────────────────────────────────
+
+	it("runs independent steps concurrently when concurrent=true", async () => {
+		const deps = createDeps();
+		const running: string[] = [];
+		const finished: string[] = [];
+		const steps = [
+			step("a", {
+				execute: async () => {
+					running.push("a");
+					await new Promise<void>((r) => setTimeout(r, 10));
+					finished.push("a");
+					return { success: true };
+				},
+			}),
+			step("b", {
+				execute: async () => {
+					running.push("b");
+					await new Promise<void>((r) => setTimeout(r, 10));
+					finished.push("b");
+					return { success: true };
+				},
+			}),
+		];
+		const result = await runPipeline(steps, "/project", { phased: true, concurrent: true }, deps);
+		// Both should have started before either finished
+		expect(running).toEqual(["a", "b"]);
+		expect(result.passed).toBe(2);
+		expect(result.failed).toBe(0);
+	});
+
+	it("still respects phase ordering in concurrent mode", async () => {
+		const order: string[] = [];
+		const deps = createDeps();
+		const steps = [
+			step("base", {
+				execute: () => { order.push("base"); return { success: true }; },
+			}),
+			step("derived", {
+				dependencies: ["base"],
+				execute: () => { order.push("derived"); return { success: true }; },
+			}),
+		];
+		const result = await runPipeline(steps, "/project", { phased: true, concurrent: true }, deps);
+		expect(order).toEqual(["base", "derived"]);
+		expect(result.passed).toBe(2);
+	});
+
+	it("handles mixed success/failure in concurrent phase", async () => {
+		const deps = createDeps();
+		const steps = [
+			step("ok", { execute: async () => ({ success: true }) }),
+			step("fail", { execute: async () => { throw new Error("boom"); } }),
+			step("ok2", { execute: async () => ({ success: true }) }),
+		];
+		const result = await runPipeline(steps, "/project", { phased: true, concurrent: true }, deps);
+		expect(result.passed).toBe(2);
+		expect(result.failed).toBe(1);
+		expect(result.steps.find((s) => s.id === "fail")?.error).toBe("boom");
+	});
+
+	it("logs concurrent mode label", async () => {
+		const deps = createDeps();
+		await runPipeline([step("a")], "/project", { phased: true, concurrent: true }, deps);
+		const calls = (deps.log as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0]);
+		expect(calls.some((c: string) => c.includes("[concurrent]"))).toBe(true);
+	});
+
+	it("logs sequential mode label when not concurrent", async () => {
+		const deps = createDeps();
+		await runPipeline([step("a")], "/project", { phased: true }, deps);
+		const calls = (deps.log as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0]);
+		expect(calls.some((c: string) => c.includes("[sequential]"))).toBe(true);
+	});
 });

@@ -6,6 +6,7 @@ import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
 import { proc } from "../../infrastructure/proc.js";
 import { input } from "../../infrastructure/input.js";
+import { clock } from "../../infrastructure/clock.js";
 import type { E2EPaths } from "./e2e-paths.js";
 import type { JourneyEntry, SessionConfig, PrerequisiteResults } from "./e2e-types.js";
 import { printJourneyTable } from "../../ui/e2e/e2e-formatters.js";
@@ -120,7 +121,7 @@ export async function promptSessionConfig(entries: JourneyEntry[], prereqResults
 
 	const stepFilter = await promptStepFilter(selectedSlugs, e2e, log);
 
-	const timestamp = new Date().toISOString().replace(/:/g, "-").slice(0, 19);
+	const timestamp = clock.safeIso().slice(0, 19);
 	const journeySuffix = selectedSlugs.length === entries.length
 		? "all"
 		: selectedSlugs.join("+");
@@ -180,7 +181,7 @@ export function cleanSessionEnv(): void {
 // ── Session utilities ───────────────────────────────────────────────
 
 export function rerunWithFreshTimestamp(prevConfig: SessionConfig, entries: JourneyEntry[]): SessionConfig {
-	const timestamp = new Date().toISOString().replace(/:/g, "-").slice(0, 19);
+	const timestamp = clock.safeIso().slice(0, 19);
 	const journeySuffix = prevConfig.selectedSlugs.length === entries.length
 		? "all"
 		: prevConfig.selectedSlugs.join("+");

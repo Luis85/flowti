@@ -233,9 +233,9 @@ function writeComplexityOutputs(result: AnalysisResult): void {
 	log(`Wrote ${dpPath}`);
 }
 
-// ── Main pipeline ───────────────────────────────────────────────────
+// ── Exported pipeline ────────────────────────────────────────────────
 
-function main(): void {
+export function runAnalysisPipeline(): void {
 	const coverageFinalPath = paths.join(OUTPUT_DIR, "coverage-final.json");
 	const srcDir = paths.join(CLI_PROJECT, "src");
 
@@ -273,5 +273,3 @@ function main(): void {
 
 	log(`\nAnalysis complete. Output: ${COVERAGE_DIR}/analysis.json`);
 }
-
-main();

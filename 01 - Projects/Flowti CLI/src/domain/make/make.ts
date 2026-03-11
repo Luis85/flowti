@@ -5,7 +5,7 @@
  * Project creation is handled by the Scaffold domain.
  *
  * Implementation lives in focused modules:
- *   - MakeService.ts     — template registry (pure domain)
+ *   - make-service.ts    — template registry (pure domain)
  *   - makers.ts          — pure utility functions
  *   - templates/          — decomposed template generators
  *
