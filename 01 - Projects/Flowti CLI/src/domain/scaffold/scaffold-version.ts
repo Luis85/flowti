@@ -7,7 +7,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { clock } from "../../infrastructure/clock.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 import type { FileEntry } from "./scaffold-types.js";
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -57,10 +57,14 @@ export function buildFileHashes(files: FileEntry[]): Record<string, string> {
 // ── Manifest ────────────────────────────────────────────────────────
 
 /** Create a scaffold manifest from the initial scaffold output. */
-export function createManifest(definitionId: string, files: FileEntry[]): ScaffoldManifest {
+export function createManifest(
+	deps: Pick<CliDeps, "clock">,
+	definitionId: string,
+	files: FileEntry[],
+): ScaffoldManifest {
 	return {
 		definitionId,
-		createdAt: clock.iso(),
+		createdAt: deps.clock.iso(),
 		fileHashes: buildFileHashes(files),
 	};
 }

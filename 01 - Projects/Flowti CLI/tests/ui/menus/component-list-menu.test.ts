@@ -14,7 +14,15 @@ vi.mock("../../../src/infrastructure/paths.js", () => ({
 		join: (...args: string[]) => args.join("/"),
 		relative: (from: string, to: string) => to.replace(from + "/", ""),
 		basename: (p: string) => p.split("/").pop() ?? "",
+		resolve: (...args: string[]) => args.join("/"),
+		dirname: (p: string) => p.split("/").slice(0, -1).join("/"),
+		sep: "/",
 	},
+}));
+vi.mock("../../../src/infrastructure/config.js", () => ({
+	VAULT_ROOT: "/mock",
+	CLI_PROJECT: "/mock/cli",
+	cliConfig: {},
 }));
 vi.mock("../../../src/domain/make/component/component-list.js", () => ({
 	listProjectComponents: vi.fn(() => []),

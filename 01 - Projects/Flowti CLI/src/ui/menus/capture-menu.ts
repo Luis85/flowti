@@ -8,8 +8,13 @@
 import { RESET, DIM, GREEN, RED, YELLOW, printHeader, printMenu } from "../../infrastructure/ui.js";
 import { input } from "../../infrastructure/input.js";
 import { log } from "../../infrastructure/logger.js";
+import { disk } from "../../infrastructure/filesystem.js";
+import { paths } from "../../infrastructure/paths.js";
+import { clock } from "../../infrastructure/clock.js";
 import type { MenuResult } from "../../infrastructure/types.js";
 import { createCaptureFile, NOTE_TYPES } from "../../domain/capture/capture.js";
+
+function captureDeps() { return { disk, paths, clock } as const; }
 
 // ── Capture Idea ────────────────────────────────────────────────────
 
@@ -21,7 +26,7 @@ async function captureIdeaLoop(): Promise<void> {
 			log(`\n  ${YELLOW}No idea entered — skipped.${RESET}`);
 		} else {
 			const title = idea.length > 60 ? idea.slice(0, 60).trim() : idea;
-			const path = createCaptureFile("Idea", title, idea);
+			const path = createCaptureFile(captureDeps(), "Idea", title, idea);
 			if (path) {
 				log(`\n  ${GREEN}✓${RESET} Created: ${path}`);
 			} else {
@@ -57,7 +62,7 @@ async function captureNoteLoop(): Promise<void> {
 		if (!title) {
 			log(`\n  ${YELLOW}No title entered — skipped.${RESET}`);
 		} else {
-			const path = createCaptureFile(type, title, "");
+			const path = createCaptureFile(captureDeps(), type, title, "");
 			if (path) {
 				log(`\n  ${GREEN}✓${RESET} Created: ${path}`);
 			} else {
@@ -92,7 +97,7 @@ export async function captureBug(): Promise<MenuResult> {
 			log(`\n  ${YELLOW}No title entered — skipped.${RESET}`);
 		} else {
 			const description = await input.ask("Description (optional)");
-			const path = createCaptureFile("Bug", title, description || "");
+			const path = createCaptureFile(captureDeps(), "Bug", title, description || "");
 			if (path) {
 				log(`\n  ${GREEN}✓${RESET} Created: ${path}`);
 			} else {

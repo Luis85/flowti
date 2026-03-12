@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
+vi.mock("../../../src/infrastructure/logger.js", () => ({ log: vi.fn(), warn: vi.fn() }));
 vi.mock("../../../src/infrastructure/ui.js", () => ({
 	RESET: "", DIM: "", GREEN: "", RED: "", YELLOW: "", CYAN: "",
 }));
@@ -22,6 +22,9 @@ vi.mock("../../../src/infrastructure/paths.js", () => ({
 		},
 		resolve: (...args: string[]) => args.join("/"),
 	},
+}));
+vi.mock("../../../src/infrastructure/clock.js", () => ({
+	clock: { iso: vi.fn(() => "2026-01-01T00:00:00.000Z"), now: vi.fn(() => new Date()), ms: vi.fn(() => 0) },
 }));
 vi.mock("../../../src/infrastructure/config.js", () => ({
 	VAULT_ROOT: "/vault",
@@ -67,6 +70,7 @@ vi.mock("../../../src/infrastructure/request-response.js", async () => {
 
 import { log } from "../../../src/infrastructure/logger.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
 import { commands } from "../../../src/controller/ai-tools.controller.js";
 import {
 	substituteParams,
@@ -95,7 +99,7 @@ describe("ai:list", () => {
 
 		commands["ai:list"]({}, []);
 
-		expect(loadAiTools).toHaveBeenCalledWith("/vault", disk);
+		expect(loadAiTools).toHaveBeenCalledWith(expect.any(Object), "/vault", disk);
 		expect(log).toHaveBeenCalledWith(
 			expect.stringContaining("No AI tools found"),
 		);
@@ -256,8 +260,8 @@ describe("ai:reference", () => {
 
 		commands["ai:reference"]({}, [], "ai:reference");
 
-		expect(loadAiTools).toHaveBeenCalledWith("/vault", disk);
-		expect(generateAiToolReference).toHaveBeenCalledWith(tools);
+		expect(loadAiTools).toHaveBeenCalledWith(expect.any(Object), "/vault", disk);
+		expect(generateAiToolReference).toHaveBeenCalledWith(expect.any(Object), tools);
 		expect(saveFn).toHaveBeenCalledWith("/cli/docs/reference/AI Tool Reference.md");
 		expect(log).toHaveBeenCalledWith(
 			expect.stringContaining("Reference saved"),
@@ -564,10 +568,10 @@ describe("toToolValidationItems", () => {
 	it("returns empty array when no tool files discovered", () => {
 		vi.mocked(discoverToolFiles).mockReturnValue([]);
 
-		const items = toToolValidationItems("/vault");
+		const items = toToolValidationItems({ disk, paths }, "/vault");
 
 		expect(items).toEqual([]);
-		expect(discoverToolFiles).toHaveBeenCalledWith("/vault/.flowti/ai-tools", disk);
+		expect(discoverToolFiles).toHaveBeenCalledWith(expect.any(Object), "/vault/.flowti/ai-tools", disk);
 	});
 
 	it("validates a valid tool definition", () => {
@@ -579,7 +583,7 @@ describe("toToolValidationItems", () => {
 		);
 		vi.mocked(validateToolDefinition).mockReturnValue({ valid: true, errors: [], warnings: [] });
 
-		const items = toToolValidationItems("/vault");
+		const items = toToolValidationItems({ disk, paths }, "/vault");
 
 		expect(items).toHaveLength(1);
 		expect(items[0]).toEqual({
@@ -601,7 +605,7 @@ describe("toToolValidationItems", () => {
 			warnings: ["No description"],
 		});
 
-		const items = toToolValidationItems("/vault");
+		const items = toToolValidationItems({ disk, paths }, "/vault");
 
 		expect(items[0].valid).toBe(false);
 		expect(items[0].errors).toEqual(["Missing run field"]);
@@ -616,7 +620,7 @@ describe("toToolValidationItems", () => {
 			throw new SyntaxError("Unexpected end of JSON input");
 		});
 
-		const items = toToolValidationItems("/vault");
+		const items = toToolValidationItems({ disk, paths }, "/vault");
 
 		expect(items[0]).toEqual({
 			file: "corrupt.json",
@@ -634,7 +638,7 @@ describe("toToolValidationItems", () => {
 			throw 42;
 		});
 
-		const items = toToolValidationItems("/vault");
+		const items = toToolValidationItems({ disk, paths }, "/vault");
 
 		expect(items[0].errors[0]).toBe("Parse error: 42");
 	});
@@ -649,7 +653,7 @@ describe("toToolValidationItems", () => {
 			.mockImplementationOnce(() => { throw new SyntaxError("parse fail"); });
 		vi.mocked(validateToolDefinition).mockReturnValue({ valid: true, errors: [], warnings: [] });
 
-		const items = toToolValidationItems("/vault");
+		const items = toToolValidationItems({ disk, paths }, "/vault");
 
 		expect(items).toHaveLength(2);
 		expect(items[0].file).toBe("good.json");
@@ -671,7 +675,7 @@ describe("toToolValidationItems", () => {
 			warnings: origWarnings,
 		});
 
-		const items = toToolValidationItems("/vault");
+		const items = toToolValidationItems({ disk, paths }, "/vault");
 		items[0].errors.push("x");
 		items[0].warnings.push("x");
 

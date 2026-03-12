@@ -22,6 +22,9 @@ vi.mock("../../../src/infrastructure/paths.js", async () => {
 
 import { toRanges, analyzeComplexity, collectSourceFiles } from "../../../src/domain/reports/cli/complexity-analyzer.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
+
+function analyzerDeps() { return { disk, paths } as const; }
 
 const mockReaddirSync = vi.mocked(disk.readdirSync);
 const mockReadFileSync = vi.mocked(disk.readFileSync);
@@ -59,7 +62,7 @@ describe("toRanges", () => {
 describe("collectSourceFiles", () => {
 	it("returns empty when directory is empty", () => {
 		mockReaddirSync.mockReturnValue([]);
-		expect(collectSourceFiles("/src")).toEqual([]);
+		expect(collectSourceFiles("/src", analyzerDeps())).toEqual([]);
 	});
 
 	it("collects .ts files", () => {
@@ -67,7 +70,7 @@ describe("collectSourceFiles", () => {
 			{ name: "main.ts", isFile: () => true, isDirectory: () => false },
 			{ name: "utils.ts", isFile: () => true, isDirectory: () => false },
 		] as any);
-		const files = collectSourceFiles("/src");
+		const files = collectSourceFiles("/src", analyzerDeps());
 		expect(files).toHaveLength(2);
 		expect(files).toContain("/src/main.ts");
 		expect(files).toContain("/src/utils.ts");
@@ -78,7 +81,7 @@ describe("collectSourceFiles", () => {
 			{ name: "types.d.ts", isFile: () => true, isDirectory: () => false },
 			{ name: "main.ts", isFile: () => true, isDirectory: () => false },
 		] as any);
-		const files = collectSourceFiles("/src");
+		const files = collectSourceFiles("/src", analyzerDeps());
 		expect(files).toHaveLength(1);
 		expect(files[0]).toContain("main.ts");
 	});
@@ -89,7 +92,7 @@ describe("collectSourceFiles", () => {
 			{ name: "main.spec.ts", isFile: () => true, isDirectory: () => false },
 			{ name: "main.ts", isFile: () => true, isDirectory: () => false },
 		] as any);
-		const files = collectSourceFiles("/src");
+		const files = collectSourceFiles("/src", analyzerDeps());
 		expect(files).toHaveLength(1);
 	});
 
@@ -98,7 +101,7 @@ describe("collectSourceFiles", () => {
 			{ name: "Button.stories.ts", isFile: () => true, isDirectory: () => false },
 			{ name: "Button.ts", isFile: () => true, isDirectory: () => false },
 		] as any);
-		const files = collectSourceFiles("/src");
+		const files = collectSourceFiles("/src", analyzerDeps());
 		expect(files).toHaveLength(1);
 	});
 
@@ -113,7 +116,7 @@ describe("collectSourceFiles", () => {
 			}
 			return [];
 		});
-		const files = collectSourceFiles("/src");
+		const files = collectSourceFiles("/src", analyzerDeps());
 		expect(files).toHaveLength(1);
 	});
 
@@ -132,7 +135,7 @@ describe("collectSourceFiles", () => {
 			}
 			return [];
 		});
-		const files = collectSourceFiles("/src");
+		const files = collectSourceFiles("/src", analyzerDeps());
 		expect(files).toHaveLength(2);
 	});
 });
@@ -149,7 +152,7 @@ describe("analyzeComplexity", () => {
 
 	it("returns empty result for empty directory", () => {
 		mockReaddirSync.mockReturnValue([]);
-		const result = analyzeComplexity("/src", "/project");
+		const result = analyzeComplexity("/src", "/project", analyzerDeps());
 		expect(result.summary.totalFunctions).toBe(0);
 		expect(result.functions).toHaveLength(0);
 		expect(result.files).toHaveLength(0);
@@ -157,7 +160,7 @@ describe("analyzeComplexity", () => {
 
 	it("detects a simple function with complexity 1", () => {
 		setupSingleFile("simple.ts", `function greet() { return "hello"; }`);
-		const result = analyzeComplexity("/src", "/src");
+		const result = analyzeComplexity("/src", "/src", analyzerDeps());
 		expect(result.functions).toHaveLength(1);
 		expect(result.functions[0].functionName).toBe("greet");
 		expect(result.functions[0].complexity).toBe(1);
@@ -165,19 +168,19 @@ describe("analyzeComplexity", () => {
 
 	it("counts if-statement as a decision point", () => {
 		setupSingleFile("if.ts", `function check(x: number) { if (x > 0) { return true; } return false; }`);
-		const result = analyzeComplexity("/src", "/src");
+		const result = analyzeComplexity("/src", "/src", analyzerDeps());
 		expect(result.functions[0].complexity).toBe(2); // 1 base + 1 if
 	});
 
 	it("counts for-loop as a decision point", () => {
 		setupSingleFile("loop.ts", `function loop(arr: number[]) { for (const x of arr) { x; } }`);
-		const result = analyzeComplexity("/src", "/src");
+		const result = analyzeComplexity("/src", "/src", analyzerDeps());
 		expect(result.functions[0].complexity).toBe(2); // 1 base + 1 for-of
 	});
 
 	it("counts while loop as a decision point", () => {
 		setupSingleFile("while.ts", `function wait(x: number) { while (x > 0) { x--; } }`);
-		const result = analyzeComplexity("/src", "/src");
+		const result = analyzeComplexity("/src", "/src", analyzerDeps());
 		expect(result.functions[0].complexity).toBe(2);
 	});
 
@@ -191,33 +194,33 @@ describe("analyzeComplexity", () => {
 			"  }",
 			"}",
 		].join("\n"));
-		const result = analyzeComplexity("/src", "/src");
+		const result = analyzeComplexity("/src", "/src", analyzerDeps());
 		// 1 base + 2 case clauses (default is DefaultClause, not CaseClause)
 		expect(result.functions[0].complexity).toBe(3);
 	});
 
 	it("counts ternary expression as a decision point", () => {
 		setupSingleFile("ternary.ts", `function abs(x: number) { return x > 0 ? x : -x; }`);
-		const result = analyzeComplexity("/src", "/src");
+		const result = analyzeComplexity("/src", "/src", analyzerDeps());
 		expect(result.functions[0].complexity).toBe(2);
 	});
 
 	it("counts logical operators as decision points", () => {
 		setupSingleFile("logical.ts", `function check(a: boolean, b: boolean) { return a && b || false; }`);
-		const result = analyzeComplexity("/src", "/src");
+		const result = analyzeComplexity("/src", "/src", analyzerDeps());
 		// 1 base + 1 && + 1 ||
 		expect(result.functions[0].complexity).toBe(3);
 	});
 
 	it("counts nullish coalescing as a decision point", () => {
 		setupSingleFile("nullish.ts", `function fallback(x: string | null) { return x ?? "default"; }`);
-		const result = analyzeComplexity("/src", "/src");
+		const result = analyzeComplexity("/src", "/src", analyzerDeps());
 		expect(result.functions[0].complexity).toBe(2);
 	});
 
 	it("counts catch clause as a decision point", () => {
 		setupSingleFile("catch.ts", `function safe() { try { throw 1; } catch (e) { return null; } }`);
-		const result = analyzeComplexity("/src", "/src");
+		const result = analyzeComplexity("/src", "/src", analyzerDeps());
 		expect(result.functions[0].complexity).toBe(2);
 	});
 
@@ -226,7 +229,7 @@ describe("analyzeComplexity", () => {
 			"function a() { return 1; }",
 			"function b(x: number) { if (x) { return x; } return 0; }",
 		].join("\n"));
-		const result = analyzeComplexity("/src", "/src");
+		const result = analyzeComplexity("/src", "/src", analyzerDeps());
 		expect(result.functions).toHaveLength(2);
 		// a has complexity 1, b has complexity 2
 		// functions are sorted descending by complexity
@@ -236,7 +239,7 @@ describe("analyzeComplexity", () => {
 
 	it("detects arrow functions assigned to const", () => {
 		setupSingleFile("arrow.ts", `const greet = () => "hello";`);
-		const result = analyzeComplexity("/src", "/src");
+		const result = analyzeComplexity("/src", "/src", analyzerDeps());
 		expect(result.functions).toHaveLength(1);
 		expect(result.functions[0].functionName).toBe("greet");
 	});
@@ -247,7 +250,7 @@ describe("analyzeComplexity", () => {
 			"  bar() { return 1; }",
 			"}",
 		].join("\n"));
-		const result = analyzeComplexity("/src", "/src");
+		const result = analyzeComplexity("/src", "/src", analyzerDeps());
 		expect(result.functions).toHaveLength(1);
 		expect(result.functions[0].functionName).toBe("bar");
 	});
@@ -258,7 +261,7 @@ describe("analyzeComplexity", () => {
 			"  constructor() {}",
 			"}",
 		].join("\n"));
-		const result = analyzeComplexity("/src", "/src");
+		const result = analyzeComplexity("/src", "/src", analyzerDeps());
 		expect(result.functions).toHaveLength(1);
 		expect(result.functions[0].functionName).toBe("MyService.constructor");
 	});
@@ -271,7 +274,7 @@ describe("analyzeComplexity", () => {
 			"  set x(v: number) { this._x = v; }",
 			"}",
 		].join("\n"));
-		const result = analyzeComplexity("/src", "/src");
+		const result = analyzeComplexity("/src", "/src", analyzerDeps());
 		expect(result.functions).toHaveLength(2);
 		const names = result.functions.map((f) => f.functionName).sort();
 		expect(names).toEqual(["get x", "set x"]);
@@ -282,7 +285,7 @@ describe("analyzeComplexity", () => {
 			"function a() { return 1; }",
 			"function b(x: number) { if (x > 0) { if (x > 10) { return 'big'; } return 'small'; } return 'neg'; }",
 		].join("\n"));
-		const result = analyzeComplexity("/src", "/src");
+		const result = analyzeComplexity("/src", "/src", analyzerDeps());
 		expect(result.summary.totalFunctions).toBe(2);
 		expect(result.summary.maxComplexity).toBe(3); // b: 1 base + 2 ifs
 		expect(result.summary.totalComplexity).toBe(4); // 1 + 3
@@ -290,7 +293,7 @@ describe("analyzeComplexity", () => {
 
 	it("populates file analysis with decision points", () => {
 		setupSingleFile("dp.ts", `function check(x: number) { if (x > 0) { for (let i = 0; i < x; i++) {} } }`);
-		const result = analyzeComplexity("/src", "/src");
+		const result = analyzeComplexity("/src", "/src", analyzerDeps());
 		expect(result.files).toHaveLength(1);
 		const file = result.files[0];
 		expect(file.decisionPointCount).toBe(2); // if + for
@@ -309,7 +312,7 @@ describe("analyzeComplexity", () => {
 			"  }",
 			"}",
 		].join("\n"));
-		const result = analyzeComplexity("/src", "/src");
+		const result = analyzeComplexity("/src", "/src", analyzerDeps());
 		const file = result.files[0];
 		expect(file.decisionPointLines).toHaveLength(2);
 		expect(file.decisionPointLineRanges.length).toBeGreaterThan(0);
@@ -331,7 +334,7 @@ describe("analyzeComplexity", () => {
 			"  }",
 			"}",
 		].join("\n"));
-		const result = analyzeComplexity("/src", "/src");
+		const result = analyzeComplexity("/src", "/src", analyzerDeps());
 		// 1 base + for-of + if + while + catch = 5
 		expect(result.functions[0].complexity).toBe(5);
 	});
@@ -341,7 +344,7 @@ describe("analyzeComplexity", () => {
 			{ name: "main.ts", isFile: () => true, isDirectory: () => false },
 		] as any);
 		mockReadFileSync.mockReturnValue("function x() {}");
-		const result = analyzeComplexity("/project/src", "/project");
+		const result = analyzeComplexity("/project/src", "/project", analyzerDeps());
 		expect(result.functions[0].file).toBe("src/main.ts");
 	});
 });

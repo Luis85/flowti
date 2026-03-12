@@ -8,6 +8,10 @@
  * renders menus, takes user input, and dispatches to domain operations.
  */
 
+import { disk } from "../../infrastructure/filesystem.js";
+import { paths } from "../../infrastructure/paths.js";
+import { shell } from "../../infrastructure/shell.js";
+import { clock } from "../../infrastructure/clock.js";
 import { proc } from "../../infrastructure/proc.js";
 import { input } from "../../infrastructure/input.js";
 import { log } from "../../infrastructure/logger.js";
@@ -26,6 +30,9 @@ import {
 	printMainMenu,
 	printIncrementMenu,
 } from "./e2e-formatters.js";
+import { createE2ERenderer } from "./e2e-renderer-impl.js";
+
+const render = createE2ERenderer();
 
 // ── Publish result view ─────────────────────────────────────────────
 
@@ -41,8 +48,8 @@ async function publishResultView(exitCode: number, e2e: E2EPaths): Promise<ViewR
 
 		if (choice === "q") return { action: "quit", exitCode };
 		if (choice === "m") return { action: "main", exitCode };
-		if (choice === "a") { await generateAudit(e2e); continue; }
-		if (choice === "r") { exitCode = await runPublish(e2e); continue; }
+		if (choice === "a") { await generateAudit(e2e, { disk, paths, shell, input, clock, log }); continue; }
+		if (choice === "r") { exitCode = await runPublish(e2e, { shell, disk, paths, clock, log }); continue; }
 
 		log("\n  Invalid choice — try again.\n");
 	}
@@ -55,7 +62,7 @@ async function handleIncrementPublish(exitCode: number, e2e: E2EPaths): Promise<
 		log("\n  Cannot publish — increment build did not pass.\n");
 		return null;
 	}
-	const publishExitCode = await runPublish(e2e);
+	const publishExitCode = await runPublish(e2e, { shell, disk, paths, clock, log });
 	return publishResultView(publishExitCode, e2e);
 }
 
@@ -67,8 +74,8 @@ async function incrementResultView(exitCode: number, e2e: E2EPaths): Promise<Vie
 
 		if (choice === "q") return { action: "quit", exitCode };
 		if (choice === "m") return { action: "main", exitCode };
-		if (choice === "a") { await generateAudit(e2e); continue; }
-		if (choice === "r") { exitCode = await runIncrementBuild(e2e); continue; }
+		if (choice === "a") { await generateAudit(e2e, { disk, paths, shell, input, clock, log }); continue; }
+		if (choice === "r") { exitCode = await runIncrementBuild(e2e, { shell, disk, paths, clock, log }); continue; }
 		if (choice === "p") {
 			const result = await handleIncrementPublish(exitCode, e2e);
 			if (result) return result;
@@ -82,10 +89,10 @@ async function incrementResultView(exitCode: number, e2e: E2EPaths): Promise<Vie
 // ── Session view ────────────────────────────────────────────────────
 
 async function handleBuildAndRerun(currentConfig: SessionConfig, entries: JourneyEntry[], prereqResults: PrerequisiteResults, e2e: E2EPaths): Promise<{ config: SessionConfig; exitCode: number }> {
-	const buildResult = quickBuildAndDeploy(e2e);
+	const buildResult = quickBuildAndDeploy(e2e, { disk, paths, shell, log });
 	if (buildResult !== 0) return { config: currentConfig, exitCode: buildResult };
-	const rerunConfig = rerunWithFreshTimestamp(currentConfig, entries);
-	const exitCode = await executeSession(rerunConfig, entries, prereqResults, e2e);
+	const rerunConfig = rerunWithFreshTimestamp(currentConfig, entries, { clock });
+	const exitCode = await executeSession(rerunConfig, entries, prereqResults, e2e, { disk, paths, shell, proc, clock, log }, render);
 	return { config: rerunConfig, exitCode };
 }
 
@@ -107,11 +114,11 @@ async function sessionView(config: SessionConfig, entries: JourneyEntry[], prere
 
 		if (choice === "q") return { action: "quit", exitCode: currentExitCode };
 		if (choice === "m") return { action: "main", exitCode: currentExitCode };
-		if (choice === "a") { await generateAudit(e2e); continue; }
-		if (choice === "d") { quickBuildAndDeploy(e2e); continue; }
+		if (choice === "a") { await generateAudit(e2e, { disk, paths, shell, input, clock, log }); continue; }
+		if (choice === "d") { quickBuildAndDeploy(e2e, { disk, paths, shell, log }); continue; }
 		if (choice === "r") {
-			const rerunConfig = rerunWithFreshTimestamp(currentConfig, entries);
-			currentExitCode = await executeSession(rerunConfig, entries, prereqResults, e2e);
+			const rerunConfig = rerunWithFreshTimestamp(currentConfig, entries, { clock });
+			currentExitCode = await executeSession(rerunConfig, entries, prereqResults, e2e, { disk, paths, shell, proc, clock, log }, render);
 			currentConfig = rerunConfig;
 			continue;
 		}
@@ -122,8 +129,8 @@ async function sessionView(config: SessionConfig, entries: JourneyEntry[], prere
 			continue;
 		}
 		if (choice === "e") {
-			const editConfig = await promptSessionConfig(entries, prereqResults, e2e);
-			currentExitCode = await executeSession(editConfig, entries, prereqResults, e2e);
+			const editConfig = await promptSessionConfig(entries, prereqResults, e2e, { disk, paths, proc, input, clock, log }, render);
+			currentExitCode = await executeSession(editConfig, entries, prereqResults, e2e, { disk, paths, shell, proc, clock, log }, render);
 			currentConfig = editConfig;
 			continue;
 		}
@@ -135,7 +142,7 @@ async function sessionView(config: SessionConfig, entries: JourneyEntry[], prere
 // ── Main menu handlers ──────────────────────────────────────────────
 
 async function handleIncrementChoice(e2e: E2EPaths): Promise<{ exitCode: number; incrementPassed: boolean; quit: boolean }> {
-	const exitCode = await runIncrementBuild(e2e);
+	const exitCode = await runIncrementBuild(e2e, { shell, disk, paths, clock, log });
 	let incrementPassed = exitCode === 0;
 	const result = await incrementResultView(exitCode, e2e);
 	if (result.exitCode === 0) incrementPassed = true;
@@ -143,29 +150,29 @@ async function handleIncrementChoice(e2e: E2EPaths): Promise<{ exitCode: number;
 }
 
 async function handlePublishChoice(e2e: E2EPaths): Promise<{ exitCode: number; quit: boolean }> {
-	const exitCode = await runPublish(e2e);
+	const exitCode = await runPublish(e2e, { shell, disk, paths, clock, log });
 	const result = await publishResultView(exitCode, e2e);
 	return { exitCode: result.exitCode, quit: result.action === "quit" };
 }
 
 async function handleTestSessionChoice(prereqResults: PrerequisiteResults, e2e: E2EPaths): Promise<{ exitCode: number; quit: boolean }> {
-	const entries = loadJourneyEntries(e2e);
+	const entries = loadJourneyEntries(e2e, { disk, paths });
 	if (entries.length === 0) {
 		log("  No journey files found.\n");
 		return { exitCode: 0, quit: false };
 	}
-	const config = await promptSessionConfig(entries, prereqResults, e2e);
-	const exitCode = await executeSession(config, entries, prereqResults, e2e);
+	const config = await promptSessionConfig(entries, prereqResults, e2e, { disk, paths, proc, input, clock, log }, render);
+	const exitCode = await executeSession(config, entries, prereqResults, e2e, { disk, paths, shell, proc, clock, log }, render);
 	const result = await sessionView(config, entries, prereqResults, exitCode, e2e);
 	return { exitCode: result.exitCode, quit: result.action === "quit" };
 }
 
 async function handleMainMenuChoice(choice: string, prereqResults: PrerequisiteResults, state: InteractiveState, e2e: E2EPaths): Promise<{ handled: boolean; state: InteractiveState }> {
 	if (choice === "q") { log("\n  Goodbye.\n"); proc.exit(state.lastExitCode); }
-	if (choice === "4") { await generateAudit(e2e); return { handled: true, state }; }
-	if (choice === "5") { await teardownVault(e2e); return { handled: true, state }; }
+	if (choice === "4") { await generateAudit(e2e, { disk, paths, shell, input, clock, log }); return { handled: true, state }; }
+	if (choice === "5") { await teardownVault(e2e, { disk, paths, shell, input, log }); return { handled: true, state }; }
 	if (choice === "6") {
-		const rebuildCode = await runRebuild(e2e);
+		const rebuildCode = await runRebuild(e2e, { disk, shell, paths, input, proc, log });
 		return { handled: true, state: { ...state, lastExitCode: rebuildCode } };
 	}
 	return { handled: false, state };
@@ -202,9 +209,9 @@ export async function interactiveSession(e2e: E2EPaths): Promise<void> {
 		log("  Flowti E2E Test Session");
 		log(`  ${"=".repeat(50)}`);
 
-		const prereqResults = checkPrerequisites(e2e);
+		const prereqResults = checkPrerequisites(e2e, { disk, paths, shell });
 		printPrerequisites(prereqResults, e2e);
-		validatePrerequisites(prereqResults);
+		validatePrerequisites(prereqResults, { proc, log });
 
 		printMainMenu(state.incrementPassed);
 		const choice = (await input.ask("Choice", "1")).toLowerCase();

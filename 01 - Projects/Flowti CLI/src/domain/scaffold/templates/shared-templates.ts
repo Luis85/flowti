@@ -155,6 +155,241 @@ export const flowtiConfigTemplate: TemplateFn = (vars: ScaffoldVariables, def: S
 	});
 };
 
+// ── README.md ──────────────────────────────────────────────────────────
+
+export const readmeTemplate: TemplateFn = (vars: ScaffoldVariables, def: ScaffoldDefinition): string => {
+	const lines: string[] = [
+		`# ${vars.name}`,
+		"",
+		def.description,
+		"",
+		"## Project Brief",
+		"",
+		`> Fill in this section to define the project's scope and goals.`,
+		`> See [[${vars.name} — Architecture]] for the technical design.`,
+		"",
+		"### Vision",
+		"",
+		"_What problem does this project solve? Who is it for?_",
+		"",
+		"### Goals",
+		"",
+		"- [ ] Goal 1",
+		"- [ ] Goal 2",
+		"- [ ] Goal 3",
+		"",
+		"### Non-Goals",
+		"",
+		"- _What is explicitly out of scope?_",
+		"",
+		"### Key Decisions",
+		"",
+		`| Decision | Rationale | Date |`,
+		`|----------|-----------|------|`,
+		`| _e.g., Use TypeScript strict_ | _Type safety from day one_ | _${new Date().toISOString().slice(0, 10)}_ |`,
+		"",
+	];
+
+	// Commands section from package.json scripts
+	const scripts = def.package.scripts;
+	if (Object.keys(scripts).length > 0) {
+		lines.push("## Commands", "");
+		lines.push("| Command | Description |");
+		lines.push("|---------|-------------|");
+		for (const [name, cmd] of Object.entries(scripts)) {
+			lines.push(`| \`npm run ${name}\` | \`${cmd}\` |`);
+		}
+		lines.push("");
+	}
+
+	// Dev tools section
+	const devDeps = Object.keys(def.package.devDependencies);
+	if (devDeps.length > 0) {
+		lines.push("## Dev Tools", "");
+		for (const dep of devDeps) {
+			lines.push(`- ${dep}`);
+		}
+		lines.push("");
+	}
+
+	// Getting started
+	lines.push(
+		"## Getting Started",
+		"",
+		"```bash",
+		...def.nextSteps,
+		"```",
+		"",
+		"## Documentation",
+		"",
+		`- [[${vars.name} — Architecture]] — Technical architecture (arc42 + C4)`,
+		`- [[configs/flowti.config.json]] — CLI configuration`,
+		`- [[configs/tsconfig.json]] — TypeScript configuration`,
+		"",
+		"---",
+		"",
+		`*Managed by [Flowti CLI](https://github.com/flowti/flowti-cli)*`,
+		"",
+	);
+
+	return lines.join("\n");
+};
+
+// ── Architecture Document (arc42 + C4) ──────────────────────────────
+
+export const architectureTemplate: TemplateFn = (vars: ScaffoldVariables): string => {
+	return `# ${vars.name} — Architecture
+
+> Technical architecture following [arc42](https://arc42.org/) and [C4 model](https://c4model.com/) conventions.
+> See [[README]] for the project brief.
+
+## 1. Introduction & Goals
+
+### Requirements Overview
+
+_Key functional requirements driving the architecture._
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-01 | _e.g., Process input and produce output_ | Must |
+
+### Quality Goals
+
+| Priority | Quality | Motivation |
+|----------|---------|------------|
+| 1 | Testability | Every module is unit-testable in isolation |
+| 2 | Maintainability | Clear boundaries, no circular dependencies |
+| 3 | Performance | _Define acceptable thresholds_ |
+
+### Stakeholders
+
+| Role | Expectations |
+|------|-------------|
+| Developer | Clean APIs, fast feedback loop |
+| User | Reliable, well-documented |
+
+## 2. Constraints
+
+- TypeScript strict mode
+- ESM modules (\`"type": "module"\`)
+- Node.js >= 22
+
+## 3. Context & Scope (C4 Level 1 — System Context)
+
+\`\`\`
+┌─────────────────────────────┐
+│     ${vars.name.padEnd(24)}│
+│         (this system)       │
+└──────┬──────────────┬───────┘
+       │              │
+  [User/CLI]    [External Systems]
+\`\`\`
+
+### External Interfaces
+
+| Interface | Direction | Description |
+|-----------|-----------|-------------|
+| CLI | In | User commands via terminal |
+| File System | In/Out | Read/write project files |
+
+## 4. Solution Strategy
+
+_High-level approach to meeting the quality goals._
+
+- **Domain-Driven Design**: Business logic in \`[[src/]]\`, infrastructure adapters separate
+- **Dependency Injection**: All I/O via \`deps\` parameter, no singletons in domain
+- **Pure Functions**: Domain functions return data, no side effects
+
+## 5. Building Block View (C4 Level 2 — Container)
+
+### Level 1: Top-Level Decomposition
+
+\`\`\`
+[[src/]]
+├── domain/        # Business logic (pure functions)
+├── infrastructure/ # I/O adapters (filesystem, shell, clock)
+└── main.ts        # Entry point, composition root
+\`\`\`
+
+### Level 2: Domain Modules
+
+_Add domain modules as the project grows._
+
+| Module | Responsibility | Key Files |
+|--------|---------------|-----------|
+| _core_ | _Main business logic_ | \`[[src/main.ts]]\` |
+
+## 6. Runtime View
+
+### Key Scenarios
+
+#### Scenario 1: _[Name]_
+
+\`\`\`
+User → main.ts → domain/[module] → result
+\`\`\`
+
+## 7. Deployment View
+
+- **Build**: \`npm run build\` → \`dist/\`
+- **Test**: \`npm test\` (lint + type-check + vitest)
+- **Config**: \`[[configs/flowti.config.json]]\`
+
+## 8. Crosscutting Concepts
+
+### Error Handling
+
+_How errors propagate through the system._
+
+### Testing Strategy
+
+| Level | Tool | Location |
+|-------|------|----------|
+| Unit | Vitest | \`[[tests/]]\` |
+| Integration | _TBD_ | — |
+| E2E | _TBD_ | — |
+
+## 9. Architecture Decisions
+
+| ADR | Decision | Status |
+|-----|----------|--------|
+| ADR-001 | _e.g., Use ESM over CJS_ | Accepted |
+
+## 10. Quality Requirements
+
+### Quality Tree
+
+\`\`\`
+Quality
+├── Testability
+│   ├── Unit test coverage > 80%
+│   └── No mocking of domain logic
+├── Maintainability
+│   ├── No circular dependencies
+│   └── Max file complexity: 20
+└── Performance
+    └── Build time < 5s
+\`\`\`
+
+## 11. Risks & Technical Debt
+
+| Risk | Probability | Impact | Mitigation |
+|------|------------|--------|------------|
+| _e.g., Scope creep_ | Medium | High | Strict non-goals in [[README]] |
+
+## 12. Glossary
+
+| Term | Definition |
+|------|-----------|
+| _Domain_ | _Business logic, free of I/O_ |
+| _Infrastructure_ | _Adapters for external systems_ |
+
+---
+
+*Managed by [Flowti CLI](https://github.com/flowti/flowti-cli)*
+`;
+};
+
 // ── Export all ────────────────────────────────────────────────────────
 
 export const sharedTemplates: Record<string, TemplateFn> = {
@@ -165,4 +400,6 @@ export const sharedTemplates: Record<string, TemplateFn> = {
 	"eslint-config": eslintConfigTemplate,
 	"gitignore": gitignoreTemplate,
 	"flowti-config": flowtiConfigTemplate,
+	"readme": readmeTemplate,
+	"architecture": architectureTemplate,
 };

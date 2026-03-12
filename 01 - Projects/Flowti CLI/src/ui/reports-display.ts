@@ -6,13 +6,14 @@
 
 import { log } from "../infrastructure/logger.js";
 import { RESET, DIM, GREEN, RED, CYAN, YELLOW } from "../infrastructure/ui.js";
-import type { ReportDiff } from "../domain/reports/report-diff.js";
+import type { ReportDiff } from "../domain/reports/export/report-diff.js";
 
 // ── Data models ──────────────────────────────────────────────────────
 
 export interface ReportRunModel {
 	passed: number;
 	failed: number;
+	totalDurationMs: number;
 }
 
 export interface NoGeneratorsModel {
@@ -35,6 +36,11 @@ export interface UnknownReportModel {
 }
 
 // ── Renderers ────────────────────────────────────────────────────────
+
+export function renderReportRun(data: ReportRunModel): void {
+	const icon = data.failed === 0 ? `${GREEN}✓${RESET}` : `${YELLOW}⚠${RESET}`;
+	log(`  ${icon} Reports complete: ${data.passed} passed, ${data.failed} failed (${data.totalDurationMs}ms).\n`);
+}
 
 export function renderNoGenerators(data: NoGeneratorsModel): void {
 	log(`\n  ${DIM}${data.message}${RESET}\n`);

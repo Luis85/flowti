@@ -6,10 +6,9 @@
  * references). Renders results as text trees and Mermaid diagrams.
  */
 
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
 import { listProjects, getProjectPath } from "./project.js";
 import type { ProjectConfig, PublishEndpoint } from "../../infrastructure/types.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -34,21 +33,21 @@ interface PackageJsonDeps {
 	devDependencies?: Record<string, string>;
 }
 
-function readPackageJsonFull(projectPath: string): PackageJsonDeps | null {
-	const pkgPath = paths.join(projectPath, "package.json");
-	if (!disk.existsSync(pkgPath)) return null;
+function readPackageJsonFull(projectPath: string, deps: Pick<CliDeps, "disk" | "paths">): PackageJsonDeps | null {
+	const pkgPath = deps.paths.join(projectPath, "package.json");
+	if (!deps.disk.existsSync(pkgPath)) return null;
 	try {
-		return JSON.parse(disk.readFileSync(pkgPath, "utf-8")) as PackageJsonDeps;
+		return JSON.parse(deps.disk.readFileSync(pkgPath, "utf-8")) as PackageJsonDeps;
 	} catch {
 		return null;
 	}
 }
 
-function readFlowtiConfig(projectPath: string): ProjectConfig | null {
-	const cfgPath = paths.join(projectPath, "configs", "flowti.config.json");
-	if (!disk.existsSync(cfgPath)) return null;
+function readFlowtiConfig(projectPath: string, deps: Pick<CliDeps, "disk" | "paths">): ProjectConfig | null {
+	const cfgPath = deps.paths.join(projectPath, "configs", "flowti.config.json");
+	if (!deps.disk.existsSync(cfgPath)) return null;
 	try {
-		return JSON.parse(disk.readFileSync(cfgPath, "utf-8")) as ProjectConfig;
+		return JSON.parse(deps.disk.readFileSync(cfgPath, "utf-8")) as ProjectConfig;
 	} catch {
 		return null;
 	}
@@ -60,10 +59,10 @@ function readFlowtiConfig(projectPath: string): ProjectConfig | null {
  * Build a map from npm package name → project folder name for all projects
  * that have a package.json with a `name` field.
  */
-function buildNpmNameMap(allProjectNames: string[]): Map<string, string> {
+function buildNpmNameMap(allProjectNames: string[], deps: Pick<CliDeps, "disk" | "paths">): Map<string, string> {
 	const map = new Map<string, string>();
 	for (const name of allProjectNames) {
-		const pkg = readPackageJsonFull(getProjectPath(name));
+		const pkg = readPackageJsonFull(getProjectPath(name, deps), deps);
 		if (pkg?.name) {
 			map.set(pkg.name, name);
 		}
@@ -79,11 +78,12 @@ export function detectNpmDeps(
 	projectName: string,
 	projectPath: string,
 	npmNameMap: Map<string, string>,
+	deps: Pick<CliDeps, "disk" | "paths">,
 ): ProjectDependency[] {
-	const pkg = readPackageJsonFull(projectPath);
+	const pkg = readPackageJsonFull(projectPath, deps);
 	if (!pkg) return [];
 
-	const deps: ProjectDependency[] = [];
+	const result: ProjectDependency[] = [];
 
 	for (const [section, entries] of [
 		["dependencies", pkg.dependencies],
@@ -93,7 +93,7 @@ export function detectNpmDeps(
 		for (const depName of Object.keys(entries)) {
 			const targetProject = npmNameMap.get(depName);
 			if (targetProject && targetProject !== projectName) {
-				deps.push({
+				result.push({
 					from: projectName,
 					to: targetProject,
 					type: "npm",
@@ -103,7 +103,7 @@ export function detectNpmDeps(
 		}
 	}
 
-	return deps;
+	return result;
 }
 
 /**
@@ -114,11 +114,12 @@ export function detectConfigDeps(
 	projectName: string,
 	projectPath: string,
 	allProjectNames: string[],
+	deps: Pick<CliDeps, "disk" | "paths">,
 ): ProjectDependency[] {
-	const config = readFlowtiConfig(projectPath);
+	const config = readFlowtiConfig(projectPath, deps);
 	if (!config) return [];
 
-	const deps: ProjectDependency[] = [];
+	const result: ProjectDependency[] = [];
 	const endpoints: PublishEndpoint[] = config.publish?.endpoints ?? [];
 
 	for (const endpoint of endpoints) {
@@ -126,7 +127,7 @@ export function detectConfigDeps(
 			if (other === projectName) continue;
 			// Check if the endpoint path references another project directory
 			if (endpoint.path.includes(other)) {
-				deps.push({
+				result.push({
 					from: projectName,
 					to: other,
 					type: "publish",
@@ -136,7 +137,7 @@ export function detectConfigDeps(
 		}
 	}
 
-	return deps;
+	return result;
 }
 
 // ── Cycle detection ────────────────────────────────────────────────
@@ -200,15 +201,15 @@ export function detectCycles(edges: ProjectDependency[]): string[][] {
 // ── Graph builder ──────────────────────────────────────────────────
 
 /** Build the full dependency graph across all managed projects. */
-export function buildDependencyGraph(): DependencyGraph {
-	const projects = listProjects();
-	const npmNameMap = buildNpmNameMap(projects);
+export function buildDependencyGraph(deps: Pick<CliDeps, "disk" | "paths">): DependencyGraph {
+	const projects = listProjects(deps);
+	const npmNameMap = buildNpmNameMap(projects, deps);
 	const edges: ProjectDependency[] = [];
 
 	for (const name of projects) {
-		const projectPath = getProjectPath(name);
-		edges.push(...detectNpmDeps(name, projectPath, npmNameMap));
-		edges.push(...detectConfigDeps(name, projectPath, projects));
+		const projectPath = getProjectPath(name, deps);
+		edges.push(...detectNpmDeps(name, projectPath, npmNameMap, deps));
+		edges.push(...detectConfigDeps(name, projectPath, projects, deps));
 	}
 
 	const cycles = detectCycles(edges);
@@ -279,11 +280,3 @@ export function graphStats(graph: DependencyGraph): {
 	};
 }
 
-// Re-export display and command functions from the display module
-export {
-	renderDependencyTree,
-	renderMermaidDeps,
-	displayDependencyGraph,
-	handleProjectDeps,
-	commands,
-} from "../../ui/deps-display.js";

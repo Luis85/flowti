@@ -4,7 +4,11 @@ import { c4DocTemplate } from "../../../../src/domain/make/component/templates/c
 import { componentTestTemplate } from "../../../../src/domain/make/component/templates/component-test.js";
 import { componentDefinitionTemplate } from "../../../../src/domain/make/component/templates/component-definition.js";
 import { componentStoryTemplate } from "../../../../src/domain/make/component/templates/component-story.js";
-import type { ComponentVariables, ComponentDefinition } from "../../../../src/domain/make/component/component-types.js";
+import type { ComponentVariables, ComponentDefinition, ComponentTemplateDeps } from "../../../../src/domain/make/component/component-types.js";
+
+const mockDeps: ComponentTemplateDeps = {
+	clock: { iso: () => "2026-01-01T00:00:00.000Z", ms: () => 0, now: () => new Date("2026-01-01"), safeIso: () => "2026-01-01T00-00-00" },
+};
 
 function vars(overrides: Partial<ComponentVariables> = {}): ComponentVariables {
 	return { name: "Auth Service", kebab: "auth-service", pascal: "AuthService", camel: "authService", ...overrides };
@@ -21,7 +25,7 @@ function def(overrides: Partial<ComponentDefinition> = {}): ComponentDefinition 
 
 describe("componentDocTemplate", () => {
 	it("returns a Document with valid YAML frontmatter", () => {
-		const doc = componentDocTemplate(vars(), def());
+		const doc = componentDocTemplate(vars(), def(), mockDeps);
 		const output = doc.toString();
 		expect(output).toMatch(/^---\n/);
 		expect(output).toContain("type: component");
@@ -30,22 +34,22 @@ describe("componentDocTemplate", () => {
 	});
 
 	it("includes the component name as heading", () => {
-		const output = componentDocTemplate(vars(), def()).toString();
+		const output = componentDocTemplate(vars(), def(), mockDeps).toString();
 		expect(output).toContain("# Auth Service");
 	});
 
 	it("includes description when provided", () => {
-		const output = componentDocTemplate(vars({ description: "Handles authentication." }), def()).toString();
+		const output = componentDocTemplate(vars({ description: "Handles authentication." }), def(), mockDeps).toString();
 		expect(output).toContain("Handles authentication.");
 	});
 
 	it("includes owner when provided", () => {
-		const output = componentDocTemplate(vars({ owner: "Platform Team" }), def()).toString();
+		const output = componentDocTemplate(vars({ owner: "Platform Team" }), def(), mockDeps).toString();
 		expect(output).toContain("owner: Platform Team");
 	});
 
 	it("supports toLines() output", () => {
-		const lines = componentDocTemplate(vars(), def()).toLines();
+		const lines = componentDocTemplate(vars(), def(), mockDeps).toLines();
 		expect(Array.isArray(lines)).toBe(true);
 		expect(lines[0]).toBe("---");
 		expect(lines).toContain("# Auth Service");
@@ -54,7 +58,7 @@ describe("componentDocTemplate", () => {
 
 describe("c4DocTemplate", () => {
 	it("returns a Document for C4 System with boundaries section", () => {
-		const output = c4DocTemplate(vars(), def({ kind: "system", metadata: { type: "system", c4Level: 1 } })).toString();
+		const output = c4DocTemplate(vars(), def({ kind: "system", metadata: { type: "system", c4Level: 1 } }), mockDeps).toString();
 		expect(output).toContain("c4: System");
 		expect(output).toContain("c4Level: 1");
 		expect(output).toContain("## Boundaries");
@@ -65,6 +69,7 @@ describe("c4DocTemplate", () => {
 		const output = c4DocTemplate(
 			vars({ technology: "Node.js", containedBy: "payment-system" }),
 			def({ kind: "container", metadata: { type: "container", c4Level: 2 } }),
+			mockDeps,
 		).toString();
 		expect(output).toContain("c4: Container");
 		expect(output).toContain("technology: Node.js");
@@ -73,20 +78,20 @@ describe("c4DocTemplate", () => {
 	});
 
 	it("generates C4 Component doc with responsibilities section", () => {
-		const output = c4DocTemplate(vars(), def({ kind: "c4-component", metadata: { type: "c4-component", c4Level: 3 } })).toString();
+		const output = c4DocTemplate(vars(), def({ kind: "c4-component", metadata: { type: "c4-component", c4Level: 3 } }), mockDeps).toString();
 		expect(output).toContain("c4: Component");
 		expect(output).toContain("## Responsibilities");
 	});
 
 	it("generates C4 Person doc with role section", () => {
-		const output = c4DocTemplate(vars(), def({ kind: "person", metadata: { type: "person", c4Level: 0 } })).toString();
+		const output = c4DocTemplate(vars(), def({ kind: "person", metadata: { type: "person", c4Level: 0 } }), mockDeps).toString();
 		expect(output).toContain("c4: Person");
 		expect(output).toContain("## Role");
 		expect(output).toContain("## Interactions");
 	});
 
 	it("supports toLines() output", () => {
-		const lines = c4DocTemplate(vars(), def({ kind: "system", metadata: { type: "system", c4Level: 1 } })).toLines();
+		const lines = c4DocTemplate(vars(), def({ kind: "system", metadata: { type: "system", c4Level: 1 } }), mockDeps).toLines();
 		expect(Array.isArray(lines)).toBe(true);
 		expect(lines[0]).toBe("---");
 	});
@@ -94,7 +99,7 @@ describe("c4DocTemplate", () => {
 
 describe("componentTestTemplate", () => {
 	it("generates a valid test file", () => {
-		const output = componentTestTemplate(vars(), def());
+		const output = componentTestTemplate(vars(), def(), mockDeps);
 		expect(output).toContain('describe("Auth Service"');
 		expect(output).toContain("import(");
 		expect(output).toContain("auth-service/auth-service.json");
@@ -103,7 +108,7 @@ describe("componentTestTemplate", () => {
 
 describe("componentDefinitionTemplate", () => {
 	it("generates valid JSON with name and id", () => {
-		const output = componentDefinitionTemplate(vars(), def());
+		const output = componentDefinitionTemplate(vars(), def(), mockDeps);
 		const parsed = JSON.parse(output);
 		expect(parsed.name).toBe("Auth Service");
 		expect(parsed.id).toBe("auth-service");
@@ -115,6 +120,7 @@ describe("componentDefinitionTemplate", () => {
 		const output = componentDefinitionTemplate(
 			vars({ description: "Authenticates users", technology: "JWT", owner: "Security" }),
 			def({ metadata: { type: "c4-component", c4Level: 3 } }),
+			mockDeps,
 		);
 		const parsed = JSON.parse(output);
 		expect(parsed.description).toBe("Authenticates users");
@@ -132,13 +138,14 @@ describe("componentDefinitionTemplate", () => {
 					{ key: "visible", type: "boolean", default: true },
 				],
 			}),
+			mockDeps,
 		);
 		const parsed = JSON.parse(output);
 		expect(parsed.properties).toEqual({ direction: "vertical", gap: "0", visible: true });
 	});
 
 	it("omits properties when definition has no properties", () => {
-		const output = componentDefinitionTemplate(vars(), def());
+		const output = componentDefinitionTemplate(vars(), def(), mockDeps);
 		const parsed = JSON.parse(output);
 		expect(parsed.properties).toBeUndefined();
 	});
@@ -154,6 +161,7 @@ describe("componentDocTemplate — properties table", () => {
 					{ key: "gap", type: "string", default: "0", description: "Spacing" },
 				],
 			}),
+			mockDeps,
 		).toString();
 		expect(output).toContain("## Properties");
 		expect(output).toContain("| direction | string | vertical | Layout direction |");
@@ -161,14 +169,14 @@ describe("componentDocTemplate — properties table", () => {
 	});
 
 	it("omits Properties section when definition has no properties", () => {
-		const output = componentDocTemplate(vars(), def()).toString();
+		const output = componentDocTemplate(vars(), def(), mockDeps).toString();
 		expect(output).not.toContain("## Properties");
 	});
 });
 
 describe("componentStoryTemplate", () => {
 	it("generates a Storybook story with autodocs tag and render function", () => {
-		const output = componentStoryTemplate(vars(), def({ kind: "ui-component" }));
+		const output = componentStoryTemplate(vars(), def({ kind: "ui-component" }), mockDeps);
 		expect(output).toContain('tags: ["autodocs"]');
 		expect(output).toContain("render: (args) => {");
 		expect(output).toContain('el.className = "auth-service"');
@@ -176,17 +184,17 @@ describe("componentStoryTemplate", () => {
 	});
 
 	it("uses Components folder for ui-component kind", () => {
-		const output = componentStoryTemplate(vars(), def({ kind: "ui-component" }));
+		const output = componentStoryTemplate(vars(), def({ kind: "ui-component" }), mockDeps);
 		expect(output).toContain('title: "Components/AuthService"');
 	});
 
 	it("uses Layouts folder for layout kind", () => {
-		const output = componentStoryTemplate(vars(), def({ kind: "layout" }));
+		const output = componentStoryTemplate(vars(), def({ kind: "layout" }), mockDeps);
 		expect(output).toContain('title: "Layouts/AuthService"');
 	});
 
 	it("uses Pages folder for page kind", () => {
-		const output = componentStoryTemplate(vars(), def({ kind: "page" }));
+		const output = componentStoryTemplate(vars(), def({ kind: "page" }), mockDeps);
 		expect(output).toContain('title: "Pages/AuthService"');
 	});
 
@@ -200,6 +208,7 @@ describe("componentStoryTemplate", () => {
 					{ key: "disabled", type: "boolean", default: false, description: "Whether disabled" },
 				],
 			}),
+			mockDeps,
 		);
 		expect(output).toContain("argTypes:");
 		expect(output).toContain('variant: { control: "text", description: "Visual variant" }');
@@ -210,7 +219,7 @@ describe("componentStoryTemplate", () => {
 	});
 
 	it("omits argTypes and args when no properties", () => {
-		const output = componentStoryTemplate(vars(), def({ kind: "ui-component" }));
+		const output = componentStoryTemplate(vars(), def({ kind: "ui-component" }), mockDeps);
 		expect(output).not.toContain("argTypes:");
 		expect(output).not.toMatch(/^\targs:/m);
 	});
@@ -225,6 +234,7 @@ describe("componentStoryTemplate", () => {
 					{ name: "onFocus" },
 				],
 			}),
+			mockDeps,
 		);
 		expect(output).toContain('import { action } from "storybook/actions"');
 		expect(output).toContain('onClick: { action: "onClick", description: "Clicked" }');
@@ -234,7 +244,7 @@ describe("componentStoryTemplate", () => {
 	});
 
 	it("does not import actions addon when no actions defined", () => {
-		const output = componentStoryTemplate(vars(), def({ kind: "ui-component" }));
+		const output = componentStoryTemplate(vars(), def({ kind: "ui-component" }), mockDeps);
 		expect(output).not.toContain("storybook/actions");
 	});
 
@@ -248,6 +258,7 @@ describe("componentStoryTemplate", () => {
 					{ name: "secondary", label: "Secondary", props: { variant: "secondary" } },
 				],
 			}),
+			mockDeps,
 		);
 		expect(output).toContain("export const Primary: Story = {");
 		expect(output).toContain('variant: "primary"');
@@ -265,6 +276,7 @@ describe("componentStoryTemplate", () => {
 					{ name: "disabled", label: "Disabled", props: { disabled: true } },
 				],
 			}),
+			mockDeps,
 		);
 		expect(output).toContain("export const Loading: Story = {");
 		expect(output).toContain('title: "Loading..."');
@@ -282,6 +294,7 @@ describe("componentStoryTemplate", () => {
 				variants: [{ name: "primary", props: { visible: true } }],
 				states: [{ name: "hidden", props: { visible: false } }],
 			}),
+			mockDeps,
 		);
 		expect(output).toContain("argTypes:");
 		expect(output).toContain('visible: { control: "boolean" }');
@@ -296,13 +309,14 @@ describe("componentDocTemplate — actions, variants, states tables", () => {
 		const output = componentDocTemplate(
 			vars(),
 			def({ actions: [{ name: "onClick", description: "Clicked" }] }),
+			mockDeps,
 		).toString();
 		expect(output).toContain("## Actions");
 		expect(output).toContain("| onClick | Clicked |");
 	});
 
 	it("omits Actions section when no actions", () => {
-		const output = componentDocTemplate(vars(), def()).toString();
+		const output = componentDocTemplate(vars(), def(), mockDeps).toString();
 		expect(output).not.toContain("## Actions");
 	});
 
@@ -310,13 +324,14 @@ describe("componentDocTemplate — actions, variants, states tables", () => {
 		const output = componentDocTemplate(
 			vars(),
 			def({ variants: [{ name: "primary", label: "Primary", props: { variant: "primary" } }] }),
+			mockDeps,
 		).toString();
 		expect(output).toContain("## Variants");
 		expect(output).toContain("primary");
 	});
 
 	it("omits Variants section when no variants", () => {
-		const output = componentDocTemplate(vars(), def()).toString();
+		const output = componentDocTemplate(vars(), def(), mockDeps).toString();
 		expect(output).not.toContain("## Variants");
 	});
 
@@ -324,13 +339,14 @@ describe("componentDocTemplate — actions, variants, states tables", () => {
 		const output = componentDocTemplate(
 			vars(),
 			def({ states: [{ name: "loading", label: "Loading", description: "Loading state", props: { title: "..." } }] }),
+			mockDeps,
 		).toString();
 		expect(output).toContain("## States");
 		expect(output).toContain("loading");
 	});
 
 	it("omits States section when no states", () => {
-		const output = componentDocTemplate(vars(), def()).toString();
+		const output = componentDocTemplate(vars(), def(), mockDeps).toString();
 		expect(output).not.toContain("## States");
 	});
 });
@@ -340,13 +356,14 @@ describe("componentDefinitionTemplate — actions, variants, states", () => {
 		const output = componentDefinitionTemplate(
 			vars(),
 			def({ actions: [{ name: "onClick" }, { name: "onFocus" }] }),
+			mockDeps,
 		);
 		const parsed = JSON.parse(output);
 		expect(parsed.actions).toEqual(["onClick", "onFocus"]);
 	});
 
 	it("omits actions from JSON when no actions", () => {
-		const output = componentDefinitionTemplate(vars(), def());
+		const output = componentDefinitionTemplate(vars(), def(), mockDeps);
 		const parsed = JSON.parse(output);
 		expect(parsed.actions).toBeUndefined();
 	});
@@ -355,6 +372,7 @@ describe("componentDefinitionTemplate — actions, variants, states", () => {
 		const output = componentDefinitionTemplate(
 			vars(),
 			def({ variants: [{ name: "primary", props: { variant: "primary" } }] }),
+			mockDeps,
 		);
 		const parsed = JSON.parse(output);
 		expect(parsed.variants).toEqual({ primary: { variant: "primary" } });
@@ -364,6 +382,7 @@ describe("componentDefinitionTemplate — actions, variants, states", () => {
 		const output = componentDefinitionTemplate(
 			vars(),
 			def({ states: [{ name: "loading", props: { title: "..." } }] }),
+			mockDeps,
 		);
 		const parsed = JSON.parse(output);
 		expect(parsed.states).toEqual({ loading: { title: "..." } });
@@ -373,6 +392,7 @@ describe("componentDefinitionTemplate — actions, variants, states", () => {
 		const output = componentDefinitionTemplate(
 			vars(),
 			def({ domain: "auth", icon: "lock", heroImage: "hero.png" }),
+			mockDeps,
 		);
 		const parsed = JSON.parse(output);
 		expect(parsed.domain).toBe("auth");
@@ -384,13 +404,14 @@ describe("componentDefinitionTemplate — actions, variants, states", () => {
 		const output = componentDefinitionTemplate(
 			vars(),
 			def({ images: [{ src: "screenshot.png", alt: "Screenshot", role: "screenshot" }] }),
+			mockDeps,
 		);
 		const parsed = JSON.parse(output);
 		expect(parsed.images).toEqual([{ src: "screenshot.png", alt: "Screenshot", role: "screenshot" }]);
 	});
 
 	it("omits domain/icon/heroImage/images when not defined", () => {
-		const output = componentDefinitionTemplate(vars(), def());
+		const output = componentDefinitionTemplate(vars(), def(), mockDeps);
 		const parsed = JSON.parse(output);
 		expect(parsed.domain).toBeUndefined();
 		expect(parsed.icon).toBeUndefined();
@@ -401,19 +422,19 @@ describe("componentDefinitionTemplate — actions, variants, states", () => {
 
 describe("componentDocTemplate — icon, domain, heroImage, images", () => {
 	it("includes domain and icon in frontmatter", () => {
-		const output = componentDocTemplate(vars(), def({ domain: "checkout", icon: "cart" })).toString();
+		const output = componentDocTemplate(vars(), def({ domain: "checkout", icon: "cart" }), mockDeps).toString();
 		expect(output).toContain("domain: checkout");
 		expect(output).toContain("icon: cart");
 	});
 
 	it("omits domain and icon when not defined", () => {
-		const output = componentDocTemplate(vars(), def()).toString();
+		const output = componentDocTemplate(vars(), def(), mockDeps).toString();
 		expect(output).not.toContain("domain:");
 		expect(output).not.toContain("icon:");
 	});
 
 	it("renders Images section with hero image", () => {
-		const output = componentDocTemplate(vars(), def({ heroImage: "hero.png" })).toString();
+		const output = componentDocTemplate(vars(), def({ heroImage: "hero.png" }), mockDeps).toString();
 		expect(output).toContain("## Images");
 		expect(output).toContain("![Hero](hero.png)");
 	});
@@ -425,6 +446,7 @@ describe("componentDocTemplate — icon, domain, heroImage, images", () => {
 				{ src: "a.png", alt: "Screenshot A", role: "screenshot" },
 				{ src: "b.png", role: "mockup" },
 			] }),
+			mockDeps,
 		).toString();
 		expect(output).toContain("## Images");
 		expect(output).toContain("![Screenshot A](a.png)");
@@ -432,7 +454,7 @@ describe("componentDocTemplate — icon, domain, heroImage, images", () => {
 	});
 
 	it("omits Images section when no heroImage and no images", () => {
-		const output = componentDocTemplate(vars(), def()).toString();
+		const output = componentDocTemplate(vars(), def(), mockDeps).toString();
 		expect(output).not.toContain("## Images");
 	});
 });
@@ -442,6 +464,7 @@ describe("componentStoryTemplate — parameters block", () => {
 		const output = componentStoryTemplate(
 			vars(),
 			def({ kind: "ui-component", icon: "lock", heroImage: "hero.png", domain: "auth" }),
+			mockDeps,
 		);
 		expect(output).toContain("parameters:");
 		expect(output).toContain('icon: "lock"');
@@ -450,13 +473,13 @@ describe("componentStoryTemplate — parameters block", () => {
 	});
 
 	it("always includes docs description from markdown import", () => {
-		const output = componentStoryTemplate(vars(), def({ kind: "ui-component" }));
+		const output = componentStoryTemplate(vars(), def({ kind: "ui-component" }), mockDeps);
 		expect(output).toContain("parameters:");
 		expect(output).toContain("docs: { description: { component: componentDoc } }");
 	});
 
 	it("imports the component markdown file as raw string", () => {
-		const output = componentStoryTemplate(vars(), def({ kind: "ui-component" }));
+		const output = componentStoryTemplate(vars(), def({ kind: "ui-component" }), mockDeps);
 		expect(output).toContain('import componentDoc from "../../../docs/components/auth-service.md?raw"');
 	});
 });

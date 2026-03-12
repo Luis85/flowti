@@ -6,12 +6,10 @@
  * and filesystem — no commands are executed except git status.
  */
 
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
-import { shell } from "../../infrastructure/shell.js";
 import { countFiles } from "../../infrastructure/fs.js";
 import { parseFrontmatterContent } from "../../infrastructure/frontmatter.js";
 import type { ProjectContext } from "../../infrastructure/types.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 
 // ── Data types ───────────────────────────────────────────────────────
 
@@ -38,27 +36,27 @@ export interface HealthSnapshot {
 
 // ── Data collection ──────────────────────────────────────────────────
 
-function collectSourceMetrics(projectPath: string): HealthSnapshot["source"] {
-	const srcDir = paths.join(projectPath, "src");
-	const testsDir = paths.join(projectPath, "tests");
-	if (!disk.existsSync(srcDir)) return null;
-	const tsCount = countFiles(srcDir, ".ts");
-	const jsCount = countFiles(srcDir, ".js");
-	const testTs = disk.existsSync(testsDir) ? countFiles(testsDir, ".ts") : 0;
-	const testJs = disk.existsSync(testsDir) ? countFiles(testsDir, ".js") : 0;
+function collectSourceMetrics(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string): HealthSnapshot["source"] {
+	const srcDir = deps.paths.join(projectPath, "src");
+	const testsDir = deps.paths.join(projectPath, "tests");
+	if (!deps.disk.existsSync(srcDir)) return null;
+	const tsCount = countFiles(srcDir, ".ts", deps.disk);
+	const jsCount = countFiles(srcDir, ".js", deps.disk);
+	const testTs = deps.disk.existsSync(testsDir) ? countFiles(testsDir, ".ts", deps.disk) : 0;
+	const testJs = deps.disk.existsSync(testsDir) ? countFiles(testsDir, ".js", deps.disk) : 0;
 	return { files: tsCount || jsCount, testFiles: testTs || testJs };
 }
 
-function readReportFrontmatter(reportPath: string): Record<string, unknown> | null {
-	if (!disk.existsSync(reportPath)) return null;
+function readReportFrontmatter(deps: Pick<CliDeps, "disk">, reportPath: string): Record<string, unknown> | null {
+	if (!deps.disk.existsSync(reportPath)) return null;
 	try {
-		const content = disk.readFileSync(reportPath, "utf-8");
+		const content = deps.disk.readFileSync(reportPath, "utf-8");
 		return parseFrontmatterContent(content);
 	} catch { return null; }
 }
 
-function collectTestMetrics(reportsDir: string): HealthSnapshot["tests"] {
-	const fm = readReportFrontmatter(paths.join(reportsDir, "Test Report.md"));
+function collectTestMetrics(deps: Pick<CliDeps, "disk" | "paths">, reportsDir: string): HealthSnapshot["tests"] {
+	const fm = readReportFrontmatter(deps, deps.paths.join(reportsDir, "Test Report.md"));
 	if (!fm) return null;
 	return {
 		total: Number(fm.total ?? fm.total_tests ?? 0),
@@ -68,8 +66,8 @@ function collectTestMetrics(reportsDir: string): HealthSnapshot["tests"] {
 	};
 }
 
-function collectCoverageMetrics(reportsDir: string): HealthSnapshot["coverage"] {
-	const fm = readReportFrontmatter(paths.join(reportsDir, "Coverage Report.md"));
+function collectCoverageMetrics(deps: Pick<CliDeps, "disk" | "paths">, reportsDir: string): HealthSnapshot["coverage"] {
+	const fm = readReportFrontmatter(deps, deps.paths.join(reportsDir, "Coverage Report.md"));
 	if (!fm) return null;
 	return {
 		lines: Number(fm.lines_pct ?? fm.statements_pct ?? 0),
@@ -78,8 +76,8 @@ function collectCoverageMetrics(reportsDir: string): HealthSnapshot["coverage"] 
 	};
 }
 
-function collectBuildMetrics(reportsDir: string): HealthSnapshot["build"] {
-	const fm = readReportFrontmatter(paths.join(reportsDir, "Build Report.md"));
+function collectBuildMetrics(deps: Pick<CliDeps, "disk" | "paths">, reportsDir: string): HealthSnapshot["build"] {
+	const fm = readReportFrontmatter(deps, deps.paths.join(reportsDir, "Build Report.md"));
 	if (!fm) return null;
 	return {
 		success: fm.success === true || fm.success === "true",
@@ -87,8 +85,8 @@ function collectBuildMetrics(reportsDir: string): HealthSnapshot["build"] {
 	};
 }
 
-function collectLintMetrics(reportsDir: string): HealthSnapshot["lint"] {
-	const fm = readReportFrontmatter(paths.join(reportsDir, "Project Summary.md"));
+function collectLintMetrics(deps: Pick<CliDeps, "disk" | "paths">, reportsDir: string): HealthSnapshot["lint"] {
+	const fm = readReportFrontmatter(deps, deps.paths.join(reportsDir, "Project Summary.md"));
 	if (!fm) return null;
 	const hasLint = fm.eslint_errors !== undefined || fm.eslint_warnings !== undefined
 		|| fm.lint_errors !== undefined || fm.lint_warnings !== undefined;
@@ -99,10 +97,10 @@ function collectLintMetrics(reportsDir: string): HealthSnapshot["lint"] {
 	};
 }
 
-function collectGitMetrics(projectPath: string): HealthSnapshot["git"] {
-	const branch = shell.runSilent(`git -C "${projectPath}" rev-parse --abbrev-ref HEAD`);
+function collectGitMetrics(deps: Pick<CliDeps, "shell">, projectPath: string): HealthSnapshot["git"] {
+	const branch = deps.shell.runSilent(`git -C "${projectPath}" rev-parse --abbrev-ref HEAD`);
 	if (!branch) return null;
-	const dirty = shell.runSilent(`git -C "${projectPath}" status --porcelain`);
+	const dirty = deps.shell.runSilent(`git -C "${projectPath}" status --porcelain`);
 	return { branch, status: dirty ? "dirty" : "clean" };
 }
 
@@ -133,32 +131,31 @@ export function parseAuditJson(json: string): SecurityMetrics | null {
 	} catch { return null; }
 }
 
-function collectSecurityMetrics(projectPath: string): SecurityMetrics | null {
-	const packageJson = paths.join(projectPath, "package.json");
-	if (!disk.existsSync(packageJson)) return null;
-	const { output } = shell.runCaptureStatus("npm audit --json", { cwd: projectPath });
+function collectSecurityMetrics(deps: Pick<CliDeps, "disk" | "paths" | "shell">, projectPath: string): SecurityMetrics | null {
+	const packageJson = deps.paths.join(projectPath, "package.json");
+	if (!deps.disk.existsSync(packageJson)) return null;
+	const { output } = deps.shell.runCaptureStatus("npm audit --json", { cwd: projectPath });
 	if (!output) return null;
 	return parseAuditJson(output);
 }
 
-function countComponents(projectPath: string): number {
-	const dir = paths.join(projectPath, "docs", "components");
-	if (!disk.existsSync(dir)) return 0;
-	return disk.readdirSync(dir).filter((f) => f.endsWith(".md")).length;
+function countComponents(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string): number {
+	const dir = deps.paths.join(projectPath, "docs", "components");
+	if (!deps.disk.existsSync(dir)) return 0;
+	return deps.disk.readdirSync(dir).filter((f) => f.endsWith(".md")).length;
 }
 
-export function collectHealth(ctx: ProjectContext): HealthSnapshot {
-	const reportsDir = paths.join(ctx.path, ctx.config.reports?.dir ?? "reports");
+export function collectHealth(deps: Pick<CliDeps, "disk" | "paths" | "shell">, ctx: ProjectContext): HealthSnapshot {
+	const reportsDir = deps.paths.join(ctx.path, ctx.config.reports?.dir ?? "reports");
 	return {
 		name: ctx.config.name,
-		source: collectSourceMetrics(ctx.path),
-		tests: collectTestMetrics(reportsDir),
-		coverage: collectCoverageMetrics(reportsDir),
-		build: collectBuildMetrics(reportsDir),
-		lint: collectLintMetrics(reportsDir),
-		git: collectGitMetrics(ctx.path),
-		security: collectSecurityMetrics(ctx.path),
-		components: countComponents(ctx.path),
+		source: collectSourceMetrics(deps, ctx.path),
+		tests: collectTestMetrics(deps, reportsDir),
+		coverage: collectCoverageMetrics(deps, reportsDir),
+		build: collectBuildMetrics(deps, reportsDir),
+		lint: collectLintMetrics(deps, reportsDir),
+		git: collectGitMetrics(deps, ctx.path),
+		security: collectSecurityMetrics(deps, ctx.path),
+		components: countComponents(deps, ctx.path),
 	};
 }
-

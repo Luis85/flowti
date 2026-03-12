@@ -2,10 +2,7 @@
  * e2e-teardown.ts — Vault reset and rebuild operations.
  */
 
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
-import { shell } from "../../infrastructure/shell.js";
-import { input } from "../../infrastructure/input.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 import { runPipeline } from "../../infrastructure/pipeline/pipeline-runner.js";
 import type { E2EPaths } from "./e2e-paths.js";
 import { collapseFileExplorer } from "./e2e-prerequisites.js";
@@ -16,16 +13,18 @@ import { buildRebuildPipeline } from "./pipelines/rebuild-pipeline.js";
  * Deletes vault content, resets installer state, deactivates plugin,
  * clears workspace layout, and collapses file explorer.
  */
-export async function performTeardown(e2e: E2EPaths, log: (msg: string) => void = () => {}): Promise<void> {
+export async function performTeardown(e2e: E2EPaths, deps: Pick<CliDeps, "disk" | "paths" | "shell" | "log">): Promise<void> {
+	const { disk, paths, shell } = deps;
+
 	// 1. Delete vault content via Obsidian CLI (cache-safe)
 	const deleteResult = shell.runSilent(
 		`obsidian vault=${e2e.vaultName} eval code="(async () => { const root = app.vault.getRoot(); const children = root.children || []; for (const child of [...children]) { if (child.path === '.obsidian' || child.path.startsWith('.obsidian/')) continue; try { await app.vault.delete(child, true); } catch(e) {} } })()"`,
 	);
 	if (deleteResult !== null) {
 		await new Promise<void>((r) => setTimeout(r, 1000));
-		log("  ✓ Vault content deleted (via Obsidian API)");
+		deps.log("  ✓ Vault content deleted (via Obsidian API)");
 	} else {
-		log("  ✗ Failed to delete vault content (is Obsidian running?)");
+		deps.log("  ✗ Failed to delete vault content (is Obsidian running?)");
 	}
 
 	// 2. Purge ghost file index entries
@@ -34,7 +33,7 @@ export async function performTeardown(e2e: E2EPaths, log: (msg: string) => void 
 	);
 	if (purgeResult !== null) {
 		await new Promise<void>((r) => setTimeout(r, 500));
-		log("  ✓ Ghost entries purged");
+		deps.log("  ✓ Ghost entries purged");
 	}
 
 	// 3. Reset data.json
@@ -43,12 +42,12 @@ export async function performTeardown(e2e: E2EPaths, log: (msg: string) => void 
 			const data = JSON.parse(disk.readFileSync(e2e.dataJsonPath, "utf-8")) as Record<string, unknown>;
 			data.installer = { installed: false, completedSteps: {} };
 			disk.writeFileSync(e2e.dataJsonPath, JSON.stringify(data), "utf-8");
-			log("  ✓ Installer state reset");
+			deps.log("  ✓ Installer state reset");
 		} catch {
-			log("  ✗ Failed to reset data.json");
+			deps.log("  ✗ Failed to reset data.json");
 		}
 	} else {
-		log("  ○ data.json not found (already fresh)");
+		deps.log("  ○ data.json not found (already fresh)");
 	}
 
 	// 4. Deactivate plugin
@@ -57,9 +56,9 @@ export async function performTeardown(e2e: E2EPaths, log: (msg: string) => void 
 	);
 	if (disableResult !== null) {
 		await new Promise<void>((r) => setTimeout(r, 1000));
-		log("  ✓ Plugin deactivated");
+		deps.log("  ✓ Plugin deactivated");
 	} else {
-		log("  ○ Plugin deactivation skipped (may not be loaded)");
+		deps.log("  ○ Plugin deactivation skipped (may not be loaded)");
 	}
 
 	// 5. Clear workspace layout
@@ -67,52 +66,52 @@ export async function performTeardown(e2e: E2EPaths, log: (msg: string) => void 
 	if (disk.existsSync(workspacePath)) {
 		try {
 			disk.rmSync(workspacePath, { force: true });
-			log("  ✓ Workspace layout cleared");
+			deps.log("  ✓ Workspace layout cleared");
 		} catch {
 			// Non-fatal
 		}
 	}
 
 	// 6. Collapse all folders in the file navigator
-	collapseFileExplorer(e2e, log);
+	collapseFileExplorer(e2e, deps);
 
-	log("  ✓ Fresh state.");
+	deps.log("  ✓ Fresh state.");
 }
 
 /**
  * Interactive teardown — prompts for confirmation before proceeding.
  */
-export async function teardownVault(e2e: E2EPaths, log: (msg: string) => void = () => {}): Promise<void> {
-	log("  Teardown will:");
-	log("    - Delete all vault content (except .obsidian/)");
-	log("    - Reset installer state (data.json → installed: false)");
-	log("    - Deactivate plugin");
-	log("    - Clear workspace layout");
-	log("    - Collapse file navigator folders");
+export async function teardownVault(e2e: E2EPaths, deps: Pick<CliDeps, "disk" | "paths" | "shell" | "input" | "log">): Promise<void> {
+	deps.log("  Teardown will:");
+	deps.log("    - Delete all vault content (except .obsidian/)");
+	deps.log("    - Reset installer state (data.json → installed: false)");
+	deps.log("    - Deactivate plugin");
+	deps.log("    - Clear workspace layout");
+	deps.log("    - Collapse file navigator folders");
 
-	const proceed = await input.askYesNo("Proceed?", true);
+	const proceed = await deps.input.askYesNo("Proceed?", true);
 
 	if (!proceed) {
-		log("  Teardown cancelled.");
+		deps.log("  Teardown cancelled.");
 		return;
 	}
 
-	await performTeardown(e2e, log);
+	await performTeardown(e2e, deps);
 }
 
 /**
  * Rebuild: teardown + prerequisites + installer run via pipeline.
  */
-export async function runRebuild(e2e: E2EPaths, log: (msg: string) => void = () => {}): Promise<number> {
-	log("  Rebuilding vault (teardown → prerequisites → installer)...");
+export async function runRebuild(e2e: E2EPaths, deps: Pick<CliDeps, "disk" | "shell" | "paths" | "input" | "proc" | "log">): Promise<number> {
+	deps.log("  Rebuilding vault (teardown \u2192 prerequisites \u2192 installer)...");
 
-	const proceed = await input.askYesNo("This will teardown and rebuild the vault. Proceed?", true);
+	const proceed = await deps.input.askYesNo("This will teardown and rebuild the vault. Proceed?", true);
 	if (!proceed) {
-		log("  Rebuild cancelled.");
+		deps.log("  Rebuild cancelled.");
 		return 0;
 	}
 
-	const steps = buildRebuildPipeline(e2e);
+	const steps = buildRebuildPipeline(e2e, deps);
 	const result = await runPipeline(steps, e2e.projectRoot, { label: "Rebuild" });
 	return result.failed > 0 ? 1 : 0;
 }

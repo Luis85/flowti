@@ -32,11 +32,12 @@ vi.mock("../../src/domain/project/project-config.js", () => ({
 		scripts: {},
 	})),
 }));
-vi.mock("../../src/infrastructure/types.js", () => ({
-	FLOWTI_TOOLS: [
-		{ id: "build", label: "Build" },
-		{ id: "test", label: "Test" },
-	],
+vi.mock("../../src/domain/project/tool-availability.js", () => ({
+	detectTools: vi.fn(() => [
+		{ id: "vitest", available: true, version: "4.0.0" },
+		{ id: "typescript", available: true, version: "5.9.0" },
+		{ id: "eslint", available: false },
+	]),
 }));
 
 import { log } from "../../src/infrastructure/logger.js";
@@ -98,20 +99,20 @@ describe("displayInfo", () => {
 		expect(out).toContain("10");
 	});
 
-	it("renders tools with mapped and unmapped", () => {
+	it("renders tools with available and unavailable", () => {
 		displayInfo({
 			name: "app",
 			path: "/p",
 			tools: [
-				{ id: "build", label: "Build", command: "npm run build" },
-				{ id: "test", label: "Test", command: null },
+				{ id: "vitest", available: true, version: "4.0.0" },
+				{ id: "eslint", available: false },
 			],
 		} as never);
 		const out = output();
-		expect(out).toContain("Build");
-		expect(out).toContain("npm run build");
-		expect(out).toContain("not mapped");
-		expect(out).toContain("1/2 mapped");
+		expect(out).toContain("vitest");
+		expect(out).toContain("eslint");
+		expect(out).toContain("not installed");
+		expect(out).toContain("1/2 available");
 	});
 
 	it("renders git info when present", () => {

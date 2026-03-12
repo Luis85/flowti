@@ -2,9 +2,9 @@
 type: Backlog
 domain: CLI
 title: Flowti CLI — Product Backlog
-version: 1
+version: 2
 created: 2026-03-10
-updated: 2026-03-10
+updated: 2026-03-11
 status: active
 source: "[[Flowti CLI PRD]]"
 roadmap: "[[Development Roadmap]]"
@@ -108,11 +108,11 @@ tech_debt: "[[Tech Debt]]"
 - [x] FR-08.5: Review config (journeysDir, runner, build, test)
 - [x] FR-08.6: CLI kernel config in `.flowti/config.json`
 - [x] FR-08.7: Make template config
-- [ ] FR-08.8: `type` field on ProjectConfig: `"project" | "typescript" | "typescript-cli" | "obsidian-plugin"`
-- [ ] FR-08.9: `build.commands` map for named build modes
-- [ ] FR-08.10: `test.commands` map for named test presets
-- [ ] FR-08.11: `devtools.commands` map for project-specific developer tools
-- [ ] FR-08.12: `paths` section for non-standard project layouts
+- [x] FR-08.8: `type` field on ProjectConfig: `"project" | "typescript" | "typescript-cli" | "obsidian-plugin"`
+- [x] FR-08.9: `build.commands` map for named build modes
+- [x] FR-08.10: `test.commands` map for named test presets
+- [x] FR-08.11: `devtools.commands` map for project-specific developer tools
+- [x] FR-08.12: `paths` section for non-standard project layouts
 
 ### FR-09: Scaffold Definitions (Project Creation)
 
@@ -122,9 +122,9 @@ tech_debt: "[[Tech Debt]]"
 - [x] FR-09.4: Interactive prompts from definition
 - [x] FR-09.5: "Load Git Project from Remote" option (git submodule)
 - [x] FR-09.6: Post-create next steps
-- [ ] FR-09.7: `flowti-bare` scaffold definition (bare markdown project)
-- [ ] FR-09.8: `flowti-cli` scaffold definition (TypeScript CLI)
-- [ ] FR-09.9: `flowti-obsidian-plugin` scaffold definition (Obsidian plugin)
+- [x] FR-09.7: `flowti-bare` scaffold definition (minimal TypeScript library)
+- [x] FR-09.8: `flowti-cli` scaffold definition (TypeScript CLI)
+- [x] FR-09.9: `flowti-obsidian-plugin` scaffold definition (Obsidian plugin)
 
 ### FR-10: Resilient Report Generation
 
@@ -276,9 +276,9 @@ tech_debt: "[[Tech Debt]]"
 - [x] Event contracts parse payload tables and export JSON
 - [x] Standalone mode works without source tree
 - [ ] Start menu includes "Import Project" option
-- [ ] 4 scaffold definitions available (bare, typescript, cli, obsidian-plugin)
+- [x] 4 scaffold definitions available (bare/library, typescript, cli, obsidian-plugin)
 - [ ] Import flow detects new folders and generates management config
-- [ ] `config.type` field drives project-type-specific behavior
+- [x] `config.type` field drives project-type-specific behavior
 
 ---
 
@@ -362,7 +362,7 @@ Each domain is assessed on a 3-tier scale:
 | Review Pipeline (FR-12) | Deep | Test vault isolation, fresh build, cleanup |
 | Health Dashboard (FR-15) | Deep | Scoring, trends, security, tech debt estimation |
 | AI Tools (FR-14) | Functional | Definitions, execution, dry-run. No output capture or chaining. |
-| Scaffold Definitions (FR-09) | Functional | 1 bundled definition. 3 more planned (Phase 8.0). |
+| Scaffold Definitions (FR-09) | Deep | 4 bundled definitions (project, library, cli, obsidian-plugin). |
 | Cross-Project Deps (FR-16) | Deep | Detection, cycles, Mermaid, interactive browser, filtering, stats |
 | Marketplace (FR-17) | Deep | Export bundles, remote registry, install from URL |
 | Event Contracts (FR-18) | Deep | Parsing, validation, JSON export, TypeScript codegen |
@@ -370,7 +370,7 @@ Each domain is assessed on a 3-tier scale:
 | Standalone CLI (FR-20) | Deep | Bootstrap two-mode, config fallback, fresh build |
 | Agent-Native (FR-21) | Deep | `--format=json`, `--quiet`, `--verbose`, `--no-color`, completions, suggestions |
 | Quality Gates (FR-22) | Deep | Configurable rules, npm audit, debt estimation, report diffs |
-| **Project Onboarding** | Functional | 1 scaffold def, no import flow. **Phase 8 target: 4 types + import.** |
+| **Project Onboarding** | Functional | 4 scaffold defs, no import flow. **Phase 8 target: import flow.** |
 
 ---
 
@@ -391,6 +391,9 @@ Each domain is assessed on a 3-tier scale:
 | Definition | Source |
 |------------|--------|
 | `flowti-project.json` | `src/domain/scaffold/definitions/` |
+| `flowti-bare.json` | `src/domain/scaffold/definitions/` |
+| `flowti-cli.json` | `src/domain/scaffold/definitions/` |
+| `flowti-obsidian-plugin.json` | `src/domain/scaffold/definitions/` |
 | `component.json`, `layout.json`, `page.json`, `ui-component.json` | `src/domain/make/component/definitions/` |
 | `c4-system.json`, `c4-container.json`, `c4-component.json`, `c4-person.json` | `src/domain/make/component/definitions/` |
 

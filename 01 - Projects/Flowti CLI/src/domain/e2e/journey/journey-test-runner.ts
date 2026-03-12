@@ -22,10 +22,7 @@
  *   });
  */
 
-import { disk } from "../../../infrastructure/filesystem.js";
-import { paths } from "../../../infrastructure/paths.js";
-import { proc } from "../../../infrastructure/proc.js";
-import { shell } from "../../../infrastructure/shell.js";
+import type { CliDeps } from "../../../infrastructure/deps.js";
 import type {
 	JourneyDefinition,
 	JourneyStep,
@@ -41,7 +38,8 @@ import type { EnvironmentRegistry } from "./journey-environment.js";
 
 // ── Default deps (using infrastructure wrappers) ─────────────────────
 
-export function createDefaultDeps(logger: (msg: string) => void = () => {}): ToolDeps {
+export function createDefaultDeps(deps: Pick<CliDeps, "disk" | "paths" | "proc" | "shell">, logger: (msg: string) => void = () => {}): ToolDeps {
+	const { disk, paths, proc, shell } = deps;
 	return {
 		exec(cmd, execOpts) {
 			return shell.runCaptureDetailed(cmd, {
@@ -68,7 +66,8 @@ export function createDefaultDeps(logger: (msg: string) => void = () => {}): Too
  * Load a journey definition by slug relative to a base directory.
  * Looks for `{baseDir}/journeys/{slug}.journey`.
  */
-export function loadJourney(baseDir: string, slug: string): JourneyDefinition {
+export function loadJourney(baseDir: string, slug: string, deps: Pick<CliDeps, "disk" | "paths">): JourneyDefinition {
+	const { disk, paths } = deps;
 	const filePath = paths.join(baseDir, "journeys", `${slug}.journey`);
 	return loadJourneyFile((p) => disk.readFileSync(p, "utf-8"), filePath);
 }
@@ -76,8 +75,8 @@ export function loadJourney(baseDir: string, slug: string): JourneyDefinition {
 /**
  * Load a journey definition from an absolute path.
  */
-export function loadJourneyFromPath(filePath: string): JourneyDefinition {
-	return loadJourneyFile((p) => disk.readFileSync(p, "utf-8"), filePath);
+export function loadJourneyFromPath(filePath: string, deps: Pick<CliDeps, "disk">): JourneyDefinition {
+	return loadJourneyFile((p) => deps.disk.readFileSync(p, "utf-8"), filePath);
 }
 
 // ── Environment resolution ──────────────────────────────────────────
@@ -106,7 +105,7 @@ export function resolveJourneyEnvironment(
 let _deps: ToolDeps | null = null;
 
 function getDeps(): ToolDeps {
-	if (!_deps) _deps = createDefaultDeps();
+	if (!_deps) throw new Error("Tool deps not initialized. Call setToolDeps() before running steps.");
 	return _deps;
 }
 
@@ -156,7 +155,8 @@ export async function runJourney(
  * Create a test-vault directory if it doesn't exist.
  * Returns the path to the test vault.
  */
-export function ensureTestVault(projectRoot: string, vaultName: string = "test-vault"): string {
+export function ensureTestVault(projectRoot: string, vaultName: string = "test-vault", deps: Pick<CliDeps, "disk" | "paths">): string {
+	const { disk, paths } = deps;
 	const vaultPath = paths.join(projectRoot, "..", vaultName);
 	if (!disk.existsSync(vaultPath)) {
 		disk.mkdirSync(vaultPath, { recursive: true });

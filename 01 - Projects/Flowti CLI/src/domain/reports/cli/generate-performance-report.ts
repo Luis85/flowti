@@ -5,11 +5,9 @@
  * generates a PerformanceReport vault note with queryable YAML frontmatter.
  */
 
-import { disk } from "../../../infrastructure/filesystem.js";
-import { paths } from "../../../infrastructure/paths.js";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
-import { clock } from "../../../infrastructure/clock.js";
+import type { ReportDeps } from "../../../infrastructure/deps.js";
 import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { percentile, round, formatBytes } from "../generators/performance-report.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
@@ -17,44 +15,43 @@ import type { PipelineContext } from "../../../infrastructure/pipeline/pipeline-
 
 // ── Data loading ─────────────────────────────────────────────────────
 
-function findDataJson(): string | null {
+function findDataJson(deps: ReportDeps): string | null {
 	const candidates: string[] = [
-		paths.resolve(PLUGIN_ROOT, "..", "..", ".obsidian", "plugins", "flowti-ibde", "data.json"),
-		paths.join(PLUGIN_ROOT, "data.json"),
+		deps.paths.resolve(PLUGIN_ROOT, "..", "..", ".obsidian", "plugins", "flowti-ibde", "data.json"),
+		deps.paths.join(PLUGIN_ROOT, "data.json"),
 	];
 	for (const candidate of candidates) {
-		if (disk.existsSync(candidate)) return candidate;
+		if (deps.disk.existsSync(candidate)) return candidate;
 	}
 	return null;
 }
 
-// ── Generator ────────────────────────────────────────────────────────
+// ── Data extraction ───────────────────────────────────────────────────
 
-export function generatePerformanceReport(projectPath: string, ctx?: PipelineContext): GeneratorOutput {
-	const log = (msg: string) => ctx?.log(msg);
-	const svc = new ReportService(projectPath);
-
-	const dataJsonPath = findDataJson();
-	let data: Record<string, unknown> | null = null;
-
-	if (dataJsonPath) {
-		try {
-			data = JSON.parse(disk.readFileSync(dataJsonPath, "utf-8")) as Record<string, unknown>;
-			log(`[cli-report] Read data.json from: ${dataJsonPath}`);
-		} catch {
-			log("[cli-report] Failed to parse data.json.");
-		}
+function loadDataJson(deps: ReportDeps, log: (msg: string) => void): Record<string, unknown> | null {
+	const dataJsonPath = findDataJson(deps);
+	if (!dataJsonPath) return null;
+	try {
+		const data = JSON.parse(deps.disk.readFileSync(dataJsonPath, "utf-8")) as Record<string, unknown>;
+		log(`[cli-report] Read data.json from: ${dataJsonPath}`);
+		return data;
+	} catch {
+		log("[cli-report] Failed to parse data.json.");
+		return null;
 	}
+}
 
-	// Extract perf state (may not exist yet)
-	const perfState = (data as Record<string, unknown>)?.perfAggregator as Record<string, unknown> ?? {};
-	const startupHistory: number[] = (perfState.startupHistory as number[]) ?? [];
+function extractStartupHistory(data: Record<string, unknown> | null): number[] {
+	const perfState = data?.perfAggregator as Record<string, unknown> ?? {};
+	return (perfState.startupHistory as number[]) ?? [];
+}
+
+function buildPerfFrontmatter(startupHistory: number[], data: Record<string, unknown> | null, iso: string): Record<string, string | number> {
 	const sorted = [...startupHistory].sort((a, b) => a - b);
-
-	const fm: Record<string, string | number> = {
+	return {
 		type: "PerformanceReport",
 		project: "flowti-cli",
-		date: clock.iso(),
+		date: iso,
 		startup_total_ms: round(startupHistory[startupHistory.length - 1] ?? 0),
 		startup_measurements: startupHistory.length,
 		startup_p50: round(percentile(sorted, 0.5)),
@@ -62,6 +59,24 @@ export function generatePerformanceReport(projectPath: string, ctx?: PipelineCon
 		startup_max: round(sorted[sorted.length - 1] ?? 0),
 		data_json_size_bytes: data ? JSON.stringify(data).length : 0,
 	};
+}
+
+function collectPerfWarnings(fm: Record<string, string | number>, startupHistory: number[]): string[] {
+	const warnings: string[] = [];
+	if (startupHistory.length === 0) warnings.push("No startup measurements found in data.json");
+	if ((fm.startup_p95 as number) > 5000) warnings.push(`Startup p95 (${fm.startup_p95}ms) exceeds 5000ms threshold`);
+	return warnings;
+}
+
+// ── Generator ────────────────────────────────────────────────────────
+
+export function generatePerformanceReport(projectPath: string, deps: ReportDeps, ctx?: PipelineContext): GeneratorOutput {
+	const log = (msg: string) => ctx?.log(msg);
+	const svc = new ReportService(projectPath, deps);
+
+	const data = loadDataJson(deps, log);
+	const startupHistory = extractStartupHistory(data);
+	const fm = buildPerfFrontmatter(startupHistory, data, deps.clock.iso());
 
 	const doc = Document.create("Performance Report")
 		.mergeFrontmatter(fm)
@@ -92,9 +107,7 @@ export function generatePerformanceReport(projectPath: string, ctx?: PipelineCon
 	log(`  Measurements: ${fm.startup_measurements} | data.json: ${formatBytes(fm.data_json_size_bytes as number)}`);
 	log(`  Written: ${outputPath}`);
 
-	const warnings: string[] = [];
-	if (startupHistory.length === 0) warnings.push("No startup measurements found in data.json");
-	if ((fm.startup_p95 as number) > 5000) warnings.push(`Startup p95 (${fm.startup_p95}ms) exceeds 5000ms threshold`);
+	const warnings = collectPerfWarnings(fm, startupHistory);
 
 	return {
 		success: true,

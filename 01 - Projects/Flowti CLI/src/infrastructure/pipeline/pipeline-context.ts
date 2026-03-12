@@ -7,6 +7,7 @@
  */
 
 import type { PipelineContext, StepResult } from "./pipeline-types.js";
+import type { CliDeps } from "../deps.js";
 
 export class PipelineContextImpl implements PipelineContext {
 	private readonly results: StepResult[] = [];
@@ -15,9 +16,11 @@ export class PipelineContextImpl implements PipelineContext {
 	private readonly logFn: (message: string) => void;
 
 	readonly projectPath: string;
+	readonly deps: CliDeps;
 
-	constructor(projectPath: string, logFn: (message: string) => void = () => {}) {
+	constructor(projectPath: string, deps: CliDeps, logFn: (message: string) => void = () => {}) {
 		this.projectPath = projectPath;
+		this.deps = deps;
 		this.logFn = logFn;
 	}
 
@@ -55,6 +58,6 @@ export class PipelineContextImpl implements PipelineContext {
 }
 
 /** Create a fresh pipeline context for a run. */
-export function createPipelineContext(projectPath: string, logFn?: (message: string) => void): PipelineContext {
-	return new PipelineContextImpl(projectPath, logFn);
+export function createPipelineContext(projectPath: string, deps: CliDeps, logFn?: (message: string) => void): PipelineContext {
+	return new PipelineContextImpl(projectPath, deps, logFn);
 }

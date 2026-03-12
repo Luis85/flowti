@@ -11,6 +11,8 @@ import {
 	type FileEntry,
 } from "../../../src/domain/scaffold/scaffold-version.js";
 
+const testClock = { clock: { iso: () => "2026-03-09", now: () => new Date(), ms: () => 0, safeIso: () => "2026-03-09" } };
+
 function sha256(s: string): string {
 	return createHash("sha256").update(s).digest("hex");
 }
@@ -54,7 +56,7 @@ describe("buildFileHashes", () => {
 describe("createManifest", () => {
 	it("creates manifest with definition ID and file hashes", () => {
 		const files: FileEntry[] = [{ path: "a.ts", content: "x" }];
-		const manifest = createManifest("my-def", files);
+		const manifest = createManifest(testClock, "my-def", files);
 		expect(manifest.definitionId).toBe("my-def");
 		expect(manifest.fileHashes["a.ts"]).toBe(sha256("x"));
 		expect(manifest.createdAt).toBeTruthy();

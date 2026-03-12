@@ -5,18 +5,18 @@
  * Each builder returns a MenuEntry[] for use with runMenu().
  */
 
-import { runAllReports } from "../domain/reports/report-runner.js";
+import { runAllReports } from "../domain/reports/pipeline/report-runner.js";
 import { runGenerator } from "../domain/reports/generator-registry.js";
-import { runReference } from "../domain/reports/generator-registry.js";
 import { browseArchive } from "./menus/report-archive-menu.js";
-import { exportReportToHtml } from "../domain/reports/html-export.js";
+import { exportReportToHtml } from "../domain/reports/export/html-export.js";
 import { ReportService } from "../domain/reports/cli/report-service.js";
 import { disk } from "../infrastructure/filesystem.js";
 import { paths } from "../infrastructure/paths.js";
 import { shell } from "../infrastructure/shell.js";
 import { input } from "../infrastructure/input.js";
 import { log } from "../infrastructure/logger.js";
-import { RESET, DIM, GREEN, RED } from "../infrastructure/ui.js";
+import { createDefaultDeps } from "../infrastructure/deps.js";
+import { RESET, DIM, GREEN } from "../infrastructure/ui.js";
 import type { MenuEntry } from "../infrastructure/types.js";
 import { buildDependencyGraph } from "../domain/project/project-deps.js";
 import { displayDependencyGraph } from "./deps-display.js";
@@ -35,13 +35,13 @@ export interface DocsGenerator {
 }
 
 function exportAllReportsToHtml(projectPath: string): void {
-	const svc = new ReportService(projectPath);
+	const svc = new ReportService(projectPath, createDefaultDeps());
 	const outputDir = paths.join(svc.reportsDir, "html");
 	const entries = disk.readdirSync(svc.reportsDir).filter((f: string) => f.endsWith(".md"));
 	if (entries.length === 0) { log(`\n  ${DIM}No report files found. Run reports first.${RESET}\n`); return; }
 	let exported = 0;
 	for (const entry of entries) {
-		const result = exportReportToHtml(paths.join(svc.reportsDir, entry), outputDir);
+		const result = exportReportToHtml(paths.join(svc.reportsDir, entry), outputDir, createDefaultDeps());
 		if (result) { log(`  ${GREEN}✓${RESET} ${result.title} → ${DIM}${result.outputPath}${RESET}`); exported++; }
 	}
 	log(`\n  ${exported} report${exported !== 1 ? "s" : ""} exported to ${DIM}${outputDir}${RESET}\n`);
@@ -61,7 +61,7 @@ export function buildReportsSubmenu(
 			key: "1",
 			label: "Run All Reports",
 			action: async () => {
-				await runAllReports(generators, projectPath);
+				await runAllReports(generators, projectPath, createDefaultDeps());
 				await input.waitForEnter();
 				return "main" as const;
 			},
@@ -76,7 +76,7 @@ export function buildReportsSubmenu(
 			label: gen.label,
 			action: async () => {
 				if (gen.id) {
-					runGenerator(gen.id, projectPath);
+					runGenerator(gen.id, projectPath, createDefaultDeps());
 				} else if (gen.command) {
 					shell.run(gen.command, { cwd: projectPath, label: gen.label });
 				}
@@ -91,7 +91,7 @@ export function buildReportsSubmenu(
 		{
 			key: "h",
 			label: "Export to HTML",
-			action: () => { exportAllReportsToHtml(projectPath); return "main" as const; },
+			action: async () => { exportAllReportsToHtml(projectPath); await input.waitForEnter(); return "main" as const; },
 		},
 		{
 			key: "a",
@@ -107,62 +107,87 @@ export function buildReportsSubmenu(
 
 // ── Documentation submenu ──────────────────────────────────────────
 
-const BUILTIN_DOCS = [
-	{ label: "CLI Reference", generatorId: "cli-reference" },
-	{ label: "Entity Reference", generatorId: "entity-reference" },
-];
-
 export function buildDocsSubmenu(
 	configGenerators: DocsGenerator[],
-	allCommand: string | undefined,
+	references: import("../infrastructure/types.js").ReferenceConfig[],
 	projectPath: string,
 ): MenuEntry[] {
 	const items: MenuEntry[] = [];
 	let keyIdx = 1;
 
-	items.push({
-		key: String(keyIdx++),
-		label: "Update All",
-		action: () => {
-			if (allCommand) shell.run(allCommand, { cwd: projectPath, label: "Documentation (all)" });
-			for (const gen of configGenerators) {
-				shell.run(gen.command, { cwd: projectPath, label: gen.label });
-			}
-			for (const doc of BUILTIN_DOCS) {
-				const result = runReference(doc.generatorId, projectPath);
-				if (result && !result.success) {
-					log(`  ${RED}${doc.label}: failed${RESET}`);
-				} else {
-					log(`  ${GREEN}${doc.label}: done${RESET}`);
-				}
-			}
-			return "main" as const;
+	// Update References — runs all configured references through the pipeline
+	if (references.length > 0) {
+		items.push({
+			key: String(keyIdx++),
+			label: "Update References",
+			action: async () => {
+				const { runAllDocs } = await import("../domain/reports/pipeline/doc-runner.js");
+				await runAllDocs([], references, projectPath, createDefaultDeps());
+				await input.waitForEnter();
+				return "main" as const;
+			},
+		});
+
+		items.push({ separator: true });
+
+		// Open $ReferenceName — read and display the reference file
+		const referenceDir = paths.join(projectPath, "docs", "reference");
+		for (const ref of references) {
+			items.push({
+				key: String(keyIdx++),
+				label: `Open ${ref.label}`,
+				action: async () => {
+					const filePath = paths.join(referenceDir, `${ref.label}.md`);
+					if (disk.existsSync(filePath)) {
+						const content = disk.readFileSync(filePath, "utf-8");
+						log(`\n${content}`);
+					} else {
+						log(`\n  ${DIM}${ref.label} not found. Run "Update References" first.${RESET}\n`);
+					}
+					await input.waitForEnter();
+					return "main" as const;
+				},
+			});
+		}
+	}
+
+	// External generators (e.g. TypeDoc)
+	if (configGenerators.length > 0) {
+		items.push({ separator: true });
+		for (const gen of configGenerators) {
+			items.push({
+				key: String(keyIdx++),
+				label: gen.label,
+				action: async () => {
+					shell.run(gen.command, { cwd: projectPath, label: gen.label });
+					await input.waitForEnter();
+					return "main" as const;
+				},
+			});
+		}
+	}
+
+	// Events and Dependencies (moved from main menu)
+	items.push(
+		{ separator: true },
+		{
+			key: "e",
+			label: "Events",
+			action: async () => {
+				const { eventCatalogMenu } = await import("./menus/event-catalog-menu.js");
+				return eventCatalogMenu(projectPath);
+			},
 		},
-	});
-
-	items.push({ separator: true });
-
-	for (const gen of configGenerators) {
-		items.push({
-			key: String(keyIdx++),
-			label: gen.label,
-			action: () => {
-				shell.run(gen.command, { cwd: projectPath, label: gen.label });
+		{
+			key: "g",
+			label: "Dependencies",
+			action: async () => {
+				const { runMenu } = await import("../infrastructure/menu.js");
+				await runMenu("dependencies", buildDepsSubmenu(projectPath));
 				return "main" as const;
 			},
-		});
-	}
-
-	for (const doc of BUILTIN_DOCS) {
-		items.push({
-			key: String(keyIdx++),
-			label: doc.label,
-			action: () => {
-				runReference(doc.generatorId, projectPath);
-				return "main" as const;
-			},
-		});
-	}
+		},
+	);
 
 	items.push(
 		{ separator: true },
@@ -204,7 +229,7 @@ export function buildDepsSubmenu(_projectPath: string): MenuEntry[] {
 			key: "1",
 			label: "Show Dependency Graph",
 			action: async () => {
-				const graph = buildDependencyGraph();
+				const graph = buildDependencyGraph({ disk, paths });
 				displayDependencyGraph(graph);
 				await input.waitForEnter();
 				return "main" as const;
@@ -229,47 +254,52 @@ export function buildDevToolsSubmenu(
 		{
 			key: "1",
 			label: "Type Check + Lint",
-			action: () => {
+			action: async () => {
 				const cmd = scripts["check"] ? "npm run check" : "npx tsc --noEmit";
 				shell.run(cmd, { cwd: projectPath, label: "Running lint + tsc..." });
+				await input.waitForEnter();
 				return "main" as const;
 			},
 		},
 		{
 			key: "2",
 			label: "Lint Only",
-			action: () => {
+			action: async () => {
 				const cmd = scripts["lint"] ? "npm run lint" : "npx eslint src/";
 				shell.run(cmd, { cwd: projectPath, label: "Running ESLint..." });
+				await input.waitForEnter();
 				return "main" as const;
 			},
 		},
 		{
 			key: "3",
 			label: "Reload Plugin",
-			action: () => {
+			action: async () => {
 				shell.run("node scripts/cli-reload.mjs", { cwd: projectPath, label: "Reloading plugin..." });
+				await input.waitForEnter();
 				return "main" as const;
 			},
 		},
 		{
 			key: "4",
 			label: "Dev Console",
-			action: () => {
+			action: async () => {
 				const result = shell.runCaptureStatus("obsidian dev:console");
 				if (result.exitCode !== 0 && result.output.includes("Debugger not attached")) {
 					log(`  ${DIM}Debugger not attached — enabling debug mode...${RESET}`);
 					shell.run("obsidian dev:debug on", { label: "Enabling debug mode..." });
 					shell.run("obsidian dev:console", { label: "Opening dev console..." });
 				}
+				await input.waitForEnter();
 				return "main" as const;
 			},
 		},
 		...(debugOn ? [{
 			key: "5",
 			label: "Debug Off",
-			action: () => {
+			action: async () => {
 				shell.run("obsidian dev:debug off", { label: "Disabling debug mode..." });
+				await input.waitForEnter();
 				return "main" as const;
 			},
 		}] as MenuEntry[] : []),
@@ -279,6 +309,7 @@ export function buildDevToolsSubmenu(
 			action: async () => {
 				const { rebuildCli } = await import("../domain/devtools/self-update.js");
 				rebuildCli(projectPath, shell);
+				await input.waitForEnter();
 				return "main" as const;
 			},
 		},

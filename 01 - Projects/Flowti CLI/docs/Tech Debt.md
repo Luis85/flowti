@@ -20,10 +20,10 @@ source: "[[Development Roadmap]]"
 | Severity | Count | Estimated Hours |
 |----------|-------|-----------------|
 | Critical | 3 (1 resolved) | 28h |
-| High | 8 (2 resolved) | 40h |
-| Medium | 12 (5 resolved) | 32h |
+| High | 8 (5 resolved) | 40h |
+| Medium | 12 (6 resolved) | 32h |
 | Low | 5 | 8h |
-| **Total** | **28 (9 resolved)** | **108h (31h resolved)** |
+| **Total** | **28 (13 resolved)** | **108h (49h resolved)** |
 
 ---
 
@@ -105,38 +105,48 @@ The CLI's architecture already has `domain/e2e/` and `domain/review/` domains, b
 
 ## High
 
-### TD-22: Only 1 Scaffold Definition, No Import Flow
+### TD-22: Only 1 Scaffold Definition, No Import Flow ✓ PARTIALLY RESOLVED
 
 **Domain**: domain/scaffold, domain/project
 **Files**: `src/domain/scaffold/definitions/`, `src/domain/project/project.ts`
-**Impact**: CLI can only create one project type; no way to onboard existing codebases
+**Status**: Partially resolved — 3 new scaffold definitions created (2026-03-11). Import flow still pending.
 
-The CLI ships with a single scaffold definition (`flowti-project`) that creates a TypeScript project. There is no `project` (bare markdown), `typescript-cli`, or `obsidian-plugin` definition. There is also no flow for importing an existing folder into CLI management.
+**What was done**:
+1. Created `flowti-bare` scaffold definition — minimal TypeScript library (tsc-only, no bundler)
+2. Created `flowti-cli` scaffold definition — TypeScript CLI tool with esbuild bundle and arg parser
+3. Created `flowti-obsidian-plugin` scaffold definition — Obsidian plugin with manifest.json, styles.css, esbuild CJS externals
+4. Created template registries: `bare-templates.ts` (2 templates), `cli-templates.ts` (2 templates), `plugin-templates.ts` (6 templates)
+5. Updated `scaffold-service.ts` to import and register all 4 definitions + 5 template sets
+6. Added 41 tests covering definition loading, validation, template resolution, dry run, and output
 
-**Remediation**:
-- Create 3 new scaffold definitions: `flowti-bare`, `flowti-cli`, `flowti-obsidian-plugin`
-- Add "Import Project" to the Start Menu: snapshot project list → prompt user to copy folder → detect new folders → ask type → generate config
-- Add project type detection heuristics for import: `manifest.json` → obsidian-plugin, `bin` in package.json → typescript-cli, `package.json` → typescript, else → project
+**Remaining**: Import flow for existing folders (Phase 8.7).
+**Effort**: L (8h) — scaffold definitions done (~5h); import flow remains (~3h)
 
-**Effort**: L (8h)
-**Phase 8 item**: 8.0.3, 8.0.4, 8.7
-
-### TD-03: Reports Domain Size — 42 Files
+### TD-03: Reports Domain Size — 42 Files ✓ RESOLVED
 
 **Domain**: domain/reports
-**Files**: `src/domain/reports/` (42 files, ~3,000+ LOC)
-**Impact**: Largest domain by file count; hard to navigate
+**Files**: `src/domain/reports/` (42 files across 5 sub-directories)
+**Status**: Resolved — reports domain reorganized into sub-directories (2026-03-11)
 
-The reports domain contains 6 CLI generators, 2 reference generators, the report pipeline bridge, the doc pipeline bridge, the runner facades, archive, diff, HTML export, caching, complexity analysis, summary analysis (types, loaders, renderers, formatters, analyzers), and the report service. This is 3x the size of the next-largest domain.
+**What was done**:
+1. Created `reports/pipeline/` — report-pipeline.ts, doc-pipeline.ts, report-runner.ts, doc-runner.ts
+2. Created `reports/export/` — html-export.ts, report-archive.ts, report-diff.ts
+3. Updated 18 consumer files (7 source + 11 test) with new import paths
+4. All tests pass after reorganization
 
-**Remediation**: Extract sub-domains:
-- `reports/generators/` — already partially done (cli-reference, entity-reference)
-- `reports/analysis/` — complexity-analyzer, summary-loaders, summary-analyzers, summary-renderers, summary-formatters, summary-types
-- `reports/export/` — html-export, report-archive, report-diff
-- `reports/pipeline/` — report-pipeline, doc-pipeline, report-runner, doc-runner
+**Current structure**:
+```
+domain/reports/
+├── cli/                   # 6 report generators + report-service
+├── generators/            # 2 reference generators
+├── analysis/              # Complexity + summary analysis
+├── export/                # HTML, archive, diff
+├── pipeline/              # Report + doc pipeline bridges + runners
+├── generator-registry.ts  # Unified registry
+└── report-events.ts       # Domain event map
+```
 
-**Effort**: M (4h)
-**Phase 8 relevance**: Plugin adds 14 more generators; domain grows even larger without reorganization.
+**Effort**: M (4h) — as estimated
 
 ### TD-04: Legacy Dependency Map in report-pipeline.ts
 
@@ -156,27 +166,32 @@ These hardcoded dependencies duplicate what should be declared in `flowti.config
 **Remediation**: Migrate dependencies to config; remove hardcoded map.
 **Effort**: S (2h)
 
-### TD-05: Shell Module Lacks Async Execution
+### TD-05: Shell Module Lacks Async Execution ✓ RESOLVED
 
 **Domain**: infrastructure/shell
 **File**: `src/infrastructure/shell.ts`
-**Impact**: All shell commands block the main thread
+**Status**: Resolved — async shell methods added (2026-03-11)
 
-Every `IShell` method is synchronous (`execSync`, `spawnSync`). The only async option is `spawnBackground` for long-running processes. For Phase 8's multi-step build pipelines, async execution would enable better progress reporting and parallelism.
+**What was done**:
+1. Added `runAsync(cmd, opts?)` to `IShell` interface — Promise-based execution via `child_process.exec`
+2. Added `runParallel(cmds, opts?)` to `IShell` — runs multiple commands concurrently via `Promise.all`
+3. Updated `mock-shell.ts` with matching mock implementations
+4. Added 7 new tests (4 runAsync + 3 runParallel)
 
-**Remediation**: Add `runAsync()` and `runCaptureAsync()` methods using `spawn` with promise-based output collection.
-**Effort**: M (4h)
+**Effort**: M (4h) — as estimated
 
-### TD-06: No Config Validation Schema (Zod/AJV)
+### TD-06: No Config Validation Schema (Zod/AJV) ✓ RESOLVED
 
 **Domain**: infrastructure
-**File**: `src/domain/project/project-config.ts`
-**Impact**: Config validation is manual if-checks, not schema-driven
+**Files**: `src/domain/project/config-schema.ts`, `src/domain/project/config-deep-validation.ts`
+**Status**: Resolved — comprehensive validation exists (discovered pre-existing, 2026-03-11)
 
-The Plugin uses Zod for settings validation, but the CLI validates config manually. As `ProjectConfig` v2 grows more complex (Phase 8), manual validation becomes error-prone.
+**What exists**:
+1. `config-schema.ts` — `validateProjectConfig()` with 45+ validation rules covering all config sections
+2. `config-deep-validation.ts` — filesystem-aware deep validation (paths exist, scripts runnable, etc.)
+3. Zod was not needed — manual validation with exhaustive checks is sufficient and keeps zero-dependency promise
 
-**Remediation**: Add Zod (dev dependency only, tree-shaken at build time) or keep manual but add a `validateProjectConfig()` function with exhaustive field checks.
-**Effort**: M (4h)
+**Effort**: Already addressed during earlier phases
 
 ### TD-07: E2E Infrastructure Size — 35 Files
 
@@ -305,23 +320,15 @@ The `Document` class uses a fluent API (`doc.heading().addBlank().text()`). The 
 
 **Effort**: Already addressed during Phase 7
 
-### TD-16: No Project Type Discrimination
+### TD-16: No Project Type Discrimination ✓ RESOLVED
 
 **Domain**: infrastructure/types
 **File**: `src/infrastructure/types.ts`
-**Impact**: CLI treats all projects identically — no way to enable/disable features by project type
+**Status**: Resolved — `ProjectTarget` type and `type` field added to `ProjectConfig`
 
-There's no `project.type` field in `ProjectConfig`. The CLI doesn't know whether a project is a bare markdown project, a TypeScript library, a CLI tool, or an Obsidian plugin. This means all features are available for all projects even when they don't apply.
+`ProjectTarget = "project" | "typescript" | "typescript-cli" | "obsidian-plugin"` is defined in `types.ts`. Config validation in `config-schema.ts` validates the type field. 4 scaffold definitions now exist matching the 4 project types.
 
-**Remediation**: Add `ProjectTarget = "project" | "typescript" | "typescript-cli" | "obsidian-plugin"` and `type?: ProjectTarget` to `ProjectConfig`. Use it to:
-- Show/hide menu items (e.g., `dev:reload` only for obsidian-plugin projects)
-- Select appropriate E2E provider
-- Apply project-type-specific config validation
-- Drive scaffold definition selection (4 project types = 4 scaffold definitions)
-- Support project import flow (type detection heuristics + user confirmation)
-
-**Effort**: M (3h)
-**Phase 8 item**: 8.0.1
+**Effort**: M (3h) — as estimated
 
 ### TD-25: Controller Test Gap — 15 Controllers, 0 Dedicated Test Files
 
@@ -346,15 +353,17 @@ The EventBus was created during Phase 7.6 (domain purification) as infrastructur
 **Remediation**: Wire in Phase 8 when Plugin integration requires cross-domain event communication. No immediate action needed — the injectable log pattern is sufficient for current needs.
 **Effort**: S (2h)
 
-### TD-27: Naming Inconsistency — kebab-case vs PascalCase Services
+### TD-27: Naming Inconsistency — kebab-case vs PascalCase Services ✓ RESOLVED
 
 **Domain**: domain (cross-cutting)
-**Impact**: Inconsistent file naming creates navigation friction
+**Status**: Resolved — PascalCase files renamed to kebab-case (2026-03-11)
 
-Most domain files use `kebab-case.ts` (e.g., `report-runner.ts`, `scaffold-service.ts`), but some use `PascalCase.ts` (e.g., `E2EService.ts`, `MakeService.ts`, `ReportService` class in `report-service.ts`). The convention should be consistent.
+**What was done**:
+1. Renamed `E2EService.ts` → `e2e-service.ts` (+ test file)
+2. Renamed `MakeService.ts` → `make-service.ts` (+ test file)
+3. Updated all import paths referencing renamed files
 
-**Remediation**: Standardize on `kebab-case.ts` for all files. Class names remain PascalCase (TypeScript convention).
-**Effort**: S (2h)
+**Effort**: S (2h) — as estimated
 
 ### TD-28: `new Date()` Usage in E2E Domain Files
 
@@ -427,10 +436,10 @@ When the CLI manages Plugin builds, it needs to understand the CSS pipeline. Cur
 |----|--------|-------------|-------|
 | TD-01 | Resolved | Pre-Phase 8 | Schema extended: type, build.commands, test.commands, devtools.commands, paths |
 | TD-02 | Resolved | Pre-Phase 8 | FLOWTI_TOOLS now has build, reports, devtools |
-| TD-03 | Open | — | Ongoing refactoring |
+| TD-03 | Resolved | Pre-Phase 8 | Reports domain reorganized into pipeline/, export/, cli/, generators/, analysis/ |
 | TD-04 | Resolved | Pre-Phase 8 | Dependencies moved to flowti.config.json, legacy map removed |
-| TD-05 | Open | — | Phase 8 enabler |
-| TD-06 | Open | — | Phase 8 enabler |
+| TD-05 | Resolved | Pre-Phase 8 | runAsync() + runParallel() added to IShell |
+| TD-06 | Resolved | Pre-Phase 8 | validateProjectConfig() with 45+ rules + deep validation |
 | TD-07 | Open | — | Phase 8 enabler |
 | TD-08 | Open | — | Monitor |
 | TD-09 | Resolved | Phase 7 | Already decomposed into 8 modules; 39-line orchestrator |
@@ -446,10 +455,10 @@ When the CLI manages Plugin builds, it needs to understand the CSS pipeline. Cur
 | TD-19 | Open | — | Deferred from P5 |
 | TD-20 | Open | — | Performance |
 | TD-21 | Open | — | Phase 8 |
-| TD-22 | Open | — | Phase 8 blocker (scaffold + import) |
+| TD-22 | Partial | Pre-Phase 8 | 3 new scaffold definitions created; import flow pending (Phase 8.7) |
 | TD-23 | Open | — | Phase 8.5 blocker (E2E migration) |
 | TD-24 | Resolved | Pre-Phase 8 | MVC refactoring: 15 controllers, 11 display renderers, request-response abstraction |
 | TD-25 | Open | — | Controller test gap (15 controllers, 0 test files) |
 | TD-26 | Open | — | EventBus created, not wired (deferred to Phase 8) |
-| TD-27 | Open | — | Naming inconsistency (kebab vs PascalCase files) |
+| TD-27 | Resolved | Pre-Phase 8 | E2EService→e2e-service, MakeService→make-service |
 | TD-28 | Open | — | `new Date()` in E2E domain files |

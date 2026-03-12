@@ -1,5 +1,7 @@
 /**
- * component-commands.ts — Non-interactive CLI commands for component scaffolding.
+ * component-commands.ts — Pure domain logic for component scaffolding.
+ *
+ * Returns typed results; rendering is handled by the controller.
  *
  * Invoked from the command line:
  *   flowti make:component --name=UserProfile
@@ -9,18 +11,36 @@
  *   flowti make:person --name=Customer --description="End user"
  */
 
-import { paths } from "../../../infrastructure/paths.js";
-import { disk } from "../../../infrastructure/filesystem.js";
-import { proc } from "../../../infrastructure/proc.js";
+import type { CliDeps } from "../../../infrastructure/deps.js";
 import { toKebab, toPascal, toCamel } from "../naming.js";
 import { createFileWriter } from "../templates/file-writer.js";
 import { buildComponentPlan } from "./component-plan.js";
 import { loadComponentDefinitions, createComponentTemplateRegistry } from "./component-registry.js";
 import type { ComponentVariables } from "./component-types.js";
-import type { CommandHandler } from "../../../infrastructure/types.js";
-import { showSuggestions, afterMakeComponent } from "../../../infrastructure/suggestions.js";
-import { renderError, renderSuccess } from "../../../ui/common-renderers.js";
-import { renderComponentAdding } from "../../../ui/make-renderers.js";
+import type { Suggestion } from "../../../infrastructure/suggestions.js";
+import { afterMakeComponent } from "../../../infrastructure/suggestions.js";
+
+export type ComponentCommandsDeps = Pick<CliDeps, "disk" | "paths" | "clock">;
+
+// ── Result types ─────────────────────────────────────────────────────
+
+export interface MakeComponentResult {
+	success: true;
+	definitionLabel: string;
+	name: string;
+	filesCreated: number;
+	suggestions: Suggestion[];
+}
+
+export interface MakeComponentError {
+	success: false;
+	error: string;
+	hint?: string;
+}
+
+export type MakeComponentOutcome = MakeComponentResult | MakeComponentError;
+
+// ── Helpers ──────────────────────────────────────────────────────────
 
 function buildComponentVars(name: string, flags: Record<string, string | boolean>): ComponentVariables {
 	return {
@@ -35,54 +55,50 @@ function buildComponentVars(name: string, flags: Record<string, string | boolean
 	};
 }
 
-function makeComponentCommand(definitionId: string): CommandHandler {
-	return (flags, _r, _c, project) => {
-		const name = flags.name;
-		if (!name || typeof name !== "string") {
-			renderError({
-				error: "--name is required.",
-				hint: `Usage: flowti make:${definitionId} --name=MyComponent [--description="..."]`,
-			});
-			proc.exit(1);
-		}
+// ── Pure domain function ─────────────────────────────────────────────
 
-		if (!project) {
-			renderError({ error: "No project selected." });
-			proc.exit(1);
-		}
+export function makeComponent(
+	definitionId: string,
+	name: string | undefined,
+	flags: Record<string, string | boolean>,
+	projectPath: string,
+	deps: ComponentCommandsDeps,
+): MakeComponentOutcome {
+	if (!name || typeof name !== "string") {
+		return {
+			success: false,
+			error: "--name is required.",
+			hint: `Usage: flowti make:${definitionId} --name=MyComponent [--description="..."]`,
+		};
+	}
 
-		const definitions = loadComponentDefinitions();
-		const def = definitions.find((d) => d.id === definitionId);
-		if (!def) {
-			renderError({ error: `Unknown component type: ${definitionId}` });
-			proc.exit(1);
-		}
+	const definitions = loadComponentDefinitions();
+	const def = definitions.find((d) => d.id === definitionId);
+	if (!def) {
+		return { success: false, error: `Unknown component type: ${definitionId}` };
+	}
 
-		const vars = buildComponentVars(name, flags);
+	const vars = buildComponentVars(name, flags);
 
-		const docPath = paths.join(project.path, "docs", "components", `${vars.kebab}.md`);
-		if (disk.existsSync(docPath)) {
-			renderError({ error: `Component already exists: ${vars.kebab}` });
-			proc.exit(1);
-		}
+	const docPath = deps.paths.join(projectPath, "docs", "components", `${vars.kebab}.md`);
+	if (deps.disk.existsSync(docPath)) {
+		return { success: false, error: `Component already exists: ${vars.kebab}` };
+	}
 
-		renderComponentAdding(def.label, name);
+	const templates = createComponentTemplateRegistry();
+	const plan = buildComponentPlan(vars, def, templates, { clock: deps.clock });
 
-		const templates = createComponentTemplateRegistry();
-		const plan = buildComponentPlan(vars, def, templates);
+	const writer = createFileWriter(projectPath);
+	for (const f of plan) writer.write(f.path, f.content);
 
-		const writer = createFileWriter(project.path);
-		for (const f of plan) writer.write(f.path, f.content);
-
-		renderSuccess({ message: `Created ${writer.created} files.` });
-		showSuggestions(afterMakeComponent(name));
+	return {
+		success: true,
+		definitionLabel: def.label,
+		name,
+		filesCreated: writer.created,
+		suggestions: afterMakeComponent(name),
 	};
 }
 
-export const commands: Record<string, CommandHandler> = {
-	"make:component": makeComponentCommand("component"),
-	"make:system": makeComponentCommand("c4-system"),
-	"make:container": makeComponentCommand("c4-container"),
-	"make:c4-component": makeComponentCommand("c4-component"),
-	"make:person": makeComponentCommand("c4-person"),
-};
+/** All supported make:* definition IDs. */
+export const COMPONENT_DEFINITION_IDS = ["component", "c4-system", "c4-container", "c4-component", "c4-person"] as const;

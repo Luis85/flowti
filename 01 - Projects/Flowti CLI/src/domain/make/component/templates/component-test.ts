@@ -2,9 +2,9 @@
  * component-test.ts — Test file template for components.
  */
 
-import type { ComponentVariables, ComponentDefinition } from "../component-types.js";
+import type { ComponentVariables, ComponentDefinition, ComponentTemplateDeps } from "../component-types.js";
 
-export function componentTestTemplate(vars: ComponentVariables, _def: ComponentDefinition): string {
+export function componentTestTemplate(vars: ComponentVariables, _def: ComponentDefinition, _deps: ComponentTemplateDeps): string {
 	return `import { describe, it, expect } from "vitest";
 
 describe("${vars.name}", () => {

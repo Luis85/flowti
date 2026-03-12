@@ -106,8 +106,11 @@ export interface ComponentVariables {
 // ── Template function signature ─────────────────────────────────────
 
 import type { Document } from "../../../infrastructure/document.js";
+import type { CliDeps } from "../../../infrastructure/deps.js";
 
-export type ComponentTemplateFn = (vars: ComponentVariables, def: ComponentDefinition) => string | Document;
+export type ComponentTemplateDeps = Pick<CliDeps, "clock">;
+
+export type ComponentTemplateFn = (vars: ComponentVariables, def: ComponentDefinition, deps: ComponentTemplateDeps) => string | Document;
 
 // ── Project component (read from existing project) ──────────────────
 

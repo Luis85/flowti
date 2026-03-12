@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ── Mocks (must come BEFORE imports) ─────────────────────────────
 
-vi.mock("../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
+vi.mock("../../src/infrastructure/logger.js", () => ({ log: vi.fn(), warn: vi.fn() }));
 vi.mock("../../src/infrastructure/shell.js", () => ({
 	shell: { run: vi.fn(() => 0) },
 }));
@@ -39,14 +39,16 @@ vi.mock("../../src/infrastructure/output.js", () => ({
 }));
 
 // Mock domain module
-vi.mock("../../src/domain/project/project.js", () => ({
+vi.mock("../../src/ui/menus/project-menu.js", () => ({
 	startMenu: vi.fn(),
+	listProjects: vi.fn(() => []),
+	getProjectPath: vi.fn(),
 }));
 
 // ── Imports ──────────────────────────────────────────────────────
 
 import { commands } from "../../src/controller/project.controller.js";
-import { startMenu } from "../../src/domain/project/project.js";
+import { startMenu } from "../../src/ui/menus/project-menu.js";
 
 const mockProject = {
 	name: "test",

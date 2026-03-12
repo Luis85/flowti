@@ -1,23 +1,40 @@
 {
 	"name": "flowti-cli",
-	"tools": {
-		"build": "npm run build",
-		"devtools": "npm run dev"
+	"type": "cli",
+	"build": {
+		"commands": {
+			"fast": "npm run build",
+			"full": "npm run build",
+			"watch": "npm run build:watch",
+			"distribute": "npm run build"
+		}
+	},
+	"test": {
+		"commands": {
+			"unit": "npm test",
+			"increment": "npm test"
+		}
+	},
+	"devtools": {
+		"commands": {
+			"check": "npm run check",
+			"lint": "npm run lint"
+		}
 	},
 	"make": {
 		"templates": ["journey", "component"]
 	},
 	"components": {
 		"storybook": true,
-		"storybookDir": "component-library"
+		"storybookDir": "components"
 	},
 	"reports": {
 		"dir": "reports",
 		"generators": [
-			{ "id": "test", "label": "Test Report", "prerequisites": ["npm run test:coverage"] },
-			{ "id": "coverage", "label": "Coverage Report", "prerequisites": ["npm run test:coverage"] },
+			{ "id": "test", "label": "Test Report", "prerequisites": ["npx vitest run --config configs/vitest.config.ts --reporter=json --outputFile=reports/tests/testreport.json --coverage --coverage.reportsDirectory=reports/coverage --coverage.reporter=json"] },
+			{ "id": "coverage", "label": "Coverage Report", "prerequisites": ["npx vitest run --config configs/vitest.config.ts --reporter=json --outputFile=reports/tests/testreport.json --coverage --coverage.reportsDirectory=reports/coverage --coverage.reporter=json"] },
 			{ "id": "codebase", "label": "Codebase Report", "prerequisites": ["npm run typedoc"] },
-			{ "id": "complexity", "label": "Complexity Report", "prerequisites": ["npm run analysis"] },
+			{ "id": "complexity", "label": "Complexity Report" },
 			{ "id": "status", "label": "Status Report", "dependencies": ["test", "coverage", "codebase", "complexity"] },
 			{ "id": "summary", "label": "Summary Report", "dependencies": ["test", "coverage", "codebase", "complexity", "status"] }
 		],
@@ -25,6 +42,7 @@
 			"coverageLines": 80,
 			"coverageBranches": 70,
 			"maxComplexity": 15,
+			"maxFileDecisionPoints": 90,
 			"complexityAboveThresholdPct": 5,
 			"startupMs": 5000,
 			"eslintWarnings": 0,
@@ -38,7 +56,18 @@
 		"generators": [
 			{ "label": "Codebase (TypeDoc)", "command": "npm run typedoc" }
 		],
-		"referenceDir": "docs/reference"
+		"referenceDir": "docs/reference",
+		"references": [
+			{ "id": "cli-reference", "label": "CLI Reference" },
+			{ "id": "entity-reference", "label": "Entity Reference" }
+		]
+	},
+	"health": {
+		"thresholds": {
+			"coverage": { "min": 70, "target": 85 },
+			"lint": { "maxErrors": 0, "maxWarnings": 5 },
+			"tests": { "minPassed": 3600 }
+		}
 	},
 	"publish": {
 		"build": "npm run build",
@@ -47,7 +76,7 @@
 		"artifacts": [
 			"flowti.cmd",
 			".flowti/config.json",
-			".flowti/bin/index.js",
+			".flowti/bin/index.mjs",
 			".flowti/bin/main.js",
 			".flowti/bin/main.js.map",
 			".flowti/bin/package.json"
@@ -55,6 +84,17 @@
 		"endpoints": [
 			{ "name": "Distribute", "path": "C:/Projects/distribute", "clean": true }
 		]
+	},
+	"management": {
+		"resources": { "dir": "docs/resources" },
+		"timelog": { "dir": "docs/timelog" },
+		"deliverables": { "dir": "docs/deliverables" },
+		"raid": { "dir": "docs/raid" },
+		"requirements": { "dir": "docs/requirements" },
+		"capa": { "dir": "docs/capa" }
+	},
+	"templates": {
+		"dir": "docs/templates"
 	},
 	"review": {
 		"journeysDir": "tests/e2e",

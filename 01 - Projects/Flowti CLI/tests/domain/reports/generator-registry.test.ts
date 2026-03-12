@@ -35,7 +35,11 @@ vi.mock("../../../src/infrastructure/shell.js", () => ({
 	shell: {},
 }));
 
+import { disk } from "../../../src/infrastructure/filesystem.js";
+import { clock } from "../../../src/infrastructure/clock.js";
 import { runGenerator, hasGenerator, listGeneratorIds, listByCategory, runReference, hasReference, listReferenceIds } from "../../../src/domain/reports/generator-registry.js";
+
+const mockDeps = { disk, paths: { join: (...a: string[]) => a.join("/"), basename: (p: string) => p.split("/").pop() || "", resolve: (...a: string[]) => a.join("/"), dirname: (p: string) => p.split("/").slice(0, -1).join("/"), sep: "/" }, clock, log: () => {} } as any;
 
 describe("ReportGeneratorRegistry", () => {
 	it("has all 15 built-in generators registered (9 reports + 6 references)", () => {
@@ -75,13 +79,13 @@ describe("ReportGeneratorRegistry", () => {
 	});
 
 	it("runGenerator returns null for unknown ID", () => {
-		const result = runGenerator("nonexistent", "/test");
+		const result = runGenerator("nonexistent", "/test", mockDeps);
 		expect(result).toBeNull();
 	});
 
 	it("runGenerator returns GeneratorOutput for a known ID", () => {
 		// test generator will fail since no testreport.json exists (mocked fs returns false for existsSync)
-		const result = runGenerator("test", "/test/project");
+		const result = runGenerator("test", "/test/project", mockDeps);
 		expect(result).not.toBeNull();
 		expect(result!.success).toBe(false);
 		expect(result!.outputPath).toBe("");
@@ -89,7 +93,7 @@ describe("ReportGeneratorRegistry", () => {
 
 	it("runGenerator calls the correct generator function", () => {
 		// coverage generator also fails gracefully when data is missing
-		const result = runGenerator("coverage", "/test/project");
+		const result = runGenerator("coverage", "/test/project", mockDeps);
 		expect(result).not.toBeNull();
 		expect(result!.success).toBe(false);
 	});
@@ -114,15 +118,15 @@ describe("listByCategory", () => {
 
 describe("runReference", () => {
 	it("returns null for unknown ID", () => {
-		expect(runReference("nonexistent", "/test")).toBeNull();
+		expect(runReference("nonexistent", "/test", mockDeps)).toBeNull();
 	});
 
 	it("returns null for a report-category generator", () => {
-		expect(runReference("test", "/test")).toBeNull();
+		expect(runReference("test", "/test", mockDeps)).toBeNull();
 	});
 
 	it("returns GeneratorOutput for a reference ID", () => {
-		const result = runReference("entity-reference", "/test/project");
+		const result = runReference("entity-reference", "/test/project", mockDeps);
 		expect(result).not.toBeNull();
 	});
 });

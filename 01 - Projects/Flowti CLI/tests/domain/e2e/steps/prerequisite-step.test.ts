@@ -11,18 +11,27 @@ vi.mock("../../../../src/domain/e2e/e2e-prerequisites.js", () => ({
 	})),
 	validatePrerequisites: vi.fn(),
 }));
-vi.mock("../../../../src/ui/e2e/e2e-formatters.js", () => ({
-	printPrerequisites: vi.fn(),
-}));
-
 import {
 	checkPrerequisites,
 	validatePrerequisites,
 } from "../../../../src/domain/e2e/e2e-prerequisites.js";
-import { printPrerequisites } from "../../../../src/ui/e2e/e2e-formatters.js";
 import { createPrerequisiteStep } from "../../../../src/domain/e2e/steps/prerequisite-step.js";
 import type { E2EPaths } from "../../../../src/domain/e2e/e2e-paths.js";
+import type { E2ERenderer } from "../../../../src/domain/e2e/e2e-renderer.js";
+import { nullRenderer } from "../../../../src/domain/e2e/e2e-renderer.js";
 import type { PipelineContext } from "../../../../src/infrastructure/pipeline/pipeline-types.js";
+
+const mockDeps = {
+	disk: {} as any,
+	paths: {} as any,
+	shell: {} as any,
+	proc: { exit: vi.fn(), env: () => ({}), argv: () => [] } as any,
+	log: vi.fn() as any,
+};
+
+function createMockRenderer(): E2ERenderer & { prerequisites: ReturnType<typeof vi.fn> } {
+	return { ...nullRenderer, prerequisites: vi.fn() };
+}
 
 const fakeE2e: E2EPaths = {
 	projectRoot: "/dev/flowti",
@@ -57,52 +66,54 @@ beforeEach(() => {
 
 describe("createPrerequisiteStep", () => {
 	it("returns a step with correct id and label", () => {
-		const step = createPrerequisiteStep(fakeE2e);
+		const step = createPrerequisiteStep(fakeE2e, mockDeps);
 
 		expect(step.id).toBe("e2e:prerequisites");
 		expect(step.label).toBe("Prerequisites");
 	});
 
 	it("has an execute function", () => {
-		const step = createPrerequisiteStep(fakeE2e);
+		const step = createPrerequisiteStep(fakeE2e, mockDeps);
 
 		expect(typeof step.execute).toBe("function");
 	});
 
 	it("calls checkPrerequisites with e2e paths", () => {
-		const step = createPrerequisiteStep(fakeE2e);
+		const step = createPrerequisiteStep(fakeE2e, mockDeps);
 		const ctx = createMockContext();
 
 		step.execute(ctx);
 
-		expect(checkPrerequisites).toHaveBeenCalledWith(fakeE2e);
+		expect(checkPrerequisites).toHaveBeenCalledWith(fakeE2e, mockDeps);
 	});
 
-	it("calls printPrerequisites with results and e2e paths", () => {
-		const step = createPrerequisiteStep(fakeE2e);
+	it("calls renderer.prerequisites with results and e2e paths", () => {
+		const renderer = createMockRenderer();
+		const step = createPrerequisiteStep(fakeE2e, mockDeps, renderer);
 		const ctx = createMockContext();
 
 		step.execute(ctx);
 
-		expect(printPrerequisites).toHaveBeenCalledWith(
+		expect(renderer.prerequisites).toHaveBeenCalledWith(
 			expect.objectContaining({ vaultExists: true }),
 			fakeE2e,
 		);
 	});
 
 	it("calls validatePrerequisites with check results", () => {
-		const step = createPrerequisiteStep(fakeE2e);
+		const step = createPrerequisiteStep(fakeE2e, mockDeps);
 		const ctx = createMockContext();
 
 		step.execute(ctx);
 
 		expect(validatePrerequisites).toHaveBeenCalledWith(
 			expect.objectContaining({ vaultExists: true }),
+			mockDeps,
 		);
 	});
 
 	it("stores results in step data", () => {
-		const step = createPrerequisiteStep(fakeE2e);
+		const step = createPrerequisiteStep(fakeE2e, mockDeps);
 		const ctx = createMockContext();
 
 		step.execute(ctx);
@@ -113,7 +124,7 @@ describe("createPrerequisiteStep", () => {
 	});
 
 	it("returns success with data when all prerequisites pass", () => {
-		const step = createPrerequisiteStep(fakeE2e);
+		const step = createPrerequisiteStep(fakeE2e, mockDeps);
 		const ctx = createMockContext();
 
 		const output = step.execute(ctx);
@@ -134,7 +145,7 @@ describe("createPrerequisiteStep", () => {
 			vaultInstalled: false,
 			testDataPresent: true,
 		});
-		const step = createPrerequisiteStep(fakeE2e);
+		const step = createPrerequisiteStep(fakeE2e, mockDeps);
 		const ctx = createMockContext();
 
 		const output = step.execute(ctx);
@@ -153,7 +164,7 @@ describe("createPrerequisiteStep", () => {
 			vaultInstalled: true,
 			testDataPresent: false,
 		});
-		const step = createPrerequisiteStep(fakeE2e);
+		const step = createPrerequisiteStep(fakeE2e, mockDeps);
 		const ctx = createMockContext();
 
 		const output = step.execute(ctx);
@@ -172,7 +183,7 @@ describe("createPrerequisiteStep", () => {
 			vaultInstalled: false,
 			testDataPresent: false,
 		});
-		const step = createPrerequisiteStep(fakeE2e);
+		const step = createPrerequisiteStep(fakeE2e, mockDeps);
 		const ctx = createMockContext();
 
 		const output = step.execute(ctx);
@@ -185,7 +196,7 @@ describe("createPrerequisiteStep", () => {
 		vi.mocked(validatePrerequisites).mockImplementation(() => {
 			throw new Error("Vault not found");
 		});
-		const step = createPrerequisiteStep(fakeE2e);
+		const step = createPrerequisiteStep(fakeE2e, mockDeps);
 		const ctx = createMockContext();
 
 		expect(() => step.execute(ctx)).toThrow("Vault not found");

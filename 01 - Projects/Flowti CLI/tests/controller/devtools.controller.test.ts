@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ── Mocks (must come BEFORE imports) ─────────────────────────────
 
-vi.mock("../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
+vi.mock("../../src/infrastructure/logger.js", () => ({ log: vi.fn(), warn: vi.fn() }));
 vi.mock("../../src/infrastructure/shell.js", () => ({
 	shell: {
 		run: vi.fn(() => 0),
@@ -19,6 +19,7 @@ vi.mock("../../src/infrastructure/filesystem.js", () => ({
 		readFileSync: vi.fn(() => ""),
 		readdirSync: vi.fn(() => []),
 		writeFileSync: vi.fn(),
+		mkdirSync: vi.fn(),
 	},
 }));
 vi.mock("../../src/infrastructure/paths.js", () => ({
@@ -30,9 +31,13 @@ vi.mock("../../src/infrastructure/paths.js", () => ({
 		basename: vi.fn((p: string) => p.split("/").pop() ?? p),
 	},
 }));
+vi.mock("../../src/infrastructure/clock.js", () => ({
+	clock: { now: () => new Date("2025-06-15T10:00:00Z") },
+}));
 vi.mock("../../src/infrastructure/config.js", () => ({
 	VAULT_ROOT: "/vault",
 	CLI_PROJECT: "/vault/cli",
+	PLUGIN_ROOT: "/vault/plugin",
 }));
 vi.mock("../../src/infrastructure/proc.js", () => ({
 	proc: { exit: vi.fn() },
@@ -45,8 +50,17 @@ vi.mock("../../src/infrastructure/output.js", () => ({
 vi.mock("../../src/domain/devtools/self-update.js", () => ({
 	rebuildCli: vi.fn(() => 0),
 }));
-vi.mock("../../src/scripts/cli-reload.js", () => ({
+vi.mock("../../src/domain/devtools/cli-reload.js", () => ({
 	reloadPlugin: vi.fn(() => true),
+}));
+vi.mock("../../src/domain/devtools/fix-frontmatter.js", () => ({
+	fixFrontmatter: vi.fn(() => ({ fixed: 2, skipped: 1, errors: 0 })),
+}));
+vi.mock("../../src/domain/devtools/generate-test-data.js", () => ({
+	generateTestData: vi.fn(() => ({ totalRows: 100, filesWritten: 8, files: [] })),
+}));
+vi.mock("../../src/domain/devtools/run-analysis.js", () => ({
+	runAnalysisPipeline: vi.fn(),
 }));
 
 // ── Imports ──────────────────────────────────────────────────────
@@ -54,7 +68,10 @@ vi.mock("../../src/scripts/cli-reload.js", () => ({
 import { commands } from "../../src/controller/devtools.controller.js";
 import { shell } from "../../src/infrastructure/shell.js";
 import { rebuildCli } from "../../src/domain/devtools/self-update.js";
-import { reloadPlugin } from "../../src/scripts/cli-reload.js";
+import { reloadPlugin } from "../../src/domain/devtools/cli-reload.js";
+import { fixFrontmatter } from "../../src/domain/devtools/fix-frontmatter.js";
+import { generateTestData } from "../../src/domain/devtools/generate-test-data.js";
+import { runAnalysisPipeline } from "../../src/domain/devtools/run-analysis.js";
 
 const mockProject = {
 	name: "test",
@@ -72,16 +89,16 @@ describe("devtools.controller", () => {
 	});
 
 	describe("dev:reload", () => {
-		it("calls reloadPlugin directly", () => {
+		it("calls reloadPlugin with deps", () => {
 			commands["dev:reload"]({}, [], "dev:reload", mockProject);
 
-			expect(reloadPlugin).toHaveBeenCalledWith(undefined);
+			expect(reloadPlugin).toHaveBeenCalledWith(undefined, expect.objectContaining({ shell: expect.anything(), log: expect.anything(), warn: expect.anything() }));
 		});
 
 		it("passes vault flag to reloadPlugin", () => {
 			commands["dev:reload"]({ vault: "myVault" }, [], "dev:reload", mockProject);
 
-			expect(reloadPlugin).toHaveBeenCalledWith("myVault");
+			expect(reloadPlugin).toHaveBeenCalledWith("myVault", expect.anything());
 		});
 	});
 
@@ -186,21 +203,21 @@ describe("devtools.controller", () => {
 	});
 
 	describe("dev:fix-frontmatter", () => {
-		it("runs frontmatter fixer", () => {
+		it("calls fixFrontmatter directly", () => {
 			commands["dev:fix-frontmatter"]({}, [], "dev:fix-frontmatter", mockProject);
 
-			expect(shell.run).toHaveBeenCalledWith(
-				"node scripts/fix-frontmatter.mjs",
-				{ cwd: "/project", label: "Fixing frontmatter..." },
+			expect(fixFrontmatter).toHaveBeenCalledWith(
+				expect.objectContaining({ dryRun: false }),
+				expect.objectContaining({ disk: expect.anything(), paths: expect.anything(), log: expect.anything() }),
 			);
 		});
 
 		it("passes dry-run flag", () => {
 			commands["dev:fix-frontmatter"]({ "dry-run": true }, [], "dev:fix-frontmatter", mockProject);
 
-			expect(shell.run).toHaveBeenCalledWith(
-				"node scripts/fix-frontmatter.mjs --dry-run",
-				{ cwd: "/project", label: "Fixing frontmatter (dry-run)..." },
+			expect(fixFrontmatter).toHaveBeenCalledWith(
+				expect.objectContaining({ dryRun: true }),
+				expect.anything(),
 			);
 		});
 	});
@@ -220,12 +237,12 @@ describe("devtools.controller", () => {
 	});
 
 	describe("dev:testdata", () => {
-		it("runs the default testdata command", () => {
+		it("calls generateTestData directly", () => {
 			commands["dev:testdata"]({}, [], "dev:testdata", mockProject);
 
-			expect(shell.run).toHaveBeenCalledWith(
-				"node scripts/generate-test-data.mjs",
-				{ cwd: "/project", label: "Generating test data CSVs..." },
+			expect(generateTestData).toHaveBeenCalledWith(
+				expect.objectContaining({ from: "2025-01", seed: 42, dryRun: false }),
+				expect.objectContaining({ disk: expect.anything(), paths: expect.anything(), clock: expect.anything(), log: expect.anything() }),
 			);
 		});
 	});
@@ -237,6 +254,16 @@ describe("devtools.controller", () => {
 			expect(shell.run).toHaveBeenCalledWith(
 				"obsidian dev:errors",
 				{ cwd: "/project", label: "Opening error stream..." },
+			);
+		});
+	});
+
+	describe("dev:analysis", () => {
+		it("calls runAnalysisPipeline directly", () => {
+			commands["dev:analysis"]({}, [], "dev:analysis", mockProject);
+
+			expect(runAnalysisPipeline).toHaveBeenCalledWith(
+				expect.objectContaining({ disk: expect.anything(), shell: expect.anything(), paths: expect.anything(), clock: expect.anything(), log: expect.anything() }),
 			);
 		});
 	});

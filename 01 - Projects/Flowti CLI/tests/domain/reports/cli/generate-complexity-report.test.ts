@@ -31,9 +31,18 @@ vi.mock("../../../../src/infrastructure/clock.js", () => ({
 vi.mock("../../../../src/domain/project/project-config.js", () => ({
 	readProjectConfig: vi.fn(() => ({ config: { reports: { dir: "reports" }, docs: { referenceDir: "docs/reference" } } })),
 }));
+vi.mock("../../../../src/domain/devtools/run-analysis.js", () => ({
+	generateAnalysisData: vi.fn(),
+}));
 
+import type { ReportDeps } from "../../../../src/infrastructure/deps.js";
 import { disk } from "../../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../../src/infrastructure/paths.js";
+import { clock } from "../../../../src/infrastructure/clock.js";
 import { generateComplexityReport } from "../../../../src/domain/reports/cli/generate-complexity-report.js";
+
+const mockShell = { run: vi.fn(() => ({ stdout: "", stderr: "", exitCode: 0, success: true })) };
+const mockDeps: ReportDeps = { disk, paths, clock, shell: mockShell as any, log: () => {} };
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -43,7 +52,7 @@ describe("generateComplexityReport", () => {
 	it("returns failure when analysis.json does not exist", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(false);
 
-		const result = generateComplexityReport("/project");
+		const result = generateComplexityReport("/project", mockDeps);
 
 		expect(result.success).toBe(false);
 		expect(result.outputPath).toBe("");
@@ -76,7 +85,7 @@ describe("generateComplexityReport", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data));
 
-		const result = generateComplexityReport("/project");
+		const result = generateComplexityReport("/project", mockDeps);
 
 		expect(result.success).toBe(true);
 		expect(result.outputPath).toBeTruthy();
@@ -86,17 +95,17 @@ describe("generateComplexityReport", () => {
 		}));
 	});
 
-	it("warns about high complexity files (>15 DPs)", () => {
+	it("warns about high complexity files exceeding threshold", () => {
 		const data = {
-			summary: { totalDecisionPoints: 20, filesWithDecisionPoints: 1 },
+			summary: { totalDecisionPoints: 55, filesWithDecisionPoints: 1 },
 			files: [
-				{ file: "/project/src/complex.ts", decisionPointCount: 20, decisionPoints: [] },
+				{ file: "/project/src/complex.ts", decisionPointCount: 55, decisionPoints: [] },
 			],
 		};
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data));
 
-		const result = generateComplexityReport("/project");
+		const result = generateComplexityReport("/project", mockDeps);
 
 		expect(result.warnings).toBeDefined();
 		expect(result.warnings![0]).toContain("exceed complexity threshold");
@@ -113,7 +122,7 @@ describe("generateComplexityReport", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data));
 
-		const result = generateComplexityReport("/project");
+		const result = generateComplexityReport("/project", mockDeps);
 
 		expect(result.warnings).toBeUndefined();
 	});
@@ -129,7 +138,7 @@ describe("generateComplexityReport", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data));
 
-		const result = generateComplexityReport("/project");
+		const result = generateComplexityReport("/project", mockDeps);
 
 		expect(result.success).toBe(true);
 	});
@@ -144,7 +153,7 @@ describe("generateComplexityReport", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data));
 
-		const result = generateComplexityReport("/project");
+		const result = generateComplexityReport("/project", mockDeps);
 
 		expect(result.success).toBe(true);
 	});
@@ -173,7 +182,7 @@ describe("generateComplexityReport", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data));
 
-		const result = generateComplexityReport("/project");
+		const result = generateComplexityReport("/project", mockDeps);
 
 		expect(result.success).toBe(true);
 	});
@@ -189,7 +198,7 @@ describe("generateComplexityReport", () => {
 		const logFn = vi.fn();
 		const ctx = { log: logFn, projectPath: "/project", getResults: () => [], pushResult: vi.fn(), getStepResult: vi.fn(), setCommandOutput: vi.fn(), getCommandOutput: vi.fn(), setStepData: vi.fn(), getStepData: vi.fn() };
 
-		generateComplexityReport("/project", ctx as any);
+		generateComplexityReport("/project", mockDeps, ctx as any);
 
 		expect(logFn).toHaveBeenCalled();
 	});

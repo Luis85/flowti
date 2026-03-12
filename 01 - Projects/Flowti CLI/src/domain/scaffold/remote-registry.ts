@@ -6,7 +6,7 @@
  * Registry index format follows the ExportBundle v1 schema.
  */
 
-import { paths } from "../../infrastructure/paths.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 import type { IFileSystem } from "../../infrastructure/types.js";
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -134,20 +134,21 @@ export function filterByType(
 
 const CACHE_DIR = ".flowti/cache/registry";
 
-export function cachePath(vaultRoot: string): string {
-	return paths.join(vaultRoot, CACHE_DIR);
+export function cachePath(deps: Pick<CliDeps, "paths">, vaultRoot: string): string {
+	return deps.paths.join(vaultRoot, CACHE_DIR);
 }
 
-export function cacheIndexPath(vaultRoot: string, registryName: string): string {
-	return paths.join(vaultRoot, CACHE_DIR, `${registryName}-index.json`);
+export function cacheIndexPath(deps: Pick<CliDeps, "paths">, vaultRoot: string, registryName: string): string {
+	return deps.paths.join(vaultRoot, CACHE_DIR, `${registryName}-index.json`);
 }
 
 export function loadCachedIndex(
+	deps: Pick<CliDeps, "paths">,
 	vaultRoot: string,
 	registryName: string,
 	fs: IFileSystem,
 ): RegistryIndex | null {
-	const p = cacheIndexPath(vaultRoot, registryName);
+	const p = cacheIndexPath(deps, vaultRoot, registryName);
 	if (!fs.existsSync(p)) return null;
 	try {
 		return JSON.parse(fs.readFileSync(p, "utf-8")) as RegistryIndex;
@@ -157,19 +158,21 @@ export function loadCachedIndex(
 }
 
 export function saveCachedIndex(
+	deps: Pick<CliDeps, "paths">,
 	vaultRoot: string,
 	registryName: string,
 	index: RegistryIndex,
 	fs: IFileSystem,
 ): void {
-	const dir = cachePath(vaultRoot);
+	const dir = cachePath(deps, vaultRoot);
 	fs.mkdirSync(dir, { recursive: true });
-	fs.writeFileSync(cacheIndexPath(vaultRoot, registryName), JSON.stringify(index, null, "\t"), "utf-8");
+	fs.writeFileSync(cacheIndexPath(deps, vaultRoot, registryName), JSON.stringify(index, null, "\t"), "utf-8");
 }
 
 // ── Install ──────────────────────────────────────────────────────────
 
 export function installScaffoldDefinition(
+	deps: Pick<CliDeps, "paths">,
 	definition: unknown,
 	projectRoot: string,
 	fs: IFileSystem,
@@ -181,8 +184,8 @@ export function installScaffoldDefinition(
 	const id = typeof obj.id === "string" ? obj.id : null;
 	if (!id) return { ok: false, error: "Definition missing id field" };
 
-	const defsDir = paths.join(projectRoot, "configs", "definitions");
-	const targetPath = paths.join(defsDir, `${id}.json`);
+	const defsDir = deps.paths.join(projectRoot, "configs", "definitions");
+	const targetPath = deps.paths.join(defsDir, `${id}.json`);
 
 	if (fs.existsSync(targetPath)) {
 		return { ok: false, error: `Definition "${id}" already exists` };
@@ -194,6 +197,7 @@ export function installScaffoldDefinition(
 }
 
 export function installPlugin(
+	deps: Pick<CliDeps, "paths">,
 	manifest: unknown,
 	vaultRoot: string,
 	fs: IFileSystem,
@@ -205,8 +209,8 @@ export function installPlugin(
 	const name = typeof obj.name === "string" ? obj.name : null;
 	if (!name) return { ok: false, error: "Plugin missing name field" };
 
-	const pluginDir = paths.join(vaultRoot, ".flowti", "plugins", name);
-	const manifestPath = paths.join(pluginDir, "manifest.json");
+	const pluginDir = deps.paths.join(vaultRoot, ".flowti", "plugins", name);
+	const manifestPath = deps.paths.join(pluginDir, "manifest.json");
 
 	if (fs.existsSync(manifestPath)) {
 		return { ok: false, error: `Plugin "${name}" already exists` };
@@ -218,6 +222,7 @@ export function installPlugin(
 }
 
 export function installAiTool(
+	deps: Pick<CliDeps, "paths">,
 	tool: unknown,
 	vaultRoot: string,
 	fs: IFileSystem,
@@ -229,8 +234,8 @@ export function installAiTool(
 	const name = typeof obj.name === "string" ? obj.name : null;
 	if (!name) return { ok: false, error: "AI tool missing name field" };
 
-	const toolsDir = paths.join(vaultRoot, ".flowti", "ai-tools");
-	const targetPath = paths.join(toolsDir, `${name}.json`);
+	const toolsDir = deps.paths.join(vaultRoot, ".flowti", "ai-tools");
+	const targetPath = deps.paths.join(toolsDir, `${name}.json`);
 
 	if (fs.existsSync(targetPath)) {
 		return { ok: false, error: `AI tool "${name}" already exists` };
@@ -244,6 +249,7 @@ export function installAiTool(
 // ── Batch install from index ─────────────────────────────────────────
 
 function installByType(
+	deps: Pick<CliDeps, "paths">,
 	entry: RegistryEntry,
 	data: unknown,
 	vaultRoot: string,
@@ -253,11 +259,11 @@ function installByType(
 	switch (entry.type) {
 		case "scaffold":
 			if (!projectRoot) return "skip";
-			return installScaffoldDefinition(data, projectRoot, fs);
+			return installScaffoldDefinition(deps, data, projectRoot, fs);
 		case "plugin":
-			return installPlugin(data, vaultRoot, fs);
+			return installPlugin(deps, data, vaultRoot, fs);
 		case "ai-tool":
-			return installAiTool(data, vaultRoot, fs);
+			return installAiTool(deps, data, vaultRoot, fs);
 	}
 }
 
@@ -278,6 +284,7 @@ function classifyInstallResult(
 }
 
 export async function installFromRegistry(
+	deps: Pick<CliDeps, "paths">,
 	entries: RegistryEntry[],
 	vaultRoot: string,
 	projectRoot: string | undefined,
@@ -293,7 +300,7 @@ export async function installFromRegistry(
 			continue;
 		}
 
-		const installResult = installByType(entry, result.data, vaultRoot, projectRoot, fs);
+		const installResult = installByType(deps, entry, result.data, vaultRoot, projectRoot, fs);
 		classifyInstallResult(entry.id, installResult, out);
 	}
 

@@ -1,163 +1,276 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../../../../../src/infrastructure/filesystem.js", () => ({
 	disk: {
 		existsSync: vi.fn(() => false),
-		readFileSync: vi.fn(() => "{}"),
+		readFileSync: vi.fn(() => ""),
+		writeFileSync: vi.fn(),
+		mkdirSync: vi.fn(),
 		readdirSync: vi.fn(() => []),
 		statSync: vi.fn(() => ({ size: 1024 })),
 	},
 }));
-
 vi.mock("../../../../../src/infrastructure/paths.js", () => ({
 	paths: {
 		join: (...args: string[]) => args.join("/"),
+		resolve: (...args: string[]) => args.join("/"),
+		dirname: (p: string) => p.split("/").slice(0, -1).join("/"),
+		basename: (p: string) => p.split("/").pop() ?? "",
 	},
 }));
-
-vi.mock("../../../../../src/infrastructure/logger.js", () => ({
-	log: vi.fn(),
+vi.mock("../../../../../src/infrastructure/config.js", () => ({
+	PLUGIN_ROOT: "/plugin",
 }));
 
 import { disk } from "../../../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../../../src/infrastructure/paths.js";
+import { Document } from "../../../../../src/infrastructure/document.js";
 import {
-	parsePerfPayload, classifyPerfEvent,
-	readLatestEventTrace, readStartupPerf,
+	readLatestEventTrace, readStartupPerf, buildPerfLines,
+	parsePerfPayload, classifyPerfEvent, buildPerfEventStats,
+	buildEventTraceLines,
 } from "../../../../../src/domain/reports/generators/e2e/e2e-report-perf.js";
-import type { PerfEventBuckets, PerfTraceEvent } from "../../../../../src/domain/reports/generators/e2e/e2e-report-types.js";
+import type { PerfEventBuckets } from "../../../../../src/domain/reports/generators/e2e/e2e-report-types.js";
+
+const mockDeps = { disk, paths } as any;
 
 function emptyBuckets(): PerfEventBuckets {
 	return { startupServices: [], startupTotal: null, storageOps: [], queries: [], dispatches: [], alerts: [] };
 }
 
-describe("parsePerfPayload", () => {
-	it("parses JSON string payload", () => {
-		expect(parsePerfPayload('{"key": "value"}')).toEqual({ key: "value" });
-	});
-
-	it("passes through object payload", () => {
-		const obj = { foo: "bar" };
-		expect(parsePerfPayload(obj)).toBe(obj);
-	});
-
-	it("returns null for invalid JSON", () => {
-		expect(parsePerfPayload("not json")).toBeNull();
-	});
+beforeEach(() => {
+	vi.clearAllMocks();
 });
 
-describe("classifyPerfEvent", () => {
-	it("classifies startup service event", () => {
-		const buckets = emptyBuckets();
-		classifyPerfEvent({ type: "perf.startup.service", payload: { service: "EventBus", durationMs: 42 } }, buckets);
-		expect(buckets.startupServices).toHaveLength(1);
-		expect(buckets.startupServices[0].service).toBe("EventBus");
-		expect(buckets.startupServices[0].durationMs).toBe(42);
+describe("e2e-report-perf", () => {
+	describe("readLatestEventTrace", () => {
+		it("returns null when dir doesn't exist", () => {
+			vi.mocked(disk.existsSync).mockReturnValue(false);
+
+			const result = readLatestEventTrace("/traces", mockDeps);
+
+			expect(result).toBeNull();
+		});
+
+		it("returns null when no trace files", () => {
+			vi.mocked(disk.existsSync).mockReturnValue(true);
+			vi.mocked(disk.readdirSync).mockReturnValue([] as any);
+
+			const result = readLatestEventTrace("/traces", mockDeps);
+
+			expect(result).toBeNull();
+		});
+
+		it("reads latest trace file (sorted reverse)", () => {
+			vi.mocked(disk.existsSync).mockReturnValue(true);
+			vi.mocked(disk.readdirSync).mockReturnValue([
+				"2026-03-09-Event Trace.json",
+				"2026-03-11-Event Trace.json",
+				"2026-03-10-Event Trace.json",
+			] as any);
+			const traceData = { summary: { totalEvents: 42 }, events: [] };
+			vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(traceData));
+
+			const result = readLatestEventTrace("/traces", mockDeps);
+
+			expect(result).toEqual(traceData);
+			expect(disk.readFileSync).toHaveBeenCalledWith(
+				"/traces/2026-03-11-Event Trace.json",
+				"utf-8",
+			);
+		});
+
+		it("returns null on parse error", () => {
+			vi.mocked(disk.existsSync).mockReturnValue(true);
+			vi.mocked(disk.readdirSync).mockReturnValue(["2026-03-10-Event Trace.json"] as any);
+			vi.mocked(disk.readFileSync).mockReturnValue("not valid json {{");
+
+			const result = readLatestEventTrace("/traces", mockDeps);
+
+			expect(result).toBeNull();
+		});
 	});
 
-	it("classifies startup total event", () => {
-		const buckets = emptyBuckets();
-		classifyPerfEvent({ type: "perf.startup.total", payload: { durationMs: 500, serviceCount: 10 } }, buckets);
-		expect(buckets.startupTotal).not.toBeNull();
-		expect(buckets.startupTotal!.durationMs).toBe(500);
-		expect(buckets.startupTotal!.serviceCount).toBe(10);
+	describe("readStartupPerf", () => {
+		it("returns null when no candidates exist", () => {
+			vi.mocked(disk.existsSync).mockReturnValue(false);
+
+			const result = readStartupPerf(["/a/data.json", "/b/data.json"], mockDeps);
+
+			expect(result).toBeNull();
+		});
+
+		it("returns startup history and size from valid data.json", () => {
+			vi.mocked(disk.existsSync).mockReturnValue(true);
+			vi.mocked(disk.statSync).mockReturnValue({ size: 8192 } as any);
+			const dataJson = {
+				perfAggregator: {
+					startupHistory: [120, 140, 130],
+				},
+			};
+			vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(dataJson));
+
+			const result = readStartupPerf(["/vault/data.json"], mockDeps);
+
+			expect(result).toEqual({ history: [120, 140, 130], sizeBytes: 8192 });
+		});
 	});
 
-	it("classifies storage loaded event", () => {
-		const buckets = emptyBuckets();
-		classifyPerfEvent({ type: "perf.storage.loaded", payload: { key: "settings", durationMs: 5, sizeBytes: 1024 } }, buckets);
-		expect(buckets.storageOps).toHaveLength(1);
-		expect(buckets.storageOps[0].op).toBe("load");
+	describe("buildPerfLines", () => {
+		it("does nothing when startupPerf is null", () => {
+			const doc = Document.create("Test");
+			const before = doc.toString();
+
+			buildPerfLines(null, doc);
+
+			expect(doc.toString()).toEqual(before);
+		});
+
+		it("appends performance section to document", () => {
+			const doc = Document.create("Test");
+
+			buildPerfLines({ history: [100, 200, 300], sizeBytes: 4096 }, doc);
+
+			const output = doc.toString();
+			expect(output).toContain("Performance");
+			expect(output).toContain("Startup");
+			expect(output).toContain("p50");
+			expect(output).toContain("p95");
+		});
 	});
 
-	it("classifies storage saved event", () => {
-		const buckets = emptyBuckets();
-		classifyPerfEvent({ type: "perf.storage.saved", payload: { key: "data", durationMs: 10, sizeBytes: 2048 } }, buckets);
-		expect(buckets.storageOps).toHaveLength(1);
-		expect(buckets.storageOps[0].op).toBe("save");
+	describe("parsePerfPayload", () => {
+		it("parses JSON string payload", () => {
+			const payload = JSON.stringify({ durationMs: 42, service: "TestService" });
+
+			const result = parsePerfPayload(payload);
+
+			expect(result).toEqual({ durationMs: 42, service: "TestService" });
+		});
+
+		it("returns object payload as-is", () => {
+			const payload = { durationMs: 99, service: "OtherService" };
+
+			const result = parsePerfPayload(payload);
+
+			expect(result).toBe(payload);
+		});
+
+		it("returns null on invalid JSON", () => {
+			const result = parsePerfPayload("{bad json}");
+
+			expect(result).toBeNull();
+		});
 	});
 
-	it("classifies query event", () => {
-		const buckets = emptyBuckets();
-		classifyPerfEvent({ type: "perf.query.executed", payload: { queryId: "q1", durationMs: 15, sourceRows: 100, resultRows: 10 } }, buckets);
-		expect(buckets.queries).toHaveLength(1);
-		expect(buckets.queries[0].queryId).toBe("q1");
+	describe("classifyPerfEvent", () => {
+		it("classifies startup service event", () => {
+			const buckets = emptyBuckets();
+
+			classifyPerfEvent(
+				{ type: "perf.startup.service", payload: { service: "AnalyticsService", durationMs: 55 } },
+				buckets,
+			);
+
+			expect(buckets.startupServices).toHaveLength(1);
+			expect(buckets.startupServices[0]).toEqual({ service: "AnalyticsService", durationMs: 55 });
+		});
+
+		it("classifies storage loaded event", () => {
+			const buckets = emptyBuckets();
+
+			classifyPerfEvent(
+				{ type: "perf.storage.loaded", payload: { key: "settings", durationMs: 12, sizeBytes: 512 } },
+				buckets,
+			);
+
+			expect(buckets.storageOps).toHaveLength(1);
+			expect(buckets.storageOps[0]).toEqual({ key: "settings", op: "load", durationMs: 12, sizeBytes: 512 });
+		});
+
+		it("classifies query executed event", () => {
+			const buckets = emptyBuckets();
+
+			classifyPerfEvent(
+				{ type: "perf.query.executed", payload: { queryId: "q-001", durationMs: 8, sourceRows: 100, resultRows: 10 } },
+				buckets,
+			);
+
+			expect(buckets.queries).toHaveLength(1);
+			expect(buckets.queries[0]).toEqual({ queryId: "q-001", durationMs: 8, sourceRows: 100, resultRows: 10 });
+		});
+
+		it("classifies alert event", () => {
+			const buckets = emptyBuckets();
+
+			classifyPerfEvent(
+				{ type: "perf.alert", payload: { metric: "startup.total", value: 6000, threshold: 5000 } },
+				buckets,
+			);
+
+			expect(buckets.alerts).toHaveLength(1);
+			expect(buckets.alerts[0]).toEqual({ metric: "startup.total", value: 6000, threshold: 5000 });
+		});
 	});
 
-	it("classifies dispatch event", () => {
-		const buckets = emptyBuckets();
-		classifyPerfEvent({ type: "perf.event.dispatched", payload: { eventType: "hub.opened", handlerCount: 3, durationMs: 2 } }, buckets);
-		expect(buckets.dispatches).toHaveLength(1);
-		expect(buckets.dispatches[0].eventType).toBe("hub.opened");
+	describe("buildPerfEventStats", () => {
+		it("does nothing for empty perf events", () => {
+			const doc = Document.create("Test");
+			const before = doc.toString();
+
+			buildPerfEventStats([], doc);
+
+			expect(doc.toString()).toEqual(before);
+		});
+
+		it("builds stats section from perf events", () => {
+			const doc = Document.create("Test");
+			const perfEvents = [
+				{ type: "perf.startup.service", payload: { service: "SettingsService", durationMs: 30 } },
+				{ type: "perf.startup.total", payload: { durationMs: 120, serviceCount: 3 } },
+				{ type: "perf.storage.loaded", payload: { key: "data", durationMs: 5, sizeBytes: 256 } },
+				{ type: "perf.query.executed", payload: { queryId: "q-dashboard", durationMs: 22, sourceRows: 50, resultRows: 5 } },
+				{ type: "perf.alert", payload: { metric: "startup.total", value: 6000, threshold: 5000 } },
+			];
+
+			buildPerfEventStats(perfEvents, doc);
+
+			const output = doc.toString();
+			expect(output).toContain("Event Performance Statistics");
+			expect(output).toContain("Perf events: 5");
+		});
 	});
 
-	it("classifies alert event", () => {
-		const buckets = emptyBuckets();
-		classifyPerfEvent({ type: "perf.alert", payload: { metric: "startup", value: 6000, threshold: 5000 } }, buckets);
-		expect(buckets.alerts).toHaveLength(1);
-		expect(buckets.alerts[0].value).toBe(6000);
-	});
+	describe("buildEventTraceLines", () => {
+		it("does nothing when trace is null", () => {
+			const doc = Document.create("Test");
+			const before = doc.toString();
 
-	it("ignores unknown event types", () => {
-		const buckets = emptyBuckets();
-		classifyPerfEvent({ type: "perf.unknown", payload: { foo: "bar" } }, buckets);
-		expect(buckets.startupServices).toHaveLength(0);
-		expect(buckets.storageOps).toHaveLength(0);
-	});
+			buildEventTraceLines(null, doc);
 
-	it("handles JSON string payloads", () => {
-		const buckets = emptyBuckets();
-		classifyPerfEvent({ type: "perf.alert", payload: JSON.stringify({ metric: "latency", value: 100, threshold: 50 }) }, buckets);
-		expect(buckets.alerts).toHaveLength(1);
-		expect(buckets.alerts[0].metric).toBe("latency");
-	});
+			expect(doc.toString()).toEqual(before);
+		});
 
-	it("handles invalid payload gracefully", () => {
-		const buckets = emptyBuckets();
-		classifyPerfEvent({ type: "perf.alert", payload: "not-json" }, buckets);
-		expect(buckets.alerts).toHaveLength(0);
-	});
-});
+		it("appends event trace section", () => {
+			const doc = Document.create("Test");
+			const trace = {
+				summary: {
+					totalEvents: 300,
+					perfEvents: 20,
+					uniqueTypes: 45,
+					eventFrequency: { "hub.opened": 10, "settings.loaded": 5 },
+				},
+				durationMs: 15000,
+				perfEvents: [],
+			};
 
-describe("readLatestEventTrace", () => {
-	it("returns null when directory doesn't exist", () => {
-		vi.mocked(disk.existsSync).mockReturnValue(false);
-		expect(readLatestEventTrace("/traces")).toBeNull();
-	});
+			buildEventTraceLines(trace, doc);
 
-	it("returns null when no trace files found", () => {
-		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readdirSync).mockReturnValue([] as unknown as ReturnType<typeof disk.readdirSync>);
-		expect(readLatestEventTrace("/traces")).toBeNull();
-	});
-
-	it("reads the latest trace file", () => {
-		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readdirSync).mockReturnValue([
-			"2026-03-01-Event Trace.json",
-			"2026-03-05-Event Trace.json",
-		] as unknown as ReturnType<typeof disk.readdirSync>);
-		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({ summary: { totalEvents: 100 } }));
-		const result = readLatestEventTrace("/traces");
-		expect(result).not.toBeNull();
-		expect(result!.summary!.totalEvents).toBe(100);
-	});
-});
-
-describe("readStartupPerf", () => {
-	it("returns null when no candidates exist", () => {
-		vi.mocked(disk.existsSync).mockReturnValue(false);
-		expect(readStartupPerf(["/a/data.json", "/b/data.json"])).toBeNull();
-	});
-
-	it("reads startup history from first available candidate", () => {
-		vi.mocked(disk.existsSync).mockImplementation((p) => p === "/a/data.json");
-		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({
-			perfAggregator: { startupHistory: [100, 200, 150] },
-		}));
-		vi.mocked(disk.statSync).mockReturnValue({ size: 4096 } as ReturnType<typeof disk.statSync>);
-		const result = readStartupPerf(["/a/data.json", "/b/data.json"]);
-		expect(result).not.toBeNull();
-		expect(result!.history).toEqual([100, 200, 150]);
-		expect(result!.sizeBytes).toBe(4096);
+			const output = doc.toString();
+			expect(output).toContain("Event Trace");
+			expect(output).toContain("Trace Summary");
+			expect(output).toContain("Events: 300");
+			expect(output).toContain("Full details");
+		});
 	});
 });

@@ -10,23 +10,25 @@
  *   ──────────────────────────
  *   Make, Build, Review, Publish, Reports
  *   ──────────────────────────
- *   Documentation, Npm Scripts, Knowledgebase, Health, Info
+ *   Project Management, Documentation, Knowledgebase, README, Info
  *   ──────────────────────────
- *   Components, Events, Scaffold, Dependencies, Dev Tools, Export HTML
+ *   Components, Dev Tools
  *   ──────────────────────────
  *   Back, Help, Quit
  */
 
-import { menu as makeMenu } from "../domain/make/make.js";
+import { menu as makeMenu } from "./menus/make-menu.js";
 import { componentListMenu } from "./menus/component-list-menu.js";
-import { publishMenu } from "../domain/publish/project-publish.js";
-import { reviewMenu } from "../domain/review/project-review.js";
+import { publishMenu } from "./menus/publish-menu.js";
+import { reviewMenu } from "./menus/review-menu.js";
 import { showInfo } from "./info-display.js";
-import { collectHealth } from "../domain/health/health.js";
-import { displayHealth } from "./health-display.js";
 import { showHelp } from "./help.js";
 import { captureIdea, captureNote, captureBug } from "./menus/capture-menu.js";
-import { eventCatalogMenu } from "../domain/events/events.js";
+import { shell } from "../infrastructure/shell.js";
+import { disk } from "../infrastructure/filesystem.js";
+import { paths } from "../infrastructure/paths.js";
+import { clock } from "../infrastructure/clock.js";
+import { log as logFn } from "../infrastructure/logger.js";
 import { isKnowledgebaseAvailable } from "../domain/knowledgebase/knowledgebase.js";
 import { knowledgebaseMenu } from "./menus/knowledgebase-menu.js";
 import { buildWithReport } from "../domain/reports/cli/generate-build-report.js";
@@ -35,12 +37,12 @@ import {
 	buildReportsSubmenu,
 	buildDocsSubmenu,
 	buildDevToolsSubmenu,
-	buildDepsSubmenu,
 } from "./menu-builders.js";
 import { input } from "../infrastructure/input.js";
 import { getSelectedProject } from "../infrastructure/state.js";
 import { initializeProject } from "../domain/project/project-config.js";
 import type { MenuEntry } from "../infrastructure/types.js";
+import { detectTools, hasTool } from "../domain/project/tool-availability.js";
 
 // ── Public: build full menu for current project ─────────────────────
 
@@ -48,7 +50,8 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 	const projectName = getSelectedProject();
 	if (!projectName) return buildFallbackMenu();
 
-	const ctx = initializeProject(projectName);
+	const ctx = initializeProject(projectName, { disk, paths });
+	const tools = detectTools(ctx.path, { disk, paths });
 
 	const items: MenuEntry[] = [];
 
@@ -71,25 +74,29 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 	});
 
 	{
-		const buildCmd = ctx.config.build?.commands?.["fast"] ?? ctx.config.tools?.["build"];
-		if (buildCmd) {
+		const buildCmd = ctx.config.build?.commands?.["fast"];
+		const hasEsbuild = hasTool(tools, "esbuild");
+		const hasTsc = hasTool(tools, "typescript");
+		if (buildCmd && (hasEsbuild || hasTsc)) {
 			items.push({
 				key: "5",
 				label: "Build",
 				action: async () => {
-					buildWithReport(buildCmd, ctx.path);
+					buildWithReport(buildCmd, ctx.path, { disk, paths, clock, shell, log: logFn });
 					await input.waitForEnter();
 					return "main" as const;
 				},
 			});
 		} else {
+			const reason = !buildCmd
+				? "No build command configured. Add build.commands.fast to flowti.config.json."
+				: "Missing esbuild or typescript. Run: npm install -D esbuild typescript";
 			items.push({
 				key: "5",
 				label: "Build",
 				action: () => "main" as const,
 				disabled: true,
-				disabledMessage:
-					'\n  Build is not mapped. Add build.commands.fast or tools.build to flowti.config.json.\n',
+				disabledMessage: `\n  ${reason}\n`,
 			});
 		}
 	}
@@ -112,7 +119,7 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 		action: async () => {
 			const { runMenu } = await import("../infrastructure/menu.js");
 			const generators = ctx.config.reports?.generators ?? [];
-			const reportsDir = getReportsDir(ctx.path, ctx.config);
+			const reportsDir = getReportsDir(ctx.path, ctx.config, { paths });
 			await runMenu("reports", buildReportsSubmenu(generators, ctx.path, reportsDir));
 			return "main" as const;
 		},
@@ -122,16 +129,25 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 
 	// ── Project management ───────────────────────────────────────────
 
+	items.push({
+		key: "m",
+		label: "Project Management",
+		action: async () => {
+			const { managementMenu } = await import("./menus/management-menu.js");
+			return managementMenu(ctx);
+		},
+	});
+
 	{
 		const docsConfig = ctx.config.docs;
 		items.push({
 			key: "d",
-			label: "Update Documentation",
+			label: "Documentation",
 			action: async () => {
 				const { runMenu } = await import("../infrastructure/menu.js");
 				const configGens = docsConfig?.generators ?? [];
-				const allCmd = docsConfig?.allCommand;
-				await runMenu("documentation", buildDocsSubmenu(configGens, allCmd, ctx.path), { defaultChoice: "1" });
+				const references = docsConfig?.references ?? [];
+				await runMenu("documentation", buildDocsSubmenu(configGens, references, ctx.path), { defaultChoice: "1" });
 				return "main" as const;
 			},
 		});
@@ -142,16 +158,18 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 			key: "k",
 			label: "Knowledgebase",
 			action: knowledgebaseMenu,
-			disabled: () => !isKnowledgebaseAvailable(),
+			disabled: () => !isKnowledgebaseAvailable({ disk, paths, shell }),
 			disabledMessage:
 				"\n  Knowledgebase requires Obsidian CLI and an initialized vault.\n",
 		},
 		{
-			key: "h",
-			label: "Health",
+			key: "r",
+			label: "README",
+			disabled: () => !disk.existsSync(paths.join(ctx.path, "README.md")),
+			disabledMessage: "\n  No README.md found. Run `flowti readme` to generate one.\n",
 			action: async () => {
-				const health = collectHealth(ctx);
-				displayHealth(health);
+				const content = disk.readFileSync(paths.join(ctx.path, "README.md"), "utf-8");
+				logFn(`\n${content}`);
 				await input.waitForEnter();
 				return "main" as const;
 			},
@@ -173,23 +191,9 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 
 	items.push(
 		{
-			key: "e",
-			label: "Events",
-			action: () => eventCatalogMenu(ctx.path),
-		},
-		{
 			key: "c",
 			label: "Components",
 			action: () => componentListMenu(ctx.path, ctx.config.components),
-		},
-		{
-			key: "g",
-			label: "Dependencies",
-			action: async () => {
-				const { runMenu } = await import("../infrastructure/menu.js");
-				await runMenu("dependencies", buildDepsSubmenu(ctx.path));
-				return "main" as const;
-			},
 		},
 		{
 			key: "t",

@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { BackgroundProcess } from "../../../../src/infrastructure/types.js";
+import type { StorybookRenderer } from "../../../../src/domain/make/component/storybook-renderer.js";
+import { nullStorybookRenderer } from "../../../../src/domain/make/component/storybook-renderer.js";
 
 function createMockBackgroundProcess(overrides?: Partial<BackgroundProcess>): BackgroundProcess {
 	return {
@@ -9,6 +11,27 @@ function createMockBackgroundProcess(overrides?: Partial<BackgroundProcess>): Ba
 		onOutput: vi.fn(() => vi.fn()),
 		waitForOutput: vi.fn().mockResolvedValue("Storybook ready!"),
 		...overrides,
+	};
+}
+
+function createMockRenderer(): StorybookRenderer & Record<string, ReturnType<typeof vi.fn>> {
+	return {
+		alreadyInstalled: vi.fn(),
+		installing: vi.fn(),
+		installFailed: vi.fn(),
+		installSuccess: vi.fn(),
+		notInstalled: vi.fn(),
+		alreadyRunning: vi.fn(),
+		starting: vi.fn(),
+		failedToStart: vi.fn(),
+		failOutput: vi.fn(),
+		timeout: vi.fn(),
+		ready: vi.fn(),
+		stopped: vi.fn(),
+		notRunning: vi.fn(),
+		view: vi.fn(),
+		browserContext: vi.fn(),
+		openedIn: vi.fn(),
 	};
 }
 
@@ -51,25 +74,6 @@ vi.mock("../../../../src/domain/knowledgebase/vault-service.js", () => ({
 	isVaultInitialized: vi.fn(() => false),
 }));
 
-vi.mock("../../../../src/ui/storybook-renderers.js", () => ({
-	renderStorybookAlreadyInstalled: vi.fn(),
-	renderStorybookInstalling: vi.fn(),
-	renderStorybookInstallFailed: vi.fn(),
-	renderStorybookInstallSuccess: vi.fn(),
-	renderStorybookNotInstalled: vi.fn(),
-	renderStorybookAlreadyRunning: vi.fn(),
-	renderStorybookStarting: vi.fn(),
-	renderStorybookFailedToStart: vi.fn(),
-	renderStorybookFailOutput: vi.fn(),
-	renderStorybookTimeout: vi.fn(),
-	renderStorybookReady: vi.fn(),
-	renderStorybookStopped: vi.fn(),
-	renderStorybookNotRunning: vi.fn(),
-	renderStorybookView: vi.fn(),
-	renderStorybookBrowserContext: vi.fn(),
-	renderStorybookOpenedIn: vi.fn(),
-}));
-
 import {
 	resolveStorybookDir,
 	isStorybookInstalled,
@@ -82,9 +86,13 @@ import {
 	extractLocalUrl,
 } from "../../../../src/domain/make/component/storybook-service.js";
 import { disk } from "../../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../../src/infrastructure/paths.js";
 import { shell } from "../../../../src/infrastructure/shell.js";
+import { input } from "../../../../src/infrastructure/input.js";
 import { isCliAvailable, isVaultInitialized } from "../../../../src/domain/knowledgebase/vault-service.js";
 import type { ComponentsConfig } from "../../../../src/infrastructure/types.js";
+
+function sbDeps() { return { disk, paths, shell, input } as const; }
 
 const mockDisk = vi.mocked(disk);
 const mockShell = vi.mocked(shell);
@@ -100,25 +108,25 @@ beforeEach(() => {
 
 describe("resolveStorybookDir", () => {
 	it("uses default directory name", () => {
-		const result = resolveStorybookDir("/project", {});
+		const result = resolveStorybookDir("/project", {}, sbDeps());
 		expect(result).toBe("/project/component-library");
 	});
 
 	it("uses configured directory name", () => {
-		const result = resolveStorybookDir("/project", { storybookDir: "my-storybook" });
+		const result = resolveStorybookDir("/project", { storybookDir: "my-storybook" }, sbDeps());
 		expect(result).toBe("/project/my-storybook");
 	});
 });
 
 describe("isStorybookInstalled", () => {
 	it("returns false when package.json does not exist", () => {
-		expect(isStorybookInstalled("/project", {})).toBe(false);
+		expect(isStorybookInstalled("/project", {}, sbDeps())).toBe(false);
 		expect(mockDisk.existsSync).toHaveBeenCalledWith("/project/component-library/package.json");
 	});
 
 	it("returns true when package.json exists", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		expect(isStorybookInstalled("/project", {})).toBe(true);
+		expect(isStorybookInstalled("/project", {}, sbDeps())).toBe(true);
 	});
 });
 
@@ -126,7 +134,7 @@ describe("installStorybook", () => {
 	it("creates directory structure and config files", () => {
 		mockShell.run.mockReturnValue(0);
 
-		const result = installStorybook("/project", "my-project", {});
+		const result = installStorybook("/project", "my-project", {}, sbDeps());
 
 		expect(result).toBe(true);
 		expect(mockDisk.mkdirSync).toHaveBeenCalled();
@@ -140,7 +148,7 @@ describe("installStorybook", () => {
 	it("runs npm install in storybook directory", () => {
 		mockShell.run.mockReturnValue(0);
 
-		installStorybook("/project", "my-project", {});
+		installStorybook("/project", "my-project", {}, sbDeps());
 
 		expect(mockShell.run).toHaveBeenCalledWith("npm install", expect.objectContaining({
 			cwd: "/project/component-library",
@@ -150,7 +158,7 @@ describe("installStorybook", () => {
 	it("returns false when npm install fails", () => {
 		mockShell.run.mockReturnValue(1);
 
-		const result = installStorybook("/project", "my-project", {});
+		const result = installStorybook("/project", "my-project", {}, sbDeps());
 
 		expect(result).toBe(false);
 	});
@@ -158,7 +166,7 @@ describe("installStorybook", () => {
 	it("skips if already installed", () => {
 		mockDisk.existsSync.mockReturnValue(true);
 
-		const result = installStorybook("/project", "my-project", {});
+		const result = installStorybook("/project", "my-project", {}, sbDeps());
 
 		expect(result).toBe(true);
 		expect(mockShell.run).not.toHaveBeenCalled();
@@ -168,7 +176,7 @@ describe("installStorybook", () => {
 		mockShell.run.mockReturnValue(0);
 		const config: ComponentsConfig = { storybookDir: "sb" };
 
-		installStorybook("/project", "my-project", config);
+		installStorybook("/project", "my-project", config, sbDeps());
 
 		expect(mockShell.run).toHaveBeenCalledWith("npm install", expect.objectContaining({
 			cwd: "/project/sb",
@@ -178,7 +186,7 @@ describe("installStorybook", () => {
 	it("writes package.json with --no-open flag", () => {
 		mockShell.run.mockReturnValue(0);
 
-		installStorybook("/project", "my-project", {});
+		installStorybook("/project", "my-project", {}, sbDeps());
 
 		const pkgCall = mockDisk.writeFileSync.mock.calls.find(([p]) => String(p).includes("package.json"));
 		expect(pkgCall).toBeDefined();
@@ -187,6 +195,25 @@ describe("installStorybook", () => {
 		expect(content.scripts.storybook).toContain("--no-open");
 		expect(content.scripts["build-storybook"]).toBeDefined();
 		expect(content.devDependencies.storybook).toBe("^10.0.0");
+	});
+
+	it("calls renderer on install success", () => {
+		mockShell.run.mockReturnValue(0);
+		const render = createMockRenderer();
+
+		installStorybook("/project", "my-project", {}, sbDeps(), render);
+
+		expect(render.installing).toHaveBeenCalled();
+		expect(render.installSuccess).toHaveBeenCalled();
+	});
+
+	it("calls renderer on install failure", () => {
+		mockShell.run.mockReturnValue(1);
+		const render = createMockRenderer();
+
+		installStorybook("/project", "my-project", {}, sbDeps(), render);
+
+		expect(render.installFailed).toHaveBeenCalled();
 	});
 });
 
@@ -212,15 +239,15 @@ describe("extractLocalUrl", () => {
 
 describe("isInsideVault", () => {
 	it("returns true for a path inside the vault", () => {
-		expect(isInsideVault("/vault/01 - Projects/MyApp")).toBe(true);
+		expect(isInsideVault("/vault/01 - Projects/MyApp", sbDeps())).toBe(true);
 	});
 
 	it("returns false for a path outside the vault", () => {
-		expect(isInsideVault("/other/project")).toBe(false);
+		expect(isInsideVault("/other/project", sbDeps())).toBe(false);
 	});
 
 	it("returns true for the vault root itself", () => {
-		expect(isInsideVault("/vault")).toBe(true);
+		expect(isInsideVault("/vault", sbDeps())).toBe(true);
 	});
 });
 
@@ -230,7 +257,7 @@ describe("runStorybookDev", () => {
 		const mockProcess = createMockBackgroundProcess();
 		mockShell.spawnBackground.mockReturnValue(mockProcess);
 
-		await runStorybookDev("/project", {});
+		await runStorybookDev("/project", {}, sbDeps());
 
 		expect(mockShell.spawnBackground).toHaveBeenCalledWith(
 			expect.stringContaining("storybook dev -p"),
@@ -238,10 +265,12 @@ describe("runStorybookDev", () => {
 		);
 	});
 
-	it("warns when not installed", async () => {
-		await runStorybookDev("/project", {});
+	it("calls notInstalled renderer when not installed", async () => {
+		const render = createMockRenderer();
+		await runStorybookDev("/project", {}, sbDeps(), render);
 
 		expect(mockShell.spawnBackground).not.toHaveBeenCalled();
+		expect(render.notInstalled).toHaveBeenCalled();
 	});
 
 	it("waits for ready signal before opening browser", async () => {
@@ -249,7 +278,7 @@ describe("runStorybookDev", () => {
 		const mockProcess = createMockBackgroundProcess();
 		mockShell.spawnBackground.mockReturnValue(mockProcess);
 
-		await runStorybookDev("/project", {});
+		await runStorybookDev("/project", {}, sbDeps());
 
 		expect(mockProcess.waitForOutput).toHaveBeenCalledWith(
 			expect.any(RegExp),
@@ -264,7 +293,7 @@ describe("runStorybookDev", () => {
 		const mockProcess = createMockBackgroundProcess();
 		mockShell.spawnBackground.mockReturnValue(mockProcess);
 
-		await runStorybookDev("/vault/project", {});
+		await runStorybookDev("/vault/project", {}, sbDeps());
 
 		expect(mockShell.runSilent).toHaveBeenCalledWith(
 			"obsidian web url=http://localhost:6006 newtab",
@@ -276,7 +305,7 @@ describe("runStorybookDev", () => {
 		const mockProcess = createMockBackgroundProcess();
 		mockShell.spawnBackground.mockReturnValue(mockProcess);
 
-		await runStorybookDev("/other/project", {});
+		await runStorybookDev("/other/project", {}, sbDeps());
 
 		// Should have called runSilent with a browser-open command
 		expect(mockShell.runSilent).toHaveBeenCalled();
@@ -292,14 +321,13 @@ describe("runStorybookDev", () => {
 			waitForOutput: vi.fn().mockResolvedValue(null),
 		});
 		mockShell.spawnBackground.mockReturnValue(mockProcess);
+		const render = createMockRenderer();
 
-		await runStorybookDev("/project", {});
+		await runStorybookDev("/project", {}, sbDeps(), render);
 
 		expect(mockShell.runSilent).not.toHaveBeenCalled();
-		// Should call the failure renderers
-		const { renderStorybookFailedToStart, renderStorybookFailOutput } = await import("../../../../src/ui/storybook-renderers.js");
-		expect(vi.mocked(renderStorybookFailedToStart)).toHaveBeenCalled();
-		expect(vi.mocked(renderStorybookFailOutput)).toHaveBeenCalled();
+		expect(render.failedToStart).toHaveBeenCalled();
+		expect(render.failOutput).toHaveBeenCalled();
 	});
 
 	it("stops storybook when user presses Enter in live view", async () => {
@@ -307,7 +335,7 @@ describe("runStorybookDev", () => {
 		const mockProcess = createMockBackgroundProcess();
 		mockShell.spawnBackground.mockReturnValue(mockProcess);
 
-		await runStorybookDev("/project", {});
+		await runStorybookDev("/project", {}, sbDeps());
 
 		expect(mockProcess.kill).toHaveBeenCalled();
 		expect(isStorybookRunning()).toBe(false);
@@ -318,7 +346,7 @@ describe("runStorybookDev", () => {
 		const mockProcess = createMockBackgroundProcess();
 		mockShell.spawnBackground.mockReturnValue(mockProcess);
 
-		await runStorybookDev("/project", {});
+		await runStorybookDev("/project", {}, sbDeps());
 
 		expect(mockProcess.onOutput).not.toHaveBeenCalled();
 	});
@@ -341,7 +369,7 @@ describe("isStorybookRunning", () => {
 		const mockProcess = createMockBackgroundProcess();
 		mockShell.spawnBackground.mockReturnValue(mockProcess);
 
-		await runStorybookDev("/project", {});
+		await runStorybookDev("/project", {}, sbDeps());
 		expect(isStorybookRunning()).toBe(false);
 	});
 });
@@ -350,16 +378,18 @@ describe("runStorybookBuild", () => {
 	it("runs storybook build when installed", () => {
 		mockDisk.existsSync.mockReturnValue(true);
 
-		runStorybookBuild("/project", {});
+		runStorybookBuild("/project", {}, sbDeps());
 
 		expect(mockShell.run).toHaveBeenCalledWith("npm run build-storybook", expect.objectContaining({
 			cwd: "/project/component-library",
 		}));
 	});
 
-	it("warns when not installed", () => {
-		runStorybookBuild("/project", {});
+	it("calls notInstalled renderer when not installed", () => {
+		const render = createMockRenderer();
+		runStorybookBuild("/project", {}, sbDeps(), render);
 
 		expect(mockShell.run).not.toHaveBeenCalled();
+		expect(render.notInstalled).toHaveBeenCalled();
 	});
 });

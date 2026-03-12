@@ -10,9 +10,10 @@
 import type {
 	ComponentVariables,
 	ComponentDefinition,
+	ComponentTemplateDeps,
 } from "../component-types.js";
 
-export function componentStoryTemplate(vars: ComponentVariables, def: ComponentDefinition): string {
+export function componentStoryTemplate(vars: ComponentVariables, def: ComponentDefinition, _deps: ComponentTemplateDeps): string {
 	const hasActions = (def.actions ?? []).length > 0;
 
 	const metaBlock = buildMetaBlock(def);

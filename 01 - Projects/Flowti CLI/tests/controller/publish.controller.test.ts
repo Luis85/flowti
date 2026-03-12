@@ -5,12 +5,32 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../../src/infrastructure/shell.js", () => ({
-	shell: { run: vi.fn(() => 0) },
+	shell: { run: vi.fn(() => 0), runSilent: vi.fn(() => null), check: vi.fn(() => true), runCapture: vi.fn(() => ""), execFile: vi.fn(() => null), runCaptureStatus: vi.fn(() => ({ output: "", exitCode: 0 })), runCaptureDetailed: vi.fn(() => ({ stdout: "", stderr: "", exitCode: 0 })), spawnBackground: vi.fn(() => ({ running: false, output: [], onOutput: () => () => {}, kill: () => {}, waitForOutput: () => Promise.resolve(null) })), runAsync: vi.fn(async () => ({ output: "", exitCode: 0 })), runParallel: vi.fn(async () => []) },
 }));
-vi.mock("../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
+vi.mock("../../src/infrastructure/logger.js", () => ({ log: vi.fn(), warn: vi.fn() }));
 vi.mock("../../src/infrastructure/proc.js", () => ({
-	proc: { exit: vi.fn() },
+	proc: { exit: vi.fn(), argv: () => [], cwd: () => "/", env: () => ({}) },
 }));
+vi.mock("../../src/infrastructure/filesystem.js", () => ({
+	disk: { existsSync: vi.fn(() => false), readFileSync: vi.fn(() => ""), writeFileSync: vi.fn(), mkdirSync: vi.fn(), readdirSync: vi.fn(() => []) },
+}));
+vi.mock("../../src/infrastructure/paths.js", () => ({
+	paths: { join: vi.fn((...args: string[]) => args.join("/")), resolve: vi.fn((...args: string[]) => args.join("/")), relative: vi.fn((_a: string, b: string) => b), dirname: vi.fn((p: string) => p), basename: vi.fn((p: string) => p.split("/").pop() ?? p), isAbsolute: vi.fn(() => true) },
+}));
+vi.mock("../../src/infrastructure/clock.js", () => ({
+	clock: { now: () => new Date(), iso: () => "", ms: () => 0, safeIso: () => "" },
+}));
+vi.mock("../../src/infrastructure/input.js", () => ({
+	input: { ask: vi.fn(async () => ""), askYesNo: vi.fn(async () => false), waitForEnter: vi.fn(async () => {}) },
+}));
+vi.mock("../../src/infrastructure/ui.js", () => ({
+	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", CYAN: "", YELLOW: "",
+}));
+vi.mock("../../src/ui/cli-event-renderer.js", () => ({ attachCliRenderer: vi.fn(() => () => {}) }));
+vi.mock("../../src/infrastructure/request-response.js", async () => {
+	const actual = await vi.importActual<typeof import("../../src/infrastructure/request-response.js")>("../../src/infrastructure/request-response.js");
+	return actual;
+});
 vi.mock("../../src/domain/health/health.js", () => ({
 	collectHealth: vi.fn(() => ({
 		testsPassed: 100,
@@ -37,6 +57,7 @@ vi.mock("../../src/ui/publish-display.js", () => ({
 }));
 vi.mock("../../src/ui/common-renderers.js", () => ({
 	renderNoProject: vi.fn(),
+	renderShellCommand: vi.fn(),
 }));
 
 import { commands } from "../../src/controller/publish.controller.js";
@@ -115,7 +136,7 @@ describe("publish.controller", () => {
 
 		it("returns gate check result when project is provided", () => {
 			commands["publish:check"]({}, [], "publish:check", mockProject);
-			expect(collectHealth).toHaveBeenCalledWith(mockProject);
+			expect(collectHealth).toHaveBeenCalledWith(expect.any(Object), mockProject);
 			expect(scoreHealth).toHaveBeenCalled();
 			expect(evaluateQualityGates).toHaveBeenCalled();
 		});

@@ -5,7 +5,7 @@
  * for the events:add command.
  */
 
-import { input } from "../../infrastructure/input.js";
+import type { IInput } from "../../infrastructure/types.js";
 import type { EventPayloadField } from "./event-catalog.js";
 
 const VALID_FIELD_TYPES = ["string", "number", "boolean", "object", "array"];
@@ -27,7 +27,7 @@ export function parsePayloadFlag(raw: string): EventPayloadField[] {
 }
 
 /** Interactively collect payload fields from the user. */
-export async function collectPayloadFields(): Promise<EventPayloadField[]> {
+export async function collectPayloadFields(input: IInput): Promise<EventPayloadField[]> {
 	const fields: EventPayloadField[] = [];
 	const addFields = await input.ask("Add payload fields? (Y/n)", "Y");
 	if (addFields.toLowerCase() === "n") return fields;
@@ -54,7 +54,7 @@ export async function collectPayloadFields(): Promise<EventPayloadField[]> {
 }
 
 /** Interactively collect versioning info (previous version + migration notes). */
-export async function collectVersioningInfo(): Promise<{ previousVersion?: string; migrationNotes?: string }> {
+export async function collectVersioningInfo(input: IInput): Promise<{ previousVersion?: string; migrationNotes?: string }> {
 	const isNew = await input.ask("Is this a new version of an existing event? (y/N)", "N");
 	if (isNew.toLowerCase() !== "y") return {};
 

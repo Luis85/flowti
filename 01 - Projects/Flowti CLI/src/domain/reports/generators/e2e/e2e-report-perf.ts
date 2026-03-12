@@ -4,8 +4,7 @@
  * Performance and trace processing for E2E reports.
  */
 
-import { disk } from "../../../../infrastructure/filesystem.js";
-import { paths } from "../../../../infrastructure/paths.js";
+import type { CliDeps } from "../../../../infrastructure/deps.js";
 import { Document } from "../../../../infrastructure/document.js";
 import type {
 	AlertOp, DispatchAggregate, DispatchOp, PerfEventBuckets,
@@ -14,13 +13,15 @@ import type {
 } from "./e2e-report-types.js";
 import { formatBytes, formatDuration, percentile, round } from "./e2e-report-utils.js";
 
+export type PerfDeps = Pick<CliDeps, "disk" | "paths">;
+
 // ── I/O ─────────────────────────────────────────────────────────
 
 /** Reads the latest Event Trace JSON from the dev traces directory. */
-export function readLatestEventTrace(devTracesDir: string): TraceData | null {
-	if (!disk.existsSync(devTracesDir)) return null;
+export function readLatestEventTrace(devTracesDir: string, deps: PerfDeps): TraceData | null {
+	if (!deps.disk.existsSync(devTracesDir)) return null;
 
-	const files = disk.readdirSync(devTracesDir)
+	const files = deps.disk.readdirSync(devTracesDir)
 		.filter((f) => f.endsWith("-Event Trace.json") || f.endsWith("-event-trace.json"))
 		.sort()
 		.reverse();
@@ -28,19 +29,19 @@ export function readLatestEventTrace(devTracesDir: string): TraceData | null {
 	if (files.length === 0) return null;
 
 	try {
-		return JSON.parse(disk.readFileSync(paths.join(devTracesDir, files[0]), "utf-8")) as TraceData;
+		return JSON.parse(deps.disk.readFileSync(deps.paths.join(devTracesDir, files[0]), "utf-8")) as TraceData;
 	} catch {
 		return null;
 	}
 }
 
 /** Reads startup history from plugin data.json. */
-export function readStartupPerf(dataJsonCandidates: string[]): StartupPerf | null {
+export function readStartupPerf(dataJsonCandidates: string[], deps: PerfDeps): StartupPerf | null {
 	for (const candidate of dataJsonCandidates) {
-		if (disk.existsSync(candidate)) {
+		if (deps.disk.existsSync(candidate)) {
 			try {
-				const data = JSON.parse(disk.readFileSync(candidate, "utf-8")) as Record<string, unknown>;
-				const sizeBytes = disk.statSync(candidate).size;
+				const data = JSON.parse(deps.disk.readFileSync(candidate, "utf-8")) as Record<string, unknown>;
+				const sizeBytes = deps.disk.statSync(candidate).size;
 				const history = (data?.perfAggregator as Record<string, unknown> | undefined)?.startupHistory as number[] ?? [];
 				return { history, sizeBytes };
 			} catch { /* try next */ }

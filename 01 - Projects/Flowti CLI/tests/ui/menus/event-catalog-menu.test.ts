@@ -9,6 +9,12 @@ vi.mock("../../../src/infrastructure/menu.js", () => ({ runMenu: vi.fn() }));
 vi.mock("../../../src/infrastructure/input.js", () => ({
 	input: { ask: vi.fn(), confirm: vi.fn(), select: vi.fn(), waitForEnter: vi.fn() },
 }));
+vi.mock("../../../src/infrastructure/filesystem.js", () => ({
+	disk: { existsSync: vi.fn(() => false), readFileSync: vi.fn(() => ""), writeFileSync: vi.fn(), mkdirSync: vi.fn(), readdirSync: vi.fn(() => []) },
+}));
+vi.mock("../../../src/infrastructure/clock.js", () => ({
+	clock: { iso: () => "2026-03-10T00:00:00.000Z", now: () => new Date("2026-03-10"), ms: () => 0, safeIso: () => "" },
+}));
 vi.mock("../../../src/infrastructure/paths.js", () => ({
 	paths: {
 		join: (...args: string[]) => args.join("/"),
@@ -129,7 +135,7 @@ describe("eventCatalogMenu", () => {
 		const result = await (items.find((i: any) => i.key === "2") as any).action();
 
 		expect(result).toBe("main");
-		expect(mockCreateEvent).toHaveBeenCalledWith("/project", expect.objectContaining({
+		expect(mockCreateEvent).toHaveBeenCalledWith(expect.any(Object), "/project", expect.objectContaining({
 			name: "user.created",
 			domain: "auth",
 			version: "1.0.0",
@@ -183,7 +189,7 @@ describe("eventCatalogMenu", () => {
 		const result = await (items.find((i: any) => i.key === "3") as any).action();
 
 		expect(result).toBe("main");
-		expect(mockSaveFlow).toHaveBeenCalledWith("/project");
+		expect(mockSaveFlow).toHaveBeenCalledWith(expect.any(Object), "/project");
 		const output = mockLog.mock.calls.map((c) => c[0] ?? "").join("\n");
 		expect(output).toContain("Generated:");
 	});

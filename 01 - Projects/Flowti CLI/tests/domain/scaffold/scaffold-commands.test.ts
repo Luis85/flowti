@@ -1,9 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
+vi.mock("../../../src/infrastructure/logger.js", () => ({ log: vi.fn(), warn: vi.fn() }));
 vi.mock("../../../src/infrastructure/ui.js", () => ({
-	RESET: "", DIM: "", GREEN: "", RED: "", CYAN: "",
+	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", CYAN: "", YELLOW: "",
 }));
+vi.mock("../../../src/infrastructure/shell.js", () => ({
+	shell: { run: vi.fn(() => 0), runSilent: vi.fn(() => null), check: vi.fn(() => true), runCapture: vi.fn(() => ""), execFile: vi.fn(() => null), runCaptureStatus: vi.fn(() => ({ output: "", exitCode: 0 })), runCaptureDetailed: vi.fn(() => ({ stdout: "", stderr: "", exitCode: 0 })), spawnBackground: vi.fn(() => ({ running: false, output: [], onOutput: () => () => {}, kill: () => {}, waitForOutput: () => Promise.resolve(null) })), runAsync: vi.fn(async () => ({ output: "", exitCode: 0 })), runParallel: vi.fn(async () => []) },
+}));
+vi.mock("../../../src/infrastructure/input.js", () => ({
+	input: { ask: vi.fn(async () => ""), askYesNo: vi.fn(async () => false), waitForEnter: vi.fn(async () => {}) },
+}));
+vi.mock("../../../src/infrastructure/proc.js", () => ({
+	proc: { exit: vi.fn(), argv: () => [], cwd: () => "/", env: () => ({}) },
+}));
+vi.mock("../../../src/ui/cli-event-renderer.js", () => ({ attachCliRenderer: vi.fn(() => () => {}) }));
 
 const capturedJson: unknown[] = [];
 vi.mock("../../../src/infrastructure/output.js", () => ({
@@ -39,6 +49,15 @@ vi.mock("../../../src/infrastructure/request-response.js", async () => {
 	return actual;
 });
 
+vi.mock("../../../src/infrastructure/filesystem.js", () => ({
+	disk: { existsSync: vi.fn(() => false), readFileSync: vi.fn(() => "{}"), readdirSync: vi.fn(() => []), writeFileSync: vi.fn(), mkdirSync: vi.fn() },
+}));
+vi.mock("../../../src/infrastructure/paths.js", () => ({
+	paths: { join: vi.fn((...args: string[]) => args.join("/")), dirname: vi.fn((p: string) => p), basename: vi.fn((p: string) => p.split("/").pop() ?? p) },
+}));
+vi.mock("../../../src/infrastructure/clock.js", () => ({
+	clock: { iso: vi.fn(() => "2026-01-01T00:00:00.000Z"), now: vi.fn(() => new Date()), ms: vi.fn(() => 0), safeIso: vi.fn(() => "2026-01-01T00-00-00-000Z") },
+}));
 vi.mock("../../../src/infrastructure/config.js", () => ({
 	VAULT_ROOT: "/mock/vault",
 }));
@@ -112,7 +131,7 @@ describe("scaffold:new", () => {
 	it("calls scaffold and logs success", () => {
 		commands["scaffold:new"]({ name: "my-project" }, []);
 
-		expect(scaffold).toHaveBeenCalledWith(expect.objectContaining({ name: "my-project" }));
+		expect(scaffold).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({ name: "my-project" }));
 		expect(log).toHaveBeenCalledWith(expect.stringContaining("Scaffolded"));
 	});
 
@@ -129,7 +148,7 @@ describe("scaffold:new --dry-run", () => {
 	it("shows file preview without writing", () => {
 		commands["scaffold:new"]({ name: "my-project", "dry-run": true }, []);
 
-		expect(scaffoldDryRun).toHaveBeenCalledWith(expect.objectContaining({ name: "my-project" }));
+		expect(scaffoldDryRun).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({ name: "my-project" }));
 		expect(scaffold).not.toHaveBeenCalled();
 		expect(log).toHaveBeenCalledWith(expect.stringContaining("Dry run"));
 	});

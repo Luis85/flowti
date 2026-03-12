@@ -22,28 +22,12 @@ vi.mock("../../../../src/infrastructure/config.js", () => ({
 	cliConfig: {},
 }));
 
-vi.mock("../../../../src/ui/common-renderers.js", () => ({
-	renderError: vi.fn(),
-	renderSuccess: vi.fn(),
-}));
-
-vi.mock("../../../../src/infrastructure/proc.js", () => ({
-	proc: { exit: vi.fn() },
-}));
-
 import { disk } from "../../../../src/infrastructure/filesystem.js";
-import { proc } from "../../../../src/infrastructure/proc.js";
-import { commands } from "../../../../src/domain/make/component/component-edit.js";
+import { paths } from "../../../../src/infrastructure/paths.js";
 import { splitFrontmatter, joinFrontmatter } from "../../../../src/infrastructure/frontmatter.js";
-import { extractPropFlags } from "../../../../src/domain/make/component/component-edit.js";
-import type { ProjectContext } from "../../../../src/infrastructure/types.js";
+import { extractPropFlags, editComponent } from "../../../../src/domain/make/component/component-edit.js";
 
-const PROJECT: ProjectContext = {
-	path: "/project",
-	pkg: null,
-	config: { name: "test" },
-	scripts: {},
-};
+function editDeps() { return { disk, paths } as const; }
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -99,38 +83,35 @@ describe("extractPropFlags", () => {
 	});
 });
 
-// ── edit:component command ──────────────────────────────────────────
+// ── editComponent pure function ─────────────────────────────────────
 
-describe("edit:component command", () => {
-	const editCmd = commands["edit:component"];
-
-	it("exits when --name is missing", () => {
-		editCmd({}, [], "edit:component", PROJECT);
-		expect(proc.exit).toHaveBeenCalledWith(1);
+describe("editComponent", () => {
+	it("returns error when name is missing", () => {
+		const result = editComponent(undefined, {}, "/project", editDeps());
+		expect(result.success).toBe(false);
+		if (!result.success) expect(result.error).toContain("--name is required");
 	});
 
-	it("exits when no project selected", () => {
-		editCmd({ name: "Test" }, [], "edit:component", undefined);
-		expect(proc.exit).toHaveBeenCalledWith(1);
-	});
-
-	it("exits when component file does not exist", () => {
+	it("returns error when component file does not exist", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(false);
-		editCmd({ name: "Missing" }, [], "edit:component", PROJECT);
-		expect(proc.exit).toHaveBeenCalledWith(1);
+		const result = editComponent("Missing", {}, "/project", editDeps());
+		expect(result.success).toBe(false);
+		if (!result.success) expect(result.error).toContain("Component not found");
 	});
 
-	it("exits when no prop flags specified", () => {
+	it("returns error when no prop flags specified", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		editCmd({ name: "Test" }, [], "edit:component", PROJECT);
-		expect(proc.exit).toHaveBeenCalledWith(1);
+		const result = editComponent("Test", { name: "Test" }, "/project", editDeps());
+		expect(result.success).toBe(false);
+		if (!result.success) expect(result.error).toContain("No properties specified");
 	});
 
-	it("exits when file has no frontmatter", () => {
+	it("returns error when file has no frontmatter", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readFileSync).mockReturnValue("# No frontmatter");
-		editCmd({ name: "Test", "prop.status": "active" }, [], "edit:component", PROJECT);
-		expect(proc.exit).toHaveBeenCalledWith(1);
+		const result = editComponent("Test", { "prop.status": "active" }, "/project", editDeps());
+		expect(result.success).toBe(false);
+		if (!result.success) expect(result.error).toContain("No frontmatter");
 	});
 
 	it("updates frontmatter properties and preserves existing ones", () => {
@@ -139,14 +120,14 @@ describe("edit:component command", () => {
 			"---\ntype: component\nstatus: draft\ncreated: 2026-01-01\n---\n\n# Auth Service\n",
 		);
 
-		editCmd(
-			{ name: "Auth Service", "prop.status": "active", "prop.technology": "React" },
-			[],
-			"edit:component",
-			PROJECT,
+		const result = editComponent(
+			"Auth Service",
+			{ "prop.status": "active", "prop.technology": "React" },
+			"/project",
+			editDeps(),
 		);
 
-		expect(proc.exit).not.toHaveBeenCalled();
+		expect(result.success).toBe(true);
 		expect(disk.writeFileSync).toHaveBeenCalledTimes(1);
 
 		const written = vi.mocked(disk.writeFileSync).mock.calls[0][1] as string;
@@ -161,13 +142,21 @@ describe("edit:component command", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readFileSync).mockReturnValue("---\ntype: component\n---\n\n# Test\n");
 
-		editCmd(
-			{ name: "My Component", "prop.status": "active" },
-			[],
-			"edit:component",
-			PROJECT,
-		);
+		editComponent("My Component", { "prop.status": "active" }, "/project", editDeps());
 
 		expect(disk.existsSync).toHaveBeenCalledWith("/project/docs/components/my-component.md");
+	});
+
+	it("returns kebab and propList on success", () => {
+		vi.mocked(disk.existsSync).mockReturnValue(true);
+		vi.mocked(disk.readFileSync).mockReturnValue("---\ntype: component\n---\n\n# Test\n");
+
+		const result = editComponent("Test", { "prop.status": "active" }, "/project", editDeps());
+
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.kebab).toBe("test");
+			expect(result.propList).toBe("status=active");
+		}
 	});
 });

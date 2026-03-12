@@ -4,11 +4,15 @@
  * Extracted from menu-builders.ts to keep file sizes under the max-lines limit.
  */
 
+import { disk } from "../infrastructure/filesystem.js";
 import { paths } from "../infrastructure/paths.js";
 import { log } from "../infrastructure/logger.js";
 import { RESET, DIM, GREEN, RED, CYAN } from "../infrastructure/ui.js";
 import type { MenuEntry, ProjectConfig } from "../infrastructure/types.js";
-import { listDefinitions, displayMarketplace, buildMarketplaceListing, resolveDefinitionsDir, BUNDLED_DEFINITIONS, getKnownTemplateIds } from "../domain/scaffold/scaffold.js";
+import { listDefinitions, buildMarketplaceListing, resolveDefinitionsDir, BUNDLED_DEFINITIONS, getKnownTemplateIds } from "../domain/scaffold/scaffold.js";
+
+function marketplaceDeps() { return { disk, paths } as const; }
+import { displayMarketplace } from "./menus/marketplace-menu.js";
 import { checkFreshness, resolveBuildPaths } from "../domain/build/build-freshness.js";
 
 export function buildExportSubmenu(
@@ -22,11 +26,12 @@ export function buildExportSubmenu(
 			action: async () => {
 				const { exportBundle, saveBundle } = await import("../domain/scaffold/marketplace-export.js");
 				const { VAULT_ROOT } = await import("../infrastructure/config.js");
-				const bundle = exportBundle(VAULT_ROOT, projectPath);
-				const total = bundle.aiTools.length + bundle.plugins.length + bundle.scaffolds.length;
 				const { clock } = await import("../infrastructure/clock.js");
+				const deps = { disk, paths, clock };
+				const bundle = exportBundle(deps, VAULT_ROOT, projectPath);
+				const total = bundle.aiTools.length + bundle.plugins.length + bundle.scaffolds.length;
 				const outputPath = paths.join(projectPath, "exports", `flowti-bundle-${clock.iso().split("T")[0]}.json`);
-				saveBundle(bundle, outputPath);
+				saveBundle(deps, bundle, outputPath);
 				log(`\n  ${GREEN}✓${RESET} Exported ${total} definitions → ${DIM}${outputPath}${RESET}\n`);
 				return "main" as const;
 			},
@@ -60,8 +65,9 @@ export function buildScaffoldSubmenu(projectPath: string): MenuEntry[] {
 			label: "Browse Marketplace",
 			action: () => {
 				const knownIds = getKnownTemplateIds();
-				const defsDir = resolveDefinitionsDir(projectPath);
-				const listing = buildMarketplaceListing(BUNDLED_DEFINITIONS, defsDir, knownIds);
+				const deps = marketplaceDeps();
+				const defsDir = resolveDefinitionsDir(deps, projectPath);
+				const listing = buildMarketplaceListing(deps, BUNDLED_DEFINITIONS, defsDir, knownIds);
 				displayMarketplace(listing);
 				return "main" as const;
 			},
@@ -70,8 +76,8 @@ export function buildScaffoldSubmenu(projectPath: string): MenuEntry[] {
 			key: "3",
 			label: "Check Build Freshness",
 			action: () => {
-				const { srcDir, binDir } = resolveBuildPaths(projectPath);
-				const check = checkFreshness(srcDir, binDir);
+				const { srcDir, binDir } = resolveBuildPaths(projectPath, { paths });
+				const check = checkFreshness(srcDir, binDir, { disk, paths });
 				if (check.needsRebuild) {
 					log(`\n  ${RED}●${RESET} Rebuild needed: ${check.reason}`);
 					if (check.added.length > 0) log(`    ${GREEN}+ ${check.added.length} added${RESET}`);

@@ -21,11 +21,13 @@ import { parseArgs } from "./infrastructure/args.js";
 import { proc } from "./infrastructure/proc.js";
 import { printBanner, clearScreen, RESET, DIM, RED, YELLOW, CYAN } from "./infrastructure/ui.js";
 import { runMenu } from "./infrastructure/menu.js";
+import { createDefaultDeps } from "./infrastructure/deps.js";
+import { initializeDeps } from "./infrastructure/request-response.js";
 
 // ── Domain modules (pure business logic) ────────────────────────────
 
 import { checkPrerequisites } from "./domain/onboarding/onboarding.js";
-import { startMenu, listProjects } from "./domain/project/project.js";
+import { startMenu, listProjects } from "./ui/menus/project-menu.js";
 import { loadPlugins, detectCollisions } from "./domain/plugins/plugins.js";
 
 // ── Controllers (command handlers) ──────────────────────────────────
@@ -43,12 +45,19 @@ import { commands as captureCmds } from "./controller/capture.controller.js";
 import { commands as healthCmds } from "./controller/health.controller.js";
 import { commands as eventsCmds } from "./controller/events.controller.js";
 import { commands as scaffoldCmds } from "./controller/scaffold.controller.js";
+import { commands as resourcesCmds } from "./controller/resources.controller.js";
+import { commands as timelogCmds } from "./controller/timelog.controller.js";
+import { commands as deliverablesCmds } from "./controller/deliverables.controller.js";
+import { commands as raidCmds } from "./controller/raid.controller.js";
+import { commands as requirementsCmds } from "./controller/requirements.controller.js";
+import { commands as capaCmds } from "./controller/capa.controller.js";
 import { commands as projectCmds } from "./controller/project.controller.js";
 import { commands as projectDepsCmds } from "./ui/deps-display.js";
 import { commands as pluginCmds } from "./controller/plugins.controller.js";
 import { commands as aiToolsCmds } from "./controller/ai-tools.controller.js";
 import { disk } from "./infrastructure/filesystem.js";
 import { shell } from "./infrastructure/shell.js";
+import { paths } from "./infrastructure/paths.js";
 import { VAULT_ROOT } from "./infrastructure/config.js";
 import { getSelectedProject, clearSelectedProject } from "./infrastructure/state.js";
 import { initializeProject } from "./domain/project/project-config.js";
@@ -85,7 +94,13 @@ registry.registerDomain({ domain: "publish",  commands: publishCmds });
 registry.registerDomain({ domain: "reports",  commands: reportsCmds });
 registry.registerDomain({ domain: "capture",  commands: captureCmds,  projectFree: ["capture:idea", "capture:note", "capture:search", "capture:import"] });
 registry.registerDomain({ domain: "events",   commands: eventsCmds });
-registry.registerDomain({ domain: "health",   commands: healthCmds });
+registry.registerDomain({ domain: "health",       commands: healthCmds });
+registry.registerDomain({ domain: "resources",    commands: resourcesCmds });
+registry.registerDomain({ domain: "timelog",      commands: timelogCmds });
+registry.registerDomain({ domain: "deliverables", commands: deliverablesCmds });
+registry.registerDomain({ domain: "raid",         commands: raidCmds });
+registry.registerDomain({ domain: "requirements", commands: requirementsCmds });
+registry.registerDomain({ domain: "capa",         commands: capaCmds });
 registry.registerDomain({ domain: "scaffold", commands: scaffoldCmds, projectFree: ["scaffold:new", "scaffold:list", "scaffold:marketplace", "marketplace:export", "marketplace:import-bundle"] });
 registry.registerDomain({ domain: "project",  commands: { ...projectCmds, ...projectDepsCmds },  projectFree: ["project", "project:deps"] });
 registry.registerDomain({ domain: "plugins",  commands: pluginCmds,  projectFree: ["plugin:list", "plugin:validate", "plugin:new", "plugin:reference"] });
@@ -97,7 +112,7 @@ let pluginsRegistered = false;
 // ── Plugin loading ──────────────────────────────────────────────────
 
 function registerProjectPlugins(_project: ProjectContext): void {
-	const plugins = loadPlugins(VAULT_ROOT, disk, shell);
+	const plugins = loadPlugins({ paths }, VAULT_ROOT, disk, shell);
 	const validPlugins = plugins.filter((p) => p.valid);
 	if (validPlugins.length === 0) return;
 
@@ -143,13 +158,13 @@ function resolveProjectContext(flags: Record<string, string | boolean>): Project
 
 	// Validate explicit --project flag against known projects
 	if (explicit) {
-		const available = listProjects();
+		const available = listProjects({ disk });
 		if (!available.includes(explicit)) {
 			return { ok: false, name: explicit, available };
 		}
 	}
 
-	const project = initializeProject(projectName);
+	const project = initializeProject(projectName, { disk, paths });
 	if (project && !pluginsRegistered) {
 		registerProjectPlugins(project);
 		pluginsRegistered = true;
@@ -214,7 +229,7 @@ async function handleCliArgs(): Promise<boolean> {
 function printProjectBanner(): void {
 	clearScreen();
 	const project = getSelectedProject();
-	const ctx = project ? initializeProject(project) : null;
+	const ctx = project ? initializeProject(project, { disk, paths }) : null;
 	const label = ctx?.config.name ?? project ?? "Unknown";
 
 	log(`  ${DIM}Project:${RESET} ${CYAN}${label}${RESET}`);
@@ -238,7 +253,10 @@ async function projectDetailLoop(): Promise<"start" | "quit"> {
 // ── Entry point ─────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-	checkPrerequisites();
+	// Initialize shared deps — controllers access them via req.deps
+	initializeDeps(createDefaultDeps());
+
+	checkPrerequisites({ shell, proc });
 
 	if (await handleCliArgs()) return;
 

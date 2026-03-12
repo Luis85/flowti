@@ -1,21 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-
-vi.mock("../../../src/infrastructure/clock.js", () => ({
-	clock: { iso: () => "2026-03-09" },
-}));
-
-vi.mock("../../../src/infrastructure/paths.js", () => ({
-	paths: {
-		dirname: (p: string) => p.split("/").slice(0, -1).join("/"),
-	},
-}));
-
-vi.mock("../../../src/infrastructure/filesystem.js", () => ({
-	disk: { mkdirSync: vi.fn(), writeFileSync: vi.fn() },
-}));
-
 import { generatePluginReference } from "../../../src/domain/plugins/plugin-reference.js";
 import type { LoadedPlugin } from "../../../src/domain/plugins/plugin-types.js";
+
+const testClock = { clock: { iso: () => "2026-03-09", now: () => new Date(), ms: () => 0, safeIso: () => "2026-03-09" } };
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -43,7 +30,7 @@ function makePlugin(overrides: Partial<LoadedPlugin> = {}): LoadedPlugin {
 
 describe("generatePluginReference", () => {
 	it("returns empty totals for empty plugins list", () => {
-		const doc = generatePluginReference([]);
+		const doc = generatePluginReference(testClock, []);
 		const output = doc.toString();
 
 		expect(output).toContain("total_plugins: 0");
@@ -55,7 +42,7 @@ describe("generatePluginReference", () => {
 
 	it("renders a single valid plugin with commands", () => {
 		const plugin = makePlugin();
-		const doc = generatePluginReference([plugin]);
+		const doc = generatePluginReference(testClock, [plugin]);
 		const output = doc.toString();
 
 		expect(output).toContain("total_plugins: 1");
@@ -77,7 +64,7 @@ describe("generatePluginReference", () => {
 			},
 			commands: {},
 		});
-		const doc = generatePluginReference([plugin]);
+		const doc = generatePluginReference(testClock, [plugin]);
 		const output = doc.toString();
 
 		expect(output).toContain("### empty-plugin");
@@ -97,7 +84,7 @@ describe("generatePluginReference", () => {
 			valid: false,
 			errors: ["Missing run field", "Bad name format"],
 		});
-		const doc = generatePluginReference([plugin]);
+		const doc = generatePluginReference(testClock, [plugin]);
 		const output = doc.toString();
 
 		expect(output).toContain("## Invalid Plugins");
@@ -117,7 +104,7 @@ describe("generatePluginReference", () => {
 			valid: false,
 			errors: ["Invalid manifest"],
 		});
-		const doc = generatePluginReference([valid, invalid]);
+		const doc = generatePluginReference(testClock, [valid, invalid]);
 		const output = doc.toString();
 
 		expect(output).toContain("total_plugins: 2");
@@ -155,7 +142,7 @@ describe("generatePluginReference", () => {
 			},
 			commands: { "plugin:beta:deploy": () => {} },
 		});
-		const doc = generatePluginReference([plugin1, plugin2]);
+		const doc = generatePluginReference(testClock, [plugin1, plugin2]);
 		const output = doc.toString();
 
 		expect(output).toContain("total_commands: 3");

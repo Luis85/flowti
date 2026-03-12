@@ -23,6 +23,9 @@ vi.mock("../../src/infrastructure/filesystem.js", () => ({
 		readdirSync: vi.fn(() => []),
 	},
 }));
+vi.mock("../../src/infrastructure/clock.js", () => ({
+	clock: { iso: () => "2026-03-10T00:00:00.000Z", now: () => new Date("2026-03-10"), ms: () => 0, safeIso: () => "" },
+}));
 vi.mock("../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
 vi.mock("../../src/infrastructure/proc.js", () => ({
 	proc: { exit: vi.fn(), argv: () => [], cwd: () => "/test", env: () => ({}) },
@@ -45,14 +48,25 @@ vi.mock("../../src/ui/common-renderers.js", () => ({
 }));
 
 import { commands } from "../../src/controller/capture.controller.js";
+import { initializeDeps } from "../../src/infrastructure/request-response.js";
 import { createCaptureFile, searchCaptures, importCaptureItems } from "../../src/domain/capture/capture.js";
 import { log } from "../../src/infrastructure/logger.js";
+import { disk } from "../../src/infrastructure/filesystem.js";
+import { paths } from "../../src/infrastructure/paths.js";
+import { clock } from "../../src/infrastructure/clock.js";
+import { proc } from "../../src/infrastructure/proc.js";
 
 const logMock = log as ReturnType<typeof vi.fn>;
 
 describe("capture.controller", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		initializeDeps({
+			disk, shell: {} as never, paths, clock, proc,
+			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never },
+			bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never,
+			log, warn: vi.fn(),
+		});
 	});
 
 	describe("capture:idea", () => {
@@ -61,7 +75,7 @@ describe("capture.controller", () => {
 
 			expect(createCaptureFile).toHaveBeenCalledOnce();
 			expect(createCaptureFile).toHaveBeenCalledWith(
-				"Idea", "My great idea", "My great idea", [],
+				expect.any(Object), "Idea", "My great idea", "My great idea", [],
 			);
 		});
 
@@ -72,7 +86,7 @@ describe("capture.controller", () => {
 
 			expect(createCaptureFile).toHaveBeenCalledOnce();
 			expect(createCaptureFile).toHaveBeenCalledWith(
-				"Idea", "Tagged idea", "Tagged idea", ["urgent", "review"],
+				expect.any(Object), "Idea", "Tagged idea", "Tagged idea", ["urgent", "review"],
 			);
 		});
 
@@ -81,7 +95,7 @@ describe("capture.controller", () => {
 			commands["capture:idea"]({ text: longText }, [], "capture:idea");
 
 			expect(createCaptureFile).toHaveBeenCalledOnce();
-			const titleArg = (createCaptureFile as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+			const titleArg = (createCaptureFile as ReturnType<typeof vi.fn>).mock.calls[0][2] as string;
 			expect(titleArg.length).toBeLessThanOrEqual(60);
 		});
 
@@ -112,7 +126,7 @@ describe("capture.controller", () => {
 			);
 
 			expect(createCaptureFile).toHaveBeenCalledOnce();
-			expect(createCaptureFile).toHaveBeenCalledWith("Task", "Do this", "", []);
+			expect(createCaptureFile).toHaveBeenCalledWith(expect.any(Object), "Task", "Do this", "", []);
 		});
 
 		it("returns error when --type is missing", () => {
@@ -157,7 +171,7 @@ describe("capture.controller", () => {
 			);
 
 			expect(searchCaptures).toHaveBeenCalledOnce();
-			expect(searchCaptures).toHaveBeenCalledWith("test", undefined, undefined);
+			expect(searchCaptures).toHaveBeenCalledWith(expect.any(Object), "test", undefined, undefined);
 		});
 
 		it("passes type and tag filters", () => {
@@ -165,7 +179,7 @@ describe("capture.controller", () => {
 				{ query: "test", type: "idea", tag: "urgent" }, [], "capture:search",
 			);
 
-			expect(searchCaptures).toHaveBeenCalledWith("test", "Idea", "urgent");
+			expect(searchCaptures).toHaveBeenCalledWith(expect.any(Object), "test", "Idea", "urgent");
 		});
 
 		it("returns error when --query is missing", () => {
@@ -201,7 +215,7 @@ describe("capture.controller", () => {
 			);
 
 			expect(importCaptureItems).toHaveBeenCalledOnce();
-			expect(importCaptureItems).toHaveBeenCalledWith("/data/items.json");
+			expect(importCaptureItems).toHaveBeenCalledWith(expect.any(Object), "/data/items.json");
 		});
 
 		it("returns error when --file is missing", () => {

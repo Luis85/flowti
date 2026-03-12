@@ -32,21 +32,26 @@ flowti events:list --project="Flowti Plugin"
 
 ## Architecture
 
-The CLI follows a **DDD layered architecture** with strict dependency rules:
+The CLI follows a **DDD + MVC layered architecture** with strict dependency rules:
 
 ```
 Entry Point (main.ts)
-  └── Domain Layer (18 modules)
-        └── Infrastructure Layer (21 modules)
+  → Controller Layer (15 controllers)
+    → UI / View Layer (30 display renderers)
+      → Domain Layer (18 modules — pure, no I/O, no presentation)
+        → Infrastructure Layer (29 modules + pipeline + event-bus)
+Scripts Layer (4 standalone entry points)
 ```
 
-**Dependency rule**: Domain → Infrastructure. Never Infrastructure → Domain. Never Domain → Domain (cross-domain). `main.ts` is the sole composition root.
+**Dependency rule**: Controller → Domain → Infrastructure. Controller → UI (renderers). Never Infrastructure → Domain. Never Domain → Domain (cross-domain). `main.ts` is the sole composition root.
 
 | Layer | Purpose |
 |-------|---------|
 | **Entry Point** | Two-loop menu system + command dispatch via `CommandRegistry` |
-| **Domain** | Business logic — scaffold, make, build, publish, review, reports, events, capture, info, help, onboarding, knowledgebase, devtools, e2e, plugins, ai-tools, health |
-| **Infrastructure** | I/O abstractions — filesystem, shell, input, state, config, document builder, frontmatter, errors, output, command-registry, menu, ui, clock, proc, paths, logger, args, test-vault, types |
+| **Controller** | Thin handlers: parse flags, call domain services, return `CliResponse<T>` with typed data + renderer |
+| **UI / View** | Display renderers: take typed data models, produce ANSI-formatted console output |
+| **Domain** | Pure business logic — scaffold, make, build, publish, review, reports, events, capture, info, help, onboarding, knowledgebase, devtools, e2e, plugins, ai-tools, health |
+| **Infrastructure** | I/O abstractions — filesystem, shell, input, state, config, document builder, frontmatter, errors, output, command-registry, menu, ui, clock, proc, paths, logger, args, pipeline, event-bus, deps |
 
 See [Flowti CLI Architecture.md](Flowti%20CLI%20Architecture.md) for the full design document.
 
@@ -109,11 +114,15 @@ The bootstrap (`src/boot/bootstrap.mjs`, deployed as `.flowti/bin/index.js`) han
 │   ├── main.ts                     # Entry point (two-loop: start → project detail)
 │   ├── boot/
 │   │   └── bootstrap.mjs           # Frictionless launcher (deployed as .flowti/bin/index.js)
+│   ├── controller/                  # 15 controllers (thin: parse flags → domain → CliResponse)
+│   ├── ui/                          # 30 display renderers (ANSI output, menus)
+│   ├── scripts/                     # 4 standalone entry points (analysis, fix-frontmatter, etc.)
 │   ├── domain/
 │   │   ├── mainMenu.ts             # Project detail menu builder
 │   │   ├── menu-builders.ts        # Pure submenu builders (Reports, Docs, Npm Scripts)
-│   │   ├── scaffold/               # Project creation from JSON definitions
-│   │   │   └── definitions/        # Bundled scaffold definitions (JSON)
+│   │   ├── scaffold/               # Project creation from 4 JSON definitions
+│   │   │   ├── definitions/        # Bundled: flowti-project, flowti-bare, flowti-cli, flowti-obsidian-plugin
+│   │   │   └── templates/          # Template registries (shared, project, bare, cli, plugin)
 │   │   ├── make/                   # In-project scaffolding (journey, component)
 │   │   │   └── component/          # Component system (8 kinds, C4 entities)
 │   │   │       └── definitions/    # Bundled component definitions (JSON)
@@ -129,7 +138,7 @@ The bootstrap (`src/boot/bootstrap.mjs`, deployed as `.flowti/bin/index.js`) han
 │   │   ├── ai-tools/               # Vault-level AI tool management (.flowti/ai-tools/)
 │   │   ├── health/                 # Project health dashboard
 │   │   ├── e2e/                    # E2E test session management
-│   │   ├── reports/                # Report pipeline (6 generators + 4 references)
+│   │   ├── reports/                # Report pipeline (cli/, generators/, analysis/, export/, pipeline/)
 │   │   ├── build/                  # Build command wrapper
 │   │   ├── onboarding/             # Prerequisites checks (git, node)
 │   │   └── devtools/               # Developer tools
@@ -155,7 +164,7 @@ The bootstrap (`src/boot/bootstrap.mjs`, deployed as `.flowti/bin/index.js`) han
 │       ├── args.ts                 # CLI argument parser
 │       ├── fs.ts                   # File helpers (countFiles, writeFile)
 │       └── test-vault.ts           # Test vault scaffold/teardown
-├── tests/                          # Vitest test suites (1,724 tests, 98 suites)
+├── tests/                          # Vitest test suites (3,608 tests, 221 suites)
 ├── configs/
 │   ├── flowti.config.json          # CLI's own project config (tools, publish, reports)
 │   ├── esbuild.config.mjs          # Build: bundles to .flowti/bin/main.js + deploys bootstrap
@@ -172,7 +181,7 @@ The bootstrap (`src/boot/bootstrap.mjs`, deployed as `.flowti/bin/index.js`) han
 ├── reports/                        # Stable report outputs (Project Summary.md)
 ├── package.json                    # npm scripts and devDependencies
 ├── Flowti CLI PRD.md               # Product Requirements Document
-├── Flowti CLI Architecture.md      # Architecture Document (v15)
+├── Flowti CLI Architecture.md      # Architecture Document (v20)
 └── README.md                       # This file
 ```
 

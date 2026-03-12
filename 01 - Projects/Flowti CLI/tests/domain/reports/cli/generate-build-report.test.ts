@@ -34,6 +34,9 @@ vi.mock("../../../../src/infrastructure/shell.js", () => ({
 		runSilent: vi.fn(() => "build output"),
 	},
 }));
+vi.mock("../../../../src/infrastructure/logger.js", () => ({
+	log: vi.fn(),
+}));
 vi.mock("../../../../src/domain/project/project-config.js", () => ({
 	readProjectConfig: vi.fn(() => ({ config: { reports: { dir: "reports" }, docs: { referenceDir: "docs/reference" } } })),
 }));
@@ -44,8 +47,13 @@ vi.mock("../../../../src/domain/build/build-freshness.js", () => ({
 
 import { shell } from "../../../../src/infrastructure/shell.js";
 import { disk } from "../../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../../src/infrastructure/paths.js";
+import { clock } from "../../../../src/infrastructure/clock.js";
+import { log } from "../../../../src/infrastructure/logger.js";
 import { recordBuild } from "../../../../src/domain/build/build-freshness.js";
 import { buildWithReport } from "../../../../src/domain/reports/cli/generate-build-report.js";
+
+function buildDeps() { return { disk, paths, clock, shell, log } as const; }
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -55,7 +63,7 @@ describe("buildWithReport", () => {
 	it("returns 0 on successful build", () => {
 		vi.mocked(shell.runSilent).mockReturnValue("compiled successfully");
 
-		const exitCode = buildWithReport("tsc", "/project");
+		const exitCode = buildWithReport("tsc", "/project", buildDeps());
 
 		expect(exitCode).toBe(0);
 	});
@@ -63,7 +71,7 @@ describe("buildWithReport", () => {
 	it("returns 1 on failed build", () => {
 		vi.mocked(shell.runSilent).mockReturnValue(null);
 
-		const exitCode = buildWithReport("tsc", "/project");
+		const exitCode = buildWithReport("tsc", "/project", buildDeps());
 
 		expect(exitCode).toBe(1);
 	});
@@ -71,7 +79,7 @@ describe("buildWithReport", () => {
 	it("records build on success", () => {
 		vi.mocked(shell.runSilent).mockReturnValue("ok");
 
-		buildWithReport("tsc", "/project");
+		buildWithReport("tsc", "/project", buildDeps());
 
 		expect(recordBuild).toHaveBeenCalled();
 	});
@@ -79,7 +87,7 @@ describe("buildWithReport", () => {
 	it("does not record build on failure", () => {
 		vi.mocked(shell.runSilent).mockReturnValue(null);
 
-		buildWithReport("tsc", "/project");
+		buildWithReport("tsc", "/project", buildDeps());
 
 		expect(recordBuild).not.toHaveBeenCalled();
 	});
@@ -87,7 +95,7 @@ describe("buildWithReport", () => {
 	it("writes build JSON and report markdown then cleans up JSON", () => {
 		vi.mocked(shell.runSilent).mockReturnValue("ok");
 
-		buildWithReport("npm run build", "/project");
+		buildWithReport("npm run build", "/project", buildDeps());
 
 		expect(disk.writeFileSync).toHaveBeenCalled();
 		expect(disk.unlinkSync).toHaveBeenCalled();
@@ -96,7 +104,7 @@ describe("buildWithReport", () => {
 	it("passes cwd to shell.runSilent", () => {
 		vi.mocked(shell.runSilent).mockReturnValue("ok");
 
-		buildWithReport("tsc", "/my/project");
+		buildWithReport("tsc", "/my/project", buildDeps());
 
 		expect(shell.runSilent).toHaveBeenCalledWith("tsc", { cwd: "/my/project" });
 	});

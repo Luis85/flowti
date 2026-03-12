@@ -1,5 +1,7 @@
 /**
- * component-edit.ts — Non-interactive CLI command for editing component properties.
+ * component-edit.ts — Pure domain logic for editing component properties.
+ *
+ * Returns typed results; rendering is handled by the controller.
  *
  * Usage:
  *   flowti edit:component --name=MyComponent --prop.status=active --prop.technology=React
@@ -8,13 +10,27 @@
  * properties, and saves. Only modifies specified properties; preserves everything else.
  */
 
-import { paths } from "../../../infrastructure/paths.js";
-import { disk } from "../../../infrastructure/filesystem.js";
+import type { CliDeps } from "../../../infrastructure/deps.js";
 import { splitFrontmatter, joinFrontmatter } from "../../../infrastructure/frontmatter.js";
-import { proc } from "../../../infrastructure/proc.js";
 import { toKebab } from "../naming.js";
-import type { CommandHandler } from "../../../infrastructure/types.js";
-import { renderError, renderSuccess } from "../../../ui/common-renderers.js";
+
+export type ComponentEditDeps = Pick<CliDeps, "disk" | "paths">;
+
+// ── Result types ─────────────────────────────────────────────────────
+
+export interface EditComponentResult {
+	success: true;
+	kebab: string;
+	propList: string;
+}
+
+export interface EditComponentError {
+	success: false;
+	error: string;
+	hint?: string;
+}
+
+export type EditComponentOutcome = EditComponentResult | EditComponentError;
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -29,65 +45,57 @@ export function extractPropFlags(flags: Record<string, string | boolean>): Recor
 	return props;
 }
 
-// ── Command handler ─────────────────────────────────────────────────
+// ── Pure domain function ─────────────────────────────────────────────
 
-function editComponentCommand(): CommandHandler {
-	return (flags, _r, _c, project) => {
-		const name = flags.name;
-		if (!name || typeof name !== "string") {
-			renderError({
-				error: "--name is required.",
-				hint: "Usage: flowti edit:component --name=MyComponent --prop.status=active",
-			});
-			return proc.exit(1);
-		}
+export function editComponent(
+	name: string | undefined,
+	flags: Record<string, string | boolean>,
+	projectPath: string,
+	deps: ComponentEditDeps,
+): EditComponentOutcome {
+	if (!name || typeof name !== "string") {
+		return {
+			success: false,
+			error: "--name is required.",
+			hint: "Usage: flowti edit:component --name=MyComponent --prop.status=active",
+		};
+	}
 
-		if (!project) {
-			renderError({ error: "No project selected." });
-			return proc.exit(1);
-		}
+	const kebab = toKebab(name);
+	const docPath = deps.paths.join(projectPath, "docs", "components", `${kebab}.md`);
 
-		const kebab = toKebab(name);
-		const docPath = paths.join(project.path, "docs", "components", `${kebab}.md`);
+	if (!deps.disk.existsSync(docPath)) {
+		return {
+			success: false,
+			error: `Component not found: ${kebab}`,
+			hint: `Expected file: ${docPath}`,
+		};
+	}
 
-		if (!disk.existsSync(docPath)) {
-			renderError({
-				error: `Component not found: ${kebab}`,
-				hint: `Expected file: ${docPath}`,
-			});
-			return proc.exit(1);
-		}
+	const propUpdates = extractPropFlags(flags);
+	if (Object.keys(propUpdates).length === 0) {
+		return {
+			success: false,
+			error: "No properties specified.",
+			hint: "Use --prop.key=value to update properties.",
+		};
+	}
 
-		const propUpdates = extractPropFlags(flags);
-		if (Object.keys(propUpdates).length === 0) {
-			renderError({
-				error: "No properties specified.",
-				hint: "Use --prop.key=value to update properties.",
-			});
-			return proc.exit(1);
-		}
+	const content = deps.disk.readFileSync(docPath, "utf-8");
+	const parsed = splitFrontmatter(content);
 
-		const content = disk.readFileSync(docPath, "utf-8");
-		const parsed = splitFrontmatter(content);
+	if (!parsed) {
+		return { success: false, error: `No frontmatter found in ${kebab}.md` };
+	}
 
-		if (!parsed) {
-			renderError({ error: `No frontmatter found in ${kebab}.md` });
-			return proc.exit(1);
-		}
+	const fm = parsed.frontmatter;
+	for (const [key, value] of Object.entries(propUpdates)) {
+		fm[key] = value;
+	}
 
-		const fm = parsed.frontmatter;
-		for (const [key, value] of Object.entries(propUpdates)) {
-			fm[key] = value;
-		}
+	const updated = joinFrontmatter(fm, parsed.body);
+	deps.disk.writeFileSync(docPath, updated, "utf-8");
 
-		const updated = joinFrontmatter(fm, parsed.body);
-		disk.writeFileSync(docPath, updated, "utf-8");
-
-		const propList = Object.entries(propUpdates).map(([k, v]) => `${k}=${v}`).join(", ");
-		renderSuccess({ message: `Updated ${kebab}: ${propList}` });
-	};
+	const propList = Object.entries(propUpdates).map(([k, v]) => `${k}=${v}`).join(", ");
+	return { success: true, kebab, propList };
 }
-
-export const commands: Record<string, CommandHandler> = {
-	"edit:component": editComponentCommand(),
-};

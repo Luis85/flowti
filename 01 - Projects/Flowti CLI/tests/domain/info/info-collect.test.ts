@@ -59,7 +59,12 @@ vi.mock("../../../src/domain/project/project-config.js", () => ({
 }));
 
 import { collectProjectInfo } from "../../../src/domain/info/info.js";
+import { disk } from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
+import { shell } from "../../../src/infrastructure/shell.js";
 import type { ProjectContext } from "../../../src/infrastructure/types.js";
+
+const infoDeps = { disk, paths, shell };
 
 function makeCtx(overrides: Partial<ProjectContext> = {}): ProjectContext {
 	return {
@@ -67,7 +72,6 @@ function makeCtx(overrides: Partial<ProjectContext> = {}): ProjectContext {
 		pkg: { name: "test-project", version: "2.0.0", scripts: { build: "tsc", test: "vitest" } },
 		config: {
 			name: "test-project",
-			tools: { devtools: "npm run check" },
 		},
 		scripts: { build: "tsc", test: "vitest" },
 		...overrides,
@@ -89,30 +93,34 @@ beforeEach(() => {
 
 describe("collectProjectInfo", () => {
 	it("returns basic project identity", () => {
-		const info = collectProjectInfo(makeCtx());
+		const info = collectProjectInfo(makeCtx(), infoDeps);
 		expect(info.name).toBe("test-project");
 		expect(info.version).toBe("2.0.0");
 		expect(info.path).toBe("/projects/test-project");
 	});
 
-	it("returns tools from FLOWTI_TOOLS", () => {
-		const info = collectProjectInfo(makeCtx());
+	it("returns tool availability from package.json devDependencies", () => {
+		const info = collectProjectInfo(makeCtx(), infoDeps);
 		expect(info.tools).toBeInstanceOf(Array);
 		expect(info.tools.length).toBeGreaterThan(0);
-		const devTool = info.tools.find((t) => t.id === "devtools");
-		expect(devTool?.command).toBe("npm run check");
+		const vitest = info.tools.find((t) => t.id === "vitest");
+		expect(vitest?.available).toBe(true);
+		const ts = info.tools.find((t) => t.id === "typescript");
+		expect(ts?.available).toBe(true);
 	});
 
-	it("returns null command for unmapped tools", () => {
-		const info = collectProjectInfo(makeCtx({
-			config: { name: "test-project", tools: {} } as any,
+	it("marks missing tools as unavailable", () => {
+		fileStore.set("/projects/test-project/package.json", JSON.stringify({
+			dependencies: {},
+			devDependencies: {},
 		}));
-		const unmapped = info.tools.find((t) => t.command === null);
-		expect(unmapped).toBeDefined();
+		const info = collectProjectInfo(makeCtx(), infoDeps);
+		const unavailable = info.tools.filter((t) => !t.available);
+		expect(unavailable.length).toBeGreaterThan(0);
 	});
 
 	it("returns undefined version when pkg is undefined", () => {
-		const info = collectProjectInfo(makeCtx({ pkg: undefined }));
+		const info = collectProjectInfo(makeCtx({ pkg: undefined }), infoDeps);
 		expect(info.version).toBeUndefined();
 	});
 
@@ -120,13 +128,13 @@ describe("collectProjectInfo", () => {
 		dirStore.add("/projects/test-project/src");
 		dirStore.add("/projects/test-project/tests");
 		mockCountFiles.mockReturnValue(25);
-		const info = collectProjectInfo(makeCtx());
+		const info = collectProjectInfo(makeCtx(), infoDeps);
 		expect(info.source).toBeDefined();
 		expect(info.source!.sourceFiles).toBe(25);
 	});
 
 	it("returns undefined source when no src or tests dirs", () => {
-		const info = collectProjectInfo(makeCtx());
+		const info = collectProjectInfo(makeCtx(), infoDeps);
 		expect(info.source).toBeUndefined();
 	});
 
@@ -135,7 +143,7 @@ describe("collectProjectInfo", () => {
 			dependencies: { obsidian: "1.0" },
 			devDependencies: { vitest: "1.0", typescript: "5.0" },
 		}));
-		const info = collectProjectInfo(makeCtx());
+		const info = collectProjectInfo(makeCtx(), infoDeps);
 		expect(info.dependencies).toBeDefined();
 		expect(info.dependencies!.production).toBe(1);
 		expect(info.dependencies!.development).toBe(2);
@@ -143,7 +151,7 @@ describe("collectProjectInfo", () => {
 	});
 
 	it("returns undefined dependencies when no pkg", () => {
-		const info = collectProjectInfo(makeCtx({ pkg: undefined }));
+		const info = collectProjectInfo(makeCtx({ pkg: undefined }), infoDeps);
 		expect(info.dependencies).toBeUndefined();
 	});
 
@@ -154,7 +162,7 @@ describe("collectProjectInfo", () => {
 			if (cmd.includes("status --porcelain")) return "";
 			return null;
 		});
-		const info = collectProjectInfo(makeCtx());
+		const info = collectProjectInfo(makeCtx(), infoDeps);
 		expect(info.git).toBeDefined();
 		expect(info.git!.branch).toBe("main");
 		expect(info.git!.commit).toBe("abc1234");
@@ -168,13 +176,13 @@ describe("collectProjectInfo", () => {
 			if (cmd.includes("status --porcelain")) return "M src/file.ts";
 			return null;
 		});
-		const info = collectProjectInfo(makeCtx());
+		const info = collectProjectInfo(makeCtx(), infoDeps);
 		expect(info.git!.status).toBe("dirty");
 	});
 
 	it("returns undefined git when git not available", () => {
 		mockRunSilent.mockReturnValue(null);
-		const info = collectProjectInfo(makeCtx());
+		const info = collectProjectInfo(makeCtx(), infoDeps);
 		expect(info.git).toBeUndefined();
 	});
 });

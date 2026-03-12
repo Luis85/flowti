@@ -2,11 +2,7 @@
  * e2e-audit.ts — Audit generation and consolidated metrics reporting.
  */
 
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
-import { shell } from "../../infrastructure/shell.js";
-import { input } from "../../infrastructure/input.js";
-import { clock } from "../../infrastructure/clock.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 import type { E2EPaths } from "./e2e-paths.js";
 import type { ReportSource, AuditFrontmatters } from "./e2e-types.js";
 import { yamlStr } from "./e2e-helpers.js";
@@ -127,7 +123,8 @@ function buildAuditPerfSection(perfFm: Record<string, unknown>, testFm: Record<s
 	return lines;
 }
 
-function buildAuditSourcesSection(sources: Record<string, ReportSource>): string[] {
+function buildAuditSourcesSection(sources: Record<string, ReportSource>, deps: Pick<CliDeps, "paths">): string[] {
+	const { paths } = deps;
 	const lines = ["---", "", "## Report Sources", ""];
 	const sourceMap: Array<[string, string]> = [
 		["build", "Build"], ["test", "Tests"], ["coverage", "Coverage"],
@@ -146,26 +143,27 @@ function buildAuditSourcesSection(sources: Record<string, ReportSource>): string
 
 // ── Write & open ────────────────────────────────────────────────────
 
-function writeAndOpenAudit(auditName: string, content: string, e2e: E2EPaths, log: (msg: string) => void = () => {}): void {
+function writeAndOpenAudit(auditName: string, content: string, e2e: E2EPaths, deps: Pick<CliDeps, "disk" | "paths" | "shell" | "log">): void {
+	const { disk, paths, shell, log } = deps;
 	const testAuditDir = paths.join(e2e.testVault, "03 - Resources", "Reviews", "Audits", auditName);
 	const testAuditPath = paths.join(testAuditDir, `${auditName}.md`);
 	disk.mkdirSync(testAuditDir, { recursive: true });
 	disk.writeFileSync(testAuditPath, content, "utf-8");
-	log(`  ✓ Audit written: ${testAuditPath}`);
+	log(`  \u2713 Audit written: ${testAuditPath}`);
 
 	const devAuditDir = paths.join(e2e.projectRoot, "docs", "reports", "e2e", "audits", auditName);
 	const devAuditPath = paths.join(devAuditDir, `${auditName}.md`);
 	disk.mkdirSync(devAuditDir, { recursive: true });
 	disk.writeFileSync(devAuditPath, content, "utf-8");
-	log(`  ✓ Audit mirrored: ${devAuditPath}`);
+	log(`  \u2713 Audit mirrored: ${devAuditPath}`);
 
 	const openResult = shell.runSilent(
 		`obsidian vault=${e2e.vaultName} open "03 - Resources/Reviews/Audits/${auditName}/${auditName}.md"`,
 	);
 	if (openResult !== null) {
-		log("  ✓ Audit opened in Obsidian");
+		log("  \u2713 Audit opened in Obsidian");
 	} else {
-		log("  ○ Could not open audit in Obsidian");
+		log("  \u25CB Could not open audit in Obsidian");
 	}
 }
 
@@ -195,13 +193,14 @@ function determineAuditStatus(fm: AuditFrontmatters): { overallStatus: string; c
 
 // ── Public: generate audit ──────────────────────────────────────────
 
-export async function generateAudit(e2e: E2EPaths, log: (msg: string) => void = () => {}): Promise<void> {
+export async function generateAudit(e2e: E2EPaths, deps: Pick<CliDeps, "disk" | "paths" | "shell" | "input" | "clock" | "log">): Promise<void> {
+	const { clock, input, log } = deps;
 	const defaultName = clock.iso().slice(0, 10) + "-audit";
 	const auditName = await input.ask("Audit name", defaultName);
 
 	log(`Generating audit: ${auditName}...`);
 
-	const sources = collectReportSources(e2e);
+	const sources = collectReportSources(e2e, deps);
 	const fm = extractAuditFrontmatters(sources);
 	const { overallStatus, currentCycle } = determineAuditStatus(fm);
 	const now = clock.now();
@@ -218,8 +217,8 @@ export async function generateAudit(e2e: E2EPaths, log: (msg: string) => void = 
 		...buildAuditTestSection(fm.testFm, !!sources.test),
 		...buildAuditE2eSection(fm.e2eFm, !!sources.e2e),
 		...buildAuditPerfSection(fm.perfFm, fm.testFm, !!sources.performance),
-		...buildAuditSourcesSection(sources),
+		...buildAuditSourcesSection(sources, deps),
 	];
 
-	writeAndOpenAudit(auditName, lines.join("\n"), e2e, log);
+	writeAndOpenAudit(auditName, lines.join("\n"), e2e, deps);
 }

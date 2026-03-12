@@ -93,7 +93,7 @@ import { input } from "../../src/infrastructure/input.js";
 import { runMenu } from "../../src/infrastructure/menu.js";
 import { setSelectedProject, getSelectedProject, loadState, saveState } from "../../src/infrastructure/state.js";
 import { checkPrerequisites } from "../../src/domain/onboarding/onboarding.js";
-import { listProjects, startMenu } from "../../src/domain/project/project.js";
+import { listProjects, startMenu } from "../../src/ui/menus/project-menu.js";
 import { resolveCommand } from "../../src/infrastructure/dispatch.js";
 import { scaffold as scaffoldProject } from "../../src/domain/scaffold/scaffold.js";
 import {
@@ -237,7 +237,7 @@ describe("Phase 1: Prerequisites", () => {
 		const sh = createMockShell({
 			outputs: { "node --version": "v22.0.0" },
 		});
-		checkPrerequisites({ sh, exit });
+		checkPrerequisites({ shell: sh, proc: { exit } });
 		expect(exit).not.toHaveBeenCalled();
 	});
 
@@ -247,7 +247,7 @@ describe("Phase 1: Prerequisites", () => {
 			failChecks: ["git --version"],
 			outputs: { "node --version": "v22.0.0" },
 		});
-		checkPrerequisites({ sh, exit });
+		checkPrerequisites({ shell: sh, proc: { exit } });
 		expect(exit).toHaveBeenCalledWith(2);
 	});
 
@@ -256,7 +256,7 @@ describe("Phase 1: Prerequisites", () => {
 		const sh = createMockShell({
 			outputs: { "node --version": "v14.0.0" },
 		});
-		checkPrerequisites({ sh, exit });
+		checkPrerequisites({ shell: sh, proc: { exit } });
 		expect(exit).toHaveBeenCalledWith(2);
 	});
 });
@@ -344,7 +344,7 @@ describe("Phase 4: Command dispatch", () => {
 
 describe("Phase 5: Project creation flow", () => {
 	it("starts with an empty projects list", () => {
-		const projects = listProjects();
+		const projects = listProjects({ disk: fsMod.disk });
 		expect(projects).toEqual([]);
 	});
 
@@ -389,11 +389,14 @@ describe("Phase 5: Project creation flow", () => {
 		await startMenu();
 
 		// Scaffold was called with correct options
-		expect(scaffoldProject).toHaveBeenCalledWith({
-			definitionId: "flowti-project",
-			name: "my-first-app",
-			outputDir: expect.stringContaining("my-first-app"),
-		});
+		expect(scaffoldProject).toHaveBeenCalledWith(
+			expect.objectContaining({ disk: expect.anything(), paths: expect.anything() }),
+			expect.objectContaining({
+				definitionId: "flowti-project",
+				name: "my-first-app",
+				outputDir: expect.stringContaining("my-first-app"),
+			}),
+		);
 
 		// Project was selected and persisted in state
 		expect(setSelectedProject).toHaveBeenCalledWith("my-first-app");
@@ -469,14 +472,14 @@ describe("Phase 6: Full lifecycle", () => {
 		const exit = vi.fn();
 		const sh = createMockShell({ outputs: { "node --version": "v22.0.0" } });
 		setShell(sh);
-		checkPrerequisites({ sh, exit });
+		checkPrerequisites({ shell: sh, proc: { exit } });
 		expect(exit).not.toHaveBeenCalled();
 
 		// 2. No project selected
 		expect(getSelectedProject()).toBeNull();
 
 		// 3. No projects yet
-		expect(listProjects()).toEqual([]);
+		expect(listProjects({ disk: fsMod.disk })).toEqual([]);
 
 		// 4. Create a project via the Start Menu (no projects — key 1 is Create)
 		vi.mocked(input.ask).mockResolvedValue("hello-world");
@@ -499,11 +502,14 @@ describe("Phase 6: Full lifecycle", () => {
 		await startMenu();
 
 		// 5. Scaffold was called
-		expect(scaffoldProject).toHaveBeenCalledWith({
-			definitionId: "flowti-project",
-			name: "hello-world",
-			outputDir: expect.stringContaining("hello-world"),
-		});
+		expect(scaffoldProject).toHaveBeenCalledWith(
+			expect.objectContaining({ disk: expect.anything(), paths: expect.anything() }),
+			expect.objectContaining({
+				definitionId: "flowti-project",
+				name: "hello-world",
+				outputDir: expect.stringContaining("hello-world"),
+			}),
+		);
 
 		// 6. Project was selected
 		expect(setSelectedProject).toHaveBeenCalledWith("hello-world");

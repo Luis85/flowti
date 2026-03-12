@@ -26,31 +26,34 @@ vi.mock("../../src/infrastructure/paths.js", () => ({
 		basename: vi.fn((p: string) => p.split("/").pop() ?? p),
 	},
 }));
-vi.mock("../../src/domain/reports/report-runner.js", () => ({
-	runAllReports: vi.fn(async () => ({ passed: 3, failed: 0 })),
+vi.mock("../../src/domain/reports/pipeline/report-runner.js", () => ({
+	runAllReports: vi.fn(async () => ({ passed: 3, failed: 0, totalDurationMs: 42 })),
 }));
-vi.mock("../../src/domain/reports/doc-runner.js", () => ({
-	runAllDocs: vi.fn(async () => {}),
+vi.mock("../../src/domain/reports/pipeline/doc-runner.js", () => ({
+	runAllDocs: vi.fn(async () => ({ passed: 0, failed: 0, totalDurationMs: 0 })),
 }));
 vi.mock("../../src/domain/reports/generator-registry.js", () => ({
 	runGenerator: vi.fn(),
 	hasGenerator: vi.fn(() => false),
 }));
+vi.mock("../../src/infrastructure/deps.js", () => ({
+	createDefaultDeps: () => ({ disk: {}, paths: {}, clock: {}, log: () => {} }),
+}));
 vi.mock("../../src/domain/reports/cli/report-service.js", () => ({
 	ReportService: class {
 		reportsDir: string;
-		constructor(projectPath: string) {
+		constructor(projectPath: string, _deps?: unknown) {
 			this.reportsDir = `${projectPath}/reports`;
 		}
 	},
 }));
-vi.mock("../../src/domain/reports/report-archive.js", () => ({
+vi.mock("../../src/domain/reports/export/report-archive.js", () => ({
 	discoverArchiveCategories: vi.fn(() => []),
 }));
-vi.mock("../../src/domain/reports/report-diff.js", () => ({
+vi.mock("../../src/domain/reports/export/report-diff.js", () => ({
 	diffReports: vi.fn(() => ({ deltas: [] })),
 }));
-vi.mock("../../src/domain/reports/html-export.js", () => ({
+vi.mock("../../src/domain/reports/export/html-export.js", () => ({
 	exportReportToHtml: vi.fn(() => ({ title: "Test Report", outputPath: "/out/test.html" })),
 }));
 vi.mock("../../src/ui/reports-display.js", () => ({
@@ -59,16 +62,23 @@ vi.mock("../../src/ui/reports-display.js", () => ({
 	renderReportDiff: vi.fn(),
 	renderHtmlExport: vi.fn(),
 	renderUnknownReport: vi.fn(),
+	renderReportRun: vi.fn(),
 }));
 vi.mock("../../src/ui/common-renderers.js", () => ({
 	renderNoProject: vi.fn(),
 	renderError: vi.fn(),
+	renderShellCommand: vi.fn(),
+	renderSuccess: vi.fn(),
 }));
 
 import { commands } from "../../src/controller/reports.controller.js";
-import { runAllReports } from "../../src/domain/reports/report-runner.js";
-import { discoverArchiveCategories } from "../../src/domain/reports/report-archive.js";
+import { initializeDeps } from "../../src/infrastructure/request-response.js";
+import { runAllReports } from "../../src/domain/reports/pipeline/report-runner.js";
+import { discoverArchiveCategories } from "../../src/domain/reports/export/report-archive.js";
 import { disk } from "../../src/infrastructure/filesystem.js";
+import { paths } from "../../src/infrastructure/paths.js";
+import { shell } from "../../src/infrastructure/shell.js";
+import { log } from "../../src/infrastructure/logger.js";
 
 const mockProject = {
 	path: "/project",
@@ -99,6 +109,14 @@ const mockProjectWithGenerators = {
 describe("reports.controller", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		initializeDeps({
+			disk, shell, paths,
+			clock: { iso: () => "", now: () => new Date(), ms: () => 0, safeIso: () => "" },
+			proc: { exit: vi.fn() as never, argv: () => [], cwd: () => "/", env: () => ({}) },
+			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never },
+			bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never,
+			log, warn: vi.fn(),
+		});
 	});
 
 	// ── reports (no generators) ───────────────────────────────────

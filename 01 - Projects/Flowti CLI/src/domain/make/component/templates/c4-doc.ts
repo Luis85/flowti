@@ -5,8 +5,10 @@
  */
 
 import { Document } from "../../../../infrastructure/document.js";
-import { clock } from "../../../../infrastructure/clock.js";
+import type { CliDeps } from "../../../../infrastructure/deps.js";
 import type { ComponentVariables, ComponentDefinition } from "../component-types.js";
+
+export type TemplateDeps = Pick<CliDeps, "clock">;
 
 const C4_LABELS: Record<string, string> = {
 	system: "System",
@@ -45,7 +47,7 @@ function applyOptionalFields(doc: Document, vars: ComponentVariables, def: Compo
 	}
 }
 
-function applyFrontmatter(doc: Document, vars: ComponentVariables, def: ComponentDefinition): void {
+function applyFrontmatter(doc: Document, vars: ComponentVariables, def: ComponentDefinition, deps: TemplateDeps): void {
 	const meta = def.metadata;
 	const c4Label = C4_LABELS[def.kind] ?? def.kind;
 	const c4Level = meta.c4Level != null ? String(meta.c4Level) : "";
@@ -54,14 +56,14 @@ function applyFrontmatter(doc: Document, vars: ComponentVariables, def: Componen
 	doc.setFrontmatter("c4", c4Label);
 	if (c4Level) doc.setFrontmatter("c4Level", c4Level);
 	doc.setFrontmatter("status", "draft");
-	doc.setFrontmatter("created", clock.iso().slice(0, 10));
+	doc.setFrontmatter("created", deps.clock.iso().slice(0, 10));
 	applyOptionalFields(doc, vars, def);
 }
 
-export function c4DocTemplate(vars: ComponentVariables, def: ComponentDefinition): Document {
+export function c4DocTemplate(vars: ComponentVariables, def: ComponentDefinition, deps: TemplateDeps): Document {
 	const c4Label = C4_LABELS[def.kind] ?? def.kind;
 	const doc = Document.create(vars.name);
-	applyFrontmatter(doc, vars, def);
+	applyFrontmatter(doc, vars, def, deps);
 
 	doc.addBlank()
 		.heading(1, vars.name)

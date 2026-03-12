@@ -51,9 +51,15 @@ vi.mock("../../../../src/domain/build/build-freshness.js", () => ({
 	resolveBuildPaths: vi.fn(() => ({ srcDir: "/project/src", binDir: "/project/dist" })),
 }));
 
+import type { ReportDeps } from "../../../../src/infrastructure/deps.js";
 import { disk } from "../../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../../src/infrastructure/paths.js";
+import { clock } from "../../../../src/infrastructure/clock.js";
 import { generateProjectStatusReport } from "../../../../src/domain/reports/cli/generate-status-report.js";
 import { generateTestReport } from "../../../../src/domain/reports/cli/generate-test-report.js";
+
+const mockShell = { run: vi.fn(() => ({ stdout: "", stderr: "", exitCode: 0, success: true })) };
+const mockDeps: ReportDeps = { disk, paths, clock, shell: mockShell as any, log: () => {} };
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -64,7 +70,7 @@ describe("generateProjectStatusReport", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readFileSync).mockReturnValue("# Report\nSome content");
 
-		const result = generateProjectStatusReport("/project");
+		const result = generateProjectStatusReport("/project", mockDeps);
 
 		expect(result.success).toBe(true);
 		expect(result.outputPath).toBeTruthy();
@@ -78,7 +84,7 @@ describe("generateProjectStatusReport", () => {
 		const logFn = vi.fn();
 		const ctx = { log: logFn, projectPath: "/project", getResults: () => [], pushResult: vi.fn(), getStepResult: vi.fn(), setCommandOutput: vi.fn(), getCommandOutput: vi.fn(), setStepData: vi.fn(), getStepData: vi.fn() };
 
-		generateProjectStatusReport("/project", ctx as any);
+		generateProjectStatusReport("/project", mockDeps, ctx as any);
 
 		expect(generateTestReport).toHaveBeenCalled();
 	});
@@ -87,7 +93,7 @@ describe("generateProjectStatusReport", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(false);
 		vi.mocked(generateTestReport).mockReturnValue({ success: false, outputPath: "", metrics: {} });
 
-		const result = generateProjectStatusReport("/project");
+		const result = generateProjectStatusReport("/project", mockDeps);
 
 		expect(result.warnings).toBeDefined();
 	});
@@ -101,7 +107,7 @@ describe("generateProjectStatusReport", () => {
 		});
 		vi.mocked(disk.readFileSync).mockReturnValue("# Test\nBody content");
 
-		const result = generateProjectStatusReport("/project");
+		const result = generateProjectStatusReport("/project", mockDeps);
 
 		expect(result.success).toBe(true);
 		expect(result.metrics!.sections).toBeGreaterThanOrEqual(0);
@@ -111,7 +117,7 @@ describe("generateProjectStatusReport", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(false);
 		vi.mocked(generateTestReport).mockImplementation(() => { throw new Error("boom"); });
 
-		const result = generateProjectStatusReport("/project");
+		const result = generateProjectStatusReport("/project", mockDeps);
 
 		expect(result.success).toBe(true);
 		expect(result.warnings).toBeDefined();
@@ -124,7 +130,7 @@ describe("generateProjectStatusReport", () => {
 		const logFn = vi.fn();
 		const ctx = { log: logFn, projectPath: "/project", getResults: () => [], pushResult: vi.fn(), getStepResult: vi.fn(), setCommandOutput: vi.fn(), getCommandOutput: vi.fn(), setStepData: vi.fn(), getStepData: vi.fn() };
 
-		generateProjectStatusReport("/project", ctx as any);
+		generateProjectStatusReport("/project", mockDeps, ctx as any);
 
 		expect(logFn).toHaveBeenCalled();
 	});

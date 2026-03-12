@@ -5,25 +5,14 @@
  * This file only handles lazy path resolution and the top-level invocation.
  */
 
-import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
-import { readProjectConfig } from "../../project/project-config.js";
+import type { CliDeps } from "../../../infrastructure/deps.js";
 import { resolveE2EPaths, type E2EPaths } from "../../review/e2e-paths.js";
-import { generateE2EReport } from "./e2e/e2e-report-summary.js";
 
-// ── Lazy E2E path resolution ────────────────────────────────────
-
-let _e2e: E2EPaths | null = null;
-function e2e(): E2EPaths {
-	if (!_e2e) {
-		const { config } = readProjectConfig(PLUGIN_ROOT);
-		_e2e = resolveE2EPaths(PLUGIN_ROOT, config?.review);
-	}
-	return _e2e;
-}
+export type E2EReportDeps = Pick<CliDeps, "disk" | "paths" | "proc">;
 
 /** Initialize E2E report paths from a project context. */
-export function initE2EReportPaths(projectRoot: string, review?: import("../../../infrastructure/types.js").ReviewConfig): void {
-	_e2e = resolveE2EPaths(projectRoot, review);
+export function initE2EReportPaths(projectRoot: string, deps: E2EReportDeps, review?: import("../../../infrastructure/types.js").ReviewConfig): E2EPaths {
+	return resolveE2EPaths(projectRoot, review, { paths: deps.paths, proc: deps.proc });
 }
 
 // Re-export all types and functions for backward compatibility
@@ -55,6 +44,5 @@ export { generateJourneyReport, extractJourneyFields, buildErrorContextLines } f
 export { generateJourneyCanvas, formatActionText } from "./e2e/e2e-report-canvas.js";
 export { readLatestEventTrace, readStartupPerf, buildPerfLines, buildEventTraceLines, buildPerfEventStats, classifyPerfEvent, parsePerfPayload } from "./e2e/e2e-report-perf.js";
 export { generateE2EReport, writeJourneyOutputs, aggregateJourneyStats, computeReconciledTotals, cleanupResults } from "./e2e/e2e-report-summary.js";
+export type { E2ESummaryDeps } from "./e2e/e2e-report-summary.js";
 
-// ── Script entry point ──────────────────────────────────────────
-generateE2EReport(e2e());

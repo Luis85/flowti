@@ -5,12 +5,10 @@
  * Interactive menus live in ui/menus/capture-menu.ts.
  */
 
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
 import { VAULT_ROOT, getCaptureDir } from "../../infrastructure/config.js";
 import { Document } from "../../infrastructure/document.js";
-import { clock } from "../../infrastructure/clock.js";
 import { parseFrontmatterContent } from "../../infrastructure/frontmatter.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 
 // ── Constants ───────────────────────────────────────────────────────
 
@@ -31,18 +29,18 @@ export function parseTags(raw: string | boolean | undefined): string[] {
 	return raw.split(",").map((t) => t.trim()).filter(Boolean);
 }
 
-export function createCaptureFile(type: string, title: string, body: string, tags: string[] = []): string | null {
+export function createCaptureFile(deps: Pick<CliDeps, "disk" | "paths" | "clock">, type: string, title: string, body: string, tags: string[] = []): string | null {
 	const dir = getCaptureDir(type.toLowerCase());
-	disk.mkdirSync(dir, { recursive: true });
+	deps.disk.mkdirSync(dir, { recursive: true });
 
 	const filename = sanitizeFilename(title) + ".md";
-	const filePath = paths.join(dir, filename);
+	const filePath = deps.paths.join(dir, filename);
 
-	if (disk.existsSync(filePath)) {
+	if (deps.disk.existsSync(filePath)) {
 		return null;
 	}
 
-	const fm: Record<string, string | string[]> = { type, date: clock.iso() };
+	const fm: Record<string, string | string[]> = { type, date: deps.clock.iso() };
 	if (tags.length > 0) fm.tags = tags;
 
 	const doc = Document.create(title)
@@ -61,26 +59,26 @@ export function createCaptureFile(type: string, title: string, body: string, tag
 
 // ── Import helper ───────────────────────────────────────────────────
 
-function importSingleItem(item: unknown): boolean | null {
+function importSingleItem(deps: Pick<CliDeps, "disk" | "paths" | "clock">, item: unknown): boolean | null {
 	const entry = item as Record<string, unknown>;
 	const type = typeof entry.type === "string" ? entry.type : "Note";
 	const title = typeof entry.title === "string" ? entry.title : "";
 	const body = typeof entry.body === "string" ? entry.body : "";
 	const tags = Array.isArray(entry.tags) ? (entry.tags as string[]).filter((t) => typeof t === "string") : [];
 	if (!title) return null;
-	return createCaptureFile(type, title, body, tags) !== null;
+	return createCaptureFile(deps, type, title, body, tags) !== null;
 }
 
-export function importCaptureItems(absPath: string): { created: number; skipped: number; error?: string } {
+export function importCaptureItems(deps: Pick<CliDeps, "disk" | "paths" | "clock">, absPath: string): { created: number; skipped: number; error?: string } {
 	try {
-		const raw = JSON.parse(disk.readFileSync(absPath, "utf-8")) as unknown;
+		const raw = JSON.parse(deps.disk.readFileSync(absPath, "utf-8")) as unknown;
 		if (!Array.isArray(raw)) {
 			return { created: 0, skipped: 0, error: "Expected a JSON array." };
 		}
 		let created = 0;
 		let skipped = 0;
 		for (const item of raw) {
-			const result = importSingleItem(item);
+			const result = importSingleItem(deps, item);
 			if (result === null) skipped++;
 			else if (result) created++;
 			else skipped++;
@@ -119,13 +117,14 @@ function matchesCaptureQuery(query: string, searchable: string[]): boolean {
 }
 
 function parseCaptureMeta(
+	deps: Pick<CliDeps, "disk" | "paths">,
 	filePath: string,
 	subType: string,
 	query: string,
 	typeFilter?: string,
 	tagFilter?: string,
 ): CaptureSearchResult | null {
-	const content = disk.readFileSync(filePath, "utf-8");
+	const content = deps.disk.readFileSync(filePath, "utf-8");
 	const fm = parseFrontmatterContent(content);
 	if (!fm) return null;
 
@@ -138,27 +137,27 @@ function parseCaptureMeta(
 	if (!matchesCaptureFilters(type, tags, typeFilter, tagFilter)) return null;
 	if (!matchesCaptureQuery(query, [title, type, ...tags, content])) return null;
 
-	return { file: paths.relative(VAULT_ROOT, filePath), title, type, date, tags };
+	return { file: deps.paths.relative(VAULT_ROOT, filePath), title, type, date, tags };
 }
 
-export function searchCaptures(query: string, typeFilter?: string, tagFilter?: string): CaptureSearchResult[] {
+export function searchCaptures(deps: Pick<CliDeps, "disk" | "paths">, query: string, typeFilter?: string, tagFilter?: string): CaptureSearchResult[] {
 	const baseDir = getCaptureDir("");
-	if (!disk.existsSync(baseDir)) return [];
+	if (!deps.disk.existsSync(baseDir)) return [];
 
 	const results: CaptureSearchResult[] = [];
 
-	const subdirs = disk.readdirSync(baseDir);
+	const subdirs = deps.disk.readdirSync(baseDir);
 	for (const sub of subdirs) {
-		const subPath = paths.join(baseDir, sub);
+		const subPath = deps.paths.join(baseDir, sub);
 		let files: string[];
 		try {
-			files = disk.readdirSync(subPath).filter((f) => f.endsWith(".md"));
+			files = deps.disk.readdirSync(subPath).filter((f) => f.endsWith(".md"));
 		} catch {
 			continue;
 		}
 		for (const file of files) {
-			const filePath = paths.join(subPath, file);
-			const result = parseCaptureMeta(filePath, sub, query, typeFilter, tagFilter);
+			const filePath = deps.paths.join(subPath, file);
+			const result = parseCaptureMeta(deps, filePath, sub, query, typeFilter, tagFilter);
 			if (result) results.push(result);
 		}
 	}

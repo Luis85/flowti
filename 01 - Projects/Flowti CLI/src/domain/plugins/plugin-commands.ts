@@ -5,8 +5,7 @@
  * Interactive menu lives in ui/menus/plugins-menu.ts.
  */
 
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 import {
 	discoverPluginFiles,
 	validateManifest,
@@ -43,14 +42,17 @@ export function toPluginListItems(plugins: LoadedPlugin[]): PluginListItem[] {
 	}));
 }
 
-export function toPluginValidationItems(vaultRoot: string): PluginValidationItem[] {
-	const pluginsDir = paths.join(vaultRoot, PLUGINS_DIR);
-	const files = discoverPluginFiles(pluginsDir, disk);
+export function toPluginValidationItems(
+	deps: Pick<CliDeps, "disk" | "paths">,
+	vaultRoot: string,
+): PluginValidationItem[] {
+	const pluginsDir = deps.paths.join(vaultRoot, PLUGINS_DIR);
+	const files = discoverPluginFiles(deps, pluginsDir, deps.disk);
 	return files.map((file) => {
-		const pluginDir = paths.dirname(file);
-		const pluginName = paths.basename(pluginDir);
+		const pluginDir = deps.paths.dirname(file);
+		const pluginName = deps.paths.basename(pluginDir);
 		try {
-			const raw = JSON.parse(disk.readFileSync(file, "utf-8")) as unknown;
+			const raw = JSON.parse(deps.disk.readFileSync(file, "utf-8")) as unknown;
 			const result = validateManifest(raw);
 			return {
 				name: pluginName,

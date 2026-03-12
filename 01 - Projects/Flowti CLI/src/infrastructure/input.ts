@@ -8,12 +8,8 @@
 
 import readline from "node:readline";
 import { RESET, DIM } from "./ui.js";
-
-export interface IInput {
-	ask(question: string, defaultValue?: string): Promise<string>;
-	askYesNo(question: string, defaultNo?: boolean): Promise<boolean>;
-	waitForEnter(): Promise<void>;
-}
+import type { IInput } from "./types.js";
+export type { IInput } from "./types.js";
 
 function formatPrompt(question: string, suffix: string): string {
 	return `  ${question}${suffix}: `;

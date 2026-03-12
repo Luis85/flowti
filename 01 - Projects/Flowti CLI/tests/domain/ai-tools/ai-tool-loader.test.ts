@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import path from "node:path";
 import { createMockFs } from "../../mocks/mock-fs.js";
 
 vi.mock("../../../src/infrastructure/ui.js", () => ({
@@ -18,6 +19,16 @@ import {
 	generateToolReference,
 	AI_TOOLS_DIR,
 } from "../../../src/domain/ai-tools/ai-tool-loader.js";
+
+const testPaths = {
+	join: (...args: string[]) => args.join("/"),
+	basename: (p: string, ext?: string) => { const b = path.basename(p); return ext && b.endsWith(ext) ? b.slice(0, -ext.length) : b; },
+	dirname: (p: string) => path.dirname(p).replace(/\\/g, "/"),
+	resolve: (...args: string[]) => args.join("/"),
+	relative: (_from: string, to: string) => to,
+};
+
+const testDeps = { paths: testPaths } as const;
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -144,7 +155,7 @@ describe("validateToolDefinition", () => {
 describe("discoverToolFiles", () => {
 	it("returns empty array when directory does not exist", () => {
 		const fs = createMockFs({});
-		expect(discoverToolFiles("/vault/.flowti/ai-tools", fs)).toEqual([]);
+		expect(discoverToolFiles(testDeps, "/vault/.flowti/ai-tools", fs)).toEqual([]);
 	});
 
 	it("finds .json files in the ai-tools directory", () => {
@@ -152,7 +163,7 @@ describe("discoverToolFiles", () => {
 			"/vault/.flowti/ai-tools/search.json": "{}",
 			"/vault/.flowti/ai-tools/build.json": "{}",
 		});
-		const result = discoverToolFiles("/vault/.flowti/ai-tools", fs);
+		const result = discoverToolFiles(testDeps, "/vault/.flowti/ai-tools", fs);
 		expect(result).toHaveLength(2);
 	});
 
@@ -161,7 +172,7 @@ describe("discoverToolFiles", () => {
 			"/vault/.flowti/ai-tools/readme.txt": "hello",
 			"/vault/.flowti/ai-tools/search.json": "{}",
 		});
-		const result = discoverToolFiles("/vault/.flowti/ai-tools", fs);
+		const result = discoverToolFiles(testDeps, "/vault/.flowti/ai-tools", fs);
 		expect(result).toHaveLength(1);
 	});
 });
@@ -177,7 +188,7 @@ describe("loadToolFile", () => {
 
 	it("loads a valid tool file", () => {
 		const fs = createMockFs({ "/vault/.flowti/ai-tools/search.json": validJson });
-		const result = loadToolFile("/vault/.flowti/ai-tools/search.json", fs);
+		const result = loadToolFile(testDeps, "/vault/.flowti/ai-tools/search.json", fs);
 
 		expect(result.valid).toBe(true);
 		expect(result.definition.name).toBe("search");
@@ -185,7 +196,7 @@ describe("loadToolFile", () => {
 
 	it("returns invalid for malformed JSON", () => {
 		const fs = createMockFs({ "/vault/.flowti/ai-tools/bad.json": "not json" });
-		const result = loadToolFile("/vault/.flowti/ai-tools/bad.json", fs);
+		const result = loadToolFile(testDeps, "/vault/.flowti/ai-tools/bad.json", fs);
 
 		expect(result.valid).toBe(false);
 		expect(result.errors[0]).toContain("Failed to parse");
@@ -193,7 +204,7 @@ describe("loadToolFile", () => {
 
 	it("returns invalid for bad structure", () => {
 		const fs = createMockFs({ "/vault/.flowti/ai-tools/bad.json": '{"name": ""}' });
-		const result = loadToolFile("/vault/.flowti/ai-tools/bad.json", fs);
+		const result = loadToolFile(testDeps, "/vault/.flowti/ai-tools/bad.json", fs);
 
 		expect(result.valid).toBe(false);
 	});
@@ -204,7 +215,7 @@ describe("loadToolFile", () => {
 describe("loadAiTools", () => {
 	it("returns empty array when no tools directory", () => {
 		const fs = createMockFs({});
-		expect(loadAiTools("/vault", fs)).toEqual([]);
+		expect(loadAiTools(testDeps, "/vault", fs)).toEqual([]);
 	});
 
 	it("loads all tools from the vault ai-tools directory", () => {
@@ -214,7 +225,7 @@ describe("loadAiTools", () => {
 			"/vault/.flowti/ai-tools/a.json": tool1,
 			"/vault/.flowti/ai-tools/b.json": tool2,
 		});
-		const result = loadAiTools("/vault", fs);
+		const result = loadAiTools(testDeps, "/vault", fs);
 
 		expect(result).toHaveLength(2);
 		expect(result[0].valid).toBe(true);
@@ -227,7 +238,7 @@ describe("loadAiTools", () => {
 describe("scaffoldAiTool", () => {
 	it("creates a new tool definition file", () => {
 		const fs = createMockFs({});
-		const result = scaffoldAiTool("/vault", "my-tool", "A test tool", "echo hello", fs);
+		const result = scaffoldAiTool(testDeps, "/vault", "my-tool", "A test tool", "echo hello", fs);
 
 		expect("path" in result).toBe(true);
 		expect(fs.existsSync("/vault/.flowti/ai-tools/my-tool.json")).toBe(true);
@@ -239,7 +250,7 @@ describe("scaffoldAiTool", () => {
 
 	it("rejects invalid tool names", () => {
 		const fs = createMockFs({});
-		const result = scaffoldAiTool("/vault", "My Tool!", "bad", "echo", fs);
+		const result = scaffoldAiTool(testDeps, "/vault", "My Tool!", "bad", "echo", fs);
 		expect("error" in result).toBe(true);
 	});
 
@@ -247,7 +258,7 @@ describe("scaffoldAiTool", () => {
 		const fs = createMockFs({
 			"/vault/.flowti/ai-tools/existing.json": "{}",
 		});
-		const result = scaffoldAiTool("/vault", "existing", "dup", "echo", fs);
+		const result = scaffoldAiTool(testDeps, "/vault", "existing", "dup", "echo", fs);
 		expect("error" in result).toBe(true);
 		if ("error" in result) {
 			expect(result.error).toContain("already exists");

@@ -22,7 +22,8 @@ function noProjectResponse(command: string) {
 const actions: Record<string, ControllerAction> = {
 	info: (req) => {
 		if (!req.project) return noProjectResponse("info");
-		const model = collectProjectInfo(req.project);
+		const { disk, paths, shell } = req.deps;
+		const model = collectProjectInfo(req.project, { disk, paths, shell });
 		return dataResponse(model, displayInfo);
 	},
 };

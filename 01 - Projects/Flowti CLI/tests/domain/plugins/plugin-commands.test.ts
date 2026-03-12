@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
+vi.mock("../../../src/infrastructure/logger.js", () => ({ log: vi.fn(), warn: vi.fn() }));
 vi.mock("../../../src/infrastructure/ui.js", () => ({
 	RESET: "", DIM: "", GREEN: "", RED: "", YELLOW: "", CYAN: "",
 }));
@@ -17,6 +17,9 @@ vi.mock("../../../src/infrastructure/paths.js", () => ({
 		dirname: (p: string) => p.split("/").slice(0, -1).join("/"),
 		resolve: (...args: string[]) => args.join("/"),
 	},
+}));
+vi.mock("../../../src/infrastructure/clock.js", () => ({
+	clock: { iso: vi.fn(() => "2026-01-01T00:00:00.000Z"), now: vi.fn(() => new Date()), ms: vi.fn(() => 0) },
 }));
 vi.mock("../../../src/infrastructure/config.js", () => ({
 	VAULT_ROOT: "/vault",
@@ -60,6 +63,7 @@ import { log } from "../../../src/infrastructure/logger.js";
 import { loadPlugins, discoverPluginFiles, validateManifest } from "../../../src/domain/plugins/plugin-loader.js";
 import { generatePluginReference } from "../../../src/domain/plugins/plugin-reference.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
 import {
 	toPluginListItems,
 	toPluginValidationItems,
@@ -293,10 +297,10 @@ describe("toPluginValidationItems", () => {
 	it("returns empty array when no plugin files discovered", () => {
 		vi.mocked(discoverPluginFiles).mockReturnValue([]);
 
-		const items = toPluginValidationItems("/vault");
+		const items = toPluginValidationItems({ disk, paths }, "/vault");
 
 		expect(items).toEqual([]);
-		expect(discoverPluginFiles).toHaveBeenCalledWith("/vault/.flowti/plugins", disk);
+		expect(discoverPluginFiles).toHaveBeenCalledWith(expect.any(Object), "/vault/.flowti/plugins", disk);
 	});
 
 	it("validates a valid manifest", () => {
@@ -308,7 +312,7 @@ describe("toPluginValidationItems", () => {
 		);
 		vi.mocked(validateManifest).mockReturnValue({ valid: true, errors: [], warnings: [] });
 
-		const items = toPluginValidationItems("/vault");
+		const items = toPluginValidationItems({ disk, paths }, "/vault");
 
 		expect(items).toHaveLength(1);
 		expect(items[0]).toEqual({
@@ -330,7 +334,7 @@ describe("toPluginValidationItems", () => {
 			warnings: ["No version specified"],
 		});
 
-		const items = toPluginValidationItems("/vault");
+		const items = toPluginValidationItems({ disk, paths }, "/vault");
 
 		expect(items[0].valid).toBe(false);
 		expect(items[0].errors).toEqual(["Missing commands field"]);
@@ -345,7 +349,7 @@ describe("toPluginValidationItems", () => {
 			throw new SyntaxError("Unexpected token");
 		});
 
-		const items = toPluginValidationItems("/vault");
+		const items = toPluginValidationItems({ disk, paths }, "/vault");
 
 		expect(items[0]).toEqual({
 			name: "corrupt",
@@ -363,7 +367,7 @@ describe("toPluginValidationItems", () => {
 			throw "string error";
 		});
 
-		const items = toPluginValidationItems("/vault");
+		const items = toPluginValidationItems({ disk, paths }, "/vault");
 
 		expect(items[0].errors[0]).toBe("Parse error: string error");
 	});
@@ -378,7 +382,7 @@ describe("toPluginValidationItems", () => {
 			.mockImplementationOnce(() => { throw new SyntaxError("bad JSON"); });
 		vi.mocked(validateManifest).mockReturnValue({ valid: true, errors: [], warnings: [] });
 
-		const items = toPluginValidationItems("/vault");
+		const items = toPluginValidationItems({ disk, paths }, "/vault");
 
 		expect(items).toHaveLength(2);
 		expect(items[0].name).toBe("good");
@@ -400,7 +404,7 @@ describe("toPluginValidationItems", () => {
 			warnings: origWarnings,
 		});
 
-		const items = toPluginValidationItems("/vault");
+		const items = toPluginValidationItems({ disk, paths }, "/vault");
 		items[0].errors.push("extra");
 		items[0].warnings.push("extra");
 

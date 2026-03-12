@@ -13,28 +13,28 @@
 	"package": {
 		"type": "module",
 		"scripts": {
-			"dev": "node configs/esbuild.config.mjs --watch",
 			"build": "node configs/esbuild.config.mjs",
+			"build:watch": "node configs/esbuild.config.mjs --watch",
 			"test": "npm run check && vitest run --config configs/vitest.config.ts",
+			"lint": "eslint --config configs/eslint.config.mjs src/",
 			"check": "npm run lint && tsc --project configs/tsconfig.json --noEmit",
-			"lint": "eslint --config configs/eslint.config.mjs src/"
+			"typedoc": "typedoc --options configs/typedoc.json"
 		},
 		"devDependencies": {
 			"@types/node": "^22.0.0",
 			"@typescript-eslint/eslint-plugin": "^8.0.0",
 			"@typescript-eslint/parser": "^8.0.0",
+			"@vitest/coverage-v8": "^4.0.0",
 			"esbuild": "^0.25.0",
 			"eslint": "^10.0.0",
-			"tsx": "^4.0.0",
+			"typedoc": "^0.28.0",
 			"typescript": "^5.9.0",
 			"vitest": "^4.0.0"
 		}
 	},
 	"flowtiConfig": {
-		"tools": {
-			"build": "npm run build",
-			"devtools": "npm run dev"
-		},
+		"build": { "commands": { "fast": "npm run build", "watch": "npm run build:watch" } },
+		"test": { "commands": { "unit": "npm test" } },
 		"publish": {
 			"build": "npm run build",
 			"test": "npm test",
@@ -61,12 +61,14 @@
 		{ "path": "configs/flowti.config.json", "templateId": "flowti-config" },
 		{ "path": ".gitignore", "templateId": "gitignore" },
 		{ "path": "src/main.ts", "templateId": "project-main" },
-		{ "path": "tests/main.test.ts", "templateId": "project-main-test" }
+		{ "path": "tests/main.test.ts", "templateId": "project-main-test" },
+		{ "path": "README.md", "templateId": "readme" },
+		{ "path": "docs/{{name}} — Architecture.md", "templateId": "architecture" }
 	],
 	"nextSteps": [
 		"cd \"{{outputPath}}\"",
 		"npm install",
 		"npm test",
-		"npm run dev"
+		"npm run build:watch"
 	]
 }

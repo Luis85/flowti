@@ -13,6 +13,7 @@ import { RESET, DIM, GREEN, RED } from "../infrastructure/ui.js";
 export interface ErrorModel {
 	error: string;
 	hint?: string;
+	code?: string;
 }
 
 export interface SuccessModel {
@@ -21,6 +22,17 @@ export interface SuccessModel {
 
 export interface NoProjectModel {
 	command: string;
+}
+
+export interface ShellCommandModel {
+	command: string;
+	exitCode: number;
+	label?: string;
+}
+
+export interface InteractiveOnlyModel {
+	command: string;
+	error: string;
 }
 
 // ── Renderers ────────────────────────────────────────────────────────
@@ -39,4 +51,13 @@ export function renderNoProject(data: NoProjectModel): void {
 	log(`\n  ${RED}No project selected.${RESET}`);
 	log(`  ${DIM}Select a project first: flowti project${RESET}`);
 	log(`  ${DIM}Or specify one:          flowti ${data.command} --project=<name>${RESET}\n`);
+}
+
+export function renderShellCommand(_data: ShellCommandModel): void {
+	// Shell commands produce their own stdout/stderr — nothing extra to render.
+}
+
+export function renderInteractiveOnly(data: InteractiveOnlyModel): void {
+	log(`\n  ${RED}${data.error}${RESET}`);
+	log(`  ${DIM}Run without --format=json for interactive mode.${RESET}\n`);
 }

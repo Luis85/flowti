@@ -3,9 +3,7 @@
  * state report frontmatter, and generation for increment/publish builds.
  */
 
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
-import { clock } from "../../infrastructure/clock.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 import type { E2EPaths } from "./e2e-paths.js";
 import type { TestStats, BuildStats, ExtractedMetrics } from "./e2e-types.js";
 
@@ -201,7 +199,8 @@ export function buildTraceFrontmatterLines(tr: Record<string, unknown>): string[
 
 // ── Increment state report ──────────────────────────────────────────
 
-export function generateIncrementStateReport(exitCode: number, duration: string, stats: BuildStats, e2e: E2EPaths, log: (msg: string) => void = () => {}): { testPath: string; devPath: string } {
+export function generateIncrementStateReport(exitCode: number, duration: string, stats: BuildStats, e2e: E2EPaths, deps: Pick<CliDeps, "disk" | "paths" | "clock" | "log">): { testPath: string; devPath: string } {
+	const { disk, paths, clock, log } = deps;
 	const DEV_VAULT_ROOT = paths.resolve(e2e.projectRoot, "..", "..");
 	const now = clock.now();
 	const status = exitCode === 0 ? "pass" : "fail";
@@ -229,18 +228,19 @@ export function generateIncrementStateReport(exitCode: number, duration: string,
 
 	const testPath = paths.join(e2e.testVault, filename);
 	disk.writeFileSync(testPath, content, "utf-8");
-	log(`  ✓ Increment State Report: ${testPath}`);
+	log(`  \u2713 Increment State Report: ${testPath}`);
 
 	const devPath = paths.join(DEV_VAULT_ROOT, filename);
 	disk.writeFileSync(devPath, content, "utf-8");
-	log(`  ✓ Increment State Report: ${devPath}`);
+	log(`  \u2713 Increment State Report: ${devPath}`);
 
 	return { testPath, devPath };
 }
 
 // ── Publish state report ────────────────────────────────────────────
 
-export function generatePublishStateReport(exitCode: number, duration: string, stats: BuildStats, e2e: E2EPaths, log: (msg: string) => void = () => {}): { devPath: string } {
+export function generatePublishStateReport(exitCode: number, duration: string, stats: BuildStats, e2e: E2EPaths, deps: Pick<CliDeps, "disk" | "paths" | "clock" | "log">): { devPath: string } {
+	const { disk, paths, clock, log } = deps;
 	const DEV_VAULT_ROOT = paths.resolve(e2e.projectRoot, "..", "..");
 	const now = clock.now();
 	const status = exitCode === 0 ? "pass" : "fail";
@@ -269,7 +269,7 @@ export function generatePublishStateReport(exitCode: number, duration: string, s
 
 	const devPath = paths.join(DEV_VAULT_ROOT, filename);
 	disk.writeFileSync(devPath, content, "utf-8");
-	log(`  ✓ Publish State Report: ${devPath}`);
+	log(`  \u2713 Publish State Report: ${devPath}`);
 
 	return { devPath };
 }

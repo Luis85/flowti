@@ -28,6 +28,9 @@ vi.mock("../../src/infrastructure/paths.js", () => ({
 		basename: vi.fn((p: string) => p.split("/").pop() ?? p),
 	},
 }));
+vi.mock("../../src/infrastructure/clock.js", () => ({
+	clock: { iso: vi.fn(() => "2026-01-01T00:00:00.000Z"), now: vi.fn(() => new Date()), ms: vi.fn(() => 0) },
+}));
 vi.mock("../../src/infrastructure/config.js", () => ({
 	VAULT_ROOT: "/vault",
 	CLI_PROJECT: "/vault/cli",
@@ -75,8 +78,15 @@ vi.mock("../../src/ui/common-renderers.js", () => ({
 // ── Imports ──────────────────────────────────────────────────────
 
 import { commands } from "../../src/controller/ai-tools.controller.js";
+import { initializeDeps } from "../../src/infrastructure/request-response.js";
 import { loadAiTools, discoverToolFiles, validateToolDefinition } from "../../src/domain/ai-tools/ai-tool-loader.js";
 import { disk } from "../../src/infrastructure/filesystem.js";
+import { shell } from "../../src/infrastructure/shell.js";
+import { paths } from "../../src/infrastructure/paths.js";
+import { clock } from "../../src/infrastructure/clock.js";
+import { proc } from "../../src/infrastructure/proc.js";
+import { input } from "../../src/infrastructure/input.js";
+import { log } from "../../src/infrastructure/logger.js";
 
 const mockProject = {
 	name: "test",
@@ -91,6 +101,7 @@ const mockProject = {
 describe("ai-tools.controller", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		initializeDeps({ disk, shell, paths, clock, proc, input, bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never, log, warn: vi.fn() });
 	});
 
 	describe("ai:list", () => {
@@ -99,7 +110,7 @@ describe("ai-tools.controller", () => {
 
 			commands["ai:list"]({}, [], "ai:list", mockProject);
 
-			expect(loadAiTools).toHaveBeenCalledWith("/vault", disk);
+			expect(loadAiTools).toHaveBeenCalledWith(expect.any(Object), "/vault", disk);
 		});
 
 		it("returns tool list items when tools exist", () => {
@@ -121,7 +132,7 @@ describe("ai-tools.controller", () => {
 
 			commands["ai:list"]({}, [], "ai:list", mockProject);
 
-			expect(loadAiTools).toHaveBeenCalledWith("/vault", disk);
+			expect(loadAiTools).toHaveBeenCalledWith(expect.any(Object), "/vault", disk);
 		});
 	});
 

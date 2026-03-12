@@ -4,7 +4,7 @@
  * Pure helper functions for coverage report generation.
  */
 
-interface CoverageEntry {
+export interface CoverageEntry {
 	s?: Record<string, number>;
 	b?: Record<string, number[]>;
 	f?: Record<string, number>;

@@ -1,48 +1,24 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { createMockFs } from "../../mocks/mock-fs.js";
+import { discoverArchiveCategories } from "../../../src/domain/reports/export/report-archive.js";
+import path from "node:path";
 
-vi.mock("../../../src/infrastructure/filesystem.js", () => ({
-	disk: {},
-}));
-
-vi.mock("../../../src/infrastructure/paths.js", async () => {
-	const path = await import("node:path");
-	return { paths: { ...path, sep: "/" } };
-});
-
-vi.mock("../../../src/infrastructure/logger.js", () => ({
-	log: vi.fn(),
-}));
-
-vi.mock("../../../src/infrastructure/ui.js", () => ({
-	RESET: "", DIM: "", BOLD: "", CYAN: "", GREEN: "", RED: "", YELLOW: "",
-}));
-
-vi.mock("../../../src/infrastructure/menu.js", () => ({
-	runMenu: vi.fn(),
-}));
-
-vi.mock("../../../src/infrastructure/shell.js", () => ({
-	shell: { run: vi.fn() },
-}));
-
-import * as fsMod from "../../../src/infrastructure/filesystem.js";
-import { discoverArchiveCategories } from "../../../src/domain/reports/report-archive.js";
-
-function setDisk(fs: ReturnType<typeof createMockFs>): void {
-	Object.assign(fsMod, { disk: fs });
+function makeDeps(files: Record<string, string> = {}) {
+	return {
+		disk: createMockFs(files),
+		paths: { ...path, sep: "/" } as typeof import("../../../src/infrastructure/types.js").IPaths extends never ? never : { join: (...args: string[]) => string; resolve: (...args: string[]) => string; dirname: (p: string) => string; basename: (p: string, ext?: string) => string; relative: (from: string, to: string) => string; extname: (p: string) => string; isAbsolute: (p: string) => boolean; sep: string },
+	};
 }
 
 describe("discoverArchiveCategories", () => {
 	it("discovers categories with timestamped .md files", () => {
-		const fs = createMockFs({
+		const deps = makeDeps({
 			"/reports/tests/2026-03-08-test-report.md": "# Test",
 			"/reports/tests/2026-03-07-test-report.md": "# Test",
 			"/reports/coverage/2026-03-08-coverage.md": "# Coverage",
 		});
-		setDisk(fs);
 
-		const categories = discoverArchiveCategories("/reports");
+		const categories = discoverArchiveCategories("/reports", deps);
 		expect(categories).toHaveLength(2);
 		expect(categories[0].label).toBe("Test");
 		expect(categories[0].files).toHaveLength(2);
@@ -53,50 +29,46 @@ describe("discoverArchiveCategories", () => {
 	});
 
 	it("returns empty array when no reports exist", () => {
-		setDisk(createMockFs());
-		expect(discoverArchiveCategories("/reports")).toEqual([]);
+		const deps = makeDeps();
+		expect(discoverArchiveCategories("/reports", deps)).toEqual([]);
 	});
 
 	it("ignores non-timestamped markdown files", () => {
-		const fs = createMockFs({
+		const deps = makeDeps({
 			"/reports/tests/README.md": "readme",
 			"/reports/tests/Stable Report.md": "stable",
 		});
-		setDisk(fs);
 
-		expect(discoverArchiveCategories("/reports")).toEqual([]);
+		expect(discoverArchiveCategories("/reports", deps)).toEqual([]);
 	});
 
 	it("ignores non-md files", () => {
-		const fs = createMockFs({
+		const deps = makeDeps({
 			"/reports/tests/2026-03-08-test-report.json": "{}",
 		});
-		setDisk(fs);
 
-		expect(discoverArchiveCategories("/reports")).toEqual([]);
+		expect(discoverArchiveCategories("/reports", deps)).toEqual([]);
 	});
 
 	it("skips empty subdirectories", () => {
-		const fs = createMockFs({
+		const deps = makeDeps({
 			"/reports/tests/2026-03-08-test.md": "# Test",
 			// coverage dir exists but empty — no files match
 		});
-		setDisk(fs);
 
-		const categories = discoverArchiveCategories("/reports");
+		const categories = discoverArchiveCategories("/reports", deps);
 		expect(categories).toHaveLength(1);
 		expect(categories[0].label).toBe("Test");
 	});
 
 	it("sorts files most recent first", () => {
-		const fs = createMockFs({
+		const deps = makeDeps({
 			"/reports/builds/2026-01-01-build.md": "old",
 			"/reports/builds/2026-03-08-build.md": "new",
 			"/reports/builds/2026-02-15-build.md": "mid",
 		});
-		setDisk(fs);
 
-		const categories = discoverArchiveCategories("/reports");
+		const categories = discoverArchiveCategories("/reports", deps);
 		expect(categories[0].files[0]).toBe("2026-03-08-build.md");
 		expect(categories[0].files[1]).toBe("2026-02-15-build.md");
 		expect(categories[0].files[2]).toBe("2026-01-01-build.md");

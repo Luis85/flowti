@@ -5,8 +5,7 @@
  * Interactive menu lives in ui/menus/ai-tools-menu.ts.
  */
 
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 import {
 	validateToolDefinition,
 	discoverToolFiles,
@@ -50,13 +49,16 @@ export function toToolListItems(tools: LoadedAiTool[]): ToolListItem[] {
 	}));
 }
 
-export function toToolValidationItems(vaultRoot: string): ToolValidationItem[] {
-	const toolsDir = paths.join(vaultRoot, AI_TOOLS_DIR);
-	const files = discoverToolFiles(toolsDir, disk);
+export function toToolValidationItems(
+	deps: Pick<CliDeps, "disk" | "paths">,
+	vaultRoot: string,
+): ToolValidationItem[] {
+	const toolsDir = deps.paths.join(vaultRoot, AI_TOOLS_DIR);
+	const files = discoverToolFiles(deps, toolsDir, deps.disk);
 	return files.map((file) => {
-		const fileName = paths.basename(file);
+		const fileName = deps.paths.basename(file);
 		try {
-			const raw = JSON.parse(disk.readFileSync(file, "utf-8")) as unknown;
+			const raw = JSON.parse(deps.disk.readFileSync(file, "utf-8")) as unknown;
 			const result = validateToolDefinition(raw);
 			return {
 				file: fileName,

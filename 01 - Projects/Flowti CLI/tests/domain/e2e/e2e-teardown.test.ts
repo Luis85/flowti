@@ -40,12 +40,17 @@ vi.mock("../../../src/domain/e2e/pipelines/rebuild-pipeline.js", () => ({
 }));
 
 import { disk } from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
 import { shell } from "../../../src/infrastructure/shell.js";
 import { input } from "../../../src/infrastructure/input.js";
 import { runPipeline } from "../../../src/infrastructure/pipeline/pipeline-runner.js";
 import { collapseFileExplorer } from "../../../src/domain/e2e/e2e-prerequisites.js";
 import { performTeardown, teardownVault, runRebuild } from "../../../src/domain/e2e/e2e-teardown.js";
 import type { E2EPaths } from "../../../src/domain/e2e/e2e-paths.js";
+
+const mockLog = vi.fn();
+const mockProc = { exit: vi.fn(), env: () => ({}), argv: () => [] } as any;
+const deps = { disk, paths, shell, input, log: mockLog, proc: mockProc } as any;
 
 const e2e: E2EPaths = {
 	projectRoot: "/project",
@@ -66,14 +71,14 @@ describe("performTeardown", () => {
 
 	it("deletes vault content via obsidian CLI", async () => {
 		const log = vi.fn();
-		await performTeardown(e2e, log);
+		await performTeardown(e2e, { ...deps, log });
 		expect(shell.runSilent).toHaveBeenCalledWith(expect.stringContaining("app.vault.delete"));
 		expect(log).toHaveBeenCalledWith(expect.stringContaining("Vault content deleted"));
 	});
 
 	it("purges ghost file entries", async () => {
 		const log = vi.fn();
-		await performTeardown(e2e, log);
+		await performTeardown(e2e, { ...deps, log });
 		expect(shell.runSilent).toHaveBeenCalledWith(expect.stringContaining("ghosts"));
 		expect(log).toHaveBeenCalledWith(expect.stringContaining("Ghost entries purged"));
 	});
@@ -82,7 +87,7 @@ describe("performTeardown", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({ installer: { installed: true } }));
 		const log = vi.fn();
-		await performTeardown(e2e, log);
+		await performTeardown(e2e, { ...deps, log });
 		expect(disk.writeFileSync).toHaveBeenCalledWith(
 			e2e.dataJsonPath,
 			expect.stringContaining('"installed":false'),
@@ -94,7 +99,7 @@ describe("performTeardown", () => {
 	it("logs when data.json is not found", async () => {
 		vi.mocked(disk.existsSync).mockReturnValue(false);
 		const log = vi.fn();
-		await performTeardown(e2e, log);
+		await performTeardown(e2e, { ...deps, log });
 		expect(log).toHaveBeenCalledWith(expect.stringContaining("data.json not found"));
 	});
 
@@ -104,13 +109,13 @@ describe("performTeardown", () => {
 		);
 		vi.mocked(disk.readFileSync).mockReturnValue("not json");
 		const log = vi.fn();
-		await performTeardown(e2e, log);
+		await performTeardown(e2e, { ...deps, log });
 		expect(log).toHaveBeenCalledWith(expect.stringContaining("Failed to reset"));
 	});
 
 	it("deactivates the plugin", async () => {
 		const log = vi.fn();
-		await performTeardown(e2e, log);
+		await performTeardown(e2e, { ...deps, log });
 		expect(shell.runSilent).toHaveBeenCalledWith(expect.stringContaining("disablePlugin"));
 		expect(log).toHaveBeenCalledWith(expect.stringContaining("Plugin deactivated"));
 	});
@@ -121,7 +126,7 @@ describe("performTeardown", () => {
 			return "ok";
 		});
 		const log = vi.fn();
-		await performTeardown(e2e, log);
+		await performTeardown(e2e, { ...deps, log });
 		expect(log).toHaveBeenCalledWith(expect.stringContaining("Plugin deactivation skipped"));
 	});
 
@@ -130,19 +135,19 @@ describe("performTeardown", () => {
 			typeof p === "string" && p.includes("workspace.json"),
 		);
 		const log = vi.fn();
-		await performTeardown(e2e, log);
+		await performTeardown(e2e, { ...deps, log });
 		expect(disk.rmSync).toHaveBeenCalled();
 		expect(log).toHaveBeenCalledWith(expect.stringContaining("Workspace layout cleared"));
 	});
 
 	it("collapses file explorer", async () => {
-		await performTeardown(e2e);
-		expect(collapseFileExplorer).toHaveBeenCalledWith(e2e, expect.any(Function));
+		await performTeardown(e2e, deps);
+		expect(collapseFileExplorer).toHaveBeenCalledWith(e2e, expect.objectContaining({ shell, log: expect.any(Function) }));
 	});
 
 	it("logs fresh state at the end", async () => {
 		const log = vi.fn();
-		await performTeardown(e2e, log);
+		await performTeardown(e2e, { ...deps, log });
 		expect(log).toHaveBeenCalledWith(expect.stringContaining("Fresh state"));
 	});
 
@@ -152,7 +157,7 @@ describe("performTeardown", () => {
 			return "ok";
 		});
 		const log = vi.fn();
-		await performTeardown(e2e, log);
+		await performTeardown(e2e, { ...deps, log });
 		expect(log).toHaveBeenCalledWith(expect.stringContaining("Failed to delete"));
 	});
 });
@@ -165,14 +170,14 @@ describe("teardownVault", () => {
 	it("prompts for confirmation before teardown", async () => {
 		vi.mocked(input.askYesNo).mockResolvedValue(true);
 		vi.mocked(shell.runSilent).mockReturnValue("ok");
-		await teardownVault(e2e);
+		await teardownVault(e2e, deps);
 		expect(input.askYesNo).toHaveBeenCalledWith("Proceed?", true);
 	});
 
 	it("cancels when user says no", async () => {
 		vi.mocked(input.askYesNo).mockResolvedValue(false);
 		const log = vi.fn();
-		await teardownVault(e2e, log);
+		await teardownVault(e2e, { ...deps, log });
 		expect(log).toHaveBeenCalledWith(expect.stringContaining("cancelled"));
 		// performTeardown should not have been called — no vault delete
 		const shellCalls = vi.mocked(shell.runSilent).mock.calls.map((c) => c[0] as string);
@@ -182,7 +187,7 @@ describe("teardownVault", () => {
 	it("logs teardown description before prompting", async () => {
 		vi.mocked(input.askYesNo).mockResolvedValue(false);
 		const log = vi.fn();
-		await teardownVault(e2e, log);
+		await teardownVault(e2e, { ...deps, log });
 		expect(log).toHaveBeenCalledWith(expect.stringContaining("Teardown will"));
 	});
 });
@@ -194,20 +199,20 @@ describe("runRebuild", () => {
 
 	it("prompts for confirmation", async () => {
 		vi.mocked(input.askYesNo).mockResolvedValue(true);
-		await runRebuild(e2e);
+		await runRebuild(e2e, deps);
 		expect(input.askYesNo).toHaveBeenCalledWith(expect.stringContaining("teardown and rebuild"), true);
 	});
 
 	it("returns 0 when user cancels", async () => {
 		vi.mocked(input.askYesNo).mockResolvedValue(false);
-		const result = await runRebuild(e2e);
+		const result = await runRebuild(e2e, deps);
 		expect(result).toBe(0);
 	});
 
 	it("runs pipeline when user confirms", async () => {
 		vi.mocked(input.askYesNo).mockResolvedValue(true);
 		vi.mocked(runPipeline).mockResolvedValue({ steps: [], totalDurationMs: 0, passed: 1, failed: 0, skipped: 0 });
-		const result = await runRebuild(e2e);
+		const result = await runRebuild(e2e, deps);
 		expect(runPipeline).toHaveBeenCalled();
 		expect(result).toBe(0);
 	});
@@ -215,14 +220,14 @@ describe("runRebuild", () => {
 	it("returns 1 when pipeline has failures", async () => {
 		vi.mocked(input.askYesNo).mockResolvedValue(true);
 		vi.mocked(runPipeline).mockResolvedValue({ steps: [], totalDurationMs: 0, passed: 0, failed: 1, skipped: 0 });
-		const result = await runRebuild(e2e);
+		const result = await runRebuild(e2e, deps);
 		expect(result).toBe(1);
 	});
 
 	it("logs rebuild start message", async () => {
 		vi.mocked(input.askYesNo).mockResolvedValue(true);
 		const log = vi.fn();
-		await runRebuild(e2e, log);
+		await runRebuild(e2e, { ...deps, log });
 		expect(log).toHaveBeenCalledWith(expect.stringContaining("Rebuilding vault"));
 	});
 });

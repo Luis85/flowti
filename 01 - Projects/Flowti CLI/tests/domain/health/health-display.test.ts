@@ -27,6 +27,7 @@ vi.mock("../../../src/infrastructure/output.js", () => ({
 import { collectHealth, type HealthSnapshot } from "../../../src/domain/health/health.js";
 import { displayHealth } from "../../../src/ui/health-display.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
 import { shell } from "../../../src/infrastructure/shell.js";
 import { countFiles } from "../../../src/infrastructure/fs.js";
 import { parseFrontmatterContent } from "../../../src/infrastructure/frontmatter.js";
@@ -38,6 +39,8 @@ const mockShell = vi.mocked(shell);
 const mockCountFiles = vi.mocked(countFiles);
 const mockParseFM = vi.mocked(parseFrontmatterContent);
 const mockLog = vi.mocked(log);
+
+const healthDeps = { disk, paths, shell } as const;
 
 function makeCtx(overrides: Partial<ProjectContext> = {}): ProjectContext {
 	return {
@@ -152,7 +155,7 @@ describe("displayHealth", () => {
 
 describe("collectHealth", () => {
 	it("returns null sections when no report files exist", () => {
-		const h = collectHealth(makeCtx());
+		const h = collectHealth(healthDeps, makeCtx());
 		expect(h.tests).toBeNull();
 		expect(h.coverage).toBeNull();
 		expect(h.build).toBeNull();
@@ -165,7 +168,7 @@ describe("collectHealth", () => {
 		mockDisk.existsSync.mockImplementation((p) => String(p).includes("src"));
 		mockCountFiles.mockReturnValue(75);
 
-		const h = collectHealth(makeCtx());
+		const h = collectHealth(healthDeps, makeCtx());
 		expect(h.source).toBeDefined();
 		expect(h.source!.files).toBe(75);
 		expect(mockCountFiles).toHaveBeenCalled();
@@ -175,7 +178,7 @@ describe("collectHealth", () => {
 		mockDisk.existsSync.mockImplementation((p) => String(p).includes("Test Report"));
 		mockParseFM.mockReturnValue({ total: 350, passed: 340, failed: 10, suites: 28 });
 
-		const h = collectHealth(makeCtx());
+		const h = collectHealth(healthDeps, makeCtx());
 		expect(h.tests).toEqual({ total: 350, passed: 340, failed: 10, suites: 28 });
 	});
 
@@ -185,7 +188,7 @@ describe("collectHealth", () => {
 			"button.md", "card.md", "modal.md", "notes.txt",
 		] as unknown as ReturnType<typeof disk.readdirSync>);
 
-		const h = collectHealth(makeCtx());
+		const h = collectHealth(healthDeps, makeCtx());
 		expect(h.components).toBe(3);
 	});
 });

@@ -18,6 +18,9 @@ vi.mock("../../../src/infrastructure/paths.js", () => ({
 		relative: (from: string, to: string) => to.replace(from + "/", ""),
 	},
 }));
+vi.mock("../../../src/infrastructure/clock.js", () => ({
+	clock: { iso: vi.fn(() => "2026-01-01T00:00:00.000Z") },
+}));
 vi.mock("../../../src/infrastructure/config.js", () => ({
 	VAULT_ROOT: "/vault",
 	CLI_PROJECT: "/vault/cli",
@@ -118,7 +121,7 @@ describe("aiToolsMenu", () => {
 		const [, items] = mockRunMenu.mock.calls[0];
 		const result = await (items.find((i: any) => i.key === "3") as any).action();
 
-		expect(mockScaffoldTool).toHaveBeenCalledWith("/vault", "my-tool", "A tool", "echo hello", expect.anything());
+		expect(mockScaffoldTool).toHaveBeenCalledWith(expect.any(Object), "/vault", "my-tool", "A tool", "echo hello", expect.anything());
 		expect(result).toBe("main");
 		const output = mockLog.mock.calls.map((c) => c[0] ?? "").join("\n");
 		expect(output).toContain("Created tool at");
@@ -183,7 +186,7 @@ describe("aiToolsMenu", () => {
 		const [, items] = mockRunMenu.mock.calls[0];
 		await (items.find((i: any) => i.key === "3") as any).action();
 
-		expect(mockScaffoldTool).toHaveBeenCalledWith("/vault", "my-tool", "An AI tool", "echo hi", expect.anything());
+		expect(mockScaffoldTool).toHaveBeenCalledWith(expect.any(Object), "/vault", "my-tool", "An AI tool", "echo hi", expect.anything());
 	});
 
 	it("Generate Reference saves doc", async () => {

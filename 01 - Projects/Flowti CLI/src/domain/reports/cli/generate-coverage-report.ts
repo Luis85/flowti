@@ -5,10 +5,9 @@
  * and generates a markdown CoverageReport.
  */
 
-import { disk } from "../../../infrastructure/filesystem.js";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
-import { clock } from "../../../infrastructure/clock.js";
+import type { ReportDeps } from "../../../infrastructure/deps.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
 
 interface CoverageEntry {
@@ -46,17 +45,17 @@ function fileCoverage(entry: CoverageEntry): { statements: number; branches: num
 	};
 }
 
-export function generateCoverageReport(projectPath: string, ctx?: import("../../../infrastructure/pipeline/pipeline-types.js").PipelineContext): GeneratorOutput {
+export function generateCoverageReport(projectPath: string, deps: ReportDeps, ctx?: import("../../../infrastructure/pipeline/pipeline-types.js").PipelineContext): GeneratorOutput {
 	const log = (msg: string) => ctx?.log(msg);
-	const svc = new ReportService(projectPath);
+	const svc = new ReportService(projectPath, deps);
 	const coverageJson = svc.subdir("coverage/coverage-final.json");
 
-	if (!disk.existsSync(coverageJson)) {
+	if (!deps.disk.existsSync(coverageJson)) {
 		log("[cli-report] No coverage-final.json found — run vitest --coverage first.");
 		return { success: false, outputPath: "", metrics: {} };
 	}
 
-	const json: Record<string, CoverageEntry> = JSON.parse(disk.readFileSync(coverageJson, "utf-8"));
+	const json: Record<string, CoverageEntry> = JSON.parse(deps.disk.readFileSync(coverageJson, "utf-8"));
 	const entries = Object.values(json);
 
 	const stmtPct = computeCoverage(entries, "statements");
@@ -66,7 +65,7 @@ export function generateCoverageReport(projectPath: string, ctx?: import("../../
 	const fm: Record<string, string | number> = {
 		type: "CoverageReport",
 		project: "flowti-cli",
-		date: clock.iso(),
+		date: deps.clock.iso(),
 		statements_pct: stmtPct,
 		branches_pct: branchPct,
 		functions_pct: fnPct,

@@ -5,14 +5,16 @@
  */
 
 import { Document } from "../../../../infrastructure/document.js";
-import { clock } from "../../../../infrastructure/clock.js";
+import type { CliDeps } from "../../../../infrastructure/deps.js";
 import type { ComponentVariables, ComponentDefinition, ComponentProperty, ComponentAction, ComponentVariant, ComponentState, ComponentImage } from "../component-types.js";
 
-function applyFrontmatter(doc: Document, vars: ComponentVariables, def: ComponentDefinition): void {
+export type TemplateDeps = Pick<CliDeps, "clock">;
+
+function applyFrontmatter(doc: Document, vars: ComponentVariables, def: ComponentDefinition, deps: TemplateDeps): void {
 	const meta = def.metadata;
 	doc.setFrontmatter("type", String(meta.type ?? "component"));
 	doc.setFrontmatter("status", String(meta.status ?? "draft"));
-	doc.setFrontmatter("created", clock.iso().slice(0, 10));
+	doc.setFrontmatter("created", deps.clock.iso().slice(0, 10));
 	if (vars.owner) doc.setFrontmatter("owner", vars.owner);
 	if (def.domain) doc.setFrontmatter("domain", def.domain);
 	if (def.icon) doc.setFrontmatter("icon", def.icon);
@@ -73,9 +75,9 @@ function appendStatesTable(doc: Document, states: ComponentState[]): void {
 	doc.addBlank();
 }
 
-export function componentDocTemplate(vars: ComponentVariables, def: ComponentDefinition): Document {
+export function componentDocTemplate(vars: ComponentVariables, def: ComponentDefinition, deps: TemplateDeps): Document {
 	const doc = Document.create(vars.name);
-	applyFrontmatter(doc, vars, def);
+	applyFrontmatter(doc, vars, def, deps);
 
 	doc.addBlank()
 		.heading(1, vars.name)

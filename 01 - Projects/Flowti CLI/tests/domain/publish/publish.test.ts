@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createMockShell } from "../../mocks/mock-shell.js";
+import { initializeDeps } from "../../../src/infrastructure/request-response.js";
+import { createTestDeps } from "../../mocks/mock-deps.js";
 
 vi.mock("../../../src/infrastructure/ui.js", () => ({
 	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", CYAN: "", YELLOW: "",
@@ -11,10 +13,16 @@ vi.mock("../../../src/infrastructure/shell.js", () => ({
 
 vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
+	warn: vi.fn(),
+}));
+
+vi.mock("../../../src/infrastructure/config.js", () => ({
+	VAULT_ROOT: "/vault",
+	CLI_PROJECT: "/vault/cli",
 }));
 
 vi.mock("../../../src/infrastructure/proc.js", () => ({
-	proc: { exit: vi.fn((code: number) => { throw new Error(`exit(${code})`); }) },
+	proc: { exit: vi.fn((code: number) => { throw new Error(`exit(${code})`); }), env: () => ({}), cwd: () => "/mock" },
 }));
 
 vi.mock("../../../src/infrastructure/output.js", () => ({
@@ -53,12 +61,19 @@ vi.mock("../../../src/domain/health/quality-gate.js", async () => {
 	return actual;
 });
 
-import * as shellMod from "../../../src/infrastructure/shell.js";
 import { commands } from "../../../src/controller/publish.controller.js";
 import { log } from "../../../src/infrastructure/logger.js";
 import type { ProjectContext } from "../../../src/infrastructure/types.js";
 
 const mockLog = vi.mocked(log);
+
+function setupShell(opts?: Parameters<typeof createMockShell>[0]) {
+	const sh = createMockShell(opts);
+	const deps = createTestDeps();
+	(deps as Record<string, unknown>).shell = sh;
+	initializeDeps(deps);
+	return sh;
+}
 
 function makeProject(publish?: { build?: string; test?: string }): ProjectContext {
 	return {
@@ -73,8 +88,7 @@ beforeEach(() => vi.clearAllMocks());
 
 describe("publish commands", () => {
 	it("publish runs build command from config", () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
+		const sh = setupShell();
 		const project = makeProject({ build: "npm run build:release" });
 
 		commands["publish"]({}, [], "publish", project);
@@ -85,8 +99,7 @@ describe("publish commands", () => {
 	});
 
 	it("publish defaults to npm run build", () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
+		const sh = setupShell();
 		const project = makeProject();
 
 		commands["publish"]({}, [], "publish", project);
@@ -95,8 +108,7 @@ describe("publish commands", () => {
 	});
 
 	it("publish:all runs build and test on success", () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
+		const sh = setupShell();
 		const project = makeProject({ build: "npm run build", test: "npm test" });
 
 		commands["publish:all"]({}, [], "publish:all", project);
@@ -107,8 +119,7 @@ describe("publish commands", () => {
 	});
 
 	it("publish:all exits on build failure", () => {
-		const sh = createMockShell({ exitCodes: { "npm run build": 1 } });
-		Object.assign(shellMod, { shell: sh });
+		const sh = setupShell({ exitCodes: { "npm run build": 1 } });
 		const project = makeProject({ build: "npm run build", test: "npm test" });
 
 		expect(() => commands["publish:all"]({}, [], "publish:all", project)).toThrow("exit(1)");
@@ -116,8 +127,7 @@ describe("publish commands", () => {
 	});
 
 	it("publish:all exits on test failure", () => {
-		const sh = createMockShell({ exitCodes: { "npm test": 1 } });
-		Object.assign(shellMod, { shell: sh });
+		const sh = setupShell({ exitCodes: { "npm test": 1 } });
 		const project = makeProject({ build: "npm run build", test: "npm test" });
 
 		expect(() => commands["publish:all"]({}, [], "publish:all", project)).toThrow("exit(1)");
@@ -127,8 +137,7 @@ describe("publish commands", () => {
 
 describe("publish --dry-run", () => {
 	it("does not run any commands", () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
+		const sh = setupShell();
 		const project = makeProject({
 			build: "npm run build",
 			test: "npm test",
@@ -146,8 +155,7 @@ describe("publish --dry-run", () => {
 	});
 
 	it("logs the pipeline preview", () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
+		const sh = setupShell();
 		const project = makeProject({ build: "npm run build:release" });
 
 		commands["publish"]({ "dry-run": true }, [], "publish", project);
@@ -158,8 +166,7 @@ describe("publish --dry-run", () => {
 	});
 
 	it("shows endpoints when configured", () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
+		const sh = setupShell();
 		const project = makeProject();
 		(project.config as { publish: { outDir: string; endpoints: Array<{ name: string; path: string }> } }).publish = {
 			outDir: "dist",
@@ -194,8 +201,7 @@ function makeGatedProject(gateConfig: Record<string, unknown>, publish?: { build
 
 describe("publish with quality gates", () => {
 	it("passes gates and publishes when rules succeed", () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
+		const sh = setupShell();
 		const project = makeGatedProject(
 			{ enabled: true, rules: [{ metric: "tests.failed", operator: "==", value: 0 }] },
 			{ build: "npm run build" },
@@ -208,8 +214,7 @@ describe("publish with quality gates", () => {
 	});
 
 	it("blocks publish when minScore fails", () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
+		const sh = setupShell();
 		const project = makeGatedProject(
 			{ enabled: true, minScore: 99 },
 			{ build: "npm run build" },
@@ -220,8 +225,7 @@ describe("publish with quality gates", () => {
 	});
 
 	it("skips gates with --skip-gates", () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
+		const sh = setupShell();
 		const project = makeGatedProject(
 			{ enabled: true, minScore: 99 },
 			{ build: "npm run build" },
@@ -233,8 +237,7 @@ describe("publish with quality gates", () => {
 	});
 
 	it("skips gates when enabled is false", () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
+		const sh = setupShell();
 		const project = makeGatedProject(
 			{ enabled: false, minScore: 99 },
 			{ build: "npm run build" },
@@ -246,8 +249,7 @@ describe("publish with quality gates", () => {
 	});
 
 	it("blocks publish:all when gates fail", () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
+		const sh = setupShell();
 		const project = makeGatedProject(
 			{ enabled: true, minScore: 99 },
 			{ build: "npm run build", test: "npm test" },

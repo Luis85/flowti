@@ -7,6 +7,8 @@
  * execution, and process execution all use the same engine.
  */
 
+import type { CliDeps } from "../deps.js";
+
 // ── Step contract ────────────────────────────────────────────────────
 
 /** A single unit of work in a pipeline. */
@@ -19,6 +21,8 @@ export interface PipelineStep {
 	dependencies?: string[];
 	/** Shell commands to run before execute(); output is stored in the context. */
 	prerequisites?: string[];
+	/** Per-step configuration passed through from project config (e.g. source path for references). */
+	stepConfig?: Record<string, unknown>;
 	/** The work function. Receives the pipeline context for dependency data. May be async. */
 	execute: (ctx: PipelineContext) => StepOutput | Promise<StepOutput>;
 }
@@ -66,6 +70,9 @@ export interface PipelineResult {
 export interface PipelineContext {
 	/** The project root path for this run. */
 	readonly projectPath: string;
+
+	/** Injectable dependencies — available to all pipeline steps. */
+	readonly deps: CliDeps;
 
 	/** Record a completed step result. */
 	pushResult(result: StepResult): void;

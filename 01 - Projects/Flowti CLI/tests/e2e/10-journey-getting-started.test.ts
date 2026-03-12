@@ -20,11 +20,13 @@ import {
 	runJourney,
 } from "../../src/domain/e2e/journey/index.js";
 import type { JourneyExecutorOptions } from "../../src/domain/e2e/journey/index.js";
+import { createDefaultDeps } from "../../src/infrastructure/deps.js";
 
 // ── Configuration ───────────────────────────────────────────────────
 
 const PROJECT_ROOT = path.resolve(import.meta.dirname, "../..");
-const journey = loadJourney(import.meta.dirname, "getting-started");
+const deps = createDefaultDeps();
+const journey = loadJourney(import.meta.dirname, "getting-started", deps);
 
 const opts: JourneyExecutorOptions = {
 	cwd: PROJECT_ROOT,

@@ -37,11 +37,29 @@ vi.mock("../../../src/infrastructure/ui.js", () => ({
 
 vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
+	warn: vi.fn(),
 }));
 
 vi.mock("../../../src/infrastructure/input.js", () => ({
-	input: { ask: vi.fn() },
+	input: { ask: vi.fn(), askYesNo: vi.fn(async () => false), waitForEnter: vi.fn(async () => {}) },
 }));
+
+vi.mock("../../../src/infrastructure/clock.js", () => ({
+	clock: { now: () => new Date(), iso: () => "", ms: () => 0, safeIso: () => "" },
+}));
+
+vi.mock("../../../src/infrastructure/proc.js", () => ({
+	proc: { exit: vi.fn(), cwd: () => "/", argv: () => [], env: () => ({}) },
+}));
+
+vi.mock("../../../src/ui/cli-event-renderer.js", () => ({
+	attachCliRenderer: vi.fn(() => () => {}),
+}));
+
+vi.mock("../../../src/infrastructure/request-response.js", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/infrastructure/request-response.js")>("../../../src/infrastructure/request-response.js");
+	return actual;
+});
 
 vi.mock("../../../src/infrastructure/menu.js", () => ({
 	runMenu: vi.fn(),
@@ -69,7 +87,8 @@ import { input } from "../../../src/infrastructure/input.js";
 import { runMenu } from "../../../src/infrastructure/menu.js";
 import { getSelectedProject, setSelectedProject } from "../../../src/infrastructure/state.js";
 import { scaffold as scaffoldProject } from "../../../src/domain/scaffold/scaffold.js";
-import { listProjects, getProjectPath, startMenu } from "../../../src/domain/project/project.js";
+import { listProjects, getProjectPath, startMenu } from "../../../src/ui/menus/project-menu.js";
+import { paths as mockPaths } from "../../../src/infrastructure/paths.js";
 import { commands } from "../../../src/controller/project.controller.js";
 
 function setDisk(mockFs: ReturnType<typeof createMockFs>): void {
@@ -92,7 +111,7 @@ describe("listProjects", () => {
 		});
 		setDisk(mockFs);
 
-		const result = listProjects();
+		const result = listProjects({ disk: fsMod.disk });
 		expect(result).toEqual(["alpha", "beta"]);
 	});
 
@@ -102,7 +121,7 @@ describe("listProjects", () => {
 		mockFs.readdirSync = () => { throw new Error("ENOENT"); };
 		setDisk(mockFs);
 
-		expect(listProjects()).toEqual([]);
+		expect(listProjects({ disk: fsMod.disk })).toEqual([]);
 	});
 
 	it("filters out files (only directories)", () => {
@@ -112,7 +131,7 @@ describe("listProjects", () => {
 		// readme.md is a file, not a directory — should be excluded
 		setDisk(mockFs);
 
-		const result = listProjects();
+		const result = listProjects({ disk: fsMod.disk });
 		// readme.md won't appear as a directory entry
 		expect(result.includes("readme.md")).toBe(false);
 	});
@@ -122,7 +141,7 @@ describe("listProjects", () => {
 
 describe("getProjectPath", () => {
 	it("joins PROJECTS_DIR with project name", () => {
-		const result = getProjectPath("my-app");
+		const result = getProjectPath("my-app", { paths: mockPaths });
 		expect(result.replace(/\\/g, "/")).toContain("mock/projects/my-app");
 	});
 });
@@ -384,10 +403,13 @@ describe("startMenu – Create Project", () => {
 
 		await startMenu();
 
-		expect(scaffoldProject).toHaveBeenCalledWith(expect.objectContaining({
-			definitionId: "flowti-project",
-			name: "new-project",
-		}));
+		expect(scaffoldProject).toHaveBeenCalledWith(
+			expect.objectContaining({ disk: expect.anything(), paths: expect.anything() }),
+			expect.objectContaining({
+				definitionId: "flowti-project",
+				name: "new-project",
+			}),
+		);
 		expect(setSelectedProject).toHaveBeenCalledWith("new-project");
 	});
 

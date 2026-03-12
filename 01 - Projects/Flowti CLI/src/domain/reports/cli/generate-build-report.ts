@@ -5,13 +5,13 @@
  * Called programmatically from the Build tool action, not as a standalone script.
  */
 
-import { paths } from "../../../infrastructure/paths.js";
-import { disk } from "../../../infrastructure/filesystem.js";
-import { shell } from "../../../infrastructure/shell.js";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
-import { clock } from "../../../infrastructure/clock.js";
+import type { CliDeps } from "../../../infrastructure/deps.js";
+import type { ReportDeps } from "../../../infrastructure/deps.js";
 import { recordBuild, resolveBuildPaths } from "../../build/build-freshness.js";
+
+export type BuildReportDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "log" | "shell">;
 
 export interface BuildResult {
 	command: string;
@@ -21,11 +21,11 @@ export interface BuildResult {
 	errors: string;
 }
 
-function runBuild(cmd: string, cwd: string): BuildResult {
-	const startTime = clock.ms();
+function runBuild(cmd: string, cwd: string, deps: BuildReportDeps): BuildResult {
+	const startTime = deps.clock.ms();
 
-	const output = shell.runSilent(cmd, { cwd });
-	const durationMs = clock.ms() - startTime;
+	const output = deps.shell.runSilent(cmd, { cwd });
+	const durationMs = deps.clock.ms() - startTime;
 
 	if (output !== null) {
 		return { command: cmd, exitCode: 0, durationMs, output, errors: "" };
@@ -45,16 +45,16 @@ function countIssues(output: string): { errors: number; warnings: number } {
 	};
 }
 
-function generateReport(result: BuildResult, projectPath: string): string {
-	const svc = new ReportService(projectPath);
-	const projectName = paths.basename(projectPath);
+function generateReport(result: BuildResult, projectPath: string, deps: ReportDeps): string {
+	const svc = new ReportService(projectPath, deps);
+	const projectName = deps.paths.basename(projectPath);
 	const success = result.exitCode === 0;
 	const issues = countIssues(result.output + "\n" + result.errors);
 
 	const fm: Record<string, string | number | boolean> = {
 		type: "BuildReport",
 		project: projectName,
-		date: clock.iso(),
+		date: deps.clock.iso(),
 		success,
 		exit_code: result.exitCode,
 		duration_ms: result.durationMs,
@@ -92,9 +92,9 @@ function generateReport(result: BuildResult, projectPath: string): string {
 	}
 
 	// Save timestamped JSON with the raw build result
-	const jsonPath = paths.join(svc.subdir("builds"), "_latest-build.json");
-	disk.mkdirSync(svc.subdir("builds"), { recursive: true });
-	disk.writeFileSync(jsonPath, JSON.stringify(result, null, 2), "utf-8");
+	const jsonPath = deps.paths.join(svc.subdir("builds"), "_latest-build.json");
+	deps.disk.mkdirSync(svc.subdir("builds"), { recursive: true });
+	deps.disk.writeFileSync(jsonPath, JSON.stringify(result, null, 2), "utf-8");
 
 	const outputPath = svc.save(doc, {
 		subdir: "builds",
@@ -104,7 +104,7 @@ function generateReport(result: BuildResult, projectPath: string): string {
 	});
 
 	// Clean up temp JSON
-	disk.unlinkSync(jsonPath);
+	deps.disk.unlinkSync(jsonPath);
 
 	return outputPath;
 }
@@ -113,13 +113,13 @@ function generateReport(result: BuildResult, projectPath: string): string {
  * Execute a build command and generate a Build Report.
  * Returns the exit code from the build.
  */
-export function buildWithReport(cmd: string, projectPath: string): number {
-	const result = runBuild(cmd, projectPath);
-	generateReport(result, projectPath);
+export function buildWithReport(cmd: string, projectPath: string, deps: BuildReportDeps): number {
+	const result = runBuild(cmd, projectPath, deps);
+	generateReport(result, projectPath, deps);
 
 	if (result.exitCode === 0) {
-		const { srcDir, binDir } = resolveBuildPaths(projectPath);
-		recordBuild(srcDir, binDir);
+		const { srcDir, binDir } = resolveBuildPaths(projectPath, deps);
+		recordBuild(srcDir, binDir, deps);
 	}
 
 	return result.exitCode;

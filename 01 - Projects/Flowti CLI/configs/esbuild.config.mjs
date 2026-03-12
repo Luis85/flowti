@@ -25,7 +25,7 @@ const options = {
 	bundle: true,
 	outfile: path.join(outDir, "main.js"),
 	platform: "node",
-	format: "esm",
+	format: "cjs",
 	target: "node22",
 	sourcemap: !isWatch,
 	minify: !isWatch,
@@ -46,11 +46,11 @@ if (isWatch) {
 	// Deploy bootstrap as index.js + package.json so `node .flowti/bin` works
 	copyFileSync(
 		path.join(projectRoot, "src", "boot", "bootstrap.mjs"),
-		path.join(outDir, "index.js"),
+		path.join(outDir, "index.mjs"),
 	);
 	writeFileSync(
 		path.join(outDir, "package.json"),
-		'{ "type": "module" }\n',
+		JSON.stringify({ type: "commonjs", main: "index.mjs" }, null, 2) + "\n",
 	);
 	console.log(`  Built: .flowti/bin/main.js`);
 	console.log(`  Copied: .flowti/bin/index.js`);

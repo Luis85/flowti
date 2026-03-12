@@ -21,6 +21,9 @@ vi.mock("../../../src/infrastructure/paths.js", () => ({
 		relative: (from: string, to: string) => to.replace(from + "/", ""),
 	},
 }));
+vi.mock("../../../src/infrastructure/clock.js", () => ({
+	clock: { iso: vi.fn(() => "2026-01-01T00:00:00.000Z") },
+}));
 vi.mock("../../../src/infrastructure/config.js", () => ({
 	VAULT_ROOT: "/vault",
 	CLI_PROJECT: "/vault/cli",
@@ -130,7 +133,7 @@ describe("pluginsMenu", () => {
 		const createItem = items.find((i: any) => i.key === "3");
 		const result = await (createItem as any).action();
 
-		expect(mockScaffoldPlugin).toHaveBeenCalledWith("/vault", "my-plugin", "A plugin", expect.anything());
+		expect(mockScaffoldPlugin).toHaveBeenCalledWith(expect.any(Object), "/vault", "my-plugin", "A plugin", expect.anything());
 		expect(result).toBe("main");
 		const output = mockLog.mock.calls.map((c) => c[0] ?? "").join("\n");
 		expect(output).toContain("Created plugin at");
@@ -175,7 +178,7 @@ describe("pluginsMenu", () => {
 		const [, items] = mockRunMenu.mock.calls[0];
 		await (items.find((i: any) => i.key === "3") as any).action();
 
-		expect(mockScaffoldPlugin).toHaveBeenCalledWith("/vault", "my-plugin", "A Flowti plugin", expect.anything());
+		expect(mockScaffoldPlugin).toHaveBeenCalledWith(expect.any(Object), "/vault", "my-plugin", "A Flowti plugin", expect.anything());
 	});
 
 	it("Generate Reference action generates and saves", async () => {

@@ -7,12 +7,12 @@
 import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler, ProjectContext } from "../infrastructure/types.js";
-import { shell } from "../infrastructure/shell.js";
-import { proc } from "../infrastructure/proc.js";
+import type { CliDeps } from "../infrastructure/deps.js";
 import { collectHealth } from "../domain/health/health.js";
 import { scoreHealth } from "../domain/health/health-scoring.js";
 import { evaluateQualityGates, type GateResult } from "../domain/health/quality-gate.js";
 import { renderDryRun, renderGateResult, renderGateBlocked, type DryRunModel, type GateBlockedModel } from "../ui/publish-display.js";
+import { renderShellCommand, type ShellCommandModel } from "../ui/common-renderers.js";
 import { renderNoProject, type NoProjectModel } from "../ui/common-renderers.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -37,10 +37,10 @@ function resolvePublishConfig(p: ProjectContext | undefined): DryRunModel {
 	};
 }
 
-function checkGates(p: ProjectContext): GateResult | null {
+function checkGates(deps: Pick<CliDeps, "disk" | "paths" | "shell">, p: ProjectContext): GateResult | null {
 	const gateConfig = p.config.health?.qualityGates;
 	if (!gateConfig || gateConfig.enabled === false) return null;
-	const snapshot = collectHealth(p);
+	const snapshot = collectHealth(deps, p);
 	const score = scoreHealth(snapshot);
 	return evaluateQualityGates(snapshot, score, gateConfig);
 }
@@ -72,33 +72,46 @@ const actions: Record<string, ControllerAction> = {
 			const model = resolvePublishConfig(req.project);
 			return dataResponse(model, renderDryRun);
 		}
+		const { disk, paths, shell } = req.deps;
 		if (req.project && !req.flags["skip-gates"]) {
-			const result = checkGates(req.project);
+			const result = checkGates({ disk, paths, shell }, req.project);
 			if (result && !result.passed) {
 				return gateBlockedResponse(result);
 			}
 		}
 		const { buildCmd, cwd } = resolvePublishCommands(req.project);
-		shell.run(buildCmd, { cwd, label: "Publishing..." });
+		const exitCode = shell.run(buildCmd, { cwd, label: "Publishing..." });
+		const model: ShellCommandModel = { command: buildCmd, exitCode, label: "publish" };
+		return dataResponse(model, renderShellCommand);
 	},
 
 	"publish:all": (req) => {
+		const { disk, paths, shell } = req.deps;
 		if (req.project && !req.flags["skip-gates"]) {
-			const result = checkGates(req.project);
+			const result = checkGates({ disk, paths, shell }, req.project);
 			if (result && !result.passed) {
 				return gateBlockedResponse(result);
 			}
 		}
 		const { buildCmd, testCmd, cwd } = resolvePublishCommands(req.project);
 		const b = shell.run(buildCmd, { cwd, label: "Step 1/2: Building..." });
-		if (b !== 0) proc.exit(b);
+		if (b !== 0) {
+			const model: ShellCommandModel = { command: buildCmd, exitCode: b, label: "publish:all" };
+			return { data: model, render: renderShellCommand, exitCode: b };
+		}
 		const t = shell.run(testCmd, { cwd, label: "Step 2/2: Testing..." });
-		if (t !== 0) proc.exit(t);
+		if (t !== 0) {
+			const model: ShellCommandModel = { command: testCmd, exitCode: t, label: "publish:all" };
+			return { data: model, render: renderShellCommand, exitCode: t };
+		}
+		const model: ShellCommandModel = { command: `${buildCmd} && ${testCmd}`, exitCode: 0, label: "publish:all" };
+		return dataResponse(model, renderShellCommand);
 	},
 
 	"publish:check": (req) => {
 		if (!req.project) return noProjectResponse("publish:check");
-		const snapshot = collectHealth(req.project);
+		const { disk, paths, shell } = req.deps;
+		const snapshot = collectHealth({ disk, paths, shell }, req.project);
 		const score = scoreHealth(snapshot);
 		const gateConfig = req.project.config.health?.qualityGates;
 		const result = evaluateQualityGates(snapshot, score, gateConfig);

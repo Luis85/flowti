@@ -13,6 +13,14 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
 }));
 
+vi.mock("../../../src/infrastructure/paths.js", () => ({
+	paths: {
+		join: (...parts: string[]) => parts.join("/"),
+		relative: (_from: string, to: string) => to,
+		sep: "/",
+	},
+}));
+
 const mockFs: Record<string, string> = {};
 const mockDirs = new Set<string>();
 
@@ -64,6 +72,10 @@ import {
 	saveEventFlowDoc,
 } from "../../../src/domain/events/event-flow.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
+import { clock } from "../../../src/infrastructure/clock.js";
+
+const flowDeps = { disk, paths, clock } as const;
 
 function seedEvent(name: string, domain: string, producers: string, consumers: string): void {
 	const content = [
@@ -90,14 +102,14 @@ beforeEach(() => {
 
 describe("buildEventFlowGraph", () => {
 	it("returns empty graph when no events directory exists", () => {
-		const graph = buildEventFlowGraph("/project");
+		const graph = buildEventFlowGraph(flowDeps, "/project");
 		expect(graph.nodes).toEqual([]);
 		expect(graph.edges).toEqual([]);
 	});
 
 	it("returns empty graph when events directory has no .md files", () => {
 		mockDirs.add("/project/docs/events");
-		const graph = buildEventFlowGraph("/project");
+		const graph = buildEventFlowGraph(flowDeps, "/project");
 		expect(graph.nodes).toEqual([]);
 		expect(graph.edges).toEqual([]);
 	});
@@ -105,7 +117,7 @@ describe("buildEventFlowGraph", () => {
 	it("builds graph from a single event with producers and consumers", () => {
 		seedEvent("user.created", "user", "AuthService", "NotificationService, AnalyticsService");
 
-		const graph = buildEventFlowGraph("/project");
+		const graph = buildEventFlowGraph(flowDeps, "/project");
 
 		expect(graph.nodes).toHaveLength(4); // 1 event + 1 producer + 2 consumers
 		expect(graph.edges).toHaveLength(3); // 1 producer->event + 2 event->consumer
@@ -114,7 +126,7 @@ describe("buildEventFlowGraph", () => {
 	it("creates correct node types", () => {
 		seedEvent("user.created", "user", "AuthService", "EmailService");
 
-		const graph = buildEventFlowGraph("/project");
+		const graph = buildEventFlowGraph(flowDeps, "/project");
 
 		const eventNode = graph.nodes.find((n) => n.name === "user.created");
 		const producerNode = graph.nodes.find((n) => n.name === "AuthService");
@@ -129,7 +141,7 @@ describe("buildEventFlowGraph", () => {
 	it("creates correct edges", () => {
 		seedEvent("user.created", "user", "AuthService", "EmailService");
 
-		const graph = buildEventFlowGraph("/project");
+		const graph = buildEventFlowGraph(flowDeps, "/project");
 
 		const producerEdge = graph.edges.find((e) => e.from === "AuthService");
 		expect(producerEdge?.to).toBe("user.created");
@@ -142,7 +154,7 @@ describe("buildEventFlowGraph", () => {
 		seedEvent("user.created", "user", "AuthService", "NotificationService");
 		seedEvent("user.deleted", "user", "AuthService", "NotificationService");
 
-		const graph = buildEventFlowGraph("/project");
+		const graph = buildEventFlowGraph(flowDeps, "/project");
 
 		// AuthService and NotificationService should appear only once each
 		const authNodes = graph.nodes.filter((n) => n.name === "AuthService");
@@ -155,7 +167,7 @@ describe("buildEventFlowGraph", () => {
 	it("handles events with no producers", () => {
 		seedEvent("system.started", "core", "", "LogService");
 
-		const graph = buildEventFlowGraph("/project");
+		const graph = buildEventFlowGraph(flowDeps, "/project");
 
 		const eventNode = graph.nodes.find((n) => n.name === "system.started");
 		expect(eventNode).toBeDefined();
@@ -168,7 +180,7 @@ describe("buildEventFlowGraph", () => {
 	it("handles events with no consumers", () => {
 		seedEvent("audit.logged", "audit", "AuditService", "");
 
-		const graph = buildEventFlowGraph("/project");
+		const graph = buildEventFlowGraph(flowDeps, "/project");
 
 		const consumerEdges = graph.edges.filter((e) => e.from === "audit.logged");
 		expect(consumerEdges).toHaveLength(0);
@@ -177,7 +189,7 @@ describe("buildEventFlowGraph", () => {
 	it("handles events with no producers and no consumers", () => {
 		seedEvent("orphan.event", "misc", "", "");
 
-		const graph = buildEventFlowGraph("/project");
+		const graph = buildEventFlowGraph(flowDeps, "/project");
 
 		expect(graph.nodes).toHaveLength(1);
 		expect(graph.nodes[0].name).toBe("orphan.event");
@@ -188,7 +200,7 @@ describe("buildEventFlowGraph", () => {
 		seedEvent("z.event", "z", "ZService", "");
 		seedEvent("a.event", "a", "AService", "");
 
-		const graph = buildEventFlowGraph("/project");
+		const graph = buildEventFlowGraph(flowDeps, "/project");
 		const names = graph.nodes.map((n) => n.name);
 		const expected = [...names].sort((a, b) => a.localeCompare(b));
 
@@ -207,7 +219,7 @@ describe("renderMermaidFlowchart", () => {
 
 	it("renders graph with producer -> event -> consumer edges", () => {
 		seedEvent("user.created", "user", "AuthService", "EmailService");
-		const graph = buildEventFlowGraph("/project");
+		const graph = buildEventFlowGraph(flowDeps, "/project");
 
 		const lines = renderMermaidFlowchart(graph);
 		const text = lines.join("\n");
@@ -220,7 +232,7 @@ describe("renderMermaidFlowchart", () => {
 	});
 
 	it("deduplicates identical edges", () => {
-		const graph = buildEventFlowGraph("/project");
+		const graph = buildEventFlowGraph(flowDeps, "/project");
 		// Manually create a graph with duplicate edges
 		const dupeGraph = {
 			nodes: [
@@ -258,7 +270,7 @@ describe("renderMermaidByDomain", () => {
 		seedEvent("user.created", "user", "AuthService", "EmailService");
 		seedEvent("order.placed", "order", "CartService", "ShippingService");
 
-		const graph = buildEventFlowGraph("/project");
+		const graph = buildEventFlowGraph(flowDeps, "/project");
 		const byDomain = renderMermaidByDomain(graph);
 
 		expect(byDomain.size).toBe(2);
@@ -270,7 +282,7 @@ describe("renderMermaidByDomain", () => {
 		seedEvent("user.created", "user", "AuthService", "EmailService");
 		seedEvent("order.placed", "order", "CartService", "ShippingService");
 
-		const graph = buildEventFlowGraph("/project");
+		const graph = buildEventFlowGraph(flowDeps, "/project");
 		const byDomain = renderMermaidByDomain(graph);
 
 		const userDiagram = byDomain.get("user")!.join("\n");
@@ -297,7 +309,7 @@ describe("generateEventFlowDoc", () => {
 	it("generates markdown with frontmatter", () => {
 		seedEvent("user.created", "user", "AuthService", "EmailService");
 
-		const doc = generateEventFlowDoc("/project");
+		const doc = generateEventFlowDoc(flowDeps, "/project");
 
 		expect(doc).toContain("---");
 		expect(doc).toContain("type: EventFlow");
@@ -307,7 +319,7 @@ describe("generateEventFlowDoc", () => {
 	it("includes Mermaid code block", () => {
 		seedEvent("user.created", "user", "AuthService", "EmailService");
 
-		const doc = generateEventFlowDoc("/project");
+		const doc = generateEventFlowDoc(flowDeps, "/project");
 
 		expect(doc).toContain("```mermaid");
 		expect(doc).toContain("graph LR");
@@ -317,7 +329,7 @@ describe("generateEventFlowDoc", () => {
 	it("includes summary table", () => {
 		seedEvent("user.created", "user", "AuthService", "EmailService");
 
-		const doc = generateEventFlowDoc("/project");
+		const doc = generateEventFlowDoc(flowDeps, "/project");
 
 		expect(doc).toContain("## Summary");
 		expect(doc).toContain("| Events | 1 |");
@@ -327,7 +339,7 @@ describe("generateEventFlowDoc", () => {
 	});
 
 	it("handles empty project", () => {
-		const doc = generateEventFlowDoc("/project");
+		const doc = generateEventFlowDoc(flowDeps, "/project");
 
 		expect(doc).toContain("# Event Flow");
 		expect(doc).toContain("No events defined yet");
@@ -337,7 +349,7 @@ describe("generateEventFlowDoc", () => {
 		seedEvent("user.created", "user", "AuthService", "EmailService");
 		seedEvent("order.placed", "order", "CartService", "ShippingService");
 
-		const doc = generateEventFlowDoc("/project", "user");
+		const doc = generateEventFlowDoc(flowDeps, "/project", "user");
 
 		expect(doc).toContain("Event Flow — user");
 		expect(doc).toContain("Domain: user");
@@ -348,7 +360,7 @@ describe("generateEventFlowDoc", () => {
 	it("shows message for non-existent domain filter", () => {
 		seedEvent("user.created", "user", "AuthService", "EmailService");
 
-		const doc = generateEventFlowDoc("/project", "nonexistent");
+		const doc = generateEventFlowDoc(flowDeps, "/project", "nonexistent");
 
 		expect(doc).toContain('No events found for domain "nonexistent"');
 	});
@@ -357,7 +369,7 @@ describe("generateEventFlowDoc", () => {
 		seedEvent("user.created", "user", "AuthService", "EmailService");
 		seedEvent("order.placed", "order", "CartService", "ShippingService");
 
-		const doc = generateEventFlowDoc("/project");
+		const doc = generateEventFlowDoc(flowDeps, "/project");
 
 		expect(doc).toContain("## By Domain");
 		expect(doc).toContain("### user");
@@ -371,7 +383,7 @@ describe("saveEventFlowDoc", () => {
 	it("writes the document to docs/events/Event Flow.md", () => {
 		seedEvent("user.created", "user", "AuthService", "EmailService");
 
-		const filePath = saveEventFlowDoc("/project");
+		const filePath = saveEventFlowDoc(flowDeps, "/project");
 
 		expect(normalize(filePath)).toContain("docs/events/Event Flow.md");
 		expect(disk.writeFileSync).toHaveBeenCalled();
@@ -380,7 +392,7 @@ describe("saveEventFlowDoc", () => {
 	it("creates the events directory if needed", () => {
 		seedEvent("user.created", "user", "AuthService", "EmailService");
 
-		saveEventFlowDoc("/project");
+		saveEventFlowDoc(flowDeps, "/project");
 
 		expect(disk.mkdirSync).toHaveBeenCalled();
 	});
@@ -388,7 +400,7 @@ describe("saveEventFlowDoc", () => {
 	it("passes domain filter through", () => {
 		seedEvent("user.created", "user", "AuthService", "EmailService");
 
-		const filePath = saveEventFlowDoc("/project", "user");
+		const filePath = saveEventFlowDoc(flowDeps, "/project", "user");
 
 		expect(normalize(filePath)).toContain("Event Flow.md");
 		const content = mockFs[normalize(filePath)];

@@ -5,11 +5,9 @@
  * deltas between consecutive snapshots for trend indicators.
  */
 
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
-import { clock } from "../../infrastructure/clock.js";
 import type { HealthSnapshot } from "./health.js";
 import type { HealthScore } from "./health-scoring.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -39,59 +37,59 @@ export interface HealthTrend {
 const HISTORY_DIR = "health";
 const MAX_SNAPSHOTS = 30;
 
-function historyDir(projectPath: string): string {
-	return paths.join(projectPath, "reports", HISTORY_DIR);
+function historyDir(deps: Pick<CliDeps, "paths">, projectPath: string): string {
+	return deps.paths.join(projectPath, "reports", HISTORY_DIR);
 }
 
 /** Save a health snapshot + score to the history directory. */
-export function saveSnapshot(projectPath: string, snapshot: HealthSnapshot, score: HealthScore): string {
-	const dir = historyDir(projectPath);
-	disk.mkdirSync(dir, { recursive: true });
+export function saveSnapshot(deps: Pick<CliDeps, "disk" | "paths" | "clock">, projectPath: string, snapshot: HealthSnapshot, score: HealthScore): string {
+	const dir = historyDir(deps, projectPath);
+	deps.disk.mkdirSync(dir, { recursive: true });
 
 	const entry: StoredSnapshot = {
-		timestamp: clock.iso(),
+		timestamp: deps.clock.iso(),
 		snapshot,
 		score,
 	};
 
-	const safeTs = clock.safeIso();
-	const filePath = paths.join(dir, `${safeTs}-health.json`);
-	disk.writeFileSync(filePath, JSON.stringify(entry, null, 2), "utf-8");
+	const safeTs = deps.clock.safeIso();
+	const filePath = deps.paths.join(dir, `${safeTs}-health.json`);
+	deps.disk.writeFileSync(filePath, JSON.stringify(entry, null, 2), "utf-8");
 
 	// Trim old snapshots if over limit
-	trimHistory(dir);
+	trimHistory(deps, dir);
 
 	return filePath;
 }
 
-function trimHistory(dir: string): void {
-	const files = listSnapshotFiles(dir);
+function trimHistory(deps: Pick<CliDeps, "disk" | "paths">, dir: string): void {
+	const files = listSnapshotFiles(deps, dir);
 	if (files.length <= MAX_SNAPSHOTS) return;
 
 	const toRemove = files.slice(MAX_SNAPSHOTS);
 	for (const file of toRemove) {
-		try { disk.rmSync(paths.join(dir, file)); } catch { /* ignore */ }
+		try { deps.disk.rmSync(deps.paths.join(dir, file)); } catch { /* ignore */ }
 	}
 }
 
 /** List snapshot files sorted by name descending (most recent first). */
-function listSnapshotFiles(dir: string): string[] {
-	if (!disk.existsSync(dir)) return [];
-	return disk.readdirSync(dir)
+function listSnapshotFiles(deps: Pick<CliDeps, "disk">, dir: string): string[] {
+	if (!deps.disk.existsSync(dir)) return [];
+	return deps.disk.readdirSync(dir)
 		.filter((f) => f.endsWith("-health.json"))
 		.sort()
 		.reverse();
 }
 
 /** Load all stored snapshots (most recent first). */
-export function loadHistory(projectPath: string): StoredSnapshot[] {
-	const dir = historyDir(projectPath);
-	const files = listSnapshotFiles(dir);
+export function loadHistory(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string): StoredSnapshot[] {
+	const dir = historyDir(deps, projectPath);
+	const files = listSnapshotFiles(deps, dir);
 	const entries: StoredSnapshot[] = [];
 
 	for (const file of files) {
 		try {
-			const raw = JSON.parse(disk.readFileSync(paths.join(dir, file), "utf-8")) as StoredSnapshot;
+			const raw = JSON.parse(deps.disk.readFileSync(deps.paths.join(dir, file), "utf-8")) as StoredSnapshot;
 			entries.push(raw);
 		} catch { /* skip corrupt entries */ }
 	}

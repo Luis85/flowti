@@ -4,7 +4,7 @@
  * Takes validated inputs and returns a FileEntry[] — no I/O, no side effects.
  */
 
-import type { ComponentVariables, ComponentDefinition, ComponentTemplateFn } from "./component-types.js";
+import type { ComponentVariables, ComponentDefinition, ComponentTemplateFn, ComponentTemplateDeps } from "./component-types.js";
 import { InternalError } from "../../../infrastructure/errors.js";
 
 export interface FileEntry {
@@ -24,13 +24,14 @@ export function buildComponentPlan(
 	vars: ComponentVariables,
 	def: ComponentDefinition,
 	templates: ComponentTemplateRegistry,
+	deps: ComponentTemplateDeps,
 ): FileEntry[] {
 	return def.files.map((f) => {
 		const templateFn = templates.get(f.templateId);
 		if (!templateFn) {
 			throw new InternalError(`Unknown component template: "${f.templateId}"`);
 		}
-		const result = templateFn(vars, def);
+		const result = templateFn(vars, def, deps);
 		return {
 			path: interpolatePath(f.path, vars),
 			content: result.toString(),

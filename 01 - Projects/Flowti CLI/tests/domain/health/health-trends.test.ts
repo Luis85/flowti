@@ -26,6 +26,8 @@ vi.mock("../../../src/infrastructure/clock.js", () => ({
 }));
 
 import * as filesystemMod from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
+import { clock } from "../../../src/infrastructure/clock.js";
 import {
 	saveSnapshot,
 	loadHistory,
@@ -38,6 +40,10 @@ import type { HealthScore } from "../../../src/domain/health/health-scoring.js";
 
 function setDisk(mockFs: ReturnType<typeof createMockFs>): void {
 	Object.assign(filesystemMod, { disk: mockFs });
+}
+
+function trendDeps(fs: ReturnType<typeof createMockFs>) {
+	return { disk: fs, paths, clock } as const;
 }
 
 const makeSnapshot = (overrides: Partial<HealthSnapshot> = {}): HealthSnapshot => ({
@@ -76,7 +82,7 @@ describe("saveSnapshot", () => {
 		const snapshot = makeSnapshot();
 		const score = makeScore();
 
-		const filePath = saveSnapshot("/project", snapshot, score);
+		const filePath = saveSnapshot(trendDeps(fs), "/project", snapshot, score);
 
 		expect(filePath).toContain("health");
 		expect(filePath).toContain("-health.json");
@@ -97,7 +103,7 @@ describe("loadHistory", () => {
 		});
 		setDisk(fs);
 
-		const history = loadHistory("/project");
+		const history = loadHistory(trendDeps(fs), "/project");
 		expect(history).toHaveLength(2);
 		expect(history[0].timestamp).toBe("2026-03-09T10:00:00Z");
 		expect(history[1].timestamp).toBe("2026-03-08T10:00:00Z");
@@ -106,7 +112,7 @@ describe("loadHistory", () => {
 	it("returns empty array when no history", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		expect(loadHistory("/project")).toEqual([]);
+		expect(loadHistory(trendDeps(fs), "/project")).toEqual([]);
 	});
 
 	it("skips corrupt JSON files", () => {
@@ -116,7 +122,7 @@ describe("loadHistory", () => {
 		});
 		setDisk(fs);
 
-		const history = loadHistory("/project");
+		const history = loadHistory(trendDeps(fs), "/project");
 		expect(history).toHaveLength(1);
 	});
 });

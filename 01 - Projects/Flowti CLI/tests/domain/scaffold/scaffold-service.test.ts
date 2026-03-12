@@ -31,7 +31,7 @@ vi.mock("../../../src/domain/scaffold/scaffold-plan.js", () => ({
 }));
 vi.mock("../../../src/domain/scaffold/marketplace.js", () => ({
 	loadAllDefinitions: vi.fn(() => []),
-	resolveDefinitionsDir: vi.fn((root: string) => root + "/configs/definitions"),
+	resolveDefinitionsDir: vi.fn((_deps: unknown, root: string) => root + "/configs/definitions"),
 }));
 vi.mock("../../../src/domain/scaffold/scaffold-schema.js", () => ({
 	validateDefinition: vi.fn(() => []),
@@ -52,8 +52,11 @@ vi.mock("../../../src/domain/scaffold/templates/project-templates.js", () => ({
 }));
 
 import { disk } from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
 import { buildScaffoldPlan } from "../../../src/domain/scaffold/scaffold-plan.js";
 import { loadAllDefinitions } from "../../../src/domain/scaffold/marketplace.js";
+
+const testDeps = { disk, paths } as const;
 import { validateDefinition } from "../../../src/domain/scaffold/scaffold-schema.js";
 import {
 	deriveVariables,
@@ -137,7 +140,7 @@ describe("resolvePromptDefault", () => {
 
 describe("scaffold", () => {
 	it("returns error for unknown definition ID", () => {
-		const result = scaffold({ definitionId: "nonexistent", name: "Test" });
+		const result = scaffold(testDeps, { definitionId: "nonexistent", name: "Test" });
 
 		expect(result).toHaveProperty("error");
 		expect((result as { error: string }).error).toContain("Unknown scaffold definition");
@@ -146,7 +149,7 @@ describe("scaffold", () => {
 	it("returns error when output directory already exists", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 
-		const result = scaffold({ definitionId: "flowti-project", name: "Test" });
+		const result = scaffold(testDeps, { definitionId: "flowti-project", name: "Test" });
 
 		expect(result).toHaveProperty("error");
 		expect((result as { error: string }).error).toContain("Directory already exists");
@@ -159,7 +162,7 @@ describe("scaffold", () => {
 			{ path: "package.json", content: "{}" },
 		]);
 
-		const result = scaffold({ definitionId: "flowti-project", name: "Test" });
+		const result = scaffold(testDeps, { definitionId: "flowti-project", name: "Test" });
 
 		if ("created" in result) {
 			expect(result.created).toBe(2);
@@ -171,7 +174,7 @@ describe("scaffold", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(false);
 		vi.mocked(buildScaffoldPlan).mockReturnValue([]);
 
-		const result = scaffold({
+		const result = scaffold(testDeps, {
 			definitionId: "flowti-project",
 			name: "Test",
 			outputDir: "/custom/output",
@@ -187,7 +190,7 @@ describe("scaffold", () => {
 
 describe("scaffoldDryRun", () => {
 	it("returns error for unknown definition ID", () => {
-		const result = scaffoldDryRun({ definitionId: "nonexistent", name: "Test" });
+		const result = scaffoldDryRun(testDeps, { definitionId: "nonexistent", name: "Test" });
 
 		expect(result).toHaveProperty("error");
 		expect((result as { error: string }).error).toContain("Unknown scaffold definition");
@@ -199,7 +202,7 @@ describe("scaffoldDryRun", () => {
 			{ path: "src/index.ts", content: "export {}" },
 		]);
 
-		const result = scaffoldDryRun({ definitionId: "flowti-project", name: "Test" });
+		const result = scaffoldDryRun(testDeps, { definitionId: "flowti-project", name: "Test" });
 
 		if ("files" in result) {
 			expect(result.files).toEqual(["README.md", "src/index.ts"]);
@@ -211,7 +214,7 @@ describe("scaffoldDryRun", () => {
 	it("uses custom outputDir when provided", () => {
 		vi.mocked(buildScaffoldPlan).mockReturnValue([]);
 
-		const result = scaffoldDryRun({
+		const result = scaffoldDryRun(testDeps, {
 			definitionId: "flowti-project",
 			name: "Test",
 			outputDir: "/custom",
@@ -258,9 +261,10 @@ describe("getKnownTemplateIds", () => {
 
 describe("loadAllDefinitionsFromProject", () => {
 	it("calls loadAllDefinitions with bundled definitions and known IDs", () => {
-		loadAllDefinitionsFromProject("/project");
+		loadAllDefinitionsFromProject(testDeps, "/project");
 
 		expect(loadAllDefinitions).toHaveBeenCalledWith(
+			expect.any(Object),
 			BUNDLED_DEFINITIONS,
 			"/project/configs/definitions",
 			["readme", "package-json", "tsconfig"],
@@ -268,9 +272,10 @@ describe("loadAllDefinitionsFromProject", () => {
 	});
 
 	it("passes empty localDir when no projectRoot given", () => {
-		loadAllDefinitionsFromProject();
+		loadAllDefinitionsFromProject(testDeps);
 
 		expect(loadAllDefinitions).toHaveBeenCalledWith(
+			expect.any(Object),
 			BUNDLED_DEFINITIONS,
 			"",
 			["readme", "package-json", "tsconfig"],

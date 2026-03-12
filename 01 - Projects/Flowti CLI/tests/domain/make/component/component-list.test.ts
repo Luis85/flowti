@@ -22,6 +22,9 @@ vi.mock("../../../../src/infrastructure/config.js", () => ({
 
 
 import { disk } from "../../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../../src/infrastructure/paths.js";
+
+function listDeps() { return { disk, paths } as const; }
 import {
 	listProjectComponents,
 	buildComponentTree,
@@ -34,7 +37,7 @@ import type { ProjectComponent } from "../../../../src/domain/make/component/com
 describe("listProjectComponents", () => {
 	it("returns empty array when components dir does not exist", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(false);
-		expect(listProjectComponents("/project")).toEqual([]);
+		expect(listProjectComponents("/project", listDeps())).toEqual([]);
 	});
 
 	it("discovers components from markdown frontmatter", () => {
@@ -47,7 +50,7 @@ describe("listProjectComponents", () => {
 			return "---\ntype: component\nstatus: draft\n---\n# User Profile\n";
 		});
 
-		const components = listProjectComponents("/project");
+		const components = listProjectComponents("/project", listDeps());
 		expect(components).toHaveLength(2);
 
 		const auth = components.find((c) => c.name === "Auth Service");
@@ -66,7 +69,7 @@ describe("listProjectComponents", () => {
 		vi.mocked(disk.readdirSync).mockReturnValue(["plain.md"] as never);
 		vi.mocked(disk.readFileSync).mockReturnValue("# Just a heading\nNo frontmatter.");
 
-		const components = listProjectComponents("/project");
+		const components = listProjectComponents("/project", listDeps());
 		expect(components).toHaveLength(1);
 		expect(components[0].kind).toBe("component");
 		expect(components[0].status).toBe("unknown");
@@ -77,7 +80,7 @@ describe("listProjectComponents", () => {
 		vi.mocked(disk.readdirSync).mockReturnValue(["readme.txt", "data.json", "comp.md"] as never);
 		vi.mocked(disk.readFileSync).mockReturnValue("---\ntype: component\nstatus: draft\n---\n");
 
-		const components = listProjectComponents("/project");
+		const components = listProjectComponents("/project", listDeps());
 		expect(components).toHaveLength(1);
 	});
 
@@ -86,7 +89,7 @@ describe("listProjectComponents", () => {
 		vi.mocked(disk.readdirSync).mockReturnValue(["zebra.md", "alpha.md", "middle.md"] as never);
 		vi.mocked(disk.readFileSync).mockReturnValue("---\ntype: component\nstatus: draft\n---\n");
 
-		const components = listProjectComponents("/project");
+		const components = listProjectComponents("/project", listDeps());
 		expect(components.map((c) => c.name)).toEqual(["alpha", "middle", "zebra"]);
 	});
 
@@ -97,7 +100,7 @@ describe("listProjectComponents", () => {
 			"---\ntype: c4-component\nstatus: active\ncontainedBy: Backend\nc4Level: 3\n---\n",
 		);
 
-		const components = listProjectComponents("/project");
+		const components = listProjectComponents("/project", listDeps());
 		expect(components[0].containedBy).toBe("Backend");
 		expect(components[0].c4Level).toBe(3);
 	});
@@ -107,7 +110,7 @@ describe("listProjectComponents", () => {
 		vi.mocked(disk.readdirSync).mockReturnValue(["plain.md"] as never);
 		vi.mocked(disk.readFileSync).mockReturnValue("---\ntype: component\nstatus: draft\n---\n");
 
-		const components = listProjectComponents("/project");
+		const components = listProjectComponents("/project", listDeps());
 		expect(components[0].containedBy).toBeUndefined();
 		expect(components[0].c4Level).toBeUndefined();
 	});
@@ -238,7 +241,7 @@ describe("enrichComponentRelationships", () => {
 			return "---\ntype: container\nstatus: active\nname: Child\ncontainedBy: Parent\n---\n";
 		});
 
-		const components = listProjectComponents("/project");
+		const components = listProjectComponents("/project", listDeps());
 		const parent = components.find((c) => c.name === "Parent")!;
 		expect(parent.contains).toEqual(["Child"]);
 	});

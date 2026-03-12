@@ -11,6 +11,7 @@ vi.mock("../../../src/infrastructure/shell.js", () => ({
 
 vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
+	warn: vi.fn(),
 }));
 
 vi.mock("../../../src/infrastructure/clock.js", () => {
@@ -38,9 +39,33 @@ vi.mock("../../../src/domain/reports/report-phases.js", async () => {
 	return actual;
 });
 
+vi.mock("../../../src/infrastructure/filesystem.js", () => ({
+	disk: { existsSync: vi.fn(() => false), readFileSync: vi.fn(() => "{}"), writeFileSync: vi.fn() },
+}));
+
+vi.mock("../../../src/infrastructure/paths.js", () => ({
+	paths: { join: (...args: string[]) => args.join("/") },
+}));
+
+vi.mock("../../../src/infrastructure/proc.js", () => ({
+	proc: { exit: vi.fn(), env: () => ({}), argv: () => [] },
+}));
+
+vi.mock("../../../src/infrastructure/input.js", () => ({
+	input: { ask: vi.fn(), askYesNo: vi.fn() },
+}));
+
 import * as shellMod from "../../../src/infrastructure/shell.js";
-import { runAllReports } from "../../../src/domain/reports/report-runner.js";
+import { disk } from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
+import { clock } from "../../../src/infrastructure/clock.js";
+import { log, warn } from "../../../src/infrastructure/logger.js";
+import { proc } from "../../../src/infrastructure/proc.js";
+import { input } from "../../../src/infrastructure/input.js";
+import { runAllReports } from "../../../src/domain/reports/pipeline/report-runner.js";
 import type { ReportGenerator } from "../../../src/infrastructure/types.js";
+
+const reportDeps = { disk, shell: shellMod.shell, paths, clock, proc, input, log, warn } as any;
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -56,7 +81,7 @@ const generators: ReportGenerator[] = [
 
 describe("runAllReports", () => {
 	it("runs all generators and returns results", async () => {
-		const result = await runAllReports(generators, "/project");
+		const result = await runAllReports(generators, "/project", reportDeps);
 
 		expect(mockRunGenerator).toHaveBeenCalledTimes(3);
 		expect(result.generators).toHaveLength(3);
@@ -70,7 +95,7 @@ describe("runAllReports", () => {
 			.mockReturnValueOnce({ success: false, outputPath: "", metrics: {} })
 			.mockReturnValueOnce({ success: true, outputPath: "", metrics: {} });
 
-		const result = await runAllReports(generators, "/project");
+		const result = await runAllReports(generators, "/project", reportDeps);
 
 		expect(mockRunGenerator).toHaveBeenCalledTimes(3);
 		expect(result.passed).toBe(2);
@@ -80,7 +105,7 @@ describe("runAllReports", () => {
 	it("handles all generators failing", async () => {
 		mockRunGenerator.mockReturnValue({ success: false, outputPath: "", metrics: {} });
 
-		const result = await runAllReports(generators, "/project");
+		const result = await runAllReports(generators, "/project", reportDeps);
 
 		expect(mockRunGenerator).toHaveBeenCalledTimes(3);
 		expect(result.passed).toBe(0);
@@ -88,7 +113,7 @@ describe("runAllReports", () => {
 	});
 
 	it("passes correct projectPath to each generator", async () => {
-		await runAllReports(generators, "/my/project");
+		await runAllReports(generators, "/my/project", reportDeps);
 
 		for (const call of mockRunGenerator.mock.calls) {
 			expect(call[1]).toBe("/my/project");
@@ -96,7 +121,7 @@ describe("runAllReports", () => {
 	});
 
 	it("records duration per generator", async () => {
-		const result = await runAllReports(generators, "/project");
+		const result = await runAllReports(generators, "/project", reportDeps);
 
 		for (const gen of result.generators) {
 			expect(gen.durationMs).toBeGreaterThan(0);
@@ -105,7 +130,7 @@ describe("runAllReports", () => {
 	});
 
 	it("returns empty results for empty generators list", async () => {
-		const result = await runAllReports([], "/project");
+		const result = await runAllReports([], "/project", reportDeps);
 
 		expect(mockRunGenerator).not.toHaveBeenCalled();
 		expect(result.generators).toHaveLength(0);
@@ -121,7 +146,7 @@ describe("runAllReports", () => {
 		const { log } = await import("../../../src/infrastructure/logger.js");
 		const mockLog = log as ReturnType<typeof vi.fn>;
 
-		await runAllReports(generators, "/project");
+		await runAllReports(generators, "/project", reportDeps);
 
 		const output = mockLog.mock.calls.flat().join(" ");
 		expect(output).toContain("Report Run Summary");
@@ -135,7 +160,7 @@ describe("runAllReports", () => {
 			.mockImplementationOnce(() => { throw new Error("Generator crashed"); })
 			.mockReturnValueOnce({ success: true, outputPath: "", metrics: {} });
 
-		const result = await runAllReports(generators, "/project");
+		const result = await runAllReports(generators, "/project", reportDeps);
 
 		expect(result.passed).toBe(2);
 		expect(result.failed).toBe(1);
@@ -147,7 +172,7 @@ describe("runAllReports", () => {
 		mockRunGenerator.mockReturnValue(null);
 
 		const unknownGens: ReportGenerator[] = [{ id: "nonexistent", label: "Unknown" }];
-		const result = await runAllReports(unknownGens, "/project");
+		const result = await runAllReports(unknownGens, "/project", reportDeps);
 
 		expect(result.failed).toBe(1);
 		expect(result.generators[0].error).toContain("Unknown generator: \"nonexistent\"");
@@ -162,7 +187,7 @@ describe("runAllReports", () => {
 			{ label: "Custom Report", command: "node scripts/generate-custom.mjs" },
 		];
 
-		const result = await runAllReports(externalGens, "/project");
+		const result = await runAllReports(externalGens, "/project", { ...reportDeps, shell: shellMod.shell });
 
 		expect(result.passed).toBe(1);
 		const captureCalls = sh.calls.filter((c) => c.method === "runCaptureStatus");
@@ -171,7 +196,7 @@ describe("runAllReports", () => {
 	});
 
 	it("records generator IDs in results", async () => {
-		const result = await runAllReports(generators, "/project");
+		const result = await runAllReports(generators, "/project", reportDeps);
 
 		expect(result.generators[0].id).toBe("test");
 		expect(result.generators[1].id).toBe("coverage");
@@ -185,7 +210,7 @@ describe("runAllReports", () => {
 		const gens: ReportGenerator[] = [
 			{ id: "test", label: "Test Report", prerequisites: ["npm run test:coverage"] },
 		];
-		const result = await runAllReports(gens, "/project");
+		const result = await runAllReports(gens, "/project", { ...reportDeps, shell: shellMod.shell });
 
 		const captureCalls = sh.calls.filter((c) => c.method === "runCaptureStatus");
 		expect(captureCalls).toHaveLength(1);
@@ -201,7 +226,7 @@ describe("runAllReports", () => {
 			{ id: "test", label: "Test Report", prerequisites: ["npm run test:coverage"] },
 			{ id: "coverage", label: "Coverage Report", prerequisites: ["npm run test:coverage"] },
 		];
-		await runAllReports(gens, "/project");
+		await runAllReports(gens, "/project", { ...reportDeps, shell: shellMod.shell });
 
 		const captureCalls = sh.calls.filter((c) => c.method === "runCaptureStatus");
 		expect(captureCalls).toHaveLength(1);
@@ -214,7 +239,7 @@ describe("runAllReports", () => {
 		const gens: ReportGenerator[] = [
 			{ id: "test", label: "Test Report", prerequisites: ["npm run broken"] },
 		];
-		const result = await runAllReports(gens, "/project");
+		const result = await runAllReports(gens, "/project", { ...reportDeps, shell: shellMod.shell });
 
 		expect(result.failed).toBe(1);
 		expect(result.generators[0].error).toContain("Prerequisite failed");
@@ -223,7 +248,7 @@ describe("runAllReports", () => {
 	});
 
 	it("runs in phased mode when parallel option is set", async () => {
-		const result = await runAllReports(generators, "/project", { parallel: true });
+		const result = await runAllReports(generators, "/project", reportDeps, { parallel: true });
 
 		expect(mockRunGenerator).toHaveBeenCalledTimes(3);
 		expect(result.passed).toBe(3);
@@ -236,7 +261,7 @@ describe("runAllReports", () => {
 			{ id: "status", label: "Status Report", dependencies: ["test"] },
 		];
 
-		const result = await runAllReports(phasedGens, "/project", { parallel: true });
+		const result = await runAllReports(phasedGens, "/project", reportDeps, { parallel: true });
 
 		expect(result.passed).toBe(2);
 		// test should run before status

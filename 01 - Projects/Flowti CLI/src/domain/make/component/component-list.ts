@@ -7,33 +7,34 @@
  * Interactive browser menu moved to src/ui/menus/component-list-menu.ts.
  */
 
-import { disk } from "../../../infrastructure/filesystem.js";
-import { paths } from "../../../infrastructure/paths.js";
+import type { CliDeps } from "../../../infrastructure/deps.js";
 import { parseFrontmatterStrings } from "../../../infrastructure/frontmatter.js";
 import type { ProjectComponent, ComponentKind } from "./component-types.js";
 import { COMPONENT_KINDS } from "./component-types.js";
+
+export type ComponentListDeps = Pick<CliDeps, "disk" | "paths">;
 
 // ── Component discovery ─────────────────────────────────────────────
 
 export const COMPONENTS_DIR = "docs/components";
 
-export function listProjectComponents(projectRoot: string): ProjectComponent[] {
-	const componentsDir = paths.join(projectRoot, COMPONENTS_DIR);
-	if (!disk.existsSync(componentsDir)) return [];
+export function listProjectComponents(projectRoot: string, deps: ComponentListDeps): ProjectComponent[] {
+	const componentsDir = deps.paths.join(projectRoot, COMPONENTS_DIR);
+	if (!deps.disk.existsSync(componentsDir)) return [];
 
-	const files = disk.readdirSync(componentsDir).filter((f) => f.endsWith(".md"));
+	const files = deps.disk.readdirSync(componentsDir).filter((f) => f.endsWith(".md"));
 	const components: ProjectComponent[] = [];
 
 	for (const file of files) {
 		try {
-			const content = disk.readFileSync(paths.join(componentsDir, file), "utf-8");
+			const content = deps.disk.readFileSync(deps.paths.join(componentsDir, file), "utf-8");
 			const fm = parseFrontmatterStrings(content);
 			const name = file.replace(/\.md$/, "");
 			const component: ProjectComponent = {
 				name: fm.name ?? name,
 				kind: (COMPONENT_KINDS.includes(fm.type as ComponentKind) ? fm.type : "component") as ComponentKind,
 				status: fm.status ?? "unknown",
-				path: paths.join(COMPONENTS_DIR, file),
+				path: deps.paths.join(COMPONENTS_DIR, file),
 			};
 			if (fm.c4Level) component.c4Level = Number(fm.c4Level);
 			if (fm.containedBy) component.containedBy = fm.containedBy;

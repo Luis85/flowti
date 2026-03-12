@@ -2,9 +2,9 @@
 type: Roadmap
 domain: CLI
 title: Flowti CLI — Development Roadmap
-version: 3
+version: 4
 created: 2026-03-09
-updated: 2026-03-10
+updated: 2026-03-11
 status: active
 source: "[[Flowti CLI PRD]]"
 architecture: "[[Flowti CLI Architecture]]"
@@ -18,13 +18,13 @@ plugin_integration: "[[Plugin Integration Analysis]]"
 
 ---
 
-## Current State (2026-03-10)
+## Current State (2026-03-11)
 
-| Metric | Value | Δ from v2 |
+| Metric | Value | Δ from v3 |
 |--------|-------|-----------|
-| Source files | 281 | +23 |
-| Test files | 152 | +6 |
-| Tests passing | 2,592 (147 suites) | +20 |
+| Source files | 282 | +1 |
+| Test files | 170 | +18 |
+| Tests passing | 3,608 (221 suites) | +1,016 |
 | Source LOC | ~62,000 | — |
 | Domains | 18 | — |
 | Controllers | 15 | — |
@@ -39,9 +39,13 @@ plugin_integration: "[[Plugin Integration Analysis]]"
 | E2E environment providers | 5 (cli, typescript, obsidian-vault, obsidian-plugin, webapp) | — |
 | Pipeline domains | 2 (reports, docs) | — |
 | Journey base tools | 9 | — |
-| Scripts layer | 4 standalone scripts | NEW |
-| EventBus infrastructure | created, not yet wired | NEW |
-| Domain layer violations | 0 (was 24) | RESOLVED |
+| Scaffold definitions | 4 (was 1) | +3 NEW |
+| Reports domain | 5 sub-dirs (was flat) | REORGANIZED |
+| IShell async methods | runAsync, runParallel | NEW |
+| Tech debt resolved | 13/28 (was 9/28) | +4 |
+| Scripts layer | 4 standalone scripts | — |
+| EventBus infrastructure | created, not yet wired | — |
+| Domain layer violations | 0 (was 24) | — |
 
 ---
 
@@ -441,12 +445,12 @@ See [[Plugin Integration Analysis]] for detailed gap analysis and migration plan
 
 | # | Work Item | Priority | Effort |
 |---|-----------|----------|--------|
-| 8.0.1 | Add `ProjectTarget` type: `"project"`, `"typescript"`, `"typescript-cli"`, `"obsidian-plugin"` | Critical | S |
-| 8.0.2 | Extend `ProjectConfig` with fields for multi-mode projects (`build.commands`, `test.commands`, `devtools.commands`, `reports.scripts[]`, `paths`) | Critical | M |
-| 8.0.3 | Create 3 new scaffold definitions: `flowti-bare` (empty project), `flowti-cli` (TypeScript CLI), `flowti-obsidian-plugin` (Obsidian plugin) | High | L |
+| 8.0.1 | ~~Add `ProjectTarget` type~~ — ✅ DONE (TD-16 resolved) | Critical | S |
+| 8.0.2 | ~~Extend `ProjectConfig` with multi-mode fields~~ — ✅ DONE (TD-01 resolved: type, build.commands, test.commands, paths) | Critical | M |
+| 8.0.3 | ~~Create 3 new scaffold definitions~~ — ✅ DONE (TD-22: flowti-bare, flowti-cli, flowti-obsidian-plugin) | High | L |
 | 8.0.4 | Implement project import flow: detect new folders in projects dir, ask type, generate `flowti.config.json` | High | M |
 | 8.0.5 | Rewrite Plugin's `flowti.config.json` to conform to `ProjectConfig` | High | M |
-| 8.0.6 | Validate config in `project-config.ts` with clear error messages | High | S |
+| 8.0.6 | ~~Validate config~~ — ✅ DONE (TD-06 resolved: config-schema.ts 45+ rules + config-deep-validation.ts) | High | S |
 
 **Key principle**: The CLI's `ProjectConfig` type is the single source of truth. Projects must conform to it — there is no dual-format support or backward-compatible parsing. The Plugin rewrites its config to match.
 
@@ -454,7 +458,7 @@ See [[Plugin Integration Analysis]] for detailed gap analysis and migration plan
 
 | Type | Scaffold ID | What it creates |
 |------|-------------|-----------------|
-| **Project** | `flowti-bare` | Bare markdown project — `README.md`, `docs/`, `flowti.config.json`. No code. |
+| **Library** | `flowti-bare` | Minimal TypeScript library — `src/index.ts`, `tests/`, `configs/`, tsc-only (no bundler). |
 | **TypeScript Project** | `flowti-project` | Existing definition. TS strict + Vitest + esbuild + ESLint. |
 | **TypeScript CLI** | `flowti-cli` | Like TS project + `#!/usr/bin/env node` banner, arg parser, `bin` field in package.json. |
 | **Obsidian Plugin** | `flowti-obsidian-plugin` | Obsidian plugin skeleton: `manifest.json`, `styles.css`, esbuild with Obsidian externals, `main.ts` extending `Plugin`. |
@@ -615,14 +619,15 @@ See [[Plugin Integration Analysis]] for detailed gap analysis and migration plan
 
 ## Key Metrics to Track
 
-| Metric | Phase 7.6 (actual) | Phase 8 Target | Phase 9 Target |
-|--------|---------------------|----------------|----------------|
-| Tests | 2,592 | 2,800+ | 3,000+ |
-| Test suites | 147 | 160+ | 170+ |
-| Managed project types | 1 (typescript) | 4 (project, typescript, typescript-cli, obsidian-plugin) | 4 |
+| Metric | Pre-Phase 8 (actual) | Phase 8 Target | Phase 9 Target |
+|--------|----------------------|----------------|----------------|
+| Tests | 3,608 | 3,800+ | 4,000+ |
+| Test suites | 221 | 240+ | 260+ |
+| Managed project types | 4 (library, typescript, typescript-cli, obsidian-plugin) | 4 | 4 |
+| Scaffold definitions | 4 bundled | 4 + import flow | 4+ marketplace |
 | Report pipeline steps | 8 internal + ext | 8 internal + 14 script-based | 22+ |
 | Doc pipeline steps | 2 internal + ext | 2 internal + 4 script-based | 6+ |
-| Config schema version | v1 | v2 (single schema) | v2 |
+| Config schema version | v1 (with type, paths, validation) | v2 (single schema) | v2 |
 | E2E journey providers | 5 | 5 (enhanced) | 5 |
 
 ---

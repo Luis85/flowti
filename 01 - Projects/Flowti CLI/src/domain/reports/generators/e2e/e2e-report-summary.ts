@@ -4,10 +4,7 @@
  * E2E summary report generation — top-level report with aggregated results.
  */
 
-import { disk } from "../../../../infrastructure/filesystem.js";
-import { paths } from "../../../../infrastructure/paths.js";
-
-import { clock } from "../../../../infrastructure/clock.js";
+import type { CliDeps } from "../../../../infrastructure/deps.js";
 import { Document } from "../../../../infrastructure/document.js";
 import type {
 	ActionStatsReturn, JourneyEntry, JourneyReportResult,
@@ -20,6 +17,8 @@ import {
 	resolveMode, resolveStatus,
 	statusCallout, statusLabel, TOOL_COUNTER_MAP,
 } from "./e2e-report-utils.js";
+
+export type E2ESummaryDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "proc">;
 import { generateJourneyReport } from "./e2e-report-journey.js";
 import { generateJourneyCanvas } from "./e2e-report-canvas.js";
 import { readVitestResults, readJourneyResults, reconcileResults } from "./e2e-report-vitest.js";
@@ -34,29 +33,31 @@ import { buildE2EFrontmatter } from "./e2e-report-frontmatter.js";
 
 // ── File I/O Helpers ────────────────────────────────────────────
 
+export type IODeps = Pick<CliDeps, "disk" | "paths">;
+
 /** Writes content to a file. */
-function writeReport(dir: string, filename: string, content: string, _label?: string): void {
-	disk.mkdirSync(dir, { recursive: true });
-	const outputPath = paths.join(dir, filename);
-	disk.writeFileSync(outputPath, content, "utf-8");
+function writeReport(dir: string, filename: string, content: string, deps: IODeps, _label?: string): void {
+	deps.disk.mkdirSync(dir, { recursive: true });
+	const outputPath = deps.paths.join(dir, filename);
+	deps.disk.writeFileSync(outputPath, content, "utf-8");
 }
 
 /** Copies screenshot .png files from src to dest directory, removing stale dest files first. */
-function copyScreenshots(srcDir: string, destDir: string): void {
-	if (!disk.existsSync(srcDir)) return;
+function copyScreenshots(srcDir: string, destDir: string, deps: IODeps): void {
+	if (!deps.disk.existsSync(srcDir)) return;
 
-	disk.mkdirSync(destDir, { recursive: true });
+	deps.disk.mkdirSync(destDir, { recursive: true });
 
-	const srcFiles = new Set(disk.readdirSync(srcDir).filter((f) => f.endsWith(".png")));
-	for (const file of disk.readdirSync(destDir)) {
+	const srcFiles = new Set(deps.disk.readdirSync(srcDir).filter((f) => f.endsWith(".png")));
+	for (const file of deps.disk.readdirSync(destDir)) {
 		if (!file.endsWith(".png")) continue;
 		if (!srcFiles.has(file)) {
-			disk.rmSync(paths.join(destDir, file), { force: true });
+			deps.disk.rmSync(deps.paths.join(destDir, file), { force: true });
 		}
 	}
 
 	for (const file of srcFiles) {
-		disk.copyFileSync(paths.join(srcDir, file), paths.join(destDir, file));
+		deps.disk.copyFileSync(deps.paths.join(srcDir, file), deps.paths.join(destDir, file));
 	}
 }
 
@@ -65,41 +66,41 @@ function copyScreenshots(srcDir: string, destDir: string): void {
 /** Writes a single journey's report, canvas, and screenshots to both vaults. */
 export function writeJourneyOutputs(
 	dir: string, data: Record<string, unknown>, date: string, now: Date, trace: TraceData | null,
-	e2e: E2EPaths,
+	e2e: E2EPaths, deps: IODeps & Pick<CliDeps, "proc">,
 ): JourneyReportResult {
-	const { title, status: jReportStatus, content } = generateJourneyReport(data, date);
+	const { title, status: jReportStatus, content } = generateJourneyReport(data, date, deps);
 	const filename = `${title}.md`;
 	const canvasFilename = `${title}.canvas`;
 
-	writeReport(dir, filename, content, "JourneyReport written");
+	writeReport(dir, filename, content, deps, "JourneyReport written");
 
 	const testScreenshotPath = `docs/journeys/${title}/screenshots`;
 	const testConfigPath = `docs/journeys/${title}/${title}-config.json`;
 	const testCanvas = generateJourneyCanvas(data, testScreenshotPath, trace, testConfigPath);
-	writeReport(dir, canvasFilename, JSON.stringify(testCanvas, null, "\t"), "JourneyCanvas written");
+	writeReport(dir, canvasFilename, JSON.stringify(testCanvas, null, "\t"), deps, "JourneyCanvas written");
 
 	const devContent = content.replace(/!\[\[([^\]]+\.png)\]\]/g, (_: string, file: string) => `![](screenshots/${file})`);
-	const devJourneyDir = paths.join(e2e.devJourneysDir, title);
-	writeReport(devJourneyDir, filename, devContent, "JourneyReport mirrored");
+	const devJourneyDir = deps.paths.join(e2e.devJourneysDir, title);
+	writeReport(devJourneyDir, filename, devContent, deps, "JourneyReport mirrored");
 
-	const configFile = paths.join(dir, `${title}-config.json`);
-	if (disk.existsSync(configFile)) {
-		writeReport(devJourneyDir, `${title}-config.json`, disk.readFileSync(configFile, "utf-8"), "JourneyConfig mirrored");
+	const configFile = deps.paths.join(dir, `${title}-config.json`);
+	if (deps.disk.existsSync(configFile)) {
+		writeReport(devJourneyDir, `${title}-config.json`, deps.disk.readFileSync(configFile, "utf-8"), deps, "JourneyConfig mirrored");
 	}
 
 	const devScreenshotPath = `Development/flowti/docs/journeys/${title}/screenshots`;
 	const devConfigPath = `Development/flowti/docs/journeys/${title}/${title}-config.json`;
 	const devCanvas = generateJourneyCanvas(data, devScreenshotPath, trace, devConfigPath);
-	writeReport(devJourneyDir, canvasFilename, JSON.stringify(devCanvas, null, "\t"), "JourneyCanvas mirrored");
+	writeReport(devJourneyDir, canvasFilename, JSON.stringify(devCanvas, null, "\t"), deps, "JourneyCanvas mirrored");
 
 	const archivedContent = content.replace(/!\[\[([^\]]+\.png)\]\]/g, (_: string, file: string) => `![](../screenshots/${file})`);
 	const safeTs = now.toISOString().replace(/:/g, "-");
 	const archiveSuffix = jReportStatus === "partial-pass" ? " (Partial)" : "";
-	const pastTestsDir = paths.join(devJourneyDir, "past-tests");
-	writeReport(pastTestsDir, `${safeTs}-${title}${archiveSuffix}.md`, archivedContent, "JourneyReport archived");
-	writeReport(pastTestsDir, `${safeTs}-${title}${archiveSuffix}.canvas`, JSON.stringify(devCanvas, null, "\t"), "JourneyCanvas archived");
+	const pastTestsDir = deps.paths.join(devJourneyDir, "past-tests");
+	writeReport(pastTestsDir, `${safeTs}-${title}${archiveSuffix}.md`, archivedContent, deps, "JourneyReport archived");
+	writeReport(pastTestsDir, `${safeTs}-${title}${archiveSuffix}.canvas`, JSON.stringify(devCanvas, null, "\t"), deps, "JourneyCanvas archived");
 
-	copyScreenshots(paths.join(dir, "screenshots"), paths.join(devJourneyDir, "screenshots"));
+	copyScreenshots(deps.paths.join(dir, "screenshots"), deps.paths.join(devJourneyDir, "screenshots"), deps);
 
 	return { title, status: jReportStatus, content };
 }
@@ -144,9 +145,9 @@ function extractReconciledCounts(reconciled: ReturnType<typeof reconcileResults>
 	return { totalPassed, totalFailed, totalSkipped, totalDev, totalTests };
 }
 
-export function computeReconciledTotals(vitest: VitestResults | null, journeys: JourneyEntry[]): ReconciledTotals {
+export function computeReconciledTotals(vitest: VitestResults | null, journeys: JourneyEntry[], deps: Pick<CliDeps, "proc">): ReconciledTotals {
 	const counts = extractReconciledCounts(reconcileResults(vitest, journeys));
-	const effectiveSkipped = counts.totalSkipped + counts.totalDev + (resolveMode() !== "full" ? 1 : 0);
+	const effectiveSkipped = counts.totalSkipped + counts.totalDev + (resolveMode(deps) !== "full" ? 1 : 0);
 	const hasJourneyWarnings = journeys.some(({ data }) => ((data.steps as StepResult[]) ?? []).some((r) => r.warnings && r.warnings.length > 0));
 	const overallStatus = resolveStatus(counts.totalPassed, counts.totalFailed, counts.totalTests, effectiveSkipped, hasJourneyWarnings);
 	return { ...counts, overallStatus, totalDurationMs: vitest?.durationMs ?? 0 };
@@ -171,11 +172,11 @@ function renderE2EDocBody(
 	aggregate: ActionStatsReturn, allTools: string[],
 	perJourneyStats: Map<string, ActionStatsReturn>,
 	startupPerf: StartupPerf | null, trace: TraceData | null,
-	e2e: E2EPaths,
+	e2e: E2EPaths, deps: E2ESummaryDeps,
 ): void {
 	doc.addBlank().heading(1, `E2E Report${totals.overallStatus === "partial-pass" ? " (Partial)" : ""}`).addBlank();
 	doc.callout(statusCallout(totals.overallStatus), `Summary — ${statusLabel(totals.overallStatus)}`, [
-		`Mode: **${resolveMode()}** | Tests: ${totals.totalTests} | Passed: ${totals.totalPassed} | Failed: ${totals.totalFailed} | Skipped: ${totals.totalSkipped}` + (totals.totalDev > 0 ? ` | Dev: ${totals.totalDev}` : ""),
+		`Mode: **${resolveMode(deps)}** | Tests: ${totals.totalTests} | Passed: ${totals.totalPassed} | Failed: ${totals.totalFailed} | Skipped: ${totals.totalSkipped}` + (totals.totalDev > 0 ? ` | Dev: ${totals.totalDev}` : ""),
 		`Duration: ${formatDuration(totals.totalDurationMs)}`,
 	]);
 	doc.addBlank();
@@ -187,7 +188,7 @@ function renderE2EDocBody(
 	if (vitest && vitest.suites.length > 0) {
 		doc.addSeparator().addBlank();
 		doc.heading(2, "Units Under Test").addBlank();
-		doc.list(vitest.suites.map((s) => `\`${paths.relative(e2e.projectRoot, s.file).replace(/\\/g, "/")}\``));
+		doc.list(vitest.suites.map((s) => `\`${deps.paths.relative(e2e.projectRoot, s.file).replace(/\\/g, "/")}\``));
 		doc.addBlank();
 	}
 
@@ -201,28 +202,28 @@ function renderE2EDocBody(
 
 // ── Output Writing ──────────────────────────────────────────────
 
-function writeE2EOutputs(content: string, now: Date, overallStatus: string, e2e: E2EPaths): void {
+function writeE2EOutputs(content: string, now: Date, overallStatus: string, e2e: E2EPaths, deps: IODeps): void {
 	const safeTimestamp = now.toISOString().replace(/:/g, "-");
 	const e2eFilename = `${safeTimestamp}-e2e-report${overallStatus === "partial-pass" ? " (Partial)" : ""}.md`;
-	writeReport(e2e.testVault, "E2E Report.md", content, "E2EReport written");
-	writeReport(paths.join(e2e.projectRoot, "docs", "reports", "e2e"), "E2E Report.md", content, "E2EReport current");
-	writeReport(e2e.devRunsDir, e2eFilename, content, "E2EReport archived");
+	writeReport(e2e.testVault, "E2E Report.md", content, deps, "E2EReport written");
+	writeReport(deps.paths.join(e2e.projectRoot, "docs", "reports", "e2e"), "E2E Report.md", content, deps, "E2EReport current");
+	writeReport(e2e.devRunsDir, e2eFilename, content, deps, "E2EReport archived");
 }
 
 /** Cleans up temporary result files after report generation. */
-export function cleanupResults(journeys: JourneyEntry[], vitestResultsPath: string): void {
-	try { if (disk.existsSync(vitestResultsPath)) disk.rmSync(vitestResultsPath, { force: true }); } catch { /* ignore */ }
+export function cleanupResults(journeys: JourneyEntry[], vitestResultsPath: string, deps: IODeps): void {
+	try { if (deps.disk.existsSync(vitestResultsPath)) deps.disk.rmSync(vitestResultsPath, { force: true }); } catch { /* ignore */ }
 	for (const { dir, data } of journeys) {
-		try { disk.rmSync(paths.join(dir, `${(data.journey as string)}-results.json`), { force: true }); } catch { /* ignore */ }
+		try { deps.disk.rmSync(deps.paths.join(dir, `${(data.journey as string)}-results.json`), { force: true }); } catch { /* ignore */ }
 	}
 }
 
 function generateJourneyReports(
-	journeys: JourneyEntry[], date: string, now: Date, trace: TraceData | null, e2e: E2EPaths,
+	journeys: JourneyEntry[], date: string, now: Date, trace: TraceData | null, e2e: E2EPaths, deps: E2ESummaryDeps,
 ): Array<{ title: string; data: Record<string, unknown> }> {
 	const journeyReportNames: Array<{ title: string; data: Record<string, unknown> }> = [];
 	for (const { dir, data } of journeys) {
-		const result = writeJourneyOutputs(dir, data, date, now, trace, e2e);
+		const result = writeJourneyOutputs(dir, data, date, now, trace, e2e, deps);
 		journeyReportNames.push({ title: result.title, data });
 	}
 	return journeyReportNames;
@@ -230,38 +231,38 @@ function generateJourneyReports(
 
 // ── Main Entry Point ────────────────────────────────────────────
 
-export function generateE2EReport(e2e: E2EPaths): void {
+export function generateE2EReport(e2e: E2EPaths, deps: E2ESummaryDeps): void {
 	const vitestResultsPath = e2e.vitestResults;
-	const journeysDir = paths.join(e2e.testVault, "docs", "journeys");
+	const journeysDir = deps.paths.join(e2e.testVault, "docs", "journeys");
 
-	const vitest = readVitestResults(vitestResultsPath);
-	const journeys = readJourneyResults(journeysDir);
+	const vitest = readVitestResults(vitestResultsPath, deps);
+	const journeys = readJourneyResults(journeysDir, deps);
 
 	if (!vitest && journeys.length === 0) {
 		return;
 	}
 
-	const now = clock.now();
+	const now = deps.clock.now();
 	const date = now.toISOString();
-	const startupPerf = readStartupPerf(e2e.dataJsonCandidates);
-	const trace = readLatestEventTrace(e2e.devTracesDir);
+	const startupPerf = readStartupPerf(e2e.dataJsonCandidates, deps);
+	const trace = readLatestEventTrace(e2e.devTracesDir, deps);
 
-	const journeyReportNames = generateJourneyReports(journeys, date, now, trace, e2e);
-	const totals = computeReconciledTotals(vitest, journeys);
+	const journeyReportNames = generateJourneyReports(journeys, date, now, trace, e2e, deps);
+	const totals = computeReconciledTotals(vitest, journeys, deps);
 	const { aggregate, perJourney: perJourneyStats } = aggregateJourneyStats(journeys);
 	const allTools = aggregate.tools;
 
 	const doc = Document.create("E2E Report");
-	const testSuiteLinks = (vitest?.suites ?? []).map((s) => `[[${paths.relative(e2e.projectRoot, s.file).replace(/\\/g, "/")}]]`);
+	const testSuiteLinks = (vitest?.suites ?? []).map((s) => `[[${deps.paths.relative(e2e.projectRoot, s.file).replace(/\\/g, "/")}]]`);
 
 	buildE2EFrontmatter(doc, {
 		date, ...totals, aggregate, allTools, testSuiteLinks,
 		journeyReportLinks: journeyReportNames.map(({ title }) => `[[${title}]]`),
 		journeyCanvasLinks: journeyReportNames.map(({ title }) => `[[${title}]]`),
 		journeyCount: journeys.length, trace, startupPerf,
-	});
+	}, deps);
 
-	renderE2EDocBody(doc, totals, vitest, journeys, journeyReportNames, aggregate, allTools, perJourneyStats, startupPerf, trace, e2e);
-	writeE2EOutputs(doc.toString(), now, totals.overallStatus, e2e);
-	cleanupResults(journeys, vitestResultsPath);
+	renderE2EDocBody(doc, totals, vitest, journeys, journeyReportNames, aggregate, allTools, perJourneyStats, startupPerf, trace, e2e, deps);
+	writeE2EOutputs(doc.toString(), now, totals.overallStatus, e2e, deps);
+	cleanupResults(journeys, vitestResultsPath, deps);
 }

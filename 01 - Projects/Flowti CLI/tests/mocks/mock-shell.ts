@@ -61,5 +61,33 @@ export function createMockShell(opts: MockShellOptions = {}): IShell & {
 			calls.push({ method: "runCaptureStatus", cmd, opts: runOpts });
 			return { output: outputs[cmd] ?? "", exitCode: exitCodes[cmd] ?? 0 };
 		},
+
+		runCaptureDetailed(cmd: string, runOpts?: { cwd?: string; timeout?: number; env?: Record<string, string> }): { stdout: string; stderr: string; exitCode: number } {
+			calls.push({ method: "runCaptureDetailed", cmd, opts: runOpts });
+			return { stdout: outputs[cmd] ?? "", stderr: "", exitCode: exitCodes[cmd] ?? 0 };
+		},
+
+		spawnBackground(cmd: string, spawnOpts?: { cwd?: string; env?: Record<string, string> }) {
+			calls.push({ method: "spawnBackground", cmd, opts: spawnOpts });
+			return {
+				running: false,
+				output: [],
+				onOutput: () => () => {},
+				kill: () => {},
+				waitForOutput: () => Promise.resolve(null),
+			};
+		},
+
+		async runAsync(cmd: string, runOpts?: { cwd?: string; timeout?: number }): Promise<{ output: string; exitCode: number }> {
+			calls.push({ method: "runAsync", cmd, opts: runOpts });
+			return { output: outputs[cmd] ?? "", exitCode: exitCodes[cmd] ?? 0 };
+		},
+
+		async runParallel(cmds: string[], runOpts?: { cwd?: string; timeout?: number }): Promise<{ output: string; exitCode: number }[]> {
+			return Promise.all(cmds.map((cmd) => {
+				calls.push({ method: "runAsync", cmd, opts: runOpts });
+				return { output: outputs[cmd] ?? "", exitCode: exitCodes[cmd] ?? 0 };
+			}));
+		},
 	};
 }

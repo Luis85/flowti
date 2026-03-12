@@ -5,12 +5,9 @@
  * a Command Reference vault note with queryable YAML frontmatter.
  */
 
-import { disk } from "../../../infrastructure/filesystem.js";
-import { paths } from "../../../infrastructure/paths.js";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
-import { clock } from "../../../infrastructure/clock.js";
-import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
+import type { ReportDeps } from "../../../infrastructure/deps.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
 import type { PipelineContext } from "../../../infrastructure/pipeline/pipeline-types.js";
 
@@ -77,17 +74,22 @@ function capitalize(s: string): string {
 
 // ── Generator ────────────────────────────────────────────────────────
 
-export function generateCommandReference(projectPath: string, ctx?: PipelineContext): GeneratorOutput {
+export function generateCommandReference(projectPath: string, deps: ReportDeps, ctx?: PipelineContext): GeneratorOutput {
 	const log = (msg: string) => ctx?.log(msg);
-	const svc = new ReportService(projectPath);
-	const registryPath = paths.join(PLUGIN_ROOT, "src", "infrastructure", "commands", "registry.ts");
+	const svc = new ReportService(projectPath, deps);
+	const sourcePath = ctx?.getStepData("command-reference")?.source as string | undefined;
+	if (!sourcePath) {
+		log("[cli-report] Command reference source not configured — skipping.");
+		return { success: false, outputPath: "", metrics: {}, error: "Source not configured" };
+	}
+	const registryPath = deps.paths.join(projectPath, sourcePath);
 
-	if (!disk.existsSync(registryPath)) {
+	if (!deps.disk.existsSync(registryPath)) {
 		log("[cli-report] CommandRegistry source not found — skipping.");
 		return { success: false, outputPath: "", metrics: {}, error: "CommandRegistry source not found" };
 	}
 
-	const source: string = disk.readFileSync(registryPath, "utf-8");
+	const source: string = deps.disk.readFileSync(registryPath, "utf-8");
 	const commands: CommandMeta[] = extractCommandMeta(source);
 
 	if (commands.length === 0) {
@@ -109,7 +111,7 @@ export function generateCommandReference(projectPath: string, ctx?: PipelineCont
 
 	const fm = {
 		type: "CommandReference",
-		date: clock.iso(),
+		date: deps.clock.iso(),
 		total_commands: commands.length,
 		domains: sortedDomains.length,
 	};

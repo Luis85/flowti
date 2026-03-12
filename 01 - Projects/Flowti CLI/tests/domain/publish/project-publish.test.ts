@@ -38,7 +38,7 @@ import * as fsMod from "../../../src/infrastructure/filesystem.js";
 import * as shellMod from "../../../src/infrastructure/shell.js";
 import { log } from "../../../src/infrastructure/logger.js";
 import { runMenu } from "../../../src/infrastructure/menu.js";
-import { publishMenu } from "../../../src/domain/publish/project-publish.js";
+import { publishMenu } from "../../../src/ui/menus/publish-menu.js";
 import type { PublishConfig } from "../../../src/infrastructure/types.js";
 
 function setDisk(mockFs: ReturnType<typeof createMockFs>): void {

@@ -4,13 +4,13 @@
  * Vitest JSON parsing, suite/case extraction, and journey reconciliation.
  */
 
-import { disk } from "../../../../infrastructure/filesystem.js";
-import { paths } from "../../../../infrastructure/paths.js";
-import { clock } from "../../../../infrastructure/clock.js";
+import type { CliDeps } from "../../../../infrastructure/deps.js";
 import type {
 	VitestCase, VitestSuite, VitestResults,
 	JourneyEntry, StepResult,
 } from "./e2e-report-types.js";
+
+export type VitestDeps = Pick<CliDeps, "disk" | "paths" | "clock">;
 
 /** Parses a single vitest assertion result into a VitestCase. */
 export function parseVitestCase(test: Record<string, unknown>): VitestCase {
@@ -32,8 +32,8 @@ export function extractHookError(file: Record<string, unknown>): string {
 }
 
 /** Parses a single vitest file result into a VitestSuite and returns case-level totals. */
-export function parseVitestSuite(file: Record<string, unknown>): { suite: VitestSuite; passed: number; failed: number; skipped: number } {
-	const suiteName = paths.basename(file.name as string, ".test.ts");
+export function parseVitestSuite(file: Record<string, unknown>, deps: Pick<VitestDeps, "paths">): { suite: VitestSuite; passed: number; failed: number; skipped: number } {
+	const suiteName = deps.paths.basename(file.name as string, ".test.ts");
 	const cases = (file.assertionResults as Record<string, unknown>[] ?? []).map(parseVitestCase);
 	const suiteHookFailed = file.status === "failed";
 
@@ -67,17 +67,17 @@ export function parseVitestSuite(file: Record<string, unknown>): { suite: Vitest
 }
 
 /** Reads vitest JSON reporter output and extracts test suite/case results. */
-export function readVitestResults(vitestResultsPath: string): VitestResults | null {
-	if (!disk.existsSync(vitestResultsPath)) return null;
+export function readVitestResults(vitestResultsPath: string, deps: VitestDeps): VitestResults | null {
+	if (!deps.disk.existsSync(vitestResultsPath)) return null;
 
-	const raw = JSON.parse(disk.readFileSync(vitestResultsPath, "utf-8")) as Record<string, unknown>;
+	const raw = JSON.parse(deps.disk.readFileSync(vitestResultsPath, "utf-8")) as Record<string, unknown>;
 	const files = raw.testResults as Record<string, unknown>[] ?? [];
 
 	let totalPassed = 0, totalFailed = 0, totalSkipped = 0;
 	const suites: VitestSuite[] = [];
 
 	for (const file of files) {
-		const { suite, passed, failed, skipped } = parseVitestSuite(file);
+		const { suite, passed, failed, skipped } = parseVitestSuite(file, deps);
 		suites.push(suite);
 		totalPassed += passed;
 		totalFailed += failed;
@@ -89,28 +89,28 @@ export function readVitestResults(vitestResultsPath: string): VitestResults | nu
 		totalFailed,
 		totalSkipped,
 		totalTests: totalPassed + totalFailed + totalSkipped,
-		durationMs: (raw.startTime as number) ? clock.ms() - (raw.startTime as number) : 0,
+		durationMs: (raw.startTime as number) ? deps.clock.ms() - (raw.startTime as number) : 0,
 		suites,
 	};
 }
 
 /** Reads all journey results from the test vault journeys directory. */
-export function readJourneyResults(journeysDir: string): JourneyEntry[] {
-	if (!disk.existsSync(journeysDir)) return [];
+export function readJourneyResults(journeysDir: string, deps: Pick<VitestDeps, "disk" | "paths">): JourneyEntry[] {
+	if (!deps.disk.existsSync(journeysDir)) return [];
 
 	const journeys: JourneyEntry[] = [];
-	const entries = disk.readdirSync(journeysDir, { withFileTypes: true });
+	const entries = deps.disk.readdirSync(journeysDir, { withFileTypes: true });
 
 	for (const entry of entries) {
 		if (!entry.isDirectory()) continue;
 
-		const journeyDir = paths.join(journeysDir, entry.name);
-		const resultsFile = paths.join(journeyDir, `${entry.name}-results.json`);
+		const journeyDir = deps.paths.join(journeysDir, entry.name);
+		const resultsFile = deps.paths.join(journeyDir, `${entry.name}-results.json`);
 
-		if (disk.existsSync(resultsFile)) {
+		if (deps.disk.existsSync(resultsFile)) {
 			journeys.push({
 				dir: journeyDir,
-				data: JSON.parse(disk.readFileSync(resultsFile, "utf-8")) as Record<string, unknown>,
+				data: JSON.parse(deps.disk.readFileSync(resultsFile, "utf-8")) as Record<string, unknown>,
 			});
 		}
 	}

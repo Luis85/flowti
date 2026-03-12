@@ -2,7 +2,7 @@
  * component-definition.ts — JSON definition file template for components.
  */
 
-import type { ComponentVariables, ComponentDefinition } from "../component-types.js";
+import type { ComponentVariables, ComponentDefinition, ComponentTemplateDeps } from "../component-types.js";
 
 function applyOptionalVars(definition: Record<string, unknown>, vars: ComponentVariables): void {
 	if (vars.description) definition.description = vars.description;
@@ -32,7 +32,7 @@ function applyStorybook(definition: Record<string, unknown>, def: ComponentDefin
 	}
 }
 
-export function componentDefinitionTemplate(vars: ComponentVariables, def: ComponentDefinition): string {
+export function componentDefinitionTemplate(vars: ComponentVariables, def: ComponentDefinition, _deps: ComponentTemplateDeps): string {
 	const definition: Record<string, unknown> = {
 		name: vars.name,
 		id: vars.kebab,

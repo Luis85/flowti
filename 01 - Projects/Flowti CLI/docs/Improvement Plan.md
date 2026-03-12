@@ -2,9 +2,9 @@
 type: Plan
 domain: CLI
 title: Flowti CLI — Improvement Plan
-version: 1
+version: 2
 created: 2026-03-10
-updated: 2026-03-10
+updated: 2026-03-11
 status: active
 source: "[[Development Roadmap]]"
 tech_debt: "[[Tech Debt]]"
@@ -25,10 +25,10 @@ tech_debt: "[[Tech Debt]]"
 | **Error handling** | 73 bare catch blocks — all intentional (resilient runner pattern) | ✓ Acceptable |
 | **Controller tests** | GAP — 15 controllers, 0 dedicated test files | High |
 | **Mock standardization** | INCONSISTENT — `createMockShell()` exists but many tests mock inline | Medium |
-| **Naming convention** | INCONSISTENT — mix of kebab-case and PascalCase file names | Low |
-| **Test-to-source ratio** | 0.54 (152 test files / 281 source files) | Acceptable |
+| **Naming convention** | CONSISTENT — all kebab-case (TD-27 resolved) | ✓ Resolved |
+| **Test-to-source ratio** | 0.60 (170 test files / 282 source files) | Good |
 | **EventBus** | CREATED — not wired (deferred to Phase 8) | ✓ By design |
-| **Reports domain size** | 42 files — largest domain, 3x next-largest | Medium |
+| **Reports domain size** | 42 files across 5 sub-dirs (TD-03 resolved) | ✓ Resolved |
 
 ---
 
@@ -71,26 +71,20 @@ expect(response.data.score.grade).toBe("B");
 
 ---
 
-## Sprint 3: Reports Domain Reorganization (Priority: MEDIUM)
+## Sprint 3: Reports Domain Reorganization (Priority: MEDIUM) — ✅ COMPLETE
 
 **Goal**: Split the 42-file reports domain into focused sub-domains for maintainability before Phase 8 adds 14 more generators.
 
-| # | Task | Files Moved | Effort | TD |
-|---|------|-------------|--------|-----|
-| 3.1 | Create `reports/analysis/` — complexity-analyzer, summary-{loaders,analyzers,analyzers-ext,renderers,formatters,types,promotion,details} | 8 files | S | TD-03 |
-| 3.2 | Create `reports/export/` — html-export, report-archive, report-diff | 3 files | S | TD-03 |
-| 3.3 | Create `reports/pipeline/` — report-pipeline, doc-pipeline, report-runner, doc-runner | 4 files | S | TD-03 |
-| 3.4 | Update all import paths in source and test files | ~25 files | M | TD-03 |
-| 3.5 | Verify all tests pass after reorganization | — | S | — |
+**Result**: Created `reports/pipeline/` (4 files) and `reports/export/` (3 files). Updated 18 consumer files (7 source + 11 test). All tests pass. TD-03 resolved.
 
-**Target structure**:
+**Current structure**:
 ```
 domain/reports/
 ├── cli/                   # 6 report generators + report-service
-├── generators/            # 2 reference generators (existing)
+├── generators/            # 2 reference generators
 ├── analysis/              # Complexity + summary analysis (8 files)
 ├── export/                # HTML, archive, diff (3 files)
-├── pipeline/              # Report + doc pipeline bridges (4 files)
+├── pipeline/              # Report + doc pipeline bridges + runners (4 files)
 ├── generator-registry.ts  # Unified registry
 └── report-events.ts       # Domain event map
 ```
@@ -109,15 +103,11 @@ domain/reports/
 
 ---
 
-## Sprint 5: File Naming Standardization (Priority: LOW)
+## Sprint 5: File Naming Standardization (Priority: LOW) — ✅ COMPLETE
 
 **Goal**: Consistent kebab-case file naming across the codebase.
 
-| # | Task | Files | Effort | TD |
-|---|------|-------|--------|-----|
-| 5.1 | Rename `E2EService.ts` → `e2e-service.ts` | 1 + imports | S | TD-27 |
-| 5.2 | Rename `MakeService.ts` → `make-service.ts` | 1 + imports | S | TD-27 |
-| 5.3 | Update all import paths referencing renamed files | ~10 files | S | TD-27 |
+**Result**: Renamed `E2EService.ts` → `e2e-service.ts` and `MakeService.ts` → `make-service.ts` (+ test files). Updated all import paths. TD-27 resolved.
 
 ---
 
@@ -126,14 +116,14 @@ domain/reports/
 ```
 Sprint 1 (controller tests)      HIGH    ~8h    ← Do before Phase 8
 Sprint 2 (mock standardization)  MEDIUM  ~4h    ← Do alongside Sprint 1
-Sprint 3 (reports reorganization) MEDIUM  ~4h    ← Do before Phase 8.3
+Sprint 3 (reports reorganization) MEDIUM  ~4h    ✅ COMPLETE (TD-03 resolved)
 Sprint 4 (clock consistency)     LOW     ~2h    ← Quick win, any time
-Sprint 5 (file naming)           LOW     ~2h    ← Quick win, any time
+Sprint 5 (file naming)           LOW     ~2h    ✅ COMPLETE (TD-27 resolved)
                                          ────
-                                Total:   ~20h
+                                Remaining: ~14h (Sprints 1, 2, 4)
 ```
 
-**Key insight**: Sprints 1-3 should be completed **before Phase 8** begins. Phase 8 adds 42 work items including 14 new report generators and multi-project commands — the controller test infrastructure and reports reorganization will pay dividends immediately.
+**Key insight**: Sprint 3 and 5 are done. Sprint 1 (controller tests) should be completed **before Phase 8** begins — it's the highest-impact remaining item.
 
 ---
 
@@ -141,24 +131,24 @@ Sprint 5 (file naming)           LOW     ~2h    ← Quick win, any time
 
 These items are documented in [[Tech Debt]] and [[Development Roadmap]] but not part of this improvement sprint:
 
-| Item | Why Deferred |
-|------|-------------|
-| Wire EventBus into main.ts (TD-26) | Phase 8 — needed when Plugin integration requires cross-domain events |
-| Async shell execution (TD-05) | Phase 8 — needed for multi-step build pipelines |
-| Config validation schema (TD-06) | Phase 8 — needed when ProjectConfig v2 grows |
+| Item | Status |
+|------|--------|
+| Wire EventBus into main.ts (TD-26) | Deferred to Phase 8 — needed when Plugin integration requires cross-domain events |
+| ~~Async shell execution (TD-05)~~ | ✅ RESOLVED — `runAsync()` and `runParallel()` added to IShell |
+| ~~Config validation schema (TD-06)~~ | ✅ RESOLVED — `validateProjectConfig()` with 45+ rules exists |
 | Reports domain test coverage | Addressed partially by Sprint 1 (controller tests) |
-| Progress indicators (TD-19) | Nice-to-have, not blocking |
+| Progress indicators (TD-19) | Deferred — nice-to-have, not blocking |
 
 ---
 
 ## Metrics After Completion
 
-| Metric | Current | After Sprints | Target (Phase 8) |
-|--------|---------|---------------|-------------------|
-| Tests | 2,592 | ~2,750 | 2,800+ |
-| Test suites | 147 | ~165 | 170+ |
+| Metric | Current | After Sprints 1,2,4 | Target (Phase 8) |
+|--------|---------|----------------------|-------------------|
+| Tests | 3,608 | ~3,750 | 3,800+ |
+| Test suites | 221 | ~240 | 250+ |
 | Controller test files | 0 | 15 | 15+ |
-| Reports domain file groups | 1 flat dir | 5 sub-dirs | 5 sub-dirs |
+| Reports domain file groups | 5 sub-dirs ✓ | 5 sub-dirs | 5 sub-dirs |
 | Mock factory usage | ~40% | ~90% | 95%+ |
 | `new Date()` in domain | ~5 files | 0 | 0 |
-| Naming violations | 2 files | 0 | 0 |
+| Naming violations | 0 ✓ | 0 | 0 |

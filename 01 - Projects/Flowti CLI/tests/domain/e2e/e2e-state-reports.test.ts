@@ -15,6 +15,14 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
 }));
 
+vi.mock("../../../src/infrastructure/clock.js", () => ({
+	clock: {
+		now: () => new Date("2026-03-08T12:00:00Z"),
+		iso: () => "2026-03-08T12:00:00.000Z",
+		safeIso: () => "2026-03-08T12-00-00",
+	},
+}));
+
 import {
 	extractMetrics,
 	buildUnitTestsSection,
@@ -32,8 +40,13 @@ import {
 	generatePublishStateReport,
 } from "../../../src/domain/e2e/e2e-state-reports.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
+import { log as logFn } from "../../../src/infrastructure/logger.js";
+import { clock } from "../../../src/infrastructure/clock.js";
 import type { BuildStats, TestStats } from "../../../src/domain/e2e/e2e-types.js";
 import type { E2EPaths } from "../../../src/domain/e2e/e2e-paths.js";
+
+const stateDeps = { disk, paths, clock, log: logFn } as any;
 
 const emptyStats: BuildStats = {
 	build: null, test: null, coverage: null, performance: null,
@@ -333,14 +346,14 @@ describe("generateIncrementStateReport", () => {
 			build: { plugin_version: "1.0.0", total_bytes: 51200 },
 		};
 
-		const result = generateIncrementStateReport(0, "10.5", stats, mockE2e);
+		const result = generateIncrementStateReport(0, "10.5", stats, mockE2e, stateDeps);
 		expect(disk.writeFileSync).toHaveBeenCalledTimes(2);
 		expect(result.testPath).toContain("Increment State Report.md");
 		expect(result.devPath).toContain("Increment State Report.md");
 	});
 
 	it("includes increment and state-report tags", () => {
-		const result = generateIncrementStateReport(0, "5", emptyStats, mockE2e);
+		const result = generateIncrementStateReport(0, "5", emptyStats, mockE2e, stateDeps);
 		const content = vi.mocked(disk.writeFileSync).mock.calls[0][1] as string;
 		expect(content).toContain("  - increment");
 		expect(content).toContain("  - state-report");
@@ -349,7 +362,7 @@ describe("generateIncrementStateReport", () => {
 
 describe("generatePublishStateReport", () => {
 	it("writes report to dev vault", () => {
-		const result = generatePublishStateReport(0, "20.0", emptyStats, mockE2e);
+		const result = generatePublishStateReport(0, "20.0", emptyStats, mockE2e, stateDeps);
 		expect(disk.writeFileSync).toHaveBeenCalledTimes(1);
 		expect(result.devPath).toContain("Publish State Report.md");
 	});
@@ -359,7 +372,7 @@ describe("generatePublishStateReport", () => {
 			...emptyStats,
 			traceability: { total_events: 50, linked: 48, unlinked: 2 },
 		};
-		generatePublishStateReport(0, "5", stats, mockE2e);
+		generatePublishStateReport(0, "5", stats, mockE2e, stateDeps);
 		const content = vi.mocked(disk.writeFileSync).mock.calls[0][1] as string;
 		expect(content).toContain("## Traceability");
 	});

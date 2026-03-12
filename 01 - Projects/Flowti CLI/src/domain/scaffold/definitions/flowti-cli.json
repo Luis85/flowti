@@ -1,0 +1,74 @@
+{
+	"id": "flowti-cli",
+	"label": "Flowti CLI Tool",
+	"description": "CLI application: TypeScript strict, Vitest, esbuild single-file bundle. Includes argument parsing and help output.",
+	"prompts": [
+		{
+			"variable": "author",
+			"label": "Author name",
+			"default": "{{cliConfig.defaultAuthor}}",
+			"required": false
+		}
+	],
+	"package": {
+		"type": "module",
+		"scripts": {
+			"build": "node configs/esbuild.config.mjs",
+			"build:watch": "node configs/esbuild.config.mjs --watch",
+			"test": "npm run check && vitest run --config configs/vitest.config.ts",
+			"lint": "eslint --config configs/eslint.config.mjs src/",
+			"check": "npm run lint && tsc --project configs/tsconfig.json --noEmit",
+			"typedoc": "typedoc --options configs/typedoc.json"
+		},
+		"devDependencies": {
+			"@types/node": "^22.0.0",
+			"@typescript-eslint/eslint-plugin": "^8.0.0",
+			"@typescript-eslint/parser": "^8.0.0",
+			"@vitest/coverage-v8": "^4.0.0",
+			"esbuild": "^0.25.0",
+			"eslint": "^10.0.0",
+			"typedoc": "^0.28.0",
+			"typescript": "^5.9.0",
+			"vitest": "^4.0.0"
+		}
+	},
+	"flowtiConfig": {
+		"build": { "commands": { "fast": "npm run build", "watch": "npm run build:watch" } },
+		"test": { "commands": { "unit": "npm test" } },
+		"publish": {
+			"build": "npm run build",
+			"test": "npm test",
+			"outDir": "dist",
+			"artifacts": []
+		},
+		"review": {
+			"build": "npm run build",
+			"test": "npm test"
+		}
+	},
+	"directories": [
+		"src",
+		"tests",
+		"configs",
+		"docs"
+	],
+	"files": [
+		{ "path": "package.json", "templateId": "package-json" },
+		{ "path": "configs/tsconfig.json", "templateId": "tsconfig" },
+		{ "path": "configs/vitest.config.ts", "templateId": "vitest-config" },
+		{ "path": "configs/esbuild.config.mjs", "templateId": "esbuild-config" },
+		{ "path": "configs/eslint.config.mjs", "templateId": "eslint-config" },
+		{ "path": "configs/flowti.config.json", "templateId": "flowti-config" },
+		{ "path": ".gitignore", "templateId": "gitignore" },
+		{ "path": "src/main.ts", "templateId": "cli-main" },
+		{ "path": "tests/main.test.ts", "templateId": "cli-main-test" },
+		{ "path": "README.md", "templateId": "readme" },
+		{ "path": "docs/{{name}} — Architecture.md", "templateId": "architecture" }
+	],
+	"nextSteps": [
+		"cd \"{{outputPath}}\"",
+		"npm install",
+		"npm test",
+		"npm run build:watch"
+	]
+}

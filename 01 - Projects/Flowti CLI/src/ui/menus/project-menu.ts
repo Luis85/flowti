@@ -14,32 +14,18 @@ import { runMenu } from "../../infrastructure/menu.js";
 import { input } from "../../infrastructure/input.js";
 import { RESET, DIM, GREEN, RED, CYAN } from "../../infrastructure/ui.js";
 import { scaffold as scaffoldProject, listDefinitions } from "../../domain/scaffold/scaffold.js";
+import { listProjects, getProjectPath } from "../../domain/project/project.js";
 import type { MenuEntry, MenuResult } from "../../infrastructure/types.js";
 import { log } from "../../infrastructure/logger.js";
 import { pluginsMenu } from "./plugins-menu.js";
 import { aiToolsMenu } from "./ai-tools-menu.js";
 
-// ── Helpers ──────────────────────────────────────────────────────────
-
-export function listProjects(): string[] {
-	try {
-		return disk.readdirSync(PROJECTS_DIR, { withFileTypes: true })
-			.filter((e) => e.isDirectory())
-			.map((e) => e.name)
-			.sort();
-	} catch {
-		return [];
-	}
-}
-
-export function getProjectPath(name: string): string {
-	return paths.join(PROJECTS_DIR, name);
-}
+export { listProjects, getProjectPath };
 
 // ── Open Project ─────────────────────────────────────────────────────
 
 async function openProjectMenu(): Promise<MenuResult> {
-	const projects = listProjects();
+	const projects = listProjects({ disk });
 	const current = getSelectedProject();
 
 	if (projects.length === 0) {
@@ -79,7 +65,7 @@ async function createProjectMenu(): Promise<MenuResult> {
 		return "main";
 	}
 
-	const projectPath = paths.join(PROJECTS_DIR, name);
+	const projectPath = getProjectPath(name, { paths });
 	if (disk.existsSync(projectPath)) {
 		log(`\n  ${RED}Project already exists:${RESET} ${name}\n`);
 		return "main";
@@ -93,7 +79,7 @@ async function createProjectMenu(): Promise<MenuResult> {
 		key: String(keyIndex++),
 		label: `${def.label}  ${DIM}${def.description}${RESET}`,
 		action: (): MenuResult => {
-			const result = scaffoldProject({ definitionId: def.id, name, outputDir: projectPath });
+			const result = scaffoldProject({ disk, paths }, { definitionId: def.id, name, outputDir: projectPath });
 			if ("error" in result) {
 				log(`\n  ${RED}${result.error}${RESET}\n`);
 				return "main";
@@ -143,7 +129,7 @@ async function addGitSubmodule(projectPath: string, name: string): Promise<MenuR
 
 export async function startMenu(): Promise<"selected" | "quit"> {
 	while (true) {
-		const projects = listProjects();
+		const projects = listProjects({ disk });
 		const current = getSelectedProject();
 		const hasProjects = projects.length > 0;
 

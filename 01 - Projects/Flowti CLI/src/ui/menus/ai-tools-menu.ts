@@ -12,9 +12,13 @@ import { input } from "../../infrastructure/input.js";
 import { VAULT_ROOT, CLI_PROJECT } from "../../infrastructure/config.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { paths } from "../../infrastructure/paths.js";
+import { clock } from "../../infrastructure/clock.js";
 import type { MenuEntry, MenuResult } from "../../infrastructure/types.js";
 import { loadAiTools, scaffoldAiTool } from "../../domain/ai-tools/ai-tool-loader.js";
 import { generateAiToolReference } from "../../domain/ai-tools/ai-tool-reference.js";
+
+function toolDeps() { return { disk, paths } as const; }
+function clockDeps() { return { clock } as const; }
 import { renderToolList, renderToolValidation } from "../ai-tools-display.js";
 import type { ToolListItem, ToolValidationItem } from "../ai-tools-display.js";
 import { toToolListItems, toToolValidationItems } from "../../domain/ai-tools/ai-tool-commands.js";
@@ -25,7 +29,7 @@ export async function aiToolsMenu(): Promise<MenuResult> {
 			key: "1",
 			label: "List Tools",
 			action: () => {
-				const tools = loadAiTools(VAULT_ROOT, disk);
+				const tools = loadAiTools(toolDeps(), VAULT_ROOT, disk);
 				const items: ToolListItem[] = toToolListItems(tools);
 				renderToolList(items);
 				return "main" as const;
@@ -35,7 +39,7 @@ export async function aiToolsMenu(): Promise<MenuResult> {
 			key: "2",
 			label: "Validate Tools",
 			action: () => {
-				const items: ToolValidationItem[] = toToolValidationItems(VAULT_ROOT);
+				const items: ToolValidationItem[] = toToolValidationItems(toolDeps(), VAULT_ROOT);
 				renderToolValidation(items);
 				return "main" as const;
 			},
@@ -55,7 +59,7 @@ export async function aiToolsMenu(): Promise<MenuResult> {
 					log(`\n  ${DIM}Cancelled.${RESET}\n`);
 					return "main" as const;
 				}
-				const result = scaffoldAiTool(VAULT_ROOT, name, desc || "An AI tool", run, disk);
+				const result = scaffoldAiTool(toolDeps(), VAULT_ROOT, name, desc || "An AI tool", run, disk);
 				if ("error" in result) {
 					log(`\n  ${RED}${result.error}${RESET}\n`);
 				} else {
@@ -69,8 +73,8 @@ export async function aiToolsMenu(): Promise<MenuResult> {
 			key: "4",
 			label: "Generate Reference",
 			action: () => {
-				const tools = loadAiTools(VAULT_ROOT, disk);
-				const doc = generateAiToolReference(tools);
+				const tools = loadAiTools(toolDeps(), VAULT_ROOT, disk);
+				const doc = generateAiToolReference(clockDeps(), tools);
 				const outputPath = paths.join(CLI_PROJECT, "docs", "reference", "AI Tool Reference.md");
 				doc.save(outputPath);
 				log(`\n  ${GREEN}✓${RESET} Reference saved to ${DIM}${outputPath}${RESET}\n`);

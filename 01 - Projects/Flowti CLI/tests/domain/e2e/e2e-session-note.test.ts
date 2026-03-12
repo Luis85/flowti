@@ -22,6 +22,15 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
 }));
 
+vi.mock("../../../src/infrastructure/clock.js", () => ({
+	clock: {
+		now: () => new Date("2026-03-08T12:00:00Z"),
+		ms: () => Date.now(),
+		iso: () => "2026-03-08T12:00:00.000Z",
+		safeIso: () => "2026-03-08T12-00-00",
+	},
+}));
+
 vi.mock("../../../src/domain/e2e/e2e-helpers.js", () => ({
 	yamlStr: (s: string) => s,
 }));
@@ -34,6 +43,9 @@ vi.mock("../../../src/domain/e2e/e2e-session.js", () => ({
 }));
 
 import { disk } from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
+import { log as logFn } from "../../../src/infrastructure/logger.js";
+import { clock } from "../../../src/infrastructure/clock.js";
 import {
 	buildSessionFrontmatter,
 	buildPrereqRows,
@@ -41,6 +53,8 @@ import {
 } from "../../../src/domain/e2e/e2e-session-note.js";
 import type { SessionConfig, PrerequisiteResults, TestStats } from "../../../src/domain/e2e/e2e-types.js";
 import type { E2EPaths } from "../../../src/domain/e2e/e2e-paths.js";
+
+const noteDeps = { disk, paths, clock, log: logFn } as any;
 
 const mockE2e: E2EPaths = {
 	projectRoot: "/project",
@@ -188,14 +202,14 @@ describe("writeSessionNote", () => {
 	const stats: TestStats = { totalTests: 10, passed: 10, failed: 0, skipped: 0 };
 
 	it("writes note to test vault and mirrors to dev vault", () => {
-		const path = writeSessionNote("test-session", config, ["Login Flow"], prereqs, stats, Date.now() - 5000, 0, mockE2e);
+		const path = writeSessionNote("test-session", config, ["Login Flow"], prereqs, stats, Date.now() - 5000, 0, mockE2e, noteDeps);
 		expect(disk.writeFileSync).toHaveBeenCalledTimes(2);
 		expect(disk.mkdirSync).toHaveBeenCalledTimes(2);
 		expect(path).toContain("test-session");
 	});
 
 	it("includes success callout when exit code is 0", () => {
-		writeSessionNote("test-session", config, ["Login Flow"], prereqs, stats, Date.now(), 0, mockE2e);
+		writeSessionNote("test-session", config, ["Login Flow"], prereqs, stats, Date.now(), 0, mockE2e, noteDeps);
 		const content = vi.mocked(disk.writeFileSync).mock.calls[0][1] as string;
 		expect(content).toContain("success");
 		expect(content).toContain("All tests passed");
@@ -203,34 +217,34 @@ describe("writeSessionNote", () => {
 
 	it("includes danger callout when exit code is non-zero", () => {
 		const failStats: TestStats = { totalTests: 10, passed: 8, failed: 2, skipped: 0 };
-		writeSessionNote("test-session", config, ["Login Flow"], prereqs, failStats, Date.now(), 1, mockE2e);
+		writeSessionNote("test-session", config, ["Login Flow"], prereqs, failStats, Date.now(), 1, mockE2e, noteDeps);
 		const content = vi.mocked(disk.writeFileSync).mock.calls[0][1] as string;
 		expect(content).toContain("danger");
 		expect(content).toContain("Some tests failed");
 	});
 
 	it("includes configuration table", () => {
-		writeSessionNote("test-session", config, ["Login Flow"], prereqs, stats, Date.now(), 0, mockE2e);
+		writeSessionNote("test-session", config, ["Login Flow"], prereqs, stats, Date.now(), 0, mockE2e, noteDeps);
 		const content = vi.mocked(disk.writeFileSync).mock.calls[0][1] as string;
 		expect(content).toContain("## Configuration");
 		expect(content).toContain("Login Flow");
 	});
 
 	it("includes prerequisites table", () => {
-		writeSessionNote("test-session", config, ["Login Flow"], prereqs, stats, Date.now(), 0, mockE2e);
+		writeSessionNote("test-session", config, ["Login Flow"], prereqs, stats, Date.now(), 0, mockE2e, noteDeps);
 		const content = vi.mocked(disk.writeFileSync).mock.calls[0][1] as string;
 		expect(content).toContain("## Prerequisites");
 	});
 
 	it("includes journey table with step counts", () => {
-		writeSessionNote("test-session", config, ["Login Flow"], prereqs, stats, Date.now(), 0, mockE2e);
+		writeSessionNote("test-session", config, ["Login Flow"], prereqs, stats, Date.now(), 0, mockE2e, noteDeps);
 		const content = vi.mocked(disk.writeFileSync).mock.calls[0][1] as string;
 		expect(content).toContain("## Journeys");
 		expect(content).toContain("Login Flow");
 	});
 
 	it("includes results table and links", () => {
-		writeSessionNote("test-session", config, ["Login Flow"], prereqs, stats, Date.now(), 0, mockE2e);
+		writeSessionNote("test-session", config, ["Login Flow"], prereqs, stats, Date.now(), 0, mockE2e, noteDeps);
 		const content = vi.mocked(disk.writeFileSync).mock.calls[0][1] as string;
 		expect(content).toContain("## Results");
 		expect(content).toContain("## Links");

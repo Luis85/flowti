@@ -5,13 +5,13 @@
  * discovers markdown reports, and parses frontmatter.
  */
 
-import { paths } from "../../../infrastructure/paths.js";
-import { disk } from "../../../infrastructure/filesystem.js";
-import { shell } from "../../../infrastructure/shell.js";
+import type { CliDeps } from "../../../infrastructure/deps.js";
 import { parseFrontmatterStrings } from "../../../infrastructure/frontmatter.js";
 import { readProjectConfig } from "../../project/project-config.js";
 import type { PipelineContext } from "../../../infrastructure/pipeline/pipeline-types.js";
 import type { SummaryThresholds } from "../../../infrastructure/types.js";
+
+export type LoaderDeps = Pick<CliDeps, "disk" | "paths">;
 import type {
 	ParsedFrontmatter,
 	ReportSnapshot,
@@ -36,6 +36,7 @@ export const DEFAULT_THRESHOLDS: Required<SummaryThresholds> = {
 	coverageLines: 80,
 	coverageBranches: 70,
 	maxComplexity: 15,
+	maxFileDecisionPoints: 50,
 	complexityAboveThresholdPct: 5,
 	startupMs: 5000,
 	eslintWarnings: 0,
@@ -44,8 +45,8 @@ export const DEFAULT_THRESHOLDS: Required<SummaryThresholds> = {
 	typedocWarnings: 0,
 };
 
-export function resolveThresholds(projectPath: string): Required<SummaryThresholds> {
-	const { config: cfg } = readProjectConfig(projectPath);
+export function resolveThresholds(projectPath: string, deps: LoaderDeps): Required<SummaryThresholds> {
+	const { config: cfg } = readProjectConfig(projectPath, deps);
 	const t = cfg?.reports?.thresholds ?? {};
 	return { ...DEFAULT_THRESHOLDS, ...t };
 }
@@ -58,22 +59,22 @@ const TEST_JSON_DEFAULTS: TestJsonData = {
 	success: false,
 };
 
-export function readTestReportJson(reportsDir: string): TestJsonData | undefined {
-	const jsonPath = paths.join(reportsDir, "tests", "testreport.json");
-	if (!disk.existsSync(jsonPath)) return undefined;
+export function readTestReportJson(reportsDir: string, deps: LoaderDeps): TestJsonData | undefined {
+	const jsonPath = deps.paths.join(reportsDir, "tests", "testreport.json");
+	if (!deps.disk.existsSync(jsonPath)) return undefined;
 	try {
-		const raw = JSON.parse(disk.readFileSync(jsonPath, "utf-8"));
+		const raw = JSON.parse(deps.disk.readFileSync(jsonPath, "utf-8"));
 		return { ...TEST_JSON_DEFAULTS, ...raw };
 	} catch {
 		return undefined;
 	}
 }
 
-export function aggregateCoverageJson(reportsDir: string): CoverageJsonSummary | undefined {
-	const jsonPath = paths.join(reportsDir, "coverage", "coverage-final.json");
-	if (!disk.existsSync(jsonPath)) return undefined;
+export function aggregateCoverageJson(reportsDir: string, deps: LoaderDeps): CoverageJsonSummary | undefined {
+	const jsonPath = deps.paths.join(reportsDir, "coverage", "coverage-final.json");
+	if (!deps.disk.existsSync(jsonPath)) return undefined;
 	try {
-		const raw: Record<string, IstanbulFileCoverage> = JSON.parse(disk.readFileSync(jsonPath, "utf-8"));
+		const raw: Record<string, IstanbulFileCoverage> = JSON.parse(deps.disk.readFileSync(jsonPath, "utf-8"));
 		const files = Object.values(raw);
 		if (files.length === 0) return undefined;
 
@@ -113,20 +114,20 @@ export function aggregateCoverageJson(reportsDir: string): CoverageJsonSummary |
 
 // ── Per-file coverage ────────────────────────────────────────────────
 
-export function countLoc(absPath: string): number {
+export function countLoc(absPath: string, deps: LoaderDeps): number {
 	try {
-		const content = disk.readFileSync(absPath, "utf-8");
+		const content = deps.disk.readFileSync(absPath, "utf-8");
 		return content.split("\n").filter((l) => l.trim().length > 0).length;
 	} catch {
 		return 0;
 	}
 }
 
-export function computePerFileCoverage(reportsDir: string, projectPath: string): FileCoverageStats[] {
-	const jsonPath = paths.join(reportsDir, "coverage", "coverage-final.json");
-	if (!disk.existsSync(jsonPath)) return [];
+export function computePerFileCoverage(reportsDir: string, projectPath: string, deps: LoaderDeps): FileCoverageStats[] {
+	const jsonPath = deps.paths.join(reportsDir, "coverage", "coverage-final.json");
+	if (!deps.disk.existsSync(jsonPath)) return [];
 	try {
-		const raw: Record<string, IstanbulFileCoverage> = JSON.parse(disk.readFileSync(jsonPath, "utf-8"));
+		const raw: Record<string, IstanbulFileCoverage> = JSON.parse(deps.disk.readFileSync(jsonPath, "utf-8"));
 		const stats: FileCoverageStats[] = [];
 		for (const [filePath, data] of Object.entries(raw)) {
 			const stmts = Object.values(data.s);
@@ -137,10 +138,10 @@ export function computePerFileCoverage(reportsDir: string, projectPath: string):
 			const fnUncovered = fns.filter((c) => c === 0).length;
 			const rel = filePath.replace(/.*Flowti CLI[\\/]/, "").replace(/\\/g, "/");
 			if (!rel.startsWith("src/")) continue;
-			const absFile = paths.join(projectPath, rel.replace(/\//g, paths.sep));
+			const absFile = deps.paths.join(projectPath, rel.replace(/\//g, deps.paths.sep));
 			stats.push({
 				file: rel,
-				loc: countLoc(absFile),
+				loc: countLoc(absFile, deps),
 				stmtTotal,
 				stmtCovered,
 				stmtPct: stmtTotal > 0 ? Math.round((stmtCovered / stmtTotal) * 1000) / 10 : 0,
@@ -156,11 +157,11 @@ export function computePerFileCoverage(reportsDir: string, projectPath: string):
 
 // ── Complexity data ──────────────────────────────────────────────────
 
-export function loadAnalysisTopFiles(reportsDir: string, limit: number): AnalysisFileEntry[] {
-	const jsonPath = paths.join(reportsDir, "coverage", "analysis.json");
-	if (!disk.existsSync(jsonPath)) return [];
+export function loadAnalysisTopFiles(reportsDir: string, limit: number, deps: LoaderDeps): AnalysisFileEntry[] {
+	const jsonPath = deps.paths.join(reportsDir, "coverage", "analysis.json");
+	if (!deps.disk.existsSync(jsonPath)) return [];
 	try {
-		const raw = JSON.parse(disk.readFileSync(jsonPath, "utf-8"));
+		const raw = JSON.parse(deps.disk.readFileSync(jsonPath, "utf-8"));
 		const files: AnalysisFileEntry[] = (raw.files ?? [])
 			.filter((f: AnalysisFileEntry) => f.decisionPointCount > 0)
 			.map((f: AnalysisFileEntry) => ({
@@ -174,28 +175,28 @@ export function loadAnalysisTopFiles(reportsDir: string, limit: number): Analysi
 	}
 }
 
-export function loadComplexityFunctions(reportsDir: string): ComplexityFunctionsData | undefined {
-	const jsonPath = paths.join(reportsDir, "coverage", "complexity-functions.json");
-	if (!disk.existsSync(jsonPath)) return undefined;
+export function loadComplexityFunctions(reportsDir: string, deps: LoaderDeps): ComplexityFunctionsData | undefined {
+	const jsonPath = deps.paths.join(reportsDir, "coverage", "complexity-functions.json");
+	if (!deps.disk.existsSync(jsonPath)) return undefined;
 	try {
-		return JSON.parse(disk.readFileSync(jsonPath, "utf-8")) as ComplexityFunctionsData;
+		return JSON.parse(deps.disk.readFileSync(jsonPath, "utf-8")) as ComplexityFunctionsData;
 	} catch {
 		return undefined;
 	}
 }
 
-export function loadDetailedSources(reportsDir: string, projectPath: string): DetailedSources {
+export function loadDetailedSources(reportsDir: string, projectPath: string, deps: LoaderDeps): DetailedSources {
 	return {
-		perFile: computePerFileCoverage(reportsDir, projectPath),
-		topComplexFiles: loadAnalysisTopFiles(reportsDir, 10),
-		complexityFunctions: loadComplexityFunctions(reportsDir),
+		perFile: computePerFileCoverage(reportsDir, projectPath, deps),
+		topComplexFiles: loadAnalysisTopFiles(reportsDir, 10, deps),
+		complexityFunctions: loadComplexityFunctions(reportsDir, deps),
 	};
 }
 
-export function loadJsonDataSources(reportsDir: string): JsonDataSources {
+export function loadJsonDataSources(reportsDir: string, deps: LoaderDeps): JsonDataSources {
 	return {
-		tests: readTestReportJson(reportsDir),
-		coverage: aggregateCoverageJson(reportsDir),
+		tests: readTestReportJson(reportsDir, deps),
+		coverage: aggregateCoverageJson(reportsDir, deps),
 	};
 }
 
@@ -217,33 +218,33 @@ export const REPORT_DEFS: ReportDef[] = [
 	{ subdir: "e2e", label: "E2E Tests", stableName: "E2E Report.md" },
 ];
 
-export function findLatestMd(dir: string): string | null {
-	if (!disk.existsSync(dir)) return null;
-	const files = disk.readdirSync(dir)
+export function findLatestMd(dir: string, deps: LoaderDeps): string | null {
+	if (!deps.disk.existsSync(dir)) return null;
+	const files = deps.disk.readdirSync(dir)
 		.filter((f) => f.endsWith(".md") && /^\d{4}-/.test(f))
 		.sort();
-	return files.length > 0 ? paths.join(dir, files[files.length - 1]) : null;
+	return files.length > 0 ? deps.paths.join(dir, files[files.length - 1]) : null;
 }
 
-export function discoverReports(reportsDir: string): ReportSnapshot[] {
+export function discoverReports(reportsDir: string, deps: LoaderDeps): ReportSnapshot[] {
 	const snapshots: ReportSnapshot[] = [];
 
 	for (const def of REPORT_DEFS) {
-		const subdir = paths.join(reportsDir, def.subdir);
+		const subdir = deps.paths.join(reportsDir, def.subdir);
 
 		if (def.stableName) {
-			const stablePath = paths.join(subdir, def.stableName);
-			if (disk.existsSync(stablePath)) {
-				const content = disk.readFileSync(stablePath, "utf-8");
+			const stablePath = deps.paths.join(subdir, def.stableName);
+			if (deps.disk.existsSync(stablePath)) {
+				const content = deps.disk.readFileSync(stablePath, "utf-8");
 				snapshots.push({ label: def.label, file: `${def.subdir}/${def.stableName}`, frontmatter: parseFrontmatter(content) });
 				continue;
 			}
 		}
 
-		const latest = findLatestMd(subdir);
+		const latest = findLatestMd(subdir, deps);
 		if (latest) {
-			const content = disk.readFileSync(latest, "utf-8");
-			const relFile = `${def.subdir}/${paths.basename(latest)}`;
+			const content = deps.disk.readFileSync(latest, "utf-8");
+			const relFile = `${def.subdir}/${deps.paths.basename(latest)}`;
 			snapshots.push({ label: def.label, file: relFile, frontmatter: parseFrontmatter(content) });
 		}
 	}
@@ -253,9 +254,9 @@ export function discoverReports(reportsDir: string): ReportSnapshot[] {
 
 // ── Eslint collection ────────────────────────────────────────────────
 
-export function collectLintWarnings(projectPath: string, command: string, ctx?: PipelineContext): LintResult {
+export function collectLintWarnings(projectPath: string, command: string, deps: Pick<CliDeps, "shell">, ctx?: PipelineContext): LintResult {
 	const cached = ctx?.getCommandOutput(command);
-	const output = cached ?? shell.runCapture(command, { cwd: projectPath });
+	const output = cached ?? deps.shell.runCapture(command, { cwd: projectPath });
 	return parseLintOutput(output, projectPath);
 }
 
@@ -335,9 +336,9 @@ export function parseTypedocOutput(output: string): TypeDocResult {
 	return { warnings, errors, issues };
 }
 
-export function collectTypedocWarnings(projectPath: string, command: string, ctx?: PipelineContext): TypeDocResult {
+export function collectTypedocWarnings(projectPath: string, command: string, deps: Pick<CliDeps, "shell">, ctx?: PipelineContext): TypeDocResult {
 	// Reuse output from a prior prerequisite run if available
 	const cached = ctx?.getCommandOutput(command);
-	const combined = cached ?? shell.runCapture(command, { cwd: projectPath, timeout: 30_000 });
+	const combined = cached ?? deps.shell.runCapture(command, { cwd: projectPath, timeout: 30_000 });
 	return parseTypedocOutput(combined);
 }

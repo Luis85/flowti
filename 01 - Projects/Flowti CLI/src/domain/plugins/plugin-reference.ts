@@ -6,11 +6,14 @@
  */
 
 import { Document } from "../../infrastructure/document.js";
-import { clock } from "../../infrastructure/clock.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 import type { LoadedPlugin } from "./plugin-types.js";
 
-export function generatePluginReference(plugins: LoadedPlugin[]): Document {
-	const date = clock.iso();
+export function generatePluginReference(
+	deps: Pick<CliDeps, "clock">,
+	plugins: LoadedPlugin[],
+): Document {
+	const date = deps.clock.iso();
 	const valid = plugins.filter((p) => p.valid);
 	const invalid = plugins.filter((p) => !p.valid);
 	const totalCommands = valid.reduce((sum, p) => sum + Object.keys(p.commands).length, 0);

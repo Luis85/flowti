@@ -4,10 +4,9 @@
  * Reads vitest JSON output and generates a markdown TestReport.
  */
 
-import { disk } from "../../../infrastructure/filesystem.js";
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
-import { clock } from "../../../infrastructure/clock.js";
+import type { ReportDeps } from "../../../infrastructure/deps.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
 
 interface TestStats {
@@ -24,7 +23,7 @@ function num(json: Record<string, unknown>, key: string, fallback = 0): number {
 	return (json[key] as number) ?? fallback;
 }
 
-function extractTestStats(json: Record<string, unknown>): TestStats {
+function extractTestStats(json: Record<string, unknown>, clock: ReportDeps["clock"]): TestStats {
 	const passed = num(json, "numPassedTests");
 	const failed = num(json, "numFailedTests");
 	const skipped = num(json, "numPendingTests");
@@ -50,23 +49,23 @@ function addSuitesTable(doc: Document, json: Record<string, unknown>): void {
 	doc.table(["Suite", "Tests", "Passed", "Status"], rows, { alignRight: [1, 2] }).addBlank();
 }
 
-export function generateTestReport(projectPath: string, ctx?: import("../../../infrastructure/pipeline/pipeline-types.js").PipelineContext): GeneratorOutput {
+export function generateTestReport(projectPath: string, deps: ReportDeps, ctx?: import("../../../infrastructure/pipeline/pipeline-types.js").PipelineContext): GeneratorOutput {
 	const log = (msg: string) => ctx?.log(msg);
-	const svc = new ReportService(projectPath);
+	const svc = new ReportService(projectPath, deps);
 	const reportJson = svc.subdir("tests/testreport.json");
 
-	if (!disk.existsSync(reportJson)) {
+	if (!deps.disk.existsSync(reportJson)) {
 		log("[cli-report] No testreport.json found — run tests with --reporter=json first.");
 		return { success: false, outputPath: "", metrics: {} };
 	}
 
-	const json = JSON.parse(disk.readFileSync(reportJson, "utf-8")) as Record<string, unknown>;
-	const stats = extractTestStats(json);
+	const json = JSON.parse(deps.disk.readFileSync(reportJson, "utf-8")) as Record<string, unknown>;
+	const stats = extractTestStats(json, deps.clock);
 
 	const fm: Record<string, string | number | boolean> = {
 		type: "TestReport",
 		project: "flowti-cli",
-		date: clock.iso(),
+		date: deps.clock.iso(),
 		passed: stats.passed,
 		failed: stats.failed,
 		skipped: stats.skipped,

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import path from "node:path";
 import { createMockFs } from "../../mocks/mock-fs.js";
 import { createMockShell } from "../../mocks/mock-shell.js";
 
@@ -22,6 +23,16 @@ import {
 	MANIFEST_FILENAME,
 } from "../../../src/domain/plugins/plugin-loader.js";
 import type { LoadedPlugin } from "../../../src/domain/plugins/plugin-types.js";
+
+const testPaths = {
+	join: (...args: string[]) => args.join("/"),
+	basename: (p: string, ext?: string) => { const b = path.basename(p); return ext && b.endsWith(ext) ? b.slice(0, -ext.length) : b; },
+	dirname: (p: string) => path.dirname(p).replace(/\\/g, "/"),
+	resolve: (...args: string[]) => args.join("/"),
+	relative: (_from: string, to: string) => to,
+};
+
+const testDeps = { paths: testPaths } as const;
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -126,7 +137,7 @@ describe("validateManifest", () => {
 describe("discoverPluginFiles", () => {
 	it("returns empty array when directory does not exist", () => {
 		const fs = createMockFs({});
-		expect(discoverPluginFiles("/vault/.flowti/plugins", fs)).toEqual([]);
+		expect(discoverPluginFiles(testDeps, "/vault/.flowti/plugins", fs)).toEqual([]);
 	});
 
 	it("finds manifest.json in plugin subdirectories", () => {
@@ -134,7 +145,7 @@ describe("discoverPluginFiles", () => {
 			"/vault/.flowti/plugins/my-plugin/manifest.json": "{}",
 			"/vault/.flowti/plugins/other/manifest.json": "{}",
 		});
-		const result = discoverPluginFiles("/vault/.flowti/plugins", fs);
+		const result = discoverPluginFiles(testDeps, "/vault/.flowti/plugins", fs);
 		expect(result).toHaveLength(2);
 		expect(result[0]).toContain("my-plugin");
 		expect(result[0]).toContain("manifest.json");
@@ -146,7 +157,7 @@ describe("discoverPluginFiles", () => {
 			"/vault/.flowti/plugins/my-plugin/manifest.json": "{}",
 			"/vault/.flowti/plugins/incomplete/readme.txt": "hello",
 		});
-		const result = discoverPluginFiles("/vault/.flowti/plugins", fs);
+		const result = discoverPluginFiles(testDeps, "/vault/.flowti/plugins", fs);
 		expect(result).toHaveLength(1);
 		expect(result[0]).toContain("my-plugin");
 	});
@@ -156,7 +167,7 @@ describe("discoverPluginFiles", () => {
 			"/vault/.flowti/plugins/stray.json": "{}",
 			"/vault/.flowti/plugins/my-plugin/manifest.json": "{}",
 		});
-		const result = discoverPluginFiles("/vault/.flowti/plugins", fs);
+		const result = discoverPluginFiles(testDeps, "/vault/.flowti/plugins", fs);
 		expect(result).toHaveLength(1);
 	});
 });
@@ -175,7 +186,7 @@ describe("loadPluginFile", () => {
 	it("loads a valid plugin manifest", () => {
 		const fs = createMockFs({ "/vault/.flowti/plugins/test-plugin/manifest.json": validJson });
 		const sh = createMockShell();
-		const result = loadPluginFile("/vault/.flowti/plugins/test-plugin/manifest.json", fs, sh, "/vault");
+		const result = loadPluginFile(testDeps, "/vault/.flowti/plugins/test-plugin/manifest.json", fs, sh, "/vault");
 
 		expect(result.valid).toBe(true);
 		expect(result.manifest.name).toBe("test-plugin");
@@ -185,7 +196,7 @@ describe("loadPluginFile", () => {
 	it("returns invalid for malformed JSON", () => {
 		const fs = createMockFs({ "/vault/.flowti/plugins/bad/manifest.json": "not json" });
 		const sh = createMockShell();
-		const result = loadPluginFile("/vault/.flowti/plugins/bad/manifest.json", fs, sh, "/vault");
+		const result = loadPluginFile(testDeps, "/vault/.flowti/plugins/bad/manifest.json", fs, sh, "/vault");
 
 		expect(result.valid).toBe(false);
 		expect(result.errors[0]).toContain("Failed to parse");
@@ -194,7 +205,7 @@ describe("loadPluginFile", () => {
 	it("returns invalid for bad manifest structure", () => {
 		const fs = createMockFs({ "/vault/.flowti/plugins/bad/manifest.json": '{"name": ""}' });
 		const sh = createMockShell();
-		const result = loadPluginFile("/vault/.flowti/plugins/bad/manifest.json", fs, sh, "/vault");
+		const result = loadPluginFile(testDeps, "/vault/.flowti/plugins/bad/manifest.json", fs, sh, "/vault");
 
 		expect(result.valid).toBe(false);
 		expect(result.errors.length).toBeGreaterThan(0);
@@ -203,7 +214,7 @@ describe("loadPluginFile", () => {
 	it("uses directory name as fallback name on error", () => {
 		const fs = createMockFs({ "/vault/.flowti/plugins/my-cool-plugin/manifest.json": "not json" });
 		const sh = createMockShell();
-		const result = loadPluginFile("/vault/.flowti/plugins/my-cool-plugin/manifest.json", fs, sh, "/vault");
+		const result = loadPluginFile(testDeps, "/vault/.flowti/plugins/my-cool-plugin/manifest.json", fs, sh, "/vault");
 
 		expect(result.manifest.name).toBe("my-cool-plugin");
 	});
@@ -211,7 +222,7 @@ describe("loadPluginFile", () => {
 	it("namespaces commands as plugin:<name>:<cmd>", () => {
 		const fs = createMockFs({ "/vault/.flowti/plugins/test-plugin/manifest.json": validJson });
 		const sh = createMockShell();
-		const result = loadPluginFile("/vault/.flowti/plugins/test-plugin/manifest.json", fs, sh, "/vault");
+		const result = loadPluginFile(testDeps, "/vault/.flowti/plugins/test-plugin/manifest.json", fs, sh, "/vault");
 
 		const keys = Object.keys(result.commands);
 		expect(keys).toEqual(["plugin:test-plugin:greet"]);
@@ -220,7 +231,7 @@ describe("loadPluginFile", () => {
 	it("wrapped command calls shell.run with correct cwd", () => {
 		const fs = createMockFs({ "/vault/.flowti/plugins/test-plugin/manifest.json": validJson });
 		const sh = createMockShell();
-		const result = loadPluginFile("/vault/.flowti/plugins/test-plugin/manifest.json", fs, sh, "/vault");
+		const result = loadPluginFile(testDeps, "/vault/.flowti/plugins/test-plugin/manifest.json", fs, sh, "/vault");
 
 		result.commands["plugin:test-plugin:greet"]({}, [], "plugin:test-plugin:greet");
 
@@ -232,7 +243,7 @@ describe("loadPluginFile", () => {
 	it("propagates non-zero exit code from shell.run", () => {
 		const fs = createMockFs({ "/vault/.flowti/plugins/test-plugin/manifest.json": validJson });
 		const sh = createMockShell({ exitCodes: { "echo hello": 1 } });
-		const result = loadPluginFile("/vault/.flowti/plugins/test-plugin/manifest.json", fs, sh, "/vault");
+		const result = loadPluginFile(testDeps, "/vault/.flowti/plugins/test-plugin/manifest.json", fs, sh, "/vault");
 
 		// Save original and capture process.exitCode
 		const origExitCode = process.exitCode;
@@ -247,7 +258,7 @@ describe("loadPluginFile", () => {
 	it("does not set exit code on success", () => {
 		const fs = createMockFs({ "/vault/.flowti/plugins/test-plugin/manifest.json": validJson });
 		const sh = createMockShell(); // exit code 0 by default
-		const result = loadPluginFile("/vault/.flowti/plugins/test-plugin/manifest.json", fs, sh, "/vault");
+		const result = loadPluginFile(testDeps, "/vault/.flowti/plugins/test-plugin/manifest.json", fs, sh, "/vault");
 
 		const origExitCode = process.exitCode;
 		process.exitCode = undefined;
@@ -264,7 +275,7 @@ describe("loadPlugins", () => {
 	it("returns empty array when no plugins directory", () => {
 		const fs = createMockFs({});
 		const sh = createMockShell();
-		expect(loadPlugins("/vault", fs, sh)).toEqual([]);
+		expect(loadPlugins(testDeps, "/vault", fs, sh)).toEqual([]);
 	});
 
 	it("loads all plugins from the vault plugins directory", () => {
@@ -283,7 +294,7 @@ describe("loadPlugins", () => {
 			"/vault/.flowti/plugins/beta/manifest.json": plugin2,
 		});
 		const sh = createMockShell();
-		const result = loadPlugins("/vault", fs, sh);
+		const result = loadPlugins(testDeps, "/vault", fs, sh);
 
 		expect(result).toHaveLength(2);
 		expect(result[0].valid).toBe(true);
@@ -296,7 +307,7 @@ describe("loadPlugins", () => {
 describe("scaffoldPlugin", () => {
 	it("creates a new plugin directory with manifest.json", () => {
 		const fs = createMockFs({});
-		const result = scaffoldPlugin("/vault", "my-plugin", "A test plugin", fs);
+		const result = scaffoldPlugin(testDeps, "/vault", "my-plugin", "A test plugin", fs);
 
 		expect("path" in result).toBe(true);
 		if ("path" in result) {
@@ -312,7 +323,7 @@ describe("scaffoldPlugin", () => {
 
 	it("rejects invalid plugin names", () => {
 		const fs = createMockFs({});
-		const result = scaffoldPlugin("/vault", "My Plugin!", "bad", fs);
+		const result = scaffoldPlugin(testDeps, "/vault", "My Plugin!", "bad", fs);
 		expect("error" in result).toBe(true);
 	});
 
@@ -320,7 +331,7 @@ describe("scaffoldPlugin", () => {
 		const fs = createMockFs({
 			"/vault/.flowti/plugins/existing/manifest.json": "{}",
 		});
-		const result = scaffoldPlugin("/vault", "existing", "dup", fs);
+		const result = scaffoldPlugin(testDeps, "/vault", "existing", "dup", fs);
 		expect("error" in result).toBe(true);
 		if ("error" in result) {
 			expect(result.error).toContain("already exists");

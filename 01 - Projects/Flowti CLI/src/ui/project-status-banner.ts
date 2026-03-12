@@ -61,8 +61,8 @@ function collectTestStatus(reportsDir: string): string | null {
 
 function collectFreshness(projectPath: string): string | null {
 	try {
-		const { srcDir, binDir } = resolveBuildPaths(projectPath);
-		const freshness = checkFreshness(srcDir, binDir);
+		const { srcDir, binDir } = resolveBuildPaths(projectPath, { paths });
+		const freshness = checkFreshness(srcDir, binDir, { disk, paths });
 		return freshness.needsRebuild ? `${YELLOW}Rebuild needed${RESET}` : null;
 	} catch { return null; }
 }
@@ -70,7 +70,7 @@ function collectFreshness(projectPath: string): string | null {
 // ── Banner renderer ──────────────────────────────────────────────────
 
 export function printProjectStatusBanner(ctx: ProjectContext): void {
-	const reportsDir = getReportsDir(ctx.path, ctx.config);
+	const reportsDir = getReportsDir(ctx.path, ctx.config, { paths });
 
 	const parts = [
 		collectBuildStatus(reportsDir),

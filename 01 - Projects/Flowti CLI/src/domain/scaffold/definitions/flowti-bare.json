@@ -1,0 +1,63 @@
+{
+	"id": "flowti-bare",
+	"label": "Flowti Bare",
+	"description": "Minimal Flowti project: TypeScript strict, Vitest, ESLint. No bundler — ideal for libraries and utilities.",
+	"prompts": [
+		{
+			"variable": "author",
+			"label": "Author name",
+			"default": "{{cliConfig.defaultAuthor}}",
+			"required": false
+		}
+	],
+	"package": {
+		"type": "module",
+		"main": "dist/index.js",
+		"scripts": {
+			"build": "tsc --project configs/tsconfig.json",
+			"build:watch": "tsc --project configs/tsconfig.json --watch",
+			"test": "npm run check && vitest run --config configs/vitest.config.ts",
+			"lint": "eslint --config configs/eslint.config.mjs src/",
+			"check": "npm run lint && tsc --project configs/tsconfig.json --noEmit"
+		},
+		"devDependencies": {
+			"@types/node": "^22.0.0",
+			"@typescript-eslint/eslint-plugin": "^8.0.0",
+			"@typescript-eslint/parser": "^8.0.0",
+			"@vitest/coverage-v8": "^4.0.0",
+			"eslint": "^10.0.0",
+			"typescript": "^5.9.0",
+			"vitest": "^4.0.0"
+		}
+	},
+	"flowtiConfig": {
+		"build": { "commands": { "fast": "npm run build" } },
+		"review": {
+			"build": "npm run build",
+			"test": "npm test"
+		}
+	},
+	"directories": [
+		"src",
+		"tests",
+		"configs",
+		"docs"
+	],
+	"files": [
+		{ "path": "package.json", "templateId": "package-json" },
+		{ "path": "configs/tsconfig.json", "templateId": "tsconfig" },
+		{ "path": "configs/vitest.config.ts", "templateId": "vitest-config" },
+		{ "path": "configs/eslint.config.mjs", "templateId": "eslint-config" },
+		{ "path": "configs/flowti.config.json", "templateId": "flowti-config" },
+		{ "path": ".gitignore", "templateId": "gitignore" },
+		{ "path": "src/index.ts", "templateId": "bare-index" },
+		{ "path": "tests/index.test.ts", "templateId": "bare-index-test" },
+		{ "path": "README.md", "templateId": "readme" },
+		{ "path": "docs/{{name}} — Architecture.md", "templateId": "architecture" }
+	],
+	"nextSteps": [
+		"cd \"{{outputPath}}\"",
+		"npm install",
+		"npm test"
+	]
+}

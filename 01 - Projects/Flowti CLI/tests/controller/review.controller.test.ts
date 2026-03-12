@@ -63,14 +63,19 @@ vi.mock("../../src/domain/review/change-analysis.js", () => ({
 vi.mock("../../src/ui/review-display.js", () => ({
 	renderChangeAnalysis: vi.fn(),
 	renderReviewClean: vi.fn(),
+	renderPipelineResult: vi.fn(),
 }));
 
 // ── Imports ──────────────────────────────────────────────────────
 
 import { commands } from "../../src/controller/review.controller.js";
+import { initializeDeps } from "../../src/infrastructure/request-response.js";
 import { shell } from "../../src/infrastructure/shell.js";
 import { disk } from "../../src/infrastructure/filesystem.js";
+import { paths } from "../../src/infrastructure/paths.js";
+import { proc } from "../../src/infrastructure/proc.js";
 import { log } from "../../src/infrastructure/logger.js";
+import { renderPipelineResult } from "../../src/ui/review-display.js";
 import { analyzeWorkingTree, analyzeBranchDiff } from "../../src/domain/review/change-analysis.js";
 
 const mockProject = {
@@ -86,6 +91,13 @@ const mockProject = {
 describe("review.controller", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		initializeDeps({
+			disk, shell, paths, proc,
+			clock: { iso: () => "", now: () => new Date(), ms: () => 0, safeIso: () => "" },
+			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never },
+			bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never,
+			log, warn: vi.fn(),
+		});
 	});
 
 	describe("review", () => {
@@ -149,7 +161,9 @@ describe("review.controller", () => {
 			commands["review:all"]({}, [], "review:all", mockProject);
 
 			expect(shell.run).toHaveBeenCalledTimes(1);
-			expect(log).toHaveBeenCalledWith("Pipeline stopped — build failed.");
+			expect(renderPipelineResult).toHaveBeenCalledWith(
+				expect.objectContaining({ stoppedAt: "build", reason: "build failed" }),
+			);
 		});
 
 		it("stops the pipeline when tests fail", () => {
@@ -160,7 +174,9 @@ describe("review.controller", () => {
 			commands["review:all"]({}, [], "review:all", mockProject);
 
 			expect(shell.run).toHaveBeenCalledTimes(2);
-			expect(log).toHaveBeenCalledWith("Pipeline stopped — tests failed.");
+			expect(renderPipelineResult).toHaveBeenCalledWith(
+				expect.objectContaining({ stoppedAt: "test", reason: "tests failed" }),
+			);
 		});
 	});
 
@@ -202,14 +218,14 @@ describe("review.controller", () => {
 		it("analyzes the working tree by default", () => {
 			commands["review:changes"]({}, [], "review:changes", mockProject);
 
-			expect(analyzeWorkingTree).toHaveBeenCalledWith("/project");
+			expect(analyzeWorkingTree).toHaveBeenCalledWith("/project", expect.any(Object));
 			expect(analyzeBranchDiff).not.toHaveBeenCalled();
 		});
 
 		it("analyzes branch diff when --base flag is provided", () => {
 			commands["review:changes"]({ base: "main" }, [], "review:changes", mockProject);
 
-			expect(analyzeBranchDiff).toHaveBeenCalledWith("/project", "main");
+			expect(analyzeBranchDiff).toHaveBeenCalledWith("/project", expect.any(Object), "main");
 			expect(analyzeWorkingTree).not.toHaveBeenCalled();
 		});
 	});

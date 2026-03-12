@@ -57,6 +57,10 @@ export interface IShell {
 	runCaptureDetailed(cmd: string, opts?: { cwd?: string; timeout?: number; env?: Record<string, string> }): { stdout: string; stderr: string; exitCode: number };
 	/** Spawn a command in the background with piped stdout/stderr. */
 	spawnBackground(cmd: string, opts?: { cwd?: string; env?: Record<string, string> }): BackgroundProcess;
+	/** Run a command asynchronously, return exit code and captured output. */
+	runAsync(cmd: string, opts?: { cwd?: string; timeout?: number }): Promise<{ output: string; exitCode: number }>;
+	/** Run multiple commands in parallel, return results in order. */
+	runParallel(cmds: string[], opts?: { cwd?: string; timeout?: number }): Promise<{ output: string; exitCode: number }[]>;
 }
 
 // ── Process abstraction ──────────────────────────────────────────────
@@ -70,6 +74,40 @@ export interface IProcess {
 	cwd(): string;
 	/** Environment variables. */
 	env(): Record<string, string | undefined>;
+}
+
+// ── Path operations abstraction ──────────────────────────────────────
+
+export interface IPaths {
+	join(...segments: string[]): string;
+	resolve(...segments: string[]): string;
+	dirname(p: string): string;
+	basename(p: string, ext?: string): string;
+	relative(from: string, to: string): string;
+	extname(p: string): string;
+	isAbsolute(p: string): boolean;
+	readonly sep: string;
+}
+
+// ── Clock abstraction ───────────────────────────────────────────────
+
+export interface IClock {
+	/** Current date/time. */
+	now(): Date;
+	/** Millisecond timestamp (like Date.now()). */
+	ms(): number;
+	/** ISO 8601 timestamp string. */
+	iso(): string;
+	/** Filename-safe timestamp (colons replaced with dashes). */
+	safeIso(): string;
+}
+
+// ── User input abstraction ──────────────────────────────────────────
+
+export interface IInput {
+	ask(question: string, defaultValue?: string): Promise<string>;
+	askYesNo(question: string, defaultNo?: boolean): Promise<boolean>;
+	waitForEnter(): Promise<void>;
 }
 
 // ── CLI argument parsing ────────────────────────────────────────────
@@ -127,20 +165,6 @@ export interface CliState {
 }
 
 // ── Per-project configuration ──────────────────────────────────────
-
-export type FlowtiToolId = "build" | "reports" | "devtools";
-
-export interface FlowtiToolDef {
-	id: FlowtiToolId;
-	key: string;
-	label: string;
-}
-
-export const FLOWTI_TOOLS: FlowtiToolDef[] = [
-	{ id: "build", key: "5", label: "Build" },
-	{ id: "reports", key: "8", label: "Reporting" },
-	{ id: "devtools", key: "t", label: "Dev Tools" },
-];
 
 export interface PublishEndpoint {
 	name: string;
@@ -216,10 +240,11 @@ export type GeneratorOutput = GeneratorSuccess | GeneratorFailure;
 
 /**
  * A callable report generator function.
- * The optional second parameter provides pipeline context when
+ * Receives infrastructure deps for testability (no singleton imports).
+ * The optional third parameter provides pipeline context when
  * running inside a pipeline (for accessing prior results, command outputs, etc.).
  */
-export type GeneratorFn = (projectPath: string, ctx?: import("./pipeline/pipeline-types.js").PipelineContext) => GeneratorOutput;
+export type GeneratorFn = (projectPath: string, deps: import("./deps.js").ReportDeps, ctx?: import("./pipeline/pipeline-types.js").PipelineContext) => GeneratorOutput;
 
 export interface SummaryThresholds {
 	/** Minimum line coverage percentage (default: 80) */
@@ -228,6 +253,8 @@ export interface SummaryThresholds {
 	coverageBranches?: number;
 	/** Maximum cyclomatic complexity per function (default: 15) */
 	maxComplexity?: number;
+	/** Maximum decision points per file before flagging (default: 50) */
+	maxFileDecisionPoints?: number;
 	/** Maximum percentage of functions above complexity threshold (default: 5) */
 	complexityAboveThresholdPct?: number;
 	/** Maximum startup time in ms (default: 5000) */
@@ -258,6 +285,16 @@ export interface DocGenerator {
 	command: string;
 }
 
+/** Per-project reference configuration — declares which references to generate and their source files. */
+export interface ReferenceConfig {
+	/** Generator ID from the registry (e.g. "cli-reference", "event-catalog"). */
+	id: string;
+	/** Display label for menu and pipeline output. */
+	label: string;
+	/** Source file path relative to the project root (overrides hardcoded defaults). */
+	source?: string;
+}
+
 export interface DocsConfig {
 	/** Command to generate all documentation at once */
 	allCommand?: string;
@@ -265,6 +302,8 @@ export interface DocsConfig {
 	generators?: DocGenerator[];
 	/** Directory for reference documents (default: "docs/reference") */
 	referenceDir?: string;
+	/** Configured reference generators for this project. */
+	references?: ReferenceConfig[];
 }
 
 export type MakeTemplateId = "journey" | "component";
@@ -302,6 +341,79 @@ export interface HealthConfig {
 		tests?: { minPassed?: number };
 	};
 	qualityGates?: QualityGateConfig;
+}
+
+// ── Resource Management ─────────────────────────────────────────────
+
+export type ResourceType = "human" | "material" | "role" | "budget";
+
+export interface ResourcesConfig {
+	/** Directory for resource files relative to project root (default: "docs/resources"). */
+	dir?: string;
+}
+
+// ── Time-Log ────────────────────────────────────────────────────────
+
+export interface TimeLogConfig {
+	/** Directory for time-log entries relative to project root (default: "docs/timelog"). */
+	dir?: string;
+}
+
+// ── Deliverables ────────────────────────────────────────────────────
+
+export type DeliverableStatus = "planned" | "in-progress" | "review" | "done" | "blocked";
+
+export interface DeliverablesConfig {
+	/** Directory for deliverable files relative to project root (default: "docs/deliverables"). */
+	dir?: string;
+}
+
+// ── RAID Log ────────────────────────────────────────────────────────
+
+export type RAIDItemType = "risk" | "assumption" | "issue" | "dependency" | "decision";
+export type RAIDStatus = "open" | "mitigated" | "closed" | "accepted" | "resolved" | "deferred";
+
+export interface RAIDConfig {
+	/** Directory for RAID items relative to project root (default: "docs/raid"). */
+	dir?: string;
+}
+
+// ── Requirements ────────────────────────────────────────────────────
+
+export type RequirementType = "functional" | "non-functional" | "constraint";
+export type MoSCoWPriority = "must" | "should" | "could" | "wont";
+
+export interface RequirementsConfig {
+	/** Directory for requirements relative to project root (default: "docs/requirements"). */
+	dir?: string;
+}
+
+// ── CAPA (Corrective and Preventive Action) ─────────────────────────
+
+export type CAPAType = "corrective" | "preventive";
+export type CAPAStatus = "open" | "investigating" | "action-planned" | "implementing" | "verification" | "closed" | "rejected";
+
+export interface CAPAConfig {
+	/** Directory for CAPA items relative to project root (default: "docs/capa"). */
+	dir?: string;
+}
+
+// ── Project Management (aggregated) ─────────────────────────────────
+
+export interface ManagementConfig {
+	resources?: ResourcesConfig;
+	timelog?: TimeLogConfig;
+	deliverables?: DeliverablesConfig;
+	raid?: RAIDConfig;
+	requirements?: RequirementsConfig;
+	capa?: CAPAConfig;
+}
+
+// ── Entity Templates ────────────────────────────────────────────────
+
+export interface TemplatesConfig {
+	/** Directory for user entity templates relative to project root (default: "docs/templates"). */
+	dir?: string;
 }
 
 // ── Project type discrimination ─────────────────────────────────────
@@ -347,8 +459,6 @@ export interface ProjectConfig {
 	name: string;
 	/** Project archetype — drives feature availability and scaffold selection. */
 	type?: ProjectTarget;
-	/** Legacy tool mappings (simple command strings). */
-	tools?: Partial<Record<FlowtiToolId, string>>;
 	/** Named build commands by mode. */
 	build?: BuildConfig;
 	/** Named test commands by preset. */
@@ -364,6 +474,8 @@ export interface ProjectConfig {
 	publish?: PublishConfig;
 	review?: ReviewConfig;
 	health?: HealthConfig;
+	management?: ManagementConfig;
+	templates?: TemplatesConfig;
 }
 
 // ── CLI configuration ───────────────────────────────────────────────

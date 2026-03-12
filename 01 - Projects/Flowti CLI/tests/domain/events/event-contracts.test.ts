@@ -60,6 +60,9 @@ import type {
 	EventContract,
 	PayloadField,
 } from "../../../src/domain/events/event-contracts.js";
+import { disk } from "../../../src/infrastructure/filesystem.js";
+
+const contractDeps = { paths: { join: (...parts: string[]) => parts.join("/") } } as const;
 
 beforeEach(() => {
 	for (const key of Object.keys(mockFiles)) delete mockFiles[key];
@@ -492,7 +495,7 @@ describe("loadEventContracts", () => {
 			"---",
 		].join("\n");
 
-		const contracts = loadEventContracts("/project/docs/events");
+		const contracts = loadEventContracts(contractDeps, "/project/docs/events", disk);
 
 		expect(contracts).toHaveLength(2);
 		expect(contracts[0].name).toBe("order.placed");
@@ -501,7 +504,7 @@ describe("loadEventContracts", () => {
 	});
 
 	it("returns empty array when directory does not exist", () => {
-		const contracts = loadEventContracts("/nonexistent/path");
+		const contracts = loadEventContracts(contractDeps, "/nonexistent/path", disk);
 		expect(contracts).toEqual([]);
 	});
 
@@ -514,7 +517,7 @@ describe("loadEventContracts", () => {
 			"---",
 		].join("\n");
 
-		const contracts = loadEventContracts("/project/docs/events");
+		const contracts = loadEventContracts(contractDeps, "/project/docs/events", disk);
 		expect(contracts).toHaveLength(1);
 		expect(contracts[0].name).toBe("real.event");
 	});
@@ -524,7 +527,7 @@ describe("loadEventContracts", () => {
 		mockFiles["/project/docs/events/a-event.md"] = "---\nname: a.event\ndomain: a\n---";
 		mockFiles["/project/docs/events/m-event.md"] = "---\nname: m.event\ndomain: m\n---";
 
-		const contracts = loadEventContracts("/project/docs/events");
+		const contracts = loadEventContracts(contractDeps, "/project/docs/events", disk);
 		expect(contracts.map((c) => c.name)).toEqual(["a.event", "m.event", "z.event"]);
 	});
 });

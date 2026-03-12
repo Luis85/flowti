@@ -32,6 +32,9 @@ import {
 	generateJourneyReport,
 } from "../../../../../src/domain/reports/generators/e2e/e2e-report-journey.js";
 import type { ErrorContext } from "../../../../../src/domain/reports/generators/e2e/e2e-report-types.js";
+import { proc } from "../../../../../src/infrastructure/proc.js";
+
+const mockDeps = { proc };
 
 // ── buildErrorContextLines ──────────────────────────────────────────
 
@@ -233,7 +236,7 @@ describe("generateJourneyReport", () => {
 				},
 			],
 		};
-		const result = generateJourneyReport(data, "2026-01-01T00:00:00Z");
+		const result = generateJourneyReport(data, "2026-01-01T00:00:00Z", mockDeps);
 		expect(result.title).toBe("Getting Started");
 		expect(result.status).toBe("pass");
 		expect(result.content).toContain("Journey: Getting Started");
@@ -264,7 +267,7 @@ describe("generateJourneyReport", () => {
 				},
 			],
 		};
-		const result = generateJourneyReport(data, "2026-01-01T00:00:00Z");
+		const result = generateJourneyReport(data, "2026-01-01T00:00:00Z", mockDeps);
 		expect(result.status).toBe("fail");
 		expect(result.content).toContain("Element not found");
 		expect(result.content).toContain("Error Context");
@@ -282,7 +285,7 @@ describe("generateJourneyReport", () => {
 			durationMs: 1000,
 			steps: [],
 		};
-		const result = generateJourneyReport(data, "2026-01-01T00:00:00Z");
+		const result = generateJourneyReport(data, "2026-01-01T00:00:00Z", mockDeps);
 		expect(result.content).toContain("dev_stopped: true");
 		expect(result.content).toContain("(Dev)");
 	});
@@ -302,7 +305,7 @@ describe("generateJourneyReport", () => {
 				{ step: { guideSection: "2", title: "Clean", phase: "teardown", actions: [] }, status: "pass", durationMs: 200 },
 			],
 		};
-		const result = generateJourneyReport(data, "2026-01-01T00:00:00Z");
+		const result = generateJourneyReport(data, "2026-01-01T00:00:00Z", mockDeps);
 		expect(result.content).toContain("Setup (1/1)");
 		expect(result.content).toContain("Teardown (1/1)");
 	});
@@ -325,7 +328,7 @@ describe("generateJourneyReport", () => {
 				},
 			],
 		};
-		const result = generateJourneyReport(data, "2026-01-01T00:00:00Z");
+		const result = generateJourneyReport(data, "2026-01-01T00:00:00Z", mockDeps);
 		expect(result.content).toContain("![[step-1-before.png]]");
 		expect(result.content).toContain("![[step-1-after.png]]");
 	});

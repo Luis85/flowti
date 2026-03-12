@@ -10,8 +10,27 @@
 
 import type { ProjectContext } from "./types.js";
 import type { OutputFormat } from "./output.js";
+import type { CliDeps } from "./deps.js";
+import { createDefaultDeps } from "./deps.js";
 import { log } from "./logger.js";
 import { proc } from "./proc.js";
+
+// ── Shared deps (set once by main.ts) ───────────────────────────────
+
+let _sharedDeps: CliDeps | undefined;
+
+/** Initialize the shared dependency container. Called once from main.ts. */
+export function initializeDeps(deps: CliDeps): void {
+	_sharedDeps = deps;
+}
+
+/** Get the shared deps (lazy-creates production deps if not initialized). */
+function getSharedDeps(): CliDeps {
+	if (!_sharedDeps) {
+		_sharedDeps = createDefaultDeps();
+	}
+	return _sharedDeps;
+}
 
 // ── Request ─────────────────────────────────────────────────────────
 
@@ -27,21 +46,25 @@ export interface CliRequest {
 	project?: ProjectContext;
 	/** Output format derived from --format flag. */
 	format: OutputFormat;
+	/** Injectable dependencies — controllers use this instead of importing singletons. */
+	deps: CliDeps;
 }
 
-/** Construct a CliRequest from the legacy positional arguments. */
+/** Construct a CliRequest. */
 export function createRequest(
 	command: string,
 	flags: Record<string, string | boolean>,
 	rawArgs: string[],
 	project?: ProjectContext,
+	deps?: CliDeps,
 ): CliRequest {
 	return {
 		command,
 		flags,
 		rawArgs,
 		project,
-		format: flags.format === "json" ? "json" : "text",
+		format: flags?.format === "json" ? "json" : "text",
+		deps: deps ?? getSharedDeps(),
 	};
 }
 
@@ -112,13 +135,12 @@ export type ControllerAction = (req: CliRequest) => CliResponse<any> | void | Pr
 import type { CommandHandler } from "./types.js";
 
 /**
- * Adapt a ControllerAction to the legacy CommandHandler signature.
- * Used during the transition period so controllers can be registered
- * in the existing CommandRegistry without changing its interface.
+ * Adapt a ControllerAction to the CommandHandler signature.
+ * Deps are resolved lazily from the shared container when the handler is invoked.
  */
 export function adapt(action: ControllerAction): CommandHandler {
 	return (flags, rawArgs, command, project) => {
-		const req = createRequest(command ?? "", flags, rawArgs, project);
+		const req = createRequest(command ?? "", flags ?? {}, rawArgs ?? [], project);
 		const result = action(req);
 		if (result && typeof (result as Promise<unknown>).then === "function") {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any

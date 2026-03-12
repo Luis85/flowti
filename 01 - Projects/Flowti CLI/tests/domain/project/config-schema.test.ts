@@ -56,30 +56,26 @@ describe("validateProjectConfig", () => {
 		});
 	});
 
-	describe("tools", () => {
-		it("accepts valid tool IDs", () => {
-			const { errors } = validateProjectConfig(valid({ tools: { build: "npm run build", reports: "npm run reports" } }));
+	describe("build", () => {
+		it("accepts valid build config with commands", () => {
+			const { errors, warnings } = validateProjectConfig(valid({ build: { commands: { fast: "npm run build" } } }));
 			expect(errors).toEqual([]);
+			expect(warnings).toEqual([]);
 		});
 
-		it("errors on unknown tool ID", () => {
-			const { errors } = validateProjectConfig(valid({ tools: { unknown: "cmd" } }));
-			expect(errors).toContainEqual(expect.stringContaining('unknown tool ID "unknown"'));
-		});
-
-		it("errors on non-string tool value", () => {
-			const { errors } = validateProjectConfig(valid({ tools: { build: 42 } }));
-			expect(errors).toContainEqual(expect.stringContaining("tools.build"));
-		});
-
-		it("errors on non-object tools", () => {
-			const { errors } = validateProjectConfig(valid({ tools: "not-obj" }));
-			expect(errors).toContainEqual(expect.stringContaining('"tools" must be an object'));
-		});
-
-		it("skips validation when tools is undefined", () => {
+		it("skips validation when build is undefined", () => {
 			const { errors } = validateProjectConfig(valid());
 			expect(errors).toEqual([]);
+		});
+
+		it("warns on non-object build", () => {
+			const { warnings } = validateProjectConfig(valid({ build: "not-obj" }));
+			expect(warnings).toContainEqual(expect.stringContaining('"build" must be an object'));
+		});
+
+		it("warns on non-object build.commands", () => {
+			const { warnings } = validateProjectConfig(valid({ build: { commands: "not-obj" } }));
+			expect(warnings).toContainEqual(expect.stringContaining('"build.commands" must be an object'));
 		});
 	});
 
@@ -260,7 +256,7 @@ describe("validateProjectConfig", () => {
 
 		it("does not warn on known keys", () => {
 			const { warnings } = validateProjectConfig({
-				name: "Test", tools: {}, make: {}, components: {}, reports: {}, docs: {}, publish: {}, review: {},
+				name: "Test", build: {}, test: {}, devtools: {}, paths: {}, make: {}, components: {}, reports: {}, docs: {}, publish: {}, review: {}, health: {},
 			});
 			expect(warnings).toEqual([]);
 		});

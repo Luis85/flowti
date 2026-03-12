@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractMetrics, compareMetrics, diffReports } from "../../../src/domain/reports/report-diff.js";
+import { extractMetrics, compareMetrics, diffReports } from "../../../src/domain/reports/export/report-diff.js";
 
 // ── extractMetrics ──────────────────────────────────────────────────
 

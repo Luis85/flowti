@@ -16,7 +16,6 @@ import {
 	type HealthViewModel, type SnapshotSavedModel,
 } from "../ui/health-display.js";
 import { renderNoProject, type NoProjectModel } from "../ui/common-renderers.js";
-import { paths } from "../infrastructure/paths.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -48,10 +47,13 @@ function noProjectResponse(command: string) {
 const actions: Record<string, ControllerAction> = {
 	health: (req) => {
 		if (!req.project) return noProjectResponse("health");
-		const snapshot = collectHealth(req.project);
+		const { disk, paths, shell, clock } = req.deps;
+		const healthDeps = { disk, paths, shell } as const;
+		const trendDeps = { disk, paths, clock } as const;
+		const snapshot = collectHealth(healthDeps, req.project);
 		const thresholds = resolveThresholds(req.project);
 		const score = scoreHealth(snapshot, thresholds);
-		const history = loadHistory(req.project.path);
+		const history = loadHistory(trendDeps, req.project.path);
 		const current: StoredSnapshot = { timestamp: "", snapshot, score };
 		const trend = buildTrend(current, history);
 		const viewData: HealthViewModel = { ...snapshot, score, trend: trend.deltas };
@@ -61,10 +63,13 @@ const actions: Record<string, ControllerAction> = {
 
 	"health:snapshot": (req) => {
 		if (!req.project) return noProjectResponse("health:snapshot");
-		const snapshot = collectHealth(req.project);
+		const { disk, paths, shell, clock } = req.deps;
+		const healthDeps = { disk, paths, shell } as const;
+		const trendDeps = { disk, paths, clock } as const;
+		const snapshot = collectHealth(healthDeps, req.project);
 		const thresholds = resolveThresholds(req.project);
 		const score = scoreHealth(snapshot, thresholds);
-		const filePath = saveSnapshot(req.project.path, snapshot, score);
+		const filePath = saveSnapshot(trendDeps, req.project.path, snapshot, score);
 		const model: SnapshotSavedModel = { relativePath: paths.relative(req.project.path, filePath) };
 
 		return dataResponse(model, renderSnapshotSaved);
@@ -72,14 +77,18 @@ const actions: Record<string, ControllerAction> = {
 
 	"health:history": (req) => {
 		if (!req.project) return noProjectResponse("health:history");
-		const history = loadHistory(req.project.path);
+		const { disk, paths, clock } = req.deps;
+		const trendDeps = { disk, paths, clock } as const;
+		const history = loadHistory(trendDeps, req.project.path);
 
 		return dataResponse(history, renderHealthHistory);
 	},
 
 	"debt:estimate": (req) => {
 		if (!req.project) return noProjectResponse("debt:estimate");
-		const snapshot = collectHealth(req.project);
+		const { disk, paths, shell } = req.deps;
+		const healthDeps = { disk, paths, shell } as const;
+		const snapshot = collectHealth(healthDeps, req.project);
 		const thresholds = resolveThresholds(req.project);
 		const score = scoreHealth(snapshot, thresholds);
 		const estimate = estimateDebt(snapshot, score);

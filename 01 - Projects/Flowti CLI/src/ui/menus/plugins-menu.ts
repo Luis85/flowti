@@ -11,11 +11,15 @@ import { disk } from "../../infrastructure/filesystem.js";
 import { shell } from "../../infrastructure/shell.js";
 import { input } from "../../infrastructure/input.js";
 import { paths } from "../../infrastructure/paths.js";
+import { clock } from "../../infrastructure/clock.js";
 import { VAULT_ROOT, CLI_PROJECT } from "../../infrastructure/config.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import type { MenuEntry, MenuResult } from "../../infrastructure/types.js";
 import { loadPlugins, scaffoldPlugin } from "../../domain/plugins/plugin-loader.js";
 import { generatePluginReference } from "../../domain/plugins/plugin-reference.js";
+
+function pluginDeps() { return { disk, paths } as const; }
+function clockDeps() { return { clock } as const; }
 import { renderPluginList, renderPluginValidation } from "../plugins-display.js";
 import { toPluginListItems, toPluginValidationItems } from "../../domain/plugins/plugin-commands.js";
 
@@ -25,7 +29,7 @@ export async function pluginsMenu(): Promise<MenuResult> {
 			key: "1",
 			label: "List Plugins",
 			action: () => {
-				const plugins = loadPlugins(VAULT_ROOT, disk, shell);
+				const plugins = loadPlugins(pluginDeps(), VAULT_ROOT, disk, shell);
 				const items = toPluginListItems(plugins);
 				renderPluginList(items);
 				return "main" as const;
@@ -35,7 +39,7 @@ export async function pluginsMenu(): Promise<MenuResult> {
 			key: "2",
 			label: "Validate Plugins",
 			action: () => {
-				const items = toPluginValidationItems(VAULT_ROOT);
+				const items = toPluginValidationItems(pluginDeps(), VAULT_ROOT);
 				renderPluginValidation(items);
 				return "main" as const;
 			},
@@ -50,7 +54,7 @@ export async function pluginsMenu(): Promise<MenuResult> {
 					return "main" as const;
 				}
 				const desc = await input.ask("Description");
-				const result = scaffoldPlugin(VAULT_ROOT, name, desc || "A Flowti plugin", disk);
+				const result = scaffoldPlugin(pluginDeps(), VAULT_ROOT, name, desc || "A Flowti plugin", disk);
 				if ("error" in result) {
 					log(`\n  ${RED}${result.error}${RESET}\n`);
 				} else {
@@ -64,8 +68,8 @@ export async function pluginsMenu(): Promise<MenuResult> {
 			key: "4",
 			label: "Generate Reference",
 			action: () => {
-				const plugins = loadPlugins(VAULT_ROOT, disk, shell);
-				const doc = generatePluginReference(plugins);
+				const plugins = loadPlugins(pluginDeps(), VAULT_ROOT, disk, shell);
+				const doc = generatePluginReference(clockDeps(), plugins);
 				const outputPath = paths.join(CLI_PROJECT, "docs", "reference", "Plugin Reference.md");
 				doc.save(outputPath);
 				log(`\n  ${GREEN}✓${RESET} Reference saved to ${DIM}${outputPath}${RESET}\n`);

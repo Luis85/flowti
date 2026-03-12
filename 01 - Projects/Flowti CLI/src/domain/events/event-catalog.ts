@@ -9,13 +9,11 @@
  * Non-interactive: events:add --name="..." --domain="..."
  */
 
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
 import { Document } from "../../infrastructure/document.js";
-import { clock } from "../../infrastructure/clock.js";
 import { parseFrontmatterStrings } from "../../infrastructure/frontmatter.js";
 import { toKebab } from "../make/naming.js";
 import { renderVersionHistory } from "./event-versioning.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -40,8 +38,8 @@ export interface EventPayloadField {
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-function eventsDir(projectPath: string): string {
-	return paths.join(projectPath, "docs", "events");
+function eventsDir(deps: Pick<CliDeps, "paths">, projectPath: string): string {
+	return deps.paths.join(projectPath, "docs", "events");
 }
 
 function sanitizeFilename(name: string): string {
@@ -60,15 +58,15 @@ export function parseCommaSeparated(value: string): string[] {
 }
 
 /** Read all event markdown files from docs/events/ and extract frontmatter. */
-export function listEvents(projectPath: string): { name: string; domain: string; version: string; file: string }[] {
-	const dir = eventsDir(projectPath);
-	if (!disk.existsSync(dir)) return [];
+export function listEvents(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string): { name: string; domain: string; version: string; file: string }[] {
+	const dir = eventsDir(deps, projectPath);
+	if (!deps.disk.existsSync(dir)) return [];
 
-	const files = disk.readdirSync(dir).filter((f: string) => f.endsWith(".md"));
+	const files = deps.disk.readdirSync(dir).filter((f: string) => f.endsWith(".md"));
 	const events: { name: string; domain: string; version: string; file: string }[] = [];
 
 	for (const file of files) {
-		const content = disk.readFileSync(paths.join(dir, file), "utf-8");
+		const content = deps.disk.readFileSync(deps.paths.join(dir, file), "utf-8");
 		const fm = parseFrontmatterStrings(content);
 		events.push({
 			name: fm.name ?? file.replace(/\.md$/, ""),
@@ -91,35 +89,35 @@ interface SiblingLinks {
 }
 
 /** Discover related files in the project that match the event's kebab name. */
-function discoverSiblingLinks(projectPath: string, kebab: string): SiblingLinks {
+function discoverSiblingLinks(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, kebab: string): SiblingLinks {
 	const links: SiblingLinks = { tests: [], sources: [], configs: [], definitions: [], components: [], journeys: [] };
 
 	const candidates: { dir: string; category: keyof SiblingLinks; patterns: string[] }[] = [
 		{ dir: "tests", category: "tests", patterns: [`${kebab}.test.ts`, `${kebab}.test.js`, `${kebab}.spec.ts`] },
 		{ dir: "src", category: "sources", patterns: [`${kebab}.ts`, `${kebab}.js`] },
 		{ dir: "configs", category: "configs", patterns: [`${kebab}.json`, `${kebab}.config.json`] },
-		{ dir: paths.join("src", "components", kebab), category: "definitions", patterns: [`${kebab}.json`] },
+		{ dir: deps.paths.join("src", "components", kebab), category: "definitions", patterns: [`${kebab}.json`] },
 		{ dir: "docs/components", category: "components", patterns: [`${kebab}.md`] },
 		{ dir: "docs/journeys", category: "journeys", patterns: [] },
 	];
 
 	for (const { dir, category, patterns } of candidates) {
-		const fullDir = paths.join(projectPath, dir);
-		if (!disk.existsSync(fullDir)) continue;
+		const fullDir = deps.paths.join(projectPath, dir);
+		if (!deps.disk.existsSync(fullDir)) continue;
 
 		for (const pattern of patterns) {
-			const filePath = paths.join(fullDir, pattern);
-			if (disk.existsSync(filePath)) {
-				links[category].push(paths.relative(projectPath, filePath).replace(/\\/g, "/"));
+			const filePath = deps.paths.join(fullDir, pattern);
+			if (deps.disk.existsSync(filePath)) {
+				links[category].push(deps.paths.relative(projectPath, filePath).replace(/\\/g, "/"));
 			}
 		}
 
 		// For journeys: scan for any .md file that mentions the event name
 		if (category === "journeys") {
 			try {
-				const files = disk.readdirSync(fullDir).filter((f: string) => f.endsWith(".md"));
+				const files = deps.disk.readdirSync(fullDir).filter((f: string) => f.endsWith(".md"));
 				for (const file of files) {
-					const content = disk.readFileSync(paths.join(fullDir, file), "utf-8");
+					const content = deps.disk.readFileSync(deps.paths.join(fullDir, file), "utf-8");
 					if (content.includes(kebab)) {
 						links.journeys.push(file.replace(/\.md$/, ""));
 					}
@@ -157,15 +155,15 @@ export interface CreateEventResult {
 }
 
 /** Create an event markdown file from a definition. */
-export function createEventFile(projectPath: string, def: EventDefinition): string | null {
-	const dir = eventsDir(projectPath);
-	disk.mkdirSync(dir, { recursive: true });
+export function createEventFile(deps: Pick<CliDeps, "disk" | "paths" | "clock">, projectPath: string, def: EventDefinition): string | null {
+	const dir = eventsDir(deps, projectPath);
+	deps.disk.mkdirSync(dir, { recursive: true });
 
 	const kebab = toKebab(def.name);
 	const filename = sanitizeFilename(kebab) + ".md";
-	const filePath = paths.join(dir, filename);
+	const filePath = deps.paths.join(dir, filename);
 
-	if (disk.existsSync(filePath)) {
+	if (deps.disk.existsSync(filePath)) {
 		return null;
 	}
 
@@ -175,7 +173,7 @@ export function createEventFile(projectPath: string, def: EventDefinition): stri
 		domain: def.domain,
 		version: def.version,
 		status: "draft",
-		date: clock.iso(),
+		date: deps.clock.iso(),
 		producers: def.producers.join(", "),
 		consumers: def.consumers.join(", "),
 	};
@@ -211,9 +209,9 @@ export function createEventFile(projectPath: string, def: EventDefinition): stri
 	}
 	doc.addBlank();
 
-	renderVersionHistory(doc, def);
+	renderVersionHistory(deps, doc, def);
 
-	const links = discoverSiblingLinks(projectPath, kebab);
+	const links = discoverSiblingLinks(deps, projectPath, kebab);
 
 	doc.heading(2, "Related Components").addBlank();
 	renderListOrPlaceholder(doc, links.components.map((c) => `[[${c}]]`), "<!-- Link components that produce or consume this event. -->");
@@ -231,5 +229,4 @@ export function createEventFile(projectPath: string, def: EventDefinition): stri
 	doc.save(filePath);
 	return filePath;
 }
-
 

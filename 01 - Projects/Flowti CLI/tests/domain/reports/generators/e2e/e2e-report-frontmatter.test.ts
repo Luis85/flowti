@@ -40,6 +40,9 @@ vi.mock("../../../../../src/infrastructure/clock.js", () => ({
 
 import { buildE2EFrontmatter } from "../../../../../src/domain/reports/generators/e2e/e2e-report-frontmatter.js";
 import { Document } from "../../../../../src/infrastructure/document.js";
+import { proc } from "../../../../../src/infrastructure/proc.js";
+
+const mockProcDeps = { proc };
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -81,7 +84,7 @@ describe("e2e-report-frontmatter", () => {
 				journeyCount: 3,
 				trace: null,
 				startupPerf: null,
-			});
+			}, mockProcDeps);
 
 			const output = doc.toString();
 			expect(output).toContain("type: E2EReport");
@@ -111,7 +114,7 @@ describe("e2e-report-frontmatter", () => {
 				journeyCount: 1,
 				trace: null,
 				startupPerf: null,
-			});
+			}, mockProcDeps);
 
 			const output = doc.toString();
 			expect(output).toContain("dev: 3");
@@ -137,7 +140,7 @@ describe("e2e-report-frontmatter", () => {
 				journeyCount: 1,
 				trace: null,
 				startupPerf: null,
-			});
+			}, mockProcDeps);
 
 			const output = doc.toString();
 			expect(output).toContain("total_actions: 50");
@@ -165,7 +168,7 @@ describe("e2e-report-frontmatter", () => {
 				journeyCount: 0,
 				trace: null,
 				startupPerf: null,
-			});
+			}, mockProcDeps);
 
 			const output = doc.toString();
 			expect(output).toContain("tools: []");
@@ -190,7 +193,7 @@ describe("e2e-report-frontmatter", () => {
 				journeyCount: 0,
 				trace: null,
 				startupPerf: null,
-			});
+			}, mockProcDeps);
 
 			const output = doc.toString();
 			expect(output).toContain("total_manual_passed: 3");
@@ -216,7 +219,7 @@ describe("e2e-report-frontmatter", () => {
 				journeyCount: 1,
 				trace: null,
 				startupPerf: null,
-			});
+			}, mockProcDeps);
 
 			const output = doc.toString();
 			expect(output).toContain("test_suites:");
@@ -244,7 +247,7 @@ describe("e2e-report-frontmatter", () => {
 				journeyCount: 1,
 				trace: null,
 				startupPerf: null,
-			});
+			}, mockProcDeps);
 
 			const output = doc.toString();
 			expect(output).toContain("partial");
@@ -269,7 +272,7 @@ describe("e2e-report-frontmatter", () => {
 				journeyCount: 1,
 				trace: { summary: { totalEvents: 500, perfEvents: 50 }, events: [] },
 				startupPerf: null,
-			});
+			}, mockProcDeps);
 
 			const output = doc.toString();
 			expect(output).toContain("trace_events: 500");
@@ -295,7 +298,7 @@ describe("e2e-report-frontmatter", () => {
 				journeyCount: 1,
 				trace: null,
 				startupPerf: { history: [100, 200, 300], sizeBytes: 5000 },
-			});
+			}, mockProcDeps);
 
 			const output = doc.toString();
 			expect(output).toContain("startup_p50:");

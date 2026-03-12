@@ -6,6 +6,8 @@
  */
 
 import { log } from "../infrastructure/logger.js";
+import { disk } from "../infrastructure/filesystem.js";
+import { paths } from "../infrastructure/paths.js";
 import { RESET, DIM, GREEN, YELLOW, RED, CYAN, BOLD } from "../infrastructure/ui.js";
 import { PROJECTS_DIR } from "../infrastructure/config.js";
 import { resolveFormat, printOutput } from "../infrastructure/output.js";
@@ -168,7 +170,7 @@ export function displayDependencyGraph(graph: DependencyGraph): void {
 // ── Command handler ────────────────────────────────────────────────
 
 export function handleProjectDeps(): void {
-	const graph = buildDependencyGraph();
+	const graph = buildDependencyGraph({ disk, paths });
 	displayDependencyGraph(graph);
 }
 
@@ -221,7 +223,7 @@ function displayProjectFocus(graph: DependencyGraph, projectName: string): void 
 
 export const commands = {
 	"project:deps": (flags: Record<string, string | boolean>) => {
-		const graph = buildDependencyGraph();
+		const graph = buildDependencyGraph({ disk, paths });
 		const format = resolveFormat(flags);
 		const focusProject = typeof flags.project === "string" ? flags.project : null;
 		const showReverse = !!flags.reverse;

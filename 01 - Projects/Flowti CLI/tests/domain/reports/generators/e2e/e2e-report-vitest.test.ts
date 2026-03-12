@@ -27,6 +27,9 @@ import {
 	findMatchingJourney, reconcileCase, reconcileResults,
 } from "../../../../../src/domain/reports/generators/e2e/e2e-report-vitest.js";
 import type { VitestCase, JourneyEntry } from "../../../../../src/domain/reports/generators/e2e/e2e-report-types.js";
+import { paths } from "../../../../../src/infrastructure/paths.js";
+
+const mockPathsDeps = { paths };
 
 describe("parseVitestCase", () => {
 	it("parses a passing test case", () => {
@@ -75,7 +78,7 @@ describe("parseVitestSuite", () => {
 				{ fullName: "test 2", status: "failed", duration: 5, failureMessages: ["Error"] },
 				{ fullName: "test 3", status: "pending", duration: 0 },
 			],
-		});
+		}, mockPathsDeps);
 		expect(suite.name).toBe("my-suite");
 		expect(passed).toBe(1);
 		expect(failed).toBe(1);
@@ -90,7 +93,7 @@ describe("parseVitestSuite", () => {
 			assertionResults: [
 				{ fullName: "test 1", status: "passed", duration: 10 },
 			],
-		});
+		}, mockPathsDeps);
 		expect(suite.suiteHookFailed).toBe(true);
 		expect(suite.hookError).toBe("beforeAll hook failed");
 		expect(failed).toBe(1);

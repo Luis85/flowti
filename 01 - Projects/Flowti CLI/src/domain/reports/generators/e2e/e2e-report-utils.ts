@@ -4,14 +4,16 @@
  * Pure utility functions shared across E2E report modules.
  */
 
-import { proc } from "../../../../infrastructure/proc.js";
+import type { CliDeps } from "../../../../infrastructure/deps.js";
 import type { ActionStatsReturn, StepResult } from "./e2e-report-types.js";
+
+export type ProcDeps = Pick<CliDeps, "proc">;
 
 /**
  * Resolves the E2E execution mode label from the E2E_JOURNEY env var.
  */
-export function resolveMode(): string {
-	const journey = proc.env().E2E_JOURNEY;
+export function resolveMode(deps: ProcDeps): string {
+	const journey = deps.proc.env().E2E_JOURNEY;
 	if (!journey) return "full";
 	return journey;
 }

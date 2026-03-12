@@ -136,9 +136,8 @@ describe("showInfo", () => {
 		expect(out).toContain("Development");
 	});
 
-	it("prints flowti tools", () => {
+	it("prints dev tools", () => {
 		showInfo();
-		expect(output()).toContain("Flowti Tools");
 		expect(output()).toContain("Dev Tools");
 	});
 

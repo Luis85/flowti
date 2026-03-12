@@ -1,11 +1,8 @@
-import { describe, it, expect, vi } from "vitest";
-
-vi.mock("../../../src/infrastructure/clock.js", () => ({
-	clock: { iso: () => "2026-03-09" },
-}));
-
+import { describe, it, expect } from "vitest";
 import { generateAiToolReference } from "../../../src/domain/ai-tools/ai-tool-reference.js";
 import type { LoadedAiTool } from "../../../src/domain/ai-tools/ai-tool-types.js";
+
+const testClock = { clock: { iso: () => "2026-03-09", now: () => new Date(), ms: () => 0, safeIso: () => "2026-03-09" } };
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -42,7 +39,7 @@ function invalidTool(overrides: Partial<LoadedAiTool> = {}): LoadedAiTool {
 
 describe("generateAiToolReference", () => {
 	it("returns doc with 0 totals for empty tools list", () => {
-		const doc = generateAiToolReference([]);
+		const doc = generateAiToolReference(testClock, []);
 		const text = doc.toString();
 
 		expect(text).toContain("total_tools: 0");
@@ -54,7 +51,7 @@ describe("generateAiToolReference", () => {
 	});
 
 	it("produces correct frontmatter for a single valid tool", () => {
-		const doc = generateAiToolReference([validTool()]);
+		const doc = generateAiToolReference(testClock, [validTool()]);
 		const text = doc.toString();
 
 		expect(text).toContain("type: AiToolReference");
@@ -65,7 +62,7 @@ describe("generateAiToolReference", () => {
 	});
 
 	it("renders summary table for a single valid tool", () => {
-		const doc = generateAiToolReference([validTool()]);
+		const doc = generateAiToolReference(testClock, [validTool()]);
 		const text = doc.toString();
 
 		expect(text).toContain("## Tools");
@@ -74,7 +71,7 @@ describe("generateAiToolReference", () => {
 	});
 
 	it("renders tool details section", () => {
-		const doc = generateAiToolReference([validTool()]);
+		const doc = generateAiToolReference(testClock, [validTool()]);
 		const text = doc.toString();
 
 		expect(text).toContain("### search-docs");
@@ -96,7 +93,7 @@ describe("generateAiToolReference", () => {
 			},
 		});
 
-		const doc = generateAiToolReference([tool]);
+		const doc = generateAiToolReference(testClock, [tool]);
 		const text = doc.toString();
 
 		expect(text).toContain("#### Parameters");
@@ -115,7 +112,7 @@ describe("generateAiToolReference", () => {
 			},
 		});
 
-		const doc = generateAiToolReference([tool]);
+		const doc = generateAiToolReference(testClock, [tool]);
 		const text = doc.toString();
 
 		expect(text).toContain("**Working directory**: `/project/root`");
@@ -131,7 +128,7 @@ describe("generateAiToolReference", () => {
 			},
 		});
 
-		const doc = generateAiToolReference([tool]);
+		const doc = generateAiToolReference(testClock, [tool]);
 		const text = doc.toString();
 
 		expect(text).toContain("**Tags**: search, docs");
@@ -139,7 +136,7 @@ describe("generateAiToolReference", () => {
 
 	it("renders invalid tools in a warning callout with errors", () => {
 		const tool = invalidTool();
-		const doc = generateAiToolReference([tool]);
+		const doc = generateAiToolReference(testClock, [tool]);
 		const text = doc.toString();
 
 		expect(text).toContain("## Invalid Tools");
@@ -149,7 +146,7 @@ describe("generateAiToolReference", () => {
 
 	it("renders both valid and invalid sections with correct counts", () => {
 		const tools = [validTool(), invalidTool()];
-		const doc = generateAiToolReference(tools);
+		const doc = generateAiToolReference(testClock, tools);
 		const text = doc.toString();
 
 		expect(text).toContain("total_tools: 2");
@@ -179,7 +176,7 @@ describe("generateAiToolReference", () => {
 			}),
 		];
 
-		const doc = generateAiToolReference(tools);
+		const doc = generateAiToolReference(testClock, tools);
 		const text = doc.toString();
 
 		// 3 unique tags: build, docs, search (sorted)
@@ -199,7 +196,7 @@ describe("generateAiToolReference", () => {
 			}),
 		];
 
-		const doc = generateAiToolReference(tools);
+		const doc = generateAiToolReference(testClock, tools);
 		const text = doc.toString();
 
 		expect(text).toContain("tags: 0");
@@ -214,7 +211,7 @@ describe("generateAiToolReference", () => {
 			},
 		});
 
-		const doc = generateAiToolReference([tool]);
+		const doc = generateAiToolReference(testClock, [tool]);
 		const text = doc.toString();
 
 		expect(text).toContain("| no-version | - | No version | 0 |");

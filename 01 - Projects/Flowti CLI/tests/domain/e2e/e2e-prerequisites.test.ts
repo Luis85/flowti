@@ -38,10 +38,15 @@ vi.mock("../../../src/ui/e2e/e2e-formatters.js", () => ({
 }));
 
 import { disk } from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
 import { shell } from "../../../src/infrastructure/shell.js";
+import { log as logFn } from "../../../src/infrastructure/logger.js";
+import { proc } from "../../../src/infrastructure/proc.js";
 import { checkPrerequisites, validatePrerequisites, collapseFileExplorer } from "../../../src/domain/e2e/e2e-prerequisites.js";
 import type { E2EPaths } from "../../../src/domain/e2e/e2e-paths.js";
 import type { PrerequisiteResults } from "../../../src/domain/e2e/e2e-types.js";
+
+const deps = { disk, paths, shell, log: logFn, proc } as any;
 
 const mockE2e: E2EPaths = {
 	projectRoot: "/project",
@@ -71,7 +76,7 @@ describe("checkPrerequisites", () => {
 	it("returns all false when vault does not exist", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(false);
 
-		const results = checkPrerequisites(mockE2e);
+		const results = checkPrerequisites(mockE2e, deps);
 		expect(results.vaultExists).toBe(false);
 		expect(results.artifactsPresent).toBe(false);
 		expect(results.cliResponsive).toBe(false);
@@ -88,7 +93,7 @@ describe("checkPrerequisites", () => {
 		});
 		vi.mocked(shell.runSilent).mockReturnValue(null);
 
-		const results = checkPrerequisites(mockE2e);
+		const results = checkPrerequisites(mockE2e, deps);
 		expect(results.vaultExists).toBe(true);
 		expect(results.artifactsPresent).toBe(true);
 		expect(results.missingArtifacts).toHaveLength(0);
@@ -102,7 +107,7 @@ describe("checkPrerequisites", () => {
 		});
 		vi.mocked(shell.runSilent).mockReturnValue(null);
 
-		const results = checkPrerequisites(mockE2e);
+		const results = checkPrerequisites(mockE2e, deps);
 		expect(results.artifactsPresent).toBe(false);
 		expect(results.missingArtifacts).toContain("manifest.json");
 		expect(results.missingArtifacts).toContain("styles.css");
@@ -112,7 +117,7 @@ describe("checkPrerequisites", () => {
 		vi.mocked(disk.existsSync).mockImplementation((p: string) => p === mockE2e.testVault);
 		vi.mocked(shell.runSilent).mockReturnValue("=> 2");
 
-		const results = checkPrerequisites(mockE2e);
+		const results = checkPrerequisites(mockE2e, deps);
 		expect(results.cliResponsive).toBe(true);
 		expect(shell.runSilent).toHaveBeenCalledWith(expect.stringContaining("eval"));
 	});
@@ -121,7 +126,7 @@ describe("checkPrerequisites", () => {
 		vi.mocked(disk.existsSync).mockImplementation((p: string) => p === mockE2e.testVault);
 		vi.mocked(shell.runSilent).mockReturnValue(null);
 
-		const results = checkPrerequisites(mockE2e);
+		const results = checkPrerequisites(mockE2e, deps);
 		expect(results.cliResponsive).toBe(false);
 	});
 
@@ -136,7 +141,7 @@ describe("checkPrerequisites", () => {
 		}));
 		vi.mocked(shell.runSilent).mockReturnValue(null);
 
-		const results = checkPrerequisites(mockE2e);
+		const results = checkPrerequisites(mockE2e, deps);
 		expect(results.vaultInstalled).toBe(true);
 	});
 
@@ -149,14 +154,14 @@ describe("checkPrerequisites", () => {
 		vi.mocked(disk.readFileSync).mockReturnValue("not json");
 		vi.mocked(shell.runSilent).mockReturnValue(null);
 
-		const results = checkPrerequisites(mockE2e);
+		const results = checkPrerequisites(mockE2e, deps);
 		expect(results.vaultInstalled).toBe(false);
 	});
 
 	it("checks test data presence", () => {
 		vi.mocked(disk.existsSync).mockImplementation((p: string) => p === mockE2e.testDataCsv);
 
-		const results = checkPrerequisites(mockE2e);
+		const results = checkPrerequisites(mockE2e, deps);
 		expect(results.testDataPresent).toBe(true);
 	});
 });
@@ -169,7 +174,7 @@ describe("validatePrerequisites", () => {
 			vaultExists: false, artifactsPresent: false, missingArtifacts: [],
 			cliResponsive: false, vaultInstalled: false, testDataPresent: false,
 		};
-		validatePrerequisites(prereqs);
+		validatePrerequisites(prereqs, deps);
 		expect(mockExit).toHaveBeenCalledWith(1);
 	});
 
@@ -178,7 +183,7 @@ describe("validatePrerequisites", () => {
 			vaultExists: true, artifactsPresent: true, missingArtifacts: [],
 			cliResponsive: false, vaultInstalled: false, testDataPresent: false,
 		};
-		validatePrerequisites(prereqs);
+		validatePrerequisites(prereqs, deps);
 		expect(mockExit).toHaveBeenCalledWith(1);
 	});
 
@@ -187,7 +192,7 @@ describe("validatePrerequisites", () => {
 			vaultExists: true, artifactsPresent: true, missingArtifacts: [],
 			cliResponsive: true, vaultInstalled: false, testDataPresent: false,
 		};
-		validatePrerequisites(prereqs);
+		validatePrerequisites(prereqs, deps);
 		expect(mockExit).not.toHaveBeenCalled();
 	});
 });
@@ -197,13 +202,13 @@ describe("validatePrerequisites", () => {
 describe("collapseFileExplorer", () => {
 	it("calls obsidian CLI eval to collapse folders", () => {
 		vi.mocked(shell.runSilent).mockReturnValue("ok");
-		collapseFileExplorer(mockE2e);
+		collapseFileExplorer(mockE2e, deps);
 		expect(shell.runSilent).toHaveBeenCalledWith(expect.stringContaining("vault-e2e"));
 		expect(shell.runSilent).toHaveBeenCalledWith(expect.stringContaining("file-explorer"));
 	});
 
 	it("handles null response gracefully", () => {
 		vi.mocked(shell.runSilent).mockReturnValue(null);
-		expect(() => collapseFileExplorer(mockE2e)).not.toThrow();
+		expect(() => collapseFileExplorer(mockE2e, deps)).not.toThrow();
 	});
 });

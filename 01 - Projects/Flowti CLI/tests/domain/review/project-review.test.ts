@@ -54,7 +54,7 @@ vi.mock("../../../src/domain/make/makers.js", () => ({
 	makeJourney: vi.fn(),
 }));
 
-import { reviewMenu } from "../../../src/domain/review/project-review.js";
+import { reviewMenu } from "../../../src/ui/menus/review-menu.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
 import { shell } from "../../../src/infrastructure/shell.js";
 import { runMenu } from "../../../src/infrastructure/menu.js";

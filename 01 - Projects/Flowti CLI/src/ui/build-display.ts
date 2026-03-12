@@ -7,6 +7,7 @@
 import { RESET, DIM, GREEN, YELLOW, CYAN } from "../infrastructure/ui.js";
 import { log } from "../infrastructure/logger.js";
 import type { FreshnessCheck, BuildManifest } from "../domain/build/build-freshness.js";
+import type { CiResult } from "../domain/build/ci-generator.js";
 
 // ── Data models ──────────────────────────────────────────────────────
 
@@ -67,4 +68,12 @@ export function renderCiDryRun(yaml: string): void {
 export function renderCiWritten(yaml: string, outputPath: string): void {
 	renderWorkflowPreview(yaml);
 	log(`  ${GREEN}Wrote${RESET} ${DIM}${outputPath}${RESET}\n`);
+}
+
+export function renderCiResult(data: CiResult): void {
+	if (data.dryRun) {
+		renderCiDryRun(data.yaml);
+	} else if (data.outputPath) {
+		renderCiWritten(data.yaml, data.outputPath);
+	}
 }

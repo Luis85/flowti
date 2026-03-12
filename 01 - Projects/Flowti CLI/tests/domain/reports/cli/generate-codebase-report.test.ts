@@ -32,8 +32,14 @@ vi.mock("../../../../src/domain/project/project-config.js", () => ({
 	readProjectConfig: vi.fn(() => ({ config: { reports: { dir: "reports" }, docs: { referenceDir: "docs/reference" } } })),
 }));
 
+import type { ReportDeps } from "../../../../src/infrastructure/deps.js";
 import { disk } from "../../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../../src/infrastructure/paths.js";
+import { clock } from "../../../../src/infrastructure/clock.js";
 import { generateCodebaseReport } from "../../../../src/domain/reports/cli/generate-codebase-report.js";
+
+const mockShell = { run: vi.fn(() => ({ stdout: "", stderr: "", exitCode: 0, success: true })) };
+const mockDeps: ReportDeps = { disk, paths, clock, shell: mockShell as any, log: () => {} };
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -43,7 +49,7 @@ describe("generateCodebaseReport", () => {
 	it("returns failure when codebase.json does not exist", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(false);
 
-		const result = generateCodebaseReport("/project");
+		const result = generateCodebaseReport("/project", mockDeps);
 
 		expect(result.success).toBe(false);
 		expect(result.outputPath).toBe("");
@@ -68,7 +74,7 @@ describe("generateCodebaseReport", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data));
 
-		const result = generateCodebaseReport("/project");
+		const result = generateCodebaseReport("/project", mockDeps);
 
 		expect(result.success).toBe(true);
 		expect(result.outputPath).toBeTruthy();
@@ -91,7 +97,7 @@ describe("generateCodebaseReport", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data));
 
-		const result = generateCodebaseReport("/project");
+		const result = generateCodebaseReport("/project", mockDeps);
 
 		expect(result.success).toBe(true);
 	});
@@ -100,7 +106,7 @@ describe("generateCodebaseReport", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify({}));
 
-		const result = generateCodebaseReport("/project");
+		const result = generateCodebaseReport("/project", mockDeps);
 
 		expect(result.success).toBe(true);
 		expect(result.metrics).toEqual(expect.objectContaining({
@@ -116,7 +122,7 @@ describe("generateCodebaseReport", () => {
 		const logFn = vi.fn();
 		const ctx = { log: logFn, projectPath: "/project", getResults: () => [], pushResult: vi.fn(), getStepResult: vi.fn(), setCommandOutput: vi.fn(), getCommandOutput: vi.fn(), setStepData: vi.fn(), getStepData: vi.fn() };
 
-		generateCodebaseReport("/project", ctx as any);
+		generateCodebaseReport("/project", mockDeps, ctx as any);
 
 		expect(logFn).toHaveBeenCalled();
 	});
@@ -135,7 +141,7 @@ describe("generateCodebaseReport", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readFileSync).mockReturnValue(JSON.stringify(data));
 
-		const result = generateCodebaseReport("/project");
+		const result = generateCodebaseReport("/project", mockDeps);
 
 		expect(result.success).toBe(true);
 	});

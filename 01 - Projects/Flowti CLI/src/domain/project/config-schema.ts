@@ -5,19 +5,19 @@
  * Returns errors (fatal) and warnings (non-fatal) for clear diagnostics.
  */
 
-import type { FlowtiToolId, MakeTemplateId, ProjectTarget } from "../../infrastructure/types.js";
+import type { MakeTemplateId, ProjectTarget } from "../../infrastructure/types.js";
 
 export interface ConfigValidationResult {
 	errors: string[];
 	warnings: string[];
 }
 
-const VALID_TOOL_IDS: FlowtiToolId[] = ["build", "reports", "devtools"];
 const VALID_MAKE_TEMPLATES: MakeTemplateId[] = ["journey", "component"];
 const VALID_PROJECT_TYPES: ProjectTarget[] = ["project", "typescript", "typescript-cli", "obsidian-plugin"];
 const KNOWN_TOP_LEVEL_KEYS = new Set([
-	"name", "type", "tools", "build", "test", "devtools", "paths",
+	"name", "type", "build", "test", "devtools", "paths",
 	"make", "components", "reports", "docs", "publish", "review", "health",
+	"management", "templates",
 ]);
 
 /** Validate a raw object as a ProjectConfig. */
@@ -33,7 +33,6 @@ export function validateProjectConfig(raw: unknown): ConfigValidationResult {
 
 	validateName(cfg, errors);
 	validateType(cfg, warnings);
-	validateTools(cfg, errors);
 	validateCommandsMap(cfg, "build", warnings);
 	validateCommandsMap(cfg, "test", warnings);
 	validateCommandsMap(cfg, "devtools", warnings);
@@ -100,23 +99,6 @@ function validatePaths(cfg: Record<string, unknown>, warnings: string[]): void {
 	for (const key of Object.keys(p)) {
 		if (typeof p[key] !== "string") {
 			warnings.push(`paths.${key}: value must be a string.`);
-		}
-	}
-}
-
-function validateTools(cfg: Record<string, unknown>, errors: string[]): void {
-	if (cfg.tools === undefined) return;
-	if (!cfg.tools || typeof cfg.tools !== "object") {
-		errors.push('"tools" must be an object.');
-		return;
-	}
-	const tools = cfg.tools as Record<string, unknown>;
-	for (const key of Object.keys(tools)) {
-		if (!VALID_TOOL_IDS.includes(key as FlowtiToolId)) {
-			errors.push(`tools: unknown tool ID "${key}". Valid: ${VALID_TOOL_IDS.join(", ")}.`);
-		}
-		if (typeof tools[key] !== "string") {
-			errors.push(`tools.${key}: value must be a string (command).`);
 		}
 	}
 }

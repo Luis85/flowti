@@ -5,10 +5,8 @@
  * timestamped file naming, and the save pattern (stable md + timestamped md + timestamped JSON).
  */
 
-import { paths } from "../../../infrastructure/paths.js";
-import { disk } from "../../../infrastructure/filesystem.js";
-import { CLI_PROJECT } from "../../../infrastructure/config.js";
-import { clock } from "../../../infrastructure/clock.js";
+import type { ReportDeps } from "../../../infrastructure/deps.js";
+import type { IFileSystem, IPaths, IClock } from "../../../infrastructure/types.js";
 import { readProjectConfig } from "../../project/project-config.js";
 import type { Document } from "../../../infrastructure/document.js";
 
@@ -17,20 +15,20 @@ export interface ReportServiceOptions {
 	referenceDir?: string;
 }
 
-function readConfigDirs(projectPath: string) {
-	const { config } = readProjectConfig(projectPath);
+function readConfigDirs(projectPath: string, p: IPaths, fs: IFileSystem) {
+	const { config } = readProjectConfig(projectPath, { disk: fs, paths: p });
 	const reportsRel = config?.reports?.dir ?? "reports";
 	const referenceRel = config?.docs?.referenceDir ?? "docs/reference";
 	return { reportsRel, referenceRel };
 }
 
-function resolveDirs(projectPath: string, opts?: ReportServiceOptions) {
+function resolveDirs(projectPath: string, p: IPaths, fs: IFileSystem, opts?: ReportServiceOptions) {
 	if (opts?.reportsDir && opts?.referenceDir) {
 		return { reportsDir: opts.reportsDir, referenceDir: opts.referenceDir, reportsRelDir: "reports" };
 	}
-	const { reportsRel, referenceRel } = readConfigDirs(projectPath);
-	const reportsDir = opts?.reportsDir ?? paths.join(projectPath, reportsRel);
-	const referenceDir = opts?.referenceDir ?? paths.join(projectPath, referenceRel);
+	const { reportsRel, referenceRel } = readConfigDirs(projectPath, p, fs);
+	const reportsDir = opts?.reportsDir ?? p.join(projectPath, reportsRel);
+	const referenceDir = opts?.referenceDir ?? p.join(projectPath, referenceRel);
 	return { reportsDir, referenceDir, reportsRelDir: reportsRel };
 }
 
@@ -39,10 +37,16 @@ export class ReportService {
 	readonly reportsDir: string;
 	readonly referenceDir: string;
 	private readonly reportsRelDir: string;
+	private readonly disk: IFileSystem;
+	private readonly paths: IPaths;
+	private readonly clock: IClock;
 
-	constructor(projectPath: string = CLI_PROJECT, opts?: ReportServiceOptions) {
+	constructor(projectPath: string, deps: ReportDeps, opts?: ReportServiceOptions) {
 		this.projectPath = projectPath;
-		const resolved = resolveDirs(projectPath, opts);
+		this.disk = deps.disk;
+		this.paths = deps.paths;
+		this.clock = deps.clock;
+		const resolved = resolveDirs(projectPath, deps.paths, deps.disk, opts);
 		this.reportsDir = resolved.reportsDir;
 		this.referenceDir = resolved.referenceDir;
 		this.reportsRelDir = resolved.reportsRelDir;
@@ -50,12 +54,12 @@ export class ReportService {
 
 	/** Resolve an absolute path to a subdirectory within the reports dir. */
 	subdir(name: string): string {
-		return paths.join(this.reportsDir, name);
+		return this.paths.join(this.reportsDir, name);
 	}
 
 	/** Resolve the stable report path (e.g., "Test Report.md"). */
 	stablePath(filename: string): string {
-		return paths.join(this.reportsDir, filename);
+		return this.paths.join(this.reportsDir, filename);
 	}
 
 	/**
@@ -73,16 +77,16 @@ export class ReportService {
 		sourceJson?: string;
 	}): string {
 		const outputDir = this.subdir(opts.subdir);
-		const safeTimestamp = clock.safeIso();
-		const outputPath = paths.join(outputDir, `${safeTimestamp}-${opts.slug}.md`);
+		const safeTimestamp = this.clock.safeIso();
+		const outputPath = this.paths.join(outputDir, `${safeTimestamp}-${opts.slug}.md`);
 
-		disk.mkdirSync(outputDir, { recursive: true });
+		this.disk.mkdirSync(outputDir, { recursive: true });
 		doc.save(outputPath);
 		doc.save(this.stablePath(opts.stableFilename));
 
-		if (opts.sourceJson && disk.existsSync(opts.sourceJson)) {
-			const jsonSnapshot = paths.join(outputDir, `${safeTimestamp}-${opts.slug}.json`);
-			disk.copyFileSync(opts.sourceJson, jsonSnapshot);
+		if (opts.sourceJson && this.disk.existsSync(opts.sourceJson)) {
+			const jsonSnapshot = this.paths.join(outputDir, `${safeTimestamp}-${opts.slug}.json`);
+			this.disk.copyFileSync(opts.sourceJson, jsonSnapshot);
 		}
 
 		return outputPath;
@@ -96,8 +100,8 @@ export class ReportService {
 	 * Returns the output path.
 	 */
 	saveReference(doc: Document, filename: string): string {
-		disk.mkdirSync(this.referenceDir, { recursive: true });
-		const outputPath = paths.join(this.referenceDir, filename);
+		this.disk.mkdirSync(this.referenceDir, { recursive: true });
+		const outputPath = this.paths.join(this.referenceDir, filename);
 		doc.save(outputPath);
 		return outputPath;
 	}
