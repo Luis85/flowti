@@ -19,37 +19,78 @@ export function resourcesDir(deps: Pick<CliDeps, "paths">, projectPath: string, 
 	return deps.paths.join(projectPath, config?.dir ?? "docs/resources");
 }
 
+function parseNumericFields(fm: Record<string, string>): { price: number; amount: number; consumed: number } {
+	const isBudget = fm.resourceType === "budget";
+	return {
+		price: isBudget ? 1 : parseFloat(fm.price ?? fm.hourlyRate ?? "0"),
+		amount: parseFloat(fm.totalAmount ?? fm.amount ?? "0"),
+		consumed: parseFloat(fm.spent ?? fm.consumed ?? "0"),
+	};
+}
+
+function parseResourceSummary(fm: Record<string, string>, file: string): ResourceSummary {
+	const isBudget = fm.resourceType === "budget";
+	const { price, amount, consumed } = parseNumericFields(fm);
+	return {
+		name: fm.name ?? file.replace(/\.md$/, ""),
+		resourceType: (fm.resourceType as ResourceSummary["resourceType"]) ?? "human",
+		price, amount, consumed,
+		remaining: Math.max(0, amount - consumed),
+		totalCost: isBudget ? amount : price * amount,
+		consumedCost: isBudget ? consumed : price * consumed,
+		file,
+	};
+}
+
 /** List all resources from the resources directory. */
 export function listResources(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, config?: ResourcesConfig): ResourceSummary[] {
 	const dir = resourcesDir(deps, projectPath, config);
 	if (!deps.disk.existsSync(dir)) return [];
 
 	const files = deps.disk.readdirSync(dir).filter((f: string) => f.endsWith(".md"));
-	const resources: ResourceSummary[] = [];
-
-	for (const file of files) {
+	const resources = files.map((file) => {
 		const content = deps.disk.readFileSync(deps.paths.join(dir, file), "utf-8");
-		const fm = parseFrontmatterStrings(content);
-		const isBudget = fm.resourceType === "budget";
-		const price = isBudget ? 1 : parseFloat(fm.price ?? fm.hourlyRate ?? "0");
-		const amount = parseFloat(fm.totalAmount ?? fm.amount ?? "0");
-		const consumed = parseFloat(fm.spent ?? fm.consumed ?? "0");
-		const remaining = Math.max(0, amount - consumed);
-
-		resources.push({
-			name: fm.name ?? file.replace(/\.md$/, ""),
-			resourceType: (fm.resourceType as ResourceSummary["resourceType"]) ?? "human",
-			price,
-			amount,
-			consumed,
-			remaining,
-			totalCost: isBudget ? amount : price * amount,
-			consumedCost: isBudget ? consumed : price * consumed,
-			file,
-		});
-	}
+		return parseResourceSummary(parseFrontmatterStrings(content), file);
+	});
 
 	return resources.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function addBudgetFields(fm: Record<string, string>, def: ResourceDefinition): void {
+	fm.totalAmount = String(def.amount);
+	fm.spent = String(def.consumed);
+	if (def.currency) fm.currency = def.currency;
+	if (def.category) fm.category = def.category;
+	if (def.periodStart) fm.periodStart = def.periodStart;
+	if (def.periodEnd) fm.periodEnd = def.periodEnd;
+}
+
+function addQuantityFields(fm: Record<string, string>, def: ResourceDefinition): void {
+	if (def.resourceType === "role") {
+		fm.hourlyRate = String(def.hourlyRate ?? def.price);
+	} else {
+		fm.price = String(def.price);
+		fm.priceUnit = def.priceUnit ?? "hour";
+	}
+	fm.amount = String(def.amount);
+	fm.consumed = String(def.consumed);
+}
+
+function buildResourceFrontmatter(def: ResourceDefinition, date: string): Record<string, string> {
+	const fm: Record<string, string> = {
+		type: "Resource",
+		resourceType: def.resourceType,
+		name: def.name,
+		status: def.status || "active",
+		date,
+	};
+	if (def.resourceType === "budget") {
+		addBudgetFields(fm, def);
+	} else {
+		addQuantityFields(fm, def);
+	}
+	if (def.role) fm.role = def.role;
+	return fm;
 }
 
 /** Create a new resource markdown file. Returns the file path or null if it already exists. */
@@ -63,33 +104,7 @@ export function createResourceFile(deps: ResourceStoreDeps, projectPath: string,
 
 	if (deps.disk.existsSync(filePath)) return null;
 
-	const frontmatter: Record<string, string> = {
-		type: "Resource",
-		resourceType: def.resourceType,
-		name: def.name,
-		status: def.status || "active",
-		date: deps.clock.iso(),
-	};
-
-	if (def.resourceType === "budget") {
-		frontmatter.totalAmount = String(def.amount);
-		frontmatter.spent = String(def.consumed);
-		if (def.currency) frontmatter.currency = def.currency;
-		if (def.category) frontmatter.category = def.category;
-		if (def.periodStart) frontmatter.periodStart = def.periodStart;
-		if (def.periodEnd) frontmatter.periodEnd = def.periodEnd;
-	} else if (def.resourceType === "role") {
-		frontmatter.hourlyRate = String(def.hourlyRate ?? def.price);
-		frontmatter.amount = String(def.amount);
-		frontmatter.consumed = String(def.consumed);
-	} else {
-		frontmatter.price = String(def.price);
-		frontmatter.priceUnit = def.priceUnit ?? "hour";
-		frontmatter.amount = String(def.amount);
-		frontmatter.consumed = String(def.consumed);
-	}
-
-	if (def.role) frontmatter.role = def.role;
+	const frontmatter = buildResourceFrontmatter(def, deps.clock.iso());
 
 	const doc = Document.create(def.name)
 		.mergeFrontmatter(frontmatter)

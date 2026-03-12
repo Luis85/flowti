@@ -19,24 +19,72 @@
 		"commands": {
 			"check": "npm run check",
 			"lint": "npm run lint"
+		},
+		"thresholds": {
+			"maxComplexity": 10,
+			"maxLines": 350
 		}
 	},
 	"make": {
-		"templates": ["journey", "component"]
+		"templates": [
+			"journey",
+			"component"
+		]
 	},
 	"components": {
 		"storybook": true,
-		"storybookDir": "components"
+		"storybookDir": "components",
+		"framework": "angular"
 	},
 	"reports": {
 		"dir": "reports",
 		"generators": [
-			{ "id": "test", "label": "Test Report", "prerequisites": ["npx vitest run --config configs/vitest.config.ts --reporter=json --outputFile=reports/tests/testreport.json --coverage --coverage.reportsDirectory=reports/coverage --coverage.reporter=json"] },
-			{ "id": "coverage", "label": "Coverage Report", "prerequisites": ["npx vitest run --config configs/vitest.config.ts --reporter=json --outputFile=reports/tests/testreport.json --coverage --coverage.reportsDirectory=reports/coverage --coverage.reporter=json"] },
-			{ "id": "codebase", "label": "Codebase Report", "prerequisites": ["npm run typedoc"] },
-			{ "id": "complexity", "label": "Complexity Report" },
-			{ "id": "status", "label": "Status Report", "dependencies": ["test", "coverage", "codebase", "complexity"] },
-			{ "id": "summary", "label": "Summary Report", "dependencies": ["test", "coverage", "codebase", "complexity", "status"] }
+			{
+				"id": "test",
+				"label": "Test Report",
+				"prerequisites": [
+					"npx vitest run --config configs/vitest.config.ts --reporter=json --outputFile=reports/tests/testreport.json --coverage --coverage.reportsDirectory=reports/coverage --coverage.reporter=json"
+				]
+			},
+			{
+				"id": "coverage",
+				"label": "Coverage Report",
+				"prerequisites": [
+					"npx vitest run --config configs/vitest.config.ts --reporter=json --outputFile=reports/tests/testreport.json --coverage --coverage.reportsDirectory=reports/coverage --coverage.reporter=json"
+				]
+			},
+			{
+				"id": "codebase",
+				"label": "Codebase Report",
+				"prerequisites": [
+					"npm run typedoc"
+				]
+			},
+			{
+				"id": "complexity",
+				"label": "Complexity Report"
+			},
+			{
+				"id": "status",
+				"label": "Status Report",
+				"dependencies": [
+					"test",
+					"coverage",
+					"codebase",
+					"complexity"
+				]
+			},
+			{
+				"id": "summary",
+				"label": "Summary Report",
+				"dependencies": [
+					"test",
+					"coverage",
+					"codebase",
+					"complexity",
+					"status"
+				]
+			}
 		],
 		"thresholds": {
 			"coverageLines": 80,
@@ -54,19 +102,36 @@
 	"docs": {
 		"allCommand": "npm run typedoc",
 		"generators": [
-			{ "label": "Codebase (TypeDoc)", "command": "npm run typedoc" }
+			{
+				"label": "Codebase (TypeDoc)",
+				"command": "npm run typedoc"
+			}
 		],
 		"referenceDir": "docs/reference",
 		"references": [
-			{ "id": "cli-reference", "label": "CLI Reference" },
-			{ "id": "entity-reference", "label": "Entity Reference" }
+			{
+				"id": "cli-reference",
+				"label": "CLI Reference"
+			},
+			{
+				"id": "entity-reference",
+				"label": "Entity Reference"
+			}
 		]
 	},
 	"health": {
 		"thresholds": {
-			"coverage": { "min": 70, "target": 85 },
-			"lint": { "maxErrors": 0, "maxWarnings": 5 },
-			"tests": { "minPassed": 3600 }
+			"coverage": {
+				"min": 70,
+				"target": 85
+			},
+			"lint": {
+				"maxErrors": 0,
+				"maxWarnings": 5
+			},
+			"tests": {
+				"minPassed": 3600
+			}
 		}
 	},
 	"publish": {
@@ -82,16 +147,32 @@
 			".flowti/bin/package.json"
 		],
 		"endpoints": [
-			{ "name": "Distribute", "path": "C:/Projects/distribute", "clean": true }
+			{
+				"name": "Distribute",
+				"path": "C:/Projects/distribute",
+				"clean": true
+			}
 		]
 	},
 	"management": {
-		"resources": { "dir": "docs/resources" },
-		"timelog": { "dir": "docs/timelog" },
-		"deliverables": { "dir": "docs/deliverables" },
-		"raid": { "dir": "docs/raid" },
-		"requirements": { "dir": "docs/requirements" },
-		"capa": { "dir": "docs/capa" }
+		"resources": {
+			"dir": "docs/resources"
+		},
+		"timelog": {
+			"dir": "docs/timelog"
+		},
+		"deliverables": {
+			"dir": "docs/deliverables"
+		},
+		"raid": {
+			"dir": "docs/raid"
+		},
+		"requirements": {
+			"dir": "docs/requirements"
+		},
+		"capa": {
+			"dir": "docs/capa"
+		}
 	},
 	"templates": {
 		"dir": "docs/templates"

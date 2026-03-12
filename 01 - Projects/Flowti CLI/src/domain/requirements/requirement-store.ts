@@ -83,6 +83,24 @@ export function listRequirements(deps: Pick<CliDeps, "disk" | "paths">, projectP
 	return reqs.sort((a, b) => a.id.localeCompare(b.id));
 }
 
+function buildRequirementFrontmatter(def: RequirementDefinition, date: string): Record<string, string> {
+	const fm: Record<string, string> = {
+		type: "Requirement",
+		requirementType: def.requirementType,
+		name: def.name,
+		id: def.id,
+		status: def.status,
+		priority: def.priority,
+		date,
+	};
+	if (def.category) fm.category = def.category;
+	if (def.source) fm.source = def.source;
+	if (def.rationale) fm.rationale = def.rationale;
+	if (def.linkedUseCases?.length) fm.linkedUseCases = def.linkedUseCases.join(", ");
+	if (def.linkedUserStories?.length) fm.linkedUserStories = def.linkedUserStories.join(", ");
+	return fm;
+}
+
 /** Create a new requirement markdown file. Returns the file path or null if it already exists. */
 export function createRequirement(deps: RequirementStoreDeps, projectPath: string, def: RequirementDefinition, config?: RequirementsConfig): string | null {
 	const dir = requirementsDir(deps, projectPath, config);
@@ -94,24 +112,8 @@ export function createRequirement(deps: RequirementStoreDeps, projectPath: strin
 
 	if (deps.disk.existsSync(filePath)) return null;
 
-	const frontmatter: Record<string, string> = {
-		type: "Requirement",
-		requirementType: def.requirementType,
-		name: def.name,
-		id: def.id,
-		status: def.status,
-		priority: def.priority,
-		date: deps.clock.iso(),
-	};
-
-	if (def.category) frontmatter.category = def.category;
-	if (def.source) frontmatter.source = def.source;
-	if (def.rationale) frontmatter.rationale = def.rationale;
-	if (def.linkedUseCases?.length) frontmatter.linkedUseCases = def.linkedUseCases.join(", ");
-	if (def.linkedUserStories?.length) frontmatter.linkedUserStories = def.linkedUserStories.join(", ");
-
 	const doc = Document.create(def.name)
-		.mergeFrontmatter(frontmatter)
+		.mergeFrontmatter(buildRequirementFrontmatter(def, deps.clock.iso()))
 		.addBlank()
 		.heading(1, `${def.id} — ${def.name}`)
 		.addBlank();
@@ -176,6 +178,27 @@ export function listUseCases(deps: Pick<CliDeps, "disk" | "paths">, projectPath:
 	return ucs.sort((a, b) => a.id.localeCompare(b.id));
 }
 
+function addUseCaseBody(doc: Document, def: UseCaseDefinition): void {
+	if (def.preconditions?.length) {
+		doc.heading(2, "Preconditions").addBlank();
+		for (const p of def.preconditions) doc.text(`- ${p}`);
+		doc.addBlank();
+	}
+	if (def.postconditions?.length) {
+		doc.heading(2, "Postconditions").addBlank();
+		for (const p of def.postconditions) doc.text(`- ${p}`);
+		doc.addBlank();
+	}
+	doc.heading(2, "Main Flow").addBlank();
+	if (def.description) {
+		doc.text(def.description).addBlank();
+	} else {
+		doc.text("<!-- Describe the main flow here. -->");
+	}
+	doc.addBlank().heading(2, "Alternative Flows").addBlank();
+	doc.text("<!-- Describe alternative flows here. -->");
+}
+
 /** Create a new use case markdown file. Returns the file path or null if it already exists. */
 export function createUseCase(deps: RequirementStoreDeps, projectPath: string, def: UseCaseDefinition, config?: RequirementsConfig): string | null {
 	const dir = useCasesDir(deps, projectPath, config);
@@ -203,28 +226,7 @@ export function createUseCase(deps: RequirementStoreDeps, projectPath: string, d
 		.heading(1, `${def.id} — ${def.name}`)
 		.addBlank();
 
-	if (def.preconditions?.length) {
-		doc.heading(2, "Preconditions").addBlank();
-		for (const p of def.preconditions) doc.text(`- ${p}`);
-		doc.addBlank();
-	}
-
-	if (def.postconditions?.length) {
-		doc.heading(2, "Postconditions").addBlank();
-		for (const p of def.postconditions) doc.text(`- ${p}`);
-		doc.addBlank();
-	}
-
-	doc.heading(2, "Main Flow").addBlank();
-	if (def.description) {
-		doc.text(def.description).addBlank();
-	} else {
-		doc.text("<!-- Describe the main flow here. -->");
-	}
-
-	doc.addBlank().heading(2, "Alternative Flows").addBlank();
-	doc.text("<!-- Describe alternative flows here. -->");
-
+	addUseCaseBody(doc, def);
 	doc.save(filePath);
 	return filePath;
 }

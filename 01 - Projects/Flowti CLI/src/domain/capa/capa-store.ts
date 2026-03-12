@@ -28,29 +28,30 @@ export function nextCapaId(existing: string[]): string {
 	return `CAPA-${String(max + 1).padStart(3, "0")}`;
 }
 
+function parseCAPASummary(fm: Record<string, string>, file: string): CAPASummary {
+	return {
+		name: fm.name ?? file.replace(/\.md$/, ""),
+		id: fm.id ?? "",
+		capaType: (fm.capaType as CAPASummary["capaType"]) ?? "corrective",
+		status: (fm.status as CAPAStatus) ?? "open",
+		severity: fm.severity ?? "medium",
+		source: fm.source ?? "observation",
+		owner: fm.owner ?? "",
+		dueDate: fm.dueDate ?? "",
+		file,
+	};
+}
+
 /** List all CAPA items from the CAPA directory. */
 export function listCAPAItems(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, config?: CAPAConfig): CAPASummary[] {
 	const dir = capaDir(deps, projectPath, config);
 	if (!deps.disk.existsSync(dir)) return [];
 
 	const files = deps.disk.readdirSync(dir).filter((f: string) => f.endsWith(".md"));
-	const items: CAPASummary[] = [];
-
-	for (const file of files) {
+	const items: CAPASummary[] = files.map((file) => {
 		const content = deps.disk.readFileSync(deps.paths.join(dir, file), "utf-8");
-		const fm = parseFrontmatterStrings(content);
-		items.push({
-			name: fm.name ?? file.replace(/\.md$/, ""),
-			id: fm.id ?? "",
-			capaType: (fm.capaType as CAPASummary["capaType"]) ?? "corrective",
-			status: (fm.status as CAPAStatus) ?? "open",
-			severity: fm.severity ?? "medium",
-			source: fm.source ?? "observation",
-			owner: fm.owner ?? "",
-			dueDate: fm.dueDate ?? "",
-			file,
-		});
-	}
+		return parseCAPASummary(parseFrontmatterStrings(content), file);
+	});
 
 	return items.sort((a, b) => a.name.localeCompare(b.name));
 }

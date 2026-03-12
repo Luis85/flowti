@@ -63,9 +63,9 @@ vi.mock("../../src/domain/make/templates/file-writer.js", () => ({
 }));
 vi.mock("../../src/domain/make/component/component-plan.js", () => ({
 	buildComponentPlan: vi.fn(() => [
-		{ path: "src/MyComponent.ts", content: "// component" },
-		{ path: "tests/MyComponent.test.ts", content: "// test" },
-		{ path: "docs/components/my-component.md", content: "---\n---" },
+		{ path: "components/my-component/my-component.ts", content: "// component" },
+		{ path: "components/my-component/my-component.test.ts", content: "// test" },
+		{ path: "components/my-component/my-component.md", content: "---\n---" },
 	]),
 }));
 vi.mock("../../src/domain/make/component/component-registry.js", () => ({

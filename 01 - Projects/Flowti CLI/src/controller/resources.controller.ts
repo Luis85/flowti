@@ -17,6 +17,31 @@ function flagStr(flags: Record<string, string | boolean>, key: string, fallback:
 	return typeof flags[key] === "string" ? flags[key] : fallback;
 }
 
+function createResourceAction(req: Parameters<ControllerAction>[0], name: string, resourceType: ResourceType) {
+	const { paths } = req.deps;
+	const price = resourceType === "budget" ? 1 : parseFloat(flagStr(req.flags, "price", "0"));
+	const filePath = createResourceFile(req.deps, req.project!.path, {
+		name, resourceType,
+		role: flagStr(req.flags, "role", ""),
+		price,
+		hourlyRate: resourceType === "role" ? price : undefined,
+		amount: parseFloat(flagStr(req.flags, "amount", "1")),
+		consumed: 0,
+		status: "active",
+		description: flagStr(req.flags, "description", ""),
+		category: flagStr(req.flags, "category", "") || undefined,
+		currency: flagStr(req.flags, "currency", "") || undefined,
+		periodStart: flagStr(req.flags, "period-start", "") || undefined,
+		periodEnd: flagStr(req.flags, "period-end", "") || undefined,
+	}, req.project!.config.management?.resources);
+	if (filePath) {
+		return dataResponse(
+			{ relPath: paths.relative(req.project!.path, filePath) },
+			(m: { relPath: string }) => renderResourceAdded(m.relPath),
+		);
+	}
+}
+
 const actions: Record<string, ControllerAction> = {
 	"resources:list": (req) => {
 		if (!req.project) return;
@@ -26,7 +51,6 @@ const actions: Record<string, ControllerAction> = {
 
 	"resources:add": (req) => {
 		if (!req.project) return;
-		const { paths } = req.deps;
 		const name = req.flags.name;
 		if (!name || typeof name !== "string") {
 			return dataResponse<ErrorModel>(
@@ -41,29 +65,7 @@ const actions: Record<string, ControllerAction> = {
 				renderError,
 			);
 		}
-		const price = resourceType === "budget" ? 1 : parseFloat(flagStr(req.flags, "price", "0"));
-		const hourlyRate = resourceType === "role" ? price : undefined;
-		const filePath = createResourceFile(req.deps, req.project.path, {
-			name,
-			resourceType,
-			role: flagStr(req.flags, "role", ""),
-			price,
-			hourlyRate,
-			amount: parseFloat(flagStr(req.flags, "amount", "1")),
-			consumed: 0,
-			status: "active",
-			description: flagStr(req.flags, "description", ""),
-			category: flagStr(req.flags, "category", "") || undefined,
-			currency: flagStr(req.flags, "currency", "") || undefined,
-			periodStart: flagStr(req.flags, "period-start", "") || undefined,
-			periodEnd: flagStr(req.flags, "period-end", "") || undefined,
-		}, req.project.config.management?.resources);
-		if (filePath) {
-			return dataResponse(
-				{ relPath: paths.relative(req.project.path, filePath) },
-				(m: { relPath: string }) => renderResourceAdded(m.relPath),
-			);
-		}
+		return createResourceAction(req, name, resourceType);
 	},
 
 	"resources:summary": (req) => {

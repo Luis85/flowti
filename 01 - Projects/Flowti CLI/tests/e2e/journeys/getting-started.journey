@@ -128,7 +128,7 @@
 				{
 					"tool": "assert",
 					"type": "file-exists",
-					"path": "{{projectRoot}}/test-app/src/components/AppLayout.ts"
+					"path": "{{projectRoot}}/test-app/components/app-layout/app-layout.json"
 				}
 			]
 		},

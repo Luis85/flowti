@@ -5,6 +5,7 @@ vi.mock("../../../src/infrastructure/filesystem.js", () => ({
 		existsSync: vi.fn(() => false),
 		readdirSync: vi.fn(() => []),
 		readFileSync: vi.fn(() => ""),
+		statSync: vi.fn(() => ({ isDirectory: () => true })),
 	},
 }));
 
@@ -183,9 +184,10 @@ describe("collectHealth", () => {
 		expect(h.git).toBeNull();
 	});
 
-	it("counts components from docs/components/", () => {
+	it("counts components from components/", () => {
 		mockDisk.existsSync.mockImplementation((p) => String(p).includes("components"));
-		mockDisk.readdirSync.mockReturnValue(["button.md", "card.md", "readme.txt"] as unknown as ReturnType<typeof disk.readdirSync>);
+		mockDisk.readdirSync.mockReturnValue(["button", "card", ".storybook"] as unknown as ReturnType<typeof disk.readdirSync>);
+		mockDisk.statSync.mockReturnValue({ isDirectory: () => true } as ReturnType<typeof disk.statSync>);
 
 		const h = collectHealth(healthDeps, makeCtx());
 		expect(h.components).toBe(2);

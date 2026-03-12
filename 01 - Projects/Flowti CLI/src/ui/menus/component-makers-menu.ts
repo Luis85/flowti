@@ -19,6 +19,8 @@ import { toKebab, toPascal, toCamel } from "../../domain/make/naming.js";
 import { createFileWriter } from "../../domain/make/templates/file-writer.js";
 import { buildComponentPlan, resolveNextSteps } from "../../domain/make/component/component-plan.js";
 import { loadComponentDefinitions, createComponentTemplateRegistry } from "../../domain/make/component/component-registry.js";
+import { getFramework } from "../../domain/make/component/storybook-settings.js";
+import { getFrameworkPackages } from "../../domain/make/component/storybook-service.js";
 import type { ComponentDefinition, ComponentVariables } from "../../domain/make/component/component-types.js";
 import type { FileEntry } from "../../domain/make/component/component-plan.js";
 import type { MenuEntry, MenuResult } from "../../infrastructure/types.js";
@@ -59,6 +61,19 @@ async function collectPropertyValues(def: ComponentDefinition): Promise<Record<s
 	return values;
 }
 
+async function collectCustomProperties(): Promise<Record<string, string>> {
+	const props: Record<string, string> = {};
+	log(`\n  ${BOLD}Properties${RESET}  ${DIM}(enter blank name to finish)${RESET}`);
+	for (;;) {
+		const key = await input.ask("Property name", "");
+		if (!key) break;
+		const value = await input.ask(`  ${key} default value`, "");
+		props[`prop.${key}`] = value;
+		log(`    ${GREEN}+${RESET} ${key}: ${DIM}${value || "(empty)"}${RESET}`);
+	}
+	return props;
+}
+
 // ── Interactive maker ───────────────────────────────────────────────
 
 async function makeComponentInteractive(projectRoot: string, def: ComponentDefinition): Promise<void> {
@@ -70,12 +85,17 @@ async function makeComponentInteractive(projectRoot: string, def: ComponentDefin
 	const name = await input.ask("Component name");
 	if (!name) return;
 
+	const domain = await input.ask("Domain (optional, e.g. auth, checkout)", "");
+
 	const extraVars = await collectDefinitionPrompts(def);
 	if (!extraVars) return;
 
 	const propertyValues = await collectPropertyValues(def);
+	const fw = getFrameworkPackages(getFramework(projectRoot, { disk, paths }));
 	const vars: ComponentVariables = {
 		name, kebab: toKebab(name), pascal: toPascal(name), camel: toCamel(name),
+		domain,
+		storybookFramework: fw.framework,
 		...extraVars, ...propertyValues,
 	};
 
@@ -85,7 +105,12 @@ async function makeComponentInteractive(projectRoot: string, def: ComponentDefin
 		return;
 	}
 
-	log(`\n  ${BOLD}Adding: ${name}${RESET} ${DIM}(${def.label})${RESET}`);
+	// Always prompt for custom properties
+	const customProps = await collectCustomProperties();
+	Object.assign(vars, customProps);
+
+	const domainNote = domain ? `  ${DIM}Domain: ${domain}${RESET}` : "";
+	log(`\n  ${BOLD}Adding: ${name}${RESET} ${DIM}(${def.label})${RESET}${domainNote}`);
 	log(`  ${DIM}ID: ${vars.kebab}${RESET}\n`);
 
 	const proceed = await input.ask("Create files? (Y/n)", "Y");

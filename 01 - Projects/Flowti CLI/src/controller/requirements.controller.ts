@@ -10,7 +10,7 @@ import {
 	listUseCases, createUseCase,
 	listUserStories, createUserStory,
 } from "../domain/requirements/requirement-store.js";
-import type { RequirementStatus, UserStoryStatus } from "../domain/requirements/requirement-types.js";
+import type { RequirementStatus } from "../domain/requirements/requirement-types.js";
 import {
 	renderRequirementList, renderUseCaseList, renderUserStoryList,
 	renderRequirementAdded, renderRequirementUpdated,
@@ -20,10 +20,28 @@ import type { ErrorModel } from "../ui/common-renderers.js";
 
 const VALID_TYPES: RequirementType[] = ["functional", "non-functional", "constraint"];
 const VALID_STATUSES: RequirementStatus[] = ["draft", "proposed", "approved", "implemented", "verified", "rejected", "deferred"];
-const VALID_PRIORITIES: MoSCoWPriority[] = ["must", "should", "could", "wont"];
 
 function flagStr(flags: Record<string, string | boolean>, key: string, fallback: string): string {
 	return typeof flags[key] === "string" ? flags[key] : fallback;
+}
+
+function createStoryAction(req: Parameters<ControllerAction>[0], name: string, role: string, goal: string, benefit: string) {
+	const { paths } = req.deps;
+	const existing = listUserStories(req.deps, req.project!.path, req.project!.config.management?.requirements);
+	const id = flagStr(req.flags, "id", nextId("US", existing.map((s) => s.id)));
+	const pts = parseInt(flagStr(req.flags, "points", "0"), 10);
+	const filePath = createUserStory(req.deps, req.project!.path, {
+		name, id, role, goal, benefit,
+		storyPoints: isNaN(pts) ? undefined : pts,
+		status: "backlog",
+		description: flagStr(req.flags, "description", ""),
+	}, req.project!.config.management?.requirements);
+	if (filePath) {
+		return dataResponse(
+			{ relPath: paths.relative(req.project!.path, filePath) },
+			(m: { relPath: string }) => renderRequirementAdded(m.relPath),
+		);
+	}
 }
 
 const actions: Record<string, ControllerAction> = {
@@ -143,7 +161,6 @@ const actions: Record<string, ControllerAction> = {
 
 	"stories:add": (req) => {
 		if (!req.project) return;
-		const { paths } = req.deps;
 		const name = req.flags.name;
 		if (!name || typeof name !== "string") {
 			return dataResponse<ErrorModel>(
@@ -160,22 +177,7 @@ const actions: Record<string, ControllerAction> = {
 				renderError,
 			);
 		}
-		const existing = listUserStories(req.deps, req.project.path, req.project.config.management?.requirements);
-		const id = flagStr(req.flags, "id", nextId("US", existing.map((s) => s.id)));
-		const pts = parseInt(flagStr(req.flags, "points", "0"), 10);
-
-		const filePath = createUserStory(req.deps, req.project.path, {
-			name, id, role, goal, benefit,
-			storyPoints: isNaN(pts) ? undefined : pts,
-			status: "backlog",
-			description: flagStr(req.flags, "description", ""),
-		}, req.project.config.management?.requirements);
-		if (filePath) {
-			return dataResponse(
-				{ relPath: paths.relative(req.project.path, filePath) },
-				(m: { relPath: string }) => renderRequirementAdded(m.relPath),
-			);
-		}
+		return createStoryAction(req, name, role, goal, benefit);
 	},
 };
 

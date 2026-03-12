@@ -1,4 +1,5 @@
 node_modules
+.angular
 
 /.obsidian/plugins
 /.obsidian/snippets

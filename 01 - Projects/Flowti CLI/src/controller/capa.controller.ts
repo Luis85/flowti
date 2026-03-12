@@ -5,7 +5,7 @@
 import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler, CAPAStatus, CAPAType } from "../infrastructure/types.js";
-import type { CAPASource, CAPASeverity } from "../domain/capa/capa-types.js";
+import type { CAPASeverity, CAPASource } from "../domain/capa/capa-types.js";
 import { listCAPAItems, createCAPAItem, updateCAPAStatus, nextCapaId } from "../domain/capa/capa-store.js";
 import { renderCAPAList, renderCAPAAdded, renderCAPAUpdated } from "../ui/capa-display.js";
 import { renderError } from "../ui/common-renderers.js";
@@ -13,11 +13,31 @@ import type { ErrorModel } from "../ui/common-renderers.js";
 
 const VALID_TYPES: CAPAType[] = ["corrective", "preventive"];
 const VALID_STATUSES: CAPAStatus[] = ["open", "investigating", "action-planned", "implementing", "verification", "closed", "rejected"];
-const VALID_SEVERITIES: CAPASeverity[] = ["critical", "high", "medium", "low"];
-const VALID_SOURCES: CAPASource[] = ["audit", "complaint", "incident", "observation", "review", "other"];
 
 function flagStr(flags: Record<string, string | boolean>, key: string, fallback: string): string {
 	return typeof flags[key] === "string" ? flags[key] : fallback;
+}
+
+function createCapaAction(req: Parameters<ControllerAction>[0], name: string, capaType: CAPAType) {
+	const { paths } = req.deps;
+	const existing = listCAPAItems(req.deps, req.project!.path, req.project!.config.management?.capa);
+	const id = flagStr(req.flags, "id", nextCapaId(existing.map((c) => c.id)));
+	const filePath = createCAPAItem(req.deps, req.project!.path, {
+		name, id, capaType,
+		status: "open",
+		severity: flagStr(req.flags, "severity", "medium") as CAPASeverity,
+		source: flagStr(req.flags, "source", "observation") as CAPASource,
+		owner: flagStr(req.flags, "owner", "") || undefined,
+		dueDate: flagStr(req.flags, "due", "") || undefined,
+		rootCause: flagStr(req.flags, "root-cause", "") || undefined,
+		description: flagStr(req.flags, "description", ""),
+	}, req.project!.config.management?.capa);
+	if (filePath) {
+		return dataResponse(
+			{ relPath: paths.relative(req.project!.path, filePath) },
+			(m: { relPath: string }) => renderCAPAAdded(m.relPath),
+		);
+	}
 }
 
 const actions: Record<string, ControllerAction> = {
@@ -29,7 +49,6 @@ const actions: Record<string, ControllerAction> = {
 
 	"capa:add": (req) => {
 		if (!req.project) return;
-		const { paths } = req.deps;
 		const name = req.flags.name;
 		if (!name || typeof name !== "string") {
 			return dataResponse<ErrorModel>(
@@ -44,27 +63,7 @@ const actions: Record<string, ControllerAction> = {
 				renderError,
 			);
 		}
-		const existing = listCAPAItems(req.deps, req.project.path, req.project.config.management?.capa);
-		const id = flagStr(req.flags, "id", nextCapaId(existing.map((c) => c.id)));
-
-		const filePath = createCAPAItem(req.deps, req.project.path, {
-			name,
-			id,
-			capaType,
-			status: "open",
-			severity: flagStr(req.flags, "severity", "medium") as CAPASeverity,
-			source: flagStr(req.flags, "source", "observation") as CAPASource,
-			owner: flagStr(req.flags, "owner", "") || undefined,
-			dueDate: flagStr(req.flags, "due", "") || undefined,
-			rootCause: flagStr(req.flags, "root-cause", "") || undefined,
-			description: flagStr(req.flags, "description", ""),
-		}, req.project.config.management?.capa);
-		if (filePath) {
-			return dataResponse(
-				{ relPath: paths.relative(req.project.path, filePath) },
-				(m: { relPath: string }) => renderCAPAAdded(m.relPath),
-			);
-		}
+		return createCapaAction(req, name, capaType);
 	},
 
 	"capa:update": (req) => {

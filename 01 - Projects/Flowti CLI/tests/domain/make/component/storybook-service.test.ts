@@ -32,6 +32,7 @@ function createMockRenderer(): StorybookRenderer & Record<string, ReturnType<typ
 		view: vi.fn(),
 		browserContext: vi.fn(),
 		openedIn: vi.fn(),
+		progress: vi.fn(),
 	};
 }
 
@@ -84,6 +85,7 @@ import {
 	stopStorybook,
 	isInsideVault,
 	extractLocalUrl,
+	getFrameworkPackages,
 } from "../../../../src/domain/make/component/storybook-service.js";
 import { disk } from "../../../../src/infrastructure/filesystem.js";
 import { paths } from "../../../../src/infrastructure/paths.js";
@@ -109,7 +111,7 @@ beforeEach(() => {
 describe("resolveStorybookDir", () => {
 	it("uses default directory name", () => {
 		const result = resolveStorybookDir("/project", {}, sbDeps());
-		expect(result).toBe("/project/component-library");
+		expect(result).toBe("/project/components");
 	});
 
 	it("uses configured directory name", () => {
@@ -121,7 +123,7 @@ describe("resolveStorybookDir", () => {
 describe("isStorybookInstalled", () => {
 	it("returns false when package.json does not exist", () => {
 		expect(isStorybookInstalled("/project", {}, sbDeps())).toBe(false);
-		expect(mockDisk.existsSync).toHaveBeenCalledWith("/project/component-library/package.json");
+		expect(mockDisk.existsSync).toHaveBeenCalledWith("/project/components/package.json");
 	});
 
 	it("returns true when package.json exists", () => {
@@ -131,7 +133,7 @@ describe("isStorybookInstalled", () => {
 });
 
 describe("installStorybook", () => {
-	it("creates directory structure and config files", () => {
+	it("creates directory and writes package.json for html", () => {
 		mockShell.run.mockReturnValue(0);
 
 		const result = installStorybook("/project", "my-project", {}, sbDeps());
@@ -141,21 +143,20 @@ describe("installStorybook", () => {
 		expect(mockDisk.writeFileSync).toHaveBeenCalled();
 		const writeCalls = mockDisk.writeFileSync.mock.calls.map(([path]) => path);
 		expect(writeCalls.some((p) => String(p).includes("package.json"))).toBe(true);
-		expect(writeCalls.some((p) => String(p).includes("main.ts"))).toBe(true);
-		expect(writeCalls.some((p) => String(p).includes("preview.ts"))).toBe(true);
 	});
 
-	it("runs npm install in storybook directory", () => {
+	it("runs storybook init with features", () => {
 		mockShell.run.mockReturnValue(0);
 
 		installStorybook("/project", "my-project", {}, sbDeps());
 
-		expect(mockShell.run).toHaveBeenCalledWith("npm install", expect.objectContaining({
-			cwd: "/project/component-library",
-		}));
+		expect(mockShell.run).toHaveBeenCalledWith(
+			expect.stringContaining("npx storybook@latest init --yes --features docs test a11y"),
+			expect.objectContaining({ cwd: "/project/components" }),
+		);
 	});
 
-	it("returns false when npm install fails", () => {
+	it("returns false when storybook init fails", () => {
 		mockShell.run.mockReturnValue(1);
 
 		const result = installStorybook("/project", "my-project", {}, sbDeps());
@@ -178,12 +179,13 @@ describe("installStorybook", () => {
 
 		installStorybook("/project", "my-project", config, sbDeps());
 
-		expect(mockShell.run).toHaveBeenCalledWith("npm install", expect.objectContaining({
-			cwd: "/project/sb",
-		}));
+		expect(mockShell.run).toHaveBeenCalledWith(
+			expect.stringContaining("npx storybook@latest init"),
+			expect.objectContaining({ cwd: "/project/sb" }),
+		);
 	});
 
-	it("writes package.json with --no-open flag", () => {
+	it("writes package.json with framework devDeps for html", () => {
 		mockShell.run.mockReturnValue(0);
 
 		installStorybook("/project", "my-project", {}, sbDeps());
@@ -191,10 +193,8 @@ describe("installStorybook", () => {
 		const pkgCall = mockDisk.writeFileSync.mock.calls.find(([p]) => String(p).includes("package.json"));
 		expect(pkgCall).toBeDefined();
 		const content = JSON.parse(pkgCall![1] as string);
-		expect(content.name).toBe("my-project-component-library");
-		expect(content.scripts.storybook).toContain("--no-open");
-		expect(content.scripts["build-storybook"]).toBeDefined();
-		expect(content.devDependencies.storybook).toBe("^10.0.0");
+		expect(content.name).toBe("my-project-components");
+		expect(content.devDependencies["@storybook/html-vite"]).toBeDefined();
 	});
 
 	it("calls renderer on install success", () => {
@@ -260,8 +260,8 @@ describe("runStorybookDev", () => {
 		await runStorybookDev("/project", {}, sbDeps());
 
 		expect(mockShell.spawnBackground).toHaveBeenCalledWith(
-			expect.stringContaining("storybook dev -p"),
-			expect.objectContaining({ cwd: "/project/component-library", env: { CI: "true" } }),
+			"npm run storybook",
+			expect.objectContaining({ cwd: "/project/components", env: { CI: "true", NG_CLI_ANALYTICS: "false" } }),
 		);
 	});
 
@@ -341,14 +341,15 @@ describe("runStorybookDev", () => {
 		expect(isStorybookRunning()).toBe(false);
 	});
 
-	it("does not stream live output to terminal", async () => {
+	it("streams progress to renderer while starting", async () => {
 		mockDisk.existsSync.mockReturnValue(true);
 		const mockProcess = createMockBackgroundProcess();
 		mockShell.spawnBackground.mockReturnValue(mockProcess);
+		const render = createMockRenderer();
 
-		await runStorybookDev("/project", {}, sbDeps());
+		await runStorybookDev("/project", {}, sbDeps(), render);
 
-		expect(mockProcess.onOutput).not.toHaveBeenCalled();
+		expect(mockProcess.onOutput).toHaveBeenCalled();
 	});
 });
 
@@ -381,7 +382,7 @@ describe("runStorybookBuild", () => {
 		runStorybookBuild("/project", {}, sbDeps());
 
 		expect(mockShell.run).toHaveBeenCalledWith("npm run build-storybook", expect.objectContaining({
-			cwd: "/project/component-library",
+			cwd: "/project/components",
 		}));
 	});
 
@@ -391,5 +392,78 @@ describe("runStorybookBuild", () => {
 
 		expect(mockShell.run).not.toHaveBeenCalled();
 		expect(render.notInstalled).toHaveBeenCalled();
+	});
+});
+
+describe("getFrameworkPackages", () => {
+	it("returns html packages by default", () => {
+		const pkgs = getFrameworkPackages("html");
+		expect(pkgs.framework).toBe("@storybook/html-vite");
+		expect(pkgs.extra).toBeUndefined();
+	});
+
+	it("returns angular packages with Angular dependencies", () => {
+		const pkgs = getFrameworkPackages("angular");
+		expect(pkgs.framework).toBe("@storybook/angular");
+		expect(pkgs.extra).toBeDefined();
+		expect(pkgs.extra!["@angular/core"]).toBeDefined();
+		expect(pkgs.extra!["zone.js"]).toBeDefined();
+	});
+
+	it("returns react packages with React dependencies", () => {
+		const pkgs = getFrameworkPackages("react");
+		expect(pkgs.framework).toBe("@storybook/react-vite");
+		expect(pkgs.extra!["react"]).toBeDefined();
+	});
+
+	it("returns vue packages with Vue dependencies", () => {
+		const pkgs = getFrameworkPackages("vue");
+		expect(pkgs.framework).toBe("@storybook/vue3-vite");
+		expect(pkgs.extra!["vue"]).toBeDefined();
+	});
+});
+
+describe("installStorybook — framework-aware", () => {
+	it("scaffolds angular workspace before storybook init", () => {
+		mockShell.run.mockReturnValue(0);
+
+		installStorybook("/project", "my-project", { framework: "angular" }, sbDeps());
+
+		// Should write Angular package.json with Angular deps
+		const pkgCall = mockDisk.writeFileSync.mock.calls.find(([p]) => String(p).includes("package.json"));
+		const content = JSON.parse(pkgCall![1] as string);
+		expect(content.devDependencies["@angular/core"]).toBeDefined();
+
+		// Should write angular.json
+		const angularCall = mockDisk.writeFileSync.mock.calls.find(([p]) => String(p).includes("angular.json"));
+		expect(angularCall).toBeDefined();
+
+		// Should run npm install for Angular deps, then storybook init
+		const runCalls = mockShell.run.mock.calls.map(([cmd]) => cmd);
+		expect(runCalls[0]).toBe("npm install");
+		expect(runCalls[1]).toContain("npx storybook@latest init");
+		// Angular excludes "test" feature (addon-vitest requires Vite)
+		expect(runCalls[1]).toContain("--features docs a11y");
+	});
+
+	it("returns false if angular npm install fails", () => {
+		mockShell.run.mockReturnValue(1);
+
+		const result = installStorybook("/project", "my-project", { framework: "angular" }, sbDeps());
+
+		expect(result).toBe(false);
+		// Should have tried npm install but not storybook init
+		expect(mockShell.run).toHaveBeenCalledTimes(1);
+		expect(mockShell.run).toHaveBeenCalledWith("npm install", expect.anything());
+	});
+
+	it("writes html package.json by default when no framework specified", () => {
+		mockShell.run.mockReturnValue(0);
+
+		installStorybook("/project", "my-project", {}, sbDeps());
+
+		const pkgCall = mockDisk.writeFileSync.mock.calls.find(([p]) => String(p).includes("package.json"));
+		const content = JSON.parse(pkgCall![1] as string);
+		expect(content.devDependencies["@storybook/html-vite"]).toBeDefined();
 	});
 });

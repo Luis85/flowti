@@ -22,6 +22,16 @@ export function writeFileAt(basePath: string, relPath: string, content: string, 
 	return true;
 }
 
+export function overwriteFileAt(basePath: string, relPath: string, content: string, fs: IFileSystem = disk): boolean {
+	const absPath = paths.join(basePath, relPath);
+	const dir = paths.dirname(absPath);
+	fs.mkdirSync(dir, { recursive: true });
+	const existed = fs.existsSync(absPath);
+	fs.writeFileSync(absPath, content, "utf-8");
+	log(`    ${GREEN}${existed ? "overwrite" : "create"}${RESET}  ${relPath}`);
+	return true;
+}
+
 export function countFiles(dir: string, ext: string, fs: IFileSystem = disk): number {
 	let count = 0;
 	try {

@@ -5,6 +5,7 @@ vi.mock("../../../../src/infrastructure/filesystem.js", () => ({
 		existsSync: vi.fn(),
 		readFileSync: vi.fn(),
 		readdirSync: vi.fn(),
+		statSync: vi.fn(),
 	},
 }));
 
@@ -31,8 +32,17 @@ import {
 	enrichComponentRelationships,
 	buildAncestryPath,
 	findSiblings,
+	detectDirtyComponents,
 } from "../../../../src/domain/make/component/component-list.js";
 import type { ProjectComponent } from "../../../../src/domain/make/component/component-types.js";
+
+function mockDir() {
+	return { isDirectory: () => true } as ReturnType<typeof disk.statSync>;
+}
+
+function mockFile() {
+	return { isDirectory: () => false } as ReturnType<typeof disk.statSync>;
+}
 
 describe("listProjectComponents", () => {
 	it("returns empty array when components dir does not exist", () => {
@@ -40,9 +50,10 @@ describe("listProjectComponents", () => {
 		expect(listProjectComponents("/project", listDeps())).toEqual([]);
 	});
 
-	it("discovers components from markdown frontmatter", () => {
+	it("discovers components from subdirectory markdown frontmatter", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readdirSync).mockReturnValue(["auth-service.md", "user-profile.md"] as never);
+		vi.mocked(disk.readdirSync).mockReturnValue(["auth-service", "user-profile"] as never);
+		vi.mocked(disk.statSync).mockReturnValue(mockDir());
 		vi.mocked(disk.readFileSync).mockImplementation((path: string) => {
 			if (path.includes("auth-service")) {
 				return "---\ntype: c4-component\nstatus: active\nname: Auth Service\n---\n# Auth Service\n";
@@ -64,29 +75,36 @@ describe("listProjectComponents", () => {
 		expect(user!.status).toBe("draft");
 	});
 
-	it("handles files without frontmatter", () => {
-		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readdirSync).mockReturnValue(["plain.md"] as never);
-		vi.mocked(disk.readFileSync).mockReturnValue("# Just a heading\nNo frontmatter.");
+	it("handles subdirectories without markdown file", () => {
+		vi.mocked(disk.existsSync).mockImplementation((p: string) => {
+			if (String(p).endsWith(".md")) return false;
+			return true;
+		});
+		vi.mocked(disk.readdirSync).mockReturnValue(["no-md-dir"] as never);
+		vi.mocked(disk.statSync).mockReturnValue(mockDir());
 
 		const components = listProjectComponents("/project", listDeps());
-		expect(components).toHaveLength(1);
-		expect(components[0].kind).toBe("component");
-		expect(components[0].status).toBe("unknown");
+		expect(components).toHaveLength(0);
 	});
 
-	it("ignores non-markdown files", () => {
+	it("skips hidden directories and non-directories", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readdirSync).mockReturnValue(["readme.txt", "data.json", "comp.md"] as never);
+		vi.mocked(disk.readdirSync).mockReturnValue([".storybook", "package.json", "my-button"] as never);
+		vi.mocked(disk.statSync).mockImplementation((p: string) => {
+			if (String(p).includes("package.json")) return mockFile();
+			return mockDir();
+		});
 		vi.mocked(disk.readFileSync).mockReturnValue("---\ntype: component\nstatus: draft\n---\n");
 
 		const components = listProjectComponents("/project", listDeps());
 		expect(components).toHaveLength(1);
+		expect(components[0].name).toBe("my-button");
 	});
 
 	it("sorts components alphabetically", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readdirSync).mockReturnValue(["zebra.md", "alpha.md", "middle.md"] as never);
+		vi.mocked(disk.readdirSync).mockReturnValue(["zebra", "alpha", "middle"] as never);
+		vi.mocked(disk.statSync).mockReturnValue(mockDir());
 		vi.mocked(disk.readFileSync).mockReturnValue("---\ntype: component\nstatus: draft\n---\n");
 
 		const components = listProjectComponents("/project", listDeps());
@@ -95,7 +113,8 @@ describe("listProjectComponents", () => {
 
 	it("reads containedBy from frontmatter", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readdirSync).mockReturnValue(["api-service.md"] as never);
+		vi.mocked(disk.readdirSync).mockReturnValue(["api-service"] as never);
+		vi.mocked(disk.statSync).mockReturnValue(mockDir());
 		vi.mocked(disk.readFileSync).mockReturnValue(
 			"---\ntype: c4-component\nstatus: active\ncontainedBy: Backend\nc4Level: 3\n---\n",
 		);
@@ -107,7 +126,8 @@ describe("listProjectComponents", () => {
 
 	it("omits containedBy and c4Level when not in frontmatter", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readdirSync).mockReturnValue(["plain.md"] as never);
+		vi.mocked(disk.readdirSync).mockReturnValue(["plain"] as never);
+		vi.mocked(disk.statSync).mockReturnValue(mockDir());
 		vi.mocked(disk.readFileSync).mockReturnValue("---\ntype: component\nstatus: draft\n---\n");
 
 		const components = listProjectComponents("/project", listDeps());
@@ -233,7 +253,8 @@ describe("enrichComponentRelationships", () => {
 
 	it("is called automatically by listProjectComponents", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
-		vi.mocked(disk.readdirSync).mockReturnValue(["parent.md", "child.md"] as never);
+		vi.mocked(disk.readdirSync).mockReturnValue(["parent", "child"] as never);
+		vi.mocked(disk.statSync).mockReturnValue(mockDir());
 		vi.mocked(disk.readFileSync).mockImplementation((path: string) => {
 			if (path.includes("parent")) {
 				return "---\ntype: system\nstatus: active\nname: Parent\n---\n";
@@ -315,5 +336,89 @@ describe("findSiblings", () => {
 		];
 		const siblings = findSiblings(components[0], components);
 		expect(siblings.map((c) => c.name)).toEqual(["Sys B", "Sys C"]);
+	});
+});
+
+describe("detectDirtyComponents", () => {
+	function comp(overrides: Partial<ProjectComponent> & { name: string }): ProjectComponent {
+		const kebab = overrides.name;
+		const domain = overrides.domain;
+		const defaultPath = domain
+			? `components/${domain}/${kebab}/${kebab}.md`
+			: `components/${kebab}/${kebab}.md`;
+		return { kind: "component", status: "active", path: defaultPath, ...overrides };
+	}
+
+	function mockStat(mtimeMs: number) {
+		return { mtimeMs, isDirectory: () => false } as ReturnType<typeof disk.statSync>;
+	}
+
+	it("marks component dirty when json is newer than sibling", () => {
+		const components = [comp({ name: "button" })];
+		vi.mocked(disk.existsSync).mockReturnValue(true);
+		vi.mocked(disk.statSync).mockImplementation((p: string) => {
+			if (String(p).endsWith(".json")) return mockStat(2000);
+			return mockStat(1000);
+		});
+
+		detectDirtyComponents("/project", components, listDeps());
+		expect(components[0].isDirty).toBe(true);
+	});
+
+	it("does not mark clean component as dirty", () => {
+		const components = [comp({ name: "button" })];
+		vi.mocked(disk.existsSync).mockReturnValue(true);
+		vi.mocked(disk.statSync).mockImplementation((p: string) => {
+			if (String(p).endsWith(".json")) return mockStat(1000);
+			return mockStat(2000);
+		});
+
+		detectDirtyComponents("/project", components, listDeps());
+		expect(components[0].isDirty).toBeUndefined();
+	});
+
+	it("skips component when json does not exist", () => {
+		const components = [comp({ name: "button" })];
+		vi.mocked(disk.existsSync).mockReturnValue(false);
+
+		detectDirtyComponents("/project", components, listDeps());
+		expect(components[0].isDirty).toBeUndefined();
+	});
+
+	it("handles empty components array", () => {
+		const components: ProjectComponent[] = [];
+		detectDirtyComponents("/project", components, listDeps());
+		expect(components).toEqual([]);
+	});
+
+	it("uses kebab directory name, not display name from frontmatter", () => {
+		const components = [comp({ name: "Auth Service", path: "components/auth-service/auth-service.md" })];
+		vi.mocked(disk.existsSync).mockReturnValue(true);
+		vi.mocked(disk.statSync).mockImplementation((p: string) => {
+			// json is newer → should be dirty, but only if looking for auth-service.json not "Auth Service.json"
+			if (String(p).endsWith(".json")) return mockStat(2000);
+			return mockStat(1000);
+		});
+
+		detectDirtyComponents("/project", components, listDeps());
+		expect(components[0].isDirty).toBe(true);
+		// Verify it looked for auth-service.json, not "Auth Service.json"
+		const statCalls = vi.mocked(disk.statSync).mock.calls.map((c) => String(c[0]));
+		expect(statCalls.some((p) => p.includes("auth-service"))).toBe(true);
+		expect(statCalls.some((p) => p.includes("Auth Service"))).toBe(false);
+	});
+
+	it("handles domain components correctly", () => {
+		const components = [comp({ name: "login-form", domain: "auth", path: "components/auth/login-form/login-form.md" })];
+		vi.mocked(disk.existsSync).mockReturnValue(true);
+		vi.mocked(disk.statSync).mockImplementation((p: string) => {
+			if (String(p).endsWith(".json")) return mockStat(2000);
+			return mockStat(1000);
+		});
+
+		detectDirtyComponents("/project", components, listDeps());
+		expect(components[0].isDirty).toBe(true);
+		const existsCalls = vi.mocked(disk.existsSync).mock.calls.map((c) => String(c[0]));
+		expect(existsCalls.some((p) => p.includes("auth") && p.includes("login-form"))).toBe(true);
 	});
 });

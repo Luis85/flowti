@@ -2,6 +2,8 @@
 	"version": "1.0.0",
 	"source": "01 - Projects/Flowti CLI",
 	"projectsFolder": "01 - Projects",
+	"productsFolder": "02 - Products",
+	"featuresFolder": "03 - Features",
 	"subsystems": {
 		"plugin": {
 			"root": "Development/flowti",

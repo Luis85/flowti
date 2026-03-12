@@ -7,6 +7,7 @@
 import { Document } from "../../../../infrastructure/document.js";
 import type { CliDeps } from "../../../../infrastructure/deps.js";
 import type { ComponentVariables, ComponentDefinition, ComponentProperty, ComponentAction, ComponentVariant, ComponentState, ComponentImage } from "../component-types.js";
+import { buildRelatedFilesSection } from "./related-files.js";
 
 export type TemplateDeps = Pick<CliDeps, "clock">;
 
@@ -103,6 +104,8 @@ export function componentDocTemplate(vars: ComponentVariables, def: ComponentDef
 	doc.heading(2, "Dependencies").addBlank()
 		.text("<!-- List components this depends on. -->")
 		.addBlank();
+
+	buildRelatedFilesSection(doc, vars, def);
 
 	return doc;
 }

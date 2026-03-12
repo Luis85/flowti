@@ -7,6 +7,7 @@
 import { Document } from "../../../../infrastructure/document.js";
 import type { CliDeps } from "../../../../infrastructure/deps.js";
 import type { ComponentVariables, ComponentDefinition } from "../component-types.js";
+import { buildRelatedFilesSection } from "./related-files.js";
 
 export type TemplateDeps = Pick<CliDeps, "clock">;
 
@@ -84,6 +85,8 @@ export function c4DocTemplate(vars: ComponentVariables, def: ComponentDefinition
 	doc.heading(2, "Relationships").addBlank()
 		.text("<!-- Describe relationships to other components. -->")
 		.addBlank();
+
+	buildRelatedFilesSection(doc, vars, def);
 
 	return doc;
 }

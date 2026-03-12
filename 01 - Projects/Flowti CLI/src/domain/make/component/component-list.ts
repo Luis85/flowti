@@ -1,7 +1,7 @@
 /**
  * component-list.ts — Pure domain logic for component discovery and relationships.
  *
- * Scans docs/components/ for Markdown files with YAML frontmatter
+ * Scans components/{name}/{name}.md for Markdown files with YAML frontmatter
  * to discover existing components and their metadata.
  *
  * Interactive browser menu moved to src/ui/menus/component-list-menu.ts.
@@ -11,40 +11,116 @@ import type { CliDeps } from "../../../infrastructure/deps.js";
 import { parseFrontmatterStrings } from "../../../infrastructure/frontmatter.js";
 import type { ProjectComponent, ComponentKind } from "./component-types.js";
 import { COMPONENT_KINDS } from "./component-types.js";
+import { PROVIDERS_DIR } from "./data-provider.js";
 
 export type ComponentListDeps = Pick<CliDeps, "disk" | "paths">;
 
 // ── Component discovery ─────────────────────────────────────────────
 
-export const COMPONENTS_DIR = "docs/components";
+export const COMPONENTS_DIR = "components";
 
 export function listProjectComponents(projectRoot: string, deps: ComponentListDeps): ProjectComponent[] {
 	const componentsDir = deps.paths.join(projectRoot, COMPONENTS_DIR);
 	if (!deps.disk.existsSync(componentsDir)) return [];
 
-	const files = deps.disk.readdirSync(componentsDir).filter((f) => f.endsWith(".md"));
+	const subdirs = deps.disk.readdirSync(componentsDir).filter((entry: string) => {
+		try {
+			if (entry === PROVIDERS_DIR || entry === "node_modules" || entry.startsWith(".")) return false;
+			const fullPath = deps.paths.join(componentsDir, entry);
+			return deps.disk.statSync(fullPath).isDirectory();
+		} catch { return false; }
+	});
 	const components: ProjectComponent[] = [];
 
-	for (const file of files) {
+	for (const dir of subdirs) {
+		// Try direct component: components/{name}/{name}.md
+		const directComponent = tryReadComponent(deps, componentsDir, dir);
+		if (directComponent) {
+			components.push(directComponent);
+			continue;
+		}
+		// Try domain subfolder: components/{domain}/{name}/{name}.md
 		try {
-			const content = deps.disk.readFileSync(deps.paths.join(componentsDir, file), "utf-8");
-			const fm = parseFrontmatterStrings(content);
-			const name = file.replace(/\.md$/, "");
-			const component: ProjectComponent = {
-				name: fm.name ?? name,
-				kind: (COMPONENT_KINDS.includes(fm.type as ComponentKind) ? fm.type : "component") as ComponentKind,
-				status: fm.status ?? "unknown",
-				path: deps.paths.join(COMPONENTS_DIR, file),
-			};
-			if (fm.c4Level) component.c4Level = Number(fm.c4Level);
-			if (fm.containedBy) component.containedBy = fm.containedBy;
-			components.push(component);
+			const domainDir = deps.paths.join(componentsDir, dir);
+			const domainEntries = deps.disk.readdirSync(domainDir).filter((entry: string) => {
+				try {
+					return deps.disk.statSync(deps.paths.join(domainDir, entry)).isDirectory() && !entry.startsWith(".");
+				} catch { return false; }
+			});
+			for (const sub of domainEntries) {
+				const comp = tryReadComponent(deps, domainDir, sub, dir);
+				if (comp) components.push(comp);
+			}
 		} catch { /* skip unreadable */ }
 	}
 
 	const sorted = components.sort((a, b) => a.name.localeCompare(b.name));
 	enrichComponentRelationships(sorted);
 	return sorted;
+}
+
+function tryReadComponent(
+	deps: ComponentListDeps, parentDir: string, dir: string, domain?: string,
+): ProjectComponent | null {
+	try {
+		const mdFile = `${dir}.md`;
+		const mdPath = deps.paths.join(parentDir, dir, mdFile);
+		if (!deps.disk.existsSync(mdPath)) return null;
+		const content = deps.disk.readFileSync(mdPath, "utf-8");
+		const fm = parseFrontmatterStrings(content);
+		const relPath = domain
+			? deps.paths.join(COMPONENTS_DIR, domain, dir, mdFile)
+			: deps.paths.join(COMPONENTS_DIR, dir, mdFile);
+		const component: ProjectComponent = {
+			name: fm.name ?? dir,
+			kind: (COMPONENT_KINDS.includes(fm.type as ComponentKind) ? fm.type : "component") as ComponentKind,
+			status: fm.status ?? "unknown",
+			path: relPath,
+		};
+		if (fm.c4Level) component.c4Level = Number(fm.c4Level);
+		if (fm.containedBy) component.containedBy = fm.containedBy;
+		if (domain || fm.domain) component.domain = domain ?? fm.domain;
+		return component;
+	} catch { return null; }
+}
+
+// ── Dirty detection ─────────────────────────────────────────────────
+
+/** Files that are generated from the definition JSON and should be checked. */
+const GENERATED_EXTENSIONS = [".ts", ".test.ts", ".stories.ts", ".md"];
+
+/**
+ * Checks whether a component's definition JSON has been modified after any
+ * of its generated sibling files. Mutates `isDirty` on each component.
+ */
+export function detectDirtyComponents(projectRoot: string, components: ProjectComponent[], deps: ComponentListDeps): void {
+	for (const comp of components) {
+		// Derive the kebab directory name from the component's path
+		// (comp.name may be a display name from frontmatter, not the filesystem name)
+		const pathParts = comp.path.replace(/\\/g, "/").split("/");
+		const kebab = pathParts[pathParts.length - 2]; // components/{kebab}/{kebab}.md
+		const compDir = comp.domain
+			? deps.paths.join(projectRoot, COMPONENTS_DIR, comp.domain, kebab)
+			: deps.paths.join(projectRoot, COMPONENTS_DIR, kebab);
+		const jsonPath = deps.paths.join(compDir, `${kebab}.json`);
+		if (!deps.disk.existsSync(jsonPath)) continue;
+
+		let jsonMtime: number;
+		try { jsonMtime = deps.disk.statSync(jsonPath).mtimeMs; }
+		catch { continue; }
+
+		for (const ext of GENERATED_EXTENSIONS) {
+			const siblingPath = deps.paths.join(compDir, `${kebab}${ext}`);
+			if (!deps.disk.existsSync(siblingPath)) continue;
+			try {
+				const siblingMtime = deps.disk.statSync(siblingPath).mtimeMs;
+				if (jsonMtime > siblingMtime) {
+					comp.isDirty = true;
+					break;
+				}
+			} catch { /* skip unreadable */ }
+		}
+	}
 }
 
 // ── Relationship enrichment ──────────────────────────────────────────

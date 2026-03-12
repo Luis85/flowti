@@ -17,7 +17,7 @@
 		"**/bin/**",
 		"**/*.stories.ts",
 		"**/*.stories.tsx",
-		"**/component-library/**"
+		"**/components/**"
 	],
 
 	"name": "Flowti CLI",

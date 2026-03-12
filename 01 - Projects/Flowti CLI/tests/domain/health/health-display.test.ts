@@ -5,7 +5,7 @@ vi.mock("../../../src/infrastructure/ui.js", () => ({
 }));
 vi.mock("../../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
 vi.mock("../../../src/infrastructure/filesystem.js", () => ({
-	disk: { existsSync: vi.fn(() => false), readFileSync: vi.fn(() => ""), readdirSync: vi.fn(() => []) },
+	disk: { existsSync: vi.fn(() => false), readFileSync: vi.fn(() => ""), readdirSync: vi.fn(() => []), statSync: vi.fn(() => ({ isDirectory: () => true })) },
 }));
 vi.mock("../../../src/infrastructure/paths.js", () => ({
 	paths: { join: (...args: string[]) => args.join("/") },
@@ -182,11 +182,12 @@ describe("collectHealth", () => {
 		expect(h.tests).toEqual({ total: 350, passed: 340, failed: 10, suites: 28 });
 	});
 
-	it("returns components count from docs/components directory", () => {
+	it("returns components count from components/ directory", () => {
 		mockDisk.existsSync.mockImplementation((p) => String(p).includes("components"));
 		mockDisk.readdirSync.mockReturnValue([
-			"button.md", "card.md", "modal.md", "notes.txt",
+			"button", "card", "modal", ".storybook",
 		] as unknown as ReturnType<typeof disk.readdirSync>);
+		vi.mocked(disk.statSync).mockReturnValue({ isDirectory: () => true } as ReturnType<typeof disk.statSync>);
 
 		const h = collectHealth(healthDeps, makeCtx());
 		expect(h.components).toBe(3);

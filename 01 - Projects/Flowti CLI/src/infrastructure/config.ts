@@ -88,6 +88,8 @@ export function loadJson<T = unknown>(filePath: string): T | null {
 // ── Projects directory ───────────────────────────────────────────────
 
 export const PROJECTS_DIR: string = paths.join(VAULT_ROOT, cliConfig.projectsFolder ?? "01 - Projects");
+export const PRODUCTS_DIR: string = paths.join(VAULT_ROOT, cliConfig.productsFolder ?? "02 - Products");
+export const FEATURES_DIR: string = paths.join(VAULT_ROOT, cliConfig.featuresFolder ?? "03 - Features");
 
 // ── Capture config ──────────────────────────────────────────────────
 

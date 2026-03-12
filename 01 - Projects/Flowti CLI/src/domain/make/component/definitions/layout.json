@@ -10,10 +10,11 @@
 		{ "variable": "owner", "label": "Owner / team", "default": "", "required": false }
 	],
 	"files": [
-		{ "path": "docs/components/{{kebab}}.md", "templateId": "component-doc" },
-		{ "path": "tests/components/{{kebab}}.test.ts", "templateId": "component-test" },
-		{ "path": "src/components/{{kebab}}/{{kebab}}.json", "templateId": "component-definition" },
-		{ "path": "src/components/{{kebab}}/{{kebab}}.stories.ts", "templateId": "component-story" }
+		{ "path": "components/{{kebab}}/{{kebab}}.md", "templateId": "component-doc" },
+		{ "path": "components/{{kebab}}/{{kebab}}.test.ts", "templateId": "component-test" },
+		{ "path": "components/{{kebab}}/{{kebab}}.json", "templateId": "component-definition" },
+		{ "path": "components/{{kebab}}/{{kebab}}.ts", "templateId": "component-component" },
+		{ "path": "components/{{kebab}}/{{kebab}}.stories.ts", "templateId": "component-story" }
 	],
 	"metadata": {
 		"type": "layout",
@@ -34,8 +35,8 @@
 	],
 	"states": [],
 	"nextSteps": [
-		"Edit docs/components/{{kebab}}.md to describe the layout structure",
-		"Define child slot positions in src/components/{{kebab}}/",
+		"Edit components/{{kebab}}/{{kebab}}.md to describe the layout structure",
+		"Define child slot positions in components/{{kebab}}/",
 		"Run tests: npm test"
 	]
 }

@@ -255,12 +255,12 @@ describe("createEventFile", () => {
 	});
 
 	it("adds wikilinks to component definition files when they exist", () => {
-		mockFs["/test/project/src/components/user.created/user.created.json"] = "{}";
-		mockDirs.add("/test/project/src/components/user.created");
+		mockFs["/test/project/components/user.created/user.created.json"] = "{}";
+		mockDirs.add("/test/project/components/user.created");
 		createEventFile(eventDeps, "/test/project", makeEventDef());
 		const content = readMockFile("docs/events/");
 
-		expect(content).toContain("[[src/components/user.created/user.created.json|Definition]]");
+		expect(content).toContain("[[components/user.created/user.created.json|Definition]]");
 	});
 
 	it("shows placeholder when no sibling files exist", () => {

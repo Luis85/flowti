@@ -8,11 +8,13 @@
  * Layout:
  *   Capture (Idea, Note, Bug)
  *   ──────────────────────────
- *   Make, Build, Review, Publish, Reports
+ *   Make, Build, Review, Publish
  *   ──────────────────────────
- *   Project Management, Documentation, Knowledgebase, README, Info
+ *   Components, Reporting
  *   ──────────────────────────
- *   Components, Dev Tools
+ *   Project Management, Requirements Management, Documentation, Knowledgebase, README, Info
+ *   ──────────────────────────
+ *   Dev Tools
  *   ──────────────────────────
  *   Back, Help, Quit
  */
@@ -113,6 +115,16 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 		action: () => publishMenu(ctx.path, ctx.config.publish ?? {}),
 	});
 
+	items.push({ separator: true });
+
+	// ── Components & Reporting ───────────────────────────────────────
+
+	items.push({
+		key: "c",
+		label: "Components",
+		action: () => componentListMenu(ctx.path, ctx.config.components),
+	});
+
 	items.push({
 		key: "8",
 		label: "Reporting",
@@ -135,6 +147,15 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 		action: async () => {
 			const { managementMenu } = await import("./menus/management-menu.js");
 			return managementMenu(ctx);
+		},
+	});
+
+	items.push({
+		key: "e",
+		label: "Requirements Management",
+		action: async () => {
+			const { requirementsMenu } = await import("./menus/requirements-menu.js");
+			return requirementsMenu(ctx.path, ctx.config.management?.requirements);
 		},
 	});
 
@@ -190,11 +211,6 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 	// ── Advanced tools ───────────────────────────────────────────────
 
 	items.push(
-		{
-			key: "c",
-			label: "Components",
-			action: () => componentListMenu(ctx.path, ctx.config.components),
-		},
 		{
 			key: "t",
 			label: "Dev Tools",

@@ -434,9 +434,15 @@ describe("buildProjectDetailMenu", () => {
 		it("Events, Dependencies, and Health are NOT in main menu (moved to submenus)", () => {
 			setupProject();
 			const items = buildProjectDetailMenu();
-			expect(findItem(items, "e")).toBeUndefined();
 			expect(findItem(items, "g")).toBeUndefined();
 			expect(findItem(items, "h")).toBeUndefined();
+		});
+
+		it("includes Requirements Management item with key 'e'", () => {
+			setupProject();
+			const items = buildProjectDetailMenu();
+			const req = findItem(items, "e")!;
+			expect(req.label).toBe("Requirements Management");
 		});
 
 		// ── Project Management ──────────────────────────────────────

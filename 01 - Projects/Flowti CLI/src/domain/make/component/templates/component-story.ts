@@ -13,30 +13,37 @@ import type {
 	ComponentTemplateDeps,
 } from "../component-types.js";
 
+function isAngular(vars: ComponentVariables): boolean {
+	return vars.storybookFramework === "@storybook/angular";
+}
+
 export function componentStoryTemplate(vars: ComponentVariables, def: ComponentDefinition, _deps: ComponentTemplateDeps): string {
+	if (isAngular(vars)) return buildAngularStory(vars, def);
+
 	const hasActions = (def.actions ?? []).length > 0;
 
+	const frameworkPkg = vars.storybookFramework || "@storybook/html-vite";
 	const metaBlock = buildMetaBlock(def);
 	const stories = buildStoryExports(def);
-	const paramsBlock = buildParametersBlock(vars, def);
-	const renderFn = buildRenderFunction(vars, def);
+	const paramsBlock = buildParametersBlock(def);
+	const playFn = hasActions ? buildPlayFunction(def) : "";
+	const testImport = hasActions ? `import { userEvent, within, expect } from "storybook/test";\n` : "";
 
-	return `import type { Meta, StoryObj } from "@storybook/html";
-${hasActions ? `import { action } from "storybook/actions";\n` : ""}import componentDoc from "../../../docs/components/${vars.kebab}.md?raw";
+	return `import type { Meta, StoryObj } from "${frameworkPkg}";
+${hasActions ? `import { action } from "storybook/actions";\n` : ""}${testImport}import { create${vars.pascal} } from "./${vars.kebab}.js";
+import componentDoc from "./${vars.kebab}.md?raw";
 
 const meta: Meta = {
 \ttitle: "${kindToFolder(def.kind)}/${vars.pascal}",
 \ttags: ["autodocs"],${metaBlock}${paramsBlock}
-\trender: (args) => {
-${renderFn}
-\t},
+\trender: (args) => create${vars.pascal}(args),
 };
 
 export default meta;
 type Story = StoryObj;
 
 export const Default: Story = {};
-${stories}`;
+${playFn}${stories}`;
 }
 
 function kindToFolder(kind: string): string {
@@ -88,46 +95,15 @@ function buildMetaBlock(def: ComponentDefinition): string {
 	return block;
 }
 
-function buildParametersBlock(vars: ComponentVariables, def: ComponentDefinition): string {
+function buildParametersBlock(def: ComponentDefinition, hasDocImport = true): string {
 	const params: string[] = [];
-	params.push(`\t\tdocs: { description: { component: componentDoc } },`);
+	if (hasDocImport) {
+		params.push(`\t\tdocs: { description: { component: componentDoc } },`);
+	}
 	if (def.icon) params.push(`\t\ticon: "${def.icon}",`);
 	if (def.heroImage) params.push(`\t\theroImage: "${def.heroImage}",`);
 	if (def.domain) params.push(`\t\tdomain: "${def.domain}",`);
 	return `\n\tparameters: {\n${params.join("\n")}\n\t},`;
-}
-
-function buildRenderFunction(vars: ComponentVariables, def: ComponentDefinition): string {
-	const lines: string[] = [];
-	lines.push(`\t\tconst el = document.createElement("div");`);
-	lines.push(`\t\tel.className = "${vars.kebab}";`);
-
-	// Render properties as data attributes and text content
-	const props = def.properties;
-	if (props.length > 0) {
-		const textProp = props.find((p) => p.key === "title" || p.key === "label" || p.key === "name");
-		if (textProp) {
-			lines.push(`\t\tif (args.${textProp.key}) el.textContent = String(args.${textProp.key});`);
-		}
-		for (const prop of props) {
-			if (prop.type === "boolean") {
-				lines.push(`\t\tif (args.${prop.key}) el.dataset.${prop.key} = "true";`);
-			} else if (prop !== textProp) {
-				lines.push(`\t\tif (args.${prop.key}) el.dataset.${prop.key} = String(args.${prop.key});`);
-			}
-		}
-	} else {
-		lines.push(`\t\tel.textContent = "${vars.pascal}";`);
-	}
-
-	// Wire up actions as click/event handlers
-	for (const act of def.actions ?? []) {
-		const event = act.name.replace(/^on/, "").toLowerCase();
-		lines.push(`\t\tif (args.${act.name}) el.addEventListener("${event}", args.${act.name});`);
-	}
-
-	lines.push(`\t\treturn el;`);
-	return lines.join("\n");
 }
 
 function buildStoryExports(def: ComponentDefinition): string {
@@ -154,6 +130,47 @@ function buildStoryExports(def: ComponentDefinition): string {
 	return stories.join("\n");
 }
 
+function buildPlayFunction(def: ComponentDefinition): string {
+	const actions = def.actions ?? [];
+	if (actions.length === 0) return "";
+
+	// Generate an interaction test story that clicks the component and verifies the action fires
+	return `
+export const InteractionTest: Story = {
+\tplay: async ({ canvasElement }) => {
+\t\tconst canvas = within(canvasElement);
+\t\tconst element = canvas.getByRole("button") ?? canvasElement.firstElementChild;
+\t\tawait userEvent.click(element);
+\t\tawait expect(element).toBeTruthy();
+\t},
+};
+`;
+}
+
 function toPascal(s: string): string {
 	return s.replace(/(^|[-_ ])(\w)/g, (_, _sep, c) => c.toUpperCase());
+}
+
+// ── Angular story generator ─────────────────────────────────────────
+
+function buildAngularStory(vars: ComponentVariables, def: ComponentDefinition): string {
+	const hasActions = (def.actions ?? []).length > 0;
+	const metaBlock = buildMetaBlock(def);
+	const stories = buildStoryExports(def);
+	const paramsBlock = buildParametersBlock(def, false);
+
+	return `import type { Meta, StoryObj } from "@storybook/angular";
+${hasActions ? `import { action } from "storybook/actions";\n` : ""}import { ${vars.pascal}Component } from "./${vars.kebab}";
+
+const meta: Meta<${vars.pascal}Component> = {
+\ttitle: "${kindToFolder(def.kind)}/${vars.pascal}",
+\ttags: ["autodocs"],
+\tcomponent: ${vars.pascal}Component,${metaBlock}${paramsBlock}
+};
+
+export default meta;
+type Story = StoryObj<${vars.pascal}Component>;
+
+export const Default: Story = {};
+${stories}`;
 }

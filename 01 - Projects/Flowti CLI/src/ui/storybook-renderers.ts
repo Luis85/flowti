@@ -76,3 +76,7 @@ export function renderStorybookBrowserContext(message: string): void {
 export function renderStorybookOpenedIn(target: string): void {
 	log(`  ${CYAN}▸${RESET} Opened in ${target}\n`);
 }
+
+export function renderStorybookProgress(line: string): void {
+	log(`  ${DIM}${line}${RESET}`);
+}

@@ -42,7 +42,7 @@ export interface BackgroundProcess {
 
 export interface IShell {
 	/** Run a command with inherited stdio, return exit code. */
-	run(cmd: string, opts?: { cwd?: string; label?: string }): number;
+	run(cmd: string, opts?: { cwd?: string; label?: string; env?: Record<string, string> }): number;
 	/** Run a command silently, return trimmed stdout or null on error. */
 	runSilent(cmd: string, opts?: { cwd?: string }): string | null;
 	/** Run a command and check if it succeeds (exit code 0). */
@@ -162,6 +162,9 @@ export type CommandHandler = (
 
 export interface CliState {
 	selectedProject?: string;
+	selectedProduct?: string;
+	selectedFeature?: string;
+	selectedItemType?: EntityType;
 }
 
 // ── Per-project configuration ──────────────────────────────────────
@@ -313,11 +316,18 @@ export interface MakeConfig {
 	templates?: MakeTemplateId[];
 }
 
+/** UI framework target for component scaffolding and Storybook. */
+export type ComponentFramework = "html" | "angular" | "react" | "vue";
+
+export const COMPONENT_FRAMEWORKS: readonly ComponentFramework[] = ["html", "angular", "react", "vue"] as const;
+
 export interface ComponentsConfig {
 	/** Whether Storybook is enabled for this project */
 	storybook?: boolean;
-	/** Directory name for the Storybook component library (default: "component-library") */
+	/** Directory for components and Storybook (default: "components") */
 	storybookDir?: string;
+	/** UI framework target (default: "html") */
+	framework?: ComponentFramework;
 }
 
 export type QualityGateOperator = ">=" | "<=" | "==";
@@ -398,6 +408,30 @@ export interface CAPAConfig {
 	dir?: string;
 }
 
+// ── Lifecycle Engine ────────────────────────────────────────────────
+
+export type EntityType = "project" | "product" | "feature";
+
+export type ProjectLifecycleState = "inception" | "planning" | "execution" | "monitoring" | "closing" | "archived";
+export type ProductLifecycleState = "concept" | "development" | "launch" | "growth" | "maturity" | "decline" | "sunset";
+export type FeatureLifecycleState = "ideation" | "specification" | "development" | "testing" | "release" | "deprecated";
+
+export type LifecycleState = ProjectLifecycleState | ProductLifecycleState | FeatureLifecycleState;
+
+export interface LifecycleTransitionRecord {
+	date: string;
+	from: string;
+	to: string;
+	reason: string;
+}
+
+export interface LifecycleConfig {
+	/** Directory for nested features relative to project root (default: "docs/features"). */
+	featuresDir?: string;
+	/** Directory for nested products relative to project root (default: "docs/products"). */
+	productsDir?: string;
+}
+
 // ── Project Management (aggregated) ─────────────────────────────────
 
 export interface ManagementConfig {
@@ -407,6 +441,7 @@ export interface ManagementConfig {
 	raid?: RAIDConfig;
 	requirements?: RequirementsConfig;
 	capa?: CAPAConfig;
+	lifecycle?: LifecycleConfig;
 }
 
 // ── Entity Templates ────────────────────────────────────────────────
@@ -435,10 +470,20 @@ export interface TestConfig {
 	commands?: Record<string, string>;
 }
 
+/** Configurable lint thresholds for ESLint rules. */
+export interface LintThresholds {
+	/** Cyclomatic complexity warn threshold (default: 10). */
+	maxComplexity?: number;
+	/** Max lines per file, excluding blanks and comments (default: 300). */
+	maxLines?: number;
+}
+
 /** Named devtools commands (e.g., reload, console, check, lint). */
 export interface DevToolsConfig {
 	/** Named devtools commands keyed by action. */
 	commands?: Record<string, string>;
+	/** Configurable lint thresholds applied by ESLint. */
+	thresholds?: LintThresholds;
 }
 
 /** Project-specific path mappings for non-standard layouts. */
@@ -506,6 +551,8 @@ export interface FlowtiCliConfig {
 	source?: string;
 	defaultAuthor?: string;
 	projectsFolder?: string;
+	productsFolder?: string;
+	featuresFolder?: string;
 	subsystems?: {
 		plugin?: SubsystemPluginConfig;
 	};

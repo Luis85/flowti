@@ -10,9 +10,10 @@
 		{ "variable": "owner", "label": "Owner / team", "default": "", "required": false }
 	],
 	"files": [
-		{ "path": "docs/components/{{kebab}}.md", "templateId": "c4-doc" },
-		{ "path": "tests/components/{{kebab}}.test.ts", "templateId": "component-test" },
-		{ "path": "src/components/{{kebab}}/{{kebab}}.json", "templateId": "component-definition" }
+		{ "path": "components/{{kebab}}/{{kebab}}.md", "templateId": "c4-doc" },
+		{ "path": "components/{{kebab}}/{{kebab}}.test.ts", "templateId": "component-test" },
+		{ "path": "components/{{kebab}}/{{kebab}}.json", "templateId": "component-definition" },
+		{ "path": "components/{{kebab}}/{{kebab}}.ts", "templateId": "component-component" }
 	],
 	"metadata": {
 		"type": "person",
@@ -24,7 +25,7 @@
 	"variants": [],
 	"states": [],
 	"nextSteps": [
-		"Edit docs/components/{{kebab}}.md to describe the person/actor",
+		"Edit components/{{kebab}}/{{kebab}}.md to describe the person/actor",
 		"Define relationships to systems they interact with"
 	]
 }

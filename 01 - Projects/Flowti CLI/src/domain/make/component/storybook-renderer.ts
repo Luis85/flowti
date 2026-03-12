@@ -23,6 +23,7 @@ export interface StorybookRenderer {
 	view(url: string): void;
 	browserContext(message: string): void;
 	openedIn(target: string): void;
+	progress(line: string): void;
 }
 
 /** No-op renderer — used as default when no renderer is injected. */
@@ -43,4 +44,5 @@ export const nullStorybookRenderer: StorybookRenderer = {
 	view() {},
 	browserContext() {},
 	openedIn() {},
+	progress() {},
 };

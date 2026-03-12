@@ -28,6 +28,8 @@ flowti help
 flowti build --project="Flowti CLI"
 flowti info --project="Flowti Plugin" --format=json
 flowti events:list --project="Flowti Plugin"
+flowti lifecycle:status --project="Flowti CLI"
+flowti requirements:list --project="Flowti CLI"
 ```
 
 ## Architecture
@@ -36,10 +38,10 @@ The CLI follows a **DDD + MVC layered architecture** with strict dependency rule
 
 ```
 Entry Point (main.ts)
-  → Controller Layer (15 controllers)
-    → UI / View Layer (30 display renderers)
-      → Domain Layer (18 modules — pure, no I/O, no presentation)
-        → Infrastructure Layer (29 modules + pipeline + event-bus)
+  → Controller Layer (22 controllers)
+    → UI / View Layer (71 display renderers + menus)
+      → Domain Layer (25 modules — pure, no I/O, no presentation)
+        → Infrastructure Layer (33 modules + pipeline + event-bus)
 Scripts Layer (4 standalone entry points)
 ```
 
@@ -50,8 +52,8 @@ Scripts Layer (4 standalone entry points)
 | **Entry Point** | Two-loop menu system + command dispatch via `CommandRegistry` |
 | **Controller** | Thin handlers: parse flags, call domain services, return `CliResponse<T>` with typed data + renderer |
 | **UI / View** | Display renderers: take typed data models, produce ANSI-formatted console output |
-| **Domain** | Pure business logic — scaffold, make, build, publish, review, reports, events, capture, info, help, onboarding, knowledgebase, devtools, e2e, plugins, ai-tools, health |
-| **Infrastructure** | I/O abstractions — filesystem, shell, input, state, config, document builder, frontmatter, errors, output, command-registry, menu, ui, clock, proc, paths, logger, args, pipeline, event-bus, deps |
+| **Domain** | Pure business logic — scaffold, make, build, publish, review, reports, events, capture, info, onboarding, knowledgebase, devtools, e2e, plugins, ai-tools, health, lifecycle, resources, timelog, deliverables, raid, requirements, capa, templates |
+| **Infrastructure** | I/O abstractions — filesystem, shell, input, state, config, document builder, frontmatter, errors, output, command-registry, menu, ui, clock, proc, paths, logger, args, pipeline, event-bus, deps, request-response, progress |
 
 See [Flowti CLI Architecture.md](Flowti%20CLI%20Architecture.md) for the full design document.
 
@@ -83,7 +85,9 @@ The bootstrap (`src/boot/bootstrap.mjs`, deployed as `.flowti/bin/index.js`) han
 │       ├── main.js.map      # Source map
 │       └── package.json     # { "type": "module" }
 ├── flowti.cmd               # Windows launcher
-└── 01 - Projects/           # Projects directory
+├── 01 - Projects/           # Projects directory
+├── 02 - Products/           # Standalone product folders (lifecycle-managed)
+└── 03 - Features/           # Standalone feature folders (lifecycle-managed)
 ```
 
 ## Base Feature Set
@@ -105,6 +109,13 @@ The bootstrap (`src/boot/bootstrap.mjs`, deployed as `.flowti/bin/index.js`) han
 | **AI Tools** | Vault-level AI agent tool definitions — list, validate, create, reference |
 | **Health** | Project health dashboard — tests, coverage, lint, git metrics |
 | **Info** | Project diagnostics with `--format=json` for AI agents |
+| **Resources** | Human, material, role, and budget management with financial analysis |
+| **Time-Log** | Per-person time tracking with category and task linking |
+| **Deliverables** | Tracked project outputs with status, assignee, and progress |
+| **RAID Log** | Risks, assumptions, issues, dependencies, and decisions |
+| **Requirements** | IREB-compliant requirements with use cases and user stories |
+| **CAPA** | Corrective and preventive action tracking |
+| **Lifecycle** | State machine for projects, products, and features |
 
 ## Project Structure
 
@@ -114,74 +125,61 @@ The bootstrap (`src/boot/bootstrap.mjs`, deployed as `.flowti/bin/index.js`) han
 │   ├── main.ts                     # Entry point (two-loop: start → project detail)
 │   ├── boot/
 │   │   └── bootstrap.mjs           # Frictionless launcher (deployed as .flowti/bin/index.js)
-│   ├── controller/                  # 15 controllers (thin: parse flags → domain → CliResponse)
-│   ├── ui/                          # 30 display renderers (ANSI output, menus)
+│   ├── controller/                  # 22 controllers (thin: parse flags → domain → CliResponse)
+│   ├── ui/                          # 71 display renderers + menus (ANSI output)
 │   ├── scripts/                     # 4 standalone entry points (analysis, fix-frontmatter, etc.)
 │   ├── domain/
-│   │   ├── mainMenu.ts             # Project detail menu builder
-│   │   ├── menu-builders.ts        # Pure submenu builders (Reports, Docs, Npm Scripts)
 │   │   ├── scaffold/               # Project creation from 4 JSON definitions
-│   │   │   ├── definitions/        # Bundled: flowti-project, flowti-bare, flowti-cli, flowti-obsidian-plugin
-│   │   │   └── templates/          # Template registries (shared, project, bare, cli, plugin)
 │   │   ├── make/                   # In-project scaffolding (journey, component)
 │   │   │   └── component/          # Component system (8 kinds, C4 entities)
-│   │   │       └── definitions/    # Bundled component definitions (JSON)
-│   │   ├── publish/                # Gated publish pipeline (build → test → distribute)
-│   │   ├── review/                 # E2E journey review (test vault, runner)
+│   │   ├── build/                  # Build freshness detection
+│   │   ├── publish/                # Gated publish pipeline
+│   │   ├── review/                 # E2E journey review
 │   │   ├── project/                # Project config detection and management
-│   │   ├── info/                   # Project info and diagnostics (--format=json)
-│   │   ├── help/                   # Man-page system (8 sections)
+│   │   ├── reports/                # Report pipeline (14 generators, export, archive)
+│   │   ├── e2e/                    # E2E test session management (35 files)
+│   │   ├── events/                 # Event catalog, contracts, versioning
+│   │   ├── health/                 # Quality gate dashboard
+│   │   ├── lifecycle/              # State machine engine (project/product/feature)
+│   │   ├── resources/              # Resource and budget management
+│   │   ├── timelog/                # Time tracking
+│   │   ├── deliverables/           # Deliverable tracking
+│   │   ├── raid/                   # RAID log
+│   │   ├── requirements/           # IREB requirements + use cases + user stories
+│   │   ├── capa/                   # Corrective/preventive actions
+│   │   ├── templates/              # User-defined entity templates
 │   │   ├── capture/                # Idea and note capture
-│   │   ├── knowledgebase/          # Obsidian vault browser and search (opt-in)
-│   │   ├── events/                 # Event catalog, payload editor, versioning, flow
-│   │   ├── plugins/                # Vault-level plugin system (.flowti/plugins/)
-│   │   ├── ai-tools/               # Vault-level AI tool management (.flowti/ai-tools/)
-│   │   ├── health/                 # Project health dashboard
-│   │   ├── e2e/                    # E2E test session management
-│   │   ├── reports/                # Report pipeline (cli/, generators/, analysis/, export/, pipeline/)
-│   │   ├── build/                  # Build command wrapper
+│   │   ├── plugins/                # Vault-level plugin system
+│   │   ├── ai-tools/               # Vault-level AI tool management
+│   │   ├── info/                   # Project info and diagnostics
 │   │   ├── onboarding/             # Prerequisites checks (git, node)
+│   │   ├── knowledgebase/          # Obsidian vault browser (opt-in)
 │   │   └── devtools/               # Developer tools
 │   └── infrastructure/
 │       ├── types.ts                # Cross-cutting type definitions
+│       ├── deps.ts                 # DI container (CliDeps + ISP subsets)
+│       ├── request-response.ts     # MVC: CliRequest, CliResponse, adapt()
 │       ├── config.ts               # Path resolution and config loading
 │       ├── dispatch.ts             # Pure command dispatch logic
 │       ├── command-registry.ts     # Typed command registry with collision detection
-│       ├── menu.ts                 # Data-driven menu engine
-│       ├── input.ts                # Interactive input (ask, askYesNo)
-│       ├── shell.ts                # Shell execution wrappers
-│       ├── state.ts                # Persistent CLI state (.flowti/var/state.json)
-│       ├── document.ts             # Markdown document builder (YAML FM, tables, callouts)
-│       ├── frontmatter.ts          # YAML frontmatter parse + serialize
-│       ├── errors.ts               # Structured errors (CliError, InternalError)
-│       ├── output.ts               # Structured output (--format=json)
-│       ├── ui.ts                   # ANSI color output and menu rendering
-│       ├── filesystem.ts           # File system abstraction (IFileSystem)
-│       ├── proc.ts                 # Process abstraction (exit, argv, cwd, env)
-│       ├── clock.ts                # Clock abstraction (ISO timestamps)
-│       ├── logger.ts               # Logging abstraction
-│       ├── paths.ts                # Path utilities
-│       ├── args.ts                 # CLI argument parser
-│       ├── fs.ts                   # File helpers (countFiles, writeFile)
-│       └── test-vault.ts           # Test vault scaffold/teardown
-├── tests/                          # Vitest test suites (3,608 tests, 221 suites)
+│       ├── pipeline/               # Generic DAG execution engine
+│       ├── event-bus.ts            # Lightweight synchronous EventBus
+│       └── ...                     # 25 more infrastructure modules
+├── tests/                          # Vitest test suites (3,742 tests, 232 suites)
 ├── configs/
-│   ├── flowti.config.json          # CLI's own project config (tools, publish, reports)
-│   ├── esbuild.config.mjs          # Build: bundles to .flowti/bin/main.js + deploys bootstrap
+│   ├── flowti.config.json          # CLI's own project config
+│   ├── esbuild.config.mjs          # Build: bundles to .flowti/bin/main.js
 │   ├── tsconfig.json               # TypeScript configuration
 │   ├── vitest.config.ts            # Vitest configuration
-│   ├── eslint.config.mjs           # ESLint configuration
+│   ├── eslint.config.mjs           # ESLint (configurable thresholds from flowti.config.json)
 │   └── typedoc.json                # TypeDoc configuration
-├── component-library/              # Opt-in Storybook v10 instance (installed via Components menu)
-│   ├── .storybook/                 # Storybook config (main.ts, preview.ts)
-│   └── package.json               # Storybook dependencies (@storybook/html v10)
 ├── docs/
 │   ├── reference/                  # Generated references (CLI, Entity, Plugin, AI Tool)
 │   └── reports/                    # Generated reports
 ├── reports/                        # Stable report outputs (Project Summary.md)
 ├── package.json                    # npm scripts and devDependencies
-├── Flowti CLI PRD.md               # Product Requirements Document
-├── Flowti CLI Architecture.md      # Architecture Document (v20)
+├── Flowti CLI PRD.md               # Product Requirements Document (v14)
+├── Flowti CLI Architecture.md      # Architecture Document (v22)
 └── README.md                       # This file
 ```
 
@@ -208,7 +206,7 @@ Run without arguments for the two-stage interactive menu:
 | 3 | Review | E2E journey review, test vault management |
 | 4 | Publish | Gated pipeline: build → test → distribute to endpoints |
 | c | Components | Browse project components with C4 hierarchy and properties |
-| e | Events | Event catalog: list, add, versioning, flow visualization |
+| e | Events / Requirements | Event catalog + Requirements Management |
 | — | — | — |
 | 5 | Reports | Run all reports or individual generators |
 | 6 | Npm Scripts | Run any npm script from the project's package.json |
@@ -217,39 +215,13 @@ Run without arguments for the two-stage interactive menu:
 | 8 | Capture Note | Capture a typed note (Task, Bug, Note, Documentation, Idea) |
 | — | — | — |
 | d | Documentation | Generate reference docs (Update All, CLI/Entity Ref.) |
+| m | Project Management | Resources, Time-Log, Deliverables, RAID, Requirements, CAPA, Lifecycle, Health |
 | k | Knowledgebase | Browse and search vault content (requires Obsidian CLI, opt-in) |
 | i | Info | Project stats, version, config |
 | — | — | — |
 | b | Back | Return to Start Menu |
 | ? | Help | Contextual man-page help |
 | q | Quit | Exit the CLI |
-
-Tools 2, 6 are **mappable** — enabled when the project's `flowti.config.json` maps them to a command. Tools 1, 3, 4 are **always available**.
-
-## Component System
-
-Components are the base building blocks of Flowti projects, supporting C4 architecture entities:
-
-| Command | Type | C4 Level | Description |
-|---------|------|----------|-------------|
-| `make:component` | Generic | — | General-purpose component |
-| `make:layout` | Layout | — | UI layout with direction, gap, padding properties |
-| `make:page` | Page | — | Page with title, route, authenticated properties |
-| `make:ui-component` | UI Component | — | UI component with variant, disabled, visible properties |
-| `make:system` | C4 System | 1 | Top-level system boundary |
-| `make:container` | C4 Container | 2 | Deployable unit within a system |
-| `make:c4-component` | C4 Component | 3 | Code-level component within a container |
-| `make:person` | C4 Person | 0 | Actor interacting with the system |
-
-Each component generates:
-- **Documentation** — Markdown with YAML frontmatter (type, status, C4 metadata, properties, icon, domain)
-- **Test file** — Vitest skeleton
-- **Definition** — JSON metadata file
-- **Story** — Storybook v10 story with self-contained render function (layout, page, ui-component only)
-
-Components support **ECS-compatible properties** (typed key-value pairs with defaults), **actions** (event handlers → Storybook action loggers), **variants** and **states** (named story exports), **icon/heroImage/images/domain** metadata, **C4 hierarchy** (containedBy/contains relationships, ancestry paths, siblings), and **post-creation editing** via `edit:component`.
-
-**Storybook** is opt-in per project. Install via the Components menu (`i`), then run dev server (`s`) or build (`k`). Story files are self-contained — they create DOM elements directly without importing component modules.
 
 ## Per-Project Configuration
 
@@ -258,54 +230,48 @@ Each project stores its config in `configs/flowti.config.json`:
 ```json
 {
   "name": "my-project",
-  "tools": {
-    "build": "npm run build",
-    "reports": "npm run reports",
-    "devtools": "npm run dev"
+  "build": { "commands": { "fast": "npm run build", "watch": "npm run build:watch" } },
+  "test": { "commands": { "unit": "npm test" } },
+  "devtools": {
+    "commands": { "check": "npm run check", "lint": "npm run lint" },
+    "thresholds": { "maxComplexity": 10, "maxLines": 350 }
   },
-  "components": {
-    "storybook": true,
-    "storybookDir": "component-library"
+  "make": { "templates": ["journey", "component"] },
+  "reports": {
+    "generators": [
+      { "id": "test", "label": "Test Report", "prerequisites": ["npx vitest run ..."] },
+      { "id": "summary", "label": "Summary Report", "dependencies": ["test", "coverage"] }
+    ],
+    "thresholds": { "coverageLines": 80, "maxComplexity": 15 }
+  },
+  "management": {
+    "resources": { "dir": "docs/resources" },
+    "timelog": { "dir": "docs/timelog" },
+    "deliverables": { "dir": "docs/deliverables" },
+    "raid": { "dir": "docs/raid" },
+    "requirements": { "dir": "docs/requirements" },
+    "capa": { "dir": "docs/capa" }
   },
   "publish": {
     "build": "npm run build",
     "test": "npm test",
-    "outDir": "dist",
-    "artifacts": ["main.js", "styles.css"],
-    "endpoints": [
-      { "name": "Local", "path": "../output", "clean": true }
-    ]
-  },
-  "review": {
-    "journeysDir": "tests/e2e/journeys",
-    "runner": "npm run test:e2e",
-    "build": "npm run build",
-    "test": "npm test"
-  },
-  "make": {
-    "templates": ["journey", "component"]
-  },
-  "docs": {
-    "allCommand": "npm run typedoc",
-    "referenceDir": "docs/reference"
+    "endpoints": [{ "name": "Local", "path": "../output", "clean": true }]
   }
 }
 ```
 
-When a project is selected for the first time, the CLI auto-scaffolds this config from `package.json` scripts. Config is validated with helpful error messages via `config-schema.ts` (45 validation rules).
+When a project is selected for the first time, the CLI auto-scaffolds this config from `package.json` scripts. Config is validated with helpful error messages via `config-schema.ts`.
 
 ## npm Scripts
 
 | Script | Description |
 |--------|-------------|
-| `dev` | Run CLI in development mode via tsx |
 | `build` | Bundle to `.flowti/bin/main.js` + deploy bootstrap as `index.js` |
+| `build:watch` | Rebuild on file changes |
 | `test` | Type-check + lint + vitest |
-| `check` | Type-check only (tsc --noEmit) |
-| `lint` | ESLint source |
-| `analysis` | Run complexity analysis (coverage + decision points) |
-| `reports` | Generate all reports (test, coverage, codebase, complexity, summary) |
-| `docs` | Generate TypeDoc documentation |
+| `lint` | ESLint source (thresholds from flowti.config.json) |
+| `check` | lint + tsc --noEmit |
+| `typedoc` | Generate TypeDoc documentation |
 
 ## Dependencies
 
@@ -315,8 +281,8 @@ When a project is selected for the first time, the CLI auto-scaffolds this confi
 
 - PRD: [Flowti CLI PRD.md](Flowti%20CLI%20PRD.md) — Vision, capabilities, design principles
 - Backlog: [Product Backlog.md](docs/Product%20Backlog.md) — Feature requirements, acceptance criteria, improvements
-- Roadmap: [Development Roadmap.md](docs/Development%20Roadmap.md) — Phased execution plan (Phases 5–9)
+- Roadmap: [Development Roadmap.md](docs/Development%20Roadmap.md) — Phased execution plan
 - Tech Debt: [Tech Debt.md](docs/Tech%20Debt.md) — Technical debt register
 - Plugin Integration: [Plugin Integration Analysis.md](docs/Plugin%20Integration%20Analysis.md) — Gap analysis for Flowti Plugin
-- Architecture: [Flowti CLI Architecture.md](Flowti%20CLI%20Architecture.md)
+- Architecture: [Flowti CLI Architecture.md](Flowti%20CLI%20Architecture.md) — v22
 - CLI Reference: generated via `flowti docs` or interactive Documentation menu

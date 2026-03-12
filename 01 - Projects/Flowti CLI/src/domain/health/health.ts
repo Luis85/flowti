@@ -140,9 +140,14 @@ function collectSecurityMetrics(deps: Pick<CliDeps, "disk" | "paths" | "shell">,
 }
 
 function countComponents(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string): number {
-	const dir = deps.paths.join(projectPath, "docs", "components");
+	const dir = deps.paths.join(projectPath, "components");
 	if (!deps.disk.existsSync(dir)) return 0;
-	return deps.disk.readdirSync(dir).filter((f) => f.endsWith(".md")).length;
+	return deps.disk.readdirSync(dir).filter((entry) => {
+		try {
+			const fullPath = deps.paths.join(dir, entry);
+			return deps.disk.statSync(fullPath).isDirectory() && !entry.startsWith(".");
+		} catch { return false; }
+	}).length;
 }
 
 export function collectHealth(deps: Pick<CliDeps, "disk" | "paths" | "shell">, ctx: ProjectContext): HealthSnapshot {

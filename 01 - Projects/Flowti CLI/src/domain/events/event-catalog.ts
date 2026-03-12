@@ -96,8 +96,8 @@ function discoverSiblingLinks(deps: Pick<CliDeps, "disk" | "paths">, projectPath
 		{ dir: "tests", category: "tests", patterns: [`${kebab}.test.ts`, `${kebab}.test.js`, `${kebab}.spec.ts`] },
 		{ dir: "src", category: "sources", patterns: [`${kebab}.ts`, `${kebab}.js`] },
 		{ dir: "configs", category: "configs", patterns: [`${kebab}.json`, `${kebab}.config.json`] },
-		{ dir: deps.paths.join("src", "components", kebab), category: "definitions", patterns: [`${kebab}.json`] },
-		{ dir: "docs/components", category: "components", patterns: [`${kebab}.md`] },
+		{ dir: deps.paths.join("components", kebab), category: "definitions", patterns: [`${kebab}.json`] },
+		{ dir: deps.paths.join("components", kebab), category: "components", patterns: [`${kebab}.md`] },
 		{ dir: "docs/journeys", category: "journeys", patterns: [] },
 	];
 

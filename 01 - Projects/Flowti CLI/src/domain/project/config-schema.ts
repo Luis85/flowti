@@ -87,6 +87,23 @@ function validateCommandsMap(cfg: Record<string, unknown>, key: string, warnings
 			}
 		}
 	}
+	if (section.thresholds !== undefined) {
+		validateLintThresholds(section.thresholds, key, warnings);
+	}
+}
+
+function validateLintThresholds(raw: unknown, parentKey: string, warnings: string[]): void {
+	if (!raw || typeof raw !== "object") {
+		warnings.push(`"${parentKey}.thresholds" must be an object.`);
+		return;
+	}
+	const t = raw as Record<string, unknown>;
+	if (t.maxComplexity !== undefined && (typeof t.maxComplexity !== "number" || t.maxComplexity < 1)) {
+		warnings.push(`"${parentKey}.thresholds.maxComplexity" must be a positive number.`);
+	}
+	if (t.maxLines !== undefined && (typeof t.maxLines !== "number" || t.maxLines < 1)) {
+		warnings.push(`"${parentKey}.thresholds.maxLines" must be a positive number.`);
+	}
 }
 
 function validatePaths(cfg: Record<string, unknown>, warnings: string[]): void {
@@ -135,6 +152,12 @@ function validateComponents(cfg: Record<string, unknown>, warnings: string[]): v
 	}
 	if (components.storybookDir !== undefined && typeof components.storybookDir !== "string") {
 		warnings.push('"components.storybookDir" must be a string.');
+	}
+	if (components.framework !== undefined) {
+		const validFrameworks = ["html", "angular", "react", "vue"];
+		if (typeof components.framework !== "string" || !validFrameworks.includes(components.framework)) {
+			warnings.push(`"components.framework" must be one of: ${validFrameworks.join(", ")}.`);
+		}
 	}
 }
 

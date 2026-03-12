@@ -15,12 +15,12 @@ function makeDef(overrides: Partial<ComponentDefinition> = {}): ComponentDefinit
 		description: "A test component.",
 		prompts: [],
 		files: [
-			{ path: "docs/components/{{kebab}}.md", templateId: "doc" },
-			{ path: "src/components/{{kebab}}/{{kebab}}.json", templateId: "def" },
+			{ path: "components/{{kebab}}/{{kebab}}.md", templateId: "doc" },
+			{ path: "components/{{kebab}}/{{kebab}}.json", templateId: "def" },
 		],
 		metadata: { type: "component", status: "draft" },
 		properties: [], actions: [], variants: [], states: [],
-		nextSteps: ["Edit docs/components/{{kebab}}.md"],
+		nextSteps: ["Edit components/{{kebab}}/{{kebab}}.md"],
 		...overrides,
 	};
 }
@@ -48,9 +48,9 @@ describe("buildComponentPlan", () => {
 		const plan = buildComponentPlan(makeVars(), makeDef(), registry, mockDeps);
 
 		expect(plan).toHaveLength(2);
-		expect(plan[0].path).toBe("docs/components/user-profile.md");
+		expect(plan[0].path).toBe("components/user-profile/user-profile.md");
 		expect(plan[0].content).toBe("# Doc");
-		expect(plan[1].path).toBe("src/components/user-profile/user-profile.json");
+		expect(plan[1].path).toBe("components/user-profile/user-profile.json");
 	});
 
 	it("passes vars and def to template functions", () => {

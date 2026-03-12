@@ -13,6 +13,7 @@ import { c4DocTemplate } from "./templates/c4-doc.js";
 import { componentTestTemplate } from "./templates/component-test.js";
 import { componentDefinitionTemplate } from "./templates/component-definition.js";
 import { componentStoryTemplate } from "./templates/component-story.js";
+import { componentComponentTemplate } from "./templates/component-component.js";
 
 // ── Bundled definitions (inlined at build time) ─────────────────────
 
@@ -49,5 +50,6 @@ export function createComponentTemplateRegistry(): ComponentTemplateRegistry {
 	registry.set("component-test", componentTestTemplate);
 	registry.set("component-definition", componentDefinitionTemplate);
 	registry.set("component-story", componentStoryTemplate);
+	registry.set("component-component", componentComponentTemplate);
 	return registry;
 }

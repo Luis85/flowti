@@ -10,9 +10,10 @@
 		{ "variable": "owner", "label": "Owner / team", "default": "", "required": false }
 	],
 	"files": [
-		{ "path": "docs/components/{{kebab}}.md", "templateId": "component-doc" },
-		{ "path": "tests/components/{{kebab}}.test.ts", "templateId": "component-test" },
-		{ "path": "src/components/{{kebab}}/{{kebab}}.json", "templateId": "component-definition" }
+		{ "path": "components/{{kebab}}/{{kebab}}.md", "templateId": "component-doc" },
+		{ "path": "components/{{kebab}}/{{kebab}}.test.ts", "templateId": "component-test" },
+		{ "path": "components/{{kebab}}/{{kebab}}.json", "templateId": "component-definition" },
+		{ "path": "components/{{kebab}}/{{kebab}}.ts", "templateId": "component-component" }
 	],
 	"metadata": {
 		"type": "component",
@@ -25,8 +26,8 @@
 	"variants": [],
 	"states": [],
 	"nextSteps": [
-		"Edit docs/components/{{kebab}}.md to fill in the specification",
-		"Implement the component in src/components/{{kebab}}/",
+		"Edit components/{{kebab}}/{{kebab}}.md to fill in the specification",
+		"Implement the component in components/{{kebab}}/",
 		"Run tests: npm test"
 	]
 }

@@ -13,12 +13,12 @@ import { clock } from "./clock.js";
 import type { IShell, BackgroundProcess } from "./types.js";
 
 class NodeShell implements IShell {
-	run(cmd: string, opts: { cwd?: string; label?: string } = {}): number {
+	run(cmd: string, opts: { cwd?: string; label?: string; env?: Record<string, string> } = {}): number {
 		const cwd = opts.cwd ?? CLI_PROJECT;
 		const startTime = clock.ms();
 		log(`\n  ${CYAN}▸${RESET} ${opts.label ?? cmd}\n`);
 		try {
-			execSync(cmd, { cwd, stdio: "inherit" });
+			execSync(cmd, { cwd, stdio: "inherit", env: opts.env ? { ...process.env, ...opts.env } : undefined });
 			const duration = ((clock.ms() - startTime) / 1000).toFixed(1);
 			log(`\n  ${GREEN}✓${RESET} Done ${DIM}(${duration}s)${RESET}\n`);
 			return 0;

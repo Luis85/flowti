@@ -4,6 +4,9 @@ import { c4DocTemplate } from "../../../../src/domain/make/component/templates/c
 import { componentTestTemplate } from "../../../../src/domain/make/component/templates/component-test.js";
 import { componentDefinitionTemplate } from "../../../../src/domain/make/component/templates/component-definition.js";
 import { componentStoryTemplate } from "../../../../src/domain/make/component/templates/component-story.js";
+import { componentComponentTemplate } from "../../../../src/domain/make/component/templates/component-component.js";
+import { buildRelatedFilesSection } from "../../../../src/domain/make/component/templates/related-files.js";
+import { Document } from "../../../../src/infrastructure/document.js";
 import type { ComponentVariables, ComponentDefinition, ComponentTemplateDeps } from "../../../../src/domain/make/component/component-types.js";
 
 const mockDeps: ComponentTemplateDeps = {
@@ -102,7 +105,35 @@ describe("componentTestTemplate", () => {
 		const output = componentTestTemplate(vars(), def(), mockDeps);
 		expect(output).toContain('describe("Auth Service"');
 		expect(output).toContain("import(");
-		expect(output).toContain("auth-service/auth-service.json");
+		expect(output).toContain("./auth-service.json");
+	});
+
+	it("does not include vi or component import when no actions", () => {
+		const output = componentTestTemplate(vars(), def(), mockDeps);
+		expect(output).toContain("import { describe, it, expect } from");
+		expect(output).not.toContain("vi.fn");
+		expect(output).not.toContain("createAuthService");
+	});
+
+	it("generates action test stubs for each action", () => {
+		const output = componentTestTemplate(
+			vars(),
+			def({ actions: [{ name: "onClick", description: "Clicked" }, { name: "onFocus" }] }),
+			mockDeps,
+		);
+		expect(output).toContain("import { describe, it, expect, vi } from");
+		expect(output).toContain('import { createAuthService } from "./auth-service.js"');
+		expect(output).toContain('fires onClick on click');
+		expect(output).toContain('fires onFocus on focus');
+		expect(output).toContain("vi.fn()");
+		expect(output).toContain("createAuthService(");
+		expect(output).toContain("dispatchEvent");
+	});
+
+	it("does not generate action stubs when no actions", () => {
+		const output = componentTestTemplate(vars(), def(), mockDeps);
+		expect(output).not.toContain("Action tests");
+		expect(output).not.toContain("dispatchEvent");
 	});
 });
 
@@ -175,11 +206,11 @@ describe("componentDocTemplate — properties table", () => {
 });
 
 describe("componentStoryTemplate", () => {
-	it("generates a Storybook story with autodocs tag and render function", () => {
+	it("generates a Storybook story with autodocs tag and component render", () => {
 		const output = componentStoryTemplate(vars(), def({ kind: "ui-component" }), mockDeps);
 		expect(output).toContain('tags: ["autodocs"]');
-		expect(output).toContain("render: (args) => {");
-		expect(output).toContain('el.className = "auth-service"');
+		expect(output).toContain("render: (args) => createAuthService(args)");
+		expect(output).toContain('import { createAuthService } from "./auth-service.js"');
 		expect(output).toContain("export const Default: Story = {};");
 	});
 
@@ -480,6 +511,151 @@ describe("componentStoryTemplate — parameters block", () => {
 
 	it("imports the component markdown file as raw string", () => {
 		const output = componentStoryTemplate(vars(), def({ kind: "ui-component" }), mockDeps);
-		expect(output).toContain('import componentDoc from "../../../docs/components/auth-service.md?raw"');
+		expect(output).toContain('import componentDoc from "./auth-service.md?raw"');
+	});
+});
+
+describe("componentComponentTemplate", () => {
+	it("generates a props interface and factory function", () => {
+		const output = componentComponentTemplate(vars(), def(), mockDeps);
+		expect(output).toContain("export interface AuthServiceProps");
+		expect(output).toContain("export function createAuthService(props: AuthServiceProps");
+		expect(output).toContain('el.className = "auth-service"');
+		expect(output).toContain("return el;");
+	});
+
+	it("includes typed fields for definition properties", () => {
+		const output = componentComponentTemplate(
+			vars(),
+			def({
+				properties: [
+					{ key: "variant", type: "string", default: "default", description: "Visual variant" },
+					{ key: "disabled", type: "boolean", default: false },
+				],
+			}),
+			mockDeps,
+		);
+		expect(output).toContain("/** Visual variant */");
+		expect(output).toContain("variant?: string;");
+		expect(output).toContain("disabled?: boolean;");
+		expect(output).toContain('const variant = props.variant ?? "default"');
+		expect(output).toContain("const disabled = props.disabled ?? false");
+	});
+
+	it("includes action callbacks in props interface", () => {
+		const output = componentComponentTemplate(
+			vars(),
+			def({ actions: [{ name: "onClick", description: "Clicked" }] }),
+			mockDeps,
+		);
+		expect(output).toContain("/** Clicked */");
+		expect(output).toContain("onClick?: (event: Event) => void;");
+		expect(output).toContain('el.addEventListener("click", props.onClick)');
+	});
+
+	it("renders pascal name as fallback text content when no properties", () => {
+		const output = componentComponentTemplate(vars(), def(), mockDeps);
+		expect(output).toContain('el.textContent = "AuthService"');
+	});
+
+	it("uses title/label/name property as text content", () => {
+		const output = componentComponentTemplate(
+			vars(),
+			def({ properties: [{ key: "title", type: "string", default: "" }] }),
+			mockDeps,
+		);
+		expect(output).toContain("if (title) el.textContent = String(title)");
+	});
+
+	it("uses index signature when no properties defined", () => {
+		const output = componentComponentTemplate(vars(), def(), mockDeps);
+		expect(output).toContain("[key: string]: unknown;");
+	});
+});
+
+describe("buildRelatedFilesSection", () => {
+	const FILES = [
+		{ path: "components/{{kebab}}/{{kebab}}.md", templateId: "component-doc" },
+		{ path: "components/{{kebab}}/{{kebab}}.test.ts", templateId: "component-test" },
+		{ path: "components/{{kebab}}/{{kebab}}.json", templateId: "component-definition" },
+		{ path: "components/{{kebab}}/{{kebab}}.ts", templateId: "component-component" },
+		{ path: "components/{{kebab}}/{{kebab}}.stories.ts", templateId: "component-story" },
+	];
+
+	it("generates wikilinks for all non-md sibling files", () => {
+		const doc = Document.create("test");
+		buildRelatedFilesSection(doc, vars(), def({ files: FILES }));
+		const output = doc.toString();
+		expect(output).toContain("## Related Files");
+		expect(output).toContain("[[auth-service|auth-service.test.ts]]");
+		expect(output).toContain("[[auth-service|auth-service.json]]");
+		expect(output).toContain("[[auth-service|auth-service.ts]]");
+		expect(output).toContain("[[auth-service|auth-service.stories.ts]]");
+	});
+
+	it("excludes the .md file from wikilinks", () => {
+		const doc = Document.create("test");
+		buildRelatedFilesSection(doc, vars(), def({ files: FILES }));
+		const output = doc.toString();
+		expect(output).not.toContain("[[auth-service|auth-service.md]]");
+	});
+
+	it("skips section entirely when no non-md files exist", () => {
+		const doc = Document.create("test");
+		buildRelatedFilesSection(doc, vars(), def({ files: [{ path: "components/{{kebab}}/{{kebab}}.md", templateId: "component-doc" }] }));
+		const output = doc.toString();
+		expect(output).not.toContain("## Related Files");
+	});
+
+	it("omits section when files array is empty", () => {
+		const doc = Document.create("test");
+		buildRelatedFilesSection(doc, vars(), def());
+		const output = doc.toString();
+		expect(output).not.toContain("## Related Files");
+	});
+});
+
+describe("componentDocTemplate — related files wikilinks", () => {
+	it("includes Related Files section when definition has sibling files", () => {
+		const output = componentDocTemplate(
+			vars(),
+			def({
+				files: [
+					{ path: "components/{{kebab}}/{{kebab}}.md", templateId: "component-doc" },
+					{ path: "components/{{kebab}}/{{kebab}}.json", templateId: "component-definition" },
+					{ path: "components/{{kebab}}/{{kebab}}.ts", templateId: "component-component" },
+				],
+			}),
+			mockDeps,
+		).toString();
+		expect(output).toContain("## Related Files");
+		expect(output).toContain("[[auth-service|auth-service.json]]");
+		expect(output).toContain("[[auth-service|auth-service.ts]]");
+	});
+
+	it("omits Related Files section when no sibling files", () => {
+		const output = componentDocTemplate(vars(), def(), mockDeps).toString();
+		expect(output).not.toContain("## Related Files");
+	});
+});
+
+describe("c4DocTemplate — related files wikilinks", () => {
+	it("includes Related Files section when definition has sibling files", () => {
+		const output = c4DocTemplate(
+			vars(),
+			def({
+				kind: "system",
+				metadata: { type: "system", c4Level: 1 },
+				files: [
+					{ path: "components/{{kebab}}/{{kebab}}.md", templateId: "c4-doc" },
+					{ path: "components/{{kebab}}/{{kebab}}.test.ts", templateId: "component-test" },
+					{ path: "components/{{kebab}}/{{kebab}}.json", templateId: "component-definition" },
+				],
+			}),
+			mockDeps,
+		).toString();
+		expect(output).toContain("## Related Files");
+		expect(output).toContain("[[auth-service|auth-service.test.ts]]");
+		expect(output).toContain("[[auth-service|auth-service.json]]");
 	});
 });

@@ -15,9 +15,10 @@ import {
 	listUseCases, createUseCase,
 	listUserStories, createUserStory,
 } from "../../domain/requirements/requirement-store.js";
-import type { RequirementStatus, UserStoryStatus } from "../../domain/requirements/requirement-types.js";
+import type { RequirementStatus } from "../../domain/requirements/requirement-types.js";
+import type { RequirementDefinition } from "../../domain/requirements/requirement-types.js";
 import {
-	renderRequirementList, renderUseCaseList, renderUserStoryList,
+	renderRequirementList,
 	renderRequirementAdded, renderRequirementUpdated,
 } from "../requirements-display.js";
 
@@ -52,7 +53,7 @@ async function addRequirementInteractive(reqType: RequirementType, projectPath: 
 		id,
 		status: "draft",
 		priority,
-		category: (category as any) || undefined,
+		category: (category as RequirementDefinition["category"]) || undefined,
 		source: source || undefined,
 		rationale: rationale || undefined,
 		description,

@@ -1,5 +1,24 @@
+import { readFileSync } from "node:fs";
 import tseslint from "@typescript-eslint/eslint-plugin";
 import tsparser from "@typescript-eslint/parser";
+
+// ── Read configurable thresholds from flowti.config.json ─────────────
+const DEFAULTS = { maxComplexity: 10, maxLines: 300 };
+
+function loadThresholds() {
+	try {
+		const raw = JSON.parse(readFileSync("configs/flowti.config.json", "utf-8"));
+		const t = raw?.devtools?.thresholds;
+		return {
+			maxComplexity: typeof t?.maxComplexity === "number" ? t.maxComplexity : DEFAULTS.maxComplexity,
+			maxLines: typeof t?.maxLines === "number" ? t.maxLines : DEFAULTS.maxLines,
+		};
+	} catch {
+		return DEFAULTS;
+	}
+}
+
+const thresholds = loadThresholds();
 
 export default [
 	// Base: @typescript-eslint recommended (mirrors plugin's eslint:recommended + @typescript-eslint/recommended)
@@ -22,11 +41,11 @@ export default [
 			"@typescript-eslint": tseslint,
 		},
 		rules: {
-			// Cyclomatic complexity — warn at 10, hard cap at 15 enforced by complexity report
-			complexity: ["warn", 10],
+			// Cyclomatic complexity — configurable via devtools.thresholds.maxComplexity
+			complexity: ["warn", thresholds.maxComplexity],
 
-			// File size — warn at 300 LOC (excluding blanks/comments), enforce decomposition
-			"max-lines": ["warn", { max: 300, skipBlankLines: true, skipComments: true }],
+			// File size — configurable via devtools.thresholds.maxLines (excludes blanks/comments)
+			"max-lines": ["warn", { max: thresholds.maxLines, skipBlankLines: true, skipComments: true }],
 
 			// Unused vars — error, but allow unused function args
 			"no-unused-vars": "off",
@@ -122,6 +141,17 @@ export default [
 			"no-restricted-imports": "off",
 			"no-restricted-properties": "off",
 			"no-console": "off",
+			"max-lines": "off",
+		},
+	},
+
+	// ── Data registries ───────────────────────────────────────────────
+	// Pure data files with no logic — max-lines is not meaningful here
+	{
+		files: [
+			"src/domain/reports/generators/entity-registry.ts",
+		],
+		rules: {
 			"max-lines": "off",
 		},
 	},

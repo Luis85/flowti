@@ -31,14 +31,20 @@ vi.mock("../../../src/domain/make/templates/file-writer.js", () => ({
 }));
 vi.mock("../../../src/domain/make/component/component-plan.js", () => ({
 	buildComponentPlan: vi.fn(() => [
-		{ path: "docs/components/my-btn.md", content: "# MyBtn" },
-		{ path: "src/components/my-btn/my-btn.ts", content: "export class MyBtn {}" },
+		{ path: "components/my-btn/my-btn.md", content: "# MyBtn" },
+		{ path: "components/my-btn/my-btn.json", content: "{}" },
 	]),
 	resolveNextSteps: vi.fn(() => []),
 }));
 vi.mock("../../../src/domain/make/component/component-registry.js", () => ({
 	loadComponentDefinitions: vi.fn(() => []),
 	createComponentTemplateRegistry: vi.fn(() => ({})),
+}));
+vi.mock("../../../src/domain/make/component/storybook-settings.js", () => ({
+	getFramework: vi.fn(() => "html"),
+}));
+vi.mock("../../../src/domain/make/component/storybook-service.js", () => ({
+	getFrameworkPackages: vi.fn(() => ({ framework: "@storybook/html-vite" })),
 }));
 
 import { log } from "../../../src/infrastructure/logger.js";
@@ -75,7 +81,8 @@ const MINIMAL_DEF: ComponentDefinition = {
 };
 
 beforeEach(() => {
-	vi.clearAllMocks();
+	vi.resetAllMocks();
+	mockDisk.existsSync.mockReturnValue(false);
 });
 
 describe("componentMenu", () => {
@@ -119,10 +126,12 @@ describe("componentMenu", () => {
 		mockRunMenu.mockResolvedValue(undefined);
 		mockInput.ask
 			.mockResolvedValueOnce("MyBtn")   // component name
+			.mockResolvedValueOnce("")         // domain (empty)
+			.mockResolvedValueOnce("")         // custom props (exit)
 			.mockResolvedValueOnce("Y");       // proceed
 		mockDisk.existsSync.mockReturnValue(false);
 		mockBuildPlan.mockReturnValue([
-			{ path: "docs/components/mybtn.md", content: "# MyBtn" },
+			{ path: "components/mybtn/mybtn.md", content: "# MyBtn" },
 		]);
 		const mockWrite = vi.fn();
 		vi.mocked(createFileWriter).mockReturnValue({ write: mockWrite, created: 1 } as any);
@@ -156,6 +165,8 @@ describe("componentMenu", () => {
 		mockRunMenu.mockResolvedValue(undefined);
 		mockInput.ask
 			.mockResolvedValueOnce("MyBtn")
+			.mockResolvedValueOnce("")         // domain
+			.mockResolvedValueOnce("")         // custom props (exit)
 			.mockResolvedValueOnce("n");       // decline
 		mockDisk.existsSync.mockReturnValue(false);
 
@@ -170,7 +181,10 @@ describe("componentMenu", () => {
 	it("interactive maker: aborts when component already exists", async () => {
 		mockLoadDefs.mockReturnValue([MINIMAL_DEF]);
 		mockRunMenu.mockResolvedValue(undefined);
-		mockInput.ask.mockResolvedValueOnce("MyBtn");
+		mockInput.ask
+			.mockResolvedValueOnce("MyBtn")
+			.mockResolvedValueOnce("")         // domain
+			.mockResolvedValueOnce("");        // custom props (exit)
 		mockDisk.existsSync.mockReturnValue(true);
 
 		await componentMenu("/project");
@@ -192,7 +206,9 @@ describe("componentMenu", () => {
 		mockRunMenu.mockResolvedValue(undefined);
 		mockInput.ask
 			.mockResolvedValueOnce("MyBtn")    // name
+			.mockResolvedValueOnce("")         // domain
 			.mockResolvedValueOnce("primary")  // prompt answer
+			.mockResolvedValueOnce("")         // custom props (exit)
 			.mockResolvedValueOnce("Y");       // proceed
 		mockDisk.existsSync.mockReturnValue(false);
 		vi.mocked(createFileWriter).mockReturnValue({ write: vi.fn(), created: 1 } as any);
@@ -214,6 +230,7 @@ describe("componentMenu", () => {
 		mockRunMenu.mockResolvedValue(undefined);
 		mockInput.ask
 			.mockResolvedValueOnce("MyBtn")
+			.mockResolvedValueOnce("")         // domain
 			.mockResolvedValueOnce("");        // empty required
 
 		await componentMenu("/project");
@@ -237,7 +254,9 @@ describe("componentMenu", () => {
 		mockRunMenu.mockResolvedValue(undefined);
 		mockInput.ask
 			.mockResolvedValueOnce("MyBtn")   // name
+			.mockResolvedValueOnce("")        // domain
 			.mockResolvedValueOnce("lg")      // property value
+			.mockResolvedValueOnce("")        // custom props (exit)
 			.mockResolvedValueOnce("Y");      // proceed
 		mockDisk.existsSync.mockReturnValue(false);
 		vi.mocked(createFileWriter).mockReturnValue({ write: vi.fn(), created: 1 } as any);
@@ -255,6 +274,8 @@ describe("componentMenu", () => {
 		mockRunMenu.mockResolvedValue(undefined);
 		mockInput.ask
 			.mockResolvedValueOnce("MyBtn")
+			.mockResolvedValueOnce("")         // domain
+			.mockResolvedValueOnce("")         // custom props (exit)
 			.mockResolvedValueOnce("Y");
 		mockDisk.existsSync.mockReturnValue(false);
 		vi.mocked(createFileWriter).mockReturnValue({ write: vi.fn(), created: 1 } as any);
@@ -275,6 +296,8 @@ describe("componentMenu", () => {
 		mockRunMenu.mockResolvedValue(undefined);
 		mockInput.ask
 			.mockResolvedValueOnce("MyBtn")
+			.mockResolvedValueOnce("")         // domain
+			.mockResolvedValueOnce("")         // custom props (exit)
 			.mockResolvedValueOnce("Y");
 		mockDisk.existsSync.mockReturnValue(false);
 		vi.mocked(createFileWriter).mockReturnValue({ write: vi.fn(), created: 1 } as any);

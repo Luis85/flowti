@@ -70,6 +70,26 @@ export interface ComponentState {
 	props: Record<string, string | number | boolean>;
 }
 
+/** A reference to a child component composed into this component. */
+export interface ComponentChild {
+	/** Name of the child component (must match an existing component id). */
+	name: string;
+	/** Slot or region where the child is placed (e.g. "header", "sidebar", "content"). */
+	slot?: string;
+	/** Whether the child is optional. */
+	optional?: boolean;
+}
+
+/** A store (state management) dependency for a component. */
+export interface ComponentStore {
+	/** Store name (e.g. "useAuthStore", "useCartStore"). */
+	name: string;
+	/** Store technology (e.g. "pinia", "vuex", "ngrx", "redux", "zustand"). */
+	technology?: string;
+	/** Brief description of what this store provides. */
+	description?: string;
+}
+
 export interface ComponentDefinition {
 	id: string;
 	kind: ComponentKind;
@@ -90,6 +110,10 @@ export interface ComponentDefinition {
 	actions: ComponentAction[];
 	variants: ComponentVariant[];
 	states: ComponentState[];
+	/** Child components composed into this component. */
+	children?: ComponentChild[];
+	/** Stores (state management) this component depends on. */
+	stores?: ComponentStore[];
 	nextSteps: string[];
 }
 
@@ -125,4 +149,8 @@ export interface ProjectComponent {
 	containedBy?: string;
 	/** Names of child components (computed from containedBy). */
 	contains?: string[];
+	/** Business domain this component is grouped under (e.g. "auth", "checkout"). */
+	domain?: string;
+	/** True when the definition JSON is newer than one or more generated sibling files. */
+	isDirty?: boolean;
 }

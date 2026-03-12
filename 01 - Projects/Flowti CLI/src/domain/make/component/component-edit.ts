@@ -6,7 +6,7 @@
  * Usage:
  *   flowti edit:component --name=MyComponent --prop.status=active --prop.technology=React
  *
- * Reads the existing markdown file from docs/components/, updates frontmatter
+ * Reads the existing markdown file from components/{kebab}/{kebab}.md, updates frontmatter
  * properties, and saves. Only modifies specified properties; preserves everything else.
  */
 
@@ -62,7 +62,7 @@ export function editComponent(
 	}
 
 	const kebab = toKebab(name);
-	const docPath = deps.paths.join(projectPath, "docs", "components", `${kebab}.md`);
+	const docPath = deps.paths.join(projectPath, "components", kebab, `${kebab}.md`);
 
 	if (!deps.disk.existsSync(docPath)) {
 		return {

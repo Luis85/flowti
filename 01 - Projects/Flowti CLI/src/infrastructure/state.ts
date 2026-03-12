@@ -53,3 +53,35 @@ export function setSelectedProject(name: string): void {
 export function clearSelectedProject(): void {
 	saveState({ selectedProject: undefined });
 }
+
+export function getSelectedProduct(): string | null {
+	return loadState().selectedProduct ?? null;
+}
+
+export function setSelectedProduct(name: string): void {
+	saveState({ selectedProduct: name, selectedItemType: "product" });
+}
+
+export function clearSelectedProduct(): void {
+	saveState({ selectedProduct: undefined });
+}
+
+export function getSelectedFeature(): string | null {
+	return loadState().selectedFeature ?? null;
+}
+
+export function setSelectedFeature(name: string): void {
+	saveState({ selectedFeature: name, selectedItemType: "feature" });
+}
+
+export function clearSelectedFeature(): void {
+	saveState({ selectedFeature: undefined });
+}
+
+export function getSelectedItemType(): string | null {
+	return loadState().selectedItemType ?? null;
+}
+
+export function clearAllSelections(): void {
+	saveState({ selectedProject: undefined, selectedProduct: undefined, selectedFeature: undefined, selectedItemType: undefined });
+}

@@ -144,7 +144,7 @@ describe("editComponent", () => {
 
 		editComponent("My Component", { "prop.status": "active" }, "/project", editDeps());
 
-		expect(disk.existsSync).toHaveBeenCalledWith("/project/docs/components/my-component.md");
+		expect(disk.existsSync).toHaveBeenCalledWith("/project/components/my-component/my-component.md");
 	});
 
 	it("returns kebab and propList on success", () => {

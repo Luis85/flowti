@@ -2,10 +2,10 @@
 domain: Flowti
 type: ProductRequirementsDocument
 stage: active
-version: 13
+version: 14
 maturity: L2
 created: 2026-03-07
-updated: 2026-03-11
+updated: 2026-03-12
 tags:
   - cli
   - developer-experience
@@ -138,7 +138,20 @@ The CLI manages four kinds of projects. Each has a dedicated scaffold definition
 - **Marketplace**: Export bundles of tools, plugins, and scaffold definitions for cross-vault sharing.
 - **Cross-project dependencies**: Dependency detection (npm, config, publish edges), DFS cycle detection, Mermaid visualization.
 
-### 5.8 Developer Experience
+### 5.8 Project Management & Lifecycle
+
+- **Resources**: Human, material, role, and budget management with pricing, consumption tracking, and financial analysis (cost, FTE, remaining).
+- **Time-Log**: Per-person time tracking with date, hours, category, and task linking. Summary aggregation.
+- **Deliverables**: Tracked project outputs with status, due date, assignee, priority, and completion percentage.
+- **RAID Log**: Risks, assumptions, issues, dependencies, and decisions with severity, ownership, and resolution status.
+- **Requirements Management**: IREB-compliant requirements (functional, non-functional, constraint) with MoSCoW priority, traceability links. Use cases with actors and flows. User stories with role-goal-benefit pattern and story points.
+- **CAPA**: Corrective and preventive action tracking through identification, root cause analysis, action planning, implementation, verification, and closure. Severity levels and source categorization.
+- **Lifecycle Engine**: Generic state machine for projects (inception→archived), products (concept→sunset), and features (ideation→deprecated). Validated transitions, transition history, terminal state detection. Standalone entities at vault level (02 - Products/, 03 - Features/) or nested inside projects.
+- **Configurable lint thresholds**: ESLint complexity and file length limits configurable per-project via `devtools.thresholds` in `flowti.config.json`.
+
+All management domains follow the store pattern: pure functions with injected deps, markdown files with YAML frontmatter. Each domain has its own configurable directory under `management.*` in the project config.
+
+### 5.9 Developer Experience
 
 - **Two-stage interactive menu**: Project selection (open/create/import/plugins/ai-tools) → Project detail.
 - **Man-page system**: 10 help sections accessible via `?` in any menu or `flowti help [section]`.

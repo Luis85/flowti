@@ -19,6 +19,15 @@ function interpolatePath(template: string, vars: ComponentVariables): string {
 	return template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => vars[key] ?? "");
 }
 
+/**
+ * When a domain variable is set, rewrite `components/{name}/…` to
+ * `components/{domain}/{name}/…` so components are grouped by domain.
+ */
+function applyDomainPrefix(path: string, domain: string | undefined): string {
+	if (!domain) return path;
+	return path.replace(/^components\//, `components/${domain}/`);
+}
+
 /** Build the file plan for a component from its definition and variables. */
 export function buildComponentPlan(
 	vars: ComponentVariables,
@@ -26,6 +35,7 @@ export function buildComponentPlan(
 	templates: ComponentTemplateRegistry,
 	deps: ComponentTemplateDeps,
 ): FileEntry[] {
+	const domain = vars.domain || undefined;
 	return def.files.map((f) => {
 		const templateFn = templates.get(f.templateId);
 		if (!templateFn) {
@@ -33,7 +43,7 @@ export function buildComponentPlan(
 		}
 		const result = templateFn(vars, def, deps);
 		return {
-			path: interpolatePath(f.path, vars),
+			path: applyDomainPrefix(interpolatePath(f.path, vars), domain),
 			content: result.toString(),
 		};
 	});
@@ -41,5 +51,6 @@ export function buildComponentPlan(
 
 /** Resolve next-step instructions with variable interpolation. */
 export function resolveNextSteps(def: ComponentDefinition, vars: ComponentVariables): string[] {
-	return def.nextSteps.map((step) => interpolatePath(step, vars));
+	const domain = vars.domain || undefined;
+	return def.nextSteps.map((step) => applyDomainPrefix(interpolatePath(step, vars), domain));
 }

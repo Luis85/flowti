@@ -23,6 +23,7 @@ import {
 	renderStorybookView,
 	renderStorybookBrowserContext,
 	renderStorybookOpenedIn,
+	renderStorybookProgress,
 } from "./storybook-renderers.js";
 
 export function createStorybookRenderer(): StorybookRenderer {
@@ -43,5 +44,6 @@ export function createStorybookRenderer(): StorybookRenderer {
 		view: renderStorybookView,
 		browserContext: renderStorybookBrowserContext,
 		openedIn: renderStorybookOpenedIn,
+		progress: renderStorybookProgress,
 	};
 }

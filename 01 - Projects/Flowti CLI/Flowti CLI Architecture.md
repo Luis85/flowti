@@ -2,15 +2,15 @@
 type: Architecture
 domain: CLI
 title: Flowti CLI — Architecture Document
-version: 21
+version: 22
 created: 2026-03-07
-updated: 2026-03-11
+updated: 2026-03-12
 status: living-document
 ---
 
 # Flowti CLI — Architecture Document
 
-> Living document. Reflects the current implementation (status quo) and the target architecture derived from PRD v13. Updated as the codebase evolves.
+> Living document. Reflects the current implementation (status quo) and the target architecture derived from PRD v14. Updated as the codebase evolves.
 
 ---
 
@@ -18,7 +18,7 @@ status: living-document
 
 The Flowti CLI is a **definition-driven project orchestrator** that ships as a self-contained Node.js binary. It manages multi-project development workflows — scaffolding, building, testing, reviewing, publishing, and reporting — from a single interactive menu or via non-interactive commands for AI agent tool use.
 
-**Scale**: 282 source files, 170 test files (3,608 tests, 221 suites), 18 domain modules, 29 infrastructure modules, 15 controllers, 30 UI view files, 4 scaffold definitions. Zero production dependencies — runs on Node.js built-ins only.
+**Scale**: 343 source files, 238 test files (3,742 tests, 232 suites), 25 domain modules, 33 infrastructure modules, 22 controllers, 71 UI view files, 4 scaffold definitions. Zero production dependencies — runs on Node.js built-ins only.
 
 ---
 
@@ -43,12 +43,14 @@ The Flowti CLI is a **definition-driven project orchestrator** that ships as a s
 │               │                                                    │
 │       ┌───────▼──────────────────────────────────────────┐         │
 │       │  01 - Projects/                                   │         │
-│       │                                                   │         │
 │       │  Flowti CLI/      ← CLI source (dev only)         │         │
 │       │  Flowti Plugin/   ← user project                  │         │
 │       │  Project B/       ← user project                  │         │
-│       │  ...                                              │         │
 │       └───────────────────────────────────────────────────┘         │
+│       ┌─────────────────────────────────────────────────┐           │
+│       │  02 - Products/     ← standalone product folders  │           │
+│       │  03 - Features/     ← standalone feature folders  │           │
+│       └─────────────────────────────────────────────────┘           │
 │                                                                   │
 │       .flowti/var/state.json     ← persistent CLI state           │
 │       .flowti/config.json        ← vault-level configuration      │
@@ -60,6 +62,12 @@ The Flowti CLI is a **definition-driven project orchestrator** that ships as a s
 │       ├── package.json                 (scripts, dependencies)    │
 │       ├── docs/components/             (component documentation)  │
 │       ├── docs/events/                 (event catalog)            │
+│       ├── docs/requirements/           (IREB requirements)        │
+│       ├── docs/resources/              (resource management)      │
+│       ├── docs/deliverables/           (deliverable tracking)     │
+│       ├── docs/raid/                   (RAID log)                 │
+│       ├── docs/capa/                   (CAPA items)               │
+│       ├── docs/timelog/                (time tracking)            │
 │       └── src/                         (source code)              │
 └───────────────────────────────────────────────────────────────────┘
 ```
@@ -110,6 +118,8 @@ flowti.cmd
 │  │  8  Capture Note                                 │  │
 │  │  ─────────────────────────────────────────       │  │
 │  │  d  Documentation  (Update All, CLI/Entity Ref.)  │  │
+│  │  m  Project Management (submenu)                 │  │
+│  │  e  Requirements Management (submenu)            │  │
 │  │  k  Knowledgebase  (Obsidian opt-in)             │  │
 │  │  i  Info           (project diagnostics)         │  │
 │  │  ─────────────────────────────────────────       │  │
@@ -117,6 +127,13 @@ flowti.cmd
 │  │  ?  Help (contextual man-page)                   │  │
 │  │  q  Quit                                         │  │
 │  └──────────────────────────────────────────────────┘  │
+│                                                       │
+│  ┌──────── Project Management Submenu ────────────┐   │
+│  │  1  Resources        5  Requirements Mgmt      │   │
+│  │  2  Time-Log         6  CAPA                   │   │
+│  │  3  Deliverables     7  Lifecycle              │   │
+│  │  4  RAID Log         8  Health                 │   │
+│  └────────────────────────────────────────────────┘   │
 └───────────────────────────────────────────────────────┘
 ```
 
@@ -129,27 +146,33 @@ flowti.cmd
 └───────────┬──────────────────────────────────────────────────┘
             │
 ┌───────────▼──────────────────────────────────────────────────┐
-│                  Controller Layer (15 controllers)            │
+│                  Controller Layer (22 controllers)            │
 │                                                              │
 │  ┌───────────┐ ┌──────────┐ ┌────────┐ ┌─────────┐          │
-│  │ ai-tools  │ │  build   │ │capture │ │devtools │          │
+│  │ ai-tools  │ │  build   │ │capture │ │  capa   │          │
 │  └───────────┘ └──────────┘ └────────┘ └─────────┘          │
 │  ┌───────────┐ ┌──────────┐ ┌────────┐ ┌─────────┐          │
-│  │  events   │ │  health  │ │  help  │ │  info   │          │
+│  │deliverables│ │devtools  │ │ events │ │ health  │          │
 │  └───────────┘ └──────────┘ └────────┘ └─────────┘          │
 │  ┌───────────┐ ┌──────────┐ ┌────────┐ ┌─────────┐          │
-│  │   make    │ │ plugins  │ │project │ │ publish │          │
+│  │   help    │ │  info    │ │lifecycl│ │  make   │          │
 │  └───────────┘ └──────────┘ └────────┘ └─────────┘          │
-│  ┌───────────┐ ┌──────────┐ ┌────────┐                      │
-│  │  reports  │ │  review  │ │scaffold│                      │
-│  └───────────┘ └──────────┘ └────────┘                      │
+│  ┌───────────┐ ┌──────────┐ ┌────────┐ ┌─────────┐          │
+│  │  plugins  │ │ project  │ │publish │ │  raid   │          │
+│  └───────────┘ └──────────┘ └────────┘ └─────────┘          │
+│  ┌───────────┐ ┌──────────┐ ┌────────┐ ┌─────────┐          │
+│  │ reports   │ │requiremts│ │resource│ │ review  │          │
+│  └───────────┘ └──────────┘ └────────┘ └─────────┘          │
+│  ┌───────────┐ ┌──────────┐                                  │
+│  │ scaffold  │ │ timelog  │                                  │
+│  └───────────┘ └──────────┘                                  │
 │                                                              │
 │  Thin handlers: CliRequest → domain service → CliResponse    │
 │  No log() calls, no ANSI — returns dataResponse(model, fn)  │
 └───────────┬──────────────────────────────────────────────────┘
             │
 ┌───────────▼──────────────────────────────────────────────────┐
-│                     UI / View Layer (30 files)                │
+│                     UI / View Layer (71 files)                │
 │                                                              │
 │  Display renderers:       Typed data models:                 │
 │  ┌──────────────────┐     ┌───────────────────────┐          │
@@ -167,8 +190,9 @@ flowti.cmd
 └───────────┬──────────────────────────────────────────────────┘
             │
 ┌───────────▼──────────────────────────────────────────────────┐
-│                       Domain Layer (18 modules)              │
+│                       Domain Layer (25 modules)              │
 │                                                              │
+│  Core:                                                       │
 │  ┌─────────┐ ┌──────────┐ ┌────────┐ ┌─────────┐            │
 │  │ Project │ │ Scaffold │ │  Make  │ │  Build  │            │
 │  └─────────┘ └──────────┘ └────────┘ └─────────┘            │
@@ -176,14 +200,22 @@ flowti.cmd
 │  │ Reports │ │  Review  │ │Publish │ │ Capture │            │
 │  └─────────┘ └──────────┘ └────────┘ └─────────┘            │
 │  ┌─────────┐ ┌──────────┐ ┌────────┐ ┌─────────┐            │
-│  │ Events  │ │   Help   │ │  Info  │ │   E2E   │            │
+│  │ Events  │ │   E2E    │ │  Info  │ │ Health  │            │
 │  └─────────┘ └──────────┘ └────────┘ └─────────┘            │
 │  ┌───────────┐ ┌──────────┐ ┌──────────────────┐            │
 │  │Onboarding │ │ DevTools │ │ Knowledgebase    │            │
 │  └───────────┘ └──────────┘ └──────────────────┘            │
 │  ┌─────────┐ ┌──────────┐ ┌──────────────────┐              │
-│  │ Plugins │ │ AI Tools │ │     Health       │              │
+│  │ Plugins │ │ AI Tools │ │   Templates      │              │
 │  └─────────┘ └──────────┘ └──────────────────┘              │
+│                                                              │
+│  Project Management:                                         │
+│  ┌──────────┐ ┌──────────┐ ┌────────────┐ ┌──────────┐      │
+│  │Resources │ │ Time-Log │ │Deliverables│ │   RAID   │      │
+│  └──────────┘ └──────────┘ └────────────┘ └──────────┘      │
+│  ┌──────────────┐ ┌──────┐ ┌────────────────┐               │
+│  │ Requirements │ │ CAPA │ │   Lifecycle    │               │
+│  └──────────────┘ └──────┘ └────────────────┘               │
 │                                                              │
 │  Pure business logic only — no log(), no ANSI, no I/O       │
 │  Exports: services, pure functions, types                    │
@@ -191,7 +223,7 @@ flowti.cmd
 └───────────┬──────────────────────────────────────────────────┘
             │
 ┌───────────▼──────────────────────────────────────────────────┐
-│                  Infrastructure Layer (29 modules)            │
+│                  Infrastructure Layer (33 modules)            │
 │                                                              │
 │  ┌────────┐ ┌──────────┐ ┌────────┐ ┌─────────┐ ┌────────┐  │
 │  │ config │ │ dispatch │ │  menu  │ │  shell  │ │  state │  │
@@ -458,6 +490,80 @@ tests/
 ```
 
 All I/O is behind abstractions (`IFileSystem`, `IShell`, `IProcess`, `clock`), making every domain function testable without touching the real filesystem.
+
+### 2.12 Project Management Domain
+
+The CLI provides a full project management suite under the "Project Management" submenu. Each subdomain follows the store pattern: pure functions with injected deps, markdown files with YAML frontmatter.
+
+```
+┌──────────── Project Management ──────────────────┐
+│                                                    │
+│  Resources      — human, material, role, budget    │
+│  Time-Log       — hours per person/task/category   │
+│  Deliverables   — tracked outputs with progress    │
+│  RAID Log       — risks, assumptions, issues, deps │
+│  Requirements   — IREB (FR, NFR, constraint)       │
+│                   + Use Cases + User Stories        │
+│  CAPA           — corrective/preventive actions    │
+│  Lifecycle      — state machine for entities       │
+│  Health         — quality gate dashboard           │
+│                                                    │
+│  Config: management.{resources,timelog,...}         │
+│  Storage: docs/{domain}/{name}.md (YAML FM)        │
+│  Pattern: {domain}-store.ts + {domain}-types.ts    │
+└────────────────────────────────────────────────────┘
+```
+
+**Requirements Management** is also accessible directly from the Project Detail Menu (key `e`) for quick access, in addition to being inside the Project Management submenu.
+
+### 2.13 Lifecycle Engine
+
+The lifecycle engine is a generic state machine for projects, products, and features. It manages entity lifecycles with validated transitions and history tracking.
+
+```
+┌──────────── Lifecycle Templates ─────────────────┐
+│                                                    │
+│  Project:                                          │
+│    inception → planning → execution → monitoring   │
+│    → closing → archived                            │
+│                                                    │
+│  Product:                                          │
+│    concept → development → launch → growth         │
+│    → maturity → decline → sunset                   │
+│                                                    │
+│  Feature:                                          │
+│    ideation → specification → development          │
+│    → testing → release → deprecated                │
+│                                                    │
+└────────────────────────────────────────────────────┘
+
+Domain Layer:
+  lifecycle-engine.ts  — pure state machine (no deps)
+  lifecycle-store.ts   — CRUD with markdown + YAML FM
+  lifecycle-types.ts   — LifecycleTemplate, LifecycleRecord
+  discovery.ts         — product/feature folder scanning
+
+Storage: {item}/lifecycle.md with transition history table.
+Standalone items: 02 - Products/{name}/, 03 - Features/{name}/
+Nested items: docs/features/{name}/ within a project
+```
+
+### 2.14 Configurable Lint Thresholds
+
+ESLint thresholds are configurable per-project via `flowti.config.json`:
+
+```json
+{
+  "devtools": {
+    "thresholds": {
+      "maxComplexity": 10,
+      "maxLines": 350
+    }
+  }
+}
+```
+
+`eslint.config.mjs` reads these at startup with fallback defaults. This allows projects to tune code quality gates without modifying the ESLint config directly.
 
 ---
 

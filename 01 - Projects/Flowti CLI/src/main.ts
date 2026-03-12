@@ -51,6 +51,7 @@ import { commands as deliverablesCmds } from "./controller/deliverables.controll
 import { commands as raidCmds } from "./controller/raid.controller.js";
 import { commands as requirementsCmds } from "./controller/requirements.controller.js";
 import { commands as capaCmds } from "./controller/capa.controller.js";
+import { commands as lifecycleCmds } from "./controller/lifecycle.controller.js";
 import { commands as projectCmds } from "./controller/project.controller.js";
 import { commands as projectDepsCmds } from "./ui/deps-display.js";
 import { commands as pluginCmds } from "./controller/plugins.controller.js";
@@ -101,6 +102,7 @@ registry.registerDomain({ domain: "deliverables", commands: deliverablesCmds });
 registry.registerDomain({ domain: "raid",         commands: raidCmds });
 registry.registerDomain({ domain: "requirements", commands: requirementsCmds });
 registry.registerDomain({ domain: "capa",         commands: capaCmds });
+registry.registerDomain({ domain: "lifecycle",     commands: lifecycleCmds });
 registry.registerDomain({ domain: "scaffold", commands: scaffoldCmds, projectFree: ["scaffold:new", "scaffold:list", "scaffold:marketplace", "marketplace:export", "marketplace:import-bundle"] });
 registry.registerDomain({ domain: "project",  commands: { ...projectCmds, ...projectDepsCmds },  projectFree: ["project", "project:deps"] });
 registry.registerDomain({ domain: "plugins",  commands: pluginCmds,  projectFree: ["plugin:list", "plugin:validate", "plugin:new", "plugin:reference"] });
@@ -263,7 +265,7 @@ async function main(): Promise<void> {
 	printBanner();
 
 	// Outer loop: Start Menu → Project Detail → back to Start Menu
-	 
+
 	while (true) {
 		if (!getSelectedProject()) {
 			const startResult = await startMenu();
