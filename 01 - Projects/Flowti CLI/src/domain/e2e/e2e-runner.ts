@@ -70,7 +70,7 @@ export async function executeSession(config: SessionConfig, entries: JourneyEntr
 	const selectedNames = resolveJourneyNames(config.selectedSlugs, entries);
 	render.executionBanner(config, selectedNames);
 
-	const startTime = Date.now();
+	const startTime = deps.clock.ms();
 	const steps = buildSessionPipeline(e2e, {
 		config,
 		entries,

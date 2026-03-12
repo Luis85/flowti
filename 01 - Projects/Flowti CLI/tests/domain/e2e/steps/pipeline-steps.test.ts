@@ -15,12 +15,14 @@ vi.mock("../../../../src/infrastructure/paths.js", () => ({
 	paths: { join: (...a: string[]) => a.join("/"), resolve: (...a: string[]) => a.join("/"), basename: (p: string) => p.split("/").pop(), dirname: (p: string) => p.split("/").slice(0, -1).join("/") },
 }));
 
+// Inline shell mock: per-test vi.mocked(shell.*) overrides require vi.fn().
+// See tests/mocks/mock-presets.ts for the standard mockShellPreset() factory.
 vi.mock("../../../../src/infrastructure/shell.js", () => ({
 	shell: { run: vi.fn(() => 0), runSilent: vi.fn(() => null), runCapture: vi.fn(() => "") },
 }));
 
 vi.mock("../../../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
-vi.mock("../../../../src/infrastructure/clock.js", () => ({ clock: { now: () => new Date(), safeIso: () => "2026-01-01T00:00:00" } }));
+vi.mock("../../../../src/infrastructure/clock.js", () => ({ clock: { now: () => new Date(), ms: () => Date.now(), safeIso: () => "2026-01-01T00:00:00" } }));
 vi.mock("../../../../src/infrastructure/frontmatter.js", () => ({ parseFrontmatterContent: vi.fn(() => ({})) }));
 
 vi.mock("../../../../src/ui/e2e/e2e-formatters.js", () => ({

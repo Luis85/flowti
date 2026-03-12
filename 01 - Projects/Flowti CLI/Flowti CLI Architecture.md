@@ -2,7 +2,7 @@
 type: Architecture
 domain: CLI
 title: Flowti CLI — Architecture Document
-version: 23
+version: 24
 created: 2026-03-07
 updated: 2026-03-12
 status: living-document
@@ -18,7 +18,7 @@ status: living-document
 
 The Flowti CLI is a **definition-driven project orchestrator** that ships as a self-contained Node.js binary. It manages multi-project development workflows — scaffolding, building, testing, reviewing, publishing, and reporting — from a single interactive menu or via non-interactive commands for AI agent tool use.
 
-**Scale**: 343 source files, 245 test files (3,899 tests, 239 suites), 24 domain modules, 33 infrastructure modules, 22 controllers, 74 UI view files, 4 scaffold definitions, 8 component definitions. Zero production dependencies — runs on Node.js built-ins only.
+**Scale**: 345 source files, 253 test files (3,990 tests, 247 suites), 25 domain modules, 33 infrastructure modules, 22 controllers, 74 UI view files, 4 scaffold definitions, 8 component definitions. Zero production dependencies — runs on Node.js built-ins only.
 
 ---
 

@@ -6,17 +6,16 @@
  */
 
 import { Document } from "../../infrastructure/document.js";
-import { parseFrontmatterStrings } from "../../infrastructure/frontmatter.js";
-import { toKebab } from "../make/naming.js";
 import type { CliDeps } from "../../infrastructure/deps.js";
 import type { ResourcesConfig } from "../../infrastructure/types.js";
 import type { ResourceDefinition, ResourceSummary } from "./resource-types.js";
+import { resolveDir, listItems, toMdFilename } from "../shared/markdown-store.js";
 
 export type ResourceStoreDeps = Pick<CliDeps, "disk" | "paths" | "clock">;
 
 /** Resolve the resources directory for a project. */
 export function resourcesDir(deps: Pick<CliDeps, "paths">, projectPath: string, config?: ResourcesConfig): string {
-	return deps.paths.join(projectPath, config?.dir ?? "docs/resources");
+	return resolveDir(deps, projectPath, config?.dir, "docs/resources");
 }
 
 function parseNumericFields(fm: Record<string, string>): { price: number; amount: number; consumed: number } {
@@ -44,16 +43,7 @@ function parseResourceSummary(fm: Record<string, string>, file: string): Resourc
 
 /** List all resources from the resources directory. */
 export function listResources(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, config?: ResourcesConfig): ResourceSummary[] {
-	const dir = resourcesDir(deps, projectPath, config);
-	if (!deps.disk.existsSync(dir)) return [];
-
-	const files = deps.disk.readdirSync(dir).filter((f: string) => f.endsWith(".md"));
-	const resources = files.map((file) => {
-		const content = deps.disk.readFileSync(deps.paths.join(dir, file), "utf-8");
-		return parseResourceSummary(parseFrontmatterStrings(content), file);
-	});
-
-	return resources.sort((a, b) => a.name.localeCompare(b.name));
+	return listItems(deps, resourcesDir(deps, projectPath, config), parseResourceSummary, (a, b) => a.name.localeCompare(b.name));
 }
 
 function addBudgetFields(fm: Record<string, string>, def: ResourceDefinition): void {
@@ -98,8 +88,7 @@ export function createResourceFile(deps: ResourceStoreDeps, projectPath: string,
 	const dir = resourcesDir(deps, projectPath, config);
 	deps.disk.mkdirSync(dir, { recursive: true });
 
-	const kebab = toKebab(def.name);
-	const filename = kebab + ".md";
+	const filename = toMdFilename(def.name);
 	const filePath = deps.paths.join(dir, filename);
 
 	if (deps.disk.existsSync(filePath)) return null;
@@ -119,15 +108,14 @@ export function createResourceFile(deps: ResourceStoreDeps, projectPath: string,
 	doc.heading(2, "Notes").addBlank();
 	doc.text("<!-- Add resource notes here. -->");
 
-	doc.save(filePath);
+	doc.save(filePath, deps.disk);
 	return filePath;
 }
 
 /** Update the consumed quantity for a named resource. Returns true if successful. */
 export function updateConsumption(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, resourceName: string, consumed: number, config?: ResourcesConfig): boolean {
 	const dir = resourcesDir(deps, projectPath, config);
-	const kebab = toKebab(resourceName);
-	const filePath = deps.paths.join(dir, kebab + ".md");
+	const filePath = deps.paths.join(dir, toMdFilename(resourceName));
 
 	if (!deps.disk.existsSync(filePath)) return false;
 

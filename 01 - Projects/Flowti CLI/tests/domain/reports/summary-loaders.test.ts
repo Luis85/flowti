@@ -10,9 +10,10 @@ vi.mock("../../../src/infrastructure/paths.js", async () => {
 	return { paths: { ...path, sep: "/" } };
 });
 
-vi.mock("../../../src/infrastructure/shell.js", () => ({
-	shell: { runSilent: vi.fn() },
-}));
+vi.mock("../../../src/infrastructure/shell.js", async () => {
+	const { mockShellPreset } = await import("../../mocks/mock-presets.js");
+	return mockShellPreset();
+});
 
 vi.mock("../../../src/domain/project/project-config.js", () => ({
 	readProjectConfig: vi.fn(),

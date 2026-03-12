@@ -9,6 +9,7 @@ import { describe, it } from "vitest";
 //
 // The journey definition is loaded from: tests/e2e/journeys/building-and-using-the-flowti-ibde.journey
 
+// Deferred to Phase 8.5 — requires E2E infrastructure migration from Plugin (TD-23)
 describe.skip("Journey: building-and-using-the-flowti-ibde", () => {
 	it("executes the building-and-using-the-flowti-ibde journey", () => {
 		// Implementation requires journeyExecutor helper and a running Obsidian instance

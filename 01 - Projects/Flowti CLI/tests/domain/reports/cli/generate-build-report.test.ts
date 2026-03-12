@@ -29,6 +29,8 @@ vi.mock("../../../../src/infrastructure/clock.js", () => ({
 		safeIso: () => "2026-01-01T00-00-00.000Z",
 	},
 }));
+// Inline shell mock: per-test vi.mocked(shell.runSilent) overrides require vi.fn().
+// See tests/mocks/mock-presets.ts for the standard mockShellPreset() factory.
 vi.mock("../../../../src/infrastructure/shell.js", () => ({
 	shell: {
 		runSilent: vi.fn(() => "build output"),

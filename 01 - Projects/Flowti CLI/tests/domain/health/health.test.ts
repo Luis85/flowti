@@ -18,6 +18,8 @@ vi.mock("../../../src/infrastructure/paths.js", () => ({
 	},
 }));
 
+// Inline shell mock: uses custom defaults (exitCode: 1) and per-test vi.mocked() overrides.
+// Cannot use mockShellPreset() — see tests/mocks/mock-presets.ts for the standard factory.
 vi.mock("../../../src/infrastructure/shell.js", () => ({
 	shell: { runSilent: vi.fn(() => null), runCaptureStatus: vi.fn(() => ({ exitCode: 1, stdout: "" })) },
 }));

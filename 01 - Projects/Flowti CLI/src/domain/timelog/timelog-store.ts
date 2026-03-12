@@ -10,20 +10,19 @@ import { toKebab } from "../make/naming.js";
 import type { CliDeps } from "../../infrastructure/deps.js";
 import type { TimeLogConfig } from "../../infrastructure/types.js";
 import type { TimeLogEntry, TimeLogSummary } from "./timelog-types.js";
+import { resolveDir, listMdFiles } from "../shared/markdown-store.js";
 
 export type TimeLogStoreDeps = Pick<CliDeps, "disk" | "paths" | "clock">;
 
 /** Resolve the time-log directory for a project. */
 export function timelogDir(deps: Pick<CliDeps, "paths">, projectPath: string, config?: TimeLogConfig): string {
-	return deps.paths.join(projectPath, config?.dir ?? "docs/timelog");
+	return resolveDir(deps, projectPath, config?.dir, "docs/timelog");
 }
 
 /** List all time-log entries from the timelog directory. */
 export function listTimeLogEntries(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, config?: TimeLogConfig): TimeLogEntry[] {
 	const dir = timelogDir(deps, projectPath, config);
-	if (!deps.disk.existsSync(dir)) return [];
-
-	const files = deps.disk.readdirSync(dir).filter((f: string) => f.endsWith(".md"));
+	const files = listMdFiles(deps, dir);
 	const entries: TimeLogEntry[] = [];
 
 	for (const file of files) {
@@ -78,7 +77,7 @@ export function createTimeLogEntry(deps: TimeLogStoreDeps, projectPath: string, 
 		doc.text(entry.description);
 	}
 
-	doc.save(finalPath);
+	doc.save(finalPath, deps.disk);
 	return finalPath;
 }
 

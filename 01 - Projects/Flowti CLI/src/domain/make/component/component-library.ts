@@ -141,7 +141,7 @@ function writeLibraryFiles(
 	projectRoot: string, libraryName: string, kebab: string,
 	plan: { path: string; content: string }[], deps: ComponentLibraryDeps,
 ): number {
-	const writer = createOverwriteFileWriter(projectRoot);
+	const writer = createOverwriteFileWriter(projectRoot, deps.disk);
 	let written = 0;
 	for (const f of plan) {
 		if (f.path.endsWith(".json")) continue;

@@ -3,6 +3,7 @@
  */
 
 import { writeFileAt, overwriteFileAt } from "../../../infrastructure/fs.js";
+import type { IFileSystem } from "../../../infrastructure/types.js";
 
 export interface FileWriter {
 	/** Write a file at the given relative path. Returns true if file was created. */
@@ -11,11 +12,11 @@ export interface FileWriter {
 	readonly created: number;
 }
 
-export function createFileWriter(basePath: string): FileWriter {
+export function createFileWriter(basePath: string, fs?: IFileSystem): FileWriter {
 	const state = { created: 0 };
 	return {
 		write(rel: string, content: string): boolean {
-			const ok = writeFileAt(basePath, rel, content);
+			const ok = fs ? writeFileAt(basePath, rel, content, fs) : writeFileAt(basePath, rel, content);
 			if (ok) state.created++;
 			return ok;
 		},
@@ -24,11 +25,11 @@ export function createFileWriter(basePath: string): FileWriter {
 }
 
 /** Creates a writer that overwrites existing files (used for regeneration). */
-export function createOverwriteFileWriter(basePath: string): FileWriter {
+export function createOverwriteFileWriter(basePath: string, fs?: IFileSystem): FileWriter {
 	const state = { created: 0 };
 	return {
 		write(rel: string, content: string): boolean {
-			const ok = overwriteFileAt(basePath, rel, content);
+			const ok = fs ? overwriteFileAt(basePath, rel, content, fs) : overwriteFileAt(basePath, rel, content);
 			if (ok) state.created++;
 			return ok;
 		},

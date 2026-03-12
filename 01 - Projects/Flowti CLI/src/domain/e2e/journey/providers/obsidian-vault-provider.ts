@@ -15,29 +15,29 @@ import { resolveString } from "../journey-tools.js";
  * Action: { tool: "vault-note", op: "exists", path: "notes/test.md" }
  */
 const toolVaultNote: ToolExecutor = (action, deps, opts) => {
-	const start = Date.now();
+	const start = deps.clock.ms();
 	const op = action.op as string;
 	const variables = opts.variables ?? {};
 	const path = resolveString(action, "path", variables);
 
-	if (!path) return { tool: "vault-note", success: false, error: "No path specified", durationMs: Date.now() - start };
+	if (!path) return { tool: "vault-note", success: false, error: "No path specified", durationMs: deps.clock.ms() - start };
 
 	switch (op) {
 		case "create": {
 			const content = resolveString(action, "content", variables) || `# ${path.split("/").pop()?.replace(".md", "") ?? "Note"}\n`;
 			try {
 				deps.writeFile(path, content);
-				return { tool: "vault-note", success: true, output: `Created: ${path}`, durationMs: Date.now() - start };
+				return { tool: "vault-note", success: true, output: `Created: ${path}`, durationMs: deps.clock.ms() - start };
 			} catch (e) {
-				return { tool: "vault-note", success: false, error: String(e), durationMs: Date.now() - start };
+				return { tool: "vault-note", success: false, error: String(e), durationMs: deps.clock.ms() - start };
 			}
 		}
 		case "exists": {
 			const exists = deps.exists(path);
-			return { tool: "vault-note", success: exists, error: exists ? undefined : `Note not found: ${path}`, durationMs: Date.now() - start };
+			return { tool: "vault-note", success: exists, error: exists ? undefined : `Note not found: ${path}`, durationMs: deps.clock.ms() - start };
 		}
 		default:
-			return { tool: "vault-note", success: false, error: `Unknown vault-note op: ${op}`, durationMs: Date.now() - start };
+			return { tool: "vault-note", success: false, error: `Unknown vault-note op: ${op}`, durationMs: deps.clock.ms() - start };
 	}
 };
 
@@ -46,7 +46,7 @@ const toolVaultNote: ToolExecutor = (action, deps, opts) => {
  * Action: { tool: "vault-structure", paths: [".obsidian", "notes/"] }
  */
 const toolVaultStructure: ToolExecutor = (action, deps, opts) => {
-	const start = Date.now();
+	const start = deps.clock.ms();
 	const expectedPaths = action.paths as string[] ?? [];
 	const variables = opts.variables ?? {};
 	const missing: string[] = [];
@@ -62,7 +62,7 @@ const toolVaultStructure: ToolExecutor = (action, deps, opts) => {
 		success,
 		output: success ? `All ${expectedPaths.length} paths exist` : `Missing: ${missing.join(", ")}`,
 		error: success ? undefined : `${missing.length} path(s) missing`,
-		durationMs: Date.now() - start,
+		durationMs: deps.clock.ms() - start,
 	};
 };
 

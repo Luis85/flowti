@@ -2,7 +2,7 @@
 type: TechDebt
 domain: CLI
 title: Flowti CLI — Technical Debt Register
-version: 3
+version: 4
 created: 2026-03-10
 updated: 2026-03-12
 status: active
@@ -20,10 +20,10 @@ source: "[[Development Roadmap]]"
 | Severity | Count | Estimated Hours |
 |----------|-------|-----------------|
 | Critical | 3 (2 resolved) | 28h |
-| High | 8 (6 resolved) | 40h |
-| Medium | 14 (8 resolved) | 38h |
+| High | 8 (7 resolved) | 40h |
+| Medium | 14 (12 resolved) | 38h |
 | Low | 5 | 8h |
-| **Total** | **30 (16 resolved)** | **114h (57h resolved)** |
+| **Total** | **30 (21 resolved)** | **114h (73h resolved)** |
 
 ---
 
@@ -246,16 +246,18 @@ The main `generateSummaryReport()` function is a clean 39-line orchestrator. All
 
 **Effort**: Already addressed during Phase 7
 
-### TD-10: No Shared Mock Factory for Shell
+### TD-10: No Shared Mock Factory for Shell ✓ RESOLVED
 
 **Domain**: tests
-**File**: `tests/mocks/mock-shell.ts`
-**Impact**: Each test file manually creates shell mocks differently
+**File**: `tests/mocks/mock-presets.ts`
+**Status**: Resolved — `mockShellPreset()` updated with full `IShell` interface; 21 test files refactored (2026-03-12)
 
-While `createMockShell()` exists, many test files still mock the shell module inline with `vi.mock()`. A standardized factory would reduce boilerplate.
+**What was done**:
+1. Updated `mockShellPreset()` to cover all `IShell` methods (runCaptureDetailed, spawnBackground, runAsync, runParallel)
+2. Refactored 21 test files (13 controller + 3 UI + 5 domain) to use `mockShellPreset()`
+3. 12 files with per-test `vi.mocked()` overrides annotated with explanation of why inline mocks are needed
 
-**Remediation**: Consolidate all test files to use `createMockShell()`.
-**Effort**: S (2h)
+**Effort**: S (2h) — as estimated
 
 ### TD-11: Help Content Hardcoded in Source
 
@@ -321,17 +323,18 @@ The `Document` class uses a fluent API (`doc.heading().addBlank().text()`). The 
 
 **Effort**: M (3h) — as estimated
 
-### TD-25: Controller Test Gap — 15 Controllers, 0 Dedicated Test Files
+### TD-25: Controller Test Gap ✓ RESOLVED
 
 **Domain**: tests/controller
-**Files**: `src/controller/*.ts` (15 files)
-**Impact**: Controllers are tested indirectly via domain tests, but lack dedicated request→response assertions
+**Files**: `tests/controller/*.test.ts` (22 files)
+**Status**: Resolved — 22 controller test files with 224 tests (2026-03-12)
 
-The MVC refactoring (TD-24) created 15 controllers with the `CliRequest → ControllerAction → CliResponse<T>` pattern. None have dedicated test files asserting the controller layer — flag parsing, `adapt()` bridging, `dataResponse()` construction, and `handleResponse()` dispatch are only tested incidentally.
+**What was done**:
+1. Created `tests/controller/` directory with one test file per controller
+2. 22 test files covering all controllers: ai-tools, build, capture, capa, deliverables, devtools, events, health, help, info, lifecycle, make, onboarding, plugins, project, publish, raid, reports, requirements, resources, review, scaffold, timelog
+3. Tests cover: flag parsing, `adapt()` bridging, missing flag errors, invalid status/type errors, no-project guards
 
-**Remediation**: Create `tests/controller/` directory with one test file per controller. Test: correct model returned for given flags, `--format=json` produces valid JSON, error cases return correct exit codes.
-**Effort**: L (8h)
-**Priority**: High — controllers are the API surface for AI agents
+**Effort**: L (8h) — as estimated
 
 ### TD-26: EventBus Infrastructure Created But Not Wired
 
@@ -356,15 +359,14 @@ The EventBus was created during Phase 7.6 (domain purification) as infrastructur
 
 **Effort**: S (2h) — as estimated
 
-### TD-28: `new Date()` Usage in E2E Domain Files
+### TD-28: `new Date()` Usage in E2E Domain Files ✓ RESOLVED
 
 **Domain**: domain/e2e
-**Impact**: Timestamps in E2E files can't be controlled in tests
+**Status**: Resolved — All `Date.now()` and `new Date()` calls in domain files replaced with `clock.ms()` / `clock.now()` (2026-03-12)
 
-Several E2E domain files use `new Date()` directly instead of the `clock` abstraction from `infrastructure/clock.ts`. This makes test assertions on timestamps fragile.
+Several E2E domain files used `new Date()` directly instead of the `clock` abstraction. All domain source files now use the injectable clock.
 
-**Remediation**: Replace `new Date()` with `clock.now()` in E2E domain files. The `clock` abstraction already exists and is used elsewhere.
-**Effort**: S (1h)
+**Effort**: S (1h) — as estimated
 
 ---
 
@@ -419,33 +421,37 @@ When the CLI manages Plugin builds, it needs to understand the CSS pipeline. Cur
 **Effort**: S (2h)
 **Phase 8 item**: 8.1.3
 
-### TD-29: Domain Layer DI Violations — 82 Direct Infrastructure Imports
+### TD-29: Domain Layer DI Violations — Direct Infrastructure Imports ✓ PARTIALLY RESOLVED
 
 **Domain**: architecture (cross-cutting)
-**Files**: 19 domain files import `Document`, 16 import `parseFrontmatter*`, 4 import `pipeline-runner`, 2 import `countFiles`, 2 import `InternalError`
-**Impact**: Domain functions are not pure — hidden coupling to infrastructure makes isolated testing harder
+**Status**: Partially resolved — I/O coupling fixed; pure utility imports remain by design (2026-03-12)
 
-The domain layer should receive all infrastructure capabilities via `CliDeps` injection. Currently, 82 import statements bypass this pattern by importing infrastructure modules directly.
+**What was done**:
+1. All `doc.save()` calls (17 sites across 12 domain files) now pass `deps.disk` — no more hidden filesystem singleton
+2. `createFileWriter()` / `createOverwriteFileWriter()` accept optional `IFileSystem` — callers pass `deps.disk`
+3. `countFiles()` usages updated to pass `deps.disk`
+4. `writePlanSkippingJson()` receives deps parameter
 
-**Highest-impact targets**:
-1. `Document` class (19 files) — create `IDocumentBuilder` interface
-2. `parseFrontmatter*` utilities (16 files) — create `IFrontmatterParser` interface
-3. `pipeline-runner` (4 files) — inject via `E2EDeps`
+**What remains (by design)**:
+- `Document` class imports (19 files) — reclassified as pure utility (builder pattern, no I/O). The `.save()` method now requires explicit `IFileSystem`
+- `parseFrontmatter*` imports (16 files) — reclassified as pure utility (string parsing, no I/O)
+- `pipeline-runner` imports (4 files) — kept as direct import; runner is a shared engine, not a replaceable service
 
-**Remediation**: Define domain-level interfaces, add to `CliDeps` ISP subsets, update consumers.
-**Effort**: L (12h)
-**Priority**: High — largest single architectural deviation
+**Effort**: 4h (of 12h estimated — remaining items deferred as not true violations)
 
-### TD-30: Store Pattern Duplication Across 7 Domains
+### TD-30: Store Pattern Duplication Across 7 Domains ✓ RESOLVED
 
 **Domain**: capa, deliverables, lifecycle, raid, requirements, resources, timelog
-**Impact**: ~700 LOC of duplicated CRUD-over-markdown patterns
+**Status**: Resolved — Shared `markdown-store.ts` extracted; all 7 stores refactored (2026-03-12)
 
-All 7 store implementations repeat: directory listing → `.md` filter → `parseFrontmatterStrings` → typed summary mapping → `Document.create()` → `mergeFrontmatter()` → save.
+**What was done**:
+1. Created `src/domain/shared/markdown-store.ts` — 6 composable utilities: `listMdFiles`, `readFrontmatter`, `listItems`, `resolveDir`, `toMdFilename`, `updateField`
+2. Created `tests/domain/shared/markdown-store.test.ts` — 11 tests covering all utilities
+3. Created `tests/mocks/mock-fs.ts` — shared in-memory filesystem mock factory
+4. Refactored all 7 stores: capa, deliverables, lifecycle, raid, requirements, resources, timelog
+5. Each store now delegates CRUD boilerplate to shared utilities; retains only domain-specific parser functions and create logic
 
-**Remediation**: Extract a `MarkdownStore<T>` factory or base that handles shared CRUD operations. Domain stores reduce to type definitions + domain-specific query/filter logic.
-**Effort**: M (6h)
-**Priority**: Medium — reduces duplication, simplifies future domain additions
+**Effort**: M (6h) — as estimated
 
 ---
 
@@ -462,10 +468,10 @@ All 7 store implementations repeat: directory listing → `.md` filter → `pars
 | TD-07 | Open | — | Phase 8 enabler |
 | TD-08 | Open | — | Monitor |
 | TD-09 | Resolved | Phase 7 | Already decomposed into 8 modules; 39-line orchestrator |
-| TD-10 | Open | — | Test quality |
+| TD-10 | Resolved | 2026-03-12 | mockShellPreset() consolidated; 21 test files refactored |
 | TD-11 | Open | — | Phase 8 enabler |
 | TD-12 | Resolved | Pre-Phase 8 | Constructor accepts opts; coverageDir uses stored relDir |
-| TD-13 | Resolved | Pre-Phase 8 | 6 non-E2E files migrated to clock abstraction |
+| TD-13 | Resolved | Pre-Phase 8 | All domain files migrated to clock abstraction |
 | TD-14 | Open | — | Minor |
 | TD-15 | Resolved | Phase 7 | 20 tests across doc-pipeline + doc-runner test files |
 | TD-16 | Resolved | Pre-Phase 8 | ProjectTarget type added, wired into config + validation |
@@ -477,9 +483,9 @@ All 7 store implementations repeat: directory listing → `.md` filter → `pars
 | TD-22 | Partial | Pre-Phase 8 | 3 new scaffold definitions created; import flow pending (Phase 8.7) |
 | TD-23 | Open | — | Phase 8.5 blocker (E2E migration) |
 | TD-24 | Resolved | Pre-Phase 8 | MVC refactoring: 15 controllers, 11 display renderers, request-response abstraction |
-| TD-25 | Open | — | Controller test gap (22 controllers, 2 test files) |
+| TD-25 | Resolved | 2026-03-12 | 22 controller test files, 224 tests |
 | TD-26 | Open | — | EventBus created, not wired (deferred to Phase 8) |
 | TD-27 | Resolved | Pre-Phase 8 | E2EService→e2e-service, MakeService→make-service |
-| TD-28 | Open | — | `new Date()` in E2E domain files |
-| TD-29 | Open | — | 82 DI violations: domain imports infrastructure directly |
-| TD-30 | Open | — | 7 stores duplicate CRUD-over-markdown pattern |
+| TD-28 | Resolved | 2026-03-12 | All Date.now()/new Date() replaced with clock.ms()/clock.now() |
+| TD-29 | Partial | 2026-03-12 | I/O coupling fixed (doc.save, file-writer, countFiles); pure utility imports kept by design |
+| TD-30 | Resolved | 2026-03-12 | Shared markdown-store.ts extracted; all 7 stores refactored |

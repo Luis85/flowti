@@ -14,6 +14,9 @@ vi.mock("../../../src/infrastructure/paths.js", () => ({
 	},
 }));
 
+// Inline shell mock: per-test vi.mocked(shell.runSilent) overrides require vi.fn().
+// Default returns "ok" to simulate successful Obsidian CLI calls.
+// See tests/mocks/mock-presets.ts for the standard mockShellPreset() factory.
 vi.mock("../../../src/infrastructure/shell.js", () => ({
 	shell: { runSilent: vi.fn(() => "ok") },
 }));

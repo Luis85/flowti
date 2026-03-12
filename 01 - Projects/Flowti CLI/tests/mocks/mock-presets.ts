@@ -74,6 +74,10 @@ export interface ShellPreset {
 		runCapture: ReturnType<typeof vi.fn>;
 		execFile: ReturnType<typeof vi.fn>;
 		runCaptureStatus: ReturnType<typeof vi.fn>;
+		runCaptureDetailed: ReturnType<typeof vi.fn>;
+		spawnBackground: ReturnType<typeof vi.fn>;
+		runAsync: ReturnType<typeof vi.fn>;
+		runParallel: ReturnType<typeof vi.fn>;
 	};
 }
 
@@ -86,6 +90,10 @@ export function mockShellPreset(overrides: Partial<ShellPreset["shell"]> = {}): 
 			runCapture: vi.fn(() => ""),
 			execFile: vi.fn(() => null),
 			runCaptureStatus: vi.fn(() => ({ output: "", exitCode: 0 })),
+			runCaptureDetailed: vi.fn(() => ({ stdout: "", stderr: "", exitCode: 0 })),
+			spawnBackground: vi.fn(() => ({ running: false, output: [], onOutput: () => () => {}, kill: () => {}, waitForOutput: () => Promise.resolve(null) })),
+			runAsync: vi.fn(async () => ({ output: "", exitCode: 0 })),
+			runParallel: vi.fn(async () => []),
 			...overrides,
 		},
 	};

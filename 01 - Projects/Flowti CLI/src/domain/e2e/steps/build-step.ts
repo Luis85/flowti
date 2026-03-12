@@ -32,9 +32,9 @@ export function createIncrementBuildStep(e2e: E2EPaths, deps: Pick<CliDeps, "she
 		dependencies: ["e2e:teardown"],
 		execute(ctx: PipelineContext): StepOutput {
 			ctx.log("  Starting increment build (check \u2192 build \u2192 test \u2192 e2e \u2192 docs \u2192 distribute)...\n");
-			const startTime = Date.now();
+			const startTime = deps.clock.ms();
 			const exitCode = deps.shell.run("npm run build:increment", { cwd: e2e.projectRoot });
-			const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+			const duration = ((deps.clock.ms() - startTime) / 1000).toFixed(1);
 			const stats = readBuildStats(e2e, deps);
 
 			render.incrementSummary(exitCode, duration, stats);
@@ -57,9 +57,9 @@ export function createPublishStep(e2e: E2EPaths, deps: Pick<CliDeps, "shell" | "
 		label: "Publish",
 		execute(ctx: PipelineContext): StepOutput {
 			ctx.log("  Starting publish (check \u2192 build \u2192 test \u2192 docs \u2192 publish)...\n");
-			const startTime = Date.now();
+			const startTime = deps.clock.ms();
 			const exitCode = deps.shell.run("npm run build:release", { cwd: e2e.projectRoot });
-			const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+			const duration = ((deps.clock.ms() - startTime) / 1000).toFixed(1);
 			const stats = readBuildStats(e2e, deps);
 
 			render.publishSummary(exitCode, duration, stats);

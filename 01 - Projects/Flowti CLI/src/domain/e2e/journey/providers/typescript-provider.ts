@@ -14,7 +14,7 @@ import { resolveString } from "../journey-tools.js";
  * Action: { tool: "tsc-check", tsconfig?: "tsconfig.json" }
  */
 const toolTscCheck: ToolExecutor = (action, deps, opts) => {
-	const start = Date.now();
+	const start = deps.clock.ms();
 	const tsconfig = resolveString(action, "tsconfig", opts.variables ?? {}) || "tsconfig.json";
 	try {
 		const result = deps.exec(`npx tsc --noEmit -p ${tsconfig}`, {
@@ -28,10 +28,10 @@ const toolTscCheck: ToolExecutor = (action, deps, opts) => {
 			success,
 			output: success ? "No type errors" : result.stdout.slice(0, 500),
 			error: success ? undefined : `Type check failed (exit ${result.exitCode})`,
-			durationMs: Date.now() - start,
+			durationMs: deps.clock.ms() - start,
 		};
 	} catch (e) {
-		return { tool: "tsc-check", success: false, error: String(e), durationMs: Date.now() - start };
+		return { tool: "tsc-check", success: false, error: String(e), durationMs: deps.clock.ms() - start };
 	}
 };
 
@@ -40,7 +40,7 @@ const toolTscCheck: ToolExecutor = (action, deps, opts) => {
  * Action: { tool: "lint", command?: "npx eslint ." }
  */
 const toolLint: ToolExecutor = (action, deps, opts) => {
-	const start = Date.now();
+	const start = deps.clock.ms();
 	const cmd = resolveString(action, "command", opts.variables ?? {}) || "npx eslint .";
 	try {
 		const result = deps.exec(cmd, {
@@ -54,10 +54,10 @@ const toolLint: ToolExecutor = (action, deps, opts) => {
 			success,
 			output: result.stdout.slice(0, 300),
 			error: success ? undefined : `Lint failed (exit ${result.exitCode})`,
-			durationMs: Date.now() - start,
+			durationMs: deps.clock.ms() - start,
 		};
 	} catch (e) {
-		return { tool: "lint", success: false, error: String(e), durationMs: Date.now() - start };
+		return { tool: "lint", success: false, error: String(e), durationMs: deps.clock.ms() - start };
 	}
 };
 

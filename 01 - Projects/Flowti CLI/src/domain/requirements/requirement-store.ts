@@ -8,8 +8,6 @@
  */
 
 import { Document } from "../../infrastructure/document.js";
-import { parseFrontmatterStrings } from "../../infrastructure/frontmatter.js";
-import { toKebab } from "../make/naming.js";
 import type { CliDeps } from "../../infrastructure/deps.js";
 import type { RequirementsConfig } from "../../infrastructure/types.js";
 import type {
@@ -17,6 +15,7 @@ import type {
 	UseCaseDefinition, UseCaseSummary,
 	UserStoryDefinition, UserStorySummary, UserStoryStatus,
 } from "./requirement-types.js";
+import { resolveDir, listItems, toMdFilename, updateField, readFrontmatter, listMdFiles } from "../shared/markdown-store.js";
 
 export type RequirementStoreDeps = Pick<CliDeps, "disk" | "paths" | "clock">;
 
@@ -24,7 +23,7 @@ export type RequirementStoreDeps = Pick<CliDeps, "disk" | "paths" | "clock">;
 
 /** Resolve the requirements root directory for a project. */
 export function requirementsDir(deps: Pick<CliDeps, "paths">, projectPath: string, config?: RequirementsConfig): string {
-	return deps.paths.join(projectPath, config?.dir ?? "docs/requirements");
+	return resolveDir(deps, projectPath, config?.dir, "docs/requirements");
 }
 
 function useCasesDir(deps: Pick<CliDeps, "paths">, projectPath: string, config?: RequirementsConfig): string {
@@ -51,14 +50,19 @@ export function nextId(prefix: string, existingIds: string[]): string {
 	return `${prefix}-${String(max + 1).padStart(3, "0")}`;
 }
 
-// ── List helpers ────────────────────────────────────────────────────
-
-function listMdFiles(deps: Pick<CliDeps, "disk">, dir: string): string[] {
-	if (!deps.disk.existsSync(dir)) return [];
-	return deps.disk.readdirSync(dir).filter((f: string) => f.endsWith(".md"));
-}
-
 // ── Requirements CRUD ───────────────────────────────────────────────
+
+function parseRequirementSummary(fm: Record<string, string>, file: string): RequirementSummary | null {
+	if (fm.type && fm.type !== "Requirement") return null;
+	return {
+		name: fm.name ?? file.replace(/\.md$/, ""),
+		id: fm.id ?? "",
+		requirementType: (fm.requirementType as RequirementSummary["requirementType"]) ?? "functional",
+		status: fm.status ?? "draft",
+		priority: fm.priority ?? "should",
+		file,
+	};
+}
 
 /** List all requirements from the root requirements directory. */
 export function listRequirements(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, config?: RequirementsConfig): RequirementSummary[] {
@@ -67,17 +71,9 @@ export function listRequirements(deps: Pick<CliDeps, "disk" | "paths">, projectP
 	const reqs: RequirementSummary[] = [];
 
 	for (const file of files) {
-		const content = deps.disk.readFileSync(deps.paths.join(dir, file), "utf-8");
-		const fm = parseFrontmatterStrings(content);
-		if (fm.type && fm.type !== "Requirement") continue;
-		reqs.push({
-			name: fm.name ?? file.replace(/\.md$/, ""),
-			id: fm.id ?? "",
-			requirementType: (fm.requirementType as RequirementSummary["requirementType"]) ?? "functional",
-			status: fm.status ?? "draft",
-			priority: fm.priority ?? "should",
-			file,
-		});
+		const fm = readFrontmatter(deps, dir, file);
+		const summary = parseRequirementSummary(fm, file);
+		if (summary) reqs.push(summary);
 	}
 
 	return reqs.sort((a, b) => a.id.localeCompare(b.id));
@@ -106,8 +102,7 @@ export function createRequirement(deps: RequirementStoreDeps, projectPath: strin
 	const dir = requirementsDir(deps, projectPath, config);
 	deps.disk.mkdirSync(dir, { recursive: true });
 
-	const kebab = toKebab(def.name);
-	const filename = kebab + ".md";
+	const filename = toMdFilename(def.name);
 	const filePath = deps.paths.join(dir, filename);
 
 	if (deps.disk.existsSync(filePath)) return null;
@@ -132,7 +127,7 @@ export function createRequirement(deps: RequirementStoreDeps, projectPath: strin
 		doc.text("<!-- Define acceptance criteria here. -->");
 	}
 
-	doc.save(filePath);
+	doc.save(filePath, deps.disk);
 	return filePath;
 }
 
@@ -145,37 +140,24 @@ export function updateRequirementStatus(
 	config?: RequirementsConfig,
 ): boolean {
 	const dir = requirementsDir(deps, projectPath, config);
-	const kebab = toKebab(reqName);
-	const filePath = deps.paths.join(dir, kebab + ".md");
-
-	if (!deps.disk.existsSync(filePath)) return false;
-
-	let content = deps.disk.readFileSync(filePath, "utf-8");
-	content = content.replace(/^status:\s*.+$/m, `status: ${status}`);
-	deps.disk.writeFileSync(filePath, content, "utf-8");
-	return true;
+	const filePath = deps.paths.join(dir, toMdFilename(reqName));
+	return updateField(deps, filePath, "status", status);
 }
 
 // ── Use Cases CRUD ──────────────────────────────────────────────────
 
+function parseUseCaseSummary(fm: Record<string, string>, file: string): UseCaseSummary {
+	return {
+		name: fm.name ?? file.replace(/\.md$/, ""),
+		id: fm.id ?? "",
+		actor: fm.actor ?? "",
+		file,
+	};
+}
+
 /** List all use cases from the use-cases/ subdirectory. */
 export function listUseCases(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, config?: RequirementsConfig): UseCaseSummary[] {
-	const dir = useCasesDir(deps, projectPath, config);
-	const files = listMdFiles(deps, dir);
-	const ucs: UseCaseSummary[] = [];
-
-	for (const file of files) {
-		const content = deps.disk.readFileSync(deps.paths.join(dir, file), "utf-8");
-		const fm = parseFrontmatterStrings(content);
-		ucs.push({
-			name: fm.name ?? file.replace(/\.md$/, ""),
-			id: fm.id ?? "",
-			actor: fm.actor ?? "",
-			file,
-		});
-	}
-
-	return ucs.sort((a, b) => a.id.localeCompare(b.id));
+	return listItems(deps, useCasesDir(deps, projectPath, config), parseUseCaseSummary, (a, b) => a.id.localeCompare(b.id));
 }
 
 function addUseCaseBody(doc: Document, def: UseCaseDefinition): void {
@@ -204,8 +186,7 @@ export function createUseCase(deps: RequirementStoreDeps, projectPath: string, d
 	const dir = useCasesDir(deps, projectPath, config);
 	deps.disk.mkdirSync(dir, { recursive: true });
 
-	const kebab = toKebab(def.name);
-	const filename = kebab + ".md";
+	const filename = toMdFilename(def.name);
 	const filePath = deps.paths.join(dir, filename);
 
 	if (deps.disk.existsSync(filePath)) return null;
@@ -227,32 +208,26 @@ export function createUseCase(deps: RequirementStoreDeps, projectPath: string, d
 		.addBlank();
 
 	addUseCaseBody(doc, def);
-	doc.save(filePath);
+	doc.save(filePath, deps.disk);
 	return filePath;
 }
 
 // ── User Stories CRUD ───────────────────────────────────────────────
 
+function parseUserStorySummary(fm: Record<string, string>, file: string): UserStorySummary {
+	return {
+		name: fm.name ?? file.replace(/\.md$/, ""),
+		id: fm.id ?? "",
+		role: fm.role ?? "",
+		status: fm.status ?? "backlog",
+		storyPoints: parseInt(fm.storyPoints ?? "0", 10),
+		file,
+	};
+}
+
 /** List all user stories from the user-stories/ subdirectory. */
 export function listUserStories(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, config?: RequirementsConfig): UserStorySummary[] {
-	const dir = userStoriesDir(deps, projectPath, config);
-	const files = listMdFiles(deps, dir);
-	const stories: UserStorySummary[] = [];
-
-	for (const file of files) {
-		const content = deps.disk.readFileSync(deps.paths.join(dir, file), "utf-8");
-		const fm = parseFrontmatterStrings(content);
-		stories.push({
-			name: fm.name ?? file.replace(/\.md$/, ""),
-			id: fm.id ?? "",
-			role: fm.role ?? "",
-			status: fm.status ?? "backlog",
-			storyPoints: parseInt(fm.storyPoints ?? "0", 10),
-			file,
-		});
-	}
-
-	return stories.sort((a, b) => a.id.localeCompare(b.id));
+	return listItems(deps, userStoriesDir(deps, projectPath, config), parseUserStorySummary, (a, b) => a.id.localeCompare(b.id));
 }
 
 /** Create a new user story markdown file. Returns the file path or null if it already exists. */
@@ -260,8 +235,7 @@ export function createUserStory(deps: RequirementStoreDeps, projectPath: string,
 	const dir = userStoriesDir(deps, projectPath, config);
 	deps.disk.mkdirSync(dir, { recursive: true });
 
-	const kebab = toKebab(def.name);
-	const filename = kebab + ".md";
+	const filename = toMdFilename(def.name);
 	const filePath = deps.paths.join(dir, filename);
 
 	if (deps.disk.existsSync(filePath)) return null;
@@ -296,7 +270,7 @@ export function createUserStory(deps: RequirementStoreDeps, projectPath: string,
 		doc.text("<!-- Given... When... Then... -->");
 	}
 
-	doc.save(filePath);
+	doc.save(filePath, deps.disk);
 	return filePath;
 }
 
@@ -309,13 +283,6 @@ export function updateUserStoryStatus(
 	config?: RequirementsConfig,
 ): boolean {
 	const dir = userStoriesDir(deps, projectPath, config);
-	const kebab = toKebab(storyName);
-	const filePath = deps.paths.join(dir, kebab + ".md");
-
-	if (!deps.disk.existsSync(filePath)) return false;
-
-	let content = deps.disk.readFileSync(filePath, "utf-8");
-	content = content.replace(/^status:\s*.+$/m, `status: ${status}`);
-	deps.disk.writeFileSync(filePath, content, "utf-8");
-	return true;
+	const filePath = deps.paths.join(dir, toMdFilename(storyName));
+	return updateField(deps, filePath, "status", status);
 }

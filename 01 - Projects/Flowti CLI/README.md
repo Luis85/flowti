@@ -165,7 +165,7 @@ The bootstrap (`src/boot/bootstrap.mjs`, deployed as `.flowti/bin/index.js`) han
 │       ├── pipeline/               # Generic DAG execution engine
 │       ├── event-bus.ts            # Lightweight synchronous EventBus
 │       └── ...                     # 25 more infrastructure modules
-├── tests/                          # Vitest test suites (3,899 tests, 239 suites)
+├── tests/                          # Vitest test suites (3,990 tests, 247 suites)
 ├── configs/
 │   ├── flowti.config.json          # CLI's own project config
 │   ├── esbuild.config.mjs          # Build: bundles to .flowti/bin/main.js

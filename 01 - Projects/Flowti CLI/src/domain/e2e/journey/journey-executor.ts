@@ -33,6 +33,7 @@ export interface ToolDeps {
 	mkdir: (path: string) => void;
 	log: (msg: string) => void;
 	sleep: (ms: number) => Promise<void>;
+	clock: { ms(): number };
 }
 
 // ── Resolved environment ─────────────────────────────────────────────
@@ -63,8 +64,8 @@ export function resolveEnvironment(provider?: EnvironmentProvider): ResolvedEnvi
 
 // ── Step execution ──────────────────────────────────────────────────
 
-function ms(start: number): number {
-	return Date.now() - start;
+function ms(start: number, deps: ToolDeps): number {
+	return deps.clock.ms() - start;
 }
 
 async function executeAction(
@@ -87,7 +88,7 @@ async function executeStep(
 	deps: ToolDeps,
 	opts: JourneyExecutorOptions,
 ): Promise<StepResult> {
-	const start = Date.now();
+	const start = deps.clock.ms();
 	const actions: ActionResult[] = [];
 
 	for (const action of step.actions) {
@@ -98,7 +99,7 @@ async function executeStep(
 				stepId: step.id,
 				stepTitle: step.title,
 				status: "fail",
-				durationMs: ms(start),
+				durationMs: ms(start, deps),
 				actions,
 				error: result.error,
 			};
@@ -109,7 +110,7 @@ async function executeStep(
 		stepId: step.id,
 		stepTitle: step.title,
 		status: "pass",
-		durationMs: ms(start),
+		durationMs: ms(start, deps),
 		actions,
 	};
 }
@@ -178,7 +179,7 @@ export async function executeJourney(
 ): Promise<JourneyResult> {
 	const resolved = env ?? resolveEnvironment();
 	const tools = resolved.tools;
-	const start = Date.now();
+	const start = deps.clock.ms();
 	const continueOnFailure = opts.continueOnFailure ?? true;
 
 	if (resolved.setup) await resolved.setup(deps, opts);
@@ -197,7 +198,7 @@ export async function executeJourney(
 		journeyName: definition.journey,
 		totalSteps: definition.steps.length,
 		passed, failed, skipped,
-		durationMs: ms(start),
+		durationMs: ms(start, deps),
 		steps: results,
 	};
 }

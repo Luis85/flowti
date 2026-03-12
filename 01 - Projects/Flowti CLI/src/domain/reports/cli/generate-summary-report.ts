@@ -277,13 +277,13 @@ export function generateSummaryReport(projectPath: string, deps: ReportDeps, ctx
 
 	const stablePath = svc.stablePath("Project Summary.md");
 	deps.disk.mkdirSync(svc.reportsDir, { recursive: true });
-	doc.save(stablePath);
+	doc.save(stablePath, deps.disk);
 
 	const summaryDir = svc.subdir("summary");
 	deps.disk.mkdirSync(summaryDir, { recursive: true });
 	const safeTimestamp = deps.clock.safeIso();
 	const timestampedPath = deps.paths.join(summaryDir, `${safeTimestamp}-project-summary.md`);
-	doc.save(timestampedPath);
+	doc.save(timestampedPath, deps.disk);
 
 	const jsonData = buildJsonOutput(projectName, snapshots, findings, lint, typedoc, thresholds, json, detailed, runResults, deps);
 	const jsonPath = deps.paths.join(summaryDir, `${safeTimestamp}-project-summary.json`);

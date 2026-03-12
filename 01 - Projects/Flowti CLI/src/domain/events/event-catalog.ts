@@ -226,7 +226,7 @@ export function createEventFile(deps: Pick<CliDeps, "disk" | "paths" | "clock">,
 	renderListOrPlaceholder(doc, fileLinks, "<!-- Related test, source, config, and definition files will be linked here. -->");
 	doc.addBlank();
 
-	doc.save(filePath);
+	doc.save(filePath, deps.disk);
 	return filePath;
 }
 

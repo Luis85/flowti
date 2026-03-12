@@ -31,9 +31,10 @@ vi.mock("../../../src/infrastructure/ui.js", () => ({
 	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", CYAN: "", YELLOW: "",
 }));
 
-vi.mock("../../../src/infrastructure/shell.js", () => ({
-	shell: { run: vi.fn(() => 0), runSilent: vi.fn() },
-}));
+vi.mock("../../../src/infrastructure/shell.js", async () => {
+	const { mockShellPreset } = await import("../../mocks/mock-presets.js");
+	return mockShellPreset();
+});
 
 vi.mock("../../../src/infrastructure/menu.js", () => ({
 	runMenu: vi.fn(async (_title: string, items: Array<{ key: string; action?: () => unknown }>) => {

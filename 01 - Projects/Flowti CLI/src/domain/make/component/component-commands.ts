@@ -73,8 +73,8 @@ export function parseJsonFile(filePath: string, deps: Pick<CliDeps, "disk">): Re
 	}
 }
 
-function writePlanSkippingJson(projectPath: string, plan: { path: string; content: string }[]): number {
-	const writer = createOverwriteFileWriter(projectPath);
+function writePlanSkippingJson(projectPath: string, plan: { path: string; content: string }[], deps: Pick<CliDeps, "disk">): number {
+	const writer = createOverwriteFileWriter(projectPath, deps.disk);
 	for (const f of plan) {
 		if (!f.path.endsWith(".json")) writer.write(f.path, f.content);
 	}
@@ -114,7 +114,7 @@ export function makeComponent(
 	const templates = createComponentTemplateRegistry();
 	const plan = buildComponentPlan(vars, def, templates, { clock: deps.clock });
 
-	const writer = createFileWriter(projectPath);
+	const writer = createFileWriter(projectPath, deps.disk);
 	for (const f of plan) writer.write(f.path, f.content);
 
 	return {
@@ -178,7 +178,7 @@ export function regenerateComponent(
 	});
 
 	const plan = buildComponentPlan(vars, blueprint, createComponentTemplateRegistry(), { clock: deps.clock });
-	const filesWritten = writePlanSkippingJson(projectPath, plan);
+	const filesWritten = writePlanSkippingJson(projectPath, plan, deps);
 	return { success: true, name: vars.name, filesWritten };
 }
 

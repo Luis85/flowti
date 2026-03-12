@@ -7,6 +7,7 @@
 
 import { cliConfig, PROJECTS_DIR } from "../../infrastructure/config.js";
 import type { CliDeps } from "../../infrastructure/deps.js";
+import type { IFileSystem } from "../../infrastructure/types.js";
 import { createFileWriter } from "../make/templates/file-writer.js";
 import { toKebab, toPascal, toCamel } from "../make/naming.js";
 import type { ScaffoldDefinition, ScaffoldVariables, ScaffoldContext, FileEntry } from "./scaffold-types.js";
@@ -94,8 +95,8 @@ export function resolvePromptDefault(defaultValue: string | undefined): string {
 
 // ── Write plan ───────────────────────────────────────────────────────
 
-function writePlan(outputPath: string, entries: FileEntry[]): number {
-	const writer = createFileWriter(outputPath);
+function writePlan(outputPath: string, entries: FileEntry[], disk?: IFileSystem): number {
+	const writer = createFileWriter(outputPath, disk);
 	for (const f of entries) writer.write(f.path, f.content);
 	return writer.created;
 }
@@ -144,7 +145,7 @@ export function scaffold(
 
 	const ctx: ScaffoldContext = { vars, outputPath: outputDir, definition: def };
 	const plan = buildScaffoldPlan(ctx, registry);
-	const created = writePlan(outputDir, plan);
+	const created = writePlan(outputDir, plan, deps.disk);
 
 	return { created, outputPath: outputDir };
 }

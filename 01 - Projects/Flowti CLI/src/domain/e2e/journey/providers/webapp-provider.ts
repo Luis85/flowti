@@ -14,10 +14,10 @@ import { resolveString } from "../journey-tools.js";
  * Action: { tool: "http-check", url: "http://localhost:3000", expectedStatus?: 200 }
  */
 const toolHttpCheck: ToolExecutor = (action, deps, opts) => {
-	const start = Date.now();
+	const start = deps.clock.ms();
 	const url = resolveString(action, "url", opts.variables ?? {});
 	const expectedStatus = (action.expectedStatus as number) ?? 200;
-	if (!url) return { tool: "http-check", success: false, error: "No url specified", durationMs: Date.now() - start };
+	if (!url) return { tool: "http-check", success: false, error: "No url specified", durationMs: deps.clock.ms() - start };
 
 	try {
 		// Use curl as a portable HTTP client
@@ -33,10 +33,10 @@ const toolHttpCheck: ToolExecutor = (action, deps, opts) => {
 			success,
 			output: `HTTP ${statusCode}`,
 			error: success ? undefined : `Expected ${expectedStatus}, got ${statusCode}`,
-			durationMs: Date.now() - start,
+			durationMs: deps.clock.ms() - start,
 		};
 	} catch (e) {
-		return { tool: "http-check", success: false, error: String(e), durationMs: Date.now() - start };
+		return { tool: "http-check", success: false, error: String(e), durationMs: deps.clock.ms() - start };
 	}
 };
 
@@ -49,7 +49,7 @@ const toolHttpCheck: ToolExecutor = (action, deps, opts) => {
  * Stop attempts to kill the process on the port.
  */
 const toolDevServer: ToolExecutor = (action, deps, opts) => {
-	const start = Date.now();
+	const start = deps.clock.ms();
 	const op = action.op as string;
 	const variables = opts.variables ?? {};
 
@@ -64,7 +64,7 @@ const toolDevServer: ToolExecutor = (action, deps, opts) => {
 				// Expected: background process doesn't return cleanly
 			}
 			deps.log(`[webapp] Dev server starting on port ${port}...`);
-			return { tool: "dev-server", success: true, output: `Started on port ${port}`, durationMs: Date.now() - start };
+			return { tool: "dev-server", success: true, output: `Started on port ${port}`, durationMs: deps.clock.ms() - start };
 		}
 		case "stop": {
 			const port = action.port as number ?? 3000;
@@ -74,10 +74,10 @@ const toolDevServer: ToolExecutor = (action, deps, opts) => {
 			} catch {
 				// Best effort
 			}
-			return { tool: "dev-server", success: true, output: `Stopped port ${port}`, durationMs: Date.now() - start };
+			return { tool: "dev-server", success: true, output: `Stopped port ${port}`, durationMs: deps.clock.ms() - start };
 		}
 		default:
-			return { tool: "dev-server", success: false, error: `Unknown dev-server op: ${op}`, durationMs: Date.now() - start };
+			return { tool: "dev-server", success: false, error: `Unknown dev-server op: ${op}`, durationMs: deps.clock.ms() - start };
 	}
 };
 
@@ -86,12 +86,12 @@ const toolDevServer: ToolExecutor = (action, deps, opts) => {
  * Action: { tool: "bundle-check", path: "dist/index.js", maxSizeKb?: 500 }
  */
 const toolBundleCheck: ToolExecutor = (action, deps, opts) => {
-	const start = Date.now();
+	const start = deps.clock.ms();
 	const path = resolveString(action, "path", opts.variables ?? {});
 	const maxSizeKb = action.maxSizeKb as number;
 
-	if (!path) return { tool: "bundle-check", success: false, error: "No path specified", durationMs: Date.now() - start };
-	if (!deps.exists(path)) return { tool: "bundle-check", success: false, error: `Bundle not found: ${path}`, durationMs: Date.now() - start };
+	if (!path) return { tool: "bundle-check", success: false, error: "No path specified", durationMs: deps.clock.ms() - start };
+	if (!deps.exists(path)) return { tool: "bundle-check", success: false, error: `Bundle not found: ${path}`, durationMs: deps.clock.ms() - start };
 
 	try {
 		const content = deps.readFile(path);
@@ -102,10 +102,10 @@ const toolBundleCheck: ToolExecutor = (action, deps, opts) => {
 			success: underLimit,
 			output: `${sizeKb} KB${maxSizeKb ? ` (limit: ${maxSizeKb} KB)` : ""}`,
 			error: underLimit ? undefined : `Bundle too large: ${sizeKb} KB > ${maxSizeKb} KB`,
-			durationMs: Date.now() - start,
+			durationMs: deps.clock.ms() - start,
 		};
 	} catch (e) {
-		return { tool: "bundle-check", success: false, error: String(e), durationMs: Date.now() - start };
+		return { tool: "bundle-check", success: false, error: String(e), durationMs: deps.clock.ms() - start };
 	}
 };
 

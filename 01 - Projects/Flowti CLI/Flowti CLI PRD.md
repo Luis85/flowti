@@ -342,10 +342,10 @@ Flowti CLI occupies a unique niche: **vault-native project management CLI**. No 
 
 | Metric | Value |
 |--------|-------|
-| Source files | 343 |
-| Test files | 245 (239 suites) |
-| Tests passing | 3,899 |
-| Domain modules | 24 |
+| Source files | 345 |
+| Test files | 253 (247 suites) |
+| Tests passing | 3,990 |
+| Domain modules | 25 |
 | Controllers | 22 |
 | UI view files | 74 |
 | Infrastructure modules | 33 |
@@ -354,7 +354,7 @@ Flowti CLI occupies a unique niche: **vault-native project management CLI**. No 
 | Component definitions | 8 (4 C4 + 4 UI building blocks) |
 | Report generators | 8 (6 report + 2 reference) |
 | E2E environment providers | 5 |
-| Technical debt items | 28 (16 resolved) |
+| Technical debt items | 30 (19 resolved) |
 | Build | Clean (0 errors) |
 | TypeDoc | Clean (0 errors) |
 | ESLint | Clean (0 warnings) |

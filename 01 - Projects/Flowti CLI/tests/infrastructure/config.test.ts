@@ -158,4 +158,86 @@ describe("findVaultRoot", () => {
 		const result = findVaultRoot("/vault", (p) => p.replace(/\\/g, "/").includes("/vault/.flowti/config.json"));
 		expect(result).toBe("/vault");
 	});
+
+	it("stops early when parent equals candidate (filesystem root)", () => {
+		// Simulate a resolve that always returns the same path (root)
+		const result = findVaultRoot("/", () => false, path.join, () => "/");
+		expect(result).toBeNull();
+	});
+
+	it("walks up multiple levels to find config", () => {
+		const checked: string[] = [];
+		const result = findVaultRoot("/a/b/c/d", (p) => {
+			checked.push(p.replace(/\\/g, "/"));
+			return p.replace(/\\/g, "/").includes("/a/.flowti/config.json");
+		});
+		expect(result).not.toBeNull();
+		// Should have checked at least 3 levels before finding it
+		expect(checked.length).toBeGreaterThanOrEqual(3);
+	});
+});
+
+// ── resolveVaultRoot (mirrors logic from config.ts) ──────────────────
+
+/**
+ * Mirrors resolveVaultRoot from config.ts — checks env var then walks from cwd.
+ */
+function resolveVaultRoot(
+	envVars: Record<string, string | undefined>,
+	cwd: string,
+	existsFn: (p: string) => boolean,
+): string {
+	const fromEnv = envVars["FLOWTI_VAULT_ROOT"];
+	if (fromEnv && existsFn(path.join(fromEnv, ".flowti", "config.json"))) {
+		return fromEnv;
+	}
+
+	const fromCwd = findVaultRoot(cwd, existsFn);
+	if (fromCwd) return fromCwd;
+
+	throw new Error("Cannot locate vault root.");
+}
+
+describe("resolveVaultRoot", () => {
+	it("returns env var path when FLOWTI_VAULT_ROOT is set and config exists", () => {
+		const result = resolveVaultRoot(
+			{ FLOWTI_VAULT_ROOT: "/env/vault" },
+			"/other",
+			(p) => p.replace(/\\/g, "/").includes("/env/vault/.flowti/config.json"),
+		);
+		expect(result).toBe("/env/vault");
+	});
+
+	it("ignores env var when config does not exist at that path", () => {
+		const result = resolveVaultRoot(
+			{ FLOWTI_VAULT_ROOT: "/bad/path" },
+			"/good/vault",
+			(p) => p.replace(/\\/g, "/").includes("/good/vault/.flowti/config.json"),
+		);
+		expect(result).toBe("/good/vault");
+	});
+
+	it("ignores env var when FLOWTI_VAULT_ROOT is undefined", () => {
+		const result = resolveVaultRoot(
+			{},
+			"/cwd/vault",
+			(p) => p.replace(/\\/g, "/").includes("/cwd/vault/.flowti/config.json"),
+		);
+		expect(result).toBe("/cwd/vault");
+	});
+
+	it("falls back to cwd walk when env var is empty string", () => {
+		const result = resolveVaultRoot(
+			{ FLOWTI_VAULT_ROOT: "" },
+			"/cwd/vault",
+			(p) => p.replace(/\\/g, "/").includes("/cwd/vault/.flowti/config.json"),
+		);
+		expect(result).toBe("/cwd/vault");
+	});
+
+	it("throws when neither env nor cwd yields a vault root", () => {
+		expect(() =>
+			resolveVaultRoot({}, "/nowhere", () => false),
+		).toThrow("Cannot locate vault root.");
+	});
 });

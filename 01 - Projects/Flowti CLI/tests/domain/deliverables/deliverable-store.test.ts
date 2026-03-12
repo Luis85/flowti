@@ -121,16 +121,14 @@ describe("updateDeliverableStatus", () => {
 
 	it("updates status and completion in file content", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readFileSync.mockReturnValue("---\nstatus: planned\ncompletionPct: 0\n---\nBody");
+		let stored = "---\nstatus: planned\ncompletionPct: 0\n---\nBody";
+		mockDisk.readFileSync.mockImplementation(() => stored);
+		mockDisk.writeFileSync.mockImplementation((_p: string, content: string) => { stored = content; });
 
 		const result = updateDeliverableStatus(deps, "/project", "MVP", "done", 100);
 
 		expect(result).toBe(true);
-		expect(mockDisk.writeFileSync).toHaveBeenCalledWith(
-			"/project/docs/deliverables/mvp.md",
-			"---\nstatus: done\ncompletionPct: 100\n---\nBody",
-			"utf-8",
-		);
+		expect(stored).toBe("---\nstatus: done\ncompletionPct: 100\n---\nBody");
 	});
 
 	it("updates only status when completionPct not provided", () => {

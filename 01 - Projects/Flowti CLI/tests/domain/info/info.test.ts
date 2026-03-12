@@ -33,6 +33,8 @@ vi.mock("../../../src/infrastructure/filesystem.js", () => ({
 	},
 }));
 
+// Inline shell mock: delegates runSilent to mockRunSilent var for per-test control.
+// Cannot use mockShellPreset() — see tests/mocks/mock-presets.ts for the standard factory.
 vi.mock("../../../src/infrastructure/shell.js", () => ({
 	shell: {
 		run: vi.fn(() => 0),

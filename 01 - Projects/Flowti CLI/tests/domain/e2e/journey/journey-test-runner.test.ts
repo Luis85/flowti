@@ -21,11 +21,10 @@ vi.mock("../../../../src/infrastructure/proc.js", () => {
 	return { proc: { env: () => env } };
 });
 
-vi.mock("../../../../src/infrastructure/shell.js", () => ({
-	shell: {
-		runCaptureDetailed: vi.fn(() => ({ stdout: "", stderr: "", exitCode: 0 })),
-	},
-}));
+vi.mock("../../../../src/infrastructure/shell.js", async () => {
+	const { mockShellPreset } = await import("../../../mocks/mock-presets.js");
+	return mockShellPreset();
+});
 
 vi.mock("../../../../src/domain/e2e/journey/journey-loader.js", () => ({
 	loadJourneyFile: vi.fn((_read: unknown, _path: string) => ({
@@ -72,7 +71,7 @@ import {
 	ensureTestVault,
 } from "../../../../src/domain/e2e/journey/journey-test-runner.js";
 
-const cliDeps = { disk, paths, proc, shell } as any;
+const cliDeps = { disk, paths, proc, shell, clock: { ms: () => Date.now(), now: () => new Date(), iso: () => new Date().toISOString(), safeIso: () => new Date().toISOString().replace(/:/g, "-") } } as any;
 
 describe("createDefaultDeps", () => {
 	beforeEach(() => {

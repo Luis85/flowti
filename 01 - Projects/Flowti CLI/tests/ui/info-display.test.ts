@@ -15,9 +15,10 @@ vi.mock("../../src/infrastructure/filesystem.js", () => ({
 		readdirSync: vi.fn(() => []),
 	},
 }));
-vi.mock("../../src/infrastructure/shell.js", () => ({
-	shell: { runSilent: vi.fn(() => null) },
-}));
+vi.mock("../../src/infrastructure/shell.js", async () => {
+	const { mockShellPreset } = await import("../mocks/mock-presets.js");
+	return mockShellPreset();
+});
 vi.mock("../../src/infrastructure/fs.js", () => ({
 	countFiles: vi.fn(() => 0),
 }));

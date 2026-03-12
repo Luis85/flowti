@@ -81,8 +81,8 @@ export class ReportService {
 		const outputPath = this.paths.join(outputDir, `${safeTimestamp}-${opts.slug}.md`);
 
 		this.disk.mkdirSync(outputDir, { recursive: true });
-		doc.save(outputPath);
-		doc.save(this.stablePath(opts.stableFilename));
+		doc.save(outputPath, this.disk);
+		doc.save(this.stablePath(opts.stableFilename), this.disk);
 
 		if (opts.sourceJson && this.disk.existsSync(opts.sourceJson)) {
 			const jsonSnapshot = this.paths.join(outputDir, `${safeTimestamp}-${opts.slug}.json`);
@@ -102,7 +102,7 @@ export class ReportService {
 	saveReference(doc: Document, filename: string): string {
 		this.disk.mkdirSync(this.referenceDir, { recursive: true });
 		const outputPath = this.paths.join(this.referenceDir, filename);
-		doc.save(outputPath);
+		doc.save(outputPath, this.disk);
 		return outputPath;
 	}
 

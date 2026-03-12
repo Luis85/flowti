@@ -16,6 +16,8 @@ vi.mock("../../../src/infrastructure/paths.js", () => ({
 	},
 }));
 
+// Inline shell mock: per-test vi.mocked(shell.*) overrides require vi.fn().
+// See tests/mocks/mock-presets.ts for the standard mockShellPreset() factory.
 vi.mock("../../../src/infrastructure/shell.js", () => ({
 	shell: {
 		run: vi.fn(() => 0),
@@ -51,7 +53,7 @@ import type { E2EPaths } from "../../../src/domain/e2e/e2e-paths.js";
 
 const mockLog = vi.fn();
 const mockProc = { exit: vi.fn(), env: () => ({}), argv: () => [] } as any;
-const mockClock = { now: () => new Date(), safeIso: () => "2026-01-01T00:00:00" } as any;
+const mockClock = { now: () => new Date(), ms: () => Date.now(), safeIso: () => "2026-01-01T00:00:00" } as any;
 const deps = { disk, shell, paths, log: mockLog, proc: mockProc, clock: mockClock } as const;
 
 const e2e: E2EPaths = {

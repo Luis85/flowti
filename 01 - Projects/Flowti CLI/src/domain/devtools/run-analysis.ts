@@ -283,9 +283,9 @@ export function runAnalysisPipeline(deps: AnalysisDeps): void {
 
 	// 3. Run complexity analysis (single-pass TypeScript AST)
 	logFn(`\nAnalyzing complexity in ${srcDir}...`);
-	const startMs = Date.now();
+	const startMs = deps.clock.ms();
 	const complexityResult = analyzeComplexity(srcDir, CLI_PROJECT, deps);
-	const durationSec = ((Date.now() - startMs) / 1000).toFixed(1);
+	const durationSec = ((deps.clock.ms() - startMs) / 1000).toFixed(1);
 	logFn(`Complexity analysis: ${complexityResult.summary.totalFunctions} functions, ${complexityResult.files.length} files (${durationSec}s)`);
 	writeComplexityOutputs(complexityResult, OUTPUT_DIR, deps);
 

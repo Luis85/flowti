@@ -42,6 +42,7 @@ vi.mock("../../src/infrastructure/clock.js", () => ({
 
 import { execSync, execFileSync, spawnSync, spawn, exec } from "node:child_process";
 import { shell } from "../../src/infrastructure/shell.js";
+import { log } from "../../src/infrastructure/logger.js";
 
 const mockedExec = vi.mocked(execSync);
 const mockedExecFile = vi.mocked(execFileSync);
@@ -79,6 +80,28 @@ describe("shell.run", () => {
 	it("returns 1 when status is undefined", () => {
 		mockedExec.mockImplementation(() => { throw new Error("oops"); });
 		expect(shell.run("bad-cmd")).toBe(1);
+	});
+
+	it("passes env variables when provided", () => {
+		mockedExec.mockReturnValue(Buffer.from(""));
+		shell.run("npm test", { env: { NODE_ENV: "test" } });
+		expect(mockedExec).toHaveBeenCalledWith("npm test", expect.objectContaining({
+			env: expect.objectContaining({ NODE_ENV: "test" }),
+		}));
+	});
+
+	it("does not set env when not provided", () => {
+		mockedExec.mockReturnValue(Buffer.from(""));
+		shell.run("npm test");
+		expect(mockedExec).toHaveBeenCalledWith("npm test", expect.objectContaining({
+			env: undefined,
+		}));
+	});
+
+	it("uses label for log output when provided", () => {
+		mockedExec.mockReturnValue(Buffer.from(""));
+		shell.run("npm test", { label: "Running tests" });
+		expect(log).toHaveBeenCalledWith(expect.stringContaining("Running tests"));
 	});
 });
 
@@ -338,6 +361,172 @@ describe("shell.spawnBackground", () => {
 				env: expect.objectContaining({ MY_VAR: "hello" }),
 			}),
 		);
+	});
+
+	it("does not set env when not provided", () => {
+		shell.spawnBackground("node server.js");
+
+		expect(mockedSpawn).toHaveBeenCalledWith(
+			"node server.js",
+			expect.objectContaining({ env: undefined }),
+		);
+	});
+
+	it("kill() is a no-op when already stopped", () => {
+		const proc = shell.spawnBackground("node server.js");
+		proc.kill(); // first kill
+		vi.clearAllMocks();
+		proc.kill(); // second kill — should not call execSync again
+		expect(mockedExec).not.toHaveBeenCalled();
+	});
+
+	it("collectOutput pushes lines from stdout data events", () => {
+		let stdoutHandler: ((chunk: Buffer) => void) | undefined;
+		mockedSpawn.mockReturnValue({
+			stdout: {
+				on: vi.fn((event: string, cb: (chunk: Buffer) => void) => {
+					if (event === "data") stdoutHandler = cb;
+				}),
+				off: vi.fn(),
+			},
+			stderr: { on: vi.fn(), off: vi.fn() },
+			on: vi.fn(),
+			off: vi.fn(),
+			kill: vi.fn(),
+			pid: 9999,
+		} as any);
+
+		const proc = shell.spawnBackground("echo hello");
+		stdoutHandler!(Buffer.from("line1\nline2\n"));
+
+		expect(proc.output).toContain("line1");
+		expect(proc.output).toContain("line2");
+	});
+
+	it("onOutput callback fires for new lines and can be unsubscribed", () => {
+		let stdoutHandler: ((chunk: Buffer) => void) | undefined;
+		mockedSpawn.mockReturnValue({
+			stdout: {
+				on: vi.fn((event: string, cb: (chunk: Buffer) => void) => {
+					if (event === "data") stdoutHandler = cb;
+				}),
+				off: vi.fn(),
+			},
+			stderr: { on: vi.fn(), off: vi.fn() },
+			on: vi.fn(),
+			off: vi.fn(),
+			kill: vi.fn(),
+			pid: 9999,
+		} as any);
+
+		const proc = shell.spawnBackground("echo hello");
+		const received: string[] = [];
+		const unsub = proc.onOutput((line) => received.push(line));
+
+		stdoutHandler!(Buffer.from("first\n"));
+		expect(received).toContain("first");
+
+		unsub();
+		stdoutHandler!(Buffer.from("second\n"));
+		expect(received).not.toContain("second");
+	});
+
+	it("exit event sets running to false", () => {
+		let exitHandler: (() => void) | undefined;
+		mockedSpawn.mockReturnValue({
+			stdout: { on: vi.fn(), off: vi.fn() },
+			stderr: { on: vi.fn(), off: vi.fn() },
+			on: vi.fn((event: string, cb: () => void) => {
+				if (event === "exit") exitHandler = cb;
+			}),
+			off: vi.fn(),
+			kill: vi.fn(),
+			pid: 9999,
+		} as any);
+
+		const proc = shell.spawnBackground("echo hello");
+		expect(proc.running).toBe(true);
+		exitHandler!();
+		expect(proc.running).toBe(false);
+	});
+
+	it("waitForOutput resolves when pattern matches stdout", async () => {
+		let stdoutOnHandlers: Map<string, ((chunk: Buffer) => void)[]> = new Map();
+		let stderrOnHandlers: Map<string, ((chunk: Buffer) => void)[]> = new Map();
+		mockedSpawn.mockReturnValue({
+			stdout: {
+				on: vi.fn((event: string, cb: (chunk: Buffer) => void) => {
+					if (!stdoutOnHandlers.has(event)) stdoutOnHandlers.set(event, []);
+					stdoutOnHandlers.get(event)!.push(cb);
+				}),
+				off: vi.fn(),
+			},
+			stderr: {
+				on: vi.fn((event: string, cb: (chunk: Buffer) => void) => {
+					if (!stderrOnHandlers.has(event)) stderrOnHandlers.set(event, []);
+					stderrOnHandlers.get(event)!.push(cb);
+				}),
+				off: vi.fn(),
+			},
+			on: vi.fn(),
+			off: vi.fn(),
+			kill: vi.fn(),
+			pid: 9999,
+		} as any);
+
+		const proc = shell.spawnBackground("node server.js");
+		const promise = proc.waitForOutput(/ready/, 5000);
+
+		// Emit data on stdout — the waitForOutput listener is the LAST one added
+		const listeners = stdoutOnHandlers.get("data") ?? [];
+		for (const cb of listeners) cb(Buffer.from("server ready on port 3000\n"));
+
+		const result = await promise;
+		expect(result).toContain("ready");
+	});
+
+	it("waitForOutput resolves null on timeout", async () => {
+		vi.useFakeTimers();
+		mockedSpawn.mockReturnValue({
+			stdout: { on: vi.fn(), off: vi.fn() },
+			stderr: { on: vi.fn(), off: vi.fn() },
+			on: vi.fn(),
+			off: vi.fn(),
+			kill: vi.fn(),
+			pid: 9999,
+		} as any);
+
+		const proc = shell.spawnBackground("node server.js");
+		const promise = proc.waitForOutput(/ready/, 1000);
+
+		vi.advanceTimersByTime(1001);
+
+		const result = await promise;
+		expect(result).toBeNull();
+		vi.useRealTimers();
+	});
+
+	it("waitForOutput resolves null on process exit", async () => {
+		let exitHandlers: ((event: string) => void)[] = [];
+		mockedSpawn.mockReturnValue({
+			stdout: { on: vi.fn(), off: vi.fn() },
+			stderr: { on: vi.fn(), off: vi.fn() },
+			on: vi.fn((event: string, cb: () => void) => {
+				exitHandlers.push(cb as any);
+			}),
+			off: vi.fn(),
+			kill: vi.fn(),
+			pid: 9999,
+		} as any);
+
+		const proc = shell.spawnBackground("node server.js");
+		const promise = proc.waitForOutput(/ready/, 60_000);
+
+		// Fire exit event — the last registered "exit" handler is from waitForOutput
+		for (const cb of exitHandlers) cb("exit");
+
+		const result = await promise;
+		expect(result).toBeNull();
 	});
 });
 

@@ -4,9 +4,10 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../../src/infrastructure/shell.js", () => ({
-	shell: { run: vi.fn(() => 0), runSilent: vi.fn(() => null), check: vi.fn(() => true), runCapture: vi.fn(() => ""), execFile: vi.fn(() => null), runCaptureStatus: vi.fn(() => ({ output: "", exitCode: 0 })), runCaptureDetailed: vi.fn(() => ({ stdout: "", stderr: "", exitCode: 0 })), spawnBackground: vi.fn(() => ({ running: false, output: [], onOutput: () => () => {}, kill: () => {}, waitForOutput: () => Promise.resolve(null) })), runAsync: vi.fn(async () => ({ output: "", exitCode: 0 })), runParallel: vi.fn(async () => []) },
-}));
+vi.mock("../../src/infrastructure/shell.js", async () => {
+	const { mockShellPreset } = await import("../mocks/mock-presets.js");
+	return mockShellPreset();
+});
 vi.mock("../../src/infrastructure/logger.js", () => ({ log: vi.fn(), warn: vi.fn() }));
 vi.mock("../../src/infrastructure/proc.js", () => ({
 	proc: { exit: vi.fn(), argv: () => [], cwd: () => "/", env: () => ({}) },

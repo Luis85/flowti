@@ -20,6 +20,8 @@ vi.mock("../../../src/infrastructure/paths.js", () => ({
 	},
 }));
 
+// Inline shell mock: per-test vi.mocked(shell.*) overrides require vi.fn().
+// See tests/mocks/mock-presets.ts for the standard mockShellPreset() factory.
 vi.mock("../../../src/infrastructure/shell.js", () => ({
 	shell: { run: vi.fn(() => 0), runSilent: vi.fn(() => null) },
 }));

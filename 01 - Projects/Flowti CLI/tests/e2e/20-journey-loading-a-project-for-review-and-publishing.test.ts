@@ -9,6 +9,7 @@ import { describe, it } from "vitest";
 //
 // The journey definition is loaded from: tests/e2e/journeys/loading-a-project-for-review-and-publishing.journey
 
+// Deferred to Phase 8.5 — requires E2E infrastructure migration from Plugin (TD-23)
 describe.skip("Journey: loading-a-project-for-review-and-publishing", () => {
 	it("executes the loading-a-project-for-review-and-publishing journey", () => {
 		// Implementation requires journeyExecutor helper and a running Obsidian instance

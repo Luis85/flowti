@@ -7,9 +7,10 @@ vi.mock("../../../src/infrastructure/ui.js", () => ({
 vi.mock("../../../src/infrastructure/filesystem.js", () => ({
 	disk: { existsSync: vi.fn(() => false), readFileSync: vi.fn(() => "{}"), writeFileSync: vi.fn(), mkdirSync: vi.fn(), readdirSync: vi.fn(() => []) },
 }));
-vi.mock("../../../src/infrastructure/shell.js", () => ({
-	shell: { run: vi.fn(() => 0), runSilent: vi.fn() },
-}));
+vi.mock("../../../src/infrastructure/shell.js", async () => {
+	const { mockShellPreset } = await import("../../mocks/mock-presets.js");
+	return mockShellPreset();
+});
 vi.mock("../../../src/infrastructure/paths.js", () => ({
 	paths: {
 		join: (...args: string[]) => args.join("/"),

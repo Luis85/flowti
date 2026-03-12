@@ -70,9 +70,10 @@ vi.mock("../../src/infrastructure/paths.js", () => ({
 		resolve: (...args: string[]) => args.join("/"),
 	},
 }));
-vi.mock("../../src/infrastructure/shell.js", () => ({
-	shell: { run: vi.fn(() => 0), runSilent: vi.fn(() => null), runCaptureStatus: vi.fn(() => ({ exitCode: 0, stdout: "" })) },
-}));
+vi.mock("../../src/infrastructure/shell.js", async () => {
+	const { mockShellPreset } = await import("../mocks/mock-presets.js");
+	return mockShellPreset();
+});
 vi.mock("../../src/infrastructure/clock.js", () => ({
 	clock: { iso: () => "2026-03-10T00:00:00.000Z", now: () => new Date("2026-03-10"), ms: () => 0, safeIso: () => "" },
 }));

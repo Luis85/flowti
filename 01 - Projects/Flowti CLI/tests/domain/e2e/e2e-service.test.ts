@@ -26,9 +26,10 @@ vi.mock("../../../src/infrastructure/filesystem.js", () => ({
 	disk: { existsSync: vi.fn(() => false), readFileSync: vi.fn(() => "{}"), writeFileSync: vi.fn() },
 }));
 
-vi.mock("../../../src/infrastructure/shell.js", () => ({
-	shell: { run: vi.fn(() => 0), runSilent: vi.fn(() => null) },
-}));
+vi.mock("../../../src/infrastructure/shell.js", async () => {
+	const { mockShellPreset } = await import("../../mocks/mock-presets.js");
+	return mockShellPreset();
+});
 
 vi.mock("../../../src/domain/project/project-config.js", () => ({
 	readProjectConfig: vi.fn(() => ({ config: null, warnings: [] })),

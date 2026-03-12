@@ -49,6 +49,14 @@ describe("mock-presets", () => {
 			expect(shell.check("test")).toBe(true);
 			expect(shell.runCapture("test")).toBe("");
 			expect(shell.runCaptureStatus("test")).toEqual({ output: "", exitCode: 0 });
+			expect(shell.runCaptureDetailed("test")).toEqual({ stdout: "", stderr: "", exitCode: 0 });
+			expect(shell.spawnBackground("test")).toEqual(expect.objectContaining({ running: false }));
+		});
+
+		it("returns async shell methods", async () => {
+			const { shell } = mockShellPreset();
+			await expect(shell.runAsync("test")).resolves.toEqual({ output: "", exitCode: 0 });
+			await expect(shell.runParallel(["a", "b"])).resolves.toEqual([]);
 		});
 
 		it("accepts overrides", () => {

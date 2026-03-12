@@ -9,6 +9,7 @@ import { describe, it } from "vitest";
 //
 // The journey definition is loaded from: tests/e2e/journeys/creating-a-new-project-and-start-to-work.journey
 
+// Deferred to Phase 8.5 — requires E2E infrastructure migration from Plugin (TD-23)
 describe.skip("Journey: creating-a-new-project-and-start-to-work", () => {
 	it("executes the creating-a-new-project-and-start-to-work journey", () => {
 		// Implementation requires journeyExecutor helper and a running Obsidian instance

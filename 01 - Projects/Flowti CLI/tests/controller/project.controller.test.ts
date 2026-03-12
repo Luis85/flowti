@@ -7,9 +7,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // ── Mocks (must come BEFORE imports) ─────────────────────────────
 
 vi.mock("../../src/infrastructure/logger.js", () => ({ log: vi.fn(), warn: vi.fn() }));
-vi.mock("../../src/infrastructure/shell.js", () => ({
-	shell: { run: vi.fn(() => 0) },
-}));
+vi.mock("../../src/infrastructure/shell.js", async () => {
+	const { mockShellPreset } = await import("../mocks/mock-presets.js");
+	return mockShellPreset();
+});
 vi.mock("../../src/infrastructure/filesystem.js", () => ({
 	disk: {
 		existsSync: vi.fn(() => true),

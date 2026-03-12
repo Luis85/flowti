@@ -12,6 +12,7 @@ import type { CliDeps } from "../../infrastructure/deps.js";
 import type { EntityType, LifecycleState, LifecycleTransitionRecord } from "../../infrastructure/types.js";
 import type { LifecycleRecord, LifecycleSummary, TransitionResult } from "./lifecycle-types.js";
 import { getTemplate, validateTransition } from "./lifecycle-engine.js";
+import { resolveDir } from "../shared/markdown-store.js";
 
 export type LifecycleStoreDeps = Pick<CliDeps, "disk" | "paths" | "clock">;
 
@@ -19,7 +20,7 @@ export type LifecycleStoreDeps = Pick<CliDeps, "disk" | "paths" | "clock">;
 
 /** Resolve the lifecycle directory for nested items within a project. */
 export function lifecycleDir(deps: Pick<CliDeps, "paths">, basePath: string, subdir?: string): string {
-	return deps.paths.join(basePath, subdir ?? ".");
+	return resolveDir(deps, basePath, subdir, ".");
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -148,7 +149,7 @@ export function createLifecycleFile(
 		.text("| Date | From | To | Reason |")
 		.text("|---|---|---|---|");
 
-	doc.save(filePath);
+	doc.save(filePath, deps.disk);
 	return filePath;
 }
 
@@ -179,10 +180,10 @@ export function transitionLifecycleItem(
 	const count = parseInt(fm.transitionCount ?? "0", 10) + 1;
 
 	// Update frontmatter fields
-	let updated = content
-		.replace(/^currentState:\s*.+$/m, `currentState: ${newState}`)
-		.replace(/^transitionCount:\s*.+$/m, `transitionCount: ${count}`)
-		.replace(/^lastTransitionDate:\s*.*$/m, `lastTransitionDate: ${now}`);
+	let updated = content;
+	updated = updated.replace(/^currentState:\s*.+$/m, `currentState: ${newState}`);
+	updated = updated.replace(/^transitionCount:\s*.+$/m, `transitionCount: ${count}`);
+	updated = updated.replace(/^lastTransitionDate:\s*.*$/m, `lastTransitionDate: ${now}`);
 
 	// Append row to history table
 	const historyRow = `| ${now.slice(0, 10)} | ${currentState} | ${newState} | ${reason} |`;

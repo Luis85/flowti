@@ -36,6 +36,8 @@ vi.mock("../../../src/infrastructure/input.js", () => ({
 vi.mock("../../../src/infrastructure/menu.js", () => ({
 	runMenu: vi.fn(),
 }));
+// Inline shell mock: per-test vi.mocked(shell.runCaptureStatus) overrides require vi.fn().
+// See tests/mocks/mock-presets.ts for the standard mockShellPreset() factory.
 vi.mock("../../../src/infrastructure/shell.js", () => ({
 	shell: {
 		runCaptureStatus: vi.fn(() => ({ exitCode: 0, stdout: "" })),

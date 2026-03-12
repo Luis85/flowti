@@ -18,6 +18,7 @@ function mockDeps(): ToolDeps {
 		mkdir: vi.fn(),
 		log: vi.fn(),
 		sleep: vi.fn(async () => {}),
+		clock: { ms: () => Date.now() },
 	};
 }
 

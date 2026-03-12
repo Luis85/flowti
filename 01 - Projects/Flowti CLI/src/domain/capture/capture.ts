@@ -53,7 +53,7 @@ export function createCaptureFile(deps: Pick<CliDeps, "disk" | "paths" | "clock"
 	}
 
 	doc.addBlank();
-	doc.save(filePath);
+	doc.save(filePath, deps.disk);
 	return filePath;
 }
 

@@ -5,17 +5,16 @@
  */
 
 import { Document } from "../../infrastructure/document.js";
-import { parseFrontmatterStrings } from "../../infrastructure/frontmatter.js";
-import { toKebab } from "../make/naming.js";
 import type { CliDeps } from "../../infrastructure/deps.js";
 import type { CAPAConfig, CAPAStatus } from "../../infrastructure/types.js";
 import type { CAPADefinition, CAPASummary } from "./capa-types.js";
+import { resolveDir, listItems, toMdFilename, updateField } from "../shared/markdown-store.js";
 
 export type CAPAStoreDeps = Pick<CliDeps, "disk" | "paths" | "clock">;
 
 /** Resolve the CAPA directory for a project. */
 export function capaDir(deps: Pick<CliDeps, "paths">, projectPath: string, config?: CAPAConfig): string {
-	return deps.paths.join(projectPath, config?.dir ?? "docs/capa");
+	return resolveDir(deps, projectPath, config?.dir, "docs/capa");
 }
 
 /** Auto-generate the next CAPA ID from existing items. */
@@ -44,16 +43,7 @@ function parseCAPASummary(fm: Record<string, string>, file: string): CAPASummary
 
 /** List all CAPA items from the CAPA directory. */
 export function listCAPAItems(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, config?: CAPAConfig): CAPASummary[] {
-	const dir = capaDir(deps, projectPath, config);
-	if (!deps.disk.existsSync(dir)) return [];
-
-	const files = deps.disk.readdirSync(dir).filter((f: string) => f.endsWith(".md"));
-	const items: CAPASummary[] = files.map((file) => {
-		const content = deps.disk.readFileSync(deps.paths.join(dir, file), "utf-8");
-		return parseCAPASummary(parseFrontmatterStrings(content), file);
-	});
-
-	return items.sort((a, b) => a.name.localeCompare(b.name));
+	return listItems(deps, capaDir(deps, projectPath, config), parseCAPASummary, (a, b) => a.name.localeCompare(b.name));
 }
 
 /** Create a new CAPA item markdown file. Returns the file path or null if it already exists. */
@@ -61,8 +51,7 @@ export function createCAPAItem(deps: CAPAStoreDeps, projectPath: string, def: CA
 	const dir = capaDir(deps, projectPath, config);
 	deps.disk.mkdirSync(dir, { recursive: true });
 
-	const kebab = toKebab(def.name);
-	const filename = kebab + ".md";
+	const filename = toMdFilename(def.name);
 	const filePath = deps.paths.join(dir, filename);
 
 	if (deps.disk.existsSync(filePath)) return null;
@@ -105,7 +94,7 @@ export function createCAPAItem(deps: CAPAStoreDeps, projectPath: string, def: CA
 	doc.heading(2, "Verification").addBlank();
 	doc.text("<!-- Define how effectiveness will be verified. -->");
 
-	doc.save(filePath);
+	doc.save(filePath, deps.disk);
 	return filePath;
 }
 
@@ -118,13 +107,6 @@ export function updateCAPAStatus(
 	config?: CAPAConfig,
 ): boolean {
 	const dir = capaDir(deps, projectPath, config);
-	const kebab = toKebab(itemName);
-	const filePath = deps.paths.join(dir, kebab + ".md");
-
-	if (!deps.disk.existsSync(filePath)) return false;
-
-	let content = deps.disk.readFileSync(filePath, "utf-8");
-	content = content.replace(/^status:\s*.+$/m, `status: ${status}`);
-	deps.disk.writeFileSync(filePath, content, "utf-8");
-	return true;
+	const filePath = deps.paths.join(dir, toMdFilename(itemName));
+	return updateField(deps, filePath, "status", status);
 }

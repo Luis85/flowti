@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../../../src/infrastructure/shell.js", () => ({
-	shell: { run: vi.fn(() => 0) },
-}));
+vi.mock("../../../src/infrastructure/shell.js", async () => {
+	const { mockShellPreset } = await import("../../mocks/mock-presets.js");
+	return mockShellPreset();
+});
 
 vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),

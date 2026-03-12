@@ -24,9 +24,10 @@ vi.mock("../../src/infrastructure/filesystem.js", () => ({
 vi.mock("../../src/infrastructure/paths.js", () => ({
 	paths: { join: (...parts: string[]) => parts.join("/"), resolve: (...parts: string[]) => parts.join("/") },
 }));
-vi.mock("../../src/infrastructure/shell.js", () => ({
-	shell: { run: vi.fn(), runSilent: vi.fn(() => null), runCaptureStatus: vi.fn(() => ({ exitCode: 0, output: "" })) },
-}));
+vi.mock("../../src/infrastructure/shell.js", async () => {
+	const { mockShellPreset } = await import("../mocks/mock-presets.js");
+	return mockShellPreset();
+});
 vi.mock("../../src/infrastructure/input.js", () => ({
 	input: { waitForEnter: vi.fn() },
 }));

@@ -38,8 +38,8 @@ import type { EnvironmentRegistry } from "./journey-environment.js";
 
 // ── Default deps (using infrastructure wrappers) ─────────────────────
 
-export function createDefaultDeps(deps: Pick<CliDeps, "disk" | "paths" | "proc" | "shell">, logger: (msg: string) => void = () => {}): ToolDeps {
-	const { disk, paths, proc, shell } = deps;
+export function createDefaultDeps(deps: Pick<CliDeps, "disk" | "paths" | "proc" | "shell" | "clock">, logger: (msg: string) => void = () => {}): ToolDeps {
+	const { disk, paths, proc, shell, clock } = deps;
 	return {
 		exec(cmd, execOpts) {
 			return shell.runCaptureDetailed(cmd, {
@@ -57,6 +57,7 @@ export function createDefaultDeps(deps: Pick<CliDeps, "disk" | "paths" | "proc" 
 		mkdir: (dirPath) => disk.mkdirSync(dirPath, { recursive: true }),
 		log: (msg) => logger(msg),
 		sleep: (waitMs) => new Promise((resolve) => setTimeout(resolve, waitMs)),
+		clock: { ms: () => clock.ms() },
 	};
 }
 

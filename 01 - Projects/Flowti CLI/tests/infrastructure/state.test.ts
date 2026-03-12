@@ -6,7 +6,21 @@ vi.mock("../../src/infrastructure/config.js", () => ({
 	CLI_PROJECT: "/mock/vault/01 - Projects/Flowti CLI",
 }));
 
-import { loadState, saveState, getSelectedProject, setSelectedProject, clearSelectedProject } from "../../src/infrastructure/state.js";
+import {
+	loadState,
+	saveState,
+	getSelectedProject,
+	setSelectedProject,
+	clearSelectedProject,
+	getSelectedProduct,
+	setSelectedProduct,
+	clearSelectedProduct,
+	getSelectedFeature,
+	setSelectedFeature,
+	clearSelectedFeature,
+	getSelectedItemType,
+	clearAllSelections,
+} from "../../src/infrastructure/state.js";
 
 // State path is: VAULT_ROOT + "/.flowti/var/state.json"
 const STATE_DIR = "/mock/vault/.flowti/var";
@@ -110,5 +124,59 @@ describe("getSelectedProject / setSelectedProject / clearSelectedProject", () =>
 		setSelectedProject("temp");
 		clearSelectedProject();
 		expect(getSelectedProject()).toBeNull();
+	});
+});
+
+describe("getSelectedProduct / setSelectedProduct / clearSelectedProduct", () => {
+	it("setSelectedProduct stores product and sets itemType to product", () => {
+		setSelectedProduct("my-product");
+		expect(getSelectedProduct()).toBe("my-product");
+		expect(getSelectedItemType()).toBe("product");
+	});
+
+	it("clearSelectedProduct removes product selection", () => {
+		setSelectedProduct("temp");
+		clearSelectedProduct();
+		expect(getSelectedProduct()).toBeNull();
+	});
+});
+
+describe("getSelectedFeature / setSelectedFeature / clearSelectedFeature", () => {
+	it("setSelectedFeature stores feature and sets itemType to feature", () => {
+		setSelectedFeature("my-feature");
+		expect(getSelectedFeature()).toBe("my-feature");
+		expect(getSelectedItemType()).toBe("feature");
+	});
+
+	it("clearSelectedFeature removes feature selection", () => {
+		setSelectedFeature("temp");
+		clearSelectedFeature();
+		expect(getSelectedFeature()).toBeNull();
+	});
+});
+
+describe("clearAllSelections", () => {
+	it("clears project, product, feature, and itemType", () => {
+		setSelectedProject("proj");
+		setSelectedProduct("prod");
+		setSelectedFeature("feat");
+		clearAllSelections();
+		expect(getSelectedProject()).toBeNull();
+		expect(getSelectedProduct()).toBeNull();
+		expect(getSelectedFeature()).toBeNull();
+		expect(getSelectedItemType()).toBeNull();
+	});
+});
+
+describe("migrateStateIfNeeded — directory creation", () => {
+	it("creates state directory during migration when it does not exist", () => {
+		const legacyData = JSON.stringify({ selectedProject: "migrated" });
+		// Create fs with only legacy file, no STATE_DIR
+		const fs = createMockFs({ [LEGACY_PATH]: legacyData });
+		// Remove the auto-seeded dirs to simulate STATE_DIR not existing
+		fs.dirs.delete(STATE_DIR);
+		loadState(fs);
+		expect(fs.dirs.has(STATE_DIR)).toBe(true);
+		expect(fs.files.has(STATE_PATH)).toBe(true);
 	});
 });

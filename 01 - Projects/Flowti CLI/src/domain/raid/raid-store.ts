@@ -5,42 +5,33 @@
  */
 
 import { Document } from "../../infrastructure/document.js";
-import { parseFrontmatterStrings } from "../../infrastructure/frontmatter.js";
-import { toKebab } from "../make/naming.js";
 import type { CliDeps } from "../../infrastructure/deps.js";
 import type { RAIDConfig, RAIDStatus } from "../../infrastructure/types.js";
 import type { RAIDDefinition, RAIDSummary } from "./raid-types.js";
+import { resolveDir, listItems, toMdFilename, updateField } from "../shared/markdown-store.js";
 
 export type RAIDStoreDeps = Pick<CliDeps, "disk" | "paths" | "clock">;
 
 /** Resolve the RAID directory for a project. */
 export function raidDir(deps: Pick<CliDeps, "paths">, projectPath: string, config?: RAIDConfig): string {
-	return deps.paths.join(projectPath, config?.dir ?? "docs/raid");
+	return resolveDir(deps, projectPath, config?.dir, "docs/raid");
+}
+
+function parseRAIDSummary(fm: Record<string, string>, file: string): RAIDSummary {
+	return {
+		name: fm.name ?? file.replace(/\.md$/, ""),
+		itemType: (fm.itemType as RAIDSummary["itemType"]) ?? "risk",
+		status: (fm.status as RAIDStatus) ?? "open",
+		severity: fm.severity ?? "medium",
+		owner: fm.owner ?? "",
+		dueDate: fm.dueDate ?? "",
+		file,
+	};
 }
 
 /** List all RAID items from the RAID directory. */
 export function listRAIDItems(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, config?: RAIDConfig): RAIDSummary[] {
-	const dir = raidDir(deps, projectPath, config);
-	if (!deps.disk.existsSync(dir)) return [];
-
-	const files = deps.disk.readdirSync(dir).filter((f: string) => f.endsWith(".md"));
-	const items: RAIDSummary[] = [];
-
-	for (const file of files) {
-		const content = deps.disk.readFileSync(deps.paths.join(dir, file), "utf-8");
-		const fm = parseFrontmatterStrings(content);
-		items.push({
-			name: fm.name ?? file.replace(/\.md$/, ""),
-			itemType: (fm.itemType as RAIDSummary["itemType"]) ?? "risk",
-			status: (fm.status as RAIDStatus) ?? "open",
-			severity: fm.severity ?? "medium",
-			owner: fm.owner ?? "",
-			dueDate: fm.dueDate ?? "",
-			file,
-		});
-	}
-
-	return items.sort((a, b) => a.name.localeCompare(b.name));
+	return listItems(deps, raidDir(deps, projectPath, config), parseRAIDSummary, (a, b) => a.name.localeCompare(b.name));
 }
 
 /** Create a new RAID item markdown file. Returns the file path or null if it already exists. */
@@ -48,8 +39,7 @@ export function createRAIDItem(deps: RAIDStoreDeps, projectPath: string, def: RA
 	const dir = raidDir(deps, projectPath, config);
 	deps.disk.mkdirSync(dir, { recursive: true });
 
-	const kebab = toKebab(def.name);
-	const filename = kebab + ".md";
+	const filename = toMdFilename(def.name);
 	const filePath = deps.paths.join(dir, filename);
 
 	if (deps.disk.existsSync(filePath)) return null;
@@ -80,7 +70,7 @@ export function createRAIDItem(deps: RAIDStoreDeps, projectPath: string, def: RA
 	doc.heading(2, "Mitigation / Resolution").addBlank();
 	doc.text("<!-- Add mitigation or resolution notes here. -->");
 
-	doc.save(filePath);
+	doc.save(filePath, deps.disk);
 	return filePath;
 }
 
@@ -93,13 +83,6 @@ export function updateRAIDStatus(
 	config?: RAIDConfig,
 ): boolean {
 	const dir = raidDir(deps, projectPath, config);
-	const kebab = toKebab(itemName);
-	const filePath = deps.paths.join(dir, kebab + ".md");
-
-	if (!deps.disk.existsSync(filePath)) return false;
-
-	let content = deps.disk.readFileSync(filePath, "utf-8");
-	content = content.replace(/^status:\s*.+$/m, `status: ${status}`);
-	deps.disk.writeFileSync(filePath, content, "utf-8");
-	return true;
+	const filePath = deps.paths.join(dir, toMdFilename(itemName));
+	return updateField(deps, filePath, "status", status);
 }

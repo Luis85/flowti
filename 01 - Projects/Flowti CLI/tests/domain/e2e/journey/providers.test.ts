@@ -18,6 +18,7 @@ function mockDeps(overrides?: Partial<ToolDeps>): ToolDeps {
 		mkdir: vi.fn(),
 		log: vi.fn(),
 		sleep: vi.fn(async () => {}),
+		clock: { ms: () => Date.now() },
 		...overrides,
 	};
 }

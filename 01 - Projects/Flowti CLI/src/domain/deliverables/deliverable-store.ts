@@ -5,41 +5,32 @@
  */
 
 import { Document } from "../../infrastructure/document.js";
-import { parseFrontmatterStrings } from "../../infrastructure/frontmatter.js";
-import { toKebab } from "../make/naming.js";
 import type { CliDeps } from "../../infrastructure/deps.js";
 import type { DeliverablesConfig, DeliverableStatus } from "../../infrastructure/types.js";
 import type { DeliverableDefinition, DeliverableSummary } from "./deliverable-types.js";
+import { resolveDir, listItems, toMdFilename, updateField } from "../shared/markdown-store.js";
 
 export type DeliverableStoreDeps = Pick<CliDeps, "disk" | "paths" | "clock">;
 
 /** Resolve the deliverables directory for a project. */
 export function deliverablesDir(deps: Pick<CliDeps, "paths">, projectPath: string, config?: DeliverablesConfig): string {
-	return deps.paths.join(projectPath, config?.dir ?? "docs/deliverables");
+	return resolveDir(deps, projectPath, config?.dir, "docs/deliverables");
+}
+
+function parseDeliverableSummary(fm: Record<string, string>, file: string): DeliverableSummary {
+	return {
+		name: fm.name ?? file.replace(/\.md$/, ""),
+		status: (fm.status as DeliverableStatus) ?? "planned",
+		dueDate: fm.dueDate ?? "",
+		assignee: fm.assignee ?? "",
+		completionPct: parseInt(fm.completionPct ?? "0", 10),
+		file,
+	};
 }
 
 /** List all deliverables from the deliverables directory. */
 export function listDeliverables(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, config?: DeliverablesConfig): DeliverableSummary[] {
-	const dir = deliverablesDir(deps, projectPath, config);
-	if (!deps.disk.existsSync(dir)) return [];
-
-	const files = deps.disk.readdirSync(dir).filter((f: string) => f.endsWith(".md"));
-	const deliverables: DeliverableSummary[] = [];
-
-	for (const file of files) {
-		const content = deps.disk.readFileSync(deps.paths.join(dir, file), "utf-8");
-		const fm = parseFrontmatterStrings(content);
-		deliverables.push({
-			name: fm.name ?? file.replace(/\.md$/, ""),
-			status: (fm.status as DeliverableStatus) ?? "planned",
-			dueDate: fm.dueDate ?? "",
-			assignee: fm.assignee ?? "",
-			completionPct: parseInt(fm.completionPct ?? "0", 10),
-			file,
-		});
-	}
-
-	return deliverables.sort((a, b) => a.name.localeCompare(b.name));
+	return listItems(deps, deliverablesDir(deps, projectPath, config), parseDeliverableSummary, (a, b) => a.name.localeCompare(b.name));
 }
 
 /** Create a new deliverable markdown file. Returns the file path or null if it already exists. */
@@ -47,8 +38,7 @@ export function createDeliverableFile(deps: DeliverableStoreDeps, projectPath: s
 	const dir = deliverablesDir(deps, projectPath, config);
 	deps.disk.mkdirSync(dir, { recursive: true });
 
-	const kebab = toKebab(def.name);
-	const filename = kebab + ".md";
+	const filename = toMdFilename(def.name);
 	const filePath = deps.paths.join(dir, filename);
 
 	if (deps.disk.existsSync(filePath)) return null;
@@ -78,7 +68,7 @@ export function createDeliverableFile(deps: DeliverableStoreDeps, projectPath: s
 	doc.heading(2, "Acceptance Criteria").addBlank();
 	doc.text("<!-- Define acceptance criteria here. -->");
 
-	doc.save(filePath);
+	doc.save(filePath, deps.disk);
 	return filePath;
 }
 
@@ -92,16 +82,11 @@ export function updateDeliverableStatus(
 	config?: DeliverablesConfig,
 ): boolean {
 	const dir = deliverablesDir(deps, projectPath, config);
-	const kebab = toKebab(deliverableName);
-	const filePath = deps.paths.join(dir, kebab + ".md");
+	const filePath = deps.paths.join(dir, toMdFilename(deliverableName));
 
-	if (!deps.disk.existsSync(filePath)) return false;
-
-	let content = deps.disk.readFileSync(filePath, "utf-8");
-	content = content.replace(/^status:\s*.+$/m, `status: ${status}`);
+	if (!updateField(deps, filePath, "status", status)) return false;
 	if (completionPct !== undefined) {
-		content = content.replace(/^completionPct:\s*.+$/m, `completionPct: ${completionPct}`);
+		updateField(deps, filePath, "completionPct", String(completionPct));
 	}
-	deps.disk.writeFileSync(filePath, content, "utf-8");
 	return true;
 }
