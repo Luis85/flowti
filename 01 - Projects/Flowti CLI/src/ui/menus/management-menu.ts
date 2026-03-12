@@ -1,7 +1,7 @@
 /**
  * management-menu.ts — Project Management submenu.
  *
- * Aggregates Resources, Time-Log, Deliverables, and Health under one menu.
+ * Aggregates Resources, Time-Log, Deliverables, RAID Log, Requirements, CAPA, and Health under one menu.
  */
 
 import { disk } from "../../infrastructure/filesystem.js";
@@ -42,6 +42,30 @@ export async function managementMenu(ctx: ProjectContext): Promise<MenuResult> {
 		},
 		{
 			key: "4",
+			label: "RAID Log",
+			action: async () => {
+				const { raidMenu } = await import("./raid-menu.js");
+				return raidMenu(ctx.path, mgmt?.raid);
+			},
+		},
+		{
+			key: "5",
+			label: "Requirements",
+			action: async () => {
+				const { requirementsMenu } = await import("./requirements-menu.js");
+				return requirementsMenu(ctx.path, mgmt?.requirements);
+			},
+		},
+		{
+			key: "6",
+			label: "CAPA",
+			action: async () => {
+				const { capaMenu } = await import("./capa-menu.js");
+				return capaMenu(ctx.path, mgmt?.capa);
+			},
+		},
+		{
+			key: "7",
 			label: "Health",
 			action: async () => {
 				const health = collectHealth({ disk, paths, shell }, ctx);

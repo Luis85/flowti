@@ -7,7 +7,7 @@
 import type { ResourceType } from "../../infrastructure/types.js";
 import type { ResourceSummary, FinancialSummary } from "./resource-types.js";
 
-const RESOURCE_TYPES: ResourceType[] = ["human", "material", "role"];
+const RESOURCE_TYPES: ResourceType[] = ["human", "material", "role", "budget"];
 
 /** Compute a financial summary from a list of resource summaries. */
 export function analyzeFinancials(resources: ResourceSummary[]): FinancialSummary {

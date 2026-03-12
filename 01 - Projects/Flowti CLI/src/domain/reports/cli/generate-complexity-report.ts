@@ -7,6 +7,7 @@
 
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
+import { resolveThresholds } from "./summary-loaders.js";
 import type { ReportDeps } from "../../../infrastructure/deps.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
 import { generateAnalysisData } from "../../devtools/run-analysis.js";
@@ -172,8 +173,10 @@ export function generateComplexityReport(projectPath: string, deps: ReportDeps, 
 	log(`  Written: ${outputPath}`);
 
 	const warnings: string[] = [];
-	const highComplexity = srcFiles.filter((f) => f.decisionPointCount > 15);
-	if (highComplexity.length > 0) warnings.push(`${highComplexity.length} file(s) exceed complexity threshold (>15 DPs)`);
+	const thresholds = resolveThresholds(projectPath, deps);
+	const maxFileDPs = thresholds.maxFileDecisionPoints;
+	const highComplexity = srcFiles.filter((f) => f.decisionPointCount > maxFileDPs);
+	if (highComplexity.length > 0) warnings.push(`${highComplexity.length} file(s) exceed complexity threshold (>${maxFileDPs} DPs)`);
 
 	return {
 		success: true,

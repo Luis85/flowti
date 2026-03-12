@@ -46,8 +46,9 @@ export async function timelogMenu(projectPath: string, config?: TimeLogConfig): 
 		{
 			key: "1",
 			label: "List Entries",
-			action: () => {
+			action: async () => {
 				renderTimeLogList(listTimeLogEntries(storeDeps(), projectPath, config));
+				await input.waitForEnter();
 				return "main" as const;
 			},
 		},
@@ -56,15 +57,17 @@ export async function timelogMenu(projectPath: string, config?: TimeLogConfig): 
 			label: "Log Time",
 			action: async () => {
 				await logTimeInteractive(projectPath, config);
+				await input.waitForEnter();
 				return "main" as const;
 			},
 		},
 		{
 			key: "3",
 			label: "Summary",
-			action: () => {
+			action: async () => {
 				const entries = listTimeLogEntries(storeDeps(), projectPath, config);
 				renderTimeLogSummary(summarizeTimeLog(entries));
+				await input.waitForEnter();
 				return "main" as const;
 			},
 		},

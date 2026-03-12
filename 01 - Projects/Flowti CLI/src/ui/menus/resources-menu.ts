@@ -16,8 +16,8 @@ import { renderResourceList, renderFinancialSummary, renderResourceAdded } from 
 function storeDeps() { return { disk, paths, clock } as const; }
 
 async function addResourceInteractive(projectPath: string, resourceType: ResourceType, config?: ResourcesConfig): Promise<void> {
-	const label = resourceType === "role" ? "Role" : resourceType === "material" ? "Material Resource" : "Human Resource";
-	printHeader(`Add ${label}`);
+	const labels: Record<ResourceType, string> = { role: "Role", material: "Material Resource", human: "Human Resource", budget: "Budget" };
+	printHeader(`Add ${labels[resourceType]}`);
 
 	const name = await input.ask("Name");
 	if (!name) return;
@@ -28,8 +28,19 @@ async function addResourceInteractive(projectPath: string, resourceType: Resourc
 	let hourlyRate: number | undefined;
 	let role: string | undefined;
 	let amount = 1;
+	let category: string | undefined;
+	let currency: string | undefined;
+	let periodStart: string | undefined;
+	let periodEnd: string | undefined;
 
-	if (resourceType === "role") {
+	if (resourceType === "budget") {
+		amount = parseFloat(await input.ask("Total amount", "0"));
+		currency = await input.ask("Currency", "EUR");
+		category = await input.ask("Category", "general");
+		periodStart = await input.ask("Period start (YYYY-MM-DD)", "");
+		periodEnd = await input.ask("Period end (YYYY-MM-DD)", "");
+		price = 1;
+	} else if (resourceType === "role") {
 		hourlyRate = parseFloat(await input.ask("Hourly rate", "0"));
 		price = hourlyRate;
 		amount = parseFloat(await input.ask("FTE amount", "1"));
@@ -52,6 +63,10 @@ async function addResourceInteractive(projectPath: string, resourceType: Resourc
 		consumed: 0,
 		status: "active",
 		description,
+		category: category || undefined,
+		currency: currency || undefined,
+		periodStart: periodStart || undefined,
+		periodEnd: periodEnd || undefined,
 	}, config);
 
 	if (filePath) {
@@ -64,8 +79,9 @@ export async function resourcesMenu(projectPath: string, config?: ResourcesConfi
 		{
 			key: "1",
 			label: "List Resources",
-			action: () => {
+			action: async () => {
 				renderResourceList(listResources(storeDeps(), projectPath, config));
+				await input.waitForEnter();
 				return "main" as const;
 			},
 		},
@@ -74,6 +90,7 @@ export async function resourcesMenu(projectPath: string, config?: ResourcesConfi
 			label: "Add Human Resource",
 			action: async () => {
 				await addResourceInteractive(projectPath, "human", config);
+				await input.waitForEnter();
 				return "main" as const;
 			},
 		},
@@ -82,6 +99,7 @@ export async function resourcesMenu(projectPath: string, config?: ResourcesConfi
 			label: "Add Material Resource",
 			action: async () => {
 				await addResourceInteractive(projectPath, "material", config);
+				await input.waitForEnter();
 				return "main" as const;
 			},
 		},
@@ -90,15 +108,26 @@ export async function resourcesMenu(projectPath: string, config?: ResourcesConfi
 			label: "Add Role",
 			action: async () => {
 				await addResourceInteractive(projectPath, "role", config);
+				await input.waitForEnter();
 				return "main" as const;
 			},
 		},
 		{
 			key: "5",
+			label: "Add Budget",
+			action: async () => {
+				await addResourceInteractive(projectPath, "budget", config);
+				await input.waitForEnter();
+				return "main" as const;
+			},
+		},
+		{
+			key: "6",
 			label: "Financial Summary",
-			action: () => {
+			action: async () => {
 				const resources = listResources(storeDeps(), projectPath, config);
 				renderFinancialSummary(analyzeFinancials(resources));
+				await input.waitForEnter();
 				return "main" as const;
 			},
 		},

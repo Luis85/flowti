@@ -32,7 +32,7 @@ const TOOL_PACKAGES: Record<DevToolId, string[]> = {
 
 // ── Detection ───────────────────────────────────────────────────────
 
-type DetectDeps = Pick<CliDeps, "disk" | "paths">;
+export type DetectDeps = Pick<CliDeps, "disk" | "paths">;
 
 /**
  * Detect which dev tools are available in a project by reading its package.json.

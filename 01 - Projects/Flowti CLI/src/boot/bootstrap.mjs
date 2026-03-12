@@ -106,7 +106,9 @@ if (!HAS_SOURCE) {
 		run("npm", ["run", "build"], SOURCE_DIR);
 	}
 
-	if (needsRebuild()) {
+	const cliCommand = process.argv[2];
+	const skipAutoRebuild = cliCommand === "build" || cliCommand === "build:full";
+	if (!skipAutoRebuild && needsRebuild()) {
 		console.log("[flowti] Source changes detected, rebuilding...");
 		run("npm", ["run", "build"], SOURCE_DIR);
 	}

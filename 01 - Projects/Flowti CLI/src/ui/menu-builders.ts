@@ -91,7 +91,7 @@ export function buildReportsSubmenu(
 		{
 			key: "h",
 			label: "Export to HTML",
-			action: () => { exportAllReportsToHtml(projectPath); return "main" as const; },
+			action: async () => { exportAllReportsToHtml(projectPath); await input.waitForEnter(); return "main" as const; },
 		},
 		{
 			key: "a",
@@ -158,8 +158,9 @@ export function buildDocsSubmenu(
 			items.push({
 				key: String(keyIdx++),
 				label: gen.label,
-				action: () => {
+				action: async () => {
 					shell.run(gen.command, { cwd: projectPath, label: gen.label });
+					await input.waitForEnter();
 					return "main" as const;
 				},
 			});
@@ -253,47 +254,52 @@ export function buildDevToolsSubmenu(
 		{
 			key: "1",
 			label: "Type Check + Lint",
-			action: () => {
+			action: async () => {
 				const cmd = scripts["check"] ? "npm run check" : "npx tsc --noEmit";
 				shell.run(cmd, { cwd: projectPath, label: "Running lint + tsc..." });
+				await input.waitForEnter();
 				return "main" as const;
 			},
 		},
 		{
 			key: "2",
 			label: "Lint Only",
-			action: () => {
+			action: async () => {
 				const cmd = scripts["lint"] ? "npm run lint" : "npx eslint src/";
 				shell.run(cmd, { cwd: projectPath, label: "Running ESLint..." });
+				await input.waitForEnter();
 				return "main" as const;
 			},
 		},
 		{
 			key: "3",
 			label: "Reload Plugin",
-			action: () => {
+			action: async () => {
 				shell.run("node scripts/cli-reload.mjs", { cwd: projectPath, label: "Reloading plugin..." });
+				await input.waitForEnter();
 				return "main" as const;
 			},
 		},
 		{
 			key: "4",
 			label: "Dev Console",
-			action: () => {
+			action: async () => {
 				const result = shell.runCaptureStatus("obsidian dev:console");
 				if (result.exitCode !== 0 && result.output.includes("Debugger not attached")) {
 					log(`  ${DIM}Debugger not attached — enabling debug mode...${RESET}`);
 					shell.run("obsidian dev:debug on", { label: "Enabling debug mode..." });
 					shell.run("obsidian dev:console", { label: "Opening dev console..." });
 				}
+				await input.waitForEnter();
 				return "main" as const;
 			},
 		},
 		...(debugOn ? [{
 			key: "5",
 			label: "Debug Off",
-			action: () => {
+			action: async () => {
 				shell.run("obsidian dev:debug off", { label: "Disabling debug mode..." });
+				await input.waitForEnter();
 				return "main" as const;
 			},
 		}] as MenuEntry[] : []),
@@ -303,6 +309,7 @@ export function buildDevToolsSubmenu(
 			action: async () => {
 				const { rebuildCli } = await import("../domain/devtools/self-update.js");
 				rebuildCli(projectPath, shell);
+				await input.waitForEnter();
 				return "main" as const;
 			},
 		},

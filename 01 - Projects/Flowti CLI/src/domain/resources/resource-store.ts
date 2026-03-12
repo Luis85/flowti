@@ -30,9 +30,10 @@ export function listResources(deps: Pick<CliDeps, "disk" | "paths">, projectPath
 	for (const file of files) {
 		const content = deps.disk.readFileSync(deps.paths.join(dir, file), "utf-8");
 		const fm = parseFrontmatterStrings(content);
-		const price = parseFloat(fm.price ?? fm.hourlyRate ?? "0");
-		const amount = parseFloat(fm.amount ?? "0");
-		const consumed = parseFloat(fm.consumed ?? "0");
+		const isBudget = fm.resourceType === "budget";
+		const price = isBudget ? 1 : parseFloat(fm.price ?? fm.hourlyRate ?? "0");
+		const amount = parseFloat(fm.totalAmount ?? fm.amount ?? "0");
+		const consumed = parseFloat(fm.spent ?? fm.consumed ?? "0");
 		const remaining = Math.max(0, amount - consumed);
 
 		resources.push({
@@ -42,8 +43,8 @@ export function listResources(deps: Pick<CliDeps, "disk" | "paths">, projectPath
 			amount,
 			consumed,
 			remaining,
-			totalCost: price * amount,
-			consumedCost: price * consumed,
+			totalCost: isBudget ? amount : price * amount,
+			consumedCost: isBudget ? consumed : price * consumed,
 			file,
 		});
 	}
@@ -70,16 +71,25 @@ export function createResourceFile(deps: ResourceStoreDeps, projectPath: string,
 		date: deps.clock.iso(),
 	};
 
-	if (def.resourceType === "role") {
+	if (def.resourceType === "budget") {
+		frontmatter.totalAmount = String(def.amount);
+		frontmatter.spent = String(def.consumed);
+		if (def.currency) frontmatter.currency = def.currency;
+		if (def.category) frontmatter.category = def.category;
+		if (def.periodStart) frontmatter.periodStart = def.periodStart;
+		if (def.periodEnd) frontmatter.periodEnd = def.periodEnd;
+	} else if (def.resourceType === "role") {
 		frontmatter.hourlyRate = String(def.hourlyRate ?? def.price);
+		frontmatter.amount = String(def.amount);
+		frontmatter.consumed = String(def.consumed);
 	} else {
 		frontmatter.price = String(def.price);
 		frontmatter.priceUnit = def.priceUnit ?? "hour";
+		frontmatter.amount = String(def.amount);
+		frontmatter.consumed = String(def.consumed);
 	}
 
 	if (def.role) frontmatter.role = def.role;
-	frontmatter.amount = String(def.amount);
-	frontmatter.consumed = String(def.consumed);
 
 	const doc = Document.create(def.name)
 		.mergeFrontmatter(frontmatter)
@@ -107,8 +117,13 @@ export function updateConsumption(deps: Pick<CliDeps, "disk" | "paths">, project
 	if (!deps.disk.existsSync(filePath)) return false;
 
 	let content = deps.disk.readFileSync(filePath, "utf-8");
+
+	// Budget type uses "spent" instead of "consumed"
+	const spentRegex = /^spent:\s*.+$/m;
 	const consumedRegex = /^consumed:\s*.+$/m;
-	if (consumedRegex.test(content)) {
+	if (spentRegex.test(content)) {
+		content = content.replace(spentRegex, `spent: ${consumed}`);
+	} else if (consumedRegex.test(content)) {
 		content = content.replace(consumedRegex, `consumed: ${consumed}`);
 	}
 	deps.disk.writeFileSync(filePath, content, "utf-8");

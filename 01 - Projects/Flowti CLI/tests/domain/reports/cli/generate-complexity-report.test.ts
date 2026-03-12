@@ -95,11 +95,11 @@ describe("generateComplexityReport", () => {
 		}));
 	});
 
-	it("warns about high complexity files (>15 DPs)", () => {
+	it("warns about high complexity files exceeding threshold", () => {
 		const data = {
-			summary: { totalDecisionPoints: 20, filesWithDecisionPoints: 1 },
+			summary: { totalDecisionPoints: 55, filesWithDecisionPoints: 1 },
 			files: [
-				{ file: "/project/src/complex.ts", decisionPointCount: 20, decisionPoints: [] },
+				{ file: "/project/src/complex.ts", decisionPointCount: 55, decisionPoints: [] },
 			],
 		};
 		vi.mocked(disk.existsSync).mockReturnValue(true);

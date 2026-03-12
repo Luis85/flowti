@@ -10,9 +10,9 @@
  *   ──────────────────────────
  *   Make, Build, Review, Publish, Reports
  *   ──────────────────────────
- *   Documentation, Npm Scripts, Knowledgebase, Health, Info
+ *   Project Management, Documentation, Knowledgebase, README, Info
  *   ──────────────────────────
- *   Components, Events, Scaffold, Dependencies, Dev Tools, Export HTML
+ *   Components, Dev Tools
  *   ──────────────────────────
  *   Back, Help, Quit
  */
@@ -129,6 +129,15 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 
 	// ── Project management ───────────────────────────────────────────
 
+	items.push({
+		key: "m",
+		label: "Project Management",
+		action: async () => {
+			const { managementMenu } = await import("./menus/management-menu.js");
+			return managementMenu(ctx);
+		},
+	});
+
 	{
 		const docsConfig = ctx.config.docs;
 		items.push({
@@ -144,15 +153,6 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 		});
 	}
 
-	items.push({
-		key: "m",
-		label: "Project Management",
-		action: async () => {
-			const { managementMenu } = await import("./menus/management-menu.js");
-			return managementMenu(ctx);
-		},
-	});
-
 	items.push(
 		{
 			key: "k",
@@ -163,15 +163,6 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 				"\n  Knowledgebase requires Obsidian CLI and an initialized vault.\n",
 		},
 		{
-			key: "i",
-			label: "Info",
-			action: async () => {
-				showInfo();
-				await input.waitForEnter();
-				return "main" as const;
-			},
-		},
-		{
 			key: "r",
 			label: "README",
 			disabled: () => !disk.existsSync(paths.join(ctx.path, "README.md")),
@@ -179,6 +170,15 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 			action: async () => {
 				const content = disk.readFileSync(paths.join(ctx.path, "README.md"), "utf-8");
 				logFn(`\n${content}`);
+				await input.waitForEnter();
+				return "main" as const;
+			},
+		},
+		{
+			key: "i",
+			label: "Info",
+			action: async () => {
+				showInfo();
 				await input.waitForEnter();
 				return "main" as const;
 			},

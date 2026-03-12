@@ -1,8 +1,25 @@
 {
 	"name": "flowti-cli",
-	"tools": {
-		"build": "npm run build",
-		"devtools": "npm run build:watch"
+	"type": "cli",
+	"build": {
+		"commands": {
+			"fast": "npm run build",
+			"full": "npm run build",
+			"watch": "npm run build:watch",
+			"distribute": "npm run build"
+		}
+	},
+	"test": {
+		"commands": {
+			"unit": "npm test",
+			"increment": "npm test"
+		}
+	},
+	"devtools": {
+		"commands": {
+			"check": "npm run check",
+			"lint": "npm run lint"
+		}
 	},
 	"make": {
 		"templates": ["journey", "component"]
@@ -25,6 +42,7 @@
 			"coverageLines": 80,
 			"coverageBranches": 70,
 			"maxComplexity": 15,
+			"maxFileDecisionPoints": 90,
 			"complexityAboveThresholdPct": 5,
 			"startupMs": 5000,
 			"eslintWarnings": 0,
@@ -43,6 +61,13 @@
 			{ "id": "cli-reference", "label": "CLI Reference" },
 			{ "id": "entity-reference", "label": "Entity Reference" }
 		]
+	},
+	"health": {
+		"thresholds": {
+			"coverage": { "min": 70, "target": 85 },
+			"lint": { "maxErrors": 0, "maxWarnings": 5 },
+			"tests": { "minPassed": 3600 }
+		}
 	},
 	"publish": {
 		"build": "npm run build",
@@ -63,7 +88,10 @@
 	"management": {
 		"resources": { "dir": "docs/resources" },
 		"timelog": { "dir": "docs/timelog" },
-		"deliverables": { "dir": "docs/deliverables" }
+		"deliverables": { "dir": "docs/deliverables" },
+		"raid": { "dir": "docs/raid" },
+		"requirements": { "dir": "docs/requirements" },
+		"capa": { "dir": "docs/capa" }
 	},
 	"templates": {
 		"dir": "docs/templates"

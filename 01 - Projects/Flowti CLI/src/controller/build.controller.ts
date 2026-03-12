@@ -47,9 +47,13 @@ function resolveTestCommand(p: ProjectContext | undefined, mode: string, scriptC
 
 const actions: Record<string, ControllerAction> = {
 	"build": (req) => {
-		const { shell } = req.deps;
+		const { shell, disk, paths, clock } = req.deps;
 		const cmd = resolveBuildCommand(req.project, "fast", ["build"], "npm run build");
 		const exitCode = shell.run(cmd, { cwd: req.project?.path, label: "Building..." });
+		if (exitCode === 0 && req.project) {
+			const { srcDir, binDir } = resolveBuildPaths(req.project.path, { paths });
+			recordBuild(srcDir, binDir, { disk, paths, clock });
+		}
 		const model: ShellCommandModel = { command: cmd, exitCode, label: "build" };
 		return dataResponse(model, renderShellCommand);
 	},
@@ -61,9 +65,13 @@ const actions: Record<string, ControllerAction> = {
 		return dataResponse(model, renderShellCommand);
 	},
 	"build:full": (req) => {
-		const { shell } = req.deps;
+		const { shell, disk, paths, clock } = req.deps;
 		const cmd = resolveBuildCommand(req.project, "full", ["build:full", "build"], "npm run build");
 		const exitCode = shell.run(cmd, { cwd: req.project?.path, label: "Building full..." });
+		if (exitCode === 0 && req.project) {
+			const { srcDir, binDir } = resolveBuildPaths(req.project.path, { paths });
+			recordBuild(srcDir, binDir, { disk, paths, clock });
+		}
 		const model: ShellCommandModel = { command: cmd, exitCode, label: "build:full" };
 		return dataResponse(model, renderShellCommand);
 	},

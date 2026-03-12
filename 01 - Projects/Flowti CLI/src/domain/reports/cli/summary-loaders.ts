@@ -36,6 +36,7 @@ export const DEFAULT_THRESHOLDS: Required<SummaryThresholds> = {
 	coverageLines: 80,
 	coverageBranches: 70,
 	maxComplexity: 15,
+	maxFileDecisionPoints: 50,
 	complexityAboveThresholdPct: 5,
 	startupMs: 5000,
 	eslintWarnings: 0,

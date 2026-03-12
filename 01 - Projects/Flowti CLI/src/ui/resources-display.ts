@@ -15,8 +15,13 @@ export function renderResourceList(resources: ResourceSummary[]): void {
 	log(`\n  ${BOLD}Resources (${resources.length})${RESET}\n`);
 	for (const r of resources) {
 		const typeTag = `${DIM}[${r.resourceType}]${RESET}`;
-		const usage = r.amount > 0 ? ` ${consumed(r)} ${r.consumed}/${r.amount}` : "";
-		log(`  ${CYAN}▸${RESET} ${r.name} ${typeTag}${usage} ${DIM}@ ${r.price}/u${RESET}`);
+		if (r.resourceType === "budget") {
+			const pctUsed = r.amount > 0 ? (r.consumed / r.amount * 100).toFixed(0) : "0";
+			log(`  ${CYAN}▸${RESET} ${r.name} ${typeTag} ${consumed(r)}${r.consumed}/${r.amount}${RESET} (${pctUsed}%)`);
+		} else {
+			const usage = r.amount > 0 ? ` ${consumed(r)}${r.consumed}/${r.amount}${RESET}` : "";
+			log(`  ${CYAN}▸${RESET} ${r.name} ${typeTag}${usage} ${DIM}@ ${r.price}/u${RESET}`);
+		}
 	}
 	log();
 }

@@ -10,7 +10,7 @@ import type { ProjectContext } from "../../infrastructure/types.js";
 import type { CliDeps } from "../../infrastructure/deps.js";
 import { detectTools } from "./tool-availability.js";
 
-type ReadmeDeps = Pick<CliDeps, "disk" | "paths">;
+export type ReadmeDeps = Pick<CliDeps, "disk" | "paths">;
 
 function renderBrief(name: string): string[] {
 	return [

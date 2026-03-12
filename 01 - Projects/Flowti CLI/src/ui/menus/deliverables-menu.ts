@@ -78,8 +78,9 @@ export async function deliverablesMenu(projectPath: string, config?: Deliverable
 		{
 			key: "1",
 			label: "List Deliverables",
-			action: () => {
+			action: async () => {
 				renderDeliverableList(listDeliverables(storeDeps(), projectPath, config));
+				await input.waitForEnter();
 				return "main" as const;
 			},
 		},
@@ -88,6 +89,7 @@ export async function deliverablesMenu(projectPath: string, config?: Deliverable
 			label: "Add Deliverable",
 			action: async () => {
 				await addDeliverableInteractive(projectPath, config);
+				await input.waitForEnter();
 				return "main" as const;
 			},
 		},
@@ -96,6 +98,7 @@ export async function deliverablesMenu(projectPath: string, config?: Deliverable
 			label: "Update Status",
 			action: async () => {
 				await updateStatusInteractive(projectPath, config);
+				await input.waitForEnter();
 				return "main" as const;
 			},
 		},

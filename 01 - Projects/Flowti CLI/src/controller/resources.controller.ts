@@ -11,7 +11,7 @@ import { renderResourceList, renderFinancialSummary, renderResourceAdded } from 
 import { renderError } from "../ui/common-renderers.js";
 import type { ErrorModel } from "../ui/common-renderers.js";
 
-const VALID_TYPES: ResourceType[] = ["human", "material", "role"];
+const VALID_TYPES: ResourceType[] = ["human", "material", "role", "budget"];
 
 function flagStr(flags: Record<string, string | boolean>, key: string, fallback: string): string {
 	return typeof flags[key] === "string" ? flags[key] : fallback;
@@ -41,7 +41,7 @@ const actions: Record<string, ControllerAction> = {
 				renderError,
 			);
 		}
-		const price = parseFloat(flagStr(req.flags, "price", "0"));
+		const price = resourceType === "budget" ? 1 : parseFloat(flagStr(req.flags, "price", "0"));
 		const hourlyRate = resourceType === "role" ? price : undefined;
 		const filePath = createResourceFile(req.deps, req.project.path, {
 			name,
@@ -53,6 +53,10 @@ const actions: Record<string, ControllerAction> = {
 			consumed: 0,
 			status: "active",
 			description: flagStr(req.flags, "description", ""),
+			category: flagStr(req.flags, "category", "") || undefined,
+			currency: flagStr(req.flags, "currency", "") || undefined,
+			periodStart: flagStr(req.flags, "period-start", "") || undefined,
+			periodEnd: flagStr(req.flags, "period-end", "") || undefined,
 		}, req.project.config.management?.resources);
 		if (filePath) {
 			return dataResponse(

@@ -253,6 +253,8 @@ export interface SummaryThresholds {
 	coverageBranches?: number;
 	/** Maximum cyclomatic complexity per function (default: 15) */
 	maxComplexity?: number;
+	/** Maximum decision points per file before flagging (default: 50) */
+	maxFileDecisionPoints?: number;
 	/** Maximum percentage of functions above complexity threshold (default: 5) */
 	complexityAboveThresholdPct?: number;
 	/** Maximum startup time in ms (default: 5000) */
@@ -343,7 +345,7 @@ export interface HealthConfig {
 
 // ── Resource Management ─────────────────────────────────────────────
 
-export type ResourceType = "human" | "material" | "role";
+export type ResourceType = "human" | "material" | "role" | "budget";
 
 export interface ResourcesConfig {
 	/** Directory for resource files relative to project root (default: "docs/resources"). */
@@ -366,12 +368,45 @@ export interface DeliverablesConfig {
 	dir?: string;
 }
 
+// ── RAID Log ────────────────────────────────────────────────────────
+
+export type RAIDItemType = "risk" | "assumption" | "issue" | "dependency" | "decision";
+export type RAIDStatus = "open" | "mitigated" | "closed" | "accepted" | "resolved" | "deferred";
+
+export interface RAIDConfig {
+	/** Directory for RAID items relative to project root (default: "docs/raid"). */
+	dir?: string;
+}
+
+// ── Requirements ────────────────────────────────────────────────────
+
+export type RequirementType = "functional" | "non-functional" | "constraint";
+export type MoSCoWPriority = "must" | "should" | "could" | "wont";
+
+export interface RequirementsConfig {
+	/** Directory for requirements relative to project root (default: "docs/requirements"). */
+	dir?: string;
+}
+
+// ── CAPA (Corrective and Preventive Action) ─────────────────────────
+
+export type CAPAType = "corrective" | "preventive";
+export type CAPAStatus = "open" | "investigating" | "action-planned" | "implementing" | "verification" | "closed" | "rejected";
+
+export interface CAPAConfig {
+	/** Directory for CAPA items relative to project root (default: "docs/capa"). */
+	dir?: string;
+}
+
 // ── Project Management (aggregated) ─────────────────────────────────
 
 export interface ManagementConfig {
 	resources?: ResourcesConfig;
 	timelog?: TimeLogConfig;
 	deliverables?: DeliverablesConfig;
+	raid?: RAIDConfig;
+	requirements?: RequirementsConfig;
+	capa?: CAPAConfig;
 }
 
 // ── Entity Templates ────────────────────────────────────────────────
