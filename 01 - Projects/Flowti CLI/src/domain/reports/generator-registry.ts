@@ -77,10 +77,10 @@ export function listByCategory(category: GeneratorCategory): string[] {
 // ── Reference aliases (backward compatibility) ───────────────────────
 
 /** Run a reference generator by its ID. Returns null if unknown. */
-export function runReference(id: string, projectPath: string, deps: ReportDeps): GeneratorOutput | null {
+export function runReference(id: string, projectPath: string, deps: ReportDeps, ctx?: PipelineContext): GeneratorOutput | null {
 	const entry = GENERATORS.get(id);
 	if (!entry || entry.category !== "reference") return null;
-	return entry.fn(projectPath, deps);
+	return entry.fn(projectPath, deps, ctx);
 }
 
 /** Check if a reference ID is registered. */

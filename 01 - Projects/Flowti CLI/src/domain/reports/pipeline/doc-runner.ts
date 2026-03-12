@@ -8,7 +8,7 @@
  * (CLI Reference, Entity Reference) are both first-class pipeline steps.
  */
 
-import type { GeneratorOutput, DocGenerator } from "../../../infrastructure/types.js";
+import type { GeneratorOutput, DocGenerator, ReferenceConfig } from "../../../infrastructure/types.js";
 import type { StepResult, PipelineResult } from "../../../infrastructure/pipeline/pipeline-types.js";
 import type { CliDeps } from "../../../infrastructure/deps.js";
 import { runDocPipeline } from "./doc-pipeline.js";
@@ -43,10 +43,11 @@ export interface DocRunResult {
  */
 export async function runAllDocs(
 	configGenerators: DocGenerator[],
+	references: ReferenceConfig[],
 	projectPath: string,
 	deps: CliDeps,
 ): Promise<DocRunResult> {
-	const pipelineResult = await runDocPipeline(configGenerators, projectPath, deps);
+	const pipelineResult = await runDocPipeline(configGenerators, references, projectPath, deps);
 	return toDocRunResult(pipelineResult);
 }
 

@@ -9,7 +9,8 @@ import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler } from "../infrastructure/types.js";
 import { startMenu } from "../ui/menus/project-menu.js";
-import { renderInteractiveOnly, type InteractiveOnlyModel } from "../ui/common-renderers.js";
+import { renderInteractiveOnly, renderSuccess, renderNoProject, type InteractiveOnlyModel, type SuccessModel, type NoProjectModel } from "../ui/common-renderers.js";
+import { writeReadme } from "../domain/project/readme-generator.js";
 
 const actions: Record<string, ControllerAction> = {
 	project: async (req) => {
@@ -18,6 +19,14 @@ const actions: Record<string, ControllerAction> = {
 			return dataResponse(model, renderInteractiveOnly);
 		}
 		await startMenu();
+	},
+
+	readme: (req) => {
+		if (!req.project) {
+			return dataResponse<NoProjectModel>({ command: "readme" }, renderNoProject);
+		}
+		const readmePath = writeReadme(req.project, req.deps);
+		return dataResponse<SuccessModel>({ message: `README.md written to ${readmePath}` }, renderSuccess);
 	},
 };
 

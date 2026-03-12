@@ -21,6 +21,8 @@ import { parseArgs } from "./infrastructure/args.js";
 import { proc } from "./infrastructure/proc.js";
 import { printBanner, clearScreen, RESET, DIM, RED, YELLOW, CYAN } from "./infrastructure/ui.js";
 import { runMenu } from "./infrastructure/menu.js";
+import { createDefaultDeps } from "./infrastructure/deps.js";
+import { initializeDeps } from "./infrastructure/request-response.js";
 
 // ── Domain modules (pure business logic) ────────────────────────────
 
@@ -43,6 +45,9 @@ import { commands as captureCmds } from "./controller/capture.controller.js";
 import { commands as healthCmds } from "./controller/health.controller.js";
 import { commands as eventsCmds } from "./controller/events.controller.js";
 import { commands as scaffoldCmds } from "./controller/scaffold.controller.js";
+import { commands as resourcesCmds } from "./controller/resources.controller.js";
+import { commands as timelogCmds } from "./controller/timelog.controller.js";
+import { commands as deliverablesCmds } from "./controller/deliverables.controller.js";
 import { commands as projectCmds } from "./controller/project.controller.js";
 import { commands as projectDepsCmds } from "./ui/deps-display.js";
 import { commands as pluginCmds } from "./controller/plugins.controller.js";
@@ -86,7 +91,10 @@ registry.registerDomain({ domain: "publish",  commands: publishCmds });
 registry.registerDomain({ domain: "reports",  commands: reportsCmds });
 registry.registerDomain({ domain: "capture",  commands: captureCmds,  projectFree: ["capture:idea", "capture:note", "capture:search", "capture:import"] });
 registry.registerDomain({ domain: "events",   commands: eventsCmds });
-registry.registerDomain({ domain: "health",   commands: healthCmds });
+registry.registerDomain({ domain: "health",       commands: healthCmds });
+registry.registerDomain({ domain: "resources",    commands: resourcesCmds });
+registry.registerDomain({ domain: "timelog",      commands: timelogCmds });
+registry.registerDomain({ domain: "deliverables", commands: deliverablesCmds });
 registry.registerDomain({ domain: "scaffold", commands: scaffoldCmds, projectFree: ["scaffold:new", "scaffold:list", "scaffold:marketplace", "marketplace:export", "marketplace:import-bundle"] });
 registry.registerDomain({ domain: "project",  commands: { ...projectCmds, ...projectDepsCmds },  projectFree: ["project", "project:deps"] });
 registry.registerDomain({ domain: "plugins",  commands: pluginCmds,  projectFree: ["plugin:list", "plugin:validate", "plugin:new", "plugin:reference"] });
@@ -239,6 +247,9 @@ async function projectDetailLoop(): Promise<"start" | "quit"> {
 // ── Entry point ─────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
+	// Initialize shared deps — controllers access them via req.deps
+	initializeDeps(createDefaultDeps());
+
 	checkPrerequisites({ shell, proc });
 
 	if (await handleCliArgs()) return;

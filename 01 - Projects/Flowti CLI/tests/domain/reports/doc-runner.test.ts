@@ -27,23 +27,30 @@ vi.mock("../../../src/infrastructure/clock.js", () => {
 
 // Mock the generator registry
 const mockRunReference = vi.fn();
-const mockListReferenceIds = vi.fn();
 vi.mock("../../../src/domain/reports/generator-registry.js", () => ({
 	runReference: (...args: unknown[]) => mockRunReference(...args),
-	listReferenceIds: () => mockListReferenceIds(),
 }));
 
 import { runAllDocs } from "../../../src/domain/reports/pipeline/doc-runner.js";
+import type { ReferenceConfig } from "../../../src/infrastructure/types.js";
+
+const refs: ReferenceConfig[] = [
+	{ id: "cli-reference", label: "CLI Reference" },
+	{ id: "entity-reference", label: "Entity Reference" },
+];
+
+function makeDeps() {
+	return { disk: {}, paths: {}, clock: {}, log: () => {}, warn: () => {}, proc: {}, input: {}, shell: {} } as unknown as import("../../../src/infrastructure/deps.js").CliDeps;
+}
 
 beforeEach(() => {
 	vi.clearAllMocks();
 	mockRunReference.mockReturnValue({ success: true, outputPath: "/ref.md", metrics: { total: 1 } });
-	mockListReferenceIds.mockReturnValue(["cli-reference", "entity-reference"]);
 });
 
 describe("runAllDocs", () => {
 	it("runs all reference generators and returns results", async () => {
-		const result = await runAllDocs([], "/project");
+		const result = await runAllDocs([], refs, "/project", makeDeps());
 
 		expect(mockRunReference).toHaveBeenCalledTimes(2);
 		expect(result.generators).toHaveLength(2);
@@ -56,7 +63,7 @@ describe("runAllDocs", () => {
 			.mockReturnValueOnce({ success: false, outputPath: "", metrics: {} })
 			.mockReturnValueOnce({ success: true, outputPath: "", metrics: {} });
 
-		const result = await runAllDocs([], "/project");
+		const result = await runAllDocs([], refs, "/project", makeDeps());
 
 		expect(result.generators).toHaveLength(2);
 		expect(result.passed).toBe(1);
@@ -64,7 +71,7 @@ describe("runAllDocs", () => {
 	});
 
 	it("records duration per generator", async () => {
-		const result = await runAllDocs([], "/project");
+		const result = await runAllDocs([], refs, "/project", makeDeps());
 
 		for (const gen of result.generators) {
 			expect(gen.durationMs).toBeGreaterThan(0);
@@ -79,7 +86,7 @@ describe("runAllDocs", () => {
 			metrics: { entities: 13 },
 		});
 
-		const result = await runAllDocs([], "/project");
+		const result = await runAllDocs([], refs, "/project", makeDeps());
 
 		expect(result.generators[0].output).toEqual({
 			success: true,
@@ -94,7 +101,7 @@ describe("runAllDocs", () => {
 			.mockImplementationOnce(() => { throw new Error("Generator crashed"); })
 			.mockReturnValueOnce({ success: true, outputPath: "", metrics: {} });
 
-		const result = await runAllDocs([], "/project");
+		const result = await runAllDocs([], refs, "/project", makeDeps());
 
 		expect(result.passed).toBe(1);
 		expect(result.failed).toBe(1);
@@ -104,16 +111,14 @@ describe("runAllDocs", () => {
 	it("handles null reference output", async () => {
 		mockRunReference.mockReturnValue(null);
 
-		const result = await runAllDocs([], "/project");
+		const result = await runAllDocs([], refs, "/project", makeDeps());
 
 		expect(result.failed).toBe(2);
 		expect(result.generators[0].error).toBeDefined();
 	});
 
-	it("returns empty results when no references registered", async () => {
-		mockListReferenceIds.mockReturnValue([]);
-
-		const result = await runAllDocs([], "/project");
+	it("returns empty results when no references configured", async () => {
+		const result = await runAllDocs([], [], "/project", makeDeps());
 
 		expect(result.generators).toHaveLength(0);
 		expect(result.passed).toBe(0);
@@ -123,7 +128,7 @@ describe("runAllDocs", () => {
 		const { log } = await import("../../../src/infrastructure/logger.js");
 		const mockLog = log as ReturnType<typeof vi.fn>;
 
-		await runAllDocs([], "/project");
+		await runAllDocs([], refs, "/project", makeDeps());
 
 		const output = mockLog.mock.calls.flat().join(" ");
 		expect(output).toContain("Documentation Summary");

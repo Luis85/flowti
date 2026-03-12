@@ -1,12 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createMockShell } from "../../mocks/mock-shell.js";
+import { initializeDeps } from "../../../src/infrastructure/request-response.js";
+import { createTestDeps } from "../../mocks/mock-deps.js";
 
 vi.mock("../../../src/infrastructure/ui.js", () => ({
 	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", CYAN: "", YELLOW: "",
-}));
-
-vi.mock("../../../src/infrastructure/shell.js", () => ({
-	shell: {},
 }));
 
 vi.mock("../../../src/infrastructure/logger.js", () => ({
@@ -65,13 +63,20 @@ vi.mock("../../../src/domain/devtools/run-analysis.js", () => ({
 	runAnalysisPipeline: vi.fn(),
 }));
 
-import * as shellMod from "../../../src/infrastructure/shell.js";
 import { commands } from "../../../src/controller/devtools.controller.js";
 import { reloadPlugin } from "../../../src/domain/devtools/cli-reload.js";
 import { fixFrontmatter } from "../../../src/domain/devtools/fix-frontmatter.js";
 import { generateTestData } from "../../../src/domain/devtools/generate-test-data.js";
 import { runAnalysisPipeline } from "../../../src/domain/devtools/run-analysis.js";
 import type { ProjectContext } from "../../../src/infrastructure/types.js";
+
+function setupShell(opts?: Parameters<typeof createMockShell>[0]) {
+	const sh = createMockShell(opts);
+	const deps = createTestDeps();
+	(deps as Record<string, unknown>).shell = sh;
+	initializeDeps(deps);
+	return sh;
+}
 
 function makeProject(scripts: Record<string, string> = {}): ProjectContext {
 	return {
@@ -94,8 +99,7 @@ describe("devtools commands", () => {
 	});
 
 	it("dev:console runs console command", () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
+		const sh = setupShell();
 
 		commands["dev:console"]({}, [], "dev:console");
 
@@ -103,8 +107,7 @@ describe("devtools commands", () => {
 	});
 
 	it("dev:errors runs errors command", () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
+		const sh = setupShell();
 
 		commands["dev:errors"]({}, [], "dev:errors");
 
@@ -112,8 +115,7 @@ describe("devtools commands", () => {
 	});
 
 	it("dev:check runs npm run check when script exists", () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
+		const sh = setupShell();
 		const project = makeProject({ check: "eslint && tsc" });
 
 		commands["dev:check"]({}, [], "dev:check", project);
@@ -123,8 +125,7 @@ describe("devtools commands", () => {
 	});
 
 	it("dev:check falls back to tsc when no check script", () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
+		const sh = setupShell();
 		const project = makeProject();
 
 		commands["dev:check"]({}, [], "dev:check", project);
@@ -133,8 +134,7 @@ describe("devtools commands", () => {
 	});
 
 	it("dev:lint runs npm run lint when script exists", () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
+		const sh = setupShell();
 		const project = makeProject({ lint: "eslint src/" });
 
 		commands["dev:lint"]({}, [], "dev:lint", project);
@@ -144,8 +144,7 @@ describe("devtools commands", () => {
 	});
 
 	it("dev:lint falls back to npx eslint when no lint script", () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
+		const sh = setupShell();
 		const project = makeProject();
 
 		commands["dev:lint"]({}, [], "dev:lint", project);

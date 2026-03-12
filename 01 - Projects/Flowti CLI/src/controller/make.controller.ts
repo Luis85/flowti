@@ -7,16 +7,11 @@
 import type { CommandHandler } from "../infrastructure/types.js";
 import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
-import { disk } from "../infrastructure/filesystem.js";
-import { paths } from "../infrastructure/paths.js";
-import { clock } from "../infrastructure/clock.js";
 import { makeComponent, COMPONENT_DEFINITION_IDS, type MakeComponentOutcome } from "../domain/make/component/component-commands.js";
 import { editComponent, type EditComponentOutcome } from "../domain/make/component/component-edit.js";
 import { renderError, renderSuccess } from "../ui/common-renderers.js";
 import { renderComponentAdding } from "../ui/make-renderers.js";
 import { showSuggestions } from "../infrastructure/suggestions.js";
-
-function makeDeps() { return { disk, paths, clock } as const; }
 
 // ── Renderers ────────────────────────────────────────────────────────
 
@@ -46,7 +41,7 @@ function makeComponentAction(definitionId: string): ControllerAction {
 			return { data: { success: false, error: "No project selected." } as MakeComponentOutcome, render: renderMakeResult, exitCode: 1 };
 		}
 		const name = typeof req.flags.name === "string" ? req.flags.name : undefined;
-		const result = makeComponent(definitionId, name, req.flags, req.project.path, makeDeps());
+		const result = makeComponent(definitionId, name, req.flags, req.project.path, req.deps);
 		if (!result.success) {
 			return { data: result, render: renderMakeResult, exitCode: 1 };
 		}
@@ -59,7 +54,7 @@ const editComponentAction: ControllerAction = (req) => {
 		return { data: { success: false, error: "No project selected." } as EditComponentOutcome, render: renderEditResult, exitCode: 1 };
 	}
 	const name = typeof req.flags.name === "string" ? req.flags.name : undefined;
-	const result = editComponent(name, req.flags, req.project.path, makeDeps());
+	const result = editComponent(name, req.flags, req.project.path, req.deps);
 	if (!result.success) {
 		return { data: result, render: renderEditResult, exitCode: 1 };
 	}

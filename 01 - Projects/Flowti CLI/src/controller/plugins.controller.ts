@@ -9,11 +9,6 @@
 import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler } from "../infrastructure/types.js";
-import { disk } from "../infrastructure/filesystem.js";
-import { input } from "../infrastructure/input.js";
-import { shell } from "../infrastructure/shell.js";
-import { paths } from "../infrastructure/paths.js";
-import { clock } from "../infrastructure/clock.js";
 import { VAULT_ROOT, CLI_PROJECT } from "../infrastructure/config.js";
 import {
 	loadPlugins,
@@ -24,8 +19,6 @@ import {
 } from "../domain/plugins/plugin-loader.js";
 import { generatePluginReference } from "../domain/plugins/plugin-reference.js";
 
-function pluginDeps() { return { disk, paths } as const; }
-function clockDeps() { return { clock } as const; }
 import {
 	renderPluginList,
 	renderPluginValidation,
@@ -39,8 +32,10 @@ import { renderSuccess, renderError, type SuccessModel, type ErrorModel } from "
 // ── Controller actions ──────────────────────────────────────────────
 
 const actions: Record<string, ControllerAction> = {
-	"plugin:list": () => {
-		const plugins = loadPlugins(pluginDeps(), VAULT_ROOT, disk, shell);
+	"plugin:list": (req) => {
+		const { disk, paths, shell } = req.deps;
+		const pluginDeps = { disk, paths } as const;
+		const plugins = loadPlugins(pluginDeps, VAULT_ROOT, disk, shell);
 		const model: PluginListItem[] = plugins.map((p) => ({
 			name: p.manifest.name,
 			version: p.manifest.version ?? null,
@@ -52,9 +47,11 @@ const actions: Record<string, ControllerAction> = {
 		return dataResponse(model, renderPluginList);
 	},
 
-	"plugin:validate": () => {
+	"plugin:validate": (req) => {
+		const { disk, paths } = req.deps;
+		const pluginDeps = { disk, paths } as const;
 		const pluginsDir = paths.join(VAULT_ROOT, PLUGINS_DIR);
-		const files = discoverPluginFiles(pluginDeps(), pluginsDir, disk);
+		const files = discoverPluginFiles(pluginDeps, pluginsDir, disk);
 		const results: PluginValidationItem[] = files.map((file) => {
 			const pluginDir = paths.dirname(file);
 			const pluginName = paths.basename(pluginDir);
@@ -69,19 +66,23 @@ const actions: Record<string, ControllerAction> = {
 		return dataResponse(results, renderPluginValidation);
 	},
 
-	"plugin:reference": () => {
-		const plugins = loadPlugins(pluginDeps(), VAULT_ROOT, disk, shell);
-		const doc = generatePluginReference(clockDeps(), plugins);
+	"plugin:reference": (req) => {
+		const { disk, paths, shell, clock } = req.deps;
+		const pluginDeps = { disk, paths } as const;
+		const plugins = loadPlugins(pluginDeps, VAULT_ROOT, disk, shell);
+		const doc = generatePluginReference({ clock } as const, plugins);
 		const outputPath = paths.join(CLI_PROJECT, "docs", "reference", "Plugin Reference.md");
 		doc.save(outputPath);
 		return dataResponse<SuccessModel>({ message: `Reference saved to ${outputPath}` }, renderSuccess);
 	},
 
-	"plugin:new": async () => {
+	"plugin:new": async (req) => {
+		const { disk, paths, input } = req.deps;
+		const pluginDeps = { disk, paths } as const;
 		const name = await input.ask("Plugin name (lowercase, hyphens)");
 		if (!name) return dataResponse<SuccessModel>({ message: "Cancelled." }, renderSuccess);
 		const desc = await input.ask("Description");
-		const result = scaffoldPlugin(pluginDeps(), VAULT_ROOT, name, desc || "A Flowti plugin", disk);
+		const result = scaffoldPlugin(pluginDeps, VAULT_ROOT, name, desc || "A Flowti plugin", disk);
 		if ("error" in result) {
 			return dataResponse<ErrorModel>({ error: result.error }, renderError);
 		}

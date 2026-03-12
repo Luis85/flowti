@@ -19,7 +19,6 @@ vi.mock("../../../../src/infrastructure/paths.js", () => ({
 }));
 vi.mock("../../../../src/infrastructure/config.js", () => ({
 	CLI_PROJECT: "/project",
-	PLUGIN_ROOT: "/plugin",
 }));
 vi.mock("../../../../src/infrastructure/clock.js", () => ({
 	clock: {
@@ -38,6 +37,7 @@ import { disk } from "../../../../src/infrastructure/filesystem.js";
 import { paths } from "../../../../src/infrastructure/paths.js";
 import { clock } from "../../../../src/infrastructure/clock.js";
 import { generateToolReference } from "../../../../src/domain/reports/cli/generate-tool-reference.js";
+import type { PipelineContext } from "../../../../src/infrastructure/pipeline/pipeline-types.js";
 
 const mockShell = { run: vi.fn(() => ({ stdout: "", stderr: "", exitCode: 0, success: true })) };
 const mockDeps: ReportDeps = { disk, paths, clock, shell: mockShell as any, log: () => {} };
@@ -67,37 +67,62 @@ const VALID_CATALOG_SOURCE = `export const TOOL_CATALOG = {
 	},
 };`;
 
+function createMockCtx(source?: string): Partial<PipelineContext> {
+	const stepData = new Map<string, Record<string, unknown>>();
+	if (source) stepData.set("tool-reference", { source });
+	return {
+		log: vi.fn(),
+		projectPath: "/project",
+		getResults: () => [],
+		pushResult: vi.fn(),
+		getStepResult: vi.fn(),
+		setCommandOutput: vi.fn(),
+		getCommandOutput: vi.fn(),
+		setStepData: vi.fn((id, data) => stepData.set(id, data)),
+		getStepData: vi.fn((id) => stepData.get(id)),
+		deps: mockDeps as any,
+	};
+}
+
 beforeEach(() => {
 	vi.clearAllMocks();
 });
 
 describe("generateToolReference", () => {
-	it("returns failure when catalog source not found", () => {
-		vi.mocked(disk.existsSync).mockReturnValue(false);
-
+	it("returns failure when source not configured (no ctx)", () => {
 		const result = generateToolReference("/project", mockDeps);
 
 		expect(result.success).toBe(false);
-		expect(result.outputPath).toBe("");
+		expect(result.error).toContain("Source not configured");
+	});
+
+	it("returns failure when catalog source file not found", () => {
+		vi.mocked(disk.existsSync).mockReturnValue(false);
+		const ctx = createMockCtx("tests/e2e/helpers/toolCatalog.ts");
+
+		const result = generateToolReference("/project", mockDeps, ctx as any);
+
+		expect(result.success).toBe(false);
 		expect(result.error).toContain("Tool catalog source not found");
 	});
 
 	it("returns failure when no tools extracted", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readFileSync).mockReturnValue("const x = 1;");
+		const ctx = createMockCtx("tests/e2e/helpers/toolCatalog.ts");
 
-		const result = generateToolReference("/project", mockDeps);
+		const result = generateToolReference("/project", mockDeps, ctx as any);
 
 		expect(result.success).toBe(false);
-		expect(result.outputPath).toBe("");
 		expect(result.error).toContain("No tools extracted from catalog");
 	});
 
 	it("generates report from valid catalog source with tool metadata", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readFileSync).mockReturnValue(VALID_CATALOG_SOURCE);
+		const ctx = createMockCtx("tests/e2e/helpers/toolCatalog.ts");
 
-		const result = generateToolReference("/project", mockDeps);
+		const result = generateToolReference("/project", mockDeps, ctx as any);
 
 		expect(result.success).toBe(true);
 		expect(result.outputPath).toBeTruthy();
@@ -107,25 +132,26 @@ describe("generateToolReference", () => {
 		}));
 	});
 
-	it("passes pipeline context log messages", () => {
+	it("resolves source path relative to project path", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 		vi.mocked(disk.readFileSync).mockReturnValue(VALID_CATALOG_SOURCE);
-
-		const logFn = vi.fn();
-		const ctx = {
-			log: logFn,
-			projectPath: "/project",
-			getResults: () => [],
-			pushResult: vi.fn(),
-			getStepResult: vi.fn(),
-			setCommandOutput: vi.fn(),
-			getCommandOutput: vi.fn(),
-			setStepData: vi.fn(),
-			getStepData: vi.fn(),
-		};
+		const ctx = createMockCtx("tests/e2e/helpers/toolCatalog.ts");
 
 		generateToolReference("/project", mockDeps, ctx as any);
 
-		expect(logFn).toHaveBeenCalled();
+		expect(disk.readFileSync).toHaveBeenCalledWith(
+			"/project/tests/e2e/helpers/toolCatalog.ts",
+			"utf-8",
+		);
+	});
+
+	it("passes pipeline context log messages", () => {
+		vi.mocked(disk.existsSync).mockReturnValue(true);
+		vi.mocked(disk.readFileSync).mockReturnValue(VALID_CATALOG_SOURCE);
+		const ctx = createMockCtx("tests/e2e/helpers/toolCatalog.ts");
+
+		generateToolReference("/project", mockDeps, ctx as any);
+
+		expect(ctx.log).toHaveBeenCalled();
 	});
 });

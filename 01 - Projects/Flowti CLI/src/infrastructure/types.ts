@@ -166,20 +166,6 @@ export interface CliState {
 
 // ── Per-project configuration ──────────────────────────────────────
 
-export type FlowtiToolId = "build" | "reports" | "devtools";
-
-export interface FlowtiToolDef {
-	id: FlowtiToolId;
-	key: string;
-	label: string;
-}
-
-export const FLOWTI_TOOLS: FlowtiToolDef[] = [
-	{ id: "build", key: "5", label: "Build" },
-	{ id: "reports", key: "8", label: "Reporting" },
-	{ id: "devtools", key: "t", label: "Dev Tools" },
-];
-
 export interface PublishEndpoint {
 	name: string;
 	path: string;
@@ -297,6 +283,16 @@ export interface DocGenerator {
 	command: string;
 }
 
+/** Per-project reference configuration — declares which references to generate and their source files. */
+export interface ReferenceConfig {
+	/** Generator ID from the registry (e.g. "cli-reference", "event-catalog"). */
+	id: string;
+	/** Display label for menu and pipeline output. */
+	label: string;
+	/** Source file path relative to the project root (overrides hardcoded defaults). */
+	source?: string;
+}
+
 export interface DocsConfig {
 	/** Command to generate all documentation at once */
 	allCommand?: string;
@@ -304,6 +300,8 @@ export interface DocsConfig {
 	generators?: DocGenerator[];
 	/** Directory for reference documents (default: "docs/reference") */
 	referenceDir?: string;
+	/** Configured reference generators for this project. */
+	references?: ReferenceConfig[];
 }
 
 export type MakeTemplateId = "journey" | "component";
@@ -341,6 +339,46 @@ export interface HealthConfig {
 		tests?: { minPassed?: number };
 	};
 	qualityGates?: QualityGateConfig;
+}
+
+// ── Resource Management ─────────────────────────────────────────────
+
+export type ResourceType = "human" | "material" | "role";
+
+export interface ResourcesConfig {
+	/** Directory for resource files relative to project root (default: "docs/resources"). */
+	dir?: string;
+}
+
+// ── Time-Log ────────────────────────────────────────────────────────
+
+export interface TimeLogConfig {
+	/** Directory for time-log entries relative to project root (default: "docs/timelog"). */
+	dir?: string;
+}
+
+// ── Deliverables ────────────────────────────────────────────────────
+
+export type DeliverableStatus = "planned" | "in-progress" | "review" | "done" | "blocked";
+
+export interface DeliverablesConfig {
+	/** Directory for deliverable files relative to project root (default: "docs/deliverables"). */
+	dir?: string;
+}
+
+// ── Project Management (aggregated) ─────────────────────────────────
+
+export interface ManagementConfig {
+	resources?: ResourcesConfig;
+	timelog?: TimeLogConfig;
+	deliverables?: DeliverablesConfig;
+}
+
+// ── Entity Templates ────────────────────────────────────────────────
+
+export interface TemplatesConfig {
+	/** Directory for user entity templates relative to project root (default: "docs/templates"). */
+	dir?: string;
 }
 
 // ── Project type discrimination ─────────────────────────────────────
@@ -386,8 +424,6 @@ export interface ProjectConfig {
 	name: string;
 	/** Project archetype — drives feature availability and scaffold selection. */
 	type?: ProjectTarget;
-	/** Legacy tool mappings (simple command strings). */
-	tools?: Partial<Record<FlowtiToolId, string>>;
 	/** Named build commands by mode. */
 	build?: BuildConfig;
 	/** Named test commands by preset. */
@@ -403,6 +439,8 @@ export interface ProjectConfig {
 	publish?: PublishConfig;
 	review?: ReviewConfig;
 	health?: HealthConfig;
+	management?: ManagementConfig;
+	templates?: TemplatesConfig;
 }
 
 // ── CLI configuration ───────────────────────────────────────────────

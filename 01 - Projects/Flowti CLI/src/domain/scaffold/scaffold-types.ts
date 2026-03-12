@@ -59,7 +59,6 @@ export interface ScaffoldPackage {
 
 /** Partial flowti.config.json to pre-populate. */
 export interface ScaffoldFlowtiConfig {
-	tools?: Record<string, string>;
 	publish?: {
 		build?: string;
 		test?: string;

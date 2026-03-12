@@ -11,8 +11,8 @@ import { shell } from "../infrastructure/shell.js";
 import { countFiles } from "../infrastructure/fs.js";
 import { getSelectedProject } from "../infrastructure/state.js";
 import { initializeProject } from "../domain/project/project-config.js";
-import { FLOWTI_TOOLS } from "../infrastructure/types.js";
 import type { ProjectContext } from "../infrastructure/types.js";
+import { detectTools } from "../domain/project/tool-availability.js";
 import type { ProjectInfo } from "../domain/info/info.js";
 import { log } from "../infrastructure/logger.js";
 
@@ -62,19 +62,18 @@ function printDependencies(ctx: ProjectContext): void {
 }
 
 function printTools(ctx: ProjectContext): void {
-	const tools = ctx.config.tools ?? {};
-	const mapped = FLOWTI_TOOLS.filter((t) => tools[t.id]);
+	const tools = detectTools(ctx.path, { disk, paths });
+	const available = tools.filter((t) => t.available);
 
-	log(`  ${BOLD}Flowti Tools${RESET}`);
-	for (const def of FLOWTI_TOOLS) {
-		const cmd = tools[def.id];
-		if (cmd) {
-			log(`    ${GREEN}${def.label}${RESET}${DIM} → ${cmd}${RESET}`);
+	log(`  ${BOLD}Dev Tools${RESET}`);
+	for (const tool of tools) {
+		if (tool.available) {
+			log(`    ${GREEN}${tool.id}${RESET}${DIM} ${tool.version ?? ""}${RESET}`);
 		} else {
-			log(`    ${DIM}${def.label}  (not mapped)${RESET}`);
+			log(`    ${DIM}${tool.id}  (not installed)${RESET}`);
 		}
 	}
-	log(`    ${DIM}${mapped.length}/${FLOWTI_TOOLS.length} mapped${RESET}`);
+	log(`    ${DIM}${available.length}/${tools.length} available${RESET}`);
 	log();
 }
 
@@ -154,16 +153,16 @@ export function displayInfo(data: ProjectInfo): void {
 		log();
 	}
 
-	const mapped = data.tools.filter((t) => t.command !== null);
-	log(`  ${BOLD}Flowti Tools${RESET}`);
+	const available = data.tools.filter((t) => t.available);
+	log(`  ${BOLD}Dev Tools${RESET}`);
 	for (const tool of data.tools) {
-		if (tool.command) {
-			log(`    ${GREEN}${tool.label}${RESET}${DIM} → ${tool.command}${RESET}`);
+		if (tool.available) {
+			log(`    ${GREEN}${tool.id}${RESET}${DIM} ${tool.version ?? ""}${RESET}`);
 		} else {
-			log(`    ${DIM}${tool.label}  (not mapped)${RESET}`);
+			log(`    ${DIM}${tool.id}  (not installed)${RESET}`);
 		}
 	}
-	log(`    ${DIM}${mapped.length}/${data.tools.length} mapped${RESET}`);
+	log(`    ${DIM}${available.length}/${data.tools.length} available${RESET}`);
 	log();
 
 	if (data.git) {

@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createMockShell } from "../../mocks/mock-shell.js";
 
 vi.mock("../../../src/infrastructure/ui.js", () => ({
 	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", CYAN: "", YELLOW: "",
@@ -12,6 +11,10 @@ vi.mock("../../../src/infrastructure/shell.js", () => ({
 vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
 	warn: vi.fn(),
+}));
+
+vi.mock("../../../src/infrastructure/proc.js", () => ({
+	proc: { exit: vi.fn(), cwd: () => "/mock", argv: () => [], env: () => ({}) },
 }));
 
 vi.mock("../../../src/infrastructure/clock.js", () => {
@@ -79,7 +82,9 @@ vi.mock("../../../src/domain/reports/export/html-export.js", () => ({
 	exportReportToHtml: vi.fn(),
 }));
 
-import * as shellMod from "../../../src/infrastructure/shell.js";
+import { initializeDeps } from "../../../src/infrastructure/request-response.js";
+import { createTestDeps } from "../../mocks/mock-deps.js";
+import { createMockShell } from "../../mocks/mock-shell.js";
 import { commands } from "../../../src/controller/reports.controller.js";
 import type { ProjectContext } from "../../../src/infrastructure/types.js";
 
@@ -177,7 +182,9 @@ describe("reports commands", () => {
 	it("report:* falls back to external command when not in registry", () => {
 		mockHasGenerator.mockReturnValue(false);
 		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
+		const deps = createTestDeps();
+		(deps as Record<string, unknown>).shell = sh;
+		initializeDeps(deps);
 
 		const project = makeProject({
 			generators: [{ id: "custom", label: "Custom Report", command: "node scripts/generate-custom.mjs" }],
@@ -193,7 +200,9 @@ describe("reports commands", () => {
 	it("report:* logs error for unknown report", async () => {
 		mockHasGenerator.mockReturnValue(false);
 		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
+		const deps = createTestDeps();
+		(deps as Record<string, unknown>).shell = sh;
+		initializeDeps(deps);
 		const { log } = await import("../../../src/infrastructure/logger.js");
 		const mockLog = log as ReturnType<typeof vi.fn>;
 		const project = makeProject({
@@ -218,6 +227,7 @@ describe("reports commands", () => {
 
 		expect(mockRunAllDocs).toHaveBeenCalledWith(
 			[{ label: "TypeDoc", command: "npm run typedoc" }],
+			[],
 			"/test/project",
 			expect.anything(),
 		);
@@ -228,7 +238,7 @@ describe("reports commands", () => {
 
 		await commands["docs"]({}, [], "docs", project);
 
-		expect(mockRunAllDocs).toHaveBeenCalledWith([], "/test/project", expect.anything());
+		expect(mockRunAllDocs).toHaveBeenCalledWith([], [], "/test/project", expect.anything());
 	});
 
 	it("docs works without docs config", async () => {
@@ -236,6 +246,6 @@ describe("reports commands", () => {
 
 		await commands["docs"]({}, [], "docs", project);
 
-		expect(mockRunAllDocs).toHaveBeenCalledWith([], "/test/project", expect.anything());
+		expect(mockRunAllDocs).toHaveBeenCalledWith([], [], "/test/project", expect.anything());
 	});
 });

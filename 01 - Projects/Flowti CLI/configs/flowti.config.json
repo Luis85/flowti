@@ -9,7 +9,7 @@
 	},
 	"components": {
 		"storybook": true,
-		"storybookDir": "component-library"
+		"storybookDir": "components"
 	},
 	"reports": {
 		"dir": "reports",
@@ -38,7 +38,11 @@
 		"generators": [
 			{ "label": "Codebase (TypeDoc)", "command": "npm run typedoc" }
 		],
-		"referenceDir": "docs/reference"
+		"referenceDir": "docs/reference",
+		"references": [
+			{ "id": "cli-reference", "label": "CLI Reference" },
+			{ "id": "entity-reference", "label": "Entity Reference" }
+		]
 	},
 	"publish": {
 		"build": "npm run build",
@@ -55,6 +59,14 @@
 		"endpoints": [
 			{ "name": "Distribute", "path": "C:/Projects/distribute", "clean": true }
 		]
+	},
+	"management": {
+		"resources": { "dir": "docs/resources" },
+		"timelog": { "dir": "docs/timelog" },
+		"deliverables": { "dir": "docs/deliverables" }
+	},
+	"templates": {
+		"dir": "docs/templates"
 	},
 	"review": {
 		"journeysDir": "tests/e2e",

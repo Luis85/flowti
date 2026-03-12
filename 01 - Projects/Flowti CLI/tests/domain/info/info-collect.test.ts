@@ -72,7 +72,6 @@ function makeCtx(overrides: Partial<ProjectContext> = {}): ProjectContext {
 		pkg: { name: "test-project", version: "2.0.0", scripts: { build: "tsc", test: "vitest" } },
 		config: {
 			name: "test-project",
-			tools: { devtools: "npm run check" },
 		},
 		scripts: { build: "tsc", test: "vitest" },
 		...overrides,
@@ -100,20 +99,24 @@ describe("collectProjectInfo", () => {
 		expect(info.path).toBe("/projects/test-project");
 	});
 
-	it("returns tools from FLOWTI_TOOLS", () => {
+	it("returns tool availability from package.json devDependencies", () => {
 		const info = collectProjectInfo(makeCtx(), infoDeps);
 		expect(info.tools).toBeInstanceOf(Array);
 		expect(info.tools.length).toBeGreaterThan(0);
-		const devTool = info.tools.find((t) => t.id === "devtools");
-		expect(devTool?.command).toBe("npm run check");
+		const vitest = info.tools.find((t) => t.id === "vitest");
+		expect(vitest?.available).toBe(true);
+		const ts = info.tools.find((t) => t.id === "typescript");
+		expect(ts?.available).toBe(true);
 	});
 
-	it("returns null command for unmapped tools", () => {
-		const info = collectProjectInfo(makeCtx({
-			config: { name: "test-project", tools: {} } as any,
-		}), infoDeps);
-		const unmapped = info.tools.find((t) => t.command === null);
-		expect(unmapped).toBeDefined();
+	it("marks missing tools as unavailable", () => {
+		fileStore.set("/projects/test-project/package.json", JSON.stringify({
+			dependencies: {},
+			devDependencies: {},
+		}));
+		const info = collectProjectInfo(makeCtx(), infoDeps);
+		const unavailable = info.tools.filter((t) => !t.available);
+		expect(unavailable.length).toBeGreaterThan(0);
 	});
 
 	it("returns undefined version when pkg is undefined", () => {

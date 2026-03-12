@@ -72,12 +72,25 @@ vi.mock("../../src/ui/common-renderers.js", () => ({
 }));
 
 import { commands } from "../../src/controller/plugins.controller.js";
+import { initializeDeps } from "../../src/infrastructure/request-response.js";
 import { loadPlugins, discoverPluginFiles, validateManifest } from "../../src/domain/plugins/plugin-loader.js";
 import { generatePluginReference } from "../../src/domain/plugins/plugin-reference.js";
+import { disk } from "../../src/infrastructure/filesystem.js";
+import { paths } from "../../src/infrastructure/paths.js";
+import { shell } from "../../src/infrastructure/shell.js";
+import { clock } from "../../src/infrastructure/clock.js";
+import { input } from "../../src/infrastructure/input.js";
+import { log } from "../../src/infrastructure/logger.js";
 
 describe("plugins.controller", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		initializeDeps({
+			disk, shell, paths, clock, input,
+			proc: { exit: vi.fn() as never, argv: () => [], cwd: () => "/", env: () => ({}) },
+			bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never,
+			log, warn: vi.fn(),
+		});
 	});
 
 	// ── plugin:list ───────────────────────────────────────────────

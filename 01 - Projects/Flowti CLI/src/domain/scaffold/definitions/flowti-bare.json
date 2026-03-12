@@ -31,9 +31,7 @@
 		}
 	},
 	"flowtiConfig": {
-		"tools": {
-			"build": "npm run build"
-		},
+		"build": { "commands": { "fast": "npm run build" } },
 		"review": {
 			"build": "npm run build",
 			"test": "npm test"
@@ -53,7 +51,9 @@
 		{ "path": "configs/flowti.config.json", "templateId": "flowti-config" },
 		{ "path": ".gitignore", "templateId": "gitignore" },
 		{ "path": "src/index.ts", "templateId": "bare-index" },
-		{ "path": "tests/index.test.ts", "templateId": "bare-index-test" }
+		{ "path": "tests/index.test.ts", "templateId": "bare-index-test" },
+		{ "path": "README.md", "templateId": "readme" },
+		{ "path": "docs/{{name}} — Architecture.md", "templateId": "architecture" }
 	],
 	"nextSteps": [
 		"cd \"{{outputPath}}\"",

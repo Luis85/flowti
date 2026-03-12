@@ -1,8 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createMockFs } from "../../mocks/mock-fs.js";
+import { initializeDeps } from "../../../src/infrastructure/request-response.js";
+import { createTestDeps } from "../../mocks/mock-deps.js";
 
 vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
+	warn: vi.fn(),
 }));
 
 vi.mock("../../../src/infrastructure/config.js", () => ({
@@ -82,6 +85,9 @@ function capDeps(fs: IFileSystem) {
 
 function setDisk(mockFs: ReturnType<typeof createMockFs>): void {
 	Object.assign(filesystemMod, { disk: mockFs });
+	const deps = createTestDeps();
+	(deps as Record<string, unknown>).disk = mockFs;
+	initializeDeps(deps);
 }
 
 beforeEach(() => {

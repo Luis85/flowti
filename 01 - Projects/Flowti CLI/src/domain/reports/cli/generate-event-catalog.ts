@@ -7,7 +7,6 @@
 
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
-import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import type { ReportDeps } from "../../../infrastructure/deps.js";
 import { extractCategories, extractCatalogEntries } from "../generators/event-catalog.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
@@ -54,7 +53,12 @@ function getDomainSummary(events: CatalogEntry[]): [string, number][] {
 export function generateEventCatalog(projectPath: string, deps: ReportDeps, ctx?: PipelineContext): GeneratorOutput {
 	const log = (msg: string) => ctx?.log(msg);
 	const svc = new ReportService(projectPath, deps);
-	const catalogPath = deps.paths.join(PLUGIN_ROOT, "src", "infrastructure", "events", "catalog.ts");
+	const sourcePath = ctx?.getStepData("event-catalog")?.source as string | undefined;
+	if (!sourcePath) {
+		log("[cli-report] Event catalog source not configured — skipping.");
+		return { success: false, outputPath: "", metrics: {}, error: "Source not configured" };
+	}
+	const catalogPath = deps.paths.join(projectPath, sourcePath);
 
 	if (!deps.disk.existsSync(catalogPath)) {
 		log("[cli-report] catalog.ts not found — skipping event catalog generation.");

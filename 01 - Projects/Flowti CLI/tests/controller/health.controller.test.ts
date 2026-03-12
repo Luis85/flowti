@@ -76,10 +76,21 @@ vi.mock("../../src/infrastructure/shell.js", () => ({
 vi.mock("../../src/infrastructure/clock.js", () => ({
 	clock: { iso: () => "2026-03-10T00:00:00.000Z", now: () => new Date("2026-03-10"), ms: () => 0, safeIso: () => "" },
 }));
-vi.mock("../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
+vi.mock("../../src/infrastructure/logger.js", () => ({ log: vi.fn(), warn: vi.fn() }));
 vi.mock("../../src/infrastructure/proc.js", () => ({
 	proc: { exit: vi.fn(), argv: () => [], cwd: () => "/", env: () => ({}) },
 }));
+vi.mock("../../src/infrastructure/input.js", () => ({
+	input: { ask: vi.fn(async () => ""), askYesNo: vi.fn(async () => false), waitForEnter: vi.fn(async () => {}) },
+}));
+vi.mock("../../src/infrastructure/ui.js", () => ({
+	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", CYAN: "", YELLOW: "",
+}));
+vi.mock("../../src/ui/cli-event-renderer.js", () => ({ attachCliRenderer: vi.fn(() => () => {}) }));
+vi.mock("../../src/infrastructure/request-response.js", async () => {
+	const actual = await vi.importActual<typeof import("../../src/infrastructure/request-response.js")>("../../src/infrastructure/request-response.js");
+	return actual;
+});
 vi.mock("../../src/ui/health-display.js", () => ({
 	renderHealthDashboard: vi.fn(),
 	renderSnapshotSaved: vi.fn(),

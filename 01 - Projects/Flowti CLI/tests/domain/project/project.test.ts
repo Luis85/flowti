@@ -37,11 +37,29 @@ vi.mock("../../../src/infrastructure/ui.js", () => ({
 
 vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
+	warn: vi.fn(),
 }));
 
 vi.mock("../../../src/infrastructure/input.js", () => ({
-	input: { ask: vi.fn() },
+	input: { ask: vi.fn(), askYesNo: vi.fn(async () => false), waitForEnter: vi.fn(async () => {}) },
 }));
+
+vi.mock("../../../src/infrastructure/clock.js", () => ({
+	clock: { now: () => new Date(), iso: () => "", ms: () => 0, safeIso: () => "" },
+}));
+
+vi.mock("../../../src/infrastructure/proc.js", () => ({
+	proc: { exit: vi.fn(), cwd: () => "/", argv: () => [], env: () => ({}) },
+}));
+
+vi.mock("../../../src/ui/cli-event-renderer.js", () => ({
+	attachCliRenderer: vi.fn(() => () => {}),
+}));
+
+vi.mock("../../../src/infrastructure/request-response.js", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/infrastructure/request-response.js")>("../../../src/infrastructure/request-response.js");
+	return actual;
+});
 
 vi.mock("../../../src/infrastructure/menu.js", () => ({
 	runMenu: vi.fn(),

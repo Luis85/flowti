@@ -21,6 +21,8 @@ export interface PipelineStep {
 	dependencies?: string[];
 	/** Shell commands to run before execute(); output is stored in the context. */
 	prerequisites?: string[];
+	/** Per-step configuration passed through from project config (e.g. source path for references). */
+	stepConfig?: Record<string, unknown>;
 	/** The work function. Receives the pipeline context for dependency data. May be async. */
 	execute: (ctx: PipelineContext) => StepOutput | Promise<StepOutput>;
 }

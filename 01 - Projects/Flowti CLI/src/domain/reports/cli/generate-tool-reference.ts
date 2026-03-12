@@ -7,7 +7,6 @@
 
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
-import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import type { ReportDeps } from "../../../infrastructure/deps.js";
 import {
 	extractBlock,
@@ -189,7 +188,12 @@ function renderToolDetail(doc: Document, tool: ToolMeta): void {
 export function generateToolReference(projectPath: string, deps: ReportDeps, ctx?: PipelineContext): GeneratorOutput {
 	const log = (msg: string) => ctx?.log(msg);
 	const svc = new ReportService(projectPath, deps);
-	const catalogPath = deps.paths.join(PLUGIN_ROOT, "tests", "e2e", "helpers", "toolCatalog.ts");
+	const source = ctx?.getStepData("tool-reference")?.source as string | undefined;
+	if (!source) {
+		log("[cli-report] Tool reference source not configured — skipping.");
+		return { success: false, outputPath: "", metrics: {}, error: "Source not configured" };
+	}
+	const catalogPath = deps.paths.join(projectPath, source);
 
 	if (!deps.disk.existsSync(catalogPath)) {
 		log("[cli-report] Tool catalog source not found — skipping.");

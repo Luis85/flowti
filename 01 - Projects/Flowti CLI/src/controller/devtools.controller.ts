@@ -8,11 +8,6 @@
 import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler, ProjectContext } from "../infrastructure/types.js";
-import { shell } from "../infrastructure/shell.js";
-import { log, warn } from "../infrastructure/logger.js";
-import { disk } from "../infrastructure/filesystem.js";
-import { paths } from "../infrastructure/paths.js";
-import { clock } from "../infrastructure/clock.js";
 import { VAULT_ROOT, PLUGIN_ROOT } from "../infrastructure/config.js";
 import { rebuildCli } from "../domain/devtools/self-update.js";
 import { reloadPlugin } from "../domain/devtools/cli-reload.js";
@@ -35,12 +30,14 @@ function resolveDevCmd(p: ProjectContext | undefined, name: string, scriptName: 
 
 const actions: Record<string, ControllerAction> = {
 	"dev:reload": (req) => {
+		const { shell, log, warn } = req.deps;
 		const vault = typeof req.flags.vault === "string" ? req.flags.vault : undefined;
 		const success = reloadPlugin(vault, { shell, log, warn });
 		const model: SuccessModel = { message: success ? "Plugin reloaded." : "Obsidian CLI not available — reload skipped." };
 		return dataResponse(model, renderSuccess);
 	},
 	"dev:console": (req) => {
+		const { shell } = req.deps;
 		const cmd = resolveDevCmd(req.project, "console", null, "obsidian dev:console");
 		const result = shell.runCaptureStatus(cmd);
 		let exitCode = result.exitCode;
@@ -52,36 +49,42 @@ const actions: Record<string, ControllerAction> = {
 		return dataResponse(model, renderShellCommand);
 	},
 	"dev:errors": (req) => {
+		const { shell } = req.deps;
 		const cmd = resolveDevCmd(req.project, "errors", null, "obsidian dev:errors");
 		const exitCode = shell.run(cmd, { cwd: req.project?.path, label: "Opening error stream..." });
 		const model: ShellCommandModel = { command: cmd, exitCode, label: "dev:errors" };
 		return dataResponse(model, renderShellCommand);
 	},
-	"dev:debug:on": () => {
+	"dev:debug:on": (req) => {
+		const { shell } = req.deps;
 		const cmd = "obsidian dev:debug on";
 		const exitCode = shell.run(cmd, { label: "Enabling debug mode..." });
 		const model: ShellCommandModel = { command: cmd, exitCode, label: "dev:debug:on" };
 		return dataResponse(model, renderShellCommand);
 	},
-	"dev:debug:off": () => {
+	"dev:debug:off": (req) => {
+		const { shell } = req.deps;
 		const cmd = "obsidian dev:debug off";
 		const exitCode = shell.run(cmd, { label: "Disabling debug mode..." });
 		const model: ShellCommandModel = { command: cmd, exitCode, label: "dev:debug:off" };
 		return dataResponse(model, renderShellCommand);
 	},
 	"dev:check": (req) => {
+		const { shell } = req.deps;
 		const cmd = resolveDevCmd(req.project, "check", "check", "npx tsc --noEmit");
 		const exitCode = shell.run(cmd, { cwd: req.project?.path, label: "Running lint + tsc..." });
 		const model: ShellCommandModel = { command: cmd, exitCode, label: "dev:check" };
 		return dataResponse(model, renderShellCommand);
 	},
 	"dev:lint": (req) => {
+		const { shell } = req.deps;
 		const cmd = resolveDevCmd(req.project, "lint", "lint", "npx eslint src/");
 		const exitCode = shell.run(cmd, { cwd: req.project?.path, label: "Running ESLint..." });
 		const model: ShellCommandModel = { command: cmd, exitCode, label: "dev:lint" };
 		return dataResponse(model, renderShellCommand);
 	},
 	"dev:fix-frontmatter": (req) => {
+		const { disk, paths, log } = req.deps;
 		const dryRun = !!req.flags["dry-run"];
 		const docsRoot = paths.resolve(PLUGIN_ROOT, "docs");
 		const result = fixFrontmatter({ dryRun, docsRoot }, { disk, paths, log });
@@ -89,6 +92,7 @@ const actions: Record<string, ControllerAction> = {
 		return dataResponse(model, renderSuccess);
 	},
 	"dev:testdata": (req) => {
+		const { disk, paths, clock, log } = req.deps;
 		const defaultOut = paths.join(VAULT_ROOT, "03 - Resources", "Test Data", "Analytics");
 		const opts: TestDataOpts = {
 			from: typeof req.flags.from === "string" ? req.flags.from : "2025-01",
@@ -102,11 +106,13 @@ const actions: Record<string, ControllerAction> = {
 		return dataResponse(model, renderSuccess);
 	},
 	"dev:rebuild": (req) => {
+		const { shell } = req.deps;
 		const exitCode = rebuildCli(req.project?.path ?? "", shell);
 		const model: ShellCommandModel = { command: "npm run build", exitCode, label: "dev:rebuild" };
 		return dataResponse(model, renderShellCommand);
 	},
-	"dev:analysis": () => {
+	"dev:analysis": (req) => {
+		const { disk, shell, paths, clock, log } = req.deps;
 		runAnalysisPipeline({ disk, shell, paths, clock, log });
 		const model: SuccessModel = { message: "Analysis pipeline complete." };
 		return dataResponse(model, renderSuccess);

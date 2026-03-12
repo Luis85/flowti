@@ -72,9 +72,13 @@ vi.mock("../../src/ui/common-renderers.js", () => ({
 }));
 
 import { commands } from "../../src/controller/reports.controller.js";
+import { initializeDeps } from "../../src/infrastructure/request-response.js";
 import { runAllReports } from "../../src/domain/reports/pipeline/report-runner.js";
 import { discoverArchiveCategories } from "../../src/domain/reports/export/report-archive.js";
 import { disk } from "../../src/infrastructure/filesystem.js";
+import { paths } from "../../src/infrastructure/paths.js";
+import { shell } from "../../src/infrastructure/shell.js";
+import { log } from "../../src/infrastructure/logger.js";
 
 const mockProject = {
 	path: "/project",
@@ -105,6 +109,14 @@ const mockProjectWithGenerators = {
 describe("reports.controller", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		initializeDeps({
+			disk, shell, paths,
+			clock: { iso: () => "", now: () => new Date(), ms: () => 0, safeIso: () => "" },
+			proc: { exit: vi.fn() as never, argv: () => [], cwd: () => "/", env: () => ({}) },
+			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never },
+			bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never,
+			log, warn: vi.fn(),
+		});
 	});
 
 	// ── reports (no generators) ───────────────────────────────────

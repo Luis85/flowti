@@ -48,14 +48,25 @@ vi.mock("../../src/ui/common-renderers.js", () => ({
 }));
 
 import { commands } from "../../src/controller/capture.controller.js";
+import { initializeDeps } from "../../src/infrastructure/request-response.js";
 import { createCaptureFile, searchCaptures, importCaptureItems } from "../../src/domain/capture/capture.js";
 import { log } from "../../src/infrastructure/logger.js";
+import { disk } from "../../src/infrastructure/filesystem.js";
+import { paths } from "../../src/infrastructure/paths.js";
+import { clock } from "../../src/infrastructure/clock.js";
+import { proc } from "../../src/infrastructure/proc.js";
 
 const logMock = log as ReturnType<typeof vi.fn>;
 
 describe("capture.controller", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		initializeDeps({
+			disk, shell: {} as never, paths, clock, proc,
+			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never },
+			bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never,
+			log, warn: vi.fn(),
+		});
 	});
 
 	describe("capture:idea", () => {

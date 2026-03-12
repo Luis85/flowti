@@ -7,17 +7,12 @@
 import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler } from "../infrastructure/types.js";
-import { disk } from "../infrastructure/filesystem.js";
-import { paths } from "../infrastructure/paths.js";
-import { clock } from "../infrastructure/clock.js";
 import { scaffold, scaffoldDryRun, listDefinitions, BUNDLED_DEFINITIONS, getKnownTemplateIds } from "../domain/scaffold/scaffold-service.js";
 import { displayMarketplaceCommand, importDefinitionCommand } from "../ui/menus/marketplace-menu.js";
 import { exportBundle, saveBundle, loadBundle, importAiToolsFromBundle } from "../domain/scaffold/marketplace-export.js";
 import { VAULT_ROOT } from "../infrastructure/config.js";
 import { afterScaffold } from "../infrastructure/suggestions.js";
 
-function scaffoldDeps() { return { disk, paths } as const; }
-function exportDeps() { return { disk, paths, clock } as const; }
 import { renderError, renderInteractiveOnly, type ErrorModel, type InteractiveOnlyModel } from "../ui/common-renderers.js";
 import { renderNoProject, type NoProjectModel } from "../ui/common-renderers.js";
 import {
@@ -31,6 +26,8 @@ import {
 
 const actions: Record<string, ControllerAction> = {
 	"scaffold:new": (req) => {
+		const { disk, paths } = req.deps;
+		const scaffoldDeps = { disk, paths } as const;
 		const name = req.flags.name as string | undefined;
 		const definitionId = (req.flags.definition as string) ?? "flowti-project";
 		const author = req.flags.author as string | undefined;
@@ -46,14 +43,14 @@ const actions: Record<string, ControllerAction> = {
 		const opts = { definitionId, name, author, outputDir: output };
 
 		if (req.flags["dry-run"]) {
-			const result = scaffoldDryRun(scaffoldDeps(), opts);
+			const result = scaffoldDryRun(scaffoldDeps, opts);
 			if ("error" in result) {
 				return dataResponse<ErrorModel>({ error: result.error }, renderError);
 			}
 			return dataResponse(result, renderDryRunPreview);
 		}
 
-		const result = scaffold(scaffoldDeps(), opts);
+		const result = scaffold(scaffoldDeps, opts);
 		if ("error" in result) {
 			return dataResponse<ErrorModel>({ error: result.error }, renderError);
 		}
@@ -103,12 +100,15 @@ const actions: Record<string, ControllerAction> = {
 	},
 
 	"marketplace:export": (req) => {
+		const { disk, paths, clock } = req.deps;
+		const exportDeps = { disk, paths, clock } as const;
+		const scaffoldDeps = { disk, paths } as const;
 		const output = req.flags.output as string | undefined;
-		const bundle = exportBundle(exportDeps(), VAULT_ROOT, req.project?.path);
+		const bundle = exportBundle(exportDeps, VAULT_ROOT, req.project?.path);
 		const total = bundle.aiTools.length + bundle.plugins.length + bundle.scaffolds.length;
 
 		if (output) {
-			saveBundle(scaffoldDeps(), bundle, output);
+			saveBundle(scaffoldDeps, bundle, output);
 			const model: ExportSavedModel = { total, outputPath: output };
 			return dataResponse(model, renderExportSaved);
 		}
@@ -116,6 +116,8 @@ const actions: Record<string, ControllerAction> = {
 	},
 
 	"marketplace:import-bundle": (req) => {
+		const { disk, paths } = req.deps;
+		const scaffoldDeps = { disk, paths } as const;
 		const file = req.flags.file as string | undefined;
 		if (!file) {
 			return dataResponse<ErrorModel>(
@@ -123,11 +125,11 @@ const actions: Record<string, ControllerAction> = {
 				renderError,
 			);
 		}
-		const bundle = loadBundle({ disk }, file);
+		const bundle = loadBundle({ disk } as const, file);
 		if (!bundle) {
 			return dataResponse<ErrorModel>({ error: `Invalid or unreadable bundle: ${file}` }, renderError);
 		}
-		const imported = importAiToolsFromBundle(scaffoldDeps(), bundle, VAULT_ROOT);
+		const imported = importAiToolsFromBundle(scaffoldDeps, bundle, VAULT_ROOT);
 		const model: BundleImportedModel = { imported, vault: bundle.vault };
 		return dataResponse(model, renderBundleImported);
 	},

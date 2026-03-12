@@ -60,9 +60,9 @@ describe("extractCiConfig", () => {
 		expect(config.publishArtifacts).toBe(false);
 	});
 
-	it("extracts build command from tools.build", () => {
+	it("extracts build command from build.commands.fast", () => {
 		const ctx = makeProject({
-			config: { name: "test", tools: { build: "npm run build" } },
+			config: { name: "test", build: { commands: { fast: "npm run build" } } },
 		});
 		const config = extractCiConfig(ctx);
 
@@ -78,9 +78,9 @@ describe("extractCiConfig", () => {
 		expect(config.testCommand).toBe("npm test");
 	});
 
-	it("extracts reports command from tools.reports", () => {
+	it("extracts reports command from reports.allCommand", () => {
 		const ctx = makeProject({
-			config: { name: "test", tools: { reports: "npm run reports" } },
+			config: { name: "test", reports: { allCommand: "npm run reports" } },
 		});
 		const config = extractCiConfig(ctx);
 
@@ -103,7 +103,9 @@ describe("extractCiConfig", () => {
 		const ctx = makeProject({
 			config: {
 				name: "test",
-				tools: { build: "npm run build", reports: "npm run reports" },
+				build: { commands: { fast: "npm run build" } },
+				test: { commands: { unit: "npm test" } },
+				reports: { allCommand: "npm run reports" },
 				publish: { outDir: "dist" },
 			},
 			scripts: { test: "vitest run", build: "esbuild" },
@@ -313,7 +315,7 @@ describe("generateWorkflowYaml", () => {
 describe("runProjectCi", () => {
 	it("returns yaml and dryRun flag in dry-run mode", () => {
 		const project = makeProject({
-			config: { name: "test", tools: { build: "npm run build" } },
+			config: { name: "test", build: { commands: { fast: "npm run build" } } },
 		});
 
 		const result = runProjectCi(project, true, ciDeps());
@@ -327,7 +329,7 @@ describe("runProjectCi", () => {
 
 	it("writes ci.yml and returns outputPath when not dry-run", () => {
 		const project = makeProject({
-			config: { name: "test", tools: { build: "npm run build" } },
+			config: { name: "test", build: { commands: { fast: "npm run build" } } },
 		});
 
 		const result = runProjectCi(project, false, ciDeps());
@@ -359,7 +361,8 @@ describe("runProjectCi", () => {
 		const project = makeProject({
 			config: {
 				name: "full-project",
-				tools: { build: "npm run build", reports: "npm run reports" },
+				build: { commands: { fast: "npm run build" } },
+				reports: { allCommand: "npm run reports" },
 			},
 			scripts: { test: "vitest run", build: "esbuild" },
 		});

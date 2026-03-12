@@ -103,32 +103,43 @@ describe("buildReportsSubmenu", () => {
 });
 
 describe("buildDocsSubmenu", () => {
-	it("includes Update All entry", () => {
-		const items = buildDocsSubmenu([], undefined, "/project");
-		expect(items[0].label).toBe("Update All");
+	const refs = [
+		{ id: "cli-reference", label: "CLI Reference" },
+		{ id: "entity-reference", label: "Entity Reference" },
+	];
+
+	it("includes Update References entry when references are configured", () => {
+		const items = buildDocsSubmenu([], refs, "/project");
+		expect(items[0].label).toBe("Update References");
+	});
+
+	it("includes Open entries for each reference", () => {
+		const items = buildDocsSubmenu([], refs, "/project");
+		const labels = items.filter(i => "label" in i).map(i => i.label);
+		expect(labels).toContain("Open CLI Reference");
+		expect(labels).toContain("Open Entity Reference");
 	});
 
 	it("includes config generators", () => {
 		const items = buildDocsSubmenu(
 			[{ label: "API Docs", command: "npm run docs:api" }],
-			undefined,
+			refs,
 			"/project",
 		);
 		const labels = items.filter(i => "label" in i).map(i => i.label);
 		expect(labels).toContain("API Docs");
 	});
 
-	it("includes builtin docs (CLI Reference, Entity Reference)", () => {
-		const items = buildDocsSubmenu([], undefined, "/project");
-		const labels = items.filter(i => "label" in i).map(i => i.label);
-		expect(labels).toContain("CLI Reference");
-		expect(labels).toContain("Entity Reference");
-	});
-
 	it("includes Back entry", () => {
-		const items = buildDocsSubmenu([], undefined, "/project");
+		const items = buildDocsSubmenu([], refs, "/project");
 		const back = items.find(i => "label" in i && i.label === "Back");
 		expect(back).toBeDefined();
+	});
+
+	it("shows Events, Dependencies, and Back when no references and no generators", () => {
+		const items = buildDocsSubmenu([], [], "/project");
+		const labels = items.filter(i => "label" in i).map(i => i.label);
+		expect(labels).toEqual(["Events", "Dependencies", "Back"]);
 	});
 });
 

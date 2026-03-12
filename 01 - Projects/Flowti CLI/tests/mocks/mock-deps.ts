@@ -8,6 +8,7 @@
 
 import type { CliDeps } from "../../src/infrastructure/deps.js";
 import type { IInput, IPaths } from "../../src/infrastructure/types.js";
+import { createCliBus } from "../../src/infrastructure/event-bus.js";
 import { createMockFs } from "./mock-fs.js";
 import { createMockShell } from "./mock-shell.js";
 import { createMockClock } from "./mock-clock.js";
@@ -52,6 +53,7 @@ export function createTestDeps(opts: TestDepsOptions = {}): CliDeps {
 		clock: createMockClock(opts.clock),
 		proc: createMockProc(opts.proc),
 		input: createMockInput(),
+		bus: createCliBus(),
 		log: vi.fn(),
 		warn: vi.fn(),
 	};

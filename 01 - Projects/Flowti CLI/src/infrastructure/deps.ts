@@ -7,6 +7,7 @@
  */
 
 import type { IFileSystem, IShell, IPaths, IClock, IProcess, IInput } from "./types.js";
+import type { ICliBus } from "./event-bus.js";
 import { disk } from "./filesystem.js";
 import { shell } from "./shell.js";
 import { paths } from "./paths.js";
@@ -14,6 +15,8 @@ import { clock } from "./clock.js";
 import { proc } from "./proc.js";
 import { input } from "./input.js";
 import { log, warn } from "./logger.js";
+import { createCliBus } from "./event-bus.js";
+import { attachCliRenderer } from "../ui/cli-event-renderer.js";
 
 // ── Full dependency container ───────────────────────────────────────
 
@@ -25,6 +28,7 @@ export interface CliDeps {
 	readonly clock: IClock;
 	readonly proc: IProcess;
 	readonly input: IInput;
+	readonly bus: ICliBus;
 	readonly log: (msg: string) => void;
 	readonly warn: (msg: string) => void;
 }
@@ -47,5 +51,7 @@ export type DevToolsDeps = Pick<CliDeps, "shell" | "proc" | "log">;
 
 /** Create the production dependency container. */
 export function createDefaultDeps(): CliDeps {
-	return { disk, shell, paths, clock, proc, input, log, warn };
+	const bus = createCliBus();
+	attachCliRenderer(bus);
+	return { disk, shell, paths, clock, proc, input, bus, log, warn };
 }

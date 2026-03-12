@@ -9,11 +9,6 @@
 import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler } from "../infrastructure/types.js";
-import { disk } from "../infrastructure/filesystem.js";
-import { input } from "../infrastructure/input.js";
-import { shell } from "../infrastructure/shell.js";
-import { paths } from "../infrastructure/paths.js";
-import { clock } from "../infrastructure/clock.js";
 import { VAULT_ROOT, CLI_PROJECT } from "../infrastructure/config.js";
 import {
 	loadAiTools,
@@ -23,8 +18,6 @@ import {
 	AI_TOOLS_DIR,
 } from "../domain/ai-tools/ai-tool-loader.js";
 
-function toolDeps() { return { disk, paths } as const; }
-function clockDeps() { return { clock } as const; }
 import type { LoadedAiTool } from "../domain/ai-tools/ai-tool-types.js";
 import { generateAiToolReference } from "../domain/ai-tools/ai-tool-reference.js";
 import { substituteParams } from "../domain/ai-tools/ai-tool-commands.js";
@@ -72,8 +65,9 @@ function isLoadedTool(result: unknown): result is LoadedAiTool {
 // ── Controller actions ──────────────────────────────────────────────
 
 const actions: Record<string, ControllerAction> = {
-	"ai:list": () => {
-		const tools = loadAiTools(toolDeps(), VAULT_ROOT, disk);
+	"ai:list": (req) => {
+		const { disk } = req.deps;
+		const tools = loadAiTools(req.deps, VAULT_ROOT, disk);
 		const model: ToolListItem[] = tools.map((t) => ({
 			name: t.definition.name,
 			version: t.definition.version ?? null,
@@ -87,9 +81,10 @@ const actions: Record<string, ControllerAction> = {
 		return dataResponse(model, renderToolList);
 	},
 
-	"ai:validate": () => {
+	"ai:validate": (req) => {
+		const { disk, paths } = req.deps;
 		const toolsDir = paths.join(VAULT_ROOT, AI_TOOLS_DIR);
-		const files = discoverToolFiles(toolDeps(), toolsDir, disk);
+		const files = discoverToolFiles(req.deps, toolsDir, disk);
 		const results: ToolValidationItem[] = files.map((file) => {
 			const fileName = paths.basename(file);
 			try {
@@ -103,28 +98,31 @@ const actions: Record<string, ControllerAction> = {
 		return dataResponse(results, renderToolValidation);
 	},
 
-	"ai:new": async () => {
+	"ai:new": async (req) => {
+		const { disk, input } = req.deps;
 		const name = await input.ask("Tool name (lowercase, hyphens/underscores)");
 		if (!name) return dataResponse<SuccessModel>({ message: "Cancelled." }, renderSuccess);
 		const desc = await input.ask("Description");
 		const run = await input.ask("Shell command to run");
 		if (!run) return dataResponse<SuccessModel>({ message: "Cancelled." }, renderSuccess);
-		const result = scaffoldAiTool(toolDeps(), VAULT_ROOT, name, desc || "An AI tool", run, disk);
+		const result = scaffoldAiTool(req.deps, VAULT_ROOT, name, desc || "An AI tool", run, disk);
 		if ("error" in result) {
 			return dataResponse<ErrorModel>({ error: result.error }, renderError);
 		}
 		return dataResponse<SuccessModel>({ message: `Created tool at ${result.path}` }, renderSuccess);
 	},
 
-	"ai:reference": () => {
-		const tools = loadAiTools(toolDeps(), VAULT_ROOT, disk);
-		const doc = generateAiToolReference(clockDeps(), tools);
+	"ai:reference": (req) => {
+		const { paths } = req.deps;
+		const tools = loadAiTools(req.deps, VAULT_ROOT, req.deps.disk);
+		const doc = generateAiToolReference(req.deps, tools);
 		const outputPath = paths.join(CLI_PROJECT, "docs", "reference", "AI Tool Reference.md");
 		doc.save(outputPath);
 		return dataResponse<SuccessModel>({ message: `Reference saved to ${outputPath}` }, renderSuccess);
 	},
 
 	"ai:run": (req) => {
+		const { disk, paths, shell } = req.deps;
 		const toolName = req.flags.tool;
 		if (!toolName || typeof toolName !== "string") {
 			return dataResponse<MissingToolFlagModel>(
@@ -132,7 +130,7 @@ const actions: Record<string, ControllerAction> = {
 				renderMissingToolFlag,
 			);
 		}
-		const tools = loadAiTools(toolDeps(), VAULT_ROOT, disk);
+		const tools = loadAiTools(req.deps, VAULT_ROOT, disk);
 		const result = validateToolSelection(toolName, tools);
 		if (!isLoadedTool(result)) {
 			if ("notFound" in result) return dataResponse(result.notFound, renderToolNotFound);

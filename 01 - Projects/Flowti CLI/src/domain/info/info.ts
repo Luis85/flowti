@@ -5,9 +5,9 @@
  */
 
 import { countFiles } from "../../infrastructure/fs.js";
-import { FLOWTI_TOOLS } from "../../infrastructure/types.js";
 import type { ProjectContext } from "../../infrastructure/types.js";
 import type { CliDeps } from "../../infrastructure/deps.js";
+import { detectTools, type ToolAvailability } from "../project/tool-availability.js";
 
 // ── Data types ───────────────────────────────────────────────────────
 
@@ -17,7 +17,7 @@ export interface ProjectInfo {
 	path: string;
 	source?: { sourceFiles: number; testFiles: number; ext: string };
 	dependencies?: { production: number; development: number; scripts: number };
-	tools: Array<{ id: string; label: string; command: string | null }>;
+	tools: ToolAvailability[];
 	git?: { branch: string; commit: string; status: string };
 }
 
@@ -59,11 +59,7 @@ export function collectProjectInfo(ctx: ProjectContext, deps: Pick<CliDeps, "dis
 		name: ctx.config.name,
 		version: ctx.pkg?.version,
 		path: ctx.path,
-		tools: FLOWTI_TOOLS.map((t) => ({
-			id: t.id,
-			label: t.label,
-			command: ctx.config.tools?.[t.id] ?? null,
-		})),
+		tools: detectTools(ctx.path, deps),
 		source: collectSourceInfo(ctx.path, deps),
 		dependencies: collectDependencyInfo(ctx, deps),
 		git: collectGitInfo(ctx.path, deps),

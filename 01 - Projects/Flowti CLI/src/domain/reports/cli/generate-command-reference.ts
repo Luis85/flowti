@@ -7,7 +7,6 @@
 
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
-import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import type { ReportDeps } from "../../../infrastructure/deps.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
 import type { PipelineContext } from "../../../infrastructure/pipeline/pipeline-types.js";
@@ -78,7 +77,12 @@ function capitalize(s: string): string {
 export function generateCommandReference(projectPath: string, deps: ReportDeps, ctx?: PipelineContext): GeneratorOutput {
 	const log = (msg: string) => ctx?.log(msg);
 	const svc = new ReportService(projectPath, deps);
-	const registryPath = deps.paths.join(PLUGIN_ROOT, "src", "infrastructure", "commands", "registry.ts");
+	const sourcePath = ctx?.getStepData("command-reference")?.source as string | undefined;
+	if (!sourcePath) {
+		log("[cli-report] Command reference source not configured — skipping.");
+		return { success: false, outputPath: "", metrics: {}, error: "Source not configured" };
+	}
+	const registryPath = deps.paths.join(projectPath, sourcePath);
 
 	if (!deps.disk.existsSync(registryPath)) {
 		log("[cli-report] CommandRegistry source not found — skipping.");

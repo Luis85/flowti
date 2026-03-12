@@ -62,7 +62,7 @@ describe("readPackageJson", () => {
 
 describe("readProjectConfig", () => {
 	it("returns parsed config when it exists", () => {
-		const config = { name: "my-project", tools: { build: "npm run build" } };
+		const config = { name: "my-project", build: { commands: { fast: "npm run build" } } };
 		const deps = makeDeps({
 			"/project/configs/flowti.config.json": JSON.stringify(config),
 		});
@@ -106,7 +106,7 @@ describe("readProjectConfig", () => {
 describe("initializeProject", () => {
 	it("returns existing config when both package.json and config exist", () => {
 		const pkg = { name: "test", scripts: { build: "tsc" } };
-		const config = { name: "test-config", tools: {} };
+		const config = { name: "test-config", build: { commands: { fast: "npm run build" } } };
 		const deps = makeDeps({
 			[n("/mock/projects", "test", "package.json")]: JSON.stringify(pkg),
 			[n("/mock/projects", "test", "configs", "flowti.config.json")]: JSON.stringify(config),
@@ -119,15 +119,15 @@ describe("initializeProject", () => {
 	});
 
 	it("scaffolds config when package.json exists but config does not", () => {
-		const pkg = { name: "scaffold-test", scripts: { build: "esbuild", reports: "npm run reports" } };
+		const pkg = { name: "scaffold-test", scripts: { build: "esbuild", test: "vitest run" } };
 		const deps = makeDeps({
 			[n("/mock/projects", "scaffold-test", "package.json")]: JSON.stringify(pkg),
 		});
 
 		const ctx = initializeProject("scaffold-test", deps);
 		expect(ctx.config.name).toBe("scaffold-test");
-		expect(ctx.config.tools?.build).toBe("npm run build");
-		expect(ctx.config.tools?.reports).toBe("npm run reports");
+		expect(ctx.config.build?.commands?.fast).toBe("npm run build");
+		expect(ctx.config.test?.commands?.unit).toBe("npm test");
 		// Config was written to disk
 		expect(deps.disk.existsSync(n("/mock/projects", "scaffold-test", "configs", "flowti.config.json"))).toBe(true);
 	});

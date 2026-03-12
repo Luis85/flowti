@@ -5,7 +5,7 @@
  * tsconfig with Obsidian resolution, and esbuild CJS config.
  */
 
-import type { TemplateFn, ScaffoldVariables, ScaffoldDefinition } from "../scaffold-types.js";
+import type { TemplateFn, ScaffoldVariables } from "../scaffold-types.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 

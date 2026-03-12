@@ -32,35 +32,30 @@ export interface CiStep {
 
 // ── Pure functions ───────────────────────────────────────────────────
 
+function extractBuildCommand(ctx: ProjectContext): string | undefined {
+	return ctx.config.build?.commands?.["fast"] ?? ctx.config.build?.commands?.["full"];
+}
+
+function extractTestCommand(ctx: ProjectContext): string | undefined {
+	const testCmd = ctx.config.test?.commands?.["unit"];
+	if (testCmd) return testCmd;
+	return ctx.scripts["test"] ? "npm test" : undefined;
+}
+
+function extractReportsCommand(ctx: ProjectContext): string | undefined {
+	return ctx.config.reports?.allCommand;
+}
+
 /** Extract CI-relevant config from a project context. */
 export function extractCiConfig(ctx: ProjectContext): CiConfig {
-	const config: CiConfig = {
+	return {
 		nodeVersion: "22",
 		branches: ["main", "master"],
-		publishArtifacts: false,
+		buildCommand: extractBuildCommand(ctx),
+		testCommand: extractTestCommand(ctx),
+		reportsCommand: extractReportsCommand(ctx),
+		publishArtifacts: !!ctx.config.publish,
 	};
-
-	// Build command from tools.build
-	if (ctx.config.tools?.build) {
-		config.buildCommand = ctx.config.tools.build;
-	}
-
-	// Test command from package.json scripts
-	if (ctx.scripts["test"]) {
-		config.testCommand = "npm test";
-	}
-
-	// Reports command from tools.reports
-	if (ctx.config.tools?.reports) {
-		config.reportsCommand = ctx.config.tools.reports;
-	}
-
-	// Publish artifacts flag
-	if (ctx.config.publish) {
-		config.publishArtifacts = true;
-	}
-
-	return config;
 }
 
 /** Build the ordered list of workflow steps from a CiConfig. */

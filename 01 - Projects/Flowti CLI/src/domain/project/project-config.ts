@@ -7,7 +7,7 @@
  */
 
 import { PROJECTS_DIR } from "../../infrastructure/config.js";
-import type { ProjectConfig, ProjectContext, FlowtiToolId } from "../../infrastructure/types.js";
+import type { ProjectConfig, ProjectContext } from "../../infrastructure/types.js";
 import { validateProjectConfig } from "./config-schema.js";
 import { validateConfigDeep } from "./config-deep-validation.js";
 import type { CliDeps } from "../../infrastructure/deps.js";
@@ -65,18 +65,39 @@ export function readProjectConfig(projectPath: string, deps: Pick<CliDeps, "disk
 	return { config: parsed as ProjectConfig, warnings };
 }
 
+function mapBuildScripts(scripts: Record<string, string>): Record<string, string> {
+	const build: Record<string, string> = {};
+	if (scripts["build"]) build.fast = "npm run build";
+	if (scripts["build:watch"] || scripts["build:dev"]) build.watch = scripts["build:watch"] ? "npm run build:watch" : "npm run build:dev";
+	return build;
+}
+
+function mapTestScripts(scripts: Record<string, string>): Record<string, string> {
+	const test: Record<string, string> = {};
+	if (scripts["test"]) test.unit = "npm test";
+	if (scripts["test:e2e"]) test.e2e = "npm run test:e2e";
+	return test;
+}
+
+function mapDevtoolScripts(scripts: Record<string, string>): Record<string, string> {
+	const devtools: Record<string, string> = {};
+	if (scripts["lint"]) devtools.lint = "npm run lint";
+	if (scripts["check"]) devtools.check = "npm run check";
+	return devtools;
+}
+
+function withNonEmpty(key: string, commands: Record<string, string>): Record<string, unknown> {
+	return Object.keys(commands).length > 0 ? { [key]: { commands } } : {};
+}
+
 function scaffoldProjectConfig(projectPath: string, pkg: PackageJson, deps: Pick<CliDeps, "disk" | "paths">): ProjectConfig {
 	const scripts = pkg.scripts ?? {};
-	const tools: Partial<Record<FlowtiToolId, string>> = {};
-
-	// Auto-map well-known script names to Flowti tool keys
-	if (scripts["build"]) tools.build = "npm run build";
-	if (scripts["reports"]) tools.reports = "npm run reports";
-	if (scripts["dev"]) tools.devtools = "npm run dev";
 
 	const config: ProjectConfig = {
 		name: pkg.name ?? deps.paths.basename(projectPath),
-		tools,
+		...withNonEmpty("build", mapBuildScripts(scripts)),
+		...withNonEmpty("test", mapTestScripts(scripts)),
+		...withNonEmpty("devtools", mapDevtoolScripts(scripts)),
 	};
 
 	const configsDir = deps.paths.join(projectPath, CONFIGS_DIR);

@@ -95,6 +95,17 @@ vi.mock("../../src/infrastructure/types.js", async () => {
 	return {};
 });
 
+vi.mock("../../src/domain/project/tool-availability.js", () => ({
+	detectTools: vi.fn(() => [
+		{ id: "vitest", available: true, version: "4.0.0" },
+		{ id: "typedoc", available: true, version: "0.28.0" },
+		{ id: "eslint", available: true, version: "10.0.0" },
+		{ id: "esbuild", available: true, version: "0.25.0" },
+		{ id: "typescript", available: true, version: "5.9.0" },
+	]),
+	hasTool: vi.fn(() => true),
+}));
+
 // ── Imports (after mocks) ────────────────────────────────────────────
 
 import * as shellMod from "../../src/infrastructure/shell.js";
@@ -177,7 +188,8 @@ describe("buildProjectDetailMenu", () => {
 
 	describe("project detail menu", () => {
 		function setupProject(overrides: {
-			tools?: Record<string, string>;
+			build?: Record<string, unknown>;
+			test?: Record<string, unknown>;
 			scripts?: Record<string, string>;
 			reports?: Record<string, unknown>;
 			docs?: Record<string, unknown>;
@@ -191,7 +203,8 @@ describe("buildProjectDetailMenu", () => {
 				pkg: { name: "my-project", scripts: overrides.scripts ?? {} },
 				config: {
 					name: "my-project",
-					tools: overrides.tools ?? {},
+					build: overrides.build,
+					test: overrides.test,
 					reports: overrides.reports,
 					docs: overrides.docs,
 					review: overrides.review,
@@ -226,16 +239,16 @@ describe("buildProjectDetailMenu", () => {
 			expect(findItem(items, "8")!.label).toBe("Reporting");
 		});
 
-		it("Build is disabled when no build tool is mapped", () => {
-			setupProject({ tools: {} });
+		it("Build is disabled when no build command is configured", () => {
+			setupProject({});
 			const items = buildProjectDetailMenu();
 			const build = findItem(items, "5")!;
 			expect(build.disabled).toBe(true);
 			expect(build.action()).toBe("main");
 		});
 
-		it("Build calls buildWithReport when build tool is mapped", async () => {
-			setupProject({ tools: { build: "npm run build" } });
+		it("Build calls buildWithReport when build command is configured", async () => {
+			setupProject({ build: { commands: { fast: "npm run build" } } });
 			const items = buildProjectDetailMenu();
 			const build = findItem(items, "5")!;
 			expect(build.disabled).toBeUndefined();
@@ -337,30 +350,36 @@ describe("buildProjectDetailMenu", () => {
 
 		// ── Documentation submenu ───────────────────────────────────
 
-		it("Update Documentation is always available even without docs config", async () => {
+		it("Documentation is always available even without docs config", async () => {
 			setupProject({ docs: undefined });
 			const items = buildProjectDetailMenu();
 			const docs = findItem(items, "d")!;
+			expect(docs.label).toBe("Documentation");
 			expect(docs.disabled).toBeUndefined();
 
 			await docs.action();
 
 			const submenuItems = (mockRunMenu.mock.calls[0][1] as MenuEntry[]).filter(isMenuItem);
-			expect(submenuItems.some((m) => m.label === "Update All")).toBe(true);
-			expect(submenuItems.some((m) => m.label === "Entity Reference")).toBe(true);
+			expect(submenuItems.some((m) => m.label === "Back")).toBe(true);
 		});
 
-		it("Update Documentation always shows Update All as first item", async () => {
-			setupProject({ docs: { allCommand: "npm run docs:all" } });
+		it("Documentation shows Update References when references are configured", async () => {
+			setupProject({
+				docs: {
+					references: [
+						{ id: "cli-reference", label: "CLI Reference" },
+					],
+				},
+			});
 			const items = buildProjectDetailMenu();
 			await findItem(items, "d")!.action();
 
 			const submenuItems = (mockRunMenu.mock.calls[0][1] as MenuEntry[]).filter(isMenuItem);
-			expect(submenuItems[0].label).toBe("Update All");
+			expect(submenuItems[0].label).toBe("Update References");
 			expect(submenuItems[0].key).toBe("1");
 		});
 
-		it("Update Documentation with generators lists them after Update All", async () => {
+		it("Documentation with generators lists them", async () => {
 			setupProject({
 				docs: {
 					generators: [{ label: "API Docs", command: "npm run docs:api" }],
@@ -373,10 +392,13 @@ describe("buildProjectDetailMenu", () => {
 			expect(submenuItems.some((m) => m.label === "API Docs")).toBe(true);
 		});
 
-		it("Update Documentation config generator key offsets after Update All", async () => {
+		it("Documentation includes Open entries for each configured reference", async () => {
 			setupProject({
 				docs: {
-					allCommand: "npm run docs:all",
+					references: [
+						{ id: "cli-reference", label: "CLI Reference" },
+						{ id: "entity-reference", label: "Entity Reference" },
+					],
 					generators: [{ label: "API", command: "npm run docs:api" }],
 				},
 			});
@@ -384,26 +406,9 @@ describe("buildProjectDetailMenu", () => {
 			await findItem(items, "d")!.action();
 
 			const submenuItems = (mockRunMenu.mock.calls[0][1] as MenuEntry[]).filter(isMenuItem);
-			const gen = submenuItems.find((m) => m.label === "API")!;
-			expect(gen.key).toBe("2");
-		});
-
-		it("Update Documentation includes CLI Reference and Entity Reference as built-in generators", async () => {
-			setupProject({
-				docs: {
-					generators: [{ label: "API", command: "npm run docs:api" }],
-				},
-			});
-			const items = buildProjectDetailMenu();
-			await findItem(items, "d")!.action();
-
-			const submenuItems = (mockRunMenu.mock.calls[0][1] as MenuEntry[]).filter(isMenuItem);
-			const cliRef = submenuItems.find((m) => m.label === "CLI Reference")!;
-			const entityRef = submenuItems.find((m) => m.label === "Entity Reference")!;
-			expect(cliRef).toBeDefined();
-			expect(cliRef.key).toBe("3");
-			expect(entityRef).toBeDefined();
-			expect(entityRef.key).toBe("4");
+			expect(submenuItems.some((m) => m.label === "Open CLI Reference")).toBe(true);
+			expect(submenuItems.some((m) => m.label === "Open Entity Reference")).toBe(true);
+			expect(submenuItems.some((m) => m.label === "API")).toBe(true);
 		});
 
 		// ── Knowledgebase ───────────────────────────────────────────
@@ -419,24 +424,28 @@ describe("buildProjectDetailMenu", () => {
 
 		// ── Advanced tools section ──────────────────────────────────
 
-		it("includes Components, Events, Dependencies, Dev Tools items", () => {
+		it("includes Components and Dev Tools items", () => {
 			setupProject();
 			const items = buildProjectDetailMenu();
 			expect(findItem(items, "c")!.label).toBe("Components");
-			expect(findItem(items, "e")!.label).toBe("Events");
-			expect(findItem(items, "g")!.label).toBe("Dependencies");
 			expect(findItem(items, "t")!.label).toBe("Dev Tools");
-			expect(findItem(items, "s")).toBeUndefined();
-			expect(findItem(items, "x")).toBeUndefined();
 		});
 
-		// ── Health ──────────────────────────────────────────────────
-
-		it("includes Health item with key 'h'", () => {
+		it("Events, Dependencies, and Health are NOT in main menu (moved to submenus)", () => {
 			setupProject();
 			const items = buildProjectDetailMenu();
-			const health = findItem(items, "h")!;
-			expect(health.label).toBe("Health");
+			expect(findItem(items, "e")).toBeUndefined();
+			expect(findItem(items, "g")).toBeUndefined();
+			expect(findItem(items, "h")).toBeUndefined();
+		});
+
+		// ── Project Management ──────────────────────────────────────
+
+		it("includes Project Management item with key 'm'", () => {
+			setupProject();
+			const items = buildProjectDetailMenu();
+			const mgmt = findItem(items, "m")!;
+			expect(mgmt.label).toBe("Project Management");
 		});
 
 		// ── Navigation ──────────────────────────────────────────────

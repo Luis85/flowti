@@ -7,9 +7,6 @@
 import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler } from "../infrastructure/types.js";
-import { disk } from "../infrastructure/filesystem.js";
-import { paths } from "../infrastructure/paths.js";
-import { shell } from "../infrastructure/shell.js";
 import { collectProjectInfo } from "../domain/info/info.js";
 import { displayInfo } from "../ui/info-display.js";
 import { renderNoProject, type NoProjectModel } from "../ui/common-renderers.js";
@@ -25,6 +22,7 @@ function noProjectResponse(command: string) {
 const actions: Record<string, ControllerAction> = {
 	info: (req) => {
 		if (!req.project) return noProjectResponse("info");
+		const { disk, paths, shell } = req.deps;
 		const model = collectProjectInfo(req.project, { disk, paths, shell });
 		return dataResponse(model, displayInfo);
 	},

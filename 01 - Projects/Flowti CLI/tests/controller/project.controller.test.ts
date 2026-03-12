@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ── Mocks (must come BEFORE imports) ─────────────────────────────
 
-vi.mock("../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
+vi.mock("../../src/infrastructure/logger.js", () => ({ log: vi.fn(), warn: vi.fn() }));
 vi.mock("../../src/infrastructure/shell.js", () => ({
 	shell: { run: vi.fn(() => 0) },
 }));

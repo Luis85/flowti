@@ -19,7 +19,6 @@ vi.mock("../../../../src/infrastructure/paths.js", () => ({
 }));
 vi.mock("../../../../src/infrastructure/config.js", () => ({
 	CLI_PROJECT: "/project",
-	PLUGIN_ROOT: "/plugin",
 }));
 vi.mock("../../../../src/infrastructure/clock.js", () => ({
 	clock: {
@@ -38,6 +37,7 @@ vi.mock("../../../../src/domain/reports/generators/event-catalog.js", () => ({
 }));
 
 import type { ReportDeps } from "../../../../src/infrastructure/deps.js";
+import type { PipelineContext } from "../../../../src/infrastructure/pipeline/pipeline-types.js";
 import { disk } from "../../../../src/infrastructure/filesystem.js";
 import { paths } from "../../../../src/infrastructure/paths.js";
 import { clock } from "../../../../src/infrastructure/clock.js";
@@ -46,6 +46,23 @@ import { generateEventCatalog } from "../../../../src/domain/reports/cli/generat
 
 const mockShell = { run: vi.fn(() => ({ stdout: "", stderr: "", exitCode: 0, success: true })) };
 const mockDeps: ReportDeps = { disk, paths, clock, shell: mockShell as any, log: () => {} };
+
+function createMockCtx(source?: string): Partial<PipelineContext> {
+	const stepData = new Map<string, Record<string, unknown>>();
+	if (source) stepData.set("event-catalog", { source });
+	return {
+		log: vi.fn(),
+		projectPath: "/project",
+		getResults: () => [],
+		pushResult: vi.fn(),
+		getStepResult: vi.fn(),
+		setCommandOutput: vi.fn(),
+		getCommandOutput: vi.fn(),
+		setStepData: vi.fn((id, data) => stepData.set(id, data)),
+		getStepData: vi.fn((id) => stepData.get(id)),
+		deps: mockDeps as any,
+	};
+}
 
 const sampleEvents = [
 	{ type: "app.loaded", category: "Core", description: "App loaded", direction: "outbound", domain: "core", services: "AppService", stability: "stable", visibility: "public", tags: ["system"] },
@@ -57,10 +74,18 @@ beforeEach(() => {
 });
 
 describe("generateEventCatalog", () => {
+	it("returns failure when source not configured (no ctx)", () => {
+		const result = generateEventCatalog("/project", mockDeps);
+
+		expect(result.success).toBe(false);
+		expect(result.outputPath).toBe("");
+		expect(result.error).toMatch(/source not configured/i);
+	});
+
 	it("returns failure when catalog source not found", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(false);
 
-		const result = generateEventCatalog("/project", mockDeps);
+		const result = generateEventCatalog("/project", mockDeps, createMockCtx("src/infrastructure/events/catalog.ts") as any);
 
 		expect(result.success).toBe(false);
 		expect(result.outputPath).toBe("");
@@ -72,7 +97,7 @@ describe("generateEventCatalog", () => {
 		vi.mocked(extractCategories).mockReturnValue(["Core"]);
 		vi.mocked(extractCatalogEntries).mockReturnValue([]);
 
-		const result = generateEventCatalog("/project", mockDeps);
+		const result = generateEventCatalog("/project", mockDeps, createMockCtx("src/infrastructure/events/catalog.ts") as any);
 
 		expect(result.success).toBe(false);
 		expect(result.outputPath).toBe("");
@@ -84,7 +109,7 @@ describe("generateEventCatalog", () => {
 		vi.mocked(extractCategories).mockReturnValue(["Core", "User"]);
 		vi.mocked(extractCatalogEntries).mockReturnValue(sampleEvents as any);
 
-		const result = generateEventCatalog("/project", mockDeps);
+		const result = generateEventCatalog("/project", mockDeps, createMockCtx("src/infrastructure/events/catalog.ts") as any);
 
 		expect(result.success).toBe(true);
 		expect(result.outputPath).toBeTruthy();
@@ -100,7 +125,7 @@ describe("generateEventCatalog", () => {
 		vi.mocked(extractCategories).mockReturnValue(["Core", "User"]);
 		vi.mocked(extractCatalogEntries).mockReturnValue(sampleEvents as any);
 
-		const result = generateEventCatalog("/project", mockDeps);
+		const result = generateEventCatalog("/project", mockDeps, createMockCtx("src/infrastructure/events/catalog.ts") as any);
 
 		expect(result.success).toBe(true);
 		expect(result.metrics?.["categories"]).toBe(2);
@@ -112,21 +137,10 @@ describe("generateEventCatalog", () => {
 		vi.mocked(extractCategories).mockReturnValue(["Core", "User"]);
 		vi.mocked(extractCatalogEntries).mockReturnValue(sampleEvents as any);
 
-		const logFn = vi.fn();
-		const ctx = {
-			log: logFn,
-			projectPath: "/project",
-			getResults: () => [],
-			pushResult: vi.fn(),
-			getStepResult: vi.fn(),
-			setCommandOutput: vi.fn(),
-			getCommandOutput: vi.fn(),
-			setStepData: vi.fn(),
-			getStepData: vi.fn(),
-		};
+		const ctx = createMockCtx("src/infrastructure/events/catalog.ts");
 
 		generateEventCatalog("/project", mockDeps, ctx as any);
 
-		expect(logFn).toHaveBeenCalled();
+		expect(ctx.log).toHaveBeenCalled();
 	});
 });

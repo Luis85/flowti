@@ -29,7 +29,9 @@ vi.mock("../../src/ui/common-renderers.js", () => ({
 }));
 
 import { commands } from "../../src/controller/build.controller.js";
+import { initializeDeps } from "../../src/infrastructure/request-response.js";
 import { shell } from "../../src/infrastructure/shell.js";
+import { log } from "../../src/infrastructure/logger.js";
 import { checkFreshness, recordBuild, resolveBuildPaths } from "../../src/domain/build/build-freshness.js";
 import { runProjectCi } from "../../src/domain/build/ci-generator.js";
 
@@ -49,6 +51,14 @@ const mockProject = {
 describe("build.controller", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		initializeDeps({
+			disk: {} as never, shell, paths: { join: (...a: string[]) => a.join("/"), resolve: (...a: string[]) => a.join("/"), dirname: (p: string) => p, basename: (p: string) => p.split("/").pop() ?? p, relative: (_: string, b: string) => b, extname: () => "", isAbsolute: () => false, sep: "/" },
+			clock: { iso: () => "", now: () => new Date(), ms: () => 0, safeIso: () => "" },
+			proc: { exit: vi.fn() as never, argv: () => [], cwd: () => "/", env: () => ({}) },
+			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never },
+			bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never,
+			log, warn: vi.fn(),
+		});
 	});
 
 	// ── build ──────────────────────────────────────────────────────

@@ -19,7 +19,6 @@ vi.mock("../../../../src/infrastructure/paths.js", () => ({
 }));
 vi.mock("../../../../src/infrastructure/config.js", () => ({
 	CLI_PROJECT: "/project",
-	PLUGIN_ROOT: "/plugin",
 }));
 vi.mock("../../../../src/infrastructure/clock.js", () => ({
 	clock: {
@@ -38,6 +37,7 @@ vi.mock("../../../../src/domain/reports/generators/data-dictionary.js", () => ({
 }));
 
 import type { ReportDeps } from "../../../../src/infrastructure/deps.js";
+import type { PipelineContext } from "../../../../src/infrastructure/pipeline/pipeline-types.js";
 import { disk } from "../../../../src/infrastructure/filesystem.js";
 import { paths } from "../../../../src/infrastructure/paths.js";
 import { clock } from "../../../../src/infrastructure/clock.js";
@@ -46,6 +46,23 @@ import { generateDataDictionary } from "../../../../src/domain/reports/cli/gener
 
 const mockShell = { run: vi.fn(() => ({ stdout: "", stderr: "", exitCode: 0, success: true })) };
 const mockDeps: ReportDeps = { disk, paths, clock, shell: mockShell as any, log: () => {} };
+
+function createMockCtx(source?: string): Partial<PipelineContext> {
+	const stepData = new Map<string, Record<string, unknown>>();
+	if (source) stepData.set("data-dictionary", { source });
+	return {
+		log: vi.fn(),
+		projectPath: "/project",
+		getResults: () => [],
+		pushResult: vi.fn(),
+		getStepResult: vi.fn(),
+		setCommandOutput: vi.fn(),
+		getCommandOutput: vi.fn(),
+		setStepData: vi.fn((id, data) => stepData.set(id, data)),
+		getStepData: vi.fn((id) => stepData.get(id)),
+		deps: mockDeps as any,
+	};
+}
 
 const sampleEntities = [
 	{
@@ -80,10 +97,17 @@ beforeEach(() => {
 });
 
 describe("generateDataDictionary", () => {
+	it("returns failure when source not configured (no ctx)", () => {
+		const result = generateDataDictionary("/project", mockDeps);
+
+		expect(result.success).toBe(false);
+		expect(result.error).toMatch(/source not configured/i);
+	});
+
 	it("returns failure when registry source not found", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(false);
 
-		const result = generateDataDictionary("/project", mockDeps);
+		const result = generateDataDictionary("/project", mockDeps, createMockCtx("src/domain/docs/entityTypeRegistry.ts") as any);
 
 		expect(result.success).toBe(false);
 		expect(result.outputPath).toBe("");
@@ -95,7 +119,7 @@ describe("generateDataDictionary", () => {
 		vi.mocked(disk.readFileSync).mockReturnValue("// empty registry source");
 		vi.mocked(extractEntityTypes).mockReturnValue([]);
 
-		const result = generateDataDictionary("/project", mockDeps);
+		const result = generateDataDictionary("/project", mockDeps, createMockCtx("src/domain/docs/entityTypeRegistry.ts") as any);
 
 		expect(result.success).toBe(false);
 		expect(result.outputPath).toBe("");
@@ -107,7 +131,7 @@ describe("generateDataDictionary", () => {
 		vi.mocked(disk.readFileSync).mockReturnValue("// registry source");
 		vi.mocked(extractEntityTypes).mockReturnValue(sampleEntities as any);
 
-		const result = generateDataDictionary("/project", mockDeps);
+		const result = generateDataDictionary("/project", mockDeps, createMockCtx("src/domain/docs/entityTypeRegistry.ts") as any);
 
 		expect(result.success).toBe(true);
 		expect(result.outputPath).toBeTruthy();
@@ -123,7 +147,7 @@ describe("generateDataDictionary", () => {
 		vi.mocked(disk.readFileSync).mockReturnValue("// registry source");
 		vi.mocked(extractEntityTypes).mockReturnValue(sampleEntities as any);
 
-		const result = generateDataDictionary("/project", mockDeps);
+		const result = generateDataDictionary("/project", mockDeps, createMockCtx("src/domain/docs/entityTypeRegistry.ts") as any);
 
 		expect(result.success).toBe(true);
 		// PBI has 2 fields, TechDebt has 1 — total should be 3
@@ -135,21 +159,10 @@ describe("generateDataDictionary", () => {
 		vi.mocked(disk.readFileSync).mockReturnValue("// registry source");
 		vi.mocked(extractEntityTypes).mockReturnValue(sampleEntities as any);
 
-		const logFn = vi.fn();
-		const ctx = {
-			log: logFn,
-			projectPath: "/project",
-			getResults: () => [],
-			pushResult: vi.fn(),
-			getStepResult: vi.fn(),
-			setCommandOutput: vi.fn(),
-			getCommandOutput: vi.fn(),
-			setStepData: vi.fn(),
-			getStepData: vi.fn(),
-		};
+		const ctx = createMockCtx("src/domain/docs/entityTypeRegistry.ts");
 
 		generateDataDictionary("/project", mockDeps, ctx as any);
 
-		expect(logFn).toHaveBeenCalled();
+		expect(ctx.log).toHaveBeenCalled();
 	});
 });

@@ -7,7 +7,6 @@
 
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
-import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import type { ReportDeps } from "../../../infrastructure/deps.js";
 import { extractEntityTypes, groupLabel } from "../generators/data-dictionary.js";
 import type { EntityType, EntityField } from "../generators/data-dictionary.js";
@@ -19,7 +18,12 @@ import type { PipelineContext } from "../../../infrastructure/pipeline/pipeline-
 export function generateDataDictionary(projectPath: string, deps: ReportDeps, ctx?: PipelineContext): GeneratorOutput {
 	const log = (msg: string) => ctx?.log(msg);
 	const svc = new ReportService(projectPath, deps);
-	const registryPath = deps.paths.join(PLUGIN_ROOT, "src", "domain", "docs", "entityTypeRegistry.ts");
+	const sourcePath = ctx?.getStepData("data-dictionary")?.source as string | undefined;
+	if (!sourcePath) {
+		log("[cli-report] Data dictionary source not configured — skipping.");
+		return { success: false, outputPath: "", metrics: {}, error: "Source not configured" };
+	}
+	const registryPath = deps.paths.join(projectPath, sourcePath);
 
 	if (!deps.disk.existsSync(registryPath)) {
 		log("[cli-report] entityTypeRegistry.ts not found — skipping data dictionary generation.");

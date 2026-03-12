@@ -22,11 +22,8 @@ import { componentListMenu } from "./menus/component-list-menu.js";
 import { publishMenu } from "./menus/publish-menu.js";
 import { reviewMenu } from "./menus/review-menu.js";
 import { showInfo } from "./info-display.js";
-import { collectHealth } from "../domain/health/health.js";
-import { displayHealth } from "./health-display.js";
 import { showHelp } from "./help.js";
 import { captureIdea, captureNote, captureBug } from "./menus/capture-menu.js";
-import { eventCatalogMenu } from "./menus/event-catalog-menu.js";
 import { shell } from "../infrastructure/shell.js";
 import { disk } from "../infrastructure/filesystem.js";
 import { paths } from "../infrastructure/paths.js";
@@ -40,12 +37,12 @@ import {
 	buildReportsSubmenu,
 	buildDocsSubmenu,
 	buildDevToolsSubmenu,
-	buildDepsSubmenu,
 } from "./menu-builders.js";
 import { input } from "../infrastructure/input.js";
 import { getSelectedProject } from "../infrastructure/state.js";
 import { initializeProject } from "../domain/project/project-config.js";
 import type { MenuEntry } from "../infrastructure/types.js";
+import { detectTools, hasTool } from "../domain/project/tool-availability.js";
 
 // ── Public: build full menu for current project ─────────────────────
 
@@ -54,6 +51,7 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 	if (!projectName) return buildFallbackMenu();
 
 	const ctx = initializeProject(projectName, { disk, paths });
+	const tools = detectTools(ctx.path, { disk, paths });
 
 	const items: MenuEntry[] = [];
 
@@ -76,8 +74,10 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 	});
 
 	{
-		const buildCmd = ctx.config.build?.commands?.["fast"] ?? ctx.config.tools?.["build"];
-		if (buildCmd) {
+		const buildCmd = ctx.config.build?.commands?.["fast"];
+		const hasEsbuild = hasTool(tools, "esbuild");
+		const hasTsc = hasTool(tools, "typescript");
+		if (buildCmd && (hasEsbuild || hasTsc)) {
 			items.push({
 				key: "5",
 				label: "Build",
@@ -88,13 +88,15 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 				},
 			});
 		} else {
+			const reason = !buildCmd
+				? "No build command configured. Add build.commands.fast to flowti.config.json."
+				: "Missing esbuild or typescript. Run: npm install -D esbuild typescript";
 			items.push({
 				key: "5",
 				label: "Build",
 				action: () => "main" as const,
 				disabled: true,
-				disabledMessage:
-					'\n  Build is not mapped. Add build.commands.fast or tools.build to flowti.config.json.\n',
+				disabledMessage: `\n  ${reason}\n`,
 			});
 		}
 	}
@@ -131,16 +133,25 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 		const docsConfig = ctx.config.docs;
 		items.push({
 			key: "d",
-			label: "Update Documentation",
+			label: "Documentation",
 			action: async () => {
 				const { runMenu } = await import("../infrastructure/menu.js");
 				const configGens = docsConfig?.generators ?? [];
-				const allCmd = docsConfig?.allCommand;
-				await runMenu("documentation", buildDocsSubmenu(configGens, allCmd, ctx.path), { defaultChoice: "1" });
+				const references = docsConfig?.references ?? [];
+				await runMenu("documentation", buildDocsSubmenu(configGens, references, ctx.path), { defaultChoice: "1" });
 				return "main" as const;
 			},
 		});
 	}
+
+	items.push({
+		key: "m",
+		label: "Project Management",
+		action: async () => {
+			const { managementMenu } = await import("./menus/management-menu.js");
+			return managementMenu(ctx);
+		},
+	});
 
 	items.push(
 		{
@@ -152,20 +163,22 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 				"\n  Knowledgebase requires Obsidian CLI and an initialized vault.\n",
 		},
 		{
-			key: "h",
-			label: "Health",
+			key: "i",
+			label: "Info",
 			action: async () => {
-				const health = collectHealth({ disk, paths, shell }, ctx);
-				displayHealth(health);
+				showInfo();
 				await input.waitForEnter();
 				return "main" as const;
 			},
 		},
 		{
-			key: "i",
-			label: "Info",
+			key: "r",
+			label: "README",
+			disabled: () => !disk.existsSync(paths.join(ctx.path, "README.md")),
+			disabledMessage: "\n  No README.md found. Run `flowti readme` to generate one.\n",
 			action: async () => {
-				showInfo();
+				const content = disk.readFileSync(paths.join(ctx.path, "README.md"), "utf-8");
+				logFn(`\n${content}`);
 				await input.waitForEnter();
 				return "main" as const;
 			},
@@ -178,23 +191,9 @@ export function buildProjectDetailMenu(): MenuEntry[] {
 
 	items.push(
 		{
-			key: "e",
-			label: "Events",
-			action: () => eventCatalogMenu(ctx.path),
-		},
-		{
 			key: "c",
 			label: "Components",
 			action: () => componentListMenu(ctx.path, ctx.config.components),
-		},
-		{
-			key: "g",
-			label: "Dependencies",
-			action: async () => {
-				const { runMenu } = await import("../infrastructure/menu.js");
-				await runMenu("dependencies", buildDepsSubmenu(ctx.path));
-				return "main" as const;
-			},
 		},
 		{
 			key: "t",

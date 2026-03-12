@@ -135,7 +135,8 @@ describe("new definitions — dry run", () => {
 		expect(files).toContain("src/index.ts");
 		expect(files).toContain("tests/index.test.ts");
 		expect(files).toContain(".gitignore");
-		expect(files).toHaveLength(8);
+		expect(files).toContain("README.md");
+		expect(files).toHaveLength(10);
 	});
 
 	it("flowti-cli produces all expected files", () => {
@@ -144,7 +145,8 @@ describe("new definitions — dry run", () => {
 		expect(files).toContain("configs/esbuild.config.mjs");
 		expect(files).toContain("src/main.ts");
 		expect(files).toContain("tests/main.test.ts");
-		expect(files).toHaveLength(9);
+		expect(files).toContain("README.md");
+		expect(files).toHaveLength(11);
 	});
 
 	it("flowti-obsidian-plugin produces all expected files", () => {
@@ -155,7 +157,8 @@ describe("new definitions — dry run", () => {
 		expect(files).toContain("src/main.ts");
 		expect(files).toContain("tests/main.test.ts");
 		expect(files).toContain("configs/esbuild.config.mjs");
-		expect(files).toHaveLength(11);
+		expect(files).toContain("README.md");
+		expect(files).toHaveLength(13);
 	});
 
 	it.each(DEFINITIONS)("$id — no duplicate file paths", ({ def }) => {

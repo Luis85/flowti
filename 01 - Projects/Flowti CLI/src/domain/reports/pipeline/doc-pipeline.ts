@@ -18,9 +18,9 @@ import type {
 	PipelineContext,
 	StepOutput,
 } from "../../../infrastructure/pipeline/pipeline-types.js";
-import type { DocGenerator } from "../../../infrastructure/types.js";
+import type { DocGenerator, ReferenceConfig } from "../../../infrastructure/types.js";
 import type { CliDeps } from "../../../infrastructure/deps.js";
-import { runReference, listReferenceIds } from "../generator-registry.js";
+import { runReference } from "../generator-registry.js";
 
 // ── Step adapters ────────────────────────────────────────────────────
 
@@ -42,16 +42,20 @@ export function toDocStep(gen: DocGenerator, deps: Pick<CliDeps, "shell">): Pipe
 
 /**
  * Wrap a built-in reference generator as a PipelineStep.
- * References are internal functions that produce markdown documents.
+ * If a ReferenceConfig provides a `source`, it is injected into step data
+ * so the generator can resolve paths relative to the project root.
  */
-export function toReferenceStep(refId: string): PipelineStep {
-	const label = refId.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+export function toReferenceStep(ref: ReferenceConfig): PipelineStep {
 	return {
-		id: refId,
-		label,
+		id: ref.id,
+		label: ref.label,
+		stepConfig: ref.source ? { source: ref.source } : undefined,
 		execute: (ctx: PipelineContext): StepOutput => {
-			const output = runReference(refId, ctx.projectPath, ctx.deps);
-			if (!output) return { success: false, warnings: [`Reference "${refId}" returned no output`] };
+			// Inject source into step data so generators can read it
+			if (ref.source) ctx.setStepData(ref.id, { source: ref.source });
+
+			const output = runReference(ref.id, ctx.projectPath, ctx.deps, ctx);
+			if (!output) return { success: false, warnings: [`Reference "${ref.id}" returned no output`] };
 			return {
 				success: output.success,
 				outputPath: output.outputPath,
@@ -67,11 +71,16 @@ export function toReferenceStep(refId: string): PipelineStep {
 /**
  * Build the full list of doc pipeline steps from config and registry.
  *
- * Order: external generators first (e.g. TypeDoc), then built-in references.
+ * Order: external generators first (e.g. TypeDoc), then configured references.
+ * Only references declared in `references` are included — no implicit defaults.
  */
-export function buildDocSteps(configGenerators: DocGenerator[], deps: Pick<CliDeps, "shell">): PipelineStep[] {
+export function buildDocSteps(
+	configGenerators: DocGenerator[],
+	references: ReferenceConfig[],
+	deps: Pick<CliDeps, "shell">,
+): PipelineStep[] {
 	const externalSteps = configGenerators.map((gen) => toDocStep(gen, deps));
-	const referenceSteps = listReferenceIds().map(toReferenceStep);
+	const referenceSteps = references.map(toReferenceStep);
 	return [...externalSteps, ...referenceSteps];
 }
 
@@ -82,10 +91,11 @@ export function buildDocSteps(configGenerators: DocGenerator[], deps: Pick<CliDe
  */
 export async function runDocPipeline(
 	configGenerators: DocGenerator[],
+	references: ReferenceConfig[],
 	projectPath: string,
 	deps: CliDeps,
 ): Promise<PipelineResult> {
-	const steps = buildDocSteps(configGenerators, deps);
+	const steps = buildDocSteps(configGenerators, references, deps);
 	const ctx = createPipelineContext(projectPath, deps);
 
 	return runPipelineWithContext(steps, ctx, {

@@ -20,6 +20,14 @@ vi.mock("../../src/infrastructure/shell.js", () => ({
 	shell: {},
 }));
 
+vi.mock("../../src/infrastructure/filesystem.js", () => ({
+	disk: { existsSync: vi.fn(() => false), readFileSync: vi.fn(() => ""), readdirSync: vi.fn(() => []) },
+}));
+
+vi.mock("../../src/infrastructure/paths.js", () => ({
+	paths: { join: (...parts: string[]) => parts.join("/"), resolve: (...parts: string[]) => parts.join("/") },
+}));
+
 vi.mock("../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
 }));
@@ -29,12 +37,26 @@ vi.mock("../../src/infrastructure/input.js", () => ({
 }));
 
 vi.mock("../../src/infrastructure/ui.js", () => ({
-	RESET: "", GREEN: "", RED: "",
+	RESET: "", GREEN: "", RED: "", DIM: "",
+}));
+
+vi.mock("../../src/infrastructure/config.js", () => ({
+	VAULT_ROOT: "/mock/vault",
+	CLI_PROJECT: "/mock/project",
+	PROJECTS_DIR: "/mock/projects",
 }));
 
 const mockDefaultDeps = { disk: {}, paths: {}, clock: {}, log: () => {} };
 vi.mock("../../src/infrastructure/deps.js", () => ({
 	createDefaultDeps: () => mockDefaultDeps,
+}));
+
+vi.mock("../../src/domain/project/project-deps.js", () => ({
+	buildDependencyGraph: vi.fn(() => ({ projects: [], edges: [], cycles: [] })),
+}));
+
+vi.mock("../../src/ui/deps-display.js", () => ({
+	displayDependencyGraph: vi.fn(),
 }));
 
 // ── Imports (after mocks) ────────────────────────────────────────────
@@ -43,7 +65,6 @@ import * as shellMod from "../../src/infrastructure/shell.js";
 import { buildReportsSubmenu, buildDocsSubmenu, buildNpmScriptsSubmenu } from "../../src/ui/menu-builders.js";
 import { runAllReports } from "../../src/domain/reports/pipeline/report-runner.js";
 import { runGenerator } from "../../src/domain/reports/generator-registry.js";
-import { runReference } from "../../src/domain/reports/generator-registry.js";
 import { browseArchive } from "../../src/ui/menus/report-archive-menu.js";
 import type { MenuItem, MenuEntry } from "../../src/infrastructure/types.js";
 
@@ -151,72 +172,66 @@ describe("buildReportsSubmenu", () => {
 // ── buildDocsSubmenu ─────────────────────────────────────────────────
 
 describe("buildDocsSubmenu", () => {
-	it("always includes Update All as key 1", () => {
-		const items = buildDocsSubmenu([], undefined, "/proj");
-		const updateAll = findItem(items, "1")!;
-		expect(updateAll.label).toBe("Update All");
+	const refs = [
+		{ id: "cli-reference", label: "CLI Reference" },
+		{ id: "entity-reference", label: "Entity Reference" },
+	];
+
+	it("includes Update References as key 1 when references are configured", () => {
+		const items = buildDocsSubmenu([], refs, "/proj");
+		const updateRefs = findItem(items, "1")!;
+		expect(updateRefs.label).toBe("Update References");
 	});
 
-	it("Update All runs allCommand when provided", () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
-		const items = buildDocsSubmenu([], "npm run docs:all", "/proj");
-		findItem(items, "1")!.action();
-		expect(sh.calls.some((c) => c.cmd === "npm run docs:all")).toBe(true);
+	it("includes Open entries for each reference", () => {
+		const items = buildDocsSubmenu([], refs, "/proj");
+		expect(findByLabel(items, "Open CLI Reference")).toBeDefined();
+		expect(findByLabel(items, "Open Entity Reference")).toBeDefined();
 	});
 
-	it("Update All runs config generators", () => {
-		const sh = createMockShell();
-		Object.assign(shellMod, { shell: sh });
-		const gens = [{ label: "API", command: "npm run docs:api" }];
-		const items = buildDocsSubmenu(gens, undefined, "/proj");
-		findItem(items, "1")!.action();
-		expect(sh.calls.some((c) => c.cmd === "npm run docs:api")).toBe(true);
-	});
-
-	it("Update All runs built-in reference generators", () => {
-		const items = buildDocsSubmenu([], undefined, "/proj");
-		findItem(items, "1")!.action();
-		expect(runReference).toHaveBeenCalledWith("cli-reference", "/proj", mockDefaultDeps);
-		expect(runReference).toHaveBeenCalledWith("entity-reference", "/proj", mockDefaultDeps);
-	});
-
-	it("lists config generators after separator", () => {
+	it("lists config generators after references", () => {
 		const gens = [{ label: "API Docs", command: "npm run docs:api" }];
-		const items = buildDocsSubmenu(gens, undefined, "/proj");
+		const items = buildDocsSubmenu(gens, refs, "/proj");
 		expect(findByLabel(items, "API Docs")).toBeDefined();
 	});
 
-	it("config generator keys start at 2", () => {
+	it("config generator action calls shell.run", () => {
+		const sh = createMockShell();
+		Object.assign(shellMod, { shell: sh });
 		const gens = [{ label: "API", command: "npm run docs:api" }];
-		const items = buildDocsSubmenu(gens, undefined, "/proj");
-		expect(findItem(items, "2")!.label).toBe("API");
-	});
-
-	it("includes CLI Reference and Entity Reference as built-in items", () => {
-		const items = buildDocsSubmenu([], undefined, "/proj");
-		expect(findByLabel(items, "CLI Reference")).toBeDefined();
-		expect(findByLabel(items, "Entity Reference")).toBeDefined();
-	});
-
-	it("built-in doc action calls runReference", () => {
-		const items = buildDocsSubmenu([], undefined, "/proj");
-		findByLabel(items, "CLI Reference")!.action();
-		expect(runReference).toHaveBeenCalledWith("cli-reference", "/proj", mockDefaultDeps);
+		const items = buildDocsSubmenu(gens, [], "/proj");
+		findByLabel(items, "API")!.action();
+		expect(sh.calls.some((c) => c.cmd === "npm run docs:api")).toBe(true);
 	});
 
 	it("includes Back item", () => {
-		const items = buildDocsSubmenu([], undefined, "/proj");
+		const items = buildDocsSubmenu([], refs, "/proj");
 		const back = findItem(items, "b")!;
 		expect(back.action()).toBe("main");
 	});
 
-	it("key numbering is sequential across config + built-in generators", () => {
+	it("key numbering is sequential across references + generators", () => {
 		const gens = [{ label: "API", command: "cmd" }];
-		const items = buildDocsSubmenu(gens, undefined, "/proj");
-		// 1=Update All, 2=API, 3=CLI Reference, 4=Entity Reference
-		expect(findItem(items, "3")!.label).toBe("CLI Reference");
-		expect(findItem(items, "4")!.label).toBe("Entity Reference");
+		const items = buildDocsSubmenu(gens, refs, "/proj");
+		// 1=Update References, sep, 2=Open CLI Reference, 3=Open Entity Reference, sep, 4=API
+		expect(findItem(items, "2")!.label).toBe("Open CLI Reference");
+		expect(findItem(items, "3")!.label).toBe("Open Entity Reference");
+		expect(findItem(items, "4")!.label).toBe("API");
+	});
+
+	it("includes Events and Dependencies entries", () => {
+		const items = buildDocsSubmenu([], [], "/proj");
+		expect(findItem(items, "e")!.label).toBe("Events");
+		expect(findItem(items, "g")!.label).toBe("Dependencies");
+	});
+
+	it("shows Events, Dependencies, and Back when no references and no generators", () => {
+		const items = buildDocsSubmenu([], [], "/proj");
+		const menuItems = items.filter(isMenuItem);
+		expect(menuItems).toHaveLength(3);
+		expect(menuItems[0].label).toBe("Events");
+		expect(menuItems[1].label).toBe("Dependencies");
+		expect(menuItems[2].label).toBe("Back");
 	});
 });
 

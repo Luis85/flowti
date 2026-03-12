@@ -64,8 +64,13 @@ vi.mock("../../src/ui/common-renderers.js", () => ({
 }));
 
 import { commands } from "../../src/controller/scaffold.controller.js";
+import { initializeDeps } from "../../src/infrastructure/request-response.js";
 import { scaffold, scaffoldDryRun, listDefinitions } from "../../src/domain/scaffold/scaffold-service.js";
 import { log } from "../../src/infrastructure/logger.js";
+import { disk } from "../../src/infrastructure/filesystem.js";
+import { paths } from "../../src/infrastructure/paths.js";
+import { clock } from "../../src/infrastructure/clock.js";
+import { proc } from "../../src/infrastructure/proc.js";
 
 const logMock = log as ReturnType<typeof vi.fn>;
 
@@ -80,6 +85,12 @@ const mockProject = {
 describe("scaffold.controller", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		initializeDeps({
+			disk, shell: {} as never, paths, clock, proc,
+			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never },
+			bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never,
+			log, warn: vi.fn(),
+		});
 	});
 
 	describe("scaffold:new", () => {

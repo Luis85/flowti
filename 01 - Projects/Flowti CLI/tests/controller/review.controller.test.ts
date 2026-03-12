@@ -69,8 +69,11 @@ vi.mock("../../src/ui/review-display.js", () => ({
 // ── Imports ──────────────────────────────────────────────────────
 
 import { commands } from "../../src/controller/review.controller.js";
+import { initializeDeps } from "../../src/infrastructure/request-response.js";
 import { shell } from "../../src/infrastructure/shell.js";
 import { disk } from "../../src/infrastructure/filesystem.js";
+import { paths } from "../../src/infrastructure/paths.js";
+import { proc } from "../../src/infrastructure/proc.js";
 import { log } from "../../src/infrastructure/logger.js";
 import { renderPipelineResult } from "../../src/ui/review-display.js";
 import { analyzeWorkingTree, analyzeBranchDiff } from "../../src/domain/review/change-analysis.js";
@@ -88,6 +91,13 @@ const mockProject = {
 describe("review.controller", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		initializeDeps({
+			disk, shell, paths, proc,
+			clock: { iso: () => "", now: () => new Date(), ms: () => 0, safeIso: () => "" },
+			input: { ask: vi.fn() as never, askYesNo: vi.fn() as never, waitForEnter: vi.fn() as never },
+			bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), clear: vi.fn() } as never,
+			log, warn: vi.fn(),
+		});
 	});
 
 	describe("review", () => {

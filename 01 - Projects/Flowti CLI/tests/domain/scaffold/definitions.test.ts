@@ -73,8 +73,8 @@ describe("flowti-project.json", () => {
 		expect(raw.package.devDependencies.typedoc).toBeDefined();
 	});
 
-	it("configures flowti tools for build", () => {
-		expect(raw.flowtiConfig.tools.build).toBe("npm run build");
+	it("configures flowti build commands", () => {
+		expect(raw.flowtiConfig.build.commands.fast).toBe("npm run build");
 	});
 
 	it("configures publish pipeline", () => {

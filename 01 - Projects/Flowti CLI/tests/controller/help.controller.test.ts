@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
+vi.mock("../../src/infrastructure/logger.js", () => ({ log: vi.fn(), warn: vi.fn() }));
 vi.mock("../../src/infrastructure/proc.js", () => ({
 	proc: { exit: vi.fn(), argv: () => [], cwd: () => "/", env: () => ({}) },
 }));
@@ -22,6 +22,20 @@ vi.mock("../../src/infrastructure/paths.js", () => ({
 		basename: (p: string) => p.split("/").pop() ?? p,
 	},
 }));
+vi.mock("../../src/infrastructure/shell.js", () => ({
+	shell: { run: vi.fn(() => 0), runSilent: vi.fn(() => null), check: vi.fn(() => true), runCapture: vi.fn(() => ""), execFile: vi.fn(() => null), runCaptureStatus: vi.fn(() => ({ output: "", exitCode: 0 })), runCaptureDetailed: vi.fn(() => ({ stdout: "", stderr: "", exitCode: 0 })), spawnBackground: vi.fn(() => ({ running: false, output: [], onOutput: () => () => {}, kill: () => {}, waitForOutput: () => Promise.resolve(null) })), runAsync: vi.fn(async () => ({ output: "", exitCode: 0 })), runParallel: vi.fn(async () => []) },
+}));
+vi.mock("../../src/infrastructure/clock.js", () => ({
+	clock: { now: () => new Date(), iso: () => "", ms: () => 0, safeIso: () => "" },
+}));
+vi.mock("../../src/infrastructure/input.js", () => ({
+	input: { ask: vi.fn(async () => ""), askYesNo: vi.fn(async () => false), waitForEnter: vi.fn(async () => {}) },
+}));
+vi.mock("../../src/ui/cli-event-renderer.js", () => ({ attachCliRenderer: vi.fn(() => () => {}) }));
+vi.mock("../../src/infrastructure/request-response.js", async () => {
+	const actual = await vi.importActual<typeof import("../../src/infrastructure/request-response.js")>("../../src/infrastructure/request-response.js");
+	return actual;
+});
 
 import { commands } from "../../src/controller/help.controller.js";
 import { log } from "../../src/infrastructure/logger.js";

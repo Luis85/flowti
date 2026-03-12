@@ -35,10 +35,8 @@
 		}
 	},
 	"flowtiConfig": {
-		"tools": {
-			"build": "npm run build",
-			"devtools": "npm run build:watch"
-		},
+		"build": { "commands": { "fast": "npm run build", "watch": "npm run build:watch" } },
+		"test": { "commands": { "unit": "npm test" } },
 		"publish": {
 			"build": "npm run build",
 			"test": "npm test",
@@ -67,7 +65,9 @@
 		{ "path": "manifest.json", "templateId": "plugin-manifest" },
 		{ "path": "styles.css", "templateId": "plugin-styles" },
 		{ "path": "src/main.ts", "templateId": "plugin-main" },
-		{ "path": "tests/main.test.ts", "templateId": "plugin-main-test" }
+		{ "path": "tests/main.test.ts", "templateId": "plugin-main-test" },
+		{ "path": "README.md", "templateId": "readme" },
+		{ "path": "docs/{{name}} — Architecture.md", "templateId": "architecture" }
 	],
 	"nextSteps": [
 		"cd \"{{outputPath}}\"",
