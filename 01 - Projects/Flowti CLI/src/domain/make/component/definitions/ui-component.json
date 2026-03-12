@@ -34,8 +34,7 @@
 	],
 	"variants": [
 		{ "name": "primary", "label": "Primary", "props": { "variant": "primary" } },
-		{ "name": "secondary", "label": "Secondary", "props": { "variant": "secondary" } },
-		{ "name": "disabled", "label": "Disabled", "props": { "variant": "default", "disabled": true } }
+		{ "name": "secondary", "label": "Secondary", "props": { "variant": "secondary" } }
 	],
 	"states": [
 		{ "name": "hover", "label": "Hover", "description": "Mouse hovering over the component", "props": { "variant": "default" } },

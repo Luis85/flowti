@@ -7,20 +7,20 @@ vi.mock("../../../src/infrastructure/config.js", () => ({
 import {
 	pluginManifestTemplate,
 	pluginPackageTemplate,
-} from "../../../src/domain/make/templates.js";
+} from "../../../src/domain/make/templates/plugin.js";
 
 import {
 	appManifestTemplate,
 	appPackageTemplate,
 	appMainTemplate,
 	appEventBusTemplate,
-} from "../../../src/domain/make/appTemplates.js";
+} from "../../../src/domain/make/templates/app.js";
 
 import {
 	cliPackageTemplate,
 	cliMainTemplate,
 	cliMainTestTemplate,
-} from "../../../src/domain/make/cliTemplates.js";
+} from "../../../src/domain/make/templates/cli.js";
 
 // ══════════════════════════════════════════════════════════════════════
 // Plugin templates

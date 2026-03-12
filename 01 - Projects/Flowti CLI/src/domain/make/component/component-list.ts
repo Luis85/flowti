@@ -59,6 +59,16 @@ export function listProjectComponents(projectRoot: string, deps: ComponentListDe
 	return sorted;
 }
 
+function resolveKind(type: string | undefined): ComponentKind {
+	return COMPONENT_KINDS.includes(type as ComponentKind) ? type as ComponentKind : "component";
+}
+
+function applyOptionalFields(component: ProjectComponent, fm: Record<string, string | undefined>, domain?: string): void {
+	if (fm.c4Level) component.c4Level = Number(fm.c4Level);
+	if (fm.containedBy) component.containedBy = fm.containedBy;
+	if (domain || fm.domain) component.domain = domain ?? fm.domain;
+}
+
 function tryReadComponent(
 	deps: ComponentListDeps, parentDir: string, dir: string, domain?: string,
 ): ProjectComponent | null {
@@ -66,20 +76,15 @@ function tryReadComponent(
 		const mdFile = `${dir}.md`;
 		const mdPath = deps.paths.join(parentDir, dir, mdFile);
 		if (!deps.disk.existsSync(mdPath)) return null;
-		const content = deps.disk.readFileSync(mdPath, "utf-8");
-		const fm = parseFrontmatterStrings(content);
-		const relPath = domain
-			? deps.paths.join(COMPONENTS_DIR, domain, dir, mdFile)
-			: deps.paths.join(COMPONENTS_DIR, dir, mdFile);
+		const fm = parseFrontmatterStrings(deps.disk.readFileSync(mdPath, "utf-8"));
+		const domainPrefix = domain ? deps.paths.join(COMPONENTS_DIR, domain) : COMPONENTS_DIR;
 		const component: ProjectComponent = {
 			name: fm.name ?? dir,
-			kind: (COMPONENT_KINDS.includes(fm.type as ComponentKind) ? fm.type : "component") as ComponentKind,
+			kind: resolveKind(fm.type),
 			status: fm.status ?? "unknown",
-			path: relPath,
+			path: deps.paths.join(domainPrefix, dir, mdFile),
 		};
-		if (fm.c4Level) component.c4Level = Number(fm.c4Level);
-		if (fm.containedBy) component.containedBy = fm.containedBy;
-		if (domain || fm.domain) component.domain = domain ?? fm.domain;
+		applyOptionalFields(component, fm, domain);
 		return component;
 	} catch { return null; }
 }

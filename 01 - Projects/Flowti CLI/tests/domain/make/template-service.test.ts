@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
 	toJson, manifestTemplate, packageTemplate, tsconfigTemplate,
 	esbuildTemplate, vitestTemplate, gitignoreTemplate,
-} from "../../../src/domain/make/template-service.js";
+} from "../../../src/domain/make/templates/config.js";
 
 describe("toJson", () => {
 	it("produces tab-indented JSON with trailing newline", () => {

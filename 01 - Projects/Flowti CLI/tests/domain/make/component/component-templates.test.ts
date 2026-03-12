@@ -659,3 +659,149 @@ describe("c4DocTemplate — related files wikilinks", () => {
 		expect(output).toContain("[[auth-service|auth-service.json]]");
 	});
 });
+
+describe("componentComponentTemplate — Angular", () => {
+	const angularVars = (overrides: Partial<ComponentVariables> = {}) =>
+		vars({ storybookFramework: "@storybook/angular", ...overrides });
+
+	it("generates an Angular @Component class", () => {
+		const output = componentComponentTemplate(angularVars(), def(), mockDeps);
+		expect(output).toContain("@Component({");
+		expect(output).toContain(`export class AuthServiceComponent {`);
+	});
+
+	it("uses standalone: true", () => {
+		const output = componentComponentTemplate(angularVars(), def(), mockDeps);
+		expect(output).toContain("standalone: true,");
+	});
+
+	it("generates app-kebab selector", () => {
+		const output = componentComponentTemplate(angularVars(), def(), mockDeps);
+		expect(output).toContain(`selector: "app-auth-service",`);
+	});
+
+	it("includes @Input() for properties", () => {
+		const output = componentComponentTemplate(
+			angularVars(),
+			def({
+				properties: [
+					{ key: "variant", type: "string", default: "default", description: "Visual variant" },
+				],
+			}),
+			mockDeps,
+		);
+		expect(output).toContain(`@Input() variant: string = "default";`);
+		expect(output).toContain("/** Visual variant */");
+	});
+
+	it("includes @Output() with EventEmitter for actions", () => {
+		const output = componentComponentTemplate(
+			angularVars(),
+			def({ actions: [{ name: "onClick", description: "Clicked" }] }),
+			mockDeps,
+		);
+		expect(output).toContain(`@Output() onClick = new EventEmitter<void>();`);
+		expect(output).toContain("/** Clicked */");
+	});
+
+	it("generates @if control flow for boolean props", () => {
+		const output = componentComponentTemplate(
+			angularVars(),
+			def({ properties: [{ key: "disabled", type: "boolean", default: false }] }),
+			mockDeps,
+		);
+		expect(output).toContain(`@if (disabled) { <span [attr.data-disabled]="'true'"></span> }`);
+	});
+
+	it("generates simple template when no properties", () => {
+		const output = componentComponentTemplate(angularVars(), def(), mockDeps);
+		expect(output).toContain(`<div class="auth-service">AuthService</div>`);
+	});
+
+	it("includes text binding for title property", () => {
+		const output = componentComponentTemplate(
+			angularVars(),
+			def({ properties: [{ key: "title", type: "string", default: "" }] }),
+			mockDeps,
+		);
+		expect(output).toContain(`<span>{{ title }}</span>`);
+	});
+
+	it("imports Output and EventEmitter when actions exist", () => {
+		const output = componentComponentTemplate(
+			angularVars(),
+			def({ actions: [{ name: "onClick" }] }),
+			mockDeps,
+		);
+		expect(output).toContain(`import { Component, Output, EventEmitter } from "@angular/core";`);
+	});
+
+	it("does not import Output/EventEmitter when no actions", () => {
+		const output = componentComponentTemplate(angularVars(), def(), mockDeps);
+		expect(output).not.toContain("Output");
+		expect(output).not.toContain("EventEmitter");
+	});
+});
+
+describe("componentStoryTemplate — Angular", () => {
+	const angularVars = (overrides: Partial<ComponentVariables> = {}) =>
+		vars({ storybookFramework: "@storybook/angular", ...overrides });
+
+	it('imports from @storybook/angular', () => {
+		const output = componentStoryTemplate(angularVars(), def({ kind: "ui-component" }), mockDeps);
+		expect(output).toContain(`import type { Meta, StoryObj } from "@storybook/angular";`);
+	});
+
+	it("imports the Angular component class", () => {
+		const output = componentStoryTemplate(angularVars(), def({ kind: "ui-component" }), mockDeps);
+		expect(output).toContain(`import { AuthServiceComponent } from "./auth-service";`);
+	});
+
+	it("sets component in meta", () => {
+		const output = componentStoryTemplate(angularVars(), def({ kind: "ui-component" }), mockDeps);
+		expect(output).toContain("component: AuthServiceComponent,");
+	});
+
+	it("uses typed Meta and StoryObj", () => {
+		const output = componentStoryTemplate(angularVars(), def({ kind: "ui-component" }), mockDeps);
+		expect(output).toContain("const meta: Meta<AuthServiceComponent> = {");
+		expect(output).toContain("type Story = StoryObj<AuthServiceComponent>;");
+	});
+
+	it("does not import docs markdown (no ?raw import)", () => {
+		const output = componentStoryTemplate(angularVars(), def({ kind: "ui-component" }), mockDeps);
+		expect(output).not.toContain("?raw");
+		expect(output).not.toContain("componentDoc");
+	});
+
+	it("generates variant stories for Angular", () => {
+		const output = componentStoryTemplate(
+			angularVars(),
+			def({
+				kind: "ui-component",
+				variants: [
+					{ name: "primary", label: "Primary", props: { variant: "primary" } },
+				],
+			}),
+			mockDeps,
+		);
+		expect(output).toContain("export const Primary: Story = {");
+		expect(output).toContain(`variant: "primary"`);
+	});
+});
+
+describe("componentStoryTemplate — deduplication", () => {
+	it("suffixes state with State when it collides with a variant name", () => {
+		const output = componentStoryTemplate(
+			vars(),
+			def({
+				kind: "ui-component",
+				variants: [{ name: "disabled", label: "Disabled", props: { variant: "disabled" } }],
+				states: [{ name: "disabled", label: "Disabled", props: { disabled: true } }],
+			}),
+			mockDeps,
+		);
+		expect(output).toContain("export const Disabled: Story");
+		expect(output).toContain("export const DisabledState: Story");
+	});
+});

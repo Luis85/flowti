@@ -13,7 +13,7 @@ import { runMenu } from "../../infrastructure/menu.js";
 import { log } from "../../infrastructure/logger.js";
 import { RESET, BOLD, DIM, GREEN, YELLOW, CYAN } from "../../infrastructure/ui.js";
 import type { MenuEntry, MenuResult, ComponentsConfig, ComponentFramework } from "../../infrastructure/types.js";
-import type { ProjectComponent, ComponentKind } from "../../domain/make/component/component-types.js";
+import type { ComponentKind } from "../../domain/make/component/component-types.js";
 import {
 	listProjectComponents,
 	buildComponentTree,
@@ -26,7 +26,8 @@ import { isStorybookInstalled, installStorybook, runStorybookDev, runStorybookBu
 import { getFramework, setFramework } from "../../domain/make/component/storybook-settings.js";
 import { createStorybookRenderer } from "../storybook-renderer-impl.js";
 import { componentMenu } from "./component-makers-menu.js";
-import { componentDetailMenu, actionReferenceMenu } from "./component-detail-menu.js";
+import { componentDetailMenu } from "./component-detail-menu.js";
+import { actionReferenceMenu } from "./action-reference-menu.js";
 import { discoverLibraries, importAllLibraryDefinitions, importLibraryDefinition } from "../../domain/make/component/component-library.js";
 import { listDataProviders, createDataProvider, regenerateDataDictionary, readDataProvider, inferSchema } from "../../domain/make/component/data-provider.js";
 
@@ -48,6 +49,37 @@ const KIND_LABELS: Record<ComponentKind, string> = {
 	person: "Person",
 };
 
+// ── Component browser helpers ────────────────────────────────────────
+
+import type { ProjectComponent } from "../../domain/make/component/component-types.js";
+
+function renderComponentListHeader(components: ProjectComponent[], frameworkTag: string): void {
+	if (components.length === 0) {
+		log(`\n  ${DIM}No components found in ${COMPONENTS_DIR}/${RESET}${frameworkTag}`);
+		log(`  ${DIM}Use Make → Add Component to create one.${RESET}\n`);
+		return;
+	}
+	const dirtyCount = components.filter((c) => c.isDirty).length;
+	const dirtyNote = dirtyCount > 0 ? `  ${YELLOW}${dirtyCount} dirty${RESET}` : "";
+	log(`\n  ${BOLD}${components.length} component(s)${RESET}${dirtyNote}${frameworkTag}\n`);
+}
+
+function buildComponentTreeItems(projectRoot: string, components: ProjectComponent[]): MenuEntry[] {
+	const tree = buildComponentTree(components);
+	return tree.map(({ component: c, depth }, i) => {
+		const kindLabel = KIND_LABELS[c.kind] ?? c.kind;
+		const statusColor = c.status === "active" ? GREEN : DIM;
+		const indent = depth > 0 ? "  ".repeat(depth) + "└ " : "";
+		const dirtyTag = c.isDirty ? `  ${YELLOW}*${RESET}` : "";
+		const domainTag = c.domain ? `  ${DIM}[${c.domain}]${RESET}` : "";
+		return {
+			key: String(i + 1),
+			label: `${indent}${c.name}  ${DIM}${kindLabel}${RESET}  ${statusColor}${c.status}${RESET}${domainTag}${dirtyTag}`,
+			action: async () => { await componentDetailMenu(projectRoot, c, components); },
+		};
+	});
+}
+
 // ── Component browser menu ──────────────────────────────────────────
 
 export async function componentListMenu(projectRoot: string, componentsConfig?: ComponentsConfig): Promise<MenuResult> {
@@ -59,34 +91,12 @@ export async function componentListMenu(projectRoot: string, componentsConfig?: 
 		const components = listProjectComponents(projectRoot, listDeps());
 		detectDirtyComponents(projectRoot, components, listDeps());
 
-		const dirtyCount = components.filter((c) => c.isDirty).length;
 		const framework = getFramework(projectRoot, listDeps());
 		const frameworkLabel = FRAMEWORK_LABELS[framework] ?? framework;
-
 		const frameworkTag = sbInstalled() ? `  ${DIM}[${frameworkLabel}]${RESET}` : "";
-		if (components.length === 0) {
-			log(`\n  ${DIM}No components found in ${COMPONENTS_DIR}/${RESET}${frameworkTag}`);
-			log(`  ${DIM}Use Make → Add Component to create one.${RESET}\n`);
-		} else {
-			const dirtyNote = dirtyCount > 0 ? `  ${YELLOW}${dirtyCount} dirty${RESET}` : "";
-			log(`\n  ${BOLD}${components.length} component(s)${RESET}${dirtyNote}${frameworkTag}\n`);
-		}
 
-		const tree = buildComponentTree(components);
-		const items: MenuEntry[] = tree.map(({ component: c, depth }, i) => {
-			const kindLabel = KIND_LABELS[c.kind] ?? c.kind;
-			const statusColor = c.status === "active" ? GREEN : DIM;
-			const indent = depth > 0 ? "  ".repeat(depth) + "└ " : "";
-			const dirtyTag = c.isDirty ? `  ${YELLOW}*${RESET}` : "";
-			const domainTag = c.domain ? `  ${DIM}[${c.domain}]${RESET}` : "";
-			return {
-				key: String(i + 1),
-				label: `${indent}${c.name}  ${DIM}${kindLabel}${RESET}  ${statusColor}${c.status}${RESET}${domainTag}${dirtyTag}`,
-				action: async () => {
-					await componentDetailMenu(projectRoot, c, components);
-				},
-			};
-		});
+		renderComponentListHeader(components, frameworkTag);
+		const items: MenuEntry[] = buildComponentTreeItems(projectRoot, components);
 
 		// Add component + regenerate dirty
 		items.push(

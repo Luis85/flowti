@@ -140,6 +140,12 @@ function validateMake(cfg: Record<string, unknown>, warnings: string[]): void {
 	}
 }
 
+function expectType(obj: Record<string, unknown>, key: string, expected: string, prefix: string, warnings: string[]): void {
+	if (obj[key] !== undefined && typeof obj[key] !== expected) {
+		warnings.push(`"${prefix}.${key}" must be a ${expected}.`);
+	}
+}
+
 function validateComponents(cfg: Record<string, unknown>, warnings: string[]): void {
 	if (cfg.components === undefined) return;
 	if (!cfg.components || typeof cfg.components !== "object") {
@@ -147,12 +153,8 @@ function validateComponents(cfg: Record<string, unknown>, warnings: string[]): v
 		return;
 	}
 	const components = cfg.components as Record<string, unknown>;
-	if (components.storybook !== undefined && typeof components.storybook !== "boolean") {
-		warnings.push('"components.storybook" must be a boolean.');
-	}
-	if (components.storybookDir !== undefined && typeof components.storybookDir !== "string") {
-		warnings.push('"components.storybookDir" must be a string.');
-	}
+	expectType(components, "storybook", "boolean", "components", warnings);
+	expectType(components, "storybookDir", "string", "components", warnings);
 	if (components.framework !== undefined) {
 		const validFrameworks = ["html", "angular", "react", "vue"];
 		if (typeof components.framework !== "string" || !validFrameworks.includes(components.framework)) {

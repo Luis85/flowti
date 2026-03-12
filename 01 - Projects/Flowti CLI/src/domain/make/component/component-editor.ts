@@ -81,7 +81,7 @@ export function writeComponentInstance(
 
 // ── Field editing ────────────────────────────────────────────────────
 
-const EDITABLE_FIELDS = ["name", "description", "status", "owner", "technology", "containedBy", "domain", "icon"] as const;
+export const EDITABLE_FIELDS = ["name", "description", "status", "owner", "technology", "containedBy", "domain", "icon"] as const;
 export type EditableField = typeof EDITABLE_FIELDS[number];
 
 export function getEditableFields(): readonly string[] {

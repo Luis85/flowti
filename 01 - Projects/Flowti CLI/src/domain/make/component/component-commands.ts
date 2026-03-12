@@ -16,7 +16,7 @@ import { toKebab, toPascal, toCamel } from "../naming.js";
 import { createFileWriter, createOverwriteFileWriter } from "../templates/file-writer.js";
 import { buildComponentPlan } from "./component-plan.js";
 import { loadComponentDefinitions, createComponentTemplateRegistry } from "./component-registry.js";
-import type { ComponentVariables } from "./component-types.js";
+import type { ComponentVariables, ComponentDefinition } from "./component-types.js";
 import type { Suggestion } from "../../../infrastructure/suggestions.js";
 import { afterMakeComponent } from "../../../infrastructure/suggestions.js";
 
@@ -43,18 +43,42 @@ export type MakeComponentOutcome = MakeComponentResult | MakeComponentError;
 // ── Helpers ──────────────────────────────────────────────────────────
 
 function buildComponentVars(name: string, flags: Record<string, string | boolean>): ComponentVariables {
+	return buildVarsFromRecord(name, toKebab(name), flags);
+}
+
+export function buildVarsFromRecord(name: string, kebab: string, fields: Record<string, unknown>): ComponentVariables {
 	return {
 		name,
-		kebab: toKebab(name),
-		pascal: toPascal(name),
-		camel: toCamel(name),
-		description: String(flags.description ?? ""),
-		technology: String(flags.technology ?? ""),
-		containedBy: String(flags.containedBy ?? ""),
-		owner: String(flags.owner ?? ""),
-		domain: String(flags.domain ?? ""),
-		storybookFramework: String(flags.storybookFramework ?? ""),
+		kebab,
+		pascal: toPascal(kebab),
+		camel: toCamel(kebab),
+		description: String(fields.description ?? ""),
+		technology: String(fields.technology ?? ""),
+		containedBy: String(fields.containedBy ?? ""),
+		owner: String(fields.owner ?? ""),
+		domain: String(fields.domain ?? ""),
+		storybookFramework: String(fields.storybookFramework ?? ""),
 	};
+}
+
+export function resolveBlueprint(instanceType: string): ComponentDefinition | null {
+	return loadComponentDefinitions().find((d) => d.kind === instanceType) ?? null;
+}
+
+export function parseJsonFile(filePath: string, deps: Pick<CliDeps, "disk">): Record<string, unknown> | null {
+	try {
+		return JSON.parse(deps.disk.readFileSync(filePath, "utf-8"));
+	} catch {
+		return null;
+	}
+}
+
+function writePlanSkippingJson(projectPath: string, plan: { path: string; content: string }[]): number {
+	const writer = createOverwriteFileWriter(projectPath);
+	for (const f of plan) {
+		if (!f.path.endsWith(".json")) writer.write(f.path, f.content);
+	}
+	return writer.created;
 }
 
 // ── Pure domain function ─────────────────────────────────────────────
@@ -129,51 +153,33 @@ export function regenerateComponent(
 	storybookFramework?: string,
 ): RegenerateOutcome {
 	const kebab = toKebab(componentName);
-	const compDir = domain
-		? deps.paths.join(projectPath, "components", domain, kebab)
-		: deps.paths.join(projectPath, "components", kebab);
+	const domainPrefix = domain ? `${domain}/` : "";
+	const compDir = deps.paths.join(projectPath, "components", domainPrefix, kebab);
 	const jsonPath = deps.paths.join(compDir, `${kebab}.json`);
+
 	if (!deps.disk.existsSync(jsonPath)) {
-		return { success: false, error: `Definition not found: components/${domain ? domain + "/" : ""}${kebab}/${kebab}.json` };
+		return { success: false, error: `Definition not found: components/${domainPrefix}${kebab}/${kebab}.json` };
 	}
 
-	let instanceJson: Record<string, unknown>;
-	try {
-		instanceJson = JSON.parse(deps.disk.readFileSync(jsonPath, "utf-8"));
-	} catch {
+	const instanceJson = parseJsonFile(jsonPath, deps);
+	if (!instanceJson) {
 		return { success: false, error: `Failed to parse: components/${kebab}/${kebab}.json` };
 	}
 
-	const instanceType = String(instanceJson.type ?? "component");
-	const definitions = loadComponentDefinitions();
-	const blueprint = definitions.find((d) => d.kind === instanceType);
+	const blueprint = resolveBlueprint(String(instanceJson.type ?? "component"));
 	if (!blueprint) {
-		return { success: false, error: `Unknown component type in definition: ${instanceType}` };
+		return { success: false, error: `Unknown component type in definition: ${instanceJson.type}` };
 	}
 
-	const vars: ComponentVariables = {
-		name: String(instanceJson.name ?? componentName),
-		kebab,
-		pascal: toPascal(kebab),
-		camel: toCamel(kebab),
-		description: String(instanceJson.description ?? ""),
-		technology: String(instanceJson.technology ?? ""),
-		containedBy: String(instanceJson.containedBy ?? ""),
-		owner: String(instanceJson.owner ?? ""),
-		domain: domain ?? String(instanceJson.domain ?? ""),
+	const vars = buildVarsFromRecord(String(instanceJson.name ?? componentName), kebab, {
+		...instanceJson,
+		domain: domain ?? instanceJson.domain,
 		storybookFramework: storybookFramework ?? "",
-	};
+	});
 
-	const templates = createComponentTemplateRegistry();
-	const plan = buildComponentPlan(vars, blueprint, templates, { clock: deps.clock });
-
-	const writer = createOverwriteFileWriter(projectPath);
-	for (const f of plan) {
-		if (f.path.endsWith(".json")) continue;
-		writer.write(f.path, f.content);
-	}
-
-	return { success: true, name: vars.name, filesWritten: writer.created };
+	const plan = buildComponentPlan(vars, blueprint, createComponentTemplateRegistry(), { clock: deps.clock });
+	const filesWritten = writePlanSkippingJson(projectPath, plan);
+	return { success: true, name: vars.name, filesWritten };
 }
 
 /** All supported make:* definition IDs. */

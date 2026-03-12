@@ -35,7 +35,7 @@ export function isStorybookInstalled(projectPath: string, config: ComponentsConf
 
 // ── Framework-specific packages ──────────────────────────────────────
 
-interface FrameworkPackages {
+export interface FrameworkPackages {
 	/** The Storybook framework package (used as devDependency AND config import). */
 	framework: string;
 	/** Additional devDependencies needed for this framework. */

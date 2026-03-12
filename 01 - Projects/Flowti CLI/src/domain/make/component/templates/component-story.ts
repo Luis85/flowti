@@ -27,7 +27,7 @@ export function componentStoryTemplate(vars: ComponentVariables, def: ComponentD
 	const stories = buildStoryExports(def);
 	const paramsBlock = buildParametersBlock(def);
 	const playFn = hasActions ? buildPlayFunction(def) : "";
-	const testImport = hasActions ? `import { userEvent, within, expect } from "storybook/test";\n` : "";
+	const testImport = hasActions ? `import { userEvent, expect } from "storybook/test";\n` : "";
 
 	return `import type { Meta, StoryObj } from "${frameworkPkg}";
 ${hasActions ? `import { action } from "storybook/actions";\n` : ""}${testImport}import { create${vars.pascal} } from "./${vars.kebab}.js";
@@ -108,19 +108,23 @@ function buildParametersBlock(def: ComponentDefinition, hasDocImport = true): st
 
 function buildStoryExports(def: ComponentDefinition): string {
 	const stories: string[] = [];
+	const usedNames = new Set<string>(["Default"]);
 
 	// Variants → named stories
 	for (const v of def.variants ?? []) {
 		const name = toPascal(v.name);
+		usedNames.add(name);
 		const propsStr = Object.entries(v.props)
 			.map(([k, val]) => `\t\t${k}: ${typeof val === "string" ? `"${val}"` : String(val)},`)
 			.join("\n");
 		stories.push(`\nexport const ${name}: Story = {\n\targs: {\n${propsStr}\n\t},\n};`);
 	}
 
-	// States → named stories
+	// States → named stories (suffix with "State" on collision)
 	for (const s of def.states ?? []) {
-		const name = toPascal(s.name);
+		let name = toPascal(s.name);
+		if (usedNames.has(name)) name = `${name}State`;
+		usedNames.add(name);
 		const propsStr = Object.entries(s.props)
 			.map(([k, val]) => `\t\t${k}: ${typeof val === "string" ? `"${val}"` : String(val)},`)
 			.join("\n");
@@ -138,8 +142,8 @@ function buildPlayFunction(def: ComponentDefinition): string {
 	return `
 export const InteractionTest: Story = {
 \tplay: async ({ canvasElement }) => {
-\t\tconst canvas = within(canvasElement);
-\t\tconst element = canvas.getByRole("button") ?? canvasElement.firstElementChild;
+\t\tconst element = canvasElement.firstElementChild;
+\t\tif (!element) return;
 \t\tawait userEvent.click(element);
 \t\tawait expect(element).toBeTruthy();
 \t},

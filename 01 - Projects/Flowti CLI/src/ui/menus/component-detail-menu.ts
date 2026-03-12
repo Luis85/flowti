@@ -25,40 +25,78 @@ import {
 	removeAction,
 	addChild,
 	removeChild,
-	addStore,
-	removeStore,
 } from "../../domain/make/component/component-editor.js";
-import type { ComponentInstance, EditableField, ComponentInstanceChild, ComponentInstanceStore } from "../../domain/make/component/component-editor.js";
+import type { ComponentInstance, EditableField, ComponentInstanceChild } from "../../domain/make/component/component-editor.js";
+import { editStoresMenu } from "./component-editor-menus.js";
 import { regenerateComponent } from "../../domain/make/component/component-commands.js";
 import {
 	buildAncestryPath,
 	findSiblings,
 } from "../../domain/make/component/component-list.js";
-import { ACTION_REFERENCE, searchActions } from "../../domain/make/component/action-reference.js";
-import type { ActionCategory } from "../../domain/make/component/action-reference.js";
 import { getFramework } from "../../domain/make/component/storybook-settings.js";
+import { addFromReferenceMenu } from "./action-reference-menu.js";
 import { getFrameworkPackages } from "../../domain/make/component/storybook-service.js";
 
 function editorDeps() { return { disk, paths } as const; }
 
-// ── Detail display ──────────────────────────────────────────────────
+// ── Detail display helpers ──────────────────────────────────────────
+
+function renderOptionalField(label: string, value: string | undefined, width = 13): void {
+	if (value) log(`    ${DIM}${label}:${RESET}${" ".repeat(width - label.length - 1)}${value}`);
+}
+
+function renderKeyValueSection(title: string, entries: Record<string, unknown> | undefined): void {
+	if (!entries || Object.keys(entries).length === 0) return;
+	log();
+	log(`    ${CYAN}${title}:${RESET}`);
+	for (const [key, val] of Object.entries(entries)) {
+		log(`      ${key}: ${DIM}${JSON.stringify(val)}${RESET}`);
+	}
+}
+
+function renderListSection(title: string, items: string[] | undefined): void {
+	if (!items || items.length === 0) return;
+	log();
+	log(`    ${CYAN}${title}:${RESET}`);
+	for (const item of items) log(`      ${item}`);
+}
+
+function renderChildrenSection(children: ComponentInstance["children"]): void {
+	if (!children || children.length === 0) return;
+	log();
+	log(`    ${CYAN}Children:${RESET}`);
+	for (const child of children) {
+		const slot = child.slot ? ` ${DIM}[${child.slot}]${RESET}` : "";
+		const opt = child.optional ? ` ${DIM}(optional)${RESET}` : "";
+		log(`      ${child.name}${slot}${opt}`);
+	}
+}
+
+function renderStoresSection(stores: ComponentInstance["stores"]): void {
+	if (!stores || stores.length === 0) return;
+	log();
+	log(`    ${CYAN}Stores:${RESET}`);
+	for (const store of stores) {
+		const tech = store.technology ? ` ${DIM}[${store.technology}]${RESET}` : "";
+		const desc = store.description ? ` ${DIM}${store.description}${RESET}` : "";
+		log(`      ${store.name}${tech}${desc}`);
+	}
+}
 
 function renderComponentDetail(instance: ComponentInstance, component: ProjectComponent, allComponents: ProjectComponent[]): void {
 	log();
 	log(`  ${BOLD}${instance.name}${RESET}  ${DIM}(${instance.type})${RESET}`);
 	log();
 
-	// Core fields
 	log(`    ${DIM}ID:${RESET}          ${instance.id}`);
 	log(`    ${DIM}Status:${RESET}      ${instance.status}`);
-	if (instance.description) log(`    ${DIM}Description:${RESET} ${instance.description}`);
-	if (instance.owner) log(`    ${DIM}Owner:${RESET}       ${instance.owner}`);
-	if (instance.technology) log(`    ${DIM}Technology:${RESET}  ${instance.technology}`);
-	if (instance.domain) log(`    ${DIM}Domain:${RESET}      ${instance.domain}`);
-	if (instance.icon) log(`    ${DIM}Icon:${RESET}        ${instance.icon}`);
-	if (instance.containedBy) log(`    ${DIM}Contained by:${RESET} ${instance.containedBy}`);
+	renderOptionalField("Description", instance.description);
+	renderOptionalField("Owner", instance.owner);
+	renderOptionalField("Technology", instance.technology);
+	renderOptionalField("Domain", instance.domain);
+	renderOptionalField("Icon", instance.icon);
+	renderOptionalField("Contained by", instance.containedBy, 14);
 
-	// Ancestry + siblings
 	if (component.containedBy) {
 		log(`    ${DIM}Path:${RESET}        ${buildAncestryPath(component, allComponents)}`);
 	}
@@ -67,69 +105,17 @@ function renderComponentDetail(instance: ComponentInstance, component: ProjectCo
 		log(`    ${DIM}Siblings:${RESET}    ${siblings.map((c) => c.name).join(", ")}`);
 	}
 
-	// Properties
-	if (instance.properties && Object.keys(instance.properties).length > 0) {
-		log();
-		log(`    ${CYAN}Properties:${RESET}`);
-		for (const [key, val] of Object.entries(instance.properties)) {
-			log(`      ${key}: ${DIM}${JSON.stringify(val)}${RESET}`);
-		}
-	}
-
-	// Actions
-	if (instance.actions && instance.actions.length > 0) {
-		log();
-		log(`    ${CYAN}Actions:${RESET}`);
-		for (const action of instance.actions) {
-			log(`      ${action}`);
-		}
-	}
-
-	// Variants
-	if (instance.variants && Object.keys(instance.variants).length > 0) {
-		log();
-		log(`    ${CYAN}Variants:${RESET}`);
-		for (const [name, props] of Object.entries(instance.variants)) {
-			log(`      ${name}: ${DIM}${JSON.stringify(props)}${RESET}`);
-		}
-	}
-
-	// States
-	if (instance.states && Object.keys(instance.states).length > 0) {
-		log();
-		log(`    ${CYAN}States:${RESET}`);
-		for (const [name, props] of Object.entries(instance.states)) {
-			log(`      ${name}: ${DIM}${JSON.stringify(props)}${RESET}`);
-		}
-	}
-
-	// Children
-	if (instance.children && instance.children.length > 0) {
-		log();
-		log(`    ${CYAN}Children:${RESET}`);
-		for (const child of instance.children) {
-			const slot = child.slot ? ` ${DIM}[${child.slot}]${RESET}` : "";
-			const opt = child.optional ? ` ${DIM}(optional)${RESET}` : "";
-			log(`      ${child.name}${slot}${opt}`);
-		}
-	}
-
-	// Stores
-	if (instance.stores && instance.stores.length > 0) {
-		log();
-		log(`    ${CYAN}Stores:${RESET}`);
-		for (const store of instance.stores) {
-			const tech = store.technology ? ` ${DIM}[${store.technology}]${RESET}` : "";
-			const desc = store.description ? ` ${DIM}${store.description}${RESET}` : "";
-			log(`      ${store.name}${tech}${desc}`);
-		}
-	}
+	renderKeyValueSection("Properties", instance.properties);
+	renderListSection("Actions", instance.actions);
+	renderKeyValueSection("Variants", instance.variants);
+	renderKeyValueSection("States", instance.states);
+	renderChildrenSection(instance.children);
+	renderStoresSection(instance.stores);
 
 	if (component.isDirty) {
 		log();
 		log(`    ${YELLOW}Definition modified — regeneration available${RESET}`);
 	}
-
 	log();
 }
 
@@ -390,148 +376,6 @@ async function editChildrenMenu(
 }
 
 // ── Edit Stores submenu ─────────────────────────────────────────────
-
-async function editStoresMenu(projectRoot: string, componentName: string, instance: ComponentInstance, domain?: string): Promise<void> {
-	const stores = instance.stores ?? [];
-
-	const items: MenuEntry[] = stores.map((store, i) => {
-		const tech = store.technology ? `  ${DIM}[${store.technology}]${RESET}` : "";
-		const desc = store.description ? `  ${DIM}${store.description}${RESET}` : "";
-		return {
-			key: String(i + 1),
-			label: `${store.name}${tech}${desc}`,
-			action: async () => {
-				const remove = await input.askYesNo(`Remove store "${store.name}"?`);
-				if (remove) {
-					removeStore(instance, store.name);
-					writeComponentInstance(projectRoot, componentName, instance, editorDeps(), domain);
-					log(`  ${YELLOW}Removed ${store.name}.${RESET}`);
-					await input.waitForEnter();
-				}
-			},
-		};
-	});
-
-	items.push(
-		{ separator: true },
-		{
-			key: "n",
-			label: "Add Store",
-			action: async () => {
-				const name = await input.ask("Store name (e.g. useAuthStore)");
-				if (!name) return;
-				const technology = await input.ask("Technology (e.g. pinia, redux, zustand)", "");
-				const description = await input.ask("Description (optional)", "");
-				const store: ComponentInstanceStore = { name };
-				if (technology) store.technology = technology;
-				if (description) store.description = description;
-				addStore(instance, store);
-				writeComponentInstance(projectRoot, componentName, instance, editorDeps(), domain);
-				log(`  ${GREEN}Added ${name}.${RESET}`);
-				await input.waitForEnter();
-			},
-		},
-		{ separator: true },
-		{ key: "b", label: "Back", action: () => "main" as const },
-	);
-
-	await runMenu("Edit Stores", items);
-}
-
-// ── Action reference browser ────────────────────────────────────────
-
-export async function actionReferenceMenu(): Promise<void> {
-	const items: MenuEntry[] = ACTION_REFERENCE.map((cat, i) => ({
-		key: String(i + 1),
-		label: `${cat.category}  ${DIM}(${cat.actions.length})${RESET}`,
-		action: async () => {
-			log();
-			log(`  ${BOLD}${cat.category} Actions${RESET}`);
-			log();
-			for (const a of cat.actions) {
-				log(`    ${CYAN}${a.name}${RESET}  ${DIM}${a.description}${RESET}`);
-			}
-			log();
-			await input.waitForEnter();
-		},
-	}));
-
-	items.push(
-		{ separator: true },
-		{
-			key: "s",
-			label: "Search",
-			action: async () => {
-				const term = await input.ask("Search actions");
-				if (!term) return;
-				const results = searchActions(term);
-				if (results.length === 0) {
-					log(`\n  ${DIM}No actions matching "${term}".${RESET}\n`);
-					return;
-				}
-				for (const cat of results) {
-					log(`\n  ${BOLD}${cat.category}${RESET}`);
-					for (const a of cat.actions) {
-						log(`    ${CYAN}${a.name}${RESET}  ${DIM}${a.description}${RESET}`);
-					}
-				}
-				log();
-			},
-		},
-		{ separator: true },
-		{ key: "b", label: "Back", action: () => "main" as const },
-	);
-
-	await runMenu("Action Reference", items);
-}
-
-async function addFromReferenceMenu(projectRoot: string, componentName: string, instance: ComponentInstance, domain?: string): Promise<void> {
-	const existing = new Set(instance.actions ?? []);
-
-	const items: MenuEntry[] = ACTION_REFERENCE.map((cat, i) => ({
-		key: String(i + 1),
-		label: `${cat.category}  ${DIM}(${cat.actions.length})${RESET}`,
-		action: async () => { await addFromCategoryMenu(projectRoot, componentName, instance, cat, existing, domain); },
-	}));
-
-	items.push(
-		{ separator: true },
-		{ key: "b", label: "Back", action: () => "main" as const },
-	);
-
-	await runMenu("Choose Category", items);
-}
-
-async function addFromCategoryMenu(
-	projectRoot: string, componentName: string, instance: ComponentInstance,
-	cat: ActionCategory, existing: Set<string>, domain?: string,
-): Promise<void> {
-	const items: MenuEntry[] = cat.actions.map((a, i) => {
-		const alreadyAdded = existing.has(a.name);
-		return {
-			key: String(i + 1),
-			label: `${a.name}  ${DIM}${a.description}${RESET}${alreadyAdded ? `  ${GREEN}(added)${RESET}` : ""}`,
-			action: async () => {
-				if (alreadyAdded) {
-					log(`\n  ${DIM}${a.name} already exists.${RESET}\n`);
-					return;
-				}
-				addAction(instance, a.name);
-				writeComponentInstance(projectRoot, componentName, instance, editorDeps(), domain);
-				existing.add(a.name);
-				log(`  ${GREEN}Added ${a.name}.${RESET}`);
-				await input.waitForEnter();
-			},
-		};
-	});
-
-	items.push(
-		{ separator: true },
-		{ key: "b", label: "Back", action: () => "main" as const },
-	);
-
-	await runMenu(`${cat.category} Actions`, items);
-}
 
 // ── Helpers ──────────────────────────────────────────────────────────
 

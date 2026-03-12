@@ -137,7 +137,7 @@ function buildAngularTemplate(vars: ComponentVariables, def: ComponentDefinition
 	for (const prop of props) {
 		if (prop === textProp) continue;
 		if (prop.type === "boolean") {
-			parts.push(`\t<span *ngIf="${prop.key}" [attr.data-${prop.key}]="'true'"></span>`);
+			parts.push(`\t@if (${prop.key}) { <span [attr.data-${prop.key}]="'true'"></span> }`);
 		}
 	}
 	parts.push(`</div>`);
@@ -160,16 +160,10 @@ function buildAngularComponent(vars: ComponentVariables, def: ComponentDefinitio
 
 	const lines: string[] = [];
 	lines.push(`import { ${imports.join(", ")} } from "@angular/core";`);
-	if (props.some((p) => p.type === "boolean")) {
-		lines.push(`import { NgIf } from "@angular/common";`);
-	}
 	lines.push(``);
 	lines.push(`@Component({`);
 	lines.push(`\tselector: "app-${vars.kebab}",`);
 	lines.push(`\tstandalone: true,`);
-	if (props.some((p) => p.type === "boolean")) {
-		lines.push(`\timports: [NgIf],`);
-	}
 	lines.push(`\ttemplate: \`${templateStr}\`,`);
 	lines.push(`})`);
 	lines.push(`export class ${vars.pascal}Component {`);

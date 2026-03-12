@@ -30,10 +30,6 @@ vi.mock("../../../src/infrastructure/menu.js", () => ({
 	runMenu: vi.fn(),
 }));
 
-vi.mock("../../../src/domain/help/help.js", () => ({
-	showHelp: vi.fn(),
-}));
-
 vi.mock("../../../src/domain/project/project-config.js", () => ({
 	readProjectConfig: vi.fn(() => ({ config: null, warnings: [] })),
 }));

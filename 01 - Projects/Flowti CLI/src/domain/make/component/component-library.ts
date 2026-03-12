@@ -13,11 +13,11 @@
  */
 
 import type { CliDeps } from "../../../infrastructure/deps.js";
-import { toKebab, toPascal, toCamel } from "../naming.js";
+import { toKebab } from "../naming.js";
 import { buildComponentPlan } from "./component-plan.js";
-import { loadComponentDefinitions, createComponentTemplateRegistry } from "./component-registry.js";
+import { createComponentTemplateRegistry } from "./component-registry.js";
 import { createOverwriteFileWriter } from "../templates/file-writer.js";
-import type { ComponentVariables } from "./component-types.js";
+import { buildVarsFromRecord, resolveBlueprint, parseJsonFile } from "./component-commands.js";
 import { PROVIDERS_DIR } from "./data-provider.js";
 
 export type ComponentLibraryDeps = Pick<CliDeps, "disk" | "paths" | "clock">;
@@ -114,37 +114,33 @@ export function importLibraryDefinition(
 	const jsonPath = deps.paths.join(projectRoot, "components", libraryName, jsonFilename);
 	const name = jsonFilename.replace(/\.json$/, "");
 
-	let instanceJson: Record<string, unknown>;
-	try {
-		instanceJson = JSON.parse(deps.disk.readFileSync(jsonPath, "utf-8"));
-	} catch {
+	const instanceJson = parseJsonFile(jsonPath, deps);
+	if (!instanceJson) {
 		return { name, filesWritten: 0, errors: [`Failed to parse ${jsonFilename}`] };
 	}
 
-	const instanceType = String(instanceJson.type ?? "component");
-	const definitions = loadComponentDefinitions();
-	const blueprint = definitions.find((d) => d.kind === instanceType);
+	const blueprint = resolveBlueprint(String(instanceJson.type ?? "component"));
 	if (!blueprint) {
-		return { name, filesWritten: 0, errors: [`Unknown type "${instanceType}" in ${jsonFilename}`] };
+		return { name, filesWritten: 0, errors: [`Unknown type "${instanceJson.type}" in ${jsonFilename}`] };
 	}
 
 	const kebab = toKebab(name);
-	const vars: ComponentVariables = {
-		name: String(instanceJson.name ?? name),
-		kebab,
-		pascal: toPascal(kebab),
-		camel: toCamel(kebab),
-		description: String(instanceJson.description ?? ""),
-		technology: String(instanceJson.technology ?? ""),
-		containedBy: String(instanceJson.containedBy ?? ""),
-		owner: String(instanceJson.owner ?? ""),
+	const vars = buildVarsFromRecord(String(instanceJson.name ?? name), kebab, {
+		...instanceJson,
 		storybookFramework: storybookFramework ?? "",
-	};
+	});
 
-	const templates = createComponentTemplateRegistry();
-	const plan = buildComponentPlan(vars, blueprint, templates, { clock: deps.clock });
+	const plan = buildComponentPlan(vars, blueprint, createComponentTemplateRegistry(), { clock: deps.clock });
+	const written = writeLibraryFiles(projectRoot, libraryName, kebab, plan, deps);
+	relocateDefinitionJson(projectRoot, libraryName, kebab, jsonPath, deps);
 
-	// Write all generated files into components/{library}/{name}/
+	return { name: vars.name, filesWritten: written, errors: [] };
+}
+
+function writeLibraryFiles(
+	projectRoot: string, libraryName: string, kebab: string,
+	plan: { path: string; content: string }[], deps: ComponentLibraryDeps,
+): number {
 	const writer = createOverwriteFileWriter(projectRoot);
 	let written = 0;
 	for (const f of plan) {
@@ -153,18 +149,20 @@ export function importLibraryDefinition(
 		writer.write(libPath, f.content);
 		written++;
 	}
+	return written;
+}
 
-	// Move the definition JSON into the subfolder so everything lives together
+function relocateDefinitionJson(
+	projectRoot: string, libraryName: string, kebab: string,
+	jsonPath: string, deps: ComponentLibraryDeps,
+): void {
 	const subfolderDir = deps.paths.join(projectRoot, "components", libraryName, kebab);
 	deps.disk.mkdirSync(subfolderDir, { recursive: true });
 	const destJsonPath = deps.paths.join(subfolderDir, `${kebab}.json`);
 	if (!deps.disk.existsSync(destJsonPath)) {
 		deps.disk.writeFileSync(destJsonPath, deps.disk.readFileSync(jsonPath, "utf-8"), "utf-8");
 	}
-	// Remove original JSON from library root
 	try { deps.disk.unlinkSync(jsonPath); } catch { /* already moved or inaccessible */ }
-
-	return { name: vars.name, filesWritten: written, errors: [] };
 }
 
 /**
