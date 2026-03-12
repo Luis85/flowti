@@ -165,7 +165,7 @@ The bootstrap (`src/boot/bootstrap.mjs`, deployed as `.flowti/bin/index.js`) han
 │       ├── pipeline/               # Generic DAG execution engine
 │       ├── event-bus.ts            # Lightweight synchronous EventBus
 │       └── ...                     # 25 more infrastructure modules
-├── tests/                          # Vitest test suites (3,742 tests, 232 suites)
+├── tests/                          # Vitest test suites (3,899 tests, 239 suites)
 ├── configs/
 │   ├── flowti.config.json          # CLI's own project config
 │   ├── esbuild.config.mjs          # Build: bundles to .flowti/bin/main.js
@@ -285,4 +285,5 @@ When a project is selected for the first time, the CLI auto-scaffolds this confi
 - Tech Debt: [Tech Debt.md](docs/Tech%20Debt.md) — Technical debt register
 - Plugin Integration: [Plugin Integration Analysis.md](docs/Plugin%20Integration%20Analysis.md) — Gap analysis for Flowti Plugin
 - Architecture: [Flowti CLI Architecture.md](Flowti%20CLI%20Architecture.md) — v22
+- Architecture Review: [Architecture Review 2026-03-12.md](docs/Architecture%20Review%202026-03-12.md) — DI violations, test gaps, refactoring priorities
 - CLI Reference: generated via `flowti docs` or interactive Documentation menu

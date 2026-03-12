@@ -2,13 +2,14 @@
 type: Backlog
 domain: CLI
 title: Flowti CLI — Product Backlog
-version: 2
+version: 3
 created: 2026-03-10
-updated: 2026-03-11
+updated: 2026-03-12
 status: active
 source: "[[Flowti CLI PRD]]"
 roadmap: "[[Development Roadmap]]"
 tech_debt: "[[Tech Debt]]"
+architecture_review: "[[Architecture Review 2026-03-12]]"
 ---
 
 # Flowti CLI — Product Backlog

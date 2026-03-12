@@ -196,11 +196,11 @@ The CLI follows a **DDD + MVC layered architecture** with strict dependency rule
 
 ```
 Entry Point (main.ts)
-  → Controller Layer (15 controllers)
-    → UI / View Layer (30 display renderers)
-      → Domain Layer (18 modules — pure, no I/O, no presentation)
-        → Infrastructure Layer (29 modules + pipeline + event-bus)
-Scripts Layer (4 standalone entry points)
+  → Controller Layer (22 controllers)
+    → UI / View Layer (74 display renderers + menus)
+      → Domain Layer (24 modules — pure, no I/O, no presentation)
+        → Infrastructure Layer (33 modules + pipeline + event-bus)
+Bootstrap Layer (bootstrap.mjs)
 ```
 
 **Dependency rule**: Controller → Domain → Infrastructure. Controller → UI (renderers). Never Infrastructure → Domain. Never Domain → Domain (cross-domain). `main.ts` is the sole composition root.
@@ -210,7 +210,7 @@ Scripts Layer (4 standalone entry points)
 | **Entry Point** | Two-loop menu system + command dispatch via `CommandRegistry` |
 | **Controller** | Thin handlers: parse flags, call domain services, return `CliResponse<T>` with typed data + renderer |
 | **UI / View** | Display renderers: take typed data models, produce ANSI-formatted console output |
-| **Domain** | Pure business logic — scaffold, make, build, publish, review, reports, events, capture, info, help, onboarding, knowledgebase, devtools, e2e, plugins, ai-tools, health |
+| **Domain** | Pure business logic — scaffold, make, build, publish, review, reports, events, capture, info, onboarding, knowledgebase, devtools, e2e, plugins, ai-tools, health, lifecycle, resources, timelog, deliverables, raid, requirements, capa, templates |
 | **Infrastructure** | I/O abstractions — filesystem, shell, input, state, config, document builder, frontmatter, errors, output, command-registry, menu, ui, clock, proc, paths, logger, args, pipeline, event-bus |
 | **Scripts** | Standalone CLI entry points (`main()` functions) that wire infrastructure to domain services |
 
@@ -312,7 +312,7 @@ When a project is selected for the first time, the CLI auto-scaffolds this confi
 
 | Risk | Mitigation |
 |------|------------|
-| CLI binary grows beyond maintainability | Modular DDD structure (18 domain modules) keeps cognitive load low |
+| CLI binary grows beyond maintainability | Modular DDD structure (24 domain modules) keeps cognitive load low |
 | Per-project config divergence | Auto-scaffolding from package.json ensures consistent defaults |
 | Definition schema drift | Definitions validated on load; TypeScript types enforce schema |
 | AI agents can't parse output | `--format=json` on all query commands; deterministic exit codes |
@@ -338,24 +338,26 @@ Flowti CLI occupies a unique niche: **vault-native project management CLI**. No 
 
 ---
 
-## 12. Current State (2026-03-11)
+## 12. Current State (2026-03-12)
 
 | Metric | Value |
 |--------|-------|
-| Source files | 282 |
-| Test files | 170 (221 suites) |
-| Tests passing | 3,608 |
-| Source LOC | ~62,000 |
-| Domain modules | 18 |
-| Controllers | 15 |
-| UI view files | 30 |
-| Infrastructure modules | 29 |
-| Non-interactive commands | 84 |
+| Source files | 343 |
+| Test files | 245 (239 suites) |
+| Tests passing | 3,899 |
+| Domain modules | 24 |
+| Controllers | 22 |
+| UI view files | 74 |
+| Infrastructure modules | 33 |
 | Runtime dependencies | 0 |
 | Scaffold definitions | 4 (project, bare/library, cli, obsidian-plugin) |
+| Component definitions | 8 (4 C4 + 4 UI building blocks) |
 | Report generators | 8 (6 report + 2 reference) |
 | E2E environment providers | 5 |
-| Technical debt items | 28 (13 resolved) |
+| Technical debt items | 28 (16 resolved) |
+| Build | Clean (0 errors) |
+| TypeDoc | Clean (0 errors) |
+| ESLint | Clean (0 warnings) |
 
 ---
 

@@ -2,9 +2,9 @@
 type: TechDebt
 domain: CLI
 title: Flowti CLI — Technical Debt Register
-version: 2
+version: 3
 created: 2026-03-10
-updated: 2026-03-10
+updated: 2026-03-12
 status: active
 source: "[[Development Roadmap]]"
 ---
@@ -19,21 +19,22 @@ source: "[[Development Roadmap]]"
 
 | Severity | Count | Estimated Hours |
 |----------|-------|-----------------|
-| Critical | 3 (1 resolved) | 28h |
-| High | 8 (5 resolved) | 40h |
-| Medium | 12 (6 resolved) | 32h |
+| Critical | 3 (2 resolved) | 28h |
+| High | 8 (6 resolved) | 40h |
+| Medium | 14 (8 resolved) | 38h |
 | Low | 5 | 8h |
-| **Total** | **28 (13 resolved)** | **108h (49h resolved)** |
+| **Total** | **30 (16 resolved)** | **114h (57h resolved)** |
 
 ---
 
 ## Critical
 
-### TD-01: Config Schema Mismatch Between CLI and Plugin
+### TD-01: Config Schema Mismatch Between CLI and Plugin ✓ RESOLVED
 
 **Domain**: infrastructure/types
 **File**: `src/infrastructure/types.ts` (ProjectConfig)
 **Impact**: Blocks Phase 8 entirely
+**Status**: Resolved — Schema extended with `project.type`, `build.commands`, `test.commands`, `devtools.commands`, `paths` (2026-03-11)
 
 The CLI's `ProjectConfig` type and the Plugin's `flowti.config.json` use incompatible schemas:
 
@@ -49,11 +50,12 @@ The CLI's `ProjectConfig` type and the Plugin's `flowti.config.json` use incompa
 **Effort**: L (8h)
 **Phase 8 item**: 8.0.1–8.0.4
 
-### TD-02: FLOWTI_TOOLS Constant Incomplete
+### TD-02: FLOWTI_TOOLS Constant Incomplete ✓ RESOLVED
 
 **Domain**: infrastructure/types
 **File**: `src/infrastructure/types.ts:139`
 **Impact**: Menu system doesn't surface build/reports tools correctly
+**Status**: Resolved — Build, reports, devtools entries added (2026-03-11)
 
 `FLOWTI_TOOLS` array only contains `devtools`. The `build` and `reports` tool IDs are defined in the `FlowtiToolId` type but have no corresponding entries in the constant. This means the interactive menu doesn't auto-generate entries for these tools.
 
@@ -148,22 +150,11 @@ domain/reports/
 
 **Effort**: M (4h) — as estimated
 
-### TD-04: Legacy Dependency Map in report-pipeline.ts
+### TD-04: Legacy Dependency Map in report-pipeline.ts ✓ RESOLVED
 
 **Domain**: domain/reports
 **File**: `src/domain/reports/report-pipeline.ts:30-33`
-**Impact**: Duplicated knowledge — dependencies should be in config
-
-```typescript
-const LEGACY_DEPENDENCIES: Record<string, string[]> = {
-  status: ["test", "coverage", "codebase", "complexity"],
-  summary: ["test", "coverage", "codebase", "complexity", "status"],
-};
-```
-
-These hardcoded dependencies duplicate what should be declared in `flowti.config.json` via the `dependencies` field on each generator.
-
-**Remediation**: Migrate dependencies to config; remove hardcoded map.
+**Status**: Resolved — Dependencies moved to `flowti.config.json` generator config (2026-03-11)
 **Effort**: S (2h)
 
 ### TD-05: Shell Module Lacks Async Execution ✓ RESOLVED
@@ -428,6 +419,34 @@ When the CLI manages Plugin builds, it needs to understand the CSS pipeline. Cur
 **Effort**: S (2h)
 **Phase 8 item**: 8.1.3
 
+### TD-29: Domain Layer DI Violations — 82 Direct Infrastructure Imports
+
+**Domain**: architecture (cross-cutting)
+**Files**: 19 domain files import `Document`, 16 import `parseFrontmatter*`, 4 import `pipeline-runner`, 2 import `countFiles`, 2 import `InternalError`
+**Impact**: Domain functions are not pure — hidden coupling to infrastructure makes isolated testing harder
+
+The domain layer should receive all infrastructure capabilities via `CliDeps` injection. Currently, 82 import statements bypass this pattern by importing infrastructure modules directly.
+
+**Highest-impact targets**:
+1. `Document` class (19 files) — create `IDocumentBuilder` interface
+2. `parseFrontmatter*` utilities (16 files) — create `IFrontmatterParser` interface
+3. `pipeline-runner` (4 files) — inject via `E2EDeps`
+
+**Remediation**: Define domain-level interfaces, add to `CliDeps` ISP subsets, update consumers.
+**Effort**: L (12h)
+**Priority**: High — largest single architectural deviation
+
+### TD-30: Store Pattern Duplication Across 7 Domains
+
+**Domain**: capa, deliverables, lifecycle, raid, requirements, resources, timelog
+**Impact**: ~700 LOC of duplicated CRUD-over-markdown patterns
+
+All 7 store implementations repeat: directory listing → `.md` filter → `parseFrontmatterStrings` → typed summary mapping → `Document.create()` → `mergeFrontmatter()` → save.
+
+**Remediation**: Extract a `MarkdownStore<T>` factory or base that handles shared CRUD operations. Domain stores reduce to type definitions + domain-specific query/filter logic.
+**Effort**: M (6h)
+**Priority**: Medium — reduces duplication, simplifies future domain additions
+
 ---
 
 ## Resolution Tracking
@@ -458,7 +477,9 @@ When the CLI manages Plugin builds, it needs to understand the CSS pipeline. Cur
 | TD-22 | Partial | Pre-Phase 8 | 3 new scaffold definitions created; import flow pending (Phase 8.7) |
 | TD-23 | Open | — | Phase 8.5 blocker (E2E migration) |
 | TD-24 | Resolved | Pre-Phase 8 | MVC refactoring: 15 controllers, 11 display renderers, request-response abstraction |
-| TD-25 | Open | — | Controller test gap (15 controllers, 0 test files) |
+| TD-25 | Open | — | Controller test gap (22 controllers, 2 test files) |
 | TD-26 | Open | — | EventBus created, not wired (deferred to Phase 8) |
 | TD-27 | Resolved | Pre-Phase 8 | E2EService→e2e-service, MakeService→make-service |
 | TD-28 | Open | — | `new Date()` in E2E domain files |
+| TD-29 | Open | — | 82 DI violations: domain imports infrastructure directly |
+| TD-30 | Open | — | 7 stores duplicate CRUD-over-markdown pattern |

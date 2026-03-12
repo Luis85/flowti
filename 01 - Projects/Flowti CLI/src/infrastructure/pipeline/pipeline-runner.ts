@@ -240,6 +240,7 @@ function runStepPrerequisites(
 		completedPrereqs.add(prereq);
 		ctx.setCommandOutput(prereq, output);
 		if (exitCode !== 0) {
+			if (output.trim()) deps.log(output.trimEnd());
 			throw new Error(`Prerequisite failed (exit ${exitCode}): ${prereq}`);
 		}
 	}
@@ -259,6 +260,7 @@ function runPhasePrerequisites(
 		completedPrereqs.add(prereq);
 		ctx.setCommandOutput(prereq, output);
 		if (exitCode !== 0) {
+			if (output.trim()) deps.log(output.trimEnd());
 			// Mark all steps that depend on this prereq as failed
 			for (const step of phaseSteps) {
 				if (step.prerequisites?.includes(prereq)) {
