@@ -1170,4 +1170,172 @@ describe("SitemapRouter", () => {
 			expect(mockRunMenu.mock.calls[0][0]).toBe("Settings");
 		});
 	});
+
+	// ── 13. Parameterized navigation ────────────────────────────────
+
+	describe("parameterized navigation", () => {
+		it("passes params to handler via RouterContext when navigating with params", async () => {
+			let capturedCtx: RouterContext | undefined;
+
+			const sitemap = makeSitemap({
+				start: {
+					type: "dynamic",
+					title: "List",
+					handler: "list-handler",
+				},
+				detail: {
+					type: "dynamic",
+					title: "Detail",
+					handler: "detail-handler",
+				},
+			});
+
+			const { router, handlers } = createRouter(sitemap);
+
+			handlers.registerView("list-handler", vi.fn(async () => {
+				return 'navigate:detail?{"id":"btn-1"}' as MenuResult;
+			}));
+
+			handlers.registerView("detail-handler", vi.fn(async (ctx: RouterContext) => {
+				capturedCtx = ctx;
+				return "quit" as MenuResult;
+			}));
+
+			await router.run("start");
+
+			expect(capturedCtx).toBeDefined();
+			expect(capturedCtx!.params).toEqual({ id: "btn-1" });
+		});
+
+		it("params is undefined when navigating without params", async () => {
+			let capturedCtx: RouterContext | undefined;
+
+			const sitemap = makeSitemap({
+				start: {
+					type: "dynamic",
+					title: "Main",
+					handler: "main-handler",
+				},
+			});
+
+			const { router, handlers } = createRouter(sitemap);
+
+			handlers.registerView("main-handler", vi.fn(async (ctx: RouterContext) => {
+				capturedCtx = ctx;
+				return "quit" as MenuResult;
+			}));
+
+			await router.run("start");
+
+			expect(capturedCtx).toBeDefined();
+			expect(capturedCtx!.params).toBeUndefined();
+		});
+
+		it("navigateParams from sitemap item passes params to target view", async () => {
+			let capturedCtx: RouterContext | undefined;
+
+			const sitemap = makeSitemap({
+				start: {
+					title: "Main",
+					items: [
+						{ key: "d", label: "Detail", navigate: "detail", navigateParams: { id: "abc" } },
+					],
+				},
+				detail: {
+					type: "dynamic",
+					title: "Detail",
+					handler: "detail-handler",
+				},
+			});
+
+			const { router, handlers } = createRouter(sitemap);
+
+			handlers.registerView("detail-handler", vi.fn(async (ctx: RouterContext) => {
+				capturedCtx = ctx;
+				return "quit" as MenuResult;
+			}));
+
+			queueMenuResults({ pickKey: "d" });
+			await router.run("start");
+
+			expect(capturedCtx).toBeDefined();
+			expect(capturedCtx!.params).toEqual({ id: "abc" });
+		});
+	});
+
+	// ── 14. List providers ──────────────────────────────────────────
+
+	describe("list providers", () => {
+		it("resolves listProvider entries in static views", async () => {
+			const sitemap = makeSitemap({
+				start: {
+					title: "Main",
+					items: [
+						{ listProvider: "my-list" },
+						{ separator: true },
+						{ key: "q", label: "Quit", signal: "quit" as const },
+					],
+				},
+			});
+
+			const { router, handlers } = createRouter(sitemap);
+
+			handlers.registerListProvider("my-list", () => [
+				{ key: "1", label: "Item A", action: () => undefined },
+				{ key: "2", label: "Item B", action: () => undefined },
+			]);
+
+			mockRunMenu.mockImplementationOnce(async (_title, entries: MenuEntry[]) => {
+				// List provider entries + separator + quit
+				const keys = entries.filter((e): e is any => "key" in e).map((e: any) => e.key);
+				expect(keys).toContain("1");
+				expect(keys).toContain("2");
+				expect(keys).toContain("q");
+				const quit = (entries as any[]).find((e: any) => e.key === "q");
+				return quit.action();
+			});
+
+			await router.run("start");
+
+			expect(mockRunMenu).toHaveBeenCalledTimes(1);
+		});
+
+		it("resolves listProvider entries in hybrid dynamic view slots", async () => {
+			let capturedCtx: RouterContext | undefined;
+
+			const sitemap = makeSitemap({
+				start: {
+					type: "dynamic",
+					title: "Hybrid",
+					handler: "hybrid-handler",
+					items: [
+						{ slot: "data" },
+						{ listProvider: "extra-list" },
+						{ key: "b", label: "Back", signal: "back" as const },
+					],
+				},
+			});
+
+			const { router, handlers } = createRouter(sitemap);
+
+			handlers.registerListProvider("extra-list", () => [
+				{ key: "x", label: "Extra", action: () => undefined },
+			]);
+
+			handlers.registerView("hybrid-handler", vi.fn(async (ctx: RouterContext) => {
+				capturedCtx = ctx;
+				return "quit" as MenuResult;
+			}));
+
+			await router.run("start");
+
+			expect(capturedCtx).toBeDefined();
+			// The _after slot should contain the list provider entries + Back
+			const afterSlot = capturedCtx!.sitemapSlots!["_after"];
+			expect(afterSlot).toBeDefined();
+			const keys = afterSlot.filter((e): e is any => "key" in e).map((e: any) => e.key);
+			expect(keys).toContain("x");
+			expect(keys).toContain("b");
+		});
+	});
 });

@@ -81,6 +81,27 @@ describe("HandlerRegistry", () => {
 		expect(() => reg.registerBeforeRender("project:banner", vi.fn())).toThrow('Duplicate beforeRender handler: "project:banner"');
 	});
 
+	// ── List provider handlers ──────────────────────────────────────
+
+	it("registers and retrieves a list provider handler", () => {
+		const reg = new HandlerRegistry();
+		const handler = () => [];
+		reg.registerListProvider("component-list", handler);
+		expect(reg.getListProvider("component-list")).toBe(handler);
+		expect(reg.hasListProvider("component-list")).toBe(true);
+	});
+
+	it("throws on duplicate list provider handler", () => {
+		const reg = new HandlerRegistry();
+		reg.registerListProvider("component-list", () => []);
+		expect(() => reg.registerListProvider("component-list", () => [])).toThrow('Duplicate listProvider handler: "component-list"');
+	});
+
+	it("throws on unknown list provider handler", () => {
+		const reg = new HandlerRegistry();
+		expect(() => reg.getListProvider("nope")).toThrow('Unknown listProvider handler: "nope"');
+	});
+
 	// ── Query methods ───────────────────────────────────────────────
 
 	it("reports counts and lists IDs", () => {
@@ -89,12 +110,15 @@ describe("HandlerRegistry", () => {
 		reg.registerView("v2", vi.fn());
 		reg.registerAction("a1", vi.fn());
 		reg.registerCondition("c1", () => true);
+		reg.registerListProvider("lp1", () => []);
 
 		expect(reg.viewCount).toBe(2);
 		expect(reg.actionCount).toBe(1);
 		expect(reg.conditionCount).toBe(1);
+		expect(reg.listProviderCount).toBe(1);
 		expect(reg.viewIds()).toEqual(["v1", "v2"]);
 		expect(reg.actionIds()).toEqual(["a1"]);
 		expect(reg.conditionIds()).toEqual(["c1"]);
+		expect(reg.listProviderIds()).toEqual(["lp1"]);
 	});
 });

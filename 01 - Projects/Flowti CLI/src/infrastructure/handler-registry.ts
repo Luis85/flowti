@@ -10,6 +10,7 @@ import type {
 	ActionHandler,
 	ConditionHandler,
 	BeforeRenderHandler,
+	ListProviderHandler,
 } from "./sitemap-types.js";
 
 // ── Handler Registry ────────────────────────────────────────────────
@@ -19,6 +20,7 @@ export class HandlerRegistry {
 	readonly #actions = new Map<string, ActionHandler>();
 	readonly #conditions = new Map<string, ConditionHandler>();
 	readonly #beforeRenders = new Map<string, BeforeRenderHandler>();
+	readonly #listProviders = new Map<string, ListProviderHandler>();
 
 	// ── Registration ────────────────────────────────────────────────
 
@@ -40,6 +42,11 @@ export class HandlerRegistry {
 	registerBeforeRender(id: string, handler: BeforeRenderHandler): void {
 		if (this.#beforeRenders.has(id)) throw new Error(`Duplicate beforeRender handler: "${id}"`);
 		this.#beforeRenders.set(id, handler);
+	}
+
+	registerListProvider(id: string, handler: ListProviderHandler): void {
+		if (this.#listProviders.has(id)) throw new Error(`Duplicate listProvider handler: "${id}"`);
+		this.#listProviders.set(id, handler);
 	}
 
 	// ── Lookup ──────────────────────────────────────────────────────
@@ -68,18 +75,27 @@ export class HandlerRegistry {
 		return h;
 	}
 
+	getListProvider(id: string): ListProviderHandler {
+		const h = this.#listProviders.get(id);
+		if (!h) throw new Error(`Unknown listProvider handler: "${id}"`);
+		return h;
+	}
+
 	// ── Query ───────────────────────────────────────────────────────
 
 	hasView(id: string): boolean { return this.#views.has(id); }
 	hasAction(id: string): boolean { return this.#actions.has(id); }
 	hasCondition(id: string): boolean { return this.#conditions.has(id); }
 	hasBeforeRender(id: string): boolean { return this.#beforeRenders.has(id); }
+	hasListProvider(id: string): boolean { return this.#listProviders.has(id); }
 
 	get viewCount(): number { return this.#views.size; }
 	get actionCount(): number { return this.#actions.size; }
 	get conditionCount(): number { return this.#conditions.size; }
+	get listProviderCount(): number { return this.#listProviders.size; }
 
 	viewIds(): string[] { return [...this.#views.keys()]; }
 	actionIds(): string[] { return [...this.#actions.keys()]; }
 	conditionIds(): string[] { return [...this.#conditions.keys()]; }
+	listProviderIds(): string[] { return [...this.#listProviders.keys()]; }
 }

@@ -21,6 +21,7 @@ import type {
 	SitemapEntry,
 	SitemapItem,
 	RouterContext,
+	StackEntry,
 } from "./sitemap-types.js";
 import type { HandlerRegistry } from "./handler-registry.js";
 import type { CommandRegistry } from "./command-registry.js";
@@ -73,19 +74,19 @@ export class SitemapRouter {
 
 	/** Run the interactive router loop starting from the given view. */
 	async run(startViewId: string): Promise<void> {
-		const stack: string[] = [startViewId];
+		const stack: StackEntry[] = [{ viewId: startViewId }];
 
 		while (stack.length > 0) {
-			const viewId = stack[stack.length - 1];
-			const view = this.#sitemapRef.views[viewId];
+			const current = stack[stack.length - 1];
+			const view = this.#sitemapRef.views[current.viewId];
 
 			if (!view) {
-				log(`\n  ${RED}Unknown view: "${viewId}"${RESET}\n`);
+				log(`\n  ${RED}Unknown view: "${current.viewId}"${RESET}\n`);
 				stack.pop();
 				continue;
 			}
 
-			const ctx = this.#buildContext();
+			const ctx = this.#buildContext(current.params);
 
 			if (view.context?.includes("project") && !ctx.project) {
 				log(`\n  ${YELLOW}No project selected — returning to previous view.${RESET}\n`);
@@ -104,15 +105,15 @@ export class SitemapRouter {
 
 	// ── Result interpretation ────────────────────────────────────────
 
-	#applyResult(result: MenuResult, stack: string[], startViewId: string): boolean {
+	#applyResult(result: MenuResult, stack: StackEntry[], startViewId: string): boolean {
 		if (typeof result === "string" && result.startsWith("navigate:")) {
-			stack.push(result.slice("navigate:".length));
+			stack.push(parseNavigateResult(result));
 			return false;
 		}
 		if (result === "quit") return true;
 		if (result === "start") {
 			stack.length = 0;
-			stack.push(startViewId);
+			stack.push({ viewId: startViewId });
 			this.#onProjectCleared();
 			return false;
 		}
@@ -121,16 +122,16 @@ export class SitemapRouter {
 
 		// Auto-navigate: if a project was just selected and we're back at
 		// the start view (or stack is empty), push project-detail.
-		if (this.#getProject() && (stack.length === 0 || stack[stack.length - 1] === startViewId)) {
+		if (this.#getProject() && (stack.length === 0 || stack[stack.length - 1].viewId === startViewId)) {
 			if (this.#sitemapRef.views["project-detail"]) {
 				this.#onProjectSelected();
-				stack.push("project-detail");
+				stack.push({ viewId: "project-detail" });
 			}
 		}
 
 		// Never let the stack empty out — re-push the start view.
 		if (stack.length === 0) {
-			stack.push(startViewId);
+			stack.push({ viewId: startViewId });
 		}
 		return false;
 	}
@@ -150,8 +151,10 @@ export class SitemapRouter {
 	}
 
 	#buildHybridContext(dynView: DynamicView, ctx: RouterContext) {
-		let navigationTarget: string | null = null;
-		const onNav = (target: string) => { navigationTarget = target; };
+		let navigationTarget: StackEntry | null = null;
+		const onNav = (target: string, params?: Readonly<Record<string, unknown>>) => {
+			navigationTarget = { viewId: target, ...(params ? { params } : {}) };
+		};
 
 		const sitemapEntries = this.#buildEntries({ items: dynView.items! }, ctx, onNav);
 		const hasSlots = dynView.items!.some((e) => "slot" in e);
@@ -170,7 +173,10 @@ export class SitemapRouter {
 			ctx: hybridCtx,
 			resolveNavigation: (result: MenuResult): MenuResult => {
 				if (navigationTarget && !isNavigationResult(result)) {
-					return `navigate:${navigationTarget}` as MenuResult;
+					const paramsSuffix = navigationTarget.params
+						? `?${JSON.stringify(navigationTarget.params)}`
+						: "";
+					return `navigate:${navigationTarget.viewId}${paramsSuffix}` as MenuResult;
 				}
 				return result;
 			},
@@ -180,10 +186,10 @@ export class SitemapRouter {
 	// ── Static view rendering ───────────────────────────────────────
 
 	async #runStaticView(view: StaticView, ctx: RouterContext): Promise<MenuResult> {
-		let navigationTarget: string | null = null;
+		let navigationTarget: StackEntry | null = null;
 
-		const entries = this.#buildEntries(view, ctx, (target) => {
-			navigationTarget = target;
+		const entries = this.#buildEntries(view, ctx, (target, params) => {
+			navigationTarget = { viewId: target, ...(params ? { params } : {}) };
 		});
 
 		const title = interpolate(view.title, ctx);
@@ -193,8 +199,10 @@ export class SitemapRouter {
 
 		const result = await runMenu(title, entries, { beforeMenu });
 
-		if (navigationTarget) {
-			return `navigate:${navigationTarget}` as MenuResult;
+		const nav = navigationTarget as StackEntry | null;
+		if (nav) {
+			const paramsSuffix = nav.params ? `?${JSON.stringify(nav.params)}` : "";
+			return `navigate:${nav.viewId}${paramsSuffix}` as MenuResult;
 		}
 
 		return result;
@@ -205,7 +213,7 @@ export class SitemapRouter {
 	#buildEntries(
 		view: { readonly items: readonly SitemapEntry[] },
 		ctx: RouterContext,
-		onNavigate: (target: string) => void,
+		onNavigate: (target: string, params?: Readonly<Record<string, unknown>>) => void,
 	): MenuEntry[] {
 		const entries: MenuEntry[] = [];
 
@@ -221,6 +229,13 @@ export class SitemapRouter {
 
 			// Skip slot markers — they're handled by #buildSlots
 			if ("slot" in entry) continue;
+
+			// List provider — resolve and inline entries
+			if ("listProvider" in entry) {
+				const provider = this.#handlers.getListProvider(entry.listProvider);
+				entries.push(...provider(ctx));
+				continue;
+			}
 
 			const item = entry as SitemapItem;
 
@@ -251,7 +266,7 @@ export class SitemapRouter {
 	#buildSlots(
 		items: readonly SitemapEntry[],
 		ctx: RouterContext,
-		onNavigate: (target: string) => void,
+		onNavigate: (target: string, params?: Readonly<Record<string, unknown>>) => void,
 	): Record<string, MenuEntry[]> {
 		const slotNames = items
 			.filter((e): e is { slot: string } => "slot" in e && typeof (e as { slot: unknown }).slot === "string")
@@ -271,14 +286,21 @@ export class SitemapRouter {
 				continue;
 			}
 			const menuEntry = this.#resolveEntry(entry, ctx, onNavigate);
-			if (menuEntry) slots[currentKey].push(menuEntry);
+			if (menuEntry) {
+				if (Array.isArray(menuEntry)) slots[currentKey].push(...menuEntry);
+				else slots[currentKey].push(menuEntry);
+			}
 		}
 
 		return slots;
 	}
 
-	#resolveEntry(entry: SitemapEntry, ctx: RouterContext, onNavigate: (target: string) => void): MenuEntry | null {
+	#resolveEntry(entry: SitemapEntry, ctx: RouterContext, onNavigate: (target: string, params?: Readonly<Record<string, unknown>>) => void): MenuEntry | MenuEntry[] | null {
 		if ("separator" in entry && entry.separator) return { separator: true };
+		if ("listProvider" in entry) {
+			const provider = this.#handlers.getListProvider(entry.listProvider);
+			return provider(ctx);
+		}
 		const item = entry as SitemapItem;
 		if (item.hidden !== undefined && resolveHiddenCondition(item.hidden, ctx, this.#handlers)) return null;
 		return this.#buildMenuItem(item, ctx, onNavigate);
@@ -287,7 +309,7 @@ export class SitemapRouter {
 	#buildMenuItem(
 		item: SitemapItem,
 		ctx: RouterContext,
-		onNavigate: (target: string) => void,
+		onNavigate: (target: string, params?: Readonly<Record<string, unknown>>) => void,
 	): MenuEntry {
 		const label = interpolate(item.label, ctx);
 		const disabled = item.disabled !== undefined
@@ -306,13 +328,14 @@ export class SitemapRouter {
 	#buildAction(
 		item: SitemapItem,
 		ctx: RouterContext,
-		onNavigate: (target: string) => void,
+		onNavigate: (target: string, params?: Readonly<Record<string, unknown>>) => void,
 	): () => MenuResult | Promise<MenuResult> {
 		// Navigate → push view, exit runMenu
 		if (item.navigate) {
 			const target = item.navigate;
+			const navParams = item.navigateParams;
 			return () => {
-				onNavigate(target);
+				onNavigate(target, navParams);
 				return "main" as MenuResult;
 			};
 		}
@@ -362,11 +385,43 @@ export class SitemapRouter {
 
 	// ── Context building ────────────────────────────────────────────
 
-	#buildContext(): RouterContext {
+	#buildContext(params?: Readonly<Record<string, unknown>>): RouterContext {
 		return {
 			deps: this.#deps,
 			project: this.#getProject(),
 			tools: this.#getTools(),
+			...(params ? { params } : {}),
 		};
 	}
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────
+
+/**
+ * Parse `"navigate:viewId"` or `"navigate:viewId?json-params"` into a StackEntry.
+ *
+ * Params format: `navigate:component-detail?{"componentId":"btn-1"}`
+ */
+export function parseNavigateResult(result: string): StackEntry {
+	const payload = result.slice("navigate:".length);
+	const qIdx = payload.indexOf("?");
+	if (qIdx === -1) return { viewId: payload };
+	const viewId = payload.slice(0, qIdx);
+	try {
+		const params = JSON.parse(payload.slice(qIdx + 1)) as Record<string, unknown>;
+		return { viewId, params };
+	} catch {
+		return { viewId };
+	}
+}
+
+/**
+ * Build a `"navigate:viewId?params"` string for use as a `MenuResult`.
+ *
+ * Handlers that need parameterized navigation can return:
+ * `navigateWithParams("component-detail", { componentId: "btn-1" }) as MenuResult`
+ */
+export function navigateWithParams(viewId: string, params?: Record<string, unknown>): string {
+	if (!params) return `navigate:${viewId}`;
+	return `navigate:${viewId}?${JSON.stringify(params)}`;
 }

@@ -122,7 +122,7 @@ export type ViewContext = "project";
 
 // ── Sitemap entries (items + separators) ────────────────────────────
 
-export type SitemapEntry = SitemapItem | SitemapSeparator | SitemapSlot;
+export type SitemapEntry = SitemapItem | SitemapSeparator | SitemapSlot | SitemapListProvider;
 
 export interface SitemapSeparator {
 	readonly separator: true;
@@ -155,6 +155,26 @@ export interface SitemapSlot {
 }
 
 /**
+ * A declarative list provider entry in a sitemap view.
+ *
+ * Instead of a static item, this tells the router to call a registered
+ * `ListProviderHandler` which returns an array of `MenuEntry[]` at runtime.
+ * The provider can read `ctx.params` and `ctx.project` to build data-driven items.
+ *
+ * Example sitemap JSON:
+ * ```json
+ * "items": [
+ *   { "listProvider": "component-list" },
+ *   { "separator": true },
+ *   { "key": "c", "label": "Add Component", "handler": "comp:add" }
+ * ]
+ * ```
+ */
+export interface SitemapListProvider {
+	readonly listProvider: string;
+}
+
+/**
  * A single menu item in a static view.
  *
  * Exactly ONE action field must be set: `navigate`, `command`, `handler`, or `signal`.
@@ -167,6 +187,8 @@ export interface SitemapItem {
 	readonly key: string;
 	readonly label: string;
 	readonly navigate?: string;
+	/** Static params to pass when navigating (merged with runtime params). */
+	readonly navigateParams?: Readonly<Record<string, unknown>>;
 	readonly command?: string;
 	readonly handler?: string;
 	readonly signal?: "back" | "quit" | "start";
@@ -192,12 +214,30 @@ export type DisabledCondition = boolean | string | { readonly unless: string };
  */
 export type HiddenCondition = boolean | string;
 
+// ── Navigation stack entry ──────────────────────────────────────────
+
+/**
+ * A single frame in the navigation stack.
+ *
+ * `params` carries view-specific data (e.g. a selected component ID)
+ * so handlers can receive arguments without relying on module-level state.
+ */
+export interface StackEntry {
+	readonly viewId: string;
+	readonly params?: Readonly<Record<string, unknown>>;
+}
+
 // ── Runtime context passed to handlers ──────────────────────────────
 
 export interface RouterContext {
 	readonly project?: ProjectContext;
 	readonly tools?: Readonly<Record<string, boolean>>;
 	readonly deps: CliDeps;
+	/**
+	 * Parameters passed via `navigate:<viewId>?<params>` or `StackEntry.params`.
+	 * Handlers read these instead of relying on module-level state.
+	 */
+	readonly params?: Readonly<Record<string, unknown>>;
 	/**
 	 * Pre-built menu entries from sitemap `items` on a hybrid dynamic view.
 	 * Only populated when a dynamic view declares `items` in the sitemap.
@@ -237,3 +277,12 @@ export type ConditionHandler = (ctx: RouterContext) => boolean;
 
 /** Called before a view renders (e.g., to print a status banner). */
 export type BeforeRenderHandler = (ctx: RouterContext) => void;
+
+/**
+ * Returns a dynamic list of menu entries at runtime.
+ *
+ * Used by `SitemapListProvider` entries in sitemap JSON. The router calls
+ * the provider, inserts the returned entries at the provider's position,
+ * then continues building the rest of the menu from static items.
+ */
+export type ListProviderHandler = (ctx: RouterContext) => import("./types.js").MenuEntry[];
