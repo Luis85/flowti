@@ -8,8 +8,8 @@ import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler } from "../infrastructure/types.js";
 import { collectProjectInfo } from "../domain/info/info.js";
-import { displayInfo } from "../ui/info-display.js";
-import { renderNoProject, type NoProjectModel } from "../ui/common-renderers.js";
+import { displayInfo } from "../ui/displays/info-display.js";
+import { renderNoProject, type NoProjectModel } from "../ui/renderers/common-renderers.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 

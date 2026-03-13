@@ -7,7 +7,7 @@
 import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler } from "../infrastructure/types.js";
-import { renderInteractiveOnly, renderSuccess, renderNoProject, type InteractiveOnlyModel, type SuccessModel, type NoProjectModel } from "../ui/common-renderers.js";
+import { renderInteractiveOnly, renderSuccess, renderNoProject, type InteractiveOnlyModel, type SuccessModel, type NoProjectModel } from "../ui/renderers/common-renderers.js";
 import { writeReadme } from "../domain/project/readme-generator.js";
 
 const actions: Record<string, ControllerAction> = {

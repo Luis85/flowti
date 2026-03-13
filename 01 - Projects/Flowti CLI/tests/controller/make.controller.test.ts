@@ -83,11 +83,11 @@ vi.mock("../../src/infrastructure/suggestions.js", () => ({
 	showSuggestions: vi.fn(),
 	afterMakeComponent: vi.fn(() => []),
 }));
-vi.mock("../../src/ui/common-renderers.js", () => ({
+vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 	renderSuccess: vi.fn(),
 	renderError: vi.fn(),
 }));
-vi.mock("../../src/ui/make-renderers.js", () => ({
+vi.mock("../../src/ui/renderers/make-renderers.js", () => ({
 	renderComponentAdding: vi.fn(),
 }));
 
@@ -100,7 +100,7 @@ import { disk } from "../../src/infrastructure/filesystem.js";
 import { paths } from "../../src/infrastructure/paths.js";
 import { shell } from "../../src/infrastructure/shell.js";
 import { log } from "../../src/infrastructure/logger.js";
-import { renderError, renderSuccess } from "../../src/ui/common-renderers.js";
+import { renderError, renderSuccess } from "../../src/ui/renderers/common-renderers.js";
 
 const mockProject = {
 	name: "test",

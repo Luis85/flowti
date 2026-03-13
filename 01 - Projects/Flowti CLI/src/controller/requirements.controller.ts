@@ -14,9 +14,9 @@ import type { RequirementStatus } from "../domain/requirements/requirement-types
 import {
 	renderRequirementList, renderUseCaseList, renderUserStoryList,
 	renderRequirementAdded, renderRequirementUpdated,
-} from "../ui/requirements-display.js";
-import { renderError } from "../ui/common-renderers.js";
-import type { ErrorModel } from "../ui/common-renderers.js";
+} from "../ui/displays/requirements-display.js";
+import { renderError } from "../ui/renderers/common-renderers.js";
+import type { ErrorModel } from "../ui/renderers/common-renderers.js";
 
 const VALID_TYPES: RequirementType[] = ["functional", "non-functional", "constraint"];
 const VALID_STATUSES: RequirementStatus[] = ["draft", "proposed", "approved", "implemented", "verified", "rejected", "deferred"];

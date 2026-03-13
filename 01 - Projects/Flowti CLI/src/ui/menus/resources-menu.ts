@@ -9,7 +9,7 @@ import { printHeader } from "../../infrastructure/ui.js";
 import { input } from "../../infrastructure/input.js";
 import type { ResourcesConfig, ResourceType } from "../../infrastructure/types.js";
 import { createResourceFile } from "../../domain/resources/resource-store.js";
-import { renderResourceAdded } from "../resources-display.js";
+import { renderResourceAdded } from "../displays/resources-display.js";
 
 function storeDeps() { return { disk, paths, clock } as const; }
 

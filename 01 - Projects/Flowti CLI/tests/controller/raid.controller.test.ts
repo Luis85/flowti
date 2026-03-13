@@ -46,12 +46,12 @@ vi.mock("../../src/domain/raid/raid-store.js", () => ({
 	createRAIDItem: vi.fn(() => "/project/raid/db-migration-risk.md"),
 	updateRAIDStatus: vi.fn(() => true),
 }));
-vi.mock("../../src/ui/raid-display.js", () => ({
+vi.mock("../../src/ui/displays/raid-display.js", () => ({
 	renderRAIDList: vi.fn(),
 	renderRAIDAdded: vi.fn(),
 	renderRAIDUpdated: vi.fn(),
 }));
-vi.mock("../../src/ui/common-renderers.js", () => ({
+vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 	renderError: vi.fn(),
 }));
 
@@ -64,7 +64,7 @@ import { paths } from "../../src/infrastructure/paths.js";
 import { shell } from "../../src/infrastructure/shell.js";
 import { log } from "../../src/infrastructure/logger.js";
 import { listRAIDItems, createRAIDItem, updateRAIDStatus } from "../../src/domain/raid/raid-store.js";
-import { renderError } from "../../src/ui/common-renderers.js";
+import { renderError } from "../../src/ui/renderers/common-renderers.js";
 
 const mockProject = {
 	name: "test",

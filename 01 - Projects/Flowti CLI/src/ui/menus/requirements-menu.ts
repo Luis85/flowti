@@ -20,7 +20,7 @@ import type { RequirementDefinition } from "../../domain/requirements/requiremen
 import {
 	renderRequirementList,
 	renderRequirementAdded, renderRequirementUpdated,
-} from "../requirements-display.js";
+} from "../displays/requirements-display.js";
 
 function storeDeps() { return { disk, paths, clock } as const; }
 

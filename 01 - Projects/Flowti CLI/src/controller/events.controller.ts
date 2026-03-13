@@ -15,20 +15,20 @@ import { saveEventFlowDoc } from "../domain/events/event-flow.js";
 import { loadEventContracts, validateContracts, generateContractsJson, validatePayload, findContract } from "../domain/events/event-contracts.js";
 import { generateEventTypes } from "../domain/events/event-codegen.js";
 
-import { renderError } from "../ui/common-renderers.js";
-import type { ErrorModel } from "../ui/common-renderers.js";
+import { renderError } from "../ui/renderers/common-renderers.js";
+import type { ErrorModel } from "../ui/renderers/common-renderers.js";
 import {
 	renderEventList, renderEventFlowCreated, renderEventAdded,
 	renderContractValidation, renderPayloadValidation,
 	renderContractsGenerated, renderCodegenGenerated, renderEmpty,
 	renderVersionEvent,
-} from "../ui/events-display.js";
+} from "../ui/displays/events-display.js";
 import type {
 	EventListModel, EventFlowCreatedModel, EventAddedModel,
 	ContractValidationModel, PayloadValidationModel,
 	ContractsGeneratedModel, CodegenGeneratedModel, EmptyModel,
 	VersionEventModel,
-} from "../ui/events-display.js";
+} from "../ui/displays/events-display.js";
 
 // ── Flag helpers ────────────────────────────────────────────────────
 

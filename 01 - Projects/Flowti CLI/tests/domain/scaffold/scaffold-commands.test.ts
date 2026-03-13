@@ -14,7 +14,7 @@ vi.mock("../../../src/infrastructure/input.js", () => ({
 vi.mock("../../../src/infrastructure/proc.js", () => ({
 	proc: { exit: vi.fn(), argv: () => [], cwd: () => "/", env: () => ({}) },
 }));
-vi.mock("../../../src/ui/cli-event-renderer.js", () => ({ attachCliRenderer: vi.fn(() => () => {}) }));
+vi.mock("../../../src/ui/renderers/cli-event-renderer.js", () => ({ attachCliRenderer: vi.fn(() => () => {}) }));
 
 const capturedJson: unknown[] = [];
 vi.mock("../../../src/infrastructure/output.js", () => ({

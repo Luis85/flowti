@@ -44,7 +44,7 @@ vi.mock("../../../src/domain/reports/export/html-export.js", () => ({ exportRepo
 vi.mock("../../../src/ui/menus/report-archive-menu.js", () => ({ browseArchive: vi.fn() }));
 vi.mock("../../../src/domain/reports/pipeline/doc-runner.js", () => ({ runAllDocs: vi.fn() }));
 vi.mock("../../../src/domain/project/project-deps.js", () => ({ buildDependencyGraph: vi.fn(() => []) }));
-vi.mock("../../../src/ui/deps-display.js", () => ({ displayDependencyGraph: vi.fn() }));
+vi.mock("../../../src/ui/displays/deps-display.js", () => ({ displayDependencyGraph: vi.fn() }));
 vi.mock("../../../src/domain/devtools/self-update.js", () => ({ rebuildCli: vi.fn() }));
 vi.mock("../../../src/infrastructure/menu.js", () => ({ runMenu: vi.fn() }));
 vi.mock("../../../src/domain/reports/cli/report-service.js", () => ({
@@ -65,7 +65,7 @@ import { exportReportToHtml } from "../../../src/domain/reports/export/html-expo
 import { browseArchive } from "../../../src/ui/menus/report-archive-menu.js";
 import { runAllDocs } from "../../../src/domain/reports/pipeline/doc-runner.js";
 import { buildDependencyGraph } from "../../../src/domain/project/project-deps.js";
-import { displayDependencyGraph } from "../../../src/ui/deps-display.js";
+import { displayDependencyGraph } from "../../../src/ui/displays/deps-display.js";
 import { rebuildCli } from "../../../src/domain/devtools/self-update.js";
 import { runMenu } from "../../../src/infrastructure/menu.js";
 import { componentMenu } from "../../../src/ui/menus/component-makers-menu.js";

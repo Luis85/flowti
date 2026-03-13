@@ -6,9 +6,9 @@ import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler, DeliverableStatus } from "../infrastructure/types.js";
 import { listDeliverables, createDeliverableFile, updateDeliverableStatus } from "../domain/deliverables/deliverable-store.js";
-import { renderDeliverableList, renderDeliverableAdded, renderDeliverableUpdated } from "../ui/deliverables-display.js";
-import { renderError } from "../ui/common-renderers.js";
-import type { ErrorModel } from "../ui/common-renderers.js";
+import { renderDeliverableList, renderDeliverableAdded, renderDeliverableUpdated } from "../ui/displays/deliverables-display.js";
+import { renderError } from "../ui/renderers/common-renderers.js";
+import type { ErrorModel } from "../ui/renderers/common-renderers.js";
 
 const VALID_STATUSES: DeliverableStatus[] = ["planned", "in-progress", "review", "done", "blocked"];
 

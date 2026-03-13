@@ -25,8 +25,8 @@ vi.mock("../../src/domain/info/info.js", () => ({
 		tools: [],
 	})),
 }));
-vi.mock("../../src/ui/info-display.js", () => ({ displayInfo: vi.fn() }));
-vi.mock("../../src/ui/common-renderers.js", () => ({
+vi.mock("../../src/ui/displays/info-display.js", () => ({ displayInfo: vi.fn() }));
+vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 	renderNoProject: vi.fn(),
 	renderError: vi.fn(),
 }));
@@ -38,7 +38,7 @@ vi.mock("../../src/infrastructure/proc.js", () => ({
 import { commands } from "../../src/controller/info.controller.js";
 import { initializeDeps } from "../../src/infrastructure/request-response.js";
 import { collectProjectInfo } from "../../src/domain/info/info.js";
-import { displayInfo } from "../../src/ui/info-display.js";
+import { displayInfo } from "../../src/ui/displays/info-display.js";
 import { log } from "../../src/infrastructure/logger.js";
 import { disk } from "../../src/infrastructure/filesystem.js";
 import { paths } from "../../src/infrastructure/paths.js";

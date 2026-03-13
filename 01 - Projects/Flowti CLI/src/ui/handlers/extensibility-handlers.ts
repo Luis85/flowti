@@ -15,11 +15,11 @@ import { VAULT_ROOT, CLI_PROJECT } from "../../infrastructure/config.js";
 import { loadPlugins, scaffoldPlugin } from "../../domain/plugins/plugin-loader.js";
 import { generatePluginReference } from "../../domain/plugins/plugin-reference.js";
 import { toPluginListItems, toPluginValidationItems } from "../../domain/plugins/plugin-commands.js";
-import { renderPluginList, renderPluginValidation } from "../plugins-display.js";
+import { renderPluginList, renderPluginValidation } from "../displays/plugins-display.js";
 import { loadAiTools, scaffoldAiTool } from "../../domain/ai-tools/ai-tool-loader.js";
 import { generateAiToolReference } from "../../domain/ai-tools/ai-tool-reference.js";
 import { toToolListItems, toToolValidationItems } from "../../domain/ai-tools/ai-tool-commands.js";
-import { renderToolList, renderToolValidation } from "../ai-tools-display.js";
+import { renderToolList, renderToolValidation } from "../displays/ai-tools-display.js";
 
 function pluginDeps() { return { disk, paths } as const; }
 

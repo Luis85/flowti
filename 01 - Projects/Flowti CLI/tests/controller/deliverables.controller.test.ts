@@ -59,12 +59,12 @@ vi.mock("../../src/domain/deliverables/deliverable-store.js", () => ({
 }));
 
 // Mock UI modules
-vi.mock("../../src/ui/deliverables-display.js", () => ({
+vi.mock("../../src/ui/displays/deliverables-display.js", () => ({
 	renderDeliverableList: vi.fn(),
 	renderDeliverableAdded: vi.fn(),
 	renderDeliverableUpdated: vi.fn(),
 }));
-vi.mock("../../src/ui/common-renderers.js", () => ({
+vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 	renderError: vi.fn(),
 }));
 

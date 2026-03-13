@@ -17,8 +17,8 @@ import {
 	renderFreshnessCheck, renderBuildAuto, renderBuildRecorded,
 	renderCiResult,
 	type BuildAutoModel, type BuildRecordedModel,
-} from "../ui/build-display.js";
-import { renderShellCommand, type ShellCommandModel } from "../ui/common-renderers.js";
+} from "../ui/displays/build-display.js";
+import { renderShellCommand, type ShellCommandModel } from "../ui/renderers/common-renderers.js";
 
 // ── Command resolution ──────────────────────────────────────────────
 

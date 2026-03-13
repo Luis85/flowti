@@ -39,8 +39,8 @@ import {
 	type ToolInvalidModel,
 	type MissingParamsModel,
 	type MissingToolFlagModel,
-} from "../ui/ai-tools-display.js";
-import { renderSuccess, renderError, type SuccessModel, type ErrorModel } from "../ui/common-renderers.js";
+} from "../ui/displays/ai-tools-display.js";
+import { renderSuccess, renderError, type SuccessModel, type ErrorModel } from "../ui/renderers/common-renderers.js";
 
 // ── ai:run helpers ──────────────────────────────────────────────────
 

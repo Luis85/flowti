@@ -57,7 +57,7 @@ vi.mock("../../src/domain/reports/export/report-diff.js", () => ({
 vi.mock("../../src/domain/reports/export/html-export.js", () => ({
 	exportReportToHtml: vi.fn(() => ({ title: "Test Report", outputPath: "/out/test.html" })),
 }));
-vi.mock("../../src/ui/reports-display.js", () => ({
+vi.mock("../../src/ui/displays/reports-display.js", () => ({
 	renderNoGenerators: vi.fn(),
 	renderAuditResult: vi.fn(),
 	renderReportDiff: vi.fn(),
@@ -65,7 +65,7 @@ vi.mock("../../src/ui/reports-display.js", () => ({
 	renderUnknownReport: vi.fn(),
 	renderReportRun: vi.fn(),
 }));
-vi.mock("../../src/ui/common-renderers.js", () => ({
+vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 	renderNoProject: vi.fn(),
 	renderError: vi.fn(),
 	renderShellCommand: vi.fn(),

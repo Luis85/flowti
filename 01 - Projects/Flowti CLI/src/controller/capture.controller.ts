@@ -13,8 +13,8 @@ import { adapt, dataResponse, okResponse } from "../infrastructure/request-respo
 import type { CommandHandler } from "../infrastructure/types.js";
 import { VAULT_ROOT, getCaptureDir } from "../infrastructure/config.js";
 import { createCaptureFile, searchCaptures, importCaptureItems, parseTags, NOTE_TYPES } from "../domain/capture/capture.js";
-import { renderSearchResults, renderImportResult, type SearchResultsModel, type ImportResultModel } from "../ui/capture-display.js";
-import { renderError, type ErrorModel } from "../ui/common-renderers.js";
+import { renderSearchResults, renderImportResult, type SearchResultsModel, type ImportResultModel } from "../ui/displays/capture-display.js";
+import { renderError, type ErrorModel } from "../ui/renderers/common-renderers.js";
 
 // ── Controller actions ──────────────────────────────────────────────
 

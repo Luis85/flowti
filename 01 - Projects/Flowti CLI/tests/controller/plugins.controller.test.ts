@@ -62,12 +62,12 @@ vi.mock("../../src/domain/plugins/plugin-reference.js", () => ({
 		save: vi.fn(),
 	})),
 }));
-vi.mock("../../src/ui/plugins-display.js", () => ({
+vi.mock("../../src/ui/displays/plugins-display.js", () => ({
 	renderPluginList: vi.fn(),
 	renderPluginValidation: vi.fn(),
 	renderPluginCreated: vi.fn(),
 }));
-vi.mock("../../src/ui/common-renderers.js", () => ({
+vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 	renderSuccess: vi.fn(),
 	renderError: vi.fn(),
 }));

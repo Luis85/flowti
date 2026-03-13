@@ -7,9 +7,9 @@ import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler, ResourceType } from "../infrastructure/types.js";
 import { listResources, createResourceFile } from "../domain/resources/resource-store.js";
 import { analyzeFinancials } from "../domain/resources/resource-analysis.js";
-import { renderResourceList, renderFinancialSummary, renderResourceAdded } from "../ui/resources-display.js";
-import { renderError } from "../ui/common-renderers.js";
-import type { ErrorModel } from "../ui/common-renderers.js";
+import { renderResourceList, renderFinancialSummary, renderResourceAdded } from "../ui/displays/resources-display.js";
+import { renderError } from "../ui/renderers/common-renderers.js";
+import type { ErrorModel } from "../ui/renderers/common-renderers.js";
 
 const VALID_TYPES: ResourceType[] = ["human", "material", "role", "budget"];
 

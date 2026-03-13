@@ -6,9 +6,9 @@ import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler, EntityType, LifecycleState } from "../infrastructure/types.js";
 import { listLifecycleItems, readLifecycleItem, createLifecycleFile, transitionLifecycleItem, getLifecycleHistory } from "../domain/lifecycle/lifecycle-store.js";
-import { renderLifecycleStatus, renderLifecycleList, renderTransitionResult, renderTransitionHistory, renderLifecycleCreated } from "../ui/lifecycle-display.js";
-import { renderError } from "../ui/common-renderers.js";
-import type { ErrorModel } from "../ui/common-renderers.js";
+import { renderLifecycleStatus, renderLifecycleList, renderTransitionResult, renderTransitionHistory, renderLifecycleCreated } from "../ui/displays/lifecycle-display.js";
+import { renderError } from "../ui/renderers/common-renderers.js";
+import type { ErrorModel } from "../ui/renderers/common-renderers.js";
 
 const VALID_TYPES: EntityType[] = ["project", "product", "feature"];
 

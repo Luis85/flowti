@@ -61,12 +61,12 @@ vi.mock("../../src/domain/capa/capa-store.js", () => ({
 }));
 
 // Mock UI modules
-vi.mock("../../src/ui/capa-display.js", () => ({
+vi.mock("../../src/ui/displays/capa-display.js", () => ({
 	renderCAPAList: vi.fn(),
 	renderCAPAAdded: vi.fn(),
 	renderCAPAUpdated: vi.fn(),
 }));
-vi.mock("../../src/ui/common-renderers.js", () => ({
+vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 	renderError: vi.fn(),
 }));
 

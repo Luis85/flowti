@@ -32,11 +32,26 @@ vi.mock("../../src/infrastructure/clock.js", () => ({
 vi.mock("../../src/infrastructure/input.js", () => ({
 	input: { ask: vi.fn(async () => ""), askYesNo: vi.fn(async () => false), waitForEnter: vi.fn(async () => {}) },
 }));
-vi.mock("../../src/ui/cli-event-renderer.js", () => ({ attachCliRenderer: vi.fn(() => () => {}) }));
+vi.mock("../../src/ui/renderers/cli-event-renderer.js", () => ({ attachCliRenderer: vi.fn(() => () => {}) }));
 vi.mock("../../src/infrastructure/request-response.js", async () => {
 	const actual = await vi.importActual<typeof import("../../src/infrastructure/request-response.js")>("../../src/infrastructure/request-response.js");
 	return actual;
 });
+vi.mock("../../src/ui/help-content.js", () => ({
+	getHelp: vi.fn((section: string) => {
+		const content: Record<string, string> = {
+			main: "FLOWTI CLI help", build: "BUILD help", make: "MAKE help",
+			review: "REVIEW help", publish: "PUBLISH help", reports: "REPORTS help",
+			devtools: "DEVTOOLS help", capture: "CAPTURE help",
+			knowledgebase: "KNOWLEDGEBASE help", info: "INFO help",
+		};
+		return content[section] ?? null;
+	}),
+	getHelpSections: vi.fn(() => [
+		"main", "make", "build", "review", "publish",
+		"reports", "devtools", "capture", "knowledgebase", "info",
+	]),
+}));
 
 import { commands } from "../../src/controller/help.controller.js";
 import { log } from "../../src/infrastructure/logger.js";

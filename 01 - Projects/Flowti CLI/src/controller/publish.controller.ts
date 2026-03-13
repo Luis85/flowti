@@ -11,9 +11,9 @@ import type { CliDeps } from "../infrastructure/deps.js";
 import { collectHealth } from "../domain/health/health.js";
 import { scoreHealth } from "../domain/health/health-scoring.js";
 import { evaluateQualityGates, type GateResult } from "../domain/health/quality-gate.js";
-import { renderDryRun, renderGateResult, renderGateBlocked, type DryRunModel, type GateBlockedModel } from "../ui/publish-display.js";
-import { renderShellCommand, type ShellCommandModel } from "../ui/common-renderers.js";
-import { renderNoProject, type NoProjectModel } from "../ui/common-renderers.js";
+import { renderDryRun, renderGateResult, renderGateBlocked, type DryRunModel, type GateBlockedModel } from "../ui/displays/publish-display.js";
+import { renderShellCommand, type ShellCommandModel } from "../ui/renderers/common-renderers.js";
+import { renderNoProject, type NoProjectModel } from "../ui/renderers/common-renderers.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 

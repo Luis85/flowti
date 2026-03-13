@@ -7,9 +7,9 @@ import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler, CAPAStatus, CAPAType } from "../infrastructure/types.js";
 import type { CAPASeverity, CAPASource } from "../domain/capa/capa-types.js";
 import { listCAPAItems, createCAPAItem, updateCAPAStatus, nextCapaId } from "../domain/capa/capa-store.js";
-import { renderCAPAList, renderCAPAAdded, renderCAPAUpdated } from "../ui/capa-display.js";
-import { renderError } from "../ui/common-renderers.js";
-import type { ErrorModel } from "../ui/common-renderers.js";
+import { renderCAPAList, renderCAPAAdded, renderCAPAUpdated } from "../ui/displays/capa-display.js";
+import { renderError } from "../ui/renderers/common-renderers.js";
+import type { ErrorModel } from "../ui/renderers/common-renderers.js";
 
 const VALID_TYPES: CAPAType[] = ["corrective", "preventive"];
 const VALID_STATUSES: CAPAStatus[] = ["open", "investigating", "action-planned", "implementing", "verification", "closed", "rejected"];

@@ -55,7 +55,7 @@ vi.mock("../../../src/infrastructure/output.js", () => ({
 }));
 
 import { collectHealth, parseAuditJson, type HealthSnapshot } from "../../../src/domain/health/health.js";
-import { displayHealth } from "../../../src/ui/health-display.js";
+import { displayHealth } from "../../../src/ui/displays/health-display.js";
 import { commands } from "../../../src/controller/health.controller.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
 import { shell } from "../../../src/infrastructure/shell.js";

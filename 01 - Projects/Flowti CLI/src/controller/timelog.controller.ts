@@ -6,9 +6,9 @@ import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler } from "../infrastructure/types.js";
 import { listTimeLogEntries, createTimeLogEntry, summarizeTimeLog } from "../domain/timelog/timelog-store.js";
-import { renderTimeLogList, renderTimeLogSummary, renderTimeLogAdded } from "../ui/timelog-display.js";
-import { renderError } from "../ui/common-renderers.js";
-import type { ErrorModel } from "../ui/common-renderers.js";
+import { renderTimeLogList, renderTimeLogSummary, renderTimeLogAdded } from "../ui/displays/timelog-display.js";
+import { renderError } from "../ui/renderers/common-renderers.js";
+import type { ErrorModel } from "../ui/renderers/common-renderers.js";
 
 function flagStr(flags: Record<string, string | boolean>, key: string, fallback: string): string {
 	return typeof flags[key] === "string" ? flags[key] : fallback;

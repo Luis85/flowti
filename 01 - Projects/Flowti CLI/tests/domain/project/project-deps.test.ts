@@ -83,7 +83,7 @@ import {
 	displayDependencyGraph,
 	handleProjectDeps,
 	commands,
-} from "../../../src/ui/deps-display.js";
+} from "../../../src/ui/displays/deps-display.js";
 
 function setDisk(mockFs: ReturnType<typeof createMockFs>): void {
 	Object.assign(fsMod, { disk: mockFs });

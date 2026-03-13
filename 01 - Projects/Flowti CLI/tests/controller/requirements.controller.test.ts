@@ -54,14 +54,14 @@ vi.mock("../../src/domain/requirements/requirement-store.js", () => ({
 	]),
 	createUserStory: vi.fn(() => "/project/requirements/stories/login-story.md"),
 }));
-vi.mock("../../src/ui/requirements-display.js", () => ({
+vi.mock("../../src/ui/displays/requirements-display.js", () => ({
 	renderRequirementList: vi.fn(),
 	renderUseCaseList: vi.fn(),
 	renderUserStoryList: vi.fn(),
 	renderRequirementAdded: vi.fn(),
 	renderRequirementUpdated: vi.fn(),
 }));
-vi.mock("../../src/ui/common-renderers.js", () => ({
+vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 	renderError: vi.fn(),
 }));
 
@@ -74,7 +74,7 @@ import { paths } from "../../src/infrastructure/paths.js";
 import { shell } from "../../src/infrastructure/shell.js";
 import { log } from "../../src/infrastructure/logger.js";
 import { listRequirements, createRequirement, updateRequirementStatus, listUseCases, createUseCase, listUserStories, createUserStory } from "../../src/domain/requirements/requirement-store.js";
-import { renderError } from "../../src/ui/common-renderers.js";
+import { renderError } from "../../src/ui/renderers/common-renderers.js";
 
 const mockProject = {
 	name: "test",

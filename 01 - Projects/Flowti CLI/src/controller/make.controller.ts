@@ -12,8 +12,8 @@ import { editComponent, type EditComponentOutcome } from "../domain/make/compone
 import { scaffoldDefinition, type ScaffoldDefinitionOutcome } from "../domain/make/component/definition-scaffold.js";
 import { suggestRelationships, type RelationshipSuggestion } from "../domain/make/component/component-suggest.js";
 import { listProjectComponents } from "../domain/make/component/component-list.js";
-import { renderError, renderSuccess } from "../ui/common-renderers.js";
-import { renderComponentAdding } from "../ui/make-renderers.js";
+import { renderError, renderSuccess } from "../ui/renderers/common-renderers.js";
+import { renderComponentAdding } from "../ui/renderers/make-renderers.js";
 import { showSuggestions } from "../infrastructure/suggestions.js";
 
 // ── Renderers ────────────────────────────────────────────────────────

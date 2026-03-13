@@ -33,7 +33,7 @@ vi.mock("../../../src/domain/raid/raid-store.js", () => ({
 	createRAIDItem: vi.fn(),
 	updateRAIDStatus: vi.fn(),
 }));
-vi.mock("../../../src/ui/raid-display.js", () => ({
+vi.mock("../../../src/ui/displays/raid-display.js", () => ({
 	renderRAIDList: vi.fn(),
 	renderRAIDAdded: vi.fn(),
 	renderRAIDUpdated: vi.fn(),
@@ -45,7 +45,7 @@ vi.mock("../../../src/ui/menus/raid-menu.js", () => ({
 vi.mock("../../../src/domain/capa/capa-store.js", () => ({
 	listCAPAItems: vi.fn(() => []),
 }));
-vi.mock("../../../src/ui/capa-display.js", () => ({
+vi.mock("../../../src/ui/displays/capa-display.js", () => ({
 	renderCAPAList: vi.fn(),
 }));
 vi.mock("../../../src/ui/menus/capa-menu.js", () => ({
@@ -55,7 +55,7 @@ vi.mock("../../../src/ui/menus/capa-menu.js", () => ({
 vi.mock("../../../src/domain/deliverables/deliverable-store.js", () => ({
 	listDeliverables: vi.fn(() => []),
 }));
-vi.mock("../../../src/ui/deliverables-display.js", () => ({
+vi.mock("../../../src/ui/displays/deliverables-display.js", () => ({
 	renderDeliverableList: vi.fn(),
 }));
 vi.mock("../../../src/ui/menus/deliverables-menu.js", () => ({
@@ -68,7 +68,7 @@ vi.mock("../../../src/domain/resources/resource-store.js", () => ({
 vi.mock("../../../src/domain/resources/resource-analysis.js", () => ({
 	analyzeFinancials: vi.fn(() => ({})),
 }));
-vi.mock("../../../src/ui/resources-display.js", () => ({
+vi.mock("../../../src/ui/displays/resources-display.js", () => ({
 	renderResourceList: vi.fn(),
 	renderFinancialSummary: vi.fn(),
 }));
@@ -79,7 +79,7 @@ vi.mock("../../../src/domain/timelog/timelog-store.js", () => ({
 	listTimeLogEntries: vi.fn(() => []),
 	summarizeTimeLog: vi.fn(() => ({})),
 }));
-vi.mock("../../../src/ui/timelog-display.js", () => ({
+vi.mock("../../../src/ui/displays/timelog-display.js", () => ({
 	renderTimeLogList: vi.fn(),
 	renderTimeLogSummary: vi.fn(),
 }));
@@ -92,20 +92,20 @@ import { HandlerRegistry } from "../../../src/infrastructure/handler-registry.js
 import { registerCrudHandlers } from "../../../src/ui/handlers/crud-handlers.js";
 import { input } from "../../../src/infrastructure/input.js";
 import { listRAIDItems } from "../../../src/domain/raid/raid-store.js";
-import { renderRAIDList } from "../../../src/ui/raid-display.js";
+import { renderRAIDList } from "../../../src/ui/displays/raid-display.js";
 import { addRAIDInteractive, updateStatusInteractive as updateRAIDStatus } from "../../../src/ui/menus/raid-menu.js";
 import { listCAPAItems } from "../../../src/domain/capa/capa-store.js";
-import { renderCAPAList } from "../../../src/ui/capa-display.js";
+import { renderCAPAList } from "../../../src/ui/displays/capa-display.js";
 import { addCAPAInteractive, updateStatusInteractive as updateCAPAStatus } from "../../../src/ui/menus/capa-menu.js";
 import { listDeliverables } from "../../../src/domain/deliverables/deliverable-store.js";
-import { renderDeliverableList } from "../../../src/ui/deliverables-display.js";
+import { renderDeliverableList } from "../../../src/ui/displays/deliverables-display.js";
 import { addDeliverableInteractive, updateStatusInteractive as updateDeliverableStatus } from "../../../src/ui/menus/deliverables-menu.js";
 import { listResources } from "../../../src/domain/resources/resource-store.js";
 import { analyzeFinancials } from "../../../src/domain/resources/resource-analysis.js";
-import { renderResourceList, renderFinancialSummary } from "../../../src/ui/resources-display.js";
+import { renderResourceList, renderFinancialSummary } from "../../../src/ui/displays/resources-display.js";
 import { addResourceInteractive } from "../../../src/ui/menus/resources-menu.js";
 import { listTimeLogEntries, summarizeTimeLog } from "../../../src/domain/timelog/timelog-store.js";
-import { renderTimeLogList, renderTimeLogSummary } from "../../../src/ui/timelog-display.js";
+import { renderTimeLogList, renderTimeLogSummary } from "../../../src/ui/displays/timelog-display.js";
 import { logTimeInteractive } from "../../../src/ui/menus/timelog-menu.js";
 
 import type { RouterContext } from "../../../src/infrastructure/sitemap-types.js";

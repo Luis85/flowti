@@ -58,7 +58,7 @@ vi.mock("../../src/domain/review/change-analysis.js", () => ({
 		summary: "1 file added",
 	})),
 }));
-vi.mock("../../src/ui/review-display.js", () => ({
+vi.mock("../../src/ui/displays/review-display.js", () => ({
 	renderChangeAnalysis: vi.fn(),
 	renderReviewClean: vi.fn(),
 	renderPipelineResult: vi.fn(),
@@ -73,7 +73,7 @@ import { disk } from "../../src/infrastructure/filesystem.js";
 import { paths } from "../../src/infrastructure/paths.js";
 import { proc } from "../../src/infrastructure/proc.js";
 import { log } from "../../src/infrastructure/logger.js";
-import { renderPipelineResult } from "../../src/ui/review-display.js";
+import { renderPipelineResult } from "../../src/ui/displays/review-display.js";
 import { analyzeWorkingTree, analyzeBranchDiff } from "../../src/domain/review/change-analysis.js";
 
 const mockProject = {

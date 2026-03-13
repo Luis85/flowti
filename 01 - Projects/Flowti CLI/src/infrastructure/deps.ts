@@ -16,7 +16,7 @@ import { proc } from "./proc.js";
 import { input } from "./input.js";
 import { log, warn } from "./logger.js";
 import { createCliBus } from "./event-bus.js";
-import { attachCliRenderer } from "../ui/cli-event-renderer.js";
+import { attachCliRenderer } from "../ui/renderers/cli-event-renderer.js";
 
 // ── Full dependency container ───────────────────────────────────────
 

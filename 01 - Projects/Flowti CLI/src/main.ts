@@ -52,7 +52,7 @@ import { commands as requirementsCmds } from "./controller/requirements.controll
 import { commands as capaCmds } from "./controller/capa.controller.js";
 import { commands as lifecycleCmds } from "./controller/lifecycle.controller.js";
 import { commands as projectCmds } from "./controller/project.controller.js";
-import { commands as projectDepsCmds } from "./ui/deps-display.js";
+import { commands as projectDepsCmds } from "./ui/displays/deps-display.js";
 import { commands as pluginCmds } from "./controller/plugins.controller.js";
 import { commands as aiToolsCmds } from "./controller/ai-tools.controller.js";
 import { commands as sitemapCmds } from "./controller/sitemap.controller.js";

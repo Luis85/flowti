@@ -14,8 +14,8 @@ import { estimateDebt } from "../domain/health/tech-debt.js";
 import {
 	renderHealthDashboard, renderSnapshotSaved, renderHealthHistory, renderDebtEstimate,
 	type HealthViewModel, type SnapshotSavedModel,
-} from "../ui/health-display.js";
-import { renderNoProject, type NoProjectModel } from "../ui/common-renderers.js";
+} from "../ui/displays/health-display.js";
+import { renderNoProject, type NoProjectModel } from "../ui/renderers/common-renderers.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 

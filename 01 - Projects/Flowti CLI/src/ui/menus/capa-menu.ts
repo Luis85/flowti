@@ -11,7 +11,7 @@ import { log } from "../../infrastructure/logger.js";
 import type { CAPAConfig, CAPAStatus, CAPAType } from "../../infrastructure/types.js";
 import type { CAPASource, CAPASeverity } from "../../domain/capa/capa-types.js";
 import { listCAPAItems, createCAPAItem, updateCAPAStatus, nextCapaId } from "../../domain/capa/capa-store.js";
-import { renderCAPAAdded, renderCAPAUpdated } from "../capa-display.js";
+import { renderCAPAAdded, renderCAPAUpdated } from "../displays/capa-display.js";
 
 function storeDeps() { return { disk, paths, clock } as const; }
 

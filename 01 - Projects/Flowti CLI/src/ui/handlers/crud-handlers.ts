@@ -21,7 +21,7 @@ export function registerCrudHandlers(registry: HandlerRegistry): void {
 	registry.registerAction("raid:list", async (ctx) => {
 		if (!ctx.project) return undefined;
 		const { listRAIDItems } = await import("../../domain/raid/raid-store.js");
-		const { renderRAIDList } = await import("../raid-display.js");
+		const { renderRAIDList } = await import("../displays/raid-display.js");
 		renderRAIDList(listRAIDItems(storeDeps(), ctx.project.path, ctx.project.config.management?.raid));
 		await input.waitForEnter();
 		return "main" as MenuResult;
@@ -80,7 +80,7 @@ export function registerCrudHandlers(registry: HandlerRegistry): void {
 	registry.registerAction("capa:list", async (ctx) => {
 		if (!ctx.project) return undefined;
 		const { listCAPAItems } = await import("../../domain/capa/capa-store.js");
-		const { renderCAPAList } = await import("../capa-display.js");
+		const { renderCAPAList } = await import("../displays/capa-display.js");
 		renderCAPAList(listCAPAItems(storeDeps(), ctx.project.path, ctx.project.config.management?.capa));
 		await input.waitForEnter();
 		return "main" as MenuResult;
@@ -115,7 +115,7 @@ export function registerCrudHandlers(registry: HandlerRegistry): void {
 	registry.registerAction("deliverables:list", async (ctx) => {
 		if (!ctx.project) return undefined;
 		const { listDeliverables } = await import("../../domain/deliverables/deliverable-store.js");
-		const { renderDeliverableList } = await import("../deliverables-display.js");
+		const { renderDeliverableList } = await import("../displays/deliverables-display.js");
 		renderDeliverableList(listDeliverables(storeDeps(), ctx.project.path, ctx.project.config.management?.deliverables));
 		await input.waitForEnter();
 		return "main" as MenuResult;
@@ -142,7 +142,7 @@ export function registerCrudHandlers(registry: HandlerRegistry): void {
 	registry.registerAction("resources:list", async (ctx) => {
 		if (!ctx.project) return undefined;
 		const { listResources } = await import("../../domain/resources/resource-store.js");
-		const { renderResourceList } = await import("../resources-display.js");
+		const { renderResourceList } = await import("../displays/resources-display.js");
 		renderResourceList(listResources(storeDeps(), ctx.project.path, ctx.project.config.management?.resources));
 		await input.waitForEnter();
 		return "main" as MenuResult;
@@ -184,7 +184,7 @@ export function registerCrudHandlers(registry: HandlerRegistry): void {
 		if (!ctx.project) return undefined;
 		const { listResources } = await import("../../domain/resources/resource-store.js");
 		const { analyzeFinancials } = await import("../../domain/resources/resource-analysis.js");
-		const { renderFinancialSummary } = await import("../resources-display.js");
+		const { renderFinancialSummary } = await import("../displays/resources-display.js");
 		renderFinancialSummary(analyzeFinancials(listResources(storeDeps(), ctx.project.path, ctx.project.config.management?.resources)));
 		await input.waitForEnter();
 		return "main" as MenuResult;
@@ -195,7 +195,7 @@ export function registerCrudHandlers(registry: HandlerRegistry): void {
 	registry.registerAction("timelog:list", async (ctx) => {
 		if (!ctx.project) return undefined;
 		const { listTimeLogEntries } = await import("../../domain/timelog/timelog-store.js");
-		const { renderTimeLogList } = await import("../timelog-display.js");
+		const { renderTimeLogList } = await import("../displays/timelog-display.js");
 		renderTimeLogList(listTimeLogEntries(storeDeps(), ctx.project.path, ctx.project.config.management?.timelog));
 		await input.waitForEnter();
 		return "main" as MenuResult;
@@ -212,7 +212,7 @@ export function registerCrudHandlers(registry: HandlerRegistry): void {
 	registry.registerAction("timelog:summary", async (ctx) => {
 		if (!ctx.project) return undefined;
 		const { listTimeLogEntries, summarizeTimeLog } = await import("../../domain/timelog/timelog-store.js");
-		const { renderTimeLogSummary } = await import("../timelog-display.js");
+		const { renderTimeLogSummary } = await import("../displays/timelog-display.js");
 		const entries = listTimeLogEntries(storeDeps(), ctx.project.path, ctx.project.config.management?.timelog);
 		renderTimeLogSummary(summarizeTimeLog(entries));
 		await input.waitForEnter();

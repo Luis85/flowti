@@ -26,8 +26,8 @@ import {
 	type PluginListItem,
 	type PluginValidationItem,
 	type PluginCreatedModel,
-} from "../ui/plugins-display.js";
-import { renderSuccess, renderError, type SuccessModel, type ErrorModel } from "../ui/common-renderers.js";
+} from "../ui/displays/plugins-display.js";
+import { renderSuccess, renderError, type SuccessModel, type ErrorModel } from "../ui/renderers/common-renderers.js";
 
 // ── Controller actions ──────────────────────────────────────────────
 

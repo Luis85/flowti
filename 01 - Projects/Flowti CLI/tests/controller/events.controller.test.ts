@@ -40,7 +40,7 @@ vi.mock("../../src/infrastructure/proc.js", () => ({
 vi.mock("../../src/infrastructure/ui.js", () => ({
 	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", CYAN: "", YELLOW: "",
 }));
-vi.mock("../../src/ui/cli-event-renderer.js", () => ({ attachCliRenderer: vi.fn(() => () => {}) }));
+vi.mock("../../src/ui/renderers/cli-event-renderer.js", () => ({ attachCliRenderer: vi.fn(() => () => {}) }));
 vi.mock("../../src/infrastructure/request-response.js", async () => {
 	const actual = await vi.importActual<typeof import("../../src/infrastructure/request-response.js")>("../../src/infrastructure/request-response.js");
 	return actual;
@@ -74,7 +74,7 @@ vi.mock("../../src/domain/events/event-contracts.js", () => ({
 vi.mock("../../src/domain/events/event-codegen.js", () => ({
 	generateEventTypes: vi.fn(() => "export type Events = {};"),
 }));
-vi.mock("../../src/ui/events-display.js", () => ({
+vi.mock("../../src/ui/displays/events-display.js", () => ({
 	renderEventList: vi.fn(),
 	renderEventFlowCreated: vi.fn(),
 	renderEventAdded: vi.fn(),
@@ -85,7 +85,7 @@ vi.mock("../../src/ui/events-display.js", () => ({
 	renderEmpty: vi.fn(),
 	renderVersionEvent: vi.fn(),
 }));
-vi.mock("../../src/ui/common-renderers.js", () => ({
+vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 	renderError: vi.fn(),
 }));
 

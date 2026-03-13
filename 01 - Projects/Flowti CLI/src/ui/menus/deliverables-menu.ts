@@ -10,7 +10,7 @@ import { input } from "../../infrastructure/input.js";
 import { log } from "../../infrastructure/logger.js";
 import type { DeliverablesConfig, DeliverableStatus } from "../../infrastructure/types.js";
 import { listDeliverables, createDeliverableFile, updateDeliverableStatus } from "../../domain/deliverables/deliverable-store.js";
-import { renderDeliverableAdded, renderDeliverableUpdated } from "../deliverables-display.js";
+import { renderDeliverableAdded, renderDeliverableUpdated } from "../displays/deliverables-display.js";
 
 function storeDeps() { return { disk, paths, clock } as const; }
 

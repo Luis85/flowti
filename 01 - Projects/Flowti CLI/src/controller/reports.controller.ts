@@ -8,7 +8,7 @@ import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler } from "../infrastructure/types.js";
 import type { CliDeps } from "../infrastructure/deps.js";
-import { renderShellCommand, renderSuccess, type ShellCommandModel, type SuccessModel } from "../ui/common-renderers.js";
+import { renderShellCommand, renderSuccess, type ShellCommandModel, type SuccessModel } from "../ui/renderers/common-renderers.js";
 import { runAllReports } from "../domain/reports/pipeline/report-runner.js";
 import { runAllDocs } from "../domain/reports/pipeline/doc-runner.js";
 import { runGenerator, hasGenerator } from "../domain/reports/generator-registry.js";
@@ -20,8 +20,8 @@ import {
 	renderNoGenerators, renderAuditResult, renderReportDiff,
 	renderHtmlExport, renderUnknownReport, renderReportRun,
 	type NoGeneratorsModel, type AuditResultModel, type HtmlExportModel, type UnknownReportModel, type ReportRunModel,
-} from "../ui/reports-display.js";
-import { renderNoProject, type NoProjectModel } from "../ui/common-renderers.js";
+} from "../ui/displays/reports-display.js";
+import { renderNoProject, type NoProjectModel } from "../ui/renderers/common-renderers.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 

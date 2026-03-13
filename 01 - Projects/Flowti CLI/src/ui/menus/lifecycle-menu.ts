@@ -13,7 +13,7 @@ import { log } from "../../infrastructure/logger.js";
 import type { MenuResult, MenuEntry, EntityType, LifecycleState } from "../../infrastructure/types.js";
 import { readLifecycleItem, transitionLifecycleItem, getLifecycleHistory } from "../../domain/lifecycle/lifecycle-store.js";
 import { getTemplate, getValidTransitions } from "../../domain/lifecycle/lifecycle-engine.js";
-import { renderLifecycleStatus, renderTransitionHistory, renderTransitionResult } from "../lifecycle-display.js";
+import { renderLifecycleStatus, renderTransitionHistory, renderTransitionResult } from "../displays/lifecycle-display.js";
 
 function storeDeps() { return { disk, paths, clock } as const; }
 

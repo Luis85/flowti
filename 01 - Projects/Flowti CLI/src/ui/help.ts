@@ -1,15 +1,14 @@
 /**
  * help.ts — CLI help system (man-pages).
  *
- * Help content is in help-content.ts. This module provides the
- * renderHelp() renderer, showHelp() convenience function, and commands.
+ * Help content is loaded from vault markdown files via help-content.ts.
+ * This module provides the renderHelp() renderer, showHelp() convenience
+ * function, and commands.
  */
 
 import { RESET, DIM, YELLOW } from "../infrastructure/ui.js";
 import { log } from "../infrastructure/logger.js";
-import { HELP } from "./help-content.js";
-
-export { HELP };
+import { getHelp, getHelpSections } from "./help-content.js";
 
 export interface HelpModel {
 	section: string;
@@ -30,7 +29,7 @@ export function renderHelp(model: HelpModel): void {
 /** Show help for a given section (convenience wrapper around renderHelp). */
 export function showHelp(section?: string): void {
 	const key = section?.toLowerCase() ?? "main";
-	renderHelp({ section: key, content: HELP[key] ?? null, availableSections: Object.keys(HELP) });
+	renderHelp({ section: key, content: getHelp(key), availableSections: getHelpSections() });
 }
 
 /** Legacy help commands — used by main.ts and tests. */

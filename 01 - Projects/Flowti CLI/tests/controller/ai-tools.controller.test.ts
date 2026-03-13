@@ -60,7 +60,7 @@ vi.mock("../../src/domain/ai-tools/ai-tool-reference.js", () => ({
 vi.mock("../../src/domain/ai-tools/ai-tool-commands.js", () => ({
 	substituteParams: vi.fn((cmd: string) => cmd),
 }));
-vi.mock("../../src/ui/ai-tools-display.js", () => ({
+vi.mock("../../src/ui/displays/ai-tools-display.js", () => ({
 	renderToolList: vi.fn(),
 	renderToolValidation: vi.fn(),
 	renderToolRunResult: vi.fn(),
@@ -71,7 +71,7 @@ vi.mock("../../src/ui/ai-tools-display.js", () => ({
 	renderMissingToolFlag: vi.fn(),
 	renderRunning: vi.fn(),
 }));
-vi.mock("../../src/ui/common-renderers.js", () => ({
+vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 	renderSuccess: vi.fn(),
 	renderError: vi.fn(),
 }));

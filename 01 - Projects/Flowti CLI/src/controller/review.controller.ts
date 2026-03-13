@@ -16,10 +16,10 @@ import {
 	renderGateResult, renderTraceabilityMatrix, renderCoverageReport, renderEvidenceList,
 	type ChangeAnalysisModel, type ReviewCleanModel, type PipelineResultModel,
 	type GateResultModel, type TraceabilityModel, type CoverageModel, type EvidenceListModel,
-} from "../ui/review-display.js";
+} from "../ui/displays/review-display.js";
 import { startInteractiveSession, runE2ESuite } from "../domain/review/run-e2e.js";
 import { interactiveSession } from "../ui/e2e/e2e-interactive.js";
-import { renderShellCommand, renderInteractiveOnly, type ShellCommandModel, type InteractiveOnlyModel } from "../ui/common-renderers.js";
+import { renderShellCommand, renderInteractiveOnly, type ShellCommandModel, type InteractiveOnlyModel } from "../ui/renderers/common-renderers.js";
 import { buildTraceabilityMatrix, detectGaps, validateTraceabilityLinks, coverageByCategory } from "../domain/review/traceability.js";
 import { evaluateGates } from "../domain/review/quality-gates.js";
 import { listRuns } from "../domain/review/evidence.js";

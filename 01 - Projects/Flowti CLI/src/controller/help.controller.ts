@@ -7,14 +7,14 @@
 import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler } from "../infrastructure/types.js";
-import { HELP } from "../ui/help-content.js";
+import { getHelp, getHelpSections } from "../ui/help-content.js";
 import { renderHelp, type HelpModel } from "../ui/help.js";
 
 const actions: Record<string, ControllerAction> = {
 	help: (req) => {
 		const section = (Object.keys(req.flags)[0] ?? req.rawArgs?.[1] ?? "main").toLowerCase();
-		const content = HELP[section] ?? null;
-		const model: HelpModel = { section, content, availableSections: Object.keys(HELP) };
+		const content = getHelp(section);
+		const model: HelpModel = { section, content, availableSections: getHelpSections() };
 		return dataResponse(model, renderHelp);
 	},
 };

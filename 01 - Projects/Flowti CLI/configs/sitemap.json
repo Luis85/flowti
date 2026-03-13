@@ -104,12 +104,33 @@
 				{
 					"type": "item",
 					"key": "4",
+					"label": "Start Iteration",
+					"navigate": "management"
+				},
+				{
+					"type": "item",
+					"key": "44",
+					"label": "Current Iteration",
+					"navigate": "management"
+				},
+				{
+					"type": "item",
+					"key": "45",
+					"label": "Close Iteration",
+					"navigate": "management"
+				},
+				{
+					"type": "separator"
+				},
+				{
+					"type": "item",
+					"key": "5",
 					"label": "Make",
 					"navigate": "make"
 				},
 				{
 					"type": "item",
-					"key": "5",
+					"key": "6",
 					"label": "Build",
 					"handler": "build:interactive",
 					"disabled": {
@@ -119,13 +140,13 @@
 				},
 				{
 					"type": "item",
-					"key": "6",
+					"key": "7",
 					"label": "Review",
 					"navigate": "review"
 				},
 				{
 					"type": "item",
-					"key": "7",
+					"key": "8",
 					"label": "Publish",
 					"navigate": "publish"
 				},
@@ -278,6 +299,18 @@
 					"key": "7",
 					"label": "Health",
 					"handler": "health:show"
+				},
+				{
+					"type": "item",
+					"key": "8",
+					"label": "Iterations",
+					"navigate": "management"
+				},
+				{
+					"type": "item",
+					"key": "9",
+					"label": "Add new Iteration",
+					"navigate": "management"
 				},
 				{
 					"type": "separator"

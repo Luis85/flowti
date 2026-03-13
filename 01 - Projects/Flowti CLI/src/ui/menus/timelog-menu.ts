@@ -9,7 +9,7 @@ import { printHeader } from "../../infrastructure/ui.js";
 import { input } from "../../infrastructure/input.js";
 import type { TimeLogConfig } from "../../infrastructure/types.js";
 import { createTimeLogEntry } from "../../domain/timelog/timelog-store.js";
-import { renderTimeLogAdded } from "../timelog-display.js";
+import { renderTimeLogAdded } from "../displays/timelog-display.js";
 
 function storeDeps() { return { disk, paths, clock } as const; }
 

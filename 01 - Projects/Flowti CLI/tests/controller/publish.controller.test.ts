@@ -27,7 +27,7 @@ vi.mock("../../src/infrastructure/input.js", () => ({
 vi.mock("../../src/infrastructure/ui.js", () => ({
 	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", CYAN: "", YELLOW: "",
 }));
-vi.mock("../../src/ui/cli-event-renderer.js", () => ({ attachCliRenderer: vi.fn(() => () => {}) }));
+vi.mock("../../src/ui/renderers/cli-event-renderer.js", () => ({ attachCliRenderer: vi.fn(() => () => {}) }));
 vi.mock("../../src/infrastructure/request-response.js", async () => {
 	const actual = await vi.importActual<typeof import("../../src/infrastructure/request-response.js")>("../../src/infrastructure/request-response.js");
 	return actual;
@@ -51,12 +51,12 @@ vi.mock("../../src/domain/health/quality-gate.js", () => ({
 		results: [],
 	})),
 }));
-vi.mock("../../src/ui/publish-display.js", () => ({
+vi.mock("../../src/ui/displays/publish-display.js", () => ({
 	renderDryRun: vi.fn(),
 	renderGateResult: vi.fn(),
 	renderGateBlocked: vi.fn(),
 }));
-vi.mock("../../src/ui/common-renderers.js", () => ({
+vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 	renderNoProject: vi.fn(),
 	renderShellCommand: vi.fn(),
 }));

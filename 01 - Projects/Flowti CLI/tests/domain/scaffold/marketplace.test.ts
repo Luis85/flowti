@@ -17,7 +17,7 @@ import {
 	resolveDefinitionsDir,
 } from "../../../src/domain/scaffold/marketplace.js";
 import type { MarketplaceEntry } from "../../../src/domain/scaffold/marketplace.js";
-import { renderMarketplace } from "../../../src/ui/scaffold-display.js";
+import { renderMarketplace } from "../../../src/ui/displays/scaffold-display.js";
 import type { IFileSystem } from "../../../src/infrastructure/types.js";
 
 const testPaths = {

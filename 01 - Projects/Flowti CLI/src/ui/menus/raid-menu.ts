@@ -10,7 +10,7 @@ import { input } from "../../infrastructure/input.js";
 import { log } from "../../infrastructure/logger.js";
 import type { RAIDConfig, RAIDItemType, RAIDStatus } from "../../infrastructure/types.js";
 import { listRAIDItems, createRAIDItem, updateRAIDStatus } from "../../domain/raid/raid-store.js";
-import { renderRAIDAdded, renderRAIDUpdated } from "../raid-display.js";
+import { renderRAIDAdded, renderRAIDUpdated } from "../displays/raid-display.js";
 
 function storeDeps() { return { disk, paths, clock } as const; }
 

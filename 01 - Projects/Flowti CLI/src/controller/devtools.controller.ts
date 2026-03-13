@@ -15,7 +15,7 @@ import { fixFrontmatter } from "../domain/devtools/fix-frontmatter.js";
 import { generateTestData } from "../domain/devtools/generate-test-data.js";
 import type { TestDataOpts } from "../domain/devtools/generate-test-data.js";
 import { runAnalysisPipeline } from "../domain/devtools/run-analysis.js";
-import { renderShellCommand, renderSuccess, type ShellCommandModel, type SuccessModel } from "../ui/common-renderers.js";
+import { renderShellCommand, renderSuccess, type ShellCommandModel, type SuccessModel } from "../ui/renderers/common-renderers.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 

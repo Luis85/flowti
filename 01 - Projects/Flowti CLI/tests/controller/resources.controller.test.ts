@@ -53,12 +53,12 @@ vi.mock("../../src/domain/resources/resource-analysis.js", () => ({
 		byCategory: {},
 	})),
 }));
-vi.mock("../../src/ui/resources-display.js", () => ({
+vi.mock("../../src/ui/displays/resources-display.js", () => ({
 	renderResourceList: vi.fn(),
 	renderFinancialSummary: vi.fn(),
 	renderResourceAdded: vi.fn(),
 }));
-vi.mock("../../src/ui/common-renderers.js", () => ({
+vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 	renderError: vi.fn(),
 }));
 
@@ -72,7 +72,7 @@ import { shell } from "../../src/infrastructure/shell.js";
 import { log } from "../../src/infrastructure/logger.js";
 import { listResources, createResourceFile } from "../../src/domain/resources/resource-store.js";
 import { analyzeFinancials } from "../../src/domain/resources/resource-analysis.js";
-import { renderError } from "../../src/ui/common-renderers.js";
+import { renderError } from "../../src/ui/renderers/common-renderers.js";
 
 const mockProject = {
 	name: "test",

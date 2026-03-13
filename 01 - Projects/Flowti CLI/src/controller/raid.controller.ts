@@ -6,9 +6,9 @@ import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler, RAIDItemType, RAIDStatus } from "../infrastructure/types.js";
 import { listRAIDItems, createRAIDItem, updateRAIDStatus } from "../domain/raid/raid-store.js";
-import { renderRAIDList, renderRAIDAdded, renderRAIDUpdated } from "../ui/raid-display.js";
-import { renderError } from "../ui/common-renderers.js";
-import type { ErrorModel } from "../ui/common-renderers.js";
+import { renderRAIDList, renderRAIDAdded, renderRAIDUpdated } from "../ui/displays/raid-display.js";
+import { renderError } from "../ui/renderers/common-renderers.js";
+import type { ErrorModel } from "../ui/renderers/common-renderers.js";
 
 const VALID_TYPES: RAIDItemType[] = ["risk", "assumption", "issue", "dependency", "decision"];
 const VALID_STATUSES: RAIDStatus[] = ["open", "mitigated", "closed", "accepted", "resolved", "deferred"];

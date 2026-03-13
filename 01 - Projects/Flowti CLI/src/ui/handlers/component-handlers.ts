@@ -70,7 +70,7 @@ export function registerComponentHandlers(registry: HandlerRegistry): void {
 		if (!ctx.project) return undefined;
 		const { isStorybookInstalled, installStorybook } = await import("../../domain/make/component/storybook-service.js");
 		const { setFramework } = await import("../../domain/make/component/storybook-settings.js");
-		const { createStorybookRenderer } = await import("../storybook-renderer-impl.js");
+		const { createStorybookRenderer } = await import("../renderers/storybook-renderer-impl.js");
 		const config = ctx.project.config.components ?? {};
 		if (isStorybookInstalled(ctx.project.path, config, listDeps())) {
 			log(`\n  Storybook is already installed.\n`); await input.waitForEnter(); return undefined;
@@ -95,7 +95,7 @@ export function registerComponentHandlers(registry: HandlerRegistry): void {
 	registry.registerAction("comp:sb-start", async (ctx) => {
 		if (!ctx.project) return undefined;
 		const { isStorybookInstalled, isStorybookRunning, runStorybookDev } = await import("../../domain/make/component/storybook-service.js");
-		const { createStorybookRenderer } = await import("../storybook-renderer-impl.js");
+		const { createStorybookRenderer } = await import("../renderers/storybook-renderer-impl.js");
 		const config = ctx.project.config.components ?? {};
 		if (!isStorybookInstalled(ctx.project.path, config, listDeps()) || isStorybookRunning()) {
 			log(`\n  Storybook not installed or already running.\n`); await input.waitForEnter(); return undefined;
@@ -107,7 +107,7 @@ export function registerComponentHandlers(registry: HandlerRegistry): void {
 
 	registry.registerAction("comp:sb-stop", async (_ctx) => {
 		const { isStorybookRunning, stopStorybook } = await import("../../domain/make/component/storybook-service.js");
-		const { createStorybookRenderer } = await import("../storybook-renderer-impl.js");
+		const { createStorybookRenderer } = await import("../renderers/storybook-renderer-impl.js");
 		if (!isStorybookRunning()) { log(`\n  Storybook is not running.\n`); await input.waitForEnter(); return undefined; }
 		stopStorybook(createStorybookRenderer());
 		await input.waitForEnter();
@@ -117,7 +117,7 @@ export function registerComponentHandlers(registry: HandlerRegistry): void {
 	registry.registerAction("comp:sb-build", async (ctx) => {
 		if (!ctx.project) return undefined;
 		const { isStorybookInstalled, runStorybookBuild } = await import("../../domain/make/component/storybook-service.js");
-		const { createStorybookRenderer } = await import("../storybook-renderer-impl.js");
+		const { createStorybookRenderer } = await import("../renderers/storybook-renderer-impl.js");
 		const config = ctx.project.config.components ?? {};
 		if (!isStorybookInstalled(ctx.project.path, config, listDeps())) {
 			log(`\n  Storybook not installed. Use "Install Storybook" first.\n`); await input.waitForEnter(); return undefined;

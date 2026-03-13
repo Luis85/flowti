@@ -49,12 +49,12 @@ vi.mock("../../src/domain/timelog/timelog-store.js", () => ({
 		byCategory: { development: 4, review: 2 },
 	})),
 }));
-vi.mock("../../src/ui/timelog-display.js", () => ({
+vi.mock("../../src/ui/displays/timelog-display.js", () => ({
 	renderTimeLogList: vi.fn(),
 	renderTimeLogSummary: vi.fn(),
 	renderTimeLogAdded: vi.fn(),
 }));
-vi.mock("../../src/ui/common-renderers.js", () => ({
+vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 	renderError: vi.fn(),
 }));
 
@@ -67,7 +67,7 @@ import { paths } from "../../src/infrastructure/paths.js";
 import { shell } from "../../src/infrastructure/shell.js";
 import { log } from "../../src/infrastructure/logger.js";
 import { listTimeLogEntries, createTimeLogEntry, summarizeTimeLog } from "../../src/domain/timelog/timelog-store.js";
-import { renderError } from "../../src/ui/common-renderers.js";
+import { renderError } from "../../src/ui/renderers/common-renderers.js";
 
 const mockProject = {
 	name: "test",

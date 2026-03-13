@@ -60,14 +60,14 @@ vi.mock("../../src/domain/lifecycle/lifecycle-store.js", () => ({
 		{ from: "planning", to: "development", reason: "Ready", date: "2026-01-01" },
 	]),
 }));
-vi.mock("../../src/ui/lifecycle-display.js", () => ({
+vi.mock("../../src/ui/displays/lifecycle-display.js", () => ({
 	renderLifecycleStatus: vi.fn(),
 	renderLifecycleList: vi.fn(),
 	renderTransitionResult: vi.fn(),
 	renderTransitionHistory: vi.fn(),
 	renderLifecycleCreated: vi.fn(),
 }));
-vi.mock("../../src/ui/common-renderers.js", () => ({
+vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 	renderError: vi.fn(),
 }));
 
@@ -80,7 +80,7 @@ import { paths } from "../../src/infrastructure/paths.js";
 import { shell } from "../../src/infrastructure/shell.js";
 import { log } from "../../src/infrastructure/logger.js";
 import { listLifecycleItems, readLifecycleItem, createLifecycleFile, transitionLifecycleItem, getLifecycleHistory } from "../../src/domain/lifecycle/lifecycle-store.js";
-import { renderError } from "../../src/ui/common-renderers.js";
+import { renderError } from "../../src/ui/renderers/common-renderers.js";
 
 const mockProject = {
 	name: "test",

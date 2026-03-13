@@ -1,27 +1,26 @@
 /**
- * help-content.ts — Combines individual help pages into the HELP record.
+ * help-content.ts — Lazy-loaded help content from vault markdown files.
+ *
+ * Reads help pages from 03 - Resources/Documentation/Help/ at runtime,
+ * renders markdown to ANSI for terminal display, and caches per-section.
  */
 
-import { helpMain } from "./help/main.js";
-import { helpMake } from "./help/make.js";
-import { helpBuild } from "./help/build.js";
-import { helpReview } from "./help/review.js";
-import { helpPublish } from "./help/publish.js";
-import { helpReports } from "./help/reports.js";
-import { helpDevtools } from "./help/devtools.js";
-import { helpCapture } from "./help/capture.js";
-import { helpKnowledgebase } from "./help/knowledgebase.js";
-import { helpInfo } from "./help/info.js";
+import { HELP_DIR } from "../infrastructure/config.js";
+import { disk } from "../infrastructure/filesystem.js";
+import { paths } from "../infrastructure/paths.js";
+import { renderMarkdownToAnsi } from "../infrastructure/markdown-ansi.js";
+import { loadHelpSection, listHelpSections } from "../domain/shared/help-loader.js";
 
-export const HELP: Record<string, string> = {
-	main: helpMain,
-	make: helpMake,
-	build: helpBuild,
-	review: helpReview,
-	publish: helpPublish,
-	reports: helpReports,
-	devtools: helpDevtools,
-	capture: helpCapture,
-	knowledgebase: helpKnowledgebase,
-	info: helpInfo,
-};
+const loaderDeps = { disk, paths };
+
+/** Get rendered ANSI help content for a section. Returns null if unavailable. */
+export function getHelp(section: string): string | null {
+	const markdown = loadHelpSection(HELP_DIR, section, loaderDeps);
+	if (markdown === null) return null;
+	return renderMarkdownToAnsi(markdown);
+}
+
+/** List all available help section names. */
+export function getHelpSections(): string[] {
+	return listHelpSections(HELP_DIR, loaderDeps);
+}

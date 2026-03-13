@@ -17,7 +17,7 @@ vi.mock("../../src/domain/build/build-freshness.js", () => ({
 vi.mock("../../src/domain/build/ci-generator.js", () => ({
 	runProjectCi: vi.fn(() => ({ dryRun: true, yaml: "name: ci\n" })),
 }));
-vi.mock("../../src/ui/build-display.js", () => ({
+vi.mock("../../src/ui/displays/build-display.js", () => ({
 	renderFreshnessCheck: vi.fn(),
 	renderBuildAuto: vi.fn(),
 	renderBuildRecorded: vi.fn(),
@@ -25,7 +25,7 @@ vi.mock("../../src/ui/build-display.js", () => ({
 	renderCiWritten: vi.fn(),
 	renderCiResult: vi.fn(),
 }));
-vi.mock("../../src/ui/common-renderers.js", () => ({
+vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 	renderShellCommand: vi.fn(),
 }));
 

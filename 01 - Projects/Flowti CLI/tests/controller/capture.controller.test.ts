@@ -38,11 +38,11 @@ vi.mock("../../src/infrastructure/paths.js", () => ({
 		resolve: (...args: string[]) => args.join("/"),
 	},
 }));
-vi.mock("../../src/ui/capture-display.js", () => ({
+vi.mock("../../src/ui/displays/capture-display.js", () => ({
 	renderSearchResults: vi.fn(),
 	renderImportResult: vi.fn(),
 }));
-vi.mock("../../src/ui/common-renderers.js", () => ({
+vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 	renderError: vi.fn(),
 	renderNoProject: vi.fn(),
 }));

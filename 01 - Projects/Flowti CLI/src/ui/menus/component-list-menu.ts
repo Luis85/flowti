@@ -25,7 +25,7 @@ import { regenerateComponent } from "../../domain/make/component/component-comma
 import { clock } from "../../infrastructure/clock.js";
 import { isStorybookInstalled, installStorybook, runStorybookDev, runStorybookBuild, isStorybookRunning, stopStorybook, getFrameworkPackages } from "../../domain/make/component/storybook-service.js";
 import { getFramework, setFramework } from "../../domain/make/component/storybook-settings.js";
-import { createStorybookRenderer } from "../storybook-renderer-impl.js";
+import { createStorybookRenderer } from "../renderers/storybook-renderer-impl.js";
 import { navigateWithParams } from "../../infrastructure/sitemap-router.js";
 import { componentMenu } from "./component-makers-menu.js";
 import { actionReferenceMenu } from "./action-reference-menu.js";

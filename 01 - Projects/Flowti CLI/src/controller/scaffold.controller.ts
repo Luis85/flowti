@@ -13,8 +13,8 @@ import { exportBundle, saveBundle, loadBundle, importAiToolsFromBundle } from ".
 import { VAULT_ROOT, PROJECTS_DIR, cliConfig } from "../infrastructure/config.js";
 import { afterScaffold } from "../infrastructure/suggestions.js";
 
-import { renderError, type ErrorModel } from "../ui/common-renderers.js";
-import { renderNoProject, type NoProjectModel } from "../ui/common-renderers.js";
+import { renderError, type ErrorModel } from "../ui/renderers/common-renderers.js";
+import { renderNoProject, type NoProjectModel } from "../ui/renderers/common-renderers.js";
 import {
 	renderDryRunPreview, renderScaffoldResult, renderDefinitionList,
 	renderExportPreview, renderExportSaved, renderBundleImported,
@@ -22,7 +22,7 @@ import {
 	type ScaffoldResultModel, type DefinitionListModel,
 	type ExportSavedModel, type BundleImportedModel,
 	type MarketplaceModel, type ImportResultModel,
-} from "../ui/scaffold-display.js";
+} from "../ui/displays/scaffold-display.js";
 
 // ── Controller actions ──────────────────────────────────────────────
 

@@ -51,7 +51,7 @@ vi.mock("../../src/domain/scaffold/marketplace.js", () => ({
 	resolveDefinitionsDir: vi.fn(() => "/project/configs/definitions"),
 	importDefinition: vi.fn(() => ({ success: true, targetPath: "/project/configs/definitions/test.json", errors: [] })),
 }));
-vi.mock("../../src/ui/scaffold-display.js", () => ({
+vi.mock("../../src/ui/displays/scaffold-display.js", () => ({
 	renderDryRunPreview: vi.fn(),
 	renderScaffoldResult: vi.fn(),
 	renderDefinitionList: vi.fn(),
@@ -61,7 +61,7 @@ vi.mock("../../src/ui/scaffold-display.js", () => ({
 	renderMarketplace: vi.fn(),
 	renderImportResult: vi.fn(),
 }));
-vi.mock("../../src/ui/common-renderers.js", () => ({
+vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 	renderError: vi.fn(),
 	renderNoProject: vi.fn(),
 }));
