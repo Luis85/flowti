@@ -46,6 +46,19 @@ export function componentDefinitionTemplate(vars: ComponentVariables, def: Compo
 	if ((def.images ?? []).length > 0) definition.images = def.images;
 	applyProperties(definition, def);
 	applyStorybook(definition, def);
+	applyProductMetadata(definition, def);
 
 	return JSON.stringify(definition, null, "\t") + "\n";
+}
+
+const PRODUCT_FIELDS = ["role", "priority", "version", "deprecated", "arc42Level"] as const;
+const PRODUCT_ARRAY_FIELDS = ["requirements", "features", "relationships"] as const;
+
+function applyProductMetadata(definition: Record<string, unknown>, def: ComponentDefinition): void {
+	for (const key of PRODUCT_FIELDS) {
+		if (def[key]) definition[key] = def[key];
+	}
+	for (const key of PRODUCT_ARRAY_FIELDS) {
+		if ((def[key] as unknown[] | undefined)?.length) definition[key] = def[key];
+	}
 }

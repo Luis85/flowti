@@ -23,6 +23,13 @@ import { generateEventCatalog } from "./cli/generate-event-catalog.js";
 import { generateCommandReference } from "./cli/generate-command-reference.js";
 import { generateDataDictionary } from "./cli/generate-data-dictionary.js";
 import { generateToolReference } from "./cli/generate-tool-reference.js";
+import { generateConditionsReference } from "./generators/conditions-reference.js";
+import { generateConfigReference } from "./generators/config-reference.js";
+import { generateComponentCatalog } from "./generators/component-catalog.js";
+import { generateHealthReference } from "./generators/health-reference.js";
+import { generateProjectOverview } from "./generators/project-overview.js";
+import { generateRaidReference } from "./generators/raid-reference.js";
+import { generateSitemapReference } from "./generators/sitemap-reference.js";
 
 export type GeneratorCategory = "report" | "reference";
 
@@ -48,6 +55,13 @@ const GENERATORS: ReadonlyMap<string, RegistryEntry> = new Map<string, RegistryE
 	["command-reference", { fn: generateCommandReference, category: "reference" }],
 	["data-dictionary", { fn: generateDataDictionary, category: "reference" }],
 	["tool-reference", { fn: generateToolReference, category: "reference" }],
+	["conditions-reference", { fn: generateConditionsReference, category: "reference" }],
+	["config-reference", { fn: generateConfigReference, category: "reference" }],
+	["component-catalog", { fn: generateComponentCatalog, category: "reference" }],
+	["health-reference", { fn: generateHealthReference, category: "reference" }],
+	["project-overview", { fn: generateProjectOverview, category: "reference" }],
+	["raid-reference", { fn: generateRaidReference, category: "reference" }],
+	["sitemap-reference", { fn: generateSitemapReference, category: "reference" }],
 ]);
 
 /** Run a generator by its ID, optionally passing pipeline context. Returns null if unknown. */

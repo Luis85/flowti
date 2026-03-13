@@ -23,11 +23,10 @@ import {
 	removeProperty,
 	addAction,
 	removeAction,
-	addChild,
-	removeChild,
 } from "../../domain/make/component/component-editor.js";
-import type { ComponentInstance, EditableField, ComponentInstanceChild } from "../../domain/make/component/component-editor.js";
-import { editStoresMenu } from "./component-editor-menus.js";
+import type { ComponentInstance, EditableField, InstanceRelationship } from "../../domain/make/component/component-editor.js";
+import { editStoresMenu, editChildrenMenu } from "./component-editor-menus.js";
+import { editRequirementsMenu, editFeaturesMenu, editRelationshipsMenu } from "./component-product-menus.js";
 import { regenerateComponent } from "../../domain/make/component/component-commands.js";
 import {
 	buildAncestryPath,
@@ -72,6 +71,16 @@ function renderChildrenSection(children: ComponentInstance["children"]): void {
 	}
 }
 
+function renderRelationshipsSection(rels: InstanceRelationship[] | undefined): void {
+	if (!rels || rels.length === 0) return;
+	log();
+	log(`    ${CYAN}Relationships:${RESET}`);
+	for (const rel of rels) {
+		const tech = rel.technology ? ` ${DIM}[${rel.technology}]${RESET}` : "";
+		log(`      → ${rel.target} ${DIM}(${rel.type})${RESET}${tech}`);
+	}
+}
+
 function renderStoresSection(stores: ComponentInstance["stores"]): void {
 	if (!stores || stores.length === 0) return;
 	log();
@@ -96,6 +105,10 @@ function renderComponentDetail(instance: ComponentInstance, component: ProjectCo
 	renderOptionalField("Domain", instance.domain);
 	renderOptionalField("Icon", instance.icon);
 	renderOptionalField("Contained by", instance.containedBy, 14);
+	renderOptionalField("Role", instance.role);
+	renderOptionalField("Priority", instance.priority);
+	renderOptionalField("Version", instance.version);
+	renderOptionalField("Arc42 Level", instance.arc42Level, 14);
 
 	if (component.containedBy) {
 		log(`    ${DIM}Path:${RESET}        ${buildAncestryPath(component, allComponents)}`);
@@ -111,6 +124,9 @@ function renderComponentDetail(instance: ComponentInstance, component: ProjectCo
 	renderKeyValueSection("States", instance.states);
 	renderChildrenSection(instance.children);
 	renderStoresSection(instance.stores);
+	renderListSection("Requirements", instance.requirements);
+	renderListSection("Features", instance.features);
+	renderRelationshipsSection(instance.relationships);
 
 	if (component.isDirty) {
 		log();
@@ -161,6 +177,21 @@ export async function componentDetailMenu(
 			key: "s",
 			label: "Edit Stores",
 			action: async () => { await editStoresMenu(projectRoot, component.name, instance, domain); },
+		},
+		{
+			key: "q",
+			label: "Edit Requirements",
+			action: async () => { await editRequirementsMenu(projectRoot, component.name, instance, domain); },
+		},
+		{
+			key: "f",
+			label: "Edit Features",
+			action: async () => { await editFeaturesMenu(projectRoot, component.name, instance, domain); },
+		},
+		{
+			key: "l",
+			label: "Edit Relationships",
+			action: async () => { await editRelationshipsMenu(projectRoot, component.name, instance, domain); },
 		},
 	];
 
@@ -311,71 +342,6 @@ async function editActionsMenu(projectRoot: string, componentName: string, insta
 
 	await runMenu("Edit Actions", items);
 }
-
-// ── Edit Children submenu ────────────────────────────────────────────
-
-async function editChildrenMenu(
-	projectRoot: string, componentName: string, instance: ComponentInstance, allComponents: ProjectComponent[], domain?: string,
-): Promise<void> {
-	const children = instance.children ?? [];
-
-	const items: MenuEntry[] = children.map((child, i) => ({
-		key: String(i + 1),
-		label: `${child.name}${child.slot ? `  ${DIM}[${child.slot}]${RESET}` : ""}${child.optional ? `  ${DIM}(optional)${RESET}` : ""}`,
-		action: async () => {
-			const remove = await input.askYesNo(`Remove child "${child.name}"?`);
-			if (remove) {
-				removeChild(instance, child.name);
-				writeComponentInstance(projectRoot, componentName, instance, editorDeps(), domain);
-				log(`  ${YELLOW}Removed ${child.name}.${RESET}`);
-				await input.waitForEnter();
-			}
-		},
-	}));
-
-	items.push(
-		{ separator: true },
-		{
-			key: "n",
-			label: "Add Child",
-			action: async () => {
-				const available = allComponents
-					.filter((c) => c.name !== componentName)
-					.filter((c) => !(instance.children ?? []).some((ch) => ch.name === c.name));
-				if (available.length === 0) {
-					log(`\n  ${DIM}No available components to add as children.${RESET}\n`);
-					return;
-				}
-				const childItems: MenuEntry[] = available.map((c, i) => ({
-					key: String(i + 1),
-					label: `${c.name}  ${DIM}${c.kind}${RESET}`,
-					action: async () => {
-						const slot = await input.ask("Slot (optional, e.g. header, sidebar)", "");
-						const optAnswer = await input.askYesNo("Optional?");
-						const child: ComponentInstanceChild = { name: c.name };
-						if (slot) child.slot = slot;
-						if (optAnswer) child.optional = true;
-						addChild(instance, child);
-						writeComponentInstance(projectRoot, componentName, instance, editorDeps(), domain);
-						log(`  ${GREEN}Added ${c.name}.${RESET}`);
-						await input.waitForEnter();
-					},
-				}));
-				childItems.push(
-					{ separator: true },
-					{ key: "b", label: "Back", action: () => "main" as const },
-				);
-				await runMenu("Add Child Component", childItems);
-			},
-		},
-		{ separator: true },
-		{ key: "b", label: "Back", action: () => "main" as const },
-	);
-
-	await runMenu("Edit Children", items);
-}
-
-// ── Edit Stores submenu ─────────────────────────────────────────────
 
 // ── Helpers ──────────────────────────────────────────────────────────
 

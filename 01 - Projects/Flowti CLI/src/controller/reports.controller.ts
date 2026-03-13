@@ -80,7 +80,8 @@ const actions: Record<string, ControllerAction> = {
 	docs: async (req) => {
 		const configGenerators = req.project?.config.docs?.generators ?? [];
 		const references = req.project?.config.docs?.references ?? [];
-		const result = await runAllDocs(configGenerators, references, req.project!.path, req.deps);
+		const bookConfig = req.project?.config.docs?.book;
+		const result = await runAllDocs(configGenerators, references, req.project!.path, req.deps, bookConfig);
 		const model: ReportRunModel = { passed: result.passed, failed: result.failed, totalDurationMs: result.totalDurationMs };
 		return dataResponse(model, renderReportRun);
 	},

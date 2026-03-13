@@ -18,9 +18,11 @@ import type {
 	PipelineContext,
 	StepOutput,
 } from "../../../infrastructure/pipeline/pipeline-types.js";
-import type { DocGenerator, ReferenceConfig } from "../../../infrastructure/types.js";
+import type { DocGenerator, ReferenceConfig, BookConfig } from "../../../infrastructure/types.js";
 import type { CliDeps } from "../../../infrastructure/deps.js";
 import { runReference } from "../generator-registry.js";
+import { generateReferenceBook } from "../generators/reference-book.js";
+import type { BookEntry } from "../generators/reference-book.js";
 
 // ── Step adapters ────────────────────────────────────────────────────
 
@@ -86,6 +88,7 @@ export function buildDocSteps(
 
 /**
  * Run all documentation generators through the generic pipeline.
+ * After all references complete, generates the Reference Book if enabled.
  *
  * @returns PipelineResult with per-generator results and timing.
  */
@@ -94,13 +97,35 @@ export async function runDocPipeline(
 	references: ReferenceConfig[],
 	projectPath: string,
 	deps: CliDeps,
+	bookConfig?: BookConfig,
 ): Promise<PipelineResult> {
 	const steps = buildDocSteps(configGenerators, references, deps);
 	const ctx = createPipelineContext(projectPath, deps);
 
-	return runPipelineWithContext(steps, ctx, {
+	const result = await runPipelineWithContext(steps, ctx, {
 		label: "Documentation",
 	});
+
+	if (bookConfig?.enabled !== false && references.length > 0) {
+		const entries = buildBookEntries(result, references);
+		generateReferenceBook(projectPath, deps, entries, bookConfig);
+	}
+
+	return result;
+}
+
+/** Convert pipeline step results into BookEntry[] for the Reference Book. */
+function buildBookEntries(result: PipelineResult, references: ReferenceConfig[]): BookEntry[] {
+	const refIds = new Set(references.map((r) => r.id));
+	return result.steps
+		.filter((step) => refIds.has(step.id))
+		.map((step) => ({
+			id: step.id,
+			label: step.label,
+			outputPath: step.output?.outputPath ?? "",
+			metrics: (step.output?.metrics ?? {}) as Record<string, string | number>,
+			success: step.success,
+		}));
 }
 
 export { createPipelineContext };

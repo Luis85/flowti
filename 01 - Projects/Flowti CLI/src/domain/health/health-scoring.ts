@@ -115,7 +115,7 @@ function clamp(value: number): number {
 
 // ── Category weights ─────────────────────────────────────────────────
 
-const WEIGHTS = {
+export const WEIGHTS = {
 	tests: 0.25,
 	coverage: 0.20,
 	build: 0.20,

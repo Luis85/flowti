@@ -230,6 +230,7 @@ describe("reports commands", () => {
 			[],
 			"/test/project",
 			expect.anything(),
+			undefined,
 		);
 	});
 
@@ -238,7 +239,7 @@ describe("reports commands", () => {
 
 		await commands["docs"]({}, [], "docs", project);
 
-		expect(mockRunAllDocs).toHaveBeenCalledWith([], [], "/test/project", expect.anything());
+		expect(mockRunAllDocs).toHaveBeenCalledWith([], [], "/test/project", expect.anything(), undefined);
 	});
 
 	it("docs works without docs config", async () => {
@@ -246,6 +247,6 @@ describe("reports commands", () => {
 
 		await commands["docs"]({}, [], "docs", project);
 
-		expect(mockRunAllDocs).toHaveBeenCalledWith([], [], "/test/project", expect.anything());
+		expect(mockRunAllDocs).toHaveBeenCalledWith([], [], "/test/project", expect.anything(), undefined);
 	});
 });

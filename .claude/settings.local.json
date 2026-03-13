@@ -102,7 +102,8 @@
       "Bash(wc -l '/c/Projects/flowti/01 - Projects/Flowti CLI/src/main.ts' /c/Projects/flowti/01 - Projects/Flowti CLI/src/infrastructure/*.ts /c/Projects/flowti/01 - Projects/Flowti CLI/src/domain/*/*.ts)",
       "Bash(npm run:*)",
       "Bash(node configs/esbuild.config.mjs)",
-      "Bash(npx typedoc:*)"
+      "Bash(npx typedoc:*)",
+      "Bash(npx eslint:*)"
     ]
   }
 }

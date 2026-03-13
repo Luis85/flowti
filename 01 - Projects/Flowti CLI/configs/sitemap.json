@@ -45,6 +45,7 @@
 				{ "key": "7", "label": "Publish", "navigate": "publish" },
 				{ "separator": true },
 				{ "key": "c", "label": "Product Components", "navigate": "components" },
+				{ "key": "v", "label": "Event Catalog", "navigate": "event-catalog" },
 				{ "key": "8", "label": "Reporting", "navigate": "reports" },
 				{ "key": "i", "label": "Info", "handler": "info:show" },
 				{ "separator": true },
@@ -233,6 +234,61 @@
 				"Data provider management (create, infer schema)"
 			],
 			"configPath": "components"
+		},
+
+		"event-catalog": {
+			"type": "dynamic",
+			"title": "Event Catalog",
+			"icon": "zap",
+			"domain": "development",
+			"status": "active",
+			"parent": "project-detail",
+			"route": { "path": "event-catalog", "lazy": true },
+			"context": ["project"],
+			"handler": "event-catalog",
+			"description": "Browse, create, and manage event definitions with domain grouping, payload schemas, and flow diagrams.",
+			"capabilities": [
+				"List events by domain",
+				"Add new event definition",
+				"Generate event flow diagram"
+			],
+			"configPath": "events"
+		},
+
+		"component-detail": {
+			"type": "dynamic",
+			"title": "Component Detail",
+			"icon": "box",
+			"domain": "development",
+			"status": "active",
+			"parent": "components",
+			"route": { "path": "components/:componentId", "lazy": true },
+			"context": ["project"],
+			"handler": "component-detail",
+			"description": "View and edit a single component's definition, properties, actions, relationships, and product metadata.",
+			"items": [
+				{ "slot": "component-info" },
+				{ "separator": true },
+				{ "key": "e", "label": "Edit Fields", "handler": "comp-detail:edit-fields" },
+				{ "key": "p", "label": "Edit Properties", "handler": "comp-detail:edit-props" },
+				{ "key": "a", "label": "Edit Actions", "handler": "comp-detail:edit-actions" },
+				{ "key": "c", "label": "Edit Children", "handler": "comp-detail:edit-children" },
+				{ "key": "s", "label": "Edit Stores", "handler": "comp-detail:edit-stores" },
+				{ "separator": true },
+				{ "key": "q", "label": "Edit Requirements", "handler": "comp-detail:edit-reqs" },
+				{ "key": "f", "label": "Edit Features", "handler": "comp-detail:edit-features" },
+				{ "key": "l", "label": "Edit Relationships", "handler": "comp-detail:edit-rels" },
+				{ "separator": true },
+				{ "slot": "regenerate" },
+				{ "key": "b", "label": "Back", "signal": "back" }
+			],
+			"capabilities": [
+				"View component identity and metadata",
+				"Edit basic fields (name, status, description, owner, technology, domain)",
+				"Edit properties, actions, children, stores",
+				"Edit requirements, features, relationships",
+				"Regenerate component files from definition"
+			]
 		},
 
 		"reports": {

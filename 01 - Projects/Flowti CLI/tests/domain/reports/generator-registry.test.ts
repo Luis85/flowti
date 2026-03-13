@@ -42,7 +42,7 @@ import { runGenerator, hasGenerator, listGeneratorIds, listByCategory, runRefere
 const mockDeps = { disk, paths: { join: (...a: string[]) => a.join("/"), basename: (p: string) => p.split("/").pop() || "", resolve: (...a: string[]) => a.join("/"), dirname: (p: string) => p.split("/").slice(0, -1).join("/"), sep: "/" }, clock, log: () => {} } as any;
 
 describe("ReportGeneratorRegistry", () => {
-	it("has all 15 built-in generators registered (9 reports + 6 references)", () => {
+	it("has all 22 built-in generators registered (9 reports + 13 references)", () => {
 		const ids = listGeneratorIds();
 		expect(ids).toContain("test");
 		expect(ids).toContain("coverage");
@@ -59,7 +59,14 @@ describe("ReportGeneratorRegistry", () => {
 		expect(ids).toContain("command-reference");
 		expect(ids).toContain("data-dictionary");
 		expect(ids).toContain("tool-reference");
-		expect(ids).toHaveLength(15);
+		expect(ids).toContain("conditions-reference");
+		expect(ids).toContain("config-reference");
+		expect(ids).toContain("component-catalog");
+		expect(ids).toContain("health-reference");
+		expect(ids).toContain("project-overview");
+		expect(ids).toContain("raid-reference");
+		expect(ids).toContain("sitemap-reference");
+		expect(ids).toHaveLength(22);
 	});
 
 	it("includes reference generators in unified registry", () => {
@@ -151,6 +158,6 @@ describe("listReferenceIds", () => {
 		const ids = listReferenceIds();
 		expect(ids).toContain("entity-reference");
 		expect(ids).toContain("cli-reference");
-		expect(ids).toHaveLength(6);
+		expect(ids).toHaveLength(13);
 	});
 });

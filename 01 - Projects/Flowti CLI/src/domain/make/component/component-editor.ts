@@ -18,6 +18,13 @@ export interface ComponentInstanceChild {
 	optional?: boolean;
 }
 
+export interface InstanceRelationship {
+	target: string;
+	type: "uses" | "calls" | "depends-on" | "sends-data-to" | "receives-data-from";
+	description?: string;
+	technology?: string;
+}
+
 export interface ComponentInstanceStore {
 	name: string;
 	technology?: string;
@@ -42,6 +49,14 @@ export interface ComponentInstance {
 	states?: Record<string, Record<string, unknown>>;
 	children?: ComponentInstanceChild[];
 	stores?: ComponentInstanceStore[];
+	requirements?: string[];
+	features?: string[];
+	relationships?: InstanceRelationship[];
+	priority?: string;
+	version?: string;
+	deprecated?: string;
+	role?: string;
+	arc42Level?: string;
 	[key: string]: unknown;
 }
 
@@ -81,7 +96,7 @@ export function writeComponentInstance(
 
 // ── Field editing ────────────────────────────────────────────────────
 
-export const EDITABLE_FIELDS = ["name", "description", "status", "owner", "technology", "containedBy", "domain", "icon"] as const;
+export const EDITABLE_FIELDS = ["name", "description", "status", "owner", "technology", "containedBy", "domain", "icon", "priority", "version", "deprecated", "role", "arc42Level"] as const;
 export type EditableField = typeof EDITABLE_FIELDS[number];
 
 export function getEditableFields(): readonly string[] {
@@ -146,4 +161,47 @@ export function removeStore(instance: ComponentInstance, storeName: string): voi
 	if (!instance.stores) return;
 	instance.stores = instance.stores.filter((s) => s.name !== storeName);
 	if (instance.stores.length === 0) delete instance.stores;
+}
+
+// ── Requirement editing ─────────────────────────────────────────────
+
+export function addRequirement(instance: ComponentInstance, requirementId: string): void {
+	if (!instance.requirements) instance.requirements = [];
+	if (!instance.requirements.includes(requirementId)) instance.requirements.push(requirementId);
+}
+
+export function removeRequirement(instance: ComponentInstance, requirementId: string): void {
+	if (!instance.requirements) return;
+	instance.requirements = instance.requirements.filter((r) => r !== requirementId);
+	if (instance.requirements.length === 0) delete instance.requirements;
+}
+
+// ── Feature editing ─────────────────────────────────────────────────
+
+export function addFeature(instance: ComponentInstance, feature: string): void {
+	if (!instance.features) instance.features = [];
+	if (!instance.features.includes(feature)) instance.features.push(feature);
+}
+
+export function removeFeature(instance: ComponentInstance, feature: string): void {
+	if (!instance.features) return;
+	instance.features = instance.features.filter((f) => f !== feature);
+	if (instance.features.length === 0) delete instance.features;
+}
+
+// ── Relationship editing ────────────────────────────────────────────
+
+export function addRelationship(instance: ComponentInstance, rel: InstanceRelationship): void {
+	if (!instance.relationships) instance.relationships = [];
+	if (!instance.relationships.some((r: InstanceRelationship) => r.target === rel.target && r.type === rel.type)) {
+		instance.relationships.push(rel);
+	}
+}
+
+export function removeRelationship(instance: ComponentInstance, target: string, type?: string): void {
+	if (!instance.relationships) return;
+	instance.relationships = (instance.relationships as InstanceRelationship[]).filter(
+		(r) => !(r.target === target && (type === undefined || r.type === type)),
+	);
+	if (instance.relationships.length === 0) delete instance.relationships;
 }

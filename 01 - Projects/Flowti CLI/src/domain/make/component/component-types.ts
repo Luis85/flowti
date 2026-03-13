@@ -90,6 +90,27 @@ export interface ComponentStore {
 	description?: string;
 }
 
+/** An explicit relationship between two components. */
+export interface ComponentRelationship {
+	/** Target component name or ID. */
+	target: string;
+	/** Relationship type. */
+	type: "uses" | "calls" | "depends-on" | "sends-data-to" | "receives-data-from";
+	/** Brief description of the relationship. */
+	description?: string;
+	/** Protocol or technology (e.g. "REST", "gRPC", "EventBus"). */
+	technology?: string;
+}
+
+/** MoSCoW priority for product planning. */
+export type MoSCoWPriority = "must" | "should" | "could" | "wont";
+
+/** Semantic role beyond the structural component kind. */
+export type ComponentRole = "product" | "service" | "api" | "library" | "feature" | "utility";
+
+/** Arc42 building block level. */
+export type Arc42Level = "context" | "container" | "component" | "code";
+
 export interface ComponentDefinition {
 	id: string;
 	kind: ComponentKind;
@@ -114,6 +135,22 @@ export interface ComponentDefinition {
 	children?: ComponentChild[];
 	/** Stores (state management) this component depends on. */
 	stores?: ComponentStore[];
+	/** Semantic role for product management (e.g. "product", "feature", "service"). */
+	role?: ComponentRole;
+	/** Linked requirement IDs (e.g. ["REQ-001", "REQ-003"]). */
+	requirements?: string[];
+	/** Feature tags for product management grouping. */
+	features?: string[];
+	/** MoSCoW priority for product planning. */
+	priority?: MoSCoWPriority;
+	/** Version when this component was introduced. */
+	version?: string;
+	/** Deprecation notice (presence indicates deprecated). */
+	deprecated?: string;
+	/** Arc42 building block level mapping. */
+	arc42Level?: Arc42Level;
+	/** Explicit relationships to other components. */
+	relationships?: ComponentRelationship[];
 	nextSteps: string[];
 }
 
@@ -153,4 +190,16 @@ export interface ProjectComponent {
 	domain?: string;
 	/** True when the definition JSON is newer than one or more generated sibling files. */
 	isDirty?: boolean;
+	/** Semantic role for product management. */
+	role?: ComponentRole;
+	/** Linked requirement IDs. */
+	requirements?: string[];
+	/** Feature tags for product management grouping. */
+	features?: string[];
+	/** MoSCoW priority. */
+	priority?: MoSCoWPriority;
+	/** Arc42 building block level. */
+	arc42Level?: Arc42Level;
+	/** Explicit relationships to other components. */
+	relationships?: ComponentRelationship[];
 }

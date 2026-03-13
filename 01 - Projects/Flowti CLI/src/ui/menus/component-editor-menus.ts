@@ -9,8 +9,9 @@ import { runMenu } from "../../infrastructure/menu.js";
 import { log } from "../../infrastructure/logger.js";
 import { RESET, DIM, GREEN, YELLOW } from "../../infrastructure/ui.js";
 import type { MenuEntry } from "../../infrastructure/types.js";
-import type { ComponentInstance, ComponentInstanceStore } from "../../domain/make/component/component-editor.js";
-import { addStore, removeStore, writeComponentInstance } from "../../domain/make/component/component-editor.js";
+import type { ProjectComponent } from "../../domain/make/component/component-types.js";
+import type { ComponentInstance, ComponentInstanceChild, ComponentInstanceStore } from "../../domain/make/component/component-editor.js";
+import { addStore, removeStore, addChild, removeChild, writeComponentInstance } from "../../domain/make/component/component-editor.js";
 
 function editorDeps() { return { disk, paths } as const; }
 
@@ -59,4 +60,65 @@ export async function editStoresMenu(projectRoot: string, componentName: string,
 	);
 
 	await runMenu("Edit Stores", items);
+}
+
+export async function editChildrenMenu(
+	projectRoot: string, componentName: string, instance: ComponentInstance, allComponents: ProjectComponent[], domain?: string,
+): Promise<void> {
+	const children = instance.children ?? [];
+
+	const items: MenuEntry[] = children.map((child, i) => ({
+		key: String(i + 1),
+		label: `${child.name}${child.slot ? `  ${DIM}[${child.slot}]${RESET}` : ""}${child.optional ? `  ${DIM}(optional)${RESET}` : ""}`,
+		action: async () => {
+			const remove = await input.askYesNo(`Remove child "${child.name}"?`);
+			if (remove) {
+				removeChild(instance, child.name);
+				writeComponentInstance(projectRoot, componentName, instance, editorDeps(), domain);
+				log(`  ${YELLOW}Removed ${child.name}.${RESET}`);
+				await input.waitForEnter();
+			}
+		},
+	}));
+
+	items.push(
+		{ separator: true },
+		{
+			key: "n",
+			label: "Add Child",
+			action: async () => {
+				const available = allComponents
+					.filter((c) => c.name !== componentName)
+					.filter((c) => !(instance.children ?? []).some((ch) => ch.name === c.name));
+				if (available.length === 0) {
+					log(`\n  ${DIM}No available components to add as children.${RESET}\n`);
+					return;
+				}
+				const childItems: MenuEntry[] = available.map((c, i) => ({
+					key: String(i + 1),
+					label: `${c.name}  ${DIM}${c.kind}${RESET}`,
+					action: async () => {
+						const slot = await input.ask("Slot (optional, e.g. header, sidebar)", "");
+						const optAnswer = await input.askYesNo("Optional?");
+						const child: ComponentInstanceChild = { name: c.name };
+						if (slot) child.slot = slot;
+						if (optAnswer) child.optional = true;
+						addChild(instance, child);
+						writeComponentInstance(projectRoot, componentName, instance, editorDeps(), domain);
+						log(`  ${GREEN}Added ${c.name}.${RESET}`);
+						await input.waitForEnter();
+					},
+				}));
+				childItems.push(
+					{ separator: true },
+					{ key: "b", label: "Back", action: () => "main" as const },
+				);
+				await runMenu("Add Child Component", childItems);
+			},
+		},
+		{ separator: true },
+		{ key: "b", label: "Back", action: () => "main" as const },
+	);
+
+	await runMenu("Edit Children", items);
 }

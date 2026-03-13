@@ -116,6 +116,34 @@
 			{
 				"id": "entity-reference",
 				"label": "Entity Reference"
+			},
+			{
+				"id": "conditions-reference",
+				"label": "Conditions Reference"
+			},
+			{
+				"id": "config-reference",
+				"label": "Config Reference"
+			},
+			{
+				"id": "component-catalog",
+				"label": "Product Component Catalog"
+			},
+			{
+				"id": "health-reference",
+				"label": "Health Scoring Reference"
+			},
+			{
+				"id": "project-overview",
+				"label": "Project Overview"
+			},
+			{
+				"id": "raid-reference",
+				"label": "RAID Reference"
+			},
+			{
+				"id": "sitemap-reference",
+				"label": "Sitemap Reference"
 			}
 		]
 	},

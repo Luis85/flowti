@@ -6,7 +6,7 @@
 
 import { Document } from "../../../../infrastructure/document.js";
 import type { CliDeps } from "../../../../infrastructure/deps.js";
-import type { ComponentVariables, ComponentDefinition } from "../component-types.js";
+import type { ComponentVariables, ComponentDefinition, ComponentRelationship } from "../component-types.js";
 import { buildRelatedFilesSection } from "./related-files.js";
 
 export type TemplateDeps = Pick<CliDeps, "clock">;
@@ -16,6 +16,14 @@ const C4_LABELS: Record<string, string> = {
 	container: "Container",
 	"c4-component": "Component",
 	person: "Person",
+};
+
+/** Auto-map C4 kind to Arc42 building block level. */
+const C4_TO_ARC42: Record<string, string> = {
+	system: "context",
+	container: "container",
+	"c4-component": "component",
+	person: "context",
 };
 
 /** Kind-specific markdown sections appended after the description. */
@@ -56,8 +64,12 @@ function applyFrontmatter(doc: Document, vars: ComponentVariables, def: Componen
 	doc.setFrontmatter("type", String(meta.type ?? def.kind));
 	doc.setFrontmatter("c4", c4Label);
 	if (c4Level) doc.setFrontmatter("c4Level", c4Level);
+	const arc42 = def.arc42Level ?? C4_TO_ARC42[def.kind];
+	if (arc42) doc.setFrontmatter("arc42Level", arc42);
 	doc.setFrontmatter("status", "draft");
 	doc.setFrontmatter("created", deps.clock.iso().slice(0, 10));
+	if (def.role) doc.setFrontmatter("role", def.role);
+	if (def.priority) doc.setFrontmatter("priority", def.priority);
 	applyOptionalFields(doc, vars, def);
 }
 
@@ -82,11 +94,43 @@ export function c4DocTemplate(vars: ComponentVariables, def: ComponentDefinition
 		doc.heading(2, heading).addBlank().text(content).addBlank();
 	}
 
-	doc.heading(2, "Relationships").addBlank()
-		.text("<!-- Describe relationships to other components. -->")
-		.addBlank();
+	appendRelationships(doc, def.relationships);
+
+	if (vars.containedBy) {
+		doc.heading(2, "Contained By").addBlank()
+			.text(Document.wikilink(vars.containedBy))
+			.addBlank();
+	}
+
+	appendRequirements(doc, def.requirements);
 
 	buildRelatedFilesSection(doc, vars, def);
 
 	return doc;
+}
+
+function appendRelationships(doc: Document, relationships?: ComponentRelationship[]): void {
+	doc.heading(2, "Relationships").addBlank();
+	if (!relationships || relationships.length === 0) {
+		doc.text("<!-- Describe relationships to other components. -->").addBlank();
+		return;
+	}
+	doc.table(
+		["Target", "Type", "Technology", "Description"],
+		relationships.map((r) => [
+			Document.wikilink(r.target),
+			r.type,
+			r.technology ?? "—",
+			r.description ?? "",
+		]),
+	).addBlank();
+}
+
+function appendRequirements(doc: Document, requirements?: string[]): void {
+	if (!requirements || requirements.length === 0) return;
+	doc.heading(2, "Requirements").addBlank();
+	for (const req of requirements) {
+		doc.text(`- ${Document.wikilink(req)}`);
+	}
+	doc.addBlank();
 }

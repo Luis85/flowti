@@ -342,15 +342,14 @@ export interface ReferenceConfig {
 	source?: string;
 }
 
+export interface BookConfig { title?: string; enabled?: boolean; filename?: string }
+
 export interface DocsConfig {
-	/** Command to generate all documentation at once */
 	allCommand?: string;
-	/** Individual documentation generators */
 	generators?: DocGenerator[];
-	/** Directory for reference documents (default: "docs/reference") */
 	referenceDir?: string;
-	/** Configured reference generators for this project. */
 	references?: ReferenceConfig[];
+	book?: BookConfig;
 }
 
 export type MakeTemplateId = "journey" | "component";

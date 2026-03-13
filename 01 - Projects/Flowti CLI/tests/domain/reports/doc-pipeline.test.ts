@@ -195,7 +195,7 @@ describe("runDocPipeline", () => {
 			{ label: "TypeDoc", command: "npm run typedoc" },
 		];
 
-		const result = await runDocPipeline(generators, refs, "/project", deps);
+		const result = await runDocPipeline(generators, refs, "/project", deps, { enabled: false });
 
 		expect(result.steps).toHaveLength(3);
 		expect(result.passed).toBe(3);
@@ -210,7 +210,7 @@ describe("runDocPipeline", () => {
 			{ label: "Broken", command: "npm run broken" },
 		];
 
-		const result = await runDocPipeline(generators, refs, "/project", deps);
+		const result = await runDocPipeline(generators, refs, "/project", deps, { enabled: false });
 
 		expect(result.steps).toHaveLength(3);
 		expect(result.passed).toBe(2);
@@ -219,7 +219,7 @@ describe("runDocPipeline", () => {
 
 	it("runs with empty generators (references only)", async () => {
 		const deps = makeDeps();
-		const result = await runDocPipeline([], refs, "/project", deps);
+		const result = await runDocPipeline([], refs, "/project", deps, { enabled: false });
 
 		expect(result.steps).toHaveLength(2);
 		expect(result.passed).toBe(2);
@@ -228,7 +228,7 @@ describe("runDocPipeline", () => {
 
 	it("records timing for each step", async () => {
 		const deps = makeDeps();
-		const result = await runDocPipeline([], refs, "/project", deps);
+		const result = await runDocPipeline([], refs, "/project", deps, { enabled: false });
 
 		for (const step of result.steps) {
 			expect(step.durationMs).toBeGreaterThan(0);

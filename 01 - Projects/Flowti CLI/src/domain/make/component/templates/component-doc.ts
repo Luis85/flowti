@@ -6,10 +6,12 @@
 
 import { Document } from "../../../../infrastructure/document.js";
 import type { CliDeps } from "../../../../infrastructure/deps.js";
-import type { ComponentVariables, ComponentDefinition, ComponentProperty, ComponentAction, ComponentVariant, ComponentState, ComponentImage } from "../component-types.js";
+import type { ComponentVariables, ComponentDefinition, ComponentProperty, ComponentAction, ComponentVariant, ComponentState, ComponentImage, ComponentRelationship } from "../component-types.js";
 import { buildRelatedFilesSection } from "./related-files.js";
 
 export type TemplateDeps = Pick<CliDeps, "clock">;
+
+const OPTIONAL_DEF_FIELDS = ["domain", "icon", "role", "priority", "arc42Level", "version", "deprecated"] as const;
 
 function applyFrontmatter(doc: Document, vars: ComponentVariables, def: ComponentDefinition, deps: TemplateDeps): void {
 	const meta = def.metadata;
@@ -17,8 +19,9 @@ function applyFrontmatter(doc: Document, vars: ComponentVariables, def: Componen
 	doc.setFrontmatter("status", String(meta.status ?? "draft"));
 	doc.setFrontmatter("created", deps.clock.iso().slice(0, 10));
 	if (vars.owner) doc.setFrontmatter("owner", vars.owner);
-	if (def.domain) doc.setFrontmatter("domain", def.domain);
-	if (def.icon) doc.setFrontmatter("icon", def.icon);
+	for (const key of OPTIONAL_DEF_FIELDS) {
+		if (def[key]) doc.setFrontmatter(key, String(def[key]));
+	}
 	for (const prop of def.properties) {
 		const val = vars[`prop.${prop.key}`];
 		if (val != null && val !== "") doc.setFrontmatter(prop.key, val);
@@ -105,7 +108,40 @@ export function componentDocTemplate(vars: ComponentVariables, def: ComponentDef
 		.text("<!-- List components this depends on. -->")
 		.addBlank();
 
+	appendRequirements(doc, def.requirements);
+	appendFeatures(doc, def.features);
+	appendRelationships(doc, def.relationships);
+
 	buildRelatedFilesSection(doc, vars, def);
 
 	return doc;
+}
+
+function appendRequirements(doc: Document, requirements?: string[]): void {
+	if (!requirements || requirements.length === 0) return;
+	doc.heading(2, "Requirements").addBlank();
+	for (const req of requirements) {
+		doc.text(`- ${Document.wikilink(req)}`);
+	}
+	doc.addBlank();
+}
+
+function appendFeatures(doc: Document, features?: string[]): void {
+	if (!features || features.length === 0) return;
+	doc.heading(2, "Features").addBlank();
+	doc.list(features).addBlank();
+}
+
+function appendRelationships(doc: Document, relationships?: ComponentRelationship[]): void {
+	if (!relationships || relationships.length === 0) return;
+	doc.heading(2, "Relationships").addBlank();
+	doc.table(
+		["Target", "Type", "Technology", "Description"],
+		relationships.map((r) => [
+			Document.wikilink(r.target),
+			r.type,
+			r.technology ?? "—",
+			r.description ?? "",
+		]),
+	).addBlank();
 }

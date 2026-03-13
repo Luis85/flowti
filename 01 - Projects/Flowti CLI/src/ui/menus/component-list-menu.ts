@@ -54,6 +54,13 @@ const KIND_LABELS: Record<ComponentKind, string> = {
 
 import type { ProjectComponent } from "../../domain/make/component/component-types.js";
 
+// ── Selected component state (for sitemap router integration) ────────
+let _selectedComponent: ProjectComponent | null = null;
+let _allComponents: ProjectComponent[] = [];
+
+export function getSelectedComponent(): ProjectComponent | null { return _selectedComponent; }
+export function getAllComponents(): ProjectComponent[] { return _allComponents; }
+
 function renderComponentListHeader(components: ProjectComponent[], frameworkTag: string): void {
 	if (components.length === 0) {
 		log(`\n  ${DIM}No components found in ${COMPONENTS_DIR}/${RESET}${frameworkTag}`);
@@ -76,7 +83,7 @@ function buildComponentTreeItems(projectRoot: string, components: ProjectCompone
 		return {
 			key: String(i + 1),
 			label: `${indent}${c.name}  ${DIM}${kindLabel}${RESET}  ${statusColor}${c.status}${RESET}${domainTag}${dirtyTag}`,
-			action: async () => { await componentDetailMenu(projectRoot, c, components); },
+			action: async () => { _selectedComponent = c; _allComponents = components; await componentDetailMenu(projectRoot, c, components); },
 		};
 	});
 }

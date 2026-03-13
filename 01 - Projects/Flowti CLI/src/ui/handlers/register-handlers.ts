@@ -214,6 +214,22 @@ export function registerAllHandlers(registry: HandlerRegistry): void {
 		return "main" as MenuResult;
 	});
 
+	registry.registerView("event-catalog", async (ctx) => {
+		if (!ctx.project) return "main";
+		const { eventCatalogMenu } = await import("../menus/event-catalog-menu.js");
+		return eventCatalogMenu(ctx.project.path);
+	});
+
+	registry.registerView("component-detail", async (ctx) => {
+		if (!ctx.project) return "main";
+		const { componentDetailMenu } = await import("../menus/component-detail-menu.js");
+		const { getSelectedComponent, getAllComponents } = await import("../menus/component-list-menu.js");
+		const component = getSelectedComponent();
+		const allComponents = getAllComponents();
+		if (!component) return "main";
+		return componentDetailMenu(ctx.project.path, component, allComponents);
+	});
+
 	registry.registerView("resources", async (ctx) => {
 		if (!ctx.project) return "main";
 		const { resourcesMenu } = await import("../menus/resources-menu.js");
