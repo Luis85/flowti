@@ -3,6 +3,7 @@ bin/
 dist/
 reports/**/**.md
 reports/**/**.json
+docs/reference/
 
 *storybook.log
 storybook-static
