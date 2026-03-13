@@ -195,7 +195,7 @@ Scripts Layer (4 standalone entry points)
 
 All I/O is behind typed abstractions (`disk`, `shell`, `paths`, `proc`, `log`). No domain code imports `node:fs`, `node:child_process`, or `node:path` directly.
 
-See [Flowti CLI Architecture.md](Flowti%20CLI%20Architecture.md) for the full design document (46 architectural decisions, 20 implementation milestones).
+See [Flowti CLI Architecture.md](Flowti%20CLI%20Architecture.md) for the full design document.
 
 ---
 
@@ -295,7 +295,7 @@ Flowti CLI occupies a unique niche: **definition-driven project management CLI**
 | Component definitions | 8 (4 C4 + 4 UI building blocks) |
 | Report generators | 8 (6 report + 2 reference) |
 | E2E environment providers | 5 |
-| Technical debt items | 30 (21 resolved) |
+| Technical debt items | 30 (22 resolved) |
 | Coverage | 80.53% statements, 81.67% lines |
 | Build | Clean (0 errors) |
 | TypeDoc | Clean (0 errors) |

@@ -76,7 +76,7 @@ export async function aiToolsMenu(): Promise<MenuResult> {
 				const tools = loadAiTools(toolDeps(), VAULT_ROOT, disk);
 				const doc = generateAiToolReference(clockDeps(), tools);
 				const outputPath = paths.join(CLI_PROJECT, "docs", "reference", "AI Tool Reference.md");
-				doc.save(outputPath);
+				doc.save(outputPath, disk);
 				log(`\n  ${GREEN}✓${RESET} Reference saved to ${DIM}${outputPath}${RESET}\n`);
 				return "main" as const;
 			},

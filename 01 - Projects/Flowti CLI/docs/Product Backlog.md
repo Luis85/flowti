@@ -9,12 +9,12 @@ status: active
 source: "[[Flowti CLI PRD]]"
 roadmap: "[[Development Roadmap]]"
 tech_debt: "[[Tech Debt]]"
-architecture_review: "[[Architecture Review 2026-03-12]]"
+architecture: "[[Flowti CLI Architecture]]"
 ---
 
 # Flowti CLI — Product Backlog
 
-> Extracted from PRD v10. Contains all functional requirements, acceptance criteria, improvements, and feature maturity assessments. The [[Flowti CLI PRD]] holds the product vision, capabilities, and design principles.
+> Contains all functional requirements, acceptance criteria, and improvements. The [[Flowti CLI PRD]] holds the product presentation, capabilities, and design principles.
 
 ---
 

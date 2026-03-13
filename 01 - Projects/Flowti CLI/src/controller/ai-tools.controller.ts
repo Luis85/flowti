@@ -117,7 +117,7 @@ const actions: Record<string, ControllerAction> = {
 		const tools = loadAiTools(req.deps, VAULT_ROOT, req.deps.disk);
 		const doc = generateAiToolReference(req.deps, tools);
 		const outputPath = paths.join(CLI_PROJECT, "docs", "reference", "AI Tool Reference.md");
-		doc.save(outputPath);
+		doc.save(outputPath, req.deps.disk);
 		return dataResponse<SuccessModel>({ message: `Reference saved to ${outputPath}` }, renderSuccess);
 	},
 

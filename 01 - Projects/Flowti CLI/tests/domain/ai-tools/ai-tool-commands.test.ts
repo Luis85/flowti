@@ -264,7 +264,7 @@ describe("ai:reference", () => {
 
 		expect(loadAiTools).toHaveBeenCalledWith(expect.any(Object), "/vault", disk);
 		expect(generateAiToolReference).toHaveBeenCalledWith(expect.any(Object), tools);
-		expect(saveFn).toHaveBeenCalledWith("/cli/docs/reference/AI Tool Reference.md");
+		expect(saveFn).toHaveBeenCalledWith("/cli/docs/reference/AI Tool Reference.md", disk);
 		expect(log).toHaveBeenCalledWith(
 			expect.stringContaining("Reference saved"),
 		);

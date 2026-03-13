@@ -284,5 +284,4 @@ When a project is selected for the first time, the CLI auto-scaffolds this confi
 - Tech Debt: [Tech Debt.md](docs/Tech%20Debt.md) — Technical debt register
 - Plugin Integration: [Plugin Integration Analysis.md](docs/Plugin%20Integration%20Analysis.md) — Gap analysis for Flowti Plugin
 - Architecture: [Flowti CLI Architecture.md](Flowti%20CLI%20Architecture.md) — v25
-- Architecture Review: [Architecture Review 2026-03-12.md](docs/Architecture%20Review%202026-03-12.md) — DI violations, test gaps, refactoring priorities
 - CLI Reference: generated via `flowti docs` or interactive Documentation menu

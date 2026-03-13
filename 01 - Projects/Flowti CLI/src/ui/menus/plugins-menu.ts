@@ -71,7 +71,7 @@ export async function pluginsMenu(): Promise<MenuResult> {
 				const plugins = loadPlugins(pluginDeps(), VAULT_ROOT, disk, shell);
 				const doc = generatePluginReference(clockDeps(), plugins);
 				const outputPath = paths.join(CLI_PROJECT, "docs", "reference", "Plugin Reference.md");
-				doc.save(outputPath);
+				doc.save(outputPath, disk);
 				log(`\n  ${GREEN}✓${RESET} Reference saved to ${DIM}${outputPath}${RESET}\n`);
 				return "main" as const;
 			},

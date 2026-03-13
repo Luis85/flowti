@@ -207,7 +207,7 @@ describe("plugin:reference", () => {
 
 		expect(loadPlugins).toHaveBeenCalled();
 		expect(generatePluginReference).toHaveBeenCalled();
-		expect(saveFn).toHaveBeenCalledWith(expect.stringContaining("Plugin Reference.md"));
+		expect(saveFn).toHaveBeenCalledWith(expect.stringContaining("Plugin Reference.md"), disk);
 		expect(log).toHaveBeenCalledWith(expect.stringContaining("Reference saved"));
 	});
 });

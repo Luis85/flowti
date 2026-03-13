@@ -8,7 +8,6 @@
  */
 
 import { paths } from "./paths.js";
-import { disk } from "./filesystem.js";
 import type { IFileSystem } from "./types.js";
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -210,7 +209,7 @@ export class Document {
 		return this.toString().split("\n");
 	}
 
-	save(absolutePath: string, fs: IFileSystem = disk): void {
+	save(absolutePath: string, fs: IFileSystem): void {
 		const dir = paths.dirname(absolutePath);
 		fs.mkdirSync(dir, { recursive: true });
 		fs.writeFileSync(absolutePath, this.toString(), "utf-8");

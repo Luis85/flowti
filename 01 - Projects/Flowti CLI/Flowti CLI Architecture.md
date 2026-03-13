@@ -1580,3 +1580,4 @@ Audit complete. All domain files correctly import shared types from `infrastruct
 | D-44 | TypeScript codegen from contracts | `events:codegen` generates interfaces from payload tables; output is a standalone `.ts` file with no imports — copy-pasteable into any project |
 | D-45 | Capture tags as frontmatter arrays | Tags stored as YAML arrays in frontmatter (`tags: [ux, perf]`); searchable via existing `parseFrontmatterContent()` infrastructure |
 | D-46 | Feature Maturity as architectural driver | PRD Section 14 (Feature Maturity Assessment) drives roadmap priorities; each phase targets specific maturity promotions (Shallow→Functional→Deep) |
+| D-47 | Pure utility imports are not DI violations | `Document` (builder, `.save()` requires explicit `IFileSystem`), `parseFrontmatter*` (string parsing, no I/O), and `pipeline-runner` (shared engine) are pure utilities — domain files may import them directly. Only I/O-performing singletons require injection |

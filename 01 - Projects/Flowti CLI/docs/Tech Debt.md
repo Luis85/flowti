@@ -21,9 +21,9 @@ source: "[[Development Roadmap]]"
 |----------|-------|-----------------|
 | Critical | 3 (2 resolved) | 28h |
 | High | 8 (7 resolved) | 40h |
-| Medium | 14 (12 resolved) | 38h |
+| Medium | 14 (13 resolved) | 38h |
 | Low | 5 | 8h |
-| **Total** | **30 (21 resolved)** | **114h (73h resolved)** |
+| **Total** | **30 (22 resolved)** | **114h (77h resolved)** |
 
 ---
 
@@ -421,10 +421,10 @@ When the CLI manages Plugin builds, it needs to understand the CSS pipeline. Cur
 **Effort**: S (2h)
 **Phase 8 item**: 8.1.3
 
-### TD-29: Domain Layer DI Violations — Direct Infrastructure Imports ✓ PARTIALLY RESOLVED
+### TD-29: Domain Layer DI Violations — Direct Infrastructure Imports ✓ RESOLVED
 
 **Domain**: architecture (cross-cutting)
-**Status**: Partially resolved — I/O coupling fixed; pure utility imports remain by design (2026-03-12)
+**Status**: Resolved (2026-03-12). I/O coupling fully fixed. Remaining imports reclassified as pure utilities — see D-47.
 
 **What was done**:
 1. All `doc.save()` calls (17 sites across 12 domain files) now pass `deps.disk` — no more hidden filesystem singleton
@@ -432,12 +432,12 @@ When the CLI manages Plugin builds, it needs to understand the CSS pipeline. Cur
 3. `countFiles()` usages updated to pass `deps.disk`
 4. `writePlanSkippingJson()` receives deps parameter
 
-**What remains (by design)**:
-- `Document` class imports (19 files) — reclassified as pure utility (builder pattern, no I/O). The `.save()` method now requires explicit `IFileSystem`
-- `parseFrontmatter*` imports (16 files) — reclassified as pure utility (string parsing, no I/O)
-- `pipeline-runner` imports (4 files) — kept as direct import; runner is a shared engine, not a replaceable service
+**Reclassified as pure utilities (D-47)**:
+- `Document` class imports (19 files) — builder pattern, no I/O. `.save()` requires explicit `IFileSystem`
+- `parseFrontmatter*` imports (16 files) — string parsing, no I/O
+- `pipeline-runner` imports (4 files) — shared engine, not a replaceable service
 
-**Effort**: 4h (of 12h estimated — remaining items deferred as not true violations)
+**Effort**: 4h
 
 ### TD-30: Store Pattern Duplication Across 7 Domains ✓ RESOLVED
 
@@ -487,5 +487,5 @@ When the CLI manages Plugin builds, it needs to understand the CSS pipeline. Cur
 | TD-26 | Open | — | EventBus created, not wired (deferred to Phase 8) |
 | TD-27 | Resolved | Pre-Phase 8 | E2EService→e2e-service, MakeService→make-service |
 | TD-28 | Resolved | 2026-03-12 | All Date.now()/new Date() replaced with clock.ms()/clock.now() |
-| TD-29 | Partial | 2026-03-12 | I/O coupling fixed (doc.save, file-writer, countFiles); pure utility imports kept by design |
+| TD-29 | Resolved | 2026-03-12 | I/O coupling fixed; pure utility imports reclassified (D-47) |
 | TD-30 | Resolved | 2026-03-12 | Shared markdown-store.ts extracted; all 7 stores refactored |

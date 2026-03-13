@@ -72,7 +72,7 @@ const actions: Record<string, ControllerAction> = {
 		const plugins = loadPlugins(pluginDeps, VAULT_ROOT, disk, shell);
 		const doc = generatePluginReference({ clock } as const, plugins);
 		const outputPath = paths.join(CLI_PROJECT, "docs", "reference", "Plugin Reference.md");
-		doc.save(outputPath);
+		doc.save(outputPath, disk);
 		return dataResponse<SuccessModel>({ message: `Reference saved to ${outputPath}` }, renderSuccess);
 	},
 
