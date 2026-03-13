@@ -1,24 +1,19 @@
 /**
  * project.controller.ts — Controller for project selection command.
  *
- * The startMenu function lives in ui/menus/project-menu.ts (interactive).
  * listProjects and getProjectPath are in domain/project/project.ts (pure).
  */
 
 import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler } from "../infrastructure/types.js";
-import { startMenu } from "../ui/menus/project-menu.js";
 import { renderInteractiveOnly, renderSuccess, renderNoProject, type InteractiveOnlyModel, type SuccessModel, type NoProjectModel } from "../ui/common-renderers.js";
 import { writeReadme } from "../domain/project/readme-generator.js";
 
 const actions: Record<string, ControllerAction> = {
-	project: async (req) => {
-		if (req.format === "json") {
-			const model: InteractiveOnlyModel = { command: "project", error: "Project selector is interactive and cannot produce JSON output." };
-			return dataResponse(model, renderInteractiveOnly);
-		}
-		await startMenu();
+	project: (req) => {
+		const model: InteractiveOnlyModel = { command: "project", error: "Project selection is interactive. Run \"flowti\" without arguments to use the interactive menu." };
+		return dataResponse(model, renderInteractiveOnly);
 	},
 
 	readme: (req) => {

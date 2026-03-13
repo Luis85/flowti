@@ -38,10 +38,10 @@ The CLI follows a **DDD + MVC layered architecture** with strict dependency rule
 
 ```
 Entry Point (main.ts)
-  → Controller Layer (22 controllers)
-    → UI / View Layer (74 display renderers + menus)
-      → Domain Layer (25 modules — pure, no I/O, no presentation)
-        → Infrastructure Layer (33 modules + pipeline + event-bus)
+  → Controller Layer (23 controllers)
+    → UI / View Layer (74 display renderers + menus + handler registry)
+      → Domain Layer (26 modules — pure, no I/O, no presentation)
+        → Infrastructure Layer (39 modules + pipeline + event-bus + sitemap-router)
 Scripts Layer (4 standalone entry points)
 ```
 
@@ -49,11 +49,11 @@ Scripts Layer (4 standalone entry points)
 
 | Layer | Purpose |
 |-------|---------|
-| **Entry Point** | Two-loop menu system + command dispatch via `CommandRegistry` |
+| **Entry Point** | Sitemap-driven router (`SitemapRouter` + `configs/sitemap.json`) + command dispatch via `CommandRegistry` |
 | **Controller** | Thin handlers: parse flags, call domain services, return `CliResponse<T>` with typed data + renderer |
 | **UI / View** | Display renderers: take typed data models, produce ANSI-formatted console output |
-| **Domain** | Pure business logic — scaffold, make, build, publish, review, reports, events, capture, info, onboarding, knowledgebase, devtools, e2e, plugins, ai-tools, health, lifecycle, resources, timelog, deliverables, raid, requirements, capa, templates |
-| **Infrastructure** | I/O abstractions — filesystem, shell, input, state, config, document builder, frontmatter, errors, output, command-registry, menu, ui, clock, proc, paths, logger, args, pipeline, event-bus, deps, request-response, progress |
+| **Domain** | Pure business logic — scaffold, make, build, publish, review, reports, events, capture, info, onboarding, knowledgebase, devtools, e2e, plugins, ai-tools, health, lifecycle, resources, timelog, deliverables, raid, requirements, capa, templates, sitemap |
+| **Infrastructure** | I/O abstractions — filesystem, shell, input, state, config, document builder, frontmatter, errors, output, command-registry, menu, ui, clock, proc, paths, logger, args, pipeline, event-bus, deps, request-response, progress, sitemap-router, sitemap-loader, sitemap-watcher, sitemap-conditions, handler-registry, context-provider |
 
 See [Flowti CLI Architecture.md](Flowti%20CLI%20Architecture.md) for the full design document.
 
@@ -116,17 +116,19 @@ The bootstrap (`src/boot/bootstrap.mjs`, deployed as `.flowti/bin/index.js`) han
 | **Requirements** | IREB-compliant requirements with use cases and user stories |
 | **CAPA** | Corrective and preventive action tracking |
 | **Lifecycle** | State machine for projects, products, and features |
+| **Sitemap** | Declarative UI definition (PageObject pattern), hot-reload, component export |
 
 ## Project Structure
 
 ```
 01 - Projects/Flowti CLI/
 ├── src/
-│   ├── main.ts                     # Entry point (two-loop: start → project detail)
+│   ├── main.ts                     # Entry point (sitemap-driven router + command dispatch)
 │   ├── boot/
 │   │   └── bootstrap.mjs           # Frictionless launcher (deployed as .flowti/bin/index.js)
-│   ├── controller/                  # 22 controllers (thin: parse flags → domain → CliResponse)
+│   ├── controller/                  # 23 controllers (thin: parse flags → domain → CliResponse)
 │   ├── ui/                          # 71 display renderers + menus (ANSI output)
+│   │   └── handlers/                # Sitemap action/view handlers (register-handlers.ts)
 │   ├── scripts/                     # 4 standalone entry points (analysis, fix-frontmatter, etc.)
 │   ├── domain/
 │   │   ├── scaffold/               # Project creation from 4 JSON definitions
@@ -154,7 +156,8 @@ The bootstrap (`src/boot/bootstrap.mjs`, deployed as `.flowti/bin/index.js`) han
 │   │   ├── info/                   # Project info and diagnostics
 │   │   ├── onboarding/             # Prerequisites checks (git, node)
 │   │   ├── knowledgebase/          # Obsidian vault browser (opt-in)
-│   │   └── devtools/               # Developer tools
+│   │   ├── devtools/               # Developer tools
+│   │   └── sitemap/                # Sitemap → component converter
 │   └── infrastructure/
 │       ├── types.ts                # Cross-cutting type definitions
 │       ├── deps.ts                 # DI container (CliDeps + ISP subsets)
@@ -164,9 +167,16 @@ The bootstrap (`src/boot/bootstrap.mjs`, deployed as `.flowti/bin/index.js`) han
 │       ├── command-registry.ts     # Typed command registry with collision detection
 │       ├── pipeline/               # Generic DAG execution engine
 │       ├── event-bus.ts            # Lightweight synchronous EventBus
+│       ├── sitemap-router.ts        # Navigation engine (view stack, auto-nav)
+│       ├── sitemap-loader.ts       # Parse + validate configs/sitemap.json
+│       ├── sitemap-watcher.ts      # fs.watch + SHA-256 dirtiness detection
+│       ├── sitemap-conditions.ts   # Expression evaluator ({unless: "..."})
+│       ├── handler-registry.ts     # View/Action/Condition/BeforeRender registry
+│       ├── context-provider.ts     # Template interpolation ({{project.name}})
 │       └── ...                     # 25 more infrastructure modules
-├── tests/                          # Vitest test suites (4,505 tests, 267 suites)
+├── tests/                          # Vitest test suites (4,623 tests, 274 suites)
 ├── configs/
+│   ├── sitemap.json                # Declarative UI definition (20 views, PageObject pattern)
 │   ├── flowti.config.json          # CLI's own project config
 │   ├── esbuild.config.mjs          # Build: bundles to .flowti/bin/main.js
 │   ├── tsconfig.json               # TypeScript configuration
@@ -185,7 +195,7 @@ The bootstrap (`src/boot/bootstrap.mjs`, deployed as `.flowti/bin/index.js`) han
 
 ## Interactive Mode
 
-Run without arguments for the two-stage interactive menu:
+Run without arguments for the sitemap-driven interactive menu. The UI is fully declarative — every view, its items, and navigation targets are defined in `configs/sitemap.json` (PageObject pattern). The `SitemapRouter` reads this definition and builds menus from it, with hot-reload support for live sitemap editing.
 
 ### Start Menu (Project Selection)
 
@@ -222,6 +232,25 @@ Run without arguments for the two-stage interactive menu:
 | b | Back | Return to Start Menu |
 | ? | Help | Contextual man-page help |
 | q | Quit | Exit the CLI |
+
+### Sitemap Architecture
+
+The interactive UI is driven by `configs/sitemap.json` — a declarative definition of all views using the PageObject pattern. Each view is either **static** (items defined in JSON) or **dynamic** (items built at runtime by a registered handler).
+
+```
+configs/sitemap.json  →  SitemapRouter  →  runMenu()  →  Console
+                              ↑
+                        HandlerRegistry
+                        (28 handlers: views, actions, conditions, beforeRender)
+```
+
+**Key features:**
+- **20 views** — 3 static (start, project-detail, management) + 17 dynamic
+- **Self-describing** — each PageObject has `description`, `capabilities`, `icon`, `domain`, `status`, and `configPath`
+- **Hot-reload** — `SitemapWatcher` detects file changes via SHA-256 hash comparison
+- **Component interop** — views can be converted to `ComponentDefinition` for application visualization
+- **Expression evaluator** — disabled conditions support `tools.esbuild || tools.tsc` syntax (no `eval()`)
+- **CLI inspection** — `flowti sitemap:validate`, `flowti sitemap:status`, `flowti sitemap:views`
 
 ## Per-Project Configuration
 

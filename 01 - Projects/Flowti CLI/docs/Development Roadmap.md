@@ -22,14 +22,15 @@ plugin_integration: "[[Plugin Integration Analysis]]"
 
 | Metric | Value |
 |--------|-------|
-| Source files | 352 |
-| Test files | 274 (267 suites) |
-| Tests passing | 4,505 |
-| Domain modules | 25 |
-| Controllers | 22 |
-| UI view files | 74 |
-| Infrastructure modules | 33 |
-| Non-interactive commands | 84 |
+| Source files | 360 |
+| Test files | 274 suites |
+| Tests passing | 4,623 |
+| Domain modules | 26 |
+| Controllers | 23 |
+| UI view files | 74 + 2 handler files |
+| Infrastructure modules | 39 |
+| Non-interactive commands | 87 |
+| Sitemap views | 20 (3 static + 17 dynamic) |
 | Runtime dependencies | 0 |
 | Scaffold definitions | 4 (project, bare/library, cli, obsidian-plugin) |
 | Component definitions | 8 (4 C4 + 4 UI building blocks) |
@@ -54,6 +55,7 @@ plugin_integration: "[[Plugin Integration Analysis]]"
 | **Phase 7** | Ecosystem | Shell completions, change-based review, report caching, parallel reports, dependency browser, template versioning, HTML export, self-update, plugin hooks, cross-vault sharing (10/10 done) |
 | **Phase 7.5** | MVC refactoring | 22 controllers, typed request-response, display renderers, `handleResponse()` edge dispatch |
 | **Phase 7.6** | Domain purification | Zero domain→infrastructure violations, injectable log pattern, EventBus infrastructure, scripts layer |
+| **Phase 7.7** | Declarative UI | Sitemap-driven router (PageObject pattern), 20 views in `configs/sitemap.json`, SitemapWatcher (hot-reload), expression evaluator, handler registry, sitemap→component converter, 3 CLI inspection commands, 45 new tests |
 
 See `docs/archive/` for detailed phase completion notes.
 
@@ -214,8 +216,8 @@ Remove migrated E2E code from Plugin, update test commands.
 
 | Metric | Current (2026-03-13) | Phase 8 Target | Phase 9 Target |
 |--------|---------------------|----------------|----------------|
-| Tests | 4,505 | 4,700+ | 5,000+ |
-| Test suites | 267 | 285+ | 300+ |
+| Tests | 4,623 | 4,800+ | 5,000+ |
+| Test suites | 274 | 290+ | 300+ |
 | Managed project types | 4 | 4 + import flow | 4+ marketplace |
 | Report pipeline steps | 8 internal | 8 internal + 14 script | 22+ |
 | Config schema | v1 (type, paths, validation) | v2 (single schema) | v2 |

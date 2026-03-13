@@ -19,15 +19,14 @@
 
 import { parseArgs } from "./infrastructure/args.js";
 import { proc } from "./infrastructure/proc.js";
-import { printBanner, clearScreen, RESET, DIM, RED, YELLOW, CYAN } from "./infrastructure/ui.js";
-import { runMenu } from "./infrastructure/menu.js";
+import { printBanner, RESET, DIM, RED, YELLOW } from "./infrastructure/ui.js";
 import { createDefaultDeps } from "./infrastructure/deps.js";
 import { initializeDeps } from "./infrastructure/request-response.js";
 
 // ── Domain modules (pure business logic) ────────────────────────────
 
 import { checkPrerequisites } from "./domain/onboarding/onboarding.js";
-import { startMenu, listProjects } from "./ui/menus/project-menu.js";
+import { listProjects } from "./domain/project/project.js";
 import { loadPlugins, detectCollisions } from "./domain/plugins/plugins.js";
 
 // ── Controllers (command handlers) ──────────────────────────────────
@@ -56,17 +55,13 @@ import { commands as projectCmds } from "./controller/project.controller.js";
 import { commands as projectDepsCmds } from "./ui/deps-display.js";
 import { commands as pluginCmds } from "./controller/plugins.controller.js";
 import { commands as aiToolsCmds } from "./controller/ai-tools.controller.js";
-import { disk } from "./infrastructure/filesystem.js";
+import { commands as sitemapCmds } from "./controller/sitemap.controller.js";
+import { disk, watchFile } from "./infrastructure/filesystem.js";
 import { shell } from "./infrastructure/shell.js";
 import { paths } from "./infrastructure/paths.js";
-import { VAULT_ROOT } from "./infrastructure/config.js";
+import { VAULT_ROOT, CLI_PROJECT } from "./infrastructure/config.js";
 import { getSelectedProject, clearSelectedProject } from "./infrastructure/state.js";
 import { initializeProject } from "./domain/project/project-config.js";
-
-// ── Main menu builder ───────────────────────────────────────────────
-
-import { buildProjectDetailMenu } from "./ui/mainMenu.js";
-import { printProjectStatusBanner } from "./ui/project-status-banner.js";
 
 // ── Command registry ────────────────────────────────────────────────
 
@@ -107,6 +102,7 @@ registry.registerDomain({ domain: "scaffold", commands: scaffoldCmds, projectFre
 registry.registerDomain({ domain: "project",  commands: { ...projectCmds, ...projectDepsCmds },  projectFree: ["project", "project:deps"] });
 registry.registerDomain({ domain: "plugins",  commands: pluginCmds,  projectFree: ["plugin:list", "plugin:validate", "plugin:new", "plugin:reference"] });
 registry.registerDomain({ domain: "ai-tools", commands: aiToolsCmds, projectFree: ["ai:list", "ai:validate", "ai:new", "ai:reference", "ai:run"] });
+registry.registerDomain({ domain: "sitemap", commands: sitemapCmds, projectFree: ["sitemap:validate", "sitemap:status", "sitemap:views"] });
 registry.setWildcard("reports", reportsCmds["report:*"]);
 
 let pluginsRegistered = false;
@@ -226,37 +222,76 @@ async function handleCliArgs(): Promise<boolean> {
 	}
 }
 
-// ── Project detail menu (inner loop) ────────────────────────────────
+// ── Sitemap-driven interactive mode ─────────────────────────────────
 
-function printProjectBanner(): void {
-	clearScreen();
-	const project = getSelectedProject();
-	const ctx = project ? initializeProject(project, { disk, paths }) : null;
-	const label = ctx?.config.name ?? project ?? "Unknown";
+import { loadSitemap } from "./infrastructure/sitemap-loader.js";
+import { SitemapRouter } from "./infrastructure/sitemap-router.js";
+import { SitemapWatcher, computeHash } from "./infrastructure/sitemap-watcher.js";
+import { HandlerRegistry } from "./infrastructure/handler-registry.js";
+import { registerAllHandlers } from "./ui/handlers/register-handlers.js";
+import { detectTools } from "./domain/project/tool-availability.js";
 
-	log(`  ${DIM}Project:${RESET} ${CYAN}${label}${RESET}`);
-	if (ctx?.pkg) {
-		log(`  ${DIM}${ctx.pkg.name ?? ""}@${ctx.pkg.version ?? "?"}${RESET}`);
+function createRouter(deps: ReturnType<typeof createDefaultDeps>): SitemapRouter {
+	const sitemapPath = paths.join(CLI_PROJECT, "configs", "sitemap.json");
+	const loadResult = loadSitemap(sitemapPath, disk);
+
+	if (!loadResult.ok || !loadResult.sitemap) {
+		for (const err of loadResult.errors) error(`  ${RED}Sitemap: ${err}${RESET}`);
+		throw new CliError("Failed to load sitemap.json", "Check configs/sitemap.json for syntax errors.");
 	}
-	if (ctx) printProjectStatusBanner(ctx);
-	log();
-}
 
-async function projectDetailLoop(): Promise<"start" | "quit"> {
+	const handlerRegistry = new HandlerRegistry();
+	registerAllHandlers(handlerRegistry);
 
-	while (true) {
-		printProjectBanner();
-		const result = await runMenu(null, buildProjectDetailMenu());
-		if (result === "quit") return "quit";
-		if (result === "start") return "start";
-	}
+	// Start watching for changes
+	const hash = computeHash(disk.readFileSync(sitemapPath, "utf-8"));
+	const watcher = new SitemapWatcher(sitemapPath, disk, hash, watchFile);
+	watcher.start();
+
+	const router = new SitemapRouter({
+		sitemap: loadResult.sitemap,
+		handlers: handlerRegistry,
+		commands: registry,
+		deps,
+		getProject: () => {
+			const name = getSelectedProject();
+			if (!name) return undefined;
+			const ctx = initializeProject(name, { disk, paths });
+			if (ctx && !pluginsRegistered) {
+				registerProjectPlugins(ctx);
+				pluginsRegistered = true;
+			}
+			return ctx;
+		},
+		getTools: () => {
+			const name = getSelectedProject();
+			if (!name) return undefined;
+			const ctx = initializeProject(name, { disk, paths });
+			if (!ctx) return undefined;
+			const tools = detectTools(ctx.path, { disk, paths });
+			const result: Record<string, boolean> = {};
+			for (const t of tools) {
+				result[t.id] = t.available;
+			}
+			return result;
+		},
+		onProjectSelected: () => {
+			// Plugin registration happens in getProject()
+		},
+		onProjectCleared: () => {
+			clearSelectedProject();
+			pluginsRegistered = false;
+		},
+	});
+
+	return router;
 }
 
 // ── Entry point ─────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-	// Initialize shared deps — controllers access them via req.deps
-	initializeDeps(createDefaultDeps());
+	const deps = createDefaultDeps();
+	initializeDeps(deps);
 
 	checkPrerequisites({ shell, proc });
 
@@ -264,26 +299,11 @@ async function main(): Promise<void> {
 
 	printBanner();
 
-	// Outer loop: Start Menu → Project Detail → back to Start Menu
+	const router = createRouter(deps);
+	await router.run("start");
 
-	while (true) {
-		if (!getSelectedProject()) {
-			const startResult = await startMenu();
-			if (startResult === "quit") {
-				log(`\n  ${DIM}Goodbye.${RESET}\n`);
-				proc.exit(0);
-			}
-		}
-
-		const detailResult = await projectDetailLoop();
-		if (detailResult === "quit") {
-			log(`\n  ${DIM}Goodbye.${RESET}\n`);
-			proc.exit(0);
-		}
-		// detailResult === "start" → clear project and loop back to start menu
-		clearSelectedProject();
-		pluginsRegistered = false;
-	}
+	log(`\n  ${DIM}Goodbye.${RESET}\n`);
+	proc.exit(0);
 }
 
 main().catch((err: unknown) => {

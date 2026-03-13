@@ -326,7 +326,3 @@ export function buildDevToolsSubmenu(
 		{ key: "b", label: "Back", action: () => "main" as const },
 	];
 }
-
-// ── Export submenu (in export-submenu.ts) ────────────────────────────
-
-export { buildExportSubmenu, buildScaffoldSubmenu } from "./export-submenu.js";

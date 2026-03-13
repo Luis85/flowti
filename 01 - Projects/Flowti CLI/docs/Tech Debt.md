@@ -469,7 +469,7 @@ When the CLI manages Plugin builds, it needs to understand the CSS pipeline. Cur
 | TD-08 | Open | — | Monitor |
 | TD-09 | Resolved | Phase 7 | Already decomposed into 8 modules; 39-line orchestrator |
 | TD-10 | Resolved | 2026-03-12 | mockShellPreset() consolidated; 21 test files refactored |
-| TD-11 | Open | — | Phase 8 enabler |
+| TD-11 | Open | — | Phase 8 enabler (sitemap-driven help planned) |
 | TD-12 | Resolved | Pre-Phase 8 | Constructor accepts opts; coverageDir uses stored relDir |
 | TD-13 | Resolved | Pre-Phase 8 | All domain files migrated to clock abstraction |
 | TD-14 | Open | — | Minor |

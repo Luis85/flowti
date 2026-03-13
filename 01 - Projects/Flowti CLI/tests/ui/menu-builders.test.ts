@@ -41,10 +41,6 @@ vi.mock("../../src/domain/project/project-deps.js", () => ({
 vi.mock("../../src/ui/deps-display.js", () => ({
 	displayDependencyGraph: vi.fn(),
 }));
-vi.mock("../../src/ui/export-submenu.js", () => ({
-	buildExportSubmenu: vi.fn(() => []),
-	buildScaffoldSubmenu: vi.fn(() => []),
-}));
 
 import {
 	buildReportsSubmenu,

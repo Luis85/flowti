@@ -52,3 +52,8 @@ class NodeFileSystem implements IFileSystem {
 }
 
 export const disk: IFileSystem = new NodeFileSystem();
+
+/** Thin wrapper around fs.watch for dependency injection into SitemapWatcher. */
+export function watchFile(path: string, onChange: () => void): { close(): void } {
+	return fsNode.watch(path, onChange);
+}

@@ -1,5 +1,5 @@
 /**
- * project.controller.test.ts — Tests for project selection command.
+ * project.controller.test.ts — Tests for project controller commands.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -39,17 +39,10 @@ vi.mock("../../src/infrastructure/output.js", () => ({
 	output: { write: vi.fn() },
 }));
 
-// Mock domain module
-vi.mock("../../src/ui/menus/project-menu.js", () => ({
-	startMenu: vi.fn(),
-	listProjects: vi.fn(() => []),
-	getProjectPath: vi.fn(),
-}));
-
 // ── Imports ──────────────────────────────────────────────────────
 
 import { commands } from "../../src/controller/project.controller.js";
-import { startMenu } from "../../src/ui/menus/project-menu.js";
+import { log } from "../../src/infrastructure/logger.js";
 
 const mockProject = {
 	name: "test",
@@ -67,20 +60,12 @@ describe("project.controller", () => {
 	});
 
 	describe("project", () => {
-		it("calls startMenu", async () => {
-			vi.mocked(startMenu).mockResolvedValue(undefined);
-
+		it("returns interactive-only message", async () => {
 			await commands["project"]({}, [], "project", mockProject);
 
-			expect(startMenu).toHaveBeenCalled();
-		});
-
-		it("works without a project context", async () => {
-			vi.mocked(startMenu).mockResolvedValue(undefined);
-
-			await commands["project"]({}, [], "project", undefined);
-
-			expect(startMenu).toHaveBeenCalled();
+			expect(vi.mocked(log)).toHaveBeenCalledWith(
+				expect.stringContaining("interactive"),
+			);
 		});
 	});
 });

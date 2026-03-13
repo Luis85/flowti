@@ -64,13 +64,6 @@ vi.mock("../../src/infrastructure/logger.js", () => ({
 	error: vi.fn(),
 }));
 
-vi.mock("../../src/infrastructure/input.js", () => ({
-	input: { ask: vi.fn() },
-}));
-
-vi.mock("../../src/infrastructure/menu.js", () => ({
-	runMenu: vi.fn(),
-}));
 
 vi.mock("../../src/infrastructure/proc.js", () => ({
 	proc: { exit: vi.fn(), argv: () => [], cwd: () => "/mock", env: () => ({}) },
@@ -88,14 +81,10 @@ vi.mock("../../src/domain/scaffold/scaffold.js", () => ({
 
 import * as fsMod from "../../src/infrastructure/filesystem.js";
 import * as shellMod from "../../src/infrastructure/shell.js";
-import { log } from "../../src/infrastructure/logger.js";
-import { input } from "../../src/infrastructure/input.js";
-import { runMenu } from "../../src/infrastructure/menu.js";
 import { setSelectedProject, getSelectedProject, loadState, saveState } from "../../src/infrastructure/state.js";
 import { checkPrerequisites } from "../../src/domain/onboarding/onboarding.js";
-import { listProjects, startMenu } from "../../src/ui/menus/project-menu.js";
+import { listProjects } from "../../src/domain/project/project.js";
 import { resolveCommand } from "../../src/infrastructure/dispatch.js";
-import { scaffold as scaffoldProject } from "../../src/domain/scaffold/scaffold.js";
 import {
 	resolveTestVaultRoot,
 	resolveTestVaultLayout,
@@ -338,180 +327,3 @@ describe("Phase 4: Command dispatch", () => {
 	});
 });
 
-// ═══════════════════════════════════════════════════════════════════
-// Phase 5: Project creation (full flow)
-// ═══════════════════════════════════════════════════════════════════
-
-describe("Phase 5: Project creation flow", () => {
-	it("starts with an empty projects list", () => {
-		const projects = listProjects({ disk: fsMod.disk });
-		expect(projects).toEqual([]);
-	});
-
-	it("shows 'Create Your First Project' when no projects exist", async () => {
-		let capturedItems: Array<{ key?: string; label?: string }> = [];
-		vi.mocked(runMenu).mockImplementation(async (_title, items) => {
-			capturedItems = items as Array<{ key?: string; label?: string }>;
-			return "quit";
-		});
-
-		await startMenu();
-
-		// No "Open Project" option
-		expect(capturedItems.find((i) => i.label?.includes("Open Project"))).toBeUndefined();
-		// "Create Your First Project" at key 1
-		const createItem = capturedItems.find((i) => i.key === "1");
-		expect(createItem?.label).toContain("Create Your First Project");
-	});
-
-	it("scaffolds a project via the Create Project menu", async () => {
-		vi.mocked(input.ask).mockResolvedValue("my-first-app");
-
-		let callCount = 0;
-		vi.mocked(runMenu).mockImplementation(async (_title, items) => {
-			callCount++;
-			if (callCount === 1) {
-				// Start Menu — no projects, so "Create" is at key 1
-				const arr = items as Array<{ key?: string; action?: () => unknown }>;
-				await (arr.find((i) => i.key === "1")?.action?.() as Promise<unknown>);
-				return "quit";
-			}
-			if (callCount === 2) {
-				// Scaffold selection — pick first definition (key 1)
-				const arr = items as Array<{ key?: string; action?: () => unknown }>;
-				const result = arr.find((i) => i.key === "1")?.action?.();
-				expect(result).toBe("quit");
-				return "quit";
-			}
-			return "main";
-		});
-
-		await startMenu();
-
-		// Scaffold was called with correct options
-		expect(scaffoldProject).toHaveBeenCalledWith(
-			expect.objectContaining({ disk: expect.anything(), paths: expect.anything() }),
-			expect.objectContaining({
-				definitionId: "flowti-project",
-				name: "my-first-app",
-				outputDir: expect.stringContaining("my-first-app"),
-			}),
-		);
-
-		// Project was selected and persisted in state
-		expect(setSelectedProject).toHaveBeenCalledWith("my-first-app");
-	});
-
-	it("adds git submodule from remote URL", async () => {
-		const sh = createMockShell();
-		setShell(sh);
-		vi.mocked(input.ask)
-			.mockResolvedValueOnce("cloned-project")
-			.mockResolvedValueOnce("https://github.com/test/repo");
-
-		let callCount = 0;
-		vi.mocked(runMenu).mockImplementation(async (_title, items) => {
-			callCount++;
-			if (callCount === 1) {
-				// No projects — "Create" is at key 1
-				const arr = items as Array<{ key?: string; action?: () => unknown }>;
-				await (arr.find((i) => i.key === "1")?.action?.() as Promise<unknown>);
-				return "quit";
-			}
-			if (callCount === 2) {
-				// Template selection — pick "Load Git Project from Remote" (key g)
-				const arr = items as Array<{ key?: string; action?: () => unknown }>;
-				await (arr.find((i) => i.key === "g")?.action?.() as Promise<unknown>);
-				return "quit";
-			}
-			return "main";
-		});
-
-		await startMenu();
-
-		expect(sh.calls).toHaveLength(1);
-		expect(sh.calls[0].cmd).toContain("git submodule add");
-		expect(sh.calls[0].cmd).toContain("https://github.com/test/repo");
-		expect(setSelectedProject).toHaveBeenCalledWith("cloned-project");
-	});
-
-	it("rejects duplicate project name", async () => {
-		// Pre-populate a project in the vault
-		vault.fs.writeFileSync(
-			`${vault.layout.projectsDir}/existing-app/package.json`,
-			"{}",
-			"utf-8",
-		);
-		vi.mocked(input.ask).mockResolvedValue("existing-app");
-
-		let callCount = 0;
-		vi.mocked(runMenu).mockImplementation(async (_title, items) => {
-			callCount++;
-			if (callCount === 1) {
-				const arr = items as Array<{ key?: string; action?: () => unknown }>;
-				await (arr.find((i) => i.key === "2")?.action?.() as Promise<unknown>);
-				return "quit";
-			}
-			return "main";
-		});
-
-		await startMenu();
-
-		const logCalls = vi.mocked(log).mock.calls.map((c) => c[0]);
-		expect(logCalls.some((c) => typeof c === "string" && c.includes("already exists"))).toBe(true);
-	});
-});
-
-// ═══════════════════════════════════════════════════════════════════
-// Phase 6: End-to-end — full installation → first project
-// ═══════════════════════════════════════════════════════════════════
-
-describe("Phase 6: Full lifecycle", () => {
-	it("fresh vault → prerequisites → create first project → project selected", async () => {
-		// 1. Prerequisites pass
-		const exit = vi.fn();
-		const sh = createMockShell({ outputs: { "node --version": "v22.0.0" } });
-		setShell(sh);
-		checkPrerequisites({ shell: sh, proc: { exit } });
-		expect(exit).not.toHaveBeenCalled();
-
-		// 2. No project selected
-		expect(getSelectedProject()).toBeNull();
-
-		// 3. No projects yet
-		expect(listProjects({ disk: fsMod.disk })).toEqual([]);
-
-		// 4. Create a project via the Start Menu (no projects — key 1 is Create)
-		vi.mocked(input.ask).mockResolvedValue("hello-world");
-		let callCount = 0;
-		vi.mocked(runMenu).mockImplementation(async (_title, items) => {
-			callCount++;
-			if (callCount === 1) {
-				const arr = items as Array<{ key?: string; action?: () => unknown }>;
-				await (arr.find((i) => i.key === "1")?.action?.() as Promise<unknown>);
-				return "quit";
-			}
-			if (callCount === 2) {
-				const arr = items as Array<{ key?: string; action?: () => unknown }>;
-				arr.find((i) => i.key === "1")?.action?.(); // First scaffold definition
-				return "quit";
-			}
-			return "main";
-		});
-
-		await startMenu();
-
-		// 5. Scaffold was called
-		expect(scaffoldProject).toHaveBeenCalledWith(
-			expect.objectContaining({ disk: expect.anything(), paths: expect.anything() }),
-			expect.objectContaining({
-				definitionId: "flowti-project",
-				name: "hello-world",
-				outputDir: expect.stringContaining("hello-world"),
-			}),
-		);
-
-		// 6. Project was selected
-		expect(setSelectedProject).toHaveBeenCalledWith("hello-world");
-	});
-});

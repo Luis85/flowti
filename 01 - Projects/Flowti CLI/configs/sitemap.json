@@ -1,0 +1,465 @@
+{
+	"version": 1,
+	"views": {
+		"start": {
+			"title": "Start Menu",
+			"icon": "home",
+			"domain": "navigation",
+			"status": "active",
+			"description": "Entry point — open or create a project, access global tools.",
+			"route": { "path": "/", "pathMatch": "full" },
+			"beforeRender": "start:banner",
+			"items": [
+				{ "key": "1", "label": "Open Project", "handler": "project:open" },
+				{ "key": "2", "label": "Create Project", "handler": "project:create" },
+				{ "separator": true, "hidden": "no-project-selected" },
+				{ "key": "g", "label": "Selected Project: {{project.name}}", "navigate": "project-detail", "hidden": "no-project-selected" },
+				{ "separator": true },
+				{ "key": "p", "label": "Plugins", "navigate": "plugins" },
+				{ "key": "a", "label": "AI Tools", "navigate": "ai-tools" },
+				{ "separator": true },
+				{ "key": "q", "label": "Quit", "signal": "quit" }
+			]
+		},
+
+		"project-detail": {
+			"title": "{{project.name}}",
+			"icon": "folder-open",
+			"domain": "navigation",
+			"status": "active",
+			"description": "Project hub — capture, build, review, publish, and manage a selected project.",
+			"parent": "start",
+			"route": { "path": "projects/:projectId", "guards": ["project-selected"] },
+			"context": ["project"],
+			"beforeRender": "project:banner",
+			"items": [
+				{ "key": "1", "label": "Capture Idea", "handler": "capture:idea" },
+				{ "key": "2", "label": "Capture Note", "handler": "capture:note" },
+				{ "key": "3", "label": "Capture Bug", "handler": "capture:bug" },
+				{ "separator": true },
+				{ "key": "4", "label": "Make", "navigate": "make" },
+				{ "key": "5", "label": "Build", "handler": "build:interactive",
+					"disabled": { "unless": "tools.esbuild || tools.typescript" },
+					"disabledMessage": "No build tool detected. Install esbuild or typescript." },
+				{ "key": "6", "label": "Review", "navigate": "review" },
+				{ "key": "7", "label": "Publish", "navigate": "publish" },
+				{ "separator": true },
+				{ "key": "c", "label": "Product Components", "navigate": "components" },
+				{ "key": "8", "label": "Reporting", "navigate": "reports" },
+				{ "key": "i", "label": "Info", "handler": "info:show" },
+				{ "separator": true },
+				{ "key": "e", "label": "Requirements Management", "navigate": "requirements" },
+				{ "key": "m", "label": "Project Management", "navigate": "management" },
+				{ "key": "d", "label": "Documentation", "navigate": "docs" },
+				{ "key": "k", "label": "Knowledgebase", "navigate": "knowledgebase",
+					"disabled": "knowledgebase:available",
+					"disabledMessage": "Requires Obsidian CLI and an initialized vault." },
+				{ "key": "r", "label": "README", "handler": "readme:show",
+					"disabled": "readme:exists",
+					"disabledMessage": "No README.md found." },
+				{ "key": "t", "label": "Dev Tools", "navigate": "devtools" },
+				{ "separator": true },
+				{ "key": "b", "label": "Back to Start Menu", "signal": "start" },
+				{ "key": "?", "label": "Help", "handler": "help:main" },
+				{ "key": "q", "label": "Quit", "signal": "quit" }
+			]
+		},
+
+		"management": {
+			"title": "Project Management",
+			"icon": "clipboard-list",
+			"domain": "management",
+			"status": "active",
+			"description": "Project management hub — resources, timelog, deliverables, RAID, CAPA, lifecycle, and health.",
+			"parent": "project-detail",
+			"route": { "path": "management", "lazy": true },
+			"context": ["project"],
+			"items": [
+				{ "key": "1", "label": "Resources", "navigate": "resources" },
+				{ "key": "2", "label": "Time-Log", "navigate": "timelog" },
+				{ "key": "3", "label": "Deliverables", "navigate": "deliverables" },
+				{ "key": "4", "label": "RAID Log", "navigate": "raid" },
+				{ "key": "5", "label": "CAPA", "navigate": "capa" },
+				{ "key": "6", "label": "Lifecycle", "navigate": "lifecycle" },
+				{ "key": "7", "label": "Health", "handler": "health:show" },
+				{ "separator": true },
+				{ "key": "b", "label": "Back", "signal": "back" },
+				{ "key": "q", "label": "Quit", "signal": "quit" }
+			]
+		},
+
+		"plugins": {
+			"type": "dynamic",
+			"title": "Plugins",
+			"icon": "plug",
+			"domain": "extensibility",
+			"status": "active",
+			"parent": "start",
+			"route": { "path": "plugins", "lazy": true },
+			"handler": "plugins",
+			"description": "Manage Flowti plugins — discover, validate, scaffold, and document plugins from the vault plugins directory.",
+			"capabilities": [
+				"List installed plugins",
+				"Validate plugin manifests",
+				"Scaffold new plugin from template",
+				"Generate plugin reference documentation"
+			]
+		},
+
+		"ai-tools": {
+			"type": "dynamic",
+			"title": "AI Tools",
+			"icon": "cpu",
+			"domain": "extensibility",
+			"status": "active",
+			"parent": "start",
+			"route": { "path": "ai-tools", "lazy": true },
+			"handler": "ai-tools",
+			"description": "Manage AI tool definitions — discover, validate, scaffold, and document AI tools from the vault ai-tools directory.",
+			"capabilities": [
+				"List available AI tools",
+				"Validate tool definitions",
+				"Scaffold new AI tool from template",
+				"Generate AI tool reference documentation"
+			]
+		},
+
+		"make": {
+			"type": "dynamic",
+			"title": "Make",
+			"icon": "hammer",
+			"domain": "development",
+			"status": "active",
+			"parent": "project-detail",
+			"route": { "path": "make", "lazy": true },
+			"context": ["project"],
+			"handler": "make",
+			"description": "Create new components and E2E journeys from configurable templates.",
+			"capabilities": [
+				"Create new component from template",
+				"Create new E2E journey",
+				"Run custom make templates"
+			],
+			"configPath": "make.templates"
+		},
+
+		"review": {
+			"type": "dynamic",
+			"title": "Review",
+			"icon": "check-circle",
+			"domain": "quality",
+			"status": "active",
+			"parent": "project-detail",
+			"route": { "path": "review", "lazy": true },
+			"context": ["project"],
+			"handler": "review",
+			"description": "Interactive review pipeline: build, test, and run E2E journeys with test vault management.",
+			"capabilities": [
+				"Build project",
+				"Run tests",
+				"Run all E2E journeys",
+				"Run specific E2E journey",
+				"Run full pipeline (build → test → E2E)",
+				"List available journeys",
+				"Create new journey",
+				"Create/ensure test vault",
+				"Open test vault in file explorer",
+				"Teardown test vault",
+				"Rebuild test vault"
+			],
+			"configPath": "review"
+		},
+
+		"publish": {
+			"type": "dynamic",
+			"title": "Publish",
+			"icon": "upload",
+			"domain": "release",
+			"status": "active",
+			"parent": "project-detail",
+			"route": { "path": "publish", "lazy": true },
+			"context": ["project"],
+			"handler": "publish",
+			"description": "Interactive publish pipeline: build, test, and distribute to configured endpoints.",
+			"capabilities": [
+				"Build project",
+				"Run tests",
+				"Distribute to configured endpoints",
+				"Run full pipeline (build → test → distribute)"
+			],
+			"configPath": "publish"
+		},
+
+		"components": {
+			"type": "dynamic",
+			"title": "Product Components",
+			"icon": "layers",
+			"domain": "development",
+			"status": "active",
+			"parent": "project-detail",
+			"route": { "path": "components", "lazy": true },
+			"context": ["project"],
+			"handler": "components",
+			"description": "Component browser, manager, and Storybook UI library builder. Supports HTML, Angular, React, and Vue frameworks.",
+			"items": [
+				{ "slot": "component-list" },
+				{ "separator": true },
+				{ "key": "c", "label": "Add Component", "handler": "comp:add" },
+				{ "key": "r", "label": "Regenerate Dirty", "handler": "comp:regen-dirty" },
+				{ "key": "a", "label": "Action Reference", "handler": "comp:action-ref" },
+				{ "slot": "sitemap-ops" },
+				{ "slot": "libraries" },
+				{ "separator": true },
+				{ "key": "i", "label": "Install Storybook", "handler": "comp:sb-install" },
+				{ "key": "s", "label": "Start Storybook", "handler": "comp:sb-start" },
+				{ "key": "x", "label": "Stop Storybook", "handler": "comp:sb-stop" },
+				{ "separator": true },
+				{ "key": "d", "label": "Data Providers", "handler": "comp:data-providers" },
+				{ "key": "k", "label": "Build Design System", "handler": "comp:sb-build" },
+				{ "separator": true },
+				{ "key": "b", "label": "Back", "signal": "back" }
+			],
+			"capabilities": [
+				"Browse components by kind",
+				"Add new component",
+				"Regenerate dirty components",
+				"View action reference",
+				"Import component library definitions",
+				"Create project sitemap",
+				"Import sitemap as components",
+				"Regenerate from dirty sitemap",
+				"Storybook management (install, start, stop, build)",
+				"Data provider management (create, infer schema)"
+			],
+			"configPath": "components"
+		},
+
+		"reports": {
+			"type": "dynamic",
+			"title": "Reporting",
+			"icon": "bar-chart",
+			"domain": "analytics",
+			"status": "active",
+			"parent": "project-detail",
+			"route": { "path": "reports", "lazy": true },
+			"context": ["project"],
+			"handler": "reports",
+			"description": "Run built-in and custom report generators, export reports to HTML, and browse the report archive.",
+			"capabilities": [
+				"Run all report generators",
+				"Run individual report generator",
+				"Export reports to HTML",
+				"Browse report archive"
+			],
+			"configPath": "reports.generators"
+		},
+
+		"requirements": {
+			"type": "dynamic",
+			"title": "Requirements Management",
+			"icon": "list-checks",
+			"domain": "management",
+			"status": "active",
+			"parent": "project-detail",
+			"route": { "path": "requirements", "lazy": true },
+			"context": ["project"],
+			"handler": "requirements",
+			"description": "Manage functional/non-functional requirements, constraints, use cases, and user stories with status workflow.",
+			"capabilities": [
+				"List requirements",
+				"Add functional requirement",
+				"Add non-functional requirement",
+				"Add constraint",
+				"Add use case",
+				"Add user story",
+				"Update requirement status"
+			],
+			"configPath": "management.requirements"
+		},
+
+		"docs": {
+			"type": "dynamic",
+			"title": "Documentation",
+			"icon": "book-open",
+			"domain": "documentation",
+			"status": "active",
+			"parent": "project-detail",
+			"route": { "path": "docs", "lazy": true },
+			"context": ["project"],
+			"handler": "docs",
+			"description": "Update API references and external documentation generators, browse generated docs.",
+			"capabilities": [
+				"Update API references",
+				"Open reference files",
+				"Run external doc generators (e.g. TypeDoc)",
+				"View event definitions",
+				"View dependency graph"
+			],
+			"configPath": "docs"
+		},
+
+		"knowledgebase": {
+			"type": "dynamic",
+			"title": "Knowledgebase",
+			"icon": "search",
+			"domain": "documentation",
+			"status": "active",
+			"parent": "project-detail",
+			"route": { "path": "knowledgebase", "lazy": true },
+			"context": ["project"],
+			"handler": "knowledgebase",
+			"description": "Terminal-based vault browser with folder traversal, markdown file viewing, and full-text search via Obsidian CLI.",
+			"capabilities": [
+				"Navigate vault folders",
+				"View markdown files",
+				"Full-text search across vault",
+				"In-line help"
+			]
+		},
+
+		"devtools": {
+			"type": "dynamic",
+			"title": "Dev Tools",
+			"icon": "wrench",
+			"domain": "development",
+			"status": "active",
+			"parent": "project-detail",
+			"route": { "path": "devtools", "lazy": true },
+			"context": ["project"],
+			"handler": "devtools",
+			"description": "Project-specific development utilities: type checking, linting, plugin reloading, debug console, and npm script execution.",
+			"capabilities": [
+				"Type check + lint",
+				"Lint only",
+				"Reload plugin (hot-reload)",
+				"Dev console",
+				"Toggle debug mode",
+				"Rebuild CLI",
+				"Run npm scripts"
+			],
+			"configPath": "scripts"
+		},
+
+		"resources": {
+			"type": "dynamic",
+			"title": "Resources",
+			"icon": "users",
+			"domain": "management",
+			"status": "active",
+			"parent": "management",
+			"route": { "path": "resources", "lazy": true },
+			"context": ["project"],
+			"handler": "resources",
+			"description": "Manage project resources: human resources, materials, roles, and budgets with financial analysis.",
+			"capabilities": [
+				"List resources",
+				"Add human resource",
+				"Add material resource",
+				"Add role",
+				"Add budget",
+				"View financial summary"
+			],
+			"configPath": "management.resources"
+		},
+
+		"timelog": {
+			"type": "dynamic",
+			"title": "Time-Log",
+			"icon": "clock",
+			"domain": "management",
+			"status": "active",
+			"parent": "management",
+			"route": { "path": "timelog", "lazy": true },
+			"context": ["project"],
+			"handler": "timelog",
+			"description": "Track time entries by person, category, and task with summary reports.",
+			"capabilities": [
+				"List time entries",
+				"Log time entry",
+				"View time summary"
+			],
+			"configPath": "management.timelog"
+		},
+
+		"deliverables": {
+			"type": "dynamic",
+			"title": "Deliverables",
+			"icon": "package",
+			"domain": "management",
+			"status": "active",
+			"parent": "management",
+			"route": { "path": "deliverables", "lazy": true },
+			"context": ["project"],
+			"handler": "deliverables",
+			"description": "Manage project deliverables with status tracking (planned, in-progress, review, done, blocked) and priority levels.",
+			"capabilities": [
+				"List deliverables",
+				"Add deliverable",
+				"Update deliverable status"
+			],
+			"configPath": "management.deliverables"
+		},
+
+		"raid": {
+			"type": "dynamic",
+			"title": "RAID Log",
+			"icon": "alert-triangle",
+			"domain": "management",
+			"status": "active",
+			"parent": "management",
+			"route": { "path": "raid", "lazy": true },
+			"context": ["project"],
+			"handler": "raid",
+			"description": "Track Risks, Assumptions, Issues, Dependencies, and Decisions with severity and category classification.",
+			"capabilities": [
+				"List RAID items",
+				"Add risk",
+				"Add assumption",
+				"Add issue",
+				"Add dependency",
+				"Add decision",
+				"Update item status"
+			],
+			"configPath": "management.raid"
+		},
+
+		"capa": {
+			"type": "dynamic",
+			"title": "CAPA",
+			"icon": "shield-check",
+			"domain": "quality",
+			"status": "active",
+			"parent": "management",
+			"route": { "path": "capa", "lazy": true },
+			"context": ["project"],
+			"handler": "capa",
+			"description": "Manage Corrective and Preventive Actions with multi-stage workflow (open → investigating → action-planned → implementing → verification → closed).",
+			"capabilities": [
+				"List CAPA items",
+				"Add corrective action",
+				"Add preventive action",
+				"Update CAPA status"
+			],
+			"configPath": "management.capa"
+		},
+
+		"lifecycle": {
+			"type": "dynamic",
+			"title": "Lifecycle",
+			"icon": "git-branch",
+			"domain": "management",
+			"status": "active",
+			"parent": "management",
+			"route": { "path": "lifecycle", "lazy": true },
+			"context": ["project"],
+			"handler": "lifecycle",
+			"description": "Manage project lifecycle status, plus nested feature and product lifecycle management.",
+			"capabilities": [
+				"View/update project lifecycle status",
+				"Manage feature lifecycles",
+				"Manage product lifecycles"
+			],
+			"configPath": "management.lifecycle"
+		}
+	}
+}
