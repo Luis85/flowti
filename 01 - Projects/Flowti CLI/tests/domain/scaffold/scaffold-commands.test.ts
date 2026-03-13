@@ -40,9 +40,10 @@ vi.mock("../../../src/domain/scaffold/scaffold-service.js", () => ({
 	getKnownTemplateIds: vi.fn(() => new Set()),
 }));
 
-vi.mock("../../../src/ui/menus/marketplace-menu.js", () => ({
-	displayMarketplaceCommand: vi.fn(),
-	importDefinitionCommand: vi.fn(),
+vi.mock("../../../src/domain/scaffold/marketplace.js", () => ({
+	buildMarketplaceListing: vi.fn(() => []),
+	resolveDefinitionsDir: vi.fn(() => "/project/configs/definitions"),
+	importDefinition: vi.fn(() => ({ success: true, targetPath: "/project/configs/definitions/test.json", errors: [] })),
 }));
 
 vi.mock("../../../src/infrastructure/request-response.js", async () => {
@@ -61,6 +62,8 @@ vi.mock("../../../src/infrastructure/clock.js", () => ({
 }));
 vi.mock("../../../src/infrastructure/config.js", () => ({
 	VAULT_ROOT: "/mock/vault",
+	PROJECTS_DIR: "/mock/vault/projects",
+	cliConfig: { defaultAuthor: "Test Author" },
 }));
 
 vi.mock("../../../src/domain/scaffold/marketplace-export.js", () => ({
@@ -132,7 +135,7 @@ describe("scaffold:new", () => {
 	it("calls scaffold and logs success", () => {
 		commands["scaffold:new"]({ name: "my-project" }, []);
 
-		expect(scaffold).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({ name: "my-project" }));
+		expect(scaffold).toHaveBeenCalledWith("/mock/vault/projects", expect.any(Object), expect.objectContaining({ name: "my-project" }), "Test Author");
 		expect(log).toHaveBeenCalledWith(expect.stringContaining("Scaffolded"));
 	});
 
@@ -149,7 +152,7 @@ describe("scaffold:new --dry-run", () => {
 	it("shows file preview without writing", () => {
 		commands["scaffold:new"]({ name: "my-project", "dry-run": true }, []);
 
-		expect(scaffoldDryRun).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({ name: "my-project" }));
+		expect(scaffoldDryRun).toHaveBeenCalledWith("/mock/vault/projects", expect.any(Object), expect.objectContaining({ name: "my-project" }), "Test Author");
 		expect(scaffold).not.toHaveBeenCalled();
 		expect(log).toHaveBeenCalledWith(expect.stringContaining("Dry run"));
 	});

@@ -15,6 +15,7 @@ import { shell } from "../../infrastructure/shell.js";
 import { clock } from "../../infrastructure/clock.js";
 import { input } from "../../infrastructure/input.js";
 import { log } from "../../infrastructure/logger.js";
+import { VAULT_ROOT } from "../../infrastructure/config.js";
 import { RESET, BOLD, DIM, GREEN, YELLOW } from "../../infrastructure/ui.js";
 import type { ComponentFramework } from "../../infrastructure/types.js";
 
@@ -67,7 +68,7 @@ export function registerComponentHandlers(registry: HandlerRegistry): void {
 
 	registry.registerAction("comp:sb-install", async (ctx) => {
 		if (!ctx.project) return undefined;
-		const { isStorybookInstalled, installStorybook, getFrameworkPackages: _ } = await import("../../domain/make/component/storybook-service.js");
+		const { isStorybookInstalled, installStorybook } = await import("../../domain/make/component/storybook-service.js");
 		const { setFramework } = await import("../../domain/make/component/storybook-settings.js");
 		const { createStorybookRenderer } = await import("../storybook-renderer-impl.js");
 		const config = ctx.project.config.components ?? {};
@@ -99,7 +100,7 @@ export function registerComponentHandlers(registry: HandlerRegistry): void {
 		if (!isStorybookInstalled(ctx.project.path, config, listDeps()) || isStorybookRunning()) {
 			log(`\n  Storybook not installed or already running.\n`); await input.waitForEnter(); return undefined;
 		}
-		await runStorybookDev(ctx.project.path, config, { disk, paths, shell, input }, createStorybookRenderer());
+		await runStorybookDev(ctx.project.path, config, VAULT_ROOT, { disk, paths, shell, input }, createStorybookRenderer());
 		if (!isStorybookRunning()) await input.waitForEnter();
 		return undefined;
 	});

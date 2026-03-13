@@ -6,7 +6,10 @@ vi.mock("../../src/infrastructure/ui.js", () => ({
 	printHeader: vi.fn(),
 }));
 vi.mock("../../src/infrastructure/paths.js", () => ({
-	paths: { join: (...parts: string[]) => parts.join("/") },
+	paths: { join: (...parts: string[]) => parts.join("/"), resolve: (...parts: string[]) => parts.join("/") },
+}));
+vi.mock("../../src/infrastructure/config.js", () => ({
+	PROJECTS_DIR: "/projects",
 }));
 vi.mock("../../src/infrastructure/filesystem.js", () => ({
 	disk: {

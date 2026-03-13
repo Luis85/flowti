@@ -11,6 +11,7 @@ import { shell } from "../../infrastructure/shell.js";
 import { input } from "../../infrastructure/input.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import { log } from "../../infrastructure/logger.js";
+import { VAULT_ROOT } from "../../infrastructure/config.js";
 import { RESET, BOLD, DIM, GREEN, YELLOW } from "../../infrastructure/ui.js";
 import type { MenuEntry, MenuResult, ComponentsConfig, ComponentFramework } from "../../infrastructure/types.js";
 import type { ComponentKind } from "../../domain/make/component/component-types.js";
@@ -94,49 +95,66 @@ export async function componentListMenu(
 	sitemapSlots?: Readonly<Record<string, readonly MenuEntry[]>>,
 ): Promise<MenuResult> {
 	const config = componentsConfig ?? {};
-	let stay = true;
 	const projectName = paths.basename(projectRoot);
 	const sbInstalled = () => isStorybookInstalled(projectRoot, config, listDeps());
-	while (stay) {
-		const components = listProjectComponents(projectRoot, listDeps());
-		detectDirtyComponents(projectRoot, components, listDeps());
-
-		const framework = getFramework(projectRoot, listDeps());
-		const frameworkLabel = FRAMEWORK_LABELS[framework] ?? framework;
-		const frameworkTag = sbInstalled() ? `  ${DIM}[${frameworkLabel}]${RESET}` : "";
-
-		renderComponentListHeader(components, frameworkTag);
-		const items: MenuEntry[] = buildComponentTreeItems(projectRoot, components);
-
-		if (sitemapSlots) {
-			// Sitemap-driven: static entries come from sitemapSlots
-			items.push(...(sitemapSlots["_between_component-list"] ?? []));
-			items.push(...buildSitemapOpsEntries(projectRoot, projectName));
-			items.push(...(sitemapSlots["_between_sitemap-ops"] ?? []));
-			items.push(...buildLibraryEntries(projectRoot));
-			items.push(...(sitemapSlots["_after"] ?? []));
-		} else {
-			// Fallback: build all entries internally (tests / standalone)
-			items.push(
-				{ separator: true },
-				{ key: "c", label: "Add Component", action: async () => { await componentMenu(projectRoot); } },
-				buildRegenDirtyEntry(projectRoot, components, framework),
-			);
-			items.push({ key: "a", label: "Action Reference", action: async () => { await actionReferenceMenu(); } });
-			items.push(...buildSitemapOpsEntries(projectRoot, projectName));
-			items.push(...buildLibraryEntries(projectRoot));
-			items.push(...buildStorybookEntries(projectRoot, projectName, config, sbInstalled));
-			items.push(
-				{ separator: true },
-				{ key: "b", label: "Back", action: () => { stay = false; return "main" as const; } },
-			);
-		}
-
+	for (;;) {
+		const items = buildMenuItems(projectRoot, projectName, config, sbInstalled, sitemapSlots);
 		const result = await runMenu("Components", items);
-		if (result === "main" || result === "quit") { stay = false; return result; }
-		if (typeof result === "string" && result.startsWith("navigate:")) { stay = false; return result; }
+		if (result === "main" || result === "quit") return result;
+		if (typeof result === "string" && result.startsWith("navigate:")) return result;
 	}
-	return "main";
+}
+
+function buildMenuItems(
+	projectRoot: string, projectName: string,
+	config: ComponentsConfig, sbInstalled: () => boolean,
+	sitemapSlots?: Readonly<Record<string, readonly MenuEntry[]>>,
+): MenuEntry[] {
+	const components = listProjectComponents(projectRoot, listDeps());
+	detectDirtyComponents(projectRoot, components, listDeps());
+	const framework = getFramework(projectRoot, listDeps());
+	const frameworkLabel = FRAMEWORK_LABELS[framework] ?? framework;
+	const frameworkTag = sbInstalled() ? `  ${DIM}[${frameworkLabel}]${RESET}` : "";
+	renderComponentListHeader(components, frameworkTag);
+	const items: MenuEntry[] = buildComponentTreeItems(projectRoot, components);
+
+	if (sitemapSlots) {
+		appendSitemapDrivenEntries(items, projectRoot, projectName, sitemapSlots);
+	} else {
+		appendStandaloneEntries(items, projectRoot, projectName, components, framework, config, sbInstalled);
+	}
+	return items;
+}
+
+function appendSitemapDrivenEntries(
+	items: MenuEntry[], projectRoot: string, projectName: string,
+	sitemapSlots: Readonly<Record<string, readonly MenuEntry[]>>,
+): void {
+	items.push(...(sitemapSlots["_between_component-list"] ?? []));
+	items.push(...buildSitemapOpsEntries(projectRoot, projectName));
+	items.push(...(sitemapSlots["_between_sitemap-ops"] ?? []));
+	items.push(...buildLibraryEntries(projectRoot));
+	items.push(...(sitemapSlots["_after"] ?? []));
+}
+
+function appendStandaloneEntries(
+	items: MenuEntry[], projectRoot: string, projectName: string,
+	components: ProjectComponent[], framework: ComponentFramework,
+	config: ComponentsConfig, sbInstalled: () => boolean,
+): void {
+	items.push(
+		{ separator: true },
+		{ key: "c", label: "Add Component", action: async () => { await componentMenu(projectRoot); } },
+		buildRegenDirtyEntry(projectRoot, components, framework),
+	);
+	items.push({ key: "a", label: "Action Reference", action: async () => { await actionReferenceMenu(); } });
+	items.push(...buildSitemapOpsEntries(projectRoot, projectName));
+	items.push(...buildLibraryEntries(projectRoot));
+	items.push(...buildStorybookEntries(projectRoot, projectName, config, sbInstalled));
+	items.push(
+		{ separator: true },
+		{ key: "b", label: "Back", action: () => "main" as const },
+	);
 }
 
 function buildRegenDirtyEntry(projectRoot: string, components: ProjectComponent[], framework: ComponentFramework): MenuEntry {
@@ -264,7 +282,7 @@ function buildStorybookEntries(
 		{
 			key: "s", label: "Start Storybook",
 			action: async () => {
-				await runStorybookDev(projectRoot, config, sbDeps(), sbRender);
+				await runStorybookDev(projectRoot, config, VAULT_ROOT, sbDeps(), sbRender);
 				if (!isStorybookRunning()) await input.waitForEnter();
 			},
 			disabled: () => !sbInstalled() || isStorybookRunning(),

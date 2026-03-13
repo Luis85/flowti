@@ -8,7 +8,6 @@
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
 import type { ReportDeps } from "../../../infrastructure/deps.js";
-import { PLUGIN_ROOT, VAULT_ROOT } from "../../../infrastructure/config.js";
 import { scanDir } from "../generators/trace-report.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
 import type { PipelineContext } from "../../../infrastructure/pipeline/pipeline-types.js";
@@ -65,8 +64,8 @@ function checkTechDebt(doc: ScanResult): TraceGap[] {
 
 // ── Document collection and gap finding ──────────────────────────────
 
-function collectDocuments(docsDir: string, deps: ReportDeps): ScanResult[] {
-	const vaultInbox = deps.paths.join(VAULT_ROOT, "00 - Connectivity", "inbox");
+function collectDocuments(docsDir: string, vaultRoot: string, deps: ReportDeps): ScanResult[] {
+	const vaultInbox = deps.paths.join(vaultRoot, "00 - Connectivity", "inbox");
 
 	const docs: ScanResult[] = [
 		...scanDir(deps.paths.join(docsDir, "inbox"), "inbox", deps),
@@ -152,12 +151,14 @@ function buildTraceReportDoc(docs: ScanResult[], gaps: TraceGap[], deps: ReportD
 
 // ── Generator ────────────────────────────────────────────────────────
 
-export function generateTraceReport(projectPath: string, deps: ReportDeps, ctx?: PipelineContext): GeneratorOutput {
+export function generateTraceReport(projectPath: string, deps: ReportDeps, ctx?: PipelineContext, options?: { pluginRoot?: string; vaultRoot?: string }): GeneratorOutput {
 	const log = (msg: string) => ctx?.log(msg);
 	const svc = new ReportService(projectPath, deps);
-	const docsDir = deps.paths.join(PLUGIN_ROOT, "docs");
+	const pluginRoot = options?.pluginRoot ?? projectPath;
+	const vaultRoot = options?.vaultRoot ?? projectPath;
+	const docsDir = deps.paths.join(pluginRoot, "docs");
 
-	const docs = collectDocuments(docsDir, deps);
+	const docs = collectDocuments(docsDir, vaultRoot, deps);
 	const gaps = findGaps(docs);
 	const reportDoc = buildTraceReportDoc(docs, gaps, deps);
 

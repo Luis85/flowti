@@ -59,10 +59,10 @@ function readFlowtiConfig(projectPath: string, deps: Pick<CliDeps, "disk" | "pat
  * Build a map from npm package name → project folder name for all projects
  * that have a package.json with a `name` field.
  */
-function buildNpmNameMap(allProjectNames: string[], deps: Pick<CliDeps, "disk" | "paths">): Map<string, string> {
+function buildNpmNameMap(allProjectNames: string[], projectsDir: string, deps: Pick<CliDeps, "disk" | "paths">): Map<string, string> {
 	const map = new Map<string, string>();
 	for (const name of allProjectNames) {
-		const pkg = readPackageJsonFull(getProjectPath(name, deps), deps);
+		const pkg = readPackageJsonFull(getProjectPath(name, projectsDir, deps), deps);
 		if (pkg?.name) {
 			map.set(pkg.name, name);
 		}
@@ -201,13 +201,13 @@ export function detectCycles(edges: ProjectDependency[]): string[][] {
 // ── Graph builder ──────────────────────────────────────────────────
 
 /** Build the full dependency graph across all managed projects. */
-export function buildDependencyGraph(deps: Pick<CliDeps, "disk" | "paths">): DependencyGraph {
-	const projects = listProjects(deps);
-	const npmNameMap = buildNpmNameMap(projects, deps);
+export function buildDependencyGraph(projectsDir: string, deps: Pick<CliDeps, "disk" | "paths">): DependencyGraph {
+	const projects = listProjects(projectsDir, deps);
+	const npmNameMap = buildNpmNameMap(projects, projectsDir, deps);
 	const edges: ProjectDependency[] = [];
 
 	for (const name of projects) {
-		const projectPath = getProjectPath(name, deps);
+		const projectPath = getProjectPath(name, projectsDir, deps);
 		edges.push(...detectNpmDeps(name, projectPath, npmNameMap, deps));
 		edges.push(...detectConfigDeps(name, projectPath, projects, deps));
 	}

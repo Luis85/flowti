@@ -88,10 +88,10 @@ export function createProjectSitemap(
 				description: `Landing page for ${projectName}.`,
 				route: { path: "/", pathMatch: "full" },
 				items: [
-					{ key: "1", label: "Dashboard", navigate: "dashboard" },
-					{ key: "2", label: "Settings", navigate: "settings" },
-					{ separator: true },
-					{ key: "q", label: "Quit", signal: "quit" },
+					{ type: "item", key: "1", label: "Dashboard", navigate: "dashboard" },
+					{ type: "item", key: "2", label: "Settings", navigate: "settings" },
+					{ type: "separator" },
+					{ type: "item", key: "q", label: "Quit", signal: "quit" },
 				],
 			},
 			"dashboard": {
@@ -115,7 +115,7 @@ export function createProjectSitemap(
 				route: { path: "settings" },
 				description: "Application settings and preferences.",
 				items: [
-					{ key: "b", label: "Back", signal: "back" },
+					{ type: "item", key: "b", label: "Back", signal: "back" },
 				],
 			},
 		},

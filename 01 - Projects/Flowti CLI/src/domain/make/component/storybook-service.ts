@@ -52,7 +52,7 @@ async function enterStorybookView(_projectPath: string, url: string, render: Sto
 
 // ── Script wrappers ──────────────────────────────────────────────────
 
-export async function runStorybookDev(projectPath: string, config: ComponentsConfig, deps: StorybookDeps, render: StorybookRenderer = nullStorybookRenderer): Promise<void> {
+export async function runStorybookDev(projectPath: string, config: ComponentsConfig, vaultRoot: string, deps: StorybookDeps, render: StorybookRenderer = nullStorybookRenderer): Promise<void> {
 	const sbDir = resolveStorybookDir(projectPath, config, deps);
 	if (!isStorybookInstalled(projectPath, config, deps)) {
 		render.notInstalled();
@@ -99,7 +99,7 @@ export async function runStorybookDev(projectPath: string, config: ComponentsCon
 
 	const url = extractLocalUrl(activeProcess.output);
 	render.ready(url);
-	openStorybookUrl(projectPath, url, render, deps);
+	openStorybookUrl(projectPath, url, vaultRoot, render, deps);
 	await enterStorybookView(projectPath, url, render, deps);
 }
 

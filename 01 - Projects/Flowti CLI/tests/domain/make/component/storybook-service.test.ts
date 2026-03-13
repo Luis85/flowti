@@ -241,15 +241,15 @@ describe("extractLocalUrl", () => {
 
 describe("isInsideVault", () => {
 	it("returns true for a path inside the vault", () => {
-		expect(isInsideVault("/vault/01 - Projects/MyApp", sbDeps())).toBe(true);
+		expect(isInsideVault("/vault/01 - Projects/MyApp", "/vault", sbDeps())).toBe(true);
 	});
 
 	it("returns false for a path outside the vault", () => {
-		expect(isInsideVault("/other/project", sbDeps())).toBe(false);
+		expect(isInsideVault("/other/project", "/vault", sbDeps())).toBe(false);
 	});
 
 	it("returns true for the vault root itself", () => {
-		expect(isInsideVault("/vault", sbDeps())).toBe(true);
+		expect(isInsideVault("/vault", "/vault", sbDeps())).toBe(true);
 	});
 });
 
@@ -259,7 +259,7 @@ describe("runStorybookDev", () => {
 		const mockProcess = createMockBackgroundProcess();
 		mockShell.spawnBackground.mockReturnValue(mockProcess);
 
-		await runStorybookDev("/project", {}, sbDeps());
+		await runStorybookDev("/project", {}, "/vault", sbDeps());
 
 		expect(mockShell.spawnBackground).toHaveBeenCalledWith(
 			"npm run storybook",
@@ -269,7 +269,7 @@ describe("runStorybookDev", () => {
 
 	it("calls notInstalled renderer when not installed", async () => {
 		const render = createMockRenderer();
-		await runStorybookDev("/project", {}, sbDeps(), render);
+		await runStorybookDev("/project", {}, "/vault", sbDeps(), render);
 
 		expect(mockShell.spawnBackground).not.toHaveBeenCalled();
 		expect(render.notInstalled).toHaveBeenCalled();
@@ -280,7 +280,7 @@ describe("runStorybookDev", () => {
 		const mockProcess = createMockBackgroundProcess();
 		mockShell.spawnBackground.mockReturnValue(mockProcess);
 
-		await runStorybookDev("/project", {}, sbDeps());
+		await runStorybookDev("/project", {}, "/vault", sbDeps());
 
 		expect(mockProcess.waitForOutput).toHaveBeenCalledWith(
 			expect.any(RegExp),
@@ -295,7 +295,7 @@ describe("runStorybookDev", () => {
 		const mockProcess = createMockBackgroundProcess();
 		mockShell.spawnBackground.mockReturnValue(mockProcess);
 
-		await runStorybookDev("/vault/project", {}, sbDeps());
+		await runStorybookDev("/vault/project", {}, "/vault", sbDeps());
 
 		expect(mockShell.runSilent).toHaveBeenCalledWith(
 			"obsidian web url=http://localhost:6006 newtab",
@@ -307,7 +307,7 @@ describe("runStorybookDev", () => {
 		const mockProcess = createMockBackgroundProcess();
 		mockShell.spawnBackground.mockReturnValue(mockProcess);
 
-		await runStorybookDev("/other/project", {}, sbDeps());
+		await runStorybookDev("/other/project", {}, "/vault", sbDeps());
 
 		// Should have called runSilent with a browser-open command
 		expect(mockShell.runSilent).toHaveBeenCalled();
@@ -325,7 +325,7 @@ describe("runStorybookDev", () => {
 		mockShell.spawnBackground.mockReturnValue(mockProcess);
 		const render = createMockRenderer();
 
-		await runStorybookDev("/project", {}, sbDeps(), render);
+		await runStorybookDev("/project", {}, "/vault", sbDeps(), render);
 
 		expect(mockShell.runSilent).not.toHaveBeenCalled();
 		expect(render.failedToStart).toHaveBeenCalled();
@@ -337,7 +337,7 @@ describe("runStorybookDev", () => {
 		const mockProcess = createMockBackgroundProcess();
 		mockShell.spawnBackground.mockReturnValue(mockProcess);
 
-		await runStorybookDev("/project", {}, sbDeps());
+		await runStorybookDev("/project", {}, "/vault", sbDeps());
 
 		expect(mockProcess.kill).toHaveBeenCalled();
 		expect(isStorybookRunning()).toBe(false);
@@ -349,7 +349,7 @@ describe("runStorybookDev", () => {
 		mockShell.spawnBackground.mockReturnValue(mockProcess);
 		const render = createMockRenderer();
 
-		await runStorybookDev("/project", {}, sbDeps(), render);
+		await runStorybookDev("/project", {}, "/vault", sbDeps(), render);
 
 		expect(mockProcess.onOutput).toHaveBeenCalled();
 	});
@@ -372,7 +372,7 @@ describe("isStorybookRunning", () => {
 		const mockProcess = createMockBackgroundProcess();
 		mockShell.spawnBackground.mockReturnValue(mockProcess);
 
-		await runStorybookDev("/project", {}, sbDeps());
+		await runStorybookDev("/project", {}, "/vault", sbDeps());
 		expect(isStorybookRunning()).toBe(false);
 	});
 });

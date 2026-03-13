@@ -7,7 +7,7 @@
  */
 
 import type { HandlerRegistry } from "../../infrastructure/handler-registry.js";
-import type { MenuEntry, MenuResult, MakeTemplateId } from "../../infrastructure/types.js";
+import type { MenuEntry, MakeTemplateId } from "../../infrastructure/types.js";
 import type { RouterContext } from "../../infrastructure/sitemap-types.js";
 
 import { disk } from "../../infrastructure/filesystem.js";
@@ -17,7 +17,8 @@ import { input } from "../../infrastructure/input.js";
 import { log } from "../../infrastructure/logger.js";
 import { createDefaultDeps } from "../../infrastructure/deps.js";
 import { RESET, DIM, GREEN } from "../../infrastructure/ui.js";
-import { getReportsDir } from "../../domain/project/project-config.js";
+import { PROJECTS_DIR } from "../../infrastructure/config.js";
+import { getReportsOutputDir } from "../../domain/project/project-config.js";
 import { getAvailableTemplates as getAvailableTemplatesSync } from "../../domain/make/make-service.js";
 
 // ── Make template registry ──────────────────────────────────────────
@@ -109,7 +110,7 @@ export function registerToolingHandlers(registry: HandlerRegistry): void {
 
 	registry.registerAction("reports:browse", async (ctx) => {
 		if (!ctx.project) return undefined;
-		const reportsDir = getReportsDir(ctx.project.path, ctx.project.config, { paths });
+		const reportsDir = getReportsOutputDir(ctx.project.path, ctx.project.config, { paths });
 		const { browseArchive } = await import("../menus/report-archive-menu.js");
 		await browseArchive(reportsDir);
 		return undefined;
@@ -167,7 +168,7 @@ export function registerToolingHandlers(registry: HandlerRegistry): void {
 	registry.registerAction("docs:dependencies", async (_ctx) => {
 		const { buildDependencyGraph } = await import("../../domain/project/project-deps.js");
 		const { displayDependencyGraph } = await import("../deps-display.js");
-		const graph = buildDependencyGraph({ disk, paths });
+		const graph = buildDependencyGraph(PROJECTS_DIR, { disk, paths });
 		displayDependencyGraph(graph);
 		await input.waitForEnter();
 		return undefined;

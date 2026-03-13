@@ -186,7 +186,7 @@ export const readmeTemplate: TemplateFn = (vars: ScaffoldVariables, def: Scaffol
 		"",
 		`| Decision | Rationale | Date |`,
 		`|----------|-----------|------|`,
-		`| _e.g., Use TypeScript strict_ | _Type safety from day one_ | _${new Date().toISOString().slice(0, 10)}_ |`,
+		`| _e.g., Use TypeScript strict_ | _Type safety from day one_ | _${vars.date}_ |`,
 		"",
 	];
 

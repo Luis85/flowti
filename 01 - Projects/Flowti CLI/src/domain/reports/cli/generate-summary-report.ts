@@ -264,8 +264,8 @@ export function generateSummaryReport(projectPath: string, deps: ReportDeps, ctx
 	ctx?.log("Generating Project Summary...");
 
 	const snapshots = discoverReports(svc.reportsDir, deps);
-	const json = loadJsonDataSources(svc.reportsDir, deps);
-	const detailed = loadDetailedSources(svc.reportsDir, projectPath, deps);
+	const json = loadJsonDataSources(svc.dataDir, deps);
+	const detailed = loadDetailedSources(svc.dataDir, projectPath, deps);
 	logDataSources(snapshots, json, detailed, log);
 
 	const lint = runLintCheck(projectPath, thresholds.lintCommand, log, deps, ctx);
@@ -275,6 +275,7 @@ export function generateSummaryReport(projectPath: string, deps: ReportDeps, ctx
 	const findings = analyzeReports(snapshots, thresholds, lint, typedoc, json, detailed, projectPath, runResults, deps);
 	const doc = buildSummaryReport(snapshots, findings, lint, typedoc, thresholds, projectName, json, detailed, runResults, deps);
 
+	svc.stampProjectLink(doc);
 	const stablePath = svc.stablePath("Project Summary.md");
 	deps.disk.mkdirSync(svc.reportsDir, { recursive: true });
 	doc.save(stablePath, deps.disk);

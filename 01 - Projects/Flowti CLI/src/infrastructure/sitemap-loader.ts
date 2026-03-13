@@ -171,18 +171,29 @@ function validateEntry(
 	}
 
 	const entry = raw as Record<string, unknown>;
-	if (entry.separator === true) return [];
-	if ("slot" in entry) return validateSlot(entry, prefix);
-	if ("listProvider" in entry) return validateListProvider(entry, prefix);
+	const type = entry.type;
 
-	const errors: string[] = [];
-	errors.push(...validateKey(entry, prefix, keys));
-	if (typeof entry.label !== "string" || entry.label.length === 0) {
-		errors.push(`${prefix}: must have a non-empty "label" string`);
+	if (typeof type !== "string") {
+		return [`${prefix}: must have a "type" field (one of: "item", "separator", "slot", "listProvider")`];
 	}
-	errors.push(...validateAction(entry, prefix, allViewIds));
-	errors.push(...validateDisabled(entry, prefix));
-	return errors;
+
+	switch (type) {
+		case "separator": return [];
+		case "slot": return validateSlot(entry, prefix);
+		case "listProvider": return validateListProvider(entry, prefix);
+		case "item": {
+			const errors: string[] = [];
+			errors.push(...validateKey(entry, prefix, keys));
+			if (typeof entry.label !== "string" || entry.label.length === 0) {
+				errors.push(`${prefix}: must have a non-empty "label" string`);
+			}
+			errors.push(...validateAction(entry, prefix, allViewIds));
+			errors.push(...validateDisabled(entry, prefix));
+			return errors;
+		}
+		default:
+			return [`${prefix}: unknown type "${type}" (expected: "item", "separator", "slot", "listProvider")`];
+	}
 }
 
 function validateSlot(entry: Record<string, unknown>, prefix: string): string[] {

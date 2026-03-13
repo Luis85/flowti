@@ -99,6 +99,6 @@ describe("e2e-report entry point", () => {
 		const { paths } = await import("../../../../src/infrastructure/paths.js");
 		const { proc } = await import("../../../../src/infrastructure/proc.js");
 		const mod = await import("../../../../src/domain/reports/generators/e2e-report.js");
-		expect(() => mod.initE2EReportPaths("/test-root", { disk, paths, proc })).not.toThrow();
+		expect(() => mod.initE2EReportPaths("/test-root", "/mock/vault", { disk, paths, proc })).not.toThrow();
 	});
 });

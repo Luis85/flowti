@@ -11,7 +11,7 @@ import { paths } from "../../infrastructure/paths.js";
 import { shell } from "../../infrastructure/shell.js";
 import { log } from "../../infrastructure/logger.js";
 import { RESET, DIM, GREEN, RED, CYAN } from "../../infrastructure/ui.js";
-import { PROJECTS_DIR } from "../../infrastructure/config.js";
+import { PROJECTS_DIR, cliConfig } from "../../infrastructure/config.js";
 import { getSelectedProject, setSelectedProject } from "../../infrastructure/state.js";
 import { listProjects, getProjectPath } from "../../domain/project/project.js";
 import { scaffold as scaffoldProject, listDefinitions } from "../../domain/scaffold/scaffold.js";
@@ -19,7 +19,7 @@ import type { MenuEntry, MenuResult } from "../../infrastructure/types.js";
 
 /** Open project menu — list projects, set selected. Returns "quit" if project selected. */
 export async function openProjectHandler(): Promise<MenuResult> {
-	const projects = listProjects({ disk });
+	const projects = listProjects(PROJECTS_DIR, { disk });
 	const current = getSelectedProject();
 
 	if (projects.length === 0) {
@@ -60,7 +60,7 @@ export async function createProjectHandler(): Promise<MenuResult> {
 		return "main";
 	}
 
-	const projectPath = getProjectPath(name, { paths });
+	const projectPath = getProjectPath(name, PROJECTS_DIR, { paths });
 	if (disk.existsSync(projectPath)) {
 		log(`\n  ${RED}Project already exists:${RESET} ${name}\n`);
 		return "main";
@@ -73,7 +73,7 @@ export async function createProjectHandler(): Promise<MenuResult> {
 		key: String(keyIndex++),
 		label: `${def.label}  ${DIM}${def.description}${RESET}`,
 		action: (): MenuResult => {
-			const result = scaffoldProject({ disk, paths }, { definitionId: def.id, name, outputDir: projectPath });
+			const result = scaffoldProject(PROJECTS_DIR, { disk, paths }, { definitionId: def.id, name, outputDir: projectPath }, cliConfig.defaultAuthor);
 			if ("error" in result) {
 				log(`\n  ${RED}${result.error}${RESET}\n`);
 				return "main";

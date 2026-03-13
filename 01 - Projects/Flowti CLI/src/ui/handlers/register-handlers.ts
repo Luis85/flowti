@@ -15,6 +15,7 @@ import { clock } from "../../infrastructure/clock.js";
 import { input } from "../../infrastructure/input.js";
 import { log } from "../../infrastructure/logger.js";
 import { clearScreen, RESET, DIM, CYAN } from "../../infrastructure/ui.js";
+import { PROJECTS_DIR, VAULT_ROOT } from "../../infrastructure/config.js";
 import { getSelectedProject } from "../../infrastructure/state.js";
 import { initializeProject } from "../../domain/project/project-config.js";
 import { listProjects } from "../../domain/project/project.js";
@@ -44,7 +45,7 @@ export function registerAllHandlers(registry: HandlerRegistry): void {
 
 	registry.registerBeforeRender("start:banner", (ctx) => {
 		const current = getSelectedProject();
-		const projects = listProjects({ disk });
+		const projects = listProjects(PROJECTS_DIR, { disk });
 		if (current) {
 			log(`  ${DIM}Current project: ${CYAN}${current}${RESET}\n`);
 		} else if (projects.length === 0) {
@@ -55,7 +56,7 @@ export function registerAllHandlers(registry: HandlerRegistry): void {
 	registry.registerBeforeRender("project:banner", (_ctx) => {
 		clearScreen();
 		const project = getSelectedProject();
-		const ctx = project ? initializeProject(project, { disk, paths }) : null;
+		const ctx = project ? initializeProject(project, PROJECTS_DIR, { disk, paths }) : null;
 		const label = ctx?.config.name ?? project ?? "Unknown";
 		log(`  ${DIM}Project:${RESET} ${CYAN}${label}${RESET}`);
 		if (ctx?.pkg) {
@@ -72,7 +73,7 @@ export function registerAllHandlers(registry: HandlerRegistry): void {
 	});
 
 	registry.registerCondition("knowledgebase:available", (_ctx) => {
-		return !isKnowledgebaseAvailable({ disk, paths, shell });
+		return !isKnowledgebaseAvailable(VAULT_ROOT, { disk, paths, shell });
 	});
 
 	registry.registerCondition("readme:exists", (ctx) => {

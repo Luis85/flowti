@@ -41,7 +41,7 @@ describe("listProjects", () => {
 		});
 		setDisk(mockFs);
 
-		const result = listProjects({ disk: fsMod.disk });
+		const result = listProjects("/mock/projects", { disk: fsMod.disk });
 		expect(result).toEqual(["alpha", "beta"]);
 	});
 
@@ -51,7 +51,7 @@ describe("listProjects", () => {
 		mockFs.readdirSync = () => { throw new Error("ENOENT"); };
 		setDisk(mockFs);
 
-		expect(listProjects({ disk: fsMod.disk })).toEqual([]);
+		expect(listProjects("/mock/projects", { disk: fsMod.disk })).toEqual([]);
 	});
 
 	it("filters out files (only directories)", () => {
@@ -61,7 +61,7 @@ describe("listProjects", () => {
 		// readme.md is a file, not a directory — should be excluded
 		setDisk(mockFs);
 
-		const result = listProjects({ disk: fsMod.disk });
+		const result = listProjects("/mock/projects", { disk: fsMod.disk });
 		// readme.md won't appear as a directory entry
 		expect(result.includes("readme.md")).toBe(false);
 	});
@@ -71,7 +71,7 @@ describe("listProjects", () => {
 
 describe("getProjectPath", () => {
 	it("joins PROJECTS_DIR with project name", () => {
-		const result = getProjectPath("my-app", { paths: mockPaths });
+		const result = getProjectPath("my-app", "/mock/projects", { paths: mockPaths });
 		expect(result.replace(/\\/g, "/")).toContain("mock/projects/my-app");
 	});
 });

@@ -37,7 +37,7 @@ describe("checkPrerequisiteIssues", () => {
 		const shell = createMockShell({
 			outputs: { "node --version": "v22.0.0" },
 		});
-		const issues = checkPrerequisiteIssues({ shell });
+		const issues = checkPrerequisiteIssues(16, { shell });
 		expect(issues).toHaveLength(0);
 	});
 
@@ -46,7 +46,7 @@ describe("checkPrerequisiteIssues", () => {
 			failChecks: ["git --version"],
 			outputs: { "node --version": "v22.0.0" },
 		});
-		const issues = checkPrerequisiteIssues({ shell });
+		const issues = checkPrerequisiteIssues(16, { shell });
 		expect(issues.some((i) => i.name === "Git")).toBe(true);
 	});
 
@@ -54,7 +54,7 @@ describe("checkPrerequisiteIssues", () => {
 		const shell = createMockShell({
 			failChecks: [],
 		});
-		const issues = checkPrerequisiteIssues({ shell });
+		const issues = checkPrerequisiteIssues(16, { shell });
 		expect(issues.some((i) => i.name === "Node.js")).toBe(true);
 	});
 
@@ -62,7 +62,7 @@ describe("checkPrerequisiteIssues", () => {
 		const shell = createMockShell({
 			outputs: { "node --version": "v14.0.0" },
 		});
-		const issues = checkPrerequisiteIssues({ shell });
+		const issues = checkPrerequisiteIssues(16, { shell });
 		expect(issues.some((i) => i.name.includes("v14.0.0"))).toBe(true);
 	});
 
@@ -70,7 +70,7 @@ describe("checkPrerequisiteIssues", () => {
 		const shell = createMockShell({
 			outputs: { "node --version": "v16.0.0" },
 		});
-		const issues = checkPrerequisiteIssues({ shell });
+		const issues = checkPrerequisiteIssues(16, { shell });
 		expect(issues).toHaveLength(0);
 	});
 });
@@ -81,7 +81,7 @@ describe("checkPrerequisites", () => {
 		const shell = createMockShell({
 			outputs: { "node --version": "v22.0.0" },
 		});
-		checkPrerequisites({ shell, proc });
+		checkPrerequisites(16, { shell, proc });
 		expect(proc.exit).not.toHaveBeenCalled();
 	});
 
@@ -91,7 +91,7 @@ describe("checkPrerequisites", () => {
 			failChecks: ["git --version"],
 			outputs: { "node --version": "v22.0.0" },
 		});
-		checkPrerequisites({ shell, proc });
+		checkPrerequisites(16, { shell, proc });
 		expect(proc.exit).toHaveBeenCalledWith(2);
 	});
 });
@@ -156,7 +156,7 @@ describe("ensureDependencies", () => {
 describe("getFirstRunStatus", () => {
 	it("returns pluginBuilt: false when plugin not built", () => {
 		const disk = createMockFs();
-		const status = getFirstRunStatus({ disk, paths: mockPaths });
+		const status = getFirstRunStatus("/mock/vault", "flowti-ibde", { disk, paths: mockPaths });
 		expect(status.pluginBuilt).toBe(false);
 	});
 
@@ -164,7 +164,7 @@ describe("getFirstRunStatus", () => {
 		const disk = createMockFs({
 			"/mock/vault/.obsidian/plugins/flowti-ibde/main.js": "content",
 		});
-		const status = getFirstRunStatus({ disk, paths: mockPaths });
+		const status = getFirstRunStatus("/mock/vault", "flowti-ibde", { disk, paths: mockPaths });
 		expect(status.pluginBuilt).toBe(true);
 	});
 });
@@ -174,13 +174,13 @@ describe("getPostBuildGuidance", () => {
 		const disk = createMockFs({
 			"/mock/vault/.obsidian/plugins/flowti-ibde/main.js": "content",
 		});
-		const guidance = getPostBuildGuidance({ disk, paths: mockPaths });
+		const guidance = getPostBuildGuidance("/mock/vault", "flowti-ibde", { disk, paths: mockPaths });
 		expect(guidance.show).toBe(true);
 	});
 
 	it("returns show: false when plugin is not built", () => {
 		const disk = createMockFs();
-		const guidance = getPostBuildGuidance({ disk, paths: mockPaths });
+		const guidance = getPostBuildGuidance("/mock/vault", "flowti-ibde", { disk, paths: mockPaths });
 		expect(guidance.show).toBe(false);
 	});
 });

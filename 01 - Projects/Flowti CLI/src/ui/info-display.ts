@@ -9,6 +9,7 @@ import { disk } from "../infrastructure/filesystem.js";
 import { RESET, BOLD, DIM, GREEN, YELLOW, printHeader } from "../infrastructure/ui.js";
 import { shell } from "../infrastructure/shell.js";
 import { countFiles } from "../infrastructure/fs.js";
+import { PROJECTS_DIR } from "../infrastructure/config.js";
 import { getSelectedProject } from "../infrastructure/state.js";
 import { initializeProject } from "../domain/project/project-config.js";
 import type { ProjectContext } from "../infrastructure/types.js";
@@ -198,6 +199,6 @@ export function showInfo(): void {
 		return;
 	}
 
-	const ctx = initializeProject(projectName, { disk, paths });
+	const ctx = initializeProject(projectName, PROJECTS_DIR, { disk, paths });
 	displayInfoFromContext(ctx);
 }

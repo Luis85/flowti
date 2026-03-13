@@ -184,6 +184,7 @@ function validateReportGenerators(cfg: Record<string, unknown>, errors: string[]
 	if (!cfg.reports || typeof cfg.reports !== "object") { errors.push('"reports" must be an object.'); return; }
 	const reports = cfg.reports as Record<string, unknown>;
 	if (reports.dir !== undefined && typeof reports.dir !== "string") errors.push('"reports.dir" must be a string.');
+	if (reports.outputDir !== undefined && typeof reports.outputDir !== "string") errors.push('"reports.outputDir" must be a string.');
 	validateArrayEntries(reports, "generators", "reports", (entry, i, errs) => {
 		if (!entry || typeof entry !== "object") { errs.push(`reports.generators[${i}]: must be an object.`); return; }
 		const gen = entry as Record<string, unknown>;

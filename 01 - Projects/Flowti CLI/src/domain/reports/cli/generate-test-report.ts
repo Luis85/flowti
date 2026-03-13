@@ -52,7 +52,7 @@ function addSuitesTable(doc: Document, json: Record<string, unknown>): void {
 export function generateTestReport(projectPath: string, deps: ReportDeps, ctx?: import("../../../infrastructure/pipeline/pipeline-types.js").PipelineContext): GeneratorOutput {
 	const log = (msg: string) => ctx?.log(msg);
 	const svc = new ReportService(projectPath, deps);
-	const reportJson = svc.subdir("tests/testreport.json");
+	const reportJson = svc.dataPath("tests/testreport.json");
 
 	if (!deps.disk.existsSync(reportJson)) {
 		log("[cli-report] No testreport.json found — run tests with --reporter=json first.");

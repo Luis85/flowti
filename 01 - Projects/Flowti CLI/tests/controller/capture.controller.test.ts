@@ -75,7 +75,7 @@ describe("capture.controller", () => {
 
 			expect(createCaptureFile).toHaveBeenCalledOnce();
 			expect(createCaptureFile).toHaveBeenCalledWith(
-				expect.any(Object), "Idea", "My great idea", "My great idea", [],
+				expect.any(String), expect.any(Object), "Idea", "My great idea", "My great idea", [],
 			);
 		});
 
@@ -86,7 +86,7 @@ describe("capture.controller", () => {
 
 			expect(createCaptureFile).toHaveBeenCalledOnce();
 			expect(createCaptureFile).toHaveBeenCalledWith(
-				expect.any(Object), "Idea", "Tagged idea", "Tagged idea", ["urgent", "review"],
+				expect.any(String), expect.any(Object), "Idea", "Tagged idea", "Tagged idea", ["urgent", "review"],
 			);
 		});
 
@@ -126,7 +126,7 @@ describe("capture.controller", () => {
 			);
 
 			expect(createCaptureFile).toHaveBeenCalledOnce();
-			expect(createCaptureFile).toHaveBeenCalledWith(expect.any(Object), "Task", "Do this", "", []);
+			expect(createCaptureFile).toHaveBeenCalledWith(expect.any(String), expect.any(Object), "Task", "Do this", "", []);
 		});
 
 		it("returns error when --type is missing", () => {
@@ -171,7 +171,7 @@ describe("capture.controller", () => {
 			);
 
 			expect(searchCaptures).toHaveBeenCalledOnce();
-			expect(searchCaptures).toHaveBeenCalledWith(expect.any(Object), "test", undefined, undefined);
+			expect(searchCaptures).toHaveBeenCalledWith(expect.any(String), expect.any(Function), expect.any(Object), "test", undefined, undefined);
 		});
 
 		it("passes type and tag filters", () => {
@@ -179,7 +179,7 @@ describe("capture.controller", () => {
 				{ query: "test", type: "idea", tag: "urgent" }, [], "capture:search",
 			);
 
-			expect(searchCaptures).toHaveBeenCalledWith(expect.any(Object), "test", "Idea", "urgent");
+			expect(searchCaptures).toHaveBeenCalledWith(expect.any(String), expect.any(Function), expect.any(Object), "test", "Idea", "urgent");
 		});
 
 		it("returns error when --query is missing", () => {
@@ -215,7 +215,7 @@ describe("capture.controller", () => {
 			);
 
 			expect(importCaptureItems).toHaveBeenCalledOnce();
-			expect(importCaptureItems).toHaveBeenCalledWith(expect.any(Object), "/data/items.json");
+			expect(importCaptureItems).toHaveBeenCalledWith(expect.any(Function), expect.any(Object), "/data/items.json");
 		});
 
 		it("returns error when --file is missing", () => {

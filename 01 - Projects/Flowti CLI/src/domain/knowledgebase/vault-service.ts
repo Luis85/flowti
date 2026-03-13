@@ -5,7 +5,6 @@
  * through the Obsidian CLI (1.12+). All operations are read-only.
  */
 
-import { VAULT_ROOT } from "../../infrastructure/config.js";
 import type { CliDeps } from "../../infrastructure/deps.js";
 
 let _cliAvailable: boolean | null = null;
@@ -21,12 +20,12 @@ export function resetCliAvailableCache(): void {
 	_cliAvailable = null;
 }
 
-export function isVaultInitialized(deps: Pick<CliDeps, "disk" | "paths">): boolean {
-	return deps.disk.existsSync(deps.paths.join(VAULT_ROOT, ".obsidian"));
+export function isVaultInitialized(vaultRoot: string, deps: Pick<CliDeps, "disk" | "paths">): boolean {
+	return deps.disk.existsSync(deps.paths.join(vaultRoot, ".obsidian"));
 }
 
-export function listFolder(folderPath: string, deps: Pick<CliDeps, "disk" | "paths">): { name: string; isDir: boolean }[] {
-	const abs = deps.paths.join(VAULT_ROOT, folderPath);
+export function listFolder(folderPath: string, vaultRoot: string, deps: Pick<CliDeps, "disk" | "paths">): { name: string; isDir: boolean }[] {
+	const abs = deps.paths.join(vaultRoot, folderPath);
 	if (!deps.disk.existsSync(abs)) return [];
 	const entries = deps.disk.readdirSync(abs, { withFileTypes: true });
 	return entries
@@ -38,8 +37,8 @@ export function listFolder(folderPath: string, deps: Pick<CliDeps, "disk" | "pat
 		});
 }
 
-export function readMarkdownFile(filePath: string, deps: Pick<CliDeps, "disk" | "paths">): string | null {
-	const abs = deps.paths.join(VAULT_ROOT, filePath);
+export function readMarkdownFile(filePath: string, vaultRoot: string, deps: Pick<CliDeps, "disk" | "paths">): string | null {
+	const abs = deps.paths.join(vaultRoot, filePath);
 	if (!deps.disk.existsSync(abs)) return null;
 	return deps.disk.readFileSync(abs, "utf-8");
 }

@@ -6,7 +6,6 @@
  * data (npm scripts, mapped actions) to the detail menu.
  */
 
-import { PROJECTS_DIR } from "../../infrastructure/config.js";
 import type { ProjectConfig, ProjectContext } from "../../infrastructure/types.js";
 import { validateProjectConfig } from "./config-schema.js";
 import { validateConfigDeep } from "./config-deep-validation.js";
@@ -17,8 +16,8 @@ const FLOWTI_CONFIG = "flowti.config.json";
 
 // ── Path resolution ─────────────────────────────────────────────────
 
-export function resolveProjectPath(name: string, deps: Pick<CliDeps, "paths">): string {
-	return deps.paths.join(PROJECTS_DIR, name);
+export function resolveProjectPath(name: string, projectsDir: string, deps: Pick<CliDeps, "paths">): string {
+	return deps.paths.join(projectsDir, name);
 }
 
 // ── Package.json ────────────────────────────────────────────────────
@@ -109,8 +108,8 @@ function scaffoldProjectConfig(projectPath: string, pkg: PackageJson, deps: Pick
 
 // ── Initialize project ──────────────────────────────────────────────
 
-export function initializeProject(name: string, deps: Pick<CliDeps, "disk" | "paths">): ProjectContext {
-	const projectPath = resolveProjectPath(name, deps);
+export function initializeProject(name: string, projectsDir: string, deps: Pick<CliDeps, "disk" | "paths">): ProjectContext {
+	const projectPath = resolveProjectPath(name, projectsDir, deps);
 	const pkg = readPackageJson(projectPath, deps);
 
 	const { config: loadedConfig, warnings } = readProjectConfig(projectPath, deps);
@@ -142,5 +141,11 @@ export function initializeProject(name: string, deps: Pick<CliDeps, "disk" | "pa
 const DEFAULT_REPORTS_DIR = "reports";
 
 export function getReportsDir(projectPath: string, config: ProjectConfig, deps: Pick<CliDeps, "paths">): string {
+	return deps.paths.join(projectPath, config.reports?.dir ?? DEFAULT_REPORTS_DIR);
+}
+
+export function getReportsOutputDir(projectPath: string, config: ProjectConfig, deps: Pick<CliDeps, "paths">): string {
+	const outputDir = config.reports?.outputDir;
+	if (outputDir) return deps.paths.join(projectPath, outputDir);
 	return deps.paths.join(projectPath, config.reports?.dir ?? DEFAULT_REPORTS_DIR);
 }

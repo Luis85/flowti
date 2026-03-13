@@ -8,7 +8,7 @@
 import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler, ProjectContext } from "../infrastructure/types.js";
-import { VAULT_ROOT, PLUGIN_ROOT } from "../infrastructure/config.js";
+import { VAULT_ROOT, PLUGIN_ROOT, CLI_PROJECT } from "../infrastructure/config.js";
 import { rebuildCli } from "../domain/devtools/self-update.js";
 import { reloadPlugin } from "../domain/devtools/cli-reload.js";
 import { fixFrontmatter } from "../domain/devtools/fix-frontmatter.js";
@@ -113,7 +113,7 @@ const actions: Record<string, ControllerAction> = {
 	},
 	"dev:analysis": (req) => {
 		const { disk, shell, paths, clock, log } = req.deps;
-		runAnalysisPipeline({ disk, shell, paths, clock, log });
+		runAnalysisPipeline(CLI_PROJECT, { disk, shell, paths, clock, log });
 		const model: SuccessModel = { message: "Analysis pipeline complete." };
 		return dataResponse(model, renderSuccess);
 	},

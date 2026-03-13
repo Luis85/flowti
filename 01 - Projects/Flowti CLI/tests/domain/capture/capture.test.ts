@@ -79,6 +79,8 @@ const mockLog = log as ReturnType<typeof vi.fn>;
 const mockInput = input.ask as ReturnType<typeof vi.fn>;
 const mockPrintHeader = printHeader as ReturnType<typeof vi.fn>;
 
+const mockGetCaptureDir = (type: string) => type ? `/mock/vault/inbox/${type}` : "/mock/vault/inbox";
+
 function capDeps(fs: IFileSystem) {
 	return { disk: fs, paths, clock } as const;
 }
@@ -523,7 +525,7 @@ describe("capture:search", () => {
 		fs.dirs.add("/mock/vault/inbox/idea");
 		fs.dirs.add("/mock/vault/inbox/task");
 		setDisk(fs);
-		const results = searchCaptures(capDeps(fs), "great");
+		const results = searchCaptures("/mock/vault", mockGetCaptureDir, capDeps(fs), "great");
 		expect(results).toHaveLength(1);
 		expect(results[0].title).toBe("My great idea");
 		expect(results[0].type).toBe("Idea");
@@ -539,7 +541,7 @@ describe("capture:search", () => {
 		fs.dirs.add("/mock/vault/inbox/idea");
 		fs.dirs.add("/mock/vault/inbox/task");
 		setDisk(fs);
-		const results = searchCaptures(capDeps(fs), "one", "Idea");
+		const results = searchCaptures("/mock/vault", mockGetCaptureDir, capDeps(fs), "one", "Idea");
 		expect(results).toHaveLength(1);
 		expect(results[0].type).toBe("Idea");
 	});
@@ -552,7 +554,7 @@ describe("capture:search", () => {
 		fs.dirs.add("/mock/vault/inbox");
 		fs.dirs.add("/mock/vault/inbox/idea");
 		setDisk(fs);
-		const results = searchCaptures(capDeps(fs), "idea", undefined, "urgent");
+		const results = searchCaptures("/mock/vault", mockGetCaptureDir, capDeps(fs), "idea", undefined, "urgent");
 		expect(results).toHaveLength(1);
 		expect(results[0].title).toBe("Tagged");
 	});
@@ -564,7 +566,7 @@ describe("capture:search", () => {
 		fs.dirs.add("/mock/vault/inbox");
 		fs.dirs.add("/mock/vault/inbox/idea");
 		setDisk(fs);
-		const results = searchCaptures(capDeps(fs), "nonexistent");
+		const results = searchCaptures("/mock/vault", mockGetCaptureDir, capDeps(fs), "nonexistent");
 		expect(results).toHaveLength(0);
 	});
 

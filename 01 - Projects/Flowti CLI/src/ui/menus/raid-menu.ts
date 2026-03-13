@@ -10,11 +10,10 @@ import { input } from "../../infrastructure/input.js";
 import { log } from "../../infrastructure/logger.js";
 import type { RAIDConfig, RAIDItemType, RAIDStatus } from "../../infrastructure/types.js";
 import { listRAIDItems, createRAIDItem, updateRAIDStatus } from "../../domain/raid/raid-store.js";
-import { renderRAIDList, renderRAIDAdded, renderRAIDUpdated } from "../raid-display.js";
+import { renderRAIDAdded, renderRAIDUpdated } from "../raid-display.js";
 
 function storeDeps() { return { disk, paths, clock } as const; }
 
-const ITEM_TYPES: RAIDItemType[] = ["risk", "assumption", "issue", "dependency", "decision"];
 const STATUSES: RAIDStatus[] = ["open", "mitigated", "closed", "accepted", "resolved", "deferred"];
 
 export async function addRAIDInteractive(itemType: RAIDItemType, projectPath: string, config?: RAIDConfig): Promise<void> {

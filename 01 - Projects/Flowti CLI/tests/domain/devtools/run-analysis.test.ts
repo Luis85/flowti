@@ -79,7 +79,7 @@ describe("generateAnalysisData", () => {
 	it("generates analysis.json without coverage data when coverage-final.json is absent", () => {
 		const { disk, paths, log, written } = makeDeps();
 
-		generateAnalysisData("/project", "reports", { disk, paths, log });
+		generateAnalysisData("/project", "reports", "/project", { disk, paths, log });
 
 		const analysisKey = Object.keys(written).find((k) => k.endsWith("analysis.json"));
 		expect(analysisKey).toBeDefined();
@@ -91,7 +91,7 @@ describe("generateAnalysisData", () => {
 	it("does not write coverage-summary.json when coverage-final.json is absent", () => {
 		const { disk, paths, log, written } = makeDeps();
 
-		generateAnalysisData("/project", "reports", { disk, paths, log });
+		generateAnalysisData("/project", "reports", "/project", { disk, paths, log });
 
 		const coverageSummaryKey = Object.keys(written).find((k) => k.endsWith("coverage-summary.json"));
 		expect(coverageSummaryKey).toBeUndefined();
@@ -104,7 +104,7 @@ describe("generateAnalysisData", () => {
 			[coverageFinalPath]: JSON.stringify(coverageData),
 		});
 
-		generateAnalysisData("/project", "reports", { disk, paths, log });
+		generateAnalysisData("/project", "reports", "/project", { disk, paths, log });
 
 		const analysisKey = Object.keys(written).find((k) => k.endsWith("analysis.json"));
 		expect(analysisKey).toBeDefined();
@@ -117,7 +117,7 @@ describe("generateAnalysisData", () => {
 	it("writes complexity-functions.json and decision-points-summary.json", () => {
 		const { disk, paths, log, written } = makeDeps();
 
-		generateAnalysisData("/project", "reports", { disk, paths, log });
+		generateAnalysisData("/project", "reports", "/project", { disk, paths, log });
 
 		const functionsKey = Object.keys(written).find((k) => k.endsWith("complexity-functions.json"));
 		const dpKey = Object.keys(written).find((k) => k.endsWith("decision-points-summary.json"));
@@ -128,7 +128,7 @@ describe("generateAnalysisData", () => {
 	it("complexity-functions.json contains summary and functions array", () => {
 		const { disk, paths, log, written } = makeDeps();
 
-		generateAnalysisData("/project", "reports", { disk, paths, log });
+		generateAnalysisData("/project", "reports", "/project", { disk, paths, log });
 
 		const functionsKey = Object.keys(written).find((k) => k.endsWith("complexity-functions.json"));
 		const parsed = JSON.parse(written[functionsKey!]);
@@ -141,7 +141,7 @@ describe("generateAnalysisData", () => {
 		vi.mocked(analyzeComplexity).mockReturnValue(complexityWithDecisionPoints as any);
 		const { disk, paths, log, written } = makeDeps();
 
-		generateAnalysisData("/project", "reports", { disk, paths, log });
+		generateAnalysisData("/project", "reports", "/project", { disk, paths, log });
 
 		const dpKey = Object.keys(written).find((k) => k.endsWith("decision-points-summary.json"));
 		const parsed = JSON.parse(written[dpKey!]);
@@ -157,7 +157,7 @@ describe("generateAnalysisData", () => {
 			[coverageFinalPath]: JSON.stringify(coverageData),
 		});
 
-		generateAnalysisData("/project", "reports", { disk, paths, log });
+		generateAnalysisData("/project", "reports", "/project", { disk, paths, log });
 
 		const analysisKey = Object.keys(written).find((k) => k.endsWith("analysis.json"));
 		const analysis = JSON.parse(written[analysisKey!]);
@@ -179,7 +179,7 @@ describe("generateAnalysisData", () => {
 	it("calls analyzeComplexity with correct srcDir", () => {
 		const { disk, paths, log } = makeDeps();
 
-		generateAnalysisData("/project", "reports", { disk, paths, log });
+		generateAnalysisData("/project", "reports", "/project", { disk, paths, log });
 
 		expect(analyzeComplexity).toHaveBeenCalledWith(
 			"/project/src",
@@ -211,7 +211,7 @@ describe("generateAnalysisData", () => {
 		} as any);
 		const { disk, paths, log, written } = makeDeps();
 
-		generateAnalysisData("/project", "reports", { disk, paths, log });
+		generateAnalysisData("/project", "reports", "/project", { disk, paths, log });
 
 		const analysisKey = Object.keys(written).find((k) => k.endsWith("analysis.json"));
 		const analysis = JSON.parse(written[analysisKey!]);
@@ -242,7 +242,7 @@ describe("generateAnalysisData", () => {
 		} as any);
 		const { disk, paths, log, written } = makeDeps();
 
-		generateAnalysisData("/project", "reports", { disk, paths, log });
+		generateAnalysisData("/project", "reports", "/project", { disk, paths, log });
 
 		const analysisKey = Object.keys(written).find((k) => k.endsWith("analysis.json"));
 		const analysis = JSON.parse(written[analysisKey!]);
@@ -258,7 +258,7 @@ describe("generateAnalysisData", () => {
 			[coverageFinalPath]: JSON.stringify(coverageData),
 		});
 
-		generateAnalysisData("/project", "reports", { disk, paths, log });
+		generateAnalysisData("/project", "reports", "/project", { disk, paths, log });
 
 		const analysisKey = Object.keys(written).find((k) => k.endsWith("analysis.json"));
 		const analysis = JSON.parse(written[analysisKey!]);
@@ -275,7 +275,7 @@ describe("generateAnalysisData", () => {
 			[coverageFinalPath]: JSON.stringify(coverageData),
 		});
 
-		generateAnalysisData("/project", "reports", { disk, paths, log });
+		generateAnalysisData("/project", "reports", "/project", { disk, paths, log });
 
 		const coverageSummaryKey = Object.keys(written).find((k) => k.endsWith("coverage-summary.json"));
 		expect(coverageSummaryKey).toBeDefined();
@@ -287,7 +287,7 @@ describe("generateAnalysisData", () => {
 	it("logs a message after writing analysis.json", () => {
 		const { disk, paths, log } = makeDeps();
 
-		generateAnalysisData("/project", "reports", { disk, paths, log });
+		generateAnalysisData("/project", "reports", "/project", { disk, paths, log });
 
 		const calls = (log as ReturnType<typeof vi.fn>).mock.calls.flat().join(" ");
 		expect(calls).toContain("analysis.json");

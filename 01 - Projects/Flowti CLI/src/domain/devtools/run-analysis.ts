@@ -11,7 +11,6 @@
  *   4. merge (inline)              → analysis.json
  */
 
-import { CLI_PROJECT } from "../../infrastructure/config.js";
 import { ReportService } from "../reports/cli/report-service.js";
 import type { CliDeps } from "../../infrastructure/deps.js";
 import { analyzeComplexity } from "../reports/cli/complexity-analyzer.js";
@@ -71,7 +70,7 @@ interface CoverageSummaryOutput {
 	files: CoverageSummaryFile[];
 }
 
-function convertCoverageToJson(coverageFinalPath: string, deps: Pick<AnalysisDeps, "disk" | "paths">): CoverageSummaryOutput {
+function convertCoverageToJson(coverageFinalPath: string, cliProject: string, deps: Pick<AnalysisDeps, "disk" | "paths">): CoverageSummaryOutput {
 	const raw: Record<string, IstanbulEntry> = JSON.parse(deps.disk.readFileSync(coverageFinalPath, "utf-8"));
 	const files: CoverageSummaryFile[] = [];
 	let stTotal = 0, stCovered = 0, brTotal = 0, brCovered = 0, fnTotal = 0, fnCovered = 0, lnTotal = 0, lnCovered = 0;
@@ -107,7 +106,7 @@ function convertCoverageToJson(coverageFinalPath: string, deps: Pick<AnalysisDep
 		fnTotal += fT; fnCovered += fC;
 		lnTotal += lT; lnCovered += lC;
 
-		const rel = deps.paths.relative(CLI_PROJECT, filePath).replace(/\\/g, "/");
+		const rel = deps.paths.relative(cliProject, filePath).replace(/\\/g, "/");
 		const uncov = uncoveredLines(entry);
 		files.push({
 			file: rel,
@@ -218,7 +217,7 @@ function writeComplexityOutputs(result: AnalysisResult, outputDir: string, deps:
  * Generate analysis.json from existing coverage-final.json + AST complexity.
  * Skips vitest — expects coverage data to already exist (or runs without it).
  */
-export function generateAnalysisData(projectPath: string, reportsDir: string, deps: Pick<AnalysisDeps, "disk" | "paths" | "log">): void {
+export function generateAnalysisData(projectPath: string, reportsDir: string, cliProject: string, deps: Pick<AnalysisDeps, "disk" | "paths" | "log">): void {
 	const { disk, paths: p, log: logFn } = deps;
 	const outputDir = p.join(projectPath, reportsDir);
 	const coverageFinalPath = p.join(outputDir, "coverage-final.json");
@@ -226,7 +225,7 @@ export function generateAnalysisData(projectPath: string, reportsDir: string, de
 
 	let coverage: CoverageSummaryOutput | null = null;
 	if (disk.existsSync(coverageFinalPath)) {
-		coverage = convertCoverageToJson(coverageFinalPath, deps);
+		coverage = convertCoverageToJson(coverageFinalPath, cliProject, deps);
 		const coverageSummaryPath = p.join(outputDir, "coverage-summary.json");
 		disk.mkdirSync(outputDir, { recursive: true });
 		disk.writeFileSync(coverageSummaryPath, JSON.stringify(coverage, null, 2), "utf-8");
@@ -243,25 +242,25 @@ export function generateAnalysisData(projectPath: string, reportsDir: string, de
 
 // ── Full pipeline (with vitest) ──────────────────────────────────────
 
-export function runAnalysisPipeline(deps: AnalysisDeps): void {
+export function runAnalysisPipeline(cliProject: string, deps: AnalysisDeps): void {
 	const { disk, paths: p, log: logFn, shell: sh } = deps;
 
-	const svc = new ReportService(CLI_PROJECT, deps);
-	const VITEST_CONFIG = p.join(CLI_PROJECT, "configs", "vitest.config.ts");
+	const svc = new ReportService(cliProject, deps);
+	const VITEST_CONFIG = p.join(cliProject, "configs", "vitest.config.ts");
 	const COVERAGE_DIR = svc.coverageDir;
-	const OUTPUT_DIR = p.join(CLI_PROJECT, COVERAGE_DIR);
+	const OUTPUT_DIR = p.join(cliProject, COVERAGE_DIR);
 	const CMD_TIMEOUT = 120_000;
 
 	function run(cmd: string): void {
 		logFn(`\n> ${cmd}\n`);
-		const { exitCode } = sh.runCaptureStatus(cmd, { cwd: CLI_PROJECT, timeout: CMD_TIMEOUT });
+		const { exitCode } = sh.runCaptureStatus(cmd, { cwd: cliProject, timeout: CMD_TIMEOUT });
 		if (exitCode !== 0) {
 			logFn(`Command exited with code ${exitCode}: ${cmd}`);
 		}
 	}
 
 	const coverageFinalPath = p.join(OUTPUT_DIR, "coverage-final.json");
-	const srcDir = p.join(CLI_PROJECT, "src");
+	const srcDir = p.join(cliProject, "src");
 
 	// 1. Run vitest only if coverage-final.json doesn't exist yet
 	if (!disk.existsSync(coverageFinalPath)) {
@@ -274,7 +273,7 @@ export function runAnalysisPipeline(deps: AnalysisDeps): void {
 	let coverage: CoverageSummaryOutput | null = null;
 	if (disk.existsSync(coverageFinalPath)) {
 		logFn("Converting coverage data...");
-		coverage = convertCoverageToJson(coverageFinalPath, deps);
+		coverage = convertCoverageToJson(coverageFinalPath, cliProject, deps);
 		const coverageSummaryPath = p.join(OUTPUT_DIR, "coverage-summary.json");
 		disk.mkdirSync(OUTPUT_DIR, { recursive: true });
 		disk.writeFileSync(coverageSummaryPath, JSON.stringify(coverage, null, 2), "utf-8");
@@ -284,7 +283,7 @@ export function runAnalysisPipeline(deps: AnalysisDeps): void {
 	// 3. Run complexity analysis (single-pass TypeScript AST)
 	logFn(`\nAnalyzing complexity in ${srcDir}...`);
 	const startMs = deps.clock.ms();
-	const complexityResult = analyzeComplexity(srcDir, CLI_PROJECT, deps);
+	const complexityResult = analyzeComplexity(srcDir, cliProject, deps);
 	const durationSec = ((deps.clock.ms() - startMs) / 1000).toFixed(1);
 	logFn(`Complexity analysis: ${complexityResult.summary.totalFunctions} functions, ${complexityResult.files.length} files (${durationSec}s)`);
 	writeComplexityOutputs(complexityResult, OUTPUT_DIR, deps);

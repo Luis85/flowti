@@ -6,7 +6,7 @@
  */
 
 import type { HandlerRegistry } from "../../infrastructure/handler-registry.js";
-import type { MenuResult, ReviewConfig, PublishConfig, PublishEndpoint } from "../../infrastructure/types.js";
+import type { ReviewConfig, PublishConfig, PublishEndpoint } from "../../infrastructure/types.js";
 
 import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
@@ -16,6 +16,7 @@ import { log } from "../../infrastructure/logger.js";
 import { RESET, BOLD, DIM, GREEN, RED, CYAN, YELLOW } from "../../infrastructure/ui.js";
 import { VAULT_ROOT } from "../../infrastructure/config.js";
 import { resolveTestVaultRoot, scaffoldTestVault } from "../../infrastructure/test-vault.js";
+import { distribute } from "./pipeline-distribute.js";
 
 // ── Review pipeline state ───────────────────────────────────────────
 
@@ -97,65 +98,32 @@ function publishConfig(ctx: { project?: { config: { publish?: PublishConfig }; p
 	return { config: ctx.project.config.publish ?? {}, projectPath: ctx.project.path };
 }
 
-// ── Publish helpers (ported from publish-menu.ts) ───────────────────
+// ── Journey selection ───────────────────────────────────────────────
 
-function validateDistributeConfig(config: PublishConfig, projectPath: string): string | null {
-	if ((config.endpoints ?? []).length === 0) {
-		return `\n  ${YELLOW}No publish endpoints configured.${RESET}\n  ${DIM}Add "endpoints" to the "publish" section in flowti.config.json.${RESET}\n`;
-	}
-	if (!config.outDir) {
-		return `\n  ${YELLOW}No outDir configured.${RESET}\n  ${DIM}Add "outDir" to the "publish" section in flowti.config.json.${RESET}\n`;
-	}
-	const srcDir = paths.resolve(projectPath, config.outDir);
-	if (!disk.existsSync(srcDir)) {
-		return `\n  ${RED}Output directory not found: ${srcDir}${RESET}\n  ${DIM}Run build first.${RESET}\n`;
-	}
-	return null;
+async function selectAndRunJourney(projectPath: string, config: ReviewConfig): Promise<void> {
+	const journeysDir = config.journeysDir ?? "tests/e2e/journeys";
+	const journeys = scanJourneys(projectPath, journeysDir);
+	if (journeys.length === 0) { log(`\n  ${DIM}No journeys found.${RESET}\n`); return; }
+	const runnerCmd = config.runner;
+	if (!runnerCmd) { log(`\n  ${YELLOW}No runner configured.${RESET}\n`); return; }
+	const idx = await promptJourneyChoice(journeys);
+	if (idx < 0) return;
+	const testVault = resolveTestVault(projectPath, config);
+	if (!ensureTestVault(testVault)) return;
+	const label = journeys[idx].meta.journey ?? journeys[idx].name;
+	shell.run(`${runnerCmd} --journey=${journeys[idx].name}`, { cwd: projectPath, label });
 }
 
-function copyDir(src: string, dest: string): number {
-	let count = 0;
-	for (const entry of disk.readdirSync(src, { withFileTypes: true })) {
-		const srcPath = paths.join(src, entry.name);
-		const destPath = paths.join(dest, entry.name);
-		if (entry.isDirectory()) {
-			disk.mkdirSync(destPath, { recursive: true });
-			count += copyDir(srcPath, destPath);
-		} else {
-			disk.copyFileSync(srcPath, destPath);
-			count++;
-		}
+async function promptJourneyChoice(journeys: JourneyFile[]): Promise<number> {
+	log(`\n  ${BOLD}Select journey:${RESET}\n`);
+	for (let i = 0; i < journeys.length; i++) {
+		log(`    ${i + 1}) ${journeys[i].meta.journey ?? journeys[i].name}`);
 	}
-	return count;
-}
-
-function distribute(projectPath: string, config: PublishConfig): number {
-	const error = validateDistributeConfig(config, projectPath);
-	if (error) { log(error); return 1; }
-	const artifacts = config.artifacts ?? [];
-	const endpoints = config.endpoints ?? [];
-	const srcDir = paths.resolve(projectPath, config.outDir!);
-	for (const ep of endpoints) {
-		log(`\n  ${CYAN}▸${RESET} ${ep.name} → ${ep.path}`);
-		const targetDir = paths.resolve(ep.path);
-		if (ep.clean && disk.existsSync(targetDir)) {
-			for (const a of artifacts) { const p = paths.join(targetDir, a); if (disk.existsSync(p)) disk.unlinkSync(p); }
-		}
-		disk.mkdirSync(targetDir, { recursive: true });
-		if (artifacts.length > 0) {
-			for (const a of artifacts) {
-				const s = paths.join(srcDir, a); const d = paths.join(targetDir, a);
-				if (!disk.existsSync(s)) { log(`    ${YELLOW}skip${RESET}  ${a} (not found)`); continue; }
-				disk.mkdirSync(paths.dirname(d), { recursive: true });
-				disk.copyFileSync(s, d);
-				log(`    ${GREEN}copy${RESET}  ${a}`);
-			}
-		} else {
-			log(`    ${GREEN}copy${RESET}  ${copyDir(srcDir, targetDir)} files`);
-		}
-	}
-	log(`\n  ${GREEN}✓${RESET} Distributed to ${endpoints.length} endpoint(s).\n`);
-	return 0;
+	log();
+	const choice = await input.ask("Journey number");
+	const idx = parseInt(choice, 10) - 1;
+	if (isNaN(idx) || idx < 0 || idx >= journeys.length) return -1;
+	return idx;
 }
 
 // ── Registration ────────────────────────────────────────────────────
@@ -217,22 +185,7 @@ export function registerPipelineHandlers(registry: HandlerRegistry): void {
 		const r = reviewConfig(ctx);
 		if (!r) return undefined;
 		if (!review.testPassed) { log(`\n  ${YELLOW}Build and test first.${RESET}\n`); await input.waitForEnter(); return undefined; }
-		const journeysDir = r.config.journeysDir ?? "tests/e2e/journeys";
-		const journeys = scanJourneys(r.projectPath, journeysDir);
-		if (journeys.length === 0) { log(`\n  ${DIM}No journeys found.${RESET}\n`); await input.waitForEnter(); return undefined; }
-		const runnerCmd = r.config.runner;
-		if (!runnerCmd) { log(`\n  ${YELLOW}No runner configured.${RESET}\n`); await input.waitForEnter(); return undefined; }
-		const testVault = resolveTestVault(r.projectPath, r.config);
-		log(`\n  ${BOLD}Select journey:${RESET}\n`);
-		for (let i = 0; i < journeys.length; i++) {
-			log(`    ${i + 1}) ${journeys[i].meta.journey ?? journeys[i].name}`);
-		}
-		log();
-		const choice = await input.ask("Journey number");
-		const idx = parseInt(choice, 10) - 1;
-		if (isNaN(idx) || idx < 0 || idx >= journeys.length) return undefined;
-		if (!ensureTestVault(testVault)) { await input.waitForEnter(); return undefined; }
-		shell.run(`${runnerCmd} --journey=${journeys[idx].name}`, { cwd: r.projectPath, label: journeys[idx].meta.journey ?? journeys[idx].name });
+		await selectAndRunJourney(r.projectPath, r.config);
 		await input.waitForEnter();
 		return undefined;
 	});

@@ -126,15 +126,14 @@ function extractActionsFromItems(view: StaticView): ComponentAction[] {
 	const actions: ComponentAction[] = [];
 
 	for (const entry of view.items) {
-		if ("separator" in entry) continue;
-		const item = entry as SitemapItem;
+		if (entry.type !== "item") continue;
 
-		if (item.handler) {
-			actions.push({ name: item.handler, description: item.label });
-		} else if (item.command) {
-			actions.push({ name: item.command, description: item.label });
-		} else if (item.signal) {
-			actions.push({ name: `signal:${item.signal}`, description: item.label });
+		if (entry.handler) {
+			actions.push({ name: entry.handler, description: entry.label });
+		} else if (entry.command) {
+			actions.push({ name: entry.command, description: entry.label });
+		} else if (entry.signal) {
+			actions.push({ name: `signal:${entry.signal}`, description: entry.label });
 		}
 		// navigate items become children, not actions
 	}
@@ -168,14 +167,13 @@ function extractChildrenFromItems(view: StaticView): ComponentChild[] {
 	const children: ComponentChild[] = [];
 
 	for (const entry of view.items) {
-		if ("separator" in entry) continue;
-		const item = entry as SitemapItem;
+		if (entry.type !== "item") continue;
 
-		if (item.navigate) {
+		if (entry.navigate) {
 			children.push({
-				name: item.navigate,
+				name: entry.navigate,
 				slot: "navigation",
-				optional: isOptionalNavigation(item),
+				optional: isOptionalNavigation(entry),
 			});
 		}
 	}

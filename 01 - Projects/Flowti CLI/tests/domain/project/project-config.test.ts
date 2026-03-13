@@ -14,6 +14,7 @@ import {
 	readProjectConfig,
 	initializeProject,
 	getReportsDir,
+	getReportsOutputDir,
 } from "../../../src/domain/project/project-config.js";
 
 const mockPaths: IPaths = {
@@ -37,7 +38,7 @@ function n(...parts: string[]): string {
 
 describe("resolveProjectPath", () => {
 	it("resolves to projects dir", () => {
-		expect(resolveProjectPath("my-app", { paths: mockPaths })).toBe(n("/mock/projects", "my-app"));
+		expect(resolveProjectPath("my-app", "/mock/projects", { paths: mockPaths })).toBe(n("/mock/projects", "my-app"));
 	});
 });
 
@@ -112,7 +113,7 @@ describe("initializeProject", () => {
 			[n("/mock/projects", "test", "configs", "flowti.config.json")]: JSON.stringify(config),
 		});
 
-		const ctx = initializeProject("test", deps);
+		const ctx = initializeProject("test", "/mock/projects", deps);
 		expect(ctx.config).toEqual(config);
 		expect(ctx.pkg).toEqual(pkg);
 		expect(ctx.scripts).toEqual({ build: "tsc" });
@@ -124,7 +125,7 @@ describe("initializeProject", () => {
 			[n("/mock/projects", "scaffold-test", "package.json")]: JSON.stringify(pkg),
 		});
 
-		const ctx = initializeProject("scaffold-test", deps);
+		const ctx = initializeProject("scaffold-test", "/mock/projects", deps);
 		expect(ctx.config.name).toBe("scaffold-test");
 		expect(ctx.config.build?.commands?.fast).toBe("npm run build");
 		expect(ctx.config.test?.commands?.unit).toBe("npm test");
@@ -133,7 +134,7 @@ describe("initializeProject", () => {
 	});
 
 	it("returns minimal config when neither package.json nor config exists", () => {
-		const ctx = initializeProject("empty", makeDeps());
+		const ctx = initializeProject("empty", "/mock/projects", makeDeps());
 		expect(ctx.config).toEqual({ name: "empty" });
 		expect(ctx.pkg).toBeNull();
 		expect(ctx.scripts).toEqual({});
@@ -149,6 +150,23 @@ describe("getReportsDir", () => {
 
 	it("defaults to reports", () => {
 		const result = getReportsDir("/project", { name: "test" }, { paths: mockPaths });
+		expect(result).toBe(n("/project", "reports"));
+	});
+});
+
+describe("getReportsOutputDir", () => {
+	it("uses reports.outputDir when configured", () => {
+		const result = getReportsOutputDir("/project", { name: "test", reports: { dir: "reports", outputDir: "../../03 - Resources/Reports" } }, { paths: mockPaths });
+		expect(result).toBe(n("/project", "../../03 - Resources/Reports"));
+	});
+
+	it("falls back to reports.dir when no outputDir", () => {
+		const result = getReportsOutputDir("/project", { name: "test", reports: { dir: "custom/reports" } }, { paths: mockPaths });
+		expect(result).toBe(n("/project", "custom/reports"));
+	});
+
+	it("defaults to reports when no config", () => {
+		const result = getReportsOutputDir("/project", { name: "test" }, { paths: mockPaths });
 		expect(result).toBe(n("/project", "reports"));
 	});
 });

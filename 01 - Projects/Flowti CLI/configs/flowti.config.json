@@ -38,6 +38,7 @@
 	},
 	"reports": {
 		"dir": "reports",
+		"outputDir": "../../03 - Resources/Reports",
 		"generators": [
 			{
 				"id": "test",
@@ -107,7 +108,7 @@
 				"command": "npm run typedoc"
 			}
 		],
-		"referenceDir": "docs/reference",
+		"referenceDir": "../../03 - Resources/Reference",
 		"references": [
 			{
 				"id": "cli-reference",

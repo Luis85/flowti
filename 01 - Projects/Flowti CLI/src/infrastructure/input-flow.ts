@@ -71,26 +71,28 @@ export async function runInputFlow(
 
 async function collectField(field: InputField, inputAdapter: IInput): Promise<string | boolean | null> {
 	switch (field.type) {
-		case "text": {
-			const answer = await inputAdapter.ask(field.label, field.default ?? "");
-			if (field.required && !answer) return null;
-			return answer;
-		}
-		case "boolean": {
-			return inputAdapter.askYesNo(field.label, !field.default);
-		}
-		case "select": {
-			const optionLines = field.options.map((o) => `    ${o.key}) ${o.label}`).join("\n");
-			const defaultKey = field.default ?? field.options[0]?.key ?? "";
-			const keysLabel = field.options.map((o) => o.key).join("/");
-			const answer = await inputAdapter.ask(
-				`${field.label} (${keysLabel})\n${optionLines}\n  Choice`,
-				defaultKey,
-			);
-			const selected = field.options.find((o) => o.key === answer);
-			return selected?.value ?? field.options[0]?.value ?? "";
-		}
+		case "text": return collectText(field, inputAdapter);
+		case "boolean": return inputAdapter.askYesNo(field.label, !field.default);
+		case "select": return collectSelect(field, inputAdapter);
 	}
+}
+
+async function collectText(field: TextField, inputAdapter: IInput): Promise<string | null> {
+	const answer = await inputAdapter.ask(field.label, field.default ?? "");
+	if (field.required && !answer) return null;
+	return answer;
+}
+
+async function collectSelect(field: SelectField, inputAdapter: IInput): Promise<string> {
+	const optionLines = field.options.map((o) => `    ${o.key}) ${o.label}`).join("\n");
+	const defaultKey = field.default ?? field.options[0]?.key ?? "";
+	const keysLabel = field.options.map((o) => o.key).join("/");
+	const answer = await inputAdapter.ask(
+		`${field.label} (${keysLabel})\n${optionLines}\n  Choice`,
+		defaultKey,
+	);
+	const selected = field.options.find((o) => o.key === answer);
+	return selected?.value ?? field.options[0]?.value ?? "";
 }
 
 /**

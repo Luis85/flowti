@@ -82,7 +82,7 @@ function buildFrontmatter(data: TypeDocNode, counts: Record<number, number>, clo
 export function generateCodebaseReport(projectPath: string, deps: ReportDeps, ctx?: import("../../../infrastructure/pipeline/pipeline-types.js").PipelineContext): GeneratorOutput {
 	const log = (msg: string) => ctx?.log(msg);
 	const svc = new ReportService(projectPath, deps);
-	const codebaseJson = svc.subdir("codebase/codebase.json");
+	const codebaseJson = svc.dataPath("codebase/codebase.json");
 
 	if (!deps.disk.existsSync(codebaseJson)) {
 		log("[cli-report] No codebase.json found — run `npm run typedoc` first.");

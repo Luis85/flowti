@@ -117,14 +117,15 @@ function addLowCoverageSection(doc: Document, srcFiles: AnalysisFile[], projectP
 	).addBlank();
 }
 
-export function generateComplexityReport(projectPath: string, deps: ReportDeps, ctx?: import("../../../infrastructure/pipeline/pipeline-types.js").PipelineContext): GeneratorOutput {
+export function generateComplexityReport(projectPath: string, deps: ReportDeps, ctx?: import("../../../infrastructure/pipeline/pipeline-types.js").PipelineContext, options?: { cliProject?: string }): GeneratorOutput {
 	const log = (msg: string) => ctx?.log(msg);
 	const svc = new ReportService(projectPath, deps);
-	const analysisJson = svc.subdir("coverage/analysis.json");
+	const analysisJson = svc.dataPath("coverage/analysis.json");
+	const cliProject = options?.cliProject ?? projectPath;
 
 	if (!deps.disk.existsSync(analysisJson)) {
 		log("[cli-report] No analysis.json found — generating from source...");
-		generateAnalysisData(projectPath, svc.coverageDir, deps);
+		generateAnalysisData(projectPath, svc.coverageDir, cliProject, deps);
 	}
 
 	if (!deps.disk.existsSync(analysisJson)) {

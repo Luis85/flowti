@@ -261,6 +261,7 @@ describe("devtools.controller", () => {
 			commands["dev:analysis"]({}, [], "dev:analysis", mockProject);
 
 			expect(runAnalysisPipeline).toHaveBeenCalledWith(
+				"/vault/cli",
 				expect.objectContaining({ disk: expect.anything(), shell: expect.anything(), paths: expect.anything(), clock: expect.anything(), log: expect.anything() }),
 			);
 		});

@@ -15,10 +15,10 @@ describe("viewToComponent", () => {
 			status: "active",
 			description: "The entry point.",
 			items: [
-				{ key: "1", label: "Open Project", handler: "project:open" },
-				{ key: "2", label: "Sub Page", navigate: "sub" },
-				{ separator: true },
-				{ key: "q", label: "Quit", signal: "quit" },
+				{ type: "item", key: "1", label: "Open Project", handler: "project:open" },
+				{ type: "item", key: "2", label: "Sub Page", navigate: "sub" },
+				{ type: "separator" },
+				{ type: "item", key: "q", label: "Quit", signal: "quit" },
 			],
 		};
 
@@ -36,10 +36,10 @@ describe("viewToComponent", () => {
 		const view: StaticView = {
 			title: "Test",
 			items: [
-				{ key: "1", label: "Do Action", handler: "some:action" },
-				{ key: "2", label: "Run Command", command: "build" },
-				{ key: "3", label: "Go Back", signal: "back" },
-				{ key: "4", label: "Navigate Away", navigate: "other" },
+				{ type: "item", key: "1", label: "Do Action", handler: "some:action" },
+				{ type: "item", key: "2", label: "Run Command", command: "build" },
+				{ type: "item", key: "3", label: "Go Back", signal: "back" },
+				{ type: "item", key: "4", label: "Navigate Away", navigate: "other" },
 			],
 		};
 
@@ -55,9 +55,9 @@ describe("viewToComponent", () => {
 		const view: StaticView = {
 			title: "Hub",
 			items: [
-				{ key: "1", label: "Page A", navigate: "page-a" },
-				{ key: "2", label: "Page B", navigate: "page-b", disabled: "some:condition" },
-				{ key: "3", label: "Action", handler: "do:thing" },
+				{ type: "item", key: "1", label: "Page A", navigate: "page-a" },
+				{ type: "item", key: "2", label: "Page B", navigate: "page-b", disabled: "some:condition" },
+				{ type: "item", key: "3", label: "Action", handler: "do:thing" },
 			],
 		};
 
@@ -178,10 +178,10 @@ describe("viewToComponent", () => {
 		const view: StaticView = {
 			title: "With Separators",
 			items: [
-				{ key: "1", label: "Action", handler: "do:it" },
-				{ separator: true },
-				{ key: "2", label: "Page", navigate: "target" },
-				{ separator: true },
+				{ type: "item", key: "1", label: "Action", handler: "do:it" },
+				{ type: "separator" },
+				{ type: "item", key: "2", label: "Page", navigate: "target" },
+				{ type: "separator" },
 			],
 		};
 
@@ -200,7 +200,7 @@ describe("sitemapToComponents", () => {
 				start: {
 					title: "Start",
 					icon: "home",
-					items: [{ key: "q", label: "Quit", signal: "quit" }],
+					items: [{ type: "item", key: "q", label: "Quit", signal: "quit" }],
 				},
 				detail: {
 					type: "dynamic",
@@ -258,7 +258,7 @@ describe("sitemapToComponents", () => {
 				hub: {
 					title: "Hub",
 					items: [
-						{ key: "1", label: "Go", navigate: "child-a" },
+						{ type: "item", key: "1", label: "Go", navigate: "child-a" },
 					],
 				},
 				"child-a": {

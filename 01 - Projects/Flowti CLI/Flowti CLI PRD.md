@@ -176,10 +176,10 @@ The CLI follows a **DDD + MVC layered architecture** with strict dependency rule
 
 ```
 Entry Point (main.ts)
-  → Controller Layer (22 controllers)
-    → UI / View Layer (74 display renderers + menus)
-      → Domain Layer (25 modules — pure, no I/O, no presentation)
-        → Infrastructure Layer (33 modules + pipeline + event-bus)
+  → Controller Layer (23 controllers)
+    → UI / View Layer (71 display renderers + menus + handler registry)
+      → Domain Layer (26 modules — pure, no I/O, no presentation)
+        → Infrastructure Layer (41 modules + pipeline + event-bus + sitemap-router)
 Scripts Layer (4 standalone entry points)
 ```
 
@@ -187,11 +187,11 @@ Scripts Layer (4 standalone entry points)
 
 | Layer | Purpose |
 |-------|---------|
-| **Entry Point** | Two-loop menu system + command dispatch via `CommandRegistry` |
+| **Entry Point** | Sitemap-driven router (`SitemapRouter` + `configs/sitemap.json`) + command dispatch via `CommandRegistry` |
 | **Controller** | Thin handlers: parse flags, call domain services, return `CliResponse<T>` with typed data + renderer |
 | **UI / View** | Display renderers: take typed data models, produce ANSI-formatted console output |
-| **Domain** | Pure business logic — 25 modules covering scaffold, make, build, publish, review, reports, events, capture, info, onboarding, knowledgebase, devtools, e2e, plugins, ai-tools, health, lifecycle, resources, timelog, deliverables, raid, requirements, capa, templates |
-| **Infrastructure** | I/O abstractions — filesystem, shell, input, state, config, document builder, frontmatter, errors, output, command-registry, menu, ui, clock, proc, paths, logger, args, pipeline, event-bus, deps, request-response, progress |
+| **Domain** | Pure business logic — 26 modules covering scaffold, make, build, publish, review, reports, events, capture, info, onboarding, knowledgebase, devtools, e2e, plugins, ai-tools, health, lifecycle, resources, timelog, deliverables, raid, requirements, capa, templates, sitemap |
+| **Infrastructure** | I/O abstractions — filesystem, shell, input, state, config, document builder, frontmatter, errors, output, command-registry, menu, ui, clock, proc, paths, logger, args, pipeline, event-bus, deps, request-response, progress, sitemap-router, sitemap-loader, sitemap-watcher, sitemap-conditions, handler-registry, context-provider |
 
 All I/O is behind typed abstractions (`disk`, `shell`, `paths`, `proc`, `log`). No domain code imports `node:fs`, `node:child_process`, or `node:path` directly.
 
@@ -283,13 +283,13 @@ Flowti CLI occupies a unique niche: **definition-driven project management CLI**
 
 | Metric | Value |
 |--------|-------|
-| Source files | 352 |
-| Test files | 274 (267 suites) |
-| Tests passing | 4,505 |
-| Domain modules | 25 |
-| Controllers | 22 |
-| UI view files | 74 |
-| Infrastructure modules | 33 |
+| Source files | 372 |
+| Test files | 279 (279 suites) |
+| Tests passing | 4,599 |
+| Domain modules | 26 |
+| Controllers | 23 |
+| UI view files | 71 |
+| Infrastructure modules | 41 |
 | Runtime dependencies | 0 |
 | Scaffold definitions | 4 (project, bare/library, cli, obsidian-plugin) |
 | Component definitions | 8 (4 C4 + 4 UI building blocks) |

@@ -170,7 +170,7 @@ export function displayDependencyGraph(graph: DependencyGraph): void {
 // ── Command handler ────────────────────────────────────────────────
 
 export function handleProjectDeps(): void {
-	const graph = buildDependencyGraph({ disk, paths });
+	const graph = buildDependencyGraph(PROJECTS_DIR, { disk, paths });
 	displayDependencyGraph(graph);
 }
 
@@ -223,7 +223,7 @@ function displayProjectFocus(graph: DependencyGraph, projectName: string): void 
 
 export const commands = {
 	"project:deps": (flags: Record<string, string | boolean>) => {
-		const graph = buildDependencyGraph({ disk, paths });
+		const graph = buildDependencyGraph(PROJECTS_DIR, { disk, paths });
 		const format = resolveFormat(flags);
 		const focusProject = typeof flags.project === "string" ? flags.project : null;
 		const showReverse = !!flags.reverse;

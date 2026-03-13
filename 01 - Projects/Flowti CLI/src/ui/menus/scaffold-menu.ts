@@ -9,7 +9,7 @@ import { log } from "../../infrastructure/logger.js";
 import { RESET, DIM, GREEN, RED, CYAN, BOLD, printHeader } from "../../infrastructure/ui.js";
 import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
-import { PROJECTS_DIR } from "../../infrastructure/config.js";
+import { PROJECTS_DIR, cliConfig } from "../../infrastructure/config.js";
 import { input } from "../../infrastructure/input.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import type { MenuEntry, MenuResult } from "../../infrastructure/types.js";
@@ -50,7 +50,7 @@ async function runScaffoldInteractive(def: ScaffoldDefinition): Promise<void> {
 
 	const extraVars: Record<string, string> = {};
 	for (const prompt of def.prompts) {
-		const defaultVal = resolvePromptDefault(prompt.default);
+		const defaultVal = resolvePromptDefault(prompt.default, cliConfig.defaultAuthor);
 		const answer = await input.ask(prompt.label, defaultVal);
 		if (prompt.required && !answer) {
 			log(`\n  ${RED}Required field "${prompt.variable}" is empty.${RESET}\n`);
@@ -59,7 +59,7 @@ async function runScaffoldInteractive(def: ScaffoldDefinition): Promise<void> {
 		extraVars[prompt.variable] = answer;
 	}
 
-	const vars = deriveVariables(name, extraVars.author);
+	const vars = deriveVariables(name, extraVars.author, undefined, cliConfig.defaultAuthor);
 	const outputDir = paths.join(PROJECTS_DIR, vars.name);
 
 	if (disk.existsSync(outputDir)) {
@@ -69,7 +69,7 @@ async function runScaffoldInteractive(def: ScaffoldDefinition): Promise<void> {
 
 	log(`\n  ${CYAN}Scaffolding${RESET} ${BOLD}${name}${RESET} → ${DIM}${outputDir}${RESET}\n`);
 
-	const result = scaffold(scaffoldDeps(), { definitionId: def.id, name, author: extraVars.author, outputDir });
+	const result = scaffold(PROJECTS_DIR, scaffoldDeps(), { definitionId: def.id, name, author: extraVars.author, outputDir }, cliConfig.defaultAuthor);
 
 	if ("error" in result) {
 		log(`\n  ${RED}Scaffold failed:${RESET} ${result.error}\n`);

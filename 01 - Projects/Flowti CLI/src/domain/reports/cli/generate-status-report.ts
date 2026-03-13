@@ -126,13 +126,14 @@ function renderBuildFreshness(doc: Document, projectPath: string, deps: ReportDe
 	doc.addSeparator().addBlank();
 }
 
-function buildStatusReport(sections: ReportSection[], projectName: string, projectPath: string, deps: ReportDeps): string {
+function buildStatusReport(sections: ReportSection[], projectName: string, projectPath: string, deps: ReportDeps, svc: ReportService): string {
 	const now = deps.clock.now();
 	const doc = Document.create("Project Status Report")
 		.setFrontmatter("type", "ProjectStatusReport")
 		.setFrontmatter("project", projectName)
 		.setFrontmatter("date", now.toISOString());
 
+	svc.stampProjectLink(doc);
 	promoteSectionFrontmatter(doc, sections, deps.disk);
 	doc.addBlank().heading(1, "Project Status Report").addBlank()
 		.text(`Generated: ${now.toISOString().replace("T", " ").substring(0, 19)}`).addBlank();
@@ -153,7 +154,7 @@ export function generateProjectStatusReport(projectPath: string, deps: ReportDep
 	log("Generating Project Status Report...");
 	const failures = ensureReportsExist(sections, projectPath, deps, log);
 
-	const content = buildStatusReport(sections, projectName, projectPath, deps);
+	const content = buildStatusReport(sections, projectName, projectPath, deps, svc);
 	deps.disk.mkdirSync(svc.reportsDir, { recursive: true });
 	deps.disk.writeFileSync(outputPath, content, "utf-8");
 

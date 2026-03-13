@@ -19,6 +19,8 @@ export interface ScaffoldVariables {
 	camel: string;
 	/** Author name */
 	author: string;
+	/** ISO date string (YYYY-MM-DD) for generated content */
+	date: string;
 }
 
 // ── Prompts ──────────────────────────────────────────────────────────

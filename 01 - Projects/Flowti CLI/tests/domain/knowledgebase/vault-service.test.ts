@@ -59,12 +59,12 @@ describe("isCliAvailable", () => {
 describe("isVaultInitialized", () => {
 	it("returns true when .obsidian folder exists", () => {
 		const disk = createMockFs({ "/vault/.obsidian/placeholder": "" });
-		expect(isVaultInitialized({ disk, paths: mockPaths })).toBe(true);
+		expect(isVaultInitialized("/vault", { disk, paths: mockPaths })).toBe(true);
 	});
 
 	it("returns false when .obsidian folder is missing", () => {
 		const disk = createMockFs();
-		expect(isVaultInitialized({ disk, paths: mockPaths })).toBe(false);
+		expect(isVaultInitialized("/vault", { disk, paths: mockPaths })).toBe(false);
 	});
 });
 
@@ -73,7 +73,7 @@ describe("isVaultInitialized", () => {
 describe("listFolder", () => {
 	it("returns empty array for non-existent folder", () => {
 		const disk = createMockFs();
-		expect(listFolder("missing/path", { disk, paths: mockPaths })).toEqual([]);
+		expect(listFolder("missing/path", "/vault", { disk, paths: mockPaths })).toEqual([]);
 	});
 
 	it("returns sorted entries with directories first then files", () => {
@@ -94,7 +94,7 @@ describe("listFolder", () => {
 			return [];
 		}) as typeof disk.readdirSync;
 
-		const result = listFolder("docs", { disk, paths: mockPaths });
+		const result = listFolder("docs", "/vault", { disk, paths: mockPaths });
 		expect(result).toEqual([
 			{ name: "alpha", isDir: true },
 			{ name: "delta", isDir: true },
@@ -116,7 +116,7 @@ describe("listFolder", () => {
 			return [];
 		}) as typeof disk.readdirSync;
 
-		const result = listFolder("root", { disk, paths: mockPaths });
+		const result = listFolder("root", "/vault", { disk, paths: mockPaths });
 		expect(result).toEqual([{ name: "visible.md", isDir: false }]);
 	});
 });
@@ -126,12 +126,12 @@ describe("listFolder", () => {
 describe("readMarkdownFile", () => {
 	it("returns content when file exists", () => {
 		const disk = createMockFs({ "/vault/notes/hello.md": "# Title\nBody content" });
-		expect(readMarkdownFile("notes/hello.md", { disk, paths: mockPaths })).toBe("# Title\nBody content");
+		expect(readMarkdownFile("notes/hello.md", "/vault", { disk, paths: mockPaths })).toBe("# Title\nBody content");
 	});
 
 	it("returns null when file does not exist", () => {
 		const disk = createMockFs();
-		expect(readMarkdownFile("missing.md", { disk, paths: mockPaths })).toBeNull();
+		expect(readMarkdownFile("missing.md", "/vault", { disk, paths: mockPaths })).toBeNull();
 	});
 });
 

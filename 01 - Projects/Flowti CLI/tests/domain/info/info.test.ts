@@ -51,6 +51,7 @@ vi.mock("../../../src/infrastructure/paths.js", () => ({
 
 vi.mock("../../../src/infrastructure/config.js", () => ({
 	ROOT: "/project",
+	PROJECTS_DIR: "/projects",
 }));
 
 vi.mock("../../../src/infrastructure/state.js", () => ({

@@ -21,13 +21,14 @@ vi.mock("../../../src/infrastructure/paths.js", () => ({
 }));
 vi.mock("../../../src/infrastructure/config.js", () => ({
 	PROJECTS_DIR: "/vault/projects",
+	cliConfig: { defaultAuthor: "Default Author" },
 }));
 vi.mock("../../../src/domain/scaffold/scaffold-service.js", () => ({
 	scaffold: vi.fn(),
 	listDefinitions: vi.fn(() => []),
 	resolvePromptDefault: vi.fn((d: string) => d ?? ""),
-	deriveVariables: vi.fn((name: string, author?: string) => ({
-		name, id: name.toLowerCase(), pascal: name, camel: name, author: author ?? "",
+	deriveVariables: vi.fn((name: string, author?: string, _extra?: unknown, _defaultAuthor?: string) => ({
+		name, id: name.toLowerCase(), pascal: name, camel: name, author: author ?? _defaultAuthor ?? "",
 	})),
 }));
 vi.mock("../../../src/domain/scaffold/scaffold-plan.js", () => ({
@@ -131,7 +132,7 @@ describe("scaffoldMenu", () => {
 		await (items[0] as any).action();
 
 		expect(mockScaffold).toHaveBeenCalledTimes(1);
-		expect(mockScaffold).toHaveBeenCalledWith(expect.any(Object), expect.any(Object));
+		expect(mockScaffold).toHaveBeenCalledWith("/vault/projects", expect.any(Object), expect.any(Object), "Default Author");
 		const output = mockLog.mock.calls.map((c) => c[0] ?? "").join("\n");
 		expect(output).toContain("Created 5 files");
 		expect(output).toContain("cd my-app");

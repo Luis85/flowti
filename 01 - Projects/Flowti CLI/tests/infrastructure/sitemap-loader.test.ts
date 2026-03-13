@@ -11,9 +11,9 @@ function validSitemap(views: Record<string, unknown> = {}): unknown {
 			start: {
 				title: "Start",
 				items: [
-					{ key: "1", label: "Go", navigate: "start" },
-					{ separator: true },
-					{ key: "q", label: "Quit", signal: "quit" },
+					{ type: "item", key: "1", label: "Go", navigate: "start" },
+					{ type: "separator" },
+					{ type: "item", key: "q", label: "Quit", signal: "quit" },
 				],
 			},
 			...views,
@@ -52,7 +52,7 @@ describe("validateSitemap", () => {
 	});
 
 	it("rejects wrong version", () => {
-		const result = validateSitemap({ version: 2, views: { s: { title: "S", items: [{ key: "q", label: "Q", signal: "quit" }] } } });
+		const result = validateSitemap({ version: 2, views: { s: { title: "S", items: [{ type: "item", key: "q", label: "Q", signal: "quit" }] } } });
 		expect(result.ok).toBe(false);
 		expect(result.errors[0]).toContain("version");
 	});
@@ -74,7 +74,7 @@ describe("validateSitemap", () => {
 	it("rejects view with missing title", () => {
 		const result = validateSitemap({
 			version: 1,
-			views: { bad: { items: [{ key: "q", label: "Q", signal: "quit" }] } },
+			views: { bad: { items: [{ type: "item", key: "q", label: "Q", signal: "quit" }] } },
 		});
 		expect(result.ok).toBe(false);
 		expect(result.errors.some((e) => e.includes("title"))).toBe(true);
@@ -109,7 +109,7 @@ describe("validateSitemap", () => {
 	it("rejects unknown context value", () => {
 		const result = validateSitemap({
 			version: 1,
-			views: { v: { title: "V", context: ["user"], items: [{ key: "q", label: "Q", signal: "quit" }] } },
+			views: { v: { title: "V", context: ["user"], items: [{ type: "item", key: "q", label: "Q", signal: "quit" }] } },
 		});
 		expect(result.ok).toBe(false);
 		expect(result.errors.some((e) => e.includes("unknown context"))).toBe(true);
@@ -120,7 +120,7 @@ describe("validateSitemap", () => {
 	it("rejects item with no action", () => {
 		const result = validateSitemap({
 			version: 1,
-			views: { v: { title: "V", items: [{ key: "1", label: "No action" }] } },
+			views: { v: { title: "V", items: [{ type: "item", key: "1", label: "No action" }] } },
 		});
 		expect(result.ok).toBe(false);
 		expect(result.errors.some((e) => e.includes("exactly one action"))).toBe(true);
@@ -129,7 +129,7 @@ describe("validateSitemap", () => {
 	it("rejects item with multiple actions", () => {
 		const result = validateSitemap({
 			version: 1,
-			views: { v: { title: "V", items: [{ key: "1", label: "Multi", navigate: "v", command: "build" }] } },
+			views: { v: { title: "V", items: [{ type: "item", key: "1", label: "Multi", navigate: "v", command: "build" }] } },
 		});
 		expect(result.ok).toBe(false);
 		expect(result.errors.some((e) => e.includes("multiple actions"))).toBe(true);
@@ -138,7 +138,7 @@ describe("validateSitemap", () => {
 	it("rejects navigate to unknown view", () => {
 		const result = validateSitemap({
 			version: 1,
-			views: { v: { title: "V", items: [{ key: "1", label: "Go", navigate: "nowhere" }] } },
+			views: { v: { title: "V", items: [{ type: "item", key: "1", label: "Go", navigate: "nowhere" }] } },
 		});
 		expect(result.ok).toBe(false);
 		expect(result.errors.some((e) => e.includes("unknown view"))).toBe(true);
@@ -147,7 +147,7 @@ describe("validateSitemap", () => {
 	it("rejects invalid signal value", () => {
 		const result = validateSitemap({
 			version: 1,
-			views: { v: { title: "V", items: [{ key: "1", label: "Bad", signal: "nope" }] } },
+			views: { v: { title: "V", items: [{ type: "item", key: "1", label: "Bad", signal: "nope" }] } },
 		});
 		expect(result.ok).toBe(false);
 		expect(result.errors.some((e) => e.includes('"signal" must be'))).toBe(true);
@@ -160,8 +160,8 @@ describe("validateSitemap", () => {
 				v: {
 					title: "V",
 					items: [
-						{ key: "1", label: "A", signal: "quit" },
-						{ key: "1", label: "B", signal: "back" },
+						{ type: "item", key: "1", label: "A", signal: "quit" },
+						{ type: "item", key: "1", label: "B", signal: "back" },
 					],
 				},
 			},
@@ -177,11 +177,11 @@ describe("validateSitemap", () => {
 				v: {
 					title: "V",
 					items: [
-						{ key: "1", label: "Nav", navigate: "v" },
-						{ key: "2", label: "Cmd", command: "build" },
-						{ key: "3", label: "Handler", handler: "my:action" },
-						{ key: "4", label: "Signal", signal: "back" },
-						{ separator: true },
+						{ type: "item", key: "1", label: "Nav", navigate: "v" },
+						{ type: "item", key: "2", label: "Cmd", command: "build" },
+						{ type: "item", key: "3", label: "Handler", handler: "my:action" },
+						{ type: "item", key: "4", label: "Signal", signal: "back" },
+						{ type: "separator" },
 					],
 				},
 			},
@@ -196,9 +196,9 @@ describe("validateSitemap", () => {
 				v: {
 					title: "V",
 					items: [
-						{ key: "1", label: "A", signal: "quit", disabled: true },
-						{ key: "2", label: "B", signal: "back", disabled: "my:condition" },
-						{ key: "3", label: "C", command: "x", disabled: { unless: "tools.esbuild" } },
+						{ type: "item", key: "1", label: "A", signal: "quit", disabled: true },
+						{ type: "item", key: "2", label: "B", signal: "back", disabled: "my:condition" },
+						{ type: "item", key: "3", label: "C", command: "x", disabled: { unless: "tools.esbuild" } },
 					],
 				},
 			},
@@ -217,10 +217,10 @@ describe("validateSitemap", () => {
 					title: "Components",
 					handler: "components",
 					items: [
-						{ slot: "component-list" },
-						{ separator: true },
-						{ key: "c", label: "Add", handler: "comp:add" },
-						{ key: "b", label: "Back", signal: "back" },
+						{ type: "slot", slot: "component-list" },
+						{ type: "separator" },
+						{ type: "item", key: "c", label: "Add", handler: "comp:add" },
+						{ type: "item", key: "b", label: "Back", signal: "back" },
 					],
 				},
 			},
@@ -237,7 +237,7 @@ describe("validateSitemap", () => {
 					title: "Components",
 					handler: "components",
 					items: [
-						{ key: "1", label: "A" },  // missing action
+						{ type: "item", key: "1", label: "A" },  // missing action
 					],
 				},
 			},
@@ -269,8 +269,8 @@ describe("validateSitemap", () => {
 				v: {
 					title: "V",
 					items: [
-						{ slot: "dynamic-content" },
-						{ key: "b", label: "Back", signal: "back" },
+						{ type: "slot", slot: "dynamic-content" },
+						{ type: "item", key: "b", label: "Back", signal: "back" },
 					],
 				},
 			},
@@ -285,8 +285,8 @@ describe("validateSitemap", () => {
 				v: {
 					title: "V",
 					items: [
-						{ listProvider: "make:templates" },
-						{ key: "b", label: "Back", signal: "back" },
+						{ type: "listProvider", listProvider: "make:templates" },
+						{ type: "item", key: "b", label: "Back", signal: "back" },
 					],
 				},
 			},
@@ -301,8 +301,8 @@ describe("validateSitemap", () => {
 				v: {
 					title: "V",
 					items: [
-						{ listProvider: "" },
-						{ key: "b", label: "Back", signal: "back" },
+						{ type: "listProvider", listProvider: "" },
+						{ type: "item", key: "b", label: "Back", signal: "back" },
 					],
 				},
 			},
@@ -318,8 +318,8 @@ describe("validateSitemap", () => {
 				v: {
 					title: "V",
 					items: [
-						{ slot: "" },
-						{ key: "b", label: "Back", signal: "back" },
+						{ type: "slot", slot: "" },
+						{ type: "item", key: "b", label: "Back", signal: "back" },
 					],
 				},
 			},

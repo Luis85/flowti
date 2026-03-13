@@ -59,7 +59,7 @@ import { commands as sitemapCmds } from "./controller/sitemap.controller.js";
 import { disk, watchFile } from "./infrastructure/filesystem.js";
 import { shell } from "./infrastructure/shell.js";
 import { paths } from "./infrastructure/paths.js";
-import { VAULT_ROOT, CLI_PROJECT } from "./infrastructure/config.js";
+import { VAULT_ROOT, CLI_PROJECT, PROJECTS_DIR, cliConfig } from "./infrastructure/config.js";
 import { getSelectedProject, clearSelectedProject } from "./infrastructure/state.js";
 import { initializeProject } from "./domain/project/project-config.js";
 
@@ -156,13 +156,13 @@ function resolveProjectContext(flags: Record<string, string | boolean>): Project
 
 	// Validate explicit --project flag against known projects
 	if (explicit) {
-		const available = listProjects({ disk });
+		const available = listProjects(PROJECTS_DIR, { disk });
 		if (!available.includes(explicit)) {
 			return { ok: false, name: explicit, available };
 		}
 	}
 
-	const project = initializeProject(projectName, { disk, paths });
+	const project = initializeProject(projectName, PROJECTS_DIR, { disk, paths });
 	if (project && !pluginsRegistered) {
 		registerProjectPlugins(project);
 		pluginsRegistered = true;
@@ -256,7 +256,7 @@ function createRouter(deps: ReturnType<typeof createDefaultDeps>): SitemapRouter
 		getProject: () => {
 			const name = getSelectedProject();
 			if (!name) return undefined;
-			const ctx = initializeProject(name, { disk, paths });
+			const ctx = initializeProject(name, PROJECTS_DIR, { disk, paths });
 			if (ctx && !pluginsRegistered) {
 				registerProjectPlugins(ctx);
 				pluginsRegistered = true;
@@ -266,7 +266,7 @@ function createRouter(deps: ReturnType<typeof createDefaultDeps>): SitemapRouter
 		getTools: () => {
 			const name = getSelectedProject();
 			if (!name) return undefined;
-			const ctx = initializeProject(name, { disk, paths });
+			const ctx = initializeProject(name, PROJECTS_DIR, { disk, paths });
 			if (!ctx) return undefined;
 			const tools = detectTools(ctx.path, { disk, paths });
 			const result: Record<string, boolean> = {};
@@ -293,7 +293,7 @@ async function main(): Promise<void> {
 	const deps = createDefaultDeps();
 	initializeDeps(deps);
 
-	checkPrerequisites({ shell, proc });
+	checkPrerequisites(cliConfig.onboarding?.nodeMinVersion ?? 16, { shell, proc });
 
 	if (await handleCliArgs()) return;
 

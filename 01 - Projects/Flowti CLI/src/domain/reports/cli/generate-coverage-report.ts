@@ -48,7 +48,7 @@ function fileCoverage(entry: CoverageEntry): { statements: number; branches: num
 export function generateCoverageReport(projectPath: string, deps: ReportDeps, ctx?: import("../../../infrastructure/pipeline/pipeline-types.js").PipelineContext): GeneratorOutput {
 	const log = (msg: string) => ctx?.log(msg);
 	const svc = new ReportService(projectPath, deps);
-	const coverageJson = svc.subdir("coverage/coverage-final.json");
+	const coverageJson = svc.dataPath("coverage/coverage-final.json");
 
 	if (!deps.disk.existsSync(coverageJson)) {
 		log("[cli-report] No coverage-final.json found — run vitest --coverage first.");

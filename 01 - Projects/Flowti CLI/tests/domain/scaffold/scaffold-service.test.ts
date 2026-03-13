@@ -94,7 +94,7 @@ describe("deriveVariables", () => {
 	});
 
 	it("falls back to cliConfig.defaultAuthor when author not provided", () => {
-		const vars = deriveVariables("Test");
+		const vars = deriveVariables("Test", undefined, undefined, "Default Author");
 
 		expect(vars.author).toBe("Default Author");
 	});
@@ -128,7 +128,7 @@ describe("resolvePromptDefault", () => {
 	});
 
 	it("resolves cliConfig.defaultAuthor placeholder", () => {
-		expect(resolvePromptDefault("{{cliConfig.defaultAuthor}}")).toBe("Default Author");
+		expect(resolvePromptDefault("{{cliConfig.defaultAuthor}}", "Default Author")).toBe("Default Author");
 	});
 
 	it("returns literal value for non-placeholder strings", () => {
@@ -140,7 +140,7 @@ describe("resolvePromptDefault", () => {
 
 describe("scaffold", () => {
 	it("returns error for unknown definition ID", () => {
-		const result = scaffold(testDeps, { definitionId: "nonexistent", name: "Test" });
+		const result = scaffold("/vault/01 - Projects", testDeps, { definitionId: "nonexistent", name: "Test" });
 
 		expect(result).toHaveProperty("error");
 		expect((result as { error: string }).error).toContain("Unknown scaffold definition");
@@ -149,7 +149,7 @@ describe("scaffold", () => {
 	it("returns error when output directory already exists", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(true);
 
-		const result = scaffold(testDeps, { definitionId: "flowti-project", name: "Test" });
+		const result = scaffold("/vault/01 - Projects", testDeps, { definitionId: "flowti-project", name: "Test" });
 
 		expect(result).toHaveProperty("error");
 		expect((result as { error: string }).error).toContain("Directory already exists");
@@ -162,7 +162,7 @@ describe("scaffold", () => {
 			{ path: "package.json", content: "{}" },
 		]);
 
-		const result = scaffold(testDeps, { definitionId: "flowti-project", name: "Test" });
+		const result = scaffold("/vault/01 - Projects", testDeps, { definitionId: "flowti-project", name: "Test" });
 
 		if ("created" in result) {
 			expect(result.created).toBe(2);
@@ -174,7 +174,7 @@ describe("scaffold", () => {
 		vi.mocked(disk.existsSync).mockReturnValue(false);
 		vi.mocked(buildScaffoldPlan).mockReturnValue([]);
 
-		const result = scaffold(testDeps, {
+		const result = scaffold("/vault/01 - Projects", testDeps, {
 			definitionId: "flowti-project",
 			name: "Test",
 			outputDir: "/custom/output",
@@ -190,7 +190,7 @@ describe("scaffold", () => {
 
 describe("scaffoldDryRun", () => {
 	it("returns error for unknown definition ID", () => {
-		const result = scaffoldDryRun(testDeps, { definitionId: "nonexistent", name: "Test" });
+		const result = scaffoldDryRun("/vault/01 - Projects", testDeps, { definitionId: "nonexistent", name: "Test" });
 
 		expect(result).toHaveProperty("error");
 		expect((result as { error: string }).error).toContain("Unknown scaffold definition");
@@ -202,7 +202,7 @@ describe("scaffoldDryRun", () => {
 			{ path: "src/index.ts", content: "export {}" },
 		]);
 
-		const result = scaffoldDryRun(testDeps, { definitionId: "flowti-project", name: "Test" });
+		const result = scaffoldDryRun("/vault/01 - Projects", testDeps, { definitionId: "flowti-project", name: "Test" });
 
 		if ("files" in result) {
 			expect(result.files).toEqual(["README.md", "src/index.ts"]);
@@ -214,7 +214,7 @@ describe("scaffoldDryRun", () => {
 	it("uses custom outputDir when provided", () => {
 		vi.mocked(buildScaffoldPlan).mockReturnValue([]);
 
-		const result = scaffoldDryRun(testDeps, {
+		const result = scaffoldDryRun("/vault/01 - Projects", testDeps, {
 			definitionId: "flowti-project",
 			name: "Test",
 			outputDir: "/custom",

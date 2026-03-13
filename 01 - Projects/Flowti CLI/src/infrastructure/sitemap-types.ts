@@ -125,7 +125,7 @@ export type ViewContext = "project";
 export type SitemapEntry = SitemapItem | SitemapSeparator | SitemapSlot | SitemapListProvider;
 
 export interface SitemapSeparator {
-	readonly separator: true;
+	readonly type: "separator";
 	readonly hidden?: HiddenCondition;
 }
 
@@ -139,10 +139,10 @@ export interface SitemapSeparator {
  * Example sitemap JSON:
  * ```json
  * "items": [
- *   { "slot": "dynamic-items" },
- *   { "separator": true },
- *   { "key": "c", "label": "Add Component", "handler": "comp:add" },
- *   { "key": "b", "label": "Back", "signal": "back" }
+ *   { "type": "slot", "slot": "dynamic-items" },
+ *   { "type": "separator" },
+ *   { "type": "item", "key": "c", "label": "Add Component", "handler": "comp:add" },
+ *   { "type": "item", "key": "b", "label": "Back", "signal": "back" }
  * ]
  * ```
  *
@@ -151,6 +151,7 @@ export interface SitemapSeparator {
  * with the built entries for Add Component + Back.
  */
 export interface SitemapSlot {
+	readonly type: "slot";
 	readonly slot: string;
 }
 
@@ -164,13 +165,14 @@ export interface SitemapSlot {
  * Example sitemap JSON:
  * ```json
  * "items": [
- *   { "listProvider": "component-list" },
- *   { "separator": true },
- *   { "key": "c", "label": "Add Component", "handler": "comp:add" }
+ *   { "type": "listProvider", "listProvider": "component-list" },
+ *   { "type": "separator" },
+ *   { "type": "item", "key": "c", "label": "Add Component", "handler": "comp:add" }
  * ]
  * ```
  */
 export interface SitemapListProvider {
+	readonly type: "listProvider";
 	readonly listProvider: string;
 }
 
@@ -184,6 +186,7 @@ export interface SitemapListProvider {
  * - `signal`   — navigation control: "back" pops stack, "quit" exits, "start" returns to root
  */
 export interface SitemapItem {
+	readonly type: "item";
 	readonly key: string;
 	readonly label: string;
 	readonly navigate?: string;

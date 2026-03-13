@@ -49,25 +49,25 @@ describe("isKnowledgebaseAvailable", () => {
 	it("returns true when CLI is available and vault is initialized", () => {
 		mockIsCliAvailable.mockReturnValue(true);
 		mockIsVaultInitialized.mockReturnValue(true);
-		expect(isKnowledgebaseAvailable(stubDeps)).toBe(true);
+		expect(isKnowledgebaseAvailable("/vault", stubDeps)).toBe(true);
 	});
 
 	it("returns false when CLI is not available", () => {
 		mockIsCliAvailable.mockReturnValue(false);
 		mockIsVaultInitialized.mockReturnValue(true);
-		expect(isKnowledgebaseAvailable(stubDeps)).toBe(false);
+		expect(isKnowledgebaseAvailable("/vault", stubDeps)).toBe(false);
 	});
 
 	it("returns false when vault is not initialized", () => {
 		mockIsCliAvailable.mockReturnValue(true);
 		mockIsVaultInitialized.mockReturnValue(false);
-		expect(isKnowledgebaseAvailable(stubDeps)).toBe(false);
+		expect(isKnowledgebaseAvailable("/vault", stubDeps)).toBe(false);
 	});
 
 	it("returns false when both are unavailable", () => {
 		mockIsCliAvailable.mockReturnValue(false);
 		mockIsVaultInitialized.mockReturnValue(false);
-		expect(isKnowledgebaseAvailable(stubDeps)).toBe(false);
+		expect(isKnowledgebaseAvailable("/vault", stubDeps)).toBe(false);
 	});
 });
 
@@ -105,8 +105,8 @@ describe("knowledgebaseMenu", () => {
 
 		const result = await knowledgebaseMenu();
 		expect(result).toBe("quit");
-		expect(mockedListFolder).toHaveBeenCalledWith("", expect.any(Object));
-		expect(mockedListFolder).toHaveBeenCalledWith("subfolder", expect.any(Object));
+		expect(mockedListFolder).toHaveBeenCalledWith("", expect.any(String), expect.any(Object));
+		expect(mockedListFolder).toHaveBeenCalledWith("subfolder", expect.any(String), expect.any(Object));
 	});
 
 	it("navigates up when user types 'u'", async () => {
@@ -126,9 +126,9 @@ describe("knowledgebaseMenu", () => {
 
 		const result = await knowledgebaseMenu();
 		expect(result).toBe("quit");
-		expect(mockedListFolder).toHaveBeenNthCalledWith(1, "", expect.any(Object));
-		expect(mockedListFolder).toHaveBeenNthCalledWith(2, "subfolder", expect.any(Object));
-		expect(mockedListFolder).toHaveBeenNthCalledWith(3, "", expect.any(Object));
+		expect(mockedListFolder).toHaveBeenNthCalledWith(1, "", expect.any(String), expect.any(Object));
+		expect(mockedListFolder).toHaveBeenNthCalledWith(2, "subfolder", expect.any(String), expect.any(Object));
+		expect(mockedListFolder).toHaveBeenNthCalledWith(3, "", expect.any(String), expect.any(Object));
 	});
 
 	it("shows empty folder message", async () => {
@@ -156,7 +156,7 @@ describe("knowledgebaseMenu", () => {
 
 		const result = await knowledgebaseMenu();
 		expect(result).toBe("quit");
-		expect(mockedReadMarkdownFile).toHaveBeenCalledWith("readme.md", expect.any(Object));
+		expect(mockedReadMarkdownFile).toHaveBeenCalledWith("readme.md", expect.any(String), expect.any(Object));
 	});
 
 	it("displays file content stripping frontmatter", async () => {
@@ -246,7 +246,7 @@ describe("knowledgebaseMenu", () => {
 		mockedAsk.mockResolvedValueOnce("q");
 
 		await knowledgebaseMenu();
-		expect(mockedReadMarkdownFile).toHaveBeenCalledWith("found.md", expect.any(Object));
+		expect(mockedReadMarkdownFile).toHaveBeenCalledWith("found.md", expect.any(String), expect.any(Object));
 	});
 
 	it("handles invalid choice gracefully", async () => {
@@ -285,10 +285,10 @@ describe("knowledgebaseMenu", () => {
 
 		await knowledgebaseMenu();
 
-		expect(mockedListFolder).toHaveBeenNthCalledWith(1, "", expect.any(Object));
-		expect(mockedListFolder).toHaveBeenNthCalledWith(2, "level1", expect.any(Object));
-		expect(mockedListFolder).toHaveBeenNthCalledWith(3, "level1/level2", expect.any(Object));
-		expect(mockedListFolder).toHaveBeenNthCalledWith(4, "level1", expect.any(Object));
+		expect(mockedListFolder).toHaveBeenNthCalledWith(1, "", expect.any(String), expect.any(Object));
+		expect(mockedListFolder).toHaveBeenNthCalledWith(2, "level1", expect.any(String), expect.any(Object));
+		expect(mockedListFolder).toHaveBeenNthCalledWith(3, "level1/level2", expect.any(String), expect.any(Object));
+		expect(mockedListFolder).toHaveBeenNthCalledWith(4, "level1", expect.any(String), expect.any(Object));
 	});
 
 	it("lists folders before files with correct numbering", async () => {

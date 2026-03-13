@@ -8,7 +8,7 @@
 import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler, ProjectContext, IShell, IPaths } from "../infrastructure/types.js";
-import { VAULT_ROOT } from "../infrastructure/config.js";
+import { VAULT_ROOT, PLUGIN_ROOT } from "../infrastructure/config.js";
 import { resolveTestVaultRoot } from "../infrastructure/test-vault.js";
 import { analyzeWorkingTree, analyzeBranchDiff } from "../domain/review/change-analysis.js";
 import {
@@ -88,7 +88,7 @@ const actions: Record<string, ControllerAction> = {
 		}
 		const { disk, shell, paths, proc, log } = req.deps;
 		const journeyFilter = typeof req.flags.journey === "string" ? req.flags.journey : undefined;
-		await runE2ESuite({ disk, shell, paths, proc, log }, journeyFilter);
+		await runE2ESuite(PLUGIN_ROOT, VAULT_ROOT, { disk, shell, paths, proc, log }, journeyFilter);
 	},
 	"review:e2e:list": async (req) => {
 		if (req.format === "json") {
@@ -96,7 +96,7 @@ const actions: Record<string, ControllerAction> = {
 			return dataResponse(model, renderInteractiveOnly);
 		}
 		const { disk, paths, proc } = req.deps;
-		await startInteractiveSession(interactiveSession, { disk, paths, proc });
+		await startInteractiveSession(interactiveSession, PLUGIN_ROOT, VAULT_ROOT, { disk, paths, proc });
 	},
 	"review:changes": (req) => {
 		if (!req.project) return;

@@ -17,7 +17,7 @@ import {
 	resolveDefinitionsDir,
 } from "../../../src/domain/scaffold/marketplace.js";
 import type { MarketplaceEntry } from "../../../src/domain/scaffold/marketplace.js";
-import { displayMarketplace } from "../../../src/ui/menus/marketplace-menu.js";
+import { renderMarketplace } from "../../../src/ui/scaffold-display.js";
 import type { IFileSystem } from "../../../src/infrastructure/types.js";
 
 const testPaths = {
@@ -335,9 +335,9 @@ describe("importDefinition", () => {
 	});
 });
 
-// ── displayMarketplace ───────────────────────────────────────────────
+// ── renderMarketplace ────────────────────────────────────────────────
 
-describe("displayMarketplace", () => {
+describe("renderMarketplace", () => {
 	let logSpy: ReturnType<typeof vi.spyOn>;
 
 	beforeEach(() => {
@@ -345,7 +345,7 @@ describe("displayMarketplace", () => {
 	});
 
 	it("shows empty message when no entries", () => {
-		displayMarketplace([]);
+		renderMarketplace({ entries: [] });
 		expect(logSpy).toHaveBeenCalled();
 		const output = logSpy.mock.calls.map(c => String(c[0])).join("\n");
 		expect(output).toContain("No scaffold definitions found");
@@ -374,7 +374,7 @@ describe("displayMarketplace", () => {
 			},
 		];
 
-		displayMarketplace(entries);
+		renderMarketplace({ entries });
 		const output = logSpy.mock.calls.map(c => String(c[0])).join("\n");
 		expect(output).toContain("Bundled");
 		expect(output).toContain("Local");
@@ -395,7 +395,7 @@ describe("displayMarketplace", () => {
 			},
 		];
 
-		displayMarketplace(entries);
+		renderMarketplace({ entries });
 		const output = logSpy.mock.calls.map(c => String(c[0])).join("\n");
 		expect(output).toContain("invalid");
 		expect(output).toContain("Missing field: id");
@@ -407,7 +407,7 @@ describe("displayMarketplace", () => {
 			{ id: "b", label: "B", description: "", source: "local", templateIds: [], valid: false, errors: ["err"] },
 		];
 
-		displayMarketplace(entries);
+		renderMarketplace({ entries });
 		const output = logSpy.mock.calls.map(c => String(c[0])).join("\n");
 		expect(output).toContain("1 valid");
 		expect(output).toContain("1 invalid");

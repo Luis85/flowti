@@ -5,7 +5,6 @@
  * run-e2e.ts and e2e-report.ts use instead of hardcoded constants.
  */
 
-import { VAULT_ROOT } from "../../infrastructure/config.js";
 import type { CliDeps } from "../../infrastructure/deps.js";
 import type { ReviewConfig } from "../../infrastructure/types.js";
 
@@ -46,7 +45,7 @@ export interface E2EPaths {
  * Resolve all E2E paths from a project root and its review config.
  * Falls back to sensible defaults for each field.
  */
-export function resolveE2EPaths(projectRoot: string, review: ReviewConfig | undefined, deps: Pick<CliDeps, "paths" | "proc">): E2EPaths {
+export function resolveE2EPaths(projectRoot: string, review: ReviewConfig | undefined, vaultRoot: string, deps: Pick<CliDeps, "paths" | "proc">): E2EPaths {
 	const { paths, proc } = deps;
 	const pluginId = review?.pluginId ?? "flowti-ibde";
 	const journeysDir = paths.join(projectRoot, review?.journeysDir ?? "tests/e2e/journeys");
@@ -58,10 +57,10 @@ export function resolveE2EPaths(projectRoot: string, review: ReviewConfig | unde
 		testVault = envVault;
 	} else if (review?.testVault) {
 		// Resolve relative to vault root
-		testVault = paths.resolve(VAULT_ROOT, review.testVault);
+		testVault = paths.resolve(vaultRoot, review.testVault);
 	} else {
 		// Convention: sibling to the vault root
-		testVault = paths.join(paths.resolve(VAULT_ROOT, ".."), "flowti-e2e");
+		testVault = paths.join(paths.resolve(vaultRoot, ".."), "flowti-e2e");
 	}
 
 	const vaultName = paths.basename(testVault);

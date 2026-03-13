@@ -8,18 +8,20 @@ import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler } from "../infrastructure/types.js";
 import { scaffold, scaffoldDryRun, listDefinitions, BUNDLED_DEFINITIONS, getKnownTemplateIds } from "../domain/scaffold/scaffold-service.js";
-import { displayMarketplaceCommand, importDefinitionCommand } from "../ui/menus/marketplace-menu.js";
+import { buildMarketplaceListing, resolveDefinitionsDir, importDefinition } from "../domain/scaffold/marketplace.js";
 import { exportBundle, saveBundle, loadBundle, importAiToolsFromBundle } from "../domain/scaffold/marketplace-export.js";
-import { VAULT_ROOT } from "../infrastructure/config.js";
+import { VAULT_ROOT, PROJECTS_DIR, cliConfig } from "../infrastructure/config.js";
 import { afterScaffold } from "../infrastructure/suggestions.js";
 
-import { renderError, renderInteractiveOnly, type ErrorModel, type InteractiveOnlyModel } from "../ui/common-renderers.js";
+import { renderError, type ErrorModel } from "../ui/common-renderers.js";
 import { renderNoProject, type NoProjectModel } from "../ui/common-renderers.js";
 import {
 	renderDryRunPreview, renderScaffoldResult, renderDefinitionList,
 	renderExportPreview, renderExportSaved, renderBundleImported,
+	renderMarketplace, renderImportResult,
 	type ScaffoldResultModel, type DefinitionListModel,
 	type ExportSavedModel, type BundleImportedModel,
+	type MarketplaceModel, type ImportResultModel,
 } from "../ui/scaffold-display.js";
 
 // ── Controller actions ──────────────────────────────────────────────
@@ -43,14 +45,14 @@ const actions: Record<string, ControllerAction> = {
 		const opts = { definitionId, name, author, outputDir: output };
 
 		if (req.flags["dry-run"]) {
-			const result = scaffoldDryRun(scaffoldDeps, opts);
+			const result = scaffoldDryRun(PROJECTS_DIR, scaffoldDeps, opts, cliConfig.defaultAuthor);
 			if ("error" in result) {
 				return dataResponse<ErrorModel>({ error: result.error }, renderError);
 			}
 			return dataResponse(result, renderDryRunPreview);
 		}
 
-		const result = scaffold(scaffoldDeps, opts);
+		const result = scaffold(PROJECTS_DIR, scaffoldDeps, opts, cliConfig.defaultAuthor);
 		if ("error" in result) {
 			return dataResponse<ErrorModel>({ error: result.error }, renderError);
 		}
@@ -72,12 +74,12 @@ const actions: Record<string, ControllerAction> = {
 	},
 
 	"scaffold:marketplace": (req) => {
-		if (req.format === "json") {
-			const model: InteractiveOnlyModel = { command: "scaffold:marketplace", error: "Marketplace browser is interactive and cannot produce JSON output." };
-			return dataResponse(model, renderInteractiveOnly);
-		}
+		const { disk, paths } = req.deps;
 		const knownIds = getKnownTemplateIds();
-		displayMarketplaceCommand(BUNDLED_DEFINITIONS, req.project?.path, knownIds);
+		const localDir = req.project?.path ? resolveDefinitionsDir({ paths }, req.project.path) : "";
+		const entries = buildMarketplaceListing({ disk, paths }, BUNDLED_DEFINITIONS, localDir, knownIds);
+		const model: MarketplaceModel = { entries };
+		return dataResponse(model, renderMarketplace);
 	},
 
 	"scaffold:import": (req) => {
@@ -91,12 +93,11 @@ const actions: Record<string, ControllerAction> = {
 		if (!req.project) {
 			return dataResponse<NoProjectModel>({ command: "scaffold:import" }, renderNoProject);
 		}
-		if (req.format === "json") {
-			const model: InteractiveOnlyModel = { command: "scaffold:import", error: "Import wizard is interactive and cannot produce JSON output." };
-			return dataResponse(model, renderInteractiveOnly);
-		}
+		const { disk, paths } = req.deps;
 		const knownIds = getKnownTemplateIds();
-		importDefinitionCommand(file, req.project.path, knownIds);
+		const result = importDefinition({ disk, paths }, file, req.project.path, knownIds);
+		const model: ImportResultModel = { result };
+		return dataResponse(model, renderImportResult);
 	},
 
 	"marketplace:export": (req) => {

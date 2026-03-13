@@ -8,7 +8,6 @@
 import { Document, type FrontmatterValue } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
 import type { ReportDeps } from "../../../infrastructure/deps.js";
-import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { parseFrontmatterContent } from "../../../infrastructure/frontmatter.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
 import type { PipelineContext } from "../../../infrastructure/pipeline/pipeline-types.js";
@@ -114,10 +113,11 @@ function collectReportLinks(reportsDir: string, deps: ReportDeps): string[] {
 
 // ── Generator ────────────────────────────────────────────────────────
 
-export function generateCycleReport(projectPath: string, deps: ReportDeps, ctx?: PipelineContext): GeneratorOutput {
+export function generateCycleReport(projectPath: string, deps: ReportDeps, ctx?: PipelineContext, options?: { pluginRoot?: string }): GeneratorOutput {
 	const log = (msg: string) => ctx?.log(msg);
 	const svc = new ReportService(projectPath, deps);
-	const cyclesDir = deps.paths.join(PLUGIN_ROOT, "docs", "cycles");
+	const pluginRoot = options?.pluginRoot ?? projectPath;
+	const cyclesDir = deps.paths.join(pluginRoot, "docs", "cycles");
 
 	const latest = findLatestDoneCycle(cyclesDir, deps);
 	if (!latest) {

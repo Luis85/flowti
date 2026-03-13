@@ -20,6 +20,7 @@ import type {
 	DynamicView,
 	SitemapEntry,
 	SitemapItem,
+	SitemapSlot,
 	RouterContext,
 	StackEntry,
 } from "./sitemap-types.js";
@@ -218,35 +219,31 @@ export class SitemapRouter {
 		const entries: MenuEntry[] = [];
 
 		for (const entry of view.items) {
-			if ("separator" in entry && entry.separator) {
-				if (entry.hidden !== undefined) {
-					const isHidden = resolveHiddenCondition(entry.hidden, ctx, this.#handlers);
-					if (isHidden) continue;
+			switch (entry.type) {
+				case "separator":
+					if (entry.hidden !== undefined) {
+						const isHidden = resolveHiddenCondition(entry.hidden, ctx, this.#handlers);
+						if (isHidden) continue;
+					}
+					entries.push({ separator: true });
+					continue;
+				case "slot":
+					continue; // Handled by #buildSlots
+				case "listProvider": {
+					const provider = this.#handlers.getListProvider(entry.listProvider);
+					entries.push(...provider(ctx));
+					continue;
 				}
-				entries.push({ separator: true });
-				continue;
+				case "item": {
+					if (entry.hidden !== undefined) {
+						const isHidden = resolveHiddenCondition(entry.hidden, ctx, this.#handlers);
+						if (isHidden) continue;
+					}
+					const menuItem = this.#buildMenuItem(entry, ctx, onNavigate);
+					entries.push(menuItem);
+					continue;
+				}
 			}
-
-			// Skip slot markers — they're handled by #buildSlots
-			if ("slot" in entry) continue;
-
-			// List provider — resolve and inline entries
-			if ("listProvider" in entry) {
-				const provider = this.#handlers.getListProvider(entry.listProvider);
-				entries.push(...provider(ctx));
-				continue;
-			}
-
-			const item = entry as SitemapItem;
-
-			// Hidden items
-			if (item.hidden !== undefined) {
-				const isHidden = resolveHiddenCondition(item.hidden, ctx, this.#handlers);
-				if (isHidden) continue;
-			}
-
-			const menuItem = this.#buildMenuItem(item, ctx, onNavigate);
-			entries.push(menuItem);
 		}
 
 		return entries;
@@ -269,7 +266,7 @@ export class SitemapRouter {
 		onNavigate: (target: string, params?: Readonly<Record<string, unknown>>) => void,
 	): Record<string, MenuEntry[]> {
 		const slotNames = items
-			.filter((e): e is { slot: string } => "slot" in e && typeof (e as { slot: unknown }).slot === "string")
+			.filter((e): e is SitemapSlot => e.type === "slot")
 			.map((e) => e.slot);
 
 		const slots: Record<string, MenuEntry[]> = {};
@@ -278,7 +275,7 @@ export class SitemapRouter {
 		let slotIndex = 0;
 
 		for (const entry of items) {
-			if ("slot" in entry && typeof entry.slot === "string") {
+			if (entry.type === "slot") {
 				slots[entry.slot] = [];
 				slotIndex++;
 				currentKey = slotIndex < slotNames.length ? `_between_${entry.slot}` : "_after";
@@ -296,14 +293,22 @@ export class SitemapRouter {
 	}
 
 	#resolveEntry(entry: SitemapEntry, ctx: RouterContext, onNavigate: (target: string, params?: Readonly<Record<string, unknown>>) => void): MenuEntry | MenuEntry[] | null {
-		if ("separator" in entry && entry.separator) return { separator: true };
-		if ("listProvider" in entry) {
-			const provider = this.#handlers.getListProvider(entry.listProvider);
-			return provider(ctx);
+		switch (entry.type) {
+			case "separator": {
+				if (entry.hidden !== undefined && resolveHiddenCondition(entry.hidden, ctx, this.#handlers)) return null;
+				return { separator: true };
+			}
+			case "slot":
+				return null;
+			case "listProvider": {
+				const provider = this.#handlers.getListProvider(entry.listProvider);
+				return provider(ctx);
+			}
+			case "item": {
+				if (entry.hidden !== undefined && resolveHiddenCondition(entry.hidden, ctx, this.#handlers)) return null;
+				return this.#buildMenuItem(entry, ctx, onNavigate);
+			}
 		}
-		const item = entry as SitemapItem;
-		if (item.hidden !== undefined && resolveHiddenCondition(item.hidden, ctx, this.#handlers)) return null;
-		return this.#buildMenuItem(item, ctx, onNavigate);
 	}
 
 	#buildMenuItem(

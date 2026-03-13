@@ -5,7 +5,6 @@
  * appropriate browser, URL extraction, and background process lifecycle.
  */
 
-import { VAULT_ROOT } from "../../../infrastructure/config.js";
 import { isCliAvailable, isVaultInitialized } from "../../knowledgebase/vault-service.js";
 import type { BackgroundProcess } from "../../../infrastructure/types.js";
 import type { StorybookRenderer } from "./storybook-renderer.js";
@@ -18,10 +17,10 @@ const LOCAL_URL_PATTERN = /https?:\/\/localhost:\d+/;
 // ── Vault detection ──────────────────────────────────────────────────
 
 /** Check whether a project path lives inside the Obsidian vault. */
-export function isInsideVault(projectPath: string, deps: Pick<StorybookDeps, "paths">): boolean {
+export function isInsideVault(projectPath: string, vaultRoot: string, deps: Pick<StorybookDeps, "paths">): boolean {
 	try {
 		let resolved = deps.paths.resolve(projectPath);
-		let vault = deps.paths.resolve(VAULT_ROOT);
+		let vault = deps.paths.resolve(vaultRoot);
 		// Windows paths are case-insensitive
 		if (process.platform === "win32") {
 			resolved = resolved.toLowerCase();
@@ -35,8 +34,8 @@ export function isInsideVault(projectPath: string, deps: Pick<StorybookDeps, "pa
 
 // ── Browser opening ──────────────────────────────────────────────────
 
-function openInObsidianWebViewer(url: string, deps: Pick<StorybookDeps, "disk" | "paths" | "shell">): boolean {
-	if (!isCliAvailable({ shell: deps.shell }) || !isVaultInitialized({ disk: deps.disk, paths: deps.paths })) return false;
+function openInObsidianWebViewer(url: string, vaultRoot: string, deps: Pick<StorybookDeps, "disk" | "paths" | "shell">): boolean {
+	if (!isCliAvailable({ shell: deps.shell }) || !isVaultInitialized(vaultRoot, { disk: deps.disk, paths: deps.paths })) return false;
 	deps.shell.runSilent(`obsidian web url=${url} newtab`);
 	return true;
 }
@@ -48,17 +47,17 @@ function openInDefaultBrowser(url: string, deps: Pick<StorybookDeps, "shell">): 
 	deps.shell.runSilent(cmd);
 }
 
-export function openStorybookUrl(projectPath: string, url: string, render: StorybookRenderer, deps: Pick<StorybookDeps, "disk" | "paths" | "shell">): void {
-	const inVault = isInsideVault(projectPath, deps);
+export function openStorybookUrl(projectPath: string, url: string, vaultRoot: string, render: StorybookRenderer, deps: Pick<StorybookDeps, "disk" | "paths" | "shell">): void {
+	const inVault = isInsideVault(projectPath, vaultRoot, deps);
 	if (!inVault) {
 		render.browserContext("Not inside vault — using default browser");
 	} else if (!isCliAvailable({ shell: deps.shell })) {
 		render.browserContext("Obsidian CLI not available — using default browser");
-	} else if (!isVaultInitialized({ disk: deps.disk, paths: deps.paths })) {
+	} else if (!isVaultInitialized(vaultRoot, { disk: deps.disk, paths: deps.paths })) {
 		render.browserContext("Vault not initialized — using default browser");
 	}
 
-	if (inVault && openInObsidianWebViewer(url, deps)) {
+	if (inVault && openInObsidianWebViewer(url, vaultRoot, deps)) {
 		render.openedIn("Obsidian Web Viewer");
 	} else {
 		openInDefaultBrowser(url, deps);

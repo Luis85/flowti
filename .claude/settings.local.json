@@ -103,7 +103,8 @@
       "Bash(npm run:*)",
       "Bash(node configs/esbuild.config.mjs)",
       "Bash(npx typedoc:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(python3 -c \":*)"
     ]
   }
 }

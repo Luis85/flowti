@@ -13,30 +13,35 @@ import type { Document } from "../../../infrastructure/document.js";
 export interface ReportServiceOptions {
 	reportsDir?: string;
 	referenceDir?: string;
+	dataDir?: string;
 }
 
 function readConfigDirs(projectPath: string, p: IPaths, fs: IFileSystem) {
 	const { config } = readProjectConfig(projectPath, { disk: fs, paths: p });
-	const reportsRel = config?.reports?.dir ?? "reports";
+	const dataRel = config?.reports?.dir ?? "reports";
+	const outputRel = config?.reports?.outputDir;
 	const referenceRel = config?.docs?.referenceDir ?? "docs/reference";
-	return { reportsRel, referenceRel };
+	return { dataRel, outputRel, referenceRel };
 }
 
-function resolveDirs(projectPath: string, p: IPaths, fs: IFileSystem, opts?: ReportServiceOptions) {
-	if (opts?.reportsDir && opts?.referenceDir) {
-		return { reportsDir: opts.reportsDir, referenceDir: opts.referenceDir, reportsRelDir: "reports" };
-	}
-	const { reportsRel, referenceRel } = readConfigDirs(projectPath, p, fs);
-	const reportsDir = opts?.reportsDir ?? p.join(projectPath, reportsRel);
-	const referenceDir = opts?.referenceDir ?? p.join(projectPath, referenceRel);
-	return { reportsDir, referenceDir, reportsRelDir: reportsRel };
+function resolveDirs(projectPath: string, p: IPaths, fs: IFileSystem, opts: ReportServiceOptions = {}) {
+	const { dataRel, outputRel, referenceRel } = opts.reportsDir && opts.referenceDir && opts.dataDir
+		? { dataRel: "reports", outputRel: undefined, referenceRel: "docs/reference" }
+		: readConfigDirs(projectPath, p, fs);
+	return {
+		dataDir: opts.dataDir ?? p.join(projectPath, dataRel),
+		reportsDir: opts.reportsDir ?? p.join(projectPath, outputRel ?? dataRel),
+		referenceDir: opts.referenceDir ?? p.join(projectPath, referenceRel),
+		dataRelDir: dataRel,
+	};
 }
 
 export class ReportService {
 	readonly projectPath: string;
 	readonly reportsDir: string;
 	readonly referenceDir: string;
-	private readonly reportsRelDir: string;
+	readonly dataDir: string;
+	private readonly dataRelDir: string;
 	private readonly disk: IFileSystem;
 	private readonly paths: IPaths;
 	private readonly clock: IClock;
@@ -49,12 +54,28 @@ export class ReportService {
 		const resolved = resolveDirs(projectPath, deps.paths, deps.disk, opts);
 		this.reportsDir = resolved.reportsDir;
 		this.referenceDir = resolved.referenceDir;
-		this.reportsRelDir = resolved.reportsRelDir;
+		this.dataDir = resolved.dataDir;
+		this.dataRelDir = resolved.dataRelDir;
 	}
 
-	/** Resolve an absolute path to a subdirectory within the reports dir. */
+	/** The project folder name (used for README wikilinks). */
+	get projectName(): string {
+		return this.paths.basename(this.projectPath);
+	}
+
+	/** Inject a wikilink to the project README into a document's frontmatter. */
+	stampProjectLink(doc: Document): void {
+		doc.setRawFrontmatter("up", `"[[${this.projectName}/README]]"`);
+	}
+
+	/** Resolve an absolute path to a subdirectory within the reports output dir. */
 	subdir(name: string): string {
 		return this.paths.join(this.reportsDir, name);
+	}
+
+	/** Resolve an absolute path within the data dir (where prerequisites write JSON). */
+	dataPath(name: string): string {
+		return this.paths.join(this.dataDir, name);
 	}
 
 	/** Resolve the stable report path (e.g., "Test Report.md"). */
@@ -76,6 +97,7 @@ export class ReportService {
 		stableFilename: string;
 		sourceJson?: string;
 	}): string {
+		this.stampProjectLink(doc);
 		const outputDir = this.subdir(opts.subdir);
 		const safeTimestamp = this.clock.safeIso();
 		const outputPath = this.paths.join(outputDir, `${safeTimestamp}-${opts.slug}.md`);
@@ -100,6 +122,7 @@ export class ReportService {
 	 * Returns the output path.
 	 */
 	saveReference(doc: Document, filename: string): string {
+		this.stampProjectLink(doc);
 		this.disk.mkdirSync(this.referenceDir, { recursive: true });
 		const outputPath = this.paths.join(this.referenceDir, filename);
 		doc.save(outputPath, this.disk);
@@ -108,6 +131,6 @@ export class ReportService {
 
 	/** Resolve the coverage subdirectory path (relative to project root). */
 	get coverageDir(): string {
-		return `${this.reportsRelDir}/coverage`;
+		return `${this.dataRelDir}/coverage`;
 	}
 }

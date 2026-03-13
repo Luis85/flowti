@@ -11,8 +11,8 @@ import { resolveE2EPaths, type E2EPaths } from "../../review/e2e-paths.js";
 export type E2EReportDeps = Pick<CliDeps, "disk" | "paths" | "proc">;
 
 /** Initialize E2E report paths from a project context. */
-export function initE2EReportPaths(projectRoot: string, deps: E2EReportDeps, review?: import("../../../infrastructure/types.js").ReviewConfig): E2EPaths {
-	return resolveE2EPaths(projectRoot, review, { paths: deps.paths, proc: deps.proc });
+export function initE2EReportPaths(projectRoot: string, vaultRoot: string, deps: E2EReportDeps, review?: import("../../../infrastructure/types.js").ReviewConfig): E2EPaths {
+	return resolveE2EPaths(projectRoot, review, vaultRoot, { paths: deps.paths, proc: deps.proc });
 }
 
 // Re-export all types and functions for backward compatibility

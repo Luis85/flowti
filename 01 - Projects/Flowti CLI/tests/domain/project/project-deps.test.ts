@@ -465,7 +465,7 @@ describe("buildDependencyGraph", () => {
 			}),
 		});
 
-		const graph = buildDependencyGraph(d);
+		const graph = buildDependencyGraph("/mock/projects", d);
 
 		expect(graph.projects).toEqual(["app", "lib"]);
 		expect(graph.edges).toHaveLength(1);
@@ -479,7 +479,7 @@ describe("buildDependencyGraph", () => {
 		const d = makeDeps();
 		d.disk.readdirSync = () => { throw new Error("ENOENT"); };
 
-		const graph = buildDependencyGraph(d);
+		const graph = buildDependencyGraph("/mock/projects", d);
 		expect(graph.projects).toEqual([]);
 		expect(graph.edges).toEqual([]);
 		expect(graph.cycles).toEqual([]);
@@ -497,7 +497,7 @@ describe("buildDependencyGraph", () => {
 			}),
 		});
 
-		const graph = buildDependencyGraph(d);
+		const graph = buildDependencyGraph("/mock/projects", d);
 		expect(graph.cycles.length).toBeGreaterThanOrEqual(1);
 	});
 });

@@ -5,12 +5,7 @@
  * Display is handled by ui/onboarding-display.ts.
  */
 
-import { PLUGIN_ROOT, VAULT_ROOT, cliConfig } from "../../infrastructure/config.js";
 import type { CliDeps } from "../../infrastructure/deps.js";
-
-const onb = cliConfig.onboarding ?? {};
-const pluginId = onb.pluginId ?? "flowti-ibde";
-const nodeMinVersion = onb.nodeMinVersion ?? 16;
 
 // ── Data models ──────────────────────────────────────────────────────
 
@@ -35,7 +30,7 @@ export interface PostBuildGuidance {
 
 // ── Pure checks ─────────────────────────────────────────────────────
 
-export function checkPrerequisiteIssues(deps: Pick<CliDeps, "shell">): PrerequisiteIssue[] {
+export function checkPrerequisiteIssues(nodeMinVersion: number, deps: Pick<CliDeps, "shell">): PrerequisiteIssue[] {
 	const missing: PrerequisiteIssue[] = [];
 
 	if (!deps.shell.check("git --version")) {
@@ -64,8 +59,8 @@ export function checkPrerequisiteIssues(deps: Pick<CliDeps, "shell">): Prerequis
 	return missing;
 }
 
-export function checkPrerequisites(deps: Pick<CliDeps, "shell" | "proc">): void {
-	const missing = checkPrerequisiteIssues(deps);
+export function checkPrerequisites(nodeMinVersion: number, deps: Pick<CliDeps, "shell" | "proc">): void {
+	const missing = checkPrerequisiteIssues(nodeMinVersion, deps);
 	if (missing.length > 0) {
 		deps.proc.exit(2);
 	}
@@ -84,26 +79,26 @@ export function installDependencies(projectPath: string, deps: Pick<CliDeps, "di
 	}
 }
 
-export function ensureDependencies(projectPath: string = PLUGIN_ROOT, deps: Pick<CliDeps, "disk" | "shell" | "paths" | "proc">): void {
+export function ensureDependencies(projectPath: string, deps: Pick<CliDeps, "disk" | "shell" | "paths" | "proc">): void {
 	installDependencies(projectPath, deps);
 }
 
-export function getFirstRunStatus(deps: Pick<CliDeps, "disk" | "paths">): FirstRunStatus {
-	const mainJs = deps.paths.join(VAULT_ROOT, ".obsidian", "plugins", pluginId, "main.js");
+export function getFirstRunStatus(vaultRoot: string, pluginId: string, deps: Pick<CliDeps, "disk" | "paths">): FirstRunStatus {
+	const mainJs = deps.paths.join(vaultRoot, ".obsidian", "plugins", pluginId, "main.js");
 	return { pluginBuilt: deps.disk.existsSync(mainJs) };
 }
 
-export function checkFirstRun(deps: Pick<CliDeps, "disk" | "paths">): void {
+export function checkFirstRun(vaultRoot: string, pluginId: string, deps: Pick<CliDeps, "disk" | "paths">): void {
 	// Kept for backward compatibility — callers should use getFirstRunStatus()
-	getFirstRunStatus(deps);
+	getFirstRunStatus(vaultRoot, pluginId, deps);
 }
 
-export function getPostBuildGuidance(deps: Pick<CliDeps, "disk" | "paths">): PostBuildGuidance {
-	const mainJs = deps.paths.join(VAULT_ROOT, ".obsidian", "plugins", pluginId, "main.js");
-	return { show: deps.disk.existsSync(mainJs), vaultRoot: VAULT_ROOT };
+export function getPostBuildGuidance(vaultRoot: string, pluginId: string, deps: Pick<CliDeps, "disk" | "paths">): PostBuildGuidance {
+	const mainJs = deps.paths.join(vaultRoot, ".obsidian", "plugins", pluginId, "main.js");
+	return { show: deps.disk.existsSync(mainJs), vaultRoot };
 }
 
-export function showPostBuildGuidance(deps: Pick<CliDeps, "disk" | "paths">): void {
+export function showPostBuildGuidance(vaultRoot: string, pluginId: string, deps: Pick<CliDeps, "disk" | "paths">): void {
 	// Kept for backward compatibility — callers should use getPostBuildGuidance()
-	getPostBuildGuidance(deps);
+	getPostBuildGuidance(vaultRoot, pluginId, deps);
 }

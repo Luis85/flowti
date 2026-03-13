@@ -13,6 +13,7 @@ import { input } from "../../infrastructure/input.js";
 import { disk } from "../../infrastructure/filesystem.js";
 import { paths } from "../../infrastructure/paths.js";
 import { shell } from "../../infrastructure/shell.js";
+import { VAULT_ROOT } from "../../infrastructure/config.js";
 import { printHeader, BOLD, RESET, DIM, CYAN, YELLOW, GREEN } from "../../infrastructure/ui.js";
 import { listFolder, readMarkdownFile, searchVault } from "../../domain/knowledgebase/vault-service.js";
 import { showHelp } from "../help.js";
@@ -49,7 +50,7 @@ function navigateBack(currentPath: string): string {
 function renderFolderListing(
 	currentPath: string,
 ): { indexMap: Map<number, { name: string; isDir: boolean }>; isEmpty: boolean } {
-	const entries = listFolder(currentPath, { disk, paths });
+	const entries = listFolder(currentPath, VAULT_ROOT, { disk, paths });
 	const indexMap = new Map<number, { name: string; isDir: boolean }>();
 	const dirs = entries.filter((e) => e.isDir);
 	const files = entries.filter((e) => !e.isDir && e.name.endsWith(".md"));
@@ -115,7 +116,7 @@ export async function knowledgebaseMenu(): Promise<MenuResult> {
 }
 
 async function viewFile(filePath: string): Promise<void> {
-	const content = readMarkdownFile(filePath, { disk, paths });
+	const content = readMarkdownFile(filePath, VAULT_ROOT, { disk, paths });
 	if (!content) {
 		log(`\n  File not found: ${filePath}\n`);
 		return;

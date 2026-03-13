@@ -24,7 +24,7 @@ beforeEach(() => {
 describe("listProducts", () => {
 	it("returns empty array when directory does not exist", () => {
 		mockDisk.readdirSync.mockImplementation(() => { throw new Error("ENOENT"); });
-		expect(listProducts(deps)).toEqual([]);
+		expect(listProducts("/vault/02 - Products", deps)).toEqual([]);
 	});
 
 	it("lists product directories sorted", () => {
@@ -33,14 +33,14 @@ describe("listProducts", () => {
 			{ name: "Alpha Service", isDirectory: () => true },
 			{ name: "README.md", isDirectory: () => false },
 		]);
-		expect(listProducts(deps)).toEqual(["Alpha Service", "Zeta Platform"]);
+		expect(listProducts("/vault/02 - Products", deps)).toEqual(["Alpha Service", "Zeta Platform"]);
 	});
 });
 
 describe("listFeatures", () => {
 	it("returns empty array when directory does not exist", () => {
 		mockDisk.readdirSync.mockImplementation(() => { throw new Error("ENOENT"); });
-		expect(listFeatures(deps)).toEqual([]);
+		expect(listFeatures("/vault/03 - Features", deps)).toEqual([]);
 	});
 
 	it("lists feature directories sorted", () => {
@@ -48,18 +48,18 @@ describe("listFeatures", () => {
 			{ name: "User Auth", isDirectory: () => true },
 			{ name: "Search", isDirectory: () => true },
 		]);
-		expect(listFeatures(deps)).toEqual(["Search", "User Auth"]);
+		expect(listFeatures("/vault/03 - Features", deps)).toEqual(["Search", "User Auth"]);
 	});
 });
 
 describe("getProductPath", () => {
 	it("resolves path under products directory", () => {
-		expect(getProductPath("Flowti Platform", deps)).toBe("/vault/02 - Products/Flowti Platform");
+		expect(getProductPath("Flowti Platform", "/vault/02 - Products", deps)).toBe("/vault/02 - Products/Flowti Platform");
 	});
 });
 
 describe("getFeaturePath", () => {
 	it("resolves path under features directory", () => {
-		expect(getFeaturePath("User Auth", deps)).toBe("/vault/03 - Features/User Auth");
+		expect(getFeaturePath("User Auth", "/vault/03 - Features", deps)).toBe("/vault/03 - Features/User Auth");
 	});
 });

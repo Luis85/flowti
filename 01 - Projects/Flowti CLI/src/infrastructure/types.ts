@@ -317,8 +317,10 @@ export interface SummaryThresholds {
 }
 
 export interface ReportsConfig {
-	/** Relative path from project root to the reports directory (default: "reports") */
+	/** Relative path from project root to reports data directory — where prerequisites write JSON (default: "reports"). */
 	dir?: string;
+	/** Relative path from project root to reports output directory. When set, generated markdown goes here instead of `dir`. */
+	outputDir?: string;
 	/** Command to generate all reports */
 	allCommand?: string;
 	/** Individual report generators */
@@ -327,10 +329,7 @@ export interface ReportsConfig {
 	thresholds?: SummaryThresholds;
 }
 
-export interface DocGenerator {
-	label: string;
-	command: string;
-}
+export interface DocGenerator { label: string; command: string }
 
 /** Per-project reference configuration — declares which references to generate and their source files. */
 export interface ReferenceConfig {
@@ -567,8 +566,6 @@ export interface ProjectConfig {
 }
 
 // ── CLI configuration ───────────────────────────────────────────────
-
-// ── CLI configuration ───────────────────────────────────────────
 
 export interface SubsystemPluginConfig {
 	root?: string;

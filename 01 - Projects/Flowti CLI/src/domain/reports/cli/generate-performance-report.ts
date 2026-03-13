@@ -8,17 +8,16 @@
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "./report-service.js";
 import type { ReportDeps } from "../../../infrastructure/deps.js";
-import { PLUGIN_ROOT } from "../../../infrastructure/config.js";
 import { percentile, round, formatBytes } from "../generators/performance-report.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
 import type { PipelineContext } from "../../../infrastructure/pipeline/pipeline-types.js";
 
 // ── Data loading ─────────────────────────────────────────────────────
 
-function findDataJson(deps: ReportDeps): string | null {
+function findDataJson(pluginRoot: string, deps: ReportDeps): string | null {
 	const candidates: string[] = [
-		deps.paths.resolve(PLUGIN_ROOT, "..", "..", ".obsidian", "plugins", "flowti-ibde", "data.json"),
-		deps.paths.join(PLUGIN_ROOT, "data.json"),
+		deps.paths.resolve(pluginRoot, "..", "..", ".obsidian", "plugins", "flowti-ibde", "data.json"),
+		deps.paths.join(pluginRoot, "data.json"),
 	];
 	for (const candidate of candidates) {
 		if (deps.disk.existsSync(candidate)) return candidate;
@@ -28,8 +27,8 @@ function findDataJson(deps: ReportDeps): string | null {
 
 // ── Data extraction ───────────────────────────────────────────────────
 
-function loadDataJson(deps: ReportDeps, log: (msg: string) => void): Record<string, unknown> | null {
-	const dataJsonPath = findDataJson(deps);
+function loadDataJson(pluginRoot: string, deps: ReportDeps, log: (msg: string) => void): Record<string, unknown> | null {
+	const dataJsonPath = findDataJson(pluginRoot, deps);
 	if (!dataJsonPath) return null;
 	try {
 		const data = JSON.parse(deps.disk.readFileSync(dataJsonPath, "utf-8")) as Record<string, unknown>;
@@ -70,11 +69,12 @@ function collectPerfWarnings(fm: Record<string, string | number>, startupHistory
 
 // ── Generator ────────────────────────────────────────────────────────
 
-export function generatePerformanceReport(projectPath: string, deps: ReportDeps, ctx?: PipelineContext): GeneratorOutput {
+export function generatePerformanceReport(projectPath: string, deps: ReportDeps, ctx?: PipelineContext, options?: { pluginRoot?: string }): GeneratorOutput {
 	const log = (msg: string) => ctx?.log(msg);
 	const svc = new ReportService(projectPath, deps);
+	const pluginRoot = options?.pluginRoot ?? projectPath;
 
-	const data = loadDataJson(deps, log);
+	const data = loadDataJson(pluginRoot, deps, log);
 	const startupHistory = extractStartupHistory(data);
 	const fm = buildPerfFrontmatter(startupHistory, data, deps.clock.iso());
 

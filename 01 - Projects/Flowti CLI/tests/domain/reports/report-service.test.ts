@@ -45,16 +45,42 @@ describe("ReportService", () => {
 		expect(svc.reportsDir).toBe(path.join("/my-project", "reports"));
 	});
 
-	it("uses configured reports dir", () => {
+	it("uses configured reports dir when no outputDir", () => {
 		mockReadConfig.mockReturnValue({ config: { reports: { dir: "output/reports" } }, warnings: [] });
 		const svc = new ReportService("/my-project", mockDeps);
 		expect(svc.reportsDir).toBe(path.join("/my-project", "output/reports"));
+		expect(svc.dataDir).toBe(path.join("/my-project", "output/reports"));
+	});
+
+	it("separates dataDir and reportsDir when outputDir is configured", () => {
+		mockReadConfig.mockReturnValue({ config: { reports: { dir: "reports", outputDir: "../../03 - Resources/Reports" } }, warnings: [] });
+		const svc = new ReportService("/my-project", mockDeps);
+		expect(svc.dataDir).toBe(path.join("/my-project", "reports"));
+		expect(svc.reportsDir).toBe(path.join("/my-project", "../../03 - Resources/Reports"));
+	});
+
+	it("dataDir defaults to reports dir when no outputDir", () => {
+		mockReadConfig.mockReturnValue({ config: null, warnings: [] });
+		const svc = new ReportService("/my-project", mockDeps);
+		expect(svc.dataDir).toBe(path.join("/my-project", "reports"));
 	});
 
 	it("subdir resolves within reports dir", () => {
 		mockReadConfig.mockReturnValue({ config: null, warnings: [] });
 		const svc = new ReportService("/proj", mockDeps);
 		expect(svc.subdir("tests")).toBe(path.join("/proj", "reports", "tests"));
+	});
+
+	it("dataPath resolves within data dir", () => {
+		mockReadConfig.mockReturnValue({ config: { reports: { dir: "reports", outputDir: "../../out" } }, warnings: [] });
+		const svc = new ReportService("/proj", mockDeps);
+		expect(svc.dataPath("tests/testreport.json")).toBe(path.join("/proj", "reports", "tests/testreport.json"));
+	});
+
+	it("projectName returns basename of project path", () => {
+		mockReadConfig.mockReturnValue({ config: null, warnings: [] });
+		const svc = new ReportService("/root/My Project", mockDeps);
+		expect(svc.projectName).toBe("My Project");
 	});
 
 	it("stablePath resolves within reports dir", () => {
@@ -179,5 +205,50 @@ describe("ReportService", () => {
 		// The file should have been written (which implies dir was created)
 		const refFile = [...fs.files.keys()].find(k => k.endsWith("Ref.md"));
 		expect(refFile).toBeDefined();
+	});
+
+	it("stampProjectLink adds up frontmatter with project README wikilink", () => {
+		mockReadConfig.mockReturnValue({ config: null, warnings: [] });
+		const svc = new ReportService("/root/My Project", mockDeps);
+		const doc = Document.create("Test");
+		svc.stampProjectLink(doc);
+		const output = doc.toString();
+		expect(output).toContain("up: \"[[My Project/README]]\"");
+	});
+
+	it("save stamps project link in document", () => {
+		mockReadConfig.mockReturnValue({ config: null, warnings: [] });
+		const fs = createMockFs();
+		setDisk(fs);
+
+		const svc = new ReportService("/root/My Project", mockDeps);
+		const doc = Document.create("Test").text("Hello");
+		svc.save(doc, { subdir: "tests", slug: "t", stableFilename: "T.md" });
+
+		const stableKey = [...fs.files.keys()].find(k => k.endsWith("T.md") && !k.includes("tests"));
+		expect(stableKey).toBeDefined();
+		expect(fs.files.get(stableKey!)).toContain("up: \"[[My Project/README]]\"");
+	});
+
+	it("saveReference stamps project link in document", () => {
+		mockReadConfig.mockReturnValue({ config: null, warnings: [] });
+		const fs = createMockFs();
+		setDisk(fs);
+
+		const svc = new ReportService("/root/My Project", mockDeps);
+		const doc = Document.create("Test Ref").text("Content");
+		svc.saveReference(doc, "Ref.md");
+
+		const refKey = [...fs.files.keys()].find(k => k.endsWith("Ref.md"));
+		expect(refKey).toBeDefined();
+		expect(fs.files.get(refKey!)).toContain("up: \"[[My Project/README]]\"");
+	});
+
+	it("accepts all options overrides including dataDir", () => {
+		mockReadConfig.mockReturnValue({ config: null, warnings: [] });
+		const svc = new ReportService("/proj", mockDeps, { reportsDir: "/out", referenceDir: "/ref", dataDir: "/data" });
+		expect(svc.reportsDir).toBe("/out");
+		expect(svc.referenceDir).toBe("/ref");
+		expect(svc.dataDir).toBe("/data");
 	});
 });

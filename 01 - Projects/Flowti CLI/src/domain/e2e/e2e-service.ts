@@ -5,7 +5,6 @@
  * All methods resolve paths from the project's ReviewConfig.
  */
 
-import { PLUGIN_ROOT } from "../../infrastructure/config.js";
 import type { CliDeps } from "../../infrastructure/deps.js";
 import { runPipeline } from "../../infrastructure/pipeline/pipeline-runner.js";
 import type { ReviewConfig } from "../../infrastructure/types.js";
@@ -17,35 +16,35 @@ import { buildSuitePipeline } from "./pipelines/suite-pipeline.js";
 
 let _e2e: E2EPaths | null = null;
 
-function defaultE2E(deps: Pick<CliDeps, "disk" | "paths" | "proc">): E2EPaths {
+function defaultE2E(pluginRoot: string, vaultRoot: string, deps: Pick<CliDeps, "disk" | "paths" | "proc">): E2EPaths {
 	if (!_e2e) {
-		const { config } = readProjectConfig(PLUGIN_ROOT, { disk: deps.disk, paths: deps.paths });
-		_e2e = resolveE2EPaths(PLUGIN_ROOT, config?.review, deps);
+		const { config } = readProjectConfig(pluginRoot, { disk: deps.disk, paths: deps.paths });
+		_e2e = resolveE2EPaths(pluginRoot, config?.review, vaultRoot, deps);
 	}
 	return _e2e;
 }
 
 /** Initialize E2E paths from an explicit project root and config. */
-export function initE2EPaths(projectRoot: string, review: ReviewConfig | undefined, deps: Pick<CliDeps, "paths" | "proc">): E2EPaths {
-	_e2e = resolveE2EPaths(projectRoot, review, deps);
+export function initE2EPaths(projectRoot: string, review: ReviewConfig | undefined, vaultRoot: string, deps: Pick<CliDeps, "paths" | "proc">): E2EPaths {
+	_e2e = resolveE2EPaths(projectRoot, review, vaultRoot, deps);
 	return _e2e;
 }
 
 /** Get the current E2E paths (initializes from PLUGIN_ROOT if needed). */
-export function getE2EPaths(deps: Pick<CliDeps, "disk" | "paths" | "proc">): E2EPaths {
-	return defaultE2E(deps);
+export function getE2EPaths(pluginRoot: string, vaultRoot: string, deps: Pick<CliDeps, "disk" | "paths" | "proc">): E2EPaths {
+	return defaultE2E(pluginRoot, vaultRoot, deps);
 }
 
 // ── Entry points ────────────────────────────────────────────────────
 
 /** Run the interactive E2E session (--list mode). */
-export async function startInteractiveSession(runInteractive: (e2e: E2EPaths) => Promise<void>, deps: Pick<CliDeps, "disk" | "paths" | "proc">, e2e?: E2EPaths): Promise<void> {
-	await runInteractive(e2e ?? defaultE2E(deps));
+export async function startInteractiveSession(runInteractive: (e2e: E2EPaths) => Promise<void>, pluginRoot: string, vaultRoot: string, deps: Pick<CliDeps, "disk" | "paths" | "proc">, e2e?: E2EPaths): Promise<void> {
+	await runInteractive(e2e ?? defaultE2E(pluginRoot, vaultRoot, deps));
 }
 
 /** Run a non-interactive E2E suite with optional journey filter. */
-export async function runE2ESuite(deps: Pick<CliDeps, "disk" | "shell" | "paths" | "proc" | "log">, journeyFilter?: string, e2e?: E2EPaths): Promise<never> {
-	const resolved = e2e ?? defaultE2E(deps);
+export async function runE2ESuite(pluginRoot: string, vaultRoot: string, deps: Pick<CliDeps, "disk" | "shell" | "paths" | "proc" | "log">, journeyFilter?: string, e2e?: E2EPaths): Promise<never> {
+	const resolved = e2e ?? defaultE2E(pluginRoot, vaultRoot, deps);
 
 	if (journeyFilter) {
 		deps.proc.env().E2E_JOURNEY = journeyFilter;

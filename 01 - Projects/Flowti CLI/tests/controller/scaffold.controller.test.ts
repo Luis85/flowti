@@ -46,9 +46,10 @@ vi.mock("../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
 vi.mock("../../src/infrastructure/proc.js", () => ({
 	proc: { exit: vi.fn(), argv: () => [], cwd: () => "/", env: () => ({}) },
 }));
-vi.mock("../../src/ui/menus/marketplace-menu.js", () => ({
-	displayMarketplaceCommand: vi.fn(),
-	importDefinitionCommand: vi.fn(),
+vi.mock("../../src/domain/scaffold/marketplace.js", () => ({
+	buildMarketplaceListing: vi.fn(() => []),
+	resolveDefinitionsDir: vi.fn(() => "/project/configs/definitions"),
+	importDefinition: vi.fn(() => ({ success: true, targetPath: "/project/configs/definitions/test.json", errors: [] })),
 }));
 vi.mock("../../src/ui/scaffold-display.js", () => ({
 	renderDryRunPreview: vi.fn(),
@@ -57,6 +58,8 @@ vi.mock("../../src/ui/scaffold-display.js", () => ({
 	renderExportPreview: vi.fn(),
 	renderExportSaved: vi.fn(),
 	renderBundleImported: vi.fn(),
+	renderMarketplace: vi.fn(),
+	renderImportResult: vi.fn(),
 }));
 vi.mock("../../src/ui/common-renderers.js", () => ({
 	renderError: vi.fn(),
@@ -99,8 +102,10 @@ describe("scaffold.controller", () => {
 
 			expect(scaffold).toHaveBeenCalledOnce();
 			expect(scaffold).toHaveBeenCalledWith(
+				"/vault/projects",
 				expect.any(Object),
 				expect.objectContaining({ name: "my-app", definitionId: "flowti-project" }),
+				undefined,
 			);
 		});
 
@@ -110,8 +115,10 @@ describe("scaffold.controller", () => {
 			);
 
 			expect(scaffold).toHaveBeenCalledWith(
+				"/vault/projects",
 				expect.any(Object),
 				expect.objectContaining({ definitionId: "custom-lib" }),
+				undefined,
 			);
 		});
 
@@ -168,8 +175,10 @@ describe("scaffold.controller", () => {
 			);
 
 			expect(scaffold).toHaveBeenCalledWith(
+				"/vault/projects",
 				expect.any(Object),
 				expect.objectContaining({ author: "Jane", outputDir: "/custom/dir" }),
+				undefined,
 			);
 		});
 	});

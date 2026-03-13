@@ -129,7 +129,7 @@ describe("SitemapRouter", () => {
 				start: {
 					title: "Main Menu",
 					items: [
-						{ key: "q", label: "Quit", signal: "quit" as const },
+						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
 					],
 				},
 			});
@@ -152,13 +152,13 @@ describe("SitemapRouter", () => {
 				start: {
 					title: "Main",
 					items: [
-						{ key: "s", label: "Settings", navigate: "settings" },
+						{ type: "item" as const, key: "s", label: "Settings", navigate: "settings" },
 					],
 				},
 				settings: {
 					title: "Settings",
 					items: [
-						{ key: "q", label: "Quit", signal: "quit" as const },
+						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
 					],
 				},
 			});
@@ -185,7 +185,7 @@ describe("SitemapRouter", () => {
 			const sitemap = makeSitemap({
 				start: {
 					title: "Main",
-					items: [{ key: "q", label: "Quit", signal: "quit" as const }],
+					items: [{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const }],
 				},
 			});
 
@@ -202,13 +202,13 @@ describe("SitemapRouter", () => {
 				start: {
 					title: "Main",
 					items: [
-						{ key: "s", label: "Sub", navigate: "sub" },
-						{ key: "q", label: "Quit", signal: "quit" as const },
+						{ type: "item" as const, key: "s", label: "Sub", navigate: "sub" },
+						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
 					],
 				},
 				sub: {
 					title: "Sub",
-					items: [{ key: "b", label: "Back", signal: "back" as const }],
+					items: [{ type: "item" as const, key: "b", label: "Back", signal: "back" as const }],
 				},
 			});
 
@@ -231,13 +231,13 @@ describe("SitemapRouter", () => {
 				start: {
 					title: "Main",
 					items: [
-						{ key: "s", label: "Sub", navigate: "sub" },
-						{ key: "q", label: "Quit", signal: "quit" as const },
+						{ type: "item" as const, key: "s", label: "Sub", navigate: "sub" },
+						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
 					],
 				},
 				sub: {
 					title: "Sub",
-					items: [{ key: "h", label: "Home", signal: "start" as const }],
+					items: [{ type: "item" as const, key: "h", label: "Home", signal: "start" as const }],
 				},
 			});
 
@@ -265,7 +265,7 @@ describe("SitemapRouter", () => {
 			const sitemap = makeSitemap({
 				start: {
 					title: "Main",
-					items: [{ key: "d", label: "Dynamic", navigate: "dyn" }],
+					items: [{ type: "item" as const, key: "d", label: "Dynamic", navigate: "dyn" }],
 				},
 				dyn: {
 					type: "dynamic",
@@ -324,8 +324,8 @@ describe("SitemapRouter", () => {
 				start: {
 					title: "Main",
 					items: [
-						{ key: "b", label: "Build", command: "build" },
-						{ key: "q", label: "Quit", signal: "quit" as const },
+						{ type: "item" as const, key: "b", label: "Build", command: "build" },
+						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
 					],
 				},
 			});
@@ -354,8 +354,8 @@ describe("SitemapRouter", () => {
 				start: {
 					title: "Main",
 					items: [
-						{ key: "x", label: "Unknown", command: "nonexistent" },
-						{ key: "q", label: "Quit", signal: "quit" as const },
+						{ type: "item" as const, key: "x", label: "Unknown", command: "nonexistent" },
+						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
 					],
 				},
 			});
@@ -383,8 +383,8 @@ describe("SitemapRouter", () => {
 				start: {
 					title: "Main",
 					items: [
-						{ key: "a", label: "Action", handler: "my-action" },
-						{ key: "q", label: "Quit", signal: "quit" as const },
+						{ type: "item" as const, key: "a", label: "Action", handler: "my-action" },
+						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
 					],
 				},
 			});
@@ -409,7 +409,7 @@ describe("SitemapRouter", () => {
 			const sitemap = makeSitemap({
 				start: {
 					title: "Main",
-					items: [{ key: "a", label: "Action", handler: "my-action" }],
+					items: [{ type: "item" as const, key: "a", label: "Action", handler: "my-action" }],
 				},
 			});
 
@@ -431,13 +431,13 @@ describe("SitemapRouter", () => {
 				start: {
 					title: "Main",
 					items: [
-						{ key: "s", label: "Sub", navigate: "sub" },
-						{ key: "q", label: "Quit", signal: "quit" as const },
+						{ type: "item" as const, key: "s", label: "Sub", navigate: "sub" },
+						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
 					],
 				},
 				sub: {
 					title: "Sub",
-					items: [{ key: "a", label: "Reset", handler: "reset-action" }],
+					items: [{ type: "item" as const, key: "a", label: "Reset", handler: "reset-action" }],
 				},
 			});
 
@@ -460,13 +460,13 @@ describe("SitemapRouter", () => {
 				start: {
 					title: "Main",
 					items: [
-						{ key: "s", label: "Sub", navigate: "sub" },
-						{ key: "q", label: "Quit", signal: "quit" as const },
+						{ type: "item" as const, key: "s", label: "Sub", navigate: "sub" },
+						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
 					],
 				},
 				sub: {
 					title: "Sub",
-					items: [{ key: "a", label: "Go back", handler: "back-action" }],
+					items: [{ type: "item" as const, key: "a", label: "Go back", handler: "back-action" }],
 				},
 			});
 
@@ -494,6 +494,7 @@ describe("SitemapRouter", () => {
 					title: "Main",
 					items: [
 						{
+							type: "item" as const,
 							key: "d",
 							label: "Disabled Item",
 							signal: "quit" as const,
@@ -529,8 +530,8 @@ describe("SitemapRouter", () => {
 				start: {
 					title: "Main",
 					items: [
-						{ key: "h", label: "Hidden", signal: "quit" as const, hidden: true },
-						{ key: "q", label: "Quit", signal: "quit" as const },
+						{ type: "item" as const, key: "h", label: "Hidden", signal: "quit" as const, hidden: true },
+						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
 					],
 				},
 			});
@@ -551,9 +552,9 @@ describe("SitemapRouter", () => {
 				start: {
 					title: "Main",
 					items: [
-						{ key: "a", label: "A", signal: "quit" as const },
-						{ separator: true as const },
-						{ key: "b", label: "B", signal: "quit" as const },
+						{ type: "item" as const, key: "a", label: "A", signal: "quit" as const },
+						{ type: "separator" as const },
+						{ type: "item" as const, key: "b", label: "B", signal: "quit" as const },
 					],
 				},
 			});
@@ -579,7 +580,7 @@ describe("SitemapRouter", () => {
 				start: {
 					title: "Main",
 					beforeRender: "my-banner",
-					items: [{ key: "q", label: "Quit", signal: "quit" as const }],
+					items: [{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const }],
 				},
 			});
 
@@ -607,7 +608,7 @@ describe("SitemapRouter", () => {
 				start: {
 					title: "Main",
 					beforeRender: "nonexistent-banner",
-					items: [{ key: "q", label: "Quit", signal: "quit" as const }],
+					items: [{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const }],
 				},
 			});
 
@@ -633,7 +634,7 @@ describe("SitemapRouter", () => {
 				start: {
 					title: "Main",
 					items: [
-						{ key: "p", label: "Pick project", navigate: "project-picker" },
+						{ type: "item" as const, key: "p", label: "Pick project", navigate: "project-picker" },
 					],
 				},
 				"project-picker": {
@@ -644,7 +645,7 @@ describe("SitemapRouter", () => {
 				"project-detail": {
 					title: "Project: {{project.name}}",
 					items: [
-						{ key: "q", label: "Quit", signal: "quit" as const },
+						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
 					],
 				},
 			});
@@ -682,8 +683,8 @@ describe("SitemapRouter", () => {
 				start: {
 					title: "Main",
 					items: [
-						{ key: "b", label: "Back", signal: "back" as const },
-						{ key: "q", label: "Quit", signal: "quit" as const },
+						{ type: "item" as const, key: "b", label: "Back", signal: "back" as const },
+						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
 					],
 				},
 			});
@@ -710,7 +711,7 @@ describe("SitemapRouter", () => {
 			const sitemap = makeSitemap({
 				start: {
 					title: "Project: {{project.name}}",
-					items: [{ key: "q", label: "Quit", signal: "quit" as const }],
+					items: [{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const }],
 				},
 			});
 
@@ -737,7 +738,7 @@ describe("SitemapRouter", () => {
 				start: {
 					title: "Main",
 					items: [
-						{ key: "p", label: "Project: {{project.name}}", signal: "quit" as const },
+						{ type: "item" as const, key: "p", label: "Project: {{project.name}}", signal: "quit" as const },
 					],
 				},
 			});
@@ -761,14 +762,14 @@ describe("SitemapRouter", () => {
 			const original = makeSitemap({
 				start: {
 					title: "Original",
-					items: [{ key: "q", label: "Quit", signal: "quit" as const }],
+					items: [{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const }],
 				},
 			});
 
 			const updated = makeSitemap({
 				start: {
 					title: "Updated",
-					items: [{ key: "q", label: "Quit", signal: "quit" as const }],
+					items: [{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const }],
 				},
 			});
 
@@ -809,8 +810,8 @@ describe("SitemapRouter", () => {
 				start: {
 					title: "Main",
 					items: [
-						{ key: "n", label: "Go nowhere", navigate: "nonexistent" },
-						{ key: "q", label: "Quit", signal: "quit" as const },
+						{ type: "item" as const, key: "n", label: "Go nowhere", navigate: "nonexistent" },
+						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
 					],
 				},
 			});
@@ -841,14 +842,14 @@ describe("SitemapRouter", () => {
 				start: {
 					title: "Main",
 					items: [
-						{ key: "d", label: "Detail", navigate: "detail" },
-						{ key: "q", label: "Quit", signal: "quit" as const },
+						{ type: "item" as const, key: "d", label: "Detail", navigate: "detail" },
+						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
 					],
 				},
 				detail: {
 					title: "Detail",
 					context: ["project"],
-					items: [{ key: "b", label: "Back", signal: "back" as const }],
+					items: [{ type: "item" as const, key: "b", label: "Back", signal: "back" as const }],
 				},
 			});
 
@@ -908,8 +909,8 @@ describe("SitemapRouter", () => {
 				start: {
 					title: "Main",
 					items: [
-						{ key: "n", label: "No-op" },
-						{ key: "q", label: "Quit", signal: "quit" as const },
+						{ type: "item" as const, key: "n", label: "No-op" },
+						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
 					],
 				},
 			});
@@ -942,8 +943,8 @@ describe("SitemapRouter", () => {
 				start: {
 					title: "Main",
 					items: [
-						{ key: "b", label: "Build", command: "build" },
-						{ key: "q", label: "Quit", signal: "quit" as const },
+						{ type: "item" as const, key: "b", label: "Build", command: "build" },
+						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
 					],
 				},
 			});
@@ -976,9 +977,9 @@ describe("SitemapRouter", () => {
 					title: "Hybrid",
 					handler: "hybrid-handler",
 					items: [
-						{ key: "a", label: "Static Action", handler: "some-action" },
-						{ separator: true },
-						{ key: "b", label: "Back", signal: "back" as const },
+						{ type: "item" as const, key: "a", label: "Static Action", handler: "some-action" },
+						{ type: "separator" as const },
+						{ type: "item" as const, key: "b", label: "Back", signal: "back" as const },
 					],
 				},
 			});
@@ -1030,10 +1031,10 @@ describe("SitemapRouter", () => {
 					title: "Slotted",
 					handler: "slot-handler",
 					items: [
-						{ slot: "dynamic-list" },
-						{ separator: true },
-						{ key: "c", label: "Add", handler: "add-action" },
-						{ key: "b", label: "Back", signal: "back" as const },
+						{ type: "slot" as const, slot: "dynamic-list" },
+						{ type: "separator" as const },
+						{ type: "item" as const, key: "c", label: "Add", handler: "add-action" },
+						{ type: "item" as const, key: "b", label: "Back", signal: "back" as const },
 					],
 				},
 			});
@@ -1071,11 +1072,11 @@ describe("SitemapRouter", () => {
 					title: "Multi-Slot",
 					handler: "multi-handler",
 					items: [
-						{ key: "h", label: "Header", signal: "back" as const },
-						{ slot: "list" },
-						{ key: "m", label: "Middle", signal: "back" as const },
-						{ slot: "extras" },
-						{ key: "f", label: "Footer", signal: "back" as const },
+						{ type: "item" as const, key: "h", label: "Header", signal: "back" as const },
+						{ type: "slot" as const, slot: "list" },
+						{ type: "item" as const, key: "m", label: "Middle", signal: "back" as const },
+						{ type: "slot" as const, slot: "extras" },
+						{ type: "item" as const, key: "f", label: "Footer", signal: "back" as const },
 					],
 				},
 			});
@@ -1114,7 +1115,7 @@ describe("SitemapRouter", () => {
 					handler: "hybrid",
 					beforeRender: "my-banner",
 					items: [
-						{ key: "b", label: "Back", signal: "back" as const },
+						{ type: "item" as const, key: "b", label: "Back", signal: "back" as const },
 					],
 				},
 			});
@@ -1135,13 +1136,13 @@ describe("SitemapRouter", () => {
 					title: "Hybrid Nav",
 					handler: "nav-handler",
 					items: [
-						{ key: "s", label: "Settings", navigate: "settings" },
+						{ type: "item" as const, key: "s", label: "Settings", navigate: "settings" },
 					],
 				},
 				settings: {
 					title: "Settings",
 					items: [
-						{ key: "q", label: "Quit", signal: "quit" as const },
+						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
 					],
 				},
 			});
@@ -1238,7 +1239,7 @@ describe("SitemapRouter", () => {
 				start: {
 					title: "Main",
 					items: [
-						{ key: "d", label: "Detail", navigate: "detail", navigateParams: { id: "abc" } },
+						{ type: "item" as const, key: "d", label: "Detail", navigate: "detail", navigateParams: { id: "abc" } },
 					],
 				},
 				detail: {
@@ -1271,9 +1272,9 @@ describe("SitemapRouter", () => {
 				start: {
 					title: "Main",
 					items: [
-						{ listProvider: "my-list" },
-						{ separator: true },
-						{ key: "q", label: "Quit", signal: "quit" as const },
+						{ type: "listProvider" as const, listProvider: "my-list" },
+						{ type: "separator" as const },
+						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
 					],
 				},
 			});
@@ -1309,9 +1310,9 @@ describe("SitemapRouter", () => {
 					title: "Hybrid",
 					handler: "hybrid-handler",
 					items: [
-						{ slot: "data" },
-						{ listProvider: "extra-list" },
-						{ key: "b", label: "Back", signal: "back" as const },
+						{ type: "slot" as const, slot: "data" },
+						{ type: "listProvider" as const, listProvider: "extra-list" },
+						{ type: "item" as const, key: "b", label: "Back", signal: "back" as const },
 					],
 				},
 			});
