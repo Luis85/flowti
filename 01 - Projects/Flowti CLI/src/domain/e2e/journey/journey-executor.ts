@@ -5,6 +5,9 @@
  * using a dynamically assembled tool registry. Base tools are always
  * available; environment providers add target-specific tools.
  *
+ * Supports: step filtering, dev mode, retry, conditional execution,
+ * per-step timeout, bail-on-failure, and risk-priority sequencing.
+ *
  * Projects declare what they need via `requires`, the CLI provides —
  * dependency injection for test environments.
  */
@@ -17,7 +20,10 @@ import type {
 	StepResult,
 	ActionResult,
 	JourneyExecutorOptions,
+	RiskLevel,
+	SequencerStrategy,
 } from "./journey-types.js";
+import { isRefStep, RISK_PRIORITY } from "./journey-types.js";
 import { BASE_TOOLS } from "./journey-tools.js";
 import type { ToolExecutor } from "./journey-tools.js";
 import type { EnvironmentProvider } from "./journey-environment.js";
@@ -62,6 +68,51 @@ export function resolveEnvironment(provider?: EnvironmentProvider): ResolvedEnvi
 	};
 }
 
+// ── Step filtering & conditions ──────────────────────────────────────
+
+/** @internal Exported for TypeDoc visibility. */
+export type SkipResult = { skip: boolean; reason?: string };
+
+/** Check step conditions (runIf/skipIf) for skip. */
+function checkCondition(step: JourneyStep, opts: JourneyExecutorOptions): SkipResult | null {
+	if (!step.condition) return null;
+	const vars = opts.variables ?? {};
+	const env = opts.env;
+	if (step.condition.runIf) {
+		const resolved = interpolateCondition(step.condition.runIf, vars, env);
+		if (!isTruthy(resolved)) return { skip: true, reason: `runIf: "${step.condition.runIf}" is falsy` };
+	}
+	if (step.condition.skipIf) {
+		const resolved = interpolateCondition(step.condition.skipIf, vars, env);
+		if (isTruthy(resolved)) return { skip: true, reason: `skipIf: "${step.condition.skipIf}" is truthy` };
+	}
+	return null;
+}
+
+/** Check if a step should be skipped based on options and step config. */
+export function shouldSkipStep(step: JourneyStep, opts: JourneyExecutorOptions): SkipResult {
+	if (step.skip) return { skip: true, reason: "skip=true" };
+	if (step.dev && !opts.devMode) return { skip: true, reason: "dev-only step" };
+	if (opts.stepFilter?.length && !opts.stepFilter.includes(step.id)) {
+		return { skip: true, reason: "filtered out" };
+	}
+	return checkCondition(step, opts) ?? { skip: false };
+}
+
+/** Interpolate {{var}} in a condition string. */
+function interpolateCondition(expr: string, vars: Record<string, string>, env?: Record<string, string>): string {
+	return expr.replace(/\{\{(\w[\w.]*)\}\}/g, (_m, key) => {
+		// Support {{env.VAR}} for environment variables
+		if (key.startsWith("env.")) return env?.[key.slice(4)] ?? "";
+		return vars[key] ?? "";
+	});
+}
+
+/** Determine if a resolved condition value is truthy. */
+function isTruthy(value: string): boolean {
+	return value !== "" && value !== "0" && value !== "false" && value !== "null" && value !== "undefined";
+}
+
 // ── Step execution ──────────────────────────────────────────────────
 
 function ms(start: number, deps: ToolDeps): number {
@@ -82,7 +133,7 @@ async function executeAction(
 	return executor(action, deps, opts);
 }
 
-async function executeStep(
+async function executeStepActions(
 	step: JourneyStep,
 	tools: Record<string, ToolExecutor>,
 	deps: ToolDeps,
@@ -90,9 +141,13 @@ async function executeStep(
 ): Promise<StepResult> {
 	const start = deps.clock.ms();
 	const actions: ActionResult[] = [];
+	const timeout = step.timeout ?? opts.commandTimeout;
+
+	// Apply per-step timeout via modified opts
+	const stepOpts = timeout ? { ...opts, commandTimeout: timeout } : opts;
 
 	for (const action of step.actions) {
-		const result = await executeAction(action, tools, deps, opts);
+		const result = await executeAction(action, tools, deps, stepOpts);
 		actions.push(result);
 		if (!result.success) {
 			return {
@@ -115,6 +170,35 @@ async function executeStep(
 	};
 }
 
+/** Execute a step with retry support. */
+async function executeStepWithRetry(
+	step: JourneyStep,
+	tools: Record<string, ToolExecutor>,
+	deps: ToolDeps,
+	opts: JourneyExecutorOptions,
+): Promise<StepResult> {
+	const maxAttempts = step.retry?.maxAttempts ?? 1;
+	const delayMs = step.retry?.delayMs ?? 0;
+	let lastResult: StepResult | null = null;
+
+	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+		lastResult = await executeStepActions(step, tools, deps, opts);
+
+		if (lastResult.status === "pass") {
+			if (attempt > 1) lastResult.retryAttempts = attempt - 1;
+			return lastResult;
+		}
+
+		if (attempt < maxAttempts) {
+			deps.log(`[journey]   ↻ Retry ${attempt}/${maxAttempts - 1} for "${step.title}" (delay: ${delayMs}ms)`);
+			if (delayMs > 0) await deps.sleep(delayMs);
+		}
+	}
+
+	lastResult!.retryAttempts = maxAttempts - 1;
+	return lastResult!;
+}
+
 // ── Journey lifecycle helpers ────────────────────────────────────────
 
 async function runActions(
@@ -135,6 +219,16 @@ async function runActions(
 	}
 }
 
+function skipResult(step: JourneyStep): StepResult {
+	return { stepId: step.id, stepTitle: step.title, status: "skip", durationMs: 0, actions: [] };
+}
+
+function shouldSkipDueToFailure(step: JourneyStep, hasFailed: boolean, failCount: number, bail: number, continueOnFailure: boolean): StepResult | null {
+	if (bail > 0 && failCount >= bail) return skipResult(step);
+	if (hasFailed && !continueOnFailure) return skipResult(step);
+	return null;
+}
+
 async function runSteps(
 	definition: JourneyDefinition,
 	tools: Record<string, ToolExecutor>,
@@ -144,26 +238,76 @@ async function runSteps(
 ): Promise<StepResult[]> {
 	const results: StepResult[] = [];
 	let hasFailed = false;
+	let failCount = 0;
+	const bail = opts.bail ?? 0;
 
-	for (const step of definition.steps) {
-		if (hasFailed && !continueOnFailure) {
-			results.push({ stepId: step.id, stepTitle: step.title, status: "skip", durationMs: 0, actions: [] });
+	for (const stepOrRef of definition.steps) {
+		if (isRefStep(stepOrRef)) {
+			deps.log(`[journey] Skipping unresolved $ref: ${stepOrRef.$ref}`);
+			continue;
+		}
+
+		const step = stepOrRef;
+		const failSkip = shouldSkipDueToFailure(step, hasFailed, failCount, bail, continueOnFailure);
+		if (failSkip) { results.push(failSkip); continue; }
+
+		const skipCheck = shouldSkipStep(step, opts);
+		if (skipCheck.skip) {
+			deps.log(`[journey]   ○ ${step.title} (skipped: ${skipCheck.reason})`);
+			results.push(skipResult(step));
 			continue;
 		}
 
 		deps.log(`[journey] Step: ${step.title}`);
-		const r = await executeStep(step, tools, deps, opts);
+		const r = await executeStepWithRetry(step, tools, deps, opts);
 		results.push(r);
 
 		if (r.status === "fail") {
 			hasFailed = true;
+			failCount++;
 			deps.log(`[journey]   ✗ ${step.title}: ${r.error}`);
 		} else {
-			deps.log(`[journey]   ✓ ${step.title} (${r.durationMs}ms)`);
+			const retryMsg = r.retryAttempts ? ` (${r.retryAttempts} retries)` : "";
+			deps.log(`[journey]   ✓ ${step.title} (${r.durationMs}ms${retryMsg})`);
 		}
 	}
 
 	return results;
+}
+
+// ── Journey sequencing ───────────────────────────────────────────────
+
+/** Sort journeys by the configured sequencer strategy. */
+export function sequenceJourneys(journeys: JourneyDefinition[], strategy: SequencerStrategy): JourneyDefinition[] {
+	const sorted = [...journeys];
+	switch (strategy) {
+		case "risk-priority":
+			sorted.sort((a, b) => {
+				const aRisk = RISK_PRIORITY.indexOf(a.traceability?.risk ?? "low");
+				const bRisk = RISK_PRIORITY.indexOf(b.traceability?.risk ?? "low");
+				if (aRisk !== bRisk) return aRisk - bRisk;
+				return (a.chapter ?? 999) - (b.chapter ?? 999);
+			});
+			break;
+		case "alphabetical":
+			sorted.sort((a, b) => a.journey.localeCompare(b.journey));
+			break;
+		case "chapter-order":
+		default:
+			sorted.sort((a, b) => (a.chapter ?? 999) - (b.chapter ?? 999));
+			break;
+	}
+	return sorted;
+}
+
+/** Filter journeys by type. */
+export function filterJourneysByType(journeys: JourneyDefinition[], types: string[]): JourneyDefinition[] {
+	return journeys.filter((j) => j.type && types.includes(j.type));
+}
+
+/** Filter journeys by risk level. */
+export function filterJourneysByRisk(journeys: JourneyDefinition[], risks: RiskLevel[]): JourneyDefinition[] {
+	return journeys.filter((j) => j.traceability?.risk && risks.includes(j.traceability.risk));
 }
 
 // ── Journey execution ───────────────────────────────────────────────
@@ -200,5 +344,6 @@ export async function executeJourney(
 		passed, failed, skipped,
 		durationMs: ms(start, deps),
 		steps: results,
+		traceability: definition.traceability,
 	};
 }

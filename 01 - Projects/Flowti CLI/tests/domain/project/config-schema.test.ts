@@ -248,6 +248,108 @@ describe("validateProjectConfig", () => {
 		});
 	});
 
+	describe("health", () => {
+		it("accepts valid health config", () => {
+			const { warnings } = validateProjectConfig(valid({
+				health: { thresholds: { coverage: { min: 70, target: 85 }, lint: { maxErrors: 0 }, tests: { minPassed: 3600 } } },
+			}));
+			expect(warnings).toEqual([]);
+		});
+
+		it("accepts empty health object", () => {
+			const { warnings } = validateProjectConfig(valid({ health: {} }));
+			expect(warnings).toEqual([]);
+		});
+
+		it("warns on non-object health", () => {
+			const { warnings } = validateProjectConfig(valid({ health: "bad" }));
+			expect(warnings).toContainEqual(expect.stringContaining('"health" must be an object'));
+		});
+
+		it("warns on non-object thresholds", () => {
+			const { warnings } = validateProjectConfig(valid({ health: { thresholds: "bad" } }));
+			expect(warnings).toContainEqual(expect.stringContaining('"health.thresholds" must be an object'));
+		});
+
+		it("warns on non-number coverage.min", () => {
+			const { warnings } = validateProjectConfig(valid({ health: { thresholds: { coverage: { min: "bad" } } } }));
+			expect(warnings).toContainEqual(expect.stringContaining('"health.thresholds.coverage.min" must be a number'));
+		});
+
+		it("warns on non-number lint.maxErrors", () => {
+			const { warnings } = validateProjectConfig(valid({ health: { thresholds: { lint: { maxErrors: true } } } }));
+			expect(warnings).toContainEqual(expect.stringContaining('"health.thresholds.lint.maxErrors" must be a number'));
+		});
+
+		it("warns on non-number tests.minPassed", () => {
+			const { warnings } = validateProjectConfig(valid({ health: { thresholds: { tests: { minPassed: "bad" } } } }));
+			expect(warnings).toContainEqual(expect.stringContaining('"health.thresholds.tests.minPassed" must be a number'));
+		});
+
+		it("warns on non-object qualityGates", () => {
+			const { warnings } = validateProjectConfig(valid({ health: { qualityGates: "bad" } }));
+			expect(warnings).toContainEqual(expect.stringContaining('"health.qualityGates" must be an object'));
+		});
+
+		it("warns on non-object coverage threshold group", () => {
+			const { warnings } = validateProjectConfig(valid({ health: { thresholds: { coverage: "bad" } } }));
+			expect(warnings).toContainEqual(expect.stringContaining('"health.thresholds.coverage" must be an object'));
+		});
+	});
+
+	describe("management", () => {
+		it("accepts valid management config", () => {
+			const { warnings } = validateProjectConfig(valid({
+				management: { resources: { dir: "docs/resources" }, timelog: { dir: "docs/timelog" } },
+			}));
+			expect(warnings).toEqual([]);
+		});
+
+		it("accepts empty management object", () => {
+			const { warnings } = validateProjectConfig(valid({ management: {} }));
+			expect(warnings).toEqual([]);
+		});
+
+		it("warns on non-object management", () => {
+			const { warnings } = validateProjectConfig(valid({ management: "bad" }));
+			expect(warnings).toContainEqual(expect.stringContaining('"management" must be an object'));
+		});
+
+		it("warns on non-object resources section", () => {
+			const { warnings } = validateProjectConfig(valid({ management: { resources: "bad" } }));
+			expect(warnings).toContainEqual(expect.stringContaining('"management.resources" must be an object'));
+		});
+
+		it("warns on non-string dir in section", () => {
+			const { warnings } = validateProjectConfig(valid({ management: { timelog: { dir: 42 } } }));
+			expect(warnings).toContainEqual(expect.stringContaining('"management.timelog.dir" must be a string'));
+		});
+
+		it("validates all dir-based sections", () => {
+			for (const section of ["resources", "timelog", "deliverables", "raid", "requirements", "capa"]) {
+				const { warnings } = validateProjectConfig(valid({ management: { [section]: { dir: "docs" } } }));
+				expect(warnings).toEqual([]);
+			}
+		});
+
+		it("warns on non-object lifecycle", () => {
+			const { warnings } = validateProjectConfig(valid({ management: { lifecycle: "bad" } }));
+			expect(warnings).toContainEqual(expect.stringContaining('"management.lifecycle" must be an object'));
+		});
+
+		it("warns on non-string lifecycle.featuresDir", () => {
+			const { warnings } = validateProjectConfig(valid({ management: { lifecycle: { featuresDir: 42 } } }));
+			expect(warnings).toContainEqual(expect.stringContaining('"management.lifecycle.featuresDir" must be a string'));
+		});
+
+		it("accepts valid lifecycle config", () => {
+			const { warnings } = validateProjectConfig(valid({
+				management: { lifecycle: { featuresDir: "docs/features", productsDir: "docs/products" } },
+			}));
+			expect(warnings).toEqual([]);
+		});
+	});
+
 	describe("unknown keys", () => {
 		it("warns on unknown top-level keys", () => {
 			const { warnings } = validateProjectConfig(valid({ unknownKey: true }));
@@ -256,7 +358,7 @@ describe("validateProjectConfig", () => {
 
 		it("does not warn on known keys", () => {
 			const { warnings } = validateProjectConfig({
-				name: "Test", build: {}, test: {}, devtools: {}, paths: {}, make: {}, components: {}, reports: {}, docs: {}, publish: {}, review: {}, health: {},
+				name: "Test", build: {}, test: {}, devtools: {}, paths: {}, make: {}, components: {}, reports: {}, docs: {}, publish: {}, review: {}, health: {}, management: {},
 			});
 			expect(warnings).toEqual([]);
 		});

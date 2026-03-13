@@ -43,6 +43,8 @@ export function validateProjectConfig(raw: unknown): ConfigValidationResult {
 	validatePublishEndpoints(cfg, errors);
 	validateDocs(cfg, errors);
 	validateReview(cfg, warnings);
+	validateHealth(cfg, warnings);
+	validateManagement(cfg, warnings);
 	warnUnknownKeys(cfg, warnings);
 
 	return { errors, warnings };
@@ -163,100 +165,83 @@ function validateComponents(cfg: Record<string, unknown>, warnings: string[]): v
 	}
 }
 
-function validateGeneratorEntry(entry: unknown, index: number, errors: string[]): void {
-	if (!entry || typeof entry !== "object") {
-		errors.push(`reports.generators[${index}]: must be an object.`);
+function validateArrayEntries(
+	section: Record<string, unknown>, arrayKey: string, prefix: string,
+	validate: (entry: unknown, index: number, errors: string[]) => void, errors: string[],
+): void {
+	if (section[arrayKey] === undefined) return;
+	if (!Array.isArray(section[arrayKey])) {
+		errors.push(`"${prefix}.${arrayKey}" must be an array.`);
 		return;
 	}
-	const gen = entry as Record<string, unknown>;
-	if (typeof gen.label !== "string" || gen.label.length === 0) {
-		errors.push(`reports.generators[${index}]: missing "label".`);
-	}
-	if (!gen.id && !gen.command) {
-		errors.push(`reports.generators[${index}]: must have "id" or "command" (or both).`);
+	for (let i = 0; i < (section[arrayKey] as unknown[]).length; i++) {
+		validate((section[arrayKey] as unknown[])[i], i, errors);
 	}
 }
 
 function validateReportGenerators(cfg: Record<string, unknown>, errors: string[]): void {
 	if (cfg.reports === undefined) return;
-	if (!cfg.reports || typeof cfg.reports !== "object") {
-		errors.push('"reports" must be an object.');
-		return;
-	}
+	if (!cfg.reports || typeof cfg.reports !== "object") { errors.push('"reports" must be an object.'); return; }
 	const reports = cfg.reports as Record<string, unknown>;
-	if (reports.dir !== undefined && typeof reports.dir !== "string") {
-		errors.push('"reports.dir" must be a string.');
-	}
-	if (reports.generators === undefined) return;
-	if (!Array.isArray(reports.generators)) {
-		errors.push('"reports.generators" must be an array.');
-		return;
-	}
-	for (let i = 0; i < (reports.generators as unknown[]).length; i++) {
-		validateGeneratorEntry((reports.generators as unknown[])[i], i, errors);
-	}
-}
-
-function validateEndpointEntry(entry: unknown, index: number, errors: string[]): void {
-	if (!entry || typeof entry !== "object") {
-		errors.push(`publish.endpoints[${index}]: must be an object.`);
-		return;
-	}
-	const ep = entry as Record<string, unknown>;
-	if (typeof ep.name !== "string" || ep.name.length === 0) {
-		errors.push(`publish.endpoints[${index}]: missing "name".`);
-	}
-	if (typeof ep.path !== "string" || ep.path.length === 0) {
-		errors.push(`publish.endpoints[${index}]: missing "path".`);
-	}
+	if (reports.dir !== undefined && typeof reports.dir !== "string") errors.push('"reports.dir" must be a string.');
+	validateArrayEntries(reports, "generators", "reports", (entry, i, errs) => {
+		if (!entry || typeof entry !== "object") { errs.push(`reports.generators[${i}]: must be an object.`); return; }
+		const gen = entry as Record<string, unknown>;
+		if (typeof gen.label !== "string" || gen.label.length === 0) errs.push(`reports.generators[${i}]: missing "label".`);
+		if (!gen.id && !gen.command) errs.push(`reports.generators[${i}]: must have "id" or "command" (or both).`);
+	}, errors);
 }
 
 function validatePublishEndpoints(cfg: Record<string, unknown>, errors: string[]): void {
 	if (cfg.publish === undefined) return;
-	if (!cfg.publish || typeof cfg.publish !== "object") {
-		errors.push('"publish" must be an object.');
-		return;
-	}
-	const publish = cfg.publish as Record<string, unknown>;
-	if (publish.endpoints === undefined) return;
-	if (!Array.isArray(publish.endpoints)) {
-		errors.push('"publish.endpoints" must be an array.');
-		return;
-	}
-	for (let i = 0; i < (publish.endpoints as unknown[]).length; i++) {
-		validateEndpointEntry((publish.endpoints as unknown[])[i], i, errors);
-	}
-}
-
-function validateDocGeneratorEntry(entry: unknown, index: number, errors: string[]): void {
-	if (!entry || typeof entry !== "object") {
-		errors.push(`docs.generators[${index}]: must be an object.`);
-		return;
-	}
-	const gen = entry as Record<string, unknown>;
-	if (typeof gen.label !== "string") {
-		errors.push(`docs.generators[${index}]: missing "label".`);
-	}
-	if (typeof gen.command !== "string") {
-		errors.push(`docs.generators[${index}]: missing "command".`);
-	}
+	if (!cfg.publish || typeof cfg.publish !== "object") { errors.push('"publish" must be an object.'); return; }
+	validateArrayEntries(cfg.publish as Record<string, unknown>, "endpoints", "publish", (entry, i, errs) => {
+		if (!entry || typeof entry !== "object") { errs.push(`publish.endpoints[${i}]: must be an object.`); return; }
+		const ep = entry as Record<string, unknown>;
+		if (typeof ep.name !== "string" || ep.name.length === 0) errs.push(`publish.endpoints[${i}]: missing "name".`);
+		if (typeof ep.path !== "string" || ep.path.length === 0) errs.push(`publish.endpoints[${i}]: missing "path".`);
+	}, errors);
 }
 
 function validateDocs(cfg: Record<string, unknown>, errors: string[]): void {
 	if (cfg.docs === undefined) return;
-	if (!cfg.docs || typeof cfg.docs !== "object") {
-		errors.push('"docs" must be an object.');
-		return;
+	if (!cfg.docs || typeof cfg.docs !== "object") { errors.push('"docs" must be an object.'); return; }
+	validateArrayEntries(cfg.docs as Record<string, unknown>, "generators", "docs", (entry, i, errs) => {
+		if (!entry || typeof entry !== "object") { errs.push(`docs.generators[${i}]: must be an object.`); return; }
+		const gen = entry as Record<string, unknown>;
+		if (typeof gen.label !== "string") errs.push(`docs.generators[${i}]: missing "label".`);
+		if (typeof gen.command !== "string") errs.push(`docs.generators[${i}]: missing "command".`);
+	}, errors);
+}
+
+function validateReviewEnvironment(review: Record<string, unknown>, warnings: string[]): void {
+	const validTargets = ["cli", "obsidian-vault", "obsidian-plugin", "typescript", "webapp"];
+	if (review.target !== undefined && (typeof review.target !== "string" || !validTargets.includes(review.target))) {
+		warnings.push(`"review.target" must be one of: ${validTargets.join(", ")}.`);
 	}
-	const docs = cfg.docs as Record<string, unknown>;
-	if (docs.generators === undefined) return;
-	if (!Array.isArray(docs.generators)) {
-		errors.push('"docs.generators" must be an array.');
-		return;
+	if (review.capabilities !== undefined && !Array.isArray(review.capabilities)) {
+		warnings.push('"review.capabilities" must be an array of strings.');
 	}
-	for (let i = 0; i < (docs.generators as unknown[]).length; i++) {
-		validateDocGeneratorEntry((docs.generators as unknown[])[i], i, errors);
+}
+
+function validateReviewExecution(review: Record<string, unknown>, warnings: string[]): void {
+	const validSequencers = ["alphabetical", "risk-priority", "chapter-order"];
+	if (review.sequencer !== undefined && (typeof review.sequencer !== "string" || !validSequencers.includes(review.sequencer))) {
+		warnings.push(`"review.sequencer" must be one of: ${validSequencers.join(", ")}.`);
 	}
+	expectType(review, "bail", "number", "review", warnings);
+	expectType(review, "timeout", "number", "review", warnings);
+	expectType(review, "hookTimeout", "number", "review", warnings);
+	expectType(review, "parallel", "boolean", "review", warnings);
+	expectType(review, "stepFilter", "string", "review", warnings);
+}
+
+function validateReviewEvidence(review: Record<string, unknown>, warnings: string[]): void {
+	expectType(review, "evidenceDir", "string", "review", warnings);
+	expectType(review, "screenshots", "boolean", "review", warnings);
+	expectType(review, "logs", "boolean", "review", warnings);
+	expectType(review, "traces", "boolean", "review", warnings);
+	expectType(review, "retainRuns", "number", "review", warnings);
 }
 
 function validateReview(cfg: Record<string, unknown>, warnings: string[]): void {
@@ -268,6 +253,97 @@ function validateReview(cfg: Record<string, unknown>, warnings: string[]): void 
 	const review = cfg.review as Record<string, unknown>;
 	if (review.journeysDir !== undefined && typeof review.journeysDir !== "string") {
 		warnings.push('"review.journeysDir" must be a string.');
+	}
+	validateReviewEnvironment(review, warnings);
+	validateReviewExecution(review, warnings);
+	validateReviewEvidence(review, warnings);
+	if (review.gates !== undefined) {
+		if (!review.gates || typeof review.gates !== "object") {
+			warnings.push('"review.gates" must be an object.');
+		} else {
+			validateReviewGates(review.gates as Record<string, unknown>, warnings);
+		}
+	}
+}
+
+function validateSubObject(
+	parent: Record<string, unknown>, key: string, parentPrefix: string,
+	fields: [string, string][], warnings: string[],
+): void {
+	if (parent[key] === undefined) return;
+	if (!parent[key] || typeof parent[key] !== "object") {
+		warnings.push(`"${parentPrefix}.${key}" must be an object.`);
+		return;
+	}
+	const obj = parent[key] as Record<string, unknown>;
+	for (const [field, type] of fields) expectType(obj, field, type, `${parentPrefix}.${key}`, warnings);
+}
+
+function validateReviewGates(gates: Record<string, unknown>, warnings: string[]): void {
+	validateSubObject(gates, "coverage", "review.gates", [
+		["requirementCoverage", "number"], ["journeyCoverage", "number"], ["statementCoverage", "number"],
+	], warnings);
+	validateSubObject(gates, "security", "review.gates", [
+		["required", "boolean"], ["maxCritical", "number"], ["maxHigh", "number"],
+	], warnings);
+	validateSubObject(gates, "risk", "review.gates", [
+		["criticalMustPass", "boolean"], ["highMustPass", "boolean"],
+	], warnings);
+	validateSubObject(gates, "release", "review.gates", [
+		["allGatesMustPass", "boolean"], ["requireApproval", "boolean"],
+	], warnings);
+}
+
+function validateHealth(cfg: Record<string, unknown>, warnings: string[]): void {
+	if (cfg.health === undefined) return;
+	if (!cfg.health || typeof cfg.health !== "object") {
+		warnings.push('"health" must be an object.');
+		return;
+	}
+	const health = cfg.health as Record<string, unknown>;
+	if (health.thresholds !== undefined) {
+		if (!health.thresholds || typeof health.thresholds !== "object") {
+			warnings.push('"health.thresholds" must be an object.');
+		} else {
+			const t = health.thresholds as Record<string, unknown>;
+			validateSubObject(t, "coverage", "health.thresholds", [["min", "number"], ["target", "number"]], warnings);
+			validateSubObject(t, "lint", "health.thresholds", [["maxErrors", "number"], ["maxWarnings", "number"]], warnings);
+			validateSubObject(t, "tests", "health.thresholds", [["minPassed", "number"]], warnings);
+		}
+	}
+	if (health.qualityGates !== undefined && (!health.qualityGates || typeof health.qualityGates !== "object")) {
+		warnings.push('"health.qualityGates" must be an object.');
+	}
+}
+
+const MANAGEMENT_DIR_SECTIONS = ["resources", "timelog", "deliverables", "raid", "requirements", "capa"] as const;
+
+function validateDirSections(mgmt: Record<string, unknown>, warnings: string[]): void {
+	for (const section of MANAGEMENT_DIR_SECTIONS) {
+		if (mgmt[section] === undefined) continue;
+		if (!mgmt[section] || typeof mgmt[section] !== "object") {
+			warnings.push(`"management.${section}" must be an object.`);
+			continue;
+		}
+		expectType(mgmt[section] as Record<string, unknown>, "dir", "string", `management.${section}`, warnings);
+	}
+}
+
+function validateManagement(cfg: Record<string, unknown>, warnings: string[]): void {
+	if (cfg.management === undefined) return;
+	if (!cfg.management || typeof cfg.management !== "object") {
+		warnings.push('"management" must be an object.');
+		return;
+	}
+	const mgmt = cfg.management as Record<string, unknown>;
+	validateDirSections(mgmt, warnings);
+	if (mgmt.lifecycle !== undefined) {
+		if (!mgmt.lifecycle || typeof mgmt.lifecycle !== "object") {
+			warnings.push('"management.lifecycle" must be an object.');
+		} else {
+			expectType(mgmt.lifecycle as Record<string, unknown>, "featuresDir", "string", "management.lifecycle", warnings);
+			expectType(mgmt.lifecycle as Record<string, unknown>, "productsDir", "string", "management.lifecycle", warnings);
+		}
 	}
 }
 

@@ -2,10 +2,10 @@
 domain: Flowti
 type: ProductRequirementsDocument
 stage: active
-version: 14
+version: 15
 maturity: L2
 created: 2026-03-07
-updated: 2026-03-12
+updated: 2026-03-13
 tags:
   - cli
   - developer-experience
@@ -21,159 +21,138 @@ tech_debt: "[[Tech Debt]]"
 plugin_integration: "[[Plugin Integration Analysis]]"
 ---
 
-# Flowti CLI — Product Requirements Document
+# Flowti CLI — Product Presentation
+
+> **One binary. Zero dependencies. Every project under control.**
 
 ---
 
-## 1. Vision
+## The Problem
 
-The Flowti CLI is a **definition-driven project orchestrator** that serves as the unified command center for all managed projects within an Obsidian vault. It ships as a zero-dependency, self-contained Node.js binary (`node .flowti/bin`) and provides scaffolding, building, testing, reporting, publishing, and health monitoring — for both human developers and AI agents.
+Development teams juggle fragmented tooling across every project they manage:
 
-The vault IS the memory. Reports, events, components, and documentation are Obsidian notes — queryable, linkable, searchable. The CLI is the runtime that keeps them honest.
+| Problem | Impact |
+|---------|--------|
+| **No single entry point** | Developers waste time remembering which commands exist in which project. AI agents can't discover or execute them. |
+| **Script sprawl** | Every project has its own npm scripts with overlapping names. Onboarding a new contributor means teaching tribal knowledge. |
+| **No scaffolding** | Creating a new project, component, or test journey means copy-pasting boilerplate and manually wiring files. |
+| **Divergent workflows** | Each project has different build commands, test runners, publish targets, and review processes — with no unified way to manage them. |
+| **Stale documentation** | Capabilities change every cycle, but manual documentation drifts out of sync. Reports are either missing or outdated. |
+| **No quality visibility** | Test coverage, lint health, security vulnerabilities, and technical debt are scattered across separate tools with no single dashboard. |
+| **AI agents are blind** | LLM-based coding agents cannot navigate interactive menus. They need deterministic commands, structured output, and exit codes. |
 
----
-
-## 2. Problem Statement
-
-Managing development projects requires:
-
-- **Discovery friction** — no single entry point to understand available commands, pipelines, and scaffolding tools across projects.
-- **Script sprawl** — each project has its own npm scripts with overlapping names that are difficult to navigate without tribal knowledge.
-- **No scaffolding** — creating a new project, component, or entity requires copy-pasting and manual wiring.
-- **Per-project divergence** — each project has different build commands, test runners, publish endpoints, and review workflows, but no unified way to manage them.
-- **AI agent gap** — LLM-based coding agents cannot explore interactive menus; they need deterministic, non-interactive commands with structured output and exit codes.
-- **Stale documentation** — capabilities change with every cycle, but manual documentation drifts out of sync.
+**The core insight**: These are not separate problems. They are symptoms of having no unified project orchestration layer.
 
 ---
 
-## 3. Design Principles
+## The Solution
 
-| Principle | Description |
-|-----------|-------------|
-| **Zero dependencies** | Runtime uses Node.js built-ins exclusively. Dev tooling is devDependencies only. The built binary is self-contained. |
+Flowti CLI is a **definition-driven project orchestrator** that ships as a self-contained Node.js binary. It provides a unified command center for scaffolding, building, testing, reviewing, publishing, reporting, and managing any number of projects — from a single interactive menu or via non-interactive commands for AI agents.
+
+```
+node .flowti/bin
+```
+
+That's it. One command. Zero installation. The binary bootstraps itself, installs dependencies if needed, builds if needed, and runs.
+
+### Key Properties
+
+| Property | What It Means |
+|----------|---------------|
+| **Zero dependencies** | Runtime uses Node.js built-ins exclusively. No `npm install`, no lock file conflicts. The built binary is fully self-contained. |
 | **Definition-driven** | JSON definitions are the single source of truth for scaffolding, components, and project configuration. Auditable, diffable, version-controllable. |
 | **Deterministic** | Same inputs produce the same outputs. Enables reproducible builds and AI agent integration. |
-| **Progressive opt-in** | A new project needs nothing but a name. Tests, linting, coverage thresholds, quality gates — all are configured per-project and only active when defined. |
-| **Signals, not blockers** | Report generation runs resiliently. A failed report is a signal (visible in the summary), not a reason to abort. Only publish pipelines enforce strict gating. |
-| **Vault-native** | The Obsidian vault is the natural home. Reports, docs, events, and components are vault notes. Obsidian features (knowledgebase, capture) are opt-in, never required. |
+| **Progressive opt-in** | A new project needs nothing but a name. Tests, linting, coverage thresholds, quality gates — all activate only when configured. |
 | **Agent-native** | Every interactive action has a non-interactive equivalent with deterministic exit codes and `--format=json` output. AI agents are first-class citizens. |
-| **CLI dictates the schema** | `ProjectConfig` is the single source of truth for project configuration. Projects conform to it — there is no dual-format support. |
+| **Vault-native** | Reports, events, components, and documentation are Obsidian notes — queryable, linkable, searchable. Obsidian features are opt-in, never required. |
 
 ---
 
-## 4. Project Types
+## Capabilities
 
-The CLI manages four kinds of projects. Each has a dedicated scaffold definition and tailored configuration.
+### 1. Project Scaffolding & Management
 
-| Type | Scaffold ID | Description |
-|------|-------------|-------------|
-| **Library** | `flowti-bare` | Minimal TypeScript library — `src/index.ts`, `tests/`, `configs/`, tsc-only (no bundler). For utility packages and shared modules. |
-| **TypeScript Project** | `flowti-project` | Ready-to-develop TypeScript project with strict mode, Vitest, esbuild, ESLint pre-configured. |
-| **TypeScript CLI** | `flowti-cli` | TypeScript CLI tool with `#!/usr/bin/env node` banner, arg parser, `bin` field in package.json. |
-| **Obsidian Plugin** | `flowti-obsidian-plugin` | Obsidian plugin skeleton with `manifest.json`, `styles.css`, esbuild with Obsidian externals, `main.ts extends Plugin`. |
+**Problem solved**: No more copy-pasting project skeletons or manually wiring boilerplate.
 
-**Onboarding**:
-- **Create new**: Pick a project type → scaffold creates folder + all files.
-- **Import existing**: Copy a folder into the projects directory → CLI detects it, asks for the project type, generates management files.
+- **4 project types**: TypeScript project, TypeScript CLI, Obsidian plugin, minimal library — each with a complete scaffold definition
+- **Component system**: 8 component kinds (4 C4 architecture entities + 4 UI building blocks), each generating documentation, tests, definitions, and optionally Storybook stories
+- **Auto-scaffolding**: Select a project for the first time and the CLI generates its `flowti.config.json` from `package.json` scripts
+- **ECS properties**: Typed key-value pairs with defaults and descriptions on every component
+- **Storybook integration**: Opt-in Storybook v10 per project — install, scaffold stories, dev/build from the Components menu
 
----
+### 2. Build, Test & Review
 
-## 5. Capabilities
+**Problem solved**: Fragmented build/test/review workflows become unified, named commands.
 
-### 5.1 Project Management
+- **Named build modes**: `fast`, `increment`, `full`, `watch`, `distribute` — all configured per-project in `build.commands`
+- **Named test presets**: `unit`, `flows`, `e2e`, `increment` — configured in `test.commands`
+- **E2E journey review**: Test vault isolation (created outside git), fresh CLI build on every ensure/refresh, 5 environment providers (CLI, TypeScript, Obsidian vault, Obsidian plugin, webapp)
+- **Gated publish pipeline**: build → test → distribute. Quality gates block publish when thresholds aren't met. Supports `--dry-run`.
 
-- Project discovery from configured projects directory (`01 - Projects/`)
-- Create new projects from 4 scaffold definitions (bare, typescript, cli, obsidian-plugin)
-- Import existing folders as managed projects
-- Load remote git repositories as submodules
-- Per-project configuration via `configs/flowti.config.json` with auto-scaffolding
-- Persistent state — selected project remembered across sessions
+### 3. Reports & Documentation
 
-### 5.2 Scaffolding & Components
-
-- **Project scaffolding** from declarative JSON definitions bundled into the binary
-- **Component system** with 8 types: 4 C4 architecture entities (System, Container, Component, Person) + 4 UI building blocks (Generic, Layout, Page, UI Component)
-- Each component generates: documentation (Markdown + YAML frontmatter), test file, definition JSON, and optionally a Storybook v10 story
-- ECS-compatible properties — typed key-value pairs with defaults and descriptions
-- Post-creation editing via `edit:component`
-
-### 5.3 Build, Test & Review
-
-- **Build**: Run project's configured build commands. Supports named build modes (`fast`, `increment`, `full`, `watch`, `distribute`) via `build.commands` config.
-- **Test**: Run test suites via `test.commands` config. Supports named presets (`unit`, `flows`, `e2e`, `increment`).
-- **Review**: E2E journey review with test vault isolation (created outside git repository, fresh CLI build on every ensure/refresh).
-- **Publish**: Gated pipeline enforcing build → test → distribute sequencing. Quality gates block publish when thresholds aren't met. Supports `--dry-run`.
-
-### 5.4 Reports & Documentation
+**Problem solved**: Reports are either missing, stale, or scattered. Documentation drifts from reality.
 
 - **6 built-in report generators**: test, coverage, codebase, complexity, status, summary
 - **2 built-in reference generators**: CLI Reference, Entity Reference
-- **External generators**: Script-based generators via `reports.scripts[]` config (used by the Plugin's 14 generators)
-- **Report pipeline**: Resilient execution — never stops on failure. Prerequisites, caching, phased parallel generation, diff mode, HTML export.
-- **Documentation pipeline**: External doc generators + built-in reference generators, unified through the same pipeline engine.
-- **Audit mode**: `reports:audit` snapshots all reports to a timestamped archive.
+- **Resilient pipeline**: Report generation never stops on failure — a failed report is a signal, not a blocker
+- **Self-documenting**: CLI Reference and Entity Reference are generated from the codebase itself
+- **Archive & export**: Timestamped archives, HTML export, diff mode, audit snapshots
+- **External generators**: Script-based generators via config for project-specific reports
 
-### 5.5 Events & Contracts
+### 4. Health & Quality Gates
 
-- Per-project event catalog stored as Markdown files in `docs/events/`
+**Problem solved**: No single dashboard for project quality. Teams discover problems too late.
+
+- **Health dashboard**: Aggregates test, coverage, lint, git, security, and component metrics from report frontmatter
+- **Numeric scoring**: 0–100 scale (A–F grades) with configurable thresholds per project
+- **Health trends**: Snapshot persistence, delta indicators (▲/▼), regression alerts
+- **Quality gates**: Configurable rules that block publish (min score, zero failures, lint limits)
+- **npm audit integration**: Security vulnerability count as a health metric
+- **Technical debt estimation**: Remediation time from lint, complexity, and security metrics
+
+### 5. Events & Contracts
+
+**Problem solved**: Event catalogs live in wikis that drift. Payload schemas are tribal knowledge.
+
+- Per-project event catalog stored as Markdown files with YAML frontmatter
 - Interactive and non-interactive CRUD with auto-discovered wikilinks
 - Payload schema editor with versioning and migration notes
 - Contract validation — parse and validate event payload schemas
 - TypeScript codegen from event contracts
+- Flow visualization — Mermaid diagrams showing producer/consumer relationships
 
-### 5.6 Health & Quality
+### 6. Project Management
 
-- **Health dashboard**: Aggregates test, coverage, lint, git, security, and component metrics from report frontmatter. Numeric scoring (0–100, A–F) with configurable thresholds.
-- **Health trends**: Snapshot persistence, delta indicators (▲/▼), regression alerts.
-- **Quality gates**: Configurable rules that block publish (min score, zero failures, lint limits). `publish:check` previews gate status.
-- **npm audit integration**: Security vulnerability count as a health metric.
-- **Technical debt estimation**: Remediation time from lint, complexity, and security metrics.
+**Problem solved**: Project management data lives in spreadsheets disconnected from the codebase.
 
-### 5.7 Ecosystem
+All management domains use the same pattern: pure functions with injected deps, markdown files with YAML frontmatter, configurable directories.
 
-- **Plugin system**: Vault-level plugins in `.flowti/plugins/` with shell commands, lifecycle hooks (`onInstall`, `onEnable`, `onBeforeCommand`, `onAfterCommand`), collision detection.
-- **AI tool management**: Vault-level AI agent tool definitions with typed parameters, execution via `ai:run --tool=X`, `--dry-run` mode.
-- **Shell completions**: bash, zsh, fish, PowerShell.
-- **Remote registry**: Fetch and install shared definitions, plugins, and AI tools from HTTP registries.
-- **Marketplace**: Export bundles of tools, plugins, and scaffold definitions for cross-vault sharing.
-- **Cross-project dependencies**: Dependency detection (npm, config, publish edges), DFS cycle detection, Mermaid visualization.
+| Domain | What It Tracks |
+|--------|---------------|
+| **Resources** | Human, material, role, and budget management with pricing, consumption, and financial analysis |
+| **Time-Log** | Per-person time tracking with date, hours, category, and task linking |
+| **Deliverables** | Tracked project outputs with status, due date, assignee, priority, and completion % |
+| **RAID Log** | Risks, assumptions, issues, dependencies, and decisions with severity and ownership |
+| **CAPA** | Corrective and preventive actions through identification, root cause analysis, implementation, and verification |
+| **Lifecycle** | State machine for projects (inception→archived), products (concept→sunset), features (ideation→deprecated) |
 
-### 5.8 Project Management & Lifecycle
+### 7. Ecosystem
 
-- **Resources**: Human, material, role, and budget management with pricing, consumption tracking, and financial analysis (cost, FTE, remaining).
-- **Time-Log**: Per-person time tracking with date, hours, category, and task linking. Summary aggregation.
-- **Deliverables**: Tracked project outputs with status, due date, assignee, priority, and completion percentage.
-- **RAID Log**: Risks, assumptions, issues, dependencies, and decisions with severity, ownership, and resolution status.
-- **Requirements Management**: IREB-compliant requirements (functional, non-functional, constraint) with MoSCoW priority, traceability links. Use cases with actors and flows. User stories with role-goal-benefit pattern and story points.
-- **CAPA**: Corrective and preventive action tracking through identification, root cause analysis, action planning, implementation, verification, and closure. Severity levels and source categorization.
-- **Lifecycle Engine**: Generic state machine for projects (inception→archived), products (concept→sunset), and features (ideation→deprecated). Validated transitions, transition history, terminal state detection. Standalone entities at vault level (02 - Products/, 03 - Features/) or nested inside projects.
-- **Configurable lint thresholds**: ESLint complexity and file length limits configurable per-project via `devtools.thresholds` in `flowti.config.json`.
+**Problem solved**: Extending the CLI requires forking it. Sharing configurations requires manual copying.
 
-All management domains follow the store pattern: pure functions with injected deps, markdown files with YAML frontmatter. Each domain has its own configurable directory under `management.*` in the project config.
+- **Plugin system**: Vault-level plugins with shell commands, lifecycle hooks, collision detection
+- **AI tool management**: Vault-level AI agent tool definitions with typed parameters, `--dry-run` mode
+- **Shell completions**: bash, zsh, fish, PowerShell
+- **Remote registry**: Fetch shared definitions, plugins, and AI tools from HTTP registries
+- **Cross-project dependencies**: Dependency detection, DFS cycle detection, Mermaid visualization
+- **Configurable lint thresholds**: ESLint complexity and file length limits per-project via config
 
-### 5.9 Developer Experience
+### 8. AI Agent Integration
 
-- **Two-stage interactive menu**: Project selection (open/create/import/plugins/ai-tools) → Project detail.
-- **Man-page system**: 10 help sections accessible via `?` in any menu or `flowti help [section]`.
-- **Capture**: Quick-capture ideas and notes with tags, search, and batch import.
-- **Knowledgebase**: Browse and search vault content (requires Obsidian CLI, opt-in).
-- **Post-command suggestions**: Contextual next-step hints after operations.
-- **Template versioning**: Detect drift between scaffolded projects and updated templates, with conflict resolution.
-- **Build freshness**: Hash-based detection of whether a rebuild is needed.
+**Problem solved**: AI coding agents can't interact with interactive CLIs.
 
----
-
-## 6. UX Entry Points
-
-### Human Developer
-
-| Entry Point | How |
-|-------------|-----|
-| Interactive menu | `./flowti.cmd` or `npm run dev` → two-stage menu |
-| Any command | `flowti <command> --project="X" [--flag=value]` |
-| Help | `flowti help [section]` or `?` in any menu |
-
-### AI Agent
+Every capability has a non-interactive equivalent:
 
 | Capability | Command | Output |
 |-----------|---------|--------|
@@ -181,16 +160,17 @@ All management domains follow the store pattern: pure functions with injected de
 | Build project | `flowti build [--mode=fast]` | Exit 0/non-zero |
 | Run tests | `flowti test [--mode=unit]` | Exit 0/non-zero |
 | Add component | `flowti make:component --name=X` | File list, exit 0 |
-| Project info | `flowti info --format=json` | Structured JSON |
+| Project diagnostics | `flowti info --format=json` | Structured JSON |
 | Health check | `flowti health --format=json` | Scored snapshot |
 | Generate reports | `flowti reports --format=json` | Pipeline summary |
 | Event catalog | `flowti events:list --format=json` | Event list |
+| Lifecycle status | `flowti lifecycle:status` | State + transitions |
 
 All query commands support `--format=json`. All operations return deterministic exit codes.
 
 ---
 
-## 7. Architecture
+## Architecture
 
 The CLI follows a **DDD + MVC layered architecture** with strict dependency rules:
 
@@ -198,9 +178,9 @@ The CLI follows a **DDD + MVC layered architecture** with strict dependency rule
 Entry Point (main.ts)
   → Controller Layer (22 controllers)
     → UI / View Layer (74 display renderers + menus)
-      → Domain Layer (24 modules — pure, no I/O, no presentation)
+      → Domain Layer (25 modules — pure, no I/O, no presentation)
         → Infrastructure Layer (33 modules + pipeline + event-bus)
-Bootstrap Layer (bootstrap.mjs)
+Scripts Layer (4 standalone entry points)
 ```
 
 **Dependency rule**: Controller → Domain → Infrastructure. Controller → UI (renderers). Never Infrastructure → Domain. Never Domain → Domain (cross-domain). `main.ts` is the sole composition root.
@@ -210,69 +190,44 @@ Bootstrap Layer (bootstrap.mjs)
 | **Entry Point** | Two-loop menu system + command dispatch via `CommandRegistry` |
 | **Controller** | Thin handlers: parse flags, call domain services, return `CliResponse<T>` with typed data + renderer |
 | **UI / View** | Display renderers: take typed data models, produce ANSI-formatted console output |
-| **Domain** | Pure business logic — scaffold, make, build, publish, review, reports, events, capture, info, onboarding, knowledgebase, devtools, e2e, plugins, ai-tools, health, lifecycle, resources, timelog, deliverables, raid, requirements, capa, templates |
-| **Infrastructure** | I/O abstractions — filesystem, shell, input, state, config, document builder, frontmatter, errors, output, command-registry, menu, ui, clock, proc, paths, logger, args, pipeline, event-bus |
-| **Scripts** | Standalone CLI entry points (`main()` functions) that wire infrastructure to domain services |
+| **Domain** | Pure business logic — 25 modules covering scaffold, make, build, publish, review, reports, events, capture, info, onboarding, knowledgebase, devtools, e2e, plugins, ai-tools, health, lifecycle, resources, timelog, deliverables, raid, requirements, capa, templates |
+| **Infrastructure** | I/O abstractions — filesystem, shell, input, state, config, document builder, frontmatter, errors, output, command-registry, menu, ui, clock, proc, paths, logger, args, pipeline, event-bus, deps, request-response, progress |
 
-All I/O is behind typed abstractions (`disk`, `shell`, `paths`, `proc`, `log`). No domain code imports `node:fs`, `node:child_process`, or `node:path` directly. Domain files never import `logger.js` or `ui.js` — progress is communicated via injectable `log` callbacks or the EventBus.
+All I/O is behind typed abstractions (`disk`, `shell`, `paths`, `proc`, `log`). No domain code imports `node:fs`, `node:child_process`, or `node:path` directly.
 
-### Invocation Chain
-
-```
-flowti.cmd → node .flowti/bin → .flowti/bin/index.js (bootstrap) → .flowti/bin/main.js (CLI)
-```
-
-The bootstrap handles: vault root derivation → dependency install → CLI build → forward arguments.
-
-### Vault Layout
-
-```
-<vault-root>/
-├── .flowti/
-│   ├── config.json          # Vault-level config
-│   ├── var/state.json       # Persistent state (selected project)
-│   ├── plugins/             # Vault-level plugin manifests
-│   ├── ai-tools/            # Vault-level AI tool definitions
-│   └── bin/                 # Compiled CLI binary
-├── flowti.cmd               # Windows launcher
-└── 01 - Projects/           # Projects directory
-    ├── Flowti CLI/          # The CLI itself (self-hosting)
-    └── My Project/          # Any managed project
-```
+See [Flowti CLI Architecture.md](Flowti%20CLI%20Architecture.md) for the full design document (46 architectural decisions, 20 implementation milestones).
 
 ---
 
-## 8. Per-Project Configuration
+## Per-Project Configuration
 
-Each project stores its config in `configs/flowti.config.json`. The `ProjectConfig` type is the single authoritative schema.
+Each project stores its config in `configs/flowti.config.json`:
 
 ```json
 {
   "name": "my-project",
   "type": "typescript",
-  "build": {
-    "commands": {
-      "fast": "node esbuild.config.mjs --production",
-      "watch": "node esbuild.config.mjs --watch"
-    }
-  },
-  "test": {
-    "commands": {
-      "unit": "npm run check && vitest run",
-      "e2e": "npm run test:e2e"
-    }
-  },
+  "build": { "commands": { "fast": "npm run build", "watch": "npm run build:watch" } },
+  "test": { "commands": { "unit": "npm test" } },
+  "devtools": { "thresholds": { "maxComplexity": 10, "maxLines": 350 } },
+  "make": { "templates": ["journey", "component"] },
   "reports": {
     "generators": [
-      { "id": "test", "label": "Test Report" },
-      { "id": "coverage", "label": "Coverage Report" }
+      { "id": "test", "label": "Test Report", "prerequisites": ["npx vitest run ..."] },
+      { "id": "summary", "label": "Summary Report", "dependencies": ["test", "coverage"] }
     ]
+  },
+  "management": {
+    "resources": { "dir": "docs/resources" },
+    "timelog": { "dir": "docs/timelog" },
+    "deliverables": { "dir": "docs/deliverables" },
+    "raid": { "dir": "docs/raid" },
+    "capa": { "dir": "docs/capa" }
   },
   "publish": {
     "build": "npm run build",
     "test": "npm test",
-    "outDir": "dist",
-    "endpoints": [{ "name": "Local", "path": "../output" }]
+    "endpoints": [{ "name": "Local", "path": "../output", "clean": true }]
   },
   "health": {
     "thresholds": { "coverageLines": 80, "maxComplexity": 15 },
@@ -285,18 +240,18 @@ Each project stores its config in `configs/flowti.config.json`. The `ProjectConf
 }
 ```
 
-When a project is selected for the first time, the CLI auto-scaffolds this config from `package.json` scripts. Config is validated with clear error messages via `config-schema.ts` (45+ rules) and `config-deep-validation.ts` (filesystem-aware deep validation).
+Config is validated with clear error messages via `config-schema.ts` (45+ rules) and `config-deep-validation.ts` (filesystem-aware deep validation). When a project is selected for the first time, the CLI auto-scaffolds this config from `package.json` scripts.
 
 ---
 
-## 9. Non-Functional Requirements
+## Non-Functional Requirements
 
 | Requirement | Target |
 |-------------|--------|
 | CLI startup time | < 100ms |
 | Self-contained binary | `node .flowti/bin` requires no source tree |
 | Fast build | < 3s |
-| No production dependencies | Dev tooling only; runtime uses Node.js built-ins |
+| No production dependencies | Runtime uses Node.js built-ins exclusively |
 | Cross-platform | Windows, macOS, Linux |
 | AI agent compatibility | Deterministic exit codes, `--format=json`, no interactive prompts in non-interactive mode |
 | Definition-driven | All scaffolding from declarative JSON definitions |
@@ -308,43 +263,29 @@ When a project is selected for the first time, the CLI auto-scaffolds this confi
 
 ---
 
-## 10. Risks
+## Competitive Position
 
-| Risk | Mitigation |
-|------|------------|
-| CLI binary grows beyond maintainability | Modular DDD structure (24 domain modules) keeps cognitive load low |
-| Per-project config divergence | Auto-scaffolding from package.json ensures consistent defaults |
-| Definition schema drift | Definitions validated on load; TypeScript types enforce schema |
-| AI agents can't parse output | `--format=json` on all query commands; deterministic exit codes |
-| Single scaffold definition limits adoption | 4 bundled definitions + marketplace for community templates |
-| Plugin ecosystem has no lifecycle | 5 lifecycle hooks implemented (onInstall through onAfterCommand) |
-
----
-
-## 11. Competitive Position
-
-Flowti CLI occupies a unique niche: **vault-native project management CLI**. No existing tool combines knowledge management (Obsidian vault), project scaffolding, health scoring, report generation, and AI tool configs in a single CLI binary.
-
-### Defensible Advantages
+Flowti CLI occupies a unique niche: **definition-driven project management CLI**. No existing tool combines project scaffolding, health scoring, report generation, AI tool integration, and project management in a single zero-dependency binary.
 
 | Advantage | Why It Matters |
 |-----------|---------------|
-| **Vault-native** | Reports, docs, events, components are Obsidian notes — queryable, linkable, searchable |
 | **Zero dependencies** | No npm install, no lock file conflicts, self-contained binary |
 | **Progressive opt-in** | Start with nothing, grow into quality gates — no upfront ceremony |
 | **Agent-native** | Non-interactive commands with `--format=json` and deterministic exit codes |
-| **Definition-driven** | JSON definitions are the single source of truth |
+| **Definition-driven** | JSON definitions are the single source of truth — auditable, diffable |
 | **Multi-project** | Manages multiple projects of different types from one binary |
+| **Vault-native** | Reports, docs, events, components are Obsidian notes — queryable, linkable (opt-in) |
+| **Self-hosting** | The CLI manages its own development — it is both the tool and a managed project |
 
 ---
 
-## 12. Current State (2026-03-12)
+## Current State (2026-03-13)
 
 | Metric | Value |
 |--------|-------|
-| Source files | 345 |
-| Test files | 253 (247 suites) |
-| Tests passing | 3,990 |
+| Source files | 352 |
+| Test files | 274 (267 suites) |
+| Tests passing | 4,505 |
 | Domain modules | 25 |
 | Controllers | 22 |
 | UI view files | 74 |
@@ -354,17 +295,32 @@ Flowti CLI occupies a unique niche: **vault-native project management CLI**. No 
 | Component definitions | 8 (4 C4 + 4 UI building blocks) |
 | Report generators | 8 (6 report + 2 reference) |
 | E2E environment providers | 5 |
-| Technical debt items | 30 (19 resolved) |
+| Technical debt items | 30 (21 resolved) |
+| Coverage | 80.53% statements, 81.67% lines |
 | Build | Clean (0 errors) |
 | TypeDoc | Clean (0 errors) |
 | ESLint | Clean (0 warnings) |
 
 ---
 
-## 13. Related Documents
+## Risks
+
+| Risk | Mitigation |
+|------|------------|
+| CLI binary grows beyond maintainability | Modular DDD structure (25 domain modules) keeps cognitive load low |
+| Per-project config divergence | Auto-scaffolding from `package.json` ensures consistent defaults |
+| Definition schema drift | Definitions validated on load; TypeScript types enforce schema |
+| AI agents can't parse output | `--format=json` on all query commands; deterministic exit codes |
+| Single scaffold definition limits adoption | 4 bundled definitions + marketplace for community templates |
+| Plugin ecosystem has no lifecycle | 5 lifecycle hooks implemented (onInstall through onAfterCommand) |
+
+---
+
+## Related Documents
 
 - **[[Product Backlog]]** — Feature requirements, acceptance criteria, and improvements
 - **[[Development Roadmap]]** — Phased execution plan (Phases 5–9)
-- **[[Tech Debt]]** — Technical debt register (28 items, 13 resolved)
+- **[[Tech Debt]]** — Technical debt register (30 items, 21 resolved)
 - **[[Plugin Integration Analysis]]** — Gap analysis for Flowti Plugin integration
 - **[[01 - Projects/Flowti CLI/README|README]]** — Quick start, architecture overview, project structure
+- **[[Flowti CLI Architecture]]** — Architecture Document (v25)

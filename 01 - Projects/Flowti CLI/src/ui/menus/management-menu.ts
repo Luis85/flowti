@@ -1,7 +1,7 @@
 /**
  * management-menu.ts — Project Management submenu.
  *
- * Aggregates Resources, Time-Log, Deliverables, RAID Log, Requirements, CAPA, Lifecycle, and Health under one menu.
+ * Aggregates Resources, Time-Log, Deliverables, RAID Log, CAPA, Lifecycle, and Health under one menu.
  */
 
 import { disk } from "../../infrastructure/filesystem.js";
@@ -50,14 +50,6 @@ export async function managementMenu(ctx: ProjectContext): Promise<MenuResult> {
 		},
 		{
 			key: "5",
-			label: "Requirements Management",
-			action: async () => {
-				const { requirementsMenu } = await import("./requirements-menu.js");
-				return requirementsMenu(ctx.path, mgmt?.requirements);
-			},
-		},
-		{
-			key: "6",
 			label: "CAPA",
 			action: async () => {
 				const { capaMenu } = await import("./capa-menu.js");
@@ -65,7 +57,7 @@ export async function managementMenu(ctx: ProjectContext): Promise<MenuResult> {
 			},
 		},
 		{
-			key: "7",
+			key: "6",
 			label: "Lifecycle",
 			action: async () => {
 				const { projectLifecycleMenu } = await import("./project-lifecycle-menu.js");
@@ -73,7 +65,7 @@ export async function managementMenu(ctx: ProjectContext): Promise<MenuResult> {
 			},
 		},
 		{
-			key: "8",
+			key: "7",
 			label: "Health",
 			action: async () => {
 				const health = collectHealth({ disk, paths, shell }, ctx);

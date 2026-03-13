@@ -2,6 +2,7 @@
  * review.controller.ts — Controller for review commands.
  *
  * Returns typed data models; rendering is handled by ui/review-display.ts.
+ * Extended with Review Platform commands: gates, traceability, evidence, audit, coverage.
  */
 
 import type { ControllerAction } from "../infrastructure/request-response.js";
@@ -10,10 +11,20 @@ import type { CommandHandler, ProjectContext, IShell, IPaths } from "../infrastr
 import { VAULT_ROOT } from "../infrastructure/config.js";
 import { resolveTestVaultRoot } from "../infrastructure/test-vault.js";
 import { analyzeWorkingTree, analyzeBranchDiff } from "../domain/review/change-analysis.js";
-import { renderChangeAnalysis, renderReviewClean, renderPipelineResult, type ChangeAnalysisModel, type ReviewCleanModel, type PipelineResultModel } from "../ui/review-display.js";
+import {
+	renderChangeAnalysis, renderReviewClean, renderPipelineResult,
+	renderGateResult, renderTraceabilityMatrix, renderCoverageReport, renderEvidenceList,
+	type ChangeAnalysisModel, type ReviewCleanModel, type PipelineResultModel,
+	type GateResultModel, type TraceabilityModel, type CoverageModel, type EvidenceListModel,
+} from "../ui/review-display.js";
 import { startInteractiveSession, runE2ESuite } from "../domain/review/run-e2e.js";
 import { interactiveSession } from "../ui/e2e/e2e-interactive.js";
 import { renderShellCommand, renderInteractiveOnly, type ShellCommandModel, type InteractiveOnlyModel } from "../ui/common-renderers.js";
+import { buildTraceabilityMatrix, detectGaps, validateTraceabilityLinks, coverageByCategory } from "../domain/review/traceability.js";
+import { evaluateGates } from "../domain/review/quality-gates.js";
+import { listRuns } from "../domain/review/evidence.js";
+import { loadAllJourneys } from "../domain/e2e/journey/journey-loader.js";
+import { listRequirements, listUseCases, listUserStories } from "../domain/requirements/requirement-store.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -35,6 +46,10 @@ function runGatedPipeline(p: ProjectContext, shell: IShell): PipelineResultModel
 	if (testCode !== 0) return { stoppedAt: "test", reason: "tests failed" };
 	const e2eCode = shell.run(e2eCmd, { cwd: p.path, label: "Step 3/3: E2E" });
 	return { stoppedAt: null, reason: e2eCode === 0 ? null : "e2e failed" };
+}
+
+function resolveJourneysDir(p: ProjectContext, pathsPort: IPaths): string {
+	return pathsPort.join(p.path, p.config.review?.journeysDir ?? "tests/e2e/journeys");
 }
 
 // ── Controller actions ──────────────────────────────────────────────
@@ -94,6 +109,80 @@ const actions: Record<string, ControllerAction> = {
 		const model: ChangeAnalysisModel = { projectLabel, impact };
 
 		return dataResponse(model, renderChangeAnalysis);
+	},
+
+	// ── New Review Platform commands ─────────────────────────────
+
+	"review:traceability": (req) => {
+		if (!req.project) return;
+		const { disk, paths } = req.deps;
+		const journeysDir = resolveJourneysDir(req.project, paths);
+		const readFile = (p: string) => disk.readFileSync(p, "utf-8");
+		const listFiles = (d: string) => disk.existsSync(d) ? disk.readdirSync(d) : [];
+
+		const journeys = loadAllJourneys(readFile, listFiles, journeysDir);
+		const reqs = listRequirements({ disk, paths }, req.project.path, req.project.config.management?.requirements);
+		const ucs = listUseCases({ disk, paths }, req.project.path, req.project.config.management?.requirements);
+		const uss = listUserStories({ disk, paths }, req.project.path, req.project.config.management?.requirements);
+
+		const validation = validateTraceabilityLinks(
+			journeys,
+			reqs.map((r) => r.id),
+			ucs.map((u) => u.id),
+			uss.map((u) => u.id),
+		);
+
+		const matrix = buildTraceabilityMatrix(
+			journeys,
+			reqs.map((r) => ({ id: r.id, name: r.name, status: r.status })),
+		);
+
+		const model: TraceabilityModel = { matrix, validation, projectLabel: req.project.config.name ?? "" };
+		return dataResponse(model, renderTraceabilityMatrix);
+	},
+
+	"review:coverage": (req) => {
+		if (!req.project) return;
+		const { disk, paths } = req.deps;
+		const journeysDir = resolveJourneysDir(req.project, paths);
+		const readFile = (p: string) => disk.readFileSync(p, "utf-8");
+		const listFiles = (d: string) => disk.existsSync(d) ? disk.readdirSync(d) : [];
+
+		const journeys = loadAllJourneys(readFile, listFiles, journeysDir);
+		const reqs = listRequirements({ disk, paths }, req.project.path, req.project.config.management?.requirements);
+
+		const matrix = buildTraceabilityMatrix(
+			journeys,
+			reqs.map((r) => ({ id: r.id, name: r.name, status: r.status })),
+		);
+
+		const gaps = detectGaps(matrix);
+		const byCategory = coverageByCategory(matrix);
+
+		const model: CoverageModel = { matrix, gaps, byCategory, projectLabel: req.project.config.name ?? "" };
+		return dataResponse(model, renderCoverageReport);
+	},
+
+	"review:gates": (req) => {
+		if (!req.project) return;
+		const gateConfig = req.project.config.review?.gates;
+		if (!gateConfig) {
+			const model: GateResultModel = { evaluation: null, projectLabel: req.project.config.name ?? "", message: "No quality gates configured in review.gates" };
+			return dataResponse(model, renderGateResult);
+		}
+
+		// Gates require run results — for now evaluate against empty results (dry-run mode)
+		const evaluation = evaluateGates(gateConfig, []);
+		const model: GateResultModel = { evaluation, projectLabel: req.project.config.name ?? "" };
+		return dataResponse(model, renderGateResult);
+	},
+
+	"review:evidence": (req) => {
+		if (!req.project) return;
+		const { disk, paths } = req.deps;
+		const runs = listRuns({ disk, paths }, req.project.path, req.project.config.review?.evidenceDir);
+		const model: EvidenceListModel = { runs, projectLabel: req.project.config.name ?? "" };
+		return dataResponse(model, renderEvidenceList);
 	},
 };
 

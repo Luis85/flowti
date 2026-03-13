@@ -39,7 +39,7 @@ The CLI follows a **DDD + MVC layered architecture** with strict dependency rule
 ```
 Entry Point (main.ts)
   → Controller Layer (22 controllers)
-    → UI / View Layer (71 display renderers + menus)
+    → UI / View Layer (74 display renderers + menus)
       → Domain Layer (25 modules — pure, no I/O, no presentation)
         → Infrastructure Layer (33 modules + pipeline + event-bus)
 Scripts Layer (4 standalone entry points)
@@ -165,7 +165,7 @@ The bootstrap (`src/boot/bootstrap.mjs`, deployed as `.flowti/bin/index.js`) han
 │       ├── pipeline/               # Generic DAG execution engine
 │       ├── event-bus.ts            # Lightweight synchronous EventBus
 │       └── ...                     # 25 more infrastructure modules
-├── tests/                          # Vitest test suites (3,990 tests, 247 suites)
+├── tests/                          # Vitest test suites (4,505 tests, 267 suites)
 ├── configs/
 │   ├── flowti.config.json          # CLI's own project config
 │   ├── esbuild.config.mjs          # Build: bundles to .flowti/bin/main.js
@@ -178,8 +178,8 @@ The bootstrap (`src/boot/bootstrap.mjs`, deployed as `.flowti/bin/index.js`) han
 │   └── reports/                    # Generated reports
 ├── reports/                        # Stable report outputs (Project Summary.md)
 ├── package.json                    # npm scripts and devDependencies
-├── Flowti CLI PRD.md               # Product Requirements Document (v14)
-├── Flowti CLI Architecture.md      # Architecture Document (v22)
+├── Flowti CLI PRD.md               # Product Presentation (v15)
+├── Flowti CLI Architecture.md      # Architecture Document (v25)
 └── README.md                       # This file
 ```
 
@@ -206,7 +206,7 @@ Run without arguments for the two-stage interactive menu:
 | 3 | Review | E2E journey review, test vault management |
 | 4 | Publish | Gated pipeline: build → test → distribute to endpoints |
 | c | Components | Browse project components with C4 hierarchy and properties |
-| e | Events / Requirements | Event catalog + Requirements Management |
+| e | Events | Event catalog, payload editing, versioning, flow visualization |
 | — | — | — |
 | 5 | Reports | Run all reports or individual generators |
 | 6 | Npm Scripts | Run any npm script from the project's package.json |
@@ -215,7 +215,7 @@ Run without arguments for the two-stage interactive menu:
 | 8 | Capture Note | Capture a typed note (Task, Bug, Note, Documentation, Idea) |
 | — | — | — |
 | d | Documentation | Generate reference docs (Update All, CLI/Entity Ref.) |
-| m | Project Management | Resources, Time-Log, Deliverables, RAID, Requirements, CAPA, Lifecycle, Health |
+| m | Project Management | Resources, Time-Log, Deliverables, RAID, CAPA, Lifecycle, Health |
 | k | Knowledgebase | Browse and search vault content (requires Obsidian CLI, opt-in) |
 | i | Info | Project stats, version, config |
 | — | — | — |
@@ -249,7 +249,6 @@ Each project stores its config in `configs/flowti.config.json`:
     "timelog": { "dir": "docs/timelog" },
     "deliverables": { "dir": "docs/deliverables" },
     "raid": { "dir": "docs/raid" },
-    "requirements": { "dir": "docs/requirements" },
     "capa": { "dir": "docs/capa" }
   },
   "publish": {
@@ -279,11 +278,11 @@ When a project is selected for the first time, the CLI auto-scaffolds this confi
 
 ## Related Documents
 
-- PRD: [Flowti CLI PRD.md](Flowti%20CLI%20PRD.md) — Vision, capabilities, design principles
+- PRD: [Flowti CLI PRD.md](Flowti%20CLI%20PRD.md) — Product presentation, capabilities, design principles
 - Backlog: [Product Backlog.md](docs/Product%20Backlog.md) — Feature requirements, acceptance criteria, improvements
 - Roadmap: [Development Roadmap.md](docs/Development%20Roadmap.md) — Phased execution plan
 - Tech Debt: [Tech Debt.md](docs/Tech%20Debt.md) — Technical debt register
 - Plugin Integration: [Plugin Integration Analysis.md](docs/Plugin%20Integration%20Analysis.md) — Gap analysis for Flowti Plugin
-- Architecture: [Flowti CLI Architecture.md](Flowti%20CLI%20Architecture.md) — v22
+- Architecture: [Flowti CLI Architecture.md](Flowti%20CLI%20Architecture.md) — v25
 - Architecture Review: [Architecture Review 2026-03-12.md](docs/Architecture%20Review%202026-03-12.md) — DI violations, test gaps, refactoring priorities
 - CLI Reference: generated via `flowti docs` or interactive Documentation menu

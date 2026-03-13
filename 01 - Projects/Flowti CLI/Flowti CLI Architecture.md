@@ -2,15 +2,15 @@
 type: Architecture
 domain: CLI
 title: Flowti CLI — Architecture Document
-version: 24
+version: 25
 created: 2026-03-07
-updated: 2026-03-12
+updated: 2026-03-13
 status: living-document
 ---
 
 # Flowti CLI — Architecture Document
 
-> Living document. Reflects the current implementation (status quo) and the target architecture derived from PRD v14. Updated as the codebase evolves.
+> Living document. Reflects the current implementation (status quo) and the target architecture derived from PRD v15. Updated as the codebase evolves.
 
 ---
 
@@ -18,7 +18,7 @@ status: living-document
 
 The Flowti CLI is a **definition-driven project orchestrator** that ships as a self-contained Node.js binary. It manages multi-project development workflows — scaffolding, building, testing, reviewing, publishing, and reporting — from a single interactive menu or via non-interactive commands for AI agent tool use.
 
-**Scale**: 345 source files, 253 test files (3,990 tests, 247 suites), 25 domain modules, 33 infrastructure modules, 22 controllers, 74 UI view files, 4 scaffold definitions, 8 component definitions. Zero production dependencies — runs on Node.js built-ins only.
+**Scale**: 352 source files, 274 test files (4,505 tests, 267 suites), 25 domain modules, 33 infrastructure modules, 22 controllers, 74 UI view files, 4 scaffold definitions, 8 component definitions. Zero production dependencies — runs on Node.js built-ins only.
 
 ---
 
@@ -119,7 +119,6 @@ flowti.cmd
 │  │  ─────────────────────────────────────────       │  │
 │  │  d  Documentation  (Update All, CLI/Entity Ref.)  │  │
 │  │  m  Project Management (submenu)                 │  │
-│  │  e  Requirements Management (submenu)            │  │
 │  │  k  Knowledgebase  (Obsidian opt-in)             │  │
 │  │  i  Info           (project diagnostics)         │  │
 │  │  ─────────────────────────────────────────       │  │
@@ -129,10 +128,10 @@ flowti.cmd
 │  └──────────────────────────────────────────────────┘  │
 │                                                       │
 │  ┌──────── Project Management Submenu ────────────┐   │
-│  │  1  Resources        5  Requirements Mgmt      │   │
-│  │  2  Time-Log         6  CAPA                   │   │
-│  │  3  Deliverables     7  Lifecycle              │   │
-│  │  4  RAID Log         8  Health                 │   │
+│  │  1  Resources        5  CAPA                   │   │
+│  │  2  Time-Log         6  Lifecycle              │   │
+│  │  3  Deliverables     7  Health                 │   │
+│  │  4  RAID Log                                   │   │
 │  └────────────────────────────────────────────────┘   │
 └───────────────────────────────────────────────────────┘
 ```
@@ -502,8 +501,6 @@ The CLI provides a full project management suite under the "Project Management" 
 │  Time-Log       — hours per person/task/category   │
 │  Deliverables   — tracked outputs with progress    │
 │  RAID Log       — risks, assumptions, issues, deps │
-│  Requirements   — IREB (FR, NFR, constraint)       │
-│                   + Use Cases + User Stories        │
 │  CAPA           — corrective/preventive actions    │
 │  Lifecycle      — state machine for entities       │
 │  Health         — quality gate dashboard           │
@@ -513,8 +510,6 @@ The CLI provides a full project management suite under the "Project Management" 
 │  Pattern: {domain}-store.ts + {domain}-types.ts    │
 └────────────────────────────────────────────────────┘
 ```
-
-**Requirements Management** is also accessible directly from the Project Detail Menu (key `e`) for quick access, in addition to being inside the Project Management submenu.
 
 ### 2.13 Lifecycle Engine
 

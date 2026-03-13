@@ -183,6 +183,14 @@ export interface PublishConfig {
 	endpoints?: PublishEndpoint[];
 }
 
+/** Quality gate configuration for the Review platform. */
+export interface ReviewGateConfig {
+	coverage?: { requirementCoverage?: number; journeyCoverage?: number; statementCoverage?: number };
+	security?: { required?: boolean; maxCritical?: number; maxHigh?: number };
+	risk?: { criticalMustPass?: boolean; highMustPass?: boolean };
+	release?: { allGatesMustPass?: boolean; requireApproval?: boolean };
+}
+
 export interface ReviewConfig {
 	/** Directory containing journey test definitions (relative to project root) */
 	journeysDir?: string;
@@ -200,6 +208,42 @@ export interface ReviewConfig {
 	teardown?: string;
 	/** E2E rebuild command */
 	rebuild?: string;
+
+	// ── Environment ──────────────────────────────────────────
+	/** Project target type — determines which EnvironmentProvider is used. */
+	target?: "cli" | "obsidian-vault" | "obsidian-plugin" | "typescript" | "webapp";
+	/** Capability IDs required for E2E. */
+	capabilities?: string[];
+
+	// ── Execution ────────────────────────────────────────────
+	/** Journey execution order strategy. Default: "chapter-order". */
+	sequencer?: "alphabetical" | "risk-priority" | "chapter-order";
+	/** Bail after N failures. 0 = never bail. Default: 0. */
+	bail?: number;
+	/** Default timeout for commands in milliseconds. Default: 30000. */
+	timeout?: number;
+	/** Default timeout for lifecycle hooks in milliseconds. */
+	hookTimeout?: number;
+	/** Enable parallel journey execution (future). Default: false. */
+	parallel?: boolean;
+	/** Step ID filter — only run matching steps. */
+	stepFilter?: string;
+
+	// ── Evidence ─────────────────────────────────────────────
+	/** Evidence storage directory (relative to project root). Default: "docs/evidence". */
+	evidenceDir?: string;
+	/** Capture screenshots during E2E. Default: true. */
+	screenshots?: boolean;
+	/** Collect execution logs. Default: true. */
+	logs?: boolean;
+	/** Collect API traces. Default: false. */
+	traces?: boolean;
+	/** Number of evidence runs to retain. Default: 10. */
+	retainRuns?: number;
+
+	// ── Quality Gates ────────────────────────────────────────
+	/** Quality gate configuration. */
+	gates?: ReviewGateConfig;
 }
 
 export interface ReportGenerator {

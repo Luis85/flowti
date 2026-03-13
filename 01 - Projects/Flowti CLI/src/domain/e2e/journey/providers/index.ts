@@ -115,6 +115,37 @@ const builtInCapabilities: Capability[] = [
 		description: "Verify build output size and existence",
 		check: () => true,
 	},
+	{
+		id: "dom-interaction",
+		name: "DOM Interaction",
+		description: "Click, evaluate, navigate, and interact with DOM elements via obsidian-cli",
+		check: (deps) => {
+			try {
+				const result = deps.exec("obsidian-cli --version", { timeout: 5000 });
+				return result.exitCode === 0 ? true : "Obsidian CLI required for DOM interaction";
+			} catch {
+				return "Obsidian CLI not available";
+			}
+		},
+	},
+	{
+		id: "visual",
+		name: "Visual Tools",
+		description: "Screenshots, highlighting, theme switching via obsidian-cli",
+		check: () => true,
+	},
+	{
+		id: "events",
+		name: "Event Tools",
+		description: "Emit, assert, and query EventBus events via obsidian-cli",
+		check: () => true,
+	},
+	{
+		id: "batch",
+		name: "Batch Tools",
+		description: "Execute multiple assertions in a single obsidian-cli call",
+		check: () => true,
+	},
 ];
 
 // ── Registry factory ─────────────────────────────────────────────────

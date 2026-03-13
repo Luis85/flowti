@@ -54,6 +54,42 @@ export interface AcceptanceCriterion {
 	required?: boolean;
 }
 
+/** Retry configuration for a step. */
+export interface StepRetryConfig {
+	maxAttempts: number;
+	delayMs?: number;
+}
+
+/** Condition for conditional step execution. */
+export interface StepCondition {
+	/** Run this step only if the expression is truthy. Supports {{var}} interpolation. */
+	runIf?: string;
+	/** Skip this step if the expression is truthy. */
+	skipIf?: string;
+}
+
+/** Per-step traceability links. */
+export interface StepTraceability {
+	/** Requirement IDs this step verifies. */
+	requirements?: string[];
+	/** Acceptance criterion ID this step verifies. */
+	verifies?: string;
+}
+
+/** A reference to a step in another journey (composition). */
+export interface JourneyRefStep {
+	/** Reference in format "journey-slug#step-id". */
+	$ref: string;
+}
+
+/** A step can be an inline definition or a $ref to another journey's step. */
+export type StepOrRef = JourneyStep | JourneyRefStep;
+
+/** Type guard: is this a $ref step? */
+export function isRefStep(step: StepOrRef): step is JourneyRefStep {
+	return "$ref" in step && typeof (step as JourneyRefStep).$ref === "string";
+}
+
 /** A single step in a journey definition. */
 export interface JourneyStep {
 	id: string;
@@ -69,6 +105,18 @@ export interface JourneyStep {
 	guideSection?: number;
 	/** Swimlane for process visualization (Plugin compat). */
 	swimlane?: string;
+	/** Per-step traceability links to requirements/acceptance criteria. */
+	traceability?: StepTraceability;
+	/** Skip this step entirely. Default false. */
+	skip?: boolean;
+	/** Dev-mode only step — skipped in CI / non-dev runs. Default false. */
+	dev?: boolean;
+	/** Retry configuration for flaky or eventually-consistent steps. */
+	retry?: StepRetryConfig;
+	/** Conditional execution. */
+	condition?: StepCondition;
+	/** Per-step timeout in milliseconds. Overrides journey-level timeout. */
+	timeout?: number;
 }
 
 // ── Project targets ──────────────────────────────────────────────────
@@ -92,6 +140,54 @@ export interface JourneyRequirements {
 	capabilities?: string[];
 }
 
+// ── Risk & quality classification ───────────────────────────────────
+
+/** Risk levels for journey prioritization. */
+export type RiskLevel = "critical" | "high" | "medium" | "low";
+
+/** ISO 25010 quality characteristic categories. */
+export type QualityCategory =
+	| "functional-suitability"
+	| "reliability"
+	| "usability"
+	| "performance-efficiency"
+	| "security"
+	| "compatibility"
+	| "maintainability"
+	| "portability";
+
+/** Journey-level traceability to requirements and quality model. */
+export interface JourneyTraceability {
+	/** Requirement IDs this journey verifies. */
+	requirements?: string[];
+	/** Use Case IDs this journey exercises. */
+	useCases?: string[];
+	/** User Story IDs this journey covers. */
+	userStories?: string[];
+	/** Risk level — determines execution priority. */
+	risk?: RiskLevel;
+	/** ISO 25010 quality category. */
+	category?: QualityCategory;
+}
+
+/** Risk priority order for sequencing. Lower index = higher priority. */
+export const RISK_PRIORITY: RiskLevel[] = ["critical", "high", "medium", "low"];
+
+// ── Journey types ───────────────────────────────────────────────────
+
+/** All supported journey type classifications. */
+export type JourneyType =
+	| "functional"
+	| "regression"
+	| "smoke"
+	| "exploratory"
+	| "blueprint"
+	| "security"
+	| "performance"
+	| "usability"
+	| "compatibility"
+	| "integration";
+
 // ── Journey definition ──────────────────────────────────────────────
 
 /** Lifecycle configuration for journey execution. */
@@ -109,9 +205,11 @@ export interface JourneyDefinition {
 	/** Chapter number for ordering. */
 	chapter?: number;
 	/** Journey type classification. */
-	type?: "functional" | "regression" | "smoke" | "exploratory" | "blueprint";
+	type?: JourneyType;
 	/** Category for grouping. */
 	category?: string;
+	/** Journey-level traceability to requirements, use cases, and quality model. */
+	traceability?: JourneyTraceability;
 	/**
 	 * What the journey needs from the execution environment.
 	 * The CLI resolves the right provider and checks capabilities
@@ -126,8 +224,8 @@ export interface JourneyDefinition {
 	setup?: JourneyAction[];
 	/** Teardown actions to run after steps. */
 	teardown?: JourneyAction[];
-	/** The journey steps. */
-	steps: JourneyStep[];
+	/** The journey steps — inline or $ref to other journeys. */
+	steps: StepOrRef[];
 	/** Plugin compat: start/end events. */
 	startEvent?: string;
 	endEvent?: string;
@@ -152,6 +250,10 @@ export interface StepResult {
 	durationMs: number;
 	actions: ActionResult[];
 	error?: string;
+	/** Number of retry attempts (0 if no retries). */
+	retryAttempts?: number;
+	/** Evidence artifacts collected during this step. */
+	evidence?: string[];
 }
 
 /** Result of executing a full journey. */
@@ -163,9 +265,14 @@ export interface JourneyResult {
 	skipped: number;
 	durationMs: number;
 	steps: StepResult[];
+	/** Journey-level traceability (copied from definition for result tracking). */
+	traceability?: JourneyTraceability;
 }
 
 // ── Executor options ────────────────────────────────────────────────
+
+/** Sequencer strategy for journey ordering. */
+export type SequencerStrategy = "alphabetical" | "risk-priority" | "chapter-order";
 
 /** Options for the CLI journey executor. */
 export interface JourneyExecutorOptions {
@@ -179,4 +286,12 @@ export interface JourneyExecutorOptions {
 	commandTimeout?: number;
 	/** Variables for interpolation in action fields. */
 	variables?: Record<string, string>;
+	/** Step ID filter — only run steps matching these IDs. */
+	stepFilter?: string[];
+	/** Dev mode — include dev-only steps. Default: false. */
+	devMode?: boolean;
+	/** Evidence directory for this run. If set, evidence is collected. */
+	evidenceDir?: string;
+	/** Bail after N failures. 0 = never bail. Default: 0. */
+	bail?: number;
 }

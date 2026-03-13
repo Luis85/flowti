@@ -1,27 +1,19 @@
 /**
  * project-status-banner.ts — Lightweight project status for the detail menu banner.
  *
- * Reads frontmatter from existing report files (no commands executed).
- * Shows last build result, test summary, and build freshness at a glance.
+ * Renders project status data with ANSI colors. Business logic
+ * (data collection, type coercion) lives in domain/project/project-status.ts.
  */
 
-import { disk } from "../infrastructure/filesystem.js";
-import { paths } from "../infrastructure/paths.js";
-import { parseFrontmatterContent } from "../infrastructure/frontmatter.js";
 import { RESET, DIM, GREEN, RED, YELLOW } from "../infrastructure/ui.js";
 import { log } from "../infrastructure/logger.js";
-import { getReportsDir } from "../domain/project/project-config.js";
-import { checkFreshness, resolveBuildPaths } from "../domain/build/build-freshness.js";
+import { disk } from "../infrastructure/filesystem.js";
+import { paths } from "../infrastructure/paths.js";
 import type { ProjectContext } from "../infrastructure/types.js";
+import { collectProjectStatus } from "../domain/project/project-status.js";
+import type { BuildStatus, TestStatus } from "../domain/project/project-status.js";
 
-// ── Helpers ──────────────────────────────────────────────────────────
-
-function readFrontmatter(filePath: string): Record<string, unknown> | null {
-	if (!disk.existsSync(filePath)) return null;
-	try {
-		return parseFrontmatterContent(disk.readFileSync(filePath, "utf-8"));
-	} catch { return null; }
-}
+// ── Formatters ───────────────────────────────────────────────────────
 
 function formatAge(isoDate: string): string {
 	try {
@@ -38,45 +30,26 @@ function formatAge(isoDate: string): string {
 	} catch { return ""; }
 }
 
-// ── Status collectors ───────────────────────────────────────────────
-
-function collectBuildStatus(reportsDir: string): string | null {
-	const fm = readFrontmatter(paths.join(reportsDir, "Build Report.md"));
-	if (!fm) return null;
-	const ok = fm.success === true || fm.success === "true";
-	const icon = ok ? `${GREEN}✓${RESET}` : `${RED}✗${RESET}`;
-	const age = fm.date ? formatAge(String(fm.date)) : "";
+function formatBuild(build: BuildStatus): string {
+	const icon = build.success ? `${GREEN}✓${RESET}` : `${RED}✗${RESET}`;
+	const age = build.date ? formatAge(build.date) : "";
 	return `Build: ${icon}${age ? ` ${DIM}${age}${RESET}` : ""}`;
 }
 
-function collectTestStatus(reportsDir: string): string | null {
-	const fm = readFrontmatter(paths.join(reportsDir, "Test Report.md"));
-	if (!fm) return null;
-	const total = Number(fm.total ?? fm.total_tests ?? 0);
-	if (total === 0) return null;
-	const failed = Number(fm.failed ?? 0);
-	const icon = failed === 0 ? `${GREEN}✓${RESET}` : `${RED}${failed} failed${RESET}`;
-	return `Tests: ${icon} ${DIM}${total}${RESET}`;
-}
-
-function collectFreshness(projectPath: string): string | null {
-	try {
-		const { srcDir, binDir } = resolveBuildPaths(projectPath, { paths });
-		const freshness = checkFreshness(srcDir, binDir, { disk, paths });
-		return freshness.needsRebuild ? `${YELLOW}Rebuild needed${RESET}` : null;
-	} catch { return null; }
+function formatTests(tests: TestStatus): string {
+	const icon = tests.failed === 0 ? `${GREEN}✓${RESET}` : `${RED}${tests.failed} failed${RESET}`;
+	return `Tests: ${icon} ${DIM}${tests.total}${RESET}`;
 }
 
 // ── Banner renderer ──────────────────────────────────────────────────
 
 export function printProjectStatusBanner(ctx: ProjectContext): void {
-	const reportsDir = getReportsDir(ctx.path, ctx.config, { paths });
+	const status = collectProjectStatus({ disk, paths }, ctx.path, ctx.config);
 
-	const parts = [
-		collectBuildStatus(reportsDir),
-		collectTestStatus(reportsDir),
-		collectFreshness(ctx.path),
-	].filter((p): p is string => p !== null);
+	const parts: string[] = [];
+	if (status.build) parts.push(formatBuild(status.build));
+	if (status.tests) parts.push(formatTests(status.tests));
+	if (status.needsRebuild) parts.push(`${YELLOW}Rebuild needed${RESET}`);
 
 	if (parts.length > 0) {
 		const sep = `  ${DIM}│${RESET}  `;

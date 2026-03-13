@@ -1,0 +1,67 @@
+{
+	"journey": "Getting Started",
+	"chapter": 1,
+	"description": "E2E journey for Getting Started.",
+	"type": "functional",
+	"category": "general",
+	"tools": [
+		"command",
+		"assert",
+		"log",
+		"file-exists"
+	],
+	"lifecycle": {
+		"enablePlugin": false,
+		"checkInstalled": false,
+		"startTrace": false,
+		"openActivityLog": false
+	},
+	"steps": [
+		{
+			"id": "getting-started-01",
+			"title": "Run Getting Started",
+			"description": "Execute the Getting Started feature and verify output.",
+			"acceptanceCriteria": [
+				{
+					"id": "getting-started-ac-01",
+					"description": "Getting Started command runs without errors"
+				}
+			],
+			"actions": [
+				{
+					"tool": "log",
+					"message": "Starting Getting Started journey..."
+				},
+				{
+					"tool": "command",
+					"id": "node dist/main.js help"
+				},
+				{
+					"tool": "assert",
+					"type": "exit-code",
+					"command": "node dist/main.js help",
+					"expected": 0
+				}
+			]
+		},
+		{
+			"id": "getting-started-02",
+			"title": "Verify Getting Started output",
+			"description": "Assert that the Getting Started feature produced the expected results.",
+			"acceptanceCriteria": [
+				{
+					"id": "getting-started-ac-02",
+					"description": "Getting Started output contains expected content"
+				}
+			],
+			"actions": [
+				{
+					"tool": "assert",
+					"type": "stdout-contains",
+					"command": "node dist/main.js help",
+					"contains": "flowti"
+				}
+			]
+		}
+	]
+}
