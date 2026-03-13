@@ -7,9 +7,8 @@ import { disk } from "../../infrastructure/filesystem.js";
 import { clock } from "../../infrastructure/clock.js";
 import { printHeader } from "../../infrastructure/ui.js";
 import { input } from "../../infrastructure/input.js";
-import { runMenu } from "../../infrastructure/menu.js";
 import { log } from "../../infrastructure/logger.js";
-import type { MenuResult, MenuEntry, DeliverablesConfig, DeliverableStatus } from "../../infrastructure/types.js";
+import type { DeliverablesConfig, DeliverableStatus } from "../../infrastructure/types.js";
 import { listDeliverables, createDeliverableFile, updateDeliverableStatus } from "../../domain/deliverables/deliverable-store.js";
 import { renderDeliverableList, renderDeliverableAdded, renderDeliverableUpdated } from "../deliverables-display.js";
 
@@ -17,7 +16,7 @@ function storeDeps() { return { disk, paths, clock } as const; }
 
 const STATUSES: DeliverableStatus[] = ["planned", "in-progress", "review", "done", "blocked"];
 
-async function addDeliverableInteractive(projectPath: string, config?: DeliverablesConfig): Promise<void> {
+export async function addDeliverableInteractive(projectPath: string, config?: DeliverablesConfig): Promise<void> {
 	printHeader("Add Deliverable");
 
 	const name = await input.ask("Name");
@@ -43,7 +42,7 @@ async function addDeliverableInteractive(projectPath: string, config?: Deliverab
 	}
 }
 
-async function updateStatusInteractive(projectPath: string, config?: DeliverablesConfig): Promise<void> {
+export async function updateStatusInteractive(projectPath: string, config?: DeliverablesConfig): Promise<void> {
 	printHeader("Update Deliverable Status");
 
 	const deliverables = listDeliverables(storeDeps(), projectPath, config);
@@ -71,41 +70,4 @@ async function updateStatusInteractive(projectPath: string, config?: Deliverable
 	if (ok) {
 		renderDeliverableUpdated(d.name, newStatus);
 	}
-}
-
-export async function deliverablesMenu(projectPath: string, config?: DeliverablesConfig): Promise<MenuResult> {
-	const items: MenuEntry[] = [
-		{
-			key: "1",
-			label: "List Deliverables",
-			action: async () => {
-				renderDeliverableList(listDeliverables(storeDeps(), projectPath, config));
-				await input.waitForEnter();
-				return "main" as const;
-			},
-		},
-		{
-			key: "2",
-			label: "Add Deliverable",
-			action: async () => {
-				await addDeliverableInteractive(projectPath, config);
-				await input.waitForEnter();
-				return "main" as const;
-			},
-		},
-		{
-			key: "3",
-			label: "Update Status",
-			action: async () => {
-				await updateStatusInteractive(projectPath, config);
-				await input.waitForEnter();
-				return "main" as const;
-			},
-		},
-		{ separator: true },
-		{ key: "b", label: "Back", action: () => "main" as const },
-		{ key: "q", label: "Quit", action: () => "quit" as const },
-	];
-
-	return runMenu("Deliverables", items);
 }

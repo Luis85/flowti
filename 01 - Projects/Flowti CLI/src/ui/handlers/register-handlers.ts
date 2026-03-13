@@ -3,10 +3,6 @@
  *
  * This is the single registration point for view handlers, action handlers,
  * condition handlers, and beforeRender handlers used by the SitemapRouter.
- *
- * View handlers wrap existing menu functions.
- * Action handlers wrap inline menu actions.
- * Condition handlers evaluate disabled/hidden state.
  */
 
 import type { HandlerRegistry } from "../../infrastructure/handler-registry.js";
@@ -20,7 +16,7 @@ import { input } from "../../infrastructure/input.js";
 import { log } from "../../infrastructure/logger.js";
 import { clearScreen, RESET, DIM, CYAN } from "../../infrastructure/ui.js";
 import { getSelectedProject } from "../../infrastructure/state.js";
-import { initializeProject, getReportsDir } from "../../domain/project/project-config.js";
+import { initializeProject } from "../../domain/project/project-config.js";
 import { listProjects } from "../../domain/project/project.js";
 import { isKnowledgebaseAvailable } from "../../domain/knowledgebase/knowledgebase.js";
 import { collectHealth } from "../../domain/health/health.js";
@@ -29,9 +25,21 @@ import { showHelp } from "../help.js";
 import { showInfo } from "../info-display.js";
 import { printProjectStatusBanner } from "../project-status-banner.js";
 import { buildWithReport } from "../../domain/reports/cli/generate-build-report.js";
-import { buildReportsSubmenu, buildDocsSubmenu, buildDevToolsSubmenu } from "../menu-builders.js";
+import { registerCrudHandlers } from "./crud-handlers.js";
+import { registerExtensibilityHandlers } from "./extensibility-handlers.js";
+import { registerDevelopmentHandlers } from "./development-handlers.js";
+import { registerPipelineHandlers } from "./pipeline-handlers.js";
+import { registerToolingHandlers } from "./tooling-handlers.js";
+import { registerComponentHandlers } from "./component-handlers.js";
 
 export function registerAllHandlers(registry: HandlerRegistry): void {
+	registerCrudHandlers(registry);
+	registerExtensibilityHandlers(registry);
+	registerDevelopmentHandlers(registry);
+	registerPipelineHandlers(registry);
+	registerToolingHandlers(registry);
+	registerComponentHandlers(registry);
+
 	// ── BeforeRender handlers ───────────────────────────────────────
 
 	registry.registerBeforeRender("start:banner", (ctx) => {
@@ -60,17 +68,14 @@ export function registerAllHandlers(registry: HandlerRegistry): void {
 	// ── Condition handlers ──────────────────────────────────────────
 
 	registry.registerCondition("no-project-selected", (_ctx) => {
-		// Returns true when HIDDEN (no project selected)
 		return !getSelectedProject();
 	});
 
 	registry.registerCondition("knowledgebase:available", (_ctx) => {
-		// Returns true when DISABLED (no knowledgebase)
 		return !isKnowledgebaseAvailable({ disk, paths, shell });
 	});
 
 	registry.registerCondition("readme:exists", (ctx) => {
-		// Returns true when DISABLED (no README)
 		if (!ctx.project) return true;
 		return !disk.existsSync(paths.join(ctx.project.path, "README.md"));
 	});
@@ -141,65 +146,12 @@ export function registerAllHandlers(registry: HandlerRegistry): void {
 		return "main" as MenuResult;
 	});
 
-	// ── View handlers (dynamic menus) ───────────────────────────────
-
-	registry.registerView("plugins", async (_ctx) => {
-		const { pluginsMenu } = await import("../menus/plugins-menu.js");
-		return pluginsMenu();
-	});
-
-	registry.registerView("ai-tools", async (_ctx) => {
-		const { aiToolsMenu } = await import("../menus/ai-tools-menu.js");
-		return aiToolsMenu();
-	});
-
-	registry.registerView("make", async (ctx) => {
-		if (!ctx.project) return "main";
-		const { menu } = await import("../menus/make-menu.js");
-		return menu(ctx.project.path);
-	});
-
-	registry.registerView("review", async (ctx) => {
-		if (!ctx.project) return "main";
-		const { reviewMenu } = await import("../menus/review-menu.js");
-		return reviewMenu(ctx.project.path, ctx.project.config.review ?? {});
-	});
-
-	registry.registerView("publish", async (ctx) => {
-		if (!ctx.project) return "main";
-		const { publishMenu } = await import("../menus/publish-menu.js");
-		return publishMenu(ctx.project.path, ctx.project.config.publish ?? {});
-	});
+	// ── View handlers (remaining dynamic menus) ─────────────────────
 
 	registry.registerView("components", async (ctx) => {
 		if (!ctx.project) return "main";
 		const { componentListMenu } = await import("../menus/component-list-menu.js");
-		return componentListMenu(ctx.project.path, ctx.project.config.components);
-	});
-
-	registry.registerView("reports", async (ctx) => {
-		if (!ctx.project) return "main";
-		const { runMenu } = await import("../../infrastructure/menu.js");
-		const generators = ctx.project.config.reports?.generators ?? [];
-		const reportsDir = getReportsDir(ctx.project.path, ctx.project.config, { paths });
-		await runMenu("reports", buildReportsSubmenu(generators, ctx.project.path, reportsDir));
-		return "main" as MenuResult;
-	});
-
-	registry.registerView("requirements", async (ctx) => {
-		if (!ctx.project) return "main";
-		const { requirementsMenu } = await import("../menus/requirements-menu.js");
-		return requirementsMenu(ctx.project.path, ctx.project.config.management?.requirements);
-	});
-
-	registry.registerView("docs", async (ctx) => {
-		if (!ctx.project) return "main";
-		const { runMenu } = await import("../../infrastructure/menu.js");
-		const docsConfig = ctx.project.config.docs;
-		const configGens = docsConfig?.generators ?? [];
-		const references = docsConfig?.references ?? [];
-		await runMenu("documentation", buildDocsSubmenu(configGens, references, ctx.project.path), { defaultChoice: "1" });
-		return "main" as MenuResult;
+		return componentListMenu(ctx.project.path, ctx.project.config.components, ctx.sitemapSlots);
 	});
 
 	registry.registerView("knowledgebase", async (_ctx) => {
@@ -207,62 +159,15 @@ export function registerAllHandlers(registry: HandlerRegistry): void {
 		return knowledgebaseMenu();
 	});
 
-	registry.registerView("devtools", async (ctx) => {
-		if (!ctx.project) return "main";
-		const { runMenu } = await import("../../infrastructure/menu.js");
-		await runMenu("dev tools", buildDevToolsSubmenu(ctx.project.path, ctx.project.scripts));
-		return "main" as MenuResult;
-	});
-
-	registry.registerView("event-catalog", async (ctx) => {
-		if (!ctx.project) return "main";
-		const { eventCatalogMenu } = await import("../menus/event-catalog-menu.js");
-		return eventCatalogMenu(ctx.project.path);
-	});
-
 	registry.registerView("component-detail", async (ctx) => {
 		if (!ctx.project) return "main";
+		const componentName = ctx.params?.componentName as string | undefined;
+		if (!componentName) return "main";
 		const { componentDetailMenu } = await import("../menus/component-detail-menu.js");
-		const { getSelectedComponent, getAllComponents } = await import("../menus/component-list-menu.js");
-		const component = getSelectedComponent();
-		const allComponents = getAllComponents();
+		const { listProjectComponents } = await import("../menus/component-list-menu.js");
+		const allComponents = listProjectComponents(ctx.project.path, { disk, paths });
+		const component = allComponents.find((c) => c.name === componentName);
 		if (!component) return "main";
-		return componentDetailMenu(ctx.project.path, component, allComponents);
-	});
-
-	registry.registerView("resources", async (ctx) => {
-		if (!ctx.project) return "main";
-		const { resourcesMenu } = await import("../menus/resources-menu.js");
-		return resourcesMenu(ctx.project.path, ctx.project.config.management?.resources);
-	});
-
-	registry.registerView("timelog", async (ctx) => {
-		if (!ctx.project) return "main";
-		const { timelogMenu } = await import("../menus/timelog-menu.js");
-		return timelogMenu(ctx.project.path, ctx.project.config.management?.timelog);
-	});
-
-	registry.registerView("deliverables", async (ctx) => {
-		if (!ctx.project) return "main";
-		const { deliverablesMenu } = await import("../menus/deliverables-menu.js");
-		return deliverablesMenu(ctx.project.path, ctx.project.config.management?.deliverables);
-	});
-
-	registry.registerView("raid", async (ctx) => {
-		if (!ctx.project) return "main";
-		const { raidMenu } = await import("../menus/raid-menu.js");
-		return raidMenu(ctx.project.path, ctx.project.config.management?.raid);
-	});
-
-	registry.registerView("capa", async (ctx) => {
-		if (!ctx.project) return "main";
-		const { capaMenu } = await import("../menus/capa-menu.js");
-		return capaMenu(ctx.project.path, ctx.project.config.management?.capa);
-	});
-
-	registry.registerView("lifecycle", async (ctx) => {
-		if (!ctx.project) return "main";
-		const { projectLifecycleMenu } = await import("../menus/project-lifecycle-menu.js");
-		return projectLifecycleMenu(ctx.project);
+		return componentDetailMenu(ctx.project.path, component, allComponents, ctx.sitemapSlots);
 	});
 }

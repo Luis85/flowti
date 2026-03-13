@@ -278,6 +278,39 @@ describe("validateSitemap", () => {
 		expect(result.ok).toBe(true);
 	});
 
+	it("accepts listProvider entries in items", () => {
+		const result = validateSitemap({
+			version: 1,
+			views: {
+				v: {
+					title: "V",
+					items: [
+						{ listProvider: "make:templates" },
+						{ key: "b", label: "Back", signal: "back" },
+					],
+				},
+			},
+		});
+		expect(result.ok).toBe(true);
+	});
+
+	it("rejects empty listProvider name", () => {
+		const result = validateSitemap({
+			version: 1,
+			views: {
+				v: {
+					title: "V",
+					items: [
+						{ listProvider: "" },
+						{ key: "b", label: "Back", signal: "back" },
+					],
+				},
+			},
+		});
+		expect(result.ok).toBe(false);
+		expect(result.errors.some((e) => e.includes("listProvider"))).toBe(true);
+	});
+
 	it("rejects empty slot name", () => {
 		const result = validateSitemap({
 			version: 1,

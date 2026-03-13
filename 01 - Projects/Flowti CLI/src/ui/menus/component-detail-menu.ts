@@ -141,6 +141,7 @@ export async function componentDetailMenu(
 	projectRoot: string,
 	component: ProjectComponent,
 	allComponents: ProjectComponent[],
+	sitemapSlots?: Readonly<Record<string, readonly MenuEntry[]>>,
 ): Promise<MenuResult> {
 	const domain = component.domain;
 	const instance = readComponentInstance(projectRoot, component.name, editorDeps(), domain);
@@ -152,82 +153,57 @@ export async function componentDetailMenu(
 
 	renderComponentDetail(instance, component, allComponents);
 
-	const items: MenuEntry[] = [
-		{
-			key: "e",
-			label: "Edit Fields",
-			action: async () => { await editFieldsMenu(projectRoot, component.name, instance, domain); },
-		},
-		{
-			key: "p",
-			label: "Edit Properties",
-			action: async () => { await editPropertiesMenu(projectRoot, component.name, instance, domain); },
-		},
-		{
-			key: "a",
-			label: "Edit Actions",
-			action: async () => { await editActionsMenu(projectRoot, component.name, instance, domain); },
-		},
-		{
-			key: "c",
-			label: "Edit Children",
-			action: async () => { await editChildrenMenu(projectRoot, component.name, instance, allComponents, domain); },
-		},
-		{
-			key: "s",
-			label: "Edit Stores",
-			action: async () => { await editStoresMenu(projectRoot, component.name, instance, domain); },
-		},
-		{
-			key: "q",
-			label: "Edit Requirements",
-			action: async () => { await editRequirementsMenu(projectRoot, component.name, instance, domain); },
-		},
-		{
-			key: "f",
-			label: "Edit Features",
-			action: async () => { await editFeaturesMenu(projectRoot, component.name, instance, domain); },
-		},
-		{
-			key: "l",
-			label: "Edit Relationships",
-			action: async () => { await editRelationshipsMenu(projectRoot, component.name, instance, domain); },
-		},
-	];
+	const items: MenuEntry[] = [];
 
-	if (component.isDirty) {
-		items.push({
-			key: "r",
-			label: "Regenerate Files",
-			action: async () => {
-				const confirmed = await input.askYesNo(`Regenerate ${component.name}?`);
-				if (!confirmed) {
-					log(`\n  ${DIM}Cancelled.${RESET}\n`);
-					return;
-				}
-				const fw = getFrameworkPackages(getFramework(projectRoot, { disk, paths }));
-				const result = regenerateComponent(component.name, projectRoot, { disk, paths, clock }, domain, fw.framework);
-				if (result.success) {
-					component.isDirty = false;
-					log(`\n  ${GREEN}Regenerated ${result.filesWritten} file(s). Component is now fresh.${RESET}\n`);
-				} else {
-					log(`\n  ${YELLOW}${result.error}${RESET}\n`);
-				}
-			},
-		});
+	if (sitemapSlots) {
+		// Sitemap-driven: edit entries come from sitemapSlots
+		items.push(...(sitemapSlots["_between_component-info"] ?? []));
+		if (component.isDirty) items.push(buildRegenerateEntry(projectRoot, component, domain));
+		items.push(...(sitemapSlots["_after"] ?? []));
+	} else {
+		// Fallback: build all entries internally (tests / standalone)
+		items.push(
+			{ key: "e", label: "Edit Fields", action: async () => { await editFieldsMenu(projectRoot, component.name, instance, domain); } },
+			{ key: "p", label: "Edit Properties", action: async () => { await editPropertiesMenu(projectRoot, component.name, instance, domain); } },
+			{ key: "a", label: "Edit Actions", action: async () => { await editActionsMenu(projectRoot, component.name, instance, domain); } },
+			{ key: "c", label: "Edit Children", action: async () => { await editChildrenMenu(projectRoot, component.name, instance, allComponents, domain); } },
+			{ key: "s", label: "Edit Stores", action: async () => { await editStoresMenu(projectRoot, component.name, instance, domain); } },
+			{ key: "q", label: "Edit Requirements", action: async () => { await editRequirementsMenu(projectRoot, component.name, instance, domain); } },
+			{ key: "f", label: "Edit Features", action: async () => { await editFeaturesMenu(projectRoot, component.name, instance, domain); } },
+			{ key: "l", label: "Edit Relationships", action: async () => { await editRelationshipsMenu(projectRoot, component.name, instance, domain); } },
+		);
+		if (component.isDirty) items.push(buildRegenerateEntry(projectRoot, component, domain));
+		items.push(
+			{ separator: true },
+			{ key: "b", label: "Back", action: () => "main" as const },
+		);
 	}
-
-	items.push(
-		{ separator: true },
-		{ key: "b", label: "Back", action: () => "main" as const },
-	);
 
 	return runMenu(`${instance.name}`, items);
 }
 
+function buildRegenerateEntry(projectRoot: string, component: ProjectComponent, domain?: string): MenuEntry {
+	return {
+		key: "r",
+		label: "Regenerate Files",
+		action: async () => {
+			const confirmed = await input.askYesNo(`Regenerate ${component.name}?`);
+			if (!confirmed) { log(`\n  ${DIM}Cancelled.${RESET}\n`); return; }
+			const fw = getFrameworkPackages(getFramework(projectRoot, { disk, paths }));
+			const result = regenerateComponent(component.name, projectRoot, { disk, paths, clock }, domain, fw.framework);
+			if (result.success) {
+				component.isDirty = false;
+				log(`\n  ${GREEN}Regenerated ${result.filesWritten} file(s). Component is now fresh.${RESET}\n`);
+			} else {
+				log(`\n  ${YELLOW}${result.error}${RESET}\n`);
+			}
+		},
+	};
+}
+
 // ── Edit Fields submenu ─────────────────────────────────────────────
 
-async function editFieldsMenu(projectRoot: string, componentName: string, instance: ComponentInstance, domain?: string): Promise<void> {
+export async function editFieldsMenu(projectRoot: string, componentName: string, instance: ComponentInstance, domain?: string): Promise<void> {
 	const fields = getEditableFields();
 
 	const items: MenuEntry[] = fields.map((field, i) => {
@@ -255,7 +231,7 @@ async function editFieldsMenu(projectRoot: string, componentName: string, instan
 
 // ── Edit Properties submenu ─────────────────────────────────────────
 
-async function editPropertiesMenu(projectRoot: string, componentName: string, instance: ComponentInstance, domain?: string): Promise<void> {
+export async function editPropertiesMenu(projectRoot: string, componentName: string, instance: ComponentInstance, domain?: string): Promise<void> {
 	const props = instance.properties ?? {};
 	const keys = Object.keys(props);
 
@@ -300,7 +276,7 @@ async function editPropertiesMenu(projectRoot: string, componentName: string, in
 
 // ── Edit Actions submenu ────────────────────────────────────────────
 
-async function editActionsMenu(projectRoot: string, componentName: string, instance: ComponentInstance, domain?: string): Promise<void> {
+export async function editActionsMenu(projectRoot: string, componentName: string, instance: ComponentInstance, domain?: string): Promise<void> {
 	const actions = instance.actions ?? [];
 
 	const items: MenuEntry[] = actions.map((action, i) => ({

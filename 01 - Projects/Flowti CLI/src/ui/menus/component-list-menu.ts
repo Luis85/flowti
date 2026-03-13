@@ -25,8 +25,8 @@ import { clock } from "../../infrastructure/clock.js";
 import { isStorybookInstalled, installStorybook, runStorybookDev, runStorybookBuild, isStorybookRunning, stopStorybook, getFrameworkPackages } from "../../domain/make/component/storybook-service.js";
 import { getFramework, setFramework } from "../../domain/make/component/storybook-settings.js";
 import { createStorybookRenderer } from "../storybook-renderer-impl.js";
+import { navigateWithParams } from "../../infrastructure/sitemap-router.js";
 import { componentMenu } from "./component-makers-menu.js";
-import { componentDetailMenu } from "./component-detail-menu.js";
 import { actionReferenceMenu } from "./action-reference-menu.js";
 import { discoverLibraries } from "../../domain/make/component/component-library.js";
 import { libraryMenu, dataProviderMenu } from "./component-submenus.js";
@@ -54,12 +54,8 @@ const KIND_LABELS: Record<ComponentKind, string> = {
 
 import type { ProjectComponent } from "../../domain/make/component/component-types.js";
 
-// ── Selected component state (for sitemap router integration) ────────
-let _selectedComponent: ProjectComponent | null = null;
-let _allComponents: ProjectComponent[] = [];
-
-export function getSelectedComponent(): ProjectComponent | null { return _selectedComponent; }
-export function getAllComponents(): ProjectComponent[] { return _allComponents; }
+// ── Exported component lookup (used by component-detail view handler) ──
+export { listProjectComponents } from "../../domain/make/component/component-list.js";
 
 function renderComponentListHeader(components: ProjectComponent[], frameworkTag: string): void {
 	if (components.length === 0) {
@@ -72,7 +68,7 @@ function renderComponentListHeader(components: ProjectComponent[], frameworkTag:
 	log(`\n  ${BOLD}${components.length} component(s)${RESET}${dirtyNote}${frameworkTag}\n`);
 }
 
-function buildComponentTreeItems(projectRoot: string, components: ProjectComponent[]): MenuEntry[] {
+function buildComponentTreeItems(_projectRoot: string, components: ProjectComponent[]): MenuEntry[] {
 	const tree = buildComponentTree(components);
 	return tree.map(({ component: c, depth }, i) => {
 		const kindLabel = KIND_LABELS[c.kind] ?? c.kind;
@@ -80,17 +76,23 @@ function buildComponentTreeItems(projectRoot: string, components: ProjectCompone
 		const indent = depth > 0 ? "  ".repeat(depth) + "└ " : "";
 		const dirtyTag = c.isDirty ? `  ${YELLOW}*${RESET}` : "";
 		const domainTag = c.domain ? `  ${DIM}[${c.domain}]${RESET}` : "";
+		const params: Record<string, unknown> = { componentName: c.name };
+		if (c.domain) params.domain = c.domain;
 		return {
 			key: String(i + 1),
 			label: `${indent}${c.name}  ${DIM}${kindLabel}${RESET}  ${statusColor}${c.status}${RESET}${domainTag}${dirtyTag}`,
-			action: async () => { _selectedComponent = c; _allComponents = components; await componentDetailMenu(projectRoot, c, components); },
+			action: () => navigateWithParams("component-detail", params) as MenuResult,
 		};
 	});
 }
 
 // ── Component browser menu ──────────────────────────────────────────
 
-export async function componentListMenu(projectRoot: string, componentsConfig?: ComponentsConfig): Promise<MenuResult> {
+export async function componentListMenu(
+	projectRoot: string,
+	componentsConfig?: ComponentsConfig,
+	sitemapSlots?: Readonly<Record<string, readonly MenuEntry[]>>,
+): Promise<MenuResult> {
 	const config = componentsConfig ?? {};
 	let stay = true;
 	const projectName = paths.basename(projectRoot);
@@ -106,22 +108,33 @@ export async function componentListMenu(projectRoot: string, componentsConfig?: 
 		renderComponentListHeader(components, frameworkTag);
 		const items: MenuEntry[] = buildComponentTreeItems(projectRoot, components);
 
-		items.push(
-			{ separator: true },
-			{ key: "c", label: "Add Component", action: async () => { await componentMenu(projectRoot); } },
-			buildRegenDirtyEntry(projectRoot, components, framework),
-		);
-		items.push({ key: "a", label: "Action Reference", action: async () => { await actionReferenceMenu(); } });
-		items.push(...buildSitemapOpsEntries(projectRoot, projectName));
-		items.push(...buildLibraryEntries(projectRoot));
-		items.push(...buildStorybookEntries(projectRoot, projectName, config, sbInstalled));
-		items.push(
-			{ separator: true },
-			{ key: "b", label: "Back", action: () => { stay = false; return "main" as const; } },
-		);
+		if (sitemapSlots) {
+			// Sitemap-driven: static entries come from sitemapSlots
+			items.push(...(sitemapSlots["_between_component-list"] ?? []));
+			items.push(...buildSitemapOpsEntries(projectRoot, projectName));
+			items.push(...(sitemapSlots["_between_sitemap-ops"] ?? []));
+			items.push(...buildLibraryEntries(projectRoot));
+			items.push(...(sitemapSlots["_after"] ?? []));
+		} else {
+			// Fallback: build all entries internally (tests / standalone)
+			items.push(
+				{ separator: true },
+				{ key: "c", label: "Add Component", action: async () => { await componentMenu(projectRoot); } },
+				buildRegenDirtyEntry(projectRoot, components, framework),
+			);
+			items.push({ key: "a", label: "Action Reference", action: async () => { await actionReferenceMenu(); } });
+			items.push(...buildSitemapOpsEntries(projectRoot, projectName));
+			items.push(...buildLibraryEntries(projectRoot));
+			items.push(...buildStorybookEntries(projectRoot, projectName, config, sbInstalled));
+			items.push(
+				{ separator: true },
+				{ key: "b", label: "Back", action: () => { stay = false; return "main" as const; } },
+			);
+		}
 
 		const result = await runMenu("Components", items);
 		if (result === "main" || result === "quit") { stay = false; return result; }
+		if (typeof result === "string" && result.startsWith("navigate:")) { stay = false; return result; }
 	}
 	return "main";
 }

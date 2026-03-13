@@ -7,9 +7,8 @@ import { disk } from "../../infrastructure/filesystem.js";
 import { clock } from "../../infrastructure/clock.js";
 import { printHeader } from "../../infrastructure/ui.js";
 import { input } from "../../infrastructure/input.js";
-import { runMenu } from "../../infrastructure/menu.js";
 import { log } from "../../infrastructure/logger.js";
-import type { MenuResult, MenuEntry, CAPAConfig, CAPAStatus, CAPAType } from "../../infrastructure/types.js";
+import type { CAPAConfig, CAPAStatus, CAPAType } from "../../infrastructure/types.js";
 import type { CAPASource, CAPASeverity } from "../../domain/capa/capa-types.js";
 import { listCAPAItems, createCAPAItem, updateCAPAStatus, nextCapaId } from "../../domain/capa/capa-store.js";
 import { renderCAPAList, renderCAPAAdded, renderCAPAUpdated } from "../capa-display.js";
@@ -19,7 +18,7 @@ function storeDeps() { return { disk, paths, clock } as const; }
 const STATUSES: CAPAStatus[] = ["open", "investigating", "action-planned", "implementing", "verification", "closed", "rejected"];
 const SOURCES: CAPASource[] = ["audit", "complaint", "incident", "observation", "review", "other"];
 
-async function addCAPAInteractive(capaType: CAPAType, projectPath: string, config?: CAPAConfig): Promise<void> {
+export async function addCAPAInteractive(capaType: CAPAType, projectPath: string, config?: CAPAConfig): Promise<void> {
 	const label = capaType === "corrective" ? "Corrective Action" : "Preventive Action";
 	printHeader(`Add ${label}`);
 
@@ -55,7 +54,7 @@ async function addCAPAInteractive(capaType: CAPAType, projectPath: string, confi
 	}
 }
 
-async function updateStatusInteractive(projectPath: string, config?: CAPAConfig): Promise<void> {
+export async function updateStatusInteractive(projectPath: string, config?: CAPAConfig): Promise<void> {
 	printHeader("Update CAPA Status");
 
 	const items = listCAPAItems(storeDeps(), projectPath, config);
@@ -80,50 +79,4 @@ async function updateStatusInteractive(projectPath: string, config?: CAPAConfig)
 	if (ok) {
 		renderCAPAUpdated(item.name, newStatus);
 	}
-}
-
-export async function capaMenu(projectPath: string, config?: CAPAConfig): Promise<MenuResult> {
-	const items: MenuEntry[] = [
-		{
-			key: "1",
-			label: "List CAPA Items",
-			action: async () => {
-				renderCAPAList(listCAPAItems(storeDeps(), projectPath, config));
-				await input.waitForEnter();
-				return "main" as const;
-			},
-		},
-		{
-			key: "2",
-			label: "Add Corrective Action",
-			action: async () => {
-				await addCAPAInteractive("corrective", projectPath, config);
-				await input.waitForEnter();
-				return "main" as const;
-			},
-		},
-		{
-			key: "3",
-			label: "Add Preventive Action",
-			action: async () => {
-				await addCAPAInteractive("preventive", projectPath, config);
-				await input.waitForEnter();
-				return "main" as const;
-			},
-		},
-		{
-			key: "4",
-			label: "Update Status",
-			action: async () => {
-				await updateStatusInteractive(projectPath, config);
-				await input.waitForEnter();
-				return "main" as const;
-			},
-		},
-		{ separator: true },
-		{ key: "b", label: "Back", action: () => "main" as const },
-		{ key: "q", label: "Quit", action: () => "quit" as const },
-	];
-
-	return runMenu("CAPA", items);
 }

@@ -166,7 +166,7 @@ describe("componentListMenu", () => {
 		expect(nonSep.length).toBeGreaterThanOrEqual(8); // 2 comps + add + 4 storybook + back
 	});
 
-	it("component item delegates to componentDetailMenu", async () => {
+	it("component item returns navigate:component-detail with params", async () => {
 		mockListComponents.mockReturnValue([COMPONENT_A]);
 		mockBuildTree.mockReturnValue([{ component: COMPONENT_A, depth: 0 }]);
 		mockRunMenu.mockResolvedValue("main");
@@ -174,9 +174,10 @@ describe("componentListMenu", () => {
 		await componentListMenu("/project");
 
 		const [, items] = mockRunMenu.mock.calls[0];
-		await (items.find((i: any) => i.key === "1") as any).action();
+		const result = await (items.find((i: any) => i.key === "1") as any).action();
 
-		expect(mockDetailMenu).toHaveBeenCalledWith("/project", COMPONENT_A, [COMPONENT_A]);
+		expect(result).toContain("navigate:component-detail");
+		expect(result).toContain(COMPONENT_A.name);
 	});
 
 	it("indents nested components in tree", async () => {
@@ -388,7 +389,7 @@ describe("componentListMenu", () => {
 		expect(items[0].label).toContain("*");
 	});
 
-	it("component detail receives dirty component when isDirty", async () => {
+	it("component detail navigate includes componentName for dirty component", async () => {
 		const dirty = { ...COMPONENT_A, isDirty: true };
 		mockListComponents.mockReturnValue([dirty]);
 		mockBuildTree.mockReturnValue([{ component: dirty, depth: 0 }]);
@@ -397,8 +398,9 @@ describe("componentListMenu", () => {
 		await componentListMenu("/project");
 
 		const [, items] = mockRunMenu.mock.calls[0];
-		await items[0].action();
-		expect(mockDetailMenu).toHaveBeenCalledWith("/project", dirty, [dirty]);
+		const result = await items[0].action();
+		expect(result).toContain("navigate:component-detail");
+		expect(result).toContain(dirty.name);
 	});
 
 	it("Regenerate Dirty Components item is present", async () => {

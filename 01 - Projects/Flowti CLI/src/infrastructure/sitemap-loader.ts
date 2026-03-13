@@ -173,6 +173,7 @@ function validateEntry(
 	const entry = raw as Record<string, unknown>;
 	if (entry.separator === true) return [];
 	if ("slot" in entry) return validateSlot(entry, prefix);
+	if ("listProvider" in entry) return validateListProvider(entry, prefix);
 
 	const errors: string[] = [];
 	errors.push(...validateKey(entry, prefix, keys));
@@ -187,6 +188,13 @@ function validateEntry(
 function validateSlot(entry: Record<string, unknown>, prefix: string): string[] {
 	if (typeof entry.slot !== "string" || entry.slot.length === 0) {
 		return [`${prefix}: "slot" must be a non-empty string`];
+	}
+	return [];
+}
+
+function validateListProvider(entry: Record<string, unknown>, prefix: string): string[] {
+	if (typeof entry.listProvider !== "string" || entry.listProvider.length === 0) {
+		return [`${prefix}: "listProvider" must be a non-empty string`];
 	}
 	return [];
 }

@@ -46,8 +46,8 @@
 				{ "separator": true },
 				{ "key": "c", "label": "Product Components", "navigate": "components" },
 				{ "key": "v", "label": "Event Catalog", "navigate": "event-catalog" },
-				{ "key": "8", "label": "Reporting", "navigate": "reports" },
-				{ "key": "i", "label": "Info", "handler": "info:show" },
+				{ "key": "a", "label": "Reporting", "navigate": "reports" },
+				{ "key": "i", "label": "Status", "handler": "info:show" },
 				{ "separator": true },
 				{ "key": "e", "label": "Requirements Management", "navigate": "requirements" },
 				{ "key": "m", "label": "Project Management", "navigate": "management" },
@@ -55,10 +55,10 @@
 				{ "key": "k", "label": "Knowledgebase", "navigate": "knowledgebase",
 					"disabled": "knowledgebase:available",
 					"disabledMessage": "Requires Obsidian CLI and an initialized vault." },
+				{ "key": "t", "label": "Dev Tools", "navigate": "devtools" },
 				{ "key": "r", "label": "README", "handler": "readme:show",
 					"disabled": "readme:exists",
 					"disabledMessage": "No README.md found." },
-				{ "key": "t", "label": "Dev Tools", "navigate": "devtools" },
 				{ "separator": true },
 				{ "key": "b", "label": "Back to Start Menu", "signal": "start" },
 				{ "key": "?", "label": "Help", "handler": "help:main" },
@@ -90,15 +90,21 @@
 		},
 
 		"plugins": {
-			"type": "dynamic",
 			"title": "Plugins",
 			"icon": "plug",
 			"domain": "extensibility",
 			"status": "active",
 			"parent": "start",
 			"route": { "path": "plugins", "lazy": true },
-			"handler": "plugins",
 			"description": "Manage Flowti plugins — discover, validate, scaffold, and document plugins from the vault plugins directory.",
+			"items": [
+				{ "key": "1", "label": "List Plugins", "handler": "plugins:list" },
+				{ "key": "2", "label": "Validate Plugins", "handler": "plugins:validate" },
+				{ "key": "3", "label": "Create Plugin", "handler": "plugins:create" },
+				{ "key": "4", "label": "Generate Reference", "handler": "plugins:reference" },
+				{ "separator": true },
+				{ "key": "b", "label": "Back", "signal": "back" }
+			],
 			"capabilities": [
 				"List installed plugins",
 				"Validate plugin manifests",
@@ -108,15 +114,21 @@
 		},
 
 		"ai-tools": {
-			"type": "dynamic",
 			"title": "AI Tools",
 			"icon": "cpu",
 			"domain": "extensibility",
 			"status": "active",
 			"parent": "start",
 			"route": { "path": "ai-tools", "lazy": true },
-			"handler": "ai-tools",
 			"description": "Manage AI tool definitions — discover, validate, scaffold, and document AI tools from the vault ai-tools directory.",
+			"items": [
+				{ "key": "1", "label": "List Tools", "handler": "ai-tools:list" },
+				{ "key": "2", "label": "Validate Tools", "handler": "ai-tools:validate" },
+				{ "key": "3", "label": "Create Tool", "handler": "ai-tools:create" },
+				{ "key": "4", "label": "Generate Reference", "handler": "ai-tools:reference" },
+				{ "separator": true },
+				{ "key": "b", "label": "Back", "signal": "back" }
+			],
 			"capabilities": [
 				"List available AI tools",
 				"Validate tool definitions",
@@ -126,7 +138,6 @@
 		},
 
 		"make": {
-			"type": "dynamic",
 			"title": "Make",
 			"icon": "hammer",
 			"domain": "development",
@@ -134,8 +145,14 @@
 			"parent": "project-detail",
 			"route": { "path": "make", "lazy": true },
 			"context": ["project"],
-			"handler": "make",
 			"description": "Create new components and E2E journeys from configurable templates.",
+			"items": [
+				{ "listProvider": "make:templates" },
+				{ "separator": true },
+				{ "key": "?", "label": "Help", "handler": "make:help" },
+				{ "key": "b", "label": "Back", "signal": "back" },
+				{ "key": "q", "label": "Quit", "signal": "quit" }
+			],
 			"capabilities": [
 				"Create new component from template",
 				"Create new E2E journey",
@@ -145,7 +162,6 @@
 		},
 
 		"review": {
-			"type": "dynamic",
 			"title": "Review",
 			"icon": "check-circle",
 			"domain": "quality",
@@ -153,8 +169,26 @@
 			"parent": "project-detail",
 			"route": { "path": "review", "lazy": true },
 			"context": ["project"],
-			"handler": "review",
+			"beforeRender": "review:banner",
 			"description": "Interactive review pipeline: build, test, and run E2E journeys with test vault management.",
+			"items": [
+				{ "key": "1", "label": "Build", "handler": "review:build" },
+				{ "key": "2", "label": "Test", "handler": "review:test" },
+				{ "key": "3", "label": "Run E2E", "handler": "review:e2e" },
+				{ "key": "j", "label": "Run Journey...", "handler": "review:journey" },
+				{ "key": "a", "label": "Run All", "handler": "review:run-all" },
+				{ "separator": true },
+				{ "key": "l", "label": "List Journeys", "handler": "review:list-journeys" },
+				{ "key": "n", "label": "New Journey", "handler": "review:new-journey" },
+				{ "separator": true },
+				{ "key": "v", "label": "Create/Ensure Test Vault", "handler": "review:vault-create" },
+				{ "key": "o", "label": "Open Test Vault", "handler": "review:vault-open" },
+				{ "key": "t", "label": "Teardown Test Vault", "handler": "review:vault-teardown" },
+				{ "key": "x", "label": "Rebuild Test Vault", "handler": "review:vault-rebuild" },
+				{ "separator": true },
+				{ "key": "b", "label": "Back", "signal": "back" },
+				{ "key": "q", "label": "Quit", "signal": "quit" }
+			],
 			"capabilities": [
 				"Build project",
 				"Run tests",
@@ -172,7 +206,6 @@
 		},
 
 		"publish": {
-			"type": "dynamic",
 			"title": "Publish",
 			"icon": "upload",
 			"domain": "release",
@@ -180,8 +213,18 @@
 			"parent": "project-detail",
 			"route": { "path": "publish", "lazy": true },
 			"context": ["project"],
-			"handler": "publish",
+			"beforeRender": "publish:banner",
 			"description": "Interactive publish pipeline: build, test, and distribute to configured endpoints.",
+			"items": [
+				{ "key": "1", "label": "Build", "handler": "publish:build" },
+				{ "key": "2", "label": "Test", "handler": "publish:test" },
+				{ "key": "3", "label": "Distribute", "handler": "publish:distribute" },
+				{ "separator": true },
+				{ "key": "a", "label": "Run All", "handler": "publish:run-all" },
+				{ "separator": true },
+				{ "key": "b", "label": "Back", "signal": "back" },
+				{ "key": "q", "label": "Quit", "signal": "quit" }
+			],
 			"capabilities": [
 				"Build project",
 				"Run tests",
@@ -237,7 +280,6 @@
 		},
 
 		"event-catalog": {
-			"type": "dynamic",
 			"title": "Event Catalog",
 			"icon": "zap",
 			"domain": "development",
@@ -245,8 +287,15 @@
 			"parent": "project-detail",
 			"route": { "path": "event-catalog", "lazy": true },
 			"context": ["project"],
-			"handler": "event-catalog",
 			"description": "Browse, create, and manage event definitions with domain grouping, payload schemas, and flow diagrams.",
+			"items": [
+				{ "key": "1", "label": "List Events", "handler": "events:list" },
+				{ "key": "2", "label": "Add Event", "handler": "events:add" },
+				{ "key": "3", "label": "Event Flow Diagram", "handler": "events:flow" },
+				{ "separator": true },
+				{ "key": "b", "label": "Back", "signal": "back" },
+				{ "key": "q", "label": "Quit", "signal": "quit" }
+			],
 			"capabilities": [
 				"List events by domain",
 				"Add new event definition",
@@ -292,7 +341,6 @@
 		},
 
 		"reports": {
-			"type": "dynamic",
 			"title": "Reporting",
 			"icon": "bar-chart",
 			"domain": "analytics",
@@ -300,8 +348,16 @@
 			"parent": "project-detail",
 			"route": { "path": "reports", "lazy": true },
 			"context": ["project"],
-			"handler": "reports",
 			"description": "Run built-in and custom report generators, export reports to HTML, and browse the report archive.",
+			"items": [
+				{ "key": "1", "label": "Run All Reports", "handler": "reports:run-all" },
+				{ "listProvider": "reports:generators" },
+				{ "separator": true },
+				{ "key": "h", "label": "Export to HTML", "handler": "reports:export-html" },
+				{ "key": "a", "label": "Browse Archive", "handler": "reports:browse" },
+				{ "separator": true },
+				{ "key": "b", "label": "Back", "signal": "back" }
+			],
 			"capabilities": [
 				"Run all report generators",
 				"Run individual report generator",
@@ -312,7 +368,6 @@
 		},
 
 		"requirements": {
-			"type": "dynamic",
 			"title": "Requirements Management",
 			"icon": "list-checks",
 			"domain": "management",
@@ -320,8 +375,21 @@
 			"parent": "project-detail",
 			"route": { "path": "requirements", "lazy": true },
 			"context": ["project"],
-			"handler": "requirements",
 			"description": "Manage functional/non-functional requirements, constraints, use cases, and user stories with status workflow.",
+			"items": [
+				{ "key": "1", "label": "List Requirements", "handler": "req:list" },
+				{ "separator": true },
+				{ "key": "2", "label": "Add Functional", "handler": "req:add-functional" },
+				{ "key": "3", "label": "Add Non-Functional", "handler": "req:add-nonfunctional" },
+				{ "key": "4", "label": "Add Constraint", "handler": "req:add-constraint" },
+				{ "key": "5", "label": "Add Use Case", "handler": "req:add-usecase" },
+				{ "key": "6", "label": "Add User Story", "handler": "req:add-userstory" },
+				{ "separator": true },
+				{ "key": "7", "label": "Update Status", "handler": "req:update-status" },
+				{ "separator": true },
+				{ "key": "b", "label": "Back", "signal": "back" },
+				{ "key": "q", "label": "Quit", "signal": "quit" }
+			],
 			"capabilities": [
 				"List requirements",
 				"Add functional requirement",
@@ -335,7 +403,6 @@
 		},
 
 		"docs": {
-			"type": "dynamic",
 			"title": "Documentation",
 			"icon": "book-open",
 			"domain": "documentation",
@@ -343,8 +410,19 @@
 			"parent": "project-detail",
 			"route": { "path": "docs", "lazy": true },
 			"context": ["project"],
-			"handler": "docs",
 			"description": "Update API references and external documentation generators, browse generated docs.",
+			"items": [
+				{ "key": "1", "label": "Update References", "handler": "docs:update-refs" },
+				{ "separator": true },
+				{ "listProvider": "docs:references" },
+				{ "separator": true },
+				{ "listProvider": "docs:generators" },
+				{ "separator": true },
+				{ "key": "e", "label": "Events", "navigate": "event-catalog" },
+				{ "key": "g", "label": "Dependencies", "handler": "docs:dependencies" },
+				{ "separator": true },
+				{ "key": "b", "label": "Back", "signal": "back" }
+			],
 			"capabilities": [
 				"Update API references",
 				"Open reference files",
@@ -363,7 +441,6 @@
 			"status": "active",
 			"parent": "project-detail",
 			"route": { "path": "knowledgebase", "lazy": true },
-			"context": ["project"],
 			"handler": "knowledgebase",
 			"description": "Terminal-based vault browser with folder traversal, markdown file viewing, and full-text search via Obsidian CLI.",
 			"capabilities": [
@@ -375,7 +452,6 @@
 		},
 
 		"devtools": {
-			"type": "dynamic",
 			"title": "Dev Tools",
 			"icon": "wrench",
 			"domain": "development",
@@ -383,8 +459,18 @@
 			"parent": "project-detail",
 			"route": { "path": "devtools", "lazy": true },
 			"context": ["project"],
-			"handler": "devtools",
 			"description": "Project-specific development utilities: type checking, linting, plugin reloading, debug console, and npm script execution.",
+			"items": [
+				{ "key": "1", "label": "Type Check + Lint", "handler": "devtools:check" },
+				{ "key": "2", "label": "Lint Only", "handler": "devtools:lint" },
+				{ "key": "3", "label": "Reload Plugin", "handler": "devtools:reload" },
+				{ "key": "4", "label": "Dev Console", "handler": "devtools:console" },
+				{ "key": "5", "label": "Rebuild CLI", "handler": "devtools:rebuild" },
+				{ "separator": true },
+				{ "key": "n", "label": "Npm Scripts", "handler": "devtools:npm-scripts" },
+				{ "separator": true },
+				{ "key": "b", "label": "Back", "signal": "back" }
+			],
 			"capabilities": [
 				"Type check + lint",
 				"Lint only",
@@ -398,7 +484,6 @@
 		},
 
 		"resources": {
-			"type": "dynamic",
 			"title": "Resources",
 			"icon": "users",
 			"domain": "management",
@@ -406,8 +491,20 @@
 			"parent": "management",
 			"route": { "path": "resources", "lazy": true },
 			"context": ["project"],
-			"handler": "resources",
 			"description": "Manage project resources: human resources, materials, roles, and budgets with financial analysis.",
+			"items": [
+				{ "key": "1", "label": "List Resources", "handler": "resources:list" },
+				{ "separator": true },
+				{ "key": "2", "label": "Add Human Resource", "handler": "resources:add-human" },
+				{ "key": "3", "label": "Add Material Resource", "handler": "resources:add-material" },
+				{ "key": "4", "label": "Add Role", "handler": "resources:add-role" },
+				{ "key": "5", "label": "Add Budget", "handler": "resources:add-budget" },
+				{ "separator": true },
+				{ "key": "6", "label": "Financial Summary", "handler": "resources:financials" },
+				{ "separator": true },
+				{ "key": "b", "label": "Back", "signal": "back" },
+				{ "key": "q", "label": "Quit", "signal": "quit" }
+			],
 			"capabilities": [
 				"List resources",
 				"Add human resource",
@@ -420,7 +517,6 @@
 		},
 
 		"timelog": {
-			"type": "dynamic",
 			"title": "Time-Log",
 			"icon": "clock",
 			"domain": "management",
@@ -428,8 +524,15 @@
 			"parent": "management",
 			"route": { "path": "timelog", "lazy": true },
 			"context": ["project"],
-			"handler": "timelog",
 			"description": "Track time entries by person, category, and task with summary reports.",
+			"items": [
+				{ "key": "1", "label": "List Entries", "handler": "timelog:list" },
+				{ "key": "2", "label": "Log Time", "handler": "timelog:add" },
+				{ "key": "3", "label": "Summary", "handler": "timelog:summary" },
+				{ "separator": true },
+				{ "key": "b", "label": "Back", "signal": "back" },
+				{ "key": "q", "label": "Quit", "signal": "quit" }
+			],
 			"capabilities": [
 				"List time entries",
 				"Log time entry",
@@ -439,7 +542,6 @@
 		},
 
 		"deliverables": {
-			"type": "dynamic",
 			"title": "Deliverables",
 			"icon": "package",
 			"domain": "management",
@@ -447,8 +549,15 @@
 			"parent": "management",
 			"route": { "path": "deliverables", "lazy": true },
 			"context": ["project"],
-			"handler": "deliverables",
 			"description": "Manage project deliverables with status tracking (planned, in-progress, review, done, blocked) and priority levels.",
+			"items": [
+				{ "key": "1", "label": "List Deliverables", "handler": "deliverables:list" },
+				{ "key": "2", "label": "Add Deliverable", "handler": "deliverables:add" },
+				{ "key": "3", "label": "Update Status", "handler": "deliverables:update-status" },
+				{ "separator": true },
+				{ "key": "b", "label": "Back", "signal": "back" },
+				{ "key": "q", "label": "Quit", "signal": "quit" }
+			],
 			"capabilities": [
 				"List deliverables",
 				"Add deliverable",
@@ -458,7 +567,6 @@
 		},
 
 		"raid": {
-			"type": "dynamic",
 			"title": "RAID Log",
 			"icon": "alert-triangle",
 			"domain": "management",
@@ -466,8 +574,21 @@
 			"parent": "management",
 			"route": { "path": "raid", "lazy": true },
 			"context": ["project"],
-			"handler": "raid",
 			"description": "Track Risks, Assumptions, Issues, Dependencies, and Decisions with severity and category classification.",
+			"items": [
+				{ "key": "1", "label": "List Items", "handler": "raid:list" },
+				{ "separator": true },
+				{ "key": "2", "label": "Add Risk", "handler": "raid:add-risk" },
+				{ "key": "3", "label": "Add Assumption", "handler": "raid:add-assumption" },
+				{ "key": "4", "label": "Add Issue", "handler": "raid:add-issue" },
+				{ "key": "5", "label": "Add Dependency", "handler": "raid:add-dependency" },
+				{ "key": "6", "label": "Add Decision", "handler": "raid:add-decision" },
+				{ "separator": true },
+				{ "key": "7", "label": "Update Status", "handler": "raid:update-status" },
+				{ "separator": true },
+				{ "key": "b", "label": "Back", "signal": "back" },
+				{ "key": "q", "label": "Quit", "signal": "quit" }
+			],
 			"capabilities": [
 				"List RAID items",
 				"Add risk",
@@ -481,7 +602,6 @@
 		},
 
 		"capa": {
-			"type": "dynamic",
 			"title": "CAPA",
 			"icon": "shield-check",
 			"domain": "quality",
@@ -489,8 +609,18 @@
 			"parent": "management",
 			"route": { "path": "capa", "lazy": true },
 			"context": ["project"],
-			"handler": "capa",
 			"description": "Manage Corrective and Preventive Actions with multi-stage workflow (open → investigating → action-planned → implementing → verification → closed).",
+			"items": [
+				{ "key": "1", "label": "List CAPA Items", "handler": "capa:list" },
+				{ "separator": true },
+				{ "key": "2", "label": "Add Corrective Action", "handler": "capa:add-corrective" },
+				{ "key": "3", "label": "Add Preventive Action", "handler": "capa:add-preventive" },
+				{ "separator": true },
+				{ "key": "4", "label": "Update Status", "handler": "capa:update-status" },
+				{ "separator": true },
+				{ "key": "b", "label": "Back", "signal": "back" },
+				{ "key": "q", "label": "Quit", "signal": "quit" }
+			],
 			"capabilities": [
 				"List CAPA items",
 				"Add corrective action",
@@ -501,7 +631,6 @@
 		},
 
 		"lifecycle": {
-			"type": "dynamic",
 			"title": "Lifecycle",
 			"icon": "git-branch",
 			"domain": "management",
@@ -509,8 +638,15 @@
 			"parent": "management",
 			"route": { "path": "lifecycle", "lazy": true },
 			"context": ["project"],
-			"handler": "lifecycle",
 			"description": "Manage project lifecycle status, plus nested feature and product lifecycle management.",
+			"items": [
+				{ "key": "1", "label": "Project Lifecycle", "handler": "lifecycle:project" },
+				{ "key": "2", "label": "Features", "handler": "lifecycle:features" },
+				{ "key": "3", "label": "Products", "handler": "lifecycle:products" },
+				{ "separator": true },
+				{ "key": "b", "label": "Back", "signal": "back" },
+				{ "key": "q", "label": "Quit", "signal": "quit" }
+			],
 			"capabilities": [
 				"View/update project lifecycle status",
 				"Manage feature lifecycles",

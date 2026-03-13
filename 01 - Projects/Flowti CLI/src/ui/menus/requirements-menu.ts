@@ -26,7 +26,7 @@ function storeDeps() { return { disk, paths, clock } as const; }
 
 const REQ_STATUSES: RequirementStatus[] = ["draft", "proposed", "approved", "implemented", "verified", "rejected", "deferred"];
 
-async function addRequirementInteractive(reqType: RequirementType, projectPath: string, config?: RequirementsConfig): Promise<void> {
+export async function addRequirementInteractive(reqType: RequirementType, projectPath: string, config?: RequirementsConfig): Promise<void> {
 	const labels: Record<RequirementType, string> = {
 		functional: "Functional Requirement",
 		"non-functional": "Non-Functional Requirement",
@@ -64,7 +64,7 @@ async function addRequirementInteractive(reqType: RequirementType, projectPath: 
 	}
 }
 
-async function addUseCaseInteractive(projectPath: string, config?: RequirementsConfig): Promise<void> {
+export async function addUseCaseInteractive(projectPath: string, config?: RequirementsConfig): Promise<void> {
 	printHeader("Add Use Case");
 
 	const name = await input.ask("Name");
@@ -93,7 +93,7 @@ async function addUseCaseInteractive(projectPath: string, config?: RequirementsC
 	}
 }
 
-async function addUserStoryInteractive(projectPath: string, config?: RequirementsConfig): Promise<void> {
+export async function addUserStoryInteractive(projectPath: string, config?: RequirementsConfig): Promise<void> {
 	printHeader("Add User Story");
 
 	const name = await input.ask("Name");
@@ -133,7 +133,7 @@ async function addUserStoryInteractive(projectPath: string, config?: Requirement
 	}
 }
 
-async function updateStatusInteractive(projectPath: string, config?: RequirementsConfig): Promise<void> {
+export async function updateStatusInteractive(projectPath: string, config?: RequirementsConfig): Promise<void> {
 	printHeader("Update Requirement Status");
 
 	const reqs = listRequirements(storeDeps(), projectPath, config);

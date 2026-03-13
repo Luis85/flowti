@@ -7,9 +7,8 @@ import { disk } from "../../infrastructure/filesystem.js";
 import { clock } from "../../infrastructure/clock.js";
 import { printHeader } from "../../infrastructure/ui.js";
 import { input } from "../../infrastructure/input.js";
-import { runMenu } from "../../infrastructure/menu.js";
 import { log } from "../../infrastructure/logger.js";
-import type { MenuResult, MenuEntry, RAIDConfig, RAIDItemType, RAIDStatus } from "../../infrastructure/types.js";
+import type { RAIDConfig, RAIDItemType, RAIDStatus } from "../../infrastructure/types.js";
 import { listRAIDItems, createRAIDItem, updateRAIDStatus } from "../../domain/raid/raid-store.js";
 import { renderRAIDList, renderRAIDAdded, renderRAIDUpdated } from "../raid-display.js";
 
@@ -18,7 +17,7 @@ function storeDeps() { return { disk, paths, clock } as const; }
 const ITEM_TYPES: RAIDItemType[] = ["risk", "assumption", "issue", "dependency", "decision"];
 const STATUSES: RAIDStatus[] = ["open", "mitigated", "closed", "accepted", "resolved", "deferred"];
 
-async function addRAIDInteractive(itemType: RAIDItemType, projectPath: string, config?: RAIDConfig): Promise<void> {
+export async function addRAIDInteractive(itemType: RAIDItemType, projectPath: string, config?: RAIDConfig): Promise<void> {
 	const labels: Record<RAIDItemType, string> = {
 		risk: "Risk", assumption: "Assumption", issue: "Issue", dependency: "Dependency", decision: "Decision",
 	};
@@ -49,7 +48,7 @@ async function addRAIDInteractive(itemType: RAIDItemType, projectPath: string, c
 	}
 }
 
-async function updateStatusInteractive(projectPath: string, config?: RAIDConfig): Promise<void> {
+export async function updateStatusInteractive(projectPath: string, config?: RAIDConfig): Promise<void> {
 	printHeader("Update RAID Item Status");
 
 	const items = listRAIDItems(storeDeps(), projectPath, config);
@@ -74,41 +73,4 @@ async function updateStatusInteractive(projectPath: string, config?: RAIDConfig)
 	if (ok) {
 		renderRAIDUpdated(item.name, newStatus);
 	}
-}
-
-export async function raidMenu(projectPath: string, config?: RAIDConfig): Promise<MenuResult> {
-	const items: MenuEntry[] = [
-		{
-			key: "1",
-			label: "List Items",
-			action: async () => {
-				renderRAIDList(listRAIDItems(storeDeps(), projectPath, config));
-				await input.waitForEnter();
-				return "main" as const;
-			},
-		},
-		...ITEM_TYPES.map((type, i) => ({
-			key: String(i + 2),
-			label: `Add ${type.charAt(0).toUpperCase() + type.slice(1)}`,
-			action: async () => {
-				await addRAIDInteractive(type, projectPath, config);
-				await input.waitForEnter();
-				return "main" as const;
-			},
-		})),
-		{
-			key: "7",
-			label: "Update Status",
-			action: async () => {
-				await updateStatusInteractive(projectPath, config);
-				await input.waitForEnter();
-				return "main" as const;
-			},
-		},
-		{ separator: true },
-		{ key: "b", label: "Back", action: () => "main" as const },
-		{ key: "q", label: "Quit", action: () => "quit" as const },
-	];
-
-	return runMenu("RAID Log", items);
 }

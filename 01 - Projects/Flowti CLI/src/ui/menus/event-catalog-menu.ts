@@ -10,19 +10,16 @@ import { disk } from "../../infrastructure/filesystem.js";
 import { clock } from "../../infrastructure/clock.js";
 import { RESET, DIM, GREEN, CYAN, BOLD, printHeader } from "../../infrastructure/ui.js";
 import { input } from "../../infrastructure/input.js";
-import { runMenu } from "../../infrastructure/menu.js";
 import { log } from "../../infrastructure/logger.js";
-import type { MenuResult, MenuEntry } from "../../infrastructure/types.js";
 import { listEvents, createEventFile, parseCommaSeparated } from "../../domain/events/event-catalog.js";
 import type { EventDefinition } from "../../domain/events/event-catalog.js";
 import { collectPayloadFields, collectVersioningInfo } from "../../domain/events/event-payload.js";
-import { saveEventFlowDoc } from "../../domain/events/event-flow.js";
 
 function eventDeps() { return { disk, paths, clock } as const; }
 
 // ── Interactive flow ───────────────────────────────────────────────
 
-async function addEventInteractive(projectPath: string): Promise<void> {
+export async function addEventInteractive(projectPath: string): Promise<void> {
 	printHeader("Add Event");
 
 	const name = await input.ask("Event name");
@@ -54,7 +51,7 @@ async function addEventInteractive(projectPath: string): Promise<void> {
 	}
 }
 
-function listEventsInteractive(projectPath: string): void {
+export function listEventsInteractive(projectPath: string): void {
 	const events = listEvents(eventDeps(), projectPath);
 
 	if (events.length === 0) {
@@ -70,40 +67,3 @@ function listEventsInteractive(projectPath: string): void {
 	log();
 }
 
-// ── Interactive menu ───────────────────────────────────────────────
-
-export async function eventCatalogMenu(projectPath: string): Promise<MenuResult> {
-	const items: MenuEntry[] = [
-		{
-			key: "1",
-			label: "List Events",
-			action: () => {
-				listEventsInteractive(projectPath);
-				return "main" as const;
-			},
-		},
-		{
-			key: "2",
-			label: "Add Event",
-			action: async () => {
-				await addEventInteractive(projectPath);
-				return "main" as const;
-			},
-		},
-		{
-			key: "3",
-			label: "Event Flow Diagram",
-			action: () => {
-				const filePath = saveEventFlowDoc(eventDeps(), projectPath);
-				const relPath = paths.relative(projectPath, filePath);
-				log(`\n  ${GREEN}✓${RESET} Generated: ${relPath}\n`);
-				return "main" as const;
-			},
-		},
-		{ separator: true },
-		{ key: "b", label: "Back", action: () => "main" as const },
-		{ key: "q", label: "Quit", action: () => "quit" as const },
-	];
-
-	return runMenu("Event Catalog", items);
-}
