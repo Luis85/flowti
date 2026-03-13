@@ -86,6 +86,24 @@ vi.mock("../../../src/ui/displays/timelog-display.js", () => ({
 vi.mock("../../../src/ui/menus/timelog-menu.js", () => ({
 	logTimeInteractive: vi.fn(),
 }));
+vi.mock("../../../src/domain/iterations/iteration-store.js", () => ({
+	listIterations: vi.fn(() => []),
+}));
+vi.mock("../../../src/ui/displays/iterations-display.js", () => ({
+	renderIterationList: vi.fn(),
+}));
+vi.mock("../../../src/ui/menus/iterations-menu.js", () => ({
+	addIterationInteractive: vi.fn(() => false),
+	startIterationInteractive: vi.fn(),
+	closeIterationInteractive: vi.fn(),
+	showCurrentIteration: vi.fn(),
+	attachAgentInteractive: vi.fn(),
+	addResourceInteractive: vi.fn(),
+	addCapacityInteractive: vi.fn(),
+	addScopeItemInteractive: vi.fn(),
+	addNoteInteractive: vi.fn(),
+	advanceToReviewInteractive: vi.fn(),
+}));
 
 // ── Imports ─────────────────────────────────────────────────────────
 import { HandlerRegistry } from "../../../src/infrastructure/handler-registry.js";
@@ -107,6 +125,14 @@ import { addResourceInteractive } from "../../../src/ui/menus/resources-menu.js"
 import { listTimeLogEntries, summarizeTimeLog } from "../../../src/domain/timelog/timelog-store.js";
 import { renderTimeLogList, renderTimeLogSummary } from "../../../src/ui/displays/timelog-display.js";
 import { logTimeInteractive } from "../../../src/ui/menus/timelog-menu.js";
+import { listIterations } from "../../../src/domain/iterations/iteration-store.js";
+import { renderIterationList } from "../../../src/ui/displays/iterations-display.js";
+import {
+	addIterationInteractive, startIterationInteractive, closeIterationInteractive,
+	showCurrentIteration, attachAgentInteractive,
+	addResourceInteractive as addIterResourceInteractive, addCapacityInteractive,
+	addScopeItemInteractive, addNoteInteractive, advanceToReviewInteractive,
+} from "../../../src/ui/menus/iterations-menu.js";
 
 import type { RouterContext } from "../../../src/infrastructure/sitemap-types.js";
 
@@ -116,7 +142,7 @@ function mockCtx(config: Record<string, unknown> = {}): RouterContext {
 	return {
 		project: {
 			config: {
-				management: { raid: {}, deliverables: {}, capa: {}, resources: {}, timelog: {} },
+				management: { raid: {}, deliverables: {}, capa: {}, resources: {}, timelog: {}, iterations: {} },
 				reports: { generators: [] },
 				docs: { references: [], generators: [] },
 				...config,
@@ -154,6 +180,10 @@ describe("registerCrudHandlers", () => {
 				"resources:list", "resources:add-human", "resources:add-material",
 				"resources:add-role", "resources:add-budget", "resources:financials",
 				"timelog:list", "timelog:add", "timelog:summary",
+				"iteration:list", "iteration:create", "iteration:start", "iteration:current",
+				"iteration:close", "iteration:attach-agent", "iteration:add-resource",
+				"iteration:add-capacity", "iteration:add-scope", "iteration:add-note",
+				"iteration:advance-review",
 			];
 			for (const id of expectedActions) {
 				expect(registry.hasAction(id)).toBe(true);
@@ -537,6 +567,237 @@ describe("registerCrudHandlers", () => {
 
 		it("returns 'main' on success", async () => {
 			const handler = registry.getAction("timelog:summary");
+			const result = await handler(mockCtx());
+			expect(result).toBe("main");
+		});
+	});
+
+	// ── Iteration handlers ─────────────────────────────────────────
+
+	describe("iteration:list", () => {
+		it("returns undefined when no project", async () => {
+			const handler = registry.getAction("iteration:list");
+			expect(await handler(noProjectCtx())).toBeUndefined();
+		});
+
+		it("calls the correct function", async () => {
+			const handler = registry.getAction("iteration:list");
+			await handler(mockCtx());
+			expect(listIterations).toHaveBeenCalled();
+			expect(renderIterationList).toHaveBeenCalled();
+			expect(input.waitForEnter).toHaveBeenCalled();
+		});
+
+		it("returns 'main' on success", async () => {
+			const handler = registry.getAction("iteration:list");
+			const result = await handler(mockCtx());
+			expect(result).toBe("main");
+		});
+	});
+
+	describe("iteration:create", () => {
+		it("returns undefined when no project", async () => {
+			const handler = registry.getAction("iteration:create");
+			expect(await handler(noProjectCtx())).toBeUndefined();
+		});
+
+		it("calls the correct function", async () => {
+			const handler = registry.getAction("iteration:create");
+			await handler(mockCtx());
+			expect(addIterationInteractive).toHaveBeenCalledWith("/project", expect.anything());
+			expect(input.waitForEnter).toHaveBeenCalled();
+		});
+
+		it("returns 'main' when not created", async () => {
+			vi.mocked(addIterationInteractive).mockResolvedValueOnce(false);
+			const handler = registry.getAction("iteration:create");
+			const result = await handler(mockCtx());
+			expect(result).toBe("main");
+		});
+
+		it("returns 'navigate:iteration-detail' when created", async () => {
+			vi.mocked(addIterationInteractive).mockResolvedValueOnce(true);
+			const handler = registry.getAction("iteration:create");
+			const result = await handler(mockCtx());
+			expect(result).toBe("navigate:iteration-detail");
+		});
+	});
+
+	describe("iteration:start", () => {
+		it("returns undefined when no project", async () => {
+			const handler = registry.getAction("iteration:start");
+			expect(await handler(noProjectCtx())).toBeUndefined();
+		});
+
+		it("calls the correct function", async () => {
+			const handler = registry.getAction("iteration:start");
+			await handler(mockCtx());
+			expect(startIterationInteractive).toHaveBeenCalledWith("/project", expect.anything());
+			expect(input.waitForEnter).toHaveBeenCalled();
+		});
+
+		it("returns 'main' on success", async () => {
+			const handler = registry.getAction("iteration:start");
+			const result = await handler(mockCtx());
+			expect(result).toBe("main");
+		});
+	});
+
+	describe("iteration:current", () => {
+		it("returns undefined when no project", async () => {
+			const handler = registry.getAction("iteration:current");
+			expect(await handler(noProjectCtx())).toBeUndefined();
+		});
+
+		it("calls the correct function", async () => {
+			const handler = registry.getAction("iteration:current");
+			await handler(mockCtx());
+			expect(showCurrentIteration).toHaveBeenCalledWith("/project", expect.anything());
+			expect(input.waitForEnter).toHaveBeenCalled();
+		});
+
+		it("returns 'main' on success", async () => {
+			const handler = registry.getAction("iteration:current");
+			const result = await handler(mockCtx());
+			expect(result).toBe("main");
+		});
+	});
+
+	describe("iteration:close", () => {
+		it("returns undefined when no project", async () => {
+			const handler = registry.getAction("iteration:close");
+			expect(await handler(noProjectCtx())).toBeUndefined();
+		});
+
+		it("calls the correct function", async () => {
+			const handler = registry.getAction("iteration:close");
+			await handler(mockCtx());
+			expect(closeIterationInteractive).toHaveBeenCalledWith("/project", expect.anything());
+			expect(input.waitForEnter).toHaveBeenCalled();
+		});
+
+		it("returns 'main' on success", async () => {
+			const handler = registry.getAction("iteration:close");
+			const result = await handler(mockCtx());
+			expect(result).toBe("main");
+		});
+	});
+
+	describe("iteration:attach-agent", () => {
+		it("returns undefined when no project", async () => {
+			const handler = registry.getAction("iteration:attach-agent");
+			expect(await handler(noProjectCtx())).toBeUndefined();
+		});
+
+		it("calls the correct function", async () => {
+			const handler = registry.getAction("iteration:attach-agent");
+			await handler(mockCtx());
+			expect(attachAgentInteractive).toHaveBeenCalledWith("/project", expect.anything());
+			expect(input.waitForEnter).toHaveBeenCalled();
+		});
+
+		it("returns 'main' on success", async () => {
+			const handler = registry.getAction("iteration:attach-agent");
+			const result = await handler(mockCtx());
+			expect(result).toBe("main");
+		});
+	});
+
+	describe("iteration:add-resource", () => {
+		it("returns undefined when no project", async () => {
+			const handler = registry.getAction("iteration:add-resource");
+			expect(await handler(noProjectCtx())).toBeUndefined();
+		});
+
+		it("calls the correct function", async () => {
+			const handler = registry.getAction("iteration:add-resource");
+			await handler(mockCtx());
+			expect(addIterResourceInteractive).toHaveBeenCalledWith("/project", expect.anything());
+			expect(input.waitForEnter).toHaveBeenCalled();
+		});
+
+		it("returns 'main' on success", async () => {
+			const handler = registry.getAction("iteration:add-resource");
+			const result = await handler(mockCtx());
+			expect(result).toBe("main");
+		});
+	});
+
+	describe("iteration:add-capacity", () => {
+		it("returns undefined when no project", async () => {
+			const handler = registry.getAction("iteration:add-capacity");
+			expect(await handler(noProjectCtx())).toBeUndefined();
+		});
+
+		it("calls the correct function", async () => {
+			const handler = registry.getAction("iteration:add-capacity");
+			await handler(mockCtx());
+			expect(addCapacityInteractive).toHaveBeenCalledWith("/project", expect.anything());
+			expect(input.waitForEnter).toHaveBeenCalled();
+		});
+
+		it("returns 'main' on success", async () => {
+			const handler = registry.getAction("iteration:add-capacity");
+			const result = await handler(mockCtx());
+			expect(result).toBe("main");
+		});
+	});
+
+	describe("iteration:add-scope", () => {
+		it("returns undefined when no project", async () => {
+			const handler = registry.getAction("iteration:add-scope");
+			expect(await handler(noProjectCtx())).toBeUndefined();
+		});
+
+		it("calls the correct function", async () => {
+			const handler = registry.getAction("iteration:add-scope");
+			await handler(mockCtx());
+			expect(addScopeItemInteractive).toHaveBeenCalledWith("/project", expect.anything());
+			expect(input.waitForEnter).toHaveBeenCalled();
+		});
+
+		it("returns 'main' on success", async () => {
+			const handler = registry.getAction("iteration:add-scope");
+			const result = await handler(mockCtx());
+			expect(result).toBe("main");
+		});
+	});
+
+	describe("iteration:add-note", () => {
+		it("returns undefined when no project", async () => {
+			const handler = registry.getAction("iteration:add-note");
+			expect(await handler(noProjectCtx())).toBeUndefined();
+		});
+
+		it("calls the correct function", async () => {
+			const handler = registry.getAction("iteration:add-note");
+			await handler(mockCtx());
+			expect(addNoteInteractive).toHaveBeenCalledWith("/project", expect.anything());
+			expect(input.waitForEnter).toHaveBeenCalled();
+		});
+
+		it("returns 'main' on success", async () => {
+			const handler = registry.getAction("iteration:add-note");
+			const result = await handler(mockCtx());
+			expect(result).toBe("main");
+		});
+	});
+
+	describe("iteration:advance-review", () => {
+		it("returns undefined when no project", async () => {
+			const handler = registry.getAction("iteration:advance-review");
+			expect(await handler(noProjectCtx())).toBeUndefined();
+		});
+
+		it("calls the correct function", async () => {
+			const handler = registry.getAction("iteration:advance-review");
+			await handler(mockCtx());
+			expect(advanceToReviewInteractive).toHaveBeenCalledWith("/project", expect.anything());
+			expect(input.waitForEnter).toHaveBeenCalled();
+		});
+
+		it("returns 'main' on success", async () => {
+			const handler = registry.getAction("iteration:advance-review");
 			const result = await handler(mockCtx());
 			expect(result).toBe("main");
 		});

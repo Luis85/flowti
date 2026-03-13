@@ -6,13 +6,14 @@
 # Test (always run after changes)
 npx vitest run --config configs/vitest.config.ts
 
-# Type check
+# Type check (always run after changes)
 npx tsc --noEmit --project configs/tsconfig.json
 
 # Lint (thresholds: maxComplexity=10, maxLines=350)
 npx eslint src/ --config configs/eslint.config.mjs
 
-# Build
+# Build (always run after changes)
+npx eslint src/ --config configs/eslint.config.mjs
 node configs/esbuild.config.mjs
 ```
 
@@ -139,7 +140,8 @@ devtools           — lint thresholds (maxComplexity, maxLines)
 make.templates     — available scaffold templates (journey, component)
 reports.generators — report pipeline configuration
 docs.references    — reference doc generators
-management.*       — CRUD domain directories (resources, timelog, deliverables, raid, capa)
+management.*       — CRUD domain directories (resources, timelog, deliverables, raid, capa, iterations)
+management.iterations.durationDays — auto-complete end date on iteration creation
 publish.endpoints  — distribution targets
 health.thresholds  — quality gate configuration
 components         — component system settings (framework, storybook)

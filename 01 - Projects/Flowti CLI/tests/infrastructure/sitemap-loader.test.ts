@@ -206,6 +206,49 @@ describe("validateSitemap", () => {
 		expect(result.ok).toBe(true);
 	});
 
+	// ── Auto-index keys ─────────────────────────────────────────────
+
+	it("auto-assigns numeric keys to items without explicit key", () => {
+		const result = validateSitemap({
+			version: 1,
+			views: {
+				v: {
+					title: "V",
+					items: [
+						{ type: "item", label: "Alpha", signal: "quit" },
+						{ type: "item", label: "Beta", signal: "back" },
+						{ type: "separator" },
+						{ type: "item", label: "Gamma", handler: "my:action" },
+					],
+				},
+			},
+		});
+		expect(result.ok).toBe(true);
+		const items = result.sitemap!.views.v.items!;
+		expect(items[0]).toHaveProperty("key", "1");
+		expect(items[1]).toHaveProperty("key", "2");
+		expect(items[3]).toHaveProperty("key", "3");
+	});
+
+	it("skips already-taken keys when auto-indexing", () => {
+		const result = validateSitemap({
+			version: 1,
+			views: {
+				v: {
+					title: "V",
+					items: [
+						{ type: "item", key: "1", label: "Explicit", signal: "quit" },
+						{ type: "item", label: "Auto", signal: "back" },
+					],
+				},
+			},
+		});
+		expect(result.ok).toBe(true);
+		const items = result.sitemap!.views.v.items!;
+		expect(items[0]).toHaveProperty("key", "1");
+		expect(items[1]).toHaveProperty("key", "2");
+	});
+
 	// ── Dynamic view with items (hybrid) ────────────────────────────
 
 	it("accepts dynamic view with items (hybrid mode)", () => {

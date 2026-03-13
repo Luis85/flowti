@@ -15,6 +15,17 @@
 			"items": [
 				{
 					"type": "item",
+					"key": "g",
+					"label": "Selected Project: {{project.name}}",
+					"navigate": "project-detail",
+					"hidden": "no-project-selected"
+				},
+				{
+					"type": "separator",
+					"hidden": "no-project-selected"
+				},
+				{
+					"type": "item",
 					"key": "1",
 					"label": "Open Project",
 					"handler": "project:open"
@@ -26,30 +37,19 @@
 					"handler": "project:create"
 				},
 				{
-					"type": "separator",
-					"hidden": "no-project-selected"
-				},
-				{
-					"type": "item",
-					"key": "g",
-					"label": "Selected Project: {{project.name}}",
-					"navigate": "project-detail",
-					"hidden": "no-project-selected"
-				},
-				{
 					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "p",
-					"label": "Plugins",
-					"navigate": "plugins"
 				},
 				{
 					"type": "item",
 					"key": "a",
 					"label": "AI Tools",
 					"navigate": "ai-tools"
+				},
+				{
+					"type": "item",
+					"key": "p",
+					"label": "Plugins",
+					"navigate": "plugins"
 				},
 				{
 					"type": "separator"
@@ -103,34 +103,11 @@
 				},
 				{
 					"type": "item",
-					"key": "4",
-					"label": "Start Iteration",
-					"navigate": "management"
-				},
-				{
-					"type": "item",
-					"key": "44",
-					"label": "Current Iteration",
-					"navigate": "management"
-				},
-				{
-					"type": "item",
-					"key": "45",
-					"label": "Close Iteration",
-					"navigate": "management"
-				},
-				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "5",
 					"label": "Make",
 					"navigate": "make"
 				},
 				{
 					"type": "item",
-					"key": "6",
 					"label": "Build",
 					"handler": "build:interactive",
 					"disabled": {
@@ -140,15 +117,28 @@
 				},
 				{
 					"type": "item",
-					"key": "7",
 					"label": "Review",
 					"navigate": "review"
 				},
 				{
 					"type": "item",
-					"key": "8",
 					"label": "Publish",
 					"navigate": "publish"
+				},
+				{
+					"type": "separator"
+				},
+				{
+					"type": "item",
+					"label": "Current Iteration",
+					"navigate": "iteration-detail",
+					"hidden": "iteration:not-running"
+				},
+				{
+					"type": "item",
+					"label": "Start Iteration",
+					"handler": "iteration:start",
+					"hidden": "iteration:running"
 				},
 				{
 					"type": "separator"
@@ -304,13 +294,13 @@
 					"type": "item",
 					"key": "8",
 					"label": "Iterations",
-					"navigate": "management"
+					"navigate": "iterations"
 				},
 				{
 					"type": "item",
 					"key": "9",
 					"label": "Add new Iteration",
-					"navigate": "management"
+					"handler": "iteration:create"
 				},
 				{
 					"type": "separator"
@@ -1656,6 +1646,285 @@
 				"Manage product lifecycles"
 			],
 			"configPath": "management.lifecycle"
+		},
+		"iterations": {
+			"title": "Iterations",
+			"icon": "calendar",
+			"domain": "management",
+			"status": "active",
+			"description": "Plan, start, track, and close iteration cycles.",
+			"parent": "management",
+			"context": [
+				"project"
+			],
+			"items": [
+				{
+					"type": "item",
+					"label": "List Iterations",
+					"handler": "iteration:list",
+					"key": "1"
+				},
+				{
+					"type": "item",
+					"label": "Add Iteration",
+					"handler": "iteration:create",
+					"key": "2"
+				},
+				{
+					"type": "item",
+					"label": "Start Iteration",
+					"handler": "iteration:start",
+					"hidden": "iteration:running",
+					"key": "3"
+				},
+				{
+					"type": "item",
+					"label": "Current Iteration",
+					"navigate": "iteration-detail",
+					"hidden": "iteration:not-running",
+					"key": "4"
+				},
+				{
+					"type": "separator"
+				},
+				{
+					"type": "item",
+					"key": "b",
+					"label": "Back",
+					"signal": "back"
+				},
+				{
+					"type": "item",
+					"key": "q",
+					"label": "Quit",
+					"signal": "quit"
+				}
+			],
+			"capabilities": [
+				"List and manage iterations",
+				"Start and close iteration cycles",
+				"Attach agents, resources, and capacities"
+			],
+			"configPath": "management.iterations"
+		},
+		"iteration-detail": {
+			"type": "dynamic",
+			"title": "Iteration Detail",
+			"icon": "calendar-check",
+			"domain": "management",
+			"parent": "iterations",
+			"context": [
+				"project"
+			],
+			"handler": "iteration-detail",
+			"items": [
+				{
+					"type": "slot",
+					"slot": "iteration-info"
+				},
+				{
+					"type": "separator"
+				},
+				{
+					"type": "item",
+					"label": "Planning",
+					"navigate": "iteration-planning",
+					"disabled": "iteration:not-planned"
+				},
+				{
+					"type": "item",
+					"label": "Development",
+					"navigate": "iteration-development",
+					"disabled": "iteration:not-in-progress"
+				},
+				{
+					"type": "item",
+					"label": "Review",
+					"navigate": "iteration-review",
+					"disabled": "iteration:not-in-review"
+				},
+				{
+					"type": "item",
+					"label": "Closure",
+					"navigate": "iteration-closure",
+					"disabled": "iteration:not-in-review"
+				},
+				{
+					"type": "separator"
+				},
+				{
+					"type": "item",
+					"key": "b",
+					"label": "Back",
+					"signal": "back"
+				},
+				{
+					"type": "item",
+					"key": "q",
+					"label": "Quit",
+					"signal": "quit"
+				}
+			]
+		},
+		"iteration-planning": {
+			"title": "Iteration Planning",
+			"icon": "clipboard-list",
+			"domain": "management",
+			"parent": "iteration-detail",
+			"context": [
+				"project"
+			],
+			"items": [
+				{
+					"type": "item",
+					"label": "Attach Agent",
+					"handler": "iteration:attach-agent"
+				},
+				{
+					"type": "item",
+					"label": "Add Resource",
+					"handler": "iteration:add-resource"
+				},
+				{
+					"type": "item",
+					"label": "Add Capacity",
+					"handler": "iteration:add-capacity"
+				},
+				{
+					"type": "item",
+					"label": "Add Scope Item",
+					"handler": "iteration:add-scope"
+				},
+				{
+					"type": "separator"
+				},
+				{
+					"type": "item",
+					"label": "Start Iteration",
+					"handler": "iteration:start"
+				},
+				{
+					"type": "separator"
+				},
+				{
+					"type": "item",
+					"key": "b",
+					"label": "Back",
+					"signal": "back"
+				},
+				{
+					"type": "item",
+					"key": "q",
+					"label": "Quit",
+					"signal": "quit"
+				}
+			]
+		},
+		"iteration-development": {
+			"title": "Iteration Development",
+			"icon": "code",
+			"domain": "management",
+			"parent": "iteration-detail",
+			"context": [
+				"project"
+			],
+			"items": [
+				{
+					"type": "item",
+					"label": "Add Note",
+					"handler": "iteration:add-note"
+				},
+				{
+					"type": "item",
+					"label": "Add Scope Item",
+					"handler": "iteration:add-scope"
+				},
+				{
+					"type": "separator"
+				},
+				{
+					"type": "item",
+					"label": "Move to Review",
+					"handler": "iteration:advance-review"
+				},
+				{
+					"type": "separator"
+				},
+				{
+					"type": "item",
+					"key": "b",
+					"label": "Back",
+					"signal": "back"
+				},
+				{
+					"type": "item",
+					"key": "q",
+					"label": "Quit",
+					"signal": "quit"
+				}
+			]
+		},
+		"iteration-review": {
+			"title": "Iteration Review",
+			"icon": "search",
+			"domain": "management",
+			"parent": "iteration-detail",
+			"context": [
+				"project"
+			],
+			"items": [
+				{
+					"type": "item",
+					"label": "Add Note",
+					"handler": "iteration:add-note"
+				},
+				{
+					"type": "separator"
+				},
+				{
+					"type": "item",
+					"key": "b",
+					"label": "Back",
+					"signal": "back"
+				},
+				{
+					"type": "item",
+					"key": "q",
+					"label": "Quit",
+					"signal": "quit"
+				}
+			]
+		},
+		"iteration-closure": {
+			"title": "Iteration Closure",
+			"icon": "check-circle",
+			"domain": "management",
+			"parent": "iteration-detail",
+			"context": [
+				"project"
+			],
+			"items": [
+				{
+					"type": "item",
+					"label": "Close Iteration",
+					"handler": "iteration:close"
+				},
+				{
+					"type": "separator"
+				},
+				{
+					"type": "item",
+					"key": "b",
+					"label": "Back",
+					"signal": "back"
+				},
+				{
+					"type": "item",
+					"key": "q",
+					"label": "Quit",
+					"signal": "quit"
+				}
+			]
 		}
 	}
 }

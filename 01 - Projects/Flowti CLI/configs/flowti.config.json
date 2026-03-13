@@ -201,6 +201,10 @@
 		},
 		"capa": {
 			"dir": "docs/capa"
+		},
+		"iterations": {
+			"dir": "docs/iterations",
+			"durationDays": 14
 		}
 	},
 	"templates": {

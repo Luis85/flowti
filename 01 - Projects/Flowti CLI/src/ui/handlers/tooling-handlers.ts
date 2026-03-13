@@ -122,7 +122,7 @@ export function registerToolingHandlers(registry: HandlerRegistry): void {
 		if (!ctx.project) return [];
 		const references = ctx.project.config.docs?.references ?? [];
 		if (references.length === 0) return [];
-		const referenceDir = paths.join(ctx.project.path, "docs", "reference");
+		const referenceDir = paths.join(ctx.project.path, ctx.project.config.docs?.referenceDir ?? "docs/reference");
 		return references.map((ref, i) => ({
 			key: String(i + 2),
 			label: `Open ${ref.label}`,
@@ -233,6 +233,29 @@ export function registerToolingHandlers(registry: HandlerRegistry): void {
 		}));
 		items.push({ separator: true }, { key: "b", label: "Back", action: () => "main" as const });
 		await runMenu("npm scripts", items);
+		return undefined;
+	});
+
+	// ── Sitemap export ─────────────────────────────────────────────────────
+
+	registry.registerAction("sitemap:export", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const { exportSitemapToMarkdown } = await import("../../domain/sitemap/sitemap-export.js");
+		const sitemapPath = paths.join(ctx.project.path, "configs", "sitemap.json");
+		if (!disk.existsSync(sitemapPath)) {
+			log(`
+  ${DIM}No sitemap.json found.${RESET}
+`);
+			await input.waitForEnter();
+			return undefined;
+		}
+		const sitemap = JSON.parse(disk.readFileSync(sitemapPath, "utf-8"));
+		const outputDir = paths.join(ctx.project.path, "sitemap");
+		const result = exportSitemapToMarkdown(sitemap, outputDir, { disk, paths });
+		log(`
+  ${GREEN}✓${RESET} Exported ${result.exported} views to ${DIM}${outputDir}${RESET}
+`);
+		await input.waitForEnter();
 		return undefined;
 	});
 }

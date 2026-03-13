@@ -218,4 +218,99 @@ export function registerCrudHandlers(registry: HandlerRegistry): void {
 		await input.waitForEnter();
 		return "main" as MenuResult;
 	});
+
+	// ── Iteration handlers ─────────────────────────────────────────
+
+	registry.registerAction("iteration:list", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const { listIterations } = await import("../../domain/iterations/iteration-store.js");
+		const { renderIterationList } = await import("../displays/iterations-display.js");
+		renderIterationList(listIterations(storeDeps(), ctx.project.path, ctx.project.config.management?.iterations));
+		await input.waitForEnter();
+		return "main" as MenuResult;
+	});
+
+	registry.registerAction("iteration:create", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const { addIterationInteractive } = await import("../menus/iterations-menu.js");
+		const created = await addIterationInteractive(ctx.project.path, ctx.project.config.management?.iterations);
+		if (created) {
+			await input.waitForEnter();
+			return "navigate:iteration-detail" as MenuResult;
+		}
+		await input.waitForEnter();
+		return "main" as MenuResult;
+	});
+
+	registry.registerAction("iteration:start", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const { startIterationInteractive } = await import("../menus/iterations-menu.js");
+		await startIterationInteractive(ctx.project.path, ctx.project.config.management?.iterations);
+		await input.waitForEnter();
+		return "main" as MenuResult;
+	});
+
+	registry.registerAction("iteration:current", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const { showCurrentIteration } = await import("../menus/iterations-menu.js");
+		await showCurrentIteration(ctx.project.path, ctx.project.config.management?.iterations);
+		await input.waitForEnter();
+		return "main" as MenuResult;
+	});
+
+	registry.registerAction("iteration:close", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const { closeIterationInteractive } = await import("../menus/iterations-menu.js");
+		await closeIterationInteractive(ctx.project.path, ctx.project.config.management?.iterations);
+		await input.waitForEnter();
+		return "main" as MenuResult;
+	});
+
+	registry.registerAction("iteration:attach-agent", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const { attachAgentInteractive } = await import("../menus/iterations-menu.js");
+		await attachAgentInteractive(ctx.project.path, ctx.project.config.management?.iterations);
+		await input.waitForEnter();
+		return "main" as MenuResult;
+	});
+
+	registry.registerAction("iteration:add-resource", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const { addResourceInteractive } = await import("../menus/iterations-menu.js");
+		await addResourceInteractive(ctx.project.path, ctx.project.config.management?.iterations);
+		await input.waitForEnter();
+		return "main" as MenuResult;
+	});
+
+	registry.registerAction("iteration:add-capacity", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const { addCapacityInteractive } = await import("../menus/iterations-menu.js");
+		await addCapacityInteractive(ctx.project.path, ctx.project.config.management?.iterations);
+		await input.waitForEnter();
+		return "main" as MenuResult;
+	});
+
+	registry.registerAction("iteration:add-scope", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const { addScopeItemInteractive } = await import("../menus/iterations-menu.js");
+		await addScopeItemInteractive(ctx.project.path, ctx.project.config.management?.iterations);
+		await input.waitForEnter();
+		return "main" as MenuResult;
+	});
+
+	registry.registerAction("iteration:add-note", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const { addNoteInteractive } = await import("../menus/iterations-menu.js");
+		await addNoteInteractive(ctx.project.path, ctx.project.config.management?.iterations);
+		await input.waitForEnter();
+		return "main" as MenuResult;
+	});
+
+	registry.registerAction("iteration:advance-review", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const { advanceToReviewInteractive } = await import("../menus/iterations-menu.js");
+		await advanceToReviewInteractive(ctx.project.path, ctx.project.config.management?.iterations);
+		await input.waitForEnter();
+		return "main" as MenuResult;
+	});
 }

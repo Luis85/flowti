@@ -326,10 +326,20 @@ describe("validateProjectConfig", () => {
 		});
 
 		it("validates all dir-based sections", () => {
-			for (const section of ["resources", "timelog", "deliverables", "raid", "requirements", "capa"]) {
+			for (const section of ["resources", "timelog", "deliverables", "raid", "requirements", "capa", "iterations"]) {
 				const { warnings } = validateProjectConfig(valid({ management: { [section]: { dir: "docs" } } }));
 				expect(warnings).toEqual([]);
 			}
+		});
+
+		it("warns on non-number iterations.durationDays", () => {
+			const { warnings } = validateProjectConfig(valid({ management: { iterations: { durationDays: "bad" } } }));
+			expect(warnings).toContainEqual(expect.stringContaining('"management.iterations.durationDays" must be a number'));
+		});
+
+		it("accepts valid iterations config", () => {
+			const { warnings } = validateProjectConfig(valid({ management: { iterations: { dir: "docs/iterations", durationDays: 14 } } }));
+			expect(warnings).toEqual([]);
 		});
 
 		it("warns on non-object lifecycle", () => {

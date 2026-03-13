@@ -474,8 +474,10 @@ export interface LifecycleConfig {
 	productsDir?: string;
 }
 
-// ── Project Management (aggregated) ─────────────────────────────────
+export type IterationStatus = "planned" | "in-progress" | "in-review" | "completed" | "cancelled";
+export interface IterationsConfig { dir?: string; durationDays?: number; }
 
+// ── Project Management (aggregated) ─────────────────────────────────
 export interface ManagementConfig {
 	resources?: ResourcesConfig;
 	timelog?: TimeLogConfig;
@@ -484,6 +486,7 @@ export interface ManagementConfig {
 	requirements?: RequirementsConfig;
 	capa?: CAPAConfig;
 	lifecycle?: LifecycleConfig;
+	iterations?: IterationsConfig;
 }
 
 // ── Entity Templates ────────────────────────────────────────────────
@@ -580,10 +583,8 @@ export interface OnboardingConfig {
 	pluginId?: string;
 }
 
-export interface TestingConfig {
-	/** Name of the test vault directory (created as sibling to vault root). */
-	vault?: string;
-}
+/** Test vault configuration. */
+export interface TestingConfig { vault?: string; }
 
 export interface FlowtiCliConfig {
 	version?: string;

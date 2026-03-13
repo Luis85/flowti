@@ -149,8 +149,9 @@ function validateItems(viewId: string, items: unknown, allViewIds: string[]): st
 	}
 	const errors: string[] = [];
 	const keys = new Set<string>();
+	const autoIndex = { next: 1 };
 	for (let i = 0; i < items.length; i++) {
-		errors.push(...validateEntry(viewId, i, items[i], allViewIds, keys));
+		errors.push(...validateEntry(viewId, i, items[i], allViewIds, keys, autoIndex));
 	}
 	return errors;
 }
@@ -163,6 +164,7 @@ function validateEntry(
 	raw: unknown,
 	allViewIds: string[],
 	keys: Set<string>,
+	autoIndex: { next: number },
 ): string[] {
 	const prefix = `View "${viewId}" item[${index}]`;
 
@@ -183,7 +185,7 @@ function validateEntry(
 		case "listProvider": return validateListProvider(entry, prefix);
 		case "item": {
 			const errors: string[] = [];
-			errors.push(...validateKey(entry, prefix, keys));
+			errors.push(...validateKey(entry, prefix, keys, autoIndex));
 			if (typeof entry.label !== "string" || entry.label.length === 0) {
 				errors.push(`${prefix}: must have a non-empty "label" string`);
 			}
@@ -210,7 +212,13 @@ function validateListProvider(entry: Record<string, unknown>, prefix: string): s
 	return [];
 }
 
-function validateKey(entry: Record<string, unknown>, prefix: string, keys: Set<string>): string[] {
+function validateKey(entry: Record<string, unknown>, prefix: string, keys: Set<string>, autoIndex: { next: number }): string[] {
+	if (entry.key === undefined || entry.key === null || entry.key === "") {
+		let candidate = String(autoIndex.next);
+		while (keys.has(candidate)) candidate = String(++autoIndex.next);
+		entry.key = candidate;
+		autoIndex.next++;
+	}
 	if (typeof entry.key !== "string" || entry.key.length === 0) {
 		return [`${prefix}: must have a non-empty "key" string`];
 	}
