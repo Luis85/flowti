@@ -105,4 +105,38 @@ export function registerExtensibilityHandlers(registry: HandlerRegistry): void {
 		await input.waitForEnter();
 		return "main" as MenuResult;
 	});
+
+	// ── Agent handlers ─────────────────────────────────────────────
+
+	registry.registerAction("agents:list", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const { listAgentsInteractive } = await import("../menus/agents-menu.js");
+		await listAgentsInteractive(ctx.project.path, ctx.project.config.management?.agents, ctx.deps);
+		await ctx.deps.input.waitForEnter();
+		return undefined;
+	});
+
+	registry.registerAction("agents:add", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const { addAgentInteractive } = await import("../menus/agents-menu.js");
+		await addAgentInteractive(ctx.project.path, ctx.project.config.management?.agents, ctx.deps);
+		await ctx.deps.input.waitForEnter();
+		return undefined;
+	});
+
+	registry.registerAction("agents:view", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const { viewAgentInteractive } = await import("../menus/agents-menu.js");
+		await viewAgentInteractive(ctx.project.path, ctx.project.config.management?.agents, ctx.deps);
+		await ctx.deps.input.waitForEnter();
+		return undefined;
+	});
+
+	registry.registerAction("agents:remove", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const { removeAgentInteractive } = await import("../menus/agents-menu.js");
+		await removeAgentInteractive(ctx.project.path, ctx.project.config.management?.agents, ctx.deps);
+		await ctx.deps.input.waitForEnter();
+		return undefined;
+	});
 }

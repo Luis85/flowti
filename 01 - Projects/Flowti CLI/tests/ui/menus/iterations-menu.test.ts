@@ -41,10 +41,15 @@ vi.mock("../../../src/domain/iterations/iteration-store.js", () => ({
 	toggleScopeItem: vi.fn(),
 }));
 vi.mock("../../../src/domain/iterations/iteration-entities.js", () => ({
-	createAgentFile: vi.fn(() => "/projects/my-project/docs/agents/test-agent.md"),
-	listAgentFiles: vi.fn(() => []),
 	createResourceFile: vi.fn(() => "/projects/my-project/docs/resources/test-resource.md"),
 	createEstimationFile: vi.fn(() => "/projects/my-project/docs/estimations/test-estimation.md"),
+}));
+vi.mock("../../../src/domain/agents/agent-store.js", () => ({
+	listAgents: vi.fn(() => []),
+	createAgent: vi.fn(() => "/projects/my-project/docs/agents/test-agent.md"),
+}));
+vi.mock("../../../src/ui/displays/agents-display.js", () => ({
+	renderAgentList: vi.fn(),
 }));
 vi.mock("../../../src/domain/lifecycle/lifecycle-engine.js", () => ({
 	getValidTransitions: vi.fn(() => ["planned"]),
@@ -75,7 +80,9 @@ import {
 	updateDescription, editScopeItem, removeScopeItem, toggleScopeItem,
 } from "../../../src/domain/iterations/iteration-store.js";
 import { getValidTransitions } from "../../../src/domain/lifecycle/lifecycle-engine.js";
-import { createAgentFile, listAgentFiles, createResourceFile, createEstimationFile } from "../../../src/domain/iterations/iteration-entities.js";
+import { createResourceFile, createEstimationFile } from "../../../src/domain/iterations/iteration-entities.js";
+import { listAgents, createAgent } from "../../../src/domain/agents/agent-store.js";
+import { renderAgentList } from "../../../src/ui/displays/agents-display.js";
 import {
 	renderIterationCreated, renderIterationClosed,
 	renderIterationDetail, renderAgentAdded, renderResourceAdded,
@@ -119,8 +126,9 @@ const mockRenderAgentAttached = vi.mocked(renderAgentAdded);
 const mockRenderResourceAdded = vi.mocked(renderResourceAdded);
 const mockRenderCapacityAdded = vi.mocked(renderEstimationAdded);
 const mockRenderAdvanceResult = vi.mocked(renderAdvanceResult);
-const mockCreateAgentFile = vi.mocked(createAgentFile);
-const mockListAgentFiles = vi.mocked(listAgentFiles);
+const mockListAgents = vi.mocked(listAgents);
+const mockCreateAgent = vi.mocked(createAgent);
+const mockRenderAgentList = vi.mocked(renderAgentList);
 const mockCreateResourceFile = vi.mocked(createResourceFile);
 const mockCreateEstimationFile = vi.mocked(createEstimationFile);
 const mockDisk = vi.mocked(disk);
@@ -403,7 +411,8 @@ describe("addAgentInteractive", () => {
 	it("creates a new agent when none exist", async () => {
 		const deps = makeDeps();
 		mockFindCurrent.mockReturnValue(makeIteration());
-		mockListAgentFiles.mockReturnValue([]);
+		mockListAgents.mockReturnValue([]);
+		mockCreateAgent.mockReturnValue("/projects/my-project/docs/agents/claude.md");
 		vi.mocked(deps.input.ask)
 			.mockResolvedValueOnce("Claude")     // name
 			.mockResolvedValueOnce("ai")          // type
@@ -412,7 +421,7 @@ describe("addAgentInteractive", () => {
 
 		await addAgentInteractive(PROJECT, CONFIG, deps);
 
-		expect(mockCreateAgentFile).toHaveBeenCalledWith(deps, PROJECT, { name: "Claude", type: "ai", description: "AI assistant" });
+		expect(mockCreateAgent).toHaveBeenCalled();
 		expect(mockAttachAgent).toHaveBeenCalled();
 		expect(mockRenderAgentAttached).toHaveBeenCalledWith("Claude", "Sprint 1", deps.log);
 	});
@@ -420,13 +429,17 @@ describe("addAgentInteractive", () => {
 	it("selects existing agent from list", async () => {
 		const deps = makeDeps();
 		mockFindCurrent.mockReturnValue(makeIteration());
-		mockListAgentFiles.mockReturnValue(["reviewer.md", "planner.md"]);
-		vi.mocked(deps.input.ask).mockResolvedValueOnce("2"); // select planner
+		mockListAgents.mockReturnValue([
+			{ name: "reviewer", file: "reviewer.md", agentType: "human" as const, description: "", skills: [], tools: [], roles: [] },
+			{ name: "planner", file: "planner.md", agentType: "ai" as const, description: "", skills: [], tools: [], roles: [] },
+		]);
+		vi.mocked(deps.input.ask).mockResolvedValueOnce("planner"); // select by name
 		mockAttachAgent.mockReturnValue(true as any);
 
 		await addAgentInteractive(PROJECT, CONFIG, deps);
 
-		expect(mockCreateAgentFile).not.toHaveBeenCalled();
+		expect(mockCreateAgent).not.toHaveBeenCalled();
+		expect(mockRenderAgentList).toHaveBeenCalled();
 		expect(mockAttachAgent).toHaveBeenCalledWith(
 			deps, PROJECT, 1,
 			{ name: "planner", file: "planner.md" },
@@ -434,12 +447,15 @@ describe("addAgentInteractive", () => {
 		);
 	});
 
-	it("creates new agent when 'create new' option selected", async () => {
+	it("creates new agent when 'new' option selected", async () => {
 		const deps = makeDeps();
 		mockFindCurrent.mockReturnValue(makeIteration());
-		mockListAgentFiles.mockReturnValue(["existing.md"]);
+		mockListAgents.mockReturnValue([
+			{ name: "existing", file: "existing.md", agentType: "human" as const, description: "", skills: [], tools: [], roles: [] },
+		]);
+		mockCreateAgent.mockReturnValue("/projects/my-project/docs/agents/new-agent.md");
 		vi.mocked(deps.input.ask)
-			.mockResolvedValueOnce("2")           // select "Create new agent" (last option)
+			.mockResolvedValueOnce("new")          // type "new" to create
 			.mockResolvedValueOnce("NewAgent")     // name
 			.mockResolvedValueOnce("human")        // type
 			.mockResolvedValueOnce("");             // description
@@ -447,15 +463,17 @@ describe("addAgentInteractive", () => {
 
 		await addAgentInteractive(PROJECT, CONFIG, deps);
 
-		expect(mockCreateAgentFile).toHaveBeenCalled();
+		expect(mockCreateAgent).toHaveBeenCalled();
 		expect(mockAttachAgent).toHaveBeenCalled();
 	});
 
 	it("does nothing on invalid selection", async () => {
 		const deps = makeDeps();
 		mockFindCurrent.mockReturnValue(makeIteration());
-		mockListAgentFiles.mockReturnValue(["agent.md"]);
-		vi.mocked(deps.input.ask).mockResolvedValueOnce("0");
+		mockListAgents.mockReturnValue([
+			{ name: "agent", file: "agent.md", agentType: "human" as const, description: "", skills: [], tools: [], roles: [] },
+		]);
+		vi.mocked(deps.input.ask).mockResolvedValueOnce("nonexistent");
 
 		await addAgentInteractive(PROJECT, CONFIG, deps);
 
@@ -465,7 +483,7 @@ describe("addAgentInteractive", () => {
 	it("does nothing when name is empty for new agent", async () => {
 		const deps = makeDeps();
 		mockFindCurrent.mockReturnValue(makeIteration());
-		mockListAgentFiles.mockReturnValue([]);
+		mockListAgents.mockReturnValue([]);
 		vi.mocked(deps.input.ask).mockResolvedValueOnce(""); // empty name
 
 		await addAgentInteractive(PROJECT, CONFIG, deps);

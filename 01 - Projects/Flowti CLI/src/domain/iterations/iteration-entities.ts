@@ -8,16 +8,17 @@
 import { Document } from "../../infrastructure/document.js";
 import type { CliDeps } from "../../infrastructure/deps.js";
 import { toMdFilename } from "../shared/markdown-store.js";
+import { createAgent, agentsDir } from "../agents/agent-store.js";
+import { listMdFiles } from "../shared/markdown-store.js";
 
-type EntityDeps = Pick<CliDeps, "disk" | "paths">;
+export type EntityDeps = Pick<CliDeps, "disk" | "paths">;
 
 // ── Default directories ─────────────────────────────────────────────
 
-const AGENTS_DIR = "docs/agents";
 const RESOURCES_DIR = "docs/resources";
 const ESTIMATIONS_DIR = "docs/estimations";
 
-// ── Agent entities ──────────────────────────────────────────────────
+// ── Agent entities (delegates to agent-store) ───────────────────────
 
 export interface AgentEntity {
 	name: string;
@@ -26,35 +27,23 @@ export interface AgentEntity {
 }
 
 export function createAgentFile(deps: EntityDeps, projectPath: string, agent: AgentEntity): string {
-	const dir = deps.paths.join(projectPath, AGENTS_DIR);
-	deps.disk.mkdirSync(dir, { recursive: true });
-	const filename = toMdFilename(agent.name);
-	const filePath = deps.paths.join(dir, filename);
-	if (deps.disk.existsSync(filePath)) return filePath;
-
-	const doc = Document.create(agent.name)
-		.mergeFrontmatter({
-			type: "Agent",
-			name: agent.name,
-			agentType: agent.type,
-		});
-	if (agent.description) doc.setFrontmatter("description", agent.description);
-	doc.addBlank().heading(1, agent.name).addBlank();
-	if (agent.description) doc.text(agent.description).addBlank();
-	doc.heading(2, "Skills").addBlank()
-		.text("<!-- List skills for this agent. -->").addBlank();
-	doc.heading(2, "Tools").addBlank()
-		.text("<!-- List tools available to this agent. -->").addBlank();
-	doc.heading(2, "Roles").addBlank()
-		.text("<!-- List roles this agent can fill. -->");
-	doc.save(filePath, deps.disk);
-	return filePath;
+	const result = createAgent(deps, projectPath, {
+		name: agent.name,
+		agentType: agent.type,
+		description: agent.description ?? "",
+		skills: [],
+		tools: [],
+		roles: [],
+	});
+	if (result) return result;
+	// Already exists — return expected path
+	const dir = agentsDir(deps, projectPath);
+	return deps.paths.join(dir, toMdFilename(agent.name));
 }
 
 export function listAgentFiles(deps: EntityDeps, projectPath: string): string[] {
-	const dir = deps.paths.join(projectPath, AGENTS_DIR);
-	if (!deps.disk.existsSync(dir)) return [];
-	return deps.disk.readdirSync(dir).filter((f: string) => f.endsWith(".md"));
+	const dir = agentsDir(deps, projectPath);
+	return listMdFiles(deps, dir);
 }
 
 // ── Resource need entities ──────────────────────────────────────────

@@ -398,29 +398,15 @@ export interface HealthConfig {
 }
 
 // ── Resource Management ─────────────────────────────────────────────
-
 export type ResourceType = "human" | "material" | "role" | "budget";
-
-export interface ResourcesConfig {
-	/** Directory for resource files relative to project root (default: "docs/resources"). */
-	dir?: string;
-}
+export interface ResourcesConfig { dir?: string; }
 
 // ── Time-Log ────────────────────────────────────────────────────────
-
-export interface TimeLogConfig {
-	/** Directory for time-log entries relative to project root (default: "docs/timelog"). */
-	dir?: string;
-}
+export interface TimeLogConfig { dir?: string; }
 
 // ── Deliverables ────────────────────────────────────────────────────
-
 export type DeliverableStatus = "planned" | "in-progress" | "review" | "done" | "blocked";
-
-export interface DeliverablesConfig {
-	/** Directory for deliverable files relative to project root (default: "docs/deliverables"). */
-	dir?: string;
-}
+export interface DeliverablesConfig { dir?: string; }
 
 // ── RAID Log ────────────────────────────────────────────────────────
 
@@ -478,6 +464,7 @@ export interface LifecycleConfig {
 
 export type IterationStatus = "new" | "planned" | "ready" | "in-progress" | "in-review" | "done" | "cancelled";
 export interface IterationsConfig { dir?: string; durationDays?: number; lifecycle?: string; }
+export interface AgentsConfig { dir?: string; }
 
 // ── Project Management (aggregated) ─────────────────────────────────
 export interface ManagementConfig {
@@ -489,6 +476,7 @@ export interface ManagementConfig {
 	capa?: CAPAConfig;
 	lifecycle?: LifecycleConfig;
 	iterations?: IterationsConfig;
+	agents?: AgentsConfig;
 }
 
 // ── Entity Templates ────────────────────────────────────────────────

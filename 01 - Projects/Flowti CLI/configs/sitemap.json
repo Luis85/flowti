@@ -417,40 +417,72 @@
 			"icon": "cpu",
 			"domain": "extensibility",
 			"status": "active",
-			"description": "Manage AI agent tools — list, validate, create, and generate references.",
+			"description": "Manage AI agent tools and agent definitions — list, create, view, and remove agents.",
 			"parent": "start",
 			"actions": [
+				{
+					"name": "onListAgents",
+					"label": "List Agents",
+					"type": "handler",
+					"target": "agents:list",
+					"group": "agents",
+					"disabled": "no-project-selected",
+					"disabledMessage": "Select a project first."
+				},
+				{
+					"name": "onAddAgent",
+					"label": "Add Agent",
+					"type": "handler",
+					"target": "agents:add",
+					"group": "agents",
+					"disabled": "no-project-selected",
+					"disabledMessage": "Select a project first."
+				},
+				{
+					"name": "onViewAgent",
+					"label": "View Agent",
+					"type": "handler",
+					"target": "agents:view",
+					"group": "agents",
+					"disabled": "no-project-selected",
+					"disabledMessage": "Select a project first."
+				},
+				{
+					"name": "onRemoveAgent",
+					"label": "Remove Agent",
+					"type": "handler",
+					"target": "agents:remove",
+					"group": "agents",
+					"disabled": "no-project-selected",
+					"disabledMessage": "Select a project first."
+				},
 				{
 					"name": "onListTools",
 					"label": "List Tools",
 					"type": "handler",
 					"target": "ai-tools:list",
-					"key": "1",
-					"group": "actions"
+					"group": "tools"
 				},
 				{
 					"name": "onValidateTools",
 					"label": "Validate Tools",
 					"type": "handler",
 					"target": "ai-tools:validate",
-					"key": "2",
-					"group": "actions"
+					"group": "tools"
 				},
 				{
 					"name": "onCreateTool",
 					"label": "Create Tool",
 					"type": "handler",
 					"target": "ai-tools:create",
-					"key": "3",
-					"group": "actions"
+					"group": "tools"
 				},
 				{
 					"name": "onGenerateReference",
 					"label": "Generate Reference",
 					"type": "handler",
 					"target": "ai-tools:reference",
-					"key": "4",
-					"group": "actions"
+					"group": "tools"
 				},
 				{
 					"name": "onBack",
@@ -1695,6 +1727,14 @@
 					"target": "iteration:advance",
 					"disabled": "iteration:cannot-advance",
 					"group": "lifecycle"
+				},
+				{
+					"name": "onRunReports",
+					"label": "Run All Reports",
+					"type": "handler",
+					"target": "reports:run-all",
+					"hidden": "iteration:not-in-review",
+					"group": "reports"
 				},
 				{
 					"name": "onBack",

@@ -119,6 +119,12 @@ export function registerAllHandlers(registry: HandlerRegistry): void {
 		return !current || current.status === "done" || current.status === "cancelled";
 	});
 
+	registry.registerCondition("iteration:not-in-review", (ctx) => {
+		if (!ctx.project) return true;
+		const current = findCurrentIteration({ disk: ctx.deps.disk, paths: ctx.deps.paths, clock: ctx.deps.clock }, ctx.project.path, ctx.project.config.management?.iterations);
+		return !current || current.status !== "in-review";
+	});
+
 	// ── Action handlers (project-detail items) ──────────────────────
 
 	registry.registerAction("project:open", async (ctx) => {

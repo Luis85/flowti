@@ -103,7 +103,7 @@ export function validateHealth(cfg: Record<string, unknown>, warnings: string[])
 
 // ── Management ───────────────────────────────────────────────────────
 
-export const MANAGEMENT_DIR_SECTIONS = ["resources", "timelog", "deliverables", "raid", "requirements", "capa", "iterations"] as const;
+export const MANAGEMENT_DIR_SECTIONS = ["resources", "timelog", "deliverables", "raid", "requirements", "capa", "iterations", "agents"] as const;
 
 export function validateDirSections(mgmt: Record<string, unknown>, warnings: string[]): void {
 	for (const section of MANAGEMENT_DIR_SECTIONS) {
