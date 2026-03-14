@@ -1,4 +1,5 @@
 ---
+closedDate: 2026-03-14
 resources:
   - Product Team||100
 agents:
@@ -6,7 +7,7 @@ agents:
 type: IterationPlan
 name: Agent Environment
 number: 2
-status: in-review
+status: done
 startDate: 2026-03-14
 endDate: 2026-03-28
 goal: Agents are fully editable with AI configuration and a dedicated detail page
@@ -60,9 +61,9 @@ Agents are fully editable with AI configuration and a dedicated detail page
 
 
 
-- [ ] Document learnings
-- [ ] Capture retrospective notes
-- [ ] Review completed scope items
+- [x] Document learnings
+- [x] Capture retrospective notes
+- [x] Review completed scope items
 - [x] Flag blockers early
 - [x] Track progress daily
 - [x] Push the Plan to Git
@@ -92,6 +93,7 @@ Agents are fully editable with AI configuration and a dedicated detail page
 
 | Date | From | To | Reason |
 |---|---|---|---|
+| 2026-03-14 | in-review | done | Iteration closed |
 | 2026-03-14 | in-progress | in-review | Advanced to in-review |
 | 2026-03-14 | ready | in-progress | Advanced to in-progress |
 | 2026-03-14 | planned | ready | Advanced to ready |
@@ -100,3 +102,36 @@ Agents are fully editable with AI configuration and a dedicated detail page
 ## Notes
 
 **2026-03-14** — Replanned iteration. Original "Iteration Lifecycle Engine" scope was already complete from prior work. Redirected to "Agent Environment" — making agents fully editable with AI configuration and a dedicated detail page. This fills the gaps from Iteration 1 (which only delivered create/delete) and sets up the agent management layer needed before orchestration can happen in Iteration 3.
+
+## Learnings
+
+1. **Companion JSON pattern works well for complex nested data** — Storing AI config (model, provider, contextWindow, maxTokens) in a `.json` file alongside the `.md` frontmatter avoids YAML nesting complexity. The `updateAgentJson()` read-merge-write approach is clean and extensible for future fields (goals, relationships, components).
+
+2. **Array manipulation in YAML frontmatter needs careful regex** — Adding/removing items from YAML arrays (`skills`, `tools`, `roles`, `behaviors`) via regex requires handling edge cases: single-item arrays becoming empty, missing fields needing creation, and case-insensitive matching for user input. The `escapeRegex()` helper was essential.
+
+3. **Complexity limit of 10 forces good decomposition** — `editAgentSkills` and `editAgentArrayField` both hit complexity 11 initially. Extracting `addSkillFlow`, `removeSkillFlow`, `addArrayFieldItem`, `removeArrayFieldItem` as focused helpers improved readability and kept each function under the threshold without feeling forced.
+
+4. **Dynamic imports in handler registry keep the bundle lean** — Agent handlers use `await import("../menus/agents-menu.js")` instead of top-level imports. This means the agent menu code only loads when an agent action is actually invoked, not on every CLI startup.
+
+5. **Sitemap hidden conditions enable mutually exclusive actions** — "Plan next Iteration" (`hidden: "iteration:running"`) and "Current Iteration" (`hidden: "iteration:not-running"`) share the same key `"w"` without conflict because they're never both visible. This pattern is reusable for any state-dependent action pairs.
+
+6. **Skill serialization format (`name|level`) bridges YAML and structured data** — Skills need both a name and optional level, but live in a YAML array. The `name|level` pipe-delimited format for `addArrayItem`/`removeArrayItem` keeps the store API simple while supporting structured skill objects in the domain model.
+
+## Retrospective
+
+### What went well
+- **Fast replanning** — Discovered the original Lifecycle Engine scope was already built, pivoted to Agent Environment within minutes without wasting effort
+- **End-to-end delivery in one session** — All 4 phases (store → AI config → menus → sitemap) shipped with 81 new tests, full verification passing
+- **Pattern reuse** — The markdown-store pattern from iteration-store and the companion JSON pattern from agent-store transferred directly; no new infrastructure needed
+- **Test coverage** — Every new function has tests covering happy path, edge cases, and error handling (29 store tests, 28 menu tests, 24 handler tests)
+
+### What could improve
+- **Scope discovery earlier** — The lifecycle engine was already complete but we didn't check until planning. A quick `git log` or test run at plan time would have caught this sooner
+- **Iteration plan structure** — The plan had "Push the Plan to Git" as both a planning and ready-phase item; could use clearer phase labels in scope items
+- **Complexity budgeting** — Two functions hit the limit and needed extraction; estimating complexity during planning would avoid mid-implementation refactors
+
+### Action items for next iteration
+- Check existing implementation before planning scope (run tests, review git log)
+- Budget complexity per function during task breakdown
+- Consider adding `editAgentBehaviors` as a dedicated menu (currently uses generic `editAgentArrayField`)
+- Plan the orchestration layer: agent-to-lifecycle-state bindings, handoff protocol, execution bridge
