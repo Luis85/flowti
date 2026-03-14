@@ -56,6 +56,7 @@ import { createCommands as createProjectDepsCmds } from "./ui/displays/deps-disp
 import { commands as pluginCmds } from "./controller/plugins.controller.js";
 import { commands as aiToolsCmds } from "./controller/ai-tools.controller.js";
 import { commands as sitemapCmds } from "./controller/sitemap.controller.js";
+import { commands as serveCmds } from "./controller/serve.controller.js";
 import { disk, watchFile } from "./infrastructure/filesystem.js";
 import { shell } from "./infrastructure/shell.js";
 import { paths } from "./infrastructure/paths.js";
@@ -103,6 +104,7 @@ registry.registerDomain({ domain: "project",  commands: { ...projectCmds, ...cre
 registry.registerDomain({ domain: "plugins",  commands: pluginCmds,  projectFree: ["plugin:list", "plugin:validate", "plugin:new", "plugin:reference"] });
 registry.registerDomain({ domain: "ai-tools", commands: aiToolsCmds, projectFree: ["ai:list", "ai:validate", "ai:new", "ai:reference", "ai:run"] });
 registry.registerDomain({ domain: "sitemap", commands: sitemapCmds, projectFree: ["sitemap:validate", "sitemap:status", "sitemap:views"] });
+registry.registerDomain({ domain: "serve", commands: serveCmds, projectFree: ["serve"] });
 registry.setWildcard("reports", reportsCmds["report:*"]);
 
 let pluginsRegistered = false;

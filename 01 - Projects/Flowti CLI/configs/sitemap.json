@@ -56,6 +56,14 @@
 					"group": "tools"
 				},
 				{
+					"name": "onServeDashboard",
+					"label": "Serve Dashboard",
+					"type": "command",
+					"target": "serve",
+					"key": "s",
+					"group": "tools"
+				},
+				{
 					"name": "onQuit",
 					"label": "Quit",
 					"type": "signal",
