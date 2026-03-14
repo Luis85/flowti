@@ -51,9 +51,9 @@ We can add and manage Agent definitions
 
 
 
-- [ ] Push the Plan to Git
-- [ ] Kick-off communication
-- [ ] Verify all prerequisites are met
+- [x] Push the Plan to Git
+- [x] Kick-off communication
+- [x] Verify all prerequisites are met
 - [x] Refine goal and vision
 - [x] Identify initial scope items
 - [x] Break scope into actionable tasks
