@@ -23,18 +23,27 @@ vi.mock("../../../src/ui/displays/agents-display.js", () => ({
 	renderAgentDeleted: vi.fn(),
 }));
 vi.mock("../../../src/domain/project/project-config.js", () => ({
+	readProjectConfig: vi.fn(() => ({ config: null, warnings: [] })),
 	updateProjectConfig: vi.fn(() => true),
+}));
+vi.mock("../../../src/domain/project/project.js", () => ({
+	listProjects: vi.fn(() => []),
+}));
+vi.mock("../../../src/infrastructure/config.js", () => ({
+	VAULT_ROOT: "/mock-vault", CLI_PROJECT: "/mock/cli", cliConfig: {},
 }));
 
 import { listAgents, createAgent, deleteAgent, updateAgentField, addArrayItem, removeArrayItem, updateAgentJson, readSystemPrompt, writeSystemPrompt } from "../../../src/domain/agents/agent-store.js";
 import { renderAgentList, renderAgentCreated, renderAgentDeleted } from "../../../src/ui/displays/agents-display.js";
-import { updateProjectConfig } from "../../../src/domain/project/project-config.js";
+import { readProjectConfig, updateProjectConfig } from "../../../src/domain/project/project-config.js";
+import { listProjects } from "../../../src/domain/project/project.js";
 import {
 	addAgentInteractive,
 	removeAgentInteractive,
 	editAgentIdentity, editAgentSkills, editAgentArrayField,
 	editAIConfigInteractive, editSystemPromptInteractive,
 	manageProjectAgentsInteractive,
+	talkToAgentInteractive, assignTaskInteractive, assignToProjectInteractive,
 } from "../../../src/ui/menus/agents-menu.js";
 import type { AgentSummary } from "../../../src/domain/agents/agent-types.js";
 import type { ProjectConfig } from "../../../src/infrastructure/types.js";
@@ -324,6 +333,8 @@ describe("editSystemPromptInteractive", () => {
 // ── Manage Project Agents ───────────────────────────────────────────
 
 const mockUpdateConfig = vi.mocked(updateProjectConfig);
+const mockReadConfig = vi.mocked(readProjectConfig);
+const mockListProjects = vi.mocked(listProjects);
 
 describe("manageProjectAgentsInteractive", () => {
 	it("shows empty roster and skips on Enter", async () => {
@@ -376,5 +387,248 @@ describe("manageProjectAgentsInteractive", () => {
 		await manageProjectAgentsInteractive("/proj", config, "/vault", undefined, deps);
 		// Should show "All vault agents already on roster"
 		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("already on the roster"));
+	});
+});
+
+// ── Talk to Agent ───────────────────────────────────────────────────
+
+describe("talkToAgentInteractive", () => {
+	it("writes new prompt when none exists", async () => {
+		const deps = makeDeps();
+		mockReadPrompt.mockReturnValue(null);
+		deps.input.ask
+			.mockResolvedValueOnce("w")                    // write new
+			.mockResolvedValueOnce("You are a reviewer.")  // prompt line
+			.mockResolvedValueOnce("");                    // empty = done
+		await talkToAgentInteractive("/proj", makeAgent(), undefined, deps);
+		expect(mockWritePrompt).toHaveBeenCalledWith(deps, "/proj", "CodeBot", "You are a reviewer.", undefined);
+	});
+
+	it("appends to existing prompt on edit", async () => {
+		const deps = makeDeps();
+		mockReadPrompt.mockReturnValue("Be helpful.");
+		deps.input.ask
+			.mockResolvedValueOnce("e")                    // edit (append)
+			.mockResolvedValueOnce("Also be concise.")     // new line
+			.mockResolvedValueOnce("");                    // done
+		await talkToAgentInteractive("/proj", makeAgent(), undefined, deps);
+		expect(mockWritePrompt).toHaveBeenCalledWith(
+			deps, "/proj", "CodeBot",
+			"Be helpful.\n\nAlso be concise.",
+			undefined,
+		);
+	});
+
+	it("replaces prompt on 'r'", async () => {
+		const deps = makeDeps();
+		mockReadPrompt.mockReturnValue("Old prompt.");
+		deps.input.ask
+			.mockResolvedValueOnce("r")                    // replace
+			.mockResolvedValueOnce("Brand new prompt.")    // line
+			.mockResolvedValueOnce("");                    // done
+		await talkToAgentInteractive("/proj", makeAgent(), undefined, deps);
+		expect(mockWritePrompt).toHaveBeenCalledWith(deps, "/proj", "CodeBot", "Brand new prompt.", undefined);
+	});
+
+	it("deletes prompt on 'd'", async () => {
+		const deps = makeDeps();
+		mockReadPrompt.mockReturnValue("Existing");
+		deps.input.ask.mockResolvedValueOnce("d");
+		await talkToAgentInteractive("/proj", makeAgent(), undefined, deps);
+		expect(mockWritePrompt).toHaveBeenCalledWith(deps, "/proj", "CodeBot", "", undefined);
+	});
+
+	it("skips on empty input", async () => {
+		const deps = makeDeps();
+		mockReadPrompt.mockReturnValue("Existing");
+		deps.input.ask.mockResolvedValueOnce("");
+		await talkToAgentInteractive("/proj", makeAgent(), undefined, deps);
+		expect(mockWritePrompt).not.toHaveBeenCalled();
+	});
+
+	it("shows current prompt preview when it exists", async () => {
+		const deps = makeDeps();
+		mockReadPrompt.mockReturnValue("Line 1\nLine 2");
+		deps.input.ask.mockResolvedValueOnce("");
+		await talkToAgentInteractive("/proj", makeAgent(), undefined, deps);
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("13 chars"));
+	});
+});
+
+// ── Assign Task ─────────────────────────────────────────────────────
+
+describe("assignTaskInteractive", () => {
+	it("saves task file with name and description", async () => {
+		const deps = makeDeps();
+		const agent = makeAgent({ skills: [{ name: "TypeScript", level: "expert" }], tools: ["eslint"] });
+		deps.paths.dirname.mockReturnValue("/vault/agents");
+		deps.input.ask
+			.mockResolvedValueOnce("Fix bug")           // task name
+			.mockResolvedValueOnce("Fix the login bug") // description
+			.mockResolvedValueOnce("");                  // context (empty)
+		await assignTaskInteractive("/proj", agent, undefined, deps);
+		expect(deps.disk.writeFileSync).toHaveBeenCalledWith(
+			"/vault/agents/CodeBot.task.md",
+			expect.stringContaining("Fix bug"),
+			"utf-8",
+		);
+		expect(deps.disk.writeFileSync).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.stringContaining("Fix the login bug"),
+			"utf-8",
+		);
+	});
+
+	it("includes context when provided", async () => {
+		const deps = makeDeps();
+		deps.paths.dirname.mockReturnValue("/vault/agents");
+		deps.input.ask
+			.mockResolvedValueOnce("Review PR")
+			.mockResolvedValueOnce("Review pull request #42")
+			.mockResolvedValueOnce("High priority");
+		await assignTaskInteractive("/proj", makeAgent(), undefined, deps);
+		expect(deps.disk.writeFileSync).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.stringContaining("High priority"),
+			"utf-8",
+		);
+	});
+
+	it("cancels when task name is empty", async () => {
+		const deps = makeDeps();
+		deps.input.ask.mockResolvedValueOnce("");
+		await assignTaskInteractive("/proj", makeAgent(), undefined, deps);
+		expect(deps.disk.writeFileSync).not.toHaveBeenCalled();
+	});
+
+	it("cancels when description is empty", async () => {
+		const deps = makeDeps();
+		deps.input.ask
+			.mockResolvedValueOnce("Task name")
+			.mockResolvedValueOnce("");
+		await assignTaskInteractive("/proj", makeAgent(), undefined, deps);
+		expect(deps.disk.writeFileSync).not.toHaveBeenCalled();
+	});
+
+	it("lists agent capabilities", async () => {
+		const deps = makeDeps();
+		const agent = makeAgent({ skills: [{ name: "TS", level: "expert" }], tools: ["eslint"], roles: ["reviewer"] });
+		deps.paths.dirname.mockReturnValue("/vault/agents");
+		deps.input.ask
+			.mockResolvedValueOnce("Task")
+			.mockResolvedValueOnce("Do thing")
+			.mockResolvedValueOnce("");
+		await assignTaskInteractive("/proj", agent, undefined, deps);
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("skill: TS"));
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("tool: eslint"));
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("role: reviewer"));
+	});
+
+	it("includes iteration wikilink when task context provided", async () => {
+		const deps = makeDeps();
+		deps.paths.dirname.mockReturnValue("/vault/agents");
+		deps.input.ask
+			.mockResolvedValueOnce("Fix bug")
+			.mockResolvedValueOnce("Fix it")
+			.mockResolvedValueOnce("");
+		await assignTaskInteractive("/proj", makeAgent(), undefined, deps, {
+			projectName: "Flowti CLI",
+			iterationFile: "iteration-004-plan.md",
+			iterationNumber: 4,
+		});
+		expect(deps.disk.writeFileSync).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.stringContaining("[[iteration-004-plan|Iteration #4 Plan]]"),
+			"utf-8",
+		);
+		expect(deps.disk.writeFileSync).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.stringContaining("**Project:** Flowti CLI"),
+			"utf-8",
+		);
+	});
+
+	it("includes project name only when no iteration", async () => {
+		const deps = makeDeps();
+		deps.paths.dirname.mockReturnValue("/vault/agents");
+		deps.input.ask
+			.mockResolvedValueOnce("Task")
+			.mockResolvedValueOnce("Do thing")
+			.mockResolvedValueOnce("");
+		await assignTaskInteractive("/proj", makeAgent(), undefined, deps, { projectName: "My Project" });
+		expect(deps.disk.writeFileSync).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.stringContaining("**Project:** My Project"),
+			"utf-8",
+		);
+	});
+});
+
+// ── Assign to Project ───────────────────────────────────────────────
+
+describe("assignToProjectInteractive", () => {
+	it("lists projects and assigns agent", async () => {
+		const deps = makeDeps();
+		mockListProjects.mockReturnValue(["Project A", "Project B"]);
+		mockReadConfig.mockReturnValue({ config: { name: "Project A" } as ProjectConfig, warnings: [] });
+		mockUpdateConfig.mockReturnValue(true);
+		deps.input.ask.mockResolvedValueOnce("1");
+		await assignToProjectInteractive("/vault", makeAgent(), deps);
+		expect(mockUpdateConfig).toHaveBeenCalled();
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("Assigned CodeBot to Project A"));
+	});
+
+	it("shows no projects message when empty", async () => {
+		const deps = makeDeps();
+		mockListProjects.mockReturnValue([]);
+		await assignToProjectInteractive("/vault", makeAgent(), deps);
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("No projects found"));
+	});
+
+	it("cancels when no choice given", async () => {
+		const deps = makeDeps();
+		mockListProjects.mockReturnValue(["Project A"]);
+		mockReadConfig.mockReturnValue({ config: { name: "Project A" } as ProjectConfig, warnings: [] });
+		deps.input.ask.mockResolvedValueOnce("");
+		await assignToProjectInteractive("/vault", makeAgent(), deps);
+		expect(mockUpdateConfig).not.toHaveBeenCalled();
+	});
+
+	it("rejects when project not found", async () => {
+		const deps = makeDeps();
+		mockListProjects.mockReturnValue(["Project A"]);
+		mockReadConfig.mockReturnValue({ config: { name: "Project A" } as ProjectConfig, warnings: [] });
+		deps.input.ask.mockResolvedValueOnce("NonExistent");
+		await assignToProjectInteractive("/vault", makeAgent(), deps);
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("not found"));
+	});
+
+	it("skips when agent already assigned", async () => {
+		const deps = makeDeps();
+		mockListProjects.mockReturnValue(["Project A"]);
+		mockReadConfig.mockReturnValue({ config: { name: "Project A", management: { agents: { roster: ["CodeBot"] } } } as ProjectConfig, warnings: [] });
+		deps.input.ask.mockResolvedValueOnce("1");
+		await assignToProjectInteractive("/vault", makeAgent(), deps);
+		expect(mockUpdateConfig).not.toHaveBeenCalled();
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("already assigned"));
+	});
+
+	it("shows assigned tag for projects with agent on roster", async () => {
+		const deps = makeDeps();
+		mockListProjects.mockReturnValue(["Project A"]);
+		mockReadConfig.mockReturnValue({ config: { name: "Project A", management: { agents: { roster: ["CodeBot"] } } } as ProjectConfig, warnings: [] });
+		deps.input.ask.mockResolvedValueOnce("");
+		await assignToProjectInteractive("/vault", makeAgent(), deps);
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("(assigned)"));
+	});
+
+	it("skips when project has no config", async () => {
+		const deps = makeDeps();
+		mockListProjects.mockReturnValue(["Project A"]);
+		mockReadConfig.mockReturnValue({ config: null, warnings: [] });
+		deps.input.ask.mockResolvedValueOnce("1");
+		await assignToProjectInteractive("/vault", makeAgent(), deps);
+		expect(mockUpdateConfig).not.toHaveBeenCalled();
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("No flowti.config.json"));
 	});
 });

@@ -1,0 +1,10 @@
+{
+	"entityType": "brief",
+	"initialState": "open",
+	"terminalStates": ["done"],
+	"states": {
+		"open":   { "label": "Open",   "transitions": ["active"] },
+		"active": { "label": "Active", "transitions": ["done"] },
+		"done":   { "label": "Done",   "transitions": [] }
+	}
+}

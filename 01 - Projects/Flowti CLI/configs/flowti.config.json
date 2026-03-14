@@ -223,6 +223,21 @@
 					}
 				}
 			}
+		},
+		"agents": {
+			"roster": [
+				"Bob",
+				"Product Manager",
+				"Product Team",
+				"Quality Manager",
+				"Product Owner",
+				"Software Architect",
+				"Project Manager",
+				"Software Developer",
+				"Tester",
+				"UX Designer",
+				"Delivery Manager"
+			]
 		}
 	},
 	"templates": {

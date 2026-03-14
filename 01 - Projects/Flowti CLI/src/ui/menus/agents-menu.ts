@@ -1,7 +1,4 @@
-/**
- * agents-menu.ts — Interactive agent management menus.
- */
-
+/** agents-menu.ts — Interactive agent management menus. */
 import { printHeader, RESET, DIM, GREEN, RED } from "../../infrastructure/ui.js";
 import type { MenuDeps } from "../../infrastructure/deps.js";
 import type { AgentsConfig, ProjectConfig } from "../../infrastructure/types.js";
@@ -9,6 +6,9 @@ import { listAgents, createAgent, deleteAgent, updateAgentField, addArrayItem, r
 import type { AgentDefinition, AgentSkill, AgentType, AgentSummary } from "../../domain/agents/agent-types.js";
 import { renderAgentList, renderAgentCreated, renderAgentDeleted } from "../displays/agents-display.js";
 import { updateProjectConfig } from "../../domain/project/project-config.js";
+
+// Re-export interact functions for backward compatibility
+export { talkToAgentInteractive, assignTaskInteractive, assignToProjectInteractive } from "./agents-interact-menu.js";
 
 export async function addAgentInteractive(projectPath: string, config: AgentsConfig | undefined, deps: MenuDeps): Promise<boolean> {
 	printHeader("Add Agent");
@@ -35,7 +35,6 @@ export async function addAgentInteractive(projectPath: string, config: AgentsCon
 	return false;
 }
 
-
 export async function removeAgentInteractive(projectPath: string, config: AgentsConfig | undefined, deps: MenuDeps): Promise<boolean> {
 	printHeader("Remove Agent");
 	const agents = listAgents(deps, projectPath, config);
@@ -60,8 +59,6 @@ export async function removeAgentInteractive(projectPath: string, config: Agents
 	if (ok) renderAgentDeleted(agent.name, deps.log);
 	return ok;
 }
-
-
 
 // ── Agent editing ────────────────────────────────────────────────────
 

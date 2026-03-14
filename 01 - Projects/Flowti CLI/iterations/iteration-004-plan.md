@@ -122,11 +122,11 @@ Agents become visible — project-level agent roster, a built-in static server, 
 ### Closure
 
 - [x] Verify tsc, vitest, eslint, esbuild all pass
-- [ ] End-to-end walkthrough — assign agents to project, create iteration, generate full brief, serve dashboard, see agent status
+- [x] End-to-end walkthrough — assign agents to project, create iteration, generate full brief, serve dashboard, see agent status
 - [ ] Push the Plan to Git
-- [ ] Document learnings
-- [ ] Capture retrospective notes
-- [ ] Review completed scope items
+- [x] Document learnings
+- [x] Capture retrospective notes
+- [x] Review completed scope items
 
 ## Transition History
 
@@ -137,6 +137,24 @@ Agents become visible — project-level agent roster, a built-in static server, 
 | 2026-03-14 | new | planned | Advanced to planned |
 
 ## Notes
+
+**Retrospective (2026-03-14):**
+
+*What went well:*
+- All 5 phases delivered in a single iteration — roster, full-iteration tasking, static server, data export, dashboard
+- Brief system evolved significantly: unique per agent, role-aware prompts with wikilinks, AC/DoD, lifecycle (open → active → done)
+- Roster-based task assignment flow enables direct agent tasking from iteration context
+- 10 agent definitions created covering the full project team (PO, PM, Architect, Developer, Tester, QA Manager, Delivery Manager, UX Designer, Product Manager, Project Manager)
+
+*What to improve:*
+- Dashboard directory naming changed mid-iteration (`site/agent-dashboard/` → `agents/`) — plan notes should be updated when decisions change
+- Dashboard build not yet wired into CI — `.flowti/site/` must be built manually via `node build.mjs`
+- Brief stub generation was initially too minimal — required a second pass to make briefs role-aware with full context
+
+*Learnings:*
+- Briefs work best as full role-aware prompts, not minimal stubs — the agent needs enough context to act autonomously
+- The lifecycle engine generalizes well beyond iterations — brief lifecycle (open/active/done) reused the same template + transition infrastructure
+- Wikilinks are the right abstraction for cross-referencing — they avoid content duplication and keep briefs linked to their source of truth
 
 **Design Decisions:**
 

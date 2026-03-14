@@ -8,37 +8,56 @@ import type { HandlerRegistry } from "../../infrastructure/handler-registry.js";
 import type { MenuResult } from "../../infrastructure/types.js";
 import type { RouterContext } from "../../infrastructure/sitemap-types.js";
 
-/** Resolve system prompt for a named agent (vault-level). */
-async function resolveAgentPrompt(ctx: RouterContext, agentName: string): Promise<string | null> {
-	const { VAULT_ROOT, cliConfig } = await import("../../infrastructure/config.js");
-	const { findAgent, readSystemPrompt } = await import("../../domain/agents/agent-store.js");
-	const agentDef = findAgent(ctx.deps, VAULT_ROOT, agentName, cliConfig.agents);
-	return agentDef ? readSystemPrompt(ctx.deps, VAULT_ROOT, agentDef.name, cliConfig.agents) : null;
+/** Build roster entries for prompt variable resolution. */
+function toRosterEntries(agents: Array<{ name: string; description: string; roles: string[]; skills: Array<{ name: string }> }>): Array<{ name: string; description: string; roles: string[]; skills: string[] }> {
+	return agents.map((a) => ({ name: a.name, description: a.description, roles: a.roles, skills: a.skills.map((s) => s.name) }));
 }
 
-/** Generate a brief for the active agent on the current iteration. Returns file path or null. */
+/** Resolve system prompt for a named agent (vault-level), with roster variables resolved. */
+async function resolveAgentPrompt(ctx: RouterContext, agentName: string): Promise<string | null> {
+	const { VAULT_ROOT, cliConfig } = await import("../../infrastructure/config.js");
+	const { findAgent, readSystemPrompt, getProjectAgents } = await import("../../domain/agents/agent-store.js");
+	const agentDef = findAgent(ctx.deps, VAULT_ROOT, agentName, cliConfig.agents);
+	if (!agentDef) return null;
+	let prompt = readSystemPrompt(ctx.deps, VAULT_ROOT, agentDef.name, cliConfig.agents);
+	if (prompt) {
+		const { resolvePromptVariables } = await import("../../domain/agents/brief-store.js");
+		const roster = getProjectAgents(ctx.deps, VAULT_ROOT, cliConfig.agents, ctx.project?.config.management?.agents?.roster);
+		prompt = resolvePromptVariables(prompt, toRosterEntries(roster));
+	}
+	return prompt;
+}
+
+/** Resolve agent details (description, skills, roles) for brief context. */
+async function resolveAgentDetails(ctx: RouterContext, agentName: string): Promise<{ description: string; skills: string[]; roles: string[] } | null> {
+	const { VAULT_ROOT, cliConfig } = await import("../../infrastructure/config.js");
+	const { findAgent } = await import("../../domain/agents/agent-store.js");
+	const agent = findAgent(ctx.deps, VAULT_ROOT, agentName, cliConfig.agents);
+	if (!agent) return null;
+	return { description: agent.description, skills: agent.skills.map((s) => s.name), roles: agent.roles };
+}
+
+/** Generate a brief for the active agent on the current iteration. */
 async function generateIterationBrief(ctx: RouterContext): Promise<string | null> {
 	if (!ctx.project) return null;
 	const { findCurrentIteration, iterationsDir } = await import("../../domain/iterations/iteration-store.js");
 	const { getActiveAgent } = await import("../../domain/agents/agent-orchestration.js");
-	const { generateBrief, briefFileName } = await import("../../domain/agents/agent-brief.js");
+	const { generateBrief, saveBrief } = await import("../../domain/agents/brief-store.js");
 	const { loadIterationTemplate } = await import("./iteration-template-loader.js");
-	const { getValidTransitions } = await import("../../domain/lifecycle/lifecycle-engine.js");
 	const config = ctx.project.config.management?.iterations;
 	const iteration = findCurrentIteration(ctx.deps, ctx.project.path, config);
 	if (!iteration) { ctx.deps.log("\n  No active iteration.\n"); return null; }
 	const active = getActiveAgent(config?.orchestration, iteration.status);
 	if (!active) { ctx.deps.log("\n  No agent bound to the current phase.\n"); return null; }
 	const systemPrompt = await resolveAgentPrompt(ctx, active.name);
+	const details = await resolveAgentDetails(ctx, active.name);
 	const template = loadIterationTemplate(ctx.deps, ctx.project.path, config);
-	const validTransitions = template ? getValidTransitions(template, iteration.status) : [];
-	const brief = generateBrief({ agent: active, iteration, systemPrompt, validTransitions });
+	const brief = generateBrief({
+		agentName: active.name, agentDescription: details?.description, agentSkills: details?.skills, agentRoles: details?.roles,
+		systemPrompt, iteration, iterationTemplate: template ?? undefined,
+	});
 	const dir = iterationsDir(ctx.deps, ctx.project.path, config);
-	const briefsDir = ctx.deps.paths.join(dir, "briefs");
-	if (!ctx.deps.disk.existsSync(briefsDir)) ctx.deps.disk.mkdirSync(briefsDir, { recursive: true });
-	const outPath = ctx.deps.paths.join(briefsDir, briefFileName(iteration.number, iteration.status));
-	ctx.deps.disk.writeFileSync(outPath, brief, "utf-8");
-	return outPath;
+	return saveBrief(ctx.deps, dir, iteration.number, active.name, iteration.status, brief);
 }
 
 /** Prompt the user to select an agent, then generate and write a full-iteration brief. */
@@ -63,30 +82,32 @@ async function executeFullIteration(ctx: RouterContext): Promise<string | null> 
 	const agent = resolveByChoice(choice, agents);
 	if (!agent) { ctx.deps.log(`\n  Agent "${choice}" not found.\n`); return null; }
 
-	return writeFullBrief(ctx, agent.name, iteration, config);
+	return writeFullBrief(ctx, agent, iteration, config);
 }
 
 async function writeFullBrief(
-	ctx: RouterContext, agentName: string, iteration: import("../../domain/iterations/iteration-types.js").IterationSummary,
+	ctx: RouterContext, agent: { name: string; description: string; roles: string[]; skills: Array<{ name: string }> },
+	iteration: import("../../domain/iterations/iteration-types.js").IterationSummary,
 	config: import("../../infrastructure/types.js").IterationsConfig | undefined,
 ): Promise<string | null> {
-	const { generateFullIterationBrief, briefFileName } = await import("../../domain/agents/agent-brief.js");
+	const { generateBrief, saveBrief } = await import("../../domain/agents/brief-store.js");
 	const { loadIterationTemplate } = await import("./iteration-template-loader.js");
 	const { iterationsDir } = await import("../../domain/iterations/iteration-store.js");
-	const { VAULT_ROOT, cliConfig } = await import("../../infrastructure/config.js");
-	const { readSystemPrompt } = await import("../../domain/agents/agent-store.js");
 
 	const template = loadIterationTemplate(ctx.deps, ctx.project!.path, config);
 	if (!template) { ctx.deps.log("\n  No lifecycle template found.\n"); return null; }
 
-	const systemPrompt = readSystemPrompt(ctx.deps, VAULT_ROOT, agentName, cliConfig.agents);
-	const brief = generateFullIterationBrief({ agentName, iteration, systemPrompt, template, orchestration: config?.orchestration });
-
-	const briefsDir = ctx.deps.paths.join(iterationsDir(ctx.deps, ctx.project!.path, config), "briefs");
-	if (!ctx.deps.disk.existsSync(briefsDir)) ctx.deps.disk.mkdirSync(briefsDir, { recursive: true });
-	const outPath = ctx.deps.paths.join(briefsDir, briefFileName(iteration.number, "full"));
-	ctx.deps.disk.writeFileSync(outPath, brief, "utf-8");
-	return outPath;
+	const systemPrompt = await resolveAgentPrompt(ctx, agent.name);
+	const { VAULT_ROOT, cliConfig } = await import("../../infrastructure/config.js");
+	const { getProjectAgents } = await import("../../domain/agents/agent-store.js");
+	const rosterAgents = toRosterEntries(getProjectAgents(ctx.deps, VAULT_ROOT, cliConfig.agents, ctx.project!.config.management?.agents?.roster));
+	const brief = generateBrief({
+		agentName: agent.name, agentDescription: agent.description,
+		agentSkills: agent.skills.map((s) => s.name), agentRoles: agent.roles,
+		systemPrompt, iteration, iterationTemplate: template, orchestration: config?.orchestration, rosterAgents,
+	});
+	const dir = iterationsDir(ctx.deps, ctx.project!.path, config);
+	return saveBrief(ctx.deps, dir, iteration.number, agent.name, iteration.status, brief);
 }
 
 function resolveByChoice<T extends { name: string }>(choice: string, items: T[]): T | undefined {
@@ -189,7 +210,6 @@ export function registerIterationHandlers(registry: HandlerRegistry): void {
 		return "navigate:iteration-detail" as MenuResult;
 	});
 
-	// iteration:add-agent is separate — agents are vault-level, need VAULT_ROOT
 	registry.registerAction("iteration:add-agent", async (ctx) => {
 		if (!ctx.project) return undefined;
 		const { VAULT_ROOT, cliConfig } = await import("../../infrastructure/config.js");
@@ -225,4 +245,19 @@ export function registerIterationHandlers(registry: HandlerRegistry): void {
 			return "navigate:iteration-detail" as MenuResult;
 		});
 	}
+
+	registry.registerAction("iteration:roster-task", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const { rosterTaskInteractive } = await import("../menus/roster-task-menu.js");
+		const { VAULT_ROOT, cliConfig } = await import("../../infrastructure/config.js");
+		const { loadIterationTemplate } = await import("./iteration-template-loader.js");
+		const template = loadIterationTemplate(ctx.deps, ctx.project.path, ctx.project.config.management?.iterations) ?? undefined;
+		await rosterTaskInteractive({
+			projectPath: ctx.project.path, iterationsConfig: ctx.project.config.management?.iterations,
+			roster: ctx.project.config.management?.agents?.roster,
+			vaultRoot: VAULT_ROOT, agentsConfig: cliConfig.agents, template,
+		}, ctx.deps);
+		await ctx.deps.input.waitForEnter();
+		return "navigate:iteration-detail" as MenuResult;
+	});
 }

@@ -516,10 +516,60 @@
 			"icon": "user",
 			"domain": "extensibility",
 			"status": "active",
-			"description": "View and edit an agent's identity, skills, tools, roles, AI config, and system prompt.",
+			"description": "Agent profile — view details, talk, assign tasks, or manage project assignments.",
 			"parent": "ai-tools",
 			"route": {
 				"path": "agents/:agentName"
+			},
+			"actions": [
+				{
+					"name": "onTalk",
+					"label": "Talk",
+					"type": "handler",
+					"target": "agents:talk",
+					"group": "interact"
+				},
+				{
+					"name": "onAssignTask",
+					"label": "Assign Task",
+					"type": "handler",
+					"target": "agents:assign-task",
+					"group": "interact"
+				},
+				{
+					"name": "onAssignToProject",
+					"label": "Assign to Project",
+					"type": "handler",
+					"target": "agents:assign-to-project",
+					"group": "manage"
+				},
+				{
+					"name": "onEdit",
+					"label": "Edit Agent",
+					"type": "navigate",
+					"target": "agent-edit",
+					"group": "manage"
+				},
+				{
+					"name": "onBack",
+					"label": "Back",
+					"type": "signal",
+					"target": "back",
+					"key": "b",
+					"group": "nav"
+				}
+			]
+		},
+		"agent-edit": {
+			"kind": "page",
+			"label": "Edit: {{params.agentName}}",
+			"icon": "edit",
+			"domain": "extensibility",
+			"status": "active",
+			"description": "Edit an agent's identity, skills, tools, roles, AI config, and system prompt.",
+			"parent": "agent-detail",
+			"route": {
+				"path": "agents/:agentName/edit"
 			},
 			"actions": [
 				{
@@ -558,7 +608,7 @@
 					"group": "ai"
 				},
 				{
-					"name": "onEditSystemPrompt",
+					"name": "onEditPrompt",
 					"label": "System Prompt",
 					"type": "handler",
 					"target": "agents:edit-prompt",
@@ -1777,49 +1827,10 @@
 			],
 			"actions": [
 				{
-					"name": "onEditIteration",
-					"label": "Edit Iteration",
-					"type": "navigate",
-					"target": "iteration-planning",
-					"group": "actions"
-				},
-				{
-					"name": "onAttachAgent",
-					"label": "Add Agent",
+					"name": "onRosterTask",
+					"label": "Assign Task",
 					"type": "handler",
-					"target": "iteration:add-agent",
-					"hidden": "iteration:not-planned",
-					"group": "resources"
-				},
-				{
-					"name": "onAddResource",
-					"label": "Add Resource Need",
-					"type": "handler",
-					"target": "iteration:add-resource",
-					"hidden": "iteration:not-planned",
-					"group": "resources"
-				},
-				{
-					"name": "onAddCapacity",
-					"label": "Add Estimation",
-					"type": "handler",
-					"target": "iteration:add-estimation",
-					"hidden": "iteration:not-planned",
-					"group": "resources"
-				},
-				{
-					"name": "onAdvance",
-					"label": "Advance",
-					"type": "handler",
-					"target": "iteration:advance",
-					"disabled": "iteration:cannot-advance",
-					"group": "lifecycle"
-				},
-				{
-					"name": "onGenerateBrief",
-					"label": "Generate Brief",
-					"type": "handler",
-					"target": "iteration:generate-brief",
+					"target": "iteration:roster-task",
 					"group": "orchestration"
 				},
 				{
@@ -1830,12 +1841,19 @@
 					"group": "orchestration"
 				},
 				{
-					"name": "onRunReports",
-					"label": "Run All Reports",
+					"name": "onEditIteration",
+					"label": "Edit Iteration",
+					"type": "navigate",
+					"target": "iteration-planning",
+					"group": "orchestration"
+				},
+				{
+					"name": "onAdvance",
+					"label": "Advance",
 					"type": "handler",
-					"target": "reports:run-all",
-					"hidden": "iteration:not-in-review",
-					"group": "reports"
+					"target": "iteration:advance",
+					"disabled": "iteration:cannot-advance",
+					"group": "lifecycle"
 				},
 				{
 					"name": "onBack",

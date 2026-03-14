@@ -143,7 +143,7 @@ export interface MenuOptions {
 
 // ── Lifecycle entity type (kept here — imported by types-config.ts) ──
 
-export type EntityType = "project" | "product" | "feature" | "iteration";
+export type EntityType = "project" | "product" | "feature" | "iteration" | "brief";
 
 // ── Re-export all config types for backward compatibility ───────────
 

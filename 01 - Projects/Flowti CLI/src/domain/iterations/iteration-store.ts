@@ -227,7 +227,9 @@ export function closeIteration(deps: IterationStoreDeps, projectPath: string, it
 	const content = deps.disk.readFileSync(path, "utf-8");
 	const typedFm = parseFrontmatterContent(content) ?? {};
 	const summary = parseIterationSummary(fm, typedFm, `${iterationPrefix(iterationNumber)}-plan.md`, content);
-	const reportPath = deps.paths.join(dir, `${iterationPrefix(iterationNumber)}-report.md`);
+	const reportsDir = deps.paths.join(dir, "reports");
+	if (!deps.disk.existsSync(reportsDir)) deps.disk.mkdirSync(reportsDir, { recursive: true });
+	const reportPath = deps.paths.join(reportsDir, `${iterationPrefix(iterationNumber)}-report.md`);
 	buildReportDocument(summary, deps.clock.iso().slice(0, 10)).save(reportPath, deps.disk);
 	return result;
 }

@@ -9,6 +9,7 @@
     "test": "npm run check && vitest run --config configs/vitest.config.ts",
     "lint": "eslint --config configs/eslint.config.mjs src/",
     "check": "npm run lint && tsc --project configs/tsconfig.json --noEmit",
+    "test:ui": "vitest --ui --config configs/vitest.config.ts --coverage.enabled --coverage.reporter=html --coverage.reportsDirectory=reports/ui",
     "typedoc": "typedoc --options configs/typedoc.json"
   },
   "devDependencies": {

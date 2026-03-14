@@ -128,6 +128,7 @@ describe("registerExtensibilityHandlers", () => {
 				"agents:add", "agents:remove",
 				"agents:edit-identity", "agents:edit-skills", "agents:edit-tools",
 				"agents:edit-roles", "agents:edit-ai", "agents:edit-prompt",
+				"agents:talk", "agents:assign-task", "agents:assign-to-project",
 			];
 			for (const id of expectedActions) {
 				expect(registry.hasAction(id)).toBe(true);
@@ -136,6 +137,11 @@ describe("registerExtensibilityHandlers", () => {
 
 		it("registers agents:list data source", () => {
 			expect(registry.hasDataSource("agents:list")).toBe(true);
+		});
+
+		it("registers agent-detail and agent-edit views", () => {
+			expect(registry.hasView("agent-detail")).toBe(true);
+			expect(registry.hasView("agent-edit")).toBe(true);
 		});
 	});
 

@@ -18,6 +18,17 @@ import { generateAiToolReference } from "../../domain/ai-tools/ai-tool-reference
 import { toToolListItems, toToolValidationItems } from "../../domain/ai-tools/ai-tool-commands.js";
 import { renderToolList, renderToolValidation } from "../displays/ai-tools-display.js";
 
+async function buildTaskContext(ctx: RouterContext): Promise<import("../menus/agents-interact-menu.js").TaskContext | undefined> {
+	if (!ctx.project) return undefined;
+	const result: import("../menus/agents-interact-menu.js").TaskContext = { projectName: ctx.project.config.name };
+	try {
+		const { findCurrentIteration } = await import("../../domain/iterations/iteration-store.js");
+		const current = findCurrentIteration(ctx.deps, ctx.project.path, ctx.project.config.management?.iterations);
+		if (current) return { ...result, iterationFile: current.file, iterationNumber: current.number };
+	} catch { /* iteration store not available */ }
+	return result;
+}
+
 export function registerExtensibilityHandlers(registry: HandlerRegistry): void {
 	// ── Plugin handlers ─────────────────────────────────────────────
 
@@ -227,5 +238,60 @@ export function registerExtensibilityHandlers(registry: HandlerRegistry): void {
 		return runMenu(null, actions, {
 			beforeMenu: () => renderAgentDetail(agent, ctx.deps.log),
 		});
+	});
+
+	// ── Agent edit view ─────────────────────────────────────────────
+
+	registry.registerView("agent-edit", async (ctx) => {
+		const agentName = ctx.params?.agentName as string | undefined;
+		if (!agentName) return "main";
+		const { findAgent } = await import("../../domain/agents/agent-store.js");
+		const { renderAgentDetail } = await import("../displays/agents-display.js");
+		const { runMenu } = await import("../../infrastructure/menu.js");
+		const agent = findAgent(ctx.deps, VAULT_ROOT, agentName, vaultAgents);
+		if (!agent) {
+			ctx.deps.log(`\n  Agent "${agentName}" not found.\n`);
+			return "main";
+		}
+		const actions = [...(ctx.dataSourceEntries?.["_actions"] ?? [])];
+		return runMenu(null, actions, {
+			beforeMenu: () => renderAgentDetail(agent, ctx.deps.log),
+		});
+	});
+
+	// ── Agent interaction handlers ──────────────────────────────────
+
+	registry.registerAction("agents:talk", async (ctx) => {
+		const agentName = ctx.params?.agentName as string | undefined;
+		if (!agentName) return undefined;
+		const { findAgent } = await import("../../domain/agents/agent-store.js");
+		const agent = findAgent(ctx.deps, VAULT_ROOT, agentName, vaultAgents);
+		if (!agent) return undefined;
+		const { talkToAgentInteractive } = await import("../menus/agents-menu.js");
+		await talkToAgentInteractive(VAULT_ROOT, agent, vaultAgents, ctx.deps);
+		return undefined;
+	});
+
+	registry.registerAction("agents:assign-task", async (ctx) => {
+		const agentName = ctx.params?.agentName as string | undefined;
+		if (!agentName) return undefined;
+		const { findAgent } = await import("../../domain/agents/agent-store.js");
+		const agent = findAgent(ctx.deps, VAULT_ROOT, agentName, vaultAgents);
+		if (!agent) return undefined;
+		const { assignTaskInteractive } = await import("../menus/agents-menu.js");
+		const taskCtx = await buildTaskContext(ctx);
+		await assignTaskInteractive(VAULT_ROOT, agent, vaultAgents, ctx.deps, taskCtx);
+		return undefined;
+	});
+
+	registry.registerAction("agents:assign-to-project", async (ctx) => {
+		const agentName = ctx.params?.agentName as string | undefined;
+		if (!agentName) return undefined;
+		const { findAgent } = await import("../../domain/agents/agent-store.js");
+		const agent = findAgent(ctx.deps, VAULT_ROOT, agentName, vaultAgents);
+		if (!agent) return undefined;
+		const { assignToProjectInteractive } = await import("../menus/agents-menu.js");
+		await assignToProjectInteractive(VAULT_ROOT, agent, ctx.deps);
+		return undefined;
 	});
 }
