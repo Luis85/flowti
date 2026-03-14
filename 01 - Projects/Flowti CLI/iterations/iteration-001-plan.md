@@ -10,7 +10,7 @@ resources:
 type: IterationPlan
 name: The Agents
 number: 1
-status: planned
+status: ready
 startDate: 2026-03-14
 endDate: 2026-03-28
 goal: We can add and manage Agent definitions
@@ -18,7 +18,14 @@ goal: We can add and manage Agent definitions
 
 # #1 — The Agents
 
-We can define Agents from different types, humans and ai. We can give them names, description, tools and a GURPS compatible character-sheet. Projects define their resource needs through roles. Roles can have a character sheet which can be used as a skill profile and requirement for Agents before they can be attached to a Project. I can create an human agent, and attach ai-agents to him. We can define Roles, usable in Projects and Agents. Roles can define things like "User", "Administrator", "UX Designer". Roles can have requirements visualized as a character sheet which is GURPS compatible. Projects can define their requirements also through the other resource types. Agents can also define requirements. A Role can also have requirements in regards of tools. At the end of the day, we want to manage a bunc of human or ai agents, attach them to projects, assign them tasks
+Core agent CRUD — define, persist, and manage agent entities as markdown files. Agents have a type (human/ai), name, description, skills (simplified GURPS profile), tools, and roles. The CLI provides full lifecycle management through the "Agents and AI Tools" hub. Markdown files are the source of truth; agents serialize cleanly to JSON for downstream consumption.
+
+**Deferred to future iterations:**
+- Agents executing Iteration Plans and Lifecycles (orchestration)
+- AI-specific skills and tool invocation
+- Role definitions with character-sheet requirements
+- Agent-to-project attachment with role matching
+- Human-to-AI agent supervision chains
 
 ## Goal
 
@@ -40,28 +47,34 @@ We can add and manage Agent definitions
 
 
 ## Scope Items
+
+
+
+
+- [ ] Push the Plan to Git
+- [ ] Kick-off communication
+- [ ] Verify all prerequisites are met
 - [x] Refine goal and vision
 - [x] Identify initial scope items
-- [ ] Break scope into actionable tasks
-- [ ] Assign resources and capacity
-- [ ] I can add and manage Agents in the "Agents and AI Tools" hub
-- [ ] When creating a new Agent it creates an agent definition as markdown file in  `03 - Resources/Agents`
-- [ ] markdown files are the source of truth for the system
-- [ ] agents can have tools
-- [ ] agents can have roles
-- [ ] agents can have character-sheets (simplified GURPS skill-profile)
-- [ ] agents have names
-- [ ] agents have descriptions
-- [ ] agents must be serializable from markdown to json
-- [ ] the agents docs save path must be configurable
-- [ ] agents can have skills
-- [ ] ai-agents can have ai-skills
+- [x] Break scope into actionable tasks
+- [x] Assign resources and capacity
+- [ ] Define Agent entity model: name, type (human/ai), description, skills, tools, roles
+- [ ] Agent markdown schema: frontmatter with all entity fields, body with sections
+- [ ] Agent persistence: create, read, update, list, delete via markdown-store pattern
+- [ ] Agent save path configurable via flowti.config.json (default: docs/agents)
+- [ ] Agent serialization: markdown-to-JSON round-trip (read frontmatter + sections → typed object)
+- [ ] CLI hub: manage agents via "Agents and AI Tools" page (list, add, view detail, edit, remove)
+- [ ] Simplified skill profile: key-value pairs in agent frontmatter (skill: level)
+- [ ] Agent tools: list of tool references in agent frontmatter
+- [ ] Agent roles: list of role references in agent frontmatter
+- [ ] Tests: full coverage for agent domain, store, display, and menu modules
 
 ## Notes
 
-<!-- Track progress and decisions during the iteration. -->
+**2026-03-14** — Refined scope: split original 16 items into 10 actionable tasks for this iteration. Deferred orchestration (agents executing plans), role requirements, and AI-specific skills to future iterations. Focus is core agent CRUD with markdown persistence and CLI integration.
 ## Transition History
 
 | Date | From | To | Reason |
 |---|---|---|---|
+| 2026-03-14 | planned | ready | Advanced to ready |
 | 2026-03-14 | new | planned | Advanced to planned |

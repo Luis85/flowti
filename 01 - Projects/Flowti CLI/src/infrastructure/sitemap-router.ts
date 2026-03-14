@@ -303,10 +303,10 @@ export class SitemapRouter {
 			case "handler":
 				return async () => {
 					const handler = this.#handlers.getAction(action.target!);
-					const result = await handler(ctx);
-					if (result === "quit") return "quit" as MenuResult;
-					if (result === "start") return "start" as MenuResult;
-					if (result === "main") return "main" as MenuResult;
+					const result = await handler(ctx) as string | undefined;
+					if (result && (result === "quit" || result === "start" || result === "main" || result.startsWith("navigate:"))) {
+						return result as MenuResult;
+					}
 					return undefined;
 				};
 
