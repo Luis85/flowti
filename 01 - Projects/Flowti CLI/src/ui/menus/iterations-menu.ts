@@ -21,7 +21,7 @@ import {
 	renderScopeItems, renderAdvanceResult,
 } from "../displays/iterations-display.js";
 
-export async function addIterationInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps): Promise<boolean> {
+export async function addIterationInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps, template?: LifecycleTemplate): Promise<boolean> {
 	printHeader("Add Iteration");
 
 	const name = await deps.input.ask("Name");
@@ -43,7 +43,7 @@ export async function addIterationInteractive(projectPath: string, config: Itera
 		name, number: num, startDate, endDate, goal,
 		capacity: capacity || undefined,
 		description: description || undefined,
-	}, config);
+	}, config, template);
 
 	if (filePath) {
 		renderIterationCreated(deps.paths.relative(projectPath, filePath), deps.log);

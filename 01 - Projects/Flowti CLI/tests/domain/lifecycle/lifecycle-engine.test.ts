@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
 	getTemplate, getValidTransitions, validateTransition, isTerminal,
-	registerTemplate, loadTemplate, getGates, validateGatedTransition,
+	registerTemplate, loadTemplate, getGates, getEntryTasks, validateGatedTransition,
 } from "../../../src/domain/lifecycle/lifecycle-engine.js";
 import type { GateResult } from "../../../src/domain/lifecycle/lifecycle-types.js";
 
@@ -297,5 +297,94 @@ describe("validateGatedTransition", () => {
 		const result = validateGatedTransition(template, "review", "released", evaluator);
 		expect(result.success).toBe(true);
 		expect(result.gateResults).toEqual([]);
+	});
+});
+
+describe("getEntryTasks", () => {
+	it("returns tasks for a state with tasks defined", () => {
+		const t = loadTemplate({
+			entityType: "task-test",
+			initialState: "a",
+			terminalStates: ["b"],
+			states: { a: { label: "A", transitions: ["b"] }, b: { label: "B", transitions: [] } },
+			tasks: { a: ["Do first thing", "Do second thing"] },
+		})!;
+		expect(getEntryTasks(t, "a")).toEqual(["Do first thing", "Do second thing"]);
+	});
+
+	it("returns empty array for state without tasks", () => {
+		const t = loadTemplate({
+			entityType: "task-test",
+			initialState: "a",
+			terminalStates: ["b"],
+			states: { a: { label: "A", transitions: ["b"] }, b: { label: "B", transitions: [] } },
+			tasks: { a: ["Task A"] },
+		})!;
+		expect(getEntryTasks(t, "b")).toEqual([]);
+	});
+
+	it("returns empty array when no tasks defined", () => {
+		const t = getTemplate("project")!;
+		expect(getEntryTasks(t, "inception")).toEqual([]);
+	});
+
+	it("returns empty array for unknown state", () => {
+		const t = loadTemplate({
+			entityType: "task-test",
+			initialState: "a",
+			terminalStates: ["b"],
+			states: { a: { label: "A", transitions: ["b"] }, b: { label: "B", transitions: [] } },
+			tasks: { a: ["Task A"] },
+		})!;
+		expect(getEntryTasks(t, "nonexistent")).toEqual([]);
+	});
+});
+
+describe("loadTemplate with tasks", () => {
+	it("parses tasks field from JSON", () => {
+		const t = loadTemplate({
+			entityType: "tasks-load",
+			initialState: "new",
+			terminalStates: ["done"],
+			states: { new: { label: "New", transitions: ["done"] }, done: { label: "Done", transitions: [] } },
+			tasks: { new: ["Refine scope"], done: ["Write retrospective"] },
+		});
+		expect(t).not.toBeNull();
+		expect(t!.tasks).toEqual({ new: ["Refine scope"], done: ["Write retrospective"] });
+	});
+
+	it("ignores tasks for unknown states", () => {
+		const t = loadTemplate({
+			entityType: "tasks-load",
+			initialState: "new",
+			terminalStates: ["done"],
+			states: { new: { label: "New", transitions: ["done"] }, done: { label: "Done", transitions: [] } },
+			tasks: { new: ["Task"], bogus: ["Ignored"] },
+		});
+		expect(t).not.toBeNull();
+		expect(t!.tasks).toEqual({ new: ["Task"] });
+	});
+
+	it("returns undefined tasks when field is absent", () => {
+		const t = loadTemplate({
+			entityType: "no-tasks",
+			initialState: "a",
+			terminalStates: ["b"],
+			states: { a: { label: "A", transitions: ["b"] }, b: { label: "B", transitions: [] } },
+		});
+		expect(t).not.toBeNull();
+		expect(t!.tasks).toBeUndefined();
+	});
+
+	it("rejects tasks with non-string items", () => {
+		const t = loadTemplate({
+			entityType: "bad-tasks",
+			initialState: "a",
+			terminalStates: ["b"],
+			states: { a: { label: "A", transitions: ["b"] }, b: { label: "B", transitions: [] } },
+			tasks: { a: [123, "valid"] },
+		});
+		expect(t).not.toBeNull();
+		expect(t!.tasks).toBeUndefined();
 	});
 });

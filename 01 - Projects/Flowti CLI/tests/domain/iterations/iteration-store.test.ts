@@ -96,6 +96,32 @@ const iterationLifecycle: LifecycleTemplate = loadTemplate({
 	},
 })!;
 
+const lifecycleWithTasks: LifecycleTemplate = loadTemplate({
+	entityType: "iteration",
+	initialState: "new",
+	terminalStates: ["done", "cancelled"],
+	states: {
+		new: { label: "New", transitions: ["planned", "cancelled"] },
+		planned: { label: "Planned", transitions: ["ready", "cancelled"] },
+		ready: { label: "Ready", transitions: ["in-progress", "cancelled"] },
+		"in-progress": { label: "In Progress", transitions: ["in-review", "cancelled"] },
+		"in-review": { label: "In Review", transitions: ["done", "cancelled"] },
+		done: { label: "Done", transitions: [] },
+		cancelled: { label: "Cancelled", transitions: [] },
+	},
+	gates: {
+		new: [{ id: "has-goal", label: "Goal defined" }],
+		planned: [{ id: "has-scope", label: "Scope items exist" }, { id: "has-dates", label: "Dates set" }],
+		ready: [{ id: "has-resources", label: "Resources assigned" }],
+		"in-progress": [{ id: "scope-progress", label: "Work started" }],
+		"in-review": [{ id: "all-scope-done", label: "All scope items completed" }],
+	},
+	tasks: {
+		new: ["Refine goal", "Identify scope"],
+		planned: ["Break scope into tasks"],
+	},
+})!;
+
 beforeEach(() => {
 	vi.clearAllMocks();
 });
@@ -246,6 +272,31 @@ describe("createIteration", () => {
 		expect(result).toBe("/project/docs/iterations/iteration-001-plan.md");
 		expect(mockDisk.mkdirSync).toHaveBeenCalled();
 	});
+
+	it("injects initial-state entry tasks when template provided", () => {
+		// existsSync: false for initial "does file exist?" check, then true for appendToSection
+		mockDisk.existsSync.mockReturnValueOnce(false).mockReturnValue(true);
+		// After buildPlanDocument writes, appendToSection reads back
+		const planContent = "---\nname: Sprint 1\n---\n\n## Scope Items\n\n<!-- No items yet -->\n";
+		mockDisk.readFileSync.mockReturnValue(planContent);
+		const result = createIteration(deps, "/project", {
+			name: "Sprint 1", number: 1, startDate: "2026-03-01", endDate: "2026-03-14", goal: "Build MVP",
+		}, undefined, lifecycleWithTasks);
+		expect(result).not.toBeNull();
+		const writes = mockDisk.writeFileSync.mock.calls;
+		const scopeWrites = writes.filter((c: unknown[]) => (c[1] as string).includes("[ ] Refine goal") || (c[1] as string).includes("[ ] Identify scope"));
+		expect(scopeWrites.length).toBeGreaterThanOrEqual(1);
+	});
+
+	it("does not inject tasks when no template provided", () => {
+		mockDisk.existsSync.mockReturnValue(false);
+		createIteration(deps, "/project", {
+			name: "Sprint 1", number: 1, startDate: "2026-03-01", endDate: "2026-03-14", goal: "Build MVP",
+		});
+		const writes = mockDisk.writeFileSync.mock.calls;
+		const scopeWrites = writes.filter((c: unknown[]) => (c[1] as string).includes("[ ] Refine goal"));
+		expect(scopeWrites).toHaveLength(0);
+	});
 });
 
 describe("transitionIteration", () => {
@@ -304,6 +355,30 @@ describe("transitionIteration", () => {
 
 		expect(result.success).toBe(false);
 		expect(result.error).toContain("Plan file not found");
+	});
+
+	it("injects entry tasks for the target state on transition", () => {
+		mockDisk.existsSync.mockReturnValue(true);
+		mockDisk.readFileSync.mockReturnValue(planContent("new", "Build MVP", "## Scope Items\n\n<!-- No items yet -->\n"));
+
+		transitionIteration(deps, "/project", 1, "planned", "Ready to plan", lifecycleWithTasks);
+
+		const writes = mockDisk.writeFileSync.mock.calls;
+		const taskWrite = writes.find((c: unknown[]) => (c[1] as string).includes("[ ] Break scope into tasks"));
+		expect(taskWrite).toBeDefined();
+	});
+
+	it("does not inject tasks when target state has none", () => {
+		mockDisk.existsSync.mockReturnValue(true);
+		mockDisk.readFileSync.mockReturnValue(planContent("new", "Build MVP"));
+
+		const writesBefore = mockDisk.writeFileSync.mock.calls.length;
+		transitionIteration(deps, "/project", 1, "planned", "Ready to plan", iterationLifecycle);
+
+		// Only status update + history writes, no task injection
+		const writes = mockDisk.writeFileSync.mock.calls.slice(writesBefore);
+		const taskWrite = writes.find((c: unknown[]) => (c[1] as string).includes("[ ] Break scope"));
+		expect(taskWrite).toBeUndefined();
 	});
 
 	it("transitions to cancelled without gates", () => {

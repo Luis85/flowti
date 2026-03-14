@@ -1,8 +1,14 @@
 ---
+capacities:
+  - Story Points|18|
+  - Hours 180|180|h
+resources:
+  - Test Resource|Test Role|80
+  - Another one||80
 type: IterationPlan
 name: The Agents
 number: 1
-status: new
+status: planned
 startDate: 2026-03-14
 endDate: 2026-03-28
 goal: We can add and manage Agent definitions
@@ -32,20 +38,28 @@ We can add and manage Agent definitions
 
 
 ## Scope Items
+- [x] Refine goal and vision
+- [x] Identify initial scope items
+- [ ] Break scope into actionable tasks
+- [ ] Assign resources and capacity
 - [ ] I can add and manage Agents in the "Agents and AI Tools" hub
 - [ ] When creating a new Agent it creates an agent definition as markdown file in docs/agents
 - [ ] markdown files are the source of truth for the system
 - [ ] agents can have tools
 - [ ] agents can have roles
-- [ ] agents can have character-sheets
+- [ ] agents can have character-sheets (simplified GURPS skill-profile)
 - [ ] agents have names
 - [ ] agents have descriptions
 - [ ] agents must be serializable from markdown to json
 - [ ] the agents docs save path must be configurable
 - [ ] agents can have skills
 - [ ] ai-agents can have ai-skills
-- [ ] agents are GURPS compatible
 
 ## Notes
 
 <!-- Track progress and decisions during the iteration. -->
+## Transition History
+
+| Date | From | To | Reason |
+|---|---|---|---|
+| 2026-03-14 | new | planned | Advanced to planned |

@@ -4,6 +4,7 @@
 		{"id":"9163de1675ce0e76","type":"group","x":1140,"y":-810,"width":2700,"height":800,"label":"Domain"},
 		{"id":"3fd8e3916db726e3","type":"group","x":1140,"y":-1520,"width":1760,"height":540,"label":"Intro"},
 		{"id":"850530599bf5841d","type":"group","x":2260,"y":110,"width":1580,"height":540,"label":"Lifecycle"},
+		{"id":"ed9ee8b8fe88a568","type":"group","x":1120,"y":1280,"width":4040,"height":180,"label":"Journey - Project Management"},
 		{"id":"34d50c5d2c82f3cc","type":"group","x":1140,"y":110,"width":1060,"height":540,"label":"Infrastructure"},
 		{"id":"ff63d9aa22e774eb","type":"group","x":2960,"y":-1520,"width":880,"height":540,"label":"Config"},
 		{
@@ -29,6 +30,26 @@
 		{"id":"4d8f11b15f948a59","type":"file","file":"03 - Resources/Reports/Project Summary.md","x":1160,"y":-1480,"width":400,"height":470},
 		{"id":"175788db73a5456b","type":"file","file":"01 - Projects/Flowti CLI/Flowti CLI PRD.md","x":1600,"y":-1480,"width":400,"height":470},
 		{
+			"id":"a47fcc4fc080a702",
+			"type":"text",
+			"text":"Areas",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2020,
+			"y":-130,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"c4e2a47882df58c0",
+			"type":"text",
+			"text":"Lifecycle",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2020,
+			"y":-210,
+			"width":260,
+			"height":60
+		},
+		{
 			"id":"cccddda8e8fc4013",
 			"type":"text",
 			"text":"Sitemap",
@@ -38,7 +59,6 @@
 			"width":380,
 			"height":60
 		},
-		{"id":"7ecfef96219b6755","type":"file","file":"01 - Projects/Flowti CLI/Flowti CLI Architecture.md","x":2040,"y":-1480,"width":400,"height":470},
 		{
 			"id":"44109fe26c50af0d",
 			"type":"text",
@@ -58,16 +78,6 @@
 			"y":-790,
 			"width":380,
 			"height":60
-		},
-		{
-			"id":"3f72ee99ea639f31",
-			"type":"text",
-			"text":"# Requirements\n\n- Domain Driven Design\n- Clean Architecture\n- Dependency Injection\n- Declarative UI\n- Test Driven Development\n- Clean Code Development\n- OWASP Best Practices\n- Self-documenting\n- Self-reporting\n- Data-Driven\n- ECS Compatible\n- ",
-			"styleAttributes":{},
-			"x":2480,
-			"y":-1480,
-			"width":400,
-			"height":470
 		},
 		{
 			"id":"c286a5d5127c8a11",
@@ -95,16 +105,6 @@
 			"text":"- follow the IREB standard\n- are managed in a project\n- are managed in a backlog\n- have a lifecycle\n- can have tasks\n- can have a parent\n- have a complexity score evaluated from dependencies and scope\n- can be evaluated in complexity like the codebase\n- can have tests attached\n- can be tested",
 			"styleAttributes":{},
 			"x":2320,
-			"y":-690,
-			"width":380,
-			"height":500
-		},
-		{
-			"id":"6e44cc51a12b9666",
-			"type":"text",
-			"text":"- shows all available events in a system\n- is C4-Model compatible\n- knows the following event kinds: command, query, event\n- can manage Domains, Services, Events\n- can be used for event-storming\n- can be used to connect systems visually\n- can be used to visualize systems",
-			"styleAttributes":{},
-			"x":3220,
 			"y":-690,
 			"width":380,
 			"height":500
@@ -139,6 +139,37 @@
 			"width":380,
 			"height":660
 		},
+		{
+			"id":"c1ab917a34f8cb90",
+			"type":"text",
+			"text":"SBOM",
+			"styleAttributes":{},
+			"x":1600,
+			"y":130,
+			"width":260,
+			"height":60
+		},
+		{"id":"7ecfef96219b6755","type":"file","file":"01 - Projects/Flowti CLI/Flowti CLI Architecture.md","x":2040,"y":-1480,"width":400,"height":470},
+		{
+			"id":"3f72ee99ea639f31",
+			"type":"text",
+			"text":"# Requirements\n\n- Domain Driven Design\n- Clean Architecture\n- Dependency Injection\n- Declarative UI\n- Test Driven Development\n- Clean Code Development\n- OWASP Best Practices\n- Self-documenting\n- Self-reporting\n- Data-Driven\n- ECS Compatible\n- ",
+			"styleAttributes":{},
+			"x":2480,
+			"y":-1480,
+			"width":400,
+			"height":470
+		},
+		{
+			"id":"6e44cc51a12b9666",
+			"type":"text",
+			"text":"- shows all available events in a system\n- is C4-Model compatible\n- knows the following event kinds: command, query, event\n- can manage Domains, Services, Events\n- can be used for event-storming\n- can be used to connect systems visually\n- can be used to visualize systems",
+			"styleAttributes":{},
+			"x":3220,
+			"y":-690,
+			"width":380,
+			"height":500
+		},
 		{"id":"b65159a7afec5752","type":"file","file":"01 - Projects/Flowti CLI/configs/flowti.config.json","x":2980,"y":-1480,"width":400,"height":470},
 		{"id":"17e053cc4244e017","type":"file","file":"01 - Projects/Flowti CLI/configs/sitemap.json","x":3420,"y":-1480,"width":400,"height":470},
 		{
@@ -148,16 +179,6 @@
 			"styleAttributes":{"textAlign":"center"},
 			"x":2020,
 			"y":-690,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"c1ab917a34f8cb90",
-			"type":"text",
-			"text":"SBOM",
-			"styleAttributes":{},
-			"x":1600,
-			"y":130,
 			"width":260,
 			"height":60
 		},
@@ -212,26 +233,6 @@
 			"height":60
 		},
 		{
-			"id":"a47fcc4fc080a702",
-			"type":"text",
-			"text":"Areas",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2020,
-			"y":-130,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"c4e2a47882df58c0",
-			"type":"text",
-			"text":"Lifecycle",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2020,
-			"y":-210,
-			"width":260,
-			"height":60
-		},
-		{
 			"id":"96f5f53f49835d93",
 			"type":"text",
 			"text":"Iteration Lifecycle",
@@ -257,46 +258,6 @@
 			"text":"planned",
 			"styleAttributes":{"textAlign":"center"},
 			"x":2777,
-			"y":130,
-			"width":116,
-			"height":60
-		},
-		{
-			"id":"6f589a8a9134fcec",
-			"type":"text",
-			"text":"ready",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2968,
-			"y":130,
-			"width":116,
-			"height":60
-		},
-		{
-			"id":"cde8055d36927e77",
-			"type":"text",
-			"text":"in-progress",
-			"styleAttributes":{"textAlign":"center"},
-			"x":3159,
-			"y":130,
-			"width":116,
-			"height":60
-		},
-		{
-			"id":"ebc6619d796a70e7",
-			"type":"text",
-			"text":"in-review",
-			"styleAttributes":{"textAlign":"center"},
-			"x":3350,
-			"y":130,
-			"width":116,
-			"height":60
-		},
-		{
-			"id":"7f3ed56e9df3a1f0",
-			"type":"text",
-			"text":"done",
-			"styleAttributes":{"textAlign":"center"},
-			"x":3542,
 			"y":130,
 			"width":116,
 			"height":60
@@ -342,12 +303,194 @@
 			"height":60
 		},
 		{
+			"id":"6f589a8a9134fcec",
+			"type":"text",
+			"text":"ready",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2968,
+			"y":130,
+			"width":116,
+			"height":60
+		},
+		{
+			"id":"cde8055d36927e77",
+			"type":"text",
+			"text":"in-progress",
+			"styleAttributes":{"textAlign":"center"},
+			"x":3159,
+			"y":130,
+			"width":116,
+			"height":60
+		},
+		{
+			"id":"ebc6619d796a70e7",
+			"type":"text",
+			"text":"in-review",
+			"styleAttributes":{"textAlign":"center"},
+			"x":3350,
+			"y":130,
+			"width":116,
+			"height":60
+		},
+		{
+			"id":"7f3ed56e9df3a1f0",
+			"type":"text",
+			"text":"done",
+			"styleAttributes":{"textAlign":"center"},
+			"x":3542,
+			"y":130,
+			"width":116,
+			"height":60
+		},
+		{
 			"id":"35b2ab911027b1d3",
 			"type":"text",
 			"text":"Task",
 			"styleAttributes":{"textAlign":"center"},
 			"x":2280,
 			"y":530,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"07ac28cc9160d44b",
+			"type":"text",
+			"text":"Create the first Iteration",
+			"styleAttributes":{},
+			"x":2504,
+			"y":1300,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"fa8aeb8add62d5d6",
+			"type":"text",
+			"text":"Refine the Iteration",
+			"styleAttributes":{},
+			"x":2844,
+			"y":1300,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"c9c0f20a992989c5",
+			"type":"text",
+			"text":"Plan the Iteration",
+			"styleAttributes":{},
+			"x":3184,
+			"y":1300,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"13ecd0dae9f9f9f6",
+			"type":"text",
+			"text":"Plan Ahead",
+			"styleAttributes":{},
+			"x":2504,
+			"y":1380,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"dfb8c991c6ec9d0f",
+			"type":"text",
+			"text":"Create a new project",
+			"styleAttributes":{},
+			"x":1144,
+			"y":1300,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"6cfd5eebfb225860",
+			"type":"text",
+			"text":"Start Flowti CLI",
+			"styleAttributes":{},
+			"x":1484,
+			"y":1300,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"e3a267580f706999",
+			"type":"text",
+			"text":"Choose \"Create Project\"",
+			"styleAttributes":{},
+			"x":1824,
+			"y":1300,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"ec99d93c7dbcbb88",
+			"type":"text",
+			"text":"Configure the Project",
+			"styleAttributes":{},
+			"x":2164,
+			"y":1300,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"a69761111fbf8d5b",
+			"type":"text",
+			"text":"Start the Iteration",
+			"styleAttributes":{},
+			"x":3524,
+			"y":1300,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"6dbeba9346c67d0a",
+			"type":"text",
+			"text":"Review the Resulsts",
+			"styleAttributes":{},
+			"x":3864,
+			"y":1300,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"b7a95ed32c259b9b",
+			"type":"text",
+			"text":"Review the Iteration",
+			"styleAttributes":{},
+			"x":4204,
+			"y":1300,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"00ef616c58692171",
+			"type":"text",
+			"text":"Close the Iteration",
+			"styleAttributes":{},
+			"x":4544,
+			"y":1300,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"4c24569131278ff9",
+			"type":"text",
+			"text":"Add a new Iteration",
+			"styleAttributes":{},
+			"x":4884,
+			"y":1300,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"bcaf6c112fdcd851",
+			"type":"text",
+			"text":"Close the Project",
+			"styleAttributes":{},
+			"x":4884,
+			"y":1380,
 			"width":260,
 			"height":60
 		}
@@ -405,6 +548,123 @@
 			"fromNode":"96f5f53f49835d93",
 			"fromSide":"right",
 			"toNode":"2eec4fea515b3218",
+			"toSide":"left"
+		},
+		{
+			"id":"c23349e7b9268c24",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"dfb8c991c6ec9d0f",
+			"fromSide":"right",
+			"toNode":"6cfd5eebfb225860",
+			"toSide":"left"
+		},
+		{
+			"id":"a89c40b7cea5ecbb",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"6cfd5eebfb225860",
+			"fromSide":"right",
+			"toNode":"e3a267580f706999",
+			"toSide":"left"
+		},
+		{
+			"id":"ea1806888b50a103",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"e3a267580f706999",
+			"fromSide":"right",
+			"toNode":"ec99d93c7dbcbb88",
+			"toSide":"left"
+		},
+		{
+			"id":"1b285a0c31991e56",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"ec99d93c7dbcbb88",
+			"fromSide":"right",
+			"toNode":"07ac28cc9160d44b",
+			"toSide":"left"
+		},
+		{
+			"id":"85b522f992a3f603",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"ec99d93c7dbcbb88",
+			"fromSide":"right",
+			"toNode":"13ecd0dae9f9f9f6",
+			"toSide":"left"
+		},
+		{
+			"id":"cde48154c849601b",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"07ac28cc9160d44b",
+			"fromSide":"right",
+			"toNode":"fa8aeb8add62d5d6",
+			"toSide":"left"
+		},
+		{
+			"id":"df1ae9c14243afe3",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"fa8aeb8add62d5d6",
+			"fromSide":"right",
+			"toNode":"c9c0f20a992989c5",
+			"toSide":"left"
+		},
+		{
+			"id":"9eb954eb7a709cfd",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"c9c0f20a992989c5",
+			"fromSide":"right",
+			"toNode":"a69761111fbf8d5b",
+			"toSide":"left"
+		},
+		{
+			"id":"f4301e5e272871ca",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"a69761111fbf8d5b",
+			"fromSide":"right",
+			"toNode":"6dbeba9346c67d0a",
+			"toSide":"left"
+		},
+		{
+			"id":"49d7f0a8136582fa",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"6dbeba9346c67d0a",
+			"fromSide":"right",
+			"toNode":"b7a95ed32c259b9b",
+			"toSide":"left"
+		},
+		{
+			"id":"eae1eb4721a36ee2",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"b7a95ed32c259b9b",
+			"fromSide":"right",
+			"toNode":"00ef616c58692171",
+			"toSide":"left"
+		},
+		{
+			"id":"e6dd57b132c7c402",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"00ef616c58692171",
+			"fromSide":"right",
+			"toNode":"4c24569131278ff9",
+			"toSide":"left"
+		},
+		{
+			"id":"698a4be151fb9982",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"00ef616c58692171",
+			"fromSide":"right",
+			"toNode":"bcaf6c112fdcd851",
 			"toSide":"left"
 		}
 	],

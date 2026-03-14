@@ -14,7 +14,7 @@ import type { IterationDefinition, IterationSummary, ScopeItem, AgentReference, 
 import type { LifecycleTemplate, GatedTransitionResult } from "../lifecycle/lifecycle-types.js";
 import { resolveDir, listMdFiles, readFrontmatter, updateField, appendToSection, replaceSectionLine } from "../shared/markdown-store.js";
 import { parseFrontmatterContent } from "../../infrastructure/frontmatter.js";
-import { validateGatedTransition } from "../lifecycle/lifecycle-engine.js";
+import { validateGatedTransition, getEntryTasks } from "../lifecycle/lifecycle-engine.js";
 import { makeGateEvaluator } from "./iteration-gates.js";
 import { buildPlanDocument, buildReportDocument, formatAgent, formatResource, formatCapacity } from "./iteration-documents.js";
 
@@ -152,12 +152,18 @@ export function findCurrentIteration(deps: Pick<CliDeps, "disk" | "paths" | "clo
 // ── Create ──────────────────────────────────────────────────────────
 
 /** Create an iteration plan file. Returns the plan file path or null if exists. */
-export function createIteration(deps: IterationStoreDeps, projectPath: string, def: IterationDefinition, config?: IterationsConfig): string | null {
+export function createIteration(deps: IterationStoreDeps, projectPath: string, def: IterationDefinition, config?: IterationsConfig, template?: LifecycleTemplate): string | null {
 	const dir = iterationsDir(deps, projectPath, config);
 	deps.disk.mkdirSync(dir, { recursive: true });
 	const path = planPath(deps, dir, def.number);
 	if (deps.disk.existsSync(path)) return null;
 	buildPlanDocument(def).save(path, deps.disk);
+	if (template) {
+		const initial = template.initialState;
+		for (const task of getEntryTasks(template, initial)) {
+			appendToSection(deps, path, "Scope Items", `[ ] ${task}`);
+		}
+	}
 	return path;
 }
 
@@ -184,6 +190,9 @@ export function transitionIteration(
 
 	updateField(deps, path, "status", newState);
 	appendTransitionHistory(deps, path, summary.status, newState, reason);
+	for (const task of getEntryTasks(template, newState)) {
+		appendToSection(deps, path, "Scope Items", `[ ] ${task}`);
+	}
 	return result;
 }
 

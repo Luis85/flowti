@@ -107,6 +107,12 @@ export function registerAllHandlers(registry: HandlerRegistry): void {
 		return !findCurrentIteration({ disk: ctx.deps.disk, paths: ctx.deps.paths, clock: ctx.deps.clock }, ctx.project.path, ctx.project.config.management?.iterations);
 	});
 
+	registry.registerCondition("iteration:not-planned", (ctx) => {
+		if (!ctx.project) return true;
+		const current = findCurrentIteration({ disk: ctx.deps.disk, paths: ctx.deps.paths, clock: ctx.deps.clock }, ctx.project.path, ctx.project.config.management?.iterations);
+		return !current || current.status !== "planned";
+	});
+
 	registry.registerCondition("iteration:cannot-advance", (ctx) => {
 		if (!ctx.project) return true;
 		const current = findCurrentIteration({ disk: ctx.deps.disk, paths: ctx.deps.paths, clock: ctx.deps.clock }, ctx.project.path, ctx.project.config.management?.iterations);

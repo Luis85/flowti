@@ -227,6 +227,7 @@ describe("registerAllHandlers", () => {
 				"readme:exists",
 				"iteration:running",
 				"iteration:not-running",
+				"iteration:not-planned",
 				"iteration:cannot-advance",
 			];
 			for (const id of expected) {
@@ -400,6 +401,31 @@ describe("registerAllHandlers", () => {
 		it("returns true when no current iteration", () => {
 			vi.mocked(findCurrentIteration).mockReturnValue(null);
 			const handler = registry.getCondition("iteration:not-running");
+			expect(handler(mockCtx())).toBe(true);
+		});
+	});
+
+	describe("iteration:not-planned", () => {
+		it("returns true when no project context", () => {
+			const handler = registry.getCondition("iteration:not-planned");
+			expect(handler(noProjectCtx())).toBe(true);
+		});
+
+		it("returns true when no current iteration", () => {
+			vi.mocked(findCurrentIteration).mockReturnValue(null);
+			const handler = registry.getCondition("iteration:not-planned");
+			expect(handler(mockCtx())).toBe(true);
+		});
+
+		it("returns false when current iteration is planned", () => {
+			vi.mocked(findCurrentIteration).mockReturnValue({ name: "Sprint 1", status: "planned" } as ReturnType<typeof findCurrentIteration>);
+			const handler = registry.getCondition("iteration:not-planned");
+			expect(handler(mockCtx())).toBe(false);
+		});
+
+		it("returns true when current iteration is not planned", () => {
+			vi.mocked(findCurrentIteration).mockReturnValue({ name: "Sprint 1", status: "in-progress" } as ReturnType<typeof findCurrentIteration>);
+			const handler = registry.getCondition("iteration:not-planned");
 			expect(handler(mockCtx())).toBe(true);
 		});
 	});

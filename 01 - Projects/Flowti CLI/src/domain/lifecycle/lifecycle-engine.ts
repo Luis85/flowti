@@ -148,6 +148,23 @@ export function validateGatedTransition(
 	return { ...base, gateResults };
 }
 
+/** Get entry tasks for a state. These are added to scope when entering the state. */
+export function getEntryTasks(template: LifecycleTemplate, state: string): readonly string[] {
+	return template.tasks?.[state] ?? [];
+}
+
+function parseTasks(raw: unknown, validStates: string[]): Record<string, string[]> | undefined {
+	if (!raw || typeof raw !== "object") return undefined;
+	const result: Record<string, string[]> = {};
+	for (const [state, items] of Object.entries(raw as Record<string, unknown>)) {
+		if (!validStates.includes(state)) continue;
+		if (!Array.isArray(items)) return undefined;
+		if (!items.every((i) => typeof i === "string")) return undefined;
+		result[state] = items as string[];
+	}
+	return Object.keys(result).length > 0 ? result : undefined;
+}
+
 function parseStates(statesObj: unknown): { states: string[]; transitions: Record<string, readonly string[]>; labels: Record<string, string> } | null {
 	if (!statesObj || typeof statesObj !== "object") return null;
 	const entries = statesObj as Record<string, unknown>;
@@ -201,6 +218,7 @@ export function loadTemplate(raw: unknown): LifecycleTemplate | null {
 	if (!parsed.states.includes(initialState)) return null;
 
 	const gates = parseGates(obj.gates);
+	const tasks = parseTasks(obj.tasks, parsed.states);
 
-	return { entityType, states: parsed.states, transitions: parsed.transitions, initialState, terminalStates, labels: parsed.labels, gates };
+	return { entityType, states: parsed.states, transitions: parsed.transitions, initialState, terminalStates, labels: parsed.labels, gates, tasks };
 }

@@ -17,5 +17,12 @@
 		"ready":       [{ "id": "has-resources", "label": "Resources assigned" }],
 		"in-progress": [{ "id": "scope-progress", "label": "Work started (≥1 item done)" }],
 		"in-review":   [{ "id": "all-scope-done", "label": "All scope items completed" }]
+	},
+	"tasks": {
+		"new":         ["Refine goal and vision", "Identify initial scope items"],
+		"planned":     ["Break scope into actionable tasks", "Assign resources and capacity"],
+		"ready":       ["Verify all prerequisites are met", "Kick-off communication"],
+		"in-progress": ["Track progress daily", "Flag blockers early"],
+		"in-review":   ["Review completed scope items", "Capture retrospective notes", "Document learnings"]
 	}
 }

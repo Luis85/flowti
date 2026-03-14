@@ -1649,12 +1649,36 @@
 					"group": "actions"
 				},
 				{
+					"name": "onAttachAgent",
+					"label": "Attach Agent",
+					"type": "handler",
+					"target": "iteration:attach-agent",
+					"hidden": "iteration:not-planned",
+					"group": "resources"
+				},
+				{
+					"name": "onAddResource",
+					"label": "Add Resource",
+					"type": "handler",
+					"target": "iteration:add-resource",
+					"hidden": "iteration:not-planned",
+					"group": "resources"
+				},
+				{
+					"name": "onAddCapacity",
+					"label": "Add Capacity",
+					"type": "handler",
+					"target": "iteration:add-capacity",
+					"hidden": "iteration:not-planned",
+					"group": "resources"
+				},
+				{
 					"name": "onAdvance",
 					"label": "Advance",
 					"type": "handler",
 					"target": "iteration:advance",
 					"disabled": "iteration:cannot-advance",
-					"group": "actions"
+					"group": "lifecycle"
 				},
 				{
 					"name": "onBack",

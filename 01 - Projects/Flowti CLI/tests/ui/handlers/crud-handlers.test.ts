@@ -633,7 +633,8 @@ describe("registerCrudHandlers", () => {
 		it("calls the correct function", async () => {
 			const handler = registry.getAction("iteration:create");
 			await handler(mockCtx());
-			expect(addIterationInteractive).toHaveBeenCalledWith("/project", expect.anything(), mockDeps);
+			expect(loadIterationTemplate).toHaveBeenCalled();
+			expect(addIterationInteractive).toHaveBeenCalledWith("/project", expect.anything(), mockDeps, expect.anything());
 			expect(input.waitForEnter).toHaveBeenCalled();
 		});
 

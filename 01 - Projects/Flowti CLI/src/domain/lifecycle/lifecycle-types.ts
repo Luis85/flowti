@@ -27,6 +27,7 @@ export interface LifecycleTemplate {
 	terminalStates: readonly string[];
 	labels?: Record<string, string>;
 	gates?: Record<string, readonly GateDefinition[]>;
+	tasks?: Record<string, readonly string[]>;
 }
 
 // ── Transition results ──────────────────────────────────────────────

@@ -252,7 +252,9 @@ export function registerCrudHandlers(registry: HandlerRegistry): void {
 		if (!ctx.project) return undefined;
 		const { input } = ctx.deps;
 		const { addIterationInteractive } = await import("../menus/iterations-menu.js");
-		const created = await addIterationInteractive(ctx.project.path, ctx.project.config.management?.iterations, ctx.deps);
+		const { loadIterationTemplate } = await import("./iteration-template-loader.js");
+		const template = loadIterationTemplate(ctx.deps, ctx.project.path, ctx.project.config.management?.iterations) ?? undefined;
+		const created = await addIterationInteractive(ctx.project.path, ctx.project.config.management?.iterations, ctx.deps, template);
 		if (created) {
 			await input.waitForEnter();
 			return "navigate:iteration-detail" as MenuResult;

@@ -186,7 +186,7 @@ describe("addIterationInteractive", () => {
 		expect(mockCreateIteration).toHaveBeenCalledWith(
 			deps, PROJECT,
 			expect.objectContaining({ name: "Sprint 1", number: 1, goal: "Deliver MVP" }),
-			CONFIG,
+			CONFIG, undefined,
 		);
 		expect(mockRenderCreated).toHaveBeenCalled();
 	});
