@@ -6,6 +6,8 @@ import { printHeader } from "../../infrastructure/ui.js";
 import type { MenuDeps } from "../../infrastructure/deps.js";
 import type { IterationsConfig } from "../../infrastructure/types.js";
 import type { AgentReference, ResourceAllocation, CapacityEntry } from "../../domain/iterations/iteration-types.js";
+import { createAgentFile, listAgentFiles, createResourceFile, createEstimationFile } from "../../domain/iterations/iteration-entities.js";
+import type { AgentEntity, ResourceNeedEntity, EstimationEntity } from "../../domain/iterations/iteration-entities.js";
 import type { LifecycleTemplate } from "../../domain/lifecycle/lifecycle-types.js";
 import {
 	listIterations, createIteration, transitionIteration, closeIteration,
@@ -17,7 +19,7 @@ import {
 import { getValidTransitions } from "../../domain/lifecycle/lifecycle-engine.js";
 import {
 	renderIterationCreated, renderIterationClosed,
-	renderIterationDetail, renderAgentAttached, renderResourceAdded, renderCapacityAdded,
+	renderIterationDetail, renderIterationList, renderAgentAdded, renderResourceAdded, renderEstimationAdded,
 	renderScopeItems, renderAdvanceResult,
 } from "../displays/iterations-display.js";
 
@@ -97,41 +99,60 @@ export async function showCurrentIteration(projectPath: string, config: Iteratio
 	}
 }
 
-export async function attachAgentInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps): Promise<void> {
-	printHeader("Attach Agent");
+export async function addAgentInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps): Promise<void> {
+	printHeader("Add Agent");
 
 	const current = findCurrentIteration(deps, projectPath, config);
 	if (!current) {
-		deps.log(`\n  No active iteration to attach agents to.\n`);
+		deps.log(`\n  No active iteration to add agents to.\n`);
 		return;
 	}
 
-	const agentsDir = deps.paths.join(projectPath, "agents");
-	if (!deps.disk.existsSync(agentsDir)) {
-		deps.log(`\n  No agents folder found at ${agentsDir}.\n`);
-		return;
-	}
+	const selected = await selectOrCreateAgent(projectPath, deps);
+	if (!selected) return;
 
-	const files = deps.disk.readdirSync(agentsDir).filter((f: string) => f.endsWith(".md"));
-	if (files.length === 0) {
-		deps.log(`\n  No agent files found in agents folder.\n`);
-		return;
-	}
-
-	for (let i = 0; i < files.length; i++) {
-		deps.log(`  ${i + 1}. ${files[i]}`);
-	}
-	const choice = await deps.input.ask("Select agent (number)");
-	const idx = parseInt(choice, 10) - 1;
-	if (isNaN(idx) || idx < 0 || idx >= files.length) return;
-
-	const agent: AgentReference = { name: files[idx].replace(/\.md$/, ""), file: files[idx] };
+	const agent: AgentReference = { name: selected.name, file: selected.file };
 	const ok = attachAgent(deps, projectPath, current.number, agent, config);
-	if (ok) renderAgentAttached(agent.name, current.name, deps.log);
+	if (ok) renderAgentAdded(selected.name, current.name, deps.log);
+}
+
+async function selectOrCreateAgent(projectPath: string, deps: MenuDeps): Promise<{ name: string; file: string } | null> {
+	const existing = listAgentFiles(deps, projectPath);
+	if (existing.length === 0) return createNewAgent(projectPath, deps);
+
+	deps.log(`\n  Existing agents:`);
+	for (let i = 0; i < existing.length; i++) {
+		deps.log(`  ${i + 1}. ${existing[i].replace(/\.md$/, "")}`);
+	}
+	deps.log(`  ${existing.length + 1}. Create new agent`);
+	const choice = await deps.input.ask("Select or create (number)");
+	const idx = parseInt(choice, 10) - 1;
+	if (isNaN(idx) || idx < 0 || idx > existing.length) return null;
+
+	if (idx < existing.length) {
+		const agentFile = existing[idx];
+		return { name: agentFile.replace(/\.md$/, ""), file: agentFile };
+	}
+	return createNewAgent(projectPath, deps);
+}
+
+async function createNewAgent(projectPath: string, deps: MenuDeps): Promise<{ name: string; file: string } | null> {
+	const name = await deps.input.ask("Agent name");
+	if (!name) return null;
+
+	const typeChoice = await deps.input.ask("Type (human/ai)", "human");
+	const agentType = typeChoice === "ai" ? "ai" as const : "human" as const;
+	const description = await deps.input.ask("Description (optional)", "");
+
+	const entity: AgentEntity = { name, type: agentType, description: description || undefined };
+	const filePath = createAgentFile(deps, projectPath, entity);
+	const file = deps.paths.basename(filePath);
+	deps.log(`\n  Created ${deps.paths.relative(projectPath, filePath)}`);
+	return { name, file };
 }
 
 export async function addResourceInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps): Promise<void> {
-	printHeader("Add Resource");
+	printHeader("Add Resource Need");
 
 	const current = findCurrentIteration(deps, projectPath, config);
 	if (!current) {
@@ -145,17 +166,21 @@ export async function addResourceInteractive(projectPath: string, config: Iterat
 	const role = await deps.input.ask("Role (optional)", "");
 	const allocation = await deps.input.ask("Allocation (optional, e.g. 80%)", "");
 
+	const entity: ResourceNeedEntity = { name, role: role || undefined, allocation: allocation || undefined };
+	const filePath = createResourceFile(deps, projectPath, entity);
+	deps.log(`\n  Created ${deps.paths.relative(projectPath, filePath)}`);
+
 	const resource: ResourceAllocation = { name, role: role || undefined, allocation: allocation || undefined };
 	const ok = addResource(deps, projectPath, current.number, resource, config);
 	if (ok) renderResourceAdded(name, current.name, deps.log);
 }
 
-export async function addCapacityInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps): Promise<void> {
-	printHeader("Add Capacity");
+export async function addEstimationInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps): Promise<void> {
+	printHeader("Add Estimation");
 
 	const current = findCurrentIteration(deps, projectPath, config);
 	if (!current) {
-		deps.log(`\n  No active iteration to add capacity to.\n`);
+		deps.log(`\n  No active iteration to add estimations to.\n`);
 		return;
 	}
 
@@ -167,9 +192,13 @@ export async function addCapacityInteractive(projectPath: string, config: Iterat
 
 	const unit = await deps.input.ask("Unit (optional)", "");
 
+	const entity: EstimationEntity = { label, value, unit: unit || undefined };
+	const filePath = createEstimationFile(deps, projectPath, entity);
+	deps.log(`\n  Created ${deps.paths.relative(projectPath, filePath)}`);
+
 	const capacity: CapacityEntry = { label, value, unit: unit || undefined };
 	const ok = addCapacity(deps, projectPath, current.number, capacity, config);
-	if (ok) renderCapacityAdded(label, current.name, deps.log);
+	if (ok) renderEstimationAdded(label, current.name, deps.log);
 }
 
 export async function addScopeItemInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps): Promise<void> {
@@ -181,11 +210,18 @@ export async function addScopeItemInteractive(projectPath: string, config: Itera
 		return;
 	}
 
-	const item = await deps.input.ask("Scope item");
-	if (!item) return;
+	let added = 0;
+	for (;;) {
+		const item = await deps.input.ask("Scope item");
+		if (!item) break;
 
-	const ok = addScopeItem(deps, projectPath, current.number, item, config);
-	if (ok) deps.log(`\n  Added scope item to ${current.name}.`);
+		const ok = addScopeItem(deps, projectPath, current.number, item, config);
+		if (ok) { deps.log(`\n  Added scope item to ${current.name}.`); added++; }
+
+		const more = await deps.input.askYesNo("Add another?");
+		if (!more) break;
+	}
+	if (added > 0) deps.log(`\n  ${added} scope item${added > 1 ? "s" : ""} added.`);
 }
 
 export async function editDescriptionInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps): Promise<void> {
@@ -344,4 +380,62 @@ export async function toggleScopeInteractive(projectPath: string, config: Iterat
 		const state = item.done ? "unchecked" : "checked";
 		deps.log(`\n  Marked "${item.text}" as ${state}.`);
 	}
+}
+
+export async function planAheadInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps, template?: LifecycleTemplate): Promise<boolean> {
+	printHeader("Plan Ahead");
+
+	const countStr = await deps.input.ask("How many iterations to plan?", "1");
+	const count = parseInt(countStr, 10);
+	if (isNaN(count) || count < 1) return false;
+
+	const existing = listIterations(deps, projectPath, config);
+	let nextNum = nextIterationNumber(existing);
+	let created = 0;
+
+	for (let i = 0; i < count; i++) {
+		const name = await deps.input.ask(`Name for iteration #${nextNum}`, `Iteration ${nextNum}`);
+		if (!name) break;
+
+		const goal = await deps.input.ask("Goal (optional)", "");
+
+		const filePath = createIteration(deps, projectPath, {
+			name, number: nextNum, startDate: "", endDate: "", goal,
+		}, config, template);
+
+		if (filePath) {
+			renderIterationCreated(deps.paths.relative(projectPath, filePath), deps.log);
+			created++;
+			nextNum++;
+		}
+	}
+
+	if (created > 0) deps.log(`\n  Planned ${created} iteration${created > 1 ? "s" : ""} ahead.`);
+	return created > 0;
+}
+
+export async function browseIterationsInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps): Promise<number | null> {
+	printHeader("Browse Iterations");
+
+	const all = listIterations(deps, projectPath, config);
+	const editable = all.filter((it) => it.status !== "done" && it.status !== "cancelled");
+
+	if (editable.length === 0) {
+		deps.log(`\n  No editable iterations.\n`);
+		return null;
+	}
+
+	renderIterationList(editable, deps.log);
+
+	const choice = await deps.input.ask("Select iteration number");
+	const num = parseInt(choice, 10);
+	if (isNaN(num)) return null;
+
+	const match = editable.find((it) => it.number === num);
+	if (!match) {
+		deps.log(`\n  Iteration #${num} not found or not editable.\n`);
+		return null;
+	}
+
+	return match.number;
 }

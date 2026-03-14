@@ -79,16 +79,16 @@ export function renderIterationClosed(name: string, log: (msg?: string) => void)
 	log(`\n  ${GREEN}✓${RESET} Closed: ${name}`);
 }
 
-export function renderAgentAttached(agentName: string, iterationName: string, log: (msg?: string) => void): void {
-	log(`\n  ${GREEN}✓${RESET} Attached agent "${agentName}" to ${iterationName}`);
+export function renderAgentAdded(agentName: string, iterationName: string, log: (msg?: string) => void): void {
+	log(`\n  ${GREEN}✓${RESET} Added agent "${agentName}" to ${iterationName}`);
 }
 
 export function renderResourceAdded(resourceName: string, iterationName: string, log: (msg?: string) => void): void {
-	log(`\n  ${GREEN}✓${RESET} Added resource "${resourceName}" to ${iterationName}`);
+	log(`\n  ${GREEN}✓${RESET} Added resource need "${resourceName}" to ${iterationName}`);
 }
 
-export function renderCapacityAdded(capacityLabel: string, iterationName: string, log: (msg?: string) => void): void {
-	log(`\n  ${GREEN}✓${RESET} Added capacity "${capacityLabel}" to ${iterationName}`);
+export function renderEstimationAdded(label: string, iterationName: string, log: (msg?: string) => void): void {
+	log(`\n  ${GREEN}✓${RESET} Added estimation "${label}" to ${iterationName}`);
 }
 
 export function renderIterationAdvanced(name: string, phase: string, log: (msg?: string) => void): void {
@@ -98,13 +98,22 @@ export function renderIterationAdvanced(name: string, phase: string, log: (msg?:
 export function renderPlanningHeader(item: IterationSummary, log: (msg?: string) => void): void {
 	const color = STATUS_COLORS[item.status] ?? DIM;
 
-	log(`\n  ${BOLD}Planning — #${item.number} ${item.name}${RESET}`);
+	log(`\n  ${BOLD}Edit — #${item.number} ${item.name}${RESET}`);
 	log(`  ${DIM}Status:${RESET}  ${color}${item.status}${RESET}`);
-	log(`  ${DIM}Period:${RESET}  ${item.startDate} → ${item.endDate}`);
-	log(`  ${DIM}Goal:${RESET}    ${item.goal}`);
+	log(`  ${DIM}Period:${RESET}  ${item.startDate || DIM + "(not set)" + RESET} → ${item.endDate || DIM + "(not set)" + RESET}`);
+	log(`  ${DIM}Goal:${RESET}    ${item.goal || DIM + "(none)" + RESET}`);
 	if (item.description) log(`  ${DIM}Description:${RESET} ${item.description}`);
 	else log(`  ${DIM}Description:${RESET} ${DIM}(none)${RESET}`);
-	renderScopeItems(item.scopeItems, log);
+	log();
+}
+
+export function renderGateStatus(gates: { label: string; passed: boolean }[], log: (msg?: string) => void): void {
+	if (gates.length === 0) return;
+	log(`  ${BOLD}Quality Gates${RESET}`);
+	for (const g of gates) {
+		const icon = g.passed ? `${GREEN}✓${RESET}` : `${RED}○${RESET}`;
+		log(`  ${icon} ${g.label}`);
+	}
 	log();
 }
 

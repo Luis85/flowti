@@ -11,15 +11,25 @@ vi.mock("../../../src/domain/iterations/iteration-store.js", () => ({
 }));
 vi.mock("../../../src/ui/displays/iterations-display.js", () => ({
 	renderIterationDetail: vi.fn(),
+	renderGateStatus: vi.fn(),
+}));
+vi.mock("../../../src/domain/lifecycle/lifecycle-engine.js", () => ({
+	getValidTransitions: vi.fn(() => []),
+	getGates: vi.fn(() => []),
+}));
+vi.mock("../../../src/domain/iterations/iteration-gates.js", () => ({
+	makeGateEvaluator: vi.fn(() => () => ({ gateId: "test", passed: true })),
 }));
 
 import { runMenu } from "../../../src/infrastructure/menu.js";
 import { listIterations, findCurrentIteration } from "../../../src/domain/iterations/iteration-store.js";
-import { renderIterationDetail } from "../../../src/ui/displays/iterations-display.js";
-import { iterationDetailMenu, resolveCurrentIterationNumber } from "../../../src/ui/menus/iteration-detail-menu.js";
+import { renderIterationDetail, renderGateStatus } from "../../../src/ui/displays/iterations-display.js";
+import { getValidTransitions, getGates } from "../../../src/domain/lifecycle/lifecycle-engine.js";
+import { iterationDetailMenu, resolveCurrentIterationNumber, resolveIterationNumber } from "../../../src/ui/menus/iteration-detail-menu.js";
 import type { MenuDeps } from "../../../src/infrastructure/deps.js";
 import type { IterationSummary } from "../../../src/domain/iterations/iteration-types.js";
 import type { IterationsConfig, MenuEntry } from "../../../src/infrastructure/types.js";
+import type { LifecycleTemplate } from "../../../src/domain/lifecycle/lifecycle-types.js";
 
 const mockRunMenu = vi.mocked(runMenu);
 const mockListIterations = vi.mocked(listIterations);
@@ -197,5 +207,133 @@ describe("resolveCurrentIterationNumber", () => {
 
 		expect(result).toBeNull();
 		expect(mockFindCurrent).toHaveBeenCalledWith(deps, PROJECT_PATH, undefined);
+	});
+});
+
+// ── resolveIterationNumber ──────────────────────────────────────────
+
+describe("resolveIterationNumber", () => {
+	it("returns target number when iteration exists", () => {
+		const deps = makeDeps();
+		mockListIterations.mockReturnValue([
+			makeIteration({ number: 1 }),
+			makeIteration({ number: 2 }),
+		]);
+
+		const result = resolveIterationNumber(PROJECT_PATH, CONFIG, deps, 2);
+		expect(result).toBe(2);
+	});
+
+	it("returns null when target number not found", () => {
+		const deps = makeDeps();
+		mockListIterations.mockReturnValue([makeIteration({ number: 1 })]);
+
+		const result = resolveIterationNumber(PROJECT_PATH, CONFIG, deps, 99);
+		expect(result).toBeNull();
+	});
+
+	it("falls back to current iteration when no target specified", () => {
+		const deps = makeDeps();
+		mockFindCurrent.mockReturnValue(makeIteration({ number: 3 }));
+
+		const result = resolveIterationNumber(PROJECT_PATH, CONFIG, deps);
+		expect(result).toBe(3);
+	});
+
+	it("returns null when no target and no current iteration", () => {
+		const deps = makeDeps();
+		mockFindCurrent.mockReturnValue(null);
+
+		const result = resolveIterationNumber(PROJECT_PATH, CONFIG, deps);
+		expect(result).toBeNull();
+	});
+});
+
+// ── Advance label and gate status ───────────────────────────────────
+
+const mockTemplate: LifecycleTemplate = {
+	entityType: "iteration", initialState: "new", terminalStates: ["done", "cancelled"],
+	states: {
+		new: { transitions: ["planned", "cancelled"] },
+		planned: { transitions: ["ready", "cancelled"] },
+		ready: { transitions: [] },
+		done: { transitions: [] },
+		cancelled: { transitions: [] },
+	},
+	labels: { planned: "Planned", ready: "Ready" },
+};
+
+describe("advance label with template", () => {
+	it("shows target state in Advance label", async () => {
+		const iteration = makeIteration({ status: "new" });
+		mockListIterations.mockReturnValue([iteration]);
+		mockRunMenu.mockResolvedValue("main");
+		vi.mocked(getValidTransitions).mockReturnValue(["planned", "cancelled"]);
+
+		const advanceAction: MenuEntry = { key: "a", label: "Advance", action: () => "main" as const };
+		const slots: Readonly<Record<string, readonly MenuEntry[]>> = { _actions: [advanceAction] };
+
+		await iterationDetailMenu(PROJECT_PATH, 1, CONFIG, slots, makeDeps(), mockTemplate);
+
+		const [, items] = mockRunMenu.mock.calls[0];
+		expect(items[0]).toHaveProperty("label", "Advance → Planned");
+	});
+
+	it("keeps plain Advance label when no valid transitions", async () => {
+		const iteration = makeIteration({ status: "done" });
+		mockListIterations.mockReturnValue([iteration]);
+		mockRunMenu.mockResolvedValue("main");
+		vi.mocked(getValidTransitions).mockReturnValue([]);
+
+		const advanceAction: MenuEntry = { key: "a", label: "Advance", action: () => "main" as const };
+		const slots: Readonly<Record<string, readonly MenuEntry[]>> = { _actions: [advanceAction] };
+
+		await iterationDetailMenu(PROJECT_PATH, 1, CONFIG, slots, makeDeps(), mockTemplate);
+
+		const [, items] = mockRunMenu.mock.calls[0];
+		expect(items[0]).toHaveProperty("label", "Advance");
+	});
+});
+
+describe("gate status display", () => {
+	it("shows gate status when template has gates", async () => {
+		const deps = makeDeps();
+		const iteration = makeIteration({ status: "new" });
+		mockListIterations.mockReturnValue([iteration]);
+		mockRunMenu.mockResolvedValue("main");
+		vi.mocked(getGates).mockReturnValue([{ id: "has-goal", label: "Goal defined" }]);
+
+		await iterationDetailMenu(PROJECT_PATH, 1, CONFIG, undefined, deps, mockTemplate);
+
+		const [, , options] = mockRunMenu.mock.calls[0];
+		(options as any).beforeMenu();
+		expect(renderGateStatus).toHaveBeenCalled();
+	});
+
+	it("does not show gate status when no gates for current state", async () => {
+		const deps = makeDeps();
+		const iteration = makeIteration({ status: "new" });
+		mockListIterations.mockReturnValue([iteration]);
+		mockRunMenu.mockResolvedValue("main");
+		vi.mocked(getGates).mockReturnValue([]);
+
+		await iterationDetailMenu(PROJECT_PATH, 1, CONFIG, undefined, deps, mockTemplate);
+
+		const [, , options] = mockRunMenu.mock.calls[0];
+		(options as any).beforeMenu();
+		expect(renderGateStatus).not.toHaveBeenCalled();
+	});
+
+	it("does not show gate status when no template provided", async () => {
+		const deps = makeDeps();
+		const iteration = makeIteration({ status: "new" });
+		mockListIterations.mockReturnValue([iteration]);
+		mockRunMenu.mockResolvedValue("main");
+
+		await iterationDetailMenu(PROJECT_PATH, 1, CONFIG, undefined, deps);
+
+		const [, , options] = mockRunMenu.mock.calls[0];
+		(options as any).beforeMenu();
+		expect(renderGateStatus).not.toHaveBeenCalled();
 	});
 });

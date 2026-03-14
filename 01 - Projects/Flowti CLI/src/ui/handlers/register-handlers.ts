@@ -217,10 +217,13 @@ export function registerAllHandlers(registry: HandlerRegistry): void {
 
 	registry.registerView("iteration-detail", async (ctx) => {
 		if (!ctx.project) return "main";
-		const { iterationDetailMenu, resolveCurrentIterationNumber } = await import("../menus/iteration-detail-menu.js");
+		const { iterationDetailMenu, resolveIterationNumber } = await import("../menus/iteration-detail-menu.js");
+		const { loadIterationTemplate } = await import("./iteration-template-loader.js");
 		const config = ctx.project.config.management?.iterations;
-		const iterNum = resolveCurrentIterationNumber(ctx.project.path, config, ctx.deps);
+		const targetNum = ctx.params?.iterationNumber as number | undefined;
+		const iterNum = resolveIterationNumber(ctx.project.path, config, ctx.deps, targetNum);
 		if (!iterNum) return "main";
-		return iterationDetailMenu(ctx.project.path, iterNum, config, ctx.dataSourceEntries, ctx.deps);
+		const template = loadIterationTemplate(ctx.deps, ctx.project.path, config) ?? undefined;
+		return iterationDetailMenu(ctx.project.path, iterNum, config, ctx.dataSourceEntries, ctx.deps, template);
 	});
 }

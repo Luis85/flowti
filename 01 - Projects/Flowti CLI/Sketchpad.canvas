@@ -20,7 +20,7 @@
 		{
 			"id":"be6a5cc9149d21d8",
 			"type":"text",
-			"text":"- Agents can be Human or AI\n- Agents are GURPS compatible\n- Agents can have a Character Sheet\n- Agents can have a Role\n- Agents can be attached to a Project\n- Agents can have a Parent\n- Agents can have Tools attached",
+			"text":"- Agents can be Human or AI\n- Agents are GURPS compatible\n- Agents can have a Character Sheet\n- Agents can have a Role\n- Agents can be attached to a Project\n- Agents can have a Parent\n- Agents can have Tools attached\n- Agents can be displayed in a 2D world with ExcaliburJS\n- ",
 			"styleAttributes":{},
 			"x":1160,
 			"y":-690,

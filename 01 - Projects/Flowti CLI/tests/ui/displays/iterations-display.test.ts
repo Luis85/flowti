@@ -10,8 +10,8 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 import {
 	renderIterationList, renderIterationDetail, renderIterationCreated,
 	renderIterationStarted, renderIterationClosed,
-	renderAgentAttached, renderResourceAdded, renderCapacityAdded,
-	renderPlanningHeader, renderScopeItems,
+	renderAgentAdded, renderResourceAdded, renderEstimationAdded,
+	renderPlanningHeader, renderScopeItems, renderGateStatus,
 } from "../../../src/ui/displays/iterations-display.js";
 import { log } from "../../../src/infrastructure/logger.js";
 import type { IterationSummary } from "../../../src/domain/iterations/iteration-types.js";
@@ -82,8 +82,8 @@ describe("feedback renderers", () => {
 		expect(mockLog.mock.calls.flat().join(" ")).toContain("Closed");
 	});
 
-	it("renderAgentAttached shows agent and iteration names", () => {
-		renderAgentAttached("CodeReview", "Sprint 1", log);
+	it("renderAgentAdded shows agent and iteration names", () => {
+		renderAgentAdded("CodeReview", "Sprint 1", log);
 		expect(mockLog.mock.calls.flat().join(" ")).toContain("CodeReview");
 	});
 
@@ -92,8 +92,8 @@ describe("feedback renderers", () => {
 		expect(mockLog.mock.calls.flat().join(" ")).toContain("Luis");
 	});
 
-	it("renderCapacityAdded shows capacity label", () => {
-		renderCapacityAdded("Story Points", "Sprint 1", log);
+	it("renderEstimationAdded shows estimation label", () => {
+		renderEstimationAdded("Story Points", "Sprint 1", log);
 		expect(mockLog.mock.calls.flat().join(" ")).toContain("Story Points");
 	});
 });
@@ -102,7 +102,7 @@ describe("renderPlanningHeader", () => {
 	it("renders header with description", () => {
 		renderPlanningHeader(makeSummary({ description: "Sprint planning notes" }), log);
 		const output = mockLog.mock.calls.flat().join(" ");
-		expect(output).toContain("Planning");
+		expect(output).toContain("Edit");
 		expect(output).toContain("Sprint 1");
 		expect(output).toContain("Sprint planning notes");
 		expect(output).toContain("Build MVP");
@@ -122,14 +122,19 @@ describe("renderPlanningHeader", () => {
 		expect(output).toContain("2026-03-14");
 	});
 
-	it("shows scope items in planning header", () => {
+	it("does not show scope items", () => {
 		renderPlanningHeader(makeSummary({
-			scopeItems: [{ text: "Auth module", done: false }, { text: "Setup CI", done: true }],
+			scopeItems: [{ text: "Auth module", done: false }],
 		}), log);
 		const output = mockLog.mock.calls.flat().join(" ");
-		expect(output).toContain("Auth module");
-		expect(output).toContain("Setup CI");
-		expect(output).toContain("(1/2)");
+		expect(output).not.toContain("Auth module");
+		expect(output).not.toContain("Scope");
+	});
+
+	it("shows (not set) for empty dates", () => {
+		renderPlanningHeader(makeSummary({ startDate: "", endDate: "" }), log);
+		const output = mockLog.mock.calls.flat().join(" ");
+		expect(output).toContain("(not set)");
 	});
 });
 
@@ -152,5 +157,23 @@ describe("renderScopeItems", () => {
 		expect(output).toContain("[x]");
 		expect(output).toContain("Task A");
 		expect(output).toContain("Task B");
+	});
+});
+
+describe("renderGateStatus", () => {
+	it("renders nothing when empty", () => {
+		renderGateStatus([], log);
+		expect(mockLog).not.toHaveBeenCalled();
+	});
+
+	it("renders gate checklist with pass/fail indicators", () => {
+		renderGateStatus([
+			{ label: "Goal defined", passed: true },
+			{ label: "Scope items exist", passed: false },
+		], log);
+		const output = mockLog.mock.calls.flat().join(" ");
+		expect(output).toContain("Quality Gates");
+		expect(output).toContain("Goal defined");
+		expect(output).toContain("Scope items exist");
 	});
 });

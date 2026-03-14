@@ -96,9 +96,9 @@ vi.mock("../../../src/ui/menus/iterations-menu.js", () => ({
 	addIterationInteractive: vi.fn(() => false),
 	advanceIterationInteractive: vi.fn(),
 	showCurrentIteration: vi.fn(),
-	attachAgentInteractive: vi.fn(),
+	addAgentInteractive: vi.fn(),
 	addResourceInteractive: vi.fn(),
-	addCapacityInteractive: vi.fn(),
+	addEstimationInteractive: vi.fn(),
 	addScopeItemInteractive: vi.fn(),
 	addNoteInteractive: vi.fn(),
 	editScopeInteractive: vi.fn(),
@@ -141,8 +141,8 @@ import { listIterations } from "../../../src/domain/iterations/iteration-store.j
 import { renderIterationList } from "../../../src/ui/displays/iterations-display.js";
 import {
 	addIterationInteractive, advanceIterationInteractive,
-	showCurrentIteration, attachAgentInteractive,
-	addResourceInteractive as addIterResourceInteractive, addCapacityInteractive,
+	showCurrentIteration, addAgentInteractive,
+	addResourceInteractive as addIterResourceInteractive, addEstimationInteractive,
 	addScopeItemInteractive, addNoteInteractive,
 } from "../../../src/ui/menus/iterations-menu.js";
 import { loadIterationTemplate } from "../../../src/ui/handlers/iteration-template-loader.js";
@@ -209,8 +209,9 @@ describe("registerCrudHandlers", () => {
 				"resources:add-role", "resources:add-budget", "resources:financials",
 				"timelog:list", "timelog:add", "timelog:summary",
 				"iteration:list", "iteration:create", "iteration:advance", "iteration:current",
-				"iteration:attach-agent", "iteration:add-resource",
-				"iteration:add-capacity", "iteration:add-scope", "iteration:add-note",
+				"iteration:plan-ahead", "iteration:browse",
+				"iteration:add-agent", "iteration:add-resource",
+				"iteration:add-estimation", "iteration:add-scope", "iteration:add-note",
 				"iteration:edit-scope", "iteration:remove-scope", "iteration:toggle-scope",
 				"iteration:edit-description", "iteration:edit-name", "iteration:edit-goal", "iteration:edit-dates",
 			];
@@ -703,21 +704,21 @@ describe("registerCrudHandlers", () => {
 	});
 
 
-	describe("iteration:attach-agent", () => {
+	describe("iteration:add-agent", () => {
 		it("returns undefined when no project", async () => {
-			const handler = registry.getAction("iteration:attach-agent");
+			const handler = registry.getAction("iteration:add-agent");
 			expect(await handler(noProjectCtx())).toBeUndefined();
 		});
 
 		it("calls the correct function", async () => {
-			const handler = registry.getAction("iteration:attach-agent");
+			const handler = registry.getAction("iteration:add-agent");
 			await handler(mockCtx());
-			expect(attachAgentInteractive).toHaveBeenCalledWith("/project", expect.anything(), mockDeps);
+			expect(addAgentInteractive).toHaveBeenCalledWith("/project", expect.anything(), mockDeps);
 			expect(input.waitForEnter).toHaveBeenCalled();
 		});
 
 		it("navigates back to iteration-detail", async () => {
-			const handler = registry.getAction("iteration:attach-agent");
+			const handler = registry.getAction("iteration:add-agent");
 			const result = await handler(mockCtx());
 			expect(result).toBe("navigate:iteration-detail");
 		});
@@ -743,21 +744,21 @@ describe("registerCrudHandlers", () => {
 		});
 	});
 
-	describe("iteration:add-capacity", () => {
+	describe("iteration:add-estimation", () => {
 		it("returns undefined when no project", async () => {
-			const handler = registry.getAction("iteration:add-capacity");
+			const handler = registry.getAction("iteration:add-estimation");
 			expect(await handler(noProjectCtx())).toBeUndefined();
 		});
 
 		it("calls the correct function", async () => {
-			const handler = registry.getAction("iteration:add-capacity");
+			const handler = registry.getAction("iteration:add-estimation");
 			await handler(mockCtx());
-			expect(addCapacityInteractive).toHaveBeenCalledWith("/project", expect.anything(), mockDeps);
+			expect(addEstimationInteractive).toHaveBeenCalledWith("/project", expect.anything(), mockDeps);
 			expect(input.waitForEnter).toHaveBeenCalled();
 		});
 
 		it("navigates back to iteration-detail", async () => {
-			const handler = registry.getAction("iteration:add-capacity");
+			const handler = registry.getAction("iteration:add-estimation");
 			const result = await handler(mockCtx());
 			expect(result).toBe("navigate:iteration-detail");
 		});

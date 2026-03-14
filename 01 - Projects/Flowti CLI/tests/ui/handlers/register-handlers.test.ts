@@ -105,6 +105,7 @@ vi.mock("../../../src/ui/menus/component-detail-menu.js", () => ({
 vi.mock("../../../src/ui/menus/iteration-detail-menu.js", () => ({
 	iterationDetailMenu: vi.fn(() => "main"),
 	resolveCurrentIterationNumber: vi.fn(() => null),
+	resolveIterationNumber: vi.fn(() => null),
 }));
 
 // ── Imports ─────────────────────────────────────────────────────────
@@ -646,19 +647,29 @@ describe("registerAllHandlers", () => {
 			expect(await handler(noProjectCtx())).toBe("main");
 		});
 
-		it("returns 'main' when no current iteration number", async () => {
-			const { resolveCurrentIterationNumber } = await import("../../../src/ui/menus/iteration-detail-menu.js");
-			vi.mocked(resolveCurrentIterationNumber).mockReturnValue(null);
+		it("returns 'main' when no iteration number resolved", async () => {
+			const { resolveIterationNumber } = await import("../../../src/ui/menus/iteration-detail-menu.js");
+			vi.mocked(resolveIterationNumber).mockReturnValue(null);
 			const handler = registry.getView("iteration-detail");
 			expect(await handler(mockCtx())).toBe("main");
 		});
 
 		it("calls iterationDetailMenu when iteration number is resolved", async () => {
-			const { resolveCurrentIterationNumber, iterationDetailMenu } = await import("../../../src/ui/menus/iteration-detail-menu.js");
-			vi.mocked(resolveCurrentIterationNumber).mockReturnValue(3);
+			const { resolveIterationNumber, iterationDetailMenu } = await import("../../../src/ui/menus/iteration-detail-menu.js");
+			vi.mocked(resolveIterationNumber).mockReturnValue(3);
 			const handler = registry.getView("iteration-detail");
 			await handler(mockCtx());
 			expect(iterationDetailMenu).toHaveBeenCalled();
+		});
+
+		it("passes params.iterationNumber to resolveIterationNumber", async () => {
+			const { resolveIterationNumber } = await import("../../../src/ui/menus/iteration-detail-menu.js");
+			vi.mocked(resolveIterationNumber).mockReturnValue(5);
+			const handler = registry.getView("iteration-detail");
+			const ctx = mockCtx();
+			ctx.params = { iterationNumber: 5 };
+			await handler(ctx);
+			expect(resolveIterationNumber).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.anything(), 5);
 		});
 	});
 });

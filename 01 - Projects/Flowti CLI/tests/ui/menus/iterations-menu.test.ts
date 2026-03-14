@@ -14,6 +14,7 @@ vi.mock("../../../src/infrastructure/paths.js", () => ({
 		join: (...args: string[]) => args.join("/"),
 		relative: (from: string, to: string) => to.replace(from + "/", ""),
 		resolve: (...args: string[]) => args.join("/"),
+		basename: (p: string) => p.split("/").pop(),
 	},
 }));
 vi.mock("../../../src/domain/iterations/iteration-store.js", () => ({
@@ -22,6 +23,7 @@ vi.mock("../../../src/domain/iterations/iteration-store.js", () => ({
 	transitionIteration: vi.fn(() => ({ success: true, from: "new", to: "planned" })),
 	closeIteration: vi.fn(() => ({ success: true, from: "in-review", to: "done" })),
 	findCurrentIteration: vi.fn(),
+	findIteration: vi.fn(),
 	nextIterationNumber: vi.fn(() => 1),
 	computeEndDate: vi.fn(() => "2026-03-28"),
 	attachAgent: vi.fn(),
@@ -38,6 +40,12 @@ vi.mock("../../../src/domain/iterations/iteration-store.js", () => ({
 	removeScopeItem: vi.fn(),
 	toggleScopeItem: vi.fn(),
 }));
+vi.mock("../../../src/domain/iterations/iteration-entities.js", () => ({
+	createAgentFile: vi.fn(() => "/projects/my-project/docs/agents/test-agent.md"),
+	listAgentFiles: vi.fn(() => []),
+	createResourceFile: vi.fn(() => "/projects/my-project/docs/resources/test-resource.md"),
+	createEstimationFile: vi.fn(() => "/projects/my-project/docs/estimations/test-estimation.md"),
+}));
 vi.mock("../../../src/domain/lifecycle/lifecycle-engine.js", () => ({
 	getValidTransitions: vi.fn(() => ["planned"]),
 }));
@@ -46,9 +54,10 @@ vi.mock("../../../src/ui/displays/iterations-display.js", () => ({
 	renderIterationStarted: vi.fn(),
 	renderIterationClosed: vi.fn(),
 	renderIterationDetail: vi.fn(),
-	renderAgentAttached: vi.fn(),
+	renderIterationList: vi.fn(),
+	renderAgentAdded: vi.fn(),
 	renderResourceAdded: vi.fn(),
-	renderCapacityAdded: vi.fn(),
+	renderEstimationAdded: vi.fn(),
 	renderIterationAdvanced: vi.fn(),
 	renderAdvanceResult: vi.fn(),
 	renderGateResults: vi.fn(),
@@ -66,18 +75,20 @@ import {
 	updateDescription, editScopeItem, removeScopeItem, toggleScopeItem,
 } from "../../../src/domain/iterations/iteration-store.js";
 import { getValidTransitions } from "../../../src/domain/lifecycle/lifecycle-engine.js";
+import { createAgentFile, listAgentFiles, createResourceFile, createEstimationFile } from "../../../src/domain/iterations/iteration-entities.js";
 import {
 	renderIterationCreated, renderIterationClosed,
-	renderIterationDetail, renderAgentAttached, renderResourceAdded,
-	renderCapacityAdded, renderAdvanceResult,
+	renderIterationDetail, renderAgentAdded, renderResourceAdded,
+	renderEstimationAdded, renderAdvanceResult,
 } from "../../../src/ui/displays/iterations-display.js";
 import {
 	addIterationInteractive, advanceIterationInteractive,
-	showCurrentIteration, attachAgentInteractive, addResourceInteractive,
-	addCapacityInteractive, addScopeItemInteractive,
+	showCurrentIteration, addAgentInteractive, addResourceInteractive,
+	addEstimationInteractive, addScopeItemInteractive,
 	addNoteInteractive, editDescriptionInteractive,
 	editNameInteractive, editGoalInteractive, editDatesInteractive,
 	editScopeInteractive, removeScopeInteractive, toggleScopeInteractive,
+	planAheadInteractive, browseIterationsInteractive,
 } from "../../../src/ui/menus/iterations-menu.js";
 import type { IterationSummary } from "../../../src/domain/iterations/iteration-types.js";
 import type { IterationsConfig } from "../../../src/infrastructure/types.js";
@@ -104,10 +115,14 @@ const mockToggleScopeItem = vi.mocked(toggleScopeItem);
 const mockRenderCreated = vi.mocked(renderIterationCreated);
 const mockRenderClosed = vi.mocked(renderIterationClosed);
 const mockRenderDetail = vi.mocked(renderIterationDetail);
-const mockRenderAgentAttached = vi.mocked(renderAgentAttached);
+const mockRenderAgentAttached = vi.mocked(renderAgentAdded);
 const mockRenderResourceAdded = vi.mocked(renderResourceAdded);
-const mockRenderCapacityAdded = vi.mocked(renderCapacityAdded);
+const mockRenderCapacityAdded = vi.mocked(renderEstimationAdded);
 const mockRenderAdvanceResult = vi.mocked(renderAdvanceResult);
+const mockCreateAgentFile = vi.mocked(createAgentFile);
+const mockListAgentFiles = vi.mocked(listAgentFiles);
+const mockCreateResourceFile = vi.mocked(createResourceFile);
+const mockCreateEstimationFile = vi.mocked(createEstimationFile);
 const mockDisk = vi.mocked(disk);
 
 const PROJECT = "/projects/my-project";
@@ -373,65 +388,87 @@ describe("showCurrentIteration", () => {
 	});
 });
 
-// ── attachAgentInteractive ──────────────────────────────────────────
+// ── addAgentInteractive ──────────────────────────────────────────
 
-describe("attachAgentInteractive", () => {
+describe("addAgentInteractive", () => {
 	it("logs message when no active iteration", async () => {
 		const deps = makeDeps();
 		mockFindCurrent.mockReturnValue(undefined);
 
-		await attachAgentInteractive(PROJECT, CONFIG, deps);
+		await addAgentInteractive(PROJECT, CONFIG, deps);
 
 		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("No active iteration"));
 	});
 
-	it("logs message when agents folder does not exist", async () => {
+	it("creates a new agent when none exist", async () => {
 		const deps = makeDeps();
 		mockFindCurrent.mockReturnValue(makeIteration());
-		mockDisk.existsSync.mockReturnValue(false);
-
-		await attachAgentInteractive(PROJECT, CONFIG, deps);
-
-		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("No agents folder"));
-	});
-
-	it("logs message when no agent files found", async () => {
-		const deps = makeDeps();
-		mockFindCurrent.mockReturnValue(makeIteration());
-		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readdirSync.mockReturnValue([] as any);
-
-		await attachAgentInteractive(PROJECT, CONFIG, deps);
-
-		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("No agent files"));
-	});
-
-	it("attaches selected agent on happy path", async () => {
-		const deps = makeDeps();
-		mockFindCurrent.mockReturnValue(makeIteration());
-		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readdirSync.mockReturnValue(["reviewer.md", "planner.md"] as any);
-		vi.mocked(deps.input.ask).mockResolvedValueOnce("2");
+		mockListAgentFiles.mockReturnValue([]);
+		vi.mocked(deps.input.ask)
+			.mockResolvedValueOnce("Claude")     // name
+			.mockResolvedValueOnce("ai")          // type
+			.mockResolvedValueOnce("AI assistant"); // description
 		mockAttachAgent.mockReturnValue(true as any);
 
-		await attachAgentInteractive(PROJECT, CONFIG, deps);
+		await addAgentInteractive(PROJECT, CONFIG, deps);
 
+		expect(mockCreateAgentFile).toHaveBeenCalledWith(deps, PROJECT, { name: "Claude", type: "ai", description: "AI assistant" });
+		expect(mockAttachAgent).toHaveBeenCalled();
+		expect(mockRenderAgentAttached).toHaveBeenCalledWith("Claude", "Sprint 1", deps.log);
+	});
+
+	it("selects existing agent from list", async () => {
+		const deps = makeDeps();
+		mockFindCurrent.mockReturnValue(makeIteration());
+		mockListAgentFiles.mockReturnValue(["reviewer.md", "planner.md"]);
+		vi.mocked(deps.input.ask).mockResolvedValueOnce("2"); // select planner
+		mockAttachAgent.mockReturnValue(true as any);
+
+		await addAgentInteractive(PROJECT, CONFIG, deps);
+
+		expect(mockCreateAgentFile).not.toHaveBeenCalled();
 		expect(mockAttachAgent).toHaveBeenCalledWith(
 			deps, PROJECT, 1,
 			{ name: "planner", file: "planner.md" },
 			CONFIG,
 		);
-		expect(mockRenderAgentAttached).toHaveBeenCalledWith("planner", "Sprint 1", deps.log);
 	});
 
-	it("does nothing on invalid agent selection", async () => {
+	it("creates new agent when 'create new' option selected", async () => {
 		const deps = makeDeps();
 		mockFindCurrent.mockReturnValue(makeIteration());
-		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readdirSync.mockReturnValue(["agent.md"] as any);
+		mockListAgentFiles.mockReturnValue(["existing.md"]);
+		vi.mocked(deps.input.ask)
+			.mockResolvedValueOnce("2")           // select "Create new agent" (last option)
+			.mockResolvedValueOnce("NewAgent")     // name
+			.mockResolvedValueOnce("human")        // type
+			.mockResolvedValueOnce("");             // description
+		mockAttachAgent.mockReturnValue(true as any);
+
+		await addAgentInteractive(PROJECT, CONFIG, deps);
+
+		expect(mockCreateAgentFile).toHaveBeenCalled();
+		expect(mockAttachAgent).toHaveBeenCalled();
+	});
+
+	it("does nothing on invalid selection", async () => {
+		const deps = makeDeps();
+		mockFindCurrent.mockReturnValue(makeIteration());
+		mockListAgentFiles.mockReturnValue(["agent.md"]);
 		vi.mocked(deps.input.ask).mockResolvedValueOnce("0");
 
-		await attachAgentInteractive(PROJECT, CONFIG, deps);
+		await addAgentInteractive(PROJECT, CONFIG, deps);
+
+		expect(mockAttachAgent).not.toHaveBeenCalled();
+	});
+
+	it("does nothing when name is empty for new agent", async () => {
+		const deps = makeDeps();
+		mockFindCurrent.mockReturnValue(makeIteration());
+		mockListAgentFiles.mockReturnValue([]);
+		vi.mocked(deps.input.ask).mockResolvedValueOnce(""); // empty name
+
+		await addAgentInteractive(PROJECT, CONFIG, deps);
 
 		expect(mockAttachAgent).not.toHaveBeenCalled();
 	});
@@ -470,6 +507,7 @@ describe("addResourceInteractive", () => {
 
 		await addResourceInteractive(PROJECT, CONFIG, deps);
 
+		expect(mockCreateResourceFile).toHaveBeenCalledWith(deps, PROJECT, { name: "Alice", role: "Dev", allocation: "80%" });
 		expect(mockAddResource).toHaveBeenCalledWith(
 			deps, PROJECT, 1,
 			{ name: "Alice", role: "Dev", allocation: "80%" },
@@ -497,14 +535,14 @@ describe("addResourceInteractive", () => {
 	});
 });
 
-// ── addCapacityInteractive ──────────────────────────────────────────
+// ── addEstimationInteractive ──────────────────────────────────────────
 
-describe("addCapacityInteractive", () => {
+describe("addEstimationInteractive", () => {
 	it("logs message when no active iteration", async () => {
 		const deps = makeDeps();
 		mockFindCurrent.mockReturnValue(undefined);
 
-		await addCapacityInteractive(PROJECT, CONFIG, deps);
+		await addEstimationInteractive(PROJECT, CONFIG, deps);
 
 		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("No active iteration"));
 	});
@@ -514,7 +552,7 @@ describe("addCapacityInteractive", () => {
 		mockFindCurrent.mockReturnValue(makeIteration());
 		vi.mocked(deps.input.ask).mockResolvedValueOnce("");
 
-		await addCapacityInteractive(PROJECT, CONFIG, deps);
+		await addEstimationInteractive(PROJECT, CONFIG, deps);
 
 		expect(mockAddCapacity).not.toHaveBeenCalled();
 	});
@@ -526,12 +564,12 @@ describe("addCapacityInteractive", () => {
 			.mockResolvedValueOnce("Story Points")
 			.mockResolvedValueOnce("");
 
-		await addCapacityInteractive(PROJECT, CONFIG, deps);
+		await addEstimationInteractive(PROJECT, CONFIG, deps);
 
 		expect(mockAddCapacity).not.toHaveBeenCalled();
 	});
 
-	it("adds capacity on happy path", async () => {
+	it("adds estimation on happy path", async () => {
 		const deps = makeDeps();
 		mockFindCurrent.mockReturnValue(makeIteration());
 		vi.mocked(deps.input.ask)
@@ -540,8 +578,9 @@ describe("addCapacityInteractive", () => {
 			.mockResolvedValueOnce("pts");
 		mockAddCapacity.mockReturnValue(true as any);
 
-		await addCapacityInteractive(PROJECT, CONFIG, deps);
+		await addEstimationInteractive(PROJECT, CONFIG, deps);
 
+		expect(mockCreateEstimationFile).toHaveBeenCalledWith(deps, PROJECT, { label: "Story Points", value: "40", unit: "pts" });
 		expect(mockAddCapacity).toHaveBeenCalledWith(
 			deps, PROJECT, 1,
 			{ label: "Story Points", value: "40", unit: "pts" },
@@ -559,7 +598,7 @@ describe("addCapacityInteractive", () => {
 			.mockResolvedValueOnce("");
 		mockAddCapacity.mockReturnValue(true as any);
 
-		await addCapacityInteractive(PROJECT, CONFIG, deps);
+		await addEstimationInteractive(PROJECT, CONFIG, deps);
 
 		expect(mockAddCapacity).toHaveBeenCalledWith(
 			deps, PROJECT, 1,
@@ -591,16 +630,36 @@ describe("addScopeItemInteractive", () => {
 		expect(mockAddScopeItem).not.toHaveBeenCalled();
 	});
 
-	it("adds scope item on happy path", async () => {
+	it("adds scope item and asks for another", async () => {
 		const deps = makeDeps();
 		mockFindCurrent.mockReturnValue(makeIteration());
-		vi.mocked(deps.input.ask).mockResolvedValueOnce("Implement auth");
+		vi.mocked(deps.input.ask)
+			.mockResolvedValueOnce("Implement auth")
+			.mockResolvedValueOnce("Add tests");
+		vi.mocked(deps.input.askYesNo)
+			.mockResolvedValueOnce(true)
+			.mockResolvedValueOnce(false);
 		mockAddScopeItem.mockReturnValue(true as any);
 
 		await addScopeItemInteractive(PROJECT, CONFIG, deps);
 
+		expect(mockAddScopeItem).toHaveBeenCalledTimes(2);
 		expect(mockAddScopeItem).toHaveBeenCalledWith(deps, PROJECT, 1, "Implement auth", CONFIG);
-		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("Added scope item"));
+		expect(mockAddScopeItem).toHaveBeenCalledWith(deps, PROJECT, 1, "Add tests", CONFIG);
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("2 scope items added"));
+	});
+
+	it("stops after first item when user declines another", async () => {
+		const deps = makeDeps();
+		mockFindCurrent.mockReturnValue(makeIteration());
+		vi.mocked(deps.input.ask).mockResolvedValueOnce("Single item");
+		vi.mocked(deps.input.askYesNo).mockResolvedValueOnce(false);
+		mockAddScopeItem.mockReturnValue(true as any);
+
+		await addScopeItemInteractive(PROJECT, CONFIG, deps);
+
+		expect(mockAddScopeItem).toHaveBeenCalledTimes(1);
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("1 scope item added"));
 	});
 });
 
@@ -878,5 +937,143 @@ describe("toggleScopeInteractive", () => {
 
 		expect(mockToggleScopeItem).toHaveBeenCalledWith(deps, PROJECT, 1, 0, CONFIG);
 		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("checked"));
+	});
+});
+
+// ── planAheadInteractive ────────────────────────────────────────────
+
+describe("planAheadInteractive", () => {
+	it("returns false when count is invalid", async () => {
+		const deps = makeDeps();
+		vi.mocked(deps.input.ask).mockResolvedValueOnce("abc");
+
+		const result = await planAheadInteractive(PROJECT, CONFIG, deps);
+		expect(result).toBe(false);
+	});
+
+	it("returns false when count is zero", async () => {
+		const deps = makeDeps();
+		vi.mocked(deps.input.ask).mockResolvedValueOnce("0");
+
+		const result = await planAheadInteractive(PROJECT, CONFIG, deps);
+		expect(result).toBe(false);
+	});
+
+	it("creates n iterations in new state without dates", async () => {
+		const deps = makeDeps();
+		mockListIterations.mockReturnValue([]);
+		mockNextNumber.mockReturnValue(1);
+		mockCreateIteration
+			.mockReturnValueOnce("/project/docs/iterations/iteration-001-plan.md")
+			.mockReturnValueOnce("/project/docs/iterations/iteration-002-plan.md");
+		vi.mocked(deps.input.ask)
+			.mockResolvedValueOnce("2")      // count
+			.mockResolvedValueOnce("Alpha")  // name 1
+			.mockResolvedValueOnce("Goal A") // goal 1
+			.mockResolvedValueOnce("Beta")   // name 2
+			.mockResolvedValueOnce("Goal B"); // goal 2
+
+		const result = await planAheadInteractive(PROJECT, CONFIG, deps);
+
+		expect(result).toBe(true);
+		expect(mockCreateIteration).toHaveBeenCalledTimes(2);
+		expect(mockCreateIteration).toHaveBeenCalledWith(deps, PROJECT, expect.objectContaining({
+			name: "Alpha", number: 1, startDate: "", endDate: "", goal: "Goal A",
+		}), CONFIG, undefined);
+		expect(mockCreateIteration).toHaveBeenCalledWith(deps, PROJECT, expect.objectContaining({
+			name: "Beta", number: 2, startDate: "", endDate: "", goal: "Goal B",
+		}), CONFIG, undefined);
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("Planned 2 iterations"));
+	});
+
+	it("stops when user provides empty name", async () => {
+		const deps = makeDeps();
+		mockListIterations.mockReturnValue([]);
+		mockNextNumber.mockReturnValue(1);
+		mockCreateIteration.mockReturnValueOnce("/project/docs/iterations/iteration-001-plan.md");
+		vi.mocked(deps.input.ask)
+			.mockResolvedValueOnce("3")      // count
+			.mockResolvedValueOnce("Alpha")  // name 1
+			.mockResolvedValueOnce("")        // goal 1
+			.mockResolvedValueOnce("");       // empty name stops
+
+		const result = await planAheadInteractive(PROJECT, CONFIG, deps);
+
+		expect(result).toBe(true);
+		expect(mockCreateIteration).toHaveBeenCalledTimes(1);
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("Planned 1 iteration"));
+	});
+
+	it("passes template when provided", async () => {
+		const deps = makeDeps();
+		const template: LifecycleTemplate = {
+			entityType: "iteration", initialState: "new", terminalStates: ["done"],
+			states: { new: { transitions: ["planned"] }, planned: { transitions: [] }, done: { transitions: [] } },
+			tasks: { new: ["Refine goal"] },
+		};
+		mockListIterations.mockReturnValue([]);
+		mockNextNumber.mockReturnValue(1);
+		mockCreateIteration.mockReturnValueOnce("/project/docs/iterations/iteration-001-plan.md");
+		vi.mocked(deps.input.ask)
+			.mockResolvedValueOnce("1")
+			.mockResolvedValueOnce("Sprint 1")
+			.mockResolvedValueOnce("");
+
+		await planAheadInteractive(PROJECT, CONFIG, deps, template);
+
+		expect(mockCreateIteration).toHaveBeenCalledWith(deps, PROJECT, expect.anything(), CONFIG, template);
+	});
+});
+
+// ── browseIterationsInteractive ─────────────────────────────────────
+
+describe("browseIterationsInteractive", () => {
+	it("returns null when no editable iterations", async () => {
+		const deps = makeDeps();
+		mockListIterations.mockReturnValue([
+			makeIteration({ number: 1, status: "done" }),
+			makeIteration({ number: 2, status: "cancelled" }),
+		]);
+
+		const result = await browseIterationsInteractive(PROJECT, CONFIG, deps);
+		expect(result).toBeNull();
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("No editable iterations"));
+	});
+
+	it("returns selected iteration number", async () => {
+		const deps = makeDeps();
+		mockListIterations.mockReturnValue([
+			makeIteration({ number: 1, status: "done" }),
+			makeIteration({ number: 2, status: "new", name: "Sprint 2" }),
+			makeIteration({ number: 3, status: "planned", name: "Sprint 3" }),
+		]);
+		vi.mocked(deps.input.ask).mockResolvedValueOnce("3");
+
+		const result = await browseIterationsInteractive(PROJECT, CONFIG, deps);
+		expect(result).toBe(3);
+	});
+
+	it("returns null for invalid selection", async () => {
+		const deps = makeDeps();
+		mockListIterations.mockReturnValue([
+			makeIteration({ number: 2, status: "new" }),
+		]);
+		vi.mocked(deps.input.ask).mockResolvedValueOnce("abc");
+
+		const result = await browseIterationsInteractive(PROJECT, CONFIG, deps);
+		expect(result).toBeNull();
+	});
+
+	it("returns null when selected number not found in editable list", async () => {
+		const deps = makeDeps();
+		mockListIterations.mockReturnValue([
+			makeIteration({ number: 1, status: "done" }),
+			makeIteration({ number: 2, status: "new" }),
+		]);
+		vi.mocked(deps.input.ask).mockResolvedValueOnce("1");
+
+		const result = await browseIterationsInteractive(PROJECT, CONFIG, deps);
+		expect(result).toBeNull();
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("not found or not editable"));
 	});
 });

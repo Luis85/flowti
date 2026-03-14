@@ -216,19 +216,19 @@ export class SitemapRouter {
 
 	// ── Action entry building ────────────────────────────────────────
 
+	#visibleActions(page: PageObject, ctx: RouterContext): readonly PageAction[] {
+		return page.actions.filter((action) => {
+			if (action.hidden === undefined) return true;
+			return !resolveHiddenCondition(action.hidden, ctx, this.#handlers);
+		});
+	}
+
 	#buildActionEntries(page: PageObject, ctx: RouterContext): MenuEntry[] {
-		const keyed = assignKeys(page.actions);
+		const keyed = assignKeys(this.#visibleActions(page, ctx));
 		const entries: MenuEntry[] = [];
-
 		for (const { action, assignedKey } of keyed) {
-			if (action.hidden !== undefined) {
-				const isHidden = resolveHiddenCondition(action.hidden, ctx, this.#handlers);
-				if (isHidden) continue;
-			}
-
 			entries.push(this.#actionToMenuEntry(action, assignedKey, ctx, () => {}));
 		}
-
 		return insertGroupSeparators(entries);
 	}
 
@@ -237,18 +237,11 @@ export class SitemapRouter {
 		ctx: RouterContext,
 		onNavigate: (target: string, params?: Readonly<Record<string, unknown>>) => void,
 	): MenuEntry[] {
-		const keyed = assignKeys(page.actions);
+		const keyed = assignKeys(this.#visibleActions(page, ctx));
 		const entries: MenuEntry[] = [];
-
 		for (const { action, assignedKey } of keyed) {
-			if (action.hidden !== undefined) {
-				const isHidden = resolveHiddenCondition(action.hidden, ctx, this.#handlers);
-				if (isHidden) continue;
-			}
-
 			entries.push(this.#actionToMenuEntry(action, assignedKey, ctx, onNavigate));
 		}
-
 		return insertGroupSeparators(entries);
 	}
 

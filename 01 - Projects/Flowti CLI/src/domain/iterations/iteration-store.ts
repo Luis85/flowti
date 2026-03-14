@@ -149,6 +149,12 @@ export function findCurrentIteration(deps: Pick<CliDeps, "disk" | "paths" | "clo
 	return items.find((it) => ACTIVE_STATUSES.has(it.status)) ?? null;
 }
 
+/** Find a specific iteration by number. */
+export function findIteration(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, iterationNumber: number, config?: IterationsConfig): IterationSummary | null {
+	const items = listIterations(deps, projectPath, config);
+	return items.find((it) => it.number === iterationNumber) ?? null;
+}
+
 // ── Create ──────────────────────────────────────────────────────────
 
 /** Create an iteration plan file. Returns the plan file path or null if exists. */

@@ -1,4 +1,6 @@
 ---
+agents:
+  - Bob|bob.md
 capacities:
   - Story Points|18|
   - Hours 180|180|h
@@ -43,7 +45,7 @@ We can add and manage Agent definitions
 - [ ] Break scope into actionable tasks
 - [ ] Assign resources and capacity
 - [ ] I can add and manage Agents in the "Agents and AI Tools" hub
-- [ ] When creating a new Agent it creates an agent definition as markdown file in docs/agents
+- [ ] When creating a new Agent it creates an agent definition as markdown file in  `03 - Resources/Agents`
 - [ ] markdown files are the source of truth for the system
 - [ ] agents can have tools
 - [ ] agents can have roles

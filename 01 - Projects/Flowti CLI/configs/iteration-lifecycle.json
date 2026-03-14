@@ -19,9 +19,9 @@
 		"in-review":   [{ "id": "all-scope-done", "label": "All scope items completed" }]
 	},
 	"tasks": {
-		"new":         ["Refine goal and vision", "Identify initial scope items"],
-		"planned":     ["Break scope into actionable tasks", "Assign resources and capacity"],
-		"ready":       ["Verify all prerequisites are met", "Kick-off communication"],
+		"new":         ["Refine goal and vision", "Identify initial scope items", "Push the Plan to Git"],
+		"planned":     ["Break scope into actionable tasks", "Assign resources and capacity", "Push the Plan to Git"],
+		"ready":       ["Verify all prerequisites are met", "Kick-off communication", "Push the Plan to Git"],
 		"in-progress": ["Track progress daily", "Flag blockers early"],
 		"in-review":   ["Review completed scope items", "Capture retrospective notes", "Document learnings"]
 	}

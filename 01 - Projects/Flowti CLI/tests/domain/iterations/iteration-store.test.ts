@@ -49,7 +49,7 @@ vi.mock("../../../src/infrastructure/frontmatter.js", () => ({
 
 import {
 	iterationsDir, nextIterationNumber, listIterations,
-	findCurrentIteration, createIteration, transitionIteration,
+	findCurrentIteration, findIteration, createIteration, transitionIteration,
 	closeIteration, attachAgent, addResource, addCapacity, listAgents, computeEndDate,
 	addScopeItem, addNote,
 } from "../../../src/domain/iterations/iteration-store.js";
@@ -252,6 +252,38 @@ describe("findCurrentIteration", () => {
 		);
 
 		expect(findCurrentIteration(deps, "/project")).toBeNull();
+	});
+});
+
+describe("findIteration", () => {
+	it("returns null when no iterations exist", () => {
+		mockDisk.existsSync.mockReturnValue(false);
+		expect(findIteration(deps, "/project", 1)).toBeNull();
+	});
+
+	it("finds iteration by number", () => {
+		mockDisk.existsSync.mockReturnValue(true);
+		mockDisk.readdirSync.mockReturnValue(["iteration-001-plan.md", "iteration-002-plan.md"]);
+		mockDisk.readFileSync
+			.mockReturnValueOnce("---\nname: Sprint 1\nnumber: 1\nstartDate: 2026-03-01\nendDate: 2026-03-14\ngoal: First\nstatus: done\n---")
+			.mockReturnValueOnce("---\nname: Sprint 1\nnumber: 1\nstartDate: 2026-03-01\nendDate: 2026-03-14\ngoal: First\nstatus: done\n---")
+			.mockReturnValueOnce("---\nname: Sprint 2\nnumber: 2\nstartDate: 2026-03-15\nendDate: 2026-03-28\ngoal: Second\nstatus: new\n---")
+			.mockReturnValueOnce("---\nname: Sprint 2\nnumber: 2\nstartDate: 2026-03-15\nendDate: 2026-03-28\ngoal: Second\nstatus: new\n---");
+
+		const result = findIteration(deps, "/project", 2);
+		expect(result).not.toBeNull();
+		expect(result!.name).toBe("Sprint 2");
+		expect(result!.number).toBe(2);
+	});
+
+	it("returns null when number not found", () => {
+		mockDisk.existsSync.mockReturnValue(true);
+		mockDisk.readdirSync.mockReturnValue(["iteration-001-plan.md"]);
+		mockDisk.readFileSync.mockReturnValue(
+			"---\nname: Sprint 1\nnumber: 1\nstartDate: 2026-03-01\nendDate: 2026-03-14\ngoal: First\nstatus: new\n---",
+		);
+
+		expect(findIteration(deps, "/project", 99)).toBeNull();
 	});
 });
 

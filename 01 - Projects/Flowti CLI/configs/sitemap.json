@@ -1602,12 +1602,28 @@
 					"group": "create"
 				},
 				{
+					"name": "onPlanAhead",
+					"label": "Plan Ahead",
+					"type": "handler",
+					"target": "iteration:plan-ahead",
+					"key": "3",
+					"group": "create"
+				},
+				{
 					"name": "onNavigateIterationDetail",
 					"label": "Current Iteration",
 					"type": "navigate",
 					"target": "iteration-detail",
 					"key": "4",
 					"hidden": "iteration:not-running",
+					"group": "actions"
+				},
+				{
+					"name": "onBrowseIterations",
+					"label": "Browse Iterations",
+					"type": "handler",
+					"target": "iteration:browse",
+					"key": "5",
 					"group": "actions"
 				},
 				{
@@ -1650,15 +1666,15 @@
 				},
 				{
 					"name": "onAttachAgent",
-					"label": "Attach Agent",
+					"label": "Add Agent",
 					"type": "handler",
-					"target": "iteration:attach-agent",
+					"target": "iteration:add-agent",
 					"hidden": "iteration:not-planned",
 					"group": "resources"
 				},
 				{
 					"name": "onAddResource",
-					"label": "Add Resource",
+					"label": "Add Resource Need",
 					"type": "handler",
 					"target": "iteration:add-resource",
 					"hidden": "iteration:not-planned",
@@ -1666,9 +1682,9 @@
 				},
 				{
 					"name": "onAddCapacity",
-					"label": "Add Capacity",
+					"label": "Add Estimation",
 					"type": "handler",
-					"target": "iteration:add-capacity",
+					"target": "iteration:add-estimation",
 					"hidden": "iteration:not-planned",
 					"group": "resources"
 				},
@@ -1764,23 +1780,23 @@
 				},
 				{
 					"name": "onAttachAgent",
-					"label": "Attach Agent",
+					"label": "Add Agent",
 					"type": "handler",
-					"target": "iteration:attach-agent",
+					"target": "iteration:add-agent",
 					"group": "resources"
 				},
 				{
 					"name": "onAddResource",
-					"label": "Add Resource",
+					"label": "Add Resource Need",
 					"type": "handler",
 					"target": "iteration:add-resource",
 					"group": "resources"
 				},
 				{
 					"name": "onAddCapacity",
-					"label": "Add Capacity",
+					"label": "Add Estimation",
 					"type": "handler",
-					"target": "iteration:add-capacity",
+					"target": "iteration:add-estimation",
 					"group": "resources"
 				},
 				{
