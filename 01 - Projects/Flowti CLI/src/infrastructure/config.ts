@@ -91,6 +91,7 @@ export const HELP_DIR: string = paths.join(VAULT_ROOT, "03 - Resources", "Docume
 export const PROJECTS_DIR: string = paths.join(VAULT_ROOT, cliConfig.projectsFolder ?? "01 - Projects");
 export const PRODUCTS_DIR: string = paths.join(VAULT_ROOT, cliConfig.productsFolder ?? "02 - Products");
 export const FEATURES_DIR: string = paths.join(VAULT_ROOT, cliConfig.featuresFolder ?? "03 - Features");
+export const AGENTS_DIR: string = paths.join(VAULT_ROOT, cliConfig.agents?.dir ?? "03 - Resources/Agents");
 
 // ── Capture config ──────────────────────────────────────────────────
 

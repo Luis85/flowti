@@ -5,10 +5,9 @@
 import { printHeader } from "../../infrastructure/ui.js";
 import type { MenuDeps } from "../../infrastructure/deps.js";
 import type { AgentsConfig } from "../../infrastructure/types.js";
-import { listAgents, findAgent, createAgent, deleteAgent, updateAgentField, addArrayItem, removeArrayItem, updateAgentJson, readSystemPrompt, writeSystemPrompt } from "../../domain/agents/agent-store.js";
+import { listAgents, createAgent, deleteAgent, updateAgentField, addArrayItem, removeArrayItem, updateAgentJson, readSystemPrompt, writeSystemPrompt } from "../../domain/agents/agent-store.js";
 import type { AgentDefinition, AgentSkill, AgentType, AgentSummary } from "../../domain/agents/agent-types.js";
-import { renderAgentList, renderAgentDetail, renderAgentCreated, renderAgentDeleted } from "../displays/agents-display.js";
-import type { MenuResult } from "../../infrastructure/types.js";
+import { renderAgentList, renderAgentCreated, renderAgentDeleted } from "../displays/agents-display.js";
 
 export async function addAgentInteractive(projectPath: string, config: AgentsConfig | undefined, deps: MenuDeps): Promise<boolean> {
 	printHeader("Add Agent");
@@ -35,27 +34,6 @@ export async function addAgentInteractive(projectPath: string, config: AgentsCon
 	return false;
 }
 
-export async function viewAgentInteractive(projectPath: string, config: AgentsConfig | undefined, deps: MenuDeps): Promise<void> {
-	const agents = listAgents(deps, projectPath, config);
-	if (agents.length === 0) {
-		deps.log("\n  No agents defined.\n");
-		return;
-	}
-	renderAgentList(agents, deps.log);
-	const name = await deps.input.ask("Agent name to view");
-	if (!name) return;
-	const agent = agents.find((a) => a.name.toLowerCase() === name.toLowerCase());
-	if (!agent) {
-		deps.log(`\n  Agent "${name}" not found.\n`);
-		return;
-	}
-	renderAgentDetail(agent, deps.log);
-}
-
-export async function listAgentsInteractive(projectPath: string, config: AgentsConfig | undefined, deps: MenuDeps): Promise<void> {
-	const agents = listAgents(deps, projectPath, config);
-	renderAgentList(agents, deps.log);
-}
 
 export async function removeAgentInteractive(projectPath: string, config: AgentsConfig | undefined, deps: MenuDeps): Promise<boolean> {
 	printHeader("Remove Agent");
@@ -65,11 +43,14 @@ export async function removeAgentInteractive(projectPath: string, config: Agents
 		return false;
 	}
 	renderAgentList(agents, deps.log);
-	const name = await deps.input.ask("Agent name to remove");
-	if (!name) return false;
-	const agent = agents.find((a) => a.name.toLowerCase() === name.toLowerCase());
+	const choice = await deps.input.ask("Select agent to remove (number or name)");
+	if (!choice) return false;
+	const idx = parseInt(choice, 10);
+	const agent = (!isNaN(idx) && idx >= 1 && idx <= agents.length)
+		? agents[idx - 1]
+		: agents.find((a) => a.name.toLowerCase() === choice.toLowerCase());
 	if (!agent) {
-		deps.log(`\n  Agent "${name}" not found.\n`);
+		deps.log(`\n  Agent "${choice}" not found.\n`);
 		return false;
 	}
 	const confirm = await deps.input.askYesNo(`Remove "${agent.name}"?`);
@@ -79,32 +60,7 @@ export async function removeAgentInteractive(projectPath: string, config: Agents
 	return ok;
 }
 
-/** Select an existing agent by name — returns the agent name or null. */
-export async function selectAgentInteractive(projectPath: string, config: AgentsConfig | undefined, deps: MenuDeps): Promise<string | null> {
-	const agents = listAgents(deps, projectPath, config);
-	if (agents.length === 0) {
-		deps.log("\n  No agents defined. Create one first.\n");
-		return null;
-	}
-	renderAgentList(agents, deps.log);
-	const name = await deps.input.ask("Agent name");
-	if (!name) return null;
-	const match = agents.find((a) => a.name.toLowerCase() === name.toLowerCase());
-	return match ? match.name : null;
-}
 
-// ── Agent detail view ────────────────────────────────────────────────
-
-/** Agent detail page — shows agent and returns a menu action. */
-export async function agentDetailMenu(projectPath: string, agentName: string, config: AgentsConfig | undefined, deps: MenuDeps): Promise<MenuResult> {
-	const agent = findAgent(deps, projectPath, agentName, config);
-	if (!agent) {
-		deps.log(`\n  Agent "${agentName}" not found.\n`);
-		return "main";
-	}
-	renderAgentDetail(agent, deps.log);
-	return undefined; // handled by sitemap actions
-}
 
 // ── Agent editing ────────────────────────────────────────────────────
 

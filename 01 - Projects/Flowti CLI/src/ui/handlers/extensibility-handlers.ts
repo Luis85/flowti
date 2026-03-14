@@ -3,9 +3,12 @@
  */
 
 import type { HandlerRegistry } from "../../infrastructure/handler-registry.js";
-import type { MenuResult } from "../../infrastructure/types.js";
+import type { MenuEntry, MenuResult } from "../../infrastructure/types.js";
+import type { RouterContext } from "../../infrastructure/sitemap-types.js";
 import { RESET, DIM, GREEN, RED } from "../../infrastructure/ui.js";
-import { VAULT_ROOT, CLI_PROJECT } from "../../infrastructure/config.js";
+import { VAULT_ROOT, CLI_PROJECT, cliConfig } from "../../infrastructure/config.js";
+import { navigateWithParams } from "../../infrastructure/sitemap-router.js";
+import { listAgents } from "../../domain/agents/agent-store.js";
 import { loadPlugins, scaffoldPlugin } from "../../domain/plugins/plugin-loader.js";
 import { generatePluginReference } from "../../domain/plugins/plugin-reference.js";
 import { toPluginListItems, toPluginValidationItems } from "../../domain/plugins/plugin-commands.js";
@@ -106,119 +109,123 @@ export function registerExtensibilityHandlers(registry: HandlerRegistry): void {
 		return "main" as MenuResult;
 	});
 
-	// ── Agent handlers ─────────────────────────────────────────────
+	// ── Agent handlers (vault-level) ────────────────────────────────
+	// Agents are vault-level entities, not project-scoped.
+	// All agent operations use VAULT_ROOT + cliConfig.agents.
 
-	registry.registerAction("agents:list", async (ctx) => {
-		if (!ctx.project) return undefined;
-		const { listAgentsInteractive } = await import("../menus/agents-menu.js");
-		await listAgentsInteractive(ctx.project.path, ctx.project.config.management?.agents, ctx.deps);
-		await ctx.deps.input.waitForEnter();
-		return undefined;
+	const vaultAgents = cliConfig.agents;
+
+	// Data source: list all vault agents as selectable entries
+	registry.registerDataSource("agents:list", (ctx: RouterContext): MenuEntry[] => {
+		const agents = listAgents(ctx.deps, VAULT_ROOT, vaultAgents);
+		return agents.map((a, i) => {
+			const typeTag = `${DIM}[${a.agentType}]${RESET}`;
+			const desc = a.description ? ` ${DIM}— ${a.description}${RESET}` : "";
+			return {
+				key: String(i + 1),
+				label: `${a.name} ${typeTag}${desc}`,
+				group: "agents",
+				action: () => navigateWithParams("agent-detail", { agentName: a.name }) as MenuResult,
+			};
+		});
 	});
 
 	registry.registerAction("agents:add", async (ctx) => {
-		if (!ctx.project) return undefined;
 		const { addAgentInteractive } = await import("../menus/agents-menu.js");
-		await addAgentInteractive(ctx.project.path, ctx.project.config.management?.agents, ctx.deps);
-		await ctx.deps.input.waitForEnter();
-		return undefined;
-	});
-
-	registry.registerAction("agents:view", async (ctx) => {
-		if (!ctx.project) return undefined;
-		const { viewAgentInteractive } = await import("../menus/agents-menu.js");
-		await viewAgentInteractive(ctx.project.path, ctx.project.config.management?.agents, ctx.deps);
+		await addAgentInteractive(VAULT_ROOT, vaultAgents, ctx.deps);
 		await ctx.deps.input.waitForEnter();
 		return undefined;
 	});
 
 	registry.registerAction("agents:remove", async (ctx) => {
-		if (!ctx.project) return undefined;
 		const { removeAgentInteractive } = await import("../menus/agents-menu.js");
-		await removeAgentInteractive(ctx.project.path, ctx.project.config.management?.agents, ctx.deps);
+		await removeAgentInteractive(VAULT_ROOT, vaultAgents, ctx.deps);
 		await ctx.deps.input.waitForEnter();
 		return undefined;
 	});
 
 	registry.registerAction("agents:edit-identity", async (ctx) => {
-		if (!ctx.project) return undefined;
 		const agentName = ctx.params?.agentName as string | undefined;
 		if (!agentName) return undefined;
 		const { findAgent } = await import("../../domain/agents/agent-store.js");
-		const agent = findAgent(ctx.deps, ctx.project.path, agentName, ctx.project.config.management?.agents);
+		const agent = findAgent(ctx.deps, VAULT_ROOT, agentName, vaultAgents);
 		if (!agent) return undefined;
 		const { editAgentIdentity } = await import("../menus/agents-menu.js");
-		await editAgentIdentity(ctx.project.path, agent, ctx.project.config.management?.agents, ctx.deps);
+		await editAgentIdentity(VAULT_ROOT, agent, vaultAgents, ctx.deps);
 		return undefined;
 	});
 
 	registry.registerAction("agents:edit-skills", async (ctx) => {
-		if (!ctx.project) return undefined;
 		const agentName = ctx.params?.agentName as string | undefined;
 		if (!agentName) return undefined;
 		const { findAgent } = await import("../../domain/agents/agent-store.js");
-		const agent = findAgent(ctx.deps, ctx.project.path, agentName, ctx.project.config.management?.agents);
+		const agent = findAgent(ctx.deps, VAULT_ROOT, agentName, vaultAgents);
 		if (!agent) return undefined;
 		const { editAgentSkills } = await import("../menus/agents-menu.js");
-		await editAgentSkills(ctx.project.path, agent, ctx.project.config.management?.agents, ctx.deps);
+		await editAgentSkills(VAULT_ROOT, agent, vaultAgents, ctx.deps);
 		return undefined;
 	});
 
 	registry.registerAction("agents:edit-tools", async (ctx) => {
-		if (!ctx.project) return undefined;
 		const agentName = ctx.params?.agentName as string | undefined;
 		if (!agentName) return undefined;
 		const { findAgent } = await import("../../domain/agents/agent-store.js");
-		const agent = findAgent(ctx.deps, ctx.project.path, agentName, ctx.project.config.management?.agents);
+		const agent = findAgent(ctx.deps, VAULT_ROOT, agentName, vaultAgents);
 		if (!agent) return undefined;
 		const { editAgentArrayField } = await import("../menus/agents-menu.js");
-		await editAgentArrayField(ctx.project.path, agent, "tools", ctx.project.config.management?.agents, ctx.deps);
+		await editAgentArrayField(VAULT_ROOT, agent, "tools", vaultAgents, ctx.deps);
 		return undefined;
 	});
 
 	registry.registerAction("agents:edit-roles", async (ctx) => {
-		if (!ctx.project) return undefined;
 		const agentName = ctx.params?.agentName as string | undefined;
 		if (!agentName) return undefined;
 		const { findAgent } = await import("../../domain/agents/agent-store.js");
-		const agent = findAgent(ctx.deps, ctx.project.path, agentName, ctx.project.config.management?.agents);
+		const agent = findAgent(ctx.deps, VAULT_ROOT, agentName, vaultAgents);
 		if (!agent) return undefined;
 		const { editAgentArrayField } = await import("../menus/agents-menu.js");
-		await editAgentArrayField(ctx.project.path, agent, "roles", ctx.project.config.management?.agents, ctx.deps);
+		await editAgentArrayField(VAULT_ROOT, agent, "roles", vaultAgents, ctx.deps);
 		return undefined;
 	});
 
 	registry.registerAction("agents:edit-ai", async (ctx) => {
-		if (!ctx.project) return undefined;
 		const agentName = ctx.params?.agentName as string | undefined;
 		if (!agentName) return undefined;
 		const { findAgent } = await import("../../domain/agents/agent-store.js");
-		const agent = findAgent(ctx.deps, ctx.project.path, agentName, ctx.project.config.management?.agents);
+		const agent = findAgent(ctx.deps, VAULT_ROOT, agentName, vaultAgents);
 		if (!agent) return undefined;
 		const { editAIConfigInteractive } = await import("../menus/agents-menu.js");
-		await editAIConfigInteractive(ctx.project.path, agent, ctx.project.config.management?.agents, ctx.deps);
+		await editAIConfigInteractive(VAULT_ROOT, agent, vaultAgents, ctx.deps);
 		return undefined;
 	});
 
 	registry.registerAction("agents:edit-prompt", async (ctx) => {
-		if (!ctx.project) return undefined;
 		const agentName = ctx.params?.agentName as string | undefined;
 		if (!agentName) return undefined;
 		const { findAgent } = await import("../../domain/agents/agent-store.js");
-		const agent = findAgent(ctx.deps, ctx.project.path, agentName, ctx.project.config.management?.agents);
+		const agent = findAgent(ctx.deps, VAULT_ROOT, agentName, vaultAgents);
 		if (!agent) return undefined;
 		const { editSystemPromptInteractive } = await import("../menus/agents-menu.js");
-		await editSystemPromptInteractive(ctx.project.path, agent, ctx.project.config.management?.agents, ctx.deps);
+		await editSystemPromptInteractive(VAULT_ROOT, agent, vaultAgents, ctx.deps);
 		return undefined;
 	});
 
 	// ── Agent detail view ────────────────────────────────────────────
 
 	registry.registerView("agent-detail", async (ctx) => {
-		if (!ctx.project) return "main";
 		const agentName = ctx.params?.agentName as string | undefined;
 		if (!agentName) return "main";
-		const { agentDetailMenu } = await import("../menus/agents-menu.js");
-		return agentDetailMenu(ctx.project.path, agentName, ctx.project.config.management?.agents, ctx.deps);
+		const { findAgent } = await import("../../domain/agents/agent-store.js");
+		const { renderAgentDetail } = await import("../displays/agents-display.js");
+		const { runMenu } = await import("../../infrastructure/menu.js");
+		const agent = findAgent(ctx.deps, VAULT_ROOT, agentName, vaultAgents);
+		if (!agent) {
+			ctx.deps.log(`\n  Agent "${agentName}" not found.\n`);
+			return "main";
+		}
+		const actions = [...(ctx.dataSourceEntries?.["_actions"] ?? [])];
+		return runMenu(null, actions, {
+			beforeMenu: () => renderAgentDetail(agent, ctx.deps.log),
+		});
 	});
 }

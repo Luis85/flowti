@@ -592,4 +592,6 @@ export interface FlowtiCliConfig {
 	capture?: Record<string, string>;
 	onboarding?: OnboardingConfig;
 	testing?: TestingConfig;
+	/** Vault-level agents directory (relative to vault root). */
+	agents?: AgentsConfig;
 }

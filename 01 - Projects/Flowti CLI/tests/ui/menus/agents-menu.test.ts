@@ -23,18 +23,17 @@ vi.mock("../../../src/ui/displays/agents-display.js", () => ({
 	renderAgentDeleted: vi.fn(),
 }));
 
-import { listAgents, findAgent, createAgent, deleteAgent, updateAgentField, addArrayItem, removeArrayItem, updateAgentJson, readSystemPrompt, writeSystemPrompt } from "../../../src/domain/agents/agent-store.js";
+import { listAgents, createAgent, deleteAgent, updateAgentField, addArrayItem, removeArrayItem, updateAgentJson, readSystemPrompt, writeSystemPrompt } from "../../../src/domain/agents/agent-store.js";
 import { renderAgentList, renderAgentCreated, renderAgentDeleted } from "../../../src/ui/displays/agents-display.js";
 import {
-	addAgentInteractive, viewAgentInteractive, listAgentsInteractive,
-	removeAgentInteractive, selectAgentInteractive,
+	addAgentInteractive,
+	removeAgentInteractive,
 	editAgentIdentity, editAgentSkills, editAgentArrayField,
-	editAIConfigInteractive, editSystemPromptInteractive, agentDetailMenu,
+	editAIConfigInteractive, editSystemPromptInteractive,
 } from "../../../src/ui/menus/agents-menu.js";
 import type { AgentSummary } from "../../../src/domain/agents/agent-types.js";
 
 const mockListAgents = vi.mocked(listAgents);
-const mockFindAgent = vi.mocked(findAgent);
 const mockCreateAgent = vi.mocked(createAgent);
 const mockDeleteAgent = vi.mocked(deleteAgent);
 const mockUpdateField = vi.mocked(updateAgentField);
@@ -132,31 +131,6 @@ describe("addAgentInteractive", () => {
 	});
 });
 
-describe("listAgentsInteractive", () => {
-	it("renders agent list", async () => {
-		const deps = makeDeps();
-		mockListAgents.mockReturnValue([makeAgent()]);
-		await listAgentsInteractive("/proj", undefined, deps);
-		expect(vi.mocked(renderAgentList)).toHaveBeenCalledWith([makeAgent()], deps.log);
-	});
-});
-
-describe("viewAgentInteractive", () => {
-	it("shows message when no agents", async () => {
-		const deps = makeDeps();
-		mockListAgents.mockReturnValue([]);
-		await viewAgentInteractive("/proj", undefined, deps);
-		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("No agents"));
-	});
-
-	it("shows not found for unknown name", async () => {
-		const deps = makeDeps();
-		mockListAgents.mockReturnValue([makeAgent()]);
-		deps.input.ask.mockResolvedValueOnce("Unknown");
-		await viewAgentInteractive("/proj", undefined, deps);
-		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("not found"));
-	});
-});
 
 describe("removeAgentInteractive", () => {
 	it("returns false when no agents", async () => {
@@ -185,44 +159,6 @@ describe("removeAgentInteractive", () => {
 	});
 });
 
-describe("selectAgentInteractive", () => {
-	it("returns null when no agents", async () => {
-		const deps = makeDeps();
-		mockListAgents.mockReturnValue([]);
-		expect(await selectAgentInteractive("/proj", undefined, deps)).toBeNull();
-	});
-
-	it("returns agent name on match", async () => {
-		const deps = makeDeps();
-		mockListAgents.mockReturnValue([makeAgent()]);
-		deps.input.ask.mockResolvedValueOnce("codebot");
-		expect(await selectAgentInteractive("/proj", undefined, deps)).toBe("CodeBot");
-	});
-
-	it("returns null on no match", async () => {
-		const deps = makeDeps();
-		mockListAgents.mockReturnValue([makeAgent()]);
-		deps.input.ask.mockResolvedValueOnce("Unknown");
-		expect(await selectAgentInteractive("/proj", undefined, deps)).toBeNull();
-	});
-});
-
-// ── Agent detail view ────────────────────────────────────────────────
-
-describe("agentDetailMenu", () => {
-	it("returns main when agent not found", async () => {
-		const deps = makeDeps();
-		mockFindAgent.mockReturnValue(null);
-		expect(await agentDetailMenu("/proj", "Ghost", undefined, deps)).toBe("main");
-	});
-
-	it("renders detail when agent found", async () => {
-		const deps = makeDeps();
-		mockFindAgent.mockReturnValue(makeAgent());
-		const result = await agentDetailMenu("/proj", "CodeBot", undefined, deps);
-		expect(result).toBeUndefined();
-	});
-});
 
 // ── Edit identity ────────────────────────────────────────────────────
 

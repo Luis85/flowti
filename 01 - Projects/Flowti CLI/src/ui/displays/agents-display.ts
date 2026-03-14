@@ -12,11 +12,12 @@ export function renderAgentList(agents: AgentSummary[], log: (msg?: string) => v
 	}
 
 	log(`\n  ${BOLD}Agents (${agents.length})${RESET}\n`);
-	for (const a of agents) {
+	for (let i = 0; i < agents.length; i++) {
+		const a = agents[i];
 		const typeTag = `${DIM}[${a.agentType}]${RESET}`;
 		const domainTag = a.domain ? ` ${DIM}(${a.domain})${RESET}` : "";
 		const desc = a.description ? ` ${DIM}— ${a.description}${RESET}` : "";
-		log(`  ${CYAN}▸${RESET} ${a.name} ${typeTag}${domainTag}${desc}`);
+		log(`  ${CYAN}${i + 1})${RESET} ${a.name} ${typeTag}${domainTag}${desc}`);
 	}
 	log();
 }

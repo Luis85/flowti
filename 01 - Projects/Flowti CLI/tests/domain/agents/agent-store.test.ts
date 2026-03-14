@@ -7,7 +7,7 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
 }));
 
-import { listAgents, findAgent, createAgent, updateAgentField, deleteAgent, agentsDir, agentToJson, addArrayItem, removeArrayItem, updateAgentJson, readSystemPrompt, writeSystemPrompt } from "../../../src/domain/agents/agent-store.js";
+import { listAgents, findAgent, createAgent, updateAgentField, deleteAgent, agentToJson, addArrayItem, removeArrayItem, updateAgentJson, readSystemPrompt, writeSystemPrompt } from "../../../src/domain/agents/agent-store.js";
 import type { AgentDefinition } from "../../../src/domain/agents/agent-types.js";
 
 function makeDeps(files: Record<string, string> = {}) {
@@ -58,17 +58,6 @@ roles:
 # CodeBot
 `;
 
-describe("agentsDir", () => {
-	it("returns default dir when no config", () => {
-		const deps = makeDeps();
-		expect(agentsDir(deps, "/proj")).toBe("/proj/docs/agents");
-	});
-
-	it("uses config dir override", () => {
-		const deps = makeDeps();
-		expect(agentsDir(deps, "/proj", { dir: "custom/agents" })).toBe("/proj/custom/agents");
-	});
-});
 
 describe("listAgents", () => {
 	it("returns empty array when dir missing", () => {

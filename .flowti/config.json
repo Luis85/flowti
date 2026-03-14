@@ -23,5 +23,8 @@
 	"onboarding": {
 		"nodeMinVersion": 16,
 		"pluginId": "flowti-ibde"
+	},
+	"agents": {
+		"dir": "03 - Resources/Agents"
 	}
 }

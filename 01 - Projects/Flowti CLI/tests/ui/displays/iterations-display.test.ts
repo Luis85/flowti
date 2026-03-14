@@ -9,7 +9,7 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 
 import {
 	renderIterationList, renderIterationDetail, renderIterationCreated,
-	renderIterationStarted, renderIterationClosed,
+	renderIterationClosed,
 	renderAgentAdded, renderResourceAdded, renderEstimationAdded,
 	renderPlanningHeader, renderScopeItems, renderGateStatus,
 } from "../../../src/ui/displays/iterations-display.js";
@@ -70,11 +70,6 @@ describe("feedback renderers", () => {
 	it("renderIterationCreated shows path", () => {
 		renderIterationCreated("docs/iterations/iteration-001-plan.md", log);
 		expect(mockLog.mock.calls.flat().join(" ")).toContain("Created");
-	});
-
-	it("renderIterationStarted shows name", () => {
-		renderIterationStarted("Sprint 1", log);
-		expect(mockLog.mock.calls.flat().join(" ")).toContain("Started");
 	});
 
 	it("renderIterationClosed shows name", () => {

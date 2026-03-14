@@ -71,9 +71,6 @@ export function renderIterationCreated(relPath: string, log: (msg?: string) => v
 	log(`\n  ${GREEN}✓${RESET} Created: ${relPath}`);
 }
 
-export function renderIterationStarted(name: string, log: (msg?: string) => void): void {
-	log(`\n  ${GREEN}✓${RESET} Started: ${name}`);
-}
 
 export function renderIterationClosed(name: string, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}✓${RESET} Closed: ${name}`);
@@ -91,9 +88,6 @@ export function renderEstimationAdded(label: string, iterationName: string, log:
 	log(`\n  ${GREEN}✓${RESET} Added estimation "${label}" to ${iterationName}`);
 }
 
-export function renderIterationAdvanced(name: string, phase: string, log: (msg?: string) => void): void {
-	log(`\n  ${GREEN}✓${RESET} Advanced "${name}" to ${phase}`);
-}
 
 export function renderPlanningHeader(item: IterationSummary, log: (msg?: string) => void): void {
 	const color = STATUS_COLORS[item.status] ?? DIM;

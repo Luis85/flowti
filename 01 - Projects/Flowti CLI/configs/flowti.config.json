@@ -219,9 +219,6 @@
 					}
 				}
 			}
-		},
-		"agents": {
-			"dir": "docs/agents"
 		}
 	},
 	"templates": {

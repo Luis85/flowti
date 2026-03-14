@@ -18,7 +18,7 @@ vi.mock("../../../src/infrastructure/ui.js", () => ({
 	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", CYAN: "", YELLOW: "", printHeader: vi.fn(),
 }));
 vi.mock("../../../src/infrastructure/config.js", () => ({
-	VAULT_ROOT: "/mock-vault", CLI_PROJECT: "/mock/cli", cliConfig: {}, PROJECTS_DIR: "/mock/projects",
+	VAULT_ROOT: "/mock-vault", CLI_PROJECT: "/mock/cli", cliConfig: { agents: { dir: "agents" } }, PROJECTS_DIR: "/mock/projects", AGENTS_DIR: "/mock-vault/agents",
 }));
 vi.mock("../../../src/infrastructure/clock.js", () => ({
 	clock: { iso: () => "2026-01-01T00:00:00.000Z", ms: () => 0, now: () => new Date("2026-01-01"), safeIso: () => "2026-01-01T00-00-00" },
@@ -710,10 +710,12 @@ describe("registerCrudHandlers", () => {
 			expect(await handler(noProjectCtx())).toBeUndefined();
 		});
 
-		it("calls the correct function", async () => {
+		it("calls the correct function with vault agents path", async () => {
 			const handler = registry.getAction("iteration:add-agent");
 			await handler(mockCtx());
-			expect(addAgentInteractive).toHaveBeenCalledWith("/project", expect.anything(), mockDeps);
+			expect(addAgentInteractive).toHaveBeenCalledWith("/project", expect.anything(), mockDeps, {
+				agentsBasePath: "/mock-vault", agentsConfig: { dir: "agents" },
+			});
 			expect(input.waitForEnter).toHaveBeenCalled();
 		});
 

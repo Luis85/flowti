@@ -21,7 +21,7 @@ export type AgentStoreDeps = Pick<CliDeps, "disk" | "paths">;
 const DEFAULT_DIR = "docs/agents";
 
 /** Resolve the agents directory for a project. */
-export function agentsDir(deps: Pick<CliDeps, "paths">, projectPath: string, config?: AgentsConfig): string {
+function agentsDir(deps: Pick<CliDeps, "paths">, projectPath: string, config?: AgentsConfig): string {
 	return resolveDir(deps, projectPath, config?.dir, DEFAULT_DIR);
 }
 

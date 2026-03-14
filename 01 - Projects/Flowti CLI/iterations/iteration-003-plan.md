@@ -2,7 +2,7 @@
 type: IterationPlan
 name: Agent Orchestration Layer
 number: 3
-status: in-progress
+status: in-review
 startDate: 2026-03-14
 endDate: 2026-03-28
 goal: Agents are bound to lifecycle phases and can generate/capture work briefs for iteration plans
@@ -57,8 +57,14 @@ Agents are bound to lifecycle phases and can generate/capture work briefs for it
 
 
 
-- [ ] Flag blockers early
-- [ ] Track progress daily
+
+
+
+- [ ] Document learnings
+- [ ] Capture retrospective notes
+- [ ] Review completed scope items
+- [x] Flag blockers early
+- [x] Track progress daily
 - [x] Push the Plan to Git
 - [x] Kick-off communication
 - [x] Verify all prerequisites are met
@@ -68,7 +74,7 @@ Agents are bound to lifecycle phases and can generate/capture work briefs for it
 - [x] Push the Plan to Git
 - [x] Identify initial scope items
 - [x] Refine goal and vision
-- [ ] Break scope into actionable tasks
+- [x] Break scope into actionable tasks
 - [x] Phase 1: Agent-Phase Binding Model — add `OrchestrationConfig` type with phase-to-agent mappings
 - [x] Phase 1: Config schema — add `management.iterations.orchestration` to flowti.config.json schema and validators
 - [x] Phase 1: Resolve active agent — `getActiveAgent(bindings, currentState)` returns the agent assigned to the current lifecycle phase
@@ -96,6 +102,7 @@ Agents are bound to lifecycle phases and can generate/capture work briefs for it
 
 | Date | From | To | Reason |
 |---|---|---|---|
+| 2026-03-14 | in-progress | in-review | Advanced to in-review |
 | 2026-03-14 | ready | in-progress | Advanced to in-progress |
 | 2026-03-14 | planned | ready | Advanced to ready |
 | 2026-03-14 | new | planned | Advanced to planned |

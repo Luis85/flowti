@@ -10,11 +10,12 @@ import type { HandlerRegistry } from "../../infrastructure/handler-registry.js";
 import type { MenuResult } from "../../infrastructure/types.js";
 import type { RouterContext } from "../../infrastructure/sitemap-types.js";
 
-/** Resolve system prompt for a named agent. */
+/** Resolve system prompt for a named agent (vault-level). */
 async function resolveAgentPrompt(ctx: RouterContext, agentName: string): Promise<string | null> {
+	const { VAULT_ROOT, cliConfig } = await import("../../infrastructure/config.js");
 	const { findAgent, readSystemPrompt } = await import("../../domain/agents/agent-store.js");
-	const agentDef = findAgent(ctx.deps, ctx.project!.path, agentName, ctx.project!.config.management?.agents);
-	return agentDef ? readSystemPrompt(ctx.deps, ctx.project!.path, agentDef.name, ctx.project!.config.management?.agents) : null;
+	const agentDef = findAgent(ctx.deps, VAULT_ROOT, agentName, cliConfig.agents);
+	return agentDef ? readSystemPrompt(ctx.deps, VAULT_ROOT, agentDef.name, cliConfig.agents) : null;
 }
 
 /** Generate a brief for the active agent on the current iteration. Returns file path or null. */
@@ -353,8 +354,19 @@ export function registerCrudHandlers(registry: HandlerRegistry): void {
 		return "navigate:iteration-detail" as MenuResult;
 	});
 
+	// iteration:add-agent is separate — agents are vault-level, need VAULT_ROOT
+	registry.registerAction("iteration:add-agent", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const { VAULT_ROOT, cliConfig } = await import("../../infrastructure/config.js");
+		const { addAgentInteractive } = await import("../menus/iterations-menu.js");
+		await addAgentInteractive(ctx.project.path, ctx.project.config.management?.iterations, ctx.deps, {
+			agentsBasePath: VAULT_ROOT, agentsConfig: cliConfig.agents,
+		});
+		await ctx.deps.input.waitForEnter();
+		return "navigate:iteration-detail" as MenuResult;
+	});
+
 	const iterMenuActions: [string, string][] = [
-		["iteration:add-agent", "addAgentInteractive"],
 		["iteration:add-resource", "addResourceInteractive"],
 		["iteration:add-estimation", "addEstimationInteractive"],
 		["iteration:add-scope", "addScopeItemInteractive"],

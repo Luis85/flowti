@@ -12,7 +12,7 @@ vi.mock("../../../src/infrastructure/document.js", () => {
 	return { Document: { create: vi.fn(() => mockDoc) } };
 });
 
-import { createAgentFile, listAgentFiles, createResourceFile, createEstimationFile } from "../../../src/domain/iterations/iteration-entities.js";
+import { createResourceFile, createEstimationFile } from "../../../src/domain/iterations/iteration-entities.js";
 
 const mockDisk = {
 	existsSync: vi.fn(),
@@ -32,40 +32,6 @@ const deps = { disk: mockDisk as any, paths: mockPaths as any };
 
 beforeEach(() => {
 	vi.clearAllMocks();
-});
-
-describe("createAgentFile", () => {
-	it("creates agent markdown in docs/agents/", () => {
-		mockDisk.existsSync.mockReturnValue(false);
-		const result = createAgentFile(deps, "/project", { name: "Claude", type: "ai", description: "AI assistant" });
-		expect(result).toBe("/project/docs/agents/claude.md");
-		expect(mockDisk.mkdirSync).toHaveBeenCalledWith("/project/docs/agents", { recursive: true });
-	});
-
-	it("returns existing path without overwriting", () => {
-		mockDisk.existsSync.mockReturnValue(true);
-		const result = createAgentFile(deps, "/project", { name: "Claude", type: "ai" });
-		expect(result).toBe("/project/docs/agents/claude.md");
-	});
-
-	it("creates human agent", () => {
-		mockDisk.existsSync.mockReturnValue(false);
-		const result = createAgentFile(deps, "/project", { name: "Luis", type: "human" });
-		expect(result).toBe("/project/docs/agents/luis.md");
-	});
-});
-
-describe("listAgentFiles", () => {
-	it("returns empty when no agents dir", () => {
-		mockDisk.existsSync.mockReturnValue(false);
-		expect(listAgentFiles(deps, "/project")).toEqual([]);
-	});
-
-	it("returns .md files from agents dir", () => {
-		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readdirSync.mockReturnValue(["claude.md", "luis.md", "readme.txt"]);
-		expect(listAgentFiles(deps, "/project")).toEqual(["claude.md", "luis.md"]);
-	});
 });
 
 describe("createResourceFile", () => {

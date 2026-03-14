@@ -428,42 +428,23 @@
 			"status": "active",
 			"description": "Manage AI agent tools and agent definitions — list, create, view, and remove agents.",
 			"parent": "start",
+			"dataSources": [
+				{ "id": "agents:list" }
+			],
 			"actions": [
-				{
-					"name": "onListAgents",
-					"label": "List Agents",
-					"type": "handler",
-					"target": "agents:list",
-					"group": "agents",
-					"disabled": "no-project-selected",
-					"disabledMessage": "Select a project first."
-				},
 				{
 					"name": "onAddAgent",
 					"label": "Add Agent",
 					"type": "handler",
 					"target": "agents:add",
-					"group": "agents",
-					"disabled": "no-project-selected",
-					"disabledMessage": "Select a project first."
-				},
-				{
-					"name": "onViewAgent",
-					"label": "View Agent Detail",
-					"type": "navigate",
-					"target": "agent-detail",
-					"group": "agents",
-					"disabled": "no-project-selected",
-					"disabledMessage": "Select a project first."
+					"group": "manage-agents"
 				},
 				{
 					"name": "onRemoveAgent",
 					"label": "Remove Agent",
 					"type": "handler",
 					"target": "agents:remove",
-					"group": "agents",
-					"disabled": "no-project-selected",
-					"disabledMessage": "Select a project first."
+					"group": "manage-agents"
 				},
 				{
 					"name": "onListTools",
@@ -511,7 +492,6 @@
 			"status": "active",
 			"description": "View and edit an agent's identity, skills, tools, roles, AI config, and system prompt.",
 			"parent": "ai-tools",
-			"context": ["project"],
 			"route": {
 				"path": "agents/:agentName"
 			},

@@ -56,14 +56,12 @@ vi.mock("../../../src/domain/lifecycle/lifecycle-engine.js", () => ({
 }));
 vi.mock("../../../src/ui/displays/iterations-display.js", () => ({
 	renderIterationCreated: vi.fn(),
-	renderIterationStarted: vi.fn(),
 	renderIterationClosed: vi.fn(),
 	renderIterationDetail: vi.fn(),
 	renderIterationList: vi.fn(),
 	renderAgentAdded: vi.fn(),
 	renderResourceAdded: vi.fn(),
 	renderEstimationAdded: vi.fn(),
-	renderIterationAdvanced: vi.fn(),
 	renderAdvanceResult: vi.fn(),
 	renderGateResults: vi.fn(),
 	renderScopeItems: vi.fn(),

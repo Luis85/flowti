@@ -329,6 +329,41 @@ describe("SitemapRouter", () => {
 
 			expect(viewHandler).toHaveBeenCalledTimes(2);
 		});
+
+		it("navigate to same page replaces stack top instead of pushing duplicate", async () => {
+			// Simulates: detail view returns navigate:detail (e.g. after advance)
+			// then "main" to go back. Should pop to parent, not to a duplicate.
+			const detailHandler = vi.fn<(ctx: RouterContext) => Promise<MenuResult>>()
+				.mockResolvedValueOnce("navigate:detail" as MenuResult) // self-navigate (replace)
+				.mockResolvedValueOnce("main" as MenuResult);           // back → should go to start
+
+			const sitemap = makeSitemap({
+				start: makePage({
+					label: "Start",
+					actions: [
+						{ name: "onNav", label: "Go", type: "navigate", target: "detail", key: "d" },
+						{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" },
+					],
+				}),
+				detail: makePage({
+					label: "Detail",
+					actions: [],
+				}),
+			});
+
+			const { router, handlers } = createRouter(sitemap);
+			handlers.registerView("detail", detailHandler);
+
+			// start renders static: pick "d" → navigate:detail
+			// detail (1st): returns navigate:detail → replace (not push)
+			// detail (2nd): returns "main" → pop → back to start
+			// start renders static again: pick "q" → quit
+			queueMenuResults({ pickKey: "d" }, { pickKey: "q" });
+			await router.run("start");
+
+			// detail rendered exactly twice (not three times, which would indicate a duplicate)
+			expect(detailHandler).toHaveBeenCalledTimes(2);
+		});
 	});
 
 	// ── 4. Command dispatch ─────────────────────────────────────────

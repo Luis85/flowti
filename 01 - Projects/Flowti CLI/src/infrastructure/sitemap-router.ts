@@ -96,7 +96,7 @@ export class SitemapRouter {
 
 	#applyResult(result: MenuResult, stack: StackEntry[], startViewId: string): boolean {
 		if (typeof result === "string" && result.startsWith("navigate:")) {
-			stack.push(parseNavigateResult(result));
+			pushOrReplace(stack, parseNavigateResult(result));
 			return false;
 		}
 		if (result === "quit") return true;
@@ -106,9 +106,12 @@ export class SitemapRouter {
 			this.#onProjectCleared();
 			return false;
 		}
-		// "main" or void → pop current view (go back to parent)
-		stack.pop();
+		this.#popAndRecover(stack, startViewId);
+		return false;
+	}
 
+	#popAndRecover(stack: StackEntry[], startViewId: string): void {
+		stack.pop();
 		// Auto-navigate: if a project was just selected and we're back at
 		// the start view (or stack is empty), push project-detail.
 		if (this.#getProject() && (stack.length === 0 || stack[stack.length - 1].viewId === startViewId)) {
@@ -117,12 +120,10 @@ export class SitemapRouter {
 				stack.push({ viewId: "project-detail" });
 			}
 		}
-
 		// Never let the stack empty out — re-push the start view.
 		if (stack.length === 0) {
 			stack.push({ viewId: startViewId });
 		}
-		return false;
 	}
 
 	// ── Dynamic page rendering ──────────────────────────────────────
@@ -355,6 +356,15 @@ export class SitemapRouter {
  *
  * Params format: `navigate:component-detail?{"componentId":"btn-1"}`
  */
+/** Push a navigate entry, replacing the top if it targets the same page (avoids duplicates). */
+function pushOrReplace(stack: StackEntry[], entry: StackEntry): void {
+	if (stack.length > 0 && stack[stack.length - 1].viewId === entry.viewId) {
+		stack[stack.length - 1] = entry;
+	} else {
+		stack.push(entry);
+	}
+}
+
 export function parseNavigateResult(result: string): StackEntry {
 	const payload = result.slice("navigate:".length);
 	const qIdx = payload.indexOf("?");

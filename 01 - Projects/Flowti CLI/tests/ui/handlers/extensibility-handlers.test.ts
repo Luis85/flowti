@@ -18,13 +18,25 @@ vi.mock("../../../src/infrastructure/ui.js", () => ({
 	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", CYAN: "", YELLOW: "", printHeader: vi.fn(),
 }));
 vi.mock("../../../src/infrastructure/config.js", () => ({
-	VAULT_ROOT: "/mock-vault", CLI_PROJECT: "/mock/cli", cliConfig: {}, PROJECTS_DIR: "/mock/projects",
+	VAULT_ROOT: "/mock-vault", CLI_PROJECT: "/mock/cli", cliConfig: { agents: { dir: "agents" } }, PROJECTS_DIR: "/mock/projects", AGENTS_DIR: "/mock-vault/agents",
 }));
 vi.mock("../../../src/infrastructure/clock.js", () => ({
 	clock: { iso: () => "2026-01-01T00:00:00.000Z", ms: () => 0, now: () => new Date("2026-01-01"), safeIso: () => "2026-01-01T00-00-00" },
 }));
 vi.mock("../../../src/infrastructure/deps.js", () => ({
 	createDefaultDeps: vi.fn(() => ({ disk: {}, paths: {}, shell: {}, clock: {}, log: vi.fn() })),
+}));
+
+// ── Agent mocks ─────────────────────────────────────────────────────
+vi.mock("../../../src/domain/agents/agent-store.js", () => ({
+	listAgents: vi.fn(() => []),
+	findAgent: vi.fn(),
+}));
+vi.mock("../../../src/infrastructure/sitemap-router.js", () => ({
+	navigateWithParams: vi.fn((viewId: string, params?: Record<string, unknown>) => {
+		const suffix = params ? `?${JSON.stringify(params)}` : "";
+		return `navigate:${viewId}${suffix}`;
+	}),
 }));
 
 // ── Domain / UI mocks for extensibility ─────────────────────────────
@@ -73,6 +85,7 @@ import { loadAiTools, scaffoldAiTool } from "../../../src/domain/ai-tools/ai-too
 import { generateAiToolReference } from "../../../src/domain/ai-tools/ai-tool-reference.js";
 import { toToolListItems, toToolValidationItems } from "../../../src/domain/ai-tools/ai-tool-commands.js";
 import { renderToolList, renderToolValidation } from "../../../src/ui/displays/ai-tools-display.js";
+import { listAgents } from "../../../src/domain/agents/agent-store.js";
 
 import type { RouterContext } from "../../../src/infrastructure/sitemap-types.js";
 
@@ -112,13 +125,17 @@ describe("registerExtensibilityHandlers", () => {
 			const expectedActions = [
 				"plugins:list", "plugins:validate", "plugins:create", "plugins:reference",
 				"ai-tools:list", "ai-tools:validate", "ai-tools:create", "ai-tools:reference",
-				"agents:list", "agents:add", "agents:view", "agents:remove",
+				"agents:add", "agents:remove",
 				"agents:edit-identity", "agents:edit-skills", "agents:edit-tools",
 				"agents:edit-roles", "agents:edit-ai", "agents:edit-prompt",
 			];
 			for (const id of expectedActions) {
 				expect(registry.hasAction(id)).toBe(true);
 			}
+		});
+
+		it("registers agents:list data source", () => {
+			expect(registry.hasDataSource("agents:list")).toBe(true);
 		});
 	});
 
@@ -352,6 +369,41 @@ describe("registerExtensibilityHandlers", () => {
 			const handler = registry.getAction("ai-tools:reference");
 			const result = await handler(mockCtx());
 			expect(result).toBe("main");
+		});
+	});
+
+	// ── Agents data source ──────────────────────────────────────────
+
+	describe("agents:list data source", () => {
+		it("returns empty array when no agents", () => {
+			vi.mocked(listAgents).mockReturnValueOnce([]);
+			const ds = registry.getDataSource("agents:list");
+			const entries = ds(mockCtx());
+			expect(entries).toEqual([]);
+		});
+
+		it("returns selectable entries for each agent", () => {
+			vi.mocked(listAgents).mockReturnValueOnce([
+				{ name: "Alice", agentType: "human", description: "Lead dev", skills: [], tools: [], roles: [], behaviors: [] },
+				{ name: "GPT-4", agentType: "ai", description: "", skills: [], tools: [], roles: [], behaviors: [] },
+			] as any);
+			const ds = registry.getDataSource("agents:list");
+			const entries = ds(mockCtx());
+			expect(entries).toHaveLength(2);
+			expect(entries[0]).toMatchObject({ key: "1", group: "agents" });
+			expect(entries[0].label).toContain("Alice");
+			expect(entries[1]).toMatchObject({ key: "2", group: "agents" });
+			expect(entries[1].label).toContain("GPT-4");
+		});
+
+		it("entry action navigates to agent-detail", () => {
+			vi.mocked(listAgents).mockReturnValueOnce([
+				{ name: "Alice", agentType: "human", description: "", skills: [], tools: [], roles: [], behaviors: [] },
+			] as any);
+			const ds = registry.getDataSource("agents:list");
+			const entries = ds(mockCtx());
+			const result = entries[0].action();
+			expect(result).toBe("navigate:agent-detail?{\"agentName\":\"Alice\"}");
 		});
 	});
 });

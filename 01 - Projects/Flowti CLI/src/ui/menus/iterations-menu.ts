@@ -4,7 +4,7 @@
 
 import { printHeader } from "../../infrastructure/ui.js";
 import type { MenuDeps } from "../../infrastructure/deps.js";
-import type { IterationsConfig } from "../../infrastructure/types.js";
+import type { IterationsConfig, AgentsConfig } from "../../infrastructure/types.js";
 import type { AgentReference, ResourceAllocation, CapacityEntry } from "../../domain/iterations/iteration-types.js";
 import { createResourceFile, createEstimationFile } from "../../domain/iterations/iteration-entities.js";
 import type { ResourceNeedEntity, EstimationEntity } from "../../domain/iterations/iteration-entities.js";
@@ -101,7 +101,12 @@ export async function showCurrentIteration(projectPath: string, config: Iteratio
 	}
 }
 
-export async function addAgentInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps): Promise<void> {
+export interface AddAgentOptions {
+	agentsBasePath?: string;
+	agentsConfig?: AgentsConfig;
+}
+
+export async function addAgentInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps, options?: AddAgentOptions): Promise<void> {
 	printHeader("Add Agent to Iteration");
 
 	const current = findCurrentIteration(deps, projectPath, config);
@@ -110,7 +115,9 @@ export async function addAgentInteractive(projectPath: string, config: Iteration
 		return;
 	}
 
-	const selected = await selectOrCreateAgent(projectPath, config, deps);
+	const basePath = options?.agentsBasePath ?? projectPath;
+	const agentsCfg = options?.agentsConfig;
+	const selected = await selectOrCreateAgent(basePath, agentsCfg, deps);
 	if (!selected) return;
 
 	const agent: AgentReference = { name: selected.name, file: selected.file };
@@ -118,16 +125,15 @@ export async function addAgentInteractive(projectPath: string, config: Iteration
 	if (ok) renderAgentAdded(selected.name, current.name, deps.log);
 }
 
-async function selectOrCreateAgent(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps): Promise<{ name: string; file: string } | null> {
-	const agentsConfig = undefined; // agents use default dir; could read from management.agents
-	const existing = listAgents(deps, projectPath, agentsConfig);
-	if (existing.length === 0) return createNewAgentViaStore(projectPath, deps);
+async function selectOrCreateAgent(agentsBasePath: string, agentsConfig: AgentsConfig | undefined, deps: MenuDeps): Promise<{ name: string; file: string } | null> {
+	const existing = listAgents(deps, agentsBasePath, agentsConfig);
+	if (existing.length === 0) return createNewAgentViaStore(agentsBasePath, agentsConfig, deps);
 
 	renderAgentList(existing, deps.log);
 	deps.log(`  Or type "new" to create a new agent.\n`);
 	const choice = await deps.input.ask("Agent name or 'new'");
 	if (!choice) return null;
-	if (choice.toLowerCase() === "new") return createNewAgentViaStore(projectPath, deps);
+	if (choice.toLowerCase() === "new") return createNewAgentViaStore(agentsBasePath, agentsConfig, deps);
 
 	const match = existing.find((a) => a.name.toLowerCase() === choice.toLowerCase());
 	if (!match) {
@@ -137,7 +143,7 @@ async function selectOrCreateAgent(projectPath: string, config: IterationsConfig
 	return { name: match.name, file: match.file };
 }
 
-async function createNewAgentViaStore(projectPath: string, deps: MenuDeps): Promise<{ name: string; file: string } | null> {
+async function createNewAgentViaStore(agentsBasePath: string, agentsConfig: AgentsConfig | undefined, deps: MenuDeps): Promise<{ name: string; file: string } | null> {
 	const name = await deps.input.ask("Agent name");
 	if (!name) return null;
 
@@ -145,18 +151,18 @@ async function createNewAgentViaStore(projectPath: string, deps: MenuDeps): Prom
 	const agentType = typeChoice === "ai" ? "ai" as const : "human" as const;
 	const description = await deps.input.ask("Description (optional)", "");
 
-	const filePath = createAgent(deps, projectPath, {
+	const filePath = createAgent(deps, agentsBasePath, {
 		name, agentType, description: description || "",
 		skills: [], tools: [], roles: [],
-	});
+	}, agentsConfig);
 	if (!filePath) {
 		deps.log(`\n  Agent "${name}" already exists.\n`);
-		const agents = listAgents(deps, projectPath);
+		const agents = listAgents(deps, agentsBasePath, agentsConfig);
 		const match = agents.find((a) => a.name.toLowerCase() === name.toLowerCase());
 		return match ? { name: match.name, file: match.file } : null;
 	}
 	const file = deps.paths.basename(filePath);
-	deps.log(`\n  Created ${deps.paths.relative(projectPath, filePath)}`);
+	deps.log(`\n  Created ${deps.paths.relative(agentsBasePath, filePath)}`);
 	return { name, file };
 }
 
