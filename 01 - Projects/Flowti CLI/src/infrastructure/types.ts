@@ -463,7 +463,9 @@ export interface LifecycleConfig {
 }
 
 export type IterationStatus = "new" | "planned" | "ready" | "in-progress" | "in-review" | "done" | "cancelled";
-export interface IterationsConfig { dir?: string; durationDays?: number; lifecycle?: string; }
+export interface PhaseBinding { agent: string; role?: string; instruction?: string; }
+export interface OrchestrationConfig { phases?: Record<string, PhaseBinding>; }
+export interface IterationsConfig { dir?: string; durationDays?: number; lifecycle?: string; orchestration?: OrchestrationConfig; }
 export interface AgentsConfig { dir?: string; }
 
 // ── Project Management (aggregated) ─────────────────────────────────

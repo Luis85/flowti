@@ -69,28 +69,28 @@ Agents are bound to lifecycle phases and can generate/capture work briefs for it
 - [x] Identify initial scope items
 - [x] Refine goal and vision
 - [ ] Break scope into actionable tasks
-- [ ] Phase 1: Agent-Phase Binding Model — add `OrchestrationConfig` type with phase-to-agent mappings
-- [ ] Phase 1: Config schema — add `management.iterations.orchestration` to flowti.config.json schema and validators
-- [ ] Phase 1: Resolve active agent — `getActiveAgent(bindings, currentState)` returns the agent assigned to the current lifecycle phase
-- [ ] Phase 1: Tests for binding model, config validation, and active agent resolution
-- [ ] Phase 2: Brief generation — `generateBrief(agent, iteration, bindings, deps)` produces structured markdown context package
-- [ ] Phase 2: Brief includes — agent system prompt, iteration goal/description, current scope items, lifecycle state, expected output format
-- [ ] Phase 2: Brief output — write brief to `iterations/briefs/iteration-NNN-<state>.md` and display in CLI
-- [ ] Phase 2: Tests for brief generation with various agent/iteration combinations
-- [ ] Phase 3: Plan file watcher — `PlanWatcher` class using existing `watchFile()` from filesystem.ts with hash-based change detection (same pattern as SitemapWatcher)
-- [ ] Phase 3: Watcher integration — iteration detail view handler starts watcher on entry, stops on navigation away
-- [ ] Phase 3: Auto-refresh — when plan file changes on disk, re-read iteration summary and re-render the detail page
-- [ ] Phase 3: Debounce — guard against rapid successive writes (agent may write multiple times); 500ms debounce window
-- [ ] Phase 3: Tests for PlanWatcher (start/stop, change detection, hash comparison, debounce)
-- [ ] Phase 4: Orchestration display — show active agent name and role on iteration detail page
-- [ ] Phase 4: "Generate Brief" action on iteration detail — calls brief generation for active agent
-- [ ] Phase 4: Sitemap updates — add orchestration actions to iteration-detail page
-- [ ] Phase 4: Handler registration — register orchestration action handlers
-- [ ] Phase 4: Tests for display, handlers, and sitemap integration
-- [ ] Phase 5: Create example agents — Product Owner and Software Architect with system prompts
-- [ ] Phase 5: Configure orchestration bindings in Flowti CLI project config
-- [ ] Phase 5: End-to-end walkthrough — create plan, generate brief, capture output, verify flow
-- [ ] Phase 5: Verify tsc, vitest, eslint, esbuild all pass
+- [x] Phase 1: Agent-Phase Binding Model — add `OrchestrationConfig` type with phase-to-agent mappings
+- [x] Phase 1: Config schema — add `management.iterations.orchestration` to flowti.config.json schema and validators
+- [x] Phase 1: Resolve active agent — `getActiveAgent(bindings, currentState)` returns the agent assigned to the current lifecycle phase
+- [x] Phase 1: Tests for binding model, config validation, and active agent resolution
+- [x] Phase 2: Brief generation — `generateBrief(agent, iteration, bindings, deps)` produces structured markdown context package
+- [x] Phase 2: Brief includes — agent system prompt, iteration goal/description, current scope items, lifecycle state, expected output format
+- [x] Phase 2: Brief output — write brief to `iterations/briefs/iteration-NNN-<state>.md` and display in CLI
+- [x] Phase 2: Tests for brief generation with various agent/iteration combinations
+- [x] Phase 3: Plan file watcher — `PlanWatcher` class using existing `watchFile()` from filesystem.ts with hash-based change detection (same pattern as SitemapWatcher)
+- [x] Phase 3: Watcher integration — iteration detail view handler starts watcher on entry, stops on navigation away
+- [x] Phase 3: Auto-refresh — when plan file changes on disk, re-read iteration summary and re-render the detail page
+- [x] Phase 3: Debounce — guard against rapid successive writes (agent may write multiple times); 500ms debounce window
+- [x] Phase 3: Tests for PlanWatcher (start/stop, change detection, hash comparison, debounce)
+- [x] Phase 4: Orchestration display — show active agent name and role on iteration detail page
+- [x] Phase 4: "Generate Brief" action on iteration detail — calls brief generation for active agent
+- [x] Phase 4: Sitemap updates — add orchestration actions to iteration-detail page
+- [x] Phase 4: Handler registration — register orchestration action handlers
+- [x] Phase 4: Tests for display, handlers, and sitemap integration
+- [x] Phase 5: Create example agents — Product Owner and Software Architect with system prompts
+- [x] Phase 5: Configure orchestration bindings in Flowti CLI project config
+- [x] Phase 5: End-to-end walkthrough — create plan, generate brief, capture output, verify flow
+- [x] Phase 5: Verify tsc, vitest, eslint, esbuild all pass
 
 ## Transition History
 

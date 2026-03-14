@@ -8,10 +8,18 @@ vi.mock("../../../src/infrastructure/menu.js", () => ({ runMenu: vi.fn() }));
 vi.mock("../../../src/domain/iterations/iteration-store.js", () => ({
 	listIterations: vi.fn(() => []),
 	findCurrentIteration: vi.fn(),
+	iterationsDir: vi.fn(() => "/mock/iterations"),
 }));
 vi.mock("../../../src/ui/displays/iterations-display.js", () => ({
 	renderIterationDetail: vi.fn(),
 	renderGateStatus: vi.fn(),
+	renderActiveAgent: vi.fn(),
+}));
+vi.mock("../../../src/domain/agents/agent-orchestration.js", () => ({
+	getActiveAgent: vi.fn(() => null),
+}));
+vi.mock("../../../src/infrastructure/plan-watcher.js", () => ({
+	PlanWatcher: vi.fn(() => ({ start: vi.fn(), stop: vi.fn(), active: false })),
 }));
 vi.mock("../../../src/domain/lifecycle/lifecycle-engine.js", () => ({
 	getValidTransitions: vi.fn(() => []),
@@ -273,7 +281,7 @@ describe("advance label with template", () => {
 		const advanceAction: MenuEntry = { key: "a", label: "Advance", action: () => "main" as const };
 		const slots: Readonly<Record<string, readonly MenuEntry[]>> = { _actions: [advanceAction] };
 
-		await iterationDetailMenu(PROJECT_PATH, 1, CONFIG, slots, makeDeps(), mockTemplate);
+		await iterationDetailMenu(PROJECT_PATH, 1, CONFIG, slots, makeDeps(), { template: mockTemplate });
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		expect(items[0]).toHaveProperty("label", "Advance → Planned");
@@ -288,7 +296,7 @@ describe("advance label with template", () => {
 		const advanceAction: MenuEntry = { key: "a", label: "Advance", action: () => "main" as const };
 		const slots: Readonly<Record<string, readonly MenuEntry[]>> = { _actions: [advanceAction] };
 
-		await iterationDetailMenu(PROJECT_PATH, 1, CONFIG, slots, makeDeps(), mockTemplate);
+		await iterationDetailMenu(PROJECT_PATH, 1, CONFIG, slots, makeDeps(), { template: mockTemplate });
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		expect(items[0]).toHaveProperty("label", "Advance");
@@ -303,7 +311,7 @@ describe("gate status display", () => {
 		mockRunMenu.mockResolvedValue("main");
 		vi.mocked(getGates).mockReturnValue([{ id: "has-goal", label: "Goal defined" }]);
 
-		await iterationDetailMenu(PROJECT_PATH, 1, CONFIG, undefined, deps, mockTemplate);
+		await iterationDetailMenu(PROJECT_PATH, 1, CONFIG, undefined, deps, { template: mockTemplate });
 
 		const [, , options] = mockRunMenu.mock.calls[0];
 		(options as any).beforeMenu();
@@ -317,7 +325,7 @@ describe("gate status display", () => {
 		mockRunMenu.mockResolvedValue("main");
 		vi.mocked(getGates).mockReturnValue([]);
 
-		await iterationDetailMenu(PROJECT_PATH, 1, CONFIG, undefined, deps, mockTemplate);
+		await iterationDetailMenu(PROJECT_PATH, 1, CONFIG, undefined, deps, { template: mockTemplate });
 
 		const [, , options] = mockRunMenu.mock.calls[0];
 		(options as any).beforeMenu();

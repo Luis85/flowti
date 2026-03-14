@@ -225,11 +225,12 @@ export function registerAllHandlers(registry: HandlerRegistry): void {
 		if (!ctx.project) return "main";
 		const { iterationDetailMenu, resolveIterationNumber } = await import("../menus/iteration-detail-menu.js");
 		const { loadIterationTemplate } = await import("./iteration-template-loader.js");
+		const { watchFile } = await import("../../infrastructure/filesystem.js");
 		const config = ctx.project.config.management?.iterations;
 		const targetNum = ctx.params?.iterationNumber as number | undefined;
 		const iterNum = resolveIterationNumber(ctx.project.path, config, ctx.deps, targetNum);
 		if (!iterNum) return "main";
 		const template = loadIterationTemplate(ctx.deps, ctx.project.path, config) ?? undefined;
-		return iterationDetailMenu(ctx.project.path, iterNum, config, ctx.dataSourceEntries, ctx.deps, template);
+		return iterationDetailMenu(ctx.project.path, iterNum, config, ctx.dataSourceEntries, ctx.deps, { template, watchFn: watchFile });
 	});
 }

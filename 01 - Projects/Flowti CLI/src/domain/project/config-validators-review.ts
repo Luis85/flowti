@@ -116,6 +116,37 @@ export function validateDirSections(mgmt: Record<string, unknown>, warnings: str
 	}
 }
 
+function validatePhaseBinding(state: string, binding: unknown, warnings: string[]): void {
+	const prefix = `management.iterations.orchestration.phases.${state}`;
+	if (!binding || typeof binding !== "object") {
+		warnings.push(`"${prefix}" must be an object.`);
+		return;
+	}
+	const b = binding as Record<string, unknown>;
+	if (typeof b.agent !== "string" || b.agent.length === 0) {
+		warnings.push(`"${prefix}.agent" is required and must be a non-empty string.`);
+	}
+	expectType(b, "role", "string", prefix, warnings);
+	expectType(b, "instruction", "string", prefix, warnings);
+}
+
+function validateOrchestration(iterations: Record<string, unknown>, warnings: string[]): void {
+	if (iterations.orchestration === undefined) return;
+	if (!iterations.orchestration || typeof iterations.orchestration !== "object") {
+		warnings.push('"management.iterations.orchestration" must be an object.');
+		return;
+	}
+	const orch = iterations.orchestration as Record<string, unknown>;
+	if (orch.phases === undefined) return;
+	if (!orch.phases || typeof orch.phases !== "object") {
+		warnings.push('"management.iterations.orchestration.phases" must be an object.');
+		return;
+	}
+	for (const [state, binding] of Object.entries(orch.phases as Record<string, unknown>)) {
+		validatePhaseBinding(state, binding, warnings);
+	}
+}
+
 export function validateManagement(cfg: Record<string, unknown>, warnings: string[]): void {
 	if (cfg.management === undefined) return;
 	if (!cfg.management || typeof cfg.management !== "object") {
@@ -127,6 +158,7 @@ export function validateManagement(cfg: Record<string, unknown>, warnings: strin
 	if (mgmt.iterations !== undefined && mgmt.iterations && typeof mgmt.iterations === "object") {
 		expectType(mgmt.iterations as Record<string, unknown>, "durationDays", "number", "management.iterations", warnings);
 		expectType(mgmt.iterations as Record<string, unknown>, "lifecycle", "string", "management.iterations", warnings);
+		validateOrchestration(mgmt.iterations as Record<string, unknown>, warnings);
 	}
 	if (mgmt.lifecycle !== undefined) {
 		if (!mgmt.lifecycle || typeof mgmt.lifecycle !== "object") {

@@ -8,6 +8,39 @@
 
 import type { HandlerRegistry } from "../../infrastructure/handler-registry.js";
 import type { MenuResult } from "../../infrastructure/types.js";
+import type { RouterContext } from "../../infrastructure/sitemap-types.js";
+
+/** Resolve system prompt for a named agent. */
+async function resolveAgentPrompt(ctx: RouterContext, agentName: string): Promise<string | null> {
+	const { findAgent, readSystemPrompt } = await import("../../domain/agents/agent-store.js");
+	const agentDef = findAgent(ctx.deps, ctx.project!.path, agentName, ctx.project!.config.management?.agents);
+	return agentDef ? readSystemPrompt(ctx.deps, ctx.project!.path, agentDef.name, ctx.project!.config.management?.agents) : null;
+}
+
+/** Generate a brief for the active agent on the current iteration. Returns file path or null. */
+async function generateIterationBrief(ctx: RouterContext): Promise<string | null> {
+	if (!ctx.project) return null;
+	const { findCurrentIteration, iterationsDir } = await import("../../domain/iterations/iteration-store.js");
+	const { getActiveAgent } = await import("../../domain/agents/agent-orchestration.js");
+	const { generateBrief, briefFileName } = await import("../../domain/agents/agent-brief.js");
+	const { loadIterationTemplate } = await import("./iteration-template-loader.js");
+	const { getValidTransitions } = await import("../../domain/lifecycle/lifecycle-engine.js");
+	const config = ctx.project.config.management?.iterations;
+	const iteration = findCurrentIteration(ctx.deps, ctx.project.path, config);
+	if (!iteration) { ctx.deps.log("\n  No active iteration.\n"); return null; }
+	const active = getActiveAgent(config?.orchestration, iteration.status);
+	if (!active) { ctx.deps.log("\n  No agent bound to the current phase.\n"); return null; }
+	const systemPrompt = await resolveAgentPrompt(ctx, active.name);
+	const template = loadIterationTemplate(ctx.deps, ctx.project.path, config);
+	const validTransitions = template ? getValidTransitions(template, iteration.status) : [];
+	const brief = generateBrief({ agent: active, iteration, systemPrompt, validTransitions });
+	const dir = iterationsDir(ctx.deps, ctx.project.path, config);
+	const briefsDir = ctx.deps.paths.join(dir, "briefs");
+	if (!ctx.deps.disk.existsSync(briefsDir)) ctx.deps.disk.mkdirSync(briefsDir, { recursive: true });
+	const outPath = ctx.deps.paths.join(briefsDir, briefFileName(iteration.number, iteration.status));
+	ctx.deps.disk.writeFileSync(outPath, brief, "utf-8");
+	return outPath;
+}
 
 export function registerCrudHandlers(registry: HandlerRegistry): void {
 	// ── RAID handlers ───────────────────────────────────────────────
@@ -306,6 +339,18 @@ export function registerCrudHandlers(registry: HandlerRegistry): void {
 		}
 		await input.waitForEnter();
 		return "main" as MenuResult;
+	});
+
+	registry.registerAction("iteration:generate-brief", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const { input, log } = ctx.deps;
+		const result = await generateIterationBrief(ctx);
+		if (result) {
+			const { renderBriefGenerated } = await import("../displays/iterations-display.js");
+			renderBriefGenerated(result, log);
+		}
+		await input.waitForEnter();
+		return "navigate:iteration-detail" as MenuResult;
 	});
 
 	const iterMenuActions: [string, string][] = [

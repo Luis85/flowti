@@ -117,6 +117,17 @@ export function renderGateStatus(gates: { label: string; passed: boolean }[], lo
 	log();
 }
 
+export function renderActiveAgent(agent: { name: string; role: string; instruction: string }, log: (msg?: string) => void): void {
+	log(`  ${BOLD}Active Agent${RESET}`);
+	log(`  ${CYAN}▸${RESET} ${agent.name} ${DIM}(${agent.role})${RESET}`);
+	if (agent.instruction) log(`    ${DIM}${agent.instruction}${RESET}`);
+	log();
+}
+
+export function renderBriefGenerated(path: string, log: (msg?: string) => void): void {
+	log(`\n  ${GREEN}✓${RESET} Brief written to ${DIM}${path}${RESET}\n`);
+}
+
 export function renderGateResults(results: GateResult[], log: (msg?: string) => void): void {
 	for (const r of results) {
 		const icon = r.passed ? `${GREEN}✓${RESET}` : `${RED}✗${RESET}`;

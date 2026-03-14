@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // ── Infrastructure mocks ────────────────────────────────────────────
 vi.mock("../../../src/infrastructure/filesystem.js", () => ({
 	disk: { existsSync: vi.fn(() => false), readFileSync: vi.fn(() => ""), readdirSync: vi.fn(() => []), writeFileSync: vi.fn(), mkdirSync: vi.fn() },
+	watchFile: vi.fn(() => ({ close: vi.fn() })),
 }));
 vi.mock("../../../src/infrastructure/paths.js", () => ({
 	paths: { join: (...args: string[]) => args.join("/"), resolve: (...args: string[]) => args.join("/"), basename: (p: string) => p.split("/").pop() ?? "", sep: "/" },

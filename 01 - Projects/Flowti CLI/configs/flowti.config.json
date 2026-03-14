@@ -204,7 +204,24 @@
 		},
 		"iterations": {
 			"dir": "iterations",
-			"durationDays": 14
+			"durationDays": 14,
+			"orchestration": {
+				"phases": {
+					"new": {
+						"agent": "Product Owner",
+						"role": "refiner",
+						"instruction": "Refine the goal and identify initial scope items"
+					},
+					"planned": {
+						"agent": "Software Architect",
+						"role": "planner",
+						"instruction": "Break scope into actionable technical tasks with file-level changes"
+					}
+				}
+			}
+		},
+		"agents": {
+			"dir": "docs/agents"
 		}
 	},
 	"templates": {

@@ -1810,6 +1810,13 @@
 					"group": "lifecycle"
 				},
 				{
+					"name": "onGenerateBrief",
+					"label": "Generate Brief",
+					"type": "handler",
+					"target": "iteration:generate-brief",
+					"group": "orchestration"
+				},
+				{
 					"name": "onRunReports",
 					"label": "Run All Reports",
 					"type": "handler",

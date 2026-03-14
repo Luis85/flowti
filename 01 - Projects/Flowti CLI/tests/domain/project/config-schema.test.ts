@@ -358,6 +358,41 @@ describe("validateProjectConfig", () => {
 			}));
 			expect(warnings).toEqual([]);
 		});
+
+		it("accepts valid orchestration config", () => {
+			const { warnings } = validateProjectConfig(valid({
+				management: { iterations: { orchestration: { phases: { "new": { agent: "PO", role: "refiner" } } } } },
+			}));
+			expect(warnings).toEqual([]);
+		});
+
+		it("warns on non-object orchestration", () => {
+			const { warnings } = validateProjectConfig(valid({
+				management: { iterations: { orchestration: "bad" } },
+			}));
+			expect(warnings).toContainEqual(expect.stringContaining('"management.iterations.orchestration" must be an object'));
+		});
+
+		it("warns on non-object orchestration.phases", () => {
+			const { warnings } = validateProjectConfig(valid({
+				management: { iterations: { orchestration: { phases: "bad" } } },
+			}));
+			expect(warnings).toContainEqual(expect.stringContaining('"management.iterations.orchestration.phases" must be an object'));
+		});
+
+		it("warns when phase binding missing agent", () => {
+			const { warnings } = validateProjectConfig(valid({
+				management: { iterations: { orchestration: { phases: { "new": { role: "refiner" } } } } },
+			}));
+			expect(warnings).toContainEqual(expect.stringContaining('"management.iterations.orchestration.phases.new.agent" is required'));
+		});
+
+		it("warns on non-string phase binding role", () => {
+			const { warnings } = validateProjectConfig(valid({
+				management: { iterations: { orchestration: { phases: { "new": { agent: "PO", role: 42 } } } } },
+			}));
+			expect(warnings).toContainEqual(expect.stringContaining('"management.iterations.orchestration.phases.new.role" must be a string'));
+		});
 	});
 
 	describe("unknown keys", () => {
