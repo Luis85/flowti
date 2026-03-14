@@ -113,6 +113,8 @@ describe("registerExtensibilityHandlers", () => {
 				"plugins:list", "plugins:validate", "plugins:create", "plugins:reference",
 				"ai-tools:list", "ai-tools:validate", "ai-tools:create", "ai-tools:reference",
 				"agents:list", "agents:add", "agents:view", "agents:remove",
+				"agents:edit-identity", "agents:edit-skills", "agents:edit-tools",
+				"agents:edit-roles", "agents:edit-ai", "agents:edit-prompt",
 			];
 			for (const id of expectedActions) {
 				expect(registry.hasAction(id)).toBe(true);

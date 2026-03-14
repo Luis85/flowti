@@ -7,7 +7,7 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
 }));
 
-import { listAgents, findAgent, createAgent, updateAgentField, deleteAgent, agentsDir, agentToJson } from "../../../src/domain/agents/agent-store.js";
+import { listAgents, findAgent, createAgent, updateAgentField, deleteAgent, agentsDir, agentToJson, addArrayItem, removeArrayItem, updateAgentJson, readSystemPrompt, writeSystemPrompt } from "../../../src/domain/agents/agent-store.js";
 import type { AgentDefinition } from "../../../src/domain/agents/agent-types.js";
 
 function makeDeps(files: Record<string, string> = {}) {
@@ -264,5 +264,98 @@ describe("companion JSON definition", () => {
 		expect(written).toContain("domain: qa");
 		expect(written).toContain("review-code");
 		expect(written).toContain("write-tests");
+	});
+});
+
+describe("addArrayItem", () => {
+	it("appends to existing array field", () => {
+		const deps = makeDeps({ "/proj/docs/agents/code-bot.md": AGENT_MD });
+		const ok = addArrayItem(deps, "/proj", "CodeBot", "tools", "eslint");
+		expect(ok).toBe(true);
+		const written = (deps.disk.writeFileSync as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+		expect(written).toContain("  - eslint");
+	});
+
+	it("creates new array field when it does not exist", () => {
+		const deps = makeDeps({ "/proj/docs/agents/code-bot.md": AGENT_MD });
+		const ok = addArrayItem(deps, "/proj", "CodeBot", "behaviors", "patrol");
+		expect(ok).toBe(true);
+		const written = (deps.disk.writeFileSync as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+		expect(written).toContain("behaviors:\n  - patrol");
+	});
+
+	it("returns false for missing agent", () => {
+		const deps = makeDeps();
+		expect(addArrayItem(deps, "/proj", "Ghost", "tools", "x")).toBe(false);
+	});
+});
+
+describe("removeArrayItem", () => {
+	it("removes an existing array item", () => {
+		const deps = makeDeps({ "/proj/docs/agents/code-bot.md": AGENT_MD });
+		const ok = removeArrayItem(deps, "/proj", "CodeBot", "tools", "grep");
+		expect(ok).toBe(true);
+		const written = (deps.disk.writeFileSync as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+		expect(written).not.toContain("  - grep");
+		expect(written).toContain("  - git");
+	});
+
+	it("returns false when item not found", () => {
+		const deps = makeDeps({ "/proj/docs/agents/code-bot.md": AGENT_MD });
+		expect(removeArrayItem(deps, "/proj", "CodeBot", "tools", "nonexistent")).toBe(false);
+	});
+
+	it("returns false for missing agent", () => {
+		const deps = makeDeps();
+		expect(removeArrayItem(deps, "/proj", "Ghost", "tools", "x")).toBe(false);
+	});
+});
+
+describe("updateAgentJson", () => {
+	it("creates companion JSON when none exists", () => {
+		const deps = makeDeps({ "/proj/docs/agents/code-bot.md": AGENT_MD });
+		const ok = updateAgentJson(deps, "/proj", "CodeBot", { ai: { model: "claude-sonnet-4-20250514", provider: "anthropic" } });
+		expect(ok).toBe(true);
+		const written = (deps.disk.writeFileSync as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+		const parsed = JSON.parse(written);
+		expect(parsed.ai.model).toBe("claude-sonnet-4-20250514");
+		expect(parsed.ai.provider).toBe("anthropic");
+	});
+
+	it("merges into existing companion JSON", () => {
+		const existingJson = JSON.stringify({ components: [{ name: "tool-caller" }] });
+		const deps = makeDeps({
+			"/proj/docs/agents/code-bot.md": AGENT_MD,
+			"/proj/docs/agents/code-bot.json": existingJson,
+		});
+		updateAgentJson(deps, "/proj", "CodeBot", { ai: { model: "gpt-4o" } });
+		const written = (deps.disk.writeFileSync as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+		const parsed = JSON.parse(written);
+		expect(parsed.components).toEqual([{ name: "tool-caller" }]);
+		expect(parsed.ai).toEqual({ model: "gpt-4o" });
+	});
+});
+
+describe("readSystemPrompt", () => {
+	it("returns prompt content when file exists", () => {
+		const deps = makeDeps({ "/proj/docs/agents/code-bot.prompt.md": "You are a coding assistant." });
+		const prompt = readSystemPrompt(deps, "/proj", "CodeBot");
+		expect(prompt).toBe("You are a coding assistant.");
+	});
+
+	it("returns null when prompt file does not exist", () => {
+		const deps = makeDeps({ "/proj/docs/agents/code-bot.md": AGENT_MD });
+		expect(readSystemPrompt(deps, "/proj", "CodeBot")).toBeNull();
+	});
+});
+
+describe("writeSystemPrompt", () => {
+	it("writes prompt file", () => {
+		const deps = makeDeps();
+		const ok = writeSystemPrompt(deps, "/proj", "CodeBot", "You are helpful.");
+		expect(ok).toBe(true);
+		expect(deps.disk.writeFileSync).toHaveBeenCalledWith(
+			"/proj/docs/agents/code-bot.prompt.md", "You are helpful.", "utf-8",
+		);
 	});
 });

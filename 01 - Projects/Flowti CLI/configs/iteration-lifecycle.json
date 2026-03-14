@@ -14,7 +14,6 @@
 	"gates": {
 		"new":         [{ "id": "has-goal", "label": "Goal defined" }],
 		"planned":     [{ "id": "has-scope", "label": "Scope items exist" }, { "id": "has-dates", "label": "Dates set" }],
-		"ready":       [{ "id": "has-resources", "label": "Resources assigned" }],
 		"in-progress": [{ "id": "scope-progress", "label": "Work started (≥1 item done)" }],
 		"in-review":   [{ "id": "all-scope-done", "label": "All scope items completed" }]
 	},

@@ -449,9 +449,9 @@
 				},
 				{
 					"name": "onViewAgent",
-					"label": "View Agent",
-					"type": "handler",
-					"target": "agents:view",
+					"label": "View Agent Detail",
+					"type": "navigate",
+					"target": "agent-detail",
 					"group": "agents",
 					"disabled": "no-project-selected",
 					"disabledMessage": "Select a project first."
@@ -492,6 +492,78 @@
 					"type": "handler",
 					"target": "ai-tools:reference",
 					"group": "tools"
+				},
+				{
+					"name": "onBack",
+					"label": "Back",
+					"type": "signal",
+					"target": "back",
+					"key": "b",
+					"group": "nav"
+				}
+			]
+		},
+		"agent-detail": {
+			"kind": "page",
+			"label": "Agent: {{params.agentName}}",
+			"icon": "user",
+			"domain": "extensibility",
+			"status": "active",
+			"description": "View and edit an agent's identity, skills, tools, roles, AI config, and system prompt.",
+			"parent": "ai-tools",
+			"context": ["project"],
+			"route": {
+				"path": "agents/:agentName"
+			},
+			"actions": [
+				{
+					"name": "onEditIdentity",
+					"label": "Edit Identity",
+					"type": "handler",
+					"target": "agents:edit-identity",
+					"group": "edit"
+				},
+				{
+					"name": "onEditSkills",
+					"label": "Edit Skills",
+					"type": "handler",
+					"target": "agents:edit-skills",
+					"group": "edit"
+				},
+				{
+					"name": "onEditTools",
+					"label": "Edit Tools",
+					"type": "handler",
+					"target": "agents:edit-tools",
+					"group": "edit"
+				},
+				{
+					"name": "onEditRoles",
+					"label": "Edit Roles",
+					"type": "handler",
+					"target": "agents:edit-roles",
+					"group": "edit"
+				},
+				{
+					"name": "onEditAIConfig",
+					"label": "AI Config",
+					"type": "handler",
+					"target": "agents:edit-ai",
+					"group": "ai"
+				},
+				{
+					"name": "onEditSystemPrompt",
+					"label": "System Prompt",
+					"type": "handler",
+					"target": "agents:edit-prompt",
+					"group": "ai"
+				},
+				{
+					"name": "onRemoveAgent",
+					"label": "Delete Agent",
+					"type": "handler",
+					"target": "agents:remove",
+					"group": "danger"
 				},
 				{
 					"name": "onBack",

@@ -139,4 +139,86 @@ export function registerExtensibilityHandlers(registry: HandlerRegistry): void {
 		await ctx.deps.input.waitForEnter();
 		return undefined;
 	});
+
+	registry.registerAction("agents:edit-identity", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const agentName = ctx.params?.agentName as string | undefined;
+		if (!agentName) return undefined;
+		const { findAgent } = await import("../../domain/agents/agent-store.js");
+		const agent = findAgent(ctx.deps, ctx.project.path, agentName, ctx.project.config.management?.agents);
+		if (!agent) return undefined;
+		const { editAgentIdentity } = await import("../menus/agents-menu.js");
+		await editAgentIdentity(ctx.project.path, agent, ctx.project.config.management?.agents, ctx.deps);
+		return undefined;
+	});
+
+	registry.registerAction("agents:edit-skills", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const agentName = ctx.params?.agentName as string | undefined;
+		if (!agentName) return undefined;
+		const { findAgent } = await import("../../domain/agents/agent-store.js");
+		const agent = findAgent(ctx.deps, ctx.project.path, agentName, ctx.project.config.management?.agents);
+		if (!agent) return undefined;
+		const { editAgentSkills } = await import("../menus/agents-menu.js");
+		await editAgentSkills(ctx.project.path, agent, ctx.project.config.management?.agents, ctx.deps);
+		return undefined;
+	});
+
+	registry.registerAction("agents:edit-tools", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const agentName = ctx.params?.agentName as string | undefined;
+		if (!agentName) return undefined;
+		const { findAgent } = await import("../../domain/agents/agent-store.js");
+		const agent = findAgent(ctx.deps, ctx.project.path, agentName, ctx.project.config.management?.agents);
+		if (!agent) return undefined;
+		const { editAgentArrayField } = await import("../menus/agents-menu.js");
+		await editAgentArrayField(ctx.project.path, agent, "tools", ctx.project.config.management?.agents, ctx.deps);
+		return undefined;
+	});
+
+	registry.registerAction("agents:edit-roles", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const agentName = ctx.params?.agentName as string | undefined;
+		if (!agentName) return undefined;
+		const { findAgent } = await import("../../domain/agents/agent-store.js");
+		const agent = findAgent(ctx.deps, ctx.project.path, agentName, ctx.project.config.management?.agents);
+		if (!agent) return undefined;
+		const { editAgentArrayField } = await import("../menus/agents-menu.js");
+		await editAgentArrayField(ctx.project.path, agent, "roles", ctx.project.config.management?.agents, ctx.deps);
+		return undefined;
+	});
+
+	registry.registerAction("agents:edit-ai", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const agentName = ctx.params?.agentName as string | undefined;
+		if (!agentName) return undefined;
+		const { findAgent } = await import("../../domain/agents/agent-store.js");
+		const agent = findAgent(ctx.deps, ctx.project.path, agentName, ctx.project.config.management?.agents);
+		if (!agent) return undefined;
+		const { editAIConfigInteractive } = await import("../menus/agents-menu.js");
+		await editAIConfigInteractive(ctx.project.path, agent, ctx.project.config.management?.agents, ctx.deps);
+		return undefined;
+	});
+
+	registry.registerAction("agents:edit-prompt", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const agentName = ctx.params?.agentName as string | undefined;
+		if (!agentName) return undefined;
+		const { findAgent } = await import("../../domain/agents/agent-store.js");
+		const agent = findAgent(ctx.deps, ctx.project.path, agentName, ctx.project.config.management?.agents);
+		if (!agent) return undefined;
+		const { editSystemPromptInteractive } = await import("../menus/agents-menu.js");
+		await editSystemPromptInteractive(ctx.project.path, agent, ctx.project.config.management?.agents, ctx.deps);
+		return undefined;
+	});
+
+	// ── Agent detail view ────────────────────────────────────────────
+
+	registry.registerView("agent-detail", async (ctx) => {
+		if (!ctx.project) return "main";
+		const agentName = ctx.params?.agentName as string | undefined;
+		if (!agentName) return "main";
+		const { agentDetailMenu } = await import("../menus/agents-menu.js");
+		return agentDetailMenu(ctx.project.path, agentName, ctx.project.config.management?.agents, ctx.deps);
+	});
 }

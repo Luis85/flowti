@@ -6,9 +6,15 @@ vi.mock("../../../src/infrastructure/ui.js", () => ({
 }));
 vi.mock("../../../src/domain/agents/agent-store.js", () => ({
 	listAgents: vi.fn(() => []),
+	findAgent: vi.fn(),
 	createAgent: vi.fn(),
 	deleteAgent: vi.fn(),
-	findAgent: vi.fn(),
+	updateAgentField: vi.fn(() => true),
+	addArrayItem: vi.fn(() => true),
+	removeArrayItem: vi.fn(() => true),
+	updateAgentJson: vi.fn(() => true),
+	readSystemPrompt: vi.fn(() => null),
+	writeSystemPrompt: vi.fn(() => true),
 }));
 vi.mock("../../../src/ui/displays/agents-display.js", () => ({
 	renderAgentList: vi.fn(),
@@ -17,17 +23,26 @@ vi.mock("../../../src/ui/displays/agents-display.js", () => ({
 	renderAgentDeleted: vi.fn(),
 }));
 
-import { listAgents, createAgent, deleteAgent } from "../../../src/domain/agents/agent-store.js";
+import { listAgents, findAgent, createAgent, deleteAgent, updateAgentField, addArrayItem, removeArrayItem, updateAgentJson, readSystemPrompt, writeSystemPrompt } from "../../../src/domain/agents/agent-store.js";
 import { renderAgentList, renderAgentCreated, renderAgentDeleted } from "../../../src/ui/displays/agents-display.js";
 import {
 	addAgentInteractive, viewAgentInteractive, listAgentsInteractive,
 	removeAgentInteractive, selectAgentInteractive,
+	editAgentIdentity, editAgentSkills, editAgentArrayField,
+	editAIConfigInteractive, editSystemPromptInteractive, agentDetailMenu,
 } from "../../../src/ui/menus/agents-menu.js";
 import type { AgentSummary } from "../../../src/domain/agents/agent-types.js";
 
 const mockListAgents = vi.mocked(listAgents);
+const mockFindAgent = vi.mocked(findAgent);
 const mockCreateAgent = vi.mocked(createAgent);
 const mockDeleteAgent = vi.mocked(deleteAgent);
+const mockUpdateField = vi.mocked(updateAgentField);
+const mockAddArrayItem = vi.mocked(addArrayItem);
+const mockRemoveArrayItem = vi.mocked(removeArrayItem);
+const mockUpdateJson = vi.mocked(updateAgentJson);
+const mockReadPrompt = vi.mocked(readSystemPrompt);
+const mockWritePrompt = vi.mocked(writeSystemPrompt);
 
 function makeDeps() {
 	return {
@@ -189,5 +204,177 @@ describe("selectAgentInteractive", () => {
 		mockListAgents.mockReturnValue([makeAgent()]);
 		deps.input.ask.mockResolvedValueOnce("Unknown");
 		expect(await selectAgentInteractive("/proj", undefined, deps)).toBeNull();
+	});
+});
+
+// ── Agent detail view ────────────────────────────────────────────────
+
+describe("agentDetailMenu", () => {
+	it("returns main when agent not found", async () => {
+		const deps = makeDeps();
+		mockFindAgent.mockReturnValue(null);
+		expect(await agentDetailMenu("/proj", "Ghost", undefined, deps)).toBe("main");
+	});
+
+	it("renders detail when agent found", async () => {
+		const deps = makeDeps();
+		mockFindAgent.mockReturnValue(makeAgent());
+		const result = await agentDetailMenu("/proj", "CodeBot", undefined, deps);
+		expect(result).toBeUndefined();
+	});
+});
+
+// ── Edit identity ────────────────────────────────────────────────────
+
+describe("editAgentIdentity", () => {
+	it("updates description and domain", async () => {
+		const deps = makeDeps();
+		const agent = makeAgent({ description: "Old", domain: "dev" });
+		deps.input.ask
+			.mockResolvedValueOnce("New desc")
+			.mockResolvedValueOnce("qa");
+		await editAgentIdentity("/proj", agent, undefined, deps);
+		expect(mockUpdateField).toHaveBeenCalledWith(deps, "/proj", "CodeBot", "description", "New desc", undefined);
+		expect(mockUpdateField).toHaveBeenCalledWith(deps, "/proj", "CodeBot", "domain", "qa", undefined);
+	});
+
+	it("skips update when values unchanged", async () => {
+		const deps = makeDeps();
+		const agent = makeAgent({ description: "Same", domain: "dev" });
+		deps.input.ask
+			.mockResolvedValueOnce("Same")
+			.mockResolvedValueOnce("dev");
+		await editAgentIdentity("/proj", agent, undefined, deps);
+		expect(mockUpdateField).not.toHaveBeenCalled();
+	});
+});
+
+// ── Edit skills ──────────────────────────────────────────────────────
+
+describe("editAgentSkills", () => {
+	it("adds a skill", async () => {
+		const deps = makeDeps();
+		const agent = makeAgent();
+		deps.input.ask
+			.mockResolvedValueOnce("a")         // action: add
+			.mockResolvedValueOnce("Python")    // skill name
+			.mockResolvedValueOnce("beginner"); // level
+		await editAgentSkills("/proj", agent, undefined, deps);
+		expect(mockAddArrayItem).toHaveBeenCalledWith(deps, "/proj", "CodeBot", "skills", "Python|beginner", undefined);
+	});
+
+	it("removes a skill", async () => {
+		const deps = makeDeps();
+		const agent = makeAgent({ skills: [{ name: "TypeScript", level: "expert" }] });
+		deps.input.ask
+			.mockResolvedValueOnce("r")
+			.mockResolvedValueOnce("typescript");
+		await editAgentSkills("/proj", agent, undefined, deps);
+		expect(mockRemoveArrayItem).toHaveBeenCalledWith(deps, "/proj", "CodeBot", "skills", "TypeScript|expert", undefined);
+	});
+
+	it("does nothing on skip", async () => {
+		const deps = makeDeps();
+		deps.input.ask.mockResolvedValueOnce("");
+		await editAgentSkills("/proj", makeAgent(), undefined, deps);
+		expect(mockAddArrayItem).not.toHaveBeenCalled();
+		expect(mockRemoveArrayItem).not.toHaveBeenCalled();
+	});
+});
+
+// ── Edit array fields ────────────────────────────────────────────────
+
+describe("editAgentArrayField", () => {
+	it("adds a tool", async () => {
+		const deps = makeDeps();
+		deps.input.ask
+			.mockResolvedValueOnce("a")
+			.mockResolvedValueOnce("eslint");
+		await editAgentArrayField("/proj", makeAgent(), "tools", undefined, deps);
+		expect(mockAddArrayItem).toHaveBeenCalledWith(deps, "/proj", "CodeBot", "tools", "eslint", undefined);
+	});
+
+	it("removes a role", async () => {
+		const deps = makeDeps();
+		const agent = makeAgent({ roles: ["Developer", "Reviewer"] });
+		deps.input.ask
+			.mockResolvedValueOnce("r")
+			.mockResolvedValueOnce("reviewer");
+		await editAgentArrayField("/proj", agent, "roles", undefined, deps);
+		expect(mockRemoveArrayItem).toHaveBeenCalledWith(deps, "/proj", "CodeBot", "roles", "Reviewer", undefined);
+	});
+
+	it("handles behaviors field", async () => {
+		const deps = makeDeps();
+		const agent = makeAgent({ behaviors: ["patrol"] });
+		deps.input.ask
+			.mockResolvedValueOnce("a")
+			.mockResolvedValueOnce("guard");
+		await editAgentArrayField("/proj", agent, "behaviors", undefined, deps);
+		expect(mockAddArrayItem).toHaveBeenCalledWith(deps, "/proj", "CodeBot", "behaviors", "guard", undefined);
+	});
+});
+
+// ── AI Config ────────────────────────────────────────────────────────
+
+describe("editAIConfigInteractive", () => {
+	it("writes AI config to companion JSON", async () => {
+		const deps = makeDeps();
+		const agent = makeAgent();
+		deps.input.ask
+			.mockResolvedValueOnce("claude-sonnet-4-20250514")
+			.mockResolvedValueOnce("anthropic")
+			.mockResolvedValueOnce("200000")
+			.mockResolvedValueOnce("4096");
+		await editAIConfigInteractive("/proj", agent, undefined, deps);
+		expect(mockUpdateJson).toHaveBeenCalledWith(
+			deps, "/proj", "CodeBot",
+			{ ai: { model: "claude-sonnet-4-20250514", provider: "anthropic", contextWindow: 200000, maxTokens: 4096, systemPrompt: undefined } },
+			undefined,
+		);
+	});
+
+	it("preserves existing systemPrompt", async () => {
+		const deps = makeDeps();
+		const agent = makeAgent({ ai: { systemPrompt: "Be helpful" } });
+		deps.input.ask
+			.mockResolvedValueOnce("gpt-4o")
+			.mockResolvedValueOnce("openai")
+			.mockResolvedValueOnce("")
+			.mockResolvedValueOnce("");
+		await editAIConfigInteractive("/proj", agent, undefined, deps);
+		expect(mockUpdateJson).toHaveBeenCalledWith(
+			deps, "/proj", "CodeBot",
+			expect.objectContaining({ ai: expect.objectContaining({ systemPrompt: "Be helpful" }) }),
+			undefined,
+		);
+	});
+});
+
+// ── System Prompt ────────────────────────────────────────────────────
+
+describe("editSystemPromptInteractive", () => {
+	it("writes new system prompt", async () => {
+		const deps = makeDeps();
+		mockReadPrompt.mockReturnValue(null);
+		deps.input.ask.mockResolvedValueOnce("You are a code reviewer.");
+		await editSystemPromptInteractive("/proj", makeAgent(), undefined, deps);
+		expect(mockWritePrompt).toHaveBeenCalledWith(deps, "/proj", "CodeBot", "You are a code reviewer.", undefined);
+	});
+
+	it("skips when user enters nothing", async () => {
+		const deps = makeDeps();
+		mockReadPrompt.mockReturnValue("Existing prompt");
+		deps.input.ask.mockResolvedValueOnce("");
+		await editSystemPromptInteractive("/proj", makeAgent(), undefined, deps);
+		expect(mockWritePrompt).not.toHaveBeenCalled();
+	});
+
+	it("shows current prompt when it exists", async () => {
+		const deps = makeDeps();
+		mockReadPrompt.mockReturnValue("You are helpful.");
+		deps.input.ask.mockResolvedValueOnce("");
+		await editSystemPromptInteractive("/proj", makeAgent(), undefined, deps);
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("16 chars"));
 	});
 });

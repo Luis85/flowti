@@ -48,7 +48,7 @@ function parseJsonFile<T>(deps: AgentStoreDeps, dir: string, mdFile: string): T 
 	} catch { return null; }
 }
 
-interface AgentJson {
+export interface AgentJson {
 	components?: AgentComponent[];
 	goals?: AgentGoal[];
 	ai?: AgentAIConfig;
@@ -180,6 +180,73 @@ export function updateAgentField(deps: AgentStoreDeps, projectPath: string, name
 	const dir = agentsDir(deps, projectPath, config);
 	const filePath = deps.paths.join(dir, toMdFilename(name));
 	return updateField(deps, filePath, field, value);
+}
+
+/** Add an item to a frontmatter array field. Returns true if successful. */
+export function addArrayItem(deps: AgentStoreDeps, projectPath: string, name: string, field: string, value: string, config?: AgentsConfig): boolean {
+	const dir = agentsDir(deps, projectPath, config);
+	const filePath = deps.paths.join(dir, toMdFilename(name));
+	if (!deps.disk.existsSync(filePath)) return false;
+	let content = deps.disk.readFileSync(filePath, "utf-8");
+
+	const fieldRegex = new RegExp(`^${field}:`, "m");
+	if (fieldRegex.test(content)) {
+		const appendRegex = new RegExp(`(^${field}:.*(?:\\n\\s+-\\s+.*)*)`, "m");
+		content = content.replace(appendRegex, `$1\n  - ${value}`);
+	} else {
+		content = content.replace(/^---\r?\n/, `---\n${field}:\n  - ${value}\n`);
+	}
+	deps.disk.writeFileSync(filePath, content, "utf-8");
+	return true;
+}
+
+/** Remove an item from a frontmatter array field by value. Returns true if found and removed. */
+export function removeArrayItem(deps: AgentStoreDeps, projectPath: string, name: string, field: string, value: string, config?: AgentsConfig): boolean {
+	const dir = agentsDir(deps, projectPath, config);
+	const filePath = deps.paths.join(dir, toMdFilename(name));
+	if (!deps.disk.existsSync(filePath)) return false;
+	let content = deps.disk.readFileSync(filePath, "utf-8");
+
+	const lineRegex = new RegExp(`^\\s+-\\s+${escapeRegex(value)}\\s*$\\n?`, "m");
+	if (!lineRegex.test(content)) return false;
+	content = content.replace(lineRegex, "");
+	deps.disk.writeFileSync(filePath, content, "utf-8");
+	return true;
+}
+
+function escapeRegex(s: string): string {
+	return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Update the companion JSON file for an agent. Merges fields into existing JSON. */
+export function updateAgentJson(deps: AgentStoreDeps, projectPath: string, name: string, patch: Partial<AgentJson>, config?: AgentsConfig): boolean {
+	const dir = agentsDir(deps, projectPath, config);
+	const jsonPath = deps.paths.join(dir, toMdFilename(name).replace(/\.md$/, ".json"));
+	let existing: AgentJson = {};
+	if (deps.disk.existsSync(jsonPath)) {
+		try { existing = JSON.parse(deps.disk.readFileSync(jsonPath, "utf-8")) as AgentJson; } catch { /* ignore */ }
+	}
+	const merged = { ...existing, ...patch };
+	deps.disk.mkdirSync(dir, { recursive: true });
+	deps.disk.writeFileSync(jsonPath, JSON.stringify(merged, null, "\t"), "utf-8");
+	return true;
+}
+
+/** Read the system prompt file for an agent (<name>.prompt.md). */
+export function readSystemPrompt(deps: AgentStoreDeps, projectPath: string, name: string, config?: AgentsConfig): string | null {
+	const dir = agentsDir(deps, projectPath, config);
+	const promptPath = deps.paths.join(dir, toMdFilename(name).replace(/\.md$/, ".prompt.md"));
+	if (!deps.disk.existsSync(promptPath)) return null;
+	return deps.disk.readFileSync(promptPath, "utf-8");
+}
+
+/** Write the system prompt file for an agent (<name>.prompt.md). */
+export function writeSystemPrompt(deps: AgentStoreDeps, projectPath: string, name: string, content: string, config?: AgentsConfig): boolean {
+	const dir = agentsDir(deps, projectPath, config);
+	deps.disk.mkdirSync(dir, { recursive: true });
+	const promptPath = deps.paths.join(dir, toMdFilename(name).replace(/\.md$/, ".prompt.md"));
+	deps.disk.writeFileSync(promptPath, content, "utf-8");
+	return true;
 }
 
 // ── Delete ───────────────────────────────────────────────────────────

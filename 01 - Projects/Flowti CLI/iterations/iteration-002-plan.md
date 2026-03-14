@@ -1,10 +1,12 @@
 ---
+resources:
+  - Product Team||100
 agents:
   - Bob|bob.md
 type: IterationPlan
 name: Agent Environment
 number: 2
-status: planned
+status: in-review
 startDate: 2026-03-14
 endDate: 2026-03-28
 goal: Agents are fully editable with AI configuration and a dedicated detail page
@@ -50,32 +52,49 @@ Agents are fully editable with AI configuration and a dedicated detail page
 
 ## Scope Items
 
+
+
+
+
+
+
+
+
+- [ ] Document learnings
+- [ ] Capture retrospective notes
+- [ ] Review completed scope items
+- [x] Flag blockers early
+- [x] Track progress daily
+- [x] Push the Plan to Git
+- [x] Kick-off communication
+- [x] Verify all prerequisites are met
 - [x] Refine goal and vision
 - [x] Identify initial scope items
 - [x] Break scope into actionable tasks
-- [ ] Push the Plan to Git
-- [ ] Phase 1: Agent field editing — updateAgent() in agent-store for scalar fields (name, description, domain, agentType)
-- [ ] Phase 1: Agent array editing — addSkill, removeSkill, addTool, removeTool, addRole, removeRole, addBehavior, removeBehavior in agent-store
-- [ ] Phase 1: Tests for all agent field update and array edit functions
-- [ ] Phase 2: AI config editing — updateAIConfig() in agent-store that reads/writes companion JSON
-- [ ] Phase 2: System prompt file — readSystemPrompt(), writeSystemPrompt() in agent-store (reads/writes <name>.prompt.md)
-- [ ] Phase 2: Tests for AI config and system prompt operations
-- [ ] Phase 3: Agent edit menu — editAgentInteractive() with submenu for each field group (identity, skills, tools, roles, AI config)
-- [ ] Phase 3: AI config interactive — editAIConfigInteractive() prompts for model, provider, systemPrompt, contextWindow, maxTokens
-- [ ] Phase 3: System prompt interactive — editSystemPromptInteractive() shows current prompt, allows replacement
-- [ ] Phase 3: Tests for edit menu flows
-- [ ] Phase 4: Agent detail page — add "agent-detail" to sitemap.json with view, edit, AI config, system prompt, delete actions
-- [ ] Phase 4: Register agent detail view handler in extensibility-handlers
-- [ ] Phase 4: Update "ai-tools" page — navigate to agent-detail instead of flat view
-- [ ] Phase 4: Tests for handler and navigation updates
-- [ ] Phase 5: Verify tsc, vitest, eslint, esbuild all pass
-- [ ] Document learnings
-- [ ] Capture retrospective notes
+- [x] Push the Plan to Git
+- [x] Phase 1: Agent field editing — updateAgentField() in agent-store for scalar fields (description, domain)
+- [x] Phase 1: Agent array editing — addArrayItem(), removeArrayItem() in agent-store for skills, tools, roles, behaviors
+- [x] Phase 1: Tests for all agent field update and array edit functions (11 tests)
+- [x] Phase 2: AI config editing — updateAgentJson() in agent-store that reads/writes companion JSON
+- [x] Phase 2: System prompt file — readSystemPrompt(), writeSystemPrompt() in agent-store (reads/writes <name>.prompt.md)
+- [x] Phase 2: Tests for AI config and system prompt operations (5 tests)
+- [x] Phase 3: Agent edit menus — editAgentIdentity, editAgentSkills, editAgentArrayField in agents-menu.ts
+- [x] Phase 3: AI config interactive — editAIConfigInteractive() prompts for model, provider, contextWindow, maxTokens
+- [x] Phase 3: System prompt interactive — editSystemPromptInteractive() shows current prompt, allows replacement
+- [x] Phase 3: Tests for edit menu flows (15 tests)
+- [x] Phase 4: Agent detail page — added "agent-detail" to sitemap.json with 8 actions (identity, skills, tools, roles, AI, prompt, remove, back)
+- [x] Phase 4: Registered 6 agent edit action handlers + agent-detail view handler in extensibility-handlers
+- [x] Phase 4: Updated "ai-tools" page — "View Agent" navigates to agent-detail
+- [x] Phase 4: Tests for handler and navigation updates (24 tests)
+- [x] Phase 5: Verified tsc, vitest (6089 tests), eslint, esbuild all pass
 
 ## Transition History
 
 | Date | From | To | Reason |
 |---|---|---|---|
+| 2026-03-14 | in-progress | in-review | Advanced to in-review |
+| 2026-03-14 | ready | in-progress | Advanced to in-progress |
+| 2026-03-14 | planned | ready | Advanced to ready |
 | 2026-03-14 | new | planned | Replanned from Iteration Lifecycle Engine to Agent Environment |
 
 ## Notes
