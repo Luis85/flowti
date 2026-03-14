@@ -91,6 +91,14 @@ export function listAgents(deps: AgentStoreDeps, projectPath: string, config?: A
 	return items.sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** List vault agents filtered to the project's agent roster. Returns all vault agents if no roster is defined. */
+export function getProjectAgents(deps: AgentStoreDeps, vaultRoot: string, vaultConfig: AgentsConfig | undefined, roster: string[] | undefined): AgentSummary[] {
+	const all = listAgents(deps, vaultRoot, vaultConfig);
+	if (!roster || roster.length === 0) return all;
+	const rosterSet = new Set(roster.map((n) => n.toLowerCase()));
+	return all.filter((a) => rosterSet.has(a.name.toLowerCase()));
+}
+
 /** Find a single agent by name. */
 export function findAgent(deps: AgentStoreDeps, projectPath: string, name: string, config?: AgentsConfig): AgentSummary | null {
 	const agents = listAgents(deps, projectPath, config);

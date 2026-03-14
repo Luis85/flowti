@@ -64,6 +64,22 @@ export function readProjectConfig(projectPath: string, deps: Pick<CliDeps, "disk
 	return { config: parsed as ProjectConfig, warnings };
 }
 
+/** Update the project's flowti.config.json by applying a mutation function. Returns true on success. */
+export function updateProjectConfig(projectPath: string, deps: Pick<CliDeps, "disk" | "paths">, mutate: (config: ProjectConfig) => void): boolean {
+	const cfgPath = deps.paths.join(projectPath, CONFIGS_DIR, FLOWTI_CONFIG);
+	if (!deps.disk.existsSync(cfgPath)) return false;
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(deps.disk.readFileSync(cfgPath, "utf-8"));
+	} catch {
+		return false;
+	}
+	if (!parsed || typeof parsed !== "object") return false;
+	mutate(parsed as ProjectConfig);
+	deps.disk.writeFileSync(cfgPath, JSON.stringify(parsed, null, "\t"), "utf-8");
+	return true;
+}
+
 function mapBuildScripts(scripts: Record<string, string>): Record<string, string> {
 	const build: Record<string, string> = {};
 	if (scripts["build"]) build.fast = "npm run build";

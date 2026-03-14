@@ -361,6 +361,7 @@ export function registerCrudHandlers(registry: HandlerRegistry): void {
 		const { addAgentInteractive } = await import("../menus/iterations-menu.js");
 		await addAgentInteractive(ctx.project.path, ctx.project.config.management?.iterations, ctx.deps, {
 			agentsBasePath: VAULT_ROOT, agentsConfig: cliConfig.agents,
+			roster: ctx.project.config.management?.agents?.roster,
 		});
 		await ctx.deps.input.waitForEnter();
 		return "navigate:iteration-detail" as MenuResult;

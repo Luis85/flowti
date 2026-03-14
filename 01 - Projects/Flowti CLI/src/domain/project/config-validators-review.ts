@@ -112,7 +112,22 @@ export function validateDirSections(mgmt: Record<string, unknown>, warnings: str
 			warnings.push(`"management.${section}" must be an object.`);
 			continue;
 		}
-		expectType(mgmt[section] as Record<string, unknown>, "dir", "string", `management.${section}`, warnings);
+		const sectionObj = mgmt[section] as Record<string, unknown>;
+		expectType(sectionObj, "dir", "string", `management.${section}`, warnings);
+		if (section === "agents") validateAgentsRoster(sectionObj, warnings);
+	}
+}
+
+function validateAgentsRoster(agents: Record<string, unknown>, warnings: string[]): void {
+	if (agents.roster === undefined) return;
+	if (!Array.isArray(agents.roster)) {
+		warnings.push('"management.agents.roster" must be an array of strings.');
+		return;
+	}
+	for (let i = 0; i < agents.roster.length; i++) {
+		if (typeof agents.roster[i] !== "string" || (agents.roster[i] as string).length === 0) {
+			warnings.push(`management.agents.roster[${i}]: must be a non-empty string.`);
+		}
 	}
 }
 

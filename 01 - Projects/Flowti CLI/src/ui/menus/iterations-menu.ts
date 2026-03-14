@@ -8,7 +8,7 @@ import type { IterationsConfig, AgentsConfig } from "../../infrastructure/types.
 import type { AgentReference, ResourceAllocation, CapacityEntry } from "../../domain/iterations/iteration-types.js";
 import { createResourceFile, createEstimationFile } from "../../domain/iterations/iteration-entities.js";
 import type { ResourceNeedEntity, EstimationEntity } from "../../domain/iterations/iteration-entities.js";
-import { listAgents, createAgent } from "../../domain/agents/agent-store.js";
+import { listAgents, getProjectAgents, createAgent } from "../../domain/agents/agent-store.js";
 import { renderAgentList } from "../displays/agents-display.js";
 import type { LifecycleTemplate } from "../../domain/lifecycle/lifecycle-types.js";
 import {
@@ -104,6 +104,7 @@ export async function showCurrentIteration(projectPath: string, config: Iteratio
 export interface AddAgentOptions {
 	agentsBasePath?: string;
 	agentsConfig?: AgentsConfig;
+	roster?: string[];
 }
 
 export async function addAgentInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps, options?: AddAgentOptions): Promise<void> {
@@ -117,7 +118,8 @@ export async function addAgentInteractive(projectPath: string, config: Iteration
 
 	const basePath = options?.agentsBasePath ?? projectPath;
 	const agentsCfg = options?.agentsConfig;
-	const selected = await selectOrCreateAgent(basePath, agentsCfg, deps);
+	const roster = options?.roster;
+	const selected = await selectOrCreateAgent(basePath, agentsCfg, roster, deps);
 	if (!selected) return;
 
 	const agent: AgentReference = { name: selected.name, file: selected.file };
@@ -125,8 +127,10 @@ export async function addAgentInteractive(projectPath: string, config: Iteration
 	if (ok) renderAgentAdded(selected.name, current.name, deps.log);
 }
 
-async function selectOrCreateAgent(agentsBasePath: string, agentsConfig: AgentsConfig | undefined, deps: MenuDeps): Promise<{ name: string; file: string } | null> {
-	const existing = listAgents(deps, agentsBasePath, agentsConfig);
+async function selectOrCreateAgent(agentsBasePath: string, agentsConfig: AgentsConfig | undefined, roster: string[] | undefined, deps: MenuDeps): Promise<{ name: string; file: string } | null> {
+	const existing = roster && roster.length > 0
+		? getProjectAgents(deps, agentsBasePath, agentsConfig, roster)
+		: listAgents(deps, agentsBasePath, agentsConfig);
 	if (existing.length === 0) return createNewAgentViaStore(agentsBasePath, agentsConfig, deps);
 
 	renderAgentList(existing, deps.log);

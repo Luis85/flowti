@@ -12,6 +12,7 @@ import {
 	resolveProjectPath,
 	readPackageJson,
 	readProjectConfig,
+	updateProjectConfig,
 	initializeProject,
 	getReportsDir,
 	getReportsOutputDir,
@@ -102,6 +103,28 @@ describe("readProjectConfig", () => {
 		expect(result.config).toEqual(config);
 		expect(result.warnings).toContainEqual(expect.stringContaining("unknownKey"));
 	});
+
+	it("accepts valid management.agents.roster", () => {
+		const config = { name: "test", management: { agents: { roster: ["Agent A", "Agent B"] } } };
+		const deps = makeDeps({ [n("/project", "configs", "flowti.config.json")]: JSON.stringify(config) });
+		const result = readProjectConfig("/project", deps);
+		expect(result.config).toEqual(config);
+		expect(result.warnings).toEqual([]);
+	});
+
+	it("warns on non-array management.agents.roster", () => {
+		const config = { name: "test", management: { agents: { roster: "bad" } } };
+		const deps = makeDeps({ [n("/project", "configs", "flowti.config.json")]: JSON.stringify(config) });
+		const result = readProjectConfig("/project", deps);
+		expect(result.warnings).toContainEqual(expect.stringContaining("management.agents.roster"));
+	});
+
+	it("warns on empty string in management.agents.roster", () => {
+		const config = { name: "test", management: { agents: { roster: ["Agent A", ""] } } };
+		const deps = makeDeps({ [n("/project", "configs", "flowti.config.json")]: JSON.stringify(config) });
+		const result = readProjectConfig("/project", deps);
+		expect(result.warnings).toContainEqual(expect.stringContaining("roster[1]"));
+	});
 });
 
 describe("initializeProject", () => {
@@ -168,5 +191,32 @@ describe("getReportsOutputDir", () => {
 	it("defaults to reports when no config", () => {
 		const result = getReportsOutputDir("/project", { name: "test" }, { paths: mockPaths });
 		expect(result).toBe(n("/project", "reports"));
+	});
+});
+
+describe("updateProjectConfig", () => {
+	it("reads, mutates, and writes config", () => {
+		const cfgPath = n("/project", "configs", "flowti.config.json");
+		const original = { name: "test" };
+		const deps = makeDeps({ [cfgPath]: JSON.stringify(original) });
+		const ok = updateProjectConfig("/project", deps, (cfg) => {
+			cfg.management = { agents: { roster: ["Agent A"] } };
+		});
+		expect(ok).toBe(true);
+		const written = JSON.parse(deps.disk.readFileSync(cfgPath, "utf-8"));
+		expect(written.management.agents.roster).toEqual(["Agent A"]);
+	});
+
+	it("returns false when config does not exist", () => {
+		const deps = makeDeps();
+		const ok = updateProjectConfig("/project", deps, () => {});
+		expect(ok).toBe(false);
+	});
+
+	it("returns false on invalid JSON", () => {
+		const cfgPath = n("/project", "configs", "flowti.config.json");
+		const deps = makeDeps({ [cfgPath]: "not json" });
+		const ok = updateProjectConfig("/project", deps, () => {});
+		expect(ok).toBe(false);
 	});
 });

@@ -2,12 +2,13 @@
  * agents-menu.ts — Interactive agent management menus.
  */
 
-import { printHeader } from "../../infrastructure/ui.js";
+import { printHeader, RESET, DIM, GREEN, RED } from "../../infrastructure/ui.js";
 import type { MenuDeps } from "../../infrastructure/deps.js";
-import type { AgentsConfig } from "../../infrastructure/types.js";
+import type { AgentsConfig, ProjectConfig } from "../../infrastructure/types.js";
 import { listAgents, createAgent, deleteAgent, updateAgentField, addArrayItem, removeArrayItem, updateAgentJson, readSystemPrompt, writeSystemPrompt } from "../../domain/agents/agent-store.js";
 import type { AgentDefinition, AgentSkill, AgentType, AgentSummary } from "../../domain/agents/agent-types.js";
 import { renderAgentList, renderAgentCreated, renderAgentDeleted } from "../displays/agents-display.js";
+import { updateProjectConfig } from "../../domain/project/project-config.js";
 
 export async function addAgentInteractive(projectPath: string, config: AgentsConfig | undefined, deps: MenuDeps): Promise<boolean> {
 	printHeader("Add Agent");
@@ -164,6 +165,98 @@ export async function editSystemPromptInteractive(projectPath: string, agent: Ag
 	if (!content) return;
 	writeSystemPrompt(deps, projectPath, agent.name, content, config);
 	deps.log("  System prompt saved.\n");
+}
+
+// ── Project Agent Roster ─────────────────────────────────────────────
+
+export async function manageProjectAgentsInteractive(
+	projectPath: string, projectConfig: ProjectConfig, vaultRoot: string, vaultAgentsConfig: AgentsConfig | undefined, deps: MenuDeps,
+): Promise<void> {
+	printHeader("Manage Project Agents");
+
+	const roster = projectConfig.management?.agents?.roster ?? [];
+	if (roster.length > 0) {
+		deps.log("  Current roster:");
+		for (const name of roster) deps.log(`    ${DIM}•${RESET} ${name}`);
+		deps.log("");
+	} else {
+		deps.log(`  ${DIM}No agents assigned to this project yet.${RESET}\n`);
+	}
+
+	const action = await deps.input.ask("(a)dd / (r)emove / Enter to skip", "");
+	if (action === "a") await addToRoster(projectPath, projectConfig, vaultRoot, vaultAgentsConfig, roster, deps);
+	else if (action === "r") await removeFromRoster(projectPath, projectConfig, roster, deps);
+}
+
+function resolveByNameOrIndex<T extends { name: string }>(choice: string, items: T[]): T | undefined {
+	const idx = parseInt(choice, 10);
+	if (!isNaN(idx) && idx >= 1 && idx <= items.length) return items[idx - 1];
+	return items.find((a) => a.name.toLowerCase() === choice.toLowerCase());
+}
+
+function persistRoster(projectPath: string, projectConfig: ProjectConfig, newRoster: string[], deps: MenuDeps): boolean {
+	const ok = updateProjectConfig(projectPath, deps, (cfg) => {
+		if (!cfg.management) cfg.management = {};
+		if (!cfg.management.agents) cfg.management.agents = {};
+		cfg.management.agents.roster = newRoster;
+	});
+	if (ok) {
+		projectConfig.management = projectConfig.management ?? {};
+		projectConfig.management.agents = projectConfig.management.agents ?? {};
+		projectConfig.management.agents.roster = newRoster;
+	}
+	return ok;
+}
+
+async function addToRoster(
+	projectPath: string, projectConfig: ProjectConfig, vaultRoot: string, vaultAgentsConfig: AgentsConfig | undefined, roster: string[], deps: MenuDeps,
+): Promise<void> {
+	const allAgents = listAgents(deps, vaultRoot, vaultAgentsConfig);
+	const rosterSet = new Set(roster.map((n) => n.toLowerCase()));
+	const available = allAgents.filter((a) => !rosterSet.has(a.name.toLowerCase()));
+
+	if (available.length === 0) {
+		deps.log(`  ${DIM}All vault agents are already on the roster.${RESET}\n`);
+		return;
+	}
+
+	deps.log("  Available agents:");
+	for (let i = 0; i < available.length; i++) {
+		deps.log(`    ${i + 1}. ${available[i].name} ${DIM}[${available[i].agentType}]${RESET}`);
+	}
+
+	const choice = await deps.input.ask("Agent name or number");
+	if (!choice) return;
+
+	const agent = resolveByNameOrIndex(choice, available);
+	if (!agent) {
+		deps.log(`  ${RED}Agent "${choice}" not found.${RESET}\n`);
+		return;
+	}
+
+	if (persistRoster(projectPath, projectConfig, [...roster, agent.name], deps)) {
+		deps.log(`  ${GREEN}✓${RESET} Added ${agent.name} to project roster.\n`);
+	}
+}
+
+async function removeFromRoster(projectPath: string, projectConfig: ProjectConfig, roster: string[], deps: MenuDeps): Promise<void> {
+	if (roster.length === 0) {
+		deps.log(`  ${DIM}Roster is empty.${RESET}\n`);
+		return;
+	}
+
+	const choice = await deps.input.ask("Agent name to remove");
+	if (!choice) return;
+
+	const match = roster.find((n) => n.toLowerCase() === choice.toLowerCase());
+	if (!match) {
+		deps.log(`  ${RED}"${choice}" not on roster.${RESET}\n`);
+		return;
+	}
+
+	if (persistRoster(projectPath, projectConfig, roster.filter((n) => n !== match), deps)) {
+		deps.log(`  ${GREEN}✓${RESET} Removed ${match} from project roster.\n`);
+	}
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────

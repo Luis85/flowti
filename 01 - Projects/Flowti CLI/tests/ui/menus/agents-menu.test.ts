@@ -22,16 +22,22 @@ vi.mock("../../../src/ui/displays/agents-display.js", () => ({
 	renderAgentCreated: vi.fn(),
 	renderAgentDeleted: vi.fn(),
 }));
+vi.mock("../../../src/domain/project/project-config.js", () => ({
+	updateProjectConfig: vi.fn(() => true),
+}));
 
 import { listAgents, createAgent, deleteAgent, updateAgentField, addArrayItem, removeArrayItem, updateAgentJson, readSystemPrompt, writeSystemPrompt } from "../../../src/domain/agents/agent-store.js";
 import { renderAgentList, renderAgentCreated, renderAgentDeleted } from "../../../src/ui/displays/agents-display.js";
+import { updateProjectConfig } from "../../../src/domain/project/project-config.js";
 import {
 	addAgentInteractive,
 	removeAgentInteractive,
 	editAgentIdentity, editAgentSkills, editAgentArrayField,
 	editAIConfigInteractive, editSystemPromptInteractive,
+	manageProjectAgentsInteractive,
 } from "../../../src/ui/menus/agents-menu.js";
 import type { AgentSummary } from "../../../src/domain/agents/agent-types.js";
+import type { ProjectConfig } from "../../../src/infrastructure/types.js";
 
 const mockListAgents = vi.mocked(listAgents);
 const mockCreateAgent = vi.mocked(createAgent);
@@ -312,5 +318,63 @@ describe("editSystemPromptInteractive", () => {
 		deps.input.ask.mockResolvedValueOnce("");
 		await editSystemPromptInteractive("/proj", makeAgent(), undefined, deps);
 		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("16 chars"));
+	});
+});
+
+// ── Manage Project Agents ───────────────────────────────────────────
+
+const mockUpdateConfig = vi.mocked(updateProjectConfig);
+
+describe("manageProjectAgentsInteractive", () => {
+	it("shows empty roster and skips on Enter", async () => {
+		const deps = makeDeps();
+		deps.input.ask.mockResolvedValueOnce("");
+		const config: ProjectConfig = { name: "test" };
+		await manageProjectAgentsInteractive("/proj", config, "/vault", undefined, deps);
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("No agents assigned"));
+	});
+
+	it("shows existing roster", async () => {
+		const deps = makeDeps();
+		deps.input.ask.mockResolvedValueOnce("");
+		const config: ProjectConfig = { name: "test", management: { agents: { roster: ["Agent A"] } } };
+		await manageProjectAgentsInteractive("/proj", config, "/vault", undefined, deps);
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("Agent A"));
+	});
+
+	it("adds agent to roster by number", async () => {
+		const deps = makeDeps();
+		mockListAgents.mockReturnValue([makeAgent({ name: "CodeBot" }), makeAgent({ name: "Designer" })]);
+		deps.input.ask
+			.mockResolvedValueOnce("a")     // action: add
+			.mockResolvedValueOnce("1");     // select first available
+		mockUpdateConfig.mockReturnValue(true);
+		const config: ProjectConfig = { name: "test" };
+		await manageProjectAgentsInteractive("/proj", config, "/vault", undefined, deps);
+		expect(mockUpdateConfig).toHaveBeenCalled();
+		expect(config.management?.agents?.roster).toContain("CodeBot");
+	});
+
+	it("removes agent from roster", async () => {
+		const deps = makeDeps();
+		deps.input.ask
+			.mockResolvedValueOnce("r")         // action: remove
+			.mockResolvedValueOnce("Agent A");   // name to remove
+		mockUpdateConfig.mockReturnValue(true);
+		const config: ProjectConfig = { name: "test", management: { agents: { roster: ["Agent A", "Agent B"] } } };
+		await manageProjectAgentsInteractive("/proj", config, "/vault", undefined, deps);
+		expect(config.management?.agents?.roster).toEqual(["Agent B"]);
+	});
+
+	it("does not add duplicates", async () => {
+		const deps = makeDeps();
+		mockListAgents.mockReturnValue([makeAgent({ name: "CodeBot" })]);
+		deps.input.ask
+			.mockResolvedValueOnce("a")
+			.mockResolvedValueOnce("1");
+		const config: ProjectConfig = { name: "test", management: { agents: { roster: ["CodeBot"] } } };
+		await manageProjectAgentsInteractive("/proj", config, "/vault", undefined, deps);
+		// Should show "All vault agents already on roster"
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("already on the roster"));
 	});
 });

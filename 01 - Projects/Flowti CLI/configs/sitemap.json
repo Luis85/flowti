@@ -235,6 +235,14 @@
 					"group": "manage"
 				},
 				{
+					"name": "onManageAgents",
+					"label": "Manage Agents",
+					"type": "handler",
+					"target": "project:manage-agents",
+					"key": "n",
+					"group": "manage"
+				},
+				{
 					"name": "onShowReadme",
 					"label": "README",
 					"type": "handler",

@@ -7,7 +7,7 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
 }));
 
-import { listAgents, findAgent, createAgent, updateAgentField, deleteAgent, agentToJson, addArrayItem, removeArrayItem, updateAgentJson, readSystemPrompt, writeSystemPrompt } from "../../../src/domain/agents/agent-store.js";
+import { listAgents, getProjectAgents, findAgent, createAgent, updateAgentField, deleteAgent, agentToJson, addArrayItem, removeArrayItem, updateAgentJson, readSystemPrompt, writeSystemPrompt } from "../../../src/domain/agents/agent-store.js";
 import type { AgentDefinition } from "../../../src/domain/agents/agent-types.js";
 
 function makeDeps(files: Record<string, string> = {}) {
@@ -93,6 +93,58 @@ describe("findAgent", () => {
 	it("returns null when not found", () => {
 		const deps = makeDeps({ "/proj/docs/agents/code-bot.md": AGENT_MD });
 		expect(findAgent(deps, "/proj", "Unknown")).toBeNull();
+	});
+});
+
+const AGENT2_MD = `---
+type: Agent
+name: Designer
+agentType: human
+description: A UX designer
+skills:
+  - UX|expert
+tools:
+  - figma
+roles:
+  - Designer
+---
+`;
+
+describe("getProjectAgents", () => {
+	it("returns all agents when no roster", () => {
+		const deps = makeDeps({
+			"/vault/docs/agents/code-bot.md": AGENT_MD,
+			"/vault/docs/agents/designer.md": AGENT2_MD,
+		});
+		const result = getProjectAgents(deps, "/vault", undefined, undefined);
+		expect(result).toHaveLength(2);
+	});
+
+	it("returns all agents when roster is empty", () => {
+		const deps = makeDeps({
+			"/vault/docs/agents/code-bot.md": AGENT_MD,
+			"/vault/docs/agents/designer.md": AGENT2_MD,
+		});
+		const result = getProjectAgents(deps, "/vault", undefined, []);
+		expect(result).toHaveLength(2);
+	});
+
+	it("filters agents to roster (case-insensitive)", () => {
+		const deps = makeDeps({
+			"/vault/docs/agents/code-bot.md": AGENT_MD,
+			"/vault/docs/agents/designer.md": AGENT2_MD,
+		});
+		const result = getProjectAgents(deps, "/vault", undefined, ["codebot"]);
+		expect(result).toHaveLength(1);
+		expect(result[0].name).toBe("CodeBot");
+	});
+
+	it("returns empty when roster matches no agents", () => {
+		const deps = makeDeps({
+			"/vault/docs/agents/code-bot.md": AGENT_MD,
+		});
+		const result = getProjectAgents(deps, "/vault", undefined, ["NonExistent"]);
+		expect(result).toHaveLength(0);
 	});
 });
 

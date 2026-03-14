@@ -137,6 +137,15 @@ export function registerAllHandlers(registry: HandlerRegistry): void {
 		return createProjectHandler(ctx.deps);
 	});
 
+	registry.registerAction("project:manage-agents", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const { manageProjectAgentsInteractive } = await import("../menus/agents-menu.js");
+		const { VAULT_ROOT, cliConfig } = await import("../../infrastructure/config.js");
+		await manageProjectAgentsInteractive(ctx.project.path, ctx.project.config, VAULT_ROOT, cliConfig.agents, ctx.deps);
+		await ctx.deps.input.waitForEnter();
+		return undefined;
+	});
+
 	registry.registerAction("capture:idea", async (ctx) => {
 		const { captureIdea } = await import("../menus/capture-menu.js");
 		return captureIdea(ctx.deps);
