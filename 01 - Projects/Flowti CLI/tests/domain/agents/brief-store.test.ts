@@ -257,6 +257,14 @@ describe("generateBrief", () => {
 		expect(brief).toContain("## Assigned Tasks");
 	});
 
+	it("includes When You Are Done section with brief update instructions", () => {
+		const brief = generateBrief({ agentName: "Dev", iteration: makeIteration() });
+		expect(brief).toContain("## When You Are Done");
+		expect(brief).toContain("Change the `status` in frontmatter");
+		expect(brief).toContain("Acceptance Criteria");
+		expect(brief).toContain("Assigned Tasks");
+	});
+
 	it("resolves {{roster}} in system prompt when rosterAgents provided", () => {
 		const roster: RosterEntry[] = [
 			{ name: "Dev", description: "Writes code", roles: ["Implementer"], skills: ["TypeScript"] },

@@ -1,10 +1,4 @@
-/**
- * brief-store.ts — Single service for brief (prompt) generation, storage, and lifecycle.
- *
- * Every brief includes agent identity, system prompt, iteration context, and phase-aware DoD.
- * Lifecycle: open → active → done. Filenames include phase for history tracking:
- *   iteration-004-product-owner--in-progress.md
- */
+/** brief-store.ts — Brief generation, storage, and lifecycle (open → active → done). */
 
 import type { CliDeps } from "../../infrastructure/deps.js";
 import type { OrchestrationConfig, PhaseBinding } from "../../infrastructure/types.js";
@@ -347,4 +341,10 @@ function appendExpectedOutput(lines: string[], iteration: IterationSummary): voi
 	lines.push("## Expected Output", "");
 	lines.push(`Update the iteration plan (${planWikilink(iteration)}) directly:`);
 	lines.push("- Mark completed items as `- [x]`", "- Add new items as `- [ ]`", "- Add notes under `## Notes`", "");
+	lines.push("## When You Are Done", "");
+	lines.push("Come back to this brief and update it:");
+	lines.push("- Check off completed items in **Acceptance Criteria** and **Definition of Done**");
+	lines.push("- Mark all **Assigned Tasks** as `- [x]`");
+	lines.push("- Update **Scope Items** count to reflect final state");
+	lines.push("- Change the `status` in frontmatter and header from `open` to `done`", "");
 }

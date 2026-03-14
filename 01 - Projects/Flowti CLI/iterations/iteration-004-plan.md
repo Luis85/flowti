@@ -1,8 +1,9 @@
 ---
+closedDate: 2026-03-14
 type: IterationPlan
 name: Flowti CLI gets a visual presence
 number: 4
-status: in-progress
+status: done
 startDate: 2026-03-14
 endDate: 2026-03-28
 goal: Agents become visible — project-level agent roster, a built-in static server, and an ExcaliburJS agent dashboard as the first served scene
@@ -55,6 +56,14 @@ Agents become visible — project-level agent roster, a built-in static server, 
 
 
 
+
+
+
+
+- [x] Make a Three Amigos session and document the result in the iteration plan
+- [x] Document learnings
+- [x] Capture retrospective notes
+- [x] Review completed scope items
 - [x] Flag blockers early
 - [x] Track progress daily
 - [x] Push the Plan to Git
@@ -123,7 +132,7 @@ Agents become visible — project-level agent roster, a built-in static server, 
 
 - [x] Verify tsc, vitest, eslint, esbuild all pass
 - [x] End-to-end walkthrough — assign agents to project, create iteration, generate full brief, serve dashboard, see agent status
-- [ ] Push the Plan to Git
+- [x] Push the Plan to Git
 - [x] Document learnings
 - [x] Capture retrospective notes
 - [x] Review completed scope items
@@ -132,6 +141,8 @@ Agents become visible — project-level agent roster, a built-in static server, 
 
 | Date | From | To | Reason |
 |---|---|---|---|
+| 2026-03-14 | in-review | done | Iteration closed |
+| 2026-03-14 | in-progress | in-review | Advanced to in-review |
 | 2026-03-14 | ready | in-progress | Advanced to in-progress |
 | 2026-03-14 | planned | ready | Advanced to ready |
 | 2026-03-14 | new | planned | Advanced to planned |
@@ -241,3 +252,45 @@ Update the iteration plan file directly:
 ```
 
 **Obsidian Detection** — Check if `obsidian` CLI is available via `shell.runCaptureStatus("obsidian --version")`. If available, open via `obsidian://open?vault=<name>&file=<path>` URI scheme. Otherwise, fall back to default browser open.
+
+---
+
+**Three Amigos Review (2026-03-15):**
+
+Conducted by the Product Team orchestrator, delegating to three perspectives:
+
+*Product Owner — Business Review:*
+- **Goal delivered**: Agents are now visible. The dashboard renders agents with status indicators, agents are assignable to project rosters, and the full iteration lifecycle supports agent-driven execution.
+- **Acceptance criteria**: All 59/59 scope items complete. No blockers remain. Code committed. Brief reviewed.
+- **Value assessment**: This iteration transforms agents from invisible markdown files into a visual, interactive presence. The groundwork for 2D project management is laid — `ProjectEnvironment` now carries the full project world (components, events, iterations, resources, deliverables, RAID items) to the ExcaliburJS scene.
+- **Verdict**: APPROVED for closure.
+
+*Software Architect — Technical Review:*
+- **Architecture**: Clean layer separation maintained. All new code follows Infrastructure -> Domain -> Controller -> UI. No DI violations introduced.
+- **Key additions post-plan**: `ProjectEnvironment` types added to `agent-export.ts` — 6 lightweight environment snapshots (EnvComponent, EnvEvent, EnvIteration, EnvResource, EnvDeliverable, EnvRAIDItem) injected into `DashboardProject`. This is additive and non-breaking.
+- **Brief consolidation**: `brief-store.ts` is now the single service for brief generation (unified `generateBrief`), with phase-scoped filenames (`iteration-NNN-agent--phase.md`) for history tracking. Clean design.
+- **Agent-suggested tasks**: `SuggestedTask` type with phase-aware filtering (`getTasksForPhase`) — well-integrated into both roster-task-menu and iteration scope assignment. No over-engineering.
+- **Tech debt**: None introduced. File lengths all under 350. Complexity all under 10 after extractions.
+- **Verdict**: APPROVED. Architecture is sound.
+
+*Tester — Quality Review:*
+- **Test count**: 6,283 tests passing (up from ~5,920 at iteration start — +363 new tests, +6.1% growth).
+- **Coverage areas**: All new features tested — agent export (14 tests), static server (19 tests), full-iteration briefs (11 tests), roster management (15 tests), suggested tasks (7 tests), project environment (6 tests), scope recommendations (handler tests updated).
+- **Type safety**: tsc clean, zero errors.
+- **Lint**: eslint clean, zero warnings.
+- **Build**: esbuild produces `.flowti/bin/main.js` successfully.
+- **Gaps noted**: ExcaliburJS dashboard has no unit tests (canvas rendering — acceptable for MVP). Dashboard build not in CI (deferred item, documented).
+- **Verdict**: APPROVED. Quality is excellent.
+
+**Post-Plan Scope (delivered during in-review phase, 2026-03-15):**
+- Added `suggestedTasks` frontmatter to all 10 agent definition files (phase-aware task recommendations)
+- Added `ProjectEnvironment` to `DashboardData` — components, events, iterations, resources, deliverables, RAID items available in ExcaliburJS scene
+- Added agent-recommended tasks to iteration scope assignment (`addScopeItemInteractive` shows roster agent suggestions)
+- Updated `data-loader.ts` in ExcaliburJS project with matching environment types
+- Test count: 6,283 (up from 6,277 at start of in-review session)
+
+**Learnings (addendum):**
+- The Product Team orchestrator brief format works well for coordinating multi-agent reviews
+- `ProjectEnvironment` as a flat snapshot (not full domain types) keeps the dashboard JSON clean and avoids leaking internal file paths
+- Phase-aware `suggestedTasks` parsed from pipe-delimited frontmatter (`name|phase1,phase2`) is simple and extensible
+- Extracting functions to reduce complexity (lint threshold 10) consistently produces better-factored code
