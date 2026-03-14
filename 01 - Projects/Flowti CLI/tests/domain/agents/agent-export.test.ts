@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
-import { deriveAgentStatus, exportAgentDashboardData, writeDashboardData } from "../../../src/domain/agents/agent-export.js";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { deriveAgentStatus, exportAgentDashboardData, writeDashboardData, buildProjectEnvironment } from "../../../src/domain/agents/agent-export.js";
 import type { ProjectEntry, DashboardData } from "../../../src/domain/agents/agent-export.js";
 import type { IterationSummary } from "../../../src/domain/iterations/iteration-types.js";
 
@@ -13,12 +13,42 @@ vi.mock("../../../src/domain/iterations/iteration-store.js", () => ({
 	listIterations: vi.fn(() => []),
 }));
 
+vi.mock("../../../src/domain/make/component/component-list.js", () => ({
+	listProjectComponents: vi.fn(() => []),
+}));
+
+vi.mock("../../../src/domain/events/event-catalog.js", () => ({
+	listEvents: vi.fn(() => []),
+}));
+
+vi.mock("../../../src/domain/resources/resource-store.js", () => ({
+	listResources: vi.fn(() => []),
+}));
+
+vi.mock("../../../src/domain/deliverables/deliverable-store.js", () => ({
+	listDeliverables: vi.fn(() => []),
+}));
+
+vi.mock("../../../src/domain/raid/raid-store.js", () => ({
+	listRAIDItems: vi.fn(() => []),
+}));
+
 import { listAgents } from "../../../src/domain/agents/agent-store.js";
 import { listIterations } from "../../../src/domain/iterations/iteration-store.js";
+import { listProjectComponents } from "../../../src/domain/make/component/component-list.js";
+import { listEvents } from "../../../src/domain/events/event-catalog.js";
+import { listResources } from "../../../src/domain/resources/resource-store.js";
+import { listDeliverables } from "../../../src/domain/deliverables/deliverable-store.js";
+import { listRAIDItems } from "../../../src/domain/raid/raid-store.js";
 import type { AgentSummary } from "../../../src/domain/agents/agent-types.js";
 
 const mockListAgents = vi.mocked(listAgents);
 const mockListIterations = vi.mocked(listIterations);
+const mockListComponents = vi.mocked(listProjectComponents);
+const mockListEvents = vi.mocked(listEvents);
+const mockListResources = vi.mocked(listResources);
+const mockListDeliverables = vi.mocked(listDeliverables);
+const mockListRAIDItems = vi.mocked(listRAIDItems);
 
 function makeAgent(name: string, agentType: "human" | "ai" = "human", domain?: string): AgentSummary {
 	return { name, agentType, description: "", domain, skills: [], tools: [], roles: [], file: `${name}.md` };
@@ -108,10 +138,20 @@ describe("deriveAgentStatus", () => {
 
 // ── exportAgentDashboardData ─────────────────────────────────────────
 
+const EMPTY_ENV = {
+	components: [], events: [], iterations: [],
+	resources: [], deliverables: [], raidItems: [],
+};
+
 describe("exportAgentDashboardData", () => {
 	beforeEach(() => {
 		mockListAgents.mockReset();
 		mockListIterations.mockReset();
+		mockListComponents.mockReset();
+		mockListEvents.mockReset();
+		mockListResources.mockReset();
+		mockListDeliverables.mockReset();
+		mockListRAIDItems.mockReset();
 	});
 
 	it("returns empty data when no agents and no projects", () => {
@@ -155,7 +195,7 @@ describe("exportAgentDashboardData", () => {
 		expect(data.agents[0].iteration).toBe("Sprint 1");
 	});
 
-	it("includes project entries with roster info", () => {
+	it("includes project entries with roster info and empty environment", () => {
 		mockListAgents.mockReturnValue([]);
 		mockListIterations.mockReturnValue([]);
 		const project: ProjectEntry = {
@@ -163,7 +203,7 @@ describe("exportAgentDashboardData", () => {
 			config: { name: "Proj", management: { agents: { roster: ["Alice", "Bob"] } } },
 		};
 		const data = exportAgentDashboardData("/vault", undefined, [project], mockDeps);
-		expect(data.projects).toEqual([{ name: "Proj", agents: ["Alice", "Bob"] }]);
+		expect(data.projects).toEqual([{ name: "Proj", agents: ["Alice", "Bob"], environment: EMPTY_ENV }]);
 	});
 
 	it("includes agent domain and type in export", () => {
@@ -171,6 +211,76 @@ describe("exportAgentDashboardData", () => {
 		const data = exportAgentDashboardData("/vault", undefined, [], mockDeps);
 		expect(data.agents[0].agentType).toBe("ai");
 		expect(data.agents[0].domain).toBe("engineering");
+	});
+});
+
+// ── buildProjectEnvironment ──────────────────────────────────────────
+
+describe("buildProjectEnvironment", () => {
+	beforeEach(() => {
+		mockListComponents.mockReset();
+		mockListEvents.mockReset();
+		mockListIterations.mockReset();
+		mockListResources.mockReset();
+		mockListDeliverables.mockReset();
+		mockListRAIDItems.mockReset();
+	});
+
+	it("returns empty environment when project has no data", () => {
+		const project: ProjectEntry = { name: "Empty", path: "/vault/empty", config: { name: "Empty" } };
+		const env = buildProjectEnvironment(project, mockDeps);
+		expect(env).toEqual(EMPTY_ENV);
+	});
+
+	it("maps components to lightweight EnvComponent", () => {
+		mockListComponents.mockReturnValue([
+			{ name: "Auth", kind: "system", status: "active", path: "/auth", domain: "security" },
+		] as ReturnType<typeof listProjectComponents>);
+		const project: ProjectEntry = { name: "P", path: "/p", config: { name: "P" } };
+		const env = buildProjectEnvironment(project, mockDeps);
+		expect(env.components).toEqual([{ name: "Auth", kind: "system", status: "active", domain: "security" }]);
+	});
+
+	it("maps events to lightweight EnvEvent", () => {
+		mockListEvents.mockReturnValue([
+			{ name: "user.created", domain: "auth", version: "1.0", file: "f.md" },
+		]);
+		const project: ProjectEntry = { name: "P", path: "/p", config: { name: "P" } };
+		const env = buildProjectEnvironment(project, mockDeps);
+		expect(env.events).toEqual([{ name: "user.created", domain: "auth" }]);
+	});
+
+	it("maps iterations with scope items and agents", () => {
+		mockListIterations.mockReturnValue([makeIteration({
+			name: "Sprint 1", number: 1, status: "in-progress", goal: "Build auth",
+			agents: [{ name: "Alice", file: "a.md" }],
+			scopeItems: [{ text: "Login page", done: true }, { text: "Logout", done: false }],
+		})]);
+		const project: ProjectEntry = { name: "P", path: "/p", config: { name: "P" } };
+		const env = buildProjectEnvironment(project, mockDeps);
+		expect(env.iterations).toHaveLength(1);
+		expect(env.iterations[0].agents).toEqual(["Alice"]);
+		expect(env.iterations[0].scopeItems).toEqual([
+			{ text: "Login page", done: true }, { text: "Logout", done: false },
+		]);
+	});
+
+	it("maps resources to lightweight EnvResource", () => {
+		mockListResources.mockReturnValue([
+			{ name: "Dev Hours", resourceType: "human", price: 100, amount: 160, consumed: 40, remaining: 120, totalCost: 16000, consumedCost: 4000, file: "f.md" },
+		] as ReturnType<typeof listResources>);
+		const project: ProjectEntry = { name: "P", path: "/p", config: { name: "P" } };
+		const env = buildProjectEnvironment(project, mockDeps);
+		expect(env.resources).toEqual([{ name: "Dev Hours", resourceType: "human", amount: 160, consumed: 40 }]);
+	});
+
+	it("maps RAID items to lightweight EnvRAIDItem", () => {
+		mockListRAIDItems.mockReturnValue([
+			{ name: "API outage", itemType: "risk", status: "open", severity: "high", owner: "Bob", dueDate: "2026-04-01", file: "f.md" },
+		] as ReturnType<typeof listRAIDItems>);
+		const project: ProjectEntry = { name: "P", path: "/p", config: { name: "P" } };
+		const env = buildProjectEnvironment(project, mockDeps);
+		expect(env.raidItems).toEqual([{ name: "API outage", itemType: "risk", status: "open", severity: "high" }]);
 	});
 });
 

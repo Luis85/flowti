@@ -2,12 +2,7 @@
  * agent-export.ts — Export agent dashboard data as JSON.
  *
  * Produces a self-contained data file that the ExcaliburJS dashboard
- * consumes to render agents with their status and project assignments.
- *
- * Status derivation:
- *   busy       — agent is referenced in an active iteration (in-progress or in-review)
- *   idle       — agent is on a project roster but has no active iteration work
- *   unassigned — agent exists in vault but is not on any project roster
+ * consumes to render agents, project environments, and their state.
  */
 
 import type { CliDeps } from "../../infrastructure/deps.js";
@@ -16,6 +11,11 @@ import type { AgentSummary } from "./agent-types.js";
 import type { IterationSummary } from "../iterations/iteration-types.js";
 import { listAgents } from "./agent-store.js";
 import { listIterations } from "../iterations/iteration-store.js";
+import { listProjectComponents } from "../make/component/component-list.js";
+import { listEvents } from "../events/event-catalog.js";
+import { listResources } from "../resources/resource-store.js";
+import { listDeliverables } from "../deliverables/deliverable-store.js";
+import { listRAIDItems } from "../raid/raid-store.js";
 
 // ── Export types ─────────────────────────────────────────────────────
 
@@ -31,9 +31,69 @@ export interface DashboardAgent {
 	readonly phase?: string;
 }
 
+/** Lightweight component snapshot for the dashboard environment. */
+export interface EnvComponent {
+	readonly name: string;
+	readonly kind: string;
+	readonly status: string;
+	readonly domain?: string;
+}
+
+/** Lightweight event snapshot for the dashboard environment. */
+export interface EnvEvent {
+	readonly name: string;
+	readonly domain: string;
+}
+
+/** Iteration snapshot including scope items and assigned agents. */
+export interface EnvIteration {
+	readonly name: string;
+	readonly number: number;
+	readonly status: string;
+	readonly goal: string;
+	readonly startDate: string;
+	readonly endDate: string;
+	readonly agents: string[];
+	readonly scopeItems: readonly { text: string; done: boolean }[];
+}
+
+/** Resource snapshot for the dashboard environment. */
+export interface EnvResource {
+	readonly name: string;
+	readonly resourceType: string;
+	readonly amount: number;
+	readonly consumed: number;
+}
+
+/** Deliverable snapshot for the dashboard environment. */
+export interface EnvDeliverable {
+	readonly name: string;
+	readonly status: string;
+	readonly completionPct: number;
+}
+
+/** RAID item snapshot for the dashboard environment. */
+export interface EnvRAIDItem {
+	readonly name: string;
+	readonly itemType: string;
+	readonly status: string;
+	readonly severity: string;
+}
+
+/** The full project world that agents live in. */
+export interface ProjectEnvironment {
+	readonly components: EnvComponent[];
+	readonly events: EnvEvent[];
+	readonly iterations: EnvIteration[];
+	readonly resources: EnvResource[];
+	readonly deliverables: EnvDeliverable[];
+	readonly raidItems: EnvRAIDItem[];
+}
+
 export interface DashboardProject {
 	readonly name: string;
 	readonly agents: string[];
+	readonly environment: ProjectEnvironment;
 }
 
 export interface DashboardData {
@@ -81,16 +141,45 @@ export function deriveAgentStatus(
 	return { status: "unassigned" };
 }
 
+// ── Environment builder ──────────────────────────────────────────────
+
+/** Build a ProjectEnvironment snapshot for a single project. */
+export function buildProjectEnvironment(project: ProjectEntry, deps: AgentExportDeps): ProjectEnvironment {
+	const mgmt = project.config.management;
+
+	const components = listProjectComponents(project.path, deps).map((c) => ({
+		name: c.name, kind: c.kind, status: c.status, domain: c.domain,
+	}));
+
+	const events = listEvents(deps, project.path).map((e) => ({
+		name: e.name, domain: e.domain,
+	}));
+
+	const iterations = listIterations(deps, project.path, mgmt?.iterations).map((it) => ({
+		name: it.name, number: it.number, status: it.status, goal: it.goal,
+		startDate: it.startDate, endDate: it.endDate,
+		agents: it.agents.map((a) => a.name),
+		scopeItems: it.scopeItems.map((s) => ({ text: s.text, done: s.done })),
+	}));
+
+	const resources = listResources(deps, project.path, mgmt?.resources).map((r) => ({
+		name: r.name, resourceType: r.resourceType, amount: r.amount, consumed: r.consumed,
+	}));
+
+	const deliverables = listDeliverables(deps, project.path, mgmt?.deliverables).map((d) => ({
+		name: d.name, status: d.status, completionPct: d.completionPct,
+	}));
+
+	const raidItems = listRAIDItems(deps, project.path, mgmt?.raid).map((r) => ({
+		name: r.name, itemType: r.itemType, status: r.status, severity: r.severity,
+	}));
+
+	return { components, events, iterations, resources, deliverables, raidItems };
+}
+
 // ── Export ────────────────────────────────────────────────────────────
 
-/**
- * Build the full dashboard data structure from vault agents and project configs.
- *
- * @param vaultRoot - Root path of the vault (for loading agents)
- * @param vaultAgentsConfig - Vault-level agents config (dir override)
- * @param projects - All project entries with their configs
- * @param deps - File system and path deps
- */
+/** Build the full dashboard data structure from vault agents and project configs. */
 export function exportAgentDashboardData(
 	vaultRoot: string,
 	vaultAgentsConfig: AgentsConfig | undefined,
@@ -115,7 +204,8 @@ export function exportAgentDashboardData(
 			activeIterations.set(project.name, active);
 		}
 
-		dashboardProjects.push({ name: project.name, agents: roster });
+		const environment = buildProjectEnvironment(project, deps);
+		dashboardProjects.push({ name: project.name, agents: roster, environment });
 	}
 
 	const dashboardAgents: DashboardAgent[] = allAgents.map((agent) => {

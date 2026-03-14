@@ -37,6 +37,22 @@ async function resolveAgentDetails(ctx: RouterContext, agentName: string): Promi
 	return { description: agent.description, skills: agent.skills.map((s) => s.name), roles: agent.roles };
 }
 
+/** Build scope recommendations from roster agents' suggested tasks. */
+async function buildScopeRecommendations(ctx: RouterContext): Promise<Array<{ agentName: string; tasks: Array<{ name: string; phases: string[] }> }>> {
+	if (!ctx.project) return [];
+	const { VAULT_ROOT, cliConfig } = await import("../../infrastructure/config.js");
+	const { getProjectAgents } = await import("../../domain/agents/agent-store.js");
+	const roster = ctx.project.config.management?.agents?.roster;
+	const agents = getProjectAgents(ctx.deps, VAULT_ROOT, cliConfig.agents, roster);
+	const recs: Array<{ agentName: string; tasks: Array<{ name: string; phases: string[] }> }> = [];
+	for (const agent of agents) {
+		if (agent.suggestedTasks && agent.suggestedTasks.length > 0) {
+			recs.push({ agentName: agent.name, tasks: agent.suggestedTasks });
+		}
+	}
+	return recs;
+}
+
 /** Generate a brief for the active agent on the current iteration. */
 async function generateIterationBrief(ctx: RouterContext): Promise<string | null> {
 	if (!ctx.project) return null;
@@ -225,7 +241,6 @@ export function registerIterationHandlers(registry: HandlerRegistry): void {
 	const iterMenuActions: [string, string][] = [
 		["iteration:add-resource", "addResourceInteractive"],
 		["iteration:add-estimation", "addEstimationInteractive"],
-		["iteration:add-scope", "addScopeItemInteractive"],
 		["iteration:add-note", "addNoteInteractive"],
 		["iteration:edit-scope", "editScopeInteractive"],
 		["iteration:remove-scope", "removeScopeInteractive"],
@@ -245,6 +260,15 @@ export function registerIterationHandlers(registry: HandlerRegistry): void {
 			return "navigate:iteration-detail" as MenuResult;
 		});
 	}
+
+	registry.registerAction("iteration:add-scope", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const { addScopeItemInteractive } = await import("../menus/iterations-scope-menu.js");
+		const recommendations = await buildScopeRecommendations(ctx);
+		await addScopeItemInteractive(ctx.project.path, ctx.project.config.management?.iterations, ctx.deps, { recommendations });
+		await ctx.deps.input.waitForEnter();
+		return "navigate:iteration-detail" as MenuResult;
+	});
 
 	registry.registerAction("iteration:roster-task", async (ctx) => {
 		if (!ctx.project) return undefined;

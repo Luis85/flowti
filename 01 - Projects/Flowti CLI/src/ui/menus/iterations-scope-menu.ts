@@ -4,10 +4,11 @@
  * Extracted from iterations-menu.ts to keep files under the line limit.
  */
 
-import { printHeader } from "../../infrastructure/ui.js";
+import { printHeader, RESET, DIM, CYAN } from "../../infrastructure/ui.js";
 import type { MenuDeps } from "../../infrastructure/deps.js";
 import type { IterationsConfig, AgentsConfig } from "../../infrastructure/types.js";
 import type { AgentReference, ResourceAllocation, CapacityEntry } from "../../domain/iterations/iteration-types.js";
+import type { SuggestedTask } from "../../domain/agents/agent-types.js";
 import { createResourceFile, createEstimationFile } from "../../domain/iterations/iteration-entities.js";
 import type { ResourceNeedEntity, EstimationEntity } from "../../domain/iterations/iteration-entities.js";
 import { listAgents, getProjectAgents, createAgent } from "../../domain/agents/agent-store.js";
@@ -146,7 +147,17 @@ export async function addEstimationInteractive(projectPath: string, config: Iter
 
 // ── Scope item management ───────────────────────────────────────────
 
-export async function addScopeItemInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps): Promise<void> {
+/** Recommended tasks collected from roster agents, grouped by agent. */
+export interface AgentRecommendation {
+	readonly agentName: string;
+	readonly tasks: SuggestedTask[];
+}
+
+export interface ScopeItemOptions {
+	readonly recommendations?: AgentRecommendation[];
+}
+
+export async function addScopeItemInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps, options?: ScopeItemOptions): Promise<void> {
 	printHeader("Add Scope Item");
 
 	const current = findCurrentIteration(deps, projectPath, config);
@@ -155,18 +166,60 @@ export async function addScopeItemInteractive(projectPath: string, config: Itera
 		return;
 	}
 
+	const recs = collectRecommendations(options?.recommendations, current.status);
+	displayRecommendations(recs, deps);
+
+	const added = await scopeItemLoop(projectPath, config, deps, current, recs);
+	if (added > 0) deps.log(`\n  ${added} scope item${added > 1 ? "s" : ""} added.`);
+}
+
+async function scopeItemLoop(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps, current: { name: string; number: number }, recs: FlatRecommendation[]): Promise<number> {
+	const hasRecs = recs.length > 0;
 	let added = 0;
 	for (;;) {
-		const item = await deps.input.ask("Scope item");
-		if (!item) break;
+		const prompt = hasRecs && added === 0 ? "Pick a number or enter scope item" : "Scope item";
+		const input = await deps.input.ask(prompt);
+		if (!input) break;
 
+		const item = resolveRecommendation(input, recs);
 		const ok = addScopeItem(deps, projectPath, current.number, item, config);
 		if (ok) { deps.log(`\n  Added scope item to ${current.name}.`); added++; }
 
 		const more = await deps.input.askYesNo("Add another?");
 		if (!more) break;
 	}
-	if (added > 0) deps.log(`\n  ${added} scope item${added > 1 ? "s" : ""} added.`);
+	return added;
+}
+
+function displayRecommendations(recs: FlatRecommendation[], deps: MenuDeps): void {
+	if (recs.length === 0) return;
+	deps.log(`\n  ${DIM}Recommended tasks from your agents:${RESET}\n`);
+	for (let i = 0; i < recs.length; i++) {
+		deps.log(`  ${CYAN}${i + 1}${RESET}  ${recs[i].text} ${DIM}(${recs[i].agent})${RESET}`);
+	}
+	deps.log(`  ${CYAN}c${RESET}  ${DIM}Custom scope item...${RESET}\n`);
+}
+
+interface FlatRecommendation { readonly text: string; readonly agent: string; }
+
+function collectRecommendations(recs: AgentRecommendation[] | undefined, phase: string): FlatRecommendation[] {
+	if (!recs || recs.length === 0) return [];
+	const flat: FlatRecommendation[] = [];
+	for (const rec of recs) {
+		for (const task of rec.tasks) {
+			if (task.phases.length === 0 || task.phases.includes(phase)) {
+				flat.push({ text: task.name, agent: rec.agentName });
+			}
+		}
+	}
+	return flat;
+}
+
+function resolveRecommendation(input: string, recs: FlatRecommendation[]): string {
+	if (input.toLowerCase() === "c") return input;
+	const idx = parseInt(input, 10);
+	if (!isNaN(idx) && idx >= 1 && idx <= recs.length) return recs[idx - 1].text;
+	return input;
 }
 
 export async function editDescriptionInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps): Promise<void> {

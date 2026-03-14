@@ -21,7 +21,7 @@ vi.mock("../../../src/domain/agents/brief-store.js", () => ({
 	generateBrief: vi.fn(() => "# Brief"),
 }));
 
-import { rosterTaskInteractive } from "../../../src/ui/menus/roster-task-menu.js";
+import { rosterTaskInteractive, getTasksForPhase } from "../../../src/ui/menus/roster-task-menu.js";
 import type { RosterTaskOptions } from "../../../src/ui/menus/roster-task-menu.js";
 import { getProjectAgents } from "../../../src/domain/agents/agent-store.js";
 import { findCurrentIteration } from "../../../src/domain/iterations/iteration-store.js";
@@ -124,5 +124,76 @@ describe("rosterTaskInteractive", () => {
 
 		await rosterTaskInteractive(makeOpts(), deps);
 		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("not found"));
+	});
+
+	it("picks a suggested task by number", async () => {
+		const agentWithTasks = {
+			...devAgent,
+			suggestedTasks: [
+				{ name: "Implement features", phases: ["in-progress"] },
+				{ name: "Code review", phases: ["in-review"] },
+			],
+		};
+		const deps = makeDeps(["1", "1"]);
+		vi.mocked(findCurrentIteration).mockReturnValue(activeIteration);
+		vi.mocked(getProjectAgents).mockReturnValue([agentWithTasks]);
+		vi.mocked(findBrief).mockReturnValue({ agentName: "Dev", iterationNumber: 1, phase: "in-progress", status: "open", file: "f.md" });
+
+		await rosterTaskInteractive(makeOpts(), deps);
+
+		expect(appendTask).toHaveBeenCalledWith(deps, "/project/docs/iterations", 1, "Dev", "in-progress", "Implement features");
+	});
+
+	it("picks custom task when 'c' selected", async () => {
+		const agentWithTasks = {
+			...devAgent,
+			suggestedTasks: [{ name: "Implement features", phases: [] }],
+		};
+		const deps = makeDeps(["1", "c", "My custom task"]);
+		vi.mocked(findCurrentIteration).mockReturnValue(activeIteration);
+		vi.mocked(getProjectAgents).mockReturnValue([agentWithTasks]);
+		vi.mocked(findBrief).mockReturnValue({ agentName: "Dev", iterationNumber: 1, phase: "in-progress", status: "open", file: "f.md" });
+
+		await rosterTaskInteractive(makeOpts(), deps);
+
+		expect(appendTask).toHaveBeenCalledWith(deps, "/project/docs/iterations", 1, "Dev", "in-progress", "My custom task");
+	});
+});
+
+describe("getTasksForPhase", () => {
+	it("returns empty array for undefined tasks", () => {
+		expect(getTasksForPhase(undefined, "in-progress")).toEqual([]);
+	});
+
+	it("returns empty array for empty tasks", () => {
+		expect(getTasksForPhase([], "in-progress")).toEqual([]);
+	});
+
+	it("returns tasks matching the current phase", () => {
+		const tasks = [
+			{ name: "Implement", phases: ["in-progress"] },
+			{ name: "Review", phases: ["in-review"] },
+			{ name: "Plan", phases: ["planned"] },
+		];
+		const result = getTasksForPhase(tasks, "in-progress");
+		expect(result).toEqual([{ name: "Implement", phases: ["in-progress"] }]);
+	});
+
+	it("returns tasks with empty phases (always relevant)", () => {
+		const tasks = [
+			{ name: "General help", phases: [] },
+			{ name: "Review", phases: ["in-review"] },
+		];
+		const result = getTasksForPhase(tasks, "in-progress");
+		expect(result).toEqual([{ name: "General help", phases: [] }]);
+	});
+
+	it("returns tasks matching any of multiple phases", () => {
+		const tasks = [
+			{ name: "Plan architecture", phases: ["planned", "ready"] },
+		];
+		expect(getTasksForPhase(tasks, "planned")).toHaveLength(1);
+		expect(getTasksForPhase(tasks, "ready")).toHaveLength(1);
+		expect(getTasksForPhase(tasks, "in-progress")).toHaveLength(0);
 	});
 });

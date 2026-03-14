@@ -77,6 +77,14 @@ export interface AgentRelationship {
 	description?: string;
 }
 
+/** A task the agent can propose in the Assign Task menu. Phase-filtered by iteration status. */
+export interface SuggestedTask {
+	/** Task description shown to the user. */
+	name: string;
+	/** Iteration phases where this task is relevant. Empty = all phases. */
+	phases: string[];
+}
+
 // ── Definition and Summary ───────────────────────────────────────────
 
 /** Full agent definition used for creation/editing. */
@@ -99,6 +107,8 @@ export interface AgentDefinition {
 	ai?: AgentAIConfig;
 	/** Relationships to other agents or components. */
 	relationships?: AgentRelationship[];
+	/** Standard tasks this agent can perform, shown in the Assign Task menu. */
+	suggestedTasks?: SuggestedTask[];
 }
 
 /** Lightweight agent summary returned by list operations. */
@@ -115,5 +125,6 @@ export interface AgentSummary {
 	behaviors?: string[];
 	ai?: AgentAIConfig;
 	relationships?: AgentRelationship[];
+	suggestedTasks?: SuggestedTask[];
 	file: string;
 }

@@ -109,6 +109,15 @@ vi.mock("../../../src/ui/menus/iterations-menu.js", () => ({
 	editGoalInteractive: vi.fn(),
 	editDatesInteractive: vi.fn(),
 }));
+vi.mock("../../../src/ui/menus/iterations-scope-menu.js", () => ({
+	addScopeItemInteractive: vi.fn(),
+}));
+vi.mock("../../../src/domain/agents/agent-store.js", () => ({
+	getProjectAgents: vi.fn(() => []),
+	listAgents: vi.fn(() => []),
+	findAgent: vi.fn(() => null),
+	readSystemPrompt: vi.fn(() => null),
+}));
 vi.mock("../../../src/ui/handlers/iteration-template-loader.js", () => ({
 	loadIterationTemplate: vi.fn(() => ({
 		entityType: "iteration", states: ["new", "planned", "ready", "in-progress", "in-review", "done", "cancelled"],
@@ -143,8 +152,9 @@ import {
 	addIterationInteractive, advanceIterationInteractive,
 	showCurrentIteration, addAgentInteractive,
 	addResourceInteractive as addIterResourceInteractive, addEstimationInteractive,
-	addScopeItemInteractive, addNoteInteractive,
+	addNoteInteractive,
 } from "../../../src/ui/menus/iterations-menu.js";
+import { addScopeItemInteractive } from "../../../src/ui/menus/iterations-scope-menu.js";
 import { loadIterationTemplate } from "../../../src/ui/handlers/iteration-template-loader.js";
 
 import type { RouterContext } from "../../../src/infrastructure/sitemap-types.js";
@@ -772,10 +782,10 @@ describe("registerCrudHandlers", () => {
 			expect(await handler(noProjectCtx())).toBeUndefined();
 		});
 
-		it("calls the correct function", async () => {
+		it("calls the correct function with recommendations", async () => {
 			const handler = registry.getAction("iteration:add-scope");
 			await handler(mockCtx());
-			expect(addScopeItemInteractive).toHaveBeenCalledWith("/project", expect.anything(), mockDeps);
+			expect(addScopeItemInteractive).toHaveBeenCalledWith("/project", expect.anything(), mockDeps, expect.objectContaining({ recommendations: expect.any(Array) }));
 			expect(input.waitForEnter).toHaveBeenCalled();
 		});
 

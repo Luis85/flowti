@@ -308,6 +308,66 @@ describe("companion JSON definition", () => {
 	});
 });
 
+const AGENT_WITH_TASKS = `---
+type: Agent
+name: TaskBot
+agentType: ai
+description: Agent with suggested tasks
+skills:
+  - TypeScript|expert
+tools:
+  - flowti
+roles:
+  - Developer
+suggestedTasks:
+  - Implement features|in-progress
+  - Code review|in-review
+  - Plan architecture|planned,ready
+  - General help
+---
+
+# TaskBot
+`;
+
+describe("suggestedTasks parsing", () => {
+	it("parses suggested tasks with pipe-delimited phases", () => {
+		const deps = makeDeps({ "/proj/docs/agents/task-bot.md": AGENT_WITH_TASKS });
+		const agents = listAgents(deps, "/proj");
+		const agent = agents.find((a) => a.name === "TaskBot");
+		expect(agent).toBeDefined();
+		expect(agent!.suggestedTasks).toEqual([
+			{ name: "Implement features", phases: ["in-progress"] },
+			{ name: "Code review", phases: ["in-review"] },
+			{ name: "Plan architecture", phases: ["planned", "ready"] },
+			{ name: "General help", phases: [] },
+		]);
+	});
+
+	it("returns empty suggestedTasks when field is absent", () => {
+		const deps = makeDeps({ "/proj/docs/agents/code-bot.md": AGENT_MD });
+		const agents = listAgents(deps, "/proj");
+		expect(agents[0].suggestedTasks).toEqual([]);
+	});
+
+	it("serializes suggestedTasks in agentToJson", () => {
+		const json = agentToJson({
+			name: "Bot", agentType: "ai", description: "",
+			skills: [], tools: [], roles: [], file: "bot.md",
+			suggestedTasks: [{ name: "Review code", phases: ["in-review"] }],
+		});
+		expect(json.suggestedTasks).toEqual([{ name: "Review code", phases: ["in-review"] }]);
+	});
+
+	it("omits suggestedTasks from agentToJson when empty", () => {
+		const json = agentToJson({
+			name: "Bot", agentType: "ai", description: "",
+			skills: [], tools: [], roles: [], file: "bot.md",
+			suggestedTasks: [],
+		});
+		expect(json).not.toHaveProperty("suggestedTasks");
+	});
+});
+
 describe("addArrayItem", () => {
 	it("appends to existing array field", () => {
 		const deps = makeDeps({ "/proj/docs/agents/code-bot.md": AGENT_MD });

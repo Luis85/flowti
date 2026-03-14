@@ -13,7 +13,7 @@ import { Document } from "../../infrastructure/document.js";
 import { parseFrontmatterContent } from "../../infrastructure/frontmatter.js";
 import type { CliDeps } from "../../infrastructure/deps.js";
 import type { AgentsConfig } from "../../infrastructure/types.js";
-import type { AgentDefinition, AgentSummary, AgentSkill, AgentComponent, AgentGoal, AgentAIConfig, AgentRelationship } from "./agent-types.js";
+import type { AgentDefinition, AgentSummary, AgentSkill, AgentComponent, AgentGoal, AgentAIConfig, AgentRelationship, SuggestedTask } from "./agent-types.js";
 import { resolveDir, listMdFiles, toMdFilename, updateField } from "../shared/markdown-store.js";
 
 export type AgentStoreDeps = Pick<CliDeps, "disk" | "paths">;
@@ -37,6 +37,12 @@ function toStringArray(value: unknown): string[] {
 	if (Array.isArray(value)) return value.map(String);
 	if (typeof value === "string" && value) return [value];
 	return [];
+}
+
+function parseSuggestedTask(raw: string): SuggestedTask {
+	const idx = raw.indexOf("|");
+	if (idx === -1) return { name: raw.trim(), phases: [] };
+	return { name: raw.slice(0, idx).trim(), phases: raw.slice(idx + 1).split(",").map((s) => s.trim()).filter(Boolean) };
 }
 
 function parseJsonFile<T>(deps: AgentStoreDeps, dir: string, mdFile: string): T | null {
@@ -68,6 +74,7 @@ function parseAgentSummary(deps: AgentStoreDeps, dir: string, content: string, f
 		tools: toStringArray(fm.tools),
 		roles: toStringArray(fm.roles),
 		behaviors: toStringArray(fm.behaviors),
+		suggestedTasks: toStringArray(fm.suggestedTasks).map(parseSuggestedTask),
 		components: json?.components,
 		goals: json?.goals,
 		ai: json?.ai,
@@ -294,5 +301,6 @@ export function agentToJson(agent: AgentSummary): Record<string, unknown> {
 	addOptionalField(result, "goals", agent.goals);
 	addOptionalField(result, "ai", agent.ai);
 	addOptionalField(result, "relationships", agent.relationships);
+	addOptionalField(result, "suggestedTasks", agent.suggestedTasks);
 	return result;
 }
