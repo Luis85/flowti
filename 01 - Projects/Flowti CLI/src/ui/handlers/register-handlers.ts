@@ -22,6 +22,7 @@ import { showInfo } from "../displays/info-display.js";
 import { printProjectStatusBanner } from "../renderers/project-status-banner.js";
 import { buildWithReport } from "../../domain/reports/cli/generate-build-report.js";
 import { findCurrentIteration } from "../../domain/iterations/iteration-store.js";
+import { isDashboardRunning, stopDashboard, getDashboardState } from "../../domain/serve/dashboard-service.js";
 import { renderPlanningHeader } from "../displays/iterations-display.js";
 import { registerCrudHandlers } from "./crud-handlers.js";
 import { registerExtensibilityHandlers } from "./extensibility-handlers.js";
@@ -123,6 +124,63 @@ export function registerAllHandlers(registry: HandlerRegistry): void {
 		if (!ctx.project) return true;
 		const current = findCurrentIteration({ disk: ctx.deps.disk, paths: ctx.deps.paths, clock: ctx.deps.clock }, ctx.project.path, ctx.project.config.management?.iterations);
 		return !current || current.status !== "in-review";
+	});
+
+	registry.registerCondition("agents:dashboard-running", (_ctx) => {
+		return isDashboardRunning();
+	});
+
+	registry.registerCondition("agents:dashboard-not-running", (_ctx) => {
+		return !isDashboardRunning();
+	});
+
+	// ── Agent dashboard handlers ─────────────────────────────────────
+
+	registry.registerAction("agents:start-dashboard", async (ctx) => {
+		const { log, input } = ctx.deps;
+		if (isDashboardRunning()) {
+			const state = getDashboardState();
+			log(`\n  Dashboard already running at ${state?.url}\n`);
+			await input.waitForEnter();
+			return undefined;
+		}
+		const agentsConfig = ctx.project?.config.agents;
+		if (!agentsConfig?.dashboard) {
+			log("\n  Agent dashboard is not enabled for this project.");
+			const answer = await input.ask("  Enable it now? (y/n)", "y");
+			if (answer.toLowerCase() !== "y") return undefined;
+			const { updateProjectConfig } = await import("../../domain/project/project-config.js");
+			if (ctx.project) {
+				updateProjectConfig(ctx.project.path, ctx.deps, (cfg) => {
+					if (!cfg.agents) cfg.agents = {};
+					cfg.agents.dashboard = true;
+					cfg.agents.dashboardDir = cfg.agents.dashboardDir ?? "agents";
+				});
+				ctx.project.config.agents = { dashboard: true, dashboardDir: "agents", ...ctx.project.config.agents };
+				log("  Enabled agents.dashboard in flowti.config.json.\n");
+			}
+		}
+		const { VAULT_ROOT, PROJECTS_DIR, CLI_PROJECT, cliConfig } = await import("../../infrastructure/config.js");
+		const { startDashboardServer } = await import("../../domain/serve/dashboard-service.js");
+		const state = await startDashboardServer({
+			port: 3000,
+			rootDir: ctx.deps.paths.resolve(".flowti/agents"),
+			cliProjectPath: CLI_PROJECT,
+			projectsDir: PROJECTS_DIR,
+			vaultRoot: VAULT_ROOT,
+			projectConfig: ctx.project?.config,
+			vaultAgentsConfig: cliConfig.agents,
+		}, ctx.deps);
+		if (state) log(`\n  Dashboard running at: ${state.url}\n`);
+		await input.waitForEnter();
+		return undefined;
+	});
+
+	registry.registerAction("agents:stop-dashboard", async (ctx) => {
+		const { log, input } = ctx.deps;
+		stopDashboard(log);
+		await input.waitForEnter();
+		return undefined;
 	});
 
 	// ── Action handlers (project-detail items) ──────────────────────

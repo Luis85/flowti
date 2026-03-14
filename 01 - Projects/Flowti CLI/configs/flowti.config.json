@@ -36,6 +36,10 @@
 		"storybookDir": "components",
 		"framework": "angular"
 	},
+	"agents": {
+		"dashboard": true,
+		"dashboardDir": "agents"
+	},
 	"reports": {
 		"dir": "reports",
 		"outputDir": "../../03 - Resources/Reports",

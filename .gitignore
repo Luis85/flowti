@@ -45,6 +45,7 @@ build-endpoints.json
 /** Flowti CLI runtime (generated) **/
 /.flowti/bin/
 /.flowti/var/
+/.flowti/agents/
 /01 - Projects/Flowti CLI/component-library/
 /01 - Projects/Flowti CLI/configs/.sitemap-hash
 /01 - Projects/Flowti CLI/reports/html/

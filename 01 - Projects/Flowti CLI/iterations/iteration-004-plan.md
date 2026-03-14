@@ -55,8 +55,8 @@ Agents become visible — project-level agent roster, a built-in static server, 
 
 
 
-- [ ] Flag blockers early
-- [ ] Track progress daily
+- [x] Flag blockers early
+- [x] Track progress daily
 - [x] Push the Plan to Git
 - [x] Kick-off communication
 - [x] Verify all prerequisites are met
@@ -85,40 +85,43 @@ Agents become visible — project-level agent roster, a built-in static server, 
 - [x] Tests: 11 tests for full brief generation, lifecycle path, phase instructions, edge cases
 - [x] Verify: tsc clean, 6143 tests pass, eslint 0 errors, esbuild builds
 
-### Phase 3: `flowti serve` — Static File Server
+### Phase 3: `flowti serve` — Static File Server — DONE
 
-- [ ] New `src/domain/serve/static-server.ts` — zero-dep HTTP server using Node `http` + `fs` modules
-- [ ] Serves files from a configurable root directory (default: `.flowti/site/`)
-- [ ] MIME type resolution for common types (html, js, css, json, png, svg, woff2)
-- [ ] Auto-opens browser via `shell.run("start <url>")` / Obsidian URI detection
-- [ ] New controller `src/controller/serve.controller.ts` — `flowti serve [--port=3000] [--dir=.flowti/site]`
-- [ ] Add `serve` command to CommandRegistry
-- [ ] Add "Serve Dashboard" action to start page sitemap
-- [ ] Tests for MIME resolution, file serving, 404 handling
+- [x] New `src/domain/serve/static-server.ts` — zero-dep HTTP server using Node `http` + `fs` modules (MIME for 18 extensions, `handleRequest()`, `sanitizePath()` directory traversal protection, `startServer()`, `openInBrowser()`)
+- [x] Serves files from a configurable root directory (default: `.flowti/site/`)
+- [x] MIME type resolution for common types (html, js, css, json, png, svg, woff2, plus ttf, md, xml, map, etc.)
+- [x] Auto-opens browser via `shell.run("start <url>")`
+- [x] New controller `src/controller/serve.controller.ts` — `flowti serve [--port=3000] [--dir=.flowti/site]` with flag parsing, server lifecycle, Enter-to-stop
+- [x] Add `serve` command to CommandRegistry (project-free)
+- [x] Add "Serve Dashboard" action to start page sitemap (key: s, group: tools)
+- [x] Tests: 19 tests — MIME resolution (9), request handling (10: index, nested, 404, traversal, query strings, backslash normalization)
+- [x] Verify: tsc clean, 6162 tests pass, eslint 0 errors, esbuild builds
 
-### Phase 4: Agent Data Export
+### Phase 4: Agent Data Export — DONE
 
-- [ ] New `src/domain/agents/agent-export.ts` — `exportAgentDashboardData(deps, vaultRoot, projects)` → JSON
-- [ ] Export schema: `{ agents: [{ name, type, domain, status, project?, iteration?, phase? }], projects: [{ name, agents }] }`
-- [ ] Agent status derivation: `busy` (has active brief or in-progress iteration task), `idle` (assigned but no active work), `unassigned` (vault-only)
-- [ ] CLI writes `agent-dashboard.json` to `.flowti/site/data/` before serving
-- [ ] Integrate into `flowti serve` — regenerate data file on each serve start
-- [ ] Tests for status derivation, export schema, edge cases (no agents, no projects)
+- [x] New `src/domain/agents/agent-export.ts` — `exportAgentDashboardData(vaultRoot, vaultAgentsConfig, projects, deps)` → `DashboardData`
+- [x] Export schema: `{ agents: [{ name, agentType, domain?, status, project?, iteration?, phase? }], projects: [{ name, agents }] }`
+- [x] Agent status derivation: `deriveAgentStatus()` — `busy` (referenced in in-progress/in-review iteration), `idle` (on roster, no active work), `unassigned` (vault-only). Case-insensitive matching.
+- [x] `writeDashboardData()` writes JSON to disk with `mkdirSync` for data directory
+- [x] Integrated into `flowti serve` — `regenerateDashboardData()` runs before server start, uses vault-level `cliConfig.agents` for agent directory
+- [x] Tests: 14 tests — `deriveAgentStatus` (7: unassigned, idle, busy, case-insensitive), `exportAgentDashboardData` (6: empty, unassigned, idle, busy, projects, types), `writeDashboardData` (1)
+- [x] Verify: tsc clean, 6176 tests pass, eslint 0 errors, esbuild builds
 
-### Phase 5: ExcaliburJS Agent Dashboard
+### Phase 5: ExcaliburJS Agent Dashboard — DONE
 
-- [ ] Initialize ExcaliburJS project in `site/agent-dashboard/` with `package.json`, `tsconfig.json`, build script
-- [ ] Entry HTML page (`index.html`) — loads ExcaliburJS engine, fetches `data/agent-dashboard.json`
-- [ ] Agent sprite rendering — each agent as a labeled entity with type indicator (human/ai icon)
-- [ ] Status visualization — idle agents dim/static, busy agents glow/animate, unassigned agents greyed
-- [ ] Layout — agents arranged in project groups, unassigned agents in a separate area
-- [ ] Build pipeline — `esbuild` bundles the ExcaliburJS app into `.flowti/site/`
-- [ ] Integrate build into `flowti serve` — auto-build dashboard before serving if sources changed
-- [ ] Add `site:build` to `flowti.config.json` build commands
+- [x] ExcaliburJS project in `site/agent-dashboard/` with `package.json` (excalibur ^0.30.0), `tsconfig.json` (strict, ES2022), `build.mjs` (esbuild bundler)
+- [x] Entry HTML page (`index.html`) — dark background, loads `dashboard.js` as ES module
+- [x] `src/main.ts` — engine setup, loads data via `data-loader.ts`, creates `AgentScene`, auto-sizes canvas
+- [x] `src/agent-actor.ts` — `AgentActor` extends `ex.Actor` with canvas-drawn circles (no sprite images), type icon (⚙ for AI, 👤 for human), name label, type indicator
+- [x] Status visualization — busy agents have pulsing green glow animation, idle agents blue, unassigned agents grey
+- [x] `src/agent-scene.ts` — `AgentScene` layouts agents in project groups (grid, 3 per row), unassigned agents in separate area, title + agent count header
+- [x] Build pipeline — `esbuild` bundles to `.flowti/site/dashboard.js` (1.1MB), copies `index.html`
+- [x] Integrated into `flowti serve` — `buildDashboard()` runs `node build.mjs` before serving if `build.mjs` exists
+- [x] Verify: tsc clean, 6176 tests pass, eslint 0 errors, esbuild builds, dashboard builds (1.1MB)
 
 ### Closure
 
-- [ ] Verify tsc, vitest, eslint, esbuild all pass
+- [x] Verify tsc, vitest, eslint, esbuild all pass
 - [ ] End-to-end walkthrough — assign agents to project, create iteration, generate full brief, serve dashboard, see agent status
 - [ ] Push the Plan to Git
 - [ ] Document learnings
@@ -158,34 +161,37 @@ Agents become visible — project-level agent roster, a built-in static server, 
 **Static Server Architecture** — Pure Node.js, zero dependencies:
 ```
 flowti serve [--port=3000] [--dir=.flowti/site]
-  1. Regenerate agent-dashboard.json from vault state
-  2. Build ExcaliburJS app if sources changed (esbuild)
+  1. Build ExcaliburJS dashboard (node build.mjs in site/agent-dashboard/)
+  2. Regenerate agent-dashboard.json from vault state
   3. Start http.createServer() serving static files
-  4. Open browser (or Obsidian URI if detected)
+  4. Open browser via shell.run("start <url>")
+  5. Wait for Enter to stop server
 ```
 The server is stateless — it reads the filesystem on each request. No WebSocket, no live reload in MVP. Refresh the browser to see updated state.
 
+**Implementation note**: Obsidian URI detection was deferred — the MVP uses `start "" "<url>"` to open the default browser. The serve command is registered as project-free since it operates at the vault level.
+
 **Agent Status Derivation:**
-- `busy` — Agent is referenced in an iteration that is `in-progress` or `in-review`, AND has an active scope item or brief
-- `idle` — Agent is assigned to a project (in roster) but has no active iteration work
-- `unassigned` — Agent exists in vault but is not in any project's roster
+- `busy` — Agent is referenced in an iteration that is `in-progress` or `in-review` (checked via `iter.agents` array, case-insensitive name match)
+- `idle` — Agent is on a project roster but has no active iteration work
+- `unassigned` — Agent exists in vault but is not on any project's roster
+
+**Implementation note**: Status derivation uses `BUSY_STATUSES = Set(["in-progress", "in-review"])`. The plan originally specified checking for "active scope item or brief" for busy status, but the implementation simplifies to checking iteration agent references + iteration status. This is sufficient for MVP and avoids coupling to the brief file system.
 
 **ExcaliburJS Project Structure:**
 ```
 site/agent-dashboard/
-├── package.json          # ExcaliburJS dependency
-├── tsconfig.json         # Strict TS config
-├── src/
-│   ├── main.ts           # Engine setup, scene loading
-│   ├── agent-scene.ts    # Main scene — renders agents
-│   ├── agent-actor.ts    # Agent as ExcaliburJS Actor (sprite, label, status glow)
-│   └── data-loader.ts    # Fetch and parse agent-dashboard.json
-├── assets/
-│   ├── human-agent.png   # Sprite for human agents
-│   └── ai-agent.png      # Sprite for AI agents
-└── index.html            # Entry point
+├── package.json          # excalibur ^0.30.0, esbuild, typescript
+├── tsconfig.json         # Strict TS, ES2022, bundler module resolution
+├── build.mjs             # esbuild bundler → .flowti/site/dashboard.js + index.html
+├── index.html            # Dark background, loads dashboard.js as ES module
+└── src/
+    ├── main.ts           # Engine setup, auto-sizes canvas, loads data, starts scene
+    ├── agent-scene.ts    # Main scene — project groups, unassigned area, title + count
+    ├── agent-actor.ts    # AgentActor (canvas circles, type icons ⚙/👤, pulsing glow)
+    └── data-loader.ts    # Fetch and parse data/agent-dashboard.json
 ```
-Build output goes to `.flowti/site/` which is the serve root. The dashboard is the first "scene" — future iterations add more scenes (project map, iteration timeline).
+Build output goes to `.flowti/site/` (1.1MB bundle). No sprite images — agents are canvas-drawn circles with emoji icons. The dashboard is the first "scene" — future iterations add more scenes (project map, iteration timeline).
 
 **Full-Iteration Brief Format:**
 ```markdown

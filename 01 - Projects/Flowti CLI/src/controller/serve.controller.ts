@@ -1,66 +1,80 @@
 /**
- * serve.controller.ts — Controller for the static file server.
+ * serve.controller.ts — Controller for the agent dashboard server.
  *
- * Starts a zero-dependency HTTP server from a configurable directory.
- * Keeps the server alive until the user presses Enter or Ctrl+C.
+ * Non-blocking: starts the server in the background and returns.
+ * The server is managed via start/stop actions from the main menu.
+ *
+ * The agent dashboard is opt-in via `agents.dashboard: true` in flowti.config.json.
  *
  * Usage:
- *   flowti serve [--port=3000] [--dir=.flowti/site]
+ *   flowti serve [--port=3000] [--dir=.flowti/agents]
  */
 
 import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler } from "../infrastructure/types.js";
-import { startServer, openInBrowser } from "../domain/serve/static-server.js";
-import type { ServerHandle } from "../domain/serve/static-server.js";
+import { startDashboardServer, isDashboardRunning, stopDashboard, getDashboardState } from "../domain/serve/dashboard-service.js";
 
-// ── Data model ───────────────────────────────────────────────────────
+// ── Data models ──────────────────────────────────────────────────────
 
-export interface ServeModel {
+export interface ServeStartModel {
 	readonly url: string;
 	readonly port: number;
 	readonly dir: string;
 }
 
-function renderServe(model: ServeModel, log: (msg: string) => void): void {
-	log(`\nServing static files from: ${model.dir}`);
-	log(`Server running at: ${model.url}`);
-	log(`\nPress Enter to stop the server.\n`);
+export interface ServeStopModel {
+	readonly stopped: boolean;
+}
+
+function renderStart(model: ServeStartModel, log: (msg: string) => void): void {
+	log(`\n  Dashboard running at: ${model.url}`);
+	log(`  Serving from: ${model.dir}\n`);
 }
 
 // ── Controller actions ───────────────────────────────────────────────
 
 const DEFAULT_PORT = 3000;
-const DEFAULT_DIR = ".flowti/site";
+const DEFAULT_DIR = ".flowti/agents";
 
 const actions: Record<string, ControllerAction> = {
 	"serve": async (req) => {
-		const { log, input, paths } = req.deps;
+		const { log, paths } = req.deps;
 		const port = typeof req.flags.port === "string" ? parseInt(req.flags.port, 10) || DEFAULT_PORT : DEFAULT_PORT;
 		const dirFlag = typeof req.flags.dir === "string" ? req.flags.dir : DEFAULT_DIR;
 		const rootDir = paths.isAbsolute(dirFlag) ? dirFlag : paths.resolve(dirFlag);
 
-		let handle: ServerHandle | undefined;
-		try {
-			handle = await startServer({ port, dir: rootDir }, {
-				disk: req.deps.disk,
-				paths: req.deps.paths,
-				shell: req.deps.shell,
-				log: req.deps.log,
-			});
+		const { VAULT_ROOT, PROJECTS_DIR, CLI_PROJECT, cliConfig } = await import("../infrastructure/config.js");
 
-			openInBrowser(handle.url, req.deps.shell);
+		const state = await startDashboardServer({
+			port,
+			rootDir,
+			cliProjectPath: CLI_PROJECT,
+			projectsDir: PROJECTS_DIR,
+			vaultRoot: VAULT_ROOT,
+			projectConfig: req.project?.config,
+			vaultAgentsConfig: cliConfig.agents,
+		}, req.deps);
 
-			const model: ServeModel = { url: handle.url, port, dir: rootDir };
-			renderServe(model, log);
-
-			await input.waitForEnter();
-		} finally {
-			handle?.close();
+		if (state) {
+			return dataResponse<ServeStartModel>(state, (d) => renderStart(d, log));
 		}
+		return dataResponse<ServeStopModel>({ stopped: false }, () => {});
+	},
 
-		log("Server stopped.");
-		return dataResponse({ stopped: true }, () => {});
+	"serve:stop": (req) => {
+		stopDashboard(req.deps.log);
+		return dataResponse<ServeStopModel>({ stopped: true }, () => {});
+	},
+
+	"serve:status": (req) => {
+		const state = getDashboardState();
+		if (state) {
+			req.deps.log(`\n  Dashboard running at: ${state.url}\n`);
+		} else {
+			req.deps.log(`\n  Dashboard is not running.\n`);
+		}
+		return dataResponse({ running: isDashboardRunning(), state }, () => {});
 	},
 };
 

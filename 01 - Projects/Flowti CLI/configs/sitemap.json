@@ -56,12 +56,22 @@
 					"group": "tools"
 				},
 				{
-					"name": "onServeDashboard",
-					"label": "Serve Dashboard",
-					"type": "command",
-					"target": "serve",
+					"name": "onStartDashboard",
+					"label": "Start Dashboard",
+					"type": "handler",
+					"target": "agents:start-dashboard",
 					"key": "s",
-					"group": "tools"
+					"disabled": "agents:dashboard-running",
+					"group": "agents"
+				},
+				{
+					"name": "onStopDashboard",
+					"label": "Stop Dashboard",
+					"type": "handler",
+					"target": "agents:stop-dashboard",
+					"key": "x",
+					"disabled": "agents:dashboard-not-running",
+					"group": "agents"
 				},
 				{
 					"name": "onQuit",
