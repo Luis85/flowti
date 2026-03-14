@@ -9,16 +9,12 @@
  * concerns from pure domain logic.
  */
 
-import { input } from "../../infrastructure/input.js";
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
-import { shell } from "../../infrastructure/shell.js";
 import { VAULT_ROOT } from "../../infrastructure/config.js";
 import { printHeader, BOLD, RESET, DIM, CYAN, YELLOW, GREEN } from "../../infrastructure/ui.js";
 import { listFolder, readMarkdownFile, searchVault } from "../../domain/knowledgebase/vault-service.js";
 import { showHelp } from "../help.js";
 import type { MenuResult } from "../../infrastructure/types.js";
-import { log } from "../../infrastructure/logger.js";
+import type { ShellMenuDeps } from "../../infrastructure/deps.js";
 
 
 function printEntryList(
@@ -28,6 +24,7 @@ function printEntryList(
 	indexMap: Map<number, { name: string; isDir: boolean }>,
 	startIndex: number,
 	formatName: (name: string) => string,
+	log: ShellMenuDeps["log"],
 ): number {
 	if (filtered.length === 0) return startIndex;
 
@@ -37,7 +34,7 @@ function printEntryList(
 		log(`    ${color}${index})${RESET} ${formatName(entry.name)}`);
 		indexMap.set(index++, entry);
 	}
-	log();
+	log("");
 	return index;
 }
 
@@ -49,19 +46,20 @@ function navigateBack(currentPath: string): string {
 
 function renderFolderListing(
 	currentPath: string,
+	deps: Pick<ShellMenuDeps, "disk" | "paths" | "log">,
 ): { indexMap: Map<number, { name: string; isDir: boolean }>; isEmpty: boolean } {
-	const entries = listFolder(currentPath, VAULT_ROOT, { disk, paths });
+	const entries = listFolder(currentPath, VAULT_ROOT, { disk: deps.disk, paths: deps.paths });
 	const indexMap = new Map<number, { name: string; isDir: boolean }>();
 	const dirs = entries.filter((e) => e.isDir);
 	const files = entries.filter((e) => !e.isDir && e.name.endsWith(".md"));
 
-	const nextIndex = printEntryList(dirs, "Folders", CYAN, indexMap, 1, (n) => `${n}/`);
-	printEntryList(files, "Files", GREEN, indexMap, nextIndex, (n) => n.replace(/\.md$/, ""));
+	const nextIndex = printEntryList(dirs, "Folders", CYAN, indexMap, 1, (n) => `${n}/`, deps.log);
+	printEntryList(files, "Files", GREEN, indexMap, nextIndex, (n) => n.replace(/\.md$/, ""), deps.log);
 
 	return { indexMap, isEmpty: dirs.length === 0 && files.length === 0 };
 }
 
-function printNavHints(currentPath: string): void {
+function printNavHints(currentPath: string, log: ShellMenuDeps["log"]): void {
 	const nav: string[] = [];
 	nav.push(`${YELLOW}s${RESET})earch`, `${YELLOW}?${RESET})help`);
 	if (currentPath) nav.push(`${YELLOW}u${RESET})p`);
@@ -89,16 +87,17 @@ function classifyKBChoice(choice: string, currentPath: string, indexMap: Map<num
 	return selected ? { entry: selected } : "invalid";
 }
 
-export async function knowledgebaseMenu(): Promise<MenuResult> {
+export async function knowledgebaseMenu(deps: ShellMenuDeps): Promise<MenuResult> {
+	const { input, log } = deps;
 	let currentPath = "";
 
 	while (true) {
 		printHeader(buildKBHeader(currentPath));
 
-		const { indexMap, isEmpty } = renderFolderListing(currentPath);
+		const { indexMap, isEmpty } = renderFolderListing(currentPath, deps);
 		if (isEmpty) log(`  ${DIM}(empty folder)${RESET}\n`);
 
-		printNavHints(currentPath);
+		printNavHints(currentPath, log);
 
 		const choice = await input.ask("Choice");
 		const action = classifyKBChoice(choice, currentPath, indexMap);
@@ -106,28 +105,29 @@ export async function knowledgebaseMenu(): Promise<MenuResult> {
 		if (action === "quit") return "quit";
 		if (action === "back") return "main";
 		if (action === "up") { currentPath = navigateBack(currentPath); continue; }
-		if (action === "search") { await searchMode(); continue; }
-		if (action === "help") { showHelp("knowledgebase"); await input.waitForEnter(); continue; }
+		if (action === "search") { await searchMode(deps); continue; }
+		if (action === "help") { showHelp("knowledgebase", deps); await input.waitForEnter(); continue; }
 		if (action === "invalid") { log("\n  Invalid choice — try again.\n"); continue; }
 
 		const selectedPath = resolveSelectedPath(currentPath, action.entry.name);
-		if (action.entry.isDir) { currentPath = selectedPath; } else { await viewFile(selectedPath); }
+		if (action.entry.isDir) { currentPath = selectedPath; } else { await viewFile(selectedPath, deps); }
 	}
 }
 
-async function viewFile(filePath: string): Promise<void> {
-	const content = readMarkdownFile(filePath, VAULT_ROOT, { disk, paths });
+async function viewFile(filePath: string, deps: ShellMenuDeps): Promise<void> {
+	const { input, log } = deps;
+	const content = readMarkdownFile(filePath, VAULT_ROOT, { disk: deps.disk, paths: deps.paths });
 	if (!content) {
 		log(`\n  File not found: ${filePath}\n`);
 		return;
 	}
 
 	const displayName = filePath.replace(/\.md$/, "").split("/").pop() ?? filePath;
-	log();
+	log("");
 	log(`  ${BOLD}${"─".repeat(60)}${RESET}`);
 	log(`  ${BOLD}  ${displayName}${RESET}`);
 	log(`  ${BOLD}${"─".repeat(60)}${RESET}`);
-	log();
+	log("");
 
 	// Strip frontmatter for display
 	const lines = content.split("\n");
@@ -142,14 +142,15 @@ async function viewFile(filePath: string): Promise<void> {
 		log(`  ${line}`);
 	}
 
-	log();
+	log("");
 	log(`  ${DIM}${filePath}${RESET}`);
-	log();
+	log("");
 
 	await input.ask("Press Enter to continue");
 }
 
-async function searchMode(): Promise<void> {
+async function searchMode(deps: ShellMenuDeps): Promise<void> {
+	const { input, log, shell } = deps;
 	const query = await input.ask("Search");
 
 	if (!query) return;
@@ -177,12 +178,12 @@ async function searchMode(): Promise<void> {
 		log(`\n  ${DIM}...and ${results.length - 20} more${RESET}`);
 	}
 
-	log();
+	log("");
 	const choice = await input.ask("Open # or Enter to go back");
 
 	const num = parseInt(choice, 10);
 	const selected = indexMap.get(num);
 	if (selected) {
-		await viewFile(selected);
+		await viewFile(selected, deps);
 	}
 }

@@ -127,6 +127,8 @@ export interface MenuItem {
 	action: () => MenuResult | Promise<MenuResult>;
 	disabled?: boolean | (() => boolean);
 	disabledMessage?: string;
+	/** Visual grouping — separators inserted between different groups automatically. */
+	group?: string;
 }
 
 export interface MenuSeparator {
@@ -452,7 +454,7 @@ export interface CAPAConfig {
 
 // ── Lifecycle Engine ────────────────────────────────────────────────
 
-export type EntityType = "project" | "product" | "feature";
+export type EntityType = "project" | "product" | "feature" | "iteration";
 
 export type ProjectLifecycleState = "inception" | "planning" | "execution" | "monitoring" | "closing" | "archived";
 export type ProductLifecycleState = "concept" | "development" | "launch" | "growth" | "maturity" | "decline" | "sunset";
@@ -474,8 +476,8 @@ export interface LifecycleConfig {
 	productsDir?: string;
 }
 
-export type IterationStatus = "planned" | "in-progress" | "in-review" | "completed" | "cancelled";
-export interface IterationsConfig { dir?: string; durationDays?: number; }
+export type IterationStatus = "new" | "planned" | "ready" | "in-progress" | "in-review" | "done" | "cancelled";
+export interface IterationsConfig { dir?: string; durationDays?: number; lifecycle?: string; }
 
 // ── Project Management (aggregated) ─────────────────────────────────
 export interface ManagementConfig {

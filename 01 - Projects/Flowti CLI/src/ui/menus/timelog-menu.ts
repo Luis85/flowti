@@ -2,32 +2,27 @@
  * timelog-menu.ts — Interactive time-log menu.
  */
 
-import { paths } from "../../infrastructure/paths.js";
-import { disk } from "../../infrastructure/filesystem.js";
-import { clock } from "../../infrastructure/clock.js";
 import { printHeader } from "../../infrastructure/ui.js";
-import { input } from "../../infrastructure/input.js";
+import type { MenuDeps } from "../../infrastructure/deps.js";
 import type { TimeLogConfig } from "../../infrastructure/types.js";
 import { createTimeLogEntry } from "../../domain/timelog/timelog-store.js";
 import { renderTimeLogAdded } from "../displays/timelog-display.js";
 
-function storeDeps() { return { disk, paths, clock } as const; }
-
-export async function logTimeInteractive(projectPath: string, config?: TimeLogConfig): Promise<void> {
+export async function logTimeInteractive(projectPath: string, config: TimeLogConfig | undefined, deps: MenuDeps): Promise<void> {
 	printHeader("Log Time");
 
-	const person = await input.ask("Person");
+	const person = await deps.input.ask("Person");
 	if (!person) return;
 
-	const hours = parseFloat(await input.ask("Hours", "1"));
-	const category = await input.ask("Category", "development");
-	const task = await input.ask("Task");
+	const hours = parseFloat(await deps.input.ask("Hours", "1"));
+	const category = await deps.input.ask("Category", "development");
+	const task = await deps.input.ask("Task");
 	if (!task) return;
 
-	const description = await input.ask("Notes (optional)", "");
+	const description = await deps.input.ask("Notes (optional)", "");
 
-	const filePath = createTimeLogEntry(storeDeps(), projectPath, {
-		date: clock.iso().slice(0, 10),
+	const filePath = createTimeLogEntry(deps, projectPath, {
+		date: deps.clock.iso().slice(0, 10),
 		person,
 		hours,
 		category,
@@ -36,6 +31,6 @@ export async function logTimeInteractive(projectPath: string, config?: TimeLogCo
 	}, config);
 
 	if (filePath) {
-		renderTimeLogAdded(paths.relative(projectPath, filePath));
+		renderTimeLogAdded(deps.paths.relative(projectPath, filePath), deps.log);
 	}
 }

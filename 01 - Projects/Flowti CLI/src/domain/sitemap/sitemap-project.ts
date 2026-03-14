@@ -6,7 +6,7 @@
  * visualization and Storybook rendering.
  *
  * The project sitemap lives at `<projectRoot>/configs/sitemap.json` and
- * follows the same schema as the CLI's own sitemap.
+ * follows the v2 unified PageObject schema.
  */
 
 import type { CliDeps } from "../../infrastructure/deps.js";
@@ -63,8 +63,8 @@ export interface CreateSitemapResult {
 }
 
 /**
- * Creates a barebones project sitemap with a start page, a detail page,
- * and a settings page. Returns the path and view count.
+ * Creates a barebones project sitemap with a home page, a dashboard page,
+ * and a settings page. Returns the path and page count.
  */
 export function createProjectSitemap(
 	projectRoot: string,
@@ -78,44 +78,46 @@ export function createProjectSitemap(
 	}
 
 	const sitemap: Sitemap = {
-		version: 1,
-		views: {
+		version: 2,
+		pages: {
 			"home": {
-				title: projectName,
+				kind: "page",
+				label: projectName,
+				description: `Landing page for ${projectName}.`,
 				icon: "home",
 				domain: "navigation",
 				status: "draft",
-				description: `Landing page for ${projectName}.`,
 				route: { path: "/", pathMatch: "full" },
-				items: [
-					{ type: "item", key: "1", label: "Dashboard", navigate: "dashboard" },
-					{ type: "item", key: "2", label: "Settings", navigate: "settings" },
-					{ type: "separator" },
-					{ type: "item", key: "q", label: "Quit", signal: "quit" },
+				actions: [
+					{ name: "onDashboard", label: "Dashboard", type: "navigate", target: "dashboard", key: "1" },
+					{ name: "onSettings", label: "Settings", type: "navigate", target: "settings", key: "2" },
+					{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" },
 				],
 			},
 			"dashboard": {
-				type: "dynamic",
-				title: "Dashboard",
+				kind: "page",
+				label: "Dashboard",
+				description: "Main application dashboard.",
 				icon: "bar-chart",
 				domain: "core",
 				status: "draft",
 				parent: "home",
 				route: { path: "dashboard" },
-				handler: "dashboard",
-				description: "Main application dashboard.",
-				capabilities: ["View summary", "Navigate to detail views"],
+				actions: [
+					{ name: "onBack", label: "Back", type: "signal", target: "back", key: "b" },
+				],
 			},
 			"settings": {
-				title: "Settings",
+				kind: "page",
+				label: "Settings",
+				description: "Application settings and preferences.",
 				icon: "settings",
 				domain: "core",
 				status: "draft",
 				parent: "home",
 				route: { path: "settings" },
-				description: "Application settings and preferences.",
-				items: [
-					{ type: "item", key: "b", label: "Back", signal: "back" },
+				actions: [
+					{ name: "onBack", label: "Back", type: "signal", target: "back", key: "b" },
 				],
 			},
 		},
@@ -131,7 +133,7 @@ export function createProjectSitemap(
 	return {
 		created: true,
 		path: sitemapPath,
-		viewCount: Object.keys(sitemap.views).length,
+		viewCount: Object.keys(sitemap.pages).length,
 	};
 }
 
@@ -144,7 +146,7 @@ export interface ImportSitemapResult {
 }
 
 /**
- * Reads the project sitemap and writes each view as a ComponentInstance
+ * Reads the project sitemap and writes each page as a ComponentInstance
  * to the project's `components/` directory. Existing components with the
  * same ID are skipped (use `regenerateFromSitemap` for overwrite).
  */

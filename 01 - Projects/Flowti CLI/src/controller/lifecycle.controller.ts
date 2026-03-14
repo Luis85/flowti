@@ -25,7 +25,7 @@ const actions: Record<string, ControllerAction> = {
 		const filtered = entityType && VALID_TYPES.includes(entityType)
 			? items.filter((i) => i.entityType === entityType)
 			: items;
-		return dataResponse(filtered, renderLifecycleList);
+		return dataResponse(filtered, (d) => renderLifecycleList(d, req.deps.log));
 	},
 
 	"lifecycle:status": (req) => {
@@ -34,7 +34,7 @@ const actions: Record<string, ControllerAction> = {
 		if (!name) {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --name flag.", hint: 'Usage: flowti lifecycle:status --name="My Feature"' },
-				renderError,
+				(d) => renderError(req.deps.log, d),
 			);
 		}
 		const subdir = flagStr(req.flags, "subdir", "") || undefined;
@@ -42,10 +42,10 @@ const actions: Record<string, ControllerAction> = {
 		if (!record) {
 			return dataResponse<ErrorModel>(
 				{ error: `Lifecycle not found for "${name}".` },
-				renderError,
+				(d) => renderError(req.deps.log, d),
 			);
 		}
-		return dataResponse(record, renderLifecycleStatus);
+		return dataResponse(record, (d) => renderLifecycleStatus(d, req.deps.log));
 	},
 
 	"lifecycle:transition": (req) => {
@@ -56,18 +56,18 @@ const actions: Record<string, ControllerAction> = {
 		if (!name || !to) {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --name and/or --to flag.", hint: 'Usage: flowti lifecycle:transition --name="My Feature" --to=development --reason="Ready"' },
-				renderError,
+				(d) => renderError(req.deps.log, d),
 			);
 		}
 		if (!reason) {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --reason flag.", hint: 'Provide a reason for the transition.' },
-				renderError,
+				(d) => renderError(req.deps.log, d),
 			);
 		}
 		const subdir = flagStr(req.flags, "subdir", "") || undefined;
 		const result = transitionLifecycleItem(req.deps, req.project.path, name, to as LifecycleState, reason, subdir);
-		return dataResponse(result, renderTransitionResult);
+		return dataResponse(result, (d) => renderTransitionResult(d, req.deps.log));
 	},
 
 	"lifecycle:history": (req) => {
@@ -76,12 +76,12 @@ const actions: Record<string, ControllerAction> = {
 		if (!name) {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --name flag.", hint: 'Usage: flowti lifecycle:history --name="My Feature"' },
-				renderError,
+				(d) => renderError(req.deps.log, d),
 			);
 		}
 		const subdir = flagStr(req.flags, "subdir", "") || undefined;
 		const history = getLifecycleHistory(req.deps, req.project.path, name, subdir);
-		return dataResponse(history, renderTransitionHistory);
+		return dataResponse(history, (d) => renderTransitionHistory(d, req.deps.log));
 	},
 
 	"lifecycle:create": (req) => {
@@ -92,13 +92,13 @@ const actions: Record<string, ControllerAction> = {
 		if (!name) {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --name flag.", hint: 'Usage: flowti lifecycle:create --name="My Feature" --type=feature' },
-				renderError,
+				(d) => renderError(req.deps.log, d),
 			);
 		}
 		if (!VALID_TYPES.includes(entityType)) {
 			return dataResponse<ErrorModel>(
 				{ error: `Invalid type "${entityType}". Valid: ${VALID_TYPES.join(", ")}` },
-				renderError,
+				(d) => renderError(req.deps.log, d),
 			);
 		}
 		const description = flagStr(req.flags, "description", "") || undefined;
@@ -107,12 +107,12 @@ const actions: Record<string, ControllerAction> = {
 		if (filePath) {
 			return dataResponse(
 				{ relPath: paths.relative(req.project.path, filePath) },
-				(m: { relPath: string }) => renderLifecycleCreated(m.relPath),
+				(m: { relPath: string }) => renderLifecycleCreated(m.relPath, req.deps.log),
 			);
 		}
 		return dataResponse<ErrorModel>(
 			{ error: `Item "${name}" already exists.` },
-			renderError,
+			(d) => renderError(req.deps.log, d),
 		);
 	},
 };

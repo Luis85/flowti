@@ -3,7 +3,6 @@
  */
 
 import { RESET, DIM, GREEN, CYAN, BOLD, RED, YELLOW } from "../../infrastructure/ui.js";
-import { log } from "../../infrastructure/logger.js";
 import type { CAPASummary } from "../../domain/capa/capa-types.js";
 
 const SEVERITY_COLORS: Record<string, string> = {
@@ -15,7 +14,7 @@ const SEVERITY_COLORS: Record<string, string> = {
 
 const STATUS_DONE: Set<string> = new Set(["closed", "verified"]);
 
-export function renderCAPAList(items: CAPASummary[]): void {
+export function renderCAPAList(items: CAPASummary[], log: (msg?: string) => void): void {
 	if (items.length === 0) {
 		log(`\n  ${DIM}No CAPA items defined yet. Use "Add" to create one.${RESET}\n`);
 		return;
@@ -33,10 +32,10 @@ export function renderCAPAList(items: CAPASummary[]): void {
 	log();
 }
 
-export function renderCAPAAdded(relPath: string): void {
+export function renderCAPAAdded(relPath: string, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}✓${RESET} Created: ${relPath}`);
 }
 
-export function renderCAPAUpdated(name: string, status: string): void {
+export function renderCAPAUpdated(name: string, status: string, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}✓${RESET} Updated ${name} → ${status}`);
 }

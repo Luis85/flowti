@@ -21,7 +21,7 @@ This is an Obsidian vault containing two major projects. All work happens from t
 # Build
 cd "01 - Projects/Flowti CLI" && node configs/esbuild.config.mjs
 
-# Test (4,599 tests, 279 suites)
+# Test (5,920 tests, 317 suites)
 cd "01 - Projects/Flowti CLI" && npx vitest run --config configs/vitest.config.ts
 
 # Type check
@@ -54,14 +54,14 @@ cd "Development/flowti" && npm run build:dev
 3. **Controllers are thin** — parse flags, call domain, return `CliResponse<T>` with typed data + renderer
 4. **UI is presentation-only** — renderers take typed data models, produce ANSI output
 5. **Config is the contract** — projects declare capabilities in `configs/flowti.config.json`
-6. **Sitemap drives the UI** — all interactive menus defined in `configs/sitemap.json`
+6. **Sitemap drives the UI** — all interactive menus defined in `configs/sitemap.json` (v2 PageObject format)
 7. **Zero dependencies** — runtime uses Node.js built-ins exclusively
 
 ## Key Config Files
 
 | File | Purpose |
 |------|---------|
-| `01 - Projects/Flowti CLI/configs/sitemap.json` | Declarative UI definition (22 views) |
+| `01 - Projects/Flowti CLI/configs/sitemap.json` | Declarative UI definition (28 pages, v2 PageObject) |
 | `01 - Projects/Flowti CLI/configs/flowti.config.json` | CLI's own project config |
 | `01 - Projects/Flowti CLI/configs/tsconfig.json` | TypeScript config |
 | `01 - Projects/Flowti CLI/configs/vitest.config.ts` | Vitest config |

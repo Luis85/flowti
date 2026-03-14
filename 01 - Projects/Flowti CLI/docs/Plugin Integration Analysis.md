@@ -4,7 +4,7 @@ domain: CLI
 title: Plugin Integration Analysis
 version: 1
 created: 2026-03-10
-updated: 2026-03-10
+updated: 2026-03-14
 status: active
 source: "[[Development Roadmap]]"
 tech_debt: "[[Tech Debt]]"
@@ -22,12 +22,12 @@ tech_debt: "[[Tech Debt]]"
 
 | Dimension | Flowti CLI | Flowti Plugin | Gap |
 |-----------|-----------|---------------|-----|
-| **Source files** | 239 | 480 | Plugin is 2x larger |
-| **Tests** | 2,565 (140 suites) | 7,697 (331 suites) | Plugin is 3x more tests |
+| **Source files** | 377 | 480 | Similar scale |
+| **Tests** | 5,920 (317 suites) | 7,697 (331 suites) | Comparable test coverage |
 | **Events** | ~20 (event catalog) | 406+ (FlowtiEventMap) | Entirely different event systems |
 | **Build tool** | esbuild (single file) | esbuild + CSS concatenation + distribution | Plugin has multi-step build |
 | **Dependencies** | 0 runtime | 3 runtime (Obsidian, Zod, PapaParse) | Plugin needs bundler |
-| **Config schema** | `ProjectConfig` (types.ts) | Flat JSON (flowti.config.json) | **Incompatible** |
+| **Config schema** | `ProjectConfig` (types.ts) — extended with type, commands maps | Flat JSON (flowti.config.json) | Schema extended (TD-01 resolved) |
 | **Report generators** | 8 (6 internal + 2 reference) | 14 (all script-based) | Different execution model |
 | **E2E testing** | Journey executor + 5 providers | ObsidianCli + 9 journeys + helpers | Plugin needs running Obsidian |
 | **Domain services** | None (stateless commands) | 20 (with DI container) | Fundamentally different |

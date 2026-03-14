@@ -66,7 +66,7 @@ function isLoadedTool(result: unknown): result is LoadedAiTool {
 
 const actions: Record<string, ControllerAction> = {
 	"ai:list": (req) => {
-		const { disk } = req.deps;
+		const { disk, log } = req.deps;
 		const tools = loadAiTools(req.deps, VAULT_ROOT, disk);
 		const model: ToolListItem[] = tools.map((t) => ({
 			name: t.definition.name,
@@ -78,11 +78,11 @@ const actions: Record<string, ControllerAction> = {
 			valid: t.valid,
 			errors: t.errors,
 		}));
-		return dataResponse(model, renderToolList);
+		return dataResponse(model, (d) => renderToolList(d, log));
 	},
 
 	"ai:validate": (req) => {
-		const { disk, paths } = req.deps;
+		const { disk, paths, log } = req.deps;
 		const toolsDir = paths.join(VAULT_ROOT, AI_TOOLS_DIR);
 		const files = discoverToolFiles(req.deps, toolsDir, disk);
 		const results: ToolValidationItem[] = files.map((file) => {
@@ -95,21 +95,21 @@ const actions: Record<string, ControllerAction> = {
 				return { file: fileName, valid: false, errors: [`Parse error: ${err instanceof Error ? err.message : String(err)}`], warnings: [] };
 			}
 		});
-		return dataResponse(results, renderToolValidation);
+		return dataResponse(results, (d) => renderToolValidation(d, log));
 	},
 
 	"ai:new": async (req) => {
 		const { disk, input } = req.deps;
 		const name = await input.ask("Tool name (lowercase, hyphens/underscores)");
-		if (!name) return dataResponse<SuccessModel>({ message: "Cancelled." }, renderSuccess);
+		if (!name) return dataResponse<SuccessModel>({ message: "Cancelled." }, (d) => renderSuccess(req.deps.log, d));
 		const desc = await input.ask("Description");
 		const run = await input.ask("Shell command to run");
-		if (!run) return dataResponse<SuccessModel>({ message: "Cancelled." }, renderSuccess);
+		if (!run) return dataResponse<SuccessModel>({ message: "Cancelled." }, (d) => renderSuccess(req.deps.log, d));
 		const result = scaffoldAiTool(req.deps, VAULT_ROOT, name, desc || "An AI tool", run, disk);
 		if ("error" in result) {
-			return dataResponse<ErrorModel>({ error: result.error }, renderError);
+			return dataResponse<ErrorModel>({ error: result.error }, (d) => renderError(req.deps.log, d));
 		}
-		return dataResponse<SuccessModel>({ message: `Created tool at ${result.path}` }, renderSuccess);
+		return dataResponse<SuccessModel>({ message: `Created tool at ${result.path}` }, (d) => renderSuccess(req.deps.log, d));
 	},
 
 	"ai:reference": (req) => {
@@ -118,39 +118,39 @@ const actions: Record<string, ControllerAction> = {
 		const doc = generateAiToolReference(req.deps, tools);
 		const outputPath = paths.join(CLI_PROJECT, "docs", "reference", "AI Tool Reference.md");
 		doc.save(outputPath, req.deps.disk);
-		return dataResponse<SuccessModel>({ message: `Reference saved to ${outputPath}` }, renderSuccess);
+		return dataResponse<SuccessModel>({ message: `Reference saved to ${outputPath}` }, (d) => renderSuccess(req.deps.log, d));
 	},
 
 	"ai:run": (req) => {
-		const { disk, paths, shell } = req.deps;
+		const { disk, paths, shell, log } = req.deps;
 		const toolName = req.flags.tool;
 		if (!toolName || typeof toolName !== "string") {
 			return dataResponse<MissingToolFlagModel>(
 				{ usage: "flowti ai:run --tool=<name> [--param1=value1]" },
-				renderMissingToolFlag,
+				(d) => renderMissingToolFlag(d, log),
 			);
 		}
 		const tools = loadAiTools(req.deps, VAULT_ROOT, disk);
 		const result = validateToolSelection(toolName, tools);
 		if (!isLoadedTool(result)) {
-			if ("notFound" in result) return dataResponse(result.notFound, renderToolNotFound);
-			return dataResponse(result.invalid, renderToolInvalid);
+			if ("notFound" in result) return dataResponse(result.notFound, (d) => renderToolNotFound(d, log));
+			return dataResponse(result.invalid, (d) => renderToolInvalid(d, log));
 		}
 		const params = result.definition.params ?? [];
 		const missing = params.filter((p) => p.required && req.flags[p.name] === undefined);
 		if (missing.length > 0) {
 			const model: MissingParamsModel = { params: missing.map((p) => ({ name: p.name, description: p.description })) };
-			return dataResponse(model, renderMissingParams);
+			return dataResponse(model, (d) => renderMissingParams(d, log));
 		}
 		const cmd = substituteParams(result.definition.run, params, req.flags);
 		const cwd = result.definition.cwd ? paths.join(VAULT_ROOT, result.definition.cwd) : VAULT_ROOT;
 		if (req.flags["dry-run"]) {
-			return dataResponse<DryRunModel>({ cmd, cwd }, renderDryRun);
+			return dataResponse<DryRunModel>({ cmd, cwd }, (d) => renderDryRun(d, log));
 		}
 		// Fire-and-forget shell.run — renderRunning is a side-effect before execution
-		renderRunning(toolName);
+		renderRunning(toolName, log);
 		const { exitCode } = shell.runCaptureStatus(cmd, { cwd });
-		return dataResponse<ToolRunResultModel>({ toolName, exitCode }, renderToolRunResult);
+		return dataResponse<ToolRunResultModel>({ toolName, exitCode }, (d) => renderToolRunResult(d, log));
 	},
 };
 

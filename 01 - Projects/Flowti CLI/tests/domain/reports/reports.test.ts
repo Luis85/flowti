@@ -86,6 +86,7 @@ import { initializeDeps } from "../../../src/infrastructure/request-response.js"
 import { createTestDeps } from "../../mocks/mock-deps.js";
 import { createMockShell } from "../../mocks/mock-shell.js";
 import { commands } from "../../../src/controller/reports.controller.js";
+import { log } from "../../../src/infrastructure/logger.js";
 import type { ProjectContext } from "../../../src/infrastructure/types.js";
 
 function makeProject(opts?: {
@@ -111,6 +112,9 @@ beforeEach(() => {
 	mockHasGenerator.mockReturnValue(true);
 	mockRunGenerator.mockReturnValue({ success: true, outputPath: "/test/report.md", metrics: {} });
 	mockRunAllDocs.mockResolvedValue({ generators: [], totalDurationMs: 100, passed: 2, failed: 0 });
+	const deps = createTestDeps();
+	(deps as Record<string, unknown>).log = log;
+	initializeDeps(deps);
 });
 
 describe("reports commands", () => {
@@ -184,6 +188,7 @@ describe("reports commands", () => {
 		const sh = createMockShell();
 		const deps = createTestDeps();
 		(deps as Record<string, unknown>).shell = sh;
+		(deps as Record<string, unknown>).log = log;
 		initializeDeps(deps);
 
 		const project = makeProject({
@@ -202,8 +207,8 @@ describe("reports commands", () => {
 		const sh = createMockShell();
 		const deps = createTestDeps();
 		(deps as Record<string, unknown>).shell = sh;
+		(deps as Record<string, unknown>).log = log;
 		initializeDeps(deps);
-		const { log } = await import("../../../src/infrastructure/logger.js");
 		const mockLog = log as ReturnType<typeof vi.fn>;
 		const project = makeProject({
 			generators: [{ id: "test", label: "Test Report" }],

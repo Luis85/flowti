@@ -2,13 +2,9 @@
  * requirements-menu.ts — Interactive requirements management menu.
  */
 
-import { paths } from "../../infrastructure/paths.js";
-import { disk } from "../../infrastructure/filesystem.js";
-import { clock } from "../../infrastructure/clock.js";
 import { printHeader } from "../../infrastructure/ui.js";
-import { input } from "../../infrastructure/input.js";
 import { runMenu } from "../../infrastructure/menu.js";
-import { log } from "../../infrastructure/logger.js";
+import type { MenuDeps } from "../../infrastructure/deps.js";
 import type { MenuResult, MenuEntry, RequirementsConfig, RequirementType, MoSCoWPriority } from "../../infrastructure/types.js";
 import {
 	listRequirements, createRequirement, updateRequirementStatus, nextId,
@@ -22,11 +18,9 @@ import {
 	renderRequirementAdded, renderRequirementUpdated,
 } from "../displays/requirements-display.js";
 
-function storeDeps() { return { disk, paths, clock } as const; }
-
 const REQ_STATUSES: RequirementStatus[] = ["draft", "proposed", "approved", "implemented", "verified", "rejected", "deferred"];
 
-export async function addRequirementInteractive(reqType: RequirementType, projectPath: string, config?: RequirementsConfig): Promise<void> {
+export async function addRequirementInteractive(reqType: RequirementType, projectPath: string, config: RequirementsConfig | undefined, deps: MenuDeps): Promise<void> {
 	const labels: Record<RequirementType, string> = {
 		functional: "Functional Requirement",
 		"non-functional": "Non-Functional Requirement",
@@ -34,20 +28,20 @@ export async function addRequirementInteractive(reqType: RequirementType, projec
 	};
 	printHeader(`Add ${labels[reqType]}`);
 
-	const name = await input.ask("Name");
+	const name = await deps.input.ask("Name");
 	if (!name) return;
 
-	const existing = listRequirements(storeDeps(), projectPath, config);
+	const existing = listRequirements(deps, projectPath, config);
 	const suggestedId = nextId("REQ", existing.map((r) => r.id));
-	const id = await input.ask("ID", suggestedId);
+	const id = await deps.input.ask("ID", suggestedId);
 
-	const priority = (await input.ask("Priority (must/should/could/wont)", "should")) as MoSCoWPriority;
-	const category = await input.ask("Category (security/performance/usability/reliability/maintainability)", "");
-	const source = await input.ask("Source", "");
-	const rationale = await input.ask("Rationale", "");
-	const description = await input.ask("Description", "");
+	const priority = (await deps.input.ask("Priority (must/should/could/wont)", "should")) as MoSCoWPriority;
+	const category = await deps.input.ask("Category (security/performance/usability/reliability/maintainability)", "");
+	const source = await deps.input.ask("Source", "");
+	const rationale = await deps.input.ask("Rationale", "");
+	const description = await deps.input.ask("Description", "");
 
-	const filePath = createRequirement(storeDeps(), projectPath, {
+	const filePath = createRequirement(deps, projectPath, {
 		name,
 		requirementType: reqType,
 		id,
@@ -60,27 +54,27 @@ export async function addRequirementInteractive(reqType: RequirementType, projec
 	}, config);
 
 	if (filePath) {
-		renderRequirementAdded(paths.relative(projectPath, filePath));
+		renderRequirementAdded(deps.paths.relative(projectPath, filePath), deps.log);
 	}
 }
 
-export async function addUseCaseInteractive(projectPath: string, config?: RequirementsConfig): Promise<void> {
+export async function addUseCaseInteractive(projectPath: string, config: RequirementsConfig | undefined, deps: MenuDeps): Promise<void> {
 	printHeader("Add Use Case");
 
-	const name = await input.ask("Name");
+	const name = await deps.input.ask("Name");
 	if (!name) return;
 
-	const existing = listUseCases(storeDeps(), projectPath, config);
+	const existing = listUseCases(deps, projectPath, config);
 	const suggestedId = nextId("UC", existing.map((uc) => uc.id));
-	const id = await input.ask("ID", suggestedId);
+	const id = await deps.input.ask("ID", suggestedId);
 
-	const actor = await input.ask("Actor");
+	const actor = await deps.input.ask("Actor");
 	if (!actor) return;
 
-	const description = await input.ask("Main flow description", "");
-	const linkedReqs = await input.ask("Linked requirements (comma-separated IDs)", "");
+	const description = await deps.input.ask("Main flow description", "");
+	const linkedReqs = await deps.input.ask("Linked requirements (comma-separated IDs)", "");
 
-	const filePath = createUseCase(storeDeps(), projectPath, {
+	const filePath = createUseCase(deps, projectPath, {
 		name,
 		id,
 		actor,
@@ -89,34 +83,34 @@ export async function addUseCaseInteractive(projectPath: string, config?: Requir
 	}, config);
 
 	if (filePath) {
-		renderRequirementAdded(paths.relative(projectPath, filePath));
+		renderRequirementAdded(deps.paths.relative(projectPath, filePath), deps.log);
 	}
 }
 
-export async function addUserStoryInteractive(projectPath: string, config?: RequirementsConfig): Promise<void> {
+export async function addUserStoryInteractive(projectPath: string, config: RequirementsConfig | undefined, deps: MenuDeps): Promise<void> {
 	printHeader("Add User Story");
 
-	const name = await input.ask("Name");
+	const name = await deps.input.ask("Name");
 	if (!name) return;
 
-	const existing = listUserStories(storeDeps(), projectPath, config);
+	const existing = listUserStories(deps, projectPath, config);
 	const suggestedId = nextId("US", existing.map((s) => s.id));
-	const id = await input.ask("ID", suggestedId);
+	const id = await deps.input.ask("ID", suggestedId);
 
-	const role = await input.ask("Role (As a...)");
+	const role = await deps.input.ask("Role (As a...)");
 	if (!role) return;
 
-	const goal = await input.ask("Goal (I want to...)");
+	const goal = await deps.input.ask("Goal (I want to...)");
 	if (!goal) return;
 
-	const benefit = await input.ask("Benefit (So that...)");
+	const benefit = await deps.input.ask("Benefit (So that...)");
 	if (!benefit) return;
 
-	const storyPoints = parseInt(await input.ask("Story points", "0"), 10);
-	const linkedReqs = await input.ask("Linked requirements (comma-separated IDs)", "");
-	const description = await input.ask("Acceptance criteria", "");
+	const storyPoints = parseInt(await deps.input.ask("Story points", "0"), 10);
+	const linkedReqs = await deps.input.ask("Linked requirements (comma-separated IDs)", "");
+	const description = await deps.input.ask("Acceptance criteria", "");
 
-	const filePath = createUserStory(storeDeps(), projectPath, {
+	const filePath = createUserStory(deps, projectPath, {
 		name,
 		id,
 		role,
@@ -129,45 +123,45 @@ export async function addUserStoryInteractive(projectPath: string, config?: Requ
 	}, config);
 
 	if (filePath) {
-		renderRequirementAdded(paths.relative(projectPath, filePath));
+		renderRequirementAdded(deps.paths.relative(projectPath, filePath), deps.log);
 	}
 }
 
-export async function updateStatusInteractive(projectPath: string, config?: RequirementsConfig): Promise<void> {
+export async function updateStatusInteractive(projectPath: string, config: RequirementsConfig | undefined, deps: MenuDeps): Promise<void> {
 	printHeader("Update Requirement Status");
 
-	const reqs = listRequirements(storeDeps(), projectPath, config);
+	const reqs = listRequirements(deps, projectPath, config);
 	if (reqs.length === 0) {
-		log(`\n  No requirements to update.\n`);
+		deps.log(`\n  No requirements to update.\n`);
 		return;
 	}
 
 	for (let i = 0; i < reqs.length; i++) {
-		log(`  ${i + 1}. ${reqs[i].id} ${reqs[i].name} [${reqs[i].status}]`);
+		deps.log(`  ${i + 1}. ${reqs[i].id} ${reqs[i].name} [${reqs[i].status}]`);
 	}
-	const choice = await input.ask("Select requirement (number)");
+	const choice = await deps.input.ask("Select requirement (number)");
 	const idx = parseInt(choice, 10) - 1;
 	if (isNaN(idx) || idx < 0 || idx >= reqs.length) return;
 
 	const req = reqs[idx];
-	log(`\n  Statuses: ${REQ_STATUSES.join(", ")}`);
-	const newStatus = await input.ask("New status", req.status) as RequirementStatus;
+	deps.log(`\n  Statuses: ${REQ_STATUSES.join(", ")}`);
+	const newStatus = await deps.input.ask("New status", req.status) as RequirementStatus;
 	if (!REQ_STATUSES.includes(newStatus)) return;
 
-	const ok = updateRequirementStatus(storeDeps(), projectPath, req.name, newStatus, config);
+	const ok = updateRequirementStatus(deps, projectPath, req.name, newStatus, config);
 	if (ok) {
-		renderRequirementUpdated(req.name, newStatus);
+		renderRequirementUpdated(req.name, newStatus, deps.log);
 	}
 }
 
-export async function requirementsMenu(projectPath: string, config?: RequirementsConfig): Promise<MenuResult> {
+export async function requirementsMenu(projectPath: string, config: RequirementsConfig | undefined, deps: MenuDeps): Promise<MenuResult> {
 	const items: MenuEntry[] = [
 		{
 			key: "1",
 			label: "List Requirements",
 			action: async () => {
-				renderRequirementList(listRequirements(storeDeps(), projectPath, config));
-				await input.waitForEnter();
+				renderRequirementList(listRequirements(deps, projectPath, config), deps.log);
+				await deps.input.waitForEnter();
 				return "main" as const;
 			},
 		},
@@ -175,8 +169,8 @@ export async function requirementsMenu(projectPath: string, config?: Requirement
 			key: "2",
 			label: "Add Functional Requirement",
 			action: async () => {
-				await addRequirementInteractive("functional", projectPath, config);
-				await input.waitForEnter();
+				await addRequirementInteractive("functional", projectPath, config, deps);
+				await deps.input.waitForEnter();
 				return "main" as const;
 			},
 		},
@@ -184,8 +178,8 @@ export async function requirementsMenu(projectPath: string, config?: Requirement
 			key: "3",
 			label: "Add Non-Functional Requirement",
 			action: async () => {
-				await addRequirementInteractive("non-functional", projectPath, config);
-				await input.waitForEnter();
+				await addRequirementInteractive("non-functional", projectPath, config, deps);
+				await deps.input.waitForEnter();
 				return "main" as const;
 			},
 		},
@@ -193,8 +187,8 @@ export async function requirementsMenu(projectPath: string, config?: Requirement
 			key: "4",
 			label: "Add Constraint",
 			action: async () => {
-				await addRequirementInteractive("constraint", projectPath, config);
-				await input.waitForEnter();
+				await addRequirementInteractive("constraint", projectPath, config, deps);
+				await deps.input.waitForEnter();
 				return "main" as const;
 			},
 		},
@@ -202,8 +196,8 @@ export async function requirementsMenu(projectPath: string, config?: Requirement
 			key: "5",
 			label: "Add Use Case",
 			action: async () => {
-				await addUseCaseInteractive(projectPath, config);
-				await input.waitForEnter();
+				await addUseCaseInteractive(projectPath, config, deps);
+				await deps.input.waitForEnter();
 				return "main" as const;
 			},
 		},
@@ -211,8 +205,8 @@ export async function requirementsMenu(projectPath: string, config?: Requirement
 			key: "6",
 			label: "Add User Story",
 			action: async () => {
-				await addUserStoryInteractive(projectPath, config);
-				await input.waitForEnter();
+				await addUserStoryInteractive(projectPath, config, deps);
+				await deps.input.waitForEnter();
 				return "main" as const;
 			},
 		},
@@ -220,8 +214,8 @@ export async function requirementsMenu(projectPath: string, config?: Requirement
 			key: "7",
 			label: "Update Requirement Status",
 			action: async () => {
-				await updateStatusInteractive(projectPath, config);
-				await input.waitForEnter();
+				await updateStatusInteractive(projectPath, config, deps);
+				await deps.input.waitForEnter();
 				return "main" as const;
 			},
 		},

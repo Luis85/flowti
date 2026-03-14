@@ -18,7 +18,7 @@ const actions: Record<string, ControllerAction> = {
 	"timelog:list": (req) => {
 		if (!req.project) return;
 		const entries = listTimeLogEntries(req.deps, req.project.path, req.project.config.management?.timelog);
-		return dataResponse(entries, renderTimeLogList);
+		return dataResponse(entries, (d) => renderTimeLogList(d, req.deps.log));
 	},
 
 	"timelog:add": (req) => {
@@ -29,7 +29,7 @@ const actions: Record<string, ControllerAction> = {
 		if (!person || typeof person !== "string" || !task || typeof task !== "string") {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --person and/or --task flag.", hint: 'Usage: flowti timelog:add --person="Jane" --task="Implement feature" --hours=4' },
-				renderError,
+				(d) => renderError(req.deps.log, d),
 			);
 		}
 		const filePath = createTimeLogEntry(req.deps, req.project.path, {
@@ -43,7 +43,7 @@ const actions: Record<string, ControllerAction> = {
 		if (filePath) {
 			return dataResponse(
 				{ relPath: paths.relative(req.project.path, filePath) },
-				(m: { relPath: string }) => renderTimeLogAdded(m.relPath),
+				(m: { relPath: string }) => renderTimeLogAdded(m.relPath, req.deps.log),
 			);
 		}
 	},
@@ -52,7 +52,7 @@ const actions: Record<string, ControllerAction> = {
 		if (!req.project) return;
 		const entries = listTimeLogEntries(req.deps, req.project.path, req.project.config.management?.timelog);
 		const summary = summarizeTimeLog(entries);
-		return dataResponse(summary, renderTimeLogSummary);
+		return dataResponse(summary, (d) => renderTimeLogSummary(d, req.deps.log));
 	},
 };
 

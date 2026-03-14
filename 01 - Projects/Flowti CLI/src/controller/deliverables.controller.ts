@@ -20,7 +20,7 @@ const actions: Record<string, ControllerAction> = {
 	"deliverables:list": (req) => {
 		if (!req.project) return;
 		const deliverables = listDeliverables(req.deps, req.project.path, req.project.config.management?.deliverables);
-		return dataResponse(deliverables, renderDeliverableList);
+		return dataResponse(deliverables, (d) => renderDeliverableList(d, req.deps.log));
 	},
 
 	"deliverables:add": (req) => {
@@ -30,7 +30,7 @@ const actions: Record<string, ControllerAction> = {
 		if (!name || typeof name !== "string") {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --name flag.", hint: 'Usage: flowti deliverables:add --name="MVP Release"' },
-				renderError,
+				(d) => renderError(req.deps.log, d),
 			);
 		}
 		const filePath = createDeliverableFile(req.deps, req.project.path, {
@@ -45,7 +45,7 @@ const actions: Record<string, ControllerAction> = {
 		if (filePath) {
 			return dataResponse(
 				{ relPath: paths.relative(req.project.path, filePath) },
-				(m: { relPath: string }) => renderDeliverableAdded(m.relPath),
+				(m: { relPath: string }) => renderDeliverableAdded(m.relPath, req.deps.log),
 			);
 		}
 	},
@@ -57,13 +57,13 @@ const actions: Record<string, ControllerAction> = {
 		if (!name || typeof name !== "string" || !status || typeof status !== "string") {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --name and/or --status flag.", hint: 'Usage: flowti deliverables:update --name="MVP" --status="done"' },
-				renderError,
+				(d) => renderError(req.deps.log, d),
 			);
 		}
 		if (!VALID_STATUSES.includes(status as DeliverableStatus)) {
 			return dataResponse<ErrorModel>(
 				{ error: `Invalid status "${status}". Valid: ${VALID_STATUSES.join(", ")}` },
-				renderError,
+				(d) => renderError(req.deps.log, d),
 			);
 		}
 		const pct = typeof req.flags.completion === "string" ? parseInt(req.flags.completion, 10) : undefined;
@@ -71,7 +71,7 @@ const actions: Record<string, ControllerAction> = {
 		if (ok) {
 			return dataResponse(
 				{ name, status },
-				(m: { name: string; status: string }) => renderDeliverableUpdated(m.name, m.status),
+				(m: { name: string; status: string }) => renderDeliverableUpdated(m.name, m.status, req.deps.log),
 			);
 		}
 	},

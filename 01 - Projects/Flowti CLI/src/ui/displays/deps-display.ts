@@ -5,12 +5,10 @@
  * cross-project dependency visualization. Extracted from project-deps.ts.
  */
 
-import { log } from "../../infrastructure/logger.js";
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
 import { RESET, DIM, GREEN, YELLOW, RED, CYAN, BOLD } from "../../infrastructure/ui.js";
 import { PROJECTS_DIR } from "../../infrastructure/config.js";
 import { resolveFormat, printOutput } from "../../infrastructure/output.js";
+import type { DepsDeps, Log } from "../../infrastructure/deps.js";
 import {
 	buildDependencyGraph,
 	findReverseDeps,
@@ -111,7 +109,7 @@ export function renderMermaidDeps(graph: DependencyGraph): string {
 
 // ── Console display ────────────────────────────────────────────────
 
-function displayProjectDeps(graph: DependencyGraph): void {
+function displayProjectDeps(log: Log, graph: DependencyGraph): void {
 	const edgesBySource = groupEdgesBySource(graph.edges);
 
 	for (const project of graph.projects) {
@@ -130,7 +128,7 @@ function displayProjectDeps(graph: DependencyGraph): void {
 }
 
 /** Display the dependency graph with ANSI colors. */
-export function displayDependencyGraph(graph: DependencyGraph): void {
+export function displayDependencyGraph(log: Log, graph: DependencyGraph): void {
 	log();
 
 	if (graph.projects.length === 0) {
@@ -143,7 +141,7 @@ export function displayDependencyGraph(graph: DependencyGraph): void {
 	log(`  ${DIM}${"─".repeat(46)}${RESET}`);
 	log();
 
-	displayProjectDeps(graph);
+	displayProjectDeps(log, graph);
 
 	if (graph.cycles.length > 0) {
 		log();
@@ -169,12 +167,12 @@ export function displayDependencyGraph(graph: DependencyGraph): void {
 
 // ── Command handler ────────────────────────────────────────────────
 
-export function handleProjectDeps(): void {
-	const graph = buildDependencyGraph(PROJECTS_DIR, { disk, paths });
-	displayDependencyGraph(graph);
+export function handleProjectDeps(deps: DepsDeps): void {
+	const graph = buildDependencyGraph(PROJECTS_DIR, { disk: deps.disk, paths: deps.paths });
+	displayDependencyGraph(deps.log, graph);
 }
 
-function displayStats(graph: DependencyGraph): void {
+function displayStats(log: Log, graph: DependencyGraph): void {
 	const stats = graphStats(graph);
 	log(`\n  ${BOLD}Dependency Graph Stats${RESET}\n`);
 	log(`  Projects:            ${stats.projects}`);
@@ -190,7 +188,7 @@ function displayStats(graph: DependencyGraph): void {
 	log();
 }
 
-function displayProjectFocus(graph: DependencyGraph, projectName: string): void {
+function displayProjectFocus(log: Log, graph: DependencyGraph, projectName: string): void {
 	const direct = findDirectDeps(graph, projectName);
 	const reverse = findReverseDeps(graph, projectName);
 
@@ -221,59 +219,62 @@ function displayProjectFocus(graph: DependencyGraph, projectName: string): void 
 	log();
 }
 
-export const commands = {
-	"project:deps": (flags: Record<string, string | boolean>) => {
-		const graph = buildDependencyGraph(PROJECTS_DIR, { disk, paths });
-		const format = resolveFormat(flags);
-		const focusProject = typeof flags.project === "string" ? flags.project : null;
-		const showReverse = !!flags.reverse;
-		const typeFilter = typeof flags.type === "string" ? flags.type as ProjectDependency["type"] : null;
-		const showStats = !!flags.stats;
+export function createCommands(deps: DepsDeps) {
+	const { log } = deps;
+	return {
+		"project:deps": (flags: Record<string, string | boolean>) => {
+			const graph = buildDependencyGraph(PROJECTS_DIR, { disk: deps.disk, paths: deps.paths });
+			const format = resolveFormat(flags);
+			const focusProject = typeof flags.project === "string" ? flags.project : null;
+			const showReverse = !!flags.reverse;
+			const typeFilter = typeof flags.type === "string" ? flags.type as ProjectDependency["type"] : null;
+			const showStats = !!flags.stats;
 
-		// Apply type filter if specified
-		const filteredGraph = typeFilter
-			? { ...graph, edges: filterByType(graph.edges, typeFilter) }
-			: graph;
+			// Apply type filter if specified
+			const filteredGraph = typeFilter
+				? { ...graph, edges: filterByType(graph.edges, typeFilter) }
+				: graph;
 
-		if (showStats) {
-			printOutput(format, graphStats(filteredGraph), () => displayStats(filteredGraph));
-			return;
-		}
-
-		if (focusProject) {
-			const data = {
-				project: focusProject,
-				direct: findDirectDeps(filteredGraph, focusProject),
-				reverse: findReverseDeps(filteredGraph, focusProject),
-			};
-			printOutput(format, data, () => displayProjectFocus(filteredGraph, focusProject));
-			return;
-		}
-
-		if (showReverse) {
-			// Show reverse dependency view: who depends on each project
-			const reverseView: Record<string, ProjectDependency[]> = {};
-			for (const p of filteredGraph.projects) {
-				const revDeps = findReverseDeps(filteredGraph, p);
-				if (revDeps.length > 0) reverseView[p] = revDeps;
+			if (showStats) {
+				printOutput(format, graphStats(filteredGraph), () => displayStats(log, filteredGraph));
+				return;
 			}
-			printOutput(format, reverseView, () => {
-				log(`\n  ${BOLD}Reverse Dependencies${RESET}  ${DIM}(who depends on each project)${RESET}\n`);
-				for (const [name, deps] of Object.entries(reverseView)) {
-					log(`  ${CYAN}${name}${RESET}`);
-					for (const d of deps) {
-						log(`    ← ${d.from}  ${DIM}[${d.type}]${RESET}`);
-					}
-				}
-				const noDeps = filteredGraph.projects.filter((p) => !reverseView[p]);
-				if (noDeps.length > 0) {
-					log(`\n  ${DIM}No dependents: ${noDeps.join(", ")}${RESET}`);
-				}
-				log();
-			});
-			return;
-		}
 
-		printOutput(format, filteredGraph, () => displayDependencyGraph(filteredGraph));
-	},
-};
+			if (focusProject) {
+				const data = {
+					project: focusProject,
+					direct: findDirectDeps(filteredGraph, focusProject),
+					reverse: findReverseDeps(filteredGraph, focusProject),
+				};
+				printOutput(format, data, () => displayProjectFocus(log, filteredGraph, focusProject));
+				return;
+			}
+
+			if (showReverse) {
+				// Show reverse dependency view: who depends on each project
+				const reverseView: Record<string, ProjectDependency[]> = {};
+				for (const p of filteredGraph.projects) {
+					const revDeps = findReverseDeps(filteredGraph, p);
+					if (revDeps.length > 0) reverseView[p] = revDeps;
+				}
+				printOutput(format, reverseView, () => {
+					log(`\n  ${BOLD}Reverse Dependencies${RESET}  ${DIM}(who depends on each project)${RESET}\n`);
+					for (const [name, revDeps] of Object.entries(reverseView)) {
+						log(`  ${CYAN}${name}${RESET}`);
+						for (const d of revDeps) {
+							log(`    ← ${d.from}  ${DIM}[${d.type}]${RESET}`);
+						}
+					}
+					const noDeps = filteredGraph.projects.filter((p) => !reverseView[p]);
+					if (noDeps.length > 0) {
+						log(`\n  ${DIM}No dependents: ${noDeps.join(", ")}${RESET}`);
+					}
+					log();
+				});
+				return;
+			}
+
+			printOutput(format, filteredGraph, () => displayDependencyGraph(log, filteredGraph));
+		},
+	};
+}

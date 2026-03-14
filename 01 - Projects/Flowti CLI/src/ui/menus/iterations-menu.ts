@@ -2,251 +2,346 @@
  * iterations-menu.ts — Interactive iteration management menus.
  */
 
-import { paths } from "../../infrastructure/paths.js";
-import { disk } from "../../infrastructure/filesystem.js";
-import { clock } from "../../infrastructure/clock.js";
 import { printHeader } from "../../infrastructure/ui.js";
-import { input } from "../../infrastructure/input.js";
-import { log } from "../../infrastructure/logger.js";
+import type { MenuDeps } from "../../infrastructure/deps.js";
 import type { IterationsConfig } from "../../infrastructure/types.js";
 import type { AgentReference, ResourceAllocation, CapacityEntry } from "../../domain/iterations/iteration-types.js";
+import type { LifecycleTemplate } from "../../domain/lifecycle/lifecycle-types.js";
 import {
-	listIterations, createIteration, startIteration, closeIteration,
+	listIterations, createIteration, transitionIteration, closeIteration,
 	findCurrentIteration, nextIterationNumber, computeEndDate,
 	attachAgent, addResource, addCapacity, addScopeItem, addNote,
-	advanceToReview,
+	updateName, updateGoal, updateStartDate, updateEndDate,
+	updateDescription, editScopeItem, removeScopeItem, toggleScopeItem,
 } from "../../domain/iterations/iteration-store.js";
+import { getValidTransitions } from "../../domain/lifecycle/lifecycle-engine.js";
 import {
-	renderIterationCreated, renderIterationStarted, renderIterationClosed,
+	renderIterationCreated, renderIterationClosed,
 	renderIterationDetail, renderAgentAttached, renderResourceAdded, renderCapacityAdded,
-	renderIterationAdvanced,
+	renderScopeItems, renderAdvanceResult,
 } from "../displays/iterations-display.js";
 
-function storeDeps() { return { disk, paths, clock } as const; }
-
-export async function addIterationInteractive(projectPath: string, config?: IterationsConfig): Promise<boolean> {
+export async function addIterationInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps): Promise<boolean> {
 	printHeader("Add Iteration");
 
-	const name = await input.ask("Name");
+	const name = await deps.input.ask("Name");
 	if (!name) return false;
 
-	const existing = listIterations(storeDeps(), projectPath, config);
+	const existing = listIterations(deps, projectPath, config);
 	const num = nextIterationNumber(existing);
 
-	const goal = await input.ask("Goal", "");
-	const startDate = await input.ask("Start date (YYYY-MM-DD)", clock.iso().slice(0, 10));
+	const goal = await deps.input.ask("Goal", "");
+	const startDate = await deps.input.ask("Start date (YYYY-MM-DD)", deps.clock.iso().slice(0, 10));
 	const endDefault = config?.durationDays ? computeEndDate(startDate, config.durationDays) : "";
-	const endDate = await input.ask("End date (YYYY-MM-DD)", endDefault);
+	const endDate = await deps.input.ask("End date (YYYY-MM-DD)", endDefault);
 	if (!endDate) return false;
 
-	const capacity = await input.ask("Capacity (optional)", "");
-	const description = await input.ask("Description (optional)", "");
+	const capacity = await deps.input.ask("Capacity (optional)", "");
+	const description = await deps.input.ask("Description (optional)", "");
 
-	const filePath = createIteration(storeDeps(), projectPath, {
+	const filePath = createIteration(deps, projectPath, {
 		name, number: num, startDate, endDate, goal,
 		capacity: capacity || undefined,
 		description: description || undefined,
 	}, config);
 
 	if (filePath) {
-		renderIterationCreated(paths.relative(projectPath, filePath));
+		renderIterationCreated(deps.paths.relative(projectPath, filePath), deps.log);
 		return true;
 	}
 	return false;
 }
 
-function doStart(projectPath: string, iterationNumber: number, name: string, config?: IterationsConfig): void {
-	const ok = startIteration(storeDeps(), projectPath, iterationNumber, config);
-	if (ok) renderIterationStarted(name);
-}
+export async function advanceIterationInteractive(projectPath: string, config: IterationsConfig | undefined, template: LifecycleTemplate, deps: MenuDeps): Promise<void> {
+	printHeader("Advance Iteration");
 
-async function selectAndStart(projectPath: string, config?: IterationsConfig): Promise<void> {
-	const all = listIterations(storeDeps(), projectPath, config);
-	const items = all.filter((it) => it.status === "planned");
-	if (items.length === 0) {
-		const create = await input.askYesNo("No planned iterations. Create one?");
-		if (create) await addIterationInteractive(projectPath, config);
-		return;
-	}
-
-	for (let i = 0; i < items.length; i++) {
-		log(`  ${i + 1}. #${items[i].number} ${items[i].name} (${items[i].startDate} → ${items[i].endDate})`);
-	}
-	const choice = await input.ask("Select iteration (number)");
-	const idx = parseInt(choice, 10) - 1;
-	if (isNaN(idx) || idx < 0 || idx >= items.length) return;
-
-	doStart(projectPath, items[idx].number, items[idx].name, config);
-}
-
-export async function startIterationInteractive(projectPath: string, config?: IterationsConfig): Promise<void> {
-	printHeader("Start Iteration");
-
-	const current = findCurrentIteration(storeDeps(), projectPath, config);
-	if (current && current.status === "planned") {
-		doStart(projectPath, current.number, current.name, config);
-		return;
-	}
-	if (current) {
-		log(`\n  Iteration "${current.name}" is already active (${current.status}).\n`);
-		return;
-	}
-
-	await selectAndStart(projectPath, config);
-}
-
-export async function closeIterationInteractive(projectPath: string, config?: IterationsConfig): Promise<void> {
-	printHeader("Close Iteration");
-
-	const current = findCurrentIteration(storeDeps(), projectPath, config);
+	const current = findCurrentIteration(deps, projectPath, config);
 	if (!current) {
-		log(`\n  No active iteration to close.\n`);
+		deps.log(`\n  No active iteration.\n`);
 		return;
 	}
 
-	const confirm = await input.askYesNo(`Close iteration "${current.name}"?`);
+	const valid = getValidTransitions(template, current.status).filter((s) => s !== "cancelled");
+	if (valid.length === 0) {
+		deps.log(`\n  Iteration "${current.name}" is in a terminal state (${current.status}).\n`);
+		return;
+	}
+
+	const target = valid[0];
+	const label = template.labels?.[target] ?? target;
+
+	const confirm = await deps.input.askYesNo(`Advance "${current.name}" from ${current.status} to ${label}?`);
 	if (!confirm) return;
 
-	const ok = closeIteration(storeDeps(), projectPath, current.number, config);
-	if (ok) renderIterationClosed(current.name);
-}
-
-export async function showCurrentIteration(projectPath: string, config?: IterationsConfig): Promise<void> {
-	const current = findCurrentIteration(storeDeps(), projectPath, config);
-	if (current) {
-		renderIterationDetail(current);
+	if (target === "done") {
+		const result = closeIteration(deps, projectPath, current.number, template, config);
+		renderAdvanceResult(result, deps.log);
+		if (result.success) renderIterationClosed(current.name, deps.log);
 		return;
 	}
 
-	const create = await input.askYesNo("No current iteration. Create one?");
+	const result = transitionIteration(deps, projectPath, current.number, target as never, `Advanced to ${target}`, template, config);
+	renderAdvanceResult(result, deps.log);
+}
+
+export async function showCurrentIteration(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps): Promise<void> {
+	const current = findCurrentIteration(deps, projectPath, config);
+	if (current) {
+		renderIterationDetail(current, deps.log);
+		return;
+	}
+
+	const create = await deps.input.askYesNo("No current iteration. Create one?");
 	if (create) {
-		await addIterationInteractive(projectPath, config);
+		await addIterationInteractive(projectPath, config, deps);
 	}
 }
 
-export async function attachAgentInteractive(projectPath: string, config?: IterationsConfig): Promise<void> {
+export async function attachAgentInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps): Promise<void> {
 	printHeader("Attach Agent");
 
-	const current = findCurrentIteration(storeDeps(), projectPath, config);
+	const current = findCurrentIteration(deps, projectPath, config);
 	if (!current) {
-		log(`\n  No active iteration to attach agents to.\n`);
+		deps.log(`\n  No active iteration to attach agents to.\n`);
 		return;
 	}
 
-	const agentsDir = paths.join(projectPath, "agents");
-	if (!disk.existsSync(agentsDir)) {
-		log(`\n  No agents folder found at ${agentsDir}.\n`);
+	const agentsDir = deps.paths.join(projectPath, "agents");
+	if (!deps.disk.existsSync(agentsDir)) {
+		deps.log(`\n  No agents folder found at ${agentsDir}.\n`);
 		return;
 	}
 
-	const files = disk.readdirSync(agentsDir).filter((f: string) => f.endsWith(".md"));
+	const files = deps.disk.readdirSync(agentsDir).filter((f: string) => f.endsWith(".md"));
 	if (files.length === 0) {
-		log(`\n  No agent files found in agents folder.\n`);
+		deps.log(`\n  No agent files found in agents folder.\n`);
 		return;
 	}
 
 	for (let i = 0; i < files.length; i++) {
-		log(`  ${i + 1}. ${files[i]}`);
+		deps.log(`  ${i + 1}. ${files[i]}`);
 	}
-	const choice = await input.ask("Select agent (number)");
+	const choice = await deps.input.ask("Select agent (number)");
 	const idx = parseInt(choice, 10) - 1;
 	if (isNaN(idx) || idx < 0 || idx >= files.length) return;
 
 	const agent: AgentReference = { name: files[idx].replace(/\.md$/, ""), file: files[idx] };
-	const ok = attachAgent(storeDeps(), projectPath, current.number, agent, config);
-	if (ok) renderAgentAttached(agent.name, current.name);
+	const ok = attachAgent(deps, projectPath, current.number, agent, config);
+	if (ok) renderAgentAttached(agent.name, current.name, deps.log);
 }
 
-export async function addResourceInteractive(projectPath: string, config?: IterationsConfig): Promise<void> {
+export async function addResourceInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps): Promise<void> {
 	printHeader("Add Resource");
 
-	const current = findCurrentIteration(storeDeps(), projectPath, config);
+	const current = findCurrentIteration(deps, projectPath, config);
 	if (!current) {
-		log(`\n  No active iteration to add resources to.\n`);
+		deps.log(`\n  No active iteration to add resources to.\n`);
 		return;
 	}
 
-	const name = await input.ask("Resource name");
+	const name = await deps.input.ask("Resource name");
 	if (!name) return;
 
-	const role = await input.ask("Role (optional)", "");
-	const allocation = await input.ask("Allocation (optional, e.g. 80%)", "");
+	const role = await deps.input.ask("Role (optional)", "");
+	const allocation = await deps.input.ask("Allocation (optional, e.g. 80%)", "");
 
 	const resource: ResourceAllocation = { name, role: role || undefined, allocation: allocation || undefined };
-	const ok = addResource(storeDeps(), projectPath, current.number, resource, config);
-	if (ok) renderResourceAdded(name, current.name);
+	const ok = addResource(deps, projectPath, current.number, resource, config);
+	if (ok) renderResourceAdded(name, current.name, deps.log);
 }
 
-export async function addCapacityInteractive(projectPath: string, config?: IterationsConfig): Promise<void> {
+export async function addCapacityInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps): Promise<void> {
 	printHeader("Add Capacity");
 
-	const current = findCurrentIteration(storeDeps(), projectPath, config);
+	const current = findCurrentIteration(deps, projectPath, config);
 	if (!current) {
-		log(`\n  No active iteration to add capacity to.\n`);
+		deps.log(`\n  No active iteration to add capacity to.\n`);
 		return;
 	}
 
-	const label = await input.ask("Label (e.g. Story Points, Hours)");
+	const label = await deps.input.ask("Label (e.g. Story Points, Hours)");
 	if (!label) return;
 
-	const value = await input.ask("Value");
+	const value = await deps.input.ask("Value");
 	if (!value) return;
 
-	const unit = await input.ask("Unit (optional)", "");
+	const unit = await deps.input.ask("Unit (optional)", "");
 
 	const capacity: CapacityEntry = { label, value, unit: unit || undefined };
-	const ok = addCapacity(storeDeps(), projectPath, current.number, capacity, config);
-	if (ok) renderCapacityAdded(label, current.name);
+	const ok = addCapacity(deps, projectPath, current.number, capacity, config);
+	if (ok) renderCapacityAdded(label, current.name, deps.log);
 }
 
-export async function addScopeItemInteractive(projectPath: string, config?: IterationsConfig): Promise<void> {
+export async function addScopeItemInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps): Promise<void> {
 	printHeader("Add Scope Item");
 
-	const current = findCurrentIteration(storeDeps(), projectPath, config);
+	const current = findCurrentIteration(deps, projectPath, config);
 	if (!current) {
-		log(`\n  No active iteration.\n`);
+		deps.log(`\n  No active iteration.\n`);
 		return;
 	}
 
-	const item = await input.ask("Scope item");
+	const item = await deps.input.ask("Scope item");
 	if (!item) return;
 
-	const ok = addScopeItem(storeDeps(), projectPath, current.number, item, config);
-	if (ok) log(`\n  Added scope item to ${current.name}.`);
+	const ok = addScopeItem(deps, projectPath, current.number, item, config);
+	if (ok) deps.log(`\n  Added scope item to ${current.name}.`);
 }
 
-export async function advanceToReviewInteractive(projectPath: string, config?: IterationsConfig): Promise<void> {
-	printHeader("Advance to Review");
+export async function editDescriptionInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps): Promise<void> {
+	printHeader("Edit Description");
 
-	const current = findCurrentIteration(storeDeps(), projectPath, config);
+	const current = findCurrentIteration(deps, projectPath, config);
 	if (!current) {
-		log(`\n  No active iteration.\n`);
-		return;
-	}
-	if (current.status !== "in-progress") {
-		log(`\n  Iteration "${current.name}" is not in development (status: ${current.status}).\n`);
+		deps.log(`\n  No active iteration.\n`);
 		return;
 	}
 
-	const confirm = await input.askYesNo(`Move "${current.name}" to review?`);
-	if (!confirm) return;
+	if (current.description) {
+		deps.log(`\n  Current description: ${current.description}\n`);
+	}
 
-	const ok = advanceToReview(storeDeps(), projectPath, current.number, config);
-	if (ok) renderIterationAdvanced(current.name, "review");
+	const description = await deps.input.ask("New description", current.description || "");
+	if (!description) return;
+
+	const ok = updateDescription(deps, projectPath, current.number, description, config);
+	if (ok) deps.log(`\n  Updated description for ${current.name}.`);
 }
 
-export async function addNoteInteractive(projectPath: string, config?: IterationsConfig): Promise<void> {
+export async function addNoteInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps): Promise<void> {
 	printHeader("Add Note");
 
-	const current = findCurrentIteration(storeDeps(), projectPath, config);
+	const current = findCurrentIteration(deps, projectPath, config);
 	if (!current) {
-		log(`\n  No active iteration.\n`);
+		deps.log(`\n  No active iteration.\n`);
 		return;
 	}
 
-	const note = await input.ask("Note");
+	const note = await deps.input.ask("Note");
 	if (!note) return;
 
-	const ok = addNote(storeDeps(), projectPath, current.number, note, config);
-	if (ok) log(`\n  Added note to ${current.name}.`);
+	const ok = addNote(deps, projectPath, current.number, note, config);
+	if (ok) deps.log(`\n  Added note to ${current.name}.`);
+}
+
+export async function editNameInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps): Promise<void> {
+	printHeader("Edit Name");
+
+	const current = findCurrentIteration(deps, projectPath, config);
+	if (!current) { deps.log(`\n  No active iteration.\n`); return; }
+
+	const name = await deps.input.ask("New name", current.name);
+	if (!name) return;
+
+	const ok = updateName(deps, projectPath, current.number, name, config);
+	if (ok) deps.log(`\n  Renamed iteration to "${name}".`);
+}
+
+export async function editGoalInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps): Promise<void> {
+	printHeader("Edit Goal");
+
+	const current = findCurrentIteration(deps, projectPath, config);
+	if (!current) { deps.log(`\n  No active iteration.\n`); return; }
+
+	if (current.goal) deps.log(`\n  Current goal: ${current.goal}\n`);
+
+	const goal = await deps.input.ask("New goal", current.goal || "");
+	if (!goal) return;
+
+	const ok = updateGoal(deps, projectPath, current.number, goal, config);
+	if (ok) deps.log(`\n  Updated goal for ${current.name}.`);
+}
+
+export async function editDatesInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps): Promise<void> {
+	printHeader("Edit Dates");
+
+	const current = findCurrentIteration(deps, projectPath, config);
+	if (!current) { deps.log(`\n  No active iteration.\n`); return; }
+
+	deps.log(`\n  Current: ${current.startDate} → ${current.endDate}\n`);
+
+	const startDate = await deps.input.ask("Start date (YYYY-MM-DD)", current.startDate);
+	if (!startDate) return;
+
+	const endDate = await deps.input.ask("End date (YYYY-MM-DD)", current.endDate);
+	if (!endDate) return;
+
+	let changed = false;
+	if (startDate !== current.startDate) {
+		changed = updateStartDate(deps, projectPath, current.number, startDate, config) || changed;
+	}
+	if (endDate !== current.endDate) {
+		changed = updateEndDate(deps, projectPath, current.number, endDate, config) || changed;
+	}
+	if (changed) deps.log(`\n  Updated dates for ${current.name}: ${startDate} → ${endDate}`);
+}
+
+function selectScopeItem(current: { name: string; scopeItems: { text: string; done: boolean }[] }, deps: MenuDeps): number | null {
+	if (current.scopeItems.length === 0) {
+		deps.log(`\n  No scope items in ${current.name}.\n`);
+		return null;
+	}
+	renderScopeItems(current.scopeItems, deps.log);
+	return current.scopeItems.length;
+}
+
+export async function editScopeInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps): Promise<void> {
+	printHeader("Edit Task");
+
+	const current = findCurrentIteration(deps, projectPath, config);
+	if (!current) { deps.log(`\n  No active iteration.\n`); return; }
+
+	const count = selectScopeItem(current, deps);
+	if (count === null) return;
+
+	const choice = await deps.input.ask("Task number to edit");
+	const idx = parseInt(choice, 10) - 1;
+	if (isNaN(idx) || idx < 0 || idx >= count) return;
+
+	const newText = await deps.input.ask("New text", current.scopeItems[idx].text);
+	if (!newText) return;
+
+	const ok = editScopeItem(deps, projectPath, current.number, idx, newText, config);
+	if (ok) deps.log(`\n  Updated task in ${current.name}.`);
+}
+
+export async function removeScopeInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps): Promise<void> {
+	printHeader("Remove Task");
+
+	const current = findCurrentIteration(deps, projectPath, config);
+	if (!current) { deps.log(`\n  No active iteration.\n`); return; }
+
+	const count = selectScopeItem(current, deps);
+	if (count === null) return;
+
+	const choice = await deps.input.ask("Task number to remove");
+	const idx = parseInt(choice, 10) - 1;
+	if (isNaN(idx) || idx < 0 || idx >= count) return;
+
+	const confirm = await deps.input.askYesNo(`Remove "${current.scopeItems[idx].text}"?`);
+	if (!confirm) return;
+
+	const ok = removeScopeItem(deps, projectPath, current.number, idx, config);
+	if (ok) deps.log(`\n  Removed task from ${current.name}.`);
+}
+
+export async function toggleScopeInteractive(projectPath: string, config: IterationsConfig | undefined, deps: MenuDeps): Promise<void> {
+	printHeader("Toggle Task");
+
+	const current = findCurrentIteration(deps, projectPath, config);
+	if (!current) { deps.log(`\n  No active iteration.\n`); return; }
+
+	const count = selectScopeItem(current, deps);
+	if (count === null) return;
+
+	const choice = await deps.input.ask("Task number to toggle");
+	const idx = parseInt(choice, 10) - 1;
+	if (isNaN(idx) || idx < 0 || idx >= count) return;
+
+	const ok = toggleScopeItem(deps, projectPath, current.number, idx, config);
+	if (ok) {
+		const item = current.scopeItems[idx];
+		const state = item.done ? "unchecked" : "checked";
+		deps.log(`\n  Marked "${item.text}" as ${state}.`);
+	}
 }

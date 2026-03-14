@@ -203,7 +203,7 @@
 			"dir": "docs/capa"
 		},
 		"iterations": {
-			"dir": "docs/iterations",
+			"dir": "iterations",
 			"durationDays": 14
 		}
 	},

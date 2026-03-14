@@ -13,9 +13,10 @@ import { renderHelp, type HelpModel } from "../ui/help.js";
 const actions: Record<string, ControllerAction> = {
 	help: (req) => {
 		const section = (Object.keys(req.flags)[0] ?? req.rawArgs?.[1] ?? "main").toLowerCase();
-		const content = getHelp(section);
-		const model: HelpModel = { section, content, availableSections: getHelpSections() };
-		return dataResponse(model, renderHelp);
+		const { disk, paths, log } = req.deps;
+		const content = getHelp(section, { disk, paths });
+		const model: HelpModel = { section, content, availableSections: getHelpSections({ disk, paths }) };
+		return dataResponse(model, (d) => renderHelp(d, log));
 	},
 };
 

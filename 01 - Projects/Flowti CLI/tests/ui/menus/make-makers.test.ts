@@ -45,6 +45,7 @@ vi.mock("../../../src/domain/make/plans.js", () => ({
 import { log } from "../../../src/infrastructure/logger.js";
 import { input } from "../../../src/infrastructure/input.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
 import { createFileWriter } from "../../../src/domain/make/templates/file-writer.js";
 import { buildPluginPlan, buildAppPlan, buildCliAppPlan, buildJourneyPlan } from "../../../src/domain/make/plans.js";
 import { readProjectConfig } from "../../../src/domain/project/project-config.js";
@@ -53,6 +54,8 @@ import { makePlugin, makeApp, makeCliApp, makeJourney } from "../../../src/ui/me
 const mockLog = vi.mocked(log);
 const mockInput = vi.mocked(input);
 const mockDisk = vi.mocked(disk);
+
+const makeDeps = { disk, paths, input, log } as any;
 
 function output(): string {
 	return mockLog.mock.calls.map((c) => c[0] ?? "").join("\n");
@@ -74,7 +77,7 @@ describe("makePlugin", () => {
 			.mockResolvedValueOnce("Y");             // proceed
 		vi.mocked(createFileWriter).mockReturnValue({ write: vi.fn(), created: 4 } as any);
 
-		await makePlugin("/project");
+		await makePlugin("/project", makeDeps);
 
 		expect(vi.mocked(buildPluginPlan)).toHaveBeenCalledWith({
 			name: "My Plugin", pluginId: "my-plugin", author: "Author",
@@ -86,7 +89,7 @@ describe("makePlugin", () => {
 	it("cancels when name is empty", async () => {
 		mockInput.ask.mockResolvedValueOnce("");
 
-		await makePlugin("/project");
+		await makePlugin("/project", makeDeps);
 
 		expect(vi.mocked(buildPluginPlan)).not.toHaveBeenCalled();
 	});
@@ -98,7 +101,7 @@ describe("makePlugin", () => {
 			.mockResolvedValueOnce("Author");
 		mockDisk.existsSync.mockReturnValue(true);
 
-		await makePlugin("/project");
+		await makePlugin("/project", makeDeps);
 
 		expect(vi.mocked(buildPluginPlan)).not.toHaveBeenCalled();
 		expect(output()).toContain("Folder already exists");
@@ -111,7 +114,7 @@ describe("makePlugin", () => {
 			.mockResolvedValueOnce("Author")
 			.mockResolvedValueOnce("n");
 
-		await makePlugin("/project");
+		await makePlugin("/project", makeDeps);
 
 		expect(vi.mocked(buildPluginPlan)).not.toHaveBeenCalled();
 	});
@@ -124,7 +127,7 @@ describe("makePlugin", () => {
 			.mockResolvedValueOnce("Y");
 		vi.mocked(createFileWriter).mockReturnValue({ write: vi.fn(), created: 1 } as any);
 
-		await makePlugin("/project");
+		await makePlugin("/project", makeDeps);
 
 		// The ask for Author should have received "Default Author" as default
 		expect(mockInput.ask).toHaveBeenCalledWith("Author", "Default Author");
@@ -142,7 +145,7 @@ describe("makeApp", () => {
 			.mockResolvedValueOnce("Y");        // proceed
 		vi.mocked(createFileWriter).mockReturnValue({ write: vi.fn(), created: 5 } as any);
 
-		await makeApp("/project");
+		await makeApp("/project", makeDeps);
 
 		expect(vi.mocked(buildAppPlan)).toHaveBeenCalledWith(
 			expect.objectContaining({ name: "My App", appId: "my-app", author: "Author" }),
@@ -154,7 +157,7 @@ describe("makeApp", () => {
 	it("cancels when name is empty", async () => {
 		mockInput.ask.mockResolvedValueOnce("");
 
-		await makeApp("/project");
+		await makeApp("/project", makeDeps);
 
 		expect(vi.mocked(buildAppPlan)).not.toHaveBeenCalled();
 	});
@@ -166,7 +169,7 @@ describe("makeApp", () => {
 			.mockResolvedValueOnce("Author");
 		mockDisk.existsSync.mockReturnValue(true);
 
-		await makeApp("/project");
+		await makeApp("/project", makeDeps);
 
 		expect(vi.mocked(buildAppPlan)).not.toHaveBeenCalled();
 		expect(output()).toContain("Folder already exists");
@@ -179,7 +182,7 @@ describe("makeApp", () => {
 			.mockResolvedValueOnce("Author")
 			.mockResolvedValueOnce("n");
 
-		await makeApp("/project");
+		await makeApp("/project", makeDeps);
 
 		expect(vi.mocked(buildAppPlan)).not.toHaveBeenCalled();
 	});
@@ -195,7 +198,7 @@ describe("makeCliApp", () => {
 			.mockResolvedValueOnce("Y");        // proceed
 		vi.mocked(createFileWriter).mockReturnValue({ write: vi.fn(), created: 3 } as any);
 
-		await makeCliApp("/project");
+		await makeCliApp("/project", makeDeps);
 
 		expect(vi.mocked(buildCliAppPlan)).toHaveBeenCalledWith({
 			name: "My CLI", appId: "my-cli",
@@ -207,7 +210,7 @@ describe("makeCliApp", () => {
 	it("cancels when name is empty", async () => {
 		mockInput.ask.mockResolvedValueOnce("");
 
-		await makeCliApp("/project");
+		await makeCliApp("/project", makeDeps);
 
 		expect(vi.mocked(buildCliAppPlan)).not.toHaveBeenCalled();
 	});
@@ -218,7 +221,7 @@ describe("makeCliApp", () => {
 			.mockResolvedValueOnce("my-cli");
 		mockDisk.existsSync.mockReturnValue(true);
 
-		await makeCliApp("/project");
+		await makeCliApp("/project", makeDeps);
 
 		expect(vi.mocked(buildCliAppPlan)).not.toHaveBeenCalled();
 		expect(output()).toContain("Folder already exists");
@@ -230,7 +233,7 @@ describe("makeCliApp", () => {
 			.mockResolvedValueOnce("my-cli")
 			.mockResolvedValueOnce("n");
 
-		await makeCliApp("/project");
+		await makeCliApp("/project", makeDeps);
 
 		expect(vi.mocked(buildCliAppPlan)).not.toHaveBeenCalled();
 	});
@@ -248,7 +251,7 @@ describe("makeJourney", () => {
 		vi.mocked(readProjectConfig).mockReturnValue({ config: null } as any);
 		vi.mocked(createFileWriter).mockReturnValue({ write: vi.fn(), created: 3 } as any);
 
-		await makeJourney("/project");
+		await makeJourney("/project", makeDeps);
 
 		expect(vi.mocked(buildJourneyPlan)).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -264,7 +267,7 @@ describe("makeJourney", () => {
 	it("cancels when name is empty", async () => {
 		mockInput.ask.mockResolvedValueOnce("");
 
-		await makeJourney("/project");
+		await makeJourney("/project", makeDeps);
 
 		expect(vi.mocked(buildJourneyPlan)).not.toHaveBeenCalled();
 	});
@@ -277,7 +280,7 @@ describe("makeJourney", () => {
 		vi.mocked(readProjectConfig).mockReturnValue({ config: null } as any);
 		mockDisk.existsSync.mockReturnValue(true);
 
-		await makeJourney("/project");
+		await makeJourney("/project", makeDeps);
 
 		expect(vi.mocked(buildJourneyPlan)).not.toHaveBeenCalled();
 		expect(output()).toContain("Journey already exists");
@@ -291,7 +294,7 @@ describe("makeJourney", () => {
 			.mockResolvedValueOnce("n");
 		vi.mocked(readProjectConfig).mockReturnValue({ config: null } as any);
 
-		await makeJourney("/project");
+		await makeJourney("/project", makeDeps);
 
 		expect(vi.mocked(buildJourneyPlan)).not.toHaveBeenCalled();
 	});
@@ -307,7 +310,7 @@ describe("makeJourney", () => {
 		} as any);
 		vi.mocked(createFileWriter).mockReturnValue({ write: vi.fn(), created: 3 } as any);
 
-		await makeJourney("/project");
+		await makeJourney("/project", makeDeps);
 
 		expect(vi.mocked(buildJourneyPlan)).toHaveBeenCalledWith(
 			expect.objectContaining({ journeysDir: "custom/journeys" }),
@@ -323,7 +326,7 @@ describe("makeJourney", () => {
 		vi.mocked(readProjectConfig).mockReturnValue({ config: null } as any);
 		vi.mocked(createFileWriter).mockReturnValue({ write: vi.fn(), created: 3 } as any);
 
-		await makeJourney("/project");
+		await makeJourney("/project", makeDeps);
 
 		expect(output()).toContain("Journey definition");
 		expect(output()).toContain("Test entry");

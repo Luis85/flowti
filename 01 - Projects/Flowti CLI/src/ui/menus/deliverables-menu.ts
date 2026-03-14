@@ -2,32 +2,26 @@
  * deliverables-menu.ts — Interactive deliverables management menu.
  */
 
-import { paths } from "../../infrastructure/paths.js";
-import { disk } from "../../infrastructure/filesystem.js";
-import { clock } from "../../infrastructure/clock.js";
 import { printHeader } from "../../infrastructure/ui.js";
-import { input } from "../../infrastructure/input.js";
-import { log } from "../../infrastructure/logger.js";
+import type { MenuDeps } from "../../infrastructure/deps.js";
 import type { DeliverablesConfig, DeliverableStatus } from "../../infrastructure/types.js";
 import { listDeliverables, createDeliverableFile, updateDeliverableStatus } from "../../domain/deliverables/deliverable-store.js";
 import { renderDeliverableAdded, renderDeliverableUpdated } from "../displays/deliverables-display.js";
 
-function storeDeps() { return { disk, paths, clock } as const; }
-
 const STATUSES: DeliverableStatus[] = ["planned", "in-progress", "review", "done", "blocked"];
 
-export async function addDeliverableInteractive(projectPath: string, config?: DeliverablesConfig): Promise<void> {
+export async function addDeliverableInteractive(projectPath: string, config: DeliverablesConfig | undefined, deps: MenuDeps): Promise<void> {
 	printHeader("Add Deliverable");
 
-	const name = await input.ask("Name");
+	const name = await deps.input.ask("Name");
 	if (!name) return;
 
-	const description = await input.ask("Description", "");
-	const dueDate = await input.ask("Due date (YYYY-MM-DD)", "");
-	const assignee = await input.ask("Assignee", "");
-	const priority = await input.ask("Priority (low/medium/high)", "medium");
+	const description = await deps.input.ask("Description", "");
+	const dueDate = await deps.input.ask("Due date (YYYY-MM-DD)", "");
+	const assignee = await deps.input.ask("Assignee", "");
+	const priority = await deps.input.ask("Priority (low/medium/high)", "medium");
 
-	const filePath = createDeliverableFile(storeDeps(), projectPath, {
+	const filePath = createDeliverableFile(deps, projectPath, {
 		name,
 		status: "planned",
 		dueDate: dueDate || undefined,
@@ -38,36 +32,36 @@ export async function addDeliverableInteractive(projectPath: string, config?: De
 	}, config);
 
 	if (filePath) {
-		renderDeliverableAdded(paths.relative(projectPath, filePath));
+		renderDeliverableAdded(deps.paths.relative(projectPath, filePath), deps.log);
 	}
 }
 
-export async function updateStatusInteractive(projectPath: string, config?: DeliverablesConfig): Promise<void> {
+export async function updateStatusInteractive(projectPath: string, config: DeliverablesConfig | undefined, deps: MenuDeps): Promise<void> {
 	printHeader("Update Deliverable Status");
 
-	const deliverables = listDeliverables(storeDeps(), projectPath, config);
+	const deliverables = listDeliverables(deps, projectPath, config);
 	if (deliverables.length === 0) {
-		log(`\n  No deliverables to update.\n`);
+		deps.log(`\n  No deliverables to update.\n`);
 		return;
 	}
 
 	for (let i = 0; i < deliverables.length; i++) {
-		log(`  ${i + 1}. ${deliverables[i].name} [${deliverables[i].status}]`);
+		deps.log(`  ${i + 1}. ${deliverables[i].name} [${deliverables[i].status}]`);
 	}
-	const choice = await input.ask("Select deliverable (number)");
+	const choice = await deps.input.ask("Select deliverable (number)");
 	const idx = parseInt(choice, 10) - 1;
 	if (isNaN(idx) || idx < 0 || idx >= deliverables.length) return;
 
 	const d = deliverables[idx];
-	log(`\n  Statuses: ${STATUSES.join(", ")}`);
-	const newStatus = await input.ask("New status", d.status) as DeliverableStatus;
+	deps.log(`\n  Statuses: ${STATUSES.join(", ")}`);
+	const newStatus = await deps.input.ask("New status", d.status) as DeliverableStatus;
 	if (!STATUSES.includes(newStatus)) return;
 
-	const pctStr = await input.ask("Completion %", String(d.completionPct));
+	const pctStr = await deps.input.ask("Completion %", String(d.completionPct));
 	const pct = parseInt(pctStr, 10);
 
-	const ok = updateDeliverableStatus(storeDeps(), projectPath, d.name, newStatus, isNaN(pct) ? undefined : pct, config);
+	const ok = updateDeliverableStatus(deps, projectPath, d.name, newStatus, isNaN(pct) ? undefined : pct, config);
 	if (ok) {
-		renderDeliverableUpdated(d.name, newStatus);
+		renderDeliverableUpdated(d.name, newStatus, deps.log);
 	}
 }

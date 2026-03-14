@@ -5,7 +5,6 @@
  */
 
 import { RESET, DIM, GREEN } from "../../infrastructure/ui.js";
-import { log } from "../../infrastructure/logger.js";
 import type { CaptureSearchResult } from "../../domain/capture/capture.js";
 
 // ── Data models ──────────────────────────────────────────────────────
@@ -22,7 +21,7 @@ export interface ImportResultModel {
 
 // ── Renderers ────────────────────────────────────────────────────────
 
-export function renderSearchResults(data: SearchResultsModel): void {
+export function renderSearchResults(data: SearchResultsModel, log: (msg?: string) => void): void {
 	if (data.results.length === 0) {
 		log(`\n  ${DIM}No captures matching "${data.query}".${RESET}\n`);
 		return;
@@ -35,6 +34,6 @@ export function renderSearchResults(data: SearchResultsModel): void {
 	log();
 }
 
-export function renderImportResult(data: ImportResultModel): void {
+export function renderImportResult(data: ImportResultModel, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}✓${RESET} Imported ${data.created} item${data.created === 1 ? "" : "s"}${data.skipped > 0 ? `, ${data.skipped} skipped` : ""}\n`);
 }

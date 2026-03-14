@@ -33,7 +33,7 @@ describe("renderLifecycleStatus", () => {
 			lastTransitionDate: "2026-02-01",
 			description: "First public release",
 		};
-		renderLifecycleStatus(record);
+		renderLifecycleStatus(record, log);
 		const out = output();
 		expect(out).toContain("Alpha Release");
 		expect(out).toContain("release");
@@ -52,7 +52,7 @@ describe("renderLifecycleStatus", () => {
 			lastTransitionDate: "",
 			description: "",
 		};
-		renderLifecycleStatus(record);
+		renderLifecycleStatus(record, log);
 		const out = output();
 		expect(out).toContain("Minimal");
 		expect(out).toContain("Transitions: 0");
@@ -63,7 +63,7 @@ describe("renderLifecycleStatus", () => {
 
 describe("renderTransitionHistory", () => {
 	it("renders empty message when no transitions", () => {
-		renderTransitionHistory([]);
+		renderTransitionHistory([], log);
 		expect(output()).toContain("No transitions recorded yet");
 	});
 
@@ -72,7 +72,7 @@ describe("renderTransitionHistory", () => {
 			{ from: "planning", to: "execution", date: "2026-02-01", reason: "Sprint start" },
 			{ from: "execution", to: "release", date: "2026-03-01", reason: "Feature complete" },
 		];
-		renderTransitionHistory(history);
+		renderTransitionHistory(history, log);
 		const out = output();
 		expect(out).toContain("Transition History (2)");
 		expect(out).toContain("planning");
@@ -88,7 +88,7 @@ describe("renderTransitionHistory", () => {
 describe("renderTransitionResult", () => {
 	it("renders success", () => {
 		const result: TransitionResult = { success: true, from: "planning", to: "execution" };
-		renderTransitionResult(result);
+		renderTransitionResult(result, log);
 		const out = output();
 		expect(out).toContain("Transitioned");
 		expect(out).toContain("planning");
@@ -97,7 +97,7 @@ describe("renderTransitionResult", () => {
 
 	it("renders failure", () => {
 		const result: TransitionResult = { success: false, error: "Invalid transition from archived" };
-		renderTransitionResult(result);
+		renderTransitionResult(result, log);
 		expect(output()).toContain("Invalid transition from archived");
 	});
 });
@@ -106,7 +106,7 @@ describe("renderTransitionResult", () => {
 
 describe("renderLifecycleList", () => {
 	it("renders empty message when no items", () => {
-		renderLifecycleList([]);
+		renderLifecycleList([], log);
 		expect(output()).toContain("No lifecycle items found");
 	});
 
@@ -115,7 +115,7 @@ describe("renderLifecycleList", () => {
 			{ name: "Alpha", entityType: "release", currentState: "execution", transitionCount: 3 },
 			{ name: "Beta", entityType: "feature", currentState: "planning", transitionCount: 1 },
 		];
-		renderLifecycleList(items);
+		renderLifecycleList(items, log);
 		const out = output();
 		expect(out).toContain("Lifecycle Items (2)");
 		expect(out).toContain("Alpha");
@@ -130,7 +130,7 @@ describe("renderLifecycleList", () => {
 
 describe("renderLifecycleCreated", () => {
 	it("renders created message with path", () => {
-		renderLifecycleCreated(".flowti/lifecycle/alpha.md");
+		renderLifecycleCreated(".flowti/lifecycle/alpha.md", log);
 		expect(output()).toContain("Created: .flowti/lifecycle/alpha.md");
 	});
 });

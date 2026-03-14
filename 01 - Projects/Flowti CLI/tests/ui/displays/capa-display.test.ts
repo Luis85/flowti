@@ -18,7 +18,7 @@ beforeEach(() => { mockLog.mockClear(); });
 
 describe("renderCAPAList", () => {
 	it("renders empty message when no items", () => {
-		renderCAPAList([]);
+		renderCAPAList([], log);
 		expect(output()).toContain("No CAPA items defined yet");
 	});
 
@@ -27,7 +27,7 @@ describe("renderCAPAList", () => {
 			{ id: "CAPA-001", name: "Fix valve leak", capaType: "corrective", severity: "high", status: "open", owner: "Alice", dueDate: "2026-04-01" },
 			{ id: "CAPA-002", name: "Update SOP", capaType: "preventive", severity: "low", status: "closed", owner: "", dueDate: "" },
 		];
-		renderCAPAList(items);
+		renderCAPAList(items, log);
 		const out = output();
 		expect(out).toContain("CAPA Log (2)");
 	});
@@ -36,7 +36,7 @@ describe("renderCAPAList", () => {
 		const items: CAPASummary[] = [
 			{ id: "CAPA-001", name: "Fix valve leak", capaType: "corrective", severity: "critical", status: "open", owner: "Alice", dueDate: "2026-04-01" },
 		];
-		renderCAPAList(items);
+		renderCAPAList(items, log);
 		const out = output();
 		expect(out).toContain("CAPA-001");
 		expect(out).toContain("Fix valve leak");
@@ -50,7 +50,7 @@ describe("renderCAPAList", () => {
 		const items: CAPASummary[] = [
 			{ id: "CAPA-003", name: "Verified item", capaType: "corrective", severity: "medium", status: "verified", owner: "", dueDate: "" },
 		];
-		renderCAPAList(items);
+		renderCAPAList(items, log);
 		const out = output();
 		expect(out).toContain("[verified]");
 	});
@@ -59,7 +59,7 @@ describe("renderCAPAList", () => {
 		const items: CAPASummary[] = [
 			{ id: "CAPA-004", name: "No owner", capaType: "preventive", severity: "low", status: "open", owner: "", dueDate: "" },
 		];
-		renderCAPAList(items);
+		renderCAPAList(items, log);
 		const out = output();
 		expect(out).not.toContain("→");
 		expect(out).not.toContain("due ");
@@ -70,7 +70,7 @@ describe("renderCAPAList", () => {
 
 describe("renderCAPAAdded", () => {
 	it("renders created message with path", () => {
-		renderCAPAAdded(".flowti/capa/CAPA-001.md");
+		renderCAPAAdded(".flowti/capa/CAPA-001.md", log);
 		expect(output()).toContain("Created: .flowti/capa/CAPA-001.md");
 	});
 });
@@ -79,7 +79,7 @@ describe("renderCAPAAdded", () => {
 
 describe("renderCAPAUpdated", () => {
 	it("renders updated message with name and status", () => {
-		renderCAPAUpdated("Fix valve leak", "closed");
+		renderCAPAUpdated("Fix valve leak", "closed", log);
 		const out = output();
 		expect(out).toContain("Updated Fix valve leak");
 		expect(out).toContain("closed");

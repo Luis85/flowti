@@ -3,26 +3,28 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { sitemapToComponents, viewToComponent } from "../../../src/domain/sitemap/sitemap-to-component.js";
-import type { Sitemap, StaticView, DynamicView } from "../../../src/infrastructure/sitemap-types.js";
+import { sitemapToComponents, pageToComponent } from "../../../src/domain/sitemap/sitemap-to-component.js";
+import type { Sitemap, PageObject } from "../../../src/infrastructure/sitemap-types.js";
 
-describe("viewToComponent", () => {
-	it("converts a static view to a component definition", () => {
-		const view: StaticView = {
-			title: "Main Menu",
+function page(label: string, overrides: Partial<PageObject> = {}): PageObject {
+	return { kind: "page", label, description: "", actions: [], ...overrides } as PageObject;
+}
+
+describe("pageToComponent", () => {
+	it("converts a page to a component definition", () => {
+		const p = page("Main Menu", {
 			icon: "home",
 			domain: "navigation",
 			status: "active",
 			description: "The entry point.",
-			items: [
-				{ type: "item", key: "1", label: "Open Project", handler: "project:open" },
-				{ type: "item", key: "2", label: "Sub Page", navigate: "sub" },
-				{ type: "separator" },
-				{ type: "item", key: "q", label: "Quit", signal: "quit" },
+			actions: [
+				{ name: "onOpen", label: "Open Project", type: "handler", target: "project:open", key: "1" },
+				{ name: "onSub", label: "Sub Page", type: "navigate", target: "sub", key: "2" },
+				{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" },
 			],
-		};
+		});
 
-		const comp = viewToComponent("start", view);
+		const comp = pageToComponent("start", p);
 
 		expect(comp.id).toBe("start");
 		expect(comp.kind).toBe("page");
@@ -32,18 +34,17 @@ describe("viewToComponent", () => {
 		expect(comp.domain).toBe("navigation");
 	});
 
-	it("extracts actions from static view handler/command/signal items", () => {
-		const view: StaticView = {
-			title: "Test",
-			items: [
-				{ type: "item", key: "1", label: "Do Action", handler: "some:action" },
-				{ type: "item", key: "2", label: "Run Command", command: "build" },
-				{ type: "item", key: "3", label: "Go Back", signal: "back" },
-				{ type: "item", key: "4", label: "Navigate Away", navigate: "other" },
+	it("extracts actions from handler, command, and signal action types", () => {
+		const p = page("Test", {
+			actions: [
+				{ name: "onAction", label: "Do Action", type: "handler", target: "some:action", key: "1" },
+				{ name: "onBuild", label: "Run Command", type: "command", target: "build", key: "2" },
+				{ name: "onBack", label: "Go Back", type: "signal", target: "back", key: "3" },
+				{ name: "onNav", label: "Navigate Away", type: "navigate", target: "other", key: "4" },
 			],
-		};
+		});
 
-		const comp = viewToComponent("test", view);
+		const comp = pageToComponent("test", p);
 
 		expect(comp.actions).toHaveLength(3);
 		expect(comp.actions[0]).toEqual({ name: "some:action", description: "Do Action" });
@@ -51,37 +52,36 @@ describe("viewToComponent", () => {
 		expect(comp.actions[2]).toEqual({ name: "signal:back", description: "Go Back" });
 	});
 
-	it("extracts children from static view navigate items", () => {
-		const view: StaticView = {
-			title: "Hub",
-			items: [
-				{ type: "item", key: "1", label: "Page A", navigate: "page-a" },
-				{ type: "item", key: "2", label: "Page B", navigate: "page-b", disabled: "some:condition" },
-				{ type: "item", key: "3", label: "Action", handler: "do:thing" },
+	it("extracts children from navigate actions", () => {
+		const p = page("Hub", {
+			actions: [
+				{ name: "onPageA", label: "Page A", type: "navigate", target: "page-a", key: "1" },
+				{ name: "onPageB", label: "Page B", type: "navigate", target: "page-b", key: "2", disabled: "some:condition" },
+				{ name: "onAction", label: "Action", type: "handler", target: "do:thing", key: "3" },
 			],
-		};
+		});
 
-		const comp = viewToComponent("hub", view);
+		const comp = pageToComponent("hub", p);
 
 		expect(comp.children).toHaveLength(2);
 		expect(comp.children![0]).toEqual({ name: "page-a", slot: "navigation", optional: false });
 		expect(comp.children![1]).toEqual({ name: "page-b", slot: "navigation", optional: true });
 	});
 
-	it("converts a dynamic view to a component definition with capabilities as actions", () => {
-		const view: DynamicView = {
-			type: "dynamic",
-			title: "Review",
+	it("converts a page with handler actions to component actions", () => {
+		const p = page("Review", {
 			icon: "check-circle",
 			domain: "quality",
 			status: "active",
-			handler: "review",
 			description: "Build, test, run E2E.",
-			capabilities: ["Build project", "Run tests", "Run E2E journeys"],
-			configPath: "review",
-		};
+			actions: [
+				{ name: "onBuild", label: "Build project", type: "handler", target: "review:build", key: "1" },
+				{ name: "onTest", label: "Run tests", type: "handler", target: "review:test", key: "2" },
+				{ name: "onE2E", label: "Run E2E journeys", type: "handler", target: "review:e2e", key: "3" },
+			],
+		});
 
-		const comp = viewToComponent("review", view);
+		const comp = pageToComponent("review", p);
 
 		expect(comp.id).toBe("review");
 		expect(comp.kind).toBe("page");
@@ -91,65 +91,51 @@ describe("viewToComponent", () => {
 		expect(comp.domain).toBe("quality");
 
 		expect(comp.actions).toHaveLength(3);
-		expect(comp.actions[0]).toEqual({ name: "build-project", description: "Build project" });
-		expect(comp.actions[1]).toEqual({ name: "run-tests", description: "Run tests" });
-		expect(comp.actions[2]).toEqual({ name: "run-e2e-journeys", description: "Run E2E journeys" });
+		expect(comp.actions[0]).toEqual({ name: "review:build", description: "Build project" });
+		expect(comp.actions[1]).toEqual({ name: "review:test", description: "Run tests" });
+		expect(comp.actions[2]).toEqual({ name: "review:e2e", description: "Run E2E journeys" });
 
 		expect(comp.children).toHaveLength(0);
 	});
 
-	it("includes metadata from dynamic view", () => {
-		const view: DynamicView = {
-			type: "dynamic",
-			title: "CAPA",
+	it("includes metadata from page", () => {
+		const p = page("CAPA", {
 			status: "active",
 			context: ["project"],
-			handler: "capa",
 			configPath: "management.capa",
-		};
+		});
 
-		const comp = viewToComponent("capa", view);
+		const comp = pageToComponent("capa", p);
 
 		expect(comp.metadata).toEqual({
 			status: "active",
 			context: ["project"],
-			handler: "capa",
 			configPath: "management.capa",
 		});
 	});
 
 	it("includes parent in metadata", () => {
-		const view: DynamicView = {
-			type: "dynamic",
-			title: "Resources",
-			handler: "resources",
-			parent: "management",
-		};
+		const p = page("Resources", { parent: "management" });
 
-		const comp = viewToComponent("resources", view);
+		const comp = pageToComponent("resources", p);
 		expect(comp.metadata.parent).toBe("management");
 	});
 
 	it("includes route config in metadata", () => {
-		const view: StaticView = {
-			title: "Home",
+		const p = page("Home", {
 			route: { path: "/", pathMatch: "full" },
-			items: [],
-		};
+		});
 
-		const comp = viewToComponent("home", view);
+		const comp = pageToComponent("home", p);
 		expect(comp.metadata.route).toEqual({ path: "/", pathMatch: "full" });
 	});
 
 	it("includes route with guards and lazy loading in metadata", () => {
-		const view: DynamicView = {
-			type: "dynamic",
-			title: "Admin",
-			handler: "admin",
+		const p = page("Admin", {
 			route: { path: "admin", guards: ["auth", "admin"], lazy: true },
-		};
+		});
 
-		const comp = viewToComponent("admin", view);
+		const comp = pageToComponent("admin", p);
 		expect(comp.metadata.route).toEqual({
 			path: "admin",
 			guards: ["auth", "admin"],
@@ -157,35 +143,28 @@ describe("viewToComponent", () => {
 		});
 	});
 
-	it("handles view with no optional fields", () => {
-		const view: DynamicView = {
-			type: "dynamic",
-			title: "Minimal",
-			handler: "minimal",
-		};
+	it("handles page with no optional fields", () => {
+		const p = page("Minimal");
 
-		const comp = viewToComponent("minimal", view);
+		const comp = pageToComponent("minimal", p);
 
 		expect(comp.id).toBe("minimal");
 		expect(comp.description).toBe("");
 		expect(comp.icon).toBeUndefined();
 		expect(comp.domain).toBeUndefined();
 		expect(comp.actions).toHaveLength(0);
-		expect(comp.metadata).toEqual({ handler: "minimal" });
+		expect(comp.metadata).toEqual({});
 	});
 
-	it("skips separators when extracting actions and children", () => {
-		const view: StaticView = {
-			title: "With Separators",
-			items: [
-				{ type: "item", key: "1", label: "Action", handler: "do:it" },
-				{ type: "separator" },
-				{ type: "item", key: "2", label: "Page", navigate: "target" },
-				{ type: "separator" },
+	it("only extracts handler/command/signal as actions, navigate as children", () => {
+		const p = page("With Mix", {
+			actions: [
+				{ name: "onAction", label: "Action", type: "handler", target: "do:it", key: "1" },
+				{ name: "onNav", label: "Page", type: "navigate", target: "target", key: "2" },
 			],
-		};
+		});
 
-		const comp = viewToComponent("sep-test", view);
+		const comp = pageToComponent("mix-test", p);
 
 		expect(comp.actions).toHaveLength(1);
 		expect(comp.children).toHaveLength(1);
@@ -193,22 +172,22 @@ describe("viewToComponent", () => {
 });
 
 describe("sitemapToComponents", () => {
-	it("converts all views in a sitemap", () => {
+	it("converts all pages in a sitemap", () => {
 		const sitemap: Sitemap = {
-			version: 1,
-			views: {
-				start: {
-					title: "Start",
+			version: 2,
+			pages: {
+				start: page("Start", {
 					icon: "home",
-					items: [{ type: "item", key: "q", label: "Quit", signal: "quit" }],
-				},
-				detail: {
-					type: "dynamic",
-					title: "Detail",
+					actions: [
+						{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" },
+					],
+				}),
+				detail: page("Detail", {
 					icon: "file",
-					handler: "detail",
-					capabilities: ["View details"],
-				},
+					actions: [
+						{ name: "onView", label: "View details", type: "handler", target: "detail:view", key: "1" },
+					],
+				}),
 			},
 		};
 
@@ -219,27 +198,13 @@ describe("sitemapToComponents", () => {
 		expect(components[1].id).toBe("detail");
 	});
 
-	it("resolves parent→child relationships for dynamic views", () => {
+	it("resolves parent to child relationships", () => {
 		const sitemap: Sitemap = {
-			version: 1,
-			views: {
-				management: {
-					type: "dynamic",
-					title: "Management",
-					handler: "management",
-				},
-				resources: {
-					type: "dynamic",
-					title: "Resources",
-					handler: "resources",
-					parent: "management",
-				},
-				timelog: {
-					type: "dynamic",
-					title: "Time-Log",
-					handler: "timelog",
-					parent: "management",
-				},
+			version: 2,
+			pages: {
+				management: page("Management"),
+				resources: page("Resources", { parent: "management" }),
+				timelog: page("Time-Log", { parent: "management" }),
 			},
 		};
 
@@ -253,26 +218,15 @@ describe("sitemapToComponents", () => {
 
 	it("does not override navigate-derived children with parent-derived ones", () => {
 		const sitemap: Sitemap = {
-			version: 1,
-			views: {
-				hub: {
-					title: "Hub",
-					items: [
-						{ type: "item", key: "1", label: "Go", navigate: "child-a" },
+			version: 2,
+			pages: {
+				hub: page("Hub", {
+					actions: [
+						{ name: "onGo", label: "Go", type: "navigate", target: "child-a", key: "1" },
 					],
-				},
-				"child-a": {
-					type: "dynamic",
-					title: "Child A",
-					handler: "a",
-					parent: "hub",
-				},
-				"child-b": {
-					type: "dynamic",
-					title: "Child B",
-					handler: "b",
-					parent: "hub",
-				},
+				}),
+				"child-a": page("Child A", { parent: "hub" }),
+				"child-b": page("Child B", { parent: "hub" }),
 			},
 		};
 

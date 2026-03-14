@@ -37,7 +37,7 @@ function createResourceAction(req: Parameters<ControllerAction>[0], name: string
 	if (filePath) {
 		return dataResponse(
 			{ relPath: paths.relative(req.project!.path, filePath) },
-			(m: { relPath: string }) => renderResourceAdded(m.relPath),
+			(m: { relPath: string }) => renderResourceAdded(m.relPath, req.deps.log),
 		);
 	}
 }
@@ -46,7 +46,7 @@ const actions: Record<string, ControllerAction> = {
 	"resources:list": (req) => {
 		if (!req.project) return;
 		const resources = listResources(req.deps, req.project.path, req.project.config.management?.resources);
-		return dataResponse(resources, renderResourceList);
+		return dataResponse(resources, (d) => renderResourceList(d, req.deps.log));
 	},
 
 	"resources:add": (req) => {
@@ -55,14 +55,14 @@ const actions: Record<string, ControllerAction> = {
 		if (!name || typeof name !== "string") {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --name flag.", hint: 'Usage: flowti resources:add --name="Jane Doe" --type="human"' },
-				renderError,
+				(d) => renderError(req.deps.log, d),
 			);
 		}
 		const resourceType = flagStr(req.flags, "type", "human") as ResourceType;
 		if (!VALID_TYPES.includes(resourceType)) {
 			return dataResponse<ErrorModel>(
 				{ error: `Invalid type "${resourceType}". Valid: ${VALID_TYPES.join(", ")}` },
-				renderError,
+				(d) => renderError(req.deps.log, d),
 			);
 		}
 		return createResourceAction(req, name, resourceType);
@@ -72,7 +72,7 @@ const actions: Record<string, ControllerAction> = {
 		if (!req.project) return;
 		const resources = listResources(req.deps, req.project.path, req.project.config.management?.resources);
 		const summary = analyzeFinancials(resources);
-		return dataResponse(summary, renderFinancialSummary);
+		return dataResponse(summary, (d) => renderFinancialSummary(d, req.deps.log));
 	},
 };
 

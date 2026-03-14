@@ -2,25 +2,20 @@
  * resources-menu.ts — Interactive resource management menu.
  */
 
-import { paths } from "../../infrastructure/paths.js";
-import { disk } from "../../infrastructure/filesystem.js";
-import { clock } from "../../infrastructure/clock.js";
 import { printHeader } from "../../infrastructure/ui.js";
-import { input } from "../../infrastructure/input.js";
+import type { MenuDeps } from "../../infrastructure/deps.js";
 import type { ResourcesConfig, ResourceType } from "../../infrastructure/types.js";
 import { createResourceFile } from "../../domain/resources/resource-store.js";
 import { renderResourceAdded } from "../displays/resources-display.js";
 
-function storeDeps() { return { disk, paths, clock } as const; }
-
-export async function addResourceInteractive(projectPath: string, resourceType: ResourceType, config?: ResourcesConfig): Promise<void> {
+export async function addResourceInteractive(projectPath: string, resourceType: ResourceType, config: ResourcesConfig | undefined, deps: MenuDeps): Promise<void> {
 	const labels: Record<ResourceType, string> = { role: "Role", material: "Material Resource", human: "Human Resource", budget: "Budget" };
 	printHeader(`Add ${labels[resourceType]}`);
 
-	const name = await input.ask("Name");
+	const name = await deps.input.ask("Name");
 	if (!name) return;
 
-	const description = await input.ask("Description", "");
+	const description = await deps.input.ask("Description", "");
 
 	let price = 0;
 	let hourlyRate: number | undefined;
@@ -32,26 +27,26 @@ export async function addResourceInteractive(projectPath: string, resourceType: 
 	let periodEnd: string | undefined;
 
 	if (resourceType === "budget") {
-		amount = parseFloat(await input.ask("Total amount", "0"));
-		currency = await input.ask("Currency", "EUR");
-		category = await input.ask("Category", "general");
-		periodStart = await input.ask("Period start (YYYY-MM-DD)", "");
-		periodEnd = await input.ask("Period end (YYYY-MM-DD)", "");
+		amount = parseFloat(await deps.input.ask("Total amount", "0"));
+		currency = await deps.input.ask("Currency", "EUR");
+		category = await deps.input.ask("Category", "general");
+		periodStart = await deps.input.ask("Period start (YYYY-MM-DD)", "");
+		periodEnd = await deps.input.ask("Period end (YYYY-MM-DD)", "");
 		price = 1;
 	} else if (resourceType === "role") {
-		hourlyRate = parseFloat(await input.ask("Hourly rate", "0"));
+		hourlyRate = parseFloat(await deps.input.ask("Hourly rate", "0"));
 		price = hourlyRate;
-		amount = parseFloat(await input.ask("FTE amount", "1"));
+		amount = parseFloat(await deps.input.ask("FTE amount", "1"));
 	} else if (resourceType === "human") {
-		role = await input.ask("Role", "");
-		price = parseFloat(await input.ask("Price per hour", "0"));
-		amount = parseFloat(await input.ask("FTE amount", "1"));
+		role = await deps.input.ask("Role", "");
+		price = parseFloat(await deps.input.ask("Price per hour", "0"));
+		amount = parseFloat(await deps.input.ask("FTE amount", "1"));
 	} else {
-		price = parseFloat(await input.ask("Unit price", "0"));
-		amount = parseFloat(await input.ask("Quantity", "1"));
+		price = parseFloat(await deps.input.ask("Unit price", "0"));
+		amount = parseFloat(await deps.input.ask("Quantity", "1"));
 	}
 
-	const filePath = createResourceFile(storeDeps(), projectPath, {
+	const filePath = createResourceFile(deps, projectPath, {
 		name,
 		resourceType,
 		role,
@@ -68,6 +63,6 @@ export async function addResourceInteractive(projectPath: string, resourceType: 
 	}, config);
 
 	if (filePath) {
-		renderResourceAdded(paths.relative(projectPath, filePath));
+		renderResourceAdded(deps.paths.relative(projectPath, filePath), deps.log);
 	}
 }

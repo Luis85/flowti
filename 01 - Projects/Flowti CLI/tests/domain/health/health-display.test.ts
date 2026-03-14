@@ -92,7 +92,7 @@ beforeEach(() => {
 
 describe("displayHealth", () => {
 	it("renders all sections when snapshot is fully populated", () => {
-		displayHealth(fullSnapshot);
+		displayHealth(fullSnapshot, log);
 		const calls = mockLog.mock.calls.map(([msg]) => String(msg ?? ""));
 		expect(calls.some((m) => m.includes("my-app"))).toBe(true);
 		expect(calls.some((m) => m.includes("Source"))).toBe(true);
@@ -105,7 +105,7 @@ describe("displayHealth", () => {
 	});
 
 	it("shows 'No report data found' when all metric sections are null", () => {
-		displayHealth(emptySnapshot);
+		displayHealth(emptySnapshot, log);
 		const calls = mockLog.mock.calls.map(([msg]) => String(msg ?? ""));
 		expect(calls.some((m) => m.includes("No report data found"))).toBe(true);
 	});
@@ -115,14 +115,14 @@ describe("displayHealth", () => {
 			...fullSnapshot,
 			tests: { total: 200, passed: 185, failed: 15, suites: 20 },
 		};
-		displayHealth(snapshot);
+		displayHealth(snapshot, log);
 		const calls = mockLog.mock.calls.map(([msg]) => String(msg ?? ""));
 		expect(calls.some((m) => m.includes("Failed:"))).toBe(true);
 		expect(calls.some((m) => m.includes("15"))).toBe(true);
 	});
 
 	it("shows green coverage indicators for high percentages", () => {
-		displayHealth(fullSnapshot);
+		displayHealth(fullSnapshot, log);
 		const calls = mockLog.mock.calls.map(([msg]) => String(msg ?? ""));
 		expect(calls.some((m) => m.includes("92.5%"))).toBe(true);
 		expect(calls.some((m) => m.includes("95.0%"))).toBe(true);
@@ -133,14 +133,14 @@ describe("displayHealth", () => {
 			...fullSnapshot,
 			git: { branch: "feature/wip", status: "dirty" },
 		};
-		displayHealth(snapshot);
+		displayHealth(snapshot, log);
 		const calls = mockLog.mock.calls.map(([msg]) => String(msg ?? ""));
 		expect(calls.some((m) => m.includes("dirty"))).toBe(true);
 		expect(calls.some((m) => m.includes("feature/wip"))).toBe(true);
 	});
 
 	it("builds correct summary indicators for each metric", () => {
-		displayHealth(fullSnapshot);
+		displayHealth(fullSnapshot, log);
 		const calls = mockLog.mock.calls.map(([msg]) => String(msg ?? ""));
 		const summaryLine = calls.find((m) => m.includes("Summary:"));
 		expect(summaryLine).toBeDefined();

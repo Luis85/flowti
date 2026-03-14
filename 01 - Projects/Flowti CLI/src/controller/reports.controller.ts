@@ -25,13 +25,13 @@ import { renderNoProject, type NoProjectModel } from "../ui/renderers/common-ren
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
-function noProjectResponse(command: string) {
-	return dataResponse<NoProjectModel>({ command }, renderNoProject);
+function noProjectResponse(log: CliDeps["log"], command: string) {
+	return dataResponse<NoProjectModel>({ command }, (d) => renderNoProject(log, d));
 }
 
-function noGeneratorsResponse() {
+function noGeneratorsResponse(log: CliDeps["log"]) {
 	const model: NoGeneratorsModel = { message: "No report generators configured." };
-	return dataResponse(model, renderNoGenerators);
+	return dataResponse(model, (d) => renderNoGenerators(d, log));
 }
 
 // ── report:* helpers ─────────────────────────────────────────────────
@@ -39,21 +39,21 @@ function noGeneratorsResponse() {
 function runInternalGenerator(reportId: string, projectPath: string, deps: CliDeps) {
 	const output = runGenerator(reportId, projectPath, deps);
 	const model: SuccessModel = { message: output?.success ? `Generated ${reportId} → ${output.outputPath}` : `Generator ${reportId} failed.` };
-	return dataResponse(model, renderSuccess);
+	return dataResponse(model, (d) => renderSuccess(deps.log, d));
 }
 
-function runExternalGenerator(gen: { command?: string; label: string }, projectPath: string | undefined, shell: CliDeps["shell"]) {
+function runExternalGenerator(gen: { command?: string; label: string }, projectPath: string | undefined, shell: CliDeps["shell"], log: CliDeps["log"]) {
 	const exitCode = shell.run(gen.command!, { cwd: projectPath, label: `Generating ${gen.label}...` });
 	const model: ShellCommandModel = { command: gen.command!, exitCode, label: gen.label };
-	return dataResponse(model, renderShellCommand);
+	return dataResponse(model, (d) => renderShellCommand(log, d));
 }
 
-function unknownReportResponse(reportId: string, generators: Array<{ id?: string; label: string }>) {
+function unknownReportResponse(reportId: string, generators: Array<{ id?: string; label: string }>, log: CliDeps["log"]) {
 	const model: UnknownReportModel = {
 		reportId,
 		available: generators.map((g) => g.id ?? g.label).join(", ") || "(none configured)",
 	};
-	return dataResponse(model, renderUnknownReport);
+	return dataResponse(model, (d) => renderUnknownReport(d, log));
 }
 
 // ── Controller actions ──────────────────────────────────────────────
@@ -61,20 +61,20 @@ function unknownReportResponse(reportId: string, generators: Array<{ id?: string
 const actions: Record<string, ControllerAction> = {
 	reports: async (req) => {
 		const generators = req.project?.config.reports?.generators ?? [];
-		if (generators.length === 0) return noGeneratorsResponse();
+		if (generators.length === 0) return noGeneratorsResponse(req.deps.log);
 		const { log } = req.deps;
 		const result = await runAllReports(generators, req.project!.path, req.deps, { parallel: !!req.flags.parallel, log });
 		const model: ReportRunModel = { passed: result.passed, failed: result.failed, totalDurationMs: result.totalDurationMs };
-		return dataResponse(model, renderReportRun);
+		return dataResponse(model, (d) => renderReportRun(d, log));
 	},
 
 	"reports:audit": async (req) => {
 		const generators = req.project?.config.reports?.generators ?? [];
-		if (generators.length === 0) return noGeneratorsResponse();
+		if (generators.length === 0) return noGeneratorsResponse(req.deps.log);
 		const { log } = req.deps;
 		const result = await runAllReports(generators, req.project!.path, req.deps, { parallel: !!req.flags.parallel, log });
 		const model: AuditResultModel = { passed: result.passed, failed: result.failed };
-		return dataResponse(model, renderAuditResult);
+		return dataResponse(model, (d) => renderAuditResult(d, log));
 	},
 
 	docs: async (req) => {
@@ -83,17 +83,17 @@ const actions: Record<string, ControllerAction> = {
 		const bookConfig = req.project?.config.docs?.book;
 		const result = await runAllDocs(configGenerators, references, req.project!.path, req.deps, bookConfig);
 		const model: ReportRunModel = { passed: result.passed, failed: result.failed, totalDurationMs: result.totalDurationMs };
-		return dataResponse(model, renderReportRun);
+		return dataResponse(model, (d) => renderReportRun(d, req.deps.log));
 	},
 
 	"reports:diff": (req) => {
-		if (!req.project) return noProjectResponse("reports:diff");
+		if (!req.project) return noProjectResponse(req.deps.log, "reports:diff");
 		const { disk, paths } = req.deps;
 		const svc = new ReportService(req.project.path, req.deps);
 		const categories = discoverArchiveCategories(svc.reportsDir, { disk, paths });
 		if (categories.length === 0) {
 			const model: NoGeneratorsModel = { message: "No archived reports found. Run reports first." };
-			return dataResponse(model, renderNoGenerators);
+			return dataResponse(model, (d) => renderNoGenerators(d, req.deps.log));
 		}
 
 		const diffs: ReturnType<typeof diffReports>[] = [];
@@ -107,18 +107,18 @@ const actions: Record<string, ControllerAction> = {
 			if (diff.deltas.length > 0) diffs.push(diff);
 		}
 
-		return dataResponse(diffs, renderReportDiff);
+		return dataResponse(diffs, (d) => renderReportDiff(d, req.deps.log));
 	},
 
 	"reports:html": (req) => {
-		if (!req.project) return noProjectResponse("reports:html");
+		if (!req.project) return noProjectResponse(req.deps.log, "reports:html");
 		const { disk, paths } = req.deps;
 		const svc = new ReportService(req.project.path, req.deps);
 		const outputDir = typeof req.flags.output === "string" ? req.flags.output : paths.join(svc.reportsDir, "html");
 		const entries = disk.readdirSync(svc.reportsDir).filter((f: string) => f.endsWith(".md"));
 		if (entries.length === 0) {
 			const model: NoGeneratorsModel = { message: "No report files found. Run reports first." };
-			return dataResponse(model, renderNoGenerators);
+			return dataResponse(model, (d) => renderNoGenerators(d, req.deps.log));
 		}
 		const exported: HtmlExportModel["exported"] = [];
 		for (const entry of entries) {
@@ -127,7 +127,7 @@ const actions: Record<string, ControllerAction> = {
 			if (result) exported.push({ title: result.title, outputPath: result.outputPath });
 		}
 		const model: HtmlExportModel = { exported, outputDir };
-		return dataResponse(model, renderHtmlExport);
+		return dataResponse(model, (d) => renderHtmlExport(d, req.deps.log));
 	},
 
 	"report:*": (req) => {
@@ -135,8 +135,8 @@ const actions: Record<string, ControllerAction> = {
 		const generators = req.project?.config.reports?.generators ?? [];
 		if (hasGenerator(reportId)) return runInternalGenerator(reportId, req.project!.path, req.deps);
 		const gen = generators.find((g) => g.id === reportId || g.label.toLowerCase().replace(/\s+/g, "-") === reportId);
-		if (gen?.command) return runExternalGenerator(gen, req.project?.path, req.deps.shell);
-		return unknownReportResponse(reportId, generators);
+		if (gen?.command) return runExternalGenerator(gen, req.project?.path, req.deps.shell, req.deps.log);
+		return unknownReportResponse(reportId, generators, req.deps.log);
 	},
 };
 

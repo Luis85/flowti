@@ -3,7 +3,6 @@
  */
 
 import { RESET, DIM, GREEN, CYAN, BOLD, RED, YELLOW } from "../../infrastructure/ui.js";
-import { log } from "../../infrastructure/logger.js";
 import type { RAIDSummary } from "../../domain/raid/raid-types.js";
 
 const SEVERITY_COLORS: Record<string, string> = {
@@ -13,7 +12,7 @@ const SEVERITY_COLORS: Record<string, string> = {
 	low: DIM,
 };
 
-export function renderRAIDList(items: RAIDSummary[]): void {
+export function renderRAIDList(items: RAIDSummary[], log: (msg?: string) => void): void {
 	if (items.length === 0) {
 		log(`\n  ${DIM}No RAID items defined yet. Use "Add" to create one.${RESET}\n`);
 		return;
@@ -31,10 +30,10 @@ export function renderRAIDList(items: RAIDSummary[]): void {
 	log();
 }
 
-export function renderRAIDAdded(relPath: string): void {
+export function renderRAIDAdded(relPath: string, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}✓${RESET} Created: ${relPath}`);
 }
 
-export function renderRAIDUpdated(name: string, status: string): void {
+export function renderRAIDUpdated(name: string, status: string, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}✓${RESET} Updated ${name} → ${status}`);
 }

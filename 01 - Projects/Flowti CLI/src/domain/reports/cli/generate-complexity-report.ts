@@ -117,28 +117,21 @@ function addLowCoverageSection(doc: Document, srcFiles: AnalysisFile[], projectP
 	).addBlank();
 }
 
-export function generateComplexityReport(projectPath: string, deps: ReportDeps, ctx?: import("../../../infrastructure/pipeline/pipeline-types.js").PipelineContext, options?: { cliProject?: string }): GeneratorOutput {
-	const log = (msg: string) => ctx?.log(msg);
-	const svc = new ReportService(projectPath, deps);
+function ensureAnalysisJson(projectPath: string, svc: ReportService, deps: ReportDeps, cliProject: string, log: (msg: string) => void): string | null {
 	const analysisJson = svc.dataPath("coverage/analysis.json");
-	const cliProject = options?.cliProject ?? projectPath;
-
 	if (!deps.disk.existsSync(analysisJson)) {
 		log("[cli-report] No analysis.json found — generating from source...");
 		generateAnalysisData(projectPath, svc.coverageDir, cliProject, deps);
 	}
-
 	if (!deps.disk.existsSync(analysisJson)) {
 		log("[cli-report] Failed to generate analysis.json.");
-		return { success: false, outputPath: "", metrics: {} };
+		return null;
 	}
+	return analysisJson;
+}
 
-	const data: AnalysisData = JSON.parse(deps.disk.readFileSync(analysisJson, "utf-8"));
-	const { summary, files } = data;
-	const hasCoverage = summary.statements !== undefined;
-	const srcFiles = files.filter((f) => !relPath(f.file, projectPath).startsWith("bin/"));
-	const fm = buildComplexityFm(summary, srcFiles, deps.clock);
-
+function buildComplexityDoc(summary: AnalysisSummary, srcFiles: AnalysisFile[], hasCoverage: boolean, projectPath: string, clock: ReportDeps["clock"]): Document {
+	const fm = buildComplexityFm(summary, srcFiles, clock);
 	const doc = Document.create("CLI Complexity Report")
 		.mergeFrontmatter(fm)
 		.addBlank()
@@ -158,7 +151,37 @@ export function generateComplexityReport(projectPath: string, deps: ReportDeps, 
 	addTopDPSection(doc, srcFiles, hasCoverage, projectPath);
 	addDPTypeSection(doc, srcFiles, summary.totalDecisionPoints);
 	if (hasCoverage) addLowCoverageSection(doc, srcFiles, projectPath);
+	return doc;
+}
 
+function collectComplexityWarnings(srcFiles: AnalysisFile[], projectPath: string, deps: ReportDeps): string[] {
+	const thresholds = resolveThresholds(projectPath, deps);
+	const maxFileDPs = thresholds.maxFileDecisionPoints;
+	const highComplexity = srcFiles
+		.filter((f) => f.decisionPointCount > maxFileDPs)
+		.sort((a, b) => b.decisionPointCount - a.decisionPointCount);
+	if (highComplexity.length === 0) return [];
+	const warnings = [`${highComplexity.length} file(s) exceed complexity threshold (>${maxFileDPs} DPs)`];
+	for (const f of highComplexity) {
+		warnings.push(`  ${relPath(f.file, projectPath)} (${f.decisionPointCount} DPs)`);
+	}
+	return warnings;
+}
+
+export function generateComplexityReport(projectPath: string, deps: ReportDeps, ctx?: import("../../../infrastructure/pipeline/pipeline-types.js").PipelineContext, options?: { cliProject?: string }): GeneratorOutput {
+	const log = (msg: string) => ctx?.log(msg);
+	const svc = new ReportService(projectPath, deps);
+	const cliProject = options?.cliProject ?? projectPath;
+
+	const analysisJson = ensureAnalysisJson(projectPath, svc, deps, cliProject, log);
+	if (!analysisJson) return { success: false, outputPath: "", metrics: {} };
+
+	const data: AnalysisData = JSON.parse(deps.disk.readFileSync(analysisJson, "utf-8"));
+	const { summary, files } = data;
+	const hasCoverage = summary.statements !== undefined;
+	const srcFiles = files.filter((f) => !relPath(f.file, projectPath).startsWith("bin/"));
+
+	const doc = buildComplexityDoc(summary, srcFiles, hasCoverage, projectPath, deps.clock);
 	const outputPath = svc.save(doc, {
 		subdir: "complexity",
 		slug: "complexity-report",
@@ -173,12 +196,7 @@ export function generateComplexityReport(projectPath: string, deps: ReportDeps, 
 	}
 	log(`  Written: ${outputPath}`);
 
-	const warnings: string[] = [];
-	const thresholds = resolveThresholds(projectPath, deps);
-	const maxFileDPs = thresholds.maxFileDecisionPoints;
-	const highComplexity = srcFiles.filter((f) => f.decisionPointCount > maxFileDPs);
-	if (highComplexity.length > 0) warnings.push(`${highComplexity.length} file(s) exceed complexity threshold (>${maxFileDPs} DPs)`);
-
+	const warnings = collectComplexityWarnings(srcFiles, projectPath, deps);
 	return {
 		success: true,
 		outputPath,

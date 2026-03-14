@@ -91,7 +91,13 @@ vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 
 import { commands } from "../../src/controller/events.controller.js";
 import { listEvents, createEventFile } from "../../src/domain/events/event-catalog.js";
-import { loadEventContracts, validateContracts } from "../../src/domain/events/event-contracts.js";
+import { loadEventContracts, validateContracts, findContract, validatePayload, generateContractsJson } from "../../src/domain/events/event-contracts.js";
+import { saveEventFlowDoc } from "../../src/domain/events/event-flow.js";
+import { generateEventTypes } from "../../src/domain/events/event-codegen.js";
+import { disk } from "../../src/infrastructure/filesystem.js";
+import { log } from "../../src/infrastructure/logger.js";
+import { proc } from "../../src/infrastructure/proc.js";
+import { renderEventFlowCreated, renderContractsGenerated, renderCodegenGenerated } from "../../src/ui/displays/events-display.js";
 
 const mockProject = {
 	path: "/project",
@@ -102,7 +108,22 @@ const mockProject = {
 
 describe("events.controller", () => {
 	beforeEach(() => {
-		vi.clearAllMocks();
+		vi.restoreAllMocks();
+		// Re-apply factory mocks cleared by restoreAllMocks
+		vi.mocked(listEvents).mockReturnValue([
+			{ name: "user.created", domain: "user", version: "1.0.0" },
+			{ name: "order.placed", domain: "order", version: "1.0.0" },
+		] as ReturnType<typeof listEvents>);
+		vi.mocked(createEventFile).mockReturnValue("/project/docs/events/user.created.json");
+		vi.mocked(loadEventContracts).mockReturnValue([
+			{ name: "user.created", domain: "user", version: "1.0.0", payload: [{ name: "id", type: "string", required: true }] },
+		] as ReturnType<typeof loadEventContracts>);
+		vi.mocked(validateContracts).mockReturnValue({ valid: true, errors: [], warnings: [] });
+		vi.mocked(generateContractsJson).mockReturnValue('{"contracts":[]}');
+		vi.mocked(validatePayload).mockReturnValue({ valid: true, errors: [] });
+		vi.mocked(findContract).mockReturnValue({ name: "user.created", payload: [{ name: "id", type: "string", required: true }] } as ReturnType<typeof findContract>);
+		vi.mocked(generateEventTypes).mockReturnValue("export type Events = {};");
+		vi.mocked(saveEventFlowDoc).mockReturnValue("/project/docs/events/flow.md");
 	});
 
 	// ── events:list ───────────────────────────────────────────────
@@ -151,7 +172,7 @@ describe("events.controller", () => {
 		});
 
 		it("returns empty message when no contracts found", () => {
-			vi.mocked(loadEventContracts).mockReturnValue([]);
+			vi.mocked(loadEventContracts).mockReturnValueOnce([]);
 			commands["events:validate"]({}, [], "events:validate", mockProject);
 			expect(validateContracts).not.toHaveBeenCalled();
 		});
@@ -176,6 +197,230 @@ describe("events.controller", () => {
 				[], "events:version", mockProject,
 			);
 			expect(versionEvent).toHaveBeenCalledWith(expect.any(Object), "/project", "user.created", "2.0.0", "Added email");
+		});
+	});
+
+	// ── events:flow ───────────────────────────────────────────────
+	describe("events:flow", () => {
+		it("calls saveEventFlowDoc and returns relativePath data", () => {
+			commands["events:flow"]({ format: "json" }, [], "events:flow", mockProject);
+			expect(saveEventFlowDoc).toHaveBeenCalledWith(expect.any(Object), "/project", undefined);
+			expect(log).toHaveBeenCalledOnce();
+			const output = JSON.parse(vi.mocked(log).mock.calls[0][0] as string);
+			expect(output).toEqual({ relativePath: "/project/docs/events/flow.md" });
+		});
+
+		it("passes domain flag when provided", () => {
+			commands["events:flow"]({ domain: "user" }, [], "events:flow", mockProject);
+			expect(saveEventFlowDoc).toHaveBeenCalledWith(expect.any(Object), "/project", "user");
+		});
+
+		it("ignores non-string domain flag", () => {
+			commands["events:flow"]({ domain: true }, [], "events:flow", mockProject);
+			expect(saveEventFlowDoc).toHaveBeenCalledWith(expect.any(Object), "/project", undefined);
+		});
+
+		it("returns undefined when no project", () => {
+			commands["events:flow"]({}, [], "events:flow", undefined);
+			expect(saveEventFlowDoc).not.toHaveBeenCalled();
+		});
+
+		it("calls renderer in default format", () => {
+			commands["events:flow"]({}, [], "events:flow", mockProject);
+			expect(renderEventFlowCreated).toHaveBeenCalled();
+		});
+	});
+
+	// ── events:check-payload ─────────────────────────────────────
+	describe("events:check-payload", () => {
+		it("returns error when --event flag is missing", () => {
+			commands["events:check-payload"]({ payload: '{"id":"1"}', format: "json" }, [], "events:check-payload", mockProject);
+			expect(log).toHaveBeenCalledOnce();
+			const output = JSON.parse(vi.mocked(log).mock.calls[0][0] as string);
+			expect(output).toEqual(expect.objectContaining({ error: expect.stringContaining("Missing") }));
+		});
+
+		it("returns error when --payload flag is missing", () => {
+			commands["events:check-payload"]({ event: "user.created", format: "json" }, [], "events:check-payload", mockProject);
+			expect(log).toHaveBeenCalledOnce();
+			const output = JSON.parse(vi.mocked(log).mock.calls[0][0] as string);
+			expect(output).toEqual(expect.objectContaining({ error: expect.stringContaining("Missing") }));
+		});
+
+		it("returns error when both flags are missing", () => {
+			commands["events:check-payload"]({ format: "json" }, [], "events:check-payload", mockProject);
+			expect(log).toHaveBeenCalledOnce();
+			const output = JSON.parse(vi.mocked(log).mock.calls[0][0] as string);
+			expect(output).toEqual(expect.objectContaining({ error: expect.stringContaining("Missing") }));
+		});
+
+		it("returns error when contract is not found", () => {
+			vi.mocked(findContract).mockReturnValueOnce(undefined);
+			commands["events:check-payload"](
+				{ event: "unknown.event", payload: '{"id":"1"}', format: "json" },
+				[], "events:check-payload", mockProject,
+			);
+			expect(log).toHaveBeenCalledOnce();
+			const output = JSON.parse(vi.mocked(log).mock.calls[0][0] as string);
+			expect(output).toEqual(expect.objectContaining({ error: expect.stringContaining("No contract found") }));
+			expect(proc.exit).toHaveBeenCalledWith(1);
+		});
+
+		it("returns error when payload is invalid JSON", () => {
+			commands["events:check-payload"](
+				{ event: "user.created", payload: "not-json", format: "json" },
+				[], "events:check-payload", mockProject,
+			);
+			expect(log).toHaveBeenCalledOnce();
+			const output = JSON.parse(vi.mocked(log).mock.calls[0][0] as string);
+			expect(output).toEqual(expect.objectContaining({ error: "Invalid JSON payload." }));
+			expect(proc.exit).toHaveBeenCalledWith(1);
+		});
+
+		it("validates payload against contract on happy path", () => {
+			commands["events:check-payload"](
+				{ event: "user.created", payload: '{"id":"1"}', format: "json" },
+				[], "events:check-payload", mockProject,
+			);
+			expect(loadEventContracts).toHaveBeenCalled();
+			expect(findContract).toHaveBeenCalled();
+			expect(validatePayload).toHaveBeenCalled();
+			expect(log).toHaveBeenCalledOnce();
+			const output = JSON.parse(vi.mocked(log).mock.calls[0][0] as string);
+			expect(output).toEqual({ eventName: "user.created", result: { valid: true, errors: [] } });
+		});
+
+		it("exits with code 1 when validation fails", () => {
+			vi.mocked(validatePayload).mockReturnValueOnce({ valid: false, errors: ["missing field: id"] });
+			commands["events:check-payload"](
+				{ event: "user.created", payload: '{"foo":"bar"}', format: "json" },
+				[], "events:check-payload", mockProject,
+			);
+			expect(proc.exit).toHaveBeenCalledWith(1);
+			const output = JSON.parse(vi.mocked(log).mock.calls[0][0] as string);
+			expect(output).toEqual({ eventName: "user.created", result: { valid: false, errors: ["missing field: id"] } });
+		});
+
+		it("does not exit when validation passes", () => {
+			commands["events:check-payload"](
+				{ event: "user.created", payload: '{"id":"1"}' },
+				[], "events:check-payload", mockProject,
+			);
+			expect(proc.exit).not.toHaveBeenCalled();
+		});
+
+		it("does nothing when no project", () => {
+			commands["events:check-payload"](
+				{ event: "user.created", payload: '{"id":"1"}' },
+				[], "events:check-payload", undefined,
+			);
+			expect(loadEventContracts).not.toHaveBeenCalled();
+		});
+	});
+
+	// ── events:contracts ─────────────────────────────────────────
+	describe("events:contracts", () => {
+		it("generates contracts JSON and writes to default path", () => {
+			commands["events:contracts"]({ format: "json" }, [], "events:contracts", mockProject);
+			expect(loadEventContracts).toHaveBeenCalled();
+			expect(generateContractsJson).toHaveBeenCalled();
+			expect(disk.mkdirSync).toHaveBeenCalled();
+			expect(disk.writeFileSync).toHaveBeenCalledWith(
+				"/project/docs/events/contracts.json",
+				'{"contracts":[]}',
+				"utf-8",
+			);
+			expect(log).toHaveBeenCalledOnce();
+			const output = JSON.parse(vi.mocked(log).mock.calls[0][0] as string);
+			expect(output).toEqual({
+				relativePath: "/project/docs/events/contracts.json",
+				contractCount: 1,
+			});
+		});
+
+		it("uses custom --out path when provided", () => {
+			commands["events:contracts"]({ out: "custom/out.json" }, [], "events:contracts", mockProject);
+			expect(disk.writeFileSync).toHaveBeenCalledWith(
+				"/project/custom/out.json",
+				'{"contracts":[]}',
+				"utf-8",
+			);
+		});
+
+		it("returns empty message when no contracts found", () => {
+			vi.mocked(loadEventContracts).mockReturnValueOnce([]);
+			commands["events:contracts"]({ format: "json" }, [], "events:contracts", mockProject);
+			expect(log).toHaveBeenCalledOnce();
+			const output = JSON.parse(vi.mocked(log).mock.calls[0][0] as string);
+			expect(output).toEqual({ message: "No events found in docs/events/." });
+			expect(generateContractsJson).not.toHaveBeenCalled();
+		});
+
+		it("does nothing when no project", () => {
+			commands["events:contracts"]({}, [], "events:contracts", undefined);
+			expect(loadEventContracts).not.toHaveBeenCalled();
+		});
+
+		it("calls renderer in default format", () => {
+			commands["events:contracts"]({}, [], "events:contracts", mockProject);
+			expect(renderContractsGenerated).toHaveBeenCalled();
+		});
+	});
+
+	// ── events:codegen ───────────────────────────────────────────
+	describe("events:codegen", () => {
+		it("generates TypeScript types and writes to default path", () => {
+			commands["events:codegen"]({ format: "json" }, [], "events:codegen", mockProject);
+			expect(loadEventContracts).toHaveBeenCalled();
+			expect(generateEventTypes).toHaveBeenCalled();
+			expect(disk.mkdirSync).toHaveBeenCalled();
+			expect(disk.writeFileSync).toHaveBeenCalledWith(
+				"/project/src/generated/event-types.ts",
+				"export type Events = {};",
+				"utf-8",
+			);
+			expect(log).toHaveBeenCalledOnce();
+			const output = JSON.parse(vi.mocked(log).mock.calls[0][0] as string);
+			expect(output).toEqual({
+				relativePath: "/project/src/generated/event-types.ts",
+				contractCount: 1,
+			});
+		});
+
+		it("uses custom --out path when provided", () => {
+			commands["events:codegen"]({ out: "custom/types.ts" }, [], "events:codegen", mockProject);
+			expect(disk.writeFileSync).toHaveBeenCalledWith(
+				"/project/custom/types.ts",
+				"export type Events = {};",
+				"utf-8",
+			);
+		});
+
+		it("returns empty message when no contracts found", () => {
+			vi.mocked(loadEventContracts).mockReturnValueOnce([]);
+			commands["events:codegen"]({ format: "json" }, [], "events:codegen", mockProject);
+			expect(log).toHaveBeenCalledOnce();
+			const output = JSON.parse(vi.mocked(log).mock.calls[0][0] as string);
+			expect(output).toEqual({ message: "No events found in docs/events/." });
+			expect(generateEventTypes).not.toHaveBeenCalled();
+		});
+
+		it("does nothing when no project", () => {
+			commands["events:codegen"]({}, [], "events:codegen", undefined);
+			expect(loadEventContracts).not.toHaveBeenCalled();
+		});
+
+		it("creates output directory recursively", () => {
+			commands["events:codegen"]({}, [], "events:codegen", mockProject);
+			expect(disk.mkdirSync).toHaveBeenCalledWith(
+				"/project/src/generated",
+				{ recursive: true },
+			);
+		});
+
+		it("calls renderer in default format", () => {
+			commands["events:codegen"]({}, [], "events:codegen", mockProject);
+			expect(renderCodegenGenerated).toHaveBeenCalled();
 		});
 	});
 });

@@ -56,17 +56,17 @@ function resolveJourneysDir(p: ProjectContext, pathsPort: IPaths): string {
 
 const actions: Record<string, ControllerAction> = {
 	review: (req) => {
-		const { shell } = req.deps;
+		const { shell, log } = req.deps;
 		const cmd = req.project?.config.review?.runner ?? "npm test";
 		const exitCode = shell.run(cmd, { cwd: req.project?.path, label: "Starting review session..." });
 		const model: ShellCommandModel = { command: cmd, exitCode, label: "review" };
-		return dataResponse(model, renderShellCommand);
+		return dataResponse(model, (d) => renderShellCommand(log, d));
 	},
 	"review:all": (req) => {
 		if (!req.project) return;
 		const { shell } = req.deps;
 		const model = runGatedPipeline(req.project, shell);
-		return dataResponse(model, renderPipelineResult);
+		return dataResponse(model, (d) => renderPipelineResult(d, req.deps.log));
 	},
 	"review:clean": (req) => {
 		if (!req.project) return;
@@ -79,12 +79,12 @@ const actions: Record<string, ControllerAction> = {
 		}
 
 		const model: ReviewCleanModel = { removed: exists, vaultPath };
-		return dataResponse(model, renderReviewClean);
+		return dataResponse(model, (d) => renderReviewClean(d, req.deps.log));
 	},
 	"review:e2e": async (req) => {
 		if (req.format === "json") {
 			const model: InteractiveOnlyModel = { command: "review:e2e", error: "E2E suite is interactive and cannot produce JSON output." };
-			return dataResponse(model, renderInteractiveOnly);
+			return dataResponse(model, (d) => renderInteractiveOnly(req.deps.log, d));
 		}
 		const { disk, shell, paths, proc, log } = req.deps;
 		const journeyFilter = typeof req.flags.journey === "string" ? req.flags.journey : undefined;
@@ -93,10 +93,10 @@ const actions: Record<string, ControllerAction> = {
 	"review:e2e:list": async (req) => {
 		if (req.format === "json") {
 			const model: InteractiveOnlyModel = { command: "review:e2e:list", error: "Interactive session list cannot produce JSON output." };
-			return dataResponse(model, renderInteractiveOnly);
+			return dataResponse(model, (d) => renderInteractiveOnly(req.deps.log, d));
 		}
 		const { disk, paths, proc } = req.deps;
-		await startInteractiveSession(interactiveSession, PLUGIN_ROOT, VAULT_ROOT, { disk, paths, proc });
+		await startInteractiveSession((e2e) => interactiveSession(e2e, req.deps), PLUGIN_ROOT, VAULT_ROOT, { disk, paths, proc });
 	},
 	"review:changes": (req) => {
 		if (!req.project) return;
@@ -108,7 +108,7 @@ const actions: Record<string, ControllerAction> = {
 		const projectLabel = req.project.config.name ?? paths.basename(req.project.path);
 		const model: ChangeAnalysisModel = { projectLabel, impact };
 
-		return dataResponse(model, renderChangeAnalysis);
+		return dataResponse(model, (d) => renderChangeAnalysis(d, req.deps.log));
 	},
 
 	// ── New Review Platform commands ─────────────────────────────
@@ -138,7 +138,7 @@ const actions: Record<string, ControllerAction> = {
 		);
 
 		const model: TraceabilityModel = { matrix, validation, projectLabel: req.project.config.name ?? "" };
-		return dataResponse(model, renderTraceabilityMatrix);
+		return dataResponse(model, (d) => renderTraceabilityMatrix(d, req.deps.log));
 	},
 
 	"review:coverage": (req) => {
@@ -160,7 +160,7 @@ const actions: Record<string, ControllerAction> = {
 		const byCategory = coverageByCategory(matrix);
 
 		const model: CoverageModel = { matrix, gaps, byCategory, projectLabel: req.project.config.name ?? "" };
-		return dataResponse(model, renderCoverageReport);
+		return dataResponse(model, (d) => renderCoverageReport(d, req.deps.log));
 	},
 
 	"review:gates": (req) => {
@@ -168,13 +168,13 @@ const actions: Record<string, ControllerAction> = {
 		const gateConfig = req.project.config.review?.gates;
 		if (!gateConfig) {
 			const model: GateResultModel = { evaluation: null, projectLabel: req.project.config.name ?? "", message: "No quality gates configured in review.gates" };
-			return dataResponse(model, renderGateResult);
+			return dataResponse(model, (d) => renderGateResult(d, req.deps.log));
 		}
 
 		// Gates require run results — for now evaluate against empty results (dry-run mode)
 		const evaluation = evaluateGates(gateConfig, []);
 		const model: GateResultModel = { evaluation, projectLabel: req.project.config.name ?? "" };
-		return dataResponse(model, renderGateResult);
+		return dataResponse(model, (d) => renderGateResult(d, req.deps.log));
 	},
 
 	"review:evidence": (req) => {
@@ -182,7 +182,7 @@ const actions: Record<string, ControllerAction> = {
 		const { disk, paths } = req.deps;
 		const runs = listRuns({ disk, paths }, req.project.path, req.project.config.review?.evidenceDir);
 		const model: EvidenceListModel = { runs, projectLabel: req.project.config.name ?? "" };
-		return dataResponse(model, renderEvidenceList);
+		return dataResponse(model, (d) => renderEvidenceList(d, req.deps.log));
 	},
 };
 

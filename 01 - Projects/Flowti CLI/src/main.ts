@@ -52,7 +52,7 @@ import { commands as requirementsCmds } from "./controller/requirements.controll
 import { commands as capaCmds } from "./controller/capa.controller.js";
 import { commands as lifecycleCmds } from "./controller/lifecycle.controller.js";
 import { commands as projectCmds } from "./controller/project.controller.js";
-import { commands as projectDepsCmds } from "./ui/displays/deps-display.js";
+import { createCommands as createProjectDepsCmds } from "./ui/displays/deps-display.js";
 import { commands as pluginCmds } from "./controller/plugins.controller.js";
 import { commands as aiToolsCmds } from "./controller/ai-tools.controller.js";
 import { commands as sitemapCmds } from "./controller/sitemap.controller.js";
@@ -99,7 +99,7 @@ registry.registerDomain({ domain: "requirements", commands: requirementsCmds });
 registry.registerDomain({ domain: "capa",         commands: capaCmds });
 registry.registerDomain({ domain: "lifecycle",     commands: lifecycleCmds });
 registry.registerDomain({ domain: "scaffold", commands: scaffoldCmds, projectFree: ["scaffold:new", "scaffold:list", "scaffold:marketplace", "marketplace:export", "marketplace:import-bundle"] });
-registry.registerDomain({ domain: "project",  commands: { ...projectCmds, ...projectDepsCmds },  projectFree: ["project", "project:deps"] });
+registry.registerDomain({ domain: "project",  commands: { ...projectCmds, ...createProjectDepsCmds({ disk, paths, log }) },  projectFree: ["project", "project:deps"] });
 registry.registerDomain({ domain: "plugins",  commands: pluginCmds,  projectFree: ["plugin:list", "plugin:validate", "plugin:new", "plugin:reference"] });
 registry.registerDomain({ domain: "ai-tools", commands: aiToolsCmds, projectFree: ["ai:list", "ai:validate", "ai:new", "ai:reference", "ai:run"] });
 registry.registerDomain({ domain: "sitemap", commands: sitemapCmds, projectFree: ["sitemap:validate", "sitemap:status", "sitemap:views"] });
@@ -203,7 +203,7 @@ async function handleCliArgs(): Promise<boolean> {
 
 	switch (result.action) {
 		case "help":
-			showHelp(result.section);
+			showHelp(result.section, { disk, paths, log });
 			return true;
 		case "run":
 			await result.handler(flags, rawArgs, result.command, result.project);
@@ -237,6 +237,7 @@ function createRouter(deps: ReturnType<typeof createDefaultDeps>): SitemapRouter
 
 	if (!loadResult.ok || !loadResult.sitemap) {
 		for (const err of loadResult.errors) error(`  ${RED}Sitemap: ${err}${RESET}`);
+		for (const w of loadResult.warnings) error(`  ${YELLOW}Sitemap warning: ${w}${RESET}`);
 		throw new CliError("Failed to load sitemap.json", "Check configs/sitemap.json for syntax errors.");
 	}
 

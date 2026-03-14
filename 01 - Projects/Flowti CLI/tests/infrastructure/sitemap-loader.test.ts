@@ -4,19 +4,25 @@ import type { IFileSystem } from "../../src/infrastructure/types.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
-function validSitemap(views: Record<string, unknown> = {}): unknown {
+function validPage(overrides: Record<string, unknown> = {}): Record<string, unknown> {
 	return {
-		version: 1,
-		views: {
-			start: {
-				title: "Start",
-				items: [
-					{ type: "item", key: "1", label: "Go", navigate: "start" },
-					{ type: "separator" },
-					{ type: "item", key: "q", label: "Quit", signal: "quit" },
-				],
-			},
-			...views,
+		kind: "page",
+		label: "Start",
+		description: "The start page",
+		actions: [
+			{ name: "onNavigate", label: "Go", type: "navigate", target: "start", key: "1" },
+			{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" },
+		],
+		...overrides,
+	};
+}
+
+function validSitemap(pages: Record<string, unknown> = {}): unknown {
+	return {
+		version: 2,
+		pages: {
+			start: validPage(),
+			...pages,
 		},
 	};
 }
@@ -41,8 +47,9 @@ describe("validateSitemap", () => {
 		const result = validateSitemap(validSitemap());
 		expect(result.ok).toBe(true);
 		expect(result.errors).toEqual([]);
-		expect(result.sitemap?.version).toBe(1);
-		expect(Object.keys(result.sitemap!.views)).toContain("start");
+		expect(result.warnings).toEqual([]);
+		expect(result.sitemap?.version).toBe(2);
+		expect(Object.keys(result.sitemap!.pages)).toContain("start");
 	});
 
 	it("rejects non-object", () => {
@@ -52,218 +59,183 @@ describe("validateSitemap", () => {
 	});
 
 	it("rejects wrong version", () => {
-		const result = validateSitemap({ version: 2, views: { s: { title: "S", items: [{ type: "item", key: "q", label: "Q", signal: "quit" }] } } });
+		const result = validateSitemap({
+			version: 1,
+			pages: { s: validPage() },
+		});
 		expect(result.ok).toBe(false);
 		expect(result.errors[0]).toContain("version");
 	});
 
-	it("rejects missing views", () => {
-		const result = validateSitemap({ version: 1 });
+	it("rejects missing pages", () => {
+		const result = validateSitemap({ version: 2 });
 		expect(result.ok).toBe(false);
-		expect(result.errors[0]).toContain("views");
+		expect(result.errors.some((e) => e.includes("pages"))).toBe(true);
 	});
 
-	it("rejects empty views", () => {
-		const result = validateSitemap({ version: 1, views: {} });
+	it("rejects null input", () => {
+		const result = validateSitemap(null);
 		expect(result.ok).toBe(false);
-		expect(result.errors[0]).toContain("at least one view");
+		expect(result.errors[0]).toContain("JSON object");
 	});
 
-	// ── View validation ───────────────────────────────────────────
+	it("rejects array input", () => {
+		const result = validateSitemap([1, 2, 3]);
+		expect(result.ok).toBe(false);
+		expect(result.errors[0]).toContain("JSON object");
+	});
 
-	it("rejects view with missing title", () => {
+	it("returns warnings field on valid sitemap", () => {
+		const result = validateSitemap(validSitemap());
+		expect(result).toHaveProperty("warnings");
+		expect(Array.isArray(result.warnings)).toBe(true);
+	});
+
+	// ── Page identity validation ─────────────────────────────────
+
+	it("rejects page with missing kind", () => {
 		const result = validateSitemap({
-			version: 1,
-			views: { bad: { items: [{ type: "item", key: "q", label: "Q", signal: "quit" }] } },
+			version: 2,
+			pages: { bad: { label: "Bad", description: "No kind", actions: [] } },
 		});
 		expect(result.ok).toBe(false);
-		expect(result.errors.some((e) => e.includes("title"))).toBe(true);
+		expect(result.errors.some((e) => e.includes("kind"))).toBe(true);
 	});
 
-	it("rejects unknown view type", () => {
+	it("rejects page with unknown kind", () => {
 		const result = validateSitemap({
-			version: 1,
-			views: { bad: { type: "wizard", title: "Bad", items: [] } },
+			version: 2,
+			pages: { bad: { kind: "wizard", label: "Bad", description: "Unknown kind", actions: [] } },
 		});
 		expect(result.ok).toBe(false);
-		expect(result.errors.some((e) => e.includes("unknown type"))).toBe(true);
+		expect(result.errors.some((e) => e.includes("unknown kind"))).toBe(true);
 	});
 
-	it("accepts dynamic view with handler", () => {
+	it("rejects page with missing label", () => {
 		const result = validateSitemap({
-			version: 1,
-			views: { comp: { type: "dynamic", title: "Components", handler: "component-list" } },
-		});
-		expect(result.ok).toBe(true);
-	});
-
-	it("rejects dynamic view without handler", () => {
-		const result = validateSitemap({
-			version: 1,
-			views: { comp: { type: "dynamic", title: "Components" } },
+			version: 2,
+			pages: { bad: { kind: "page", description: "No label", actions: [] } },
 		});
 		expect(result.ok).toBe(false);
-		expect(result.errors.some((e) => e.includes("handler"))).toBe(true);
+		expect(result.errors.some((e) => e.includes("label"))).toBe(true);
 	});
 
-	it("rejects unknown context value", () => {
+	it("rejects page with empty label", () => {
 		const result = validateSitemap({
-			version: 1,
-			views: { v: { title: "V", context: ["user"], items: [{ type: "item", key: "q", label: "Q", signal: "quit" }] } },
+			version: 2,
+			pages: { bad: { kind: "page", label: "", description: "Empty label", actions: [] } },
 		});
 		expect(result.ok).toBe(false);
-		expect(result.errors.some((e) => e.includes("unknown context"))).toBe(true);
+		expect(result.errors.some((e) => e.includes("label"))).toBe(true);
 	});
 
-	// ── Item validation ─────────────────────────────────────────────
-
-	it("rejects item with no action", () => {
+	it("rejects page with missing description", () => {
 		const result = validateSitemap({
-			version: 1,
-			views: { v: { title: "V", items: [{ type: "item", key: "1", label: "No action" }] } },
+			version: 2,
+			pages: { bad: { kind: "page", label: "Bad", actions: [] } },
 		});
 		expect(result.ok).toBe(false);
-		expect(result.errors.some((e) => e.includes("exactly one action"))).toBe(true);
+		expect(result.errors.some((e) => e.includes("description"))).toBe(true);
 	});
 
-	it("rejects item with multiple actions", () => {
+	it("rejects page with missing actions", () => {
 		const result = validateSitemap({
-			version: 1,
-			views: { v: { title: "V", items: [{ type: "item", key: "1", label: "Multi", navigate: "v", command: "build" }] } },
+			version: 2,
+			pages: { bad: { kind: "page", label: "Bad", description: "No actions" } },
 		});
 		expect(result.ok).toBe(false);
-		expect(result.errors.some((e) => e.includes("multiple actions"))).toBe(true);
+		expect(result.errors.some((e) => e.includes("actions"))).toBe(true);
 	});
 
-	it("rejects navigate to unknown view", () => {
+	it("rejects page with non-array actions", () => {
 		const result = validateSitemap({
-			version: 1,
-			views: { v: { title: "V", items: [{ type: "item", key: "1", label: "Go", navigate: "nowhere" }] } },
+			version: 2,
+			pages: { bad: { kind: "page", label: "Bad", description: "Bad actions", actions: "not-an-array" } },
 		});
 		expect(result.ok).toBe(false);
-		expect(result.errors.some((e) => e.includes("unknown view"))).toBe(true);
+		expect(result.errors.some((e) => e.includes("actions"))).toBe(true);
 	});
 
-	it("rejects invalid signal value", () => {
-		const result = validateSitemap({
-			version: 1,
-			views: { v: { title: "V", items: [{ type: "item", key: "1", label: "Bad", signal: "nope" }] } },
-		});
-		expect(result.ok).toBe(false);
-		expect(result.errors.some((e) => e.includes('"signal" must be'))).toBe(true);
+	it("accepts all valid page kinds", () => {
+		const kinds = [
+			"page", "form", "layout", "dialog", "list",
+			"component", "ui-component",
+			"system", "container", "c4-component", "person",
+		];
+		for (const kind of kinds) {
+			const page: Record<string, unknown> = {
+				kind,
+				label: `${kind} page`,
+				description: `A ${kind} page`,
+				actions: [],
+			};
+			if (kind === "form") {
+				page.fields = [{ name: "f1", label: "Field 1", type: "text" }];
+			}
+			const result = validateSitemap({
+				version: 2,
+				pages: { test: page },
+			});
+			expect(result.ok).toBe(true);
+		}
 	});
 
-	it("rejects duplicate keys within a view", () => {
+	// ── Action validation ────────────────────────────────────────
+
+	it("rejects action with missing name", () => {
 		const result = validateSitemap({
-			version: 1,
-			views: {
+			version: 2,
+			pages: {
 				v: {
-					title: "V",
-					items: [
-						{ type: "item", key: "1", label: "A", signal: "quit" },
-						{ type: "item", key: "1", label: "B", signal: "back" },
-					],
+					kind: "page", label: "V", description: "Test",
+					actions: [{ label: "Go", type: "navigate", target: "v" }],
 				},
 			},
 		});
 		expect(result.ok).toBe(false);
-		expect(result.errors.some((e) => e.includes('duplicate key "1"'))).toBe(true);
+		expect(result.errors.some((e) => e.includes("name"))).toBe(true);
 	});
 
-	it("accepts all action types", () => {
+	it("rejects action with missing label", () => {
 		const result = validateSitemap({
-			version: 1,
-			views: {
+			version: 2,
+			pages: {
 				v: {
-					title: "V",
-					items: [
-						{ type: "item", key: "1", label: "Nav", navigate: "v" },
-						{ type: "item", key: "2", label: "Cmd", command: "build" },
-						{ type: "item", key: "3", label: "Handler", handler: "my:action" },
-						{ type: "item", key: "4", label: "Signal", signal: "back" },
-						{ type: "separator" },
-					],
+					kind: "page", label: "V", description: "Test",
+					actions: [{ name: "onGo", type: "navigate", target: "v" }],
 				},
 			},
 		});
-		expect(result.ok).toBe(true);
+		expect(result.ok).toBe(false);
+		expect(result.errors.some((e) => e.includes("label"))).toBe(true);
 	});
 
-	it("accepts disabled conditions in all forms", () => {
+	it("rejects action with invalid type", () => {
 		const result = validateSitemap({
-			version: 1,
-			views: {
+			version: 2,
+			pages: {
 				v: {
-					title: "V",
-					items: [
-						{ type: "item", key: "1", label: "A", signal: "quit", disabled: true },
-						{ type: "item", key: "2", label: "B", signal: "back", disabled: "my:condition" },
-						{ type: "item", key: "3", label: "C", command: "x", disabled: { unless: "tools.esbuild" } },
-					],
+					kind: "page", label: "V", description: "Test",
+					actions: [{ name: "onGo", label: "Go", type: "teleport", target: "v" }],
 				},
 			},
 		});
-		expect(result.ok).toBe(true);
+		expect(result.ok).toBe(false);
+		expect(result.errors.some((e) => e.includes("type"))).toBe(true);
 	});
 
-	// ── Auto-index keys ─────────────────────────────────────────────
-
-	it("auto-assigns numeric keys to items without explicit key", () => {
+	it("accepts all valid action types", () => {
 		const result = validateSitemap({
-			version: 1,
-			views: {
+			version: 2,
+			pages: {
 				v: {
-					title: "V",
-					items: [
-						{ type: "item", label: "Alpha", signal: "quit" },
-						{ type: "item", label: "Beta", signal: "back" },
-						{ type: "separator" },
-						{ type: "item", label: "Gamma", handler: "my:action" },
-					],
-				},
-			},
-		});
-		expect(result.ok).toBe(true);
-		const items = result.sitemap!.views.v.items!;
-		expect(items[0]).toHaveProperty("key", "1");
-		expect(items[1]).toHaveProperty("key", "2");
-		expect(items[3]).toHaveProperty("key", "3");
-	});
-
-	it("skips already-taken keys when auto-indexing", () => {
-		const result = validateSitemap({
-			version: 1,
-			views: {
-				v: {
-					title: "V",
-					items: [
-						{ type: "item", key: "1", label: "Explicit", signal: "quit" },
-						{ type: "item", label: "Auto", signal: "back" },
-					],
-				},
-			},
-		});
-		expect(result.ok).toBe(true);
-		const items = result.sitemap!.views.v.items!;
-		expect(items[0]).toHaveProperty("key", "1");
-		expect(items[1]).toHaveProperty("key", "2");
-	});
-
-	// ── Dynamic view with items (hybrid) ────────────────────────────
-
-	it("accepts dynamic view with items (hybrid mode)", () => {
-		const result = validateSitemap({
-			version: 1,
-			views: {
-				comp: {
-					type: "dynamic",
-					title: "Components",
-					handler: "components",
-					items: [
-						{ type: "slot", slot: "component-list" },
-						{ type: "separator" },
-						{ type: "item", key: "c", label: "Add", handler: "comp:add" },
-						{ type: "item", key: "b", label: "Back", signal: "back" },
+					kind: "page", label: "V", description: "Test",
+					actions: [
+						{ name: "onNav", label: "Nav", type: "navigate", target: "v", key: "1" },
+						{ name: "onHandle", label: "Handle", type: "handler", target: "my:action", key: "2" },
+						{ name: "onCmd", label: "Cmd", type: "command", target: "build", key: "3" },
+						{ name: "onSignal", label: "Signal", type: "signal", target: "back", key: "4" },
+						{ name: "onForm", label: "Form", type: "form", target: "v", key: "5" },
 					],
 				},
 			},
@@ -271,49 +243,60 @@ describe("validateSitemap", () => {
 		expect(result.ok).toBe(true);
 	});
 
-	it("validates items on dynamic views", () => {
+	it("warns on navigate target to unknown page", () => {
 		const result = validateSitemap({
-			version: 1,
-			views: {
-				comp: {
-					type: "dynamic",
-					title: "Components",
-					handler: "components",
-					items: [
-						{ type: "item", key: "1", label: "A" },  // missing action
+			version: 2,
+			pages: {
+				v: {
+					kind: "page", label: "V", description: "Test",
+					actions: [{ name: "onGo", label: "Go", type: "navigate", target: "nowhere" }],
+				},
+			},
+		});
+		// navigate to unknown page produces a warning, not an error
+		expect(result.warnings.some((w) => w.includes("nowhere"))).toBe(true);
+	});
+
+	it("rejects invalid signal target", () => {
+		const result = validateSitemap({
+			version: 2,
+			pages: {
+				v: {
+					kind: "page", label: "V", description: "Test",
+					actions: [{ name: "onBad", label: "Bad", type: "signal", target: "nope" }],
+				},
+			},
+		});
+		expect(result.ok).toBe(false);
+		expect(result.errors.some((e) => e.includes("signal"))).toBe(true);
+	});
+
+	it("warns on duplicate action keys within a page", () => {
+		const result = validateSitemap({
+			version: 2,
+			pages: {
+				v: {
+					kind: "page", label: "V", description: "Test",
+					actions: [
+						{ name: "onA", label: "A", type: "signal", target: "quit", key: "1" },
+						{ name: "onB", label: "B", type: "signal", target: "back", key: "1" },
 					],
 				},
 			},
 		});
-		expect(result.ok).toBe(false);
-		expect(result.errors.some((e) => e.includes("exactly one action"))).toBe(true);
+		expect(result.warnings.some((w) => w.includes("duplicate key"))).toBe(true);
 	});
 
-	it("rejects dynamic view with non-array items", () => {
+	it("accepts actions with disabled conditions in all forms", () => {
 		const result = validateSitemap({
-			version: 1,
-			views: {
-				comp: {
-					type: "dynamic",
-					title: "Components",
-					handler: "components",
-					items: "not-an-array",
-				},
-			},
-		});
-		expect(result.ok).toBe(false);
-		expect(result.errors.some((e) => e.includes("array"))).toBe(true);
-	});
-
-	it("accepts slot entries in items", () => {
-		const result = validateSitemap({
-			version: 1,
-			views: {
+			version: 2,
+			pages: {
 				v: {
-					title: "V",
-					items: [
-						{ type: "slot", slot: "dynamic-content" },
-						{ type: "item", key: "b", label: "Back", signal: "back" },
+					kind: "page", label: "V", description: "Test",
+					actions: [
+						{ name: "onA", label: "A", type: "signal", target: "quit", disabled: true, key: "1" },
+						{ name: "onB", label: "B", type: "signal", target: "back", disabled: "my:condition", key: "2" },
+						{ name: "onC", label: "C", type: "command", target: "x", disabled: { unless: "tools.esbuild" }, key: "3" },
 					],
 				},
 			},
@@ -321,15 +304,15 @@ describe("validateSitemap", () => {
 		expect(result.ok).toBe(true);
 	});
 
-	it("accepts listProvider entries in items", () => {
+	it("accepts actions with hidden conditions", () => {
 		const result = validateSitemap({
-			version: 1,
-			views: {
+			version: 2,
+			pages: {
 				v: {
-					title: "V",
-					items: [
-						{ type: "listProvider", listProvider: "make:templates" },
-						{ type: "item", key: "b", label: "Back", signal: "back" },
+					kind: "page", label: "V", description: "Test",
+					actions: [
+						{ name: "onA", label: "A", type: "signal", target: "quit", hidden: true, key: "1" },
+						{ name: "onB", label: "B", type: "signal", target: "back", hidden: "my:condition", key: "2" },
 					],
 				},
 			},
@@ -337,38 +320,229 @@ describe("validateSitemap", () => {
 		expect(result.ok).toBe(true);
 	});
 
-	it("rejects empty listProvider name", () => {
+	it("accepts actions with group property", () => {
 		const result = validateSitemap({
-			version: 1,
-			views: {
+			version: 2,
+			pages: {
 				v: {
-					title: "V",
-					items: [
-						{ type: "listProvider", listProvider: "" },
-						{ type: "item", key: "b", label: "Back", signal: "back" },
+					kind: "page", label: "V", description: "Test",
+					actions: [
+						{ name: "onA", label: "A", type: "handler", target: "do:thing", group: "primary", key: "1" },
+						{ name: "onB", label: "B", type: "signal", target: "back", group: "nav", key: "2" },
 					],
 				},
 			},
 		});
-		expect(result.ok).toBe(false);
-		expect(result.errors.some((e) => e.includes("listProvider"))).toBe(true);
+		expect(result.ok).toBe(true);
 	});
 
-	it("rejects empty slot name", () => {
+	it("rejects non-object action entries", () => {
 		const result = validateSitemap({
-			version: 1,
-			views: {
+			version: 2,
+			pages: {
 				v: {
-					title: "V",
-					items: [
-						{ type: "slot", slot: "" },
-						{ type: "item", key: "b", label: "Back", signal: "back" },
-					],
+					kind: "page", label: "V", description: "Test",
+					actions: ["not-an-object"],
 				},
 			},
 		});
 		expect(result.ok).toBe(false);
-		expect(result.errors.some((e) => e.includes("slot"))).toBe(true);
+		expect(result.errors.some((e) => e.includes("object"))).toBe(true);
+	});
+
+	// ── Navigation / context validation ─────────────────────────
+
+	it("accepts valid context values", () => {
+		const result = validateSitemap({
+			version: 2,
+			pages: {
+				v: {
+					kind: "page", label: "V", description: "Test",
+					context: ["project"],
+					actions: [],
+				},
+			},
+		});
+		expect(result.ok).toBe(true);
+	});
+
+	it("rejects invalid context values", () => {
+		const result = validateSitemap({
+			version: 2,
+			pages: {
+				v: {
+					kind: "page", label: "V", description: "Test",
+					context: ["user"],
+					actions: [],
+				},
+			},
+		});
+		expect(result.ok).toBe(false);
+		expect(result.errors.some((e) => e.includes("context"))).toBe(true);
+	});
+
+	it("warns on parent referencing unknown page", () => {
+		const result = validateSitemap({
+			version: 2,
+			pages: {
+				v: {
+					kind: "page", label: "V", description: "Test",
+					parent: "nonexistent",
+					actions: [],
+				},
+			},
+		});
+		expect(result.warnings.some((w) => w.includes("parent"))).toBe(true);
+	});
+
+	it("accepts valid parent reference", () => {
+		const result = validateSitemap({
+			version: 2,
+			pages: {
+				parent: validPage(),
+				child: validPage({ parent: "parent" }),
+			},
+		});
+		expect(result.ok).toBe(true);
+	});
+
+	// ── Form page validation ────────────────────────────────────
+
+	it("rejects form page without fields", () => {
+		const result = validateSitemap({
+			version: 2,
+			pages: {
+				f: {
+					kind: "form", label: "My Form", description: "A form",
+					actions: [],
+				},
+			},
+		});
+		expect(result.ok).toBe(false);
+		expect(result.errors.some((e) => e.includes("fields"))).toBe(true);
+	});
+
+	it("accepts form page with fields", () => {
+		const result = validateSitemap({
+			version: 2,
+			pages: {
+				f: {
+					kind: "form", label: "My Form", description: "A form",
+					actions: [{ name: "onSubmit", label: "Submit", type: "handler", target: "form:submit" }],
+					fields: [
+						{ name: "title", label: "Title", type: "text" },
+						{ name: "count", label: "Count", type: "number" },
+					],
+				},
+			},
+		});
+		expect(result.ok).toBe(true);
+	});
+
+	it("warns when fields defined on non-form page", () => {
+		const result = validateSitemap({
+			version: 2,
+			pages: {
+				v: {
+					kind: "page", label: "V", description: "Not a form",
+					actions: [],
+					fields: [{ name: "f1", label: "F1", type: "text" }],
+				},
+			},
+		});
+		expect(result.warnings.some((w) => w.includes("fields"))).toBe(true);
+	});
+
+	// ── Children validation ─────────────────────────────────────
+
+	it("accepts page with children references", () => {
+		const result = validateSitemap({
+			version: 2,
+			pages: {
+				layout: {
+					kind: "layout", label: "Main Layout", description: "The main layout",
+					actions: [],
+					children: [{ ref: "sidebar" }],
+				},
+				sidebar: validPage({ kind: "component", label: "Sidebar", description: "Side panel" }),
+			},
+		});
+		expect(result.ok).toBe(true);
+	});
+
+	it("rejects non-array children", () => {
+		const result = validateSitemap({
+			version: 2,
+			pages: {
+				v: {
+					kind: "page", label: "V", description: "Bad children",
+					actions: [],
+					children: "not-an-array",
+				},
+			},
+		});
+		expect(result.ok).toBe(false);
+		expect(result.errors.some((e) => e.includes("children"))).toBe(true);
+	});
+
+	// ── DataSources validation ──────────────────────────────────
+
+	it("accepts page with dataSources", () => {
+		const result = validateSitemap({
+			version: 2,
+			pages: {
+				v: {
+					kind: "page", label: "V", description: "With data sources",
+					actions: [],
+					dataSources: [{ id: "make:templates", slot: "templates" }],
+				},
+			},
+		});
+		expect(result.ok).toBe(true);
+	});
+
+	it("rejects non-array dataSources", () => {
+		const result = validateSitemap({
+			version: 2,
+			pages: {
+				v: {
+					kind: "page", label: "V", description: "Bad data sources",
+					actions: [],
+					dataSources: "not-an-array",
+				},
+			},
+		});
+		expect(result.ok).toBe(false);
+		expect(result.errors.some((e) => e.includes("dataSources"))).toBe(true);
+	});
+
+	// ── Lifecycle hooks ─────────────────────────────────────────
+
+	it("accepts page with lifecycle hooks", () => {
+		const result = validateSitemap({
+			version: 2,
+			pages: {
+				v: {
+					kind: "page", label: "V", description: "With hooks",
+					actions: [],
+					onBeforeRender: "my:beforeRender",
+					onNavigate: "my:navigate",
+					onLeave: "my:leave",
+				},
+			},
+		});
+		expect(result.ok).toBe(true);
+	});
+
+	// ── Page with non-object entry ──────────────────────────────
+
+	it("rejects non-object page entry", () => {
+		const result = validateSitemap({
+			version: 2,
+			pages: { bad: "not-an-object" },
+		});
+		expect(result.ok).toBe(false);
+		expect(result.errors.some((e) => e.includes("object"))).toBe(true);
 	});
 });
 
@@ -380,6 +554,7 @@ describe("loadSitemap", () => {
 		const result = loadSitemap("/sitemap.json", fs);
 		expect(result.ok).toBe(true);
 		expect(result.sitemap).toBeDefined();
+		expect(result.warnings).toEqual([]);
 	});
 
 	it("returns error for missing file", () => {
@@ -387,6 +562,7 @@ describe("loadSitemap", () => {
 		const result = loadSitemap("/nope.json", fs);
 		expect(result.ok).toBe(false);
 		expect(result.errors[0]).toContain("not found");
+		expect(result.warnings).toEqual([]);
 	});
 
 	it("returns error for invalid JSON", () => {
@@ -394,12 +570,30 @@ describe("loadSitemap", () => {
 		const result = loadSitemap("/sitemap.json", fs);
 		expect(result.ok).toBe(false);
 		expect(result.errors[0]).toContain("parse");
+		expect(result.warnings).toEqual([]);
 	});
 
 	it("returns validation errors for bad structure", () => {
-		const fs = stubFs({ "/sitemap.json": JSON.stringify({ version: 99, views: {} }) });
+		const fs = stubFs({ "/sitemap.json": JSON.stringify({ version: 99, pages: {} }) });
 		const result = loadSitemap("/sitemap.json", fs);
 		expect(result.ok).toBe(false);
 		expect(result.errors.length).toBeGreaterThan(0);
+	});
+
+	it("passes through warnings from validation", () => {
+		const sitemap = {
+			version: 2,
+			pages: {
+				v: {
+					kind: "page", label: "V", description: "Test",
+					parent: "nonexistent",
+					actions: [],
+				},
+			},
+		};
+		const fs = stubFs({ "/sitemap.json": JSON.stringify(sitemap) });
+		const result = loadSitemap("/sitemap.json", fs);
+		expect(result.ok).toBe(true);
+		expect(result.warnings.length).toBeGreaterThan(0);
 	});
 });

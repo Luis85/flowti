@@ -6,12 +6,10 @@
  */
 
 import { RESET, DIM, GREEN, RED, YELLOW } from "../../infrastructure/ui.js";
-import { log } from "../../infrastructure/logger.js";
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
 import type { ProjectContext } from "../../infrastructure/types.js";
 import { collectProjectStatus } from "../../domain/project/project-status.js";
 import type { BuildStatus, TestStatus } from "../../domain/project/project-status.js";
+import type { CliDeps } from "../../infrastructure/deps.js";
 
 // ── Formatters ───────────────────────────────────────────────────────
 
@@ -43,8 +41,8 @@ function formatTests(tests: TestStatus): string {
 
 // ── Banner renderer ──────────────────────────────────────────────────
 
-export function printProjectStatusBanner(ctx: ProjectContext): void {
-	const status = collectProjectStatus({ disk, paths }, ctx.path, ctx.config);
+export function printProjectStatusBanner(deps: Pick<CliDeps, "disk" | "paths" | "log">, ctx: ProjectContext): void {
+	const status = collectProjectStatus({ disk: deps.disk, paths: deps.paths }, ctx.path, ctx.config);
 
 	const parts: string[] = [];
 	if (status.build) parts.push(formatBuild(status.build));
@@ -53,6 +51,6 @@ export function printProjectStatusBanner(ctx: ProjectContext): void {
 
 	if (parts.length > 0) {
 		const sep = `  ${DIM}│${RESET}  `;
-		log(`  ${parts.join(sep)}`);
+		deps.log(`  ${parts.join(sep)}`);
 	}
 }

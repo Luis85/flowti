@@ -58,10 +58,46 @@ vi.mock("../../src/domain/review/change-analysis.js", () => ({
 		summary: "1 file added",
 	})),
 }));
+vi.mock("../../src/domain/review/run-e2e.js", () => ({
+	startInteractiveSession: vi.fn(),
+	runE2ESuite: vi.fn(),
+}));
+vi.mock("../../src/ui/e2e/e2e-interactive.js", () => ({
+	interactiveSession: vi.fn(),
+}));
+vi.mock("../../src/domain/review/traceability.js", () => ({
+	buildTraceabilityMatrix: vi.fn(() => []),
+	detectGaps: vi.fn(() => []),
+	validateTraceabilityLinks: vi.fn(() => ({ valid: true, errors: [] })),
+	coverageByCategory: vi.fn(() => ({})),
+}));
+vi.mock("../../src/domain/review/quality-gates.js", () => ({
+	evaluateGates: vi.fn(() => ({ passed: true, results: [] })),
+}));
+vi.mock("../../src/domain/review/evidence.js", () => ({
+	listRuns: vi.fn(() => [{ id: "run-1", date: "2026-01-01", status: "pass" }]),
+}));
+vi.mock("../../src/domain/e2e/journey/journey-loader.js", () => ({
+	loadAllJourneys: vi.fn(() => []),
+}));
+vi.mock("../../src/domain/requirements/requirement-store.js", () => ({
+	listRequirements: vi.fn(() => []),
+	listUseCases: vi.fn(() => []),
+	listUserStories: vi.fn(() => []),
+}));
 vi.mock("../../src/ui/displays/review-display.js", () => ({
 	renderChangeAnalysis: vi.fn(),
 	renderReviewClean: vi.fn(),
 	renderPipelineResult: vi.fn(),
+	renderGateResult: vi.fn(),
+	renderTraceabilityMatrix: vi.fn(),
+	renderCoverageReport: vi.fn(),
+	renderEvidenceList: vi.fn(),
+}));
+vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
+	renderShellCommand: vi.fn(),
+	renderInteractiveOnly: vi.fn(),
+	renderError: vi.fn(),
 }));
 
 // ── Imports ──────────────────────────────────────────────────────
@@ -73,8 +109,13 @@ import { disk } from "../../src/infrastructure/filesystem.js";
 import { paths } from "../../src/infrastructure/paths.js";
 import { proc } from "../../src/infrastructure/proc.js";
 import { log } from "../../src/infrastructure/logger.js";
-import { renderPipelineResult } from "../../src/ui/displays/review-display.js";
+import { renderPipelineResult, renderGateResult, renderTraceabilityMatrix, renderCoverageReport, renderEvidenceList } from "../../src/ui/displays/review-display.js";
 import { analyzeWorkingTree, analyzeBranchDiff } from "../../src/domain/review/change-analysis.js";
+import { buildTraceabilityMatrix, detectGaps, validateTraceabilityLinks, coverageByCategory } from "../../src/domain/review/traceability.js";
+import { evaluateGates } from "../../src/domain/review/quality-gates.js";
+import { listRuns } from "../../src/domain/review/evidence.js";
+import { loadAllJourneys } from "../../src/domain/e2e/journey/journey-loader.js";
+import { listRequirements, listUseCases, listUserStories } from "../../src/domain/requirements/requirement-store.js";
 
 const mockProject = {
 	name: "test",
@@ -161,6 +202,7 @@ describe("review.controller", () => {
 			expect(shell.run).toHaveBeenCalledTimes(1);
 			expect(renderPipelineResult).toHaveBeenCalledWith(
 				expect.objectContaining({ stoppedAt: "build", reason: "build failed" }),
+				expect.any(Function),
 			);
 		});
 
@@ -174,6 +216,7 @@ describe("review.controller", () => {
 			expect(shell.run).toHaveBeenCalledTimes(2);
 			expect(renderPipelineResult).toHaveBeenCalledWith(
 				expect.objectContaining({ stoppedAt: "test", reason: "tests failed" }),
+				expect.any(Function),
 			);
 		});
 	});
@@ -225,6 +268,179 @@ describe("review.controller", () => {
 
 			expect(analyzeBranchDiff).toHaveBeenCalledWith("/project", expect.any(Object), "main");
 			expect(analyzeWorkingTree).not.toHaveBeenCalled();
+		});
+	});
+
+	describe("review:traceability", () => {
+		it("does nothing without a project", () => {
+			commands["review:traceability"]({}, [], "review:traceability", undefined);
+			expect(loadAllJourneys).not.toHaveBeenCalled();
+		});
+
+		it("loads journeys, requirements, use cases, and user stories", () => {
+			commands["review:traceability"]({}, [], "review:traceability", mockProject);
+
+			expect(loadAllJourneys).toHaveBeenCalled();
+			expect(listRequirements).toHaveBeenCalledWith(expect.any(Object), "/project", undefined);
+			expect(listUseCases).toHaveBeenCalledWith(expect.any(Object), "/project", undefined);
+			expect(listUserStories).toHaveBeenCalledWith(expect.any(Object), "/project", undefined);
+		});
+
+		it("builds traceability matrix and validates links", () => {
+			commands["review:traceability"]({}, [], "review:traceability", mockProject);
+
+			expect(validateTraceabilityLinks).toHaveBeenCalled();
+			expect(buildTraceabilityMatrix).toHaveBeenCalled();
+			expect(renderTraceabilityMatrix).toHaveBeenCalled();
+		});
+
+		it("uses custom journeysDir from review config", () => {
+			const project = {
+				...mockProject,
+				config: { ...mockProject.config, review: { journeysDir: "custom/journeys" } },
+			};
+			commands["review:traceability"]({}, [], "review:traceability", project);
+
+			expect(loadAllJourneys).toHaveBeenCalledWith(
+				expect.any(Function),
+				expect.any(Function),
+				"/project/custom/journeys",
+			);
+		});
+
+		it("outputs JSON when format is json", () => {
+			commands["review:traceability"]({ format: "json" }, [], "review:traceability", mockProject);
+
+			expect(log).toHaveBeenCalledOnce();
+			const output = JSON.parse(vi.mocked(log).mock.calls[0][0] as string);
+			expect(output).toHaveProperty("matrix");
+			expect(output).toHaveProperty("validation");
+			expect(output).toHaveProperty("projectLabel");
+		});
+	});
+
+	describe("review:coverage", () => {
+		it("does nothing without a project", () => {
+			commands["review:coverage"]({}, [], "review:coverage", undefined);
+			expect(loadAllJourneys).not.toHaveBeenCalled();
+		});
+
+		it("loads journeys and requirements, detects gaps", () => {
+			commands["review:coverage"]({}, [], "review:coverage", mockProject);
+
+			expect(loadAllJourneys).toHaveBeenCalled();
+			expect(listRequirements).toHaveBeenCalled();
+			expect(buildTraceabilityMatrix).toHaveBeenCalled();
+			expect(detectGaps).toHaveBeenCalled();
+			expect(coverageByCategory).toHaveBeenCalled();
+			expect(renderCoverageReport).toHaveBeenCalled();
+		});
+
+		it("outputs JSON when format is json", () => {
+			commands["review:coverage"]({ format: "json" }, [], "review:coverage", mockProject);
+
+			expect(log).toHaveBeenCalledOnce();
+			const output = JSON.parse(vi.mocked(log).mock.calls[0][0] as string);
+			expect(output).toHaveProperty("matrix");
+			expect(output).toHaveProperty("gaps");
+			expect(output).toHaveProperty("byCategory");
+		});
+	});
+
+	describe("review:gates", () => {
+		it("does nothing without a project", () => {
+			commands["review:gates"]({}, [], "review:gates", undefined);
+			expect(evaluateGates).not.toHaveBeenCalled();
+		});
+
+		it("returns message when no gates configured", () => {
+			commands["review:gates"]({ format: "json" }, [], "review:gates", mockProject);
+
+			expect(evaluateGates).not.toHaveBeenCalled();
+			expect(log).toHaveBeenCalledOnce();
+			const output = JSON.parse(vi.mocked(log).mock.calls[0][0] as string);
+			expect(output).toEqual(expect.objectContaining({
+				evaluation: null,
+				message: "No quality gates configured in review.gates",
+			}));
+		});
+
+		it("evaluates gates when configured", () => {
+			const project = {
+				...mockProject,
+				config: {
+					...mockProject.config,
+					review: { gates: { coverage: { requirementCoverage: 80 } } },
+				},
+			};
+			commands["review:gates"]({}, [], "review:gates", project);
+
+			expect(evaluateGates).toHaveBeenCalledWith(
+				{ coverage: { requirementCoverage: 80 } },
+				[],
+			);
+			expect(renderGateResult).toHaveBeenCalled();
+		});
+
+		it("outputs JSON with evaluation result", () => {
+			const project = {
+				...mockProject,
+				config: {
+					...mockProject.config,
+					review: { gates: { coverage: { requirementCoverage: 80 } } },
+				},
+			};
+			commands["review:gates"]({ format: "json" }, [], "review:gates", project);
+
+			expect(log).toHaveBeenCalledOnce();
+			const output = JSON.parse(vi.mocked(log).mock.calls[0][0] as string);
+			expect(output).toHaveProperty("evaluation");
+			expect(output).toHaveProperty("projectLabel", "test");
+		});
+	});
+
+	describe("review:evidence", () => {
+		it("does nothing without a project", () => {
+			commands["review:evidence"]({}, [], "review:evidence", undefined);
+			expect(listRuns).not.toHaveBeenCalled();
+		});
+
+		it("lists evidence runs", () => {
+			commands["review:evidence"]({}, [], "review:evidence", mockProject);
+
+			expect(listRuns).toHaveBeenCalledWith(
+				expect.any(Object),
+				"/project",
+				undefined,
+			);
+			expect(renderEvidenceList).toHaveBeenCalled();
+		});
+
+		it("passes custom evidenceDir from config", () => {
+			const project = {
+				...mockProject,
+				config: {
+					...mockProject.config,
+					review: { evidenceDir: "custom/evidence" },
+				},
+			};
+			commands["review:evidence"]({}, [], "review:evidence", project);
+
+			expect(listRuns).toHaveBeenCalledWith(
+				expect.any(Object),
+				"/project",
+				"custom/evidence",
+			);
+		});
+
+		it("outputs JSON when format is json", () => {
+			commands["review:evidence"]({ format: "json" }, [], "review:evidence", mockProject);
+
+			expect(log).toHaveBeenCalledOnce();
+			const output = JSON.parse(vi.mocked(log).mock.calls[0][0] as string);
+			expect(output).toHaveProperty("runs");
+			expect(output).toHaveProperty("projectLabel", "test");
+			expect(output.runs).toHaveLength(1);
 		});
 	});
 });

@@ -21,7 +21,7 @@ const actions: Record<string, ControllerAction> = {
 	"raid:list": (req) => {
 		if (!req.project) return;
 		const items = listRAIDItems(req.deps, req.project.path, req.project.config.management?.raid);
-		return dataResponse(items, renderRAIDList);
+		return dataResponse(items, (d) => renderRAIDList(d, req.deps.log));
 	},
 
 	"raid:add": (req) => {
@@ -31,14 +31,14 @@ const actions: Record<string, ControllerAction> = {
 		if (!name || typeof name !== "string") {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --name flag.", hint: 'Usage: flowti raid:add --name="DB Migration Risk" --item-type="risk"' },
-				renderError,
+				(d) => renderError(req.deps.log, d),
 			);
 		}
 		const itemType = flagStr(req.flags, "item-type", "risk") as RAIDItemType;
 		if (!VALID_TYPES.includes(itemType)) {
 			return dataResponse<ErrorModel>(
 				{ error: `Invalid item-type "${itemType}". Valid: ${VALID_TYPES.join(", ")}` },
-				renderError,
+				(d) => renderError(req.deps.log, d),
 			);
 		}
 		const filePath = createRAIDItem(req.deps, req.project.path, {
@@ -54,7 +54,7 @@ const actions: Record<string, ControllerAction> = {
 		if (filePath) {
 			return dataResponse(
 				{ relPath: paths.relative(req.project.path, filePath) },
-				(m: { relPath: string }) => renderRAIDAdded(m.relPath),
+				(m: { relPath: string }) => renderRAIDAdded(m.relPath, req.deps.log),
 			);
 		}
 	},
@@ -66,20 +66,20 @@ const actions: Record<string, ControllerAction> = {
 		if (!name || typeof name !== "string" || !status || typeof status !== "string") {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --name and/or --status flag.", hint: 'Usage: flowti raid:update --name="DB Risk" --status="mitigated"' },
-				renderError,
+				(d) => renderError(req.deps.log, d),
 			);
 		}
 		if (!VALID_STATUSES.includes(status as RAIDStatus)) {
 			return dataResponse<ErrorModel>(
 				{ error: `Invalid status "${status}". Valid: ${VALID_STATUSES.join(", ")}` },
-				renderError,
+				(d) => renderError(req.deps.log, d),
 			);
 		}
 		const ok = updateRAIDStatus(req.deps, req.project.path, name, status as RAIDStatus, req.project.config.management?.raid);
 		if (ok) {
 			return dataResponse(
 				{ name, status },
-				(m: { name: string; status: string }) => renderRAIDUpdated(m.name, m.status),
+				(m: { name: string; status: string }) => renderRAIDUpdated(m.name, m.status, req.deps.log),
 			);
 		}
 	},

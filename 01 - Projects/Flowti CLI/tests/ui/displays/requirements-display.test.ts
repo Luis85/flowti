@@ -24,7 +24,7 @@ beforeEach(() => { mockLog.mockClear(); });
 
 describe("renderRequirementList", () => {
 	it("renders empty message when no requirements", () => {
-		renderRequirementList([]);
+		renderRequirementList([], log);
 		expect(output()).toContain("No requirements defined yet");
 	});
 
@@ -33,7 +33,7 @@ describe("renderRequirementList", () => {
 			{ id: "REQ-001", name: "User auth", requirementType: "functional", priority: "must", status: "approved" },
 			{ id: "REQ-002", name: "Performance", requirementType: "non-functional", priority: "should", status: "draft" },
 		];
-		renderRequirementList(reqs);
+		renderRequirementList(reqs, log);
 		const out = output();
 		expect(out).toContain("Requirements (2)");
 		expect(out).toContain("REQ-001");
@@ -50,7 +50,7 @@ describe("renderRequirementList", () => {
 
 describe("renderUseCaseList", () => {
 	it("renders empty message when no use cases", () => {
-		renderUseCaseList([]);
+		renderUseCaseList([], log);
 		expect(output()).toContain("No use cases defined yet");
 	});
 
@@ -59,7 +59,7 @@ describe("renderUseCaseList", () => {
 			{ id: "UC-001", name: "Login", actor: "End User" },
 			{ id: "UC-002", name: "Export Report", actor: "Admin" },
 		];
-		renderUseCaseList(useCases);
+		renderUseCaseList(useCases, log);
 		const out = output();
 		expect(out).toContain("Use Cases (2)");
 		expect(out).toContain("UC-001");
@@ -74,7 +74,7 @@ describe("renderUseCaseList", () => {
 
 describe("renderUserStoryList", () => {
 	it("renders empty message when no stories", () => {
-		renderUserStoryList([]);
+		renderUserStoryList([], log);
 		expect(output()).toContain("No user stories defined yet");
 	});
 
@@ -83,7 +83,7 @@ describe("renderUserStoryList", () => {
 			{ id: "US-001", name: "Login flow", status: "done", role: "end-user", storyPoints: 5 },
 			{ id: "US-002", name: "Dashboard", status: "in-progress", role: "admin", storyPoints: 8 },
 		];
-		renderUserStoryList(stories);
+		renderUserStoryList(stories, log);
 		const out = output();
 		expect(out).toContain("User Stories (2)");
 		expect(out).toContain("US-001");
@@ -100,7 +100,7 @@ describe("renderUserStoryList", () => {
 		const stories: UserStorySummary[] = [
 			{ id: "US-003", name: "No points", status: "backlog", role: "user", storyPoints: 0 },
 		];
-		renderUserStoryList(stories);
+		renderUserStoryList(stories, log);
 		expect(output()).not.toContain("pts");
 	});
 });
@@ -109,7 +109,7 @@ describe("renderUserStoryList", () => {
 
 describe("renderRequirementAdded", () => {
 	it("renders created message with path", () => {
-		renderRequirementAdded(".flowti/requirements/REQ-001.md");
+		renderRequirementAdded(".flowti/requirements/REQ-001.md", log);
 		expect(output()).toContain("Created: .flowti/requirements/REQ-001.md");
 	});
 });
@@ -118,7 +118,7 @@ describe("renderRequirementAdded", () => {
 
 describe("renderRequirementUpdated", () => {
 	it("renders updated message with name and status", () => {
-		renderRequirementUpdated("User auth", "approved");
+		renderRequirementUpdated("User auth", "approved", log);
 		const out = output();
 		expect(out).toContain("Updated User auth");
 		expect(out).toContain("approved");

@@ -119,6 +119,7 @@ export function createLifecycleFile(
 	if (deps.disk.existsSync(filePath)) return null;
 
 	const template = getTemplate(entityType);
+	if (!template) return null;
 	const itemDir = deps.paths.join(lifecycleDir(deps, basePath, subdir), toKebab(name));
 	deps.disk.mkdirSync(itemDir, { recursive: true });
 
@@ -173,6 +174,7 @@ export function transitionLifecycleItem(
 	const entityType = (fm.entityType as EntityType) ?? "feature";
 
 	const template = getTemplate(entityType);
+	if (!template) return { success: false, error: `No lifecycle template for "${entityType}".` };
 	const validation = validateTransition(template, currentState, newState);
 	if (!validation.success) return validation;
 

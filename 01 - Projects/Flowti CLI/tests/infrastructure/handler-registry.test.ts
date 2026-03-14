@@ -83,23 +83,56 @@ describe("HandlerRegistry", () => {
 
 	// ── List provider handlers ──────────────────────────────────────
 
-	it("registers and retrieves a list provider handler", () => {
+	// ── Form handlers ──────────────────────────────────────────────
+
+	it("registers and retrieves a form handler", () => {
 		const reg = new HandlerRegistry();
-		const handler = () => [];
-		reg.registerListProvider("component-list", handler);
-		expect(reg.getListProvider("component-list")).toBe(handler);
-		expect(reg.hasListProvider("component-list")).toBe(true);
+		const handler = vi.fn();
+		reg.registerFormHandler("create-project", handler);
+		expect(reg.getFormHandler("create-project")).toBe(handler);
+		expect(reg.hasFormHandler("create-project")).toBe(true);
 	});
 
-	it("throws on duplicate list provider handler", () => {
+	it("throws on duplicate form handler", () => {
 		const reg = new HandlerRegistry();
-		reg.registerListProvider("component-list", () => []);
-		expect(() => reg.registerListProvider("component-list", () => [])).toThrow('Duplicate listProvider handler: "component-list"');
+		reg.registerFormHandler("create-project", vi.fn());
+		expect(() => reg.registerFormHandler("create-project", vi.fn())).toThrow('Duplicate form handler: "create-project"');
 	});
 
-	it("throws on unknown list provider handler", () => {
+	it("throws on unknown form handler", () => {
 		const reg = new HandlerRegistry();
-		expect(() => reg.getListProvider("nope")).toThrow('Unknown listProvider handler: "nope"');
+		expect(() => reg.getFormHandler("nope")).toThrow('Unknown form handler: "nope"');
+	});
+
+	it("reports hasFormHandler false for unregistered id", () => {
+		const reg = new HandlerRegistry();
+		expect(reg.hasFormHandler("missing")).toBe(false);
+	});
+
+	// ── Data source handlers ───────────────────────────────────────
+
+	it("registers and retrieves a data source handler", () => {
+		const reg = new HandlerRegistry();
+		const handler = vi.fn().mockReturnValue([]);
+		reg.registerDataSource("project-list", handler);
+		expect(reg.getDataSource("project-list")).toBe(handler);
+		expect(reg.hasDataSource("project-list")).toBe(true);
+	});
+
+	it("throws on duplicate data source handler", () => {
+		const reg = new HandlerRegistry();
+		reg.registerDataSource("project-list", vi.fn().mockReturnValue([]));
+		expect(() => reg.registerDataSource("project-list", vi.fn().mockReturnValue([]))).toThrow('Duplicate data source handler: "project-list"');
+	});
+
+	it("throws on unknown data source handler", () => {
+		const reg = new HandlerRegistry();
+		expect(() => reg.getDataSource("nope")).toThrow('Unknown data source handler: "nope"');
+	});
+
+	it("reports hasDataSource false for unregistered id", () => {
+		const reg = new HandlerRegistry();
+		expect(reg.hasDataSource("missing")).toBe(false);
 	});
 
 	// ── Query methods ───────────────────────────────────────────────
@@ -110,15 +143,24 @@ describe("HandlerRegistry", () => {
 		reg.registerView("v2", vi.fn());
 		reg.registerAction("a1", vi.fn());
 		reg.registerCondition("c1", () => true);
-		reg.registerListProvider("lp1", () => []);
 
 		expect(reg.viewCount).toBe(2);
 		expect(reg.actionCount).toBe(1);
 		expect(reg.conditionCount).toBe(1);
-		expect(reg.listProviderCount).toBe(1);
 		expect(reg.viewIds()).toEqual(["v1", "v2"]);
 		expect(reg.actionIds()).toEqual(["a1"]);
 		expect(reg.conditionIds()).toEqual(["c1"]);
-		expect(reg.listProviderIds()).toEqual(["lp1"]);
+	});
+
+	it("reports counts and lists IDs for v2 handler types", () => {
+		const reg = new HandlerRegistry();
+		reg.registerFormHandler("f1", vi.fn());
+		reg.registerFormHandler("f2", vi.fn());
+		reg.registerDataSource("ds1", vi.fn().mockReturnValue([]));
+
+		expect(reg.formHandlerCount).toBe(2);
+		expect(reg.dataSourceCount).toBe(1);
+		expect(reg.formHandlerIds()).toEqual(["f1", "f2"]);
+		expect(reg.dataSourceIds()).toEqual(["ds1"]);
 	});
 });

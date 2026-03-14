@@ -5,7 +5,6 @@
  * to enforce DDD boundary: domain logic has no knowledge of display.
  */
 
-import { log } from "../../infrastructure/logger.js";
 import type { E2EPaths } from "../../domain/e2e/e2e-paths.js";
 import type { PrerequisiteResults, TestStats, BuildStats, JourneyEntry, SessionConfig } from "../../domain/e2e/e2e-types.js";
 
@@ -17,36 +16,36 @@ const YELLOW = "\x1b[33m";
 const DIM = "\x1b[2m";
 const RESET = "\x1b[0m";
 
-const ok = (msg: string): void => log(`  ${GREEN}✓${RESET} ${msg}`);
-const fail = (msg: string): void => log(`  ${RED}✗${RESET} ${msg}`);
-const info = (msg: string): void => log(`  ${YELLOW}○${RESET} ${msg}`);
+const ok = (log: (msg?: string) => void, msg: string): void => log(`  ${GREEN}✓${RESET} ${msg}`);
+const fail = (log: (msg?: string) => void, msg: string): void => log(`  ${RED}✗${RESET} ${msg}`);
+const info = (log: (msg?: string) => void, msg: string): void => log(`  ${YELLOW}○${RESET} ${msg}`);
 
 // ── Prerequisites ───────────────────────────────────────────────────
 
-export function printPrerequisites(results: PrerequisiteResults, e2e: E2EPaths): void {
+export function printPrerequisites(results: PrerequisiteResults, e2e: E2EPaths, log: (msg?: string) => void): void {
 	log("\n  Prerequisites (local):\n");
 
-	if (results.vaultExists) ok(`Test vault exists: ${e2e.testVault}`);
-	else fail(`Test vault missing: ${e2e.testVault}`);
+	if (results.vaultExists) ok(log, `Test vault exists: ${e2e.testVault}`);
+	else fail(log, `Test vault missing: ${e2e.testVault}`);
 
-	if (results.artifactsPresent) ok("Plugin artifacts: main.js, manifest.json, styles.css");
-	else fail(`Plugin artifacts missing: ${results.missingArtifacts.join(", ")}`);
+	if (results.artifactsPresent) ok(log, "Plugin artifacts: main.js, manifest.json, styles.css");
+	else fail(log, `Plugin artifacts missing: ${results.missingArtifacts.join(", ")}`);
 
-	if (results.cliResponsive) ok("Obsidian CLI responsive");
-	else fail("Obsidian CLI not responsive (is Obsidian running?)");
+	if (results.cliResponsive) ok(log, "Obsidian CLI responsive");
+	else fail(log, "Obsidian CLI not responsive (is Obsidian running?)");
 
-	if (results.vaultInstalled) ok("Vault installed (data.json → installer.installed = true)");
-	else info("Vault not installed (installer will run)");
+	if (results.vaultInstalled) ok(log, "Vault installed (data.json → installer.installed = true)");
+	else info(log, "Vault not installed (installer will run)");
 
-	if (results.testDataPresent) ok("Test data CSV present");
-	else info("Test data missing (generated during setup)");
+	if (results.testDataPresent) ok(log, "Test data CSV present");
+	else info(log, "Test data missing (generated during setup)");
 
 	log();
 }
 
 // ── Journey table ───────────────────────────────────────────────────
 
-export function printJourneyTable(entries: JourneyEntry[]): void {
+export function printJourneyTable(entries: JourneyEntry[], log: (msg?: string) => void): void {
 	log("\n  Available Journeys:\n");
 	log("  #  Ch  Name                          Steps  Description");
 	log("  " + "-".repeat(78));
@@ -64,7 +63,7 @@ export function printJourneyTable(entries: JourneyEntry[]): void {
 
 // ── Step table ──────────────────────────────────────────────────────
 
-export function printStepTable(def: Record<string, unknown>, steps: Array<Record<string, unknown>>): void {
+export function printStepTable(def: Record<string, unknown>, steps: Array<Record<string, unknown>>, log: (msg?: string) => void): void {
 	const setupSteps = (def.setup as Array<Record<string, unknown>>) ?? [];
 	const teardownSteps = (def.teardown as Array<Record<string, unknown>>) ?? [];
 	log(`  Steps for ${def.journey} (${steps.length} steps):\n`);
@@ -90,7 +89,7 @@ export function printStepTable(def: Record<string, unknown>, steps: Array<Record
 
 // ── Execution banner ────────────────────────────────────────────────
 
-export function printExecutionBanner(config: SessionConfig, selectedNames: string[]): void {
+export function printExecutionBanner(config: SessionConfig, selectedNames: string[], log: (msg?: string) => void): void {
 	log(`\n  Starting session "${config.sessionName}"...`);
 	log(`    Journeys:       ${selectedNames.join(", ")}`);
 	const hasStepFilter = config.stepFilter && Object.values(config.stepFilter).some((f) => f !== "all");
@@ -108,7 +107,7 @@ export function printExecutionBanner(config: SessionConfig, selectedNames: strin
 
 // ── Session summary ─────────────────────────────────────────────────
 
-export function printSessionSummary(sessionName: string, selectedNames: string[], startTime: number, stats: TestStats): void {
+export function printSessionSummary(sessionName: string, selectedNames: string[], startTime: number, stats: TestStats, log: (msg?: string) => void): void {
 	const duration = ((Date.now() - startTime) / 1000).toFixed(1);
 	const failColor = stats.failed > 0 ? RED : GREEN;
 
@@ -127,7 +126,7 @@ export function printSessionSummary(sessionName: string, selectedNames: string[]
 
 // ── Build info helpers ──────────────────────────────────────────────
 
-function printBuildInfo(build: Record<string, unknown>): void {
+function printBuildInfo(build: Record<string, unknown>, log: (msg?: string) => void): void {
 	const sizeKb = build.total_bytes ? Math.round(build.total_bytes as number / 1024) : "?";
 	log(`  Bundle:       ${sizeKb} KB`);
 	log(`  Version:      ${build.plugin_version ?? "?"}`);
@@ -136,12 +135,12 @@ function printBuildInfo(build: Record<string, unknown>): void {
 	}
 }
 
-function printTestStatsLine(ut: TestStats): void {
+function printTestStatsLine(ut: TestStats, log: (msg?: string) => void): void {
 	const failColor = ut.failed > 0 ? RED : GREEN;
 	log(`  Tests:        ${GREEN}${ut.passed}${RESET} passed, ${failColor}${ut.failed}${RESET} failed, ${DIM}${ut.skipped} skipped${RESET} ${DIM}(${ut.totalTests} total)${RESET}`);
 }
 
-function printCoverageLine(coverage: Record<string, unknown>): void {
+function printCoverageLine(coverage: Record<string, unknown>, log: (msg?: string) => void): void {
 	const pct = coverage.line_pct ?? coverage.lines_pct ?? coverage.line_percent;
 	if (pct != null) {
 		log(`  Coverage:     ${pct}%`);
@@ -150,35 +149,35 @@ function printCoverageLine(coverage: Record<string, unknown>): void {
 
 // ── Increment / Publish summaries ───────────────────────────────────
 
-export function printIncrementSummary(exitCode: number, duration: string, stats: BuildStats): void {
+export function printIncrementSummary(exitCode: number, duration: string, stats: BuildStats, log: (msg?: string) => void): void {
 	const statusIcon = exitCode === 0 ? `${GREEN}✓ PASS${RESET}` : `${RED}✗ FAIL${RESET}`;
 	log(`\n  ${"═".repeat(50)}`);
 	log(`  Increment Build Results`);
 	log(`  ${"═".repeat(50)}\n`);
 	log(`  Status:       ${statusIcon}`);
 	log(`  Duration:     ${duration}s`);
-	if (stats.build) printBuildInfo(stats.build);
-	if (stats.unitTests.totalTests > 0) printTestStatsLine(stats.unitTests);
-	if (stats.coverage) printCoverageLine(stats.coverage);
+	if (stats.build) printBuildInfo(stats.build, log);
+	if (stats.unitTests.totalTests > 0) printTestStatsLine(stats.unitTests, log);
+	if (stats.coverage) printCoverageLine(stats.coverage, log);
 	log();
 }
 
-export function printPublishSummary(exitCode: number, duration: string, stats: BuildStats): void {
+export function printPublishSummary(exitCode: number, duration: string, stats: BuildStats, log: (msg?: string) => void): void {
 	const statusIcon = exitCode === 0 ? `${GREEN}✓ PASS${RESET}` : `${RED}✗ FAIL${RESET}`;
 	log(`\n  ${"═".repeat(50)}`);
 	log(`  Publish Results`);
 	log(`  ${"═".repeat(50)}\n`);
 	log(`  Status:       ${statusIcon}`);
 	log(`  Duration:     ${duration}s`);
-	if (stats.build) printBuildInfo(stats.build);
-	if (stats.unitTests.totalTests > 0) printTestStatsLine(stats.unitTests);
-	if (stats.coverage) printCoverageLine(stats.coverage);
+	if (stats.build) printBuildInfo(stats.build, log);
+	if (stats.unitTests.totalTests > 0) printTestStatsLine(stats.unitTests, log);
+	if (stats.coverage) printCoverageLine(stats.coverage, log);
 	log();
 }
 
 // ── Result banners ──────────────────────────────────────────────────
 
-export function printResultBanner(label: string, exitCode: number): void {
+export function printResultBanner(label: string, exitCode: number, log: (msg?: string) => void): void {
 	const statusIcon = exitCode === 0 ? `${GREEN}✓ PASS${RESET}` : `${RED}✗ FAIL${RESET}`;
 	log(`  ${"─".repeat(50)}`);
 	log(`  ${label}: ${statusIcon}`);
@@ -186,7 +185,7 @@ export function printResultBanner(label: string, exitCode: number): void {
 	log();
 }
 
-export function printSessionBanner(config: SessionConfig, entries: JourneyEntry[], exitCode: number): void {
+export function printSessionBanner(config: SessionConfig, entries: JourneyEntry[], exitCode: number, log: (msg?: string) => void): void {
 	const statusIcon = exitCode === 0 ? `${GREEN}✓ PASS${RESET}` : `${RED}✗ FAIL${RESET}`;
 	const journeyNames = config.selectedSlugs.map((slug) => {
 		const entry = entries.find((e) => e.slug === slug);
@@ -200,7 +199,7 @@ export function printSessionBanner(config: SessionConfig, entries: JourneyEntry[
 	log();
 }
 
-export function printMainMenu(incrementPassed: boolean): void {
+export function printMainMenu(incrementPassed: boolean, log: (msg?: string) => void): void {
 	log("  What would you like to do?");
 	log("    1) Start test session");
 	log("    2) Build the increment");
@@ -212,7 +211,7 @@ export function printMainMenu(incrementPassed: boolean): void {
 	log();
 }
 
-export function printIncrementMenu(exitCode: number): void {
+export function printIncrementMenu(exitCode: number, log: (msg?: string) => void): void {
 	log(exitCode === 0 ? "    p) Publish the increment" : `    ${DIM}p) Publish the increment (requires successful build)${RESET}`);
 	log("    r) Re-run increment build");
 	log("    a) Generate audit");

@@ -28,10 +28,13 @@ vi.mock("../../../src/domain/build/build-freshness.js", () => ({
 
 import { log } from "../../../src/infrastructure/logger.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
 import { parseFrontmatterContent } from "../../../src/infrastructure/frontmatter.js";
 import { checkFreshness } from "../../../src/domain/build/build-freshness.js";
 import { printProjectStatusBanner } from "../../../src/ui/renderers/project-status-banner.js";
 import type { ProjectContext } from "../../../src/infrastructure/types.js";
+
+const bannerDeps = { disk, paths, log } as never;
 
 const mockLog = log as ReturnType<typeof vi.fn>;
 const mockExistsSync = disk.existsSync as ReturnType<typeof vi.fn>;
@@ -54,7 +57,7 @@ beforeEach(() => {
 
 describe("printProjectStatusBanner", () => {
 	it("logs nothing when no reports or freshness issues", () => {
-		printProjectStatusBanner(ctx);
+		printProjectStatusBanner(bannerDeps, ctx);
 		expect(mockLog).not.toHaveBeenCalled();
 	});
 
@@ -63,7 +66,7 @@ describe("printProjectStatusBanner", () => {
 		mockReadFileSync.mockReturnValue("---\nsuccess: true\ndate: 2026-01-01T00:00:00Z\n---");
 		mockParseFm.mockReturnValue({ success: true, date: "2026-01-01T00:00:00Z" });
 
-		printProjectStatusBanner(ctx);
+		printProjectStatusBanner(bannerDeps, ctx);
 		expect(mockLog).toHaveBeenCalled();
 		const output = mockLog.mock.calls.map((c: unknown[]) => String(c[0])).join("\n");
 		expect(output).toContain("Build:");
@@ -74,7 +77,7 @@ describe("printProjectStatusBanner", () => {
 		mockReadFileSync.mockReturnValue("---\ntotal: 100\nfailed: 0\n---");
 		mockParseFm.mockReturnValue({ total: 100, failed: 0 });
 
-		printProjectStatusBanner(ctx);
+		printProjectStatusBanner(bannerDeps, ctx);
 		expect(mockLog).toHaveBeenCalled();
 		const output = mockLog.mock.calls.map((c: unknown[]) => String(c[0])).join("\n");
 		expect(output).toContain("Tests:");
@@ -87,7 +90,7 @@ describe("printProjectStatusBanner", () => {
 			currentHash: "a", manifestHash: "b",
 		});
 
-		printProjectStatusBanner(ctx);
+		printProjectStatusBanner(bannerDeps, ctx);
 		expect(mockLog).toHaveBeenCalled();
 		const output = mockLog.mock.calls.map((c: unknown[]) => String(c[0])).join("\n");
 		expect(output).toContain("Rebuild needed");
@@ -98,7 +101,7 @@ describe("printProjectStatusBanner", () => {
 		mockReadFileSync.mockReturnValue("---\ntotal: 100\nfailed: 5\n---");
 		mockParseFm.mockReturnValue({ total: 100, failed: 5 });
 
-		printProjectStatusBanner(ctx);
+		printProjectStatusBanner(bannerDeps, ctx);
 		const output = mockLog.mock.calls.map((c: unknown[]) => String(c[0])).join("\n");
 		expect(output).toContain("5 failed");
 	});
@@ -107,6 +110,6 @@ describe("printProjectStatusBanner", () => {
 		mockExistsSync.mockReturnValue(true);
 		mockReadFileSync.mockImplementation(() => { throw new Error("read error"); });
 
-		expect(() => printProjectStatusBanner(ctx)).not.toThrow();
+		expect(() => printProjectStatusBanner(bannerDeps, ctx)).not.toThrow();
 	});
 });

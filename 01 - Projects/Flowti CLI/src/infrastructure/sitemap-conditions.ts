@@ -6,7 +6,8 @@
  * and parentheses. Does NOT use `eval()`.
  */
 
-import type { DisabledCondition, HiddenCondition, RouterContext } from "./sitemap-types.js";
+import type { DisabledCondition, HiddenCondition } from "../domain/sitemap/unified-page.js";
+import type { RouterContext } from "./sitemap-types.js";
 import type { HandlerRegistry } from "./handler-registry.js";
 
 // ── Public API ──────────────────────────────────────────────────────
@@ -22,7 +23,7 @@ export function resolveDisabledCondition(
 ): boolean {
 	if (condition === undefined) return false;
 	if (typeof condition === "boolean") return condition;
-	if (typeof condition === "string") return registry.getCondition(condition)(ctx);
+	if (typeof condition === "string") return resolveStringCondition(condition, ctx, registry);
 	// { unless: expr } — disabled when the expression is falsy
 	return !evaluateExpression(condition.unless, buildFlatContext(ctx));
 }
@@ -38,7 +39,13 @@ export function resolveHiddenCondition(
 ): boolean {
 	if (condition === undefined) return false;
 	if (typeof condition === "boolean") return condition;
-	return registry.getCondition(condition)(ctx);
+	return resolveStringCondition(condition, ctx, registry);
+}
+
+/** A string condition is either a registered handler ID or an inline expression. */
+function resolveStringCondition(condition: string, ctx: RouterContext, registry: HandlerRegistry): boolean {
+	if (registry.hasCondition(condition)) return registry.getCondition(condition)(ctx);
+	return evaluateExpression(condition, buildFlatContext(ctx));
 }
 
 // ── Context flattening ──────────────────────────────────────────────

@@ -4,7 +4,7 @@ domain: CLI
 title: Flowti CLI — Product Backlog
 version: 3
 created: 2026-03-10
-updated: 2026-03-12
+updated: 2026-03-14
 status: active
 source: "[[Flowti CLI PRD]]"
 roadmap: "[[Development Roadmap]]"
@@ -353,9 +353,9 @@ Each domain is assessed on a 3-tier scale:
 | Domain | Maturity | Notes |
 |--------|----------|-------|
 | Component System (FR-03) | Deep | 8 types, properties, Storybook, C4 hierarchy, editing, browser |
-| Interactive Menu (FR-01) | Deep | Two-stage menu, state persistence, ANSI output, help system |
+| Interactive Menu (FR-01) | Deep | v2 PageObject sitemap (28 pages), state persistence, ANSI output, help system, form engine |
 | Report Generation (FR-10) | Deep | Resilient runner, prerequisites, warnings, caching, parallel phases, diff, HTML export |
-| Non-Interactive Commands (FR-02) | Deep | 84 commands, `--format=json`, comprehensive AI agent surface |
+| Non-Interactive Commands (FR-02) | Deep | 87 commands, `--format=json`, comprehensive AI agent surface |
 | Per-Project Config (FR-08) | Deep | Auto-scaffolding, 45 validation rules, deep validation |
 | Event Catalog (FR-11) | Deep | CRUD, wikilinks, payload editor, versioning, contracts, codegen |
 | Gated Publish (FR-05) | Deep | Pipeline, dry-run, quality gates |

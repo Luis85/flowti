@@ -16,14 +16,14 @@ import {
 	printPublishSummary,
 } from "./e2e-formatters.js";
 
-export function createE2ERenderer(): E2ERenderer {
+export function createE2ERenderer(log: (msg?: string) => void): E2ERenderer {
 	return {
-		prerequisites: printPrerequisites,
-		journeyTable: printJourneyTable,
-		stepTable: printStepTable,
-		executionBanner: printExecutionBanner,
-		sessionSummary: printSessionSummary,
-		incrementSummary: printIncrementSummary,
-		publishSummary: printPublishSummary,
+		prerequisites: (results, e2e) => printPrerequisites(results, e2e, log),
+		journeyTable: (entries) => printJourneyTable(entries, log),
+		stepTable: (def, steps) => printStepTable(def, steps, log),
+		executionBanner: (config, selectedNames) => printExecutionBanner(config, selectedNames, log),
+		sessionSummary: (sessionName, selectedNames, startTime, stats) => printSessionSummary(sessionName, selectedNames, startTime, stats, log),
+		incrementSummary: (exitCode, duration, stats) => printIncrementSummary(exitCode, duration, stats, log),
+		publishSummary: (exitCode, duration, stats) => printPublishSummary(exitCode, duration, stats, log),
 	};
 }

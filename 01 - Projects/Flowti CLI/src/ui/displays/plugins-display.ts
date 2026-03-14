@@ -5,7 +5,6 @@
  * Controllers pass these as callbacks to dataResponse().
  */
 
-import { log } from "../../infrastructure/logger.js";
 import { RESET, DIM, GREEN, RED, YELLOW, CYAN } from "../../infrastructure/ui.js";
 
 // ── Data models ──────────────────────────────────────────────────────
@@ -32,7 +31,7 @@ export interface PluginCreatedModel {
 
 // ── Renderers ────────────────────────────────────────────────────────
 
-export function renderPluginList(plugins: PluginListItem[]): void {
+export function renderPluginList(plugins: PluginListItem[], log: (msg?: string) => void): void {
 	if (plugins.length === 0) {
 		log(`\n  ${DIM}No plugins found.${RESET}\n`);
 		return;
@@ -55,7 +54,7 @@ export function renderPluginList(plugins: PluginListItem[]): void {
 	}
 }
 
-export function renderPluginValidation(results: PluginValidationItem[]): void {
+export function renderPluginValidation(results: PluginValidationItem[], log: (msg?: string) => void): void {
 	if (results.length === 0) {
 		log(`\n  ${DIM}No plugin manifests found.${RESET}\n`);
 		return;
@@ -69,7 +68,7 @@ export function renderPluginValidation(results: PluginValidationItem[]): void {
 	log();
 }
 
-export function renderPluginCreated(data: PluginCreatedModel): void {
+export function renderPluginCreated(data: PluginCreatedModel, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}✓${RESET} Created plugin at ${DIM}${data.path}${RESET}`);
 	log(`  ${DIM}Edit manifest.json to add commands.${RESET}\n`);
 }

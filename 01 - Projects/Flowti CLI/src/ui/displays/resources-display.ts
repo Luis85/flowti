@@ -3,10 +3,9 @@
  */
 
 import { RESET, DIM, GREEN, CYAN, BOLD, RED, YELLOW } from "../../infrastructure/ui.js";
-import { log } from "../../infrastructure/logger.js";
 import type { ResourceSummary, FinancialSummary } from "../../domain/resources/resource-types.js";
 
-export function renderResourceList(resources: ResourceSummary[]): void {
+export function renderResourceList(resources: ResourceSummary[], log: (msg?: string) => void): void {
 	if (resources.length === 0) {
 		log(`\n  ${DIM}No resources defined yet. Use "Add" to create one.${RESET}\n`);
 		return;
@@ -33,7 +32,7 @@ function consumed(r: ResourceSummary): string {
 	return GREEN;
 }
 
-export function renderFinancialSummary(summary: FinancialSummary): void {
+export function renderFinancialSummary(summary: FinancialSummary, log: (msg?: string) => void): void {
 	log(`\n  ${BOLD}Financial Summary${RESET}\n`);
 	log(`  Total Budget:   ${GREEN}${fmt(summary.totalBudget)}${RESET}`);
 	log(`  Consumed:       ${fmt(summary.totalConsumed)}`);
@@ -51,6 +50,6 @@ export function renderFinancialSummary(summary: FinancialSummary): void {
 function fmt(n: number): string { return n.toFixed(2); }
 function fmtPct(n: number): string { return `${(n * 100).toFixed(1)}%`; }
 
-export function renderResourceAdded(relPath: string): void {
+export function renderResourceAdded(relPath: string, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}✓${RESET} Created: ${relPath}`);
 }

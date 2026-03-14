@@ -5,7 +5,6 @@
  */
 
 import { RESET, DIM, GREEN, RED, CYAN, YELLOW, BOLD } from "../../infrastructure/ui.js";
-import { log } from "../../infrastructure/logger.js";
 import type { DryRunResult } from "../../domain/scaffold/scaffold-service.js";
 import type { ExportBundle } from "../../domain/scaffold/marketplace-export.js";
 import type { MarketplaceEntry } from "../../domain/scaffold/marketplace.js";
@@ -36,7 +35,7 @@ export interface BundleImportedModel {
 
 // ── Renderers ────────────────────────────────────────────────────────
 
-export function renderDryRunPreview(data: DryRunResult): void {
+export function renderDryRunPreview(data: DryRunResult, log: (msg?: string) => void): void {
 	log(`\n  ${CYAN}Dry run — scaffold preview${RESET}\n`);
 	log(`  ${DIM}Definition:${RESET}  ${data.definition}`);
 	log(`  ${DIM}Output:${RESET}      ${data.outputPath}`);
@@ -45,7 +44,7 @@ export function renderDryRunPreview(data: DryRunResult): void {
 	log();
 }
 
-export function renderScaffoldResult(data: ScaffoldResultModel): void {
+export function renderScaffoldResult(data: ScaffoldResultModel, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}✓${RESET} Scaffolded ${data.created} files → ${data.outputPath}\n`);
 	if (data.suggestions.length > 0) {
 		log(`  ${DIM}Next:${RESET}`);
@@ -56,7 +55,7 @@ export function renderScaffoldResult(data: ScaffoldResultModel): void {
 	}
 }
 
-export function renderDefinitionList(data: DefinitionListModel): void {
+export function renderDefinitionList(data: DefinitionListModel, log: (msg?: string) => void): void {
 	if (data.definitions.length === 0) {
 		log(`\n  ${DIM}No scaffold definitions available.${RESET}\n`);
 		return;
@@ -68,7 +67,7 @@ export function renderDefinitionList(data: DefinitionListModel): void {
 	}
 }
 
-export function renderExportPreview(data: ExportBundle): void {
+export function renderExportPreview(data: ExportBundle, log: (msg?: string) => void): void {
 	log(`\n  ${CYAN}Marketplace Export Preview${RESET}\n`);
 	log(`  ${DIM}Vault:${RESET} ${data.vault}`);
 	log(`  ${DIM}AI Tools:${RESET} ${data.aiTools.length}`);
@@ -80,11 +79,11 @@ export function renderExportPreview(data: ExportBundle): void {
 	log(`\n  ${DIM}Use --output=<path> to save the bundle.${RESET}\n`);
 }
 
-export function renderExportSaved(data: ExportSavedModel): void {
+export function renderExportSaved(data: ExportSavedModel, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}✓${RESET} Exported ${data.total} definitions → ${data.outputPath}\n`);
 }
 
-export function renderBundleImported(data: BundleImportedModel): void {
+export function renderBundleImported(data: BundleImportedModel, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}✓${RESET} Imported ${data.imported} AI tool${data.imported !== 1 ? "s" : ""} from ${data.vault}\n`);
 }
 
@@ -94,7 +93,7 @@ export interface MarketplaceModel {
 	entries: MarketplaceEntry[];
 }
 
-export function renderMarketplace(data: MarketplaceModel): void {
+export function renderMarketplace(data: MarketplaceModel, log: (msg?: string) => void): void {
 	const { entries } = data;
 	if (entries.length === 0) {
 		log(`\n  ${DIM}No scaffold definitions found.${RESET}\n`);
@@ -108,12 +107,12 @@ export function renderMarketplace(data: MarketplaceModel): void {
 
 	if (bundled.length > 0) {
 		log(`  ${DIM}── Bundled ──${RESET}\n`);
-		for (const entry of bundled) renderMarketplaceEntry(entry);
+		for (const entry of bundled) renderMarketplaceEntry(entry, log);
 	}
 
 	if (local.length > 0) {
 		log(`  ${DIM}── Local (configs/definitions/) ──${RESET}\n`);
-		for (const entry of local) renderMarketplaceEntry(entry);
+		for (const entry of local) renderMarketplaceEntry(entry, log);
 	}
 
 	const validCount = entries.filter(e => e.valid).length;
@@ -121,7 +120,7 @@ export function renderMarketplace(data: MarketplaceModel): void {
 	log(`  ${DIM}Total: ${validCount} valid${invalidCount > 0 ? `, ${invalidCount} invalid` : ""}${RESET}\n`);
 }
 
-function renderMarketplaceEntry(entry: MarketplaceEntry): void {
+function renderMarketplaceEntry(entry: MarketplaceEntry, log: (msg?: string) => void): void {
 	const status = entry.valid ? `${GREEN}valid${RESET}` : `${RED}invalid${RESET}`;
 	const source = entry.source === "bundled" ? `${DIM}bundled${RESET}` : `${DIM}local${RESET}`;
 
@@ -147,7 +146,7 @@ export interface ImportResultModel {
 	result: ImportResult;
 }
 
-export function renderImportResult(data: ImportResultModel): void {
+export function renderImportResult(data: ImportResultModel, log: (msg?: string) => void): void {
 	const { result } = data;
 	if (result.success) {
 		log(`\n  ${GREEN}✓${RESET} Imported definition → ${result.targetPath}\n`);

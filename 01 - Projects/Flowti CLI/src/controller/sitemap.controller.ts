@@ -9,7 +9,7 @@
 import type { ControllerAction } from "../infrastructure/request-response.js";
 import { adapt, dataResponse } from "../infrastructure/request-response.js";
 import type { CommandHandler } from "../infrastructure/types.js";
-import type { ViewDefinition, StaticView, DynamicView } from "../infrastructure/sitemap-types.js";
+import type { PageObject } from "../infrastructure/sitemap-types.js";
 import { loadSitemap } from "../infrastructure/sitemap-loader.js";
 import { computeHash } from "../infrastructure/sitemap-watcher.js";
 import { CLI_PROJECT } from "../infrastructure/config.js";
@@ -21,6 +21,7 @@ import { RESET, DIM, GREEN, RED, YELLOW, CYAN } from "../infrastructure/ui.js";
 export interface ValidateModel {
 	readonly ok: boolean;
 	readonly errors: readonly string[];
+	readonly warnings: readonly string[];
 	readonly viewCount: number;
 }
 
@@ -33,11 +34,11 @@ export interface StatusModel {
 
 export interface ViewEntry {
 	readonly id: string;
-	readonly type: "static" | "dynamic";
-	readonly title: string;
-	readonly itemCount: number;
+	readonly kind: string;
+	readonly label: string;
+	readonly actionCount: number;
 	readonly description?: string;
-	readonly capabilities?: readonly string[];
+	readonly domain?: string;
 	readonly configPath?: string;
 	readonly parent?: string;
 	readonly route?: import("../infrastructure/sitemap-types.js").RouteConfig;
@@ -51,7 +52,11 @@ export interface ViewsModel {
 
 function renderValidate(data: ValidateModel): void {
 	if (data.ok) {
-		log(`\n  ${GREEN}Sitemap OK${RESET} ${DIM}(${data.viewCount} views)${RESET}\n`);
+		log(`\n  ${GREEN}Sitemap OK${RESET} ${DIM}(${data.viewCount} pages)${RESET}`);
+		if (data.warnings.length > 0) {
+			for (const w of data.warnings) log(`  ${YELLOW}•${RESET} ${w}`);
+		}
+		log();
 	} else {
 		log(`\n  ${RED}Sitemap validation failed:${RESET}`);
 		for (const err of data.errors) {
@@ -65,16 +70,16 @@ function renderStatus(data: StatusModel): void {
 	log(`\n  ${CYAN}Sitemap Status${RESET}`);
 	log(`  ${DIM}Path:${RESET}          ${data.path}`);
 	log(`  ${DIM}Hash:${RESET}          ${data.hash.slice(0, 12)}...`);
-	log(`  ${DIM}Views:${RESET}         ${data.viewCount}`);
+	log(`  ${DIM}Pages:${RESET}         ${data.viewCount}`);
 	log(`  ${DIM}Last modified:${RESET} ${data.lastModified}\n`);
 }
 
 function renderViews(data: ViewsModel): void {
-	log(`\n  ${CYAN}Sitemap Views${RESET} ${DIM}(${data.views.length} total)${RESET}\n`);
+	log(`\n  ${CYAN}Sitemap Pages${RESET} ${DIM}(${data.views.length} total)${RESET}\n`);
 	for (const v of data.views) {
-		const tag = v.type === "dynamic" ? `${YELLOW}dynamic${RESET}` : `${DIM}static${RESET} `;
-		const items = v.type === "static" ? `${DIM}${v.itemCount} items${RESET}` : "";
-		log(`  ${v.id.padEnd(30)} ${tag}  ${items}`);
+		const tag = `${DIM}${v.kind}${RESET}`;
+		const actions = `${DIM}${v.actionCount} actions${RESET}`;
+		log(`  ${v.id.padEnd(30)} ${tag.padEnd(20)}  ${actions}`);
 		renderViewMeta(v);
 	}
 	log();
@@ -83,9 +88,7 @@ function renderViews(data: ViewsModel): void {
 function renderViewMeta(v: ViewsModel["views"][number]): void {
 	const pad = "".padEnd(30);
 	if (v.description) log(`  ${pad} ${DIM}${v.description}${RESET}`);
-	if (v.capabilities) {
-		for (const cap of v.capabilities) log(`  ${pad} ${DIM}• ${cap}${RESET}`);
-	}
+	if (v.domain) log(`  ${pad} ${DIM}domain: ${v.domain}${RESET}`);
 	if (v.configPath) log(`  ${pad} ${DIM}config: ${v.configPath}${RESET}`);
 	if (v.parent) log(`  ${pad} ${DIM}parent: ${v.parent}${RESET}`);
 	if (v.route?.path) log(`  ${pad} ${DIM}route: ${v.route.path}${RESET}`);
@@ -106,19 +109,18 @@ function resolveSitemapPath(req: {
 	return req.deps.paths.join(projectRoot, "configs", "sitemap.json");
 }
 
-function isStaticView(view: ViewDefinition): view is StaticView {
-	return view.type === undefined || view.type === "menu";
-}
-
-function isDynamicView(view: ViewDefinition): view is DynamicView {
-	return view.type === "dynamic";
-}
-
-function countItems(view: ViewDefinition): number {
-	if (isStaticView(view)) {
-		return view.items.length;
-	}
-	return 0;
+function pageToEntry(id: string, page: PageObject): ViewEntry {
+	return {
+		id,
+		kind: page.kind,
+		label: page.label,
+		actionCount: page.actions.length,
+		...(page.description ? { description: page.description } : {}),
+		...(page.domain ? { domain: page.domain } : {}),
+		...(page.configPath ? { configPath: page.configPath } : {}),
+		...(page.parent ? { parent: page.parent } : {}),
+		...(page.route ? { route: page.route } : {}),
+	};
 }
 
 // ── Controller actions ──────────────────────────────────────────────
@@ -131,7 +133,8 @@ const actions: Record<string, ControllerAction> = {
 		const model: ValidateModel = {
 			ok: result.ok,
 			errors: result.errors,
-			viewCount: result.sitemap ? Object.keys(result.sitemap.views).length : 0,
+			warnings: result.warnings,
+			viewCount: result.sitemap ? Object.keys(result.sitemap.pages).length : 0,
 		};
 
 		return dataResponse(model, renderValidate);
@@ -145,6 +148,7 @@ const actions: Record<string, ControllerAction> = {
 			const model: ValidateModel = {
 				ok: false,
 				errors: [`Sitemap file not found: ${sitemapPath}`],
+				warnings: [],
 				viewCount: 0,
 			};
 			return dataResponse(model, renderValidate);
@@ -154,7 +158,7 @@ const actions: Record<string, ControllerAction> = {
 		const hash = computeHash(content);
 		const stats = disk.statSync(sitemapPath);
 		const result = loadSitemap(sitemapPath, disk);
-		const viewCount = result.sitemap ? Object.keys(result.sitemap.views).length : 0;
+		const viewCount = result.sitemap ? Object.keys(result.sitemap.pages).length : 0;
 
 		const model: StatusModel = {
 			path: paths.relative(req.deps.proc.cwd(), sitemapPath),
@@ -174,22 +178,15 @@ const actions: Record<string, ControllerAction> = {
 			const model: ValidateModel = {
 				ok: false,
 				errors: result.errors,
+				warnings: result.warnings,
 				viewCount: 0,
 			};
 			return dataResponse(model, renderValidate);
 		}
 
-		const views: ViewEntry[] = Object.entries(result.sitemap.views).map(([id, view]) => ({
-			id,
-			type: isStaticView(view) ? "static" as const : "dynamic" as const,
-			title: view.title,
-			itemCount: countItems(view),
-			...(view.description ? { description: view.description } : {}),
-			...(isDynamicView(view) && view.capabilities ? { capabilities: view.capabilities } : {}),
-			...(isDynamicView(view) && view.configPath ? { configPath: view.configPath } : {}),
-			...(view.parent ? { parent: view.parent } : {}),
-			...(view.route ? { route: view.route } : {}),
-		}));
+		const views: ViewEntry[] = Object.entries(result.sitemap.pages).map(
+			([id, page]) => pageToEntry(id, page),
+		);
 
 		return dataResponse<ViewsModel>({ views }, renderViews);
 	},

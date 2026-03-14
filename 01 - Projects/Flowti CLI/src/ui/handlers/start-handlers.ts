@@ -5,20 +5,17 @@
  */
 
 import { runMenu } from "../../infrastructure/menu.js";
-import { input } from "../../infrastructure/input.js";
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
-import { shell } from "../../infrastructure/shell.js";
-import { log } from "../../infrastructure/logger.js";
 import { RESET, DIM, GREEN, RED, CYAN } from "../../infrastructure/ui.js";
 import { PROJECTS_DIR, cliConfig } from "../../infrastructure/config.js";
 import { getSelectedProject, setSelectedProject } from "../../infrastructure/state.js";
+import type { StartDeps } from "../../infrastructure/deps.js";
 import { listProjects, getProjectPath } from "../../domain/project/project.js";
 import { scaffold as scaffoldProject, listDefinitions } from "../../domain/scaffold/scaffold.js";
 import type { MenuEntry, MenuResult } from "../../infrastructure/types.js";
 
 /** Open project menu — list projects, set selected. Returns "quit" if project selected. */
-export async function openProjectHandler(): Promise<MenuResult> {
+export async function openProjectHandler(deps: StartDeps): Promise<MenuResult> {
+	const { disk, log } = deps;
 	const projects = listProjects(PROJECTS_DIR, { disk });
 	const current = getSelectedProject();
 
@@ -52,7 +49,8 @@ export async function openProjectHandler(): Promise<MenuResult> {
 }
 
 /** Create project menu — ask name, pick template, scaffold. Returns "quit" if created. */
-export async function createProjectHandler(): Promise<MenuResult> {
+export async function createProjectHandler(deps: StartDeps): Promise<MenuResult> {
+	const { disk, paths, shell, log, input } = deps;
 	const name = await input.ask("Project name");
 
 	if (!name) {

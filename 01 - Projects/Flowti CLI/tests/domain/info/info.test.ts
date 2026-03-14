@@ -91,6 +91,12 @@ vi.mock("../../../src/domain/project/project-config.js", () => ({
 }));
 
 import { showInfo } from "../../../src/ui/displays/info-display.js";
+import { disk } from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
+import { shell } from "../../../src/infrastructure/shell.js";
+import { log } from "../../../src/infrastructure/logger.js";
+
+const infoDeps = { disk, paths, shell, log } as never;
 
 function output(): string {
 	return mockLog.mock.calls.map((c: unknown[]) => String(c[0] ?? "")).join("\n");
@@ -112,7 +118,7 @@ beforeEach(() => {
 
 describe("showInfo", () => {
 	it("prints project identity", () => {
-		showInfo();
+		showInfo(infoDeps);
 		expect(output()).toContain("test-project");
 		expect(output()).toContain("1.0.0");
 		expect(output()).toContain("/projects/test-project");
@@ -121,18 +127,18 @@ describe("showInfo", () => {
 	it("prints source file counts when directories exist", () => {
 		dirs.add("/projects/test-project/src");
 		dirs.add("/projects/test-project/tests");
-		showInfo();
+		showInfo(infoDeps);
 		expect(output()).toContain("Source files");
 		expect(output()).toContain("Test files");
 	});
 
 	it("skips source section when no src or tests dirs", () => {
-		showInfo();
+		showInfo(infoDeps);
 		expect(output()).not.toContain("Source files");
 	});
 
 	it("prints dependencies from package.json", () => {
-		showInfo();
+		showInfo(infoDeps);
 		const out = output();
 		expect(out).toContain("Dependencies");
 		expect(out).toContain("Production");
@@ -140,12 +146,12 @@ describe("showInfo", () => {
 	});
 
 	it("prints dev tools", () => {
-		showInfo();
+		showInfo(infoDeps);
 		expect(output()).toContain("Dev Tools");
 	});
 
 	it("prints publish config with endpoints", () => {
-		showInfo();
+		showInfo(infoDeps);
 		const out = output();
 		expect(out).toContain("Publish");
 		expect(out).toContain("npm run build");
@@ -154,21 +160,21 @@ describe("showInfo", () => {
 	});
 
 	it("prints review config", () => {
-		showInfo();
+		showInfo(infoDeps);
 		const out = output();
 		expect(out).toContain("Review");
 		expect(out).toContain("/test-vault");
 	});
 
 	it("prints git info", () => {
-		showInfo();
+		showInfo(infoDeps);
 		expect(output()).toContain("Git");
 		expect(output()).toContain("Branch");
 	});
 
 	it("shows no-project message when none selected", () => {
 		mockGetSelectedProject.mockReturnValue(undefined);
-		showInfo();
+		showInfo(infoDeps);
 		expect(output()).toContain("No project selected");
 	});
 
@@ -179,7 +185,7 @@ describe("showInfo", () => {
 			if (cmd.includes("rev-parse --short")) return "abc123";
 			return "";
 		});
-		showInfo();
+		showInfo(infoDeps);
 		expect(output()).toContain("dirty");
 	});
 
@@ -190,7 +196,7 @@ describe("showInfo", () => {
 			if (cmd.includes("rev-parse --short")) return "abc123";
 			return "";
 		});
-		showInfo();
+		showInfo(infoDeps);
 		expect(output()).toContain("clean");
 	});
 });

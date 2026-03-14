@@ -18,7 +18,7 @@ beforeEach(() => { mockLog.mockClear(); });
 
 describe("renderTimeLogList", () => {
 	it("renders empty message when no entries", () => {
-		renderTimeLogList([]);
+		renderTimeLogList([], log);
 		expect(output()).toContain("No time-log entries yet");
 	});
 
@@ -27,7 +27,7 @@ describe("renderTimeLogList", () => {
 			{ date: "2026-03-10", person: "Alice", hours: 4, task: "API development", category: "dev" },
 			{ date: "2026-03-11", person: "Bob", hours: 2.5, task: "Code review", category: "review" },
 		];
-		renderTimeLogList(entries);
+		renderTimeLogList(entries, log);
 		const out = output();
 		expect(out).toContain("Time Log (2 entries)");
 		expect(out).toContain("2026-03-10");
@@ -44,7 +44,7 @@ describe("renderTimeLogList", () => {
 		const entries: TimeLogEntry[] = [
 			{ date: "2026-03-10", person: "Alice", hours: 1, task: "Misc", category: "" },
 		];
-		renderTimeLogList(entries);
+		renderTimeLogList(entries, log);
 		const out = output();
 		expect(out).toContain("Alice");
 		expect(out).not.toContain("[]");
@@ -60,7 +60,7 @@ describe("renderTimeLogSummary", () => {
 			byPerson: { Alice: 24, Bob: 18 },
 			byCategory: { dev: 30, review: 12 },
 		};
-		renderTimeLogSummary(summary);
+		renderTimeLogSummary(summary, log);
 		const out = output();
 		expect(out).toContain("Time Log Summary");
 		expect(out).toContain("42");
@@ -78,7 +78,7 @@ describe("renderTimeLogSummary", () => {
 			byPerson: {},
 			byCategory: {},
 		};
-		renderTimeLogSummary(summary);
+		renderTimeLogSummary(summary, log);
 		const out = output();
 		expect(out).toContain("Time Log Summary");
 		expect(out).not.toContain("By Person");
@@ -90,7 +90,7 @@ describe("renderTimeLogSummary", () => {
 
 describe("renderTimeLogAdded", () => {
 	it("renders logged message with path", () => {
-		renderTimeLogAdded(".flowti/timelog/2026-03-10.md");
+		renderTimeLogAdded(".flowti/timelog/2026-03-10.md", log);
 		expect(output()).toContain("Logged: .flowti/timelog/2026-03-10.md");
 	});
 });

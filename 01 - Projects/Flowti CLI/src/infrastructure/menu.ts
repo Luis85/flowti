@@ -29,16 +29,39 @@ function resolveDisabled(item: MenuItem): boolean {
 }
 
 function resolveDisplayItems(items: MenuEntry[]): MenuEntry[] {
-	return items.map((item) => {
+	const resolved = insertGroupSeparators(items);
+	return resolved.map((item) => {
 		if ("separator" in item) return item;
 		return { ...item, disabled: resolveDisabled(item) };
 	});
 }
 
+/** Insert separators between items with different `group` values. */
+export function insertGroupSeparators(items: MenuEntry[]): MenuEntry[] {
+	const result: MenuEntry[] = [];
+	let lastGroup: string | undefined;
+
+	for (const item of items) {
+		if ("separator" in item) {
+			result.push(item);
+			continue;
+		}
+
+		if (item.group !== undefined && lastGroup !== undefined && item.group !== lastGroup) {
+			result.push({ separator: true as const });
+		}
+
+		if (item.group !== undefined) lastGroup = item.group;
+		result.push(item);
+	}
+
+	return result;
+}
+
 const EXIT_RESULTS: Set<string> = new Set(["main", "quit", "start"]);
 
 function isExitResult(result: unknown): result is MenuResult {
-	return typeof result === "string" && EXIT_RESULTS.has(result);
+	return typeof result === "string" && (EXIT_RESULTS.has(result) || result.startsWith("navigate:"));
 }
 
 function findMatch(items: MenuEntry[], choice: string): MenuItem | null {

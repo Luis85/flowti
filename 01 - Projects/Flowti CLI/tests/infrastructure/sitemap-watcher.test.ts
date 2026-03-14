@@ -26,8 +26,8 @@ function stubFs(files: Record<string, string>): IFileSystem {
 }
 
 const VALID_SITEMAP = JSON.stringify({
-	version: 1,
-	views: { start: { title: "Start", items: [{ key: "q", label: "Quit", signal: "quit" }] } },
+	version: 2,
+	pages: { start: { kind: "page", label: "Start", description: "Start page", actions: [{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" }] } },
 });
 
 beforeEach(() => vi.clearAllMocks());
@@ -151,7 +151,7 @@ describe("SitemapWatcher", () => {
 		});
 
 		it("returns new sitemap on valid change", () => {
-			const newSitemap = { version: 1, views: { home: { title: "Home", items: [] } } };
+			const newSitemap = { version: 2, pages: { home: { kind: "page", label: "Home", description: "", actions: [] } } };
 			const newContent = JSON.stringify(newSitemap);
 			const fs = stubFs({ "/sitemap.json": newContent });
 			vi.mocked(validateSitemap).mockReturnValue({ ok: true, sitemap: newSitemap as any, errors: [] });
@@ -164,7 +164,7 @@ describe("SitemapWatcher", () => {
 		});
 
 		it("updates hash after successful reload", () => {
-			const newContent = JSON.stringify({ version: 1, views: { x: { title: "X", items: [] } } });
+			const newContent = JSON.stringify({ version: 2, pages: { x: { kind: "page", label: "X", description: "", actions: [] } } });
 			const fs = stubFs({ "/sitemap.json": newContent });
 			vi.mocked(validateSitemap).mockReturnValue({ ok: true, sitemap: {} as any, errors: [] });
 

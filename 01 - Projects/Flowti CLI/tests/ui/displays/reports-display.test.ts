@@ -25,7 +25,7 @@ beforeEach(() => { mockLog.mockClear(); });
 
 describe("renderNoGenerators", () => {
 	it("renders the message", () => {
-		renderNoGenerators({ message: "No generators configured." });
+		renderNoGenerators({ message: "No generators configured." }, log);
 		expect(output()).toContain("No generators configured.");
 	});
 });
@@ -34,7 +34,7 @@ describe("renderNoGenerators", () => {
 
 describe("renderAuditResult", () => {
 	it("renders passed and failed counts", () => {
-		renderAuditResult({ passed: 5, failed: 2 });
+		renderAuditResult({ passed: 5, failed: 2 }, log);
 		const out = output();
 		expect(out).toContain("Audit complete");
 		expect(out).toContain("5 passed");
@@ -42,7 +42,7 @@ describe("renderAuditResult", () => {
 	});
 
 	it("renders zero counts", () => {
-		renderAuditResult({ passed: 0, failed: 0 });
+		renderAuditResult({ passed: 0, failed: 0 }, log);
 		expect(output()).toContain("0 passed, 0 failed");
 	});
 });
@@ -51,7 +51,7 @@ describe("renderAuditResult", () => {
 
 describe("renderReportDiff", () => {
 	it("renders empty message when no diffs", () => {
-		renderReportDiff([]);
+		renderReportDiff([], log);
 		expect(output()).toContain("No metric changes between latest reports.");
 	});
 
@@ -63,7 +63,7 @@ describe("renderReportDiff", () => {
 			deltas: [],
 			unchanged: [],
 		}];
-		renderReportDiff(diffs);
+		renderReportDiff(diffs, log);
 		const out = output();
 		expect(out).toContain("Report Diff");
 		expect(out).toContain("tests");
@@ -78,7 +78,7 @@ describe("renderReportDiff", () => {
 			deltas: [{ key: "lines", previous: 80, current: 90, delta: 10, formatted: "+10" }],
 			unchanged: [],
 		}];
-		renderReportDiff(diffs);
+		renderReportDiff(diffs, log);
 		const out = output();
 		expect(out).toContain("+10");
 		expect(out).toContain("lines");
@@ -93,7 +93,7 @@ describe("renderReportDiff", () => {
 			deltas: [{ key: "failures", previous: 5, current: 2, delta: -3, formatted: "-3" }],
 			unchanged: [],
 		}];
-		renderReportDiff(diffs);
+		renderReportDiff(diffs, log);
 		expect(output()).toContain("-3");
 		expect(output()).toContain("failures");
 	});
@@ -106,7 +106,7 @@ describe("renderReportDiff", () => {
 			deltas: [],
 			unchanged: ["total"],
 		}];
-		renderReportDiff(diffs);
+		renderReportDiff(diffs, log);
 		expect(output()).toContain("1 unchanged metric");
 		expect(output()).not.toContain("metrics");
 	});
@@ -119,7 +119,7 @@ describe("renderReportDiff", () => {
 			deltas: [],
 			unchanged: ["total", "passed"],
 		}];
-		renderReportDiff(diffs);
+		renderReportDiff(diffs, log);
 		expect(output()).toContain("2 unchanged metrics");
 	});
 
@@ -131,7 +131,7 @@ describe("renderReportDiff", () => {
 			deltas: [{ key: "x", previous: 1, current: 2, delta: 1, formatted: "+1" }],
 			unchanged: [],
 		}];
-		renderReportDiff(diffs);
+		renderReportDiff(diffs, log);
 		expect(output()).not.toContain("unchanged");
 	});
 
@@ -140,7 +140,7 @@ describe("renderReportDiff", () => {
 			{ category: "tests", previousFile: "a.md", currentFile: "b.md", deltas: [], unchanged: [] },
 			{ category: "coverage", previousFile: "c.md", currentFile: "d.md", deltas: [], unchanged: [] },
 		];
-		renderReportDiff(diffs);
+		renderReportDiff(diffs, log);
 		const out = output();
 		expect(out).toContain("tests");
 		expect(out).toContain("coverage");
@@ -154,7 +154,7 @@ describe("renderHtmlExport", () => {
 		renderHtmlExport({
 			exported: [{ title: "Test Report", outputPath: "out/test.html" }],
 			outputDir: "out/",
-		});
+		}, log);
 		const out = output();
 		expect(out).toContain("Test Report → out/test.html");
 		expect(out).toContain("1 report exported to out/");
@@ -167,7 +167,7 @@ describe("renderHtmlExport", () => {
 				{ title: "B", outputPath: "out/b.html" },
 			],
 			outputDir: "out/",
-		});
+		}, log);
 		expect(output()).toContain("2 reports exported");
 	});
 
@@ -175,7 +175,7 @@ describe("renderHtmlExport", () => {
 		renderHtmlExport({
 			exported: [{ title: "A", outputPath: "out/a.html" }],
 			outputDir: "out/",
-		});
+		}, log);
 		expect(output()).toContain("1 report exported");
 		expect(output()).not.toContain("1 reports");
 	});
@@ -185,7 +185,7 @@ describe("renderHtmlExport", () => {
 
 describe("renderUnknownReport", () => {
 	it("renders unknown report ID and available list", () => {
-		renderUnknownReport({ reportId: "foo", available: "test, coverage, summary" });
+		renderUnknownReport({ reportId: "foo", available: "test, coverage, summary" }, log);
 		const out = output();
 		expect(out).toContain("Unknown report: foo");
 		expect(out).toContain("Available: test, coverage, summary");

@@ -138,6 +138,7 @@ describe("make.controller", () => {
 			expect(() => commands["make:component"]({}, [], "make:component", mockProject)).toThrow("process.exit");
 
 			expect(renderError).toHaveBeenCalledWith(
+				expect.any(Function),
 				expect.objectContaining({ error: "--name is required." }),
 			);
 			expect(proc.exit).toHaveBeenCalledWith(1);
@@ -147,6 +148,7 @@ describe("make.controller", () => {
 			expect(() => commands["make:component"]({ name: "Foo" }, [], "make:component", undefined)).toThrow("process.exit");
 
 			expect(renderError).toHaveBeenCalledWith(
+				expect.any(Function),
 				expect.objectContaining({ error: "No project selected." }),
 			);
 			expect(proc.exit).toHaveBeenCalledWith(1);
@@ -158,6 +160,7 @@ describe("make.controller", () => {
 			expect(() => commands["make:component"]({ name: "UserProfile" }, [], "make:component", mockProject)).toThrow("process.exit");
 
 			expect(renderError).toHaveBeenCalledWith(
+				expect.any(Function),
 				expect.objectContaining({ error: expect.stringContaining("already exists") }),
 			);
 			expect(proc.exit).toHaveBeenCalledWith(1);
@@ -169,6 +172,7 @@ describe("make.controller", () => {
 			commands["make:component"]({ name: "UserProfile" }, [], "make:component", mockProject);
 
 			expect(renderSuccess).toHaveBeenCalledWith(
+				expect.any(Function),
 				expect.objectContaining({ message: expect.stringContaining("Created") }),
 			);
 		});
@@ -209,6 +213,7 @@ describe("make.controller", () => {
 			expect(() => commands["edit:component"]({}, [], "edit:component", mockProject)).toThrow("process.exit");
 
 			expect(renderError).toHaveBeenCalledWith(
+				expect.any(Function),
 				expect.objectContaining({ error: "--name is required." }),
 			);
 		});
@@ -217,6 +222,7 @@ describe("make.controller", () => {
 			expect(() => commands["edit:component"]({ name: "Foo" }, [], "edit:component", undefined)).toThrow("process.exit");
 
 			expect(renderError).toHaveBeenCalledWith(
+				expect.any(Function),
 				expect.objectContaining({ error: "No project selected." }),
 			);
 		});
@@ -227,6 +233,7 @@ describe("make.controller", () => {
 			expect(() => commands["edit:component"]({ name: "Missing", "prop.status": "active" }, [], "edit:component", mockProject)).toThrow("process.exit");
 
 			expect(renderError).toHaveBeenCalledWith(
+				expect.any(Function),
 				expect.objectContaining({ error: expect.stringContaining("not found") }),
 			);
 		});
@@ -237,6 +244,7 @@ describe("make.controller", () => {
 			expect(() => commands["edit:component"]({ name: "Existing" }, [], "edit:component", mockProject)).toThrow("process.exit");
 
 			expect(renderError).toHaveBeenCalledWith(
+				expect.any(Function),
 				expect.objectContaining({ error: "No properties specified." }),
 			);
 		});
@@ -252,6 +260,7 @@ describe("make.controller", () => {
 			);
 
 			expect(renderSuccess).toHaveBeenCalledWith(
+				expect.any(Function),
 				expect.objectContaining({ message: expect.stringContaining("Updated") }),
 			);
 			expect(disk.writeFileSync).toHaveBeenCalled();

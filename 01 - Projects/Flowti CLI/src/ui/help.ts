@@ -7,8 +7,8 @@
  */
 
 import { RESET, DIM, YELLOW } from "../infrastructure/ui.js";
-import { log } from "../infrastructure/logger.js";
 import { getHelp, getHelpSections } from "./help-content.js";
+import type { HelpLoaderDeps } from "../domain/shared/help-loader.js";
 
 export interface HelpModel {
 	section: string;
@@ -16,8 +16,11 @@ export interface HelpModel {
 	availableSections: string[];
 }
 
+/** Deps required by help rendering. */
+export type HelpDeps = HelpLoaderDeps & { log: (msg?: string) => void };
+
 /** Renderer for the help controller's HelpModel. */
-export function renderHelp(model: HelpModel): void {
+export function renderHelp(model: HelpModel, log: (msg?: string) => void): void {
 	if (model.content) {
 		log(model.content);
 	} else {
@@ -27,14 +30,7 @@ export function renderHelp(model: HelpModel): void {
 }
 
 /** Show help for a given section (convenience wrapper around renderHelp). */
-export function showHelp(section?: string): void {
+export function showHelp(section: string | undefined, deps: HelpDeps): void {
 	const key = section?.toLowerCase() ?? "main";
-	renderHelp({ section: key, content: getHelp(key), availableSections: getHelpSections() });
+	renderHelp({ section: key, content: getHelp(key, deps), availableSections: getHelpSections(deps) }, deps.log);
 }
-
-/** Legacy help commands — used by main.ts and tests. */
-export const commands = {
-	help: (flags: Record<string, string | boolean>, rawArgs: string[]) => {
-		showHelp(Object.keys(flags)[0] ?? rawArgs?.[1] ?? "main");
-	},
-};

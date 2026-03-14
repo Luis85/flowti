@@ -55,3 +55,55 @@ export function updateField(deps: StoreDeps, filePath: string, field: string, va
 	deps.disk.writeFileSync(filePath, content, "utf-8");
 	return true;
 }
+
+/** Append a bullet item under a markdown section heading. */
+export function appendToSection(deps: Pick<CliDeps, "disk">, filePath: string, sectionTitle: string, line: string): boolean {
+	if (!deps.disk.existsSync(filePath)) return false;
+	let content = deps.disk.readFileSync(filePath, "utf-8");
+	const sectionRegex = new RegExp(`(^## ${sectionTitle}\\s*\\n)`, "m");
+	if (!sectionRegex.test(content)) return false;
+	const commentRegex = new RegExp(`(^## ${sectionTitle}\\s*\\n(?:\\s*\\n)*)<!-- .* -->`, "m");
+	if (commentRegex.test(content)) {
+		content = content.replace(commentRegex, `$1- ${line}`);
+	} else {
+		content = content.replace(sectionRegex, `$1\n- ${line}\n`);
+	}
+	deps.disk.writeFileSync(filePath, content, "utf-8");
+	return true;
+}
+
+/** Replace or remove a bullet/checklist line in a markdown section by index (0-based). */
+export function replaceSectionLine(
+	deps: Pick<CliDeps, "disk">,
+	filePath: string,
+	sectionTitle: string,
+	index: number,
+	transform: (done: boolean, text: string) => string | null,
+): boolean {
+	if (!deps.disk.existsSync(filePath)) return false;
+	const content = deps.disk.readFileSync(filePath, "utf-8");
+	const lines = content.split("\n");
+
+	let inSection = false;
+	let itemIdx = 0;
+	for (let i = 0; i < lines.length; i++) {
+		if (new RegExp(`^## ${sectionTitle}\\s*$`).test(lines[i])) { inSection = true; continue; }
+		if (inSection && /^## /.test(lines[i])) break;
+		if (inSection && /^\s*-\s+/.test(lines[i])) {
+			if (itemIdx === index) {
+				const done = /^\s*-\s+\[x\]\s+/i.test(lines[i]);
+				const text = lines[i].replace(/^\s*-\s+(\[.\]\s+)?/, "").trim();
+				const replacement = transform(done, text);
+				if (replacement === null) {
+					lines.splice(i, 1);
+				} else {
+					lines[i] = replacement;
+				}
+				deps.disk.writeFileSync(filePath, lines.join("\n"), "utf-8");
+				return true;
+			}
+			itemIdx++;
+		}
+	}
+	return false;
+}

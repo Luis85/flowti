@@ -5,7 +5,6 @@
  */
 
 import { RESET, DIM, GREEN, YELLOW, CYAN } from "../../infrastructure/ui.js";
-import { log } from "../../infrastructure/logger.js";
 import type { FreshnessCheck, BuildManifest } from "../../domain/build/build-freshness.js";
 import type { CiResult } from "../../domain/build/ci-generator.js";
 
@@ -24,7 +23,7 @@ export interface BuildRecordedModel {
 
 // ── Renderers ────────────────────────────────────────────────────────
 
-export function renderFreshnessCheck(data: FreshnessCheck): void {
+export function renderFreshnessCheck(data: FreshnessCheck, log: (msg?: string) => void): void {
 	if (!data.needsRebuild) {
 		log(`  ${GREEN}✓${RESET} ${data.reason}\n`);
 		return;
@@ -35,7 +34,7 @@ export function renderFreshnessCheck(data: FreshnessCheck): void {
 	if (data.removed.length) log(`  ${DIM}Removed:${RESET}  ${data.removed.join(", ")}\n`);
 }
 
-export function renderBuildAuto(data: BuildAutoModel): void {
+export function renderBuildAuto(data: BuildAutoModel, log: (msg?: string) => void): void {
 	if (!data.check.needsRebuild) {
 		log(`  ${GREEN}✓${RESET} Build is up to date — skipping.\n`);
 		return;
@@ -46,13 +45,13 @@ export function renderBuildAuto(data: BuildAutoModel): void {
 	}
 }
 
-export function renderBuildRecorded(data: BuildRecordedModel): void {
+export function renderBuildRecorded(data: BuildRecordedModel, log: (msg?: string) => void): void {
 	log(`  ${GREEN}✓${RESET} Build manifest recorded: ${data.fileCount} files, hash ${data.hashPrefix}…\n`);
 }
 
 // ── CI workflow renderers ───────────────────────────────────────────
 
-export function renderWorkflowPreview(yaml: string): void {
+export function renderWorkflowPreview(yaml: string, log: (msg?: string) => void): void {
 	log(`\n  ${CYAN}Generated CI workflow:${RESET}\n`);
 	for (const line of yaml.split("\n")) {
 		log(`  ${DIM}│${RESET} ${line}`);
@@ -60,20 +59,20 @@ export function renderWorkflowPreview(yaml: string): void {
 	log();
 }
 
-export function renderCiDryRun(yaml: string): void {
-	renderWorkflowPreview(yaml);
+export function renderCiDryRun(yaml: string, log: (msg?: string) => void): void {
+	renderWorkflowPreview(yaml, log);
 	log(`  ${YELLOW}Dry run — no files written.${RESET}\n`);
 }
 
-export function renderCiWritten(yaml: string, outputPath: string): void {
-	renderWorkflowPreview(yaml);
+export function renderCiWritten(yaml: string, outputPath: string, log: (msg?: string) => void): void {
+	renderWorkflowPreview(yaml, log);
 	log(`  ${GREEN}Wrote${RESET} ${DIM}${outputPath}${RESET}\n`);
 }
 
-export function renderCiResult(data: CiResult): void {
+export function renderCiResult(data: CiResult, log: (msg?: string) => void): void {
 	if (data.dryRun) {
-		renderCiDryRun(data.yaml);
+		renderCiDryRun(data.yaml, log);
 	} else if (data.outputPath) {
-		renderCiWritten(data.yaml, data.outputPath);
+		renderCiWritten(data.yaml, data.outputPath, log);
 	}
 }

@@ -4,7 +4,7 @@ domain: CLI
 title: Flowti CLI — Development Roadmap
 version: 5
 created: 2026-03-09
-updated: 2026-03-13
+updated: 2026-03-14
 status: active
 source: "[[Flowti CLI PRD]]"
 architecture: "[[Flowti CLI Architecture]]"
@@ -14,23 +14,23 @@ plugin_integration: "[[Plugin Integration Analysis]]"
 
 # Flowti CLI — Development Roadmap
 
-> Phases 5–7.6 are **complete**. Next target: **Phase 8 (Plugin Integration)** — migrate the Flowti Plugin to be a managed Flowti CLI project, unifying build, test, report, and E2E pipelines across both apps.
+> Phases 5–7.7 are **complete**. Next target: **Phase 8 (Plugin Integration)** — migrate the Flowti Plugin to be a managed Flowti CLI project, unifying build, test, report, and E2E pipelines across both apps.
 
 ---
 
-## Current State (2026-03-13)
+## Current State (2026-03-14)
 
 | Metric | Value |
 |--------|-------|
-| Source files | 360 |
-| Test files | 274 suites |
-| Tests passing | 4,623 |
-| Domain modules | 26 |
+| Source files | 377 |
+| Test files | 317 suites |
+| Tests passing | 5,920 |
+| Domain modules | 27 |
 | Controllers | 23 |
-| UI view files | 74 + 2 handler files |
-| Infrastructure modules | 39 |
+| UI view files | 64 |
+| Infrastructure modules | 44 |
 | Non-interactive commands | 87 |
-| Sitemap views | 20 (3 static + 17 dynamic) |
+| Sitemap pages | 28 (v2 PageObject format) |
 | Runtime dependencies | 0 |
 | Scaffold definitions | 4 (project, bare/library, cli, obsidian-plugin) |
 | Component definitions | 8 (4 C4 + 4 UI building blocks) |
@@ -56,6 +56,7 @@ plugin_integration: "[[Plugin Integration Analysis]]"
 | **Phase 7.5** | MVC refactoring | 22 controllers, typed request-response, display renderers, `handleResponse()` edge dispatch |
 | **Phase 7.6** | Domain purification | Zero domain→infrastructure violations, injectable log pattern, EventBus infrastructure, scripts layer |
 | **Phase 7.7** | Declarative UI | Sitemap-driven router (PageObject pattern), 20 views in `configs/sitemap.json`, SitemapWatcher (hot-reload), expression evaluator, handler registry, sitemap→component converter, 3 CLI inspection commands, 45 new tests |
+| **Phase 7.8** | v2 Unified Sitemap | v2 PageObject format (28 pages), form engine, key-assigner, page-schema validation, config-validators split, +1,300 tests, all handlers migrated to v2 actions |
 
 See `docs/archive/` for detailed phase completion notes.
 
@@ -214,10 +215,10 @@ Remove migrated E2E code from Plugin, update test commands.
 
 ## Key Metrics to Track
 
-| Metric | Current (2026-03-13) | Phase 8 Target | Phase 9 Target |
+| Metric | Current (2026-03-14) | Phase 8 Target | Phase 9 Target |
 |--------|---------------------|----------------|----------------|
-| Tests | 4,623 | 4,800+ | 5,000+ |
-| Test suites | 274 | 290+ | 300+ |
+| Tests | 5,920 | 6,100+ | 6,500+ |
+| Test suites | 317 | 330+ | 350+ |
 | Managed project types | 4 | 4 + import flow | 4+ marketplace |
 | Report pipeline steps | 8 internal | 8 internal + 14 script | 22+ |
 | Config schema | v1 (type, paths, validation) | v2 (single schema) | v2 |

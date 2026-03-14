@@ -36,19 +36,23 @@ function setDisk(fs: ReturnType<typeof createMockFs>): void {
 beforeEach(() => { vi.clearAllMocks(); });
 
 const MOCK_SITEMAP = {
-	version: 1 as const,
-	views: {
+	version: 2 as const,
+	pages: {
 		start: {
-			title: "Start",
-			items: [
-				{ key: "o", label: "Open Project", navigate: "project-list" },
-				{ key: "q", label: "Quit", signal: "quit" as const },
+			kind: "page" as const,
+			label: "Start",
+			description: "Landing page",
+			actions: [
+				{ name: "onOpenProject", label: "Open Project", type: "navigate" as const, target: "project-list", key: "o" },
+				{ name: "onQuit", label: "Quit", type: "signal" as const, target: "quit", key: "q" },
 			],
 		},
 		"project-list": {
-			title: "Projects",
-			items: [
-				{ key: "b", label: "Back", signal: "back" as const },
+			kind: "page" as const,
+			label: "Projects",
+			description: "Project listing",
+			actions: [
+				{ name: "onBack", label: "Back", type: "signal" as const, target: "back", key: "b" },
 			],
 		},
 	},
@@ -68,10 +72,11 @@ describe("generateSitemapReference", () => {
 		const result = generateSitemapReference("/mock/project", mockDeps);
 
 		expect(result.success).toBe(true);
-		expect(result.metrics.views).toBe(2);
+		expect(result.metrics.pages).toBe(2);
+		expect(result.metrics.actions).toBe(3);
 	});
 
-	it("includes view index table", () => {
+	it("includes page index table", () => {
 		const fs = createMockFs();
 		setDisk(fs);
 		vi.mocked(loadSitemap).mockReturnValue({ ok: true, sitemap: MOCK_SITEMAP, errors: [] });
@@ -79,7 +84,7 @@ describe("generateSitemapReference", () => {
 		generateSitemapReference("/mock/project", mockDeps);
 		const content = [...fs.files.entries()].find(([k]) => k.endsWith(".md"))![1];
 
-		expect(content).toContain("Views");
+		expect(content).toContain("Pages");
 		expect(content).toContain("start");
 		expect(content).toContain("project-list");
 	});
@@ -96,7 +101,7 @@ describe("generateSitemapReference", () => {
 		expect(content).toContain("project-list");
 	});
 
-	it("writes frontmatter with type", () => {
+	it("writes frontmatter with type and pages count", () => {
 		const fs = createMockFs();
 		setDisk(fs);
 		vi.mocked(loadSitemap).mockReturnValue({ ok: true, sitemap: MOCK_SITEMAP, errors: [] });
@@ -104,5 +109,6 @@ describe("generateSitemapReference", () => {
 		generateSitemapReference("/mock/project", mockDeps);
 		const content = [...fs.files.entries()].find(([k]) => k.endsWith(".md"))![1];
 		expect(content).toContain("type: SitemapReference");
+		expect(content).toContain("pages: 2");
 	});
 });

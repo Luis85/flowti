@@ -75,6 +75,10 @@ import type { RouterContext } from "../../../src/infrastructure/sitemap-types.js
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
+function mockDeps() {
+	return { disk, paths: { join: (...args: string[]) => args.join("/"), resolve: (...args: string[]) => args.join("/"), basename: (p: string) => p.split("/").pop() ?? "", sep: "/" }, shell, input, log, clock: { iso: () => "2026-01-01T00:00:00.000Z", ms: () => 0, now: () => new Date("2026-01-01"), safeIso: () => "2026-01-01T00-00-00" }, warn: vi.fn() };
+}
+
 function mockCtx(config: Record<string, unknown> = {}): RouterContext {
 	return {
 		project: {
@@ -87,11 +91,12 @@ function mockCtx(config: Record<string, unknown> = {}): RouterContext {
 			path: "/project",
 			scripts: { build: "npm run build", test: "npm test", lint: "npm run lint", check: "npm run check" },
 		},
+		deps: mockDeps(),
 	} as RouterContext;
 }
 
 function noProjectCtx(): RouterContext {
-	return { project: undefined } as unknown as RouterContext;
+	return { project: undefined, deps: mockDeps() } as unknown as RouterContext;
 }
 
 // ── Suite ───────────────────────────────────────────────────────────
@@ -109,10 +114,10 @@ describe("registerToolingHandlers", () => {
 
 	describe("registration", () => {
 		it("registers all expected list providers", () => {
-			expect(registry.hasListProvider("make:templates")).toBe(true);
-			expect(registry.hasListProvider("reports:generators")).toBe(true);
-			expect(registry.hasListProvider("docs:references")).toBe(true);
-			expect(registry.hasListProvider("docs:generators")).toBe(true);
+			expect(registry.hasDataSource("make:templates")).toBe(true);
+			expect(registry.hasDataSource("reports:generators")).toBe(true);
+			expect(registry.hasDataSource("docs:references")).toBe(true);
+			expect(registry.hasDataSource("docs:generators")).toBe(true);
 		});
 
 		it("registers all expected actions", () => {
@@ -132,13 +137,13 @@ describe("registerToolingHandlers", () => {
 
 	describe("make:templates", () => {
 		it("returns empty array when no project", () => {
-			const provider = registry.getListProvider("make:templates");
+			const provider = registry.getDataSource("make:templates");
 			const result = provider(noProjectCtx());
 			expect(result).toEqual([]);
 		});
 
 		it("returns menu entries for available templates", () => {
-			const provider = registry.getListProvider("make:templates");
+			const provider = registry.getDataSource("make:templates");
 			const result = provider(mockCtx());
 			expect(result).toHaveLength(2);
 			expect(result[0].label).toBe("New E2E Journey");
@@ -148,28 +153,28 @@ describe("registerToolingHandlers", () => {
 		});
 
 		it("calls getAvailableTemplates with project path", () => {
-			const provider = registry.getListProvider("make:templates");
+			const provider = registry.getDataSource("make:templates");
 			provider(mockCtx());
 			expect(getAvailableTemplates).toHaveBeenCalledWith("/project", expect.objectContaining({}));
 		});
 
 		it("journey template action calls makeJourney", async () => {
-			const provider = registry.getListProvider("make:templates");
+			const provider = registry.getDataSource("make:templates");
 			const entries = provider(mockCtx());
 			await entries[0].action!();
-			expect(makeJourney).toHaveBeenCalledWith("/project");
+			expect(makeJourney).toHaveBeenCalledWith("/project", expect.objectContaining({}));
 		});
 
 		it("component template action calls componentMenu", async () => {
-			const provider = registry.getListProvider("make:templates");
+			const provider = registry.getDataSource("make:templates");
 			const entries = provider(mockCtx());
 			await entries[1].action!();
-			expect(componentMenu).toHaveBeenCalledWith("/project");
+			expect(componentMenu).toHaveBeenCalledWith("/project", expect.objectContaining({}));
 		});
 
 		it("handles unknown template IDs gracefully", () => {
 			vi.mocked(getAvailableTemplates).mockReturnValueOnce(["unknown" as "journey"]);
-			const provider = registry.getListProvider("make:templates");
+			const provider = registry.getDataSource("make:templates");
 			const entries = provider(mockCtx());
 			expect(entries).toHaveLength(1);
 			expect(entries[0].label).toBe("unknown");
@@ -182,7 +187,7 @@ describe("registerToolingHandlers", () => {
 		it("shows help and waits for enter", async () => {
 			const handler = registry.getAction("make:help");
 			const result = await handler(mockCtx());
-			expect(showHelp).toHaveBeenCalledWith("make");
+			expect(showHelp).toHaveBeenCalledWith("make", expect.anything());
 			expect(input.waitForEnter).toHaveBeenCalled();
 			expect(result).toBeUndefined();
 		});
@@ -192,12 +197,12 @@ describe("registerToolingHandlers", () => {
 
 	describe("reports:generators", () => {
 		it("returns empty array when no project", () => {
-			const provider = registry.getListProvider("reports:generators");
+			const provider = registry.getDataSource("reports:generators");
 			expect(provider(noProjectCtx())).toEqual([]);
 		});
 
 		it("returns empty array when no generators configured", () => {
-			const provider = registry.getListProvider("reports:generators");
+			const provider = registry.getDataSource("reports:generators");
 			expect(provider(mockCtx())).toEqual([]);
 		});
 
@@ -205,7 +210,7 @@ describe("registerToolingHandlers", () => {
 			const ctx = mockCtx({
 				reports: { generators: [{ id: "test-gen", label: "Test Report" }] },
 			});
-			const provider = registry.getListProvider("reports:generators");
+			const provider = registry.getDataSource("reports:generators");
 			const entries = provider(ctx);
 			expect(entries).toHaveLength(1);
 			expect(entries[0].label).toBe("Test Report");
@@ -217,7 +222,7 @@ describe("registerToolingHandlers", () => {
 			const ctx = mockCtx({
 				reports: { generators: [{ id: "coverage", label: "Coverage" }] },
 			});
-			const provider = registry.getListProvider("reports:generators");
+			const provider = registry.getDataSource("reports:generators");
 			const entries = provider(ctx);
 			await entries[0].action!();
 			expect(runGenerator).toHaveBeenCalledWith("coverage", "/project", expect.objectContaining({}));
@@ -228,7 +233,7 @@ describe("registerToolingHandlers", () => {
 			const ctx = mockCtx({
 				reports: { generators: [{ command: "node gen.js", label: "Custom" }] },
 			});
-			const provider = registry.getListProvider("reports:generators");
+			const provider = registry.getDataSource("reports:generators");
 			const entries = provider(ctx);
 			await entries[0].action!();
 			expect(shell.run).toHaveBeenCalledWith("node gen.js", expect.objectContaining({ cwd: "/project" }));
@@ -297,7 +302,7 @@ describe("registerToolingHandlers", () => {
 		it("calls browseArchive with reports dir", async () => {
 			const handler = registry.getAction("reports:browse");
 			await handler(mockCtx());
-			expect(browseArchive).toHaveBeenCalledWith("/project/reports");
+			expect(browseArchive).toHaveBeenCalledWith("/project/reports", expect.objectContaining({}));
 		});
 	});
 
@@ -305,12 +310,12 @@ describe("registerToolingHandlers", () => {
 
 	describe("docs:references", () => {
 		it("returns empty array when no project", () => {
-			const provider = registry.getListProvider("docs:references");
+			const provider = registry.getDataSource("docs:references");
 			expect(provider(noProjectCtx())).toEqual([]);
 		});
 
 		it("returns empty array when no references configured", () => {
-			const provider = registry.getListProvider("docs:references");
+			const provider = registry.getDataSource("docs:references");
 			expect(provider(mockCtx())).toEqual([]);
 		});
 
@@ -318,7 +323,7 @@ describe("registerToolingHandlers", () => {
 			const ctx = mockCtx({
 				docs: { references: [{ label: "API Docs" }], generators: [] },
 			});
-			const provider = registry.getListProvider("docs:references");
+			const provider = registry.getDataSource("docs:references");
 			const entries = provider(ctx);
 			expect(entries).toHaveLength(1);
 			expect(entries[0].label).toBe("Open API Docs");
@@ -331,7 +336,7 @@ describe("registerToolingHandlers", () => {
 			const ctx = mockCtx({
 				docs: { references: [{ label: "API" }], generators: [] },
 			});
-			const provider = registry.getListProvider("docs:references");
+			const provider = registry.getDataSource("docs:references");
 			const entries = provider(ctx);
 			await entries[0].action!();
 			expect(disk.readFileSync).toHaveBeenCalled();
@@ -343,7 +348,7 @@ describe("registerToolingHandlers", () => {
 			const ctx = mockCtx({
 				docs: { references: [{ label: "Missing" }], generators: [] },
 			});
-			const provider = registry.getListProvider("docs:references");
+			const provider = registry.getDataSource("docs:references");
 			const entries = provider(ctx);
 			await entries[0].action!();
 			expect(log).toHaveBeenCalled();
@@ -355,12 +360,12 @@ describe("registerToolingHandlers", () => {
 
 	describe("docs:generators", () => {
 		it("returns empty array when no project", () => {
-			const provider = registry.getListProvider("docs:generators");
+			const provider = registry.getDataSource("docs:generators");
 			expect(provider(noProjectCtx())).toEqual([]);
 		});
 
 		it("returns empty array when no generators configured", () => {
-			const provider = registry.getListProvider("docs:generators");
+			const provider = registry.getDataSource("docs:generators");
 			expect(provider(mockCtx())).toEqual([]);
 		});
 
@@ -368,7 +373,7 @@ describe("registerToolingHandlers", () => {
 			const ctx = mockCtx({
 				docs: { references: [], generators: [{ label: "TypeDoc", command: "npm run typedoc" }] },
 			});
-			const provider = registry.getListProvider("docs:generators");
+			const provider = registry.getDataSource("docs:generators");
 			const entries = provider(ctx);
 			expect(entries).toHaveLength(1);
 			expect(entries[0].key).toBe("20");
@@ -379,7 +384,7 @@ describe("registerToolingHandlers", () => {
 			const ctx = mockCtx({
 				docs: { references: [], generators: [{ label: "TypeDoc", command: "npm run typedoc" }] },
 			});
-			const provider = registry.getListProvider("docs:generators");
+			const provider = registry.getDataSource("docs:generators");
 			const entries = provider(ctx);
 			await entries[0].action!();
 			expect(shell.run).toHaveBeenCalledWith("npm run typedoc", expect.objectContaining({ cwd: "/project" }));

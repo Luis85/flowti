@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { SitemapRouter } from "../../src/infrastructure/sitemap-router.js";
 import { HandlerRegistry } from "../../src/infrastructure/handler-registry.js";
 import { CommandRegistry } from "../../src/infrastructure/command-registry.js";
-import type { Sitemap, RouterContext } from "../../src/infrastructure/sitemap-types.js";
+import type { Sitemap, PageObject, RouterContext } from "../../src/infrastructure/sitemap-types.js";
 import type { CliDeps } from "../../src/infrastructure/deps.js";
 import type { MenuEntry, MenuResult, ProjectContext } from "../../src/infrastructure/types.js";
 
@@ -10,6 +10,7 @@ import type { MenuEntry, MenuResult, ProjectContext } from "../../src/infrastruc
 
 vi.mock("../../src/infrastructure/menu.js", () => ({
 	runMenu: vi.fn(),
+	insertGroupSeparators: vi.fn((items: MenuEntry[]) => items),
 }));
 
 vi.mock("../../src/infrastructure/context-provider.js", () => ({
@@ -22,6 +23,15 @@ vi.mock("../../src/infrastructure/sitemap-conditions.js", () => ({
 	),
 	resolveHiddenCondition: vi.fn(
 		(cond: unknown) => (typeof cond === "boolean" ? cond : false),
+	),
+}));
+
+vi.mock("../../src/infrastructure/key-assigner.js", () => ({
+	assignKeys: vi.fn((actions: Array<{ key?: string; label: string }>) =>
+		actions.map((action, i) => ({
+			action,
+			assignedKey: action.key ?? String(i + 1),
+		})),
 	),
 }));
 
@@ -54,8 +64,17 @@ function makeProject(name = "test-project"): ProjectContext {
 	};
 }
 
-function makeSitemap(views: Sitemap["views"]): Sitemap {
-	return { version: 1, views };
+function makeSitemap(pages: Sitemap["pages"]): Sitemap {
+	return { version: 2, pages };
+}
+
+function makePage(overrides: Partial<PageObject> & { actions: PageObject["actions"] }): PageObject {
+	return {
+		kind: "page",
+		label: overrides.label ?? "Page",
+		description: overrides.description ?? "",
+		...overrides,
+	};
 }
 
 interface RouterHarness {
@@ -126,12 +145,12 @@ describe("SitemapRouter", () => {
 	describe("basic navigation", () => {
 		it("renders the start view via runMenu", async () => {
 			const sitemap = makeSitemap({
-				start: {
-					title: "Main Menu",
-					items: [
-						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
+				start: makePage({
+					label: "Main Menu",
+					actions: [
+						{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" },
 					],
-				},
+				}),
 			});
 
 			const { router } = createRouter(sitemap);
@@ -149,18 +168,18 @@ describe("SitemapRouter", () => {
 
 		it("navigate pushes target view onto the stack", async () => {
 			const sitemap = makeSitemap({
-				start: {
-					title: "Main",
-					items: [
-						{ type: "item" as const, key: "s", label: "Settings", navigate: "settings" },
+				start: makePage({
+					label: "Main",
+					actions: [
+						{ name: "onSettings", label: "Settings", type: "navigate", target: "settings", key: "s" },
 					],
-				},
-				settings: {
-					title: "Settings",
-					items: [
-						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
+				}),
+				settings: makePage({
+					label: "Settings",
+					actions: [
+						{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" },
 					],
-				},
+				}),
 			});
 
 			const { router } = createRouter(sitemap);
@@ -183,10 +202,10 @@ describe("SitemapRouter", () => {
 	describe("signal handling", () => {
 		it('"quit" signal exits the router loop', async () => {
 			const sitemap = makeSitemap({
-				start: {
-					title: "Main",
-					items: [{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const }],
-				},
+				start: makePage({
+					label: "Main",
+					actions: [{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" }],
+				}),
 			});
 
 			const { router } = createRouter(sitemap);
@@ -199,17 +218,17 @@ describe("SitemapRouter", () => {
 
 		it('"back" signal pops the view stack', async () => {
 			const sitemap = makeSitemap({
-				start: {
-					title: "Main",
-					items: [
-						{ type: "item" as const, key: "s", label: "Sub", navigate: "sub" },
-						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
+				start: makePage({
+					label: "Main",
+					actions: [
+						{ name: "onSub", label: "Sub", type: "navigate", target: "sub", key: "s" },
+						{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" },
 					],
-				},
-				sub: {
-					title: "Sub",
-					items: [{ type: "item" as const, key: "b", label: "Back", signal: "back" as const }],
-				},
+				}),
+				sub: makePage({
+					label: "Sub",
+					actions: [{ name: "onBack", label: "Back", type: "signal", target: "back", key: "b" }],
+				}),
 			});
 
 			const { router } = createRouter(sitemap);
@@ -228,17 +247,17 @@ describe("SitemapRouter", () => {
 
 		it('"start" signal clears stack and calls onProjectCleared', async () => {
 			const sitemap = makeSitemap({
-				start: {
-					title: "Main",
-					items: [
-						{ type: "item" as const, key: "s", label: "Sub", navigate: "sub" },
-						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
+				start: makePage({
+					label: "Main",
+					actions: [
+						{ name: "onSub", label: "Sub", type: "navigate", target: "sub", key: "s" },
+						{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" },
 					],
-				},
-				sub: {
-					title: "Sub",
-					items: [{ type: "item" as const, key: "h", label: "Home", signal: "start" as const }],
-				},
+				}),
+				sub: makePage({
+					label: "Sub",
+					actions: [{ name: "onHome", label: "Home", type: "signal", target: "start", key: "h" }],
+				}),
 			});
 
 			const { router, onProjectCleared } = createRouter(sitemap);
@@ -263,19 +282,18 @@ describe("SitemapRouter", () => {
 				.mockResolvedValue("quit");
 
 			const sitemap = makeSitemap({
-				start: {
-					title: "Main",
-					items: [{ type: "item" as const, key: "d", label: "Dynamic", navigate: "dyn" }],
-				},
-				dyn: {
-					type: "dynamic",
-					title: "Dynamic View",
-					handler: "my-dynamic-handler",
-				},
+				start: makePage({
+					label: "Main",
+					actions: [{ name: "onDynamic", label: "Dynamic", type: "navigate", target: "dyn", key: "d" }],
+				}),
+				dyn: makePage({
+					label: "Dynamic View",
+					actions: [],
+				}),
 			});
 
 			const { router, handlers } = createRouter(sitemap);
-			handlers.registerView("my-dynamic-handler", viewHandler);
+			handlers.registerView("dyn", viewHandler);
 
 			queueMenuResults({ pickKey: "d" });
 
@@ -293,20 +311,19 @@ describe("SitemapRouter", () => {
 				.mockResolvedValueOnce("quit");
 
 			const sitemap = makeSitemap({
-				start: {
-					title: "Main",
-					type: "dynamic",
-					handler: "dyn",
-				},
-				settings: {
-					title: "Settings",
-					type: "dynamic",
-					handler: "dyn",
-				},
+				start: makePage({
+					label: "Main",
+					actions: [],
+				}),
+				settings: makePage({
+					label: "Settings",
+					actions: [],
+				}),
 			});
 
 			const { router, handlers } = createRouter(sitemap);
-			handlers.registerView("dyn", viewHandler);
+			handlers.registerView("start", viewHandler);
+			handlers.registerView("settings", viewHandler);
 
 			await router.run("start");
 
@@ -321,13 +338,13 @@ describe("SitemapRouter", () => {
 			const cmdHandler = vi.fn().mockResolvedValue(undefined);
 
 			const sitemap = makeSitemap({
-				start: {
-					title: "Main",
-					items: [
-						{ type: "item" as const, key: "b", label: "Build", command: "build" },
-						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
+				start: makePage({
+					label: "Main",
+					actions: [
+						{ name: "onBuild", label: "Build", type: "command", target: "build", key: "b" },
+						{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" },
 					],
-				},
+				}),
 			});
 
 			const { router, commands } = createRouter(sitemap);
@@ -351,13 +368,13 @@ describe("SitemapRouter", () => {
 			const mockLog = vi.mocked(log);
 
 			const sitemap = makeSitemap({
-				start: {
-					title: "Main",
-					items: [
-						{ type: "item" as const, key: "x", label: "Unknown", command: "nonexistent" },
-						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
+				start: makePage({
+					label: "Main",
+					actions: [
+						{ name: "onUnknown", label: "Unknown", type: "command", target: "nonexistent", key: "x" },
+						{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" },
 					],
-				},
+				}),
 			});
 
 			const { router } = createRouter(sitemap);
@@ -380,13 +397,13 @@ describe("SitemapRouter", () => {
 			const actionHandler = vi.fn().mockResolvedValue(undefined);
 
 			const sitemap = makeSitemap({
-				start: {
-					title: "Main",
-					items: [
-						{ type: "item" as const, key: "a", label: "Action", handler: "my-action" },
-						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
+				start: makePage({
+					label: "Main",
+					actions: [
+						{ name: "onAction", label: "Action", type: "handler", target: "my-action", key: "a" },
+						{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" },
 					],
-				},
+				}),
 			});
 
 			const { router, handlers } = createRouter(sitemap);
@@ -407,10 +424,10 @@ describe("SitemapRouter", () => {
 			const actionHandler = vi.fn().mockResolvedValue("quit");
 
 			const sitemap = makeSitemap({
-				start: {
-					title: "Main",
-					items: [{ type: "item" as const, key: "a", label: "Action", handler: "my-action" }],
-				},
+				start: makePage({
+					label: "Main",
+					actions: [{ name: "onAction", label: "Action", type: "handler", target: "my-action", key: "a" }],
+				}),
 			});
 
 			const { router, handlers } = createRouter(sitemap);
@@ -428,17 +445,17 @@ describe("SitemapRouter", () => {
 			const actionHandler = vi.fn().mockResolvedValue("start");
 
 			const sitemap = makeSitemap({
-				start: {
-					title: "Main",
-					items: [
-						{ type: "item" as const, key: "s", label: "Sub", navigate: "sub" },
-						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
+				start: makePage({
+					label: "Main",
+					actions: [
+						{ name: "onSub", label: "Sub", type: "navigate", target: "sub", key: "s" },
+						{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" },
 					],
-				},
-				sub: {
-					title: "Sub",
-					items: [{ type: "item" as const, key: "a", label: "Reset", handler: "reset-action" }],
-				},
+				}),
+				sub: makePage({
+					label: "Sub",
+					actions: [{ name: "onReset", label: "Reset", type: "handler", target: "reset-action", key: "a" }],
+				}),
 			});
 
 			const { router, handlers, onProjectCleared } = createRouter(sitemap);
@@ -457,17 +474,17 @@ describe("SitemapRouter", () => {
 			const actionHandler = vi.fn().mockResolvedValue("main");
 
 			const sitemap = makeSitemap({
-				start: {
-					title: "Main",
-					items: [
-						{ type: "item" as const, key: "s", label: "Sub", navigate: "sub" },
-						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
+				start: makePage({
+					label: "Main",
+					actions: [
+						{ name: "onSub", label: "Sub", type: "navigate", target: "sub", key: "s" },
+						{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" },
 					],
-				},
-				sub: {
-					title: "Sub",
-					items: [{ type: "item" as const, key: "a", label: "Go back", handler: "back-action" }],
-				},
+				}),
+				sub: makePage({
+					label: "Sub",
+					actions: [{ name: "onGoBack", label: "Go back", type: "handler", target: "back-action", key: "a" }],
+				}),
 			});
 
 			const { router, handlers } = createRouter(sitemap);
@@ -485,24 +502,25 @@ describe("SitemapRouter", () => {
 		});
 	});
 
-	// ── 6. Disabled / hidden items ──────────────────────────────────
+	// ── 6. Disabled / hidden actions ────────────────────────────────
 
-	describe("disabled and hidden items", () => {
+	describe("disabled and hidden actions", () => {
 		it("passes disabled condition to menu entries", async () => {
 			const sitemap = makeSitemap({
-				start: {
-					title: "Main",
-					items: [
+				start: makePage({
+					label: "Main",
+					actions: [
 						{
-							type: "item" as const,
-							key: "d",
+							name: "onDisabled",
 							label: "Disabled Item",
-							signal: "quit" as const,
+							type: "signal",
+							target: "quit",
+							key: "d",
 							disabled: true,
 							disabledMessage: "Not available",
 						},
 					],
-				},
+				}),
 			});
 
 			const { router } = createRouter(sitemap);
@@ -523,17 +541,17 @@ describe("SitemapRouter", () => {
 			await router.run("start");
 		});
 
-		it("hidden items are excluded from entries", async () => {
+		it("hidden actions are excluded from entries", async () => {
 			vi.mocked(resolveHiddenCondition).mockReturnValueOnce(true);
 
 			const sitemap = makeSitemap({
-				start: {
-					title: "Main",
-					items: [
-						{ type: "item" as const, key: "h", label: "Hidden", signal: "quit" as const, hidden: true },
-						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
+				start: makePage({
+					label: "Main",
+					actions: [
+						{ name: "onHidden", label: "Hidden", type: "signal", target: "quit", key: "h", hidden: true },
+						{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" },
 					],
-				},
+				}),
 			});
 
 			const { router } = createRouter(sitemap);
@@ -547,41 +565,42 @@ describe("SitemapRouter", () => {
 			expect(keys).toContain("q");
 		});
 
-		it("separator entries are passed through", async () => {
+		it("group-based separators are inserted via insertGroupSeparators", async () => {
 			const sitemap = makeSitemap({
-				start: {
-					title: "Main",
-					items: [
-						{ type: "item" as const, key: "a", label: "A", signal: "quit" as const },
-						{ type: "separator" as const },
-						{ type: "item" as const, key: "b", label: "B", signal: "quit" as const },
+				start: makePage({
+					label: "Main",
+					actions: [
+						{ name: "onA", label: "A", type: "signal", target: "quit", key: "a", group: "first" },
+						{ name: "onB", label: "B", type: "signal", target: "quit", key: "b", group: "second" },
 					],
-				},
+				}),
 			});
+
+			const { insertGroupSeparators } = await import("../../src/infrastructure/menu.js");
+			const mockInsertGroupSeparators = vi.mocked(insertGroupSeparators);
 
 			const { router } = createRouter(sitemap);
 			queueMenuResults({ pickKey: "a" });
 
 			await router.run("start");
 
-			const entries = mockRunMenu.mock.calls[0][1];
-			expect(entries).toHaveLength(3);
-			expect(entries[1]).toEqual({ separator: true });
+			// insertGroupSeparators should have been called to handle group-based separators
+			expect(mockInsertGroupSeparators).toHaveBeenCalled();
 		});
 	});
 
 	// ── 7. BeforeRender handlers ────────────────────────────────────
 
 	describe("beforeRender handlers", () => {
-		it("passes beforeMenu callback when beforeRender handler is registered", async () => {
+		it("passes beforeMenu callback when onBeforeRender handler is registered", async () => {
 			const beforeHandler = vi.fn();
 
 			const sitemap = makeSitemap({
-				start: {
-					title: "Main",
-					beforeRender: "my-banner",
-					items: [{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const }],
-				},
+				start: makePage({
+					label: "Main",
+					onBeforeRender: "my-banner",
+					actions: [{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" }],
+				}),
 			});
 
 			const { router, handlers } = createRouter(sitemap);
@@ -605,11 +624,11 @@ describe("SitemapRouter", () => {
 
 		it("does not set beforeMenu when handler is not registered", async () => {
 			const sitemap = makeSitemap({
-				start: {
-					title: "Main",
-					beforeRender: "nonexistent-banner",
-					items: [{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const }],
-				},
+				start: makePage({
+					label: "Main",
+					onBeforeRender: "nonexistent-banner",
+					actions: [{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" }],
+				}),
 			});
 
 			const { router } = createRouter(sitemap);
@@ -631,29 +650,28 @@ describe("SitemapRouter", () => {
 			const project = makeProject();
 
 			const sitemap = makeSitemap({
-				start: {
-					title: "Main",
-					items: [
-						{ type: "item" as const, key: "p", label: "Pick project", navigate: "project-picker" },
+				start: makePage({
+					label: "Main",
+					actions: [
+						{ name: "onPick", label: "Pick project", type: "navigate", target: "project-picker", key: "p" },
 					],
-				},
-				"project-picker": {
-					type: "dynamic",
-					title: "Pick",
-					handler: "pick-project",
-				},
-				"project-detail": {
-					title: "Project: {{project.name}}",
-					items: [
-						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
+				}),
+				"project-picker": makePage({
+					label: "Pick",
+					actions: [],
+				}),
+				"project-detail": makePage({
+					label: "Project: {{project.name}}",
+					actions: [
+						{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" },
 					],
-				},
+				}),
 			});
 
 			const { router, handlers, getProject, onProjectSelected } = createRouter(sitemap);
 
 			// The dynamic picker returns "main" to pop back
-			handlers.registerView("pick-project", vi.fn().mockResolvedValue("main"));
+			handlers.registerView("project-picker", vi.fn().mockResolvedValue("main"));
 
 			// After the picker runs, getProject returns a project
 			getProject
@@ -680,13 +698,13 @@ describe("SitemapRouter", () => {
 	describe("stack never empties", () => {
 		it("re-pushes start view when back would empty the stack", async () => {
 			const sitemap = makeSitemap({
-				start: {
-					title: "Main",
-					items: [
-						{ type: "item" as const, key: "b", label: "Back", signal: "back" as const },
-						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
+				start: makePage({
+					label: "Main",
+					actions: [
+						{ name: "onBack", label: "Back", type: "signal", target: "back", key: "b" },
+						{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" },
 					],
-				},
+				}),
 			});
 
 			const { router } = createRouter(sitemap);
@@ -702,17 +720,17 @@ describe("SitemapRouter", () => {
 		});
 	});
 
-	// ── 10. Template interpolation in titles ────────────────────────
+	// ── 10. Template interpolation in labels ────────────────────────
 
 	describe("template interpolation", () => {
-		it("calls interpolate with title and context", async () => {
+		it("calls interpolate with label and context", async () => {
 			mockInterpolate.mockReturnValue("Project: MyApp");
 
 			const sitemap = makeSitemap({
-				start: {
-					title: "Project: {{project.name}}",
-					items: [{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const }],
-				},
+				start: makePage({
+					label: "Project: {{project.name}}",
+					actions: [{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" }],
+				}),
 			});
 
 			const { router } = createRouter(sitemap);
@@ -728,19 +746,19 @@ describe("SitemapRouter", () => {
 			expect(mockRunMenu.mock.calls[0][0]).toBe("Project: MyApp");
 		});
 
-		it("interpolates item labels too", async () => {
+		it("interpolates action labels too", async () => {
 			mockInterpolate.mockImplementation((template: string) => {
 				if (template.includes("{{project.name}}")) return template.replace("{{project.name}}", "MyApp");
 				return template;
 			});
 
 			const sitemap = makeSitemap({
-				start: {
-					title: "Main",
-					items: [
-						{ type: "item" as const, key: "p", label: "Project: {{project.name}}", signal: "quit" as const },
+				start: makePage({
+					label: "Main",
+					actions: [
+						{ name: "onProject", label: "Project: {{project.name}}", type: "signal", target: "quit", key: "p" },
 					],
-				},
+				}),
 			});
 
 			const { router } = createRouter(sitemap);
@@ -760,17 +778,17 @@ describe("SitemapRouter", () => {
 	describe("updateSitemap()", () => {
 		it("hot-swaps the sitemap definition used during navigation", async () => {
 			const original = makeSitemap({
-				start: {
-					title: "Original",
-					items: [{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const }],
-				},
+				start: makePage({
+					label: "Original",
+					actions: [{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" }],
+				}),
 			});
 
 			const updated = makeSitemap({
-				start: {
-					title: "Updated",
-					items: [{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const }],
-				},
+				start: makePage({
+					label: "Updated",
+					actions: [{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" }],
+				}),
 			});
 
 			const { router } = createRouter(original);
@@ -784,7 +802,6 @@ describe("SitemapRouter", () => {
 					// Hot-swap for next iteration
 					router.updateSitemap(updated);
 					// Return void to pop, which triggers re-push of start
-					const item = (entries as any[]).find((e: any) => e.key === "q");
 					return "main" as MenuResult;
 				}
 				// Second render should use updated sitemap
@@ -799,33 +816,33 @@ describe("SitemapRouter", () => {
 		});
 	});
 
-	// ── Unknown view ────────────────────────────────────────────────
+	// ── Unknown page ────────────────────────────────────────────────
 
-	describe("unknown view handling", () => {
-		it("pops unknown view and continues", async () => {
+	describe("unknown page handling", () => {
+		it("pops unknown page and continues", async () => {
 			const { log } = await import("../../src/infrastructure/logger.js");
 			const mockLog = vi.mocked(log);
 
 			const sitemap = makeSitemap({
-				start: {
-					title: "Main",
-					items: [
-						{ type: "item" as const, key: "n", label: "Go nowhere", navigate: "nonexistent" },
-						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
+				start: makePage({
+					label: "Main",
+					actions: [
+						{ name: "onNowhere", label: "Go nowhere", type: "navigate", target: "nonexistent", key: "n" },
+						{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" },
 					],
-				},
+				}),
 			});
 
 			const { router } = createRouter(sitemap);
 
-			// Navigate to nonexistent view, it gets popped, back to start, then quit
+			// Navigate to nonexistent page, it gets popped, back to start, then quit
 			queueMenuResults({ pickKey: "n" });
 			queueMenuResults({ pickKey: "q" });
 
 			await router.run("start");
 
 			expect(mockLog).toHaveBeenCalledWith(
-				expect.stringContaining('Unknown view: "nonexistent"'),
+				expect.stringContaining('Unknown page: "nonexistent"'),
 			);
 			expect(mockRunMenu).toHaveBeenCalledTimes(2);
 		});
@@ -834,23 +851,23 @@ describe("SitemapRouter", () => {
 	// ── Context requirement ─────────────────────────────────────────
 
 	describe("context requirements", () => {
-		it("pops a view that requires project context when no project is set", async () => {
+		it("pops a page that requires project context when no project is set", async () => {
 			const { log } = await import("../../src/infrastructure/logger.js");
 			const mockLog = vi.mocked(log);
 
 			const sitemap = makeSitemap({
-				start: {
-					title: "Main",
-					items: [
-						{ type: "item" as const, key: "d", label: "Detail", navigate: "detail" },
-						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
+				start: makePage({
+					label: "Main",
+					actions: [
+						{ name: "onDetail", label: "Detail", type: "navigate", target: "detail", key: "d" },
+						{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" },
 					],
-				},
-				detail: {
-					title: "Detail",
+				}),
+				detail: makePage({
+					label: "Detail",
 					context: ["project"],
-					items: [{ type: "item" as const, key: "b", label: "Back", signal: "back" as const }],
-				},
+					actions: [{ name: "onBack", label: "Back", type: "signal", target: "back", key: "b" }],
+				}),
 			});
 
 			const { router } = createRouter(sitemap);
@@ -875,11 +892,10 @@ describe("SitemapRouter", () => {
 			const tools = { esbuild: true, tsc: false };
 
 			const sitemap = makeSitemap({
-				start: {
-					type: "dynamic",
-					title: "Main",
-					handler: "check-ctx",
-				},
+				start: makePage({
+					label: "Main",
+					actions: [],
+				}),
 			});
 
 			const { router, handlers, getProject, getTools } = createRouter(sitemap);
@@ -887,7 +903,7 @@ describe("SitemapRouter", () => {
 			getTools.mockReturnValue(tools);
 
 			let capturedCtx: RouterContext | undefined;
-			handlers.registerView("check-ctx", vi.fn(async (ctx: RouterContext) => {
+			handlers.registerView("start", vi.fn(async (ctx: RouterContext) => {
 				capturedCtx = ctx;
 				return "quit" as MenuResult;
 			}));
@@ -901,27 +917,29 @@ describe("SitemapRouter", () => {
 		});
 	});
 
-	// ── Fallback action (no action field) ───────────────────────────
+	// ── Fallback action (no action type match) ──────────────────────
 
 	describe("fallback action", () => {
-		it("item with no action field returns undefined (stays in menu)", async () => {
+		it("action with no recognized handler returns undefined (stays in menu)", async () => {
 			const sitemap = makeSitemap({
-				start: {
-					title: "Main",
-					items: [
-						{ type: "item" as const, key: "n", label: "No-op" },
-						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
+				start: makePage({
+					label: "Main",
+					actions: [
+						{ name: "onNoop", label: "No-op", type: "handler", target: "noop-action", key: "n" },
+						{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" },
 					],
-				},
+				}),
 			});
 
-			const { router } = createRouter(sitemap);
+			const { router, handlers } = createRouter(sitemap);
+			// Register handler that returns undefined (no-op)
+			handlers.registerAction("noop-action", vi.fn().mockResolvedValue(undefined));
 
 			// First call: pick no-op (returns undefined, stays in menu)
 			// runMenu returns undefined after the no-op action
 			mockRunMenu.mockImplementationOnce(async (_title, entries: MenuEntry[]) => {
 				const item = (entries as any[]).find((e: any) => e.key === "n");
-				const result = item.action();
+				const result = await item.action();
 				expect(result).toBeUndefined();
 				// Now simulate quitting
 				const quit = (entries as any[]).find((e: any) => e.key === "q");
@@ -940,13 +958,13 @@ describe("SitemapRouter", () => {
 			const cmdHandler = vi.fn().mockResolvedValue(undefined);
 
 			const sitemap = makeSitemap({
-				start: {
-					title: "Main",
-					items: [
-						{ type: "item" as const, key: "b", label: "Build", command: "build" },
-						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
+				start: makePage({
+					label: "Main",
+					actions: [
+						{ name: "onBuild", label: "Build", type: "command", target: "build", key: "b" },
+						{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" },
 					],
-				},
+				}),
 			});
 
 			const { router, commands, getProject } = createRouter(sitemap);
@@ -965,28 +983,30 @@ describe("SitemapRouter", () => {
 		});
 	});
 
-	// ── 12. Hybrid dynamic views (items + handler) ──────────────────
+	// ── 12. Dynamic views with data sources ─────────────────────────
 
-	describe("hybrid dynamic views", () => {
-		it("passes sitemapEntries to handler when dynamic view has items", async () => {
+	describe("dynamic views with data sources", () => {
+		it("passes dataSourceEntries to handler when page has dataSources", async () => {
 			let capturedCtx: RouterContext | undefined;
 
 			const sitemap = makeSitemap({
-				start: {
-					type: "dynamic",
-					title: "Hybrid",
-					handler: "hybrid-handler",
-					items: [
-						{ type: "item" as const, key: "a", label: "Static Action", handler: "some-action" },
-						{ type: "separator" as const },
-						{ type: "item" as const, key: "b", label: "Back", signal: "back" as const },
+				start: makePage({
+					label: "Hybrid",
+					dataSources: [{ id: "my-provider", slot: "dynamic-list" }],
+					actions: [
+						{ name: "onAction", label: "Static Action", type: "handler", target: "some-action", key: "a" },
+						{ name: "onBack", label: "Back", type: "signal", target: "back", key: "b", group: "nav" },
 					],
-				},
+				}),
 			});
 
 			const { router, handlers } = createRouter(sitemap);
 			handlers.registerAction("some-action", vi.fn().mockResolvedValue(undefined));
-			handlers.registerView("hybrid-handler", vi.fn(async (ctx: RouterContext) => {
+			handlers.registerDataSource("my-provider", () => [
+				{ key: "1", label: "Item A", action: () => undefined },
+				{ key: "2", label: "Item B", action: () => undefined },
+			]);
+			handlers.registerView("start", vi.fn(async (ctx: RouterContext) => {
 				capturedCtx = ctx;
 				return "quit" as MenuResult;
 			}));
@@ -994,23 +1014,25 @@ describe("SitemapRouter", () => {
 			await router.run("start");
 
 			expect(capturedCtx).toBeDefined();
-			expect(capturedCtx!.sitemapEntries).toBeDefined();
-			expect(capturedCtx!.sitemapEntries!.length).toBeGreaterThanOrEqual(2);
+			expect(capturedCtx!.dataSourceEntries).toBeDefined();
+			expect(capturedCtx!.dataSourceEntries!["dynamic-list"]).toBeDefined();
+			expect(capturedCtx!.dataSourceEntries!["dynamic-list"].length).toBe(2);
+			// _actions should contain the built action entries
+			expect(capturedCtx!.dataSourceEntries!["_actions"]).toBeDefined();
 		});
 
-		it("does not pass sitemapEntries for pure dynamic views (no items)", async () => {
+		it("does not pass dataSourceEntries content for pages without dataSources", async () => {
 			let capturedCtx: RouterContext | undefined;
 
 			const sitemap = makeSitemap({
-				start: {
-					type: "dynamic",
-					title: "Pure",
-					handler: "pure-handler",
-				},
+				start: makePage({
+					label: "Pure",
+					actions: [],
+				}),
 			});
 
 			const { router, handlers } = createRouter(sitemap);
-			handlers.registerView("pure-handler", vi.fn(async (ctx: RouterContext) => {
+			handlers.registerView("start", vi.fn(async (ctx: RouterContext) => {
 				capturedCtx = ctx;
 				return "quit" as MenuResult;
 			}));
@@ -1018,147 +1040,94 @@ describe("SitemapRouter", () => {
 			await router.run("start");
 
 			expect(capturedCtx).toBeDefined();
-			expect(capturedCtx!.sitemapEntries).toBeUndefined();
-			expect(capturedCtx!.sitemapSlots).toBeUndefined();
+			// dataSourceEntries still exists but has no data source keys, only _actions
+			expect(capturedCtx!.dataSourceEntries).toBeDefined();
+			expect(capturedCtx!.dataSourceEntries!["_actions"]).toBeDefined();
+			// No data source keys beyond _actions
+			const keys = Object.keys(capturedCtx!.dataSourceEntries!).filter((k) => k !== "_actions");
+			expect(keys).toHaveLength(0);
 		});
 
-		it("passes sitemapSlots when items contain slot markers", async () => {
+		it("resolves multiple data sources correctly", async () => {
 			let capturedCtx: RouterContext | undefined;
 
 			const sitemap = makeSitemap({
-				start: {
-					type: "dynamic",
-					title: "Slotted",
-					handler: "slot-handler",
-					items: [
-						{ type: "slot" as const, slot: "dynamic-list" },
-						{ type: "separator" as const },
-						{ type: "item" as const, key: "c", label: "Add", handler: "add-action" },
-						{ type: "item" as const, key: "b", label: "Back", signal: "back" as const },
+				start: makePage({
+					label: "Multi-Source",
+					dataSources: [
+						{ id: "list-provider", slot: "list" },
+						{ id: "extras-provider", slot: "extras" },
 					],
-				},
-			});
-
-			const { router, handlers } = createRouter(sitemap);
-			handlers.registerAction("add-action", vi.fn().mockResolvedValue(undefined));
-			handlers.registerView("slot-handler", vi.fn(async (ctx: RouterContext) => {
-				capturedCtx = ctx;
-				return "quit" as MenuResult;
-			}));
-
-			await router.run("start");
-
-			expect(capturedCtx).toBeDefined();
-			expect(capturedCtx!.sitemapSlots).toBeDefined();
-
-			const slots = capturedCtx!.sitemapSlots!;
-			// _before is empty (slot is first)
-			expect(slots["_before"]).toBeDefined();
-			expect(slots["_before"].length).toBe(0);
-			// slot name exists as empty array
-			expect(slots["dynamic-list"]).toBeDefined();
-			expect(slots["dynamic-list"].length).toBe(0);
-			// _after has the separator + items after the slot
-			expect(slots["_after"]).toBeDefined();
-			expect(slots["_after"].length).toBeGreaterThanOrEqual(2);
-		});
-
-		it("segments multiple slots correctly", async () => {
-			let capturedCtx: RouterContext | undefined;
-
-			const sitemap = makeSitemap({
-				start: {
-					type: "dynamic",
-					title: "Multi-Slot",
-					handler: "multi-handler",
-					items: [
-						{ type: "item" as const, key: "h", label: "Header", signal: "back" as const },
-						{ type: "slot" as const, slot: "list" },
-						{ type: "item" as const, key: "m", label: "Middle", signal: "back" as const },
-						{ type: "slot" as const, slot: "extras" },
-						{ type: "item" as const, key: "f", label: "Footer", signal: "back" as const },
+					actions: [
+						{ name: "onHeader", label: "Header", type: "signal", target: "back", key: "h" },
+						{ name: "onFooter", label: "Footer", type: "signal", target: "back", key: "f", group: "nav" },
 					],
-				},
+				}),
 			});
 
 			const { router, handlers } = createRouter(sitemap);
-			handlers.registerView("multi-handler", vi.fn(async (ctx: RouterContext) => {
+			handlers.registerDataSource("list-provider", () => [
+				{ key: "1", label: "List Item", action: () => undefined },
+			]);
+			handlers.registerDataSource("extras-provider", () => [
+				{ key: "2", label: "Extra Item", action: () => undefined },
+			]);
+			handlers.registerView("start", vi.fn(async (ctx: RouterContext) => {
 				capturedCtx = ctx;
 				return "quit" as MenuResult;
 			}));
 
 			await router.run("start");
 
-			const slots = capturedCtx!.sitemapSlots!;
-			// Header is before the first slot
-			expect(slots["_before"].length).toBe(1);
-			expect((slots["_before"][0] as any).label).toBe("Header");
-			// "list" slot is empty
-			expect(slots["list"]).toEqual([]);
-			// Middle is between list and extras
-			expect(slots["_between_list"]).toBeDefined();
-			expect(slots["_between_list"].length).toBe(1);
-			// "extras" slot is empty
-			expect(slots["extras"]).toEqual([]);
-			// Footer is after the last slot
-			expect(slots["_after"].length).toBe(1);
-			expect((slots["_after"][0] as any).label).toBe("Footer");
+			expect(capturedCtx!.dataSourceEntries!["list"]).toBeDefined();
+			expect(capturedCtx!.dataSourceEntries!["list"].length).toBe(1);
+			expect(capturedCtx!.dataSourceEntries!["extras"]).toBeDefined();
+			expect(capturedCtx!.dataSourceEntries!["extras"].length).toBe(1);
 		});
 
-		it("runs beforeRender for hybrid dynamic views", async () => {
+		it("runs onBeforeRender for dynamic views with data sources", async () => {
 			const beforeHandler = vi.fn();
 
 			const sitemap = makeSitemap({
-				start: {
-					type: "dynamic",
-					title: "Hybrid with Banner",
-					handler: "hybrid",
-					beforeRender: "my-banner",
-					items: [
-						{ type: "item" as const, key: "b", label: "Back", signal: "back" as const },
+				start: makePage({
+					label: "Hybrid with Banner",
+					onBeforeRender: "my-banner",
+					actions: [
+						{ name: "onBack", label: "Back", type: "signal", target: "back", key: "b" },
 					],
-				},
+				}),
 			});
 
 			const { router, handlers } = createRouter(sitemap);
 			handlers.registerBeforeRender("my-banner", beforeHandler);
-			handlers.registerView("hybrid", vi.fn().mockResolvedValue("quit"));
+			handlers.registerView("start", vi.fn().mockResolvedValue("quit"));
 
 			await router.run("start");
 
 			expect(beforeHandler).toHaveBeenCalledTimes(1);
 		});
 
-		it("navigation from sitemap items works in hybrid views", async () => {
+		it("navigation from action entries works in dynamic views", async () => {
 			const sitemap = makeSitemap({
-				start: {
-					type: "dynamic",
-					title: "Hybrid Nav",
-					handler: "nav-handler",
-					items: [
-						{ type: "item" as const, key: "s", label: "Settings", navigate: "settings" },
+				start: makePage({
+					label: "Hybrid Nav",
+					actions: [
+						{ name: "onSettings", label: "Settings", type: "navigate", target: "settings", key: "s" },
 					],
-				},
-				settings: {
-					title: "Settings",
-					items: [
-						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
+				}),
+				settings: makePage({
+					label: "Settings",
+					actions: [
+						{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" },
 					],
-				},
+				}),
 			});
 
 			const { router, handlers } = createRouter(sitemap);
 
-			// Handler uses sitemapEntries and calls runMenu internally
-			handlers.registerView("nav-handler", vi.fn(async (ctx: RouterContext) => {
-				// Simulate the handler calling the navigate action from sitemap entries
-				const navEntry = ctx.sitemapEntries?.find(
-					(e): e is any => "key" in e && e.key === "s",
-				);
-				if (navEntry) {
-					await navEntry.action();
-				}
-				return "main" as MenuResult;
+			// Dynamic views navigate by returning a navigate result string directly
+			handlers.registerView("start", vi.fn(async () => {
+				return "navigate:settings" as MenuResult;
 			}));
 
 			// After navigation, settings view renders -> quit
@@ -1179,25 +1148,23 @@ describe("SitemapRouter", () => {
 			let capturedCtx: RouterContext | undefined;
 
 			const sitemap = makeSitemap({
-				start: {
-					type: "dynamic",
-					title: "List",
-					handler: "list-handler",
-				},
-				detail: {
-					type: "dynamic",
-					title: "Detail",
-					handler: "detail-handler",
-				},
+				start: makePage({
+					label: "List",
+					actions: [],
+				}),
+				detail: makePage({
+					label: "Detail",
+					actions: [],
+				}),
 			});
 
 			const { router, handlers } = createRouter(sitemap);
 
-			handlers.registerView("list-handler", vi.fn(async () => {
+			handlers.registerView("start", vi.fn(async () => {
 				return 'navigate:detail?{"id":"btn-1"}' as MenuResult;
 			}));
 
-			handlers.registerView("detail-handler", vi.fn(async (ctx: RouterContext) => {
+			handlers.registerView("detail", vi.fn(async (ctx: RouterContext) => {
 				capturedCtx = ctx;
 				return "quit" as MenuResult;
 			}));
@@ -1212,16 +1179,15 @@ describe("SitemapRouter", () => {
 			let capturedCtx: RouterContext | undefined;
 
 			const sitemap = makeSitemap({
-				start: {
-					type: "dynamic",
-					title: "Main",
-					handler: "main-handler",
-				},
+				start: makePage({
+					label: "Main",
+					actions: [],
+				}),
 			});
 
 			const { router, handlers } = createRouter(sitemap);
 
-			handlers.registerView("main-handler", vi.fn(async (ctx: RouterContext) => {
+			handlers.registerView("start", vi.fn(async (ctx: RouterContext) => {
 				capturedCtx = ctx;
 				return "quit" as MenuResult;
 			}));
@@ -1232,26 +1198,25 @@ describe("SitemapRouter", () => {
 			expect(capturedCtx!.params).toBeUndefined();
 		});
 
-		it("navigateParams from sitemap item passes params to target view", async () => {
+		it("navigate action with params passes params to target view", async () => {
 			let capturedCtx: RouterContext | undefined;
 
 			const sitemap = makeSitemap({
-				start: {
-					title: "Main",
-					items: [
-						{ type: "item" as const, key: "d", label: "Detail", navigate: "detail", navigateParams: { id: "abc" } },
+				start: makePage({
+					label: "Main",
+					actions: [
+						{ name: "onDetail", label: "Detail", type: "navigate", target: "detail", key: "d", params: { id: "abc" } },
 					],
-				},
-				detail: {
-					type: "dynamic",
-					title: "Detail",
-					handler: "detail-handler",
-				},
+				}),
+				detail: makePage({
+					label: "Detail",
+					actions: [],
+				}),
 			});
 
 			const { router, handlers } = createRouter(sitemap);
 
-			handlers.registerView("detail-handler", vi.fn(async (ctx: RouterContext) => {
+			handlers.registerView("detail", vi.fn(async (ctx: RouterContext) => {
 				capturedCtx = ctx;
 				return "quit" as MenuResult;
 			}));
@@ -1264,30 +1229,29 @@ describe("SitemapRouter", () => {
 		});
 	});
 
-	// ── 14. List providers ──────────────────────────────────────────
+	// ── 14. Data sources in static views ────────────────────────────
 
-	describe("list providers", () => {
-		it("resolves listProvider entries in static views", async () => {
+	describe("data sources in static views", () => {
+		it("resolves dataSource entries in static views", async () => {
 			const sitemap = makeSitemap({
-				start: {
-					title: "Main",
-					items: [
-						{ type: "listProvider" as const, listProvider: "my-list" },
-						{ type: "separator" as const },
-						{ type: "item" as const, key: "q", label: "Quit", signal: "quit" as const },
+				start: makePage({
+					label: "Main",
+					dataSources: [{ id: "my-list" }],
+					actions: [
+						{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" },
 					],
-				},
+				}),
 			});
 
 			const { router, handlers } = createRouter(sitemap);
 
-			handlers.registerListProvider("my-list", () => [
+			handlers.registerDataSource("my-list", () => [
 				{ key: "1", label: "Item A", action: () => undefined },
 				{ key: "2", label: "Item B", action: () => undefined },
 			]);
 
 			mockRunMenu.mockImplementationOnce(async (_title, entries: MenuEntry[]) => {
-				// List provider entries + separator + quit
+				// Data source entries + separator + quit action
 				const keys = entries.filter((e): e is any => "key" in e).map((e: any) => e.key);
 				expect(keys).toContain("1");
 				expect(keys).toContain("2");
@@ -1301,29 +1265,32 @@ describe("SitemapRouter", () => {
 			expect(mockRunMenu).toHaveBeenCalledTimes(1);
 		});
 
-		it("resolves listProvider entries in hybrid dynamic view slots", async () => {
+		it("resolves dataSource entries in dynamic view context", async () => {
 			let capturedCtx: RouterContext | undefined;
 
 			const sitemap = makeSitemap({
-				start: {
-					type: "dynamic",
-					title: "Hybrid",
-					handler: "hybrid-handler",
-					items: [
-						{ type: "slot" as const, slot: "data" },
-						{ type: "listProvider" as const, listProvider: "extra-list" },
-						{ type: "item" as const, key: "b", label: "Back", signal: "back" as const },
+				start: makePage({
+					label: "Hybrid",
+					dataSources: [
+						{ id: "data-source", slot: "data" },
+						{ id: "extra-list" },
 					],
-				},
+					actions: [
+						{ name: "onBack", label: "Back", type: "signal", target: "back", key: "b" },
+					],
+				}),
 			});
 
 			const { router, handlers } = createRouter(sitemap);
 
-			handlers.registerListProvider("extra-list", () => [
+			handlers.registerDataSource("extra-list", () => [
 				{ key: "x", label: "Extra", action: () => undefined },
 			]);
+			handlers.registerDataSource("data-source", () => [
+				{ key: "d", label: "Data", action: () => undefined },
+			]);
 
-			handlers.registerView("hybrid-handler", vi.fn(async (ctx: RouterContext) => {
+			handlers.registerView("start", vi.fn(async (ctx: RouterContext) => {
 				capturedCtx = ctx;
 				return "quit" as MenuResult;
 			}));
@@ -1331,12 +1298,11 @@ describe("SitemapRouter", () => {
 			await router.run("start");
 
 			expect(capturedCtx).toBeDefined();
-			// The _after slot should contain the list provider entries + Back
-			const afterSlot = capturedCtx!.sitemapSlots!["_after"];
-			expect(afterSlot).toBeDefined();
-			const keys = afterSlot.filter((e): e is any => "key" in e).map((e: any) => e.key);
-			expect(keys).toContain("x");
-			expect(keys).toContain("b");
+			// Data sources should be in dataSourceEntries keyed by slot or id
+			expect(capturedCtx!.dataSourceEntries!["data"]).toBeDefined();
+			expect(capturedCtx!.dataSourceEntries!["data"].length).toBe(1);
+			expect(capturedCtx!.dataSourceEntries!["extra-list"]).toBeDefined();
+			expect(capturedCtx!.dataSourceEntries!["extra-list"].length).toBe(1);
 		});
 	});
 });

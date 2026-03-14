@@ -18,7 +18,7 @@ beforeEach(() => { mockLog.mockClear(); });
 
 describe("renderDeliverableList", () => {
 	it("renders empty message when no deliverables", () => {
-		renderDeliverableList([]);
+		renderDeliverableList([], log);
 		expect(output()).toContain("No deliverables defined yet");
 	});
 
@@ -27,7 +27,7 @@ describe("renderDeliverableList", () => {
 			{ name: "API Spec", status: "done", completionPct: 100, dueDate: "2026-03-01", assignee: "Bob" },
 			{ name: "UI Mockup", status: "in-progress", completionPct: 40, dueDate: "", assignee: "" },
 		];
-		renderDeliverableList(items);
+		renderDeliverableList(items, log);
 		expect(output()).toContain("Deliverables (2)");
 	});
 
@@ -35,7 +35,7 @@ describe("renderDeliverableList", () => {
 		const items: DeliverableSummary[] = [
 			{ name: "API Spec", status: "done", completionPct: 100, dueDate: "2026-03-01", assignee: "Bob" },
 		];
-		renderDeliverableList(items);
+		renderDeliverableList(items, log);
 		const out = output();
 		expect(out).toContain("API Spec");
 		expect(out).toContain("[done]");
@@ -48,7 +48,7 @@ describe("renderDeliverableList", () => {
 		const items: DeliverableSummary[] = [
 			{ name: "Draft", status: "planned", completionPct: 0, dueDate: "", assignee: "" },
 		];
-		renderDeliverableList(items);
+		renderDeliverableList(items, log);
 		const out = output();
 		expect(out).not.toContain("due ");
 		expect(out).not.toContain("→");
@@ -59,7 +59,7 @@ describe("renderDeliverableList", () => {
 
 describe("renderDeliverableAdded", () => {
 	it("renders created message with path", () => {
-		renderDeliverableAdded(".flowti/deliverables/api-spec.md");
+		renderDeliverableAdded(".flowti/deliverables/api-spec.md", log);
 		expect(output()).toContain("Created: .flowti/deliverables/api-spec.md");
 	});
 });
@@ -68,7 +68,7 @@ describe("renderDeliverableAdded", () => {
 
 describe("renderDeliverableUpdated", () => {
 	it("renders updated message with name and status", () => {
-		renderDeliverableUpdated("API Spec", "done");
+		renderDeliverableUpdated("API Spec", "done", log);
 		const out = output();
 		expect(out).toContain("Updated API Spec");
 		expect(out).toContain("done");

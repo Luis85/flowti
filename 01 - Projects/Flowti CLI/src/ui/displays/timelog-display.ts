@@ -3,10 +3,9 @@
  */
 
 import { RESET, DIM, GREEN, CYAN, BOLD } from "../../infrastructure/ui.js";
-import { log } from "../../infrastructure/logger.js";
 import type { TimeLogEntry, TimeLogSummary } from "../../domain/timelog/timelog-types.js";
 
-export function renderTimeLogList(entries: TimeLogEntry[]): void {
+export function renderTimeLogList(entries: TimeLogEntry[], log: (msg?: string) => void): void {
 	if (entries.length === 0) {
 		log(`\n  ${DIM}No time-log entries yet. Use "Log Time" to create one.${RESET}\n`);
 		return;
@@ -20,7 +19,7 @@ export function renderTimeLogList(entries: TimeLogEntry[]): void {
 	log();
 }
 
-export function renderTimeLogSummary(summary: TimeLogSummary): void {
+export function renderTimeLogSummary(summary: TimeLogSummary, log: (msg?: string) => void): void {
 	log(`\n  ${BOLD}Time Log Summary${RESET}\n`);
 	log(`  Total Hours: ${GREEN}${summary.totalHours}${RESET}\n`);
 
@@ -41,6 +40,6 @@ export function renderTimeLogSummary(summary: TimeLogSummary): void {
 	}
 }
 
-export function renderTimeLogAdded(relPath: string): void {
+export function renderTimeLogAdded(relPath: string, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}✓${RESET} Logged: ${relPath}`);
 }

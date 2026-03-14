@@ -4,7 +4,6 @@
  * Pure renderers used as dataResponse callbacks by reports.controller.ts.
  */
 
-import { log } from "../../infrastructure/logger.js";
 import { RESET, DIM, GREEN, RED, CYAN, YELLOW } from "../../infrastructure/ui.js";
 import type { ReportDiff } from "../../domain/reports/export/report-diff.js";
 
@@ -37,20 +36,20 @@ export interface UnknownReportModel {
 
 // ── Renderers ────────────────────────────────────────────────────────
 
-export function renderReportRun(data: ReportRunModel): void {
+export function renderReportRun(data: ReportRunModel, log: (msg?: string) => void): void {
 	const icon = data.failed === 0 ? `${GREEN}✓${RESET}` : `${YELLOW}⚠${RESET}`;
 	log(`  ${icon} Reports complete: ${data.passed} passed, ${data.failed} failed (${data.totalDurationMs}ms).\n`);
 }
 
-export function renderNoGenerators(data: NoGeneratorsModel): void {
+export function renderNoGenerators(data: NoGeneratorsModel, log: (msg?: string) => void): void {
 	log(`\n  ${DIM}${data.message}${RESET}\n`);
 }
 
-export function renderAuditResult(data: AuditResultModel): void {
+export function renderAuditResult(data: AuditResultModel, log: (msg?: string) => void): void {
 	log(`  ${GREEN}✓${RESET} Audit complete: ${data.passed} passed, ${data.failed} failed.\n`);
 }
 
-export function renderReportDiff(data: ReportDiff[]): void {
+export function renderReportDiff(data: ReportDiff[], log: (msg?: string) => void): void {
 	if (data.length === 0) {
 		log(`\n  ${DIM}No metric changes between latest reports.${RESET}\n`);
 		return;
@@ -67,7 +66,7 @@ export function renderReportDiff(data: ReportDiff[]): void {
 	}
 }
 
-export function renderHtmlExport(data: HtmlExportModel): void {
+export function renderHtmlExport(data: HtmlExportModel, log: (msg?: string) => void): void {
 	for (const entry of data.exported) {
 		log(`  ${GREEN}✓${RESET} ${entry.title} → ${DIM}${entry.outputPath}${RESET}`);
 	}
@@ -75,7 +74,7 @@ export function renderHtmlExport(data: HtmlExportModel): void {
 	log(`\n  ${count} report${count !== 1 ? "s" : ""} exported to ${DIM}${data.outputDir}${RESET}\n`);
 }
 
-export function renderUnknownReport(data: UnknownReportModel): void {
+export function renderUnknownReport(data: UnknownReportModel, log: (msg?: string) => void): void {
 	log(`\n  ${RED}Unknown report: ${data.reportId}${RESET}`);
 	log(`  ${DIM}Available: ${data.available}${RESET}\n`);
 }

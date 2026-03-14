@@ -36,7 +36,7 @@ beforeEach(() => { mockLog.mockClear(); });
 
 describe("renderEventList", () => {
 	it("renders empty message when no events", () => {
-		renderEventList({ events: [] });
+		renderEventList({ events: [] }, log);
 		expect(output()).toContain("No events defined.");
 	});
 
@@ -47,14 +47,14 @@ describe("renderEventList", () => {
 				{ name: "order.placed", domain: "order", version: "2.1.0", file: "order-placed.md" },
 			],
 		};
-		renderEventList(data);
+		renderEventList(data, log);
 		const out = output();
 		expect(out).toContain("user.created [user] v1.0.0");
 		expect(out).toContain("order.placed [order] v2.1.0");
 	});
 
 	it("renders single event", () => {
-		renderEventList({ events: [{ name: "evt", domain: "d", version: "1.0.0", file: "evt.md" }] });
+		renderEventList({ events: [{ name: "evt", domain: "d", version: "1.0.0", file: "evt.md" }] }, log);
 		expect(output()).toContain("evt [d] v1.0.0");
 	});
 });
@@ -63,7 +63,7 @@ describe("renderEventList", () => {
 
 describe("renderEventFlowCreated", () => {
 	it("renders generated path", () => {
-		renderEventFlowCreated({ relativePath: "events/flow.json" });
+		renderEventFlowCreated({ relativePath: "events/flow.json" }, log);
 		expect(output()).toContain("Generated: events/flow.json");
 		expect(output()).toContain("✓");
 	});
@@ -73,7 +73,7 @@ describe("renderEventFlowCreated", () => {
 
 describe("renderEventAdded", () => {
 	it("renders created path", () => {
-		renderEventAdded({ relativePath: "events/new-event.md" });
+		renderEventAdded({ relativePath: "events/new-event.md" }, log);
 		expect(output()).toContain("Created: events/new-event.md");
 		expect(output()).toContain("✓");
 	});
@@ -87,7 +87,7 @@ describe("renderContractValidation", () => {
 			contractCount: 3,
 			result: { valid: true, issues: [] },
 		};
-		renderContractValidation(data);
+		renderContractValidation(data, log);
 		const out = output();
 		expect(out).toContain("Validated 3 event contract(s).");
 		expect(out).toContain("All contracts are valid.");
@@ -101,7 +101,7 @@ describe("renderContractValidation", () => {
 				issues: [{ event: "user.created", severity: "error", message: "Missing domain." }],
 			},
 		};
-		renderContractValidation(data);
+		renderContractValidation(data, log);
 		const out = output();
 		expect(out).toContain("✗");
 		expect(out).toContain("user.created");
@@ -116,7 +116,7 @@ describe("renderContractValidation", () => {
 				issues: [{ event: "evt", severity: "warning", message: "No payload fields defined." }],
 			},
 		};
-		renderContractValidation(data);
+		renderContractValidation(data, log);
 		const out = output();
 		expect(out).toContain("⚠");
 		expect(out).toContain("No payload fields defined.");
@@ -130,7 +130,7 @@ describe("renderContractValidation", () => {
 				issues: [{ event: "evt", field: "name", severity: "error", message: "Bad type." }],
 			},
 		};
-		renderContractValidation(data);
+		renderContractValidation(data, log);
 		expect(output()).toContain("→ name");
 	});
 
@@ -142,7 +142,7 @@ describe("renderContractValidation", () => {
 				issues: [{ event: "evt", severity: "error", message: "Missing." }],
 			},
 		};
-		renderContractValidation(data);
+		renderContractValidation(data, log);
 		expect(output()).not.toContain("→");
 	});
 
@@ -157,7 +157,7 @@ describe("renderContractValidation", () => {
 				],
 			},
 		};
-		renderContractValidation(data);
+		renderContractValidation(data, log);
 		expect(output()).toContain("contracts invalid.");
 	});
 
@@ -169,7 +169,7 @@ describe("renderContractValidation", () => {
 				issues: [{ event: "a", severity: "warning", message: "W1" }],
 			},
 		};
-		renderContractValidation(data);
+		renderContractValidation(data, log);
 		expect(output()).toContain("contracts valid.");
 	});
 
@@ -185,7 +185,7 @@ describe("renderContractValidation", () => {
 				],
 			},
 		};
-		renderContractValidation(data);
+		renderContractValidation(data, log);
 		expect(output()).toContain("2 error(s), 1 warning(s)");
 	});
 });
@@ -198,7 +198,7 @@ describe("renderPayloadValidation", () => {
 			eventName: "user.created",
 			result: { valid: true, errors: [] },
 		};
-		renderPayloadValidation(data);
+		renderPayloadValidation(data, log);
 		expect(output()).toContain('Payload valid for "user.created".');
 		expect(output()).toContain("✓");
 	});
@@ -208,7 +208,7 @@ describe("renderPayloadValidation", () => {
 			eventName: "order.placed",
 			result: { valid: false, errors: ['Missing required field "amount".', 'Unknown field "extra".'] },
 		};
-		renderPayloadValidation(data);
+		renderPayloadValidation(data, log);
 		const out = output();
 		expect(out).toContain('Payload invalid for "order.placed"');
 		expect(out).toContain("✗");
@@ -221,7 +221,7 @@ describe("renderPayloadValidation", () => {
 			eventName: "e",
 			result: { valid: false, errors: ["err1", "err2"] },
 		};
-		renderPayloadValidation(data);
+		renderPayloadValidation(data, log);
 		expect(output()).toContain("•");
 	});
 });
@@ -231,7 +231,7 @@ describe("renderPayloadValidation", () => {
 describe("renderContractsGenerated", () => {
 	it("renders path and contract count", () => {
 		const data: ContractsGeneratedModel = { relativePath: "events/contracts.json", contractCount: 5 };
-		renderContractsGenerated(data);
+		renderContractsGenerated(data, log);
 		expect(output()).toContain("Generated: events/contracts.json (5 contracts)");
 	});
 });
@@ -241,7 +241,7 @@ describe("renderContractsGenerated", () => {
 describe("renderCodegenGenerated", () => {
 	it("renders path and interface count", () => {
 		const data: CodegenGeneratedModel = { relativePath: "src/types.ts", contractCount: 3 };
-		renderCodegenGenerated(data);
+		renderCodegenGenerated(data, log);
 		expect(output()).toContain("Generated: src/types.ts (3 interfaces)");
 	});
 });
@@ -250,7 +250,7 @@ describe("renderCodegenGenerated", () => {
 
 describe("renderEmpty", () => {
 	it("renders the provided message", () => {
-		renderEmpty({ message: "Nothing to show." });
+		renderEmpty({ message: "Nothing to show." }, log);
 		expect(output()).toContain("Nothing to show.");
 	});
 });
@@ -262,7 +262,7 @@ describe("renderVersionEvent", () => {
 		const data: VersionEventModel = {
 			success: true, name: "user.created", newVersion: "2.0.0", previousVersion: "1.0.0",
 		};
-		renderVersionEvent(data);
+		renderVersionEvent(data, log);
 		const out = output();
 		expect(out).toContain("Updated user.created to v2.0.0");
 		expect(out).toContain("Previous version: v1.0.0");

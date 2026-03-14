@@ -35,19 +35,28 @@ vi.mock("../../../../src/infrastructure/input.js", () => ({
 	input: { ask: vi.fn(), waitForEnter: vi.fn().mockResolvedValue(undefined) },
 }));
 
+vi.mock("../../../../src/infrastructure/clock.js", () => ({
+	clock: { iso: () => "2026-01-01T00:00:00.000Z", ms: () => 0, now: () => new Date("2026-01-01"), safeIso: () => "2026-01-01T00-00-00" },
+}));
 vi.mock("../../../../src/infrastructure/menu.js", () => ({
 	runMenu: vi.fn(),
 }));
 
 import { disk } from "../../../../src/infrastructure/filesystem.js";
 import { input } from "../../../../src/infrastructure/input.js";
+import { paths } from "../../../../src/infrastructure/paths.js";
+import { clock } from "../../../../src/infrastructure/clock.js";
+import { log } from "../../../../src/infrastructure/logger.js";
 import { componentMenu } from "../../../../src/ui/menus/component-makers-menu.js";
 import { runMenu } from "../../../../src/infrastructure/menu.js";
 import type { ComponentDefinition, ComponentVariables, ComponentTemplateDeps } from "../../../../src/domain/make/component/component-types.js";
+import type { MenuDeps } from "../../../../src/infrastructure/deps.js";
 
 const mockDeps: ComponentTemplateDeps = {
 	clock: { iso: () => "2026-01-01T00:00:00.000Z", ms: () => 0, now: () => new Date("2026-01-01"), safeIso: () => "2026-01-01T00-00-00" },
 };
+
+const testMenuDeps: MenuDeps = { disk, paths, clock, input, log };
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -66,7 +75,7 @@ describe("componentMenu property prompts", () => {
 
 		// We just verify the menu is called — the interactive maker is tested
 		// indirectly via the template output tests below.
-		await componentMenu("/project");
+		await componentMenu("/project", testMenuDeps);
 		expect(runMenu).toHaveBeenCalled();
 	});
 });

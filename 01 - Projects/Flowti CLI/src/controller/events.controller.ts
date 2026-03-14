@@ -46,7 +46,7 @@ const actions: Record<string, ControllerAction> = {
 	"events:list": (req) => {
 		if (!req.project) return;
 		const events = listEvents(req.deps, req.project.path);
-		return dataResponse<EventListModel>({ events }, renderEventList);
+		return dataResponse<EventListModel>({ events }, (d) => renderEventList(d, req.deps.log));
 	},
 
 	"events:flow": (req) => {
@@ -54,17 +54,17 @@ const actions: Record<string, ControllerAction> = {
 		const { paths } = req.deps;
 		const domain = typeof req.flags.domain === "string" ? req.flags.domain : undefined;
 		const relativePath = paths.relative(req.project.path, saveEventFlowDoc(req.deps, req.project.path, domain));
-		return dataResponse<EventFlowCreatedModel>({ relativePath }, renderEventFlowCreated);
+		return dataResponse<EventFlowCreatedModel>({ relativePath }, (d) => renderEventFlowCreated(d, req.deps.log));
 	},
 
 	"events:add": (req) => {
 		if (!req.project) return;
-		const { paths } = req.deps;
+		const { paths, log } = req.deps;
 		const name = req.flags.name;
 		if (!name || typeof name !== "string") {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --name flag.", hint: 'Usage: flowti events:add --name="user.created" --domain="user"' },
-				renderError,
+				(d) => renderError(log, d),
 			);
 		}
 		const payload = typeof req.flags.payload === "string" ? parsePayloadFlag(req.flags.payload) : [];
@@ -77,7 +77,7 @@ const actions: Record<string, ControllerAction> = {
 		if (filePath) {
 			return dataResponse<EventAddedModel>(
 				{ relativePath: paths.relative(req.project.path, filePath) },
-				renderEventAdded,
+				(d) => renderEventAdded(d, req.deps.log),
 			);
 		}
 	},
@@ -88,26 +88,27 @@ const actions: Record<string, ControllerAction> = {
 		const dir = paths.join(req.project.path, "docs", "events");
 		const contracts = loadEventContracts(req.deps, dir, disk);
 		if (contracts.length === 0) {
-			return dataResponse<EmptyModel>({ message: "No events found in docs/events/." }, renderEmpty);
+			return dataResponse<EmptyModel>({ message: "No events found in docs/events/." }, (d) => renderEmpty(d, req.deps.log));
 		}
 		const result = validateContracts(contracts);
 		const model: ContractValidationModel = { contractCount: contracts.length, result };
+		const { log } = req.deps;
 		return {
 			data: model,
-			render: renderContractValidation,
+			render: (d: ContractValidationModel) => renderContractValidation(d, log),
 			exitCode: result.valid ? undefined : 1,
 		};
 	},
 
 	"events:check-payload": (req) => {
 		if (!req.project) return;
-		const { disk, paths } = req.deps;
+		const { disk, paths, log } = req.deps;
 		const eventName = req.flags.event;
 		const payloadJson = req.flags.payload;
 		if (!eventName || typeof eventName !== "string" || !payloadJson || typeof payloadJson !== "string") {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --event and/or --payload flag.", hint: "Usage: flowti events:check-payload --event=\"user.created\" --payload='{\"id\":\"1\"}'" },
-				renderError,
+				(d) => renderError(log, d),
 			);
 		}
 		const dir = paths.join(req.project.path, "docs", "events");
@@ -116,7 +117,7 @@ const actions: Record<string, ControllerAction> = {
 		if (!contract) {
 			return {
 				data: { error: `No contract found for event "${eventName}".` } as ErrorModel,
-				render: renderError,
+				render: (d: ErrorModel) => renderError(log, d),
 				exitCode: 1,
 			};
 		}
@@ -126,7 +127,7 @@ const actions: Record<string, ControllerAction> = {
 		} catch {
 			return {
 				data: { error: "Invalid JSON payload." } as ErrorModel,
-				render: renderError,
+				render: (d: ErrorModel) => renderError(log, d),
 				exitCode: 1,
 			};
 		}
@@ -134,7 +135,7 @@ const actions: Record<string, ControllerAction> = {
 		const model: PayloadValidationModel = { eventName, result };
 		return {
 			data: model,
-			render: renderPayloadValidation,
+			render: (d: PayloadValidationModel) => renderPayloadValidation(d, log),
 			exitCode: result.valid ? undefined : 1,
 		};
 	},
@@ -145,7 +146,7 @@ const actions: Record<string, ControllerAction> = {
 		const dir = paths.join(req.project.path, "docs", "events");
 		const contracts = loadEventContracts(req.deps, dir, disk);
 		if (contracts.length === 0) {
-			return dataResponse<EmptyModel>({ message: "No events found in docs/events/." }, renderEmpty);
+			return dataResponse<EmptyModel>({ message: "No events found in docs/events/." }, (d) => renderEmpty(d, req.deps.log));
 		}
 		const outPath = typeof req.flags.out === "string"
 			? paths.resolve(req.project.path, req.flags.out)
@@ -156,7 +157,7 @@ const actions: Record<string, ControllerAction> = {
 		disk.writeFileSync(outPath, json, "utf-8");
 		return dataResponse<ContractsGeneratedModel>(
 			{ relativePath: paths.relative(req.project.path, outPath), contractCount: contracts.length },
-			renderContractsGenerated,
+			(d) => renderContractsGenerated(d, req.deps.log),
 		);
 	},
 
@@ -166,7 +167,7 @@ const actions: Record<string, ControllerAction> = {
 		const dir = paths.join(req.project.path, "docs", "events");
 		const contracts = loadEventContracts(req.deps, dir, disk);
 		if (contracts.length === 0) {
-			return dataResponse<EmptyModel>({ message: "No events found in docs/events/." }, renderEmpty);
+			return dataResponse<EmptyModel>({ message: "No events found in docs/events/." }, (d) => renderEmpty(d, req.deps.log));
 		}
 		const ts = generateEventTypes(contracts);
 		const outPath = typeof req.flags.out === "string"
@@ -177,7 +178,7 @@ const actions: Record<string, ControllerAction> = {
 		disk.writeFileSync(outPath, ts, "utf-8");
 		return dataResponse<CodegenGeneratedModel>(
 			{ relativePath: paths.relative(req.project.path, outPath), contractCount: contracts.length },
-			renderCodegenGenerated,
+			(d) => renderCodegenGenerated(d, req.deps.log),
 		);
 	},
 
@@ -190,7 +191,7 @@ const actions: Record<string, ControllerAction> = {
 		if (!name || typeof name !== "string" || !version || typeof version !== "string") {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing required flags.", hint: 'Usage: flowti events:version --name="user.created" --version="2.0.0" --migration="Added email field"' },
-				renderError,
+				(d) => renderError(req.deps.log, d),
 			);
 		}
 
@@ -198,7 +199,7 @@ const actions: Record<string, ControllerAction> = {
 		const result = versionEvent(req.deps, req.project.path, name, version, migrationNotes);
 
 		if (!result.success) {
-			return dataResponse<ErrorModel>({ error: result.error ?? "Version update failed." }, renderError);
+			return dataResponse<ErrorModel>({ error: result.error ?? "Version update failed." }, (d) => renderError(req.deps.log, d));
 		}
 
 		const model: VersionEventModel = {
@@ -207,7 +208,7 @@ const actions: Record<string, ControllerAction> = {
 			newVersion: result.newVersion,
 			previousVersion: result.previousVersion,
 		};
-		return dataResponse(model, renderVersionEvent);
+		return dataResponse(model, (d) => renderVersionEvent(d, req.deps.log));
 	},
 };
 

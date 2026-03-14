@@ -81,6 +81,10 @@ const mockPrintHeader = printHeader as ReturnType<typeof vi.fn>;
 
 const mockGetCaptureDir = (type: string) => type ? `/mock/vault/inbox/${type}` : "/mock/vault/inbox";
 
+function getMenuDeps() {
+	return { disk: filesystemMod.disk, paths, clock, input, log } as any;
+}
+
 function capDeps(fs: IFileSystem) {
 	return { disk: fs, paths, clock } as const;
 }
@@ -89,6 +93,7 @@ function setDisk(mockFs: ReturnType<typeof createMockFs>): void {
 	Object.assign(filesystemMod, { disk: mockFs });
 	const deps = createTestDeps();
 	(deps as Record<string, unknown>).disk = mockFs;
+	(deps as Record<string, unknown>).log = log;
 	initializeDeps(deps);
 }
 
@@ -272,7 +277,7 @@ describe("captureIdea()", () => {
 		mockInput.mockResolvedValueOnce("My idea")  // idea text
 			.mockResolvedValueOnce("b");             // back
 
-		const result = await captureIdea();
+		const result = await captureIdea(getMenuDeps());
 
 		expect(mockPrintHeader).toHaveBeenCalledWith("Capture Idea");
 		expect(result).toBe("main");
@@ -284,7 +289,7 @@ describe("captureIdea()", () => {
 		mockInput.mockResolvedValueOnce("Test idea text")
 			.mockResolvedValueOnce("b");
 
-		await captureIdea();
+		await captureIdea(getMenuDeps());
 
 		const files = [...fs.files.keys()];
 		expect(files.some(f => f.includes("Test idea text"))).toBe(true);
@@ -296,7 +301,7 @@ describe("captureIdea()", () => {
 		mockInput.mockResolvedValueOnce("")   // empty idea
 			.mockResolvedValueOnce("b");
 
-		await captureIdea();
+		await captureIdea(getMenuDeps());
 
 		const output = mockLog.mock.calls.flat().join(" ");
 		expect(output).toContain("No idea entered");
@@ -310,7 +315,7 @@ describe("captureIdea()", () => {
 			.mockResolvedValueOnce("Second idea")
 			.mockResolvedValueOnce("b");             // back
 
-		await captureIdea();
+		await captureIdea(getMenuDeps());
 
 		const files = [...fs.files.keys()];
 		expect(files.some(f => f.includes("First idea"))).toBe(true);
@@ -324,7 +329,7 @@ describe("captureIdea()", () => {
 		mockInput.mockResolvedValueOnce(longIdea)
 			.mockResolvedValueOnce("b");
 
-		await captureIdea();
+		await captureIdea(getMenuDeps());
 
 		const files = [...fs.files.keys()];
 		const created = files.find(f => f.includes(".md"));
@@ -343,7 +348,7 @@ describe("captureNote()", () => {
 			.mockResolvedValueOnce("My task title")    // title
 			.mockResolvedValueOnce("b");               // back
 
-		const result = await captureNote();
+		const result = await captureNote(getMenuDeps());
 
 		expect(result).toBe("main");
 	});
@@ -355,7 +360,7 @@ describe("captureNote()", () => {
 			.mockResolvedValueOnce("Login crash")      // title
 			.mockResolvedValueOnce("b");
 
-		await captureNote();
+		await captureNote(getMenuDeps());
 
 		const files = [...fs.files.keys()];
 		expect(files.some(f => f.includes("Login crash"))).toBe(true);
@@ -366,7 +371,7 @@ describe("captureNote()", () => {
 		setDisk(fs);
 		mockInput.mockResolvedValueOnce("99");         // invalid type
 
-		await captureNote();
+		await captureNote(getMenuDeps());
 
 		const output = mockLog.mock.calls.flat().join(" ");
 		expect(output).toContain("Invalid type");
@@ -377,7 +382,7 @@ describe("captureNote()", () => {
 		setDisk(fs);
 		mockInput.mockResolvedValueOnce("0");          // invalid type
 
-		await captureNote();
+		await captureNote(getMenuDeps());
 
 		const output = mockLog.mock.calls.flat().join(" ");
 		expect(output).toContain("Invalid type");
@@ -388,7 +393,7 @@ describe("captureNote()", () => {
 		setDisk(fs);
 		mockInput.mockResolvedValueOnce("-1");
 
-		await captureNote();
+		await captureNote(getMenuDeps());
 
 		const output = mockLog.mock.calls.flat().join(" ");
 		expect(output).toContain("Invalid type");
@@ -399,7 +404,7 @@ describe("captureNote()", () => {
 		setDisk(fs);
 		mockInput.mockResolvedValueOnce("abc");
 
-		await captureNote();
+		await captureNote(getMenuDeps());
 
 		const output = mockLog.mock.calls.flat().join(" ");
 		expect(output).toContain("Invalid type");
@@ -412,7 +417,7 @@ describe("captureNote()", () => {
 			.mockResolvedValueOnce("")                  // empty title
 			.mockResolvedValueOnce("b");
 
-		await captureNote();
+		await captureNote(getMenuDeps());
 
 		const output = mockLog.mock.calls.flat().join(" ");
 		expect(output).toContain("No title entered");
@@ -428,7 +433,7 @@ describe("captureNote()", () => {
 			.mockResolvedValueOnce("Second bug")       // title
 			.mockResolvedValueOnce("b");               // back
 
-		await captureNote();
+		await captureNote(getMenuDeps());
 
 		const files = [...fs.files.keys()];
 		expect(files.some(f => f.includes("First task"))).toBe(true);
@@ -444,7 +449,7 @@ describe("captureNote()", () => {
 				.mockResolvedValueOnce(`Test-${types[i]}`)
 				.mockResolvedValueOnce("b");
 
-			await captureNote();
+			await captureNote(getMenuDeps());
 
 			const files = [...fs.files.keys()];
 			expect(files.some(f => f.includes(`Test-${types[i]}`))).toBe(true);

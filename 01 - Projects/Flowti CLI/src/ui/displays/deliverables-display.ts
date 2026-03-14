@@ -3,7 +3,6 @@
  */
 
 import { RESET, DIM, GREEN, CYAN, BOLD, RED, YELLOW } from "../../infrastructure/ui.js";
-import { log } from "../../infrastructure/logger.js";
 import type { DeliverableSummary } from "../../domain/deliverables/deliverable-types.js";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -14,7 +13,7 @@ const STATUS_COLORS: Record<string, string> = {
 	planned: DIM,
 };
 
-export function renderDeliverableList(deliverables: DeliverableSummary[]): void {
+export function renderDeliverableList(deliverables: DeliverableSummary[], log: (msg?: string) => void): void {
 	if (deliverables.length === 0) {
 		log(`\n  ${DIM}No deliverables defined yet. Use "Add Deliverable" to create one.${RESET}\n`);
 		return;
@@ -30,10 +29,10 @@ export function renderDeliverableList(deliverables: DeliverableSummary[]): void 
 	log();
 }
 
-export function renderDeliverableAdded(relPath: string): void {
+export function renderDeliverableAdded(relPath: string, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}✓${RESET} Created: ${relPath}`);
 }
 
-export function renderDeliverableUpdated(name: string, status: string): void {
+export function renderDeliverableUpdated(name: string, status: string, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}✓${RESET} Updated ${name} → ${status}`);
 }

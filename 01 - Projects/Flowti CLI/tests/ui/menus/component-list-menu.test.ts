@@ -19,6 +19,9 @@ vi.mock("../../../src/infrastructure/paths.js", () => ({
 		sep: "/",
 	},
 }));
+vi.mock("../../../src/infrastructure/shell.js", () => ({
+	shell: { run: vi.fn(() => 0), runSilent: vi.fn(), runCapture: vi.fn(() => ""), runCaptureStatus: vi.fn(() => ({ exitCode: 0, output: "" })) },
+}));
 vi.mock("../../../src/infrastructure/config.js", () => ({
 	VAULT_ROOT: "/mock",
 	CLI_PROJECT: "/mock/cli",
@@ -82,6 +85,9 @@ import { log } from "../../../src/infrastructure/logger.js";
 import { runMenu } from "../../../src/infrastructure/menu.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
 import { input } from "../../../src/infrastructure/input.js";
+import { paths } from "../../../src/infrastructure/paths.js";
+import { shell } from "../../../src/infrastructure/shell.js";
+import { clock } from "../../../src/infrastructure/clock.js";
 import { getFramework } from "../../../src/domain/make/component/storybook-settings.js";
 import {
 	listProjectComponents, buildComponentTree, buildAncestryPath, findSiblings, detectDirtyComponents,
@@ -93,6 +99,9 @@ import {
 import { componentListMenu } from "../../../src/ui/menus/component-list-menu.js";
 import { componentDetailMenu } from "../../../src/ui/menus/component-detail-menu.js";
 import type { ProjectComponent } from "../../../src/domain/make/component/component-types.js";
+import type { ShellMenuDeps } from "../../../src/infrastructure/deps.js";
+
+const testDeps: ShellMenuDeps = { disk, paths, clock, input, shell, log };
 
 const mockLog = vi.mocked(log);
 const mockRunMenu = vi.mocked(runMenu);
@@ -134,7 +143,7 @@ describe("componentListMenu", () => {
 		mockBuildTree.mockReturnValue([]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentListMenu("/project");
+		await componentListMenu("/project", undefined, undefined, testDeps);
 
 		expect(output()).toContain("No components found");
 	});
@@ -144,7 +153,7 @@ describe("componentListMenu", () => {
 		mockBuildTree.mockReturnValue([{ component: COMPONENT_A, depth: 0 }]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentListMenu("/project");
+		await componentListMenu("/project", undefined, undefined, testDeps);
 
 		expect(output()).toContain("1 component(s)");
 	});
@@ -157,7 +166,7 @@ describe("componentListMenu", () => {
 		]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentListMenu("/project");
+		await componentListMenu("/project", undefined, undefined, testDeps);
 
 		const [title, items] = mockRunMenu.mock.calls[0];
 		expect(title).toBe("Components");
@@ -171,7 +180,7 @@ describe("componentListMenu", () => {
 		mockBuildTree.mockReturnValue([{ component: COMPONENT_A, depth: 0 }]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentListMenu("/project");
+		await componentListMenu("/project", undefined, undefined, testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		const result = await (items.find((i: any) => i.key === "1") as any).action();
@@ -188,7 +197,7 @@ describe("componentListMenu", () => {
 		]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentListMenu("/project");
+		await componentListMenu("/project", undefined, undefined, testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		// depth 2 should have indent
@@ -200,7 +209,7 @@ describe("componentListMenu", () => {
 		mockBuildTree.mockReturnValue([]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentListMenu("/project");
+		await componentListMenu("/project", undefined, undefined, testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		const addItem = items.find((i: any) => i.key === "c");
@@ -214,7 +223,7 @@ describe("componentListMenu", () => {
 		mockBuildTree.mockReturnValue([]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentListMenu("/project");
+		await componentListMenu("/project", undefined, undefined, testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		const back = items.find((i: any) => i.key === "b");
@@ -228,7 +237,7 @@ describe("componentListMenu", () => {
 		mockBuildTree.mockReturnValue([]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentListMenu("/project");
+		await componentListMenu("/project", undefined, undefined, testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		const installItem = items.find((i: any) => i.key === "i");
@@ -242,7 +251,7 @@ describe("componentListMenu", () => {
 		mockBuildTree.mockReturnValue([]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentListMenu("/project");
+		await componentListMenu("/project", undefined, undefined, testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		const installItem = items.find((i: any) => i.key === "i");
@@ -255,7 +264,7 @@ describe("componentListMenu", () => {
 		mockBuildTree.mockReturnValue([]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentListMenu("/project");
+		await componentListMenu("/project", undefined, undefined, testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		const installItem = items.find((i: any) => i.key === "i");
@@ -269,7 +278,7 @@ describe("componentListMenu", () => {
 		mockBuildTree.mockReturnValue([]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentListMenu("/project");
+		await componentListMenu("/project", undefined, undefined, testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		const startItem = items.find((i: any) => i.key === "s");
@@ -282,7 +291,7 @@ describe("componentListMenu", () => {
 		mockBuildTree.mockReturnValue([]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentListMenu("/project");
+		await componentListMenu("/project", undefined, undefined, testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		const stopItem = items.find((i: any) => i.key === "x");
@@ -295,7 +304,7 @@ describe("componentListMenu", () => {
 		mockBuildTree.mockReturnValue([]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentListMenu("/project");
+		await componentListMenu("/project", undefined, undefined, testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		const stopItem = items.find((i: any) => i.key === "x");
@@ -308,7 +317,7 @@ describe("componentListMenu", () => {
 		mockBuildTree.mockReturnValue([]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentListMenu("/project");
+		await componentListMenu("/project", undefined, undefined, testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		const buildItem = items.find((i: any) => i.key === "k");
@@ -321,7 +330,7 @@ describe("componentListMenu", () => {
 		mockBuildTree.mockReturnValue([]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentListMenu("/project", { storybook: true });
+		await componentListMenu("/project", { storybook: true }, undefined, testDeps);
 
 		// Should not throw and storybook checks should use the config
 		expect(mockRunMenu).toHaveBeenCalled();
@@ -335,7 +344,7 @@ describe("componentListMenu", () => {
 		]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentListMenu("/project");
+		await componentListMenu("/project", undefined, undefined, testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		// Both labels should contain status text
@@ -348,7 +357,7 @@ describe("componentListMenu", () => {
 		mockBuildTree.mockReturnValue([]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentListMenu("/project");
+		await componentListMenu("/project", undefined, undefined, testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		const installItem = items.find((i: any) => i.key === "i");
@@ -361,7 +370,7 @@ describe("componentListMenu", () => {
 		mockBuildTree.mockReturnValue([{ component: COMPONENT_A, depth: 0 }]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentListMenu("/project");
+		await componentListMenu("/project", undefined, undefined, testDeps);
 
 		expect(mockDetectDirty).toHaveBeenCalledWith("/project", [COMPONENT_A], expect.any(Object));
 	});
@@ -372,7 +381,7 @@ describe("componentListMenu", () => {
 		mockBuildTree.mockReturnValue([{ component: dirty, depth: 0 }]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentListMenu("/project");
+		await componentListMenu("/project", undefined, undefined, testDeps);
 
 		expect(output()).toContain("1 dirty");
 	});
@@ -383,7 +392,7 @@ describe("componentListMenu", () => {
 		mockBuildTree.mockReturnValue([{ component: dirty, depth: 0 }]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentListMenu("/project");
+		await componentListMenu("/project", undefined, undefined, testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		expect(items[0].label).toContain("*");
@@ -395,7 +404,7 @@ describe("componentListMenu", () => {
 		mockBuildTree.mockReturnValue([{ component: dirty, depth: 0 }]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentListMenu("/project");
+		await componentListMenu("/project", undefined, undefined, testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		const result = await items[0].action();
@@ -408,7 +417,7 @@ describe("componentListMenu", () => {
 		mockBuildTree.mockReturnValue([]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentListMenu("/project");
+		await componentListMenu("/project", undefined, undefined, testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		const regenItem = items.find((i: any) => i.key === "r");
@@ -421,7 +430,7 @@ describe("componentListMenu", () => {
 		mockBuildTree.mockReturnValue([{ component: COMPONENT_A, depth: 0 }]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentListMenu("/project");
+		await componentListMenu("/project", undefined, undefined, testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		const regenItem = items.find((i: any) => i.key === "r");
@@ -436,7 +445,7 @@ describe("componentListMenu", () => {
 		mockRunMenu.mockResolvedValue("main");
 		vi.mocked(input.askYesNo).mockResolvedValue(true);
 
-		await componentListMenu("/project");
+		await componentListMenu("/project", undefined, undefined, testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		const regenItem = items.find((i: any) => i.key === "r");
@@ -452,7 +461,7 @@ describe("componentListMenu", () => {
 		mockRunMenu.mockResolvedValue("main");
 		vi.mocked(input.askYesNo).mockResolvedValue(false);
 
-		await componentListMenu("/project");
+		await componentListMenu("/project", undefined, undefined, testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		const regenItem = items.find((i: any) => i.key === "r");
@@ -468,7 +477,7 @@ describe("componentListMenu", () => {
 		mockRunMenu.mockResolvedValue("main");
 		vi.mocked(input.askYesNo).mockResolvedValue(true);
 
-		await componentListMenu("/project");
+		await componentListMenu("/project", undefined, undefined, testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		const regenItem = items.find((i: any) => i.key === "r");
@@ -483,7 +492,7 @@ describe("componentListMenu", () => {
 		mockBuildTree.mockReturnValue([{ component: COMPONENT_A, depth: 0 }]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentListMenu("/project");
+		await componentListMenu("/project", undefined, undefined, testDeps);
 
 		expect(output()).toContain("Angular");
 		mockSbInstalled.mockReturnValue(false);
@@ -494,7 +503,7 @@ describe("componentListMenu", () => {
 		mockBuildTree.mockReturnValue([]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentListMenu("/project");
+		await componentListMenu("/project", undefined, undefined, testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		const buildItem = items.find((i: any) => i.key === "k");

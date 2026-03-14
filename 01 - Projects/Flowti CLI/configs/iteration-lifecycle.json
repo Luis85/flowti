@@ -1,0 +1,21 @@
+{
+	"entityType": "iteration",
+	"initialState": "new",
+	"terminalStates": ["done", "cancelled"],
+	"states": {
+		"new":           { "label": "New",         "transitions": ["planned", "cancelled"] },
+		"planned":       { "label": "Planned",     "transitions": ["ready", "cancelled"] },
+		"ready":         { "label": "Ready",       "transitions": ["in-progress", "cancelled"] },
+		"in-progress":   { "label": "In Progress", "transitions": ["in-review", "cancelled"] },
+		"in-review":     { "label": "In Review",   "transitions": ["done", "cancelled"] },
+		"done":          { "label": "Done",        "transitions": [] },
+		"cancelled":     { "label": "Cancelled",   "transitions": [] }
+	},
+	"gates": {
+		"new":         [{ "id": "has-goal", "label": "Goal defined" }],
+		"planned":     [{ "id": "has-scope", "label": "Scope items exist" }, { "id": "has-dates", "label": "Dates set" }],
+		"ready":       [{ "id": "has-resources", "label": "Resources assigned" }],
+		"in-progress": [{ "id": "scope-progress", "label": "Work started (≥1 item done)" }],
+		"in-review":   [{ "id": "all-scope-done", "label": "All scope items completed" }]
+	}
+}

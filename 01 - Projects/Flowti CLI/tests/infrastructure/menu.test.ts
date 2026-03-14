@@ -26,8 +26,8 @@ vi.mock("../../src/infrastructure/logger.js", () => ({
 	blank: vi.fn(),
 }));
 
-import { runMenu } from "../../src/infrastructure/menu.js";
-import type { MenuEntry } from "../../src/infrastructure/types.js";
+import { runMenu, insertGroupSeparators } from "../../src/infrastructure/menu.js";
+import type { MenuEntry, MenuItem } from "../../src/infrastructure/types.js";
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -127,5 +127,128 @@ describe("runMenu", () => {
 
 		await runMenu("Test", items);
 		expect(action).toHaveBeenCalledOnce();
+	});
+});
+
+// ── Group separator tests ──────────────────────────────────────────
+
+/** Helper to create a simple menu item with an optional group. */
+function groupItem(key: string, group?: string): MenuItem {
+	return { key, label: `Label ${key}`, action: () => {}, ...(group !== undefined ? { group } : {}) };
+}
+
+describe("insertGroupSeparators", () => {
+	it("inserts a separator between items with different group values", () => {
+		const items: MenuEntry[] = [
+			groupItem("1", "alpha"),
+			groupItem("2", "beta"),
+		];
+		const result = insertGroupSeparators(items);
+
+		expect(result).toEqual([
+			items[0],
+			{ separator: true },
+			items[1],
+		]);
+	});
+
+	it("does NOT insert separators between items with the same group", () => {
+		const items: MenuEntry[] = [
+			groupItem("1", "alpha"),
+			groupItem("2", "alpha"),
+			groupItem("3", "alpha"),
+		];
+		const result = insertGroupSeparators(items);
+
+		expect(result).toEqual(items);
+	});
+
+	it("does NOT insert separators for items without a group", () => {
+		const items: MenuEntry[] = [
+			groupItem("1"),
+			groupItem("2"),
+			groupItem("3"),
+		];
+		const result = insertGroupSeparators(items);
+
+		expect(result).toEqual(items);
+	});
+
+	it("handles mixed items — some with group, some without", () => {
+		const items: MenuEntry[] = [
+			groupItem("1", "alpha"),
+			groupItem("2"),            // no group — does not trigger separator
+			groupItem("3", "beta"),    // different from last seen group ("alpha") — separator
+		];
+		const result = insertGroupSeparators(items);
+
+		expect(result).toEqual([
+			items[0],
+			items[1],
+			{ separator: true },
+			items[2],
+		]);
+	});
+
+	it("preserves existing explicit separators", () => {
+		const items: MenuEntry[] = [
+			groupItem("1", "alpha"),
+			{ separator: true as const },
+			groupItem("2", "alpha"),
+		];
+		const result = insertGroupSeparators(items);
+
+		// Explicit separator preserved; no extra separator added (same group)
+		expect(result).toEqual([
+			items[0],
+			items[1],  // the explicit separator
+			items[2],  // same group as item "1" — no auto-separator
+		]);
+	});
+
+	it("does not insert a separator before the first grouped item", () => {
+		const items: MenuEntry[] = [
+			groupItem("1", "alpha"),
+		];
+		const result = insertGroupSeparators(items);
+
+		expect(result).toEqual([items[0]]);
+	});
+
+	it("handles empty input", () => {
+		const result = insertGroupSeparators([]);
+		expect(result).toEqual([]);
+	});
+
+	it("inserts multiple separators across three groups", () => {
+		const items: MenuEntry[] = [
+			groupItem("1", "a"),
+			groupItem("2", "a"),
+			groupItem("3", "b"),
+			groupItem("4", "b"),
+			groupItem("5", "c"),
+		];
+		const result = insertGroupSeparators(items);
+
+		expect(result).toEqual([
+			items[0],
+			items[1],
+			{ separator: true },
+			items[2],
+			items[3],
+			{ separator: true },
+			items[4],
+		]);
+	});
+
+	it("ungrouped items between two same-group items do not reset the last-seen group", () => {
+		const items: MenuEntry[] = [
+			groupItem("1", "alpha"),
+			groupItem("2"),            // no group — lastGroup stays "alpha"
+			groupItem("3", "alpha"),   // same as lastGroup — no separator
+		];
+		const result = insertGroupSeparators(items);
+
+		expect(result).toEqual(items);
 	});
 });

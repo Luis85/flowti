@@ -37,12 +37,12 @@ const baseSnapshot: HealthSnapshot = {
 
 describe("displayHealth", () => {
 	it("renders project name", () => {
-		displayHealth(baseSnapshot);
+		displayHealth(baseSnapshot, log);
 		expect(output()).toContain("test-project");
 	});
 
 	it("renders test stats", () => {
-		displayHealth(baseSnapshot);
+		displayHealth(baseSnapshot, log);
 		const out = output();
 		expect(out).toContain("100");
 		expect(out).toContain("10 suites");
@@ -50,12 +50,12 @@ describe("displayHealth", () => {
 	});
 
 	it("renders failed test count when > 0", () => {
-		displayHealth(baseSnapshot);
+		displayHealth(baseSnapshot, log);
 		expect(output()).toContain("2");
 	});
 
 	it("renders coverage percentages", () => {
-		displayHealth(baseSnapshot);
+		displayHealth(baseSnapshot, log);
 		const out = output();
 		expect(out).toContain("85.2%");
 		expect(out).toContain("72.0%");
@@ -63,41 +63,41 @@ describe("displayHealth", () => {
 	});
 
 	it("renders build duration", () => {
-		displayHealth(baseSnapshot);
+		displayHealth(baseSnapshot, log);
 		expect(output()).toContain("3.5s");
 	});
 
 	it("renders lint stats", () => {
-		displayHealth(baseSnapshot);
+		displayHealth(baseSnapshot, log);
 		const out = output();
 		expect(out).toContain("Errors");
 		expect(out).toContain("Warnings");
 	});
 
 	it("renders security metrics", () => {
-		displayHealth(baseSnapshot);
+		displayHealth(baseSnapshot, log);
 		expect(output()).toContain("Vulnerabilities");
 	});
 
 	it("renders git info", () => {
-		displayHealth(baseSnapshot);
+		displayHealth(baseSnapshot, log);
 		const out = output();
 		expect(out).toContain("main");
 		expect(out).toContain("clean");
 	});
 
 	it("renders summary indicators", () => {
-		displayHealth(baseSnapshot);
+		displayHealth(baseSnapshot, log);
 		expect(output()).toContain("Summary");
 	});
 
 	it("shows no-data message when all sections missing", () => {
-		displayHealth({ name: "empty", components: 0 } as HealthSnapshot);
+		displayHealth({ name: "empty", components: 0 } as HealthSnapshot, log);
 		expect(output()).toContain("No report data found");
 	});
 
 	it("renders dirty git status", () => {
-		displayHealth({ ...baseSnapshot, git: { branch: "dev", status: "dirty" } });
+		displayHealth({ ...baseSnapshot, git: { branch: "dev", status: "dirty" } }, log);
 		expect(output()).toContain("dirty");
 	});
 
@@ -105,7 +105,7 @@ describe("displayHealth", () => {
 		displayHealth({
 			...baseSnapshot,
 			security: { total: 5, critical: 1, high: 2, moderate: 1, low: 1 },
-		});
+		}, log);
 		const out = output();
 		expect(out).toContain("Critical");
 		expect(out).toContain("High");
@@ -147,7 +147,7 @@ describe("renderHealthDashboard", () => {
 			...baseSnapshot,
 			score: { overall: 85, grade: "B+" },
 			trend: [],
-		} as never);
+		} as never, log);
 		const out = output();
 		expect(out).toContain("85/100");
 		expect(out).toContain("B+");
@@ -158,21 +158,21 @@ describe("renderHealthDashboard", () => {
 			...baseSnapshot,
 			score: { overall: 90, grade: "A" },
 			trend: [{ metric: "tests.passed", delta: 10, indicator: "▲" }],
-		} as never);
+		} as never, log);
 		expect(output()).toContain("Trend");
 	});
 });
 
 describe("renderSnapshotSaved", () => {
 	it("renders saved path", () => {
-		renderSnapshotSaved({ relativePath: "snapshots/2026-03-10.json" });
+		renderSnapshotSaved({ relativePath: "snapshots/2026-03-10.json" }, log);
 		expect(output()).toContain("snapshots/2026-03-10.json");
 	});
 });
 
 describe("renderHealthHistory", () => {
 	it("renders empty message when no snapshots", () => {
-		renderHealthHistory([]);
+		renderHealthHistory([], log);
 		expect(output()).toContain("No health snapshots found");
 	});
 
@@ -183,7 +183,7 @@ describe("renderHealthHistory", () => {
 				score: { overall: 85, grade: "B+" },
 				snapshot: { ...baseSnapshot },
 			} as never,
-		]);
+		], log);
 		const out = output();
 		expect(out).toContain("2026-03-10");
 		expect(out).toContain("B+");
@@ -196,7 +196,7 @@ describe("renderHealthHistory", () => {
 			score: { overall: 80, grade: "B" },
 			snapshot: baseSnapshot,
 		}));
-		renderHealthHistory(entries as never);
+		renderHealthHistory(entries as never, log);
 		expect(output()).toContain("and 5 more");
 	});
 
@@ -205,14 +205,14 @@ describe("renderHealthHistory", () => {
 			timestamp: "2026-03-10T12:00:00Z",
 			score: { overall: 85, grade: "B+" },
 			snapshot: baseSnapshot,
-		} as never]);
+		} as never], log);
 		expect(output()).toContain("1 snapshot)");
 	});
 });
 
 describe("renderDebtEstimate", () => {
 	it("renders clean message when no items", () => {
-		renderDebtEstimate({ items: [], totalHours: 0, summary: "No tech debt found" });
+		renderDebtEstimate({ items: [], totalHours: 0, summary: "No tech debt found" }, log);
 		expect(output()).toContain("No tech debt found");
 	});
 
@@ -224,7 +224,7 @@ describe("renderDebtEstimate", () => {
 			],
 			totalHours: 6,
 			summary: "6 hours estimated",
-		});
+		}, log);
 		const out = output();
 		expect(out).toContain("Testing");
 		expect(out).toContain("Low coverage");

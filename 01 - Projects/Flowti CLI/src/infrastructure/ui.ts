@@ -19,7 +19,7 @@ export const YELLOW = "\x1b[33m";
 // ── Screen management ──────────────────────────────────────────────
 
 export function clearScreen(): void {
-	process.stdout.write("\x1b[2J\x1b[H");
+	process.stdout.write("\x1b[H\x1b[J");
 }
 
 // ── Printing primitives ─────────────────────────────────────────────

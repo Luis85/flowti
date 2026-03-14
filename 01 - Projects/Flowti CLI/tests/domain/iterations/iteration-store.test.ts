@@ -49,10 +49,12 @@ vi.mock("../../../src/infrastructure/frontmatter.js", () => ({
 
 import {
 	iterationsDir, nextIterationNumber, listIterations,
-	findCurrentIteration, createIteration, startIteration,
+	findCurrentIteration, createIteration, transitionIteration,
 	closeIteration, attachAgent, addResource, addCapacity, listAgents, computeEndDate,
-	addScopeItem, addNote, advanceToReview,
+	addScopeItem, addNote,
 } from "../../../src/domain/iterations/iteration-store.js";
+import { loadTemplate } from "../../../src/domain/lifecycle/lifecycle-engine.js";
+import type { LifecycleTemplate } from "../../../src/domain/lifecycle/lifecycle-types.js";
 
 const mockDisk = {
 	existsSync: vi.fn(() => false),
@@ -71,6 +73,28 @@ const mockClock = {
 };
 
 const deps = { disk: mockDisk as never, paths: mockPaths as never, clock: mockClock as never };
+
+const iterationLifecycle: LifecycleTemplate = loadTemplate({
+	entityType: "iteration",
+	initialState: "new",
+	terminalStates: ["done", "cancelled"],
+	states: {
+		new: { label: "New", transitions: ["planned", "cancelled"] },
+		planned: { label: "Planned", transitions: ["ready", "cancelled"] },
+		ready: { label: "Ready", transitions: ["in-progress", "cancelled"] },
+		"in-progress": { label: "In Progress", transitions: ["in-review", "cancelled"] },
+		"in-review": { label: "In Review", transitions: ["done", "cancelled"] },
+		done: { label: "Done", transitions: [] },
+		cancelled: { label: "Cancelled", transitions: [] },
+	},
+	gates: {
+		new: [{ id: "has-goal", label: "Goal defined" }],
+		planned: [{ id: "has-scope", label: "Scope items exist" }, { id: "has-dates", label: "Dates set" }],
+		ready: [{ id: "has-resources", label: "Resources assigned" }],
+		"in-progress": [{ id: "scope-progress", label: "Work started" }],
+		"in-review": [{ id: "all-scope-done", label: "All scope items completed" }],
+	},
+})!;
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -92,10 +116,7 @@ describe("nextIterationNumber", () => {
 	});
 
 	it("increments from highest existing number", () => {
-		const existing = [
-			{ number: 1 } as never,
-			{ number: 3 } as never,
-		];
+		const existing = [{ number: 1 } as never, { number: 3 } as never];
 		expect(nextIterationNumber(existing)).toBe(4);
 	});
 });
@@ -120,6 +141,17 @@ describe("listIterations", () => {
 		expect(result[0].number).toBe(1);
 		expect(result[0].status).toBe("planned");
 	});
+
+	it("normalizes legacy completed status to done", () => {
+		mockDisk.existsSync.mockReturnValue(true);
+		mockDisk.readdirSync.mockReturnValue(["iteration-001-plan.md"]);
+		mockDisk.readFileSync.mockReturnValue(
+			"---\nname: Old Sprint\nnumber: 1\nstartDate: 2026-01-01\nendDate: 2026-01-14\ngoal: Done\nstatus: completed\n---\nBody",
+		);
+
+		const result = listIterations(deps, "/project");
+		expect(result[0].status).toBe("done");
+	});
 });
 
 describe("findCurrentIteration", () => {
@@ -140,16 +172,28 @@ describe("findCurrentIteration", () => {
 		expect(result!.name).toBe("Current Sprint");
 	});
 
-	it("finds in-review iteration", () => {
+	it("finds new iteration", () => {
 		mockDisk.existsSync.mockReturnValue(true);
 		mockDisk.readdirSync.mockReturnValue(["iteration-001-plan.md"]);
 		mockDisk.readFileSync.mockReturnValue(
-			"---\nname: Review Sprint\nnumber: 1\nstartDate: 2026-03-10\nendDate: 2026-03-20\ngoal: Review\nstatus: in-review\n---",
+			"---\nname: Fresh Sprint\nnumber: 1\nstartDate: 2026-03-10\nendDate: 2026-03-20\ngoal: New\nstatus: new\n---",
 		);
 
 		const result = findCurrentIteration(deps, "/project");
 		expect(result).not.toBeNull();
-		expect(result!.status).toBe("in-review");
+		expect(result!.status).toBe("new");
+	});
+
+	it("finds ready iteration", () => {
+		mockDisk.existsSync.mockReturnValue(true);
+		mockDisk.readdirSync.mockReturnValue(["iteration-001-plan.md"]);
+		mockDisk.readFileSync.mockReturnValue(
+			"---\nname: Ready Sprint\nnumber: 1\nstartDate: 2026-03-10\nendDate: 2026-03-20\ngoal: Ready\nstatus: ready\n---",
+		);
+
+		const result = findCurrentIteration(deps, "/project");
+		expect(result).not.toBeNull();
+		expect(result!.status).toBe("ready");
 	});
 
 	it("finds planned iteration", () => {
@@ -164,7 +208,17 @@ describe("findCurrentIteration", () => {
 		expect(result!.status).toBe("planned");
 	});
 
-	it("returns null when all iterations are completed", () => {
+	it("returns null when all iterations are done", () => {
+		mockDisk.existsSync.mockReturnValue(true);
+		mockDisk.readdirSync.mockReturnValue(["iteration-001-plan.md"]);
+		mockDisk.readFileSync.mockReturnValue(
+			"---\nname: Past Sprint\nnumber: 1\nstartDate: 2026-01-01\nendDate: 2026-01-14\ngoal: Done\nstatus: done\n---",
+		);
+
+		expect(findCurrentIteration(deps, "/project")).toBeNull();
+	});
+
+	it("returns null when legacy completed status is normalized", () => {
 		mockDisk.existsSync.mockReturnValue(true);
 		mockDisk.readdirSync.mockReturnValue(["iteration-001-plan.md"]);
 		mockDisk.readFileSync.mockReturnValue(
@@ -178,92 +232,127 @@ describe("findCurrentIteration", () => {
 describe("createIteration", () => {
 	it("returns null if plan file already exists", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-
 		const result = createIteration(deps, "/project", {
 			name: "Sprint 1", number: 1, startDate: "2026-03-01", endDate: "2026-03-14", goal: "Build MVP",
 		});
-
 		expect(result).toBeNull();
 	});
 
 	it("creates only the plan file", () => {
 		mockDisk.existsSync.mockReturnValue(false);
-
 		const result = createIteration(deps, "/project", {
 			name: "Sprint 1", number: 1, startDate: "2026-03-01", endDate: "2026-03-14", goal: "Build MVP",
 		});
-
 		expect(result).toBe("/project/docs/iterations/iteration-001-plan.md");
 		expect(mockDisk.mkdirSync).toHaveBeenCalled();
 	});
 });
 
-describe("startIteration", () => {
-	it("updates plan status to in-progress", () => {
+describe("transitionIteration", () => {
+	const planContent = (status: string, goal = "Build MVP", scope = "") =>
+		`---\nname: Sprint 1\nnumber: 1\nstartDate: 2026-03-01\nendDate: 2026-03-14\ngoal: ${goal}\nstatus: ${status}\n---\n${scope}\n## Transition History\n\n| Date | From | To | Reason |\n|---|---|---|---|`;
+
+	it("transitions new → planned when gates pass", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readFileSync.mockReturnValue("---\nstatus: planned\n---\nBody");
+		mockDisk.readFileSync.mockReturnValue(planContent("new", "Build MVP"));
 
-		const result = startIteration(deps, "/project", 1);
+		const result = transitionIteration(deps, "/project", 1, "planned", "Planning complete", iterationLifecycle);
 
-		expect(result).toBe(true);
-		const written = mockDisk.writeFileSync.mock.calls[0][1] as string;
-		expect(written).toContain("status: in-progress");
+		expect(result.success).toBe(true);
+		expect(result.from).toBe("new");
+		expect(result.to).toBe("planned");
+		expect(result.gateResults).toBeDefined();
 	});
 
-	it("returns false when plan does not exist", () => {
+	it("fails transition when gate fails", () => {
+		mockDisk.existsSync.mockReturnValue(true);
+		mockDisk.readFileSync.mockReturnValue(planContent("new", ""));
+
+		const result = transitionIteration(deps, "/project", 1, "planned", "Try", iterationLifecycle);
+
+		expect(result.success).toBe(false);
+		expect(result.error).toContain("Gates failed");
+		expect(result.gateResults).toBeDefined();
+		expect(result.gateResults!.some((g) => g.gateId === "has-goal" && !g.passed)).toBe(true);
+	});
+
+	it("fails for invalid transition", () => {
+		mockDisk.existsSync.mockReturnValue(true);
+		mockDisk.readFileSync.mockReturnValue(planContent("new"));
+
+		const result = transitionIteration(deps, "/project", 1, "in-progress", "Skip", iterationLifecycle);
+
+		expect(result.success).toBe(false);
+		expect(result.error).toContain("Cannot transition");
+	});
+
+	it("appends transition history on success", () => {
+		mockDisk.existsSync.mockReturnValue(true);
+		mockDisk.readFileSync.mockReturnValue(planContent("new", "Build MVP"));
+
+		transitionIteration(deps, "/project", 1, "planned", "Ready to plan", iterationLifecycle);
+
+		const writes = mockDisk.writeFileSync.mock.calls;
+		const historyWrite = writes.find((c: unknown[]) => (c[1] as string).includes("| 2026-03-15 | new | planned |"));
+		expect(historyWrite).toBeDefined();
+	});
+
+	it("returns error when plan file not found", () => {
 		mockDisk.existsSync.mockReturnValue(false);
 
-		expect(startIteration(deps, "/project", 99)).toBe(false);
-	});
-});
+		const result = transitionIteration(deps, "/project", 1, "planned", "Try", iterationLifecycle);
 
-describe("advanceToReview", () => {
-	it("updates plan status to in-review", () => {
+		expect(result.success).toBe(false);
+		expect(result.error).toContain("Plan file not found");
+	});
+
+	it("transitions to cancelled without gates", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readFileSync.mockReturnValue("---\nstatus: in-progress\n---\nBody");
+		mockDisk.readFileSync.mockReturnValue(planContent("new", ""));
 
-		const result = advanceToReview(deps, "/project", 1);
+		const result = transitionIteration(deps, "/project", 1, "cancelled", "Abandoned", iterationLifecycle);
 
-		expect(result).toBe(true);
-		const written = mockDisk.writeFileSync.mock.calls[0][1] as string;
-		expect(written).toContain("status: in-review");
-	});
-
-	it("returns false when plan does not exist", () => {
-		mockDisk.existsSync.mockReturnValue(false);
-
-		expect(advanceToReview(deps, "/project", 99)).toBe(false);
+		expect(result.success).toBe(true);
 	});
 });
 
 describe("closeIteration", () => {
-	it("marks plan as completed and creates report file", () => {
+	it("transitions to done and creates report", () => {
+		const scope = "## Scope Items\n\n- [x] Done task\n";
 		mockDisk.existsSync.mockReturnValue(true);
 		mockDisk.readFileSync.mockReturnValue(
-			"---\nname: Sprint 1\nnumber: 1\nstartDate: 2026-03-01\nendDate: 2026-03-14\ngoal: Build MVP\nstatus: active\n---\nBody",
+			`---\nname: Sprint 1\nnumber: 1\nstartDate: 2026-03-01\nendDate: 2026-03-14\ngoal: Build MVP\nstatus: in-review\n---\n${scope}\n## Transition History\n\n| Date | From | To | Reason |\n|---|---|---|---|`,
 		);
 
-		const result = closeIteration(deps, "/project", 1);
+		const result = closeIteration(deps, "/project", 1, iterationLifecycle);
 
-		expect(result).toBe(true);
-		const planWrite = mockDisk.writeFileSync.mock.calls.find(
-			(c: unknown[]) => (c[0] as string).includes("-plan.md"),
-		);
-		expect(planWrite).toBeDefined();
-		expect(planWrite![1]).toContain("status: completed");
+		expect(result.success).toBe(true);
+		expect(mockDisk.writeFileSync).toHaveBeenCalled();
 	});
 
-	it("returns false when plan does not exist", () => {
-		mockDisk.existsSync.mockReturnValue(false);
+	it("fails when gates fail", () => {
+		mockDisk.existsSync.mockReturnValue(true);
+		mockDisk.readFileSync.mockReturnValue(
+			"---\nname: Sprint 1\nnumber: 1\nstartDate: 2026-03-01\nendDate: 2026-03-14\ngoal: Build MVP\nstatus: in-review\n---\n## Scope Items\n\n- [ ] Undone task\n\n## Transition History\n\n| Date | From | To | Reason |\n|---|---|---|---|",
+		);
 
-		expect(closeIteration(deps, "/project", 99)).toBe(false);
+		const result = closeIteration(deps, "/project", 1, iterationLifecycle);
+
+		expect(result.success).toBe(false);
+		expect(result.error).toContain("Gates failed");
+	});
+
+	it("returns error when plan file not found", () => {
+		mockDisk.existsSync.mockReturnValue(false);
+		const result = closeIteration(deps, "/project", 99, iterationLifecycle);
+		expect(result.success).toBe(false);
 	});
 });
 
 describe("attachAgent", () => {
 	it("appends agent to plan file", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readFileSync.mockReturnValue("---\nstatus: active\n---\nBody");
+		mockDisk.readFileSync.mockReturnValue("---\nstatus: new\n---\nBody");
 
 		const result = attachAgent(deps, "/project", 1, { name: "CodeReview", file: "code-review.md" });
 
@@ -273,7 +362,6 @@ describe("attachAgent", () => {
 
 	it("returns false when file does not exist", () => {
 		mockDisk.existsSync.mockReturnValue(false);
-
 		expect(attachAgent(deps, "/project", 1, { name: "Test", file: "test.md" })).toBe(false);
 	});
 });
@@ -281,7 +369,6 @@ describe("attachAgent", () => {
 describe("listAgents", () => {
 	it("returns empty array when file does not exist", () => {
 		mockDisk.existsSync.mockReturnValue(false);
-
 		expect(listAgents(deps, "/project", 1)).toEqual([]);
 	});
 });
@@ -289,7 +376,7 @@ describe("listAgents", () => {
 describe("addResource", () => {
 	it("appends resource to plan file", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readFileSync.mockReturnValue("---\nstatus: active\n---\nBody");
+		mockDisk.readFileSync.mockReturnValue("---\nstatus: new\n---\nBody");
 
 		const result = addResource(deps, "/project", 1, { name: "Luis", role: "Dev Lead", allocation: "80%" });
 
@@ -301,7 +388,7 @@ describe("addResource", () => {
 describe("addCapacity", () => {
 	it("appends capacity to plan file", () => {
 		mockDisk.existsSync.mockReturnValue(true);
-		mockDisk.readFileSync.mockReturnValue("---\nstatus: active\n---\nBody");
+		mockDisk.readFileSync.mockReturnValue("---\nstatus: new\n---\nBody");
 
 		const result = addCapacity(deps, "/project", 1, { label: "Story Points", value: "40", unit: "pts" });
 
@@ -332,14 +419,14 @@ describe("addScopeItem", () => {
 	it("appends item under Scope Items section", () => {
 		mockDisk.existsSync.mockReturnValue(true);
 		mockDisk.readFileSync.mockReturnValue(
-			"---\nstatus: active\n---\n\n## Scope Items\n\n<!-- List requirements and work items for this iteration. -->\n\n## Notes\n",
+			"---\nstatus: new\n---\n\n## Scope Items\n\n<!-- List requirements and work items for this iteration. -->\n\n## Notes\n",
 		);
 
 		const result = addScopeItem(deps, "/project", 1, "Implement login flow");
 
 		expect(result).toBe(true);
 		const written = mockDisk.writeFileSync.mock.calls[0][1] as string;
-		expect(written).toContain("- Implement login flow");
+		expect(written).toContain("- [ ] Implement login flow");
 		expect(written).not.toContain("<!-- List requirements");
 	});
 
@@ -353,7 +440,7 @@ describe("addNote", () => {
 	it("appends dated note under Notes section", () => {
 		mockDisk.existsSync.mockReturnValue(true);
 		mockDisk.readFileSync.mockReturnValue(
-			"---\nstatus: active\n---\n\n## Notes\n\n<!-- Track progress and decisions during the iteration. -->\n",
+			"---\nstatus: new\n---\n\n## Notes\n\n<!-- Track progress and decisions during the iteration. -->\n",
 		);
 
 		const result = addNote(deps, "/project", 1, "Kicked off sprint planning");

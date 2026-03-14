@@ -55,14 +55,14 @@ const actions: Record<string, ControllerAction> = {
 			recordBuild(srcDir, binDir, { disk, paths, clock });
 		}
 		const model: ShellCommandModel = { command: cmd, exitCode, label: "build" };
-		return dataResponse(model, renderShellCommand);
+		return dataResponse(model, (d) => renderShellCommand(req.deps.log, d));
 	},
 	"build:increment": (req) => {
 		const { shell } = req.deps;
 		const cmd = resolveBuildCommand(req.project, "increment", ["build:increment", "build"], "npm run build");
 		const exitCode = shell.run(cmd, { cwd: req.project?.path, label: "Building increment..." });
 		const model: ShellCommandModel = { command: cmd, exitCode, label: "build:increment" };
-		return dataResponse(model, renderShellCommand);
+		return dataResponse(model, (d) => renderShellCommand(req.deps.log, d));
 	},
 	"build:full": (req) => {
 		const { shell, disk, paths, clock } = req.deps;
@@ -73,7 +73,7 @@ const actions: Record<string, ControllerAction> = {
 			recordBuild(srcDir, binDir, { disk, paths, clock });
 		}
 		const model: ShellCommandModel = { command: cmd, exitCode, label: "build:full" };
-		return dataResponse(model, renderShellCommand);
+		return dataResponse(model, (d) => renderShellCommand(req.deps.log, d));
 	},
 	"build:watch": (req) => {
 		const { shell } = req.deps;
@@ -82,35 +82,35 @@ const actions: Record<string, ControllerAction> = {
 		const cmd = `${resolved}${reloadFlag}`;
 		const exitCode = shell.run(cmd, { cwd: req.project?.path, label: "Watch mode..." });
 		const model: ShellCommandModel = { command: cmd, exitCode, label: "build:watch" };
-		return dataResponse(model, renderShellCommand);
+		return dataResponse(model, (d) => renderShellCommand(req.deps.log, d));
 	},
 	"build:distribute": (req) => {
 		const { shell } = req.deps;
 		const cmd = resolveBuildCommand(req.project, "distribute", ["build:distribute", "build"], "npm run build");
 		const exitCode = shell.run(cmd, { cwd: req.project?.path, label: "Distributing build..." });
 		const model: ShellCommandModel = { command: cmd, exitCode, label: "build:distribute" };
-		return dataResponse(model, renderShellCommand);
+		return dataResponse(model, (d) => renderShellCommand(req.deps.log, d));
 	},
 	"test": (req) => {
 		const { shell } = req.deps;
 		const cmd = resolveTestCommand(req.project, "unit", ["test"], "npm test");
 		const exitCode = shell.run(cmd, { cwd: req.project?.path, label: "Running tests..." });
 		const model: ShellCommandModel = { command: cmd, exitCode, label: "test" };
-		return dataResponse(model, renderShellCommand);
+		return dataResponse(model, (d) => renderShellCommand(req.deps.log, d));
 	},
 	"test:increment": (req) => {
 		const { shell } = req.deps;
 		const cmd = resolveTestCommand(req.project, "increment", ["test:increment", "test"], "npm test");
 		const exitCode = shell.run(cmd, { cwd: req.project?.path, label: "Running increment tests..." });
 		const model: ShellCommandModel = { command: cmd, exitCode, label: "test:increment" };
-		return dataResponse(model, renderShellCommand);
+		return dataResponse(model, (d) => renderShellCommand(req.deps.log, d));
 	},
 	"test:e2e": (req) => {
 		const { shell } = req.deps;
 		const cmd = resolveTestCommand(req.project, "e2e", ["test:e2e", "test"], "npm test");
 		const exitCode = shell.run(cmd, { cwd: req.project?.path, label: "Running E2E tests..." });
 		const model: ShellCommandModel = { command: cmd, exitCode, label: "test:e2e" };
-		return dataResponse(model, renderShellCommand);
+		return dataResponse(model, (d) => renderShellCommand(req.deps.log, d));
 	},
 	"build:check": (req) => {
 		if (!req.project) return;
@@ -118,7 +118,7 @@ const actions: Record<string, ControllerAction> = {
 		const { srcDir, binDir } = resolveBuildPaths(req.project.path, { paths });
 		const check = checkFreshness(srcDir, binDir, { disk, paths });
 
-		return dataResponse(check, renderFreshnessCheck);
+		return dataResponse(check, (d) => renderFreshnessCheck(d, req.deps.log));
 	},
 	"build:auto": (req) => {
 		if (!req.project) return;
@@ -128,14 +128,14 @@ const actions: Record<string, ControllerAction> = {
 
 		if (!check.needsRebuild) {
 			const model: BuildAutoModel = { check, buildRan: false, manifest: null };
-			return dataResponse(model, renderBuildAuto);
+			return dataResponse(model, (d) => renderBuildAuto(d, req.deps.log));
 		}
 
 		const exitCode = shell.run(pick(req.project, ["build"], "npm run build"), { cwd: req.project.path, label: "Rebuilding..." });
 		const manifest = exitCode === 0 ? recordBuild(srcDir, binDir, { disk, paths, clock }) : null;
 		const model: BuildAutoModel = { check, buildRan: exitCode === 0, manifest };
 
-		return dataResponse(model, renderBuildAuto);
+		return dataResponse(model, (d) => renderBuildAuto(d, req.deps.log));
 	},
 	"build:record": (req) => {
 		if (!req.project) return;
@@ -144,13 +144,13 @@ const actions: Record<string, ControllerAction> = {
 		const manifest = recordBuild(srcDir, binDir, { disk, paths, clock });
 		const model: BuildRecordedModel = { fileCount: manifest.fileCount, hashPrefix: manifest.sourceHash.slice(0, 12) };
 
-		return dataResponse(model, renderBuildRecorded);
+		return dataResponse(model, (d) => renderBuildRecorded(d, req.deps.log));
 	},
 	"project:ci": (req) => {
 		if (!req.project) return;
 		const { disk, paths } = req.deps;
 		const result = runProjectCi(req.project, req.flags["dry-run"] === true, { disk, paths });
-		return dataResponse<CiResult>(result, renderCiResult);
+		return dataResponse<CiResult>(result, (d) => renderCiResult(d, req.deps.log));
 	},
 };
 

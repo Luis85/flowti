@@ -27,12 +27,12 @@ src/
 │   ├── handlers/            # Sitemap action/view/condition/beforeRender handlers
 │   ├── menus/               # Interactive menu implementations (hybrid views)
 │   └── *-display.ts         # Pure renderers: typed model → ANSI output
-├── domain/                  # 26 modules — pure business logic, NO I/O
+├── domain/                  # 27 modules — pure business logic, NO I/O
 │   └── (scaffold, make, build, publish, review, reports, e2e, events,
 │       health, lifecycle, resources, timelog, deliverables, raid,
 │       requirements, capa, capture, plugins, ai-tools, info,
 │       onboarding, knowledgebase, devtools, templates, sitemap, shared)
-└── infrastructure/          # 41 modules — I/O abstractions + pipeline + sitemap engine
+└── infrastructure/          # 44 modules — I/O abstractions + pipeline + sitemap engine
 ```
 
 ### Dependency Rules (STRICT)
@@ -63,28 +63,32 @@ ISP subsets in `src/infrastructure/deps.ts`:
 - `E2EDeps` — `Pick<CliDeps, "disk" | "shell" | "paths" | "clock" | "log" | "warn">`
 - `MakeDeps` — `Pick<CliDeps, "disk" | "paths" | "input" | "log">`
 
-## Sitemap-Driven UI
+## Sitemap-Driven UI (v2 — PageObject Architecture)
 
-All interactive menus are declared in `configs/sitemap.json`:
+All interactive menus are declared in `configs/sitemap.json` (v2 format):
 
-- **22 views** — each with title, icon, domain, capabilities, items
-- **Static views**: items array with handler/navigate/signal actions
-- **Dynamic views**: `type: "dynamic"` with registered view handler
-- **Hybrid views**: dynamic handler + items array → handler receives `sitemapSlots`
-- **Handler types**: ViewHandler, ActionHandler, ConditionHandler, BeforeRenderHandler, ListProviderHandler
+- **28 pages** — each a `PageObject` with kind, label, description, actions, dataSources
+- **Page kinds**: `page`, `form`, `list`, `layout`, `dialog`, `component`, `ui-component`, `system`, `container`, `c4-component`, `person`
+- **Actions**: `{ name: "onFoo", label, type, target, key?, group? }` — types: `navigate`, `handler`, `command`, `signal`, `form`
+- **Auto-key assignment**: Actions without explicit `key` get auto-assigned (1-9, a-z)
+- **Group separators**: Actions with different `group` values get visual separators between them
+- **Data sources**: `dataSources: [{ id, slot?, params? }]` — inject dynamic entries via `registerDataSource()`
+- **Form pages**: `kind: "form"` with `fields[]` — driven by the generic form engine
+- **Dynamic views**: Determined by `registry.hasView(pageId)` — handler receives `dataSourceEntries`
+- **Handler types**: ViewHandler, ActionHandler, ConditionHandler, BeforeRenderHandler, DataSourceHandler, FormHandler
 - **Registration**: `src/ui/handlers/register-handlers.ts` is the single registration point
 
-### Adding a New Menu Item
+### Adding a New Action
 
-1. Add item to `configs/sitemap.json` with `"handler": "my:action"`
+1. Add action to `configs/sitemap.json`: `{ "name": "onFoo", "label": "Foo", "type": "handler", "target": "my:action" }`
 2. Register handler in appropriate file under `src/ui/handlers/`
 3. Call `registry.registerAction("my:action", async (ctx) => { ... })`
 
-### Adding a New View
+### Adding a New Page
 
-1. Add view to `configs/sitemap.json`
-2. For static: just add items with handlers
-3. For dynamic: add `"type": "dynamic", "handler": "my-view"` and register a ViewHandler
+1. Add page to `configs/sitemap.json` with `kind`, `label`, `description`, `actions`
+2. For static pages: actions array with handler/navigate/signal types
+3. For dynamic pages: register a ViewHandler with `registry.registerView("my-page", handler)`
 
 ## Controller Pattern
 

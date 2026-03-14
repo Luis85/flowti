@@ -4,7 +4,6 @@
  * Pure renderers used as dataResponse callbacks by publish.controller.ts.
  */
 
-import { log } from "../../infrastructure/logger.js";
 import { RESET, DIM, CYAN, GREEN, RED, YELLOW, BOLD } from "../../infrastructure/ui.js";
 import type { GateResult } from "../../domain/health/quality-gate.js";
 
@@ -25,7 +24,7 @@ export interface GateBlockedModel {
 
 // ── Renderers ────────────────────────────────────────────────────────
 
-export function renderDryRun(data: DryRunModel): void {
+export function renderDryRun(data: DryRunModel, log: (msg?: string) => void): void {
 	log(`\n  ${CYAN}Dry run — publish preview${RESET}\n`);
 	log(`  ${DIM}Build command:${RESET}  ${data.buildCmd}`);
 	log(`  ${DIM}Test command:${RESET}   ${data.testCmd}`);
@@ -40,7 +39,7 @@ export function renderDryRun(data: DryRunModel): void {
 	log();
 }
 
-export function renderGateResult(data: GateResult): void {
+export function renderGateResult(data: GateResult, log: (msg?: string) => void): void {
 	const status = data.passed
 		? `${GREEN}${BOLD}PASSED${RESET}`
 		: `${RED}${BOLD}FAILED${RESET}`;
@@ -57,7 +56,7 @@ export function renderGateResult(data: GateResult): void {
 	log();
 }
 
-export function renderGateBlocked(data: GateBlockedModel): void {
+export function renderGateBlocked(data: GateBlockedModel, log: (msg?: string) => void): void {
 	log(`  ${RED}${data.message}${RESET}`);
 	log(`  ${DIM}${data.hint}${RESET}\n`);
 }

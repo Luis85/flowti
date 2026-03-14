@@ -3,7 +3,6 @@
  */
 
 import { RESET, DIM, GREEN, CYAN, BOLD, RED, YELLOW } from "../../infrastructure/ui.js";
-import { log } from "../../infrastructure/logger.js";
 import type { LifecycleRecord, LifecycleSummary, TransitionResult } from "../../domain/lifecycle/lifecycle-types.js";
 import type { LifecycleTransitionRecord } from "../../infrastructure/types.js";
 
@@ -20,7 +19,7 @@ const STATE_COLORS: Record<string, string> = {
 	closing: RED, decline: RED,
 };
 
-export function renderLifecycleStatus(record: LifecycleRecord): void {
+export function renderLifecycleStatus(record: LifecycleRecord, log: (msg?: string) => void): void {
 	const color = STATE_COLORS[record.currentState] ?? DIM;
 	log(`\n  ${BOLD}${record.name}${RESET}`);
 	log(`  Type: ${DIM}${record.entityType}${RESET}`);
@@ -35,7 +34,7 @@ export function renderLifecycleStatus(record: LifecycleRecord): void {
 	log();
 }
 
-export function renderTransitionHistory(history: LifecycleTransitionRecord[]): void {
+export function renderTransitionHistory(history: LifecycleTransitionRecord[], log: (msg?: string) => void): void {
 	if (history.length === 0) {
 		log(`\n  ${DIM}No transitions recorded yet.${RESET}\n`);
 		return;
@@ -50,7 +49,7 @@ export function renderTransitionHistory(history: LifecycleTransitionRecord[]): v
 	log();
 }
 
-export function renderTransitionResult(result: TransitionResult): void {
+export function renderTransitionResult(result: TransitionResult, log: (msg?: string) => void): void {
 	if (result.success) {
 		const toColor = STATE_COLORS[result.to!] ?? DIM;
 		log(`\n  ${GREEN}✓${RESET} Transitioned: ${result.from} → ${toColor}${result.to}${RESET}`);
@@ -59,7 +58,7 @@ export function renderTransitionResult(result: TransitionResult): void {
 	}
 }
 
-export function renderLifecycleList(items: LifecycleSummary[]): void {
+export function renderLifecycleList(items: LifecycleSummary[], log: (msg?: string) => void): void {
 	if (items.length === 0) {
 		log(`\n  ${DIM}No lifecycle items found.${RESET}\n`);
 		return;
@@ -74,6 +73,6 @@ export function renderLifecycleList(items: LifecycleSummary[]): void {
 	log();
 }
 
-export function renderLifecycleCreated(relPath: string): void {
+export function renderLifecycleCreated(relPath: string, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}✓${RESET} Created: ${relPath}`);
 }

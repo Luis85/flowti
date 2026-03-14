@@ -25,6 +25,7 @@ vi.mock("../../../src/domain/reports/export/report-archive.js", () => ({
 import { log } from "../../../src/infrastructure/logger.js";
 import { runMenu } from "../../../src/infrastructure/menu.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
 import { discoverArchiveCategories } from "../../../src/domain/reports/export/report-archive.js";
 import { browseArchive } from "../../../src/ui/menus/report-archive-menu.js";
 import type { ArchiveCategory } from "../../../src/domain/reports/export/report-archive.js";
@@ -33,6 +34,8 @@ const mockLog = vi.mocked(log);
 const mockRunMenu = vi.mocked(runMenu);
 const mockDiscover = vi.mocked(discoverArchiveCategories);
 const mockDisk = vi.mocked(disk);
+
+const archiveDeps = { disk, paths, log } as any;
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -44,7 +47,7 @@ describe("browseArchive", () => {
 	it("returns 'main' when no categories found", async () => {
 		mockDiscover.mockReturnValue([]);
 
-		const result = await browseArchive("/reports");
+		const result = await browseArchive("/reports", archiveDeps);
 
 		expect(result).toBe("main");
 		expect(mockLog).toHaveBeenCalled();
@@ -59,7 +62,7 @@ describe("browseArchive", () => {
 		mockDiscover.mockReturnValue(categories);
 		mockRunMenu.mockResolvedValue("main");
 
-		await browseArchive("/reports");
+		await browseArchive("/reports", archiveDeps);
 
 		expect(mockRunMenu).toHaveBeenCalledTimes(1);
 		const [title, items] = mockRunMenu.mock.calls[0];
@@ -81,7 +84,7 @@ describe("browseArchive", () => {
 		mockDiscover.mockReturnValue(categories);
 		mockRunMenu.mockResolvedValue("main");
 
-		await browseArchive("/reports");
+		await browseArchive("/reports", archiveDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		const backItem = items.find((i: any) => i.key === "b");
@@ -98,7 +101,7 @@ describe("browseArchive", () => {
 		// First call: main menu; second call: sub-menu
 		mockRunMenu.mockResolvedValueOnce(undefined).mockResolvedValueOnce("main");
 
-		await browseArchive("/reports");
+		await browseArchive("/reports", archiveDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		// Invoke the category action — triggers browseCategory internally
@@ -123,7 +126,7 @@ describe("browseArchive", () => {
 		const fileContent = "---\ntitle: Test Report\n---\n# My Report\nBody content";
 		mockDisk.readFileSync.mockReturnValue(fileContent);
 
-		await browseArchive("/reports");
+		await browseArchive("/reports", archiveDeps);
 
 		// Invoke category action
 		const [, items] = mockRunMenu.mock.calls[0];
@@ -149,7 +152,7 @@ describe("browseArchive", () => {
 		mockRunMenu.mockResolvedValue(undefined);
 		mockDisk.readFileSync.mockImplementation(() => { throw new Error("ENOENT"); });
 
-		await browseArchive("/reports");
+		await browseArchive("/reports", archiveDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		await (items[0] as any).action();
@@ -167,7 +170,7 @@ describe("browseArchive", () => {
 		mockDiscover.mockReturnValue(categories);
 		mockRunMenu.mockResolvedValue("main");
 
-		await browseArchive("/reports");
+		await browseArchive("/reports", archiveDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		expect(items[0].label).toContain("1 report)");

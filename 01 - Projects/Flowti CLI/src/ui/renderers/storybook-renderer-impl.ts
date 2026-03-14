@@ -25,25 +25,26 @@ import {
 	renderStorybookOpenedIn,
 	renderStorybookProgress,
 } from "./storybook-renderers.js";
+import type { Log } from "../../infrastructure/deps.js";
 
-export function createStorybookRenderer(): StorybookRenderer {
+export function createStorybookRenderer(log: Log): StorybookRenderer {
 	return {
-		alreadyInstalled: renderStorybookAlreadyInstalled,
-		installing: renderStorybookInstalling,
-		installFailed: renderStorybookInstallFailed,
-		installSuccess: renderStorybookInstallSuccess,
-		notInstalled: renderStorybookNotInstalled,
-		alreadyRunning: renderStorybookAlreadyRunning,
-		starting: renderStorybookStarting,
-		failedToStart: renderStorybookFailedToStart,
-		failOutput: renderStorybookFailOutput,
-		timeout: renderStorybookTimeout,
-		ready: renderStorybookReady,
-		stopped: renderStorybookStopped,
-		notRunning: renderStorybookNotRunning,
-		view: renderStorybookView,
-		browserContext: renderStorybookBrowserContext,
-		openedIn: renderStorybookOpenedIn,
-		progress: renderStorybookProgress,
+		alreadyInstalled: (sbDir) => renderStorybookAlreadyInstalled(log, sbDir),
+		installing: (sbDir) => renderStorybookInstalling(log, sbDir),
+		installFailed: () => renderStorybookInstallFailed(log),
+		installSuccess: (sbDir) => renderStorybookInstallSuccess(log, sbDir),
+		notInstalled: () => renderStorybookNotInstalled(log),
+		alreadyRunning: () => renderStorybookAlreadyRunning(log),
+		starting: () => renderStorybookStarting(log),
+		failedToStart: () => renderStorybookFailedToStart(log),
+		failOutput: (lines) => renderStorybookFailOutput(log, lines),
+		timeout: () => renderStorybookTimeout(log),
+		ready: (url) => renderStorybookReady(log, url),
+		stopped: () => renderStorybookStopped(log),
+		notRunning: () => renderStorybookNotRunning(log),
+		view: (url) => renderStorybookView(log, url),
+		browserContext: (message) => renderStorybookBrowserContext(log, message),
+		openedIn: (target) => renderStorybookOpenedIn(log, target),
+		progress: (line) => renderStorybookProgress(log, line),
 	};
 }

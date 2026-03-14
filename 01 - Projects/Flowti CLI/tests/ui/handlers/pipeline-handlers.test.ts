@@ -42,6 +42,7 @@ import { HandlerRegistry } from "../../../src/infrastructure/handler-registry.js
 import { registerPipelineHandlers } from "../../../src/ui/handlers/pipeline-handlers.js";
 import { shell } from "../../../src/infrastructure/shell.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
 import { input } from "../../../src/infrastructure/input.js";
 import { log } from "../../../src/infrastructure/logger.js";
 import { distribute } from "../../../src/ui/handlers/pipeline-distribute.js";
@@ -49,12 +50,14 @@ import { makeJourney } from "../../../src/ui/menus/make-makers.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
+const mockDeps = { disk, paths, shell, input, log } as unknown as import("../../../src/infrastructure/deps.js").CliDeps;
+
 function mockCtx(overrides?: Partial<{ project: { config: { review?: unknown; publish?: unknown }; path: string } }>) {
-	return { project: { config: { review: {}, publish: {} }, path: "/project", ...overrides?.project } };
+	return { project: { config: { review: {}, publish: {} }, path: "/project", ...overrides?.project }, deps: mockDeps };
 }
 
 function noProjectCtx() {
-	return { project: undefined } as { project: undefined };
+	return { project: undefined, deps: mockDeps } as { project: undefined; deps: typeof mockDeps };
 }
 
 // ── Tests ───────────────────────────────────────────────────────────
@@ -299,7 +302,7 @@ describe("registerPipelineHandlers", () => {
 
 		it("delegates to makeJourney", async () => {
 			await registry.getAction("review:new-journey")(mockCtx());
-			expect(makeJourney).toHaveBeenCalledWith("/project");
+			expect(makeJourney).toHaveBeenCalledWith("/project", expect.any(Object));
 			expect(input.waitForEnter).toHaveBeenCalled();
 		});
 	});
@@ -482,7 +485,7 @@ describe("registerPipelineHandlers", () => {
 
 			vi.mocked(distribute).mockReturnValue(0);
 			await registry.getAction("publish:distribute")(mockCtx());
-			expect(distribute).toHaveBeenCalledWith("/project", expect.any(Object));
+			expect(distribute).toHaveBeenCalledWith("/project", expect.any(Object), expect.objectContaining({ disk, paths, log }));
 		});
 
 		it("tracks distributePassed on success", async () => {

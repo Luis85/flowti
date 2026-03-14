@@ -28,7 +28,7 @@ import {
 
 const actions: Record<string, ControllerAction> = {
 	"scaffold:new": (req) => {
-		const { disk, paths } = req.deps;
+		const { disk, paths, log } = req.deps;
 		const scaffoldDeps = { disk, paths } as const;
 		const name = req.flags.name as string | undefined;
 		const definitionId = (req.flags.definition as string) ?? "flowti-project";
@@ -38,7 +38,7 @@ const actions: Record<string, ControllerAction> = {
 		if (!name) {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing required flag: --name", hint: "Usage: scaffold:new --name=\"My Project\" [--definition=flowti-project]" },
-				renderError,
+				(d) => renderError(log, d),
 			);
 		}
 
@@ -47,14 +47,14 @@ const actions: Record<string, ControllerAction> = {
 		if (req.flags["dry-run"]) {
 			const result = scaffoldDryRun(PROJECTS_DIR, scaffoldDeps, opts, cliConfig.defaultAuthor);
 			if ("error" in result) {
-				return dataResponse<ErrorModel>({ error: result.error }, renderError);
+				return dataResponse<ErrorModel>({ error: result.error }, (d) => renderError(log, d));
 			}
-			return dataResponse(result, renderDryRunPreview);
+			return dataResponse(result, (d) => renderDryRunPreview(d, log));
 		}
 
 		const result = scaffold(PROJECTS_DIR, scaffoldDeps, opts, cliConfig.defaultAuthor);
 		if ("error" in result) {
-			return dataResponse<ErrorModel>({ error: result.error }, renderError);
+			return dataResponse<ErrorModel>({ error: result.error }, (d) => renderError(log, d));
 		}
 
 		const model: ScaffoldResultModel = {
@@ -62,15 +62,15 @@ const actions: Record<string, ControllerAction> = {
 			outputPath: result.outputPath,
 			suggestions: afterScaffold(opts.name),
 		};
-		return dataResponse(model, renderScaffoldResult);
+		return dataResponse(model, (d) => renderScaffoldResult(d, log));
 	},
 
-	"scaffold:list": (_req) => {
+	"scaffold:list": (req) => {
 		const defs = listDefinitions();
 		const model: DefinitionListModel = {
 			definitions: defs.map((d) => ({ id: d.id, label: d.label, description: d.description })),
 		};
-		return dataResponse(model, renderDefinitionList);
+		return dataResponse(model, (d) => renderDefinitionList(d, req.deps.log));
 	},
 
 	"scaffold:marketplace": (req) => {
@@ -79,25 +79,26 @@ const actions: Record<string, ControllerAction> = {
 		const localDir = req.project?.path ? resolveDefinitionsDir({ paths }, req.project.path) : "";
 		const entries = buildMarketplaceListing({ disk, paths }, BUNDLED_DEFINITIONS, localDir, knownIds);
 		const model: MarketplaceModel = { entries };
-		return dataResponse(model, renderMarketplace);
+		return dataResponse(model, (d) => renderMarketplace(d, req.deps.log));
 	},
 
 	"scaffold:import": (req) => {
+		const { log } = req.deps;
 		const file = req.flags.file as string | undefined;
 		if (!file) {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing required flag: --file", hint: "Usage: scaffold:import --file=<path>" },
-				renderError,
+				(d) => renderError(log, d),
 			);
 		}
 		if (!req.project) {
-			return dataResponse<NoProjectModel>({ command: "scaffold:import" }, renderNoProject);
+			return dataResponse<NoProjectModel>({ command: "scaffold:import" }, (d) => renderNoProject(log, d));
 		}
 		const { disk, paths } = req.deps;
 		const knownIds = getKnownTemplateIds();
 		const result = importDefinition({ disk, paths }, file, req.project.path, knownIds);
 		const model: ImportResultModel = { result };
-		return dataResponse(model, renderImportResult);
+		return dataResponse(model, (d) => renderImportResult(d, req.deps.log));
 	},
 
 	"marketplace:export": (req) => {
@@ -111,28 +112,28 @@ const actions: Record<string, ControllerAction> = {
 		if (output) {
 			saveBundle(scaffoldDeps, bundle, output);
 			const model: ExportSavedModel = { total, outputPath: output };
-			return dataResponse(model, renderExportSaved);
+			return dataResponse(model, (d) => renderExportSaved(d, req.deps.log));
 		}
-		return dataResponse(bundle, renderExportPreview);
+		return dataResponse(bundle, (d) => renderExportPreview(d, req.deps.log));
 	},
 
 	"marketplace:import-bundle": (req) => {
-		const { disk, paths } = req.deps;
+		const { disk, paths, log } = req.deps;
 		const scaffoldDeps = { disk, paths } as const;
 		const file = req.flags.file as string | undefined;
 		if (!file) {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --file flag.", hint: "Usage: marketplace:import-bundle --file=<bundle.json>" },
-				renderError,
+				(d) => renderError(log, d),
 			);
 		}
 		const bundle = loadBundle({ disk } as const, file);
 		if (!bundle) {
-			return dataResponse<ErrorModel>({ error: `Invalid or unreadable bundle: ${file}` }, renderError);
+			return dataResponse<ErrorModel>({ error: `Invalid or unreadable bundle: ${file}` }, (d) => renderError(log, d));
 		}
 		const imported = importAiToolsFromBundle(scaffoldDeps, bundle, VAULT_ROOT);
 		const model: BundleImportedModel = { imported, vault: bundle.vault };
-		return dataResponse(model, renderBundleImported);
+		return dataResponse(model, (d) => renderBundleImported(d, log));
 	},
 };
 

@@ -10,11 +10,6 @@ import type { HandlerRegistry } from "../../infrastructure/handler-registry.js";
 import type { MenuEntry, MakeTemplateId } from "../../infrastructure/types.js";
 import type { RouterContext } from "../../infrastructure/sitemap-types.js";
 
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
-import { shell } from "../../infrastructure/shell.js";
-import { input } from "../../infrastructure/input.js";
-import { log } from "../../infrastructure/logger.js";
 import { createDefaultDeps } from "../../infrastructure/deps.js";
 import { RESET, DIM, GREEN } from "../../infrastructure/ui.js";
 import { PROJECTS_DIR } from "../../infrastructure/config.js";
@@ -31,10 +26,11 @@ const TEMPLATE_LABELS: Record<MakeTemplateId, string> = {
 // ── Registration ────────────────────────────────────────────────────
 
 export function registerToolingHandlers(registry: HandlerRegistry): void {
-	// ── Make: list provider ─────────────────────────────────────────
+	// ── Make: data source ───────────────────────────────────────────
 
-	registry.registerListProvider("make:templates", (ctx: RouterContext): MenuEntry[] => {
+	registry.registerDataSource("make:templates", (ctx: RouterContext): MenuEntry[] => {
 		if (!ctx.project) return [];
+		const { disk, paths } = ctx.deps;
 		const available = getAvailableTemplatesSync(ctx.project.path, { disk, paths });
 		return available.map((id, i) => ({
 			key: String(i + 1),
@@ -42,26 +38,26 @@ export function registerToolingHandlers(registry: HandlerRegistry): void {
 			action: async () => {
 				if (id === "component") {
 					const { componentMenu } = await import("../menus/component-makers-menu.js");
-					await componentMenu(ctx.project!.path);
+					await componentMenu(ctx.project!.path, ctx.deps);
 				} else if (id === "journey") {
 					const { makeJourney } = await import("../menus/make-makers.js");
-					await makeJourney(ctx.project!.path);
+					await makeJourney(ctx.project!.path, ctx.deps);
 				}
 				return undefined;
 			},
 		}));
 	});
 
-	registry.registerAction("make:help", async (_ctx) => {
+	registry.registerAction("make:help", async (ctx) => {
 		const { showHelp } = await import("../help.js");
-		showHelp("make");
-		await input.waitForEnter();
+		showHelp("make", ctx.deps);
+		await ctx.deps.input.waitForEnter();
 		return undefined;
 	});
 
-	// ── Reports: list provider + action handlers ────────────────────
+	// ── Reports: data source + action handlers ──────────────────────
 
-	registry.registerListProvider("reports:generators", (ctx: RouterContext): MenuEntry[] => {
+	registry.registerDataSource("reports:generators", (ctx: RouterContext): MenuEntry[] => {
 		if (!ctx.project) return [];
 		const generators = ctx.project.config.reports?.generators ?? [];
 		return generators.map((gen, i) => ({
@@ -72,9 +68,9 @@ export function registerToolingHandlers(registry: HandlerRegistry): void {
 					const { runGenerator } = await import("../../domain/reports/generator-registry.js");
 					runGenerator(gen.id, ctx.project!.path, createDefaultDeps());
 				} else if (gen.command) {
-					shell.run(gen.command, { cwd: ctx.project!.path, label: gen.label });
+					ctx.deps.shell.run(gen.command, { cwd: ctx.project!.path, label: gen.label });
 				}
-				await input.waitForEnter();
+				await ctx.deps.input.waitForEnter();
 				return undefined;
 			},
 		}));
@@ -82,6 +78,7 @@ export function registerToolingHandlers(registry: HandlerRegistry): void {
 
 	registry.registerAction("reports:run-all", async (ctx) => {
 		if (!ctx.project) return undefined;
+		const { log, input } = ctx.deps;
 		const generators = ctx.project.config.reports?.generators ?? [];
 		if (generators.length === 0) { log(`\n  ${DIM}No report generators configured.${RESET}\n`); await input.waitForEnter(); return undefined; }
 		const { runAllReports } = await import("../../domain/reports/pipeline/report-runner.js");
@@ -92,6 +89,7 @@ export function registerToolingHandlers(registry: HandlerRegistry): void {
 
 	registry.registerAction("reports:export-html", async (ctx) => {
 		if (!ctx.project) return undefined;
+		const { disk, paths, log, input } = ctx.deps;
 		const { ReportService } = await import("../../domain/reports/cli/report-service.js");
 		const { exportReportToHtml } = await import("../../domain/reports/export/html-export.js");
 		const svc = new ReportService(ctx.project.path, createDefaultDeps());
@@ -110,16 +108,18 @@ export function registerToolingHandlers(registry: HandlerRegistry): void {
 
 	registry.registerAction("reports:browse", async (ctx) => {
 		if (!ctx.project) return undefined;
+		const { paths } = ctx.deps;
 		const reportsDir = getReportsOutputDir(ctx.project.path, ctx.project.config, { paths });
 		const { browseArchive } = await import("../menus/report-archive-menu.js");
-		await browseArchive(reportsDir);
+		await browseArchive(reportsDir, ctx.deps);
 		return undefined;
 	});
 
-	// ── Docs: list providers + action handlers ──────────────────────
+	// ── Docs: data sources + action handlers ────────────────────────
 
-	registry.registerListProvider("docs:references", (ctx: RouterContext): MenuEntry[] => {
+	registry.registerDataSource("docs:references", (ctx: RouterContext): MenuEntry[] => {
 		if (!ctx.project) return [];
+		const { disk, paths, log, input } = ctx.deps;
 		const references = ctx.project.config.docs?.references ?? [];
 		if (references.length === 0) return [];
 		const referenceDir = paths.join(ctx.project.path, ctx.project.config.docs?.referenceDir ?? "docs/reference");
@@ -139,7 +139,7 @@ export function registerToolingHandlers(registry: HandlerRegistry): void {
 		}));
 	});
 
-	registry.registerListProvider("docs:generators", (ctx: RouterContext): MenuEntry[] => {
+	registry.registerDataSource("docs:generators", (ctx: RouterContext): MenuEntry[] => {
 		if (!ctx.project) return [];
 		const generators = ctx.project.config.docs?.generators ?? [];
 		if (generators.length === 0) return [];
@@ -148,8 +148,8 @@ export function registerToolingHandlers(registry: HandlerRegistry): void {
 			key: String(startKey + i),
 			label: gen.label,
 			action: async () => {
-				shell.run(gen.command, { cwd: ctx.project!.path, label: gen.label });
-				await input.waitForEnter();
+				ctx.deps.shell.run(gen.command, { cwd: ctx.project!.path, label: gen.label });
+				await ctx.deps.input.waitForEnter();
 				return undefined;
 			},
 		}));
@@ -157,6 +157,7 @@ export function registerToolingHandlers(registry: HandlerRegistry): void {
 
 	registry.registerAction("docs:update-refs", async (ctx) => {
 		if (!ctx.project) return undefined;
+		const { log, input } = ctx.deps;
 		const references = ctx.project.config.docs?.references ?? [];
 		if (references.length === 0) { log(`\n  ${DIM}No references configured.${RESET}\n`); await input.waitForEnter(); return undefined; }
 		const { runAllDocs } = await import("../../domain/reports/pipeline/doc-runner.js");
@@ -165,11 +166,12 @@ export function registerToolingHandlers(registry: HandlerRegistry): void {
 		return undefined;
 	});
 
-	registry.registerAction("docs:dependencies", async (_ctx) => {
+	registry.registerAction("docs:dependencies", async (ctx) => {
+		const { disk, paths, input } = ctx.deps;
 		const { buildDependencyGraph } = await import("../../domain/project/project-deps.js");
 		const { displayDependencyGraph } = await import("../displays/deps-display.js");
 		const graph = buildDependencyGraph(PROJECTS_DIR, { disk, paths });
-		displayDependencyGraph(graph);
+		displayDependencyGraph(ctx.deps.log, graph);
 		await input.waitForEnter();
 		return undefined;
 	});
@@ -178,6 +180,7 @@ export function registerToolingHandlers(registry: HandlerRegistry): void {
 
 	registry.registerAction("devtools:check", async (ctx) => {
 		if (!ctx.project) return undefined;
+		const { shell, input } = ctx.deps;
 		const scripts = ctx.project.scripts ?? {};
 		const cmd = scripts["check"] ? "npm run check" : "npx tsc --noEmit";
 		shell.run(cmd, { cwd: ctx.project.path, label: "Running lint + tsc..." });
@@ -187,6 +190,7 @@ export function registerToolingHandlers(registry: HandlerRegistry): void {
 
 	registry.registerAction("devtools:lint", async (ctx) => {
 		if (!ctx.project) return undefined;
+		const { shell, input } = ctx.deps;
 		const scripts = ctx.project.scripts ?? {};
 		const cmd = scripts["lint"] ? "npm run lint" : "npx eslint src/";
 		shell.run(cmd, { cwd: ctx.project.path, label: "Running ESLint..." });
@@ -196,12 +200,14 @@ export function registerToolingHandlers(registry: HandlerRegistry): void {
 
 	registry.registerAction("devtools:reload", async (ctx) => {
 		if (!ctx.project) return undefined;
+		const { shell, input } = ctx.deps;
 		shell.run("node scripts/cli-reload.mjs", { cwd: ctx.project.path, label: "Reloading plugin..." });
 		await input.waitForEnter();
 		return undefined;
 	});
 
-	registry.registerAction("devtools:console", async (_ctx) => {
+	registry.registerAction("devtools:console", async (ctx) => {
+		const { shell, log, input } = ctx.deps;
 		const result = shell.runCaptureStatus("obsidian dev:console");
 		if (result.exitCode !== 0 && result.output.includes("Debugger not attached")) {
 			log(`  ${DIM}Debugger not attached — enabling debug mode...${RESET}`);
@@ -214,6 +220,7 @@ export function registerToolingHandlers(registry: HandlerRegistry): void {
 
 	registry.registerAction("devtools:rebuild", async (ctx) => {
 		if (!ctx.project) return undefined;
+		const { shell, input } = ctx.deps;
 		const { rebuildCli } = await import("../../domain/devtools/self-update.js");
 		rebuildCli(ctx.project.path, shell);
 		await input.waitForEnter();
@@ -222,6 +229,7 @@ export function registerToolingHandlers(registry: HandlerRegistry): void {
 
 	registry.registerAction("devtools:npm-scripts", async (ctx) => {
 		if (!ctx.project) return undefined;
+		const { shell, log, input } = ctx.deps;
 		const scripts = ctx.project.scripts ?? {};
 		const names = Object.keys(scripts);
 		if (names.length === 0) { log(`\n  ${DIM}No npm scripts found.${RESET}\n`); await input.waitForEnter(); return undefined; }
@@ -240,6 +248,7 @@ export function registerToolingHandlers(registry: HandlerRegistry): void {
 
 	registry.registerAction("sitemap:export", async (ctx) => {
 		if (!ctx.project) return undefined;
+		const { disk, paths, log, input } = ctx.deps;
 		const { exportSitemapToMarkdown } = await import("../../domain/sitemap/sitemap-export.js");
 		const sitemapPath = paths.join(ctx.project.path, "configs", "sitemap.json");
 		if (!disk.existsSync(sitemapPath)) {

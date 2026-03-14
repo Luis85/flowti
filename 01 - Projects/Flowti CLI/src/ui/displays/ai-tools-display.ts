@@ -5,7 +5,6 @@
  * Controllers pass these as callbacks to dataResponse().
  */
 
-import { log } from "../../infrastructure/logger.js";
 import { RESET, DIM, GREEN, RED, YELLOW, CYAN } from "../../infrastructure/ui.js";
 import type { AiToolParam } from "../../domain/ai-tools/ai-tool-types.js";
 
@@ -59,7 +58,7 @@ export interface MissingToolFlagModel {
 
 // ── Renderers ────────────────────────────────────────────────────────
 
-function renderToolEntry(tool: ToolListItem): void {
+function renderToolEntry(tool: ToolListItem, log: (msg?: string) => void): void {
 	const status = tool.valid ? `${GREEN}✓${RESET}` : `${RED}✗${RESET}`;
 	const version = tool.version ? ` ${DIM}v${tool.version}${RESET}` : "";
 	log(`  ${status} ${tool.name}${version}`);
@@ -79,19 +78,19 @@ function renderToolEntry(tool: ToolListItem): void {
 	if (tool.tags.length > 0) log(`    ${DIM}Tags: ${tool.tags.join(", ")}${RESET}`);
 }
 
-export function renderToolList(tools: ToolListItem[]): void {
+export function renderToolList(tools: ToolListItem[], log: (msg?: string) => void): void {
 	if (tools.length === 0) {
 		log(`\n  ${DIM}No AI tools found.${RESET}\n`);
 		return;
 	}
 	log(`\n  ${CYAN}AI Tools${RESET}\n`);
 	for (const tool of tools) {
-		renderToolEntry(tool);
+		renderToolEntry(tool, log);
 		log();
 	}
 }
 
-export function renderToolValidation(results: ToolValidationItem[]): void {
+export function renderToolValidation(results: ToolValidationItem[], log: (msg?: string) => void): void {
 	if (results.length === 0) {
 		log(`\n  ${DIM}No AI tool files found.${RESET}\n`);
 		return;
@@ -105,7 +104,7 @@ export function renderToolValidation(results: ToolValidationItem[]): void {
 	log();
 }
 
-export function renderToolRunResult(data: ToolRunResultModel): void {
+export function renderToolRunResult(data: ToolRunResultModel, log: (msg?: string) => void): void {
 	if (data.exitCode === 0) {
 		log(`  ${GREEN}✓${RESET} ${data.toolName} completed.\n`);
 	} else {
@@ -113,34 +112,34 @@ export function renderToolRunResult(data: ToolRunResultModel): void {
 	}
 }
 
-export function renderDryRun(data: DryRunModel): void {
+export function renderDryRun(data: DryRunModel, log: (msg?: string) => void): void {
 	log(`\n  ${DIM}Dry run:${RESET} ${data.cmd}`);
 	log(`  ${DIM}cwd:${RESET} ${data.cwd}\n`);
 }
 
-export function renderToolNotFound(data: ToolNotFoundModel): void {
+export function renderToolNotFound(data: ToolNotFoundModel, log: (msg?: string) => void): void {
 	log(`\n  ${RED}Tool not found: ${data.toolName}${RESET}`);
 	if (data.available.length > 0) log(`  ${DIM}Available: ${data.available.join(", ")}${RESET}`);
 	log();
 }
 
-export function renderToolInvalid(data: ToolInvalidModel): void {
+export function renderToolInvalid(data: ToolInvalidModel, log: (msg?: string) => void): void {
 	log(`\n  ${RED}Tool "${data.toolName}" has validation errors:${RESET}`);
 	for (const err of data.errors) log(`  ${RED}•${RESET} ${err}`);
 	log();
 }
 
-export function renderMissingParams(data: MissingParamsModel): void {
+export function renderMissingParams(data: MissingParamsModel, log: (msg?: string) => void): void {
 	log(`\n  ${RED}Missing required parameter${data.params.length > 1 ? "s" : ""}:${RESET}`);
 	for (const p of data.params) log(`  ${RED}•${RESET} --${p.name}: ${p.description}`);
 	log();
 }
 
-export function renderMissingToolFlag(data: MissingToolFlagModel): void {
+export function renderMissingToolFlag(data: MissingToolFlagModel, log: (msg?: string) => void): void {
 	log(`\n  ${RED}Missing --tool flag.${RESET}`);
 	log(`  ${DIM}Usage: ${data.usage}${RESET}\n`);
 }
 
-export function renderRunning(toolName: string): void {
+export function renderRunning(toolName: string, log: (msg?: string) => void): void {
 	log(`\n  ${CYAN}▸${RESET} Running ${toolName}...`);
 }

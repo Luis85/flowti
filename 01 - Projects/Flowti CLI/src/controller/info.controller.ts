@@ -13,18 +13,15 @@ import { renderNoProject, type NoProjectModel } from "../ui/renderers/common-ren
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
-function noProjectResponse(command: string) {
-	return dataResponse<NoProjectModel>({ command }, renderNoProject);
-}
-
 // ── Controller actions ──────────────────────────────────────────────
 
 const actions: Record<string, ControllerAction> = {
 	info: (req) => {
-		if (!req.project) return noProjectResponse("info");
+		const { log } = req.deps;
+		if (!req.project) return dataResponse<NoProjectModel>({ command: "info" }, (d) => renderNoProject(log, d));
 		const { disk, paths, shell } = req.deps;
 		const model = collectProjectInfo(req.project, { disk, paths, shell });
-		return dataResponse(model, displayInfo);
+		return dataResponse(model, (d) => displayInfo(log, d));
 	},
 };
 

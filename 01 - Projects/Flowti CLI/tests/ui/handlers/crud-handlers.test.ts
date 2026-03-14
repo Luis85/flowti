@@ -94,15 +94,27 @@ vi.mock("../../../src/ui/displays/iterations-display.js", () => ({
 }));
 vi.mock("../../../src/ui/menus/iterations-menu.js", () => ({
 	addIterationInteractive: vi.fn(() => false),
-	startIterationInteractive: vi.fn(),
-	closeIterationInteractive: vi.fn(),
+	advanceIterationInteractive: vi.fn(),
 	showCurrentIteration: vi.fn(),
 	attachAgentInteractive: vi.fn(),
 	addResourceInteractive: vi.fn(),
 	addCapacityInteractive: vi.fn(),
 	addScopeItemInteractive: vi.fn(),
 	addNoteInteractive: vi.fn(),
-	advanceToReviewInteractive: vi.fn(),
+	editScopeInteractive: vi.fn(),
+	removeScopeInteractive: vi.fn(),
+	toggleScopeInteractive: vi.fn(),
+	editDescriptionInteractive: vi.fn(),
+	editNameInteractive: vi.fn(),
+	editGoalInteractive: vi.fn(),
+	editDatesInteractive: vi.fn(),
+}));
+vi.mock("../../../src/ui/handlers/iteration-template-loader.js", () => ({
+	loadIterationTemplate: vi.fn(() => ({
+		entityType: "iteration", states: ["new", "planned", "ready", "in-progress", "in-review", "done", "cancelled"],
+		transitions: { "new": ["planned", "cancelled"], "planned": ["ready", "cancelled"], "ready": ["in-progress", "cancelled"], "in-progress": ["in-review", "cancelled"], "in-review": ["done", "cancelled"], "done": [], "cancelled": [] },
+		initialState: "new", terminalStates: ["done", "cancelled"],
+	})),
 }));
 
 // ── Imports ─────────────────────────────────────────────────────────
@@ -128,18 +140,34 @@ import { logTimeInteractive } from "../../../src/ui/menus/timelog-menu.js";
 import { listIterations } from "../../../src/domain/iterations/iteration-store.js";
 import { renderIterationList } from "../../../src/ui/displays/iterations-display.js";
 import {
-	addIterationInteractive, startIterationInteractive, closeIterationInteractive,
+	addIterationInteractive, advanceIterationInteractive,
 	showCurrentIteration, attachAgentInteractive,
 	addResourceInteractive as addIterResourceInteractive, addCapacityInteractive,
-	addScopeItemInteractive, addNoteInteractive, advanceToReviewInteractive,
+	addScopeItemInteractive, addNoteInteractive,
 } from "../../../src/ui/menus/iterations-menu.js";
+import { loadIterationTemplate } from "../../../src/ui/handlers/iteration-template-loader.js";
 
 import type { RouterContext } from "../../../src/infrastructure/sitemap-types.js";
+import { disk } from "../../../src/infrastructure/filesystem.js";
+import { clock } from "../../../src/infrastructure/clock.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
+const mockDeps = {
+	disk,
+	paths: { join: (...args: string[]) => args.join("/"), resolve: (...args: string[]) => args.join("/"), basename: (p: string) => p.split("/").pop() ?? "", sep: "/" },
+	clock,
+	input,
+	log: vi.fn(),
+	warn: vi.fn(),
+	shell: { run: vi.fn(() => 0), runSilent: vi.fn(), runCapture: vi.fn(() => ""), runCaptureStatus: vi.fn(() => ({ exitCode: 0, output: "" })) },
+	proc: { exit: vi.fn(), argv: [] },
+	bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn() },
+};
+
 function mockCtx(config: Record<string, unknown> = {}): RouterContext {
 	return {
+		deps: mockDeps,
 		project: {
 			config: {
 				management: { raid: {}, deliverables: {}, capa: {}, resources: {}, timelog: {}, iterations: {} },
@@ -154,7 +182,7 @@ function mockCtx(config: Record<string, unknown> = {}): RouterContext {
 }
 
 function noProjectCtx(): RouterContext {
-	return { project: undefined } as unknown as RouterContext;
+	return { deps: mockDeps, project: undefined } as unknown as RouterContext;
 }
 
 // ── Suite ───────────────────────────────────────────────────────────
@@ -180,10 +208,11 @@ describe("registerCrudHandlers", () => {
 				"resources:list", "resources:add-human", "resources:add-material",
 				"resources:add-role", "resources:add-budget", "resources:financials",
 				"timelog:list", "timelog:add", "timelog:summary",
-				"iteration:list", "iteration:create", "iteration:start", "iteration:current",
-				"iteration:close", "iteration:attach-agent", "iteration:add-resource",
+				"iteration:list", "iteration:create", "iteration:advance", "iteration:current",
+				"iteration:attach-agent", "iteration:add-resource",
 				"iteration:add-capacity", "iteration:add-scope", "iteration:add-note",
-				"iteration:advance-review",
+				"iteration:edit-scope", "iteration:remove-scope", "iteration:toggle-scope",
+				"iteration:edit-description", "iteration:edit-name", "iteration:edit-goal", "iteration:edit-dates",
 			];
 			for (const id of expectedActions) {
 				expect(registry.hasAction(id)).toBe(true);
@@ -223,7 +252,7 @@ describe("registerCrudHandlers", () => {
 		it("calls addRAIDInteractive with 'risk' type", async () => {
 			const handler = registry.getAction("raid:add-risk");
 			await handler(mockCtx());
-			expect(addRAIDInteractive).toHaveBeenCalledWith("risk", "/project", expect.anything());
+			expect(addRAIDInteractive).toHaveBeenCalledWith("risk", "/project", expect.anything(), mockDeps);
 			expect(input.waitForEnter).toHaveBeenCalled();
 		});
 	});
@@ -237,7 +266,7 @@ describe("registerCrudHandlers", () => {
 		it("calls addRAIDInteractive with 'assumption' type", async () => {
 			const handler = registry.getAction("raid:add-assumption");
 			await handler(mockCtx());
-			expect(addRAIDInteractive).toHaveBeenCalledWith("assumption", "/project", expect.anything());
+			expect(addRAIDInteractive).toHaveBeenCalledWith("assumption", "/project", expect.anything(), mockDeps);
 		});
 	});
 
@@ -250,7 +279,7 @@ describe("registerCrudHandlers", () => {
 		it("calls addRAIDInteractive with 'issue' type", async () => {
 			const handler = registry.getAction("raid:add-issue");
 			await handler(mockCtx());
-			expect(addRAIDInteractive).toHaveBeenCalledWith("issue", "/project", expect.anything());
+			expect(addRAIDInteractive).toHaveBeenCalledWith("issue", "/project", expect.anything(), mockDeps);
 		});
 	});
 
@@ -263,7 +292,7 @@ describe("registerCrudHandlers", () => {
 		it("calls addRAIDInteractive with 'dependency' type", async () => {
 			const handler = registry.getAction("raid:add-dependency");
 			await handler(mockCtx());
-			expect(addRAIDInteractive).toHaveBeenCalledWith("dependency", "/project", expect.anything());
+			expect(addRAIDInteractive).toHaveBeenCalledWith("dependency", "/project", expect.anything(), mockDeps);
 		});
 	});
 
@@ -276,7 +305,7 @@ describe("registerCrudHandlers", () => {
 		it("calls addRAIDInteractive with 'decision' type", async () => {
 			const handler = registry.getAction("raid:add-decision");
 			await handler(mockCtx());
-			expect(addRAIDInteractive).toHaveBeenCalledWith("decision", "/project", expect.anything());
+			expect(addRAIDInteractive).toHaveBeenCalledWith("decision", "/project", expect.anything(), mockDeps);
 		});
 	});
 
@@ -289,7 +318,7 @@ describe("registerCrudHandlers", () => {
 		it("calls updateStatusInteractive", async () => {
 			const handler = registry.getAction("raid:update-status");
 			await handler(mockCtx());
-			expect(updateRAIDStatus).toHaveBeenCalledWith("/project", expect.anything());
+			expect(updateRAIDStatus).toHaveBeenCalledWith("/project", expect.anything(), mockDeps);
 			expect(input.waitForEnter).toHaveBeenCalled();
 		});
 	});
@@ -326,7 +355,7 @@ describe("registerCrudHandlers", () => {
 		it("calls addCAPAInteractive with 'corrective' type", async () => {
 			const handler = registry.getAction("capa:add-corrective");
 			await handler(mockCtx());
-			expect(addCAPAInteractive).toHaveBeenCalledWith("corrective", "/project", expect.anything());
+			expect(addCAPAInteractive).toHaveBeenCalledWith("corrective", "/project", expect.anything(), mockDeps);
 			expect(input.waitForEnter).toHaveBeenCalled();
 		});
 	});
@@ -340,7 +369,7 @@ describe("registerCrudHandlers", () => {
 		it("calls addCAPAInteractive with 'preventive' type", async () => {
 			const handler = registry.getAction("capa:add-preventive");
 			await handler(mockCtx());
-			expect(addCAPAInteractive).toHaveBeenCalledWith("preventive", "/project", expect.anything());
+			expect(addCAPAInteractive).toHaveBeenCalledWith("preventive", "/project", expect.anything(), mockDeps);
 		});
 	});
 
@@ -353,7 +382,7 @@ describe("registerCrudHandlers", () => {
 		it("calls updateStatusInteractive", async () => {
 			const handler = registry.getAction("capa:update-status");
 			await handler(mockCtx());
-			expect(updateCAPAStatus).toHaveBeenCalledWith("/project", expect.anything());
+			expect(updateCAPAStatus).toHaveBeenCalledWith("/project", expect.anything(), mockDeps);
 			expect(input.waitForEnter).toHaveBeenCalled();
 		});
 	});
@@ -390,7 +419,7 @@ describe("registerCrudHandlers", () => {
 		it("calls addDeliverableInteractive", async () => {
 			const handler = registry.getAction("deliverables:add");
 			await handler(mockCtx());
-			expect(addDeliverableInteractive).toHaveBeenCalledWith("/project", expect.anything());
+			expect(addDeliverableInteractive).toHaveBeenCalledWith("/project", expect.anything(), mockDeps);
 			expect(input.waitForEnter).toHaveBeenCalled();
 		});
 	});
@@ -404,7 +433,7 @@ describe("registerCrudHandlers", () => {
 		it("calls updateStatusInteractive", async () => {
 			const handler = registry.getAction("deliverables:update-status");
 			await handler(mockCtx());
-			expect(updateDeliverableStatus).toHaveBeenCalledWith("/project", expect.anything());
+			expect(updateDeliverableStatus).toHaveBeenCalledWith("/project", expect.anything(), mockDeps);
 			expect(input.waitForEnter).toHaveBeenCalled();
 		});
 	});
@@ -441,7 +470,7 @@ describe("registerCrudHandlers", () => {
 		it("calls addResourceInteractive with 'human' type", async () => {
 			const handler = registry.getAction("resources:add-human");
 			await handler(mockCtx());
-			expect(addResourceInteractive).toHaveBeenCalledWith("/project", "human", expect.anything());
+			expect(addResourceInteractive).toHaveBeenCalledWith("/project", "human", expect.anything(), mockDeps);
 			expect(input.waitForEnter).toHaveBeenCalled();
 		});
 	});
@@ -455,7 +484,7 @@ describe("registerCrudHandlers", () => {
 		it("calls addResourceInteractive with 'material' type", async () => {
 			const handler = registry.getAction("resources:add-material");
 			await handler(mockCtx());
-			expect(addResourceInteractive).toHaveBeenCalledWith("/project", "material", expect.anything());
+			expect(addResourceInteractive).toHaveBeenCalledWith("/project", "material", expect.anything(), mockDeps);
 		});
 	});
 
@@ -468,7 +497,7 @@ describe("registerCrudHandlers", () => {
 		it("calls addResourceInteractive with 'role' type", async () => {
 			const handler = registry.getAction("resources:add-role");
 			await handler(mockCtx());
-			expect(addResourceInteractive).toHaveBeenCalledWith("/project", "role", expect.anything());
+			expect(addResourceInteractive).toHaveBeenCalledWith("/project", "role", expect.anything(), mockDeps);
 		});
 	});
 
@@ -481,7 +510,7 @@ describe("registerCrudHandlers", () => {
 		it("calls addResourceInteractive with 'budget' type", async () => {
 			const handler = registry.getAction("resources:add-budget");
 			await handler(mockCtx());
-			expect(addResourceInteractive).toHaveBeenCalledWith("/project", "budget", expect.anything());
+			expect(addResourceInteractive).toHaveBeenCalledWith("/project", "budget", expect.anything(), mockDeps);
 		});
 	});
 
@@ -539,7 +568,7 @@ describe("registerCrudHandlers", () => {
 		it("calls logTimeInteractive", async () => {
 			const handler = registry.getAction("timelog:add");
 			await handler(mockCtx());
-			expect(logTimeInteractive).toHaveBeenCalledWith("/project", expect.anything());
+			expect(logTimeInteractive).toHaveBeenCalledWith("/project", expect.anything(), mockDeps);
 			expect(input.waitForEnter).toHaveBeenCalled();
 		});
 
@@ -604,7 +633,7 @@ describe("registerCrudHandlers", () => {
 		it("calls the correct function", async () => {
 			const handler = registry.getAction("iteration:create");
 			await handler(mockCtx());
-			expect(addIterationInteractive).toHaveBeenCalledWith("/project", expect.anything());
+			expect(addIterationInteractive).toHaveBeenCalledWith("/project", expect.anything(), mockDeps);
 			expect(input.waitForEnter).toHaveBeenCalled();
 		});
 
@@ -623,23 +652,32 @@ describe("registerCrudHandlers", () => {
 		});
 	});
 
-	describe("iteration:start", () => {
+	describe("iteration:advance", () => {
 		it("returns undefined when no project", async () => {
-			const handler = registry.getAction("iteration:start");
+			const handler = registry.getAction("iteration:advance");
 			expect(await handler(noProjectCtx())).toBeUndefined();
 		});
 
-		it("calls the correct function", async () => {
-			const handler = registry.getAction("iteration:start");
+		it("loads template and calls advanceIterationInteractive", async () => {
+			const handler = registry.getAction("iteration:advance");
 			await handler(mockCtx());
-			expect(startIterationInteractive).toHaveBeenCalledWith("/project", expect.anything());
+			expect(loadIterationTemplate).toHaveBeenCalled();
+			expect(advanceIterationInteractive).toHaveBeenCalledWith("/project", expect.anything(), expect.anything(), mockDeps);
 			expect(input.waitForEnter).toHaveBeenCalled();
 		});
 
-		it("returns 'main' on success", async () => {
-			const handler = registry.getAction("iteration:start");
+		it("navigates back to iteration-detail on success", async () => {
+			const handler = registry.getAction("iteration:advance");
 			const result = await handler(mockCtx());
-			expect(result).toBe("main");
+			expect(result).toBe("navigate:iteration-detail");
+		});
+
+		it("shows error when template cannot be loaded", async () => {
+			vi.mocked(loadIterationTemplate).mockReturnValueOnce(null);
+			const handler = registry.getAction("iteration:advance");
+			const result = await handler(mockCtx());
+			expect(result).toBe("navigate:iteration-detail");
+			expect(advanceIterationInteractive).not.toHaveBeenCalled();
 		});
 	});
 
@@ -652,36 +690,17 @@ describe("registerCrudHandlers", () => {
 		it("calls the correct function", async () => {
 			const handler = registry.getAction("iteration:current");
 			await handler(mockCtx());
-			expect(showCurrentIteration).toHaveBeenCalledWith("/project", expect.anything());
+			expect(showCurrentIteration).toHaveBeenCalledWith("/project", expect.anything(), mockDeps);
 			expect(input.waitForEnter).toHaveBeenCalled();
 		});
 
-		it("returns 'main' on success", async () => {
+		it("navigates back to iteration-detail", async () => {
 			const handler = registry.getAction("iteration:current");
 			const result = await handler(mockCtx());
-			expect(result).toBe("main");
+			expect(result).toBe("navigate:iteration-detail");
 		});
 	});
 
-	describe("iteration:close", () => {
-		it("returns undefined when no project", async () => {
-			const handler = registry.getAction("iteration:close");
-			expect(await handler(noProjectCtx())).toBeUndefined();
-		});
-
-		it("calls the correct function", async () => {
-			const handler = registry.getAction("iteration:close");
-			await handler(mockCtx());
-			expect(closeIterationInteractive).toHaveBeenCalledWith("/project", expect.anything());
-			expect(input.waitForEnter).toHaveBeenCalled();
-		});
-
-		it("returns 'main' on success", async () => {
-			const handler = registry.getAction("iteration:close");
-			const result = await handler(mockCtx());
-			expect(result).toBe("main");
-		});
-	});
 
 	describe("iteration:attach-agent", () => {
 		it("returns undefined when no project", async () => {
@@ -692,14 +711,14 @@ describe("registerCrudHandlers", () => {
 		it("calls the correct function", async () => {
 			const handler = registry.getAction("iteration:attach-agent");
 			await handler(mockCtx());
-			expect(attachAgentInteractive).toHaveBeenCalledWith("/project", expect.anything());
+			expect(attachAgentInteractive).toHaveBeenCalledWith("/project", expect.anything(), mockDeps);
 			expect(input.waitForEnter).toHaveBeenCalled();
 		});
 
-		it("returns 'main' on success", async () => {
+		it("navigates back to iteration-detail", async () => {
 			const handler = registry.getAction("iteration:attach-agent");
 			const result = await handler(mockCtx());
-			expect(result).toBe("main");
+			expect(result).toBe("navigate:iteration-detail");
 		});
 	});
 
@@ -712,14 +731,14 @@ describe("registerCrudHandlers", () => {
 		it("calls the correct function", async () => {
 			const handler = registry.getAction("iteration:add-resource");
 			await handler(mockCtx());
-			expect(addIterResourceInteractive).toHaveBeenCalledWith("/project", expect.anything());
+			expect(addIterResourceInteractive).toHaveBeenCalledWith("/project", expect.anything(), mockDeps);
 			expect(input.waitForEnter).toHaveBeenCalled();
 		});
 
-		it("returns 'main' on success", async () => {
+		it("navigates back to iteration-detail", async () => {
 			const handler = registry.getAction("iteration:add-resource");
 			const result = await handler(mockCtx());
-			expect(result).toBe("main");
+			expect(result).toBe("navigate:iteration-detail");
 		});
 	});
 
@@ -732,14 +751,14 @@ describe("registerCrudHandlers", () => {
 		it("calls the correct function", async () => {
 			const handler = registry.getAction("iteration:add-capacity");
 			await handler(mockCtx());
-			expect(addCapacityInteractive).toHaveBeenCalledWith("/project", expect.anything());
+			expect(addCapacityInteractive).toHaveBeenCalledWith("/project", expect.anything(), mockDeps);
 			expect(input.waitForEnter).toHaveBeenCalled();
 		});
 
-		it("returns 'main' on success", async () => {
+		it("navigates back to iteration-detail", async () => {
 			const handler = registry.getAction("iteration:add-capacity");
 			const result = await handler(mockCtx());
-			expect(result).toBe("main");
+			expect(result).toBe("navigate:iteration-detail");
 		});
 	});
 
@@ -752,14 +771,14 @@ describe("registerCrudHandlers", () => {
 		it("calls the correct function", async () => {
 			const handler = registry.getAction("iteration:add-scope");
 			await handler(mockCtx());
-			expect(addScopeItemInteractive).toHaveBeenCalledWith("/project", expect.anything());
+			expect(addScopeItemInteractive).toHaveBeenCalledWith("/project", expect.anything(), mockDeps);
 			expect(input.waitForEnter).toHaveBeenCalled();
 		});
 
-		it("returns 'main' on success", async () => {
+		it("navigates back to iteration-detail", async () => {
 			const handler = registry.getAction("iteration:add-scope");
 			const result = await handler(mockCtx());
-			expect(result).toBe("main");
+			expect(result).toBe("navigate:iteration-detail");
 		});
 	});
 
@@ -772,34 +791,15 @@ describe("registerCrudHandlers", () => {
 		it("calls the correct function", async () => {
 			const handler = registry.getAction("iteration:add-note");
 			await handler(mockCtx());
-			expect(addNoteInteractive).toHaveBeenCalledWith("/project", expect.anything());
+			expect(addNoteInteractive).toHaveBeenCalledWith("/project", expect.anything(), mockDeps);
 			expect(input.waitForEnter).toHaveBeenCalled();
 		});
 
-		it("returns 'main' on success", async () => {
+		it("navigates back to iteration-detail", async () => {
 			const handler = registry.getAction("iteration:add-note");
 			const result = await handler(mockCtx());
-			expect(result).toBe("main");
+			expect(result).toBe("navigate:iteration-detail");
 		});
 	});
 
-	describe("iteration:advance-review", () => {
-		it("returns undefined when no project", async () => {
-			const handler = registry.getAction("iteration:advance-review");
-			expect(await handler(noProjectCtx())).toBeUndefined();
-		});
-
-		it("calls the correct function", async () => {
-			const handler = registry.getAction("iteration:advance-review");
-			await handler(mockCtx());
-			expect(advanceToReviewInteractive).toHaveBeenCalledWith("/project", expect.anything());
-			expect(input.waitForEnter).toHaveBeenCalled();
-		});
-
-		it("returns 'main' on success", async () => {
-			const handler = registry.getAction("iteration:advance-review");
-			const result = await handler(mockCtx());
-			expect(result).toBe("main");
-		});
-	});
 });

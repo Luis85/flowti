@@ -130,13 +130,13 @@ describe("lifecycle.controller", () => {
 
 		it("returns error when --name is missing", () => {
 			commands["lifecycle:status"]({}, [], "lifecycle:status", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.objectContaining({ error: "Missing --name flag." }));
+			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: "Missing --name flag." }));
 		});
 
 		it("returns error when item is not found", () => {
 			vi.mocked(readLifecycleItem).mockReturnValue(undefined as never);
 			commands["lifecycle:status"]({ name: "Missing" }, [], "lifecycle:status", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining("not found") }));
+			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: expect.stringContaining("not found") }));
 		});
 	});
 
@@ -153,12 +153,12 @@ describe("lifecycle.controller", () => {
 
 		it("returns error when --name or --to is missing", () => {
 			commands["lifecycle:transition"]({ name: "Feature A" }, [], "lifecycle:transition", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining("Missing") }));
+			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: expect.stringContaining("Missing") }));
 		});
 
 		it("returns error when --reason is missing", () => {
 			commands["lifecycle:transition"]({ name: "Feature A", to: "development" }, [], "lifecycle:transition", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining("--reason") }));
+			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: expect.stringContaining("--reason") }));
 		});
 	});
 
@@ -170,7 +170,7 @@ describe("lifecycle.controller", () => {
 
 		it("returns error when --name is missing", () => {
 			commands["lifecycle:history"]({}, [], "lifecycle:history", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.objectContaining({ error: "Missing --name flag." }));
+			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: "Missing --name flag." }));
 		});
 	});
 
@@ -187,12 +187,12 @@ describe("lifecycle.controller", () => {
 
 		it("returns error when --name is missing", () => {
 			commands["lifecycle:create"]({ type: "feature" }, [], "lifecycle:create", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.objectContaining({ error: "Missing --name flag." }));
+			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: "Missing --name flag." }));
 		});
 
 		it("returns error for invalid entity type", () => {
 			commands["lifecycle:create"]({ name: "Bad", type: "invalid" }, [], "lifecycle:create", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining("Invalid type") }));
+			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: expect.stringContaining("Invalid type") }));
 		});
 	});
 });

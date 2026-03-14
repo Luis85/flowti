@@ -4,13 +4,10 @@
  * Edit requirements, features, and relationships on component instances.
  */
 
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
-import { input } from "../../infrastructure/input.js";
 import { runMenu } from "../../infrastructure/menu.js";
-import { log } from "../../infrastructure/logger.js";
 import { RESET, DIM, GREEN, YELLOW, CYAN } from "../../infrastructure/ui.js";
 import type { MenuEntry } from "../../infrastructure/types.js";
+import type { ProductMenuDeps } from "../../infrastructure/deps.js";
 import type { ComponentInstance, InstanceRelationship } from "../../domain/make/component/component-editor.js";
 import {
 	addRequirement, removeRequirement,
@@ -19,8 +16,6 @@ import {
 	writeComponentInstance,
 } from "../../domain/make/component/component-editor.js";
 
-function editorDeps() { return { disk, paths } as const; }
-
 const RELATIONSHIP_TYPES: InstanceRelationship["type"][] = [
 	"uses", "calls", "depends-on", "sends-data-to", "receives-data-from",
 ];
@@ -28,7 +23,7 @@ const RELATIONSHIP_TYPES: InstanceRelationship["type"][] = [
 // ── Requirements menu ────────────────────────────────────────────────
 
 export async function editRequirementsMenu(
-	projectRoot: string, componentName: string, instance: ComponentInstance, domain?: string,
+	projectRoot: string, componentName: string, instance: ComponentInstance, domain: string | undefined, deps: ProductMenuDeps,
 ): Promise<void> {
 	const reqs = instance.requirements ?? [];
 
@@ -36,12 +31,12 @@ export async function editRequirementsMenu(
 		key: String(i + 1),
 		label: req,
 		action: async () => {
-			const remove = await input.askYesNo(`Remove requirement "${req}"?`);
+			const remove = await deps.input.askYesNo(`Remove requirement "${req}"?`);
 			if (remove) {
 				removeRequirement(instance, req);
-				writeComponentInstance(projectRoot, componentName, instance, editorDeps(), domain);
-				log(`  ${YELLOW}Removed ${req}.${RESET}`);
-				await input.waitForEnter();
+				writeComponentInstance(projectRoot, componentName, instance, deps, domain);
+				deps.log(`  ${YELLOW}Removed ${req}.${RESET}`);
+				await deps.input.waitForEnter();
 			}
 		},
 	}));
@@ -52,12 +47,12 @@ export async function editRequirementsMenu(
 			key: "n",
 			label: "Add Requirement",
 			action: async () => {
-				const id = await input.ask("Requirement ID (e.g. REQ-001)");
+				const id = await deps.input.ask("Requirement ID (e.g. REQ-001)");
 				if (!id) return;
 				addRequirement(instance, id);
-				writeComponentInstance(projectRoot, componentName, instance, editorDeps(), domain);
-				log(`  ${GREEN}Added ${id}.${RESET}`);
-				await input.waitForEnter();
+				writeComponentInstance(projectRoot, componentName, instance, deps, domain);
+				deps.log(`  ${GREEN}Added ${id}.${RESET}`);
+				await deps.input.waitForEnter();
 			},
 		},
 		{ separator: true },
@@ -70,7 +65,7 @@ export async function editRequirementsMenu(
 // ── Features menu ────────────────────────────────────────────────────
 
 export async function editFeaturesMenu(
-	projectRoot: string, componentName: string, instance: ComponentInstance, domain?: string,
+	projectRoot: string, componentName: string, instance: ComponentInstance, domain: string | undefined, deps: ProductMenuDeps,
 ): Promise<void> {
 	const features = instance.features ?? [];
 
@@ -78,12 +73,12 @@ export async function editFeaturesMenu(
 		key: String(i + 1),
 		label: feat,
 		action: async () => {
-			const remove = await input.askYesNo(`Remove feature "${feat}"?`);
+			const remove = await deps.input.askYesNo(`Remove feature "${feat}"?`);
 			if (remove) {
 				removeFeature(instance, feat);
-				writeComponentInstance(projectRoot, componentName, instance, editorDeps(), domain);
-				log(`  ${YELLOW}Removed ${feat}.${RESET}`);
-				await input.waitForEnter();
+				writeComponentInstance(projectRoot, componentName, instance, deps, domain);
+				deps.log(`  ${YELLOW}Removed ${feat}.${RESET}`);
+				await deps.input.waitForEnter();
 			}
 		},
 	}));
@@ -94,12 +89,12 @@ export async function editFeaturesMenu(
 			key: "n",
 			label: "Add Feature",
 			action: async () => {
-				const name = await input.ask("Feature tag (e.g. dark-mode)");
+				const name = await deps.input.ask("Feature tag (e.g. dark-mode)");
 				if (!name) return;
 				addFeature(instance, name);
-				writeComponentInstance(projectRoot, componentName, instance, editorDeps(), domain);
-				log(`  ${GREEN}Added ${name}.${RESET}`);
-				await input.waitForEnter();
+				writeComponentInstance(projectRoot, componentName, instance, deps, domain);
+				deps.log(`  ${GREEN}Added ${name}.${RESET}`);
+				await deps.input.waitForEnter();
 			},
 		},
 		{ separator: true },
@@ -112,7 +107,7 @@ export async function editFeaturesMenu(
 // ── Relationships menu ───────────────────────────────────────────────
 
 export async function editRelationshipsMenu(
-	projectRoot: string, componentName: string, instance: ComponentInstance, domain?: string,
+	projectRoot: string, componentName: string, instance: ComponentInstance, domain: string | undefined, deps: ProductMenuDeps,
 ): Promise<void> {
 	const rels = (instance.relationships ?? []) as InstanceRelationship[];
 
@@ -122,12 +117,12 @@ export async function editRelationshipsMenu(
 			key: String(i + 1),
 			label: `${rel.target} ${CYAN}${rel.type}${RESET}${tech}`,
 			action: async () => {
-				const remove = await input.askYesNo(`Remove relationship to "${rel.target}" (${rel.type})?`);
+				const remove = await deps.input.askYesNo(`Remove relationship to "${rel.target}" (${rel.type})?`);
 				if (remove) {
 					removeRelationship(instance, rel.target, rel.type);
-					writeComponentInstance(projectRoot, componentName, instance, editorDeps(), domain);
-					log(`  ${YELLOW}Removed ${rel.target} (${rel.type}).${RESET}`);
-					await input.waitForEnter();
+					writeComponentInstance(projectRoot, componentName, instance, deps, domain);
+					deps.log(`  ${YELLOW}Removed ${rel.target} (${rel.type}).${RESET}`);
+					await deps.input.waitForEnter();
 				}
 			},
 		};
@@ -139,23 +134,23 @@ export async function editRelationshipsMenu(
 			key: "n",
 			label: "Add Relationship",
 			action: async () => {
-				const target = await input.ask("Target component name");
+				const target = await deps.input.ask("Target component name");
 				if (!target) return;
-				log(`\n  ${CYAN}Relationship types:${RESET}`);
+				deps.log(`\n  ${CYAN}Relationship types:${RESET}`);
 				for (let i = 0; i < RELATIONSHIP_TYPES.length; i++) {
-					log(`    ${i + 1}. ${RELATIONSHIP_TYPES[i]}`);
+					deps.log(`    ${i + 1}. ${RELATIONSHIP_TYPES[i]}`);
 				}
-				const choice = await input.ask("Type number (1-5)", "1");
+				const choice = await deps.input.ask("Type number (1-5)", "1");
 				const idx = parseInt(choice, 10) - 1;
 				if (idx < 0 || idx >= RELATIONSHIP_TYPES.length) return;
 				const type = RELATIONSHIP_TYPES[idx];
-				const technology = await input.ask("Technology (optional, e.g. REST, gRPC)", "");
+				const technology = await deps.input.ask("Technology (optional, e.g. REST, gRPC)", "");
 				const rel: InstanceRelationship = { target, type };
 				if (technology) rel.technology = technology;
 				addRelationship(instance, rel);
-				writeComponentInstance(projectRoot, componentName, instance, editorDeps(), domain);
-				log(`  ${GREEN}Added ${target} (${type}).${RESET}`);
-				await input.waitForEnter();
+				writeComponentInstance(projectRoot, componentName, instance, deps, domain);
+				deps.log(`  ${GREEN}Added ${target} (${type}).${RESET}`);
+				await deps.input.waitForEnter();
 			},
 		},
 		{ separator: true },

@@ -37,6 +37,9 @@ import { log } from "../../../src/infrastructure/logger.js";
 // Stub deps for isKnowledgebaseAvailable — the vault-service functions are fully mocked above
 const stubDeps = { disk: {} as any, paths: {} as any, shell: {} as any };
 
+// Full deps for knowledgebaseMenu (ShellMenuDeps)
+const menuDeps = { disk: {} as any, paths: {} as any, clock: {} as any, input, shell: {} as any, log } as any;
+
 const mockedListFolder = vi.mocked(listFolder);
 const mockedReadMarkdownFile = vi.mocked(readMarkdownFile);
 const mockedSearchVault = vi.mocked(searchVault);
@@ -80,7 +83,7 @@ describe("knowledgebaseMenu", () => {
 		mockedListFolder.mockReturnValue([]);
 		mockedAsk.mockResolvedValueOnce("q");
 
-		const result = await knowledgebaseMenu();
+		const result = await knowledgebaseMenu(menuDeps);
 		expect(result).toBe("quit");
 	});
 
@@ -88,7 +91,7 @@ describe("knowledgebaseMenu", () => {
 		mockedListFolder.mockReturnValue([]);
 		mockedAsk.mockResolvedValueOnce("b");
 
-		const result = await knowledgebaseMenu();
+		const result = await knowledgebaseMenu(menuDeps);
 		expect(result).toBe("main");
 	});
 
@@ -103,7 +106,7 @@ describe("knowledgebaseMenu", () => {
 		mockedListFolder.mockReturnValueOnce([]);
 		mockedAsk.mockResolvedValueOnce("q");
 
-		const result = await knowledgebaseMenu();
+		const result = await knowledgebaseMenu(menuDeps);
 		expect(result).toBe("quit");
 		expect(mockedListFolder).toHaveBeenCalledWith("", expect.any(String), expect.any(Object));
 		expect(mockedListFolder).toHaveBeenCalledWith("subfolder", expect.any(String), expect.any(Object));
@@ -124,7 +127,7 @@ describe("knowledgebaseMenu", () => {
 		mockedListFolder.mockReturnValueOnce([]);
 		mockedAsk.mockResolvedValueOnce("q"); // quit
 
-		const result = await knowledgebaseMenu();
+		const result = await knowledgebaseMenu(menuDeps);
 		expect(result).toBe("quit");
 		expect(mockedListFolder).toHaveBeenNthCalledWith(1, "", expect.any(String), expect.any(Object));
 		expect(mockedListFolder).toHaveBeenNthCalledWith(2, "subfolder", expect.any(String), expect.any(Object));
@@ -135,7 +138,7 @@ describe("knowledgebaseMenu", () => {
 		mockedListFolder.mockReturnValue([]);
 		mockedAsk.mockResolvedValueOnce("q");
 
-		await knowledgebaseMenu();
+		await knowledgebaseMenu(menuDeps);
 
 		const logCalls = mockedLog.mock.calls.map((c) => c[0]);
 		expect(logCalls.some((msg) => typeof msg === "string" && msg.includes("(empty folder)"))).toBe(true);
@@ -154,7 +157,7 @@ describe("knowledgebaseMenu", () => {
 		mockedListFolder.mockReturnValueOnce([]);
 		mockedAsk.mockResolvedValueOnce("q");
 
-		const result = await knowledgebaseMenu();
+		const result = await knowledgebaseMenu(menuDeps);
 		expect(result).toBe("quit");
 		expect(mockedReadMarkdownFile).toHaveBeenCalledWith("readme.md", expect.any(String), expect.any(Object));
 	});
@@ -171,7 +174,7 @@ describe("knowledgebaseMenu", () => {
 		mockedListFolder.mockReturnValueOnce([]);
 		mockedAsk.mockResolvedValueOnce("q");
 
-		await knowledgebaseMenu();
+		await knowledgebaseMenu(menuDeps);
 
 		const logCalls = mockedLog.mock.calls.map((c) => c[0]);
 		// Body content should appear, frontmatter title should not
@@ -190,7 +193,7 @@ describe("knowledgebaseMenu", () => {
 		mockedListFolder.mockReturnValueOnce([]);
 		mockedAsk.mockResolvedValueOnce("q");
 
-		await knowledgebaseMenu();
+		await knowledgebaseMenu(menuDeps);
 
 		const logCalls = mockedLog.mock.calls.map((c) => c[0]);
 		expect(logCalls.some((msg) => typeof msg === "string" && msg.includes("File not found"))).toBe(true);
@@ -208,7 +211,7 @@ describe("knowledgebaseMenu", () => {
 		mockedListFolder.mockReturnValueOnce([]);
 		mockedAsk.mockResolvedValueOnce("q"); // quit
 
-		const result = await knowledgebaseMenu();
+		const result = await knowledgebaseMenu(menuDeps);
 		expect(result).toBe("quit");
 		expect(mockedSearchVault).toHaveBeenCalledWith("test query", expect.any(Object));
 	});
@@ -225,7 +228,7 @@ describe("knowledgebaseMenu", () => {
 		mockedListFolder.mockReturnValueOnce([]);
 		mockedAsk.mockResolvedValueOnce("q");
 
-		await knowledgebaseMenu();
+		await knowledgebaseMenu(menuDeps);
 
 		const logCalls = mockedLog.mock.calls.map((c) => c[0]);
 		expect(logCalls.some((msg) => typeof msg === "string" && msg.includes("No results found"))).toBe(true);
@@ -245,7 +248,7 @@ describe("knowledgebaseMenu", () => {
 		mockedListFolder.mockReturnValueOnce([]);
 		mockedAsk.mockResolvedValueOnce("q");
 
-		await knowledgebaseMenu();
+		await knowledgebaseMenu(menuDeps);
 		expect(mockedReadMarkdownFile).toHaveBeenCalledWith("found.md", expect.any(String), expect.any(Object));
 	});
 
@@ -260,7 +263,7 @@ describe("knowledgebaseMenu", () => {
 		]);
 		mockedAsk.mockResolvedValueOnce("q");
 
-		await knowledgebaseMenu();
+		await knowledgebaseMenu(menuDeps);
 
 		const logCalls = mockedLog.mock.calls.map((c) => c[0]);
 		expect(logCalls.some((msg) => typeof msg === "string" && msg.includes("Invalid choice"))).toBe(true);
@@ -283,7 +286,7 @@ describe("knowledgebaseMenu", () => {
 		mockedListFolder.mockReturnValueOnce([]);
 		mockedAsk.mockResolvedValueOnce("q");
 
-		await knowledgebaseMenu();
+		await knowledgebaseMenu(menuDeps);
 
 		expect(mockedListFolder).toHaveBeenNthCalledWith(1, "", expect.any(String), expect.any(Object));
 		expect(mockedListFolder).toHaveBeenNthCalledWith(2, "level1", expect.any(String), expect.any(Object));
@@ -299,7 +302,7 @@ describe("knowledgebaseMenu", () => {
 		]);
 		mockedAsk.mockResolvedValueOnce("q");
 
-		await knowledgebaseMenu();
+		await knowledgebaseMenu(menuDeps);
 
 		const logCalls = mockedLog.mock.calls.map((c) => c[0]).filter(Boolean);
 		// Folders should appear with indices 1, 2 and files with index 3
@@ -316,7 +319,7 @@ describe("knowledgebaseMenu", () => {
 		]);
 		mockedAsk.mockResolvedValueOnce("q");
 
-		await knowledgebaseMenu();
+		await knowledgebaseMenu(menuDeps);
 
 		const logCalls = mockedLog.mock.calls.map((c) => c[0]).filter(Boolean);
 		expect(logCalls.some((msg) => typeof msg === "string" && msg.includes("readme"))).toBe(true);
@@ -328,7 +331,7 @@ describe("knowledgebaseMenu", () => {
 		mockedListFolder.mockReturnValueOnce([]);
 		mockedAsk.mockResolvedValueOnce("b");
 
-		const result = await knowledgebaseMenu();
+		const result = await knowledgebaseMenu(menuDeps);
 
 		expect(result).toBe("main");
 		expect(mockedListFolder).toHaveBeenCalledTimes(1);

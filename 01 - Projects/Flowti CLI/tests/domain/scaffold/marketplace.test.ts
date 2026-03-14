@@ -345,7 +345,7 @@ describe("renderMarketplace", () => {
 	});
 
 	it("shows empty message when no entries", () => {
-		renderMarketplace({ entries: [] });
+		renderMarketplace({ entries: [] }, logSpy as never);
 		expect(logSpy).toHaveBeenCalled();
 		const output = logSpy.mock.calls.map(c => String(c[0])).join("\n");
 		expect(output).toContain("No scaffold definitions found");
@@ -374,7 +374,7 @@ describe("renderMarketplace", () => {
 			},
 		];
 
-		renderMarketplace({ entries });
+		renderMarketplace({ entries }, logSpy as never);
 		const output = logSpy.mock.calls.map(c => String(c[0])).join("\n");
 		expect(output).toContain("Bundled");
 		expect(output).toContain("Local");
@@ -395,7 +395,7 @@ describe("renderMarketplace", () => {
 			},
 		];
 
-		renderMarketplace({ entries });
+		renderMarketplace({ entries }, logSpy as never);
 		const output = logSpy.mock.calls.map(c => String(c[0])).join("\n");
 		expect(output).toContain("invalid");
 		expect(output).toContain("Missing field: id");
@@ -407,7 +407,7 @@ describe("renderMarketplace", () => {
 			{ id: "b", label: "B", description: "", source: "local", templateIds: [], valid: false, errors: ["err"] },
 		];
 
-		renderMarketplace({ entries });
+		renderMarketplace({ entries }, logSpy as never);
 		const output = logSpy.mock.calls.map(c => String(c[0])).join("\n");
 		expect(output).toContain("1 valid");
 		expect(output).toContain("1 invalid");

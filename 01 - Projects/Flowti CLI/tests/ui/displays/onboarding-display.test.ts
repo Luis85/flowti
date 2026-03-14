@@ -24,7 +24,7 @@ beforeEach(() => { mockLog.mockClear(); });
 
 describe("renderPrerequisiteIssues", () => {
 	it("does nothing when no missing prerequisites", () => {
-		renderPrerequisiteIssues([]);
+		renderPrerequisiteIssues([], log);
 		expect(mockLog).not.toHaveBeenCalled();
 	});
 
@@ -32,7 +32,7 @@ describe("renderPrerequisiteIssues", () => {
 		renderPrerequisiteIssues([
 			{ name: "Node.js", instruction: "Install from nodejs.org" },
 			{ name: "Git", instruction: "Install from git-scm.com" },
-		]);
+		], log);
 		const out = output();
 		expect(out).toContain("Missing prerequisites:");
 		expect(out).toContain("✗");
@@ -44,7 +44,7 @@ describe("renderPrerequisiteIssues", () => {
 	});
 
 	it("renders single prerequisite", () => {
-		renderPrerequisiteIssues([{ name: "npm", instruction: "Bundled with Node.js" }]);
+		renderPrerequisiteIssues([{ name: "npm", instruction: "Bundled with Node.js" }], log);
 		const out = output();
 		expect(out).toContain("npm");
 		expect(out).toContain("Bundled with Node.js");
@@ -55,18 +55,18 @@ describe("renderPrerequisiteIssues", () => {
 
 describe("renderDependencyResult", () => {
 	it("does nothing when already present", () => {
-		renderDependencyResult({ installed: true, alreadyPresent: true });
+		renderDependencyResult({ installed: true, alreadyPresent: true }, log);
 		expect(mockLog).not.toHaveBeenCalled();
 	});
 
 	it("renders success when installed", () => {
-		renderDependencyResult({ installed: true, alreadyPresent: false });
+		renderDependencyResult({ installed: true, alreadyPresent: false }, log);
 		expect(output()).toContain("✓");
 		expect(output()).toContain("Dependencies installed.");
 	});
 
 	it("renders failure when not installed", () => {
-		renderDependencyResult({ installed: false, alreadyPresent: false });
+		renderDependencyResult({ installed: false, alreadyPresent: false }, log);
 		expect(output()).toContain("✗");
 		expect(output()).toContain("npm install failed");
 	});
@@ -76,7 +76,7 @@ describe("renderDependencyResult", () => {
 
 describe("renderDependencyNeeded", () => {
 	it("renders dependency needed message", () => {
-		renderDependencyNeeded();
+		renderDependencyNeeded(log);
 		const out = output();
 		expect(out).toContain("Dependencies not installed.");
 		expect(out).toContain("Running npm install...");
@@ -88,13 +88,13 @@ describe("renderDependencyNeeded", () => {
 
 describe("renderFirstRunStatus", () => {
 	it("renders build prompt when plugin not built", () => {
-		renderFirstRunStatus({ pluginBuilt: false });
+		renderFirstRunStatus({ pluginBuilt: false }, log);
 		expect(output()).toContain("Plugin not yet built.");
 		expect(output()).toContain("Build");
 	});
 
 	it("does nothing when plugin is built", () => {
-		renderFirstRunStatus({ pluginBuilt: true });
+		renderFirstRunStatus({ pluginBuilt: true }, log);
 		expect(mockLog).not.toHaveBeenCalled();
 	});
 });
@@ -103,12 +103,12 @@ describe("renderFirstRunStatus", () => {
 
 describe("renderPostBuildGuidance", () => {
 	it("does nothing when show is false", () => {
-		renderPostBuildGuidance({ show: false, vaultRoot: "/vault" });
+		renderPostBuildGuidance({ show: false, vaultRoot: "/vault" }, log);
 		expect(mockLog).not.toHaveBeenCalled();
 	});
 
 	it("renders full guidance when show is true", () => {
-		renderPostBuildGuidance({ show: true, vaultRoot: "/my/vault" });
+		renderPostBuildGuidance({ show: true, vaultRoot: "/my/vault" }, log);
 		const out = output();
 		expect(out).toContain("Plugin built successfully!");
 		expect(out).toContain("Next steps:");

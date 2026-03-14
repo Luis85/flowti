@@ -4,32 +4,28 @@
  * Extracted from component-detail-menu.ts to keep file sizes manageable.
  */
 
-import { input } from "../../infrastructure/input.js";
 import { runMenu } from "../../infrastructure/menu.js";
-import { log } from "../../infrastructure/logger.js";
 import { RESET, BOLD, DIM, GREEN, CYAN } from "../../infrastructure/ui.js";
 import type { MenuEntry } from "../../infrastructure/types.js";
+import type { ActionRefDeps } from "../../infrastructure/deps.js";
 import { ACTION_REFERENCE, searchActions } from "../../domain/make/component/action-reference.js";
 import type { ActionCategory } from "../../domain/make/component/action-reference.js";
 import type { ComponentInstance } from "../../domain/make/component/component-editor.js";
 import { addAction, writeComponentInstance } from "../../domain/make/component/component-editor.js";
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
 
-function editorDeps() { return { disk, paths } as const; }
-
-export async function actionReferenceMenu(): Promise<void> {
+export async function actionReferenceMenu(deps: ActionRefDeps): Promise<void> {
+	const { input, log } = deps;
 	const items: MenuEntry[] = ACTION_REFERENCE.map((cat, i) => ({
 		key: String(i + 1),
 		label: `${cat.category}  ${DIM}(${cat.actions.length})${RESET}`,
 		action: async () => {
-			log();
+			log("");
 			log(`  ${BOLD}${cat.category} Actions${RESET}`);
-			log();
+			log("");
 			for (const a of cat.actions) {
 				log(`    ${CYAN}${a.name}${RESET}  ${DIM}${a.description}${RESET}`);
 			}
-			log();
+			log("");
 			await input.waitForEnter();
 		},
 	}));
@@ -53,7 +49,7 @@ export async function actionReferenceMenu(): Promise<void> {
 						log(`    ${CYAN}${a.name}${RESET}  ${DIM}${a.description}${RESET}`);
 					}
 				}
-				log();
+				log("");
 			},
 		},
 		{ separator: true },
@@ -63,13 +59,13 @@ export async function actionReferenceMenu(): Promise<void> {
 	await runMenu("Action Reference", items);
 }
 
-export async function addFromReferenceMenu(projectRoot: string, componentName: string, instance: ComponentInstance, domain?: string): Promise<void> {
+export async function addFromReferenceMenu(projectRoot: string, componentName: string, instance: ComponentInstance, deps: ActionRefDeps, domain?: string): Promise<void> {
 	const existing = new Set(instance.actions ?? []);
 
 	const items: MenuEntry[] = ACTION_REFERENCE.map((cat, i) => ({
 		key: String(i + 1),
 		label: `${cat.category}  ${DIM}(${cat.actions.length})${RESET}`,
-		action: async () => { await addFromCategoryMenu(projectRoot, componentName, instance, cat, existing, domain); },
+		action: async () => { await addFromCategoryMenu(projectRoot, componentName, instance, cat, existing, deps, domain); },
 	}));
 
 	items.push(
@@ -82,8 +78,9 @@ export async function addFromReferenceMenu(projectRoot: string, componentName: s
 
 async function addFromCategoryMenu(
 	projectRoot: string, componentName: string, instance: ComponentInstance,
-	cat: ActionCategory, existing: Set<string>, domain?: string,
+	cat: ActionCategory, existing: Set<string>, deps: ActionRefDeps, domain?: string,
 ): Promise<void> {
+	const { input, log } = deps;
 	const items: MenuEntry[] = cat.actions.map((a, i) => {
 		const alreadyAdded = existing.has(a.name);
 		return {
@@ -95,7 +92,7 @@ async function addFromCategoryMenu(
 					return;
 				}
 				addAction(instance, a.name);
-				writeComponentInstance(projectRoot, componentName, instance, editorDeps(), domain);
+				writeComponentInstance(projectRoot, componentName, instance, deps, domain);
 				existing.add(a.name);
 				log(`  ${GREEN}Added ${a.name}.${RESET}`);
 				await input.waitForEnter();

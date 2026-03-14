@@ -29,7 +29,7 @@ vi.mock("../../../src/infrastructure/document.js", () => {
 });
 
 import { exportSitemapToMarkdown } from "../../../src/domain/sitemap/sitemap-export.js";
-import type { Sitemap } from "../../../src/infrastructure/sitemap-types.js";
+import type { Sitemap, PageObject } from "../../../src/infrastructure/sitemap-types.js";
 
 const { _getDocuments, _clearDocuments } = await import("../../../src/infrastructure/document.js") as {
 	_getDocuments: () => Map<string, { fm: Record<string, unknown>; body: string[] }>;
@@ -54,15 +54,19 @@ beforeEach(() => {
 	_clearDocuments();
 });
 
-function createTestSitemap(views: Record<string, unknown>): Sitemap {
-	return { version: 1, views } as Sitemap;
+function createTestSitemap(pages: Record<string, PageObject>): Sitemap {
+	return { version: 2, pages } as Sitemap;
+}
+
+function page(label: string, overrides: Partial<PageObject> = {}): PageObject {
+	return { kind: "page", label, description: "", actions: [], ...overrides } as PageObject;
 }
 
 describe("exportSitemapToMarkdown", () => {
-	it("exports all views to markdown files", () => {
+	it("exports all pages to markdown files", () => {
 		const sitemap = createTestSitemap({
-			start: { title: "Start", items: [] },
-			dashboard: { title: "Dashboard", parent: "start", items: [] },
+			start: page("Start"),
+			dashboard: page("Dashboard", { parent: "start" }),
 		});
 
 		const result = exportSitemapToMarkdown(sitemap, "/out", deps);
@@ -75,8 +79,8 @@ describe("exportSitemapToMarkdown", () => {
 
 	it("sets up parent wikilink", () => {
 		const sitemap = createTestSitemap({
-			parent: { title: "Parent", items: [] },
-			child: { title: "Child", parent: "parent", items: [] },
+			parent: page("Parent"),
+			child: page("Child", { parent: "parent" }),
 		});
 
 		exportSitemapToMarkdown(sitemap, "/out", deps);
@@ -87,9 +91,9 @@ describe("exportSitemapToMarkdown", () => {
 
 	it("sets up children wikilinks", () => {
 		const sitemap = createTestSitemap({
-			root: { title: "Root", items: [] },
-			a: { title: "A", parent: "root", items: [] },
-			b: { title: "B", parent: "root", items: [] },
+			root: page("Root"),
+			a: page("A", { parent: "root" }),
+			b: page("B", { parent: "root" }),
 		});
 
 		exportSitemapToMarkdown(sitemap, "/out", deps);
@@ -99,7 +103,7 @@ describe("exportSitemapToMarkdown", () => {
 	});
 
 	it("creates output directory", () => {
-		const sitemap = createTestSitemap({ v: { title: "V", items: [] } });
+		const sitemap = createTestSitemap({ v: page("V") });
 
 		exportSitemapToMarkdown(sitemap, "/out/sitemap", deps);
 
@@ -114,15 +118,13 @@ describe("exportSitemapToMarkdown", () => {
 		expect(result.exported).toBe(0);
 	});
 
-	it("includes view metadata in frontmatter", () => {
+	it("includes page metadata in frontmatter", () => {
 		const sitemap = createTestSitemap({
-			view: {
-				title: "My View",
+			view: page("My View", {
 				icon: "star",
 				domain: "navigation",
 				status: "active",
-				items: [],
-			},
+			}),
 		});
 
 		exportSitemapToMarkdown(sitemap, "/out", deps);
@@ -133,49 +135,27 @@ describe("exportSitemapToMarkdown", () => {
 		expect(doc?.fm.status).toBe("active");
 	});
 
-	it("includes items with different action types in export", () => {
+	it("includes actions with different types in export", () => {
 		const sitemap = createTestSitemap({
-			view: {
-				title: "Menu",
-				items: [
-					{ type: "item", key: "1", label: "Navigate", navigate: "other" },
-					{ type: "item", key: "2", label: "Handle", handler: "my:action" },
-					{ type: "item", key: "3", label: "Signal", signal: "back" },
-					{ type: "item", key: "4", label: "Command", command: "echo hi" },
-					{ type: "separator" },
+			view: page("Menu", {
+				actions: [
+					{ name: "onNav", label: "Navigate", type: "navigate", target: "other", key: "1" },
+					{ name: "onHandle", label: "Handle", type: "handler", target: "my:action", key: "2" },
+					{ name: "onBack", label: "Signal", type: "signal", target: "back", key: "3" },
+					{ name: "onCmd", label: "Command", type: "command", target: "echo hi", key: "4" },
 				],
-			},
-			other: { title: "Other", items: [] },
+			}),
+			other: page("Other"),
 		});
 		const result = exportSitemapToMarkdown(sitemap, "/out", deps);
 		expect(result.exported).toBe(2);
 		const doc = _getDocuments().get("/out/view.md");
-		expect(doc?.body).toContain("Items");
-	});
-
-	it("marks dynamic views in frontmatter", () => {
-		const sitemap = createTestSitemap({
-			dyn: { title: "Dynamic", type: "dynamic", handler: "dyn-handler", items: [] },
-		});
-		exportSitemapToMarkdown(sitemap, "/out", deps);
-		const doc = _getDocuments().get("/out/dyn.md");
-		expect(doc?.fm.type).toBe("dynamic");
-	});
-
-	it("includes capabilities section when present", () => {
-		const sitemap = createTestSitemap({
-			view: { title: "V", capabilities: ["read", "write"], items: [] },
-		});
-		exportSitemapToMarkdown(sitemap, "/out", deps);
-		const doc = _getDocuments().get("/out/view.md");
-		expect(doc?.body).toContain("Capabilities");
-		expect(doc?.body).toContain("read");
-		expect(doc?.body).toContain("write");
+		expect(doc?.body).toContain("Actions");
 	});
 
 	it("includes description when present", () => {
 		const sitemap = createTestSitemap({
-			view: { title: "V", description: "A helpful view", items: [] },
+			view: page("V", { description: "A helpful view" }),
 		});
 		exportSitemapToMarkdown(sitemap, "/out", deps);
 		const doc = _getDocuments().get("/out/view.md");

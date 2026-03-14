@@ -16,19 +16,19 @@ beforeEach(() => { mockLog.mockClear(); });
 
 describe("renderComponentAdding", () => {
 	it("renders definition label and component name", () => {
-		renderComponentAdding("Component", "Button");
+		renderComponentAdding(log,"Component", "Button");
 		const out = output();
 		expect(out).toContain("Adding Component: Button");
 		expect(out).toContain("▸");
 	});
 
 	it("renders with different label and name", () => {
-		renderComponentAdding("Layout", "Dashboard");
+		renderComponentAdding(log,"Layout", "Dashboard");
 		expect(output()).toContain("Adding Layout: Dashboard");
 	});
 
 	it("calls log exactly once", () => {
-		renderComponentAdding("Widget", "Card");
+		renderComponentAdding(log,"Widget", "Card");
 		expect(mockLog).toHaveBeenCalledTimes(1);
 	});
 });

@@ -1,36 +1,24 @@
 /**
- * sitemap-router.ts — Navigation engine that drives the CLI from sitemap.json.
+ * sitemap-router.ts — Navigation engine that drives the CLI from sitemap.json (v2).
  *
- * Maintains a view stack (like browser history) and resolves views from the
- * sitemap definition. Static views are converted to MenuEntry[] and delegated
- * to the existing runMenu() engine. Dynamic views call registered ViewHandlers.
+ * Maintains a view stack (like browser history) and resolves pages from the
+ * v2 PageObject sitemap. Builds MenuEntry[] from PageAction[] with auto-key
+ * assignment and group-based separators. Supports data sources for dynamic
+ * content injection and form page navigation.
  */
 
-import { runMenu } from "./menu.js";
+import { runMenu, insertGroupSeparators } from "./menu.js";
 import { interpolate } from "./context-provider.js";
 import { resolveDisabledCondition, resolveHiddenCondition } from "./sitemap-conditions.js";
+import { assignKeys } from "./key-assigner.js";
 import { input } from "./input.js";
 import { log } from "./logger.js";
 import { RESET, RED, YELLOW } from "./ui.js";
 import type { MenuEntry, MenuResult, ProjectContext } from "./types.js";
 import type { CliDeps } from "./deps.js";
-import type {
-	Sitemap,
-	StaticView,
-	DynamicView,
-	SitemapEntry,
-	SitemapItem,
-	SitemapSlot,
-	RouterContext,
-	StackEntry,
-} from "./sitemap-types.js";
+import type { Sitemap, PageObject, PageAction, RouterContext, StackEntry } from "./sitemap-types.js";
 import type { HandlerRegistry } from "./handler-registry.js";
 import type { CommandRegistry } from "./command-registry.js";
-
-function isNavigationResult(result: MenuResult): boolean {
-	return result === "quit" || result === "start" ||
-		(typeof result === "string" && result.startsWith("navigate:"));
-}
 
 // ── Router ──────────────────────────────────────────────────────────
 
@@ -79,25 +67,25 @@ export class SitemapRouter {
 
 		while (stack.length > 0) {
 			const current = stack[stack.length - 1];
-			const view = this.#sitemapRef.views[current.viewId];
+			const page = this.#sitemapRef.pages[current.viewId];
 
-			if (!view) {
-				log(`\n  ${RED}Unknown view: "${current.viewId}"${RESET}\n`);
+			if (!page) {
+				log(`\n  ${RED}Unknown page: "${current.viewId}"${RESET}\n`);
 				stack.pop();
 				continue;
 			}
 
 			const ctx = this.#buildContext(current.params);
 
-			if (view.context?.includes("project") && !ctx.project) {
+			if (page.context?.includes("project") && !ctx.project) {
 				log(`\n  ${YELLOW}No project selected — returning to previous view.${RESET}\n`);
 				stack.pop();
 				continue;
 			}
 
-			const result = view.type === "dynamic"
-				? await this.#runDynamicView(view as DynamicView, ctx)
-				: await this.#runStaticView(view as StaticView, ctx);
+			const result = this.#handlers.hasView(current.viewId)
+				? await this.#runDynamicPage(current.viewId, page, ctx)
+				: await this.#runStaticPage(page, ctx);
 
 			const shouldReturn = this.#applyResult(result, stack, startViewId);
 			if (shouldReturn) return;
@@ -124,7 +112,7 @@ export class SitemapRouter {
 		// Auto-navigate: if a project was just selected and we're back at
 		// the start view (or stack is empty), push project-detail.
 		if (this.#getProject() && (stack.length === 0 || stack[stack.length - 1].viewId === startViewId)) {
-			if (this.#sitemapRef.views["project-detail"]) {
+			if (this.#sitemapRef.pages["project-detail"]) {
 				this.#onProjectSelected();
 				stack.push({ viewId: "project-detail" });
 			}
@@ -137,68 +125,55 @@ export class SitemapRouter {
 		return false;
 	}
 
-	// ── Dynamic view rendering ───────────────────────────────────────
+	// ── Dynamic page rendering ──────────────────────────────────────
 
-	async #runDynamicView(dynView: DynamicView, ctx: RouterContext): Promise<MenuResult> {
-		const handler = this.#handlers.getView(dynView.handler);
+	async #runDynamicPage(pageId: string, page: PageObject, ctx: RouterContext): Promise<MenuResult> {
+		const handler = this.#handlers.getView(pageId);
 
-		if (!dynView.items || dynView.items.length === 0) {
-			return handler(ctx);
+		// Resolve data sources for the view handler
+		const dataSourceEntries = this.#resolveDataSources(page, ctx);
+
+		// Build action entries for the handler to use
+		const actionEntries = this.#buildActionEntries(page, ctx);
+
+		const viewCtx: RouterContext = {
+			...ctx,
+			dataSourceEntries: {
+				...dataSourceEntries,
+				_actions: actionEntries,
+			},
+		};
+
+		if (page.onBeforeRender && this.#handlers.hasBeforeRender(page.onBeforeRender)) {
+			this.#handlers.getBeforeRender(page.onBeforeRender)(viewCtx);
 		}
 
-		const hybridCtx = this.#buildHybridContext(dynView, ctx);
-		const result = await handler(hybridCtx.ctx);
-		return hybridCtx.resolveNavigation(result);
+		return handler(viewCtx);
 	}
 
-	#buildHybridContext(dynView: DynamicView, ctx: RouterContext) {
+	// ── Static page rendering ────────────────────────────────────────
+
+	async #runStaticPage(page: PageObject, ctx: RouterContext): Promise<MenuResult> {
 		let navigationTarget: StackEntry | null = null;
 		const onNav = (target: string, params?: Readonly<Record<string, unknown>>) => {
 			navigationTarget = { viewId: target, ...(params ? { params } : {}) };
 		};
 
-		const sitemapEntries = this.#buildEntries({ items: dynView.items! }, ctx, onNav);
-		const hasSlots = dynView.items!.some((e) => "slot" in e);
-		const sitemapSlots = hasSlots ? this.#buildSlots(dynView.items!, ctx, onNav) : undefined;
+		// Resolve data sources first
+		const dsEntries = this.#resolveDataSourceEntries(page, ctx);
 
-		if (dynView.beforeRender && this.#handlers.hasBeforeRender(dynView.beforeRender)) {
-			this.#handlers.getBeforeRender(dynView.beforeRender)(ctx);
-		}
+		// Build action entries
+		const actionEntries = this.#buildMenuEntries(page, ctx, onNav);
 
-		const hybridCtx: RouterContext = {
-			...ctx, sitemapEntries,
-			...(sitemapSlots ? { sitemapSlots } : {}),
-		};
+		// Combine: data sources first, then actions
+		const allEntries = [...dsEntries, ...actionEntries];
 
-		return {
-			ctx: hybridCtx,
-			resolveNavigation: (result: MenuResult): MenuResult => {
-				if (navigationTarget && !isNavigationResult(result)) {
-					const paramsSuffix = navigationTarget.params
-						? `?${JSON.stringify(navigationTarget.params)}`
-						: "";
-					return `navigate:${navigationTarget.viewId}${paramsSuffix}` as MenuResult;
-				}
-				return result;
-			},
-		};
-	}
-
-	// ── Static view rendering ───────────────────────────────────────
-
-	async #runStaticView(view: StaticView, ctx: RouterContext): Promise<MenuResult> {
-		let navigationTarget: StackEntry | null = null;
-
-		const entries = this.#buildEntries(view, ctx, (target, params) => {
-			navigationTarget = { viewId: target, ...(params ? { params } : {}) };
-		});
-
-		const title = interpolate(view.title, ctx);
-		const beforeMenu = view.beforeRender && this.#handlers.hasBeforeRender(view.beforeRender)
-			? () => this.#handlers.getBeforeRender(view.beforeRender!)(ctx)
+		const title = interpolate(page.label, ctx);
+		const beforeMenu = page.onBeforeRender && this.#handlers.hasBeforeRender(page.onBeforeRender)
+			? () => this.#handlers.getBeforeRender(page.onBeforeRender!)(ctx)
 			: undefined;
 
-		const result = await runMenu(title, entries, { beforeMenu });
+		const result = await runMenu(title, allEntries, { beforeMenu });
 
 		const nav = navigationTarget as StackEntry | null;
 		if (nav) {
@@ -209,183 +184,163 @@ export class SitemapRouter {
 		return result;
 	}
 
-	// ── Entry conversion ────────────────────────────────────────────
+	// ── Data source resolution ───────────────────────────────────────
 
-	#buildEntries(
-		view: { readonly items: readonly SitemapEntry[] },
-		ctx: RouterContext,
-		onNavigate: (target: string, params?: Readonly<Record<string, unknown>>) => void,
-	): MenuEntry[] {
+	#resolveDataSources(page: PageObject, ctx: RouterContext): Record<string, readonly MenuEntry[]> {
+		const result: Record<string, MenuEntry[]> = {};
+		if (!page.dataSources) return result;
+
+		for (const ds of page.dataSources) {
+			const key = ds.slot ?? ds.id;
+			if (this.#handlers.hasDataSource(ds.id)) {
+				result[key] = this.#handlers.getDataSource(ds.id)(ctx, ds.params);
+			}
+		}
+
+		return result;
+	}
+
+	#resolveDataSourceEntries(page: PageObject, ctx: RouterContext): MenuEntry[] {
+		if (!page.dataSources) return [];
 		const entries: MenuEntry[] = [];
 
-		for (const entry of view.items) {
-			switch (entry.type) {
-				case "separator":
-					if (entry.hidden !== undefined) {
-						const isHidden = resolveHiddenCondition(entry.hidden, ctx, this.#handlers);
-						if (isHidden) continue;
-					}
-					entries.push({ separator: true });
-					continue;
-				case "slot":
-					continue; // Handled by #buildSlots
-				case "listProvider": {
-					const provider = this.#handlers.getListProvider(entry.listProvider);
-					entries.push(...provider(ctx));
-					continue;
-				}
-				case "item": {
-					if (entry.hidden !== undefined) {
-						const isHidden = resolveHiddenCondition(entry.hidden, ctx, this.#handlers);
-						if (isHidden) continue;
-					}
-					const menuItem = this.#buildMenuItem(entry, ctx, onNavigate);
-					entries.push(menuItem);
-					continue;
-				}
+		for (const ds of page.dataSources) {
+			if (this.#handlers.hasDataSource(ds.id)) {
+				entries.push(...this.#handlers.getDataSource(ds.id)(ctx, ds.params));
 			}
+			entries.push({ separator: true });
 		}
 
 		return entries;
 	}
 
-	/**
-	 * Build entries segmented by named slots.
-	 *
-	 * Returns a map: `_before` → entries before the first slot,
-	 * `<slot-name>` → empty array (insertion point marker),
-	 * entries between slots go into `_between_<prevSlot>`,
-	 * `_after` → entries after the last slot.
-	 *
-	 * Handlers assemble the final menu:
-	 * `[...slots._before, ...myDynamicItems, ...slots._after]`
-	 */
-	#buildSlots(
-		items: readonly SitemapEntry[],
+	// ── Action entry building ────────────────────────────────────────
+
+	#buildActionEntries(page: PageObject, ctx: RouterContext): MenuEntry[] {
+		const keyed = assignKeys(page.actions);
+		const entries: MenuEntry[] = [];
+
+		for (const { action, assignedKey } of keyed) {
+			if (action.hidden !== undefined) {
+				const isHidden = resolveHiddenCondition(action.hidden, ctx, this.#handlers);
+				if (isHidden) continue;
+			}
+
+			entries.push(this.#actionToMenuEntry(action, assignedKey, ctx, () => {}));
+		}
+
+		return insertGroupSeparators(entries);
+	}
+
+	#buildMenuEntries(
+		page: PageObject,
 		ctx: RouterContext,
 		onNavigate: (target: string, params?: Readonly<Record<string, unknown>>) => void,
-	): Record<string, MenuEntry[]> {
-		const slotNames = items
-			.filter((e): e is SitemapSlot => e.type === "slot")
-			.map((e) => e.slot);
+	): MenuEntry[] {
+		const keyed = assignKeys(page.actions);
+		const entries: MenuEntry[] = [];
 
-		const slots: Record<string, MenuEntry[]> = {};
-		let currentKey = "_before";
-		slots[currentKey] = [];
-		let slotIndex = 0;
+		for (const { action, assignedKey } of keyed) {
+			if (action.hidden !== undefined) {
+				const isHidden = resolveHiddenCondition(action.hidden, ctx, this.#handlers);
+				if (isHidden) continue;
+			}
 
-		for (const entry of items) {
-			if (entry.type === "slot") {
-				slots[entry.slot] = [];
-				slotIndex++;
-				currentKey = slotIndex < slotNames.length ? `_between_${entry.slot}` : "_after";
-				if (!slots[currentKey]) slots[currentKey] = [];
-				continue;
-			}
-			const menuEntry = this.#resolveEntry(entry, ctx, onNavigate);
-			if (menuEntry) {
-				if (Array.isArray(menuEntry)) slots[currentKey].push(...menuEntry);
-				else slots[currentKey].push(menuEntry);
-			}
+			entries.push(this.#actionToMenuEntry(action, assignedKey, ctx, onNavigate));
 		}
 
-		return slots;
+		return insertGroupSeparators(entries);
 	}
 
-	#resolveEntry(entry: SitemapEntry, ctx: RouterContext, onNavigate: (target: string, params?: Readonly<Record<string, unknown>>) => void): MenuEntry | MenuEntry[] | null {
-		switch (entry.type) {
-			case "separator": {
-				if (entry.hidden !== undefined && resolveHiddenCondition(entry.hidden, ctx, this.#handlers)) return null;
-				return { separator: true };
-			}
-			case "slot":
-				return null;
-			case "listProvider": {
-				const provider = this.#handlers.getListProvider(entry.listProvider);
-				return provider(ctx);
-			}
-			case "item": {
-				if (entry.hidden !== undefined && resolveHiddenCondition(entry.hidden, ctx, this.#handlers)) return null;
-				return this.#buildMenuItem(entry, ctx, onNavigate);
-			}
-		}
-	}
-
-	#buildMenuItem(
-		item: SitemapItem,
+	#actionToMenuEntry(
+		action: PageAction,
+		key: string,
 		ctx: RouterContext,
 		onNavigate: (target: string, params?: Readonly<Record<string, unknown>>) => void,
 	): MenuEntry {
-		const label = interpolate(item.label, ctx);
-		const disabled = item.disabled !== undefined
-			? () => resolveDisabledCondition(item.disabled, ctx, this.#handlers)
+		const label = interpolate(action.label, ctx);
+		const disabled = action.disabled !== undefined
+			? () => resolveDisabledCondition(action.disabled, ctx, this.#handlers)
 			: undefined;
 
 		return {
-			key: item.key,
+			key,
 			label,
 			disabled,
-			disabledMessage: item.disabledMessage ? `\n  ${item.disabledMessage}\n` : undefined,
-			action: this.#buildAction(item, ctx, onNavigate),
+			disabledMessage: action.disabledMessage ? `\n  ${action.disabledMessage}\n` : undefined,
+			group: action.group,
+			action: this.#buildAction(action, ctx, onNavigate),
 		};
 	}
 
 	#buildAction(
-		item: SitemapItem,
+		action: PageAction,
 		ctx: RouterContext,
 		onNavigate: (target: string, params?: Readonly<Record<string, unknown>>) => void,
 	): () => MenuResult | Promise<MenuResult> {
-		// Navigate → push view, exit runMenu
-		if (item.navigate) {
-			const target = item.navigate;
-			const navParams = item.navigateParams;
-			return () => {
-				onNavigate(target, navParams);
-				return "main" as MenuResult;
-			};
-		}
+		switch (action.type) {
+			case "navigate":
+				return () => {
+					onNavigate(action.target!, action.params);
+					const paramsSuffix = action.params ? `?${JSON.stringify(action.params)}` : "";
+					return `navigate:${action.target}${paramsSuffix}` as MenuResult;
+				};
 
-		// Signal → navigation control
-		if (item.signal) {
-			switch (item.signal) {
-				case "quit": return () => "quit" as MenuResult;
-				case "start": return () => "start" as MenuResult;
-				case "back": return () => "main" as MenuResult;
-			}
-		}
+			case "signal":
+				switch (action.target) {
+					case "quit": return () => "quit" as MenuResult;
+					case "start": return () => "start" as MenuResult;
+					case "back": return () => "main" as MenuResult;
+					default: return () => undefined;
+				}
 
-		// Command → dispatch through CommandRegistry
-		if (item.command) {
-			const command = item.command;
-			return async () => {
-				const handler = this.#commands.handlers[command];
-				if (!handler) {
-					log(`\n  ${RED}Unknown command: "${command}"${RESET}\n`);
+			case "command":
+				return async () => {
+					const handler = this.#commands.handlers[action.target!];
+					if (!handler) {
+						log(`\n  ${RED}Unknown command: "${action.target}"${RESET}\n`);
+						await input.waitForEnter();
+						return undefined;
+					}
+					await handler({}, [], action.target!, ctx.project);
 					await input.waitForEnter();
 					return undefined;
-				}
-				await handler({}, [], command, ctx.project);
-				await input.waitForEnter();
-				return undefined; // stay in menu
-			};
-		}
+				};
 
-		// Handler → call registered ActionHandler
-		if (item.handler) {
-			const handlerId = item.handler;
-			return async () => {
-				const handler = this.#handlers.getAction(handlerId);
-				const result = await handler(ctx);
-				// Propagate navigation signals from handler
-				if (result === "quit") return "quit" as MenuResult;
-				if (result === "start") return "start" as MenuResult;
-				if (result === "main") return "main" as MenuResult;
-				return undefined; // stay in menu
-			};
-		}
+			case "handler":
+				return async () => {
+					const handler = this.#handlers.getAction(action.target!);
+					const result = await handler(ctx);
+					if (result === "quit") return "quit" as MenuResult;
+					if (result === "start") return "start" as MenuResult;
+					if (result === "main") return "main" as MenuResult;
+					return undefined;
+				};
 
-		// Fallback — no action
-		return () => undefined;
+			case "form":
+				return async () => {
+					const formPageId = action.target!;
+					const formPage = this.#sitemapRef.pages[formPageId];
+					if (!formPage || !formPage.fields) {
+						log(`\n  ${RED}Form page not found or has no fields: "${formPageId}"${RESET}\n`);
+						return undefined;
+					}
+					const { runForm } = await import("./form-runner.js");
+					const formResult = await runForm(formPage.fields, formPage.validation, {
+						input: ctx.deps.input,
+						log: ctx.deps.log,
+					});
+					if (!formResult) return undefined;
+					// Call the form's submit handler if registered
+					const submitAction = formPage.actions.find((a) => a.name === "onSubmit");
+					if (submitAction?.target && this.#handlers.hasFormHandler(submitAction.target)) {
+						await this.#handlers.getFormHandler(submitAction.target)({ ...ctx, formData: formResult });
+					} else if (submitAction?.target && this.#handlers.hasAction(submitAction.target)) {
+						await this.#handlers.getAction(submitAction.target)({ ...ctx, params: { ...ctx.params, formData: formResult } });
+					}
+					return undefined;
+				};
+		}
 	}
 
 	// ── Context building ────────────────────────────────────────────

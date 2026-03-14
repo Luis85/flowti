@@ -5,21 +5,17 @@
  * concerns from pure domain logic.
  */
 
-import { log } from "../../infrastructure/logger.js";
 import { RESET, DIM, GREEN, RED, CYAN, BOLD, printHeader } from "../../infrastructure/ui.js";
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
 import { PROJECTS_DIR, cliConfig } from "../../infrastructure/config.js";
-import { input } from "../../infrastructure/input.js";
 import { runMenu } from "../../infrastructure/menu.js";
 import type { MenuEntry, MenuResult } from "../../infrastructure/types.js";
+import type { MakeDeps } from "../../infrastructure/deps.js";
 import { scaffold, listDefinitions, resolvePromptDefault, deriveVariables } from "../../domain/scaffold/scaffold-service.js";
-
-function scaffoldDeps() { return { disk, paths } as const; }
 import { resolveNextSteps } from "../../domain/scaffold/scaffold-plan.js";
 import type { ScaffoldDefinition } from "../../domain/scaffold/scaffold-types.js";
 
-export async function scaffoldMenu(): Promise<MenuResult> {
+export async function scaffoldMenu(deps: MakeDeps): Promise<MenuResult> {
+	const { log } = deps;
 	const definitions = listDefinitions();
 
 	if (definitions.length === 0) {
@@ -30,7 +26,7 @@ export async function scaffoldMenu(): Promise<MenuResult> {
 	const items: MenuEntry[] = definitions.map((def, i) => ({
 		key: String(i + 1),
 		label: `${def.label}  ${DIM}${def.description}${RESET}`,
-		action: async () => { await runScaffoldInteractive(def); },
+		action: async () => { await runScaffoldInteractive(def, deps); },
 	}));
 
 	items.push(
@@ -42,7 +38,8 @@ export async function scaffoldMenu(): Promise<MenuResult> {
 	return runMenu("New Project", items);
 }
 
-async function runScaffoldInteractive(def: ScaffoldDefinition): Promise<void> {
+async function runScaffoldInteractive(def: ScaffoldDefinition, deps: MakeDeps): Promise<void> {
+	const { disk, paths, input, log } = deps;
 	printHeader(`New Project: ${def.label}`);
 
 	const name = await input.ask("Project name");
@@ -69,7 +66,7 @@ async function runScaffoldInteractive(def: ScaffoldDefinition): Promise<void> {
 
 	log(`\n  ${CYAN}Scaffolding${RESET} ${BOLD}${name}${RESET} → ${DIM}${outputDir}${RESET}\n`);
 
-	const result = scaffold(PROJECTS_DIR, scaffoldDeps(), { definitionId: def.id, name, author: extraVars.author, outputDir }, cliConfig.defaultAuthor);
+	const result = scaffold(PROJECTS_DIR, deps, { definitionId: def.id, name, author: extraVars.author, outputDir }, cliConfig.defaultAuthor);
 
 	if ("error" in result) {
 		log(`\n  ${RED}Scaffold failed:${RESET} ${result.error}\n`);
@@ -85,6 +82,6 @@ async function runScaffoldInteractive(def: ScaffoldDefinition): Promise<void> {
 		for (const step of steps) {
 			log(`    ${CYAN}▸${RESET} ${step}`);
 		}
-		log();
+		log("");
 	}
 }

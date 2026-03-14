@@ -2,49 +2,49 @@
  * sitemap-to-component.ts — Converts sitemap PageObjects to ComponentDefinitions.
  *
  * Enables the sitemap to serve as a source for application visualization.
- * Each view maps to a component definition that the component system can
+ * Each page maps to a component definition that the component system can
  * render, browse, and diagram.
  *
  * Mapping:
- *   View id           → ComponentDefinition.id
- *   View title        → ComponentDefinition.label
- *   View description  → ComponentDefinition.description
- *   View icon         → ComponentDefinition.icon
- *   View domain       → ComponentDefinition.domain
- *   navigate items    → ComponentDefinition.children
- *   parent            → ComponentDefinition.metadata.parent (+ reverse children for dynamic views)
+ *   Page id           → ComponentDefinition.id
+ *   Page label        → ComponentDefinition.label
+ *   Page description  → ComponentDefinition.description
+ *   Page icon         → ComponentDefinition.icon
+ *   Page domain       → ComponentDefinition.domain
+ *   Page kind         → ComponentDefinition.kind
+ *   navigate actions  → ComponentDefinition.children
+ *   parent            → ComponentDefinition.metadata.parent (+ reverse children)
  *   route             → ComponentDefinition.metadata.route
  *   handler/command   → ComponentDefinition.actions
- *   capabilities      → ComponentDefinition.actions (dynamic views)
  *   context           → ComponentDefinition.metadata.context
  *   configPath        → ComponentDefinition.metadata.configPath
- *   View status       → ComponentDefinition.metadata.status
+ *   status            → ComponentDefinition.metadata.status
  */
 
-import type { Sitemap, ViewDefinition, StaticView, DynamicView, SitemapItem } from "../../infrastructure/sitemap-types.js";
+import type { Sitemap, PageObject, PageAction } from "../../infrastructure/sitemap-types.js";
 import type { ComponentDefinition, ComponentAction, ComponentChild, ComponentKind } from "../make/component/component-types.js";
 
 // ── Public API ──────────────────────────────────────────────────────
 
 /**
  * Convert an entire sitemap into an array of ComponentDefinitions.
- * One component per view. Parent→child relationships are resolved so
- * that dynamic views also get children derived from `parent` fields.
+ * One component per page. Parent→child relationships are resolved so
+ * that pages with no navigate-derived children also get children
+ * derived from the `parent` field on other pages.
  */
 export function sitemapToComponents(sitemap: Sitemap): ComponentDefinition[] {
-	// First pass: convert each view independently
-	const components = Object.entries(sitemap.views).map(([id, view]) =>
-		viewToComponent(id, view),
+	// First pass: convert each page independently
+	const components = Object.entries(sitemap.pages).map(([id, page]) =>
+		pageToComponent(id, page),
 	);
 
-	// Second pass: for dynamic views that have no navigate-derived children,
-	// resolve children from the `parent` field on other views.
+	// Second pass: resolve children from parent fields
 	const parentIndex = new Map<string, string[]>();
-	for (const [id, view] of Object.entries(sitemap.views)) {
-		if (view.parent) {
-			const siblings = parentIndex.get(view.parent) ?? [];
+	for (const [id, page] of Object.entries(sitemap.pages)) {
+		if (page.parent) {
+			const siblings = parentIndex.get(page.parent) ?? [];
 			siblings.push(id);
-			parentIndex.set(view.parent, siblings);
+			parentIndex.set(page.parent, siblings);
 		}
 	}
 
@@ -63,117 +63,80 @@ export function sitemapToComponents(sitemap: Sitemap): ComponentDefinition[] {
 }
 
 /**
- * Convert a single sitemap view to a ComponentDefinition.
+ * Convert a single sitemap page to a ComponentDefinition.
  */
-export function viewToComponent(id: string, view: ViewDefinition): ComponentDefinition {
-	const isStatic = view.type === undefined || view.type === "menu";
-
+export function pageToComponent(id: string, page: PageObject): ComponentDefinition {
 	return {
 		id,
-		kind: resolveKind(view),
-		label: view.title,
-		description: view.description ?? "",
-		domain: view.domain,
-		icon: view.icon,
+		kind: resolveKind(page),
+		label: page.label,
+		description: page.description ?? "",
+		domain: page.domain,
+		icon: page.icon,
 		prompts: [],
 		files: [],
-		metadata: buildMetadata(view),
+		metadata: buildMetadata(page),
 		properties: [],
-		actions: isStatic
-			? extractActionsFromItems(view as StaticView)
-			: extractActionsFromCapabilities(view as DynamicView),
+		actions: extractActionsFromPage(page),
 		variants: [],
 		states: [],
-		children: isStatic
-			? extractChildrenFromItems(view as StaticView)
-			: [],
+		children: extractChildrenFromPage(page),
 		nextSteps: [],
 	};
 }
 
 // ── Kind resolution ─────────────────────────────────────────────────
 
-/** Map a view to the closest ComponentKind. */
-function resolveKind(view: ViewDefinition): ComponentKind {
-	// Views are pages in the application navigation graph
-	return "page";
+/** Map a page kind to the closest ComponentKind. */
+function resolveKind(page: PageObject): ComponentKind {
+	// PageKind is a superset of ComponentKind; most map directly
+	return page.kind as ComponentKind;
 }
 
 // ── Metadata extraction ─────────────────────────────────────────────
 
-function buildMetadata(view: ViewDefinition): Record<string, unknown> {
+function buildMetadata(page: PageObject): Record<string, unknown> {
 	const meta: Record<string, unknown> = {};
 
-	if (view.status) meta.status = view.status;
-	if (view.context) meta.context = [...view.context];
-	if (view.parent) meta.parent = view.parent;
-	if (view.route) meta.route = { ...view.route };
-
-	const isDynamic = view.type === "dynamic";
-	if (isDynamic) {
-		const dv = view as DynamicView;
-		if (dv.handler) meta.handler = dv.handler;
-		if (dv.configPath) meta.configPath = dv.configPath;
-	}
+	if (page.status) meta.status = page.status;
+	if (page.context) meta.context = [...page.context];
+	if (page.parent) meta.parent = page.parent;
+	if (page.route) meta.route = { ...page.route };
+	if (page.configPath) meta.configPath = page.configPath;
 
 	return meta;
 }
 
 // ── Action extraction ───────────────────────────────────────────────
 
-/** Extract actions from static view items (handler, command, signal). */
-function extractActionsFromItems(view: StaticView): ComponentAction[] {
+/** Extract component actions from page actions (handler, command, signal types). */
+function extractActionsFromPage(page: PageObject): ComponentAction[] {
 	const actions: ComponentAction[] = [];
 
-	for (const entry of view.items) {
-		if (entry.type !== "item") continue;
-
-		if (entry.handler) {
-			actions.push({ name: entry.handler, description: entry.label });
-		} else if (entry.command) {
-			actions.push({ name: entry.command, description: entry.label });
-		} else if (entry.signal) {
-			actions.push({ name: `signal:${entry.signal}`, description: entry.label });
+	for (const action of page.actions) {
+		if (action.type === "handler" || action.type === "command") {
+			actions.push({ name: action.target ?? action.name, description: action.label });
+		} else if (action.type === "signal") {
+			actions.push({ name: `signal:${action.target}`, description: action.label });
 		}
-		// navigate items become children, not actions
+		// navigate and form actions become children, not component actions
 	}
 
 	return actions;
 }
 
-/** Extract actions from dynamic view capabilities list. */
-function extractActionsFromCapabilities(view: DynamicView): ComponentAction[] {
-	if (!view.capabilities) return [];
-
-	return view.capabilities.map((cap) => ({
-		name: toActionName(cap),
-		description: cap,
-	}));
-}
-
-/** Convert a human-readable capability string to an action name. */
-function toActionName(capability: string): string {
-	return capability
-		.toLowerCase()
-		.replace(/[^a-z0-9\s]/g, "")
-		.trim()
-		.replace(/\s+/g, "-");
-}
-
 // ── Children extraction ─────────────────────────────────────────────
 
-/** Extract child components from static view navigate items. */
-function extractChildrenFromItems(view: StaticView): ComponentChild[] {
+/** Extract child components from navigate and form actions. */
+function extractChildrenFromPage(page: PageObject): ComponentChild[] {
 	const children: ComponentChild[] = [];
 
-	for (const entry of view.items) {
-		if (entry.type !== "item") continue;
-
-		if (entry.navigate) {
+	for (const action of page.actions) {
+		if ((action.type === "navigate" || action.type === "form") && action.target) {
 			children.push({
-				name: entry.navigate,
+				name: action.target,
 				slot: "navigation",
-				optional: isOptionalNavigation(entry),
+				optional: isOptionalAction(action),
 			});
 		}
 	}
@@ -181,7 +144,7 @@ function extractChildrenFromItems(view: StaticView): ComponentChild[] {
 	return children;
 }
 
-/** A navigation target is optional if it has a disabled condition. */
-function isOptionalNavigation(item: SitemapItem): boolean {
-	return item.disabled !== undefined && item.disabled !== false;
+/** An action target is optional if it has a disabled condition. */
+function isOptionalAction(action: PageAction): boolean {
+	return action.disabled !== undefined && action.disabled !== false;
 }

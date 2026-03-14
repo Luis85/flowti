@@ -5,15 +5,11 @@
  * display/input concerns from pure domain logic.
  */
 
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
-import { shell } from "../../infrastructure/shell.js";
-import { input } from "../../infrastructure/input.js";
 import { runMenu } from "../../infrastructure/menu.js";
-import { log } from "../../infrastructure/logger.js";
 import { VAULT_ROOT } from "../../infrastructure/config.js";
 import { RESET, BOLD, DIM, GREEN, YELLOW } from "../../infrastructure/ui.js";
 import type { MenuEntry, MenuResult, ComponentsConfig, ComponentFramework } from "../../infrastructure/types.js";
+import type { ShellMenuDeps } from "../../infrastructure/deps.js";
 import type { ComponentKind } from "../../domain/make/component/component-types.js";
 import {
 	listProjectComponents,
@@ -22,10 +18,10 @@ import {
 	COMPONENTS_DIR,
 } from "../../domain/make/component/component-list.js";
 import { regenerateComponent } from "../../domain/make/component/component-commands.js";
-import { clock } from "../../infrastructure/clock.js";
 import { isStorybookInstalled, installStorybook, runStorybookDev, runStorybookBuild, isStorybookRunning, stopStorybook, getFrameworkPackages } from "../../domain/make/component/storybook-service.js";
 import { getFramework, setFramework } from "../../domain/make/component/storybook-settings.js";
 import { createStorybookRenderer } from "../renderers/storybook-renderer-impl.js";
+import type { StorybookRenderer } from "../../domain/make/component/storybook-renderer.js";
 import { navigateWithParams } from "../../infrastructure/sitemap-router.js";
 import { componentMenu } from "./component-makers-menu.js";
 import { actionReferenceMenu } from "./action-reference-menu.js";
@@ -33,10 +29,7 @@ import { discoverLibraries } from "../../domain/make/component/component-library
 import { libraryMenu, dataProviderMenu } from "./component-submenus.js";
 import { sitemapExists, isSitemapDirty, createProjectSitemap, importSitemap, regenerateFromSitemap } from "../../domain/sitemap/sitemap-project.js";
 
-function listDeps() { return { disk, paths } as const; }
-function sbDeps() { return { disk, paths, shell, input } as const; }
-
-const sbRender = createStorybookRenderer();
+// sbRender is created inside componentListMenu to receive injected log.
 
 // ── Kind labels ─────────────────────────────────────────────────────
 
@@ -58,15 +51,15 @@ import type { ProjectComponent } from "../../domain/make/component/component-typ
 // ── Exported component lookup (used by component-detail view handler) ──
 export { listProjectComponents } from "../../domain/make/component/component-list.js";
 
-function renderComponentListHeader(components: ProjectComponent[], frameworkTag: string): void {
+function renderComponentListHeader(components: ProjectComponent[], frameworkTag: string, deps: ShellMenuDeps): void {
 	if (components.length === 0) {
-		log(`\n  ${DIM}No components found in ${COMPONENTS_DIR}/${RESET}${frameworkTag}`);
-		log(`  ${DIM}Use Make → Add Component to create one.${RESET}\n`);
+		deps.log(`\n  ${DIM}No components found in ${COMPONENTS_DIR}/${RESET}${frameworkTag}`);
+		deps.log(`  ${DIM}Use Make → Add Component to create one.${RESET}\n`);
 		return;
 	}
 	const dirtyCount = components.filter((c) => c.isDirty).length;
 	const dirtyNote = dirtyCount > 0 ? `  ${YELLOW}${dirtyCount} dirty${RESET}` : "";
-	log(`\n  ${BOLD}${components.length} component(s)${RESET}${dirtyNote}${frameworkTag}\n`);
+	deps.log(`\n  ${BOLD}${components.length} component(s)${RESET}${dirtyNote}${frameworkTag}\n`);
 }
 
 function buildComponentTreeItems(_projectRoot: string, components: ProjectComponent[]): MenuEntry[] {
@@ -91,14 +84,16 @@ function buildComponentTreeItems(_projectRoot: string, components: ProjectCompon
 
 export async function componentListMenu(
 	projectRoot: string,
-	componentsConfig?: ComponentsConfig,
-	sitemapSlots?: Readonly<Record<string, readonly MenuEntry[]>>,
+	componentsConfig: ComponentsConfig | undefined,
+	dataSourceEntries: Readonly<Record<string, readonly MenuEntry[]>> | undefined,
+	deps: ShellMenuDeps,
 ): Promise<MenuResult> {
 	const config = componentsConfig ?? {};
-	const projectName = paths.basename(projectRoot);
-	const sbInstalled = () => isStorybookInstalled(projectRoot, config, listDeps());
+	const projectName = deps.paths.basename(projectRoot);
+	const sbRender = createStorybookRenderer(deps.log);
+	const sbInstalled = () => isStorybookInstalled(projectRoot, config, deps);
 	for (;;) {
-		const items = buildMenuItems(projectRoot, projectName, config, sbInstalled, sitemapSlots);
+		const items = buildMenuItems(projectRoot, projectName, config, sbInstalled, deps, sbRender, dataSourceEntries);
 		const result = await runMenu("Components", items);
 		if (result === "main" || result === "quit") return result;
 		if (typeof result === "string" && result.startsWith("navigate:")) return result;
@@ -108,56 +103,57 @@ export async function componentListMenu(
 function buildMenuItems(
 	projectRoot: string, projectName: string,
 	config: ComponentsConfig, sbInstalled: () => boolean,
-	sitemapSlots?: Readonly<Record<string, readonly MenuEntry[]>>,
+	deps: ShellMenuDeps, sbRender: StorybookRenderer,
+	dataSourceEntries?: Readonly<Record<string, readonly MenuEntry[]>>,
 ): MenuEntry[] {
-	const components = listProjectComponents(projectRoot, listDeps());
-	detectDirtyComponents(projectRoot, components, listDeps());
-	const framework = getFramework(projectRoot, listDeps());
+	const components = listProjectComponents(projectRoot, deps);
+	detectDirtyComponents(projectRoot, components, deps);
+	const framework = getFramework(projectRoot, deps);
 	const frameworkLabel = FRAMEWORK_LABELS[framework] ?? framework;
 	const frameworkTag = sbInstalled() ? `  ${DIM}[${frameworkLabel}]${RESET}` : "";
-	renderComponentListHeader(components, frameworkTag);
+	renderComponentListHeader(components, frameworkTag, deps);
 	const items: MenuEntry[] = buildComponentTreeItems(projectRoot, components);
 
-	if (sitemapSlots) {
-		appendSitemapDrivenEntries(items, projectRoot, projectName, sitemapSlots);
+	if (dataSourceEntries) {
+		appendDataSourceEntries(items, projectRoot, projectName, dataSourceEntries, deps);
 	} else {
-		appendStandaloneEntries(items, projectRoot, projectName, components, framework, config, sbInstalled);
+		appendStandaloneEntries(items, projectRoot, projectName, components, framework, config, sbInstalled, deps, sbRender);
 	}
 	return items;
 }
 
-function appendSitemapDrivenEntries(
+function appendDataSourceEntries(
 	items: MenuEntry[], projectRoot: string, projectName: string,
-	sitemapSlots: Readonly<Record<string, readonly MenuEntry[]>>,
+	entries: Readonly<Record<string, readonly MenuEntry[]>>,
+	deps: ShellMenuDeps,
 ): void {
-	items.push(...(sitemapSlots["_between_component-list"] ?? []));
-	items.push(...buildSitemapOpsEntries(projectRoot, projectName));
-	items.push(...(sitemapSlots["_between_sitemap-ops"] ?? []));
-	items.push(...buildLibraryEntries(projectRoot));
-	items.push(...(sitemapSlots["_after"] ?? []));
+	items.push(...(entries["_actions"] ?? []));
+	items.push(...buildSitemapOpsEntries(projectRoot, projectName, deps));
+	items.push(...buildLibraryEntries(projectRoot, deps));
 }
 
 function appendStandaloneEntries(
 	items: MenuEntry[], projectRoot: string, projectName: string,
 	components: ProjectComponent[], framework: ComponentFramework,
 	config: ComponentsConfig, sbInstalled: () => boolean,
+	deps: ShellMenuDeps, sbRender: StorybookRenderer,
 ): void {
 	items.push(
 		{ separator: true },
-		{ key: "c", label: "Add Component", action: async () => { await componentMenu(projectRoot); } },
-		buildRegenDirtyEntry(projectRoot, components, framework),
+		{ key: "c", label: "Add Component", action: async () => { await componentMenu(projectRoot, deps); } },
+		buildRegenDirtyEntry(projectRoot, components, framework, deps),
 	);
-	items.push({ key: "a", label: "Action Reference", action: async () => { await actionReferenceMenu(); } });
-	items.push(...buildSitemapOpsEntries(projectRoot, projectName));
-	items.push(...buildLibraryEntries(projectRoot));
-	items.push(...buildStorybookEntries(projectRoot, projectName, config, sbInstalled));
+	items.push({ key: "a", label: "Action Reference", action: async () => { await actionReferenceMenu(deps); } });
+	items.push(...buildSitemapOpsEntries(projectRoot, projectName, deps));
+	items.push(...buildLibraryEntries(projectRoot, deps));
+	items.push(...buildStorybookEntries(projectRoot, projectName, config, sbInstalled, deps, sbRender));
 	items.push(
 		{ separator: true },
 		{ key: "b", label: "Back", action: () => "main" as const },
 	);
 }
 
-function buildRegenDirtyEntry(projectRoot: string, components: ProjectComponent[], framework: ComponentFramework): MenuEntry {
+function buildRegenDirtyEntry(projectRoot: string, components: ProjectComponent[], framework: ComponentFramework, deps: ShellMenuDeps): MenuEntry {
 	return {
 		key: "r",
 		label: "Regenerate Dirty Components",
@@ -165,55 +161,54 @@ function buildRegenDirtyEntry(projectRoot: string, components: ProjectComponent[
 		disabledMessage: "\n  No dirty components found.\n",
 		action: async () => {
 			const dirty = components.filter((c) => c.isDirty);
-			log(`\n  ${BOLD}${dirty.length} dirty component(s):${RESET}`);
-			for (const c of dirty) log(`    ${YELLOW}*${RESET} ${c.name}`);
-			log();
-			const confirmed = await input.askYesNo("Regenerate all dirty components?");
-			if (!confirmed) { log(`\n  ${DIM}Cancelled.${RESET}\n`); return; }
-			log();
+			deps.log(`\n  ${BOLD}${dirty.length} dirty component(s):${RESET}`);
+			for (const c of dirty) deps.log(`    ${YELLOW}*${RESET} ${c.name}`);
+			deps.log("");
+			const confirmed = await deps.input.askYesNo("Regenerate all dirty components?");
+			if (!confirmed) { deps.log(`\n  ${DIM}Cancelled.${RESET}\n`); return; }
+			deps.log("");
 			let total = 0;
 			const fw = getFrameworkPackages(framework);
 			for (const c of dirty) {
-				const result = regenerateComponent(c.name, projectRoot, { disk, paths, clock }, c.domain, fw.framework);
+				const result = regenerateComponent(c.name, projectRoot, deps, c.domain, fw.framework);
 				if (result.success) {
 					total += result.filesWritten; c.isDirty = false;
-					log(`  ${GREEN}✓${RESET} ${c.name}  ${DIM}${result.filesWritten} file(s)${RESET}`);
+					deps.log(`  ${GREEN}✓${RESET} ${c.name}  ${DIM}${result.filesWritten} file(s)${RESET}`);
 				} else {
-					log(`  ${YELLOW}skip${RESET}  ${c.name}: ${result.error}`);
+					deps.log(`  ${YELLOW}skip${RESET}  ${c.name}: ${result.error}`);
 				}
 			}
-			log(`\n  ${GREEN}Regenerated ${total} file(s) across ${dirty.length} component(s).${RESET}\n`);
-			await input.waitForEnter();
+			deps.log(`\n  ${GREEN}Regenerated ${total} file(s) across ${dirty.length} component(s).${RESET}\n`);
+			await deps.input.waitForEnter();
 		},
 	};
 }
 
-function buildSitemapOpsEntries(projectRoot: string, projectName: string): MenuEntry[] {
-	const smDeps = { disk, paths } as const;
-	const hasSitemap = sitemapExists(projectRoot, smDeps);
-	const smDirty = hasSitemap && isSitemapDirty(projectRoot, smDeps);
+function buildSitemapOpsEntries(projectRoot: string, projectName: string, deps: ShellMenuDeps): MenuEntry[] {
+	const hasSitemap = sitemapExists(projectRoot, deps);
+	const smDirty = hasSitemap && isSitemapDirty(projectRoot, deps);
 	const entries: MenuEntry[] = [{ separator: true }];
 
 	if (!hasSitemap) {
 		entries.push({
 			key: "sm", label: "Create Sitemap",
 			action: async () => {
-				const result = createProjectSitemap(projectRoot, projectName, smDeps);
+				const result = createProjectSitemap(projectRoot, projectName, deps);
 				if (result.created) {
-					log(`\n  ${GREEN}Created sitemap at ${result.path}${RESET}`);
-					log(`  ${DIM}${result.viewCount} view(s) (home, dashboard, settings)${RESET}\n`);
-				} else { log(`\n  ${DIM}Sitemap already exists.${RESET}\n`); }
-				await input.waitForEnter();
+					deps.log(`\n  ${GREEN}Created sitemap at ${result.path}${RESET}`);
+					deps.log(`  ${DIM}${result.viewCount} view(s) (home, dashboard, settings)${RESET}\n`);
+				} else { deps.log(`\n  ${DIM}Sitemap already exists.${RESET}\n`); }
+				await deps.input.waitForEnter();
 			},
 		});
 	} else {
 		entries.push({
 			key: "sm", label: `Import Sitemap${smDirty ? `  ${YELLOW}(dirty)${RESET}` : ""}`,
 			action: async () => {
-				const result = importSitemap(projectRoot, smDeps);
-				if (result.errors.length > 0) { for (const err of result.errors) log(`  ${YELLOW}${err}${RESET}`); }
-				else { log(`\n  ${GREEN}Imported ${result.imported} component(s)${RESET}${result.skipped > 0 ? `, ${DIM}${result.skipped} skipped${RESET}` : ""}\n`); }
-				await input.waitForEnter();
+				const result = importSitemap(projectRoot, deps);
+				if (result.errors.length > 0) { for (const err of result.errors) deps.log(`  ${YELLOW}${err}${RESET}`); }
+				else { deps.log(`\n  ${GREEN}Imported ${result.imported} component(s)${RESET}${result.skipped > 0 ? `, ${DIM}${result.skipped} skipped${RESET}` : ""}\n`); }
+				await deps.input.waitForEnter();
 			},
 		});
 	}
@@ -222,12 +217,12 @@ function buildSitemapOpsEntries(projectRoot: string, projectName: string): MenuE
 		entries.push({
 			key: "sr", label: `Regenerate from Sitemap  ${YELLOW}*${RESET}`,
 			action: async () => {
-				const confirmed = await input.askYesNo("Regenerate all components from sitemap? This overwrites existing component files.");
-				if (!confirmed) { log(`\n  ${DIM}Cancelled.${RESET}\n`); return; }
-				const result = regenerateFromSitemap(projectRoot, smDeps);
-				if (result.errors.length > 0) { for (const err of result.errors) log(`  ${YELLOW}${err}${RESET}`); }
-				else { log(`\n  ${GREEN}Regenerated ${result.imported} component(s)${RESET}\n`); }
-				await input.waitForEnter();
+				const confirmed = await deps.input.askYesNo("Regenerate all components from sitemap? This overwrites existing component files.");
+				if (!confirmed) { deps.log(`\n  ${DIM}Cancelled.${RESET}\n`); return; }
+				const result = regenerateFromSitemap(projectRoot, deps);
+				if (result.errors.length > 0) { for (const err of result.errors) deps.log(`  ${YELLOW}${err}${RESET}`); }
+				else { deps.log(`\n  ${GREEN}Regenerated ${result.imported} component(s)${RESET}\n`); }
+				await deps.input.waitForEnter();
 			},
 		});
 	}
@@ -235,8 +230,8 @@ function buildSitemapOpsEntries(projectRoot: string, projectName: string): MenuE
 	return entries;
 }
 
-function buildLibraryEntries(projectRoot: string): MenuEntry[] {
-	const libraries = discoverLibraries(projectRoot, { disk, paths, clock });
+function buildLibraryEntries(projectRoot: string, deps: ShellMenuDeps): MenuEntry[] {
+	const libraries = discoverLibraries(projectRoot, deps);
 	if (libraries.length === 0) return [];
 	const entries: MenuEntry[] = [{ separator: true }];
 	for (const lib of libraries) {
@@ -247,7 +242,7 @@ function buildLibraryEntries(projectRoot: string): MenuEntry[] {
 			: `${lib.name}  ${DIM}${totalDefs} defs${RESET}  ${GREEN}all imported${RESET}`;
 		entries.push({
 			key: `l${libraries.indexOf(lib) + 1}`, label,
-			action: async () => { await libraryMenu(projectRoot, lib.name); },
+			action: async () => { await libraryMenu(projectRoot, lib.name, deps); },
 		});
 	}
 	return entries;
@@ -256,25 +251,26 @@ function buildLibraryEntries(projectRoot: string): MenuEntry[] {
 function buildStorybookEntries(
 	projectRoot: string, projectName: string,
 	config: ComponentsConfig, sbInstalled: () => boolean,
+	deps: ShellMenuDeps, sbRender: StorybookRenderer,
 ): MenuEntry[] {
 	return [
 		{ separator: true },
 		{
 			key: "i", label: "Install Storybook",
 			action: async () => {
-				log(`\n  ${BOLD}Select framework:${RESET}\n`);
+				deps.log(`\n  ${BOLD}Select framework:${RESET}\n`);
 				const choices: { key: string; label: string; value: ComponentFramework }[] = [
 					{ key: "1", label: "HTML (vanilla)", value: "html" },
 					{ key: "2", label: "Angular", value: "angular" },
 				];
-				for (const c of choices) log(`    ${c.key}) ${c.label}`);
-				log();
-				const choice = await input.ask("Framework (1/2)", "1");
+				for (const c of choices) deps.log(`    ${c.key}) ${c.label}`);
+				deps.log("");
+				const choice = await deps.input.ask("Framework (1/2)", "1");
 				const selected = choices.find((c) => c.key === choice);
-				if (!selected) { log(`\n  ${DIM}Cancelled.${RESET}\n`); return; }
-				setFramework(projectRoot, selected.value, listDeps());
-				installStorybook(projectRoot, projectName, { ...config, framework: selected.value }, sbDeps(), sbRender);
-				await input.waitForEnter();
+				if (!selected) { deps.log(`\n  ${DIM}Cancelled.${RESET}\n`); return; }
+				setFramework(projectRoot, selected.value, deps);
+				installStorybook(projectRoot, projectName, { ...config, framework: selected.value }, deps, sbRender);
+				await deps.input.waitForEnter();
 			},
 			disabled: sbInstalled,
 			disabledMessage: "\n  Storybook is already installed.\n",
@@ -282,25 +278,25 @@ function buildStorybookEntries(
 		{
 			key: "s", label: "Start Storybook",
 			action: async () => {
-				await runStorybookDev(projectRoot, config, VAULT_ROOT, sbDeps(), sbRender);
-				if (!isStorybookRunning()) await input.waitForEnter();
+				await runStorybookDev(projectRoot, config, VAULT_ROOT, deps, sbRender);
+				if (!isStorybookRunning()) await deps.input.waitForEnter();
 			},
 			disabled: () => !sbInstalled() || isStorybookRunning(),
 			disabledMessage: "\n  Storybook not installed or already running.\n",
 		},
 		{
 			key: "x", label: "Stop Storybook",
-			action: async () => { stopStorybook(sbRender); await input.waitForEnter(); },
+			action: async () => { stopStorybook(sbRender); await deps.input.waitForEnter(); },
 			disabled: () => !isStorybookRunning(),
 			disabledMessage: "\n  Storybook is not running.\n",
 		},
 		{ separator: true },
-		{ key: "d", label: "Data Providers", action: async () => { await dataProviderMenu(projectRoot); } },
+		{ key: "d", label: "Data Providers", action: async () => { await dataProviderMenu(projectRoot, deps); } },
 		{
 			key: "k", label: "Build Design System",
 			action: async () => {
-				runStorybookBuild(projectRoot, config, { disk, paths, shell }, sbRender);
-				await input.waitForEnter();
+				runStorybookBuild(projectRoot, config, deps, sbRender);
+				await deps.input.waitForEnter();
 			},
 			disabled: () => !sbInstalled(),
 			disabledMessage: "\n  Storybook not installed. Use \"Install Storybook\" first.\n",

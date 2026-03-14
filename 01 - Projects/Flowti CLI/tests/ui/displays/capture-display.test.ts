@@ -19,7 +19,7 @@ beforeEach(() => { mockLog.mockClear(); });
 
 describe("renderSearchResults", () => {
 	it("renders empty message when no results", () => {
-		renderSearchResults({ query: "test", results: [] });
+		renderSearchResults({ query: "test", results: [] }, log);
 		expect(output()).toContain('No captures matching "test"');
 	});
 
@@ -28,7 +28,7 @@ describe("renderSearchResults", () => {
 			query: "bug",
 			results: [{ file: "a.md", title: "My Bug", type: "Bug", date: "2026-01-01", tags: [] }],
 		};
-		renderSearchResults(data);
+		renderSearchResults(data, log);
 		const out = output();
 		expect(out).toContain("Found 1 capture:");
 		expect(out).toContain("My Bug");
@@ -43,7 +43,7 @@ describe("renderSearchResults", () => {
 				{ file: "b.md", title: "B", type: "Task", date: "2026-01-02", tags: [] },
 			],
 		};
-		renderSearchResults(data);
+		renderSearchResults(data, log);
 		expect(output()).toContain("Found 2 captures:");
 	});
 
@@ -52,7 +52,7 @@ describe("renderSearchResults", () => {
 			query: "q",
 			results: [{ file: "a.md", title: "A", type: "Note", date: "", tags: ["foo", "bar"] }],
 		};
-		renderSearchResults(data);
+		renderSearchResults(data, log);
 		expect(output()).toContain("[foo, bar]");
 	});
 
@@ -61,7 +61,7 @@ describe("renderSearchResults", () => {
 			query: "q",
 			results: [{ file: "a.md", title: "A", type: "Note", date: "", tags: [] }],
 		};
-		renderSearchResults(data);
+		renderSearchResults(data, log);
 		expect(output()).not.toContain("[");
 	});
 
@@ -73,7 +73,7 @@ describe("renderSearchResults", () => {
 				{ file: "b.md", title: "B", type: "Bug", date: "", tags: [] },
 			],
 		};
-		renderSearchResults(data);
+		renderSearchResults(data, log);
 		const out = output();
 		expect(out).toContain("Idea");
 		expect(out).toContain("Bug");
@@ -84,28 +84,28 @@ describe("renderSearchResults", () => {
 
 describe("renderImportResult", () => {
 	it("renders singular item for 1 created", () => {
-		renderImportResult({ created: 1, skipped: 0 });
+		renderImportResult({ created: 1, skipped: 0 }, log);
 		expect(output()).toContain("Imported 1 item");
 		expect(output()).not.toContain("items");
 	});
 
 	it("renders plural items for multiple created", () => {
-		renderImportResult({ created: 5, skipped: 0 });
+		renderImportResult({ created: 5, skipped: 0 }, log);
 		expect(output()).toContain("Imported 5 items");
 	});
 
 	it("renders skipped count when > 0", () => {
-		renderImportResult({ created: 3, skipped: 2 });
+		renderImportResult({ created: 3, skipped: 2 }, log);
 		expect(output()).toContain("2 skipped");
 	});
 
 	it("does not render skipped when 0", () => {
-		renderImportResult({ created: 3, skipped: 0 });
+		renderImportResult({ created: 3, skipped: 0 }, log);
 		expect(output()).not.toContain("skipped");
 	});
 
 	it("renders zero created", () => {
-		renderImportResult({ created: 0, skipped: 4 });
+		renderImportResult({ created: 0, skipped: 4 }, log);
 		expect(output()).toContain("Imported 0 items");
 		expect(output()).toContain("4 skipped");
 	});

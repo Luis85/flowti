@@ -8,12 +8,15 @@
  * Stores iteration files in docs/iterations/ (configurable).
  */
 
-import { Document } from "../../infrastructure/document.js";
 import type { CliDeps } from "../../infrastructure/deps.js";
 import type { IterationsConfig, IterationStatus } from "../../infrastructure/types.js";
-import type { IterationDefinition, IterationSummary, AgentReference, ResourceAllocation, CapacityEntry } from "./iteration-types.js";
-import { resolveDir, listMdFiles, readFrontmatter, updateField } from "../shared/markdown-store.js";
+import type { IterationDefinition, IterationSummary, ScopeItem, AgentReference, ResourceAllocation, CapacityEntry } from "./iteration-types.js";
+import type { LifecycleTemplate, GatedTransitionResult } from "../lifecycle/lifecycle-types.js";
+import { resolveDir, listMdFiles, readFrontmatter, updateField, appendToSection, replaceSectionLine } from "../shared/markdown-store.js";
 import { parseFrontmatterContent } from "../../infrastructure/frontmatter.js";
+import { validateGatedTransition } from "../lifecycle/lifecycle-engine.js";
+import { makeGateEvaluator } from "./iteration-gates.js";
+import { buildPlanDocument, buildReportDocument, formatAgent, formatResource, formatCapacity } from "./iteration-documents.js";
 
 export type IterationStoreDeps = Pick<CliDeps, "disk" | "paths" | "clock">;
 
@@ -45,6 +48,12 @@ export function computeEndDate(startDate: string, durationDays: number): string 
 function iterationPrefix(num: number): string {
 	return `iteration-${String(num).padStart(3, "0")}`;
 }
+
+function planPath(deps: Pick<CliDeps, "paths">, dir: string, num: number): string {
+	return deps.paths.join(dir, `${iterationPrefix(num)}-plan.md`);
+}
+
+// ── Frontmatter parsers ─────────────────────────────────────────────
 
 function parseAgents(fm: Record<string, unknown>): AgentReference[] {
 	const raw = fm.agents;
@@ -82,7 +91,25 @@ function parseCapacities(fm: Record<string, unknown>): CapacityEntry[] {
 	});
 }
 
-function parseIterationSummary(fm: Record<string, string>, typedFm: Record<string, unknown>, file: string): IterationSummary {
+function parseScopeItems(content: string, sectionTitle: string): ScopeItem[] {
+	const regex = new RegExp(`^## ${sectionTitle}\\s*\\n([\\s\\S]*?)(?=^## |\\Z)`, "m");
+	const match = regex.exec(content);
+	if (!match) return [];
+	const body = match[1];
+	return body.split("\n").filter((line) => /^\s*-\s+/.test(line)).map((line) => {
+		const done = /^\s*-\s+\[x\]\s+/i.test(line);
+		const text = line.replace(/^\s*-\s+(\[.\]\s+)?/, "").trim();
+		return { text, done };
+	});
+}
+
+/** Normalize legacy status values when reading existing files. */
+function normalizeStatus(raw: string): IterationStatus {
+	if (raw === "completed") return "done";
+	return raw as IterationStatus;
+}
+
+function parseIterationSummary(fm: Record<string, string>, typedFm: Record<string, unknown>, file: string, content?: string): IterationSummary {
 	return {
 		name: fm.name ?? file.replace(/\.md$/, ""),
 		number: parseInt(fm.number ?? "0", 10),
@@ -90,209 +117,107 @@ function parseIterationSummary(fm: Record<string, string>, typedFm: Record<strin
 		endDate: fm.endDate ?? "",
 		goal: fm.goal ?? "",
 		capacity: fm.capacity ?? "",
-		status: (fm.status as IterationStatus) ?? "planned",
+		description: fm.description ?? "",
+		status: normalizeStatus(fm.status ?? "new"),
 		file,
 		agents: parseAgents(typedFm),
 		resources: parseResources(typedFm),
 		capacities: parseCapacities(typedFm),
+		scopeItems: content ? parseScopeItems(content, "Scope Items") : [],
 	};
 }
+
+// ── List / Find ─────────────────────────────────────────────────────
 
 /** List all iterations by scanning plan files. */
 export function listIterations(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, config?: IterationsConfig): IterationSummary[] {
 	const dir = iterationsDir(deps, projectPath, config);
 	const files = listMdFiles(deps, dir).filter((f: string) => f.endsWith("-plan.md"));
-	return files
-		.map((file: string) => {
-			const fm = readFrontmatter(deps, dir, file);
-			const content = deps.disk.readFileSync(deps.paths.join(dir, file), "utf-8");
-			const typedFm = parseFrontmatterContent(content) ?? {};
-			return parseIterationSummary(fm, typedFm, file);
-		})
-		.sort((a, b) => a.number - b.number);
+	return files.map((file: string) => {
+		const fm = readFrontmatter(deps, dir, file);
+		const content = deps.disk.readFileSync(deps.paths.join(dir, file), "utf-8");
+		const typedFm = parseFrontmatterContent(content) ?? {};
+		return parseIterationSummary(fm, typedFm, file, content);
+	}).sort((a, b) => a.number - b.number);
 }
 
-const ACTIVE_STATUSES = new Set(["planned", "in-progress", "in-review"]);
+const ACTIVE_STATUSES = new Set<string>(["new", "planned", "ready", "in-progress", "in-review"]);
 
-/** Find the current iteration (planned, in-progress, or in-review). */
+/** Find the current iteration (any non-terminal status). */
 export function findCurrentIteration(deps: Pick<CliDeps, "disk" | "paths" | "clock">, projectPath: string, config?: IterationsConfig): IterationSummary | null {
 	const items = listIterations(deps, projectPath, config);
 	return items.find((it) => ACTIVE_STATUSES.has(it.status)) ?? null;
 }
 
+// ── Create ──────────────────────────────────────────────────────────
+
 /** Create an iteration plan file. Returns the plan file path or null if exists. */
 export function createIteration(deps: IterationStoreDeps, projectPath: string, def: IterationDefinition, config?: IterationsConfig): string | null {
 	const dir = iterationsDir(deps, projectPath, config);
 	deps.disk.mkdirSync(dir, { recursive: true });
-
-	const prefix = iterationPrefix(def.number);
-	const planPath = deps.paths.join(dir, `${prefix}-plan.md`);
-
-	if (deps.disk.existsSync(planPath)) return null;
-
-	buildPlanDocument(def).save(planPath, deps.disk);
-
-	return planPath;
+	const path = planPath(deps, dir, def.number);
+	if (deps.disk.existsSync(path)) return null;
+	buildPlanDocument(def).save(path, deps.disk);
+	return path;
 }
 
-function buildPlanDocument(def: IterationDefinition): Document {
-	const doc = Document.create(def.name)
-		.mergeFrontmatter({
-			type: "IterationPlan",
-			name: def.name,
-			number: def.number,
-			status: "planned",
-			startDate: def.startDate,
-			endDate: def.endDate,
-			goal: def.goal,
-		});
+// ── Lifecycle transitions ───────────────────────────────────────────
 
-	if (def.capacity) doc.setFrontmatter("capacity", def.capacity);
-	addArrayFrontmatter(doc, def);
-
-	doc.addBlank().heading(1, `#${def.number} — ${def.name}`).addBlank();
-	if (def.description) doc.text(def.description).addBlank();
-	doc.heading(2, "Goal").addBlank().text(def.goal).addBlank();
-	addPlanBodySections(doc, def);
-	return doc;
-}
-
-function addArrayFrontmatter(doc: Document, def: IterationDefinition): void {
-	if (def.resources && def.resources.length > 0) {
-		doc.setFrontmatter("resources", def.resources.map((r) => formatResource(r)));
-	}
-	if (def.capacities && def.capacities.length > 0) {
-		doc.setFrontmatter("capacities", def.capacities.map((c) => formatCapacity(c)));
-	}
-	if (def.agents && def.agents.length > 0) {
-		doc.setFrontmatter("agents", def.agents.map((a) => formatAgent(a)));
-	}
-}
-
-function addPlanBodySections(doc: Document, def: IterationDefinition): void {
-	doc.heading(2, "Resources").addBlank();
-	if (def.resources && def.resources.length > 0) {
-		doc.table(["Name", "Role", "Allocation"], def.resources.map((r) => [r.name, r.role ?? "", r.allocation ?? ""]));
-	} else {
-		doc.text("<!-- Add team members and their allocation. -->").addBlank();
-	}
-
-	doc.addBlank().heading(2, "Capacities").addBlank();
-	if (def.capacities && def.capacities.length > 0) {
-		doc.table(["Label", "Value", "Unit"], def.capacities.map((c) => [c.label, c.value, c.unit ?? ""]));
-	} else {
-		doc.text("<!-- Define capacity constraints (story points, hours, etc). -->").addBlank();
-	}
-
-	doc.addBlank().heading(2, "Agents").addBlank();
-	if (def.agents && def.agents.length > 0) {
-		doc.list(def.agents.map((a) => Document.wikilink(a.file, a.name)));
-	} else {
-		doc.text("<!-- Attach agent files from the agents folder. -->").addBlank();
-	}
-
-	doc.addBlank().heading(2, "Scope Items").addBlank()
-		.text("<!-- List requirements and work items for this iteration. -->").addBlank();
-
-	doc.heading(2, "Notes").addBlank()
-		.text("<!-- Track progress and decisions during the iteration. -->");
-}
-
-function buildReportDocument(summary: IterationSummary, closedDate: string): Document {
-	const doc = Document.create(`${summary.name} — Report`)
-		.mergeFrontmatter({
-			type: "IterationReport",
-			name: summary.name,
-			number: summary.number,
-			status: "completed",
-			startDate: summary.startDate,
-			endDate: summary.endDate,
-			closedDate,
-		});
-
-	if (summary.capacity) doc.setFrontmatter("capacity", summary.capacity);
-
-	doc.addBlank()
-		.heading(1, `#${summary.number} — ${summary.name} — Report`)
-		.addBlank();
-
-	addReportSections(doc);
-
-	return doc;
-}
-
-function addReportSections(doc: Document): void {
-	doc.heading(2, "Outcomes").addBlank()
-		.text("<!-- Summarize what was delivered. -->").addBlank();
-
-	doc.heading(2, "Process Metrics").addBlank()
-		.text("| Metric | Planned | Actual |").text("| --- | --- | --- |")
-		.text("| Velocity | | |").text("| Throughput | | |")
-		.text("| Cycle Time | | |").text("| Lead Time | | |")
-		.text("| Scope Changes | | |").addBlank();
-
-	doc.heading(2, "Evidence-Based Management").addBlank();
-	doc.heading(3, "Current Value").addBlank()
-		.text("<!-- Revenue per employee, customer satisfaction, employee satisfaction. -->").addBlank();
-	doc.heading(3, "Unrealized Value").addBlank()
-		.text("<!-- Market share, customer/user satisfaction gap. -->").addBlank();
-	doc.heading(3, "Ability to Innovate").addBlank()
-		.text("<!-- Technical debt ratio, defect trends, innovation rate. -->").addBlank();
-	doc.heading(3, "Time-to-Market").addBlank()
-		.text("<!-- Release frequency, stabilization time, cycle time. -->").addBlank();
-
-	doc.heading(2, "Retrospective").addBlank()
-		.text("<!-- What went well, what to improve, action items. -->");
-}
-
-function formatAgent(a: AgentReference): string {
-	return `${a.name}|${a.file}`;
-}
-
-function formatResource(r: ResourceAllocation): string {
-	return [r.name, r.role ?? "", r.allocation ?? ""].join("|");
-}
-
-function formatCapacity(c: CapacityEntry): string {
-	return [c.label, c.value, c.unit ?? ""].join("|");
-}
-
-/** Start an iteration by setting plan status to in-progress. Returns true if successful. */
-export function startIteration(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, iterationNumber: number, config?: IterationsConfig): boolean {
+/** Transition an iteration to a new state via the lifecycle engine. */
+export function transitionIteration(
+	deps: IterationStoreDeps, projectPath: string, iterationNumber: number,
+	newState: IterationStatus, reason: string, template: LifecycleTemplate,
+	config?: IterationsConfig,
+): GatedTransitionResult {
 	const dir = iterationsDir(deps, projectPath, config);
-	const prefix = iterationPrefix(iterationNumber);
-	return updateField(deps, deps.paths.join(dir, `${prefix}-plan.md`), "status", "in-progress");
-}
+	const path = planPath(deps, dir, iterationNumber);
+	if (!deps.disk.existsSync(path)) return { success: false, error: "Plan file not found." };
 
-/** Advance an iteration to in-review. Returns true if successful. */
-export function advanceToReview(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, iterationNumber: number, config?: IterationsConfig): boolean {
-	const dir = iterationsDir(deps, projectPath, config);
-	const prefix = iterationPrefix(iterationNumber);
-	return updateField(deps, deps.paths.join(dir, `${prefix}-plan.md`), "status", "in-review");
-}
-
-/** Close an iteration: mark plan as completed, create the report file. Returns true if successful. */
-export function closeIteration(deps: Pick<CliDeps, "disk" | "paths" | "clock">, projectPath: string, iterationNumber: number, config?: IterationsConfig): boolean {
-	const dir = iterationsDir(deps, projectPath, config);
-	const prefix = iterationPrefix(iterationNumber);
-	const planPath = deps.paths.join(dir, `${prefix}-plan.md`);
-	const reportPath = deps.paths.join(dir, `${prefix}-report.md`);
-
-	if (!deps.disk.existsSync(planPath)) return false;
-
-	const planOk = updateField(deps, planPath, "status", "completed") && addClosedDate(deps, planPath);
-
-	const fm = readFrontmatter(deps, dir, `${prefix}-plan.md`);
-	const content = deps.disk.readFileSync(planPath, "utf-8");
+	const fm = readFrontmatter(deps, dir, `${iterationPrefix(iterationNumber)}-plan.md`);
+	const content = deps.disk.readFileSync(path, "utf-8");
 	const typedFm = parseFrontmatterContent(content) ?? {};
-	const summary = parseIterationSummary(fm, typedFm, `${prefix}-plan.md`);
-	buildReportDocument(summary, deps.clock.iso().slice(0, 10)).save(reportPath, deps.disk);
+	const summary = parseIterationSummary(fm, typedFm, `${iterationPrefix(iterationNumber)}-plan.md`, content);
 
-	return planOk;
+	const evaluator = makeGateEvaluator(summary);
+	const result = validateGatedTransition(template, summary.status, newState, evaluator);
+	if (!result.success) return result;
+
+	updateField(deps, path, "status", newState);
+	appendTransitionHistory(deps, path, summary.status, newState, reason);
+	return result;
 }
 
-function addClosedDate(deps: Pick<CliDeps, "disk" | "clock">, filePath: string): boolean {
-	if (!deps.disk.existsSync(filePath)) return false;
+function appendTransitionHistory(deps: Pick<CliDeps, "disk" | "clock">, filePath: string, from: string, to: string, reason: string): void {
+	let content = deps.disk.readFileSync(filePath, "utf-8");
+	const date = deps.clock.iso().slice(0, 10);
+	const row = `| ${date} | ${from} | ${to} | ${reason} |`;
+	if (/\|---\|---\|---\|---\|/.test(content)) {
+		content = content.replace(/(\|---\|---\|---\|---\|)/, `$1\n${row}`);
+	} else {
+		content += `\n## Transition History\n\n| Date | From | To | Reason |\n|---|---|---|---|\n${row}\n`;
+	}
+	deps.disk.writeFileSync(filePath, content, "utf-8");
+}
+
+/** Close an iteration: transition to done + create the report file. */
+export function closeIteration(deps: IterationStoreDeps, projectPath: string, iterationNumber: number, template: LifecycleTemplate, config?: IterationsConfig): GatedTransitionResult {
+	const result = transitionIteration(deps, projectPath, iterationNumber, "done", "Iteration closed", template, config);
+	if (!result.success) return result;
+
+	const dir = iterationsDir(deps, projectPath, config);
+	const path = planPath(deps, dir, iterationNumber);
+	addClosedDate(deps, path);
+
+	const fm = readFrontmatter(deps, dir, `${iterationPrefix(iterationNumber)}-plan.md`);
+	const content = deps.disk.readFileSync(path, "utf-8");
+	const typedFm = parseFrontmatterContent(content) ?? {};
+	const summary = parseIterationSummary(fm, typedFm, `${iterationPrefix(iterationNumber)}-plan.md`, content);
+	const reportPath = deps.paths.join(dir, `${iterationPrefix(iterationNumber)}-report.md`);
+	buildReportDocument(summary, deps.clock.iso().slice(0, 10)).save(reportPath, deps.disk);
+	return result;
+}
+
+function addClosedDate(deps: Pick<CliDeps, "disk" | "clock">, filePath: string): void {
 	let content = deps.disk.readFileSync(filePath, "utf-8");
 	const date = deps.clock.iso().slice(0, 10);
 	if (/^closedDate:/m.test(content)) {
@@ -301,72 +226,89 @@ function addClosedDate(deps: Pick<CliDeps, "disk" | "clock">, filePath: string):
 		content = content.replace(/^---\r?\n/, `---\nclosedDate: ${date}\n`);
 	}
 	deps.disk.writeFileSync(filePath, content, "utf-8");
-	return true;
+}
+
+// ── Metadata updates ────────────────────────────────────────────────
+
+/** Update the name of an iteration plan. */
+export function updateName(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, iterationNumber: number, name: string, config?: IterationsConfig): boolean {
+	return updateField(deps, planPath(deps, iterationsDir(deps, projectPath, config), iterationNumber), "name", name);
+}
+
+/** Update the goal of an iteration plan. */
+export function updateGoal(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, iterationNumber: number, goal: string, config?: IterationsConfig): boolean {
+	return updateField(deps, planPath(deps, iterationsDir(deps, projectPath, config), iterationNumber), "goal", goal);
+}
+
+/** Update the start date of an iteration plan. */
+export function updateStartDate(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, iterationNumber: number, startDate: string, config?: IterationsConfig): boolean {
+	return updateField(deps, planPath(deps, iterationsDir(deps, projectPath, config), iterationNumber), "startDate", startDate);
+}
+
+/** Update the end date of an iteration plan. */
+export function updateEndDate(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, iterationNumber: number, endDate: string, config?: IterationsConfig): boolean {
+	return updateField(deps, planPath(deps, iterationsDir(deps, projectPath, config), iterationNumber), "endDate", endDate);
+}
+
+/** Update the description of an iteration plan. */
+export function updateDescription(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, iterationNumber: number, description: string, config?: IterationsConfig): boolean {
+	return updateField(deps, planPath(deps, iterationsDir(deps, projectPath, config), iterationNumber), "description", description);
 }
 
 /** Attach an agent reference to an iteration plan. */
 export function attachAgent(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, iterationNumber: number, agent: AgentReference, config?: IterationsConfig): boolean {
-	const dir = iterationsDir(deps, projectPath, config);
-	const planPath = deps.paths.join(dir, `${iterationPrefix(iterationNumber)}-plan.md`);
-	return appendArrayField(deps, planPath, "agents", formatAgent(agent));
+	return appendArrayField(deps, planPath(deps, iterationsDir(deps, projectPath, config), iterationNumber), "agents", formatAgent(agent));
 }
 
 /** List agents attached to an iteration plan. */
 export function listAgents(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, iterationNumber: number, config?: IterationsConfig): AgentReference[] {
-	const dir = iterationsDir(deps, projectPath, config);
-	const planPath = deps.paths.join(dir, `${iterationPrefix(iterationNumber)}-plan.md`);
-	if (!deps.disk.existsSync(planPath)) return [];
-	const content = deps.disk.readFileSync(planPath, "utf-8");
-	const fm = parseFrontmatterContent(content) ?? {};
-	return parseAgents(fm);
+	const path = planPath(deps, iterationsDir(deps, projectPath, config), iterationNumber);
+	if (!deps.disk.existsSync(path)) return [];
+	const content = deps.disk.readFileSync(path, "utf-8");
+	return parseAgents(parseFrontmatterContent(content) ?? {});
 }
 
 /** Add a resource allocation to an iteration plan. */
 export function addResource(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, iterationNumber: number, resource: ResourceAllocation, config?: IterationsConfig): boolean {
-	const dir = iterationsDir(deps, projectPath, config);
-	const planPath = deps.paths.join(dir, `${iterationPrefix(iterationNumber)}-plan.md`);
-	return appendArrayField(deps, planPath, "resources", formatResource(resource));
+	return appendArrayField(deps, planPath(deps, iterationsDir(deps, projectPath, config), iterationNumber), "resources", formatResource(resource));
 }
 
 /** Add a capacity entry to an iteration plan. */
 export function addCapacity(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, iterationNumber: number, capacity: CapacityEntry, config?: IterationsConfig): boolean {
-	const dir = iterationsDir(deps, projectPath, config);
-	const planPath = deps.paths.join(dir, `${iterationPrefix(iterationNumber)}-plan.md`);
-	return appendArrayField(deps, planPath, "capacities", formatCapacity(capacity));
+	return appendArrayField(deps, planPath(deps, iterationsDir(deps, projectPath, config), iterationNumber), "capacities", formatCapacity(capacity));
 }
 
-/** Append a bullet item under a markdown section heading. */
-function appendToSection(deps: Pick<CliDeps, "disk">, filePath: string, sectionTitle: string, line: string): boolean {
-	if (!deps.disk.existsSync(filePath)) return false;
-	let content = deps.disk.readFileSync(filePath, "utf-8");
-	const sectionRegex = new RegExp(`(^## ${sectionTitle}\\s*\\n)`, "m");
-	if (!sectionRegex.test(content)) return false;
-	const commentRegex = new RegExp(`(^## ${sectionTitle}\\s*\\n(?:\\s*\\n)*)<!-- .* -->`, "m");
-	if (commentRegex.test(content)) {
-		content = content.replace(commentRegex, `$1- ${line}`);
-	} else {
-		content = content.replace(sectionRegex, `$1\n- ${line}\n`);
-	}
-	deps.disk.writeFileSync(filePath, content, "utf-8");
-	return true;
-}
+// ── Scope items ─────────────────────────────────────────────────────
 
-/** Add a scope item to an iteration plan. */
+/** Add a scope item as a checklist entry. */
 export function addScopeItem(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, iterationNumber: number, item: string, config?: IterationsConfig): boolean {
-	const dir = iterationsDir(deps, projectPath, config);
-	const planPath = deps.paths.join(dir, `${iterationPrefix(iterationNumber)}-plan.md`);
-	return appendToSection(deps, planPath, "Scope Items", item);
+	return appendToSection(deps, planPath(deps, iterationsDir(deps, projectPath, config), iterationNumber), "Scope Items", `[ ] ${item}`);
+}
+
+/** Edit a scope item by index (0-based). */
+export function editScopeItem(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, iterationNumber: number, index: number, newText: string, config?: IterationsConfig): boolean {
+	return replaceSectionLine(deps, planPath(deps, iterationsDir(deps, projectPath, config), iterationNumber), "Scope Items", index, (done) => `- [${done ? "x" : " "}] ${newText}`);
+}
+
+/** Remove a scope item by index (0-based). */
+export function removeScopeItem(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, iterationNumber: number, index: number, config?: IterationsConfig): boolean {
+	return replaceSectionLine(deps, planPath(deps, iterationsDir(deps, projectPath, config), iterationNumber), "Scope Items", index, () => null);
+}
+
+/** Toggle the done state of a scope item by index (0-based). */
+export function toggleScopeItem(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, iterationNumber: number, index: number, config?: IterationsConfig): boolean {
+	return replaceSectionLine(deps, planPath(deps, iterationsDir(deps, projectPath, config), iterationNumber), "Scope Items", index, (done, text) => `- [${done ? " " : "x"}] ${text}`);
 }
 
 /** Add a note to an iteration plan. */
 export function addNote(deps: Pick<CliDeps, "disk" | "paths" | "clock">, projectPath: string, iterationNumber: number, note: string, config?: IterationsConfig): boolean {
 	const dir = iterationsDir(deps, projectPath, config);
-	const planPath = deps.paths.join(dir, `${iterationPrefix(iterationNumber)}-plan.md`);
 	const date = deps.clock.iso().slice(0, 10);
-	return appendToSection(deps, planPath, "Notes", `**${date}** — ${note}`);
+	return appendToSection(deps, planPath(deps, dir, iterationNumber), "Notes", `**${date}** — ${note}`);
 }
 
-/** Append a value to a YAML array field in frontmatter. Creates the array if absent. */
+// ── Internal helpers ────────────────────────────────────────────────
+
 function appendArrayField(deps: Pick<CliDeps, "disk">, filePath: string, field: string, value: string): boolean {
 	if (!deps.disk.existsSync(filePath)) return false;
 	let content = deps.disk.readFileSync(filePath, "utf-8");

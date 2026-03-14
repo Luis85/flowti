@@ -18,6 +18,9 @@ vi.mock("../../../src/infrastructure/paths.js", () => ({
 		relative: (from: string, to: string) => to.replace(from + "/", ""),
 	},
 }));
+vi.mock("../../../src/infrastructure/clock.js", () => ({
+	clock: { iso: () => "2026-01-01T00:00:00.000Z", ms: () => 0, now: () => new Date("2026-01-01"), safeIso: () => "2026-01-01T00-00-00" },
+}));
 vi.mock("../../../src/domain/make/naming.js", () => ({
 	toKebab: vi.fn((s: string) => s.toLowerCase().replace(/\s+/g, "-")),
 	toPascal: vi.fn((s: string) => s.replace(/(?:^|\s)\w/g, (m: string) => m.trim().toUpperCase()).replace(/\s/g, "")),
@@ -51,11 +54,16 @@ import { log } from "../../../src/infrastructure/logger.js";
 import { runMenu } from "../../../src/infrastructure/menu.js";
 import { input } from "../../../src/infrastructure/input.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
+import { clock } from "../../../src/infrastructure/clock.js";
 import { createFileWriter } from "../../../src/domain/make/templates/file-writer.js";
 import { buildComponentPlan, resolveNextSteps } from "../../../src/domain/make/component/component-plan.js";
 import { loadComponentDefinitions } from "../../../src/domain/make/component/component-registry.js";
 import { componentMenu } from "../../../src/ui/menus/component-makers-menu.js";
 import type { ComponentDefinition } from "../../../src/domain/make/component/component-types.js";
+import type { MenuDeps } from "../../../src/infrastructure/deps.js";
+
+const testDeps: MenuDeps = { disk, paths, clock, input, log };
 
 const mockLog = vi.mocked(log);
 const mockRunMenu = vi.mocked(runMenu);
@@ -90,7 +98,7 @@ describe("componentMenu", () => {
 		mockLoadDefs.mockReturnValue([MINIMAL_DEF]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentMenu("/project");
+		await componentMenu("/project", testDeps);
 
 		const [title, items] = mockRunMenu.mock.calls[0];
 		expect(title).toBe("Add Component");
@@ -103,7 +111,7 @@ describe("componentMenu", () => {
 		mockLoadDefs.mockReturnValue([]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentMenu("/project");
+		await componentMenu("/project", testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		const back = items.find((i: any) => i.key === "b");
@@ -114,7 +122,7 @@ describe("componentMenu", () => {
 		mockLoadDefs.mockReturnValue([]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await componentMenu("/project");
+		await componentMenu("/project", testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		const quit = items.find((i: any) => i.key === "q");
@@ -137,7 +145,7 @@ describe("componentMenu", () => {
 		vi.mocked(createFileWriter).mockReturnValue({ write: mockWrite, created: 1 } as any);
 		mockResolveNext.mockReturnValue([]);
 
-		await componentMenu("/project");
+		await componentMenu("/project", testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		await (items[0] as any).action();
@@ -152,7 +160,7 @@ describe("componentMenu", () => {
 		mockRunMenu.mockResolvedValue(undefined);
 		mockInput.ask.mockResolvedValueOnce("");
 
-		await componentMenu("/project");
+		await componentMenu("/project", testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		await (items[0] as any).action();
@@ -170,7 +178,7 @@ describe("componentMenu", () => {
 			.mockResolvedValueOnce("n");       // decline
 		mockDisk.existsSync.mockReturnValue(false);
 
-		await componentMenu("/project");
+		await componentMenu("/project", testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		await (items[0] as any).action();
@@ -187,7 +195,7 @@ describe("componentMenu", () => {
 			.mockResolvedValueOnce("");        // custom props (exit)
 		mockDisk.existsSync.mockReturnValue(true);
 
-		await componentMenu("/project");
+		await componentMenu("/project", testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		await (items[0] as any).action();
@@ -213,7 +221,7 @@ describe("componentMenu", () => {
 		mockDisk.existsSync.mockReturnValue(false);
 		vi.mocked(createFileWriter).mockReturnValue({ write: vi.fn(), created: 1 } as any);
 
-		await componentMenu("/project");
+		await componentMenu("/project", testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		await (items[0] as any).action();
@@ -233,7 +241,7 @@ describe("componentMenu", () => {
 			.mockResolvedValueOnce("")         // domain
 			.mockResolvedValueOnce("");        // empty required
 
-		await componentMenu("/project");
+		await componentMenu("/project", testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		await (items[0] as any).action();
@@ -261,7 +269,7 @@ describe("componentMenu", () => {
 		mockDisk.existsSync.mockReturnValue(false);
 		vi.mocked(createFileWriter).mockReturnValue({ write: vi.fn(), created: 1 } as any);
 
-		await componentMenu("/project");
+		await componentMenu("/project", testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		await (items[0] as any).action();
@@ -281,7 +289,7 @@ describe("componentMenu", () => {
 		vi.mocked(createFileWriter).mockReturnValue({ write: vi.fn(), created: 1 } as any);
 		mockResolveNext.mockReturnValue(["Run npm test", "Open docs"]);
 
-		await componentMenu("/project");
+		await componentMenu("/project", testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		await (items[0] as any).action();
@@ -302,7 +310,7 @@ describe("componentMenu", () => {
 		mockDisk.existsSync.mockReturnValue(false);
 		vi.mocked(createFileWriter).mockReturnValue({ write: vi.fn(), created: 1 } as any);
 
-		await componentMenu("/project");
+		await componentMenu("/project", testDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		await (items[0] as any).action();

@@ -80,7 +80,7 @@ describe("isSitemapDirty", () => {
 
 	it("returns false when hash matches", () => {
 		const deps = createMemoryDeps();
-		const content = '{"version": 1}';
+		const content = '{"version": 2}';
 		deps.files.set("/root/configs/sitemap.json", content);
 		deps.files.set("/root/configs/.sitemap-hash", computeHash(content));
 		expect(isSitemapDirty("/root", deps)).toBe(false);
@@ -88,14 +88,14 @@ describe("isSitemapDirty", () => {
 
 	it("returns true when hash differs", () => {
 		const deps = createMemoryDeps();
-		deps.files.set("/root/configs/sitemap.json", '{"version": 1}');
+		deps.files.set("/root/configs/sitemap.json", '{"version": 2}');
 		deps.files.set("/root/configs/.sitemap-hash", "stale-hash");
 		expect(isSitemapDirty("/root", deps)).toBe(true);
 	});
 });
 
 describe("createProjectSitemap", () => {
-	it("creates a valid sitemap with at least one view", () => {
+	it("creates a valid v2 sitemap with pages", () => {
 		const deps = createMemoryDeps();
 		const result = createProjectSitemap("/root", "My App", deps);
 
@@ -104,25 +104,40 @@ describe("createProjectSitemap", () => {
 		expect(result.path).toBe("/root/configs/sitemap.json");
 
 		const json = JSON.parse(deps.files.get("/root/configs/sitemap.json")!);
-		expect(json.version).toBe(1);
-		expect(Object.keys(json.views).length).toBeGreaterThanOrEqual(1);
+		expect(json.version).toBe(2);
+		expect(Object.keys(json.pages).length).toBeGreaterThanOrEqual(1);
 	});
 
-	it("includes route and parent properties in barebones views", () => {
+	it("generates PageObjects with kind, label, description, and actions", () => {
 		const deps = createMemoryDeps();
 		createProjectSitemap("/root", "My App", deps);
 
 		const json = JSON.parse(deps.files.get("/root/configs/sitemap.json")!);
-		const viewIds = Object.keys(json.views);
-		const views = Object.values(json.views) as Record<string, unknown>[];
+		const pages = Object.values(json.pages) as Record<string, unknown>[];
 
-		// At least one view should have a route
-		const withRoute = views.filter((v) => v.route !== undefined);
+		for (const page of pages) {
+			expect(page.kind).toBe("page");
+			expect(typeof page.label).toBe("string");
+			expect(typeof page.description).toBe("string");
+			expect(Array.isArray(page.actions)).toBe(true);
+		}
+	});
+
+	it("includes route and parent properties in barebones pages", () => {
+		const deps = createMemoryDeps();
+		createProjectSitemap("/root", "My App", deps);
+
+		const json = JSON.parse(deps.files.get("/root/configs/sitemap.json")!);
+		const pageIds = Object.keys(json.pages);
+		const pages = Object.values(json.pages) as Record<string, unknown>[];
+
+		// At least one page should have a route
+		const withRoute = pages.filter((p) => p.route !== undefined);
 		expect(withRoute.length).toBeGreaterThanOrEqual(1);
 
-		// Non-root views should declare a parent
-		const withParent = views.filter((v) => v.parent !== undefined);
-		if (viewIds.length > 1) {
+		// Non-root pages should declare a parent
+		const withParent = pages.filter((p) => p.parent !== undefined);
+		if (pageIds.length > 1) {
 			expect(withParent.length).toBeGreaterThanOrEqual(1);
 		}
 	});
@@ -166,12 +181,27 @@ describe("importSitemap", () => {
 		expect(result.errors[0]).toContain("Invalid JSON");
 	});
 
-	it("imports all views as component instances", () => {
+	it("imports all pages as component instances", () => {
 		const sitemap = {
-			version: 1,
-			views: {
-				home: { title: "Home", icon: "home", domain: "nav", status: "draft", items: [] },
-				detail: { type: "dynamic", title: "Detail", handler: "detail", capabilities: ["View"] },
+			version: 2,
+			pages: {
+				home: {
+					kind: "page",
+					label: "Home",
+					description: "Home page.",
+					icon: "home",
+					domain: "nav",
+					status: "draft",
+					actions: [],
+				},
+				detail: {
+					kind: "page",
+					label: "Detail",
+					description: "Detail page.",
+					actions: [
+						{ name: "onView", label: "View", type: "handler", target: "detail:view", key: "1" },
+					],
+				},
 			},
 		};
 		deps.files.set("/root/configs/sitemap.json", JSON.stringify(sitemap));
@@ -191,8 +221,10 @@ describe("importSitemap", () => {
 
 	it("skips existing components without overwrite", () => {
 		const sitemap = {
-			version: 1,
-			views: { home: { title: "Home", items: [] } },
+			version: 2,
+			pages: {
+				home: { kind: "page", label: "Home", description: "", actions: [] },
+			},
 		};
 		deps.files.set("/root/configs/sitemap.json", JSON.stringify(sitemap));
 		deps.files.set("/root/components/home/home.json", '{"existing": true}');
@@ -205,7 +237,10 @@ describe("importSitemap", () => {
 	});
 
 	it("stores hash after import", () => {
-		const content = JSON.stringify({ version: 1, views: { a: { title: "A", items: [] } } });
+		const content = JSON.stringify({
+			version: 2,
+			pages: { a: { kind: "page", label: "A", description: "", actions: [] } },
+		});
 		deps.files.set("/root/configs/sitemap.json", content);
 
 		importSitemap("/root", deps);
@@ -219,8 +254,16 @@ describe("regenerateFromSitemap", () => {
 	it("overwrites existing component instances", () => {
 		const deps = createMemoryDeps();
 		const sitemap = {
-			version: 1,
-			views: { home: { title: "Updated Home", icon: "star", items: [] } },
+			version: 2,
+			pages: {
+				home: {
+					kind: "page",
+					label: "Updated Home",
+					description: "Updated.",
+					icon: "star",
+					actions: [],
+				},
+			},
 		};
 		deps.files.set("/root/configs/sitemap.json", JSON.stringify(sitemap));
 		deps.files.set("/root/components/home/home.json", '{"name": "Old"}');

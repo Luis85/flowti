@@ -45,6 +45,9 @@ vi.mock("../../../src/domain/project/tool-availability.js", () => ({
 }));
 
 import { log } from "../../../src/infrastructure/logger.js";
+import { disk } from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
+import { shell } from "../../../src/infrastructure/shell.js";
 import { displayInfo, showInfo } from "../../../src/ui/displays/info-display.js";
 import { getSelectedProject } from "../../../src/infrastructure/state.js";
 
@@ -57,7 +60,7 @@ beforeEach(() => {
 
 describe("displayInfo", () => {
 	it("renders project name and path", () => {
-		displayInfo({
+		displayInfo(log, {
 			name: "my-app",
 			path: "/projects/my-app",
 			tools: [],
@@ -68,7 +71,7 @@ describe("displayInfo", () => {
 	});
 
 	it("renders version when present", () => {
-		displayInfo({
+		displayInfo(log, {
 			name: "app",
 			path: "/p",
 			version: "1.2.3",
@@ -78,7 +81,7 @@ describe("displayInfo", () => {
 	});
 
 	it("renders source info when present", () => {
-		displayInfo({
+		displayInfo(log, {
 			name: "app",
 			path: "/p",
 			source: { sourceFiles: 50, testFiles: 30, ext: ".ts" },
@@ -91,7 +94,7 @@ describe("displayInfo", () => {
 	});
 
 	it("renders dependencies when present", () => {
-		displayInfo({
+		displayInfo(log, {
 			name: "app",
 			path: "/p",
 			dependencies: { production: 5, development: 10, scripts: 3 },
@@ -104,7 +107,7 @@ describe("displayInfo", () => {
 	});
 
 	it("renders tools with available and unavailable", () => {
-		displayInfo({
+		displayInfo(log, {
 			name: "app",
 			path: "/p",
 			tools: [
@@ -120,7 +123,7 @@ describe("displayInfo", () => {
 	});
 
 	it("renders git info when present", () => {
-		displayInfo({
+		displayInfo(log, {
 			name: "app",
 			path: "/p",
 			tools: [],
@@ -133,7 +136,7 @@ describe("displayInfo", () => {
 	});
 
 	it("renders dirty git status", () => {
-		displayInfo({
+		displayInfo(log, {
 			name: "app",
 			path: "/p",
 			tools: [],
@@ -146,7 +149,7 @@ describe("displayInfo", () => {
 describe("showInfo", () => {
 	it("shows no-project message when none selected", () => {
 		vi.mocked(getSelectedProject).mockReturnValue(null);
-		showInfo();
+		showInfo({ disk, paths, shell, log } as never);
 		expect(output()).toContain("No project selected");
 	});
 });

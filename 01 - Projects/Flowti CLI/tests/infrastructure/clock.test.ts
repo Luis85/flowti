@@ -1,5 +1,68 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { clock } from "../../src/infrastructure/clock.js";
 import { createMockClock } from "../mocks/mock-clock.js";
+
+/* ── SystemClock (real singleton, tested with fake timers) ── */
+
+describe("clock (SystemClock singleton)", () => {
+	const FIXED = new Date("2026-03-14T10:30:45.123Z");
+
+	beforeEach(() => {
+		vi.useFakeTimers();
+		vi.setSystemTime(FIXED);
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	describe("now()", () => {
+		it("returns a Date instance", () => {
+			expect(clock.now()).toBeInstanceOf(Date);
+		});
+
+		it("returns the current system time", () => {
+			expect(clock.now().getTime()).toBe(FIXED.getTime());
+		});
+	});
+
+	describe("ms()", () => {
+		it("returns a number", () => {
+			expect(typeof clock.ms()).toBe("number");
+		});
+
+		it("returns milliseconds matching the fixed time", () => {
+			expect(clock.ms()).toBe(FIXED.getTime());
+		});
+	});
+
+	describe("iso()", () => {
+		it("returns an ISO 8601 string", () => {
+			expect(clock.iso()).toBe("2026-03-14T10:30:45.123Z");
+		});
+
+		it("is a valid date string that round-trips", () => {
+			const result = clock.iso();
+			expect(new Date(result).toISOString()).toBe(result);
+		});
+	});
+
+	describe("safeIso()", () => {
+		it("returns a string with no colons", () => {
+			expect(clock.safeIso()).not.toContain(":");
+		});
+
+		it("replaces colons with dashes", () => {
+			expect(clock.safeIso()).toBe("2026-03-14T10-30-45.123Z");
+		});
+
+		it("is derived from the same timestamp as iso()", () => {
+			expect(clock.safeIso()).toBe(clock.iso().replace(/:/g, "-"));
+		});
+	});
+});
+
+/* ── createMockClock (test helper) ── */
 
 const DEFAULT_ISO = "2025-06-15T10:30:00.000Z";
 const DEFAULT_MS = new Date(DEFAULT_ISO).getTime();

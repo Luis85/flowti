@@ -31,7 +31,7 @@ describe("renderFreshnessCheck", () => {
 			needsRebuild: false, reason: "Build is up to date.",
 			added: [], removed: [], modified: [], currentHash: "abc", manifestHash: "abc",
 		};
-		renderFreshnessCheck(check);
+		renderFreshnessCheck(check, log);
 		expect(output()).toContain("Build is up to date.");
 		expect(output()).toContain("✓");
 	});
@@ -41,7 +41,7 @@ describe("renderFreshnessCheck", () => {
 			needsRebuild: true, reason: "No build manifest found.",
 			added: [], removed: [], modified: [], currentHash: "abc", manifestHash: null,
 		};
-		renderFreshnessCheck(check);
+		renderFreshnessCheck(check, log);
 		expect(output()).toContain("⚠");
 		expect(output()).toContain("No build manifest found.");
 	});
@@ -51,7 +51,7 @@ describe("renderFreshnessCheck", () => {
 			needsRebuild: true, reason: "Source changes detected: 1 added.",
 			added: ["foo.ts"], removed: [], modified: [], currentHash: "abc", manifestHash: "def",
 		};
-		renderFreshnessCheck(check);
+		renderFreshnessCheck(check, log);
 		expect(output()).toContain("Added:");
 		expect(output()).toContain("foo.ts");
 	});
@@ -61,7 +61,7 @@ describe("renderFreshnessCheck", () => {
 			needsRebuild: true, reason: "Changes.",
 			added: [], removed: [], modified: ["bar.ts"], currentHash: "a", manifestHash: "b",
 		};
-		renderFreshnessCheck(check);
+		renderFreshnessCheck(check, log);
 		expect(output()).toContain("Modified:");
 		expect(output()).toContain("bar.ts");
 	});
@@ -71,7 +71,7 @@ describe("renderFreshnessCheck", () => {
 			needsRebuild: true, reason: "Changes.",
 			added: [], removed: ["old.ts"], modified: [], currentHash: "a", manifestHash: "b",
 		};
-		renderFreshnessCheck(check);
+		renderFreshnessCheck(check, log);
 		expect(output()).toContain("Removed:");
 		expect(output()).toContain("old.ts");
 	});
@@ -81,7 +81,7 @@ describe("renderFreshnessCheck", () => {
 			needsRebuild: true, reason: "Changes.",
 			added: ["a.ts"], removed: ["b.ts"], modified: ["c.ts"], currentHash: "a", manifestHash: "b",
 		};
-		renderFreshnessCheck(check);
+		renderFreshnessCheck(check, log);
 		const out = output();
 		expect(out).toContain("Added:");
 		expect(out).toContain("Modified:");
@@ -93,7 +93,7 @@ describe("renderFreshnessCheck", () => {
 			needsRebuild: true, reason: "Changes.",
 			added: ["x.ts", "y.ts"], removed: [], modified: [], currentHash: "a", manifestHash: "b",
 		};
-		renderFreshnessCheck(check);
+		renderFreshnessCheck(check, log);
 		expect(output()).toContain("x.ts, y.ts");
 	});
 });
@@ -107,7 +107,7 @@ describe("renderBuildAuto", () => {
 			buildRan: false,
 			manifest: null,
 		};
-		renderBuildAuto(data);
+		renderBuildAuto(data, log);
 		expect(output()).toContain("Build is up to date — skipping.");
 	});
 
@@ -117,7 +117,7 @@ describe("renderBuildAuto", () => {
 			buildRan: false,
 			manifest: null,
 		};
-		renderBuildAuto(data);
+		renderBuildAuto(data, log);
 		expect(output()).toContain("Source changes detected.");
 	});
 
@@ -128,7 +128,7 @@ describe("renderBuildAuto", () => {
 			buildRan: true,
 			manifest,
 		};
-		renderBuildAuto(data);
+		renderBuildAuto(data, log);
 		expect(output()).toContain("42 files hashed");
 		expect(output()).toContain("Build manifest saved");
 	});
@@ -139,7 +139,7 @@ describe("renderBuildAuto", () => {
 			buildRan: false,
 			manifest: null,
 		};
-		renderBuildAuto(data);
+		renderBuildAuto(data, log);
 		expect(output()).not.toContain("Build manifest saved");
 	});
 
@@ -149,7 +149,7 @@ describe("renderBuildAuto", () => {
 			buildRan: true,
 			manifest: null,
 		};
-		renderBuildAuto(data);
+		renderBuildAuto(data, log);
 		expect(output()).not.toContain("Build manifest saved");
 	});
 });
@@ -159,7 +159,7 @@ describe("renderBuildAuto", () => {
 describe("renderBuildRecorded", () => {
 	it("renders file count and hash prefix", () => {
 		const data: BuildRecordedModel = { fileCount: 10, hashPrefix: "abc123" };
-		renderBuildRecorded(data);
+		renderBuildRecorded(data, log);
 		expect(output()).toContain("10 files");
 		expect(output()).toContain("abc123");
 		expect(output()).toContain("Build manifest recorded");
@@ -170,7 +170,7 @@ describe("renderBuildRecorded", () => {
 
 describe("renderWorkflowPreview", () => {
 	it("renders yaml lines with pipe prefix", () => {
-		renderWorkflowPreview("name: ci\nsteps:\n  - run: test");
+		renderWorkflowPreview("name: ci\nsteps:\n  - run: test", log);
 		const out = output();
 		expect(out).toContain("Generated CI workflow:");
 		expect(out).toContain("│");
@@ -179,7 +179,7 @@ describe("renderWorkflowPreview", () => {
 	});
 
 	it("handles single-line yaml", () => {
-		renderWorkflowPreview("on: push");
+		renderWorkflowPreview("on: push", log);
 		expect(output()).toContain("on: push");
 	});
 });
@@ -188,7 +188,7 @@ describe("renderWorkflowPreview", () => {
 
 describe("renderCiDryRun", () => {
 	it("renders preview and dry-run notice", () => {
-		renderCiDryRun("name: ci");
+		renderCiDryRun("name: ci", log);
 		const out = output();
 		expect(out).toContain("Generated CI workflow:");
 		expect(out).toContain("Dry run");
@@ -200,7 +200,7 @@ describe("renderCiDryRun", () => {
 
 describe("renderCiWritten", () => {
 	it("renders preview and output path", () => {
-		renderCiWritten("name: ci", ".github/workflows/ci.yml");
+		renderCiWritten("name: ci", ".github/workflows/ci.yml", log);
 		const out = output();
 		expect(out).toContain("Generated CI workflow:");
 		expect(out).toContain("Wrote");

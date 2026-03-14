@@ -16,42 +16,44 @@ import { renderError, renderSuccess } from "../ui/renderers/common-renderers.js"
 import { renderComponentAdding } from "../ui/renderers/make-renderers.js";
 import { showSuggestions } from "../infrastructure/suggestions.js";
 
+type Log = (msg?: string) => void;
+
 // ── Renderers ────────────────────────────────────────────────────────
 
-function renderMakeResult(data: MakeComponentOutcome): void {
+function renderMakeResult(log: Log, data: MakeComponentOutcome): void {
 	if (!data.success) {
-		renderError({ error: data.error, hint: data.hint });
+		renderError(log, { error: data.error, hint: data.hint });
 		return;
 	}
-	renderComponentAdding(data.definitionLabel, data.name);
-	renderSuccess({ message: `Created ${data.filesCreated} files.` });
+	renderComponentAdding(log, data.definitionLabel, data.name);
+	renderSuccess(log, { message: `Created ${data.filesCreated} files.` });
 	showSuggestions(data.suggestions);
 }
 
-function renderEditResult(data: EditComponentOutcome): void {
+function renderEditResult(log: Log, data: EditComponentOutcome): void {
 	if (!data.success) {
-		renderError({ error: data.error, hint: data.hint });
+		renderError(log, { error: data.error, hint: data.hint });
 		return;
 	}
-	renderSuccess({ message: `Updated ${data.kebab}: ${data.propList}` });
+	renderSuccess(log, { message: `Updated ${data.kebab}: ${data.propList}` });
 }
 
-function renderScaffoldResult(data: ScaffoldDefinitionOutcome): void {
+function renderScaffoldResult(log: Log, data: ScaffoldDefinitionOutcome): void {
 	if (!data.success) {
-		renderError({ error: data.error, hint: data.hint });
+		renderError(log, { error: data.error, hint: data.hint });
 		return;
 	}
-	renderSuccess({ message: `Created definition: ${data.outputPath}` });
+	renderSuccess(log, { message: `Created definition: ${data.outputPath}` });
 }
 
-function renderSuggestions(data: { suggestions: RelationshipSuggestion[] }): void {
+function renderSuggestions(log: Log, data: { suggestions: RelationshipSuggestion[] }): void {
 	if (data.suggestions.length === 0) {
-		renderSuccess({ message: "No new relationship suggestions found." });
+		renderSuccess(log, { message: "No new relationship suggestions found." });
 		return;
 	}
-	renderSuccess({ message: `Found ${data.suggestions.length} relationship suggestion(s):` });
+	renderSuccess(log, { message: `Found ${data.suggestions.length} relationship suggestion(s):` });
 	for (const s of data.suggestions) {
-		renderSuccess({ message: `  ${s.source} → ${s.target} (${s.type}, ${s.confidence}) — ${s.evidence}` });
+		renderSuccess(log, { message: `  ${s.source} → ${s.target} (${s.type}, ${s.confidence}) — ${s.evidence}` });
 	}
 }
 
@@ -59,49 +61,57 @@ function renderSuggestions(data: { suggestions: RelationshipSuggestion[] }): voi
 
 function makeComponentAction(definitionId: string): ControllerAction {
 	return (req) => {
+		const { log } = req.deps;
+		const render = (d: MakeComponentOutcome) => renderMakeResult(log, d);
 		if (!req.project) {
-			return { data: { success: false, error: "No project selected." } as MakeComponentOutcome, render: renderMakeResult, exitCode: 1 };
+			return { data: { success: false, error: "No project selected." } as MakeComponentOutcome, render, exitCode: 1 };
 		}
 		const name = typeof req.flags.name === "string" ? req.flags.name : undefined;
 		const result = makeComponent(definitionId, name, req.flags, req.project.path, req.deps);
 		if (!result.success) {
-			return { data: result, render: renderMakeResult, exitCode: 1 };
+			return { data: result, render, exitCode: 1 };
 		}
-		return dataResponse(result, renderMakeResult);
+		return dataResponse(result, render);
 	};
 }
 
 const editComponentAction: ControllerAction = (req) => {
+	const { log } = req.deps;
+	const render = (d: EditComponentOutcome) => renderEditResult(log, d);
 	if (!req.project) {
-		return { data: { success: false, error: "No project selected." } as EditComponentOutcome, render: renderEditResult, exitCode: 1 };
+		return { data: { success: false, error: "No project selected." } as EditComponentOutcome, render, exitCode: 1 };
 	}
 	const name = typeof req.flags.name === "string" ? req.flags.name : undefined;
 	const result = editComponent(name, req.flags, req.project.path, req.deps);
 	if (!result.success) {
-		return { data: result, render: renderEditResult, exitCode: 1 };
+		return { data: result, render, exitCode: 1 };
 	}
-	return dataResponse(result, renderEditResult);
+	return dataResponse(result, render);
 };
 
 const makeDefinitionAction: ControllerAction = (req) => {
+	const { log } = req.deps;
+	const render = (d: ScaffoldDefinitionOutcome) => renderScaffoldResult(log, d);
 	if (!req.project) {
-		return { data: { success: false, error: "No project selected." } as ScaffoldDefinitionOutcome, render: renderScaffoldResult, exitCode: 1 };
+		return { data: { success: false, error: "No project selected." } as ScaffoldDefinitionOutcome, render, exitCode: 1 };
 	}
 	const name = typeof req.flags.name === "string" ? req.flags.name : undefined;
 	const result = scaffoldDefinition(name, req.flags, req.project.path, req.deps);
 	if (!result.success) {
-		return { data: result, render: renderScaffoldResult, exitCode: 1 };
+		return { data: result, render, exitCode: 1 };
 	}
-	return dataResponse(result, renderScaffoldResult);
+	return dataResponse(result, render);
 };
 
 const suggestRelationshipsAction: ControllerAction = (req) => {
+	const { log } = req.deps;
+	const render = (d: { suggestions: RelationshipSuggestion[] }) => renderSuggestions(log, d);
 	if (!req.project) {
-		return { data: { suggestions: [] as RelationshipSuggestion[] }, render: renderSuggestions, exitCode: 1 };
+		return { data: { suggestions: [] as RelationshipSuggestion[] }, render, exitCode: 1 };
 	}
 	const components = listProjectComponents(req.project.path, req.deps);
 	const suggestions = suggestRelationships(components, req.project.path, req.deps);
-	return dataResponse({ suggestions }, renderSuggestions);
+	return dataResponse({ suggestions }, render);
 };
 
 // ── Exported commands ────────────────────────────────────────────────

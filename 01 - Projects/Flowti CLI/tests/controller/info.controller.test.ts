@@ -77,6 +77,7 @@ describe("info.controller", () => {
 
 		expect(displayInfo).toHaveBeenCalledOnce();
 		expect(displayInfo).toHaveBeenCalledWith(
+			expect.any(Function),
 			expect.objectContaining({ name: "test-project" }),
 		);
 	});

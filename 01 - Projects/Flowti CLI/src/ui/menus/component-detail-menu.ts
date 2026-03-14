@@ -5,14 +5,10 @@
  * edit fields, properties, and actions.
  */
 
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
-import { clock } from "../../infrastructure/clock.js";
-import { input } from "../../infrastructure/input.js";
 import { runMenu } from "../../infrastructure/menu.js";
-import { log } from "../../infrastructure/logger.js";
 import { RESET, BOLD, DIM, GREEN, YELLOW, CYAN } from "../../infrastructure/ui.js";
 import type { MenuEntry, MenuResult } from "../../infrastructure/types.js";
+import type { MenuDeps } from "../../infrastructure/deps.js";
 import type { ProjectComponent } from "../../domain/make/component/component-types.js";
 import {
 	readComponentInstance,
@@ -36,33 +32,31 @@ import { getFramework } from "../../domain/make/component/storybook-settings.js"
 import { addFromReferenceMenu } from "./action-reference-menu.js";
 import { getFrameworkPackages } from "../../domain/make/component/storybook-service.js";
 
-function editorDeps() { return { disk, paths } as const; }
-
 // ── Detail display helpers ──────────────────────────────────────────
 
-function renderOptionalField(label: string, value: string | undefined, width = 13): void {
+export function renderOptionalField(label: string, value: string | undefined, log: MenuDeps["log"], width = 13): void {
 	if (value) log(`    ${DIM}${label}:${RESET}${" ".repeat(width - label.length - 1)}${value}`);
 }
 
-function renderKeyValueSection(title: string, entries: Record<string, unknown> | undefined): void {
+export function renderKeyValueSection(title: string, entries: Record<string, unknown> | undefined, log: MenuDeps["log"]): void {
 	if (!entries || Object.keys(entries).length === 0) return;
-	log();
+	log("");
 	log(`    ${CYAN}${title}:${RESET}`);
 	for (const [key, val] of Object.entries(entries)) {
 		log(`      ${key}: ${DIM}${JSON.stringify(val)}${RESET}`);
 	}
 }
 
-function renderListSection(title: string, items: string[] | undefined): void {
+export function renderListSection(title: string, items: string[] | undefined, log: MenuDeps["log"]): void {
 	if (!items || items.length === 0) return;
-	log();
+	log("");
 	log(`    ${CYAN}${title}:${RESET}`);
 	for (const item of items) log(`      ${item}`);
 }
 
-function renderChildrenSection(children: ComponentInstance["children"]): void {
+export function renderChildrenSection(children: ComponentInstance["children"], log: MenuDeps["log"]): void {
 	if (!children || children.length === 0) return;
-	log();
+	log("");
 	log(`    ${CYAN}Children:${RESET}`);
 	for (const child of children) {
 		const slot = child.slot ? ` ${DIM}[${child.slot}]${RESET}` : "";
@@ -71,9 +65,9 @@ function renderChildrenSection(children: ComponentInstance["children"]): void {
 	}
 }
 
-function renderRelationshipsSection(rels: InstanceRelationship[] | undefined): void {
+export function renderRelationshipsSection(rels: InstanceRelationship[] | undefined, log: MenuDeps["log"]): void {
 	if (!rels || rels.length === 0) return;
-	log();
+	log("");
 	log(`    ${CYAN}Relationships:${RESET}`);
 	for (const rel of rels) {
 		const tech = rel.technology ? ` ${DIM}[${rel.technology}]${RESET}` : "";
@@ -81,9 +75,9 @@ function renderRelationshipsSection(rels: InstanceRelationship[] | undefined): v
 	}
 }
 
-function renderStoresSection(stores: ComponentInstance["stores"]): void {
+export function renderStoresSection(stores: ComponentInstance["stores"], log: MenuDeps["log"]): void {
 	if (!stores || stores.length === 0) return;
-	log();
+	log("");
 	log(`    ${CYAN}Stores:${RESET}`);
 	for (const store of stores) {
 		const tech = store.technology ? ` ${DIM}[${store.technology}]${RESET}` : "";
@@ -92,23 +86,23 @@ function renderStoresSection(stores: ComponentInstance["stores"]): void {
 	}
 }
 
-function renderComponentDetail(instance: ComponentInstance, component: ProjectComponent, allComponents: ProjectComponent[]): void {
-	log();
+export function renderComponentDetail(instance: ComponentInstance, component: ProjectComponent, allComponents: ProjectComponent[], log: MenuDeps["log"]): void {
+	log("");
 	log(`  ${BOLD}${instance.name}${RESET}  ${DIM}(${instance.type})${RESET}`);
-	log();
+	log("");
 
 	log(`    ${DIM}ID:${RESET}          ${instance.id}`);
 	log(`    ${DIM}Status:${RESET}      ${instance.status}`);
-	renderOptionalField("Description", instance.description);
-	renderOptionalField("Owner", instance.owner);
-	renderOptionalField("Technology", instance.technology);
-	renderOptionalField("Domain", instance.domain);
-	renderOptionalField("Icon", instance.icon);
-	renderOptionalField("Contained by", instance.containedBy, 14);
-	renderOptionalField("Role", instance.role);
-	renderOptionalField("Priority", instance.priority);
-	renderOptionalField("Version", instance.version);
-	renderOptionalField("Arc42 Level", instance.arc42Level, 14);
+	renderOptionalField("Description", instance.description, log);
+	renderOptionalField("Owner", instance.owner, log);
+	renderOptionalField("Technology", instance.technology, log);
+	renderOptionalField("Domain", instance.domain, log);
+	renderOptionalField("Icon", instance.icon, log);
+	renderOptionalField("Contained by", instance.containedBy, log, 14);
+	renderOptionalField("Role", instance.role, log);
+	renderOptionalField("Priority", instance.priority, log);
+	renderOptionalField("Version", instance.version, log);
+	renderOptionalField("Arc42 Level", instance.arc42Level, log, 14);
 
 	if (component.containedBy) {
 		log(`    ${DIM}Path:${RESET}        ${buildAncestryPath(component, allComponents)}`);
@@ -118,21 +112,21 @@ function renderComponentDetail(instance: ComponentInstance, component: ProjectCo
 		log(`    ${DIM}Siblings:${RESET}    ${siblings.map((c) => c.name).join(", ")}`);
 	}
 
-	renderKeyValueSection("Properties", instance.properties);
-	renderListSection("Actions", instance.actions);
-	renderKeyValueSection("Variants", instance.variants);
-	renderKeyValueSection("States", instance.states);
-	renderChildrenSection(instance.children);
-	renderStoresSection(instance.stores);
-	renderListSection("Requirements", instance.requirements);
-	renderListSection("Features", instance.features);
-	renderRelationshipsSection(instance.relationships);
+	renderKeyValueSection("Properties", instance.properties, log);
+	renderListSection("Actions", instance.actions, log);
+	renderKeyValueSection("Variants", instance.variants, log);
+	renderKeyValueSection("States", instance.states, log);
+	renderChildrenSection(instance.children, log);
+	renderStoresSection(instance.stores, log);
+	renderListSection("Requirements", instance.requirements, log);
+	renderListSection("Features", instance.features, log);
+	renderRelationshipsSection(instance.relationships, log);
 
 	if (component.isDirty) {
-		log();
+		log("");
 		log(`    ${YELLOW}Definition modified — regeneration available${RESET}`);
 	}
-	log();
+	log("");
 }
 
 // ── Component detail menu ───────────────────────────────────────────
@@ -141,38 +135,38 @@ export async function componentDetailMenu(
 	projectRoot: string,
 	component: ProjectComponent,
 	allComponents: ProjectComponent[],
-	sitemapSlots?: Readonly<Record<string, readonly MenuEntry[]>>,
+	dataSourceEntries: Readonly<Record<string, readonly MenuEntry[]>> | undefined,
+	deps: MenuDeps,
 ): Promise<MenuResult> {
 	const domain = component.domain;
-	const instance = readComponentInstance(projectRoot, component.name, editorDeps(), domain);
+	const instance = readComponentInstance(projectRoot, component.name, deps, domain);
 	if (!instance) {
-		log(`\n  ${DIM}No definition JSON found for ${component.name}.${RESET}\n`);
-		await input.waitForEnter();
+		deps.log(`\n  ${DIM}No definition JSON found for ${component.name}.${RESET}\n`);
+		await deps.input.waitForEnter();
 		return undefined;
 	}
 
-	renderComponentDetail(instance, component, allComponents);
+	renderComponentDetail(instance, component, allComponents, deps.log);
 
 	const items: MenuEntry[] = [];
 
-	if (sitemapSlots) {
-		// Sitemap-driven: edit entries come from sitemapSlots
-		items.push(...(sitemapSlots["_between_component-info"] ?? []));
-		if (component.isDirty) items.push(buildRegenerateEntry(projectRoot, component, domain));
-		items.push(...(sitemapSlots["_after"] ?? []));
+	if (dataSourceEntries?.["_actions"]) {
+		// Sitemap-driven: actions come from sitemap page definition
+		items.push(...dataSourceEntries["_actions"]);
+		if (component.isDirty) items.push(buildRegenerateEntry(projectRoot, component, domain, deps));
 	} else {
 		// Fallback: build all entries internally (tests / standalone)
 		items.push(
-			{ key: "e", label: "Edit Fields", action: async () => { await editFieldsMenu(projectRoot, component.name, instance, domain); } },
-			{ key: "p", label: "Edit Properties", action: async () => { await editPropertiesMenu(projectRoot, component.name, instance, domain); } },
-			{ key: "a", label: "Edit Actions", action: async () => { await editActionsMenu(projectRoot, component.name, instance, domain); } },
-			{ key: "c", label: "Edit Children", action: async () => { await editChildrenMenu(projectRoot, component.name, instance, allComponents, domain); } },
-			{ key: "s", label: "Edit Stores", action: async () => { await editStoresMenu(projectRoot, component.name, instance, domain); } },
-			{ key: "q", label: "Edit Requirements", action: async () => { await editRequirementsMenu(projectRoot, component.name, instance, domain); } },
-			{ key: "f", label: "Edit Features", action: async () => { await editFeaturesMenu(projectRoot, component.name, instance, domain); } },
-			{ key: "l", label: "Edit Relationships", action: async () => { await editRelationshipsMenu(projectRoot, component.name, instance, domain); } },
+			{ key: "e", label: "Edit Fields", action: async () => { await editFieldsMenu(projectRoot, component.name, instance, domain, deps); } },
+			{ key: "p", label: "Edit Properties", action: async () => { await editPropertiesMenu(projectRoot, component.name, instance, domain, deps); } },
+			{ key: "a", label: "Edit Actions", action: async () => { await editActionsMenu(projectRoot, component.name, instance, domain, deps); } },
+			{ key: "c", label: "Edit Children", action: async () => { await editChildrenMenu(projectRoot, component.name, instance, allComponents, domain, deps); } },
+			{ key: "s", label: "Edit Stores", action: async () => { await editStoresMenu(projectRoot, component.name, instance, domain, deps); } },
+			{ key: "q", label: "Edit Requirements", action: async () => { await editRequirementsMenu(projectRoot, component.name, instance, domain, deps); } },
+			{ key: "f", label: "Edit Features", action: async () => { await editFeaturesMenu(projectRoot, component.name, instance, domain, deps); } },
+			{ key: "l", label: "Edit Relationships", action: async () => { await editRelationshipsMenu(projectRoot, component.name, instance, domain, deps); } },
 		);
-		if (component.isDirty) items.push(buildRegenerateEntry(projectRoot, component, domain));
+		if (component.isDirty) items.push(buildRegenerateEntry(projectRoot, component, domain, deps));
 		items.push(
 			{ separator: true },
 			{ key: "b", label: "Back", action: () => "main" as const },
@@ -182,20 +176,20 @@ export async function componentDetailMenu(
 	return runMenu(`${instance.name}`, items);
 }
 
-function buildRegenerateEntry(projectRoot: string, component: ProjectComponent, domain?: string): MenuEntry {
+function buildRegenerateEntry(projectRoot: string, component: ProjectComponent, domain: string | undefined, deps: MenuDeps): MenuEntry {
 	return {
 		key: "r",
 		label: "Regenerate Files",
 		action: async () => {
-			const confirmed = await input.askYesNo(`Regenerate ${component.name}?`);
-			if (!confirmed) { log(`\n  ${DIM}Cancelled.${RESET}\n`); return; }
-			const fw = getFrameworkPackages(getFramework(projectRoot, { disk, paths }));
-			const result = regenerateComponent(component.name, projectRoot, { disk, paths, clock }, domain, fw.framework);
+			const confirmed = await deps.input.askYesNo(`Regenerate ${component.name}?`);
+			if (!confirmed) { deps.log(`\n  ${DIM}Cancelled.${RESET}\n`); return; }
+			const fw = getFrameworkPackages(getFramework(projectRoot, deps));
+			const result = regenerateComponent(component.name, projectRoot, deps, domain, fw.framework);
 			if (result.success) {
 				component.isDirty = false;
-				log(`\n  ${GREEN}Regenerated ${result.filesWritten} file(s). Component is now fresh.${RESET}\n`);
+				deps.log(`\n  ${GREEN}Regenerated ${result.filesWritten} file(s). Component is now fresh.${RESET}\n`);
 			} else {
-				log(`\n  ${YELLOW}${result.error}${RESET}\n`);
+				deps.log(`\n  ${YELLOW}${result.error}${RESET}\n`);
 			}
 		},
 	};
@@ -203,7 +197,7 @@ function buildRegenerateEntry(projectRoot: string, component: ProjectComponent, 
 
 // ── Edit Fields submenu ─────────────────────────────────────────────
 
-export async function editFieldsMenu(projectRoot: string, componentName: string, instance: ComponentInstance, domain?: string): Promise<void> {
+export async function editFieldsMenu(projectRoot: string, componentName: string, instance: ComponentInstance, domain: string | undefined, deps: MenuDeps): Promise<void> {
 	const fields = getEditableFields();
 
 	const items: MenuEntry[] = fields.map((field, i) => {
@@ -212,11 +206,11 @@ export async function editFieldsMenu(projectRoot: string, componentName: string,
 			key: String(i + 1),
 			label: `${field}: ${current || DIM + "(empty)" + RESET}`,
 			action: async () => {
-				const newVal = await input.ask(`${field}`, current);
+				const newVal = await deps.input.ask(`${field}`, current);
 				setField(instance, field as EditableField, newVal);
-				writeComponentInstance(projectRoot, componentName, instance, editorDeps(), domain);
-				log(`  ${GREEN}Updated ${field}.${RESET}`);
-				await input.waitForEnter();
+				writeComponentInstance(projectRoot, componentName, instance, deps, domain);
+				deps.log(`  ${GREEN}Updated ${field}.${RESET}`);
+				await deps.input.waitForEnter();
 			},
 		};
 	});
@@ -231,7 +225,7 @@ export async function editFieldsMenu(projectRoot: string, componentName: string,
 
 // ── Edit Properties submenu ─────────────────────────────────────────
 
-export async function editPropertiesMenu(projectRoot: string, componentName: string, instance: ComponentInstance, domain?: string): Promise<void> {
+export async function editPropertiesMenu(projectRoot: string, componentName: string, instance: ComponentInstance, domain: string | undefined, deps: MenuDeps): Promise<void> {
 	const props = instance.properties ?? {};
 	const keys = Object.keys(props);
 
@@ -239,16 +233,16 @@ export async function editPropertiesMenu(projectRoot: string, componentName: str
 		key: String(i + 1),
 		label: `${key}: ${DIM}${JSON.stringify(props[key])}${RESET}`,
 		action: async () => {
-			const choice = await input.ask(`New value for ${key} (or 'delete' to remove)`, String(props[key] ?? ""));
+			const choice = await deps.input.ask(`New value for ${key} (or 'delete' to remove)`, String(props[key] ?? ""));
 			if (choice === "delete") {
 				removeProperty(instance, key);
-				log(`  ${YELLOW}Removed ${key}.${RESET}`);
+				deps.log(`  ${YELLOW}Removed ${key}.${RESET}`);
 			} else {
 				addProperty(instance, key, parseValue(choice));
-				log(`  ${GREEN}Updated ${key}.${RESET}`);
+				deps.log(`  ${GREEN}Updated ${key}.${RESET}`);
 			}
-			writeComponentInstance(projectRoot, componentName, instance, editorDeps(), domain);
-			await input.waitForEnter();
+			writeComponentInstance(projectRoot, componentName, instance, deps, domain);
+			await deps.input.waitForEnter();
 		},
 	}));
 
@@ -258,13 +252,13 @@ export async function editPropertiesMenu(projectRoot: string, componentName: str
 			key: "n",
 			label: "Add New Property",
 			action: async () => {
-				const key = await input.ask("Property name");
+				const key = await deps.input.ask("Property name");
 				if (!key) return;
-				const value = await input.ask("Default value", "");
+				const value = await deps.input.ask("Default value", "");
 				addProperty(instance, key, parseValue(value));
-				writeComponentInstance(projectRoot, componentName, instance, editorDeps(), domain);
-				log(`  ${GREEN}Added ${key}.${RESET}`);
-				await input.waitForEnter();
+				writeComponentInstance(projectRoot, componentName, instance, deps, domain);
+				deps.log(`  ${GREEN}Added ${key}.${RESET}`);
+				await deps.input.waitForEnter();
 			},
 		},
 		{ separator: true },
@@ -276,19 +270,19 @@ export async function editPropertiesMenu(projectRoot: string, componentName: str
 
 // ── Edit Actions submenu ────────────────────────────────────────────
 
-export async function editActionsMenu(projectRoot: string, componentName: string, instance: ComponentInstance, domain?: string): Promise<void> {
+export async function editActionsMenu(projectRoot: string, componentName: string, instance: ComponentInstance, domain: string | undefined, deps: MenuDeps): Promise<void> {
 	const actions = instance.actions ?? [];
 
 	const items: MenuEntry[] = actions.map((action, i) => ({
 		key: String(i + 1),
 		label: action,
 		action: async () => {
-			const remove = await input.askYesNo(`Remove action "${action}"?`);
+			const remove = await deps.input.askYesNo(`Remove action "${action}"?`);
 			if (remove) {
 				removeAction(instance, action);
-				writeComponentInstance(projectRoot, componentName, instance, editorDeps(), domain);
-				log(`  ${YELLOW}Removed ${action}.${RESET}`);
-				await input.waitForEnter();
+				writeComponentInstance(projectRoot, componentName, instance, deps, domain);
+				deps.log(`  ${YELLOW}Removed ${action}.${RESET}`);
+				await deps.input.waitForEnter();
 			}
 		},
 	}));
@@ -299,18 +293,18 @@ export async function editActionsMenu(projectRoot: string, componentName: string
 			key: "n",
 			label: "Add New Action",
 			action: async () => {
-				const name = await input.ask("Action name (e.g. onClick)");
+				const name = await deps.input.ask("Action name (e.g. onClick)");
 				if (!name) return;
 				addAction(instance, name);
-				writeComponentInstance(projectRoot, componentName, instance, editorDeps(), domain);
-				log(`  ${GREEN}Added ${name}.${RESET}`);
-				await input.waitForEnter();
+				writeComponentInstance(projectRoot, componentName, instance, deps, domain);
+				deps.log(`  ${GREEN}Added ${name}.${RESET}`);
+				await deps.input.waitForEnter();
 			},
 		},
 		{
 			key: "f",
 			label: "Add from Reference",
-			action: async () => { await addFromReferenceMenu(projectRoot, componentName, instance, domain); },
+			action: async () => { await addFromReferenceMenu(projectRoot, componentName, instance, deps, domain); },
 		},
 		{ separator: true },
 		{ key: "b", label: "Back", action: () => "main" as const },
@@ -321,7 +315,7 @@ export async function editActionsMenu(projectRoot: string, componentName: string
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-function parseValue(str: string): unknown {
+export function parseValue(str: string): unknown {
 	if (str === "true") return true;
 	if (str === "false") return false;
 	const num = Number(str);

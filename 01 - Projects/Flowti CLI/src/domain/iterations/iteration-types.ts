@@ -37,6 +37,11 @@ export interface IterationDefinition {
 	capacities?: CapacityEntry[];
 }
 
+export interface ScopeItem {
+	text: string;
+	done: boolean;
+}
+
 export interface IterationSummary {
 	name: string;
 	number: number;
@@ -44,9 +49,11 @@ export interface IterationSummary {
 	endDate: string;
 	goal: string;
 	capacity: string;
+	description: string;
 	status: IterationStatus;
 	file: string;
 	agents: AgentReference[];
 	resources: ResourceAllocation[];
 	capacities: CapacityEntry[];
+	scopeItems: ScopeItem[];
 }

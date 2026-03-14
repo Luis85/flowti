@@ -6,7 +6,6 @@
  */
 
 import { RESET, DIM, GREEN, RED } from "../../infrastructure/ui.js";
-import { log } from "../../infrastructure/logger.js";
 import type { ContractIssue, ContractValidationResult, PayloadValidationResult } from "../../domain/events/event-contracts.js";
 
 // ── Data models ──────────────────────────────────────────────────────
@@ -56,7 +55,7 @@ export interface EmptyModel {
 
 // ── Renderers ────────────────────────────────────────────────────────
 
-export function renderEventList(data: EventListModel): void {
+export function renderEventList(data: EventListModel, log: (msg?: string) => void): void {
 	if (data.events.length === 0) {
 		log(`\n  ${DIM}No events defined.${RESET}\n`);
 		return;
@@ -64,15 +63,15 @@ export function renderEventList(data: EventListModel): void {
 	for (const evt of data.events) log(`  ${evt.name} [${evt.domain}] v${evt.version}`);
 }
 
-export function renderEventFlowCreated(data: EventFlowCreatedModel): void {
+export function renderEventFlowCreated(data: EventFlowCreatedModel, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}\u2713${RESET} Generated: ${data.relativePath}\n`);
 }
 
-export function renderEventAdded(data: EventAddedModel): void {
+export function renderEventAdded(data: EventAddedModel, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}\u2713${RESET} Created: ${data.relativePath}\n`);
 }
 
-export function renderContractValidation(data: ContractValidationModel): void {
+export function renderContractValidation(data: ContractValidationModel, log: (msg?: string) => void): void {
 	log(`\n  Validated ${data.contractCount} event contract(s).\n`);
 	if (data.result.issues.length === 0) {
 		log(`  ${GREEN}\u2713${RESET} All contracts are valid.\n`);
@@ -96,7 +95,7 @@ export function renderContractValidation(data: ContractValidationModel): void {
 	}
 }
 
-export function renderPayloadValidation(data: PayloadValidationModel): void {
+export function renderPayloadValidation(data: PayloadValidationModel, log: (msg?: string) => void): void {
 	if (data.result.valid) {
 		log(`\n  ${GREEN}\u2713${RESET} Payload valid for "${data.eventName}".\n`);
 	} else {
@@ -106,15 +105,15 @@ export function renderPayloadValidation(data: PayloadValidationModel): void {
 	}
 }
 
-export function renderContractsGenerated(data: ContractsGeneratedModel): void {
+export function renderContractsGenerated(data: ContractsGeneratedModel, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}\u2713${RESET} Generated: ${data.relativePath} (${data.contractCount} contracts)\n`);
 }
 
-export function renderCodegenGenerated(data: CodegenGeneratedModel): void {
+export function renderCodegenGenerated(data: CodegenGeneratedModel, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}\u2713${RESET} Generated: ${data.relativePath} (${data.contractCount} interfaces)\n`);
 }
 
-export function renderEmpty(data: EmptyModel): void {
+export function renderEmpty(data: EmptyModel, log: (msg?: string) => void): void {
 	log(`\n  ${DIM}${data.message}${RESET}\n`);
 }
 
@@ -125,7 +124,7 @@ export interface VersionEventModel {
 	previousVersion: string;
 }
 
-export function renderVersionEvent(data: VersionEventModel): void {
+export function renderVersionEvent(data: VersionEventModel, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}✓${RESET} Updated ${data.name} to v${data.newVersion}`);
 	log(`  ${DIM}Previous version: v${data.previousVersion}${RESET}\n`);
 }

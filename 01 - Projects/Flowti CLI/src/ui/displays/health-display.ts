@@ -6,7 +6,6 @@
  */
 
 import { RESET, BOLD, DIM, GREEN, RED, YELLOW } from "../../infrastructure/ui.js";
-import { log } from "../../infrastructure/logger.js";
 import type { HealthSnapshot, SecurityMetrics } from "../../domain/health/health.js";
 import type { HealthScore } from "../../domain/health/health-scoring.js";
 import type { TrendDelta, StoredSnapshot } from "../../domain/health/health-trends.js";
@@ -24,7 +23,7 @@ function pctColor(pct: number, threshold = 80): string {
 	return `${RED}${pct.toFixed(1)}%${RESET}`;
 }
 
-function displaySource(h: HealthSnapshot): void {
+function displaySource(h: HealthSnapshot, log: (msg?: string) => void): void {
 	if (!h.source) return;
 	log(`  ${BOLD}Source${RESET}`);
 	log(`    Files:          ${h.source.files} source, ${h.source.testFiles} test`);
@@ -32,7 +31,7 @@ function displaySource(h: HealthSnapshot): void {
 	log();
 }
 
-function displayTests(tests: HealthSnapshot["tests"]): void {
+function displayTests(tests: HealthSnapshot["tests"], log: (msg?: string) => void): void {
 	if (!tests) return;
 	log(`  ${BOLD}Tests${RESET}  ${statusIcon(tests.failed === 0)}`);
 	log(`    Total:          ${tests.total} (${tests.suites} suites)`);
@@ -41,7 +40,7 @@ function displayTests(tests: HealthSnapshot["tests"]): void {
 	log();
 }
 
-function displayCoverage(cov: HealthSnapshot["coverage"]): void {
+function displayCoverage(cov: HealthSnapshot["coverage"], log: (msg?: string) => void): void {
 	if (!cov) return;
 	log(`  ${BOLD}Coverage${RESET}`);
 	log(`    Lines:          ${pctColor(cov.lines)}`);
@@ -50,14 +49,14 @@ function displayCoverage(cov: HealthSnapshot["coverage"]): void {
 	log();
 }
 
-function displayBuild(build: HealthSnapshot["build"]): void {
+function displayBuild(build: HealthSnapshot["build"], log: (msg?: string) => void): void {
 	if (!build) return;
 	log(`  ${BOLD}Build${RESET}  ${statusIcon(build.success)}`);
 	log(`    Duration:       ${(build.durationMs / 1000).toFixed(1)}s`);
 	log();
 }
 
-function displayLint(lint: HealthSnapshot["lint"]): void {
+function displayLint(lint: HealthSnapshot["lint"], log: (msg?: string) => void): void {
 	if (!lint) return;
 	log(`  ${BOLD}Lint${RESET}  ${statusIcon(lint.errors === 0 && lint.warnings === 0)}`);
 	log(`    Errors:         ${lint.errors === 0 ? `${GREEN}0${RESET}` : `${RED}${lint.errors}${RESET}`}`);
@@ -65,7 +64,7 @@ function displayLint(lint: HealthSnapshot["lint"]): void {
 	log();
 }
 
-function displaySecurity(sec: SecurityMetrics | null): void {
+function displaySecurity(sec: SecurityMetrics | null, log: (msg?: string) => void): void {
 	if (!sec) return;
 	const ok = sec.critical === 0 && sec.high === 0;
 	log(`  ${BOLD}Security${RESET}  ${statusIcon(ok)}`);
@@ -77,7 +76,7 @@ function displaySecurity(sec: SecurityMetrics | null): void {
 	log();
 }
 
-function displayGit(git: HealthSnapshot["git"]): void {
+function displayGit(git: HealthSnapshot["git"], log: (msg?: string) => void): void {
 	if (!git) return;
 	log(`  ${BOLD}Git${RESET}`);
 	log(`    Branch:         ${git.branch}`);
@@ -106,16 +105,16 @@ function buildSummaryIndicators(h: HealthSnapshot): string[] {
 
 // ── Public display functions ─────────────────────────────────────────
 
-export function displayHealth(h: HealthSnapshot): void {
+export function displayHealth(h: HealthSnapshot, log: (msg?: string) => void): void {
 	log(`\n  ${BOLD}Project Health: ${h.name}${RESET}\n`);
 
-	displaySource(h);
-	displayTests(h.tests);
-	displayCoverage(h.coverage);
-	displayBuild(h.build);
-	displayLint(h.lint);
-	displaySecurity(h.security);
-	displayGit(h.git);
+	displaySource(h, log);
+	displayTests(h.tests, log);
+	displayCoverage(h.coverage, log);
+	displayBuild(h.build, log);
+	displayLint(h.lint, log);
+	displaySecurity(h.security, log);
+	displayGit(h.git, log);
 
 	const indicators = buildSummaryIndicators(h);
 	if (indicators.length > 0) {
@@ -150,8 +149,8 @@ export interface SnapshotSavedModel {
 
 // ── Renderers (used as dataResponse callbacks) ──────────────────────
 
-export function renderHealthDashboard(data: HealthViewModel): void {
-	displayHealth(data);
+export function renderHealthDashboard(data: HealthViewModel, log: (msg?: string) => void): void {
+	displayHealth(data, log);
 	log(`  ${BOLD}Score:${RESET} ${data.score.overall}/100 (${data.score.grade})`);
 	if (data.trend.length > 0) {
 		log(`  ${DIM}Trend:${RESET} ${formatTrendLine(data.trend)}`);
@@ -159,11 +158,11 @@ export function renderHealthDashboard(data: HealthViewModel): void {
 	log();
 }
 
-export function renderSnapshotSaved(data: SnapshotSavedModel): void {
+export function renderSnapshotSaved(data: SnapshotSavedModel, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}✓${RESET} Snapshot saved: ${data.relativePath}\n`);
 }
 
-export function renderHealthHistory(data: StoredSnapshot[]): void {
+export function renderHealthHistory(data: StoredSnapshot[], log: (msg?: string) => void): void {
 	if (data.length === 0) {
 		log(`\n  ${DIM}No health snapshots found. Run: flowti health:snapshot${RESET}\n`);
 		return;
@@ -179,7 +178,7 @@ export function renderHealthHistory(data: StoredSnapshot[]): void {
 	log();
 }
 
-export function renderDebtEstimate(data: DebtEstimate): void {
+export function renderDebtEstimate(data: DebtEstimate, log: (msg?: string) => void): void {
 	if (data.items.length === 0) {
 		log(`\n  ${GREEN}✓${RESET} ${data.summary}\n`);
 		return;

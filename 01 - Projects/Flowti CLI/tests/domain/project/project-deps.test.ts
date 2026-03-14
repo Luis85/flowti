@@ -82,11 +82,15 @@ import {
 	renderMermaidDeps,
 	displayDependencyGraph,
 	handleProjectDeps,
-	commands,
+	createCommands,
 } from "../../../src/ui/displays/deps-display.js";
 
 function setDisk(mockFs: ReturnType<typeof createMockFs>): void {
 	Object.assign(fsMod, { disk: mockFs });
+}
+
+function getCommands() {
+	return createCommands({ disk: fsMod.disk, paths: mockPaths, log } as never);
 }
 
 function makeDeps(files?: Record<string, string>) {
@@ -507,7 +511,7 @@ describe("buildDependencyGraph", () => {
 describe("displayDependencyGraph", () => {
 	it("displays no-projects message for empty graph", () => {
 		const graph: DependencyGraph = { projects: [], edges: [], cycles: [] };
-		displayDependencyGraph(graph);
+		displayDependencyGraph(log, graph);
 
 		const logCalls = vi.mocked(log).mock.calls.map((c) => c[0]);
 		expect(logCalls.some((c) => typeof c === "string" && c.includes("No projects found"))).toBe(true);
@@ -520,7 +524,7 @@ describe("displayDependencyGraph", () => {
 			cycles: [],
 		};
 
-		displayDependencyGraph(graph);
+		displayDependencyGraph(log, graph);
 
 		const logCalls = vi.mocked(log).mock.calls.map((c) => c[0]);
 		const allOutput = logCalls.filter((c) => typeof c === "string").join("\n");
@@ -539,7 +543,7 @@ describe("displayDependencyGraph", () => {
 			cycles: [["A", "B", "A"]],
 		};
 
-		displayDependencyGraph(graph);
+		displayDependencyGraph(log, graph);
 
 		const logCalls = vi.mocked(log).mock.calls.map((c) => c[0]);
 		const allOutput = logCalls.filter((c) => typeof c === "string").join("\n");
@@ -556,7 +560,7 @@ describe("handleProjectDeps", () => {
 		});
 		setDisk(mockFs);
 
-		handleProjectDeps();
+		handleProjectDeps({ disk: mockFs, paths: mockPaths, log } as never);
 
 		expect(vi.mocked(log)).toHaveBeenCalled();
 	});
@@ -577,7 +581,7 @@ describe("project:deps --json", () => {
 		});
 		setDisk(mockFs);
 
-		commands["project:deps"]({ format: "json" }, []);
+		getCommands()["project:deps"]({ format: "json" }, []);
 
 		expect(capturedJson).toHaveLength(1);
 		const graph = capturedJson[0] as DependencyGraph;
@@ -594,7 +598,7 @@ describe("project:deps --json", () => {
 		});
 		setDisk(mockFs);
 
-		commands["project:deps"]({}, []);
+		getCommands()["project:deps"]({}, []);
 
 		expect(capturedJson).toHaveLength(0);
 		expect(vi.mocked(log)).toHaveBeenCalled();

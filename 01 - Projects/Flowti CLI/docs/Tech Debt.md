@@ -4,7 +4,7 @@ domain: CLI
 title: Flowti CLI — Technical Debt Register
 version: 4
 created: 2026-03-10
-updated: 2026-03-12
+updated: 2026-03-14
 status: active
 source: "[[Development Roadmap]]"
 ---

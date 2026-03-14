@@ -45,11 +45,11 @@ function checkGates(deps: Pick<CliDeps, "disk" | "paths" | "shell">, p: ProjectC
 	return evaluateQualityGates(snapshot, score, gateConfig);
 }
 
-function noProjectResponse(command: string) {
-	return dataResponse<NoProjectModel>({ command }, renderNoProject);
+function noProjectResponse(log: CliDeps["log"], command: string) {
+	return dataResponse<NoProjectModel>({ command }, (d) => renderNoProject(log, d));
 }
 
-function gateBlockedResponse(gateResult: GateResult) {
+function gateBlockedResponse(gateResult: GateResult, log: (msg?: string) => void) {
 	const blocked: GateBlockedModel = {
 		message: "Publish blocked by quality gates.",
 		hint: "Use --skip-gates to bypass, or fix the issues above.",
@@ -57,8 +57,8 @@ function gateBlockedResponse(gateResult: GateResult) {
 	return {
 		data: { gate: gateResult, blocked },
 		render: (d: { gate: GateResult; blocked: GateBlockedModel }) => {
-			renderGateResult(d.gate);
-			renderGateBlocked(d.blocked);
+			renderGateResult(d.gate, log);
+			renderGateBlocked(d.blocked, log);
 		},
 		exitCode: 1,
 	};
@@ -70,55 +70,56 @@ const actions: Record<string, ControllerAction> = {
 	publish: (req) => {
 		if (req.flags["dry-run"]) {
 			const model = resolvePublishConfig(req.project);
-			return dataResponse(model, renderDryRun);
+			return dataResponse(model, (d) => renderDryRun(d, req.deps.log));
 		}
 		const { disk, paths, shell } = req.deps;
 		if (req.project && !req.flags["skip-gates"]) {
 			const result = checkGates({ disk, paths, shell }, req.project);
 			if (result && !result.passed) {
-				return gateBlockedResponse(result);
+				return gateBlockedResponse(result, req.deps.log);
 			}
 		}
 		const { buildCmd, cwd } = resolvePublishCommands(req.project);
 		const exitCode = shell.run(buildCmd, { cwd, label: "Publishing..." });
 		const model: ShellCommandModel = { command: buildCmd, exitCode, label: "publish" };
-		return dataResponse(model, renderShellCommand);
+		return dataResponse(model, (d) => renderShellCommand(req.deps.log, d));
 	},
 
 	"publish:all": (req) => {
-		const { disk, paths, shell } = req.deps;
+		const { disk, paths, shell, log } = req.deps;
 		if (req.project && !req.flags["skip-gates"]) {
 			const result = checkGates({ disk, paths, shell }, req.project);
 			if (result && !result.passed) {
-				return gateBlockedResponse(result);
+				return gateBlockedResponse(result, req.deps.log);
 			}
 		}
 		const { buildCmd, testCmd, cwd } = resolvePublishCommands(req.project);
 		const b = shell.run(buildCmd, { cwd, label: "Step 1/2: Building..." });
 		if (b !== 0) {
 			const model: ShellCommandModel = { command: buildCmd, exitCode: b, label: "publish:all" };
-			return { data: model, render: renderShellCommand, exitCode: b };
+			return { data: model, render: (d: ShellCommandModel) => renderShellCommand(log, d), exitCode: b };
 		}
 		const t = shell.run(testCmd, { cwd, label: "Step 2/2: Testing..." });
 		if (t !== 0) {
 			const model: ShellCommandModel = { command: testCmd, exitCode: t, label: "publish:all" };
-			return { data: model, render: renderShellCommand, exitCode: t };
+			return { data: model, render: (d: ShellCommandModel) => renderShellCommand(log, d), exitCode: t };
 		}
 		const model: ShellCommandModel = { command: `${buildCmd} && ${testCmd}`, exitCode: 0, label: "publish:all" };
-		return dataResponse(model, renderShellCommand);
+		return dataResponse(model, (d) => renderShellCommand(log, d));
 	},
 
 	"publish:check": (req) => {
-		if (!req.project) return noProjectResponse("publish:check");
+		if (!req.project) return noProjectResponse(req.deps.log, "publish:check");
 		const { disk, paths, shell } = req.deps;
 		const snapshot = collectHealth({ disk, paths, shell }, req.project);
 		const score = scoreHealth(snapshot);
 		const gateConfig = req.project.config.health?.qualityGates;
 		const result = evaluateQualityGates(snapshot, score, gateConfig);
 
+		const { log } = req.deps;
 		return {
 			data: result,
-			render: renderGateResult,
+			render: (d: GateResult) => renderGateResult(d, log),
 			exitCode: result.passed ? undefined : 1,
 		};
 	},

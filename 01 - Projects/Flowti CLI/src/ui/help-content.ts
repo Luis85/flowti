@@ -6,21 +6,18 @@
  */
 
 import { HELP_DIR } from "../infrastructure/config.js";
-import { disk } from "../infrastructure/filesystem.js";
-import { paths } from "../infrastructure/paths.js";
 import { renderMarkdownToAnsi } from "../infrastructure/markdown-ansi.js";
 import { loadHelpSection, listHelpSections } from "../domain/shared/help-loader.js";
-
-const loaderDeps = { disk, paths };
+import type { HelpLoaderDeps } from "../domain/shared/help-loader.js";
 
 /** Get rendered ANSI help content for a section. Returns null if unavailable. */
-export function getHelp(section: string): string | null {
-	const markdown = loadHelpSection(HELP_DIR, section, loaderDeps);
+export function getHelp(section: string, deps: HelpLoaderDeps): string | null {
+	const markdown = loadHelpSection(HELP_DIR, section, deps);
 	if (markdown === null) return null;
 	return renderMarkdownToAnsi(markdown);
 }
 
 /** List all available help section names. */
-export function getHelpSections(): string[] {
-	return listHelpSections(HELP_DIR, loaderDeps);
+export function getHelpSections(deps: HelpLoaderDeps): string[] {
+	return listHelpSections(HELP_DIR, deps);
 }

@@ -4,10 +4,7 @@
  * Extracted from domain/info/info.ts to separate view from model.
  */
 
-import { paths } from "../../infrastructure/paths.js";
-import { disk } from "../../infrastructure/filesystem.js";
 import { RESET, BOLD, DIM, GREEN, YELLOW, printHeader } from "../../infrastructure/ui.js";
-import { shell } from "../../infrastructure/shell.js";
 import { countFiles } from "../../infrastructure/fs.js";
 import { PROJECTS_DIR } from "../../infrastructure/config.js";
 import { getSelectedProject } from "../../infrastructure/state.js";
@@ -15,11 +12,11 @@ import { initializeProject } from "../../domain/project/project-config.js";
 import type { ProjectContext } from "../../infrastructure/types.js";
 import { detectTools } from "../../domain/project/tool-availability.js";
 import type { ProjectInfo } from "../../domain/info/info.js";
-import { log } from "../../infrastructure/logger.js";
+import type { InfoDeps, Log } from "../../infrastructure/deps.js";
 
 // ── Display helpers ─────────────────────────────────────────────────
 
-function printFileCount(dir: string, label: string): void {
+function printFileCount(log: Log, dir: string, label: string): void {
 	const tsCount = countFiles(dir, ".ts");
 	const jsCount = countFiles(dir, ".js");
 	const count = tsCount || jsCount;
@@ -27,7 +24,7 @@ function printFileCount(dir: string, label: string): void {
 	log(`    ${label}${count} ${ext} files`);
 }
 
-function printIdentity(ctx: ProjectContext): void {
+function printIdentity(log: Log, ctx: ProjectContext): void {
 	log(`  ${BOLD}Project${RESET}`);
 	log(`    Name:           ${ctx.config.name}`);
 	if (ctx.pkg?.version) log(`    Version:        ${ctx.pkg.version}`);
@@ -35,50 +32,50 @@ function printIdentity(ctx: ProjectContext): void {
 	log();
 }
 
-function printSourceFiles(ctx: ProjectContext): void {
-	const srcDir = paths.join(ctx.path, "src");
-	const testsDir = paths.join(ctx.path, "tests");
-	const hasSrc = disk.existsSync(srcDir);
-	const hasTests = disk.existsSync(testsDir);
+function printSourceFiles(deps: InfoDeps, ctx: ProjectContext): void {
+	const srcDir = deps.paths.join(ctx.path, "src");
+	const testsDir = deps.paths.join(ctx.path, "tests");
+	const hasSrc = deps.disk.existsSync(srcDir);
+	const hasTests = deps.disk.existsSync(testsDir);
 
 	if (!hasSrc && !hasTests) return;
-	log(`  ${BOLD}Source${RESET}`);
-	if (hasSrc) printFileCount(srcDir, "Source files:    ");
-	if (hasTests) printFileCount(testsDir, "Test files:      ");
-	log();
+	deps.log(`  ${BOLD}Source${RESET}`);
+	if (hasSrc) printFileCount(deps.log, srcDir, "Source files:    ");
+	if (hasTests) printFileCount(deps.log, testsDir, "Test files:      ");
+	deps.log();
 }
 
-function printDependencies(ctx: ProjectContext): void {
+function printDependencies(deps: InfoDeps, ctx: ProjectContext): void {
 	if (!ctx.pkg) return;
-	const raw = JSON.parse(disk.readFileSync(paths.join(ctx.path, "package.json"), "utf-8")) as Record<string, unknown>;
+	const raw = JSON.parse(deps.disk.readFileSync(deps.paths.join(ctx.path, "package.json"), "utf-8")) as Record<string, unknown>;
 	const devDeps = Object.keys((raw.devDependencies as Record<string, string>) ?? {}).length;
 	const prodDeps = Object.keys((raw.dependencies as Record<string, string>) ?? {}).length;
 	const scriptCount = Object.keys(ctx.scripts).length;
 
-	log(`  ${BOLD}Dependencies${RESET}`);
-	log(`    Production:      ${prodDeps}`);
-	log(`    Development:     ${devDeps}`);
-	log(`    npm scripts:     ${scriptCount}`);
-	log();
+	deps.log(`  ${BOLD}Dependencies${RESET}`);
+	deps.log(`    Production:      ${prodDeps}`);
+	deps.log(`    Development:     ${devDeps}`);
+	deps.log(`    npm scripts:     ${scriptCount}`);
+	deps.log();
 }
 
-function printTools(ctx: ProjectContext): void {
-	const tools = detectTools(ctx.path, { disk, paths });
+function printTools(deps: InfoDeps, ctx: ProjectContext): void {
+	const tools = detectTools(ctx.path, { disk: deps.disk, paths: deps.paths });
 	const available = tools.filter((t) => t.available);
 
-	log(`  ${BOLD}Dev Tools${RESET}`);
+	deps.log(`  ${BOLD}Dev Tools${RESET}`);
 	for (const tool of tools) {
 		if (tool.available) {
-			log(`    ${GREEN}${tool.id}${RESET}${DIM} ${tool.version ?? ""}${RESET}`);
+			deps.log(`    ${GREEN}${tool.id}${RESET}${DIM} ${tool.version ?? ""}${RESET}`);
 		} else {
-			log(`    ${DIM}${tool.id}  (not installed)${RESET}`);
+			deps.log(`    ${DIM}${tool.id}  (not installed)${RESET}`);
 		}
 	}
-	log(`    ${DIM}${available.length}/${tools.length} available${RESET}`);
-	log();
+	deps.log(`    ${DIM}${available.length}/${tools.length} available${RESET}`);
+	deps.log();
 }
 
-function printEndpoints(endpoints: Array<{ name: string; path: string }>): void {
+function printEndpoints(log: Log, endpoints: Array<{ name: string; path: string }>): void {
 	if (endpoints.length > 0) {
 		for (const ep of endpoints) {
 			log(`    ${GREEN}${ep.name}${RESET}${DIM} → ${ep.path}${RESET}`);
@@ -88,7 +85,7 @@ function printEndpoints(endpoints: Array<{ name: string; path: string }>): void 
 	}
 }
 
-function printPublish(ctx: ProjectContext): void {
+function printPublish(log: Log, ctx: ProjectContext): void {
 	const pub = ctx.config.publish;
 	if (!pub) return;
 	log(`  ${BOLD}Publish${RESET}`);
@@ -96,43 +93,43 @@ function printPublish(ctx: ProjectContext): void {
 	if (pub.test) log(`    Test:        ${DIM}${pub.test}${RESET}`);
 	if (pub.outDir) log(`    Output:      ${DIM}${pub.outDir}${RESET}`);
 	if (pub.artifacts?.length) log(`    Artifacts:   ${DIM}${pub.artifacts.join(", ")}${RESET}`);
-	printEndpoints(pub.endpoints ?? []);
+	printEndpoints(log, pub.endpoints ?? []);
 	log();
 }
 
-function printReview(ctx: ProjectContext): void {
+function printReview(deps: InfoDeps, ctx: ProjectContext): void {
 	const review = ctx.config.review;
 	if (!review) return;
 	const journeysDir = review.journeysDir ?? "tests/e2e/journeys";
-	const journeysPath = paths.join(ctx.path, journeysDir);
-	const journeyCount = disk.existsSync(journeysPath)
-		? disk.readdirSync(journeysPath).filter((f) => f.endsWith(".journey") || f.endsWith(".journey.json")).length
+	const journeysPath = deps.paths.join(ctx.path, journeysDir);
+	const journeyCount = deps.disk.existsSync(journeysPath)
+		? deps.disk.readdirSync(journeysPath).filter((f) => f.endsWith(".journey") || f.endsWith(".journey.json")).length
 		: 0;
-	log(`  ${BOLD}Review${RESET}`);
-	log(`    Journeys:        ${journeyCount} in ${journeysDir}`);
-	if (review.testVault) log(`    Test vault:      ${DIM}${review.testVault}${RESET}`);
-	if (review.runner) log(`    Runner:          ${DIM}${review.runner}${RESET}`);
-	if (review.build) log(`    Build:           ${DIM}${review.build}${RESET}`);
-	if (review.test) log(`    Test:            ${DIM}${review.test}${RESET}`);
-	log();
+	deps.log(`  ${BOLD}Review${RESET}`);
+	deps.log(`    Journeys:        ${journeyCount} in ${journeysDir}`);
+	if (review.testVault) deps.log(`    Test vault:      ${DIM}${review.testVault}${RESET}`);
+	if (review.runner) deps.log(`    Runner:          ${DIM}${review.runner}${RESET}`);
+	if (review.build) deps.log(`    Build:           ${DIM}${review.build}${RESET}`);
+	if (review.test) deps.log(`    Test:            ${DIM}${review.test}${RESET}`);
+	deps.log();
 }
 
-function printGit(ctx: ProjectContext): void {
-	const branch = shell.runSilent(`git -C "${ctx.path}" rev-parse --abbrev-ref HEAD`);
-	const commit = shell.runSilent(`git -C "${ctx.path}" rev-parse --short HEAD`);
-	const dirty = shell.runSilent(`git -C "${ctx.path}" status --porcelain`);
+function printGit(deps: InfoDeps, ctx: ProjectContext): void {
+	const branch = deps.shell.runSilent(`git -C "${ctx.path}" rev-parse --abbrev-ref HEAD`);
+	const commit = deps.shell.runSilent(`git -C "${ctx.path}" rev-parse --short HEAD`);
+	const dirty = deps.shell.runSilent(`git -C "${ctx.path}" status --porcelain`);
 
 	if (!branch && !commit) return;
-	log(`  ${BOLD}Git${RESET}`);
-	log(`    Branch:          ${branch ?? "?"}`);
-	log(`    Commit:          ${commit ?? "?"}`);
-	log(`    Status:          ${dirty ? `${YELLOW}dirty${RESET}` : `${GREEN}clean${RESET}`}`);
-	log();
+	deps.log(`  ${BOLD}Git${RESET}`);
+	deps.log(`    Branch:          ${branch ?? "?"}`);
+	deps.log(`    Commit:          ${commit ?? "?"}`);
+	deps.log(`    Status:          ${dirty ? `${YELLOW}dirty${RESET}` : `${GREEN}clean${RESET}`}`);
+	deps.log();
 }
 
 // ── Public display function ─────────────────────────────────────────
 
-export function displayInfo(data: ProjectInfo): void {
+export function displayInfo(log: Log, data: ProjectInfo): void {
 	log(`  ${BOLD}Project${RESET}`);
 	log(`    Name:           ${data.name}`);
 	if (data.version) log(`    Version:        ${data.version}`);
@@ -178,27 +175,27 @@ export function displayInfo(data: ProjectInfo): void {
 /**
  * @deprecated Use displayInfo(ProjectInfo) instead. Kept for backward compatibility.
  */
-export function displayInfoFromContext(ctx: ProjectContext): void {
-	printIdentity(ctx);
-	printSourceFiles(ctx);
-	printDependencies(ctx);
-	printTools(ctx);
-	printPublish(ctx);
-	printReview(ctx);
-	printGit(ctx);
+export function displayInfoFromContext(deps: InfoDeps, ctx: ProjectContext): void {
+	printIdentity(deps.log, ctx);
+	printSourceFiles(deps, ctx);
+	printDependencies(deps, ctx);
+	printTools(deps, ctx);
+	printPublish(deps.log, ctx);
+	printReview(deps, ctx);
+	printGit(deps, ctx);
 }
 
 // ── Interactive entry point ─────────────────────────────────────────
 
-export function showInfo(): void {
+export function showInfo(deps: InfoDeps): void {
 	printHeader("Project Info");
 
 	const projectName = getSelectedProject();
 	if (!projectName) {
-		log(`  ${DIM}No project selected.${RESET}\n`);
+		deps.log(`  ${DIM}No project selected.${RESET}\n`);
 		return;
 	}
 
-	const ctx = initializeProject(projectName, PROJECTS_DIR, { disk, paths });
-	displayInfoFromContext(ctx);
+	const ctx = initializeProject(projectName, PROJECTS_DIR, { disk: deps.disk, paths: deps.paths });
+	displayInfoFromContext(deps, ctx);
 }

@@ -39,6 +39,7 @@ import { log } from "../../../src/infrastructure/logger.js";
 import { runMenu } from "../../../src/infrastructure/menu.js";
 import { input } from "../../../src/infrastructure/input.js";
 import { disk } from "../../../src/infrastructure/filesystem.js";
+import { paths } from "../../../src/infrastructure/paths.js";
 import { scaffold, listDefinitions, resolvePromptDefault, deriveVariables } from "../../../src/domain/scaffold/scaffold-service.js";
 import { resolveNextSteps } from "../../../src/domain/scaffold/scaffold-plan.js";
 import { scaffoldMenu } from "../../../src/ui/menus/scaffold-menu.js";
@@ -48,6 +49,8 @@ const mockLog = vi.mocked(log);
 const mockRunMenu = vi.mocked(runMenu);
 const mockInput = vi.mocked(input);
 const mockDisk = vi.mocked(disk);
+
+const makeDeps = { disk, paths, input, log } as any;
 const mockScaffold = vi.mocked(scaffold);
 const mockListDefs = vi.mocked(listDefinitions);
 const mockResolveNextSteps = vi.mocked(resolveNextSteps);
@@ -72,7 +75,7 @@ describe("scaffoldMenu", () => {
 	it("returns 'main' when no definitions", async () => {
 		mockListDefs.mockReturnValue([]);
 
-		const result = await scaffoldMenu();
+		const result = await scaffoldMenu(makeDeps);
 
 		expect(result).toBe("main");
 		expect(mockRunMenu).not.toHaveBeenCalled();
@@ -82,7 +85,7 @@ describe("scaffoldMenu", () => {
 		mockListDefs.mockReturnValue([MINIMAL_DEF]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await scaffoldMenu();
+		await scaffoldMenu(makeDeps);
 
 		expect(mockRunMenu).toHaveBeenCalledTimes(1);
 		const [title, items] = mockRunMenu.mock.calls[0];
@@ -97,7 +100,7 @@ describe("scaffoldMenu", () => {
 		mockListDefs.mockReturnValue([MINIMAL_DEF]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await scaffoldMenu();
+		await scaffoldMenu(makeDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		const back = items.find((i: any) => i.key === "b");
@@ -108,7 +111,7 @@ describe("scaffoldMenu", () => {
 		mockListDefs.mockReturnValue([MINIMAL_DEF]);
 		mockRunMenu.mockResolvedValue("main");
 
-		await scaffoldMenu();
+		await scaffoldMenu(makeDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		const quit = items.find((i: any) => i.key === "q");
@@ -125,7 +128,7 @@ describe("scaffoldMenu", () => {
 		mockScaffold.mockReturnValue({ created: 5 } as any);
 		mockResolveNextSteps.mockReturnValue(["cd my-app", "npm install"]);
 
-		await scaffoldMenu();
+		await scaffoldMenu(makeDeps);
 
 		// Invoke the definition action
 		const [, items] = mockRunMenu.mock.calls[0];
@@ -143,7 +146,7 @@ describe("scaffoldMenu", () => {
 		mockRunMenu.mockResolvedValue(undefined);
 		mockInput.ask.mockResolvedValueOnce("");
 
-		await scaffoldMenu();
+		await scaffoldMenu(makeDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		await (items[0] as any).action();
@@ -160,7 +163,7 @@ describe("scaffoldMenu", () => {
 		mockRunMenu.mockResolvedValue(undefined);
 		mockInput.ask.mockResolvedValueOnce("My App").mockResolvedValueOnce("");
 
-		await scaffoldMenu();
+		await scaffoldMenu(makeDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		await (items[0] as any).action();
@@ -176,7 +179,7 @@ describe("scaffoldMenu", () => {
 		mockInput.ask.mockResolvedValueOnce("My App").mockResolvedValueOnce("Author");
 		mockDisk.existsSync.mockReturnValue(true);
 
-		await scaffoldMenu();
+		await scaffoldMenu(makeDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		await (items[0] as any).action();
@@ -193,7 +196,7 @@ describe("scaffoldMenu", () => {
 		mockDisk.existsSync.mockReturnValue(false);
 		mockScaffold.mockReturnValue({ error: "Template not found" } as any);
 
-		await scaffoldMenu();
+		await scaffoldMenu(makeDeps);
 
 		const [, items] = mockRunMenu.mock.calls[0];
 		await (items[0] as any).action();

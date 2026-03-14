@@ -5,12 +5,9 @@
  * Moved from domain/make/makers.ts to separate display/input concerns.
  */
 
-import { paths as nodePaths } from "../../infrastructure/paths.js";
-import { disk } from "../../infrastructure/filesystem.js";
 import { cliConfig } from "../../infrastructure/config.js";
 import { RESET, BOLD, DIM, GREEN, RED, CYAN } from "../../infrastructure/ui.js";
-import { input } from "../../infrastructure/input.js";
-import { log } from "../../infrastructure/logger.js";
+import type { MakeDeps } from "../../infrastructure/deps.js";
 import { toKebab, toPascal } from "../../domain/make/naming.js";
 import { readProjectConfig } from "../../domain/project/project-config.js";
 import { createFileWriter } from "../../domain/make/templates/file-writer.js";
@@ -30,7 +27,8 @@ function writePlan(basePath: string, files: FileEntry[]): number {
 
 // ── Plugin scaffolding ──────────────────────────────────────────────
 
-export async function makePlugin(projectRoot: string): Promise<void> {
+export async function makePlugin(projectRoot: string, deps: MakeDeps): Promise<void> {
+	const { disk, paths, input, log } = deps;
 	const { printHeader } = await import("../../infrastructure/ui.js");
 	printHeader("New Plugin");
 
@@ -43,13 +41,13 @@ export async function makePlugin(projectRoot: string): Promise<void> {
 	const pluginId = await input.ask("Plugin ID", defaultId);
 	const author = await input.ask("Author", cliConfig.defaultAuthor ?? "");
 
-	const pluginRoot = nodePaths.join(projectRoot, pluginId);
+	const pluginRoot = paths.join(projectRoot, pluginId);
 
-	log();
+	log("");
 	log(`  ${BOLD}Scaffolding: ${name}${RESET}`);
 	log(`  ${DIM}ID: ${pluginId} | Author: ${author}${RESET}`);
 	log(`  ${DIM}Output: ${pluginRoot}${RESET}`);
-	log();
+	log("");
 
 	if (disk.existsSync(pluginRoot)) {
 		log(`  ${RED}Folder already exists: ${pluginRoot}${RESET}\n`);
@@ -59,7 +57,7 @@ export async function makePlugin(projectRoot: string): Promise<void> {
 	const proceed = await input.ask("Create plugin? (Y/n)", "Y");
 	if (proceed.toLowerCase() === "n") return;
 
-	log();
+	log("");
 	const files = buildPluginPlan({ name, pluginId, author });
 	const created = writePlan(pluginRoot, files);
 
@@ -70,14 +68,15 @@ export async function makePlugin(projectRoot: string): Promise<void> {
 	log(`    2. ${CYAN}npm install${RESET}`);
 	log(`    3. ${CYAN}npm run build:dev${RESET}`);
 	log(`    4. Open the vault containing this plugin in Obsidian`);
-	log();
+	log("");
 
 	await input.waitForEnter();
 }
 
 // ── Application scaffolding ─────────────────────────────────────────
 
-export async function makeApp(projectRoot: string): Promise<void> {
+export async function makeApp(projectRoot: string, deps: MakeDeps): Promise<void> {
+	const { disk, paths, input, log } = deps;
 	const { printHeader } = await import("../../infrastructure/ui.js");
 	printHeader("New Application");
 
@@ -91,13 +90,13 @@ export async function makeApp(projectRoot: string): Promise<void> {
 	const author = await input.ask("Author", cliConfig.defaultAuthor ?? "");
 
 	const pascal = toPascal(name);
-	const appRoot = nodePaths.join(projectRoot, appId);
+	const appRoot = paths.join(projectRoot, appId);
 
-	log();
+	log("");
 	log(`  ${BOLD}Scaffolding: ${name}${RESET}`);
 	log(`  ${DIM}ID: ${appId} | Author: ${author}${RESET}`);
 	log(`  ${DIM}Output: ${appRoot}${RESET}`);
-	log();
+	log("");
 
 	if (disk.existsSync(appRoot)) {
 		log(`  ${RED}Folder already exists: ${appRoot}${RESET}\n`);
@@ -107,7 +106,7 @@ export async function makeApp(projectRoot: string): Promise<void> {
 	const proceed = await input.ask("Create application? (Y/n)", "Y");
 	if (proceed.toLowerCase() === "n") return;
 
-	log();
+	log("");
 	const files = buildAppPlan({ name, appId, author, pascal });
 	const created = writePlan(appRoot, files);
 
@@ -119,14 +118,15 @@ export async function makeApp(projectRoot: string): Promise<void> {
 	log(`    3. ${CYAN}npm run build${RESET}`);
 	log(`    4. ${CYAN}npm test${RESET}`);
 	log(`    5. Open the vault in Obsidian and enable the plugin`);
-	log();
+	log("");
 
 	await input.waitForEnter();
 }
 
 // ── CLI App scaffolding ─────────────────────────────────────────────
 
-export async function makeCliApp(projectRoot: string): Promise<void> {
+export async function makeCliApp(projectRoot: string, deps: MakeDeps): Promise<void> {
+	const { disk, paths, input, log } = deps;
 	const { printHeader } = await import("../../infrastructure/ui.js");
 	printHeader("New CLI App");
 
@@ -138,13 +138,13 @@ export async function makeCliApp(projectRoot: string): Promise<void> {
 	const defaultId = toKebab(name);
 	const appId = await input.ask("App ID", defaultId);
 
-	const cliRoot = nodePaths.join(projectRoot, appId);
+	const cliRoot = paths.join(projectRoot, appId);
 
-	log();
+	log("");
 	log(`  ${BOLD}Scaffolding: ${name}${RESET}`);
 	log(`  ${DIM}ID: ${appId}${RESET}`);
 	log(`  ${DIM}Output: ${cliRoot}${RESET}`);
-	log();
+	log("");
 
 	if (disk.existsSync(cliRoot)) {
 		log(`  ${RED}Folder already exists: ${cliRoot}${RESET}\n`);
@@ -154,7 +154,7 @@ export async function makeCliApp(projectRoot: string): Promise<void> {
 	const proceed = await input.ask("Create CLI app? (Y/n)", "Y");
 	if (proceed.toLowerCase() === "n") return;
 
-	log();
+	log("");
 	const files = buildCliAppPlan({ name, appId });
 	const created = writePlan(cliRoot, files);
 
@@ -165,14 +165,15 @@ export async function makeCliApp(projectRoot: string): Promise<void> {
 	log(`    2. ${CYAN}npm install${RESET}`);
 	log(`    3. ${CYAN}npm run dev${RESET}`);
 	log(`    4. ${CYAN}npm test${RESET}`);
-	log();
+	log("");
 
 	await input.waitForEnter();
 }
 
 // ── make:journey ────────────────────────────────────────────────────
 
-export async function makeJourney(projectRoot: string): Promise<void> {
+export async function makeJourney(projectRoot: string, deps: MakeDeps): Promise<void> {
+	const { disk, paths, input, log } = deps;
 	const { printHeader } = await import("../../infrastructure/ui.js");
 	printHeader("New E2E Journey");
 
@@ -185,16 +186,16 @@ export async function makeJourney(projectRoot: string): Promise<void> {
 	const slug = await input.ask("Journey slug", defaultSlug);
 	const description = await input.ask("Description", `E2E journey for ${name}.`);
 
-	const { config: cfg } = readProjectConfig(projectRoot, { disk, paths: nodePaths });
+	const { config: cfg } = readProjectConfig(projectRoot, { disk, paths });
 	const journeysDir = cfg?.review?.journeysDir ?? "tests/e2e/journeys";
-	const journeysPath = nodePaths.resolve(projectRoot, journeysDir);
-	const journeyFile = nodePaths.join(journeysPath, `${slug}.journey`);
+	const journeysPath = paths.resolve(projectRoot, journeysDir);
+	const journeyFile = paths.join(journeysPath, `${slug}.journey`);
 
-	log();
+	log("");
 	log(`  ${BOLD}Scaffolding: ${name}${RESET}`);
 	log(`  ${DIM}Slug: ${slug}${RESET}`);
 	log(`  ${DIM}Journey file: ${journeyFile}${RESET}`);
-	log();
+	log("");
 
 	if (disk.existsSync(journeyFile)) {
 		log(`  ${RED}Journey already exists: ${journeyFile}${RESET}\n`);
@@ -204,10 +205,10 @@ export async function makeJourney(projectRoot: string): Promise<void> {
 	const proceed = await input.ask("Create journey? (Y/n)", "Y");
 	if (proceed.toLowerCase() === "n") return;
 
-	log();
-	const testDir = nodePaths.dirname(journeysDir);
-	const testFileNumber = getNextTestFileNumber(nodePaths.resolve(projectRoot, testDir), { disk });
-	const docsDir = nodePaths.join("docs", "journeys", name);
+	log("");
+	const testDir = paths.dirname(journeysDir);
+	const testFileNumber = getNextTestFileNumber(paths.resolve(projectRoot, testDir), { disk });
+	const docsDir = paths.join("docs", "journeys", name);
 
 	const files = buildJourneyPlan({ name, slug, description, journeysDir, testDir, testFileNumber, docsDir });
 	const created = writePlan(projectRoot, files);
@@ -218,12 +219,12 @@ export async function makeJourney(projectRoot: string): Promise<void> {
 	log(`    ${CYAN}${journeysDir}/${slug}.journey${RESET}     — Journey definition`);
 	log(`    ${CYAN}${testDir}/${testFileNumber}-journey-${slug}.test.ts${RESET}  — Test entry`);
 	log(`    ${CYAN}${docsDir}/${name}.canvas${RESET}       — Journey canvas`);
-	log();
+	log("");
 	log(`  ${BOLD}Next steps:${RESET}`);
 	log(`    1. Edit ${CYAN}${slug}.journey${RESET} to define your steps and actions`);
 	log(`    2. Design the journey canvas in Obsidian`);
 	log(`    3. Run ${CYAN}npm run test:e2e -- --journey=${slug}${RESET} to test`);
-	log();
+	log("");
 
 	await input.waitForEnter();
 }

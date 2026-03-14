@@ -3,11 +3,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("../../../src/infrastructure/ui.js", () => ({
 	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", YELLOW: "", CYAN: "",
 }));
-vi.mock("../../../src/infrastructure/logger.js", () => ({
-	log: vi.fn(),
-}));
 vi.mock("../../../src/ui/help-content.js", () => ({
-	getHelp: vi.fn((section: string) => {
+	getHelp: vi.fn((section: string, _deps: unknown) => {
 		const content: Record<string, string> = {
 			main: "FLOWTI CLI help", build: "BUILD help", make: "MAKE help",
 			review: "REVIEW help", publish: "PUBLISH help", reports: "REPORTS help",
@@ -16,23 +13,23 @@ vi.mock("../../../src/ui/help-content.js", () => ({
 		};
 		return content[section] ?? null;
 	}),
-	getHelpSections: vi.fn(() => [
+	getHelpSections: vi.fn((_deps: unknown) => [
 		"main", "make", "build", "review", "publish",
 		"reports", "devtools", "capture", "knowledgebase", "info",
 	]),
 }));
 
-import { showHelp, commands } from "../../../src/ui/help.js";
+import { showHelp } from "../../../src/ui/help.js";
 import { getHelp, getHelpSections } from "../../../src/ui/help-content.js";
-import { log } from "../../../src/infrastructure/logger.js";
 
-const mockLog = log as ReturnType<typeof vi.fn>;
+const mockLog = vi.fn();
+const mockDeps = { disk: {} as never, paths: {} as never, log: mockLog };
 
 beforeEach(() => mockLog.mockClear());
 
 describe("help sections", () => {
 	it("has exactly 10 sections", () => {
-		const sections = getHelpSections();
+		const sections = getHelpSections(mockDeps);
 		expect(sections).toHaveLength(10);
 		expect(sections).toEqual(
 			expect.arrayContaining([
@@ -43,8 +40,8 @@ describe("help sections", () => {
 	});
 
 	it("each section returns non-empty content", () => {
-		for (const section of getHelpSections()) {
-			const content = getHelp(section);
+		for (const section of getHelpSections(mockDeps)) {
+			const content = getHelp(section, mockDeps);
 			expect(typeof content, `${section} should be a string`).toBe("string");
 			expect(content!.trim().length, `${section} should be non-empty`).toBeGreaterThan(0);
 		}
@@ -53,18 +50,18 @@ describe("help sections", () => {
 
 describe("showHelp", () => {
 	it("shows main help when called with no argument", () => {
-		showHelp();
-		expect(mockLog).toHaveBeenCalledWith(getHelp("main"));
+		showHelp(undefined, mockDeps);
+		expect(mockLog).toHaveBeenCalledWith(getHelp("main", mockDeps));
 	});
 
 	it("shows build help when called with 'build'", () => {
-		showHelp("build");
-		expect(mockLog).toHaveBeenCalledWith(getHelp("build"));
+		showHelp("build", mockDeps);
+		expect(mockLog).toHaveBeenCalledWith(getHelp("build", mockDeps));
 		expect(mockLog.mock.calls.flat().join(" ")).toContain("BUILD");
 	});
 
 	it("shows error message with available sections for unknown section", () => {
-		showHelp("unknown");
+		showHelp("unknown", mockDeps);
 		const output = mockLog.mock.calls.flat().join(" ");
 		expect(output).toContain("No help available");
 		expect(output).toContain("unknown");
@@ -73,24 +70,7 @@ describe("showHelp", () => {
 	});
 
 	it("is case-insensitive", () => {
-		showHelp("BUILD");
-		expect(mockLog).toHaveBeenCalledWith(getHelp("build"));
-	});
-});
-
-describe("commands.help", () => {
-	it("uses flag key as section", () => {
-		commands.help({ build: true }, []);
-		expect(mockLog).toHaveBeenCalledWith(getHelp("build"));
-	});
-
-	it("uses rawArgs[1] as section", () => {
-		commands.help({}, ["help", "publish"]);
-		expect(mockLog).toHaveBeenCalledWith(getHelp("publish"));
-	});
-
-	it("defaults to main when no flags or args", () => {
-		commands.help({}, []);
-		expect(mockLog).toHaveBeenCalledWith(getHelp("main"));
+		showHelp("BUILD", mockDeps);
+		expect(mockLog).toHaveBeenCalledWith(getHelp("build", mockDeps));
 	});
 });

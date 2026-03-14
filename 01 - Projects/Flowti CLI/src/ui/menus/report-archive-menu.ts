@@ -5,16 +5,15 @@
  * concerns from pure domain logic.
  */
 
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
 import { runMenu } from "../../infrastructure/menu.js";
-import { log } from "../../infrastructure/logger.js";
 import { RESET, DIM, BOLD, CYAN, GREEN } from "../../infrastructure/ui.js";
 import type { MenuEntry, MenuResult } from "../../infrastructure/types.js";
+import type { ArchiveDeps } from "../../infrastructure/deps.js";
 import { discoverArchiveCategories } from "../../domain/reports/export/report-archive.js";
 import type { ArchiveCategory } from "../../domain/reports/export/report-archive.js";
 
-export async function browseArchive(reportsDir: string): Promise<MenuResult> {
+export async function browseArchive(reportsDir: string, deps: ArchiveDeps): Promise<MenuResult> {
+	const { disk, paths, log } = deps;
 	const categories = discoverArchiveCategories(reportsDir, { disk, paths });
 
 	if (categories.length === 0) {
@@ -25,7 +24,7 @@ export async function browseArchive(reportsDir: string): Promise<MenuResult> {
 	const items: MenuEntry[] = categories.map((cat, i) => ({
 		key: String(i + 1),
 		label: `${cat.label}  ${DIM}(${cat.files.length} report${cat.files.length === 1 ? "" : "s"})${RESET}`,
-		action: () => browseCategory(reportsDir, cat),
+		action: () => browseCategory(reportsDir, cat, deps),
 	}));
 
 	items.push(
@@ -36,13 +35,14 @@ export async function browseArchive(reportsDir: string): Promise<MenuResult> {
 	return runMenu("Report Archive", items);
 }
 
-async function browseCategory(reportsDir: string, category: ArchiveCategory): Promise<MenuResult> {
+async function browseCategory(reportsDir: string, category: ArchiveCategory, deps: ArchiveDeps): Promise<MenuResult> {
+	const { paths } = deps;
 	const items: MenuEntry[] = category.files.map((file, i) => ({
 		key: String(i + 1),
 		label: file.replace(/\.md$/, ""),
 		action: () => {
 			const filePath = paths.join(reportsDir, category.subdir, file);
-			openReport(filePath);
+			openReport(filePath, deps);
 			return "main" as const;
 		},
 	}));
@@ -55,7 +55,8 @@ async function browseCategory(reportsDir: string, category: ArchiveCategory): Pr
 	return runMenu(`Archive: ${category.label}`, items);
 }
 
-function openReport(filePath: string): void {
+function openReport(filePath: string, deps: ArchiveDeps): void {
+	const { disk, log } = deps;
 	log(`\n  ${BOLD}Report:${RESET} ${CYAN}${filePath}${RESET}`);
 
 	try {
@@ -77,7 +78,7 @@ function openReport(filePath: string): void {
 		const heading = lines.find((l) => l.startsWith("# "));
 		if (heading) log(`  ${GREEN}${heading}${RESET}`);
 
-		log();
+		log("");
 	} catch {
 		log(`  ${DIM}Could not read file.${RESET}\n`);
 	}

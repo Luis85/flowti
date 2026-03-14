@@ -5,7 +5,6 @@
  */
 
 import { RESET, DIM, GREEN, RED, YELLOW, CYAN } from "../../infrastructure/ui.js";
-import { log } from "../../infrastructure/logger.js";
 import type { ChangeImpact } from "../../domain/review/change-analysis.js";
 import type { TraceabilityMatrix, TraceabilityValidation, TraceabilityGap, CategoryCoverage } from "../../domain/review/traceability.js";
 import type { GateEvaluationResult } from "../../domain/review/quality-gates.js";
@@ -53,7 +52,7 @@ export interface EvidenceListModel {
 
 // ── Renderers ────────────────────────────────────────────────────────
 
-export function renderChangeAnalysis(data: ChangeAnalysisModel): void {
+export function renderChangeAnalysis(data: ChangeAnalysisModel, log: (msg?: string) => void): void {
 	log(`\n  ${CYAN}Change Analysis${RESET}  ${DIM}${data.projectLabel}${RESET}\n`);
 	log(`  ${data.impact.summary}\n`);
 	if (data.impact.changedFiles.length > 0) {
@@ -66,13 +65,13 @@ export function renderChangeAnalysis(data: ChangeAnalysisModel): void {
 	log();
 }
 
-export function renderPipelineResult(data: PipelineResultModel): void {
+export function renderPipelineResult(data: PipelineResultModel, log: (msg?: string) => void): void {
 	if (data.stoppedAt) {
 		log(`Pipeline stopped — ${data.reason ?? `${data.stoppedAt} failed`}.`);
 	}
 }
 
-export function renderReviewClean(data: ReviewCleanModel): void {
+export function renderReviewClean(data: ReviewCleanModel, log: (msg?: string) => void): void {
 	if (!data.removed) {
 		log(`\n  ${YELLOW}Test vault does not exist: ${data.vaultPath}${RESET}\n`);
 		return;
@@ -80,7 +79,7 @@ export function renderReviewClean(data: ReviewCleanModel): void {
 	log(`\n  ${GREEN}Removed${RESET} test vault: ${DIM}${data.vaultPath}${RESET}\n`);
 }
 
-export function renderGateResult(data: GateResultModel): void {
+export function renderGateResult(data: GateResultModel, log: (msg?: string) => void): void {
 	log(`\n  ${CYAN}Quality Gates${RESET}  ${DIM}${data.projectLabel}${RESET}\n`);
 
 	if (!data.evaluation) {
@@ -108,7 +107,7 @@ export function renderGateResult(data: GateResultModel): void {
 	log();
 }
 
-function renderValidationMessages(validation: TraceabilityModel["validation"]): void {
+function renderValidationMessages(validation: TraceabilityModel["validation"], log: (msg?: string) => void): void {
 	if (validation.errors.length > 0) {
 		log(`  ${RED}Validation errors:${RESET}`);
 		for (const e of validation.errors) log(`    ${RED}✗${RESET} ${e}`);
@@ -128,9 +127,9 @@ function statusColor(status: string): string {
 	return DIM;
 }
 
-export function renderTraceabilityMatrix(data: TraceabilityModel): void {
+export function renderTraceabilityMatrix(data: TraceabilityModel, log: (msg?: string) => void): void {
 	log(`\n  ${CYAN}Traceability Matrix${RESET}  ${DIM}${data.projectLabel}${RESET}\n`);
-	renderValidationMessages(data.validation);
+	renderValidationMessages(data.validation, log);
 
 	const m = data.matrix;
 	log(`  Requirements: ${m.totalRequirements} total`);
@@ -146,7 +145,7 @@ export function renderTraceabilityMatrix(data: TraceabilityModel): void {
 	log();
 }
 
-export function renderCoverageReport(data: CoverageModel): void {
+export function renderCoverageReport(data: CoverageModel, log: (msg?: string) => void): void {
 	log(`\n  ${CYAN}Requirement Coverage${RESET}  ${DIM}${data.projectLabel}${RESET}\n`);
 
 	const m = data.matrix;
@@ -174,7 +173,7 @@ export function renderCoverageReport(data: CoverageModel): void {
 	log();
 }
 
-export function renderEvidenceList(data: EvidenceListModel): void {
+export function renderEvidenceList(data: EvidenceListModel, log: (msg?: string) => void): void {
 	log(`\n  ${CYAN}Evidence Runs${RESET}  ${DIM}${data.projectLabel}${RESET}\n`);
 
 	if (data.runs.length === 0) {

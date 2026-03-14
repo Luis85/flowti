@@ -218,31 +218,31 @@ describe("displayHealth", () => {
 	};
 
 	it("displays project name", () => {
-		displayHealth(baseHealth);
+		displayHealth(baseHealth, log);
 		const calls = mockLog.mock.calls.map(([msg]) => String(msg));
 		expect(calls.some((m) => m.includes("test-project"))).toBe(true);
 	});
 
 	it("displays test counts", () => {
-		displayHealth(baseHealth);
+		displayHealth(baseHealth, log);
 		const calls = mockLog.mock.calls.map(([msg]) => String(msg));
 		expect(calls.some((m) => m.includes("100"))).toBe(true);
 	});
 
 	it("displays coverage percentages", () => {
-		displayHealth(baseHealth);
+		displayHealth(baseHealth, log);
 		const calls = mockLog.mock.calls.map(([msg]) => String(msg));
 		expect(calls.some((m) => m.includes("85.0%"))).toBe(true);
 	});
 
 	it("displays build duration", () => {
-		displayHealth(baseHealth);
+		displayHealth(baseHealth, log);
 		const calls = mockLog.mock.calls.map(([msg]) => String(msg));
 		expect(calls.some((m) => m.includes("1.5s"))).toBe(true);
 	});
 
 	it("displays summary line", () => {
-		displayHealth(baseHealth);
+		displayHealth(baseHealth, log);
 		const calls = mockLog.mock.calls.map(([msg]) => String(msg));
 		expect(calls.some((m) => m.includes("Summary:"))).toBe(true);
 	});
@@ -258,19 +258,19 @@ describe("displayHealth", () => {
 			git: null,
 			security: null,
 			components: 0,
-		});
+		}, log);
 		const calls = mockLog.mock.calls.map(([msg]) => String(msg));
 		expect(calls.some((m) => m.includes("No report data"))).toBe(true);
 	});
 
 	it("shows failed tests count in red", () => {
-		displayHealth({ ...baseHealth, tests: { total: 10, passed: 8, failed: 2, suites: 3 } });
+		displayHealth({ ...baseHealth, tests: { total: 10, passed: 8, failed: 2, suites: 3 } }, log);
 		const calls = mockLog.mock.calls.map(([msg]) => String(msg));
 		expect(calls.some((m) => m.includes("Failed:"))).toBe(true);
 	});
 
 	it("skips sections with null data", () => {
-		displayHealth({ ...baseHealth, coverage: null, build: null, lint: null });
+		displayHealth({ ...baseHealth, coverage: null, build: null, lint: null }, log);
 		const calls = mockLog.mock.calls.map(([msg]) => String(msg));
 		expect(calls.some((m) => m.includes("Coverage"))).toBe(false);
 		expect(calls.some((m) => m.includes("Build"))).toBe(false);

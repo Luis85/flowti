@@ -10,8 +10,16 @@ import type {
 	ActionHandler,
 	ConditionHandler,
 	BeforeRenderHandler,
-	ListProviderHandler,
 } from "./sitemap-types.js";
+import type { RouterContext } from "./sitemap-types.js";
+import type { MenuEntry } from "./types.js";
+import type { FormData } from "./form-runner.js";
+
+/** Handles a form submission — receives collected form data + context. */
+export type FormHandler = (ctx: RouterContext & { readonly formData: FormData }) => Promise<void>;
+
+/** Returns dynamic menu entries at runtime. */
+export type DataSourceHandler = (ctx: RouterContext, params?: Readonly<Record<string, unknown>>) => MenuEntry[];
 
 // ── Handler Registry ────────────────────────────────────────────────
 
@@ -20,7 +28,8 @@ export class HandlerRegistry {
 	readonly #actions = new Map<string, ActionHandler>();
 	readonly #conditions = new Map<string, ConditionHandler>();
 	readonly #beforeRenders = new Map<string, BeforeRenderHandler>();
-	readonly #listProviders = new Map<string, ListProviderHandler>();
+	readonly #formHandlers = new Map<string, FormHandler>();
+	readonly #dataSources = new Map<string, DataSourceHandler>();
 
 	// ── Registration ────────────────────────────────────────────────
 
@@ -44,9 +53,14 @@ export class HandlerRegistry {
 		this.#beforeRenders.set(id, handler);
 	}
 
-	registerListProvider(id: string, handler: ListProviderHandler): void {
-		if (this.#listProviders.has(id)) throw new Error(`Duplicate listProvider handler: "${id}"`);
-		this.#listProviders.set(id, handler);
+	registerFormHandler(id: string, handler: FormHandler): void {
+		if (this.#formHandlers.has(id)) throw new Error(`Duplicate form handler: "${id}"`);
+		this.#formHandlers.set(id, handler);
+	}
+
+	registerDataSource(id: string, handler: DataSourceHandler): void {
+		if (this.#dataSources.has(id)) throw new Error(`Duplicate data source handler: "${id}"`);
+		this.#dataSources.set(id, handler);
 	}
 
 	// ── Lookup ──────────────────────────────────────────────────────
@@ -75,9 +89,15 @@ export class HandlerRegistry {
 		return h;
 	}
 
-	getListProvider(id: string): ListProviderHandler {
-		const h = this.#listProviders.get(id);
-		if (!h) throw new Error(`Unknown listProvider handler: "${id}"`);
+	getFormHandler(id: string): FormHandler {
+		const h = this.#formHandlers.get(id);
+		if (!h) throw new Error(`Unknown form handler: "${id}"`);
+		return h;
+	}
+
+	getDataSource(id: string): DataSourceHandler {
+		const h = this.#dataSources.get(id);
+		if (!h) throw new Error(`Unknown data source handler: "${id}"`);
 		return h;
 	}
 
@@ -87,15 +107,18 @@ export class HandlerRegistry {
 	hasAction(id: string): boolean { return this.#actions.has(id); }
 	hasCondition(id: string): boolean { return this.#conditions.has(id); }
 	hasBeforeRender(id: string): boolean { return this.#beforeRenders.has(id); }
-	hasListProvider(id: string): boolean { return this.#listProviders.has(id); }
+	hasFormHandler(id: string): boolean { return this.#formHandlers.has(id); }
+	hasDataSource(id: string): boolean { return this.#dataSources.has(id); }
 
 	get viewCount(): number { return this.#views.size; }
 	get actionCount(): number { return this.#actions.size; }
 	get conditionCount(): number { return this.#conditions.size; }
-	get listProviderCount(): number { return this.#listProviders.size; }
+	get formHandlerCount(): number { return this.#formHandlers.size; }
+	get dataSourceCount(): number { return this.#dataSources.size; }
 
 	viewIds(): string[] { return [...this.#views.keys()]; }
 	actionIds(): string[] { return [...this.#actions.keys()]; }
 	conditionIds(): string[] { return [...this.#conditions.keys()]; }
-	listProviderIds(): string[] { return [...this.#listProviders.keys()]; }
+	formHandlerIds(): string[] { return [...this.#formHandlers.keys()]; }
+	dataSourceIds(): string[] { return [...this.#dataSources.keys()]; }
 }

@@ -6,83 +6,81 @@
  */
 
 import type { PublishConfig, PublishEndpoint } from "../../infrastructure/types.js";
+import type { CliDeps, DistributeDeps } from "../../infrastructure/deps.js";
 
-import { disk } from "../../infrastructure/filesystem.js";
-import { paths } from "../../infrastructure/paths.js";
-import { log } from "../../infrastructure/logger.js";
 import { RESET, GREEN, RED, CYAN, YELLOW } from "../../infrastructure/ui.js";
 
-function validateDistributeConfig(config: PublishConfig, projectPath: string): string | null {
+function validateDistributeConfig(config: PublishConfig, projectPath: string, deps: DistributeDeps): string | null {
 	if ((config.endpoints ?? []).length === 0) {
 		return `\n  ${YELLOW}No publish endpoints configured.${RESET}\n  Add "endpoints" to the "publish" section in flowti.config.json.\n`;
 	}
 	if (!config.outDir) {
 		return `\n  ${YELLOW}No outDir configured.${RESET}\n  Add "outDir" to the "publish" section in flowti.config.json.\n`;
 	}
-	const srcDir = paths.resolve(projectPath, config.outDir);
-	if (!disk.existsSync(srcDir)) {
+	const srcDir = deps.paths.resolve(projectPath, config.outDir);
+	if (!deps.disk.existsSync(srcDir)) {
 		return `\n  ${RED}Output directory not found: ${srcDir}${RESET}\n  Run build first.\n`;
 	}
 	return null;
 }
 
-function copyDir(src: string, dest: string): number {
+function copyDir(src: string, dest: string, deps: Pick<CliDeps, "disk" | "paths">): number {
 	let count = 0;
-	for (const entry of disk.readdirSync(src, { withFileTypes: true })) {
-		const srcPath = paths.join(src, entry.name);
-		const destPath = paths.join(dest, entry.name);
+	for (const entry of deps.disk.readdirSync(src, { withFileTypes: true })) {
+		const srcPath = deps.paths.join(src, entry.name);
+		const destPath = deps.paths.join(dest, entry.name);
 		if (entry.isDirectory()) {
-			disk.mkdirSync(destPath, { recursive: true });
-			count += copyDir(srcPath, destPath);
+			deps.disk.mkdirSync(destPath, { recursive: true });
+			count += copyDir(srcPath, destPath, deps);
 		} else {
-			disk.copyFileSync(srcPath, destPath);
+			deps.disk.copyFileSync(srcPath, destPath);
 			count++;
 		}
 	}
 	return count;
 }
 
-export function distribute(projectPath: string, config: PublishConfig): number {
-	const error = validateDistributeConfig(config, projectPath);
-	if (error) { log(error); return 1; }
+export function distribute(projectPath: string, config: PublishConfig, deps: DistributeDeps): number {
+	const error = validateDistributeConfig(config, projectPath, deps);
+	if (error) { deps.log(error); return 1; }
 	const artifacts = config.artifacts ?? [];
 	const endpoints = config.endpoints ?? [];
-	const srcDir = paths.resolve(projectPath, config.outDir!);
+	const srcDir = deps.paths.resolve(projectPath, config.outDir!);
 	for (const ep of endpoints) {
-		distributeToEndpoint(ep, srcDir, artifacts);
+		distributeToEndpoint(ep, srcDir, artifacts, deps);
 	}
-	log(`\n  ${GREEN}✓${RESET} Distributed to ${endpoints.length} endpoint(s).\n`);
+	deps.log(`\n  ${GREEN}✓${RESET} Distributed to ${endpoints.length} endpoint(s).\n`);
 	return 0;
 }
 
-function distributeToEndpoint(ep: PublishEndpoint, srcDir: string, artifacts: string[]): void {
-	log(`\n  ${CYAN}▸${RESET} ${ep.name} → ${ep.path}`);
-	const targetDir = paths.resolve(ep.path);
-	if (ep.clean && disk.existsSync(targetDir)) {
-		cleanEndpointArtifacts(targetDir, artifacts);
+function distributeToEndpoint(ep: PublishEndpoint, srcDir: string, artifacts: string[], deps: DistributeDeps): void {
+	deps.log(`\n  ${CYAN}▸${RESET} ${ep.name} → ${ep.path}`);
+	const targetDir = deps.paths.resolve(ep.path);
+	if (ep.clean && deps.disk.existsSync(targetDir)) {
+		cleanEndpointArtifacts(targetDir, artifacts, deps);
 	}
-	disk.mkdirSync(targetDir, { recursive: true });
+	deps.disk.mkdirSync(targetDir, { recursive: true });
 	if (artifacts.length > 0) {
-		copyArtifacts(srcDir, targetDir, artifacts);
+		copyArtifacts(srcDir, targetDir, artifacts, deps);
 	} else {
-		log(`    ${GREEN}copy${RESET}  ${copyDir(srcDir, targetDir)} files`);
+		deps.log(`    ${GREEN}copy${RESET}  ${copyDir(srcDir, targetDir, deps)} files`);
 	}
 }
 
-function cleanEndpointArtifacts(targetDir: string, artifacts: string[]): void {
+function cleanEndpointArtifacts(targetDir: string, artifacts: string[], deps: Pick<CliDeps, "disk" | "paths">): void {
 	for (const a of artifacts) {
-		const p = paths.join(targetDir, a);
-		if (disk.existsSync(p)) disk.unlinkSync(p);
+		const p = deps.paths.join(targetDir, a);
+		if (deps.disk.existsSync(p)) deps.disk.unlinkSync(p);
 	}
 }
 
-function copyArtifacts(srcDir: string, targetDir: string, artifacts: string[]): void {
+function copyArtifacts(srcDir: string, targetDir: string, artifacts: string[], deps: DistributeDeps): void {
 	for (const a of artifacts) {
-		const s = paths.join(srcDir, a);
-		const d = paths.join(targetDir, a);
-		if (!disk.existsSync(s)) { log(`    ${YELLOW}skip${RESET}  ${a} (not found)`); continue; }
-		disk.mkdirSync(paths.dirname(d), { recursive: true });
-		disk.copyFileSync(s, d);
-		log(`    ${GREEN}copy${RESET}  ${a}`);
+		const s = deps.paths.join(srcDir, a);
+		const d = deps.paths.join(targetDir, a);
+		if (!deps.disk.existsSync(s)) { deps.log(`    ${YELLOW}skip${RESET}  ${a} (not found)`); continue; }
+		deps.disk.mkdirSync(deps.paths.dirname(d), { recursive: true });
+		deps.disk.copyFileSync(s, d);
+		deps.log(`    ${GREEN}copy${RESET}  ${a}`);
 	}
 }

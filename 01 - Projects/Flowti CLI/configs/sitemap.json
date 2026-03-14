@@ -1,8 +1,9 @@
 {
-	"version": 1,
-	"views": {
+	"version": 2,
+	"pages": {
 		"start": {
-			"title": "Start Menu",
+			"kind": "page",
+			"label": "Start Menu",
 			"icon": "home",
 			"domain": "navigation",
 			"status": "active",
@@ -11,1918 +12,1776 @@
 				"path": "/",
 				"pathMatch": "full"
 			},
-			"beforeRender": "start:banner",
-			"items": [
+			"onBeforeRender": "start:banner",
+			"actions": [
 				{
-					"type": "item",
-					"key": "g",
-					"label": "Selected Project: {{project.name}}",
-					"navigate": "project-detail",
-					"hidden": "no-project-selected"
-				},
-				{
-					"type": "separator",
-					"hidden": "no-project-selected"
-				},
-				{
-					"type": "item",
-					"key": "1",
+					"name": "onOpenProject",
 					"label": "Open Project",
-					"handler": "project:open"
+					"type": "handler",
+					"target": "project:open",
+					"key": "1",
+					"group": "project"
 				},
 				{
-					"type": "item",
-					"key": "2",
+					"name": "onCreateProject",
 					"label": "Create Project",
-					"handler": "project:create"
+					"type": "handler",
+					"target": "project:create",
+					"key": "2",
+					"group": "project"
 				},
 				{
-					"type": "separator"
+					"name": "onNavigateProjectDetail",
+					"label": "Selected Project: {{project.name}}",
+					"type": "navigate",
+					"target": "project-detail",
+					"key": "g",
+					"hidden": "no-project-selected",
+					"group": "project"
 				},
 				{
-					"type": "item",
+					"name": "onNavigateAiTools",
+					"label": "Agents and AI Tools",
+					"type": "navigate",
+					"target": "ai-tools",
 					"key": "a",
-					"label": "AI Tools",
-					"navigate": "ai-tools"
+					"group": "tools"
 				},
 				{
-					"type": "item",
-					"key": "p",
+					"name": "onNavigatePlugins",
 					"label": "Plugins",
-					"navigate": "plugins"
+					"type": "navigate",
+					"target": "plugins",
+					"key": "p",
+					"group": "tools"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "q",
+					"name": "onQuit",
 					"label": "Quit",
-					"signal": "quit"
+					"type": "signal",
+					"target": "quit",
+					"key": "q",
+					"group": "nav"
 				}
 			]
 		},
 		"project-detail": {
-			"title": "{{project.name}}",
+			"kind": "page",
+			"label": "{{project.name}}",
 			"icon": "folder-open",
 			"domain": "navigation",
 			"status": "active",
 			"description": "Project hub — capture, build, review, publish, and manage a selected project.",
 			"parent": "start",
+			"context": ["project"],
+			"onBeforeRender": "project:banner",
 			"route": {
 				"path": "projects/:projectId",
-				"guards": [
-					"project-selected"
-				]
+				"guards": ["project-selected"]
 			},
-			"context": [
-				"project"
-			],
-			"beforeRender": "project:banner",
-			"items": [
+			"actions": [
 				{
-					"type": "item",
-					"key": "1",
+					"name": "onCaptureIdea",
 					"label": "Capture Idea",
-					"handler": "capture:idea"
+					"type": "handler",
+					"target": "capture:idea",
+					"key": "1",
+					"group": "capture"
 				},
 				{
-					"type": "item",
-					"key": "2",
+					"name": "onCaptureNote",
 					"label": "Capture Note",
-					"handler": "capture:note"
+					"type": "handler",
+					"target": "capture:note",
+					"key": "2",
+					"group": "capture"
 				},
 				{
-					"type": "item",
-					"key": "3",
+					"name": "onCaptureBug",
 					"label": "Capture Bug",
-					"handler": "capture:bug"
+					"type": "handler",
+					"target": "capture:bug",
+					"key": "3",
+					"group": "capture"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
+					"name": "onNavigateMake",
 					"label": "Make",
-					"navigate": "make"
+					"type": "navigate",
+					"target": "make",
+					"group": "actions"
 				},
 				{
-					"type": "item",
+					"name": "onBuild",
 					"label": "Build",
-					"handler": "build:interactive",
-					"disabled": {
-						"unless": "tools.esbuild || tools.typescript"
-					},
-					"disabledMessage": "No build tool detected. Install esbuild or typescript."
+					"type": "handler",
+					"target": "build:interactive",
+					"disabled": "!tools.esbuild && !tools.typescript",
+					"group": "actions"
 				},
 				{
-					"type": "item",
+					"name": "onNavigateReview",
 					"label": "Review",
-					"navigate": "review"
+					"type": "navigate",
+					"target": "review",
+					"group": "actions"
 				},
 				{
-					"type": "item",
+					"name": "onNavigatePublish",
 					"label": "Publish",
-					"navigate": "publish"
+					"type": "navigate",
+					"target": "publish",
+					"group": "actions"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
+					"name": "onNavigateIterationDetail",
 					"label": "Current Iteration",
-					"navigate": "iteration-detail",
-					"hidden": "iteration:not-running"
+					"type": "navigate",
+					"target": "iteration-detail",
+					"key": "w",
+					"hidden": "iteration:not-running",
+					"group": "iteration"
 				},
 				{
-					"type": "item",
-					"label": "Start Iteration",
-					"handler": "iteration:start",
-					"hidden": "iteration:running"
+					"name": "onAdvanceIteration",
+					"label": "Advance Iteration",
+					"type": "handler",
+					"target": "iteration:advance",
+					"key": "s",
+					"hidden": "iteration:not-running",
+					"disabled": "iteration:cannot-advance",
+					"group": "iteration"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "c",
+					"name": "onNavigateComponents",
 					"label": "Product Components",
-					"navigate": "components"
+					"type": "navigate",
+					"target": "components",
+					"key": "c",
+					"group": "view"
 				},
 				{
-					"type": "item",
-					"key": "v",
+					"name": "onNavigateEventCatalog",
 					"label": "Event Catalog",
-					"navigate": "event-catalog"
+					"type": "navigate",
+					"target": "event-catalog",
+					"key": "v",
+					"group": "view"
 				},
 				{
-					"type": "item",
-					"key": "a",
+					"name": "onNavigateReports",
 					"label": "Reporting",
-					"navigate": "reports"
+					"type": "navigate",
+					"target": "reports",
+					"key": "a",
+					"group": "view"
 				},
 				{
-					"type": "item",
-					"key": "i",
+					"name": "onShowInfo",
 					"label": "Status",
-					"handler": "info:show"
+					"type": "handler",
+					"target": "info:show",
+					"key": "i",
+					"group": "view"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "e",
+					"name": "onNavigateRequirements",
 					"label": "Requirements Management",
-					"navigate": "requirements"
+					"type": "navigate",
+					"target": "requirements",
+					"key": "e",
+					"group": "manage"
 				},
 				{
-					"type": "item",
-					"key": "m",
+					"name": "onNavigateManagement",
 					"label": "Project Management",
-					"navigate": "management"
+					"type": "navigate",
+					"target": "management",
+					"key": "m",
+					"group": "manage"
 				},
 				{
-					"type": "item",
-					"key": "d",
+					"name": "onNavigateDocs",
 					"label": "Documentation",
-					"navigate": "docs"
+					"type": "navigate",
+					"target": "docs",
+					"key": "d",
+					"group": "manage"
 				},
 				{
-					"type": "item",
-					"key": "k",
+					"name": "onNavigateKnowledgebase",
 					"label": "Knowledgebase",
-					"navigate": "knowledgebase",
+					"type": "navigate",
+					"target": "knowledgebase",
+					"key": "k",
 					"disabled": "knowledgebase:available",
-					"disabledMessage": "Requires Obsidian CLI and an initialized vault."
+					"group": "manage"
 				},
 				{
-					"type": "item",
-					"key": "t",
+					"name": "onNavigateDevtools",
 					"label": "Dev Tools",
-					"navigate": "devtools"
+					"type": "navigate",
+					"target": "devtools",
+					"key": "t",
+					"group": "manage"
 				},
 				{
-					"type": "item",
-					"key": "r",
+					"name": "onShowReadme",
 					"label": "README",
-					"handler": "readme:show",
+					"type": "handler",
+					"target": "readme:show",
+					"key": "r",
 					"disabled": "readme:exists",
-					"disabledMessage": "No README.md found."
+					"group": "manage"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "b",
+					"name": "onStart",
 					"label": "Back to Start Menu",
-					"signal": "start"
+					"type": "signal",
+					"target": "start",
+					"key": "b",
+					"group": "nav"
 				},
 				{
-					"type": "item",
-					"key": "?",
+					"name": "onHelp",
 					"label": "Help",
-					"handler": "help:main"
+					"type": "handler",
+					"target": "help:main",
+					"key": "?",
+					"group": "nav"
 				},
 				{
-					"type": "item",
-					"key": "q",
+					"name": "onQuit",
 					"label": "Quit",
-					"signal": "quit"
+					"type": "signal",
+					"target": "quit",
+					"key": "q",
+					"group": "nav"
 				}
 			]
 		},
 		"management": {
-			"title": "Project Management",
+			"kind": "page",
+			"label": "Project Management",
 			"icon": "clipboard-list",
 			"domain": "management",
 			"status": "active",
-			"description": "Project management hub — resources, timelog, deliverables, RAID, CAPA, lifecycle, and health.",
+			"description": "Access project management tools — resources, time-log, deliverables, RAID, CAPA, lifecycle, health, and iterations.",
 			"parent": "project-detail",
-			"route": {
-				"path": "management",
-				"lazy": true
-			},
-			"context": [
-				"project"
-			],
-			"items": [
+			"context": ["project"],
+			"actions": [
 				{
-					"type": "item",
-					"key": "1",
+					"name": "onNavigateResources",
 					"label": "Resources",
-					"navigate": "resources"
+					"type": "navigate",
+					"target": "resources",
+					"key": "1",
+					"group": "manage"
 				},
 				{
-					"type": "item",
-					"key": "2",
+					"name": "onNavigateTimelog",
 					"label": "Time-Log",
-					"navigate": "timelog"
+					"type": "navigate",
+					"target": "timelog",
+					"key": "2",
+					"group": "manage"
 				},
 				{
-					"type": "item",
-					"key": "3",
+					"name": "onNavigateDeliverables",
 					"label": "Deliverables",
-					"navigate": "deliverables"
+					"type": "navigate",
+					"target": "deliverables",
+					"key": "3",
+					"group": "manage"
 				},
 				{
-					"type": "item",
-					"key": "4",
+					"name": "onNavigateRaid",
 					"label": "RAID Log",
-					"navigate": "raid"
+					"type": "navigate",
+					"target": "raid",
+					"key": "4",
+					"group": "manage"
 				},
 				{
-					"type": "item",
-					"key": "5",
+					"name": "onNavigateCapa",
 					"label": "CAPA",
-					"navigate": "capa"
+					"type": "navigate",
+					"target": "capa",
+					"key": "5",
+					"group": "manage"
 				},
 				{
-					"type": "item",
-					"key": "6",
+					"name": "onNavigateLifecycle",
 					"label": "Lifecycle",
-					"navigate": "lifecycle"
+					"type": "navigate",
+					"target": "lifecycle",
+					"key": "6",
+					"group": "manage"
 				},
 				{
-					"type": "item",
-					"key": "7",
+					"name": "onShowHealth",
 					"label": "Health",
-					"handler": "health:show"
+					"type": "handler",
+					"target": "health:show",
+					"key": "7",
+					"group": "manage"
 				},
 				{
-					"type": "item",
-					"key": "8",
+					"name": "onNavigateIterations",
 					"label": "Iterations",
-					"navigate": "iterations"
+					"type": "navigate",
+					"target": "iterations",
+					"key": "8",
+					"group": "manage"
 				},
 				{
-					"type": "item",
-					"key": "9",
+					"name": "onCreateIteration",
 					"label": "Add new Iteration",
-					"handler": "iteration:create"
+					"type": "handler",
+					"target": "iteration:create",
+					"key": "9",
+					"group": "manage"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "b",
+					"name": "onBack",
 					"label": "Back",
-					"signal": "back"
+					"type": "signal",
+					"target": "back",
+					"key": "b",
+					"group": "nav"
 				},
 				{
-					"type": "item",
-					"key": "q",
+					"name": "onQuit",
 					"label": "Quit",
-					"signal": "quit"
+					"type": "signal",
+					"target": "quit",
+					"key": "q",
+					"group": "nav"
 				}
 			]
 		},
 		"plugins": {
-			"title": "Plugins",
+			"kind": "page",
+			"label": "Plugins",
 			"icon": "plug",
 			"domain": "extensibility",
 			"status": "active",
+			"description": "Manage CLI plugins — list, validate, create, and generate references.",
 			"parent": "start",
-			"route": {
-				"path": "plugins",
-				"lazy": true
-			},
-			"description": "Manage Flowti plugins — discover, validate, scaffold, and document plugins from the vault plugins directory.",
-			"items": [
+			"actions": [
 				{
-					"type": "item",
-					"key": "1",
+					"name": "onListPlugins",
 					"label": "List Plugins",
-					"handler": "plugins:list"
+					"type": "handler",
+					"target": "plugins:list",
+					"key": "1",
+					"group": "actions"
 				},
 				{
-					"type": "item",
-					"key": "2",
+					"name": "onValidatePlugins",
 					"label": "Validate Plugins",
-					"handler": "plugins:validate"
+					"type": "handler",
+					"target": "plugins:validate",
+					"key": "2",
+					"group": "actions"
 				},
 				{
-					"type": "item",
-					"key": "3",
+					"name": "onCreatePlugin",
 					"label": "Create Plugin",
-					"handler": "plugins:create"
+					"type": "handler",
+					"target": "plugins:create",
+					"key": "3",
+					"group": "actions"
 				},
 				{
-					"type": "item",
-					"key": "4",
+					"name": "onGenerateReference",
 					"label": "Generate Reference",
-					"handler": "plugins:reference"
+					"type": "handler",
+					"target": "plugins:reference",
+					"key": "4",
+					"group": "actions"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "b",
+					"name": "onBack",
 					"label": "Back",
-					"signal": "back"
+					"type": "signal",
+					"target": "back",
+					"key": "b",
+					"group": "nav"
 				}
-			],
-			"capabilities": [
-				"List installed plugins",
-				"Validate plugin manifests",
-				"Scaffold new plugin from template",
-				"Generate plugin reference documentation"
 			]
 		},
 		"ai-tools": {
-			"title": "AI Tools",
+			"kind": "page",
+			"label": "Agents and AI Tools",
 			"icon": "cpu",
 			"domain": "extensibility",
 			"status": "active",
+			"description": "Manage AI agent tools — list, validate, create, and generate references.",
 			"parent": "start",
-			"route": {
-				"path": "ai-tools",
-				"lazy": true
-			},
-			"description": "Manage AI tool definitions — discover, validate, scaffold, and document AI tools from the vault ai-tools directory.",
-			"items": [
+			"actions": [
 				{
-					"type": "item",
-					"key": "1",
+					"name": "onListTools",
 					"label": "List Tools",
-					"handler": "ai-tools:list"
+					"type": "handler",
+					"target": "ai-tools:list",
+					"key": "1",
+					"group": "actions"
 				},
 				{
-					"type": "item",
-					"key": "2",
+					"name": "onValidateTools",
 					"label": "Validate Tools",
-					"handler": "ai-tools:validate"
+					"type": "handler",
+					"target": "ai-tools:validate",
+					"key": "2",
+					"group": "actions"
 				},
 				{
-					"type": "item",
-					"key": "3",
+					"name": "onCreateTool",
 					"label": "Create Tool",
-					"handler": "ai-tools:create"
+					"type": "handler",
+					"target": "ai-tools:create",
+					"key": "3",
+					"group": "actions"
 				},
 				{
-					"type": "item",
-					"key": "4",
+					"name": "onGenerateReference",
 					"label": "Generate Reference",
-					"handler": "ai-tools:reference"
+					"type": "handler",
+					"target": "ai-tools:reference",
+					"key": "4",
+					"group": "actions"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "b",
+					"name": "onBack",
 					"label": "Back",
-					"signal": "back"
+					"type": "signal",
+					"target": "back",
+					"key": "b",
+					"group": "nav"
 				}
-			],
-			"capabilities": [
-				"List available AI tools",
-				"Validate tool definitions",
-				"Scaffold new AI tool from template",
-				"Generate AI tool reference documentation"
 			]
 		},
 		"make": {
-			"title": "Make",
+			"kind": "list",
+			"label": "Make",
 			"icon": "hammer",
 			"domain": "development",
 			"status": "active",
+			"description": "Scaffold new project artifacts from templates.",
 			"parent": "project-detail",
-			"route": {
-				"path": "make",
-				"lazy": true
-			},
-			"context": [
-				"project"
+			"context": ["project"],
+			"configPath": "make.templates",
+			"dataSources": [
+				{ "id": "make:templates" }
 			],
-			"description": "Create new components and E2E journeys from configurable templates.",
-			"items": [
+			"actions": [
 				{
-					"type": "listProvider",
-					"listProvider": "make:templates"
-				},
-				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "?",
+					"name": "onHelp",
 					"label": "Help",
-					"handler": "make:help"
+					"type": "handler",
+					"target": "make:help",
+					"key": "?",
+					"group": "nav"
 				},
 				{
-					"type": "item",
-					"key": "b",
+					"name": "onBack",
 					"label": "Back",
-					"signal": "back"
+					"type": "signal",
+					"target": "back",
+					"key": "b",
+					"group": "nav"
 				},
 				{
-					"type": "item",
-					"key": "q",
+					"name": "onQuit",
 					"label": "Quit",
-					"signal": "quit"
+					"type": "signal",
+					"target": "quit",
+					"key": "q",
+					"group": "nav"
 				}
-			],
-			"capabilities": [
-				"Create new component from template",
-				"Create new E2E journey",
-				"Run custom make templates"
-			],
-			"configPath": "make.templates"
+			]
 		},
 		"review": {
-			"title": "Review",
+			"kind": "page",
+			"label": "Review",
 			"icon": "check-circle",
 			"domain": "quality",
 			"status": "active",
+			"description": "Quality review pipeline — build, test, E2E, journeys, and test vault management.",
 			"parent": "project-detail",
-			"route": {
-				"path": "review",
-				"lazy": true
-			},
-			"context": [
-				"project"
-			],
-			"beforeRender": "review:banner",
-			"description": "Interactive review pipeline: build, test, and run E2E journeys with test vault management.",
-			"items": [
+			"context": ["project"],
+			"onBeforeRender": "review:banner",
+			"configPath": "review",
+			"actions": [
 				{
-					"type": "item",
-					"key": "1",
+					"name": "onBuild",
 					"label": "Build",
-					"handler": "review:build"
+					"type": "handler",
+					"target": "review:build",
+					"key": "1",
+					"group": "pipeline"
 				},
 				{
-					"type": "item",
-					"key": "2",
+					"name": "onTest",
 					"label": "Test",
-					"handler": "review:test"
+					"type": "handler",
+					"target": "review:test",
+					"key": "2",
+					"group": "pipeline"
 				},
 				{
-					"type": "item",
-					"key": "3",
+					"name": "onRunE2E",
 					"label": "Run E2E",
-					"handler": "review:e2e"
+					"type": "handler",
+					"target": "review:e2e",
+					"key": "3",
+					"group": "pipeline"
 				},
 				{
-					"type": "item",
+					"name": "onRunJourney",
+					"label": "Run Journey",
+					"type": "handler",
+					"target": "review:journey",
 					"key": "j",
-					"label": "Run Journey...",
-					"handler": "review:journey"
+					"group": "pipeline"
 				},
 				{
-					"type": "item",
-					"key": "a",
+					"name": "onRunAll",
 					"label": "Run All",
-					"handler": "review:run-all"
+					"type": "handler",
+					"target": "review:run-all",
+					"key": "a",
+					"group": "pipeline"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "l",
+					"name": "onListJourneys",
 					"label": "List Journeys",
-					"handler": "review:list-journeys"
+					"type": "handler",
+					"target": "review:list-journeys",
+					"key": "l",
+					"group": "journeys"
 				},
 				{
-					"type": "item",
-					"key": "n",
+					"name": "onNewJourney",
 					"label": "New Journey",
-					"handler": "review:new-journey"
+					"type": "handler",
+					"target": "review:new-journey",
+					"key": "n",
+					"group": "journeys"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "v",
+					"name": "onCreateTestVault",
 					"label": "Create/Ensure Test Vault",
-					"handler": "review:vault-create"
+					"type": "handler",
+					"target": "review:vault-create",
+					"key": "v",
+					"group": "vault"
 				},
 				{
-					"type": "item",
-					"key": "o",
+					"name": "onOpenTestVault",
 					"label": "Open Test Vault",
-					"handler": "review:vault-open"
+					"type": "handler",
+					"target": "review:vault-open",
+					"key": "o",
+					"group": "vault"
 				},
 				{
-					"type": "item",
-					"key": "t",
+					"name": "onTeardownTestVault",
 					"label": "Teardown Test Vault",
-					"handler": "review:vault-teardown"
+					"type": "handler",
+					"target": "review:vault-teardown",
+					"key": "t",
+					"group": "vault"
 				},
 				{
-					"type": "item",
-					"key": "x",
+					"name": "onRebuildTestVault",
 					"label": "Rebuild Test Vault",
-					"handler": "review:vault-rebuild"
+					"type": "handler",
+					"target": "review:vault-rebuild",
+					"key": "x",
+					"group": "vault"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "b",
+					"name": "onBack",
 					"label": "Back",
-					"signal": "back"
+					"type": "signal",
+					"target": "back",
+					"key": "b",
+					"group": "nav"
 				},
 				{
-					"type": "item",
-					"key": "q",
+					"name": "onQuit",
 					"label": "Quit",
-					"signal": "quit"
+					"type": "signal",
+					"target": "quit",
+					"key": "q",
+					"group": "nav"
 				}
-			],
-			"capabilities": [
-				"Build project",
-				"Run tests",
-				"Run all E2E journeys",
-				"Run specific E2E journey",
-				"Run full pipeline (build → test → E2E)",
-				"List available journeys",
-				"Create new journey",
-				"Create/ensure test vault",
-				"Open test vault in file explorer",
-				"Teardown test vault",
-				"Rebuild test vault"
-			],
-			"configPath": "review"
+			]
 		},
 		"publish": {
-			"title": "Publish",
+			"kind": "page",
+			"label": "Publish",
 			"icon": "upload",
 			"domain": "release",
 			"status": "active",
+			"description": "Release pipeline — build, test, and distribute project artifacts.",
 			"parent": "project-detail",
-			"route": {
-				"path": "publish",
-				"lazy": true
-			},
-			"context": [
-				"project"
-			],
-			"beforeRender": "publish:banner",
-			"description": "Interactive publish pipeline: build, test, and distribute to configured endpoints.",
-			"items": [
+			"context": ["project"],
+			"onBeforeRender": "publish:banner",
+			"configPath": "publish",
+			"actions": [
 				{
-					"type": "item",
-					"key": "1",
+					"name": "onBuild",
 					"label": "Build",
-					"handler": "publish:build"
+					"type": "handler",
+					"target": "publish:build",
+					"key": "1",
+					"group": "pipeline"
 				},
 				{
-					"type": "item",
-					"key": "2",
+					"name": "onTest",
 					"label": "Test",
-					"handler": "publish:test"
+					"type": "handler",
+					"target": "publish:test",
+					"key": "2",
+					"group": "pipeline"
 				},
 				{
-					"type": "item",
-					"key": "3",
+					"name": "onDistribute",
 					"label": "Distribute",
-					"handler": "publish:distribute"
+					"type": "handler",
+					"target": "publish:distribute",
+					"key": "3",
+					"group": "pipeline"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "a",
+					"name": "onRunAll",
 					"label": "Run All",
-					"handler": "publish:run-all"
+					"type": "handler",
+					"target": "publish:run-all",
+					"key": "a",
+					"group": "pipeline"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "b",
+					"name": "onBack",
 					"label": "Back",
-					"signal": "back"
+					"type": "signal",
+					"target": "back",
+					"key": "b",
+					"group": "nav"
 				},
 				{
-					"type": "item",
-					"key": "q",
+					"name": "onQuit",
 					"label": "Quit",
-					"signal": "quit"
+					"type": "signal",
+					"target": "quit",
+					"key": "q",
+					"group": "nav"
 				}
-			],
-			"capabilities": [
-				"Build project",
-				"Run tests",
-				"Distribute to configured endpoints",
-				"Run full pipeline (build → test → distribute)"
-			],
-			"configPath": "publish"
+			]
 		},
 		"components": {
-			"type": "dynamic",
-			"title": "Product Components",
+			"kind": "list",
+			"label": "Product Components",
 			"icon": "layers",
 			"domain": "development",
 			"status": "active",
+			"description": "Manage product components — add, regenerate, configure storybook, and view references.",
 			"parent": "project-detail",
-			"route": {
-				"path": "components",
-				"lazy": true
-			},
-			"context": [
-				"project"
+			"context": ["project"],
+			"configPath": "components",
+			"dataSources": [
+				{ "id": "component-list", "slot": "component-list" },
+				{ "id": "sitemap-ops", "slot": "sitemap-ops" },
+				{ "id": "libraries", "slot": "libraries" }
 			],
-			"handler": "components",
-			"description": "Component browser, manager, and Storybook UI library builder. Supports HTML, Angular, React, and Vue frameworks.",
-			"items": [
+			"actions": [
 				{
-					"type": "slot",
-					"slot": "component-list"
-				},
-				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "c",
+					"name": "onAddComponent",
 					"label": "Add Component",
-					"handler": "comp:add"
+					"type": "handler",
+					"target": "comp:add",
+					"key": "c",
+					"group": "create"
 				},
 				{
-					"type": "item",
-					"key": "r",
+					"name": "onRegenerateDirty",
 					"label": "Regenerate Dirty",
-					"handler": "comp:regen-dirty"
+					"type": "handler",
+					"target": "comp:regen-dirty",
+					"key": "r",
+					"group": "create"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "slot",
-					"slot": "sitemap-ops"
-				},
-				{
-					"type": "slot",
-					"slot": "libraries"
-				},
-				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "i",
+					"name": "onInstallStorybook",
 					"label": "Install Storybook",
-					"handler": "comp:sb-install"
+					"type": "handler",
+					"target": "comp:sb-install",
+					"key": "i",
+					"group": "storybook"
 				},
 				{
-					"type": "item",
-					"key": "s",
+					"name": "onStartStorybook",
 					"label": "Start Storybook",
-					"handler": "comp:sb-start"
+					"type": "handler",
+					"target": "comp:sb-start",
+					"key": "s",
+					"group": "storybook"
 				},
 				{
-					"type": "item",
-					"key": "x",
+					"name": "onStopStorybook",
 					"label": "Stop Storybook",
-					"handler": "comp:sb-stop"
+					"type": "handler",
+					"target": "comp:sb-stop",
+					"key": "x",
+					"group": "storybook"
 				},
 				{
-					"type": "item",
-					"key": "k",
+					"name": "onBuildDesignSystem",
 					"label": "Build Design System",
-					"handler": "comp:sb-build"
+					"type": "handler",
+					"target": "comp:sb-build",
+					"key": "k",
+					"group": "storybook"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "d",
+					"name": "onDataProviders",
 					"label": "Data Providers",
-					"handler": "comp:data-providers"
+					"type": "handler",
+					"target": "comp:data-providers",
+					"key": "d",
+					"group": "reference"
 				},
 				{
-					"type": "item",
-					"key": "a",
+					"name": "onActionReference",
 					"label": "Action Reference",
-					"handler": "comp:action-ref"
+					"type": "handler",
+					"target": "comp:action-ref",
+					"key": "a",
+					"group": "reference"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "b",
+					"name": "onBack",
 					"label": "Back",
-					"signal": "back"
+					"type": "signal",
+					"target": "back",
+					"key": "b",
+					"group": "nav"
 				}
-			],
-			"capabilities": [
-				"Browse components by kind",
-				"Add new component",
-				"Regenerate dirty components",
-				"View action reference",
-				"Import component library definitions",
-				"Create project sitemap",
-				"Import sitemap as components",
-				"Regenerate from dirty sitemap",
-				"Storybook management (install, start, stop, build)",
-				"Data provider management (create, infer schema)"
-			],
-			"configPath": "components"
+			]
 		},
 		"event-catalog": {
-			"title": "Event Catalog",
+			"kind": "page",
+			"label": "Event Catalog",
 			"icon": "zap",
 			"domain": "development",
 			"status": "active",
+			"description": "Browse, add, and visualize project events.",
 			"parent": "project-detail",
-			"route": {
-				"path": "event-catalog",
-				"lazy": true
-			},
-			"context": [
-				"project"
-			],
-			"description": "Browse, create, and manage event definitions with domain grouping, payload schemas, and flow diagrams.",
-			"items": [
+			"context": ["project"],
+			"configPath": "events",
+			"actions": [
 				{
-					"type": "item",
-					"key": "1",
+					"name": "onListEvents",
 					"label": "List Events",
-					"handler": "events:list"
+					"type": "handler",
+					"target": "events:list",
+					"key": "1",
+					"group": "actions"
 				},
 				{
-					"type": "item",
-					"key": "2",
+					"name": "onAddEvent",
 					"label": "Add Event",
-					"handler": "events:add"
+					"type": "handler",
+					"target": "events:add",
+					"key": "2",
+					"group": "actions"
 				},
 				{
-					"type": "item",
-					"key": "3",
+					"name": "onEventFlowDiagram",
 					"label": "Event Flow Diagram",
-					"handler": "events:flow"
+					"type": "handler",
+					"target": "events:flow",
+					"key": "3",
+					"group": "actions"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "b",
+					"name": "onBack",
 					"label": "Back",
-					"signal": "back"
+					"type": "signal",
+					"target": "back",
+					"key": "b",
+					"group": "nav"
 				},
 				{
-					"type": "item",
-					"key": "q",
+					"name": "onQuit",
 					"label": "Quit",
-					"signal": "quit"
+					"type": "signal",
+					"target": "quit",
+					"key": "q",
+					"group": "nav"
 				}
-			],
-			"capabilities": [
-				"List events by domain",
-				"Add new event definition",
-				"Generate event flow diagram"
-			],
-			"configPath": "events"
+			]
 		},
 		"component-detail": {
-			"type": "dynamic",
-			"title": "Component Detail",
+			"kind": "page",
+			"label": "Component Detail",
 			"icon": "box",
 			"domain": "development",
 			"status": "active",
+			"description": "View and edit a single component — fields, properties, actions, children, stores, requirements, features, and relationships.",
 			"parent": "components",
-			"route": {
-				"path": "components/:componentId",
-				"lazy": true
-			},
-			"context": [
-				"project"
+			"context": ["project"],
+			"dataSources": [
+				{ "id": "component-info", "slot": "component-info" },
+				{ "id": "regenerate", "slot": "regenerate" }
 			],
-			"handler": "component-detail",
-			"description": "View and edit a single component's definition, properties, actions, relationships, and product metadata.",
-			"items": [
+			"actions": [
 				{
-					"type": "slot",
-					"slot": "component-info"
-				},
-				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "e",
+					"name": "onEditFields",
 					"label": "Edit Fields",
-					"handler": "comp-detail:edit-fields"
+					"type": "handler",
+					"target": "comp-detail:edit-fields",
+					"key": "e",
+					"group": "edit"
 				},
 				{
-					"type": "item",
-					"key": "p",
+					"name": "onEditProperties",
 					"label": "Edit Properties",
-					"handler": "comp-detail:edit-props"
+					"type": "handler",
+					"target": "comp-detail:edit-props",
+					"key": "p",
+					"group": "edit"
 				},
 				{
-					"type": "item",
-					"key": "a",
+					"name": "onEditActions",
 					"label": "Edit Actions",
-					"handler": "comp-detail:edit-actions"
+					"type": "handler",
+					"target": "comp-detail:edit-actions",
+					"key": "a",
+					"group": "edit"
 				},
 				{
-					"type": "item",
-					"key": "c",
+					"name": "onEditChildren",
 					"label": "Edit Children",
-					"handler": "comp-detail:edit-children"
+					"type": "handler",
+					"target": "comp-detail:edit-children",
+					"key": "c",
+					"group": "edit"
 				},
 				{
-					"type": "item",
-					"key": "s",
+					"name": "onEditStores",
 					"label": "Edit Stores",
-					"handler": "comp-detail:edit-stores"
+					"type": "handler",
+					"target": "comp-detail:edit-stores",
+					"key": "s",
+					"group": "edit"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "q",
+					"name": "onEditRequirements",
 					"label": "Edit Requirements",
-					"handler": "comp-detail:edit-reqs"
+					"type": "handler",
+					"target": "comp-detail:edit-reqs",
+					"key": "q",
+					"group": "traceability"
 				},
 				{
-					"type": "item",
-					"key": "f",
+					"name": "onEditFeatures",
 					"label": "Edit Features",
-					"handler": "comp-detail:edit-features"
+					"type": "handler",
+					"target": "comp-detail:edit-features",
+					"key": "f",
+					"group": "traceability"
 				},
 				{
-					"type": "item",
-					"key": "l",
+					"name": "onEditRelationships",
 					"label": "Edit Relationships",
-					"handler": "comp-detail:edit-rels"
+					"type": "handler",
+					"target": "comp-detail:edit-rels",
+					"key": "l",
+					"group": "traceability"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "slot",
-					"slot": "regenerate"
-				},
-				{
-					"type": "item",
-					"key": "b",
+					"name": "onBack",
 					"label": "Back",
-					"signal": "back"
+					"type": "signal",
+					"target": "back",
+					"key": "b",
+					"group": "nav"
 				}
-			],
-			"capabilities": [
-				"View component identity and metadata",
-				"Edit basic fields (name, status, description, owner, technology, domain)",
-				"Edit properties, actions, children, stores",
-				"Edit requirements, features, relationships",
-				"Regenerate component files from definition"
 			]
 		},
 		"reports": {
-			"title": "Reporting",
+			"kind": "page",
+			"label": "Reporting",
 			"icon": "bar-chart",
 			"domain": "analytics",
 			"status": "active",
+			"description": "Generate, export, and browse project reports.",
 			"parent": "project-detail",
-			"route": {
-				"path": "reports",
-				"lazy": true
-			},
-			"context": [
-				"project"
+			"context": ["project"],
+			"configPath": "reports.generators",
+			"dataSources": [
+				{ "id": "reports:generators" }
 			],
-			"description": "Run built-in and custom report generators, export reports to HTML, and browse the report archive.",
-			"items": [
+			"actions": [
 				{
-					"type": "item",
-					"key": "1",
+					"name": "onRunAllReports",
 					"label": "Run All Reports",
-					"handler": "reports:run-all"
+					"type": "handler",
+					"target": "reports:run-all",
+					"key": "1",
+					"group": "actions"
 				},
 				{
-					"type": "listProvider",
-					"listProvider": "reports:generators"
-				},
-				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "h",
+					"name": "onExportHtml",
 					"label": "Export to HTML",
-					"handler": "reports:export-html"
+					"type": "handler",
+					"target": "reports:export-html",
+					"key": "h",
+					"group": "tools"
 				},
 				{
-					"type": "item",
-					"key": "a",
+					"name": "onBrowseArchive",
 					"label": "Browse Archive",
-					"handler": "reports:browse"
+					"type": "handler",
+					"target": "reports:browse",
+					"key": "a",
+					"group": "tools"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "b",
+					"name": "onBack",
 					"label": "Back",
-					"signal": "back"
+					"type": "signal",
+					"target": "back",
+					"key": "b",
+					"group": "nav"
 				}
-			],
-			"capabilities": [
-				"Run all report generators",
-				"Run individual report generator",
-				"Export reports to HTML",
-				"Browse report archive"
-			],
-			"configPath": "reports.generators"
+			]
 		},
 		"requirements": {
-			"title": "Requirements Management",
+			"kind": "page",
+			"label": "Requirements Management",
 			"icon": "list-checks",
 			"domain": "management",
 			"status": "active",
+			"description": "Manage project requirements — functional, non-functional, constraints, use cases, and user stories.",
 			"parent": "project-detail",
-			"route": {
-				"path": "requirements",
-				"lazy": true
-			},
-			"context": [
-				"project"
-			],
-			"description": "Manage functional/non-functional requirements, constraints, use cases, and user stories with status workflow.",
-			"items": [
+			"context": ["project"],
+			"configPath": "management.requirements",
+			"actions": [
 				{
-					"type": "item",
-					"key": "1",
+					"name": "onListRequirements",
 					"label": "List Requirements",
-					"handler": "req:list"
+					"type": "handler",
+					"target": "req:list",
+					"key": "1",
+					"group": "view"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "2",
+					"name": "onAddFunctional",
 					"label": "Add Functional",
-					"handler": "req:add-functional"
+					"type": "handler",
+					"target": "req:add-functional",
+					"key": "2",
+					"group": "create"
 				},
 				{
-					"type": "item",
-					"key": "3",
+					"name": "onAddNonFunctional",
 					"label": "Add Non-Functional",
-					"handler": "req:add-nonfunctional"
+					"type": "handler",
+					"target": "req:add-nonfunctional",
+					"key": "3",
+					"group": "create"
 				},
 				{
-					"type": "item",
-					"key": "4",
+					"name": "onAddConstraint",
 					"label": "Add Constraint",
-					"handler": "req:add-constraint"
+					"type": "handler",
+					"target": "req:add-constraint",
+					"key": "4",
+					"group": "create"
 				},
 				{
-					"type": "item",
-					"key": "5",
+					"name": "onAddUseCase",
 					"label": "Add Use Case",
-					"handler": "req:add-usecase"
+					"type": "handler",
+					"target": "req:add-usecase",
+					"key": "5",
+					"group": "create"
 				},
 				{
-					"type": "item",
-					"key": "6",
+					"name": "onAddUserStory",
 					"label": "Add User Story",
-					"handler": "req:add-userstory"
+					"type": "handler",
+					"target": "req:add-userstory",
+					"key": "6",
+					"group": "create"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "7",
+					"name": "onUpdateStatus",
 					"label": "Update Status",
-					"handler": "req:update-status"
+					"type": "handler",
+					"target": "req:update-status",
+					"key": "7",
+					"group": "manage"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "b",
+					"name": "onBack",
 					"label": "Back",
-					"signal": "back"
+					"type": "signal",
+					"target": "back",
+					"key": "b",
+					"group": "nav"
 				},
 				{
-					"type": "item",
-					"key": "q",
+					"name": "onQuit",
 					"label": "Quit",
-					"signal": "quit"
+					"type": "signal",
+					"target": "quit",
+					"key": "q",
+					"group": "nav"
 				}
-			],
-			"capabilities": [
-				"List requirements",
-				"Add functional requirement",
-				"Add non-functional requirement",
-				"Add constraint",
-				"Add use case",
-				"Add user story",
-				"Update requirement status"
-			],
-			"configPath": "management.requirements"
+			]
 		},
 		"docs": {
-			"title": "Documentation",
+			"kind": "page",
+			"label": "Documentation",
 			"icon": "book-open",
 			"domain": "documentation",
 			"status": "active",
+			"description": "Manage project documentation — references, generators, events, and dependencies.",
 			"parent": "project-detail",
-			"route": {
-				"path": "docs",
-				"lazy": true
-			},
-			"context": [
-				"project"
+			"context": ["project"],
+			"configPath": "docs",
+			"dataSources": [
+				{ "id": "docs:references" },
+				{ "id": "docs:generators" }
 			],
-			"description": "Update API references and external documentation generators, browse generated docs.",
-			"items": [
+			"actions": [
 				{
-					"type": "item",
-					"key": "1",
+					"name": "onUpdateReferences",
 					"label": "Update References",
-					"handler": "docs:update-refs"
+					"type": "handler",
+					"target": "docs:update-refs",
+					"key": "1",
+					"group": "actions"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "listProvider",
-					"listProvider": "docs:references"
-				},
-				{
-					"type": "separator"
-				},
-				{
-					"type": "listProvider",
-					"listProvider": "docs:generators"
-				},
-				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "e",
+					"name": "onNavigateEventCatalog",
 					"label": "Events",
-					"navigate": "event-catalog"
+					"type": "navigate",
+					"target": "event-catalog",
+					"key": "e",
+					"group": "reference"
 				},
 				{
-					"type": "item",
-					"key": "g",
+					"name": "onShowDependencies",
 					"label": "Dependencies",
-					"handler": "docs:dependencies"
+					"type": "handler",
+					"target": "docs:dependencies",
+					"key": "g",
+					"group": "reference"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "b",
+					"name": "onBack",
 					"label": "Back",
-					"signal": "back"
+					"type": "signal",
+					"target": "back",
+					"key": "b",
+					"group": "nav"
 				}
-			],
-			"capabilities": [
-				"Update API references",
-				"Open reference files",
-				"Run external doc generators (e.g. TypeDoc)",
-				"View event definitions",
-				"View dependency graph"
-			],
-			"configPath": "docs"
+			]
 		},
 		"knowledgebase": {
-			"type": "dynamic",
-			"title": "Knowledgebase",
+			"kind": "page",
+			"label": "Knowledgebase",
 			"icon": "search",
 			"domain": "documentation",
 			"status": "active",
+			"description": "Search and browse the project knowledgebase.",
 			"parent": "project-detail",
-			"route": {
-				"path": "knowledgebase",
-				"lazy": true
-			},
-			"handler": "knowledgebase",
-			"description": "Terminal-based vault browser with folder traversal, markdown file viewing, and full-text search via Obsidian CLI.",
-			"capabilities": [
-				"Navigate vault folders",
-				"View markdown files",
-				"Full-text search across vault",
-				"In-line help"
+			"context": ["project"],
+			"actions": [
+				{
+					"name": "onBack",
+					"label": "Back",
+					"type": "signal",
+					"target": "back",
+					"key": "b",
+					"group": "nav"
+				},
+				{
+					"name": "onQuit",
+					"label": "Quit",
+					"type": "signal",
+					"target": "quit",
+					"key": "q",
+					"group": "nav"
+				}
 			]
 		},
 		"devtools": {
-			"title": "Dev Tools",
+			"kind": "page",
+			"label": "Dev Tools",
 			"icon": "wrench",
 			"domain": "development",
 			"status": "active",
+			"description": "Developer tools — type check, lint, reload, console, rebuild, and npm scripts.",
 			"parent": "project-detail",
-			"route": {
-				"path": "devtools",
-				"lazy": true
-			},
-			"context": [
-				"project"
-			],
-			"description": "Project-specific development utilities: type checking, linting, plugin reloading, debug console, and npm script execution.",
-			"items": [
+			"context": ["project"],
+			"configPath": "scripts",
+			"actions": [
 				{
-					"type": "item",
-					"key": "1",
+					"name": "onTypeCheckLint",
 					"label": "Type Check + Lint",
-					"handler": "devtools:check"
+					"type": "handler",
+					"target": "devtools:check",
+					"key": "1",
+					"group": "actions"
 				},
 				{
-					"type": "item",
-					"key": "2",
+					"name": "onLintOnly",
 					"label": "Lint Only",
-					"handler": "devtools:lint"
+					"type": "handler",
+					"target": "devtools:lint",
+					"key": "2",
+					"group": "actions"
 				},
 				{
-					"type": "item",
-					"key": "3",
+					"name": "onReloadPlugin",
 					"label": "Reload Plugin",
-					"handler": "devtools:reload"
+					"type": "handler",
+					"target": "devtools:reload",
+					"key": "3",
+					"group": "actions"
 				},
 				{
-					"type": "item",
-					"key": "4",
+					"name": "onDevConsole",
 					"label": "Dev Console",
-					"handler": "devtools:console"
+					"type": "handler",
+					"target": "devtools:console",
+					"key": "4",
+					"group": "actions"
 				},
 				{
-					"type": "item",
-					"key": "5",
+					"name": "onRebuildCli",
 					"label": "Rebuild CLI",
-					"handler": "devtools:rebuild"
+					"type": "handler",
+					"target": "devtools:rebuild",
+					"key": "5",
+					"group": "actions"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "n",
+					"name": "onNpmScripts",
 					"label": "Npm Scripts",
-					"handler": "devtools:npm-scripts"
+					"type": "handler",
+					"target": "devtools:npm-scripts",
+					"key": "n",
+					"group": "tools"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "b",
+					"name": "onBack",
 					"label": "Back",
-					"signal": "back"
+					"type": "signal",
+					"target": "back",
+					"key": "b",
+					"group": "nav"
 				}
-			],
-			"capabilities": [
-				"Type check + lint",
-				"Lint only",
-				"Reload plugin (hot-reload)",
-				"Dev console",
-				"Toggle debug mode",
-				"Rebuild CLI",
-				"Run npm scripts"
-			],
-			"configPath": "scripts"
+			]
 		},
 		"resources": {
-			"title": "Resources",
+			"kind": "page",
+			"label": "Resources",
 			"icon": "users",
 			"domain": "management",
 			"status": "active",
+			"description": "Manage project resources — human, material, roles, budgets, and financials.",
 			"parent": "management",
-			"route": {
-				"path": "resources",
-				"lazy": true
-			},
-			"context": [
-				"project"
-			],
-			"description": "Manage project resources: human resources, materials, roles, and budgets with financial analysis.",
-			"items": [
+			"context": ["project"],
+			"configPath": "management.resources",
+			"actions": [
 				{
-					"type": "item",
-					"key": "1",
+					"name": "onListResources",
 					"label": "List Resources",
-					"handler": "resources:list"
+					"type": "handler",
+					"target": "resources:list",
+					"key": "1",
+					"group": "view"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "2",
+					"name": "onAddHumanResource",
 					"label": "Add Human Resource",
-					"handler": "resources:add-human"
+					"type": "handler",
+					"target": "resources:add-human",
+					"key": "2",
+					"group": "create"
 				},
 				{
-					"type": "item",
-					"key": "3",
+					"name": "onAddMaterialResource",
 					"label": "Add Material Resource",
-					"handler": "resources:add-material"
+					"type": "handler",
+					"target": "resources:add-material",
+					"key": "3",
+					"group": "create"
 				},
 				{
-					"type": "item",
-					"key": "4",
+					"name": "onAddRole",
 					"label": "Add Role",
-					"handler": "resources:add-role"
+					"type": "handler",
+					"target": "resources:add-role",
+					"key": "4",
+					"group": "create"
 				},
 				{
-					"type": "item",
-					"key": "5",
+					"name": "onAddBudget",
 					"label": "Add Budget",
-					"handler": "resources:add-budget"
+					"type": "handler",
+					"target": "resources:add-budget",
+					"key": "5",
+					"group": "create"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "6",
+					"name": "onFinancialSummary",
 					"label": "Financial Summary",
-					"handler": "resources:financials"
+					"type": "handler",
+					"target": "resources:financials",
+					"key": "6",
+					"group": "view"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "b",
+					"name": "onBack",
 					"label": "Back",
-					"signal": "back"
+					"type": "signal",
+					"target": "back",
+					"key": "b",
+					"group": "nav"
 				},
 				{
-					"type": "item",
-					"key": "q",
+					"name": "onQuit",
 					"label": "Quit",
-					"signal": "quit"
+					"type": "signal",
+					"target": "quit",
+					"key": "q",
+					"group": "nav"
 				}
-			],
-			"capabilities": [
-				"List resources",
-				"Add human resource",
-				"Add material resource",
-				"Add role",
-				"Add budget",
-				"View financial summary"
-			],
-			"configPath": "management.resources"
+			]
 		},
 		"timelog": {
-			"title": "Time-Log",
+			"kind": "page",
+			"label": "Time-Log",
 			"icon": "clock",
 			"domain": "management",
 			"status": "active",
+			"description": "Track time — list entries, log time, and view summaries.",
 			"parent": "management",
-			"route": {
-				"path": "timelog",
-				"lazy": true
-			},
-			"context": [
-				"project"
-			],
-			"description": "Track time entries by person, category, and task with summary reports.",
-			"items": [
+			"context": ["project"],
+			"configPath": "management.timelog",
+			"actions": [
 				{
-					"type": "item",
-					"key": "1",
+					"name": "onListEntries",
 					"label": "List Entries",
-					"handler": "timelog:list"
+					"type": "handler",
+					"target": "timelog:list",
+					"key": "1",
+					"group": "view"
 				},
 				{
-					"type": "item",
-					"key": "2",
+					"name": "onLogTime",
 					"label": "Log Time",
-					"handler": "timelog:add"
+					"type": "handler",
+					"target": "timelog:add",
+					"key": "2",
+					"group": "create"
 				},
 				{
-					"type": "item",
-					"key": "3",
+					"name": "onSummary",
 					"label": "Summary",
-					"handler": "timelog:summary"
+					"type": "handler",
+					"target": "timelog:summary",
+					"key": "3",
+					"group": "view"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "b",
+					"name": "onBack",
 					"label": "Back",
-					"signal": "back"
+					"type": "signal",
+					"target": "back",
+					"key": "b",
+					"group": "nav"
 				},
 				{
-					"type": "item",
-					"key": "q",
+					"name": "onQuit",
 					"label": "Quit",
-					"signal": "quit"
+					"type": "signal",
+					"target": "quit",
+					"key": "q",
+					"group": "nav"
 				}
-			],
-			"capabilities": [
-				"List time entries",
-				"Log time entry",
-				"View time summary"
-			],
-			"configPath": "management.timelog"
+			]
 		},
 		"deliverables": {
-			"title": "Deliverables",
+			"kind": "page",
+			"label": "Deliverables",
 			"icon": "package",
 			"domain": "management",
 			"status": "active",
+			"description": "Manage project deliverables — list, add, and update status.",
 			"parent": "management",
-			"route": {
-				"path": "deliverables",
-				"lazy": true
-			},
-			"context": [
-				"project"
-			],
-			"description": "Manage project deliverables with status tracking (planned, in-progress, review, done, blocked) and priority levels.",
-			"items": [
+			"context": ["project"],
+			"configPath": "management.deliverables",
+			"actions": [
 				{
-					"type": "item",
-					"key": "1",
+					"name": "onListDeliverables",
 					"label": "List Deliverables",
-					"handler": "deliverables:list"
+					"type": "handler",
+					"target": "deliverables:list",
+					"key": "1",
+					"group": "view"
 				},
 				{
-					"type": "item",
-					"key": "2",
+					"name": "onAddDeliverable",
 					"label": "Add Deliverable",
-					"handler": "deliverables:add"
+					"type": "handler",
+					"target": "deliverables:add",
+					"key": "2",
+					"group": "create"
 				},
 				{
-					"type": "item",
-					"key": "3",
+					"name": "onUpdateStatus",
 					"label": "Update Status",
-					"handler": "deliverables:update-status"
+					"type": "handler",
+					"target": "deliverables:update-status",
+					"key": "3",
+					"group": "manage"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "b",
+					"name": "onBack",
 					"label": "Back",
-					"signal": "back"
+					"type": "signal",
+					"target": "back",
+					"key": "b",
+					"group": "nav"
 				},
 				{
-					"type": "item",
-					"key": "q",
+					"name": "onQuit",
 					"label": "Quit",
-					"signal": "quit"
+					"type": "signal",
+					"target": "quit",
+					"key": "q",
+					"group": "nav"
 				}
-			],
-			"capabilities": [
-				"List deliverables",
-				"Add deliverable",
-				"Update deliverable status"
-			],
-			"configPath": "management.deliverables"
+			]
 		},
 		"raid": {
-			"title": "RAID Log",
+			"kind": "page",
+			"label": "RAID Log",
 			"icon": "alert-triangle",
 			"domain": "management",
 			"status": "active",
+			"description": "RAID log — risks, assumptions, issues, dependencies, and decisions.",
 			"parent": "management",
-			"route": {
-				"path": "raid",
-				"lazy": true
-			},
-			"context": [
-				"project"
-			],
-			"description": "Track Risks, Assumptions, Issues, Dependencies, and Decisions with severity and category classification.",
-			"items": [
+			"context": ["project"],
+			"configPath": "management.raid",
+			"actions": [
 				{
-					"type": "item",
-					"key": "1",
+					"name": "onListItems",
 					"label": "List Items",
-					"handler": "raid:list"
+					"type": "handler",
+					"target": "raid:list",
+					"key": "1",
+					"group": "view"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "2",
+					"name": "onAddRisk",
 					"label": "Add Risk",
-					"handler": "raid:add-risk"
+					"type": "handler",
+					"target": "raid:add-risk",
+					"key": "2",
+					"group": "create"
 				},
 				{
-					"type": "item",
-					"key": "3",
+					"name": "onAddAssumption",
 					"label": "Add Assumption",
-					"handler": "raid:add-assumption"
+					"type": "handler",
+					"target": "raid:add-assumption",
+					"key": "3",
+					"group": "create"
 				},
 				{
-					"type": "item",
-					"key": "4",
+					"name": "onAddIssue",
 					"label": "Add Issue",
-					"handler": "raid:add-issue"
+					"type": "handler",
+					"target": "raid:add-issue",
+					"key": "4",
+					"group": "create"
 				},
 				{
-					"type": "item",
-					"key": "5",
+					"name": "onAddDependency",
 					"label": "Add Dependency",
-					"handler": "raid:add-dependency"
+					"type": "handler",
+					"target": "raid:add-dependency",
+					"key": "5",
+					"group": "create"
 				},
 				{
-					"type": "item",
-					"key": "6",
+					"name": "onAddDecision",
 					"label": "Add Decision",
-					"handler": "raid:add-decision"
+					"type": "handler",
+					"target": "raid:add-decision",
+					"key": "6",
+					"group": "create"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "7",
+					"name": "onUpdateStatus",
 					"label": "Update Status",
-					"handler": "raid:update-status"
+					"type": "handler",
+					"target": "raid:update-status",
+					"key": "7",
+					"group": "manage"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "b",
+					"name": "onBack",
 					"label": "Back",
-					"signal": "back"
+					"type": "signal",
+					"target": "back",
+					"key": "b",
+					"group": "nav"
 				},
 				{
-					"type": "item",
-					"key": "q",
+					"name": "onQuit",
 					"label": "Quit",
-					"signal": "quit"
+					"type": "signal",
+					"target": "quit",
+					"key": "q",
+					"group": "nav"
 				}
-			],
-			"capabilities": [
-				"List RAID items",
-				"Add risk",
-				"Add assumption",
-				"Add issue",
-				"Add dependency",
-				"Add decision",
-				"Update item status"
-			],
-			"configPath": "management.raid"
+			]
 		},
 		"capa": {
-			"title": "CAPA",
+			"kind": "page",
+			"label": "CAPA",
 			"icon": "shield-check",
 			"domain": "quality",
 			"status": "active",
+			"description": "Corrective and Preventive Actions — list, add, and update CAPA items.",
 			"parent": "management",
-			"route": {
-				"path": "capa",
-				"lazy": true
-			},
-			"context": [
-				"project"
-			],
-			"description": "Manage Corrective and Preventive Actions with multi-stage workflow (open → investigating → action-planned → implementing → verification → closed).",
-			"items": [
+			"context": ["project"],
+			"configPath": "management.capa",
+			"actions": [
 				{
-					"type": "item",
-					"key": "1",
+					"name": "onListCapaItems",
 					"label": "List CAPA Items",
-					"handler": "capa:list"
+					"type": "handler",
+					"target": "capa:list",
+					"key": "1",
+					"group": "view"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "2",
+					"name": "onAddCorrectiveAction",
 					"label": "Add Corrective Action",
-					"handler": "capa:add-corrective"
+					"type": "handler",
+					"target": "capa:add-corrective",
+					"key": "2",
+					"group": "create"
 				},
 				{
-					"type": "item",
-					"key": "3",
+					"name": "onAddPreventiveAction",
 					"label": "Add Preventive Action",
-					"handler": "capa:add-preventive"
+					"type": "handler",
+					"target": "capa:add-preventive",
+					"key": "3",
+					"group": "create"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "4",
+					"name": "onUpdateStatus",
 					"label": "Update Status",
-					"handler": "capa:update-status"
+					"type": "handler",
+					"target": "capa:update-status",
+					"key": "4",
+					"group": "manage"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "b",
+					"name": "onBack",
 					"label": "Back",
-					"signal": "back"
+					"type": "signal",
+					"target": "back",
+					"key": "b",
+					"group": "nav"
 				},
 				{
-					"type": "item",
-					"key": "q",
+					"name": "onQuit",
 					"label": "Quit",
-					"signal": "quit"
+					"type": "signal",
+					"target": "quit",
+					"key": "q",
+					"group": "nav"
 				}
-			],
-			"capabilities": [
-				"List CAPA items",
-				"Add corrective action",
-				"Add preventive action",
-				"Update CAPA status"
-			],
-			"configPath": "management.capa"
+			]
 		},
 		"lifecycle": {
-			"title": "Lifecycle",
+			"kind": "page",
+			"label": "Lifecycle",
 			"icon": "git-branch",
 			"domain": "management",
 			"status": "active",
+			"description": "View and manage lifecycle stages — project, features, and products.",
 			"parent": "management",
-			"route": {
-				"path": "lifecycle",
-				"lazy": true
-			},
-			"context": [
-				"project"
-			],
-			"description": "Manage project lifecycle status, plus nested feature and product lifecycle management.",
-			"items": [
+			"context": ["project"],
+			"configPath": "management.lifecycle",
+			"actions": [
 				{
-					"type": "item",
-					"key": "1",
+					"name": "onProjectLifecycle",
 					"label": "Project Lifecycle",
-					"handler": "lifecycle:project"
+					"type": "handler",
+					"target": "lifecycle:project",
+					"key": "1",
+					"group": "view"
 				},
 				{
-					"type": "item",
-					"key": "2",
+					"name": "onFeatures",
 					"label": "Features",
-					"handler": "lifecycle:features"
+					"type": "handler",
+					"target": "lifecycle:features",
+					"key": "2",
+					"group": "view"
 				},
 				{
-					"type": "item",
-					"key": "3",
+					"name": "onProducts",
 					"label": "Products",
-					"handler": "lifecycle:products"
+					"type": "handler",
+					"target": "lifecycle:products",
+					"key": "3",
+					"group": "view"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "b",
+					"name": "onBack",
 					"label": "Back",
-					"signal": "back"
+					"type": "signal",
+					"target": "back",
+					"key": "b",
+					"group": "nav"
 				},
 				{
-					"type": "item",
-					"key": "q",
+					"name": "onQuit",
 					"label": "Quit",
-					"signal": "quit"
+					"type": "signal",
+					"target": "quit",
+					"key": "q",
+					"group": "nav"
 				}
-			],
-			"capabilities": [
-				"View/update project lifecycle status",
-				"Manage feature lifecycles",
-				"Manage product lifecycles"
-			],
-			"configPath": "management.lifecycle"
+			]
 		},
 		"iterations": {
-			"title": "Iterations",
+			"kind": "list",
+			"label": "Iterations",
 			"icon": "calendar",
 			"domain": "management",
 			"status": "active",
-			"description": "Plan, start, track, and close iteration cycles.",
+			"description": "List, create, and manage project iterations.",
 			"parent": "management",
-			"context": [
-				"project"
-			],
-			"items": [
+			"context": ["project"],
+			"configPath": "management.iterations",
+			"actions": [
 				{
-					"type": "item",
+					"name": "onListIterations",
 					"label": "List Iterations",
-					"handler": "iteration:list",
-					"key": "1"
+					"type": "handler",
+					"target": "iteration:list",
+					"key": "1",
+					"group": "view"
 				},
 				{
-					"type": "item",
+					"name": "onAddIteration",
 					"label": "Add Iteration",
-					"handler": "iteration:create",
-					"key": "2"
+					"type": "handler",
+					"target": "iteration:create",
+					"key": "2",
+					"group": "create"
 				},
 				{
-					"type": "item",
-					"label": "Start Iteration",
-					"handler": "iteration:start",
-					"hidden": "iteration:running",
-					"key": "3"
-				},
-				{
-					"type": "item",
+					"name": "onNavigateIterationDetail",
 					"label": "Current Iteration",
-					"navigate": "iteration-detail",
+					"type": "navigate",
+					"target": "iteration-detail",
+					"key": "4",
 					"hidden": "iteration:not-running",
-					"key": "4"
+					"group": "actions"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "b",
+					"name": "onBack",
 					"label": "Back",
-					"signal": "back"
+					"type": "signal",
+					"target": "back",
+					"key": "b",
+					"group": "nav"
 				},
 				{
-					"type": "item",
-					"key": "q",
+					"name": "onQuit",
 					"label": "Quit",
-					"signal": "quit"
+					"type": "signal",
+					"target": "quit",
+					"key": "q",
+					"group": "nav"
 				}
-			],
-			"capabilities": [
-				"List and manage iterations",
-				"Start and close iteration cycles",
-				"Attach agents, resources, and capacities"
-			],
-			"configPath": "management.iterations"
+			]
 		},
 		"iteration-detail": {
-			"type": "dynamic",
-			"title": "Iteration Detail",
-			"icon": "calendar-check",
+			"kind": "page",
+			"label": "Iteration Detail",
+			"icon": "calendar",
 			"domain": "management",
+			"status": "active",
+			"description": "View iteration details, edit, or advance through lifecycle states.",
 			"parent": "iterations",
-			"context": [
-				"project"
+			"context": ["project"],
+			"dataSources": [
+				{ "id": "iteration-info", "slot": "iteration-info" }
 			],
-			"handler": "iteration-detail",
-			"items": [
+			"actions": [
 				{
-					"type": "slot",
-					"slot": "iteration-info"
+					"name": "onEditIteration",
+					"label": "Edit Iteration",
+					"type": "navigate",
+					"target": "iteration-planning",
+					"group": "actions"
 				},
 				{
-					"type": "separator"
+					"name": "onAdvance",
+					"label": "Advance",
+					"type": "handler",
+					"target": "iteration:advance",
+					"disabled": "iteration:cannot-advance",
+					"group": "actions"
 				},
 				{
-					"type": "item",
-					"label": "Planning",
-					"navigate": "iteration-planning",
-					"disabled": "iteration:not-planned"
-				},
-				{
-					"type": "item",
-					"label": "Development",
-					"navigate": "iteration-development",
-					"disabled": "iteration:not-in-progress"
-				},
-				{
-					"type": "item",
-					"label": "Review",
-					"navigate": "iteration-review",
-					"disabled": "iteration:not-in-review"
-				},
-				{
-					"type": "item",
-					"label": "Closure",
-					"navigate": "iteration-closure",
-					"disabled": "iteration:not-in-review"
-				},
-				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "b",
+					"name": "onBack",
 					"label": "Back",
-					"signal": "back"
+					"type": "signal",
+					"target": "back",
+					"key": "b",
+					"group": "nav"
 				},
 				{
-					"type": "item",
-					"key": "q",
+					"name": "onQuit",
 					"label": "Quit",
-					"signal": "quit"
+					"type": "signal",
+					"target": "quit",
+					"key": "q",
+					"group": "nav"
 				}
 			]
 		},
 		"iteration-planning": {
-			"title": "Iteration Planning",
-			"icon": "clipboard-list",
+			"kind": "page",
+			"label": "Iteration Planning",
+			"icon": "calendar",
 			"domain": "management",
+			"status": "active",
+			"description": "Plan an iteration — edit description, add tasks, attach agents, add resources, set capacity, and start.",
 			"parent": "iteration-detail",
-			"context": [
-				"project"
-			],
-			"items": [
+			"context": ["project"],
+			"onBeforeRender": "planning:header",
+			"actions": [
 				{
-					"type": "item",
+					"name": "onEditName",
+					"label": "Edit Name",
+					"type": "handler",
+					"target": "iteration:edit-name",
+					"key": "1",
+					"group": "metadata"
+				},
+				{
+					"name": "onEditGoal",
+					"label": "Edit Goal",
+					"type": "handler",
+					"target": "iteration:edit-goal",
+					"key": "2",
+					"group": "metadata"
+				},
+				{
+					"name": "onEditDates",
+					"label": "Edit Dates",
+					"type": "handler",
+					"target": "iteration:edit-dates",
+					"key": "3",
+					"group": "metadata"
+				},
+				{
+					"name": "onEditDescription",
+					"label": "Edit Description",
+					"type": "handler",
+					"target": "iteration:edit-description",
+					"key": "4",
+					"group": "metadata"
+				},
+				{
+					"name": "onAddTask",
+					"label": "Add Task",
+					"type": "handler",
+					"target": "iteration:add-scope",
+					"group": "scope"
+				},
+				{
+					"name": "onEditTask",
+					"label": "Edit Task",
+					"type": "handler",
+					"target": "iteration:edit-scope",
+					"group": "scope"
+				},
+				{
+					"name": "onRemoveTask",
+					"label": "Remove Task",
+					"type": "handler",
+					"target": "iteration:remove-scope",
+					"group": "scope"
+				},
+				{
+					"name": "onAttachAgent",
 					"label": "Attach Agent",
-					"handler": "iteration:attach-agent"
+					"type": "handler",
+					"target": "iteration:attach-agent",
+					"group": "resources"
 				},
 				{
-					"type": "item",
+					"name": "onAddResource",
 					"label": "Add Resource",
-					"handler": "iteration:add-resource"
+					"type": "handler",
+					"target": "iteration:add-resource",
+					"group": "resources"
 				},
 				{
-					"type": "item",
+					"name": "onAddCapacity",
 					"label": "Add Capacity",
-					"handler": "iteration:add-capacity"
+					"type": "handler",
+					"target": "iteration:add-capacity",
+					"group": "resources"
 				},
 				{
-					"type": "item",
-					"label": "Add Scope Item",
-					"handler": "iteration:add-scope"
+					"name": "onAdvance",
+					"label": "Advance",
+					"type": "handler",
+					"target": "iteration:advance",
+					"disabled": "iteration:cannot-advance",
+					"group": "lifecycle"
 				},
 				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"label": "Start Iteration",
-					"handler": "iteration:start"
-				},
-				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "b",
+					"name": "onBack",
 					"label": "Back",
-					"signal": "back"
-				},
-				{
-					"type": "item",
-					"key": "q",
-					"label": "Quit",
-					"signal": "quit"
-				}
-			]
-		},
-		"iteration-development": {
-			"title": "Iteration Development",
-			"icon": "code",
-			"domain": "management",
-			"parent": "iteration-detail",
-			"context": [
-				"project"
-			],
-			"items": [
-				{
-					"type": "item",
-					"label": "Add Note",
-					"handler": "iteration:add-note"
-				},
-				{
-					"type": "item",
-					"label": "Add Scope Item",
-					"handler": "iteration:add-scope"
-				},
-				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"label": "Move to Review",
-					"handler": "iteration:advance-review"
-				},
-				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
+					"type": "signal",
+					"target": "back",
 					"key": "b",
-					"label": "Back",
-					"signal": "back"
+					"group": "nav"
 				},
 				{
-					"type": "item",
-					"key": "q",
+					"name": "onQuit",
 					"label": "Quit",
-					"signal": "quit"
-				}
-			]
-		},
-		"iteration-review": {
-			"title": "Iteration Review",
-			"icon": "search",
-			"domain": "management",
-			"parent": "iteration-detail",
-			"context": [
-				"project"
-			],
-			"items": [
-				{
-					"type": "item",
-					"label": "Add Note",
-					"handler": "iteration:add-note"
-				},
-				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "b",
-					"label": "Back",
-					"signal": "back"
-				},
-				{
-					"type": "item",
+					"type": "signal",
+					"target": "quit",
 					"key": "q",
-					"label": "Quit",
-					"signal": "quit"
-				}
-			]
-		},
-		"iteration-closure": {
-			"title": "Iteration Closure",
-			"icon": "check-circle",
-			"domain": "management",
-			"parent": "iteration-detail",
-			"context": [
-				"project"
-			],
-			"items": [
-				{
-					"type": "item",
-					"label": "Close Iteration",
-					"handler": "iteration:close"
-				},
-				{
-					"type": "separator"
-				},
-				{
-					"type": "item",
-					"key": "b",
-					"label": "Back",
-					"signal": "back"
-				},
-				{
-					"type": "item",
-					"key": "q",
-					"label": "Quit",
-					"signal": "quit"
+					"group": "nav"
 				}
 			]
 		}

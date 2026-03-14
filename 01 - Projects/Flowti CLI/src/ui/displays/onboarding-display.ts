@@ -4,11 +4,10 @@
  * Pure display functions that render onboarding data models with ANSI colors.
  */
 
-import { log } from "../../infrastructure/logger.js";
 import { RESET, BOLD, DIM, GREEN, RED, CYAN, YELLOW } from "../../infrastructure/ui.js";
 import type { PrerequisiteIssue, DependencyResult, FirstRunStatus, PostBuildGuidance } from "../../domain/onboarding/onboarding.js";
 
-export function renderPrerequisiteIssues(missing: PrerequisiteIssue[]): void {
+export function renderPrerequisiteIssues(missing: PrerequisiteIssue[], log: (msg?: string) => void): void {
 	if (missing.length === 0) return;
 	log(`\n  ${RED}${BOLD}Missing prerequisites:${RESET}\n`);
 	for (const dep of missing) {
@@ -18,7 +17,7 @@ export function renderPrerequisiteIssues(missing: PrerequisiteIssue[]): void {
 	log(`  ${DIM}Install the above, then run flowti again.${RESET}\n`);
 }
 
-export function renderDependencyResult(result: DependencyResult): void {
+export function renderDependencyResult(result: DependencyResult, log: (msg?: string) => void): void {
 	if (result.alreadyPresent) return;
 	if (result.installed) {
 		log(`\n  ${GREEN}✓${RESET} Dependencies installed.\n`);
@@ -27,18 +26,18 @@ export function renderDependencyResult(result: DependencyResult): void {
 	}
 }
 
-export function renderDependencyNeeded(): void {
+export function renderDependencyNeeded(log: (msg?: string) => void): void {
 	log(`\n  ${YELLOW}Dependencies not installed.${RESET}`);
 	log(`  ${CYAN}▸${RESET} Running npm install...\n`);
 }
 
-export function renderFirstRunStatus(status: FirstRunStatus): void {
+export function renderFirstRunStatus(status: FirstRunStatus, log: (msg?: string) => void): void {
 	if (!status.pluginBuilt) {
 		log(`  ${YELLOW}Plugin not yet built.${RESET} Select ${BOLD}Build${RESET} (option 2) to get started.\n`);
 	}
 }
 
-export function renderPostBuildGuidance(guidance: PostBuildGuidance): void {
+export function renderPostBuildGuidance(guidance: PostBuildGuidance, log: (msg?: string) => void): void {
 	if (!guidance.show) return;
 	log(`  ${GREEN}${BOLD}Plugin built successfully!${RESET}\n`);
 	log(`  ${BOLD}Next steps:${RESET}`);

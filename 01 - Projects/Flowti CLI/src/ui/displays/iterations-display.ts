@@ -2,19 +2,22 @@
  * iterations-display.ts — Console renderers for iteration management.
  */
 
-import { RESET, DIM, GREEN, CYAN, BOLD } from "../../infrastructure/ui.js";
-import { log } from "../../infrastructure/logger.js";
-import type { IterationSummary } from "../../domain/iterations/iteration-types.js";
+import { RESET, DIM, GREEN, CYAN, BOLD, RED } from "../../infrastructure/ui.js";
+import type { IterationSummary, ScopeItem } from "../../domain/iterations/iteration-types.js";
+import type { GateResult, GatedTransitionResult } from "../../domain/lifecycle/lifecycle-types.js";
 
 const STATUS_COLORS: Record<string, string> = {
+	new: DIM,
+	planned: CYAN,
+	ready: CYAN,
 	"in-progress": GREEN,
 	"in-review": CYAN,
-	planned: CYAN,
+	done: DIM,
 	completed: DIM,
 	cancelled: DIM,
 };
 
-export function renderIterationList(items: IterationSummary[]): void {
+export function renderIterationList(items: IterationSummary[], log: (msg?: string) => void): void {
 	if (items.length === 0) {
 		log(`\n  ${DIM}No iterations defined yet. Use "Add" to create one.${RESET}\n`);
 		return;
@@ -30,7 +33,25 @@ export function renderIterationList(items: IterationSummary[]): void {
 	log();
 }
 
-export function renderIterationDetail(item: IterationSummary): void {
+function renderSection(title: string, items: string[], log: (msg?: string) => void): void {
+	if (items.length === 0) return;
+	log(`\n  ${BOLD}${title}${RESET}`);
+	for (const line of items) log(`  ${DIM}▸${RESET} ${line}`);
+}
+
+export function renderScopeItems(items: ScopeItem[], log: (msg?: string) => void): void {
+	if (items.length === 0) return;
+	const done = items.filter((s) => s.done).length;
+	log(`\n  ${BOLD}Scope${RESET} ${DIM}(${done}/${items.length})${RESET}`);
+	for (let i = 0; i < items.length; i++) {
+		const s = items[i];
+		const check = s.done ? `${GREEN}[x]${RESET}` : `${DIM}[ ]${RESET}`;
+		const text = s.done ? `${DIM}${s.text}${RESET}` : s.text;
+		log(`  ${check} ${text}`);
+	}
+}
+
+export function renderIterationDetail(item: IterationSummary, log: (msg?: string) => void): void {
 	const color = STATUS_COLORS[item.status] ?? DIM;
 
 	log(`\n  ${BOLD}Iteration #${item.number} — ${item.name}${RESET}\n`);
@@ -39,55 +60,70 @@ export function renderIterationDetail(item: IterationSummary): void {
 	log(`  ${DIM}Goal:${RESET}    ${item.goal}`);
 	if (item.capacity) log(`  ${DIM}Capacity:${RESET} ${item.capacity}`);
 
-	if (item.resources.length > 0) {
-		log(`\n  ${BOLD}Resources${RESET}`);
-		for (const r of item.resources) {
-			const parts = [r.name, r.role, r.allocation].filter(Boolean);
-			log(`  ${DIM}▸${RESET} ${parts.join(" — ")}`);
-		}
-	}
-
-	if (item.capacities.length > 0) {
-		log(`\n  ${BOLD}Capacities${RESET}`);
-		for (const c of item.capacities) {
-			const unit = c.unit ? ` ${c.unit}` : "";
-			log(`  ${DIM}▸${RESET} ${c.label}: ${c.value}${unit}`);
-		}
-	}
-
-	if (item.agents.length > 0) {
-		log(`\n  ${BOLD}Agents${RESET}`);
-		for (const a of item.agents) {
-			log(`  ${DIM}▸${RESET} ${a.name} ${DIM}(${a.file})${RESET}`);
-		}
-	}
+	renderSection("Resources", item.resources.map((r) => [r.name, r.role, r.allocation].filter(Boolean).join(" — ")), log);
+	renderSection("Capacities", item.capacities.map((c) => `${c.label}: ${c.value}${c.unit ? ` ${c.unit}` : ""}`), log);
+	renderScopeItems(item.scopeItems, log);
+	renderSection("Agents", item.agents.map((a) => `${a.name} ${DIM}(${a.file})${RESET}`), log);
 	log();
 }
 
-export function renderIterationCreated(relPath: string): void {
+export function renderIterationCreated(relPath: string, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}✓${RESET} Created: ${relPath}`);
 }
 
-export function renderIterationStarted(name: string): void {
+export function renderIterationStarted(name: string, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}✓${RESET} Started: ${name}`);
 }
 
-export function renderIterationClosed(name: string): void {
+export function renderIterationClosed(name: string, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}✓${RESET} Closed: ${name}`);
 }
 
-export function renderAgentAttached(agentName: string, iterationName: string): void {
+export function renderAgentAttached(agentName: string, iterationName: string, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}✓${RESET} Attached agent "${agentName}" to ${iterationName}`);
 }
 
-export function renderResourceAdded(resourceName: string, iterationName: string): void {
+export function renderResourceAdded(resourceName: string, iterationName: string, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}✓${RESET} Added resource "${resourceName}" to ${iterationName}`);
 }
 
-export function renderCapacityAdded(capacityLabel: string, iterationName: string): void {
+export function renderCapacityAdded(capacityLabel: string, iterationName: string, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}✓${RESET} Added capacity "${capacityLabel}" to ${iterationName}`);
 }
 
-export function renderIterationAdvanced(name: string, phase: string): void {
+export function renderIterationAdvanced(name: string, phase: string, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}✓${RESET} Advanced "${name}" to ${phase}`);
+}
+
+export function renderPlanningHeader(item: IterationSummary, log: (msg?: string) => void): void {
+	const color = STATUS_COLORS[item.status] ?? DIM;
+
+	log(`\n  ${BOLD}Planning — #${item.number} ${item.name}${RESET}`);
+	log(`  ${DIM}Status:${RESET}  ${color}${item.status}${RESET}`);
+	log(`  ${DIM}Period:${RESET}  ${item.startDate} → ${item.endDate}`);
+	log(`  ${DIM}Goal:${RESET}    ${item.goal}`);
+	if (item.description) log(`  ${DIM}Description:${RESET} ${item.description}`);
+	else log(`  ${DIM}Description:${RESET} ${DIM}(none)${RESET}`);
+	renderScopeItems(item.scopeItems, log);
+	log();
+}
+
+export function renderGateResults(results: GateResult[], log: (msg?: string) => void): void {
+	for (const r of results) {
+		const icon = r.passed ? `${GREEN}✓${RESET}` : `${RED}✗${RESET}`;
+		const msg = r.message ? ` — ${r.message}` : "";
+		log(`  ${icon} ${r.gateId}${msg}`);
+	}
+}
+
+export function renderAdvanceResult(result: GatedTransitionResult, log: (msg?: string) => void): void {
+	if (result.success) {
+		log(`\n  ${GREEN}✓${RESET} Transitioned: ${result.from} → ${result.to}`);
+	} else {
+		log(`\n  ${RED}✗${RESET} ${result.error}`);
+	}
+	if (result.gateResults && result.gateResults.length > 0) {
+		log(`\n  ${BOLD}Gates${RESET}`);
+		renderGateResults(result.gateResults, log);
+	}
 }

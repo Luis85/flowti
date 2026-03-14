@@ -18,7 +18,7 @@ beforeEach(() => { mockLog.mockClear(); });
 
 describe("renderResourceList", () => {
 	it("renders empty message when no resources", () => {
-		renderResourceList([]);
+		renderResourceList([], log);
 		expect(output()).toContain("No resources defined yet");
 	});
 
@@ -26,7 +26,7 @@ describe("renderResourceList", () => {
 		const resources: ResourceSummary[] = [
 			{ name: "Dev Budget", resourceType: "budget", amount: 10000, consumed: 7500, price: 0 },
 		];
-		renderResourceList(resources);
+		renderResourceList(resources, log);
 		const out = output();
 		expect(out).toContain("Resources (1)");
 		expect(out).toContain("Dev Budget");
@@ -39,7 +39,7 @@ describe("renderResourceList", () => {
 		const resources: ResourceSummary[] = [
 			{ name: "Cloud Servers", resourceType: "compute", amount: 20, consumed: 5, price: 100 },
 		];
-		renderResourceList(resources);
+		renderResourceList(resources, log);
 		const out = output();
 		expect(out).toContain("Cloud Servers");
 		expect(out).toContain("[compute]");
@@ -52,7 +52,7 @@ describe("renderResourceList", () => {
 			{ name: "Budget A", resourceType: "budget", amount: 5000, consumed: 4500, price: 0 },
 			{ name: "Licenses", resourceType: "license", amount: 10, consumed: 3, price: 50 },
 		];
-		renderResourceList(resources);
+		renderResourceList(resources, log);
 		const out = output();
 		expect(out).toContain("Resources (2)");
 		expect(out).toContain("Budget A");
@@ -63,7 +63,7 @@ describe("renderResourceList", () => {
 		const resources: ResourceSummary[] = [
 			{ name: "Empty Budget", resourceType: "budget", amount: 0, consumed: 0, price: 0 },
 		];
-		renderResourceList(resources);
+		renderResourceList(resources, log);
 		const out = output();
 		expect(out).toContain("0%");
 	});
@@ -83,7 +83,7 @@ describe("renderFinancialSummary", () => {
 				infrastructure: { budget: 20000, consumed: 10000 },
 			},
 		};
-		renderFinancialSummary(summary);
+		renderFinancialSummary(summary, log);
 		const out = output();
 		expect(out).toContain("Financial Summary");
 		expect(out).toContain("50000.00");
@@ -105,7 +105,7 @@ describe("renderFinancialSummary", () => {
 				empty: { budget: 0, consumed: 0 },
 			},
 		};
-		renderFinancialSummary(summary);
+		renderFinancialSummary(summary, log);
 		const out = output();
 		expect(out).toContain("active:");
 		expect(out).not.toContain("empty:");
@@ -116,7 +116,7 @@ describe("renderFinancialSummary", () => {
 
 describe("renderResourceAdded", () => {
 	it("renders created message with path", () => {
-		renderResourceAdded(".flowti/resources/budget.md");
+		renderResourceAdded(".flowti/resources/budget.md", log);
 		expect(output()).toContain("Created: .flowti/resources/budget.md");
 	});
 });

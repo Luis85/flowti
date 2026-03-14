@@ -29,7 +29,7 @@ export interface CliDeps {
 	readonly proc: IProcess;
 	readonly input: IInput;
 	readonly bus: ICliBus;
-	readonly log: (msg: string) => void;
+	readonly log: (msg?: string) => void;
 	readonly warn: (msg: string) => void;
 }
 
@@ -46,6 +46,39 @@ export type MakeDeps = Pick<CliDeps, "disk" | "paths" | "input" | "log">;
 
 /** Dependencies for devtools commands. */
 export type DevToolsDeps = Pick<CliDeps, "shell" | "proc" | "log">;
+
+/** Dependencies for interactive menu functions. */
+export type MenuDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "input" | "log">;
+
+/** Dependencies for shell-capable menu functions. */
+export type ShellMenuDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "input" | "shell" | "log">;
+
+/** Dependencies for dependency-graph display. */
+export type DepsDeps = Pick<CliDeps, "disk" | "paths" | "log">;
+
+/** Dependencies for info display. */
+export type InfoDeps = Pick<CliDeps, "disk" | "paths" | "shell" | "log">;
+
+/** Dependencies for pipeline distribution. */
+export type DistributeDeps = Pick<CliDeps, "disk" | "paths" | "log">;
+
+/** Dependencies for start menu handlers. */
+export type StartDeps = Pick<CliDeps, "disk" | "paths" | "shell" | "input" | "log">;
+
+/** Dependencies for action reference menus. */
+export type ActionRefDeps = Pick<CliDeps, "disk" | "paths" | "input" | "log">;
+
+/** Dependencies for component editor menus. */
+export type EditorMenuDeps = Pick<CliDeps, "disk" | "paths" | "input" | "log">;
+
+/** Dependencies for component product menus. */
+export type ProductMenuDeps = Pick<CliDeps, "disk" | "paths" | "input" | "log">;
+
+/** Dependencies for report archive menus. */
+export type ArchiveDeps = Pick<CliDeps, "disk" | "paths" | "log">;
+
+/** Log function type for renderers. */
+export type Log = (msg?: string) => void;
 
 // ── Factory ─────────────────────────────────────────────────────────
 

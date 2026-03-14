@@ -1,8 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
-
-import { log } from "../../../src/infrastructure/logger.js";
 import {
 	printPrerequisites,
 	printJourneyTable,
@@ -18,7 +15,7 @@ import {
 } from "../../../src/ui/e2e/e2e-formatters.js";
 import type { E2EPaths } from "../../../src/domain/e2e/e2e-paths.js";
 
-const mockLog = log as ReturnType<typeof vi.fn>;
+const mockLog = vi.fn();
 const output = () => mockLog.mock.calls.map((c: unknown[]) => c[0] ?? "").join("\n");
 
 const e2e = {
@@ -38,7 +35,7 @@ describe("printPrerequisites", () => {
 			cliResponsive: true,
 			vaultInstalled: true,
 			testDataPresent: true,
-		}, e2e);
+		}, e2e, mockLog);
 		const out = output();
 		expect(out).toContain("✓");
 		expect(out).toContain("Test vault exists");
@@ -56,7 +53,7 @@ describe("printPrerequisites", () => {
 			cliResponsive: false,
 			vaultInstalled: false,
 			testDataPresent: false,
-		}, e2e);
+		}, e2e, mockLog);
 		const out = output();
 		expect(out).toContain("✗");
 		expect(out).toContain("Test vault missing");
@@ -72,7 +69,7 @@ describe("printJourneyTable", () => {
 		printJourneyTable([
 			{ slug: "a", name: "Alpha", chapter: "10", steps: 3, description: "First journey" },
 			{ slug: "b", name: "Beta", chapter: "20", steps: 5, description: "Second journey" },
-		]);
+		], mockLog);
 		const out = output();
 		expect(out).toContain("Available Journeys");
 		expect(out).toContain("Alpha");
@@ -82,13 +79,13 @@ describe("printJourneyTable", () => {
 	it("truncates long descriptions", () => {
 		printJourneyTable([
 			{ slug: "a", name: "Alpha", chapter: "10", steps: 3, description: "A".repeat(50) },
-		]);
+		], mockLog);
 		const out = output();
 		expect(out).toContain("...");
 	});
 
 	it("handles empty entries", () => {
-		printJourneyTable([]);
+		printJourneyTable([], mockLog);
 		expect(output()).toContain("Available Journeys");
 	});
 });
@@ -96,7 +93,7 @@ describe("printJourneyTable", () => {
 describe("printStepTable", () => {
 	it("prints steps with numbering", () => {
 		const def = { journey: "Test", steps: [{ id: "s1", title: "Step 1" }, { id: "s2", title: "Step 2" }] };
-		printStepTable(def, def.steps);
+		printStepTable(def, def.steps, mockLog);
 		const out = output();
 		expect(out).toContain("Steps for Test");
 		expect(out).toContain("Step 1");
@@ -110,7 +107,7 @@ describe("printStepTable", () => {
 			setup: [{ id: "setup-1", title: "Prepare" }],
 			teardown: [{ id: "teardown-1", title: "Cleanup" }],
 		};
-		printStepTable(def, def.steps);
+		printStepTable(def, def.steps, mockLog);
 		const out = output();
 		expect(out).toContain("Prepare");
 		expect(out).toContain("[setup]");
@@ -124,6 +121,7 @@ describe("printExecutionBanner", () => {
 		printExecutionBanner(
 			{ sessionName: "test-session", selectedSlugs: ["a", "b"], includeInstaller: false, includePrerequisites: false, stepFilter: {} },
 			["Alpha", "Beta"],
+			mockLog,
 		);
 		const out = output();
 		expect(out).toContain("test-session");
@@ -136,6 +134,7 @@ describe("printExecutionBanner", () => {
 		printExecutionBanner(
 			{ sessionName: "s", selectedSlugs: ["a"], includeInstaller: true, includePrerequisites: true, stepFilter: { a: ["step-1", "step-2"] } },
 			["Alpha"],
+			mockLog,
 		);
 		const out = output();
 		expect(out).toContain("Steps (a)");
@@ -148,7 +147,7 @@ describe("printExecutionBanner", () => {
 describe("printSessionSummary", () => {
 	it("prints summary with stats", () => {
 		const startTime = Date.now() - 5000;
-		printSessionSummary("my-session", ["Alpha"], startTime, { totalTests: 10, passed: 8, failed: 2, skipped: 0 });
+		printSessionSummary("my-session", ["Alpha"], startTime, { totalTests: 10, passed: 8, failed: 2, skipped: 0 }, mockLog);
 		const out = output();
 		expect(out).toContain("Session Summary");
 		expect(out).toContain("my-session");
@@ -160,7 +159,7 @@ describe("printSessionSummary", () => {
 
 describe("printIncrementSummary", () => {
 	it("prints pass status when exit code 0", () => {
-		printIncrementSummary(0, "3.5", { build: { total_bytes: 51200 }, unitTests: { totalTests: 50, passed: 50, failed: 0, skipped: 0 }, coverage: { line_pct: 85 } });
+		printIncrementSummary(0, "3.5", { build: { total_bytes: 51200 }, unitTests: { totalTests: 50, passed: 50, failed: 0, skipped: 0 }, coverage: { line_pct: 85 } }, mockLog);
 		const out = output();
 		expect(out).toContain("Increment Build Results");
 		expect(out).toContain("PASS");
@@ -170,13 +169,13 @@ describe("printIncrementSummary", () => {
 	});
 
 	it("prints fail status when exit code non-zero", () => {
-		printIncrementSummary(1, "2.0", { unitTests: { totalTests: 10, passed: 8, failed: 2, skipped: 0 } });
+		printIncrementSummary(1, "2.0", { unitTests: { totalTests: 10, passed: 8, failed: 2, skipped: 0 } }, mockLog);
 		const out = output();
 		expect(out).toContain("FAIL");
 	});
 
 	it("handles missing build and coverage", () => {
-		printIncrementSummary(0, "1.0", { unitTests: { totalTests: 0, passed: 0, failed: 0, skipped: 0 } });
+		printIncrementSummary(0, "1.0", { unitTests: { totalTests: 0, passed: 0, failed: 0, skipped: 0 } }, mockLog);
 		const out = output();
 		expect(out).toContain("Increment Build Results");
 	});
@@ -184,7 +183,7 @@ describe("printIncrementSummary", () => {
 
 describe("printPublishSummary", () => {
 	it("prints publish results", () => {
-		printPublishSummary(0, "4.0", { build: { total_bytes: 102400, warnings_count: 1 }, unitTests: { totalTests: 100, passed: 100, failed: 0, skipped: 0 } });
+		printPublishSummary(0, "4.0", { build: { total_bytes: 102400, warnings_count: 1 }, unitTests: { totalTests: 100, passed: 100, failed: 0, skipped: 0 } }, mockLog);
 		const out = output();
 		expect(out).toContain("Publish Results");
 		expect(out).toContain("PASS");
@@ -195,14 +194,14 @@ describe("printPublishSummary", () => {
 
 describe("printResultBanner", () => {
 	it("prints label with pass icon", () => {
-		printResultBanner("Build", 0);
+		printResultBanner("Build", 0, mockLog);
 		const out = output();
 		expect(out).toContain("Build");
 		expect(out).toContain("PASS");
 	});
 
 	it("prints label with fail icon", () => {
-		printResultBanner("Tests", 1);
+		printResultBanner("Tests", 1, mockLog);
 		const out = output();
 		expect(out).toContain("Tests");
 		expect(out).toContain("FAIL");
@@ -215,6 +214,7 @@ describe("printSessionBanner", () => {
 			{ sessionName: "test", selectedSlugs: ["a", "b"], includeInstaller: false, includePrerequisites: false, stepFilter: {} },
 			[{ slug: "a", name: "Alpha", chapter: "10", steps: 3, description: "" }, { slug: "b", name: "Beta", chapter: "20", steps: 2, description: "" }],
 			0,
+			mockLog,
 		);
 		const out = output();
 		expect(out).toContain("test");
@@ -227,6 +227,7 @@ describe("printSessionBanner", () => {
 			{ sessionName: "s", selectedSlugs: ["unknown"], includeInstaller: false, includePrerequisites: false, stepFilter: {} },
 			[],
 			1,
+			mockLog,
 		);
 		const out = output();
 		expect(out).toContain("unknown");
@@ -236,7 +237,7 @@ describe("printSessionBanner", () => {
 
 describe("printMainMenu", () => {
 	it("prints all menu options", () => {
-		printMainMenu(true);
+		printMainMenu(true, mockLog);
 		const out = output();
 		expect(out).toContain("Start test session");
 		expect(out).toContain("Build the increment");
@@ -248,7 +249,7 @@ describe("printMainMenu", () => {
 	});
 
 	it("dims publish option when increment not passed", () => {
-		printMainMenu(false);
+		printMainMenu(false, mockLog);
 		const out = output();
 		expect(out).toContain("requires successful build");
 	});
@@ -256,14 +257,14 @@ describe("printMainMenu", () => {
 
 describe("printIncrementMenu", () => {
 	it("shows publish option when exit code 0", () => {
-		printIncrementMenu(0);
+		printIncrementMenu(0, mockLog);
 		const out = output();
 		expect(out).toContain("Publish the increment");
 		expect(out).not.toContain("requires successful build");
 	});
 
 	it("dims publish option when exit code non-zero", () => {
-		printIncrementMenu(1);
+		printIncrementMenu(1, mockLog);
 		const out = output();
 		expect(out).toContain("requires successful build");
 	});

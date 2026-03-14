@@ -1,8 +1,8 @@
 /**
  * sitemap-reference.ts — Generates a Sitemap Reference document.
  *
- * Documents all views, navigation paths, item types, conditions,
- * and the view hierarchy defined in configs/sitemap.json.
+ * Documents all pages, navigation paths, action types, conditions,
+ * and the page hierarchy defined in configs/sitemap.json.
  */
 
 import { Document } from "../../../infrastructure/document.js";
@@ -10,7 +10,7 @@ import { ReportService } from "../cli/report-service.js";
 import { loadSitemap } from "../../../infrastructure/sitemap-loader.js";
 import type { ReportDeps } from "../../../infrastructure/deps.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
-import type { Sitemap, ViewDefinition, SitemapItem } from "../../../infrastructure/sitemap-types.js";
+import type { Sitemap, PageObject, PageAction } from "../../../infrastructure/sitemap-types.js";
 
 // ── Generator ────────────────────────────────────────────────────────
 
@@ -24,23 +24,23 @@ export function generateSitemapReference(projectPath: string, deps: ReportDeps):
 	}
 
 	const sitemap = result.sitemap;
-	const viewIds = Object.keys(sitemap.views);
+	const pageIds = Object.keys(sitemap.pages);
 
 	const doc = Document.create("Sitemap Reference")
 		.mergeFrontmatter({
 			type: "SitemapReference",
 			date: deps.clock.iso(),
-			views: viewIds.length,
+			pages: pageIds.length,
 			tags: ["reference", "sitemap", "navigation"],
 		})
 		.addBlank()
 		.heading(1, "Sitemap Reference")
 		.addBlank()
-		.text(`${viewIds.length} view(s) defined in \`configs/sitemap.json\`.`)
+		.text(`${pageIds.length} page(s) defined in \`configs/sitemap.json\`.`)
 		.addBlank();
 
-	appendViewIndex(doc, sitemap);
-	appendViewDetails(doc, sitemap);
+	appendPageIndex(doc, sitemap);
+	appendPageDetails(doc, sitemap);
 	appendNavigationGraph(doc, sitemap);
 
 	const outputPath = svc.saveReference(doc, "Sitemap Reference.md");
@@ -48,80 +48,81 @@ export function generateSitemapReference(projectPath: string, deps: ReportDeps):
 	return {
 		success: true,
 		outputPath,
-		metrics: { views: viewIds.length, items: countItems(sitemap) },
+		metrics: { pages: pageIds.length, actions: countActions(sitemap) },
 	};
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-function appendViewIndex(doc: Document, sitemap: Sitemap): void {
-	doc.heading(2, "Views").addBlank();
+function appendPageIndex(doc: Document, sitemap: Sitemap): void {
+	doc.heading(2, "Pages").addBlank();
 	doc.table(
-		["View", "Type", "Title", "Items"],
-		Object.entries(sitemap.views).map(([id, view]) => [
+		["Page", "Kind", "Label", "Actions"],
+		Object.entries(sitemap.pages).map(([id, page]) => [
 			`\`${id}\``,
-			view.type === "dynamic" ? "Dynamic" : "Menu",
-			view.title,
-			String(view.items?.length ?? 0),
+			page.kind,
+			page.label,
+			String(page.actions.length),
 		]),
 	).addBlank();
 }
 
-function appendViewDetails(doc: Document, sitemap: Sitemap): void {
-	for (const [id, view] of Object.entries(sitemap.views)) {
-		doc.heading(3, `${view.title} (\`${id}\`)`).addBlank();
+function appendPageDetails(doc: Document, sitemap: Sitemap): void {
+	for (const [id, page] of Object.entries(sitemap.pages)) {
+		doc.heading(3, `${page.label} (\`${id}\`)`).addBlank();
 
 		const meta: string[] = [];
-		if (view.type === "dynamic") meta.push(`Handler: \`${(view as ViewDefinition & { handler?: string }).handler}\``);
-		if (view.domain) meta.push(`Domain: ${view.domain}`);
-		if (view.status) meta.push(`Status: ${view.status}`);
-		if (view.parent) meta.push(`Parent: \`${view.parent}\``);
-		if (meta.length > 0) doc.text(meta.join(" | ")).addBlank();
+		meta.push(`Kind: ${page.kind}`);
+		if (page.domain) meta.push(`Domain: ${page.domain}`);
+		if (page.status) meta.push(`Status: ${page.status}`);
+		if (page.parent) meta.push(`Parent: \`${page.parent}\``);
+		if (page.configPath) meta.push(`Config: \`${page.configPath}\``);
+		doc.text(meta.join(" | ")).addBlank();
 
-		appendViewItems(doc, view);
+		appendPageActions(doc, page);
 	}
 }
 
-function appendViewItems(doc: Document, view: ViewDefinition): void {
-	const items = view.items;
-	if (!items || items.length === 0) return;
-
-	const menuItems = items.filter((e): e is SitemapItem => "key" in e && !("separator" in e) && !("slot" in e));
-	if (menuItems.length === 0) return;
+function appendPageActions(doc: Document, page: PageObject): void {
+	if (page.actions.length === 0) return;
 
 	doc.table(
-		["Key", "Label", "Action", "Conditions"],
-		menuItems.map((item) => [
-			`\`${item.key}\``,
-			item.label,
-			describeAction(item),
-			describeConditions(item),
+		["Key", "Label", "Type", "Target", "Conditions"],
+		page.actions.map((action) => [
+			`\`${action.key ?? "auto"}\``,
+			action.label,
+			action.type,
+			describeTarget(action),
+			describeConditions(action),
 		]),
 	).addBlank();
 }
 
-function describeAction(item: SitemapItem): string {
-	if (item.navigate) return `→ \`${item.navigate}\``;
-	if (item.command) return `⚡ \`${item.command}\``;
-	if (item.handler) return `⚙ \`${item.handler}\``;
-	if (item.signal) return `↩ ${item.signal}`;
-	return "—";
+function describeTarget(action: PageAction): string {
+	if (!action.target) return "—";
+	switch (action.type) {
+		case "navigate": return `→ \`${action.target}\``;
+		case "command": return `⚡ \`${action.target}\``;
+		case "handler": return `⚙ \`${action.target}\``;
+		case "signal": return `↩ ${action.target}`;
+		case "form": return `📝 \`${action.target}\``;
+		default: return action.target;
+	}
 }
 
-function describeConditions(item: SitemapItem): string {
+function describeConditions(action: PageAction): string {
 	const parts: string[] = [];
-	if (item.hidden !== undefined) parts.push(`hidden: \`${JSON.stringify(item.hidden)}\``);
-	if (item.disabled !== undefined) parts.push(`disabled: \`${JSON.stringify(item.disabled)}\``);
+	if (action.hidden !== undefined) parts.push(`hidden: \`${JSON.stringify(action.hidden)}\``);
+	if (action.disabled !== undefined) parts.push(`disabled: \`${JSON.stringify(action.disabled)}\``);
 	return parts.join(", ") || "—";
 }
 
 function appendNavigationGraph(doc: Document, sitemap: Sitemap): void {
 	const edges: string[] = [];
-	for (const [id, view] of Object.entries(sitemap.views)) {
-		const items = view.items ?? [];
-		for (const entry of items) {
-			if ("navigate" in entry && (entry as SitemapItem).navigate) {
-				edges.push(`\`${id}\` → \`${(entry as SitemapItem).navigate}\` (${(entry as SitemapItem).label})`);
+	for (const [id, page] of Object.entries(sitemap.pages)) {
+		for (const action of page.actions) {
+			if (action.type === "navigate" && action.target) {
+				edges.push(`\`${id}\` → \`${action.target}\` (${action.label})`);
 			}
 		}
 	}
@@ -131,10 +132,10 @@ function appendNavigationGraph(doc: Document, sitemap: Sitemap): void {
 	doc.list(edges).addBlank();
 }
 
-function countItems(sitemap: Sitemap): number {
+function countActions(sitemap: Sitemap): number {
 	let count = 0;
-	for (const view of Object.values(sitemap.views)) {
-		count += view.items?.length ?? 0;
+	for (const page of Object.values(sitemap.pages)) {
+		count += page.actions.length;
 	}
 	return count;
 }

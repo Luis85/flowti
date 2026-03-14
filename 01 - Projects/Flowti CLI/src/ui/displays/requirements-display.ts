@@ -3,7 +3,6 @@
  */
 
 import { RESET, DIM, GREEN, CYAN, BOLD, RED, YELLOW } from "../../infrastructure/ui.js";
-import { log } from "../../infrastructure/logger.js";
 import type { RequirementSummary, UseCaseSummary, UserStorySummary } from "../../domain/requirements/requirement-types.js";
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -20,7 +19,7 @@ const STORY_STATUS_COLORS: Record<string, string> = {
 	backlog: DIM,
 };
 
-export function renderRequirementList(reqs: RequirementSummary[]): void {
+export function renderRequirementList(reqs: RequirementSummary[], log: (msg?: string) => void): void {
 	if (reqs.length === 0) {
 		log(`\n  ${DIM}No requirements defined yet. Use "Add" to create one.${RESET}\n`);
 		return;
@@ -35,7 +34,7 @@ export function renderRequirementList(reqs: RequirementSummary[]): void {
 	log();
 }
 
-export function renderUseCaseList(useCases: UseCaseSummary[]): void {
+export function renderUseCaseList(useCases: UseCaseSummary[], log: (msg?: string) => void): void {
 	if (useCases.length === 0) {
 		log(`\n  ${DIM}No use cases defined yet. Use "Add Use Case" to create one.${RESET}\n`);
 		return;
@@ -48,7 +47,7 @@ export function renderUseCaseList(useCases: UseCaseSummary[]): void {
 	log();
 }
 
-export function renderUserStoryList(stories: UserStorySummary[]): void {
+export function renderUserStoryList(stories: UserStorySummary[], log: (msg?: string) => void): void {
 	if (stories.length === 0) {
 		log(`\n  ${DIM}No user stories defined yet. Use "Add User Story" to create one.${RESET}\n`);
 		return;
@@ -63,10 +62,10 @@ export function renderUserStoryList(stories: UserStorySummary[]): void {
 	log();
 }
 
-export function renderRequirementAdded(relPath: string): void {
+export function renderRequirementAdded(relPath: string, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}✓${RESET} Created: ${relPath}`);
 }
 
-export function renderRequirementUpdated(name: string, status: string): void {
+export function renderRequirementUpdated(name: string, status: string, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}✓${RESET} Updated ${name} → ${status}`);
 }

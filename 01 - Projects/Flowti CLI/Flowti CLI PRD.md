@@ -5,7 +5,7 @@ stage: active
 version: 15
 maturity: L2
 created: 2026-03-07
-updated: 2026-03-13
+updated: 2026-03-14
 tags:
   - cli
   - developer-experience
@@ -177,9 +177,9 @@ The CLI follows a **DDD + MVC layered architecture** with strict dependency rule
 ```
 Entry Point (main.ts)
   → Controller Layer (23 controllers)
-    → UI / View Layer (71 display renderers + menus + handler registry)
-      → Domain Layer (26 modules — pure, no I/O, no presentation)
-        → Infrastructure Layer (41 modules + pipeline + event-bus + sitemap-router)
+    → UI / View Layer (64 display renderers + menus + handler registry)
+      → Domain Layer (27 modules — pure, no I/O, no presentation)
+        → Infrastructure Layer (44 modules + pipeline + event-bus + sitemap-router)
 Scripts Layer (4 standalone entry points)
 ```
 
@@ -187,11 +187,11 @@ Scripts Layer (4 standalone entry points)
 
 | Layer | Purpose |
 |-------|---------|
-| **Entry Point** | Sitemap-driven router (`SitemapRouter` + `configs/sitemap.json`) + command dispatch via `CommandRegistry` |
+| **Entry Point** | Sitemap-driven router (`SitemapRouter` + `configs/sitemap.json` v2) + command dispatch via `CommandRegistry` |
 | **Controller** | Thin handlers: parse flags, call domain services, return `CliResponse<T>` with typed data + renderer |
 | **UI / View** | Display renderers: take typed data models, produce ANSI-formatted console output |
-| **Domain** | Pure business logic — 26 modules covering scaffold, make, build, publish, review, reports, events, capture, info, onboarding, knowledgebase, devtools, e2e, plugins, ai-tools, health, lifecycle, resources, timelog, deliverables, raid, requirements, capa, templates, sitemap |
-| **Infrastructure** | I/O abstractions — filesystem, shell, input, state, config, document builder, frontmatter, errors, output, command-registry, menu, ui, clock, proc, paths, logger, args, pipeline, event-bus, deps, request-response, progress, sitemap-router, sitemap-loader, sitemap-watcher, sitemap-conditions, handler-registry, context-provider |
+| **Domain** | Pure business logic — 27 modules covering scaffold, make, build, publish, review, reports, events, capture, info, onboarding, knowledgebase, devtools, e2e, plugins, ai-tools, health, lifecycle, resources, timelog, deliverables, raid, requirements, capa, templates, sitemap, shared |
+| **Infrastructure** | I/O abstractions — filesystem, shell, input, state, config, document builder, frontmatter, errors, output, command-registry, menu, ui, clock, proc, paths, logger, args, pipeline, event-bus, deps, request-response, progress, sitemap-router, sitemap-loader, sitemap-watcher, sitemap-conditions, sitemap-types, handler-registry, context-provider, form-runner, key-assigner |
 
 All I/O is behind typed abstractions (`disk`, `shell`, `paths`, `proc`, `log`). No domain code imports `node:fs`, `node:child_process`, or `node:path` directly.
 
@@ -240,7 +240,7 @@ Each project stores its config in `configs/flowti.config.json`:
 }
 ```
 
-Config is validated with clear error messages via `config-schema.ts` (45+ rules) and `config-deep-validation.ts` (filesystem-aware deep validation). When a project is selected for the first time, the CLI auto-scaffolds this config from `package.json` scripts.
+Config is validated with clear error messages via `config-schema.ts` + `config-validators.ts` + `config-validators-review.ts` (45+ rules) and `config-deep-validation.ts` (filesystem-aware deep validation). When a project is selected for the first time, the CLI auto-scaffolds this config from `package.json` scripts.
 
 ---
 
@@ -279,21 +279,22 @@ Flowti CLI occupies a unique niche: **definition-driven project management CLI**
 
 ---
 
-## Current State (2026-03-13)
+## Current State (2026-03-14)
 
 | Metric | Value |
 |--------|-------|
-| Source files | 372 |
-| Test files | 279 (279 suites) |
-| Tests passing | 4,599 |
-| Domain modules | 26 |
+| Source files | 377 |
+| Test files | 317 (317 suites) |
+| Tests passing | 5,920 |
+| Domain modules | 27 |
 | Controllers | 23 |
-| UI view files | 71 |
-| Infrastructure modules | 41 |
+| UI view files | 64 |
+| Infrastructure modules | 44 |
 | Runtime dependencies | 0 |
 | Scaffold definitions | 4 (project, bare/library, cli, obsidian-plugin) |
 | Component definitions | 8 (4 C4 + 4 UI building blocks) |
 | Report generators | 8 (6 report + 2 reference) |
+| Sitemap pages | 28 (v2 PageObject format) |
 | E2E environment providers | 5 |
 | Technical debt items | 30 (22 resolved) |
 | Coverage | 80.53% statements, 81.67% lines |
@@ -307,7 +308,7 @@ Flowti CLI occupies a unique niche: **definition-driven project management CLI**
 
 | Risk | Mitigation |
 |------|------------|
-| CLI binary grows beyond maintainability | Modular DDD structure (25 domain modules) keeps cognitive load low |
+| CLI binary grows beyond maintainability | Modular DDD structure (27 domain modules) keeps cognitive load low |
 | Per-project config divergence | Auto-scaffolding from `package.json` ensures consistent defaults |
 | Definition schema drift | Definitions validated on load; TypeScript types enforce schema |
 | AI agents can't parse output | `--format=json` on all query commands; deterministic exit codes |
@@ -320,7 +321,7 @@ Flowti CLI occupies a unique niche: **definition-driven project management CLI**
 
 - **[[Product Backlog]]** — Feature requirements, acceptance criteria, and improvements
 - **[[Development Roadmap]]** — Phased execution plan (Phases 5–9)
-- **[[Tech Debt]]** — Technical debt register (30 items, 21 resolved)
+- **[[Tech Debt]]** — Technical debt register (30 items, 22 resolved)
 - **[[Plugin Integration Analysis]]** — Gap analysis for Flowti Plugin integration
 - **[[01 - Projects/Flowti CLI/README|README]]** — Quick start, architecture overview, project structure
 - **[[Flowti CLI Architecture]]** — Architecture Document (v25)
