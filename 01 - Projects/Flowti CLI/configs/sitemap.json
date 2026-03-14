@@ -143,6 +143,15 @@
 					"group": "iteration"
 				},
 				{
+					"name": "onPlanNextIteration",
+					"label": "Plan next Iteration",
+					"type": "handler",
+					"target": "iteration:create",
+					"key": "w",
+					"hidden": "iteration:running",
+					"group": "iteration"
+				},
+				{
 					"name": "onAdvanceIteration",
 					"label": "Advance Iteration",
 					"type": "handler",
