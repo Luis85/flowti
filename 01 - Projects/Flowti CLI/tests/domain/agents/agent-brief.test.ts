@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { generateBrief, briefFileName } from "../../../src/domain/agents/agent-brief.js";
-import type { BriefContext } from "../../../src/domain/agents/agent-brief.js";
+import { generateBrief, generateFullIterationBrief, briefFileName } from "../../../src/domain/agents/agent-brief.js";
+import type { BriefContext, FullBriefContext } from "../../../src/domain/agents/agent-brief.js";
 import type { ActiveAgent } from "../../../src/domain/agents/agent-orchestration.js";
 import type { IterationSummary } from "../../../src/domain/iterations/iteration-types.js";
+import type { LifecycleTemplate } from "../../../src/domain/lifecycle/lifecycle-types.js";
+import type { OrchestrationConfig } from "../../../src/infrastructure/types.js";
 
 function makeAgent(overrides: Partial<ActiveAgent> = {}): ActiveAgent {
 	return { name: "Product Owner", role: "refiner", instruction: "Refine the goal", state: "new", ...overrides };
@@ -106,5 +108,108 @@ describe("briefFileName", () => {
 
 	it("handles large numbers", () => {
 		expect(briefFileName(42, "planned")).toBe("iteration-042-planned.md");
+	});
+});
+
+// ── Full-iteration brief ────────────────────────────────────────────
+
+const iterTemplate: LifecycleTemplate = {
+	entityType: "iteration",
+	states: ["new", "planned", "ready", "in-progress", "in-review", "done", "cancelled"],
+	transitions: {
+		"new": ["planned", "cancelled"],
+		"planned": ["ready", "cancelled"],
+		"ready": ["in-progress", "cancelled"],
+		"in-progress": ["in-review", "cancelled"],
+		"in-review": ["done", "cancelled"],
+		"done": [],
+		"cancelled": [],
+	},
+	initialState: "new",
+	terminalStates: ["done", "cancelled"],
+};
+
+const orchestration: OrchestrationConfig = {
+	phases: {
+		"new": { agent: "Product Owner", role: "refiner", instruction: "Refine the goal" },
+		"planned": { agent: "Architect", role: "planner", instruction: "Break scope into tasks" },
+		"in-progress": { agent: "Developer", role: "implementer", instruction: "Implement scope items" },
+	},
+};
+
+function makeFullCtx(overrides: Partial<FullBriefContext> = {}): FullBriefContext {
+	return {
+		agentName: "Software Architect",
+		iteration: makeIteration({ status: "planned" }),
+		systemPrompt: "You are a software architect.",
+		template: iterTemplate,
+		orchestration,
+		...overrides,
+	};
+}
+
+describe("generateFullIterationBrief", () => {
+	it("includes agent name and iteration number in title", () => {
+		const brief = generateFullIterationBrief(makeFullCtx());
+		expect(brief).toContain("# Full Iteration Brief: Software Architect — Iteration #3");
+	});
+
+	it("includes lifecycle path from current state to done", () => {
+		const brief = generateFullIterationBrief(makeFullCtx());
+		expect(brief).toContain("planned → ready → in-progress → in-review → done");
+	});
+
+	it("includes phase instructions from orchestration", () => {
+		const brief = generateFullIterationBrief(makeFullCtx());
+		expect(brief).toContain("### planned (planner)");
+		expect(brief).toContain("Break scope into tasks");
+		expect(brief).toContain("### in-progress (implementer)");
+		expect(brief).toContain("Implement scope items");
+	});
+
+	it("includes system prompt when provided", () => {
+		const brief = generateFullIterationBrief(makeFullCtx());
+		expect(brief).toContain("## System Prompt");
+		expect(brief).toContain("You are a software architect.");
+	});
+
+	it("omits system prompt when null", () => {
+		const brief = generateFullIterationBrief(makeFullCtx({ systemPrompt: null }));
+		expect(brief).not.toContain("## System Prompt");
+	});
+
+	it("includes iteration context", () => {
+		const brief = generateFullIterationBrief(makeFullCtx());
+		expect(brief).toContain("**Goal**: Agents work on plans");
+		expect(brief).toContain("**Status**: planned");
+	});
+
+	it("includes scope items", () => {
+		const brief = generateFullIterationBrief(makeFullCtx());
+		expect(brief).toContain("- [x] Phase 1: Bindings");
+		expect(brief).toContain("- [ ] Phase 2: Briefs");
+	});
+
+	it("includes expected output instructions", () => {
+		const brief = generateFullIterationBrief(makeFullCtx());
+		expect(brief).toContain("## Expected Output");
+		expect(brief).toContain("Update the iteration plan file directly");
+	});
+
+	it("handles missing orchestration gracefully", () => {
+		const brief = generateFullIterationBrief(makeFullCtx({ orchestration: undefined }));
+		expect(brief).not.toContain("## Phase Instructions");
+		expect(brief).toContain("planned → ready");
+	});
+
+	it("builds path starting from in-progress", () => {
+		const brief = generateFullIterationBrief(makeFullCtx({ iteration: makeIteration({ status: "in-progress" }) }));
+		expect(brief).toContain("in-progress → in-review → done");
+		expect(brief).not.toContain("planned →");
+	});
+
+	it("says execute all phases in role section", () => {
+		const brief = generateFullIterationBrief(makeFullCtx());
+		expect(brief).toContain("Execute all phases from planned → done");
 	});
 });

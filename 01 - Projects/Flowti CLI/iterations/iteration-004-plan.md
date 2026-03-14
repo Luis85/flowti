@@ -55,8 +55,6 @@ Agents become visible — project-level agent roster, a built-in static server, 
 
 
 
-
-
 - [ ] Flag blockers early
 - [ ] Track progress daily
 - [x] Push the Plan to Git
@@ -65,25 +63,27 @@ Agents become visible — project-level agent roster, a built-in static server, 
 - [x] Push the Plan to Git
 - [x] Assign resources and capacity
 - [x] Break scope into actionable tasks
-### Phase 1: Project Agent Roster
+### Phase 1: Project Agent Roster — DONE
 
-- [ ] Add `management.agents` to `FlowtiProjectConfig` type — `string[]` of vault agent names
-- [ ] Add config schema validation for `management.agents` — array of strings, optional
-- [ ] Add `getProjectAgents(deps, projectPath, config)` domain function — resolves vault agents filtered to project roster
-- [ ] Update iteration `addAgentInteractive` — when project has `management.agents`, show only project roster instead of full vault list
-- [ ] Add "Manage Agents" action to project-detail sitemap page — add/remove agents from project roster
-- [ ] Register handler `project:manage-agents` — interactive add/remove of agent names to config
-- [ ] Update project config writer to persist `management.agents` changes
-- [ ] Tests for roster resolution, filtered picker, config persistence
+- [x] Add `AgentsConfig.roster?: string[]` to types — project-level agent roster field
+- [x] Add config schema validation for `management.agents.roster` — array of non-empty strings, optional
+- [x] Add `getProjectAgents(deps, vaultRoot, vaultConfig, roster)` domain function — resolves vault agents filtered to project roster (case-insensitive)
+- [x] Add `updateProjectConfig(projectPath, deps, mutate)` utility — read/modify/write flowti.config.json
+- [x] Update iteration `addAgentInteractive` — when project has roster, show only project roster instead of full vault list
+- [x] Add "Manage Agents" action to project-detail sitemap page (key: n) — add/remove agents from project roster
+- [x] Register handler `project:manage-agents` — interactive add/remove of agent names to config with vault agent listing
+- [x] Tests: getProjectAgents (4), updateProjectConfig (3), roster validation (3), manageProjectAgentsInteractive (5)
+- [x] Verify: tsc clean, 6132 tests pass, eslint 0 errors, esbuild builds
 
-### Phase 2: Full-Iteration Tasking
+### Phase 2: Full-Iteration Tasking — DONE
 
-- [ ] Add `generateFullIterationBrief(agent, iteration, deps)` — single brief covering all phases from current state to done
-- [ ] Brief includes full lifecycle path, all scope items, all phase instructions concatenated
-- [ ] Add "Execute Iteration" action to iteration-detail — generates full-iteration brief for assigned agent
-- [ ] Register handler `iteration:execute-full` — prompts for agent, generates brief, writes to briefs directory
-- [ ] Sitemap: add "Execute Iteration" action to iteration-detail page
-- [ ] Tests for full-iteration brief generation
+- [x] Add `generateFullIterationBrief(ctx)` — single brief covering all phases from current state to done
+- [x] `buildLifecyclePath(template, fromState)` — walks template transitions to build full phase sequence
+- [x] Brief includes lifecycle path, phase instructions from orchestration, iteration context, scope items
+- [x] Add "Execute Iteration" action to iteration-detail sitemap — in orchestration group
+- [x] Register handler `iteration:execute-full` — prompts for agent (roster-filtered), generates brief, writes to `iterations/briefs/iteration-NNN-full.md`
+- [x] Tests: 11 tests for full brief generation, lifecycle path, phase instructions, edge cases
+- [x] Verify: tsc clean, 6143 tests pass, eslint 0 errors, esbuild builds
 
 ### Phase 3: `flowti serve` — Static File Server
 
@@ -137,11 +137,11 @@ Agents become visible — project-level agent roster, a built-in static server, 
 
 **Design Decisions:**
 
-**Project Agent Roster Format** — Stored in `flowti.config.json` under `management.agents`:
+**Project Agent Roster Format** — Stored in `flowti.config.json` under `management.agents.roster`:
 ```json
 {
   "management": {
-    "agents": ["Product Owner", "Software Architect", "Software Developer"],
+    "agents": { "roster": ["Product Owner", "Software Architect", "Software Developer"] },
     "iterations": {
       "orchestration": {
         "phases": {
@@ -153,7 +153,7 @@ Agents become visible — project-level agent roster, a built-in static server, 
   }
 }
 ```
-Agents are referenced by name (matching vault-level agent definitions). The roster is the project's "team" — only these agents appear in the iteration agent picker. Orchestration phase bindings must reference agents from the roster.
+**Implementation note**: The plan originally specified `management.agents` as a flat `string[]`, but `AgentsConfig` already existed as `{ dir?: string }` for vault-level agent directory config. To avoid a breaking change, the roster was added as `AgentsConfig.roster?: string[]` — extending the existing type. Agents are referenced by name (case-insensitive match against vault-level agent definitions). The roster is the project's "team" — only these agents appear in the iteration agent picker and the "Execute Iteration" agent selector. Orchestration phase bindings should reference agents from the roster.
 
 **Static Server Architecture** — Pure Node.js, zero dependencies:
 ```

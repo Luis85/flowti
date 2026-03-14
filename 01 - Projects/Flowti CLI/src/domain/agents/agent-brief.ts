@@ -7,7 +7,9 @@
  */
 
 import type { ActiveAgent } from "./agent-orchestration.js";
+import type { OrchestrationConfig, PhaseBinding } from "../../infrastructure/types.js";
 import type { IterationSummary, ScopeItem } from "../iterations/iteration-types.js";
+import type { LifecycleTemplate } from "../lifecycle/lifecycle-types.js";
 
 export interface BriefContext {
 	readonly agent: ActiveAgent;
@@ -40,6 +42,88 @@ export function generateBrief(ctx: BriefContext): string {
  */
 export function briefFileName(iterationNumber: number, state: string): string {
 	return `iteration-${String(iterationNumber).padStart(3, "0")}-${state}.md`;
+}
+
+// ── Full-iteration brief ─────────────────────────────────────────────
+
+export interface FullBriefContext {
+	readonly agentName: string;
+	readonly iteration: IterationSummary;
+	readonly systemPrompt: string | null;
+	readonly template: LifecycleTemplate;
+	readonly orchestration: OrchestrationConfig | undefined;
+}
+
+/**
+ * Generate a full-iteration brief covering all phases from the current state to done.
+ */
+export function generateFullIterationBrief(ctx: FullBriefContext): string {
+	const { agentName, iteration, systemPrompt, template, orchestration } = ctx;
+	const lines: string[] = [];
+	const path = buildLifecyclePath(template, iteration.status);
+
+	lines.push(`# Full Iteration Brief: ${agentName} — Iteration #${iteration.number}`);
+	lines.push("");
+
+	lines.push("## Your Role");
+	lines.push("");
+	lines.push(`You are **${agentName}** for this entire iteration. Execute all phases from ${iteration.status} → done.`);
+	lines.push("");
+
+	appendSystemPrompt(lines, systemPrompt);
+
+	lines.push("## Lifecycle Path");
+	lines.push("");
+	lines.push(path.join(" → "));
+	lines.push("");
+
+	appendPhaseInstructions(lines, path, orchestration);
+	appendIterationContext(lines, iteration, []);
+	appendScopeItems(lines, iteration.scopeItems);
+	appendFullBriefOutput(lines);
+
+	return lines.join("\n");
+}
+
+function buildLifecyclePath(template: LifecycleTemplate, fromState: string): string[] {
+	const path: string[] = [fromState];
+	let current = fromState;
+	const visited = new Set<string>();
+	visited.add(current);
+	while (!template.terminalStates.includes(current)) {
+		const transitions = template.transitions[current] ?? [];
+		const next = transitions.find((t) => !template.terminalStates.includes(t) || t === "done") ?? transitions[0];
+		if (!next || visited.has(next)) break;
+		path.push(next);
+		visited.add(next);
+		current = next;
+	}
+	return path;
+}
+
+function appendPhaseInstructions(lines: string[], path: string[], orchestration: OrchestrationConfig | undefined): void {
+	const phases = orchestration?.phases;
+	if (!phases) return;
+	const entries = path.map((state) => [state, phases[state]] as [string, PhaseBinding | undefined]).filter(([, b]) => b);
+	if (entries.length === 0) return;
+	lines.push("## Phase Instructions");
+	lines.push("");
+	for (const [state, binding] of entries) {
+		if (!binding) continue;
+		lines.push(`### ${state} (${binding.role ?? "contributor"})`);
+		lines.push(binding.instruction ?? "_No specific instruction._");
+		lines.push("");
+	}
+}
+
+function appendFullBriefOutput(lines: string[]): void {
+	lines.push("## Expected Output");
+	lines.push("");
+	lines.push("Update the iteration plan file directly:");
+	lines.push("- Mark completed items as `- [x]`");
+	lines.push("- Add new items as `- [ ]`");
+	lines.push("- Add notes under `## Notes`");
+	lines.push("");
 }
 
 // ── Section builders ──────────────────────────────────────────────────

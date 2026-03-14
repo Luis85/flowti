@@ -43,6 +43,60 @@ async function generateIterationBrief(ctx: RouterContext): Promise<string | null
 	return outPath;
 }
 
+/** Prompt the user to select an agent, then generate and write a full-iteration brief. */
+async function executeFullIteration(ctx: RouterContext): Promise<string | null> {
+	if (!ctx.project) return null;
+	const { findCurrentIteration } = await import("../../domain/iterations/iteration-store.js");
+	const { VAULT_ROOT, cliConfig } = await import("../../infrastructure/config.js");
+	const { getProjectAgents } = await import("../../domain/agents/agent-store.js");
+	const { renderAgentList } = await import("../displays/agents-display.js");
+
+	const config = ctx.project.config.management?.iterations;
+	const iteration = findCurrentIteration(ctx.deps, ctx.project.path, config);
+	if (!iteration) { ctx.deps.log("\n  No active iteration.\n"); return null; }
+
+	const agents = getProjectAgents(ctx.deps, VAULT_ROOT, cliConfig.agents, ctx.project.config.management?.agents?.roster);
+	if (agents.length === 0) { ctx.deps.log("\n  No agents available.\n"); return null; }
+
+	renderAgentList(agents, ctx.deps.log);
+	const choice = await ctx.deps.input.ask("Select agent for full execution");
+	if (!choice) return null;
+
+	const agent = resolveByChoice(choice, agents);
+	if (!agent) { ctx.deps.log(`\n  Agent "${choice}" not found.\n`); return null; }
+
+	return writeFullBrief(ctx, agent.name, iteration, config);
+}
+
+async function writeFullBrief(
+	ctx: RouterContext, agentName: string, iteration: import("../../domain/iterations/iteration-types.js").IterationSummary,
+	config: import("../../infrastructure/types.js").IterationsConfig | undefined,
+): Promise<string | null> {
+	const { generateFullIterationBrief, briefFileName } = await import("../../domain/agents/agent-brief.js");
+	const { loadIterationTemplate } = await import("./iteration-template-loader.js");
+	const { iterationsDir } = await import("../../domain/iterations/iteration-store.js");
+	const { VAULT_ROOT, cliConfig } = await import("../../infrastructure/config.js");
+	const { readSystemPrompt } = await import("../../domain/agents/agent-store.js");
+
+	const template = loadIterationTemplate(ctx.deps, ctx.project!.path, config);
+	if (!template) { ctx.deps.log("\n  No lifecycle template found.\n"); return null; }
+
+	const systemPrompt = readSystemPrompt(ctx.deps, VAULT_ROOT, agentName, cliConfig.agents);
+	const brief = generateFullIterationBrief({ agentName, iteration, systemPrompt, template, orchestration: config?.orchestration });
+
+	const briefsDir = ctx.deps.paths.join(iterationsDir(ctx.deps, ctx.project!.path, config), "briefs");
+	if (!ctx.deps.disk.existsSync(briefsDir)) ctx.deps.disk.mkdirSync(briefsDir, { recursive: true });
+	const outPath = ctx.deps.paths.join(briefsDir, briefFileName(iteration.number, "full"));
+	ctx.deps.disk.writeFileSync(outPath, brief, "utf-8");
+	return outPath;
+}
+
+function resolveByChoice<T extends { name: string }>(choice: string, items: T[]): T | undefined {
+	const idx = parseInt(choice, 10);
+	if (!isNaN(idx) && idx >= 1 && idx <= items.length) return items[idx - 1];
+	return items.find((a) => a.name.toLowerCase() === choice.toLowerCase());
+}
+
 export function registerCrudHandlers(registry: HandlerRegistry): void {
 	// ── RAID handlers ───────────────────────────────────────────────
 
@@ -351,6 +405,17 @@ export function registerCrudHandlers(registry: HandlerRegistry): void {
 			renderBriefGenerated(result, log);
 		}
 		await input.waitForEnter();
+		return "navigate:iteration-detail" as MenuResult;
+	});
+
+	registry.registerAction("iteration:execute-full", async (ctx) => {
+		if (!ctx.project) return undefined;
+		const result = await executeFullIteration(ctx);
+		if (result) {
+			const { renderBriefGenerated } = await import("../displays/iterations-display.js");
+			renderBriefGenerated(result, ctx.deps.log);
+		}
+		await ctx.deps.input.waitForEnter();
 		return "navigate:iteration-detail" as MenuResult;
 	});
 

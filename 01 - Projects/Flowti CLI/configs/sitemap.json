@@ -1805,6 +1805,13 @@
 					"group": "orchestration"
 				},
 				{
+					"name": "onExecuteIteration",
+					"label": "Execute Iteration",
+					"type": "handler",
+					"target": "iteration:execute-full",
+					"group": "orchestration"
+				},
+				{
 					"name": "onRunReports",
 					"label": "Run All Reports",
 					"type": "handler",
