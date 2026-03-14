@@ -2,15 +2,12 @@
 agents:
   - Bob|bob.md
 capacities:
-  - Story Points|18|
-  - Hours 180|180|h
 resources:
-  - Test Resource|Test Role|80
-  - Another one||80
+  - Product Team||100
 type: IterationPlan
 name: The Agents
 number: 1
-status: ready
+status: in-progress
 startDate: 2026-03-14
 endDate: 2026-03-28
 goal: We can add and manage Agent definitions
@@ -51,6 +48,10 @@ We can add and manage Agent definitions
 
 
 
+
+
+- [ ] Flag blockers early
+- [ ] Track progress daily
 - [x] Push the Plan to Git
 - [x] Kick-off communication
 - [x] Verify all prerequisites are met
@@ -76,5 +77,6 @@ We can add and manage Agent definitions
 
 | Date | From | To | Reason |
 |---|---|---|---|
+| 2026-03-14 | ready | in-progress | Advanced to in-progress |
 | 2026-03-14 | planned | ready | Advanced to ready |
 | 2026-03-14 | new | planned | Advanced to planned |
