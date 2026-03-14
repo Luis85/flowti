@@ -5,6 +5,7 @@
 import { printHeader } from "../../infrastructure/ui.js";
 import type { MenuDeps } from "../../infrastructure/deps.js";
 import type { DeliverablesConfig, DeliverableStatus } from "../../infrastructure/types.js";
+import { collectFields, selectFromList, selectStatus } from "../../infrastructure/menu-helpers.js";
 import { listDeliverables, createDeliverableFile, updateDeliverableStatus } from "../../domain/deliverables/deliverable-store.js";
 import { renderDeliverableAdded, renderDeliverableUpdated } from "../displays/deliverables-display.js";
 
@@ -13,22 +14,23 @@ const STATUSES: DeliverableStatus[] = ["planned", "in-progress", "review", "done
 export async function addDeliverableInteractive(projectPath: string, config: DeliverablesConfig | undefined, deps: MenuDeps): Promise<void> {
 	printHeader("Add Deliverable");
 
-	const name = await deps.input.ask("Name");
-	if (!name) return;
-
-	const description = await deps.input.ask("Description", "");
-	const dueDate = await deps.input.ask("Due date (YYYY-MM-DD)", "");
-	const assignee = await deps.input.ask("Assignee", "");
-	const priority = await deps.input.ask("Priority (low/medium/high)", "medium");
+	const data = await collectFields([
+		{ key: "name", label: "Name", required: true },
+		{ key: "description", label: "Description" },
+		{ key: "dueDate", label: "Due date (YYYY-MM-DD)" },
+		{ key: "assignee", label: "Assignee" },
+		{ key: "priority", label: "Priority (low/medium/high)", default: "medium" },
+	], deps.input);
+	if (!data) return;
 
 	const filePath = createDeliverableFile(deps, projectPath, {
-		name,
+		name: data.name,
 		status: "planned",
-		dueDate: dueDate || undefined,
-		assignee: assignee || undefined,
-		priority: priority || undefined,
+		dueDate: data.dueDate || undefined,
+		assignee: data.assignee || undefined,
+		priority: data.priority || undefined,
 		completionPct: 0,
-		description,
+		description: data.description,
 	}, config);
 
 	if (filePath) {
@@ -40,22 +42,14 @@ export async function updateStatusInteractive(projectPath: string, config: Deliv
 	printHeader("Update Deliverable Status");
 
 	const deliverables = listDeliverables(deps, projectPath, config);
-	if (deliverables.length === 0) {
-		deps.log(`\n  No deliverables to update.\n`);
-		return;
-	}
+	const d = await selectFromList(deliverables, deps, {
+		format: (item) => `${item.name} [${item.status}]`,
+		emptyMessage: "No deliverables to update.",
+	});
+	if (!d) return;
 
-	for (let i = 0; i < deliverables.length; i++) {
-		deps.log(`  ${i + 1}. ${deliverables[i].name} [${deliverables[i].status}]`);
-	}
-	const choice = await deps.input.ask("Select deliverable (number)");
-	const idx = parseInt(choice, 10) - 1;
-	if (isNaN(idx) || idx < 0 || idx >= deliverables.length) return;
-
-	const d = deliverables[idx];
-	deps.log(`\n  Statuses: ${STATUSES.join(", ")}`);
-	const newStatus = await deps.input.ask("New status", d.status) as DeliverableStatus;
-	if (!STATUSES.includes(newStatus)) return;
+	const newStatus = await selectStatus(STATUSES, d.status, deps);
+	if (!newStatus) return;
 
 	const pctStr = await deps.input.ask("Completion %", String(d.completionPct));
 	const pct = parseInt(pctStr, 10);

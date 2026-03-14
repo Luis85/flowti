@@ -5,6 +5,7 @@
 import { printHeader } from "../../infrastructure/ui.js";
 import type { MenuDeps } from "../../infrastructure/deps.js";
 import type { RAIDConfig, RAIDItemType, RAIDStatus } from "../../infrastructure/types.js";
+import { collectFields, selectFromList, selectStatus } from "../../infrastructure/menu-helpers.js";
 import { listRAIDItems, createRAIDItem, updateRAIDStatus } from "../../domain/raid/raid-store.js";
 import { renderRAIDAdded, renderRAIDUpdated } from "../displays/raid-display.js";
 
@@ -16,24 +17,25 @@ export async function addRAIDInteractive(itemType: RAIDItemType, projectPath: st
 	};
 	printHeader(`Add ${labels[itemType]}`);
 
-	const name = await deps.input.ask("Name");
-	if (!name) return;
-
-	const description = await deps.input.ask("Description", "");
-	const severity = (await deps.input.ask("Severity (critical/high/medium/low)", "medium")) as "critical" | "high" | "medium" | "low";
-	const owner = await deps.input.ask("Owner", "");
-	const dueDate = await deps.input.ask("Due date (YYYY-MM-DD)", "");
-	const category = (await deps.input.ask("Category (technical/business/organizational/external)", "technical")) as "technical" | "business" | "organizational" | "external";
+	const data = await collectFields([
+		{ key: "name", label: "Name", required: true },
+		{ key: "description", label: "Description" },
+		{ key: "severity", label: "Severity (critical/high/medium/low)", default: "medium" },
+		{ key: "owner", label: "Owner" },
+		{ key: "dueDate", label: "Due date (YYYY-MM-DD)" },
+		{ key: "category", label: "Category (technical/business/organizational/external)", default: "technical" },
+	], deps.input);
+	if (!data) return;
 
 	const filePath = createRAIDItem(deps, projectPath, {
-		name,
+		name: data.name,
 		itemType,
 		status: "open",
-		severity,
-		owner: owner || undefined,
-		dueDate: dueDate || undefined,
-		category,
-		description,
+		severity: data.severity as "critical" | "high" | "medium" | "low",
+		owner: data.owner || undefined,
+		dueDate: data.dueDate || undefined,
+		category: data.category as "technical" | "business" | "organizational" | "external",
+		description: data.description,
 	}, config);
 
 	if (filePath) {
@@ -45,22 +47,14 @@ export async function updateStatusInteractive(projectPath: string, config: RAIDC
 	printHeader("Update RAID Item Status");
 
 	const items = listRAIDItems(deps, projectPath, config);
-	if (items.length === 0) {
-		deps.log(`\n  No RAID items to update.\n`);
-		return;
-	}
+	const item = await selectFromList(items, deps, {
+		format: (i) => `${i.name} [${i.itemType}] [${i.status}]`,
+		emptyMessage: "No RAID items to update.",
+	});
+	if (!item) return;
 
-	for (let i = 0; i < items.length; i++) {
-		deps.log(`  ${i + 1}. ${items[i].name} [${items[i].itemType}] [${items[i].status}]`);
-	}
-	const choice = await deps.input.ask("Select item (number)");
-	const idx = parseInt(choice, 10) - 1;
-	if (isNaN(idx) || idx < 0 || idx >= items.length) return;
-
-	const item = items[idx];
-	deps.log(`\n  Statuses: ${STATUSES.join(", ")}`);
-	const newStatus = await deps.input.ask("New status", item.status) as RAIDStatus;
-	if (!STATUSES.includes(newStatus)) return;
+	const newStatus = await selectStatus(STATUSES, item.status, deps);
+	if (!newStatus) return;
 
 	const ok = updateRAIDStatus(deps, projectPath, item.name, newStatus, config);
 	if (ok) {
