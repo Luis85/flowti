@@ -2,7 +2,7 @@
 type: IterationPlan
 name: Agent Orchestration Layer
 number: 3
-status: in-review
+status: done
 startDate: 2026-03-14
 endDate: 2026-03-28
 goal: Agents are bound to lifecycle phases and can generate/capture work briefs for iteration plans
@@ -60,9 +60,9 @@ Agents are bound to lifecycle phases and can generate/capture work briefs for it
 
 
 
-- [ ] Document learnings
-- [ ] Capture retrospective notes
-- [ ] Review completed scope items
+- [x] Document learnings
+- [x] Capture retrospective notes
+- [x] Review completed scope items
 - [x] Flag blockers early
 - [x] Track progress daily
 - [x] Push the Plan to Git
@@ -102,6 +102,7 @@ Agents are bound to lifecycle phases and can generate/capture work briefs for it
 
 | Date | From | To | Reason |
 |---|---|---|---|
+| 2026-03-14 | in-review | done | All scope items completed, retrospective captured |
 | 2026-03-14 | in-progress | in-review | Advanced to in-review |
 | 2026-03-14 | ready | in-progress | Advanced to in-progress |
 | 2026-03-14 | planned | ready | Advanced to ready |
@@ -160,3 +161,26 @@ Provide your response as:
 - The `runMenu()` input loop handles user input; file change triggers a re-render of the header/content area above the menu prompt
 
 **Why not auto-execute?** — The CLI is zero-dependency and doesn't include HTTP clients. Agent execution happens externally (user pastes brief into Claude Code, ChatGPT, etc.). Auto-execution via `ai-tools` shell commands is a future iteration enhancement.
+
+## Retrospective
+
+**What went well:**
+- All 5 phases delivered in a single iteration cycle
+- The lifecycle engine generalization (Phase 1) was clean — existing project/product/feature templates untouched
+- Brief generation pattern works well as a zero-dependency agent interface
+- PlanWatcher reused existing `watchFile()` infrastructure, keeping the codebase consistent
+
+**What was harder than expected:**
+- Vault-level vs project-level agent scoping required a mid-iteration refactor — agents moved from project-scoped to vault-scoped entities, which touched handlers, menus, displays, and the sitemap
+- Navigation stack deduplication bug (Back on iteration-detail refreshed instead of navigating back) required `pushOrReplace()` extraction in the router
+- Dynamic view handlers need to run `runMenu()` with sitemap actions — returning `undefined` immediately pops the stack. This pattern wasn't obvious and caused the "nothing happens" bug on agent detail selection
+
+**Learnings:**
+- Data sources are the right pattern for listing vault-level entities (agents) on hub pages — directly selectable, no intermediate prompt needed
+- Dynamic view handlers must own their menu loop — render content in `beforeMenu`, pass `ctx.dataSourceEntries._actions` to `runMenu()`
+- The `iteration:cannot-advance` single condition is simpler than per-phase conditions — the advance handler dynamically resolves valid transitions from the template
+
+**Carried forward:**
+- Auto-execution of briefs via AI tool integration (future iteration)
+- Multi-agent handoff chains
+- Agent work history and audit trail
