@@ -1,0 +1,9 @@
+{
+	"name": "world-state",
+	"description": "View the full world state — all agents, projects, iterations, and recent activity log",
+	"version": "1.0.0",
+	"run": "node .flowti/bin/main.js state",
+	"cwd": ".",
+	"params": [],
+	"tags": ["state", "monitoring", "agents"]
+}

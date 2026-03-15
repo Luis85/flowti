@@ -1,0 +1,16 @@
+{
+	"name": "agent-status",
+	"description": "View a specific agent's full component map, status, and recent actions",
+	"version": "1.0.0",
+	"run": "node .flowti/bin/main.js state --agent=\"${name}\"",
+	"cwd": ".",
+	"params": [
+		{
+			"name": "name",
+			"type": "string",
+			"description": "Agent name (e.g. Bob, Product Owner, Software Architect)",
+			"required": true
+		}
+	],
+	"tags": ["state", "monitoring", "agents"]
+}

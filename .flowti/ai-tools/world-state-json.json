@@ -1,0 +1,9 @@
+{
+	"name": "world-state-json",
+	"description": "Get the raw world state as JSON — for programmatic consumption by agents or visualizations",
+	"version": "1.0.0",
+	"run": "node .flowti/bin/main.js state --json",
+	"cwd": ".",
+	"params": [],
+	"tags": ["state", "monitoring", "agents", "api"]
+}
