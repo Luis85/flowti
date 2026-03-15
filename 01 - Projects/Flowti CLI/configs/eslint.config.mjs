@@ -145,6 +145,26 @@ export default [
 		},
 	},
 
+	// ── Declarative controller pattern ────────────────────────────────
+	// All controllers use adaptDescriptor() from command-engine.js.
+	// Ban the legacy request-response helpers to prevent regression.
+	{
+		files: ["src/controller/**/*.ts"],
+		rules: {
+			"no-restricted-imports": ["error", {
+				paths: [{
+					name: "../infrastructure/request-response.js",
+					importNames: ["adapt", "createRequest", "ControllerAction"],
+					message: "Use adaptDescriptor() from command-engine.js instead.",
+				}],
+			}],
+			"no-restricted-syntax": ["error",
+				{ selector: "FunctionDeclaration[id.name='noProjectResponse']", message: "Use requires: 'project' in adaptDescriptor() instead." },
+				{ selector: "FunctionDeclaration[id.name='flagStr']", message: "Use flags spec in adaptDescriptor() instead." },
+			],
+		},
+	},
+
 	// ── Data registries ───────────────────────────────────────────────
 	// Pure data files with no logic — max-lines is not meaningful here
 	{
