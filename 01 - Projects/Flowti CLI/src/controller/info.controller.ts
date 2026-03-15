@@ -21,7 +21,7 @@ const actions: Record<string, ControllerAction> = {
 		if (!req.project) return dataResponse<NoProjectModel>({ command: "info" }, (d) => renderNoProject(d, log));
 		const { disk, paths, shell } = req.deps;
 		const model = collectProjectInfo(req.project, { disk, paths, shell });
-		return dataResponse(model, (d) => displayInfo(log, d));
+		return dataResponse(model, (d) => displayInfo(d, log));
 	},
 };
 

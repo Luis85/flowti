@@ -128,7 +128,7 @@ function displayProjectDeps(log: Log, graph: DependencyGraph): void {
 }
 
 /** Display the dependency graph with ANSI colors. */
-export function displayDependencyGraph(log: Log, graph: DependencyGraph): void {
+export function displayDependencyGraph(graph: DependencyGraph, log: Log): void {
 	log();
 
 	if (graph.projects.length === 0) {
@@ -169,7 +169,7 @@ export function displayDependencyGraph(log: Log, graph: DependencyGraph): void {
 
 export function handleProjectDeps(deps: DepsDeps): void {
 	const graph = buildDependencyGraph(PROJECTS_DIR, { disk: deps.disk, paths: deps.paths });
-	displayDependencyGraph(deps.log, graph);
+	displayDependencyGraph(graph, deps.log);
 }
 
 function displayStats(log: Log, graph: DependencyGraph): void {
@@ -274,7 +274,7 @@ export function createCommands(deps: DepsDeps) {
 				return;
 			}
 
-			printOutput(format, filteredGraph, () => displayDependencyGraph(log, filteredGraph));
+			printOutput(format, filteredGraph, () => displayDependencyGraph(filteredGraph, log));
 		},
 	};
 }

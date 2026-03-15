@@ -25,7 +25,7 @@ function renderMakeResult(log: Log, data: MakeComponentOutcome): void {
 		renderError({ error: data.error, hint: data.hint }, log);
 		return;
 	}
-	renderComponentAdding(log, data.definitionLabel, data.name);
+	renderComponentAdding(data.definitionLabel, data.name, log);
 	renderSuccess({ message: `Created ${data.filesCreated} files.` }, log);
 	showSuggestions(data.suggestions);
 }

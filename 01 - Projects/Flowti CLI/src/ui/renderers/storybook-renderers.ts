@@ -9,74 +9,99 @@ import { printHeader } from "../../infrastructure/ui.js";
 import { RESET, BOLD, DIM, GREEN, RED, YELLOW, CYAN } from "../../infrastructure/ui.js";
 import type { Log } from "../../infrastructure/deps.js";
 
-export function renderStorybookAlreadyInstalled(log: Log, sbDir: string): void {
-	log(`\n  ${YELLOW}Storybook is already installed at:${RESET} ${sbDir}\n`);
+export function renderStorybookAlreadyInstalled(sbDir: string, log: Log): void {
+	log(`
+  ${YELLOW}Storybook is already installed at:${RESET} ${sbDir}
+`);
 }
 
-export function renderStorybookInstalling(log: Log, sbDir: string): void {
-	log(`\n  Installing Storybook into ${DIM}${sbDir}${RESET}...\n`);
+export function renderStorybookInstalling(sbDir: string, log: Log): void {
+	log(`
+  Installing Storybook into ${DIM}${sbDir}${RESET}...
+`);
 }
 
 export function renderStorybookInstallFailed(log: Log): void {
-	log(`\n  ${RED}Storybook installation failed.${RESET}\n`);
+	log(`
+  ${RED}Storybook installation failed.${RESET}
+`);
 }
 
-export function renderStorybookInstallSuccess(log: Log, sbDir: string): void {
-	log(`\n  ${GREEN}✓${RESET} Storybook installed at ${sbDir}\n`);
+export function renderStorybookInstallSuccess(sbDir: string, log: Log): void {
+	log(`
+  ${GREEN}✓${RESET} Storybook installed at ${sbDir}
+`);
 }
 
 export function renderStorybookNotInstalled(log: Log): void {
-	log(`\n  ${YELLOW}Storybook not installed.${RESET} Use "Install Storybook" first.\n`);
+	log(`
+  ${YELLOW}Storybook not installed.${RESET} Use "Install Storybook" first.
+`);
 }
 
 export function renderStorybookAlreadyRunning(log: Log): void {
-	log(`\n  ${YELLOW}Storybook is already running.${RESET}\n`);
+	log(`
+  ${YELLOW}Storybook is already running.${RESET}
+`);
 }
 
 export function renderStorybookStarting(log: Log): void {
-	log(`\n  ${CYAN}▸${RESET} Starting Storybook...\n`);
+	log(`
+  ${CYAN}▸${RESET} Starting Storybook...
+`);
 }
 
 export function renderStorybookFailedToStart(log: Log): void {
-	log(`  ${RED}✗${RESET} Storybook failed to start.\n`);
+	log(`  ${RED}✗${RESET} Storybook failed to start.
+`);
 }
 
-export function renderStorybookFailOutput(log: Log, lines: string[]): void {
-	log(`  ${DIM}Output:${RESET}\n`);
+export function renderStorybookFailOutput(lines: string[], log: Log): void {
+	log(`  ${DIM}Output:${RESET}
+`);
 	for (const line of lines) log(`    ${DIM}${line}${RESET}`);
 	log();
 }
 
 export function renderStorybookTimeout(log: Log): void {
-	log(`  ${YELLOW}⚠${RESET} Timed out waiting for Storybook — it may still be loading.\n`);
+	log(`  ${YELLOW}⚠${RESET} Timed out waiting for Storybook — it may still be loading.
+`);
 }
 
-export function renderStorybookReady(log: Log, url: string): void {
-	log(`  ${GREEN}✓${RESET} Storybook ready at ${DIM}${url}${RESET}\n`);
+export function renderStorybookReady(url: string, log: Log): void {
+	log(`  ${GREEN}✓${RESET} Storybook ready at ${DIM}${url}${RESET}
+`);
 }
 
 export function renderStorybookStopped(log: Log): void {
-	log(`\n  ${GREEN}✓${RESET} Storybook stopped.\n`);
+	log(`
+  ${GREEN}✓${RESET} Storybook stopped.
+`);
 }
 
 export function renderStorybookNotRunning(log: Log): void {
-	log(`\n  ${DIM}Storybook is not running.${RESET}\n`);
+	log(`
+  ${DIM}Storybook is not running.${RESET}
+`);
 }
 
-export function renderStorybookView(log: Log, url: string): void {
+export function renderStorybookView(url: string, log: Log): void {
 	printHeader("Storybook");
 	log(`  ${GREEN}✓${RESET} Running at ${BOLD}${url}${RESET}`);
-	log(`  ${DIM}Press Enter to stop${RESET}\n`);
+	log(`  ${DIM}Press Enter to stop${RESET}
+`);
 }
 
-export function renderStorybookBrowserContext(log: Log, message: string): void {
-	log(`  ${DIM}${message}${RESET}\n`);
+export function renderStorybookBrowserContext(message: string, log: Log): void {
+	log(`  ${DIM}${message}${RESET}
+`);
 }
 
-export function renderStorybookOpenedIn(log: Log, target: string): void {
-	log(`  ${CYAN}▸${RESET} Opened in ${target}\n`);
+export function renderStorybookOpenedIn(target: string, log: Log): void {
+	log(`  ${CYAN}▸${RESET} Opened in ${target}
+`);
 }
 
-export function renderStorybookProgress(log: Log, line: string): void {
+export function renderStorybookProgress(line: string, log: Log): void {
 	log(`  ${DIM}${line}${RESET}`);
 }

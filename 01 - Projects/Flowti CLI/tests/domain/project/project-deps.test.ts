@@ -511,7 +511,7 @@ describe("buildDependencyGraph", () => {
 describe("displayDependencyGraph", () => {
 	it("displays no-projects message for empty graph", () => {
 		const graph: DependencyGraph = { projects: [], edges: [], cycles: [] };
-		displayDependencyGraph(log, graph);
+		displayDependencyGraph(graph, log);
 
 		const logCalls = vi.mocked(log).mock.calls.map((c) => c[0]);
 		expect(logCalls.some((c) => typeof c === "string" && c.includes("No projects found"))).toBe(true);
@@ -524,7 +524,7 @@ describe("displayDependencyGraph", () => {
 			cycles: [],
 		};
 
-		displayDependencyGraph(log, graph);
+		displayDependencyGraph(graph, log);
 
 		const logCalls = vi.mocked(log).mock.calls.map((c) => c[0]);
 		const allOutput = logCalls.filter((c) => typeof c === "string").join("\n");
@@ -543,7 +543,7 @@ describe("displayDependencyGraph", () => {
 			cycles: [["A", "B", "A"]],
 		};
 
-		displayDependencyGraph(log, graph);
+		displayDependencyGraph(graph, log);
 
 		const logCalls = vi.mocked(log).mock.calls.map((c) => c[0]);
 		const allOutput = logCalls.filter((c) => typeof c === "string").join("\n");

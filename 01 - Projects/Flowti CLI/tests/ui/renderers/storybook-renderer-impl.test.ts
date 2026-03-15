@@ -76,7 +76,7 @@ describe("createStorybookRenderer", () => {
 		it("delegates to renderStorybookAlreadyInstalled with log and sbDir", () => {
 			const renderer = createStorybookRenderer(mockLog);
 			renderer.alreadyInstalled("/proj/.storybook");
-			expect(renderStorybookAlreadyInstalled).toHaveBeenCalledWith(mockLog, "/proj/.storybook");
+			expect(renderStorybookAlreadyInstalled).toHaveBeenCalledWith("/proj/.storybook", mockLog);
 		});
 	});
 
@@ -84,7 +84,7 @@ describe("createStorybookRenderer", () => {
 		it("delegates to renderStorybookInstalling with log and sbDir", () => {
 			const renderer = createStorybookRenderer(mockLog);
 			renderer.installing("/proj/.storybook");
-			expect(renderStorybookInstalling).toHaveBeenCalledWith(mockLog, "/proj/.storybook");
+			expect(renderStorybookInstalling).toHaveBeenCalledWith("/proj/.storybook", mockLog);
 		});
 	});
 
@@ -100,7 +100,7 @@ describe("createStorybookRenderer", () => {
 		it("delegates to renderStorybookInstallSuccess with log and sbDir", () => {
 			const renderer = createStorybookRenderer(mockLog);
 			renderer.installSuccess("/proj/.storybook");
-			expect(renderStorybookInstallSuccess).toHaveBeenCalledWith(mockLog, "/proj/.storybook");
+			expect(renderStorybookInstallSuccess).toHaveBeenCalledWith("/proj/.storybook", mockLog);
 		});
 	});
 
@@ -141,13 +141,13 @@ describe("createStorybookRenderer", () => {
 			const renderer = createStorybookRenderer(mockLog);
 			const lines = ["Error: port in use", "Check config"];
 			renderer.failOutput(lines);
-			expect(renderStorybookFailOutput).toHaveBeenCalledWith(mockLog, lines);
+			expect(renderStorybookFailOutput).toHaveBeenCalledWith(lines, mockLog);
 		});
 
 		it("passes empty lines array", () => {
 			const renderer = createStorybookRenderer(mockLog);
 			renderer.failOutput([]);
-			expect(renderStorybookFailOutput).toHaveBeenCalledWith(mockLog, []);
+			expect(renderStorybookFailOutput).toHaveBeenCalledWith([], mockLog);
 		});
 	});
 
@@ -163,7 +163,7 @@ describe("createStorybookRenderer", () => {
 		it("delegates to renderStorybookReady with log and url", () => {
 			const renderer = createStorybookRenderer(mockLog);
 			renderer.ready("http://localhost:6006");
-			expect(renderStorybookReady).toHaveBeenCalledWith(mockLog, "http://localhost:6006");
+			expect(renderStorybookReady).toHaveBeenCalledWith("http://localhost:6006", mockLog);
 		});
 	});
 
@@ -187,7 +187,7 @@ describe("createStorybookRenderer", () => {
 		it("delegates to renderStorybookView with log and url", () => {
 			const renderer = createStorybookRenderer(mockLog);
 			renderer.view("http://localhost:6006");
-			expect(renderStorybookView).toHaveBeenCalledWith(mockLog, "http://localhost:6006");
+			expect(renderStorybookView).toHaveBeenCalledWith("http://localhost:6006", mockLog);
 		});
 	});
 
@@ -195,7 +195,7 @@ describe("createStorybookRenderer", () => {
 		it("delegates to renderStorybookBrowserContext with log and message", () => {
 			const renderer = createStorybookRenderer(mockLog);
 			renderer.browserContext("Opening browser...");
-			expect(renderStorybookBrowserContext).toHaveBeenCalledWith(mockLog, "Opening browser...");
+			expect(renderStorybookBrowserContext).toHaveBeenCalledWith("Opening browser...", mockLog);
 		});
 	});
 
@@ -203,7 +203,7 @@ describe("createStorybookRenderer", () => {
 		it("delegates to renderStorybookOpenedIn with log and target", () => {
 			const renderer = createStorybookRenderer(mockLog);
 			renderer.openedIn("Chrome");
-			expect(renderStorybookOpenedIn).toHaveBeenCalledWith(mockLog, "Chrome");
+			expect(renderStorybookOpenedIn).toHaveBeenCalledWith("Chrome", mockLog);
 		});
 	});
 
@@ -211,7 +211,7 @@ describe("createStorybookRenderer", () => {
 		it("delegates to renderStorybookProgress with log and line", () => {
 			const renderer = createStorybookRenderer(mockLog);
 			renderer.progress("Compiling...");
-			expect(renderStorybookProgress).toHaveBeenCalledWith(mockLog, "Compiling...");
+			expect(renderStorybookProgress).toHaveBeenCalledWith("Compiling...", mockLog);
 		});
 	});
 
