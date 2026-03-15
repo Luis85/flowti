@@ -25,7 +25,7 @@ export function initializeDeps(deps: CliDeps): void {
 }
 
 /** Get the shared deps (lazy-creates production deps if not initialized). */
-function getSharedDeps(): CliDeps {
+export function getSharedDeps(): CliDeps {
 	if (!_sharedDeps) {
 		_sharedDeps = createDefaultDeps();
 	}
