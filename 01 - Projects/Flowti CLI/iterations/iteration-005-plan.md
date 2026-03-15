@@ -2,7 +2,7 @@
 type: IterationPlan
 name: Agents become autonomous
 number: 5
-status: ready
+status: in-progress
 startDate: 2026-03-14
 endDate: 2026-03-28
 goal: Agents are LLM backed
@@ -40,6 +40,12 @@ Agents are LLM backed — each agent can be spawned as a background Node process
 
 
 
+
+
+
+- [ ] Run all Reports once finished and review results
+- [ ] Flag blockers early
+- [ ] Track progress daily
 - [x] Push the Plan to Git
 - [x] Kick-off communication
 - [x] Verify all prerequisites are met
@@ -49,114 +55,114 @@ Agents are LLM backed — each agent can be spawned as a background Node process
 ### 0. Autonomous Mode Config (opt-in toggle)
 
 **Modify** `src/infrastructure/types-config.ts`:
-- [ ] Add `autonomous?: boolean` to `AgentsConfig` — defaults to `false`
+- [x] Add `autonomous?: boolean` to `AgentsConfig` — defaults to `false`
 
 **Modify** `src/domain/project/config-validators.ts`:
-- [ ] Add validation: `agents.autonomous` must be boolean when present
-- [ ] Use existing `expectType(obj, "autonomous", "boolean", ...)` pattern
+- [x] Add validation: `agents.autonomous` must be boolean when present
+- [x] Use existing `expectType(obj, "autonomous", "boolean", ...)` pattern
 
 **Test** `tests/domain/project/config-validators.test.ts`:
-- [ ] Test valid config with `autonomous: true`
-- [ ] Test invalid config with `autonomous: "yes"` produces warning
+- [x] Test valid config with `autonomous: true`
+- [x] Test invalid config with `autonomous: "yes"` produces warning
 
 ### 1. Agent Runner Domain (pure — no I/O)
 
 **Create** `src/domain/agents/agent-runner.ts`:
-- [ ] Define `AgentRunSpec` — `{ command: string; args: readonly string[]; env: Record<string,string>; workingDir: string; briefPath: string }`
-- [ ] Define `AgentOutputEvent` — discriminated union: `progress | result | error | raw`
-- [ ] Implement `buildRunSpec(ai: AgentAIConfig, briefPath: string, projectPath: string): AgentRunSpec` — assembles `claude --print --prompt-file <path>` with model/max-tokens from `AgentAIConfig`
-- [ ] Implement `buildClaudeArgs(ai: AgentAIConfig, briefPath: string): string[]` — pure arg builder
-- [ ] Implement `parseAgentOutput(line: string): AgentOutputEvent` — classify raw output lines into structured events
+- [x] Define `AgentRunSpec` — `{ command: string; args: readonly string[]; env: Record<string,string>; workingDir: string; briefPath: string }`
+- [x] Define `AgentOutputEvent` — discriminated union: `progress | result | error | raw`
+- [x] Implement `buildRunSpec(ai: AgentAIConfig, briefPath: string, projectPath: string): AgentRunSpec` — assembles `claude --print --prompt-file <path>` with model/max-tokens from `AgentAIConfig`
+- [x] Implement `buildClaudeArgs(ai: AgentAIConfig, briefPath: string): string[]` — pure arg builder
+- [x] Implement `parseAgentOutput(line: string): AgentOutputEvent` — classify raw output lines into structured events
 
 **Test** `tests/domain/agents/agent-runner.test.ts`:
-- [ ] `buildRunSpec` produces correct command and args from AgentAIConfig
-- [ ] `buildRunSpec` defaults to `"claude"` when no command configured
-- [ ] `buildRunSpec` includes `--model` when `ai.model` is set
-- [ ] `buildRunSpec` includes `--max-tokens` when `ai.maxTokens` is set
-- [ ] `parseAgentOutput` classifies progress, result, error, and raw lines
+- [x] `buildRunSpec` produces correct command and args from AgentAIConfig
+- [x] `buildRunSpec` defaults to `"claude"` when no command configured
+- [x] `buildRunSpec` includes `--model` when `ai.model` is set
+- [x] `buildRunSpec` includes `--max-tokens` when `ai.maxTokens` is set
+- [x] `parseAgentOutput` classifies progress, result, error, and raw lines
 
 ### 2. Agent Process Infrastructure (I/O layer)
 
 **Create** `src/infrastructure/agent-process.ts`:
-- [ ] Define `AgentProcessDeps = Pick<CliDeps, "disk" | "shell" | "paths" | "clock" | "log">`
-- [ ] Define `AgentProcessHandle` — `{ sessionId: string; process: BackgroundProcess; startedAt: string; subscribe(cb): ()=>void; stop(): void }`
-- [ ] Implement `writeBriefToFile(deps, iterDir, content, agentName): string` — write brief markdown to `iterations/briefs/` and return path
-- [ ] Implement `launchAgent(deps, spec: AgentRunSpec): AgentProcessHandle` — call `deps.shell.spawnBackground()`, wire `onOutput()` through `parseAgentOutput()`, return handle
-- [ ] Implement `checkClaudeInstalled(deps): boolean` — `deps.shell.check("claude --version")` with graceful fallback
+- [x] Define `AgentProcessDeps = Pick<CliDeps, "disk" | "shell" | "paths" | "clock" | "log">`
+- [x] Define `AgentProcessHandle` — `{ sessionId: string; process: BackgroundProcess; startedAt: string; subscribe(cb): ()=>void; stop(): void }`
+- [x] Implement `writeBriefToFile(deps, iterDir, content, agentName): string` — write brief markdown to `iterations/briefs/` and return path
+- [x] Implement `launchAgent(deps, spec: AgentRunSpec): AgentProcessHandle` — call `deps.shell.spawnBackground()`, wire `onOutput()` through `parseAgentOutput()`, return handle
+- [x] Implement `checkClaudeInstalled(deps): boolean` — `deps.shell.check("claude --version")` with graceful fallback
 
 **Test** `tests/infrastructure/agent-process.test.ts`:
-- [ ] `launchAgent` calls `shell.spawnBackground` with correct command from spec
-- [ ] `subscribe` receives parsed `AgentOutputEvent` events
-- [ ] `stop` calls `process.kill()`
-- [ ] `checkClaudeInstalled` returns false when shell.check fails
-- [ ] `writeBriefToFile` writes content and returns path
+- [x] `launchAgent` calls `shell.spawnBackground` with correct command from spec
+- [x] `subscribe` receives parsed `AgentOutputEvent` events
+- [x] `stop` calls `process.kill()`
+- [x] `checkClaudeInstalled` returns false when shell.check fails
+- [x] `writeBriefToFile` writes content and returns path
 
 ### 3. Agent Session Store (pure domain — markdown persistence)
 
 **Create** `src/domain/agents/agent-session.ts`:
-- [ ] Define `SessionStatus = "spawning" | "running" | "completed" | "failed"`
-- [ ] Define `AgentSession` — `{ id, agentName, iterationNumber, status, startedAt, completedAt?, briefRef, outputLines }`
-- [ ] Define `SessionStoreDeps = Pick<CliDeps, "disk" | "paths" | "clock">`
-- [ ] Implement `createSession(deps, iterDir, agentName, iterNum, briefRef): AgentSession` — generate ID, write frontmatter markdown to `iterations/sessions/`
-- [ ] Implement `updateSessionStatus(deps, iterDir, sessionId, status): boolean` — update frontmatter status field
-- [ ] Implement `appendOutput(deps, iterDir, sessionId, lines: string[]): boolean` — append to `## Output` section
-- [ ] Implement `getSession(deps, iterDir, sessionId): AgentSession | null` — read and parse session markdown
-- [ ] Implement `listSessions(deps, iterDir, iterNum?): AgentSession[]` — list all sessions, optionally filtered by iteration
+- [x] Define `SessionStatus = "spawning" | "running" | "completed" | "failed"`
+- [x] Define `AgentSession` — `{ id, agentName, iterationNumber, status, startedAt, completedAt?, briefRef, outputLines }`
+- [x] Define `SessionStoreDeps = Pick<CliDeps, "disk" | "paths" | "clock">`
+- [x] Implement `createSession(deps, iterDir, agentName, iterNum, briefRef): AgentSession` — generate ID, write frontmatter markdown to `iterations/sessions/`
+- [x] Implement `updateSessionStatus(deps, iterDir, sessionId, status): boolean` — update frontmatter status field
+- [x] Implement `appendOutput(deps, iterDir, sessionId, lines: string[]): boolean` — append to `## Output` section
+- [x] Implement `getSession(deps, iterDir, sessionId): AgentSession | null` — read and parse session markdown
+- [x] Implement `listSessions(deps, iterDir, iterNum?): AgentSession[]` — list all sessions, optionally filtered by iteration
 
 **Test** `tests/domain/agents/agent-session.test.ts`:
-- [ ] `createSession` writes markdown with frontmatter and returns session object
-- [ ] `updateSessionStatus` transitions status in frontmatter
-- [ ] `appendOutput` appends lines under `## Output` section
-- [ ] `getSession` parses frontmatter and output lines from markdown
-- [ ] `listSessions` filters by iteration number prefix
-- [ ] `listSessions` returns empty array when sessions dir missing
+- [x] `createSession` writes markdown with frontmatter and returns session object
+- [x] `updateSessionStatus` transitions status in frontmatter
+- [x] `appendOutput` appends lines under `## Output` section
+- [x] `getSession` parses frontmatter and output lines from markdown
+- [x] `listSessions` filters by iteration number prefix
+- [x] `listSessions` returns empty array when sessions dir missing
 
 ### 4. Agent Launch Flow (UI + Handlers)
 
 **Create** `src/ui/menus/agents-run-menu.ts`:
-- [ ] Implement `runAgentInteractive(agent, iteration, autonomous, deps): Promise<void>` — orchestrates: generate brief → save → if autonomous: launch process + show output; else: show brief path
-- [ ] Implement `runBriefInteractive(briefPath, autonomous, deps): Promise<void>` — reads existing brief → if autonomous: build spec + launch; else: show path
-- [ ] Implement `selectBriefInteractive(iterDir, iterNum, deps): Promise<string | null>` — list briefs, user picks one
+- [x] Implement `runAgentInteractive(agent, iteration, autonomous, deps): Promise<void>` — orchestrates: generate brief → save → if autonomous: launch process + show output; else: show brief path
+- [x] Implement `runBriefInteractive(briefPath, autonomous, deps): Promise<void>` — reads existing brief → if autonomous: build spec + launch; else: show path
+- [x] Implement `selectBriefInteractive(iterDir, iterNum, deps): Promise<string | null>` — list briefs, user picks one
 
 **Modify** `src/ui/handlers/extensibility-handlers.ts`:
-- [ ] Register `agent:run` handler — resolve agent from `ctx.params.agentName`, load autonomous config, call `runAgentInteractive()`
-- [ ] Register `agent:run-brief` handler — call `selectBriefInteractive()` → `runBriefInteractive()`
-- [ ] Add condition `agents:autonomous-enabled` — reads `FlowtiCliConfig.agents.autonomous`
+- [x] Register `agent:run` handler — resolve agent from `ctx.params.agentName`, load autonomous config, call `runAgentInteractive()`
+- [x] Register `agent:run-brief` handler — call `selectBriefInteractive()` → `runBriefInteractive()`
+- [x] Add condition `agents:autonomous-enabled` — reads `FlowtiCliConfig.agents.autonomous`
 
 **Modify** `configs/sitemap.json`:
-- [ ] Add "Run Agent" action to `agent-detail` page: `{ name: "onRun", label: "Run Agent", type: "handler", target: "agent:run", group: "execution" }`
-- [ ] Add "Run Brief" action to `iteration-detail` page: `{ name: "onRunBrief", label: "Run Brief", type: "handler", target: "agent:run-brief", group: "execution" }`
+- [x] Add "Run Agent" action to `agent-detail` page: `{ name: "onRun", label: "Run Agent", type: "handler", target: "agent:run", group: "execution" }`
+- [x] Add "Run Brief" action to `iteration-detail` page: `{ name: "onRunBrief", label: "Run Brief", type: "handler", target: "agent:run-brief", group: "execution" }`
 
 **Test** `tests/ui/menus/agents-run-menu.test.ts`:
-- [ ] `runAgentInteractive` in prompt-only mode saves brief and logs path
-- [ ] `runAgentInteractive` in autonomous mode launches process
-- [ ] `runBriefInteractive` reads existing brief and builds spec
-- [ ] `selectBriefInteractive` lists briefs for iteration
+- [x] `runAgentInteractive` in prompt-only mode saves brief and logs path
+- [x] `runAgentInteractive` in autonomous mode launches process
+- [x] `runBriefInteractive` reads existing brief and builds spec
+- [x] `selectBriefInteractive` lists briefs for iteration
 
 **Test** `tests/ui/handlers/extensibility-handlers.test.ts` (update):
-- [ ] `agent:run` handler calls runAgentInteractive
-- [ ] `agent:run-brief` handler calls runBriefInteractive
+- [x] `agent:run` handler calls runAgentInteractive
+- [x] `agent:run-brief` handler calls runBriefInteractive
 
 ### 5. Agent Output Display (presentation only)
 
 **Create** `src/ui/displays/agent-run-display.ts`:
-- [ ] Implement `renderBriefGenerated(briefPath, agentName, log): void` — "Brief generated at ..." with path
-- [ ] Implement `renderAgentSpawned(session, log): void` — "Agent spawned: ..." with name, model, session ID
-- [ ] Implement `renderAgentOutput(event: AgentOutputEvent, log): void` — format progress/result/error/raw with ANSI colors
-- [ ] Implement `renderAgentComplete(session, log): void` — completion summary with duration and output line count
-- [ ] Implement `renderSessionList(sessions, log): void` — table with agent name, status, started, duration
+- [x] Implement `renderBriefGenerated(briefPath, agentName, log): void` — "Brief generated at ..." with path
+- [x] Implement `renderAgentSpawned(session, log): void` — "Agent spawned: ..." with name, model, session ID
+- [x] Implement `renderAgentOutput(event: AgentOutputEvent, log): void` — format progress/result/error/raw with ANSI colors
+- [x] Implement `renderAgentComplete(session, log): void` — completion summary with duration and output line count
+- [x] Implement `renderSessionList(sessions, log): void` — table with agent name, status, started, duration
 
 **Modify** `src/ui/handlers/extensibility-handlers.ts`:
-- [ ] Register `agent:status` handler — list sessions, render with `renderSessionList()`
+- [x] Register `agent:status` handler — list sessions, render with `renderSessionList()`
 
 **Modify** `configs/sitemap.json`:
-- [ ] Add "Agent Status" action to `ai-tools` page: `{ name: "onStatus", label: "Agent Status", type: "handler", target: "agent:status", group: "execution" }`
+- [x] Add "Agent Status" action to `ai-tools` page: `{ name: "onStatus", label: "Agent Status", type: "handler", target: "agent:status", group: "execution" }`
 
 **Test** `tests/ui/displays/agent-run-display.test.ts`:
-- [ ] `renderBriefGenerated` includes file path
-- [ ] `renderAgentSpawned` includes agent name and session ID
-- [ ] `renderAgentOutput` formats each event kind differently
-- [ ] `renderSessionList` shows all sessions with status
+- [x] `renderBriefGenerated` includes file path
+- [x] `renderAgentSpawned` includes agent name and session ID
+- [x] `renderAgentOutput` formats each event kind differently
+- [x] `renderSessionList` shows all sessions with status
 
 ### Meta (Phase Gate)
 - [x] Refine goal and vision
@@ -167,6 +173,7 @@ Agents are LLM backed — each agent can be spawned as a background Node process
 
 | Date | From | To | Reason |
 |---|---|---|---|
+| 2026-03-15 | ready | in-progress | Advanced to in-progress |
 | 2026-03-15 | planned | ready | Advanced to ready |
 | 2026-03-15 | new | planned | Advanced to planned |
 

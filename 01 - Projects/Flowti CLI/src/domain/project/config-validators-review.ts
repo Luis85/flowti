@@ -119,14 +119,37 @@ export function validateDirSections(mgmt: Record<string, unknown>, warnings: str
 }
 
 function validateAgentsRoster(agents: Record<string, unknown>, warnings: string[]): void {
-	if (agents.roster === undefined) return;
-	if (!Array.isArray(agents.roster)) {
-		warnings.push('"management.agents.roster" must be an array of strings.');
-		return;
+	expectType(agents, "autonomous", "boolean", "management.agents", warnings);
+	if (agents.roster !== undefined) {
+		if (!Array.isArray(agents.roster)) {
+			warnings.push('"management.agents.roster" must be an array of strings.');
+		} else {
+			for (let i = 0; i < agents.roster.length; i++) {
+				if (typeof agents.roster[i] !== "string" || (agents.roster[i] as string).length === 0) {
+					warnings.push(`management.agents.roster[${i}]: must be a non-empty string.`);
+				}
+			}
+		}
 	}
-	for (let i = 0; i < agents.roster.length; i++) {
-		if (typeof agents.roster[i] !== "string" || (agents.roster[i] as string).length === 0) {
-			warnings.push(`management.agents.roster[${i}]: must be a non-empty string.`);
+	if (agents.skillMap !== undefined) {
+		if (typeof agents.skillMap !== "object" || agents.skillMap === null || Array.isArray(agents.skillMap)) {
+			warnings.push('"management.agents.skillMap" must be an object mapping domains to skill arrays.');
+		} else {
+			const map = agents.skillMap as Record<string, unknown>;
+			for (const [key, value] of Object.entries(map)) {
+				if (key.length === 0) {
+					warnings.push('management.agents.skillMap: domain key must be a non-empty string.');
+				}
+				if (!Array.isArray(value)) {
+					warnings.push(`management.agents.skillMap.${key}: must be an array of strings.`);
+				} else {
+					for (let i = 0; i < value.length; i++) {
+						if (typeof value[i] !== "string" || (value[i] as string).length === 0) {
+							warnings.push(`management.agents.skillMap.${key}[${i}]: must be a non-empty string.`);
+						}
+					}
+				}
+			}
 		}
 	}
 }

@@ -38,6 +38,7 @@ export interface BriefContext {
 	readonly rosterAgents?: readonly RosterEntry[];
 	/** When set, generates a full-iteration brief with lifecycle path and per-phase instructions. */
 	readonly orchestration?: OrchestrationConfig;
+	readonly availableSkills?: readonly string[];
 }
 
 // ── Utilities ─────────────────────────────────────────────────────────
@@ -208,6 +209,7 @@ export function generateBrief(ctx: BriefContext): string {
 	appendFrontmatter(lines, ctx.agentName, ctx.iteration.number, phase);
 	appendHeader(lines, ctx.agentName, ctx.iteration.number, ctx.orchestration);
 	appendRole(lines, ctx);
+	appendAvailableSkills(lines, ctx.availableSkills);
 	appendSystemPrompt(lines, ctx.systemPrompt, ctx.rosterAgents);
 	if (ctx.orchestration) appendLifecyclePath(lines, ctx.iteration, ctx.iterationTemplate, ctx.orchestration);
 	appendIterationContext(lines, ctx.iteration);
@@ -247,6 +249,20 @@ function appendRole(lines: string[], ctx: BriefContext): void {
 	if (hasSkills) lines.push(`**Skills**: ${ctx.agentSkills!.join(", ")}`);
 	if (hasRoles) lines.push(`**Roles**: ${ctx.agentRoles!.join(", ")}`);
 	if (hasSkills || hasRoles) lines.push("");
+}
+
+function skillSlugToLabel(slug: string): string {
+	const name = slug.includes(":") ? slug.split(":").pop()! : slug;
+	return name.replace(/-/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+}
+
+function appendAvailableSkills(lines: string[], skills?: readonly string[]): void {
+	if (!skills || skills.length === 0) return;
+	lines.push("## Available Skills", "");
+	lines.push("You have access to the following skills that can help with your work.");
+	lines.push("Use them when the task benefits from a structured approach:", "");
+	for (const slug of skills) lines.push(`- \`/${slug}\` — ${skillSlugToLabel(slug)}`);
+	lines.push("");
 }
 
 function appendSystemPrompt(lines: string[], prompt: string | null | undefined, roster?: readonly RosterEntry[]): void {

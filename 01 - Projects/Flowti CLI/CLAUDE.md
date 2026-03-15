@@ -13,7 +13,6 @@ npx tsc --noEmit --project configs/tsconfig.json
 npx eslint src/ --config configs/eslint.config.mjs
 
 # Build (always run after changes)
-npx eslint src/ --config configs/eslint.config.mjs
 node configs/esbuild.config.mjs
 ```
 

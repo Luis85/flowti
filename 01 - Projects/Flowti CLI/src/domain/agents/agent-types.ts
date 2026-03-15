@@ -85,6 +85,14 @@ export interface SuggestedTask {
 	phases: string[];
 }
 
+/** A markdown file in the agent's inventory. */
+export interface InventoryItem {
+	/** Path to the markdown file, relative to vault root. */
+	path: string;
+	/** Optional display label (defaults to filename). */
+	label?: string;
+}
+
 // ── Definition and Summary ───────────────────────────────────────────
 
 /** Full agent definition used for creation/editing. */
@@ -97,6 +105,8 @@ export interface AgentDefinition {
 	skills: AgentSkill[];
 	tools: string[];
 	roles: string[];
+	/** Iteration lifecycle phases this agent is most active in (e.g., "planned", "in-progress", "in-review"). */
+	preferredPhases?: string[];
 	/** Attached components — ECS-style named capabilities. */
 	components?: AgentComponent[];
 	/** Agent goals — what this agent pursues. */
@@ -109,6 +119,8 @@ export interface AgentDefinition {
 	relationships?: AgentRelationship[];
 	/** Standard tasks this agent can perform, shown in the Assign Task menu. */
 	suggestedTasks?: SuggestedTask[];
+	/** Markdown files this agent owns or carries. */
+	inventory?: InventoryItem[];
 }
 
 /** Lightweight agent summary returned by list operations. */
@@ -120,11 +132,15 @@ export interface AgentSummary {
 	skills: AgentSkill[];
 	tools: string[];
 	roles: string[];
+	/** Iteration lifecycle phases this agent is most active in. */
+	preferredPhases?: string[];
 	components?: AgentComponent[];
 	goals?: AgentGoal[];
 	behaviors?: string[];
 	ai?: AgentAIConfig;
 	relationships?: AgentRelationship[];
 	suggestedTasks?: SuggestedTask[];
+	/** Markdown files this agent owns or carries. */
+	inventory?: InventoryItem[];
 	file: string;
 }

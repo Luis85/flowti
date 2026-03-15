@@ -21,7 +21,7 @@
 		"new":         ["Refine goal and vision", "Identify initial scope items", "Push the Plan to Git"],
 		"planned":     ["Break scope into actionable tasks", "Assign resources and capacity", "Push the Plan to Git"],
 		"ready":       ["Verify all prerequisites are met", "Kick-off communication", "Push the Plan to Git"],
-		"in-progress": ["Track progress daily", "Flag blockers early"],
+		"in-progress": ["Track progress daily", "Flag blockers early", "Run all Reports once finished and review results"],
 		"in-review":   ["Review completed scope items", "Capture retrospective notes", "Document learnings", "Make a Three Amigos session and document the result in the iteration plan"]
 	}
 }

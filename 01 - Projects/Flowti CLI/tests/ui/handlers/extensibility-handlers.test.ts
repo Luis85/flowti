@@ -38,6 +38,39 @@ vi.mock("../../../src/infrastructure/sitemap-router.js", () => ({
 		return `navigate:${viewId}${suffix}`;
 	}),
 }));
+vi.mock("../../../src/ui/menus/agents-menu.js", () => ({
+	talkToAgentInteractive: vi.fn(),
+	assignTaskInteractive: vi.fn(),
+	clarifyTaskInteractive: vi.fn(),
+	assignToProjectInteractive: vi.fn(),
+	addAgentInteractive: vi.fn(),
+	editInventoryInteractive: vi.fn(),
+	removeAgentInteractive: vi.fn(),
+	editAgentIdentity: vi.fn(),
+	editAgentSkills: vi.fn(),
+	editAgentArrayField: vi.fn(),
+	editAIConfigInteractive: vi.fn(),
+	editSystemPromptInteractive: vi.fn(),
+}));
+vi.mock("../../../src/ui/menus/agents-run-menu.js", () => ({
+	runAgentInteractive: vi.fn(),
+}));
+vi.mock("../../../src/domain/iterations/iteration-store.js", () => ({
+	findCurrentIteration: vi.fn(() => null),
+}));
+vi.mock("../../../src/domain/agents/agent-state.js", () => ({
+	readAgentState: vi.fn(() => ({ name: "Dev", status: "idle", tasks: [], briefs: [] })),
+	writeAgentState: vi.fn(),
+	recordInteraction: vi.fn((s: unknown) => s),
+	addTask: vi.fn((s: unknown) => s),
+	addBrief: vi.fn((s: unknown) => s),
+}));
+vi.mock("../../../src/domain/agents/agent-session.js", () => ({
+	listSessions: vi.fn(() => []),
+}));
+vi.mock("../../../src/ui/displays/agent-run-display.js", () => ({
+	renderSessionList: vi.fn(),
+}));
 
 // ── Domain / UI mocks for extensibility ─────────────────────────────
 vi.mock("../../../src/domain/plugins/plugin-loader.js", () => ({
@@ -85,7 +118,13 @@ import { loadAiTools, scaffoldAiTool } from "../../../src/domain/ai-tools/ai-too
 import { generateAiToolReference } from "../../../src/domain/ai-tools/ai-tool-reference.js";
 import { toToolListItems, toToolValidationItems } from "../../../src/domain/ai-tools/ai-tool-commands.js";
 import { renderToolList, renderToolValidation } from "../../../src/ui/displays/ai-tools-display.js";
-import { listAgents } from "../../../src/domain/agents/agent-store.js";
+import { listAgents, findAgent } from "../../../src/domain/agents/agent-store.js";
+import { talkToAgentInteractive, assignTaskInteractive } from "../../../src/ui/menus/agents-menu.js";
+import { runAgentInteractive } from "../../../src/ui/menus/agents-run-menu.js";
+import { findCurrentIteration } from "../../../src/domain/iterations/iteration-store.js";
+import { listSessions } from "../../../src/domain/agents/agent-session.js";
+import { renderSessionList } from "../../../src/ui/displays/agent-run-display.js";
+import { writeAgentState } from "../../../src/domain/agents/agent-state.js";
 
 import type { RouterContext } from "../../../src/infrastructure/sitemap-types.js";
 
@@ -128,7 +167,9 @@ describe("registerExtensibilityHandlers", () => {
 				"agents:add", "agents:remove",
 				"agents:edit-identity", "agents:edit-skills", "agents:edit-tools",
 				"agents:edit-roles", "agents:edit-ai", "agents:edit-prompt",
+				"agents:edit-inventory",
 				"agents:talk", "agents:assign-task", "agents:assign-to-project",
+				"agents:navigate-edit", "agent:status",
 			];
 			for (const id of expectedActions) {
 				expect(registry.hasAction(id)).toBe(true);
@@ -410,6 +451,89 @@ describe("registerExtensibilityHandlers", () => {
 			const entries = ds(mockCtx());
 			const result = entries[0].action();
 			expect(result).toBe("navigate:agent-detail?{\"agentName\":\"Alice\"}");
+		});
+	});
+
+	// ── Agent interaction handlers ──────────────────────────────────
+
+	describe("agents:talk", () => {
+		it("calls talkToAgentInteractive and persists state", async () => {
+			const agent = { name: "Dev", agentType: "ai", description: "", skills: [], tools: [], roles: [] };
+			vi.mocked(findAgent).mockReturnValueOnce(agent as any);
+			const ctx = { ...mockCtx(), params: { agentName: "Dev" } } as unknown as RouterContext;
+			const handler = registry.getAction("agents:talk");
+			await handler(ctx);
+			expect(talkToAgentInteractive).toHaveBeenCalled();
+			expect(writeAgentState).toHaveBeenCalled();
+		});
+
+		it("returns undefined when no agentName param", async () => {
+			const handler = registry.getAction("agents:talk");
+			const result = await handler(mockCtx());
+			expect(result).toBeUndefined();
+		});
+
+		it("returns undefined when agent not found", async () => {
+			vi.mocked(findAgent).mockReturnValueOnce(undefined as any);
+			const ctx = { ...mockCtx(), params: { agentName: "Missing" } } as unknown as RouterContext;
+			const handler = registry.getAction("agents:talk");
+			const result = await handler(ctx);
+			expect(result).toBeUndefined();
+			expect(talkToAgentInteractive).not.toHaveBeenCalled();
+		});
+	});
+
+	describe("agents:assign-task", () => {
+		it("calls assignTaskInteractive then runAgentAfterInteraction", async () => {
+			const agent = { name: "Dev", agentType: "ai", description: "", skills: [], tools: [], roles: [] };
+			vi.mocked(findAgent).mockReturnValueOnce(agent as any);
+			vi.mocked(assignTaskInteractive).mockResolvedValueOnce({ taskName: "Build feature", taskDescription: "Build it", taskContext: "" });
+			const ctx = { ...mockCtx(), params: { agentName: "Dev" } } as unknown as RouterContext;
+			const handler = registry.getAction("agents:assign-task");
+			await handler(ctx);
+			expect(assignTaskInteractive).toHaveBeenCalled();
+			expect(writeAgentState).toHaveBeenCalled();
+		});
+
+		it("triggers runAgentInteractive when project and iteration exist", async () => {
+			const agent = { name: "Dev", agentType: "ai", description: "", skills: [], tools: [], roles: [] };
+			vi.mocked(findAgent).mockReturnValueOnce(agent as any);
+			vi.mocked(assignTaskInteractive).mockResolvedValueOnce({ taskName: "Build feature", taskDescription: "Build it", taskContext: "" });
+			const iteration = { name: "Sprint 1", number: 1, status: "in-progress", file: "iter.md", startDate: "", endDate: "", goal: "", capacity: "", description: "", agents: [], resources: [], capacities: [], scopeItems: [] };
+			// Called multiple times: buildTaskContext, persistInteraction, runAgentAfterInteraction
+			vi.mocked(findCurrentIteration).mockReturnValue(iteration as any);
+			const ctx = {
+				deps: mockDeps,
+				params: { agentName: "Dev" },
+				project: { path: "/proj", config: { name: "Test", management: { iterations: { dir: "iterations" } } } },
+			} as unknown as RouterContext;
+			const handler = registry.getAction("agents:assign-task");
+			await handler(ctx);
+			expect(runAgentInteractive).toHaveBeenCalledWith(
+				agent, iteration, "/proj/iterations", false, expect.anything(), expect.anything(), undefined,
+			);
+		});
+	});
+
+	// ── Agent status handler ────────────────────────────────────────
+
+	describe("agent:status", () => {
+		it("lists sessions and renders them", async () => {
+			const ctx = {
+				deps: mockDeps,
+				project: { path: "/proj", config: { name: "Test", management: { iterations: { dir: "iterations" } } } },
+			} as unknown as RouterContext;
+			const handler = registry.getAction("agent:status");
+			await handler(ctx);
+			expect(listSessions).toHaveBeenCalled();
+			expect(renderSessionList).toHaveBeenCalled();
+			expect(input.waitForEnter).toHaveBeenCalled();
+		});
+
+		it("logs message when no project selected", async () => {
+			const handler = registry.getAction("agent:status");
+			await handler(mockCtx());
+			expect(mockDeps.log).toHaveBeenCalledWith(expect.stringContaining("No project"));
 		});
 	});
 });

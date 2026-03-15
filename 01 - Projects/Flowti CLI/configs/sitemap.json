@@ -501,6 +501,20 @@
 					"group": "tools"
 				},
 				{
+					"name": "onAgentStatus",
+					"label": "Agent Status",
+					"type": "handler",
+					"target": "agent:status",
+					"group": "execution"
+				},
+				{
+					"name": "onClaudeSync",
+					"label": "Sync to Claude Code",
+					"type": "command",
+					"target": "claude:sync",
+					"group": "integration"
+				},
+				{
 					"name": "onBack",
 					"label": "Back",
 					"type": "signal",
@@ -546,8 +560,8 @@
 				{
 					"name": "onEdit",
 					"label": "Edit Agent",
-					"type": "navigate",
-					"target": "agent-edit",
+					"type": "handler",
+					"target": "agents:navigate-edit",
 					"group": "manage"
 				},
 				{
@@ -613,6 +627,13 @@
 					"type": "handler",
 					"target": "agents:edit-prompt",
 					"group": "ai"
+				},
+				{
+					"name": "onEditInventory",
+					"label": "Inventory",
+					"type": "handler",
+					"target": "agents:edit-inventory",
+					"group": "edit"
 				},
 				{
 					"name": "onRemoveAgent",

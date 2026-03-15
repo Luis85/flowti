@@ -4,8 +4,9 @@ vi.mock("../../../src/infrastructure/ui.js", () => ({
 	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", YELLOW: "", CYAN: "",
 }));
 
-import { renderAgentList, renderAgentDetail, renderAgentCreated, renderAgentDeleted } from "../../../src/ui/displays/agents-display.js";
+import { renderAgentList, renderAgentDetail, renderAgentCreated, renderAgentDeleted, renderAgentState } from "../../../src/ui/displays/agents-display.js";
 import type { AgentSummary } from "../../../src/domain/agents/agent-types.js";
+import type { AgentState } from "../../../src/domain/agents/agent-state.js";
 
 const mockLog = vi.fn();
 beforeEach(() => mockLog.mockClear());
@@ -76,6 +77,28 @@ describe("renderAgentDetail", () => {
 		expect(output).not.toContain("Skills");
 		expect(output).not.toContain("Tools");
 		expect(output).not.toContain("Roles");
+		expect(output).not.toContain("Inventory");
+	});
+
+	it("renders inventory when present", () => {
+		renderAgentDetail(makeAgent({
+			inventory: [
+				{ path: "docs/spec.md", label: "Project Spec" },
+				{ path: "docs/notes.md" },
+			],
+		}), mockLog);
+		const output = mockLog.mock.calls.flat().join(" ");
+		expect(output).toContain("Inventory");
+		expect(output).toContain("2 items");
+		expect(output).toContain("Project Spec");
+		expect(output).toContain("docs/spec.md");
+		expect(output).toContain("notes.md");
+	});
+
+	it("omits inventory when empty", () => {
+		renderAgentDetail(makeAgent({ inventory: [] }), mockLog);
+		const output = mockLog.mock.calls.flat().join(" ");
+		expect(output).not.toContain("Inventory");
 	});
 
 	it("renders extended fields (goals, components, ai, relationships)", () => {
@@ -115,5 +138,62 @@ describe("renderAgentDeleted", () => {
 		const output = mockLog.mock.calls.flat().join(" ");
 		expect(output).toContain("Deleted agent");
 		expect(output).toContain("CodeBot");
+	});
+});
+
+describe("renderAgentState", () => {
+	function makeState(overrides: Partial<AgentState> = {}): AgentState {
+		return { name: "Bob", status: "idle", tasks: [], briefs: [], ...overrides };
+	}
+
+	it("shows status", () => {
+		renderAgentState(makeState({ status: "active" }), mockLog);
+		const output = mockLog.mock.calls.flat().join(" ");
+		expect(output).toContain("State");
+		expect(output).toContain("active");
+	});
+
+	it("shows last interaction when present", () => {
+		renderAgentState(makeState({
+			lastInteraction: "2026-03-15T10:00:00Z",
+			lastInteractionType: "talk",
+		}), mockLog);
+		const output = mockLog.mock.calls.flat().join(" ");
+		expect(output).toContain("talk");
+		expect(output).toContain("2026-03-15");
+	});
+
+	it("shows pending tasks", () => {
+		renderAgentState(makeState({
+			status: "busy",
+			tasks: [
+				{ name: "Build it", assignedAt: "2026-03-15", status: "pending" },
+				{ name: "Done task", assignedAt: "2026-03-14", status: "done" },
+			],
+		}), mockLog);
+		const output = mockLog.mock.calls.flat().join(" ");
+		expect(output).toContain("Active Tasks");
+		expect(output).toContain("Build it");
+		expect(output).toContain("Completed: 1 task");
+	});
+
+	it("shows brief count", () => {
+		renderAgentState(makeState({
+			briefs: [
+				{ path: "/b/1.md", generatedAt: "2026-03-15", autonomous: false },
+				{ path: "/b/2.md", generatedAt: "2026-03-15", autonomous: true },
+			],
+		}), mockLog);
+		const output = mockLog.mock.calls.flat().join(" ");
+		expect(output).toContain("Briefs generated: 2");
+	});
+
+	it("omits sections when empty", () => {
+		renderAgentState(makeState(), mockLog);
+		const output = mockLog.mock.calls.flat().join(" ");
+		expect(output).not.toContain("Active Tasks");
+		expect(output).not.toContain("Completed");
+		expect(output).not.toContain("Briefs");
+		expect(output).not.toContain("Last interaction");
 	});
 });

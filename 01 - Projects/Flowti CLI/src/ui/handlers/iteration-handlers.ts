@@ -37,6 +37,14 @@ async function resolveAgentDetails(ctx: RouterContext, agentName: string): Promi
 	return { description: agent.description, skills: agent.skills.map((s) => s.name), roles: agent.roles };
 }
 
+/** Resolve available skills for an agent based on domain → skillMap lookup. */
+async function resolveAvailableSkills(ctx: RouterContext, agentName: string): Promise<readonly string[] | undefined> {
+	const { VAULT_ROOT, cliConfig } = await import("../../infrastructure/config.js");
+	const { findAgent } = await import("../../domain/agents/agent-store.js");
+	const agent = findAgent(ctx.deps, VAULT_ROOT, agentName, cliConfig.agents);
+	return cliConfig.agents?.skillMap?.[agent?.domain ?? ""];
+}
+
 /** Build scope recommendations from roster agents' suggested tasks. */
 async function buildScopeRecommendations(ctx: RouterContext): Promise<Array<{ agentName: string; tasks: Array<{ name: string; phases: string[] }> }>> {
 	if (!ctx.project) return [];
@@ -68,9 +76,10 @@ async function generateIterationBrief(ctx: RouterContext): Promise<string | null
 	const systemPrompt = await resolveAgentPrompt(ctx, active.name);
 	const details = await resolveAgentDetails(ctx, active.name);
 	const template = loadIterationTemplate(ctx.deps, ctx.project.path, config);
+	const availableSkills = await resolveAvailableSkills(ctx, active.name);
 	const brief = generateBrief({
 		agentName: active.name, agentDescription: details?.description, agentSkills: details?.skills, agentRoles: details?.roles,
-		systemPrompt, iteration, iterationTemplate: template ?? undefined,
+		systemPrompt, iteration, iterationTemplate: template ?? undefined, availableSkills,
 	});
 	const dir = iterationsDir(ctx.deps, ctx.project.path, config);
 	return saveBrief(ctx.deps, dir, iteration.number, active.name, iteration.status, brief);
@@ -117,10 +126,11 @@ async function writeFullBrief(
 	const { VAULT_ROOT, cliConfig } = await import("../../infrastructure/config.js");
 	const { getProjectAgents } = await import("../../domain/agents/agent-store.js");
 	const rosterAgents = toRosterEntries(getProjectAgents(ctx.deps, VAULT_ROOT, cliConfig.agents, ctx.project!.config.management?.agents?.roster));
+	const availableSkills = await resolveAvailableSkills(ctx, agent.name);
 	const brief = generateBrief({
 		agentName: agent.name, agentDescription: agent.description,
 		agentSkills: agent.skills.map((s) => s.name), agentRoles: agent.roles,
-		systemPrompt, iteration, iterationTemplate: template, orchestration: config?.orchestration, rosterAgents,
+		systemPrompt, iteration, iterationTemplate: template, orchestration: config?.orchestration, rosterAgents, availableSkills,
 	});
 	const dir = iterationsDir(ctx.deps, ctx.project!.path, config);
 	return saveBrief(ctx.deps, dir, iteration.number, agent.name, iteration.status, brief);

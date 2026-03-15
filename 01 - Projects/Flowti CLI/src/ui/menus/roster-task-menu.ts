@@ -53,11 +53,12 @@ export async function rosterTaskInteractive(opts: RosterTaskOptions, deps: MenuD
 		deps.log(`\n  ${GREEN}✓${RESET} Task added to ${BOLD}${agent.name}${RESET}'s brief.\n`);
 	} else {
 		const rosterAgents = agents.map((a) => ({ name: a.name, description: a.description, roles: a.roles, skills: a.skills.map((s) => s.name) }));
+		const availableSkills = opts.agentsConfig?.skillMap?.[agent.domain ?? ""];
 		const brief = generateBrief({
 			agentName: agent.name, agentDescription: agent.description,
 			agentSkills: agent.skills.map((s) => s.name), agentRoles: agent.roles,
 			systemPrompt: readSystemPrompt(deps, opts.vaultRoot, agent.name, opts.agentsConfig),
-			iteration, iterationTemplate: opts.template, rosterAgents,
+			iteration, iterationTemplate: opts.template, rosterAgents, availableSkills,
 		});
 		saveBrief(deps, dir, iteration.number, agent.name, phase, brief);
 		appendTask(deps, dir, iteration.number, agent.name, phase, task);

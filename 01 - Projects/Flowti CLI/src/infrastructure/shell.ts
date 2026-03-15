@@ -191,19 +191,50 @@ class NodeShell implements IShell {
 		};
 	}
 
-	runAsync(cmd: string, opts: { cwd?: string; timeout?: number } = {}): Promise<{ output: string; exitCode: number }> {
-		return new Promise((resolve) => {
-			const child = exec(cmd, {
-				cwd: opts.cwd ?? CLI_PROJECT,
-				encoding: "utf-8",
-				timeout: opts.timeout ?? 120_000,
-				windowsHide: true,
-			}, (error, stdout, stderr) => {
-				const output = (stdout ?? "") + "\n" + (stderr ?? "");
-				const exitCode = error ? (error as { code?: number }).code ?? 1 : 0;
-				resolve({ output, exitCode });
+	runAsync(cmd: string, opts: { cwd?: string; timeout?: number; input?: string; onLine?: (line: string) => void } = {}): Promise<{ output: string; exitCode: number }> {
+		if (!opts.onLine) {
+			return new Promise((resolve) => {
+				const child = exec(cmd, {
+					cwd: opts.cwd ?? CLI_PROJECT,
+					encoding: "utf-8",
+					timeout: opts.timeout ?? 120_000,
+					windowsHide: true,
+				}, (error, stdout, stderr) => {
+					const output = (stdout ?? "") + "\n" + (stderr ?? "");
+					const exitCode = error ? (error as { code?: number }).code ?? 1 : 0;
+					resolve({ output, exitCode });
+				});
+				if (opts.input) child.stdin?.write(opts.input);
+				child.stdin?.end();
 			});
-			child.stdin?.end();
+		}
+
+		return new Promise((resolve) => {
+			const child = spawn(cmd, { shell: true, cwd: opts.cwd ?? CLI_PROJECT, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] });
+			const chunks: string[] = [];
+			let remainder = "";
+			const timer = setTimeout(() => child.kill(), opts.timeout ?? 120_000);
+
+			function processChunk(data: Buffer): void {
+				const text = remainder + data.toString("utf-8");
+				const lines = text.split(/\r?\n/);
+				remainder = lines.pop() ?? "";
+				for (const line of lines) {
+					chunks.push(line);
+					opts.onLine!(line);
+				}
+			}
+
+			child.stdout.on("data", processChunk);
+			child.stderr.on("data", processChunk);
+			child.on("close", (code) => {
+				clearTimeout(timer);
+				if (remainder) { chunks.push(remainder); opts.onLine!(remainder); }
+				resolve({ output: chunks.join("\n"), exitCode: code ?? 1 });
+			});
+
+			if (opts.input) child.stdin.write(opts.input);
+			child.stdin.end();
 		});
 	}
 

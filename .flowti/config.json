@@ -25,6 +25,47 @@
 		"pluginId": "flowti-ibde"
 	},
 	"agents": {
-		"dir": "03 - Resources/Agents"
+		"dir": "03 - Resources/Agents",
+		"claudeSync": true,
+		"skillMap": {
+			"engineering": [
+				"superpowers:test-driven-development",
+				"superpowers:systematic-debugging",
+				"superpowers:requesting-code-review",
+				"superpowers:verification-before-completion"
+			],
+			"design": [
+				"superpowers:brainstorming",
+				"superpowers:writing-plans",
+				"feature-dev:feature-dev"
+			],
+			"product": [
+				"superpowers:brainstorming",
+				"superpowers:writing-plans"
+			],
+			"management": [
+				"superpowers:dispatching-parallel-agents",
+				"superpowers:writing-plans",
+				"superpowers:executing-plans"
+			],
+			"quality": [
+				"superpowers:requesting-code-review",
+				"superpowers:verification-before-completion"
+			],
+			"analysis": [
+				"superpowers:brainstorming",
+				"superpowers:writing-plans"
+			],
+			"operations": [
+				"superpowers:verification-before-completion",
+				"superpowers:finishing-a-development-branch"
+			],
+			"orchestration": [
+				"superpowers:dispatching-parallel-agents",
+				"superpowers:brainstorming",
+				"superpowers:writing-plans",
+				"superpowers:executing-plans"
+			]
+		}
 	}
 }

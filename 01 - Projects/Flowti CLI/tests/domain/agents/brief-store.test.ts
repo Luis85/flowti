@@ -180,6 +180,10 @@ describe("transitionBrief", () => {
 	});
 });
 
+function makeContext(overrides: Partial<Parameters<typeof generateBrief>[0]> = {}): Parameters<typeof generateBrief>[0] {
+	return { agentName: "Dev", iteration: makeIteration(), ...overrides };
+}
+
 describe("generateBrief", () => {
 	it("generates a full role-aware brief with frontmatter including phase", () => {
 		const brief = generateBrief({ agentName: "Architect", iteration: makeIteration() });
@@ -328,5 +332,43 @@ describe("resolvePromptVariables", () => {
 	it("returns prompt unchanged when no placeholder", () => {
 		const result = resolvePromptVariables("No variables here.", []);
 		expect(result).toBe("No variables here.");
+	});
+});
+
+describe("generateBrief — availableSkills", () => {
+	it("includes Available Skills section when availableSkills provided", () => {
+		const ctx = makeContext({ availableSkills: ["superpowers:test-driven-development", "superpowers:systematic-debugging"] });
+		const brief = generateBrief(ctx);
+		expect(brief).toContain("## Available Skills");
+		expect(brief).toContain("`/superpowers:test-driven-development`");
+		expect(brief).toContain("`/superpowers:systematic-debugging`");
+	});
+
+	it("omits Available Skills section when availableSkills is undefined", () => {
+		const ctx = makeContext({ availableSkills: undefined });
+		const brief = generateBrief(ctx);
+		expect(brief).not.toContain("Available Skills");
+	});
+
+	it("omits Available Skills section when availableSkills is empty", () => {
+		const ctx = makeContext({ availableSkills: [] });
+		const brief = generateBrief(ctx);
+		expect(brief).not.toContain("Available Skills");
+	});
+
+	it("renders skills with / prefix", () => {
+		const ctx = makeContext({ availableSkills: ["feature-dev:feature-dev"] });
+		const brief = generateBrief(ctx);
+		expect(brief).toContain("`/feature-dev:feature-dev`");
+	});
+
+	it("places Available Skills after Your Role section", () => {
+		const ctx = makeContext({ availableSkills: ["superpowers:brainstorming"], systemPrompt: "You are a test agent." });
+		const brief = generateBrief(ctx);
+		const roleIdx = brief.indexOf("## Your Role");
+		const skillsIdx = brief.indexOf("## Available Skills");
+		const systemIdx = brief.indexOf("## System Prompt");
+		expect(skillsIdx).toBeGreaterThan(roleIdx);
+		if (systemIdx > -1) expect(skillsIdx).toBeLessThan(systemIdx);
 	});
 });

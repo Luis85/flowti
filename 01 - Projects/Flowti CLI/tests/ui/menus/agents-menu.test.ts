@@ -32,6 +32,19 @@ vi.mock("../../../src/domain/project/project.js", () => ({
 vi.mock("../../../src/infrastructure/config.js", () => ({
 	VAULT_ROOT: "/mock-vault", CLI_PROJECT: "/mock/cli", cliConfig: {},
 }));
+vi.mock("../../../src/domain/agents/agent-conversation.js", () => ({
+	buildConversationPrompt: vi.fn(() => "mock prompt content"),
+	buildClarificationPrompt: vi.fn(() => "mock clarification content"),
+	buildTalkCommand: vi.fn(() => "claude --print"),
+	parseAgentResponse: vi.fn((raw: string) => {
+		const trimmed = raw.trim();
+		try {
+			const parsed = JSON.parse(trimmed);
+			if (parsed.message && parsed.status) return parsed;
+		} catch { /* fallback */ }
+		return { message: trimmed, status: trimmed.endsWith("?") ? "question" : "message" };
+	}),
+}));
 
 import { listAgents, createAgent, deleteAgent, updateAgentField, addArrayItem, removeArrayItem, updateAgentJson, readSystemPrompt, writeSystemPrompt } from "../../../src/domain/agents/agent-store.js";
 import { renderAgentList, renderAgentCreated, renderAgentDeleted } from "../../../src/ui/displays/agents-display.js";
@@ -43,7 +56,7 @@ import {
 	editAgentIdentity, editAgentSkills, editAgentArrayField,
 	editAIConfigInteractive, editSystemPromptInteractive,
 	manageProjectAgentsInteractive,
-	talkToAgentInteractive, assignTaskInteractive, assignToProjectInteractive,
+	talkToAgentInteractive, assignTaskInteractive, clarifyTaskInteractive, assignToProjectInteractive,
 } from "../../../src/ui/menus/agents-menu.js";
 import type { AgentSummary } from "../../../src/domain/agents/agent-types.js";
 import type { ProjectConfig } from "../../../src/infrastructure/types.js";
@@ -69,6 +82,7 @@ function makeDeps() {
 			basename: vi.fn((p: string) => p.split("/").pop()!),
 		},
 		input: { ask: vi.fn(), askYesNo: vi.fn(), waitForEnter: vi.fn() },
+		shell: { check: vi.fn(() => true), runAsync: vi.fn(async () => ({ output: "Agent response text", exitCode: 0 })) },
 		log: vi.fn(),
 	} as any;
 }
@@ -393,65 +407,75 @@ describe("manageProjectAgentsInteractive", () => {
 // ── Talk to Agent ───────────────────────────────────────────────────
 
 describe("talkToAgentInteractive", () => {
-	it("writes new prompt when none exists", async () => {
+	it("shows error when Claude CLI is not installed", async () => {
 		const deps = makeDeps();
-		mockReadPrompt.mockReturnValue(null);
-		deps.input.ask
-			.mockResolvedValueOnce("w")                    // write new
-			.mockResolvedValueOnce("You are a reviewer.")  // prompt line
-			.mockResolvedValueOnce("");                    // empty = done
+		deps.shell.check.mockReturnValue(false);
 		await talkToAgentInteractive("/proj", makeAgent(), undefined, deps);
-		expect(mockWritePrompt).toHaveBeenCalledWith(deps, "/proj", "CodeBot", "You are a reviewer.", undefined);
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("not installed"));
+		expect(deps.shell.runAsync).not.toHaveBeenCalled();
 	});
 
-	it("appends to existing prompt on edit", async () => {
+	it("exits immediately when user sends empty first message", async () => {
 		const deps = makeDeps();
-		mockReadPrompt.mockReturnValue("Be helpful.");
-		deps.input.ask
-			.mockResolvedValueOnce("e")                    // edit (append)
-			.mockResolvedValueOnce("Also be concise.")     // new line
-			.mockResolvedValueOnce("");                    // done
-		await talkToAgentInteractive("/proj", makeAgent(), undefined, deps);
-		expect(mockWritePrompt).toHaveBeenCalledWith(
-			deps, "/proj", "CodeBot",
-			"Be helpful.\n\nAlso be concise.",
-			undefined,
-		);
-	});
-
-	it("replaces prompt on 'r'", async () => {
-		const deps = makeDeps();
-		mockReadPrompt.mockReturnValue("Old prompt.");
-		deps.input.ask
-			.mockResolvedValueOnce("r")                    // replace
-			.mockResolvedValueOnce("Brand new prompt.")    // line
-			.mockResolvedValueOnce("");                    // done
-		await talkToAgentInteractive("/proj", makeAgent(), undefined, deps);
-		expect(mockWritePrompt).toHaveBeenCalledWith(deps, "/proj", "CodeBot", "Brand new prompt.", undefined);
-	});
-
-	it("deletes prompt on 'd'", async () => {
-		const deps = makeDeps();
-		mockReadPrompt.mockReturnValue("Existing");
-		deps.input.ask.mockResolvedValueOnce("d");
-		await talkToAgentInteractive("/proj", makeAgent(), undefined, deps);
-		expect(mockWritePrompt).toHaveBeenCalledWith(deps, "/proj", "CodeBot", "", undefined);
-	});
-
-	it("skips on empty input", async () => {
-		const deps = makeDeps();
-		mockReadPrompt.mockReturnValue("Existing");
 		deps.input.ask.mockResolvedValueOnce("");
 		await talkToAgentInteractive("/proj", makeAgent(), undefined, deps);
-		expect(mockWritePrompt).not.toHaveBeenCalled();
+		expect(deps.shell.runAsync).not.toHaveBeenCalled();
 	});
 
-	it("shows current prompt preview when it exists", async () => {
+	it("sends message to Claude and displays parsed response", async () => {
 		const deps = makeDeps();
-		mockReadPrompt.mockReturnValue("Line 1\nLine 2");
+		deps.input.ask
+			.mockResolvedValueOnce("Hello Bob")   // first message
+			.mockResolvedValueOnce("");            // end conversation
+		deps.shell.runAsync.mockResolvedValueOnce({ output: '{"message":"Hi there!","status":"message"}', exitCode: 0 });
+		await talkToAgentInteractive("/proj", makeAgent(), undefined, deps);
+		expect(deps.shell.runAsync).toHaveBeenCalledWith("claude --print", { timeout: 120000, input: "mock prompt content" });
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("Hi there!"));
+	});
+
+	it("supports multi-turn conversation", async () => {
+		const deps = makeDeps();
+		deps.input.ask
+			.mockResolvedValueOnce("Hello")        // first message
+			.mockResolvedValueOnce("Follow up")    // reply
+			.mockResolvedValueOnce("");             // end
+		deps.shell.runAsync
+			.mockResolvedValueOnce({ output: '{"message":"First response","status":"message"}', exitCode: 0 })
+			.mockResolvedValueOnce({ output: '{"message":"Second response","status":"message"}', exitCode: 0 });
+		await talkToAgentInteractive("/proj", makeAgent(), undefined, deps);
+		expect(deps.shell.runAsync).toHaveBeenCalledTimes(2);
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("2 exchanges"));
+	});
+
+	it("prompts directly when agent asks a question", async () => {
+		const deps = makeDeps();
+		deps.input.ask
+			.mockResolvedValueOnce("Hello")          // first message
+			.mockResolvedValueOnce("React")           // answer to question (no "Enter to end" hint)
+			.mockResolvedValueOnce("");               // end
+		deps.shell.runAsync
+			.mockResolvedValueOnce({ output: '{"message":"What framework?","status":"question"}', exitCode: 0 })
+			.mockResolvedValueOnce({ output: '{"message":"Got it.","status":"message"}', exitCode: 0 });
+		await talkToAgentInteractive("/proj", makeAgent(), undefined, deps);
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("(question)"));
+		// Second prompt should be direct (no "Enter to end") because agent asked a question
+		expect(deps.input.ask).toHaveBeenNthCalledWith(2, expect.not.stringContaining("Enter to end"));
+	});
+
+	it("handles agent error response", async () => {
+		const deps = makeDeps();
+		deps.input.ask.mockResolvedValueOnce("Hello");
+		deps.shell.runAsync.mockResolvedValueOnce({ output: "", exitCode: 1 });
+		await talkToAgentInteractive("/proj", makeAgent(), undefined, deps);
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("did not respond"));
+	});
+
+	it("logs system prompt loaded when one exists", async () => {
+		const deps = makeDeps();
+		mockReadPrompt.mockReturnValue("Be a good agent.");
 		deps.input.ask.mockResolvedValueOnce("");
 		await talkToAgentInteractive("/proj", makeAgent(), undefined, deps);
-		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("13 chars"));
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("System prompt loaded"));
 	});
 });
 
@@ -548,6 +572,17 @@ describe("assignTaskInteractive", () => {
 		);
 	});
 
+	it("returns task info with name, description, and context", async () => {
+		const deps = makeDeps();
+		deps.paths.dirname.mockReturnValue("/vault/agents");
+		deps.input.ask
+			.mockResolvedValueOnce("Fix bug")
+			.mockResolvedValueOnce("Fix the login bug")
+			.mockResolvedValueOnce("Sprint 5");
+		const result = await assignTaskInteractive("/proj", makeAgent(), undefined, deps);
+		expect(result).toEqual({ taskName: "Fix bug", taskDescription: "Fix the login bug", taskContext: "Sprint 5" });
+	});
+
 	it("includes project name only when no iteration", async () => {
 		const deps = makeDeps();
 		deps.paths.dirname.mockReturnValue("/vault/agents");
@@ -561,6 +596,53 @@ describe("assignTaskInteractive", () => {
 			expect.stringContaining("**Project:** My Project"),
 			"utf-8",
 		);
+	});
+});
+
+// ── Clarify Task ────────────────────────────────────────────────────
+
+describe("clarifyTaskInteractive", () => {
+	it("skips for human agents", async () => {
+		const deps = makeDeps();
+		await clarifyTaskInteractive("/proj", makeAgent({ agentType: "human" }), undefined, "Task", "Desc", "", deps);
+		expect(deps.shell.runAsync).not.toHaveBeenCalled();
+	});
+
+	it("skips when Claude CLI is not installed", async () => {
+		const deps = makeDeps();
+		deps.shell.check.mockReturnValue(false);
+		await clarifyTaskInteractive("/proj", makeAgent(), undefined, "Task", "Desc", "", deps);
+		expect(deps.shell.runAsync).not.toHaveBeenCalled();
+	});
+
+	it("runs clarification dialog with AI agent", async () => {
+		const deps = makeDeps();
+		deps.shell.runAsync.mockResolvedValueOnce({ output: '{"message":"What framework are you using?","status":"question"}', exitCode: 0 });
+		deps.input.ask.mockResolvedValueOnce("");  // end dialog
+		await clarifyTaskInteractive("/proj", makeAgent(), undefined, "Fix bug", "Fix the login flow", "", deps);
+		expect(deps.shell.runAsync).toHaveBeenCalledTimes(1);
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("What framework"));
+	});
+
+	it("supports multi-turn clarification", async () => {
+		const deps = makeDeps();
+		deps.shell.runAsync
+			.mockResolvedValueOnce({ output: '{"message":"Which module?","status":"question"}', exitCode: 0 })
+			.mockResolvedValueOnce({ output: '{"message":"Got it.","status":"message"}', exitCode: 0 });
+		deps.input.ask
+			.mockResolvedValueOnce("The auth module")  // answer question
+			.mockResolvedValueOnce("");                 // end dialog
+		await clarifyTaskInteractive("/proj", makeAgent(), undefined, "Fix bug", "Fix login", "", deps);
+		expect(deps.shell.runAsync).toHaveBeenCalledTimes(2);
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("Clarification complete"));
+	});
+
+	it("auto-ends when agent responds with ready status", async () => {
+		const deps = makeDeps();
+		deps.shell.runAsync.mockResolvedValueOnce({ output: '{"message":"I understand the task.","status":"ready"}', exitCode: 0 });
+		await clarifyTaskInteractive("/proj", makeAgent(), undefined, "Fix bug", "Fix login", "", deps);
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("ready to begin"));
+		expect(deps.input.ask).not.toHaveBeenCalled();
 	});
 });
 

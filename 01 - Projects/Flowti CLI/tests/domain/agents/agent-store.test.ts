@@ -7,7 +7,7 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
 }));
 
-import { listAgents, getProjectAgents, findAgent, createAgent, updateAgentField, deleteAgent, agentToJson, addArrayItem, removeArrayItem, updateAgentJson, readSystemPrompt, writeSystemPrompt } from "../../../src/domain/agents/agent-store.js";
+import { listAgents, getProjectAgents, findAgent, createAgent, updateAgentField, deleteAgent, agentToJson, addArrayItem, removeArrayItem, updateAgentJson, readSystemPrompt, writeSystemPrompt, listInventory, addInventoryItem, removeInventoryItem } from "../../../src/domain/agents/agent-store.js";
 import type { AgentDefinition } from "../../../src/domain/agents/agent-types.js";
 
 function makeDeps(files: Record<string, string> = {}) {
@@ -458,5 +458,125 @@ describe("writeSystemPrompt", () => {
 		expect(deps.disk.writeFileSync).toHaveBeenCalledWith(
 			"/proj/docs/agents/code-bot.prompt.md", "You are helpful.", "utf-8",
 		);
+	});
+});
+
+describe("inventory", () => {
+	it("reads inventory from companion JSON", () => {
+		const jsonDef = JSON.stringify({
+			inventory: [
+				{ path: "docs/notes.md", label: "Project Notes" },
+				{ path: "docs/spec.md" },
+			],
+		});
+		const deps = makeDeps({
+			"/proj/docs/agents/code-bot.md": AGENT_MD,
+			"/proj/docs/agents/code-bot.json": jsonDef,
+		});
+		const agents = listAgents(deps, "/proj");
+		expect(agents[0].inventory).toEqual([
+			{ path: "docs/notes.md", label: "Project Notes" },
+			{ path: "docs/spec.md" },
+		]);
+	});
+
+	it("returns empty inventory when no JSON file", () => {
+		const deps = makeDeps({ "/proj/docs/agents/code-bot.md": AGENT_MD });
+		expect(listInventory(deps, "/proj", "CodeBot")).toEqual([]);
+	});
+
+	it("returns empty inventory when JSON has no inventory key", () => {
+		const deps = makeDeps({
+			"/proj/docs/agents/code-bot.md": AGENT_MD,
+			"/proj/docs/agents/code-bot.json": JSON.stringify({ ai: { model: "test" } }),
+		});
+		expect(listInventory(deps, "/proj", "CodeBot")).toEqual([]);
+	});
+
+	it("lists inventory items", () => {
+		const jsonDef = JSON.stringify({ inventory: [{ path: "a.md" }, { path: "b.md", label: "B" }] });
+		const deps = makeDeps({
+			"/proj/docs/agents/code-bot.md": AGENT_MD,
+			"/proj/docs/agents/code-bot.json": jsonDef,
+		});
+		const items = listInventory(deps, "/proj", "CodeBot");
+		expect(items).toHaveLength(2);
+		expect(items[0].path).toBe("a.md");
+		expect(items[1].label).toBe("B");
+	});
+
+	it("adds an inventory item", () => {
+		const deps = makeDeps({
+			"/proj/docs/agents/code-bot.md": AGENT_MD,
+			"/proj/docs/agents/code-bot.json": JSON.stringify({}),
+		});
+		const ok = addInventoryItem(deps, "/proj", "CodeBot", { path: "docs/plan.md", label: "Plan" });
+		expect(ok).toBe(true);
+		const items = listInventory(deps, "/proj", "CodeBot");
+		expect(items).toEqual([{ path: "docs/plan.md", label: "Plan" }]);
+	});
+
+	it("prevents duplicate inventory items", () => {
+		const jsonDef = JSON.stringify({ inventory: [{ path: "docs/plan.md" }] });
+		const deps = makeDeps({
+			"/proj/docs/agents/code-bot.md": AGENT_MD,
+			"/proj/docs/agents/code-bot.json": jsonDef,
+		});
+		const ok = addInventoryItem(deps, "/proj", "CodeBot", { path: "docs/plan.md" });
+		expect(ok).toBe(false);
+	});
+
+	it("removes an inventory item by path", () => {
+		const jsonDef = JSON.stringify({ inventory: [{ path: "a.md" }, { path: "b.md" }] });
+		const deps = makeDeps({
+			"/proj/docs/agents/code-bot.md": AGENT_MD,
+			"/proj/docs/agents/code-bot.json": jsonDef,
+		});
+		const ok = removeInventoryItem(deps, "/proj", "CodeBot", "a.md");
+		expect(ok).toBe(true);
+		const items = listInventory(deps, "/proj", "CodeBot");
+		expect(items).toEqual([{ path: "b.md" }]);
+	});
+
+	it("returns false when removing a non-existent item", () => {
+		const jsonDef = JSON.stringify({ inventory: [{ path: "a.md" }] });
+		const deps = makeDeps({
+			"/proj/docs/agents/code-bot.md": AGENT_MD,
+			"/proj/docs/agents/code-bot.json": jsonDef,
+		});
+		expect(removeInventoryItem(deps, "/proj", "CodeBot", "nonexistent.md")).toBe(false);
+	});
+
+	it("serializes inventory in agentToJson", () => {
+		const json = agentToJson({
+			name: "Bot", agentType: "ai", description: "",
+			skills: [], tools: [], roles: [], file: "bot.md",
+			inventory: [{ path: "docs/spec.md", label: "Spec" }],
+		});
+		expect(json.inventory).toEqual([{ path: "docs/spec.md", label: "Spec" }]);
+	});
+
+	it("omits inventory from agentToJson when empty", () => {
+		const json = agentToJson({
+			name: "Bot", agentType: "ai", description: "",
+			skills: [], tools: [], roles: [], file: "bot.md",
+			inventory: [],
+		});
+		expect(json).not.toHaveProperty("inventory");
+	});
+
+	it("includes inventory in companion JSON on agent creation", () => {
+		const deps = makeDeps();
+		const def: AgentDefinition = {
+			name: "InvBot", agentType: "ai", description: "",
+			skills: [], tools: [], roles: [],
+			inventory: [{ path: "docs/brief.md", label: "Brief" }],
+		};
+		createAgent(deps, "/proj", def);
+		const writeCalls = (deps.disk.writeFileSync as ReturnType<typeof vi.fn>).mock.calls;
+		const jsonCall = writeCalls.find(([p]: string[]) => p.endsWith(".json"));
+		expect(jsonCall).toBeDefined();
+		const parsed = JSON.parse(jsonCall![1] as string);
+		expect(parsed.inventory).toEqual([{ path: "docs/brief.md", label: "Brief" }]);
 	});
 });

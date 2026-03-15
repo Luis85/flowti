@@ -104,7 +104,10 @@
       "Bash(node configs/esbuild.config.mjs)",
       "Bash(npx typedoc:*)",
       "Bash(npx eslint:*)",
-      "Bash(python3 -c \":*)"
+      "Bash(python3 -c \":*)",
+      "Bash(mkdir:*)",
+      "Bash(cd:*)",
+      "Bash(where bash:*)"
     ]
   }
 }

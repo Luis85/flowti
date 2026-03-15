@@ -2,8 +2,9 @@
  * agents-display.ts — Console renderers for agent entities.
  */
 
-import { RESET, DIM, GREEN, CYAN, BOLD } from "../../infrastructure/ui.js";
+import { RESET, DIM, GREEN, CYAN, BOLD, YELLOW } from "../../infrastructure/ui.js";
 import type { AgentSummary } from "../../domain/agents/agent-types.js";
+import type { AgentState } from "../../domain/agents/agent-state.js";
 
 export function renderAgentList(agents: AgentSummary[], log: (msg?: string) => void): void {
 	if (agents.length === 0) {
@@ -31,10 +32,12 @@ export function renderAgentDetail(agent: AgentSummary, log: (msg?: string) => vo
 	renderNamedList(log, "Tools", agent.tools);
 	renderNamedList(log, "Roles", agent.roles);
 	renderNamedList(log, "Behaviors", agent.behaviors);
+	renderNamedList(log, "Preferred Phases", agent.preferredPhases);
 	renderGoals(agent, log);
 	renderComponents(agent, log);
 	renderAIConfig(agent, log);
 	renderRelationships(agent, log);
+	renderInventory(agent, log);
 	log();
 }
 
@@ -72,10 +75,43 @@ function renderRelationships(agent: AgentSummary, log: (msg?: string) => void): 
 	}
 }
 
+function renderInventory(agent: AgentSummary, log: (msg?: string) => void): void {
+	if (!agent.inventory || agent.inventory.length === 0) return;
+	log(`\n  ${BOLD}Inventory${RESET} ${DIM}(${agent.inventory.length} item${agent.inventory.length === 1 ? "" : "s"})${RESET}`);
+	for (const item of agent.inventory) {
+		const label = item.label ?? item.path.split("/").pop() ?? item.path;
+		log(`  ${CYAN}▸${RESET} ${label} ${DIM}${item.path}${RESET}`);
+	}
+}
+
 function renderNamedList(log: (msg?: string) => void, title: string, items?: string[]): void {
 	if (!items || items.length === 0) return;
 	log(`\n  ${BOLD}${title}${RESET}`);
 	for (const item of items) log(`  ${CYAN}▸${RESET} ${item}`);
+}
+
+const STATUS_COLORS: Record<string, string> = { idle: DIM, active: GREEN, busy: YELLOW };
+
+export function renderAgentState(state: AgentState, log: (msg?: string) => void): void {
+	const color = STATUS_COLORS[state.status] ?? DIM;
+	log(`\n  ${BOLD}State${RESET}  ${color}${state.status}${RESET}`);
+	if (state.lastInteraction) {
+		const when = state.lastInteraction.slice(0, 10);
+		const what = state.lastInteractionType ?? "unknown";
+		log(`  ${DIM}Last interaction:${RESET} ${what} (${when})`);
+	}
+	const pending = state.tasks.filter((t) => t.status !== "done");
+	const done = state.tasks.filter((t) => t.status === "done");
+	if (pending.length > 0) {
+		log(`\n  ${BOLD}Active Tasks${RESET}`);
+		for (const t of pending) log(`  ${YELLOW}▸${RESET} ${t.name} ${DIM}[${t.status}]${RESET}`);
+	}
+	if (done.length > 0) {
+		log(`  ${DIM}Completed: ${done.length} task${done.length === 1 ? "" : "s"}${RESET}`);
+	}
+	if (state.briefs.length > 0) {
+		log(`  ${DIM}Briefs generated: ${state.briefs.length}${RESET}`);
+	}
 }
 
 export function renderAgentCreated(relPath: string, log: (msg?: string) => void): void {

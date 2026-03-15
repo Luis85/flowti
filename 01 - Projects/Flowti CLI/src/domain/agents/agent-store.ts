@@ -13,7 +13,7 @@ import { Document } from "../../infrastructure/document.js";
 import { parseFrontmatterContent } from "../../infrastructure/frontmatter.js";
 import type { CliDeps } from "../../infrastructure/deps.js";
 import type { AgentsConfig } from "../../infrastructure/types.js";
-import type { AgentDefinition, AgentSummary, AgentSkill, AgentComponent, AgentGoal, AgentAIConfig, AgentRelationship, SuggestedTask } from "./agent-types.js";
+import type { AgentDefinition, AgentSummary, AgentSkill, AgentComponent, AgentGoal, AgentAIConfig, AgentRelationship, SuggestedTask, InventoryItem } from "./agent-types.js";
 import { resolveDir, listMdFiles, toMdFilename, updateField } from "../shared/markdown-store.js";
 
 export type AgentStoreDeps = Pick<CliDeps, "disk" | "paths">;
@@ -59,12 +59,11 @@ export interface AgentJson {
 	goals?: AgentGoal[];
 	ai?: AgentAIConfig;
 	relationships?: AgentRelationship[];
+	inventory?: InventoryItem[];
 }
 
-function parseAgentSummary(deps: AgentStoreDeps, dir: string, content: string, file: string): AgentSummary | null {
-	const fm = parseFrontmatterContent(content);
-	if (!fm) return null;
-	const json = parseJsonFile<AgentJson>(deps, dir, file);
+function parseFrontmatterFields(fm: Record<string, unknown>, file: string): Pick<AgentSummary, "name" | "agentType" | "description" | "domain" | "skills" | "tools" | "roles" | "behaviors" | "preferredPhases" | "suggestedTasks"> {
+	const preferredPhases = toStringArray(fm.preferredPhases);
 	return {
 		name: String(fm.name ?? file.replace(/\.md$/, "")),
 		agentType: fm.agentType === "ai" ? "ai" : "human",
@@ -74,11 +73,22 @@ function parseAgentSummary(deps: AgentStoreDeps, dir: string, content: string, f
 		tools: toStringArray(fm.tools),
 		roles: toStringArray(fm.roles),
 		behaviors: toStringArray(fm.behaviors),
+		preferredPhases: preferredPhases.length > 0 ? preferredPhases : undefined,
 		suggestedTasks: toStringArray(fm.suggestedTasks).map(parseSuggestedTask),
+	};
+}
+
+function parseAgentSummary(deps: AgentStoreDeps, dir: string, content: string, file: string): AgentSummary | null {
+	const fm = parseFrontmatterContent(content);
+	if (!fm) return null;
+	const json = parseJsonFile<AgentJson>(deps, dir, file);
+	return {
+		...parseFrontmatterFields(fm, file),
 		components: json?.components,
 		goals: json?.goals,
 		ai: json?.ai,
 		relationships: json?.relationships,
+		inventory: json?.inventory,
 		file,
 	};
 }
@@ -123,6 +133,7 @@ function buildFrontmatterArrays(doc: Document, def: AgentDefinition): void {
 	if (def.tools.length > 0) doc.setFrontmatter("tools", def.tools);
 	if (def.roles.length > 0) doc.setFrontmatter("roles", def.roles);
 	if (def.behaviors && def.behaviors.length > 0) doc.setFrontmatter("behaviors", def.behaviors);
+	if (def.preferredPhases && def.preferredPhases.length > 0) doc.setFrontmatter("preferredPhases", def.preferredPhases);
 }
 
 function buildBody(doc: Document, def: AgentDefinition): void {
@@ -148,17 +159,24 @@ function hasJsonFields(def: AgentDefinition): boolean {
 		(def.components && def.components.length > 0) ||
 		(def.goals && def.goals.length > 0) ||
 		def.ai ||
-		(def.relationships && def.relationships.length > 0)
+		(def.relationships && def.relationships.length > 0) ||
+		(def.inventory && def.inventory.length > 0)
 	);
 }
 
-function writeJsonDefinition(deps: AgentStoreDeps, dir: string, def: AgentDefinition): void {
-	if (!hasJsonFields(def)) return;
+function buildAgentJsonPayload(def: AgentDefinition): AgentJson {
 	const json: AgentJson = {};
 	if (def.components && def.components.length > 0) json.components = def.components;
 	if (def.goals && def.goals.length > 0) json.goals = def.goals;
 	if (def.ai) json.ai = def.ai;
 	if (def.relationships && def.relationships.length > 0) json.relationships = def.relationships;
+	if (def.inventory && def.inventory.length > 0) json.inventory = def.inventory;
+	return json;
+}
+
+function writeJsonDefinition(deps: AgentStoreDeps, dir: string, def: AgentDefinition): void {
+	if (!hasJsonFields(def)) return;
+	const json = buildAgentJsonPayload(def);
 	const jsonPath = deps.paths.join(dir, toMdFilename(def.name).replace(/\.md$/, ".json"));
 	deps.disk.writeFileSync(jsonPath, JSON.stringify(json, null, "\t"), "utf-8");
 }
@@ -233,6 +251,34 @@ function escapeRegex(s: string): string {
 	return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// ── Inventory ─────────────────────────────────────────────────────────
+
+/** List inventory items for an agent. */
+export function listInventory(deps: AgentStoreDeps, projectPath: string, name: string, config?: AgentsConfig): InventoryItem[] {
+	const dir = agentsDir(deps, projectPath, config);
+	const json = parseJsonFile<AgentJson>(deps, dir, toMdFilename(name));
+	return json?.inventory ?? [];
+}
+
+/** Add a markdown file to an agent's inventory. Returns false if already present. */
+export function addInventoryItem(deps: AgentStoreDeps, projectPath: string, name: string, item: InventoryItem, config?: AgentsConfig): boolean {
+	const dir = agentsDir(deps, projectPath, config);
+	const json = parseJsonFile<AgentJson>(deps, dir, toMdFilename(name)) ?? {};
+	const inventory = json.inventory ?? [];
+	if (inventory.some((i) => i.path === item.path)) return false;
+	return updateAgentJson(deps, projectPath, name, { inventory: [...inventory, item] }, config);
+}
+
+/** Remove a markdown file from an agent's inventory by path. Returns false if not found. */
+export function removeInventoryItem(deps: AgentStoreDeps, projectPath: string, name: string, itemPath: string, config?: AgentsConfig): boolean {
+	const dir = agentsDir(deps, projectPath, config);
+	const json = parseJsonFile<AgentJson>(deps, dir, toMdFilename(name)) ?? {};
+	const inventory = json.inventory ?? [];
+	const filtered = inventory.filter((i) => i.path !== itemPath);
+	if (filtered.length === inventory.length) return false;
+	return updateAgentJson(deps, projectPath, name, { inventory: filtered }, config);
+}
+
 /** Update the companion JSON file for an agent. Merges fields into existing JSON. */
 export function updateAgentJson(deps: AgentStoreDeps, projectPath: string, name: string, patch: Partial<AgentJson>, config?: AgentsConfig): boolean {
 	const dir = agentsDir(deps, projectPath, config);
@@ -297,10 +343,12 @@ export function agentToJson(agent: AgentSummary): Record<string, unknown> {
 	};
 	addOptionalField(result, "domain", agent.domain);
 	addOptionalField(result, "behaviors", agent.behaviors);
+	addOptionalField(result, "preferredPhases", agent.preferredPhases);
 	addOptionalField(result, "components", agent.components);
 	addOptionalField(result, "goals", agent.goals);
 	addOptionalField(result, "ai", agent.ai);
 	addOptionalField(result, "relationships", agent.relationships);
 	addOptionalField(result, "suggestedTasks", agent.suggestedTasks);
+	addOptionalField(result, "inventory", agent.inventory);
 	return result;
 }

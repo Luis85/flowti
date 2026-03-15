@@ -2,13 +2,13 @@
 import { printHeader, RESET, DIM, GREEN, RED } from "../../infrastructure/ui.js";
 import type { MenuDeps } from "../../infrastructure/deps.js";
 import type { AgentsConfig, ProjectConfig } from "../../infrastructure/types.js";
-import { listAgents, createAgent, deleteAgent, updateAgentField, addArrayItem, removeArrayItem, updateAgentJson, readSystemPrompt, writeSystemPrompt } from "../../domain/agents/agent-store.js";
+import { listAgents, createAgent, deleteAgent, updateAgentField, addArrayItem, removeArrayItem, updateAgentJson, readSystemPrompt, writeSystemPrompt, listInventory, addInventoryItem, removeInventoryItem } from "../../domain/agents/agent-store.js";
 import type { AgentDefinition, AgentSkill, AgentType, AgentSummary } from "../../domain/agents/agent-types.js";
 import { renderAgentList, renderAgentCreated, renderAgentDeleted } from "../displays/agents-display.js";
 import { updateProjectConfig } from "../../domain/project/project-config.js";
 
 // Re-export interact functions for backward compatibility
-export { talkToAgentInteractive, assignTaskInteractive, assignToProjectInteractive } from "./agents-interact-menu.js";
+export { talkToAgentInteractive, assignTaskInteractive, clarifyTaskInteractive, assignToProjectInteractive } from "./agents-interact-menu.js";
 
 export async function addAgentInteractive(projectPath: string, config: AgentsConfig | undefined, deps: MenuDeps): Promise<boolean> {
 	printHeader("Add Agent");
@@ -253,6 +253,52 @@ async function removeFromRoster(projectPath: string, projectConfig: ProjectConfi
 
 	if (persistRoster(projectPath, projectConfig, roster.filter((n) => n !== match), deps)) {
 		deps.log(`  ${GREEN}✓${RESET} Removed ${match} from project roster.\n`);
+	}
+}
+
+// ── Inventory ────────────────────────────────────────────────────────
+
+export async function editInventoryInteractive(projectPath: string, agent: AgentSummary, config: AgentsConfig | undefined, deps: MenuDeps): Promise<void> {
+	printHeader("Inventory");
+	const items = listInventory(deps, projectPath, agent.name, config);
+	if (items.length > 0) {
+		deps.log("  Current inventory:");
+		for (let i = 0; i < items.length; i++) {
+			const label = items[i].label ?? items[i].path.split("/").pop() ?? items[i].path;
+			deps.log(`    ${DIM}${i + 1})${RESET} ${label} ${DIM}${items[i].path}${RESET}`);
+		}
+		deps.log("");
+	} else {
+		deps.log(`  ${DIM}Inventory is empty.${RESET}\n`);
+	}
+	const action = await deps.input.ask("(a)dd / (r)emove / Enter to skip", "");
+	if (action === "a") await addInventoryFlow(projectPath, agent.name, config, deps);
+	else if (action === "r") await removeInventoryFlow(projectPath, agent.name, items, config, deps);
+}
+
+async function addInventoryFlow(projectPath: string, agentName: string, config: AgentsConfig | undefined, deps: MenuDeps): Promise<void> {
+	const path = await deps.input.ask("Markdown file path (relative to vault)");
+	if (!path) return;
+	const label = await deps.input.ask("Label (optional)", "");
+	const item = label ? { path, label } : { path };
+	if (addInventoryItem(deps, projectPath, agentName, item, config)) {
+		deps.log(`  ${GREEN}✓${RESET} Added to inventory: ${path}\n`);
+	} else {
+		deps.log(`  ${DIM}Already in inventory.${RESET}\n`);
+	}
+}
+
+async function removeInventoryFlow(projectPath: string, agentName: string, items: import("../../domain/agents/agent-types.js").InventoryItem[], config: AgentsConfig | undefined, deps: MenuDeps): Promise<void> {
+	if (items.length === 0) { deps.log(`  ${DIM}Nothing to remove.${RESET}\n`); return; }
+	const choice = await deps.input.ask("Item number or path to remove");
+	if (!choice) return;
+	const idx = parseInt(choice, 10);
+	const target = (!isNaN(idx) && idx >= 1 && idx <= items.length)
+		? items[idx - 1]
+		: items.find((i) => i.path === choice);
+	if (!target) { deps.log(`  ${RED}Item "${choice}" not found.${RESET}\n`); return; }
+	if (removeInventoryItem(deps, projectPath, agentName, target.path, config)) {
+		deps.log(`  ${GREEN}✓${RESET} Removed from inventory: ${target.path}\n`);
 	}
 }
 

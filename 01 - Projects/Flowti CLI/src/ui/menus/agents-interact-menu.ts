@@ -1,64 +1,102 @@
 /** agents-interact-menu.ts — Talk, task assignment, and project assignment for agents. */
 import { printHeader, RESET, DIM, GREEN, RED, CYAN, BOLD } from "../../infrastructure/ui.js";
-import type { MenuDeps } from "../../infrastructure/deps.js";
+import { startSpinner } from "../../infrastructure/progress.js";
+import type { MenuDeps, ShellMenuDeps } from "../../infrastructure/deps.js";
 import type { AgentsConfig, ProjectConfig } from "../../infrastructure/types.js";
-import { readSystemPrompt, writeSystemPrompt } from "../../domain/agents/agent-store.js";
+import { readSystemPrompt } from "../../domain/agents/agent-store.js";
 import type { AgentSummary } from "../../domain/agents/agent-types.js";
+import { buildConversationPrompt, buildClarificationPrompt, buildTalkCommand, parseAgentResponse } from "../../domain/agents/agent-conversation.js";
+import type { ConversationTurn, AgentResponse } from "../../domain/agents/agent-conversation.js";
 import { readProjectConfig, updateProjectConfig } from "../../domain/project/project-config.js";
 import { listProjects } from "../../domain/project/project.js";
 
-// ── Shared helpers ──────────────────────────────────────────────────
+// ── Talk ─────────────────────────────────────────────────────────────
 
-async function readMultilineInput(deps: MenuDeps): Promise<string | null> {
-	const lines: string[] = [];
-	for (;;) {
-		const line = await deps.input.ask("");
-		if (line === "") break;
-		lines.push(line);
-	}
-	return lines.length > 0 ? lines.join("\n") : null;
-}
+const STATUS_LABELS: Record<AgentResponse["status"], string> = {
+	message: "",
+	question: ` ${DIM}(question)${RESET}`,
+	ready: ` ${GREEN}(ready)${RESET}`,
+	error: ` ${RED}(error)${RESET}`,
+};
 
-function showPromptPreview(current: string, deps: MenuDeps): void {
-	deps.log(`  ${BOLD}Current prompt${RESET} ${DIM}(${current.length} chars)${RESET}\n`);
-	const lines = current.split("\n");
-	for (const line of lines.slice(0, 8)) deps.log(`  ${DIM}${line}${RESET}`);
-	if (lines.length > 8) deps.log(`  ${DIM}... (${lines.length - 8} more lines)${RESET}`);
+/** Display a parsed agent response. */
+function displayResponse(agentName: string, parsed: AgentResponse, deps: ShellMenuDeps): void {
+	const tag = STATUS_LABELS[parsed.status];
+	deps.log(`\n  ${CYAN}${BOLD}${agentName}:${RESET}${tag}`);
+	for (const line of parsed.message.split("\n")) deps.log(`    ${line}`);
 	deps.log("");
 }
 
-// ── Talk ─────────────────────────────────────────────────────────────
+/** Start a spinner with elapsed-time updates. Returns a stop function. */
+function startThinking(agentName: string): () => void {
+	const start = Date.now();
+	const spinner = startSpinner(`${agentName} is thinking...`);
+	const timer = setInterval(() => {
+		const secs = Math.round((Date.now() - start) / 1000);
+		spinner.update(`${agentName} is thinking... ${DIM}(${secs}s)${RESET}`);
+	}, 1000);
+	return () => { clearInterval(timer); spinner.stop(); };
+}
 
-export async function talkToAgentInteractive(projectPath: string, agent: AgentSummary, config: AgentsConfig | undefined, deps: MenuDeps): Promise<void> {
+/** Send a single message to an agent via Claude CLI and return the parsed response (or null on failure). */
+async function sendTurn(
+	agentName: string, systemPrompt: string | null, history: readonly ConversationTurn[],
+	userMessage: string, model: string | undefined, deps: ShellMenuDeps,
+): Promise<AgentResponse | null> {
+	const content = buildConversationPrompt(agentName, systemPrompt, history, userMessage);
+	const stopSpinner = startThinking(agentName);
+	const { output, exitCode } = await deps.shell.runAsync(buildTalkCommand(model), { timeout: 120000, input: content });
+	stopSpinner();
+	if (exitCode !== 0 || !output.trim()) {
+		deps.log(`  ${RED}Agent did not respond.${RESET}`);
+		if (output.trim()) deps.log(`  ${DIM}${output.trim()}${RESET}`);
+		deps.log("");
+		return null;
+	}
+	const parsed = parseAgentResponse(output);
+	displayResponse(agentName, parsed, deps);
+	return parsed;
+}
+
+/** Prompt the user — direct prompt when agent asked a question, optional hint otherwise. */
+async function askUser(lastStatus: AgentResponse["status"] | null, deps: ShellMenuDeps, label: string, hint: string): Promise<string> {
+	if (lastStatus === null || lastStatus === "question") {
+		return deps.input.ask(label);
+	}
+	return deps.input.ask(`${label} ${DIM}(${hint})${RESET}`, "");
+}
+
+/**
+ * Interactive conversation loop with an agent via Claude CLI.
+ *
+ * Flow: user types a message → Claude responds → user replies or ends.
+ * Agent responses are parsed as JSON: status "question" triggers a direct prompt.
+ */
+export async function talkToAgentInteractive(projectPath: string, agent: AgentSummary, config: AgentsConfig | undefined, deps: ShellMenuDeps): Promise<void> {
 	printHeader(`Talk — ${agent.name}`);
-	const current = readSystemPrompt(deps, projectPath, agent.name, config);
-	if (current) showPromptPreview(current, deps);
-	else deps.log(`  ${DIM}No prompt file yet.${RESET}\n`);
-
-	const action = current
-		? await deps.input.ask("(e)dit / (r)eplace / (d)elete / Enter to skip", "")
-		: await deps.input.ask("(w)rite new prompt / Enter to skip", "");
-	if (!action) return;
-
-	if (action === "d" && current) {
-		writeSystemPrompt(deps, projectPath, agent.name, "", config);
-		deps.log(`  ${GREEN}✓${RESET} Prompt cleared.\n`);
+	if (!deps.shell.check("claude --version")) {
+		deps.log(`  ${RED}Claude CLI is not installed or not in PATH.${RESET}`);
+		deps.log(`  ${DIM}Install it to enable agent conversations.${RESET}\n`);
 		return;
 	}
-	if (action === "e" && current) {
-		deps.log(`  ${DIM}Enter lines (empty line to finish):${RESET}`);
-		const addition = await readMultilineInput(deps);
-		if (!addition) return;
-		const merged = current + "\n\n" + addition;
-		writeSystemPrompt(deps, projectPath, agent.name, merged, config);
-		deps.log(`  ${GREEN}✓${RESET} Prompt updated (${merged.length} chars).\n`);
-		return;
+
+	const systemPrompt = readSystemPrompt(deps, projectPath, agent.name, config);
+	if (systemPrompt) deps.log(`  ${DIM}System prompt loaded (${systemPrompt.length} chars)${RESET}\n`);
+
+	const history: ConversationTurn[] = [];
+	let lastStatus: AgentResponse["status"] | null = null;
+
+	for (;;) {
+		const prompt = await askUser(lastStatus, deps, `  ${BOLD}You${RESET}`, "Enter to end");
+		if (!prompt) break;
+
+		const response = await sendTurn(agent.name, systemPrompt, history, prompt, agent.ai?.model, deps);
+		if (!response) break;
+		history.push({ role: "user", content: prompt }, { role: "agent", content: response.message });
+		lastStatus = response.status;
 	}
-	deps.log(`  ${DIM}Enter prompt lines (empty line to finish):${RESET}`);
-	const content = await readMultilineInput(deps);
-	if (!content) return;
-	writeSystemPrompt(deps, projectPath, agent.name, content, config);
-	deps.log(`  ${GREEN}✓${RESET} Prompt saved (${content.length} chars).\n`);
+
+	if (history.length > 0) deps.log(`  ${DIM}Conversation ended (${history.length / 2} exchanges).${RESET}\n`);
 }
 
 // ── Assign Task ─────────────────────────────────────────────────────
@@ -77,7 +115,13 @@ function agentCapabilities(agent: AgentSummary): string[] {
 	];
 }
 
-export async function assignTaskInteractive(projectPath: string, agent: AgentSummary, config: AgentsConfig | undefined, deps: MenuDeps, taskCtx?: TaskContext): Promise<void> {
+export interface AssignedTask {
+	readonly taskName: string;
+	readonly taskDescription: string;
+	readonly taskContext: string;
+}
+
+export async function assignTaskInteractive(projectPath: string, agent: AgentSummary, config: AgentsConfig | undefined, deps: MenuDeps, taskCtx?: TaskContext): Promise<AssignedTask | undefined> {
 	printHeader(`Assign Task — ${agent.name}`);
 	const capabilities = agentCapabilities(agent);
 	if (capabilities.length > 0) {
@@ -89,9 +133,9 @@ export async function assignTaskInteractive(projectPath: string, agent: AgentSum
 	}
 
 	const taskName = await deps.input.ask("Task name");
-	if (!taskName) return;
+	if (!taskName) return undefined;
 	const taskDesc = await deps.input.ask("Task description (what to do)");
-	if (!taskDesc) return;
+	if (!taskDesc) return undefined;
 	const context = await deps.input.ask("Context (optional)", "");
 
 	const parts = [`# Task: ${taskName}`, "", `**Agent:** ${agent.name}`, `**Description:** ${taskDesc}`];
@@ -103,6 +147,66 @@ export async function assignTaskInteractive(projectPath: string, agent: AgentSum
 	const taskFile = deps.paths.join(deps.paths.dirname(agent.file), `${agent.name}.task.md`);
 	deps.disk.writeFileSync(taskFile, taskContent, "utf-8");
 	deps.log(`\n  ${GREEN}✓${RESET} Task saved: ${DIM}${deps.paths.relative(projectPath, taskFile)}${RESET}\n`);
+	return { taskName, taskDescription: taskDesc, taskContext: context };
+}
+
+/** Send a single clarification turn to the agent. */
+async function sendClarification(
+	agentName: string, systemPrompt: string | null, taskName: string, taskDesc: string, taskContext: string,
+	history: readonly ConversationTurn[], userReply: string | undefined, model: string | undefined,
+	deps: ShellMenuDeps,
+): Promise<AgentResponse | null> {
+	const content = buildClarificationPrompt(agentName, systemPrompt, taskName, taskDesc, taskContext, history, userReply);
+	const stopSpinner = startThinking(agentName);
+	const { output, exitCode } = await deps.shell.runAsync(buildTalkCommand(model), { timeout: 120000, input: content });
+	stopSpinner();
+	if (exitCode !== 0 || !output.trim()) return null;
+	const parsed = parseAgentResponse(output);
+	displayResponse(agentName, parsed, deps);
+	return parsed;
+}
+
+/** Run the back-and-forth clarification loop after the agent's initial review. */
+async function runClarificationLoop(
+	agentName: string, systemPrompt: string | null, taskName: string, taskDesc: string,
+	taskContext: string, history: ConversationTurn[], model: string | undefined,
+	deps: ShellMenuDeps, lastStatus: AgentResponse["status"],
+): Promise<void> {
+	let status = lastStatus;
+	for (;;) {
+		if (status === "ready") {
+			deps.log(`  ${GREEN}✓${RESET} ${agentName} is ready to begin.\n`);
+			break;
+		}
+		const reply = await askUser(status, deps, `  ${BOLD}You${RESET}`, "Enter when ready to start");
+		if (!reply) break;
+		const response = await sendClarification(agentName, systemPrompt, taskName, taskDesc, taskContext, history, reply, model, deps);
+		if (!response) break;
+		history.push({ role: "user", content: reply }, { role: "agent", content: response.message });
+		status = response.status;
+	}
+}
+
+/**
+ * Clarification dialog for AI agents — the agent reviews the task
+ * and asks questions until the user confirms readiness.
+ */
+export async function clarifyTaskInteractive(
+	projectPath: string, agent: AgentSummary, config: AgentsConfig | undefined,
+	taskName: string, taskDesc: string, taskContext: string, deps: ShellMenuDeps,
+): Promise<void> {
+	if (agent.agentType !== "ai" || !deps.shell.check("claude --version")) return;
+
+	deps.log(`  ${DIM}${agent.name} is reviewing the task...${RESET}`);
+	const systemPrompt = readSystemPrompt(deps, projectPath, agent.name, config);
+	const history: ConversationTurn[] = [];
+
+	const initial = await sendClarification(agent.name, systemPrompt, taskName, taskDesc, taskContext, history, undefined, agent.ai?.model, deps);
+	if (!initial) return;
+	history.push({ role: "agent", content: initial.message });
+
+	await runClarificationLoop(agent.name, systemPrompt, taskName, taskDesc, taskContext, history, agent.ai?.model, deps, initial.status);
+	if (history.length > 0) deps.log(`  ${DIM}Clarification complete (${Math.ceil(history.length / 2)} exchanges).${RESET}\n`);
 }
 
 function appendContextLinks(parts: string[], taskCtx?: TaskContext): void {
