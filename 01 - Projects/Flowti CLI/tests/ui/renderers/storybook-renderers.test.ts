@@ -35,7 +35,7 @@ beforeEach(() => { mockLog.mockClear(); mockPrintHeader.mockClear(); });
 
 describe("renderStorybookAlreadyInstalled", () => {
 	it("renders directory path", () => {
-		renderStorybookAlreadyInstalled(log, "/proj/.storybook");
+		renderStorybookAlreadyInstalled("/proj/.storybook", log);
 		expect(output()).toContain("Storybook is already installed at:");
 		expect(output()).toContain("/proj/.storybook");
 	});
@@ -43,7 +43,7 @@ describe("renderStorybookAlreadyInstalled", () => {
 
 describe("renderStorybookInstalling", () => {
 	it("renders installing message with directory", () => {
-		renderStorybookInstalling(log, "/proj/.storybook");
+		renderStorybookInstalling("/proj/.storybook", log);
 		expect(output()).toContain("Installing Storybook into");
 		expect(output()).toContain("/proj/.storybook");
 	});
@@ -58,7 +58,7 @@ describe("renderStorybookInstallFailed", () => {
 
 describe("renderStorybookInstallSuccess", () => {
 	it("renders success message with directory", () => {
-		renderStorybookInstallSuccess(log, "/proj/.storybook");
+		renderStorybookInstallSuccess("/proj/.storybook", log);
 		expect(output()).toContain("✓");
 		expect(output()).toContain("Storybook installed at /proj/.storybook");
 	});
@@ -97,7 +97,7 @@ describe("renderStorybookFailedToStart", () => {
 
 describe("renderStorybookFailOutput", () => {
 	it("renders output lines", () => {
-		renderStorybookFailOutput(log, ["Error: port in use", "Check config"]);
+		renderStorybookFailOutput(["Error: port in use", "Check config"], log);
 		const out = output();
 		expect(out).toContain("Output:");
 		expect(out).toContain("Error: port in use");
@@ -105,7 +105,7 @@ describe("renderStorybookFailOutput", () => {
 	});
 
 	it("handles empty lines array", () => {
-		renderStorybookFailOutput(log, []);
+		renderStorybookFailOutput([], log);
 		expect(output()).toContain("Output:");
 	});
 });
@@ -120,7 +120,7 @@ describe("renderStorybookTimeout", () => {
 
 describe("renderStorybookReady", () => {
 	it("renders ready message with URL", () => {
-		renderStorybookReady(log, "http://localhost:6006");
+		renderStorybookReady("http://localhost:6006", log);
 		expect(output()).toContain("✓");
 		expect(output()).toContain("Storybook ready at");
 		expect(output()).toContain("http://localhost:6006");
@@ -144,7 +144,7 @@ describe("renderStorybookNotRunning", () => {
 
 describe("renderStorybookView", () => {
 	it("renders header and URL", () => {
-		renderStorybookView(log, "http://localhost:6006");
+		renderStorybookView("http://localhost:6006", log);
 		expect(mockPrintHeader).toHaveBeenCalledWith("Storybook");
 		expect(output()).toContain("Running at");
 		expect(output()).toContain("http://localhost:6006");
@@ -154,14 +154,14 @@ describe("renderStorybookView", () => {
 
 describe("renderStorybookBrowserContext", () => {
 	it("renders context message", () => {
-		renderStorybookBrowserContext(log, "Opening browser...");
+		renderStorybookBrowserContext("Opening browser...", log);
 		expect(output()).toContain("Opening browser...");
 	});
 });
 
 describe("renderStorybookOpenedIn", () => {
 	it("renders target", () => {
-		renderStorybookOpenedIn(log, "Chrome");
+		renderStorybookOpenedIn("Chrome", log);
 		expect(output()).toContain("▸");
 		expect(output()).toContain("Opened in Chrome");
 	});
