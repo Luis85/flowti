@@ -85,7 +85,7 @@ tests/vault-template/
 - The vault runs in **standalone mode** — `.flowti/config.json` has no `source` field, so bootstrap skips build/npm and runs the pre-built binary directly.
 - The CLI binary (`.flowti/bin/main.js`) is **never checked into the template** — it is injected by the provider's `setup()` from the freshly-built output.
 - Both sample projects use real `package.json` with actual devDependencies (vitest, typescript, eslint) so commands execute genuinely.
-- `node_modules/` is **pre-installed once** and cached (symlinked or copied from a shared cache), not re-installed per run.
+- `node_modules/` strategy: On first run, `npm ci` installs into each sample project. The resulting `node_modules/` directories are **copied** (not symlinked) into each ephemeral vault. Symlinks are avoided because Windows requires elevated privileges or Developer Mode for directory symlinks. In CI, GitHub Actions cache on `package-lock.json` hash avoids repeated installs.
 
 ### Healthy App
 
@@ -122,14 +122,17 @@ capabilities: ["command", "filesystem", "vault-provision", "vault-cli", "vault-p
 
 ### setup(deps, opts)
 
-1. Copy `tests/vault-template/` → `os.tmpdir()/flowti-vault-test-{uuid}`
-2. Inject freshly-built CLI binary from `.flowti/bin/main.js` into the copy's `.flowti/bin/`
-3. Ensure `node_modules/` exists in both sample projects (symlink from shared cache or install)
-4. Set `opts.variables`:
+1. Guard: `opts.variables ??= {}` (the variables map may be undefined at call time)
+2. Copy `tests/vault-template/` → `os.tmpdir()/flowti-vault-test-{uuid}`
+3. Inject freshly-built CLI binary from `.flowti/bin/main.js` into the copy's `.flowti/bin/`
+4. Copy `node_modules/` into both sample projects (from template if pre-installed, otherwise run `npm ci`)
+5. Set `opts.variables`:
    - `vaultRoot` → temp vault path
    - `healthyProject` → `"Healthy App"` (resolved path)
    - `brokenProject` → `"Broken App"` (resolved path)
-5. Log provisioning summary
+6. Log provisioning summary
+
+**Note:** `setup()` is called once per journey (not once per tier). Each journey gets its own fresh vault copy. See Section 5 for the runner's `beforeEach`/`afterEach` lifecycle.
 
 ### teardown(deps)
 
@@ -161,7 +164,7 @@ Executes Flowti CLI commands against the provisioned vault.
 | `storeAs` | string | no | Store stdout in variables for downstream steps |
 | `format` | string | no | If `"json"`, auto-parse stdout and store parsed object |
 
-**Resolution:** `node {{vaultRoot}}/.flowti/bin/main.js <command>` with `cwd` set to vault root.
+**Resolution:** `node {{vaultRoot}}/.flowti/bin/main.js <command>` with `cwd` resolved from `opts.variables["vaultRoot"]`, **not** from `opts.cwd`. This ensures commands always run in the provisioned vault regardless of the tier runner's working directory. The tool explicitly passes `{ cwd: opts.variables!["vaultRoot"] }` to `deps.exec()`.
 
 **Examples:**
 ```json
@@ -182,7 +185,7 @@ Project-aware convenience wrapper around vault-cli.
 | `storeAs` | string | no | Store output in variables |
 
 **Operations:**
-- `list` → `flowti info --format=json`, extracts project names
+- `list` → Reads the vault's `01 - Projects/` directory and returns project folder names. Does not rely on a CLI command (project listing is a filesystem operation, not a CLI endpoint). If a `flowti projects:list` command is added in the future, this tool can delegate to it.
 - `info` → `flowti info --project="X" --format=json`
 - `run` → `flowti <command> --project="X"`
 
@@ -194,7 +197,7 @@ Vault-aware assertions for integration and ecosystem tiers.
 |---|---|---|---|
 | `type` | string | yes | Assertion type (see below) |
 | `project` | string | varies | Target project name |
-| `source` | string | for json-field | Variable name from prior `storeAs` |
+| `source` | string | for json-field, health-score | Variable name from prior `storeAs` |
 | `field` | string | for json-field | Dot-path into JSON object |
 | `operator` | string | for json-field | `eq`, `gt`, `gte`, `lt`, `lte`, `contains` |
 | `expected` | any | for json-field | Expected value |
@@ -204,7 +207,7 @@ Vault-aware assertions for integration and ecosystem tiers.
 | `actual` | string | for stdout-snapshot | Value to compare |
 
 **Assertion types:**
-- `health-score` — Runs health command, checks score in range
+- `health-score` — Reads from a stored JSON variable (populated by a prior `vault-cli` step with `storeAs`), extracts the `score` field, checks it falls within `min`/`max` range. Requires `source` property pointing to the variable name. Does **not** re-execute the CLI.
 - `report-exists` — Checks file existence in project's reports directory
 - `json-field` — Reads from stored variable, traverses dot-path, applies operator
 - `stdout-snapshot` — Compares against snapshot file in `tests/vault-journeys/__snapshots__/`
@@ -254,7 +257,7 @@ tests/vault-journeys/
 | help | 2 | Help lists commands, exit code 0 |
 | project-discovery | 2 | CLI finds both sample projects by name |
 
-### Tier 2 — Integration (7 journeys, ~30s)
+### Tier 2 — Integration (8 journeys, ~30s)
 
 **Purpose:** Exercise core CLI commands against both sample projects with structured output validation.
 
@@ -286,10 +289,11 @@ tests/vault-journeys/
 
 ### Journey Design Rules
 
-- Each journey is **self-contained** — no cross-journey dependencies. Every journey gets a clean vault from `setup()`.
+- Each journey is **self-contained** — no cross-journey dependencies. Every journey gets its own fresh vault copy via `setup()`/`teardown()` at the `describe()` level (see Section 5). This means `scaffold.journey` creating new files does not affect other journeys.
 - `$ref` composition is available but not used initially (YAGNI). Extract shared steps only when repetition becomes painful.
 - Journey names map 1:1 to Vitest test names for traceability.
 - Negative tests (broken app) explicitly declare expected non-zero exit codes.
+- Mutation journeys (e.g. `scaffold.journey`) are safe because of per-journey isolation — no ordering constraints needed.
 
 ## Section 5: Vitest Harness
 
@@ -302,6 +306,7 @@ A dedicated Vitest configuration for vault journey tests, separate from the 6,69
 | Setting | Value | Rationale |
 |---|---|---|
 | Pool | `forks` | Process isolation per journey (matches unit config) |
+| Include | `tests/vault-journeys/**/*.test.ts` | Only vault runners, not the 6,691 unit tests |
 | Timeout | 60,000ms | Vault operations are slower than unit tests |
 | Globals | `true` | Consistent with unit test config |
 | Restore/clear mocks | `true` | Clean state between runs |
@@ -325,11 +330,49 @@ tests/vault-journeys/
 ```
 
 Each runner:
-1. Loads all `.journey` files from its tier directory via `loadAllJourneys()`
+1. Loads all `.journey` files from its tier directory via `loadAllJourneys(readFile, listFiles, dir)` — using `node:fs` directly (permitted in test files per architecture rules)
 2. Creates a `describe()` block per journey
-3. Creates an `it()` per step within each journey
-4. Calls `runStep()` from the existing journey test runner
-5. Provider `setup()` runs in `beforeAll()`, `teardown()` in `afterAll()`
+3. Provider `setup()` runs in `beforeEach()` inside the `describe()` — **each journey gets its own fresh vault copy**
+4. Creates an `it()` per step within each journey, calling `runStep()` from the existing journey test runner
+5. Provider `teardown()` runs in `afterEach()` — cleans up the ephemeral vault
+
+**Tier runner skeleton:**
+```typescript
+import { readFileSync, readdirSync } from "node:fs";
+import { loadAllJourneys } from "../../src/domain/e2e/journey/journey-loader.js";
+import { runStep, setToolDeps, createDefaultDeps } from "../../src/domain/e2e/journey/journey-test-runner.js";
+import { createVaultTestProvider } from "../../src/domain/e2e/journey/providers/vault-test-provider.js";
+
+const readFile = (p: string) => readFileSync(p, "utf-8");
+const listFiles = (d: string) => readdirSync(d).filter(f => f.endsWith(".journey"));
+const journeys = loadAllJourneys(readFile, listFiles, "tests/vault-journeys/tier-1-smoke");
+const provider = createVaultTestProvider();
+
+for (const journey of journeys) {
+  describe(`[Tier 1] ${journey.journey}`, () => {
+    let opts: JourneyExecutorOptions;
+
+    beforeEach(async () => {
+      opts = { variables: {} };
+      const deps = createDefaultDeps(cliDeps);
+      await provider.setup!(deps, opts);
+      setToolDeps(deps);
+    });
+
+    for (const step of journey.steps) {
+      it(step.title, async () => {
+        const result = await runStep(step, opts);
+        expect(result.status).toBe("pass");
+      });
+    }
+
+    afterEach(async () => {
+      const deps = createDefaultDeps(cliDeps);
+      await provider.teardown!(deps);
+    });
+  });
+}
+```
 
 ### npm Scripts
 
@@ -360,6 +403,8 @@ flowti test:vault --tier=smoke                             # Specific tier
 flowti test:vault --tier=integration --project="Healthy App"  # Filtered
 flowti test:vault --format=json                            # Structured output
 ```
+
+The `vault-test.controller.ts` is registered independently in the command registry (in `main.ts`), analogous to how `state.controller.ts` is separate from `build.controller.ts`. The `test:vault` namespace does not conflict with the existing `test` and `test:*` commands in `build.controller.ts`.
 
 Controller wraps results in `CliResponse<VaultTestResult>`:
 
@@ -392,6 +437,8 @@ Vault test runs log to the activity log in `.flowti/var/world-state.json`:
 ```
 
 Visible to all agents via `flowti state` and `world-state` tool output.
+
+**Dependency:** The existing `WorldStateManager` (in `src/infrastructure/world-state-manager.ts`) needs a `logEvent()` method (or equivalent) for the vault-test controller to append activity entries. If this method does not yet exist, it must be added as a prerequisite. The controller calls `req.deps.worldState.logEvent(event)` after each vault test run.
 
 ### Layer 3: Brief-Driven Orchestration (future)
 
@@ -469,17 +516,98 @@ on:
 | `tests/vault-template/01 - Projects/Healthy App/` | Fixture | Passing sample project |
 | `tests/vault-template/01 - Projects/Broken App/` | Fixture | Failing sample project |
 | `src/domain/e2e/journey/providers/vault-test-provider.ts` | Source | EnvironmentProvider + 3 tools |
-| `src/domain/e2e/journey/providers/index.ts` | Source | Register vault-test provider (modify) |
+| `src/domain/e2e/journey/providers/index.ts` | Source | Register vault-test provider + 3 new capabilities (modify) |
+| `src/domain/e2e/journey/journey-types.ts` | Source | Add `"vault-test"` to `ProjectTarget` union (modify) |
 | `tests/vault-journeys/tier-1-smoke/*.journey` | Journey | 3 smoke test journeys |
-| `tests/vault-journeys/tier-2-integration/*.journey` | Journey | 7 integration test journeys |
+| `tests/vault-journeys/tier-2-integration/*.journey` | Journey | 8 integration test journeys |
 | `tests/vault-journeys/tier-3-ecosystem/*.journey` | Journey | 4 ecosystem test journeys |
 | `tests/vault-journeys/tier-1-smoke.test.ts` | Test | Tier 1 Vitest runner |
 | `tests/vault-journeys/tier-2-integration.test.ts` | Test | Tier 2 Vitest runner |
 | `tests/vault-journeys/tier-3-ecosystem.test.ts` | Test | Tier 3 Vitest runner |
 | `configs/vitest.vault.config.ts` | Config | Vault test Vitest config |
 | `src/controller/vault-test.controller.ts` | Source | `flowti test:vault` command |
+| `src/main.ts` | Source | Register vault-test controller (modify) |
 | `.github/workflows/vault-test.yml` | CI | GitHub Actions pipeline |
 | `package.json` | Config | New `test:vault*` scripts (modify) |
+
+### Type System Changes
+
+**`journey-types.ts`:** Add `"vault-test"` to the `ProjectTarget` union type:
+```typescript
+export type ProjectTarget = "cli" | "obsidian-vault" | "obsidian-plugin" | "typescript" | "webapp" | "vault-test";
+```
+
+### Capability Registrations
+
+**`providers/index.ts`:** Register 3 new capabilities alongside the existing 16:
+```typescript
+registry.registerCapability({ id: "vault-provision", name: "Vault Provisioning", description: "Provision ephemeral test vaults", check: () => true });
+registry.registerCapability({ id: "vault-cli", name: "Vault CLI Execution", description: "Execute Flowti CLI in provisioned vault", check: () => true });
+registry.registerCapability({ id: "vault-project", name: "Vault Project Operations", description: "Query and manage projects in provisioned vault", check: () => true });
+```
+
+## Complete Journey Example
+
+`tier-2-integration/health-healthy.journey`:
+```json
+{
+  "journey": "Health Check — Healthy App",
+  "description": "Verify health scoring on a well-configured project",
+  "requires": { "target": "vault-test" },
+  "steps": [
+    {
+      "id": "health-json",
+      "title": "Health returns structured JSON",
+      "actions": [
+        {
+          "tool": "vault-cli",
+          "command": "health --project=\"Healthy App\" --format=json",
+          "expectExit": 0,
+          "format": "json",
+          "storeAs": "healthResult"
+        }
+      ]
+    },
+    {
+      "id": "score-range",
+      "title": "Health score is above minimum threshold",
+      "actions": [
+        {
+          "tool": "vault-assert",
+          "type": "health-score",
+          "source": "healthResult",
+          "min": 70,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "id": "report-generated",
+      "title": "Health report file exists",
+      "actions": [
+        {
+          "tool": "vault-assert",
+          "type": "report-exists",
+          "project": "Healthy App",
+          "report": "health"
+        }
+      ]
+    }
+  ]
+}
+```
+
+## Known Constraints
+
+1. **Build failure before vault tests:** The `test:vault` npm scripts chain `node configs/esbuild.config.mjs && vitest run ...`. If the build fails, the `&&` operator prevents Vitest from running. This is intentional — vault tests against a stale binary are meaningless. The CI pipeline has an explicit build step before vault tests for the same reason.
+
+2. **Stale temp directories from crashed runs:** If a previous run crashes before `teardown()`, orphaned `flowti-vault-test-*` directories may remain in `os.tmpdir()`. The provider's `setup()` does not clean up previous runs' directories. Mitigation: periodic manual cleanup, or add an optional `--clean` flag to the `test:vault` command that removes stale temp dirs before running.
+
+3. **Tier 3 timeout budget:** The `iteration-lifecycle.journey` has 5 steps with a global 60s estimate for the entire tier. If iteration commands involve file I/O and state writes, individual steps may take 5-10s. The Vitest per-test timeout of 60s applies per `it()` block (per step), not per tier, so this is safe. The 60s tier estimate is for total wall time, not a hard limit.
+
+4. **GitHub Actions path filters with spaces:** The CI trigger paths include `"01 - Projects/Flowti CLI/src/**"` which contains spaces. GitHub Actions handles quoted paths with spaces correctly, but this is verified behavior — do not remove the quotes.
+
+5. **Windows-specific concerns:** The template vault uses `node_modules/` copy (not symlink) to avoid Windows permission issues. The `flowti.cmd` launcher is Windows-specific; Linux/macOS CI would need a `flowti` shell script or direct `node .flowti/bin/main.js` invocation.
 
 ## Success Criteria
 
