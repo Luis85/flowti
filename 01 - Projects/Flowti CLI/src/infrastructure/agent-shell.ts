@@ -12,6 +12,8 @@ import { parseAgentResponse, buildConversationPrompt } from "../domain/agents/ag
 import type { AgentCharacter } from "../domain/agents/agent-conversation.js";
 import { readAgentState, writeAgentState, completeFirstTask } from "../domain/agents/agent-state.js";
 import type { AgentPendingQuestion } from "../domain/agents/agent-state.js";
+import { mapStreamEventToAction } from "../domain/agents/action-mapper.js";
+import type { IWorldStateManager } from "../domain/agents/world-state-types.js";
 
 export type ShellBaseDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "shell" | "log">;
 
@@ -123,7 +125,7 @@ interface DispatchCompletionCtx {
 	agent: AgentSummary; opts: DispatchOptions | undefined;
 	failureCounts: Map<string, number>; pendingNotifications: Map<string, PendingQuestion>;
 	activeDispatches: Map<string, DispatchHandle>; setAgentStatus: (name: string, status: "busy" | "idle") => void;
-	shellRef: IAgentShell;
+	shellRef: IAgentShell; worldState?: IWorldStateManager; idCounter: { value: number };
 }
 
 function handleDispatchQuestion(ctx: DispatchCompletionCtx, message: string): void {
@@ -135,6 +137,11 @@ function handleDispatchQuestion(ctx: DispatchCompletionCtx, message: string): vo
 	ctx.activeDispatches.delete(ctx.agentName);
 }
 
+function emitWorldAction(ctx: DispatchCompletionCtx, type: "task-completed" | "task-started", data: Record<string, unknown>): void {
+	if (!ctx.worldState) return;
+	ctx.worldState.emitAction({ id: `task-${ctx.deps.clock.ms()}-${++ctx.idCounter.value}`, agentName: ctx.agentName, timestamp: ctx.deps.clock.iso(), type, data });
+}
+
 function handleDispatchCompletion(ctx: DispatchCompletionCtx): void {
 	if (ctx.accumulated) writeInboxNote(ctx.deps, ctx.vaultRoot, ctx.agentName, ctx.persona, ctx.task, ctx.accumulated, ctx.thinkingText);
 	const response = parseAgentResponse(ctx.accumulated);
@@ -143,6 +150,7 @@ function handleDispatchCompletion(ctx: DispatchCompletionCtx): void {
 	state = completeFirstTask(state, ctx.task);
 	state = { ...state, pendingQuestion: undefined };
 	writeAgentState(ctx.deps, ctx.varDir, ctx.agentName, state);
+	emitWorldAction(ctx, "task-completed", { task: ctx.task });
 	const failed = ctx.exitCode !== 0 && !ctx.accumulated;
 	if (failed) { ctx.failureCounts.set(ctx.agentName, (ctx.failureCounts.get(ctx.agentName) ?? 0) + 1); } else { ctx.failureCounts.delete(ctx.agentName); }
 	if ((ctx.failureCounts.get(ctx.agentName) ?? 0) >= 3) {
@@ -165,7 +173,7 @@ function handleDispatchCompletion(ctx: DispatchCompletionCtx): void {
 	} else { ctx.setAgentStatus(ctx.agentName, "idle"); ctx.activeDispatches.delete(ctx.agentName); }
 }
 
-export function createAgentShell(deps: ShellBaseDeps, config: AgentsConfig | undefined, vaultRoot: string): IAgentShell {
+export function createAgentShell(deps: ShellBaseDeps, config: AgentsConfig | undefined, vaultRoot: string, worldState?: IWorldStateManager): IAgentShell {
 	const activeDispatches = new Map<string, DispatchHandle>();
 	const globalProvider = config?.provider;
 	const processTimeout = config?.processTimeoutMs ?? 3_600_000;
@@ -213,6 +221,7 @@ export function createAgentShell(deps: ShellBaseDeps, config: AgentsConfig | und
 				if (event.kind === "thinking") thinkingBuffer.push(event.text);
 				if (event.kind === "text") textBuffer.push(event.text);
 				if (!detached) emit(event);
+				if (worldState) { const action = mapStreamEventToAction(agent.name, event, deps.clock); if (action) worldState.emitAction(action); }
 			});
 			const idleMs = opts?.idleTimeoutMs ?? 120_000;
 			let idleTimer: ReturnType<typeof setTimeout>;
@@ -279,6 +288,7 @@ export function createAgentShell(deps: ShellBaseDeps, config: AgentsConfig | und
 			};
 			activeDispatches.set(agent.name, handle);
 			setAgentStatus(agent.name, "busy");
+			if (worldState) worldState.emitAction({ id: `task-${deps.clock.ms()}-${++idCounter.value}`, agentName: agent.name, timestamp: deps.clock.iso(), type: "task-started", data: { task } });
 			if (opts?.iterDir && opts.iterationNumber !== undefined) {
 				const iterDir = opts.iterDir;
 				const iterNum = opts.iterationNumber;
@@ -300,13 +310,14 @@ export function createAgentShell(deps: ShellBaseDeps, config: AgentsConfig | und
 				if (event.kind === "usage") lastUsage = { inputTokens: event.inputTokens, outputTokens: event.outputTokens };
 				events.push({ ...event, ts: deps.clock.iso() });
 				emit(event);
+				if (worldState) { const action = mapStreamEventToAction(agent.name, event, deps.clock); if (action) worldState.emitAction(action); }
 			});
 			proc.waitForExit(processTimeout).then((exitCode) => {
 				handleDispatchCompletion({
 					deps, vaultRoot, varDir, agentName: agent.name, persona: agent.persona,
 					task, briefPath, accumulated: textBuffer.join(""), thinkingText: thinkingBuffer.join(""),
 					exitCode, agent, opts, failureCounts, pendingNotifications, activeDispatches,
-					setAgentStatus, shellRef: shell,
+					setAgentStatus, shellRef: shell, worldState, idCounter,
 				});
 			}).catch(() => { activeDispatches.delete(agent.name); });
 			return handle;
