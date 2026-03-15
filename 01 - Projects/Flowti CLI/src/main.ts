@@ -303,9 +303,6 @@ async function main(): Promise<void> {
 	const deps = createDefaultDeps(cliConfig.agents, VAULT_ROOT);
 	initializeDeps(deps);
 
-	const { recovered } = deps.agentShell.reconcileStaleAgents();
-	if (recovered.length > 0) log(`  ${DIM}Recovered ${recovered.length} stale agent(s): ${recovered.join(", ")}${RESET}`);
-
 	deps.workerManager.spawnAll();
 
 	checkPrerequisites(cliConfig.onboarding?.nodeMinVersion ?? 16, { shell, proc });

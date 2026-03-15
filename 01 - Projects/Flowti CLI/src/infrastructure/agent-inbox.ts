@@ -1,8 +1,8 @@
-import type { ShellBaseDeps } from "./agent-shell.js";
+import type { ProcessRunnerDeps } from "./agent-process-runner.js";
 import { parseAgentResponse } from "../domain/agents/agent-conversation.js";
 
 export function writeInboxNote(
-	deps: ShellBaseDeps, vaultRoot: string, agentName: string,
+	deps: ProcessRunnerDeps, vaultRoot: string, agentName: string,
 	persona: string | undefined, task: string | undefined,
 	responseText: string, thinkingText: string,
 ): void {
@@ -27,7 +27,7 @@ export function writeInboxNote(
 }
 
 export function writeSystemInboxNote(
-	deps: ShellBaseDeps, vaultRoot: string, agentName: string, message: string,
+	deps: ProcessRunnerDeps, vaultRoot: string, agentName: string, message: string,
 ): void {
 	const inboxDir = deps.paths.join(vaultRoot, "00 - Connectivity", "inbox");
 	if (!deps.disk.existsSync(inboxDir)) deps.disk.mkdirSync(inboxDir, { recursive: true });

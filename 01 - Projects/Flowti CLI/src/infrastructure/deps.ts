@@ -6,7 +6,7 @@
  * Production code uses createDefaultDeps(); tests use createTestDeps().
  */
 
-import type { IFileSystem, IShell, IPaths, IClock, IProcess, IInput, IAgentShell, IWorldStateManager, IWorkerManager, IAgentProcessRunner } from "./types.js";
+import type { IFileSystem, IShell, IPaths, IClock, IProcess, IInput, IWorldStateManager, IWorkerManager, IAgentProcessRunner } from "./types.js";
 import type { ICliBus } from "./event-bus.js";
 import { disk } from "./filesystem.js";
 import { shell } from "./shell.js";
@@ -18,7 +18,6 @@ import { log, warn } from "./logger.js";
 import { createCliBus } from "./event-bus.js";
 import { attachCliRenderer } from "../ui/renderers/cli-event-renderer.js";
 import type { AgentsConfig } from "./types-config.js";
-import { createAgentShell } from "./agent-shell.js";
 import { createWorldStateManager } from "./world-state-manager.js";
 import { createProcessRunner } from "./agent-process-runner.js";
 import { createWorkerManager } from "./worker-manager.js";
@@ -36,7 +35,6 @@ export interface CliDeps {
 	readonly bus: ICliBus;
 	readonly log: (msg?: string) => void;
 	readonly warn: (msg: string) => void;
-	readonly agentShell: IAgentShell;
 	readonly worldState: IWorldStateManager;
 	readonly workerManager: IWorkerManager;
 	readonly processRunner: IAgentProcessRunner;
@@ -61,9 +59,6 @@ export type MenuDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "input" | "log
 
 /** Dependencies for shell-capable menu functions. */
 export type ShellMenuDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "input" | "shell" | "log">;
-
-/** Dependencies for agent menu functions (talk/dispatch via shell abstraction). */
-export type AgentMenuDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "input" | "log" | "agentShell">;
 
 /** Dependencies for dependency-graph display. */
 export type DepsDeps = Pick<CliDeps, "disk" | "paths" | "log">;
@@ -104,9 +99,8 @@ export function createDefaultDeps(agentsConfig?: AgentsConfig, vaultRoot?: strin
 	const resolvedRoot = vaultRoot ?? ".";
 	const worldState = createWorldStateManager({ disk, paths, clock }, resolvedRoot);
 	const baseDeps = { disk, shell, paths, clock, log };
-	const agentShell = createAgentShell(baseDeps, agentsConfig, resolvedRoot, worldState);
 	const processRunner = createProcessRunner(baseDeps, agentsConfig);
 	const workerManager = createWorkerManager(baseDeps, worldState, processRunner, resolvedRoot, agentsConfig);
 	worldState.setActionCallback((action) => workerManager.dispatchWorldEvent(action));
-	return { disk, shell, paths, clock, proc, input, bus, log, warn, agentShell, worldState, workerManager, processRunner };
+	return { disk, shell, paths, clock, proc, input, bus, log, warn, worldState, workerManager, processRunner };
 }

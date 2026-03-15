@@ -65,65 +65,6 @@ export interface IShell {
 	runParallel(cmds: string[], opts?: { cwd?: string; timeout?: number }): Promise<{ output: string; exitCode: number }[]>;
 }
 
-// ── Agent shell abstraction ──────────────────────────────────────────
-
-export interface ProviderConfig {
-	readonly binary: string;
-	readonly streamArgs: readonly string[];
-	readonly textArgs: readonly string[];
-}
-
-export interface TalkOptions {
-	readonly thinkingDisplay?: "full" | "indicator" | "hidden";
-	readonly character?: import("../domain/agents/agent-conversation.js").AgentCharacter;
-	readonly idleTimeoutMs?: number;
-}
-
-export interface TalkResult {
-	readonly response: import("../domain/agents/agent-conversation.js").AgentResponse;
-	readonly thinking: string;
-	readonly detached: boolean;
-}
-
-export interface TalkSession {
-	onEvent(callback: (event: import("../domain/agents/agent-stream.js").AgentStreamEvent) => void): () => void;
-	readonly result: Promise<TalkResult | null>;
-	detach(): void;
-}
-
-export interface DispatchOptions {
-	readonly iterDir?: string;
-	readonly iterationNumber?: number;
-}
-
-export interface DispatchHandle {
-	onEvent(callback: (event: import("../domain/agents/agent-stream.js").AgentStreamEvent) => void): () => void;
-	readonly sessionId: string;
-	readonly agentName: string;
-	readonly task: string;
-	readonly running: boolean;
-	stop(): void;
-}
-
-export interface PendingQuestion {
-	readonly agentName: string;
-	readonly persona?: string;
-	readonly question: string;
-	readonly agent: import("../domain/agents/agent-types.js").AgentSummary;
-	readonly briefPath: string;
-	readonly task: string;
-	readonly opts?: DispatchOptions;
-}
-
-export interface IAgentShell {
-	talk(agent: import("../domain/agents/agent-types.js").AgentSummary, prompt: string, opts?: TalkOptions): TalkSession;
-	dispatch(agent: import("../domain/agents/agent-types.js").AgentSummary, briefPath: string, task: string, opts?: DispatchOptions): DispatchHandle;
-	getActiveDispatch(agentName: string): DispatchHandle | null;
-	reconcileStaleAgents(): { recovered: string[] };
-	pendingQuestions(): PendingQuestion[];
-	answerAgent(agentName: string, answer: string): Promise<void>;
-}
-
 // ── Process abstraction ──────────────────────────────────────────────
 
 export interface IProcess {
@@ -201,7 +142,6 @@ export type MenuEntry = MenuItem | MenuSeparator;
 
 export interface MenuOptions {
 	defaultChoice?: string;
-	onAgentQuestion?: () => Promise<MenuResult | undefined>;
 	renderStatusBar?: () => void;
 }
 
