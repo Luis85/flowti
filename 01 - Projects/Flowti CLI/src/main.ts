@@ -58,6 +58,7 @@ import { commands as aiToolsCmds } from "./controller/ai-tools.controller.js";
 import { commands as sitemapCmds } from "./controller/sitemap.controller.js";
 import { commands as serveCmds } from "./controller/serve.controller.js";
 import { commands as claudeSyncCmds } from "./controller/claude-sync.controller.js";
+import { commands as stateCmds } from "./controller/state.controller.js";
 import { disk, watchFile } from "./infrastructure/filesystem.js";
 import { shell } from "./infrastructure/shell.js";
 import { paths } from "./infrastructure/paths.js";
@@ -107,6 +108,7 @@ registry.registerDomain({ domain: "ai-tools", commands: aiToolsCmds, projectFree
 registry.registerDomain({ domain: "sitemap", commands: sitemapCmds, projectFree: ["sitemap:validate", "sitemap:status", "sitemap:views"] });
 registry.registerDomain({ domain: "serve", commands: serveCmds, projectFree: ["serve", "serve:stop", "serve:status"] });
 registry.registerDomain({ domain: "claude", commands: claudeSyncCmds, projectFree: ["claude:sync"] });
+registry.registerDomain({ domain: "state", commands: stateCmds, projectFree: ["state"] });
 registry.setWildcard("reports", reportsCmds["report:*"]);
 
 let pluginsRegistered = false;
@@ -310,6 +312,7 @@ async function main(): Promise<void> {
 	const router = createRouter(deps);
 	await router.run("start");
 
+	deps.worldState.flush();
 	log(`\n  ${DIM}Goodbye.${RESET}\n`);
 	proc.exit(0);
 }
