@@ -53,6 +53,15 @@ export interface AgentGoal {
 	condition?: string;
 }
 
+/** Permission mode for agent tool calls. */
+export type PermissionMode = "ask" | "auto-allow" | "trust";
+
+/** Policy that determines how an agent's tool calls are approved. */
+export interface AgentPermissionPolicy {
+	readonly mode: PermissionMode;
+	readonly autoAllowTools?: readonly string[];
+}
+
 /** AI-specific configuration for LLM-backed agents. */
 export interface AgentAIConfig {
 	/** AI provider (e.g., "anthropic", "openai", "local"). */
@@ -63,6 +72,8 @@ export interface AgentAIConfig {
 	outputFormat?: "text" | "stream-json";
 	/** Optional tool restrictions for autonomous runs. */
 	allowedTools?: string[];
+	/** Permission model for tool calls (ask / auto-allow / trust). */
+	permissions?: AgentPermissionPolicy;
 }
 
 /** An explicit relationship to another agent or component. */
