@@ -451,7 +451,7 @@ Vault test runs log to the activity log in `.flowti/var/world-state.json`:
 
 Visible to all agents via `flowti state` and `world-state` tool output.
 
-**Dependency:** The existing `WorldStateManager` (in `src/infrastructure/world-state-manager.ts`) needs a `logEvent()` method (or equivalent) for the vault-test controller to append activity entries. If this method does not yet exist, it must be added as a prerequisite. The controller calls `req.deps.worldState.logEvent(event)` after each vault test run.
+**Integration:** The existing `IWorldStateManager` already exposes `emitAction(action: AgentAction)`. The vault-test controller uses this directly: `req.deps.worldState.emitAction({ type: "vault-test-completed", agent: "Tester", ... })`. No new interface methods are needed.
 
 ### Layer 3: Brief-Driven Orchestration (future)
 
