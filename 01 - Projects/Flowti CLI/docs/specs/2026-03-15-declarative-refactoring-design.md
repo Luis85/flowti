@@ -42,10 +42,16 @@ interface CommandDescriptor<TFlags = Record<string, unknown>, TModel = unknown> 
   requires?: "project";
   flags?: Record<string, FlagSpec>;
   rawArgs?: boolean;
+  wildcardPrefix?: string;                     // e.g. "report:" — engine strips prefix, sets ctx.wildcard
   handler: (ctx: CommandContext<TFlags>) => TModel | Promise<TModel>;
   renderer: RendererFn<TModel>;
   exitCode?: number | ((model: TModel) => number | undefined);
 }
+
+// RendererFn receives the model and log function.
+// The engine calls renderer(model, ctx.deps.log) automatically.
+// Existing renderers that take (log, data) must be adapted to (data, log) during migration.
+type RendererFn<TModel> = (data: TModel, log: LogFn) => void;
 
 interface FlagSpec {
   type: "string" | "boolean" | "number" | "list";
@@ -58,12 +64,32 @@ interface FlagSpec {
 }
 
 interface CommandContext<TFlags> {
+  command: string;                             // full command string (e.g. "report:coverage")
   flags: TFlags;
   rawArgs?: string[];
   project?: ProjectContext;
   deps: CliDeps;
-  wildcard?: string;  // for wildcard commands like report:*
+  wildcard?: string;                           // suffix after wildcardPrefix (e.g. "coverage")
 }
+
+// Batch registration for dynamically generated commands (e.g. make:*)
+function defineCommands(
+  descriptors: Array<{ name: string } & CommandDescriptor>
+): void;
+
+// Example: make.controller.ts dynamic registration
+defineCommands(
+  COMPONENT_DEFINITION_IDS.map(id => {
+    const shortName = id === "c4-component" ? "c4-component" : id.replace("c4-", "");
+    return {
+      name: `make:${shortName}`,
+      requires: "project" as const,
+      flags: { name: { type: "string" as const } },
+      handler: (ctx) => makeComponent(id, ctx.flags.name, ctx.project!, ctx.deps),
+      renderer: renderMakeResult,
+    };
+  })
+);
 ```
 
 #### Engine Responsibilities
@@ -71,10 +97,20 @@ interface CommandContext<TFlags> {
 1. Parse `req.flags` against the flag spec — coerce types, apply defaults
 2. Validate required flags — return error response with hint automatically
 3. Validate choices — return error with allowed values automatically
-4. Check `requires: "project"` — return `noProjectResponse` automatically
-5. Call handler with typed, validated flags
-6. Wrap return value in `dataResponse(model, renderer)`
-7. Apply exitCode (static or computed from model)
+4. Check `requires: "project"` — return `noProjectResponse` using `renderNoProject` from `common-renderers.ts` (preserves existing output format)
+5. Resolve wildcard: if `wildcardPrefix` is set and command matches, strip prefix into `ctx.wildcard`
+6. Set `ctx.command` to the full command string
+7. Call handler with typed, validated flags
+8. Call `renderer(model, ctx.deps.log)` and wrap in `dataResponse()`
+9. Apply exitCode (static or computed from model)
+
+#### Dispatch Integration
+
+`dispatch.ts` currently hardcodes `startsWith("report:")` for wildcard matching. During migration, `dispatch.ts` must be updated to read the registered `wildcardPrefix` from the command registry instead of hardcoding the prefix. The command registry's `setWildcard()` slot is replaced by the engine's `wildcardPrefix` field. This change is included in Phase 4 (controller migration) since it is a prerequisite for migrating `reports.controller.ts`.
+
+#### Renderer Signature Migration
+
+Existing renderers use `(log: LogFn, data: T) => void` (log-first). The engine calls `renderer(data, log)` (data-first). During Phase 4, each renderer's parameter order must be swapped. Since renderers are only called from controllers (now the engine), this is safe — no external consumers exist. The migration order is: migrate controller + its renderers together in a single commit.
 
 #### Edge Cases Handled
 
@@ -82,8 +118,8 @@ interface CommandContext<TFlags> {
 |---------|-------|-----------|
 | Async handlers | 8 | Engine detects Promise return, awaits |
 | Multiple response types | 7 | Handler returns union, renderer handles variants |
-| Dynamic actions (make:*) | 1 | `defineCommands()` batch registration |
-| Wildcard routing (report:*) | 1 | `wildcard: true` — engine sets `ctx.wildcard` |
+| Dynamic actions (make:*) | 1 | `defineCommands()` batch registration — maps array to descriptors with closures |
+| Wildcard routing (report:*) | 1 | `wildcardPrefix: "report:"` — engine strips prefix, sets `ctx.wildcard` |
 | rawArgs (help) | 1 | `rawArgs: true` — engine passes `ctx.rawArgs` |
 | Fire-and-forget | 3 | Handler performs side effect, returns model |
 | Multi-step execution | 4 | Domain function owns the steps |
@@ -92,6 +128,7 @@ interface CommandContext<TFlags> {
 | Enum validation | 10+ | `choices: [...]` on FlagSpec |
 | Comma-separated lists | 2 | `type: "list"` splits on comma |
 | Custom flag parser | 1 | `parse: (raw) => ...` on FlagSpec |
+| Dynamic imports in handler | 1 | `serve` uses `await import()` for deferred config loading — permitted inside async handlers since handlers execute in the controller layer, not domain |
 
 #### Example: Before and After
 
@@ -153,10 +190,12 @@ interface StoreDescriptor<TSummary, TDefinition> {
   sort?: (a: TSummary, b: TSummary) => number;
   filter?: (fm: Record<string, string>) => boolean;
 
-  buildBody: (def: TDefinition) => string;
+  // buildBody receives StoreDeps (which includes clock when needsClock is set)
+  // so it can stamp creation dates, compute fields, etc.
+  buildBody: (def: TDefinition, deps: StoreDeps) => string;
   parseBody?: (body: string, fm: Record<string, string>) => Partial<TSummary>;
 
-  needsClock?: boolean;
+  needsClock?: boolean;  // when true, StoreDeps includes "clock" (IClock)
 
   companion?: CompanionSpec;
   idGeneration?: { prefix: string; padding: number };
@@ -278,7 +317,7 @@ export function captureDisplay(fn: (log: LogFn) => void): string {
 #### Controller Test Pattern (After)
 
 ```typescript
-import { capaCommands } from "../../src/controllers/capa.controller.js";
+import { capaCommands } from "../../src/controller/capa.controller.js";
 
 describe("capa controller descriptors", () => {
   it("capa:list requires project", () => {
@@ -341,6 +380,14 @@ tests/infrastructure/
 ```
 
 ### 4. Migration Strategy
+
+#### Prerequisites
+
+**`createTestDeps()` must be updated** before Phase 5. The current `tests/mocks/mock-deps.ts` does not stub `agentShell`, `worldState`, `workerManager`, or `processRunner`, but the production `CliDeps` interface requires all four. Controllers like `state.controller.ts` access `ctx.deps.worldState.getState()` directly. Without stubs, handler unit tests will crash at runtime (not caught by TypeScript if deps are cast with `as`).
+
+Action: In Phase 2, update `createTestDeps()` to include no-op stubs for all `CliDeps` fields. The new `createStoreDeps()` helper is a convenience wrapper for store tests that only need `{ disk, paths, clock }` — it does not replace `createTestDeps()`.
+
+**`dispatch.ts` must be updated** during Phase 4. The current wildcard routing hardcodes `startsWith("report:")`. The engine's `wildcardPrefix` mechanism replaces this, requiring dispatch.ts to read the prefix from the command registry.
 
 #### Phase Sequence
 
