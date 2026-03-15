@@ -1,0 +1,23 @@
+{
+	"journey": "Build — Healthy App",
+	"description": "Verify build succeeds on a well-configured project",
+	"requires": { "target": "vault-test" },
+	"steps": [
+		{
+			"id": "build-succeeds",
+			"title": "Build exits with code 0",
+			"description": "Run the build command and verify it succeeds",
+			"actions": [
+				{ "tool": "vault-cli", "command": "build --project=\"Healthy App\"", "expectExit": 0 }
+			]
+		},
+		{
+			"id": "build-output",
+			"title": "Build produces output",
+			"description": "Verify the build command returns meaningful output",
+			"actions": [
+				{ "tool": "vault-cli", "command": "build --project=\"Healthy App\"", "expectExit": 0, "storeAs": "buildOutput" }
+			]
+		}
+	]
+}

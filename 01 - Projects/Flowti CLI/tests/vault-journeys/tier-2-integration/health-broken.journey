@@ -1,0 +1,23 @@
+{
+	"journey": "Health Check — Broken App",
+	"description": "Verify health scoring reports degraded status on a broken project",
+	"requires": { "target": "vault-test" },
+	"steps": [
+		{
+			"id": "health-json",
+			"title": "Health returns structured JSON",
+			"description": "Run the health command and store the JSON result",
+			"actions": [
+				{ "tool": "vault-cli", "command": "health --project=\"Broken App\" --format=json", "expectExit": 0, "format": "json", "storeAs": "healthResult" }
+			]
+		},
+		{
+			"id": "score-low",
+			"title": "Health score is below target",
+			"description": "Verify the health score is below the target threshold due to broken state",
+			"actions": [
+				{ "tool": "vault-assert", "type": "health-score", "source": "healthResult", "min": 0, "max": 69 }
+			]
+		}
+	]
+}

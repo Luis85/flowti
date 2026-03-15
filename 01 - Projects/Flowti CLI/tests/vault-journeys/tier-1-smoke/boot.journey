@@ -1,0 +1,15 @@
+{
+	"journey": "CLI Boot",
+	"description": "Verify the compiled CLI binary boots in standalone mode",
+	"requires": { "target": "vault-test" },
+	"steps": [
+		{
+			"id": "boot",
+			"title": "CLI starts without error",
+			"description": "Run the CLI help command and verify it exits cleanly",
+			"actions": [
+				{ "tool": "vault-cli", "command": "help", "expectExit": 0 }
+			]
+		}
+	]
+}

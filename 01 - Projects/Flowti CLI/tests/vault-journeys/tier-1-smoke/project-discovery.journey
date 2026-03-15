@@ -1,0 +1,23 @@
+{
+	"journey": "Project Discovery",
+	"description": "Verify the CLI discovers both sample projects in the vault",
+	"requires": { "target": "vault-test" },
+	"steps": [
+		{
+			"id": "discover-healthy",
+			"title": "Discovers Healthy App",
+			"description": "CLI info command finds the Healthy App project",
+			"actions": [
+				{ "tool": "vault-cli", "command": "info --project=\"Healthy App\" --format=json", "expectExit": 0 }
+			]
+		},
+		{
+			"id": "discover-broken",
+			"title": "Discovers Broken App",
+			"description": "CLI info command finds the Broken App project",
+			"actions": [
+				{ "tool": "vault-cli", "command": "info --project=\"Broken App\" --format=json", "expectExit": 0 }
+			]
+		}
+	]
+}

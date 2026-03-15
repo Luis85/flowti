@@ -1,0 +1,15 @@
+{
+	"journey": "Agent Status",
+	"description": "Verify individual agent status lookup",
+	"requires": { "target": "vault-test" },
+	"steps": [
+		{
+			"id": "agent-lookup",
+			"title": "Agent status command exits cleanly",
+			"description": "Look up a known agent by name",
+			"actions": [
+				{ "tool": "vault-cli", "command": "state --agent=\"Bob\"", "expectExit": 0 }
+			]
+		}
+	]
+}
