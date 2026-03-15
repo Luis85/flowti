@@ -339,40 +339,53 @@ Each runner:
 **Tier runner skeleton:**
 ```typescript
 import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { loadAllJourneys } from "../../src/domain/e2e/journey/journey-loader.js";
-import { runStep, setToolDeps, createDefaultDeps } from "../../src/domain/e2e/journey/journey-test-runner.js";
+import { runStep, setToolDeps, createDefaultDeps, resolveJourneyEnvironment } from "../../src/domain/e2e/journey/journey-test-runner.js";
 import { createVaultTestProvider } from "../../src/domain/e2e/journey/providers/vault-test-provider.js";
+import { createDefaultRegistry } from "../../src/domain/e2e/journey/providers/index.js";
+import { createDefaultDeps as createInfraDeps } from "../../src/infrastructure/deps.js";
 
 const readFile = (p: string) => readFileSync(p, "utf-8");
 const listFiles = (d: string) => readdirSync(d).filter(f => f.endsWith(".journey"));
-const journeys = loadAllJourneys(readFile, listFiles, "tests/vault-journeys/tier-1-smoke");
+const journeysDir = join(import.meta.dirname, "tier-1-smoke");
+const journeys = loadAllJourneys(readFile, listFiles, journeysDir);
 const provider = createVaultTestProvider();
+const infraDeps = createInfraDeps();
 
 for (const journey of journeys) {
   describe(`[Tier 1] ${journey.journey}`, () => {
     let opts: JourneyExecutorOptions;
+    let env: ResolvedEnvironment;
 
     beforeEach(async () => {
       opts = { variables: {} };
-      const deps = createDefaultDeps(cliDeps);
+      const deps = createDefaultDeps(infraDeps);
+      env = resolveJourneyEnvironment(journey, createDefaultRegistry());
       await provider.setup!(deps, opts);
       setToolDeps(deps);
     });
 
     for (const step of journey.steps) {
       it(step.title, async () => {
-        const result = await runStep(step, opts);
+        const result = await runStep(step, opts, env);
         expect(result.status).toBe("pass");
       });
     }
 
     afterEach(async () => {
-      const deps = createDefaultDeps(cliDeps);
+      const deps = createDefaultDeps(infraDeps);
       await provider.teardown!(deps);
     });
   });
 }
 ```
+
+**Key implementation notes:**
+- `createInfraDeps()` provides the real `CliDeps` (filesystem, shell, paths, clock) needed by `createDefaultDeps()`
+- `resolveJourneyEnvironment()` looks up the `vault-test` provider and returns the `ResolvedEnvironment` with merged tools (base + vault-specific)
+- `env` is passed to `runStep()` so that `vault-cli`, `vault-project`, and `vault-assert` tools are available — without it, only base tools execute and vault-specific steps silently skip
+- `import.meta.dirname` provides an absolute path, avoiding CI fragility from relative paths
 
 ### npm Scripts
 
@@ -558,6 +571,7 @@ registry.registerCapability({ id: "vault-project", name: "Vault Project Operatio
     {
       "id": "health-json",
       "title": "Health returns structured JSON",
+      "description": "Run the health command with JSON output and store the result for subsequent assertions",
       "actions": [
         {
           "tool": "vault-cli",
@@ -571,6 +585,7 @@ registry.registerCapability({ id: "vault-project", name: "Vault Project Operatio
     {
       "id": "score-range",
       "title": "Health score is above minimum threshold",
+      "description": "Verify the health score from the stored result falls within the acceptable range",
       "actions": [
         {
           "tool": "vault-assert",
@@ -584,6 +599,7 @@ registry.registerCapability({ id: "vault-project", name: "Vault Project Operatio
     {
       "id": "report-generated",
       "title": "Health report file exists",
+      "description": "Verify that running the health command produced a report file in the project's reports directory",
       "actions": [
         {
           "tool": "vault-assert",
