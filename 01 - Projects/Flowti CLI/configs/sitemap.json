@@ -632,6 +632,14 @@
 					"group": "interact"
 				},
 				{
+					"name": "onChat",
+					"label": "Chat",
+					"type": "navigate",
+					"target": "agents-chat",
+					"key": "c",
+					"group": "interact"
+				},
+				{
 					"name": "onAssignToProject",
 					"label": "Assign to Project",
 					"type": "handler",
@@ -742,6 +750,28 @@
 					"label": "Back",
 					"type": "signal",
 					"target": "back",
+					"key": "b",
+					"group": "nav"
+				}
+			]
+		},
+		"agents-chat": {
+			"kind": "component",
+			"label": "Agent Chat",
+			"icon": "message-circle",
+			"domain": "agents",
+			"status": "active",
+			"description": "Interactive chat with an AI agent.",
+			"parent": "agent-detail",
+			"route": {
+				"path": "agents/:agentName/chat"
+			},
+			"actions": [
+				{
+					"name": "onBack",
+					"label": "Back",
+					"type": "navigate",
+					"target": "agent-detail",
 					"key": "b",
 					"group": "nav"
 				}

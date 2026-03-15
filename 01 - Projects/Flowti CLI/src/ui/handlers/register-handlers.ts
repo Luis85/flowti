@@ -35,6 +35,7 @@ import { registerToolingHandlers } from "./tooling-handlers.js";
 import { registerComponentHandlers } from "./component-handlers.js";
 import { registerOnboardingHandlers } from "./onboarding-handlers.js";
 import { registerWorkspaceHandlers } from "./workspace-handlers.js";
+import { registerChatHandlers } from "./chat-handlers.js";
 
 function renderIterationBannerLine(projectPath: string, config: import("../../infrastructure/types.js").ManagementConfig | undefined, deps: Pick<CliDeps, "disk" | "paths" | "clock" | "log">): void {
 	const iter = findCurrentIteration({ disk: deps.disk, paths: deps.paths, clock: deps.clock }, projectPath, config?.iterations);
@@ -112,6 +113,7 @@ export function registerAllHandlers(registry: HandlerRegistry): void {
 	registerComponentHandlers(registry);
 	registerOnboardingHandlers(registry);
 	registerWorkspaceHandlers(registry);
+	registerChatHandlers(registry);
 
 	// ── BeforeRender handlers ───────────────────────────────────────
 
