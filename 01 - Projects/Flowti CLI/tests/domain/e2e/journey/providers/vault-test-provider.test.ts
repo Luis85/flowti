@@ -142,3 +142,47 @@ describe("vault-cli tool", () => {
 		expect(opts.variables!["health"]).toEqual({ score: 85 });
 	});
 });
+
+describe("vault-project tool", () => {
+	it("list operation reads project directories", () => {
+		const provider = createVaultTestProvider();
+		const deps = createMockToolDeps();
+		const opts: JourneyExecutorOptions = { variables: { vaultRoot: "/tmp/vault" } };
+		const action = { tool: "vault-project", op: "list", storeAs: "projects" };
+
+		const result = provider.tools["vault-project"](action, deps, opts);
+		expect(result.tool).toBe("vault-project");
+	});
+
+	it("info operation runs flowti info with project flag", () => {
+		const provider = createVaultTestProvider();
+		const deps = createMockToolDeps({
+			exec: vi.fn(() => ({ exitCode: 0, stdout: '{"name":"Healthy App"}', stderr: "" })),
+		});
+		const opts: JourneyExecutorOptions = { variables: { vaultRoot: "/tmp/vault" } };
+		const action = { tool: "vault-project", op: "info", project: "Healthy App", storeAs: "info" };
+
+		const result = provider.tools["vault-project"](action, deps, opts);
+
+		expect(result.success).toBe(true);
+		expect(deps.exec).toHaveBeenCalledWith(
+			expect.stringContaining("info"),
+			expect.objectContaining({ cwd: "/tmp/vault" }),
+		);
+	});
+
+	it("run operation executes command with project flag", () => {
+		const provider = createVaultTestProvider();
+		const deps = createMockToolDeps();
+		const opts: JourneyExecutorOptions = { variables: { vaultRoot: "/tmp/vault" } };
+		const action = { tool: "vault-project", op: "run", project: "Healthy App", command: "build" };
+
+		const result = provider.tools["vault-project"](action, deps, opts);
+
+		expect(result.success).toBe(true);
+		expect(deps.exec).toHaveBeenCalledWith(
+			expect.stringContaining('build --project="Healthy App"'),
+			expect.anything(),
+		);
+	});
+});

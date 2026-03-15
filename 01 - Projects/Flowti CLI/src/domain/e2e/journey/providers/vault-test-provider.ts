@@ -52,8 +52,62 @@ const toolVaultCli: ToolExecutor = (action, deps, opts) => {
 	}
 };
 
-const toolVaultProject: ToolExecutor = (_action, _deps, _opts) => {
-	return { tool: "vault-project", success: false, error: "Not implemented", durationMs: 0 };
+const toolVaultProject: ToolExecutor = (action, deps, opts) => {
+	const start = deps.clock.ms();
+	const vaultRoot = opts.variables?.["vaultRoot"] as string ?? ".";
+	const op = action.op as string;
+	const project = resolveString(action, "project", opts.variables ?? {});
+	const storeAs = action.storeAs as string | undefined;
+
+	try {
+		if (op === "list") {
+			const r = deps.exec("node .flowti/bin/main.js info --format=json", {
+				cwd: vaultRoot,
+				timeout: opts.commandTimeout ?? 30_000,
+				env: opts.env,
+			});
+			if (storeAs && opts.variables) {
+				try {
+					opts.variables[storeAs] = JSON.parse(r.stdout);
+				} catch {
+					opts.variables[storeAs] = r.stdout;
+				}
+			}
+			return { tool: "vault-project", success: r.exitCode === 0, output: r.stdout.slice(0, 500), durationMs: deps.clock.ms() - start };
+		}
+
+		if (op === "info") {
+			const r = deps.exec(`node .flowti/bin/main.js info --project="${project}" --format=json`, {
+				cwd: vaultRoot,
+				timeout: opts.commandTimeout ?? 30_000,
+				env: opts.env,
+			});
+			if (storeAs && opts.variables) {
+				try {
+					opts.variables[storeAs] = JSON.parse(r.stdout);
+				} catch {
+					opts.variables[storeAs] = r.stdout;
+				}
+			}
+			return { tool: "vault-project", success: r.exitCode === 0, output: r.stdout.slice(0, 500), durationMs: deps.clock.ms() - start };
+		}
+
+		if (op === "run") {
+			const command = resolveString(action, "command", opts.variables ?? {});
+			const expectExit = typeof action.expectExit === "number" ? action.expectExit : 0;
+			const r = deps.exec(`node .flowti/bin/main.js ${command} --project="${project}"`, {
+				cwd: vaultRoot,
+				timeout: opts.commandTimeout ?? 30_000,
+				env: opts.env,
+			});
+			if (storeAs && opts.variables) opts.variables[storeAs] = r.stdout;
+			return { tool: "vault-project", success: r.exitCode === expectExit, output: r.stdout.slice(0, 500), durationMs: deps.clock.ms() - start };
+		}
+
+		return { tool: "vault-project", success: false, error: `Unknown op: ${op}`, durationMs: deps.clock.ms() - start };
+	} catch (e) {
+		return { tool: "vault-project", success: false, error: String(e), durationMs: deps.clock.ms() - start };
+	}
 };
 
 const toolVaultAssert: ToolExecutor = (_action, _deps, _opts) => {
