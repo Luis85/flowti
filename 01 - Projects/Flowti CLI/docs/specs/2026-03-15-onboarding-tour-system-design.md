@@ -323,6 +323,18 @@ Prompt steps support a simple validation enum — deliberately minimal compared 
 
 Custom validation logic (beyond these) would be added as new enum values in `onboarding-types.ts` if needed. The form engine's `ValidationRule` type is not reused here to keep onboarding self-contained.
 
+### Tours Registry (`configs/onboarding/tours.json`)
+
+```json
+{
+  "tours": [
+    { "id": "project-manager", "path": "tours/project-manager/tour.json" }
+  ]
+}
+```
+
+The registry lists available tours with paths relative to `configs/onboarding/`. The tour selection step reads this file to present options.
+
 ### Adding New Tours
 
 Create a new folder under `tours/`, add a `tour.json` and step files, register in `tours.json`. No code changes needed.
