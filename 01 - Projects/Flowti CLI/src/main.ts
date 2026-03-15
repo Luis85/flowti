@@ -295,7 +295,7 @@ function createRouter(deps: ReturnType<typeof createDefaultDeps>): SitemapRouter
 // ── Entry point ─────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-	const deps = createDefaultDeps();
+	const deps = createDefaultDeps(cliConfig.agents, VAULT_ROOT);
 	initializeDeps(deps);
 
 	checkPrerequisites(cliConfig.onboarding?.nodeMinVersion ?? 16, { shell, proc });
