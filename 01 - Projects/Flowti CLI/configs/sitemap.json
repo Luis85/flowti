@@ -2015,6 +2015,113 @@
 					"group": "nav"
 				}
 			]
+		},
+		"onboarding": {
+			"kind": "page",
+			"label": "Welcome to Flowti",
+			"icon": "rocket",
+			"domain": "onboarding",
+			"status": "active",
+			"description": "First-run onboarding — welcome screen and tour selection.",
+			"route": { "path": "onboarding" },
+			"actions": [
+				{
+					"name": "onStartTour",
+					"label": "Start Tour",
+					"type": "handler",
+					"target": "onboarding:select-tour",
+					"key": "1",
+					"group": "tour"
+				},
+				{
+					"name": "onSkip",
+					"label": "Skip Onboarding",
+					"type": "handler",
+					"target": "onboarding:skip-tour",
+					"key": "s",
+					"group": "nav"
+				},
+				{
+					"name": "onQuit",
+					"label": "Quit",
+					"type": "signal",
+					"target": "quit",
+					"key": "q",
+					"group": "nav"
+				}
+			]
+		},
+		"onboarding-tour": {
+			"kind": "page",
+			"label": "Onboarding Tour",
+			"icon": "compass",
+			"domain": "onboarding",
+			"status": "active",
+			"description": "Active tour step renderer — guides the user through onboarding.",
+			"parent": "onboarding",
+			"route": { "path": "onboarding/:tourId" },
+			"actions": [
+				{
+					"name": "onContinue",
+					"label": "Continue",
+					"type": "handler",
+					"target": "onboarding:continue",
+					"key": "c",
+					"group": "tour"
+				},
+				{
+					"name": "onChecklist",
+					"label": "View Progress",
+					"type": "navigate",
+					"target": "onboarding-checklist",
+					"key": "p",
+					"group": "tour"
+				},
+				{
+					"name": "onBack",
+					"label": "Back",
+					"type": "signal",
+					"target": "back",
+					"key": "b",
+					"group": "nav"
+				},
+				{
+					"name": "onQuit",
+					"label": "Quit",
+					"type": "signal",
+					"target": "quit",
+					"key": "q",
+					"group": "nav"
+				}
+			]
+		},
+		"onboarding-checklist": {
+			"kind": "page",
+			"label": "Onboarding Progress",
+			"icon": "check-square",
+			"domain": "onboarding",
+			"status": "active",
+			"description": "View onboarding tour progress and completed milestones.",
+			"parent": "onboarding-tour",
+			"route": { "path": "onboarding/checklist" },
+			"actions": [
+				{
+					"name": "onBack",
+					"label": "Back",
+					"type": "signal",
+					"target": "back",
+					"key": "b",
+					"group": "nav"
+				},
+				{
+					"name": "onQuit",
+					"label": "Quit",
+					"type": "signal",
+					"target": "quit",
+					"key": "q",
+					"group": "nav"
+				}
+			]
 		}
 	}
 }

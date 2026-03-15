@@ -13,6 +13,10 @@ import {
 	renderDependencyNeeded,
 	renderFirstRunStatus,
 	renderPostBuildGuidance,
+	renderNarration,
+	renderChecklist,
+	renderHintBanner,
+	renderTourSelection,
 } from "../../../src/ui/displays/onboarding-display.js";
 
 const mockLog = log as ReturnType<typeof vi.fn>;
@@ -116,5 +120,91 @@ describe("renderPostBuildGuidance", () => {
 		expect(out).toContain("Settings");
 		expect(out).toContain("Community Plugins");
 		expect(out).toContain("Installer Wizard");
+	});
+});
+
+// ── renderNarration ─────────────────────────────────────────────────
+
+describe("renderNarration", () => {
+	it("renders speaker name and content", () => {
+		renderNarration({ speaker: "Alice", disposition: "strategic", content: "Hello!" }, log);
+		const out = output();
+		expect(out).toContain("Alice");
+		expect(out).toContain("strategic");
+		expect(out).toContain("Hello!");
+	});
+
+	it("renders multi-line content", () => {
+		renderNarration({ speaker: "Alice", disposition: "friendly", content: "Line one\nLine two" }, log);
+		const out = output();
+		expect(out).toContain("Line one");
+		expect(out).toContain("Line two");
+	});
+});
+
+// ── renderChecklist ─────────────────────────────────────────────────
+
+describe("renderChecklist", () => {
+	it("renders completed steps with checkmarks", () => {
+		renderChecklist(
+			[
+				{ id: "step1", label: "Project created", completed: true },
+				{ id: "step2", label: "Iteration planned", completed: false },
+			],
+			log,
+		);
+		const out = output();
+		expect(out).toContain("Onboarding Progress");
+		expect(out).toContain("Project created");
+		expect(out).toContain("Iteration planned");
+		expect(out).toContain("[x]");
+		expect(out).toContain("[ ]");
+	});
+
+	it("renders empty checklist with header only", () => {
+		renderChecklist([], log);
+		const out = output();
+		expect(out).toContain("Onboarding Progress");
+	});
+});
+
+// ── renderHintBanner ────────────────────────────────────────────────
+
+describe("renderHintBanner", () => {
+	it("renders the onboarding context banner", () => {
+		renderHintBanner("PM tour", log);
+		const out = output();
+		expect(out).toContain("PM tour");
+		expect(out).toContain("b");
+	});
+});
+
+// ── renderTourSelection ─────────────────────────────────────────────
+
+describe("renderTourSelection", () => {
+	it("renders available tours", () => {
+		renderTourSelection(
+			[{ id: "project-manager", name: "Project Manager", description: "Set up your first project" }],
+			log,
+		);
+		const out = output();
+		expect(out).toContain("Available Tours");
+		expect(out).toContain("Project Manager");
+		expect(out).toContain("Set up your first project");
+	});
+
+	it("renders multiple tours with numbering", () => {
+		renderTourSelection(
+			[
+				{ id: "pm", name: "PM Tour", description: "Project management" },
+				{ id: "dev", name: "Dev Tour", description: "Development workflow" },
+			],
+			log,
+		);
+		const out = output();
+		expect(out).toContain("1");
+		expect(out).toContain("PM Tour");
+		expect(out).toContain("2");
+		expect(out).toContain("Dev Tour");
 	});
 });

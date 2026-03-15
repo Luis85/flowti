@@ -1,0 +1,20 @@
+{
+	"id": "project-manager",
+	"name": "Project Manager",
+	"role": "project-manager",
+	"description": "Set up your first project and plan your first iteration",
+	"steps": [
+		{ "id": "welcome", "type": "narrate", "content": "steps/01-welcome.md" },
+		{ "id": "pm-intro", "type": "narrate", "content": "steps/03-pm-intro.md" },
+		{ "id": "name-project", "type": "prompt", "content": "steps/04-name-project.md", "field": "projectName", "validation": "non-empty" },
+		{ "id": "scaffold-project", "type": "auto", "content": "steps/05-scaffold.md", "action": "project:scaffold" },
+		{ "id": "project-created", "type": "checkpoint", "content": "steps/06-project-created.md", "label": "Project created" },
+		{ "id": "iterations-intro", "type": "narrate", "content": "steps/07-iterations.md" },
+		{ "id": "name-iteration", "type": "prompt", "content": "steps/08-name-iteration.md", "field": "iterationName", "validation": "non-empty" },
+		{ "id": "iteration-defaults", "type": "auto", "content": "steps/09-defaults.md", "action": "iteration:set-defaults" },
+		{ "id": "add-scope", "type": "delegate", "content": "steps/10-scope-hints.md", "target": "iteration-planning", "hints": "hints/iteration-planning.md" },
+		{ "id": "iteration-planned", "type": "checkpoint", "content": "steps/11-iter-planned.md", "label": "First iteration planned" },
+		{ "id": "whats-next", "type": "narrate", "content": "steps/12-whats-next.md" },
+		{ "id": "tour-complete", "type": "checkpoint", "content": "steps/13-complete.md", "label": "Tour complete" }
+	]
+}

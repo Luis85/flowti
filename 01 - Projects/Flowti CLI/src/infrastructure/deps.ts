@@ -87,6 +87,9 @@ export type ProductMenuDeps = Pick<CliDeps, "disk" | "paths" | "input" | "log">;
 /** Dependencies for report archive menus. */
 export type ArchiveDeps = Pick<CliDeps, "disk" | "paths" | "log">;
 
+/** Dependencies for onboarding tour system. */
+export type OnboardingDeps = Pick<CliDeps, "disk" | "paths" | "input" | "clock" | "log">;
+
 /** Log function type for renderers. */
 export type Log = (msg?: string) => void;
 

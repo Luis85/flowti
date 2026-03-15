@@ -1,0 +1,5 @@
+{
+	"tours": [
+		{ "id": "project-manager", "path": "tours/project-manager/tour.json" }
+	]
+}
