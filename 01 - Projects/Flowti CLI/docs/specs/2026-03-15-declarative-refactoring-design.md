@@ -385,9 +385,29 @@ tests/infrastructure/
 
 **`createTestDeps()` must be updated** before Phase 5. The current `tests/mocks/mock-deps.ts` does not stub `agentShell`, `worldState`, `workerManager`, or `processRunner`, but the production `CliDeps` interface requires all four. Controllers like `state.controller.ts` access `ctx.deps.worldState.getState()` directly. Without stubs, handler unit tests will crash at runtime (not caught by TypeScript if deps are cast with `as`).
 
-Action: In Phase 2, update `createTestDeps()` to include no-op stubs for all `CliDeps` fields. The new `createStoreDeps()` helper is a convenience wrapper for store tests that only need `{ disk, paths, clock }` — it does not replace `createTestDeps()`.
+Action: In Phase 2, update `createTestDeps()` to include no-op stubs for all `CliDeps` fields. The missing stubs are:
 
-**`dispatch.ts` must be updated** during Phase 4. The current wildcard routing hardcodes `startsWith("report:")`. The engine's `wildcardPrefix` mechanism replaces this, requiring dispatch.ts to read the prefix from the command registry.
+- `agentShell` — stub with `{ talk: vi.fn(), dispatch: vi.fn() }` (see `src/infrastructure/agent-shell.ts` for `IAgentShell` interface)
+- `worldState` — stub with `{ getState: vi.fn(() => ({})), setState: vi.fn() }` (see `src/infrastructure/world-state-manager.ts`)
+- `workerManager` — stub with `{ start: vi.fn(), stop: vi.fn(), list: vi.fn(() => []) }` (see `src/infrastructure/worker-manager.ts`)
+- `processRunner` — stub with `{ run: vi.fn(), runCapture: vi.fn() }` (see `src/infrastructure/types.ts` for `IAgentProcessRunner`)
+
+The new `createStoreDeps()` helper is a convenience wrapper for store tests that only need `{ disk, paths, clock }` — it does not replace `createTestDeps()`.
+
+**`dispatch.ts` must be updated** during Phase 4. The current `resolveWildcard()` hardcodes `startsWith("report:")`. The updated flow:
+
+1. `CommandDescriptor` declares `wildcardPrefix: "report:"` on the descriptor
+2. During registration, the engine calls `registry.setWildcard(handler)` as today, but also stores the prefix string on the registry via a new `setWildcardPrefix(prefix: string)` method
+3. `dispatch.ts`'s `resolveWildcard()` reads the prefix from the registry (`.wildcardPrefix` getter) instead of hardcoding `"report:"`
+4. `resolveCommand()` signature is unchanged — it still receives `wildcardHandler` from the registry's `.wildcard` getter
+5. Only one wildcard prefix is supported (single slot, like today) — this constraint is explicit
+
+**Renderer signature audit required** before Phase 4. The codebase has mixed conventions:
+
+- **Log-first** (`(log, data)`): `common-renderers.ts` — `renderNoProject`, `renderError`, `renderSuccess`, etc.
+- **Data-first** (`(data, log)`): `build-display.ts`, `reports-display.ts` — `renderFreshnessCheck`, `renderBuildAuto`, etc.
+
+The engine standardizes on data-first `(data, log)`. During Phase 4, for each controller migration: check the renderer's actual signature. Swap only log-first renderers. Do not double-swap data-first renderers. Use this grep to identify which need swapping: `grep -rn "log: Log.*data:" src/ui/` vs `grep -rn "data:.*log:" src/ui/`.
 
 #### Phase Sequence
 
@@ -468,7 +488,115 @@ Phase 6: Cleanup
 - Store tests use `createStoreDeps()`
 - Display tests use `captureDisplay()`
 
-### 7. What This Does NOT Change
+### 7. Pattern Enforcement
+
+A key goal is not just making patterns easy to follow, but making them enforceable via TypeScript, ESLint, and tests so deviations are caught automatically.
+
+#### TypeScript Enforcement
+
+**Command engine — type safety makes incorrect usage a compile error:**
+
+```typescript
+// Compile error: handler must return TModel, not CliResponse<TModel>
+defineCommand<{ mode: string }, ShellCommandModel>("build", {
+  flags: { mode: { type: "string" } },
+  handler: (ctx) => dataResponse(model, renderer),  // ERROR: returns CliResponse, not ShellCommandModel
+  renderer: renderShellCommand,
+});
+
+// Compile error: required flag accessed as optional
+defineCommand<{ name: string }, CapaItem>("capa:add", {
+  flags: { name: { type: "string", required: true } },
+  handler: (ctx) => {
+    ctx.flags.name.toLowerCase();  // OK — TFlags says name is string, not string | undefined
+  },
+  renderer: renderCapaItem,
+});
+```
+
+**Store engine — field specs constrained by TSummary type:**
+
+```typescript
+// FieldSpec keys must match TSummary properties
+// StoreDescriptor<CAPASummary, CAPADefinition> will error if fields has a key not in CAPASummary
+```
+
+**RendererFn — signature enforced:**
+
+```typescript
+// Type error if renderer has wrong parameter order or wrong model type
+type RendererFn<T> = (data: T, log: LogFn) => void;
+```
+
+#### ESLint Enforcement
+
+**New ESLint rules (added to `configs/eslint.config.mjs` in Phase 6):**
+
+| Rule | What It Catches | Implementation |
+|------|----------------|----------------|
+| `no-direct-adapt` | Controllers using legacy `adapt()` instead of `defineCommand()` | Ban import of `adapt` from `request-response.ts` in `src/controller/` |
+| `no-raw-flag-parsing` | Controllers manually checking `typeof req.flags.x === "string"` | Pattern match on `req.flags` property access outside of `command-engine.ts` |
+| `no-inline-noProjectResponse` | Controllers defining local `noProjectResponse()` functions | Ban function declarations matching `noProjectResponse` in `src/controller/` |
+| `no-duplicate-flagStr` | Controllers defining local `flagStr()` helpers | Ban function declarations matching `flagStr` in `src/controller/` |
+
+These rules use the same pattern as the existing architecture enforcement rules (ban imports from specific paths). The existing ESLint config already enforces `node:fs` / `node:path` bans in domain — these new rules follow the same approach.
+
+#### Test Enforcement
+
+**Conformance tests (added in Phase 2, run with the full suite):**
+
+```typescript
+// tests/conformance/controller-conformance.test.ts
+import { commandRegistry } from "../../src/infrastructure/command-registry.js";
+
+describe("controller conformance", () => {
+  it("all registered commands use defineCommand descriptors", () => {
+    const commands = commandRegistry.entries();
+    for (const [name, handler] of commands) {
+      expect(handler.__descriptor, `${name} must use defineCommand()`).toBeDefined();
+    }
+  });
+
+  it("all commands with requires:project have project guard", () => {
+    const commands = commandRegistry.entries();
+    for (const [name, handler] of commands) {
+      if (handler.__descriptor?.requires === "project") {
+        // Engine guarantees this — test verifies no bypass
+        const result = handler({ flags: {}, project: undefined, deps: minimalDeps });
+        expect(result.data).toHaveProperty("command", expect.stringContaining("help"));
+      }
+    }
+  });
+});
+
+// tests/conformance/store-conformance.test.ts
+describe("store conformance", () => {
+  it("all stores use createStore engine", () => {
+    // Import all store modules, verify they export objects with list/create/read/updateField
+    const stores = [capaStore, raidStore, timelogStore, ...];
+    for (const store of stores) {
+      expect(store).toHaveProperty("list");
+      expect(store).toHaveProperty("create");
+      expect(store).toHaveProperty("read");
+      expect(store.__descriptor, "store must use createStore()").toBeDefined();
+    }
+  });
+});
+```
+
+**Engine stamps a `__descriptor` marker** on returned handlers/stores so conformance tests can verify that all registrations go through the engine, not through legacy patterns.
+
+#### Summary: Three Layers of Enforcement
+
+| Layer | What It Catches | When |
+|-------|----------------|------|
+| **TypeScript** | Wrong types, missing required fields, bad renderer signatures | At compile time |
+| **ESLint** | Legacy patterns (`adapt()`, inline `flagStr()`, manual flag parsing) | At lint time |
+| **Conformance tests** | Any command/store not using the engine, project guard bypasses | At test time |
+
+Together these ensure that new code follows the patterns by default, and deviations are caught before merge.
+
+### 8. What This Does NOT Change
 
 - CLI public API (all commands, flags, and output unchanged)
 - Sitemap/UI layer (remains declarative, untouched)
