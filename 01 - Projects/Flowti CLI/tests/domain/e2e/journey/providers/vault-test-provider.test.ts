@@ -186,3 +186,97 @@ describe("vault-project tool", () => {
 		);
 	});
 });
+
+describe("vault-assert tool", () => {
+	it("health-score: passes when score is in range", () => {
+		const provider = createVaultTestProvider();
+		const deps = createMockToolDeps();
+		const opts: JourneyExecutorOptions = {
+			variables: { vaultRoot: "/tmp/vault", healthResult: { score: 85 } },
+		};
+		const action = { tool: "vault-assert", type: "health-score", source: "healthResult", min: 70, max: 100 };
+
+		const result = provider.tools["vault-assert"](action, deps, opts);
+		expect(result.success).toBe(true);
+	});
+
+	it("health-score: fails when score is below min", () => {
+		const provider = createVaultTestProvider();
+		const deps = createMockToolDeps();
+		const opts: JourneyExecutorOptions = {
+			variables: { vaultRoot: "/tmp/vault", healthResult: { score: 30 } },
+		};
+		const action = { tool: "vault-assert", type: "health-score", source: "healthResult", min: 70, max: 100 };
+
+		const result = provider.tools["vault-assert"](action, deps, opts);
+		expect(result.success).toBe(false);
+	});
+
+	it("json-field: passes with eq operator", () => {
+		const provider = createVaultTestProvider();
+		const deps = createMockToolDeps();
+		const opts: JourneyExecutorOptions = {
+			variables: { vaultRoot: "/tmp/vault", data: { name: "test" } },
+		};
+		const action = { tool: "vault-assert", type: "json-field", source: "data", field: "name", operator: "eq", expected: "test" };
+
+		const result = provider.tools["vault-assert"](action, deps, opts);
+		expect(result.success).toBe(true);
+	});
+
+	it("json-field: passes with gte operator", () => {
+		const provider = createVaultTestProvider();
+		const deps = createMockToolDeps();
+		const opts: JourneyExecutorOptions = {
+			variables: { vaultRoot: "/tmp/vault", data: { count: 10 } },
+		};
+		const action = { tool: "vault-assert", type: "json-field", source: "data", field: "count", operator: "gte", expected: 5 };
+
+		const result = provider.tools["vault-assert"](action, deps, opts);
+		expect(result.success).toBe(true);
+	});
+
+	it("json-field: supports dot-path traversal", () => {
+		const provider = createVaultTestProvider();
+		const deps = createMockToolDeps();
+		const opts: JourneyExecutorOptions = {
+			variables: { vaultRoot: "/tmp/vault", data: { nested: { value: 42 } } },
+		};
+		const action = { tool: "vault-assert", type: "json-field", source: "data", field: "nested.value", operator: "eq", expected: 42 };
+
+		const result = provider.tools["vault-assert"](action, deps, opts);
+		expect(result.success).toBe(true);
+	});
+
+	it("json-field: contains operator for strings", () => {
+		const provider = createVaultTestProvider();
+		const deps = createMockToolDeps();
+		const opts: JourneyExecutorOptions = {
+			variables: { vaultRoot: "/tmp/vault", data: { message: "hello world" } },
+		};
+		const action = { tool: "vault-assert", type: "json-field", source: "data", field: "message", operator: "contains", expected: "world" };
+
+		const result = provider.tools["vault-assert"](action, deps, opts);
+		expect(result.success).toBe(true);
+	});
+
+	it("report-exists: passes when report file exists", () => {
+		const provider = createVaultTestProvider();
+		const deps = createMockToolDeps({ exists: vi.fn(() => true) });
+		const opts: JourneyExecutorOptions = { variables: { vaultRoot: "/tmp/vault" } };
+		const action = { tool: "vault-assert", type: "report-exists", project: "Healthy App", report: "health" };
+
+		const result = provider.tools["vault-assert"](action, deps, opts);
+		expect(result.success).toBe(true);
+	});
+
+	it("report-exists: fails when report file missing", () => {
+		const provider = createVaultTestProvider();
+		const deps = createMockToolDeps({ exists: vi.fn(() => false) });
+		const opts: JourneyExecutorOptions = { variables: { vaultRoot: "/tmp/vault" } };
+		const action = { tool: "vault-assert", type: "report-exists", project: "Healthy App", report: "health" };
+
+		const result = provider.tools["vault-assert"](action, deps, opts);
+		expect(result.success).toBe(false);
+	});
+});

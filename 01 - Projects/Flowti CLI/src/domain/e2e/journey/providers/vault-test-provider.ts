@@ -110,8 +110,61 @@ const toolVaultProject: ToolExecutor = (action, deps, opts) => {
 	}
 };
 
-const toolVaultAssert: ToolExecutor = (_action, _deps, _opts) => {
-	return { tool: "vault-assert", success: false, error: "Not implemented", durationMs: 0 };
+function getNestedField(obj: Record<string, unknown>, dotPath: string): unknown {
+	return dotPath.split(".").reduce<unknown>((current, key) => {
+		if (current && typeof current === "object") return (current as Record<string, unknown>)[key];
+		return undefined;
+	}, obj);
+}
+
+function compareValues(actual: unknown, operator: string, expected: unknown): boolean {
+	switch (operator) {
+		case "eq": return actual === expected;
+		case "gt": return (actual as number) > (expected as number);
+		case "gte": return (actual as number) >= (expected as number);
+		case "lt": return (actual as number) < (expected as number);
+		case "lte": return (actual as number) <= (expected as number);
+		case "contains": return typeof actual === "string" && actual.includes(String(expected));
+		default: return false;
+	}
+}
+
+const toolVaultAssert: ToolExecutor = (action, deps, opts) => {
+	const start = deps.clock.ms();
+	const type = action.type as string;
+
+	try {
+		if (type === "health-score") {
+			const source = opts.variables?.[action.source as string] as Record<string, unknown> | undefined;
+			if (!source) return { tool: "vault-assert", success: false, error: `Variable "${action.source}" not found`, durationMs: deps.clock.ms() - start };
+			const score = source.score as number;
+			const min = action.min as number;
+			const max = action.max as number;
+			const success = score >= min && score <= max;
+			return { tool: "vault-assert", success, output: `Score: ${score} (range: ${min}-${max})`, error: success ? undefined : `Score ${score} outside range ${min}-${max}`, durationMs: deps.clock.ms() - start };
+		}
+
+		if (type === "json-field") {
+			const source = opts.variables?.[action.source as string] as Record<string, unknown> | undefined;
+			if (!source) return { tool: "vault-assert", success: false, error: `Variable "${action.source}" not found`, durationMs: deps.clock.ms() - start };
+			const actual = getNestedField(source, action.field as string);
+			const success = compareValues(actual, action.operator as string, action.expected);
+			return { tool: "vault-assert", success, output: `${action.field}: ${JSON.stringify(actual)} ${action.operator} ${JSON.stringify(action.expected)}`, error: success ? undefined : `Assertion failed: ${JSON.stringify(actual)} ${action.operator} ${JSON.stringify(action.expected)}`, durationMs: deps.clock.ms() - start };
+		}
+
+		if (type === "report-exists") {
+			const vaultRoot = opts.variables?.["vaultRoot"] as string ?? ".";
+			const project = resolveString(action, "project", opts.variables ?? {});
+			const report = action.report as string;
+			const reportPath = `${vaultRoot}/01 - Projects/${project}/reports/${report}`;
+			const success = deps.exists(reportPath);
+			return { tool: "vault-assert", success, output: reportPath, error: success ? undefined : `Report not found: ${reportPath}`, durationMs: deps.clock.ms() - start };
+		}
+
+		return { tool: "vault-assert", success: false, error: `Unknown assert type: ${type}`, durationMs: deps.clock.ms() - start };
+	} catch (e) {
+		return { tool: "vault-assert", success: false, error: String(e), durationMs: deps.clock.ms() - start };
+	}
 };
 
 export function createVaultTestProvider(): EnvironmentProvider {
