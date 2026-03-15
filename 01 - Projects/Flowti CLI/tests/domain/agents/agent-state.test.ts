@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import {
 	readAgentState, writeAgentState,
-	recordInteraction, addTask, completeTask, completeFirstTask, addBrief,
+	recordInteraction, addTask, completeTask, completeFirstTask, removeTask, addBrief,
 } from "../../../src/domain/agents/agent-state.js";
 import type { AgentStateDeps, AgentState, AgentPendingQuestion } from "../../../src/domain/agents/agent-state.js";
 
@@ -212,6 +212,56 @@ describe("completeFirstTask", () => {
 		};
 		const result = completeFirstTask(state, "deploy");
 		expect(result).toBe(state);
+	});
+});
+
+describe("removeTask", () => {
+	it("removes first non-done match by name", () => {
+		const state: AgentState = {
+			name: "Dev", status: "busy",
+			tasks: [
+				{ name: "Build", assignedAt: "t1", status: "pending" },
+				{ name: "Build", assignedAt: "t2", status: "pending" },
+			],
+			briefs: [],
+		};
+		const result = removeTask(state, "Build");
+		expect(result.tasks).toHaveLength(1);
+		expect(result.tasks[0].assignedAt).toBe("t2");
+	});
+
+	it("leaves done tasks with same name", () => {
+		const state: AgentState = {
+			name: "Dev", status: "idle",
+			tasks: [
+				{ name: "Build", assignedAt: "t1", status: "done" },
+				{ name: "Build", assignedAt: "t2", status: "pending" },
+			],
+			briefs: [],
+		};
+		const result = removeTask(state, "Build");
+		expect(result.tasks).toHaveLength(1);
+		expect(result.tasks[0].status).toBe("done");
+	});
+
+	it("returns state unchanged when no non-done match", () => {
+		const state: AgentState = {
+			name: "Dev", status: "idle",
+			tasks: [{ name: "Build", assignedAt: "t1", status: "done" }],
+			briefs: [],
+		};
+		const result = removeTask(state, "Build");
+		expect(result).toEqual(state);
+	});
+
+	it("returns state unchanged when no match at all", () => {
+		const state: AgentState = {
+			name: "Dev", status: "idle",
+			tasks: [{ name: "Test", assignedAt: "t1", status: "pending" }],
+			briefs: [],
+		};
+		const result = removeTask(state, "Build");
+		expect(result).toEqual(state);
 	});
 });
 

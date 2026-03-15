@@ -116,6 +116,15 @@ export function completeFirstTask(state: AgentState, taskName: string): AgentSta
 	return { ...state, tasks, status: allDone && state.status !== "waiting" ? "idle" : state.status };
 }
 
+/** Remove the first non-done task matching the name. */
+export function removeTask(state: AgentState, taskName: string): AgentState {
+	const idx = state.tasks.findIndex((t) => t.name === taskName && t.status !== "done");
+	if (idx === -1) return state;
+	const tasks = [...state.tasks];
+	tasks.splice(idx, 1);
+	return { ...state, tasks };
+}
+
 /** Record a generated brief. */
 export function addBrief(state: AgentState, brief: AgentBriefRef): AgentState {
 	return { ...state, briefs: [...state.briefs, brief] };
