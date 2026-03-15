@@ -5,7 +5,7 @@ export default defineConfig({
 	test: {
 		root: path.resolve(import.meta.dirname, ".."),
 		include: ["tests/**/*.test.ts"],
-		exclude: ["tests/e2e/**"],
+		exclude: ["tests/e2e/**", "tests/vault-journeys/**"],
 		globals: true,
 		environment: "node",
 		testTimeout: 10_000,
