@@ -2,25 +2,28 @@
 
 **Date:** 2026-03-15
 **Status:** Draft
-**Scope:** Flowti CLI — controllers, domain stores, test infrastructure
+**Scope:** Flowti CLI — controllers, domain stores, test infrastructure, dead code removal
 
 ## Problem Statement
 
-The Flowti CLI has strong architecture (layered DI, sitemap-driven UI, pipeline engine) but ~4,700 lines of reducible boilerplate across:
+The Flowti CLI has strong architecture (layered DI, sitemap-driven UI, pipeline engine) but accumulated boilerplate across:
 
-- **26 controllers** (~3,100 lines) repeating flag parsing, project guards, type coercion, error responses, and renderer wiring
-- **8+ markdown stores** (~1,500 lines) repeating frontmatter parsing, CRUD operations, directory resolution, and field mapping
-- **345 test files** (~84,500 lines) repeating vi.mock() blocks, initializeDeps() calls, mockProject construction, and display output assertions
+- **28 controllers** (~3,500 lines) repeating flag parsing, project guards, type coercion, error responses, and renderer wiring
+- **9+ markdown stores** (~1,800 lines) repeating frontmatter parsing, CRUD operations, directory resolution, and field mapping
+- **350+ test files** repeating vi.mock() blocks, initializeDeps() calls, mockProject construction, and display output assertions
+- **Dead code and legacy patterns** — `adapt()` boilerplate, duplicated helpers (`flagStr`, `noProjectResponse`), incomplete mock stubs, stale type casts
 
-This boilerplate slows feature development, increases maintenance cost, and creates inconsistency risk.
+This refactor eliminates the boilerplate, removes legacy code, and replaces it with declarative engines that enforce patterns via TypeScript, ESLint, and conformance tests.
 
 ## Goals
 
 1. Eliminate mechanical boilerplate from controllers, stores, and tests
-2. Make adding a new command or store a matter of writing a descriptor, not copying a file
+2. Make adding a new command or store a matter of writing a descriptor
 3. Improve testability by testing engines once and descriptors cheaply
-4. Maintain zero runtime dependencies
-5. Handle 100% of existing edge cases — no partial migration
+4. Remove all dead code, legacy patterns, and backwards-compatibility shims
+5. Enforce patterns by typecheck, lint, and test — deviations fail CI
+6. Maintain zero runtime dependencies
+7. Handle 100% of existing edge cases — no partial migration
 
 ## Non-Goals
 
@@ -28,6 +31,7 @@ This boilerplate slows feature development, increases maintenance cost, and crea
 - Modifying the sitemap/UI layer
 - Refactoring the pipeline engine
 - Moving to config files (YAML/JSON) for controller or test definitions
+- Refactoring infrastructure singletons (world-state-manager, worker-manager, agent-shell, agent-process-runner — these are new and stable)
 
 ## Design
 
@@ -50,7 +54,6 @@ interface CommandDescriptor<TFlags = Record<string, unknown>, TModel = unknown> 
 
 // RendererFn receives the model and log function.
 // The engine calls renderer(model, ctx.deps.log) automatically.
-// Existing renderers that take (log, data) must be adapted to (data, log) during migration.
 type RendererFn<TModel> = (data: TModel, log: LogFn) => void;
 
 interface FlagSpec {
@@ -106,17 +109,28 @@ defineCommands(
 
 #### Dispatch Integration
 
-`dispatch.ts` currently hardcodes `startsWith("report:")` for wildcard matching. During migration, `dispatch.ts` must be updated to read the registered `wildcardPrefix` from the command registry instead of hardcoding the prefix. The command registry's `setWildcard()` slot is replaced by the engine's `wildcardPrefix` field. This change is included in Phase 4 (controller migration) since it is a prerequisite for migrating `reports.controller.ts`.
+`dispatch.ts` currently hardcodes `startsWith("report:")` for wildcard matching. This hardcoding is removed:
 
-#### Renderer Signature Migration
+1. `CommandDescriptor` declares `wildcardPrefix: "report:"` on the descriptor
+2. During registration, the engine stores the prefix string on the registry via a new `setWildcardPrefix(prefix: string)` method
+3. `dispatch.ts`'s `resolveWildcard()` reads the prefix from the registry (`.wildcardPrefix` getter) instead of hardcoding `"report:"`
+4. `resolveCommand()` signature is unchanged — it still receives `wildcardHandler` from the registry's `.wildcard` getter
+5. Only one wildcard prefix is supported (single slot, like today) — this constraint is explicit
 
-Existing renderers use `(log: LogFn, data: T) => void` (log-first). The engine calls `renderer(data, log)` (data-first). During Phase 4, each renderer's parameter order must be swapped. Since renderers are only called from controllers (now the engine), this is safe — no external consumers exist. The migration order is: migrate controller + its renderers together in a single commit.
+#### Renderer Signature Standardization
+
+The codebase currently has mixed renderer conventions:
+
+- **Log-first** (`(log, data)`): `common-renderers.ts` — `renderNoProject`, `renderError`, `renderSuccess`, etc.
+- **Data-first** (`(data, log)`): `build-display.ts`, `reports-display.ts` — `renderFreshnessCheck`, `renderBuildAuto`, etc.
+
+The engine standardizes on data-first `(data, log)`. All renderers are updated to data-first in a single pass. Identify which need swapping: `grep -rn "log: Log.*data:" src/ui/` vs `grep -rn "data:.*log:" src/ui/`.
 
 #### Edge Cases Handled
 
 | Pattern | Count | Mechanism |
 |---------|-------|-----------|
-| Async handlers | 8 | Engine detects Promise return, awaits |
+| Async handlers | 8+ | Engine detects Promise return, awaits |
 | Multiple response types | 7 | Handler returns union, renderer handles variants |
 | Dynamic actions (make:*) | 1 | `defineCommands()` batch registration — maps array to descriptors with closures |
 | Wildcard routing (report:*) | 1 | `wildcardPrefix: "report:"` — engine strips prefix, sets `ctx.wildcard` |
@@ -128,45 +142,40 @@ Existing renderers use `(log: LogFn, data: T) => void` (log-first). The engine c
 | Enum validation | 10+ | `choices: [...]` on FlagSpec |
 | Comma-separated lists | 2 | `type: "list"` splits on comma |
 | Custom flag parser | 1 | `parse: (raw) => ...` on FlagSpec |
-| Dynamic imports in handler | 1 | `serve` uses `await import()` for deferred config loading — permitted inside async handlers since handlers execute in the controller layer, not domain |
+| Dynamic imports in handler | 1 | `serve` uses `await import()` — permitted in async handlers (controller layer) |
+| World state access | 1 | `state` controller accesses `ctx.deps.worldState` — no special handling needed |
 
-#### Example: Before and After
+#### Controllers Inventory (28 total)
 
-**Before (build.controller.ts — 162 lines, 12 actions):**
-
-```typescript
-const actions: Record<string, ControllerAction> = {
-  "build:project": (req) => {
-    if (!req.project) return noProjectResponse(req.deps.log, "build:project");
-    const mode = typeof req.flags.mode === "string" ? req.flags.mode : "fast";
-    const cmd = resolveBuildCommand(req.project, mode, ["build"], "npm run build");
-    const { exitCode } = req.deps.shell.runCaptureStatus(cmd);
-    const model: ShellCommandModel = { command: cmd, exitCode, label: "build" };
-    return dataResponse(model, (d) => renderShellCommand(req.deps.log, d));
-  },
-  // ... 11 more actions
-};
-export const commands = Object.fromEntries(
-  Object.entries(actions).map(([key, action]) => [key, adapt(action)])
-);
-```
-
-**After:**
-
-```typescript
-defineCommand("build:project", {
-  requires: "project",
-  flags: {
-    mode: { type: "string", default: "fast", choices: ["fast", "full", "incremental"] },
-  },
-  handler: (ctx) => {
-    const cmd = resolveBuildCommand(ctx.project!, ctx.flags.mode, ["build"], "npm run build");
-    const { exitCode } = ctx.deps.shell.runCaptureStatus(cmd);
-    return { command: cmd, exitCode, label: "build" };
-  },
-  renderer: renderShellCommand,
-});
-```
+| Controller | Actions | Requires Project | Notes |
+|------------|---------|-----------------|-------|
+| ai-tools | 5 | No | `ai:run` has 6 response types, `ai:new` is async |
+| build | 12 | Mixed (7 optional, 5 required) | Shared `resolveBuildCommand()` helper |
+| capa | 3 | Yes | ID generation |
+| capture | 4 | No | `okResponse()` pattern |
+| claude-sync | 1 | No | Simple |
+| deliverables | 3 | Yes | Integer parsing |
+| devtools | 11 | Optional | Retry logic in `dev:console` |
+| events | 8 | Yes | Payload parser, comma-sep lists |
+| health | 4 | Yes | Deps subset for trend |
+| help | 1 | No | rawArgs usage |
+| info | 1 | Yes | Simple |
+| lifecycle | 5 | Yes | Subdir flag |
+| make | 3 + dynamic | Yes | Dynamic `make:*` from COMPONENT_DEFINITION_IDS |
+| **onboarding** | **4** | **No** | **New — status, start, skip, restart** |
+| plugins | 4 | Mixed | `plugin:new` is async |
+| project | 2 | Mixed | Simple |
+| publish | 3 | Mixed | Gate evaluation, multi-step |
+| raid | 3 | Yes | Enum validation |
+| reports | 6 + wildcard | Mixed | Wildcard `report:*`, async |
+| requirements | 7 | Yes | 3 entity types, ID generation |
+| resources | 3 | Yes | Float parsing, dual mode |
+| review | 10 | Mixed | Async E2E, pipeline |
+| scaffold | 6 | Mixed | Dry-run, marketplace |
+| serve | 3 | Optional | Async, dynamic import |
+| sitemap | 3 | Optional | File stats |
+| **state** | **1** | **No** | **New — world state query, --json, --agent flags** |
+| timelog | 3 | Yes | Date defaults, float hours |
 
 #### File Location
 
@@ -230,15 +239,18 @@ function createStore<TSummary, TDefinition>(desc: StoreDescriptor<TSummary, TDef
     remove:      (deps, projectPath, name, config?) => void,
     resolveDir:  (deps, projectPath, config?) => string,
     nextId:      (deps, projectPath, config?) => string,
+    __descriptor: desc,                          // conformance test marker
   };
 }
 ```
 
-#### Store Inventory
+#### Store Inventory (9 markdown stores + 3 JSON stores)
+
+**Markdown stores (use `createStore()`):**
 
 | Store | Fields | Unique Concerns |
 |-------|--------|-----------------|
-| Agents | 16 fields | Companion JSON, skill/task parsers, system prompt files |
+| Agents | 16 fields | Companion JSON (.json), system prompt (.prompt.md), skill/task parsers, GURPS attributes |
 | CAPA | 10 fields | ID generation (CAPA-NNN) |
 | Deliverables | 8 fields | completionPct integer parsing |
 | Lifecycle | 7 fields | Nested dirs, transition history table, template-gated transitions |
@@ -246,16 +258,42 @@ function createStore<TSummary, TDefinition>(desc: StoreDescriptor<TSummary, TDef
 | Requirements | 13 fields (3 entity types) | Shared ID generation (REQ/UC/US-NNN), type filtering |
 | Resources | 12 fields | Dual mode (budget vs quantity), computed fields |
 | Timelog | 7 fields | Date+person filename, reverse sort, duplicate handling |
-| Iterations | 12 fields | Plan+report files, gated transitions, scope checklists |
+| Iterations | 12 fields | Plan+report files, gated transitions, scope checklists, agent/resource arrays |
+
+**JSON stores (excluded from `createStore()` — different persistence model):**
+
+| Store | Location | Why Excluded |
+|-------|----------|-------------|
+| Agent state | `.flowti/var/data-{name}.json` | Runtime state, not frontmatter CRUD |
+| Agent conversations | `.flowti/var/conversations/{name}.json` | Thread-based, functional updates |
+| Onboarding progress | `.flowti/var/onboarding-progress.json` | Single-file JSON, not a collection |
+
+JSON stores are small, purpose-built, and don't share the markdown frontmatter pattern. Forcing them into `createStore()` would add complexity for no benefit.
+
+#### Agent Store — Special Treatment
+
+The agent store is the most complex markdown store. It manages a **7-file aggregate** per agent:
+
+1. `docs/agents/{name}.md` — frontmatter + body (skills, tools, roles)
+2. `docs/agents/{name}.json` — companion (components, goals, ai, relationships, inventory)
+3. `docs/agents/{name}.prompt.md` — system prompt
+4. `.flowti/var/data-{name}.json` — runtime state (tasks, briefs, pending questions)
+5. `.flowti/var/conversations/{name}.json` — conversation threads
+6. `.flowti/var/iterations/NNN/sessions/session-*.md` + `.json` — session logs
+7. `.flowti/var/iterations/NNN/briefs/iteration-NNN-{name}--{phase}.md` — briefings
+
+`createStore()` handles files 1-2 (markdown + companion JSON). Files 3-7 remain as domain-specific functions because they have distinct persistence patterns (single-file read/write, thread-based append, session lifecycle, brief generation from context).
 
 #### What Stays Domain-Specific
 
 - `buildBody()` functions — every domain has unique document structure
-- Custom field parsers (`parseSkill()`, `parseGurpsAttributes()`)
+- Custom field parsers (`parseSkill()`, `parseGurpsAttributes()`, `parseSuggestedTask()`)
 - Aggregation logic (`summarizeTimeLog()`, resource financials)
-- Transition logic (lifecycle gated transitions, brief status machine)
+- Transition logic (lifecycle gated transitions, brief status machine, iteration gated transitions)
 - Brief generation (`generateBrief()` prompt assembly)
-- Conversation store — pure JSON, excluded from MarkdownStore
+- Prompt building (`buildConversationPrompt()`, `buildTaskPrompt()`)
+- Stream parsing (`parseStreamLine()`, `updateStreamState()`)
+- Decision engine (`evaluateDecision()`, `getRulesForAgent()`)
 
 #### File Location
 
@@ -333,6 +371,7 @@ describe("capa controller descriptors", () => {
     const deps = createTestDeps();
     const project = ProjectFactory.default();
     const result = capaCommands["capa:add"].handler({
+      command: "capa:add",
       flags: { name: "Fix leak", "capa-type": "corrective" },
       project,
       deps,
@@ -377,120 +416,143 @@ tests/helpers/
 tests/infrastructure/
 ├── command-engine.test.ts   (~150 lines)
 └── store-engine.test.ts     (~150 lines)
+
+tests/conformance/
+├── controller-conformance.test.ts  (~50 lines)
+└── store-conformance.test.ts       (~30 lines)
 ```
 
-### 4. Migration Strategy
+### 4. Dead Code Removal
+
+This refactor is a clean cut — no backwards-compatibility, no coexistence period, no escape hatches. Legacy code is deleted, not deprecated.
+
+#### What Gets Deleted
+
+| Target | Location | Why It's Dead After Refactor |
+|--------|----------|------------------------------|
+| `adapt()` function | `src/infrastructure/request-response.ts` | Replaced by `defineCommand()` engine |
+| `ControllerAction` type | `src/infrastructure/request-response.ts` | Replaced by `CommandDescriptor` |
+| `initializeDeps()` singleton | `src/infrastructure/deps.ts` | Controllers receive deps via `CommandContext`, not globals |
+| Per-controller `flagStr()` helpers | 8+ controller files | Engine handles flag parsing |
+| Per-controller `noProjectResponse()` | 15+ controller files | Engine handles project guard |
+| Per-controller `resolveBuildCommand()` / `resolveTestCommand()` duplication | `build.controller.ts`, `devtools.controller.ts` | Extracted to shared domain function, called from handler |
+| `Object.fromEntries(Object.entries(actions).map(...))` pattern | All 28 controllers | Replaced by `defineCommand()` registration |
+| Incomplete `createTestDeps()` | `tests/mocks/mock-deps.ts` | Rewritten to stub all 13 `CliDeps` fields |
+| Stale mock-presets | `tests/mocks/mock-presets.ts` | Replaced by engine test patterns |
+| Manual `vi.mock()` blocks for engine concerns | 100+ test files | Engine tests cover these; controller tests call handlers directly |
+
+#### What Gets Rewritten
+
+| Target | Current State | New State |
+|--------|--------------|-----------|
+| `createTestDeps()` | Missing agentShell, worldState, workerManager, processRunner, askAbortable | Complete stubs for all 13 `CliDeps` fields |
+| All 28 controller files | `adapt()` + manual flag parsing + project guards | `defineCommand()` descriptors |
+| All 9 markdown store files | Manual CRUD + frontmatter parsing | `createStore()` descriptors + `buildBody()` |
+| All renderer signatures | Mixed log-first and data-first | Standardized data-first `(data, log)` |
+| `dispatch.ts` wildcard | Hardcoded `"report:"` prefix | Reads prefix from registry |
+
+### 5. Migration Strategy
+
+No coexistence. Each phase is a clean cut — old code is deleted as new code lands.
 
 #### Prerequisites
 
-**`createTestDeps()` must be updated** before Phase 5. The current `tests/mocks/mock-deps.ts` does not stub `agentShell`, `worldState`, `workerManager`, or `processRunner`, but the production `CliDeps` interface requires all four. Controllers like `state.controller.ts` access `ctx.deps.worldState.getState()` directly. Without stubs, handler unit tests will crash at runtime (not caught by TypeScript if deps are cast with `as`).
+**`createTestDeps()` rewrite** — before any controller migration. Current `tests/mocks/mock-deps.ts` returns 9 of 13 required `CliDeps` fields. Rewrite to stub all fields:
 
-Action: In Phase 2, update `createTestDeps()` to include no-op stubs for all `CliDeps` fields. The missing stubs are:
+- `agentShell` — `{ talk: vi.fn(), dispatch: vi.fn(), getActiveDispatch: vi.fn(), reconcileStaleAgents: vi.fn(() => ({ recovered: [] })), pendingQuestions: vi.fn(() => []), answerAgent: vi.fn() }`
+- `worldState` — `{ emitAction: vi.fn(), updateEntity: vi.fn(), getState: vi.fn(() => ({ version: "v1", entities: {}, permissions: [], activity: [] })), getEntity: vi.fn(), flush: vi.fn(), setActionCallback: vi.fn() }`
+- `workerManager` — `{ spawn: vi.fn(), spawnAll: vi.fn(), stop: vi.fn(), stopAll: vi.fn(), getWorker: vi.fn(), listWorkers: vi.fn(() => []), send: vi.fn(), dispatchWorldEvent: vi.fn() }`
+- `processRunner` — `{ spawn: vi.fn(() => ({ onEvent: vi.fn(), result: Promise.resolve({ text: "", thinking: "", exitCode: 0 }), kill: vi.fn() })) }`
+- `input.askAbortable` — `vi.fn(() => ({ promise: Promise.resolve(""), abort: vi.fn() }))`
 
-- `agentShell` — stub with `{ talk: vi.fn(), dispatch: vi.fn() }` (see `src/infrastructure/agent-shell.ts` for `IAgentShell` interface)
-- `worldState` — stub with `{ getState: vi.fn(() => ({})), setState: vi.fn() }` (see `src/infrastructure/world-state-manager.ts`)
-- `workerManager` — stub with `{ start: vi.fn(), stop: vi.fn(), list: vi.fn(() => []) }` (see `src/infrastructure/worker-manager.ts`)
-- `processRunner` — stub with `{ run: vi.fn(), runCapture: vi.fn() }` (see `src/infrastructure/types.ts` for `IAgentProcessRunner`)
-
-Additionally, the existing `createMockInput()` is missing `askAbortable` (required by `IInput`). Add: `askAbortable: vi.fn(() => ({ promise: Promise.resolve(""), abort: vi.fn() }))`.
-
-The new `createStoreDeps()` helper is a convenience wrapper for store tests that only need `{ disk, paths, clock }` — it does not replace `createTestDeps()`.
-
-**`dispatch.ts` must be updated** during Phase 4. The current `resolveWildcard()` hardcodes `startsWith("report:")`. The updated flow:
-
-1. `CommandDescriptor` declares `wildcardPrefix: "report:"` on the descriptor
-2. During registration, the engine calls `registry.setWildcard(handler)` as today, but also stores the prefix string on the registry via a new `setWildcardPrefix(prefix: string)` method
-3. `dispatch.ts`'s `resolveWildcard()` reads the prefix from the registry (`.wildcardPrefix` getter) instead of hardcoding `"report:"`
-4. `resolveCommand()` signature is unchanged — it still receives `wildcardHandler` from the registry's `.wildcard` getter
-5. Only one wildcard prefix is supported (single slot, like today) — this constraint is explicit
-
-**Renderer signature audit required** before Phase 4. The codebase has mixed conventions:
-
-- **Log-first** (`(log, data)`): `common-renderers.ts` — `renderNoProject`, `renderError`, `renderSuccess`, etc.
-- **Data-first** (`(data, log)`): `build-display.ts`, `reports-display.ts` — `renderFreshnessCheck`, `renderBuildAuto`, etc.
-
-The engine standardizes on data-first `(data, log)`. During Phase 4, for each controller migration: check the renderer's actual signature. Swap only log-first renderers. Do not double-swap data-first renderers. Use this grep to identify which need swapping: `grep -rn "log: Log.*data:" src/ui/` vs `grep -rn "data:.*log:" src/ui/`.
+**Renderer audit** — classify all renderers as log-first or data-first before Phase 3. Swap all to data-first in Phase 3.
 
 #### Phase Sequence
 
 ```
-Phase 1: Engines (new code, nothing breaks)
-  ├── src/infrastructure/command-engine.ts
-  └── src/infrastructure/store-engine.ts
+Phase 1: Build Engines + Test Infrastructure
+  ├── src/infrastructure/command-engine.ts (new)
+  ├── src/infrastructure/store-engine.ts (new)
+  ├── tests/helpers/project-factory.ts (new)
+  ├── tests/helpers/store-deps.ts (new)
+  ├── tests/helpers/capture-display.ts (new)
+  ├── tests/helpers/command-test-utils.ts (new)
+  ├── tests/infrastructure/command-engine.test.ts (new)
+  ├── tests/infrastructure/store-engine.test.ts (new)
+  ├── tests/conformance/controller-conformance.test.ts (new, initially skip())
+  ├── tests/conformance/store-conformance.test.ts (new, initially skip())
+  └── tests/mocks/mock-deps.ts (rewritten — all 13 CliDeps fields)
 
-Phase 2: Test Infrastructure (new helpers, nothing breaks)
-  ├── tests/helpers/project-factory.ts
-  ├── tests/helpers/store-deps.ts
-  ├── tests/helpers/capture-display.ts
-  ├── tests/helpers/command-test-utils.ts
-  ├── tests/infrastructure/command-engine.test.ts
-  └── tests/infrastructure/store-engine.test.ts
+Phase 2: Standardize Renderers
+  └── All renderer files — swap log-first to data-first (single pass)
 
-Phase 3: Stores (migrate one at a time, tests pass after each)
+Phase 3: Migrate Stores (all at once, tests updated inline)
   ├── Simplest: timelog, raid, capa, deliverables
   ├── Medium: requirements (3 entity types), resources (dual mode)
-  └── Complex: agents (companion JSON), lifecycle (nested + transitions)
+  ├── Complex: agents (companion JSON), lifecycle (nested + transitions), iterations
+  └── Delete: old store function exports, shared markdown-store helpers that are now engine-internal
 
-Phase 4: Controllers (migrate one at a time, tests pass after each)
-  ├── Simplest: help, info, project, claude-sync (1-2 actions each)
-  ├── Standard: capa, raid, deliverables, timelog, lifecycle, requirements
-  ├── Domain-heavy: build, health, events, devtools, reports
-  └── Edge cases: make (dynamic), serve (async), ai-tools (multi-response)
+Phase 4: Migrate Controllers (all at once, tests updated inline)
+  ├── All 28 controllers rewritten as defineCommand() descriptors
+  ├── dispatch.ts — remove hardcoded wildcard prefix
+  ├── command-registry.ts — add wildcardPrefix support
+  ├── Delete: adapt(), ControllerAction type, initializeDeps()
+  ├── Delete: all per-controller flagStr(), noProjectResponse() helpers
+  └── Controller tests rewritten to descriptor + handler pattern
 
-Phase 5: Test Migration (update tests to use new harness)
-  ├── Controller tests → descriptor + handler tests
-  ├── Store tests → use createStoreDeps
-  └── Display tests → use captureDisplay
-
-Phase 6: Cleanup
-  ├── Remove old adapt() boilerplate
-  ├── Remove duplicated helpers (flagStr, noProjectResponse)
-  └── Remove unused mock-presets
+Phase 5: Enforce + Clean
+  ├── Un-skip conformance tests
+  ├── Add ESLint rules (no-direct-adapt, no-raw-flag-parsing, etc.)
+  ├── Delete unused mock-presets
+  ├── Delete any remaining dead imports/exports
+  └── Verify: tsc, eslint, vitest all green
 ```
 
 #### Key Constraints
 
-- Tests pass after every file migration
-- Old and new formats coexist during transition (command registry accepts both)
-- Stores keep their public API during migration (thin wrappers delegate to engine)
+- Tests pass after each phase (not after each file)
+- No coexistence — `adapt()` is deleted in Phase 4, not deprecated
+- No backwards-compatibility wrappers — store consumers update to new API in Phase 3
+- No escape hatches — if the engine can't handle a case, the engine is extended
 - No new runtime dependencies
-- Engine supports `raw` escape hatch for any edge case discovered mid-migration
 
 #### Risk Mitigation
 
 | Risk | Mitigation |
 |------|-----------|
-| Engine can't handle an edge case | `raw` escape hatch — pass traditional ControllerAction |
-| Store body builders harder to extract | CRUD moves first, buildBody last |
-| Coverage dips during migration | Engine tests compensate — net coverage increases |
-| Complex stores resist generalization | Extend engine with domain-specific methods |
+| Engine can't handle a discovered edge case | Extend the engine — do not add escape hatches |
+| Store body builders harder to extract than expected | Extract `buildBody()` last per store; CRUD moves first |
+| Test count drops and coverage dips | Engine tests + conformance tests compensate |
+| Complex stores resist generalization | Agent/lifecycle/iterations extend the engine with domain-specific methods beyond base CRUD |
 
-### 5. Estimated Impact
+### 6. Estimated Impact
 
 | Phase | Files Changed | Lines Added | Lines Removed | Net |
 |-------|--------------|-------------|---------------|-----|
-| 1. Engines | 2 new | ~450 | 0 | +450 |
-| 2. Test infra | 6 new | ~400 | 0 | +400 |
-| 3. Stores | 8 rewritten | ~400 | ~1,200 | -800 |
-| 4. Controllers | 26 rewritten | ~600 | ~2,500 | -1,900 |
-| 5. Test migration | ~100 updated | ~500 | ~3,000 | -2,500 |
-| 6. Cleanup | ~15 trimmed | 0 | ~300 | -300 |
-| **Total** | ~157 files | ~2,350 | ~7,000 | **-4,650 lines** |
+| 1. Engines + test infra | 12 new | ~900 | ~60 (mock-deps rewrite) | +840 |
+| 2. Renderers | ~30 updated | ~0 | ~0 | 0 (param swap only) |
+| 3. Stores | 9 rewritten + tests | ~500 | ~1,500 | -1,000 |
+| 4. Controllers + dispatch | 28 rewritten + tests + delete adapt/helpers | ~700 | ~3,500 | -2,800 |
+| 5. Enforce + clean | ~20 updated | ~100 | ~500 | -400 |
+| **Total** | ~100 files | ~2,200 | ~5,560 | **-3,360 lines** |
 
-### 6. Definition of Done
+### 7. Definition of Done
 
-- All 5,920+ existing tests pass
+- All existing tests pass (no regressions)
 - Coverage at or above 80% statements / 80% lines
-- ESLint passes (architecture rules enforced)
+- ESLint passes with new enforcement rules
 - TypeScript compiles with no errors
 - No `any` types, no `@ts-ignore`
-- Every controller uses `defineCommand()` (no legacy `adapt()`)
-- Every markdown store uses `createStore()` (no legacy store functions)
-- Controller tests use `ProjectFactory` + direct handler calls (no vi.mock for engine concerns)
-- Store tests use `createStoreDeps()`
-- Display tests use `captureDisplay()`
+- `adapt()` function deleted — zero references remain
+- `ControllerAction` type deleted — zero references remain
+- `initializeDeps()` deleted — zero references remain
+- Every controller uses `defineCommand()` — conformance test enforces
+- Every markdown store uses `createStore()` — conformance test enforces
+- All renderers use data-first `(data, log)` signature
+- `createTestDeps()` stubs all 13 `CliDeps` fields
+- No `flagStr()`, `noProjectResponse()`, or other duplicated helpers in controller files
 
-### 7. Pattern Enforcement
+### 8. Pattern Enforcement
 
 A key goal is not just making patterns easy to follow, but making them enforceable via TypeScript, ESLint, and tests so deviations are caught automatically.
 
@@ -532,23 +594,21 @@ type RendererFn<T> = (data: T, log: LogFn) => void;
 
 #### ESLint Enforcement
 
-**New ESLint rules (added to `configs/eslint.config.mjs` in Phase 6):**
+**New ESLint rules (added in Phase 5):**
 
 | Rule | What It Catches | Implementation |
 |------|----------------|----------------|
-| `no-direct-adapt` | Controllers using legacy `adapt()` instead of `defineCommand()` | `no-restricted-imports` — ban import of `adapt` from `request-response.ts` in `src/controller/` (same mechanism as existing architecture rules) |
-| `no-raw-flag-parsing` | Controllers manually checking `typeof req.flags.x === "string"` | `no-restricted-syntax` with AST selector: `"MemberExpression[object.property.name='flags']"` scoped to `src/controller/` files (new mechanism — requires adding `no-restricted-syntax` to the config) |
-| `no-inline-noProjectResponse` | Controllers defining local `noProjectResponse()` functions | `no-restricted-syntax` with AST selector: `"FunctionDeclaration[id.name='noProjectResponse']"` scoped to `src/controller/` |
-| `no-duplicate-flagStr` | Controllers defining local `flagStr()` helpers | `no-restricted-syntax` with AST selector: `"FunctionDeclaration[id.name='flagStr']"` scoped to `src/controller/` |
+| `no-direct-adapt` | Any import of `adapt` from `request-response.ts` | `no-restricted-imports` scoped to `src/controller/` |
+| `no-raw-flag-parsing` | Manual `typeof req.flags.x` checks in controllers | `no-restricted-syntax` with AST selector `"MemberExpression[object.property.name='flags']"` scoped to `src/controller/` |
+| `no-inline-noProjectResponse` | Local `noProjectResponse()` function definitions | `no-restricted-syntax` with AST selector `"FunctionDeclaration[id.name='noProjectResponse']"` scoped to `src/controller/` |
+| `no-duplicate-flagStr` | Local `flagStr()` helper definitions | `no-restricted-syntax` with AST selector `"FunctionDeclaration[id.name='flagStr']"` scoped to `src/controller/` |
 
 Implementation notes:
-- `no-direct-adapt` uses `no-restricted-imports` (same pattern as existing architecture enforcement)
-- The other three rules require `no-restricted-syntax` with AST selectors — this is a new ESLint mechanism for this project, but well-supported by ESLint core (no plugin needed)
-- All rules are scoped to `src/controller/` files via flat config's `files` array
+- `no-direct-adapt` uses `no-restricted-imports` (same mechanism as existing architecture rules)
+- The other three require `no-restricted-syntax` with AST selectors — new for this project but well-supported by ESLint core (no plugin needed)
+- All rules scoped to `src/controller/` via flat config's `files` array
 
-#### Test Enforcement
-
-**Conformance tests (added in Phase 2, run with the full suite):**
+#### Conformance Tests
 
 ```typescript
 // tests/conformance/controller-conformance.test.ts
@@ -556,7 +616,6 @@ import { commandRegistry } from "../../src/infrastructure/command-registry.js";
 
 describe("controller conformance", () => {
   it("all registered commands use defineCommand descriptors", () => {
-    // CommandRegistry exposes keys() and get(name) — no entries() method exists
     for (const name of commandRegistry.keys()) {
       const meta = commandRegistry.get(name);
       expect(meta?.handler.__descriptor, `${name} must use defineCommand()`).toBeDefined();
@@ -567,7 +626,6 @@ describe("controller conformance", () => {
     for (const name of commandRegistry.keys()) {
       const meta = commandRegistry.get(name);
       if (meta?.handler.__descriptor?.requires === "project") {
-        // Engine guarantees this — test verifies no bypass
         const result = meta.handler({ flags: {}, project: undefined, deps: minimalDeps });
         expect(result.data).toHaveProperty("command", expect.stringContaining("help"));
       }
@@ -576,10 +634,12 @@ describe("controller conformance", () => {
 });
 
 // tests/conformance/store-conformance.test.ts
+import { capaStore, raidStore, timelogStore, ... } from "...";
+
 describe("store conformance", () => {
   it("all stores use createStore engine", () => {
-    // Import all store modules, verify they export objects with list/create/read/updateField
-    const stores = [capaStore, raidStore, timelogStore, ...];
+    const stores = [capaStore, raidStore, timelogStore, deliverableStore,
+      requirementStore, resourceStore, agentStore, lifecycleStore, iterationStore];
     for (const store of stores) {
       expect(store).toHaveProperty("list");
       expect(store).toHaveProperty("create");
@@ -590,7 +650,7 @@ describe("store conformance", () => {
 });
 ```
 
-**Engine stamps a `__descriptor` marker** on returned handlers/stores so conformance tests can verify that all registrations go through the engine, not through legacy patterns.
+**Engine stamps `__descriptor`** on returned handlers/stores so conformance tests verify all registrations go through the engine.
 
 #### Summary: Three Layers of Enforcement
 
@@ -600,13 +660,14 @@ describe("store conformance", () => {
 | **ESLint** | Legacy patterns (`adapt()`, inline `flagStr()`, manual flag parsing) | At lint time |
 | **Conformance tests** | Any command/store not using the engine, project guard bypasses | At test time |
 
-Together these ensure that new code follows the patterns by default, and deviations are caught before merge.
-
-### 8. What This Does NOT Change
+### 9. What This Does NOT Change
 
 - CLI public API (all commands, flags, and output unchanged)
 - Sitemap/UI layer (remains declarative, untouched)
 - Pipeline engine (already well-designed)
-- Infrastructure abstractions (IFileSystem, IShell, etc.)
+- Infrastructure abstractions (IFileSystem, IShell, IClock, IPaths, IInput)
+- Infrastructure singletons (world-state-manager, worker-manager, agent-shell, agent-process-runner)
 - Domain purity rule (domain never imports infrastructure)
 - Zero runtime dependencies constraint
+- Onboarding system (new, clean, no refactoring needed)
+- Agent conversation/stream/decision engine (new, clean, no refactoring needed)
