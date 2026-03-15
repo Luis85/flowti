@@ -8,6 +8,7 @@
 
 import type { IFileSystem, IShell, IPaths, IClock, IProcess, IInput, IWorldStateManager, IWorkerManager, IAgentProcessRunner } from "./types.js";
 import type { ICliBus } from "./event-bus.js";
+import type { IAgentShell } from "../domain/agents/agent-shell.js";
 import { disk } from "./filesystem.js";
 import { shell } from "./shell.js";
 import { paths } from "./paths.js";
@@ -17,10 +18,15 @@ import { input } from "./input.js";
 import { log, warn } from "./logger.js";
 import { createCliBus } from "./event-bus.js";
 import { attachCliRenderer } from "../ui/renderers/cli-event-renderer.js";
-import type { AgentsConfig } from "./types-config.js";
+import type { AgentsConfig, WorkspacesConfig } from "./types-config.js";
 import { createWorldStateManager } from "./world-state-manager.js";
 import { createProcessRunner } from "./agent-process-runner.js";
 import { createWorkerManager } from "./worker-manager.js";
+import { createAgentShell } from "./agent-shell.js";
+import { createWorkspaceRegistry } from "./workspace-registry.js";
+import { createWorkspaceProvisioner } from "./workspace-provisioner.js";
+import { createStateSplitter } from "./state-splitter.js";
+import { createStateCollector } from "./state-collector.js";
 
 // ── Full dependency container ───────────────────────────────────────
 
@@ -38,6 +44,7 @@ export interface CliDeps {
 	readonly worldState: IWorldStateManager;
 	readonly workerManager: IWorkerManager;
 	readonly processRunner: IAgentProcessRunner;
+	readonly agentShell?: IAgentShell;
 }
 
 // ── Domain-specific subsets (ISP) ───────────────────────────────────
@@ -87,6 +94,9 @@ export type ArchiveDeps = Pick<CliDeps, "disk" | "paths" | "log">;
 /** Dependencies for onboarding tour system. */
 export type OnboardingDeps = Pick<CliDeps, "disk" | "paths" | "input" | "clock" | "log">;
 
+/** Dependencies for workspace management. */
+export type WorkspaceDeps = Pick<CliDeps, "disk" | "paths" | "shell" | "clock" | "bus" | "log">;
+
 /** Log function type for renderers. */
 export type Log = (msg?: string) => void;
 
@@ -102,5 +112,20 @@ export function createDefaultDeps(agentsConfig?: AgentsConfig, vaultRoot?: strin
 	const processRunner = createProcessRunner(baseDeps, agentsConfig);
 	const workerManager = createWorkerManager(baseDeps, worldState, processRunner, resolvedRoot, agentsConfig);
 	worldState.setActionCallback((action) => workerManager.dispatchWorldEvent(action));
-	return { disk, shell, paths, clock, proc, input, bus, log, warn, worldState, workerManager, processRunner };
+
+	// Workspace-based agent shell (optional — only when workspacesConfig provided)
+	const workspacesConfig = undefined as WorkspacesConfig | undefined;
+	const agentShell = workspacesConfig ? createAgentShell({
+		registry: createWorkspaceRegistry({ disk }, paths.join(resolvedRoot, ".flowti", "var", "workspace-registry.json")),
+		provisioner: createWorkspaceProvisioner({ shell, disk, paths }, resolvedRoot),
+		splitter: createStateSplitter({ disk, paths, shell }, resolvedRoot),
+		collector: createStateCollector({ disk, paths, shell }, resolvedRoot),
+		processRunner,
+		agentFinder: () => null,
+		config: workspacesConfig,
+		clock,
+		bus,
+	}) : undefined;
+
+	return { disk, shell, paths, clock, proc, input, bus, log, warn, worldState, workerManager, processRunner, agentShell };
 }
