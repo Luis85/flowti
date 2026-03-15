@@ -1563,19 +1563,22 @@ for (const journey of journeys) {
 		beforeEach(async () => {
 			opts = { variables: { templateDir, binSrc } };
 			const deps = createDefaultDeps(infraDeps);
-			// Call setup directly on the provider — do NOT pass env to runStep
-			// to avoid double invocation (runStep also calls env.setup internally)
+			// Call setup directly — NOT via env to avoid double invocation
 			await provider.setup!(deps, opts);
 			setToolDeps(deps);
 		});
 
+		// Build a stripped env with tools but WITHOUT setup/teardown
+		// This gives runStep access to vault-cli/vault-project/vault-assert
+		// without triggering setup again (executeJourney calls resolved.setup)
+		const BASE_TOOLS_IMPORT = await import("../../src/domain/e2e/journey/journey-tools.js");
+		const strippedEnv = {
+			tools: { ...BASE_TOOLS_IMPORT.BASE_TOOLS, ...provider.tools },
+		};
+
 		for (const step of journey.steps) {
 			it(step.title, async () => {
-				// Pass only opts (with vaultRoot set by setup), no env
-				// The vault-specific tools are registered in the provider's tools map
-				// which is available through the registry
-				const registry = createDefaultRegistry();
-				const result = await runStep(step, opts);
+				const result = await runStep(step, opts, strippedEnv);
 				expect(result.status).toBe("pass");
 			});
 		}
@@ -1589,10 +1592,11 @@ for (const journey of journeys) {
 ```
 
 **Key implementation notes:**
-- `setup()` is called manually in `beforeEach` — it is NOT passed via `env` to `runStep`, which would cause double invocation.
-- `runStep(step, opts)` is called WITHOUT `env` parameter. The vault-specific tools are resolved through the registered provider in the global registry (via `createDefaultRegistry`).
+- `setup()` is called manually in `beforeEach` — it is NOT passed via `env` to `runStep`, which would cause double invocation (`executeJourney` line 329 calls `resolved.setup` unconditionally).
+- A **stripped env** is constructed with `BASE_TOOLS` + provider tools but NO `setup`/`teardown`. This gives `runStep` access to `vault-cli`, `vault-project`, and `vault-assert` tools without re-triggering vault provisioning.
 - A fresh `provider` instance is created per journey `describe` block so the closure variable `currentVaultRoot` is isolated per journey.
-- The implementer must verify that `runStep` without `env` still resolves tools from the registered providers. If not, pass `env` but ensure `env.setup` is not called again (check `journey-executor.ts` line 329 to confirm whether `runStep` calls `setup` when env is provided).
+- The `BASE_TOOLS` import uses a dynamic `import()` because the `BASE_TOOLS` map is exported from `journey-tools.ts`. The implementer should verify the export name matches.
+- Tier 2 and Tier 3 runners follow the exact same pattern — only the `journeysDir` and `[Tier N]` prefix change.
 
 - [ ] **Step 2: Verify the runner loads journeys (dry run)**
 
