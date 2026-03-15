@@ -91,6 +91,21 @@ export function completeTask(state: AgentState, taskName: string): AgentState {
 	return { ...state, tasks, status: allDone ? "idle" : state.status };
 }
 
+/** Mark the first task matching the name (pending or in-progress) as done. Unlike completeTask, this marks only ONE match. */
+export function completeFirstTask(state: AgentState, taskName: string): AgentState {
+	let found = false;
+	const tasks = state.tasks.map((t) => {
+		if (!found && t.name === taskName && (t.status === "pending" || t.status === "in-progress")) {
+			found = true;
+			return { ...t, status: "done" as const };
+		}
+		return t;
+	});
+	if (!found) return state;
+	const allDone = tasks.every((t) => t.status === "done");
+	return { ...state, tasks, status: allDone ? "idle" : state.status };
+}
+
 /** Record a generated brief. */
 export function addBrief(state: AgentState, brief: AgentBriefRef): AgentState {
 	return { ...state, briefs: [...state.briefs, brief] };

@@ -220,5 +220,143 @@ describe("createAgentShell", () => {
 			expect(shell.getActiveDispatch("alice")!.task).toBe("task1");
 			expect(shell.getActiveDispatch("bob")!.task).toBe("task2");
 		});
+
+		it("marks task done and clears dispatch on successful completion", async () => {
+			let exitResolver: (code: number) => void;
+			const proc: BackgroundProcess = {
+				waitForOutput: vi.fn().mockResolvedValue(null),
+				waitForExit: vi.fn(() => new Promise<number>((r) => { exitResolver = r; })),
+				onOutput: vi.fn(() => () => {}),
+				kill: vi.fn(),
+				get running() { return false; },
+				output: [],
+			};
+			(deps.shell.spawnBackground as ReturnType<typeof vi.fn>).mockReturnValue(proc);
+
+			const stateWithTask = JSON.stringify({
+				name: "bobby", status: "busy",
+				tasks: [{ name: "do-task", assignedAt: "2026-03-15", status: "in-progress" }],
+				briefs: [],
+			});
+			(deps.disk.readFileSync as ReturnType<typeof vi.fn>).mockReturnValue(stateWithTask);
+
+			const shell = createAgentShell(deps, undefined, "/vault");
+			const agent = createMockAgent();
+			shell.dispatch(agent, "/brief.md", "do-task");
+
+			// Resolve process exit
+			exitResolver!(0);
+			await new Promise((r) => setTimeout(r, 50));
+
+			expect(shell.getActiveDispatch("bobby")).toBeNull();
+			expect(deps.disk.writeFileSync).toHaveBeenCalledWith(
+				expect.stringContaining("data-bobby.json"),
+				expect.any(String),
+				"utf-8",
+			);
+		});
+
+		it("returns null dispatch after completion with no pending tasks", async () => {
+			let exitResolver: (code: number) => void;
+			const proc: BackgroundProcess = {
+				waitForOutput: vi.fn().mockResolvedValue(null),
+				waitForExit: vi.fn(() => new Promise<number>((r) => { exitResolver = r; })),
+				onOutput: vi.fn(() => () => {}),
+				kill: vi.fn(),
+				get running() { return false; },
+				output: [],
+			};
+			(deps.shell.spawnBackground as ReturnType<typeof vi.fn>).mockReturnValue(proc);
+
+			const stateNoPending = JSON.stringify({
+				name: "bobby", status: "busy",
+				tasks: [{ name: "only-task", assignedAt: "2026-03-15", status: "in-progress" }],
+				briefs: [],
+			});
+			(deps.disk.readFileSync as ReturnType<typeof vi.fn>).mockReturnValue(stateNoPending);
+
+			const shell = createAgentShell(deps, undefined, "/vault");
+			shell.dispatch(createMockAgent(), "/brief.md", "only-task");
+
+			exitResolver!(0);
+			await new Promise((r) => setTimeout(r, 50));
+
+			expect(shell.getActiveDispatch("bobby")).toBeNull();
+		});
+	});
+
+	describe("reconcileStaleAgents", () => {
+		it("returns empty when varDir does not exist", () => {
+			(deps.disk.existsSync as ReturnType<typeof vi.fn>).mockImplementation((p: string) => {
+				if (p === "/vault/.flowti/var") return false;
+				return true;
+			});
+			const shell = createAgentShell(deps, undefined, "/vault");
+			const result = shell.reconcileStaleAgents();
+			expect(result.recovered).toEqual([]);
+		});
+
+		it("returns empty when no busy agents", () => {
+			(deps.disk.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(true);
+			(deps.disk.readdirSync as ReturnType<typeof vi.fn>).mockReturnValue(["data-alice.json"]);
+			(deps.disk.readFileSync as ReturnType<typeof vi.fn>).mockReturnValue(
+				JSON.stringify({ name: "alice", status: "idle", tasks: [], briefs: [] }),
+			);
+			const shell = createAgentShell(deps, undefined, "/vault");
+			const result = shell.reconcileStaleAgents();
+			expect(result.recovered).toEqual([]);
+		});
+
+		it("recovers stale busy agent with no active dispatch", () => {
+			(deps.disk.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(true);
+			(deps.disk.readdirSync as ReturnType<typeof vi.fn>).mockReturnValue(["data-alice.json"]);
+			(deps.disk.readFileSync as ReturnType<typeof vi.fn>).mockReturnValue(
+				JSON.stringify({ name: "alice", status: "busy", tasks: [], briefs: [] }),
+			);
+			const shell = createAgentShell(deps, undefined, "/vault");
+			const result = shell.reconcileStaleAgents();
+			expect(result.recovered).toEqual(["alice"]);
+			// Should have written idle state
+			expect(deps.disk.writeFileSync).toHaveBeenCalledWith(
+				expect.stringContaining("data-alice.json"),
+				expect.stringContaining('"idle"'),
+				"utf-8",
+			);
+			// Should have written a system inbox note
+			expect(deps.disk.writeFileSync).toHaveBeenCalledWith(
+				expect.stringContaining("system-alice"),
+				expect.stringContaining("interrupted"),
+				"utf-8",
+			);
+		});
+
+		it("ignores agent with active dispatch", () => {
+			(deps.disk.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(true);
+			(deps.disk.readdirSync as ReturnType<typeof vi.fn>).mockReturnValue(["data-bobby.json"]);
+			(deps.disk.readFileSync as ReturnType<typeof vi.fn>).mockReturnValue(
+				JSON.stringify({ name: "bobby", status: "busy", tasks: [], briefs: [] }),
+			);
+			const shell = createAgentShell(deps, undefined, "/vault");
+			// Dispatch an agent so it has an active dispatch
+			shell.dispatch(createMockAgent(), "/brief.md", "task");
+			const result = shell.reconcileStaleAgents();
+			expect(result.recovered).toEqual([]);
+		});
+
+		it("returns recovered names", () => {
+			(deps.disk.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(true);
+			(deps.disk.readdirSync as ReturnType<typeof vi.fn>).mockReturnValue(["data-alpha.json", "data-beta.json"]);
+			let callCount = 0;
+			(deps.disk.readFileSync as ReturnType<typeof vi.fn>).mockImplementation(() => {
+				callCount++;
+				if (callCount <= 2) return JSON.stringify({ name: "alpha", status: "busy", tasks: [], briefs: [] });
+				return JSON.stringify({ name: "beta", status: "busy", tasks: [], briefs: [] });
+			});
+			const shell = createAgentShell(deps, undefined, "/vault");
+			const result = shell.reconcileStaleAgents();
+			expect(result.recovered).toContain("alpha");
+			expect(result.recovered).toContain("beta");
+			expect(result.recovered).toHaveLength(2);
+		});
 	});
 });

@@ -12,7 +12,7 @@ import type { AgentSummary } from "../domain/agents/agent-types.js";
 import type { AgentStreamEvent } from "../domain/agents/agent-stream.js";
 import { parseStreamLine, createStreamState, updateStreamState } from "../domain/agents/agent-stream.js";
 import { parseAgentResponse } from "../domain/agents/agent-conversation.js";
-import { readAgentState, writeAgentState } from "../domain/agents/agent-state.js";
+import { readAgentState, writeAgentState, completeFirstTask } from "../domain/agents/agent-state.js";
 
 export type ShellBaseDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "shell" | "log">;
 
@@ -66,6 +66,20 @@ function writeInboxNote(
 	deps.disk.writeFileSync(deps.paths.join(inboxDir, `${slug}.md`), lines.join("\n"), "utf-8");
 }
 
+function writeSystemInboxNote(
+	deps: ShellBaseDeps, vaultRoot: string, agentName: string, message: string,
+): void {
+	const inboxDir = deps.paths.join(vaultRoot, "00 - Connectivity", "inbox");
+	if (!deps.disk.existsSync(inboxDir)) deps.disk.mkdirSync(inboxDir, { recursive: true });
+	const slug = `system-${agentName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${deps.clock.ms()}`;
+	const lines = [
+		"---", `type: agent-note`, `from: system`, `persona: ${agentName}`,
+		`date: ${deps.clock.iso()}`, `status: message`, "---", "",
+		`# System Note — ${agentName}`, "", message, "",
+	];
+	deps.disk.writeFileSync(deps.paths.join(inboxDir, `${slug}.md`), lines.join("\n"), "utf-8");
+}
+
 // ── Factory ─────────────────────────────────────────────────────────
 
 export function createAgentShell(deps: ShellBaseDeps, config: AgentsConfig | undefined, vaultRoot: string): IAgentShell {
@@ -73,6 +87,7 @@ export function createAgentShell(deps: ShellBaseDeps, config: AgentsConfig | und
 	const globalProvider = config?.provider;
 	const processTimeout = config?.processTimeoutMs ?? 3_600_000;
 	const varDir = deps.paths.join(vaultRoot, ".flowti", "var");
+	const failureCounts = new Map<string, number>();
 
 	function buildCommand(providerConfig: ProviderConfig, agent: AgentSummary, inputPath: string): string {
 		const args = [...providerConfig.streamArgs];
@@ -102,7 +117,7 @@ export function createAgentShell(deps: ShellBaseDeps, config: AgentsConfig | und
 		} catch { /* state update best-effort */ }
 	}
 
-	return {
+	const shell: IAgentShell = {
 		talk(agent: AgentSummary, prompt: string, opts?: TalkOptions): TalkSession {
 			const providerConfig = resolveProvider(globalProvider, agent.ai?.provider);
 			const tempPath = deps.paths.join(deps.paths.resolve("."), `.flowti-talk-${deps.clock.ms()}.tmp`);
@@ -252,14 +267,64 @@ export function createAgentShell(deps: ShellBaseDeps, config: AgentsConfig | und
 				emit(event);
 			});
 
-			// Background completion — inbox note + state cleanup
-			proc.waitForExit(processTimeout).then(() => {
+			// Background completion — inbox note + state cleanup + auto-dequeue
+			proc.waitForExit(processTimeout).then((exitCode) => {
 				const accumulated = textBuffer.join("");
 				if (accumulated) {
 					writeInboxNote(deps, vaultRoot, agent.name, agent.persona, task, accumulated, thinkingBuffer.join(""));
 				}
-				setAgentStatus(agent.name, "idle");
-				activeDispatches.delete(agent.name);
+
+				// Mark current task done
+				let state = readAgentState(deps, varDir, agent.name);
+				state = completeFirstTask(state, task);
+				writeAgentState(deps, varDir, agent.name, state);
+
+				// Track failures for auto-dequeue guard
+				const failed = exitCode !== 0 && !accumulated;
+				if (failed) {
+					failureCounts.set(agent.name, (failureCounts.get(agent.name) ?? 0) + 1);
+				} else {
+					failureCounts.delete(agent.name);
+				}
+
+				if ((failureCounts.get(agent.name) ?? 0) >= 3) {
+					writeSystemInboxNote(deps, vaultRoot, agent.name, "Auto-dequeue stopped after repeated failures.");
+					setAgentStatus(agent.name, "idle");
+					activeDispatches.delete(agent.name);
+					failureCounts.delete(agent.name);
+					return;
+				}
+
+				// Check for next pending task
+				const nextTask = state.tasks.find((t) => t.status === "pending");
+				if (nextTask && deps.disk.existsSync(briefPath)) {
+					writeSystemInboxNote(deps, vaultRoot, agent.name, `Starting next task: ${nextTask.name}`);
+					setTimeout(() => {
+						// Re-read state to guard against manual intervention during cooldown
+						const freshState = readAgentState(deps, varDir, agent.name);
+						const stillPending = freshState.tasks.find((t) => t.name === nextTask.name && t.status === "pending");
+						if (!stillPending) {
+							setAgentStatus(agent.name, "idle");
+							activeDispatches.delete(agent.name);
+							return;
+						}
+						// Mark in-progress and re-dispatch
+						const updated = {
+							...freshState,
+							tasks: freshState.tasks.map((t) =>
+								t.name === nextTask.name && t.status === "pending"
+									? { ...t, status: "in-progress" as const }
+									: t
+							),
+						};
+						writeAgentState(deps, varDir, agent.name, updated);
+						activeDispatches.delete(agent.name);
+						shell.dispatch(agent, briefPath, nextTask.name, opts);
+					}, 10_000);
+				} else {
+					setAgentStatus(agent.name, "idle");
+					activeDispatches.delete(agent.name);
+				}
 			}).catch(() => {
 				activeDispatches.delete(agent.name);
 			});
@@ -270,5 +335,26 @@ export function createAgentShell(deps: ShellBaseDeps, config: AgentsConfig | und
 		getActiveDispatch(agentName: string): DispatchHandle | null {
 			return activeDispatches.get(agentName) ?? null;
 		},
+
+		reconcileStaleAgents(): { recovered: string[] } {
+			const recovered: string[] = [];
+			if (!deps.disk.existsSync(varDir)) return { recovered };
+			const files = deps.disk.readdirSync(varDir).filter((f) => f.startsWith("data-") && f.endsWith(".json"));
+			for (const file of files) {
+				try {
+					const content = deps.disk.readFileSync(deps.paths.join(varDir, file), "utf-8");
+					const raw = JSON.parse(content) as { name?: string; status?: string };
+					if (raw.status !== "busy" || !raw.name) continue;
+					if (activeDispatches.has(raw.name)) continue;
+					const state = readAgentState(deps, varDir, raw.name);
+					writeAgentState(deps, varDir, raw.name, { ...state, status: "idle" });
+					writeSystemInboxNote(deps, vaultRoot, raw.name, "Process was interrupted. Recovered to idle.");
+					recovered.push(raw.name);
+				} catch { /* corrupt file — skip */ }
+			}
+			return { recovered };
+		},
 	};
+
+	return shell;
 }

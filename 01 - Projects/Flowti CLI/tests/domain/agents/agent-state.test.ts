@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import {
 	readAgentState, writeAgentState,
-	recordInteraction, addTask, completeTask, addBrief,
+	recordInteraction, addTask, completeTask, completeFirstTask, addBrief,
 } from "../../../src/domain/agents/agent-state.js";
 import type { AgentStateDeps, AgentState } from "../../../src/domain/agents/agent-state.js";
 
@@ -130,6 +130,88 @@ describe("completeTask", () => {
 		expect(updated.tasks[0].status).toBe("done");
 		expect(updated.tasks[1].status).toBe("pending");
 		expect(updated.status).toBe("busy");
+	});
+});
+
+describe("completeFirstTask", () => {
+	it("marks only first pending match (not all)", () => {
+		const state: AgentState = {
+			name: "Dev", status: "busy",
+			tasks: [
+				{ name: "deploy", assignedAt: "2026-03-15", status: "pending" },
+				{ name: "deploy", assignedAt: "2026-03-15", status: "pending" },
+			],
+			briefs: [],
+		};
+		const result = completeFirstTask(state, "deploy");
+		expect(result.tasks[0].status).toBe("done");
+		expect(result.tasks[1].status).toBe("pending");
+	});
+
+	it("marks in-progress if no pending match", () => {
+		const state: AgentState = {
+			name: "Dev", status: "busy",
+			tasks: [
+				{ name: "deploy", assignedAt: "2026-03-15", status: "done" },
+				{ name: "deploy", assignedAt: "2026-03-15", status: "in-progress" },
+			],
+			briefs: [],
+		};
+		const result = completeFirstTask(state, "deploy");
+		expect(result.tasks[0].status).toBe("done");
+		expect(result.tasks[1].status).toBe("done");
+	});
+
+	it("leaves different-named tasks unchanged", () => {
+		const state: AgentState = {
+			name: "Dev", status: "busy",
+			tasks: [
+				{ name: "deploy", assignedAt: "2026-03-15", status: "pending" },
+				{ name: "test", assignedAt: "2026-03-15", status: "pending" },
+			],
+			briefs: [],
+		};
+		const result = completeFirstTask(state, "deploy");
+		expect(result.tasks[0].status).toBe("done");
+		expect(result.tasks[1].status).toBe("pending");
+	});
+
+	it("returns idle when all tasks done", () => {
+		const state: AgentState = {
+			name: "Dev", status: "busy",
+			tasks: [
+				{ name: "deploy", assignedAt: "2026-03-15", status: "pending" },
+				{ name: "test", assignedAt: "2026-03-15", status: "done" },
+			],
+			briefs: [],
+		};
+		const result = completeFirstTask(state, "deploy");
+		expect(result.status).toBe("idle");
+	});
+
+	it("preserves busy when other tasks remain pending", () => {
+		const state: AgentState = {
+			name: "Dev", status: "busy",
+			tasks: [
+				{ name: "deploy", assignedAt: "2026-03-15", status: "pending" },
+				{ name: "test", assignedAt: "2026-03-15", status: "pending" },
+			],
+			briefs: [],
+		};
+		const result = completeFirstTask(state, "deploy");
+		expect(result.status).toBe("busy");
+	});
+
+	it("returns state unchanged when no matching task", () => {
+		const state: AgentState = {
+			name: "Dev", status: "busy",
+			tasks: [
+				{ name: "test", assignedAt: "2026-03-15", status: "pending" },
+			],
+			briefs: [],
+		};
+		const result = completeFirstTask(state, "deploy");
+		expect(result).toBe(state);
 	});
 });
 
