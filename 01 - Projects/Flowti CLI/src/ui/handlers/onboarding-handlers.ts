@@ -5,10 +5,11 @@ import { renderNarration, renderChecklist, renderHintBanner, renderTourSelection
 import { readProgress, writeProgress, createInitialProgress } from "../../domain/onboarding/onboarding-store.js";
 import { markOnboardingComplete } from "../../domain/onboarding/onboarding-detection.js";
 import { processStep, advanceProgress } from "../../domain/onboarding/tour-engine.js";
-import type { Tour, TourRegistry, CheckpointStep } from "../../domain/onboarding/onboarding-types.js";
+import type { Tour, TourRegistry, CheckpointStep, StepResult, TourProgress, TourStep } from "../../domain/onboarding/onboarding-types.js";
 import type { CliDeps } from "../../infrastructure/deps.js";
 
 type FsDeps = Pick<CliDeps, "disk" | "paths">;
+type ActionDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "log" | "input">;
 
 function loadTourRegistry(deps: FsDeps): TourRegistry {
 	const content = deps.disk.readFileSync(
@@ -28,6 +29,51 @@ function loadStepContent(tourDir: string, contentPath: string, deps: FsDeps): st
 	return deps.disk.readFileSync(
 		deps.paths.join(VAULT_ROOT, "01 - Projects", "Flowti CLI", "configs", "onboarding", tourDir, contentPath), "utf-8",
 	);
+}
+
+async function handleStepResult(result: StepResult, step: TourStep, progress: TourProgress, tour: Tour, deps: ActionDeps): Promise<MenuResult | undefined> {
+	switch (result.kind) {
+		case "narrate": {
+			renderNarration(result, deps.log);
+			await deps.input.waitForEnter();
+			writeProgress(VAULT_ROOT, advanceProgress(progress, step.id), deps);
+			return undefined;
+		}
+		case "prompt": {
+			renderNarration({ speaker: "Alice", disposition: "strategic", content: result.content }, deps.log);
+			const answer = await deps.input.ask(`  ${result.field}: `);
+			if (result.validation === "non-empty" && !answer.trim()) {
+				deps.log("  Please provide a value.");
+				return undefined;
+			}
+			writeProgress(VAULT_ROOT, advanceProgress(progress, step.id, { [result.field]: answer.trim() }), deps);
+			return undefined;
+		}
+		case "auto": {
+			renderNarration({ speaker: "Alice", disposition: "strategic", content: result.content }, deps.log);
+			await deps.input.waitForEnter();
+			writeProgress(VAULT_ROOT, advanceProgress(progress, step.id), deps);
+			return undefined;
+		}
+		case "delegate": {
+			writeProgress(VAULT_ROOT, advanceProgress(progress, step.id), deps);
+			return `navigate:${result.target}` as MenuResult;
+		}
+		case "checkpoint": {
+			renderNarration({ speaker: "Alice", disposition: "strategic", content: result.content }, deps.log);
+			const checklistItems = result.completedSteps.map((id) => ({
+				id,
+				label: (tour.steps.find((s) => s.id === id && s.type === "checkpoint") as CheckpointStep | undefined)?.label ?? id,
+				completed: true,
+			}));
+			renderChecklist(checklistItems, deps.log);
+			await deps.input.waitForEnter();
+			writeProgress(VAULT_ROOT, advanceProgress(progress, step.id), deps);
+			return undefined;
+		}
+		default:
+			return undefined;
+	}
 }
 
 export function registerOnboardingHandlers(registry: HandlerRegistry): void {
@@ -91,54 +137,7 @@ export function registerOnboardingHandlers(registry: HandlerRegistry): void {
 			: undefined;
 
 		const result = processStep(step, progress, rawContent, hintsContent);
-
-		switch (result.kind) {
-			case "narrate": {
-				renderNarration(result, ctx.deps.log);
-				await ctx.deps.input.waitForEnter();
-				const next = advanceProgress(progress, step.id);
-				writeProgress(VAULT_ROOT, next, ctx.deps);
-				return undefined;
-			}
-			case "prompt": {
-				renderNarration({ speaker: "Alice", disposition: "strategic", content: result.content }, ctx.deps.log);
-				const answer = await ctx.deps.input.ask(`  ${result.field}: `);
-				if (result.validation === "non-empty" && !answer.trim()) {
-					ctx.deps.log("  Please provide a value.");
-					return undefined;
-				}
-				const next = advanceProgress(progress, step.id, { [result.field]: answer.trim() });
-				writeProgress(VAULT_ROOT, next, ctx.deps);
-				return undefined;
-			}
-			case "auto": {
-				renderNarration({ speaker: "Alice", disposition: "strategic", content: result.content }, ctx.deps.log);
-				await ctx.deps.input.waitForEnter();
-				const next = advanceProgress(progress, step.id);
-				writeProgress(VAULT_ROOT, next, ctx.deps);
-				return undefined;
-			}
-			case "delegate": {
-				const next = advanceProgress(progress, step.id);
-				writeProgress(VAULT_ROOT, next, ctx.deps);
-				return `navigate:${result.target}` as MenuResult;
-			}
-			case "checkpoint": {
-				renderNarration({ speaker: "Alice", disposition: "strategic", content: result.content }, ctx.deps.log);
-				const checklistItems = result.completedSteps.map((id) => ({
-					id,
-					label: (tour.steps.find((s) => s.id === id && s.type === "checkpoint") as CheckpointStep | undefined)?.label ?? id,
-					completed: true,
-				}));
-				renderChecklist(checklistItems, ctx.deps.log);
-				await ctx.deps.input.waitForEnter();
-				const next = advanceProgress(progress, step.id);
-				writeProgress(VAULT_ROOT, next, ctx.deps);
-				return undefined;
-			}
-			default:
-				return undefined;
-		}
+		return handleStepResult(result, step, progress, tour, ctx.deps);
 	});
 
 	registry.registerView("onboarding-tour", async (ctx) => {
