@@ -119,13 +119,13 @@ describe("timelog.controller", () => {
 
 		it("returns error when --person is missing", () => {
 			commands["timelog:add"]({ task: "Test" }, [], "timelog:add", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: expect.stringContaining("Missing") }));
+			expect(renderError).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining("Missing") }), expect.any(Function));
 			expect(createTimeLogEntry).not.toHaveBeenCalled();
 		});
 
 		it("returns error when --task is missing", () => {
 			commands["timelog:add"]({ person: "Jane" }, [], "timelog:add", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: expect.stringContaining("Missing") }));
+			expect(renderError).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining("Missing") }), expect.any(Function));
 			expect(createTimeLogEntry).not.toHaveBeenCalled();
 		});
 

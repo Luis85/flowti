@@ -55,14 +55,14 @@ const actions: Record<string, ControllerAction> = {
 		if (!name || typeof name !== "string") {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --name flag.", hint: 'Usage: flowti resources:add --name="Jane Doe" --type="human"' },
-				(d) => renderError(req.deps.log, d),
+				(d) => renderError(d, req.deps.log),
 			);
 		}
 		const resourceType = flagStr(req.flags, "type", "human") as ResourceType;
 		if (!VALID_TYPES.includes(resourceType)) {
 			return dataResponse<ErrorModel>(
 				{ error: `Invalid type "${resourceType}". Valid: ${VALID_TYPES.join(", ")}` },
-				(d) => renderError(req.deps.log, d),
+				(d) => renderError(d, req.deps.log),
 			);
 		}
 		return createResourceAction(req, name, resourceType);

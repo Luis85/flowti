@@ -30,7 +30,7 @@ const actions: Record<string, ControllerAction> = {
 		if (!name || typeof name !== "string") {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --name flag.", hint: 'Usage: flowti deliverables:add --name="MVP Release"' },
-				(d) => renderError(req.deps.log, d),
+				(d) => renderError(d, req.deps.log),
 			);
 		}
 		const filePath = createDeliverableFile(req.deps, req.project.path, {
@@ -57,13 +57,13 @@ const actions: Record<string, ControllerAction> = {
 		if (!name || typeof name !== "string" || !status || typeof status !== "string") {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --name and/or --status flag.", hint: 'Usage: flowti deliverables:update --name="MVP" --status="done"' },
-				(d) => renderError(req.deps.log, d),
+				(d) => renderError(d, req.deps.log),
 			);
 		}
 		if (!VALID_STATUSES.includes(status as DeliverableStatus)) {
 			return dataResponse<ErrorModel>(
 				{ error: `Invalid status "${status}". Valid: ${VALID_STATUSES.join(", ")}` },
-				(d) => renderError(req.deps.log, d),
+				(d) => renderError(d, req.deps.log),
 			);
 		}
 		const pct = typeof req.flags.completion === "string" ? parseInt(req.flags.completion, 10) : undefined;

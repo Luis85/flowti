@@ -101,15 +101,15 @@ const actions: Record<string, ControllerAction> = {
 	"ai:new": async (req) => {
 		const { disk, input } = req.deps;
 		const name = await input.ask("Tool name (lowercase, hyphens/underscores)");
-		if (!name) return dataResponse<SuccessModel>({ message: "Cancelled." }, (d) => renderSuccess(req.deps.log, d));
+		if (!name) return dataResponse<SuccessModel>({ message: "Cancelled." }, (d) => renderSuccess(d, req.deps.log));
 		const desc = await input.ask("Description");
 		const run = await input.ask("Shell command to run");
-		if (!run) return dataResponse<SuccessModel>({ message: "Cancelled." }, (d) => renderSuccess(req.deps.log, d));
+		if (!run) return dataResponse<SuccessModel>({ message: "Cancelled." }, (d) => renderSuccess(d, req.deps.log));
 		const result = scaffoldAiTool(req.deps, VAULT_ROOT, name, desc || "An AI tool", run, disk);
 		if ("error" in result) {
-			return dataResponse<ErrorModel>({ error: result.error }, (d) => renderError(req.deps.log, d));
+			return dataResponse<ErrorModel>({ error: result.error }, (d) => renderError(d, req.deps.log));
 		}
-		return dataResponse<SuccessModel>({ message: `Created tool at ${result.path}` }, (d) => renderSuccess(req.deps.log, d));
+		return dataResponse<SuccessModel>({ message: `Created tool at ${result.path}` }, (d) => renderSuccess(d, req.deps.log));
 	},
 
 	"ai:reference": (req) => {
@@ -118,7 +118,7 @@ const actions: Record<string, ControllerAction> = {
 		const doc = generateAiToolReference(req.deps, tools);
 		const outputPath = paths.join(CLI_PROJECT, "docs", "reference", "AI Tool Reference.md");
 		doc.save(outputPath, req.deps.disk);
-		return dataResponse<SuccessModel>({ message: `Reference saved to ${outputPath}` }, (d) => renderSuccess(req.deps.log, d));
+		return dataResponse<SuccessModel>({ message: `Reference saved to ${outputPath}` }, (d) => renderSuccess(d, req.deps.log));
 	},
 
 	"ai:run": (req) => {

@@ -34,7 +34,7 @@ const actions: Record<string, ControllerAction> = {
 		const vault = typeof req.flags.vault === "string" ? req.flags.vault : undefined;
 		const success = reloadPlugin(vault, { shell, log, warn });
 		const model: SuccessModel = { message: success ? "Plugin reloaded." : "Obsidian CLI not available — reload skipped." };
-		return dataResponse(model, (d) => renderSuccess(req.deps.log, d));
+		return dataResponse(model, (d) => renderSuccess(d, req.deps.log));
 	},
 	"dev:console": (req) => {
 		const { shell } = req.deps;
@@ -46,42 +46,42 @@ const actions: Record<string, ControllerAction> = {
 			exitCode = shell.run(cmd, { label: "Opening dev console..." });
 		}
 		const model: ShellCommandModel = { command: cmd, exitCode, label: "dev:console" };
-		return dataResponse(model, (d) => renderShellCommand(req.deps.log, d));
+		return dataResponse(model, (d) => renderShellCommand(d, req.deps.log));
 	},
 	"dev:errors": (req) => {
 		const { shell } = req.deps;
 		const cmd = resolveDevCmd(req.project, "errors", null, "obsidian dev:errors");
 		const exitCode = shell.run(cmd, { cwd: req.project?.path, label: "Opening error stream..." });
 		const model: ShellCommandModel = { command: cmd, exitCode, label: "dev:errors" };
-		return dataResponse(model, (d) => renderShellCommand(req.deps.log, d));
+		return dataResponse(model, (d) => renderShellCommand(d, req.deps.log));
 	},
 	"dev:debug:on": (req) => {
 		const { shell } = req.deps;
 		const cmd = "obsidian dev:debug on";
 		const exitCode = shell.run(cmd, { label: "Enabling debug mode..." });
 		const model: ShellCommandModel = { command: cmd, exitCode, label: "dev:debug:on" };
-		return dataResponse(model, (d) => renderShellCommand(req.deps.log, d));
+		return dataResponse(model, (d) => renderShellCommand(d, req.deps.log));
 	},
 	"dev:debug:off": (req) => {
 		const { shell } = req.deps;
 		const cmd = "obsidian dev:debug off";
 		const exitCode = shell.run(cmd, { label: "Disabling debug mode..." });
 		const model: ShellCommandModel = { command: cmd, exitCode, label: "dev:debug:off" };
-		return dataResponse(model, (d) => renderShellCommand(req.deps.log, d));
+		return dataResponse(model, (d) => renderShellCommand(d, req.deps.log));
 	},
 	"dev:check": (req) => {
 		const { shell } = req.deps;
 		const cmd = resolveDevCmd(req.project, "check", "check", "npx tsc --noEmit");
 		const exitCode = shell.run(cmd, { cwd: req.project?.path, label: "Running lint + tsc..." });
 		const model: ShellCommandModel = { command: cmd, exitCode, label: "dev:check" };
-		return dataResponse(model, (d) => renderShellCommand(req.deps.log, d));
+		return dataResponse(model, (d) => renderShellCommand(d, req.deps.log));
 	},
 	"dev:lint": (req) => {
 		const { shell } = req.deps;
 		const cmd = resolveDevCmd(req.project, "lint", "lint", "npx eslint src/");
 		const exitCode = shell.run(cmd, { cwd: req.project?.path, label: "Running ESLint..." });
 		const model: ShellCommandModel = { command: cmd, exitCode, label: "dev:lint" };
-		return dataResponse(model, (d) => renderShellCommand(req.deps.log, d));
+		return dataResponse(model, (d) => renderShellCommand(d, req.deps.log));
 	},
 	"dev:fix-frontmatter": (req) => {
 		const { disk, paths, log } = req.deps;
@@ -89,7 +89,7 @@ const actions: Record<string, ControllerAction> = {
 		const docsRoot = paths.resolve(PLUGIN_ROOT, "docs");
 		const result = fixFrontmatter({ dryRun, docsRoot }, { disk, paths, log });
 		const model: SuccessModel = { message: `Fixed: ${result.fixed}, Skipped: ${result.skipped}, Errors: ${result.errors}${dryRun ? " (dry-run)" : ""}` };
-		return dataResponse(model, (d) => renderSuccess(req.deps.log, d));
+		return dataResponse(model, (d) => renderSuccess(d, req.deps.log));
 	},
 	"dev:testdata": (req) => {
 		const { disk, paths, clock, log } = req.deps;
@@ -103,19 +103,19 @@ const actions: Record<string, ControllerAction> = {
 		};
 		const result = generateTestData(opts, { disk, paths, clock, log });
 		const model: SuccessModel = { message: `Generated ${result.totalRows} rows across ${result.filesWritten} files` };
-		return dataResponse(model, (d) => renderSuccess(req.deps.log, d));
+		return dataResponse(model, (d) => renderSuccess(d, req.deps.log));
 	},
 	"dev:rebuild": (req) => {
 		const { shell } = req.deps;
 		const exitCode = rebuildCli(req.project?.path ?? "", shell);
 		const model: ShellCommandModel = { command: "npm run build", exitCode, label: "dev:rebuild" };
-		return dataResponse(model, (d) => renderShellCommand(req.deps.log, d));
+		return dataResponse(model, (d) => renderShellCommand(d, req.deps.log));
 	},
 	"dev:analysis": (req) => {
 		const { disk, shell, paths, clock, log } = req.deps;
 		runAnalysisPipeline(CLI_PROJECT, { disk, shell, paths, clock, log });
 		const model: SuccessModel = { message: "Analysis pipeline complete." };
-		return dataResponse(model, (d) => renderSuccess(req.deps.log, d));
+		return dataResponse(model, (d) => renderSuccess(d, req.deps.log));
 	},
 };
 

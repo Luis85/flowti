@@ -46,7 +46,7 @@ function checkGates(deps: Pick<CliDeps, "disk" | "paths" | "shell">, p: ProjectC
 }
 
 function noProjectResponse(log: CliDeps["log"], command: string) {
-	return dataResponse<NoProjectModel>({ command }, (d) => renderNoProject(log, d));
+	return dataResponse<NoProjectModel>({ command }, (d) => renderNoProject(d, log));
 }
 
 function gateBlockedResponse(gateResult: GateResult, log: (msg?: string) => void) {
@@ -82,7 +82,7 @@ const actions: Record<string, ControllerAction> = {
 		const { buildCmd, cwd } = resolvePublishCommands(req.project);
 		const exitCode = shell.run(buildCmd, { cwd, label: "Publishing..." });
 		const model: ShellCommandModel = { command: buildCmd, exitCode, label: "publish" };
-		return dataResponse(model, (d) => renderShellCommand(req.deps.log, d));
+		return dataResponse(model, (d) => renderShellCommand(d, req.deps.log));
 	},
 
 	"publish:all": (req) => {
@@ -97,15 +97,15 @@ const actions: Record<string, ControllerAction> = {
 		const b = shell.run(buildCmd, { cwd, label: "Step 1/2: Building..." });
 		if (b !== 0) {
 			const model: ShellCommandModel = { command: buildCmd, exitCode: b, label: "publish:all" };
-			return { data: model, render: (d: ShellCommandModel) => renderShellCommand(log, d), exitCode: b };
+			return { data: model, render: (d: ShellCommandModel) => renderShellCommand(d, log), exitCode: b };
 		}
 		const t = shell.run(testCmd, { cwd, label: "Step 2/2: Testing..." });
 		if (t !== 0) {
 			const model: ShellCommandModel = { command: testCmd, exitCode: t, label: "publish:all" };
-			return { data: model, render: (d: ShellCommandModel) => renderShellCommand(log, d), exitCode: t };
+			return { data: model, render: (d: ShellCommandModel) => renderShellCommand(d, log), exitCode: t };
 		}
 		const model: ShellCommandModel = { command: `${buildCmd} && ${testCmd}`, exitCode: 0, label: "publish:all" };
-		return dataResponse(model, (d) => renderShellCommand(log, d));
+		return dataResponse(model, (d) => renderShellCommand(d, log));
 	},
 
 	"publish:check": (req) => {

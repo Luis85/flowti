@@ -124,13 +124,13 @@ describe("resources.controller", () => {
 
 		it("returns error when --name is missing", () => {
 			commands["resources:add"]({}, [], "resources:add", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: "Missing --name flag." }));
+			expect(renderError).toHaveBeenCalledWith(expect.objectContaining({ error: "Missing --name flag." }), expect.any(Function));
 			expect(createResourceFile).not.toHaveBeenCalled();
 		});
 
 		it("returns error for invalid type", () => {
 			commands["resources:add"]({ name: "Bad", type: "invalid" }, [], "resources:add", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: expect.stringContaining("Invalid type") }));
+			expect(renderError).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining("Invalid type") }), expect.any(Function));
 		});
 
 		it("does nothing without a project", () => {

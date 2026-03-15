@@ -40,7 +40,7 @@ function resolveThresholds(project: ProjectContext): HealthThresholds {
 }
 
 function noProjectResponse(log: CliDeps["log"], command: string) {
-	return dataResponse<NoProjectModel>({ command }, (d) => renderNoProject(log, d));
+	return dataResponse<NoProjectModel>({ command }, (d) => renderNoProject(d, log));
 }
 
 // ── Controller actions ──────────────────────────────────────────────

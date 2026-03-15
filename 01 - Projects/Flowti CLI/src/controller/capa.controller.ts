@@ -53,14 +53,14 @@ const actions: Record<string, ControllerAction> = {
 		if (!name || typeof name !== "string") {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --name flag.", hint: 'Usage: flowti capa:add --name="Process Failure" --capa-type="corrective"' },
-				(d) => renderError(req.deps.log, d),
+				(d) => renderError(d, req.deps.log),
 			);
 		}
 		const capaType = flagStr(req.flags, "capa-type", "corrective") as CAPAType;
 		if (!VALID_TYPES.includes(capaType)) {
 			return dataResponse<ErrorModel>(
 				{ error: `Invalid capa-type "${capaType}". Valid: ${VALID_TYPES.join(", ")}` },
-				(d) => renderError(req.deps.log, d),
+				(d) => renderError(d, req.deps.log),
 			);
 		}
 		return createCapaAction(req, name, capaType);
@@ -73,13 +73,13 @@ const actions: Record<string, ControllerAction> = {
 		if (!name || typeof name !== "string" || !status || typeof status !== "string") {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --name and/or --status flag.", hint: 'Usage: flowti capa:update --name="Process Failure" --status="investigating"' },
-				(d) => renderError(req.deps.log, d),
+				(d) => renderError(d, req.deps.log),
 			);
 		}
 		if (!VALID_STATUSES.includes(status as CAPAStatus)) {
 			return dataResponse<ErrorModel>(
 				{ error: `Invalid status "${status}". Valid: ${VALID_STATUSES.join(", ")}` },
-				(d) => renderError(req.deps.log, d),
+				(d) => renderError(d, req.deps.log),
 			);
 		}
 		const ok = updateCAPAStatus(req.deps, req.project.path, name, status as CAPAStatus, req.project.config.management?.capa);

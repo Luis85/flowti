@@ -38,7 +38,7 @@ const actions: Record<string, ControllerAction> = {
 		if (!name) {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing required flag: --name", hint: "Usage: scaffold:new --name=\"My Project\" [--definition=flowti-project]" },
-				(d) => renderError(log, d),
+				(d) => renderError(d, log),
 			);
 		}
 
@@ -47,14 +47,14 @@ const actions: Record<string, ControllerAction> = {
 		if (req.flags["dry-run"]) {
 			const result = scaffoldDryRun(PROJECTS_DIR, scaffoldDeps, opts, cliConfig.defaultAuthor);
 			if ("error" in result) {
-				return dataResponse<ErrorModel>({ error: result.error }, (d) => renderError(log, d));
+				return dataResponse<ErrorModel>({ error: result.error }, (d) => renderError(d, log));
 			}
 			return dataResponse(result, (d) => renderDryRunPreview(d, log));
 		}
 
 		const result = scaffold(PROJECTS_DIR, scaffoldDeps, opts, cliConfig.defaultAuthor);
 		if ("error" in result) {
-			return dataResponse<ErrorModel>({ error: result.error }, (d) => renderError(log, d));
+			return dataResponse<ErrorModel>({ error: result.error }, (d) => renderError(d, log));
 		}
 
 		const model: ScaffoldResultModel = {
@@ -88,11 +88,11 @@ const actions: Record<string, ControllerAction> = {
 		if (!file) {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing required flag: --file", hint: "Usage: scaffold:import --file=<path>" },
-				(d) => renderError(log, d),
+				(d) => renderError(d, log),
 			);
 		}
 		if (!req.project) {
-			return dataResponse<NoProjectModel>({ command: "scaffold:import" }, (d) => renderNoProject(log, d));
+			return dataResponse<NoProjectModel>({ command: "scaffold:import" }, (d) => renderNoProject(d, log));
 		}
 		const { disk, paths } = req.deps;
 		const knownIds = getKnownTemplateIds();
@@ -124,12 +124,12 @@ const actions: Record<string, ControllerAction> = {
 		if (!file) {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --file flag.", hint: "Usage: marketplace:import-bundle --file=<bundle.json>" },
-				(d) => renderError(log, d),
+				(d) => renderError(d, log),
 			);
 		}
 		const bundle = loadBundle({ disk } as const, file);
 		if (!bundle) {
-			return dataResponse<ErrorModel>({ error: `Invalid or unreadable bundle: ${file}` }, (d) => renderError(log, d));
+			return dataResponse<ErrorModel>({ error: `Invalid or unreadable bundle: ${file}` }, (d) => renderError(d, log));
 		}
 		const imported = importAiToolsFromBundle(scaffoldDeps, bundle, VAULT_ROOT);
 		const model: BundleImportedModel = { imported, vault: bundle.vault };

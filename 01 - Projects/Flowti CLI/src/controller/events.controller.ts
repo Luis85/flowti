@@ -64,7 +64,7 @@ const actions: Record<string, ControllerAction> = {
 		if (!name || typeof name !== "string") {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --name flag.", hint: 'Usage: flowti events:add --name="user.created" --domain="user"' },
-				(d) => renderError(log, d),
+				(d) => renderError(d, log),
 			);
 		}
 		const payload = typeof req.flags.payload === "string" ? parsePayloadFlag(req.flags.payload) : [];
@@ -108,7 +108,7 @@ const actions: Record<string, ControllerAction> = {
 		if (!eventName || typeof eventName !== "string" || !payloadJson || typeof payloadJson !== "string") {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --event and/or --payload flag.", hint: "Usage: flowti events:check-payload --event=\"user.created\" --payload='{\"id\":\"1\"}'" },
-				(d) => renderError(log, d),
+				(d) => renderError(d, log),
 			);
 		}
 		const dir = paths.join(req.project.path, "docs", "events");
@@ -117,7 +117,7 @@ const actions: Record<string, ControllerAction> = {
 		if (!contract) {
 			return {
 				data: { error: `No contract found for event "${eventName}".` } as ErrorModel,
-				render: (d: ErrorModel) => renderError(log, d),
+				render: (d: ErrorModel) => renderError(d, log),
 				exitCode: 1,
 			};
 		}
@@ -127,7 +127,7 @@ const actions: Record<string, ControllerAction> = {
 		} catch {
 			return {
 				data: { error: "Invalid JSON payload." } as ErrorModel,
-				render: (d: ErrorModel) => renderError(log, d),
+				render: (d: ErrorModel) => renderError(d, log),
 				exitCode: 1,
 			};
 		}
@@ -191,7 +191,7 @@ const actions: Record<string, ControllerAction> = {
 		if (!name || typeof name !== "string" || !version || typeof version !== "string") {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing required flags.", hint: 'Usage: flowti events:version --name="user.created" --version="2.0.0" --migration="Added email field"' },
-				(d) => renderError(req.deps.log, d),
+				(d) => renderError(d, req.deps.log),
 			);
 		}
 
@@ -199,7 +199,7 @@ const actions: Record<string, ControllerAction> = {
 		const result = versionEvent(req.deps, req.project.path, name, version, migrationNotes);
 
 		if (!result.success) {
-			return dataResponse<ErrorModel>({ error: result.error ?? "Version update failed." }, (d) => renderError(req.deps.log, d));
+			return dataResponse<ErrorModel>({ error: result.error ?? "Version update failed." }, (d) => renderError(d, req.deps.log));
 		}
 
 		const model: VersionEventModel = {

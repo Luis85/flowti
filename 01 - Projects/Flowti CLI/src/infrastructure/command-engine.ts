@@ -136,7 +136,7 @@ export function adaptDescriptor<TFlags = Record<string, unknown>, TModel = unkno
 		if (desc.requires === "project" && !project) {
 			const response = dataResponse<NoProjectModel>(
 				{ command: "help" },
-				(d: NoProjectModel) => renderNoProject(deps.log, d),
+				(d: NoProjectModel) => renderNoProject(d, deps.log),
 			);
 			handleResponse(response, format === "json" ? "json" : "text");
 			return;

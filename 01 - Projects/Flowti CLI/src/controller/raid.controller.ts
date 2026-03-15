@@ -31,14 +31,14 @@ const actions: Record<string, ControllerAction> = {
 		if (!name || typeof name !== "string") {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --name flag.", hint: 'Usage: flowti raid:add --name="DB Migration Risk" --item-type="risk"' },
-				(d) => renderError(req.deps.log, d),
+				(d) => renderError(d, req.deps.log),
 			);
 		}
 		const itemType = flagStr(req.flags, "item-type", "risk") as RAIDItemType;
 		if (!VALID_TYPES.includes(itemType)) {
 			return dataResponse<ErrorModel>(
 				{ error: `Invalid item-type "${itemType}". Valid: ${VALID_TYPES.join(", ")}` },
-				(d) => renderError(req.deps.log, d),
+				(d) => renderError(d, req.deps.log),
 			);
 		}
 		const filePath = createRAIDItem(req.deps, req.project.path, {
@@ -66,13 +66,13 @@ const actions: Record<string, ControllerAction> = {
 		if (!name || typeof name !== "string" || !status || typeof status !== "string") {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --name and/or --status flag.", hint: 'Usage: flowti raid:update --name="DB Risk" --status="mitigated"' },
-				(d) => renderError(req.deps.log, d),
+				(d) => renderError(d, req.deps.log),
 			);
 		}
 		if (!VALID_STATUSES.includes(status as RAIDStatus)) {
 			return dataResponse<ErrorModel>(
 				{ error: `Invalid status "${status}". Valid: ${VALID_STATUSES.join(", ")}` },
-				(d) => renderError(req.deps.log, d),
+				(d) => renderError(d, req.deps.log),
 			);
 		}
 		const ok = updateRAIDStatus(req.deps, req.project.path, name, status as RAIDStatus, req.project.config.management?.raid);

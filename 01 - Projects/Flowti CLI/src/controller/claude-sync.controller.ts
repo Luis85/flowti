@@ -26,7 +26,7 @@ const actions: Record<string, ControllerAction> = {
 		const result = syncAllToClaude(req.deps, VAULT_ROOT, agentsDir, agents, tools, cliConfig.agents?.skillMap);
 		return dataResponse<SuccessModel>(
 			{ message: `Synced ${result.written.length} skill files to .claude/` },
-			(d) => renderSuccess(req.deps.log, d),
+			(d) => renderSuccess(d, req.deps.log),
 		);
 	},
 };

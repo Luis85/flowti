@@ -73,18 +73,18 @@ const actions: Record<string, ControllerAction> = {
 		const doc = generatePluginReference({ clock } as const, plugins);
 		const outputPath = paths.join(CLI_PROJECT, "docs", "reference", "Plugin Reference.md");
 		doc.save(outputPath, disk);
-		return dataResponse<SuccessModel>({ message: `Reference saved to ${outputPath}` }, (d) => renderSuccess(req.deps.log, d));
+		return dataResponse<SuccessModel>({ message: `Reference saved to ${outputPath}` }, (d) => renderSuccess(d, req.deps.log));
 	},
 
 	"plugin:new": async (req) => {
 		const { disk, paths, input, log } = req.deps;
 		const pluginDeps = { disk, paths } as const;
 		const name = await input.ask("Plugin name (lowercase, hyphens)");
-		if (!name) return dataResponse<SuccessModel>({ message: "Cancelled." }, (d) => renderSuccess(log, d));
+		if (!name) return dataResponse<SuccessModel>({ message: "Cancelled." }, (d) => renderSuccess(d, log));
 		const desc = await input.ask("Description");
 		const result = scaffoldPlugin(pluginDeps, VAULT_ROOT, name, desc || "A Flowti plugin", disk);
 		if ("error" in result) {
-			return dataResponse<ErrorModel>({ error: result.error }, (d) => renderError(log, d));
+			return dataResponse<ErrorModel>({ error: result.error }, (d) => renderError(d, log));
 		}
 		return dataResponse<PluginCreatedModel>({ path: result.path }, (d) => renderPluginCreated(d, log));
 	},

@@ -29,7 +29,7 @@ const actions: Record<string, ControllerAction> = {
 		if (!person || typeof person !== "string" || !task || typeof task !== "string") {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --person and/or --task flag.", hint: 'Usage: flowti timelog:add --person="Jane" --task="Implement feature" --hours=4' },
-				(d) => renderError(req.deps.log, d),
+				(d) => renderError(d, req.deps.log),
 			);
 		}
 		const filePath = createTimeLogEntry(req.deps, req.project.path, {

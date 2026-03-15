@@ -22,38 +22,38 @@ type Log = (msg?: string) => void;
 
 function renderMakeResult(log: Log, data: MakeComponentOutcome): void {
 	if (!data.success) {
-		renderError(log, { error: data.error, hint: data.hint });
+		renderError({ error: data.error, hint: data.hint }, log);
 		return;
 	}
 	renderComponentAdding(log, data.definitionLabel, data.name);
-	renderSuccess(log, { message: `Created ${data.filesCreated} files.` });
+	renderSuccess({ message: `Created ${data.filesCreated} files.` }, log);
 	showSuggestions(data.suggestions);
 }
 
 function renderEditResult(log: Log, data: EditComponentOutcome): void {
 	if (!data.success) {
-		renderError(log, { error: data.error, hint: data.hint });
+		renderError({ error: data.error, hint: data.hint }, log);
 		return;
 	}
-	renderSuccess(log, { message: `Updated ${data.kebab}: ${data.propList}` });
+	renderSuccess({ message: `Updated ${data.kebab}: ${data.propList}` }, log);
 }
 
 function renderScaffoldResult(log: Log, data: ScaffoldDefinitionOutcome): void {
 	if (!data.success) {
-		renderError(log, { error: data.error, hint: data.hint });
+		renderError({ error: data.error, hint: data.hint }, log);
 		return;
 	}
-	renderSuccess(log, { message: `Created definition: ${data.outputPath}` });
+	renderSuccess({ message: `Created definition: ${data.outputPath}` }, log);
 }
 
 function renderSuggestions(log: Log, data: { suggestions: RelationshipSuggestion[] }): void {
 	if (data.suggestions.length === 0) {
-		renderSuccess(log, { message: "No new relationship suggestions found." });
+		renderSuccess({ message: "No new relationship suggestions found." }, log);
 		return;
 	}
-	renderSuccess(log, { message: `Found ${data.suggestions.length} relationship suggestion(s):` });
+	renderSuccess({ message: `Found ${data.suggestions.length} relationship suggestion(s):` }, log);
 	for (const s of data.suggestions) {
-		renderSuccess(log, { message: `  ${s.source} → ${s.target} (${s.type}, ${s.confidence}) — ${s.evidence}` });
+		renderSuccess({ message: `  ${s.source} → ${s.target} (${s.type}, ${s.confidence}) — ${s.evidence}` }, log);
 	}
 }
 

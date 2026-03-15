@@ -24,7 +24,7 @@ const actions: Record<string, ControllerAction> = {
 		if (!text || typeof text !== "string") {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --text flag.", hint: "Usage: flowti capture:idea --text=\"My idea\" [--tags=a,b]" },
-				(d) => renderError(req.deps.log, d),
+				(d) => renderError(d, req.deps.log),
 			);
 		}
 		const tags = parseTags(req.flags.tags);
@@ -39,14 +39,14 @@ const actions: Record<string, ControllerAction> = {
 		if (!type || typeof type !== "string" || !title || typeof title !== "string") {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --type and/or --title flag.", hint: "Usage: flowti capture:note --type=task --title=\"My note\" [--tags=a,b]" },
-				(d) => renderError(req.deps.log, d),
+				(d) => renderError(d, req.deps.log),
 			);
 		}
 		const normalized = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
 		if (!NOTE_TYPES.includes(normalized)) {
 			return dataResponse<ErrorModel>(
 				{ error: `Invalid type: ${type}`, hint: `Valid types: ${NOTE_TYPES.join(", ")}` },
-				(d) => renderError(req.deps.log, d),
+				(d) => renderError(d, req.deps.log),
 			);
 		}
 		const tags = parseTags(req.flags.tags);
@@ -59,7 +59,7 @@ const actions: Record<string, ControllerAction> = {
 		if (!query || typeof query !== "string") {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --query flag.", hint: "Usage: flowti capture:search --query=\"keyword\" [--type=idea] [--tag=urgent]" },
-				(d) => renderError(req.deps.log, d),
+				(d) => renderError(d, req.deps.log),
 			);
 		}
 		const typeFilter = typeof req.flags.type === "string" ? req.flags.type.charAt(0).toUpperCase() + req.flags.type.slice(1).toLowerCase() : undefined;
@@ -76,16 +76,16 @@ const actions: Record<string, ControllerAction> = {
 		if (!file || typeof file !== "string") {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --file flag.", hint: "Usage: flowti capture:import --file=items.json\nJSON format: [{ \"type\": \"Idea\", \"title\": \"...\", \"body\": \"...\", \"tags\": [\"a\"] }]" },
-				(d) => renderError(req.deps.log, d),
+				(d) => renderError(d, req.deps.log),
 			);
 		}
 		const absPath = paths.isAbsolute(file) ? file : paths.join(proc.cwd(), file);
 		if (!disk.existsSync(absPath)) {
-			return dataResponse<ErrorModel>({ error: `File not found: ${file}` }, (d) => renderError(req.deps.log, d));
+			return dataResponse<ErrorModel>({ error: `File not found: ${file}` }, (d) => renderError(d, req.deps.log));
 		}
 		const result = importCaptureItems(getCaptureDir, req.deps, absPath);
 		if (result.error) {
-			return dataResponse<ErrorModel>({ error: result.error }, (d) => renderError(req.deps.log, d));
+			return dataResponse<ErrorModel>({ error: result.error }, (d) => renderError(d, req.deps.log));
 		}
 		const model: ImportResultModel = { created: result.created, skipped: result.skipped };
 		return dataResponse(model, (d) => renderImportResult(d, req.deps.log));

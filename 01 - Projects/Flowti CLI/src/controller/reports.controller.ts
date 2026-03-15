@@ -26,7 +26,7 @@ import { renderNoProject, type NoProjectModel } from "../ui/renderers/common-ren
 // ── Helpers ─────────────────────────────────────────────────────────
 
 function noProjectResponse(log: CliDeps["log"], command: string) {
-	return dataResponse<NoProjectModel>({ command }, (d) => renderNoProject(log, d));
+	return dataResponse<NoProjectModel>({ command }, (d) => renderNoProject(d, log));
 }
 
 function noGeneratorsResponse(log: CliDeps["log"]) {
@@ -39,13 +39,13 @@ function noGeneratorsResponse(log: CliDeps["log"]) {
 function runInternalGenerator(reportId: string, projectPath: string, deps: CliDeps) {
 	const output = runGenerator(reportId, projectPath, deps);
 	const model: SuccessModel = { message: output?.success ? `Generated ${reportId} → ${output.outputPath}` : `Generator ${reportId} failed.` };
-	return dataResponse(model, (d) => renderSuccess(deps.log, d));
+	return dataResponse(model, (d) => renderSuccess(d, deps.log));
 }
 
 function runExternalGenerator(gen: { command?: string; label: string }, projectPath: string | undefined, shell: CliDeps["shell"], log: CliDeps["log"]) {
 	const exitCode = shell.run(gen.command!, { cwd: projectPath, label: `Generating ${gen.label}...` });
 	const model: ShellCommandModel = { command: gen.command!, exitCode, label: gen.label };
-	return dataResponse(model, (d) => renderShellCommand(log, d));
+	return dataResponse(model, (d) => renderShellCommand(d, log));
 }
 
 function unknownReportResponse(reportId: string, generators: Array<{ id?: string; label: string }>, log: CliDeps["log"]) {

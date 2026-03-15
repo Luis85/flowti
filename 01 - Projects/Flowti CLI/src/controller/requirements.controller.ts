@@ -22,7 +22,7 @@ const VALID_TYPES: RequirementType[] = ["functional", "non-functional", "constra
 const VALID_STATUSES: RequirementStatus[] = ["draft", "proposed", "approved", "implemented", "verified", "rejected", "deferred"];
 
 function errorRenderer(log: (msg?: string) => void) {
-	return (d: ErrorModel) => renderError(log, d);
+	return (d: ErrorModel) => renderError(d, log);
 }
 
 function flagStr(flags: Record<string, string | boolean>, key: string, fallback: string): string {

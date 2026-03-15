@@ -14,16 +14,16 @@ const actions: Record<string, ControllerAction> = {
 	project: (req) => {
 		const { log } = req.deps;
 		const model: InteractiveOnlyModel = { command: "project", error: "Project selection is interactive. Run \"flowti\" without arguments to use the interactive menu." };
-		return dataResponse(model, (d) => renderInteractiveOnly(log, d));
+		return dataResponse(model, (d) => renderInteractiveOnly(d, log));
 	},
 
 	readme: (req) => {
 		const { log } = req.deps;
 		if (!req.project) {
-			return dataResponse<NoProjectModel>({ command: "readme" }, (d) => renderNoProject(log, d));
+			return dataResponse<NoProjectModel>({ command: "readme" }, (d) => renderNoProject(d, log));
 		}
 		const readmePath = writeReadme(req.project, req.deps);
-		return dataResponse<SuccessModel>({ message: `README.md written to ${readmePath}` }, (d) => renderSuccess(log, d));
+		return dataResponse<SuccessModel>({ message: `README.md written to ${readmePath}` }, (d) => renderSuccess(d, log));
 	},
 };
 

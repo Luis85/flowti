@@ -60,7 +60,7 @@ const actions: Record<string, ControllerAction> = {
 		const cmd = req.project?.config.review?.runner ?? "npm test";
 		const exitCode = shell.run(cmd, { cwd: req.project?.path, label: "Starting review session..." });
 		const model: ShellCommandModel = { command: cmd, exitCode, label: "review" };
-		return dataResponse(model, (d) => renderShellCommand(log, d));
+		return dataResponse(model, (d) => renderShellCommand(d, log));
 	},
 	"review:all": (req) => {
 		if (!req.project) return;
@@ -84,7 +84,7 @@ const actions: Record<string, ControllerAction> = {
 	"review:e2e": async (req) => {
 		if (req.format === "json") {
 			const model: InteractiveOnlyModel = { command: "review:e2e", error: "E2E suite is interactive and cannot produce JSON output." };
-			return dataResponse(model, (d) => renderInteractiveOnly(req.deps.log, d));
+			return dataResponse(model, (d) => renderInteractiveOnly(d, req.deps.log));
 		}
 		const { disk, shell, paths, proc, log } = req.deps;
 		const journeyFilter = typeof req.flags.journey === "string" ? req.flags.journey : undefined;
@@ -93,7 +93,7 @@ const actions: Record<string, ControllerAction> = {
 	"review:e2e:list": async (req) => {
 		if (req.format === "json") {
 			const model: InteractiveOnlyModel = { command: "review:e2e:list", error: "Interactive session list cannot produce JSON output." };
-			return dataResponse(model, (d) => renderInteractiveOnly(req.deps.log, d));
+			return dataResponse(model, (d) => renderInteractiveOnly(d, req.deps.log));
 		}
 		const { disk, paths, proc } = req.deps;
 		await startInteractiveSession((e2e) => interactiveSession(e2e, req.deps), PLUGIN_ROOT, VAULT_ROOT, { disk, paths, proc });

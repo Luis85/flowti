@@ -34,7 +34,7 @@ const actions: Record<string, ControllerAction> = {
 		if (!name) {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --name flag.", hint: 'Usage: flowti lifecycle:status --name="My Feature"' },
-				(d) => renderError(req.deps.log, d),
+				(d) => renderError(d, req.deps.log),
 			);
 		}
 		const subdir = flagStr(req.flags, "subdir", "") || undefined;
@@ -42,7 +42,7 @@ const actions: Record<string, ControllerAction> = {
 		if (!record) {
 			return dataResponse<ErrorModel>(
 				{ error: `Lifecycle not found for "${name}".` },
-				(d) => renderError(req.deps.log, d),
+				(d) => renderError(d, req.deps.log),
 			);
 		}
 		return dataResponse(record, (d) => renderLifecycleStatus(d, req.deps.log));
@@ -56,13 +56,13 @@ const actions: Record<string, ControllerAction> = {
 		if (!name || !to) {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --name and/or --to flag.", hint: 'Usage: flowti lifecycle:transition --name="My Feature" --to=development --reason="Ready"' },
-				(d) => renderError(req.deps.log, d),
+				(d) => renderError(d, req.deps.log),
 			);
 		}
 		if (!reason) {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --reason flag.", hint: 'Provide a reason for the transition.' },
-				(d) => renderError(req.deps.log, d),
+				(d) => renderError(d, req.deps.log),
 			);
 		}
 		const subdir = flagStr(req.flags, "subdir", "") || undefined;
@@ -76,7 +76,7 @@ const actions: Record<string, ControllerAction> = {
 		if (!name) {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --name flag.", hint: 'Usage: flowti lifecycle:history --name="My Feature"' },
-				(d) => renderError(req.deps.log, d),
+				(d) => renderError(d, req.deps.log),
 			);
 		}
 		const subdir = flagStr(req.flags, "subdir", "") || undefined;
@@ -92,13 +92,13 @@ const actions: Record<string, ControllerAction> = {
 		if (!name) {
 			return dataResponse<ErrorModel>(
 				{ error: "Missing --name flag.", hint: 'Usage: flowti lifecycle:create --name="My Feature" --type=feature' },
-				(d) => renderError(req.deps.log, d),
+				(d) => renderError(d, req.deps.log),
 			);
 		}
 		if (!VALID_TYPES.includes(entityType)) {
 			return dataResponse<ErrorModel>(
 				{ error: `Invalid type "${entityType}". Valid: ${VALID_TYPES.join(", ")}` },
-				(d) => renderError(req.deps.log, d),
+				(d) => renderError(d, req.deps.log),
 			);
 		}
 		const description = flagStr(req.flags, "description", "") || undefined;
@@ -112,7 +112,7 @@ const actions: Record<string, ControllerAction> = {
 		}
 		return dataResponse<ErrorModel>(
 			{ error: `Item "${name}" already exists.` },
-			(d) => renderError(req.deps.log, d),
+			(d) => renderError(d, req.deps.log),
 		);
 	},
 };
