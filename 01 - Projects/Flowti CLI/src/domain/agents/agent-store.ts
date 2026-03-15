@@ -72,9 +72,10 @@ function parseAttributes(raw: unknown): AgentAttributes | undefined {
 	return Object.keys(attrs).length > 0 ? attrs : undefined;
 }
 
-function parseFrontmatterFields(fm: Record<string, unknown>, file: string): Pick<AgentSummary, "name" | "agentType" | "description" | "domain" | "skills" | "tools" | "roles" | "behaviors" | "preferredPhases" | "suggestedTasks" | "attributes" | "persona" | "mood" | "personality" | "experience"> {
+function parseFrontmatterFields(fm: Record<string, unknown>, file: string): Pick<AgentSummary, "name" | "agentType" | "description" | "domain" | "skills" | "tools" | "roles" | "behaviors" | "preferredPhases" | "suggestedTasks" | "attributes" | "persona" | "mood" | "personality" | "experience" | "tags"> {
 	const preferredPhases = toStringArray(fm.preferredPhases);
 	const personality = toStringArray(fm.personality);
+	const tags = toStringArray(fm.tags);
 	return {
 		name: String(fm.name ?? file.replace(/\.md$/, "")),
 		agentType: fm.agentType === "ai" ? "ai" : "human",
@@ -91,6 +92,7 @@ function parseFrontmatterFields(fm: Record<string, unknown>, file: string): Pick
 		personality: personality.length > 0 ? personality : undefined,
 		experience: typeof fm.experience === "number" ? fm.experience : undefined,
 		suggestedTasks: toStringArray(fm.suggestedTasks).map(parseSuggestedTask),
+		tags: tags.length > 0 ? tags : undefined,
 	};
 }
 
@@ -150,6 +152,7 @@ function buildFrontmatterArrays(doc: Document, def: AgentDefinition): void {
 	if (def.roles.length > 0) doc.setFrontmatter("roles", def.roles);
 	if (def.behaviors && def.behaviors.length > 0) doc.setFrontmatter("behaviors", def.behaviors);
 	if (def.preferredPhases && def.preferredPhases.length > 0) doc.setFrontmatter("preferredPhases", def.preferredPhases);
+	if (def.tags && def.tags.length > 0) doc.setFrontmatter("tags", def.tags);
 }
 
 function buildBody(doc: Document, def: AgentDefinition): void {
@@ -363,6 +366,7 @@ export function agentToJson(agent: AgentSummary): Record<string, unknown> {
 	addOptionalField(result, "personality", agent.personality);
 	addOptionalField(result, "behaviors", agent.behaviors);
 	addOptionalField(result, "preferredPhases", agent.preferredPhases);
+	addOptionalField(result, "tags", agent.tags);
 	addOptionalField(result, "components", agent.components);
 	addOptionalField(result, "goals", agent.goals);
 	addOptionalField(result, "ai", agent.ai);

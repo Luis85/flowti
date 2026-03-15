@@ -156,6 +156,8 @@ export interface AgentDefinition {
 	suggestedTasks?: SuggestedTask[];
 	/** Markdown files this agent owns or carries. */
 	inventory?: InventoryItem[];
+	/** Freeform tags for categorization (e.g., PDCA cycle: "plan", "do", "check", "act"). */
+	tags?: string[];
 }
 
 /** Lightweight agent summary returned by list operations. */
@@ -187,5 +189,7 @@ export interface AgentSummary {
 	suggestedTasks?: SuggestedTask[];
 	/** Markdown files this agent owns or carries. */
 	inventory?: InventoryItem[];
+	/** Freeform tags for categorization. */
+	tags?: string[];
 	file: string;
 }
