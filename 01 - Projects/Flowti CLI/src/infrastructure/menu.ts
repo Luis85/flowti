@@ -58,7 +58,7 @@ export function insertGroupSeparators(items: MenuEntry[]): MenuEntry[] {
 	return result;
 }
 
-const EXIT_RESULTS: Set<string> = new Set(["main", "quit", "start"]);
+const EXIT_RESULTS: Set<string> = new Set(["main", "quit", "start", "refresh"]);
 
 function isExitResult(result: unknown): result is MenuResult {
 	return typeof result === "string" && (EXIT_RESULTS.has(result) || result.startsWith("navigate:"));
@@ -80,6 +80,8 @@ export async function runMenu(
 		printMenu(resolveDisplayItems(items));
 
 		const choice = await input.ask("Choice", options.defaultChoice ?? "1");
+
+		if (choice === "*") return "refresh" as MenuResult;
 
 		const match = findMatch(items, choice);
 		if (!match) { log("\n  Invalid choice — try again.\n"); continue; }

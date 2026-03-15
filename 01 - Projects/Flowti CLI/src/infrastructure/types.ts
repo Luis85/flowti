@@ -109,6 +109,7 @@ export interface IAgentShell {
 	talk(agent: import("../domain/agents/agent-types.js").AgentSummary, prompt: string, opts?: TalkOptions): TalkSession;
 	dispatch(agent: import("../domain/agents/agent-types.js").AgentSummary, briefPath: string, task: string, opts?: DispatchOptions): DispatchHandle;
 	getActiveDispatch(agentName: string): DispatchHandle | null;
+	reconcileStaleAgents(): { recovered: string[] };
 }
 
 // ── Process abstraction ──────────────────────────────────────────────
@@ -167,7 +168,7 @@ export interface ParsedArgs {
 
 // ── Menu system ─────────────────────────────────────────────────────
 
-export type MenuResult = "main" | "quit" | "start" | void;
+export type MenuResult = "main" | "quit" | "start" | "refresh" | void;
 
 export interface MenuItem {
 	key: string;

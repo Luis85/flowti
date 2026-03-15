@@ -99,6 +99,7 @@ export class SitemapRouter {
 			pushOrReplace(stack, parseNavigateResult(result));
 			return false;
 		}
+		if (result === "refresh") return false; // re-render current page (don't pop stack)
 		if (result === "quit") return true;
 		if (result === "start") {
 			stack.length = 0;
