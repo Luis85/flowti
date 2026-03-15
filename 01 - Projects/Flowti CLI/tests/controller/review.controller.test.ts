@@ -98,6 +98,7 @@ vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 	renderShellCommand: vi.fn(),
 	renderInteractiveOnly: vi.fn(),
 	renderError: vi.fn(),
+	renderNoProject: vi.fn(),
 }));
 
 // ── Imports ──────────────────────────────────────────────────────

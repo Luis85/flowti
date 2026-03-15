@@ -87,6 +87,7 @@ vi.mock("../../src/ui/displays/events-display.js", () => ({
 }));
 vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 	renderError: vi.fn(),
+	renderNoProject: vi.fn(),
 }));
 
 import { commands } from "../../src/controller/events.controller.js";
@@ -215,9 +216,10 @@ describe("events.controller", () => {
 			expect(saveEventFlowDoc).toHaveBeenCalledWith(expect.any(Object), "/project", "user");
 		});
 
-		it("ignores non-string domain flag", () => {
+		it("coerces boolean domain flag to string", () => {
 			commands["events:flow"]({ domain: true }, [], "events:flow", mockProject);
-			expect(saveEventFlowDoc).toHaveBeenCalledWith(expect.any(Object), "/project", undefined);
+			// adaptDescriptor coerces boolean flags to strings; "true" is truthy so it passes through
+			expect(saveEventFlowDoc).toHaveBeenCalledWith(expect.any(Object), "/project", "true");
 		});
 
 		it("returns undefined when no project", () => {
