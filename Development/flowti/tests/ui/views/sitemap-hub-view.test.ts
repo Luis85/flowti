@@ -152,6 +152,94 @@ describe("SitemapHubView", () => {
 		});
 	});
 
+	describe("refreshEvents", () => {
+		it("subscribes to refreshEvents on hub open", () => {
+			const viewDef = createViewDef({
+				refreshEvents: ["test-mgmt.journey.registered", "settings.changed"],
+			});
+			const view = new SitemapHubView(leaf, eventBus, viewDef, registry);
+			view.onHubOpen();
+			expect(eventBus.on).toHaveBeenCalledWith(
+				"test-mgmt.journey.registered",
+				expect.any(Function),
+			);
+			expect(eventBus.on).toHaveBeenCalledWith(
+				"settings.changed",
+				expect.any(Function),
+			);
+		});
+
+		it("does nothing when refreshEvents is undefined", () => {
+			const viewDef = createViewDef({ refreshEvents: undefined });
+			const view = new SitemapHubView(leaf, eventBus, viewDef, registry);
+			view.onHubOpen();
+		});
+
+		it("does nothing when refreshEvents is empty", () => {
+			const viewDef = createViewDef({ refreshEvents: [] });
+			const view = new SitemapHubView(leaf, eventBus, viewDef, registry);
+			view.onHubOpen();
+		});
+
+		it("registered callback triggers scheduleRender", () => {
+			const viewDef = createViewDef({ refreshEvents: ["test-event"] });
+			const view = new SitemapHubView(leaf, eventBus, viewDef, registry);
+			const scheduleSpy = vi.spyOn(view as unknown as { scheduleRender: () => void }, "scheduleRender");
+			view.onHubOpen();
+			const onCall = (eventBus.on as ReturnType<typeof vi.fn>).mock.calls.find(
+				(c: unknown[]) => c[0] === "test-event"
+			);
+			expect(onCall).toBeDefined();
+			(onCall![1] as () => void)();
+			expect(scheduleSpy).toHaveBeenCalled();
+		});
+
+		it("unsubscribes on close", () => {
+			const unsub = vi.fn();
+			(eventBus.on as ReturnType<typeof vi.fn>).mockReturnValue(unsub);
+			const viewDef = createViewDef({ refreshEvents: ["test-event"] });
+			const view = new SitemapHubView(leaf, eventBus, viewDef, registry);
+			view.onHubOpen();
+			view.onHubClose();
+		});
+	});
+
+	describe("searchText passthrough", () => {
+		it("passes filterText as searchText in handler context", async () => {
+			const handler = vi.fn();
+			registry.registerTabHandler("test:tab1", handler);
+			const view = new SitemapHubView(leaf, eventBus, createViewDef(), registry);
+			(view as unknown as { filterText: string }).filterText = "hello";
+			const container = document.createElement("div");
+			await view.renderTab("tab1", container);
+			expect(handler).toHaveBeenCalledWith(container, expect.objectContaining({
+				searchText: "hello",
+			}));
+		});
+	});
+
+	describe("dashboard handler delegation", () => {
+		it("delegates to registered dashboard handler", () => {
+			const handler = vi.fn();
+			registry.registerTabHandler("test:dashboard", handler);
+			const viewDef = createViewDef({ type: "flowti-test-hub" });
+			const view = new SitemapHubView(leaf, eventBus, viewDef, registry);
+			// Set up dashboardEl
+			(view as unknown as { dashboardEl: HTMLElement }).dashboardEl = document.createElement("div");
+			view.onDashboardRender();
+			expect(handler).toHaveBeenCalledTimes(1);
+		});
+
+		it("falls back to heading when no dashboard handler", () => {
+			const viewDef = createViewDef({ label: "My Hub" });
+			const view = new SitemapHubView(leaf, eventBus, viewDef, registry);
+			const el = document.createElement("div");
+			(view as unknown as { dashboardEl: HTMLElement }).dashboardEl = el;
+			view.onDashboardRender();
+			expect(el.querySelector("h2")?.textContent).toBe("My Hub");
+		});
+	});
+
 	describe("tab rendering — unknown tab", () => {
 		it("does nothing for unknown tab ID", async () => {
 			const view = new SitemapHubView(leaf, eventBus, createViewDef(), registry);

@@ -15,6 +15,7 @@ export interface ViewDef {
 	dataSources?: DataSourceRef[];
 	conditions?: ConditionSet;
 	legacy?: boolean;
+	refreshEvents?: string[];
 }
 
 export interface SitemapTabDef {

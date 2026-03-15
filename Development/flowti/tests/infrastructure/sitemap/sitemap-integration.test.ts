@@ -81,6 +81,16 @@ describe("plugin-sitemap integration", () => {
 		expect(mockPlugin.addRibbonIcon).toHaveBeenCalledTimes(sitemap.ribbon.length);
 	});
 
+	it("test-management-hub is no longer legacy and has tabs", () => {
+		const sitemap = loadSitemap();
+		const view = sitemap.views["test-management-hub"];
+		expect(view.legacy).toBeUndefined();
+		expect(view.tabs).toBeDefined();
+		expect(view.tabs!.length).toBeGreaterThanOrEqual(8);
+		expect(view.refreshEvents).toBeDefined();
+		expect(view.refreshEvents!.length).toBeGreaterThan(0);
+	});
+
 	it("all view types in sitemap are declared", () => {
 		const sitemap = loadSitemap();
 		const viewTypes = Object.values(sitemap.views).map((v) => v.type);
