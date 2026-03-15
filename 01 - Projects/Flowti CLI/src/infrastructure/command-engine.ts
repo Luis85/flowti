@@ -177,13 +177,13 @@ export function adaptDescriptor<TFlags = Record<string, unknown>, TModel = unkno
 		handleResponse(wrapResponse(result, desc, deps), format === "json" ? "json" : "text");
 	};
 
-	(handler as any).__descriptor = desc;
+	(handler as unknown as { __descriptor: CommandDescriptor<TFlags, TModel> }).__descriptor = desc;
 	return handler as CommandHandler & { __descriptor: CommandDescriptor<TFlags, TModel> };
 }
 
-function wrapResponse<TModel>(
+function wrapResponse<TFlags, TModel>(
 	model: TModel,
-	desc: CommandDescriptor<unknown, TModel>,
+	desc: CommandDescriptor<TFlags, TModel>,
 	deps: CliDeps,
 ): CliResponse<TModel> {
 	const exitCode = typeof desc.exitCode === "function"
