@@ -17,7 +17,7 @@ import { parseFrontmatterStrings } from "../../infrastructure/frontmatter.js";
 import { toKebab } from "../make/naming.js";
 import type { CliDeps } from "../../infrastructure/deps.js";
 import type { EntityType, LifecycleState, LifecycleTransitionRecord } from "../../infrastructure/types.js";
-import type { StoreApi, StoreDeps } from "../../infrastructure/store-engine.js";
+import type { StoreApi } from "../../infrastructure/store-engine.js";
 import type { LifecycleRecord, LifecycleSummary, TransitionResult } from "./lifecycle-types.js";
 import { getTemplate, validateTransition } from "./lifecycle-engine.js";
 import { resolveDir } from "../shared/markdown-store.js";
@@ -53,7 +53,7 @@ export const lifecycleStore: StoreApi<LifecycleSummary, { entityType: EntityType
 		},
 		sort: (a, b) => a.name.localeCompare(b.name),
 		parseBody: (body) => {
-			const history = parseHistory(body);
+			parseHistory(body);
 			return { file: "" } as Partial<LifecycleSummary> & { history?: LifecycleTransitionRecord[] };
 		},
 		buildBody: (def) => {

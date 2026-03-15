@@ -14,7 +14,7 @@
 
 import type { CliDeps } from "../../infrastructure/deps.js";
 import type { IterationsConfig, IterationStatus } from "../../infrastructure/types.js";
-import type { StoreApi, StoreDeps } from "../../infrastructure/store-engine.js";
+import type { StoreApi } from "../../infrastructure/store-engine.js";
 import type { IterationDefinition, IterationSummary, ScopeItem, AgentReference, ResourceAllocation, CapacityEntry } from "./iteration-types.js";
 import type { LifecycleTemplate, GatedTransitionResult } from "../lifecycle/lifecycle-types.js";
 import { resolveDir, listMdFiles, readFrontmatter, updateField, appendToSection, replaceSectionLine } from "../shared/markdown-store.js";
