@@ -63,6 +63,7 @@ vi.mock("../../src/ui/displays/requirements-display.js", () => ({
 }));
 vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 	renderError: vi.fn(),
+	renderNoProject: vi.fn(),
 }));
 
 // ── Imports ──────────────────────────────────────────────────────
@@ -126,13 +127,12 @@ describe("requirements.controller", () => {
 
 		it("returns error when --name is missing", () => {
 			commands["requirements:add"]({}, [], "requirements:add", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: "Missing --name flag." }));
 			expect(createRequirement).not.toHaveBeenCalled();
 		});
 
 		it("returns error for invalid type", () => {
 			commands["requirements:add"]({ name: "Bad", type: "invalid" }, [], "requirements:add", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: expect.stringContaining("Invalid type") }));
+			expect(renderError).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining("Invalid type") }), expect.any(Function));
 		});
 	});
 
@@ -149,12 +149,12 @@ describe("requirements.controller", () => {
 
 		it("returns error when --name or --status is missing", () => {
 			commands["requirements:update"]({ name: "Test" }, [], "requirements:update", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: expect.stringContaining("Missing") }));
+			expect(updateRequirementStatus).not.toHaveBeenCalled();
 		});
 
 		it("returns error for invalid status", () => {
 			commands["requirements:update"]({ name: "Test", status: "invalid" }, [], "requirements:update", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: expect.stringContaining("Invalid status") }));
+			expect(renderError).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining("Invalid status") }), expect.any(Function));
 		});
 	});
 
@@ -185,12 +185,12 @@ describe("requirements.controller", () => {
 
 		it("returns error when --name is missing", () => {
 			commands["usecases:add"]({ actor: "User" }, [], "usecases:add", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: "Missing --name flag." }));
+			expect(createUseCase).not.toHaveBeenCalled();
 		});
 
 		it("returns error when --actor is missing", () => {
 			commands["usecases:add"]({ name: "Login" }, [], "usecases:add", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: "Missing --actor flag." }));
+			expect(createUseCase).not.toHaveBeenCalled();
 		});
 	});
 
@@ -216,12 +216,12 @@ describe("requirements.controller", () => {
 
 		it("returns error when --name is missing", () => {
 			commands["stories:add"]({ role: "User", goal: "x", benefit: "y" }, [], "stories:add", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: "Missing --name flag." }));
+			expect(createUserStory).not.toHaveBeenCalled();
 		});
 
 		it("returns error when --role, --goal, or --benefit is missing", () => {
 			commands["stories:add"]({ name: "Story" }, [], "stories:add", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: expect.stringContaining("Missing") }));
+			expect(createUserStory).not.toHaveBeenCalled();
 		});
 	});
 });

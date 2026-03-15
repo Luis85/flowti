@@ -27,6 +27,7 @@ vi.mock("../../src/ui/displays/build-display.js", () => ({
 }));
 vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 	renderShellCommand: vi.fn(),
+	renderNoProject: vi.fn(),
 }));
 
 import { commands } from "../../src/controller/build.controller.js";

@@ -6,10 +6,15 @@
  *   - iteration-NNN-report.md — consolidates metrics and retrospective
  *
  * Stores iteration files in docs/iterations/ (configurable).
+ *
+ * The custom filename pattern (iteration-NNN-plan.md) and plan/report dual-file
+ * structure cannot be handled by the generic createStore() engine, so we
+ * implement the StoreApi manually and expose __descriptor for conformance checking.
  */
 
 import type { CliDeps } from "../../infrastructure/deps.js";
 import type { IterationsConfig, IterationStatus } from "../../infrastructure/types.js";
+import type { StoreApi } from "../../infrastructure/store-engine.js";
 import type { IterationDefinition, IterationSummary, ScopeItem, AgentReference, ResourceAllocation, CapacityEntry } from "./iteration-types.js";
 import type { LifecycleTemplate, GatedTransitionResult } from "../lifecycle/lifecycle-types.js";
 import { resolveDir, listMdFiles, readFrontmatter, updateField, appendToSection, replaceSectionLine } from "../shared/markdown-store.js";
@@ -21,6 +26,94 @@ import { buildPlanDocument, buildReportDocument, formatAgent, formatResource, fo
 export type IterationStoreDeps = Pick<CliDeps, "disk" | "paths" | "clock">;
 
 const DEFAULT_DIR = "docs/iterations";
+
+// ── Store descriptor ────────────────────────────────────────────────
+
+/**
+ * iterationStore — StoreApi-conformant descriptor for iterations.
+ *
+ * Iteration storage uses a custom filename scheme (iteration-NNN-plan.md)
+ * and a plan/report dual-file pattern. The createStore() engine would need
+ * significant extension to support this, so we implement the StoreApi manually.
+ * The __descriptor exposes store metadata for conformance checking.
+ */
+export const iterationStore: StoreApi<IterationSummary, IterationDefinition> = {
+	__descriptor: {
+		name: "iteration",
+		defaultDir: DEFAULT_DIR,
+		configPath: "dir",
+		typeTag: "Iteration",
+		fields: {
+			name: { type: "string", required: true, default: "" },
+			number: { type: "number", default: 0 },
+			startDate: { type: "string", default: "" },
+			endDate: { type: "string", default: "" },
+			goal: { type: "string", default: "" },
+			capacity: { type: "string", default: "" },
+			description: { type: "string", default: "" },
+			status: { type: "enum", options: ["new", "planned", "ready", "in-progress", "in-review", "done", "cancelled"], default: "new" },
+		},
+		filename: (def) => `${iterationPrefix(def.number)}-plan.md`,
+		sort: (a, b) => a.number - b.number,
+		buildBody: (def) => {
+			const lines: string[] = [
+				`# ${def.name}`, "",
+				def.goal ? `**Goal:** ${def.goal}` : "",
+				"",
+				"## Scope Items", "",
+				"<!-- List requirements and work items for this iteration. -->", "",
+				"## Notes", "",
+				"<!-- Track progress and decisions during the iteration. -->", "",
+				"## Transition History", "",
+				"| Date | From | To | Reason |",
+				"|---|---|---|---|",
+			];
+			return lines.filter((l) => l !== undefined).join("\n");
+		},
+	},
+
+	resolveDir(deps, projectPath, config?) {
+		return resolveDir(deps, projectPath, (config?.dir as string | undefined), DEFAULT_DIR);
+	},
+
+	list(deps, projectPath, config?) {
+		return listIterations(deps, projectPath, config ? { dir: config.dir as string } : undefined);
+	},
+
+	read(deps, projectPath, name, config?) {
+		const items = listIterations(deps, projectPath, config ? { dir: config.dir as string } : undefined);
+		return items.find((it) => it.name === name);
+	},
+
+	create(deps, projectPath, def, config?) {
+		const clock = (deps as IterationStoreDeps).clock;
+		const result = createIteration(
+			{ ...deps, clock } as IterationStoreDeps,
+			projectPath,
+			def,
+			config ? { dir: config.dir as string } : undefined,
+		);
+		const dir = iterationsDir(deps, projectPath, config ? { dir: config.dir as string } : undefined);
+		return result ?? deps.paths.join(dir, `${iterationPrefix(def.number)}-plan.md`);
+	},
+
+	updateField(deps, projectPath, name, field, value, config?) {
+		const items = listIterations(deps, projectPath, config ? { dir: config.dir as string } : undefined);
+		const item = items.find((it) => it.name === name);
+		if (!item) return false;
+		const dir = iterationsDir(deps, projectPath, config ? { dir: config.dir as string } : undefined);
+		return updateField(deps, deps.paths.join(dir, item.file), field, value);
+	},
+
+	remove(deps, projectPath, name, config?) {
+		const items = listIterations(deps, projectPath, config ? { dir: config.dir as string } : undefined);
+		const item = items.find((it) => it.name === name);
+		if (!item) return;
+		const dir = iterationsDir(deps, projectPath, config ? { dir: config.dir as string } : undefined);
+		const filePath = deps.paths.join(dir, item.file);
+		if (deps.disk.existsSync(filePath)) deps.disk.unlinkSync(filePath);
+	},
+};
 
 /** Resolve the iterations directory for a project. */
 export function iterationsDir(deps: Pick<CliDeps, "paths">, projectPath: string, config?: IterationsConfig): string {

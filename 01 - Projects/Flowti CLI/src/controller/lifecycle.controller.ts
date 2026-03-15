@@ -2,121 +2,140 @@
  * lifecycle.controller.ts — Controller for lifecycle management commands.
  */
 
-import type { ControllerAction } from "../infrastructure/request-response.js";
-import { adapt, dataResponse } from "../infrastructure/request-response.js";
+import { adaptDescriptor } from "../infrastructure/command-engine.js";
 import type { CommandHandler, EntityType, LifecycleState } from "../infrastructure/types.js";
 import { listLifecycleItems, readLifecycleItem, createLifecycleFile, transitionLifecycleItem, getLifecycleHistory } from "../domain/lifecycle/lifecycle-store.js";
 import { renderLifecycleStatus, renderLifecycleList, renderTransitionResult, renderTransitionHistory, renderLifecycleCreated } from "../ui/displays/lifecycle-display.js";
 import { renderError } from "../ui/renderers/common-renderers.js";
 import type { ErrorModel } from "../ui/renderers/common-renderers.js";
+import type { LogFn } from "../infrastructure/command-engine.js";
 
 const VALID_TYPES: EntityType[] = ["project", "product", "feature"];
 
-function flagStr(flags: Record<string, string | boolean>, key: string, fallback: string): string {
-	return typeof flags[key] === "string" ? flags[key] : fallback;
+type LifecycleListModel = ReturnType<typeof listLifecycleItems>;
+type LifecycleStatusModel = ReturnType<typeof readLifecycleItem> | ErrorModel;
+type TransitionModel = ReturnType<typeof transitionLifecycleItem> | ErrorModel;
+type HistoryModel = ReturnType<typeof getLifecycleHistory> | ErrorModel;
+type LifecycleCreateModel = { relPath: string } | ErrorModel;
+
+function isErrorModel(m: unknown): m is ErrorModel {
+	return typeof m === "object" && m !== null && "error" in m;
 }
 
-const actions: Record<string, ControllerAction> = {
-	"lifecycle:list": (req) => {
-		if (!req.project) return;
-		const entityType = flagStr(req.flags, "type", "") as EntityType;
-		const subdir = flagStr(req.flags, "subdir", "") || undefined;
-		const items = listLifecycleItems(req.deps, req.project.path, subdir);
-		const filtered = entityType && VALID_TYPES.includes(entityType)
-			? items.filter((i) => i.entityType === entityType)
-			: items;
-		return dataResponse(filtered, (d) => renderLifecycleList(d, req.deps.log));
-	},
+function renderLifecycleStatusOrError(data: LifecycleStatusModel, log: LogFn): void {
+	if (isErrorModel(data) || data == null) {
+		renderError(isErrorModel(data) ? data : { error: "Not found." }, log);
+		return;
+	}
+	renderLifecycleStatus(data, log);
+}
 
-	"lifecycle:status": (req) => {
-		if (!req.project) return;
-		const name = flagStr(req.flags, "name", "");
-		if (!name) {
-			return dataResponse<ErrorModel>(
-				{ error: "Missing --name flag.", hint: 'Usage: flowti lifecycle:status --name="My Feature"' },
-				(d) => renderError(req.deps.log, d),
-			);
-		}
-		const subdir = flagStr(req.flags, "subdir", "") || undefined;
-		const record = readLifecycleItem(req.deps, req.project.path, name, subdir);
-		if (!record) {
-			return dataResponse<ErrorModel>(
-				{ error: `Lifecycle not found for "${name}".` },
-				(d) => renderError(req.deps.log, d),
-			);
-		}
-		return dataResponse(record, (d) => renderLifecycleStatus(d, req.deps.log));
-	},
+function renderTransitionOrError(data: TransitionModel, log: LogFn): void {
+	if (isErrorModel(data)) { renderError(data, log); return; }
+	renderTransitionResult(data, log);
+}
 
-	"lifecycle:transition": (req) => {
-		if (!req.project) return;
-		const name = flagStr(req.flags, "name", "");
-		const to = flagStr(req.flags, "to", "");
-		const reason = flagStr(req.flags, "reason", "");
-		if (!name || !to) {
-			return dataResponse<ErrorModel>(
-				{ error: "Missing --name and/or --to flag.", hint: 'Usage: flowti lifecycle:transition --name="My Feature" --to=development --reason="Ready"' },
-				(d) => renderError(req.deps.log, d),
-			);
-		}
-		if (!reason) {
-			return dataResponse<ErrorModel>(
-				{ error: "Missing --reason flag.", hint: 'Provide a reason for the transition.' },
-				(d) => renderError(req.deps.log, d),
-			);
-		}
-		const subdir = flagStr(req.flags, "subdir", "") || undefined;
-		const result = transitionLifecycleItem(req.deps, req.project.path, name, to as LifecycleState, reason, subdir);
-		return dataResponse(result, (d) => renderTransitionResult(d, req.deps.log));
-	},
+function renderHistoryOrError(data: HistoryModel, log: LogFn): void {
+	if (isErrorModel(data)) { renderError(data, log); return; }
+	renderTransitionHistory(data as ReturnType<typeof getLifecycleHistory>, log);
+}
 
-	"lifecycle:history": (req) => {
-		if (!req.project) return;
-		const name = flagStr(req.flags, "name", "");
-		if (!name) {
-			return dataResponse<ErrorModel>(
-				{ error: "Missing --name flag.", hint: 'Usage: flowti lifecycle:history --name="My Feature"' },
-				(d) => renderError(req.deps.log, d),
-			);
-		}
-		const subdir = flagStr(req.flags, "subdir", "") || undefined;
-		const history = getLifecycleHistory(req.deps, req.project.path, name, subdir);
-		return dataResponse(history, (d) => renderTransitionHistory(d, req.deps.log));
-	},
+function renderLifecycleCreateOrError(data: LifecycleCreateModel, log: LogFn): void {
+	if (isErrorModel(data)) { renderError(data, log); return; }
+	renderLifecycleCreated(data.relPath, log);
+}
 
-	"lifecycle:create": (req) => {
-		if (!req.project) return;
-		const { paths } = req.deps;
-		const name = flagStr(req.flags, "name", "");
-		const entityType = flagStr(req.flags, "type", "feature") as EntityType;
-		if (!name) {
-			return dataResponse<ErrorModel>(
-				{ error: "Missing --name flag.", hint: 'Usage: flowti lifecycle:create --name="My Feature" --type=feature' },
-				(d) => renderError(req.deps.log, d),
-			);
-		}
-		if (!VALID_TYPES.includes(entityType)) {
-			return dataResponse<ErrorModel>(
-				{ error: `Invalid type "${entityType}". Valid: ${VALID_TYPES.join(", ")}` },
-				(d) => renderError(req.deps.log, d),
-			);
-		}
-		const description = flagStr(req.flags, "description", "") || undefined;
-		const subdir = flagStr(req.flags, "subdir", "") || undefined;
-		const filePath = createLifecycleFile(req.deps, req.project.path, entityType, name, description, subdir);
-		if (filePath) {
-			return dataResponse(
-				{ relPath: paths.relative(req.project.path, filePath) },
-				(m: { relPath: string }) => renderLifecycleCreated(m.relPath, req.deps.log),
-			);
-		}
-		return dataResponse<ErrorModel>(
-			{ error: `Item "${name}" already exists.` },
-			(d) => renderError(req.deps.log, d),
-		);
-	},
+export const commands: Record<string, CommandHandler> = {
+	"lifecycle:list": adaptDescriptor<Record<string, unknown>, LifecycleListModel>({
+		requires: "project",
+		flags: {
+			type: { type: "string", default: "" },
+			subdir: { type: "string", default: "" },
+		},
+		handler: (ctx) => {
+			const entityType = (ctx.flags.type as string) as EntityType;
+			const subdir = (ctx.flags.subdir as string) || undefined;
+			const items = listLifecycleItems(ctx.deps, ctx.project!.path, subdir);
+			const filtered = entityType && VALID_TYPES.includes(entityType)
+				? items.filter((i) => i.entityType === entityType)
+				: items;
+			return filtered;
+		},
+		renderer: renderLifecycleList,
+	}),
+
+	"lifecycle:status": adaptDescriptor<Record<string, unknown>, LifecycleStatusModel>({
+		requires: "project",
+		flags: {
+			name: { type: "string", required: true, hint: 'Usage: flowti lifecycle:status --name="My Feature"' },
+			subdir: { type: "string", default: "" },
+		},
+		handler: (ctx) => {
+			const name = ctx.flags.name as string;
+			const subdir = (ctx.flags.subdir as string) || undefined;
+			const record = readLifecycleItem(ctx.deps, ctx.project!.path, name, subdir);
+			if (!record) {
+				return { error: `Lifecycle not found for "${name}".` } as ErrorModel;
+			}
+			return record;
+		},
+		renderer: renderLifecycleStatusOrError,
+	}),
+
+	"lifecycle:transition": adaptDescriptor<Record<string, unknown>, TransitionModel>({
+		requires: "project",
+		flags: {
+			name: { type: "string", required: true, hint: 'Usage: flowti lifecycle:transition --name="My Feature" --to=development --reason="Ready"' },
+			to: { type: "string", required: true, hint: 'Usage: flowti lifecycle:transition --name="My Feature" --to=development --reason="Ready"' },
+			reason: { type: "string", required: true, hint: "Provide a reason for the transition." },
+			subdir: { type: "string", default: "" },
+		},
+		handler: (ctx) => {
+			const name = ctx.flags.name as string;
+			const to = ctx.flags.to as string;
+			const reason = ctx.flags.reason as string;
+			const subdir = (ctx.flags.subdir as string) || undefined;
+			return transitionLifecycleItem(ctx.deps, ctx.project!.path, name, to as LifecycleState, reason, subdir);
+		},
+		renderer: renderTransitionOrError,
+	}),
+
+	"lifecycle:history": adaptDescriptor<Record<string, unknown>, HistoryModel>({
+		requires: "project",
+		flags: {
+			name: { type: "string", required: true, hint: 'Usage: flowti lifecycle:history --name="My Feature"' },
+			subdir: { type: "string", default: "" },
+		},
+		handler: (ctx) => {
+			const name = ctx.flags.name as string;
+			const subdir = (ctx.flags.subdir as string) || undefined;
+			return getLifecycleHistory(ctx.deps, ctx.project!.path, name, subdir);
+		},
+		renderer: renderHistoryOrError,
+	}),
+
+	"lifecycle:create": adaptDescriptor<Record<string, unknown>, LifecycleCreateModel>({
+		requires: "project",
+		flags: {
+			name: { type: "string", required: true, hint: 'Usage: flowti lifecycle:create --name="My Feature" --type=feature' },
+			type: { type: "string", default: "feature" },
+			description: { type: "string", default: "" },
+			subdir: { type: "string", default: "" },
+		},
+		handler: (ctx) => {
+			const name = ctx.flags.name as string;
+			const entityType = (ctx.flags.type as string) as EntityType;
+			if (!VALID_TYPES.includes(entityType)) {
+				return { error: `Invalid type "${entityType}". Valid: ${VALID_TYPES.join(", ")}` } as ErrorModel;
+			}
+			const description = (ctx.flags.description as string) || undefined;
+			const subdir = (ctx.flags.subdir as string) || undefined;
+			const filePath = createLifecycleFile(ctx.deps, ctx.project!.path, entityType, name, description, subdir);
+			if (filePath) {
+				return { relPath: ctx.deps.paths.relative(ctx.project!.path, filePath) };
+			}
+			return { error: `Item "${name}" already exists.` } as ErrorModel;
+		},
+		renderer: renderLifecycleCreateOrError,
+	}),
 };
-
-export const commands: Record<string, CommandHandler> = Object.fromEntries(
-	Object.entries(actions).map(([key, action]) => [key, adapt(action)]),
-);

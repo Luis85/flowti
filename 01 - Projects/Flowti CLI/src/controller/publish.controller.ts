@@ -4,9 +4,9 @@
  * Returns typed data models; rendering is handled by ui/publish-display.ts.
  */
 
-import type { ControllerAction } from "../infrastructure/request-response.js";
-import { adapt, dataResponse } from "../infrastructure/request-response.js";
+import { adaptDescriptor } from "../infrastructure/command-engine.js";
 import type { CommandHandler, ProjectContext } from "../infrastructure/types.js";
+import type { LogFn } from "../infrastructure/command-engine.js";
 import type { CliDeps } from "../infrastructure/deps.js";
 import { collectHealth } from "../domain/health/health.js";
 import { scoreHealth } from "../domain/health/health-scoring.js";
@@ -45,88 +45,132 @@ function checkGates(deps: Pick<CliDeps, "disk" | "paths" | "shell">, p: ProjectC
 	return evaluateQualityGates(snapshot, score, gateConfig);
 }
 
-function noProjectResponse(log: CliDeps["log"], command: string) {
-	return dataResponse<NoProjectModel>({ command }, (d) => renderNoProject(log, d));
+// ── Model types ─────────────────────────────────────────────────────
+
+type PublishAllModel = ShellCommandModel;
+type PublishCheckModel = GateResult | NoProjectModel;
+type PublishDryRunOrRun = DryRunModel | ShellCommandModel | { gate: GateResult; blocked: GateBlockedModel };
+
+function isGateBlocked(m: unknown): m is { gate: GateResult; blocked: GateBlockedModel } {
+	return typeof m === "object" && m !== null && "gate" in m && "blocked" in m;
 }
 
-function gateBlockedResponse(gateResult: GateResult, log: (msg?: string) => void) {
-	const blocked: GateBlockedModel = {
-		message: "Publish blocked by quality gates.",
-		hint: "Use --skip-gates to bypass, or fix the issues above.",
-	};
-	return {
-		data: { gate: gateResult, blocked },
-		render: (d: { gate: GateResult; blocked: GateBlockedModel }) => {
-			renderGateResult(d.gate, log);
-			renderGateBlocked(d.blocked, log);
+function isDryRun(m: unknown): m is DryRunModel {
+	return typeof m === "object" && m !== null && "buildCmd" in m && "testCmd" in m && "outDir" in m;
+}
+
+function isNoProject(m: unknown): m is NoProjectModel {
+	return typeof m === "object" && m !== null && "command" in m && !("passed" in m);
+}
+
+// ── Commands ────────────────────────────────────────────────────────
+
+export const commands: Record<string, CommandHandler> = {
+	publish: adaptDescriptor<Record<string, unknown>, PublishDryRunOrRun>({
+		flags: {
+			"dry-run": { type: "boolean", default: false },
+			"skip-gates": { type: "boolean", default: false },
 		},
-		exitCode: 1,
-	};
-}
-
-// ── Controller actions ──────────────────────────────────────────────
-
-const actions: Record<string, ControllerAction> = {
-	publish: (req) => {
-		if (req.flags["dry-run"]) {
-			const model = resolvePublishConfig(req.project);
-			return dataResponse(model, (d) => renderDryRun(d, req.deps.log));
-		}
-		const { disk, paths, shell } = req.deps;
-		if (req.project && !req.flags["skip-gates"]) {
-			const result = checkGates({ disk, paths, shell }, req.project);
-			if (result && !result.passed) {
-				return gateBlockedResponse(result, req.deps.log);
+		handler: (ctx) => {
+			if (ctx.flags["dry-run"]) {
+				return resolvePublishConfig(ctx.project);
 			}
-		}
-		const { buildCmd, cwd } = resolvePublishCommands(req.project);
-		const exitCode = shell.run(buildCmd, { cwd, label: "Publishing..." });
-		const model: ShellCommandModel = { command: buildCmd, exitCode, label: "publish" };
-		return dataResponse(model, (d) => renderShellCommand(req.deps.log, d));
-	},
-
-	"publish:all": (req) => {
-		const { disk, paths, shell, log } = req.deps;
-		if (req.project && !req.flags["skip-gates"]) {
-			const result = checkGates({ disk, paths, shell }, req.project);
-			if (result && !result.passed) {
-				return gateBlockedResponse(result, req.deps.log);
+			const { disk, paths, shell } = ctx.deps;
+			if (ctx.project && !ctx.flags["skip-gates"]) {
+				const result = checkGates({ disk, paths, shell }, ctx.project);
+				if (result && !result.passed) {
+					const blocked: GateBlockedModel = {
+						message: "Publish blocked by quality gates.",
+						hint: "Use --skip-gates to bypass, or fix the issues above.",
+					};
+					return { gate: result, blocked };
+				}
 			}
-		}
-		const { buildCmd, testCmd, cwd } = resolvePublishCommands(req.project);
-		const b = shell.run(buildCmd, { cwd, label: "Step 1/2: Building..." });
-		if (b !== 0) {
-			const model: ShellCommandModel = { command: buildCmd, exitCode: b, label: "publish:all" };
-			return { data: model, render: (d: ShellCommandModel) => renderShellCommand(log, d), exitCode: b };
-		}
-		const t = shell.run(testCmd, { cwd, label: "Step 2/2: Testing..." });
-		if (t !== 0) {
-			const model: ShellCommandModel = { command: testCmd, exitCode: t, label: "publish:all" };
-			return { data: model, render: (d: ShellCommandModel) => renderShellCommand(log, d), exitCode: t };
-		}
-		const model: ShellCommandModel = { command: `${buildCmd} && ${testCmd}`, exitCode: 0, label: "publish:all" };
-		return dataResponse(model, (d) => renderShellCommand(log, d));
-	},
+			const { buildCmd, cwd } = resolvePublishCommands(ctx.project);
+			const exitCode = shell.run(buildCmd, { cwd, label: "Publishing..." });
+			return { command: buildCmd, exitCode, label: "publish" };
+		},
+		renderer: (data: PublishDryRunOrRun, log: LogFn) => {
+			if (isGateBlocked(data)) {
+				renderGateResult(data.gate, log);
+				renderGateBlocked(data.blocked, log);
+				return;
+			}
+			if (isDryRun(data)) {
+				renderDryRun(data, log);
+				return;
+			}
+			renderShellCommand(data as ShellCommandModel, log);
+		},
+		exitCode: (model) => {
+			if (isGateBlocked(model)) return 1;
+			if ("exitCode" in model && typeof model.exitCode === "number" && model.exitCode !== 0) return model.exitCode;
+			return undefined;
+		},
+	}),
 
-	"publish:check": (req) => {
-		if (!req.project) return noProjectResponse(req.deps.log, "publish:check");
-		const { disk, paths, shell } = req.deps;
-		const snapshot = collectHealth({ disk, paths, shell }, req.project);
-		const score = scoreHealth(snapshot);
-		const gateConfig = req.project.config.health?.qualityGates;
-		const result = evaluateQualityGates(snapshot, score, gateConfig);
+	"publish:all": adaptDescriptor<Record<string, unknown>, PublishAllModel | { gate: GateResult; blocked: GateBlockedModel }>({
+		flags: {
+			"skip-gates": { type: "boolean", default: false },
+		},
+		handler: (ctx) => {
+			const { disk, paths, shell } = ctx.deps;
+			if (ctx.project && !ctx.flags["skip-gates"]) {
+				const result = checkGates({ disk, paths, shell }, ctx.project);
+				if (result && !result.passed) {
+					const blocked: GateBlockedModel = {
+						message: "Publish blocked by quality gates.",
+						hint: "Use --skip-gates to bypass, or fix the issues above.",
+					};
+					return { gate: result, blocked };
+				}
+			}
+			const { buildCmd, testCmd, cwd } = resolvePublishCommands(ctx.project);
+			const b = shell.run(buildCmd, { cwd, label: "Step 1/2: Building..." });
+			if (b !== 0) {
+				return { command: buildCmd, exitCode: b, label: "publish:all" };
+			}
+			const t = shell.run(testCmd, { cwd, label: "Step 2/2: Testing..." });
+			if (t !== 0) {
+				return { command: testCmd, exitCode: t, label: "publish:all" };
+			}
+			return { command: `${buildCmd} && ${testCmd}`, exitCode: 0, label: "publish:all" };
+		},
+		renderer: (data, log: LogFn) => {
+			if (isGateBlocked(data)) {
+				renderGateResult(data.gate, log);
+				renderGateBlocked(data.blocked, log);
+				return;
+			}
+			renderShellCommand(data as ShellCommandModel, log);
+		},
+		exitCode: (model) => {
+			if (isGateBlocked(model)) return 1;
+			const shell = model as ShellCommandModel;
+			if (shell.exitCode !== 0) return shell.exitCode;
+			return undefined;
+		},
+	}),
 
-		const { log } = req.deps;
-		return {
-			data: result,
-			render: (d: GateResult) => renderGateResult(d, log),
-			exitCode: result.passed ? undefined : 1,
-		};
-	},
+	"publish:check": adaptDescriptor<Record<string, unknown>, PublishCheckModel>({
+		requires: "project",
+		handler: (ctx) => {
+			const { disk, paths, shell } = ctx.deps;
+			const snapshot = collectHealth({ disk, paths, shell }, ctx.project!);
+			const score = scoreHealth(snapshot);
+			const gateConfig = ctx.project!.config.health?.qualityGates;
+			return evaluateQualityGates(snapshot, score, gateConfig);
+		},
+		renderer: (data: PublishCheckModel, log: LogFn) => {
+			if (isNoProject(data)) {
+				renderNoProject(data, log);
+				return;
+			}
+			renderGateResult(data as GateResult, log);
+		},
+		exitCode: (model) => {
+			if ("passed" in model && !model.passed) return 1;
+			return undefined;
+		},
+	}),
 };
-
-// ── Adapted commands ────────────────────────────────────────────────
-
-export const commands: Record<string, CommandHandler> = Object.fromEntries(
-	Object.entries(actions).map(([key, action]) => [key, adapt(action)]),
-);

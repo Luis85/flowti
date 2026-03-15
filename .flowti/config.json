@@ -32,7 +32,8 @@
 				"superpowers:test-driven-development",
 				"superpowers:systematic-debugging",
 				"superpowers:requesting-code-review",
-				"superpowers:verification-before-completion"
+				"superpowers:verification-before-completion",
+				"product-management:execute-in-workspace"
 			],
 			"design": [
 				"superpowers:brainstorming",
@@ -41,12 +42,21 @@
 			],
 			"product": [
 				"superpowers:brainstorming",
-				"superpowers:writing-plans"
+				"superpowers:writing-plans",
+				"product-management:backlog-refinement",
+				"product-management:iteration-planning",
+				"product-management:increment-review",
+				"product-management:retrospective",
+				"product-management:three-amigos-review",
+				"product-management:feature-document"
 			],
 			"management": [
 				"superpowers:dispatching-parallel-agents",
 				"superpowers:writing-plans",
-				"superpowers:executing-plans"
+				"superpowers:executing-plans",
+				"product-management:iteration-planning",
+				"product-management:retrospective",
+				"product-management:execute-in-workspace"
 			],
 			"quality": [
 				"superpowers:requesting-code-review",
@@ -64,7 +74,8 @@
 				"superpowers:dispatching-parallel-agents",
 				"superpowers:brainstorming",
 				"superpowers:writing-plans",
-				"superpowers:executing-plans"
+				"superpowers:executing-plans",
+				"product-management:execute-in-workspace"
 			]
 		}
 	}

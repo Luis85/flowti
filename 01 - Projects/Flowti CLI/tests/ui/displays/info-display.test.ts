@@ -60,33 +60,33 @@ beforeEach(() => {
 
 describe("displayInfo", () => {
 	it("renders project name and path", () => {
-		displayInfo(log, {
+		displayInfo({
 			name: "my-app",
 			path: "/projects/my-app",
 			tools: [],
-		} as never);
+		} as never, log);
 		const out = output();
 		expect(out).toContain("my-app");
 		expect(out).toContain("/projects/my-app");
 	});
 
 	it("renders version when present", () => {
-		displayInfo(log, {
+		displayInfo({
 			name: "app",
 			path: "/p",
 			version: "1.2.3",
 			tools: [],
-		} as never);
+		} as never, log);
 		expect(output()).toContain("1.2.3");
 	});
 
 	it("renders source info when present", () => {
-		displayInfo(log, {
+		displayInfo({
 			name: "app",
 			path: "/p",
 			source: { sourceFiles: 50, testFiles: 30, ext: ".ts" },
 			tools: [],
-		} as never);
+		} as never, log);
 		const out = output();
 		expect(out).toContain("50");
 		expect(out).toContain("30");
@@ -94,12 +94,12 @@ describe("displayInfo", () => {
 	});
 
 	it("renders dependencies when present", () => {
-		displayInfo(log, {
+		displayInfo({
 			name: "app",
 			path: "/p",
 			dependencies: { production: 5, development: 10, scripts: 3 },
 			tools: [],
-		} as never);
+		} as never, log);
 		const out = output();
 		expect(out).toContain("Production");
 		expect(out).toContain("5");
@@ -107,14 +107,14 @@ describe("displayInfo", () => {
 	});
 
 	it("renders tools with available and unavailable", () => {
-		displayInfo(log, {
+		displayInfo({
 			name: "app",
 			path: "/p",
 			tools: [
 				{ id: "vitest", available: true, version: "4.0.0" },
 				{ id: "eslint", available: false },
 			],
-		} as never);
+		} as never, log);
 		const out = output();
 		expect(out).toContain("vitest");
 		expect(out).toContain("eslint");
@@ -123,12 +123,12 @@ describe("displayInfo", () => {
 	});
 
 	it("renders git info when present", () => {
-		displayInfo(log, {
+		displayInfo({
 			name: "app",
 			path: "/p",
 			tools: [],
 			git: { branch: "main", commit: "abc1234", status: "clean" },
-		} as never);
+		} as never, log);
 		const out = output();
 		expect(out).toContain("main");
 		expect(out).toContain("abc1234");
@@ -136,12 +136,12 @@ describe("displayInfo", () => {
 	});
 
 	it("renders dirty git status", () => {
-		displayInfo(log, {
+		displayInfo({
 			name: "app",
 			path: "/p",
 			tools: [],
 			git: { branch: "dev", commit: "def5678", status: "dirty" },
-		} as never);
+		} as never, log);
 		expect(output()).toContain("dirty");
 	});
 });

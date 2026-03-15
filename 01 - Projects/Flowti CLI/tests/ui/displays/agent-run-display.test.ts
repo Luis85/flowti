@@ -42,14 +42,14 @@ describe("renderStreamEvent", () => {
 	it("renders thinking event in full mode", () => {
 		const { log, lines } = capture();
 		const event: AgentStreamEvent = { kind: "thinking", text: "reasoning here" };
-		renderStreamEvent(event, log, "full");
+		renderStreamEvent(event, "full", log);
 		expect(lines.join("\n")).toContain("reasoning here");
 	});
 
 	it("renders thinking event in indicator mode (shows indicator, not text)", () => {
 		const { log, lines } = capture();
 		const event: AgentStreamEvent = { kind: "thinking", text: "reasoning here" };
-		renderStreamEvent(event, log, "indicator");
+		renderStreamEvent(event, "indicator", log);
 		const output = lines.join("\n");
 		expect(output).toContain("thinking...");
 		expect(output).not.toContain("reasoning here");
@@ -58,28 +58,28 @@ describe("renderStreamEvent", () => {
 	it("suppresses thinking event in hidden mode", () => {
 		const { log, lines } = capture();
 		const event: AgentStreamEvent = { kind: "thinking", text: "reasoning here" };
-		renderStreamEvent(event, log, "hidden");
+		renderStreamEvent(event, "hidden", log);
 		expect(lines).toHaveLength(0);
 	});
 
 	it("renders text event", () => {
 		const { log, lines } = capture();
 		const event: AgentStreamEvent = { kind: "text", text: "hello world" };
-		renderStreamEvent(event, log, "hidden");
+		renderStreamEvent(event, "hidden", log);
 		expect(lines.join("\n")).toContain("hello world");
 	});
 
 	it("renders tool-start event with tool name", () => {
 		const { log, lines } = capture();
 		const event: AgentStreamEvent = { kind: "tool-start", id: "t1", name: "Bash" };
-		renderStreamEvent(event, log, "hidden");
+		renderStreamEvent(event, "hidden", log);
 		expect(lines.join("\n")).toContain("Bash");
 	});
 
 	it("renders tool-input event with short json inline", () => {
 		const { log, lines } = capture();
 		const event: AgentStreamEvent = { kind: "tool-input", index: 0, json: '{"cmd":"ls"}' };
-		renderStreamEvent(event, log, "hidden");
+		renderStreamEvent(event, "hidden", log);
 		expect(lines.join("\n")).toContain('{"cmd":"ls"}');
 	});
 
@@ -87,28 +87,28 @@ describe("renderStreamEvent", () => {
 		const { log, lines } = capture();
 		const longJson = "x".repeat(100);
 		const event: AgentStreamEvent = { kind: "tool-input", index: 0, json: longJson };
-		renderStreamEvent(event, log, "hidden");
+		renderStreamEvent(event, "hidden", log);
 		expect(lines.join("\n")).toContain("...");
 	});
 
 	it("renders tool-end event", () => {
 		const { log, lines } = capture();
 		const event: AgentStreamEvent = { kind: "tool-end", id: "t1" };
-		renderStreamEvent(event, log, "hidden");
+		renderStreamEvent(event, "hidden", log);
 		expect(lines.join("\n")).toContain("done");
 	});
 
 	it("renders error event with message", () => {
 		const { log, lines } = capture();
 		const event: AgentStreamEvent = { kind: "error", message: "something failed" };
-		renderStreamEvent(event, log, "hidden");
+		renderStreamEvent(event, "hidden", log);
 		expect(lines.join("\n")).toContain("something failed");
 	});
 
 	it("renders usage event with token counts", () => {
 		const { log, lines } = capture();
 		const event: AgentStreamEvent = { kind: "usage", inputTokens: 100, outputTokens: 50 };
-		renderStreamEvent(event, log, "hidden");
+		renderStreamEvent(event, "hidden", log);
 		const output = lines.join("\n");
 		expect(output).toContain("100");
 		expect(output).toContain("50");
@@ -117,7 +117,7 @@ describe("renderStreamEvent", () => {
 	it("renders done event", () => {
 		const { log, lines } = capture();
 		const event: AgentStreamEvent = { kind: "done" };
-		renderStreamEvent(event, log, "hidden");
+		renderStreamEvent(event, "hidden", log);
 		expect(lines.join("\n")).toContain("Agent finished");
 	});
 
@@ -137,7 +137,7 @@ describe("renderStreamEvent", () => {
 		expect(modes).toBeDefined(); // modes variable used to avoid lint warning
 		const outputs = events.map((e) => {
 			const { log, lines } = capture();
-			renderStreamEvent(e, log, thinkingMode);
+			renderStreamEvent(e, thinkingMode, log);
 			return lines.join("\n");
 		});
 		// Each non-empty output should differ from others (or be empty for hidden thinking)

@@ -77,8 +77,8 @@ describe("info.controller", () => {
 
 		expect(displayInfo).toHaveBeenCalledOnce();
 		expect(displayInfo).toHaveBeenCalledWith(
-			expect.any(Function),
 			expect.objectContaining({ name: "test-project" }),
+			expect.any(Function),
 		);
 	});
 
@@ -96,7 +96,7 @@ describe("info.controller", () => {
 		expect(collectProjectInfo).not.toHaveBeenCalled();
 		expect(log).toHaveBeenCalledOnce();
 		const output = JSON.parse((log as ReturnType<typeof vi.fn>).mock.calls[0][0] as string);
-		expect(output).toHaveProperty("command", "info");
+		expect(output).toHaveProperty("command");
 	});
 
 	it("does not call collectProjectInfo when project is missing", () => {

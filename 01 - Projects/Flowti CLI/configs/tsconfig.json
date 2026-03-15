@@ -10,8 +10,9 @@
 		"rootDir": "..",
 		"declaration": true,
 		"sourceMap": true,
-		"skipLibCheck": true
+		"skipLibCheck": true,
+		"jsx": "react-jsx"
 	},
-	"include": ["../src/**/*.ts", "vendor.d.ts"],
+	"include": ["../src/**/*.ts", "../src/**/*.tsx", "vendor.d.ts"],
 	"exclude": ["../node_modules", "../bin", "../tests", "../src/**/*.stories.ts", "../components"]
 }

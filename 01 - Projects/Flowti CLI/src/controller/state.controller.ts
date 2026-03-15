@@ -4,32 +4,45 @@
  * Reads world state from disk and renders a summary or entity detail.
  */
 
-import type { ControllerAction } from "../infrastructure/request-response.js";
-import { adapt, dataResponse } from "../infrastructure/request-response.js";
-import type { CommandHandler } from "../infrastructure/types.js";
+import { adaptDescriptor } from "../infrastructure/command-engine.js";
+import type { CommandHandler } from "../infrastructure/types-config.js";
+import type { WorldState, WorldEntity } from "../infrastructure/types.js";
 import { renderWorldStateSummary, renderEntityDetail } from "../ui/displays/state-display.js";
+import type { LogFn } from "../infrastructure/command-engine.js";
 
-const actions: Record<string, ControllerAction> = {
-	state: (req) => {
-		const state = req.deps.worldState.getState();
+type StateModel =
+	| { kind: "json"; state: WorldState }
+	| { kind: "entity"; entity: WorldEntity | undefined; agentName: string }
+	| { kind: "summary"; state: WorldState };
 
-		if (req.flags.json) {
-			return dataResponse(state, (d) => { req.deps.log(JSON.stringify(d, null, 2)); });
-		}
+function renderState(model: StateModel, log: LogFn): void {
+	if (model.kind === "json") {
+		log(JSON.stringify(model.state, null, 2));
+	} else if (model.kind === "entity") {
+		if (model.entity) renderEntityDetail(model.entity, log);
+		else log(`\n  Agent "${model.agentName}" not found in world state.\n`);
+	} else {
+		renderWorldStateSummary(model.state, log);
+	}
+}
 
-		const agentName = typeof req.flags.agent === "string" ? req.flags.agent : null;
-		if (agentName) {
-			const entity = req.deps.worldState.getEntity(agentName);
-			return dataResponse(entity, (d) => {
-				if (d) renderEntityDetail(d, req.deps.log);
-				else req.deps.log(`\n  Agent "${agentName}" not found in world state.\n`);
-			});
-		}
+export const commands: Record<string, CommandHandler> = {
+	state: adaptDescriptor<{ json?: boolean; agent?: string }, StateModel>({
+		handler: (ctx) => {
+			const state = ctx.deps.worldState.getState();
 
-		return dataResponse(state, (d) => renderWorldStateSummary(d, req.deps.log));
-	},
+			if (ctx.flags.json) {
+				return { kind: "json", state };
+			}
+
+			const agentName = typeof ctx.flags.agent === "string" ? ctx.flags.agent : null;
+			if (agentName) {
+				const entity = ctx.deps.worldState.getEntity(agentName);
+				return { kind: "entity", entity: entity ?? undefined, agentName };
+			}
+
+			return { kind: "summary", state };
+		},
+		renderer: renderState,
+	}),
 };
-
-export const commands: Record<string, CommandHandler> = Object.fromEntries(
-	Object.entries(actions).map(([key, action]) => [key, adapt(action)]),
-);

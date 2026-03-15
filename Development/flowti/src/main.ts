@@ -72,7 +72,6 @@ import { JourneyExecutorService } from "./domain/journeyExecutor/JourneyExecutor
 import type { ToolHost, ExecutableJourney } from "./domain/journeyExecutor/types";
 import { BaseHubView, type IViewStateStore } from "./ui/BaseHubView";
 import { ExecutionProgressModal } from "./ui/journeyExecutor/ExecutionProgressModal";
-import { TestManagementHubView, VIEW_TYPE_TEST_MANAGEMENT_HUB } from "./ui/testManagement/TestManagementHubView";
 import { TestManagementHubProvider } from "./domain/hub/TestManagementHubProvider";
 import { FeatureLifecycleProvider } from "./domain/hub/FeatureLifecycleProvider";
 import { EVENT_CATALOG } from "./infrastructure/events/catalog";
@@ -1015,15 +1014,8 @@ export default class FlowtiBasePlugin extends Plugin {
 			}
 		});
 		await this.timedServiceLoad("testManagementService", () => this.testManagementService!.load());
-		this.safeRegisterView(VIEW_TYPE_TEST_MANAGEMENT_HUB, (leaf) =>
-			new TestManagementHubView(
-				leaf, this.eventBus, this.testManagementService!, this.onboardingService!,
-				this.featureLifecycleService ?? undefined,
-				this.processService ?? undefined,
-				this.hubRegistry ?? undefined,
-				() => this.settings,
-			),
-		);
+		// TestManagement hub is now driven by SitemapHubView + Lit components.
+		// View registration is handled by SitemapBootstrap via plugin-sitemap.json.
 
 		// Feature Lifecycle — PRD scanning, stage management, gate checks
 		this.featureLifecycleService = await this.services.get<FeatureLifecycleService>("featureLifecycleService");

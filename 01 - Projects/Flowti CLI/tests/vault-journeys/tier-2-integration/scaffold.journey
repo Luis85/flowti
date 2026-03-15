@@ -1,0 +1,15 @@
+{
+	"journey": "Scaffold New Project",
+	"description": "Verify scaffolding a new project inside the vault",
+	"requires": { "target": "vault-test" },
+	"steps": [
+		{
+			"id": "scaffold-list",
+			"title": "List available scaffold definitions",
+			"description": "Verify the scaffold list command shows available templates",
+			"actions": [
+				{ "tool": "vault-cli", "command": "scaffold:list", "expectExit": 0 }
+			]
+		}
+	]
+}

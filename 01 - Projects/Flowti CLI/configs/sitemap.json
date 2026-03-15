@@ -526,10 +526,80 @@
 					"group": "integration"
 				},
 				{
+					"name": "onNavigateWorkspaces",
+					"label": "Workspaces",
+					"type": "navigate",
+					"target": "workspaces",
+					"key": "w",
+					"group": "tools"
+				},
+				{
 					"name": "onBack",
 					"label": "Back",
 					"type": "signal",
 					"target": "back",
+					"key": "b",
+					"group": "nav"
+				}
+			]
+		},
+		"workspaces": {
+			"kind": "page",
+			"label": "Workspaces",
+			"icon": "git-branch",
+			"domain": "agents",
+			"status": "active",
+			"description": "Manage isolated agent workspaces — provision, inspect, collect, prune.",
+			"parent": "ai-tools",
+			"dataSources": [
+				{ "id": "workspace:active-list" }
+			],
+			"actions": [
+				{
+					"name": "onListWorkspaces",
+					"label": "List All Workspaces",
+					"type": "handler",
+					"target": "workspace:list",
+					"key": "1",
+					"group": "view"
+				},
+				{
+					"name": "onInspectWorkspace",
+					"label": "Inspect Workspace",
+					"type": "handler",
+					"target": "workspace:inspect",
+					"key": "2",
+					"group": "view"
+				},
+				{
+					"name": "onCollectWorkspace",
+					"label": "Collect Workspace State",
+					"type": "handler",
+					"target": "workspace:collect",
+					"key": "3",
+					"group": "manage"
+				},
+				{
+					"name": "onDisposeWorkspace",
+					"label": "Dispose Workspace",
+					"type": "handler",
+					"target": "workspace:dispose",
+					"key": "4",
+					"group": "manage"
+				},
+				{
+					"name": "onPruneWorkspaces",
+					"label": "Prune Old Workspaces",
+					"type": "handler",
+					"target": "workspace:prune",
+					"key": "5",
+					"group": "manage"
+				},
+				{
+					"name": "onBack",
+					"label": "Back",
+					"type": "navigate",
+					"target": "ai-tools",
 					"key": "b",
 					"group": "nav"
 				}

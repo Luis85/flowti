@@ -37,27 +37,27 @@ export interface InteractiveOnlyModel {
 
 // ── Renderers ────────────────────────────────────────────────────────
 
-export function renderError(log: Log, data: ErrorModel): void {
+export function renderError(data: ErrorModel, log: Log): void {
 	log(`\n  ${RED}${data.error}${RESET}`);
 	if (data.hint) log(`  ${DIM}${data.hint}${RESET}`);
 	log();
 }
 
-export function renderSuccess(log: Log, data: SuccessModel): void {
+export function renderSuccess(data: SuccessModel, log: Log): void {
 	log(`\n  ${GREEN}✓${RESET} ${data.message}\n`);
 }
 
-export function renderNoProject(log: Log, data: NoProjectModel): void {
+export function renderNoProject(data: NoProjectModel, log: Log): void {
 	log(`\n  ${RED}No project selected.${RESET}`);
 	log(`  ${DIM}Select a project first: flowti project${RESET}`);
 	log(`  ${DIM}Or specify one:          flowti ${data.command} --project=<name>${RESET}\n`);
 }
 
-export function renderShellCommand(_log: Log, _data: ShellCommandModel): void {
+export function renderShellCommand(_data: ShellCommandModel, _log: Log): void {
 	// Shell commands produce their own stdout/stderr — nothing extra to render.
 }
 
-export function renderInteractiveOnly(log: Log, data: InteractiveOnlyModel): void {
+export function renderInteractiveOnly(data: InteractiveOnlyModel, log: Log): void {
 	log(`\n  ${RED}${data.error}${RESET}`);
 	log(`  ${DIM}Run without --format=json for interactive mode.${RESET}\n`);
 }

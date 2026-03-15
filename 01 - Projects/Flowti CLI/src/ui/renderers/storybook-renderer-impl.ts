@@ -29,22 +29,22 @@ import type { Log } from "../../infrastructure/deps.js";
 
 export function createStorybookRenderer(log: Log): StorybookRenderer {
 	return {
-		alreadyInstalled: (sbDir) => renderStorybookAlreadyInstalled(log, sbDir),
-		installing: (sbDir) => renderStorybookInstalling(log, sbDir),
+		alreadyInstalled: (sbDir) => renderStorybookAlreadyInstalled(sbDir, log),
+		installing: (sbDir) => renderStorybookInstalling(sbDir, log),
 		installFailed: () => renderStorybookInstallFailed(log),
-		installSuccess: (sbDir) => renderStorybookInstallSuccess(log, sbDir),
+		installSuccess: (sbDir) => renderStorybookInstallSuccess(sbDir, log),
 		notInstalled: () => renderStorybookNotInstalled(log),
 		alreadyRunning: () => renderStorybookAlreadyRunning(log),
 		starting: () => renderStorybookStarting(log),
 		failedToStart: () => renderStorybookFailedToStart(log),
-		failOutput: (lines) => renderStorybookFailOutput(log, lines),
+		failOutput: (lines) => renderStorybookFailOutput(lines, log),
 		timeout: () => renderStorybookTimeout(log),
-		ready: (url) => renderStorybookReady(log, url),
+		ready: (url) => renderStorybookReady(url, log),
 		stopped: () => renderStorybookStopped(log),
 		notRunning: () => renderStorybookNotRunning(log),
-		view: (url) => renderStorybookView(log, url),
-		browserContext: (message) => renderStorybookBrowserContext(log, message),
-		openedIn: (target) => renderStorybookOpenedIn(log, target),
-		progress: (line) => renderStorybookProgress(log, line),
+		view: (url) => renderStorybookView(url, log),
+		browserContext: (message) => renderStorybookBrowserContext(message, log),
+		openedIn: (target) => renderStorybookOpenedIn(target, log),
+		progress: (line) => renderStorybookProgress(line, log),
 	};
 }

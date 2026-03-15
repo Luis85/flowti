@@ -30,6 +30,16 @@ import { generateHealthReference } from "./generators/health-reference.js";
 import { generateProjectOverview } from "./generators/project-overview.js";
 import { generateRaidReference } from "./generators/raid-reference.js";
 import { generateSitemapReference } from "./generators/sitemap-reference.js";
+import { generateAgentRosterReference } from "./generators/agent-roster-reference.js";
+import { generateAgentSkillMap } from "./generators/agent-skill-map.js";
+import { generateAgentPermissionMatrix } from "./generators/agent-permission-matrix.js";
+import { generatePdcaDashboard } from "./generators/pdca-dashboard.js";
+import { generateIterationRetrospective } from "./generators/iteration-retrospective.js";
+import { generateResourceInventory } from "./generators/resource-inventory.js";
+import { generateRequirementsTraceability } from "./generators/requirements-traceability.js";
+import { generateDeliverablesSchedule } from "./generators/deliverables-schedule.js";
+import { generateEffortReport } from "./generators/effort-report.js";
+import { generateOnboardingTourCatalog } from "./generators/onboarding-tour-catalog.js";
 
 export type GeneratorCategory = "report" | "reference";
 
@@ -62,6 +72,16 @@ const GENERATORS: ReadonlyMap<string, RegistryEntry> = new Map<string, RegistryE
 	["project-overview", { fn: generateProjectOverview, category: "reference" }],
 	["raid-reference", { fn: generateRaidReference, category: "reference" }],
 	["sitemap-reference", { fn: generateSitemapReference, category: "reference" }],
+	["agent-roster-reference", { fn: generateAgentRosterReference, category: "reference" }],
+	["agent-skill-map", { fn: generateAgentSkillMap, category: "reference" }],
+	["agent-permission-matrix", { fn: generateAgentPermissionMatrix, category: "reference" }],
+	["pdca-dashboard", { fn: generatePdcaDashboard, category: "reference" }],
+	["iteration-retrospective", { fn: generateIterationRetrospective, category: "reference" }],
+	["resource-inventory", { fn: generateResourceInventory, category: "reference" }],
+	["requirements-traceability", { fn: generateRequirementsTraceability, category: "reference" }],
+	["deliverables-schedule", { fn: generateDeliverablesSchedule, category: "reference" }],
+	["effort-report", { fn: generateEffortReport, category: "report" }],
+	["onboarding-tour-catalog", { fn: generateOnboardingTourCatalog, category: "reference" }],
 ]);
 
 /** Run a generator by its ID, optionally passing pipeline context. Returns null if unknown. */

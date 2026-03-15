@@ -2,81 +2,92 @@
  * deliverables.controller.ts — Controller for deliverable management commands.
  */
 
-import type { ControllerAction } from "../infrastructure/request-response.js";
-import { adapt, dataResponse } from "../infrastructure/request-response.js";
+import { adaptDescriptor } from "../infrastructure/command-engine.js";
 import type { CommandHandler, DeliverableStatus } from "../infrastructure/types.js";
 import { listDeliverables, createDeliverableFile, updateDeliverableStatus } from "../domain/deliverables/deliverable-store.js";
 import { renderDeliverableList, renderDeliverableAdded, renderDeliverableUpdated } from "../ui/displays/deliverables-display.js";
 import { renderError } from "../ui/renderers/common-renderers.js";
 import type { ErrorModel } from "../ui/renderers/common-renderers.js";
+import type { LogFn } from "../infrastructure/command-engine.js";
 
 const VALID_STATUSES: DeliverableStatus[] = ["planned", "in-progress", "review", "done", "blocked"];
 
-function flagStr(flags: Record<string, string | boolean>, key: string, fallback: string): string {
-	return typeof flags[key] === "string" ? flags[key] : fallback;
+type DeliverableListModel = ReturnType<typeof listDeliverables>;
+type DeliverableAddModel = { relPath: string } | ErrorModel;
+type DeliverableUpdateModel = { name: string; status: string } | ErrorModel;
+
+function isErrorModel(m: unknown): m is ErrorModel {
+	return typeof m === "object" && m !== null && "error" in m;
 }
 
-const actions: Record<string, ControllerAction> = {
-	"deliverables:list": (req) => {
-		if (!req.project) return;
-		const deliverables = listDeliverables(req.deps, req.project.path, req.project.config.management?.deliverables);
-		return dataResponse(deliverables, (d) => renderDeliverableList(d, req.deps.log));
-	},
+function renderDeliverableAdd(data: DeliverableAddModel, log: LogFn): void {
+	if (isErrorModel(data)) { renderError(data, log); return; }
+	renderDeliverableAdded(data.relPath, log);
+}
 
-	"deliverables:add": (req) => {
-		if (!req.project) return;
-		const { paths } = req.deps;
-		const name = req.flags.name;
-		if (!name || typeof name !== "string") {
-			return dataResponse<ErrorModel>(
-				{ error: "Missing --name flag.", hint: 'Usage: flowti deliverables:add --name="MVP Release"' },
-				(d) => renderError(req.deps.log, d),
-			);
-		}
-		const filePath = createDeliverableFile(req.deps, req.project.path, {
-			name,
-			status: (flagStr(req.flags, "status", "planned") as DeliverableStatus),
-			dueDate: flagStr(req.flags, "due", "") || undefined,
-			assignee: flagStr(req.flags, "assignee", "") || undefined,
-			priority: flagStr(req.flags, "priority", "medium") || undefined,
-			completionPct: parseInt(flagStr(req.flags, "completion", "0"), 10),
-			description: flagStr(req.flags, "description", ""),
-		}, req.project.config.management?.deliverables);
-		if (filePath) {
-			return dataResponse(
-				{ relPath: paths.relative(req.project.path, filePath) },
-				(m: { relPath: string }) => renderDeliverableAdded(m.relPath, req.deps.log),
-			);
-		}
-	},
+function renderDeliverableUpdate(data: DeliverableUpdateModel, log: LogFn): void {
+	if (isErrorModel(data)) { renderError(data, log); return; }
+	renderDeliverableUpdated(data.name, data.status, log);
+}
 
-	"deliverables:update": (req) => {
-		if (!req.project) return;
-		const name = req.flags.name;
-		const status = req.flags.status;
-		if (!name || typeof name !== "string" || !status || typeof status !== "string") {
-			return dataResponse<ErrorModel>(
-				{ error: "Missing --name and/or --status flag.", hint: 'Usage: flowti deliverables:update --name="MVP" --status="done"' },
-				(d) => renderError(req.deps.log, d),
-			);
-		}
-		if (!VALID_STATUSES.includes(status as DeliverableStatus)) {
-			return dataResponse<ErrorModel>(
-				{ error: `Invalid status "${status}". Valid: ${VALID_STATUSES.join(", ")}` },
-				(d) => renderError(req.deps.log, d),
-			);
-		}
-		const pct = typeof req.flags.completion === "string" ? parseInt(req.flags.completion, 10) : undefined;
-		const ok = updateDeliverableStatus(req.deps, req.project.path, name, status as DeliverableStatus, pct, req.project.config.management?.deliverables);
-		if (ok) {
-			return dataResponse(
-				{ name, status },
-				(m: { name: string; status: string }) => renderDeliverableUpdated(m.name, m.status, req.deps.log),
-			);
-		}
-	},
+export const commands: Record<string, CommandHandler> = {
+	"deliverables:list": adaptDescriptor<Record<string, unknown>, DeliverableListModel>({
+		requires: "project",
+		handler: (ctx) => listDeliverables(ctx.deps, ctx.project!.path, ctx.project!.config.management?.deliverables),
+		renderer: renderDeliverableList,
+	}),
+
+	"deliverables:add": adaptDescriptor<Record<string, unknown>, DeliverableAddModel>({
+		requires: "project",
+		flags: {
+			name: { type: "string", required: true, hint: 'Usage: flowti deliverables:add --name="MVP Release"' },
+			status: { type: "string", default: "planned" },
+			due: { type: "string", default: "" },
+			assignee: { type: "string", default: "" },
+			priority: { type: "string", default: "medium" },
+			completion: { type: "string", default: "0" },
+			description: { type: "string", default: "" },
+		},
+		handler: (ctx) => {
+			const name = ctx.flags.name as string;
+			const filePath = createDeliverableFile(ctx.deps, ctx.project!.path, {
+				name,
+				status: (ctx.flags.status as string) as DeliverableStatus,
+				dueDate: (ctx.flags.due as string) || undefined,
+				assignee: (ctx.flags.assignee as string) || undefined,
+				priority: (ctx.flags.priority as string) || undefined,
+				completionPct: parseInt(ctx.flags.completion as string, 10),
+				description: ctx.flags.description as string,
+			}, ctx.project!.config.management?.deliverables);
+			if (filePath) {
+				return { relPath: ctx.deps.paths.relative(ctx.project!.path, filePath) };
+			}
+			return { error: "Failed to create deliverable." } as ErrorModel;
+		},
+		renderer: renderDeliverableAdd,
+	}),
+
+	"deliverables:update": adaptDescriptor<Record<string, unknown>, DeliverableUpdateModel>({
+		requires: "project",
+		flags: {
+			name: { type: "string", required: true, hint: 'Usage: flowti deliverables:update --name="MVP" --status="done"' },
+			status: { type: "string", required: true, hint: 'Usage: flowti deliverables:update --name="MVP" --status="done"' },
+			completion: { type: "string", default: "" },
+		},
+		handler: (ctx) => {
+			const name = ctx.flags.name as string;
+			const status = ctx.flags.status as string;
+			if (!VALID_STATUSES.includes(status as DeliverableStatus)) {
+				return { error: `Invalid status "${status}". Valid: ${VALID_STATUSES.join(", ")}` } as ErrorModel;
+			}
+			const completionStr = ctx.flags.completion as string;
+			const pct = completionStr ? parseInt(completionStr, 10) : undefined;
+			const ok = updateDeliverableStatus(ctx.deps, ctx.project!.path, name, status as DeliverableStatus, pct, ctx.project!.config.management?.deliverables);
+			if (ok) {
+				return { name, status };
+			}
+			return { error: `Failed to update deliverable "${name}".` } as ErrorModel;
+		},
+		renderer: renderDeliverableUpdate,
+	}),
 };
-
-export const commands: Record<string, CommandHandler> = Object.fromEntries(
-	Object.entries(actions).map(([key, action]) => [key, adapt(action)]),
-);

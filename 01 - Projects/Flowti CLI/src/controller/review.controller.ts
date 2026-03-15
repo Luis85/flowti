@@ -5,9 +5,9 @@
  * Extended with Review Platform commands: gates, traceability, evidence, audit, coverage.
  */
 
-import type { ControllerAction } from "../infrastructure/request-response.js";
-import { adapt, dataResponse } from "../infrastructure/request-response.js";
+import { adaptDescriptor } from "../infrastructure/command-engine.js";
 import type { CommandHandler, ProjectContext, IShell, IPaths } from "../infrastructure/types.js";
+import type { LogFn } from "../infrastructure/command-engine.js";
 import { VAULT_ROOT, PLUGIN_ROOT } from "../infrastructure/config.js";
 import { resolveTestVaultRoot } from "../infrastructure/test-vault.js";
 import { analyzeWorkingTree, analyzeBranchDiff } from "../domain/review/change-analysis.js";
@@ -52,142 +52,178 @@ function resolveJourneysDir(p: ProjectContext, pathsPort: IPaths): string {
 	return pathsPort.join(p.path, p.config.review?.journeysDir ?? "tests/e2e/journeys");
 }
 
-// ── Controller actions ──────────────────────────────────────────────
+// ── Union model types for interactive-only commands ──────────────────
 
-const actions: Record<string, ControllerAction> = {
-	review: (req) => {
-		const { shell, log } = req.deps;
-		const cmd = req.project?.config.review?.runner ?? "npm test";
-		const exitCode = shell.run(cmd, { cwd: req.project?.path, label: "Starting review session..." });
-		const model: ShellCommandModel = { command: cmd, exitCode, label: "review" };
-		return dataResponse(model, (d) => renderShellCommand(log, d));
-	},
-	"review:all": (req) => {
-		if (!req.project) return;
-		const { shell } = req.deps;
-		const model = runGatedPipeline(req.project, shell);
-		return dataResponse(model, (d) => renderPipelineResult(d, req.deps.log));
-	},
-	"review:clean": (req) => {
-		if (!req.project) return;
-		const { disk, paths } = req.deps;
-		const vaultPath = resolveTestVault(req.project, paths);
-		const exists = disk.existsSync(vaultPath);
+interface InteractiveDoneModel {
+	done: true;
+}
 
-		if (exists) {
-			disk.rmSync(vaultPath, { recursive: true, force: true });
-		}
+type E2EResult = InteractiveOnlyModel | InteractiveDoneModel;
 
-		const model: ReviewCleanModel = { removed: exists, vaultPath };
-		return dataResponse(model, (d) => renderReviewClean(d, req.deps.log));
-	},
-	"review:e2e": async (req) => {
-		if (req.format === "json") {
-			const model: InteractiveOnlyModel = { command: "review:e2e", error: "E2E suite is interactive and cannot produce JSON output." };
-			return dataResponse(model, (d) => renderInteractiveOnly(req.deps.log, d));
-		}
-		const { disk, shell, paths, proc, log } = req.deps;
-		const journeyFilter = typeof req.flags.journey === "string" ? req.flags.journey : undefined;
-		await runE2ESuite(PLUGIN_ROOT, VAULT_ROOT, { disk, shell, paths, proc, log }, journeyFilter);
-	},
-	"review:e2e:list": async (req) => {
-		if (req.format === "json") {
-			const model: InteractiveOnlyModel = { command: "review:e2e:list", error: "Interactive session list cannot produce JSON output." };
-			return dataResponse(model, (d) => renderInteractiveOnly(req.deps.log, d));
-		}
-		const { disk, paths, proc } = req.deps;
-		await startInteractiveSession((e2e) => interactiveSession(e2e, req.deps), PLUGIN_ROOT, VAULT_ROOT, { disk, paths, proc });
-	},
-	"review:changes": (req) => {
-		if (!req.project) return;
-		const { shell, paths } = req.deps;
-		const baseBranch = typeof req.flags.base === "string" ? req.flags.base : undefined;
-		const impact = baseBranch
-			? analyzeBranchDiff(req.project.path, { shell }, baseBranch)
-			: analyzeWorkingTree(req.project.path, { shell });
-		const projectLabel = req.project.config.name ?? paths.basename(req.project.path);
-		const model: ChangeAnalysisModel = { projectLabel, impact };
+function renderE2EResult(data: E2EResult, _log: LogFn): void {
+	if ("error" in data) { renderInteractiveOnly(data as InteractiveOnlyModel, _log); return; }
+	// Interactive session already produced its own output — nothing to render.
+}
 
-		return dataResponse(model, (d) => renderChangeAnalysis(d, req.deps.log));
-	},
+// ── Commands ────────────────────────────────────────────────────────
 
-	// ── New Review Platform commands ─────────────────────────────
+export const commands: Record<string, CommandHandler> = {
+	review: adaptDescriptor<Record<string, unknown>, ShellCommandModel>({
+		handler: (ctx) => {
+			const { shell } = ctx.deps;
+			const cmd = ctx.project?.config.review?.runner ?? "npm test";
+			const exitCode = shell.run(cmd, { cwd: ctx.project?.path, label: "Starting review session..." });
+			return { command: cmd, exitCode, label: "review" };
+		},
+		renderer: renderShellCommand,
+	}),
 
-	"review:traceability": (req) => {
-		if (!req.project) return;
-		const { disk, paths } = req.deps;
-		const journeysDir = resolveJourneysDir(req.project, paths);
-		const readFile = (p: string) => disk.readFileSync(p, "utf-8");
-		const listFiles = (d: string) => disk.existsSync(d) ? disk.readdirSync(d) : [];
+	"review:all": adaptDescriptor<Record<string, unknown>, PipelineResultModel>({
+		requires: "project",
+		handler: (ctx) => {
+			const { shell } = ctx.deps;
+			return runGatedPipeline(ctx.project!, shell);
+		},
+		renderer: renderPipelineResult,
+	}),
 
-		const journeys = loadAllJourneys(readFile, listFiles, journeysDir);
-		const reqs = listRequirements({ disk, paths }, req.project.path, req.project.config.management?.requirements);
-		const ucs = listUseCases({ disk, paths }, req.project.path, req.project.config.management?.requirements);
-		const uss = listUserStories({ disk, paths }, req.project.path, req.project.config.management?.requirements);
+	"review:clean": adaptDescriptor<Record<string, unknown>, ReviewCleanModel>({
+		requires: "project",
+		handler: (ctx) => {
+			const { disk, paths } = ctx.deps;
+			const vaultPath = resolveTestVault(ctx.project!, paths);
+			const exists = disk.existsSync(vaultPath);
+			if (exists) {
+				disk.rmSync(vaultPath, { recursive: true, force: true });
+			}
+			return { removed: exists, vaultPath };
+		},
+		renderer: renderReviewClean,
+	}),
 
-		const validation = validateTraceabilityLinks(
-			journeys,
-			reqs.map((r) => r.id),
-			ucs.map((u) => u.id),
-			uss.map((u) => u.id),
-		);
+	"review:e2e": adaptDescriptor<Record<string, unknown>, E2EResult>({
+		flags: {
+			format: { type: "string", default: "" },
+			journey: { type: "string", default: "" },
+		},
+		handler: async (ctx) => {
+			if (ctx.flags.format === "json") {
+				return { command: "review:e2e", error: "E2E suite is interactive and cannot produce JSON output." } as InteractiveOnlyModel;
+			}
+			const { disk, shell, paths, proc, log } = ctx.deps;
+			const journeyFilter = (ctx.flags.journey as string) || undefined;
+			await runE2ESuite(PLUGIN_ROOT, VAULT_ROOT, { disk, shell, paths, proc, log }, journeyFilter);
+			return { done: true } as InteractiveDoneModel;
+		},
+		renderer: renderE2EResult,
+	}),
 
-		const matrix = buildTraceabilityMatrix(
-			journeys,
-			reqs.map((r) => ({ id: r.id, name: r.name, status: r.status })),
-		);
+	"review:e2e:list": adaptDescriptor<Record<string, unknown>, E2EResult>({
+		flags: {
+			format: { type: "string", default: "" },
+		},
+		handler: async (ctx) => {
+			if (ctx.flags.format === "json") {
+				return { command: "review:e2e:list", error: "Interactive session list cannot produce JSON output." } as InteractiveOnlyModel;
+			}
+			const { disk, paths, proc } = ctx.deps;
+			await startInteractiveSession((e2e) => interactiveSession(e2e, ctx.deps), PLUGIN_ROOT, VAULT_ROOT, { disk, paths, proc });
+			return { done: true } as InteractiveDoneModel;
+		},
+		renderer: renderE2EResult,
+	}),
 
-		const model: TraceabilityModel = { matrix, validation, projectLabel: req.project.config.name ?? "" };
-		return dataResponse(model, (d) => renderTraceabilityMatrix(d, req.deps.log));
-	},
+	"review:changes": adaptDescriptor<Record<string, unknown>, ChangeAnalysisModel>({
+		requires: "project",
+		flags: {
+			base: { type: "string", default: "" },
+		},
+		handler: (ctx) => {
+			const { shell, paths } = ctx.deps;
+			const baseBranch = (ctx.flags.base as string) || undefined;
+			const impact = baseBranch
+				? analyzeBranchDiff(ctx.project!.path, { shell }, baseBranch)
+				: analyzeWorkingTree(ctx.project!.path, { shell });
+			const projectLabel = ctx.project!.config.name ?? paths.basename(ctx.project!.path);
+			return { projectLabel, impact };
+		},
+		renderer: renderChangeAnalysis,
+	}),
 
-	"review:coverage": (req) => {
-		if (!req.project) return;
-		const { disk, paths } = req.deps;
-		const journeysDir = resolveJourneysDir(req.project, paths);
-		const readFile = (p: string) => disk.readFileSync(p, "utf-8");
-		const listFiles = (d: string) => disk.existsSync(d) ? disk.readdirSync(d) : [];
+	"review:traceability": adaptDescriptor<Record<string, unknown>, TraceabilityModel>({
+		requires: "project",
+		handler: (ctx) => {
+			const { disk, paths } = ctx.deps;
+			const journeysDir = resolveJourneysDir(ctx.project!, paths);
+			const readFile = (p: string) => disk.readFileSync(p, "utf-8");
+			const listFiles = (d: string) => disk.existsSync(d) ? disk.readdirSync(d) : [];
 
-		const journeys = loadAllJourneys(readFile, listFiles, journeysDir);
-		const reqs = listRequirements({ disk, paths }, req.project.path, req.project.config.management?.requirements);
+			const journeys = loadAllJourneys(readFile, listFiles, journeysDir);
+			const reqs = listRequirements({ disk, paths }, ctx.project!.path, ctx.project!.config.management?.requirements);
+			const ucs = listUseCases({ disk, paths }, ctx.project!.path, ctx.project!.config.management?.requirements);
+			const uss = listUserStories({ disk, paths }, ctx.project!.path, ctx.project!.config.management?.requirements);
 
-		const matrix = buildTraceabilityMatrix(
-			journeys,
-			reqs.map((r) => ({ id: r.id, name: r.name, status: r.status })),
-		);
+			const validation = validateTraceabilityLinks(
+				journeys,
+				reqs.map((r) => r.id),
+				ucs.map((u) => u.id),
+				uss.map((u) => u.id),
+			);
 
-		const gaps = detectGaps(matrix);
-		const byCategory = coverageByCategory(matrix);
+			const matrix = buildTraceabilityMatrix(
+				journeys,
+				reqs.map((r) => ({ id: r.id, name: r.name, status: r.status })),
+			);
 
-		const model: CoverageModel = { matrix, gaps, byCategory, projectLabel: req.project.config.name ?? "" };
-		return dataResponse(model, (d) => renderCoverageReport(d, req.deps.log));
-	},
+			return { matrix, validation, projectLabel: ctx.project!.config.name ?? "" };
+		},
+		renderer: renderTraceabilityMatrix,
+	}),
 
-	"review:gates": (req) => {
-		if (!req.project) return;
-		const gateConfig = req.project.config.review?.gates;
-		if (!gateConfig) {
-			const model: GateResultModel = { evaluation: null, projectLabel: req.project.config.name ?? "", message: "No quality gates configured in review.gates" };
-			return dataResponse(model, (d) => renderGateResult(d, req.deps.log));
-		}
+	"review:coverage": adaptDescriptor<Record<string, unknown>, CoverageModel>({
+		requires: "project",
+		handler: (ctx) => {
+			const { disk, paths } = ctx.deps;
+			const journeysDir = resolveJourneysDir(ctx.project!, paths);
+			const readFile = (p: string) => disk.readFileSync(p, "utf-8");
+			const listFiles = (d: string) => disk.existsSync(d) ? disk.readdirSync(d) : [];
 
-		// Gates require run results — for now evaluate against empty results (dry-run mode)
-		const evaluation = evaluateGates(gateConfig, []);
-		const model: GateResultModel = { evaluation, projectLabel: req.project.config.name ?? "" };
-		return dataResponse(model, (d) => renderGateResult(d, req.deps.log));
-	},
+			const journeys = loadAllJourneys(readFile, listFiles, journeysDir);
+			const reqs = listRequirements({ disk, paths }, ctx.project!.path, ctx.project!.config.management?.requirements);
 
-	"review:evidence": (req) => {
-		if (!req.project) return;
-		const { disk, paths } = req.deps;
-		const runs = listRuns({ disk, paths }, req.project.path, req.project.config.review?.evidenceDir);
-		const model: EvidenceListModel = { runs, projectLabel: req.project.config.name ?? "" };
-		return dataResponse(model, (d) => renderEvidenceList(d, req.deps.log));
-	},
+			const matrix = buildTraceabilityMatrix(
+				journeys,
+				reqs.map((r) => ({ id: r.id, name: r.name, status: r.status })),
+			);
+
+			const gaps = detectGaps(matrix);
+			const byCategory = coverageByCategory(matrix);
+
+			return { matrix, gaps, byCategory, projectLabel: ctx.project!.config.name ?? "" };
+		},
+		renderer: renderCoverageReport,
+	}),
+
+	"review:gates": adaptDescriptor<Record<string, unknown>, GateResultModel>({
+		requires: "project",
+		handler: (ctx) => {
+			const gateConfig = ctx.project!.config.review?.gates;
+			if (!gateConfig) {
+				return { evaluation: null, projectLabel: ctx.project!.config.name ?? "", message: "No quality gates configured in review.gates" };
+			}
+			const evaluation = evaluateGates(gateConfig, []);
+			return { evaluation, projectLabel: ctx.project!.config.name ?? "" };
+		},
+		renderer: renderGateResult,
+	}),
+
+	"review:evidence": adaptDescriptor<Record<string, unknown>, EvidenceListModel>({
+		requires: "project",
+		handler: (ctx) => {
+			const { disk, paths } = ctx.deps;
+			const runs = listRuns({ disk, paths }, ctx.project!.path, ctx.project!.config.review?.evidenceDir);
+			return { runs, projectLabel: ctx.project!.config.name ?? "" };
+		},
+		renderer: renderEvidenceList,
+	}),
 };
-
-// ── Adapted commands ────────────────────────────────────────────────
-
-export const commands: Record<string, CommandHandler> = Object.fromEntries(
-	Object.entries(actions).map(([key, action]) => [key, adapt(action)]),
-);

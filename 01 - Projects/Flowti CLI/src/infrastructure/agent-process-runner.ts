@@ -9,7 +9,7 @@ import type { CliDeps } from "./deps.js";
 import type { AgentsConfig } from "./types-config.js";
 import type { AgentSummary } from "../domain/agents/agent-types.js";
 import type { AgentStreamEvent } from "../domain/agents/agent-stream.js";
-import type { AgentProcess, IAgentProcessRunner } from "../domain/agents/worker-types.js";
+import type { AgentProcess, IAgentProcessRunner, SpawnOptions } from "../domain/agents/worker-types.js";
 import { parseStreamLine, createStreamState, updateStreamState } from "../domain/agents/agent-stream.js";
 
 export type ProcessRunnerDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "shell" | "log">;
@@ -35,7 +35,7 @@ export function createProcessRunner(deps: ProcessRunnerDeps, config: AgentsConfi
 	const processTimeout = config?.processTimeoutMs ?? 3_600_000;
 
 	return {
-		spawn(agent: AgentSummary, prompt: string, resolvedTools?: readonly string[]): AgentProcess {
+		spawn(agent: AgentSummary, prompt: string, resolvedTools?: readonly string[], opts?: SpawnOptions): AgentProcess {
 			const provider = resolveProvider(globalProvider, agent.ai?.provider);
 			const tempPath = deps.paths.join(
 				deps.paths.resolve("."),
@@ -55,7 +55,7 @@ export function createProcessRunner(deps: ProcessRunnerDeps, config: AgentsConfi
 				...args.map((a) => String(a).includes(" ") ? `"${String(a)}"` : String(a)),
 			].join(" ") + ` < ${quotedPath}`;
 
-			const proc = deps.shell.spawnBackground(cmd);
+			const proc = deps.shell.spawnBackground(cmd, opts?.cwd ? { cwd: opts.cwd } : undefined);
 			const exitPromise = proc.waitForExit(processTimeout);
 
 			let streamState = createStreamState();

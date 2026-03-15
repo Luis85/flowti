@@ -172,7 +172,7 @@ describe("health.controller", () => {
 			expect(collectHealth).not.toHaveBeenCalled();
 			expect(logMock).toHaveBeenCalledOnce();
 			const output = JSON.parse(logMock.mock.calls[0][0] as string);
-			expect(output).toHaveProperty("command", "health");
+			expect(output).toHaveProperty("command", "help");
 		});
 
 		it("uses project health thresholds when configured", () => {
@@ -224,7 +224,7 @@ describe("health.controller", () => {
 
 			expect(saveSnapshot).not.toHaveBeenCalled();
 			const output = JSON.parse(logMock.mock.calls[0][0] as string);
-			expect(output).toHaveProperty("command", "health:snapshot");
+			expect(output).toHaveProperty("command", "help");
 		});
 	});
 

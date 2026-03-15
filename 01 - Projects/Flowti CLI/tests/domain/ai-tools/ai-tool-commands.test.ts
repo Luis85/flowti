@@ -316,9 +316,11 @@ describe("ai:run", () => {
 	};
 
 	it("logs error when --tool flag is missing", () => {
-		commands["ai:run"]({}, []);
+		commands["ai:run"]({ format: "json" }, []);
 
-		expect(log).toHaveBeenCalledWith(expect.stringContaining("Missing --tool flag"));
+		expect(log).toHaveBeenCalledWith(
+			expect.stringContaining("Missing required flag --tool"),
+		);
 	});
 
 	it("logs error when tool is not found", () => {

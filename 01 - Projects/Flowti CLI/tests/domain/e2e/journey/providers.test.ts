@@ -26,7 +26,7 @@ function mockDeps(overrides?: Partial<ToolDeps>): ToolDeps {
 // ── Default registry ─────────────────────────────────────────────────
 
 describe("createDefaultRegistry", () => {
-	it("registers all 5 targets", () => {
+	it("registers all 6 targets", () => {
 		const reg = createDefaultRegistry();
 		const targets = reg.targets();
 		expect(targets).toContain("cli");
@@ -34,7 +34,8 @@ describe("createDefaultRegistry", () => {
 		expect(targets).toContain("obsidian-vault");
 		expect(targets).toContain("obsidian-plugin");
 		expect(targets).toContain("webapp");
-		expect(targets).toHaveLength(5);
+		expect(targets).toContain("vault-test");
+		expect(targets).toHaveLength(6);
 	});
 
 	it("resolves capabilities for base tools", () => {

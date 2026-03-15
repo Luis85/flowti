@@ -7,6 +7,8 @@ node_modules
 /.obsidian/workspace.json
 /.obsidian/appearance.json
 
+.claude/settings.local.json
+.claude/worktrees
 .superpowers
 
 /** Ignore my digital garden **/
@@ -53,6 +55,10 @@ build-endpoints.json
 /01 - Projects/Flowti CLI/configs/.sitemap-hash
 /01 - Projects/Flowti CLI/reports/html/
 /01 - Projects/Flowti CLI/reports/ui/
+
+/** Storybook build artifacts **/
+/Development/flowti/stories/storybook-bundle.js
+/Development/flowti/stories/storybook-bundle.js.map
 
 /** Git worktrees **/
 /.worktrees/

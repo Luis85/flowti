@@ -68,6 +68,7 @@ vi.mock("../../src/ui/displays/capa-display.js", () => ({
 }));
 vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 	renderError: vi.fn(),
+	renderNoProject: vi.fn(),
 }));
 
 // ── Imports ──────────────────────────────────────────────────────
@@ -221,7 +222,7 @@ describe("capa.controller", () => {
 			expect(updateCAPAStatus).not.toHaveBeenCalled();
 			expect(logMock).toHaveBeenCalledOnce();
 			const output = JSON.parse(logMock.mock.calls[0][0] as string);
-			expect(output.error).toContain("--name");
+			expect(output.error).toContain("Missing");
 		});
 
 		it("returns error for invalid status", () => {

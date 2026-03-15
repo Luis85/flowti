@@ -2,89 +2,95 @@
  * raid.controller.ts — Controller for RAID log management commands.
  */
 
-import type { ControllerAction } from "../infrastructure/request-response.js";
-import { adapt, dataResponse } from "../infrastructure/request-response.js";
+import { adaptDescriptor } from "../infrastructure/command-engine.js";
 import type { CommandHandler, RAIDItemType, RAIDStatus } from "../infrastructure/types.js";
 import { listRAIDItems, createRAIDItem, updateRAIDStatus } from "../domain/raid/raid-store.js";
 import { renderRAIDList, renderRAIDAdded, renderRAIDUpdated } from "../ui/displays/raid-display.js";
 import { renderError } from "../ui/renderers/common-renderers.js";
 import type { ErrorModel } from "../ui/renderers/common-renderers.js";
+import type { LogFn } from "../infrastructure/command-engine.js";
 
 const VALID_TYPES: RAIDItemType[] = ["risk", "assumption", "issue", "dependency", "decision"];
 const VALID_STATUSES: RAIDStatus[] = ["open", "mitigated", "closed", "accepted", "resolved", "deferred"];
 
-function flagStr(flags: Record<string, string | boolean>, key: string, fallback: string): string {
-	return typeof flags[key] === "string" ? flags[key] : fallback;
+type RAIDListModel = ReturnType<typeof listRAIDItems>;
+type RAIDAddModel = { relPath: string } | ErrorModel;
+type RAIDUpdateModel = { name: string; status: string } | ErrorModel;
+
+function isErrorModel(m: unknown): m is ErrorModel {
+	return typeof m === "object" && m !== null && "error" in m;
 }
 
-const actions: Record<string, ControllerAction> = {
-	"raid:list": (req) => {
-		if (!req.project) return;
-		const items = listRAIDItems(req.deps, req.project.path, req.project.config.management?.raid);
-		return dataResponse(items, (d) => renderRAIDList(d, req.deps.log));
-	},
+function renderRAIDAdd(data: RAIDAddModel, log: LogFn): void {
+	if (isErrorModel(data)) { renderError(data, log); return; }
+	renderRAIDAdded(data.relPath, log);
+}
 
-	"raid:add": (req) => {
-		if (!req.project) return;
-		const { paths } = req.deps;
-		const name = req.flags.name;
-		if (!name || typeof name !== "string") {
-			return dataResponse<ErrorModel>(
-				{ error: "Missing --name flag.", hint: 'Usage: flowti raid:add --name="DB Migration Risk" --item-type="risk"' },
-				(d) => renderError(req.deps.log, d),
-			);
-		}
-		const itemType = flagStr(req.flags, "item-type", "risk") as RAIDItemType;
-		if (!VALID_TYPES.includes(itemType)) {
-			return dataResponse<ErrorModel>(
-				{ error: `Invalid item-type "${itemType}". Valid: ${VALID_TYPES.join(", ")}` },
-				(d) => renderError(req.deps.log, d),
-			);
-		}
-		const filePath = createRAIDItem(req.deps, req.project.path, {
-			name,
-			itemType,
-			status: "open",
-			severity: flagStr(req.flags, "severity", "medium") as "critical" | "high" | "medium" | "low",
-			owner: flagStr(req.flags, "owner", "") || undefined,
-			dueDate: flagStr(req.flags, "due", "") || undefined,
-			category: (flagStr(req.flags, "category", "technical") as "technical" | "business" | "organizational" | "external") || undefined,
-			description: flagStr(req.flags, "description", ""),
-		}, req.project.config.management?.raid);
-		if (filePath) {
-			return dataResponse(
-				{ relPath: paths.relative(req.project.path, filePath) },
-				(m: { relPath: string }) => renderRAIDAdded(m.relPath, req.deps.log),
-			);
-		}
-	},
+function renderRAIDUpdate(data: RAIDUpdateModel, log: LogFn): void {
+	if (isErrorModel(data)) { renderError(data, log); return; }
+	renderRAIDUpdated(data.name, data.status, log);
+}
 
-	"raid:update": (req) => {
-		if (!req.project) return;
-		const name = req.flags.name;
-		const status = req.flags.status;
-		if (!name || typeof name !== "string" || !status || typeof status !== "string") {
-			return dataResponse<ErrorModel>(
-				{ error: "Missing --name and/or --status flag.", hint: 'Usage: flowti raid:update --name="DB Risk" --status="mitigated"' },
-				(d) => renderError(req.deps.log, d),
-			);
-		}
-		if (!VALID_STATUSES.includes(status as RAIDStatus)) {
-			return dataResponse<ErrorModel>(
-				{ error: `Invalid status "${status}". Valid: ${VALID_STATUSES.join(", ")}` },
-				(d) => renderError(req.deps.log, d),
-			);
-		}
-		const ok = updateRAIDStatus(req.deps, req.project.path, name, status as RAIDStatus, req.project.config.management?.raid);
-		if (ok) {
-			return dataResponse(
-				{ name, status },
-				(m: { name: string; status: string }) => renderRAIDUpdated(m.name, m.status, req.deps.log),
-			);
-		}
-	},
+export const commands: Record<string, CommandHandler> = {
+	"raid:list": adaptDescriptor<Record<string, unknown>, RAIDListModel>({
+		requires: "project",
+		handler: (ctx) => listRAIDItems(ctx.deps, ctx.project!.path, ctx.project!.config.management?.raid),
+		renderer: renderRAIDList,
+	}),
+
+	"raid:add": adaptDescriptor<Record<string, unknown>, RAIDAddModel>({
+		requires: "project",
+		flags: {
+			name: { type: "string", required: true, hint: 'Usage: flowti raid:add --name="DB Migration Risk" --item-type="risk"' },
+			"item-type": { type: "string", default: "risk" },
+			severity: { type: "string", default: "medium" },
+			owner: { type: "string", default: "" },
+			due: { type: "string", default: "" },
+			category: { type: "string", default: "technical" },
+			description: { type: "string", default: "" },
+		},
+		handler: (ctx) => {
+			const name = ctx.flags.name as string;
+			const itemType = (ctx.flags["item-type"] as string) as RAIDItemType;
+			if (!VALID_TYPES.includes(itemType)) {
+				return { error: `Invalid item-type "${itemType}". Valid: ${VALID_TYPES.join(", ")}` } as ErrorModel;
+			}
+			const filePath = createRAIDItem(ctx.deps, ctx.project!.path, {
+				name,
+				itemType,
+				status: "open",
+				severity: (ctx.flags.severity as string) as "critical" | "high" | "medium" | "low",
+				owner: (ctx.flags.owner as string) || undefined,
+				dueDate: (ctx.flags.due as string) || undefined,
+				category: ((ctx.flags.category as string) as "technical" | "business" | "organizational" | "external") || undefined,
+				description: ctx.flags.description as string,
+			}, ctx.project!.config.management?.raid);
+			if (filePath) {
+				return { relPath: ctx.deps.paths.relative(ctx.project!.path, filePath) };
+			}
+			return { error: "Failed to create RAID item." } as ErrorModel;
+		},
+		renderer: renderRAIDAdd,
+	}),
+
+	"raid:update": adaptDescriptor<Record<string, unknown>, RAIDUpdateModel>({
+		requires: "project",
+		flags: {
+			name: { type: "string", required: true, hint: 'Usage: flowti raid:update --name="DB Risk" --status="mitigated"' },
+			status: { type: "string", required: true, hint: 'Usage: flowti raid:update --name="DB Risk" --status="mitigated"' },
+		},
+		handler: (ctx) => {
+			const name = ctx.flags.name as string;
+			const status = ctx.flags.status as string;
+			if (!VALID_STATUSES.includes(status as RAIDStatus)) {
+				return { error: `Invalid status "${status}". Valid: ${VALID_STATUSES.join(", ")}` } as ErrorModel;
+			}
+			const ok = updateRAIDStatus(ctx.deps, ctx.project!.path, name, status as RAIDStatus, ctx.project!.config.management?.raid);
+			if (ok) {
+				return { name, status };
+			}
+			return { error: `Failed to update RAID item "${name}".` } as ErrorModel;
+		},
+		renderer: renderRAIDUpdate,
+	}),
 };
-
-export const commands: Record<string, CommandHandler> = Object.fromEntries(
-	Object.entries(actions).map(([key, action]) => [key, adapt(action)]),
-);

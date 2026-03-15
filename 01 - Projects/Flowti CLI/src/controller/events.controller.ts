@@ -4,9 +4,9 @@
  * Returns typed data models; rendering is handled by ui/events-display.ts.
  */
 
-import type { ControllerAction } from "../infrastructure/request-response.js";
-import { adapt, dataResponse } from "../infrastructure/request-response.js";
+import { adaptDescriptor } from "../infrastructure/command-engine.js";
 import type { CommandHandler } from "../infrastructure/types.js";
+import type { LogFn } from "../infrastructure/command-engine.js";
 import { listEvents, createEventFile, parseCommaSeparated } from "../domain/events/event-catalog.js";
 import type { EventDefinition } from "../domain/events/event-catalog.js";
 import { parsePayloadFlag } from "../domain/events/event-payload.js";
@@ -32,188 +32,245 @@ import type {
 
 // ── Flag helpers ────────────────────────────────────────────────────
 
-function flagStr(flags: Record<string, string | boolean>, key: string, fallback: string): string {
-	return typeof flags[key] === "string" ? flags[key] : fallback;
+function flagList(flags: Record<string, unknown>, key: string): string[] {
+	return typeof flags[key] === "string" ? parseCommaSeparated(flags[key] as string) : [];
 }
 
-function flagList(flags: Record<string, string | boolean>, key: string): string[] {
-	return typeof flags[key] === "string" ? parseCommaSeparated(flags[key]) : [];
+// ── Union model types & renderers ────────────────────────────────────
+
+type EventAddResult = EventAddedModel | ErrorModel;
+type ValidateResult = ContractValidationModel | EmptyModel;
+type CheckPayloadResult = PayloadValidationModel | ErrorModel;
+type ContractsResult = ContractsGeneratedModel | EmptyModel;
+type CodegenResult = CodegenGeneratedModel | EmptyModel;
+type VersionResult = VersionEventModel | ErrorModel;
+
+function isErrorModel(m: unknown): m is ErrorModel {
+	return typeof m === "object" && m !== null && "error" in m;
 }
 
-// ── Controller actions ──────────────────────────────────────────────
+function renderEventAddResult(data: EventAddResult, log: LogFn): void {
+	if (isErrorModel(data)) { renderError(data, log); return; }
+	renderEventAdded(data, log);
+}
 
-const actions: Record<string, ControllerAction> = {
-	"events:list": (req) => {
-		if (!req.project) return;
-		const events = listEvents(req.deps, req.project.path);
-		return dataResponse<EventListModel>({ events }, (d) => renderEventList(d, req.deps.log));
-	},
+function renderValidateResult(data: ValidateResult, log: LogFn): void {
+	if ("message" in data) { renderEmpty(data as EmptyModel, log); return; }
+	renderContractValidation(data as ContractValidationModel, log);
+}
 
-	"events:flow": (req) => {
-		if (!req.project) return;
-		const { paths } = req.deps;
-		const domain = typeof req.flags.domain === "string" ? req.flags.domain : undefined;
-		const relativePath = paths.relative(req.project.path, saveEventFlowDoc(req.deps, req.project.path, domain));
-		return dataResponse<EventFlowCreatedModel>({ relativePath }, (d) => renderEventFlowCreated(d, req.deps.log));
-	},
+function renderCheckPayloadResult(data: CheckPayloadResult, log: LogFn): void {
+	if (isErrorModel(data)) { renderError(data, log); return; }
+	renderPayloadValidation(data as PayloadValidationModel, log);
+}
 
-	"events:add": (req) => {
-		if (!req.project) return;
-		const { paths, log } = req.deps;
-		const name = req.flags.name;
-		if (!name || typeof name !== "string") {
-			return dataResponse<ErrorModel>(
-				{ error: "Missing --name flag.", hint: 'Usage: flowti events:add --name="user.created" --domain="user"' },
-				(d) => renderError(log, d),
-			);
-		}
-		const payload = typeof req.flags.payload === "string" ? parsePayloadFlag(req.flags.payload) : [];
-		const def: EventDefinition = {
-			name, domain: flagStr(req.flags, "domain", "core"), version: flagStr(req.flags, "version", "1.0.0"),
-			description: flagStr(req.flags, "description", ""), producers: flagList(req.flags, "producers"),
-			consumers: flagList(req.flags, "consumers"), payload,
-		};
-		const filePath = createEventFile(req.deps, req.project.path, def);
-		if (filePath) {
-			return dataResponse<EventAddedModel>(
-				{ relativePath: paths.relative(req.project.path, filePath) },
-				(d) => renderEventAdded(d, req.deps.log),
-			);
-		}
-	},
+function renderContractsResult(data: ContractsResult, log: LogFn): void {
+	if ("message" in data) { renderEmpty(data as EmptyModel, log); return; }
+	renderContractsGenerated(data as ContractsGeneratedModel, log);
+}
 
-	"events:validate": (req) => {
-		if (!req.project) return;
-		const { disk, paths } = req.deps;
-		const dir = paths.join(req.project.path, "docs", "events");
-		const contracts = loadEventContracts(req.deps, dir, disk);
-		if (contracts.length === 0) {
-			return dataResponse<EmptyModel>({ message: "No events found in docs/events/." }, (d) => renderEmpty(d, req.deps.log));
-		}
-		const result = validateContracts(contracts);
-		const model: ContractValidationModel = { contractCount: contracts.length, result };
-		const { log } = req.deps;
-		return {
-			data: model,
-			render: (d: ContractValidationModel) => renderContractValidation(d, log),
-			exitCode: result.valid ? undefined : 1,
-		};
-	},
+function renderCodegenResult(data: CodegenResult, log: LogFn): void {
+	if ("message" in data) { renderEmpty(data as EmptyModel, log); return; }
+	renderCodegenGenerated(data as CodegenGeneratedModel, log);
+}
 
-	"events:check-payload": (req) => {
-		if (!req.project) return;
-		const { disk, paths, log } = req.deps;
-		const eventName = req.flags.event;
-		const payloadJson = req.flags.payload;
-		if (!eventName || typeof eventName !== "string" || !payloadJson || typeof payloadJson !== "string") {
-			return dataResponse<ErrorModel>(
-				{ error: "Missing --event and/or --payload flag.", hint: "Usage: flowti events:check-payload --event=\"user.created\" --payload='{\"id\":\"1\"}'" },
-				(d) => renderError(log, d),
-			);
-		}
-		const dir = paths.join(req.project.path, "docs", "events");
-		const contracts = loadEventContracts(req.deps, dir, disk);
-		const contract = findContract(contracts, eventName);
-		if (!contract) {
-			return {
-				data: { error: `No contract found for event "${eventName}".` } as ErrorModel,
-				render: (d: ErrorModel) => renderError(log, d),
-				exitCode: 1,
+function renderVersionResult(data: VersionResult, log: LogFn): void {
+	if (isErrorModel(data)) { renderError(data, log); return; }
+	renderVersionEvent(data as VersionEventModel, log);
+}
+
+// ── Commands ────────────────────────────────────────────────────────
+
+export const commands: Record<string, CommandHandler> = {
+	"events:list": adaptDescriptor<Record<string, unknown>, EventListModel>({
+		requires: "project",
+		handler: (ctx) => {
+			const events = listEvents(ctx.deps, ctx.project!.path);
+			return { events };
+		},
+		renderer: renderEventList,
+	}),
+
+	"events:flow": adaptDescriptor<Record<string, unknown>, EventFlowCreatedModel>({
+		requires: "project",
+		flags: {
+			domain: { type: "string", default: "" },
+		},
+		handler: (ctx) => {
+			const { paths } = ctx.deps;
+			const domain = (ctx.flags.domain as string) || undefined;
+			const relativePath = paths.relative(ctx.project!.path, saveEventFlowDoc(ctx.deps, ctx.project!.path, domain));
+			return { relativePath };
+		},
+		renderer: renderEventFlowCreated,
+	}),
+
+	"events:add": adaptDescriptor<Record<string, unknown>, EventAddResult>({
+		requires: "project",
+		flags: {
+			name: { type: "string", default: "" },
+			domain: { type: "string", default: "core" },
+			version: { type: "string", default: "1.0.0" },
+			description: { type: "string", default: "" },
+			producers: { type: "string", default: "" },
+			consumers: { type: "string", default: "" },
+			payload: { type: "string", default: "" },
+		},
+		handler: (ctx) => {
+			const { paths } = ctx.deps;
+			const name = ctx.flags.name as string;
+			if (!name) {
+				return { error: "Missing --name flag.", hint: 'Usage: flowti events:add --name="user.created" --domain="user"' } as ErrorModel;
+			}
+			const payloadRaw = ctx.flags.payload as string;
+			const payload = payloadRaw ? parsePayloadFlag(payloadRaw) : [];
+			const def: EventDefinition = {
+				name,
+				domain: ctx.flags.domain as string,
+				version: ctx.flags.version as string,
+				description: ctx.flags.description as string,
+				producers: flagList(ctx.flags as Record<string, unknown>, "producers"),
+				consumers: flagList(ctx.flags as Record<string, unknown>, "consumers"),
+				payload,
 			};
-		}
-		let payload: Record<string, unknown>;
-		try {
-			payload = JSON.parse(payloadJson) as Record<string, unknown>;
-		} catch {
+			const filePath = createEventFile(ctx.deps, ctx.project!.path, def);
+			if (filePath) {
+				return { relativePath: paths.relative(ctx.project!.path, filePath) } as EventAddedModel;
+			}
+			return { error: "Failed to create event file." } as ErrorModel;
+		},
+		renderer: renderEventAddResult,
+	}),
+
+	"events:validate": adaptDescriptor<Record<string, unknown>, ValidateResult>({
+		requires: "project",
+		handler: (ctx) => {
+			const { disk, paths } = ctx.deps;
+			const dir = paths.join(ctx.project!.path, "docs", "events");
+			const contracts = loadEventContracts(ctx.deps, dir, disk);
+			if (contracts.length === 0) {
+				return { message: "No events found in docs/events/." } as EmptyModel;
+			}
+			const result = validateContracts(contracts);
+			return { contractCount: contracts.length, result } as ContractValidationModel;
+		},
+		renderer: renderValidateResult,
+		exitCode: (model) => {
+			if ("message" in model) return undefined;
+			const m = model as ContractValidationModel;
+			return m.result.valid ? undefined : 1;
+		},
+	}),
+
+	"events:check-payload": adaptDescriptor<Record<string, unknown>, CheckPayloadResult>({
+		requires: "project",
+		flags: {
+			event: { type: "string", default: "" },
+			payload: { type: "string", default: "" },
+		},
+		handler: (ctx) => {
+			const { disk, paths } = ctx.deps;
+			const eventName = ctx.flags.event as string;
+			const payloadJson = ctx.flags.payload as string;
+			if (!eventName || !payloadJson) {
+				return { error: "Missing --event and/or --payload flag.", hint: "Usage: flowti events:check-payload --event=\"user.created\" --payload='{\"id\":\"1\"}'" } as ErrorModel;
+			}
+			const dir = paths.join(ctx.project!.path, "docs", "events");
+			const contracts = loadEventContracts(ctx.deps, dir, disk);
+			const contract = findContract(contracts, eventName);
+			if (!contract) {
+				return { error: `No contract found for event "${eventName}".` } as ErrorModel;
+			}
+			let payload: Record<string, unknown>;
+			try {
+				payload = JSON.parse(payloadJson) as Record<string, unknown>;
+			} catch {
+				return { error: "Invalid JSON payload." } as ErrorModel;
+			}
+			const result = validatePayload(contract, payload);
+			return { eventName, result } as PayloadValidationModel;
+		},
+		renderer: renderCheckPayloadResult,
+		exitCode: (model) => {
+			if (isErrorModel(model)) return 1;
+			const m = model as PayloadValidationModel;
+			return m.result.valid ? undefined : 1;
+		},
+	}),
+
+	"events:contracts": adaptDescriptor<Record<string, unknown>, ContractsResult>({
+		requires: "project",
+		flags: {
+			out: { type: "string", default: "" },
+		},
+		handler: (ctx) => {
+			const { disk, paths } = ctx.deps;
+			const dir = paths.join(ctx.project!.path, "docs", "events");
+			const contracts = loadEventContracts(ctx.deps, dir, disk);
+			if (contracts.length === 0) {
+				return { message: "No events found in docs/events/." } as EmptyModel;
+			}
+			const outPath = (ctx.flags.out as string)
+				? paths.resolve(ctx.project!.path, ctx.flags.out as string)
+				: paths.join(dir, "contracts.json");
+			const json = generateContractsJson(contracts);
+			const outDir = paths.dirname(outPath);
+			disk.mkdirSync(outDir, { recursive: true });
+			disk.writeFileSync(outPath, json, "utf-8");
+			return { relativePath: paths.relative(ctx.project!.path, outPath), contractCount: contracts.length } as ContractsGeneratedModel;
+		},
+		renderer: renderContractsResult,
+	}),
+
+	"events:codegen": adaptDescriptor<Record<string, unknown>, CodegenResult>({
+		requires: "project",
+		flags: {
+			out: { type: "string", default: "" },
+		},
+		handler: (ctx) => {
+			const { disk, paths } = ctx.deps;
+			const dir = paths.join(ctx.project!.path, "docs", "events");
+			const contracts = loadEventContracts(ctx.deps, dir, disk);
+			if (contracts.length === 0) {
+				return { message: "No events found in docs/events/." } as EmptyModel;
+			}
+			const ts = generateEventTypes(contracts);
+			const outPath = (ctx.flags.out as string)
+				? paths.resolve(ctx.project!.path, ctx.flags.out as string)
+				: paths.join(ctx.project!.path, "src", "generated", "event-types.ts");
+			const outDir = paths.dirname(outPath);
+			disk.mkdirSync(outDir, { recursive: true });
+			disk.writeFileSync(outPath, ts, "utf-8");
+			return { relativePath: paths.relative(ctx.project!.path, outPath), contractCount: contracts.length } as CodegenGeneratedModel;
+		},
+		renderer: renderCodegenResult,
+	}),
+
+	"events:version": adaptDescriptor<Record<string, unknown>, VersionResult>({
+		requires: "project",
+		flags: {
+			name: { type: "string", default: "" },
+			version: { type: "string", default: "" },
+			migration: { type: "string", default: "" },
+		},
+		handler: (ctx) => {
+			const name = ctx.flags.name as string;
+			const version = ctx.flags.version as string;
+			if (!name || !version) {
+				return { error: "Missing required flags.", hint: 'Usage: flowti events:version --name="user.created" --version="2.0.0" --migration="Added email field"' } as ErrorModel;
+			}
+			const migrationNotes = ctx.flags.migration as string;
+			const result = versionEvent(ctx.deps, ctx.project!.path, name, version, migrationNotes);
+			if (!result.success) {
+				return { error: result.error ?? "Version update failed." } as ErrorModel;
+			}
 			return {
-				data: { error: "Invalid JSON payload." } as ErrorModel,
-				render: (d: ErrorModel) => renderError(log, d),
-				exitCode: 1,
-			};
-		}
-		const result = validatePayload(contract, payload);
-		const model: PayloadValidationModel = { eventName, result };
-		return {
-			data: model,
-			render: (d: PayloadValidationModel) => renderPayloadValidation(d, log),
-			exitCode: result.valid ? undefined : 1,
-		};
-	},
-
-	"events:contracts": (req) => {
-		if (!req.project) return;
-		const { disk, paths } = req.deps;
-		const dir = paths.join(req.project.path, "docs", "events");
-		const contracts = loadEventContracts(req.deps, dir, disk);
-		if (contracts.length === 0) {
-			return dataResponse<EmptyModel>({ message: "No events found in docs/events/." }, (d) => renderEmpty(d, req.deps.log));
-		}
-		const outPath = typeof req.flags.out === "string"
-			? paths.resolve(req.project.path, req.flags.out)
-			: paths.join(dir, "contracts.json");
-		const json = generateContractsJson(contracts);
-		const outDir = paths.dirname(outPath);
-		disk.mkdirSync(outDir, { recursive: true });
-		disk.writeFileSync(outPath, json, "utf-8");
-		return dataResponse<ContractsGeneratedModel>(
-			{ relativePath: paths.relative(req.project.path, outPath), contractCount: contracts.length },
-			(d) => renderContractsGenerated(d, req.deps.log),
-		);
-	},
-
-	"events:codegen": (req) => {
-		if (!req.project) return;
-		const { disk, paths } = req.deps;
-		const dir = paths.join(req.project.path, "docs", "events");
-		const contracts = loadEventContracts(req.deps, dir, disk);
-		if (contracts.length === 0) {
-			return dataResponse<EmptyModel>({ message: "No events found in docs/events/." }, (d) => renderEmpty(d, req.deps.log));
-		}
-		const ts = generateEventTypes(contracts);
-		const outPath = typeof req.flags.out === "string"
-			? paths.resolve(req.project.path, req.flags.out)
-			: paths.join(req.project.path, "src", "generated", "event-types.ts");
-		const outDir = paths.dirname(outPath);
-		disk.mkdirSync(outDir, { recursive: true });
-		disk.writeFileSync(outPath, ts, "utf-8");
-		return dataResponse<CodegenGeneratedModel>(
-			{ relativePath: paths.relative(req.project.path, outPath), contractCount: contracts.length },
-			(d) => renderCodegenGenerated(d, req.deps.log),
-		);
-	},
-
-	"events:version": (req) => {
-		if (!req.project) return;
-		const name = req.flags.name;
-		const version = req.flags.version;
-		const migration = req.flags.migration;
-
-		if (!name || typeof name !== "string" || !version || typeof version !== "string") {
-			return dataResponse<ErrorModel>(
-				{ error: "Missing required flags.", hint: 'Usage: flowti events:version --name="user.created" --version="2.0.0" --migration="Added email field"' },
-				(d) => renderError(req.deps.log, d),
-			);
-		}
-
-		const migrationNotes = typeof migration === "string" ? migration : "";
-		const result = versionEvent(req.deps, req.project.path, name, version, migrationNotes);
-
-		if (!result.success) {
-			return dataResponse<ErrorModel>({ error: result.error ?? "Version update failed." }, (d) => renderError(req.deps.log, d));
-		}
-
-		const model: VersionEventModel = {
-			success: true,
-			name: result.name,
-			newVersion: result.newVersion,
-			previousVersion: result.previousVersion,
-		};
-		return dataResponse(model, (d) => renderVersionEvent(d, req.deps.log));
-	},
+				success: true,
+				name: result.name,
+				newVersion: result.newVersion,
+				previousVersion: result.previousVersion,
+			} as VersionEventModel;
+		},
+		renderer: renderVersionResult,
+	}),
 };
-
-// ── Adapted commands ────────────────────────────────────────────────
-
-export const commands: Record<string, CommandHandler> = Object.fromEntries(
-	Object.entries(actions).map(([key, action]) => [key, adapt(action)]),
-);

@@ -1,0 +1,546 @@
+{
+	"version": 2,
+	"views": {
+		"component-showcase": {
+			"kind": "panel",
+			"label": "Flowti Components",
+			"icon": "palette",
+			"type": "flowti-component-showcase",
+			"legacy": true
+		},
+		"event-catalog": {
+			"kind": "panel",
+			"label": "Event Catalog",
+			"icon": "list",
+			"type": "flowti-event-catalog",
+			"legacy": true
+		},
+		"event-log": {
+			"kind": "panel",
+			"label": "Activity Log",
+			"icon": "activity",
+			"type": "flowti-event-log",
+			"legacy": true
+		},
+		"user-hub": {
+			"kind": "hub",
+			"label": "User Hub",
+			"icon": "home",
+			"type": "flowti-user-hub",
+			"legacy": true
+		},
+		"session-workspace": {
+			"kind": "panel",
+			"label": "Session Workspace",
+			"icon": "timer",
+			"type": "flowti-session-workspace",
+			"legacy": true
+		},
+		"train-main": {
+			"kind": "leaf",
+			"label": "Train of Thoughts",
+			"icon": "train-front",
+			"type": "flowti-train-main",
+			"legacy": true
+		},
+		"train-timeline": {
+			"kind": "panel",
+			"label": "Train Timeline",
+			"icon": "git-branch",
+			"type": "flowti-train-timeline",
+			"legacy": true
+		},
+		"train-hub": {
+			"kind": "hub",
+			"label": "Train Hub",
+			"icon": "train-front",
+			"type": "flowti-train-hub",
+			"legacy": true
+		},
+		"analytics-hub": {
+			"kind": "hub",
+			"label": "Analytics Hub",
+			"icon": "bar-chart-2",
+			"type": "flowti-analytics-hub",
+			"legacy": true
+		},
+		"test-management-hub": {
+			"kind": "hub",
+			"label": "Test Management",
+			"icon": "shield-check",
+			"type": "flowti-test-management-hub",
+			"tabs": [
+				{ "id": "journeys", "label": "Journeys", "icon": "route", "handler": "test-mgmt:journeys", "searchPlaceholder": "Search journeys..." },
+				{ "id": "pyramid", "label": "Pyramid", "icon": "triangle", "handler": "test-mgmt:pyramid", "searchPlaceholder": "Search layers..." },
+				{ "id": "coverage", "label": "Coverage", "icon": "check-circle", "handler": "test-mgmt:coverage", "searchPlaceholder": "Search PRDs..." },
+				{ "id": "compliance", "label": "Compliance", "icon": "shield", "handler": "test-mgmt:compliance", "searchPlaceholder": "Search standards..." },
+				{ "id": "feature-quality", "label": "Feature Quality", "icon": "star", "handler": "test-mgmt:feature-quality", "searchPlaceholder": "Search features..." },
+				{ "id": "features", "label": "Features", "icon": "sparkles", "handler": "test-mgmt:features", "searchPlaceholder": "Search features..." },
+				{ "id": "processes", "label": "Processes", "icon": "waypoints", "handler": "test-mgmt:processes", "searchPlaceholder": "Search processes..." },
+				{ "id": "products", "label": "Products", "icon": "package", "handler": "test-mgmt:products", "searchPlaceholder": "Search products..." }
+			],
+			"refreshEvents": [
+				"test-mgmt.journey.registered",
+				"test-mgmt.journey.deregistered",
+				"test-mgmt.journey.run-completed",
+				"test-mgmt.journey.status-changed",
+				"settings.changed"
+			]
+		},
+		"data-exchange-hub": {
+			"kind": "hub",
+			"label": "Data Exchange Hub",
+			"icon": "arrow-left-right",
+			"type": "flowti-data-exchange-hub",
+			"legacy": true
+		},
+		"csv-action": {
+			"kind": "leaf",
+			"label": "CSV File",
+			"icon": "file-spreadsheet",
+			"type": "flowti-csv",
+			"legacy": true
+		},
+		"canvas-import": {
+			"kind": "leaf",
+			"label": "Canvas Import",
+			"icon": "layout-dashboard",
+			"type": "flowti-canvas-import",
+			"legacy": true
+		},
+		"export": {
+			"kind": "leaf",
+			"label": "Export",
+			"icon": "file-output",
+			"type": "flowti-export",
+			"legacy": true
+		},
+		"journey-builder": {
+			"kind": "panel",
+			"label": "Journey Builder",
+			"icon": "route",
+			"type": "flowti-journey-builder",
+			"legacy": true
+		},
+		"journey-file": {
+			"kind": "leaf",
+			"label": "Journey Definition",
+			"icon": "route",
+			"type": "flowti-journey-file",
+			"legacy": true
+		}
+	},
+	"commands": [
+		{
+			"id": "flowti:open-component-showcase",
+			"name": "Open component showcase",
+			"domain": "developer",
+			"category": "view",
+			"icon": "palette",
+			"handler": "view:open-component-showcase"
+		},
+		{
+			"id": "flowti:open-event-catalog",
+			"name": "Open event catalog",
+			"domain": "developer",
+			"category": "view",
+			"icon": "list",
+			"handler": "view:open-event-catalog"
+		},
+		{
+			"id": "flowti:open-event-log",
+			"name": "Open event log",
+			"domain": "developer",
+			"category": "view",
+			"icon": "activity",
+			"handler": "view:open-event-log"
+		},
+		{
+			"id": "flowti:open-user-hub",
+			"name": "Open user hub",
+			"domain": "hub",
+			"category": "view",
+			"icon": "home",
+			"handler": "hub:open-user"
+		},
+		{
+			"id": "flowti:manage-subscriptions",
+			"name": "Manage watchers",
+			"domain": "subscription",
+			"category": "view",
+			"icon": "bell",
+			"handler": "view:open-subscription-manager"
+		},
+		{
+			"id": "flowti:quick-capture",
+			"name": "Quick capture",
+			"domain": "capture",
+			"category": "capture",
+			"icon": "pencil",
+			"handler": "capture:open"
+		},
+		{
+			"id": "flowti:add-idea",
+			"name": "Add idea",
+			"domain": "capture",
+			"category": "capture",
+			"icon": "lightbulb",
+			"handler": "capture:idea"
+		},
+		{
+			"id": "flowti:add-feedback",
+			"name": "Add feedback",
+			"domain": "capture",
+			"category": "capture",
+			"icon": "message-circle",
+			"handler": "capture:feedback"
+		},
+		{
+			"id": "flowti:add-note",
+			"name": "Add note",
+			"domain": "capture",
+			"category": "capture",
+			"icon": "file-text",
+			"handler": "capture:note"
+		},
+		{
+			"id": "flowti:add-task",
+			"name": "Add task",
+			"domain": "capture",
+			"category": "capture",
+			"icon": "check-square",
+			"handler": "capture:task"
+		},
+		{
+			"id": "flowti:add-question",
+			"name": "Add question",
+			"domain": "capture",
+			"category": "capture",
+			"icon": "help-circle",
+			"handler": "capture:question"
+		},
+		{
+			"id": "flowti:add-bug",
+			"name": "Add bug",
+			"domain": "capture",
+			"category": "capture",
+			"icon": "bug",
+			"handler": "capture:bug"
+		},
+		{
+			"id": "flowti:add-risk",
+			"name": "Add risk",
+			"domain": "capture",
+			"category": "capture",
+			"icon": "alert-triangle",
+			"handler": "capture:risk"
+		},
+		{
+			"id": "flowti:add-assumption",
+			"name": "Add assumption",
+			"domain": "capture",
+			"category": "capture",
+			"icon": "compass",
+			"handler": "capture:assumption"
+		},
+		{
+			"id": "flowti:add-issue",
+			"name": "Add issue",
+			"domain": "capture",
+			"category": "capture",
+			"icon": "alert-circle",
+			"handler": "capture:issue"
+		},
+		{
+			"id": "flowti:add-decision",
+			"name": "Add decision",
+			"domain": "capture",
+			"category": "capture",
+			"icon": "scale",
+			"handler": "capture:decision"
+		},
+		{
+			"id": "flowti:add-learning",
+			"name": "Add learning",
+			"domain": "capture",
+			"category": "capture",
+			"icon": "graduation-cap",
+			"handler": "capture:learning"
+		},
+		{
+			"id": "flowti:open-train-hub",
+			"name": "Open train hub",
+			"domain": "train",
+			"category": "view",
+			"icon": "train-front",
+			"handler": "hub:open-train"
+		},
+		{
+			"id": "flowti:open-analytics-hub",
+			"name": "Open analytics hub",
+			"domain": "analytics",
+			"category": "view",
+			"icon": "bar-chart-2",
+			"handler": "hub:open-analytics"
+		},
+		{
+			"id": "flowti:open-test-management-hub",
+			"name": "Open test management hub",
+			"domain": "test-management",
+			"category": "view",
+			"icon": "shield-check",
+			"handler": "hub:open-test-management"
+		},
+		{
+			"id": "flowti:run-journey",
+			"name": "Run journey",
+			"domain": "journey-executor",
+			"category": "action",
+			"icon": "play",
+			"handler": "journey:run"
+		},
+		{
+			"id": "flowti:start-train",
+			"name": "Start train of thoughts",
+			"domain": "train",
+			"category": "action",
+			"icon": "brain",
+			"handler": "train:start"
+		},
+		{
+			"id": "flowti:resume-train",
+			"name": "Resume paused train",
+			"domain": "train",
+			"category": "action",
+			"icon": "play",
+			"handler": "train:resume",
+			"conditions": { "hidden": "no-active-train || train-not-paused" }
+		},
+		{
+			"id": "flowti:complete-train",
+			"name": "Complete current train",
+			"domain": "train",
+			"category": "action",
+			"icon": "check-circle",
+			"handler": "train:complete",
+			"conditions": { "hidden": "no-active-train || train-not-running" }
+		},
+		{
+			"id": "flowti:open-train-canvas",
+			"name": "Open train canvas",
+			"domain": "train",
+			"category": "view",
+			"icon": "layout-dashboard",
+			"handler": "train:open-canvas",
+			"conditions": { "hidden": "no-active-train" }
+		},
+		{
+			"id": "flowti:open-train-timeline",
+			"name": "Open train timeline sidebar",
+			"domain": "train",
+			"category": "view",
+			"icon": "git-branch",
+			"handler": "train:open-timeline",
+			"conditions": { "hidden": "no-active-train" }
+		},
+		{
+			"id": "flowti:view-train",
+			"name": "View train of thoughts",
+			"domain": "train",
+			"category": "view",
+			"icon": "train-front",
+			"handler": "train:open-view",
+			"conditions": { "hidden": "no-active-train" }
+		},
+		{
+			"id": "flowti:start-canvas-session",
+			"name": "Start canvas session",
+			"domain": "canvas",
+			"category": "action",
+			"icon": "layout-template",
+			"handler": "canvas:start-session"
+		},
+		{
+			"id": "flowti:open-journey-builder",
+			"name": "Open journey builder",
+			"domain": "developer",
+			"category": "view",
+			"icon": "route",
+			"handler": "view:open-journey-builder"
+		},
+		{
+			"id": "flowti:open-installer",
+			"name": "Open installer",
+			"domain": "installer",
+			"category": "action",
+			"icon": "download",
+			"handler": "installer:open",
+			"conditions": { "hidden": "is-installed" }
+		},
+		{
+			"id": "flowti:import-csv",
+			"name": "Import CSV as notes",
+			"domain": "data-exchange",
+			"category": "action",
+			"icon": "file-input",
+			"handler": "data-exchange:import-csv"
+		},
+		{
+			"id": "flowti:export-csv",
+			"name": "Export as CSV",
+			"domain": "data-exchange",
+			"category": "action",
+			"icon": "file-output",
+			"handler": "data-exchange:export-csv"
+		},
+		{
+			"id": "flowti:export-tab",
+			"name": "Export as tab-delimited",
+			"domain": "data-exchange",
+			"category": "action",
+			"icon": "file-output",
+			"handler": "data-exchange:export-tab"
+		},
+		{
+			"id": "flowti:open-data-exchange",
+			"name": "Open data exchange hub",
+			"domain": "data-exchange",
+			"category": "view",
+			"icon": "arrow-left-right",
+			"handler": "hub:open-data-exchange"
+		},
+		{
+			"id": "flowti:signal-sync",
+			"name": "Sync all signals",
+			"domain": "data-exchange",
+			"category": "action",
+			"icon": "radio",
+			"handler": "data-exchange:signal-sync"
+		},
+		{
+			"id": "flowti:import-canvas",
+			"name": "Import canvas as notes",
+			"domain": "data-exchange",
+			"category": "action",
+			"icon": "layout-dashboard",
+			"handler": "data-exchange:import-canvas"
+		},
+		{
+			"id": "flowti:open-session-workspace",
+			"name": "Open session workspace",
+			"domain": "session",
+			"category": "view",
+			"icon": "timer",
+			"handler": "session:open-workspace",
+			"conditions": { "hidden": "no-active-session" }
+		},
+		{
+			"id": "flowti:open-session-workspace-sidebar",
+			"name": "Open session workspace in sidebar",
+			"domain": "session",
+			"category": "view",
+			"icon": "panel-right",
+			"handler": "session:open-workspace-sidebar",
+			"conditions": { "hidden": "no-active-session" }
+		},
+		{
+			"id": "flowti:create-session",
+			"name": "Create new session",
+			"domain": "session",
+			"category": "action",
+			"icon": "timer",
+			"handler": "session:create"
+		},
+		{
+			"id": "flowti:resume-session",
+			"name": "Resume paused session",
+			"domain": "session",
+			"category": "action",
+			"icon": "play",
+			"handler": "session:resume",
+			"conditions": { "hidden": "no-active-session || session-not-paused" }
+		}
+	],
+	"ribbon": [
+		{
+			"icon": "list",
+			"label": "Open event catalog",
+			"action": "view:flowti-event-catalog"
+		},
+		{
+			"icon": "arrow-left-right",
+			"label": "Open data exchange hub",
+			"action": "view:flowti-data-exchange-hub"
+		},
+		{
+			"icon": "home",
+			"label": "Open user hub",
+			"action": "view:flowti-user-hub"
+		},
+		{
+			"icon": "lightbulb",
+			"label": "Add idea",
+			"action": "capture:idea"
+		},
+		{
+			"icon": "file-text",
+			"label": "Add note",
+			"action": "capture:note"
+		},
+		{
+			"icon": "check-square",
+			"label": "Add task",
+			"action": "capture:task"
+		},
+		{
+			"icon": "help-circle",
+			"label": "Add question",
+			"action": "capture:question"
+		},
+		{
+			"icon": "message-circle",
+			"label": "Add feedback",
+			"action": "capture:feedback"
+		},
+		{
+			"icon": "bug",
+			"label": "Add bug",
+			"action": "capture:bug"
+		},
+		{
+			"icon": "graduation-cap",
+			"label": "Add learning",
+			"action": "capture:learning"
+		},
+		{
+			"icon": "waypoints",
+			"label": "Open train hub",
+			"action": "view:flowti-train-hub"
+		},
+		{
+			"icon": "bar-chart-2",
+			"label": "Open analytics hub",
+			"action": "view:flowti-analytics-hub"
+		},
+		{
+			"icon": "train-front",
+			"label": "Train of thoughts",
+			"action": "train:toggle-or-start"
+		},
+		{
+			"icon": "layout-template",
+			"label": "Start canvas session",
+			"action": "canvas:start-session"
+		},
+		{
+			"icon": "route",
+			"label": "Open journey builder",
+			"action": "view:flowti-journey-builder"
+		},
+		{
+			"icon": "shield-check",
+			"label": "Open test management hub",
+			"action": "view:flowti-test-management-hub"
+		}
+	]
+}

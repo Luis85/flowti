@@ -1,0 +1,15 @@
+{
+	"journey": "Iteration Lifecycle",
+	"description": "Verify iteration lifecycle commands exist and run",
+	"requires": { "target": "vault-test" },
+	"steps": [
+		{
+			"id": "lifecycle-exits",
+			"title": "Lifecycle command exits cleanly",
+			"description": "Run the lifecycle list command and verify it completes",
+			"actions": [
+				{ "tool": "vault-cli", "command": "lifecycle:list", "expectExit": 0 }
+			]
+		}
+	]
+}

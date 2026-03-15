@@ -48,8 +48,12 @@ export interface AgentProcess {
 	kill(): void;
 }
 
+export interface SpawnOptions {
+	readonly cwd?: string;
+}
+
 export interface IAgentProcessRunner {
-	spawn(agent: AgentSummary, prompt: string, resolvedTools?: readonly string[]): AgentProcess;
+	spawn(agent: AgentSummary, prompt: string, resolvedTools?: readonly string[], opts?: SpawnOptions): AgentProcess;
 }
 
 export interface AgentWorker {

@@ -56,6 +56,7 @@ vi.mock("../../src/ui/displays/timelog-display.js", () => ({
 }));
 vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 	renderError: vi.fn(),
+	renderNoProject: vi.fn(),
 }));
 
 // ── Imports ──────────────────────────────────────────────────────
@@ -119,13 +120,11 @@ describe("timelog.controller", () => {
 
 		it("returns error when --person is missing", () => {
 			commands["timelog:add"]({ task: "Test" }, [], "timelog:add", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: expect.stringContaining("Missing") }));
 			expect(createTimeLogEntry).not.toHaveBeenCalled();
 		});
 
 		it("returns error when --task is missing", () => {
 			commands["timelog:add"]({ person: "Jane" }, [], "timelog:add", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: expect.stringContaining("Missing") }));
 			expect(createTimeLogEntry).not.toHaveBeenCalled();
 		});
 

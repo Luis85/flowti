@@ -2,8 +2,7 @@
  * requirements.controller.ts — Controller for IREB requirements management commands.
  */
 
-import type { ControllerAction } from "../infrastructure/request-response.js";
-import { adapt, dataResponse } from "../infrastructure/request-response.js";
+import { adaptDescriptor } from "../infrastructure/command-engine.js";
 import type { CommandHandler, RequirementType, MoSCoWPriority } from "../infrastructure/types.js";
 import {
 	listRequirements, createRequirement, updateRequirementStatus, nextId,
@@ -17,174 +16,171 @@ import {
 } from "../ui/displays/requirements-display.js";
 import { renderError } from "../ui/renderers/common-renderers.js";
 import type { ErrorModel } from "../ui/renderers/common-renderers.js";
+import type { LogFn, CommandContext } from "../infrastructure/command-engine.js";
 
 const VALID_TYPES: RequirementType[] = ["functional", "non-functional", "constraint"];
 const VALID_STATUSES: RequirementStatus[] = ["draft", "proposed", "approved", "implemented", "verified", "rejected", "deferred"];
 
-function errorRenderer(log: (msg?: string) => void) {
-	return (d: ErrorModel) => renderError(log, d);
+type ReqListModel = ReturnType<typeof listRequirements>;
+type UseCaseListModel = ReturnType<typeof listUseCases>;
+type UserStoryListModel = ReturnType<typeof listUserStories>;
+type ReqAddModel = { relPath: string } | ErrorModel;
+type ReqUpdateModel = { name: string; status: string } | ErrorModel;
+
+function isErrorModel(m: unknown): m is ErrorModel {
+	return typeof m === "object" && m !== null && "error" in m;
 }
 
-function flagStr(flags: Record<string, string | boolean>, key: string, fallback: string): string {
-	return typeof flags[key] === "string" ? flags[key] : fallback;
+function renderReqAdd(data: ReqAddModel, log: LogFn): void {
+	if (isErrorModel(data)) { renderError(data, log); return; }
+	renderRequirementAdded(data.relPath, log);
 }
 
-function createStoryAction(req: Parameters<ControllerAction>[0], name: string, role: string, goal: string, benefit: string) {
-	const { paths } = req.deps;
-	const existing = listUserStories(req.deps, req.project!.path, req.project!.config.management?.requirements);
-	const id = flagStr(req.flags, "id", nextId("US", existing.map((s) => s.id)));
-	const pts = parseInt(flagStr(req.flags, "points", "0"), 10);
-	const filePath = createUserStory(req.deps, req.project!.path, {
+function renderReqUpdate(data: ReqUpdateModel, log: LogFn): void {
+	if (isErrorModel(data)) { renderError(data, log); return; }
+	renderRequirementUpdated(data.name, data.status, log);
+}
+
+function createStoryResult(ctx: CommandContext, name: string, role: string, goal: string, benefit: string): ReqAddModel {
+	const existing = listUserStories(ctx.deps, ctx.project!.path, ctx.project!.config.management?.requirements);
+	const idFlag = ctx.flags.id as string | undefined;
+	const id = idFlag || nextId("US", existing.map((s) => s.id));
+	const pointsStr = ctx.flags.points as string | undefined;
+	const pts = parseInt(pointsStr ?? "0", 10);
+	const filePath = createUserStory(ctx.deps, ctx.project!.path, {
 		name, id, role, goal, benefit,
 		storyPoints: isNaN(pts) ? undefined : pts,
 		status: "backlog",
-		description: flagStr(req.flags, "description", ""),
-	}, req.project!.config.management?.requirements);
+		description: (ctx.flags.description as string) ?? "",
+	}, ctx.project!.config.management?.requirements);
 	if (filePath) {
-		return dataResponse(
-			{ relPath: paths.relative(req.project!.path, filePath) },
-			(m: { relPath: string }) => renderRequirementAdded(m.relPath, req.deps.log),
-		);
+		return { relPath: ctx.deps.paths.relative(ctx.project!.path, filePath) };
 	}
+	return { error: "Failed to create user story." } as ErrorModel;
 }
 
-const actions: Record<string, ControllerAction> = {
-	"requirements:list": (req) => {
-		if (!req.project) return;
-		const reqs = listRequirements(req.deps, req.project.path, req.project.config.management?.requirements);
-		return dataResponse(reqs, (d) => renderRequirementList(d, req.deps.log));
-	},
+export const commands: Record<string, CommandHandler> = {
+	"requirements:list": adaptDescriptor<Record<string, unknown>, ReqListModel>({
+		requires: "project",
+		handler: (ctx) => listRequirements(ctx.deps, ctx.project!.path, ctx.project!.config.management?.requirements),
+		renderer: renderRequirementList,
+	}),
 
-	"requirements:add": (req) => {
-		if (!req.project) return;
-		const { paths } = req.deps;
-		const name = req.flags.name;
-		if (!name || typeof name !== "string") {
-			return dataResponse<ErrorModel>(
-				{ error: "Missing --name flag.", hint: 'Usage: flowti requirements:add --name="User Auth" --type="functional"' },
-				errorRenderer(req.deps.log),
-			);
-		}
-		const reqType = flagStr(req.flags, "type", "functional") as RequirementType;
-		if (!VALID_TYPES.includes(reqType)) {
-			return dataResponse<ErrorModel>(
-				{ error: `Invalid type "${reqType}". Valid: ${VALID_TYPES.join(", ")}` },
-				errorRenderer(req.deps.log),
-			);
-		}
-		const existing = listRequirements(req.deps, req.project.path, req.project.config.management?.requirements);
-		const id = flagStr(req.flags, "id", nextId("REQ", existing.map((r) => r.id)));
-		const priority = flagStr(req.flags, "priority", "should") as MoSCoWPriority;
+	"requirements:add": adaptDescriptor<Record<string, unknown>, ReqAddModel>({
+		requires: "project",
+		flags: {
+			name: { type: "string", required: true, hint: 'Usage: flowti requirements:add --name="User Auth" --type="functional"' },
+			type: { type: "string", default: "functional" },
+			id: { type: "string", default: "" },
+			status: { type: "string", default: "draft" },
+			priority: { type: "string", default: "should" },
+			source: { type: "string", default: "" },
+			rationale: { type: "string", default: "" },
+			description: { type: "string", default: "" },
+		},
+		handler: (ctx) => {
+			const name = ctx.flags.name as string;
+			const reqType = (ctx.flags.type as string) as RequirementType;
+			if (!VALID_TYPES.includes(reqType)) {
+				return { error: `Invalid type "${reqType}". Valid: ${VALID_TYPES.join(", ")}` } as ErrorModel;
+			}
+			const existing = listRequirements(ctx.deps, ctx.project!.path, ctx.project!.config.management?.requirements);
+			const id = (ctx.flags.id as string) || nextId("REQ", existing.map((r) => r.id));
+			const priority = (ctx.flags.priority as string) as MoSCoWPriority;
+			const filePath = createRequirement(ctx.deps, ctx.project!.path, {
+				name,
+				requirementType: reqType,
+				id,
+				status: (ctx.flags.status as string) as RequirementStatus,
+				priority,
+				source: (ctx.flags.source as string) || undefined,
+				rationale: (ctx.flags.rationale as string) || undefined,
+				description: ctx.flags.description as string,
+			}, ctx.project!.config.management?.requirements);
+			if (filePath) {
+				return { relPath: ctx.deps.paths.relative(ctx.project!.path, filePath) };
+			}
+			return { error: "Failed to create requirement." } as ErrorModel;
+		},
+		renderer: renderReqAdd,
+	}),
 
-		const filePath = createRequirement(req.deps, req.project.path, {
-			name,
-			requirementType: reqType,
-			id,
-			status: (flagStr(req.flags, "status", "draft") as RequirementStatus),
-			priority,
-			source: flagStr(req.flags, "source", "") || undefined,
-			rationale: flagStr(req.flags, "rationale", "") || undefined,
-			description: flagStr(req.flags, "description", ""),
-		}, req.project.config.management?.requirements);
-		if (filePath) {
-			return dataResponse(
-				{ relPath: paths.relative(req.project.path, filePath) },
-				(m: { relPath: string }) => renderRequirementAdded(m.relPath, req.deps.log),
-			);
-		}
-	},
+	"requirements:update": adaptDescriptor<Record<string, unknown>, ReqUpdateModel>({
+		requires: "project",
+		flags: {
+			name: { type: "string", required: true, hint: 'Usage: flowti requirements:update --name="User Auth" --status="approved"' },
+			status: { type: "string", required: true, hint: 'Usage: flowti requirements:update --name="User Auth" --status="approved"' },
+		},
+		handler: (ctx) => {
+			const name = ctx.flags.name as string;
+			const status = ctx.flags.status as string;
+			if (!VALID_STATUSES.includes(status as RequirementStatus)) {
+				return { error: `Invalid status "${status}". Valid: ${VALID_STATUSES.join(", ")}` } as ErrorModel;
+			}
+			const ok = updateRequirementStatus(ctx.deps, ctx.project!.path, name, status as RequirementStatus, ctx.project!.config.management?.requirements);
+			if (ok) {
+				return { name, status };
+			}
+			return { error: `Failed to update requirement "${name}".` } as ErrorModel;
+		},
+		renderer: renderReqUpdate,
+	}),
 
-	"requirements:update": (req) => {
-		if (!req.project) return;
-		const name = req.flags.name;
-		const status = req.flags.status;
-		if (!name || typeof name !== "string" || !status || typeof status !== "string") {
-			return dataResponse<ErrorModel>(
-				{ error: "Missing --name and/or --status flag.", hint: 'Usage: flowti requirements:update --name="User Auth" --status="approved"' },
-				errorRenderer(req.deps.log),
-			);
-		}
-		if (!VALID_STATUSES.includes(status as RequirementStatus)) {
-			return dataResponse<ErrorModel>(
-				{ error: `Invalid status "${status}". Valid: ${VALID_STATUSES.join(", ")}` },
-				errorRenderer(req.deps.log),
-			);
-		}
-		const ok = updateRequirementStatus(req.deps, req.project.path, name, status as RequirementStatus, req.project.config.management?.requirements);
-		if (ok) {
-			return dataResponse(
-				{ name, status },
-				(m: { name: string; status: string }) => renderRequirementUpdated(m.name, m.status, req.deps.log),
-			);
-		}
-	},
+	"usecases:list": adaptDescriptor<Record<string, unknown>, UseCaseListModel>({
+		requires: "project",
+		handler: (ctx) => listUseCases(ctx.deps, ctx.project!.path, ctx.project!.config.management?.requirements),
+		renderer: renderUseCaseList,
+	}),
 
-	"usecases:list": (req) => {
-		if (!req.project) return;
-		const ucs = listUseCases(req.deps, req.project.path, req.project.config.management?.requirements);
-		return dataResponse(ucs, (d) => renderUseCaseList(d, req.deps.log));
-	},
+	"usecases:add": adaptDescriptor<Record<string, unknown>, ReqAddModel>({
+		requires: "project",
+		flags: {
+			name: { type: "string", required: true, hint: 'Usage: flowti usecases:add --name="User Login" --actor="End User"' },
+			actor: { type: "string", required: true, hint: 'Usage: flowti usecases:add --name="User Login" --actor="End User"' },
+			id: { type: "string", default: "" },
+			description: { type: "string", default: "" },
+		},
+		handler: (ctx) => {
+			const name = ctx.flags.name as string;
+			const actor = ctx.flags.actor as string;
+			const existing = listUseCases(ctx.deps, ctx.project!.path, ctx.project!.config.management?.requirements);
+			const id = (ctx.flags.id as string) || nextId("UC", existing.map((uc) => uc.id));
+			const filePath = createUseCase(ctx.deps, ctx.project!.path, {
+				name, id, actor,
+				description: ctx.flags.description as string,
+			}, ctx.project!.config.management?.requirements);
+			if (filePath) {
+				return { relPath: ctx.deps.paths.relative(ctx.project!.path, filePath) };
+			}
+			return { error: "Failed to create use case." } as ErrorModel;
+		},
+		renderer: renderReqAdd,
+	}),
 
-	"usecases:add": (req) => {
-		if (!req.project) return;
-		const { paths } = req.deps;
-		const name = req.flags.name;
-		if (!name || typeof name !== "string") {
-			return dataResponse<ErrorModel>(
-				{ error: "Missing --name flag.", hint: 'Usage: flowti usecases:add --name="User Login" --actor="End User"' },
-				errorRenderer(req.deps.log),
-			);
-		}
-		const actor = flagStr(req.flags, "actor", "");
-		if (!actor) {
-			return dataResponse<ErrorModel>(
-				{ error: "Missing --actor flag.", hint: 'Usage: flowti usecases:add --name="User Login" --actor="End User"' },
-				errorRenderer(req.deps.log),
-			);
-		}
-		const existing = listUseCases(req.deps, req.project.path, req.project.config.management?.requirements);
-		const id = flagStr(req.flags, "id", nextId("UC", existing.map((uc) => uc.id)));
+	"stories:list": adaptDescriptor<Record<string, unknown>, UserStoryListModel>({
+		requires: "project",
+		handler: (ctx) => listUserStories(ctx.deps, ctx.project!.path, ctx.project!.config.management?.requirements),
+		renderer: renderUserStoryList,
+	}),
 
-		const filePath = createUseCase(req.deps, req.project.path, {
-			name, id, actor,
-			description: flagStr(req.flags, "description", ""),
-		}, req.project.config.management?.requirements);
-		if (filePath) {
-			return dataResponse(
-				{ relPath: paths.relative(req.project.path, filePath) },
-				(m: { relPath: string }) => renderRequirementAdded(m.relPath, req.deps.log),
-			);
-		}
-	},
-
-	"stories:list": (req) => {
-		if (!req.project) return;
-		const stories = listUserStories(req.deps, req.project.path, req.project.config.management?.requirements);
-		return dataResponse(stories, (d) => renderUserStoryList(d, req.deps.log));
-	},
-
-	"stories:add": (req) => {
-		if (!req.project) return;
-		const name = req.flags.name;
-		if (!name || typeof name !== "string") {
-			return dataResponse<ErrorModel>(
-				{ error: "Missing --name flag.", hint: 'Usage: flowti stories:add --name="Login Story" --role="User" --goal="log in" --benefit="access dashboard"' },
-				errorRenderer(req.deps.log),
-			);
-		}
-		const role = flagStr(req.flags, "role", "");
-		const goal = flagStr(req.flags, "goal", "");
-		const benefit = flagStr(req.flags, "benefit", "");
-		if (!role || !goal || !benefit) {
-			return dataResponse<ErrorModel>(
-				{ error: "Missing --role, --goal, or --benefit flag." },
-				errorRenderer(req.deps.log),
-			);
-		}
-		return createStoryAction(req, name, role, goal, benefit);
-	},
+	"stories:add": adaptDescriptor<Record<string, unknown>, ReqAddModel>({
+		requires: "project",
+		flags: {
+			name: { type: "string", required: true, hint: 'Usage: flowti stories:add --name="Login Story" --role="User" --goal="log in" --benefit="access dashboard"' },
+			role: { type: "string", required: true, hint: 'Usage: flowti stories:add --name="Login Story" --role="User" --goal="log in" --benefit="access dashboard"' },
+			goal: { type: "string", required: true, hint: 'Usage: flowti stories:add --name="Login Story" --role="User" --goal="log in" --benefit="access dashboard"' },
+			benefit: { type: "string", required: true, hint: 'Usage: flowti stories:add --name="Login Story" --role="User" --goal="log in" --benefit="access dashboard"' },
+			id: { type: "string", default: "" },
+			points: { type: "string", default: "0" },
+			description: { type: "string", default: "" },
+		},
+		handler: (ctx) => {
+			const name = ctx.flags.name as string;
+			const role = ctx.flags.role as string;
+			const goal = ctx.flags.goal as string;
+			const benefit = ctx.flags.benefit as string;
+			return createStoryResult(ctx, name, role, goal, benefit);
+		},
+		renderer: renderReqAdd,
+	}),
 };
-
-export const commands: Record<string, CommandHandler> = Object.fromEntries(
-	Object.entries(actions).map(([key, action]) => [key, adapt(action)]),
-);

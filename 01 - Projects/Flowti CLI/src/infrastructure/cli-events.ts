@@ -7,8 +7,9 @@
 
 import type { ReportEventMap } from "../domain/reports/report-events.js";
 import type { E2EEventMap } from "../domain/e2e/e2e-events.js";
+import type { WorkspaceEventMap } from "../domain/agents/workspace-events.js";
 
-export interface CliEventMap extends ReportEventMap, E2EEventMap {
+export interface CliEventMap extends ReportEventMap, E2EEventMap, WorkspaceEventMap {
 	"cli.progress": { message: string };
 	"cli.warn": { message: string };
 }

@@ -5,9 +5,8 @@
  * can discover and reference them on demand.
  */
 
-import type { ControllerAction } from "../infrastructure/request-response.js";
-import { adapt, dataResponse } from "../infrastructure/request-response.js";
-import type { CommandHandler } from "../infrastructure/types.js";
+import { adaptDescriptor } from "../infrastructure/command-engine.js";
+import type { CommandHandler } from "../infrastructure/types-config.js";
 import { VAULT_ROOT, cliConfig } from "../infrastructure/config.js";
 import { listAgents } from "../domain/agents/agent-store.js";
 import { loadAiTools } from "../domain/ai-tools/ai-tool-loader.js";
@@ -18,19 +17,15 @@ function resolveAgentsDir(deps: Pick<import("../infrastructure/deps.js").CliDeps
 	return deps.paths.join(VAULT_ROOT, cliConfig.agents?.dir ?? "docs/agents");
 }
 
-const actions: Record<string, ControllerAction> = {
-	"claude:sync": (req) => {
-		const agentsDir = resolveAgentsDir(req.deps);
-		const agents = listAgents(req.deps, VAULT_ROOT, cliConfig.agents);
-		const tools = loadAiTools(req.deps, VAULT_ROOT, req.deps.disk);
-		const result = syncAllToClaude(req.deps, VAULT_ROOT, agentsDir, agents, tools, cliConfig.agents?.skillMap);
-		return dataResponse<SuccessModel>(
-			{ message: `Synced ${result.written.length} skill files to .claude/` },
-			(d) => renderSuccess(req.deps.log, d),
-		);
-	},
+export const commands: Record<string, CommandHandler> = {
+	"claude:sync": adaptDescriptor<Record<string, unknown>, SuccessModel>({
+		handler: (ctx) => {
+			const agentsDir = resolveAgentsDir(ctx.deps);
+			const agents = listAgents(ctx.deps, VAULT_ROOT, cliConfig.agents);
+			const tools = loadAiTools(ctx.deps, VAULT_ROOT, ctx.deps.disk);
+			const result = syncAllToClaude(ctx.deps, VAULT_ROOT, agentsDir, agents, tools, cliConfig.agents?.skillMap);
+			return { message: `Synced ${result.written.length} skill files to .claude/` };
+		},
+		renderer: renderSuccess,
+	}),
 };
-
-export const commands: Record<string, CommandHandler> = Object.fromEntries(
-	Object.entries(actions).map(([key, action]) => [key, adapt(action)]),
-);

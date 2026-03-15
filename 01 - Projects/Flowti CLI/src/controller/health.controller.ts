@@ -4,10 +4,8 @@
  * Returns typed data models; rendering is handled by ui/health-display.ts.
  */
 
-import type { ControllerAction } from "../infrastructure/request-response.js";
-import { adapt, dataResponse } from "../infrastructure/request-response.js";
+import { adaptDescriptor } from "../infrastructure/command-engine.js";
 import type { CommandHandler, ProjectContext } from "../infrastructure/types.js";
-import type { CliDeps } from "../infrastructure/deps.js";
 import { collectHealth } from "../domain/health/health.js";
 import { scoreHealth, DEFAULT_THRESHOLDS, type HealthThresholds } from "../domain/health/health-scoring.js";
 import { saveSnapshot, loadHistory, buildTrend, type StoredSnapshot } from "../domain/health/health-trends.js";
@@ -16,7 +14,6 @@ import {
 	renderHealthDashboard, renderSnapshotSaved, renderHealthHistory, renderDebtEstimate,
 	type HealthViewModel, type SnapshotSavedModel,
 } from "../ui/displays/health-display.js";
-import { renderNoProject, type NoProjectModel } from "../ui/renderers/common-renderers.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -39,67 +36,61 @@ function resolveThresholds(project: ProjectContext): HealthThresholds {
 	};
 }
 
-function noProjectResponse(log: CliDeps["log"], command: string) {
-	return dataResponse<NoProjectModel>({ command }, (d) => renderNoProject(log, d));
-}
+// ── Commands ─────────────────────────────────────────────────────────
 
-// ── Controller actions ──────────────────────────────────────────────
+export const commands: Record<string, CommandHandler> = {
+	health: adaptDescriptor<Record<string, unknown>, HealthViewModel>({
+		requires: "project",
+		handler: (ctx) => {
+			const { disk, paths, shell, clock } = ctx.deps;
+			const healthDeps = { disk, paths, shell } as const;
+			const trendDeps = { disk, paths, clock } as const;
+			const snapshot = collectHealth(healthDeps, ctx.project!);
+			const thresholds = resolveThresholds(ctx.project!);
+			const score = scoreHealth(snapshot, thresholds);
+			const history = loadHistory(trendDeps, ctx.project!.path);
+			const current: StoredSnapshot = { timestamp: "", snapshot, score };
+			const trend = buildTrend(current, history);
+			return { ...snapshot, score, trend: trend.deltas };
+		},
+		renderer: renderHealthDashboard,
+	}),
 
-const actions: Record<string, ControllerAction> = {
-	health: (req) => {
-		if (!req.project) return noProjectResponse(req.deps.log, "health");
-		const { disk, paths, shell, clock } = req.deps;
-		const healthDeps = { disk, paths, shell } as const;
-		const trendDeps = { disk, paths, clock } as const;
-		const snapshot = collectHealth(healthDeps, req.project);
-		const thresholds = resolveThresholds(req.project);
-		const score = scoreHealth(snapshot, thresholds);
-		const history = loadHistory(trendDeps, req.project.path);
-		const current: StoredSnapshot = { timestamp: "", snapshot, score };
-		const trend = buildTrend(current, history);
-		const viewData: HealthViewModel = { ...snapshot, score, trend: trend.deltas };
+	"health:snapshot": adaptDescriptor<Record<string, unknown>, SnapshotSavedModel>({
+		requires: "project",
+		handler: (ctx) => {
+			const { disk, paths, shell, clock } = ctx.deps;
+			const healthDeps = { disk, paths, shell } as const;
+			const trendDeps = { disk, paths, clock } as const;
+			const snapshot = collectHealth(healthDeps, ctx.project!);
+			const thresholds = resolveThresholds(ctx.project!);
+			const score = scoreHealth(snapshot, thresholds);
+			const filePath = saveSnapshot(trendDeps, ctx.project!.path, snapshot, score);
+			return { relativePath: paths.relative(ctx.project!.path, filePath) };
+		},
+		renderer: renderSnapshotSaved,
+	}),
 
-		return dataResponse(viewData, (d) => renderHealthDashboard(d, req.deps.log));
-	},
+	"health:history": adaptDescriptor({
+		requires: "project",
+		handler: (ctx) => {
+			const { disk, paths, clock } = ctx.deps;
+			const trendDeps = { disk, paths, clock } as const;
+			return loadHistory(trendDeps, ctx.project!.path);
+		},
+		renderer: renderHealthHistory,
+	}),
 
-	"health:snapshot": (req) => {
-		if (!req.project) return noProjectResponse(req.deps.log, "health:snapshot");
-		const { disk, paths, shell, clock } = req.deps;
-		const healthDeps = { disk, paths, shell } as const;
-		const trendDeps = { disk, paths, clock } as const;
-		const snapshot = collectHealth(healthDeps, req.project);
-		const thresholds = resolveThresholds(req.project);
-		const score = scoreHealth(snapshot, thresholds);
-		const filePath = saveSnapshot(trendDeps, req.project.path, snapshot, score);
-		const model: SnapshotSavedModel = { relativePath: paths.relative(req.project.path, filePath) };
-
-		return dataResponse(model, (d) => renderSnapshotSaved(d, req.deps.log));
-	},
-
-	"health:history": (req) => {
-		if (!req.project) return noProjectResponse(req.deps.log, "health:history");
-		const { disk, paths, clock } = req.deps;
-		const trendDeps = { disk, paths, clock } as const;
-		const history = loadHistory(trendDeps, req.project.path);
-
-		return dataResponse(history, (d) => renderHealthHistory(d, req.deps.log));
-	},
-
-	"debt:estimate": (req) => {
-		if (!req.project) return noProjectResponse(req.deps.log, "debt:estimate");
-		const { disk, paths, shell } = req.deps;
-		const healthDeps = { disk, paths, shell } as const;
-		const snapshot = collectHealth(healthDeps, req.project);
-		const thresholds = resolveThresholds(req.project);
-		const score = scoreHealth(snapshot, thresholds);
-		const estimate = estimateDebt(snapshot, score);
-
-		return dataResponse(estimate, (d) => renderDebtEstimate(d, req.deps.log));
-	},
+	"debt:estimate": adaptDescriptor({
+		requires: "project",
+		handler: (ctx) => {
+			const { disk, paths, shell } = ctx.deps;
+			const healthDeps = { disk, paths, shell } as const;
+			const snapshot = collectHealth(healthDeps, ctx.project!);
+			const thresholds = resolveThresholds(ctx.project!);
+			const score = scoreHealth(snapshot, thresholds);
+			return estimateDebt(snapshot, score);
+		},
+		renderer: renderDebtEstimate,
+	}),
 };
-
-// ── Adapted commands for CommandRegistry ─────────────────────────────
-
-export const commands: Record<string, CommandHandler> = Object.fromEntries(
-	Object.entries(actions).map(([key, action]) => [key, adapt(action)]),
-);

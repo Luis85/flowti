@@ -34,6 +34,11 @@ const options = {
 		"node:*",
 		"eslint",
 		"typedoc",
+		"ink",
+		"react",
+		"react/jsx-runtime",
+		"@inkjs/ui",
+		"yoga-wasm-web",
 	],
 };
 

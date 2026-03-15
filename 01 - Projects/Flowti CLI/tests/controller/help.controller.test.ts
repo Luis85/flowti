@@ -84,26 +84,26 @@ describe("help.controller", () => {
 		expect(output).toContain("FLOWTI CLI");
 	});
 
-	it("prefers flag key over rawArgs", () => {
-		commands.help({ build: true }, ["help", "scaffold"], "help");
+	it("prefers rawArgs section over falling back to main", () => {
+		commands.help({}, ["help", "build"], "help");
 
 		const output = mockLog.mock.calls.flat().join(" ");
 		expect(output).toContain("BUILD");
 	});
 
 	it("shows error for unknown section", () => {
-		commands.help({ nonexistent: true }, ["help"], "help");
+		commands.help({}, ["help", "nonexistent"], "help");
 
 		const output = mockLog.mock.calls.flat().join(" ");
 		expect(output).toContain("No help available");
 	});
 
 	it("outputs JSON in json format", () => {
-		commands.help({ format: "json" }, [], "help");
+		commands.help({ format: "json" }, ["help", "build"], "help");
 
 		const jsonOutput = mockLog.mock.calls.flat().join("");
 		const parsed = JSON.parse(jsonOutput);
-		expect(parsed).toHaveProperty("section", "format");
+		expect(parsed).toHaveProperty("section", "build");
 		expect(parsed).toHaveProperty("availableSections");
 	});
 });

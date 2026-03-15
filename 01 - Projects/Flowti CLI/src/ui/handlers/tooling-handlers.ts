@@ -171,7 +171,7 @@ export function registerToolingHandlers(registry: HandlerRegistry): void {
 		const { buildDependencyGraph } = await import("../../domain/project/project-deps.js");
 		const { displayDependencyGraph } = await import("../displays/deps-display.js");
 		const graph = buildDependencyGraph(PROJECTS_DIR, { disk, paths });
-		displayDependencyGraph(ctx.deps.log, graph);
+		displayDependencyGraph(graph, ctx.deps.log);
 		await input.waitForEnter();
 		return undefined;
 	});

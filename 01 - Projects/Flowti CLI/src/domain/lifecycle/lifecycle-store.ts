@@ -3,6 +3,13 @@
  *
  * Stores lifecycle state as markdown files with YAML frontmatter.
  * Transition history is tracked as a markdown table in the body.
+ *
+ * Each lifecycle item lives in its own subdirectory:
+ *   <basePath>/<subdir>/<item-name>/lifecycle.md
+ *
+ * This nested directory structure cannot be handled by the generic createStore()
+ * engine, so we implement the StoreApi manually and expose __descriptor for
+ * conformance checking.
  */
 
 import { Document } from "../../infrastructure/document.js";
@@ -10,11 +17,108 @@ import { parseFrontmatterStrings } from "../../infrastructure/frontmatter.js";
 import { toKebab } from "../make/naming.js";
 import type { CliDeps } from "../../infrastructure/deps.js";
 import type { EntityType, LifecycleState, LifecycleTransitionRecord } from "../../infrastructure/types.js";
+import type { StoreApi } from "../../infrastructure/store-engine.js";
 import type { LifecycleRecord, LifecycleSummary, TransitionResult } from "./lifecycle-types.js";
 import { getTemplate, validateTransition } from "./lifecycle-engine.js";
 import { resolveDir } from "../shared/markdown-store.js";
 
 export type LifecycleStoreDeps = Pick<CliDeps, "disk" | "paths" | "clock">;
+
+// ── Store descriptor ────────────────────────────────────────────────
+
+/**
+ * lifecycleStore — StoreApi-conformant descriptor for lifecycle items.
+ *
+ * Lifecycle storage uses a nested subdirectory pattern that is more complex
+ * than createStore() supports:
+ * - Each item lives in its own subdirectory: <item-name>/lifecycle.md
+ * - Transition history is stored as a markdown table in the body
+ * - The basePath + subdir pattern means dir resolution is context-sensitive
+ *
+ * StoreApi methods are implemented manually. The __descriptor exposes store
+ * metadata for conformance checking.
+ */
+export const lifecycleStore: StoreApi<LifecycleSummary, { entityType: EntityType; name: string; description?: string }> = {
+	__descriptor: {
+		name: "lifecycle",
+		defaultDir: ".",
+		typeTag: "Lifecycle",
+		nested: true,
+		fields: {
+			name: { type: "string", required: true, default: "" },
+			entityType: { type: "string", default: "feature" },
+			currentState: { type: "string", default: "" },
+			transitionCount: { type: "number", default: 0 },
+			createdDate: { type: "string", default: "" },
+		},
+		sort: (a, b) => a.name.localeCompare(b.name),
+		parseBody: (body) => {
+			parseHistory(body);
+			return { file: "" } as Partial<LifecycleSummary> & { history?: LifecycleTransitionRecord[] };
+		},
+		buildBody: (def) => {
+			const lines: string[] = ["", `# ${def.name}`, ""];
+			if (def.description) lines.push(def.description, "");
+			lines.push("## Transition History", "", "| Date | From | To | Reason |", "|---|---|---|---|");
+			return lines.join("\n");
+		},
+	},
+
+	resolveDir(deps, projectPath, config?) {
+		return resolveDir(deps, projectPath, config?.subdir as string | undefined, ".");
+	},
+
+	list(deps, projectPath, config?) {
+		const subdir = config?.subdir as string | undefined;
+		return listLifecycleItems(deps, projectPath, subdir);
+	},
+
+	read(deps, projectPath, name, config?) {
+		const subdir = config?.subdir as string | undefined;
+		const record = readLifecycleItem(deps, projectPath, name, subdir);
+		if (!record) return undefined;
+		return {
+			name: record.name,
+			entityType: record.entityType,
+			currentState: record.currentState,
+			transitionCount: 0,
+			createdDate: record.createdDate,
+			file: deps.paths.join(toKebab(name), "lifecycle.md"),
+		};
+	},
+
+	create(deps, projectPath, def, config?) {
+		const subdir = config?.subdir as string | undefined;
+		const clock = (deps as LifecycleStoreDeps).clock;
+		const result = createLifecycleFile(
+			{ ...deps, clock } as LifecycleStoreDeps,
+			projectPath,
+			def.entityType,
+			def.name,
+			def.description,
+			subdir,
+		);
+		return result ?? deps.paths.join(projectPath, subdir ?? ".", toKebab(def.name), "lifecycle.md");
+	},
+
+	updateField(deps, projectPath, name, field, value, config?) {
+		const subdir = config?.subdir as string | undefined;
+		const dir = resolveDir(deps, projectPath, subdir, ".");
+		const filePath = deps.paths.join(dir, toKebab(name), "lifecycle.md");
+		if (!deps.disk.existsSync(filePath)) return false;
+		let content = deps.disk.readFileSync(filePath, "utf-8");
+		content = content.replace(new RegExp(`^${field}:\\s*.+$`, "m"), `${field}: ${value}`);
+		deps.disk.writeFileSync(filePath, content, "utf-8");
+		return true;
+	},
+
+	remove(deps, projectPath, name, config?) {
+		const subdir = config?.subdir as string | undefined;
+		const dir = resolveDir(deps, projectPath, subdir, ".");
+		const filePath = deps.paths.join(dir, toKebab(name), "lifecycle.md");
+		if (deps.disk.existsSync(filePath)) deps.disk.unlinkSync(filePath);
+	},
+};
 
 // ── Directory resolution ────────────────────────────────────────────
 

@@ -68,6 +68,7 @@ vi.mock("../../src/ui/displays/lifecycle-display.js", () => ({
 	renderLifecycleCreated: vi.fn(),
 }));
 vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
+	renderNoProject: vi.fn(),
 	renderError: vi.fn(),
 }));
 
@@ -80,7 +81,8 @@ import { paths } from "../../src/infrastructure/paths.js";
 import { shell } from "../../src/infrastructure/shell.js";
 import { log } from "../../src/infrastructure/logger.js";
 import { listLifecycleItems, readLifecycleItem, createLifecycleFile, transitionLifecycleItem, getLifecycleHistory } from "../../src/domain/lifecycle/lifecycle-store.js";
-import { renderError } from "../../src/ui/renderers/common-renderers.js";
+
+const logMock = log as ReturnType<typeof vi.fn>;
 
 const mockProject = {
 	name: "test",
@@ -129,14 +131,18 @@ describe("lifecycle.controller", () => {
 		});
 
 		it("returns error when --name is missing", () => {
-			commands["lifecycle:status"]({}, [], "lifecycle:status", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: "Missing --name flag." }));
+			commands["lifecycle:status"]({ format: "json" }, [], "lifecycle:status", mockProject);
+			expect(logMock).toHaveBeenCalledOnce();
+			const output = JSON.parse(logMock.mock.calls[0][0] as string);
+			expect(output.error).toContain("--name");
 		});
 
 		it("returns error when item is not found", () => {
 			vi.mocked(readLifecycleItem).mockReturnValue(undefined as never);
-			commands["lifecycle:status"]({ name: "Missing" }, [], "lifecycle:status", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: expect.stringContaining("not found") }));
+			commands["lifecycle:status"]({ name: "Missing", format: "json" }, [], "lifecycle:status", mockProject);
+			expect(logMock).toHaveBeenCalledOnce();
+			const output = JSON.parse(logMock.mock.calls[0][0] as string);
+			expect(output.error).toContain("not found");
 		});
 	});
 
@@ -152,13 +158,17 @@ describe("lifecycle.controller", () => {
 		});
 
 		it("returns error when --name or --to is missing", () => {
-			commands["lifecycle:transition"]({ name: "Feature A" }, [], "lifecycle:transition", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: expect.stringContaining("Missing") }));
+			commands["lifecycle:transition"]({ name: "Feature A", format: "json" }, [], "lifecycle:transition", mockProject);
+			expect(logMock).toHaveBeenCalledOnce();
+			const output = JSON.parse(logMock.mock.calls[0][0] as string);
+			expect(output.error).toContain("Missing");
 		});
 
 		it("returns error when --reason is missing", () => {
-			commands["lifecycle:transition"]({ name: "Feature A", to: "development" }, [], "lifecycle:transition", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: expect.stringContaining("--reason") }));
+			commands["lifecycle:transition"]({ name: "Feature A", to: "development", format: "json" }, [], "lifecycle:transition", mockProject);
+			expect(logMock).toHaveBeenCalledOnce();
+			const output = JSON.parse(logMock.mock.calls[0][0] as string);
+			expect(output.error).toContain("--reason");
 		});
 	});
 
@@ -169,8 +179,10 @@ describe("lifecycle.controller", () => {
 		});
 
 		it("returns error when --name is missing", () => {
-			commands["lifecycle:history"]({}, [], "lifecycle:history", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: "Missing --name flag." }));
+			commands["lifecycle:history"]({ format: "json" }, [], "lifecycle:history", mockProject);
+			expect(logMock).toHaveBeenCalledOnce();
+			const output = JSON.parse(logMock.mock.calls[0][0] as string);
+			expect(output.error).toContain("--name");
 		});
 	});
 
@@ -186,13 +198,17 @@ describe("lifecycle.controller", () => {
 		});
 
 		it("returns error when --name is missing", () => {
-			commands["lifecycle:create"]({ type: "feature" }, [], "lifecycle:create", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: "Missing --name flag." }));
+			commands["lifecycle:create"]({ type: "feature", format: "json" }, [], "lifecycle:create", mockProject);
+			expect(logMock).toHaveBeenCalledOnce();
+			const output = JSON.parse(logMock.mock.calls[0][0] as string);
+			expect(output.error).toContain("--name");
 		});
 
 		it("returns error for invalid entity type", () => {
-			commands["lifecycle:create"]({ name: "Bad", type: "invalid" }, [], "lifecycle:create", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ error: expect.stringContaining("Invalid type") }));
+			commands["lifecycle:create"]({ name: "Bad", type: "invalid", format: "json" }, [], "lifecycle:create", mockProject);
+			expect(logMock).toHaveBeenCalledOnce();
+			const output = JSON.parse(logMock.mock.calls[0][0] as string);
+			expect(output.error).toContain("Invalid type");
 		});
 	});
 });

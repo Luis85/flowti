@@ -221,6 +221,14 @@ export interface OrchestrationConfig { phases?: Record<string, PhaseBinding>; }
 export interface IterationsConfig { dir?: string; durationDays?: number; lifecycle?: string; orchestration?: OrchestrationConfig; }
 export interface AgentsConfig { dir?: string; roster?: string[]; autonomous?: boolean; claudeSync?: boolean; skillMap?: Record<string, string[]>; thinkingDisplay?: "full" | "indicator" | "hidden"; processTimeoutMs?: number; provider?: string; }
 
+export interface WorkspacesConfig {
+	readonly baseDir: string;
+	readonly defaultRetain: boolean;
+	readonly retentionMaxAge: number;
+	readonly maxConcurrent: number;
+	readonly branchPrefix: string;
+}
+
 /** Top-level agents environment config — opt-in ExcaliburJS dashboard. */
 export interface AgentsDashboardConfig {
 	dashboard?: boolean;
@@ -326,6 +334,7 @@ export interface FlowtiCliConfig {
 	onboarding?: OnboardingConfig;
 	testing?: TestingConfig;
 	agents?: AgentsConfig;
+	workspaces?: WorkspacesConfig;
 }
 
 // ── Project context (needs both infra + config types) ───────────────

@@ -129,7 +129,7 @@ function printGit(deps: InfoDeps, ctx: ProjectContext): void {
 
 // ── Public display function ─────────────────────────────────────────
 
-export function displayInfo(log: Log, data: ProjectInfo): void {
+export function displayInfo(data: ProjectInfo, log: Log): void {
 	log(`  ${BOLD}Project${RESET}`);
 	log(`    Name:           ${data.name}`);
 	if (data.version) log(`    Version:        ${data.version}`);

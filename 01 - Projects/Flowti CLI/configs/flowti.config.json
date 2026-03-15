@@ -70,6 +70,14 @@
 				"label": "Complexity Report"
 			},
 			{
+				"id": "iteration-retrospective",
+				"label": "Iteration Retrospective"
+			},
+			{
+				"id": "effort-report",
+				"label": "Effort Report"
+			},
+			{
 				"id": "status",
 				"label": "Status Report",
 				"dependencies": [
@@ -149,6 +157,38 @@
 			{
 				"id": "sitemap-reference",
 				"label": "Sitemap Reference"
+			},
+			{
+				"id": "agent-roster-reference",
+				"label": "Agent Roster Reference"
+			},
+			{
+				"id": "agent-skill-map",
+				"label": "Agent Skill Map"
+			},
+			{
+				"id": "agent-permission-matrix",
+				"label": "Agent Permission Matrix"
+			},
+			{
+				"id": "pdca-dashboard",
+				"label": "PDCA Dashboard"
+			},
+			{
+				"id": "resource-inventory",
+				"label": "Resource Inventory"
+			},
+			{
+				"id": "requirements-traceability",
+				"label": "Requirements Traceability"
+			},
+			{
+				"id": "deliverables-schedule",
+				"label": "Deliverables Schedule"
+			},
+			{
+				"id": "onboarding-tour-catalog",
+				"label": "Onboarding Tour Catalog"
 			}
 		]
 	},
@@ -196,6 +236,9 @@
 		},
 		"deliverables": {
 			"dir": "docs/deliverables"
+		},
+		"features": {
+			"dir": "docs/features"
 		},
 		"raid": {
 			"dir": "docs/raid"

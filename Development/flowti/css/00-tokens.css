@@ -1,0 +1,42 @@
+/* Flowti Design Tokens
+ * Portable token layer — components use var(--flowti-*) only.
+ * In Obsidian: tokens inherit from Obsidian CSS variables.
+ * In storybook: fallback defaults apply.
+ */
+
+:root {
+	/* Colors — mapped from Obsidian theme */
+	--flowti-bg-primary: var(--background-primary, #1e1e2e);
+	--flowti-bg-secondary: var(--background-secondary, #181825);
+	--flowti-bg-hover: var(--background-modifier-hover, #313244);
+	--flowti-border: var(--background-modifier-border, #45475a);
+	--flowti-accent: var(--interactive-accent, #89b4fa);
+	--flowti-accent-hover: var(--interactive-accent-hover, #74c7ec);
+
+	/* Text */
+	--flowti-text: var(--text-normal, #cdd6f4);
+	--flowti-text-muted: var(--text-muted, #a6adc8);
+	--flowti-text-on-accent: var(--text-on-accent, #1e1e2e);
+
+	/* Typography */
+	--flowti-font: var(--font-interface, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+	--flowti-font-sm: var(--font-ui-small, 0.875rem);
+	--flowti-font-xs: var(--font-ui-smaller, 0.75rem);
+
+	/* Spacing */
+	--flowti-space-xs: 0.25rem;
+	--flowti-space-sm: 0.5rem;
+	--flowti-space-md: 0.75rem;
+	--flowti-space-lg: 1rem;
+	--flowti-space-xl: 1.5rem;
+
+	/* Radius */
+	--flowti-radius-sm: var(--radius-s, 4px);
+	--flowti-radius-md: var(--radius-m, 8px);
+
+	/* Status colors */
+	--flowti-success: #a6e3a1;
+	--flowti-warning: #f9e2af;
+	--flowti-error: #f38ba8;
+	--flowti-info: #89b4fa;
+}

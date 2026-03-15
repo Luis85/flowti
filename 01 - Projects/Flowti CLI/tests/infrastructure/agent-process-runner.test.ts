@@ -61,6 +61,7 @@ describe("createProcessRunner", () => {
 		runner.spawn(makeAgent(), "Hello");
 		expect(deps.shell.spawnBackground).toHaveBeenCalledWith(
 			expect.stringContaining("claude"),
+			undefined,
 		);
 	});
 
