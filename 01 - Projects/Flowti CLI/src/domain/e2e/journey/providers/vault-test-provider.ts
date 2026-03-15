@@ -167,7 +167,14 @@ const toolVaultAssert: ToolExecutor = (action, deps, opts) => {
 	}
 };
 
-export function createVaultTestProvider(): EnvironmentProvider {
+interface VaultTestConfig {
+	templateDir: string;
+	binSrc: string;
+}
+
+export function createVaultTestProvider(config?: VaultTestConfig): EnvironmentProvider {
+	let currentVaultRoot: string | undefined;
+
 	return {
 		target: "vault-test",
 		label: "Vault Test",
@@ -179,10 +186,44 @@ export function createVaultTestProvider(): EnvironmentProvider {
 		},
 		async setup(deps, opts) {
 			opts.variables ??= {};
-			deps.log("[vault-test] setup: not yet implemented");
+
+			const tmpBase = deps.exec("node -e \"console.log(require('os').tmpdir())\"", {});
+			const uuid = Math.random().toString(36).slice(2, 10);
+			const tmpDir = `${tmpBase.stdout.trim()}/flowti-vault-test-${uuid}`;
+
+			const templateDir = config?.templateDir ?? opts.variables["templateDir"] as string;
+			const binSrc = config?.binSrc ?? opts.variables["binSrc"] as string;
+
+			if (templateDir) {
+				const safeTpl = templateDir.replace(/\\/g, "/");
+				deps.exec(`node -e "require('fs').cpSync('${safeTpl}', '${tmpDir}', { recursive: true })"`, {});
+			} else {
+				deps.mkdir(tmpDir);
+			}
+
+			if (binSrc) {
+				const binDest = `${tmpDir}/.flowti/bin`;
+				deps.mkdir(binDest);
+				const safeBin = binSrc.replace(/\\/g, "/");
+				deps.exec(`node -e "require('fs').cpSync('${safeBin}', '${binDest}/main.js')"`, {});
+			}
+
+			currentVaultRoot = tmpDir;
+			opts.variables["vaultRoot"] = tmpDir;
+			opts.variables["healthyProject"] = "Healthy App";
+			opts.variables["brokenProject"] = "Broken App";
+
+			deps.log(`[vault-test] Provisioned vault at ${tmpDir}`);
 		},
 		async teardown(deps) {
-			deps.log("[vault-test] teardown: not yet implemented");
+			if (currentVaultRoot) {
+				const safePath = currentVaultRoot.replace(/\\/g, "/");
+				deps.exec(`node -e "require('fs').rmSync('${safePath}', { recursive: true, force: true })"`, {});
+				deps.log(`[vault-test] Cleaned up ${currentVaultRoot}`);
+				currentVaultRoot = undefined;
+			} else {
+				deps.log("[vault-test] teardown: nothing to clean up");
+			}
 		},
 	};
 }

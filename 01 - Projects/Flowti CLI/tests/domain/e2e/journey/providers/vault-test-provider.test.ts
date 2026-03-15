@@ -280,3 +280,69 @@ describe("vault-assert tool", () => {
 		expect(result.success).toBe(false);
 	});
 });
+
+describe("setup", () => {
+	it("initializes opts.variables when undefined", async () => {
+		const provider = createVaultTestProvider();
+		const deps = createMockToolDeps({
+			exec: vi.fn(() => ({ exitCode: 0, stdout: "", stderr: "" })),
+		});
+		const opts: JourneyExecutorOptions = {};
+
+		await provider.setup!(deps, opts);
+
+		expect(opts.variables).toBeDefined();
+		expect(opts.variables!["vaultRoot"]).toBeDefined();
+	});
+
+	it("sets vaultRoot variable", async () => {
+		const provider = createVaultTestProvider();
+		const deps = createMockToolDeps({
+			exec: vi.fn(() => ({ exitCode: 0, stdout: "", stderr: "" })),
+		});
+		const opts: JourneyExecutorOptions = { variables: {} };
+
+		await provider.setup!(deps, opts);
+
+		expect(typeof opts.variables!["vaultRoot"]).toBe("string");
+		expect(opts.variables!["vaultRoot"]).toContain("flowti-vault-test");
+	});
+
+	it("sets healthyProject and brokenProject variables", async () => {
+		const provider = createVaultTestProvider();
+		const deps = createMockToolDeps({
+			exec: vi.fn(() => ({ exitCode: 0, stdout: "", stderr: "" })),
+		});
+		const opts: JourneyExecutorOptions = { variables: {} };
+
+		await provider.setup!(deps, opts);
+
+		expect(opts.variables!["healthyProject"]).toBe("Healthy App");
+		expect(opts.variables!["brokenProject"]).toBe("Broken App");
+	});
+
+	it("logs provisioning summary", async () => {
+		const provider = createVaultTestProvider();
+		const deps = createMockToolDeps({
+			exec: vi.fn(() => ({ exitCode: 0, stdout: "", stderr: "" })),
+		});
+		const opts: JourneyExecutorOptions = { variables: {} };
+
+		await provider.setup!(deps, opts);
+
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("[vault-test]"));
+	});
+});
+
+describe("teardown", () => {
+	it("logs cleanup summary", async () => {
+		const provider = createVaultTestProvider();
+		const deps = createMockToolDeps({
+			exec: vi.fn(() => ({ exitCode: 0, stdout: "", stderr: "" })),
+		});
+
+		await provider.teardown!(deps);
+
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("[vault-test]"));
+	});
+});
