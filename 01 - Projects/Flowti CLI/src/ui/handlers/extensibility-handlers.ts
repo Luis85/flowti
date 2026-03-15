@@ -3,7 +3,7 @@
 import type { HandlerRegistry } from "../../infrastructure/handler-registry.js";
 import type { MenuEntry, MenuResult } from "../../infrastructure/types.js";
 import type { RouterContext } from "../../infrastructure/sitemap-types.js";
-import { RESET, DIM, GREEN, RED } from "../../infrastructure/ui.js";
+import { RESET, DIM, GREEN, RED, BOLD } from "../../infrastructure/ui.js";
 import { VAULT_ROOT, CLI_PROJECT, cliConfig } from "../../infrastructure/config.js";
 import { navigateWithParams } from "../../infrastructure/sitemap-router.js";
 import { listAgents } from "../../domain/agents/agent-store.js";
@@ -112,6 +112,21 @@ async function withAgent(ctx: RouterContext, fn: (agent: import("../../domain/ag
 	const agent = findAgent(ctx.deps, VAULT_ROOT, agentName, cliConfig.agents);
 	if (!agent) return undefined;
 	return fn(agent);
+}
+
+function renderGrantsList(grants: readonly import("../../domain/agents/permission-engine.js").PermissionGrant[], pending: readonly import("../../domain/agents/agent-state.js").PendingPermission[], log: (msg?: string) => void): void {
+	if (grants.length > 0) {
+		log(`\n  ${BOLD}Permanent grants${RESET}\n`);
+		for (let i = 0; i < grants.length; i++) {
+			log(`  ${i + 1}) ${grants[i].tool} — granted ${grants[i].grantedAt.slice(0, 10)} (${grants[i].grantedBy})`);
+		}
+	}
+	if (pending.length > 0) {
+		log(`\n  ${BOLD}Pending requests${RESET}\n`);
+		for (const p of pending) {
+			log(`  • ${p.tool} — requested ${p.requestedAt.slice(0, 10)}`);
+		}
+	}
 }
 
 export function registerExtensibilityHandlers(registry: HandlerRegistry): void {
@@ -259,13 +274,60 @@ export function registerExtensibilityHandlers(registry: HandlerRegistry): void {
 		maybeSyncAgents(ctx);
 		return undefined;
 	}));
+	registry.registerAction("agents:change-permission", (ctx) => withAgent(ctx, async (agent) => {
+		if (agent.agentType !== "ai") { ctx.deps.log("\n  Only AI agents have permissions.\n"); return undefined; }
+		const { readAgentState, writeAgentState } = await import("../../domain/agents/agent-state.js");
+		const dir = varDir(ctx);
+		const state = readAgentState(ctx.deps, dir, agent.name);
+		const current = state.permissionOverride ?? agent.ai?.permissions?.mode ?? "ask";
+		ctx.deps.log(`\n  Current mode: ${GREEN}${current}${RESET}\n`);
+		ctx.deps.log(`  1) ask       — prompt for each tool call`);
+		ctx.deps.log(`  2) auto-allow — safe tools run freely, others prompt`);
+		ctx.deps.log(`  3) trust     — everything runs without prompting\n`);
+		const choice = await ctx.deps.input.ask("Select mode (1/2/3)");
+		const modes: Record<string, import("../../domain/agents/agent-types.js").PermissionMode> = { "1": "ask", "2": "auto-allow", "3": "trust" };
+		const selected = modes[choice];
+		if (!selected) { ctx.deps.log(`  ${DIM}Cancelled.${RESET}\n`); return undefined; }
+		writeAgentState(ctx.deps, dir, agent.name, { ...state, permissionOverride: selected });
+		ctx.deps.log(`  ${GREEN}✓${RESET} Permission mode set to ${selected}\n`);
+		return undefined;
+	}));
+	registry.registerAction("agents:manage-grants", (ctx) => withAgent(ctx, async (agent) => {
+		if (agent.agentType !== "ai") { ctx.deps.log("\n  Only AI agents have grants.\n"); return undefined; }
+		const { readAgentState, writeAgentState } = await import("../../domain/agents/agent-state.js");
+		const dir = varDir(ctx);
+		const state = readAgentState(ctx.deps, dir, agent.name);
+		const alwaysGrants = state.grants.filter((g) => g.scope === "always");
+		if (alwaysGrants.length === 0 && state.pendingPermissions.length === 0) {
+			ctx.deps.log(`\n  ${DIM}No grants or pending requests for ${agent.name}.${RESET}\n`);
+			await ctx.deps.input.waitForEnter();
+			return undefined;
+		}
+		renderGrantsList(alwaysGrants, state.pendingPermissions, ctx.deps.log);
+		ctx.deps.log(`\n  r) Revoke a grant  c) Clear all  Enter) Back\n`);
+		const choice = await ctx.deps.input.ask("Action");
+		if (choice === "c") {
+			writeAgentState(ctx.deps, dir, agent.name, { ...state, grants: [], pendingPermissions: [] });
+			ctx.deps.log(`  ${GREEN}✓${RESET} All grants and pending requests cleared.\n`);
+		} else if (choice === "r" && alwaysGrants.length > 0) {
+			const idx = parseInt(await ctx.deps.input.ask("Grant number to revoke"), 10) - 1;
+			if (idx >= 0 && idx < alwaysGrants.length) {
+				const toolToRevoke = alwaysGrants[idx].tool;
+				const filtered = state.grants.filter((g) => !(g.tool === toolToRevoke && g.scope === "always"));
+				writeAgentState(ctx.deps, dir, agent.name, { ...state, grants: filtered });
+				ctx.deps.log(`  ${GREEN}✓${RESET} Revoked ${toolToRevoke}\n`);
+			}
+		}
+		await ctx.deps.input.waitForEnter();
+		return undefined;
+	}));
 	registry.registerView("agent-detail", async (ctx) => {
 		const agentName = ctx.params?.agentName as string | undefined;
 		if (!agentName) return "main";
 		const { findAgent } = await import("../../domain/agents/agent-store.js");
 		const agent = findAgent(ctx.deps, VAULT_ROOT, agentName, vaultAgents);
 		if (!agent) { ctx.deps.log(`\n  Agent "${agentName}" not found.\n`); return "main"; }
-		const { renderAgentDetail, renderAgentState } = await import("../displays/agents-display.js");
+		const { renderAgentDetail, renderAgentState, renderPermissionInfo } = await import("../displays/agents-display.js");
 		const { readAgentState } = await import("../../domain/agents/agent-state.js");
 		const { runMenu } = await import("../../infrastructure/menu.js");
 		const state = readAgentState(ctx.deps, varDir(ctx), agent.name);
@@ -276,6 +338,7 @@ export function registerExtensibilityHandlers(registry: HandlerRegistry): void {
 			beforeMenu: () => {
 				renderAgentDetail(agent, ctx.deps.log);
 				renderAgentState(state, ctx.deps.log);
+				renderPermissionInfo(agent, state, ctx.deps.log);
 				if (worker && worker.state === "working") ctx.deps.log(`  ${GREEN}Currently working${RESET}`);
 			},
 		});

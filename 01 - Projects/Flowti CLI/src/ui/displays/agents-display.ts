@@ -5,6 +5,7 @@
 import { RESET, DIM, GREEN, CYAN, BOLD, YELLOW } from "../../infrastructure/ui.js";
 import type { AgentSummary } from "../../domain/agents/agent-types.js";
 import type { AgentState } from "../../domain/agents/agent-state.js";
+import { resolvePermissionPolicy, DEFAULT_SAFE_TOOLS } from "../../domain/agents/permission-engine.js";
 
 export function renderAgentList(agents: AgentSummary[], log: (msg?: string) => void): void {
 	if (agents.length === 0) {
@@ -109,4 +110,25 @@ export function renderAgentCreated(relPath: string, log: (msg?: string) => void)
 
 export function renderAgentDeleted(name: string, log: (msg?: string) => void): void {
 	log(`\n  ${GREEN}✓${RESET} Deleted agent: ${name}`);
+}
+
+export function renderPermissionInfo(
+	agent: AgentSummary,
+	state: AgentState,
+	log: (msg?: string) => void,
+): void {
+	if (agent.agentType !== "ai") return;
+	const policy = resolvePermissionPolicy(agent.ai?.permissions, state.permissionOverride);
+	const alwaysGrants = state.grants.filter((g) => g.scope === "always").length;
+	const modeLabel = policy.mode === "auto-allow" ? "auto-allow" : policy.mode;
+	const parts = [modeLabel];
+	if (policy.mode === "auto-allow") {
+		const safeCount = (policy.autoAllowTools ?? DEFAULT_SAFE_TOOLS).length;
+		parts.push(`${safeCount} pre-approved`);
+	}
+	if (alwaysGrants > 0) parts.push(`${alwaysGrants} user grant${alwaysGrants > 1 ? "s" : ""}`);
+	log(`  ${DIM}Permission: ${parts.join(", ")}${RESET}`);
+	if (state.pendingPermissions.length > 0) {
+		log(`  ${YELLOW}${state.pendingPermissions.length} pending permission request${state.pendingPermissions.length > 1 ? "s" : ""}${RESET}`);
+	}
 }

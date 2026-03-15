@@ -576,6 +576,20 @@
 					"group": "manage"
 				},
 				{
+					"name": "onChangePermission",
+					"label": "Permission Mode",
+					"type": "handler",
+					"target": "agents:change-permission",
+					"group": "permissions"
+				},
+				{
+					"name": "onManageGrants",
+					"label": "Manage Grants",
+					"type": "handler",
+					"target": "agents:manage-grants",
+					"group": "permissions"
+				},
+				{
 					"name": "onBack",
 					"label": "Back",
 					"type": "signal",
