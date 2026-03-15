@@ -77,8 +77,17 @@ export class SitemapHubView extends BaseHubView<string> {
 	}
 
 	onDashboardRender(): void {
-		if (this.dashboardEl) {
-			this.dashboardEl.empty();
+		if (!this.dashboardEl) return;
+		this.dashboardEl.empty();
+		const handlerId = `${this.viewDef.type.replace("flowti-", "").replace("-hub", "")}:dashboard`;
+		const handler = this.handlerRegistry.getTabHandler(handlerId);
+		if (handler) {
+			void handler(this.dashboardEl, {
+				tabId: "dashboard",
+				viewId: this.viewDef.type,
+				eventBus: this.eventBus,
+			});
+		} else {
 			this.dashboardEl.createEl("h2", { text: this.viewDef.label });
 		}
 	}
@@ -109,6 +118,7 @@ export class SitemapHubView extends BaseHubView<string> {
 					tabId,
 					viewId: this.viewDef.type,
 					eventBus: this.eventBus,
+					searchText: this.filterText,
 				};
 				await handler(container, ctx);
 			}
@@ -136,7 +146,13 @@ export class SitemapHubView extends BaseHubView<string> {
 	// ── Lifecycle no-ops ────────────────────────────────────
 
 	onHubOpen(): void {
-		// Subclass-specific init is handled by the sitemap bootstrap
+		if (this.viewDef.refreshEvents) {
+			for (const event of this.viewDef.refreshEvents) {
+				this.addUnsubscribe(
+					this.eventBus.on(event as never, () => this.scheduleRender())
+				);
+			}
+		}
 	}
 
 	onHubClose(): void {

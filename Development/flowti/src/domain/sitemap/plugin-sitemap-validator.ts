@@ -36,6 +36,15 @@ export function validatePluginSitemap(sitemap: unknown): ValidationResult {
 			if (view.kind && !VALID_VIEW_KINDS.has(view.kind as string)) {
 				errors.push({ path: `views.${viewId}.kind`, message: `Invalid view kind: ${view.kind}`, severity: "error" });
 			}
+			if (view.refreshEvents !== undefined) {
+				if (!Array.isArray(view.refreshEvents) || !view.refreshEvents.every((e: unknown) => typeof e === "string" && (e as string).length > 0)) {
+					errors.push({
+						path: `views.${viewId}.refreshEvents`,
+						message: "refreshEvents must be an array of non-empty strings",
+						severity: "error",
+					});
+				}
+			}
 			if (Array.isArray(view.tabs)) {
 				const tabIds = new Set<string>();
 				for (let i = 0; i < view.tabs.length; i++) {
