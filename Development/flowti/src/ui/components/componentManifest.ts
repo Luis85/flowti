@@ -128,4 +128,14 @@ export const DEFAULT_COMPONENTS: ComponentMeta[] = [
 		emits: [],
 		tags: ["tab"],
 	},
+	{
+		id: "status-badge",
+		name: "Status Badge",
+		category: "shared",
+		description: "A status badge with colored dot indicator for displaying state labels.",
+		source: "components/flowti-status-badge.ts",
+		layouts: ["inline"],
+		emits: [],
+		tags: ["badge", "status", "lit"],
+	},
 ];
