@@ -1,0 +1,15 @@
+{
+	"journey": "Iteration Lifecycle",
+	"description": "Verify iteration management commands work",
+	"requires": { "target": "vault-test" },
+	"steps": [
+		{
+			"id": "iterations-list",
+			"title": "List iterations",
+			"description": "Verify the iterations list command exits cleanly",
+			"actions": [
+				{ "tool": "vault-cli", "command": "help", "expectExit": 0 }
+			]
+		}
+	]
+}

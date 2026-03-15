@@ -1,0 +1,15 @@
+{
+	"journey": "World State",
+	"description": "Verify world state command outputs valid data",
+	"requires": { "target": "vault-test" },
+	"steps": [
+		{
+			"id": "state-exits",
+			"title": "State command exits cleanly",
+			"description": "Run the state command and verify it completes",
+			"actions": [
+				{ "tool": "vault-cli", "command": "state", "expectExit": 0 }
+			]
+		}
+	]
+}

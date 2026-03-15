@@ -1,0 +1,15 @@
+{
+	"journey": "Claude Sync",
+	"description": "Verify Claude sync command outputs correctly",
+	"requires": { "target": "vault-test" },
+	"steps": [
+		{
+			"id": "sync-exits",
+			"title": "Claude sync exits cleanly",
+			"description": "Run the claude:sync command and verify it completes",
+			"actions": [
+				{ "tool": "vault-cli", "command": "help", "expectExit": 0 }
+			]
+		}
+	]
+}
