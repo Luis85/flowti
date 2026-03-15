@@ -68,6 +68,7 @@
     "vitest": "^4.0.17"
   },
   "dependencies": {
+    "lit": "^3.3.2",
     "papaparse": "^5.5.3",
     "zod": "^4.3.5"
   }
