@@ -7,4 +7,5 @@ docs/reference/
 
 *storybook.log
 storybook-static
-components
+/components
+/component-library
