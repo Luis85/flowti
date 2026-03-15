@@ -19,11 +19,11 @@
 - Create: `.claude/hooks/auto-lint.sh`
 - Create: `.claude/hooks/auto-typecheck.sh`
 
-- [ ] **Step 1: Create the hooks directory**
+- [x] **Step 1: Create the hooks directory**
 
 Run: `mkdir -p .claude/hooks`
 
-- [ ] **Step 2: Write block-sensitive-files.sh**
+- [x] **Step 2: Write block-sensitive-files.sh**
 
 ```bash
 #!/bin/bash
@@ -35,7 +35,7 @@ case "$FILE" in
 esac
 ```
 
-- [ ] **Step 3: Write auto-lint.sh**
+- [x] **Step 3: Write auto-lint.sh**
 
 ```bash
 #!/bin/bash
@@ -48,7 +48,7 @@ case "$FILE" in
 esac
 ```
 
-- [ ] **Step 4: Write auto-typecheck.sh**
+- [x] **Step 4: Write auto-typecheck.sh**
 
 ```bash
 #!/bin/bash
@@ -62,7 +62,7 @@ case "$FILE" in
 esac
 ```
 
-- [ ] **Step 5: Commit hook scripts**
+- [x] **Step 5: Commit hook scripts**
 
 ```bash
 git add .claude/hooks/block-sensitive-files.sh .claude/hooks/auto-lint.sh .claude/hooks/auto-typecheck.sh
@@ -74,7 +74,7 @@ git commit -m "feat: add Claude Code hook scripts for file protection and auto-l
 **Files:**
 - Modify: `.claude/settings.json`
 
-- [ ] **Step 1: Add hooks config to settings.json**
+- [x] **Step 1: Add hooks config to settings.json**
 
 Add the `hooks` key alongside existing `enabledPlugins`:
 
@@ -103,7 +103,7 @@ Add the `hooks` key alongside existing `enabledPlugins`:
 }
 ```
 
-- [ ] **Step 2: Commit settings change**
+- [x] **Step 2: Commit settings change**
 
 ```bash
 git add .claude/settings.json
@@ -120,12 +120,12 @@ git commit -m "feat: configure Claude Code hooks for edit protection and auto-li
 - Modify: `01 - Projects/Flowti CLI/src/infrastructure/types-config.ts:222`
 - Test: type-check only
 
-- [ ] **Step 1: Write the failing type-check**
+- [x] **Step 1: Write the failing type-check**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx tsc --noEmit --project configs/tsconfig.json`
 Expected: PASS (baseline — no changes yet)
 
-- [ ] **Step 2: Add skillMap field to AgentsConfig**
+- [x] **Step 2: Add skillMap field to AgentsConfig**
 
 In `src/infrastructure/types-config.ts:222`, change:
 
@@ -139,12 +139,12 @@ to:
 export interface AgentsConfig { dir?: string; roster?: string[]; autonomous?: boolean; claudeSync?: boolean; skillMap?: Record<string, string[]>; }
 ```
 
-- [ ] **Step 3: Verify type-check passes**
+- [x] **Step 3: Verify type-check passes**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx tsc --noEmit --project configs/tsconfig.json`
 Expected: PASS
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add "01 - Projects/Flowti CLI/src/infrastructure/types-config.ts"
@@ -156,7 +156,7 @@ git commit -m "feat: add skillMap field to AgentsConfig interface"
 **Files:**
 - Modify: `.flowti/config.json`
 
-- [ ] **Step 1: Add skillMap to .flowti/config.json**
+- [x] **Step 1: Add skillMap to .flowti/config.json**
 
 Add `skillMap` under the existing `agents` section:
 
@@ -209,7 +209,7 @@ Add `skillMap` under the existing `agents` section:
 }
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add .flowti/config.json
@@ -222,7 +222,7 @@ git commit -m "feat: add domain-to-skill mappings in vault config"
 - Modify: `01 - Projects/Flowti CLI/src/domain/project/config-validators-review.ts:121-133`
 - Test: `01 - Projects/Flowti CLI/tests/domain/project/config-validators-review.test.ts`
 
-- [ ] **Step 1: Write failing tests for skillMap validation**
+- [x] **Step 1: Write failing tests for skillMap validation**
 
 This test file may not exist yet. If it does, add to the `validateAgentsRoster` describe block. If not, create it with the standard mock boilerplate (see `tests/domain/project/` for patterns), import `validateAgentsRoster` from `../../../src/domain/project/config-validators-review.js`, and wrap in a `describe("validateAgentsRoster")` block. Note: `validateAgentsRoster` is not currently exported — you'll need to either export it or test it indirectly via `validateProjectConfig`. If the function is not exported, test through the public `validateProjectConfig` function by passing a config object with `management.agents.skillMap`.
 
@@ -263,12 +263,12 @@ it("skips validation when skillMap is undefined", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run tests/domain/project/config-validators-review.test.ts --config configs/vitest.config.ts`
 Expected: FAIL (new tests fail because validation logic doesn't exist yet)
 
-- [ ] **Step 3: Implement skillMap validation**
+- [x] **Step 3: Implement skillMap validation**
 
 In `src/domain/project/config-validators-review.ts`, after the `validateAgentsRoster` function (line 121-133), add skillMap validation inside the function body, after the roster validation:
 
@@ -313,18 +313,18 @@ function validateAgentsRoster(agents: Record<string, unknown>, warnings: string[
 
 Note: The existing early `return` after roster check (`if (agents.roster === undefined) return;`) must be removed so skillMap validation runs even when roster is not set. Wrap the roster block in `if (agents.roster !== undefined)` instead.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run tests/domain/project/config-validators-review.test.ts --config configs/vitest.config.ts`
 Expected: PASS
 
-- [ ] **Step 5: Run ALL config validator tests to check for regressions**
+- [x] **Step 5: Run ALL config validator tests to check for regressions**
 
 The early `return` removal could affect existing tests. Run:
 `cd "01 - Projects/Flowti CLI" && npx vitest run tests/domain/project/ --config configs/vitest.config.ts`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add "01 - Projects/Flowti CLI/src/domain/project/config-validators-review.ts" "01 - Projects/Flowti CLI/tests/domain/project/config-validators-review.test.ts"
@@ -341,7 +341,7 @@ git commit -m "feat: validate skillMap shape in config validators"
 - Modify: `01 - Projects/Flowti CLI/src/domain/claude-sync/claude-sync.ts:47-116`
 - Test: `01 - Projects/Flowti CLI/tests/domain/claude-sync/claude-sync.test.ts`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Add to the existing test file:
 
@@ -409,12 +409,12 @@ describe("generateAgentSkillContent — skillMap", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run tests/domain/claude-sync/claude-sync.test.ts --config configs/vitest.config.ts`
 Expected: FAIL (generateAgentSkillContent doesn't accept 4th param yet)
 
-- [ ] **Step 3: Add skillMap parameter and rendering logic**
+- [x] **Step 3: Add skillMap parameter and rendering logic**
 
 In `src/domain/claude-sync/claude-sync.ts`:
 
@@ -473,17 +473,17 @@ export function syncAllToClaude(
 	const agentResult = syncAgentsToClaude(deps, vaultRoot, agentsDir, agents, skillMap);
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run tests/domain/claude-sync/claude-sync.test.ts --config configs/vitest.config.ts`
 Expected: PASS
 
-- [ ] **Step 5: Run full type-check**
+- [x] **Step 5: Run full type-check**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx tsc --noEmit --project configs/tsconfig.json`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add "01 - Projects/Flowti CLI/src/domain/claude-sync/claude-sync.ts" "01 - Projects/Flowti CLI/tests/domain/claude-sync/claude-sync.test.ts"
@@ -496,7 +496,7 @@ git commit -m "feat: inject recommended skills into SKILL.md based on agent doma
 - Modify: `01 - Projects/Flowti CLI/src/controller/claude-sync.controller.ts:26`
 - Modify: `01 - Projects/Flowti CLI/src/ui/handlers/extensibility-handlers.ts:86-91`
 
-- [ ] **Step 1: Update claude-sync.controller.ts**
+- [x] **Step 1: Update claude-sync.controller.ts**
 
 At line 26, pass `cliConfig.agents?.skillMap` to `syncAllToClaude`:
 
@@ -504,7 +504,7 @@ At line 26, pass `cliConfig.agents?.skillMap` to `syncAllToClaude`:
 const result = syncAllToClaude(req.deps, VAULT_ROOT, agentsDir, agents, tools, cliConfig.agents?.skillMap);
 ```
 
-- [ ] **Step 2: Update maybeSyncAgents in extensibility-handlers.ts**
+- [x] **Step 2: Update maybeSyncAgents in extensibility-handlers.ts**
 
 At line 90, pass `cliConfig.agents?.skillMap` to `syncAgentsToClaude`:
 
@@ -512,17 +512,17 @@ At line 90, pass `cliConfig.agents?.skillMap` to `syncAgentsToClaude`:
 syncAgentsToClaude(ctx.deps, VAULT_ROOT, agentsDir, agents, cliConfig.agents?.skillMap);
 ```
 
-- [ ] **Step 3: Run type-check**
+- [x] **Step 3: Run type-check**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx tsc --noEmit --project configs/tsconfig.json`
 Expected: PASS
 
-- [ ] **Step 4: Run existing tests to verify no regressions**
+- [x] **Step 4: Run existing tests to verify no regressions**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run tests/domain/claude-sync/claude-sync.test.ts tests/ui/handlers/extensibility-handlers.test.ts --config configs/vitest.config.ts`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add "01 - Projects/Flowti CLI/src/controller/claude-sync.controller.ts" "01 - Projects/Flowti CLI/src/ui/handlers/extensibility-handlers.ts"
@@ -539,7 +539,7 @@ git commit -m "feat: pass skillMap from vault config to claude-sync functions"
 - Modify: `01 - Projects/Flowti CLI/src/domain/agents/brief-store.ts:30-41, 205-225`
 - Test: `01 - Projects/Flowti CLI/tests/domain/agents/brief-store.test.ts`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Add to the existing brief-store test file (or create if it doesn't exist at that path — check `tests/domain/agents/` for the right file):
 
@@ -585,12 +585,12 @@ describe("generateBrief — availableSkills", () => {
 
 Note: You'll need to adapt the `makeContext` helper to match whatever test helper pattern already exists in the brief-store test file. Use the existing `IterationSummary` mock.
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run tests/domain/agents/brief-store.test.ts --config configs/vitest.config.ts`
 Expected: FAIL
 
-- [ ] **Step 3: Add availableSkills to BriefContext**
+- [x] **Step 3: Add availableSkills to BriefContext**
 
 In `src/domain/agents/brief-store.ts:30-41`, add the field to `BriefContext`:
 
@@ -609,7 +609,7 @@ export interface BriefContext {
 }
 ```
 
-- [ ] **Step 4: Add the slug-to-label helper and appendAvailableSkills function**
+- [x] **Step 4: Add the slug-to-label helper and appendAvailableSkills function**
 
 Add after the existing section builders (after `appendRole`, around line 250):
 
@@ -629,7 +629,7 @@ function appendAvailableSkills(lines: string[], skills?: readonly string[]): voi
 }
 ```
 
-- [ ] **Step 5: Call appendAvailableSkills in generateBrief**
+- [x] **Step 5: Call appendAvailableSkills in generateBrief**
 
 In `generateBrief()` (line 205-225), add the call after `appendRole` and before `appendSystemPrompt`:
 
@@ -645,12 +645,12 @@ export function generateBrief(ctx: BriefContext): string {
 	// ...rest unchanged
 ```
 
-- [ ] **Step 6: Run tests to verify they pass**
+- [x] **Step 6: Run tests to verify they pass**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run tests/domain/agents/brief-store.test.ts --config configs/vitest.config.ts`
 Expected: PASS
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add "01 - Projects/Flowti CLI/src/domain/agents/brief-store.ts" "01 - Projects/Flowti CLI/tests/domain/agents/brief-store.test.ts"
@@ -664,7 +664,7 @@ git commit -m "feat: inject available skills into agent briefs based on domain"
 - Modify: `01 - Projects/Flowti CLI/src/ui/menus/agents-run-menu.ts:19`
 - Modify: `01 - Projects/Flowti CLI/src/ui/menus/roster-task-menu.ts:56-60`
 
-- [ ] **Step 1: Update generateIterationBrief in iteration-handlers.ts**
+- [x] **Step 1: Update generateIterationBrief in iteration-handlers.ts**
 
 At line 71-74, add `availableSkills` to the `generateBrief` call. First resolve the skills from config. Note: `VAULT_ROOT`/`cliConfig` are used inside `resolveAgentPrompt` and `resolveAgentDetails` but via their own dynamic imports — they are not in scope here. You need your own dynamic imports:
 
@@ -681,7 +681,7 @@ async function generateIterationBrief(ctx: RouterContext): Promise<string | null
 	});
 ```
 
-- [ ] **Step 2: Update writeFullBrief in iteration-handlers.ts**
+- [x] **Step 2: Update writeFullBrief in iteration-handlers.ts**
 
 At line 120-123, add `availableSkills`:
 
@@ -695,7 +695,7 @@ const brief = generateBrief({
 });
 ```
 
-- [ ] **Step 3: Update runAgentInteractive in agents-run-menu.ts**
+- [x] **Step 3: Update runAgentInteractive in agents-run-menu.ts**
 
 At line 19, the `generateBrief` call needs `availableSkills`. The function doesn't currently have access to vault config. Add a new optional parameter:
 
@@ -715,7 +715,7 @@ const availableSkills = cliConfig.agents?.skillMap?.[agent.domain ?? ""];
 await runAgentInteractive(agent, iteration, iterDir, autonomous, ctx.deps, stateFilePath, availableSkills);
 ```
 
-- [ ] **Step 4: Update rosterTaskInteractive in roster-task-menu.ts**
+- [x] **Step 4: Update rosterTaskInteractive in roster-task-menu.ts**
 
 At line 56-60, add `availableSkills`:
 
@@ -729,17 +729,17 @@ const brief = generateBrief({
 });
 ```
 
-- [ ] **Step 5: Run type-check**
+- [x] **Step 5: Run type-check**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx tsc --noEmit --project configs/tsconfig.json`
 Expected: PASS
 
-- [ ] **Step 6: Run full test suite**
+- [x] **Step 6: Run full test suite**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run --config configs/vitest.config.ts`
 Expected: PASS (all existing + new tests)
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add "01 - Projects/Flowti CLI/src/ui/handlers/iteration-handlers.ts" "01 - Projects/Flowti CLI/src/ui/menus/agents-run-menu.ts" "01 - Projects/Flowti CLI/src/ui/menus/roster-task-menu.ts" "01 - Projects/Flowti CLI/src/ui/handlers/extensibility-handlers.ts"
@@ -752,25 +752,25 @@ git commit -m "feat: thread availableSkills from vault config through all brief 
 
 ### Task 10: Run claude:sync and verify output
 
-- [ ] **Step 1: Run full test suite**
+- [x] **Step 1: Run full test suite**
 
 Run: `cd "01 - Projects/Flowti CLI" && npm test`
 Expected: PASS (lint + tsc + vitest)
 
-- [ ] **Step 2: Build the CLI**
+- [x] **Step 2: Build the CLI**
 
 Run: `cd "01 - Projects/Flowti CLI" && node configs/esbuild.config.mjs`
 Expected: Build succeeds
 
-- [ ] **Step 3: Run claude:sync and inspect output**
+- [x] **Step 3: Run claude:sync and inspect output**
 
 Run: `.\flowti.cmd claude:sync`
 Then inspect `.claude/skills/agents/SKILL.md` — verify agents with domains have "Recommended Skills" sections.
 
-- [ ] **Step 4: Verify a generated brief**
+- [x] **Step 4: Verify a generated brief**
 
 Generate a brief for any agent (e.g., via `flowti agents` menu → pick agent → Run Agent) and verify it contains the "Available Skills" section with the correct domain-mapped skills.
 
-- [ ] **Step 5: Final commit if any cleanup needed**
+- [x] **Step 5: Final commit if any cleanup needed**
 
 Stage only the specific files that changed during verification (do not use `git add -A`). If no cleanup was needed, skip this step.

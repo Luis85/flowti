@@ -33,7 +33,7 @@
 - Modify: `src/domain/agents/agent-state.ts`
 - Modify: `tests/domain/agents/agent-state.test.ts`
 
-- [ ] **Step 1: Write tests**
+- [x] **Step 1: Write tests**
 
 Add to `tests/domain/agents/agent-state.test.ts`:
 
@@ -91,11 +91,11 @@ describe("removeTask", () => {
 
 Import `removeTask` at the top of the test file.
 
-- [ ] **Step 2: Run tests — expect FAIL**
+- [x] **Step 2: Run tests — expect FAIL**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run tests/domain/agents/agent-state.test.ts --config configs/vitest.config.ts`
 
-- [ ] **Step 3: Implement `removeTask`**
+- [x] **Step 3: Implement `removeTask`**
 
 Add to `src/domain/agents/agent-state.ts` after `completeFirstTask`:
 
@@ -110,11 +110,11 @@ export function removeTask(state: AgentState, taskName: string): AgentState {
 }
 ```
 
-- [ ] **Step 4: Run tests — expect PASS**
+- [x] **Step 4: Run tests — expect PASS**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run tests/domain/agents/agent-state.test.ts --config configs/vitest.config.ts`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add "01 - Projects/Flowti CLI/src/domain/agents/agent-state.ts" "01 - Projects/Flowti CLI/tests/domain/agents/agent-state.test.ts"
@@ -127,7 +127,7 @@ git commit -m "feat: add removeTask to agent-state"
 - Modify: `src/ui/displays/agents-display.ts`
 - Modify: `tests/ui/displays/agents-display.test.ts`
 
-- [ ] **Step 1: Update `renderAgentState`**
+- [x] **Step 1: Update `renderAgentState`**
 
 Read `src/ui/displays/agents-display.ts`. Find `renderAgentState` (line ~93). Remove the task rendering block (lines ~101-109). Keep the state/interaction/briefs display. The function should become:
 
@@ -146,15 +146,15 @@ export function renderAgentState(state: AgentState, log: (msg?: string) => void)
 }
 ```
 
-- [ ] **Step 2: Update tests if needed**
+- [x] **Step 2: Update tests if needed**
 
 Read `tests/ui/displays/agents-display.test.ts`. If there are tests for task rendering in `renderAgentState`, remove or update them since tasks are no longer rendered there.
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run tests/ui/displays/agents-display.test.ts --config configs/vitest.config.ts`
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add "01 - Projects/Flowti CLI/src/ui/displays/agents-display.ts" "01 - Projects/Flowti CLI/tests/ui/displays/agents-display.test.ts"
@@ -166,7 +166,7 @@ git commit -m "refactor: remove inline task rendering from renderAgentState"
 **Files:**
 - Modify: `src/ui/handlers/extensibility-handlers.ts`
 
-- [ ] **Step 1: Add task menu builder helper**
+- [x] **Step 1: Add task menu builder helper**
 
 Read `src/ui/handlers/extensibility-handlers.ts`. Find the `agent-detail` view handler (line ~263). Add a helper function before `registerExtensibilityHandlers`:
 
@@ -213,7 +213,7 @@ function buildTaskMenuItems(
 }
 ```
 
-- [ ] **Step 2: Add task action sub-menu**
+- [x] **Step 2: Add task action sub-menu**
 
 Add a helper function:
 
@@ -253,7 +253,7 @@ async function showTaskActions(
 }
 ```
 
-- [ ] **Step 3: Add `openTask` helper**
+- [x] **Step 3: Add `openTask` helper**
 
 ```typescript
 async function openTask(
@@ -301,7 +301,7 @@ async function openTask(
 
 Note: `vaultAgents` is a closure variable in `registerExtensibilityHandlers`. Both `showTaskActions` and `openTask` must be defined INSIDE `registerExtensibilityHandlers` to access it, or accept it as a parameter.
 
-- [ ] **Step 4: Inject task items into agent-detail view**
+- [x] **Step 4: Inject task items into agent-detail view**
 
 Update the agent-detail view handler. Change the menu items line from:
 
@@ -317,25 +317,25 @@ const actions = [...(ctx.dataSourceEntries?.["_actions"] ?? [])];
 return runMenu(null, [...taskItems, ...actions], {
 ```
 
-- [ ] **Step 5: Verify type-check**
+- [x] **Step 5: Verify type-check**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx tsc --noEmit --project configs/tsconfig.json`
 
-- [ ] **Step 6: Verify lint (complexity check)**
+- [x] **Step 6: Verify lint (complexity check)**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx eslint src/ui/handlers/extensibility-handlers.ts --config configs/eslint.config.mjs`
 
 If `extensibility-handlers.ts` exceeds 350 lines, extract `showTaskActions` and `openTask` into a new file `src/ui/handlers/agent-task-handlers.ts`.
 
-- [ ] **Step 7: Run full tests**
+- [x] **Step 7: Run full tests**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run --config configs/vitest.config.ts`
 
-- [ ] **Step 8: Build**
+- [x] **Step 8: Build**
 
 Run: `cd "01 - Projects/Flowti CLI" && node configs/esbuild.config.mjs`
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add "01 - Projects/Flowti CLI/src/ui/handlers/extensibility-handlers.ts"
@@ -344,11 +344,11 @@ git commit -m "feat: actionable tasks on agent detail page with Open/Done/Remove
 
 ### Task 4: Full verification
 
-- [ ] **Step 1: Run full test suite**
+- [x] **Step 1: Run full test suite**
 
 Run: `cd "01 - Projects/Flowti CLI" && npm test`
 
-- [ ] **Step 2: Manual smoke test**
+- [x] **Step 2: Manual smoke test**
 
 Run `.\flowti.cmd`:
 - Navigate to an agent with pending tasks
