@@ -1,0 +1,15 @@
+{
+	"name": "healthy-app",
+	"version": "1.0.0",
+	"type": "module",
+	"scripts": {
+		"build": "tsc --project configs/tsconfig.json",
+		"test": "vitest run --config configs/vitest.config.ts",
+		"lint": "echo lint-pass",
+		"check": "tsc --project configs/tsconfig.json --noEmit"
+	},
+	"devDependencies": {
+		"typescript": "^5.4.0",
+		"vitest": "^3.0.0"
+	}
+}
