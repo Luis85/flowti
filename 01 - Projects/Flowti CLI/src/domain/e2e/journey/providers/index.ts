@@ -12,6 +12,7 @@ import { createTypescriptProvider } from "./typescript-provider.js";
 import { createObsidianVaultProvider } from "./obsidian-vault-provider.js";
 import { createObsidianPluginProvider } from "./obsidian-plugin-provider.js";
 import { createWebappProvider } from "./webapp-provider.js";
+import { createVaultTestProvider } from "./vault-test-provider.js";
 
 // ── Built-in capabilities ────────────────────────────────────────────
 
@@ -186,6 +187,7 @@ export function createDefaultRegistry(): EnvironmentRegistry {
 	registry.registerProvider(createObsidianVaultProvider());
 	registry.registerProvider(createObsidianPluginProvider());
 	registry.registerProvider(createWebappProvider());
+	registry.registerProvider(createVaultTestProvider());
 
 	return registry;
 }
@@ -195,3 +197,4 @@ export { createTypescriptProvider } from "./typescript-provider.js";
 export { createObsidianVaultProvider } from "./obsidian-vault-provider.js";
 export { createObsidianPluginProvider } from "./obsidian-plugin-provider.js";
 export { createWebappProvider } from "./webapp-provider.js";
+export { createVaultTestProvider } from "./vault-test-provider.js";
