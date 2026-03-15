@@ -162,20 +162,6 @@ describe("renderAgentState", () => {
 		expect(output).toContain("2026-03-15");
 	});
 
-	it("shows pending tasks", () => {
-		renderAgentState(makeState({
-			status: "busy",
-			tasks: [
-				{ name: "Build it", assignedAt: "2026-03-15", status: "pending" },
-				{ name: "Done task", assignedAt: "2026-03-14", status: "done" },
-			],
-		}), mockLog);
-		const output = mockLog.mock.calls.flat().join(" ");
-		expect(output).toContain("Active Tasks");
-		expect(output).toContain("Build it");
-		expect(output).toContain("Completed: 1 task");
-	});
-
 	it("shows brief count", () => {
 		renderAgentState(makeState({
 			briefs: [
@@ -190,8 +176,6 @@ describe("renderAgentState", () => {
 	it("omits sections when empty", () => {
 		renderAgentState(makeState(), mockLog);
 		const output = mockLog.mock.calls.flat().join(" ");
-		expect(output).not.toContain("Active Tasks");
-		expect(output).not.toContain("Completed");
 		expect(output).not.toContain("Briefs");
 		expect(output).not.toContain("Last interaction");
 	});

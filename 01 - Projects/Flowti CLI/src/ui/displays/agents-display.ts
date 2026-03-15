@@ -98,15 +98,6 @@ export function renderAgentState(state: AgentState, log: (msg?: string) => void)
 		const what = state.lastInteractionType ?? "unknown";
 		log(`  ${DIM}Last interaction:${RESET} ${what} (${when})`);
 	}
-	const pending = state.tasks.filter((t) => t.status !== "done");
-	const done = state.tasks.filter((t) => t.status === "done");
-	if (pending.length > 0) {
-		log(`\n  ${BOLD}Active Tasks${RESET}`);
-		for (const t of pending) log(`  ${YELLOW}▸${RESET} ${t.name} ${DIM}[${t.status}]${RESET}`);
-	}
-	if (done.length > 0) {
-		log(`  ${DIM}Completed: ${done.length} task${done.length === 1 ? "" : "s"}${RESET}`);
-	}
 	if (state.briefs.length > 0) {
 		log(`  ${DIM}Briefs generated: ${state.briefs.length}${RESET}`);
 	}
