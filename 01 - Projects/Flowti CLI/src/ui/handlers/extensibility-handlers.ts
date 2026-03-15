@@ -1,6 +1,4 @@
-/**
- * extensibility-handlers.ts — Action handlers for plugins and AI tools menus.
- */
+/** extensibility-handlers.ts — Action handlers for plugins and AI tools menus. */
 
 import type { HandlerRegistry } from "../../infrastructure/handler-registry.js";
 import type { MenuEntry, MenuResult } from "../../infrastructure/types.js";
@@ -9,6 +7,7 @@ import { RESET, DIM, GREEN, RED } from "../../infrastructure/ui.js";
 import { VAULT_ROOT, CLI_PROJECT, cliConfig } from "../../infrastructure/config.js";
 import { navigateWithParams } from "../../infrastructure/sitemap-router.js";
 import { listAgents } from "../../domain/agents/agent-store.js";
+import { buildTaskMenuItems, showTaskActions } from "./agent-task-handlers.js";
 import { loadPlugins, scaffoldPlugin } from "../../domain/plugins/plugin-loader.js";
 import { generatePluginReference } from "../../domain/plugins/plugin-reference.js";
 import { toPluginListItems, toPluginValidationItems } from "../../domain/plugins/plugin-commands.js";
@@ -271,7 +270,9 @@ export function registerExtensibilityHandlers(registry: HandlerRegistry): void {
 		const { runMenu } = await import("../../infrastructure/menu.js");
 		const state = readAgentState(ctx.deps, varDir(ctx), agent.name);
 		const handle = ctx.deps.agentShell.getActiveDispatch(agent.name);
-		return runMenu(null, [...(ctx.dataSourceEntries?.["_actions"] ?? [])], {
+		const onTaskAction = (a: import("../../domain/agents/agent-types.js").AgentSummary, t: string, c: RouterContext) => showTaskActions(a, t, c, VAULT_ROOT, vaultAgents);
+		const taskItems = buildTaskMenuItems(state, agent, onTaskAction, ctx);
+		return runMenu(null, [...taskItems, ...(ctx.dataSourceEntries?.["_actions"] ?? [])], {
 			beforeMenu: () => {
 				renderAgentDetail(agent, ctx.deps.log);
 				renderAgentState(state, ctx.deps.log);
