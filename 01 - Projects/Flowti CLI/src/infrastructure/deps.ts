@@ -6,7 +6,7 @@
  * Production code uses createDefaultDeps(); tests use createTestDeps().
  */
 
-import type { IFileSystem, IShell, IPaths, IClock, IProcess, IInput, IAgentShell, IWorldStateManager } from "./types.js";
+import type { IFileSystem, IShell, IPaths, IClock, IProcess, IInput, IAgentShell, IWorldStateManager, IWorkerManager, IAgentProcessRunner } from "./types.js";
 import type { ICliBus } from "./event-bus.js";
 import { disk } from "./filesystem.js";
 import { shell } from "./shell.js";
@@ -36,6 +36,8 @@ export interface CliDeps {
 	readonly warn: (msg: string) => void;
 	readonly agentShell: IAgentShell;
 	readonly worldState: IWorldStateManager;
+	readonly workerManager: IWorkerManager;
+	readonly processRunner: IAgentProcessRunner;
 }
 
 // ── Domain-specific subsets (ISP) ───────────────────────────────────

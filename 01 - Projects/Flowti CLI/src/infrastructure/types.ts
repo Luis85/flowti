@@ -213,6 +213,10 @@ export type EntityType = "project" | "product" | "feature" | "iteration" | "brie
 
 export type { IWorldStateManager, WorldState, WorldEntity, AgentAction, AgentActionType, PermissionEntry, ActivityEntry, WorldEntityType } from "../domain/agents/world-state-types.js";
 
+// ── Worker types ─────────────────────────────────────────────────────
+
+export type { IWorkerManager, IAgentProcessRunner, AgentWorker, AgentProcess, WorkerState, SendOptions, EventFilter, DecisionRule, ActionContext } from "../domain/agents/worker-types.js";
+
 // ── Re-export all config types for backward compatibility ───────────
 
 export * from "./types-config.js";
