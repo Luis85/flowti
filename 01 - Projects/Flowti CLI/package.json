@@ -10,7 +10,11 @@
     "lint": "eslint --config configs/eslint.config.mjs src/",
     "check": "npm run lint && tsc --project configs/tsconfig.json --noEmit",
     "test:ui": "vitest --ui --config configs/vitest.config.ts --coverage.enabled --coverage.reporter=html --coverage.reportsDirectory=reports/ui",
-    "typedoc": "typedoc --options configs/typedoc.json"
+    "typedoc": "typedoc --options configs/typedoc.json",
+    "test:vault": "node configs/esbuild.config.mjs && vitest run --config configs/vitest.vault.config.ts",
+    "test:vault:smoke": "node configs/esbuild.config.mjs && vitest run --config configs/vitest.vault.config.ts tests/vault-journeys/tier-1-smoke.test.ts",
+    "test:vault:integration": "node configs/esbuild.config.mjs && vitest run --config configs/vitest.vault.config.ts tests/vault-journeys/tier-2-integration.test.ts",
+    "test:vault:ecosystem": "node configs/esbuild.config.mjs && vitest run --config configs/vitest.vault.config.ts tests/vault-journeys/tier-3-ecosystem.test.ts"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
