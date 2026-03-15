@@ -6,9 +6,9 @@
  * as it's a menu action, not a non-interactive command.
  */
 
-import type { ControllerAction } from "../infrastructure/request-response.js";
-import { adapt, dataResponse } from "../infrastructure/request-response.js";
+import { adaptDescriptor } from "../infrastructure/command-engine.js";
 import type { CommandHandler } from "../infrastructure/types.js";
+import type { LogFn } from "../infrastructure/command-engine.js";
 import { VAULT_ROOT, CLI_PROJECT } from "../infrastructure/config.js";
 import {
 	loadAiTools,
@@ -62,100 +62,129 @@ function isLoadedTool(result: unknown): result is LoadedAiTool {
 	return result !== null && typeof result === "object" && "definition" in (result as Record<string, unknown>);
 }
 
-// ── Controller actions ──────────────────────────────────────────────
+// ── Model types ──────────────────────────────────────────────────────
 
-const actions: Record<string, ControllerAction> = {
-	"ai:list": (req) => {
-		const { disk, log } = req.deps;
-		const tools = loadAiTools(req.deps, VAULT_ROOT, disk);
-		const model: ToolListItem[] = tools.map((t) => ({
-			name: t.definition.name,
-			version: t.definition.version ?? null,
-			description: t.definition.description,
-			run: t.definition.run,
-			params: t.definition.params ?? [],
-			tags: t.definition.tags ?? [],
-			valid: t.valid,
-			errors: t.errors,
-		}));
-		return dataResponse(model, (d) => renderToolList(d, log));
-	},
+type AiNewModel = SuccessModel | ErrorModel;
+type AiRunModel = ToolRunResultModel | DryRunModel | ToolNotFoundModel | ToolInvalidModel | MissingParamsModel | MissingToolFlagModel;
 
-	"ai:validate": (req) => {
-		const { disk, paths, log } = req.deps;
-		const toolsDir = paths.join(VAULT_ROOT, AI_TOOLS_DIR);
-		const files = discoverToolFiles(req.deps, toolsDir, disk);
-		const results: ToolValidationItem[] = files.map((file) => {
-			const fileName = paths.basename(file);
-			try {
-				const raw = JSON.parse(disk.readFileSync(file, "utf-8")) as unknown;
-				const result = validateToolDefinition(raw);
-				return { file: fileName, ...result };
-			} catch (err: unknown) {
-				return { file: fileName, valid: false, errors: [`Parse error: ${err instanceof Error ? err.message : String(err)}`], warnings: [] };
+function isErrorModel(m: unknown): m is ErrorModel {
+	return typeof m === "object" && m !== null && "error" in m;
+}
+
+function renderAiNew(data: AiNewModel, log: LogFn): void {
+	if (isErrorModel(data)) { renderError(data, log); return; }
+	renderSuccess(data as SuccessModel, log);
+}
+
+function renderAiRun(data: AiRunModel, log: LogFn): void {
+	if ("usage" in data) { renderMissingToolFlag(data as MissingToolFlagModel, log); return; }
+	if ("available" in data) { renderToolNotFound(data as ToolNotFoundModel, log); return; }
+	if ("errors" in data && "toolName" in data) { renderToolInvalid(data as ToolInvalidModel, log); return; }
+	if ("params" in data) { renderMissingParams(data as MissingParamsModel, log); return; }
+	if ("cmd" in data) { renderDryRun(data as DryRunModel, log); return; }
+	renderToolRunResult(data as ToolRunResultModel, log);
+}
+
+// ── Commands ────────────────────────────────────────────────────────
+
+export const commands: Record<string, CommandHandler> = {
+	"ai:list": adaptDescriptor<Record<string, unknown>, ToolListItem[]>({
+		handler: (ctx) => {
+			const { disk } = ctx.deps;
+			const tools = loadAiTools(ctx.deps, VAULT_ROOT, disk);
+			return tools.map((t) => ({
+				name: t.definition.name,
+				version: t.definition.version ?? null,
+				description: t.definition.description,
+				run: t.definition.run,
+				params: t.definition.params ?? [],
+				tags: t.definition.tags ?? [],
+				valid: t.valid,
+				errors: t.errors,
+			}));
+		},
+		renderer: renderToolList,
+	}),
+
+	"ai:validate": adaptDescriptor<Record<string, unknown>, ToolValidationItem[]>({
+		handler: (ctx) => {
+			const { disk, paths } = ctx.deps;
+			const toolsDir = paths.join(VAULT_ROOT, AI_TOOLS_DIR);
+			const files = discoverToolFiles(ctx.deps, toolsDir, disk);
+			return files.map((file) => {
+				const fileName = paths.basename(file);
+				try {
+					const raw = JSON.parse(disk.readFileSync(file, "utf-8")) as unknown;
+					const result = validateToolDefinition(raw);
+					return { file: fileName, ...result };
+				} catch (err: unknown) {
+					return { file: fileName, valid: false, errors: [`Parse error: ${err instanceof Error ? err.message : String(err)}`], warnings: [] };
+				}
+			});
+		},
+		renderer: renderToolValidation,
+	}),
+
+	"ai:new": adaptDescriptor<Record<string, unknown>, AiNewModel>({
+		handler: async (ctx) => {
+			const { disk, input } = ctx.deps;
+			const name = await input.ask("Tool name (lowercase, hyphens/underscores)");
+			if (!name) return { message: "Cancelled." } as SuccessModel;
+			const desc = await input.ask("Description");
+			const run = await input.ask("Shell command to run");
+			if (!run) return { message: "Cancelled." } as SuccessModel;
+			const result = scaffoldAiTool(ctx.deps, VAULT_ROOT, name, desc || "An AI tool", run, disk);
+			if ("error" in result) {
+				return { error: result.error } as ErrorModel;
 			}
-		});
-		return dataResponse(results, (d) => renderToolValidation(d, log));
-	},
+			return { message: `Created tool at ${result.path}` } as SuccessModel;
+		},
+		renderer: renderAiNew,
+	}),
 
-	"ai:new": async (req) => {
-		const { disk, input } = req.deps;
-		const name = await input.ask("Tool name (lowercase, hyphens/underscores)");
-		if (!name) return dataResponse<SuccessModel>({ message: "Cancelled." }, (d) => renderSuccess(d, req.deps.log));
-		const desc = await input.ask("Description");
-		const run = await input.ask("Shell command to run");
-		if (!run) return dataResponse<SuccessModel>({ message: "Cancelled." }, (d) => renderSuccess(d, req.deps.log));
-		const result = scaffoldAiTool(req.deps, VAULT_ROOT, name, desc || "An AI tool", run, disk);
-		if ("error" in result) {
-			return dataResponse<ErrorModel>({ error: result.error }, (d) => renderError(d, req.deps.log));
-		}
-		return dataResponse<SuccessModel>({ message: `Created tool at ${result.path}` }, (d) => renderSuccess(d, req.deps.log));
-	},
+	"ai:reference": adaptDescriptor<Record<string, unknown>, SuccessModel>({
+		handler: (ctx) => {
+			const { paths } = ctx.deps;
+			const tools = loadAiTools(ctx.deps, VAULT_ROOT, ctx.deps.disk);
+			const doc = generateAiToolReference(ctx.deps, tools);
+			const outputPath = paths.join(CLI_PROJECT, "docs", "reference", "AI Tool Reference.md");
+			doc.save(outputPath, ctx.deps.disk);
+			return { message: `Reference saved to ${outputPath}` };
+		},
+		renderer: renderSuccess,
+	}),
 
-	"ai:reference": (req) => {
-		const { paths } = req.deps;
-		const tools = loadAiTools(req.deps, VAULT_ROOT, req.deps.disk);
-		const doc = generateAiToolReference(req.deps, tools);
-		const outputPath = paths.join(CLI_PROJECT, "docs", "reference", "AI Tool Reference.md");
-		doc.save(outputPath, req.deps.disk);
-		return dataResponse<SuccessModel>({ message: `Reference saved to ${outputPath}` }, (d) => renderSuccess(d, req.deps.log));
-	},
-
-	"ai:run": (req) => {
-		const { disk, paths, shell, log } = req.deps;
-		const toolName = req.flags.tool;
-		if (!toolName || typeof toolName !== "string") {
-			return dataResponse<MissingToolFlagModel>(
-				{ usage: "flowti ai:run --tool=<name> [--param1=value1]" },
-				(d) => renderMissingToolFlag(d, log),
-			);
-		}
-		const tools = loadAiTools(req.deps, VAULT_ROOT, disk);
-		const result = validateToolSelection(toolName, tools);
-		if (!isLoadedTool(result)) {
-			if ("notFound" in result) return dataResponse(result.notFound, (d) => renderToolNotFound(d, log));
-			return dataResponse(result.invalid, (d) => renderToolInvalid(d, log));
-		}
-		const params = result.definition.params ?? [];
-		const missing = params.filter((p) => p.required && req.flags[p.name] === undefined);
-		if (missing.length > 0) {
-			const model: MissingParamsModel = { params: missing.map((p) => ({ name: p.name, description: p.description })) };
-			return dataResponse(model, (d) => renderMissingParams(d, log));
-		}
-		const cmd = substituteParams(result.definition.run, params, req.flags);
-		const cwd = result.definition.cwd ? paths.join(VAULT_ROOT, result.definition.cwd) : VAULT_ROOT;
-		if (req.flags["dry-run"]) {
-			return dataResponse<DryRunModel>({ cmd, cwd }, (d) => renderDryRun(d, log));
-		}
-		// Fire-and-forget shell.run — renderRunning is a side-effect before execution
-		renderRunning(toolName, log);
-		const { exitCode } = shell.runCaptureStatus(cmd, { cwd });
-		return dataResponse<ToolRunResultModel>({ toolName, exitCode }, (d) => renderToolRunResult(d, log));
-	},
+	"ai:run": adaptDescriptor<Record<string, unknown>, AiRunModel>({
+		flags: {
+			tool: { type: "string", required: true, hint: "Usage: flowti ai:run --tool=<name> [--param1=value1]" },
+			"dry-run": { type: "boolean", default: false },
+		},
+		handler: (ctx) => {
+			const { disk, paths, shell } = ctx.deps;
+			const toolName = ctx.flags.tool as string;
+			const tools = loadAiTools(ctx.deps, VAULT_ROOT, disk);
+			const result = validateToolSelection(toolName, tools);
+			if (!isLoadedTool(result)) {
+				if ("notFound" in result) return result.notFound;
+				return result.invalid;
+			}
+			const params = result.definition.params ?? [];
+			// Need access to raw flags for param substitution — use ctx.flags which has been parsed
+			const rawFlags = ctx.flags as Record<string, unknown>;
+			const missing = params.filter((p) => p.required && rawFlags[p.name] === undefined);
+			if (missing.length > 0) {
+				return { params: missing.map((p) => ({ name: p.name, description: p.description })) } as MissingParamsModel;
+			}
+			const cmd = substituteParams(result.definition.run, params, rawFlags as Record<string, string | boolean>);
+			const cwd = result.definition.cwd ? paths.join(VAULT_ROOT, result.definition.cwd) : VAULT_ROOT;
+			if (ctx.flags["dry-run"]) {
+				return { cmd, cwd } as DryRunModel;
+			}
+			// Fire-and-forget shell.run — renderRunning is a side-effect before execution
+			renderRunning(toolName, ctx.deps.log);
+			const { exitCode } = shell.runCaptureStatus(cmd, { cwd });
+			return { toolName, exitCode } as ToolRunResultModel;
+		},
+		renderer: renderAiRun,
+	}),
 };
-
-// ── Adapted commands ────────────────────────────────────────────────
-
-export const commands: Record<string, CommandHandler> = Object.fromEntries(
-	Object.entries(actions).map(([key, action]) => [key, adapt(action)]),
-);

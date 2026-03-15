@@ -142,8 +142,13 @@ export function adaptDescriptor<TFlags = Record<string, unknown>, TModel = unkno
 			return;
 		}
 
-		// Parse and validate flags
-		const parsed = desc.flags ? parseFlags(flags, desc.flags as Record<string, FlagSpec>) : {};
+		// Parse and validate flags — merge unspecified raw flags so handlers can access them
+		const specKeys = desc.flags ? new Set(Object.keys(desc.flags as Record<string, FlagSpec>)) : new Set<string>();
+		const passthrough: Record<string, unknown> = {};
+		for (const [k, v] of Object.entries(flags)) {
+			if (!specKeys.has(k)) passthrough[k] = v;
+		}
+		const parsed = desc.flags ? { ...passthrough, ...parseFlags(flags, desc.flags as Record<string, FlagSpec>) } : { ...passthrough };
 		if (desc.flags) {
 			const error = validateFlags(parsed, desc.flags as Record<string, FlagSpec>);
 			if (error) {

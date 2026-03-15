@@ -6,9 +6,9 @@
  * as it's a menu action, not a non-interactive command.
  */
 
-import type { ControllerAction } from "../infrastructure/request-response.js";
-import { adapt, dataResponse } from "../infrastructure/request-response.js";
+import { adaptDescriptor } from "../infrastructure/command-engine.js";
 import type { CommandHandler } from "../infrastructure/types.js";
+import type { LogFn } from "../infrastructure/command-engine.js";
 import { VAULT_ROOT, CLI_PROJECT } from "../infrastructure/config.js";
 import {
 	loadPlugins,
@@ -29,69 +29,87 @@ import {
 } from "../ui/displays/plugins-display.js";
 import { renderSuccess, renderError, type SuccessModel, type ErrorModel } from "../ui/renderers/common-renderers.js";
 
-// ── Controller actions ──────────────────────────────────────────────
+type PluginNewModel = PluginCreatedModel | SuccessModel | ErrorModel;
 
-const actions: Record<string, ControllerAction> = {
-	"plugin:list": (req) => {
-		const { disk, paths, shell } = req.deps;
-		const pluginDeps = { disk, paths } as const;
-		const plugins = loadPlugins(pluginDeps, VAULT_ROOT, disk, shell);
-		const model: PluginListItem[] = plugins.map((p) => ({
-			name: p.manifest.name,
-			version: p.manifest.version ?? null,
-			description: p.manifest.description,
-			commands: Object.keys(p.commands),
-			valid: p.valid,
-			errors: p.errors,
-		}));
-		return dataResponse(model, (d) => renderPluginList(d, req.deps.log));
-	},
+function isErrorModel(m: unknown): m is ErrorModel {
+	return typeof m === "object" && m !== null && "error" in m;
+}
 
-	"plugin:validate": (req) => {
-		const { disk, paths } = req.deps;
-		const pluginDeps = { disk, paths } as const;
-		const pluginsDir = paths.join(VAULT_ROOT, PLUGINS_DIR);
-		const files = discoverPluginFiles(pluginDeps, pluginsDir, disk);
-		const results: PluginValidationItem[] = files.map((file) => {
-			const pluginDir = paths.dirname(file);
-			const pluginName = paths.basename(pluginDir);
-			try {
-				const raw = JSON.parse(disk.readFileSync(file, "utf-8")) as unknown;
-				const result = validateManifest(raw);
-				return { name: pluginName, ...result };
-			} catch (err: unknown) {
-				return { name: pluginName, valid: false, errors: [`Parse error: ${err instanceof Error ? err.message : String(err)}`], warnings: [] };
+function isSuccess(m: unknown): m is SuccessModel {
+	return typeof m === "object" && m !== null && "message" in m;
+}
+
+function renderPluginNew(data: PluginNewModel, log: LogFn): void {
+	if (isErrorModel(data)) { renderError(data, log); return; }
+	if (isSuccess(data)) { renderSuccess(data as SuccessModel, log); return; }
+	renderPluginCreated(data as PluginCreatedModel, log);
+}
+
+export const commands: Record<string, CommandHandler> = {
+	"plugin:list": adaptDescriptor<Record<string, unknown>, PluginListItem[]>({
+		handler: (ctx) => {
+			const { disk, paths, shell } = ctx.deps;
+			const pluginDeps = { disk, paths } as const;
+			const plugins = loadPlugins(pluginDeps, VAULT_ROOT, disk, shell);
+			return plugins.map((p) => ({
+				name: p.manifest.name,
+				version: p.manifest.version ?? null,
+				description: p.manifest.description,
+				commands: Object.keys(p.commands),
+				valid: p.valid,
+				errors: p.errors,
+			}));
+		},
+		renderer: renderPluginList,
+	}),
+
+	"plugin:validate": adaptDescriptor<Record<string, unknown>, PluginValidationItem[]>({
+		handler: (ctx) => {
+			const { disk, paths } = ctx.deps;
+			const pluginDeps = { disk, paths } as const;
+			const pluginsDir = paths.join(VAULT_ROOT, PLUGINS_DIR);
+			const files = discoverPluginFiles(pluginDeps, pluginsDir, disk);
+			return files.map((file) => {
+				const pluginDir = paths.dirname(file);
+				const pluginName = paths.basename(pluginDir);
+				try {
+					const raw = JSON.parse(disk.readFileSync(file, "utf-8")) as unknown;
+					const result = validateManifest(raw);
+					return { name: pluginName, ...result };
+				} catch (err: unknown) {
+					return { name: pluginName, valid: false, errors: [`Parse error: ${err instanceof Error ? err.message : String(err)}`], warnings: [] };
+				}
+			});
+		},
+		renderer: renderPluginValidation,
+	}),
+
+	"plugin:reference": adaptDescriptor<Record<string, unknown>, SuccessModel>({
+		handler: (ctx) => {
+			const { disk, paths, shell, clock } = ctx.deps;
+			const pluginDeps = { disk, paths } as const;
+			const plugins = loadPlugins(pluginDeps, VAULT_ROOT, disk, shell);
+			const doc = generatePluginReference({ clock } as const, plugins);
+			const outputPath = paths.join(CLI_PROJECT, "docs", "reference", "Plugin Reference.md");
+			doc.save(outputPath, disk);
+			return { message: `Reference saved to ${outputPath}` };
+		},
+		renderer: renderSuccess,
+	}),
+
+	"plugin:new": adaptDescriptor<Record<string, unknown>, PluginNewModel>({
+		handler: async (ctx) => {
+			const { disk, paths, input } = ctx.deps;
+			const pluginDeps = { disk, paths } as const;
+			const name = await input.ask("Plugin name (lowercase, hyphens)");
+			if (!name) return { message: "Cancelled." } as SuccessModel;
+			const desc = await input.ask("Description");
+			const result = scaffoldPlugin(pluginDeps, VAULT_ROOT, name, desc || "A Flowti plugin", disk);
+			if ("error" in result) {
+				return { error: result.error } as ErrorModel;
 			}
-		});
-		return dataResponse(results, (d) => renderPluginValidation(d, req.deps.log));
-	},
-
-	"plugin:reference": (req) => {
-		const { disk, paths, shell, clock } = req.deps;
-		const pluginDeps = { disk, paths } as const;
-		const plugins = loadPlugins(pluginDeps, VAULT_ROOT, disk, shell);
-		const doc = generatePluginReference({ clock } as const, plugins);
-		const outputPath = paths.join(CLI_PROJECT, "docs", "reference", "Plugin Reference.md");
-		doc.save(outputPath, disk);
-		return dataResponse<SuccessModel>({ message: `Reference saved to ${outputPath}` }, (d) => renderSuccess(d, req.deps.log));
-	},
-
-	"plugin:new": async (req) => {
-		const { disk, paths, input, log } = req.deps;
-		const pluginDeps = { disk, paths } as const;
-		const name = await input.ask("Plugin name (lowercase, hyphens)");
-		if (!name) return dataResponse<SuccessModel>({ message: "Cancelled." }, (d) => renderSuccess(d, log));
-		const desc = await input.ask("Description");
-		const result = scaffoldPlugin(pluginDeps, VAULT_ROOT, name, desc || "A Flowti plugin", disk);
-		if ("error" in result) {
-			return dataResponse<ErrorModel>({ error: result.error }, (d) => renderError(d, log));
-		}
-		return dataResponse<PluginCreatedModel>({ path: result.path }, (d) => renderPluginCreated(d, log));
-	},
+			return { path: result.path } as PluginCreatedModel;
+		},
+		renderer: renderPluginNew,
+	}),
 };
-
-// ── Adapted commands ────────────────────────────────────────────────
-
-export const commands: Record<string, CommandHandler> = Object.fromEntries(
-	Object.entries(actions).map(([key, action]) => [key, adapt(action)]),
-);

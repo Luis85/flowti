@@ -10,9 +10,9 @@
  *   flowti serve [--port=3000] [--dir=.flowti/agents]
  */
 
-import type { ControllerAction } from "../infrastructure/request-response.js";
-import { adapt, dataResponse } from "../infrastructure/request-response.js";
+import { adaptDescriptor } from "../infrastructure/command-engine.js";
 import type { CommandHandler } from "../infrastructure/types.js";
+import type { LogFn } from "../infrastructure/command-engine.js";
 import { startDashboardServer, isDashboardRunning, stopDashboard, getDashboardState } from "../domain/serve/dashboard-service.js";
 
 // ── Data models ──────────────────────────────────────────────────────
@@ -27,59 +27,76 @@ export interface ServeStopModel {
 	readonly stopped: boolean;
 }
 
-function renderStart(model: ServeStartModel, log: (msg: string) => void): void {
-	log(`\n  Dashboard running at: ${model.url}`);
-	log(`  Serving from: ${model.dir}\n`);
+export interface ServeStatusModel {
+	readonly running: boolean;
+	readonly state: ServeStartModel | null;
 }
 
-// ── Controller actions ───────────────────────────────────────────────
+function renderStart(model: ServeStartModel | ServeStopModel, log: LogFn): void {
+	if ("url" in model) {
+		log(`\n  Dashboard running at: ${model.url}`);
+		log(`  Serving from: ${model.dir}\n`);
+	}
+}
+
+function renderStatus(model: ServeStatusModel, log: LogFn): void {
+	if (model.state) {
+		log(`\n  Dashboard running at: ${model.state.url}\n`);
+	} else {
+		log(`\n  Dashboard is not running.\n`);
+	}
+}
+
+// ── Controller commands ─────────────────────────────────────────────
 
 const DEFAULT_PORT = 3000;
 const DEFAULT_DIR = ".flowti/agents";
 
-const actions: Record<string, ControllerAction> = {
-	"serve": async (req) => {
-		const { log, paths } = req.deps;
-		const port = typeof req.flags.port === "string" ? parseInt(req.flags.port, 10) || DEFAULT_PORT : DEFAULT_PORT;
-		const dirFlag = typeof req.flags.dir === "string" ? req.flags.dir : DEFAULT_DIR;
-		const rootDir = paths.isAbsolute(dirFlag) ? dirFlag : paths.resolve(dirFlag);
+export const commands: Record<string, CommandHandler> = {
+	"serve": adaptDescriptor<Record<string, unknown>, ServeStartModel | ServeStopModel>({
+		flags: {
+			port: { type: "number", default: DEFAULT_PORT, coerce: "int" },
+			dir: { type: "string", default: DEFAULT_DIR },
+		},
+		handler: async (ctx) => {
+			const { paths } = ctx.deps;
+			const port = ctx.flags.port as number;
+			const dirFlag = ctx.flags.dir as string;
+			const rootDir = paths.isAbsolute(dirFlag) ? dirFlag : paths.resolve(dirFlag);
 
-		const { VAULT_ROOT, PROJECTS_DIR, CLI_PROJECT, cliConfig } = await import("../infrastructure/config.js");
+			const { VAULT_ROOT, PROJECTS_DIR, CLI_PROJECT, cliConfig } = await import("../infrastructure/config.js");
 
-		const state = await startDashboardServer({
-			port,
-			rootDir,
-			cliProjectPath: CLI_PROJECT,
-			projectsDir: PROJECTS_DIR,
-			vaultRoot: VAULT_ROOT,
-			projectConfig: req.project?.config,
-			vaultAgentsConfig: cliConfig.agents,
-		}, req.deps);
+			const state = await startDashboardServer({
+				port,
+				rootDir,
+				cliProjectPath: CLI_PROJECT,
+				projectsDir: PROJECTS_DIR,
+				vaultRoot: VAULT_ROOT,
+				projectConfig: ctx.project?.config,
+				vaultAgentsConfig: cliConfig.agents,
+			}, ctx.deps);
 
-		if (state) {
-			return dataResponse<ServeStartModel>(state, (d) => renderStart(d, log));
-		}
-		return dataResponse<ServeStopModel>({ stopped: false }, () => {});
-	},
+			if (state) {
+				return state;
+			}
+			return { stopped: false };
+		},
+		renderer: renderStart,
+	}),
 
-	"serve:stop": (req) => {
-		stopDashboard(req.deps.log);
-		return dataResponse<ServeStopModel>({ stopped: true }, () => {});
-	},
+	"serve:stop": adaptDescriptor<Record<string, unknown>, ServeStopModel>({
+		handler: (ctx) => {
+			stopDashboard(ctx.deps.log);
+			return { stopped: true };
+		},
+		renderer: () => {},
+	}),
 
-	"serve:status": (req) => {
-		const state = getDashboardState();
-		if (state) {
-			req.deps.log(`\n  Dashboard running at: ${state.url}\n`);
-		} else {
-			req.deps.log(`\n  Dashboard is not running.\n`);
-		}
-		return dataResponse({ running: isDashboardRunning(), state }, () => {});
-	},
+	"serve:status": adaptDescriptor<Record<string, unknown>, ServeStatusModel>({
+		handler: () => {
+			const state = getDashboardState();
+			return { running: isDashboardRunning(), state };
+		},
+		renderer: renderStatus,
+	}),
 };
-
-// ── Adapted commands ─────────────────────────────────────────────────
-
-export const commands: Record<string, CommandHandler> = Object.fromEntries(
-	Object.entries(actions).map(([key, action]) => [key, adapt(action)]),
-);
