@@ -69,7 +69,23 @@
 			"label": "Test Management",
 			"icon": "shield-check",
 			"type": "flowti-test-management-hub",
-			"legacy": true
+			"tabs": [
+				{ "id": "journeys", "label": "Journeys", "icon": "route", "handler": "test-mgmt:journeys", "searchPlaceholder": "Search journeys..." },
+				{ "id": "pyramid", "label": "Pyramid", "icon": "triangle", "handler": "test-mgmt:pyramid", "searchPlaceholder": "Search layers..." },
+				{ "id": "coverage", "label": "Coverage", "icon": "check-circle", "handler": "test-mgmt:coverage", "searchPlaceholder": "Search PRDs..." },
+				{ "id": "compliance", "label": "Compliance", "icon": "shield", "handler": "test-mgmt:compliance", "searchPlaceholder": "Search standards..." },
+				{ "id": "feature-quality", "label": "Feature Quality", "icon": "star", "handler": "test-mgmt:feature-quality", "searchPlaceholder": "Search features..." },
+				{ "id": "features", "label": "Features", "icon": "sparkles", "handler": "test-mgmt:features", "searchPlaceholder": "Search features..." },
+				{ "id": "processes", "label": "Processes", "icon": "waypoints", "handler": "test-mgmt:processes", "searchPlaceholder": "Search processes..." },
+				{ "id": "products", "label": "Products", "icon": "package", "handler": "test-mgmt:products", "searchPlaceholder": "Search products..." }
+			],
+			"refreshEvents": [
+				"test-mgmt.journey.registered",
+				"test-mgmt.journey.deregistered",
+				"test-mgmt.journey.run-completed",
+				"test-mgmt.journey.status-changed",
+				"settings.changed"
+			]
 		},
 		"data-exchange-hub": {
 			"kind": "hub",
