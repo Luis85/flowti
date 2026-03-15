@@ -68,33 +68,44 @@ function findMatch(items: MenuEntry[], choice: string): MenuItem | null {
 	return items.find((i): i is MenuItem => "key" in i && i.key === choice.toLowerCase()) ?? null;
 }
 
+async function handleSpecialKey(choice: string, options: MenuOptions): Promise<MenuResult | "continue" | undefined> {
+	if (choice === "*") return "refresh" as MenuResult;
+	if (choice === "!" && options.onAgentQuestion) {
+		const result = await options.onAgentQuestion();
+		return result ?? "continue";
+	}
+	return undefined;
+}
+
+function handleMenuChoice(items: MenuEntry[], choice: string): MenuResult | "continue" | Promise<MenuResult | void> {
+	const match = findMatch(items, choice);
+	if (!match) { log("\n  Invalid choice — try again.\n"); return "continue"; }
+	if (resolveDisabled(match)) { if (match.disabledMessage) log(match.disabledMessage); return "continue"; }
+	return match.action();
+}
+
+function renderMenu(title: string | null, items: MenuEntry[], options: MenuOptions & { beforeMenu?: () => void }): void {
+	if (title) printHeader(title);
+	if (options.beforeMenu) options.beforeMenu();
+	if (options.renderStatusBar) options.renderStatusBar();
+	printMenu(resolveDisplayItems(items));
+}
+
 export async function runMenu(
 	title: string | null,
 	items: MenuEntry[],
 	options: MenuOptions & { beforeMenu?: () => void } = {},
 ): Promise<MenuResult> {
-
 	while (true) {
-		if (title) printHeader(title);
-		if (options.beforeMenu) options.beforeMenu();
-		if (options.renderStatusBar) options.renderStatusBar();
-		printMenu(resolveDisplayItems(items));
-
+		renderMenu(title, items, options);
 		const choice = await input.ask("Choice", options.defaultChoice ?? "1");
 
-		if (choice === "*") return "refresh" as MenuResult;
+		const special = await handleSpecialKey(choice, options);
+		if (special === "continue") continue;
+		if (special) return special;
 
-		if (choice === "!" && options.onAgentQuestion) {
-			const result = await options.onAgentQuestion();
-			if (result) return result;
-			continue;
-		}
-
-		const match = findMatch(items, choice);
-		if (!match) { log("\n  Invalid choice — try again.\n"); continue; }
-		if (resolveDisabled(match)) { if (match.disabledMessage) log(match.disabledMessage); continue; }
-
-		const result = await match.action();
-		if (isExitResult(result)) return result;
+		const result = await handleMenuChoice(items, choice);
+		if (result === "continue") continue;
+		if (isExitResult(result)) return result as MenuResult;
 	}
 }

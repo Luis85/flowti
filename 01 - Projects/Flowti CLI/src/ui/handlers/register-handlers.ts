@@ -48,60 +48,49 @@ function renderProjectContext(ctx: import("../../infrastructure/types.js").Proje
 	renderIterationBannerLine(ctx.path, ctx.config.management, deps);
 }
 
+interface WorkingAgent { name: string; persona?: string; status: string; task?: string; lastType?: string; question?: string }
+
+function parseAgentStates(deps: Pick<CliDeps, "disk" | "paths">, varDir: string): WorkingAgent[] {
+	const agentFiles = deps.disk.readdirSync(varDir).filter((f) => f.startsWith("data-") && f.endsWith(".json"));
+	let agents: Array<{ name: string; persona?: string }> = [];
+	try { agents = listAgents(deps, VAULT_ROOT, cliConfig.agents); } catch { /* best-effort */ }
+	const result: WorkingAgent[] = [];
+	for (const file of agentFiles) {
+		const content = deps.disk.readFileSync(deps.paths.join(varDir, file), "utf-8");
+		const state = JSON.parse(content) as { name?: string; status?: string; tasks?: Array<{ name: string; status: string }>; lastInteractionType?: string };
+		if (state.status === "busy" || state.status === "waiting") {
+			const activeTask = state.tasks?.find((t) => t.status === "pending" || t.status === "in-progress");
+			const agentDef = agents.find((a) => a.name === state.name);
+			const pq = (state as Record<string, unknown>).pendingQuestion as { question?: string } | undefined;
+			result.push({ name: state.name ?? file, persona: agentDef?.persona, status: state.status, task: activeTask?.name, lastType: state.lastInteractionType, question: pq?.question });
+		}
+	}
+	return result;
+}
+
+function formatAgentTaskInfo(a: WorkingAgent): string {
+	if (a.status === "waiting" && a.question) return ` — ${a.question.slice(0, 50)}`;
+	if (a.task) return ` — ${a.task}`;
+	if (a.lastType) return ` — last: ${a.lastType}`;
+	return "";
+}
+
 function renderBusyAgents(deps: Pick<CliDeps, "disk" | "paths" | "log">): void {
 	const varDir = deps.paths.join(VAULT_ROOT, ".flowti", "var");
 	if (!deps.disk.existsSync(varDir)) return;
 	try {
-		const agentFiles = deps.disk.readdirSync(varDir).filter((f) => f.startsWith("data-") && f.endsWith(".json"));
-		// Resolve personas from agent definitions
-		let agents: Array<{ name: string; persona?: string }> = [];
-		try { agents = listAgents(deps, VAULT_ROOT, cliConfig.agents); } catch { /* best-effort */ }
-		const working: Array<{ name: string; persona?: string; status: string; task?: string; lastType?: string; question?: string }> = [];
-		for (const file of agentFiles) {
-			const content = deps.disk.readFileSync(deps.paths.join(varDir, file), "utf-8");
-			const state = JSON.parse(content) as { name?: string; status?: string; tasks?: Array<{ name: string; status: string }>; lastInteractionType?: string };
-			if (state.status === "busy" || state.status === "waiting") {
-				const activeTask = state.tasks?.find((t) => t.status === "pending" || t.status === "in-progress");
-				const agentDef = agents.find((a) => a.name === state.name);
-				const pq = (state as Record<string, unknown>).pendingQuestion as { question?: string } | undefined;
-				working.push({ name: state.name ?? file, persona: agentDef?.persona, status: state.status, task: activeTask?.name, lastType: state.lastInteractionType, question: pq?.question });
-			}
+		const working = parseAgentStates(deps, varDir);
+		if (working.length === 0) return;
+		deps.log(`  ${YELLOW}Agents:${RESET}`);
+		for (const a of working) {
+			const displayName = a.persona ? `${a.persona} (${a.name})` : a.name;
+			const statusTag = a.status === "busy" ? `${YELLOW}working${RESET}` : `${CYAN}waiting${RESET}`;
+			deps.log(`    ${CYAN}${displayName}${RESET} ${DIM}[${statusTag}${DIM}]${formatAgentTaskInfo(a)}${RESET}`);
 		}
-		if (working.length > 0) {
-			deps.log(`  ${YELLOW}Agents:${RESET}`);
-			for (const a of working) {
-				const displayName = a.persona ? `${a.persona} (${a.name})` : a.name;
-				const statusTag = a.status === "busy" ? `${YELLOW}working${RESET}` : `${CYAN}waiting${RESET}`;
-				const taskInfo = a.status === "waiting" && a.question
-					? ` — ${a.question.slice(0, 50)}`
-					: a.task ? ` — ${a.task}` : a.lastType ? ` — last: ${a.lastType}` : "";
-				deps.log(`    ${CYAN}${displayName}${RESET} ${DIM}[${statusTag}${DIM}]${taskInfo}${RESET}`);
-			}
-			deps.log("");
-		}
+		deps.log("");
 	} catch { /* state read best-effort */ }
 }
 
-function renderInboxNotifications(deps: Pick<CliDeps, "disk" | "paths" | "log">): void {
-	const inboxDir = deps.paths.join(VAULT_ROOT, "00 - Connectivity", "inbox");
-	if (!deps.disk.existsSync(inboxDir)) return;
-	try {
-		const files = deps.disk.readdirSync(inboxDir).filter((f) => f.endsWith(".md"));
-		const agentNotes: string[] = [];
-		for (const file of files) {
-			const content = deps.disk.readFileSync(deps.paths.join(inboxDir, file), "utf-8");
-			if (content.includes("type: agent-note") && !content.includes("read: true")) {
-				const match = content.match(/^persona:\s*(.+)$/m);
-				if (match) agentNotes.push(match[1]);
-			}
-		}
-		if (agentNotes.length > 0) {
-			const unique = [...new Set(agentNotes)];
-			deps.log(`  ${CYAN}You have ${agentNotes.length} note${agentNotes.length > 1 ? "s" : ""} from: ${unique.join(", ")}${RESET}`);
-			deps.log(`  ${DIM}Check your inbox: 00 - Connectivity/inbox/${RESET}\n`);
-		}
-	} catch { /* inbox read best-effort */ }
-}
 
 function renderProjectBanner(deps: Pick<CliDeps, "disk" | "paths" | "clock" | "log">): void {
 	clearScreen();
