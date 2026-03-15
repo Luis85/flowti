@@ -4,84 +4,78 @@
  * Stores entries as markdown files with YAML frontmatter in docs/timelog/.
  */
 
-import { Document } from "../../infrastructure/document.js";
-import { parseFrontmatterStrings } from "../../infrastructure/frontmatter.js";
+import { createStore } from "../../infrastructure/store-engine.js";
+import type { StoreDeps } from "../../infrastructure/store-engine.js";
 import { toKebab } from "../make/naming.js";
-import type { CliDeps } from "../../infrastructure/deps.js";
 import type { TimeLogConfig } from "../../infrastructure/types.js";
 import type { TimeLogEntry, TimeLogSummary } from "./timelog-types.js";
-import { resolveDir, listMdFiles } from "../shared/markdown-store.js";
 
-export type TimeLogStoreDeps = Pick<CliDeps, "disk" | "paths" | "clock">;
+export const timelogStore = createStore<TimeLogEntry, TimeLogEntry>({
+	name: "timelog",
+	defaultDir: "docs/timelog",
+	configPath: "dir",
+	typeTag: "TimeLog",
+	needsClock: true,
+	fields: {
+		date: { type: "string", default: "" },
+		person: { type: "string", default: "" },
+		hours: { type: "number", default: 0 },
+		category: { type: "string", default: "" },
+		task: { type: "string", default: "" },
+		description: { type: "string", default: "" },
+	},
+	filename: (def, deps) => {
+		const datePart = def.date || (deps.clock ? deps.clock.iso().slice(0, 10) : "");
+		return `${datePart}-${toKebab(def.person)}.md`;
+	},
+	sort: (a, b) => b.date.localeCompare(a.date),
+	parseBody: (body) => ({ description: body.trim() }),
+	buildBody: (def) => def.description ?? "",
+});
 
-/** Resolve the time-log directory for a project. */
-export function timelogDir(deps: Pick<CliDeps, "paths">, projectPath: string, config?: TimeLogConfig): string {
-	return resolveDir(deps, projectPath, config?.dir, "docs/timelog");
+// Backwards-compatible re-exports (removed in Phase 4 cleanup)
+export type TimeLogStoreDeps = StoreDeps & { clock: import("../../infrastructure/types.js").IClock };
+
+export function timelogDir(deps: Pick<import("../../infrastructure/deps.js").CliDeps, "paths">, projectPath: string, config?: TimeLogConfig): string {
+	return timelogStore.resolveDir(deps as StoreDeps, projectPath, config ? { dir: config.dir } : undefined);
 }
 
-/** List all time-log entries from the timelog directory. */
-export function listTimeLogEntries(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, config?: TimeLogConfig): TimeLogEntry[] {
-	const dir = timelogDir(deps, projectPath, config);
-	const files = listMdFiles(deps, dir);
-	const entries: TimeLogEntry[] = [];
-
-	for (const file of files) {
-		const content = deps.disk.readFileSync(deps.paths.join(dir, file), "utf-8");
-		const fm = parseFrontmatterStrings(content);
-		const bodyMatch = content.match(/^---[\s\S]*?---\s*([\s\S]*)/);
-		entries.push({
-			date: fm.date ?? "",
-			person: fm.person ?? "",
-			hours: parseFloat(fm.hours ?? "0"),
-			category: fm.category ?? "",
-			task: fm.task ?? "",
-			description: bodyMatch ? bodyMatch[1].trim() : "",
-		});
-	}
-
-	return entries.sort((a, b) => b.date.localeCompare(a.date));
+export function listTimeLogEntries(deps: Pick<import("../../infrastructure/deps.js").CliDeps, "disk" | "paths">, projectPath: string, config?: TimeLogConfig): TimeLogEntry[] {
+	return timelogStore.list(deps as StoreDeps, projectPath, config ? { dir: config.dir } : undefined);
 }
 
-/** Create a new time-log entry. Returns the file path or null on failure. */
 export function createTimeLogEntry(deps: TimeLogStoreDeps, projectPath: string, entry: TimeLogEntry, config?: TimeLogConfig): string | null {
-	const dir = timelogDir(deps, projectPath, config);
+	const dir = timelogStore.resolveDir(deps, projectPath, config ? { dir: config.dir } : undefined);
 	deps.disk.mkdirSync(dir, { recursive: true });
 
 	const datePart = entry.date || deps.clock.iso().slice(0, 10);
 	const personKebab = toKebab(entry.person);
-	const filename = `${datePart}-${personKebab}.md`;
-	const filePath = deps.paths.join(dir, filename);
+	const baseFilename = `${datePart}-${personKebab}.md`;
+	const basePath = deps.paths.join(dir, baseFilename);
 
 	// Allow multiple entries per person per day — append suffix if needed
-	let finalPath = filePath;
+	let finalPath = basePath;
 	let suffix = 1;
 	while (deps.disk.existsSync(finalPath)) {
 		finalPath = deps.paths.join(dir, `${datePart}-${personKebab}-${suffix}.md`);
 		suffix++;
 	}
 
-	const frontmatter: Record<string, string> = {
-		type: "TimeLog",
-		date: datePart,
-		person: entry.person,
-		hours: String(entry.hours),
-		category: entry.category || "general",
-		task: entry.task,
-	};
-
-	const doc = Document.create(`Time Log - ${entry.person}`)
-		.mergeFrontmatter(frontmatter)
-		.addBlank();
-
-	if (entry.description) {
-		doc.text(entry.description);
-	}
-
-	doc.save(finalPath, deps.disk);
+	const category = entry.category || "general";
+	const yamlLines = [
+		`type: TimeLog`,
+		`date: ${datePart}`,
+		`person: ${entry.person}`,
+		`hours: ${entry.hours}`,
+		`category: ${category}`,
+		`task: ${entry.task}`,
+	];
+	const body = entry.description ?? "";
+	const content = `---\n${yamlLines.join("\n")}\n---\n\n${body}`;
+	deps.disk.writeFileSync(finalPath, content, "utf-8");
 	return finalPath;
 }
 
-/** Summarize time-log entries by person and category. */
 export function summarizeTimeLog(entries: TimeLogEntry[]): TimeLogSummary {
 	const byPerson: Record<string, number> = {};
 	const byCategory: Record<string, number> = {};

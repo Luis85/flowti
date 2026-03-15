@@ -4,20 +4,53 @@
  * Stores CAPA items as markdown files with YAML frontmatter in docs/capa/.
  */
 
-import { Document } from "../../infrastructure/document.js";
-import type { CliDeps } from "../../infrastructure/deps.js";
+import { createStore } from "../../infrastructure/store-engine.js";
+import type { StoreDeps } from "../../infrastructure/store-engine.js";
+import { toMdFilename } from "../../infrastructure/markdown-utils.js";
 import type { CAPAConfig, CAPAStatus } from "../../infrastructure/types.js";
 import type { CAPADefinition, CAPASummary } from "./capa-types.js";
-import { resolveDir, listItems, toMdFilename, updateField } from "../shared/markdown-store.js";
 
-export type CAPAStoreDeps = Pick<CliDeps, "disk" | "paths" | "clock">;
+export const capaStore = createStore<CAPASummary, CAPADefinition & { id: string }>({
+	name: "capa",
+	defaultDir: "docs/capa",
+	configPath: "dir",
+	typeTag: "CAPAItem",
+	idGeneration: { prefix: "CAPA", padding: 3 },
+	needsClock: true,
+	fields: {
+		name: { type: "string", from: "frontmatter", required: true, default: "" },
+		id: { type: "string", default: "" },
+		capaType: { type: "enum", options: ["corrective", "preventive"], default: "corrective" },
+		status: { type: "enum", options: ["open", "investigating", "action-planned", "implementing", "verification", "closed", "rejected"], default: "open" },
+		severity: { type: "enum", options: ["critical", "high", "medium", "low"], default: "medium" },
+		source: { type: "enum", options: ["audit", "complaint", "incident", "observation", "review", "other"], default: "observation" },
+		owner: { type: "string", default: "" },
+		dueDate: { type: "string", default: "" },
+	},
+	sort: (a, b) => a.name.localeCompare(b.name),
+	buildBody: (def) => {
+		const lines: string[] = [];
+		lines.push(`# ${def.id} — ${def.name}`, "");
+		if (def.description) { lines.push(def.description, ""); }
+		lines.push("## Root Cause Analysis", "");
+		if (def.rootCause) { lines.push(def.rootCause, ""); }
+		else { lines.push("<!-- Describe the root cause here. -->", ""); }
+		const label = def.capaType === "corrective" ? "Corrective Actions" : "Preventive Actions";
+		lines.push(`## ${label}`, "");
+		lines.push("<!-- List actions to address the root cause. -->", "");
+		lines.push("## Verification", "");
+		lines.push("<!-- Define how effectiveness will be verified. -->");
+		return lines.join("\n");
+	},
+});
 
-/** Resolve the CAPA directory for a project. */
-export function capaDir(deps: Pick<CliDeps, "paths">, projectPath: string, config?: CAPAConfig): string {
-	return resolveDir(deps, projectPath, config?.dir, "docs/capa");
+// Backwards-compatible re-exports (removed in Phase 4 cleanup)
+export type CAPAStoreDeps = StoreDeps & { clock: import("../../infrastructure/types.js").IClock };
+
+export function capaDir(deps: Pick<import("../../infrastructure/deps.js").CliDeps, "paths">, projectPath: string, config?: CAPAConfig): string {
+	return capaStore.resolveDir(deps as StoreDeps, projectPath, config ? { dir: config.dir } : undefined);
 }
 
-/** Auto-generate the next CAPA ID from existing items. */
 export function nextCapaId(existing: string[]): string {
 	let max = 0;
 	for (const id of existing) {
@@ -27,86 +60,23 @@ export function nextCapaId(existing: string[]): string {
 	return `CAPA-${String(max + 1).padStart(3, "0")}`;
 }
 
-function parseCAPASummary(fm: Record<string, string>, file: string): CAPASummary {
-	return {
-		name: fm.name ?? file.replace(/\.md$/, ""),
-		id: fm.id ?? "",
-		capaType: (fm.capaType as CAPASummary["capaType"]) ?? "corrective",
-		status: (fm.status as CAPAStatus) ?? "open",
-		severity: fm.severity ?? "medium",
-		source: fm.source ?? "observation",
-		owner: fm.owner ?? "",
-		dueDate: fm.dueDate ?? "",
-		file,
-	};
+export function listCAPAItems(deps: Pick<import("../../infrastructure/deps.js").CliDeps, "disk" | "paths">, projectPath: string, config?: CAPAConfig): CAPASummary[] {
+	return capaStore.list(deps as StoreDeps, projectPath, config ? { dir: config.dir } : undefined);
 }
 
-/** List all CAPA items from the CAPA directory. */
-export function listCAPAItems(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, config?: CAPAConfig): CAPASummary[] {
-	return listItems(deps, capaDir(deps, projectPath, config), parseCAPASummary, (a, b) => a.name.localeCompare(b.name));
-}
-
-/** Create a new CAPA item markdown file. Returns the file path or null if it already exists. */
 export function createCAPAItem(deps: CAPAStoreDeps, projectPath: string, def: CAPADefinition & { id: string }, config?: CAPAConfig): string | null {
-	const dir = capaDir(deps, projectPath, config);
-	deps.disk.mkdirSync(dir, { recursive: true });
-
+	const dir = capaStore.resolveDir(deps, projectPath, config ? { dir: config.dir } : undefined);
 	const filename = toMdFilename(def.name);
-	const filePath = deps.paths.join(dir, filename);
-
-	if (deps.disk.existsSync(filePath)) return null;
-
-	const frontmatter: Record<string, string> = {
-		type: "CAPAItem",
-		capaType: def.capaType,
-		name: def.name,
-		id: def.id,
-		status: def.status,
-		severity: def.severity,
-		source: def.source,
-		date: deps.clock.iso(),
-	};
-
-	if (def.owner) frontmatter.owner = def.owner;
-	if (def.dueDate) frontmatter.dueDate = def.dueDate;
-
-	const doc = Document.create(def.name)
-		.mergeFrontmatter(frontmatter)
-		.addBlank()
-		.heading(1, `${def.id} — ${def.name}`)
-		.addBlank();
-
-	if (def.description) {
-		doc.text(def.description).addBlank();
-	}
-
-	doc.heading(2, "Root Cause Analysis").addBlank();
-	if (def.rootCause) {
-		doc.text(def.rootCause).addBlank();
-	} else {
-		doc.text("<!-- Describe the root cause here. -->").addBlank();
-	}
-
-	const actionLabel = def.capaType === "corrective" ? "Corrective Actions" : "Preventive Actions";
-	doc.heading(2, actionLabel).addBlank();
-	doc.text("<!-- List actions to address the root cause. -->").addBlank();
-
-	doc.heading(2, "Verification").addBlank();
-	doc.text("<!-- Define how effectiveness will be verified. -->");
-
-	doc.save(filePath, deps.disk);
-	return filePath;
+	if (deps.disk.existsSync(deps.paths.join(dir, filename))) return null;
+	return capaStore.create(deps, projectPath, def, config ? { dir: config.dir } : undefined);
 }
 
-/** Update the status of a named CAPA item. Returns true if successful. */
 export function updateCAPAStatus(
-	deps: Pick<CliDeps, "disk" | "paths">,
+	deps: Pick<import("../../infrastructure/deps.js").CliDeps, "disk" | "paths">,
 	projectPath: string,
 	itemName: string,
 	status: CAPAStatus,
 	config?: CAPAConfig,
 ): boolean {
-	const dir = capaDir(deps, projectPath, config);
-	const filePath = deps.paths.join(dir, toMdFilename(itemName));
-	return updateField(deps, filePath, "status", status);
+	return capaStore.updateField(deps as StoreDeps, projectPath, itemName, "status", status, config ? { dir: config.dir } : undefined);
 }
