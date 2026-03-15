@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Flowti Component Storybook</title>
+	<link rel="stylesheet" href="../css/00-tokens.css">
+	<style>
+		* { margin: 0; padding: 0; box-sizing: border-box; }
+		body {
+			background: var(--flowti-bg-primary, #1e1e2e);
+			color: var(--flowti-text, #cdd6f4);
+			font-family: var(--flowti-font, sans-serif);
+			padding: 2rem;
+		}
+		nav {
+			display: flex;
+			gap: 0.5rem;
+			margin-bottom: 2rem;
+			padding-bottom: 1rem;
+			border-bottom: 1px solid var(--flowti-border, #45475a);
+		}
+		nav button {
+			padding: 0.4rem 0.8rem;
+			border: 1px solid var(--flowti-border, #45475a);
+			border-radius: var(--flowti-radius-sm, 4px);
+			background: var(--flowti-bg-secondary, #181825);
+			color: var(--flowti-text, #cdd6f4);
+			cursor: pointer;
+			font-size: 0.85rem;
+		}
+		nav button:hover { background: var(--flowti-bg-hover, #313244); }
+		nav button.active {
+			background: var(--flowti-accent, #89b4fa);
+			color: var(--flowti-text-on-accent, #1e1e2e);
+			border-color: var(--flowti-accent, #89b4fa);
+		}
+		#storybook-root { min-height: 300px; }
+		.storybook-header {
+			font-size: 0.7rem;
+			color: var(--flowti-text-muted, #a6adc8);
+			margin-bottom: 1.5rem;
+		}
+	</style>
+</head>
+<body>
+	<div class="storybook-header">FLOWTI COMPONENT STORYBOOK</div>
+	<nav id="storybook-nav"></nav>
+	<div id="storybook-root"></div>
+	<script type="module" src="./storybook-bundle.js"></script>
+</body>
+</html>

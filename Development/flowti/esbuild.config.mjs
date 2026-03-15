@@ -126,6 +126,7 @@ const doDistribution = process.argv.includes("--distribution");
 const isIncrement = process.argv.includes("--increment");
 const doReload = process.argv.includes("--reload");
 const noReports = process.argv.includes("--no-reports");
+const storybook = process.argv.includes("--storybook");
 const prod = !isWatch;
 
 // Paths
@@ -528,6 +529,21 @@ const run = async () => {
 			distributeBuild();
 		} else {
 			console.warn("[build] Skipping distribution due to build errors.");
+		}
+
+		// Storybook build (optional, --storybook flag)
+		if (storybook) {
+			await esbuild.build({
+				entryPoints: ["stories/storybook-entry.ts"],
+				bundle: true,
+				outfile: "stories/storybook-bundle.js",
+				format: "esm",
+				target: "es2020",
+				platform: "browser",
+				sourcemap: true,
+				minify: false,
+			});
+			console.log("[build] Storybook built → stories/storybook-bundle.js");
 		}
 
 		console.log("[build] Build done...", OUTDIR);
