@@ -21,7 +21,7 @@ describe("flowti-tm-coverage", () => {
 
 	it("renders PRD list in master panel", async () => {
 		const el = await fixture("flowti-tm-coverage", { coverageEntries: makeCoverageEntries() });
-		const rows = shadowQueryAll(el, ".prd-row");
+		const rows = shadowQueryAll<HTMLElement>(el, ".prd-row");
 		expect(rows).toHaveLength(3);
 	});
 
@@ -33,7 +33,7 @@ describe("flowti-tm-coverage", () => {
 
 	it("clicking PRD shows detail panel", async () => {
 		const el = await fixture("flowti-tm-coverage", { coverageEntries: makeCoverageEntries() });
-		const rows = shadowQueryAll(el, ".prd-row");
+		const rows = shadowQueryAll<HTMLElement>(el, ".prd-row");
 		rows[0]?.click();
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
 		const detail = shadowQuery(el, ".detail-panel");
@@ -42,7 +42,7 @@ describe("flowti-tm-coverage", () => {
 
 	it("detail panel shows linked journeys", async () => {
 		const el = await fixture("flowti-tm-coverage", { coverageEntries: makeCoverageEntries() });
-		const rows = shadowQueryAll(el, ".prd-row");
+		const rows = shadowQueryAll<HTMLElement>(el, ".prd-row");
 		rows[0]?.click();
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
 		const text = shadowText(el);
@@ -51,7 +51,7 @@ describe("flowti-tm-coverage", () => {
 
 	it("detail panel shows domain coverage bars", async () => {
 		const el = await fixture("flowti-tm-coverage", { coverageEntries: makeCoverageEntries() });
-		const rows = shadowQueryAll(el, ".prd-row");
+		const rows = shadowQueryAll<HTMLElement>(el, ".prd-row");
 		rows[0]?.click();
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
 		const domainRows = shadowQueryAll(el, ".domain-row");
@@ -60,7 +60,7 @@ describe("flowti-tm-coverage", () => {
 
 	it("renders coverage gaps section", async () => {
 		const el = await fixture("flowti-tm-coverage", { coverageEntries: makeCoverageEntries() });
-		const rows = shadowQueryAll(el, ".prd-row");
+		const rows = shadowQueryAll<HTMLElement>(el, ".prd-row");
 		rows[0]?.click();
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
 		const gaps = shadowQuery(el, ".gaps-section");

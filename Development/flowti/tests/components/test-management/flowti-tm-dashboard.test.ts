@@ -70,7 +70,7 @@ describe("flowti-tm-dashboard", () => {
 			pyramid: makePyramid(),
 		});
 		el.addEventListener("navigate-to-tab", handler);
-		const card = shadowQuery(el, ".kpi-card");
+		const card = shadowQuery<HTMLElement>(el, ".kpi-card");
 		card?.click();
 		expect(handler).toHaveBeenCalledTimes(1);
 	});

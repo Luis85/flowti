@@ -76,7 +76,7 @@ describe("registerTestManagementHandlers", () => {
 		});
 
 		it("sets journeys property from service", () => {
-			service.getJourneys.mockReturnValue([{ name: "Test" }]);
+			service.getJourneys.mockReturnValue([{ name: "Test" }] as never);
 			const container = document.createElement("div");
 			registry.getTabHandler("test-mgmt:journeys")!(container, { tabId: "journeys", viewId: "test", eventBus });
 			const el = container.querySelector("flowti-tm-journeys") as unknown as { journeys: unknown[] };

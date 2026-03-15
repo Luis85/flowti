@@ -46,7 +46,7 @@ describe("flowti-tm-pyramid", () => {
 
 	it("clicking a layer card selects it and shows drill-down", async () => {
 		const el = await fixture("flowti-tm-pyramid", { pyramid: makePyramid(), journeys: makeJourneys() });
-		const cards = shadowQueryAll(el, ".layer-card");
+		const cards = shadowQueryAll<HTMLElement>(el, ".layer-card");
 		cards[1]?.click();
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
 		const active = shadowQuery(el, ".layer-card.active");

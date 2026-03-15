@@ -45,7 +45,7 @@ describe("flowti-tm-compliance", () => {
 			characteristicsByStandard: makeCharacteristics(),
 			journeys: makeJourneys(),
 		});
-		const cards = shadowQueryAll(el, ".standard-card");
+		const cards = shadowQueryAll<HTMLElement>(el, ".standard-card");
 		expect(cards).toHaveLength(3);
 	});
 
@@ -66,10 +66,10 @@ describe("flowti-tm-compliance", () => {
 			characteristicsByStandard: makeCharacteristics(),
 			journeys: makeJourneys(),
 		});
-		const cards = shadowQueryAll(el, ".standard-card");
+		const cards = shadowQueryAll<HTMLElement>(el, ".standard-card");
 		cards[0]?.click();
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
-		const chars = shadowQueryAll(el, ".characteristic-row");
+		const chars = shadowQueryAll<HTMLElement>(el, ".characteristic-row");
 		expect(chars).toHaveLength(2);
 	});
 
@@ -79,10 +79,10 @@ describe("flowti-tm-compliance", () => {
 			characteristicsByStandard: makeCharacteristics(),
 			journeys: makeJourneys(),
 		});
-		const cards = shadowQueryAll(el, ".standard-card");
+		const cards = shadowQueryAll<HTMLElement>(el, ".standard-card");
 		cards[0]?.click();
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
-		const rows = shadowQueryAll(el, ".characteristic-row");
+		const rows = shadowQueryAll<HTMLElement>(el, ".characteristic-row");
 		rows[0]?.click();
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
 		const text = shadowText(el);
@@ -95,10 +95,10 @@ describe("flowti-tm-compliance", () => {
 			characteristicsByStandard: makeCharacteristics(),
 			journeys: makeJourneys(),
 		});
-		const cards = shadowQueryAll(el, ".standard-card");
+		const cards = shadowQueryAll<HTMLElement>(el, ".standard-card");
 		cards[0]?.click();
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
-		const rows = shadowQueryAll(el, ".characteristic-row");
+		const rows = shadowQueryAll<HTMLElement>(el, ".characteristic-row");
 		rows[0]?.click();
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
 		const tags = shadowQueryAll(el, ".compliance-tag");
@@ -113,11 +113,11 @@ describe("flowti-tm-compliance", () => {
 			journeys: makeJourneys(),
 		});
 		el.addEventListener("remove-tag", handler);
-		shadowQueryAll(el, ".standard-card")[0]?.click();
+		shadowQueryAll<HTMLElement>(el, ".standard-card")[0]?.click();
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
-		shadowQueryAll(el, ".characteristic-row")[0]?.click();
+		shadowQueryAll<HTMLElement>(el, ".characteristic-row")[0]?.click();
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
-		const removeBtn = shadowQuery(el, ".tag-remove");
+		const removeBtn = shadowQuery<HTMLElement>(el, ".tag-remove");
 		removeBtn?.click();
 		expect(handler).toHaveBeenCalledTimes(1);
 	});
@@ -130,15 +130,15 @@ describe("flowti-tm-compliance", () => {
 			journeys: makeJourneys(),
 		});
 		el.addEventListener("add-tag", handler);
-		shadowQueryAll(el, ".standard-card")[0]?.click();
+		shadowQueryAll<HTMLElement>(el, ".standard-card")[0]?.click();
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
-		shadowQueryAll(el, ".characteristic-row")[1]?.click();
+		shadowQueryAll<HTMLElement>(el, ".characteristic-row")[1]?.click();
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
-		const tagBtn = shadowQuery(el, ".tag-journey-btn");
+		const tagBtn = shadowQuery<HTMLElement>(el, ".tag-journey-btn");
 		if (tagBtn) {
 			tagBtn.click();
 			await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
-			const option = shadowQuery(el, ".journey-option");
+			const option = shadowQuery<HTMLElement>(el, ".journey-option");
 			option?.click();
 			expect(handler).toHaveBeenCalledTimes(1);
 		}

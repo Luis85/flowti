@@ -9,6 +9,14 @@
 import type { PluginHandlerRegistry, TabContext } from "./plugin-handler-registry";
 import type { IEventBus } from "../events/types";
 
+type Props = Record<string, unknown>;
+
+function setProps(el: HTMLElement, props: Props): void {
+	for (const [key, value] of Object.entries(props)) {
+		(el as unknown as Props)[key] = value;
+	}
+}
+
 export interface TestManagementHandlerDeps {
 	service: {
 		getJourneys: () => unknown[];
@@ -38,15 +46,15 @@ export function registerTestManagementHandlers(
 	registry.registerTabHandler("test-mgmt:journeys", (container: HTMLElement, ctx: TabContext) => {
 		container.innerHTML = "";
 		const el = document.createElement("flowti-tm-journeys");
-		(el as Record<string, unknown>).journeys = deps.service.getJourneys();
+		setProps(el, { journeys: deps.service.getJourneys() });
 		if (ctx.searchText) {
-			(el as Record<string, unknown>).searchText = ctx.searchText;
+			setProps(el, { searchText: ctx.searchText });
 		}
 		el.addEventListener("open-builder", ((e: CustomEvent) => {
-			void deps.eventBus.emit("ui.openJourneyBuilder", e.detail as Record<string, unknown>);
+			void deps.eventBus.emit("ui.openJourneyBuilder" as never, e.detail as never);
 		}) as EventListener);
 		el.addEventListener("run-journey", ((e: CustomEvent) => {
-			void deps.eventBus.emit("ui.runJourney", e.detail as Record<string, unknown>);
+			void deps.eventBus.emit("ui.runJourney" as never, e.detail as never);
 		}) as EventListener);
 		el.addEventListener("request-review", ((e: CustomEvent) => {
 			const detail = e.detail as { name: string };
@@ -55,12 +63,14 @@ export function registerTestManagementHandlers(
 		container.appendChild(el);
 	});
 
-	registry.registerTabHandler("test-mgmt:pyramid", (container: HTMLElement, ctx: TabContext) => {
+	registry.registerTabHandler("test-mgmt:pyramid", (container: HTMLElement) => {
 		container.innerHTML = "";
 		const el = document.createElement("flowti-tm-pyramid");
-		(el as Record<string, unknown>).pyramid = deps.service.getPyramidWithTrends();
-		(el as Record<string, unknown>).journeys = deps.service.getJourneys();
-		(el as Record<string, unknown>).hasBaseline = !!deps.service.getBaseline();
+		setProps(el, {
+			pyramid: deps.service.getPyramidWithTrends(),
+			journeys: deps.service.getJourneys(),
+			hasBaseline: !!deps.service.getBaseline(),
+		});
 		el.addEventListener("set-baseline", () => {
 			deps.service.setBaseline();
 		});
@@ -71,15 +81,17 @@ export function registerTestManagementHandlers(
 		container.innerHTML = "";
 		const el = document.createElement("flowti-tm-coverage");
 		const prds = deps.service.getPrds();
-		(el as Record<string, unknown>).coverageEntries = deps.service.getCoverage(prds);
+		setProps(el, { coverageEntries: deps.service.getCoverage(prds) });
 		container.appendChild(el);
 	});
 
 	registry.registerTabHandler("test-mgmt:compliance", (container: HTMLElement) => {
 		container.innerHTML = "";
 		const el = document.createElement("flowti-tm-compliance");
-		(el as Record<string, unknown>).scores = deps.service.getCompliance();
-		(el as Record<string, unknown>).journeys = deps.service.getJourneys();
+		setProps(el, {
+			scores: deps.service.getCompliance(),
+			journeys: deps.service.getJourneys(),
+		});
 		el.addEventListener("add-tag", ((e: CustomEvent) => {
 			const detail = e.detail as { journeyName: string; tagId: string };
 			deps.service.addComplianceTag(detail.journeyName, detail.tagId);
@@ -94,19 +106,20 @@ export function registerTestManagementHandlers(
 	registry.registerTabHandler("test-mgmt:feature-quality", (container: HTMLElement) => {
 		container.innerHTML = "";
 		const el = document.createElement("flowti-tm-feature-quality");
-		(el as Record<string, unknown>).journeys = deps.service.getJourneys();
+		setProps(el, { journeys: deps.service.getJourneys() });
 		container.appendChild(el);
 	});
 
 	// ── Dashboard handler ─────────────────────────────────
 
-	registry.registerTabHandler("test-management:dashboard", (container: HTMLElement, ctx: TabContext) => {
+	registry.registerTabHandler("test-management:dashboard", (container: HTMLElement) => {
 		container.innerHTML = "";
 		const el = document.createElement("flowti-tm-dashboard");
-		const journeys = deps.service.getJourneys();
-		(el as Record<string, unknown>).journeys = journeys;
-		(el as Record<string, unknown>).pyramid = deps.service.getPyramidWithTrends();
-		(el as Record<string, unknown>).onboardingVisible = deps.onboardingService.shouldShowCallout("test-management-welcome");
+		setProps(el, {
+			journeys: deps.service.getJourneys(),
+			pyramid: deps.service.getPyramidWithTrends(),
+			onboardingVisible: deps.onboardingService.shouldShowCallout("test-management-welcome"),
+		});
 		container.appendChild(el);
 	});
 

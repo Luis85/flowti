@@ -40,7 +40,7 @@ describe("flowti-tm-feature-quality", () => {
 
 	it("clicking feature shows detail panel", async () => {
 		const el = await fixture("flowti-tm-feature-quality", { features: makeFeatures(), journeys: makeJourneys() });
-		const items = shadowQueryAll(el, ".feature-item");
+		const items = shadowQueryAll<HTMLElement>(el, ".feature-item");
 		items[0]?.click();
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
 		const detail = shadowQuery(el, ".detail-panel");
@@ -49,7 +49,7 @@ describe("flowti-tm-feature-quality", () => {
 
 	it("detail panel shows linked journeys", async () => {
 		const el = await fixture("flowti-tm-feature-quality", { features: makeFeatures(), journeys: makeJourneys() });
-		const items = shadowQueryAll(el, ".feature-item");
+		const items = shadowQueryAll<HTMLElement>(el, ".feature-item");
 		items[0]?.click();
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
 		const journeyRows = shadowQueryAll(el, ".journey-row");
@@ -64,7 +64,7 @@ describe("flowti-tm-feature-quality", () => {
 
 	it("shows trend indicator", async () => {
 		const el = await fixture("flowti-tm-feature-quality", { features: makeFeatures(), journeys: makeJourneys() });
-		const items = shadowQueryAll(el, ".feature-item");
+		const items = shadowQueryAll<HTMLElement>(el, ".feature-item");
 		items[0]?.click();
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
 		const trend = shadowQuery(el, ".trend");

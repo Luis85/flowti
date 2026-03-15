@@ -45,7 +45,7 @@ describe("flowti-tm-journeys", () => {
 
 	it("clicking journey shows detail panel", async () => {
 		const el = await fixture("flowti-tm-journeys", { journeys: makeJourneys() });
-		const rows = shadowQueryAll(el, ".journey-row");
+		const rows = shadowQueryAll<HTMLElement>(el, ".journey-row");
 		rows[0]?.click();
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
 		const detail = shadowQuery(el, ".detail-panel");
@@ -54,7 +54,7 @@ describe("flowti-tm-journeys", () => {
 
 	it("detail panel shows run history", async () => {
 		const el = await fixture("flowti-tm-journeys", { journeys: makeJourneys() });
-		shadowQueryAll(el, ".journey-row")[0]?.click();
+		shadowQueryAll<HTMLElement>(el, ".journey-row")[0]?.click();
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
 		const historyRows = shadowQueryAll(el, ".run-history-row");
 		expect(historyRows).toHaveLength(2);
@@ -62,7 +62,7 @@ describe("flowti-tm-journeys", () => {
 
 	it("detail panel shows traceability (actors, services, tools)", async () => {
 		const el = await fixture("flowti-tm-journeys", { journeys: makeJourneys() });
-		shadowQueryAll(el, ".journey-row")[0]?.click();
+		shadowQueryAll<HTMLElement>(el, ".journey-row")[0]?.click();
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
 		const text = shadowText(el);
 		expect(text).toContain("user");
@@ -97,9 +97,9 @@ describe("flowti-tm-journeys", () => {
 		const handler = vi.fn();
 		const el = await fixture("flowti-tm-journeys", { journeys: makeJourneys() });
 		el.addEventListener("run-journey", handler);
-		shadowQueryAll(el, ".journey-row")[0]?.click();
+		shadowQueryAll<HTMLElement>(el, ".journey-row")[0]?.click();
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
-		const btn = shadowQuery(el, ".run-btn");
+		const btn = shadowQuery<HTMLElement>(el, ".run-btn");
 		btn?.click();
 		expect(handler).toHaveBeenCalledTimes(1);
 	});
@@ -108,9 +108,9 @@ describe("flowti-tm-journeys", () => {
 		const handler = vi.fn();
 		const el = await fixture("flowti-tm-journeys", { journeys: makeJourneys() });
 		el.addEventListener("request-review", handler);
-		shadowQueryAll(el, ".journey-row")[0]?.click();
+		shadowQueryAll<HTMLElement>(el, ".journey-row")[0]?.click();
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
-		const btn = shadowQuery(el, ".review-btn");
+		const btn = shadowQuery<HTMLElement>(el, ".review-btn");
 		btn?.click();
 		expect(handler).toHaveBeenCalledTimes(1);
 	});
@@ -119,9 +119,9 @@ describe("flowti-tm-journeys", () => {
 		const handler = vi.fn();
 		const el = await fixture("flowti-tm-journeys", { journeys: makeJourneys() });
 		el.addEventListener("open-builder", handler);
-		shadowQueryAll(el, ".journey-row")[0]?.click();
+		shadowQueryAll<HTMLElement>(el, ".journey-row")[0]?.click();
 		await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
-		const btn = shadowQuery(el, ".builder-btn");
+		const btn = shadowQuery<HTMLElement>(el, ".builder-btn");
 		btn?.click();
 		expect(handler).toHaveBeenCalledTimes(1);
 	});
