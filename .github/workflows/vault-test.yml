@@ -1,0 +1,65 @@
+name: Vault Tests
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "01 - Projects/Flowti CLI/src/**"
+      - "01 - Projects/Flowti CLI/tests/vault-template/**"
+      - "01 - Projects/Flowti CLI/tests/vault-journeys/**"
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  vault-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: "01 - Projects/Flowti CLI"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install CLI dependencies
+        run: npm ci
+
+      - name: Build CLI binary
+        run: node configs/esbuild.config.mjs
+
+      - name: Run unit tests
+        run: npx vitest run --config configs/vitest.config.ts
+
+      - name: Cache template vault node_modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            01 - Projects/Flowti CLI/tests/vault-template/01 - Projects/Healthy App/node_modules
+            01 - Projects/Flowti CLI/tests/vault-template/01 - Projects/Broken App/node_modules
+          key: vault-template-${{ hashFiles('01 - Projects/Flowti CLI/tests/vault-template/**/package-lock.json') }}
+
+      - name: Install Healthy App dependencies
+        run: cd "tests/vault-template/01 - Projects/Healthy App" && npm ci
+
+      - name: Install Broken App dependencies
+        run: cd "tests/vault-template/01 - Projects/Broken App" && npm ci
+
+      - name: "Tier 1: Smoke tests"
+        run: npx vitest run --config configs/vitest.vault.config.ts tests/vault-journeys/tier-1-smoke.test.ts
+
+      - name: "Tier 2: Integration tests"
+        run: npx vitest run --config configs/vitest.vault.config.ts tests/vault-journeys/tier-2-integration.test.ts
+
+      - name: "Tier 3: Ecosystem tests"
+        run: npx vitest run --config configs/vitest.vault.config.ts tests/vault-journeys/tier-3-ecosystem.test.ts
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vault-testreport
+          path: "01 - Projects/Flowti CLI/reports/tests/vault-testreport.json"
