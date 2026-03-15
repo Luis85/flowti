@@ -33,7 +33,7 @@ export function renderAgentSpawned(agentName: string, sessionId: string, log: (m
 /** Controls how thinking blocks are displayed. */
 export type ThinkingDisplay = "full" | "indicator" | "hidden";
 
-function renderThinking(event: AgentStreamEvent & { kind: "thinking" }, log: (msg?: string) => void, thinkingDisplay: ThinkingDisplay): void {
+function renderThinking(event: AgentStreamEvent & { kind: "thinking" }, thinkingDisplay: ThinkingDisplay, log: (msg?: string) => void): void {
 	if (thinkingDisplay === "hidden") return;
 	log(thinkingDisplay === "indicator" ? `  ${DIM}thinking...${RESET}` : `  ${DIM}${event.text}${RESET}`);
 }
@@ -43,9 +43,9 @@ function truncateJson(json: string): string {
 }
 
 /** Render a single typed stream event from the agent process. */
-export function renderStreamEvent(event: AgentStreamEvent, log: (msg?: string) => void, thinkingDisplay: ThinkingDisplay): void {
+export function renderStreamEvent(event: AgentStreamEvent, thinkingDisplay: ThinkingDisplay, log: (msg?: string) => void): void {
 	const renderers: Record<AgentStreamEvent["kind"], () => void> = {
-		thinking: () => renderThinking(event as AgentStreamEvent & { kind: "thinking" }, log, thinkingDisplay),
+		thinking: () => renderThinking(event as AgentStreamEvent & { kind: "thinking" }, thinkingDisplay, log),
 		text: () => log((event as AgentStreamEvent & { kind: "text" }).text),
 		"tool-start": () => log(`  ${CYAN}> Using tool: ${(event as AgentStreamEvent & { kind: "tool-start" }).name}${RESET}`),
 		"tool-input": () => log(`  ${DIM}  ${truncateJson((event as AgentStreamEvent & { kind: "tool-input" }).json)}${RESET}`),

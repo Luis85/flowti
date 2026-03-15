@@ -48,7 +48,7 @@ export async function runBriefInteractive(
 	const proc = deps.processRunner.spawn(agent, briefContent);
 	const sessionId = `dispatch-${deps.clock.ms()}`;
 	renderAgentSpawned(agentName, sessionId, deps.log);
-	proc.onEvent((event) => renderStreamEvent(event, deps.log, "indicator"));
+	proc.onEvent((event) => renderStreamEvent(event, "indicator", deps.log));
 }
 
 /** List briefs for an iteration and let the user pick one. */
@@ -87,7 +87,7 @@ async function spawnAndStream(
 	const sessionId = `dispatch-${deps.clock.ms()}`;
 	renderAgentSpawned(agent.name, sessionId, deps.log);
 	const thinkingDisplay = "indicator" as const;
-	proc.onEvent((event) => renderStreamEvent(event, deps.log, thinkingDisplay));
+	proc.onEvent((event) => renderStreamEvent(event, thinkingDisplay, deps.log));
 }
 
 export { type AgentsConfig };

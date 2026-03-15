@@ -8,6 +8,7 @@ node_modules
 /.obsidian/appearance.json
 
 .claude/settings.local.json
+.claude/worktrees
 .superpowers
 
 /** Ignore my digital garden **/
