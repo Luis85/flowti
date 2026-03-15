@@ -1,0 +1,23 @@
+{
+	"journey": "Build — Broken App (Expected Failure)",
+	"description": "Verify CLI handles build failures gracefully",
+	"requires": { "target": "vault-test" },
+	"steps": [
+		{
+			"id": "build-fails",
+			"title": "Build exits with non-zero code",
+			"description": "Run the build command and verify it fails as expected",
+			"actions": [
+				{ "tool": "vault-cli", "command": "build --project=\"Broken App\"", "expectExit": 1 }
+			]
+		},
+		{
+			"id": "error-meaningful",
+			"title": "Error output is meaningful",
+			"description": "Verify the failure produces useful error output",
+			"actions": [
+				{ "tool": "vault-cli", "command": "build --project=\"Broken App\"", "expectExit": 1, "storeAs": "buildErr" }
+			]
+		}
+	]
+}

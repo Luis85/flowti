@@ -1,0 +1,23 @@
+{
+	"name": "Healthy App",
+	"type": "typescript",
+	"build": {
+		"commands": {
+			"fast": "npm run build"
+		}
+	},
+	"test": {
+		"commands": {
+			"unit": "npm test"
+		}
+	},
+	"health": {
+		"thresholds": {
+			"minCoverage": 50,
+			"targetCoverage": 80,
+			"maxLintErrors": 5,
+			"maxLintWarnings": 10,
+			"minPassedTests": 1
+		}
+	}
+}

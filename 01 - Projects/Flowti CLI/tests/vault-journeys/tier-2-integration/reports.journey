@@ -1,0 +1,15 @@
+{
+	"journey": "Report Generation",
+	"description": "Verify report generation produces output files",
+	"requires": { "target": "vault-test" },
+	"steps": [
+		{
+			"id": "run-reports",
+			"title": "Reports command exits cleanly",
+			"description": "Run the reports command for the Healthy App",
+			"actions": [
+				{ "tool": "vault-cli", "command": "reports --project=\"Healthy App\"", "expectExit": 0 }
+			]
+		}
+	]
+}

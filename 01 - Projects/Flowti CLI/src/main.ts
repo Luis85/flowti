@@ -61,6 +61,7 @@ import { commands as claudeSyncCmds } from "./controller/claude-sync.controller.
 import { commands as stateCmds } from "./controller/state.controller.js";
 import { commands as workspaceCmds } from "./controller/workspace.controller.js";
 import { commands as onboardingCmds } from "./controller/onboarding.controller.js";
+import { commands as vaultTestCmds } from "./controller/vault-test.controller.js";
 import { shouldOnboard } from "./domain/onboarding/onboarding-detection.js";
 import { disk, watchFile } from "./infrastructure/filesystem.js";
 import { shell } from "./infrastructure/shell.js";
@@ -114,6 +115,7 @@ registry.registerDomain({ domain: "claude", commands: claudeSyncCmds, projectFre
 registry.registerDomain({ domain: "state", commands: stateCmds, projectFree: ["state"] });
 registry.registerDomain({ domain: "onboarding", commands: onboardingCmds, projectFree: ["onboarding:status", "onboarding:start", "onboarding:skip", "onboarding:restart"] });
 registry.registerDomain({ domain: "workspace", commands: workspaceCmds, projectFree: ["workspace:list", "workspace:inspect", "workspace:provision", "workspace:collect", "workspace:dispose", "workspace:prune"] });
+registry.registerDomain({ domain: "vault-test", commands: vaultTestCmds, projectFree: ["test:vault", "test:vault:smoke", "test:vault:integration", "test:vault:ecosystem"] });
 registry.setWildcard("reports", reportsCmds["report:*"]);
 
 let pluginsRegistered = false;

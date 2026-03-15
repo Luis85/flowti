@@ -1,0 +1,23 @@
+{
+	"journey": "CLI Help",
+	"description": "Verify the help command lists available commands",
+	"requires": { "target": "vault-test" },
+	"steps": [
+		{
+			"id": "help-output",
+			"title": "Help command produces output",
+			"description": "Run help and verify it returns content",
+			"actions": [
+				{ "tool": "vault-cli", "command": "help", "expectExit": 0, "storeAs": "helpOutput" }
+			]
+		},
+		{
+			"id": "help-contains-commands",
+			"title": "Help output lists known commands",
+			"description": "Verify the help output mentions at least one known command",
+			"actions": [
+				{ "tool": "vault-cli", "command": "help", "expectExit": 0, "stdoutContains": "build" }
+			]
+		}
+	]
+}

@@ -18,12 +18,15 @@ function ms(start: number, deps: ToolDeps): number {
 	return deps.clock.ms() - start;
 }
 
-export function interpolate(value: unknown, variables: Record<string, string>): unknown {
+export function interpolate(value: unknown, variables: Record<string, unknown>): unknown {
 	if (typeof value !== "string") return value;
-	return value.replace(/\{\{(\w+)\}\}/g, (_match, key) => variables[key] ?? `{{${key}}}`);
+	return value.replace(/\{\{(\w+)\}\}/g, (_match, key) => {
+		const v = variables[key];
+		return v != null ? String(v) : `{{${key}}}`;
+	});
 }
 
-export function resolveString(action: JourneyAction, key: string, variables: Record<string, string>): string {
+export function resolveString(action: JourneyAction, key: string, variables: Record<string, unknown>): string {
 	return interpolate(action[key], variables) as string ?? "";
 }
 

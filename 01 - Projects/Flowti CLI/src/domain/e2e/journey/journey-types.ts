@@ -130,7 +130,8 @@ export type ProjectTarget =
 	| "obsidian-vault"	// Obsidian vault (no plugin)
 	| "obsidian-plugin"	// Obsidian plugin (vault + plugin lifecycle)
 	| "typescript"		// Generic TypeScript project
-	| "webapp";			// Web application (browser-based)
+	| "webapp"			// Web application (browser-based)
+	| "vault-test";		// Ephemeral vault for binary validation
 
 /** What the journey needs from the environment (DI declaration). */
 export interface JourneyRequirements {
@@ -285,7 +286,7 @@ export interface JourneyExecutorOptions {
 	/** Timeout in ms for individual commands. Default: 30000. */
 	commandTimeout?: number;
 	/** Variables for interpolation in action fields. */
-	variables?: Record<string, string>;
+	variables?: Record<string, unknown>;
 	/** Step ID filter — only run steps matching these IDs. */
 	stepFilter?: string[];
 	/** Dev mode — include dev-only steps. Default: false. */
