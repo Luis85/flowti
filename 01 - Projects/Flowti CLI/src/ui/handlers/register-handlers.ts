@@ -56,22 +56,25 @@ function renderBusyAgents(deps: Pick<CliDeps, "disk" | "paths" | "log">): void {
 		// Resolve personas from agent definitions
 		let agents: Array<{ name: string; persona?: string }> = [];
 		try { agents = listAgents(deps, VAULT_ROOT, cliConfig.agents); } catch { /* best-effort */ }
-		const working: Array<{ name: string; persona?: string; status: string; task?: string; lastType?: string }> = [];
+		const working: Array<{ name: string; persona?: string; status: string; task?: string; lastType?: string; question?: string }> = [];
 		for (const file of agentFiles) {
 			const content = deps.disk.readFileSync(deps.paths.join(varDir, file), "utf-8");
 			const state = JSON.parse(content) as { name?: string; status?: string; tasks?: Array<{ name: string; status: string }>; lastInteractionType?: string };
-			if (state.status === "busy" || state.status === "active") {
+			if (state.status === "busy" || state.status === "waiting") {
 				const activeTask = state.tasks?.find((t) => t.status === "pending" || t.status === "in-progress");
 				const agentDef = agents.find((a) => a.name === state.name);
-				working.push({ name: state.name ?? file, persona: agentDef?.persona, status: state.status, task: activeTask?.name, lastType: state.lastInteractionType });
+				const pq = (state as Record<string, unknown>).pendingQuestion as { question?: string } | undefined;
+				working.push({ name: state.name ?? file, persona: agentDef?.persona, status: state.status, task: activeTask?.name, lastType: state.lastInteractionType, question: pq?.question });
 			}
 		}
 		if (working.length > 0) {
 			deps.log(`  ${YELLOW}Agents:${RESET}`);
 			for (const a of working) {
 				const displayName = a.persona ? `${a.persona} (${a.name})` : a.name;
-				const statusTag = a.status === "busy" ? `${YELLOW}working${RESET}` : `${GREEN}active${RESET}`;
-				const taskInfo = a.task ? ` — ${a.task}` : a.lastType ? ` — last: ${a.lastType}` : "";
+				const statusTag = a.status === "busy" ? `${YELLOW}working${RESET}` : `${CYAN}waiting${RESET}`;
+				const taskInfo = a.status === "waiting" && a.question
+					? ` — ${a.question.slice(0, 50)}`
+					: a.task ? ` — ${a.task}` : a.lastType ? ` — last: ${a.lastType}` : "";
 				deps.log(`    ${CYAN}${displayName}${RESET} ${DIM}[${statusTag}${DIM}]${taskInfo}${RESET}`);
 			}
 			deps.log("");
