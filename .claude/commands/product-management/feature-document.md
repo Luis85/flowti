@@ -13,7 +13,7 @@ Guide the creation of a feature document that serves both external (customer-fac
 ## Before You Start
 
 Read the foundation file for shared patterns:
-- Read `.claude/skills/product-management/_foundation.md`
+- Read `.claude/commands/product-management/_foundation.md`
 
 ## Workflow
 

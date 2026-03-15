@@ -13,7 +13,7 @@ Guide an iteration planning ceremony. Reviews refined backlog, team capacity, an
 ## Before You Start
 
 Read the foundation file for shared patterns:
-- Read `.claude/skills/product-management/_foundation.md`
+- Read `.claude/commands/product-management/_foundation.md`
 
 ## Workflow
 

@@ -13,7 +13,7 @@ Guide a Three Amigos review for one or more scope items. Ensures alignment betwe
 ## Before You Start
 
 Read the foundation file for shared patterns:
-- Read `.claude/skills/product-management/_foundation.md`
+- Read `.claude/commands/product-management/_foundation.md`
 
 ## Workflow
 

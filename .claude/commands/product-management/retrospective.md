@@ -13,7 +13,7 @@ Guide a retrospective ceremony. Presents iteration data (velocity, scope changes
 ## Before You Start
 
 Read the foundation file for shared patterns:
-- Read `.claude/skills/product-management/_foundation.md`
+- Read `.claude/commands/product-management/_foundation.md`
 
 ## Workflow
 

@@ -13,7 +13,7 @@ Guide an increment review (sprint review / demo) ceremony. Summarizes completed 
 ## Before You Start
 
 Read the foundation file for shared patterns:
-- Read `.claude/skills/product-management/_foundation.md`
+- Read `.claude/commands/product-management/_foundation.md`
 
 ## Workflow
 
