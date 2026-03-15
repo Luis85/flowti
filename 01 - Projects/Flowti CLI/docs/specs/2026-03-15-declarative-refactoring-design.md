@@ -8,7 +8,7 @@
 
 The Flowti CLI has strong architecture (layered DI, sitemap-driven UI, pipeline engine) but accumulated boilerplate across:
 
-- **28 controllers** (~3,500 lines) repeating flag parsing, project guards, type coercion, error responses, and renderer wiring
+- **27 controller files + 1 inline command** (~3,500 lines) repeating flag parsing, project guards, type coercion, error responses, and renderer wiring
 - **9+ markdown stores** (~1,800 lines) repeating frontmatter parsing, CRUD operations, directory resolution, and field mapping
 - **350+ test files** repeating vi.mock() blocks, initializeDeps() calls, mockProject construction, and display output assertions
 - **Dead code and legacy patterns** — `adapt()` boilerplate, duplicated helpers (`flagStr`, `noProjectResponse`), incomplete mock stubs, stale type casts
@@ -145,7 +145,7 @@ The engine standardizes on data-first `(data, log)`. All renderers are updated t
 | Dynamic imports in handler | 1 | `serve` uses `await import()` — permitted in async handlers (controller layer) |
 | World state access | 1 | `state` controller accesses `ctx.deps.worldState` — no special handling needed |
 
-#### Controllers Inventory (28 total)
+#### Controllers Inventory (27 files + 1 inline)
 
 | Controller | Actions | Requires Project | Notes |
 |------------|---------|-----------------|-------|
@@ -176,6 +176,7 @@ The engine standardizes on data-first `(data, log)`. All renderers are updated t
 | sitemap | 3 | Optional | File stats |
 | **state** | **1** | **No** | **New — world state query, --json, --agent flags** |
 | timelog | 3 | Yes | Date defaults, float hours |
+| **completions** | **1** | **No** | **Inline in main.ts — shell completion generation; migrate to defineCommand()** |
 
 #### File Location
 
@@ -431,13 +432,16 @@ This refactor is a clean cut — no backwards-compatibility, no coexistence peri
 | Target | Location | Why It's Dead After Refactor |
 |--------|----------|------------------------------|
 | `adapt()` function | `src/infrastructure/request-response.ts` | Replaced by `defineCommand()` engine |
+| `createRequest()` function | `src/infrastructure/request-response.ts` | Used by `adapt()` to build request objects — dead when adapt is deleted |
+| `handleResponse()` function | `src/infrastructure/request-response.ts` | Used by `adapt()` internally — dead when adapt is deleted |
+| `_sharedDeps` / `getSharedDeps()` | `src/infrastructure/request-response.ts` | Lazy singleton feeding `createRequest()` — dead when adapt is deleted |
 | `ControllerAction` type | `src/infrastructure/request-response.ts` | Replaced by `CommandDescriptor` |
 | `initializeDeps()` singleton | `src/infrastructure/deps.ts` | Controllers receive deps via `CommandContext`, not globals |
 | Per-controller `flagStr()` helpers | 8+ controller files | Engine handles flag parsing |
 | Per-controller `noProjectResponse()` | 15+ controller files | Engine handles project guard |
 | Per-controller `resolveBuildCommand()` / `resolveTestCommand()` duplication | `build.controller.ts`, `devtools.controller.ts` | Extracted to shared domain function, called from handler |
 | `Object.fromEntries(Object.entries(actions).map(...))` pattern | All 28 controllers | Replaced by `defineCommand()` registration |
-| Incomplete `createTestDeps()` | `tests/mocks/mock-deps.ts` | Rewritten to stub all 13 `CliDeps` fields |
+| Incomplete `createTestDeps()` | `tests/mocks/mock-deps.ts` | Rewritten to stub all 11 `CliDeps` fields |
 | Stale mock-presets | `tests/mocks/mock-presets.ts` | Replaced by engine test patterns |
 | Manual `vi.mock()` blocks for engine concerns | 100+ test files | Engine tests cover these; controller tests call handlers directly |
 
@@ -445,8 +449,8 @@ This refactor is a clean cut — no backwards-compatibility, no coexistence peri
 
 | Target | Current State | New State |
 |--------|--------------|-----------|
-| `createTestDeps()` | Missing agentShell, worldState, workerManager, processRunner, askAbortable | Complete stubs for all 13 `CliDeps` fields |
-| All 28 controller files | `adapt()` + manual flag parsing + project guards | `defineCommand()` descriptors |
+| `createTestDeps()` | Missing agentShell, worldState, workerManager, processRunner, askAbortable | Complete stubs for all 11 `CliDeps` fields |
+| All 27 controller files + 1 inline command | `adapt()` + manual flag parsing + project guards | `defineCommand()` descriptors |
 | All 9 markdown store files | Manual CRUD + frontmatter parsing | `createStore()` descriptors + `buildBody()` |
 | All renderer signatures | Mixed log-first and data-first | Standardized data-first `(data, log)` |
 | `dispatch.ts` wildcard | Hardcoded `"report:"` prefix | Reads prefix from registry |
@@ -457,13 +461,13 @@ No coexistence. Each phase is a clean cut — old code is deleted as new code la
 
 #### Prerequisites
 
-**`createTestDeps()` rewrite** — before any controller migration. Current `tests/mocks/mock-deps.ts` returns 9 of 13 required `CliDeps` fields. Rewrite to stub all fields:
+**`createTestDeps()` rewrite** — before any controller migration. Current `tests/mocks/mock-deps.ts` returns 8 of 11 required `CliDeps` fields (`disk`, `shell`, `paths`, `clock`, `proc`, `input`, `bus`, `log`, `warn` — missing `worldState`, `workerManager`, `processRunner`). Rewrite to stub all 11 fields:
 
-- `agentShell` — `{ talk: vi.fn(), dispatch: vi.fn(), getActiveDispatch: vi.fn(), reconcileStaleAgents: vi.fn(() => ({ recovered: [] })), pendingQuestions: vi.fn(() => []), answerAgent: vi.fn() }`
-- `worldState` — `{ emitAction: vi.fn(), updateEntity: vi.fn(), getState: vi.fn(() => ({ version: "v1", entities: {}, permissions: [], activity: [] })), getEntity: vi.fn(), flush: vi.fn(), setActionCallback: vi.fn() }`
-- `workerManager` — `{ spawn: vi.fn(), spawnAll: vi.fn(), stop: vi.fn(), stopAll: vi.fn(), getWorker: vi.fn(), listWorkers: vi.fn(() => []), send: vi.fn(), dispatchWorldEvent: vi.fn() }`
-- `processRunner` — `{ spawn: vi.fn(() => ({ onEvent: vi.fn(), result: Promise.resolve({ text: "", thinking: "", exitCode: 0 }), kill: vi.fn() })) }`
-- `input.askAbortable` — `vi.fn(() => ({ promise: Promise.resolve(""), abort: vi.fn() }))`
+- `worldState` — `{ emitAction: vi.fn(), updateEntity: vi.fn(), getState: vi.fn(() => ({ version: 1 as const, updatedAt: "", entities: {}, permissions: {}, activityLog: [] })), getEntity: vi.fn(), flush: vi.fn(), setActionCallback: vi.fn() }` (see `src/domain/agents/world-state-types.ts` for `IWorldStateManager`)
+- `workerManager` — `{ spawn: vi.fn(), spawnAll: vi.fn(), stop: vi.fn(), stopAll: vi.fn(), getWorker: vi.fn(), listWorkers: vi.fn(() => []), send: vi.fn(), dispatchWorldEvent: vi.fn() }` (see `src/domain/agents/worker-types.ts` for `IWorkerManager`)
+- `processRunner` — `{ spawn: vi.fn(() => ({ onEvent: vi.fn(), result: Promise.resolve({ text: "", thinking: "", exitCode: 0 }), kill: vi.fn() })) }` (see `src/domain/agents/worker-types.ts` for `IAgentProcessRunner`)
+
+Additionally, the existing `createMockInput()` helper inside `mock-deps.ts` is missing `askAbortable` (required by `IInput`). Add to the `input` mock object: `askAbortable: vi.fn(() => ({ promise: Promise.resolve(""), abort: vi.fn() }))`
 
 **Renderer audit** — classify all renderers as log-first or data-first before Phase 3. Swap all to data-first in Phase 3.
 
@@ -481,7 +485,7 @@ Phase 1: Build Engines + Test Infrastructure
   ├── tests/infrastructure/store-engine.test.ts (new)
   ├── tests/conformance/controller-conformance.test.ts (new, initially skip())
   ├── tests/conformance/store-conformance.test.ts (new, initially skip())
-  └── tests/mocks/mock-deps.ts (rewritten — all 13 CliDeps fields)
+  └── tests/mocks/mock-deps.ts (rewritten — all 11 CliDeps fields)
 
 Phase 2: Standardize Renderers
   └── All renderer files — swap log-first to data-first (single pass)
@@ -493,10 +497,12 @@ Phase 3: Migrate Stores (all at once, tests updated inline)
   └── Delete: old store function exports, shared markdown-store helpers that are now engine-internal
 
 Phase 4: Migrate Controllers (all at once, tests updated inline)
-  ├── All 28 controllers rewritten as defineCommand() descriptors
-  ├── dispatch.ts — remove hardcoded wildcard prefix
-  ├── command-registry.ts — add wildcardPrefix support
-  ├── Delete: adapt(), ControllerAction type, initializeDeps()
+  ├── All 27 controller files rewritten as defineCommand() descriptors
+  ├── main.ts — migrate inline completions command to defineCommand(); update wildcard registration
+  ├── dispatch.ts — remove hardcoded "report:" prefix, read from registry
+  ├── command-registry.ts — add setWildcardPrefix() method + wildcardPrefix getter
+  ├── Delete: adapt(), createRequest(), handleResponse(), _sharedDeps, getSharedDeps()
+  ├── Delete: ControllerAction type, initializeDeps()
   ├── Delete: all per-controller flagStr(), noProjectResponse() helpers
   └── Controller tests rewritten to descriptor + handler pattern
 
@@ -532,7 +538,7 @@ Phase 5: Enforce + Clean
 | 1. Engines + test infra | 12 new | ~900 | ~60 (mock-deps rewrite) | +840 |
 | 2. Renderers | ~30 updated | ~0 | ~0 | 0 (param swap only) |
 | 3. Stores | 9 rewritten + tests | ~500 | ~1,500 | -1,000 |
-| 4. Controllers + dispatch | 28 rewritten + tests + delete adapt/helpers | ~700 | ~3,500 | -2,800 |
+| 4. Controllers + dispatch + main.ts | 27 rewritten + 1 inline + tests + delete adapt/helpers | ~700 | ~3,500 | -2,800 |
 | 5. Enforce + clean | ~20 updated | ~100 | ~500 | -400 |
 | **Total** | ~100 files | ~2,200 | ~5,560 | **-3,360 lines** |
 
@@ -549,7 +555,7 @@ Phase 5: Enforce + Clean
 - Every controller uses `defineCommand()` — conformance test enforces
 - Every markdown store uses `createStore()` — conformance test enforces
 - All renderers use data-first `(data, log)` signature
-- `createTestDeps()` stubs all 13 `CliDeps` fields
+- `createTestDeps()` stubs all 11 `CliDeps` fields
 - No `flagStr()`, `noProjectResponse()`, or other duplicated helpers in controller files
 
 ### 8. Pattern Enforcement
@@ -598,7 +604,7 @@ type RendererFn<T> = (data: T, log: LogFn) => void;
 
 | Rule | What It Catches | Implementation |
 |------|----------------|----------------|
-| `no-direct-adapt` | Any import of `adapt` from `request-response.ts` | `no-restricted-imports` scoped to `src/controller/` |
+| `no-legacy-request-response` | Any import of `adapt`, `createRequest`, or `ControllerAction` from `request-response.ts` | `no-restricted-imports` scoped to `src/controller/` |
 | `no-raw-flag-parsing` | Manual `typeof req.flags.x` checks in controllers | `no-restricted-syntax` with AST selector `"MemberExpression[object.property.name='flags']"` scoped to `src/controller/` |
 | `no-inline-noProjectResponse` | Local `noProjectResponse()` function definitions | `no-restricted-syntax` with AST selector `"FunctionDeclaration[id.name='noProjectResponse']"` scoped to `src/controller/` |
 | `no-duplicate-flagStr` | Local `flagStr()` helper definitions | `no-restricted-syntax` with AST selector `"FunctionDeclaration[id.name='flagStr']"` scoped to `src/controller/` |
@@ -657,7 +663,7 @@ describe("store conformance", () => {
 | Layer | What It Catches | When |
 |-------|----------------|------|
 | **TypeScript** | Wrong types, missing required fields, bad renderer signatures | At compile time |
-| **ESLint** | Legacy patterns (`adapt()`, inline `flagStr()`, manual flag parsing) | At lint time |
+| **ESLint** | Legacy patterns (`adapt()`, `createRequest()`, inline `flagStr()`, manual flag parsing) | At lint time |
 | **Conformance tests** | Any command/store not using the engine, project guard bypasses | At test time |
 
 ### 9. What This Does NOT Change
