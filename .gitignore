@@ -7,6 +7,8 @@ node_modules
 /.obsidian/workspace.json
 /.obsidian/appearance.json
 
+.superpowers
+
 /** Ignore my digital garden **/
 /00 - Connectivity/
 /02 - Areas/

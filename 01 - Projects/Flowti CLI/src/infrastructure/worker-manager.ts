@@ -14,6 +14,8 @@ import type { WorkerState, AgentWorker, IWorkerManager, IAgentProcessRunner, Sen
 import { listAgents, readSystemPrompt } from "../domain/agents/agent-store.js";
 import { evaluateDecision, getRulesForAgent } from "../domain/agents/decision-engine.js";
 import { buildCharacter, buildTaskPrompt, buildResponsePrompt, respondFromState, acknowledge } from "../domain/agents/action-handlers.js";
+import { resolvePermissionPolicy, resolveAllowedTools } from "../domain/agents/permission-engine.js";
+import { readAgentState, writeAgentState, clearOnceGrants } from "../domain/agents/agent-state.js";
 
 export type WorkerManagerDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "shell" | "log">;
 
@@ -126,9 +128,14 @@ export function createWorkerManager(
 		setWorkerState(worker, "thinking", worldState);
 
 		const prompt = buildPrompt(deps, vaultRoot, worker, message, opts);
+		const varDir = deps.paths.join(vaultRoot, ".flowti", "var");
+		const agentState = readAgentState(deps, varDir, worker.name);
+		const policy = resolvePermissionPolicy(worker.agent.ai?.permissions, agentState.permissionOverride);
+		const available = worker.agent.ai?.allowedTools ?? [];
+		const resolvedTools = resolveAllowedTools(policy, agentState.grants, available);
 
 		try {
-			const proc = processRunner.spawn(worker.agent, prompt);
+			const proc = processRunner.spawn(worker.agent, prompt, resolvedTools);
 			if (opts?.onEvent) proc.onEvent(opts.onEvent);
 
 			setWorkerState(worker, "working", worldState);
@@ -136,6 +143,10 @@ export function createWorkerManager(
 			const result = await proc.result;
 			const stopped = handleLlmResult(worker, result.exitCode, result.text, worldState);
 			if (stopped) return;
+
+			const freshState = readAgentState(deps, varDir, worker.name);
+			const cleared = clearOnceGrants(freshState);
+			if (cleared !== freshState) writeAgentState(deps, varDir, worker.name, cleared);
 
 			opts?.onResponse?.({ message: result.text, status: "message" });
 		} catch {

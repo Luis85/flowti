@@ -116,7 +116,16 @@
       "Bash(git add:*)",
       "Bash(git worktree:*)",
       "Bash(cat:*)",
-      "Bash(ps aux:*)"
+      "Bash(ps aux:*)",
+      "Bash(git commit:*)",
+      "Bash(bash \"C:/Users/lum/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.2/skills/brainstorming/scripts/start-server.sh\" --project-dir \"C:/Projects/flowti\")",
+      "Bash(wc:*)",
+      "Bash(bash \"C:\\\\Users\\\\lum\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\5.0.2\\\\skills\\\\brainstorming\\\\scripts\\\\start-server.sh\" --project-dir \"C:\\\\Projects\\\\flowti\")",
+      "Bash(npm view:*)",
+      "Bash(gh api:*)",
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:api.npmjs.org)",
+      "WebFetch(domain:bundlephobia.com)"
     ]
   }
 }
