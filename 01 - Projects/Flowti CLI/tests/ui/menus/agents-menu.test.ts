@@ -55,14 +55,6 @@ vi.mock("../../../src/domain/agents/agent-conversation-store.js", () => ({
 	}),
 	getActiveHistory: vi.fn(() => []),
 }));
-vi.mock("../../../src/domain/agents/agent-runner.js", () => ({
-	buildClaudeArgs: vi.fn(() => ["-p", "--output-format", "stream-json", "--verbose", "--prompt-file", "/tmp/brief.md"]),
-}));
-vi.mock("../../../src/domain/agents/agent-stream.js", () => ({
-	createStreamState: vi.fn(() => ({ activeBlocks: new Map() })),
-	updateStreamState: vi.fn((state: unknown) => state),
-	parseStreamLine: vi.fn(() => null),
-}));
 vi.mock("../../../src/ui/displays/agent-run-display.js", () => ({
 	renderStreamEvent: vi.fn(),
 	ThinkingDisplay: undefined,
@@ -74,7 +66,6 @@ import { readProjectConfig, updateProjectConfig } from "../../../src/domain/proj
 import { listProjects } from "../../../src/domain/project/project.js";
 import { loadConversation, saveConversation, createThread, appendTurn, getActiveHistory } from "../../../src/domain/agents/agent-conversation-store.js";
 import { parseAgentResponse } from "../../../src/domain/agents/agent-conversation.js";
-import { parseStreamLine } from "../../../src/domain/agents/agent-stream.js";
 import {
 	addAgentInteractive,
 	removeAgentInteractive,
@@ -101,27 +92,19 @@ const mockCreateThread = vi.mocked(createThread);
 const mockAppendTurn = vi.mocked(appendTurn);
 const mockGetActiveHistory = vi.mocked(getActiveHistory);
 const mockParseAgentResponse = vi.mocked(parseAgentResponse);
-const mockParseStreamLine = vi.mocked(parseStreamLine);
 
 /** A promise that never resolves — used to mock the detach input race in sendTurn. */
 const NEVER = new Promise<string>(() => {});
 
-/** Build a mock BackgroundProcess whose onOutput handler is called with provided lines before waitForExit resolves. */
-function makeBackgroundProcess(outputLines: string[] = [], exitCode = 0) {
-	const handlers: Array<(line: string) => void> = [];
+/** Create a mock TalkSession that resolves with the given response. */
+function makeTalkSession(response?: { message: string; status: string }, thinking = "") {
+	const result = response
+		? { response: response as import("../../../src/domain/agents/agent-conversation.js").AgentResponse, thinking, detached: false }
+		: null;
 	return {
-		onOutput: vi.fn((cb: (line: string) => void) => { handlers.push(cb); return () => undefined; }),
-		waitForExit: vi.fn(async () => {
-			for (const line of outputLines) {
-				for (const h of handlers) h(line);
-			}
-			return exitCode;
-		}),
-		waitForOutput: vi.fn(async () => null),
-		kill: vi.fn(),
-		running: false,
-		output: outputLines,
-		_handlers: handlers,
+		onEvent: vi.fn(() => () => {}),
+		result: Promise.resolve(result as import("../../../src/infrastructure/types.js").TalkResult | null),
+		detach: vi.fn(),
 	};
 }
 
@@ -138,8 +121,11 @@ function makeDeps() {
 		input: { ask: vi.fn(), askYesNo: vi.fn(), waitForEnter: vi.fn() },
 		shell: {
 			check: vi.fn(() => true),
-			runAsync: vi.fn(async () => ({ output: "Agent response text", exitCode: 0 })),
-			spawnBackground: vi.fn(() => makeBackgroundProcess()),
+		},
+		agentShell: {
+			talk: vi.fn(() => makeTalkSession()),
+			dispatch: vi.fn(),
+			getActiveDispatch: vi.fn(() => null),
 		},
 		clock: { now: vi.fn(() => new Date()), ms: vi.fn(() => 1000), iso: vi.fn(() => "2026-03-15T00:00:00.000Z"), safeIso: vi.fn(() => "2026-03-15") },
 		log: vi.fn(),
@@ -465,7 +451,7 @@ describe("talkToAgentInteractive", () => {
 		deps.shell.check.mockReturnValue(false);
 		await talkToAgentInteractive("/proj", makeAgent(), undefined, deps);
 		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("not installed"));
-		expect(deps.shell.spawnBackground).not.toHaveBeenCalled();
+		expect(deps.agentShell.talk).not.toHaveBeenCalled();
 	});
 
 	it("exits immediately when user sends empty first message (no active thread)", async () => {
@@ -473,33 +459,26 @@ describe("talkToAgentInteractive", () => {
 		mockLoadConversation.mockReturnValueOnce({ agent: "CodeBot", threads: [], activeThread: null });
 		deps.input.ask.mockResolvedValueOnce("");
 		await talkToAgentInteractive("/proj", makeAgent(), undefined, deps);
-		expect(deps.shell.spawnBackground).not.toHaveBeenCalled();
+		expect(deps.agentShell.talk).not.toHaveBeenCalled();
 	});
 
-	it("sends message to Claude via spawnBackground and displays parsed response", async () => {
+	it("sends message to agent via agentShell.talk() and displays parsed response", async () => {
 		const deps = makeDeps();
-		const proc = makeBackgroundProcess(["text-line"]);
-		deps.shell.spawnBackground.mockReturnValueOnce(proc);
-		// parseStreamLine returns a text event so textBuffer accumulates "Hi there!"
-		mockParseStreamLine.mockReturnValueOnce({ kind: "text", text: "Hi there!" });
-		mockParseAgentResponse.mockReturnValueOnce({ message: "Hi there!", status: "message" });
+		deps.agentShell.talk.mockReturnValueOnce(makeTalkSession({ message: "Hi there!", status: "message" }));
 
 		deps.input.ask
 			.mockResolvedValueOnce("Hello Bob")  // first message
-			.mockReturnValueOnce(NEVER)           // detach race (never resolves — waitForExit wins)
+			.mockReturnValueOnce(NEVER)           // detach race (never resolves — session.result wins)
 			.mockResolvedValueOnce("");           // end: empty → break
 
 		await talkToAgentInteractive("/proj", makeAgent(), undefined, deps);
-		expect(deps.shell.spawnBackground).toHaveBeenCalledTimes(1);
+		expect(deps.agentShell.talk).toHaveBeenCalledTimes(1);
 		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("Hi there!"));
 	});
 
 	it("persists conversation after each turn", async () => {
 		const deps = makeDeps();
-		const proc = makeBackgroundProcess(["text-line"]);
-		deps.shell.spawnBackground.mockReturnValueOnce(proc);
-		mockParseStreamLine.mockReturnValueOnce({ kind: "text", text: "Response text" });
-		mockParseAgentResponse.mockReturnValueOnce({ message: "Response", status: "ready" });
+		deps.agentShell.talk.mockReturnValueOnce(makeTalkSession({ message: "Response", status: "ready" }));
 
 		deps.input.ask
 			.mockResolvedValueOnce("Hello")
@@ -511,17 +490,9 @@ describe("talkToAgentInteractive", () => {
 
 	it("prompts directly when agent asks a question", async () => {
 		const deps = makeDeps();
-		const proc1 = makeBackgroundProcess(["line1"]);
-		const proc2 = makeBackgroundProcess(["line2"]);
-		deps.shell.spawnBackground
-			.mockReturnValueOnce(proc1)
-			.mockReturnValueOnce(proc2);
-		mockParseStreamLine
-			.mockReturnValueOnce({ kind: "text", text: "What framework?" })
-			.mockReturnValueOnce({ kind: "text", text: "Got it." });
-		mockParseAgentResponse
-			.mockReturnValueOnce({ message: "What framework?", status: "question" })
-			.mockReturnValueOnce({ message: "Got it.", status: "ready" });
+		deps.agentShell.talk
+			.mockReturnValueOnce(makeTalkSession({ message: "What framework?", status: "question" }))
+			.mockReturnValueOnce(makeTalkSession({ message: "Got it.", status: "ready" }));
 
 		deps.input.ask
 			.mockResolvedValueOnce("Hello")
@@ -537,11 +508,11 @@ describe("talkToAgentInteractive", () => {
 
 	it("handles no response from agent (null result)", async () => {
 		const deps = makeDeps();
-		// spawnBackground returns process with no text output → accumulated empty → sendTurn returns null
-		const proc = makeBackgroundProcess([]);
-		deps.shell.spawnBackground.mockReturnValueOnce(proc);
+		deps.agentShell.talk.mockReturnValueOnce(makeTalkSession());
 
-		deps.input.ask.mockResolvedValueOnce("Hello");
+		deps.input.ask
+			.mockResolvedValueOnce("Hello")  // user message
+			.mockReturnValueOnce(NEVER);     // detach race (never resolves)
 		await talkToAgentInteractive("/proj", makeAgent(), undefined, deps);
 		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("No response received"));
 	});
@@ -706,55 +677,41 @@ describe("clarifyTaskInteractive", () => {
 	it("skips for human agents", async () => {
 		const deps = makeDeps();
 		await clarifyTaskInteractive("/proj", makeAgent({ agentType: "human" }), undefined, "Task", "Desc", "", deps);
-		expect(deps.shell.spawnBackground).not.toHaveBeenCalled();
+		expect(deps.agentShell.talk).not.toHaveBeenCalled();
 	});
 
 	it("skips when Claude CLI is not installed", async () => {
 		const deps = makeDeps();
 		deps.shell.check.mockReturnValue(false);
 		await clarifyTaskInteractive("/proj", makeAgent(), undefined, "Task", "Desc", "", deps);
-		expect(deps.shell.spawnBackground).not.toHaveBeenCalled();
+		expect(deps.agentShell.talk).not.toHaveBeenCalled();
 	});
 
 	it("runs clarification dialog with AI agent", async () => {
 		const deps = makeDeps();
-		const proc = makeBackgroundProcess(["text-line"]);
-		deps.shell.spawnBackground.mockReturnValueOnce(proc);
-		mockParseStreamLine.mockReturnValueOnce({ kind: "text", text: "What framework are you using?" });
-		mockParseAgentResponse.mockReturnValueOnce({ message: "What framework are you using?", status: "question" });
+		deps.agentShell.talk.mockReturnValueOnce(makeTalkSession({ message: "What framework are you using?", status: "question" }));
 		deps.input.ask.mockResolvedValueOnce("");  // end dialog
 		await clarifyTaskInteractive("/proj", makeAgent(), undefined, "Fix bug", "Fix the login flow", "", deps);
-		expect(deps.shell.spawnBackground).toHaveBeenCalledTimes(1);
+		expect(deps.agentShell.talk).toHaveBeenCalledTimes(1);
 		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("What framework"));
 	});
 
 	it("supports multi-turn clarification", async () => {
 		const deps = makeDeps();
-		const proc1 = makeBackgroundProcess(["line1"]);
-		const proc2 = makeBackgroundProcess(["line2"]);
-		deps.shell.spawnBackground
-			.mockReturnValueOnce(proc1)
-			.mockReturnValueOnce(proc2);
-		mockParseStreamLine
-			.mockReturnValueOnce({ kind: "text", text: "Which module?" })
-			.mockReturnValueOnce({ kind: "text", text: "Got it." });
-		mockParseAgentResponse
-			.mockReturnValueOnce({ message: "Which module?", status: "question" })
-			.mockReturnValueOnce({ message: "Got it.", status: "message" });
+		deps.agentShell.talk
+			.mockReturnValueOnce(makeTalkSession({ message: "Which module?", status: "question" }))
+			.mockReturnValueOnce(makeTalkSession({ message: "Got it.", status: "message" }));
 		deps.input.ask
 			.mockResolvedValueOnce("The auth module")  // answer question
 			.mockResolvedValueOnce("");                 // end dialog
 		await clarifyTaskInteractive("/proj", makeAgent(), undefined, "Fix bug", "Fix login", "", deps);
-		expect(deps.shell.spawnBackground).toHaveBeenCalledTimes(2);
+		expect(deps.agentShell.talk).toHaveBeenCalledTimes(2);
 		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("Clarification complete"));
 	});
 
 	it("auto-ends when agent responds with ready status", async () => {
 		const deps = makeDeps();
-		const proc = makeBackgroundProcess(["line"]);
-		deps.shell.spawnBackground.mockReturnValueOnce(proc);
-		mockParseStreamLine.mockReturnValueOnce({ kind: "text", text: "I understand the task." });
-		mockParseAgentResponse.mockReturnValueOnce({ message: "I understand the task.", status: "ready" });
+		deps.agentShell.talk.mockReturnValueOnce(makeTalkSession({ message: "I understand the task.", status: "ready" }));
 		await clarifyTaskInteractive("/proj", makeAgent(), undefined, "Fix bug", "Fix login", "", deps);
 		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("ready to begin"));
 		expect(deps.input.ask).not.toHaveBeenCalled();

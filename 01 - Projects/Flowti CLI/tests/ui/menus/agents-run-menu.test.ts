@@ -14,23 +14,6 @@ vi.mock("../../../src/ui/displays/agent-run-display.js", () => ({
 	renderStreamEvent: vi.fn(),
 }));
 
-vi.mock("../../../src/infrastructure/agent-process.js", () => ({
-	checkClaudeInstalled: vi.fn(() => true),
-	launchAgent: vi.fn(() => ({
-		sessionId: "test-session",
-		process: { waitForExit: vi.fn(() => Promise.resolve(0)), onOutput: vi.fn(() => () => {}), kill: vi.fn(), running: false, output: [] },
-		subscribe: vi.fn(() => () => {}),
-		stop: vi.fn(),
-	})),
-}));
-
-vi.mock("../../../src/domain/agents/agent-runner.js", () => ({
-	buildRunSpec: vi.fn(() => ({
-		command: "claude", args: ["--print"], env: {}, workingDir: "/project", briefPath: "/brief.md",
-	})),
-	parseAgentOutput: vi.fn((line: string) => ({ kind: "raw", line })),
-}));
-
 vi.mock("../../../src/domain/agents/agent-session.js", () => ({
 	createSession: vi.fn(() => ({ id: "s1", agentName: "Dev", iterationNumber: 5, status: "spawning", startedAt: "", briefRef: "", outputLines: [] })),
 	updateSessionStatus: vi.fn(() => true),
@@ -64,10 +47,22 @@ function makeDeps(): RunMenuDeps {
 	return {
 		disk: { readFileSync: vi.fn(() => "# Brief"), writeFileSync: vi.fn(), existsSync: vi.fn(() => true), mkdirSync: vi.fn(), readdirSync: vi.fn(() => []) } as unknown as RunMenuDeps["disk"],
 		paths: { join: (...parts: string[]) => parts.join("/"), dirname: (p: string) => p.split("/").slice(0, -1).join("/") } as unknown as RunMenuDeps["paths"],
-		shell: { check: vi.fn(() => true), spawnBackground: vi.fn() } as unknown as RunMenuDeps["shell"],
+		shell: { check: vi.fn(() => true) } as unknown as RunMenuDeps["shell"],
 		clock: { iso: vi.fn(() => "2026-03-15"), safeIso: vi.fn(() => "2026-03-15"), now: vi.fn(), ms: vi.fn() } as unknown as RunMenuDeps["clock"],
 		input: { ask: vi.fn(() => Promise.resolve("")), waitForEnter: vi.fn(() => Promise.resolve()) } as unknown as RunMenuDeps["input"],
 		log: vi.fn(),
+		agentShell: {
+			talk: vi.fn(),
+			dispatch: vi.fn(() => ({
+				sessionId: "dispatch-123",
+				agentName: "Dev",
+				task: "test",
+				running: true,
+				onEvent: vi.fn(() => () => {}),
+				stop: vi.fn(),
+			})),
+			getActiveDispatch: vi.fn(() => null),
+		} as unknown as RunMenuDeps["agentShell"],
 	};
 }
 
@@ -80,11 +75,10 @@ describe("runAgentInteractive", () => {
 		expect(renderBriefGenerated).toHaveBeenCalled();
 	});
 
-	it("in autonomous mode attempts to launch process", async () => {
+	it("in autonomous mode dispatches via agentShell", async () => {
 		const deps = makeDeps();
 		await runAgentInteractive(makeAgent(), makeIteration(), "/iter", true, deps);
-		const { checkClaudeInstalled } = await import("../../../src/infrastructure/agent-process.js");
-		expect(checkClaudeInstalled).toHaveBeenCalled();
+		expect(deps.agentShell.dispatch).toHaveBeenCalled();
 	});
 });
 

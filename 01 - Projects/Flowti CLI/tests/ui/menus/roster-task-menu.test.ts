@@ -31,18 +31,34 @@ import type { RosterTaskOptions } from "../../../src/ui/menus/roster-task-menu.j
 import { getProjectAgents } from "../../../src/domain/agents/agent-store.js";
 import { findCurrentIteration } from "../../../src/domain/iterations/iteration-store.js";
 import { findBrief, saveBrief, appendTask, generateBrief } from "../../../src/domain/agents/brief-store.js";
-import type { ShellMenuDeps } from "../../../src/infrastructure/deps.js";
+import type { RosterTaskDeps } from "../../../src/ui/menus/roster-task-menu.js";
 
-function makeDeps(answers: string[] = []): ShellMenuDeps {
+function makeDeps(answers: string[] = []): RosterTaskDeps {
 	let idx = 0;
 	return {
-		disk: { existsSync: vi.fn(() => false), readdirSync: vi.fn(() => []) } as unknown as ShellMenuDeps["disk"],
-		paths: { join: (...p: string[]) => p.join("/"), resolve: (...p: string[]) => p.join("/") } as unknown as ShellMenuDeps["paths"],
+		disk: { existsSync: vi.fn(() => false), readdirSync: vi.fn(() => []) } as unknown as RosterTaskDeps["disk"],
+		paths: { join: (...p: string[]) => p.join("/"), resolve: (...p: string[]) => p.join("/") } as unknown as RosterTaskDeps["paths"],
 		input: { ask: vi.fn(async () => answers[idx++] ?? ""), waitForEnter: vi.fn(async () => {}) },
 		log: vi.fn(),
 		clock: { now: () => new Date(), iso: () => "2026-03-14", ms: () => 0, safeIso: () => "2026-03-14" },
-		shell: { check: vi.fn(() => false), spawnBackground: vi.fn() } as unknown as ShellMenuDeps["shell"],
-	} as unknown as ShellMenuDeps;
+		shell: { check: vi.fn(() => false) } as unknown as RosterTaskDeps["shell"],
+		agentShell: {
+			talk: vi.fn(() => ({
+				onEvent: vi.fn(() => () => {}),
+				result: Promise.resolve(null),
+				detach: vi.fn(),
+			})),
+			dispatch: vi.fn(() => ({
+				sessionId: "dispatch-123",
+				agentName: "Dev",
+				task: "test",
+				running: true,
+				onEvent: vi.fn(() => () => {}),
+				stop: vi.fn(),
+			})),
+			getActiveDispatch: vi.fn(() => null),
+		} as unknown as RosterTaskDeps["agentShell"],
+	} as unknown as RosterTaskDeps;
 }
 
 function makeOpts(): RosterTaskOptions {
