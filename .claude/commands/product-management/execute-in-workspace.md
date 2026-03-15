@@ -27,7 +27,6 @@ Read the foundation file for shared patterns:
    - If found and `state: active`: stop with "Workspace already running for this plan."
    - If found and `state: retained`: ask "Resume existing workspace or start fresh?"
 6. **Verify clean vault** — run `git status` at the vault root. If dirty: warn "Uncommitted changes detected" and ask whether to proceed or stash first
-7. **Check `gh` CLI** — run `gh --version`. If missing: note that PR creation will require manual steps (warning, not a blocker)
 
 If all checks pass, display a summary and wait for confirmation:
 
@@ -38,7 +37,7 @@ Pre-flight ✓
   Iteration: #<N> "<name>" (in-progress)
   Branch:    feat/iter-<N>/<plan-slug>
   Workspace: ws-plan-<slug-8>-<hex>
-  gh CLI:    available | not found (manual PR)
+  Dev branch: <current-branch>
 
 Proceed with workspace provisioning?
 ```
@@ -140,11 +139,11 @@ Proceed with workspace provisioning?
 
 The plan is the authority. Follow TDD when the plan specifies it. Do not impose TDD if the plan doesn't call for it.
 
-### Step 4: PR Gate & Completion (human-driven)
+### Step 4: Merge Gate & Completion (human-driven)
 
 After all chunks pass the full quality suite:
 
-1. **Generate diff summary:**
+1. **Generate diff summary** (from workspace):
    ```bash
    git log master..HEAD --oneline
    git diff master..HEAD --stat
@@ -161,35 +160,49 @@ After all chunks pass the full quality suite:
      ESLint:  clean
      Build:   clean
 
-   Ready to push and create PR?
+   How would you like to integrate this work?
+     1. Merge into current dev branch (<current-branch>)
+     2. Merge into master
+     3. Keep the workspace branch as-is (handle later)
+     4. Discard this work
    ```
-   Wait for user confirmation.
+   Wait for user choice.
 
-3. **If confirmed — push and create PR:**
+3. **Option 1 — Merge into dev branch** (default):
    ```bash
-   git push -u origin feat/iter-N/plan-slug
+   # From vault root
+   git merge feat/iter-N/plan-slug --no-ff -m "feat(iter-N): <plan goal summary>"
    ```
-   Then create PR with `gh pr create`:
-   - **Title:** `feat(iter-N): <plan goal summary>`
-   - **Summary:** plan goal + bullet list of chunks completed
-   - **Changes:** key files from plan's file structure table, or from `git diff master..HEAD --stat` if no table
-   - **Quality:** test count, tsc, eslint, build status
-   - **Plan:** link to the plan file
-   - **Test Plan:** verification steps from plan, or "all quality gates passed" if none specified
-
-   If `gh` is not available: output the `git push` command and PR body text for manual creation.
-
-4. **If declined** — present options: keep branch for manual review, or go back and fix something.
-
-5. **Collect workspace state** (back in vault root):
+   Then run tests in the vault to verify the merge is clean:
    ```bash
-   flowti workspace:collect <workspace-id>
+   cd "<project>" && npx vitest run --config configs/vitest.config.ts && npx tsc --noEmit --project configs/tsconfig.json
    ```
+   If tests pass: report success. If merge conflicts: present them and help resolve.
 
-6. **Report completion:**
+4. **Option 2 — Merge into master:**
+   ```bash
+   git checkout master
+   git merge feat/iter-N/plan-slug --no-ff -m "feat(iter-N): <plan goal summary>"
+   ```
+   Verify tests, then ask whether to switch back to the previous branch.
+
+5. **Option 3 — Keep as-is:**
+   Report workspace path and branch name. No merge, no cleanup.
+
+6. **Option 4 — Discard:**
+   Confirm with user first: "This will delete branch feat/iter-N/plan-slug and all commits. Type 'discard' to confirm."
+   If confirmed: remove worktree and delete branch.
+
+7. **Cleanup workspace** (for options 1, 2, 4):
+   ```bash
+   git worktree remove "<workspace-path>"
+   ```
+   Update `.flowti/var/workspace-registry.json` — set workspace state to `disposed`.
+
+8. **Report completion:**
    ```
    Done
-     PR:        <PR URL>
-     Workspace: retained (flowti workspace:inspect <id>)
-     Branch:    feat/iter-<N>/<plan-slug>
+     Merged:    feat/iter-<N>/<plan-slug> → <target-branch>
+     Tests:     <count> passing
+     Workspace: disposed
    ```

@@ -198,7 +198,7 @@ The core loop — read the plan and execute it chunk by chunk:
 
 The skill follows TDD when the plan specifies it (most plans have "write failing tests" before "write implementation"). It does not impose TDD if the plan doesn't call for it — the plan is the authority.
 
-### Step 4: PR Gate & Completion (human-driven)
+### Step 4: Merge Gate & Completion (human-driven)
 
 After all chunks pass the full quality suite:
 
@@ -219,37 +219,44 @@ After all chunks pass the full quality suite:
      ESLint:  clean
      Build:   clean
 
-   Ready to push and create PR?
+   How would you like to integrate this work?
+     1. Merge into current dev branch (<current-branch>)
+     2. Merge into master
+     3. Keep the workspace branch as-is (handle later)
+     4. Discard this work
    ```
-   Wait for user confirmation.
+   Wait for user choice.
 
-3. **If confirmed — push and create PR:**
+3. **Option 1 — Merge into dev branch** (default):
+   Merge from vault root into the current development branch:
    ```bash
-   git push -u origin feat/iter-5/agent-workspace-isolation
-   gh pr create --title "feat(iter-5): <plan goal summary>" \
-     --body "<generated body>"
+   git merge feat/iter-N/plan-slug --no-ff -m "feat(iter-N): <plan goal summary>"
    ```
-   PR body structure:
-   - **Summary** — plan goal + bullet list of chunks completed
-   - **Changes** — key files created/modified. Source: plan's file structure table if present, otherwise derived from `git diff master..HEAD --stat`
-   - **Quality** — test count, coverage, tsc, eslint, build status
-   - **Plan** — link to the plan file
-   - **Test Plan** — checklist from the plan's verification steps if present, otherwise a generic "all quality gates passed" summary
+   Run tests in vault to verify merge is clean. If merge conflicts: present and help resolve.
 
-4. **If declined** — present options: keep branch for manual review, or go back and fix something.
-
-5. **Collect workspace state:**
+4. **Option 2 — Merge into master:**
    ```bash
-   flowti workspace:collect <workspace-id>
+   git checkout master
+   git merge feat/iter-N/plan-slug --no-ff -m "feat(iter-N): <plan goal summary>"
    ```
-   Merges runtime state back to the vault and records the session.
+   Verify tests, then ask whether to switch back to the previous branch.
 
-6. **Report completion:**
+5. **Option 3 — Keep as-is:** Report workspace path and branch. No merge, no cleanup.
+
+6. **Option 4 — Discard:** Confirm with user first. If confirmed: remove worktree and delete branch.
+
+7. **Cleanup workspace** (for options 1, 2, 4):
+   ```bash
+   git worktree remove "<workspace-path>"
+   ```
+   Update `.flowti/var/workspace-registry.json` — set workspace state to `disposed`.
+
+8. **Report completion:**
    ```
    Done
-     PR:        https://github.com/user/flowti/pull/42
-     Workspace: retained (inspect with flowti workspace:inspect <id>)
-     Branch:    feat/iter-5/agent-workspace-isolation
+     Merged:    feat/iter-N/plan-slug → <target-branch>
+     Tests:     <count> passing
+     Workspace: disposed
    ```
 
 ---
@@ -302,8 +309,8 @@ After all chunks pass the full quality suite:
 | `npx eslint src/` | Verification | Lint check |
 | `node configs/esbuild.config.mjs` | Verification | Build check |
 | `git add` / `git commit` | Execution | Commit chunk work |
-| `git push -u origin` | PR creation | Push feature branch |
-| `gh pr create` | PR creation | Open pull request (pre-flight checks `gh --version`; if missing, outputs push command + PR body for manual creation) |
+| `git merge --no-ff` | Completion | Merge workspace branch into dev/master |
+| `git worktree remove` | Cleanup | Remove workspace after merge |
 
 ### Agent Skill Map Integration
 
