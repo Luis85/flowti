@@ -54,7 +54,9 @@ Permissions resolve before every process spawn. Three sources combine in priorit
 2. **Definition default** — `permissions` on `AgentAIConfig` in agent markdown frontmatter
 3. **Fallback** — `{ mode: "ask", autoAllowTools: DEFAULT_SAFE_TOOLS }`
 
-The resolved policy is a single `AgentPermissionPolicy`. Grants accumulate separately — they are additive and never reset by mode changes.
+The resolved policy is a single `AgentPermissionPolicy`. If `autoAllowTools` is absent in the resolved policy, `DEFAULT_SAFE_TOOLS` is used as the auto-allow set. Grants accumulate separately — they are additive and never reset by mode changes.
+
+Note: `AgentSummary` picks up the `permissions` field transitively through `ai?: AgentAIConfig` — no separate change needed to `AgentSummary`.
 
 ### 3. Permission Check Flow
 
@@ -71,8 +73,22 @@ Decision tree:
 3. Mode is `auto-allow` AND tool is in `autoAllowTools` → **allowed** (record grant with `grantedBy: "policy"`)
 4. Mode is `ask`:
    - Foreground (interactive session) → **prompt-user** (wait for y / n / always)
-   - Background (worker process) → **queued** (store as `requesting-permission` action in world state)
+   - Background (worker process) → **queued** (see queued flow below)
 5. Default → **denied**
+
+**Queued permission flow** (background workers in ask mode):
+
+When a background worker needs a tool that isn't pre-approved:
+1. The worker transitions to `waiting` state
+2. A `requesting-permission` action is emitted to world state with `{ tool, task }` data
+3. A `pendingPermissions` entry is added to the agent's state file:
+   ```typescript
+   pendingPermissions?: readonly { tool: string; requestedAt: string; taskContext?: string }[];
+   ```
+4. The current process spawn is denied the tool — it completes without it
+5. When the user visits the agent detail page, pending requests are shown
+6. User approves (grant added) or denies (request cleared)
+7. On next `send()` or `spawn()`, the granted tool is included in `--allowedTools`
 
 ### 4. Process Runner Integration
 
@@ -85,7 +101,7 @@ The process runner builds the `--allowedTools` CLI flag from the resolved set:
 
 1. Start with `agent.ai.allowedTools` (the full capability set)
 2. **Trust mode** → pass all allowed tools unrestricted
-3. **Auto-allow mode** → pass `autoAllowTools` + accumulated `"always"` grants (intersection with allowed tools)
+3. **Auto-allow mode** → pass `autoAllowTools` (or `DEFAULT_SAFE_TOOLS` if absent) + accumulated `"always"` grants (intersection with allowed tools)
 4. **Ask mode** → pass only accumulated `"always"` grants (intersection with allowed tools)
 
 Each `send()` or `spawn()` re-evaluates the allowed set. Users grant tools interactively between process spawns — not mid-process.
@@ -119,7 +135,9 @@ export interface AgentAIConfig {
 }
 ```
 
-The `permissionOverride` field is optional — when absent, the definition default applies. Grants with `scope: "once"` are cleared after the next process spawn completes.
+The `permissionOverride` field is optional — when absent, the definition default applies.
+
+**Clearing `once`-scoped grants:** After `proc.result` resolves in `worker-manager.ts`'s `processMessage()`, the worker manager calls `clearOnceGrants(deps, varDir, agentName)` — a function in `agent-state.ts` that removes all grants with `scope: "once"` from the state file. This ensures one-time grants are consumed after a single process spawn.
 
 ### 6. UI Surface
 
@@ -151,10 +169,10 @@ New actions on the agent detail page:
 | File | Change |
 |------|--------|
 | `src/domain/agents/agent-types.ts` | Add `permissions?: AgentPermissionPolicy` to `AgentAIConfig` |
-| `src/domain/agents/agent-state.ts` | Add `permissionOverride?` and `grants[]` to state shape |
+| `src/domain/agents/agent-state.ts` | Add `permissionOverride?`, `grants[]`, `pendingPermissions[]` to state shape; add `clearOnceGrants()` function |
 | `src/domain/agents/agent-process-runner.ts` | Call `resolveAllowedTools()` before spawning instead of using `allowedTools` directly |
 | `src/domain/agents/worker-manager.ts` | Load grants from state on worker spawn; re-resolve tools after queued permission is granted |
-| `src/domain/agents/world-state-types.ts` | Replace `PermissionEntry` with `PermissionGrant` (adds `grantedBy` field) |
+| `src/domain/agents/world-state-types.ts` | Deprecate `PermissionEntry` — keep for backward compat but grants are now persisted per-agent in state files, not in `WorldState.permissions`. The `permissions` field on `WorldState` is no longer written to; permission state lives in `data-{slug}.json` |
 | `configs/sitemap.json` | Add `onChangePermission` and `onManageGrants` actions to agent detail page |
 | `src/ui/handlers/register-handlers.ts` | Register handlers for the two new actions |
 
