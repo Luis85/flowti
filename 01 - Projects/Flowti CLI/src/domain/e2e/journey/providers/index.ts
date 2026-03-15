@@ -146,6 +146,24 @@ const builtInCapabilities: Capability[] = [
 		description: "Execute multiple assertions in a single obsidian-cli call",
 		check: () => true,
 	},
+	{
+		id: "vault-provision",
+		name: "Vault Provisioning",
+		description: "Provision ephemeral test vaults from a template directory",
+		check: () => true,
+	},
+	{
+		id: "vault-cli",
+		name: "Vault CLI Execution",
+		description: "Execute Flowti CLI commands in a provisioned vault",
+		check: () => true,
+	},
+	{
+		id: "vault-project",
+		name: "Vault Project Operations",
+		description: "Query and manage projects in a provisioned vault",
+		check: () => true,
+	},
 ];
 
 // ── Registry factory ─────────────────────────────────────────────────
