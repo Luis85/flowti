@@ -20,7 +20,9 @@ import type { AgentSummary } from "../../src/domain/agents/agent-types.js";
 import type { WorkspacesConfig } from "../../src/infrastructure/types-config.js";
 import type { IClock } from "../../src/infrastructure/types.js";
 import type { ICliBus } from "../../src/infrastructure/event-bus.js";
+import type { IWorldStateManager } from "../../src/infrastructure/types.js";
 import type { AgentWorkspace } from "../../src/domain/agents/agent-workspace.js";
+import type { AgentStreamEvent } from "../../src/domain/agents/agent-stream.js";
 
 // ── Mock factories ──────────────────────────────────────────────────
 
@@ -60,10 +62,12 @@ function createMockCollector(): IStateCollector {
 	};
 }
 
-function createMockProcessRunner(): IAgentProcessRunner {
+function createMockProcessRunner(): IAgentProcessRunner & { lastEventCallbacks: Array<(event: AgentStreamEvent) => void> } {
+	const lastEventCallbacks: Array<(event: AgentStreamEvent) => void> = [];
 	return {
+		lastEventCallbacks,
 		spawn: vi.fn((): AgentProcess => ({
-			onEvent: () => () => {},
+			onEvent: (cb: (event: AgentStreamEvent) => void) => { lastEventCallbacks.push(cb); return () => {}; },
 			result: Promise.resolve({ text: "done", thinking: "", exitCode: 0 }),
 			kill: () => {},
 		})),
@@ -100,6 +104,17 @@ function createMockBus(): ICliBus {
 	} as unknown as ICliBus;
 }
 
+function createMockWorldState(): IWorldStateManager {
+	return {
+		emitAction: vi.fn(),
+		updateEntity: vi.fn(),
+		getState: vi.fn(() => ({ version: 1, updatedAt: "", entities: {}, permissions: {}, activityLog: [] })),
+		getEntity: vi.fn(() => null),
+		flush: vi.fn(),
+		setActionCallback: vi.fn(),
+	} as unknown as IWorldStateManager;
+}
+
 const defaultConfig: WorkspacesConfig = {
 	baseDir: "/agents",
 	defaultRetain: false,
@@ -118,6 +133,7 @@ interface ShellDeps {
 	config: WorkspacesConfig;
 	clock: IClock;
 	bus: ICliBus;
+	worldState?: IWorldStateManager;
 }
 
 function createShellDeps(overrides?: Partial<ShellDeps>): ShellDeps {
@@ -249,6 +265,114 @@ describe("AgentShell", () => {
 
 			expect(deps.provisioner.dispose).not.toHaveBeenCalled();
 			expect(deps.bus.emit).toHaveBeenCalledWith("workspace:retained", expect.any(Object));
+		});
+
+		it("wires stream events to world state via action mapper", async () => {
+			const worldState = createMockWorldState();
+			const processRunner = createMockProcessRunner();
+			const deps = createShellDeps({ worldState, processRunner });
+			const shell = createAgentShell(deps);
+
+			await shell.dispatch({ agent: "bob", task: "test" });
+
+			expect(processRunner.lastEventCallbacks).toHaveLength(1);
+
+			// Simulate a stream event
+			const callback = processRunner.lastEventCallbacks[0];
+			callback({ kind: "text", text: "hello world" });
+
+			expect(worldState.emitAction).toHaveBeenCalledWith(
+				expect.objectContaining({
+					agentName: "bob",
+					type: "speaking",
+					data: { text: "hello world" },
+				}),
+			);
+		});
+
+		it("does not emit action for stream events that map to null", async () => {
+			const worldState = createMockWorldState();
+			const processRunner = createMockProcessRunner();
+			const deps = createShellDeps({ worldState, processRunner });
+			const shell = createAgentShell(deps);
+
+			await shell.dispatch({ agent: "bob", task: "test" });
+
+			const callback = processRunner.lastEventCallbacks[0];
+			callback({ kind: "done" });
+
+			expect(worldState.emitAction).not.toHaveBeenCalled();
+		});
+
+		it("skips world state wiring when worldState is not provided", async () => {
+			const processRunner = createMockProcessRunner();
+			const deps = createShellDeps({ processRunner });
+			const shell = createAgentShell(deps);
+
+			await shell.dispatch({ agent: "bob", task: "test" });
+
+			// onEvent still gets called by the mock, but no world state listener registered
+			expect(processRunner.lastEventCallbacks).toHaveLength(0);
+		});
+
+		it("maps thinking stream events to world state actions", async () => {
+			const worldState = createMockWorldState();
+			const processRunner = createMockProcessRunner();
+			const deps = createShellDeps({ worldState, processRunner });
+			const shell = createAgentShell(deps);
+
+			await shell.dispatch({ agent: "bob", task: "test" });
+
+			const callback = processRunner.lastEventCallbacks[0];
+			callback({ kind: "thinking", text: "analyzing code" });
+
+			expect(worldState.emitAction).toHaveBeenCalledWith(
+				expect.objectContaining({
+					agentName: "bob",
+					type: "thinking",
+					data: { text: "analyzing code" },
+				}),
+			);
+		});
+
+		it("maps tool-start stream events to world state actions", async () => {
+			const worldState = createMockWorldState();
+			const processRunner = createMockProcessRunner();
+			const deps = createShellDeps({ worldState, processRunner });
+			const shell = createAgentShell(deps);
+
+			await shell.dispatch({ agent: "bob", task: "test" });
+
+			const callback = processRunner.lastEventCallbacks[0];
+			callback({ kind: "tool-start", id: "t-1", name: "Read" });
+
+			expect(worldState.emitAction).toHaveBeenCalledWith(
+				expect.objectContaining({
+					agentName: "bob",
+					type: "using-tool",
+					data: { tool: "Read", id: "t-1" },
+				}),
+			);
+		});
+
+		it("maps error stream events to world state actions", async () => {
+			const worldState = createMockWorldState();
+			const processRunner = createMockProcessRunner();
+			const deps = createShellDeps({ worldState, processRunner });
+			const shell = createAgentShell(deps);
+
+			await shell.dispatch({ agent: "bob", task: "test" });
+
+			const callback = processRunner.lastEventCallbacks[0];
+			callback({ kind: "error", message: "connection failed" });
+
+			expect(worldState.emitAction).toHaveBeenCalledWith(
+				expect.objectContaining({
+					agentName: "bob",
+					type: "error",
+					data: { message: "connection failed" },
+				}),
+			);
 		});
 	});
 

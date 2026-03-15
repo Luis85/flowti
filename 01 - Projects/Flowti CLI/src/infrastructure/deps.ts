@@ -125,6 +125,7 @@ export function createDefaultDeps(agentsConfig?: AgentsConfig, vaultRoot?: strin
 		config: workspacesConfig,
 		clock,
 		bus,
+		worldState,
 	}) : undefined;
 
 	return { disk, shell, paths, clock, proc, input, bus, log, warn, worldState, workerManager, processRunner, agentShell };

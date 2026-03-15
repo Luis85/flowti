@@ -19,9 +19,10 @@ import type { IWorkspaceProvisioner } from "./workspace-provisioner.js";
 import type { IStateSplitter } from "./state-splitter.js";
 import type { IStateCollector } from "./state-collector.js";
 import type { ICliBus } from "./event-bus.js";
-import type { IClock } from "./types.js";
+import type { IClock, IWorldStateManager } from "./types.js";
 import type { WorkspacesConfig } from "./types-config.js";
 import { createWorkspace, generateBranchName, transitionState, COLLECT_SKIPPED_SENTINEL } from "../domain/agents/agent-workspace.js";
+import { mapStreamEventToAction } from "../domain/agents/action-mapper.js";
 
 // ── Dependencies ────────────────────────────────────────────────────
 
@@ -35,6 +36,7 @@ interface AgentShellDeps {
 	readonly config: WorkspacesConfig;
 	readonly clock: IClock;
 	readonly bus: ICliBus;
+	readonly worldState?: IWorldStateManager;
 }
 
 // ── Defaults ────────────────────────────────────────────────────────
@@ -148,7 +150,16 @@ export function createAgentShell(deps: AgentShellDeps): IAgentShell {
 			deps.registry.update(workspace);
 			deps.bus.emit("workspace:active", { workspace, pid: 0 });
 
-			// 8. Wire completion handler (collect + dispose/retain)
+			// 8. Wire stream events to world state via action mapper
+			if (deps.worldState) {
+				const ws = deps.worldState;
+				process.onEvent((event) => {
+					const action = mapStreamEventToAction(request.agent, event, deps.clock);
+					if (action) ws.emitAction(action);
+				});
+			}
+
+			// 9. Wire completion handler (collect + dispose/retain)
 			const output = process.result.then(async (result) => {
 				workspace = transitionState(workspace, "collecting");
 				deps.registry.update(workspace);
