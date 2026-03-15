@@ -3,7 +3,7 @@ import {
 	readAgentState, writeAgentState,
 	recordInteraction, addTask, completeTask, completeFirstTask, addBrief,
 } from "../../../src/domain/agents/agent-state.js";
-import type { AgentStateDeps, AgentState } from "../../../src/domain/agents/agent-state.js";
+import type { AgentStateDeps, AgentState, AgentPendingQuestion } from "../../../src/domain/agents/agent-state.js";
 
 function makeDeps(): AgentStateDeps & { files: Record<string, string>; dirs: Set<string> } {
 	const files: Record<string, string> = {};
@@ -221,5 +221,40 @@ describe("addBrief", () => {
 		const updated = addBrief(state, { path: "/briefs/dev.md", generatedAt: "2026-03-15T10:00:00Z", autonomous: false });
 		expect(updated.briefs).toHaveLength(1);
 		expect(updated.briefs[0].path).toBe("/briefs/dev.md");
+	});
+});
+
+describe("waiting status", () => {
+	it("recordInteraction preserves waiting status", () => {
+		const state: AgentState = { name: "Dev", status: "waiting", tasks: [], briefs: [] };
+		const result = recordInteraction(state, "talk", "2026-01-01");
+		expect(result.status).toBe("waiting");
+	});
+
+	it("completeFirstTask does not override waiting to idle", () => {
+		const state: AgentState = {
+			name: "Dev", status: "waiting",
+			tasks: [{ name: "Build", assignedAt: "t1", status: "pending" }],
+			briefs: [],
+		};
+		const result = completeFirstTask(state, "Build");
+		expect(result.status).toBe("waiting");
+	});
+
+	it("completeTask does not override waiting to idle", () => {
+		const state: AgentState = {
+			name: "Dev", status: "waiting",
+			tasks: [{ name: "Build", assignedAt: "t1", status: "pending" }],
+			briefs: [],
+		};
+		const result = completeTask(state, "Build");
+		expect(result.status).toBe("waiting");
+	});
+
+	it("pendingQuestion is preserved through state transitions", () => {
+		const pq: AgentPendingQuestion = { question: "What?", briefPath: "/b.md", task: "Build" };
+		const state: AgentState = { name: "Dev", status: "waiting", tasks: [], briefs: [], pendingQuestion: pq };
+		const result = recordInteraction(state, "talk", "2026-01-01");
+		expect(result.pendingQuestion).toEqual(pq);
 	});
 });

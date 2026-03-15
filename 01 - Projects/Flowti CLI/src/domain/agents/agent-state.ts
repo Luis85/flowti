@@ -19,13 +19,22 @@ export interface AgentBriefRef {
 	readonly autonomous: boolean;
 }
 
+export interface AgentPendingQuestion {
+	readonly question: string;
+	readonly briefPath: string;
+	readonly task: string;
+	readonly iterDir?: string;
+	readonly iterationNumber?: number;
+}
+
 export interface AgentState {
 	readonly name: string;
-	readonly status: "idle" | "active" | "busy";
+	readonly status: "idle" | "active" | "busy" | "waiting";
 	readonly lastInteraction?: string;
 	readonly lastInteractionType?: AgentInteractionType;
 	readonly tasks: readonly AgentTask[];
 	readonly briefs: readonly AgentBriefRef[];
+	readonly pendingQuestion?: AgentPendingQuestion;
 }
 
 export type AgentStateDeps = Pick<CliDeps, "disk" | "paths">;
@@ -59,6 +68,7 @@ export function readAgentState(deps: AgentStateDeps, varDir: string, agentName: 
 			lastInteractionType: raw.lastInteractionType,
 			tasks: Array.isArray(raw.tasks) ? raw.tasks : [],
 			briefs: Array.isArray(raw.briefs) ? raw.briefs : [],
+			pendingQuestion: (raw as Record<string, unknown>).pendingQuestion as AgentPendingQuestion | undefined,
 		};
 	} catch {
 		return emptyState(agentName);
@@ -76,7 +86,7 @@ export function writeAgentState(deps: AgentStateDeps, varDir: string, agentName:
 
 /** Record an interaction (talk, task, or brief). Preserves "busy" status if agent is working in background. */
 export function recordInteraction(state: AgentState, type: AgentInteractionType, timestamp: string): AgentState {
-	return { ...state, lastInteraction: timestamp, lastInteractionType: type, status: state.status === "busy" ? "busy" : "active" };
+	return { ...state, lastInteraction: timestamp, lastInteractionType: type, status: (state.status === "busy" || state.status === "waiting") ? state.status : "active" };
 }
 
 /** Add a task to the agent's state. */
@@ -88,7 +98,7 @@ export function addTask(state: AgentState, task: AgentTask): AgentState {
 export function completeTask(state: AgentState, taskName: string): AgentState {
 	const tasks = state.tasks.map((t) => t.name === taskName ? { ...t, status: "done" as const } : t);
 	const allDone = tasks.every((t) => t.status === "done");
-	return { ...state, tasks, status: allDone ? "idle" : state.status };
+	return { ...state, tasks, status: allDone && state.status !== "waiting" ? "idle" : state.status };
 }
 
 /** Mark the first task matching the name (pending or in-progress) as done. Unlike completeTask, this marks only ONE match. */
@@ -103,7 +113,7 @@ export function completeFirstTask(state: AgentState, taskName: string): AgentSta
 	});
 	if (!found) return state;
 	const allDone = tasks.every((t) => t.status === "done");
-	return { ...state, tasks, status: allDone ? "idle" : state.status };
+	return { ...state, tasks, status: allDone && state.status !== "waiting" ? "idle" : state.status };
 }
 
 /** Record a generated brief. */
