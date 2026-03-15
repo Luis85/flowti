@@ -306,6 +306,8 @@ async function main(): Promise<void> {
 	const { recovered } = deps.agentShell.reconcileStaleAgents();
 	if (recovered.length > 0) log(`  ${DIM}Recovered ${recovered.length} stale agent(s): ${recovered.join(", ")}${RESET}`);
 
+	deps.workerManager.spawnAll();
+
 	checkPrerequisites(cliConfig.onboarding?.nodeMinVersion ?? 16, { shell, proc });
 
 	if (await handleCliArgs()) return;
@@ -316,6 +318,7 @@ async function main(): Promise<void> {
 	const startView = shouldOnboard(VAULT_ROOT, PROJECTS_DIR, { disk, paths }) ? "onboarding" : "start";
 	await router.run(startView);
 
+	deps.workerManager.stopAll();
 	deps.worldState.flush();
 	log(`\n  ${DIM}Goodbye.${RESET}\n`);
 	proc.exit(0);

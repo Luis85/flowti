@@ -20,6 +20,8 @@ import { attachCliRenderer } from "../ui/renderers/cli-event-renderer.js";
 import type { AgentsConfig } from "./types-config.js";
 import { createAgentShell } from "./agent-shell.js";
 import { createWorldStateManager } from "./world-state-manager.js";
+import { createProcessRunner } from "./agent-process-runner.js";
+import { createWorkerManager } from "./worker-manager.js";
 
 // ── Full dependency container ───────────────────────────────────────
 
@@ -103,5 +105,8 @@ export function createDefaultDeps(agentsConfig?: AgentsConfig, vaultRoot?: strin
 	const worldState = createWorldStateManager({ disk, paths, clock }, resolvedRoot);
 	const baseDeps = { disk, shell, paths, clock, log };
 	const agentShell = createAgentShell(baseDeps, agentsConfig, resolvedRoot, worldState);
-	return { disk, shell, paths, clock, proc, input, bus, log, warn, agentShell, worldState };
+	const processRunner = createProcessRunner(baseDeps, agentsConfig);
+	const workerManager = createWorkerManager(baseDeps, worldState, processRunner, resolvedRoot, agentsConfig);
+	worldState.setActionCallback((action) => workerManager.dispatchWorldEvent(action));
+	return { disk, shell, paths, clock, proc, input, bus, log, warn, agentShell, worldState, workerManager, processRunner };
 }
