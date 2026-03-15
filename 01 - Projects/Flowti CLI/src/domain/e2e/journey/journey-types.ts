@@ -285,7 +285,7 @@ export interface JourneyExecutorOptions {
 	/** Timeout in ms for individual commands. Default: 30000. */
 	commandTimeout?: number;
 	/** Variables for interpolation in action fields. */
-	variables?: Record<string, string>;
+	variables?: Record<string, unknown>;
 	/** Step ID filter — only run steps matching these IDs. */
 	stepFilter?: string[];
 	/** Dev mode — include dev-only steps. Default: false. */

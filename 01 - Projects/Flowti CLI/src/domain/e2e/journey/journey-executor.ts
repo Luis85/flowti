@@ -100,11 +100,12 @@ export function shouldSkipStep(step: JourneyStep, opts: JourneyExecutorOptions):
 }
 
 /** Interpolate {{var}} in a condition string. */
-function interpolateCondition(expr: string, vars: Record<string, string>, env?: Record<string, string>): string {
+function interpolateCondition(expr: string, vars: Record<string, unknown>, env?: Record<string, string>): string {
 	return expr.replace(/\{\{(\w[\w.]*)\}\}/g, (_m, key) => {
 		// Support {{env.VAR}} for environment variables
 		if (key.startsWith("env.")) return env?.[key.slice(4)] ?? "";
-		return vars[key] ?? "";
+		const v = vars[key];
+		return v == null ? "" : String(v);
 	});
 }
 
