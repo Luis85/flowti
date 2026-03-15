@@ -17,6 +17,8 @@ import { input } from "./input.js";
 import { log, warn } from "./logger.js";
 import { createCliBus } from "./event-bus.js";
 import { attachCliRenderer } from "../ui/renderers/cli-event-renderer.js";
+import { createAgentShell } from "./agent-shell.js";
+import { cliConfig, VAULT_ROOT } from "./config.js";
 
 // ── Full dependency container ───────────────────────────────────────
 
@@ -90,5 +92,7 @@ export type Log = (msg?: string) => void;
 export function createDefaultDeps(): CliDeps {
 	const bus = createCliBus();
 	attachCliRenderer(bus);
-	return { disk, shell, paths, clock, proc, input, bus, log, warn };
+	const baseDeps = { disk, shell, paths, clock, log };
+	const agentShell = createAgentShell(baseDeps, cliConfig.agents, VAULT_ROOT);
+	return { disk, shell, paths, clock, proc, input, bus, log, warn, agentShell };
 }
