@@ -49,7 +49,7 @@ export interface AgentProcess {
 }
 
 export interface IAgentProcessRunner {
-	spawn(agent: AgentSummary, prompt: string): AgentProcess;
+	spawn(agent: AgentSummary, prompt: string, resolvedTools?: readonly string[]): AgentProcess;
 }
 
 export interface AgentWorker {

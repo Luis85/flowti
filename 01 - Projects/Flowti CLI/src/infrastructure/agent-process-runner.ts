@@ -35,7 +35,7 @@ export function createProcessRunner(deps: ProcessRunnerDeps, config: AgentsConfi
 	const processTimeout = config?.processTimeoutMs ?? 3_600_000;
 
 	return {
-		spawn(agent: AgentSummary, prompt: string): AgentProcess {
+		spawn(agent: AgentSummary, prompt: string, resolvedTools?: readonly string[]): AgentProcess {
 			const provider = resolveProvider(globalProvider, agent.ai?.provider);
 			const tempPath = deps.paths.join(
 				deps.paths.resolve("."),
@@ -44,8 +44,9 @@ export function createProcessRunner(deps: ProcessRunnerDeps, config: AgentsConfi
 			deps.disk.writeFileSync(tempPath, prompt, "utf-8");
 
 			const args = [...provider.args];
-			if (agent.ai?.allowedTools && agent.ai.allowedTools.length > 0) {
-				args.push("--allowedTools", agent.ai.allowedTools.join(","));
+			const tools = resolvedTools ?? agent.ai?.allowedTools ?? [];
+			if (tools.length > 0) {
+				args.push("--allowedTools", tools.join(","));
 			}
 
 			const quotedPath = `"${tempPath}"`;
