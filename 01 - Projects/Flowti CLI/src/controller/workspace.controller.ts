@@ -30,7 +30,6 @@ type WorkspaceListModel = { workspaces: ReturnType<IAgentShell["list"]> };
 type WorkspaceInspectModel = { workspace: ReturnType<IAgentShell["list"]>[number]; collectResult: CollectResult | null } | ErrorModel;
 type WorkspaceProvisionModel = { workspace: { id: string; path: string } };
 type WorkspaceCollectModel = { commits: readonly string[]; filesChanged: number };
-type WorkspaceDisposeModel = { id: string };
 
 function isErrorModel(m: unknown): m is ErrorModel {
 	return typeof m === "object" && m !== null && "error" in m;

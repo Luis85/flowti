@@ -8,7 +8,6 @@
 
 import { adaptDescriptor } from "../infrastructure/command-engine.js";
 import type { CommandHandler } from "../infrastructure/types.js";
-import type { LogFn } from "../infrastructure/command-engine.js";
 import type { PageObject } from "../infrastructure/sitemap-types.js";
 import type { CommandContext } from "../infrastructure/command-engine.js";
 import { loadSitemap } from "../infrastructure/sitemap-loader.js";

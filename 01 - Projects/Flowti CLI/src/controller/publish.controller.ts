@@ -47,7 +47,6 @@ function checkGates(deps: Pick<CliDeps, "disk" | "paths" | "shell">, p: ProjectC
 
 // ── Model types ─────────────────────────────────────────────────────
 
-type PublishModel = ShellCommandModel;
 type PublishAllModel = ShellCommandModel;
 type PublishCheckModel = GateResult | NoProjectModel;
 type PublishDryRunOrRun = DryRunModel | ShellCommandModel | { gate: GateResult; blocked: GateBlockedModel };
