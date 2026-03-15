@@ -1,0 +1,23 @@
+{
+	"name": "Broken App",
+	"type": "typescript",
+	"build": {
+		"commands": {
+			"fast": "npm run build"
+		}
+	},
+	"test": {
+		"commands": {
+			"unit": "npm test"
+		}
+	},
+	"health": {
+		"thresholds": {
+			"minCoverage": 100,
+			"targetCoverage": 100,
+			"maxLintErrors": 0,
+			"maxLintWarnings": 0,
+			"minPassedTests": 100
+		}
+	}
+}
