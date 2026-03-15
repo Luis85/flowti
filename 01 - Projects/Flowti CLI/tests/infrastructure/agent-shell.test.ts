@@ -358,5 +358,53 @@ describe("createAgentShell", () => {
 			expect(result.recovered).toContain("beta");
 			expect(result.recovered).toHaveLength(2);
 		});
+
+		it("skips waiting agents", () => {
+			(deps.disk.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(true);
+			(deps.disk.readdirSync as ReturnType<typeof vi.fn>).mockReturnValue(["data-dev.json"]);
+			(deps.disk.readFileSync as ReturnType<typeof vi.fn>).mockReturnValue(
+				JSON.stringify({
+					name: "dev", status: "waiting", tasks: [], briefs: [],
+					pendingQuestion: { question: "Which approach?", briefPath: "/b.md", task: "design" },
+				}),
+			);
+			const shell = createAgentShell(deps, undefined, "/vault");
+			const result = shell.reconcileStaleAgents();
+			expect(result.recovered).toEqual([]);
+		});
+	});
+
+	describe("notification queue", () => {
+		it("pendingQuestions returns empty when no waiting agents", () => {
+			const shell = createAgentShell(deps, undefined, "/vault");
+			expect(shell.pendingQuestions()).toEqual([]);
+		});
+
+		it("pendingQuestions reads persisted waiting state from disk", () => {
+			(deps.disk.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(true);
+			(deps.disk.readdirSync as ReturnType<typeof vi.fn>).mockReturnValue(["data-dev.json"]);
+			(deps.disk.readFileSync as ReturnType<typeof vi.fn>).mockReturnValue(
+				JSON.stringify({
+					name: "dev", status: "waiting", tasks: [], briefs: [],
+					pendingQuestion: { question: "Which approach?", briefPath: "/b.md", task: "design" },
+				}),
+			);
+			const shell = createAgentShell(deps, undefined, "/vault");
+			const questions = shell.pendingQuestions();
+			expect(questions).toHaveLength(1);
+			expect(questions[0].agentName).toBe("dev");
+			expect(questions[0].question).toBe("Which approach?");
+			expect(questions[0].task).toBe("design");
+		});
+
+		it("dispatch clears pending notification for same agent", () => {
+			(deps.disk.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(true);
+			(deps.disk.readdirSync as ReturnType<typeof vi.fn>).mockReturnValue([]);
+			const shell = createAgentShell(deps, undefined, "/vault");
+			const agent = createMockAgent();
+			shell.dispatch(agent, "/brief.md", "task");
+			const questions = shell.pendingQuestions();
+			expect(questions).toEqual([]);
+		});
 	});
 });
