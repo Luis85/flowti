@@ -6,7 +6,7 @@
  * Production code uses createDefaultDeps(); tests use createTestDeps().
  */
 
-import type { IFileSystem, IShell, IPaths, IClock, IProcess, IInput } from "./types.js";
+import type { IFileSystem, IShell, IPaths, IClock, IProcess, IInput, IAgentShell } from "./types.js";
 import type { ICliBus } from "./event-bus.js";
 import { disk } from "./filesystem.js";
 import { shell } from "./shell.js";
@@ -31,6 +31,7 @@ export interface CliDeps {
 	readonly bus: ICliBus;
 	readonly log: (msg?: string) => void;
 	readonly warn: (msg: string) => void;
+	readonly agentShell: IAgentShell;
 }
 
 // ── Domain-specific subsets (ISP) ───────────────────────────────────
@@ -52,6 +53,9 @@ export type MenuDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "input" | "log
 
 /** Dependencies for shell-capable menu functions. */
 export type ShellMenuDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "input" | "shell" | "log">;
+
+/** Dependencies for agent menu functions (talk/dispatch via shell abstraction). */
+export type AgentMenuDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "input" | "log" | "agentShell">;
 
 /** Dependencies for dependency-graph display. */
 export type DepsDeps = Pick<CliDeps, "disk" | "paths" | "log">;
