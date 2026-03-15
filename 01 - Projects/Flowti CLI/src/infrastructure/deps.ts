@@ -6,7 +6,7 @@
  * Production code uses createDefaultDeps(); tests use createTestDeps().
  */
 
-import type { IFileSystem, IShell, IPaths, IClock, IProcess, IInput, IAgentShell } from "./types.js";
+import type { IFileSystem, IShell, IPaths, IClock, IProcess, IInput, IAgentShell, IWorldStateManager } from "./types.js";
 import type { ICliBus } from "./event-bus.js";
 import { disk } from "./filesystem.js";
 import { shell } from "./shell.js";
@@ -19,6 +19,7 @@ import { createCliBus } from "./event-bus.js";
 import { attachCliRenderer } from "../ui/renderers/cli-event-renderer.js";
 import type { AgentsConfig } from "./types-config.js";
 import { createAgentShell } from "./agent-shell.js";
+import { createWorldStateManager } from "./world-state-manager.js";
 
 // ── Full dependency container ───────────────────────────────────────
 
@@ -34,6 +35,7 @@ export interface CliDeps {
 	readonly log: (msg?: string) => void;
 	readonly warn: (msg: string) => void;
 	readonly agentShell: IAgentShell;
+	readonly worldState: IWorldStateManager;
 }
 
 // ── Domain-specific subsets (ISP) ───────────────────────────────────
@@ -92,7 +94,9 @@ export type Log = (msg?: string) => void;
 export function createDefaultDeps(agentsConfig?: AgentsConfig, vaultRoot?: string): CliDeps {
 	const bus = createCliBus();
 	attachCliRenderer(bus);
+	const resolvedRoot = vaultRoot ?? ".";
+	const worldState = createWorldStateManager({ disk, paths, clock }, resolvedRoot);
 	const baseDeps = { disk, shell, paths, clock, log };
-	const agentShell = createAgentShell(baseDeps, agentsConfig, vaultRoot ?? ".");
-	return { disk, shell, paths, clock, proc, input, bus, log, warn, agentShell };
+	const agentShell = createAgentShell(baseDeps, agentsConfig, resolvedRoot, worldState);
+	return { disk, shell, paths, clock, proc, input, bus, log, warn, agentShell, worldState };
 }

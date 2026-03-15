@@ -209,6 +209,10 @@ export interface MenuOptions {
 
 export type EntityType = "project" | "product" | "feature" | "iteration" | "brief";
 
+// ── World state types ────────────────────────────────────────────────
+
+export type { IWorldStateManager, WorldState, WorldEntity, AgentAction, AgentActionType, PermissionEntry, ActivityEntry, WorldEntityType } from "../domain/agents/world-state-types.js";
+
 // ── Re-export all config types for backward compatibility ───────────
 
 export * from "./types-config.js";
