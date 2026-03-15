@@ -8,6 +8,8 @@
 
 import type { CliDeps } from "../../src/infrastructure/deps.js";
 import type { IInput, IPaths } from "../../src/infrastructure/types.js";
+import type { IWorldStateManager } from "../../src/domain/agents/world-state-types.js";
+import type { IWorkerManager, IAgentProcessRunner } from "../../src/domain/agents/worker-types.js";
 import { createCliBus } from "../../src/infrastructure/event-bus.js";
 import { createMockFs } from "./mock-fs.js";
 import { createMockShell } from "./mock-shell.js";
@@ -40,8 +42,43 @@ function createMockPaths(): IPaths {
 function createMockInput(): IInput {
 	return {
 		ask: vi.fn(async (_q: string, defaultValue = "") => defaultValue),
+		askAbortable: vi.fn(() => ({ promise: Promise.resolve(""), abort: vi.fn() })),
 		askYesNo: vi.fn(async () => false),
 		waitForEnter: vi.fn(async () => {}),
+	};
+}
+
+function createMockWorldState(): IWorldStateManager {
+	return {
+		emitAction: vi.fn(),
+		updateEntity: vi.fn(),
+		getState: vi.fn(() => ({ version: 1 as const, updatedAt: "", entities: {}, permissions: {}, activityLog: [] })),
+		getEntity: vi.fn(() => null),
+		flush: vi.fn(),
+		setActionCallback: vi.fn(),
+	};
+}
+
+function createMockWorkerManager(): IWorkerManager {
+	return {
+		spawn: vi.fn(() => null),
+		spawnAll: vi.fn(),
+		stop: vi.fn(),
+		stopAll: vi.fn(),
+		getWorker: vi.fn(() => null),
+		listWorkers: vi.fn(() => []),
+		send: vi.fn(),
+		dispatchWorldEvent: vi.fn(),
+	};
+}
+
+function createMockProcessRunner(): IAgentProcessRunner {
+	return {
+		spawn: vi.fn(() => ({
+			onEvent: vi.fn(),
+			result: Promise.resolve({ text: "", thinking: "", exitCode: 0 }),
+			kill: vi.fn(),
+		})),
 	};
 }
 
@@ -56,5 +93,8 @@ export function createTestDeps(opts: TestDepsOptions = {}): CliDeps {
 		bus: createCliBus(),
 		log: vi.fn(),
 		warn: vi.fn(),
+		worldState: createMockWorldState(),
+		workerManager: createMockWorkerManager(),
+		processRunner: createMockProcessRunner(),
 	};
 }
