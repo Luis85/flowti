@@ -105,11 +105,23 @@ export interface DispatchHandle {
 	stop(): void;
 }
 
+export interface PendingQuestion {
+	readonly agentName: string;
+	readonly persona?: string;
+	readonly question: string;
+	readonly agent: import("../domain/agents/agent-types.js").AgentSummary;
+	readonly briefPath: string;
+	readonly task: string;
+	readonly opts?: DispatchOptions;
+}
+
 export interface IAgentShell {
 	talk(agent: import("../domain/agents/agent-types.js").AgentSummary, prompt: string, opts?: TalkOptions): TalkSession;
 	dispatch(agent: import("../domain/agents/agent-types.js").AgentSummary, briefPath: string, task: string, opts?: DispatchOptions): DispatchHandle;
 	getActiveDispatch(agentName: string): DispatchHandle | null;
 	reconcileStaleAgents(): { recovered: string[] };
+	pendingQuestions(): PendingQuestion[];
+	answerAgent(agentName: string, answer: string): Promise<void>;
 }
 
 // ── Process abstraction ──────────────────────────────────────────────
@@ -188,6 +200,8 @@ export type MenuEntry = MenuItem | MenuSeparator;
 
 export interface MenuOptions {
 	defaultChoice?: string;
+	onAgentQuestion?: () => Promise<MenuResult | undefined>;
+	renderStatusBar?: () => void;
 }
 
 // ── Lifecycle entity type (kept here — imported by types-config.ts) ──
