@@ -47,6 +47,7 @@ export function createWorldStateManager(deps: WorldStateDeps, vaultRoot: string)
 	let state = loadOrCreate(deps, filePath);
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	let dirty = false;
+	let actionCallback: ((action: AgentAction) => void) | null = null;
 
 	function scheduleWrite(): void {
 		dirty = true;
@@ -78,6 +79,7 @@ export function createWorldStateManager(deps: WorldStateDeps, vaultRoot: string)
 			if (log.length > ACTIVITY_LOG_CAP) log.splice(0, log.length - ACTIVITY_LOG_CAP);
 			state = { ...state, activityLog: log };
 			scheduleWrite();
+			if (actionCallback) actionCallback(action);
 		},
 
 		updateEntity(id: string, type: WorldEntityType, components: Record<string, unknown>): void {
@@ -94,6 +96,10 @@ export function createWorldStateManager(deps: WorldStateDeps, vaultRoot: string)
 		flush(): void {
 			if (debounceTimer) { clearTimeout(debounceTimer); debounceTimer = null; }
 			writeToDisk();
+		},
+
+		setActionCallback(callback: (action: AgentAction) => void): void {
+			actionCallback = callback;
 		},
 	};
 }

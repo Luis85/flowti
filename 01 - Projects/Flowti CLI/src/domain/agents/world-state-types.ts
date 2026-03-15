@@ -65,4 +65,5 @@ export interface IWorldStateManager {
 	getState(): WorldState;
 	getEntity(id: string): WorldEntity | null;
 	flush(): void;
+	setActionCallback(callback: (action: AgentAction) => void): void;
 }
