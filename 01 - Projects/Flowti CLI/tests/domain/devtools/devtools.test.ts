@@ -33,7 +33,7 @@ vi.mock("../../../src/infrastructure/paths.js", () => ({
 }));
 
 vi.mock("../../../src/infrastructure/clock.js", () => ({
-	clock: { now: () => new Date("2025-06-15T10:00:00Z") },
+	clock: { now: () => new Date("2025-06-15T10:00:00Z"), ms: () => 1234567890, iso: () => "2025-06-15T10:00:00Z", safeIso: () => "2025-06-15T10-00-00Z" },
 }));
 
 vi.mock("../../../src/infrastructure/config.js", () => ({
