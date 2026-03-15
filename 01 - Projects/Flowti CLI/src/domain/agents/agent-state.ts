@@ -1,6 +1,8 @@
 /** agent-state.ts — Per-agent runtime state persistence (pure domain). */
 
 import type { CliDeps } from "../../infrastructure/deps.js";
+import type { PermissionGrant } from "./permission-engine.js";
+import type { PermissionMode } from "./agent-types.js";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -27,6 +29,12 @@ export interface AgentPendingQuestion {
 	readonly iterationNumber?: number;
 }
 
+export interface PendingPermission {
+	readonly tool: string;
+	readonly requestedAt: string;
+	readonly taskContext?: string;
+}
+
 export interface AgentState {
 	readonly name: string;
 	readonly status: "idle" | "active" | "busy" | "waiting";
@@ -35,6 +43,9 @@ export interface AgentState {
 	readonly tasks: readonly AgentTask[];
 	readonly briefs: readonly AgentBriefRef[];
 	readonly pendingQuestion?: AgentPendingQuestion;
+	readonly permissionOverride?: PermissionMode;
+	readonly grants: readonly PermissionGrant[];
+	readonly pendingPermissions: readonly PendingPermission[];
 }
 
 export type AgentStateDeps = Pick<CliDeps, "disk" | "paths">;
@@ -52,7 +63,7 @@ function stateFileName(agentName: string): string {
 // ── CRUD ─────────────────────────────────────────────────────────────
 
 function emptyState(name: string): AgentState {
-	return { name, status: "idle", tasks: [], briefs: [] };
+	return { name, status: "idle", tasks: [], briefs: [], grants: [], pendingPermissions: [] };
 }
 
 /** Read an agent's persisted state from the var directory. */
@@ -69,6 +80,9 @@ export function readAgentState(deps: AgentStateDeps, varDir: string, agentName: 
 			tasks: Array.isArray(raw.tasks) ? raw.tasks : [],
 			briefs: Array.isArray(raw.briefs) ? raw.briefs : [],
 			pendingQuestion: (raw as Record<string, unknown>).pendingQuestion as AgentPendingQuestion | undefined,
+			grants: Array.isArray((raw as Record<string, unknown>).grants) ? (raw as Record<string, unknown>).grants as PermissionGrant[] : [],
+			pendingPermissions: Array.isArray((raw as Record<string, unknown>).pendingPermissions) ? (raw as Record<string, unknown>).pendingPermissions as PendingPermission[] : [],
+			permissionOverride: (raw as Record<string, unknown>).permissionOverride as PermissionMode | undefined,
 		};
 	} catch {
 		return emptyState(agentName);
@@ -128,4 +142,11 @@ export function removeTask(state: AgentState, taskName: string): AgentState {
 /** Record a generated brief. */
 export function addBrief(state: AgentState, brief: AgentBriefRef): AgentState {
 	return { ...state, briefs: [...state.briefs, brief] };
+}
+
+/** Remove all once-scoped grants. Returns the same reference if nothing changed. */
+export function clearOnceGrants(state: AgentState): AgentState {
+	const filtered = state.grants.filter((g) => g.scope !== "once");
+	if (filtered.length === state.grants.length) return state;
+	return { ...state, grants: filtered };
 }
