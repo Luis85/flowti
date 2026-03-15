@@ -25,6 +25,7 @@ export class CommandRegistry {
 	private readonly entries = new Map<string, CommandMeta>();
 	private wildcardHandler: CommandHandler | undefined;
 	private wildcardDomain: string | undefined;
+	private _wildcardPrefix: string | undefined;
 
 	registerDomain(reg: DomainRegistration): void {
 		const projectFreeSet = new Set(reg.projectFree ?? []);
@@ -46,6 +47,14 @@ export class CommandRegistry {
 	setWildcard(domain: string, handler: CommandHandler): void {
 		this.wildcardHandler = handler;
 		this.wildcardDomain = domain;
+	}
+
+	setWildcardPrefix(prefix: string): void {
+		this._wildcardPrefix = prefix;
+	}
+
+	get wildcardPrefix(): string | undefined {
+		return this._wildcardPrefix;
 	}
 
 	/** Plain handler map for resolveCommand(). */

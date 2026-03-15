@@ -32,9 +32,10 @@ function resolveKnownHandler(
 }
 
 function resolveWildcard(
-	command: string, wildcardHandler: CommandHandler | undefined, project: ProjectContext | null,
+	command: string, wildcardHandler: CommandHandler | undefined,
+	wildcardPrefix: string | undefined, project: ProjectContext | null,
 ): DispatchResult | null {
-	if (!command.startsWith("report:") || !wildcardHandler) return null;
+	if (!wildcardPrefix || !command.startsWith(wildcardPrefix) || !wildcardHandler) return null;
 	if (!project) return { action: "no-project", command };
 	return { action: "run", handler: wildcardHandler, command, project };
 }
@@ -51,6 +52,7 @@ export function resolveCommand(
 	projectFreeSet: Set<string>,
 	wildcardHandler: CommandHandler | undefined,
 	project: ProjectContext | null,
+	wildcardPrefix?: string,
 ): DispatchResult {
 	if (command === "help") {
 		return { action: "help", section: resolveHelpSection(flags, rawArgs) };
@@ -60,7 +62,7 @@ export function resolveCommand(
 		const known = resolveKnownHandler(command, handlers, projectFreeSet, project);
 		if (known) return known;
 
-		const wild = resolveWildcard(command, wildcardHandler, project);
+		const wild = resolveWildcard(command, wildcardHandler, wildcardPrefix, project);
 		if (wild) return wild;
 
 		return { action: "unknown", command };

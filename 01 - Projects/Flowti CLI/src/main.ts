@@ -78,15 +78,22 @@ import { resolveCommand } from "./infrastructure/dispatch.js";
 import { CommandRegistry } from "./infrastructure/command-registry.js";
 import { CliError, formatError } from "./infrastructure/errors.js";
 import { generateCompletions } from "./infrastructure/completions.js";
+import { adaptDescriptor } from "./infrastructure/command-engine.js";
 
 const registry = new CommandRegistry();
 registry.registerDomain({ domain: "help",     commands: helpCmds,     projectFree: ["help"] });
 registry.registerDomain({ domain: "completions", commands: {
-	completions: (flags, rawArgs) => {
-		const shellName = rawArgs[1] ?? (typeof flags.shell === "string" ? flags.shell : "bash");
-		const script = generateCompletions(shellName, registry.keys());
-		if (script) { log(script); } else { log(`Unknown shell: ${shellName}. Supported: bash, zsh, fish, powershell`); }
-	},
+	completions: adaptDescriptor({
+		rawArgs: true,
+		handler: (ctx) => {
+			const shellName = ctx.rawArgs?.[1] ?? "bash";
+			const script = generateCompletions(shellName, registry.keys());
+			return { script, shellName };
+		},
+		renderer: (data, renderLog) => {
+			if (data.script) { renderLog(data.script); } else { renderLog(`Unknown shell: ${data.shellName}. Supported: bash, zsh, fish, powershell`); }
+		},
+	}),
 }, projectFree: ["completions"] });
 registry.registerDomain({ domain: "info",     commands: infoCmds });
 registry.registerDomain({ domain: "build",    commands: buildCmds });
@@ -117,6 +124,7 @@ registry.registerDomain({ domain: "onboarding", commands: onboardingCmds, projec
 registry.registerDomain({ domain: "workspace", commands: workspaceCmds, projectFree: ["workspace:list", "workspace:inspect", "workspace:provision", "workspace:collect", "workspace:dispose", "workspace:prune"] });
 registry.registerDomain({ domain: "vault-test", commands: vaultTestCmds, projectFree: ["test:vault", "test:vault:smoke", "test:vault:integration", "test:vault:ecosystem"] });
 registry.setWildcard("reports", reportsCmds["report:*"]);
+registry.setWildcardPrefix("report:");
 
 let pluginsRegistered = false;
 
@@ -212,7 +220,7 @@ async function handleCliArgs(): Promise<boolean> {
 	}
 
 	const project = resolution.project;
-	const result = resolveCommand(command, flags, rawArgs, registry.handlers, registry.projectFreeSet, registry.wildcard, project);
+	const result = resolveCommand(command, flags, rawArgs, registry.handlers, registry.projectFreeSet, registry.wildcard, project, registry.wildcardPrefix);
 
 	switch (result.action) {
 		case "help":

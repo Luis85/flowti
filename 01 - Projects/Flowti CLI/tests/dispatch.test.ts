@@ -50,7 +50,7 @@ describe("resolveCommand", () => {
 
 	it("returns run for wildcard report commands with project", () => {
 		const wildcard: CommandHandler = vi.fn();
-		const result = resolveCommand("report:test", {}, ["report:test"], handlers, projectFree, wildcard, mockProject);
+		const result = resolveCommand("report:test", {}, ["report:test"], handlers, projectFree, wildcard, mockProject, "report:");
 		expect(result.action).toBe("run");
 		if (result.action === "run") {
 			expect(result.handler).toBe(wildcard);
@@ -60,7 +60,7 @@ describe("resolveCommand", () => {
 
 	it("returns no-project for wildcard report without project", () => {
 		const wildcard: CommandHandler = vi.fn();
-		const result = resolveCommand("report:test", {}, ["report:test"], handlers, projectFree, wildcard, null);
+		const result = resolveCommand("report:test", {}, ["report:test"], handlers, projectFree, wildcard, null, "report:");
 		expect(result).toEqual({ action: "no-project", command: "report:test" });
 	});
 
