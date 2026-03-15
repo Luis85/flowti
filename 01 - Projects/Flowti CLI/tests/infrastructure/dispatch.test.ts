@@ -67,22 +67,22 @@ describe("resolveCommand", () => {
 	describe("wildcard (report:*)", () => {
 		it("matches report:* commands with wildcard handler", () => {
 			const wildcard = noop;
-			const result = resolveCommand("report:custom", {}, ["report:custom"], makeHandlers(), new Set(), wildcard, project);
+			const result = resolveCommand("report:custom", {}, ["report:custom"], makeHandlers(), new Set(), wildcard, project, "report:");
 			expect(result).toEqual({ action: "run", handler: wildcard, command: "report:custom", project });
 		});
 
 		it("returns no-project for report:* without project", () => {
-			const result = resolveCommand("report:custom", {}, ["report:custom"], makeHandlers(), new Set(), noop, null);
+			const result = resolveCommand("report:custom", {}, ["report:custom"], makeHandlers(), new Set(), noop, null, "report:");
 			expect(result).toEqual({ action: "no-project", command: "report:custom" });
 		});
 
 		it("does not match non-report:* commands with wildcard", () => {
-			const result = resolveCommand("foo:bar", {}, ["foo:bar"], makeHandlers(), new Set(), noop, project);
+			const result = resolveCommand("foo:bar", {}, ["foo:bar"], makeHandlers(), new Set(), noop, project, "report:");
 			expect(result).toEqual({ action: "unknown", command: "foo:bar" });
 		});
 
 		it("returns unknown when no wildcard handler", () => {
-			const result = resolveCommand("report:custom", {}, ["report:custom"], makeHandlers(), new Set(), undefined, project);
+			const result = resolveCommand("report:custom", {}, ["report:custom"], makeHandlers(), new Set(), undefined, project, "report:");
 			expect(result).toEqual({ action: "unknown", command: "report:custom" });
 		});
 	});
@@ -94,7 +94,7 @@ describe("resolveCommand", () => {
 			const result = resolveCommand(
 				"report:test", {}, ["report:test"],
 				makeHandlers({ "report:test": knownHandler }),
-				new Set(), wildcardHandler, project,
+				new Set(), wildcardHandler, project, "report:",
 			);
 			expect(result.action).toBe("run");
 			expect((result as { handler: CommandHandler }).handler).toBe(knownHandler);
