@@ -8,7 +8,7 @@ import { tokens, utilities } from './tokens.js';
  * - Shared design tokens (via `tokens` CSS)
  * - Loading state (`loading` property → spinner overlay)
  * - Error state (`error` property → error message)
- * - Empty state (`empty` + `emptyMessage` properties → placeholder)
+ * - Empty state (`isEmpty` + `emptyMessage` properties → placeholder)
  *
  * Subclasses override `renderContent()` for their main content.
  */
@@ -16,7 +16,7 @@ export class FlowtiElement extends LitElement {
 	static properties = {
 		loading: { type: Boolean, reflect: true },
 		error: { type: String },
-		empty: { type: Boolean },
+		isEmpty: { type: Boolean },
 		emptyMessage: { type: String, attribute: 'empty-message' },
 	};
 
@@ -57,7 +57,7 @@ export class FlowtiElement extends LitElement {
 
 	loading = false;
 	error = '';
-	empty = false;
+	isEmpty = false;
 	emptyMessage = 'No data available';
 
 	render() {
@@ -67,7 +67,7 @@ export class FlowtiElement extends LitElement {
 		if (this.loading) {
 			return html`<div class="flowti-loading">Loading…</div>`;
 		}
-		if (this.empty) {
+		if (this.isEmpty) {
 			return html`<div class="flowti-empty">${this.emptyMessage}</div>`;
 		}
 		return this.renderContent();

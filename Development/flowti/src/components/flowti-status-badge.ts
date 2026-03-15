@@ -13,6 +13,7 @@ import { FlowtiElement } from './flowti-element.js';
  */
 export class FlowtiStatusBadge extends FlowtiElement {
 	static properties = {
+		...FlowtiElement.properties,
 		label: { type: String },
 		variant: { type: String, reflect: true },
 		value: { type: String },

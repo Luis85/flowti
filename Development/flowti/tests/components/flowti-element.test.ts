@@ -37,7 +37,7 @@ describe('FlowtiElement', () => {
 	});
 
 	it('shows empty state when empty property is true and not loading', async () => {
-		const el = await fixture('flowti-element', { empty: true, emptyMessage: 'No data' });
+		const el = await fixture('flowti-element', { isEmpty: true, emptyMessage: 'No data' });
 		const text = shadowText(el);
 		expect(text).toContain('No data');
 	});

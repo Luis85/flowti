@@ -15,6 +15,6 @@ export const story: StoryDef = {
 		{ name: 'With Long Label', props: { label: 'Code Coverage (statements)', variant: 'success', value: '80.53%' } },
 		{ name: 'Loading', props: { loading: true } },
 		{ name: 'Error State', props: { error: 'Failed to load health data' } },
-		{ name: 'Empty State', props: { empty: true, emptyMessage: 'No status available' } },
+		{ name: 'Empty State', props: { isEmpty: true, emptyMessage: 'No status available' } },
 	],
 };

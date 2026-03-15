@@ -44,7 +44,7 @@ function renderVariant(tag: string, variant: StoryVariant): HTMLElement {
 
 	const el = document.createElement(tag);
 	for (const [key, value] of Object.entries(variant.props)) {
-		(el as Record<string, unknown>)[key] = value;
+		(el as unknown as Record<string, unknown>)[key] = value;
 	}
 	card.appendChild(el);
 
