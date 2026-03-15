@@ -107,6 +107,8 @@ async function sendTurn(
 	const result = await session.result;
 	sessionDone = true;
 	detach.abort();
+	// Let the aborted readline drain before the next input.ask()
+	await new Promise((r) => setTimeout(r, 50));
 	spinner.stop();
 	// Clear the thinking preview line
 	process.stdout.write(`\r${" ".repeat(100)}\r`);

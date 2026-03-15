@@ -177,7 +177,7 @@ export function createAgentShell(deps: ShellBaseDeps, config: AgentsConfig | und
 	function buildCommand(providerConfig: ProviderConfig, agent: AgentSummary, inputPath: string): string {
 		const args = [...providerConfig.streamArgs];
 		if (agent.ai?.allowedTools && agent.ai.allowedTools.length > 0) args.push("--allowedTools", agent.ai.allowedTools.join(","));
-		const quotedPath = inputPath.includes(" ") ? `"${inputPath}"` : inputPath;
+		const quotedPath = `"${inputPath}"`;
 		return [providerConfig.binary, ...args.map((a) => String(a).includes(" ") ? `"${String(a)}"` : String(a))].join(" ") + ` < ${quotedPath}`;
 	}
 
