@@ -16,5 +16,6 @@ export interface WorkspaceEventMap {
 	"workspace:disposed": { readonly workspace: AgentWorkspace };
 	"workspace:retained": { readonly workspace: AgentWorkspace };
 	"workspace:orphaned": { readonly workspace: AgentWorkspace };
+	"workspace:completed": { readonly workspace: AgentWorkspace; readonly agentSlug: string; readonly task: string; readonly exitCode: number };
 	"workspace:error": { readonly workspace: AgentWorkspace; readonly error: string };
 }

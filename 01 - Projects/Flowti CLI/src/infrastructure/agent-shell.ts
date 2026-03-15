@@ -170,6 +170,14 @@ export function createAgentShell(deps: AgentShellDeps): IAgentShell {
 					deps.bus.emit("workspace:retained", { workspace });
 				}
 
+				// Signal completion for auto-dequeue consumers
+				deps.bus.emit("workspace:completed", {
+					workspace,
+					agentSlug: workspace.agentSlug,
+					task: request.task,
+					exitCode: result.exitCode,
+				});
+
 				return result;
 			});
 
@@ -217,6 +225,24 @@ export function createAgentShell(deps: AgentShellDeps): IAgentShell {
 				: [...deps.registry.listByState("retained"), ...deps.registry.listByState("disposed")];
 
 			return pruneCandidates(candidates, now, threshold, options?.dryRun ?? false);
+		},
+
+		reconcileStaleAgents(): import("../domain/agents/agent-shell.js").ReconcileResult {
+			const recovered: string[] = [];
+			const active = deps.registry.listByState("active");
+			for (const ws of active) {
+				const age = deps.clock.ms() - new Date(ws.createdAt).getTime();
+				if (age < 86_400_000) continue;
+
+				// Transition through valid state machine: active → collecting → disposed
+				const collecting = transitionState(ws, "collecting");
+				const disposed = transitionState(collecting, "disposed", { completedAt: deps.clock.iso() });
+				deps.registry.update(disposed);
+				deps.provisioner.dispose(ws.path, ws.method);
+				deps.bus.emit("workspace:disposed", { workspace: disposed });
+				recovered.push(ws.agentSlug);
+			}
+			return { recovered };
 		},
 	};
 }

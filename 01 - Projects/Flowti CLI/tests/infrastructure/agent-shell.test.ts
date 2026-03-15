@@ -443,4 +443,62 @@ describe("AgentShell", () => {
 			expect(summary.skipped).toBe(1);
 		});
 	});
+
+	describe("reconcileStaleAgents", () => {
+		it("recovers stale workspace older than 24h", () => {
+			const registry = createMockRegistry();
+			registry.register({
+				id: "ws-stale", state: "active", agentSlug: "bob",
+				branch: "b", baseBranch: "m", method: "worktree",
+				path: "/p", retain: false, createdAt: "2026-03-14T00:00:00Z", collectResult: null,
+			});
+			const clock = createMockClock();
+			const deps = createShellDeps({ registry, clock });
+			const shell = createAgentShell(deps);
+
+			const result = shell.reconcileStaleAgents();
+
+			expect(result.recovered).toEqual(["bob"]);
+			expect(deps.provisioner.dispose).toHaveBeenCalled();
+			expect(deps.bus.emit).toHaveBeenCalledWith("workspace:disposed", expect.any(Object));
+		});
+
+		it("ignores active workspace younger than 24h", () => {
+			const registry = createMockRegistry();
+			registry.register({
+				id: "ws-fresh", state: "active", agentSlug: "bob",
+				branch: "b", baseBranch: "m", method: "worktree",
+				path: "/p", retain: false, createdAt: "2026-03-15T09:30:00Z", collectResult: null,
+			});
+			const deps = createShellDeps({ registry });
+			const shell = createAgentShell(deps);
+
+			const result = shell.reconcileStaleAgents();
+
+			expect(result.recovered).toEqual([]);
+		});
+
+		it("returns empty when no active workspaces", () => {
+			const deps = createShellDeps();
+			const shell = createAgentShell(deps);
+
+			const result = shell.reconcileStaleAgents();
+
+			expect(result.recovered).toEqual([]);
+		});
+
+		it("emits workspace:completed for dispatch output", async () => {
+			const deps = createShellDeps();
+			const shell = createAgentShell(deps);
+
+			const result = await shell.dispatch({ agent: "bob", task: "test" });
+			await result.output;
+
+			expect(deps.bus.emit).toHaveBeenCalledWith("workspace:completed", expect.objectContaining({
+				agentSlug: "bob",
+				task: "test",
+				exitCode: 0,
+			}));
+		});
+	});
 });

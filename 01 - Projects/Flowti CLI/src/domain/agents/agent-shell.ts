@@ -53,10 +53,15 @@ export interface PruneSummary {
 	readonly errors: readonly string[];
 }
 
+export interface ReconcileResult {
+	readonly recovered: string[];
+}
+
 export interface IAgentShell {
 	dispatch(request: DispatchRequest): Promise<DispatchResult>;
 	list(): AgentWorkspace[];
 	collect(workspaceId: string): Promise<CollectResult>;
 	dispose(workspaceId: string): Promise<void>;
 	prune(options?: PruneOptions): Promise<PruneSummary>;
+	reconcileStaleAgents(): ReconcileResult;
 }
