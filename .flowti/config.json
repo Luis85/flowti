@@ -41,12 +41,20 @@
 			],
 			"product": [
 				"superpowers:brainstorming",
-				"superpowers:writing-plans"
+				"superpowers:writing-plans",
+				"product-management:backlog-refinement",
+				"product-management:iteration-planning",
+				"product-management:increment-review",
+				"product-management:retrospective",
+				"product-management:three-amigos-review",
+				"product-management:feature-document"
 			],
 			"management": [
 				"superpowers:dispatching-parallel-agents",
 				"superpowers:writing-plans",
-				"superpowers:executing-plans"
+				"superpowers:executing-plans",
+				"product-management:iteration-planning",
+				"product-management:retrospective"
 			],
 			"quality": [
 				"superpowers:requesting-code-review",
