@@ -57,6 +57,14 @@ export interface ReconcileResult {
 	readonly recovered: string[];
 }
 
+export interface PendingQuestion {
+	readonly agentName: string;
+	readonly persona?: string;
+	readonly question: string;
+	readonly task: string;
+	readonly workspaceId?: string;
+}
+
 export interface IAgentShell {
 	dispatch(request: DispatchRequest): Promise<DispatchResult>;
 	list(): AgentWorkspace[];
@@ -64,4 +72,6 @@ export interface IAgentShell {
 	dispose(workspaceId: string): Promise<void>;
 	prune(options?: PruneOptions): Promise<PruneSummary>;
 	reconcileStaleAgents(): ReconcileResult;
+	pendingQuestions(): PendingQuestion[];
+	answerAgent(agentName: string, answer: string): Promise<void>;
 }

@@ -143,6 +143,7 @@ export type MenuEntry = MenuItem | MenuSeparator;
 export interface MenuOptions {
 	defaultChoice?: string;
 	renderStatusBar?: () => void;
+	onAgentQuestion?: () => Promise<MenuResult | undefined>;
 }
 
 // ── Lifecycle entity type (kept here — imported by types-config.ts) ──
