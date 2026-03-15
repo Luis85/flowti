@@ -13,6 +13,7 @@ import { Document } from "../../infrastructure/document.js";
 import { parseFrontmatterContent } from "../../infrastructure/frontmatter.js";
 import type { CliDeps } from "../../infrastructure/deps.js";
 import type { AgentsConfig } from "../../infrastructure/types.js";
+import type { StoreApi, StoreDeps } from "../../infrastructure/store-engine.js";
 import type { AgentDefinition, AgentSummary, AgentSkill, AgentComponent, AgentGoal, AgentAIConfig, AgentRelationship, SuggestedTask, InventoryItem, AgentAttributes } from "./agent-types.js";
 import { resolveDir, listMdFiles, toMdFilename, updateField } from "../shared/markdown-store.js";
 
@@ -111,19 +112,134 @@ function parseAgentSummary(deps: AgentStoreDeps, dir: string, content: string, f
 	};
 }
 
+// ── Store descriptor ─────────────────────────────────────────────────
+
+/**
+ * agentStore — StoreApi-conformant descriptor for agent entities.
+ *
+ * Agent storage is more complex than standard createStore() supports:
+ * - Companion JSON files hold complex nested objects (components, goals, ai, relationships)
+ * - Skills are serialized as "name|level" pipe-delimited strings in frontmatter arrays
+ * - The list() operation must merge data from both .md and .json files per agent
+ *
+ * These constraints mean we implement the StoreApi interface manually while
+ * exposing __descriptor for conformance checking.
+ */
+export const agentStore: StoreApi<AgentSummary, AgentDefinition> = {
+	__descriptor: {
+		name: "agent",
+		defaultDir: DEFAULT_DIR,
+		configPath: "dir",
+		typeTag: "Agent",
+		companion: { extension: ".json", fields: ["components", "goals", "ai", "relationships", "inventory"] },
+		fields: {
+			name: { type: "string", required: true, default: "" },
+			agentType: { type: "enum", options: ["human", "ai"], default: "human" },
+			description: { type: "string", default: "" },
+			domain: { type: "string", default: "" },
+			skills: { type: "array", default: [] },
+			tools: { type: "array", default: [] },
+			roles: { type: "array", default: [] },
+			behaviors: { type: "array", default: [] },
+		},
+		sort: (a, b) => a.name.localeCompare(b.name),
+		buildBody: (def) => {
+			const lines: string[] = ["", `# ${def.name}`, ""];
+			if (def.description) lines.push(def.description, "");
+			lines.push("## Skills", "");
+			if (def.skills.length > 0) {
+				for (const s of def.skills) lines.push(`- **${s.name}**: ${s.level || "(unrated)"}`);
+				lines.push("");
+			} else {
+				lines.push("<!-- List skills for this agent. -->", "");
+			}
+			lines.push("## Tools", "");
+			if (def.tools.length > 0) {
+				for (const t of def.tools) lines.push(`- ${t}`);
+				lines.push("");
+			} else {
+				lines.push("<!-- List tools available to this agent. -->", "");
+			}
+			lines.push("## Roles", "");
+			if (def.roles.length > 0) {
+				for (const r of def.roles) lines.push(`- ${r}`);
+				lines.push("");
+			} else {
+				lines.push("<!-- List roles this agent can fill. -->", "");
+			}
+			return lines.join("\n");
+		},
+	},
+
+	resolveDir(deps, projectPath, config?) {
+		return resolveDir(deps, projectPath, (config?.dir as string | undefined), DEFAULT_DIR);
+	},
+
+	list(deps, projectPath, config?) {
+		const dir = agentsDir(deps, projectPath, config ? { dir: config.dir as string } : undefined);
+		const files = listMdFiles(deps, dir);
+		const items: AgentSummary[] = [];
+		for (const file of files) {
+			const content = deps.disk.readFileSync(deps.paths.join(dir, file), "utf-8");
+			const summary = parseAgentSummary(deps, dir, content, file);
+			if (summary) items.push(summary);
+		}
+		return items.sort((a, b) => a.name.localeCompare(b.name));
+	},
+
+	read(deps, projectPath, name, config?) {
+		const dir = agentsDir(deps, projectPath, config ? { dir: config.dir as string } : undefined);
+		const filePath = deps.paths.join(dir, toMdFilename(name));
+		if (!deps.disk.existsSync(filePath)) return undefined;
+		const content = deps.disk.readFileSync(filePath, "utf-8");
+		const summary = parseAgentSummary(deps, dir, content, toMdFilename(name));
+		return summary ?? undefined;
+	},
+
+	create(deps, projectPath, def, config?) {
+		const dir = agentsDir(deps, projectPath, config ? { dir: config.dir as string } : undefined);
+		deps.disk.mkdirSync(dir, { recursive: true });
+		const filename = toMdFilename(def.name);
+		const filePath = deps.paths.join(dir, filename);
+		if (deps.disk.existsSync(filePath)) return filePath;
+
+		const doc = Document.create(def.name)
+			.mergeFrontmatter({
+				type: "Agent",
+				name: def.name,
+				agentType: def.agentType,
+				description: def.description || undefined,
+			});
+		if (def.domain) doc.setFrontmatter("domain", def.domain);
+		buildFrontmatterArrays(doc, def);
+		buildBody(doc, def);
+		doc.save(filePath, deps.disk);
+		writeJsonDefinition(deps, dir, def);
+		return filePath;
+	},
+
+	updateField(deps, projectPath, name, field, value, config?) {
+		const dir = agentsDir(deps, projectPath, config ? { dir: config.dir as string } : undefined);
+		const filePath = deps.paths.join(dir, toMdFilename(name));
+		return updateField(deps, filePath, field, value);
+	},
+
+	remove(deps, projectPath, name, config?) {
+		const dir = agentsDir(deps, projectPath, config ? { dir: config.dir as string } : undefined);
+		const filePath = deps.paths.join(dir, toMdFilename(name));
+		if (deps.disk.existsSync(filePath)) {
+			deps.disk.unlinkSync(filePath);
+			const jsonPath = filePath.replace(/\.md$/, ".json");
+			if (deps.disk.existsSync(jsonPath)) deps.disk.unlinkSync(jsonPath);
+		}
+	},
+};
+
 // ── List ─────────────────────────────────────────────────────────────
 
 /** List all agents from the agents directory. */
 export function listAgents(deps: AgentStoreDeps, projectPath: string, config?: AgentsConfig): AgentSummary[] {
-	const dir = agentsDir(deps, projectPath, config);
-	const files = listMdFiles(deps, dir);
-	const items: AgentSummary[] = [];
-	for (const file of files) {
-		const content = deps.disk.readFileSync(deps.paths.join(dir, file), "utf-8");
-		const summary = parseAgentSummary(deps, dir, content, file);
-		if (summary) items.push(summary);
-	}
-	return items.sort((a, b) => a.name.localeCompare(b.name));
+	return agentStore.list(deps as StoreDeps, projectPath, config ? { dir: config.dir } : undefined);
 }
 
 /** List vault agents filtered to the project's agent roster. Returns all vault agents if no roster is defined. */
