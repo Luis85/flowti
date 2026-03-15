@@ -16,11 +16,12 @@ The Flowti CLI is the canonical implementation of the Flowti IBDE Framework. It 
 |----------|--------|-----------|
 | Integration model | **Hybrid** | Direct SDK imports for data model/logic; subprocess for heavy ops (build, test, pipeline) |
 | Declarative UI | **Obsidian-adapted sitemap** | plugin-sitemap.json declares Hubs, commands, ribbon, modals — same philosophy as CLI, different primitives |
-| Domain ownership | **Domain-by-domain** | CLI-owned (23), Shared (6), Plugin-owned (18) — each placed where it naturally belongs |
+| Domain ownership | **Domain-by-domain** | CLI-owned (25), Shared (6), Plugin-owned (19) — each placed where it naturally belongs |
 | Infrastructure | **Keep ServiceContainer, align interfaces** | Plugin keeps lifecycle management; interfaces align with CLI's ISP dep pattern |
 | Package sharing | **CLI as npm workspace** | Monorepo workspace, CLI exports `@flowti/cli` package |
 | API surface | **Curated SDK** | CLI adds `sdk/` with stable, versioned re-exports — Plugin never touches CLI internals |
 | Event system | **Plugin EventBus authoritative** | CLI is computation layer (returns results), Plugin is reactive layer (emits events) |
+| Frontend framework | **Lit (Web Components)** | Platform-agnostic components testable in CLI storybook; standards-based, no runtime, Obsidian-compatible |
 
 ## 1. Architecture Overview
 
@@ -81,11 +82,13 @@ c:\Projects\flowti\                     (git root + workspace root)
 
 ## 2. Domain Classification
 
-### CLI-Owned (23 domains)
+### CLI-Owned (25 domains)
 
 Business logic and data model live in CLI. Plugin consumes via SDK.
 
-project, build, health, lifecycle, reports, resources, timelog, deliverables, raid, requirements, capa, templates, scaffold, make, publish, review, info, devtools, plugins, ai-tools, knowledgebase, sitemap, agents
+project, build, health, lifecycle, reports, resources, timelog, deliverables, raid, requirements, capa, templates, scaffold, make, review, info, devtools, plugins, ai-tools, knowledgebase, sitemap, agents, claude-sync, iterations, serve
+
+`shared` is a cross-cutting utility module (markdown-store, help-loader) — not a domain per se, but its exports are available via the SDK.
 
 These domains ARE the Flowti IBDE Framework.
 
@@ -102,11 +105,11 @@ Data model defined in CLI SDK. Business logic split — CLI provides canonical l
 | **test-management / health** | Quality gates, health scoring, tech debt tracking | Test pyramid UI, compliance dashboard |
 | **feature-lifecycle / lifecycle** | Lifecycle state machine, transitions, history | Obsidian status tracking, canvas visualization |
 
-### Plugin-Owned (18 domains)
+### Plugin-Owned (19 domains)
 
 Logic and data model stay in Plugin. Adopt CLI architecture patterns (pure domain functions, ISP deps, DDD).
 
-session, analytics, canvas, canvas-session, train, signal, nudge, inbox, hub, installer, discovery, subscription, event-filter, event-notify, data-exchange, user, settings, process
+session, analytics, canvas, train, signal, nudge, inbox, hub, installer, discovery, subscription, event-filter, event-notify, data-exchange, user, settings, process, docs, ingestion
 
 These are inherently Obsidian-native features that require the platform.
 
@@ -152,13 +155,42 @@ sdk/
     └── index.ts                re-exports all interfaces
 ```
 
+### Sync/Async Interface Bridge
+
+The CLI's current `IFileSystem` is synchronous (`readFileSync`, `writeFileSync`, `existsSync`). Obsidian's `Vault.adapter` is asynchronous (`adapter.read()` returns `Promise<string>`).
+
+**Resolution:** The SDK defines **async versions** of all I/O interfaces (`IAsyncFileSystem`, `IAsyncShell`). CLI domain functions that the Plugin consumes via SDK are re-exported as async-compatible wrappers. This is a one-way constraint: CLI domains can remain sync internally, but the SDK surface presents async interfaces that both sync (CLI) and async (Plugin) implementations can satisfy.
+
+```typescript
+// sdk/interfaces/filesystem.ts
+export interface IAsyncFileSystem {
+  readFile(path: string): Promise<string>;
+  writeFile(path: string, data: string): Promise<void>;
+  exists(path: string): Promise<boolean>;
+  listDir(path: string): Promise<string[]>;
+}
+
+// CLI provides a sync→async adapter for its own IFileSystem
+export function syncToAsync(fs: IFileSystem): IAsyncFileSystem {
+  return {
+    readFile: (p) => Promise.resolve(fs.readFileSync(p, 'utf-8')),
+    writeFile: (p, d) => Promise.resolve(fs.writeFileSync(p, d)),
+    exists: (p) => Promise.resolve(fs.existsSync(p)),
+    listDir: (p) => Promise.resolve(fs.readdirSync(p)),
+  };
+}
+```
+
+SDK domain functions accept `IAsyncFileSystem` (and corresponding async ISP subsets). The Plugin provides Obsidian-backed async implementations directly. The CLI uses `syncToAsync()` adapters when calling through the SDK surface. CLI's internal code continues using sync interfaces unchanged.
+
 ### SDK Rules
 
 - Types are always safe to import — zero runtime cost, full type safety
 - Domain functions are pure — they need deps injected, Plugin provides Obsidian-backed implementations
-- Interfaces define the contract — Plugin implements IFileSystem, IShell, etc. backed by Obsidian APIs
+- Interfaces define the contract — Plugin implements IAsyncFileSystem, IAsyncShell, etc. backed by Obsidian APIs
 - SDK never imports from `src/` — re-exports only, clean boundary
 - No CLI infrastructure leaks — no Node.js fs, no process, no terminal I/O
+- SDK I/O interfaces are async — both sync (CLI) and async (Plugin) implementations work
 
 ### Consumption Patterns
 
@@ -276,17 +308,128 @@ Same philosophy (structure in JSON, behavior in handlers), different primitives:
 - **CLI:** Pages with menu actions, navigation stack, key assignment, terminal-oriented
 - **Plugin:** Hub views with tabs, commands (palette), ribbon icons, modals, multiple views simultaneously
 
-## 5. Infrastructure Alignment
+## 5. Component Architecture (Lit Web Components)
+
+### Design Principle
+
+UI components follow the same pattern as domain functions: **pure, platform-agnostic units** that receive data via properties and emit events — with thin platform wrappers for Obsidian integration.
+
+```
+Portable Component (Lit)  →  Obsidian View Wrapper  →  plugin-sitemap.json
+       ↓                            ↓
+   CLI Storybook               Obsidian Runtime
+```
+
+### Component Layers
+
+**Layer 1: Portable Components (`src/components/`)**
+
+Lit custom elements with no Obsidian dependency. Receive data via properties, emit custom DOM events. Renderable in any browser context — Obsidian, CLI storybook, standalone HTML.
+
+```typescript
+import { LitElement, html, css } from 'lit';
+import { customElement, property } from 'lit/decorators.js';
+import type { HealthScore } from '@flowti/cli';
+
+@customElement('flowti-health-card')
+export class HealthCard extends LitElement {
+  @property({ type: Object }) score?: HealthScore;
+
+  static styles = css`
+    :host { display: block; padding: 1rem; }
+    .score { font-size: 2rem; font-weight: bold; }
+  `;
+
+  render() {
+    if (!this.score) return html`<p>No data</p>`;
+    return html`
+      <div class="score">${this.score.overall}</div>
+      <p>${this.score.gates.length} quality gates evaluated</p>
+    `;
+  }
+}
+```
+
+**Layer 2: Obsidian View Wrappers (`src/ui/views/`)**
+
+Thin shells that mount Lit components inside Obsidian ItemViews. Connect to ServiceContainer for data, pass properties down, relay DOM events to EventBus.
+
+```typescript
+class HealthHubView extends ItemView {
+  async onOpen() {
+    const el = this.contentEl;
+    const card = document.createElement('flowti-health-card');
+
+    // Data flows down via properties
+    const score = await this.container.get<HealthService>('health').getScore();
+    card.score = score;
+
+    // Events flow up to Plugin EventBus
+    card.addEventListener('gate-clicked', (e) => {
+      this.eventBus.emit('health.gate.selected', e.detail);
+    });
+
+    el.appendChild(card);
+  }
+}
+```
+
+**Layer 3: CLI Storybook**
+
+CLI storybook renders the same Lit components with mock data — no Obsidian required. Each component gets a story file declaring its variants and test data.
+
+```typescript
+// stories/health-card.story.ts
+export const stories = {
+  healthy: { score: { overall: 92, gates: [...] } },
+  failing: { score: { overall: 41, gates: [...] } },
+  empty:   { score: undefined },
+};
+export const component = 'flowti-health-card';
+```
+
+### Component Categories
+
+| Category | Examples | Storybook Coverage |
+|----------|---------|-------------------|
+| **Data display** | health-card, report-summary, lifecycle-badge | Full — pure data rendering |
+| **Forms** | capture-form, session-config, filter-editor | Full — input/output via properties/events |
+| **Dashboards** | analytics-dashboard, test-pyramid, train-timeline | Full — composed from smaller components |
+| **Obsidian-specific** | canvas-overlay, vault-file-picker | Not in storybook — thin, tested via Plugin tests |
+
+### Styling Strategy
+
+- Components use Lit's scoped `static styles` (Shadow DOM) — no CSS conflicts with Obsidian
+- Shared design tokens (colors, spacing, typography) in a `tokens.css` that both storybook and Obsidian load
+- Obsidian's CSS variables (e.g., `--text-normal`, `--background-primary`) mapped to Flowti tokens via an adapter stylesheet
+
+### Sitemap Integration
+
+The plugin-sitemap.json references components by tag name. The handler mounts the component and wires data:
+
+```json
+{
+  "analytics-hub": {
+    "tabs": [
+      { "id": "dashboard", "label": "Dashboard", "component": "flowti-analytics-dashboard", "dataSource": "analytics:measurements" }
+    ]
+  }
+}
+```
+
+When a tab has a `component` field, the sitemap runtime mounts it, binds `dataSource` results to its properties, and relays its events to the handler.
+
+## 6. Infrastructure Alignment
 
 ### Obsidian Adapters (New)
 
 Plugin implements CLI interfaces backed by Obsidian APIs:
 
 ```typescript
-import type { IFileSystem, IShell, IPaths, IClock } from '@flowti/cli';
+import type { IAsyncFileSystem, IAsyncShell, IPaths, IClock } from '@flowti/cli';
 
-// Obsidian Vault → IFileSystem
-class VaultFileSystem implements IFileSystem {
+// Obsidian Vault → IAsyncFileSystem (natural async fit)
+class VaultFileSystem implements IAsyncFileSystem {
   constructor(private vault: Vault) {}
   readFile(path)         { return this.vault.adapter.read(path); }
   writeFile(path, data)  { return this.vault.adapter.write(path, data); }
@@ -366,31 +509,45 @@ class HealthService {
 | TypedStorage | EVOLVES | Plugin-owned domains keep it. CLI-backed domains use VaultFileSystem |
 | main.ts (1,900 LOC) | REPLACED | Becomes thin bootstrap that loads plugin-sitemap.json |
 | Obsidian Adapters | NEW | VaultFileSystem, VaultPaths, ObsidianShell implement CLI interfaces |
+| Lit Components | NEW | Portable Web Components for all UI — testable in CLI storybook |
+| Raw DOM UI code | REPLACED | Migrated to Lit components with Obsidian view wrappers |
 
-## 6. Migration Strategy
+## 7. Migration Strategy
 
-### 7 Phases
+### 8 Phases
 
 **P1: Workspace Foundation** (prerequisite for all)
-- Root `package.json` with npm workspaces
+- Root `package.json` with npm workspaces: `["01 - Projects/Flowti CLI", "Development/flowti"]`
+- CLI `package.json`: set `"name": "@flowti/cli"`, add `"exports": { ".": "./sdk/index.ts" }`, keep `"private": true` (workspace-only, not published to npm)
 - CLI `sdk/` directory with initial type exports
-- Plugin `package.json` depends on `@flowti/cli`
+- Plugin `package.json` depends on `"@flowti/cli": "workspace:*"`
 - Plugin gets `flowti.config.json` (becomes CLI-managed project)
+- Add `lit` as Plugin runtime dependency
 - Verify `npm install` + both builds work
 
-**P2: Obsidian Adapters** (parallel with P3)
-- VaultFileSystem implements IFileSystem
+**P2: Obsidian Adapters** (parallel with P3, P3b)
+- VaultFileSystem implements IAsyncFileSystem
 - VaultPaths implements IPaths
-- ObsidianShell implements IShell
+- ObsidianShell implements IAsyncShell
 - ServiceContainer gains `build*Deps()` methods
 - First CLI domain function callable from Plugin
 
-**P3: Plugin Sitemap** (parallel with P2)
+**P3: Plugin Sitemap** (parallel with P2, P3b)
 - plugin-sitemap.json schema + validator
 - SitemapHubView — generic Hub from declaration
 - Command/ribbon/modal registry from sitemap
 - Handler registration pattern
+- Sitemap supports `component` field for Lit component mounting
 - Bootstrap replaces main.ts orchestrator
+
+**P3b: Lit Component Foundation** (parallel with P2, P3)
+- Lit build pipeline integrated into Plugin's esbuild config
+- Shared design tokens (`tokens.css`) for consistent styling
+- Obsidian CSS variable adapter stylesheet
+- Base component class with common patterns (loading, error, empty states)
+- First portable component (e.g., `flowti-health-card`) with storybook story
+- CLI storybook runner: loads component + story data, renders in browser
+- Component testing pattern: render in happy-dom, assert DOM output
 
 **P4: Shared Domain Migration** (depends on P2)
 - capture → CLI data model + Plugin modal
@@ -400,11 +557,13 @@ class HealthService {
 - test-management/health → CLI scoring + Plugin UI
 - feature-lifecycle → CLI states + Plugin tracking
 
-**P5: Plugin Domain Refactoring** (parallel with P4)
-- 18 Plugin-owned domains adopt CLI patterns
+**P5: Plugin Domain Refactoring + Component Migration** (parallel with P4)
+- 19 Plugin-owned domains adopt CLI patterns
 - Pure domain functions extracted from services
 - ISP dep subsets defined per domain
 - Services become thin orchestrators
+- Existing Hub views migrated to Lit components with Obsidian wrappers
+- Each migrated component gets a storybook story
 - No feature changes — architecture only
 
 **P6: Subprocess Integration** (after P2 + P3)
@@ -417,12 +576,13 @@ class HealthService {
 - CLI standalone packaging (single binary)
 - Plugin bundled with CLI as optional dependency
 - Shared test harness for integration tests
+- Full storybook coverage for all portable components
 - Documentation: SDK reference, migration guide, architecture docs
 
 ### Execution Order
 
 ```
-P1 → (P2 ∥ P3) → (P4 ∥ P5) → P6 → P7
+P1 → (P2 ∥ P3 ∥ P3b) → (P4 ∥ P5) → P6 → P7
 ```
 
 Each phase gets its own spec → plan → implementation cycle.
@@ -433,6 +593,7 @@ Each phase gets its own spec → plan → implementation cycle.
 |-------|---------------|-----|
 | CLI SDK | Domain functions, type contracts | CLI's existing 5,920 tests |
 | Obsidian Adapters | VaultFileSystem, VaultPaths, ObsidianShell | Unit tests with mock Vault API |
+| Lit Components | Rendering, properties, events, variants | Unit tests in happy-dom + CLI storybook visual tests |
 | Plugin Services | Wrapper logic, event emission, error handling | Unit tests with mock SDK + mock EventBus |
 | Plugin Sitemap | Schema validation, handler wiring, bootstrap | Unit tests: sitemap → correct registrations |
 | Integration | Plugin calls CLI SDK → correct results + events | Integration tests with real CLI fns + mock Obsidian |
@@ -449,3 +610,5 @@ Each phase gets its own spec → plan → implementation cycle.
 6. All Plugin-owned domains follow CLI architecture patterns (pure functions, ISP deps, DDD)
 7. CLI distributable standalone; Plugin distributable bundled with CLI
 8. Zero test regression across all phases
+9. Portable Lit components testable in CLI storybook without Obsidian
+10. Full storybook coverage for all data display, form, and dashboard components
