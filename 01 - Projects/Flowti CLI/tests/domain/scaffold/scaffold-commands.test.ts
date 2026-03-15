@@ -127,9 +127,11 @@ describe("scaffold:list", () => {
 
 describe("scaffold:new", () => {
 	it("logs error when --name is missing", () => {
-		commands["scaffold:new"]({}, []);
+		commands["scaffold:new"]({ format: "json" }, []);
 
-		expect(log).toHaveBeenCalledWith(expect.stringContaining("Missing required flag"));
+		expect(log).toHaveBeenCalledWith(
+			expect.stringContaining("Missing required flag --name"),
+		);
 	});
 
 	it("calls scaffold and logs success", () => {
