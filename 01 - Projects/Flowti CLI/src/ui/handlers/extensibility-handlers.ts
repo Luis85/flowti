@@ -312,9 +312,16 @@ export function registerExtensibilityHandlers(registry: HandlerRegistry): void {
 			return "main";
 		}
 		const state = readAgentState(ctx.deps, varDir(ctx), agent.name);
+		const handle = ctx.deps.agentShell.getActiveDispatch(agent.name);
 		const actions = [...(ctx.dataSourceEntries?.["_actions"] ?? [])];
 		return runMenu(null, actions, {
-			beforeMenu: () => { renderAgentDetail(agent, ctx.deps.log); renderAgentState(state, ctx.deps.log); },
+			beforeMenu: () => {
+				renderAgentDetail(agent, ctx.deps.log);
+				renderAgentState(state, ctx.deps.log);
+				if (handle) {
+					ctx.deps.log(`  ${GREEN}Currently working on:${RESET} ${handle.task}`);
+				}
+			},
 		});
 	});
 

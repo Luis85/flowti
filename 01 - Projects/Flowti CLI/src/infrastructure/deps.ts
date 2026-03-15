@@ -6,7 +6,7 @@
  * Production code uses createDefaultDeps(); tests use createTestDeps().
  */
 
-import type { IFileSystem, IShell, IPaths, IClock, IProcess, IInput } from "./types.js";
+import type { IFileSystem, IShell, IPaths, IClock, IProcess, IInput, IAgentShell } from "./types.js";
 import type { ICliBus } from "./event-bus.js";
 import { disk } from "./filesystem.js";
 import { shell } from "./shell.js";
@@ -17,6 +17,8 @@ import { input } from "./input.js";
 import { log, warn } from "./logger.js";
 import { createCliBus } from "./event-bus.js";
 import { attachCliRenderer } from "../ui/renderers/cli-event-renderer.js";
+import type { AgentsConfig } from "./types-config.js";
+import { createAgentShell } from "./agent-shell.js";
 
 // ── Full dependency container ───────────────────────────────────────
 
@@ -31,6 +33,7 @@ export interface CliDeps {
 	readonly bus: ICliBus;
 	readonly log: (msg?: string) => void;
 	readonly warn: (msg: string) => void;
+	readonly agentShell: IAgentShell;
 }
 
 // ── Domain-specific subsets (ISP) ───────────────────────────────────
@@ -52,6 +55,9 @@ export type MenuDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "input" | "log
 
 /** Dependencies for shell-capable menu functions. */
 export type ShellMenuDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "input" | "shell" | "log">;
+
+/** Dependencies for agent menu functions (talk/dispatch via shell abstraction). */
+export type AgentMenuDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "input" | "log" | "agentShell">;
 
 /** Dependencies for dependency-graph display. */
 export type DepsDeps = Pick<CliDeps, "disk" | "paths" | "log">;
@@ -83,8 +89,10 @@ export type Log = (msg?: string) => void;
 // ── Factory ─────────────────────────────────────────────────────────
 
 /** Create the production dependency container. */
-export function createDefaultDeps(): CliDeps {
+export function createDefaultDeps(agentsConfig?: AgentsConfig, vaultRoot?: string): CliDeps {
 	const bus = createCliBus();
 	attachCliRenderer(bus);
-	return { disk, shell, paths, clock, proc, input, bus, log, warn };
+	const baseDeps = { disk, shell, paths, clock, log };
+	const agentShell = createAgentShell(baseDeps, agentsConfig, vaultRoot ?? ".");
+	return { disk, shell, paths, clock, proc, input, bus, log, warn, agentShell };
 }

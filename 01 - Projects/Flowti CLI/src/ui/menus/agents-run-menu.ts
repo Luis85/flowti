@@ -1,12 +1,11 @@
 /** agents-run-menu.ts — Interactive flows for running agents autonomously or generating briefs. */
 
 import type { CliDeps } from "../../infrastructure/deps.js";
-import type { AgentsConfig } from "../../infrastructure/types.js";
+import type { AgentsConfig, IAgentShell } from "../../infrastructure/types.js";
 import type { AgentSummary } from "../../domain/agents/agent-types.js";
 import type { IterationSummary } from "../../domain/iterations/iteration-types.js";
-import type { AgentStreamEvent } from "../../domain/agents/agent-stream.js";
 
-export type RunMenuDeps = Pick<CliDeps, "disk" | "paths" | "shell" | "clock" | "input" | "log">;
+export type RunMenuDeps = Pick<CliDeps, "disk" | "paths" | "shell" | "clock" | "input" | "log" | "agentShell">;
 
 /**
  * Run an agent: generate a brief and either display the path (prompt-only)
@@ -24,7 +23,7 @@ export async function runAgentInteractive(
 		renderBriefGenerated(briefPath, agent.name, deps.log);
 		return;
 	}
-	await spawnAndStream(agent.name, briefPath, agent, iterDir, iteration, deps, stateFilePath);
+	await spawnAndStream(agent, briefPath, iterDir, iteration, deps);
 }
 
 /**
@@ -39,20 +38,15 @@ export async function runBriefInteractive(
 		renderBriefGenerated(briefPath, agentName, deps.log);
 		return;
 	}
-	const { buildRunSpec } = await import("../../domain/agents/agent-runner.js");
-	const { checkClaudeInstalled, launchAgent } = await import("../../infrastructure/agent-process.js");
-	const { renderAgentSpawned, renderStreamEvent } = await import("../displays/agent-run-display.js");
-	if (!checkClaudeInstalled(deps)) {
+	if (!deps.shell.check("claude --version")) {
 		deps.log("\n  Claude CLI is not installed or not in PATH.\n");
 		return;
 	}
-	const spec = buildRunSpec(undefined, briefPath, deps.paths.dirname(briefPath));
-	const handle = launchAgent(deps, spec, `manual-${Date.now()}`);
+	const { renderAgentSpawned, renderStreamEvent } = await import("../displays/agent-run-display.js");
+	const agent: AgentSummary = { name: agentName, agentType: "ai", description: "", skills: [], tools: [], roles: [], file: "" };
+	const handle = deps.agentShell.dispatch(agent, briefPath, "manual run");
 	renderAgentSpawned(agentName, handle.sessionId, deps.log);
-	const thinkingDisplay = "indicator" as const;
-	handle.subscribe((event: AgentStreamEvent) => renderStreamEvent(event, deps.log, thinkingDisplay));
-	await handle.process.waitForExit(300000);
-	deps.log("\n  Agent process finished.\n");
+	handle.onEvent((event) => renderStreamEvent(event, deps.log, "indicator"));
 }
 
 /** List briefs for an iteration and let the user pick one. */
@@ -78,52 +72,18 @@ export async function selectBriefInteractive(
 // ── Internal ─────────────────────────────────────────────────────────
 
 async function spawnAndStream(
-	agentName: string, briefPath: string, agent: AgentSummary, iterDir: string,
-	iteration: IterationSummary, deps: RunMenuDeps, stateFilePath?: string,
+	agent: AgentSummary, briefPath: string, iterDir: string,
+	iteration: IterationSummary, deps: RunMenuDeps,
 ): Promise<void> {
-	const { buildRunSpec } = await import("../../domain/agents/agent-runner.js");
-	const { checkClaudeInstalled, launchAgent } = await import("../../infrastructure/agent-process.js");
-	const { createSession, updateSessionStatus, appendStructuredOutput } = await import("../../domain/agents/agent-session.js");
-	const { renderAgentSpawned, renderStreamEvent } = await import("../displays/agent-run-display.js");
-	if (!checkClaudeInstalled(deps)) {
+	if (!deps.shell.check("claude --version")) {
 		deps.log("\n  Claude CLI is not installed or not in PATH.\n");
 		return;
 	}
-	if (stateFilePath) await updateAgentStateDuringRun(deps, stateFilePath, agentName, "busy");
-	const spec = buildRunSpec(agent.ai, briefPath, deps.paths.dirname(iterDir));
-	const session = createSession(deps, iterDir, agentName, iteration.number, briefPath);
-	const handle = launchAgent(deps, spec, session.id);
-	renderAgentSpawned(agentName, session.id, deps.log);
-	updateSessionStatus(deps, iterDir, session.id, "running");
-
+	const { renderAgentSpawned, renderStreamEvent } = await import("../displays/agent-run-display.js");
+	const handle = deps.agentShell.dispatch(agent, briefPath, `iteration-${iteration.number}`, { iterDir, iterationNumber: iteration.number });
+	renderAgentSpawned(agent.name, handle.sessionId, deps.log);
 	const thinkingDisplay = "indicator" as const;
-	const events: Array<AgentStreamEvent & { ts: string }> = [];
-	let lastUsage: { inputTokens: number; outputTokens: number } | undefined;
-
-	handle.subscribe((event: AgentStreamEvent) => {
-		renderStreamEvent(event, deps.log, thinkingDisplay);
-		events.push({ ...event, ts: deps.clock.iso() });
-		if (event.kind === "usage") lastUsage = { inputTokens: event.inputTokens, outputTokens: event.outputTokens };
-	});
-
-	await handle.process.waitForExit(300000);
-	if (events.length > 0) appendStructuredOutput(deps, iterDir, session.id, events, lastUsage);
-	updateSessionStatus(deps, iterDir, session.id, "completed");
-	if (stateFilePath) await updateAgentStateDuringRun(deps, stateFilePath, agentName, "idle");
-	deps.log("\n  Agent process finished.\n");
-}
-
-/** Agent wrapper state management — updates agent state during autonomous runs. */
-async function updateAgentStateDuringRun(
-	deps: RunMenuDeps, stateFilePath: string, agentName: string, status: "busy" | "idle",
-): Promise<void> {
-	try {
-		const { readAgentState, writeAgentState } = await import("../../domain/agents/agent-state.js");
-		const dir = deps.paths.dirname(stateFilePath);
-		const state = readAgentState(deps, dir, agentName);
-		const updated = { ...state, status, lastInteraction: deps.clock.iso(), lastInteractionType: "task" as const };
-		writeAgentState(deps, dir, agentName, updated);
-	} catch { /* state update is best-effort */ }
+	handle.onEvent((event) => renderStreamEvent(event, deps.log, thinkingDisplay));
 }
 
 export { type AgentsConfig };
