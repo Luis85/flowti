@@ -1,18 +1,18 @@
 /** agents-interact-menu.ts — Talk, task assignment, and project assignment for agents. */
 import { printHeader, RESET, DIM, GREEN, RED, CYAN, BOLD } from "../../infrastructure/ui.js";
 import type { MenuDeps, ShellMenuDeps } from "../../infrastructure/deps.js";
-import type { AgentsConfig, ProjectConfig, IAgentShell } from "../../infrastructure/types.js";
+import type { AgentsConfig, ProjectConfig, IAgentProcessRunner } from "../../infrastructure/types.js";
 import { readSystemPrompt } from "../../domain/agents/agent-store.js";
 import type { AgentSummary } from "../../domain/agents/agent-types.js";
-import { buildConversationPrompt, buildClarificationPrompt } from "../../domain/agents/agent-conversation.js";
+import { buildConversationPrompt, buildClarificationPrompt, parseAgentResponse } from "../../domain/agents/agent-conversation.js";
 import type { AgentResponse, AgentCharacter } from "../../domain/agents/agent-conversation.js";
 import type { ConversationTurn } from "../../domain/agents/agent-conversation-store.js";
 import { readProjectConfig, updateProjectConfig } from "../../domain/project/project-config.js";
 import { listProjects } from "../../domain/project/project.js";
 import type { ThinkingDisplay } from "../displays/agent-run-display.js";
 
-/** Deps for talk/clarify functions — needs agentShell for process management. */
-export type TalkDeps = ShellMenuDeps & { readonly agentShell: IAgentShell };
+/** Deps for talk/clarify functions — needs processRunner for LLM spawning. */
+export type TalkDeps = ShellMenuDeps & { readonly processRunner: IAgentProcessRunner };
 
 // ── Spinner ──────────────────────────────────────────────────────────
 
@@ -71,7 +71,7 @@ function displayResponse(agentName: string, parsed: AgentResponse, deps: TalkDep
 	deps.log("");
 }
 
-/** Send a single message to an agent via agentShell.talk() and return the parsed response (or null on failure). */
+/** Send a single message to an agent via processRunner.spawn() and return the parsed response (or null on failure). */
 async function sendTurn(
 	agent: AgentSummary, systemPrompt: string | null,
 	history: readonly ConversationTurn[],
@@ -82,13 +82,13 @@ async function sendTurn(
 	const content = buildConversationPrompt(agent.name, systemPrompt, oldHistory, userMessage, character);
 
 	const who = character?.persona ?? agent.name;
-	const session = deps.agentShell.talk(agent, content, { character, thinkingDisplay, idleTimeoutMs: processTimeoutMs ?? 120_000 });
+	const proc = deps.processRunner.spawn(agent, content);
 
 	// Animated spinner — shows immediately with detach hint
 	const spinner = createSpinner(who, deps.log, "Enter to step away");
 	let gotFirstEvent = false;
 
-	session.onEvent((event) => {
+	proc.onEvent((event) => {
 		if (!gotFirstEvent) { gotFirstEvent = true; spinner.stop(); }
 		if (event.kind === "thinking") {
 			if (thinkingDisplay === "full") {
@@ -100,11 +100,11 @@ async function sendTurn(
 		}
 	});
 
-	// Race: session.result vs user detach
+	// Race: proc.result vs user detach
 	const detach = deps.input.askAbortable("");
 	let sessionDone = false;
-	detach.promise.then(() => { if (!sessionDone) { spinner.stop(); session.detach(); } });
-	const result = await session.result;
+	detach.promise.then(() => { if (!sessionDone) { spinner.stop(); proc.kill(); } });
+	const result = await proc.result;
 	sessionDone = true;
 	detach.abort();
 	// Let the aborted readline drain before the next input.ask()
@@ -113,12 +113,12 @@ async function sendTurn(
 	// Clear the thinking preview line
 	process.stdout.write(`\r${" ".repeat(100)}\r`);
 
-	if (!result) return null;
-	if (result.detached) {
+	if (result.exitCode !== 0 && !result.text) return null;
+	if (!result.text) {
 		deps.log(`  ${DIM}${who} will leave a note in your inbox when done.${RESET}\n`);
 		return { response: { message: "", status: "message" as const }, thinking: "" };
 	}
-	return { response: result.response, thinking: result.thinking };
+	return { response: parseAgentResponse(result.text), thinking: result.thinking };
 }
 
 /** Prompt the user — direct prompt when agent asked a question, optional hint otherwise. */
@@ -130,7 +130,7 @@ async function askUser(lastStatus: AgentResponse["status"] | null, deps: TalkDep
 }
 
 /**
- * Interactive conversation loop with an agent via agentShell.talk().
+ * Interactive conversation loop with an agent via processRunner.spawn().
  *
  * Flow: user types a message -> Claude responds via streaming -> user replies or ends.
  * Conversation history is persisted across sessions in .flowti/var/conversations/.
@@ -292,13 +292,15 @@ async function runClarificationLoop(
 		if (!reply) break;
 
 		const content = buildClarificationPrompt(agent.name, systemPrompt, taskName, taskDesc, taskContext, history, reply, character);
-		const session = deps.agentShell.talk(agent, content);
-		const result = await session.result;
-		if (!result || !result.response.message) break;
+		const proc = deps.processRunner.spawn(agent, content);
+		const result = await proc.result;
+		if (!result.text) break;
+		const parsed = parseAgentResponse(result.text);
+		if (!parsed.message) break;
 
-		displayResponse(agent.name, result.response, deps, character?.persona);
-		history.push({ role: "user", content: reply, ts: "" }, { role: "agent", content: result.response.message, ts: "" });
-		status = result.response.status;
+		displayResponse(agent.name, parsed, deps, character?.persona);
+		history.push({ role: "user", content: reply, ts: "" }, { role: "agent", content: parsed.message, ts: "" });
+		status = parsed.status;
 	}
 }
 
@@ -322,14 +324,16 @@ export async function clarifyTaskInteractive(
 	const history: ConversationTurn[] = [];
 
 	const content = buildClarificationPrompt(agent.name, systemPrompt, taskName, taskDesc, taskContext, history, undefined, character);
-	const session = deps.agentShell.talk(agent, content);
-	const result = await session.result;
-	if (!result || !result.response.message) return;
+	const proc = deps.processRunner.spawn(agent, content);
+	const result = await proc.result;
+	if (!result.text) return;
+	const parsed = parseAgentResponse(result.text);
+	if (!parsed.message) return;
 
-	history.push({ role: "agent", content: result.response.message, ts: "" });
-	displayResponse(agent.name, result.response, deps, character?.persona);
+	history.push({ role: "agent", content: parsed.message, ts: "" });
+	displayResponse(agent.name, parsed, deps, character?.persona);
 
-	await runClarificationLoop(agent, systemPrompt, taskName, taskDesc, taskContext, history, deps, result.response.status, character);
+	await runClarificationLoop(agent, systemPrompt, taskName, taskDesc, taskContext, history, deps, parsed.status, character);
 	if (history.length > 0) deps.log(`  ${DIM}Clarification complete (${Math.ceil(history.length / 2)} exchanges).${RESET}\n`);
 }
 

@@ -114,7 +114,6 @@ export function registerAllHandlers(registry: HandlerRegistry): void {
 	// ── BeforeRender handlers ───────────────────────────────────────
 
 	registry.registerBeforeRender("start:banner", (ctx) => {
-		ctx.deps.agentShell.reconcileStaleAgents();
 		const current = getSelectedProject();
 		const projects = listProjects(PROJECTS_DIR, { disk: ctx.deps.disk });
 		if (current) {

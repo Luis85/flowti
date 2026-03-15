@@ -269,14 +269,14 @@ export function registerExtensibilityHandlers(registry: HandlerRegistry): void {
 		const { readAgentState } = await import("../../domain/agents/agent-state.js");
 		const { runMenu } = await import("../../infrastructure/menu.js");
 		const state = readAgentState(ctx.deps, varDir(ctx), agent.name);
-		const handle = ctx.deps.agentShell.getActiveDispatch(agent.name);
+		const worker = ctx.deps.workerManager.getWorker(agent.name);
 		const onTaskAction = (a: import("../../domain/agents/agent-types.js").AgentSummary, t: string, c: RouterContext) => showTaskActions(a, t, c, VAULT_ROOT, vaultAgents);
 		const taskItems = buildTaskMenuItems(state, agent, onTaskAction, ctx);
 		return runMenu(null, [...taskItems, ...(ctx.dataSourceEntries?.["_actions"] ?? [])], {
 			beforeMenu: () => {
 				renderAgentDetail(agent, ctx.deps.log);
 				renderAgentState(state, ctx.deps.log);
-				if (handle) ctx.deps.log(`  ${GREEN}Currently working on:${RESET} ${handle.task}`);
+				if (worker && worker.state === "working") ctx.deps.log(`  ${GREEN}Currently working${RESET}`);
 			},
 		});
 	});
@@ -296,8 +296,9 @@ export function registerExtensibilityHandlers(registry: HandlerRegistry): void {
 		const { talkToAgentInteractive } = await import("../menus/agents-menu.js");
 		await talkToAgentInteractive(VAULT_ROOT, agent, vaultAgents, ctx.deps);
 		await persistInteraction(agent, "talk", ctx);
-		// Reset to idle after talk — unless agent has an active dispatch (detached or task running)
-		if (!ctx.deps.agentShell.getActiveDispatch(agent.name)) {
+		// Reset to idle after talk — unless agent has an active worker (working in background)
+		const worker = ctx.deps.workerManager.getWorker(agent.name);
+		if (!worker || worker.state !== "working") {
 			const { readAgentState, writeAgentState } = await import("../../domain/agents/agent-state.js");
 			const dir = varDir(ctx);
 			const state = readAgentState(ctx.deps, dir, agent.name);

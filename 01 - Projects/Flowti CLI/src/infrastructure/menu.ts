@@ -68,12 +68,8 @@ function findMatch(items: MenuEntry[], choice: string): MenuItem | null {
 	return items.find((i): i is MenuItem => "key" in i && i.key === choice.toLowerCase()) ?? null;
 }
 
-async function handleSpecialKey(choice: string, options: MenuOptions): Promise<MenuResult | "continue" | undefined> {
+function handleSpecialKey(choice: string): MenuResult | undefined {
 	if (choice === "*") return "refresh" as MenuResult;
-	if (choice === "!" && options.onAgentQuestion) {
-		const result = await options.onAgentQuestion();
-		return result ?? "continue";
-	}
 	return undefined;
 }
 
@@ -100,8 +96,7 @@ export async function runMenu(
 		renderMenu(title, items, options);
 		const choice = await input.ask("Choice", options.defaultChoice ?? "1");
 
-		const special = await handleSpecialKey(choice, options);
-		if (special === "continue") continue;
+		const special = handleSpecialKey(choice);
 		if (special) return special;
 
 		const result = await handleMenuChoice(items, choice);

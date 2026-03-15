@@ -42,22 +42,13 @@ function makeDeps(answers: string[] = []): RosterTaskDeps {
 		log: vi.fn(),
 		clock: { now: () => new Date(), iso: () => "2026-03-14", ms: () => 0, safeIso: () => "2026-03-14" },
 		shell: { check: vi.fn(() => false) } as unknown as RosterTaskDeps["shell"],
-		agentShell: {
-			talk: vi.fn(() => ({
+		processRunner: {
+			spawn: vi.fn(() => ({
 				onEvent: vi.fn(() => () => {}),
-				result: Promise.resolve(null),
-				detach: vi.fn(),
+				result: Promise.resolve({ text: "", thinking: "", exitCode: 0 }),
+				kill: vi.fn(),
 			})),
-			dispatch: vi.fn(() => ({
-				sessionId: "dispatch-123",
-				agentName: "Dev",
-				task: "test",
-				running: true,
-				onEvent: vi.fn(() => () => {}),
-				stop: vi.fn(),
-			})),
-			getActiveDispatch: vi.fn(() => null),
-		} as unknown as RosterTaskDeps["agentShell"],
+		} as unknown as RosterTaskDeps["processRunner"],
 	} as unknown as RosterTaskDeps;
 }
 

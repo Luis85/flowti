@@ -13,7 +13,7 @@ import { resolveDisabledCondition, resolveHiddenCondition } from "./sitemap-cond
 import { assignKeys } from "./key-assigner.js";
 import { input } from "./input.js";
 import { log } from "./logger.js";
-import { RESET, RED, YELLOW, CYAN, BOLD, DIM } from "./ui.js";
+import { RESET, RED, YELLOW } from "./ui.js";
 import type { MenuEntry, MenuResult, ProjectContext } from "./types.js";
 import type { CliDeps } from "./deps.js";
 import type { Sitemap, PageObject, PageAction, RouterContext, StackEntry } from "./sitemap-types.js";
@@ -175,31 +175,7 @@ export class SitemapRouter {
 			? () => this.#handlers.getBeforeRender(page.onBeforeRender!)(ctx)
 			: undefined;
 
-		const result = await runMenu(title, allEntries, {
-			beforeMenu,
-			onAgentQuestion: async () => {
-				const questions = this.#deps.agentShell.pendingQuestions();
-				if (questions.length === 0) return undefined;
-				const oldest = questions[0];
-				const who = oldest.persona ?? oldest.agentName;
-				log(`\n  ${CYAN}${BOLD}${who}${RESET} asks:`);
-				log(`    ${oldest.question}\n`);
-				const answer = await input.ask("  Your answer");
-				if (answer) await this.#deps.agentShell.answerAgent(oldest.agentName, answer);
-				return "refresh" as MenuResult;
-			},
-			renderStatusBar: () => {
-				try {
-					const questions = this.#deps.agentShell.pendingQuestions();
-					if (questions.length === 0) return;
-					const oldest = questions[0];
-					const who = oldest.persona ?? oldest.agentName;
-					const preview = oldest.question.length > 60 ? oldest.question.slice(0, 57) + "..." : oldest.question;
-					const badge = questions.length > 1 ? `${YELLOW}${questions.length} agents waiting${RESET} — ` : "";
-					log(`  ${YELLOW}⚡${RESET} ${badge}${CYAN}${BOLD}${who}${RESET}${DIM}: ${preview}  ${YELLOW}[! to respond]${RESET}`);
-				} catch { /* status bar render best-effort */ }
-			},
-		});
+		const result = await runMenu(title, allEntries, { beforeMenu });
 
 		const nav = navigationTarget as StackEntry | null;
 		if (nav) {

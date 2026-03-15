@@ -147,7 +147,8 @@ const mockDeps = {
 	shell: { run: vi.fn(() => 0), runSilent: vi.fn(), runCapture: vi.fn(() => ""), runCaptureStatus: vi.fn(() => ({ exitCode: 0, output: "" })) },
 	proc: { exit: vi.fn(), argv: [] },
 	bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn() },
-	agentShell: { talk: vi.fn(), dispatch: vi.fn(), getActiveDispatch: vi.fn(() => null), reconcileStaleAgents: vi.fn(() => ({ recovered: [] })) },
+	processRunner: { spawn: vi.fn(() => ({ onEvent: vi.fn(() => () => {}), result: Promise.resolve({ text: "", thinking: "", exitCode: 0 }), kill: vi.fn() })) },
+	workerManager: { spawnAll: vi.fn(), spawn: vi.fn(), stop: vi.fn(), stopAll: vi.fn(), getWorker: vi.fn(() => null), listWorkers: vi.fn(() => []), send: vi.fn(), dispatchWorldEvent: vi.fn() },
 };
 
 function mockCtx(overrides: Partial<RouterContext> = {}): RouterContext {

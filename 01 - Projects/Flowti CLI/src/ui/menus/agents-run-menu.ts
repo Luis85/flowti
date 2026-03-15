@@ -5,7 +5,7 @@ import type { AgentsConfig } from "../../infrastructure/types.js";
 import type { AgentSummary } from "../../domain/agents/agent-types.js";
 import type { IterationSummary } from "../../domain/iterations/iteration-types.js";
 
-export type RunMenuDeps = Pick<CliDeps, "disk" | "paths" | "shell" | "clock" | "input" | "log" | "agentShell">;
+export type RunMenuDeps = Pick<CliDeps, "disk" | "paths" | "shell" | "clock" | "input" | "log" | "processRunner">;
 
 /**
  * Run an agent: generate a brief and either display the path (prompt-only)
@@ -44,9 +44,11 @@ export async function runBriefInteractive(
 	}
 	const { renderAgentSpawned, renderStreamEvent } = await import("../displays/agent-run-display.js");
 	const agent: AgentSummary = { name: agentName, agentType: "ai", description: "", skills: [], tools: [], roles: [], file: "" };
-	const handle = deps.agentShell.dispatch(agent, briefPath, "manual run");
-	renderAgentSpawned(agentName, handle.sessionId, deps.log);
-	handle.onEvent((event) => renderStreamEvent(event, deps.log, "indicator"));
+	const briefContent = deps.disk.readFileSync(briefPath, "utf-8");
+	const proc = deps.processRunner.spawn(agent, briefContent);
+	const sessionId = `dispatch-${deps.clock.ms()}`;
+	renderAgentSpawned(agentName, sessionId, deps.log);
+	proc.onEvent((event) => renderStreamEvent(event, deps.log, "indicator"));
 }
 
 /** List briefs for an iteration and let the user pick one. */
@@ -80,10 +82,12 @@ async function spawnAndStream(
 		return;
 	}
 	const { renderAgentSpawned, renderStreamEvent } = await import("../displays/agent-run-display.js");
-	const handle = deps.agentShell.dispatch(agent, briefPath, `iteration-${iteration.number}`, { iterDir, iterationNumber: iteration.number });
-	renderAgentSpawned(agent.name, handle.sessionId, deps.log);
+	const briefContent = deps.disk.readFileSync(briefPath, "utf-8");
+	const proc = deps.processRunner.spawn(agent, briefContent);
+	const sessionId = `dispatch-${deps.clock.ms()}`;
+	renderAgentSpawned(agent.name, sessionId, deps.log);
 	const thinkingDisplay = "indicator" as const;
-	handle.onEvent((event) => renderStreamEvent(event, deps.log, thinkingDisplay));
+	proc.onEvent((event) => renderStreamEvent(event, deps.log, thinkingDisplay));
 }
 
 export { type AgentsConfig };

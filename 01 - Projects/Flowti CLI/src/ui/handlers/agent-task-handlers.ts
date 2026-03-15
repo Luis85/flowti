@@ -109,7 +109,8 @@ async function openTask(
 		briefPath = tempPath;
 	}
 
-	ctx.deps.agentShell.dispatch(agent, briefPath, taskName);
+	const briefContent = ctx.deps.disk.readFileSync(briefPath, "utf-8");
+	ctx.deps.processRunner.spawn(agent, briefContent);
 	const who = agent.persona ?? agent.name;
 	ctx.deps.log(`\n  ${GREEN}\u2713${RESET} ${who} is working on: ${taskName}\n`);
 }

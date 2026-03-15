@@ -7,20 +7,20 @@
  * When the agent finishes, it leaves a note in the inbox.
  */
 
-import { printHeader, RESET, DIM, GREEN, RED, BOLD, CYAN, YELLOW } from "../../infrastructure/ui.js";
+import { printHeader, RESET, DIM, GREEN, RED, BOLD, CYAN } from "../../infrastructure/ui.js";
 import type { ShellMenuDeps } from "../../infrastructure/deps.js";
-import type { AgentsConfig, IterationsConfig, IAgentShell } from "../../infrastructure/types.js";
+import type { AgentsConfig, IterationsConfig, IAgentProcessRunner } from "../../infrastructure/types.js";
 import type { LifecycleTemplate } from "../../domain/lifecycle/lifecycle-types.js";
 import type { AgentSummary, SuggestedTask } from "../../domain/agents/agent-types.js";
 import { getProjectAgents, readSystemPrompt } from "../../domain/agents/agent-store.js";
 import { renderAgentList } from "../displays/agents-display.js";
 import { findCurrentIteration, iterationsDir } from "../../domain/iterations/iteration-store.js";
 import { findBrief, saveBrief, appendTask, generateBrief } from "../../domain/agents/brief-store.js";
-import { buildClarificationPrompt } from "../../domain/agents/agent-conversation.js";
+import { buildClarificationPrompt, parseAgentResponse } from "../../domain/agents/agent-conversation.js";
 import type { AgentCharacter } from "../../domain/agents/agent-conversation.js";
 
-/** Deps for roster task menu — needs agentShell for clarification and dispatch. */
-export type RosterTaskDeps = ShellMenuDeps & { readonly agentShell: IAgentShell };
+/** Deps for roster task menu — needs processRunner for clarification and dispatch. */
+export type RosterTaskDeps = ShellMenuDeps & { readonly processRunner: IAgentProcessRunner };
 
 export interface RosterTaskOptions {
 	readonly projectPath: string;
@@ -138,13 +138,15 @@ async function runClarificationLoop(
 		history.push({ role: "user", content: reply });
 		const spinner = createSpinner(who);
 		const followUp = buildClarificationPrompt(agent.name, systemPrompt, task, "", "", history, reply, character);
-		const followSession = deps.agentShell.talk(agent, followUp, { idleTimeoutMs: 300_000 });
-		const followResult = await followSession.result;
+		const proc = deps.processRunner.spawn(agent, followUp);
+		const followResult = await proc.result;
 		spinner.stop();
-		if (!followResult || !followResult.response.message) break;
-		history.push({ role: "agent", content: followResult.response.message });
-		logAgentMessage(who, followResult.response.message, deps);
-		if (followResult.response.status === "ready") break;
+		if (!followResult.text) break;
+		const parsed = parseAgentResponse(followResult.text);
+		if (!parsed.message) break;
+		history.push({ role: "agent", content: parsed.message });
+		logAgentMessage(who, parsed.message, deps);
+		if (parsed.status === "ready") break;
 	}
 }
 
@@ -160,13 +162,15 @@ async function clarifyAndLaunch(
 	const briefContext = readBriefContent(deps, iterDir, iteration, agent);
 	const content = buildClarificationPrompt(agent.name, systemPrompt, task, "", briefContext, history, undefined, character);
 	const spinner = createSpinner(who);
-	const session = deps.agentShell.talk(agent, content, { idleTimeoutMs: 300_000 });
-	const firstResult = await session.result;
+	const proc = deps.processRunner.spawn(agent, content);
+	const firstResult = await proc.result;
 	spinner.stop();
-	if (!firstResult || !firstResult.response.message) return false;
-	history.push({ role: "agent", content: firstResult.response.message });
-	logAgentMessage(who, firstResult.response.message, deps);
-	if (firstResult.response.status !== "ready") {
+	if (!firstResult.text) return false;
+	const parsed = parseAgentResponse(firstResult.text);
+	if (!parsed.message) return false;
+	history.push({ role: "agent", content: parsed.message });
+	logAgentMessage(who, parsed.message, deps);
+	if (parsed.status !== "ready") {
 		await runClarificationLoop(agent, task, systemPrompt, character, history, deps);
 	}
 	return launchBackground(agent, task, iterDir, iteration, deps);
@@ -187,9 +191,9 @@ function readBriefContent(
 	try { return deps.disk.readFileSync(deps.paths.join(briefDir, briefFile), "utf-8"); } catch { return ""; }
 }
 
-/** Launch agent in background via agentShell.dispatch(). */
+/** Launch agent in background via processRunner.spawn(). */
 function launchBackground(
-	agent: AgentSummary, task: string, iterDir: string,
+	agent: AgentSummary, _task: string, iterDir: string,
 	iteration: import("../../domain/iterations/iteration-types.js").IterationSummary,
 	deps: RosterTaskDeps,
 ): boolean {
@@ -200,7 +204,8 @@ function launchBackground(
 	if (!briefFile) return false;
 
 	const fullBriefPath = deps.paths.join(briefDir, briefFile);
-	deps.agentShell.dispatch(agent, fullBriefPath, task, { iterDir, iterationNumber: iteration.number });
+	const briefContent = deps.disk.readFileSync(fullBriefPath, "utf-8");
+	deps.processRunner.spawn(agent, briefContent);
 	return true;
 }
 

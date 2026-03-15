@@ -51,18 +51,13 @@ function makeDeps(): RunMenuDeps {
 		clock: { iso: vi.fn(() => "2026-03-15"), safeIso: vi.fn(() => "2026-03-15"), now: vi.fn(), ms: vi.fn() } as unknown as RunMenuDeps["clock"],
 		input: { ask: vi.fn(() => Promise.resolve("")), waitForEnter: vi.fn(() => Promise.resolve()) } as unknown as RunMenuDeps["input"],
 		log: vi.fn(),
-		agentShell: {
-			talk: vi.fn(),
-			dispatch: vi.fn(() => ({
-				sessionId: "dispatch-123",
-				agentName: "Dev",
-				task: "test",
-				running: true,
+		processRunner: {
+			spawn: vi.fn(() => ({
 				onEvent: vi.fn(() => () => {}),
-				stop: vi.fn(),
+				result: Promise.resolve({ text: "", thinking: "", exitCode: 0 }),
+				kill: vi.fn(),
 			})),
-			getActiveDispatch: vi.fn(() => null),
-		} as unknown as RunMenuDeps["agentShell"],
+		} as unknown as RunMenuDeps["processRunner"],
 	};
 }
 
@@ -75,10 +70,10 @@ describe("runAgentInteractive", () => {
 		expect(renderBriefGenerated).toHaveBeenCalled();
 	});
 
-	it("in autonomous mode dispatches via agentShell", async () => {
+	it("in autonomous mode spawns via processRunner", async () => {
 		const deps = makeDeps();
 		await runAgentInteractive(makeAgent(), makeIteration(), "/iter", true, deps);
-		expect(deps.agentShell.dispatch).toHaveBeenCalled();
+		expect(deps.processRunner.spawn).toHaveBeenCalled();
 	});
 });
 
