@@ -392,6 +392,8 @@ Action: In Phase 2, update `createTestDeps()` to include no-op stubs for all `Cl
 - `workerManager` — stub with `{ start: vi.fn(), stop: vi.fn(), list: vi.fn(() => []) }` (see `src/infrastructure/worker-manager.ts`)
 - `processRunner` — stub with `{ run: vi.fn(), runCapture: vi.fn() }` (see `src/infrastructure/types.ts` for `IAgentProcessRunner`)
 
+Additionally, the existing `createMockInput()` is missing `askAbortable` (required by `IInput`). Add: `askAbortable: vi.fn(() => ({ promise: Promise.resolve(""), abort: vi.fn() }))`.
+
 The new `createStoreDeps()` helper is a convenience wrapper for store tests that only need `{ disk, paths, clock }` — it does not replace `createTestDeps()`.
 
 **`dispatch.ts` must be updated** during Phase 4. The current `resolveWildcard()` hardcodes `startsWith("report:")`. The updated flow:
@@ -534,12 +536,15 @@ type RendererFn<T> = (data: T, log: LogFn) => void;
 
 | Rule | What It Catches | Implementation |
 |------|----------------|----------------|
-| `no-direct-adapt` | Controllers using legacy `adapt()` instead of `defineCommand()` | Ban import of `adapt` from `request-response.ts` in `src/controller/` |
-| `no-raw-flag-parsing` | Controllers manually checking `typeof req.flags.x === "string"` | Pattern match on `req.flags` property access outside of `command-engine.ts` |
-| `no-inline-noProjectResponse` | Controllers defining local `noProjectResponse()` functions | Ban function declarations matching `noProjectResponse` in `src/controller/` |
-| `no-duplicate-flagStr` | Controllers defining local `flagStr()` helpers | Ban function declarations matching `flagStr` in `src/controller/` |
+| `no-direct-adapt` | Controllers using legacy `adapt()` instead of `defineCommand()` | `no-restricted-imports` — ban import of `adapt` from `request-response.ts` in `src/controller/` (same mechanism as existing architecture rules) |
+| `no-raw-flag-parsing` | Controllers manually checking `typeof req.flags.x === "string"` | `no-restricted-syntax` with AST selector: `"MemberExpression[object.property.name='flags']"` scoped to `src/controller/` files (new mechanism — requires adding `no-restricted-syntax` to the config) |
+| `no-inline-noProjectResponse` | Controllers defining local `noProjectResponse()` functions | `no-restricted-syntax` with AST selector: `"FunctionDeclaration[id.name='noProjectResponse']"` scoped to `src/controller/` |
+| `no-duplicate-flagStr` | Controllers defining local `flagStr()` helpers | `no-restricted-syntax` with AST selector: `"FunctionDeclaration[id.name='flagStr']"` scoped to `src/controller/` |
 
-These rules use the same pattern as the existing architecture enforcement rules (ban imports from specific paths). The existing ESLint config already enforces `node:fs` / `node:path` bans in domain — these new rules follow the same approach.
+Implementation notes:
+- `no-direct-adapt` uses `no-restricted-imports` (same pattern as existing architecture enforcement)
+- The other three rules require `no-restricted-syntax` with AST selectors — this is a new ESLint mechanism for this project, but well-supported by ESLint core (no plugin needed)
+- All rules are scoped to `src/controller/` files via flat config's `files` array
 
 #### Test Enforcement
 
@@ -551,18 +556,19 @@ import { commandRegistry } from "../../src/infrastructure/command-registry.js";
 
 describe("controller conformance", () => {
   it("all registered commands use defineCommand descriptors", () => {
-    const commands = commandRegistry.entries();
-    for (const [name, handler] of commands) {
-      expect(handler.__descriptor, `${name} must use defineCommand()`).toBeDefined();
+    // CommandRegistry exposes keys() and get(name) — no entries() method exists
+    for (const name of commandRegistry.keys()) {
+      const meta = commandRegistry.get(name);
+      expect(meta?.handler.__descriptor, `${name} must use defineCommand()`).toBeDefined();
     }
   });
 
   it("all commands with requires:project have project guard", () => {
-    const commands = commandRegistry.entries();
-    for (const [name, handler] of commands) {
-      if (handler.__descriptor?.requires === "project") {
+    for (const name of commandRegistry.keys()) {
+      const meta = commandRegistry.get(name);
+      if (meta?.handler.__descriptor?.requires === "project") {
         // Engine guarantees this — test verifies no bypass
-        const result = handler({ flags: {}, project: undefined, deps: minimalDeps });
+        const result = meta.handler({ flags: {}, project: undefined, deps: minimalDeps });
         expect(result.data).toHaveProperty("command", expect.stringContaining("help"));
       }
     }
