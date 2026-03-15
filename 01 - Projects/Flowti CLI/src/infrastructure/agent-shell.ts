@@ -11,7 +11,7 @@
  * Implements IAgentShell (domain contract) in the infrastructure layer.
  */
 
-import type { IAgentShell, DispatchRequest, DispatchResult, CollectResult, PruneOptions, PruneSummary } from "../domain/agents/agent-shell.js";
+import type { IAgentShell, DispatchRequest, DispatchResult, CollectResult, PruneOptions, PruneSummary, PendingQuestion } from "../domain/agents/agent-shell.js";
 import type { AgentProcess, IAgentProcessRunner } from "../domain/agents/worker-types.js";
 import type { AgentSummary } from "../domain/agents/agent-types.js";
 import type { IWorkspaceRegistry } from "./workspace-registry.js";
@@ -53,6 +53,7 @@ const DEFAULT_CONFIG: WorkspacesConfig = {
 
 export function createAgentShell(deps: AgentShellDeps): IAgentShell {
 	const config = { ...DEFAULT_CONFIG, ...deps.config };
+	const pendingNotifications = new Map<string, PendingQuestion>();
 
 	function tryPruneOne(ws: import("../domain/agents/agent-workspace.js").AgentWorkspace): string | null {
 		try {
@@ -82,7 +83,7 @@ export function createAgentShell(deps: AgentShellDeps): IAgentShell {
 		return { removed, freed: "0B", skipped, errors };
 	}
 
-	return {
+	const shell: IAgentShell = {
 		async dispatch(request: DispatchRequest): Promise<DispatchResult> {
 			// 1. Check concurrency limit
 			const active = deps.registry.activeCount();
@@ -161,6 +162,22 @@ export function createAgentShell(deps: AgentShellDeps): IAgentShell {
 
 			// 9. Wire completion handler (collect + dispose/retain)
 			const output = process.result.then(async (result) => {
+				// Check if agent asked a question (convention: JSON with status "question")
+				try {
+					const parsed: Record<string, unknown> = JSON.parse(result.text);
+					if (parsed.status === "question" && typeof parsed.message === "string") {
+						pendingNotifications.set(request.agent, {
+							agentName: request.agent,
+							persona: agentForSpawn.description,
+							question: parsed.message,
+							task: request.task,
+							workspaceId: workspace.id,
+						});
+						deps.bus.emit("workspace:waiting", { workspace, question: parsed.message });
+						return result;
+					}
+				} catch { /* not JSON or no question — proceed normally */ }
+
 				workspace = transitionState(workspace, "collecting");
 				deps.registry.update(workspace);
 
@@ -242,6 +259,8 @@ export function createAgentShell(deps: AgentShellDeps): IAgentShell {
 			const recovered: string[] = [];
 			const active = deps.registry.listByState("active");
 			for (const ws of active) {
+				if (pendingNotifications.has(ws.agentSlug)) continue;
+
 				const age = deps.clock.ms() - new Date(ws.createdAt).getTime();
 				if (age < 86_400_000) continue;
 
@@ -255,5 +274,26 @@ export function createAgentShell(deps: AgentShellDeps): IAgentShell {
 			}
 			return { recovered };
 		},
+
+		pendingQuestions(): PendingQuestion[] {
+			return [...pendingNotifications.values()];
+		},
+
+		async answerAgent(agentName: string, answer: string): Promise<void> {
+			const pending = pendingNotifications.get(agentName);
+			if (!pending) return;
+
+			pendingNotifications.delete(agentName);
+
+			const prompt = `The user answered your question.\n\nYour question was: ${pending.question}\n\nTheir answer: ${answer}\n\nPlease continue with the original task: ${pending.task}`;
+
+			await shell.dispatch({
+				agent: agentName,
+				task: prompt,
+				retain: true,
+			});
+		},
 	};
+
+	return shell;
 }
