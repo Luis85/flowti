@@ -11,14 +11,14 @@ vi.mock("../../../src/domain/agents/brief-store.js", () => ({
 vi.mock("../../../src/ui/displays/agent-run-display.js", () => ({
 	renderBriefGenerated: vi.fn(),
 	renderAgentSpawned: vi.fn(),
-	renderAgentOutput: vi.fn(),
+	renderStreamEvent: vi.fn(),
 }));
 
 vi.mock("../../../src/infrastructure/agent-process.js", () => ({
 	checkClaudeInstalled: vi.fn(() => true),
 	launchAgent: vi.fn(() => ({
 		sessionId: "test-session",
-		process: { waitForOutput: vi.fn(() => Promise.resolve(null)), onOutput: vi.fn(() => () => {}), kill: vi.fn(), running: false, output: [] },
+		process: { waitForExit: vi.fn(() => Promise.resolve(0)), onOutput: vi.fn(() => () => {}), kill: vi.fn(), running: false, output: [] },
 		subscribe: vi.fn(() => () => {}),
 		stop: vi.fn(),
 	})),
@@ -34,7 +34,7 @@ vi.mock("../../../src/domain/agents/agent-runner.js", () => ({
 vi.mock("../../../src/domain/agents/agent-session.js", () => ({
 	createSession: vi.fn(() => ({ id: "s1", agentName: "Dev", iterationNumber: 5, status: "spawning", startedAt: "", briefRef: "", outputLines: [] })),
 	updateSessionStatus: vi.fn(() => true),
-	appendOutput: vi.fn(() => true),
+	appendStructuredOutput: vi.fn(() => true),
 }));
 
 import { runAgentInteractive, runBriefInteractive, selectBriefInteractive } from "../../../src/ui/menus/agents-run-menu.js";

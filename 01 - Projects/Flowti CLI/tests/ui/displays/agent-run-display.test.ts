@@ -1,9 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
 import {
 	renderBriefGenerated, renderAgentSpawned,
-	renderAgentOutput, renderSessionList, renderAgentComplete,
+	renderStreamEvent, renderSessionList, renderAgentComplete,
 } from "../../../src/ui/displays/agent-run-display.js";
-import type { AgentOutputEvent } from "../../../src/domain/agents/agent-runner.js";
+import type { ThinkingDisplay } from "../../../src/ui/displays/agent-run-display.js";
+import type { AgentStreamEvent } from "../../../src/domain/agents/agent-stream.js";
 import type { AgentSession } from "../../../src/domain/agents/agent-session.js";
 
 function capture(): { log: (msg?: string) => void; lines: string[] } {
@@ -37,45 +38,112 @@ describe("renderAgentSpawned", () => {
 	});
 });
 
-describe("renderAgentOutput", () => {
-	it("formats progress events", () => {
+describe("renderStreamEvent", () => {
+	it("renders thinking event in full mode", () => {
 		const { log, lines } = capture();
-		renderAgentOutput({ kind: "progress", message: "step 1" }, log);
-		expect(lines.join("\n")).toContain("step 1");
+		const event: AgentStreamEvent = { kind: "thinking", text: "reasoning here" };
+		renderStreamEvent(event, log, "full");
+		expect(lines.join("\n")).toContain("reasoning here");
 	});
 
-	it("formats result events", () => {
+	it("renders thinking event in indicator mode (shows indicator, not text)", () => {
 		const { log, lines } = capture();
-		renderAgentOutput({ kind: "result", content: "done" }, log);
+		const event: AgentStreamEvent = { kind: "thinking", text: "reasoning here" };
+		renderStreamEvent(event, log, "indicator");
+		const output = lines.join("\n");
+		expect(output).toContain("thinking...");
+		expect(output).not.toContain("reasoning here");
+	});
+
+	it("suppresses thinking event in hidden mode", () => {
+		const { log, lines } = capture();
+		const event: AgentStreamEvent = { kind: "thinking", text: "reasoning here" };
+		renderStreamEvent(event, log, "hidden");
+		expect(lines).toHaveLength(0);
+	});
+
+	it("renders text event", () => {
+		const { log, lines } = capture();
+		const event: AgentStreamEvent = { kind: "text", text: "hello world" };
+		renderStreamEvent(event, log, "hidden");
+		expect(lines.join("\n")).toContain("hello world");
+	});
+
+	it("renders tool-start event with tool name", () => {
+		const { log, lines } = capture();
+		const event: AgentStreamEvent = { kind: "tool-start", id: "t1", name: "Bash" };
+		renderStreamEvent(event, log, "hidden");
+		expect(lines.join("\n")).toContain("Bash");
+	});
+
+	it("renders tool-input event with short json inline", () => {
+		const { log, lines } = capture();
+		const event: AgentStreamEvent = { kind: "tool-input", index: 0, json: '{"cmd":"ls"}' };
+		renderStreamEvent(event, log, "hidden");
+		expect(lines.join("\n")).toContain('{"cmd":"ls"}');
+	});
+
+	it("truncates long tool-input json", () => {
+		const { log, lines } = capture();
+		const longJson = "x".repeat(100);
+		const event: AgentStreamEvent = { kind: "tool-input", index: 0, json: longJson };
+		renderStreamEvent(event, log, "hidden");
+		expect(lines.join("\n")).toContain("...");
+	});
+
+	it("renders tool-end event", () => {
+		const { log, lines } = capture();
+		const event: AgentStreamEvent = { kind: "tool-end", id: "t1" };
+		renderStreamEvent(event, log, "hidden");
 		expect(lines.join("\n")).toContain("done");
 	});
 
-	it("formats error events", () => {
+	it("renders error event with message", () => {
 		const { log, lines } = capture();
-		renderAgentOutput({ kind: "error", message: "failed" }, log);
-		expect(lines.join("\n")).toContain("failed");
+		const event: AgentStreamEvent = { kind: "error", message: "something failed" };
+		renderStreamEvent(event, log, "hidden");
+		expect(lines.join("\n")).toContain("something failed");
 	});
 
-	it("formats raw events", () => {
+	it("renders usage event with token counts", () => {
 		const { log, lines } = capture();
-		renderAgentOutput({ kind: "raw", line: "plain text" }, log);
-		expect(lines.join("\n")).toContain("plain text");
+		const event: AgentStreamEvent = { kind: "usage", inputTokens: 100, outputTokens: 50 };
+		renderStreamEvent(event, log, "hidden");
+		const output = lines.join("\n");
+		expect(output).toContain("100");
+		expect(output).toContain("50");
 	});
 
-	it("formats each event kind differently", () => {
-		const events: AgentOutputEvent[] = [
-			{ kind: "progress", message: "step" },
-			{ kind: "result", content: "ok" },
+	it("renders done event", () => {
+		const { log, lines } = capture();
+		const event: AgentStreamEvent = { kind: "done" };
+		renderStreamEvent(event, log, "hidden");
+		expect(lines.join("\n")).toContain("Agent finished");
+	});
+
+	it("all event kinds produce distinct output", () => {
+		const modes: ThinkingDisplay[] = ["full", "indicator", "hidden"];
+		const thinkingMode: ThinkingDisplay = "full";
+		const events: AgentStreamEvent[] = [
+			{ kind: "thinking", text: "t" },
+			{ kind: "text", text: "hello" },
+			{ kind: "tool-start", id: "i1", name: "MyTool" },
+			{ kind: "tool-input", index: 0, json: "{}" },
+			{ kind: "tool-end", id: "i1" },
 			{ kind: "error", message: "err" },
-			{ kind: "raw", line: "txt" },
+			{ kind: "usage", inputTokens: 10, outputTokens: 5 },
+			{ kind: "done" },
 		];
+		expect(modes).toBeDefined(); // modes variable used to avoid lint warning
 		const outputs = events.map((e) => {
 			const { log, lines } = capture();
-			renderAgentOutput(e, log);
+			renderStreamEvent(e, log, thinkingMode);
 			return lines.join("\n");
 		});
-		const unique = new Set(outputs);
-		expect(unique.size).toBe(4);
+		// Each non-empty output should differ from others (or be empty for hidden thinking)
+		const nonEmpty = outputs.filter((o) => o.length > 0);
+		const unique = new Set(nonEmpty);
+		expect(unique.size).toBe(nonEmpty.length);
 	});
 });
 

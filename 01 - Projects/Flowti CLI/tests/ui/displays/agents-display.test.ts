@@ -107,7 +107,7 @@ describe("renderAgentDetail", () => {
 			goals: [{ name: "complete-review", priority: 2 }],
 			components: [{ name: "tool-caller", type: "actuator" }],
 			behaviors: ["patrol", "guard"],
-			ai: { model: "claude-sonnet-4-20250514", provider: "anthropic", contextWindow: 200000 },
+			ai: { provider: "anthropic" },
 			relationships: [{ target: "Lead", type: "reports-to", description: "Daily sync" }],
 		}), mockLog);
 		const output = mockLog.mock.calls.flat().join(" ");
@@ -117,7 +117,6 @@ describe("renderAgentDetail", () => {
 		expect(output).toContain("actuator");
 		expect(output).toContain("patrol");
 		expect(output).toContain("anthropic");
-		expect(output).toContain("200000");
 		expect(output).toContain("reports-to");
 		expect(output).toContain("Lead");
 	});

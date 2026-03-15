@@ -135,14 +135,9 @@ async function removeArrayFieldItem(projectPath: string, agentName: string, item
 export async function editAIConfigInteractive(projectPath: string, agent: AgentSummary, config: AgentsConfig | undefined, deps: MenuDeps): Promise<void> {
 	printHeader("AI Configuration");
 	const current = agent.ai ?? {};
-	const model = await deps.input.ask("Model", current.model ?? "");
 	const provider = await deps.input.ask("Provider", current.provider ?? "");
-	const contextStr = await deps.input.ask("Context window (tokens)", current.contextWindow ? String(current.contextWindow) : "");
-	const maxStr = await deps.input.ask("Max tokens", current.maxTokens ? String(current.maxTokens) : "");
-	const contextWindow = parseInt(contextStr, 10) || undefined;
-	const maxTokens = parseInt(maxStr, 10) || undefined;
 	updateAgentJson(deps, projectPath, agent.name, {
-		ai: { model: model || undefined, provider: provider || undefined, contextWindow, maxTokens, systemPrompt: current.systemPrompt },
+		ai: { provider: provider || undefined, systemPrompt: current.systemPrompt },
 	}, config);
 	deps.log("\n  AI config updated.\n");
 }

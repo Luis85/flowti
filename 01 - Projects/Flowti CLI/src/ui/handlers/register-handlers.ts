@@ -24,6 +24,9 @@ import { buildWithReport } from "../../domain/reports/cli/generate-build-report.
 import { findCurrentIteration } from "../../domain/iterations/iteration-store.js";
 import { isDashboardRunning, stopDashboard, getDashboardState } from "../../domain/serve/dashboard-service.js";
 import { renderPlanningHeader } from "../displays/iterations-display.js";
+import { YELLOW } from "../../infrastructure/ui.js";
+import { cliConfig } from "../../infrastructure/config.js";
+import { listAgents } from "../../domain/agents/agent-store.js";
 import { registerCrudHandlers } from "./crud-handlers.js";
 import { registerExtensibilityHandlers } from "./extensibility-handlers.js";
 import { registerDevelopmentHandlers } from "./development-handlers.js";
@@ -43,6 +46,58 @@ function renderProjectContext(ctx: import("../../infrastructure/types.js").Proje
 	}
 	printProjectStatusBanner(deps, ctx);
 	renderIterationBannerLine(ctx.path, ctx.config.management, deps);
+}
+
+function renderBusyAgents(deps: Pick<CliDeps, "disk" | "paths" | "log">): void {
+	const varDir = deps.paths.join(VAULT_ROOT, ".flowti", "var");
+	if (!deps.disk.existsSync(varDir)) return;
+	try {
+		const agentFiles = deps.disk.readdirSync(varDir).filter((f) => f.startsWith("data-") && f.endsWith(".json"));
+		// Resolve personas from agent definitions
+		let agents: Array<{ name: string; persona?: string }> = [];
+		try { agents = listAgents(deps, VAULT_ROOT, cliConfig.agents); } catch { /* best-effort */ }
+		const working: Array<{ name: string; persona?: string; status: string; task?: string; lastType?: string }> = [];
+		for (const file of agentFiles) {
+			const content = deps.disk.readFileSync(deps.paths.join(varDir, file), "utf-8");
+			const state = JSON.parse(content) as { name?: string; status?: string; tasks?: Array<{ name: string; status: string }>; lastInteractionType?: string };
+			if (state.status === "busy" || state.status === "active") {
+				const activeTask = state.tasks?.find((t) => t.status === "pending" || t.status === "in-progress");
+				const agentDef = agents.find((a) => a.name === state.name);
+				working.push({ name: state.name ?? file, persona: agentDef?.persona, status: state.status, task: activeTask?.name, lastType: state.lastInteractionType });
+			}
+		}
+		if (working.length > 0) {
+			deps.log(`  ${YELLOW}Agents:${RESET}`);
+			for (const a of working) {
+				const displayName = a.persona ? `${a.persona} (${a.name})` : a.name;
+				const statusTag = a.status === "busy" ? `${YELLOW}working${RESET}` : `${GREEN}active${RESET}`;
+				const taskInfo = a.task ? ` — ${a.task}` : a.lastType ? ` — last: ${a.lastType}` : "";
+				deps.log(`    ${CYAN}${displayName}${RESET} ${DIM}[${statusTag}${DIM}]${taskInfo}${RESET}`);
+			}
+			deps.log("");
+		}
+	} catch { /* state read best-effort */ }
+}
+
+function renderInboxNotifications(deps: Pick<CliDeps, "disk" | "paths" | "log">): void {
+	const inboxDir = deps.paths.join(VAULT_ROOT, "00 - Connectivity", "inbox");
+	if (!deps.disk.existsSync(inboxDir)) return;
+	try {
+		const files = deps.disk.readdirSync(inboxDir).filter((f) => f.endsWith(".md"));
+		const agentNotes: string[] = [];
+		for (const file of files) {
+			const content = deps.disk.readFileSync(deps.paths.join(inboxDir, file), "utf-8");
+			if (content.includes("type: agent-note") && !content.includes("read: true")) {
+				const match = content.match(/^persona:\s*(.+)$/m);
+				if (match) agentNotes.push(match[1]);
+			}
+		}
+		if (agentNotes.length > 0) {
+			const unique = [...new Set(agentNotes)];
+			deps.log(`  ${CYAN}You have ${agentNotes.length} note${agentNotes.length > 1 ? "s" : ""} from: ${unique.join(", ")}${RESET}`);
+			deps.log(`  ${DIM}Check your inbox: 00 - Connectivity/inbox/${RESET}\n`);
+		}
+	} catch { /* inbox read best-effort */ }
 }
 
 function renderProjectBanner(deps: Pick<CliDeps, "disk" | "paths" | "clock" | "log">): void {
@@ -72,6 +127,8 @@ export function registerAllHandlers(registry: HandlerRegistry): void {
 		} else if (projects.length === 0) {
 			ctx.deps.log(`  ${DIM}No projects yet. Create one to get started.${RESET}\n`);
 		}
+		// Show busy agents on the start banner
+		renderBusyAgents(ctx.deps);
 	});
 
 	registry.registerBeforeRender("project:banner", (ctx) => renderProjectBanner(ctx.deps));
@@ -299,5 +356,43 @@ export function registerAllHandlers(registry: HandlerRegistry): void {
 		if (!iterNum) return "main";
 		const template = loadIterationTemplate(ctx.deps, ctx.project.path, config) ?? undefined;
 		return iterationDetailMenu(ctx.project.path, iterNum, config, ctx.dataSourceEntries, ctx.deps, { template, watchFn: watchFile });
+	});
+
+	// ── Inbox: agent notes on start page ─────────────────────────────
+
+	registry.registerDataSource("inbox:agent-notes", (ctx): import("../../infrastructure/types.js").MenuEntry[] => {
+		const inboxDir = ctx.deps.paths.join(VAULT_ROOT, "00 - Connectivity", "inbox");
+		if (!ctx.deps.disk.existsSync(inboxDir)) return [];
+		try {
+			const files = ctx.deps.disk.readdirSync(inboxDir).filter((f) => f.endsWith(".md"));
+			const notes: Array<{ file: string; persona: string; date: string }> = [];
+			for (const file of files) {
+				const content = ctx.deps.disk.readFileSync(ctx.deps.paths.join(inboxDir, file), "utf-8");
+				if (!content.includes("type: agent-note")) continue;
+				if (content.includes("read: true")) continue;
+				const personaMatch = content.match(/^persona:\s*(.+)$/m);
+				const dateMatch = content.match(/^date:\s*(.+)$/m);
+				if (personaMatch) notes.push({ file, persona: personaMatch[1], date: dateMatch?.[1] ?? "" });
+			}
+			const noteKeys = "nmlkjihgf";
+			return notes.map((n, i) => ({
+				key: noteKeys[i] ?? String(i + 1),
+				label: `${CYAN}Note from ${n.persona}${RESET} ${DIM}${n.date ? `(${new Date(n.date).toLocaleString()})` : ""}${RESET}`,
+				group: "inbox",
+				action: async () => {
+					const filePath = ctx.deps.paths.join(inboxDir, n.file);
+					const content = ctx.deps.disk.readFileSync(filePath, "utf-8");
+					const body = content.replace(/^---[\s\S]*?---\s*/, "");
+					ctx.deps.log("");
+					for (const line of body.trim().split("\n")) ctx.deps.log(`  ${line}`);
+					ctx.deps.log("");
+					const updated = content.replace(/^(---\r?\n)/, "$1read: true\n");
+					ctx.deps.disk.writeFileSync(filePath, updated, "utf-8");
+					ctx.deps.log(`  ${DIM}Note marked as read.${RESET}\n`);
+					await ctx.deps.input.waitForEnter();
+					return "navigate:start" as import("../../infrastructure/types.js").MenuResult;
+				},
+			}));
+		} catch { return []; }
 	});
 }

@@ -9,8 +9,8 @@ import type { MenuResult } from "../../infrastructure/types.js";
 import type { RouterContext } from "../../infrastructure/sitemap-types.js";
 
 /** Build roster entries for prompt variable resolution. */
-function toRosterEntries(agents: Array<{ name: string; description: string; roles: string[]; skills: Array<{ name: string }> }>): Array<{ name: string; description: string; roles: string[]; skills: string[] }> {
-	return agents.map((a) => ({ name: a.name, description: a.description, roles: a.roles, skills: a.skills.map((s) => s.name) }));
+function toRosterEntries(agents: Array<{ name: string; description: string; roles: string[]; skills: Array<{ name: string }>; mood?: string; personality?: string[] }>): Array<{ name: string; description: string; roles: string[]; skills: string[]; mood?: string; personality?: string[] }> {
+	return agents.map((a) => ({ name: a.name, description: a.description, roles: a.roles, skills: a.skills.map((s) => s.name), mood: a.mood, personality: a.personality }));
 }
 
 /** Resolve system prompt for a named agent (vault-level), with roster variables resolved. */
@@ -29,12 +29,12 @@ async function resolveAgentPrompt(ctx: RouterContext, agentName: string): Promis
 }
 
 /** Resolve agent details (description, skills, roles) for brief context. */
-async function resolveAgentDetails(ctx: RouterContext, agentName: string): Promise<{ description: string; skills: string[]; roles: string[] } | null> {
+async function resolveAgentDetails(ctx: RouterContext, agentName: string): Promise<{ description: string; skills: string[]; roles: string[]; persona?: string; mood?: string; personality?: string[]; attributes?: import("../../domain/agents/agent-types.js").AgentAttributes; experience?: number } | null> {
 	const { VAULT_ROOT, cliConfig } = await import("../../infrastructure/config.js");
 	const { findAgent } = await import("../../domain/agents/agent-store.js");
 	const agent = findAgent(ctx.deps, VAULT_ROOT, agentName, cliConfig.agents);
 	if (!agent) return null;
-	return { description: agent.description, skills: agent.skills.map((s) => s.name), roles: agent.roles };
+	return { description: agent.description, skills: agent.skills.map((s) => s.level ? `${s.name} (${s.level})` : s.name), roles: agent.roles, persona: agent.persona, mood: agent.mood, personality: agent.personality, attributes: agent.attributes, experience: agent.experience };
 }
 
 /** Resolve available skills for an agent based on domain → skillMap lookup. */
@@ -79,6 +79,7 @@ async function generateIterationBrief(ctx: RouterContext): Promise<string | null
 	const availableSkills = await resolveAvailableSkills(ctx, active.name);
 	const brief = generateBrief({
 		agentName: active.name, agentDescription: details?.description, agentSkills: details?.skills, agentRoles: details?.roles,
+		agentPersona: details?.persona, agentMood: details?.mood, agentPersonality: details?.personality, agentAttributes: details?.attributes, agentExperience: details?.experience,
 		systemPrompt, iteration, iterationTemplate: template ?? undefined, availableSkills,
 	});
 	const dir = iterationsDir(ctx.deps, ctx.project.path, config);
@@ -111,7 +112,7 @@ async function executeFullIteration(ctx: RouterContext): Promise<string | null> 
 }
 
 async function writeFullBrief(
-	ctx: RouterContext, agent: { name: string; description: string; roles: string[]; skills: Array<{ name: string }> },
+	ctx: RouterContext, agent: { name: string; description: string; roles: string[]; skills: Array<{ name: string; level?: string }>; persona?: string; mood?: string; personality?: string[]; attributes?: import("../../domain/agents/agent-types.js").AgentAttributes; experience?: number },
 	iteration: import("../../domain/iterations/iteration-types.js").IterationSummary,
 	config: import("../../infrastructure/types.js").IterationsConfig | undefined,
 ): Promise<string | null> {
@@ -129,7 +130,8 @@ async function writeFullBrief(
 	const availableSkills = await resolveAvailableSkills(ctx, agent.name);
 	const brief = generateBrief({
 		agentName: agent.name, agentDescription: agent.description,
-		agentSkills: agent.skills.map((s) => s.name), agentRoles: agent.roles,
+		agentSkills: agent.skills.map((s) => s.level ? `${s.name} (${s.level})` : s.name), agentRoles: agent.roles,
+		agentPersona: agent.persona, agentMood: agent.mood, agentPersonality: agent.personality, agentAttributes: agent.attributes, agentExperience: agent.experience,
 		systemPrompt, iteration, iterationTemplate: template, orchestration: config?.orchestration, rosterAgents, availableSkills,
 	});
 	const dir = iterationsDir(ctx.deps, ctx.project!.path, config);

@@ -63,8 +63,6 @@ function renderAIConfig(agent: AgentSummary, log: (msg?: string) => void): void 
 	if (!agent.ai) return;
 	log(`\n  ${BOLD}AI Config${RESET}`);
 	if (agent.ai.provider) log(`  ${DIM}Provider:${RESET} ${agent.ai.provider}`);
-	if (agent.ai.model) log(`  ${DIM}Model:${RESET} ${agent.ai.model}`);
-	if (agent.ai.contextWindow) log(`  ${DIM}Context:${RESET} ${agent.ai.contextWindow} tokens`);
 }
 
 function renderRelationships(agent: AgentSummary, log: (msg?: string) => void): void {

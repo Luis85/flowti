@@ -1,10 +1,22 @@
 /** agent-conversation.ts — Pure functions for building multi-turn conversation prompts. */
 
+import type { AgentAttributes } from "./agent-types.js";
+
 // ── Types ────────────────────────────────────────────────────────────
 
 export interface ConversationTurn {
 	readonly role: "user" | "agent";
 	readonly content: string;
+}
+
+/** Character identity passed to prompt builders for RPG-flavored responses. */
+export interface AgentCharacter {
+	readonly description?: string;
+	readonly persona?: string;
+	readonly mood?: string;
+	readonly personality?: readonly string[];
+	readonly attributes?: AgentAttributes;
+	readonly experience?: number;
 }
 
 /** Structured agent response. */
@@ -63,19 +75,50 @@ export function parseAgentResponse(raw: string): AgentResponse {
 	return { message: trimmed, status: detectStatus(trimmed) };
 }
 
+// ── Character formatting ────────────────────────────────────────────
+
+function formatAttributes(attrs: AgentAttributes): string {
+	const parts: string[] = [];
+	if (attrs.str !== undefined) parts.push(`STR ${attrs.str}`);
+	if (attrs.int !== undefined) parts.push(`INT ${attrs.int}`);
+	if (attrs.wis !== undefined) parts.push(`WIS ${attrs.wis}`);
+	if (attrs.cha !== undefined) parts.push(`CHA ${attrs.cha}`);
+	if (attrs.dex !== undefined) parts.push(`DEX ${attrs.dex}`);
+	if (attrs.con !== undefined) parts.push(`CON ${attrs.con}`);
+	return parts.join(", ");
+}
+
+function buildIdentityBlock(agentName: string, character?: AgentCharacter): string {
+	const lines: string[] = [];
+	const displayName = character?.persona ? `${character.persona} (${agentName})` : agentName;
+	lines.push(`You are **${displayName}**.`);
+	if (character?.description) lines.push(character.description);
+	lines.push("");
+	if (character?.mood) lines.push(`**Disposition**: ${character.mood}`);
+	if (character?.personality && character.personality.length > 0) lines.push(`**Personality**: ${character.personality.join(". ")}`);
+	if (character?.attributes) lines.push(`**Attributes**: ${formatAttributes(character.attributes)}`);
+	if (character?.experience !== undefined) lines.push(`**Experience**: ${character.experience} XP`);
+	if (character?.mood || character?.personality || character?.attributes || character?.experience !== undefined) {
+		lines.push("");
+		lines.push("Stay in character. Let your personality and attributes shape how you respond — a high-INT agent reasons deeply, a high-CHA agent communicates warmly, a high-DEX agent moves quickly between ideas.");
+	} else {
+		lines.push("Stay in character and respond naturally.");
+	}
+	return lines.join("\n");
+}
+
 // ── Prompt builder ───────────────────────────────────────────────────
 
 /**
  * Build a prompt string that includes the agent's system prompt,
  * any prior conversation turns, and the new user message.
- *
- * The resulting prompt is piped to `claude --print` via stdin.
  */
 export function buildConversationPrompt(
 	agentName: string,
 	systemPrompt: string | null,
 	history: readonly ConversationTurn[],
 	userMessage: string,
+	character?: AgentCharacter,
 ): string {
 	const parts: string[] = [];
 
@@ -85,7 +128,8 @@ export function buildConversationPrompt(
 		parts.push("");
 	}
 
-	parts.push(`You are ${agentName}. Stay in character and respond naturally.\n`);
+	parts.push(buildIdentityBlock(agentName, character));
+	parts.push("");
 	parts.push(RESPONSE_FORMAT);
 	parts.push("");
 
@@ -115,6 +159,7 @@ export function buildClarificationPrompt(
 	taskContext: string,
 	history: readonly ConversationTurn[],
 	userReply?: string,
+	character?: AgentCharacter,
 ): string {
 	const parts: string[] = [];
 
@@ -124,7 +169,8 @@ export function buildClarificationPrompt(
 		parts.push("");
 	}
 
-	parts.push(`You are ${agentName}. You have been assigned a task.\n`);
+	parts.push(buildIdentityBlock(agentName, character));
+	parts.push("You have been assigned a task.\n");
 	parts.push(RESPONSE_FORMAT);
 	parts.push("");
 	parts.push("# Assigned Task\n");
@@ -155,13 +201,3 @@ export function buildClarificationPrompt(
 	return parts.join("\n");
 }
 
-/**
- * Build the Claude CLI command string for a one-shot invocation.
- * The prompt content is piped via stdin by the caller.
- * Pure function — does not touch the filesystem.
- */
-export function buildTalkCommand(model: string | undefined): string {
-	const parts = ["claude", "--print"];
-	if (model) parts.push("--model", model);
-	return parts.join(" ");
-}

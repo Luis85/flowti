@@ -30,6 +30,8 @@ export interface IFileSystem {
 export interface BackgroundProcess {
 	/** Wait for a line matching the pattern in stdout/stderr; resolves with the matched line or null on timeout. */
 	waitForOutput(pattern: RegExp, timeoutMs?: number): Promise<string | null>;
+	/** Wait for the process to exit; resolves with exit code. */
+	waitForExit(timeoutMs?: number): Promise<number>;
 	/** Subscribe to live output lines. Returns an unsubscribe function. */
 	onOutput(callback: (line: string) => void): () => void;
 	/** Kill the background process. */

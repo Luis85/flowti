@@ -74,9 +74,9 @@ export function writeAgentState(deps: AgentStateDeps, varDir: string, agentName:
 
 // ── Pure state transitions ───────────────────────────────────────────
 
-/** Record an interaction (talk, task, or brief). */
+/** Record an interaction (talk, task, or brief). Preserves "busy" status if agent is working in background. */
 export function recordInteraction(state: AgentState, type: AgentInteractionType, timestamp: string): AgentState {
-	return { ...state, lastInteraction: timestamp, lastInteractionType: type, status: "active" };
+	return { ...state, lastInteraction: timestamp, lastInteractionType: type, status: state.status === "busy" ? "busy" : "active" };
 }
 
 /** Add a task to the agent's state. */

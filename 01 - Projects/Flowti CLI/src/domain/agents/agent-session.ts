@@ -2,6 +2,7 @@
 
 import type { CliDeps } from "../../infrastructure/deps.js";
 import { parseFrontmatterContent } from "../../infrastructure/frontmatter.js";
+import type { AgentStreamEvent } from "./agent-stream.js";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -157,4 +158,52 @@ export function listSessions(deps: SessionStoreDeps, iterDir: string, iterationN
 		}
 	}
 	return sessions;
+}
+
+// ── Structured output ─────────────────────────────────────────────────
+
+export interface TimestampedEvent { readonly kind: AgentStreamEvent["kind"]; readonly ts: string; readonly [key: string]: unknown; }
+
+/** Persist structured JSON output and update the session markdown summary. */
+export function appendStructuredOutput(
+	deps: SessionStoreDeps, iterDir: string, sessionId: string,
+	events: readonly TimestampedEvent[], usage?: { inputTokens: number; outputTokens: number },
+): boolean {
+	const sessionsDir = deps.paths.join(iterDir, "sessions");
+	const jsonPath = deps.paths.join(sessionsDir, `${sessionId}.json`);
+	const data = { id: sessionId, events, usage };
+	deps.disk.writeFileSync(jsonPath, JSON.stringify(data, null, "\t"), "utf-8");
+	const mdPath = deps.paths.join(sessionsDir, sessionFileName(sessionId));
+	if (deps.disk.existsSync(mdPath)) {
+		let content = deps.disk.readFileSync(mdPath, "utf-8");
+		const summary = renderSessionSummary(events as readonly AgentStreamEvent[]);
+		content = content.replace(/## Output[\s\S]*$/, summary);
+		deps.disk.writeFileSync(mdPath, content, "utf-8");
+	}
+	return true;
+}
+
+/** Render a markdown summary of agent stream events. */
+export function renderSessionSummary(events: readonly AgentStreamEvent[]): string {
+	const lines: string[] = ["## Output", ""];
+	if (events.length === 0) { lines.push("_No output captured._", ""); return lines.join("\n"); }
+	const thinking = events.filter((e) => e.kind === "thinking").map((e) => (e as { text: string }).text).join("");
+	const tools = events.filter((e) => e.kind === "tool-start") as Array<{ kind: "tool-start"; id: string; name: string }>;
+	const text = events.filter((e) => e.kind === "text").map((e) => (e as { text: string }).text).join("");
+	const usage = events.find((e) => e.kind === "usage") as { inputTokens: number; outputTokens: number } | undefined;
+	if (thinking) {
+		lines.push("### Thinking", "", `> ${thinking.slice(0, 200)}${thinking.length > 200 ? "..." : ""}`, "");
+	}
+	if (tools.length > 0) {
+		lines.push("### Tool Usage", "");
+		for (const t of tools) lines.push(`- \`${t.name}\``);
+		lines.push("");
+	}
+	if (text) {
+		lines.push("### Response", "", text, "");
+	}
+	if (usage) {
+		lines.push("### Usage", "", `- Input: ${usage.inputTokens} tokens | Output: ${usage.outputTokens} tokens`, "");
+	}
+	return lines.join("\n");
 }

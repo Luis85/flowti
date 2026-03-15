@@ -219,7 +219,7 @@ export type IterationStatus = "new" | "planned" | "ready" | "in-progress" | "in-
 export interface PhaseBinding { agent: string; role?: string; instruction?: string; }
 export interface OrchestrationConfig { phases?: Record<string, PhaseBinding>; }
 export interface IterationsConfig { dir?: string; durationDays?: number; lifecycle?: string; orchestration?: OrchestrationConfig; }
-export interface AgentsConfig { dir?: string; roster?: string[]; autonomous?: boolean; claudeSync?: boolean; skillMap?: Record<string, string[]>; }
+export interface AgentsConfig { dir?: string; roster?: string[]; autonomous?: boolean; claudeSync?: boolean; skillMap?: Record<string, string[]>; thinkingDisplay?: "full" | "indicator" | "hidden"; processTimeoutMs?: number; }
 
 /** Top-level agents environment config — opt-in ExcaliburJS dashboard. */
 export interface AgentsDashboardConfig {

@@ -1,32 +1,45 @@
 import { describe, it, expect } from "vitest";
-import { buildRunSpec, buildClaudeArgs, parseAgentOutput } from "../../../src/domain/agents/agent-runner.js";
+import { buildRunSpec, buildClaudeArgs } from "../../../src/domain/agents/agent-runner.js";
 import type { AgentAIConfig } from "../../../src/domain/agents/agent-types.js";
 
 describe("buildClaudeArgs", () => {
-	it("includes --print and --prompt-file as baseline", () => {
-		const args = buildClaudeArgs(undefined, "/path/brief.md");
-		expect(args).toEqual(["--print", "--prompt-file", "/path/brief.md"]);
-	});
-
-	it("includes --model when ai.model is set", () => {
-		const ai: AgentAIConfig = { model: "claude-sonnet-4-20250514" };
-		const args = buildClaudeArgs(ai, "/brief.md");
-		expect(args).toContain("--model");
-		expect(args).toContain("claude-sonnet-4-20250514");
-	});
-
-	it("includes --max-tokens when ai.maxTokens is set", () => {
-		const ai: AgentAIConfig = { maxTokens: 4096 };
-		const args = buildClaudeArgs(ai, "/brief.md");
-		expect(args).toContain("--max-tokens");
-		expect(args).toContain("4096");
-	});
-
-	it("omits model and max-tokens when not set", () => {
+	it("omits model args when provider only", () => {
 		const ai: AgentAIConfig = { provider: "anthropic" };
-		const args = buildClaudeArgs(ai, "/brief.md");
+		const args = buildClaudeArgs(ai);
 		expect(args).not.toContain("--model");
-		expect(args).not.toContain("--max-tokens");
+	});
+});
+
+describe("buildClaudeArgs — stream-json", () => {
+	it("produces -p and --output-format stream-json by default", () => {
+		const args = buildClaudeArgs(undefined);
+		expect(args).toContain("-p");
+		expect(args).toContain("--output-format");
+		expect(args).toContain("stream-json");
+		expect(args).toContain("--verbose");
+		expect(args).not.toContain("--print");
+	});
+
+	it("produces --print when outputFormat is text", () => {
+		const ai: AgentAIConfig = { outputFormat: "text" };
+		const args = buildClaudeArgs(ai);
+		expect(args).toContain("--print");
+		expect(args).not.toContain("--output-format");
+		expect(args).not.toContain("--verbose");
+	});
+
+	it("includes --allowedTools when set", () => {
+		const ai: AgentAIConfig = { allowedTools: ["Read", "Edit"] };
+		const args = buildClaudeArgs(ai);
+		expect(args).toContain("--allowedTools");
+		expect(args).toContain("Read,Edit");
+	});
+
+	it("includes both outputFormat text and allowedTools", () => {
+		const ai: AgentAIConfig = { outputFormat: "text", allowedTools: ["Bash"] };
+		const args = buildClaudeArgs(ai);
+		expect(args).toContain("--print");
+		expect(args).not.toContain("--output-format");
 	});
 });
 
@@ -47,54 +60,14 @@ describe("buildRunSpec", () => {
 	});
 
 	it("assembles args from AgentAIConfig", () => {
-		const ai: AgentAIConfig = { model: "opus", maxTokens: 8192 };
+		const ai: AgentAIConfig = { provider: "anthropic" };
 		const spec = buildRunSpec(ai, "/brief.md", "/project");
-		expect(spec.args).toContain("--model");
-		expect(spec.args).toContain("opus");
-		expect(spec.args).toContain("--max-tokens");
-		expect(spec.args).toContain("8192");
+		expect(spec.args).toContain("-p");
+		expect(spec.args).not.toContain("--model");
 	});
 
 	it("returns empty env by default", () => {
 		const spec = buildRunSpec(undefined, "/brief.md", "/project");
 		expect(spec.env).toEqual({});
-	});
-});
-
-describe("parseAgentOutput", () => {
-	it("classifies error lines", () => {
-		const event = parseAgentOutput("Error: something broke");
-		expect(event.kind).toBe("error");
-		expect((event as { message: string }).message).toBe("something broke");
-	});
-
-	it("classifies progress lines", () => {
-		const event = parseAgentOutput("Progress: step 3 of 5");
-		expect(event.kind).toBe("progress");
-		expect((event as { message: string }).message).toBe("step 3 of 5");
-	});
-
-	it("classifies result lines", () => {
-		const event = parseAgentOutput("Result: task complete");
-		expect(event.kind).toBe("result");
-		expect((event as { content: string }).content).toBe("task complete");
-	});
-
-	it("classifies plain text as raw", () => {
-		const event = parseAgentOutput("just some output");
-		expect(event.kind).toBe("raw");
-		expect((event as { line: string }).line).toBe("just some output");
-	});
-
-	it("handles empty lines as raw", () => {
-		const event = parseAgentOutput("");
-		expect(event.kind).toBe("raw");
-	});
-
-	it("is case-insensitive for prefixes", () => {
-		expect(parseAgentOutput("error: low").kind).toBe("error");
-		expect(parseAgentOutput("ERROR: loud").kind).toBe("error");
-		expect(parseAgentOutput("PROGRESS: step").kind).toBe("progress");
-		expect(parseAgentOutput("RESULT: done").kind).toBe("result");
 	});
 });

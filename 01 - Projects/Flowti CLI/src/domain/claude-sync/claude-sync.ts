@@ -70,6 +70,21 @@ function agentDetailBlock(agent: AgentSummary, prompt: string | null, skillMap?:
 		for (const s of agent.skills) lines.push(`- ${s.name}${s.level ? ` (${s.level})` : ""}`);
 		lines.push("");
 	}
+	if (agent.persona) lines.push(`**Persona**: ${agent.persona}`);
+	if (agent.mood) lines.push(`**Disposition**: ${agent.mood}`);
+	if (agent.personality && agent.personality.length > 0) lines.push(`**Personality**: ${agent.personality.join(". ")}`);
+	if (agent.attributes) {
+		const attrs: string[] = [];
+		if (agent.attributes.str !== undefined) attrs.push(`STR ${agent.attributes.str}`);
+		if (agent.attributes.int !== undefined) attrs.push(`INT ${agent.attributes.int}`);
+		if (agent.attributes.wis !== undefined) attrs.push(`WIS ${agent.attributes.wis}`);
+		if (agent.attributes.cha !== undefined) attrs.push(`CHA ${agent.attributes.cha}`);
+		if (agent.attributes.dex !== undefined) attrs.push(`DEX ${agent.attributes.dex}`);
+		if (agent.attributes.con !== undefined) attrs.push(`CON ${agent.attributes.con}`);
+		if (attrs.length > 0) lines.push(`**Attributes**: ${attrs.join(", ")}`);
+	}
+	if (agent.experience !== undefined) lines.push(`**Experience**: ${agent.experience} XP`);
+	if (agent.mood || agent.personality || agent.attributes || agent.experience !== undefined) lines.push("");
 	if (agent.tools.length > 0) lines.push(`**Tools**: ${agent.tools.join(", ")}\n`);
 	if (agent.roles.length > 0) lines.push(`**Roles**: ${agent.roles.join(", ")}\n`);
 	if (agent.preferredPhases && agent.preferredPhases.length > 0) lines.push(`**Preferred Phases**: ${agent.preferredPhases.join(", ")}\n`);

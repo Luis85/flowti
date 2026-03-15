@@ -1,6 +1,6 @@
 /** agent-run-display.ts — Renderers for agent run lifecycle events. */
 
-import type { AgentOutputEvent } from "../../domain/agents/agent-runner.js";
+import type { AgentStreamEvent } from "../../domain/agents/agent-stream.js";
 import type { AgentSession } from "../../domain/agents/agent-session.js";
 
 const RESET = "\x1b[0m";
@@ -30,13 +30,40 @@ export function renderAgentSpawned(agentName: string, sessionId: string, log: (m
 	log();
 }
 
-/** Render a single parsed output event from the agent process. */
-export function renderAgentOutput(event: AgentOutputEvent, log: (msg?: string) => void): void {
+/** Controls how thinking blocks are displayed. */
+export type ThinkingDisplay = "full" | "indicator" | "hidden";
+
+/** Render a single typed stream event from the agent process. */
+export function renderStreamEvent(event: AgentStreamEvent, log: (msg?: string) => void, thinkingDisplay: ThinkingDisplay): void {
 	switch (event.kind) {
-		case "progress": log(`  ${CYAN}⟳${RESET} ${event.message}`); break;
-		case "result": log(`  ${GREEN}✓${RESET} ${event.content}`); break;
-		case "error": log(`  ${RED}✗${RESET} ${event.message}`); break;
-		case "raw": log(`  ${DIM}${event.line}${RESET}`); break;
+		case "thinking":
+			if (thinkingDisplay === "hidden") return;
+			if (thinkingDisplay === "indicator") { log(`  ${DIM}thinking...${RESET}`); return; }
+			log(`  ${DIM}${event.text}${RESET}`);
+			return;
+		case "text":
+			log(event.text);
+			return;
+		case "tool-start":
+			log(`  ${CYAN}> Using tool: ${event.name}${RESET}`);
+			return;
+		case "tool-input": {
+			const display = event.json.length > 80 ? event.json.slice(0, 77) + "..." : event.json;
+			log(`  ${DIM}  ${display}${RESET}`);
+			return;
+		}
+		case "tool-end":
+			log(`  ${DIM}  done${RESET}`);
+			return;
+		case "error":
+			log(`  ${RED}Error: ${event.message}${RESET}`);
+			return;
+		case "usage":
+			log(`\n  ${DIM}tokens: ${event.inputTokens} in / ${event.outputTokens} out${RESET}`);
+			return;
+		case "done":
+			log(`\n  ${GREEN}Agent finished${RESET}`);
+			return;
 	}
 }
 

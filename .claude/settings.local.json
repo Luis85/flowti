@@ -107,7 +107,13 @@
       "Bash(python3 -c \":*)",
       "Bash(mkdir:*)",
       "Bash(cd:*)",
-      "Bash(where bash:*)"
+      "Bash(where bash:*)",
+      "WebSearch",
+      "Bash(for f:*)",
+      "Bash(echo:*)",
+      "Bash(claude:*)",
+      "Bash(git check-ignore:*)",
+      "Bash(git add:*)"
     ]
   }
 }

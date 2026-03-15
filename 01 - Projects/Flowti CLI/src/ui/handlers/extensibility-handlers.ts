@@ -348,7 +348,6 @@ export function registerExtensibilityHandlers(registry: HandlerRegistry): void {
 		const { talkToAgentInteractive } = await import("../menus/agents-menu.js");
 		await talkToAgentInteractive(VAULT_ROOT, agent, vaultAgents, ctx.deps);
 		await persistInteraction(agent, "talk", ctx);
-		await runAgentAfterInteraction(agent, ctx);
 		await ctx.deps.input.waitForEnter();
 		return undefined;
 	});

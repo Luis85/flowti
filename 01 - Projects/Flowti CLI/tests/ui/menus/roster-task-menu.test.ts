@@ -20,23 +20,29 @@ vi.mock("../../../src/domain/agents/brief-store.js", () => ({
 	appendTask: vi.fn(() => true),
 	generateBrief: vi.fn(() => "# Brief"),
 }));
+vi.mock("../../../src/domain/agents/agent-state.js", () => ({
+	readAgentState: vi.fn(() => ({ name: "Test", status: "idle", tasks: [], briefs: [] })),
+	writeAgentState: vi.fn(),
+	addTask: vi.fn((state: unknown) => state),
+}));
 
 import { rosterTaskInteractive, getTasksForPhase } from "../../../src/ui/menus/roster-task-menu.js";
 import type { RosterTaskOptions } from "../../../src/ui/menus/roster-task-menu.js";
 import { getProjectAgents } from "../../../src/domain/agents/agent-store.js";
 import { findCurrentIteration } from "../../../src/domain/iterations/iteration-store.js";
 import { findBrief, saveBrief, appendTask, generateBrief } from "../../../src/domain/agents/brief-store.js";
-import type { MenuDeps } from "../../../src/infrastructure/deps.js";
+import type { ShellMenuDeps } from "../../../src/infrastructure/deps.js";
 
-function makeDeps(answers: string[] = []): MenuDeps {
+function makeDeps(answers: string[] = []): ShellMenuDeps {
 	let idx = 0;
 	return {
-		disk: {} as MenuDeps["disk"],
-		paths: { join: (...p: string[]) => p.join("/") } as MenuDeps["paths"],
+		disk: { existsSync: vi.fn(() => false), readdirSync: vi.fn(() => []) } as unknown as ShellMenuDeps["disk"],
+		paths: { join: (...p: string[]) => p.join("/"), resolve: (...p: string[]) => p.join("/") } as unknown as ShellMenuDeps["paths"],
 		input: { ask: vi.fn(async () => answers[idx++] ?? ""), waitForEnter: vi.fn(async () => {}) },
 		log: vi.fn(),
 		clock: { now: () => new Date(), iso: () => "2026-03-14", ms: () => 0, safeIso: () => "2026-03-14" },
-	} as unknown as MenuDeps;
+		shell: { check: vi.fn(() => false), spawnBackground: vi.fn() } as unknown as ShellMenuDeps["shell"],
+	} as unknown as ShellMenuDeps;
 }
 
 function makeOpts(): RosterTaskOptions {
@@ -82,7 +88,7 @@ describe("rosterTaskInteractive", () => {
 
 		expect(appendTask).toHaveBeenCalledWith(deps, "/project/docs/iterations", 1, "Dev", "in-progress", "Build the widget");
 		expect(saveBrief).not.toHaveBeenCalled();
-		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("Task added"));
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("Task assigned"));
 	});
 
 	it("creates brief when none exists for current phase, then appends task", async () => {
@@ -96,7 +102,7 @@ describe("rosterTaskInteractive", () => {
 		expect(generateBrief).toHaveBeenCalledWith(expect.objectContaining({ agentName: "Dev" }));
 		expect(saveBrief).toHaveBeenCalledWith(deps, "/project/docs/iterations", 1, "Dev", "in-progress", "# Brief");
 		expect(appendTask).toHaveBeenCalledWith(deps, "/project/docs/iterations", 1, "Dev", "in-progress", "Design the API");
-		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("Created brief"));
+		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("Task assigned"));
 	});
 
 	it("cancels when no agent selected", async () => {

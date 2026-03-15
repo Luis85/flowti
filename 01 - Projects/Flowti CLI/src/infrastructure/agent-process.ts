@@ -2,8 +2,9 @@
 
 import type { CliDeps } from "./deps.js";
 import type { BackgroundProcess } from "./types.js";
-import type { AgentRunSpec, AgentOutputEvent } from "../domain/agents/agent-runner.js";
-import { parseAgentOutput } from "../domain/agents/agent-runner.js";
+import type { AgentRunSpec } from "../domain/agents/agent-runner.js";
+import type { AgentStreamEvent } from "../domain/agents/agent-stream.js";
+import { parseStreamLine, createStreamState, updateStreamState } from "../domain/agents/agent-stream.js";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -15,7 +16,7 @@ export interface AgentProcessHandle {
 	readonly process: BackgroundProcess;
 	readonly startedAt: string;
 	/** Subscribe to parsed output events. Returns unsubscribe function. */
-	subscribe(callback: (event: AgentOutputEvent) => void): () => void;
+	subscribe(callback: (event: AgentStreamEvent) => void): () => void;
 	/** Kill the agent process. */
 	stop(): void;
 }
@@ -41,20 +42,35 @@ export function writeBriefToFile(deps: Pick<AgentProcessDeps, "disk" | "paths">,
  * and returns a handle for subscription and lifecycle management.
  */
 export function launchAgent(deps: AgentProcessDeps, spec: AgentRunSpec, sessionId: string): AgentProcessHandle {
-	const cmd = [spec.command, ...spec.args].join(" ");
-	const process = deps.shell.spawnBackground(cmd, {
+	const quotedBrief = spec.briefPath.includes(" ") ? `"${spec.briefPath}"` : spec.briefPath;
+	const cmd = [spec.command, ...spec.args.map((a) => String(a).includes(" ") ? `"${a}"` : String(a))].join(" ") + ` < ${quotedBrief}`;
+	const proc = deps.shell.spawnBackground(cmd, {
 		cwd: spec.workingDir,
 		env: Object.keys(spec.env).length > 0 ? spec.env : undefined,
 	});
+
+	let streamState = createStreamState();
+	const subscribers = new Set<(event: AgentStreamEvent) => void>();
+
+	const unsubRaw = proc.onOutput((line: string) => {
+		streamState = updateStreamState(streamState, line);
+		const event = parseStreamLine(line, streamState);
+		if (event) {
+			for (const cb of subscribers) cb(event);
+		}
+	});
+
 	return {
 		sessionId,
-		process,
+		process: proc,
 		startedAt: deps.clock.iso(),
-		subscribe(callback: (event: AgentOutputEvent) => void): () => void {
-			return process.onOutput((line) => callback(parseAgentOutput(line)));
+		subscribe(callback: (event: AgentStreamEvent) => void): () => void {
+			subscribers.add(callback);
+			return () => subscribers.delete(callback);
 		},
 		stop(): void {
-			process.kill();
+			unsubRaw();
+			proc.kill();
 		},
 	};
 }

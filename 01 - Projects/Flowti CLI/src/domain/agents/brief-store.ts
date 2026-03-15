@@ -24,6 +24,8 @@ export interface RosterEntry {
 	readonly description: string;
 	readonly roles: readonly string[];
 	readonly skills: readonly string[];
+	readonly mood?: string;
+	readonly personality?: readonly string[];
 }
 
 /** Unified context for brief generation. Every brief is a full role-aware prompt. */
@@ -32,6 +34,11 @@ export interface BriefContext {
 	readonly agentDescription?: string;
 	readonly agentSkills?: readonly string[];
 	readonly agentRoles?: readonly string[];
+	readonly agentPersona?: string;
+	readonly agentMood?: string;
+	readonly agentPersonality?: readonly string[];
+	readonly agentAttributes?: import("./agent-types.js").AgentAttributes;
+	readonly agentExperience?: number;
 	readonly systemPrompt?: string | null;
 	readonly iteration: IterationSummary;
 	readonly iterationTemplate?: LifecycleTemplate;
@@ -183,6 +190,8 @@ export function formatRosterForPrompt(roster: readonly RosterEntry[]): string {
 	return roster.map((a) => {
 		const parts = [`- **${a.name}**`];
 		if (a.description) parts[0] += ` — ${a.description}`;
+		if (a.mood) parts.push(`  Disposition: ${a.mood}`);
+		if (a.personality && a.personality.length > 0) parts.push(`  Personality: ${a.personality.join(". ")}`);
 		if (a.roles.length > 0) parts.push(`  Roles: ${a.roles.join(", ")}`);
 		if (a.skills.length > 0) parts.push(`  Skills: ${a.skills.join(", ")}`);
 		return parts.join("\n");
@@ -237,6 +246,17 @@ function appendHeader(lines: string[], agent: string, num: number, orchestration
 	lines.push(`# ${prefix}: ${agent} — Iteration #${num}`, "", `**Agent**: ${agentWikilink(agent)}`, "**Status**: open", "");
 }
 
+function formatBriefAttributes(attrs: import("./agent-types.js").AgentAttributes): string {
+	const parts: string[] = [];
+	if (attrs.str !== undefined) parts.push(`STR ${attrs.str}`);
+	if (attrs.int !== undefined) parts.push(`INT ${attrs.int}`);
+	if (attrs.wis !== undefined) parts.push(`WIS ${attrs.wis}`);
+	if (attrs.cha !== undefined) parts.push(`CHA ${attrs.cha}`);
+	if (attrs.dex !== undefined) parts.push(`DEX ${attrs.dex}`);
+	if (attrs.con !== undefined) parts.push(`CON ${attrs.con}`);
+	return parts.join(", ");
+}
+
 function appendRole(lines: string[], ctx: BriefContext): void {
 	lines.push("## Your Role", "");
 	if (ctx.orchestration) {
@@ -244,6 +264,12 @@ function appendRole(lines: string[], ctx: BriefContext): void {
 		lines.push("Use other agents from the roster to delegate specialist work and maintain quality throughout the process.", "");
 	}
 	if (ctx.agentDescription) { lines.push(ctx.agentDescription); lines.push(""); }
+	if (ctx.agentPersona) lines.push(`**Persona**: ${ctx.agentPersona}`);
+	if (ctx.agentMood) lines.push(`**Disposition**: ${ctx.agentMood}`);
+	if (ctx.agentPersonality && ctx.agentPersonality.length > 0) lines.push(`**Personality**: ${ctx.agentPersonality.join(". ")}`);
+	if (ctx.agentAttributes) lines.push(`**Attributes**: ${formatBriefAttributes(ctx.agentAttributes)}`);
+	if (ctx.agentExperience !== undefined) lines.push(`**Experience**: ${ctx.agentExperience} XP`);
+	if (ctx.agentMood || ctx.agentPersonality || ctx.agentAttributes || ctx.agentExperience !== undefined) lines.push("");
 	const hasSkills = ctx.agentSkills && ctx.agentSkills.length > 0;
 	const hasRoles = ctx.agentRoles && ctx.agentRoles.length > 0;
 	if (hasSkills) lines.push(`**Skills**: ${ctx.agentSkills!.join(", ")}`);

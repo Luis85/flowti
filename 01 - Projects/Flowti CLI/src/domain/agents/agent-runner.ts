@@ -1,4 +1,4 @@
-/** agent-runner.ts — Pure functions for building Claude CLI run specs and parsing output. */
+/** agent-runner.ts — Pure functions for building Claude CLI run specs. */
 
 import type { AgentAIConfig } from "./agent-types.js";
 
@@ -13,21 +13,23 @@ export interface AgentRunSpec {
 	readonly briefPath: string;
 }
 
-/** Discriminated union of structured output events from an agent process. */
-export type AgentOutputEvent =
-	| { readonly kind: "progress"; readonly message: string }
-	| { readonly kind: "result"; readonly content: string }
-	| { readonly kind: "error"; readonly message: string }
-	| { readonly kind: "raw"; readonly line: string };
-
 // ── Run spec builder ─────────────────────────────────────────────────
 
-/** Build the argument list for the Claude CLI invocation. */
-export function buildClaudeArgs(ai: AgentAIConfig | undefined, briefPath: string): string[] {
-	const args = ["--print", "--prompt-file", briefPath];
-	if (ai?.model) args.push("--model", ai.model);
-	if (ai?.maxTokens) args.push("--max-tokens", String(ai.maxTokens));
-	return args;
+/**
+ * Build the argument list for the Claude CLI invocation.
+ * Note: Claude CLI does not have --prompt-file. The prompt must be piped via stdin
+ * or passed as a positional argument. Callers handle prompt delivery separately.
+ */
+export function buildClaudeArgs(ai: AgentAIConfig | undefined): string[] {
+	const useText = ai?.outputFormat === "text";
+	const args: (string | number)[] = [];
+	if (useText) {
+		args.push("--print");
+	} else {
+		args.push("-p", "--output-format", "stream-json", "--verbose");
+	}
+	if (ai?.allowedTools && ai.allowedTools.length > 0) args.push("--allowedTools", ai.allowedTools.join(","));
+	return args as string[];
 }
 
 /**
@@ -37,29 +39,10 @@ export function buildClaudeArgs(ai: AgentAIConfig | undefined, briefPath: string
 export function buildRunSpec(ai: AgentAIConfig | undefined, briefPath: string, projectPath: string): AgentRunSpec {
 	return {
 		command: "claude",
-		args: buildClaudeArgs(ai, briefPath),
+		args: buildClaudeArgs(ai),
 		env: {},
 		workingDir: projectPath,
 		briefPath,
 	};
 }
 
-// ── Output parser ────────────────────────────────────────────────────
-
-/**
- * Classify a raw output line from the Claude CLI into a structured event.
- *
- * Heuristics:
- * - Lines starting with "Error:" or "error:" → error event
- * - Lines starting with "Progress:" or containing step markers → progress
- * - Lines starting with "Result:" → result event
- * - Everything else → raw event
- */
-export function parseAgentOutput(line: string): AgentOutputEvent {
-	const trimmed = line.trim();
-	if (!trimmed) return { kind: "raw", line };
-	if (/^error:/i.test(trimmed)) return { kind: "error", message: trimmed.replace(/^error:\s*/i, "") };
-	if (/^progress:/i.test(trimmed)) return { kind: "progress", message: trimmed.replace(/^progress:\s*/i, "") };
-	if (/^result:/i.test(trimmed)) return { kind: "result", content: trimmed.replace(/^result:\s*/i, "") };
-	return { kind: "raw", line };
-}

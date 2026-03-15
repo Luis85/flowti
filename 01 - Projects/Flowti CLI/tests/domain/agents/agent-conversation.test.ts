@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildConversationPrompt, buildClarificationPrompt, buildTalkCommand, parseAgentResponse } from "../../../src/domain/agents/agent-conversation.js";
+import { buildConversationPrompt, buildClarificationPrompt, parseAgentResponse } from "../../../src/domain/agents/agent-conversation.js";
 
 describe("buildConversationPrompt", () => {
 	it("includes system prompt when provided", () => {
@@ -13,7 +13,7 @@ describe("buildConversationPrompt", () => {
 	it("omits system instructions section when no prompt", () => {
 		const result = buildConversationPrompt("Bob", null, [], "Hello");
 		expect(result).not.toContain("# System Instructions");
-		expect(result).toContain("You are Bob.");
+		expect(result).toContain("You are **Bob**.");
 		expect(result).toContain("**User:** Hello");
 	});
 
@@ -84,17 +84,6 @@ describe("buildClarificationPrompt", () => {
 	});
 });
 
-describe("buildTalkCommand", () => {
-	it("builds basic command without model", () => {
-		const cmd = buildTalkCommand(undefined);
-		expect(cmd).toBe("claude --print");
-	});
-
-	it("includes model flag when specified", () => {
-		const cmd = buildTalkCommand("claude-sonnet-4-20250514");
-		expect(cmd).toBe("claude --print --model claude-sonnet-4-20250514");
-	});
-});
 
 describe("parseAgentResponse", () => {
 	it("parses valid JSON response", () => {

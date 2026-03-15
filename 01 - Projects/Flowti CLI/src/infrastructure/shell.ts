@@ -153,6 +153,21 @@ class NodeShell implements IShell {
 					running = false;
 				}
 			},
+			waitForExit(timeoutMs = 300_000): Promise<number> {
+				return new Promise((resolve, reject) => {
+					if (!child.pid || child.exitCode !== null) {
+						resolve(child.exitCode ?? 1);
+						return;
+					}
+					const timer = setTimeout(() => {
+						reject(new Error(`Process did not exit within ${timeoutMs}ms`));
+					}, timeoutMs);
+					child.on("exit", (code) => {
+						clearTimeout(timer);
+						resolve(code ?? 1);
+					});
+				});
+			},
 			waitForOutput(pattern: RegExp, timeoutMs = 60_000): Promise<string | null> {
 				return new Promise((resolve) => {
 					const timer = setTimeout(() => {

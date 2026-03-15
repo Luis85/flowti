@@ -13,7 +13,7 @@ import { Document } from "../../infrastructure/document.js";
 import { parseFrontmatterContent } from "../../infrastructure/frontmatter.js";
 import type { CliDeps } from "../../infrastructure/deps.js";
 import type { AgentsConfig } from "../../infrastructure/types.js";
-import type { AgentDefinition, AgentSummary, AgentSkill, AgentComponent, AgentGoal, AgentAIConfig, AgentRelationship, SuggestedTask, InventoryItem } from "./agent-types.js";
+import type { AgentDefinition, AgentSummary, AgentSkill, AgentComponent, AgentGoal, AgentAIConfig, AgentRelationship, SuggestedTask, InventoryItem, AgentAttributes } from "./agent-types.js";
 import { resolveDir, listMdFiles, toMdFilename, updateField } from "../shared/markdown-store.js";
 
 export type AgentStoreDeps = Pick<CliDeps, "disk" | "paths">;
@@ -62,8 +62,19 @@ export interface AgentJson {
 	inventory?: InventoryItem[];
 }
 
-function parseFrontmatterFields(fm: Record<string, unknown>, file: string): Pick<AgentSummary, "name" | "agentType" | "description" | "domain" | "skills" | "tools" | "roles" | "behaviors" | "preferredPhases" | "suggestedTasks"> {
+function parseAttributes(raw: unknown): AgentAttributes | undefined {
+	if (!raw || typeof raw !== "object") return undefined;
+	const obj = raw as Record<string, unknown>;
+	const attrs: AgentAttributes = {};
+	for (const key of ["str", "int", "wis", "cha", "dex", "con"] as const) {
+		if (typeof obj[key] === "number") attrs[key] = obj[key] as number;
+	}
+	return Object.keys(attrs).length > 0 ? attrs : undefined;
+}
+
+function parseFrontmatterFields(fm: Record<string, unknown>, file: string): Pick<AgentSummary, "name" | "agentType" | "description" | "domain" | "skills" | "tools" | "roles" | "behaviors" | "preferredPhases" | "suggestedTasks" | "attributes" | "persona" | "mood" | "personality" | "experience"> {
 	const preferredPhases = toStringArray(fm.preferredPhases);
+	const personality = toStringArray(fm.personality);
 	return {
 		name: String(fm.name ?? file.replace(/\.md$/, "")),
 		agentType: fm.agentType === "ai" ? "ai" : "human",
@@ -74,6 +85,11 @@ function parseFrontmatterFields(fm: Record<string, unknown>, file: string): Pick
 		roles: toStringArray(fm.roles),
 		behaviors: toStringArray(fm.behaviors),
 		preferredPhases: preferredPhases.length > 0 ? preferredPhases : undefined,
+		attributes: parseAttributes(fm.attributes),
+		persona: fm.persona ? String(fm.persona).replace(/^\[\[|\]\]$/g, "") : undefined,
+		mood: fm.mood ? String(fm.mood) : undefined,
+		personality: personality.length > 0 ? personality : undefined,
+		experience: typeof fm.experience === "number" ? fm.experience : undefined,
 		suggestedTasks: toStringArray(fm.suggestedTasks).map(parseSuggestedTask),
 	};
 }
@@ -342,6 +358,9 @@ export function agentToJson(agent: AgentSummary): Record<string, unknown> {
 		roles: agent.roles,
 	};
 	addOptionalField(result, "domain", agent.domain);
+	addOptionalField(result, "attributes", agent.attributes);
+	addOptionalField(result, "mood", agent.mood);
+	addOptionalField(result, "personality", agent.personality);
 	addOptionalField(result, "behaviors", agent.behaviors);
 	addOptionalField(result, "preferredPhases", agent.preferredPhases);
 	addOptionalField(result, "components", agent.components);

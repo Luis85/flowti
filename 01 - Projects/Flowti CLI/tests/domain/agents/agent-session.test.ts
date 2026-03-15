@@ -1,9 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
 import {
 	createSession, updateSessionStatus, appendOutput,
-	getSession, listSessions,
+	getSession, listSessions, appendStructuredOutput, renderSessionSummary,
 } from "../../../src/domain/agents/agent-session.js";
-import type { SessionStoreDeps } from "../../../src/domain/agents/agent-session.js";
+import type { SessionStoreDeps, TimestampedEvent } from "../../../src/domain/agents/agent-session.js";
+import type { AgentStreamEvent } from "../../../src/domain/agents/agent-stream.js";
 
 function makeDeps(): SessionStoreDeps & { files: Record<string, string>; dirs: Set<string> } {
 	const files: Record<string, string> = {};
@@ -139,5 +140,126 @@ describe("listSessions", () => {
 		expect(listSessions(deps, "/iter", 3)).toHaveLength(1);
 		expect(listSessions(deps, "/iter", 5)).toHaveLength(1);
 		expect(listSessions(deps, "/iter", 99)).toHaveLength(0);
+	});
+});
+
+describe("appendStructuredOutput", () => {
+	it("writes JSON file with events and usage", () => {
+		const deps = makeDeps();
+		const events: TimestampedEvent[] = [
+			{ kind: "text", ts: "2026-03-15T10:00:00.000Z", text: "hello" },
+		];
+		const usage = { inputTokens: 100, outputTokens: 50 };
+		const result = appendStructuredOutput(deps, "/iter", "session-abc", events, usage);
+		expect(result).toBe(true);
+		const jsonPath = "/iter/sessions/session-abc.json";
+		expect(deps.files[jsonPath]).toBeTruthy();
+		const parsed = JSON.parse(deps.files[jsonPath]) as { id: string; events: unknown[]; usage: unknown };
+		expect(parsed.id).toBe("session-abc");
+		expect(parsed.events).toHaveLength(1);
+		expect(parsed.usage).toEqual(usage);
+	});
+
+	it("writes JSON without usage when not provided", () => {
+		const deps = makeDeps();
+		const events: TimestampedEvent[] = [];
+		appendStructuredOutput(deps, "/iter", "session-xyz", events);
+		const jsonPath = "/iter/sessions/session-xyz.json";
+		expect(deps.files[jsonPath]).toBeTruthy();
+	});
+
+	it("updates markdown file Output section when markdown exists", () => {
+		const deps = makeDeps();
+		// Create a session so the markdown file exists
+		const session = createSession(deps, "/iter", "Dev", 3, "ref.md");
+		const mdPath = `/iter/sessions/session-${session.id}.md`;
+		expect(deps.files[mdPath]).toContain("## Output");
+		const events: TimestampedEvent[] = [
+			{ kind: "text", ts: "2026-03-15T10:00:00.000Z", text: "structured result" },
+		];
+		appendStructuredOutput(deps, "/iter", session.id, events);
+		// The markdown should be updated with the new summary
+		expect(deps.files[mdPath]).toContain("## Output");
+		expect(deps.files[mdPath]).toContain("structured result");
+	});
+
+	it("does not write markdown when md file does not exist", () => {
+		const deps = makeDeps();
+		const events: TimestampedEvent[] = [];
+		appendStructuredOutput(deps, "/iter", "no-such-session", events);
+		// JSON should be written
+		expect(deps.files["/iter/sessions/no-such-session.json"]).toBeTruthy();
+		// MD should not be written (it didn't exist)
+		expect(deps.files["/iter/sessions/no-such-session.md"]).toBeUndefined();
+	});
+});
+
+describe("renderSessionSummary", () => {
+	it("returns empty output message when no events", () => {
+		const result = renderSessionSummary([]);
+		expect(result).toContain("## Output");
+		expect(result).toContain("_No output captured._");
+	});
+
+	it("includes thinking section when thinking events present", () => {
+		const events: AgentStreamEvent[] = [
+			{ kind: "thinking", text: "I am reasoning" },
+		];
+		const result = renderSessionSummary(events);
+		expect(result).toContain("### Thinking");
+		expect(result).toContain("I am reasoning");
+	});
+
+	it("truncates long thinking text to 200 chars", () => {
+		const longText = "x".repeat(250);
+		const events: AgentStreamEvent[] = [{ kind: "thinking", text: longText }];
+		const result = renderSessionSummary(events);
+		expect(result).toContain("...");
+		expect(result).not.toContain(longText);
+	});
+
+	it("includes tool usage section when tool-start events present", () => {
+		const events: AgentStreamEvent[] = [
+			{ kind: "tool-start", id: "t1", name: "Bash" },
+			{ kind: "tool-start", id: "t2", name: "Read" },
+		];
+		const result = renderSessionSummary(events);
+		expect(result).toContain("### Tool Usage");
+		expect(result).toContain("`Bash`");
+		expect(result).toContain("`Read`");
+	});
+
+	it("includes response section when text events present", () => {
+		const events: AgentStreamEvent[] = [
+			{ kind: "text", text: "Task complete." },
+			{ kind: "text", text: " All done." },
+		];
+		const result = renderSessionSummary(events);
+		expect(result).toContain("### Response");
+		expect(result).toContain("Task complete. All done.");
+	});
+
+	it("includes usage section when usage event present", () => {
+		const events: AgentStreamEvent[] = [
+			{ kind: "usage", inputTokens: 200, outputTokens: 80 },
+		];
+		const result = renderSessionSummary(events);
+		expect(result).toContain("### Usage");
+		expect(result).toContain("200 tokens");
+		expect(result).toContain("80 tokens");
+	});
+
+	it("combines all sections correctly", () => {
+		const events: AgentStreamEvent[] = [
+			{ kind: "thinking", text: "hmm" },
+			{ kind: "tool-start", id: "t1", name: "Bash" },
+			{ kind: "text", text: "done" },
+			{ kind: "usage", inputTokens: 10, outputTokens: 5 },
+		];
+		const result = renderSessionSummary(events);
+		expect(result).toContain("### Thinking");
+		expect(result).toContain("### Tool Usage");
+		expect(result).toContain("### Response");
+		expect(result).toContain("### Usage");
 	});
 });

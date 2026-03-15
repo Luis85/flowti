@@ -129,6 +129,15 @@ Skill files are auto-regenerated when agents/tools are created, edited, or delet
 | `01 - Projects/Flowti CLI/configs/eslint.config.mjs` | ESLint config (architecture enforcement rules) |
 | `.flowti/config.json` | Vault-level config (source project path) |
 
+## Superpowers Output Location
+
+Design specs and implementation plans from superpowers skills go in the Flowti CLI docs folder:
+
+- **Specs**: `01 - Projects/Flowti CLI/docs/specs/YYYY-MM-DD-<topic>-design.md`
+- **Plans**: `01 - Projects/Flowti CLI/docs/plans/YYYY-MM-DD-<feature-name>.md`
+
+Do NOT use the default `docs/superpowers/` at the vault root.
+
 ## Memory System
 
 Persistent memory files are in `.claude/projects/c--Projects-flowti/memory/`. See `MEMORY.md` there for the index.

@@ -226,17 +226,25 @@
 		},
 		"agents": {
 			"roster": [
+				"Auditor",
 				"Bob",
+				"Business Analyst",
+				"Delivery Manager",
+				"Product Designer",
 				"Product Manager",
-				"Product Team",
-				"Quality Manager",
 				"Product Owner",
-				"Software Architect",
+				"Product Team",
 				"Project Manager",
+				"Quality Manager",
+				"Release Manager",
+				"Requirements Engineer",
+				"Scrum Master",
+				"Software Architect",
 				"Software Developer",
+				"Tech Lead",
 				"Tester",
-				"UX Designer",
-				"Delivery Manager"
+				"UI Designer",
+				"UX Designer"
 			]
 		}
 	},

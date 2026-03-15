@@ -13,6 +13,9 @@
 				"pathMatch": "full"
 			},
 			"onBeforeRender": "start:banner",
+			"dataSources": [
+				{ "id": "inbox:agent-notes" }
+			],
 			"actions": [
 				{
 					"name": "onOpenProject",
@@ -463,6 +466,7 @@
 					"label": "Add Agent",
 					"type": "handler",
 					"target": "agents:add",
+					"key": "a",
 					"group": "manage-agents"
 				},
 				{
@@ -470,6 +474,7 @@
 					"label": "Remove Agent",
 					"type": "handler",
 					"target": "agents:remove",
+					"key": "r",
 					"group": "manage-agents"
 				},
 				{
@@ -477,6 +482,7 @@
 					"label": "List Tools",
 					"type": "handler",
 					"target": "ai-tools:list",
+					"key": "t",
 					"group": "tools"
 				},
 				{
@@ -484,6 +490,7 @@
 					"label": "Validate Tools",
 					"type": "handler",
 					"target": "ai-tools:validate",
+					"key": "v",
 					"group": "tools"
 				},
 				{
@@ -491,6 +498,7 @@
 					"label": "Create Tool",
 					"type": "handler",
 					"target": "ai-tools:create",
+					"key": "c",
 					"group": "tools"
 				},
 				{
@@ -498,6 +506,7 @@
 					"label": "Generate Reference",
 					"type": "handler",
 					"target": "ai-tools:reference",
+					"key": "g",
 					"group": "tools"
 				},
 				{
@@ -505,6 +514,7 @@
 					"label": "Agent Status",
 					"type": "handler",
 					"target": "agent:status",
+					"key": "s",
 					"group": "execution"
 				},
 				{
@@ -512,6 +522,7 @@
 					"label": "Sync to Claude Code",
 					"type": "command",
 					"target": "claude:sync",
+					"key": "y",
 					"group": "integration"
 				},
 				{

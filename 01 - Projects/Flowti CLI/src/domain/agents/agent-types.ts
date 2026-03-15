@@ -7,8 +7,8 @@
  *   as key-value pairs, matching the ECS component attachment pattern.
  *   Components can represent physics, graphics, AI controllers, or any capability.
  *
- * - **AI Agents (Claude, Cursor)**: The `ai` section holds model, systemPrompt,
- *   provider, contextWindow, and maxTokens — everything needed to configure
+ * - **AI Agents (Claude, Cursor)**: The `ai` section holds provider, systemPrompt,
+ *   and optional tool restrictions — everything needed to configure
  *   an LLM-backed agent for tool-calling workflows.
  *
  * - **Game Design AI**: The `goals` and `behaviors` fields support goal-oriented
@@ -55,16 +55,14 @@ export interface AgentGoal {
 
 /** AI-specific configuration for LLM-backed agents. */
 export interface AgentAIConfig {
-	/** Model identifier (e.g., "claude-sonnet-4-20250514", "gpt-4o"). */
-	model?: string;
 	/** AI provider (e.g., "anthropic", "openai", "local"). */
 	provider?: string;
 	/** System prompt / persona instructions. */
 	systemPrompt?: string;
-	/** Context window size in tokens. */
-	contextWindow?: number;
-	/** Max output tokens per response. */
-	maxTokens?: number;
+	/** Output format for Claude CLI. Defaults to "stream-json". */
+	outputFormat?: "text" | "stream-json";
+	/** Optional tool restrictions for autonomous runs. */
+	allowedTools?: string[];
 }
 
 /** An explicit relationship to another agent or component. */
@@ -93,6 +91,22 @@ export interface InventoryItem {
 	label?: string;
 }
 
+/** RPG-style character attributes (1-20 scale). */
+export interface AgentAttributes {
+	/** Strength — assertiveness, force of will. */
+	str?: number;
+	/** Intelligence — analytical capability, pattern recognition. */
+	int?: number;
+	/** Wisdom — experience-based judgement, insight. */
+	wis?: number;
+	/** Charisma — communication, persuasiveness, leadership. */
+	cha?: number;
+	/** Dexterity — adaptability, speed, nimbleness. */
+	dex?: number;
+	/** Constitution — persistence, endurance, resilience. */
+	con?: number;
+}
+
 // ── Definition and Summary ───────────────────────────────────────────
 
 /** Full agent definition used for creation/editing. */
@@ -107,6 +121,16 @@ export interface AgentDefinition {
 	roles: string[];
 	/** Iteration lifecycle phases this agent is most active in (e.g., "planned", "in-progress", "in-review"). */
 	preferredPhases?: string[];
+	/** RPG-style character attributes (STR, INT, WIS, CHA, DEX, CON). */
+	attributes?: AgentAttributes;
+	/** Character persona name (e.g., "Alice") — displayed as wikilink in frontmatter. */
+	persona?: string;
+	/** Current mood / disposition (e.g., "vigilant", "cheerful", "skeptical"). */
+	mood?: string;
+	/** Character personality traits that shape how the agent communicates. */
+	personality?: string[];
+	/** Experience points — uncapped, grows as the agent completes work. */
+	experience?: number;
 	/** Attached components — ECS-style named capabilities. */
 	components?: AgentComponent[];
 	/** Agent goals — what this agent pursues. */
@@ -134,6 +158,16 @@ export interface AgentSummary {
 	roles: string[];
 	/** Iteration lifecycle phases this agent is most active in. */
 	preferredPhases?: string[];
+	/** RPG-style character attributes. */
+	attributes?: AgentAttributes;
+	/** Character persona name. */
+	persona?: string;
+	/** Current mood / disposition. */
+	mood?: string;
+	/** Character personality traits. */
+	personality?: string[];
+	/** Experience points (uncapped). */
+	experience?: number;
 	components?: AgentComponent[];
 	goals?: AgentGoal[];
 	behaviors?: string[];
