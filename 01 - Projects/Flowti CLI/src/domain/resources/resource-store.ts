@@ -5,46 +5,59 @@
  * Follows the event-catalog.ts pattern: pure functions with injected deps.
  */
 
-import { Document } from "../../infrastructure/document.js";
-import type { CliDeps } from "../../infrastructure/deps.js";
+import { createStore } from "../../infrastructure/store-engine.js";
+import type { StoreDeps } from "../../infrastructure/store-engine.js";
+import { toMdFilename } from "../../infrastructure/markdown-utils.js";
 import type { ResourcesConfig } from "../../infrastructure/types.js";
 import type { ResourceDefinition, ResourceSummary } from "./resource-types.js";
-import { resolveDir, listItems, toMdFilename } from "../shared/markdown-store.js";
 
-export type ResourceStoreDeps = Pick<CliDeps, "disk" | "paths" | "clock">;
+export type ResourceStoreDeps = StoreDeps & { clock: import("../../infrastructure/types.js").IClock };
 
-/** Resolve the resources directory for a project. */
-export function resourcesDir(deps: Pick<CliDeps, "paths">, projectPath: string, config?: ResourcesConfig): string {
-	return resolveDir(deps, projectPath, config?.dir, "docs/resources");
-}
+// ── Store descriptor ────────────────────────────────────────────────
 
-function parseNumericFields(fm: Record<string, string>): { price: number; amount: number; consumed: number } {
-	const isBudget = fm.resourceType === "budget";
-	return {
-		price: isBudget ? 1 : parseFloat(fm.price ?? fm.hourlyRate ?? "0"),
-		amount: parseFloat(fm.totalAmount ?? fm.amount ?? "0"),
-		consumed: parseFloat(fm.spent ?? fm.consumed ?? "0"),
-	};
-}
+export const resourceStore = createStore<ResourceSummary, ResourceDefinition>({
+	name: "resource",
+	defaultDir: "docs/resources",
+	configPath: "dir",
+	typeTag: "Resource",
+	needsClock: true,
+	fields: {
+		name: { type: "string", from: "frontmatter", required: true, default: "" },
+		resourceType: { type: "enum", options: ["human", "material", "role", "budget"], default: "human" },
+		// price, amount, consumed, remaining, totalCost, consumedCost filled by parseBody
+		price: { type: "number", default: 0 },
+		amount: { type: "number", default: 0 },
+		consumed: { type: "number", default: 0 },
+		remaining: { type: "number", default: 0 },
+		totalCost: { type: "number", default: 0 },
+		consumedCost: { type: "number", default: 0 },
+	},
+	sort: (a, b) => a.name.localeCompare(b.name),
+	parseBody: (_body, fm) => {
+		const isBudget = fm.resourceType === "budget";
+		const price = isBudget ? 1 : parseFloat(fm.price ?? fm.hourlyRate ?? "0");
+		const amount = parseFloat(fm.totalAmount ?? fm.amount ?? "0");
+		const consumed = parseFloat(fm.spent ?? fm.consumed ?? "0");
+		return {
+			price,
+			amount,
+			consumed,
+			remaining: Math.max(0, amount - consumed),
+			totalCost: isBudget ? amount : price * amount,
+			consumedCost: isBudget ? consumed : price * consumed,
+		};
+	},
+	buildBody: (def) => {
+		const lines: string[] = [];
+		lines.push(`# ${def.name}`, "");
+		if (def.description) { lines.push(def.description, ""); }
+		lines.push("## Notes", "");
+		lines.push("<!-- Add resource notes here. -->");
+		return lines.join("\n");
+	},
+});
 
-function parseResourceSummary(fm: Record<string, string>, file: string): ResourceSummary {
-	const isBudget = fm.resourceType === "budget";
-	const { price, amount, consumed } = parseNumericFields(fm);
-	return {
-		name: fm.name ?? file.replace(/\.md$/, ""),
-		resourceType: (fm.resourceType as ResourceSummary["resourceType"]) ?? "human",
-		price, amount, consumed,
-		remaining: Math.max(0, amount - consumed),
-		totalCost: isBudget ? amount : price * amount,
-		consumedCost: isBudget ? consumed : price * consumed,
-		file,
-	};
-}
-
-/** List all resources from the resources directory. */
-export function listResources(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, config?: ResourcesConfig): ResourceSummary[] {
-	return listItems(deps, resourcesDir(deps, projectPath, config), parseResourceSummary, (a, b) => a.name.localeCompare(b.name));
-}
+// ── Frontmatter builders (dual mode) ───────────────────────────────
 
 function addBudgetFields(fm: Record<string, string>, def: ResourceDefinition): void {
 	fm.totalAmount = String(def.amount);
@@ -83,6 +96,18 @@ function buildResourceFrontmatter(def: ResourceDefinition, date: string): Record
 	return fm;
 }
 
+// ── Backwards-compatible re-exports ────────────────────────────────
+
+/** Resolve the resources directory for a project. */
+export function resourcesDir(deps: Pick<import("../../infrastructure/deps.js").CliDeps, "paths">, projectPath: string, config?: ResourcesConfig): string {
+	return resourceStore.resolveDir(deps as StoreDeps, projectPath, config ? { dir: config.dir } : undefined);
+}
+
+/** List all resources from the resources directory. */
+export function listResources(deps: Pick<import("../../infrastructure/deps.js").CliDeps, "disk" | "paths">, projectPath: string, config?: ResourcesConfig): ResourceSummary[] {
+	return resourceStore.list(deps as StoreDeps, projectPath, config ? { dir: config.dir } : undefined);
+}
+
 /** Create a new resource markdown file. Returns the file path or null if it already exists. */
 export function createResourceFile(deps: ResourceStoreDeps, projectPath: string, def: ResourceDefinition, config?: ResourcesConfig): string | null {
 	const dir = resourcesDir(deps, projectPath, config);
@@ -93,27 +118,16 @@ export function createResourceFile(deps: ResourceStoreDeps, projectPath: string,
 
 	if (deps.disk.existsSync(filePath)) return null;
 
-	const frontmatter = buildResourceFrontmatter(def, deps.clock.iso());
-
-	const doc = Document.create(def.name)
-		.mergeFrontmatter(frontmatter)
-		.addBlank()
-		.heading(1, def.name)
-		.addBlank();
-
-	if (def.description) {
-		doc.text(def.description).addBlank();
-	}
-
-	doc.heading(2, "Notes").addBlank();
-	doc.text("<!-- Add resource notes here. -->");
-
-	doc.save(filePath, deps.disk);
+	const fm = buildResourceFrontmatter(def, deps.clock.iso());
+	const body = resourceStore.__descriptor.buildBody(def, deps);
+	const yamlLines = Object.entries(fm).map(([k, v]) => `${k}: ${v}`);
+	const content = `---\n${yamlLines.join("\n")}\n---\n\n${body}`;
+	deps.disk.writeFileSync(filePath, content, "utf-8");
 	return filePath;
 }
 
 /** Update the consumed quantity for a named resource. Returns true if successful. */
-export function updateConsumption(deps: Pick<CliDeps, "disk" | "paths">, projectPath: string, resourceName: string, consumed: number, config?: ResourcesConfig): boolean {
+export function updateConsumption(deps: Pick<import("../../infrastructure/deps.js").CliDeps, "disk" | "paths">, projectPath: string, resourceName: string, consumed: number, config?: ResourcesConfig): boolean {
 	const dir = resourcesDir(deps, projectPath, config);
 	const filePath = deps.paths.join(dir, toMdFilename(resourceName));
 
