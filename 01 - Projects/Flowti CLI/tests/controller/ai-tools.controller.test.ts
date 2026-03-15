@@ -79,7 +79,7 @@ vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 // ── Imports ──────────────────────────────────────────────────────
 
 import { commands } from "../../src/controller/ai-tools.controller.js";
-import { initializeDeps } from "../../src/infrastructure/request-response.js";
+import { initializeDeps } from "../../src/infrastructure/command-engine.js";
 import { loadAiTools, discoverToolFiles, validateToolDefinition } from "../../src/domain/ai-tools/ai-tool-loader.js";
 import { disk } from "../../src/infrastructure/filesystem.js";
 import { shell } from "../../src/infrastructure/shell.js";

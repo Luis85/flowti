@@ -67,7 +67,7 @@ vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 }));
 
 import { commands } from "../../src/controller/scaffold.controller.js";
-import { initializeDeps } from "../../src/infrastructure/request-response.js";
+import { initializeDeps } from "../../src/infrastructure/command-engine.js";
 import { scaffold, scaffoldDryRun, listDefinitions } from "../../src/domain/scaffold/scaffold-service.js";
 import { log } from "../../src/infrastructure/logger.js";
 import { disk } from "../../src/infrastructure/filesystem.js";

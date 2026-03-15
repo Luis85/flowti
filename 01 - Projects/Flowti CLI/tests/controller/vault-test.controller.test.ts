@@ -41,7 +41,7 @@ vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 }));
 
 import { commands } from "../../src/controller/vault-test.controller.js";
-import { initializeDeps } from "../../src/infrastructure/request-response.js";
+import { initializeDeps } from "../../src/infrastructure/command-engine.js";
 import { shell } from "../../src/infrastructure/shell.js";
 import { paths } from "../../src/infrastructure/paths.js";
 import { clock } from "../../src/infrastructure/clock.js";

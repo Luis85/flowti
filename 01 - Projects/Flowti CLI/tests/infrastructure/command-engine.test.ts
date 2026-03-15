@@ -1,7 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 
+vi.mock("../../src/infrastructure/deps.js", () => ({
+	createDefaultDeps: vi.fn(() => ({ log: vi.fn() })),
+}));
 vi.mock("../../src/infrastructure/request-response.js", () => ({
-	getSharedDeps: vi.fn(() => ({ log: vi.fn() })),
 	handleResponse: vi.fn(),
 	dataResponse: vi.fn((data: unknown, render: unknown) => ({ data, render })),
 }));

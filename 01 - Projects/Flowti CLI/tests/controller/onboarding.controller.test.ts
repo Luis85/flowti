@@ -16,7 +16,7 @@ vi.mock("../../src/domain/onboarding/onboarding-store.js", () => ({
 }));
 
 import { commands } from "../../src/controller/onboarding.controller.js";
-import { initializeDeps } from "../../src/infrastructure/request-response.js";
+import { initializeDeps } from "../../src/infrastructure/command-engine.js";
 import { log } from "../../src/infrastructure/logger.js";
 import { shouldOnboard, markOnboardingComplete, resetOnboarding } from "../../src/domain/onboarding/onboarding-detection.js";
 import { readProgress, resetProgress } from "../../src/domain/onboarding/onboarding-store.js";

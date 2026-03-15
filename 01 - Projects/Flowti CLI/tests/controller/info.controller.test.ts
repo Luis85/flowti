@@ -36,7 +36,7 @@ vi.mock("../../src/infrastructure/proc.js", () => ({
 }));
 
 import { commands } from "../../src/controller/info.controller.js";
-import { initializeDeps } from "../../src/infrastructure/request-response.js";
+import { initializeDeps } from "../../src/infrastructure/command-engine.js";
 import { collectProjectInfo } from "../../src/domain/info/info.js";
 import { displayInfo } from "../../src/ui/displays/info-display.js";
 import { log } from "../../src/infrastructure/logger.js";

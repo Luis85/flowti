@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createMockFs } from "../../mocks/mock-fs.js";
-import { initializeDeps } from "../../../src/infrastructure/request-response.js";
+import { initializeDeps } from "../../../src/infrastructure/command-engine.js";
 import { createTestDeps } from "../../mocks/mock-deps.js";
 
 vi.mock("../../../src/infrastructure/logger.js", () => ({

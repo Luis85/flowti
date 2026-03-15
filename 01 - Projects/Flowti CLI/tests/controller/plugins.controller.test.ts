@@ -73,7 +73,7 @@ vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 }));
 
 import { commands } from "../../src/controller/plugins.controller.js";
-import { initializeDeps } from "../../src/infrastructure/request-response.js";
+import { initializeDeps } from "../../src/infrastructure/command-engine.js";
 import { loadPlugins, discoverPluginFiles, validateManifest } from "../../src/domain/plugins/plugin-loader.js";
 import { generatePluginReference } from "../../src/domain/plugins/plugin-reference.js";
 import { disk } from "../../src/infrastructure/filesystem.js";

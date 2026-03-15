@@ -73,7 +73,7 @@ vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 }));
 
 import { commands } from "../../src/controller/reports.controller.js";
-import { initializeDeps } from "../../src/infrastructure/request-response.js";
+import { initializeDeps } from "../../src/infrastructure/command-engine.js";
 import { runAllReports } from "../../src/domain/reports/pipeline/report-runner.js";
 import { discoverArchiveCategories } from "../../src/domain/reports/export/report-archive.js";
 import { disk } from "../../src/infrastructure/filesystem.js";

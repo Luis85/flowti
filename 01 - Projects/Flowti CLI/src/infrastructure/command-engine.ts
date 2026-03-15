@@ -8,11 +8,29 @@
 
 import type { CliDeps } from "./deps.js";
 import type { Log } from "./deps.js";
+import { createDefaultDeps } from "./deps.js";
 import type { ProjectContext, CommandHandler } from "./types-config.js";
-import { dataResponse, handleResponse, getSharedDeps } from "./request-response.js";
+import { dataResponse, handleResponse } from "./request-response.js";
 import { renderNoProject } from "../ui/renderers/common-renderers.js";
 import type { NoProjectModel } from "../ui/renderers/common-renderers.js";
 import type { CliResponse } from "./request-response.js";
+
+// ── Deps management ─────────────────────────────────────────────
+
+let _sharedDeps: CliDeps | undefined;
+
+/** Initialize the shared dependency container. Called once from main.ts. */
+export function initializeDeps(deps: CliDeps): void {
+	_sharedDeps = deps;
+}
+
+/** Get the shared deps (lazy-creates production deps if not initialized). */
+function getSharedDeps(): CliDeps {
+	if (!_sharedDeps) {
+		_sharedDeps = createDefaultDeps();
+	}
+	return _sharedDeps;
+}
 
 // ── Types ────────────────────────────────────────────────────────
 

@@ -8,27 +8,8 @@
  */
 
 import type { OutputFormat } from "./output.js";
-import type { CliDeps } from "./deps.js";
-import { createDefaultDeps } from "./deps.js";
 import { log } from "./logger.js";
 import { proc } from "./proc.js";
-
-// ── Shared deps (set once by main.ts) ───────────────────────────────
-
-let _sharedDeps: CliDeps | undefined;
-
-/** Initialize the shared dependency container. Called once from main.ts. */
-export function initializeDeps(deps: CliDeps): void {
-	_sharedDeps = deps;
-}
-
-/** Get the shared deps (lazy-creates production deps if not initialized). */
-export function getSharedDeps(): CliDeps {
-	if (!_sharedDeps) {
-		_sharedDeps = createDefaultDeps();
-	}
-	return _sharedDeps;
-}
 
 // ── Response ────────────────────────────────────────────────────────
 

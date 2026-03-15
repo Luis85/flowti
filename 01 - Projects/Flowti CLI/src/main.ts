@@ -21,7 +21,7 @@ import { parseArgs } from "./infrastructure/args.js";
 import { proc } from "./infrastructure/proc.js";
 import { printBanner, RESET, DIM, RED, YELLOW } from "./infrastructure/ui.js";
 import { createDefaultDeps } from "./infrastructure/deps.js";
-import { initializeDeps } from "./infrastructure/request-response.js";
+import { initializeDeps } from "./infrastructure/command-engine.js";
 
 // ── Domain modules (pure business logic) ────────────────────────────
 

@@ -72,7 +72,7 @@ vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 // ── Imports ──────────────────────────────────────────────────────
 
 import { commands } from "../../src/controller/deliverables.controller.js";
-import { initializeDeps } from "../../src/infrastructure/request-response.js";
+import { initializeDeps } from "../../src/infrastructure/command-engine.js";
 import { listDeliverables, createDeliverableFile, updateDeliverableStatus } from "../../src/domain/deliverables/deliverable-store.js";
 import { disk } from "../../src/infrastructure/filesystem.js";
 import { paths } from "../../src/infrastructure/paths.js";

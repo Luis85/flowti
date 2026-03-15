@@ -82,7 +82,7 @@ vi.mock("../../../src/domain/reports/export/html-export.js", () => ({
 	exportReportToHtml: vi.fn(),
 }));
 
-import { initializeDeps } from "../../../src/infrastructure/request-response.js";
+import { initializeDeps } from "../../../src/infrastructure/command-engine.js";
 import { createTestDeps } from "../../mocks/mock-deps.js";
 import { createMockShell } from "../../mocks/mock-shell.js";
 import { commands } from "../../../src/controller/reports.controller.js";

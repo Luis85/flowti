@@ -94,7 +94,7 @@ vi.mock("../../src/ui/renderers/make-renderers.js", () => ({
 // ── Imports ──────────────────────────────────────────────────────
 
 import { commands } from "../../src/controller/make.controller.js";
-import { initializeDeps } from "../../src/infrastructure/request-response.js";
+import { initializeDeps } from "../../src/infrastructure/command-engine.js";
 import { proc } from "../../src/infrastructure/proc.js";
 import { disk } from "../../src/infrastructure/filesystem.js";
 import { paths } from "../../src/infrastructure/paths.js";

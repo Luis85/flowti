@@ -74,7 +74,7 @@ vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 // ── Imports ──────────────────────────────────────────────────────
 
 import { commands } from "../../src/controller/capa.controller.js";
-import { initializeDeps } from "../../src/infrastructure/request-response.js";
+import { initializeDeps } from "../../src/infrastructure/command-engine.js";
 import { listCAPAItems, createCAPAItem, updateCAPAStatus } from "../../src/domain/capa/capa-store.js";
 import { disk } from "../../src/infrastructure/filesystem.js";
 import { paths } from "../../src/infrastructure/paths.js";
