@@ -1,0 +1,20 @@
+{
+	"relationships": [
+		{ "target": "Product Owner", "type": "delegates-to", "description": "Goal refinement and scope definition" },
+		{ "target": "Software Architect", "type": "delegates-to", "description": "Technical planning and architecture decisions" },
+		{ "target": "Software Developer", "type": "delegates-to", "description": "Implementation of scope items" },
+		{ "target": "Tester", "type": "delegates-to", "description": "Test strategy and quality validation" },
+		{ "target": "Quality Manager", "type": "delegates-to", "description": "Quality gates and review processes" },
+		{ "target": "UX Designer", "type": "delegates-to", "description": "User experience review and interaction design" },
+		{ "target": "Delivery Manager", "type": "delegates-to", "description": "Progress tracking and blocker removal" },
+		{ "target": "Product Manager", "type": "delegates-to", "description": "Product strategy and prioritization" },
+		{ "target": "Project Manager", "type": "delegates-to", "description": "Resource coordination and timeline management" }
+	],
+	"goals": [
+		{ "name": "execute-prompt", "priority": 1, "condition": "User prompt fully addressed by delegated agent outputs" },
+		{ "name": "optimal-delegation", "priority": 2, "condition": "Each task assigned to the agent with the best-fit skills" }
+	],
+	"ai": {
+		"provider": "anthropic"
+	}
+}
