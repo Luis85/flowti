@@ -1,0 +1,15 @@
+{
+	"journey": "Build — Healthy App",
+	"description": "Verify build succeeds on a well-configured project",
+	"requires": { "target": "vault-test" },
+	"steps": [
+		{
+			"id": "build-succeeds",
+			"title": "Build exits with code 0",
+			"description": "Run the build command and verify it succeeds",
+			"actions": [
+				{ "tool": "vault-cli", "command": "build --project=\"Healthy App\"", "expectExit": 0 }
+			]
+		}
+	]
+}

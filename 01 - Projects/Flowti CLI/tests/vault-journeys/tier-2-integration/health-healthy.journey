@@ -1,0 +1,23 @@
+{
+	"journey": "Health Check — Healthy App",
+	"description": "Verify health scoring returns a passing score",
+	"requires": { "target": "vault-test" },
+	"steps": [
+		{
+			"id": "health-json",
+			"title": "Health returns structured JSON",
+			"description": "Run the health command and store the JSON result",
+			"actions": [
+				{ "tool": "vault-cli", "command": "health --project=\"Healthy App\" --format=json", "expectExit": 0, "format": "json", "storeAs": "healthResult" }
+			]
+		},
+		{
+			"id": "score-above-target",
+			"title": "Health score is above target",
+			"description": "Verify the health score is at or above the target threshold",
+			"actions": [
+				{ "tool": "vault-assert", "type": "health-score", "source": "healthResult", "min": 70, "max": 100 }
+			]
+		}
+	]
+}

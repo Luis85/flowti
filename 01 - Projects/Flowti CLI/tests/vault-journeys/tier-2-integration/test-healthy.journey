@@ -1,0 +1,15 @@
+{
+	"journey": "Test — Healthy App",
+	"description": "Verify tests pass on a well-configured project",
+	"requires": { "target": "vault-test" },
+	"steps": [
+		{
+			"id": "tests-pass",
+			"title": "Tests exit with code 0",
+			"description": "Run the test command and verify all tests pass",
+			"actions": [
+				{ "tool": "vault-cli", "command": "test --project=\"Healthy App\"", "expectExit": 0 }
+			]
+		}
+	]
+}

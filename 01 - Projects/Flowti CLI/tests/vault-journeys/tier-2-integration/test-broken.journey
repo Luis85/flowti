@@ -1,0 +1,15 @@
+{
+	"journey": "Test — Broken App (Expected Failure)",
+	"description": "Verify test failures are reported correctly",
+	"requires": { "target": "vault-test" },
+	"steps": [
+		{
+			"id": "tests-fail",
+			"title": "Tests exit with non-zero code",
+			"description": "Run the test command and verify it reports failure",
+			"actions": [
+				{ "tool": "vault-cli", "command": "test --project=\"Broken App\"", "expectExit": 1 }
+			]
+		}
+	]
+}
