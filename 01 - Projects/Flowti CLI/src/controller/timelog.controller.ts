@@ -2,60 +2,70 @@
  * timelog.controller.ts — Controller for time-log commands.
  */
 
-import type { ControllerAction } from "../infrastructure/request-response.js";
-import { adapt, dataResponse } from "../infrastructure/request-response.js";
+import { adaptDescriptor } from "../infrastructure/command-engine.js";
 import type { CommandHandler } from "../infrastructure/types.js";
 import { listTimeLogEntries, createTimeLogEntry, summarizeTimeLog } from "../domain/timelog/timelog-store.js";
 import { renderTimeLogList, renderTimeLogSummary, renderTimeLogAdded } from "../ui/displays/timelog-display.js";
 import { renderError } from "../ui/renderers/common-renderers.js";
 import type { ErrorModel } from "../ui/renderers/common-renderers.js";
+import type { LogFn } from "../infrastructure/command-engine.js";
 
-function flagStr(flags: Record<string, string | boolean>, key: string, fallback: string): string {
-	return typeof flags[key] === "string" ? flags[key] : fallback;
+type TimeLogListModel = ReturnType<typeof listTimeLogEntries>;
+type TimeLogSummaryModel = ReturnType<typeof summarizeTimeLog>;
+type TimeLogAddModel = { relPath: string } | ErrorModel;
+
+function isErrorModel(m: unknown): m is ErrorModel {
+	return typeof m === "object" && m !== null && "error" in m;
 }
 
-const actions: Record<string, ControllerAction> = {
-	"timelog:list": (req) => {
-		if (!req.project) return;
-		const entries = listTimeLogEntries(req.deps, req.project.path, req.project.config.management?.timelog);
-		return dataResponse(entries, (d) => renderTimeLogList(d, req.deps.log));
-	},
+function renderTimeLogAdd(data: TimeLogAddModel, log: LogFn): void {
+	if (isErrorModel(data)) { renderError(data, log); return; }
+	renderTimeLogAdded(data.relPath, log);
+}
 
-	"timelog:add": (req) => {
-		if (!req.project) return;
-		const { paths } = req.deps;
-		const person = req.flags.person;
-		const task = req.flags.task;
-		if (!person || typeof person !== "string" || !task || typeof task !== "string") {
-			return dataResponse<ErrorModel>(
-				{ error: "Missing --person and/or --task flag.", hint: 'Usage: flowti timelog:add --person="Jane" --task="Implement feature" --hours=4' },
-				(d) => renderError(d, req.deps.log),
-			);
-		}
-		const filePath = createTimeLogEntry(req.deps, req.project.path, {
-			date: flagStr(req.flags, "date", req.deps.clock.iso().slice(0, 10)),
-			person,
-			hours: parseFloat(flagStr(req.flags, "hours", "1")),
-			category: flagStr(req.flags, "category", "development"),
-			task,
-			description: flagStr(req.flags, "description", ""),
-		}, req.project.config.management?.timelog);
-		if (filePath) {
-			return dataResponse(
-				{ relPath: paths.relative(req.project.path, filePath) },
-				(m: { relPath: string }) => renderTimeLogAdded(m.relPath, req.deps.log),
-			);
-		}
-	},
+export const commands: Record<string, CommandHandler> = {
+	"timelog:list": adaptDescriptor<Record<string, unknown>, TimeLogListModel>({
+		requires: "project",
+		handler: (ctx) => listTimeLogEntries(ctx.deps, ctx.project!.path, ctx.project!.config.management?.timelog),
+		renderer: renderTimeLogList,
+	}),
 
-	"timelog:summary": (req) => {
-		if (!req.project) return;
-		const entries = listTimeLogEntries(req.deps, req.project.path, req.project.config.management?.timelog);
-		const summary = summarizeTimeLog(entries);
-		return dataResponse(summary, (d) => renderTimeLogSummary(d, req.deps.log));
-	},
+	"timelog:add": adaptDescriptor<Record<string, unknown>, TimeLogAddModel>({
+		requires: "project",
+		flags: {
+			person: { type: "string", required: true, hint: 'Usage: flowti timelog:add --person="Jane" --task="Implement feature" --hours=4' },
+			task: { type: "string", required: true, hint: 'Usage: flowti timelog:add --person="Jane" --task="Implement feature" --hours=4' },
+			date: { type: "string", default: "" },
+			hours: { type: "string", default: "1" },
+			category: { type: "string", default: "development" },
+			description: { type: "string", default: "" },
+		},
+		handler: (ctx) => {
+			const person = ctx.flags.person as string;
+			const task = ctx.flags.task as string;
+			const date = (ctx.flags.date as string) || ctx.deps.clock.iso().slice(0, 10);
+			const filePath = createTimeLogEntry(ctx.deps, ctx.project!.path, {
+				date,
+				person,
+				hours: parseFloat(ctx.flags.hours as string),
+				category: ctx.flags.category as string,
+				task,
+				description: ctx.flags.description as string,
+			}, ctx.project!.config.management?.timelog);
+			if (filePath) {
+				return { relPath: ctx.deps.paths.relative(ctx.project!.path, filePath) };
+			}
+			return { error: "Failed to create time log entry." } as ErrorModel;
+		},
+		renderer: renderTimeLogAdd,
+	}),
+
+	"timelog:summary": adaptDescriptor<Record<string, unknown>, TimeLogSummaryModel>({
+		requires: "project",
+		handler: (ctx) => {
+			const entries = listTimeLogEntries(ctx.deps, ctx.project!.path, ctx.project!.config.management?.timelog);
+			return summarizeTimeLog(entries);
+		},
+		renderer: renderTimeLogSummary,
+	}),
 };
-
-export const commands: Record<string, CommandHandler> = Object.fromEntries(
-	Object.entries(actions).map(([key, action]) => [key, adapt(action)]),
-);

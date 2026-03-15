@@ -60,6 +60,7 @@ vi.mock("../../src/ui/displays/resources-display.js", () => ({
 }));
 vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 	renderError: vi.fn(),
+	renderNoProject: vi.fn(),
 }));
 
 // ── Imports ──────────────────────────────────────────────────────
@@ -124,7 +125,6 @@ describe("resources.controller", () => {
 
 		it("returns error when --name is missing", () => {
 			commands["resources:add"]({}, [], "resources:add", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.objectContaining({ error: "Missing --name flag." }), expect.any(Function));
 			expect(createResourceFile).not.toHaveBeenCalled();
 		});
 

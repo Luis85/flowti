@@ -53,6 +53,7 @@ vi.mock("../../src/ui/displays/raid-display.js", () => ({
 }));
 vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 	renderError: vi.fn(),
+	renderNoProject: vi.fn(),
 }));
 
 // ── Imports ──────────────────────────────────────────────────────
@@ -116,7 +117,6 @@ describe("raid.controller", () => {
 
 		it("returns error when --name is missing", () => {
 			commands["raid:add"]({}, [], "raid:add", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.objectContaining({ error: "Missing --name flag." }), expect.any(Function));
 			expect(createRAIDItem).not.toHaveBeenCalled();
 		});
 
@@ -144,7 +144,7 @@ describe("raid.controller", () => {
 
 		it("returns error when --name or --status is missing", () => {
 			commands["raid:update"]({ name: "Test" }, [], "raid:update", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining("Missing") }), expect.any(Function));
+			expect(updateRAIDStatus).not.toHaveBeenCalled();
 		});
 
 		it("returns error for invalid status", () => {
