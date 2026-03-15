@@ -77,11 +77,18 @@ export async function runMenu(
 	while (true) {
 		if (title) printHeader(title);
 		if (options.beforeMenu) options.beforeMenu();
+		if (options.renderStatusBar) options.renderStatusBar();
 		printMenu(resolveDisplayItems(items));
 
 		const choice = await input.ask("Choice", options.defaultChoice ?? "1");
 
 		if (choice === "*") return "refresh" as MenuResult;
+
+		if (choice === "!" && options.onAgentQuestion) {
+			const result = await options.onAgentQuestion();
+			if (result) return result;
+			continue;
+		}
 
 		const match = findMatch(items, choice);
 		if (!match) { log("\n  Invalid choice — try again.\n"); continue; }
