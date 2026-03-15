@@ -130,6 +130,7 @@ export type ProjectTarget =
 	| "obsidian-vault"	// Obsidian vault (no plugin)
 	| "obsidian-plugin"	// Obsidian plugin (vault + plugin lifecycle)
 	| "typescript"		// Generic TypeScript project
+	| "vault-test"		// Ephemeral vault for CLI integration testing
 	| "webapp";			// Web application (browser-based)
 
 /** What the journey needs from the environment (DI declaration). */
