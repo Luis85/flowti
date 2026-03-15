@@ -3,7 +3,22 @@ vi.mock("../../../../../src/infrastructure/shell.js", () => ({ sh: {} }));
 vi.mock("../../../../../src/infrastructure/paths.js", () => ({ paths: {} }));
 
 import { createVaultTestProvider } from "../../../../../src/domain/e2e/journey/providers/vault-test-provider.js";
-import type { EnvironmentProvider } from "../../../../../src/domain/e2e/journey/journey-environment.js";
+import type { ToolDeps } from "../../../../../src/domain/e2e/journey/journey-executor.js";
+import type { JourneyExecutorOptions } from "../../../../../src/domain/e2e/journey/journey-types.js";
+
+function createMockToolDeps(overrides?: Partial<ToolDeps>): ToolDeps {
+	return {
+		exec: vi.fn(() => ({ exitCode: 0, stdout: "ok", stderr: "" })),
+		readFile: vi.fn(() => ""),
+		writeFile: vi.fn(),
+		exists: vi.fn(() => true),
+		mkdir: vi.fn(),
+		log: vi.fn(),
+		sleep: vi.fn(async () => {}),
+		clock: { ms: () => Date.now() },
+		...overrides,
+	};
+}
 
 describe("createVaultTestProvider", () => {
 	it("returns a valid EnvironmentProvider", () => {
@@ -36,5 +51,94 @@ describe("createVaultTestProvider", () => {
 		const provider = createVaultTestProvider();
 		expect(typeof provider.setup).toBe("function");
 		expect(typeof provider.teardown).toBe("function");
+	});
+});
+
+describe("vault-cli tool", () => {
+	it("executes CLI command in vault root", () => {
+		const provider = createVaultTestProvider();
+		const deps = createMockToolDeps();
+		const opts: JourneyExecutorOptions = { variables: { vaultRoot: "/tmp/test-vault" } };
+		const action = { tool: "vault-cli", command: "help" };
+
+		const result = provider.tools["vault-cli"](action, deps, opts);
+
+		expect(deps.exec).toHaveBeenCalledWith(
+			expect.stringContaining("help"),
+			expect.objectContaining({ cwd: "/tmp/test-vault" }),
+		);
+		expect(result.success).toBe(true);
+	});
+
+	it("fails when exit code does not match expectExit", () => {
+		const provider = createVaultTestProvider();
+		const deps = createMockToolDeps({
+			exec: vi.fn(() => ({ exitCode: 1, stdout: "", stderr: "error" })),
+		});
+		const opts: JourneyExecutorOptions = { variables: { vaultRoot: "/tmp/test-vault" } };
+		const action = { tool: "vault-cli", command: "build", expectExit: 0 };
+
+		const result = provider.tools["vault-cli"](action, deps, opts);
+		expect(result.success).toBe(false);
+	});
+
+	it("succeeds when exit code matches non-zero expectExit", () => {
+		const provider = createVaultTestProvider();
+		const deps = createMockToolDeps({
+			exec: vi.fn(() => ({ exitCode: 1, stdout: "fail output", stderr: "" })),
+		});
+		const opts: JourneyExecutorOptions = { variables: { vaultRoot: "/tmp/test-vault" } };
+		const action = { tool: "vault-cli", command: "build", expectExit: 1 };
+
+		const result = provider.tools["vault-cli"](action, deps, opts);
+		expect(result.success).toBe(true);
+	});
+
+	it("checks stdoutContains when provided", () => {
+		const provider = createVaultTestProvider();
+		const deps = createMockToolDeps({
+			exec: vi.fn(() => ({ exitCode: 0, stdout: "flowti v1.0.0", stderr: "" })),
+		});
+		const opts: JourneyExecutorOptions = { variables: { vaultRoot: "/tmp/test-vault" } };
+		const action = { tool: "vault-cli", command: "help", stdoutContains: "flowti" };
+
+		const result = provider.tools["vault-cli"](action, deps, opts);
+		expect(result.success).toBe(true);
+	});
+
+	it("fails when stdoutContains does not match", () => {
+		const provider = createVaultTestProvider();
+		const deps = createMockToolDeps({
+			exec: vi.fn(() => ({ exitCode: 0, stdout: "something else", stderr: "" })),
+		});
+		const opts: JourneyExecutorOptions = { variables: { vaultRoot: "/tmp/test-vault" } };
+		const action = { tool: "vault-cli", command: "help", stdoutContains: "flowti" };
+
+		const result = provider.tools["vault-cli"](action, deps, opts);
+		expect(result.success).toBe(false);
+	});
+
+	it("stores stdout in variables via storeAs", () => {
+		const provider = createVaultTestProvider();
+		const deps = createMockToolDeps({
+			exec: vi.fn(() => ({ exitCode: 0, stdout: "output data", stderr: "" })),
+		});
+		const opts: JourneyExecutorOptions = { variables: { vaultRoot: "/tmp/test-vault" } };
+		const action = { tool: "vault-cli", command: "info", storeAs: "result" };
+
+		provider.tools["vault-cli"](action, deps, opts);
+		expect(opts.variables!["result"]).toBe("output data");
+	});
+
+	it("parses JSON output when format is json", () => {
+		const provider = createVaultTestProvider();
+		const deps = createMockToolDeps({
+			exec: vi.fn(() => ({ exitCode: 0, stdout: '{"score": 85}', stderr: "" })),
+		});
+		const opts: JourneyExecutorOptions = { variables: { vaultRoot: "/tmp/test-vault" } };
+		const action = { tool: "vault-cli", command: "health", format: "json", storeAs: "health" };
+
+		provider.tools["vault-cli"](action, deps, opts);
+		expect(opts.variables!["health"]).toEqual({ score: 85 });
 	});
 });

@@ -6,9 +6,50 @@
  */
 
 import type { EnvironmentProvider, ToolExecutor } from "../journey-environment.js";
+import { resolveString } from "../journey-tools.js";
 
-const toolVaultCli: ToolExecutor = (_action, _deps, _opts) => {
-	return { tool: "vault-cli", success: false, error: "Not implemented", durationMs: 0 };
+const toolVaultCli: ToolExecutor = (action, deps, opts) => {
+	const start = deps.clock.ms();
+	const vaultRoot = opts.variables?.["vaultRoot"] as string ?? ".";
+	const command = resolveString(action, "command", opts.variables ?? {});
+	const expectExit = typeof action.expectExit === "number" ? action.expectExit : 0;
+	const stdoutContains = action.stdoutContains as string | undefined;
+	const storeAs = action.storeAs as string | undefined;
+	const format = action.format as string | undefined;
+
+	try {
+		const r = deps.exec(`node .flowti/bin/main.js ${command}`, {
+			cwd: vaultRoot,
+			timeout: opts.commandTimeout ?? 30_000,
+			env: opts.env,
+		});
+
+		const exitMatch = r.exitCode === expectExit;
+		const containsMatch = stdoutContains ? r.stdout.includes(stdoutContains) : true;
+		const success = exitMatch && containsMatch;
+
+		if (storeAs && opts.variables) {
+			if (format === "json") {
+				try {
+					opts.variables[storeAs] = JSON.parse(r.stdout);
+				} catch {
+					opts.variables[storeAs] = r.stdout;
+				}
+			} else {
+				opts.variables[storeAs] = r.stdout;
+			}
+		}
+
+		return {
+			tool: "vault-cli",
+			success,
+			output: r.stdout.slice(0, 1000),
+			error: success ? undefined : `Exit ${r.exitCode} (expected ${expectExit})${!containsMatch ? `, stdout missing "${stdoutContains}"` : ""}`,
+			durationMs: deps.clock.ms() - start,
+		};
+	} catch (e) {
+		return { tool: "vault-cli", success: false, error: String(e), durationMs: deps.clock.ms() - start };
+	}
 };
 
 const toolVaultProject: ToolExecutor = (_action, _deps, _opts) => {
