@@ -140,6 +140,7 @@ const mockDeps = {
 	shell: { run: vi.fn(() => 0), runSilent: vi.fn(), runCapture: vi.fn(() => ""), runCaptureStatus: vi.fn(() => ({ exitCode: 0, output: "" })) },
 	proc: { exit: vi.fn(), argv: [] },
 	bus: { emit: vi.fn(), on: vi.fn(), off: vi.fn() },
+	agentShell: { talk: vi.fn(), dispatch: vi.fn(), getActiveDispatch: vi.fn(() => null), reconcileStaleAgents: vi.fn(() => ({ recovered: [] })) },
 };
 
 function mockCtx(): RouterContext {

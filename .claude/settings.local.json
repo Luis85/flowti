@@ -114,7 +114,9 @@
       "Bash(claude:*)",
       "Bash(git check-ignore:*)",
       "Bash(git add:*)",
-      "Bash(git worktree:*)"
+      "Bash(git worktree:*)",
+      "Bash(cat:*)",
+      "Bash(ps aux:*)"
     ]
   }
 }

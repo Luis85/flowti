@@ -33,38 +33,28 @@ export function renderAgentSpawned(agentName: string, sessionId: string, log: (m
 /** Controls how thinking blocks are displayed. */
 export type ThinkingDisplay = "full" | "indicator" | "hidden";
 
+function renderThinking(event: AgentStreamEvent & { kind: "thinking" }, log: (msg?: string) => void, thinkingDisplay: ThinkingDisplay): void {
+	if (thinkingDisplay === "hidden") return;
+	log(thinkingDisplay === "indicator" ? `  ${DIM}thinking...${RESET}` : `  ${DIM}${event.text}${RESET}`);
+}
+
+function truncateJson(json: string): string {
+	return json.length > 80 ? json.slice(0, 77) + "..." : json;
+}
+
 /** Render a single typed stream event from the agent process. */
 export function renderStreamEvent(event: AgentStreamEvent, log: (msg?: string) => void, thinkingDisplay: ThinkingDisplay): void {
-	switch (event.kind) {
-		case "thinking":
-			if (thinkingDisplay === "hidden") return;
-			if (thinkingDisplay === "indicator") { log(`  ${DIM}thinking...${RESET}`); return; }
-			log(`  ${DIM}${event.text}${RESET}`);
-			return;
-		case "text":
-			log(event.text);
-			return;
-		case "tool-start":
-			log(`  ${CYAN}> Using tool: ${event.name}${RESET}`);
-			return;
-		case "tool-input": {
-			const display = event.json.length > 80 ? event.json.slice(0, 77) + "..." : event.json;
-			log(`  ${DIM}  ${display}${RESET}`);
-			return;
-		}
-		case "tool-end":
-			log(`  ${DIM}  done${RESET}`);
-			return;
-		case "error":
-			log(`  ${RED}Error: ${event.message}${RESET}`);
-			return;
-		case "usage":
-			log(`\n  ${DIM}tokens: ${event.inputTokens} in / ${event.outputTokens} out${RESET}`);
-			return;
-		case "done":
-			log(`\n  ${GREEN}Agent finished${RESET}`);
-			return;
-	}
+	const renderers: Record<AgentStreamEvent["kind"], () => void> = {
+		thinking: () => renderThinking(event as AgentStreamEvent & { kind: "thinking" }, log, thinkingDisplay),
+		text: () => log((event as AgentStreamEvent & { kind: "text" }).text),
+		"tool-start": () => log(`  ${CYAN}> Using tool: ${(event as AgentStreamEvent & { kind: "tool-start" }).name}${RESET}`),
+		"tool-input": () => log(`  ${DIM}  ${truncateJson((event as AgentStreamEvent & { kind: "tool-input" }).json)}${RESET}`),
+		"tool-end": () => log(`  ${DIM}  done${RESET}`),
+		error: () => log(`  ${RED}Error: ${(event as AgentStreamEvent & { kind: "error" }).message}${RESET}`),
+		usage: () => { const e = event as AgentStreamEvent & { kind: "usage" }; log(`\n  ${DIM}tokens: ${e.inputTokens} in / ${e.outputTokens} out${RESET}`); },
+		done: () => log(`\n  ${GREEN}Agent finished${RESET}`),
+	};
+	renderers[event.kind]();
 }
 
 /** Render a completion summary for a finished agent session. */

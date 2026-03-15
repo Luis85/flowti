@@ -209,7 +209,7 @@ describe("createAgentShell", () => {
 			const agent = createMockAgent();
 			shell.dispatch(agent, "/brief.md", "task");
 			expect(deps.shell.spawnBackground).toHaveBeenCalledWith(
-				expect.stringMatching(/claude.*< \/brief\.md/),
+				expect.stringMatching(/claude.*< "\/brief\.md"/),
 			);
 		});
 

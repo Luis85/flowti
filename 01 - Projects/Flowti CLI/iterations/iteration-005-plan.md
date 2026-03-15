@@ -34,15 +34,7 @@ Agents are LLM backed — each agent can be spawned as a background Node process
 
 ## Scope Items
 
-
-
-
-
-
-
-
-
-
+- [ ] Assist with tasks
 - [ ] Run all Reports once finished and review results
 - [ ] Flag blockers early
 - [ ] Track progress daily
@@ -52,6 +44,7 @@ Agents are LLM backed — each agent can be spawned as a background Node process
 - [x] Push the Plan to Git
 - [x] Assign resources and capacity
 - [x] Break scope into actionable tasks
+
 ### 0. Autonomous Mode Config (opt-in toggle)
 
 **Modify** `src/infrastructure/types-config.ts`:

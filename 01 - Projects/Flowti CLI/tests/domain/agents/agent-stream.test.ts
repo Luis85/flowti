@@ -179,8 +179,13 @@ describe("parseStreamLine", () => {
 			expect(parseStreamLine(line, empty)).toBeNull();
 		});
 
-		it("parses result success as done", () => {
+		it("parses result success with usage as usage event", () => {
 			const line = JSON.stringify({ type: "result", subtype: "success", result: "Hello!", usage: { input_tokens: 100, output_tokens: 5 } });
+			expect(parseStreamLine(line, empty)).toEqual({ kind: "usage", inputTokens: 100, outputTokens: 5 });
+		});
+
+		it("parses result success without usage as done event", () => {
+			const line = JSON.stringify({ type: "result", subtype: "success", result: "Hello!" });
 			expect(parseStreamLine(line, empty)).toEqual({ kind: "done" });
 		});
 

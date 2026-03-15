@@ -101,8 +101,12 @@ async function sendTurn(
 	});
 
 	// Race: session.result vs user detach
-	deps.input.ask("").then(() => { spinner.stop(); session.detach(); });
+	const detach = deps.input.askAbortable("");
+	let sessionDone = false;
+	detach.promise.then(() => { if (!sessionDone) { spinner.stop(); session.detach(); } });
 	const result = await session.result;
+	sessionDone = true;
+	detach.abort();
 	spinner.stop();
 	// Clear the thinking preview line
 	process.stdout.write(`\r${" ".repeat(100)}\r`);

@@ -27,6 +27,20 @@ export const input: IInput = {
 		});
 	},
 
+	askAbortable(question: string): { promise: Promise<string>; abort: () => void } {
+		const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+		let resolve: (value: string) => void;
+		const promise = new Promise<string>((r) => { resolve = r; });
+		rl.question(formatPrompt(question, ""), (answer) => {
+			rl.close();
+			resolve(answer.trim());
+		});
+		return {
+			promise,
+			abort() { rl.close(); resolve(""); },
+		};
+	},
+
 	async waitForEnter(): Promise<void> {
 		const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 		return new Promise((resolve) => {

@@ -62,6 +62,53 @@ export function updateStreamState(state: StreamState, line: string): StreamState
  *   1. Claude CLI format — `type: "system"|"assistant"|"result"` (what `claude -p --output-format stream-json` emits)
  *   2. Raw API SSE format — `type: "content_block_start"|"content_block_delta"|...` (for future direct API use)
  */
+function parseBlockStart(parsed: Record<string, unknown>): AgentStreamEvent | null {
+	const block = parsed.content_block as Record<string, unknown> | undefined;
+	if (!block) return null;
+	const blockType = block.type as string;
+	if (blockType === "thinking") return { kind: "thinking", text: "" };
+	if (blockType === "tool_use") return { kind: "tool-start", id: block.id as string, name: block.name as string };
+	return null;
+}
+
+function parseBlockDelta(parsed: Record<string, unknown>): AgentStreamEvent | null {
+	const delta = parsed.delta as Record<string, unknown> | undefined;
+	if (!delta) return null;
+	const deltaType = delta.type as string;
+	if (deltaType === "thinking_delta") return { kind: "thinking", text: delta.thinking as string };
+	if (deltaType === "text_delta") return { kind: "text", text: delta.text as string };
+	if (deltaType === "input_json_delta") return { kind: "tool-input", index: parsed.index as number, json: delta.partial_json as string };
+	return null;
+}
+
+function parseBlockStop(parsed: Record<string, unknown>, state: StreamState): AgentStreamEvent | null {
+	const index = parsed.index as number;
+	const block = state.activeBlocks.get(index);
+	if (block?.type === "tool" && block.id) return { kind: "tool-end", id: block.id };
+	return null;
+}
+
+function parseMessageDelta(parsed: Record<string, unknown>): AgentStreamEvent | null {
+	const usage = parsed.usage as Record<string, number> | undefined;
+	if (usage) return { kind: "usage", inputTokens: usage.input_tokens ?? 0, outputTokens: usage.output_tokens ?? 0 };
+	return null;
+}
+
+function parseErrorEvent(parsed: Record<string, unknown>): AgentStreamEvent {
+	const error = parsed.error as Record<string, unknown> | undefined;
+	return { kind: "error", message: (error?.message as string) ?? "Unknown error" };
+}
+
+function parseApiSseEvent(type: string, parsed: Record<string, unknown>, state: StreamState): AgentStreamEvent | null {
+	if (type === "content_block_start") return parseBlockStart(parsed);
+	if (type === "content_block_delta") return parseBlockDelta(parsed);
+	if (type === "content_block_stop") return parseBlockStop(parsed, state);
+	if (type === "message_delta") return parseMessageDelta(parsed);
+	if (type === "message_stop") return { kind: "done" };
+	if (type === "error") return parseErrorEvent(parsed);
+	return null;
+}
+
 export function parseStreamLine(line: string, state: StreamState): AgentStreamEvent | null {
 	if (!line) return null;
 	let parsed: Record<string, unknown>;
@@ -72,50 +119,10 @@ export function parseStreamLine(line: string, state: StreamState): AgentStreamEv
 	// ── Claude CLI format ────────────────────────────────────────────
 	if (type === "assistant") return parseCliAssistant(parsed);
 	if (type === "result") return parseCliResult(parsed);
-	if (type === "system") return null;
-	if (type === "rate_limit_event") return null;
+	if (type === "system" || type === "rate_limit_event") return null;
 
 	// ── Raw API SSE format (future-proofing) ─────────────────────────
-	if (type === "content_block_start") {
-		const block = parsed.content_block as Record<string, unknown> | undefined;
-		if (!block) return null;
-		const blockType = block.type as string;
-		if (blockType === "thinking") return { kind: "thinking", text: "" };
-		if (blockType === "tool_use") return { kind: "tool-start", id: block.id as string, name: block.name as string };
-		return null;
-	}
-
-	if (type === "content_block_delta") {
-		const delta = parsed.delta as Record<string, unknown> | undefined;
-		if (!delta) return null;
-		const deltaType = delta.type as string;
-		if (deltaType === "thinking_delta") return { kind: "thinking", text: delta.thinking as string };
-		if (deltaType === "text_delta") return { kind: "text", text: delta.text as string };
-		if (deltaType === "input_json_delta") return { kind: "tool-input", index: parsed.index as number, json: delta.partial_json as string };
-		return null;
-	}
-
-	if (type === "content_block_stop") {
-		const index = parsed.index as number;
-		const block = state.activeBlocks.get(index);
-		if (block?.type === "tool" && block.id) return { kind: "tool-end", id: block.id };
-		return null;
-	}
-
-	if (type === "message_delta") {
-		const usage = parsed.usage as Record<string, number> | undefined;
-		if (usage) return { kind: "usage", inputTokens: usage.input_tokens ?? 0, outputTokens: usage.output_tokens ?? 0 };
-		return null;
-	}
-
-	if (type === "message_stop") return { kind: "done" };
-
-	if (type === "error") {
-		const error = parsed.error as Record<string, unknown> | undefined;
-		return { kind: "error", message: (error?.message as string) ?? "Unknown error" };
-	}
-
-	return null;
+	return parseApiSseEvent(type, parsed, state);
 }
 
 // ── CLI format helpers ──────────────────────────────────────────────
@@ -140,8 +147,6 @@ function parseCliResult(parsed: Record<string, unknown>): AgentStreamEvent | nul
 		return { kind: "error", message: (parsed.result as string) ?? "Unknown error" };
 	}
 	const usage = parsed.usage as Record<string, number> | undefined;
-	const events: AgentStreamEvent[] = [];
-	if (usage) events.push({ kind: "usage", inputTokens: usage.input_tokens ?? 0, outputTokens: usage.output_tokens ?? 0 });
-	// result event signals completion — return done
+	if (usage) return { kind: "usage", inputTokens: usage.input_tokens ?? 0, outputTokens: usage.output_tokens ?? 0 };
 	return { kind: "done" };
 }

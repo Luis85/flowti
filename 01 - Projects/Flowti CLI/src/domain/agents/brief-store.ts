@@ -257,6 +257,19 @@ function formatBriefAttributes(attrs: import("./agent-types.js").AgentAttributes
 	return parts.join(", ");
 }
 
+function hasBriefCharacterTraits(ctx: BriefContext): boolean {
+	return !!(ctx.agentMood || ctx.agentPersonality || ctx.agentAttributes || ctx.agentExperience !== undefined);
+}
+
+function appendCharacterInfo(lines: string[], ctx: BriefContext): void {
+	if (ctx.agentPersona) lines.push(`**Persona**: ${ctx.agentPersona}`);
+	if (ctx.agentMood) lines.push(`**Disposition**: ${ctx.agentMood}`);
+	if (ctx.agentPersonality && ctx.agentPersonality.length > 0) lines.push(`**Personality**: ${ctx.agentPersonality.join(". ")}`);
+	if (ctx.agentAttributes) lines.push(`**Attributes**: ${formatBriefAttributes(ctx.agentAttributes)}`);
+	if (ctx.agentExperience !== undefined) lines.push(`**Experience**: ${ctx.agentExperience} XP`);
+	if (hasBriefCharacterTraits(ctx)) lines.push("");
+}
+
 function appendRole(lines: string[], ctx: BriefContext): void {
 	lines.push("## Your Role", "");
 	if (ctx.orchestration) {
@@ -264,12 +277,7 @@ function appendRole(lines: string[], ctx: BriefContext): void {
 		lines.push("Use other agents from the roster to delegate specialist work and maintain quality throughout the process.", "");
 	}
 	if (ctx.agentDescription) { lines.push(ctx.agentDescription); lines.push(""); }
-	if (ctx.agentPersona) lines.push(`**Persona**: ${ctx.agentPersona}`);
-	if (ctx.agentMood) lines.push(`**Disposition**: ${ctx.agentMood}`);
-	if (ctx.agentPersonality && ctx.agentPersonality.length > 0) lines.push(`**Personality**: ${ctx.agentPersonality.join(". ")}`);
-	if (ctx.agentAttributes) lines.push(`**Attributes**: ${formatBriefAttributes(ctx.agentAttributes)}`);
-	if (ctx.agentExperience !== undefined) lines.push(`**Experience**: ${ctx.agentExperience} XP`);
-	if (ctx.agentMood || ctx.agentPersonality || ctx.agentAttributes || ctx.agentExperience !== undefined) lines.push("");
+	appendCharacterInfo(lines, ctx);
 	const hasSkills = ctx.agentSkills && ctx.agentSkills.length > 0;
 	const hasRoles = ctx.agentRoles && ctx.agentRoles.length > 0;
 	if (hasSkills) lines.push(`**Skills**: ${ctx.agentSkills!.join(", ")}`);

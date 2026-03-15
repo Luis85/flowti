@@ -118,7 +118,7 @@ function makeDeps() {
 			dirname: vi.fn(),
 			basename: vi.fn((p: string) => p.split("/").pop()!),
 		},
-		input: { ask: vi.fn(), askYesNo: vi.fn(), waitForEnter: vi.fn() },
+		input: { ask: vi.fn(), askAbortable: vi.fn(() => ({ promise: NEVER, abort: vi.fn() })), askYesNo: vi.fn(), waitForEnter: vi.fn() },
 		shell: {
 			check: vi.fn(() => true),
 		},
@@ -468,7 +468,6 @@ describe("talkToAgentInteractive", () => {
 
 		deps.input.ask
 			.mockResolvedValueOnce("Hello Bob")  // first message
-			.mockReturnValueOnce(NEVER)           // detach race (never resolves — session.result wins)
 			.mockResolvedValueOnce("");           // end: empty → break
 
 		await talkToAgentInteractive("/proj", makeAgent(), undefined, deps);
@@ -480,9 +479,7 @@ describe("talkToAgentInteractive", () => {
 		const deps = makeDeps();
 		deps.agentShell.talk.mockReturnValueOnce(makeTalkSession({ message: "Response", status: "ready" }));
 
-		deps.input.ask
-			.mockResolvedValueOnce("Hello")
-			.mockReturnValueOnce(NEVER);           // detach race
+		deps.input.ask.mockResolvedValueOnce("Hello");
 
 		await talkToAgentInteractive("/proj", makeAgent(), undefined, deps);
 		expect(mockSaveConversation).toHaveBeenCalled();
@@ -496,9 +493,7 @@ describe("talkToAgentInteractive", () => {
 
 		deps.input.ask
 			.mockResolvedValueOnce("Hello")
-			.mockReturnValueOnce(NEVER)           // detach race (turn 1)
-			.mockResolvedValueOnce("React")
-			.mockReturnValueOnce(NEVER);          // detach race (turn 2)
+			.mockResolvedValueOnce("React");
 
 		await talkToAgentInteractive("/proj", makeAgent(), undefined, deps);
 		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("(question)"));
@@ -510,9 +505,7 @@ describe("talkToAgentInteractive", () => {
 		const deps = makeDeps();
 		deps.agentShell.talk.mockReturnValueOnce(makeTalkSession());
 
-		deps.input.ask
-			.mockResolvedValueOnce("Hello")  // user message
-			.mockReturnValueOnce(NEVER);     // detach race (never resolves)
+		deps.input.ask.mockResolvedValueOnce("Hello");
 		await talkToAgentInteractive("/proj", makeAgent(), undefined, deps);
 		expect(deps.log).toHaveBeenCalledWith(expect.stringContaining("No response received"));
 	});

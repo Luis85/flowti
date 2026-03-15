@@ -167,6 +167,7 @@ export interface IClock {
 
 export interface IInput {
 	ask(question: string, defaultValue?: string): Promise<string>;
+	askAbortable(question: string): { promise: Promise<string>; abort: () => void };
 	askYesNo(question: string, defaultNo?: boolean): Promise<boolean>;
 	waitForEnter(): Promise<void>;
 }

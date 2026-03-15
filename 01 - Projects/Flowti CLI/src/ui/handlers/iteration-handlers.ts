@@ -61,12 +61,17 @@ async function buildScopeRecommendations(ctx: RouterContext): Promise<Array<{ ag
 	return recs;
 }
 
-/** Generate a brief for the active agent on the current iteration. */
-async function generateIterationBrief(ctx: RouterContext): Promise<string | null> {
+async function resolveIterationBriefContext(ctx: RouterContext): Promise<{
+	iteration: import("../../domain/iterations/iteration-types.js").IterationSummary;
+	active: { name: string; role?: string; instruction?: string };
+	systemPrompt: string | null;
+	details: Awaited<ReturnType<typeof resolveAgentDetails>>;
+	template: import("../../domain/lifecycle/lifecycle-types.js").LifecycleTemplate | null;
+	availableSkills: readonly string[] | undefined;
+} | null> {
 	if (!ctx.project) return null;
-	const { findCurrentIteration, iterationsDir } = await import("../../domain/iterations/iteration-store.js");
+	const { findCurrentIteration } = await import("../../domain/iterations/iteration-store.js");
 	const { getActiveAgent } = await import("../../domain/agents/agent-orchestration.js");
-	const { generateBrief, saveBrief } = await import("../../domain/agents/brief-store.js");
 	const { loadIterationTemplate } = await import("./iteration-template-loader.js");
 	const config = ctx.project.config.management?.iterations;
 	const iteration = findCurrentIteration(ctx.deps, ctx.project.path, config);
@@ -77,12 +82,22 @@ async function generateIterationBrief(ctx: RouterContext): Promise<string | null
 	const details = await resolveAgentDetails(ctx, active.name);
 	const template = loadIterationTemplate(ctx.deps, ctx.project.path, config);
 	const availableSkills = await resolveAvailableSkills(ctx, active.name);
+	return { iteration, active, systemPrompt, details, template, availableSkills };
+}
+
+async function generateIterationBrief(ctx: RouterContext): Promise<string | null> {
+	const resolved = await resolveIterationBriefContext(ctx);
+	if (!resolved) return null;
+	const { iteration, active, systemPrompt, details, template, availableSkills } = resolved;
+	const { generateBrief, saveBrief } = await import("../../domain/agents/brief-store.js");
+	const { iterationsDir } = await import("../../domain/iterations/iteration-store.js");
+	const d = details ?? { description: "", skills: [] as string[], roles: [] as string[] };
 	const brief = generateBrief({
-		agentName: active.name, agentDescription: details?.description, agentSkills: details?.skills, agentRoles: details?.roles,
-		agentPersona: details?.persona, agentMood: details?.mood, agentPersonality: details?.personality, agentAttributes: details?.attributes, agentExperience: details?.experience,
+		agentName: active.name, agentDescription: d.description, agentSkills: d.skills, agentRoles: d.roles,
+		agentPersona: d.persona, agentMood: d.mood, agentPersonality: d.personality, agentAttributes: d.attributes, agentExperience: d.experience,
 		systemPrompt, iteration, iterationTemplate: template ?? undefined, availableSkills,
 	});
-	const dir = iterationsDir(ctx.deps, ctx.project.path, config);
+	const dir = iterationsDir(ctx.deps, ctx.project!.path, ctx.project!.config.management?.iterations);
 	return saveBrief(ctx.deps, dir, iteration.number, active.name, iteration.status, brief);
 }
 

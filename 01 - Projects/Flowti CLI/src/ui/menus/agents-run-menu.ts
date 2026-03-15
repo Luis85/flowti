@@ -1,7 +1,7 @@
 /** agents-run-menu.ts — Interactive flows for running agents autonomously or generating briefs. */
 
 import type { CliDeps } from "../../infrastructure/deps.js";
-import type { AgentsConfig, IAgentShell } from "../../infrastructure/types.js";
+import type { AgentsConfig } from "../../infrastructure/types.js";
 import type { AgentSummary } from "../../domain/agents/agent-types.js";
 import type { IterationSummary } from "../../domain/iterations/iteration-types.js";
 

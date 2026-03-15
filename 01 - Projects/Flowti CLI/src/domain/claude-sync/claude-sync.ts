@@ -58,6 +58,54 @@ function appendSkillMap(lines: string[], domain: string | undefined, skillMap?: 
 
 // ── Agent skill content ─────────────────────────────────────────────
 
+function formatAgentAttributes(attrs: import("../agents/agent-types.js").AgentAttributes): string {
+	const parts: string[] = [];
+	if (attrs.str !== undefined) parts.push(`STR ${attrs.str}`);
+	if (attrs.int !== undefined) parts.push(`INT ${attrs.int}`);
+	if (attrs.wis !== undefined) parts.push(`WIS ${attrs.wis}`);
+	if (attrs.cha !== undefined) parts.push(`CHA ${attrs.cha}`);
+	if (attrs.dex !== undefined) parts.push(`DEX ${attrs.dex}`);
+	if (attrs.con !== undefined) parts.push(`CON ${attrs.con}`);
+	return parts.join(", ");
+}
+
+function hasAgentCharacterTraits(agent: AgentSummary): boolean {
+	return !!(agent.mood || agent.personality || agent.attributes || agent.experience !== undefined);
+}
+
+function appendAgentCharacter(lines: string[], agent: AgentSummary): void {
+	if (agent.persona) lines.push(`**Persona**: ${agent.persona}`);
+	if (agent.mood) lines.push(`**Disposition**: ${agent.mood}`);
+	if (agent.personality && agent.personality.length > 0) lines.push(`**Personality**: ${agent.personality.join(". ")}`);
+	if (agent.attributes) {
+		const formatted = formatAgentAttributes(agent.attributes);
+		if (formatted) lines.push(`**Attributes**: ${formatted}`);
+	}
+	if (agent.experience !== undefined) lines.push(`**Experience**: ${agent.experience} XP`);
+	if (hasAgentCharacterTraits(agent)) lines.push("");
+}
+
+function appendAgentRelationships(lines: string[], agent: AgentSummary): void {
+	if (!agent.relationships || agent.relationships.length === 0) return;
+	lines.push("**Relationships**:");
+	for (const r of agent.relationships) lines.push(`- ${r.type} → ${r.target}${r.description ? `: ${r.description}` : ""}`);
+	lines.push("");
+}
+
+function appendAgentInventory(lines: string[], agent: AgentSummary): void {
+	if (!agent.inventory || agent.inventory.length === 0) return;
+	lines.push("**Inventory**:");
+	for (const item of agent.inventory) lines.push(`- \`${item.path}\`${item.label ? ` — ${item.label}` : ""}`);
+	lines.push("");
+}
+
+function appendAgentMeta(lines: string[], agent: AgentSummary): void {
+	if (agent.tools.length > 0) lines.push(`**Tools**: ${agent.tools.join(", ")}\n`);
+	if (agent.roles.length > 0) lines.push(`**Roles**: ${agent.roles.join(", ")}\n`);
+	if (agent.preferredPhases && agent.preferredPhases.length > 0) lines.push(`**Preferred Phases**: ${agent.preferredPhases.join(", ")}\n`);
+	if (agent.behaviors && agent.behaviors.length > 0) lines.push(`**Behaviors**: ${agent.behaviors.join(", ")}\n`);
+}
+
 function agentDetailBlock(agent: AgentSummary, prompt: string | null, skillMap?: Record<string, string[]>): string {
 	const lines: string[] = [];
 	lines.push(`## ${agent.name}\n`);
@@ -70,35 +118,10 @@ function agentDetailBlock(agent: AgentSummary, prompt: string | null, skillMap?:
 		for (const s of agent.skills) lines.push(`- ${s.name}${s.level ? ` (${s.level})` : ""}`);
 		lines.push("");
 	}
-	if (agent.persona) lines.push(`**Persona**: ${agent.persona}`);
-	if (agent.mood) lines.push(`**Disposition**: ${agent.mood}`);
-	if (agent.personality && agent.personality.length > 0) lines.push(`**Personality**: ${agent.personality.join(". ")}`);
-	if (agent.attributes) {
-		const attrs: string[] = [];
-		if (agent.attributes.str !== undefined) attrs.push(`STR ${agent.attributes.str}`);
-		if (agent.attributes.int !== undefined) attrs.push(`INT ${agent.attributes.int}`);
-		if (agent.attributes.wis !== undefined) attrs.push(`WIS ${agent.attributes.wis}`);
-		if (agent.attributes.cha !== undefined) attrs.push(`CHA ${agent.attributes.cha}`);
-		if (agent.attributes.dex !== undefined) attrs.push(`DEX ${agent.attributes.dex}`);
-		if (agent.attributes.con !== undefined) attrs.push(`CON ${agent.attributes.con}`);
-		if (attrs.length > 0) lines.push(`**Attributes**: ${attrs.join(", ")}`);
-	}
-	if (agent.experience !== undefined) lines.push(`**Experience**: ${agent.experience} XP`);
-	if (agent.mood || agent.personality || agent.attributes || agent.experience !== undefined) lines.push("");
-	if (agent.tools.length > 0) lines.push(`**Tools**: ${agent.tools.join(", ")}\n`);
-	if (agent.roles.length > 0) lines.push(`**Roles**: ${agent.roles.join(", ")}\n`);
-	if (agent.preferredPhases && agent.preferredPhases.length > 0) lines.push(`**Preferred Phases**: ${agent.preferredPhases.join(", ")}\n`);
-	if (agent.behaviors && agent.behaviors.length > 0) lines.push(`**Behaviors**: ${agent.behaviors.join(", ")}\n`);
-	if (agent.relationships && agent.relationships.length > 0) {
-		lines.push("**Relationships**:");
-		for (const r of agent.relationships) lines.push(`- ${r.type} → ${r.target}${r.description ? `: ${r.description}` : ""}`);
-		lines.push("");
-	}
-	if (agent.inventory && agent.inventory.length > 0) {
-		lines.push("**Inventory**:");
-		for (const item of agent.inventory) lines.push(`- \`${item.path}\`${item.label ? ` — ${item.label}` : ""}`);
-		lines.push("");
-	}
+	appendAgentCharacter(lines, agent);
+	appendAgentMeta(lines, agent);
+	appendAgentRelationships(lines, agent);
+	appendAgentInventory(lines, agent);
 	appendSkillMap(lines, agent.domain, skillMap);
 	if (prompt) {
 		lines.push("### System Prompt\n");
@@ -147,6 +170,30 @@ export function generateAgentSkillContent(agents: AgentSummary[], agentsDir: str
 
 // ── Tool skill content ──────────────────────────────────────────────
 
+function toolDetailBlock(tool: LoadedAiTool): string {
+	const lines: string[] = [];
+	const d = tool.definition;
+	lines.push(`## ${d.name}\n`);
+	lines.push(`> ${d.description}\n`);
+	lines.push(`**Run**: \`${d.run}\``);
+	if (d.cwd) lines.push(`**Working Directory**: \`${d.cwd}\``);
+	if (d.version) lines.push(`**Version**: ${d.version}`);
+	lines.push("");
+	if (d.params && d.params.length > 0) {
+		lines.push("**Parameters**:\n");
+		lines.push("| Name | Type | Required | Description |");
+		lines.push("|------|------|----------|-------------|");
+		for (const p of d.params) {
+			const req = p.required ? "yes" : "no";
+			const def = p.default !== undefined ? ` (default: ${p.default})` : "";
+			lines.push(`| ${p.name} | ${p.type} | ${req} | ${p.description}${def} |`);
+		}
+		lines.push("");
+	}
+	if (d.tags && d.tags.length > 0) lines.push(`**Tags**: ${d.tags.join(", ")}\n`);
+	return lines.join("\n");
+}
+
 /** Generate the full SKILL.md content for the /tools skill. */
 export function generateToolSkillContent(tools: LoadedAiTool[]): string {
 	const lines: string[] = [];
@@ -177,26 +224,8 @@ export function generateToolSkillContent(tools: LoadedAiTool[]): string {
 
 	// Detail sections
 	for (const t of valid) {
-		const d = t.definition;
 		lines.push("---\n");
-		lines.push(`## ${d.name}\n`);
-		lines.push(`> ${d.description}\n`);
-		lines.push(`**Run**: \`${d.run}\``);
-		if (d.cwd) lines.push(`**Working Directory**: \`${d.cwd}\``);
-		if (d.version) lines.push(`**Version**: ${d.version}`);
-		lines.push("");
-		if (d.params && d.params.length > 0) {
-			lines.push("**Parameters**:\n");
-			lines.push("| Name | Type | Required | Description |");
-			lines.push("|------|------|----------|-------------|");
-			for (const p of d.params) {
-				const req = p.required ? "yes" : "no";
-				const def = p.default !== undefined ? ` (default: ${p.default})` : "";
-				lines.push(`| ${p.name} | ${p.type} | ${req} | ${p.description}${def} |`);
-			}
-			lines.push("");
-		}
-		if (d.tags && d.tags.length > 0) lines.push(`**Tags**: ${d.tags.join(", ")}\n`);
+		lines.push(toolDetailBlock(t));
 	}
 
 	return lines.join("\n");

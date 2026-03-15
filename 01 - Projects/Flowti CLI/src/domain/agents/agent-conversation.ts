@@ -88,17 +88,25 @@ function formatAttributes(attrs: AgentAttributes): string {
 	return parts.join(", ");
 }
 
+function appendCharacterTraits(lines: string[], character?: AgentCharacter): void {
+	if (character?.mood) lines.push(`**Disposition**: ${character.mood}`);
+	if (character?.personality && character.personality.length > 0) lines.push(`**Personality**: ${character.personality.join(". ")}`);
+	if (character?.attributes) lines.push(`**Attributes**: ${formatAttributes(character.attributes)}`);
+	if (character?.experience !== undefined) lines.push(`**Experience**: ${character.experience} XP`);
+}
+
+function hasCharacterTraits(character?: AgentCharacter): boolean {
+	return !!(character?.mood || character?.personality || character?.attributes || character?.experience !== undefined);
+}
+
 function buildIdentityBlock(agentName: string, character?: AgentCharacter): string {
 	const lines: string[] = [];
 	const displayName = character?.persona ? `${character.persona} (${agentName})` : agentName;
 	lines.push(`You are **${displayName}**.`);
 	if (character?.description) lines.push(character.description);
 	lines.push("");
-	if (character?.mood) lines.push(`**Disposition**: ${character.mood}`);
-	if (character?.personality && character.personality.length > 0) lines.push(`**Personality**: ${character.personality.join(". ")}`);
-	if (character?.attributes) lines.push(`**Attributes**: ${formatAttributes(character.attributes)}`);
-	if (character?.experience !== undefined) lines.push(`**Experience**: ${character.experience} XP`);
-	if (character?.mood || character?.personality || character?.attributes || character?.experience !== undefined) {
+	appendCharacterTraits(lines, character);
+	if (hasCharacterTraits(character)) {
 		lines.push("");
 		lines.push("Stay in character. Let your personality and attributes shape how you respond — a high-INT agent reasons deeply, a high-CHA agent communicates warmly, a high-DEX agent moves quickly between ideas.");
 	} else {

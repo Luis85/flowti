@@ -7,7 +7,7 @@
  * When the agent finishes, it leaves a note in the inbox.
  */
 
-import { printHeader, RESET, DIM, GREEN, RED, BOLD, CYAN } from "../../infrastructure/ui.js";
+import { printHeader, RESET, DIM, GREEN, RED, BOLD, CYAN, YELLOW } from "../../infrastructure/ui.js";
 import type { ShellMenuDeps } from "../../infrastructure/deps.js";
 import type { AgentsConfig, IterationsConfig, IAgentShell } from "../../infrastructure/types.js";
 import type { LifecycleTemplate } from "../../domain/lifecycle/lifecycle-types.js";
@@ -31,89 +31,123 @@ export interface RosterTaskOptions {
 	readonly template: LifecycleTemplate | undefined;
 }
 
-export async function rosterTaskInteractive(opts: RosterTaskOptions, deps: RosterTaskDeps): Promise<void> {
-	printHeader("Assign Task to Agent");
-
-	const iteration = findCurrentIteration(deps, opts.projectPath, opts.iterationsConfig);
-	if (!iteration) { deps.log(`\n  ${DIM}No active iteration.${RESET}\n`); return; }
-
-	const agents = getProjectAgents(deps, opts.vaultRoot, opts.agentsConfig, opts.roster);
-	if (agents.length === 0) { deps.log(`\n  ${DIM}No agents on the project roster.${RESET}\n`); return; }
-
-	// Show agent status alongside names
-	const { readAgentState } = await import("../../domain/agents/agent-state.js");
-	const varDir = deps.paths.join(opts.vaultRoot, ".flowti", "var");
-
-	renderAgentList(agents, deps.log);
-	for (const a of agents) {
-		const state = readAgentState(deps, varDir, a.name);
-		if (state.status === "busy") {
-			const who = a.persona ?? a.name;
-			deps.log(`  ${DIM}  ${who} is busy — task will be enqueued${RESET}`);
-		}
-	}
-
-	const choice = await deps.input.ask("Select agent (number or name)");
-	if (!choice) return;
-
-	const agent = resolveAgent(choice, agents);
-	if (!agent) { deps.log(`\n  ${RED}Agent "${choice}" not found.${RESET}\n`); return; }
-
-	const task = await promptForTask(agent, iteration.status, deps);
-	if (!task) return;
-
-	const who = agent.persona ?? agent.name;
+function ensureBriefExists(
+	deps: RosterTaskDeps, dir: string, iteration: import("../../domain/iterations/iteration-types.js").IterationSummary,
+	agent: AgentSummary, agents: AgentSummary[], opts: RosterTaskOptions, task: string,
+): void {
 	const phase = iteration.status;
-	const dir = iterationsDir(deps, opts.projectPath, opts.iterationsConfig);
-
-	// Add task to brief
 	const existing = findBrief(deps, dir, iteration.number, agent.name, phase);
 	if (existing) {
 		appendTask(deps, dir, iteration.number, agent.name, phase, task);
-	} else {
-		const rosterAgents = agents.map((a) => ({ name: a.name, description: a.description, roles: a.roles, skills: a.skills.map((s) => s.name), mood: a.mood, personality: a.personality }));
-		const availableSkills = opts.agentsConfig?.skillMap?.[agent.domain ?? ""];
-		const brief = generateBrief({
-			agentName: agent.name, agentDescription: agent.description,
-			agentSkills: agent.skills.map((s) => s.level ? `${s.name} (${s.level})` : s.name), agentRoles: agent.roles,
-			agentPersona: agent.persona, agentMood: agent.mood, agentPersonality: agent.personality, agentAttributes: agent.attributes, agentExperience: agent.experience,
-			systemPrompt: readSystemPrompt(deps, opts.vaultRoot, agent.name, opts.agentsConfig),
-			iteration, iterationTemplate: opts.template, rosterAgents, availableSkills,
-		});
-		saveBrief(deps, dir, iteration.number, agent.name, phase, brief);
-		appendTask(deps, dir, iteration.number, agent.name, phase, task);
+		return;
 	}
+	const rosterAgents = agents.map((a) => ({ name: a.name, description: a.description, roles: a.roles, skills: a.skills.map((s) => s.name), mood: a.mood, personality: a.personality }));
+	const brief = generateBrief({
+		agentName: agent.name, agentDescription: agent.description,
+		agentSkills: agent.skills.map((s) => s.level ? `${s.name} (${s.level})` : s.name), agentRoles: agent.roles,
+		agentPersona: agent.persona, agentMood: agent.mood, agentPersonality: agent.personality, agentAttributes: agent.attributes, agentExperience: agent.experience,
+		systemPrompt: readSystemPrompt(deps, opts.vaultRoot, agent.name, opts.agentsConfig),
+		iteration, iterationTemplate: opts.template, rosterAgents, availableSkills: opts.agentsConfig?.skillMap?.[agent.domain ?? ""],
+	});
+	saveBrief(deps, dir, iteration.number, agent.name, phase, brief);
+	appendTask(deps, dir, iteration.number, agent.name, phase, task);
+}
 
-	// Record task in agent state
-	const { writeAgentState, addTask: addStateTask } = await import("../../domain/agents/agent-state.js");
-	let state = readAgentState(deps, varDir, agent.name);
-	state = addStateTask(state, { name: task, assignedAt: deps.clock.iso(), status: "pending", iterationNumber: iteration.number });
-
-	// Check if agent is already busy — enqueue only
-	if (state.status === "busy") {
+async function assignTaskToAgent(
+	agent: AgentSummary, task: string, state: import("../../domain/agents/agent-state.js").AgentState,
+	wasBusy: boolean, opts: RosterTaskOptions, iteration: import("../../domain/iterations/iteration-types.js").IterationSummary,
+	dir: string, deps: RosterTaskDeps, varDir: string,
+): Promise<void> {
+	const who = agent.persona ?? agent.name;
+	const { writeAgentState } = await import("../../domain/agents/agent-state.js");
+	if (wasBusy) {
 		writeAgentState(deps, varDir, agent.name, state);
 		deps.log(`\n  ${GREEN}✓${RESET} Task enqueued for ${BOLD}${who}${RESET} ${DIM}(currently busy)${RESET}\n`);
 		return;
 	}
-
-	// AI agents get a clarification chat before launch
 	if (agent.agentType === "ai" && deps.shell.check("claude --version")) {
 		deps.log(`\n  ${DIM}Starting clarification chat with ${who}...${RESET}\n`);
 		const launched = await clarifyAndLaunch(agent, task, opts, iteration, dir, deps);
 		if (launched) {
 			writeAgentState(deps, varDir, agent.name, { ...state, status: "busy" });
 			deps.log(`  ${GREEN}✓${RESET} ${BOLD}${who}${RESET} is working on the task. A note will appear in your inbox when done.\n`);
-		} else {
-			writeAgentState(deps, varDir, agent.name, state);
-			deps.log(`\n  ${GREEN}✓${RESET} Task assigned to ${BOLD}${who}${RESET}'s brief.\n`);
+			return;
 		}
-	} else {
-		writeAgentState(deps, varDir, agent.name, state);
-		deps.log(`\n  ${GREEN}✓${RESET} Task assigned to ${BOLD}${who}${RESET}'s brief.\n`);
+	}
+	writeAgentState(deps, varDir, agent.name, state);
+	deps.log(`\n  ${GREEN}✓${RESET} Task assigned to ${BOLD}${who}${RESET}'s brief.\n`);
+}
+
+export async function rosterTaskInteractive(opts: RosterTaskOptions, deps: RosterTaskDeps): Promise<void> {
+	printHeader("Assign Task to Agent");
+	const iteration = findCurrentIteration(deps, opts.projectPath, opts.iterationsConfig);
+	if (!iteration) { deps.log(`\n  ${DIM}No active iteration.${RESET}\n`); return; }
+	const agents = getProjectAgents(deps, opts.vaultRoot, opts.agentsConfig, opts.roster);
+	if (agents.length === 0) { deps.log(`\n  ${DIM}No agents on the project roster.${RESET}\n`); return; }
+
+	const { readAgentState, addTask: addStateTask } = await import("../../domain/agents/agent-state.js");
+	const varDir = deps.paths.join(opts.vaultRoot, ".flowti", "var");
+
+	renderAgentList(agents, deps.log);
+	for (const a of agents) {
+		const st = readAgentState(deps, varDir, a.name);
+		if (st.status === "busy") deps.log(`  ${DIM}  ${a.persona ?? a.name} is busy — task will be enqueued${RESET}`);
+	}
+
+	const choice = await deps.input.ask("Select agent (number or name)");
+	if (!choice) return;
+	const agent = resolveAgent(choice, agents);
+	if (!agent) { deps.log(`\n  ${RED}Agent "${choice}" not found.${RESET}\n`); return; }
+
+	const task = await promptForTask(agent, iteration.status, deps);
+	if (!task) return;
+
+	const dir = iterationsDir(deps, opts.projectPath, opts.iterationsConfig);
+	ensureBriefExists(deps, dir, iteration, agent, agents, opts, task);
+
+	const prevState = readAgentState(deps, varDir, agent.name);
+	const wasBusy = prevState.status === "busy";
+	const state = addStateTask(prevState, { name: task, assignedAt: deps.clock.iso(), status: "pending", iterationNumber: iteration.number });
+	await assignTaskToAgent(agent, task, state, wasBusy, opts, iteration, dir, deps, varDir);
+}
+
+function logAgentMessage(who: string, message: string, deps: RosterTaskDeps): void {
+	deps.log(`\n  ${CYAN}${BOLD}${who}${RESET}`);
+	for (const line of message.split("\n")) deps.log(`    ${line}`);
+	deps.log("");
+}
+
+const SPINNER_FRAMES = ["   ", ".  ", ".. ", "..."];
+
+function createSpinner(label: string): { stop: () => void } {
+	let frame = 0;
+	const render = (): void => { process.stdout.write(`\r  ${DIM}${label}${SPINNER_FRAMES[frame % SPINNER_FRAMES.length]}${RESET}`); };
+	render();
+	const timer = setInterval(() => { frame++; render(); }, 400);
+	return { stop() { clearInterval(timer); process.stdout.write(`\r${" ".repeat(label.length + 10)}\r`); } };
+}
+
+async function runClarificationLoop(
+	agent: AgentSummary, task: string, systemPrompt: string | null, character: AgentCharacter,
+	history: Array<{ role: "user" | "agent"; content: string }>, deps: RosterTaskDeps,
+): Promise<void> {
+	const who = agent.persona ?? agent.name;
+	while (true) {
+		const reply = await deps.input.ask(`  ${BOLD}You${RESET} ${DIM}(Enter to launch)${RESET}`);
+		if (reply === undefined || reply === "") break;
+		history.push({ role: "user", content: reply });
+		const spinner = createSpinner(who);
+		const followUp = buildClarificationPrompt(agent.name, systemPrompt, task, "", "", history, reply, character);
+		const followSession = deps.agentShell.talk(agent, followUp, { idleTimeoutMs: 300_000 });
+		const followResult = await followSession.result;
+		spinner.stop();
+		if (!followResult || !followResult.response.message) break;
+		history.push({ role: "agent", content: followResult.response.message });
+		logAgentMessage(who, followResult.response.message, deps);
+		if (followResult.response.status === "ready") break;
 	}
 }
 
-/** Short clarification chat via agentShell.talk(), then launch via agentShell.dispatch(). Returns true if launched. */
 async function clarifyAndLaunch(
 	agent: AgentSummary, task: string, opts: RosterTaskOptions,
 	iteration: import("../../domain/iterations/iteration-types.js").IterationSummary,
@@ -123,42 +157,34 @@ async function clarifyAndLaunch(
 	const systemPrompt = readSystemPrompt(deps, opts.vaultRoot, agent.name, opts.agentsConfig);
 	const character: AgentCharacter = { description: agent.description, persona: agent.persona, mood: agent.mood, personality: agent.personality, attributes: agent.attributes, experience: agent.experience };
 	const history: Array<{ role: "user" | "agent"; content: string }> = [];
-
-	// Initial clarification — agent reviews the task
-	const content = buildClarificationPrompt(agent.name, systemPrompt, task, "", "", history, undefined, character);
-	const session = deps.agentShell.talk(agent, content);
+	const briefContext = readBriefContent(deps, iterDir, iteration, agent);
+	const content = buildClarificationPrompt(agent.name, systemPrompt, task, "", briefContext, history, undefined, character);
+	const spinner = createSpinner(who);
+	const session = deps.agentShell.talk(agent, content, { idleTimeoutMs: 300_000 });
 	const firstResult = await session.result;
+	spinner.stop();
 	if (!firstResult || !firstResult.response.message) return false;
-
 	history.push({ role: "agent", content: firstResult.response.message });
-	deps.log(`\n  ${CYAN}${BOLD}${who}${RESET}`);
-	for (const line of firstResult.response.message.split("\n")) deps.log(`    ${line}`);
-	deps.log("");
-
-	if (firstResult.response.status === "ready") {
-		return launchBackground(agent, task, iterDir, iteration, deps);
+	logAgentMessage(who, firstResult.response.message, deps);
+	if (firstResult.response.status !== "ready") {
+		await runClarificationLoop(agent, task, systemPrompt, character, history, deps);
 	}
-
-	// Clarification loop
-	while (true) {
-		const reply = await deps.input.ask(`  ${BOLD}You${RESET} ${DIM}(Enter to launch)${RESET}`);
-		if (reply === undefined || reply === "") break;
-		history.push({ role: "user", content: reply });
-
-		const followUp = buildClarificationPrompt(agent.name, systemPrompt, task, "", "", history, reply, character);
-		const followSession = deps.agentShell.talk(agent, followUp);
-		const followResult = await followSession.result;
-		if (!followResult || !followResult.response.message) break;
-
-		history.push({ role: "agent", content: followResult.response.message });
-		deps.log(`\n  ${CYAN}${BOLD}${who}${RESET}`);
-		for (const line of followResult.response.message.split("\n")) deps.log(`    ${line}`);
-		deps.log("");
-
-		if (followResult.response.status === "ready") break;
-	}
-
 	return launchBackground(agent, task, iterDir, iteration, deps);
+}
+
+function readBriefContent(
+	deps: RosterTaskDeps, iterDir: string,
+	iteration: import("../../domain/iterations/iteration-types.js").IterationSummary,
+	agent: AgentSummary,
+): string {
+	const phase = iteration.status;
+	const briefDir = deps.paths.join(iterDir, "briefs");
+	if (!deps.disk.existsSync(briefDir)) return "";
+	const files = deps.disk.readdirSync(briefDir);
+	const slug = agent.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+	const briefFile = files.find((f) => f.includes(slug) && f.includes(phase));
+	if (!briefFile) return "";
+	try { return deps.disk.readFileSync(deps.paths.join(briefDir, briefFile), "utf-8"); } catch { return ""; }
 }
 
 /** Launch agent in background via agentShell.dispatch(). */
