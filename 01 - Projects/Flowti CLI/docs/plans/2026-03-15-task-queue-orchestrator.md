@@ -40,7 +40,7 @@ The spec proposed `r` as the refresh key, but 3 pages already use `r` (README, R
 - Modify: `src/domain/agents/agent-state.ts`
 - Modify: `tests/domain/agents/agent-state.test.ts` (if exists, else create at `tests/domain/agents/agent-state.test.ts`)
 
-- [ ] **Step 1: Write tests for `completeFirstTask`**
+- [x] **Step 1: Write tests for `completeFirstTask`**
 
 Add to the agent-state test file:
 
@@ -113,11 +113,11 @@ describe("completeFirstTask", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests — expect FAIL (function not defined)**
+- [x] **Step 2: Run tests — expect FAIL (function not defined)**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run tests/domain/agents/agent-state.test.ts --config configs/vitest.config.ts`
 
-- [ ] **Step 3: Implement `completeFirstTask`**
+- [x] **Step 3: Implement `completeFirstTask`**
 
 Add to `src/domain/agents/agent-state.ts` after `completeTask`:
 
@@ -138,11 +138,11 @@ export function completeFirstTask(state: AgentState, taskName: string): AgentSta
 }
 ```
 
-- [ ] **Step 4: Run tests — expect PASS**
+- [x] **Step 4: Run tests — expect PASS**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run tests/domain/agents/agent-state.test.ts --config configs/vitest.config.ts`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add "01 - Projects/Flowti CLI/src/domain/agents/agent-state.ts" "01 - Projects/Flowti CLI/tests/domain/agents/agent-state.test.ts"
@@ -158,7 +158,7 @@ git commit -m "feat: add completeFirstTask to agent-state"
 **Files:**
 - Modify: `src/infrastructure/types.ts`
 
-- [ ] **Step 1: Add `reconcileStaleAgents` to `IAgentShell`**
+- [x] **Step 1: Add `reconcileStaleAgents` to `IAgentShell`**
 
 After `getActiveDispatch` in the `IAgentShell` interface, add:
 
@@ -166,7 +166,7 @@ After `getActiveDispatch` in the `IAgentShell` interface, add:
 reconcileStaleAgents(): { recovered: string[] };
 ```
 
-- [ ] **Step 2: Add `"refresh"` to `MenuResult`**
+- [x] **Step 2: Add `"refresh"` to `MenuResult`**
 
 Change:
 
@@ -180,12 +180,12 @@ To:
 export type MenuResult = "main" | "quit" | "start" | "refresh" | void;
 ```
 
-- [ ] **Step 3: Verify type-check**
+- [x] **Step 3: Verify type-check**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx tsc --noEmit --project configs/tsconfig.json`
 Expected: FAIL — `createAgentShell` doesn't return `reconcileStaleAgents` yet. That's OK — fixed in Task 3.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add "01 - Projects/Flowti CLI/src/infrastructure/types.ts"
@@ -198,7 +198,7 @@ git commit -m "feat: add reconcileStaleAgents to IAgentShell and refresh to Menu
 - Modify: `src/infrastructure/agent-shell.ts`
 - Modify: `tests/infrastructure/agent-shell.test.ts`
 
-- [ ] **Step 1: Import `completeFirstTask` in agent-shell.ts**
+- [x] **Step 1: Import `completeFirstTask` in agent-shell.ts**
 
 Update the import from agent-state.ts:
 
@@ -206,7 +206,7 @@ Update the import from agent-state.ts:
 import { readAgentState, writeAgentState, completeFirstTask } from "../domain/agents/agent-state.js";
 ```
 
-- [ ] **Step 2: Add failure counter and system inbox note writer**
+- [x] **Step 2: Add failure counter and system inbox note writer**
 
 Inside `createAgentShell`, after the `varDir` declaration, add:
 
@@ -232,7 +232,7 @@ function writeSystemInboxNote(
 }
 ```
 
-- [ ] **Step 3: Replace the dispatch completion handler**
+- [x] **Step 3: Replace the dispatch completion handler**
 
 Replace the current completion handler (lines 255-265):
 
@@ -298,7 +298,7 @@ proc.waitForExit(processTimeout).then((exitCode) => {
 
 Change `return {` to `const shell: IAgentShell = {` and add `return shell;` at the end of `createAgentShell`.
 
-- [ ] **Step 4: Add `reconcileStaleAgents` method**
+- [x] **Step 4: Add `reconcileStaleAgents` method**
 
 Add to the shell object, after `getActiveDispatch`:
 
@@ -324,7 +324,7 @@ reconcileStaleAgents(): { recovered: string[] } {
 },
 ```
 
-- [ ] **Step 5: Write tests for auto-dequeue and health monitor**
+- [x] **Step 5: Write tests for auto-dequeue and health monitor**
 
 Add to `tests/infrastructure/agent-shell.test.ts`:
 
@@ -383,15 +383,15 @@ describe("reconcileStaleAgents", () => {
 
 Note: These tests are structural guides. The implementer should write the full mock setup following the existing patterns in agent-shell.test.ts (using `createMockDeps`, `createMockAgent`, etc.).
 
-- [ ] **Step 6: Run tests**
+- [x] **Step 6: Run tests**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run tests/infrastructure/agent-shell.test.ts --config configs/vitest.config.ts`
 
-- [ ] **Step 7: Verify type-check**
+- [x] **Step 7: Verify type-check**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx tsc --noEmit --project configs/tsconfig.json`
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add "01 - Projects/Flowti CLI/src/infrastructure/agent-shell.ts" "01 - Projects/Flowti CLI/tests/infrastructure/agent-shell.test.ts"
@@ -408,7 +408,7 @@ git commit -m "feat: auto-dequeue on dispatch completion and reconcileStaleAgent
 - Modify: `src/infrastructure/menu.ts`
 - Modify: `src/infrastructure/sitemap-router.ts`
 
-- [ ] **Step 1: Add `"refresh"` to EXIT_RESULTS in menu.ts**
+- [x] **Step 1: Add `"refresh"` to EXIT_RESULTS in menu.ts**
 
 Change:
 
@@ -422,7 +422,7 @@ To:
 const EXIT_RESULTS: Set<string> = new Set(["main", "quit", "start", "refresh"]);
 ```
 
-- [ ] **Step 2: Add `*` key as refresh trigger in `runMenu`**
+- [x] **Step 2: Add `*` key as refresh trigger in `runMenu`**
 
 After the `findMatch` check in `runMenu`, add a refresh key check:
 
@@ -432,7 +432,7 @@ if (choice === "*") return "refresh" as MenuResult;
 
 Add this BEFORE the `findMatch` call so `*` is always intercepted.
 
-- [ ] **Step 3: Handle `"refresh"` in router `#applyResult`**
+- [x] **Step 3: Handle `"refresh"` in router `#applyResult`**
 
 In `#applyResult`, add a case before `if (result === "quit")`:
 
@@ -442,15 +442,15 @@ if (result === "refresh") return false; // re-render current page (don't pop sta
 
 This causes the while loop in `run()` to iterate again, re-rendering the current page.
 
-- [ ] **Step 4: Run type-check**
+- [x] **Step 4: Run type-check**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx tsc --noEmit --project configs/tsconfig.json`
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run tests/infrastructure/menu.test.ts tests/infrastructure/sitemap-router.test.ts --config configs/vitest.config.ts`
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add "01 - Projects/Flowti CLI/src/infrastructure/menu.ts" "01 - Projects/Flowti CLI/src/infrastructure/sitemap-router.ts"
@@ -463,7 +463,7 @@ git commit -m "feat: add refresh signal via * key in menu and router"
 - Modify: `src/main.ts`
 - Modify: `src/ui/handlers/register-handlers.ts`
 
-- [ ] **Step 1: Call reconcileStaleAgents in main.ts**
+- [x] **Step 1: Call reconcileStaleAgents in main.ts**
 
 After `const deps = createDefaultDeps(cliConfig.agents, VAULT_ROOT);` and `initializeDeps(deps);`, add:
 
@@ -472,7 +472,7 @@ const { recovered } = deps.agentShell.reconcileStaleAgents();
 if (recovered.length > 0) log(`  ${DIM}Recovered ${recovered.length} stale agent(s): ${recovered.join(", ")}${RESET}`);
 ```
 
-- [ ] **Step 2: Call reconcileStaleAgents in start view render**
+- [x] **Step 2: Call reconcileStaleAgents in start view render**
 
 In `register-handlers.ts`, in the `renderBusyAgents` function (or the start view `beforeRender` handler), add at the top:
 
@@ -482,19 +482,19 @@ deps.agentShell.reconcileStaleAgents();
 
 This ensures stale agents are cleaned up whenever the user sees the start view.
 
-- [ ] **Step 3: Run full test suite**
+- [x] **Step 3: Run full test suite**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run --config configs/vitest.config.ts`
 
-- [ ] **Step 4: Run lint**
+- [x] **Step 4: Run lint**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx eslint src/ --config configs/eslint.config.mjs`
 
-- [ ] **Step 5: Build**
+- [x] **Step 5: Build**
 
 Run: `cd "01 - Projects/Flowti CLI" && node configs/esbuild.config.mjs`
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add "01 - Projects/Flowti CLI/src/main.ts" "01 - Projects/Flowti CLI/src/ui/handlers/register-handlers.ts"
@@ -503,15 +503,15 @@ git commit -m "feat: bootstrap reconcileStaleAgents at startup and start view"
 
 ### Task 6: Full verification
 
-- [ ] **Step 1: Run full test suite**
+- [x] **Step 1: Run full test suite**
 
 Run: `cd "01 - Projects/Flowti CLI" && npm test`
 
-- [ ] **Step 2: Build**
+- [x] **Step 2: Build**
 
 Run: `cd "01 - Projects/Flowti CLI" && node configs/esbuild.config.mjs`
 
-- [ ] **Step 3: Manual smoke test**
+- [x] **Step 3: Manual smoke test**
 
 Run `.\flowti.cmd` and verify:
 - Assign 2 tasks to an agent via roster menu
