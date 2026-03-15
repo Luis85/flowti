@@ -514,25 +514,25 @@ class HealthService {
 
 ## 7. Migration Strategy
 
-### 8 Phases
+### Isolation-First Principle
 
-**P1: Workspace Foundation** (prerequisite for all)
-- Root `package.json` with npm workspaces: `["01 - Projects/Flowti CLI", "Development/flowti"]`
-- CLI `package.json`: set `"name": "@flowti/cli"`, add `"exports": { ".": "./sdk/index.ts" }`, keep `"private": true` (workspace-only, not published to npm)
-- CLI `sdk/` directory with initial type exports
-- Plugin `package.json` depends on `"@flowti/cli": "workspace:*"`
-- Plugin gets `flowti.config.json` (becomes CLI-managed project)
+The Plugin is refactored in isolation before any CLI integration. Both CLI and Plugin are undergoing quality refactors — tying them together during active refactoring creates coupling risk. The Plugin must be architecturally ready (declarative sitemap, Lit components, domain pattern adoption) before connecting to the CLI SDK.
+
+### Two Tracks: Plugin Isolation → CLI Integration
+
+#### Track A: Plugin Refactoring (isolated, no CLI dependency)
+
+**PA1: Lit Component Foundation**
 - Add `lit` as Plugin runtime dependency
-- Verify `npm install` + both builds work
+- Lit build pipeline integrated into Plugin's esbuild config
+- Shared design tokens (`tokens.css`) for consistent styling
+- Obsidian CSS variable adapter stylesheet
+- Base component class with common patterns (loading, error, empty states)
+- First portable component (e.g., `flowti-health-card`) with storybook story
+- Storybook runner: loads component + story data, renders in browser
+- Component testing pattern: render in happy-dom, assert DOM output
 
-**P2: Obsidian Adapters** (parallel with P3, P3b)
-- VaultFileSystem implements IAsyncFileSystem
-- VaultPaths implements IPaths
-- ObsidianShell implements IAsyncShell
-- ServiceContainer gains `build*Deps()` methods
-- First CLI domain function callable from Plugin
-
-**P3: Plugin Sitemap** (parallel with P2, P3b)
+**PA2: Plugin Sitemap** (parallel with PA1)
 - plugin-sitemap.json schema + validator
 - SitemapHubView — generic Hub from declaration
 - Command/ribbon/modal registry from sitemap
@@ -540,16 +540,34 @@ class HealthService {
 - Sitemap supports `component` field for Lit component mounting
 - Bootstrap replaces main.ts orchestrator
 
-**P3b: Lit Component Foundation** (parallel with P2, P3)
-- Lit build pipeline integrated into Plugin's esbuild config
-- Shared design tokens (`tokens.css`) for consistent styling
-- Obsidian CSS variable adapter stylesheet
-- Base component class with common patterns (loading, error, empty states)
-- First portable component (e.g., `flowti-health-card`) with storybook story
-- CLI storybook runner: loads component + story data, renders in browser
-- Component testing pattern: render in happy-dom, assert DOM output
+**PA3: Plugin Domain Refactoring + Component Migration** (after PA1 + PA2)
+- 19 Plugin-owned domains adopt CLI-style patterns (pure domain functions, ISP deps)
+- Pure domain functions extracted from services
+- ISP dep subsets defined per domain (using Plugin-local interfaces initially)
+- Services become thin orchestrators
+- Existing Hub views migrated to Lit components with Obsidian wrappers
+- Each migrated component gets a storybook story
+- No feature changes — architecture only
 
-**P4: Shared Domain Migration** (depends on P2)
+#### Track B: CLI Integration (after Track A is stable)
+
+**PB1: Workspace Foundation**
+- Root `package.json` with npm workspaces: `["01 - Projects/Flowti CLI", "Development/flowti"]`
+- CLI `package.json`: set `"name": "@flowti/cli"`, add `"exports": { ".": "./sdk/index.ts" }`, keep `"private": true` (workspace-only, not published to npm)
+- CLI `sdk/` directory with initial type exports
+- Plugin `package.json` depends on `"@flowti/cli": "workspace:*"`
+- Plugin gets `flowti.config.json` (becomes CLI-managed project)
+- Verify `npm install` + both builds work
+
+**PB2: Obsidian Adapters**
+- VaultFileSystem implements IAsyncFileSystem
+- VaultPaths implements IPaths
+- ObsidianShell implements IAsyncShell
+- ServiceContainer gains `build*Deps()` methods
+- Plugin's local ISP interfaces replaced with SDK imports
+- First CLI domain function callable from Plugin
+
+**PB3: Shared Domain Migration** (depends on PB2)
 - capture → CLI data model + Plugin modal
 - events → CLI contract types + Plugin bus
 - onboarding → CLI flow model + Plugin wizard
@@ -557,22 +575,13 @@ class HealthService {
 - test-management/health → CLI scoring + Plugin UI
 - feature-lifecycle → CLI states + Plugin tracking
 
-**P5: Plugin Domain Refactoring + Component Migration** (parallel with P4)
-- 19 Plugin-owned domains adopt CLI patterns
-- Pure domain functions extracted from services
-- ISP dep subsets defined per domain
-- Services become thin orchestrators
-- Existing Hub views migrated to Lit components with Obsidian wrappers
-- Each migrated component gets a storybook story
-- No feature changes — architecture only
-
-**P6: Subprocess Integration** (after P2 + P3)
+**PB4: Subprocess Integration** (after PB2)
 - CLI binary discovery + health check from Plugin
 - Build, test, pipeline ops via `flowti <cmd> --format=json`
 - Report generation triggered from Plugin UI
 - Progress/status streaming back to Plugin EventBus
 
-**P7: Distribution & Polish** (after all phases)
+**PB5: Distribution & Polish** (after all phases)
 - CLI standalone packaging (single binary)
 - Plugin bundled with CLI as optional dependency
 - Shared test harness for integration tests
@@ -582,10 +591,14 @@ class HealthService {
 ### Execution Order
 
 ```
-P1 → (P2 ∥ P3 ∥ P3b) → (P4 ∥ P5) → P6 → P7
+Track A (isolated):   (PA1 ∥ PA2) → PA3
+                                       ↓
+Track B (integration):              PB1 → PB2 → PB3 → PB4 → PB5
 ```
 
 Each phase gets its own spec → plan → implementation cycle.
+Track A produces a fully refactored Plugin with no CLI dependency.
+Track B connects the refactored Plugin to the CLI SDK.
 
 ### Testing Strategy
 
