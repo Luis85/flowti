@@ -157,6 +157,8 @@ export class ChatShell {
 			const result = await proc.result;
 			resultText = result.text;
 			resultThinking = result.thinking;
+		} catch {
+			this.renderer.updateStatus("error");
 		} finally {
 			unsubscribe();
 			this.activeProcess = null;
@@ -195,7 +197,7 @@ export class ChatShell {
 				this.currentMode = "task";
 				this.renderer.updateMode("task");
 			}
-		} else if (event.kind === "text") {
+		} else if (event.kind === "thinking") {
 			this.renderer.updateStatus("thinking");
 		} else if (event.kind === "error") {
 			this.renderer.updateStatus("error");
@@ -204,48 +206,14 @@ export class ChatShell {
 
 	/** Dispatch slash commands. */
 	async handleCommand(cmd: ChatCommand): Promise<void> {
-		switch (cmd.type) {
-			case "done":
-			case "back":
-				await this.exitSession();
-				break;
-
-			case "let-go":
-				// Detach without killing the process
-				await this.detachSession();
-				break;
-
-			case "new":
-				await this.newThread();
-				break;
-
-			case "history":
-				await this.showFullHistory();
-				break;
-
-			case "topics":
-				this.showTopics();
-				break;
-
-			case "pick":
-				await this.pickThread(cmd.name);
-				break;
-
-			case "clear":
-				// Clear is display-only; renderer handles it via pushStreamEvent or similar
-				// Nothing to do at the shell level
-				break;
-
-			case "talk":
-				this.currentMode = "conversation";
-				this.renderer.updateMode("conversation");
-				break;
-
-			case "focus":
-				this.currentMode = "task";
-				this.renderer.updateMode("task");
-				break;
-		}
+		if (cmd.type === "done" || cmd.type === "back") { await this.exitSession(); return; }
+		if (cmd.type === "let-go") { await this.detachSession(); return; }
+		if (cmd.type === "new") { await this.newThread(); return; }
+		if (cmd.type === "history") { await this.showFullHistory(); return; }
+		if (cmd.type === "topics") { this.showTopics(); return; }
+		if (cmd.type === "pick") { await this.pickThread(cmd.name); return; }
+		if (cmd.type === "talk") { this.setConversationMode(); return; }
+		if (cmd.type === "focus") { this.setTaskMode(); return; }
 	}
 
 	// ── Private helpers ───────────────────────────────────────────────
@@ -283,6 +251,9 @@ export class ChatShell {
 		this.renderer.showHistory("Conversation history", turns);
 	}
 
+	private setConversationMode(): void { this.currentMode = "conversation"; this.renderer.updateMode("conversation"); }
+	private setTaskMode(): void { this.currentMode = "task"; this.renderer.updateMode("task"); }
+
 	private showTopics(): void {
 		const ids = this.conversation.threads.map((t) => t.id);
 		for (const id of ids) {
@@ -294,6 +265,7 @@ export class ChatShell {
 		const thread = this.conversation.threads.find((t) => t.id === name);
 		if (!thread) return;
 		this.conversation = { ...this.conversation, activeThread: name };
+		saveConversation(this.deps, this.varDir, this.agent.name, this.conversation);
 		const history = getActiveHistory(this.conversation);
 		const turns: ChatTurn[] = history.map((t) => ({
 			role: t.role,
