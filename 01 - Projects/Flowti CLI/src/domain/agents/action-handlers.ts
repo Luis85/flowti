@@ -42,25 +42,20 @@ export function buildResponsePrompt(
 	return buildConversationPrompt(agentName, systemPrompt, history, message, character);
 }
 
+function formatPendingTasks(tasks: Array<{ name: string; status: string }>): string[] {
+	if (tasks.length === 0) return ["I have no pending tasks."];
+	const header = `I have ${tasks.length} task${tasks.length > 1 ? "s" : ""}:`;
+	return [header, ...tasks.map((t) => `- ${t.name} [${t.status}]`)];
+}
+
 /** Generate a static response from world-state components (for NPC agents). */
 export function respondFromState(agentName: string, components: Record<string, unknown>): string {
 	const status = components.status as { state?: string } | undefined;
 	const tasks = components.tasks as { items?: Array<{ name: string; status: string }> } | undefined;
 	const identity = components.identity as { persona?: string } | undefined;
 	const name = identity?.persona ?? agentName;
-
-	const lines: string[] = [];
-	lines.push(`I'm ${name}. My current state is ${status?.state ?? "unknown"}.`);
-
 	const pending = tasks?.items?.filter((t) => t.status !== "done") ?? [];
-	if (pending.length > 0) {
-		lines.push(`I have ${pending.length} task${pending.length > 1 ? "s" : ""}:`);
-		for (const t of pending) lines.push(`- ${t.name} [${t.status}]`);
-	} else {
-		lines.push("I have no pending tasks.");
-	}
-
-	return lines.join("\n");
+	return [`I'm ${name}. My current state is ${status?.state ?? "unknown"}.`, ...formatPendingTasks(pending)].join("\n");
 }
 
 /** Simple acknowledgment string for NPC task assignment. */
