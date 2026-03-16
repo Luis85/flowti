@@ -4,7 +4,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
 	test: {
 		root: path.resolve(import.meta.dirname, ".."),
-		include: ["tests/**/*.test.ts"],
+		include: ["tests/**/*.test.ts", "agents/tests/**/*.test.ts"],
 		exclude: ["tests/e2e/**", "tests/vault-template/**", "tests/vault-journeys/**"],
 		globals: true,
 		environment: "node",

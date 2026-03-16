@@ -1,6 +1,6 @@
 import type { AgentAttributes, AgentActionType } from "../data/types.js";
 
-export type BrainState = "idle" | "wandering" | "walking-to" | "working" | "talking" | "waiting";
+export type BrainState = "idle" | "wandering" | "walking-to" | "working" | "talking" | "waiting" | "on-break";
 
 export interface BrainEvent {
 	readonly type: AgentActionType;
@@ -32,4 +32,20 @@ export interface BrainParams {
 	readonly focusDuration: number;       // INT: ms at workstation before wandering
 	readonly idleResistance: number;      // CON: ms before idle transition
 	readonly quoteFrequency: number;      // WIS: ms between idle quotes
+}
+
+/** Personality-derived habits for movement and behavior patterns. */
+export interface AgentHabits {
+	preferredWorkstationId: string | null;
+	readonly homeRoom: string;
+	readonly movementStyle: "deliberate" | "brisk" | "darting";
+	readonly idleStyle: "fidgety" | "calm" | "restless";
+	socialDrift: number;
+	readonly focusDrift: number;
+	breakThreshold: number;
+	readonly settlingPause: number;
+	/** Mood multiplier for idle resistance (1.0 = neutral). */
+	readonly idleResistanceMult: number;
+	/** Mood multiplier for movement speed (1.0 = neutral). */
+	readonly speedMult: number;
 }
