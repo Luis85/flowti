@@ -16,6 +16,10 @@ export interface ViewDef {
 	conditions?: ConditionSet;
 	legacy?: boolean;
 	refreshEvents?: string[];
+	/** Lit custom element tag name for leaf/panel views */
+	component?: string;
+	/** Handler ID for leaf/panel views (looked up in PluginHandlerRegistry) */
+	handler?: string;
 }
 
 export interface SitemapTabDef {
