@@ -132,7 +132,7 @@ This table is for Storybook sidebar categorization only (via `kindToFolder()`). 
 **Terminal-View Layout Instance:**
 
 Generated as a separate instance JSON:
-- `type: "layout"`, `name: "terminal-view"`
+- `type: "terminal-view"`, `name: "terminal-view"`
 - Additional fields for the custom template: `title` (string), `width` (number, default 80)
 
 **Library Structure on Disk (after writing JSONs):**
