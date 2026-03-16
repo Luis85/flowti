@@ -1,7 +1,7 @@
 # Declarative Refactoring Design Spec
 
 **Date:** 2026-03-15
-**Status:** Draft
+**Status:** Complete (2026-03-16)
 **Scope:** Flowti CLI — controllers, domain stores, test infrastructure, dead code removal
 
 ## Problem Statement

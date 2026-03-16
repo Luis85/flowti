@@ -89,19 +89,57 @@ All interactive menus are declared in `configs/sitemap.json` (v2 format):
 2. For static pages: actions array with handler/navigate/signal types
 3. For dynamic pages: register a ViewHandler with `registry.registerView("my-page", handler)`
 
-## Controller Pattern
+## Controller Pattern (Declarative)
+
+Controllers use `adaptDescriptor()` from the command engine. The handler returns a data model, not a CliResponse. The engine handles flag parsing, project guards, and renderer wiring.
 
 ```typescript
 // src/controller/example.controller.ts
-const actions: Record<string, ControllerAction> = {
-  "example:list": (req) => {
-    const data = listThings(req.deps);
-    return dataResponse(data, renderThingList);
-  },
+import { adaptDescriptor } from "../infrastructure/command-engine.js";
+import type { CommandHandler } from "../infrastructure/types-config.js";
+
+export const commands: Record<string, CommandHandler> = {
+	"example:list": adaptDescriptor({
+		requires: "project",
+		handler: (ctx) => listThings(ctx.deps, ctx.project!.path),
+		renderer: renderThingList,
+	}),
+	"example:add": adaptDescriptor({
+		requires: "project",
+		flags: { name: { type: "string", required: true, hint: "--name=<value>" } },
+		handler: (ctx) => addThing(ctx.deps, ctx.project!.path, ctx.flags.name),
+		renderer: renderThingAdded,
+	}),
 };
-export const commands = Object.fromEntries(
-  Object.entries(actions).map(([key, action]) => [key, adapt(action)]),
-);
+```
+
+### Command Descriptor Options
+
+- `requires: "project"` — auto project guard (returns noProjectResponse)
+- `flags: Record<string, FlagSpec>` — declarative flag parsing + validation
+- `rawArgs: true` — pass raw CLI args to handler
+- `wildcardPrefix: "report:"` — strip prefix into `ctx.wildcard`
+- `exitCode: number | (model) => number` — custom exit codes
+- `handler: (ctx) => TModel` — returns data model (sync or async)
+- `renderer: (data, log) => void` — data-first signature
+
+### Store Pattern (Declarative)
+
+Domain stores use `createStore()` from the store engine:
+
+```typescript
+// src/domain/example/example-store.ts
+import { createStore } from "../../infrastructure/store-engine.js";
+
+export const exampleStore = createStore<ExampleSummary, ExampleDefinition>({
+	name: "examples",
+	defaultDir: "docs/examples",
+	typeTag: "Example",
+	fields: { name: { type: "string", required: true }, status: { type: "enum", options: ["open", "closed"], default: "open" } },
+	sort: (a, b) => a.name.localeCompare(b.name),
+	buildBody: (def) => `# ${def.name}\n\n${def.description}`,
+});
+// Use: exampleStore.list(deps, projectPath), exampleStore.create(deps, projectPath, def)
 ```
 
 ## Test Pattern
@@ -109,17 +147,26 @@ export const commands = Object.fromEntries(
 ```typescript
 // tests/domain/example/example.test.ts
 vi.mock("../../../src/infrastructure/filesystem.js", () => ({ disk: {} }));
-// ... mock all infrastructure
 
 import { myFunction } from "../../../src/domain/example/example.js";
 
 describe("myFunction", () => {
-  it("does the thing", () => {
-    const mockDeps = { disk: createMockFs(), paths: createMockPaths() };
-    const result = myFunction(mockDeps);
-    expect(result).toBe(expected);
-  });
+	it("does the thing", () => {
+		const mockDeps = { disk: createMockFs(), paths: createMockPaths() };
+		const result = myFunction(mockDeps);
+		expect(result).toBe(expected);
+	});
 });
+```
+
+For controller handler tests, use `createProjectContext()` from `tests/helpers/command-test-utils.ts`:
+
+```typescript
+import { createProjectContext } from "../helpers/command-test-utils.js";
+
+const ctx = createProjectContext({ command: "capa:list", flags: {} });
+const result = descriptor.handler(ctx);
+expect(result).toHaveLength(2);
 ```
 
 ## Key Types
@@ -128,9 +175,13 @@ describe("myFunction", () => {
 - `IShell` — command execution (`run`, `runSilent`, `runCapture`, `spawnBackground`, etc.)
 - `IPaths` — path operations (`join`, `resolve`, `dirname`, `basename`, `relative`, etc.)
 - `IClock` — time (`now`, `ms`, `iso`, `safeIso`)
+- `CommandDescriptor<TFlags, TModel>` — declarative command definition (flags, handler, renderer)
+- `CommandContext<TFlags>` — typed context passed to command handlers
+- `StoreDescriptor<TSummary, TDefinition>` — declarative store definition (fields, buildBody, sort)
+- `StoreApi<TSummary, TDefinition>` — CRUD API returned by `createStore()`
 - `MenuEntry` — menu item (`key`, `label`, `action`, `disabled`, `hidden`, `separator`)
 - `MenuResult` — menu return type (`"main"`, `"quit"`, `"navigate:viewId"`, `undefined`)
-- `CliResponse<T>` — controller response (typed data model + renderer function)
+- `CliResponse<T>` — response (typed data model + renderer function)
 
 ## Config Contract
 

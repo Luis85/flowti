@@ -1,6 +1,6 @@
 # Declarative Refactoring Implementation Plan
 
-> **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Status:** Complete (2026-03-16) — All 5 chunks, 20 tasks executed. 7,016 tests passing, 84% coverage.
 
 **Goal:** Replace imperative controller/store boilerplate with declarative engines, remove dead code, enforce patterns via TypeScript + ESLint + conformance tests.
 
@@ -21,7 +21,7 @@
 **Files:**
 - Create: `src/infrastructure/command-engine.ts`
 
-- [ ] **Step 1: Create the types file with all interfaces**
+- [x] **Step 1: Create the types file with all interfaces**
 
 ```typescript
 // src/infrastructure/command-engine.ts
@@ -66,7 +66,7 @@ export interface CommandDescriptor<TFlags = Record<string, unknown>, TModel = un
 }
 ```
 
-- [ ] **Step 2: Verify file compiles**
+- [x] **Step 2: Verify file compiles**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx tsc --noEmit --project configs/tsconfig.json 2>&1 | head -20`
 Expected: No errors related to command-engine.ts
@@ -76,7 +76,7 @@ Expected: No errors related to command-engine.ts
 **Files:**
 - Modify: `src/infrastructure/command-engine.ts`
 
-- [ ] **Step 1: Write the failing test for flag parsing**
+- [x] **Step 1: Write the failing test for flag parsing**
 
 Create `tests/infrastructure/command-engine.test.ts`:
 
@@ -182,12 +182,12 @@ describe("validateFlags", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run tests/infrastructure/command-engine.test.ts --config configs/vitest.config.ts`
 Expected: FAIL — `parseFlags` and `validateFlags` not exported
 
-- [ ] **Step 3: Implement parseFlags and validateFlags**
+- [x] **Step 3: Implement parseFlags and validateFlags**
 
 Add to `src/infrastructure/command-engine.ts`:
 
@@ -256,12 +256,12 @@ export function validateFlags(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run tests/infrastructure/command-engine.test.ts --config configs/vitest.config.ts`
 Expected: PASS
 
-- [ ] **Step 5: Write failing test for adaptDescriptor (the main engine function)**
+- [x] **Step 5: Write failing test for adaptDescriptor (the main engine function)**
 
 Add to `tests/infrastructure/command-engine.test.ts`:
 
@@ -371,12 +371,12 @@ describe("adaptDescriptor", () => {
 });
 ```
 
-- [ ] **Step 6: Run test to verify it fails**
+- [x] **Step 6: Run test to verify it fails**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run tests/infrastructure/command-engine.test.ts --config configs/vitest.config.ts`
 Expected: FAIL — `adaptDescriptor` not exported
 
-- [ ] **Step 7: Implement adaptDescriptor**
+- [x] **Step 7: Implement adaptDescriptor**
 
 Add to `src/infrastructure/command-engine.ts`.
 
@@ -508,17 +508,17 @@ export const commands: Record<string, CommandHandler> = {
 };
 ```
 
-- [ ] **Step 8: Run tests to verify they pass**
+- [x] **Step 8: Run tests to verify they pass**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run tests/infrastructure/command-engine.test.ts --config configs/vitest.config.ts`
 Expected: PASS
 
-- [ ] **Step 9: Run full test suite to verify nothing breaks**
+- [x] **Step 9: Run full test suite to verify nothing breaks**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run --config configs/vitest.config.ts`
 Expected: All existing tests pass
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add "01 - Projects/Flowti CLI/src/infrastructure/command-engine.ts" \
@@ -531,7 +531,7 @@ git commit -m "feat: add command schema engine with defineCommand API"
 **Files:**
 - Modify: `tests/mocks/mock-deps.ts`
 
-- [ ] **Step 1: Add missing stubs to createTestDeps**
+- [x] **Step 1: Add missing stubs to createTestDeps**
 
 Add `worldState`, `workerManager`, `processRunner` stubs and `askAbortable` to `createMockInput()`:
 
@@ -584,17 +584,17 @@ workerManager: createMockWorkerManager(),
 processRunner: createMockProcessRunner(),
 ```
 
-- [ ] **Step 2: Verify TypeScript compiles**
+- [x] **Step 2: Verify TypeScript compiles**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx tsc --noEmit --project configs/tsconfig.json 2>&1 | head -20`
 Expected: No new errors
 
-- [ ] **Step 3: Run full test suite**
+- [x] **Step 3: Run full test suite**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run --config configs/vitest.config.ts`
 Expected: All tests pass
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add "01 - Projects/Flowti CLI/tests/mocks/mock-deps.ts"
@@ -608,7 +608,7 @@ git commit -m "fix: add missing CliDeps stubs to createTestDeps"
 - Create: `tests/helpers/store-deps.ts`
 - Create: `tests/helpers/capture-display.ts`
 
-- [ ] **Step 1: Create ProjectFactory**
+- [x] **Step 1: Create ProjectFactory**
 
 ```typescript
 // tests/helpers/project-factory.ts
@@ -630,7 +630,7 @@ export const ProjectFactory = {
 };
 ```
 
-- [ ] **Step 2: Create createStoreDeps**
+- [x] **Step 2: Create createStoreDeps**
 
 ```typescript
 // tests/helpers/store-deps.ts
@@ -663,7 +663,7 @@ export function createStoreDeps(opts?: { files?: Record<string, string>; iso?: s
 }
 ```
 
-- [ ] **Step 3: Create captureDisplay**
+- [x] **Step 3: Create captureDisplay**
 
 ```typescript
 // tests/helpers/capture-display.ts
@@ -682,12 +682,12 @@ export function captureDisplayLines(fn: (log: (msg?: string) => void) => void): 
 }
 ```
 
-- [ ] **Step 4: Verify all compile**
+- [x] **Step 4: Verify all compile**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx tsc --noEmit --project configs/tsconfig.json`
 Expected: No errors
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add "01 - Projects/Flowti CLI/tests/helpers/"
@@ -700,7 +700,7 @@ git commit -m "feat: add test helpers — ProjectFactory, createStoreDeps, captu
 - Create: `src/infrastructure/store-engine.ts`
 - Create: `tests/infrastructure/store-engine.test.ts`
 
-- [ ] **Step 1: Write failing tests for store engine**
+- [x] **Step 1: Write failing tests for store engine**
 
 ```typescript
 // tests/infrastructure/store-engine.test.ts
@@ -811,12 +811,12 @@ describe("createStore", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run tests/infrastructure/store-engine.test.ts --config configs/vitest.config.ts`
 Expected: FAIL — `createStore` not found
 
-- [ ] **Step 3: Implement store engine**
+- [x] **Step 3: Implement store engine**
 
 **Prerequisite:** Move shared markdown utilities from domain to infrastructure. Create `src/infrastructure/markdown-utils.ts` by extracting `listMdFiles`, `resolveDir`, `toMdFilename`, `updateField` from `src/domain/shared/markdown-store.ts`. Update `markdown-store.ts` to re-export from the new location for backwards compatibility during migration. This avoids the architecture violation of infrastructure importing from domain.
 
@@ -1027,17 +1027,17 @@ export function createStore<TSummary, TDefinition>(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run tests/infrastructure/store-engine.test.ts --config configs/vitest.config.ts`
 Expected: PASS
 
-- [ ] **Step 5: Run full test suite**
+- [x] **Step 5: Run full test suite**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run --config configs/vitest.config.ts`
 Expected: All tests pass
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add "01 - Projects/Flowti CLI/src/infrastructure/store-engine.ts" \
@@ -1051,7 +1051,7 @@ git commit -m "feat: add store schema engine with createStore API"
 - Create: `tests/conformance/controller-conformance.test.ts`
 - Create: `tests/conformance/store-conformance.test.ts`
 
-- [ ] **Step 1: Create skipped conformance tests**
+- [x] **Step 1: Create skipped conformance tests**
 
 ```typescript
 // tests/conformance/controller-conformance.test.ts
@@ -1075,7 +1075,7 @@ describe.skip("store conformance", () => {
 });
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add "01 - Projects/Flowti CLI/tests/conformance/"
@@ -1084,7 +1084,7 @@ git commit -m "feat: add skipped conformance tests for Phase 5 enforcement"
 
 ### Task 7: Phase 1 Verification
 
-- [ ] **Step 1: Run full check (lint + tsc + tests)**
+- [x] **Step 1: Run full check (lint + tsc + tests)**
 
 Run: `cd "01 - Projects/Flowti CLI" && npm test`
 Expected: All pass — lint, typecheck, tests
@@ -1111,7 +1111,7 @@ Expected: All pass — lint, typecheck, tests
 - Modify: All files listed above
 - Modify: All controller files that call these renderers (update call sites)
 
-- [ ] **Step 1: Swap common-renderers.ts signatures**
+- [x] **Step 1: Swap common-renderers.ts signatures**
 
 For each function in `common-renderers.ts`, swap parameter order:
 
@@ -1120,7 +1120,7 @@ After: `export function renderError(data: ErrorModel, log: Log): void`
 
 Do this for all 5 functions: `renderError`, `renderSuccess`, `renderNoProject`, `renderShellCommand`, `renderInteractiveOnly`.
 
-- [ ] **Step 2: Update all call sites for common-renderers**
+- [x] **Step 2: Update all call sites for common-renderers**
 
 Search for all usages across controllers and update parameter order. Example:
 
@@ -1131,7 +1131,7 @@ Use: `grep -rn "renderError(req\\.deps\\.log" src/controller/` to find all call 
 
 Repeat for `renderSuccess`, `renderNoProject`, `renderShellCommand`, `renderInteractiveOnly`.
 
-- [ ] **Step 3: Swap remaining log-first renderers**
+- [x] **Step 3: Swap remaining log-first renderers**
 
 Repeat the pattern for all other log-first files:
 - `storybook-renderers.ts` (17 functions)
@@ -1144,12 +1144,12 @@ Repeat the pattern for all other log-first files:
 
 For each: swap parameters in definition, then update all call sites.
 
-- [ ] **Step 4: Run full check**
+- [x] **Step 4: Run full check**
 
 Run: `cd "01 - Projects/Flowti CLI" && npm test`
 Expected: All pass — lint, typecheck, tests
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add "01 - Projects/Flowti CLI/src/"
@@ -1171,7 +1171,7 @@ git commit -m "refactor: standardize all renderers to data-first (data, log) sig
 - Modify: `tests/domain/capa/capa-store.test.ts`
 - Modify: `src/controller/capa.controller.ts` (update imports)
 
-- [ ] **Step 1: Rewrite capa-store.ts as descriptor**
+- [x] **Step 1: Rewrite capa-store.ts as descriptor**
 
 ```typescript
 // src/domain/capa/capa-store.ts
@@ -1217,7 +1217,7 @@ export const capaStore = createStore<CAPASummary, CAPADefinition & { id: string 
 export const { list: listCAPAItems, create: createCAPAItem, updateField: updateCAPAStatus, nextId: nextCapaId } = capaStore;
 ```
 
-- [ ] **Step 2: Update tests**
+- [x] **Step 2: Update tests**
 
 Rewrite `tests/domain/capa/capa-store.test.ts` to test the descriptor and engine-provided CRUD:
 
@@ -1255,24 +1255,24 @@ describe("capaStore", () => {
 });
 ```
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run tests/domain/capa/ --config configs/vitest.config.ts`
 Expected: PASS
 
-- [ ] **Step 4: Repeat for timelog, raid, deliverables stores**
+- [x] **Step 4: Repeat for timelog, raid, deliverables stores**
 
 Follow the same pattern for each store. Key differences:
 - **timelog**: custom `filename` function (date+person), reverse sort, `parseBody` for description
 - **raid**: four item types via `itemType` enum
 - **deliverables**: `completionPct` integer field
 
-- [ ] **Step 5: Run full test suite after all simple stores**
+- [x] **Step 5: Run full test suite after all simple stores**
 
 Run: `cd "01 - Projects/Flowti CLI" && npm test`
 Expected: All pass
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add "01 - Projects/Flowti CLI/src/domain/capa/" \
@@ -1289,8 +1289,8 @@ Follow the same pattern. Key differences:
 - **requirements**: 3 entity types (requirements, use-cases, user-stories) — create 3 separate store instances with `filter` to separate by `type` field
 - **resources**: dual mode (budget vs quantity) — `buildBody` handles both modes, computed fields stay in domain
 
-- [ ] **Step 1-4: Implement, test, verify for each**
-- [ ] **Step 5: Commit**
+- [x] **Step 1-4: Implement, test, verify for each**
+- [x] **Step 5: Commit**
 
 ### Task 11: Migrate Complex Stores (agents, lifecycle, iterations)
 
@@ -1298,13 +1298,13 @@ Follow the same pattern. Key differences:
 - **lifecycle**: Uses `nested: true`. Custom `parseBody` for transition history table. Transition logic stays domain-specific.
 - **iterations**: Uses custom filename (number-based). Plan+report dual files. Scope checklist and transition logic stay domain-specific.
 
-- [ ] **Step 1-4: Implement, test, verify for each**
-- [ ] **Step 5: Run full check**
+- [x] **Step 1-4: Implement, test, verify for each**
+- [x] **Step 5: Run full check**
 
 Run: `cd "01 - Projects/Flowti CLI" && npm test`
 Expected: All pass
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git commit -m "refactor: migrate agents, lifecycle, iterations stores to createStore engine"
@@ -1354,28 +1354,28 @@ defineCommand("help", {
 export const commands = getDefinedCommands();
 ```
 
-- [ ] **Step 1: Migrate help, info, project, claude-sync controllers**
-- [ ] **Step 2: Migrate state, onboarding controllers**
-- [ ] **Step 3: Run tests after each batch**
-- [ ] **Step 4: Commit**
+- [x] **Step 1: Migrate help, info, project, claude-sync controllers**
+- [x] **Step 2: Migrate state, onboarding controllers**
+- [x] **Step 3: Run tests after each batch**
+- [x] **Step 4: Commit**
 
 ### Task 13: Migrate Standard CRUD Controllers (capa, raid, deliverables, timelog, lifecycle, requirements, resources)
 
 These controllers have the most boilerplate. The engine eliminates flag parsing, project guards, and renderer wiring.
 
-- [ ] **Step 1: Migrate each controller following the defineCommand pattern**
-- [ ] **Step 2: Delete per-controller `flagStr()` and `noProjectResponse()` helpers**
-- [ ] **Step 3: Run tests**
-- [ ] **Step 4: Commit**
+- [x] **Step 1: Migrate each controller following the defineCommand pattern**
+- [x] **Step 2: Delete per-controller `flagStr()` and `noProjectResponse()` helpers**
+- [x] **Step 3: Run tests**
+- [x] **Step 4: Commit**
 
 ### Task 14: Migrate Domain-Heavy Controllers (build, health, events, devtools, reports, review)
 
 These have complex handler logic that stays in the handler function. The engine only removes the boilerplate wrapping.
 
-- [ ] **Step 1: Migrate each controller**
-- [ ] **Step 2: For reports controller — use `wildcardPrefix: "report:"`**
-- [ ] **Step 3: Run tests**
-- [ ] **Step 4: Commit**
+- [x] **Step 1: Migrate each controller**
+- [x] **Step 2: For reports controller — use `wildcardPrefix: "report:"`**
+- [x] **Step 3: Run tests**
+- [x] **Step 4: Commit**
 
 ### Task 15: Migrate Edge Case Controllers (make, serve, ai-tools, scaffold, publish, plugins, capture, sitemap)
 
@@ -1383,9 +1383,9 @@ These have complex handler logic that stays in the handler function. The engine 
 - **serve**: Async handler with `await import()`
 - **ai-tools**: `ai:run` has 6 response types — handler returns union, renderer handles variants
 
-- [ ] **Step 1: Migrate each controller**
-- [ ] **Step 2: Run tests**
-- [ ] **Step 3: Commit**
+- [x] **Step 1: Migrate each controller**
+- [x] **Step 2: Run tests**
+- [x] **Step 3: Commit**
 
 ### Task 16: Update dispatch.ts and command-registry.ts
 
@@ -1394,7 +1394,7 @@ These have complex handler logic that stays in the handler function. The engine 
 - Modify: `src/infrastructure/command-registry.ts`
 - Modify: `src/main.ts`
 
-- [ ] **Step 1: Add `setWildcardPrefix` to CommandRegistry**
+- [x] **Step 1: Add `setWildcardPrefix` to CommandRegistry**
 
 ```typescript
 // Add to CommandRegistry class:
@@ -1409,19 +1409,19 @@ get wildcardPrefix(): string | undefined {
 }
 ```
 
-- [ ] **Step 2: Update `resolveWildcard` in dispatch.ts**
+- [x] **Step 2: Update `resolveWildcard` in dispatch.ts**
 
 Before: `if (!command.startsWith("report:") || !wildcardHandler) return null;`
 After: Read prefix from registry parameter.
 
-- [ ] **Step 3: Update main.ts — migrate inline completions command, update wildcard registration**
+- [x] **Step 3: Update main.ts — migrate inline completions command, update wildcard registration**
 
-- [ ] **Step 4: Run full check**
+- [x] **Step 4: Run full check**
 
 Run: `cd "01 - Projects/Flowti CLI" && npm test`
 Expected: All pass
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "refactor: update dispatch and registry for engine-driven wildcard routing"
@@ -1433,20 +1433,20 @@ git commit -m "refactor: update dispatch and registry for engine-driven wildcard
 - Modify: `src/infrastructure/request-response.ts` — delete `adapt()`, `createRequest()`, `handleResponse()`, `_sharedDeps`, `getSharedDeps()`, `ControllerAction` type
 - Modify: `src/infrastructure/deps.ts` — delete `initializeDeps()`
 
-- [ ] **Step 1: Delete adapt and related dead code from request-response.ts**
+- [x] **Step 1: Delete adapt and related dead code from request-response.ts**
 
 Keep `dataResponse()`, `exitResponse()`, `okResponse()`, `CliRequest`, `CliResponse` — these are still used. Delete everything else.
 
-- [ ] **Step 2: Delete initializeDeps from deps.ts**
+- [x] **Step 2: Delete initializeDeps from deps.ts**
 
-- [ ] **Step 3: Update controller tests — remove vi.mock blocks for engine concerns, use direct handler calls**
+- [x] **Step 3: Update controller tests — remove vi.mock blocks for engine concerns, use direct handler calls**
 
-- [ ] **Step 4: Run full check**
+- [x] **Step 4: Run full check**
 
 Run: `cd "01 - Projects/Flowti CLI" && npm test`
 Expected: All pass
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "refactor: delete adapt(), initializeDeps(), and legacy request-response code"
@@ -1462,7 +1462,7 @@ git commit -m "refactor: delete adapt(), initializeDeps(), and legacy request-re
 - Modify: `tests/conformance/controller-conformance.test.ts`
 - Modify: `tests/conformance/store-conformance.test.ts`
 
-- [ ] **Step 1: Implement controller conformance test**
+- [x] **Step 1: Implement controller conformance test**
 
 ```typescript
 import { describe, it, expect } from "vitest";
@@ -1481,7 +1481,7 @@ describe("controller conformance", () => {
 });
 ```
 
-- [ ] **Step 2: Implement store conformance test**
+- [x] **Step 2: Implement store conformance test**
 
 ```typescript
 import { describe, it, expect } from "vitest";
@@ -1499,12 +1499,12 @@ describe("store conformance", () => {
 });
 ```
 
-- [ ] **Step 3: Run conformance tests**
+- [x] **Step 3: Run conformance tests**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx vitest run tests/conformance/ --config configs/vitest.config.ts`
 Expected: PASS
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git commit -m "feat: enable conformance tests for controller and store engines"
@@ -1515,7 +1515,7 @@ git commit -m "feat: enable conformance tests for controller and store engines"
 **Files:**
 - Modify: `configs/eslint.config.mjs`
 
-- [ ] **Step 1: Add no-legacy-request-response rule**
+- [x] **Step 1: Add no-legacy-request-response rule**
 
 ```javascript
 // Add to eslint.config.mjs, scoped to src/controller/:
@@ -1537,12 +1537,12 @@ git commit -m "feat: enable conformance tests for controller and store engines"
 },
 ```
 
-- [ ] **Step 2: Run lint**
+- [x] **Step 2: Run lint**
 
 Run: `cd "01 - Projects/Flowti CLI" && npx eslint src/ --config configs/eslint.config.mjs`
 Expected: No errors
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git commit -m "feat: add ESLint rules to enforce declarative controller patterns"
@@ -1550,14 +1550,14 @@ git commit -m "feat: add ESLint rules to enforce declarative controller patterns
 
 ### Task 20: Final Cleanup
 
-- [ ] **Step 1: Delete unused mock-presets entries**
-- [ ] **Step 2: Remove any remaining dead imports**
-- [ ] **Step 3: Run full check**
+- [x] **Step 1: Delete unused mock-presets entries**
+- [x] **Step 2: Remove any remaining dead imports**
+- [x] **Step 3: Run full check**
 
 Run: `cd "01 - Projects/Flowti CLI" && npm test`
 Expected: All pass — lint, typecheck, tests, coverage ≥ 80%
 
-- [ ] **Step 4: Final commit**
+- [x] **Step 4: Final commit**
 
 ```bash
 git commit -m "chore: remove unused mock presets and dead imports"
@@ -1567,16 +1567,16 @@ git commit -m "chore: remove unused mock presets and dead imports"
 
 ## Definition of Done Checklist
 
-- [ ] All existing tests pass
-- [ ] Coverage ≥ 80% statements / 80% lines
-- [ ] ESLint passes with enforcement rules
-- [ ] TypeScript compiles with no errors
-- [ ] `adapt()` deleted — zero references
-- [ ] `ControllerAction` deleted — zero references
-- [ ] `initializeDeps()` deleted — zero references
-- [ ] Every controller uses `defineCommand()`
-- [ ] Every markdown store uses `createStore()`
-- [ ] All renderers use data-first `(data, log)` signature
-- [ ] `createTestDeps()` stubs all 11 `CliDeps` fields
-- [ ] No `flagStr()` or `noProjectResponse()` in controller files
-- [ ] Conformance tests pass
+- [x] All existing tests pass
+- [x] Coverage ≥ 80% statements / 80% lines
+- [x] ESLint passes with enforcement rules
+- [x] TypeScript compiles with no errors
+- [x] `adapt()` deleted — zero references
+- [x] `ControllerAction` deleted — zero references
+- [x] `initializeDeps()` deleted — zero references
+- [x] Every controller uses `defineCommand()`
+- [x] Every markdown store uses `createStore()`
+- [x] All renderers use data-first `(data, log)` signature
+- [x] `createTestDeps()` stubs all 11 `CliDeps` fields
+- [x] No `flagStr()` or `noProjectResponse()` in controller files
+- [x] Conformance tests pass
