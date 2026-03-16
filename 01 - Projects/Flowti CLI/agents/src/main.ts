@@ -22,22 +22,13 @@ import { sendMessage, assignTask, grantPermission } from "./data/api-client.js";
 import type { AgentAction, DashboardAgent, ActivityEntry, PermissionEntry } from "./data/types.js";
 import type { AgentActor } from "./actors/agent-actor.js";
 import { preferredWorkstation } from "./brain/movement.js";
+import { createCameraSystem } from "./systems/camera-system.js";
 
 // ── Constants ────────────────────────────────────────────────────────
 
 const ENGINE_WIDTH = 1200;
 const ENGINE_HEIGHT = 700;
 const BASE_URL = "";
-
-// ── Scene navigation helpers ─────────────────────────────────────────
-
-function handleSceneChange(engine: ex.Engine, targetScene: string, panelMgr: { close: () => void }): void {
-	panelMgr.close();
-	void engine.goToScene(targetScene, {
-		destinationIn: new ex.FadeInOut({ duration: 300, direction: "in" }),
-		sourceOut: new ex.FadeInOut({ duration: 300, direction: "out" }),
-	});
-}
 
 // ── Main ─────────────────────────────────────────────────────────────
 
@@ -107,16 +98,34 @@ async function main(): Promise<void> {
 	}
 
 	function handleAgentSelect(agentName: string): void {
-		// Open panel near center-right of the canvas
-		const rect = engine.canvas.getBoundingClientRect();
-		const screenX = rect.width * 0.6;
-		const screenY = rect.height * 0.15;
-		openPanelForAgent(agentName, screenX, screenY);
+		if (panelManager.isOpen() && panelManager.getAgentName() === agentName) {
+			// Same agent clicked while panel open → close panel, start follow
+			panelManager.close();
+			const actor = findAgentActor(agentName);
+			if (actor && cameraSystem) {
+				cameraSystem.startFollow(actor);
+			}
+		} else {
+			// Different agent or no panel → stop follow if active, open panel
+			if (cameraSystem?.isFollowing()) {
+				cameraSystem.stopFollow();
+			}
+			const rect = engine.canvas.getBoundingClientRect();
+			openPanelForAgent(agentName, rect.width * 0.6, rect.height * 0.15);
+		}
 	}
 
 	// ── Scene config ────────────────────────────────────
 	const sceneConfig = {
-		onSceneChange: (target: string) => handleSceneChange(engine, target, panelManager),
+		onSceneChange: (target: string) => {
+			panelManager.close();
+			void engine.goToScene(target, {
+				destinationIn: new ex.FadeInOut({ duration: 300, direction: "in" }),
+				sourceOut: new ex.FadeInOut({ duration: 300, direction: "out" }),
+			}).then(() => {
+				cameraSystem?.onSceneActivate(findAgentActor);
+			});
+		},
 		onAgentSelect: handleAgentSelect,
 	};
 
@@ -287,8 +296,10 @@ async function main(): Promise<void> {
 	villageScene.setBrainSystem(brainSystem);
 	stationScene.setBrainSystem(brainSystem);
 
-	// ── Pre-update hook for brain and bubble systems ────
+	// ── Pre-update hook for brain, bubble, and camera systems ──
 	let lastTime = performance.now();
+	let cameraSystem: ReturnType<typeof createCameraSystem> | null = null;
+
 	engine.on("preframe", () => {
 		const now = performance.now();
 		const deltaMs = now - lastTime;
@@ -300,11 +311,29 @@ async function main(): Promise<void> {
 			engine.currentScene,
 			findAgentActor,
 		);
+		if (cameraSystem) {
+			cameraSystem.checkDespawn();
+			cameraSystem.applyZoom(deltaMs);
+		}
 	});
 
 	// ── Start ───────────────────────────────────────────
 	await engine.start();
 	engine.goToScene("hub");
+
+	// ── Camera system (after engine.start so camera is initialized) ──
+	cameraSystem = createCameraSystem(engine.currentScene.camera, canvasParent);
+
+	engine.canvas.addEventListener("wheel", (e) => {
+		e.preventDefault();
+		cameraSystem!.handleZoom(e.deltaY);
+	}, { passive: false });
+
+	document.addEventListener("keydown", (e) => {
+		if (e.key === "Escape" && cameraSystem!.isFollowing()) {
+			cameraSystem!.stopFollow();
+		}
+	});
 
 	// Load initial data and start sync after engine is ready
 	await syncSystem.start();
