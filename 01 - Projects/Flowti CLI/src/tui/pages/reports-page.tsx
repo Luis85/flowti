@@ -11,7 +11,7 @@ import { useLoaderContext } from "../context.js";
 import { loadReports } from "../loaders/reports-loader.js";
 import type { PageProps } from "../types.js";
 
-function ReportsPage({ params }: PageProps): React.JSX.Element {
+function ReportsPage({ params, enabled }: PageProps): React.JSX.Element {
 	const ctx = useLoaderContext(params);
 	const { data, error } = useLoader(loadReports, ctx);
 
@@ -26,6 +26,7 @@ function ReportsPage({ params }: PageProps): React.JSX.Element {
 	return React.createElement(ListPage, {
 		items: data.reports as readonly unknown[],
 		renderItem,
+		enabled,
 	});
 }
 

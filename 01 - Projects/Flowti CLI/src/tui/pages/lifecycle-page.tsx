@@ -12,7 +12,7 @@ import { useLoaderContext } from "../context.js";
 import { loadLifecycle } from "../loaders/lifecycle-loader.js";
 import type { PageProps } from "../types.js";
 
-function LifecyclePage({ params }: PageProps): React.JSX.Element {
+function LifecyclePage({ params, enabled }: PageProps): React.JSX.Element {
 	const ctx = useLoaderContext(params);
 	const { data, error } = useLoader(loadLifecycle, ctx);
 
@@ -43,6 +43,7 @@ function LifecyclePage({ params }: PageProps): React.JSX.Element {
 		items: data.items as readonly unknown[],
 		renderItem,
 		renderDetail,
+		enabled,
 	});
 }
 

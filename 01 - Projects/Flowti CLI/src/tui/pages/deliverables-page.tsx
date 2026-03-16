@@ -12,7 +12,7 @@ import { useLoaderContext } from "../context.js";
 import { loadDeliverables } from "../loaders/deliverables-loader.js";
 import type { PageProps } from "../types.js";
 
-function DeliverablesPage({ params }: PageProps): React.JSX.Element {
+function DeliverablesPage({ params, enabled }: PageProps): React.JSX.Element {
 	const ctx = useLoaderContext(params);
 	const { data, error } = useLoader(loadDeliverables, ctx);
 
@@ -44,6 +44,7 @@ function DeliverablesPage({ params }: PageProps): React.JSX.Element {
 		items: data.items as readonly unknown[],
 		renderItem,
 		renderDetail,
+		enabled,
 	});
 }
 

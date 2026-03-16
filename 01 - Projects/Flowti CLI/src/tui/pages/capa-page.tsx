@@ -19,7 +19,7 @@ const SEVERITY_COLORS: Record<string, string> = {
 	low: "gray",
 };
 
-function CapaPage({ params }: PageProps): React.JSX.Element {
+function CapaPage({ params, enabled }: PageProps): React.JSX.Element {
 	const ctx = useLoaderContext(params);
 	const { data, error } = useLoader(loadCapa, ctx);
 
@@ -53,6 +53,7 @@ function CapaPage({ params }: PageProps): React.JSX.Element {
 		items: data.items as readonly unknown[],
 		renderItem,
 		renderDetail,
+		enabled,
 	});
 }
 

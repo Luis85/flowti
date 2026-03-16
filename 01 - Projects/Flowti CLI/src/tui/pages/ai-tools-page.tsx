@@ -14,7 +14,7 @@ import { loadAiTools } from "../loaders/ai-tools-loader.js";
 import type { AgentListItem } from "../loaders/ai-tools-loader.js";
 import type { PageProps } from "../types.js";
 
-function AiToolsPage({ params, navigate }: PageProps): React.JSX.Element {
+function AiToolsPage({ params, navigate, enabled }: PageProps): React.JSX.Element {
 	const ctx = useLoaderContext(params);
 	const { data, error } = useLoader(loadAiTools, ctx);
 
@@ -45,6 +45,7 @@ function AiToolsPage({ params, navigate }: PageProps): React.JSX.Element {
 		renderDetail,
 		onSelect: (item: unknown) => { const agent = item as AgentListItem; navigate("agent-detail", { agentName: agent.name }); },
 		actions: [{ key: "Enter", label: "Detail" }],
+		enabled,
 	});
 }
 
