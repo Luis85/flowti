@@ -31,13 +31,13 @@ describe("registerTrainHandlers", () => {
 	let registry: PluginHandlerRegistry;
 	let trainService: ReturnType<typeof createMockTrainService>;
 	let eventBus: IEventBus;
-	let openTrainView: ReturnType<typeof vi.fn>;
+	let openTrainView: (trainId: string) => void;
 
 	beforeEach(() => {
 		registry = new PluginHandlerRegistry();
 		trainService = createMockTrainService();
 		eventBus = createMockEventBus();
-		openTrainView = vi.fn();
+		openTrainView = vi.fn<(trainId: string) => void>();
 		registerTrainHandlers(registry, {
 			trainService: trainService as never,
 			onboardingService: { shouldShowCallout: vi.fn(() => false) },

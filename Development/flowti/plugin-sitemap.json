@@ -41,7 +41,15 @@
 			"label": "Train Hub",
 			"icon": "train-front",
 			"type": "flowti-train-hub",
-			"legacy": true
+			"tabs": [
+				{ "id": "active", "label": "Active", "icon": "play", "handler": "train:active", "searchPlaceholder": "Search active trains..." },
+				{ "id": "history", "label": "History", "icon": "history", "handler": "train:history", "searchPlaceholder": "Search completed trains..." }
+			],
+			"refreshEvents": [
+				"train.started", "train.paused", "train.resumed",
+				"train.completed", "train.deleted", "train.renamed",
+				"train.thought.added"
+			]
 		},
 		"analytics-hub": {
 			"kind": "hub",

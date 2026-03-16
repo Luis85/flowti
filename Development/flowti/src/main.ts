@@ -85,6 +85,7 @@ import { ConditionEvaluator } from "./infrastructure/handlers/condition-evaluato
 import { registerConditionHandlers } from "./infrastructure/handlers/condition-handlers";
 import { registerActionHandlers } from "./infrastructure/handlers/action-handlers";
 import { registerTestManagementHandlers, type TestManagementHandlerDeps } from "./infrastructure/handlers/test-management-handlers";
+import { registerTrainHandlers } from "./infrastructure/handlers/train-handlers";
 import type { PluginSitemap } from "./domain/sitemap/plugin-sitemap-types";
 import pluginSitemap from "../plugin-sitemap.json";
 
@@ -260,6 +261,17 @@ export default class FlowtiBasePlugin extends Plugin {
 					trainService: { getActiveTrain: () => this.trainService?.getActiveTrain() ?? null },
 					sessionService: { getActiveSession: () => this.sessionService?.getActiveSession() ?? null },
 					installerService: { isInstalled: () => this.installerServiceRef?.isInstalled() ?? false },
+				});
+				registerTrainHandlers(handlerRegistry, {
+					trainService: {
+						getAllTrains: () => this.trainService?.getAllTrains() ?? [],
+						getActiveTrain: () => this.trainService?.getActiveTrain(),
+					},
+					onboardingService: {
+						shouldShowCallout: (id: string) => !(this.onboardingService?.isCalloutDismissed(id) ?? false),
+					},
+					eventBus: this.eventBus,
+					openTrainView: (trainId: string) => this.revealOrCreateTrainView(trainId),
 				});
 
 				const conditionEvaluator = new ConditionEvaluator(handlerRegistry);
@@ -882,12 +894,8 @@ export default class FlowtiBasePlugin extends Plugin {
 			})),
 		);
 
-		// Train Hub — central management view for all trains
-		this.safeRegisterView(VIEW_TYPE_TRAIN_HUB, (leaf) =>
-			new TrainHubView(leaf, this.eventBus, this.trainService!, (trainId) => {
-				this.revealOrCreateTrainView(trainId);
-			}, this.onboardingService!),
-		);
+		// Train Hub — now driven by SitemapHubView + Lit components (see registerTrainHandlers).
+		// View registration is handled by SitemapBootstrap via plugin-sitemap.json.
 
 		// Analytics Hub — dedicated analytics view
 		this.safeRegisterView(VIEW_TYPE_ANALYTICS_HUB, (leaf) =>

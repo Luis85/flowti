@@ -12,7 +12,7 @@ import { setProps } from "./handler-utils";
 
 export interface TrainHandlerDeps {
 	trainService: {
-		getAllTrains: () => unknown[];
+		getAllTrains: () => readonly unknown[];
 		getActiveTrain: () => unknown | undefined;
 	};
 	onboardingService: {
