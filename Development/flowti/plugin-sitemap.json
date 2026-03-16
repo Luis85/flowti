@@ -102,7 +102,23 @@
 			"label": "Data Exchange Hub",
 			"icon": "arrow-left-right",
 			"type": "flowti-data-exchange-hub",
-			"legacy": true
+			"tabs": [
+				{ "id": "pipelines", "label": "Pipelines", "icon": "git-branch", "handler": "dx:pipelines", "searchPlaceholder": "Search pipelines..." },
+				{ "id": "imports", "label": "Imports", "icon": "file-input", "handler": "dx:imports", "searchPlaceholder": "Search imports..." },
+				{ "id": "exports", "label": "Exports", "icon": "file-output", "handler": "dx:exports", "searchPlaceholder": "Search exports..." },
+				{ "id": "types", "label": "Types", "icon": "tags", "handler": "dx:types", "searchPlaceholder": "Search types..." },
+				{ "id": "properties", "label": "Properties", "icon": "list", "handler": "dx:properties", "searchPlaceholder": "Search properties..." },
+				{ "id": "signals", "label": "Signals", "icon": "radio", "handler": "dx:signals", "searchPlaceholder": "Search signals..." },
+				{ "id": "reports", "label": "Reports", "icon": "bar-chart", "handler": "dx:reports", "searchPlaceholder": "Search reports..." },
+				{ "id": "canvas", "label": "Canvas", "icon": "layout-dashboard", "handler": "dx:canvas", "searchPlaceholder": "Search canvases..." }
+			],
+			"refreshEvents": [
+				"dataExchange.import.started", "dataExchange.import.completed", "dataExchange.import.failed",
+				"dataExchange.export.started", "dataExchange.export.completed", "dataExchange.export.failed",
+				"dataExchange.pipeline.started", "dataExchange.pipeline.completed", "dataExchange.pipeline.failed",
+				"signal.synced", "signal.created", "signal.deleted",
+				"canvas.imported", "canvas.created"
+			]
 		},
 		"csv-action": {
 			"kind": "leaf",

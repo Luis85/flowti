@@ -87,6 +87,7 @@ import { registerActionHandlers } from "./infrastructure/handlers/action-handler
 import { registerTestManagementHandlers, type TestManagementHandlerDeps } from "./infrastructure/handlers/test-management-handlers";
 import { registerTrainHandlers } from "./infrastructure/handlers/train-handlers";
 import { registerCatalogHandlers } from "./infrastructure/handlers/catalog-handlers";
+import { registerDataExchangeHandlers } from "./infrastructure/handlers/data-exchange-handlers";
 import type { PluginSitemap } from "./domain/sitemap/plugin-sitemap-types";
 import pluginSitemap from "../plugin-sitemap.json";
 
@@ -285,6 +286,28 @@ export default class FlowtiBasePlugin extends Plugin {
 						getSystemEntries: () => [],
 						getActorEntries: () => [],
 						getCategories: () => [],
+					},
+					eventBus: this.eventBus,
+				});
+				registerDataExchangeHandlers(handlerRegistry, {
+					dataExchangeService: {
+						getSavedImportConfigs: () => this.dataExchangeService?.getSavedImportConfigs() ?? [],
+						getSavedExportConfigs: () => this.dataExchangeService?.getSavedExportConfigs() ?? [],
+						getSavedPipelines: () => this.dataExchangeService?.getSavedPipelines() ?? [],
+						buildDataDictionary: () => this.dataExchangeService?.buildDataDictionary() ?? [],
+						getPropertyDocPath: (name: string) => this.dataExchangeService?.getPropertyDocPath(name) ?? "",
+						getTypesFolderPath: () => this.dataExchangeService?.getTypesFolderPath() ?? "",
+						getReportsFolderPath: () => this.dataExchangeService?.getReportsFolderPath() ?? "",
+					},
+					signalService: this.signalService ? {
+						getSignals: () => this.signalService!.getSignals(),
+						syncAll: () => this.signalService!.syncAll(),
+					} : null,
+					canvasService: this.canvasService ? {
+						getConfigs: () => this.canvasService!.getConfigs(),
+					} : null,
+					operationTracker: {
+						getActiveOperations: () => [],
 					},
 					eventBus: this.eventBus,
 				});

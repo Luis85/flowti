@@ -32,7 +32,7 @@ export interface DataExchangeHandlerDeps {
 	};
 	signalService: {
 		getSignals: () => readonly unknown[];
-		syncAll: () => Promise<void>;
+		syncAll: () => Promise<unknown>;
 	} | null;
 	canvasService: {
 		getConfigs: () => readonly unknown[];

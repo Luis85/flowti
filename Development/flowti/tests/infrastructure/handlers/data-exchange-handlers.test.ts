@@ -17,10 +17,10 @@ import "../../../src/components/dx/flowti-dx-canvas";
 
 function createMockDataExchangeService() {
 	return {
-		getSavedImportConfigs: vi.fn(() => []),
-		getSavedExportConfigs: vi.fn(() => []),
-		getSavedPipelines: vi.fn(() => []),
-		buildDataDictionary: vi.fn(() => []),
+		getSavedImportConfigs: vi.fn((): readonly unknown[] => []),
+		getSavedExportConfigs: vi.fn((): readonly unknown[] => []),
+		getSavedPipelines: vi.fn((): readonly unknown[] => []),
+		buildDataDictionary: vi.fn((): readonly unknown[] => []),
 		getPropertyDocPath: vi.fn((name: string) => `Properties/${name}.md`),
 		getTypesFolderPath: vi.fn(() => "Types"),
 		getReportsFolderPath: vi.fn(() => "Reports"),
@@ -29,20 +29,20 @@ function createMockDataExchangeService() {
 
 function createMockSignalService() {
 	return {
-		getSignals: vi.fn(() => []),
+		getSignals: vi.fn((): readonly unknown[] => []),
 		syncAll: vi.fn().mockResolvedValue(undefined),
 	};
 }
 
 function createMockCanvasService() {
 	return {
-		getConfigs: vi.fn(() => []),
+		getConfigs: vi.fn((): readonly unknown[] => []),
 	};
 }
 
 function createMockOperationTracker() {
 	return {
-		getActiveOperations: vi.fn(() => []),
+		getActiveOperations: vi.fn((): readonly { operationId: string; type: string; name: string; completed?: boolean; success?: boolean; progress?: { current: number; total: number } | null; message?: string }[] => []),
 	};
 }
 
@@ -103,7 +103,7 @@ describe("registerDataExchangeHandlers", () => {
 
 		it("sets activeOps from operation tracker", () => {
 			const ops = [{ operationId: "op1", type: "import", name: "Test", completed: false }];
-			operationTracker.getActiveOperations.mockReturnValue(ops);
+			operationTracker.getActiveOperations.mockReturnValue(ops as never);
 			const container = document.createElement("div");
 			registry.getTabHandler("dx:dashboard")!(container, { tabId: "dashboard", viewId: "test", eventBus });
 			const el = container.querySelector("flowti-dx-dashboard") as unknown as { activeOps: unknown[] };
@@ -122,7 +122,7 @@ describe("registerDataExchangeHandlers", () => {
 	describe("imports handler", () => {
 		it("creates flowti-dx-imports element with configs", () => {
 			const imports = [{ id: "i1", name: "Test", sourcePath: "data.csv", targetFolder: "Notes" }];
-			dataExchangeService.getSavedImportConfigs.mockReturnValue(imports);
+			dataExchangeService.getSavedImportConfigs.mockReturnValue(imports as never);
 			const container = document.createElement("div");
 			registry.getTabHandler("dx:imports")!(container, { tabId: "imports", viewId: "test", eventBus });
 			const el = container.querySelector("flowti-dx-imports") as unknown as { imports: unknown[] };
@@ -156,7 +156,7 @@ describe("registerDataExchangeHandlers", () => {
 	describe("exports handler", () => {
 		it("creates flowti-dx-exports element with configs", () => {
 			const exports = [{ id: "e1", name: "Test Export", outputPath: "out.csv" }];
-			dataExchangeService.getSavedExportConfigs.mockReturnValue(exports);
+			dataExchangeService.getSavedExportConfigs.mockReturnValue(exports as never);
 			const container = document.createElement("div");
 			registry.getTabHandler("dx:exports")!(container, { tabId: "exports", viewId: "test", eventBus });
 			const el = container.querySelector("flowti-dx-exports") as unknown as { exports: unknown[] };
@@ -175,7 +175,7 @@ describe("registerDataExchangeHandlers", () => {
 	describe("pipelines handler", () => {
 		it("creates flowti-dx-pipelines element with merged operation status", () => {
 			const pipelines = [{ id: "p1", name: "Pipeline A", noteType: "Article" }];
-			dataExchangeService.getSavedPipelines.mockReturnValue(pipelines);
+			dataExchangeService.getSavedPipelines.mockReturnValue(pipelines as never);
 			operationTracker.getActiveOperations.mockReturnValue([
 				{ operationId: "p1", type: "pipeline", name: "Pipeline A", completed: false, progress: { current: 3, total: 10 } },
 			]);
@@ -189,7 +189,7 @@ describe("registerDataExchangeHandlers", () => {
 
 		it("marks idle pipelines when no active operation", () => {
 			const pipelines = [{ id: "p1", name: "Pipeline A" }];
-			dataExchangeService.getSavedPipelines.mockReturnValue(pipelines);
+			dataExchangeService.getSavedPipelines.mockReturnValue(pipelines as never);
 			operationTracker.getActiveOperations.mockReturnValue([]);
 			const container = document.createElement("div");
 			registry.getTabHandler("dx:pipelines")!(container, { tabId: "pipelines", viewId: "test", eventBus });
@@ -226,7 +226,7 @@ describe("registerDataExchangeHandlers", () => {
 	describe("properties handler", () => {
 		it("creates flowti-dx-properties element with dictionary data", () => {
 			const dict = [{ propertyName: "title", noteCount: 42, uniqueValues: 38 }];
-			dataExchangeService.buildDataDictionary.mockReturnValue(dict);
+			dataExchangeService.buildDataDictionary.mockReturnValue(dict as never);
 			const container = document.createElement("div");
 			registry.getTabHandler("dx:properties")!(container, { tabId: "properties", viewId: "test", eventBus });
 			const el = container.querySelector("flowti-dx-properties") as unknown as { properties: Array<{ propertyName: string }> };
@@ -247,7 +247,7 @@ describe("registerDataExchangeHandlers", () => {
 	describe("signals handler", () => {
 		it("creates flowti-dx-signals element with signal data", () => {
 			const signals = [{ id: "s1", name: "Signal A" }];
-			signalService.getSignals.mockReturnValue(signals);
+			signalService.getSignals.mockReturnValue(signals as never);
 			const container = document.createElement("div");
 			registry.getTabHandler("dx:signals")!(container, { tabId: "signals", viewId: "test", eventBus });
 			const el = container.querySelector("flowti-dx-signals") as unknown as { signals: unknown[] };
@@ -291,7 +291,7 @@ describe("registerDataExchangeHandlers", () => {
 	describe("canvas handler", () => {
 		it("creates flowti-dx-canvas element with canvas configs", () => {
 			const configs = [{ id: "c1", name: "Config A" }];
-			canvasService.getConfigs.mockReturnValue(configs);
+			canvasService.getConfigs.mockReturnValue(configs as never);
 			const container = document.createElement("div");
 			registry.getTabHandler("dx:canvas")!(container, { tabId: "canvas", viewId: "test", eventBus });
 			const el = container.querySelector("flowti-dx-canvas") as unknown as { canvases: unknown[] };
