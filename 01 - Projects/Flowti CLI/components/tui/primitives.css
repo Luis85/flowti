@@ -1,0 +1,56 @@
+/* Badge */
+.tui-badge { font-size: 12px; opacity: 0.8; }
+
+/* StatCard */
+.tui-stat-card { border: 1px solid #585b70; border-radius: 6px; padding: 4px 10px; min-width: 14ch; display: flex; flex-direction: column; }
+.tui-stat-card--label { font-size: 12px; color: #a6adc8; }
+.tui-stat-card--value { font-weight: bold; font-size: 16px; color: #cdd6f4; }
+.tui-stat-card--trend { font-size: 11px; color: #a6adc8; }
+
+/* StatGrid */
+.tui-stat-grid { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+
+/* Section */
+.tui-section { margin-bottom: 8px; }
+.tui-section--header { font-weight: bold; color: #89b4fa; margin-bottom: 2px; cursor: default; }
+.tui-section--header[data-collapsible] { cursor: pointer; }
+.tui-section--body { padding-left: 16px; }
+
+/* ActionBar */
+.tui-action-bar { display: flex; gap: 16px; padding: 8px 0 0 0; border-top: 1px solid #313244; margin-top: 8px; color: #a6adc8; font-size: 13px; }
+.tui-action-bar--key { font-weight: bold; color: #89b4fa; }
+
+/* KeyHints */
+.tui-key-hints { display: flex; gap: 16px; color: #a6adc8; font-size: 12px; opacity: 0.7; }
+.tui-key-hints--key { font-weight: bold; color: #89b4fa; }
+
+/* ScrollableList */
+.tui-list { display: flex; flex-direction: column; }
+.tui-list--item { padding: 1px 4px; display: flex; align-items: center; gap: 4px; }
+.tui-list--item-selected { color: #89dceb; font-weight: bold; }
+.tui-list--indicator { color: #89dceb; width: 2ch; flex-shrink: 0; }
+
+/* MasterDetail */
+.tui-master-detail { display: flex; flex-grow: 1; gap: 0; }
+.tui-master-detail--master { flex-shrink: 0; border-right: 1px solid #585b70; padding-right: 8px; }
+.tui-master-detail--detail { flex-grow: 1; padding-left: 12px; }
+
+/* SearchInput */
+.tui-search-input { border-bottom: 1px solid #585b70; padding: 4px 0; color: #a6adc8; font-size: 13px; margin-bottom: 8px; }
+.tui-search-input--icon { margin-right: 6px; }
+.tui-search-input--value { color: #cdd6f4; }
+.tui-search-input--placeholder { opacity: 0.5; }
+
+/* FormField */
+.tui-form-field { margin-bottom: 8px; display: flex; flex-direction: column; gap: 2px; }
+.tui-form-field--label { font-size: 12px; color: #a6adc8; }
+.tui-form-field--required { color: #f38ba8; }
+.tui-form-field--input { border-bottom: 1px solid #585b70; padding: 2px 0; color: #cdd6f4; min-height: 1.4em; }
+.tui-form-field--placeholder { opacity: 0.5; }
+.tui-form-field--option { padding: 1px 0; color: #cdd6f4; }
+.tui-form-field--option-selected { color: #89dceb; }
+
+/* Text helpers */
+.tui-text--bold { font-weight: bold; }
+.tui-text--dim { opacity: 0.5; }
+.tui-text-line { display: block; line-height: 1.5; }
