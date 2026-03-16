@@ -30,9 +30,9 @@ describe("nearestUnoccupied", () => {
 	it("picks the closest free workstation", () => {
 		const position = { x: 10, y: 10 };
 		const workstations = [
-			{ x: 100, y: 100, occupied: false },
-			{ x: 15, y: 15, occupied: false },
-			{ x: 50, y: 50, occupied: true },
+			{ id: "ws-0", x: 100, y: 100, occupied: false },
+			{ id: "ws-1", x: 15, y: 15, occupied: false },
+			{ id: "ws-2", x: 50, y: 50, occupied: true },
 		];
 		const result = nearestUnoccupied(position, workstations);
 		expect(result).toEqual({ x: 15, y: 15 });
@@ -41,8 +41,8 @@ describe("nearestUnoccupied", () => {
 	it("returns null when all occupied", () => {
 		const position = { x: 10, y: 10 };
 		const workstations = [
-			{ x: 15, y: 15, occupied: true },
-			{ x: 50, y: 50, occupied: true },
+			{ id: "ws-0", x: 15, y: 15, occupied: true },
+			{ id: "ws-1", x: 50, y: 50, occupied: true },
 		];
 		const result = nearestUnoccupied(position, workstations);
 		expect(result).toBeNull();

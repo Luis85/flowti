@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { computeHabits } from "../../src/brain/agent-brain.js";
+import { resolveIdleTarget, preferredWorkstation } from "../../src/brain/movement.js";
+import type { AgentHabits } from "../../src/brain/brain-types.js";
 
 describe("computeHabits", () => {
 	it("low DEX (1-7) → deliberate movement", () => {
@@ -106,5 +108,93 @@ describe("computeHabits — mood multipliers", () => {
 		const neutral = computeHabits(baseAttrs, "neutral", "engineering");
 		expect(neutral.idleResistanceMult).toBe(1.0);
 		expect(neutral.speedMult).toBe(1.0);
+	});
+});
+
+// ── resolveIdleTarget tests ──────────────────────────────────────────
+
+const defaultHabits: AgentHabits = {
+	preferredWorkstationId: null,
+	homeRoom: "office",
+	movementStyle: "brisk",
+	idleStyle: "restless",
+	socialDrift: 0.5,
+	focusDrift: 0.5,
+	breakThreshold: 30,
+	settlingPause: 500,
+	idleResistanceMult: 1.0,
+	speedMult: 1.0,
+};
+
+const bounds = { minX: 0, maxX: 400, minY: 0, maxY: 300 };
+
+describe("resolveIdleTarget", () => {
+	it("high socialDrift + nearby agent → targets near that agent", () => {
+		const habits = { ...defaultHabits, socialDrift: 1.0, focusDrift: 0 };
+		const nearby = [{ x: 200, y: 150 }];
+		const result = resolveIdleTarget(habits, nearby, bounds, () => 0);
+		expect(result).not.toBeNull();
+		expect(Math.abs(result!.x - 200)).toBeLessThanOrEqual(30);
+		expect(Math.abs(result!.y - 150)).toBeLessThanOrEqual(30);
+	});
+
+	it("socialDrift miss + high focusDrift → targets far corner", () => {
+		const habits = { ...defaultHabits, socialDrift: 0, focusDrift: 1.0 };
+		const nearby = [{ x: 200, y: 150 }];
+		const result = resolveIdleTarget(habits, nearby, bounds, () => 0);
+		expect(result).not.toBeNull();
+		const distFromAgent = Math.sqrt((result!.x - 200) ** 2 + (result!.y - 150) ** 2);
+		expect(distFromAgent).toBeGreaterThan(100);
+	});
+
+	it("both miss → falls back to random wander", () => {
+		const habits = { ...defaultHabits, socialDrift: 0, focusDrift: 0 };
+		const result = resolveIdleTarget(habits, [], bounds, () => 0.5);
+		expect(result).not.toBeNull();
+		expect(result!.x).toBeGreaterThanOrEqual(0);
+		expect(result!.x).toBeLessThanOrEqual(400);
+	});
+
+	it("no nearby agents + socialDrift hit → falls through to wander", () => {
+		const habits = { ...defaultHabits, socialDrift: 1.0, focusDrift: 0 };
+		const result = resolveIdleTarget(habits, [], bounds, () => 0.5);
+		expect(result).not.toBeNull();
+	});
+});
+
+describe("preferredWorkstation", () => {
+	it("returns preferred if available and not occupied", () => {
+		const workstations = [
+			{ id: "office-0", x: 100, y: 100, occupied: false },
+			{ id: "office-1", x: 200, y: 100, occupied: false },
+		];
+		const result = preferredWorkstation({ x: 300, y: 300 }, workstations, "office-1");
+		expect(result).toEqual({ x: 200, y: 100 });
+	});
+
+	it("falls back to nearest if preferred is occupied", () => {
+		const workstations = [
+			{ id: "office-0", x: 100, y: 100, occupied: false },
+			{ id: "office-1", x: 200, y: 100, occupied: true },
+		];
+		const result = preferredWorkstation({ x: 150, y: 100 }, workstations, "office-1");
+		expect(result).toEqual({ x: 100, y: 100 });
+	});
+
+	it("falls back to nearest when no preferred set", () => {
+		const workstations = [
+			{ id: "office-0", x: 100, y: 100, occupied: false },
+			{ id: "office-1", x: 50, y: 50, occupied: false },
+		];
+		const result = preferredWorkstation({ x: 40, y: 40 }, workstations, null);
+		expect(result).toEqual({ x: 50, y: 50 });
+	});
+
+	it("returns null when all occupied", () => {
+		const workstations = [
+			{ id: "office-0", x: 100, y: 100, occupied: true },
+		];
+		const result = preferredWorkstation({ x: 0, y: 0 }, workstations, null);
+		expect(result).toBeNull();
 	});
 });
