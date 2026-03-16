@@ -27,10 +27,12 @@ function renderApp() {
 }
 
 describe("App", () => {
-	it("renders activity bar with section icons", () => {
+	it("renders activity bar with all section labels", () => {
 		const { unmount, ...instance } = renderApp();
 		const frame = lastFrame(instance);
-		expect(frame).toContain("\u{1F3E0}");
+		expect(frame).toContain("Home");
+		expect(frame).toContain("Agents");
+		expect(frame).toContain("Project");
 		unmount();
 	});
 
@@ -41,11 +43,12 @@ describe("App", () => {
 		unmount();
 	});
 
-	it("renders status bar with key hints", () => {
+	it("renders status bar with zone-aware hints", () => {
 		const { unmount, ...instance } = renderApp();
 		const frame = lastFrame(instance);
+		// Content zone is default focus — should show content hints
 		expect(frame).toContain("Navigate");
-		expect(frame).toContain("Esc");
+		expect(frame).toContain("Sidebar");
 		unmount();
 	});
 
