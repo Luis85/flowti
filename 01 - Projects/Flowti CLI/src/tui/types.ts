@@ -9,13 +9,17 @@ export interface Section {
 	readonly pages: readonly string[];
 }
 
-export interface NavigationState {
-	readonly section: string;
+export interface SectionState {
 	readonly pageStack: readonly string[];
 	readonly params: Readonly<Record<string, string>>;
 }
 
-export type FocusZone = "activity-bar" | "content" | "actions";
+export interface NavigationState {
+	readonly activeSection: string;
+	readonly sections: Readonly<Record<string, SectionState>>;
+}
+
+export type FocusZone = "activity-bar" | "content";
 
 export interface PageProps {
 	readonly pageId: string;
@@ -23,6 +27,7 @@ export interface PageProps {
 	readonly navigate: (pageId: string, params?: Record<string, string>) => void;
 	readonly goBack: () => void;
 	readonly onAction?: (actionId: string, params?: Record<string, string>) => void;
+	readonly enabled?: boolean;
 }
 
 /** Extended page props for data-driven pages. Data comes from loader, onAction handles mutations. */

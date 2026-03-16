@@ -1,11 +1,12 @@
 /**
  * use-navigation.ts — Navigation state machine hook for the TUI shell.
  *
- * Manages section selection, page stack (for breadcrumbs/back), and page params.
+ * Manages per-section page stacks (section memory), cross-section navigation,
+ * and breadcrumb-compatible page history.
  */
 
 import { useState, useCallback } from "react";
-import type { Section, NavigationState } from "../types.js";
+import type { Section, NavigationState, SectionState } from "../types.js";
 import { findSectionForPage } from "./section-map.js";
 
 interface UseNavigationResult {
@@ -15,46 +16,87 @@ interface UseNavigationResult {
 	readonly setSection: (sectionId: string) => void;
 }
 
+function initSections(sections: readonly Section[]): Record<string, SectionState> {
+	const map: Record<string, SectionState> = {};
+	for (const s of sections) {
+		map[s.id] = { pageStack: [s.pages[0]], params: {} };
+	}
+	return map;
+}
+
 export function useNavigation(sections: readonly Section[]): UseNavigationResult {
-	const [state, setState] = useState<NavigationState>({
-		section: "home",
-		pageStack: ["start"],
-		params: {},
-	});
+	const [state, setState] = useState<NavigationState>(() => ({
+		activeSection: "home",
+		sections: initSections(sections),
+	}));
 
 	const navigate = useCallback((pageId: string, params?: Record<string, string>) => {
 		setState((prev) => {
 			const targetSection = findSectionForPage(sections, pageId);
+			if (!targetSection) return prev;
+
+			if (targetSection === prev.activeSection) {
+				// Same section — push onto current stack
+				const current = prev.sections[prev.activeSection];
+				return {
+					...prev,
+					sections: {
+						...prev.sections,
+						[prev.activeSection]: {
+							pageStack: [...current.pageStack, pageId],
+							params: params ?? {},
+						},
+					},
+				};
+			}
+
+			// Cross-section — switch section and set page
 			return {
-				section: targetSection ?? prev.section,
-				pageStack: [...prev.pageStack, pageId],
-				params: params ?? {},
+				activeSection: targetSection,
+				sections: {
+					...prev.sections,
+					[targetSection]: {
+						pageStack: [pageId],
+						params: params ?? {},
+					},
+				},
 			};
 		});
 	}, [sections]);
 
 	const goBack = useCallback(() => {
 		setState((prev) => {
-			if (prev.pageStack.length <= 1) return prev;
-			const newStack = prev.pageStack.slice(0, -1);
-			const topPage = newStack[newStack.length - 1];
-			const targetSection = findSectionForPage(sections, topPage);
+			const current = prev.sections[prev.activeSection];
+			if (current.pageStack.length <= 1) return prev;
 			return {
-				section: targetSection ?? prev.section,
-				pageStack: newStack,
-				params: {},
+				...prev,
+				sections: {
+					...prev.sections,
+					[prev.activeSection]: {
+						pageStack: current.pageStack.slice(0, -1),
+						params: {},
+					},
+				},
 			};
 		});
-	}, [sections]);
+	}, []);
 
 	const setSection = useCallback((sectionId: string) => {
 		const section = sections.find((s) => s.id === sectionId);
 		if (!section) return;
-		const rootPage = section.pages[0];
-		setState({
-			section: sectionId,
-			pageStack: [rootPage],
-			params: {},
+		setState((prev) => {
+			if (sectionId === prev.activeSection) {
+				// Re-selecting current section → reset to landing page
+				return {
+					...prev,
+					sections: {
+						...prev.sections,
+						[sectionId]: { pageStack: [section.pages[0]], params: {} },
+					},
+				};
+			}
+			// Switch to section — preserve its existing state (section memory)
+			return { ...prev, activeSection: sectionId };
 		});
 	}, [sections]);
 

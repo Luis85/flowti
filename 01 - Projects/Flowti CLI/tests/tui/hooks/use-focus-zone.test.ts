@@ -13,7 +13,7 @@ interface FocusResult {
 }
 
 function FocusHarness({ resultRef }: { resultRef: React.MutableRefObject<FocusResult | null> }): React.JSX.Element {
-	const result = useFocusZone(["activity-bar", "content", "actions"]);
+	const result = useFocusZone(["activity-bar", "content"]);
 	resultRef.current = result;
 	return React.createElement(Text, null, result.active);
 }
@@ -29,31 +29,31 @@ function flush(): Promise<void> {
 }
 
 describe("useFocusZone", () => {
-	it("starts at content zone", () => {
+	it("starts at content zone (zones[1])", () => {
 		const { unmount, focus } = renderFocus();
 		expect(focus().active).toBe("content");
 		unmount();
 	});
 
-	it("next cycles to next zone", async () => {
+	it("next cycles from content to activity-bar", async () => {
 		const { unmount, focus } = renderFocus();
-		focus().next();
-		await flush();
-		expect(focus().active).toBe("actions");
-		unmount();
-	});
-
-	it("next wraps around", async () => {
-		const { unmount, focus } = renderFocus();
-		focus().next();
-		await flush();
 		focus().next();
 		await flush();
 		expect(focus().active).toBe("activity-bar");
 		unmount();
 	});
 
-	it("prev cycles backward", async () => {
+	it("next wraps from activity-bar back to content", async () => {
+		const { unmount, focus } = renderFocus();
+		focus().next();
+		await flush();
+		focus().next();
+		await flush();
+		expect(focus().active).toBe("content");
+		unmount();
+	});
+
+	it("prev cycles from content to activity-bar", async () => {
 		const { unmount, focus } = renderFocus();
 		focus().prev();
 		await flush();
@@ -63,9 +63,9 @@ describe("useFocusZone", () => {
 
 	it("setActive jumps to a zone", async () => {
 		const { unmount, focus } = renderFocus();
-		focus().setActive("actions");
+		focus().setActive("activity-bar");
 		await flush();
-		expect(focus().active).toBe("actions");
+		expect(focus().active).toBe("activity-bar");
 		unmount();
 	});
 });
