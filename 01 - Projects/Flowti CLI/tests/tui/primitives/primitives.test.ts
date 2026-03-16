@@ -139,6 +139,58 @@ describe("ScrollableList", () => {
 		expect(frame(inst)).toContain("No items");
 		inst.unmount();
 	});
+
+	it("does not jump when selection stays in view", async () => {
+		const items = Array.from({ length: 20 }, (_, i) => `Item ${i}`);
+		const { unmount, rerender, ...inst } = render(
+			React.createElement(ScrollableList, {
+				items,
+				selected: 0,
+				renderItem: (item: string, _i: number, sel: boolean) => React.createElement(Text, { bold: sel }, item),
+				maxHeight: 5,
+			}),
+		);
+		// Move to item 2 — should not change scroll, still in view
+		await React.act(() => {
+			rerender(React.createElement(ScrollableList, {
+				items,
+				selected: 2,
+				renderItem: (item: string, _i: number, sel: boolean) => React.createElement(Text, { bold: sel }, item),
+				maxHeight: 5,
+			}));
+		});
+		const f = frame(inst);
+		// Item 0 should still be visible (scroll didn't move)
+		expect(f).toContain("Item 0");
+		expect(f).toContain("Item 2");
+		unmount();
+	});
+
+	it("scrolls when selection reaches edge", async () => {
+		const items = Array.from({ length: 20 }, (_, i) => `Item ${i}`);
+		const { unmount, rerender, ...inst } = render(
+			React.createElement(ScrollableList, {
+				items,
+				selected: 0,
+				renderItem: (item: string, _i: number, sel: boolean) => React.createElement(Text, { bold: sel }, item),
+				maxHeight: 5,
+			}),
+		);
+		// Move to item 6 — beyond visible window, must scroll
+		await React.act(() => {
+			rerender(React.createElement(ScrollableList, {
+				items,
+				selected: 6,
+				renderItem: (item: string, _i: number, sel: boolean) => React.createElement(Text, { bold: sel }, item),
+				maxHeight: 5,
+			}));
+		});
+		const f = frame(inst);
+		expect(f).toContain("Item 6");
+		// Item 0 should no longer be visible
+		expect(f).not.toContain("Item 0");
+		unmount();
+	});
 });
 
 describe("MasterDetail", () => {
