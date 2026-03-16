@@ -139,6 +139,38 @@ async function main(): Promise<void> {
 	// ── Systems ─────────────────────────────────────────
 	const brainSystem = new BrainSystem({
 		bounds: { minX: 80, maxX: ENGINE_WIDTH - 80, minY: 80, maxY: ENGINE_HEIGHT - 60 },
+		onWorkstationChange: (agentName, action, position) => {
+			// Find which room scene contains the agent and update its workstations
+			for (const room of Object.values(roomScenes)) {
+				const actor = room.getAgentActor(agentName);
+				if (!actor) continue;
+
+				if (action === "occupy") {
+					// Find the nearest workstation to the agent's position
+					const workstations = room.getWorkstations();
+					let nearest = workstations[0];
+					let minDist = Infinity;
+					for (const ws of workstations) {
+						const dx = ws.pos.x - position.x;
+						const dy = ws.pos.y - position.y;
+						const dist = dx * dx + dy * dy;
+						if (dist < minDist && !ws.occupied) {
+							minDist = dist;
+							nearest = ws;
+						}
+					}
+					if (nearest && !nearest.occupied) {
+						nearest.occupy(agentName);
+					}
+				} else {
+					// Vacate — find the workstation this agent occupies
+					const workstations = room.getWorkstations();
+					const ws = workstations.find((w) => w.occupantName === agentName);
+					if (ws) ws.vacate();
+				}
+				break;
+			}
+		},
 	});
 
 	const bubbleSystem = new BubbleSystem();
@@ -185,11 +217,11 @@ async function main(): Promise<void> {
 				// Auto-open panel to Permissions tab when requesting-permission
 				if (action.type === "requesting-permission") {
 					// Check if the agent has an actor in the current scene
-					const currentScene = engine.currentScene;
+					const activeScene = engine.currentScene;
 					const isInCurrentScene =
-						(currentScene === hubScene && hubScene.getAgentActor(action.agentName) !== undefined) ||
+						(activeScene === hubScene && hubScene.getAgentActor(action.agentName) !== undefined) ||
 						Object.values(roomScenes).some((room) =>
-							currentScene === room && room.getAgentActor(action.agentName) !== undefined,
+							activeScene === room && room.getAgentActor(action.agentName) !== undefined,
 						);
 
 					if (isInCurrentScene) {
@@ -236,6 +268,12 @@ async function main(): Promise<void> {
 		},
 	});
 	syncRef = syncSystem;
+
+	// ── Wire room scenes to sync and brain systems ──────
+	syncSystem.setRoomScenes(roomScenes);
+	officeScene.setBrainSystem(brainSystem);
+	villageScene.setBrainSystem(brainSystem);
+	stationScene.setBrainSystem(brainSystem);
 
 	// ── Pre-update hook for brain and bubble systems ────
 	let lastTime = performance.now();
