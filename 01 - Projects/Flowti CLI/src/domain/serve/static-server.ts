@@ -75,8 +75,10 @@ export function resolveMimeType(filePath: string, paths: IPaths): string {
 export interface ServeResult {
 	readonly statusCode: number;
 	readonly contentType: string;
-	readonly body: string;
+	readonly body: string | Buffer;
 }
+
+const BINARY_MIMES = new Set(["image/png", "image/jpeg", "image/gif", "image/x-icon", "font/woff", "font/woff2", "font/ttf", "application/octet-stream"]);
 
 /** Handle a single request. Returns status, content type, and body. */
 export function handleRequest(urlPath: string, rootDir: string, deps: Pick<ServeDeps, "disk" | "paths">): ServeResult {
@@ -90,7 +92,9 @@ export function handleRequest(urlPath: string, rootDir: string, deps: Pick<Serve
 	}
 
 	const contentType = resolveMimeType(resolved, deps.paths);
-	const body = deps.disk.readFileSync(resolved, "utf-8");
+	const body = BINARY_MIMES.has(contentType)
+		? deps.disk.readFileSync(resolved)
+		: deps.disk.readFileSync(resolved, "utf-8");
 	return { statusCode: 200, contentType, body };
 }
 

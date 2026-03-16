@@ -14,6 +14,7 @@ export interface DirEntry {
 
 export interface IFileSystem {
 	readFileSync(path: string, encoding: BufferEncoding): string;
+	readFileSync(path: string): Buffer;
 	writeFileSync(path: string, content: string, encoding: BufferEncoding): void;
 	existsSync(path: string): boolean;
 	mkdirSync(path: string, options?: fs.MakeDirectoryOptions): void;
