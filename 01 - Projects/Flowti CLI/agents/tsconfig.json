@@ -5,6 +5,7 @@
 		"moduleResolution": "bundler",
 		"strict": true,
 		"experimentalDecorators": true,
+		"useDefineForClassFields": false,
 		"skipLibCheck": true,
 		"declaration": false,
 		"outDir": "dist",
