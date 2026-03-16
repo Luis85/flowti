@@ -11,6 +11,7 @@ import { KeyHints } from "../../../src/tui/primitives/key-hints.js";
 import { SearchInput } from "../../../src/tui/primitives/search-input.js";
 import { ScrollableList } from "../../../src/tui/primitives/scrollable-list.js";
 import { MasterDetail } from "../../../src/tui/primitives/master-detail.js";
+import { FormField } from "../../../src/tui/primitives/form-field.js";
 
 function frame(instance: ReturnType<typeof render>): string {
 	return instance.lastFrame() ?? "";
@@ -161,6 +162,34 @@ describe("MasterDetail", () => {
 			}),
 		);
 		expect(frame(inst)).toContain("LIST");
+		inst.unmount();
+	});
+});
+
+describe("FormField", () => {
+	it("renders text field with value", () => {
+		const inst = render(React.createElement(FormField, { type: "text", label: "Name", value: "Bob" }));
+		const f = frame(inst);
+		expect(f).toContain("Name");
+		expect(f).toContain("Bob");
+		inst.unmount();
+	});
+
+	it("renders toggle field", () => {
+		const inst = render(React.createElement(FormField, { type: "toggle", label: "Active", value: true }));
+		expect(frame(inst)).toContain("Yes");
+		inst.unmount();
+	});
+
+	it("renders select field", () => {
+		const inst = render(React.createElement(FormField, { type: "select", label: "Type", value: "ai", options: ["ai", "human"] }));
+		expect(frame(inst)).toContain("ai");
+		inst.unmount();
+	});
+
+	it("renders error message", () => {
+		const inst = render(React.createElement(FormField, { type: "text", label: "Name", value: "", error: "Required" }));
+		expect(frame(inst)).toContain("Required");
 		inst.unmount();
 	});
 });
