@@ -32,6 +32,20 @@ import "./pages/raid-page.js";
 import "./pages/requirements-page.js";
 import "./pages/capa-page.js";
 import "./pages/lifecycle-page.js";
+import "./pages/build-page.js";
+import "./pages/test-page.js";
+import "./pages/scaffold-page.js";
+import "./pages/make-page.js";
+import "./pages/review-page.js";
+import "./pages/devtools-page.js";
+import "./pages/reports-page.js";
+import "./pages/event-catalog-page.js";
+import "./pages/publish-page.js";
+import "./pages/plugins-page.js";
+import "./pages/help-page.js";
+import "./pages/onboarding-page.js";
+import "./pages/knowledgebase-page.js";
+import "./pages/capture-page.js";
 
 export async function runTui(): Promise<void> {
 	const projectConfig = loadJson<ProjectConfig>(paths.join(CLI_PROJECT, "configs", "flowti.config.json"));
