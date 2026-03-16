@@ -4,13 +4,12 @@
  * Central location for defining all plugin views.
  * Views are registered with the view registry and
  * automatically bound to Obsidian's view system.
+ *
+ * Note: EventCatalog is now driven by SitemapHubView + Lit components
+ * (see registerCatalogHandlers). No legacy views remain here.
  */
 
 import type { IEventBus } from "../events/types";
-import {
-	EventCatalogView,
-	VIEW_TYPE_EVENT_CATALOG,
-} from "../../ui/catalog/EventCatalogView";
 import type { IViewRegistry, ViewDefinition } from "./types";
 import type { FlowtiSettings } from "../../domain/settings/settings";
 import type { DiscoveredEvent } from "../../domain/discovery/types";
@@ -45,15 +44,10 @@ export interface ViewDependencies {
  * @param deps - Shared dependencies for views that need them
  * @returns Array of view definitions
  */
-export function createViewDefinitions(deps: ViewDependencies): ViewDefinition[] {
-	return [
-		{
-			type: VIEW_TYPE_EVENT_CATALOG,
-			displayName: "Event Catalog",
-			icon: "list",
-			factory: (leaf) => new EventCatalogView(leaf, deps.eventBus, deps.state, deps.getOnboardingService()),
-		},
-	];
+export function createViewDefinitions(_deps: ViewDependencies): ViewDefinition[] {
+	// EventCatalog is now driven by SitemapHubView + Lit components.
+	// View registration is handled by SitemapBootstrap via plugin-sitemap.json.
+	return [];
 }
 
 /**

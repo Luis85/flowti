@@ -14,10 +14,9 @@ import type { IEventBus } from "../events/types";
 import type { IDisposable } from "../services/types";
 import type { ExportFormat, SavedExportConfig, SavedImportConfig } from "../../domain/dataExchange/types";
 import type { ModalService } from "./ModalService";
-import { VIEW_TYPE_EVENT_CATALOG } from "../../ui/catalog/EventCatalogView";
+import { VIEW_TYPE_EVENT_CATALOG, VIEW_TYPE_TRAIN_HUB, VIEW_TYPE_ANALYTICS_HUB, VIEW_TYPE_TEST_MANAGEMENT_HUB } from "../../domain/hub/types";
 import { VIEW_TYPE_DATA_EXCHANGE_HUB } from "../../ui/hub/DataExchangeHubView";
 import { VIEW_TYPE_USER_HUB } from "../../ui/userHub/UserHubView";
-import { VIEW_TYPE_TRAIN_HUB, VIEW_TYPE_ANALYTICS_HUB, VIEW_TYPE_TEST_MANAGEMENT_HUB } from "../../domain/hub/types";
 import { VIEW_TYPE_JOURNEY_BUILDER } from "../../ui/journeyBuilder/JourneyBuilderSidebar";
 
 // ─────────────────────────────────────────────────────────────

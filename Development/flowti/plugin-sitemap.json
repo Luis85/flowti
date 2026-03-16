@@ -2,11 +2,27 @@
 	"version": 2,
 	"views": {
 		"event-catalog": {
-			"kind": "panel",
+			"kind": "hub",
 			"label": "Event Catalog",
 			"icon": "list",
 			"type": "flowti-event-catalog",
-			"legacy": true
+			"tabs": [
+				{ "id": "events", "label": "Events", "icon": "zap", "handler": "catalog:events", "searchPlaceholder": "Search events..." },
+				{ "id": "domains", "label": "Domains", "icon": "boxes", "handler": "catalog:domains", "searchPlaceholder": "Search domains..." },
+				{ "id": "services", "label": "Services", "icon": "server", "handler": "catalog:services", "searchPlaceholder": "Search services..." },
+				{ "id": "flows", "label": "Flows", "icon": "git-branch", "handler": "catalog:flows", "searchPlaceholder": "Search flows..." },
+				{ "id": "systems", "label": "Systems", "icon": "cpu", "handler": "catalog:systems", "searchPlaceholder": "Search systems..." },
+				{ "id": "actors", "label": "Actors", "icon": "users", "handler": "catalog:actors", "searchPlaceholder": "Search actors..." }
+			],
+			"refreshEvents": [
+				"discovery.loaded", "discovery.updated", "discovery.removed",
+				"eventFilter.loaded", "eventFilter.changed",
+				"eventNotify.loaded", "eventNotify.changed",
+				"settings.loaded", "settings.changed",
+				"subscription.loaded", "subscription.created", "subscription.updated", "subscription.deleted",
+				"eventDefinition.loaded", "eventDefinition.created", "eventDefinition.updated", "eventDefinition.deleted",
+				"doc.created", "doc.deleted"
+			]
 		},
 		"user-hub": {
 			"kind": "hub",

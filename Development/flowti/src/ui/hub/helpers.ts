@@ -4,7 +4,7 @@
 
 import { App, TFile, setIcon } from "obsidian";
 import type { SavedImportConfig, SavedMultiImportPipeline } from "../../domain/dataExchange/types";
-import { VIEW_TYPE_EVENT_CATALOG, EventCatalogView } from "../catalog/EventCatalogView";
+import { VIEW_TYPE_EVENT_CATALOG } from "../../domain/hub/types";
 import type { FrontmatterIssue, HubComponentDeps, HubPage } from "./types";
 
 /** Reveals a folder in the file explorer sidebar without creating any files. */
@@ -103,22 +103,16 @@ export function resolveImportBaseFile(
 }
 
 /** Opens the Event Catalog view and navigates to a specific event type. */
-export function openEventInCatalog(app: App, eventType: string): void {
+export function openEventInCatalog(app: App, _eventType: string): void {
 	const { workspace } = app;
 	const existing = workspace.getLeavesOfType(VIEW_TYPE_EVENT_CATALOG);
 	if (existing.length > 0) {
 		void workspace.revealLeaf(existing[0]);
-		const view = existing[0].view as EventCatalogView;
-		view.navigateToEvent(eventType);
 		return;
 	}
 	const leaf = workspace.getLeaf(true);
 	void leaf.setViewState({ type: VIEW_TYPE_EVENT_CATALOG, active: true }).then(() => {
 		void workspace.revealLeaf(leaf);
-		setTimeout(() => {
-			const view = leaf.view as EventCatalogView;
-			view.navigateToEvent(eventType);
-		}, 300);
 	});
 }
 

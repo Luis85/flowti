@@ -86,6 +86,7 @@ import { registerConditionHandlers } from "./infrastructure/handlers/condition-h
 import { registerActionHandlers } from "./infrastructure/handlers/action-handlers";
 import { registerTestManagementHandlers, type TestManagementHandlerDeps } from "./infrastructure/handlers/test-management-handlers";
 import { registerTrainHandlers } from "./infrastructure/handlers/train-handlers";
+import { registerCatalogHandlers } from "./infrastructure/handlers/catalog-handlers";
 import type { PluginSitemap } from "./domain/sitemap/plugin-sitemap-types";
 import pluginSitemap from "../plugin-sitemap.json";
 
@@ -272,6 +273,20 @@ export default class FlowtiBasePlugin extends Plugin {
 					},
 					eventBus: this.eventBus,
 					openTrainView: (trainId: string) => this.revealOrCreateTrainView(trainId),
+				});
+				registerCatalogHandlers(handlerRegistry, {
+					viewState: {
+						getDiscoveredEvents: () => this.discoveryService?.getDiscoveredEvents() ?? [],
+						getExcludedTypes: () => this.eventFilterService?.getExcludedTypes() ?? [],
+						getNotifiedTypes: () => this.eventNotifyService?.getNotifiedTypes() ?? [],
+						getDomainEntries: () => [],
+						getServiceEntries: () => [],
+						getFlowEntries: () => [],
+						getSystemEntries: () => [],
+						getActorEntries: () => [],
+						getCategories: () => [],
+					},
+					eventBus: this.eventBus,
 				});
 
 				const conditionEvaluator = new ConditionEvaluator(handlerRegistry);

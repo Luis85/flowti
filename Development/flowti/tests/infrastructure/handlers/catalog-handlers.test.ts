@@ -21,15 +21,15 @@ function createMockEventBus(): IEventBus {
 
 function createMockViewState() {
 	return {
-		getDiscoveredEvents: vi.fn(() => []),
-		getExcludedTypes: vi.fn(() => []),
-		getNotifiedTypes: vi.fn(() => []),
-		getDomainEntries: vi.fn(() => []),
-		getServiceEntries: vi.fn(() => []),
-		getFlowEntries: vi.fn(() => []),
-		getSystemEntries: vi.fn(() => []),
-		getActorEntries: vi.fn(() => []),
-		getCategories: vi.fn(() => []),
+		getDiscoveredEvents: vi.fn((): readonly unknown[] => []),
+		getExcludedTypes: vi.fn((): string[] => []),
+		getNotifiedTypes: vi.fn((): string[] => []),
+		getDomainEntries: vi.fn((): readonly unknown[] => []),
+		getServiceEntries: vi.fn((): readonly unknown[] => []),
+		getFlowEntries: vi.fn((): readonly unknown[] => []),
+		getSystemEntries: vi.fn((): readonly unknown[] => []),
+		getActorEntries: vi.fn((): readonly unknown[] => []),
+		getCategories: vi.fn((): readonly unknown[] => []),
 	};
 }
 
