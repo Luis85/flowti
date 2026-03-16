@@ -321,6 +321,13 @@ async function main(): Promise<void> {
 
 	if (await handleCliArgs()) return;
 
+	// TUI mode — modern Ink-based terminal UI
+	if (proc.argv().includes("--tui")) {
+		const { runTui } = await import("./tui/tui-entry.js");
+		await runTui();
+		proc.exit(0);
+	}
+
 	printBanner();
 
 	const router = createRouter(deps);
