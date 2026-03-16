@@ -1,7 +1,8 @@
 /**
- * use-keyboard.ts — Global keyboard handler for activity bar section navigation.
+ * use-keyboard.ts — Keyboard handler for activity bar section navigation.
  *
- * When the activity bar has focus, arrow up/down cycles through sections.
+ * Only active when the activity bar focus zone is active.
+ * Escape is NOT handled here — it is handled exclusively in App.
  */
 
 import { useInput } from "ink";
@@ -11,11 +12,12 @@ interface UseKeyboardOptions {
 	readonly sections: readonly Section[];
 	readonly activeSection: string;
 	readonly onSectionChange: (sectionId: string) => void;
-	readonly onBack: () => void;
+	readonly enabled: boolean;
 }
 
-export function useKeyboard({ sections, activeSection, onSectionChange, onBack }: UseKeyboardOptions): void {
+export function useKeyboard({ sections, activeSection, onSectionChange, enabled }: UseKeyboardOptions): void {
 	useInput((_input, key) => {
+		if (!enabled) return;
 		if (key.upArrow) {
 			const idx = sections.findIndex((s) => s.id === activeSection);
 			if (idx > 0) {
@@ -27,9 +29,6 @@ export function useKeyboard({ sections, activeSection, onSectionChange, onBack }
 			if (idx < sections.length - 1) {
 				onSectionChange(sections[idx + 1].id);
 			}
-		}
-		if (key.escape) {
-			onBack();
 		}
 	});
 }
