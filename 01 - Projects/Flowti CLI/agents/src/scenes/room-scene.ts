@@ -13,6 +13,7 @@ import { SCENE_THEMES, WORKSTATION_COLS, WORKSTATION_SPACING, WORKSTATION_START 
 import { AgentActor } from "../actors/agent-actor.js";
 import { WorkstationActor } from "../actors/workstation-actor.js";
 import { DoorwayActor } from "../actors/doorway-actor.js";
+import type { BrainSystem } from "../systems/brain-system.js";
 
 // ── Config ───────────────────────────────────────────────────────────
 
@@ -34,12 +35,29 @@ export class RoomScene extends ex.Scene {
 	private readonly roomConfig: RoomSceneConfig;
 	private readonly workstations: WorkstationActor[] = [];
 	private readonly agentActors = new Map<string, AgentActor>();
+	private brainSystem: BrainSystem | null = null;
 
 	constructor(setting: Setting, config: RoomSceneConfig) {
 		super();
 		this.setting = setting;
 		this.theme = SCENE_THEMES[setting];
 		this.roomConfig = config;
+	}
+
+	/** Set the brain system for position sync on scene activate. */
+	setBrainSystem(brain: BrainSystem): void {
+		this.brainSystem = brain;
+	}
+
+	onActivate(): void {
+		if (!this.brainSystem) return;
+		for (const [name, actor] of this.agentActors) {
+			const pos = this.brainSystem.getPosition(name);
+			if (pos) {
+				actor.pos.x = pos.x;
+				actor.pos.y = pos.y;
+			}
+		}
 	}
 
 	onInitialize(engine: ex.Engine): void {
