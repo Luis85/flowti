@@ -15,6 +15,8 @@ export interface ViewDef {
 	dataSources?: DataSourceRef[];
 	conditions?: ConditionSet;
 	legacy?: boolean;
+	/** True when the view extends TextFileView and needs factory registration */
+	fileView?: boolean;
 	refreshEvents?: string[];
 	/** Lit custom element tag name for leaf/panel views */
 	component?: string;

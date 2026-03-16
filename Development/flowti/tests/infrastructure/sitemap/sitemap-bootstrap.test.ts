@@ -144,6 +144,37 @@ describe("SitemapBootstrap", () => {
 			expect(plugin.registerView).toHaveBeenCalledWith("flowti-leaf", expect.any(Function));
 		});
 
+		it("registers view with fileView flag using legacy factory", () => {
+			const factory = vi.fn();
+			const sitemap = minimalSitemap({
+				views: {
+					"csv": { kind: "leaf", label: "CSV", icon: "file", type: "flowti-csv", fileView: true },
+				},
+			});
+			const bootstrap = new SitemapBootstrap(sitemap, {
+				plugin: plugin as never,
+				eventBus,
+				logger,
+				handlerRegistry: registry,
+				conditionEvaluator: evaluator,
+				legacyViewFactories: new Map([["flowti-csv", factory]]),
+			});
+			bootstrap.registerAll();
+			expect(plugin.registerView).toHaveBeenCalledWith("flowti-csv", expect.any(Function));
+		});
+
+		it("skips fileView view when factory not found", () => {
+			const sitemap = minimalSitemap({
+				views: {
+					"csv": { kind: "leaf", label: "CSV", icon: "file", type: "flowti-csv", fileView: true },
+				},
+			});
+			const bootstrap = createBootstrap(sitemap);
+			bootstrap.registerAll();
+			expect(plugin.registerView).not.toHaveBeenCalled();
+			expect(logger.debug).toHaveBeenCalled();
+		});
+
 		it("skips non-legacy view without tabs, handler, or component", () => {
 			const sitemap = minimalSitemap({
 				views: {

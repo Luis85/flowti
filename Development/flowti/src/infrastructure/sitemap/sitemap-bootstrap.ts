@@ -51,7 +51,15 @@ export class SitemapBootstrap {
 				continue;
 			}
 
-			if (viewDef.tabs) {
+			if (viewDef.fileView) {
+				// TextFileView — needs factory from legacyViewFactories
+				const factory = this.deps.legacyViewFactories.get(viewDef.type);
+				if (!factory) {
+					this.deps.logger.debug(`File view factory not found for "${viewDef.type}" (${viewId}) — will be registered later`);
+					continue;
+				}
+				this.safeRegister(viewDef.type, (leaf) => factory(leaf) as never);
+			} else if (viewDef.tabs) {
 				// Hub view — tabs + handlers
 				this.safeRegister(viewDef.type, (leaf) =>
 					new SitemapHubView(leaf, this.deps.eventBus, viewDef, this.deps.handlerRegistry) as never,
