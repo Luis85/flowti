@@ -19,15 +19,16 @@ export interface CameraSystem {
 	isFollowing(): boolean;
 	getFollowedName(): string | null;
 	checkDespawn(): void;
-	onSceneActivate(findActor: (name: string) => AgentActor | undefined): void;
+	onSceneActivate(findActor: (name: string) => AgentActor | undefined, sceneCamera: ex.Camera): void;
 	handleZoom(wheelDelta: number): void;
 	applyZoom(deltaMs: number): void;
 }
 
 export function createCameraSystem(
-	camera: ex.Camera,
+	initialCamera: ex.Camera,
 	hudContainer: HTMLElement,
 ): CameraSystem {
+	let camera = initialCamera;
 	let followedActor: AgentActor | null = null;
 	let followedName: string | null = null;
 	let hudEl: HTMLElement | null = null;
@@ -80,7 +81,11 @@ export function createCameraSystem(
 		}
 	}
 
-	function onSceneActivate(findActor: (name: string) => AgentActor | undefined): void {
+	function onSceneActivate(findActor: (name: string) => AgentActor | undefined, sceneCamera: ex.Camera): void {
+		// Always update camera reference to the active scene's camera
+		camera = sceneCamera;
+		targetZoom = camera.zoom;
+
 		if (!followedName) return;
 		const actor = findActor(followedName);
 		if (actor) {

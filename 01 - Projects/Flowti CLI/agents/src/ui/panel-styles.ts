@@ -325,6 +325,27 @@ const CSS = `
 	padding: 20px 0;
 }
 
+.agent-panel-talk-thinking {
+	color: #94a3b8;
+	font-style: italic;
+}
+
+.thinking-dots span {
+	animation: thinking-bounce 1.4s infinite ease-in-out;
+	display: inline-block;
+	font-size: 18px;
+	line-height: 1;
+}
+
+.thinking-dots span:nth-child(1) { animation-delay: 0s; }
+.thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+.thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes thinking-bounce {
+	0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
+	40% { opacity: 1; transform: translateY(-4px); }
+}
+
 .agent-panel-confirm-overlay {
 	position: absolute;
 	inset: 0;

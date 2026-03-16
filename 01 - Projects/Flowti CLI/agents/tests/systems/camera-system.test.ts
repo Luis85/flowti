@@ -89,10 +89,11 @@ describe("createCameraSystem", () => {
 		const actor = mockActor("alice");
 
 		system.startFollow(actor as never);
+		const newCamera = mockCamera();
 		const newActor = mockActor("alice");
 		const findActor = vi.fn(() => newActor as never);
 
-		system.onSceneActivate(findActor);
+		system.onSceneActivate(findActor, newCamera as never);
 		expect(system.isFollowing()).toBe(true);
 		expect(findActor).toHaveBeenCalledWith("alice");
 	});
@@ -104,9 +105,10 @@ describe("createCameraSystem", () => {
 		const actor = mockActor("alice");
 
 		system.startFollow(actor as never);
+		const newCamera = mockCamera();
 		const findActor = vi.fn(() => undefined);
 
-		system.onSceneActivate(findActor);
+		system.onSceneActivate(findActor, newCamera as never);
 		expect(system.isFollowing()).toBe(false);
 	});
 
