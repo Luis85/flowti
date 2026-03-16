@@ -22,6 +22,8 @@ const DOORWAY_MARGIN = 40;
 export interface RoomSceneConfig {
 	readonly onSceneChange: (targetScene: string) => void;
 	readonly onAgentSelect: (agentName: string) => void;
+	readonly workstationStyle?: "desk" | "workbench" | "console";
+	readonly drawBackground?: (ctx: CanvasRenderingContext2D, w: number, h: number) => void;
 }
 
 // ── RoomScene ────────────────────────────────────────────────────────
@@ -41,6 +43,30 @@ export class RoomScene extends ex.Scene {
 	}
 
 	onInitialize(engine: ex.Engine): void {
+		// ── Themed background ───────────────────────────────
+		const drawBg = this.roomConfig.drawBackground;
+		if (drawBg) {
+			const w = engine.drawWidth;
+			const h = engine.drawHeight;
+			const bgCanvas = new ex.Canvas({
+				width: w,
+				height: h,
+				cache: true,
+				draw: (ctx: CanvasRenderingContext2D) => {
+					drawBg(ctx, w, h);
+				},
+			});
+			const bgActor = new ex.Actor({
+				pos: ex.vec(w / 2, h / 2),
+				width: w,
+				height: h,
+				anchor: ex.vec(0.5, 0.5),
+				z: -10,
+			});
+			bgActor.graphics.use(bgCanvas);
+			this.add(bgActor);
+		}
+
 		// ── Room title ──────────────────────────────────────
 		const title = new ex.Label({
 			text: this.theme.label,
@@ -76,6 +102,7 @@ export class RoomScene extends ex.Scene {
 					x,
 					y,
 					workstationColor: this.theme.workstationColor,
+					style: this.roomConfig.workstationStyle,
 				});
 				this.add(ws);
 				this.workstations.push(ws);
