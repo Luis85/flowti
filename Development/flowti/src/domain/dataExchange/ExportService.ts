@@ -21,6 +21,7 @@ import type {
 import { STANDARD_FILE_PROPERTIES } from "./types";
 import { CsvParser } from "./CsvParser";
 import { BaseQueryEngine } from "./BaseQueryEngine";
+import type { IYamlParser } from "../../infrastructure/parsers/types";
 import { PathMutex } from "../../utils/mutex";
 import { generateUUID } from "../../utils/helpers";
 
@@ -37,6 +38,7 @@ export type ReadExternalFileCallback = (absolutePath: string) => Promise<string 
 export interface ExportServiceDeps {
 	eventBus: IEventBus;
 	fileSystem: IFileSystemClient;
+	yamlParser: IYamlParser;
 	listFiles?: ListFilesCallback;
 	writeExternalFile?: WriteExternalFileCallback;
 	readExternalFile?: ReadExternalFileCallback;
@@ -59,7 +61,7 @@ export class ExportService {
 		this.writeExternalFile = deps.writeExternalFile ?? null;
 		this.readExternalFile = deps.readExternalFile ?? null;
 		this.csvParser = new CsvParser();
-		this.baseEngine = new BaseQueryEngine();
+		this.baseEngine = new BaseQueryEngine(deps.yamlParser);
 	}
 
 	/**

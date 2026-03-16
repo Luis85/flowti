@@ -14,6 +14,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { parseYaml } from "obsidian";
 import { EventBus } from "../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../src/infrastructure/events/types";
 import { DataExchangeService } from "../../src/domain/dataExchange/DataExchangeService";
@@ -35,6 +36,7 @@ describe("Flow 05: Build Import Pipeline", () => {
 		service = new DataExchangeService({
 			eventBus,
 			fileSystem,
+			yamlParser: { parse: (c: string) => parseYaml(c) as Record<string, unknown> | null },
 			storage: storageMock.storage,
 			listFiles: () => [],
 		});

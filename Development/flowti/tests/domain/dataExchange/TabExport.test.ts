@@ -12,6 +12,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { parseYaml } from "obsidian";
 import { CsvParser } from "../../../src/domain/dataExchange/CsvParser";
 import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
@@ -432,6 +433,7 @@ describe("ExportService tab-delimited output", () => {
 		service = new ExportService({
 			eventBus,
 			fileSystem,
+			yamlParser: { parse: (c: string) => parseYaml(c) as Record<string, unknown> | null },
 			listFiles: (folder: string) => {
 				if (!folder) return files;
 				return files.filter((f) => f.folder === folder);
@@ -650,6 +652,7 @@ describe("ExportService tab-delimited output", () => {
 			const svc = new ExportService({
 				eventBus,
 				fileSystem,
+				yamlParser: { parse: (c: string) => parseYaml(c) as Record<string, unknown> | null },
 				listFiles: () => specialFiles,
 			});
 
@@ -683,6 +686,7 @@ describe("ExportService tab-delimited output", () => {
 			const svc = new ExportService({
 				eventBus,
 				fileSystem,
+				yamlParser: { parse: (c: string) => parseYaml(c) as Record<string, unknown> | null },
 				listFiles: () => specialFiles,
 			});
 

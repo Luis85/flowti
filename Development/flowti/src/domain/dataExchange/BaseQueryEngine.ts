@@ -20,7 +20,7 @@
  * Unknown expressions silently pass (forgiving).
  */
 
-import { parseYaml } from "obsidian";
+import type { IYamlParser } from "../../infrastructure/parsers/types";
 import type {
 	BaseFilter,
 	BaseFilterGroup,
@@ -39,11 +39,17 @@ const RE_NAME_CONTAINS = /^file\.name\.contains\(["'](.+?)["']\)$/;
 const RE_PROPERTY_EQUALS = /^([\w.]+)\s*==\s*["'](.+?)["']$/;
 
 export class BaseQueryEngine {
+	private readonly parser: IYamlParser;
+
+	constructor(parser: IYamlParser) {
+		this.parser = parser;
+	}
+
 	/**
 	 * Parses a `.base` file's YAML content into a structured representation.
 	 */
 	parseBaseFile(yamlContent: string): ParsedBaseFile {
-		const raw = parseYaml(yamlContent) as Record<string, unknown> | null;
+		const raw = this.parser.parse(yamlContent) as Record<string, unknown> | null;
 
 		if (!raw) {
 			return { views: [] };

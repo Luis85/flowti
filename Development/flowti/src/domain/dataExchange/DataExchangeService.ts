@@ -7,6 +7,7 @@
 
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { IFileSystemClient } from "../../infrastructure/filesystem/types";
+import type { IYamlParser } from "../../infrastructure/parsers/types";
 import type { ITypedStorage } from "../../utils/TypedStorage";
 import type {
 	CsvDisplaySettings,
@@ -28,6 +29,7 @@ import { generateUUID } from "../../utils/helpers";
 export interface DataExchangeServiceOptions {
 	eventBus: IEventBus;
 	fileSystem: IFileSystemClient;
+	yamlParser: IYamlParser;
 	storage?: ITypedStorage<DataExchangeState>;
 	listFiles?: ListFilesCallback;
 }
@@ -65,6 +67,7 @@ export class DataExchangeService {
 		this.exportService = new ExportService({
 			eventBus: options.eventBus,
 			fileSystem: options.fileSystem,
+			yamlParser: options.yamlParser,
 			listFiles: options.listFiles,
 		});
 

@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { parseYaml } from "obsidian";
 import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import { DataExchangeService } from "../../../src/domain/dataExchange/DataExchangeService";
@@ -19,6 +20,7 @@ describe("DataExchangeService", () => {
 		service = new DataExchangeService({
 			eventBus,
 			fileSystem,
+			yamlParser: { parse: (c: string) => parseYaml(c) as Record<string, unknown> | null },
 			listFiles: () => [],
 		});
 	});
@@ -247,6 +249,7 @@ describe("DataExchangeService", () => {
 			svc = new DataExchangeService({
 				eventBus: new EventBus(),
 				fileSystem: createMockFileSystem(),
+				yamlParser: { parse: (c: string) => parseYaml(c) as Record<string, unknown> | null },
 				storage,
 			});
 		});
@@ -319,6 +322,7 @@ describe("DataExchangeService", () => {
 				const loadedSvc = new DataExchangeService({
 					eventBus: new EventBus(),
 					fileSystem: createMockFileSystem(),
+					yamlParser: { parse: (c: string) => parseYaml(c) as Record<string, unknown> | null },
 					storage: mockStorage,
 				});
 				await loadedSvc.load();
@@ -402,6 +406,7 @@ describe("DataExchangeService", () => {
 				const loadedSvc = new DataExchangeService({
 					eventBus: new EventBus(),
 					fileSystem: createMockFileSystem(),
+					yamlParser: { parse: (c: string) => parseYaml(c) as Record<string, unknown> | null },
 					storage: mockStorage,
 				});
 				await loadedSvc.load();
@@ -416,6 +421,7 @@ describe("DataExchangeService", () => {
 			const noStorageSvc = new DataExchangeService({
 				eventBus: new EventBus(),
 				fileSystem: createMockFileSystem(),
+				yamlParser: { parse: (c: string) => parseYaml(c) as Record<string, unknown> | null },
 			});
 			await noStorageSvc.load(); // Should not throw
 			expect(noStorageSvc.getSavedImportConfigs()).toHaveLength(0);
@@ -445,6 +451,7 @@ describe("DataExchangeService", () => {
 			svc = new DataExchangeService({
 				eventBus: bus,
 				fileSystem: createMockFileSystem(),
+				yamlParser: { parse: (c: string) => parseYaml(c) as Record<string, unknown> | null },
 				storage,
 			});
 		});
