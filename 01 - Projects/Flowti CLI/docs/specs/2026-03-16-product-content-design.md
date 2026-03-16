@@ -13,8 +13,8 @@
 | # | Document | Title | Purpose |
 |---|----------|-------|---------|
 | 1 | Product Brief | Flowti — Your Project's Operating System | What Flowti is, who it's for, why it matters |
-| 2 | Feature One-Pager | Agent Workers — AI That Reacts to Your Project | Persistent agents that subscribe to project events and act |
-| 3 | Feature One-Pager | Project Management — Built Into Your Codebase, Not Bolted On | Seven management domains as markdown files |
+| 2 | Feature One-Pager | Agent Workers — AI That Reacts to Your Project | Persistent agents that react to project events and act |
+| 3 | Feature One-Pager | Project Management — Built Into Your Codebase, Not Bolted On | Integrated management domains as markdown files |
 | 4 | Feature One-Pager | Multi-Project Orchestration — One Binary, Every Project | Manage different project types from one CLI |
 | 5 | Feature One-Pager | The Markdown Advantage — Your Data, Your Files, Your Terms | Local-first, git-friendly, no vendor lock-in |
 
@@ -39,7 +39,7 @@ Small development teams (2-10 people) who want structure and visibility without 
 
 ### How Flowti Solves It
 
-- **AI agents that react to your project.** Persistent agent workers subscribe to events and act — planning, reviewing, breaking down tasks. Not one-shot prompts; ongoing collaborators.
+- **AI agents that react to your project.** Persistent agent workers are triggered by project events and act — planning, reviewing, breaking down tasks. Not one-shot prompts; ongoing collaborators.
 - **Project management alongside your code.** Resources, deliverables, risks, requirements, time tracking, and lifecycle management — all as markdown files in your repository.
 - **Every project, one binary.** Manage multiple projects of different types with consistent commands, shared health scoring, and unified workflows.
 - **Everything is a file you own.** Markdown with structured frontmatter. Git-friendly, diffable, searchable, editable in any tool. No vendor lock-in.
@@ -52,8 +52,9 @@ Install once. Point Flowti at your projects. Get a unified menu with every capab
 
 - **Zero dependencies.** One self-contained binary. No npm install, no lock file conflicts, no supply chain risk.
 - **Progressive opt-in.** Start with nothing configured. Features activate when you're ready, not before.
-- **Definition-driven.** JSON definitions are the source of truth for projects, components, scaffolds, and UI. Auditable and diffable.
+- **Definition-driven.** Structured definitions drive the system — project config and UI layouts in JSON, management data and agent definitions in markdown. Auditable and diffable.
 - **Local-first.** Everything runs on your machine, stores in your repository, and works offline.
+- **Security included.** Health scores factor in vulnerability scanning alongside tests, coverage, and lint — no separate security tool needed.
 
 ---
 
@@ -63,19 +64,19 @@ Install once. Point Flowti at your projects. Get a unified menu with every capab
 
 #### What it does
 
-Persistent AI agents that live inside your project. They subscribe to events — task assigned, iteration moved, code reviewed — and act on them. Planning work, breaking down tasks, reviewing scope. Not one-shot prompts you invoke manually; ongoing collaborators that respond to what's happening in your project.
+Persistent AI agents that live inside your project. They react to project events — task assigned, iteration moved, code reviewed — and act on them. Planning work, breaking down tasks, reviewing scope. Not one-shot prompts you invoke manually; ongoing collaborators that respond to what's happening in your project.
 
 #### How it works
 
-1. **Perceive.** An agent notices something happened — a task was assigned, an iteration changed state, a scope item needs attention.
+1. **Perceive.** An agent is triggered when something happens — a task was assigned, an iteration changed state, a scope item needs attention.
 2. **Decide.** It evaluates its rules to determine the right response. Higher-priority rules take precedence when multiple events arrive.
-3. **Act.** It executes — generating a plan, reviewing a deliverable, updating project state. Every action is stored as a file, traceable in git.
+3. **Act.** It executes in an isolated workspace — generating a plan, reviewing a deliverable, updating project state. Results are collected back to your project, stored as files, traceable in git.
 
-#### Built-in roles
+#### Starter roles
 
 - **Product Owner** — Refines iteration goals, identifies scope items, prioritizes work.
 - **Software Architect** — Technical planning, breaks scope into tasks with file-level detail.
-- Teams can define their own agents with custom rules and event subscriptions. Each agent gets a definition file describing its role, capabilities, and what events it cares about.
+- These are included as ready-to-use definitions you can adapt. Teams can define their own agents with custom rules and event triggers. Each agent gets a definition file describing its role, capabilities, and what events it cares about.
 
 #### Why it matters for your team
 
@@ -95,13 +96,14 @@ Start without agents. Add them when your project is ready. They activate from a 
 
 #### What it does
 
-Seven integrated management domains that live right next to your source code as markdown files. Track resources, time, deliverables, risks, requirements, corrective actions, and project lifecycle — all from the same CLI you use to build and test.
+Integrated management domains that live right next to your source code as markdown files. Track resources, time, deliverables, risks, requirements, corrective actions, iterations, and project lifecycle — all from the same CLI you use to build and test.
 
-#### The seven domains
+#### The domains
 
 - **Resources** — People, roles, budgets, and allocation.
 - **Time Log** — Who worked on what, when, and how long.
 - **Deliverables** — What's due, who owns it, how far along it is.
+- **Iterations** — Plan work in time-boxed cycles with scope, capacity, and agent assignments.
 - **RAID Log** — Risks, assumptions, issues, dependencies, and decisions in one place.
 - **CAPA** — When something goes wrong: root cause, corrective action, verification that it's fixed.
 - **Requirements** — User stories, use cases, and traceability back to deliverables.
@@ -164,6 +166,7 @@ Everything Flowti produces and manages is a plain text file in your repository. 
 - Every change is a git commit — who changed what, when, and why.
 - Pull requests show management changes alongside code changes.
 - Search anything with grep, your editor, or Obsidian's query engine.
+- Event contracts are markdown files with structured frontmatter. Version them, diff them, validate them with the CLI.
 - Works offline, works on a plane, works without an internet connection.
 - Move to a different tool tomorrow — your data is already in a universal format.
 
@@ -191,7 +194,7 @@ Markdown files won't give you real-time dashboards or drag-and-drop boards. Flow
 - **Honest about trade-offs** — Acknowledge what Flowti doesn't do. Builds trust.
 - **Progressive narrative** — Every feature doc should mention that it's opt-in, not mandatory.
 - **Agent-centric framing** — AI agents are participants, not integrations. They use the same data humans do.
-- **Event-centric framing** — The system reacts to what happens. Agents subscribe. State changes propagate.
+- **Event-centric framing** — The system reacts to what happens. Agents are triggered by events. State changes propagate.
 
 ## Output Location
 
