@@ -3,11 +3,13 @@
  *
  * Renders a vertical list of section icons with labels.
  * When focused: shows cursor indicator on the cursor section.
- * Active section is highlighted. Labels always visible.
+ * Active section is highlighted. Adapts to terminal width:
+ * - Compact mode (<50 cols): width 4, icons only
+ * - Normal mode (>=50 cols): width 14, icons + labels + cursor indicator
  */
 
 import React from "react";
-import { Box, Text } from "ink";
+import { Box, Text, useStdout } from "ink";
 import type { Section } from "../types.js";
 
 interface ActivityBarProps {
@@ -19,10 +21,15 @@ interface ActivityBarProps {
 }
 
 export function ActivityBar({ sections, activeSection, focused, cursorSection }: ActivityBarProps): React.JSX.Element {
+	const { stdout } = useStdout();
+	const cols = stdout?.columns ?? 80;
+	const compact = cols < 50;
+	const barWidth = compact ? 4 : 14;
+
 	return (
 		<Box
 			flexDirection="column"
-			width={14}
+			width={barWidth}
 			borderStyle="single"
 			borderRight
 			borderTop={false}
@@ -33,8 +40,19 @@ export function ActivityBar({ sections, activeSection, focused, cursorSection }:
 			{sections.map((section) => {
 				const isActive = section.id === activeSection;
 				const isCursor = focused && section.id === cursorSection;
-				const prefix = isCursor ? "\u25B8 " : "  ";
 				const color = isCursor ? "cyan" : isActive ? "white" : undefined;
+
+				if (compact) {
+					return (
+						<Box key={section.id} justifyContent="center">
+							<Text bold={isCursor || isActive} color={color} dimColor={!isActive && !isCursor}>
+								{section.icon}
+							</Text>
+						</Box>
+					);
+				}
+
+				const prefix = isCursor ? "\u25B8 " : "  ";
 				return (
 					<Box key={section.id} paddingX={1}>
 						<Text bold={isCursor || isActive} color={color} dimColor={!isActive && !isCursor}>

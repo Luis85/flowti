@@ -27,7 +27,7 @@ interface DashboardPageProps {
 
 export function DashboardPage({ stats, sections, actions }: DashboardPageProps): React.JSX.Element {
 	return (
-		<Box flexDirection="column" flexGrow={1}>
+		<Box flexDirection="column" flexGrow={1} overflow="hidden">
 			{stats && stats.length > 0 && (
 				<Box marginBottom={1}>
 					<StatGrid stats={stats} />

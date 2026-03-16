@@ -8,6 +8,10 @@ function lastFrame(instance: ReturnType<typeof render>): string {
 	return instance.lastFrame() ?? "";
 }
 
+// Note: ink-testing-library's render() does not provide a real stdout,
+// so useStdout() returns { stdout: undefined } and cols defaults to 80.
+// All tests below exercise normal (non-compact) mode. Compact mode (<50 cols)
+// would require mocking stdout.columns, which ink-testing-library does not support.
 describe("ActivityBar", () => {
 	const sections = buildSections();
 
