@@ -67,6 +67,14 @@
 					"disabled": "agents:dashboard-running",
 					"group": "agents"
 				},
+								{
+					"name": "onRebuildDashboard",
+					"label": "Rebuild Dashboard",
+					"type": "handler",
+					"target": "agents:rebuild-dashboard",
+					"key": "r",
+					"group": "agents"
+				},
 				{
 					"name": "onStopDashboard",
 					"label": "Stop Dashboard",
