@@ -23,7 +23,7 @@ function AiToolsPage({ params, navigate }: PageProps): React.JSX.Element {
 
 	const renderItem = (item: unknown, _i: number, sel: boolean) => {
 		const agent = item as AgentListItem;
-		return React.createElement(Text, { bold: sel },
+		return React.createElement(Text, { bold: sel, wrap: "truncate" },
 			`${agent.name} `,
 			React.createElement(Badge, { text: agent.agentType, color: agent.agentType === "ai" ? "cyan" : "yellow" }),
 			agent.domain ? ` ${agent.domain}` : "",
