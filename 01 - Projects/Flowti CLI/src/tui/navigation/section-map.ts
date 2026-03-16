@@ -16,7 +16,7 @@ export function buildSections(): Section[] {
 		{ id: "events", label: "Events", icon: "\u26A1", pages: ["event-catalog"] },
 		{ id: "management", label: "Manage", icon: "\u{1F527}", pages: ["iterations", "iteration-detail", "lifecycle", "resources", "timelog", "deliverables", "raid", "requirements", "capa"] },
 		{ id: "publish", label: "Publish", icon: "\u{1F4E6}", pages: ["publish", "plugins"] },
-		{ id: "help", label: "Help", icon: "\u2753", pages: ["help", "onboarding", "knowledgebase", "capture"] },
+		{ id: "help", label: "Help", icon: "\u2753", pages: ["help", "onboarding", "onboarding-tour", "knowledgebase", "capture"] },
 	];
 }
 

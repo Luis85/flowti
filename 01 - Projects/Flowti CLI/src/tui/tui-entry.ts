@@ -46,6 +46,7 @@ import "./pages/publish-page.js";
 import "./pages/plugins-page.js";
 import "./pages/help-page.js";
 import "./pages/onboarding-page.js";
+import "./pages/onboarding-tour-page.js";
 import "./pages/knowledgebase-page.js";
 import "./pages/capture-page.js";
 import "./pages/agents-chat-page.js";
