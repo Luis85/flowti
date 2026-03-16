@@ -61,7 +61,6 @@ import { SessionWorkspaceView, VIEW_TYPE_SESSION_WORKSPACE } from "./ui/session/
 import { TrainMainView, VIEW_TYPE_TRAIN_MAIN } from "./ui/train/TrainMainView";
 import { TrainTimelineSidebar, VIEW_TYPE_TRAIN_TIMELINE } from "./ui/train/TrainTimelineSidebar";
 import { TrainHubView, VIEW_TYPE_TRAIN_HUB } from "./ui/train/TrainHubView";
-import { AnalyticsHubView, VIEW_TYPE_ANALYTICS_HUB } from "./ui/analytics/AnalyticsHubView";
 import { CanvasSessionService } from "./domain/canvas/session/CanvasSessionService";
 import { JourneyBuilderSidebar, VIEW_TYPE_JOURNEY_BUILDER } from "./ui/journeyBuilder/JourneyBuilderSidebar";
 import { JourneyFileView, VIEW_TYPE_JOURNEY_FILE } from "./ui/journeyBuilder/JourneyFileView";
@@ -89,6 +88,7 @@ import { registerTestManagementHandlers, type TestManagementHandlerDeps } from "
 import { registerTrainHandlers } from "./infrastructure/handlers/train-handlers";
 import { registerCatalogHandlers } from "./infrastructure/handlers/catalog-handlers";
 import { registerDataExchangeHandlers } from "./infrastructure/handlers/data-exchange-handlers";
+import { registerAnalyticsHandlers } from "./infrastructure/handlers/analytics-handlers";
 import type { PluginSitemap } from "./domain/sitemap/plugin-sitemap-types";
 import pluginSitemap from "../plugin-sitemap.json";
 
@@ -309,6 +309,30 @@ export default class FlowtiBasePlugin extends Plugin {
 					} : null,
 					operationTracker: {
 						getActiveOperations: () => [],
+					},
+					eventBus: this.eventBus,
+				});
+
+				registerAnalyticsHandlers(handlerRegistry, {
+					analyticsService: {
+						listQueries: () => this.analyticsService?.listQueries() ?? [],
+						listDashboards: () => this.analyticsService?.listDashboards() ?? [],
+						listMeasurements: () => this.analyticsService?.listMeasurements() ?? [],
+						getQuery: (id: string) => this.analyticsService?.getQuery(id) ?? null,
+						getDashboardQueryMap: (id: string) => this.analyticsService?.getDashboardQueryMap(id) ?? new Map(),
+						getDefaultDashboard: () => this.analyticsService?.getDefaultDashboard() ?? null,
+						runSavedQuery: (id: string) => this.analyticsService?.runSavedQuery(id),
+					},
+					tileResultCache: {
+						tryRun: () => ({ result: null, error: null }),
+						getTimestamp: () => undefined,
+						clear: () => {},
+						clearByQueryId: () => {},
+					},
+					onboardingService: {
+						isCalloutDismissed: (id: string) => this.onboardingService?.isCalloutDismissed(id) ?? false,
+						dismissCallout: (id: string) => void this.onboardingService?.markCalloutDismissed(id),
+						shouldShowCallout: (id: string) => !(this.onboardingService?.isCalloutDismissed(id) ?? false),
 					},
 					eventBus: this.eventBus,
 				});
@@ -971,10 +995,8 @@ export default class FlowtiBasePlugin extends Plugin {
 		// Train Hub — now driven by SitemapHubView + Lit components (see registerTrainHandlers).
 		// View registration is handled by SitemapBootstrap via plugin-sitemap.json.
 
-		// Analytics Hub — dedicated analytics view
-		this.safeRegisterView(VIEW_TYPE_ANALYTICS_HUB, (leaf) =>
-			new AnalyticsHubView(leaf, this.eventBus, this.analyticsService!, this.onboardingService!),
-		);
+		// Analytics Hub — now driven by SitemapHubView + Lit components (see registerAnalyticsHandlers).
+		// View registration is handled by SitemapBootstrap via plugin-sitemap.json.
 
 		// Test Management Hub — quality cockpit for journey-based testing
 		this.testManagementService = await this.services.get<TestManagementService>("testManagementService");

@@ -13,7 +13,7 @@ import type { IEventBus } from "../../src/infrastructure/events/types";
 import { AnalyticsService } from "../../src/domain/analytics/AnalyticsService";
 import type { AnalyticsState } from "../../src/domain/analytics/types";
 import { TileResultCache } from "../../src/ui/analytics/TileResultCache";
-import { buildFilterCacheKey } from "../../src/ui/analytics/DashboardsTab";
+import { buildFilterCacheKey } from "../../src/ui/analytics/dashboardUtils";
 import { createMockStorage } from "./testHelpers";
 
 // ── Fixtures ─────────────────────────────────────────────────

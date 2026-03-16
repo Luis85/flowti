@@ -85,7 +85,20 @@
 			"label": "Analytics Hub",
 			"icon": "bar-chart-2",
 			"type": "flowti-analytics-hub",
-			"legacy": true
+			"tabs": [
+				{ "id": "dashboards", "label": "Dashboards", "icon": "layout-grid", "handler": "analytics:dashboards", "searchPlaceholder": "Search dashboards..." },
+				{ "id": "queries", "label": "Queries", "icon": "search", "handler": "analytics:queries", "searchPlaceholder": "Search queries..." },
+				{ "id": "measurements", "label": "Measurements", "icon": "ruler", "handler": "analytics:measurements", "searchPlaceholder": "Search measurements..." }
+			],
+			"refreshEvents": [
+				"analytics.query.saved", "analytics.query.deleted",
+				"analytics.query.renamed", "analytics.query.duplicated", "analytics.query.favorited",
+				"analytics.dashboard.created", "analytics.dashboard.deleted", "analytics.dashboard.updated",
+				"analytics.dashboard.tile.added", "analytics.dashboard.tile.removed", "analytics.dashboard.tile.reordered",
+				"analytics.dashboard.favorited", "analytics.dashboard.defaultChanged",
+				"analytics.measurement.created", "analytics.measurement.updated",
+				"analytics.measurement.deleted", "analytics.measurement.favorited"
+			]
 		},
 		"test-management-hub": {
 			"kind": "hub",

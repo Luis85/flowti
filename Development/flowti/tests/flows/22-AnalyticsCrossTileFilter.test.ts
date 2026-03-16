@@ -12,7 +12,7 @@ import { EventBus } from "../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../src/infrastructure/events/types";
 import { AnalyticsService } from "../../src/domain/analytics/AnalyticsService";
 import type { AnalyticsState, CrossTileFilter } from "../../src/domain/analytics/types";
-import { mergeCrossTileFilter } from "../../src/ui/analytics/DashboardsTab";
+import { mergeCrossTileFilter } from "../../src/ui/analytics/dashboardUtils";
 import { createMockStorage } from "./testHelpers";
 
 // ── Fixtures ─────────────────────────────────────────────────
