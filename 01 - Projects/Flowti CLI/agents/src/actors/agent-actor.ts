@@ -17,6 +17,8 @@ import {
 	drawWorkingPose,
 	drawTalkingPose,
 	drawWaitingPose,
+	drawLookAroundPose,
+	drawStretchPose,
 } from "./pixel-sprites.js";
 import type { SpritePalette } from "./pixel-sprites.js";
 
@@ -38,6 +40,8 @@ const POSE_WALKING_TO = "walking-to";
 const POSE_WORKING = "working";
 const POSE_TALKING = "talking";
 const POSE_WAITING = "waiting";
+const POSE_LOOK_AROUND = "look-around";
+const POSE_STRETCH = "stretch";
 
 // ── AgentActor ───────────────────────────────────────────────────────
 
@@ -82,7 +86,7 @@ export class AgentActor extends ex.Actor {
 
 	onPreUpdate(_engine: ex.Engine, delta: number): void {
 		// Idle bob: gentle +-1px sine oscillation
-		if (this.brainState === "idle" || this.brainState === "waiting") {
+		if (this.brainState === "idle" || this.brainState === "waiting" || this.brainState === "on-break") {
 			this.bobPhase += delta * 0.003;
 			this.pos.y = this.baseY + Math.sin(this.bobPhase) * 1;
 		} else {
@@ -110,6 +114,15 @@ export class AgentActor extends ex.Actor {
 			this.currentPoseName = poseName;
 			this.graphics.use(poseName);
 		}
+	}
+
+	/** Switch to a specific idle sub-pose (used by brain system for idle cycling). */
+	setIdlePose(poseName: string): void {
+		if (this.brainState !== "idle" && this.brainState !== "on-break") return;
+		const validPoses = [POSE_IDLE, POSE_LOOK_AROUND, POSE_STRETCH];
+		if (!validPoses.includes(poseName)) return;
+		this.currentPoseName = poseName;
+		this.graphics.use(poseName);
 	}
 
 	updateVisualStatus(status: string): void {
@@ -141,6 +154,7 @@ export class AgentActor extends ex.Actor {
 			case "working": return POSE_WORKING;
 			case "talking": return POSE_TALKING;
 			case "waiting": return POSE_WAITING;
+			case "on-break": return POSE_IDLE;
 			default: return POSE_IDLE;
 		}
 	}
@@ -170,6 +184,16 @@ export class AgentActor extends ex.Actor {
 
 		this.graphics.add(POSE_WAITING, this.makePoseCanvas(
 			(ctx) => drawWaitingPose(ctx, pal, mood, flip),
+			name, isAi, pal,
+		));
+
+		this.graphics.add(POSE_LOOK_AROUND, this.makePoseCanvas(
+			(ctx) => drawLookAroundPose(ctx, pal, mood, flip),
+			name, isAi, pal,
+		));
+
+		this.graphics.add(POSE_STRETCH, this.makePoseCanvas(
+			(ctx) => drawStretchPose(ctx, pal, mood, flip),
 			name, isAi, pal,
 		));
 

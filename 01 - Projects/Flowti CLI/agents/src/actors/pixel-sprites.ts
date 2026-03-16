@@ -292,3 +292,50 @@ export function drawWaitingPose(
 		drawStandingLegs(ctx, palette);
 	});
 }
+
+// ── Pose: Look Around ───────────────────────────────────────────────
+
+/**
+ * Draw the look-around pose (24x32 sprite area).
+ * Same as idle but head offset 2px right for a "glancing" effect.
+ */
+export function drawLookAroundPose(
+	ctx: CanvasRenderingContext2D,
+	palette: SpritePalette,
+	mood: string,
+	flip: boolean,
+): void {
+	applyFlip(ctx, flip, 24, () => {
+		drawHead(ctx, 12, 2, palette, mood);
+		drawStandingBody(ctx, palette);
+		drawStandingLegs(ctx, palette);
+	});
+}
+
+// ── Pose: Stretch ───────────────────────────────────────────────────
+
+/**
+ * Draw the stretch pose (24x32 sprite area).
+ * Same as idle but arms raised above head.
+ */
+export function drawStretchPose(
+	ctx: CanvasRenderingContext2D,
+	palette: SpritePalette,
+	mood: string,
+	flip: boolean,
+): void {
+	applyFlip(ctx, flip, 24, () => {
+		drawHead(ctx, 10, 2, palette, mood);
+
+		// Body (same as idle)
+		ctx.fillStyle = palette.body;
+		ctx.fillRect(9, 7, 6, 8);
+
+		// Arms raised (above head, reaching up)
+		ctx.fillStyle = palette.limb;
+		ctx.fillRect(7, 1, 2, 7);
+		ctx.fillRect(15, 1, 2, 7);
+
+		drawStandingLegs(ctx, palette);
+	});
+}
