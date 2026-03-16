@@ -321,22 +321,25 @@ async function main(): Promise<void> {
 
 	if (await handleCliArgs()) return;
 
-	// TUI mode — modern Ink-based terminal UI
-	if (proc.argv().includes("--tui")) {
-		const { runTui } = await import("./tui/tui-entry.js");
-		await runTui();
+	// Legacy mode — classic SitemapRouter interactive UI
+	if (proc.argv().includes("--legacy")) {
+		printBanner();
+		const router = createRouter(deps);
+		const startView = shouldOnboard(VAULT_ROOT, PROJECTS_DIR, { disk, paths }) ? "onboarding" : "start";
+		await router.run(startView);
+		deps.workerManager.stopAll();
+		deps.worldState.flush();
+		log(`\n  ${DIM}Goodbye.${RESET}\n`);
 		proc.exit(0);
 	}
 
+	// Default — modern Ink TUI
 	printBanner();
-
-	const router = createRouter(deps);
-	const startView = shouldOnboard(VAULT_ROOT, PROJECTS_DIR, { disk, paths }) ? "onboarding" : "start";
-	await router.run(startView);
+	const { runTui } = await import("./tui/tui-entry.js");
+	await runTui();
 
 	deps.workerManager.stopAll();
 	deps.worldState.flush();
-	log(`\n  ${DIM}Goodbye.${RESET}\n`);
 	proc.exit(0);
 }
 

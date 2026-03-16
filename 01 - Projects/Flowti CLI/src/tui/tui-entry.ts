@@ -46,6 +46,8 @@ import "./pages/help-page.js";
 import "./pages/onboarding-page.js";
 import "./pages/knowledgebase-page.js";
 import "./pages/capture-page.js";
+import "./pages/agents-chat-page.js";
+import "./pages/iteration-detail-page.js";
 
 export async function runTui(): Promise<void> {
 	const projectConfig = loadJson<ProjectConfig>(paths.join(CLI_PROJECT, "configs", "flowti.config.json"));
