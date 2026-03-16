@@ -74,6 +74,8 @@ export const commands: Record<string, CommandHandler> = {
 				vaultRoot: VAULT_ROOT,
 				projectConfig: ctx.project?.config,
 				vaultAgentsConfig: cliConfig.agents,
+				worldState: ctx.deps.worldState,
+				workerManager: ctx.deps.workerManager,
 			}, ctx.deps);
 
 			if (state) {

@@ -231,6 +231,8 @@ export function registerAllHandlers(registry: HandlerRegistry): void {
 			vaultRoot: VAULT_ROOT,
 			projectConfig: ctx.project?.config,
 			vaultAgentsConfig: cliConfig.agents,
+			worldState: ctx.deps.worldState,
+			workerManager: ctx.deps.workerManager,
 		}, ctx.deps);
 		if (state) log(`\n  Dashboard running at: ${state.url}\n`);
 		await input.waitForEnter();

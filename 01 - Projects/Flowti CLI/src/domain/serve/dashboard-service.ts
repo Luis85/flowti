@@ -6,14 +6,18 @@
  * the active server handle, with start/stop/isRunning functions.
  */
 
+import type { ServerResponse } from "node:http";
 import type { CliDeps } from "../../infrastructure/deps.js";
 import type { AgentsDashboardConfig, AgentsConfig, ProjectConfig } from "../../infrastructure/types.js";
 import { startServer, openInBrowser } from "./static-server.js";
-import type { ServerHandle } from "./static-server.js";
+import type { ServerHandle, ServerContext } from "./static-server.js";
 import { exportAgentDashboardData, writeDashboardData } from "../agents/agent-export.js";
 import type { ProjectEntry } from "../agents/agent-export.js";
 import { listProjects } from "../project/project.js";
 import { readProjectConfig } from "../project/project-config.js";
+import type { IWorldStateManager } from "../agents/world-state-types.js";
+import type { AgentAction, WorldEntityType } from "../agents/world-state-types.js";
+import type { IWorkerManager } from "../agents/worker-types.js";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -29,6 +33,8 @@ export type DashboardDeps = Pick<CliDeps, "disk" | "paths" | "shell" | "log">;
 
 let activeHandle: ServerHandle | null = null;
 let activeState: DashboardState | null = null;
+let activeSseListener: ((action: AgentAction) => void) | null = null;
+let activeWorldState: IWorldStateManager | null = null;
 
 export function isDashboardRunning(): boolean {
 	return activeHandle !== null;
@@ -40,9 +46,14 @@ export function getDashboardState(): DashboardState | null {
 
 export function stopDashboard(log: (msg: string) => void): void {
 	if (activeHandle) {
+		if (activeWorldState && activeSseListener) {
+			activeWorldState.removeActionListener(activeSseListener);
+		}
 		activeHandle.close();
 		activeHandle = null;
 		activeState = null;
+		activeSseListener = null;
+		activeWorldState = null;
 		log("\n  Dashboard server stopped.\n");
 	} else {
 		log("\n  Dashboard is not running.\n");
@@ -140,6 +151,8 @@ export interface StartDashboardOptions {
 	readonly vaultRoot: string;
 	readonly projectConfig: ProjectConfig | undefined;
 	readonly vaultAgentsConfig: AgentsConfig | undefined;
+	readonly worldState: IWorldStateManager;
+	readonly workerManager: IWorkerManager;
 }
 
 /** Start the dashboard server. Returns the dashboard state or null on failure. */
@@ -157,12 +170,50 @@ export async function startDashboardServer(opts: StartDashboardOptions, deps: Da
 
 	regenerateDashboardData(opts.rootDir, opts.projectsDir, opts.vaultRoot, opts.vaultAgentsConfig, deps);
 
+	// ── SSE setup ────────────────────────────────────────────────
+	const sseClients = new Set<ServerResponse>();
+
+	const sseActionListener = (action: AgentAction): void => {
+		const data = JSON.stringify(action);
+		for (const client of sseClients) {
+			client.write(`event: agent-action\ndata: ${data}\n\n`);
+		}
+	};
+
+	// Wrap updateEntity to emit entity-update SSE events
+	const originalUpdateEntity = opts.worldState.updateEntity.bind(opts.worldState);
+	const wrappedUpdateEntity = (id: string, type: WorldEntityType, components: Record<string, unknown>): void => {
+		originalUpdateEntity(id, type, components);
+		const data = JSON.stringify({ id, type, components });
+		for (const client of sseClients) {
+			client.write(`event: entity-update\ndata: ${data}\n\n`);
+		}
+	};
+	(opts.worldState as { updateEntity: typeof wrappedUpdateEntity }).updateEntity = wrappedUpdateEntity;
+
+	opts.worldState.addActionListener(sseActionListener);
+	activeSseListener = sseActionListener;
+	activeWorldState = opts.worldState;
+
+	// ── Server context for API + SSE routes ──────────────────────
+	const serverContext: ServerContext = {
+		worldState: opts.worldState,
+		workerManager: opts.workerManager,
+		deps: {
+			disk: deps.disk,
+			paths: deps.paths,
+			clock: { now: () => new Date(), iso: () => new Date().toISOString() },
+		},
+		sseClients,
+		vaultRoot: opts.vaultRoot,
+	};
+
 	const handle = await startServer({ port: opts.port, dir: opts.rootDir }, {
 		disk: deps.disk,
 		paths: deps.paths,
 		shell: deps.shell,
 		log: deps.log,
-	});
+	}, serverContext);
 
 	activeHandle = handle;
 	activeState = { url: handle.url, port: opts.port, dir: opts.rootDir };

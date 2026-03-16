@@ -107,4 +107,33 @@ describe("WorldStateManager", () => {
 	it("getEntity returns null for missing entity", () => {
 		expect(mgr.getEntity("NonExistent")).toBeNull();
 	});
+
+	it("calls all registered action listeners", () => {
+		const calls1: AgentAction[] = [];
+		const calls2: AgentAction[] = [];
+		mgr.addActionListener((a) => calls1.push(a));
+		mgr.addActionListener((a) => calls2.push(a));
+		const action: AgentAction = { id: "a1", agentName: "Bob", timestamp: "t1", type: "thinking", data: {} };
+		mgr.emitAction(action);
+		expect(calls1).toHaveLength(1);
+		expect(calls2).toHaveLength(1);
+	});
+
+	it("removeActionListener stops calls to removed listener", () => {
+		const calls: AgentAction[] = [];
+		const listener = (a: AgentAction): void => { calls.push(a); };
+		mgr.addActionListener(listener);
+		mgr.removeActionListener(listener);
+		const action: AgentAction = { id: "a1", agentName: "Bob", timestamp: "t1", type: "thinking", data: {} };
+		mgr.emitAction(action);
+		expect(calls).toHaveLength(0);
+	});
+
+	it("permission-denied maps to idle state", () => {
+		mgr.updateEntity("Bob", "agent", { identity: { name: "Bob" } });
+		const action: AgentAction = { id: "a1", agentName: "Bob", timestamp: "t1", type: "permission-denied", data: {} };
+		mgr.emitAction(action);
+		const entity = mgr.getEntity("Bob");
+		expect(entity?.components.status).toMatchObject({ state: "idle" });
+	});
 });

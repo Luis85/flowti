@@ -7,7 +7,7 @@
 
 import type { CliDeps } from "../../infrastructure/deps.js";
 import type { AgentsConfig, ProjectConfig } from "../../infrastructure/types.js";
-import type { AgentSummary } from "./agent-types.js";
+import type { AgentSummary, AgentAttributes, AgentSkill, AgentRelationship, SuggestedTask, AgentGoal } from "./agent-types.js";
 import type { IterationSummary } from "../iterations/iteration-types.js";
 import { agentStore } from "./agent-store.js";
 import { listIterations } from "../iterations/iteration-store.js";
@@ -29,6 +29,16 @@ export interface DashboardAgent {
 	readonly project?: string;
 	readonly iteration?: string;
 	readonly phase?: string;
+	readonly persona?: string;
+	readonly mood?: string;
+	readonly personality?: readonly string[];
+	readonly attributes?: AgentAttributes;
+	readonly experience?: number;
+	readonly skills?: readonly AgentSkill[];
+	readonly relationships?: readonly AgentRelationship[];
+	readonly suggestedTasks?: readonly SuggestedTask[];
+	readonly goals?: readonly AgentGoal[];
+	readonly behaviors?: readonly string[];
 }
 
 /** Lightweight component snapshot for the dashboard environment. */
@@ -216,11 +226,11 @@ export function exportAgentDashboardData(
 	return { agents: dashboardAgents, projects: dashboardProjects };
 }
 
-function buildDashboardAgent(
+export function buildDashboardAgent(
 	agent: AgentSummary,
 	derived: { status: AgentStatus; project?: string; iteration?: string; phase?: string },
 ): DashboardAgent {
-	const entry: DashboardAgent = {
+	return {
 		name: agent.name,
 		agentType: agent.agentType,
 		domain: agent.domain,
@@ -228,8 +238,17 @@ function buildDashboardAgent(
 		project: derived.project,
 		iteration: derived.iteration,
 		phase: derived.phase,
+		persona: agent.persona,
+		mood: agent.mood,
+		personality: agent.personality,
+		attributes: agent.attributes,
+		experience: agent.experience,
+		skills: agent.skills.length > 0 ? agent.skills : undefined,
+		relationships: agent.relationships,
+		suggestedTasks: agent.suggestedTasks,
+		goals: agent.goals,
+		behaviors: agent.behaviors,
 	};
-	return entry;
 }
 
 /** Write the dashboard JSON file to the given path. */
