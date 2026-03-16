@@ -2,21 +2,21 @@
  * master-detail.tsx — Split panel layout.
  *
  * Renders master (left) and detail (right) panes side by side.
+ * Master gets 40% width via flexBasis, detail fills the rest.
  */
 
 import React from "react";
 import { Box } from "ink";
 
 interface MasterDetailProps {
-	readonly masterWidth?: number;
 	readonly master: React.ReactNode;
 	readonly detail?: React.ReactNode;
 }
 
-export function MasterDetail({ masterWidth, master, detail }: MasterDetailProps): React.JSX.Element {
+export function MasterDetail({ master, detail }: MasterDetailProps): React.JSX.Element {
 	return (
 		<Box flexDirection="row" flexGrow={1}>
-			<Box flexDirection="column" width={masterWidth ?? 30} borderStyle="single" borderRight borderTop={false} borderBottom={false} borderLeft={false}>
+			<Box flexDirection="column" flexBasis="40%" flexShrink={0} overflow="hidden" borderStyle="single" borderRight borderTop={false} borderBottom={false} borderLeft={false}>
 				{master}
 			</Box>
 			{detail !== undefined && (
