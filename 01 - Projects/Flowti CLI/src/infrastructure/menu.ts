@@ -99,6 +99,12 @@ export async function runMenu(
 		const special = handleSpecialKey(choice);
 		if (special) return special;
 
+		if (choice === "!" && options.onAgentQuestion) {
+			const agentResult = await options.onAgentQuestion();
+			if (agentResult) return agentResult;
+			continue;
+		}
+
 		const result = await handleMenuChoice(items, choice);
 		if (result === "continue") continue;
 		if (isExitResult(result)) return result as MenuResult;

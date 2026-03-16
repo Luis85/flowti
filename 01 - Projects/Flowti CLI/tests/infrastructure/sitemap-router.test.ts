@@ -41,7 +41,10 @@ vi.mock("../../src/infrastructure/input.js", () => ({
 
 vi.mock("../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
 vi.mock("../../src/infrastructure/ui.js", () => ({
-	DIM: "", RESET: "", RED: "", YELLOW: "",
+	DIM: "", RESET: "", RED: "", YELLOW: "", CYAN: "", BOLD: "",
+}));
+vi.mock("../../src/ui/displays/status-bar-display.js", () => ({
+	renderStatusBar: vi.fn(),
 }));
 
 import { runMenu } from "../../src/infrastructure/menu.js";
@@ -1338,6 +1341,68 @@ describe("SitemapRouter", () => {
 			expect(capturedCtx!.dataSourceEntries!["data"].length).toBe(1);
 			expect(capturedCtx!.dataSourceEntries!["extra-list"]).toBeDefined();
 			expect(capturedCtx!.dataSourceEntries!["extra-list"].length).toBe(1);
+		});
+	});
+
+	// ── Agent question hooks ─────────────────────────────────────────
+
+	describe("agent question hooks", () => {
+		it("passes onAgentQuestion and renderStatusBar to runMenu when agentShell exists", async () => {
+			const sitemap = makeSitemap({
+				start: makePage({
+					label: "Main",
+					actions: [
+						{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" },
+					],
+				}),
+			});
+
+			const mockShell = {
+				pendingQuestions: vi.fn(() => []),
+				answerAgent: vi.fn(),
+			};
+			const depsWithShell = { agentShell: mockShell, input: { ask: vi.fn() }, log: vi.fn() } as unknown as CliDeps;
+
+			const handlers = new HandlerRegistry();
+			const commands = new CommandRegistry();
+			const router = new SitemapRouter({
+				sitemap,
+				handlers,
+				commands,
+				deps: depsWithShell,
+				getProject: () => undefined,
+				getTools: () => undefined,
+				onProjectSelected: vi.fn(),
+				onProjectCleared: vi.fn(),
+			});
+
+			queueMenuResults({ pickKey: "q" });
+
+			await router.run("start");
+
+			const opts = mockRunMenu.mock.calls[0][2] as Record<string, unknown>;
+			expect(opts.onAgentQuestion).toBeTypeOf("function");
+			expect(opts.renderStatusBar).toBeTypeOf("function");
+		});
+
+		it("does not pass onAgentQuestion when agentShell is undefined", async () => {
+			const sitemap = makeSitemap({
+				start: makePage({
+					label: "Main",
+					actions: [
+						{ name: "onQuit", label: "Quit", type: "signal", target: "quit", key: "q" },
+					],
+				}),
+			});
+
+			const { router } = createRouter(sitemap);
+			queueMenuResults({ pickKey: "q" });
+
+			await router.run("start");
+
+			const opts = mockRunMenu.mock.calls[0][2] as Record<string, unknown>;
+			expect(opts.onAgentQuestion).toBeUndefined();
+			expect(opts.renderStatusBar).toBeUndefined();
 		});
 	});
 });

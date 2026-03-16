@@ -27,7 +27,7 @@ vi.mock("../../src/infrastructure/logger.js", () => ({
 }));
 
 import { runMenu, insertGroupSeparators } from "../../src/infrastructure/menu.js";
-import type { MenuEntry, MenuItem } from "../../src/infrastructure/types.js";
+import type { MenuEntry, MenuItem, MenuResult } from "../../src/infrastructure/types.js";
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -127,6 +127,51 @@ describe("runMenu", () => {
 
 		await runMenu("Test", items);
 		expect(action).toHaveBeenCalledOnce();
+	});
+
+	it("calls onAgentQuestion when ! is pressed and returns its result", async () => {
+		const onAgentQuestion = vi.fn(async () => "refresh" as MenuResult);
+		const items: MenuEntry[] = [
+			{ key: "q", label: "Quit", action: () => "quit" as const },
+		];
+		askResponses = ["!"];
+
+		const result = await runMenu("Test", items, { onAgentQuestion });
+		expect(onAgentQuestion).toHaveBeenCalledOnce();
+		expect(result).toBe("refresh");
+	});
+
+	it("continues menu loop when onAgentQuestion returns undefined", async () => {
+		const onAgentQuestion = vi.fn(async () => undefined);
+		const items: MenuEntry[] = [
+			{ key: "q", label: "Quit", action: () => "quit" as const },
+		];
+		askResponses = ["!", "q"];
+
+		const result = await runMenu("Test", items, { onAgentQuestion });
+		expect(onAgentQuestion).toHaveBeenCalledOnce();
+		expect(result).toBe("quit");
+	});
+
+	it("treats ! as invalid input when onAgentQuestion is not provided", async () => {
+		const items: MenuEntry[] = [
+			{ key: "q", label: "Quit", action: () => "quit" as const },
+		];
+		askResponses = ["!", "q"];
+
+		const result = await runMenu("Test", items);
+		expect(result).toBe("quit");
+	});
+
+	it("calls renderStatusBar on each menu render", async () => {
+		const renderStatusBar = vi.fn();
+		const items: MenuEntry[] = [
+			{ key: "q", label: "Quit", action: () => "quit" as const },
+		];
+		askResponses = ["q"];
+
+		await runMenu("Test", items, { renderStatusBar });
+		expect(renderStatusBar).toHaveBeenCalledOnce();
 	});
 });
 

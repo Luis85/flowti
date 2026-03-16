@@ -13,7 +13,8 @@ import { resolveDisabledCondition, resolveHiddenCondition } from "./sitemap-cond
 import { assignKeys } from "./key-assigner.js";
 import { input } from "./input.js";
 import { log } from "./logger.js";
-import { RESET, RED, YELLOW } from "./ui.js";
+import { RESET, RED, YELLOW, CYAN, BOLD } from "./ui.js";
+import { renderStatusBar } from "../ui/displays/status-bar-display.js";
 import type { MenuEntry, MenuResult, ProjectContext } from "./types.js";
 import type { CliDeps } from "./deps.js";
 import type { Sitemap, PageObject, PageAction, RouterContext, StackEntry } from "./sitemap-types.js";
@@ -175,7 +176,11 @@ export class SitemapRouter {
 			? () => this.#handlers.getBeforeRender(page.onBeforeRender!)(ctx)
 			: undefined;
 
-		const result = await runMenu(title, allEntries, { beforeMenu });
+		const result = await runMenu(title, allEntries, {
+			beforeMenu,
+			onAgentQuestion: this.#buildOnAgentQuestion(),
+			renderStatusBar: this.#buildRenderStatusBar(),
+		});
 
 		const nav = navigationTarget as StackEntry | null;
 		if (nav) {
@@ -336,6 +341,35 @@ export class SitemapRouter {
 					return undefined;
 				};
 		}
+	}
+
+	// ── Agent question hooks ─────────────────────────────────────────
+
+	#buildOnAgentQuestion(): (() => Promise<MenuResult | undefined>) | undefined {
+		const shell = this.#deps.agentShell;
+		if (!shell) return undefined;
+		return async (): Promise<MenuResult | undefined> => {
+			const questions = shell.pendingQuestions();
+			if (questions.length === 0) return undefined;
+			const oldest = questions[0];
+			const who = oldest.persona ?? oldest.agentName;
+			this.#deps.log(`\n  ${CYAN}${BOLD}${who}${RESET} asks:`);
+			this.#deps.log(`    ${oldest.question}\n`);
+			const answer = await this.#deps.input.ask(`  ${BOLD}Your answer${RESET}`);
+			if (answer) await shell.answerAgent(oldest.agentName, answer);
+			return "refresh";
+		};
+	}
+
+	#buildRenderStatusBar(): (() => void) | undefined {
+		const shell = this.#deps.agentShell;
+		if (!shell) return undefined;
+		return (): void => {
+			const questions = shell.pendingQuestions();
+			if (questions.length > 0) {
+				renderStatusBar(questions, this.#deps.log);
+			}
+		};
 	}
 
 	// ── Context building ────────────────────────────────────────────
