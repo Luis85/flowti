@@ -16,22 +16,23 @@ function emptyState(timestamp: string): WorldState {
 	return { version: 1, updatedAt: timestamp, entities: {}, permissions: {}, activityLog: [] };
 }
 
+const STATUS_MAP: Record<string, (action: AgentAction) => Record<string, unknown>> = {
+	"thinking": () => ({ state: "busy", currentAction: "thinking" }),
+	"speaking": () => ({ state: "busy", currentAction: "speaking" }),
+	"asking": (a) => ({ state: "waiting", currentAction: "asking", question: a.data.question }),
+	"using-tool": (a) => ({ state: "busy", currentAction: "using-tool", toolName: a.data.tool }),
+	"tool-complete": () => ({ state: "busy", currentAction: "working" }),
+	"requesting-permission": (a) => ({ state: "waiting", currentAction: "requesting-permission", tool: a.data.tool }),
+	"permission-granted": () => ({ state: "busy", currentAction: "working" }),
+	"permission-denied": () => ({ state: "waiting", currentAction: "permission-denied" }),
+	"task-started": (a) => ({ state: "busy", currentAction: "task-started", task: a.data.task }),
+	"task-completed": () => ({ state: "idle", currentAction: "idle" }),
+	"idle": () => ({ state: "idle", currentAction: "idle" }),
+	"error": (a) => ({ state: "error", currentAction: "error", message: a.data.message }),
+};
+
 function deriveStatusFromAction(action: AgentAction): Record<string, unknown> {
-	switch (action.type) {
-		case "thinking": return { state: "busy", currentAction: "thinking" };
-		case "speaking": return { state: "busy", currentAction: "speaking" };
-		case "asking": return { state: "waiting", currentAction: "asking", question: action.data.question };
-		case "using-tool": return { state: "busy", currentAction: "using-tool", toolName: action.data.tool };
-		case "tool-complete": return { state: "busy", currentAction: "working" };
-		case "requesting-permission": return { state: "waiting", currentAction: "requesting-permission", tool: action.data.tool };
-		case "permission-granted": return { state: "busy", currentAction: "working" };
-		case "permission-denied": return { state: "waiting", currentAction: "permission-denied" };
-		case "task-started": return { state: "busy", currentAction: "task-started", task: action.data.task };
-		case "task-completed": return { state: "idle", currentAction: "idle" };
-		case "idle": return { state: "idle", currentAction: "idle" };
-		case "error": return { state: "error", currentAction: "error", message: action.data.message };
-		default: return {};
-	}
+	return STATUS_MAP[action.type]?.(action) ?? {};
 }
 
 function toActivityEntry(action: AgentAction): ActivityEntry {

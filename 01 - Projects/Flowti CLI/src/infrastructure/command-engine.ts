@@ -74,6 +74,14 @@ export interface CommandDescriptor<TFlags = Record<string, unknown>, TModel = un
 
 // ── Flag Parsing ─────────────────────────────────────────────────
 
+const flagParsers: Record<string, (val: string | boolean, fs: FlagSpec) => unknown> = {
+	boolean: (val) => val === true || val === "true",
+	number: (val, fs) => fs.coerce === "int"
+		? parseInt(String(val), 10)
+		: parseFloat(String(val)),
+	list: (val) => typeof val === "string" ? val.split(",").map(s => s.trim()) : [],
+};
+
 export function parseFlags(
 	raw: Record<string, string | boolean>,
 	spec: Record<string, FlagSpec>,
@@ -89,21 +97,8 @@ export function parseFlags(
 			result[key] = fs.parse(val);
 			continue;
 		}
-		switch (fs.type) {
-			case "boolean":
-				result[key] = val === true || val === "true";
-				break;
-			case "number":
-				result[key] = fs.coerce === "int"
-					? parseInt(String(val), 10)
-					: parseFloat(String(val));
-				break;
-			case "list":
-				result[key] = typeof val === "string" ? val.split(",").map(s => s.trim()) : [];
-				break;
-			default:
-				result[key] = typeof val === "string" ? val : String(val);
-		}
+		const parser = flagParsers[fs.type];
+		result[key] = parser ? parser(val, fs) : (typeof val === "string" ? val : String(val));
 	}
 	return result;
 }
@@ -135,6 +130,64 @@ export function validateFlags(
 	return null;
 }
 
+// ── Engine helpers ───────────────────────────────────────────────
+
+function buildProjectGuardResponse<TFlags, TModel>(
+	desc: CommandDescriptor<TFlags, TModel>,
+	format: string | undefined,
+	project: ProjectContext | undefined,
+	deps: CliDeps,
+): boolean {
+	if (desc.requires !== "project" || project) return false;
+	const response = dataResponse<NoProjectModel>(
+		{ command: "help" },
+		(d: NoProjectModel) => renderNoProject(d, deps.log),
+	);
+	handleResponse(response, format === "json" ? "json" : "text");
+	return true;
+}
+
+function buildParsedFlags<TFlags, TModel>(
+	flags: Record<string, string | boolean>,
+	desc: CommandDescriptor<TFlags, TModel>,
+	format: string | undefined,
+): { parsed: Record<string, unknown> } | { error: true } {
+	const specKeys = desc.flags ? new Set(Object.keys(desc.flags as Record<string, FlagSpec>)) : new Set<string>();
+	const passthrough: Record<string, unknown> = {};
+	for (const [k, v] of Object.entries(flags)) {
+		if (!specKeys.has(k)) passthrough[k] = v;
+	}
+	const parsed = desc.flags ? { ...passthrough, ...parseFlags(flags, desc.flags as Record<string, FlagSpec>) } : { ...passthrough };
+	if (desc.flags) {
+		const validationError = validateFlags(parsed, desc.flags as Record<string, FlagSpec>);
+		if (validationError) {
+			handleResponse(dataResponse(validationError, () => {}), format === "json" ? "json" : "text");
+			return { error: true };
+		}
+	}
+	return { parsed };
+}
+
+function buildCommandContext<TFlags, TModel>(
+	cmd: string,
+	parsed: Record<string, unknown>,
+	project: ProjectContext | undefined,
+	deps: CliDeps,
+	desc: CommandDescriptor<TFlags, TModel>,
+	rawArgs: string[],
+): CommandContext<TFlags> {
+	return {
+		command: cmd,
+		flags: parsed as TFlags,
+		project,
+		deps,
+		...(desc.rawArgs ? { rawArgs } : {}),
+		...(desc.wildcardPrefix && cmd.startsWith(desc.wildcardPrefix)
+			? { wildcard: cmd.substring(desc.wildcardPrefix.length) }
+			: {}),
+	};
+}
+
 // ── Engine ───────────────────────────────────────────────────────
 
 export function adaptDescriptor<TFlags = Record<string, unknown>, TModel = unknown>(
@@ -150,47 +203,14 @@ export function adaptDescriptor<TFlags = Record<string, unknown>, TModel = unkno
 		const format = typeof flags.format === "string" ? flags.format : undefined;
 		const deps = getSharedDeps();
 
-		// Project guard
-		if (desc.requires === "project" && !project) {
-			const response = dataResponse<NoProjectModel>(
-				{ command: "help" },
-				(d: NoProjectModel) => renderNoProject(d, deps.log),
-			);
-			handleResponse(response, format === "json" ? "json" : "text");
-			return;
-		}
+		if (buildProjectGuardResponse(desc, format, project, deps)) return;
 
-		// Parse and validate flags — merge unspecified raw flags so handlers can access them
-		const specKeys = desc.flags ? new Set(Object.keys(desc.flags as Record<string, FlagSpec>)) : new Set<string>();
-		const passthrough: Record<string, unknown> = {};
-		for (const [k, v] of Object.entries(flags)) {
-			if (!specKeys.has(k)) passthrough[k] = v;
-		}
-		const parsed = desc.flags ? { ...passthrough, ...parseFlags(flags, desc.flags as Record<string, FlagSpec>) } : { ...passthrough };
-		if (desc.flags) {
-			const error = validateFlags(parsed, desc.flags as Record<string, FlagSpec>);
-			if (error) {
-				handleResponse(dataResponse(error, () => {}), format === "json" ? "json" : "text");
-				return;
-			}
-		}
+		const flagResult = buildParsedFlags(flags, desc, format);
+		if ("error" in flagResult) return;
 
-		// Build context
-		const ctx: CommandContext<TFlags> = {
-			command: cmd,
-			flags: parsed as TFlags,
-			project,
-			deps,
-			...(desc.rawArgs ? { rawArgs } : {}),
-			...(desc.wildcardPrefix && cmd.startsWith(desc.wildcardPrefix)
-				? { wildcard: cmd.substring(desc.wildcardPrefix.length) }
-				: {}),
-		};
-
-		// Call handler
+		const ctx = buildCommandContext(cmd, flagResult.parsed, project, deps, desc, rawArgs);
 		const result = desc.handler(ctx);
 
-		// Handle async
 		if (result instanceof Promise) {
 			return result.then((model) => {
 				handleResponse(wrapResponse(model, desc, deps), format === "json" ? "json" : "text");

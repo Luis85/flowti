@@ -52,22 +52,42 @@ export interface StoreApi<TSummary, TDefinition> {
 
 // ── Engine ───────────────────────────────────────────────────────
 
+const fieldParsers: Record<string, (raw: string, spec: FieldSpec) => unknown> = {
+	number: (raw, spec) => parseFloat(raw) || (spec.default ?? 0),
+	boolean: (raw) => raw === "true",
+	enum: (raw, spec) => spec.options?.includes(raw) ? raw : (spec.default ?? raw),
+	array: (raw) => raw.split(",").map(s => s.trim()).filter(Boolean),
+};
+
 function parseFieldValue(raw: string | undefined, spec: FieldSpec): unknown {
 	if (raw === undefined) return spec.default;
 	if (spec.parse) return spec.parse(raw);
-	switch (spec.type) {
-		case "number": return parseFloat(raw) || (spec.default ?? 0);
-		case "boolean": return raw === "true";
-		case "enum": return spec.options?.includes(raw) ? raw : (spec.default ?? raw);
-		case "array": return raw.split(",").map(s => s.trim()).filter(Boolean);
-		default: return raw;
-	}
+	return fieldParsers[spec.type]?.(raw, spec) ?? raw;
 }
 
 function serializeFieldValue(value: unknown, spec: FieldSpec): string {
 	if (spec.serialize) return spec.serialize(value);
 	if (Array.isArray(value)) return value.join(", ");
 	return String(value ?? "");
+}
+
+function writeCompanion<TDefinition>(
+	deps: StoreDeps,
+	desc: Pick<StoreDescriptor<unknown, TDefinition>, "companion">,
+	def: TDefinition,
+	filePath: string,
+): void {
+	if (!desc.companion) return;
+	const companionData: Record<string, unknown> = {};
+	for (const field of desc.companion.fields) {
+		if ((def as Record<string, unknown>)[field] !== undefined) {
+			companionData[field] = (def as Record<string, unknown>)[field];
+		}
+	}
+	if (Object.keys(companionData).length > 0) {
+		const companionPath = filePath.replace(/\.md$/, desc.companion.extension);
+		deps.disk.writeFileSync(companionPath, JSON.stringify(companionData, null, "\t"), "utf-8");
+	}
 }
 
 export function createStore<TSummary, TDefinition>(
@@ -143,20 +163,7 @@ export function createStore<TSummary, TDefinition>(
 			const content = `---\n${yamlLines.join("\n")}\n---\n\n${body}`;
 
 			deps.disk.writeFileSync(filePath, content, "utf-8");
-
-			// Handle companion file
-			if (desc.companion) {
-				const companionData: Record<string, unknown> = {};
-				for (const field of desc.companion.fields) {
-					if ((def as Record<string, unknown>)[field] !== undefined) {
-						companionData[field] = (def as Record<string, unknown>)[field];
-					}
-				}
-				if (Object.keys(companionData).length > 0) {
-					const companionPath = filePath.replace(/\.md$/, desc.companion.extension);
-					deps.disk.writeFileSync(companionPath, JSON.stringify(companionData, null, "\t"), "utf-8");
-				}
-			}
+			writeCompanion(deps, desc, def, filePath);
 
 			return filePath;
 		},

@@ -62,6 +62,73 @@ interface ActiveToolEntry {
 	index: number;
 }
 
+// ── Stream event handler context ────────────────────────────────────
+
+interface StreamHandlerContext {
+	readonly stateRef: { current: ChatAppState };
+	readonly activeTools: ActiveToolEntry[];
+	readonly elapsedStartMs: number;
+}
+
+function handleThinking(ctx: StreamHandlerContext, event: AgentStreamEvent & { kind: "thinking" }): void {
+	const s = ctx.stateRef.current;
+	ctx.stateRef.current = { ...s, streamingThinking: s.streamingThinking + event.text };
+}
+
+function handleText(ctx: StreamHandlerContext, event: AgentStreamEvent & { kind: "text" }): void {
+	const s = ctx.stateRef.current;
+	ctx.stateRef.current = { ...s, streamingText: s.streamingText + event.text };
+}
+
+function handleToolStart(ctx: StreamHandlerContext, event: AgentStreamEvent & { kind: "tool-start" }): void {
+	const s = ctx.stateRef.current;
+	const newTool: ChatToolCall = { name: event.name, status: "active" };
+	const entry: ActiveToolEntry = { id: event.id, startMs: Date.now(), index: s.taskTools.length };
+	ctx.activeTools.push(entry);
+	ctx.stateRef.current = { ...s, taskTools: [...s.taskTools, newTool], currentTool: event.name };
+}
+
+function handleToolInput(ctx: StreamHandlerContext, event: AgentStreamEvent & { kind: "tool-input" }): void {
+	const s = ctx.stateRef.current;
+	const lastEntry = ctx.activeTools[ctx.activeTools.length - 1];
+	if (!lastEntry) return;
+	const updated = s.taskTools.map((t, i) =>
+		i !== lastEntry.index ? t : { ...t, input: (t.input ?? "") + event.json },
+	);
+	ctx.stateRef.current = { ...s, taskTools: updated };
+}
+
+function handleToolEnd(ctx: StreamHandlerContext, event: AgentStreamEvent & { kind: "tool-end" }): void {
+	const s = ctx.stateRef.current;
+	const entryIdx = ctx.activeTools.findIndex((e) => e.id === event.id);
+	if (entryIdx === -1) return;
+	const entry = ctx.activeTools[entryIdx];
+	const durationMs = Date.now() - entry.startMs;
+	const updated = s.taskTools.map((t, i) =>
+		i !== entry.index ? t : { ...t, status: "done" as const, durationMs },
+	);
+	ctx.activeTools.splice(entryIdx, 1);
+	const stillActive = ctx.activeTools.length > 0
+		? s.taskTools[ctx.activeTools[ctx.activeTools.length - 1].index]?.name ?? ""
+		: "";
+	ctx.stateRef.current = { ...s, taskTools: updated, currentTool: stillActive };
+}
+
+function handleError(ctx: StreamHandlerContext, event: AgentStreamEvent & { kind: "error" }): void {
+	const s = ctx.stateRef.current;
+	ctx.stateRef.current = { ...s, streamingText: s.streamingText + event.message };
+}
+
+function handleUsage(ctx: StreamHandlerContext, event: AgentStreamEvent & { kind: "usage" }): void {
+	const s = ctx.stateRef.current;
+	ctx.stateRef.current = { ...s, inputTokens: event.inputTokens, outputTokens: event.outputTokens };
+}
+
+function handleDone(ctx: StreamHandlerContext): void {
+	const s = ctx.stateRef.current;
+	ctx.stateRef.current = { ...s, elapsed: Date.now() - ctx.elapsedStartMs };
+}
+
 // ── ChatApp component (no JSX — .ts file) ────────────────────────────
 
 interface ChatAppProps {
@@ -197,81 +264,20 @@ export class InkChatRenderer implements IChatRenderer {
 
 	pushStreamEvent(event: AgentStreamEvent): void {
 		if (!this.stateRef) return;
-		const s = this.stateRef.current;
-
+		const ctx: StreamHandlerContext = {
+			stateRef: this.stateRef,
+			activeTools: this.activeTools,
+			elapsedStartMs: this.elapsedStartMs,
+		};
 		switch (event.kind) {
-			case "thinking":
-				this.stateRef.current = { ...s, streamingThinking: s.streamingThinking + event.text };
-				break;
-
-			case "text":
-				this.stateRef.current = { ...s, streamingText: s.streamingText + event.text };
-				break;
-
-			case "tool-start": {
-				const newTool: ChatToolCall = {
-					name: event.name,
-					status: "active",
-				};
-				const entry: ActiveToolEntry = {
-					id: event.id,
-					startMs: Date.now(),
-					index: s.taskTools.length,
-				};
-				this.activeTools.push(entry);
-				this.stateRef.current = {
-					...s,
-					taskTools: [...s.taskTools, newTool],
-					currentTool: event.name,
-				};
-				break;
-			}
-
-			case "tool-input": {
-				// Accumulate partial JSON into the most-recently-started active tool.
-				// We use activeTools to map index → taskTools position.
-				const lastEntry = this.activeTools[this.activeTools.length - 1];
-				if (!lastEntry) break;
-				const updated = s.taskTools.map((t, i) => {
-					if (i !== lastEntry.index) return t;
-					return { ...t, input: (t.input ?? "") + event.json };
-				});
-				this.stateRef.current = { ...s, taskTools: updated };
-				break;
-			}
-
-			case "tool-end": {
-				const entryIdx = this.activeTools.findIndex((e) => e.id === event.id);
-				if (entryIdx === -1) break;
-				const entry = this.activeTools[entryIdx];
-				const durationMs = Date.now() - entry.startMs;
-				const updated = s.taskTools.map((t, i) => {
-					if (i !== entry.index) return t;
-					return { ...t, status: "done" as const, durationMs };
-				});
-				this.activeTools.splice(entryIdx, 1);
-				const stillActive = this.activeTools.length > 0
-					? s.taskTools[this.activeTools[this.activeTools.length - 1].index]?.name ?? ""
-					: "";
-				this.stateRef.current = { ...s, taskTools: updated, currentTool: stillActive };
-				break;
-			}
-
-			case "error":
-				this.stateRef.current = { ...s, streamingText: s.streamingText + event.message };
-				break;
-
-			case "usage":
-				this.stateRef.current = {
-					...s,
-					inputTokens: event.inputTokens,
-					outputTokens: event.outputTokens,
-				};
-				break;
-
-			case "done":
-				this.stateRef.current = { ...s, elapsed: Date.now() - this.elapsedStartMs };
-				break;
+			case "thinking": handleThinking(ctx, event); break;
+			case "text": handleText(ctx, event); break;
+			case "tool-start": handleToolStart(ctx, event); break;
+			case "tool-input": handleToolInput(ctx, event); break;
+			case "tool-end": handleToolEnd(ctx, event); break;
+			case "error": handleError(ctx, event); break;
+			case "usage": handleUsage(ctx, event); break;
+			case "done": handleDone(ctx); break;
 		}
 	}
 

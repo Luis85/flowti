@@ -6,6 +6,8 @@
  */
 
 import type { EnvironmentProvider, ToolExecutor } from "../journey-environment.js";
+import type { ActionResult, JourneyAction, JourneyExecutorOptions } from "../journey-types.js";
+import type { ToolDeps } from "../journey-executor.js";
 import { resolveString } from "../journey-tools.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -33,6 +35,50 @@ function vaultRoot(opts: { variables?: Record<string, unknown> }): string {
 	return String(opts.variables?.["vaultRoot"] ?? ".");
 }
 
+// ── Shared result / variable helpers ────────────────────────────────
+
+function buildToolResult(
+	tool: string,
+	success: boolean,
+	startMs: number,
+	clock: { ms(): number },
+	output?: string,
+	error?: string,
+): ActionResult {
+	return { tool, success, output, error, durationMs: clock.ms() - startMs };
+}
+
+function storeVariable(
+	opts: JourneyExecutorOptions,
+	storeAs: string | undefined,
+	value: string,
+	format?: string,
+): void {
+	if (!storeAs || !opts.variables) return;
+	if (format === "json") {
+		try {
+			opts.variables[storeAs] = JSON.parse(value);
+		} catch {
+			opts.variables[storeAs] = value;
+		}
+	} else {
+		opts.variables[storeAs] = value;
+	}
+}
+
+function execInVault(
+	deps: ToolDeps,
+	command: string,
+	root: string,
+	opts: JourneyExecutorOptions,
+): { exitCode: number; stdout: string; stderr: string } {
+	return deps.exec(command, {
+		cwd: root,
+		timeout: opts.commandTimeout ?? 30_000,
+		env: opts.env,
+	});
+}
+
 // ── vault-cli tool ──────────────────────────────────────────────────
 
 const toolVaultCli: ToolExecutor = (action, deps, opts) => {
@@ -41,45 +87,66 @@ const toolVaultCli: ToolExecutor = (action, deps, opts) => {
 	const command = resolveString(action, "command", opts.variables ?? {});
 	const expectExit = typeof action.expectExit === "number" ? action.expectExit : 0;
 	const stdoutContains = action.stdoutContains as string | undefined;
-	const storeAs = action.storeAs as string | undefined;
-	const format = action.format as string | undefined;
 
 	try {
-		const r = deps.exec(`node .flowti/bin/main.js ${command}`, {
-			cwd: root,
-			timeout: opts.commandTimeout ?? 30_000,
-			env: opts.env,
-		});
-
+		const r = execInVault(deps, `node .flowti/bin/main.js ${command}`, root, opts);
 		const exitMatch = r.exitCode === expectExit;
 		const containsMatch = stdoutContains ? r.stdout.includes(stdoutContains) : true;
 		const success = exitMatch && containsMatch;
 
-		if (storeAs && opts.variables) {
-			if (format === "json") {
-				try {
-					opts.variables[storeAs] = JSON.parse(r.stdout);
-				} catch {
-					opts.variables[storeAs] = r.stdout;
-				}
-			} else {
-				opts.variables[storeAs] = r.stdout;
-			}
-		}
+		storeVariable(opts, action.storeAs as string | undefined, r.stdout, action.format as string | undefined);
 
-		return {
-			tool: "vault-cli",
-			success,
-			output: r.stdout.slice(0, 1000),
-			error: success ? undefined : `Exit ${r.exitCode} (expected ${expectExit})${!containsMatch ? `, stdout missing "${stdoutContains}"` : ""}`,
-			durationMs: deps.clock.ms() - start,
-		};
+		const error = success
+			? undefined
+			: `Exit ${r.exitCode} (expected ${expectExit})${!containsMatch ? `, stdout missing "${stdoutContains}"` : ""}`;
+		return buildToolResult("vault-cli", success, start, deps.clock, r.stdout.slice(0, 1000), error);
 	} catch (e) {
-		return { tool: "vault-cli", success: false, error: String(e), durationMs: deps.clock.ms() - start };
+		return buildToolResult("vault-cli", false, start, deps.clock, undefined, String(e));
 	}
 };
 
 // ── vault-project tool ──────────────────────────────────────────────
+
+function handleProjectList(
+	deps: ToolDeps,
+	opts: JourneyExecutorOptions,
+	root: string,
+	storeAs: string | undefined,
+	start: number,
+): ActionResult {
+	const r = execInVault(deps, "node .flowti/bin/main.js info --format=json", root, opts);
+	storeVariable(opts, storeAs, r.stdout, "json");
+	return buildToolResult("vault-project", r.exitCode === 0, start, deps.clock, r.stdout.slice(0, 500));
+}
+
+function handleProjectInfo(
+	deps: ToolDeps,
+	opts: JourneyExecutorOptions,
+	root: string,
+	project: string,
+	storeAs: string | undefined,
+	start: number,
+): ActionResult {
+	const r = execInVault(deps, `node .flowti/bin/main.js info --project="${project}" --format=json`, root, opts);
+	storeVariable(opts, storeAs, r.stdout, "json");
+	return buildToolResult("vault-project", r.exitCode === 0, start, deps.clock, r.stdout.slice(0, 500));
+}
+
+function handleProjectRun(
+	action: JourneyAction,
+	deps: ToolDeps,
+	opts: JourneyExecutorOptions,
+	root: string,
+	project: string,
+	storeAs: string | undefined,
+	start: number,
+): ActionResult {
+	const command = resolveString(action, "command", opts.variables ?? {});
+	const expectExit = typeof action.expectExit === "number" ? action.expectExit : 0;
+	const r = execInVault(deps, `node .flowti/bin/main.js ${command} --project="${project}"`, root, opts);
+	if (storeAs && opts.variables) opts.variables[storeAs] = r.stdout;
+	return buildToolResult("vault-project", r.exitCode === expectExit, start, deps.clock, r.stdout.slice(0, 500));
+}
 
 const toolVaultProject: ToolExecutor = (action, deps, opts) => {
 	const start = deps.clock.ms();
@@ -89,93 +156,82 @@ const toolVaultProject: ToolExecutor = (action, deps, opts) => {
 	const storeAs = action.storeAs as string | undefined;
 
 	try {
-		if (op === "list") {
-			const r = deps.exec("node .flowti/bin/main.js info --format=json", {
-				cwd: root,
-				timeout: opts.commandTimeout ?? 30_000,
-				env: opts.env,
-			});
-			if (storeAs && opts.variables) {
-				try {
-					opts.variables[storeAs] = JSON.parse(r.stdout);
-				} catch {
-					opts.variables[storeAs] = r.stdout;
-				}
-			}
-			return { tool: "vault-project", success: r.exitCode === 0, output: r.stdout.slice(0, 500), durationMs: deps.clock.ms() - start };
-		}
-
-		if (op === "info") {
-			const r = deps.exec(`node .flowti/bin/main.js info --project="${project}" --format=json`, {
-				cwd: root,
-				timeout: opts.commandTimeout ?? 30_000,
-				env: opts.env,
-			});
-			if (storeAs && opts.variables) {
-				try {
-					opts.variables[storeAs] = JSON.parse(r.stdout);
-				} catch {
-					opts.variables[storeAs] = r.stdout;
-				}
-			}
-			return { tool: "vault-project", success: r.exitCode === 0, output: r.stdout.slice(0, 500), durationMs: deps.clock.ms() - start };
-		}
-
-		if (op === "run") {
-			const command = resolveString(action, "command", opts.variables ?? {});
-			const expectExit = typeof action.expectExit === "number" ? action.expectExit : 0;
-			const r = deps.exec(`node .flowti/bin/main.js ${command} --project="${project}"`, {
-				cwd: root,
-				timeout: opts.commandTimeout ?? 30_000,
-				env: opts.env,
-			});
-			if (storeAs && opts.variables) opts.variables[storeAs] = r.stdout;
-			return { tool: "vault-project", success: r.exitCode === expectExit, output: r.stdout.slice(0, 500), durationMs: deps.clock.ms() - start };
-		}
-
-		return { tool: "vault-project", success: false, error: `Unknown op: ${op}`, durationMs: deps.clock.ms() - start };
+		if (op === "list") return handleProjectList(deps, opts, root, storeAs, start);
+		if (op === "info") return handleProjectInfo(deps, opts, root, project, storeAs, start);
+		if (op === "run") return handleProjectRun(action, deps, opts, root, project, storeAs, start);
+		return buildToolResult("vault-project", false, start, deps.clock, undefined, `Unknown op: ${op}`);
 	} catch (e) {
-		return { tool: "vault-project", success: false, error: String(e), durationMs: deps.clock.ms() - start };
+		return buildToolResult("vault-project", false, start, deps.clock, undefined, String(e));
 	}
 };
 
 // ── vault-assert tool ───────────────────────────────────────────────
+
+function assertHealthScore(
+	action: JourneyAction,
+	opts: JourneyExecutorOptions,
+	start: number,
+	clock: { ms(): number },
+): ActionResult {
+	const source = opts.variables?.[action.source as string] as Record<string, unknown> | undefined;
+	if (!source) return buildToolResult("vault-assert", false, start, clock, undefined, `Variable "${action.source}" not found`);
+	const score = source.score as number;
+	const min = action.min as number;
+	const max = action.max as number;
+	const success = score >= min && score <= max;
+	return buildToolResult(
+		"vault-assert", success, start, clock,
+		`Score: ${score} (range: ${min}-${max})`,
+		success ? undefined : `Score ${score} outside range ${min}-${max}`,
+	);
+}
+
+function assertJsonField(
+	action: JourneyAction,
+	opts: JourneyExecutorOptions,
+	start: number,
+	clock: { ms(): number },
+): ActionResult {
+	const source = opts.variables?.[action.source as string] as Record<string, unknown> | undefined;
+	if (!source) return buildToolResult("vault-assert", false, start, clock, undefined, `Variable "${action.source}" not found`);
+	const actual = getNestedField(source, action.field as string);
+	const success = compareValues(actual, action.operator as string, action.expected);
+	return buildToolResult(
+		"vault-assert", success, start, clock,
+		`${action.field}: ${JSON.stringify(actual)} ${action.operator} ${JSON.stringify(action.expected)}`,
+		success ? undefined : `Assertion failed: ${JSON.stringify(actual)} ${action.operator} ${JSON.stringify(action.expected)}`,
+	);
+}
+
+function assertReportExists(
+	action: JourneyAction,
+	deps: ToolDeps,
+	opts: JourneyExecutorOptions,
+	start: number,
+): ActionResult {
+	const root = vaultRoot(opts);
+	const project = resolveString(action, "project", opts.variables ?? {});
+	const report = action.report as string;
+	const reportPath = `${root}/01 - Projects/${project}/reports/${report}`;
+	const success = deps.exists(reportPath);
+	return buildToolResult(
+		"vault-assert", success, start, deps.clock,
+		reportPath,
+		success ? undefined : `Report not found: ${reportPath}`,
+	);
+}
 
 const toolVaultAssert: ToolExecutor = (action, deps, opts) => {
 	const start = deps.clock.ms();
 	const type = action.type as string;
 
 	try {
-		if (type === "health-score") {
-			const source = opts.variables?.[action.source as string] as Record<string, unknown> | undefined;
-			if (!source) return { tool: "vault-assert", success: false, error: `Variable "${action.source}" not found`, durationMs: deps.clock.ms() - start };
-			const score = source.score as number;
-			const min = action.min as number;
-			const max = action.max as number;
-			const success = score >= min && score <= max;
-			return { tool: "vault-assert", success, output: `Score: ${score} (range: ${min}-${max})`, error: success ? undefined : `Score ${score} outside range ${min}-${max}`, durationMs: deps.clock.ms() - start };
-		}
-
-		if (type === "json-field") {
-			const source = opts.variables?.[action.source as string] as Record<string, unknown> | undefined;
-			if (!source) return { tool: "vault-assert", success: false, error: `Variable "${action.source}" not found`, durationMs: deps.clock.ms() - start };
-			const actual = getNestedField(source, action.field as string);
-			const success = compareValues(actual, action.operator as string, action.expected);
-			return { tool: "vault-assert", success, output: `${action.field}: ${JSON.stringify(actual)} ${action.operator} ${JSON.stringify(action.expected)}`, error: success ? undefined : `Assertion failed: ${JSON.stringify(actual)} ${action.operator} ${JSON.stringify(action.expected)}`, durationMs: deps.clock.ms() - start };
-		}
-
-		if (type === "report-exists") {
-			const root = vaultRoot(opts);
-			const project = resolveString(action, "project", opts.variables ?? {});
-			const report = action.report as string;
-			const reportPath = `${root}/01 - Projects/${project}/reports/${report}`;
-			const success = deps.exists(reportPath);
-			return { tool: "vault-assert", success, output: reportPath, error: success ? undefined : `Report not found: ${reportPath}`, durationMs: deps.clock.ms() - start };
-		}
-
-		return { tool: "vault-assert", success: false, error: `Unknown assert type: ${type}`, durationMs: deps.clock.ms() - start };
+		if (type === "health-score") return assertHealthScore(action, opts, start, deps.clock);
+		if (type === "json-field") return assertJsonField(action, opts, start, deps.clock);
+		if (type === "report-exists") return assertReportExists(action, deps, opts, start);
+		return buildToolResult("vault-assert", false, start, deps.clock, undefined, `Unknown assert type: ${type}`);
 	} catch (e) {
-		return { tool: "vault-assert", success: false, error: String(e), durationMs: deps.clock.ms() - start };
+		return buildToolResult("vault-assert", false, start, deps.clock, undefined, String(e));
 	}
 };
 

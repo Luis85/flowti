@@ -68,6 +68,18 @@ function handleLlmResult(worker: WorkerImpl, exitCode: number, text: string, wor
 	return false;
 }
 
+function resolveAgentPermissions(
+	deps: WorkerManagerDeps,
+	vaultRoot: string,
+	worker: WorkerImpl,
+): { resolvedTools: readonly string[] } {
+	const varDir = deps.paths.join(vaultRoot, ".flowti", "var");
+	const agentState = readAgentState(deps, varDir, worker.name);
+	const policy = resolvePermissionPolicy(worker.agent.ai?.permissions, agentState.permissionOverride);
+	const available = worker.agent.ai?.allowedTools ?? [];
+	return { resolvedTools: resolveAllowedTools(policy, agentState.grants, available) };
+}
+
 // ── Factory ─────────────────────────────────────────────────────────
 
 export function createWorkerManager(
@@ -128,11 +140,7 @@ export function createWorkerManager(
 		setWorkerState(worker, "thinking", worldState);
 
 		const prompt = buildPrompt(deps, vaultRoot, worker, message, opts);
-		const varDir = deps.paths.join(vaultRoot, ".flowti", "var");
-		const agentState = readAgentState(deps, varDir, worker.name);
-		const policy = resolvePermissionPolicy(worker.agent.ai?.permissions, agentState.permissionOverride);
-		const available = worker.agent.ai?.allowedTools ?? [];
-		const resolvedTools = resolveAllowedTools(policy, agentState.grants, available);
+		const { resolvedTools } = resolveAgentPermissions(deps, vaultRoot, worker);
 
 		try {
 			const proc = processRunner.spawn(worker.agent, prompt, resolvedTools);
@@ -144,6 +152,7 @@ export function createWorkerManager(
 			const stopped = handleLlmResult(worker, result.exitCode, result.text, worldState);
 			if (stopped) return;
 
+			const varDir = deps.paths.join(vaultRoot, ".flowti", "var");
 			const freshState = readAgentState(deps, varDir, worker.name);
 			const cleared = clearOnceGrants(freshState);
 			if (cleared !== freshState) writeAgentState(deps, varDir, worker.name, cleared);

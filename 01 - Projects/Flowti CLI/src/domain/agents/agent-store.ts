@@ -73,10 +73,22 @@ function parseAttributes(raw: unknown): AgentAttributes | undefined {
 	return Object.keys(attrs).length > 0 ? attrs : undefined;
 }
 
-function parseFrontmatterFields(fm: Record<string, unknown>, file: string): Pick<AgentSummary, "name" | "agentType" | "description" | "domain" | "skills" | "tools" | "roles" | "behaviors" | "preferredPhases" | "suggestedTasks" | "attributes" | "persona" | "mood" | "personality" | "experience" | "tags"> {
+function parseOptionalFields(fm: Record<string, unknown>): Pick<AgentSummary, "persona" | "mood" | "personality" | "experience" | "preferredPhases" | "attributes" | "tags"> {
 	const preferredPhases = toStringArray(fm.preferredPhases);
 	const personality = toStringArray(fm.personality);
 	const tags = toStringArray(fm.tags);
+	return {
+		preferredPhases: preferredPhases.length > 0 ? preferredPhases : undefined,
+		attributes: parseAttributes(fm.attributes),
+		persona: fm.persona ? String(fm.persona).replace(/^\[\[|\]\]$/g, "") : undefined,
+		mood: fm.mood ? String(fm.mood) : undefined,
+		personality: personality.length > 0 ? personality : undefined,
+		experience: typeof fm.experience === "number" ? fm.experience : undefined,
+		tags: tags.length > 0 ? tags : undefined,
+	};
+}
+
+function parseFrontmatterFields(fm: Record<string, unknown>, file: string): Pick<AgentSummary, "name" | "agentType" | "description" | "domain" | "skills" | "tools" | "roles" | "behaviors" | "preferredPhases" | "suggestedTasks" | "attributes" | "persona" | "mood" | "personality" | "experience" | "tags"> {
 	return {
 		name: String(fm.name ?? file.replace(/\.md$/, "")),
 		agentType: fm.agentType === "ai" ? "ai" : "human",
@@ -86,14 +98,8 @@ function parseFrontmatterFields(fm: Record<string, unknown>, file: string): Pick
 		tools: toStringArray(fm.tools),
 		roles: toStringArray(fm.roles),
 		behaviors: toStringArray(fm.behaviors),
-		preferredPhases: preferredPhases.length > 0 ? preferredPhases : undefined,
-		attributes: parseAttributes(fm.attributes),
-		persona: fm.persona ? String(fm.persona).replace(/^\[\[|\]\]$/g, "") : undefined,
-		mood: fm.mood ? String(fm.mood) : undefined,
-		personality: personality.length > 0 ? personality : undefined,
-		experience: typeof fm.experience === "number" ? fm.experience : undefined,
 		suggestedTasks: toStringArray(fm.suggestedTasks).map(parseSuggestedTask),
-		tags: tags.length > 0 ? tags : undefined,
+		...parseOptionalFields(fm),
 	};
 }
 
@@ -143,32 +149,7 @@ export const agentStore: StoreApi<AgentSummary, AgentDefinition> = {
 			behaviors: { type: "array", default: [] },
 		},
 		sort: (a, b) => a.name.localeCompare(b.name),
-		buildBody: (def) => {
-			const lines: string[] = ["", `# ${def.name}`, ""];
-			if (def.description) lines.push(def.description, "");
-			lines.push("## Skills", "");
-			if (def.skills.length > 0) {
-				for (const s of def.skills) lines.push(`- **${s.name}**: ${s.level || "(unrated)"}`);
-				lines.push("");
-			} else {
-				lines.push("<!-- List skills for this agent. -->", "");
-			}
-			lines.push("## Tools", "");
-			if (def.tools.length > 0) {
-				for (const t of def.tools) lines.push(`- ${t}`);
-				lines.push("");
-			} else {
-				lines.push("<!-- List tools available to this agent. -->", "");
-			}
-			lines.push("## Roles", "");
-			if (def.roles.length > 0) {
-				for (const r of def.roles) lines.push(`- ${r}`);
-				lines.push("");
-			} else {
-				lines.push("<!-- List roles this agent can fill. -->", "");
-			}
-			return lines.join("\n");
-		},
+		buildBody: buildBodyString,
 	},
 
 	resolveDir(deps, projectPath, config?) {
@@ -212,7 +193,7 @@ export const agentStore: StoreApi<AgentSummary, AgentDefinition> = {
 			});
 		if (def.domain) doc.setFrontmatter("domain", def.domain);
 		buildFrontmatterArrays(doc, def);
-		buildBody(doc, def);
+		for (const line of buildBodyString(def).split("\n")) doc.text(line);
 		doc.save(filePath, deps.disk);
 		writeJsonDefinition(deps, dir, def);
 		return filePath;
@@ -266,22 +247,18 @@ function buildFrontmatterArrays(doc: Document, def: AgentDefinition): void {
 	if (def.tags && def.tags.length > 0) doc.setFrontmatter("tags", def.tags);
 }
 
-function buildBody(doc: Document, def: AgentDefinition): void {
-	doc.addBlank().heading(1, def.name).addBlank();
-	if (def.description) doc.text(def.description).addBlank();
-	buildListSection(doc, "Skills", def.skills.map((s) => `**${s.name}**: ${s.level || "(unrated)"}`), "<!-- List skills for this agent. -->");
-	buildListSection(doc, "Tools", def.tools, "<!-- List tools available to this agent. -->");
-	buildListSection(doc, "Roles", def.roles, "<!-- List roles this agent can fill. -->");
+function buildBodyString(def: AgentDefinition): string {
+	const lines: string[] = ["", `# ${def.name}`, ""];
+	if (def.description) lines.push(def.description, "");
+	appendListSection(lines, "Skills", def.skills.map((s) => `- **${s.name}**: ${s.level || "(unrated)"}`), "<!-- List skills for this agent. -->");
+	appendListSection(lines, "Tools", def.tools.map((t) => `- ${t}`), "<!-- List tools available to this agent. -->");
+	appendListSection(lines, "Roles", def.roles.map((r) => `- ${r}`), "<!-- List roles this agent can fill. -->");
+	return lines.join("\n");
 }
 
-function buildListSection(doc: Document, heading: string, items: string[], placeholder: string): void {
-	doc.heading(2, heading).addBlank();
-	if (items.length > 0) {
-		for (const item of items) doc.text(`- ${item}`);
-		doc.addBlank();
-	} else {
-		doc.text(placeholder).addBlank();
-	}
+function appendListSection(lines: string[], heading: string, items: string[], placeholder: string): void {
+	lines.push(`## ${heading}`, "");
+	if (items.length > 0) { lines.push(...items, ""); } else { lines.push(placeholder, ""); }
 }
 
 function hasJsonFields(def: AgentDefinition): boolean {
@@ -314,26 +291,9 @@ function writeJsonDefinition(deps: AgentStoreDeps, dir: string, def: AgentDefini
 /** Create a new agent markdown file. Returns the file path or null if it already exists. */
 export function createAgent(deps: AgentStoreDeps, projectPath: string, def: AgentDefinition, config?: AgentsConfig): string | null {
 	const dir = agentsDir(deps, projectPath, config);
-	deps.disk.mkdirSync(dir, { recursive: true });
-
-	const filename = toMdFilename(def.name);
-	const filePath = deps.paths.join(dir, filename);
+	const filePath = deps.paths.join(dir, toMdFilename(def.name));
 	if (deps.disk.existsSync(filePath)) return null;
-
-	const doc = Document.create(def.name)
-		.mergeFrontmatter({
-			type: "Agent",
-			name: def.name,
-			agentType: def.agentType,
-			description: def.description || undefined,
-		});
-	if (def.domain) doc.setFrontmatter("domain", def.domain);
-
-	buildFrontmatterArrays(doc, def);
-	buildBody(doc, def);
-	doc.save(filePath, deps.disk);
-	writeJsonDefinition(deps, dir, def);
-	return filePath;
+	return agentStore.create(deps as StoreDeps, projectPath, def, config ? { dir: config.dir } : undefined);
 }
 
 // ── Update ───────────────────────────────────────────────────────────

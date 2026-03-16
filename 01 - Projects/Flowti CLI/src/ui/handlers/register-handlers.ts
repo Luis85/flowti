@@ -53,22 +53,26 @@ function renderProjectContext(ctx: import("../../infrastructure/types.js").Proje
 
 interface WorkingAgent { name: string; persona?: string; status: string; task?: string; lastType?: string; question?: string }
 
+function parseAgentFile(
+	deps: Pick<CliDeps, "disk" | "paths">,
+	varDir: string,
+	file: string,
+	agents: ReadonlyArray<{ name: string; persona?: string }>,
+): WorkingAgent | null {
+	const content = deps.disk.readFileSync(deps.paths.join(varDir, file), "utf-8");
+	const state = JSON.parse(content) as { name?: string; status?: string; tasks?: Array<{ name: string; status: string }>; lastInteractionType?: string };
+	if (state.status !== "busy" && state.status !== "waiting") return null;
+	const activeTask = state.tasks?.find((t) => t.status === "pending" || t.status === "in-progress");
+	const agentDef = agents.find((a) => a.name === state.name);
+	const pq = (state as Record<string, unknown>).pendingQuestion as { question?: string } | undefined;
+	return { name: state.name ?? file, persona: agentDef?.persona, status: state.status, task: activeTask?.name, lastType: state.lastInteractionType, question: pq?.question };
+}
+
 function parseAgentStates(deps: Pick<CliDeps, "disk" | "paths">, varDir: string): WorkingAgent[] {
 	const agentFiles = deps.disk.readdirSync(varDir).filter((f) => f.startsWith("data-") && f.endsWith(".json"));
 	let agents: Array<{ name: string; persona?: string }> = [];
 	try { agents = agentStore.list(deps, VAULT_ROOT, cliConfig.agents ? { dir: cliConfig.agents.dir } : undefined); } catch { /* best-effort */ }
-	const result: WorkingAgent[] = [];
-	for (const file of agentFiles) {
-		const content = deps.disk.readFileSync(deps.paths.join(varDir, file), "utf-8");
-		const state = JSON.parse(content) as { name?: string; status?: string; tasks?: Array<{ name: string; status: string }>; lastInteractionType?: string };
-		if (state.status === "busy" || state.status === "waiting") {
-			const activeTask = state.tasks?.find((t) => t.status === "pending" || t.status === "in-progress");
-			const agentDef = agents.find((a) => a.name === state.name);
-			const pq = (state as Record<string, unknown>).pendingQuestion as { question?: string } | undefined;
-			result.push({ name: state.name ?? file, persona: agentDef?.persona, status: state.status, task: activeTask?.name, lastType: state.lastInteractionType, question: pq?.question });
-		}
-	}
-	return result;
+	return agentFiles.map((file) => parseAgentFile(deps, varDir, file, agents)).filter((a): a is WorkingAgent => a !== null);
 }
 
 function formatAgentTaskInfo(a: WorkingAgent): string {
