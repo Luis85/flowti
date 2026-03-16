@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { deriveAgentStatus, exportAgentDashboardData, writeDashboardData, buildProjectEnvironment } from "../../../src/domain/agents/agent-export.js";
+import { deriveAgentStatus, exportAgentDashboardData, writeDashboardData, buildProjectEnvironment, buildDashboardAgent } from "../../../src/domain/agents/agent-export.js";
 import type { ProjectEntry, DashboardData } from "../../../src/domain/agents/agent-export.js";
 import type { IterationSummary } from "../../../src/domain/iterations/iteration-types.js";
 
@@ -285,6 +285,64 @@ describe("buildProjectEnvironment", () => {
 		const project: ProjectEntry = { name: "P", path: "/p", config: { name: "P" } };
 		const env = buildProjectEnvironment(project, mockDeps);
 		expect(env.raidItems).toEqual([{ name: "API outage", itemType: "risk", status: "open", severity: "high" }]);
+	});
+});
+
+// ── buildDashboardAgent ──────────────────────────────────────────
+
+function createMockAgent(overrides: Partial<AgentSummary> = {}): AgentSummary {
+	return {
+		name: "TestAgent",
+		agentType: "ai",
+		description: "",
+		skills: [],
+		tools: [],
+		roles: [],
+		file: "test-agent.md",
+		...overrides,
+	};
+}
+
+describe("buildDashboardAgent", () => {
+	it("buildDashboardAgent includes RPG fields", () => {
+		const agent = createMockAgent({
+			persona: "Bobby",
+			mood: "cheerful",
+			personality: ["helpful", "curious"],
+			attributes: { str: 8, int: 14, wis: 12, cha: 16, dex: 10, con: 10 },
+			experience: 150,
+		});
+		const result = buildDashboardAgent(agent, { status: "busy", project: "CLI" });
+		expect(result.persona).toBe("Bobby");
+		expect(result.mood).toBe("cheerful");
+		expect(result.attributes?.int).toBe(14);
+		expect(result.experience).toBe(150);
+	});
+
+	it("omits skills when agent has no skills", () => {
+		const agent = createMockAgent({ skills: [] });
+		const result = buildDashboardAgent(agent, { status: "idle" });
+		expect(result.skills).toBeUndefined();
+	});
+
+	it("includes skills when agent has skills", () => {
+		const agent = createMockAgent({ skills: [{ name: "TypeScript", level: "expert" }] });
+		const result = buildDashboardAgent(agent, { status: "idle" });
+		expect(result.skills).toEqual([{ name: "TypeScript", level: "expert" }]);
+	});
+
+	it("passes through optional RPG fields as undefined when not set", () => {
+		const agent = createMockAgent();
+		const result = buildDashboardAgent(agent, { status: "unassigned" });
+		expect(result.persona).toBeUndefined();
+		expect(result.mood).toBeUndefined();
+		expect(result.personality).toBeUndefined();
+		expect(result.attributes).toBeUndefined();
+		expect(result.experience).toBeUndefined();
+		expect(result.goals).toBeUndefined();
+		expect(result.behaviors).toBeUndefined();
+		expect(result.relationships).toBeUndefined();
+		expect(result.suggestedTasks).toBeUndefined();
 	});
 });
 
