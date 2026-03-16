@@ -1,9 +1,9 @@
 /**
- * onboarding-page.tsx — Onboarding prerequisite checks.
+ * onboarding-page.tsx — Onboarding prerequisite checks + Start Tour.
  */
 
 import React from "react";
-import { Text } from "ink";
+import { Text, useInput } from "ink";
 import { registerPage } from "./page-registry.js";
 import { DashboardPage } from "./dashboard-page.js";
 import { Badge } from "../primitives/badge.js";
@@ -12,18 +12,30 @@ import { useLoaderContext } from "../context.js";
 import { loadOnboarding } from "../loaders/onboarding-loader.js";
 import type { PageProps } from "../types.js";
 
-function OnboardingPage({ params }: PageProps): React.JSX.Element {
+function OnboardingPage({ params, navigate, enabled }: PageProps): React.JSX.Element {
 	const ctx = useLoaderContext(params);
 	const { data, error } = useLoader(loadOnboarding, ctx);
+
+	useInput((_input, key) => {
+		if (!data || data.issues.length > 0) return;
+		if (key.return) {
+			navigate("onboarding-tour", { tourId: "project-manager" });
+		}
+	}, { isActive: enabled });
 
 	if (error) return React.createElement(Text, { color: "red" }, `Error: ${error}`);
 	if (!data) return React.createElement(Text, { dimColor: true }, "Loading...");
 
+	const allClear = data.issues.length === 0;
+
 	const sections = [
 		{
 			title: "Prerequisites",
-			content: data.issues.length === 0
-				? React.createElement(Text, { color: "green" }, "All prerequisites met!")
+			content: allClear
+				? React.createElement(React.Fragment, null,
+					React.createElement(Text, { color: "green" }, "All prerequisites met!"),
+					React.createElement(Text, { dimColor: true }, "\nPress Enter to start the onboarding tour."),
+				)
 				: React.createElement(React.Fragment, null,
 					...data.issues.map((issue: { tool: string; message: string; severity: string }) =>
 						React.createElement(Text, { key: issue.tool },
@@ -37,9 +49,10 @@ function OnboardingPage({ params }: PageProps): React.JSX.Element {
 
 	return React.createElement(DashboardPage, {
 		stats: [
-			{ label: "Issues", value: data.issues.length, color: data.issues.length === 0 ? "green" : "red" },
+			{ label: "Issues", value: data.issues.length, color: allClear ? "green" : "red" },
 		],
 		sections,
+		actions: allClear ? [{ key: "Enter", label: "Start Tour" }] : [],
 	});
 }
 
