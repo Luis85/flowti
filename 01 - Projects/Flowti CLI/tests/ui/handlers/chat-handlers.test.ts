@@ -22,16 +22,13 @@ vi.mock("../../../src/ui/menus/chat-shell.js", () => {
 	return { ChatShell: MockChatShell };
 });
 
-vi.mock("../../../src/infrastructure/chat/ink-chat-renderer.js", () => {
-	const MockRenderer = vi.fn(function () { /* empty constructor */ });
-	return { InkChatRenderer: MockRenderer };
-});
+const MockRenderer = vi.fn(function () { /* empty constructor */ });
+const mockLoadRenderer = vi.fn(async () => ({ InkChatRenderer: MockRenderer }));
 
 import { HandlerRegistry } from "../../../src/infrastructure/handler-registry.js";
 import { registerChatHandlers } from "../../../src/ui/handlers/chat-handlers.js";
 import { findAgent } from "../../../src/domain/agents/agent-store.js";
 import { ChatShell } from "../../../src/ui/menus/chat-shell.js";
-import { InkChatRenderer } from "../../../src/infrastructure/chat/ink-chat-renderer.js";
 import type { CliDeps } from "../../../src/infrastructure/deps.js";
 
 function makeDeps(): CliDeps {
@@ -57,7 +54,7 @@ describe("registerChatHandlers", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		registry = new HandlerRegistry();
-		registerChatHandlers(registry);
+		registerChatHandlers(registry, mockLoadRenderer);
 	});
 
 	it("registers a view handler for agents-chat", () => {
@@ -99,7 +96,8 @@ describe("registerChatHandlers", () => {
 			dataSourceEntries: [],
 		} as never);
 
-		expect(InkChatRenderer).toHaveBeenCalled();
+		expect(mockLoadRenderer).toHaveBeenCalled();
+		expect(MockRenderer).toHaveBeenCalled();
 		expect(ChatShell).toHaveBeenCalledWith(
 			expect.anything(),
 			agent,

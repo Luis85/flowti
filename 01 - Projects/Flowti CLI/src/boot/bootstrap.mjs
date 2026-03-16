@@ -18,9 +18,9 @@
  * the user needs the full repository, not just the .flowti/ distribution.
  */
 
-import { existsSync, readFileSync, statSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, statSync, readdirSync, symlinkSync, lstatSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { resolve, dirname, join } from "node:path";
+import { resolve, dirname, join, delimiter } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -114,11 +114,32 @@ if (!HAS_SOURCE) {
 	}
 }
 
-// ── 4. Run the compiled CLI ──────────────────────────────────────────
+// ── 4. Link node_modules for ESM resolution ─────────────────────────
+//
+// The bundle uses ESM format with ink/react marked as external.
+// ESM import resolution walks up from the importing file's directory,
+// so .flowti/bin/node_modules must resolve to the project's node_modules.
+// A directory junction (Windows) or symlink (Unix) avoids copying.
+
+const binNodeModules = resolve(VAULT_ROOT, ".flowti", "bin", "node_modules");
+const sourceNodeModules = resolve(SOURCE_DIR, "node_modules");
+if (HAS_SOURCE && existsSync(sourceNodeModules) && !existsSync(binNodeModules)) {
+	try {
+		symlinkSync(sourceNodeModules, binNodeModules, "junction");
+	} catch {
+		// Non-fatal — CLI will still work if launched from project dir
+	}
+}
+
+// ── 5. Run the compiled CLI ──────────────────────────────────────────
+
+const nodeModulesDir = resolve(SOURCE_DIR, "node_modules");
+const existingNodePath = process.env.NODE_PATH ?? "";
+const nodePath = existingNodePath ? `${nodeModulesDir}${delimiter}${existingNodePath}` : nodeModulesDir;
 
 const result = spawnSync(process.execPath, [BIN_ENTRY, ...process.argv.slice(2)], {
 	stdio: "inherit",
 	cwd: VAULT_ROOT,
-	env: { ...process.env, FLOWTI_VAULT_ROOT: VAULT_ROOT },
+	env: { ...process.env, FLOWTI_VAULT_ROOT: VAULT_ROOT, NODE_PATH: nodePath },
 });
 process.exit(result.status ?? 0);

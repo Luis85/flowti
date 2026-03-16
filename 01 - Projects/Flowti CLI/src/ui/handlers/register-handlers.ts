@@ -205,23 +205,26 @@ export function registerAllHandlers(registry: HandlerRegistry): void {
 			await input.waitForEnter();
 			return undefined;
 		}
-		const agentsConfig = ctx.project?.config.agents;
+		const { VAULT_ROOT, PROJECTS_DIR, CLI_PROJECT, cliConfig } = await import("../../infrastructure/config.js");
+		const { readProjectConfig } = await import("../../domain/project/project-config.js");
+		const projectConfig = ctx.project?.config ?? readProjectConfig(CLI_PROJECT, ctx.deps).config ?? undefined;
+		const agentsConfig = projectConfig?.agents;
 		if (!agentsConfig?.dashboard) {
 			log("\n  Agent dashboard is not enabled for this project.");
 			const answer = await input.ask("  Enable it now? (y/n)", "y");
 			if (answer.toLowerCase() !== "y") return undefined;
 			const { updateProjectConfig } = await import("../../domain/project/project-config.js");
-			if (ctx.project) {
-				updateProjectConfig(ctx.project.path, ctx.deps, (cfg) => {
-					if (!cfg.agents) cfg.agents = {};
-					cfg.agents.dashboard = true;
-					cfg.agents.dashboardDir = cfg.agents.dashboardDir ?? "agents";
-				});
-				ctx.project.config.agents = { dashboard: true, dashboardDir: "agents", ...ctx.project.config.agents };
-				log("  Enabled agents.dashboard in flowti.config.json.\n");
+			const projectPath = ctx.project?.path ?? CLI_PROJECT;
+			updateProjectConfig(projectPath, ctx.deps, (cfg) => {
+				if (!cfg.agents) cfg.agents = {};
+				cfg.agents.dashboard = true;
+				cfg.agents.dashboardDir = cfg.agents.dashboardDir ?? "agents";
+			});
+			if (projectConfig) {
+				projectConfig.agents = { dashboard: true, dashboardDir: "agents", ...projectConfig.agents };
 			}
+			log("  Enabled agents.dashboard in flowti.config.json.\n");
 		}
-		const { VAULT_ROOT, PROJECTS_DIR, CLI_PROJECT, cliConfig } = await import("../../infrastructure/config.js");
 		const { startDashboardServer } = await import("../../domain/serve/dashboard-service.js");
 		const state = await startDashboardServer({
 			port: 3000,
@@ -229,7 +232,7 @@ export function registerAllHandlers(registry: HandlerRegistry): void {
 			cliProjectPath: CLI_PROJECT,
 			projectsDir: PROJECTS_DIR,
 			vaultRoot: VAULT_ROOT,
-			projectConfig: ctx.project?.config,
+			projectConfig,
 			vaultAgentsConfig: cliConfig.agents,
 			worldState: ctx.deps.worldState,
 			workerManager: ctx.deps.workerManager,

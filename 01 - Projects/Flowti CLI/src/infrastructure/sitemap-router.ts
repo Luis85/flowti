@@ -281,8 +281,10 @@ export class SitemapRouter {
 		switch (action.type) {
 			case "navigate":
 				return () => {
-					onNavigate(action.target!, action.params);
-					const paramsSuffix = action.params ? `?${JSON.stringify(action.params)}` : "";
+					const mergedParams = { ...ctx.params, ...action.params };
+					const hasParams = Object.keys(mergedParams).length > 0;
+					onNavigate(action.target!, hasParams ? mergedParams : undefined);
+					const paramsSuffix = hasParams ? `?${JSON.stringify(mergedParams)}` : "";
 					return `navigate:${action.target}${paramsSuffix}` as MenuResult;
 				};
 

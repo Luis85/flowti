@@ -7,9 +7,20 @@
 
 import type { HandlerRegistry } from "../../infrastructure/handler-registry.js";
 import type { MenuResult } from "../../infrastructure/types.js";
+import type { IChatRenderer } from "../../infrastructure/chat/chat-renderer-types.js";
 import { VAULT_ROOT, cliConfig } from "../../infrastructure/config.js";
+import { pathToFileURL } from "node:url";
+import { paths } from "../../infrastructure/paths.js";
 
-export function registerChatHandlers(registry: HandlerRegistry): void {
+/** Load InkChatRenderer from the ESM chat bundle (.flowti/bin/chat.mjs). */
+async function defaultLoadRenderer(): Promise<{ InkChatRenderer: new () => IChatRenderer }> {
+	const chatBundlePath = pathToFileURL(paths.join(VAULT_ROOT, ".flowti", "bin", "chat.mjs")).href;
+	return await import(chatBundlePath) as { InkChatRenderer: new () => IChatRenderer };
+}
+
+export type ChatRendererLoader = () => Promise<{ InkChatRenderer: new () => IChatRenderer }>;
+
+export function registerChatHandlers(registry: HandlerRegistry, loadRenderer: ChatRendererLoader = defaultLoadRenderer): void {
 	registry.registerView("agents-chat", async (ctx) => {
 		const agentName = ctx.params?.agentName as string | undefined;
 		if (!agentName) return "main" as MenuResult;
@@ -22,9 +33,12 @@ export function registerChatHandlers(registry: HandlerRegistry): void {
 			return "main" as MenuResult;
 		}
 
-		// Lazy-load ink renderer and ChatShell to keep React out of non-chat paths
-		const { InkChatRenderer } = await import("../../infrastructure/chat/ink-chat-renderer.js");
+		// Lazy-load ChatShell (bundled in main.js)
 		const { ChatShell } = await import("../menus/chat-shell.js");
+
+		// Load InkChatRenderer from the separate ESM chat bundle.
+		// CJS can't require() ink (ESM + top-level await), but import() works.
+		const { InkChatRenderer } = await loadRenderer();
 
 		const projectPath = ctx.project?.path ?? VAULT_ROOT;
 

@@ -34,7 +34,7 @@ import { TaskView } from "./components/task-view.js";
 
 // ── Render throttle ──────────────────────────────────────────────────
 
-const RENDER_INTERVAL = process.platform === "win32" ? 80 : 16;
+const RENDER_INTERVAL = process.platform === "win32" ? 200 : 50;
 
 // ── App state ────────────────────────────────────────────────────────
 
@@ -65,19 +65,23 @@ interface ActiveToolEntry {
 // ── Stream event handler context ────────────────────────────────────
 
 interface StreamHandlerContext {
-	readonly stateRef: { current: ChatAppState };
+	readonly stateRef: DirtyRef;
 	readonly activeTools: ActiveToolEntry[];
 	readonly elapsedStartMs: number;
 }
 
+function markDirtyCtx(ctx: StreamHandlerContext): void { ctx.stateRef.dirty = true; }
+
 function handleThinking(ctx: StreamHandlerContext, event: AgentStreamEvent & { kind: "thinking" }): void {
 	const s = ctx.stateRef.current;
 	ctx.stateRef.current = { ...s, streamingThinking: s.streamingThinking + event.text };
+	markDirtyCtx(ctx);
 }
 
 function handleText(ctx: StreamHandlerContext, event: AgentStreamEvent & { kind: "text" }): void {
 	const s = ctx.stateRef.current;
 	ctx.stateRef.current = { ...s, streamingText: s.streamingText + event.text };
+	markDirtyCtx(ctx);
 }
 
 function handleToolStart(ctx: StreamHandlerContext, event: AgentStreamEvent & { kind: "tool-start" }): void {
@@ -86,6 +90,7 @@ function handleToolStart(ctx: StreamHandlerContext, event: AgentStreamEvent & { 
 	const entry: ActiveToolEntry = { id: event.id, startMs: Date.now(), index: s.taskTools.length };
 	ctx.activeTools.push(entry);
 	ctx.stateRef.current = { ...s, taskTools: [...s.taskTools, newTool], currentTool: event.name };
+	markDirtyCtx(ctx);
 }
 
 function handleToolInput(ctx: StreamHandlerContext, event: AgentStreamEvent & { kind: "tool-input" }): void {
@@ -96,6 +101,7 @@ function handleToolInput(ctx: StreamHandlerContext, event: AgentStreamEvent & { 
 		i !== lastEntry.index ? t : { ...t, input: (t.input ?? "") + event.json },
 	);
 	ctx.stateRef.current = { ...s, taskTools: updated };
+	markDirtyCtx(ctx);
 }
 
 function handleToolEnd(ctx: StreamHandlerContext, event: AgentStreamEvent & { kind: "tool-end" }): void {
@@ -112,27 +118,36 @@ function handleToolEnd(ctx: StreamHandlerContext, event: AgentStreamEvent & { ki
 		? s.taskTools[ctx.activeTools[ctx.activeTools.length - 1].index]?.name ?? ""
 		: "";
 	ctx.stateRef.current = { ...s, taskTools: updated, currentTool: stillActive };
+	markDirtyCtx(ctx);
 }
 
 function handleError(ctx: StreamHandlerContext, event: AgentStreamEvent & { kind: "error" }): void {
 	const s = ctx.stateRef.current;
 	ctx.stateRef.current = { ...s, streamingText: s.streamingText + event.message };
+	markDirtyCtx(ctx);
 }
 
 function handleUsage(ctx: StreamHandlerContext, event: AgentStreamEvent & { kind: "usage" }): void {
 	const s = ctx.stateRef.current;
 	ctx.stateRef.current = { ...s, inputTokens: event.inputTokens, outputTokens: event.outputTokens };
+	markDirtyCtx(ctx);
 }
 
 function handleDone(ctx: StreamHandlerContext): void {
 	const s = ctx.stateRef.current;
 	ctx.stateRef.current = { ...s, elapsed: Date.now() - ctx.elapsedStartMs };
+	markDirtyCtx(ctx);
 }
 
 // ── ChatApp component (no JSX — .ts file) ────────────────────────────
 
+interface DirtyRef {
+	current: ChatAppState;
+	dirty: boolean;
+}
+
 interface ChatAppProps {
-	readonly stateRef: { current: ChatAppState };
+	readonly stateRef: DirtyRef;
 	readonly onSubmit: (text: string) => void;
 	readonly onCommand: (cmd: ChatCommand) => void;
 }
@@ -142,7 +157,10 @@ function ChatApp({ stateRef, onSubmit, onCommand }: ChatAppProps): React.JSX.Ele
 
 	useEffect(() => {
 		const id = setInterval(() => {
-			setState({ ...stateRef.current });
+			if (stateRef.dirty) {
+				stateRef.dirty = false;
+				setState({ ...stateRef.current });
+			}
 		}, RENDER_INTERVAL);
 		return () => clearInterval(id);
 	}, [stateRef]);
@@ -194,7 +212,7 @@ function ChatApp({ stateRef, onSubmit, onCommand }: ChatAppProps): React.JSX.Ele
 // ── InkChatRenderer ──────────────────────────────────────────────────
 
 export class InkChatRenderer implements IChatRenderer {
-	private stateRef: { current: ChatAppState } | null = null;
+	private stateRef: DirtyRef | null = null;
 	private inkInstance: Instance | null = null;
 	private elapsedTimer: ReturnType<typeof setInterval> | null = null;
 	private elapsedStartMs = 0;
@@ -222,7 +240,7 @@ export class InkChatRenderer implements IChatRenderer {
 			outputTokens: 0,
 		};
 
-		this.stateRef = { current: initialState };
+		this.stateRef = { current: initialState, dirty: true };
 		this.activeTools = [];
 
 		const handleSubmit = (text: string): void => {
@@ -232,6 +250,13 @@ export class InkChatRenderer implements IChatRenderer {
 		const handleCommand = (cmd: ChatCommand): void => {
 			this.commandCallback?.(cmd);
 		};
+
+		// Ensure stdin is active — readline.close() from the menu system pauses it
+		const { stdin } = process;
+		if (stdin.isTTY && typeof stdin.setRawMode === "function") {
+			stdin.setRawMode(true);
+			stdin.resume();
+		}
 
 		this.inkInstance = render(
 			React.createElement(ChatApp, {
@@ -247,10 +272,21 @@ export class InkChatRenderer implements IChatRenderer {
 		this.inkInstance?.unmount();
 		this.inkInstance = null;
 		this.stateRef = null;
+
+		// Restore stdin for the menu system
+		const { stdin } = process;
+		if (stdin.isTTY && typeof stdin.setRawMode === "function") {
+			stdin.setRawMode(false);
+			stdin.pause();
+		}
 		return "main";
 	}
 
 	// ── IChatRenderer: push API ──────────────────────────────────────
+
+	private markDirty(): void {
+		if (this.stateRef) this.stateRef.dirty = true;
+	}
 
 	pushMessage(message: ChatMessage): void {
 		if (!this.stateRef) return;
@@ -260,6 +296,7 @@ export class InkChatRenderer implements IChatRenderer {
 			streamingText: "",
 			streamingThinking: "",
 		};
+		this.markDirty();
 	}
 
 	pushStreamEvent(event: AgentStreamEvent): void {
@@ -284,6 +321,7 @@ export class InkChatRenderer implements IChatRenderer {
 	updateStatus(status: ChatViewStatus): void {
 		if (!this.stateRef) return;
 		this.stateRef.current = { ...this.stateRef.current, status };
+		this.markDirty();
 
 		if (status === "thinking" || status === "working") {
 			this.startElapsedTimer();
@@ -298,6 +336,7 @@ export class InkChatRenderer implements IChatRenderer {
 			...this.stateRef.current,
 			config: { ...this.stateRef.current.config, mode },
 		};
+		this.markDirty();
 	}
 
 	showHistory(summary: string, recentTurns: readonly ChatTurn[]): void {
@@ -308,6 +347,7 @@ export class InkChatRenderer implements IChatRenderer {
 			recentTurns,
 			messages: [],
 		};
+		this.markDirty();
 	}
 
 	// ── IChatRenderer: callbacks ─────────────────────────────────────
@@ -331,7 +371,8 @@ export class InkChatRenderer implements IChatRenderer {
 				...this.stateRef.current,
 				elapsed: Date.now() - this.elapsedStartMs,
 			};
-		}, RENDER_INTERVAL);
+			this.markDirty();
+		}, 1000);
 	}
 
 	private stopElapsedTimer(): void {

@@ -628,8 +628,8 @@
 				{
 					"name": "onTalk",
 					"label": "Talk",
-					"type": "navigate",
-					"target": "agents-chat",
+					"type": "handler",
+					"target": "agents:talk",
 					"group": "interact"
 				},
 				{
