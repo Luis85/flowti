@@ -9,6 +9,8 @@ import { Section } from "../../../src/tui/primitives/section.js";
 import { ActionBar } from "../../../src/tui/primitives/action-bar.js";
 import { KeyHints } from "../../../src/tui/primitives/key-hints.js";
 import { SearchInput } from "../../../src/tui/primitives/search-input.js";
+import { ScrollableList } from "../../../src/tui/primitives/scrollable-list.js";
+import { MasterDetail } from "../../../src/tui/primitives/master-detail.js";
 
 function frame(instance: ReturnType<typeof render>): string {
 	return instance.lastFrame() ?? "";
@@ -105,6 +107,60 @@ describe("SearchInput", () => {
 	it("renders nothing when inactive", () => {
 		const inst = render(React.createElement(SearchInput, { value: "", onChange: () => {}, active: false }));
 		expect(frame(inst)).toBe("");
+		inst.unmount();
+	});
+});
+
+describe("ScrollableList", () => {
+	it("renders items with selection indicator", () => {
+		const items = ["Alice", "Bob", "Charlie"];
+		const inst = render(
+			React.createElement(ScrollableList, {
+				items,
+				selected: 1,
+				renderItem: (item: string, _i: number, sel: boolean) => React.createElement(Text, { bold: sel }, item),
+			}),
+		);
+		const f = frame(inst);
+		expect(f).toContain("Bob");
+		expect(f).toContain("\u25B6");
+		inst.unmount();
+	});
+
+	it("renders empty state", () => {
+		const inst = render(
+			React.createElement(ScrollableList, {
+				items: [],
+				selected: 0,
+				renderItem: () => React.createElement(Text, null, "x"),
+			}),
+		);
+		expect(frame(inst)).toContain("No items");
+		inst.unmount();
+	});
+});
+
+describe("MasterDetail", () => {
+	it("renders master and detail panes", () => {
+		const inst = render(
+			React.createElement(MasterDetail, {
+				master: React.createElement(Text, null, "LIST"),
+				detail: React.createElement(Text, null, "DETAIL"),
+			}),
+		);
+		const f = frame(inst);
+		expect(f).toContain("LIST");
+		expect(f).toContain("DETAIL");
+		inst.unmount();
+	});
+
+	it("renders without detail pane", () => {
+		const inst = render(
+			React.createElement(MasterDetail, {
+				master: React.createElement(Text, null, "LIST"),
+			}),
+		);
+		expect(frame(inst)).toContain("LIST");
 		inst.unmount();
 	});
 });
