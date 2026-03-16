@@ -38,3 +38,41 @@
 	padding: 16px 20px;
 	line-height: 1.6;
 }
+
+.terminal-page--header h2 {
+	margin: 0 0 4px 0;
+	font-size: 16px;
+	color: #cdd6f4;
+}
+
+.terminal-page--header p {
+	margin: 0 0 16px 0;
+	font-size: 13px;
+	color: #a6adc8;
+}
+
+.terminal-page--separator {
+	border: none;
+	border-top: 1px solid #313244;
+	margin: 8px 0;
+}
+
+.terminal-page--action {
+	padding: 2px 0;
+	font-size: 14px;
+}
+
+.terminal-page--key {
+	color: #89b4fa;
+	opacity: 0.7;
+	margin-right: 4px;
+}
+
+.terminal-page--action-hidden {
+	opacity: 0.3;
+}
+
+.terminal-page--action-disabled {
+	text-decoration: line-through;
+	opacity: 0.5;
+}
