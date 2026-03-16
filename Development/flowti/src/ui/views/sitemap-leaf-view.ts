@@ -1,6 +1,6 @@
 import { ItemView, type WorkspaceLeaf } from "obsidian";
 import type { ViewDef } from "../../domain/sitemap/plugin-sitemap-types";
-import type { PluginHandlerRegistry, TabContext } from "../../infrastructure/handlers/plugin-handler-registry";
+import type { PluginHandlerRegistry, TabContext, TabCleanup } from "../../infrastructure/handlers/plugin-handler-registry";
 import type { IEventBus } from "../../infrastructure/events/types";
 
 /**
@@ -17,6 +17,7 @@ export class SitemapLeafView extends ItemView {
 	private handlerRegistry: PluginHandlerRegistry;
 	private eventBus: IEventBus;
 	private unsubscribes: (() => void)[] = [];
+	private handlerCleanup: TabCleanup | null = null;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -50,11 +51,15 @@ export class SitemapLeafView extends ItemView {
 	}
 
 	async onClose(): Promise<void> {
+		this.handlerCleanup?.();
+		this.handlerCleanup = null;
 		for (const unsub of this.unsubscribes) unsub();
 		this.unsubscribes = [];
 	}
 
 	private async render(container: HTMLElement): Promise<void> {
+		this.handlerCleanup?.();
+		this.handlerCleanup = null;
 		container.empty();
 
 		// Path 1: handler-based rendering (takes priority)
@@ -66,7 +71,10 @@ export class SitemapLeafView extends ItemView {
 					viewId: this.viewDef.type,
 					eventBus: this.eventBus,
 				};
-				await handler(container, ctx);
+				const result = await handler(container, ctx);
+				if (typeof result === "function") {
+					this.handlerCleanup = result;
+				}
 			}
 			return;
 		}
