@@ -29,6 +29,7 @@ const mockTuiContext: TuiContextValue = {
 	agentsConfig: undefined,
 	iterationsConfig: undefined,
 	projectConfig: undefined,
+	processRunner: { spawn: () => ({ onEvent: () => () => {}, result: Promise.resolve({ text: "", thinking: "", exitCode: 0 }), kill: () => {} }) } as never,
 };
 
 function lastFrame(instance: ReturnType<typeof render>): string {

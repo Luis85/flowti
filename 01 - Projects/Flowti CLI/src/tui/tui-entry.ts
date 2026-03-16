@@ -17,6 +17,7 @@ import { clock } from "../infrastructure/clock.js";
 import { log } from "../infrastructure/logger.js";
 import { VAULT_ROOT, CLI_PROJECT, PROJECTS_DIR, cliConfig, loadJson } from "../infrastructure/config.js";
 import type { ProjectConfig } from "../infrastructure/types-config.js";
+import { createProcessRunner } from "../infrastructure/agent-process-runner.js";
 
 // Import page modules to trigger self-registration
 import "./pages/start-page.js";
@@ -53,6 +54,8 @@ import "./pages/iteration-detail-page.js";
 export async function runTui(): Promise<void> {
 	const projectConfig = loadJson<ProjectConfig>(paths.join(CLI_PROJECT, "configs", "flowti.config.json"));
 
+	const processRunner = createProcessRunner({ disk, paths, clock, shell, log }, cliConfig.agents);
+
 	const tuiContext: TuiContextValue = {
 		deps: { disk, paths, clock, shell, log },
 		vaultRoot: VAULT_ROOT,
@@ -61,6 +64,7 @@ export async function runTui(): Promise<void> {
 		agentsConfig: cliConfig.agents,
 		iterationsConfig: projectConfig?.management?.iterations,
 		projectConfig: projectConfig ?? undefined,
+		processRunner,
 	};
 
 	const instance = render(
