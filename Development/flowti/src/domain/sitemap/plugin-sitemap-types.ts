@@ -14,8 +14,7 @@ export interface ViewDef {
 	tabs?: SitemapTabDef[];
 	dataSources?: DataSourceRef[];
 	conditions?: ConditionSet;
-	legacy?: boolean;
-	/** True when the view extends TextFileView and needs factory registration */
+	/** True when the view extends TextFileView — registered via domain setup classes, not SitemapBootstrap */
 	fileView?: boolean;
 	refreshEvents?: string[];
 	/** Lit custom element tag name for leaf/panel views */

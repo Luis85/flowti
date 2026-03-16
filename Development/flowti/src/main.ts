@@ -1,4 +1,4 @@
-import { Plugin, TFile, TFolder, type ViewCreator, type WorkspaceLeaf } from "obsidian";
+import { Plugin, TFile, TFolder, type ViewCreator } from "obsidian";
 import { registerCommands } from "./infrastructure/commands/registry";
 import type { CommandContext, ICommandRegistry } from "./infrastructure/commands/types";
 import { LifecycleError } from "./infrastructure/errors/FlowtiError";
@@ -60,7 +60,6 @@ import { registerUserHandlers } from "./infrastructure/handlers/user-handlers";
 import { SessionWorkspaceView, VIEW_TYPE_SESSION_WORKSPACE } from "./ui/session/SessionWorkspaceView";
 import { TrainMainView, VIEW_TYPE_TRAIN_MAIN } from "./ui/train/TrainMainView";
 import { TrainTimelineSidebar, VIEW_TYPE_TRAIN_TIMELINE } from "./ui/train/TrainTimelineSidebar";
-import { TrainHubView, VIEW_TYPE_TRAIN_HUB } from "./ui/train/TrainHubView";
 import { CanvasSessionService } from "./domain/canvas/session/CanvasSessionService";
 import { JourneyBuilderSidebar, VIEW_TYPE_JOURNEY_BUILDER } from "./ui/journeyBuilder/JourneyBuilderSidebar";
 import { JourneyFileView, VIEW_TYPE_JOURNEY_FILE } from "./ui/journeyBuilder/JourneyFileView";
@@ -252,15 +251,6 @@ export default class FlowtiBasePlugin extends Plugin {
 
 			// ── SitemapBootstrap — single-path registration for views, commands, ribbon ──
 			{
-				// Build legacy view factories for views available at load time.
-				// Views registered in onLayoutReady (train, analytics, user hub, etc.)
-				// are not in this map — SitemapBootstrap will skip them with a warning,
-				// and they continue to be registered via safeRegisterView() in onLayoutReady.
-				const legacyViewFactories = new Map<string, (leaf: WorkspaceLeaf) => unknown>();
-				for (const view of this.views.getViews()) {
-					legacyViewFactories.set(view.type, view.factory);
-				}
-
 				// Create handler registry and register all handlers
 				const handlerRegistry = new PluginHandlerRegistry();
 				registerActionHandlers(handlerRegistry, {
@@ -389,7 +379,6 @@ export default class FlowtiBasePlugin extends Plugin {
 					logger: this.logger,
 					handlerRegistry,
 					conditionEvaluator,
-					legacyViewFactories,
 				});
 				bootstrap.registerAll();
 				bootstrap.validate();

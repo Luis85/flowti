@@ -18,7 +18,6 @@ export interface SitemapBootstrapDeps {
 	logger: ILogger;
 	handlerRegistry: PluginHandlerRegistry;
 	conditionEvaluator: ConditionEvaluator;
-	legacyViewFactories: Map<string, (leaf: WorkspaceLeaf) => unknown>;
 }
 
 export class SitemapBootstrap {
@@ -40,25 +39,9 @@ export class SitemapBootstrap {
 
 	private registerViews(): void {
 		for (const [viewId, viewDef] of Object.entries(this.sitemap.views)) {
-			if (viewDef.legacy) {
-				const factory = this.deps.legacyViewFactories.get(viewDef.type);
-				if (!factory) {
-					this.deps.logger.debug(`Legacy view factory not found for "${viewDef.type}" (${viewId}) — will be registered later`);
-					continue;
-				}
-				this.safeRegister(viewDef.type, (leaf) => factory(leaf) as never);
-				this.registeredViewTypes.push(viewDef.type);
-				continue;
-			}
-
 			if (viewDef.fileView) {
-				// TextFileView — needs factory from legacyViewFactories
-				const factory = this.deps.legacyViewFactories.get(viewDef.type);
-				if (!factory) {
-					this.deps.logger.debug(`File view factory not found for "${viewDef.type}" (${viewId}) — will be registered later`);
-					continue;
-				}
-				this.safeRegister(viewDef.type, (leaf) => factory(leaf) as never);
+				// TextFileView extensions — registered via domain setup classes in onLayoutReady
+				continue;
 			} else if (viewDef.tabs) {
 				// Hub view — tabs + handlers
 				this.safeRegister(viewDef.type, (leaf) =>
