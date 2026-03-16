@@ -25,9 +25,10 @@ function OnboardingPage({ params }: PageProps): React.JSX.Element {
 			content: data.issues.length === 0
 				? React.createElement(Text, { color: "green" }, "All prerequisites met!")
 				: React.createElement(React.Fragment, null,
-					...data.issues.map((issue: { name: string; instruction: string }) =>
-						React.createElement(Text, { key: issue.name },
-							`  ${issue.name}: ${issue.instruction}`,
+					...data.issues.map((issue: { tool: string; message: string; severity: string }) =>
+						React.createElement(Text, { key: issue.tool },
+							`  ${issue.tool}: ${issue.message} `,
+							React.createElement(Badge, { text: issue.severity, color: issue.severity === "error" ? "red" : "yellow" }),
 						),
 					),
 				),
