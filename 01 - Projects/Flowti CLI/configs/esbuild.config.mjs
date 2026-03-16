@@ -78,7 +78,7 @@ if (isWatch) {
 	);
 	writeFileSync(
 		path.join(outDir, "package.json"),
-		JSON.stringify({ type: "module" }, null, 2) + "\n",
+		JSON.stringify({ type: "module", main: "index.mjs" }, null, 2) + "\n",
 	);
 	console.log(`  Built: .flowti/bin/main.mjs`);
 	console.log(`  Copied: .flowti/bin/index.mjs`);
