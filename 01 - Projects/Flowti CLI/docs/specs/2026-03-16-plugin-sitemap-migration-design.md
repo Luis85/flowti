@@ -6,13 +6,13 @@
 
 ## Goal
 
-Replace all 14 remaining legacy views in the Flowti Plugin with sitemap-driven declarative views backed by Lit web components. The TestManagement hub migration (already complete) serves as the reference pattern. This migration eliminates the legacy BaseHubView subclass proliferation, centralizes view/command/ribbon registration through SitemapBootstrap, introduces scoped CSS via Lit, and positions the Plugin for eventual CLI integration.
+Replace all 15 remaining legacy views in the Flowti Plugin with sitemap-driven declarative views backed by Lit web components. The TestManagement hub migration (already complete) serves as the reference pattern. This migration eliminates the legacy BaseHubView subclass proliferation, centralizes view/command/ribbon registration through SitemapBootstrap, introduces scoped CSS via Lit, and positions the Plugin for eventual CLI integration.
 
 ## Decisions
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Scope | Full migration — all 14 legacy views | Clean break from BaseHubView; no partial legacy maintenance |
+| Scope | Full migration — all 15 legacy views (16 total minus 1 already migrated) | Clean break from BaseHubView; no partial legacy maintenance |
 | Sequence | Hubs first, leaf/panels after | Hubs exercise the full tab + handler + Lit pipeline |
 | Behavioral changes | Refactor + cleanup + enhance | Remove dead weight, leverage refreshEvents + conditions |
 | Bootstrap strategy | Full takeover of main.ts | Single registration path; legacy passthrough via `"legacy": true` flag |
@@ -83,9 +83,15 @@ plugin-sitemap.json
 
 **Goal:** Replace all manual registration in main.ts with SitemapBootstrap. Register all conditions and action handlers. Drop deprecated views.
 
+**Current state:** `SitemapBootstrap` exists as a class at `src/infrastructure/sitemap/sitemap-bootstrap.ts` but has **never been instantiated or called** from `main.ts`. The current main.ts (1,562 LOC) uses three separate mechanisms: `registerViews()` via `src/infrastructure/views/registry.ts`, `registerCommands()` via `src/infrastructure/commands/registry.ts`, and direct `this.addCommand()` / `this.addRibbonIcon()` calls spread across ~1,000 lines. Most view factories receive 3-10 service dependencies via closures.
+
 **Changes:**
 
-1. **main.ts overhaul** — replace all manual `registerView()`, `addCommand()`, `addRibbonIcon()` calls with `SitemapBootstrap.registerAll()`. Legacy view factories collected into `legacyViewFactories` Map. Estimated ~200-300 LOC reduction.
+1. **main.ts overhaul** — this is a ~500-600 LOC creation + refactoring effort, not just a removal:
+   - Instantiate `SitemapBootstrap` with full deps (`plugin`, `eventBus`, `logger`, `handlerRegistry`, `conditionEvaluator`, `legacyViewFactories`)
+   - Build the `legacyViewFactories` Map from the ~12 existing `safeRegisterView()` calls, preserving the service dependencies each factory currently receives via closure
+   - Call `SitemapBootstrap.registerAll()` to replace all manual view, command, and ribbon registrations
+   - Remove the now-dead manual registration code (~200-300 LOC net reduction, but significant restructuring)
 
 2. **Condition handlers** — new file `src/infrastructure/handlers/condition-handlers.ts`:
    - `no-active-train` → TrainService running/paused check
@@ -98,17 +104,22 @@ plugin-sitemap.json
 3. **Action handlers** — new file `src/infrastructure/handlers/action-handlers.ts`:
    - ~37 command action handlers (`hub:open-*`, `view:open-*`, `capture:*`, `train:*`, `session:*`, `data-exchange:*`, `journey:*`, `canvas:*`, `installer:*`)
    - Thin wrappers emitting the same events as current manual callbacks
+   - Each handler group verified against the current main.ts closures via side-by-side comparison to ensure parity (see Risk: action handler parity)
 
 4. **Drop deprecated views** — remove component-showcase and event-log from:
    - `plugin-sitemap.json` (views, commands, ribbon entries)
    - Source files (`ComponentShowcaseView.ts`, `EventLogView.ts`)
 
-5. **Startup validation** — SitemapBootstrap logs handler coverage gaps at startup
+5. **Shared styles** — new file `src/components/shared-styles.ts`:
+   - Master/detail split layout, status badge variants, stat card grid, empty state, search/filter bar
+   - Created in Chunk 0 so all subsequent chunks can import it
+
+6. **Startup validation** — SitemapBootstrap logs handler coverage gaps at startup
 
 **Tests:**
-- SitemapBootstrap integration: all 13 views registered, all commands bound, all ribbon items
+- SitemapBootstrap integration: all 14 views registered (13 legacy + 1 SitemapHubView), all commands bound, all ribbon items
 - Each condition handler: correct boolean for given service state
-- Each action handler: correct event emitted
+- Each action handler: correct event emitted with correct payload (side-by-side parity with old closures)
 - Negative: component-showcase and event-log view types not registered
 
 ### Chunk 1: TrainHub Migration
@@ -123,7 +134,7 @@ plugin-sitemap.json
 - `tests/components/train/*.test.ts` — component unit tests
 - `tests/infrastructure/handlers/train-handlers.test.ts` — handler registration tests
 
-**Sitemap update:**
+**Sitemap update:** (icon and searchPlaceholder values intentionally cleaned up from legacy)
 ```json
 "train-hub": {
     "kind": "hub",
@@ -131,8 +142,8 @@ plugin-sitemap.json
     "icon": "train-front",
     "type": "flowti-train-hub",
     "tabs": [
-        { "id": "active", "label": "Active", "icon": "play", "handler": "train:active", "searchPlaceholder": "Search trains..." },
-        { "id": "history", "label": "History", "icon": "archive", "handler": "train:history", "searchPlaceholder": "Search history..." }
+        { "id": "active", "label": "Active", "icon": "play", "handler": "train:active", "searchPlaceholder": "Search active trains..." },
+        { "id": "history", "label": "History", "icon": "history", "handler": "train:history", "searchPlaceholder": "Search completed trains..." }
     ],
     "refreshEvents": [
         "train.started", "train.paused", "train.resumed",
@@ -162,6 +173,8 @@ plugin-sitemap.json
 - `src/components/catalog/flowti-catalog-actors.ts` — actor entity scanner, master/detail
 - `src/infrastructure/handlers/catalog-handlers.ts` — `registerCatalogHandlers(registry, deps)`
 - Tests for all components + handlers
+
+**Sitemap update:** Change `event-catalog.kind` from `"panel"` to `"hub"` (the actual view extends BaseHubView with 6 tabs; the panel kind was incorrect).
 
 **Special behavior:**
 - Category tree rendering with collapse state preserved via component internal state
@@ -246,7 +259,15 @@ plugin-sitemap.json
 **Goal:** Migrate remaining 7 leaf/panel views. Each assessed case-by-case.
 
 **New generic infrastructure:**
-- `SitemapLeafView` — lightweight generic view that mounts a Lit component or delegates to a handler. Parallel to SitemapHubView but for non-tabbed views.
+
+`SitemapLeafView` — new class at `src/ui/views/sitemap-leaf-view.ts`. Unlike `SitemapHubView` (which extends `BaseHubView` and provides tab chrome), `SitemapLeafView` extends Obsidian's `ItemView` directly. It provides:
+- `getViewType()`, `getDisplayText()`, `getIcon()` from ViewDef (same as SitemapHubView)
+- `onOpen()` — reads ViewDef, creates content container, delegates to handler or mounts Lit component
+- `onClose()` — cleans up event subscriptions and removes Lit component
+- `refreshEvents` subscription — same pattern as SitemapHubView (subscribe in onOpen, re-invoke handler on event)
+- Two rendering paths: (a) `handler` field → looks up a `ViewHandler` in registry that receives the content container, or (b) `component` field → creates a Lit custom element and mounts it
+
+`SitemapBootstrap.registerViews()` must be updated to route by ViewDef shape: if `tabs` is defined → `SitemapHubView`, if `component` or `handler` (without tabs) → `SitemapLeafView`, if `legacy: true` → legacy factory. This bootstrap change is part of Chunk 6.
 
 **Sitemap schema extension:**
 ```json
@@ -259,15 +280,18 @@ plugin-sitemap.json
 }
 ```
 
-**Views to migrate** (approach determined per-view during implementation):
-- `session-workspace` (625 LOC, 10+ panels) — likely view shell + Lit panels
-- `train-main` (843 LOC, graph nav, breadcrumbs) — likely view shell + Lit panels
-- `train-timeline` (~300 LOC) — likely full Lit component
-- `csv-action` (782 LOC, mapping builder) — likely view shell + Lit panels
-- `canvas-import` (540 LOC) — assessed at implementation time
-- `export` (689 LOC, job orchestrator) — assessed at implementation time
-- `journey-builder` — assessed at implementation time
-- `journey-file` (156 LOC) — likely full Lit component
+**Views to migrate** (approach determined case-by-case during implementation):
+
+| View | Source File | LOC | Likely Approach |
+|------|-----------|-----|-----------------|
+| `session-workspace` | `src/ui/session/SessionWorkspaceView.ts` | 625 | View shell + Lit panels |
+| `train-main` | `src/ui/train/TrainMainView.ts` | 843 | View shell + Lit panels |
+| `train-timeline` | `src/ui/train/TrainTimelineSidebar.ts` | 554 | Assessed at implementation time |
+| `csv-action` | `src/ui/dataExchange/CsvActionView.ts` | 782 | View shell + Lit panels |
+| `canvas-import` | `src/ui/canvas/CanvasActionView.ts` | 540 | Assessed at implementation time |
+| `export` | `src/ui/dataExchange/ExportView.ts` | 689 | Assessed at implementation time |
+| `journey-builder` | `src/ui/journeyBuilder/JourneyBuilderSidebar.ts` | 1,047 | View shell + Lit panels (largest leaf view) |
+| `journey-file` | `src/ui/journeyBuilder/JourneyFileView.ts` | 156 | Full Lit component |
 
 **CSS pass:** Same as hubs — scoped CSS in new Lit components, utility classes for view shells.
 
@@ -292,27 +316,27 @@ plugin-sitemap.json
 
 ### Design Tokens
 
-Extend existing FlowtiElement token set:
+Extend the existing `src/components/tokens.ts` file. The established prefix is `--flowti-*` (not `--ft-`). All new tokens follow this convention:
 
 ```css
 /* Spacing */
---ft-space-xs: 4px;  --ft-space-sm: 8px;  --ft-space-md: 16px;
---ft-space-lg: 24px; --ft-space-xl: 32px;
+--flowti-space-xs: 4px;  --flowti-space-sm: 8px;  --flowti-space-md: 16px;
+--flowti-space-lg: 24px; --flowti-space-xl: 32px;
 
 /* Colors (inherit Obsidian theme) */
---ft-color-success; --ft-color-warning; --ft-color-error;
---ft-color-muted; --ft-color-info;
+--flowti-color-success; --flowti-color-warning; --flowti-color-error;
+--flowti-color-muted; --flowti-color-info;
 
 /* Typography */
---ft-font-sm; --ft-font-mono;
+--flowti-font-sm; --flowti-font-mono;
 
 /* Layout */
---ft-radius; --ft-border; --ft-shadow; --ft-grid-gap;
+--flowti-radius; --flowti-border; --flowti-shadow; --flowti-grid-gap;
 ```
 
 ### Shared Styles
 
-`src/components/shared-styles.ts` — importable by any Lit component:
+`src/components/shared-styles.ts` — new file (created in Chunk 0), importable by any Lit component:
 - Master/detail split layout
 - Status badge variants (success, warning, error, muted, info)
 - Stat card grid
@@ -365,6 +389,7 @@ Each Lit component uses `static styles = css\`...\`` with:
 | Inline styles deeper than expected | Dynamic computed styles can't become static CSS | Lit `styleMap()` directive. Budget extra time in Analytics (tile grid) and DataExchange (progress bars). |
 | Obsidian API in view classes | Lit components can't access `this.app` | All Obsidian API calls stay in handler layer. Components receive resolved data as props. |
 | Shadow DOM vs Obsidian theming | Lit Shadow DOM blocks Obsidian CSS variables | FlowtiElement base class inherits Obsidian CSS custom properties. Verify per component. |
+| Action handler parity with main.ts closures | ~37 handlers replace behavior spread across 1,000+ LOC with closure state, service refs, and Obsidian API context — any mismatch is a silent regression | Side-by-side comparison checklist per handler category. Flow tests per handler group. Chunk 0 does not delete old code until parity is verified. |
 
 ## Out of Scope
 
