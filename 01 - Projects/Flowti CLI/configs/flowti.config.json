@@ -34,7 +34,7 @@
 	"components": {
 		"storybook": true,
 		"storybookDir": "components",
-		"framework": "angular"
+		"framework": "html"
 	},
 	"agents": {
 		"dashboard": true,

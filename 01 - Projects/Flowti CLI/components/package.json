@@ -1,0 +1,15 @@
+{
+  "name": "flowti-cli-components",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
+  },
+  "devDependencies": {
+    "storybook": "^8.6.0",
+    "@storybook/html-vite": "^8.6.0",
+    "@storybook/addon-essentials": "^8.6.0"
+  }
+}
