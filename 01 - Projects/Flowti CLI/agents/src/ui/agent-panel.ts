@@ -1,255 +1,259 @@
 /**
- * Agent panel — DOM structure with header, info, tabs, and content area.
- * Tabs: Info, Talk, Tasks, Permissions, History.
- * Pure DOM, no ExcaliburJS dependency.
+ * Agent panel shell — Lit component that hosts the 5 tab sub-components.
+ * Opens when store.selectedAgent is non-null; closes via the × button.
  */
 
-import type {
-	DashboardAgent,
-	ActivityEntry,
-	PermissionEntry,
-} from "../data/types.js";
-import type { sendMessage, assignTask, grantPermission } from "../data/api-client.js";
-import { renderTalkTab } from "./talk-tab.js";
-import type { TalkTabOptions } from "./talk-tab.js";
-import { renderTasksTab } from "./tasks-tab.js";
-import type { TasksTabOptions } from "./tasks-tab.js";
-import { renderPermissionsTab } from "./permissions-tab.js";
-import type { PendingPermission, PermissionsTabOptions } from "./permissions-tab.js";
-import { renderHistoryTab } from "./history-tab.js";
+import { LitElement, html, css, nothing } from "lit";
+import { customElement, property } from "lit/decorators.js";
+import { resetStyles, colorStyles, fontStyles, buttonStyles } from "./shared-styles.js";
+import type { DashboardStore, TabName } from "../store/dashboard-store.js";
+import type { DashboardAgent } from "../data/types.js";
 
-export type TabName = "Info" | "Talk" | "Tasks" | "Permissions" | "History";
+// Side-effect imports to register sub-components
+import "./panel-info.js";
+import "./panel-talk.js";
+import "./panel-tasks.js";
+import "./panel-permissions.js";
+import "./panel-history.js";
 
-const TAB_NAMES: readonly TabName[] = ["Info", "Talk", "Tasks", "Permissions", "History"];
+const TAB_LABELS: ReadonlyArray<{ name: TabName; label: string }> = [
+	{ name: "info", label: "Info" },
+	{ name: "talk", label: "Talk" },
+	{ name: "tasks", label: "Tasks" },
+	{ name: "permissions", label: "Permissions" },
+	{ name: "history", label: "History" },
+];
 
-export interface AgentPanelOptions {
-	readonly onClose: () => void;
-	readonly sendMessage: typeof sendMessage;
-	readonly assignTask: typeof assignTask;
-	readonly grantPermission: typeof grantPermission;
-	readonly baseUrl: string;
-	readonly activityLog: readonly ActivityEntry[];
-	readonly permissions: readonly PermissionEntry[];
-	readonly pendingPermissions: readonly PendingPermission[];
-	readonly currentPhase?: string;
-	readonly onTaskAssigned?: (agentName: string, taskName: string) => void;
-}
+@customElement("agent-panel")
+export class AgentPanel extends LitElement {
+	static styles = [
+		resetStyles,
+		colorStyles,
+		fontStyles,
+		buttonStyles,
+		css`
+			:host {
+				display: block;
+			}
 
-/** Switch the active tab on an already-rendered agent panel. */
-export function switchToTab(panelContainer: HTMLElement, tabName: TabName): void {
-	const tabBtn = panelContainer.querySelector(`[data-tab="${tabName}"]`);
-	if (tabBtn instanceof HTMLElement) tabBtn.click();
-}
+			.panel {
+				position: absolute;
+				top: 0;
+				right: 0;
+				width: 340px;
+				height: 100%;
+				background: #1e293b;
+				border-left: 1px solid #334155;
+				box-shadow: -4px 0 16px rgba(0, 0, 0, 0.5);
+				display: flex;
+				flex-direction: column;
+				overflow: hidden;
+				z-index: 100;
+			}
 
-export function renderAgentPanel(
-	container: HTMLElement,
-	agent: DashboardAgent,
-	options: AgentPanelOptions,
-): void {
-	container.innerHTML = "";
+			/* Header */
+			.panel-header {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: 12px 14px;
+				border-bottom: 1px solid var(--border);
+				background: #0f172a;
+				flex-shrink: 0;
+			}
 
-	// Header
-	const header = document.createElement("div");
-	header.className = "agent-panel-header";
+			.header-left {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				min-width: 0;
+			}
 
-	const headerLeft = document.createElement("div");
+			.agent-name {
+				font-size: 15px;
+				font-weight: 600;
+				color: var(--text-primary);
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
 
-	const nameEl = document.createElement("span");
-	nameEl.className = "agent-panel-header-name";
-	nameEl.textContent = agent.name;
-	headerLeft.appendChild(nameEl);
+			.agent-type-badge {
+				font-size: 10px;
+				font-weight: 600;
+				text-transform: uppercase;
+				padding: 2px 6px;
+				border-radius: 3px;
+				background: #1e3a5f;
+				color: var(--accent-blue);
+				flex-shrink: 0;
+			}
 
-	const typeEl = document.createElement("span");
-	typeEl.className = "agent-panel-header-type";
-	typeEl.textContent = agent.agentType;
-	headerLeft.appendChild(typeEl);
+			.close-btn {
+				background: transparent;
+				border: none;
+				color: var(--text-secondary);
+				font-size: 18px;
+				line-height: 1;
+				cursor: pointer;
+				padding: 2px 6px;
+				border-radius: 4px;
+				transition: color 0.15s, background 0.15s;
+				flex-shrink: 0;
+			}
 
-	header.appendChild(headerLeft);
+			.close-btn:hover {
+				color: var(--text-primary);
+				background: var(--bg-tertiary);
+			}
 
-	const closeBtn = document.createElement("button");
-	closeBtn.className = "agent-panel-close";
-	closeBtn.textContent = "\u00D7";
-	closeBtn.setAttribute("data-testid", "panel-close");
-	closeBtn.addEventListener("click", () => options.onClose());
-	header.appendChild(closeBtn);
+			/* Tab bar */
+			.tab-bar {
+				display: flex;
+				border-bottom: 1px solid var(--border);
+				background: #0f172a;
+				flex-shrink: 0;
+				overflow-x: auto;
+				scrollbar-width: none;
+			}
 
-	container.appendChild(header);
+			.tab-bar::-webkit-scrollbar {
+				display: none;
+			}
 
-	// Info section
-	const info = document.createElement("div");
-	info.className = "agent-panel-info";
+			.tab-btn {
+				background: transparent;
+				border: none;
+				border-bottom: 2px solid transparent;
+				color: var(--text-secondary);
+				font-size: 12px;
+				font-family: inherit;
+				padding: 8px 12px;
+				cursor: pointer;
+				white-space: nowrap;
+				transition: color 0.15s, border-color 0.15s;
+				flex-shrink: 0;
+				border-radius: 0;
+			}
 
-	if (agent.attributes) {
-		const grid = document.createElement("div");
-		grid.className = "agent-panel-info-grid";
+			.tab-btn:hover {
+				color: var(--text-primary);
+			}
 
-		const attrEntries: [string, number | undefined][] = [
-			["STR", agent.attributes.str],
-			["INT", agent.attributes.int],
-			["WIS", agent.attributes.wis],
-			["CHA", agent.attributes.cha],
-			["DEX", agent.attributes.dex],
-			["CON", agent.attributes.con],
-		];
+			.tab-btn[data-active="true"] {
+				color: var(--accent-blue);
+				border-bottom-color: var(--accent-blue);
+			}
 
-		for (const [label, value] of attrEntries) {
-			if (value === undefined) continue;
-			const item = document.createElement("div");
-			item.className = "agent-panel-info-item";
+			/* Content area */
+			.panel-content {
+				flex: 1;
+				overflow-y: auto;
+				padding: 12px;
+				scrollbar-width: thin;
+				scrollbar-color: var(--bg-tertiary) transparent;
+			}
 
-			const labelEl = document.createElement("div");
-			labelEl.className = "agent-panel-info-label";
-			labelEl.textContent = label;
-			item.appendChild(labelEl);
+			.panel-content panel-info,
+			.panel-content panel-talk,
+			.panel-content panel-tasks,
+			.panel-content panel-permissions,
+			.panel-content panel-history {
+				display: block;
+				height: 100%;
+			}
+		`,
+	];
 
-			const valueEl = document.createElement("div");
-			valueEl.className = "agent-panel-info-value";
-			valueEl.textContent = String(value);
-			item.appendChild(valueEl);
+	@property({ attribute: false }) store!: DashboardStore;
 
-			grid.appendChild(item);
-		}
+	private storeHandler = () => { this.requestUpdate(); };
 
-		info.appendChild(grid);
-	}
-
-	const meta = document.createElement("div");
-	meta.className = "agent-panel-meta";
-
-	if (agent.mood) {
-		const moodEl = document.createElement("span");
-		moodEl.textContent = `Mood: ${agent.mood}`;
-		meta.appendChild(moodEl);
-	}
-
-	if (agent.experience !== undefined) {
-		const xpEl = document.createElement("span");
-		xpEl.textContent = `XP: ${agent.experience}`;
-		meta.appendChild(xpEl);
-	}
-
-	const statusEl = document.createElement("span");
-	statusEl.textContent = `Status: ${agent.status}`;
-	meta.appendChild(statusEl);
-
-	info.appendChild(meta);
-	container.appendChild(info);
-
-	// Tab bar
-	const tabBar = document.createElement("div");
-	tabBar.className = "agent-panel-tabs";
-
-	const contentArea = document.createElement("div");
-	contentArea.className = "agent-panel-content";
-
-	const tabButtons: HTMLButtonElement[] = [];
-
-	for (const tabName of TAB_NAMES) {
-		const btn = document.createElement("button");
-		btn.className = "agent-panel-tab";
-		btn.textContent = tabName;
-		btn.setAttribute("data-tab", tabName);
-
-		btn.addEventListener("click", () => {
-			switchTab(tabName);
-		});
-
-		tabBar.appendChild(btn);
-		tabButtons.push(btn);
-	}
-
-	container.appendChild(tabBar);
-	container.appendChild(contentArea);
-
-	function switchTab(tabName: TabName): void {
-		for (const btn of tabButtons) {
-			btn.setAttribute("data-active", String(btn.getAttribute("data-tab") === tabName));
-		}
-
-		contentArea.innerHTML = "";
-
-		switch (tabName) {
-			case "Info":
-				renderInfoContent(contentArea, agent);
-				break;
-			case "Talk":
-				renderTalkTab(contentArea, agent.name, {
-					sendMessage: options.sendMessage,
-					baseUrl: options.baseUrl,
-				} satisfies TalkTabOptions);
-				break;
-			case "Tasks":
-				renderTasksTab(contentArea, agent, {
-					assignTask: options.assignTask,
-					baseUrl: options.baseUrl,
-					currentPhase: options.currentPhase,
-					isAiAgent: agent.agentType === "ai",
-					onTaskAssigned: options.onTaskAssigned,
-				} satisfies TasksTabOptions);
-				break;
-			case "Permissions":
-				renderPermissionsTab(contentArea, agent.name, {
-					grantPermission: options.grantPermission,
-					baseUrl: options.baseUrl,
-					pendingPermissions: options.pendingPermissions,
-					grantHistory: options.permissions,
-				} satisfies PermissionsTabOptions);
-				break;
-			case "History":
-				renderHistoryTab(contentArea, agent.name, options.activityLog);
-				break;
+	connectedCallback(): void {
+		super.connectedCallback();
+		if (this.store) {
+			this.store.addEventListener("state-changed", this.storeHandler);
 		}
 	}
 
-	// Default to Info tab
-	switchTab("Info");
-}
-
-function renderInfoContent(container: HTMLElement, agent: DashboardAgent): void {
-	if (agent.persona) {
-		const personaEl = document.createElement("div");
-		personaEl.textContent = agent.persona;
-		personaEl.style.marginBottom = "8px";
-		container.appendChild(personaEl);
-	}
-
-	if (agent.skills && agent.skills.length > 0) {
-		const skillTitle = document.createElement("div");
-		skillTitle.textContent = "Skills";
-		skillTitle.style.fontWeight = "600";
-		skillTitle.style.marginBottom = "4px";
-		container.appendChild(skillTitle);
-
-		for (const skill of agent.skills) {
-			const el = document.createElement("div");
-			el.textContent = `${skill.name}: ${skill.level}`;
-			el.style.fontSize = "12px";
-			el.style.color = "#94a3b8";
-			container.appendChild(el);
+	disconnectedCallback(): void {
+		super.disconnectedCallback();
+		if (this.store) {
+			this.store.removeEventListener("state-changed", this.storeHandler);
 		}
 	}
 
-	if (agent.relationships && agent.relationships.length > 0) {
-		const relTitle = document.createElement("div");
-		relTitle.textContent = "Relationships";
-		relTitle.style.fontWeight = "600";
-		relTitle.style.marginTop = "8px";
-		relTitle.style.marginBottom = "4px";
-		container.appendChild(relTitle);
+	private getAgent(): DashboardAgent | undefined {
+		const name = this.store?.selectedAgent;
+		if (!name) return undefined;
+		return this.store.agents.find((a) => a.name === name);
+	}
 
-		for (const rel of agent.relationships) {
-			const el = document.createElement("div");
-			el.textContent = `${rel.target} (${rel.type})`;
-			el.style.fontSize = "12px";
-			el.style.color = "#94a3b8";
-			container.appendChild(el);
+	private handleClose(): void {
+		this.store.selectAgent(null);
+	}
+
+	private handleTabClick(tab: TabName): void {
+		this.store.selectTab(tab);
+	}
+
+	private renderTabContent(agent: DashboardAgent) {
+		const tab = this.store.selectedTab;
+
+		switch (tab) {
+			case "info":
+				return html`<panel-info .agent="${agent}"></panel-info>`;
+			case "talk":
+				return html`<panel-talk .store="${this.store}" agentName="${agent.name}"></panel-talk>`;
+			case "tasks":
+				return html`<panel-tasks .store="${this.store}" .agent="${agent}"></panel-tasks>`;
+			case "permissions":
+				return html`<panel-permissions .store="${this.store}" agentName="${agent.name}"></panel-permissions>`;
+			case "history":
+				return html`<panel-history .store="${this.store}" agentName="${agent.name}"></panel-history>`;
+			default:
+				return nothing;
 		}
 	}
 
-	if (!agent.persona && (!agent.skills || agent.skills.length === 0) && (!agent.relationships || agent.relationships.length === 0)) {
-		const empty = document.createElement("div");
-		empty.className = "agent-panel-empty";
-		empty.textContent = "No additional information available.";
-		container.appendChild(empty);
+	render() {
+		if (!this.store || !this.store.selectedAgent) return nothing;
+
+		const agent = this.getAgent();
+		if (!agent) return nothing;
+
+		const selectedTab = this.store.selectedTab;
+
+		return html`
+			<div class="panel" data-testid="agent-panel">
+				<div class="panel-header">
+					<div class="header-left">
+						<span class="agent-name" data-testid="panel-agent-name">${agent.name}</span>
+						<span class="agent-type-badge">${agent.agentType}</span>
+					</div>
+					<button
+						class="close-btn"
+						data-testid="panel-close"
+						@click="${this.handleClose}"
+					>&#xD7;</button>
+				</div>
+
+				<div class="tab-bar" role="tablist">
+					${TAB_LABELS.map(({ name, label }) => html`
+						<button
+							class="tab-btn"
+							role="tab"
+							data-tab="${name}"
+							data-active="${selectedTab === name}"
+							@click="${() => { this.handleTabClick(name); }}"
+						>${label}</button>
+					`)}
+				</div>
+
+				<div class="panel-content">
+					${this.renderTabContent(agent)}
+				</div>
+			</div>
+		`;
 	}
 }
