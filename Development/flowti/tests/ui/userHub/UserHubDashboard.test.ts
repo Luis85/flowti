@@ -489,9 +489,9 @@ describe("UserHubDashboard", () => {
 			// Tabs: sessions, inbox, commands, preferences
 			const tabs = container.querySelectorAll(".ft-toolbar-tabs .ft-quick-action-btn");
 			expect(tabs).toHaveLength(4);
-			// Actions: activity-log, watchers (no new-session without onCreateSession)
+			// Actions: watchers (no new-session without onCreateSession, activity-log removed)
 			const actions = container.querySelectorAll(".ft-toolbar-actions .ft-quick-action-btn");
-			expect(actions).toHaveLength(2);
+			expect(actions).toHaveLength(1);
 		});
 
 		it("should render hub buttons from registry filtered by toolbarHubs", () => {
@@ -591,7 +591,7 @@ describe("UserHubDashboard", () => {
 			dashboard.render();
 
 			const actions = container.querySelectorAll(".ft-toolbar-actions .ft-quick-action-btn");
-			expect(actions).toHaveLength(3);
+			expect(actions).toHaveLength(2);
 			const titles = Array.from(actions).map((a) => (a as HTMLElement).title);
 			expect(titles).toContain("New session");
 		});
@@ -616,7 +616,7 @@ describe("UserHubDashboard", () => {
 			dashboard.render();
 
 			const actions = container.querySelectorAll(".ft-toolbar-actions .ft-quick-action-btn");
-			expect(actions).toHaveLength(2);
+			expect(actions).toHaveLength(1);
 			const titles = Array.from(actions).map((a) => (a as HTMLElement).title);
 			expect(titles.every((t) => t !== "New session")).toBe(true);
 		});

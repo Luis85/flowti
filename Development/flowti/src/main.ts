@@ -350,7 +350,7 @@ export default class FlowtiBasePlugin extends Plugin {
 
 		// Detach all Flowti view leaves to prevent stale views during hot-reload
 		const viewTypes = [
-			"flowti-event-catalog", "flowti-event-log", "flowti-component-showcase",
+			"flowti-event-catalog",
 			"flowti-data-exchange-hub", "flowti-user-hub",
 			"flowti-train-main", "flowti-train-timeline", "flowti-train-hub",
 			"flowti-analytics-hub", "flowti-session-workspace",

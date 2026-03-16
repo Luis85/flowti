@@ -347,7 +347,6 @@ export class UserHubDashboard {
 			],
 			actions: [
 				...(this.deps.onCreateSession ? [{ id: "new-session", icon: "plus-circle", label: "New session", action: this.deps.onCreateSession }] : []),
-				{ id: "activity-log", icon: "activity", label: "Activity log", action: () => void eb.emit("ui.openEventLog", {}) },
 				{ id: "watchers", icon: "bell", label: "Watchers", action: () => void eb.emit("ui.openSubscriptionManager", {}) },
 			],
 		};

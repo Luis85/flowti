@@ -96,41 +96,6 @@ describe("UiCommandService", () => {
 		});
 	});
 
-	describe("ui.openEventLog", () => {
-		it("should open in right sidebar when view not open", async () => {
-			await eventBus.emit("ui.openEventLog", {});
-
-			expect(app.workspace.getRightLeaf).toHaveBeenCalledWith(false);
-			expect(app._rightLeaf.setViewState).toHaveBeenCalledWith({
-				type: "flowti-event-log",
-				active: true,
-			});
-			expect(app.workspace.revealLeaf).toHaveBeenCalledWith(app._rightLeaf);
-		});
-
-		it("should reveal existing leaf when view already open", async () => {
-			const existingLeaf = { view: {} };
-			app.workspace.getLeavesOfType.mockReturnValue([existingLeaf]);
-
-			await eventBus.emit("ui.openEventLog", {});
-
-			expect(app.workspace.revealLeaf).toHaveBeenCalledWith(existingLeaf);
-			expect(app.workspace.getRightLeaf).not.toHaveBeenCalled();
-		});
-	});
-
-	describe("ui.openComponentShowcase", () => {
-		it("should open in right sidebar when view not open", async () => {
-			await eventBus.emit("ui.openComponentShowcase", {});
-
-			expect(app.workspace.getRightLeaf).toHaveBeenCalledWith(false);
-			expect(app._rightLeaf.setViewState).toHaveBeenCalledWith({
-				type: "flowti-component-showcase",
-				active: true,
-			});
-		});
-	});
-
 	describe("ui.openDataExchangeHub", () => {
 		it("should open in main workspace when view not open", async () => {
 			await eventBus.emit("ui.openDataExchangeHub", {});

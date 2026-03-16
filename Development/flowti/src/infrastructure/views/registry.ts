@@ -8,17 +8,9 @@
 
 import type { IEventBus } from "../events/types";
 import {
-	ComponentShowcaseView,
-	VIEW_TYPE_COMPONENT_SHOWCASE,
-} from "../../ui/components/ComponentShowcaseView";
-import {
 	EventCatalogView,
 	VIEW_TYPE_EVENT_CATALOG,
 } from "../../ui/catalog/EventCatalogView";
-import {
-	EventLogView,
-	VIEW_TYPE_EVENT_LOG,
-} from "../../ui/catalog/EventLogView";
 import type { IViewRegistry, ViewDefinition } from "./types";
 import type { FlowtiSettings } from "../../domain/settings/settings";
 import type { DiscoveredEvent } from "../../domain/discovery/types";
@@ -56,22 +48,10 @@ export interface ViewDependencies {
 export function createViewDefinitions(deps: ViewDependencies): ViewDefinition[] {
 	return [
 		{
-			type: VIEW_TYPE_COMPONENT_SHOWCASE,
-			displayName: "Flowti Components",
-			icon: "palette",
-			factory: (leaf) => new ComponentShowcaseView(leaf),
-		},
-		{
 			type: VIEW_TYPE_EVENT_CATALOG,
 			displayName: "Event Catalog",
 			icon: "list",
 			factory: (leaf) => new EventCatalogView(leaf, deps.eventBus, deps.state, deps.getOnboardingService()),
-		},
-		{
-			type: VIEW_TYPE_EVENT_LOG,
-			displayName: "Activity Log",
-			icon: "activity",
-			factory: (leaf) => new EventLogView(leaf, deps.eventBus, deps.state),
 		},
 	];
 }

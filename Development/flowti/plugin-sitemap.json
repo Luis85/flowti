@@ -1,25 +1,11 @@
 {
 	"version": 2,
 	"views": {
-		"component-showcase": {
-			"kind": "panel",
-			"label": "Flowti Components",
-			"icon": "palette",
-			"type": "flowti-component-showcase",
-			"legacy": true
-		},
 		"event-catalog": {
 			"kind": "panel",
 			"label": "Event Catalog",
 			"icon": "list",
 			"type": "flowti-event-catalog",
-			"legacy": true
-		},
-		"event-log": {
-			"kind": "panel",
-			"label": "Activity Log",
-			"icon": "activity",
-			"type": "flowti-event-log",
 			"legacy": true
 		},
 		"user-hub": {
@@ -132,28 +118,12 @@
 	},
 	"commands": [
 		{
-			"id": "flowti:open-component-showcase",
-			"name": "Open component showcase",
-			"domain": "developer",
-			"category": "view",
-			"icon": "palette",
-			"handler": "view:open-component-showcase"
-		},
-		{
 			"id": "flowti:open-event-catalog",
 			"name": "Open event catalog",
 			"domain": "developer",
 			"category": "view",
 			"icon": "list",
 			"handler": "view:open-event-catalog"
-		},
-		{
-			"id": "flowti:open-event-log",
-			"name": "Open event log",
-			"domain": "developer",
-			"category": "view",
-			"icon": "activity",
-			"handler": "view:open-event-log"
 		},
 		{
 			"id": "flowti:open-user-hub",

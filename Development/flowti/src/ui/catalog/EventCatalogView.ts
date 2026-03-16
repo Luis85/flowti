@@ -10,7 +10,8 @@ import {
 	type EntityType,
 } from "../eventDocTemplate";
 import { SubscriptionManagerModal } from "./SubscriptionManagerModal";
-import { VIEW_TYPE_EVENT_LOG } from "./EventLogView";
+/** @deprecated Activity Log view was removed — this constant is retained for openActivityLog(). */
+const VIEW_TYPE_EVENT_LOG = "flowti-event-log";
 import type { Subscription } from "../../domain/subscription/types";
 import type { EventDefinition } from "../../domain/eventDefinition/types";
 import type {
