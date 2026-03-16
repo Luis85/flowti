@@ -55,7 +55,8 @@ import { DataExchangeProvider } from "./domain/hub/DataExchangeProvider";
 import { AnalyticsHubProvider } from "./domain/hub/AnalyticsHubProvider";
 import { UserHubProvider } from "./domain/hub/UserHubProvider";
 import { TrainHubProvider } from "./domain/hub/TrainHubProvider";
-import { UserHubView, VIEW_TYPE_USER_HUB } from "./ui/userHub/UserHubView";
+import { VIEW_TYPE_USER_HUB } from "./domain/hub/types";
+import { registerUserHandlers } from "./infrastructure/handlers/user-handlers";
 import { SessionWorkspaceView, VIEW_TYPE_SESSION_WORKSPACE } from "./ui/session/SessionWorkspaceView";
 import { TrainMainView, VIEW_TYPE_TRAIN_MAIN } from "./ui/train/TrainMainView";
 import { TrainTimelineSidebar, VIEW_TYPE_TRAIN_TIMELINE } from "./ui/train/TrainTimelineSidebar";
@@ -1503,9 +1504,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.hubRegistry.register(new FeatureLifecycleProvider(this.featureLifecycleService));
 		}
 
-		this.safeRegisterView(VIEW_TYPE_USER_HUB, (leaf) =>
-			new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!, this.inboxService!, this.sessionService!, this.nudgeService!, this.onboardingService!, this.settings.inboxEnabledSources, this.settings, this.trainService, this.commands, () => this.featureLifecycleService?.getFeatures()?.map((f) => ({ name: f.name })) ?? []),
-		);
+		// UserHubView factory removed — User Hub is now sitemap-driven via SitemapHubView + Lit components (see registerUserHandlers).
 		this.hubRegistry.register(new UserHubProvider(this.userService, this.inboxService!));
 
 		// Session views, commands, and file-menu items
