@@ -81,11 +81,15 @@ export async function preloadSpriteRegistry(
 ): Promise<Map<string, AgentSprites>> {
 	const registry = new Map<string, AgentSprites>();
 	const unique = [...new Set(characters)];
-	const results = await Promise.all(
+	const results = await Promise.allSettled(
 		unique.map(async (name) => ({ name, sprites: await loadAgentSprites(name, basePath) })),
 	);
-	for (const { name, sprites } of results) {
-		registry.set(name, sprites);
+	for (const result of results) {
+		if (result.status === "fulfilled") {
+			registry.set(result.value.name, result.value.sprites);
+		} else {
+			console.warn("Failed to load sprite:", result.reason);
+		}
 	}
 	return registry;
 }

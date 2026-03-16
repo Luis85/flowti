@@ -15,7 +15,7 @@ export const DOMAIN_POOLS: Record<string, readonly string[]> = {
 	operations: ["RobotGrey", "RobotGreen", "RobotCamouflage"],
 	marketing: ["Villager3", "Villager4", "Villager5", "OldMan", "Boy"],
 	orchestration: ["GoldStatue", "RedGladiator", "GladiatorBlue"],
-	fallback: ["Child", "Eskimo", "Flam", "Hunter", "ManGreen"],
+	fallback: ["Eskimo", "Flam", "Hunter", "ManGreen", "Boy"],
 };
 
 const DOMAIN_ALIASES: Record<string, string> = {
