@@ -10,12 +10,14 @@ import { AgentActor } from "../actors/agent-actor.js";
 import { DoorwayActor } from "../actors/doorway-actor.js";
 import { SCENE_THEMES } from "../config/settings.js";
 import { resolveSettingForDomain } from "../config/domain-map.js";
+import { resolveCharacter } from "../sprites/character-pool.js";
+import type { AgentSprites } from "../sprites/sprite-loader.js";
 
 // ── Layout ──────────────────────────────────────────────────────────
 
-const AGENT_SPACING = 90;
+const AGENT_SPACING = 120;
 const AGENTS_PER_ROW = 6;
-const TICKER_HEIGHT = 28;
+const ROSTER_BAR_HEIGHT = 56;
 
 // ── Config ──────────────────────────────────────────────────────────
 
@@ -41,6 +43,11 @@ export class HubScene extends ex.Scene {
 	private tickerLabel: ex.Label | null = null;
 	private iterationLabel: ex.Label | null = null;
 	private connectionLabel: ex.Label | null = null;
+	private spriteRegistry: Map<string, AgentSprites> = new Map();
+
+	setSpriteRegistry(registry: Map<string, AgentSprites>): void {
+		this.spriteRegistry = registry;
+	}
 
 	constructor(config: HubSceneConfig) {
 		super();
@@ -167,10 +174,32 @@ export class HubScene extends ex.Scene {
 			this.add(doorway);
 		}
 
-		// ── Activity ticker at bottom ────────────────────────
+		// ── Roster bar background at bottom ─────────────────
+		const rosterBar = new ex.Actor({
+			pos: ex.vec(w / 2, h - ROSTER_BAR_HEIGHT / 2),
+			width: w,
+			height: ROSTER_BAR_HEIGHT,
+			anchor: ex.vec(0.5, 0.5),
+			z: 4,
+		});
+		const rosterBg = new ex.Canvas({
+			width: w,
+			height: ROSTER_BAR_HEIGHT,
+			cache: true,
+			draw: (ctx: CanvasRenderingContext2D) => {
+				ctx.fillStyle = "#0f172a";
+				ctx.fillRect(0, 0, w, ROSTER_BAR_HEIGHT);
+				ctx.fillStyle = "#1e293b";
+				ctx.fillRect(0, 0, w, 1);
+			},
+		});
+		rosterBar.graphics.use(rosterBg);
+		this.add(rosterBar);
+
+		// ── Activity ticker inside roster bar ────────────────
 		this.tickerLabel = new ex.Label({
 			text: "No recent activity",
-			pos: ex.vec(12, h - TICKER_HEIGHT / 2),
+			pos: ex.vec(12, h - 12),
 			font: new ex.Font({
 				family: "system-ui, sans-serif",
 				size: 10,
@@ -179,7 +208,7 @@ export class HubScene extends ex.Scene {
 				textAlign: ex.TextAlign.Left,
 			}),
 			anchor: ex.vec(0, 0.5),
-			z: 5,
+			z: 15,
 		});
 		this.add(this.tickerLabel);
 	}
@@ -226,11 +255,15 @@ export class HubScene extends ex.Scene {
 				actor.agentData = agent;
 				actor.updateVisualStatus(agent.status);
 			} else {
+				const charName = resolveCharacter(agent.name, agent.domain ?? "");
+				const sprites = this.spriteRegistry.get(charName);
+				if (!sprites) continue;
 				const actor = new AgentActor({
 					agent,
 					x,
 					y,
 					onSelect: this.config.onAgentSelect,
+					sprites,
 				});
 				actor.z = 10;
 				this.add(actor);
@@ -238,56 +271,67 @@ export class HubScene extends ex.Scene {
 			}
 		}
 
-		// ── Compact indicator dots for domain-assigned agents ─
-		const indicatorStartX = 20;
-		const indicatorStartY = h - 60;
-		const indicatorSpacing = 32;
+		// ── Roster cards for domain-assigned agents in bottom bar ─
+		const CARD_WIDTH = 80;
+		const CARD_HEIGHT = 36;
+		const cardSpacing = CARD_WIDTH + 8;
+		const cardStartX = 16 + CARD_WIDTH / 2;
+		const cardY = h - ROSTER_BAR_HEIGHT / 2 - 4;
 
 		for (let i = 0; i < domainAgents.length; i++) {
 			const agent = domainAgents[i];
 			incoming.add(agent.name);
 			const setting = resolveSettingForDomain(agent.domain);
 
-			const x = indicatorStartX + i * indicatorSpacing;
-			const y = indicatorStartY;
+			const x = cardStartX + i * cardSpacing;
 
 			if (this.indicatorActors.has(agent.name)) {
-				// Update existing indicator — no structural changes needed
 				continue;
 			}
 
 			const dotColor = STATUS_DOT_COLORS[agent.status] ?? "#6b7280";
-			const dotCanvas = new ex.Canvas({
-				width: 24,
-				height: 24,
+			const settingLabel = SCENE_THEMES[setting]?.label ?? setting;
+			const cardCanvas = new ex.Canvas({
+				width: CARD_WIDTH,
+				height: CARD_HEIGHT,
 				cache: true,
 				draw: (ctx: CanvasRenderingContext2D) => {
-					// Status-colored dot
-					ctx.fillStyle = dotColor;
+					// Card background
+					ctx.fillStyle = "#1e293b";
 					ctx.beginPath();
-					ctx.arc(12, 8, 5, 0, Math.PI * 2);
+					ctx.roundRect(0, 0, CARD_WIDTH, CARD_HEIGHT, 4);
 					ctx.fill();
 
-					// Tiny name text
-					ctx.fillStyle = "#94a3b8";
-					ctx.font = "7px system-ui, sans-serif";
-					ctx.textAlign = "center";
-					ctx.textBaseline = "top";
-					const shortName = agent.name.length > 5 ? agent.name.slice(0, 4) + "\u2026" : agent.name;
-					ctx.fillText(shortName, 12, 16);
+					// Status dot
+					ctx.fillStyle = dotColor;
+					ctx.beginPath();
+					ctx.arc(10, CARD_HEIGHT / 2 - 3, 4, 0, Math.PI * 2);
+					ctx.fill();
+
+					// Agent name
+					ctx.fillStyle = "#e2e8f0";
+					ctx.font = "bold 10px system-ui, sans-serif";
+					ctx.textAlign = "left";
+					ctx.textBaseline = "middle";
+					const truncName = agent.name.length > 8 ? agent.name.slice(0, 7) + "\u2026" : agent.name;
+					ctx.fillText(truncName, 20, CARD_HEIGHT / 2 - 4);
+
+					// Domain/location label
+					ctx.fillStyle = "#64748b";
+					ctx.font = "8px system-ui, sans-serif";
+					ctx.fillText(settingLabel, 20, CARD_HEIGHT / 2 + 8);
 				},
 			});
 
 			const indicator = new ex.Actor({
-				pos: ex.vec(x, y),
-				width: 24,
-				height: 24,
+				pos: ex.vec(x, cardY),
+				width: CARD_WIDTH,
+				height: CARD_HEIGHT,
 				anchor: ex.vec(0.5, 0.5),
 				z: 15,
 			});
-			indicator.graphics.use(dotCanvas);
+			indicator.graphics.use(cardCanvas);
 
-			// Click to navigate to the agent's room
 			indicator.on("pointerdown", () => {
 				this.config.onSceneChange(setting);
 			});

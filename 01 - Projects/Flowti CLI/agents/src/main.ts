@@ -17,12 +17,14 @@ import { BrainSystem } from "./systems/brain-system.js";
 import { BubbleSystem } from "./systems/bubble-system.js";
 import { createPanelManager } from "./ui/panel-manager.js";
 import { renderAgentPanel, switchToTab } from "./ui/agent-panel.js";
-import { appendAgentResponse } from "./ui/talk-tab.js";
+import { appendAgentResponse, extractAgentMessage, showThinkingIndicator, removeThinkingIndicator } from "./ui/talk-tab.js";
 import { sendMessage, assignTask, grantPermission } from "./data/api-client.js";
 import type { AgentAction, DashboardAgent, ActivityEntry, PermissionEntry } from "./data/types.js";
 import type { AgentActor } from "./actors/agent-actor.js";
 import { preferredWorkstation } from "./brain/movement.js";
 import { createCameraSystem } from "./systems/camera-system.js";
+import { DOMAIN_POOLS } from "./sprites/character-pool.js";
+import { preloadSpriteRegistry } from "./sprites/sprite-loader.js";
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -38,7 +40,7 @@ async function main(): Promise<void> {
 		height: ENGINE_HEIGHT,
 		backgroundColor: ex.Color.fromHex("#0a0a0f"),
 		displayMode: ex.DisplayMode.FitScreen,
-		antialiasing: true,
+		antialiasing: false,
 		suppressPlayButton: true,
 	});
 
@@ -98,17 +100,22 @@ async function main(): Promise<void> {
 	}
 
 	function handleAgentSelect(agentName: string): void {
+		const actor = findAgentActor(agentName);
+
 		if (panelManager.isOpen() && panelManager.getAgentName() === agentName) {
 			// Same agent clicked while panel open → close panel, start follow
 			panelManager.close();
-			const actor = findAgentActor(agentName);
 			if (actor && cameraSystem) {
 				cameraSystem.startFollow(actor);
 			}
 		} else {
-			// Different agent or no panel → stop follow if active, open panel
+			// Different agent or no panel → center camera on agent, open panel
 			if (cameraSystem?.isFollowing()) {
 				cameraSystem.stopFollow();
+			}
+			// Smoothly pan camera to center on the clicked agent
+			if (actor) {
+				void engine.currentScene.camera.move(actor.pos, 300, ex.EasingFunctions.EaseInOutCubic);
 			}
 			const rect = engine.canvas.getBoundingClientRect();
 			openPanelForAgent(agentName, rect.width * 0.6, rect.height * 0.15);
@@ -123,7 +130,7 @@ async function main(): Promise<void> {
 				destinationIn: new ex.FadeInOut({ duration: 300, direction: "in" }),
 				sourceOut: new ex.FadeInOut({ duration: 300, direction: "out" }),
 			}).then(() => {
-				cameraSystem?.onSceneActivate(findAgentActor);
+				cameraSystem?.onSceneActivate(findAgentActor, engine.currentScene.camera);
 			});
 		},
 		onAgentSelect: handleAgentSelect,
@@ -215,20 +222,23 @@ async function main(): Promise<void> {
 
 			// Show bubble for certain actions
 			if (action.type === "speaking") {
-				const text = typeof action.data["text"] === "string" ? action.data["text"] : "...";
+				const rawText = typeof action.data["text"] === "string" ? action.data["text"] : "...";
+				const text = extractAgentMessage(rawText);
 				const currentScene = engine.currentScene;
 				bubbleSystem.showBubble(action.agentName, "speech", text, currentScene, findAgentActor);
 
-				// If panel is open for this agent, append to the talk thread
+				// If panel is open for this agent, remove thinking indicator and append response
 				if (panelManager.isOpen() && panelManager.getAgentName() === action.agentName) {
 					const panelEl = canvasParent.querySelector(".agent-panel");
 					const contentArea = panelEl?.querySelector(".agent-panel-content");
 					if (contentArea instanceof HTMLElement) {
-						appendAgentResponse(contentArea, `${action.agentName}: ${text}`);
+						removeThinkingIndicator(contentArea);
+						appendAgentResponse(contentArea, `${action.agentName}: ${rawText}`);
 					}
 				}
 			} else if (action.type === "thinking") {
-				const text = typeof action.data["text"] === "string" ? action.data["text"] : "...";
+				const rawText = typeof action.data["text"] === "string" ? action.data["text"] : "...";
+				const text = extractAgentMessage(rawText);
 				const currentScene = engine.currentScene;
 				bubbleSystem.showBubble(action.agentName, "thought", text, currentScene, findAgentActor);
 			} else if (action.type === "asking" || action.type === "requesting-permission") {
@@ -316,6 +326,19 @@ async function main(): Promise<void> {
 			cameraSystem.applyZoom(deltaMs);
 		}
 	});
+
+	// ── Preload all character sprites ───────────────────────────────────
+	const ASSET_BASE = "assets/Actor/Characters/";
+	const allCharacters = [
+		...new Set(Object.values(DOMAIN_POOLS).flat()),
+	];
+	const spriteRegistry = await preloadSpriteRegistry(allCharacters, ASSET_BASE);
+
+	// ── Pass sprite registry to scenes ──────────────────────────────────
+	hubScene.setSpriteRegistry(spriteRegistry);
+	officeScene.setSpriteRegistry(spriteRegistry);
+	villageScene.setSpriteRegistry(spriteRegistry);
+	stationScene.setSpriteRegistry(spriteRegistry);
 
 	// ── Start ───────────────────────────────────────────
 	await engine.start();
