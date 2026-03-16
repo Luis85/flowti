@@ -91,7 +91,7 @@ Social drift and focus drift are mutually exclusive checks — a high-CHA agent 
 
 Note: agents do not move between rooms in this phase. Home-room pull (targeting doorways) is deferred to a future phase that adds room-transition mechanics.
 
-**New pure function**: `resolveIdleTarget(habits, nearbyAgents, roomBounds, rng)` in `movement.ts`
+**New pure function**: `resolveIdleTarget(habits, nearbyAgents, roomBounds, rng): Position | null` in `movement.ts` — returns target position or `null` for "stay put"
 
 **Files modified**: `movement.ts`, `brain-system.ts` (call new resolver instead of random wander)
 
@@ -136,11 +136,14 @@ After sustained work, agents take visible breaks.
 **Implementation**: Add `on-break` as a new brain state in the `BrainState` union type. This is cleaner than a parallel timer system that manually overrides the FSM. The break state integrates naturally with the existing transition table and `updateFromBrain()` in the agent actor.
 
 Transitions:
-- `working` → (breakThreshold timer) → `on-break` (vacate workstation, walk to random point)
-- `on-break` → (5-10s timer) → `walking-to` (return to preferred workstation)
+- `working` → (breakThreshold timer) → `on-break` (vacate workstation, set random target point)
+- `on-break` → (arrival at break point) → hold idle pose cycle for 5–10s
+- `on-break` → (hold timer expires) → `walking-to` (target = preferred workstation)
 - `walking-to` → (arrival) → `working` (if task active) or `idle` (if task done)
 
-The `Workstation` interface in `movement.ts` gains an `id: string` field for preferred workstation tracking. `WorkstationActor` provides this ID.
+**`on-break` update loop behavior**: The `on-break` case in `BrainSystem.update()` has two sub-phases, tracked by a `breakPhase` field on `AgentBrainEntry`: (1) `moving` — reuses existing movement logic to walk the agent toward the random break-point target; on arrival (distance < 4px), switches to phase 2. (2) `resting` — starts a 5–10s timer; agent plays idle pose cycle; on timer expiry, transitions to `walking-to` with preferred workstation as target.
+
+The `Workstation` interface in `movement.ts` gains an `id: string` field for preferred workstation tracking. `WorkstationActor` gets a `workstationId: string` property (not shadowing ExcaliburJS's numeric `Actor.id`). IDs are generated as `${roomName}-${index}` (e.g., `office-0`, `village-3`) at scene creation time.
 
 **Files modified**: `brain-types.ts` (add `on-break` to `BrainState`), `agent-brain.ts` (break transition), `brain-system.ts` (break timer + sequence), `movement.ts` (preferred workstation resolver, `Workstation.id` field), `agent-actor.ts` (on-break pose mapping)
 
@@ -169,6 +172,8 @@ Agent mood (already in dashboard data) applies multipliers to movement and work 
 | `frustrated` | -30% | +15% | baseline | baseline |
 | `focused` | baseline | baseline | +40% | -50% |
 
+Note: `focused` mood has no distinct pixel-art mouth — it renders with the `neutral` mouth. The behavioral changes (longer work, less social drift) are the visible signal.
+
 A frustrated agent visibly paces the room faster and takes shorter breaks. A focused agent stays at their workstation longer and rarely drifts toward others. A happy agent ambles and lingers. You read team mood by watching movement patterns.
 
 **Implementation**: ~15 lines in `computeHabits()` applying mood multipliers to habit timer values. Mood is snapshot at spawn time. If mood changes during runtime (via world-state poll), `BrainSystem` exposes an `updateMood(name, mood)` method that recomputes the affected multipliers on the agent's habits without full re-registration.
@@ -183,7 +188,12 @@ A frustrated agent visibly paces the room faster and takes shorter breaks. A foc
 
 Click an agent to lock the camera on them.
 
-**Activation**: Click agent actor when no panel is open. (Panel click takes priority — existing behavior.)
+**Click behavior**: Agent clicks serve two purposes — panel and follow. The logic:
+1. First click on an agent → opens the info panel (existing behavior)
+2. Clicking the same agent while its panel is already open → closes panel, starts follow mode
+3. Clicking a different agent while following → stops following previous, opens panel for new agent
+
+This gives a natural "inspect then watch" flow. Single-click = info. Double-purpose click = follow.
 
 **Tracking**: Camera position updates every frame to center on followed agent. Uses ExcaliburJS built-in `LockCameraToActorStrategy`.
 
@@ -258,7 +268,7 @@ Exports:
 ## Test Strategy
 
 **Pure function tests** (brain + movement):
-- `resolveIdleTarget()` — social drift, focus drift, home room pull, fallback scenarios
+- `resolveIdleTarget()` — social drift, focus drift, fallback scenarios, null return for stay-put
 - Mood multiplier derivation — all 4 moods × parameter effects
 - Preferred workstation resolution — preferred available, preferred occupied, no preference
 - Habit derivation — attribute brackets → correct styles
