@@ -12,12 +12,14 @@ export interface WorkstationActorConfig {
 	readonly y: number;
 	readonly workstationColor: string;
 	readonly style?: "desk" | "workbench" | "console";
+	readonly workstationId?: string;
 }
 
 export class WorkstationActor extends ex.Actor {
 	public occupied = false;
 	public occupantName: string | null = null;
 	public toolName: string | null = null;
+	public readonly workstationId: string;
 	private readonly workstationColor: string;
 	private readonly style: "desk" | "workbench" | "console";
 
@@ -28,6 +30,7 @@ export class WorkstationActor extends ex.Actor {
 			height: ACTOR_HEIGHT,
 			anchor: ex.vec(0.5, 0.5),
 		});
+		this.workstationId = config.workstationId ?? `ws-${config.x}-${config.y}`;
 		this.workstationColor = config.workstationColor;
 		this.style = config.style ?? "desk";
 		this.buildGraphic();

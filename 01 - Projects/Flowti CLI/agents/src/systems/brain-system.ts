@@ -1,14 +1,15 @@
 /**
  * brain-system.ts — Drives agent movement and state transitions each frame.
  *
- * Maintains per-agent brain state, movement targets, and attribute-derived params.
+ * Maintains per-agent brain state, movement targets, attribute-derived params,
+ * and personality-driven habits (idle targeting, break routine, social facing).
  * Called from scene onPreUpdate to advance wandering, walking, working, and idle cycles.
  */
 
-import type { BrainState, BrainParams, MovementTarget } from "../brain/brain-types.js";
+import type { BrainState, BrainParams, MovementTarget, AgentHabits } from "../brain/brain-types.js";
 import type { AgentAttributes, AgentActionType } from "../data/types.js";
-import { computeParams, transition } from "../brain/agent-brain.js";
-import { randomWanderPoint, type Bounds, type Position } from "../brain/movement.js";
+import { computeParams, transition, computeHabits } from "../brain/agent-brain.js";
+import { randomWanderPoint, resolveIdleTarget, preferredWorkstation, type Bounds, type Position, type Workstation } from "../brain/movement.js";
 import type { AgentActor } from "../actors/agent-actor.js";
 
 // ── Per-agent entry ──────────────────────────────────────────────────
@@ -16,10 +17,22 @@ import type { AgentActor } from "../actors/agent-actor.js";
 interface AgentBrainEntry {
 	state: BrainState;
 	params: BrainParams;
+	habits: AgentHabits;
+	attributes: AgentAttributes;
+	domain: string;
 	target: MovementTarget;
 	targetPos: Position | null;
 	stateTimer: number;
 	position: { x: number; y: number };
+	// Idle pose cycling
+	idlePoseTimer: number;
+	idlePoseIndex: number;
+	// Break routine
+	breakPhase: "none" | "moving" | "resting";
+	breakTimer: number;
+	breakRestTarget: number;
+	// Social facing
+	socialHoldTimer: number;
 }
 
 // ── Constants ────────────────────────────────────────────────────────
@@ -27,11 +40,32 @@ interface AgentBrainEntry {
 const BASE_SPEED = 40; // pixels per second
 const ARRIVAL_THRESHOLD = 4; // pixels to consider "arrived"
 
+const IDLE_CYCLES: Record<AgentHabits["idleStyle"], readonly string[]> = {
+	fidgety: ["idle", "look-around", "stretch", "idle"],
+	calm: ["idle", "idle", "look-around", "idle"],
+	restless: ["idle", "look-around", "idle", "look-around", "stretch"],
+};
+
+const IDLE_TIMERS: Record<AgentHabits["idleStyle"], { min: number; max: number }> = {
+	fidgety: { min: 3000, max: 6000 },
+	calm: { min: 8000, max: 15000 },
+	restless: { min: 5000, max: 10000 },
+};
+
+const SOCIAL_PROXIMITY_THRESHOLD = 70;
+const SOCIAL_HOLD_DURATION = 4000;
+const MOVEMENT_SPEED_MAP: Record<AgentHabits["movementStyle"], number> = {
+	deliberate: 0.7,
+	brisk: 1.0,
+	darting: 1.4,
+};
+
 // ── BrainSystem ──────────────────────────────────────────────────────
 
 export interface BrainSystemConfig {
 	readonly bounds: Bounds;
 	readonly onWorkstationChange?: (agentName: string, action: "occupy" | "vacate", position: { x: number; y: number }) => void;
+	readonly onWorkstationResolve?: (agentName: string, preferredId: string | null) => { x: number; y: number } | null;
 }
 
 export class BrainSystem {
@@ -44,22 +78,40 @@ export class BrainSystem {
 		this.config = config;
 	}
 
-	/** Register an agent with its attributes. */
-	register(name: string, attributes: AgentAttributes): void {
+	/** Register an agent with its attributes, mood, and domain. */
+	register(name: string, attributes: AgentAttributes, mood?: string, domain?: string): void {
 		if (this.entries.has(name)) return;
+		const resolvedMood = mood ?? "neutral";
+		const resolvedDomain = domain ?? "general";
 		this.entries.set(name, {
 			state: "idle",
 			params: computeParams(attributes),
+			habits: computeHabits(attributes, resolvedMood, resolvedDomain),
+			attributes,
+			domain: resolvedDomain,
 			target: { kind: "none" },
 			targetPos: null,
 			stateTimer: 0,
 			position: { x: 0, y: 0 },
+			idlePoseTimer: 0,
+			idlePoseIndex: 0,
+			breakPhase: "none",
+			breakTimer: 0,
+			breakRestTarget: 0,
+			socialHoldTimer: 0,
 		});
 	}
 
 	/** Remove an agent from the brain system. */
 	unregister(name: string): void {
 		this.entries.delete(name);
+	}
+
+	/** Recompute habit multipliers when mood changes at runtime. */
+	updateMood(name: string, mood: string): void {
+		const entry = this.entries.get(name);
+		if (!entry) return;
+		entry.habits = computeHabits(entry.attributes, mood, entry.domain);
 	}
 
 	/** Get the current brain state for an agent. */
@@ -95,6 +147,7 @@ export class BrainSystem {
 
 			switch (entry.state) {
 				case "idle":
+					this.updateIdlePoseCycle(entry, deltaMs, actor);
 					this.updateIdle(entry, name);
 					break;
 				case "wandering":
@@ -104,7 +157,11 @@ export class BrainSystem {
 					this.updateMoving(entry, actor, deltaMs, name);
 					break;
 				case "working":
-					this.updateWorking(entry);
+					this.updateWorking(entry, name);
+					break;
+				case "on-break":
+					this.updateOnBreak(entry, actor, deltaMs, name);
+					this.updateIdlePoseCycle(entry, deltaMs, actor);
 					break;
 				case "talking":
 					// Stay in talking until an event transitions out
@@ -117,6 +174,9 @@ export class BrainSystem {
 			actor.updateFromBrain(entry.state, entry.target);
 			entry.position = { x: actor.pos.x, y: actor.pos.y };
 		}
+
+		// Social facing pass (after all positions updated)
+		this.updateSocialFacing(deltaMs, getActor);
 	}
 
 	/** Get the last known position for an agent. */
@@ -126,14 +186,20 @@ export class BrainSystem {
 		return entry.position;
 	}
 
-	private updateIdle(entry: AgentBrainEntry, _name: string): void {
-		if (entry.stateTimer >= entry.params.idleResistance) {
-			// Start wandering
+	private updateIdle(entry: AgentBrainEntry, name: string): void {
+		const adjustedIdleResistance = entry.params.idleResistance * entry.habits.idleResistanceMult;
+		if (entry.stateTimer >= adjustedIdleResistance) {
+			// Start wandering with personality-driven target
 			entry.state = "wandering";
 			entry.stateTimer = 0;
-			const dest = randomWanderPoint(this.bounds, Math.random);
-			entry.targetPos = dest;
-			entry.target = { kind: "wander", x: dest.x, y: dest.y };
+			const nearbyAgents = this.getNearbyAgentPositions(name);
+			const dest = resolveIdleTarget(entry.habits, nearbyAgents, this.bounds, Math.random);
+			if (dest) {
+				entry.targetPos = dest;
+				entry.target = { kind: "wander", x: dest.x, y: dest.y };
+			} else {
+				entry.state = "idle";
+			}
 		}
 	}
 
@@ -157,7 +223,9 @@ export class BrainSystem {
 				entry.target = { kind: "none" };
 			} else if (entry.state === "walking-to") {
 				if (entry.target.kind === "workstation") {
-					entry.state = "working";
+					// Settling pause before working
+					entry.state = "idle";
+					entry.stateTimer = entry.params.idleResistance - entry.habits.settlingPause;
 					this.config.onWorkstationChange?.(name, "occupy", { x: entry.position.x, y: entry.position.y });
 				} else {
 					entry.state = "idle";
@@ -165,12 +233,13 @@ export class BrainSystem {
 				entry.target = { kind: "none" };
 			}
 			entry.targetPos = null;
-			entry.stateTimer = 0;
+			entry.stateTimer = entry.stateTimer || 0;
 			return;
 		}
 
-		// Move toward target
-		const speed = BASE_SPEED * entry.params.speedMultiplier * (deltaMs / 1000);
+		// Move toward target with habit-based speed
+		const speedMult = MOVEMENT_SPEED_MAP[entry.habits.movementStyle] * entry.habits.speedMult;
+		const speed = BASE_SPEED * speedMult * (deltaMs / 1000);
 		const moveX = (dx / dist) * Math.min(speed, dist);
 		const moveY = (dy / dist) * Math.min(speed, dist);
 		actor.pos.x += moveX;
@@ -180,7 +249,20 @@ export class BrainSystem {
 		actor.facingLeft = dx < 0;
 	}
 
-	private updateWorking(entry: AgentBrainEntry): void {
+	private updateWorking(entry: AgentBrainEntry, name: string): void {
+		const breakThresholdMs = entry.habits.breakThreshold * 1000;
+		if (entry.stateTimer >= breakThresholdMs && breakThresholdMs < entry.params.focusDuration) {
+			// Break time
+			entry.state = "on-break";
+			entry.breakPhase = "moving";
+			entry.stateTimer = 0;
+			entry.breakTimer = 0;
+			this.config.onWorkstationChange?.(name, "vacate", entry.position);
+			const dest = randomWanderPoint(this.bounds, Math.random);
+			entry.targetPos = dest;
+			entry.target = { kind: "wander", x: dest.x, y: dest.y };
+			return;
+		}
 		if (entry.stateTimer >= entry.params.focusDuration) {
 			// Done working, start wandering
 			entry.state = "wandering";
@@ -189,5 +271,100 @@ export class BrainSystem {
 			entry.targetPos = dest;
 			entry.target = { kind: "wander", x: dest.x, y: dest.y };
 		}
+	}
+
+	private updateOnBreak(entry: AgentBrainEntry, actor: AgentActor, deltaMs: number, name: string): void {
+		if (entry.breakPhase === "moving") {
+			// Walk to break point
+			if (!entry.targetPos) {
+				entry.breakPhase = "resting";
+				entry.breakTimer = 0;
+				entry.breakRestTarget = 5000 + Math.random() * 5000;
+				return;
+			}
+			const dx = entry.targetPos.x - actor.pos.x;
+			const dy = entry.targetPos.y - actor.pos.y;
+			const dist = Math.sqrt(dx * dx + dy * dy);
+			if (dist < ARRIVAL_THRESHOLD) {
+				entry.breakPhase = "resting";
+				entry.breakTimer = 0;
+				entry.breakRestTarget = 5000 + Math.random() * 5000;
+				entry.targetPos = null;
+				return;
+			}
+			const speedMult = MOVEMENT_SPEED_MAP[entry.habits.movementStyle];
+			const speed = BASE_SPEED * speedMult * (deltaMs / 1000);
+			actor.pos.x += (dx / dist) * Math.min(speed, dist);
+			actor.pos.y += (dy / dist) * Math.min(speed, dist);
+			actor.facingLeft = dx < 0;
+		} else if (entry.breakPhase === "resting") {
+			entry.breakTimer += deltaMs;
+			if (entry.breakTimer >= entry.breakRestTarget) {
+				// Return to preferred workstation
+				entry.state = "walking-to";
+				entry.breakPhase = "none";
+				entry.stateTimer = 0;
+				entry.target = { kind: "workstation" };
+				const wsPos = this.config.onWorkstationResolve?.(name, entry.habits.preferredWorkstationId);
+				entry.targetPos = wsPos ?? null;
+			}
+		}
+	}
+
+	private updateIdlePoseCycle(entry: AgentBrainEntry, deltaMs: number, actor: AgentActor): void {
+		entry.idlePoseTimer += deltaMs;
+		const timing = IDLE_TIMERS[entry.habits.idleStyle];
+		const threshold = timing.min + Math.random() * (timing.max - timing.min);
+		if (entry.idlePoseTimer >= threshold) {
+			entry.idlePoseTimer = 0;
+			const cycle = IDLE_CYCLES[entry.habits.idleStyle];
+			entry.idlePoseIndex = (entry.idlePoseIndex + 1) % cycle.length;
+			actor.setIdlePose(cycle[entry.idlePoseIndex]);
+		}
+	}
+
+	private updateSocialFacing(deltaMs: number, getActor: (name: string) => AgentActor | undefined): void {
+		const idleEntries: Array<[string, AgentBrainEntry]> = [];
+		for (const [name, entry] of this.entries) {
+			if (entry.state === "idle" && entry.socialHoldTimer <= 0) {
+				idleEntries.push([name, entry]);
+			}
+		}
+
+		for (let i = 0; i < idleEntries.length; i++) {
+			for (let j = i + 1; j < idleEntries.length; j++) {
+				const [nameA, entryA] = idleEntries[i];
+				const [nameB, entryB] = idleEntries[j];
+				const dx = entryA.position.x - entryB.position.x;
+				const dy = entryA.position.y - entryB.position.y;
+				const dist = Math.sqrt(dx * dx + dy * dy);
+				if (dist < SOCIAL_PROXIMITY_THRESHOLD && dist > 0) {
+					const actorA = getActor(nameA);
+					const actorB = getActor(nameB);
+					if (actorA && actorB) {
+						actorA.facingLeft = entryA.position.x > entryB.position.x;
+						actorB.facingLeft = entryB.position.x > entryA.position.x;
+						entryA.socialHoldTimer = SOCIAL_HOLD_DURATION;
+						entryB.socialHoldTimer = SOCIAL_HOLD_DURATION;
+					}
+				}
+			}
+		}
+
+		// Decrement social hold timers
+		for (const [, entry] of this.entries) {
+			if (entry.socialHoldTimer > 0) {
+				entry.socialHoldTimer -= deltaMs;
+			}
+		}
+	}
+
+	private getNearbyAgentPositions(excludeName: string): Position[] {
+		const positions: Position[] = [];
+		for (const [name, entry] of this.entries) {
+			if (name === excludeName) continue;
+			positions.push(entry.position);
+		}
+		return positions;
 	}
 }

@@ -121,6 +121,7 @@ export class RoomScene extends ex.Scene {
 					y,
 					workstationColor: this.theme.workstationColor,
 					style: this.roomConfig.workstationStyle,
+					workstationId: `${this.setting}-${row * WORKSTATION_COLS + col}`,
 				});
 				this.add(ws);
 				this.workstations.push(ws);

@@ -21,6 +21,7 @@ import { appendAgentResponse } from "./ui/talk-tab.js";
 import { sendMessage, assignTask, grantPermission } from "./data/api-client.js";
 import type { AgentAction, DashboardAgent, ActivityEntry, PermissionEntry } from "./data/types.js";
 import type { AgentActor } from "./actors/agent-actor.js";
+import { preferredWorkstation } from "./brain/movement.js";
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -171,6 +172,17 @@ async function main(): Promise<void> {
 				break;
 			}
 		},
+		onWorkstationResolve: (agentName, preferredId) => {
+			for (const room of Object.values(roomScenes)) {
+				const actor = room.getAgentActor(agentName);
+				if (!actor) continue;
+				const workstations = room.getWorkstations().map((ws) => ({
+					id: ws.workstationId, x: ws.pos.x, y: ws.pos.y, occupied: ws.occupied,
+				}));
+				return preferredWorkstation({ x: actor.pos.x, y: actor.pos.y }, workstations, preferredId);
+			}
+			return null;
+		},
 	});
 
 	const bubbleSystem = new BubbleSystem();
@@ -252,7 +264,7 @@ async function main(): Promise<void> {
 
 			// Register agents in brain and bubble systems
 			for (const agent of agents) {
-				brainSystem.register(agent.name, agent.attributes ?? {});
+				brainSystem.register(agent.name, agent.attributes ?? {}, agent.mood, agent.domain);
 				bubbleSystem.register(agent.name, agent.personality ?? [], brainSystem.getState(agent.name)!.params);
 			}
 		},
