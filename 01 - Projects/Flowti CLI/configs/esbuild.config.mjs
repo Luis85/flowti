@@ -15,7 +15,7 @@
 import esbuild from "esbuild";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { mkdirSync, copyFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, copyFileSync, writeFileSync, unlinkSync, existsSync } from "node:fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "..");
@@ -66,6 +66,11 @@ if (isWatch) {
 	console.log("  Watching for changes...");
 } else {
 	await esbuild.build(mainOptions);
+	// Clean up stale artifacts from the old 3-bundle build (main.js, tui.mjs, chat.mjs)
+	for (const stale of ["main.js", "main.js.map", "tui.mjs", "tui.mjs.map", "chat.mjs", "chat.mjs.map"]) {
+		const p = path.join(outDir, stale);
+		if (existsSync(p)) { try { unlinkSync(p); } catch { /* ignore */ } }
+	}
 	// Deploy bootstrap as index.mjs + package.json so `node .flowti/bin` works
 	copyFileSync(
 		path.join(projectRoot, "src", "boot", "bootstrap.mjs"),
