@@ -164,7 +164,7 @@
 			"label": "CSV File",
 			"icon": "file-spreadsheet",
 			"type": "flowti-csv",
-			"legacy": true
+			"fileView": true
 		},
 		"canvas-import": {
 			"kind": "leaf",
