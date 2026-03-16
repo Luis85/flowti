@@ -3,6 +3,7 @@ import { EventBus } from "../../../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../../../src/infrastructure/events/types";
 import { registerTrainEventHandlers, type TrainHandlerContext } from "../../../../src/domain/train/handlers/train-event-handlers";
 import type { TrainState } from "../../../../src/domain/train/types";
+import type { Session } from "../../../../src/domain/session/types";
 
 function makeTrain(overrides: Partial<TrainState> = {}): TrainState {
 	return {
@@ -10,23 +11,23 @@ function makeTrain(overrides: Partial<TrainState> = {}): TrainState {
 		sessionId: "session_1",
 		title: "Test Train",
 		status: "running",
+		durationMinutes: 30,
 		thoughts: [{ id: "t1" }, { id: "t2" }] as TrainState["thoughts"],
 		relations: [],
 		createdAt: "2026-03-16T10:00:00Z",
 		completedAt: null,
 		pausedAt: null,
 		folderPath: "trains/test",
-		parentTrainId: null,
+		parentTrainId: undefined,
 		trainType: "exploration",
-		branches: [],
 		...overrides,
 	};
 }
 
-function makeSession(id: string) {
+function makeSession(id: string): Session {
 	return {
 		id,
-		type: "train",
+		type: "train-of-thought",
 		title: "Test",
 		status: "active",
 		durationMinutes: 0,
