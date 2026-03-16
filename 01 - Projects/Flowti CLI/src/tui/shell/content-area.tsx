@@ -8,6 +8,7 @@
 import React, { useState } from "react";
 import { Box, Text } from "ink";
 import { getPage } from "../pages/page-registry.js";
+import { useLoaderContext } from "../context.js";
 
 interface ContentAreaProps {
 	readonly pageId: string;
@@ -18,11 +19,11 @@ interface ContentAreaProps {
 
 export function ContentArea({ pageId, params, navigate, goBack }: ContentAreaProps): React.JSX.Element {
 	const [actionError, setActionError] = useState<string | null>(null);
+	const _ctx = useLoaderContext(params);
 	const Page = getPage(pageId);
 
 	const handleAction = (_actionId: string, _params?: Record<string, string>) => {
 		setActionError(null);
-		// Action bridge will be wired in Phase 2 when loaders are registered
 	};
 
 	return (
