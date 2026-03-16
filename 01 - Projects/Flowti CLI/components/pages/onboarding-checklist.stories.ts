@@ -7,7 +7,11 @@ const mock = PAGE_MOCKS["onboarding-checklist"];
 const navCards: NavigationCardProps[] = [];
 
 const meta: Meta = {
-	title: "Pages/Onboarding Checklist",
+	title: "Pages/Onboarding/Onboarding Checklist",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "View onboarding tour progress and completed milestones." } },
+	},
 	render: () => createPageStory({
 		title: mock.title,
 		description: mock.description,

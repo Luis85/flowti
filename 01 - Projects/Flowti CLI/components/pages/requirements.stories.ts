@@ -7,7 +7,11 @@ const mock = PAGE_MOCKS["requirements"];
 const navCards: NavigationCardProps[] = [];
 
 const meta: Meta = {
-	title: "Pages/Requirements Management",
+	title: "Pages/Management/Requirements Management",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "Manage project requirements — functional, non-functional, constraints, use cases, and user stories." } },
+	},
 	render: () => createPageStory({
 		title: mock.title,
 		description: mock.description,

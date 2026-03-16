@@ -92,7 +92,11 @@ const actions = [
 ];
 
 const meta: Meta = {
-	title: "Pages/Iteration Planning",
+	title: "Pages/Management/Iteration Planning",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "Plan an iteration — edit description, add tasks, attach agents, add resources, set capacity, and start." } },
+	},
 	render: () => createPageStory({
 		title: "Iteration Planning",
 		description: "Plan an iteration — edit description, add tasks, attach agents, add resources, set capacity, and start.",

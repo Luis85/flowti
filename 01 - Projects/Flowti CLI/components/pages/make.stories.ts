@@ -7,7 +7,11 @@ const mock = PAGE_MOCKS["make"];
 const navCards: NavigationCardProps[] = [];
 
 const meta: Meta = {
-	title: "Pages/Make",
+	title: "Pages/Project/Make",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "Scaffold new project artifacts from templates." } },
+	},
 	render: () => createPageStory({
 		title: mock.title,
 		description: mock.description,

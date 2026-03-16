@@ -7,7 +7,11 @@ const mock = PAGE_MOCKS["publish"];
 const navCards: NavigationCardProps[] = [];
 
 const meta: Meta = {
-	title: "Pages/Publish",
+	title: "Pages/Project/Publish",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "Release pipeline — build, test, and distribute project artifacts." } },
+	},
 	render: () => createPageStory({
 		title: mock.title,
 		description: mock.description,

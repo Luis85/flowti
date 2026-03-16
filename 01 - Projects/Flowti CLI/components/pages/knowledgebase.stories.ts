@@ -7,7 +7,11 @@ const mock = PAGE_MOCKS["knowledgebase"];
 const navCards: NavigationCardProps[] = [];
 
 const meta: Meta = {
-	title: "Pages/Knowledgebase",
+	title: "Pages/Project/Knowledgebase",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "Search and browse the project knowledgebase." } },
+	},
 	render: () => createPageStory({
 		title: mock.title,
 		description: mock.description,

@@ -28,7 +28,11 @@ const actions = [
 ];
 
 const meta: Meta = {
-	title: "Pages/Welcome to Flowti",
+	title: "Pages/Onboarding/Welcome to Flowti",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "First-run onboarding — welcome screen and tour selection." } },
+	},
 	render: () => createPageStory({
 		title: "Welcome to Flowti",
 		description: "First-run onboarding — welcome screen and tour selection.",

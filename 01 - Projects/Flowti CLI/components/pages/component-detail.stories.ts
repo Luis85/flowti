@@ -70,7 +70,11 @@ const actions = [
 ];
 
 const meta: Meta = {
-	title: "Pages/Component Detail",
+	title: "Pages/Project/Component Detail",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "View and edit a single component — fields, properties, actions, children, stores, requirements, features, and relationships." } },
+	},
 	render: () => createPageStory({
 		title: "Component Detail",
 		description: "View and edit a single component — fields, properties, actions, children, stores, requirements, features, and relationships.",

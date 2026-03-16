@@ -7,7 +7,11 @@ const mock = PAGE_MOCKS["review"];
 const navCards: NavigationCardProps[] = [];
 
 const meta: Meta = {
-	title: "Pages/Review",
+	title: "Pages/Project/Review",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "Quality review pipeline — build, test, E2E, journeys, and test vault management." } },
+	},
 	render: () => createPageStory({
 		title: mock.title,
 		description: mock.description,

@@ -20,7 +20,11 @@ const navCards: NavigationCardProps[] = [
 ];
 
 const meta: Meta = {
-	title: "Pages/AI Tools",
+	title: "Pages/Agents/AI Tools",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "Manage AI agent tools and agent definitions — list, create, view, and remove agents." } },
+	},
 	render: () => createPageStory({
 		title: mock.title,
 		description: mock.description,

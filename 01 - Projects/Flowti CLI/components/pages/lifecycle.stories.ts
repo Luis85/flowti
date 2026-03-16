@@ -7,7 +7,11 @@ const mock = PAGE_MOCKS["lifecycle"];
 const navCards: NavigationCardProps[] = [];
 
 const meta: Meta = {
-	title: "Pages/Lifecycle",
+	title: "Pages/Management/Lifecycle",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "View and manage lifecycle stages — project, features, and products." } },
+	},
 	render: () => createPageStory({
 		title: mock.title,
 		description: mock.description,

@@ -14,7 +14,11 @@ const navCards: NavigationCardProps[] = [
 ];
 
 const meta: Meta = {
-	title: "Pages/Iterations",
+	title: "Pages/Management/Iterations",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "List, create, and manage project iterations." } },
+	},
 	render: () => createPageStory({
 		title: mock.title,
 		description: mock.description,

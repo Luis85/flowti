@@ -7,7 +7,11 @@ const mock = PAGE_MOCKS["raid"];
 const navCards: NavigationCardProps[] = [];
 
 const meta: Meta = {
-	title: "Pages/RAID Log",
+	title: "Pages/Management/RAID Log",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "RAID log — risks, assumptions, issues, dependencies, and decisions." } },
+	},
 	render: () => createPageStory({
 		title: mock.title,
 		description: mock.description,

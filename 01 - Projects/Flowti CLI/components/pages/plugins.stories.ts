@@ -7,7 +7,11 @@ const mock = PAGE_MOCKS["plugins"];
 const navCards: NavigationCardProps[] = [];
 
 const meta: Meta = {
-	title: "Pages/Plugins",
+	title: "Pages/Plugins/Plugins",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "Manage CLI plugins — list, validate, create, and generate references." } },
+	},
 	render: () => createPageStory({
 		title: mock.title,
 		description: mock.description,

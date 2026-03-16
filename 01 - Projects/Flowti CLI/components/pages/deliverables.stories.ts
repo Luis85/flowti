@@ -7,7 +7,11 @@ const mock = PAGE_MOCKS["deliverables"];
 const navCards: NavigationCardProps[] = [];
 
 const meta: Meta = {
-	title: "Pages/Deliverables",
+	title: "Pages/Management/Deliverables",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "Manage project deliverables — list, add, and update status." } },
+	},
 	render: () => createPageStory({
 		title: mock.title,
 		description: mock.description,

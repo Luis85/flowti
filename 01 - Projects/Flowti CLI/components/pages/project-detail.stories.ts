@@ -80,7 +80,11 @@ const navCards: NavigationCardProps[] = [
 ];
 
 const meta: Meta = {
-	title: "Pages/Flowti CLI",
+	title: "Pages/Project/Flowti CLI",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "Project hub — capture, build, review, publish, and manage a selected project." } },
+	},
 	render: () => createPageStory({
 		title: mock.title,
 		description: mock.description,

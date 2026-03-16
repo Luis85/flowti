@@ -10,4 +10,9 @@ export const parameters = {
 			{ name: "light", value: "#eff1f5" },
 		],
 	},
+	options: {
+		storySort: {
+			order: ["Pages", "Components"],
+		},
+	},
 };

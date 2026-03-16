@@ -7,7 +7,11 @@ const mock = PAGE_MOCKS["resources"];
 const navCards: NavigationCardProps[] = [];
 
 const meta: Meta = {
-	title: "Pages/Resources",
+	title: "Pages/Management/Resources",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "Manage project resources — human, material, roles, budgets, and financials." } },
+	},
 	render: () => createPageStory({
 		title: mock.title,
 		description: mock.description,

@@ -39,6 +39,42 @@ const LABEL_OVERRIDES = {
 	"docs": "Docs",
 };
 
+const PAGE_GROUPS = {
+	"start": "Home",
+	"project-detail": "Project",
+	"make": "Project",
+	"review": "Project",
+	"publish": "Project",
+	"reports": "Project",
+	"docs": "Project",
+	"knowledgebase": "Project",
+	"devtools": "Project",
+	"components": "Project",
+	"component-detail": "Project",
+	"event-catalog": "Project",
+	"ai-tools": "Agents",
+	"agent-detail": "Agents",
+	"agent-edit": "Agents",
+	"agents-chat": "Agents",
+	"agents-dashboard": "Agents",
+	"workspaces": "Agents",
+	"management": "Management",
+	"resources": "Management",
+	"timelog": "Management",
+	"deliverables": "Management",
+	"raid": "Management",
+	"capa": "Management",
+	"lifecycle": "Management",
+	"iterations": "Management",
+	"iteration-detail": "Management",
+	"iteration-planning": "Management",
+	"requirements": "Management",
+	"plugins": "Plugins",
+	"onboarding": "Onboarding",
+	"onboarding-tour": "Onboarding",
+	"onboarding-checklist": "Onboarding",
+};
+
 const TOKEN_MOCKS = {
 	"{{project.name}}": "Flowti CLI",
 	"{{params.agentName}}": "Software Architect",
@@ -103,13 +139,18 @@ for (const pageId of pageIds) {
 	const page = pages[pageId];
 	const pattern = PATTERN_MAP[pageId] ?? "simple";
 
-	// Resolve display label
+	// Resolve display label and group folder
 	const rawLabel = LABEL_OVERRIDES[pageId] ?? replaceTokens(page.label ?? toPascalCase(pageId));
 	const displayLabel = rawLabel;
+	const pageGroup = PAGE_GROUPS[pageId] ?? "Other";
 
 	// Resolve title and description with token replacement
 	const pageTitle = replaceTokens(page.label ?? toPascalCase(pageId));
 	const pageDescription = replaceTokens(page.description ?? "");
+
+	// Build tags from sitemap status
+	const tags = ["autodocs"];
+	if (page.status === "deprecated") tags.push("deprecated");
 
 	// Build nav cards from navigate/form actions whose target exists as a page
 	const navCards = (page.actions ?? [])
@@ -142,7 +183,11 @@ const mock = PAGE_MOCKS["${pageId}"];
 const navCards: NavigationCardProps[] = ${navCardsJson};
 
 const meta: Meta = {
-\ttitle: "Pages/${displayLabel}",
+\ttitle: "Pages/${pageGroup}/${displayLabel}",
+\ttags: ${JSON.stringify(tags)},
+\tparameters: {
+\t\tdocs: { description: { component: "${escapeString(pageDescription)}" } },
+\t},
 \trender: () => createPageStory({
 \t\ttitle: mock.title,
 \t\tdescription: mock.description,
@@ -181,7 +226,11 @@ const navCards: NavigationCardProps[] = ${navCardsJson};
 const actions = ${actionsJson};
 
 const meta: Meta = {
-\ttitle: "Pages/${displayLabel}",
+\ttitle: "Pages/${pageGroup}/${displayLabel}",
+\ttags: ${JSON.stringify(tags)},
+\tparameters: {
+\t\tdocs: { description: { component: "${escapedDescription}" } },
+\t},
 \trender: () => createPageStory({
 \t\ttitle: "${escapedTitle}",
 \t\tdescription: "${escapedDescription}",

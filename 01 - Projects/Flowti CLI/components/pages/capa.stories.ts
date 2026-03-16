@@ -7,7 +7,11 @@ const mock = PAGE_MOCKS["capa"];
 const navCards: NavigationCardProps[] = [];
 
 const meta: Meta = {
-	title: "Pages/CAPA",
+	title: "Pages/Management/CAPA",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "Corrective and Preventive Actions — list, add, and update CAPA items." } },
+	},
 	render: () => createPageStory({
 		title: mock.title,
 		description: mock.description,

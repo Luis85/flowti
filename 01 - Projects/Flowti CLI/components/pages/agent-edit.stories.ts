@@ -62,7 +62,11 @@ const actions = [
 ];
 
 const meta: Meta = {
-	title: "Pages/Edit: Software Architect",
+	title: "Pages/Agents/Edit: Software Architect",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "Edit an agent's identity, skills, tools, roles, AI config, and system prompt." } },
+	},
 	render: () => createPageStory({
 		title: "Edit: Software Architect",
 		description: "Edit an agent's identity, skills, tools, roles, AI config, and system prompt.",

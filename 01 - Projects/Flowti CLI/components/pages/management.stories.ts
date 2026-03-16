@@ -127,7 +127,11 @@ const actions = [
 ];
 
 const meta: Meta = {
-	title: "Pages/Management",
+	title: "Pages/Management/Management",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "Access project management tools — resources, time-log, deliverables, RAID, CAPA, lifecycle, health, and iterations." } },
+	},
 	render: () => createPageStory({
 		title: "Project Management",
 		description: "Access project management tools — resources, time-log, deliverables, RAID, CAPA, lifecycle, health, and iterations.",

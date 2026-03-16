@@ -7,7 +7,11 @@ const mock = PAGE_MOCKS["reports"];
 const navCards: NavigationCardProps[] = [];
 
 const meta: Meta = {
-	title: "Pages/Reports",
+	title: "Pages/Project/Reports",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "Generate, export, and browse project reports." } },
+	},
 	render: () => createPageStory({
 		title: mock.title,
 		description: mock.description,

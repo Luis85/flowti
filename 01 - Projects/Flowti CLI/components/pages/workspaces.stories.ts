@@ -14,7 +14,11 @@ const navCards: NavigationCardProps[] = [
 ];
 
 const meta: Meta = {
-	title: "Pages/Workspaces",
+	title: "Pages/Agents/Workspaces",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "Manage isolated agent workspaces — provision, inspect, collect, prune." } },
+	},
 	render: () => createPageStory({
 		title: mock.title,
 		description: mock.description,

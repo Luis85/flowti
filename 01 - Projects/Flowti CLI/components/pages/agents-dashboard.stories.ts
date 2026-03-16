@@ -14,7 +14,11 @@ const actions = [
 ];
 
 const meta: Meta = {
-	title: "Pages/Agents Dashboard",
+	title: "Pages/Agents/Agents Dashboard",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "Live status dashboard showing all agents and their current activity." } },
+	},
 	render: () => createPageStory({
 		title: "Agent Dashboard",
 		description: "Live status dashboard showing all agents and their current activity.",

@@ -7,7 +7,11 @@ const mock = PAGE_MOCKS["devtools"];
 const navCards: NavigationCardProps[] = [];
 
 const meta: Meta = {
-	title: "Pages/Dev Tools",
+	title: "Pages/Project/Dev Tools",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "Developer tools — type check, lint, reload, console, rebuild, and npm scripts." } },
+	},
 	render: () => createPageStory({
 		title: mock.title,
 		description: mock.description,

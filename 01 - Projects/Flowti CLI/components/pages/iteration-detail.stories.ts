@@ -53,7 +53,11 @@ const actions = [
 ];
 
 const meta: Meta = {
-	title: "Pages/Iteration Detail",
+	title: "Pages/Management/Iteration Detail",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "View iteration details, edit, or advance through lifecycle states." } },
+	},
 	render: () => createPageStory({
 		title: "Iteration Detail",
 		description: "View iteration details, edit, or advance through lifecycle states.",

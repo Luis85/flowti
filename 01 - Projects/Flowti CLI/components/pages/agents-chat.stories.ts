@@ -21,7 +21,11 @@ const actions = [
 ];
 
 const meta: Meta = {
-	title: "Pages/Agents Chat",
+	title: "Pages/Agents/Agents Chat",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "Interactive chat with an AI agent." } },
+	},
 	render: () => createPageStory({
 		title: "Agent Chat",
 		description: "Interactive chat with an AI agent.",

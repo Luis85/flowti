@@ -14,7 +14,11 @@ const navCards: NavigationCardProps[] = [
 ];
 
 const meta: Meta = {
-	title: "Pages/Onboarding Tour",
+	title: "Pages/Onboarding/Onboarding Tour",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "Active tour step renderer — guides the user through onboarding." } },
+	},
 	render: () => createPageStory({
 		title: mock.title,
 		description: mock.description,

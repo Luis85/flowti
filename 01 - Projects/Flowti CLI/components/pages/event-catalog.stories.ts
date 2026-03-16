@@ -7,7 +7,11 @@ const mock = PAGE_MOCKS["event-catalog"];
 const navCards: NavigationCardProps[] = [];
 
 const meta: Meta = {
-	title: "Pages/Event Catalog",
+	title: "Pages/Project/Event Catalog",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "Browse, add, and visualize project events." } },
+	},
 	render: () => createPageStory({
 		title: mock.title,
 		description: mock.description,

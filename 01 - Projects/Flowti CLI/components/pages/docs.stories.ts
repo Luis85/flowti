@@ -42,7 +42,11 @@ const actions = [
 ];
 
 const meta: Meta = {
-	title: "Pages/Docs",
+	title: "Pages/Project/Docs",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "Manage project documentation — references, generators, events, and dependencies." } },
+	},
 	render: () => createPageStory({
 		title: "Documentation",
 		description: "Manage project documentation — references, generators, events, and dependencies.",

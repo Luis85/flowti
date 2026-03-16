@@ -26,7 +26,11 @@ const navCards: NavigationCardProps[] = [
 ];
 
 const meta: Meta = {
-	title: "Pages/Start Menu",
+	title: "Pages/Home/Start Menu",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "Entry point — open or create a project, access global tools." } },
+	},
 	render: () => createPageStory({
 		title: mock.title,
 		description: mock.description,

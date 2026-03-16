@@ -7,7 +7,11 @@ const mock = PAGE_MOCKS["timelog"];
 const navCards: NavigationCardProps[] = [];
 
 const meta: Meta = {
-	title: "Pages/Time-Log",
+	title: "Pages/Management/Time-Log",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "Track time — list entries, log time, and view summaries." } },
+	},
 	render: () => createPageStory({
 		title: mock.title,
 		description: mock.description,

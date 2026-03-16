@@ -7,7 +7,11 @@ const mock = PAGE_MOCKS["agent-detail"];
 const navCards: NavigationCardProps[] = [];
 
 const meta: Meta = {
-	title: "Pages/Agent: Software Architect",
+	title: "Pages/Agents/Agent: Software Architect",
+	tags: ["autodocs"],
+	parameters: {
+		docs: { description: { component: "Agent profile — view details, talk, assign tasks, or manage project assignments." } },
+	},
 	render: () => createPageStory({
 		title: mock.title,
 		description: mock.description,
