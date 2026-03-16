@@ -3,28 +3,47 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import "../mocks/obsidian-stub";
 import type { OnboardingService } from "../../src/domain/onboarding/OnboardingService";
 
-// We test renderOnboardingCallout through a concrete subclass (TrainHubView).
-// The protected method is the same across all hubs; one is sufficient.
-import { TrainHubView } from "../../src/ui/train/TrainHubView";
+import { BaseHubView, type TabDef } from "../../src/ui/BaseHubView";
 import { EventBus } from "../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../src/infrastructure/events/types";
-import type { TrainService } from "../../src/domain/train/TrainService";
+
+// ── Minimal concrete subclass for testing BaseHubView ───────
+
+class TestHubView extends BaseHubView<string> {
+	private onboardingSvc: OnboardingService;
+
+	constructor(
+		leaf: import("obsidian").WorkspaceLeaf,
+		eventBus: IEventBus,
+		onboardingSvc: OnboardingService,
+	) {
+		super(leaf, eventBus);
+		this.onboardingSvc = onboardingSvc;
+	}
+
+	getViewType(): string { return "flowti-test-hub"; }
+	getDisplayText(): string { return "Test Hub"; }
+	getIcon(): string { return "test-tube"; }
+	getHubId(): string { return "test-hub"; }
+	getHubType(): "system" | "domain" | "user" { return "domain"; }
+	getHubDisplayName(): string { return "Test Hub"; }
+	getHubIcon(): string { return "test-tube"; }
+	getTabDefinitions(): TabDef[] { return []; }
+	renderTopBarActions(): void { /* noop */ }
+	onTabRender(): void { /* noop */ }
+	onHubOpen(): void { /* noop */ }
+	onHubClose(): void { /* noop */ }
+
+	onDashboardRender(): void {
+		if (!this.dashboardEl) return;
+		this.renderOnboardingCallout(this.dashboardEl, this.onboardingSvc, CALLOUT);
+	}
+}
 
 // ── Helpers ──────────────────────────────────────────────
 
 function createMockLeaf(): import("obsidian").WorkspaceLeaf {
 	return {} as import("obsidian").WorkspaceLeaf;
-}
-
-function createMockTrainService(): TrainService {
-	return {
-		getAllTrains: vi.fn(() => []),
-		getActiveTrain: vi.fn(() => undefined),
-		getTrain: vi.fn(() => undefined),
-		pause: vi.fn(async () => true),
-		resume: vi.fn(async () => true),
-		deleteTrain: vi.fn(async () => true),
-	} as unknown as TrainService;
 }
 
 function createMockOnboardingService(overrides: Partial<{
@@ -39,18 +58,18 @@ function createMockOnboardingService(overrides: Partial<{
 	} as unknown as OnboardingService;
 }
 
-function prepareContainerEl(view: TrainHubView): void {
+function prepareContainerEl(view: TestHubView): void {
 	const el = (view as unknown as { containerEl: HTMLElement }).containerEl;
 	el.appendChild(document.createElement("div")); // [0] = header
 	el.appendChild(document.createElement("div")); // [1] = content area
 }
 
 const CALLOUT = {
-	id: "train-hub-welcome",
-	icon: "train-front",
-	title: "Welcome to the Train Hub",
-	description: "Capture streams of connected thoughts in timed rides, or start a guided Canvas Session with preconfigured templates for domain design, sprint planning, and more.",
-	suggestion: "Start a ride to capture your first train of thought, or try a Canvas Session from the command palette.",
+	id: "test-hub-welcome",
+	icon: "test-tube",
+	title: "Welcome to the Test Hub",
+	description: "This is a test callout for verifying BaseHubView onboarding behavior.",
+	suggestion: "Try something to get started.",
 };
 
 // ── Tests ────────────────────────────────────────────────
@@ -64,7 +83,7 @@ describe("BaseHubView.renderOnboardingCallout", () => {
 
 	it("renders a callout banner on first visit", async () => {
 		const onboarding = createMockOnboardingService({ hasVisited: false, isCalloutDismissed: false });
-		const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), vi.fn(), onboarding);
+		const view = new TestHubView(createMockLeaf(), eventBus, onboarding);
 		prepareContainerEl(view);
 		await view.onOpen();
 
@@ -77,19 +96,18 @@ describe("BaseHubView.renderOnboardingCallout", () => {
 
 	it("does not render callout if already visited", async () => {
 		const onboarding = createMockOnboardingService({ hasVisited: true, isCalloutDismissed: false });
-		const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), vi.fn(), onboarding);
+		const view = new TestHubView(createMockLeaf(), eventBus, onboarding);
 		prepareContainerEl(view);
 		await view.onOpen();
 
 		const dashboard = (view as unknown as { dashboardEl: HTMLElement }).dashboardEl;
-		// There will be other cards (stat cards), but no callout with the welcome title
 		const allText = dashboard.textContent ?? "";
 		expect(allText).not.toContain(CALLOUT.title);
 	});
 
 	it("does not render callout if callout was dismissed", async () => {
 		const onboarding = createMockOnboardingService({ hasVisited: false, isCalloutDismissed: true });
-		const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), vi.fn(), onboarding);
+		const view = new TestHubView(createMockLeaf(), eventBus, onboarding);
 		prepareContainerEl(view);
 		await view.onOpen();
 
@@ -100,36 +118,34 @@ describe("BaseHubView.renderOnboardingCallout", () => {
 
 	it("records first visit when callout is shown", async () => {
 		const onboarding = createMockOnboardingService({ hasVisited: false, isCalloutDismissed: false });
-		const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), vi.fn(), onboarding);
+		const view = new TestHubView(createMockLeaf(), eventBus, onboarding);
 		prepareContainerEl(view);
 		await view.onOpen();
 
-		expect(onboarding.recordFirstVisit).toHaveBeenCalledWith("train-hub");
+		expect(onboarding.recordFirstVisit).toHaveBeenCalledWith("test-hub");
 	});
 
 	it("records first visit even when callout is skipped (already visited)", async () => {
 		const onboarding = createMockOnboardingService({ hasVisited: true, isCalloutDismissed: false });
-		const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), vi.fn(), onboarding);
+		const view = new TestHubView(createMockLeaf(), eventBus, onboarding);
 		prepareContainerEl(view);
 		await view.onOpen();
 
-		expect(onboarding.recordFirstVisit).toHaveBeenCalledWith("train-hub");
+		expect(onboarding.recordFirstVisit).toHaveBeenCalledWith("test-hub");
 	});
 
 	it("dismiss button removes the banner and persists dismissal", async () => {
 		const onboarding = createMockOnboardingService({ hasVisited: false, isCalloutDismissed: false });
-		const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), vi.fn(), onboarding);
+		const view = new TestHubView(createMockLeaf(), eventBus, onboarding);
 		prepareContainerEl(view);
 		await view.onOpen();
 
 		const dashboard = (view as unknown as { dashboardEl: HTMLElement }).dashboardEl;
-		// Find the dismiss button (✕)
 		const dismissBtn = dashboard.querySelector(".ft-card .ft-nav-link") as HTMLElement;
 		expect(dismissBtn).not.toBeNull();
 		dismissBtn.click();
 
 		expect(onboarding.markCalloutDismissed).toHaveBeenCalledWith(CALLOUT.id);
-		// Banner should be removed from DOM
 		const allText = dashboard.textContent ?? "";
 		expect(allText).not.toContain(CALLOUT.title);
 	});
