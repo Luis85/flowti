@@ -9,6 +9,30 @@ export const tokens = css`
 	:host {
 		font-family: var(--flowti-font);
 		color: var(--flowti-text);
+
+		/* Spacing */
+		--flowti-space-xs: 4px;
+		--flowti-space-sm: 8px;
+		--flowti-space-md: 16px;
+		--flowti-space-lg: 24px;
+		--flowti-space-xl: 32px;
+
+		/* Colors — inherit from Obsidian theme via CSS custom properties */
+		--flowti-color-success: var(--color-green);
+		--flowti-color-warning: var(--color-yellow);
+		--flowti-color-error: var(--color-red);
+		--flowti-color-muted: var(--text-muted);
+		--flowti-color-info: var(--color-blue);
+
+		/* Typography */
+		--flowti-font-sm: 0.85em;
+		--flowti-font-mono: var(--font-monospace);
+
+		/* Layout */
+		--flowti-radius: var(--radius-s);
+		--flowti-border: var(--background-modifier-border);
+		--flowti-shadow: var(--shadow-s);
+		--flowti-grid-gap: 12px;
 	}
 `;
 
