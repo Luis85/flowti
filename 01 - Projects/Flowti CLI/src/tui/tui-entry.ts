@@ -25,6 +25,13 @@ import "./pages/agent-detail-page.js";
 import "./pages/project-detail-page.js";
 import "./pages/health-page.js";
 import "./pages/iterations-page.js";
+import "./pages/resources-page.js";
+import "./pages/timelog-page.js";
+import "./pages/deliverables-page.js";
+import "./pages/raid-page.js";
+import "./pages/requirements-page.js";
+import "./pages/capa-page.js";
+import "./pages/lifecycle-page.js";
 
 export async function runTui(): Promise<void> {
 	const projectConfig = loadJson<ProjectConfig>(paths.join(CLI_PROJECT, "configs", "flowti.config.json"));
