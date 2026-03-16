@@ -2,7 +2,7 @@
  * use-chat-session.ts — Chat session state management for TUI integration.
  *
  * Implements IChatRenderer inline within the React tree using a DirtyRef +
- * polling pattern (same approach as InkChatRenderer, but embedded in the TUI).
+ * polling pattern for embedded TUI chat state.
  *
  * The hook manages:
  *   - Mutable state ref (push API for ChatShell)

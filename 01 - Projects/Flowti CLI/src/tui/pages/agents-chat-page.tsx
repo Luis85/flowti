@@ -3,7 +3,8 @@
  *
  * Renders the chat inline using useChatSession (DirtyRef + polling pattern).
  * Uses the infrastructure chat components for a consistent experience.
- * ChatShell wiring happens lazily when the user sends their first message.
+ * Chat UI renders inline. Command handlers (/done, /back) provide navigation.
+ * Full ChatShell orchestration to be wired when infrastructure deps are available in TUI context.
  */
 
 import React, { useEffect } from "react";
@@ -23,20 +24,6 @@ function AgentsChatPage({ params, enabled, goBack }: PageProps): React.JSX.Eleme
 	const { state } = session;
 
 	useEffect(() => {
-		session.onUserInput((text: string) => {
-			const timestamp = new Date().toISOString();
-			session.pushMessage({ role: "user", content: text, timestamp });
-			session.updateStatus("thinking");
-			setTimeout(() => {
-				session.pushMessage({
-					role: "agent",
-					content: `[Chat integration pending] Received: "${text}"`,
-					timestamp: new Date().toISOString(),
-				});
-				session.updateStatus("idle");
-			}, 500);
-		});
-
 		session.onCommandHandler((cmd) => {
 			if (cmd.type === "done" || cmd.type === "back") {
 				goBack();
