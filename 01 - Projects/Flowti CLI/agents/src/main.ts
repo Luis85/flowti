@@ -230,12 +230,11 @@ async function main(): Promise<void> {
 	});
 
 	// ── Start ───────────────────────────────────────────
+	await engine.start();
 	engine.goToScene("hub");
 
-	// Load initial data and start sync
+	// Load initial data and start sync after engine is ready
 	await syncSystem.start();
-
-	await engine.start();
 }
 
 main().catch((err: unknown) => {

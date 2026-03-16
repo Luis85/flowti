@@ -1,8 +1,8 @@
 /**
- * agent-actor.ts — Humanoid agent actor with mood expression and brain-driven visuals.
+ * agent-actor.ts — Simple agent actor using ExcaliburJS Canvas graphic.
  *
- * Replaces the circle-and-icon MVP with a stick-figure humanoid silhouette.
- * Head shows mood face, body colored by status, limbs animate based on brain state.
+ * Draws a colored circle (status color) with a name label below.
+ * Click to open the agent panel.
  */
 
 import * as ex from "excalibur";
@@ -20,13 +20,8 @@ const STATUS_COLORS: Record<string, string> = {
 
 // ── Dimensions ───────────────────────────────────────────────────────
 
-const HEAD_RADIUS = 8;
-const BODY_WIDTH = 12;
-const BODY_HEIGHT = 16;
-const LEG_LENGTH = 12;
-const ARM_LENGTH = 10;
-const ACTOR_TOTAL_WIDTH = 32;
-const ACTOR_TOTAL_HEIGHT = 56;
+const AVATAR_RADIUS = 16;
+const ACTOR_SIZE = 64;
 
 // ── AgentActor ───────────────────────────────────────────────────────
 
@@ -44,20 +39,18 @@ export class AgentActor extends ex.Actor {
 
 	private readonly onSelect: (agentName: string) => void;
 	private statusColor: string;
-	private pulsePhase = Math.random() * Math.PI * 2;
-	private workingDots = 0;
-	private workingTimer = 0;
 
 	constructor(config: AgentActorConfig) {
 		super({
 			pos: ex.vec(config.x, config.y),
-			width: ACTOR_TOTAL_WIDTH,
-			height: ACTOR_TOTAL_HEIGHT,
+			width: ACTOR_SIZE,
+			height: ACTOR_SIZE,
 			anchor: ex.vec(0.5, 0.5),
 		});
 		this.agentData = config.agent;
 		this.onSelect = config.onSelect;
 		this.statusColor = STATUS_COLORS[config.agent.status] ?? STATUS_COLORS["unassigned"];
+		this.buildGraphic();
 	}
 
 	onInitialize(_engine: ex.Engine): void {
@@ -66,191 +59,71 @@ export class AgentActor extends ex.Actor {
 		});
 	}
 
-	/** Update visual state from the brain system. */
 	updateFromBrain(state: BrainState, target: MovementTarget): void {
 		this.brainState = state;
-		// Face toward target if walking/talking
 		if (target.x !== undefined && (state === "walking-to" || state === "talking")) {
 			this.facingLeft = target.x < this.pos.x;
 		}
 	}
 
-	/** Change the status color dynamically. */
 	updateVisualStatus(status: string): void {
 		this.statusColor = STATUS_COLORS[status] ?? STATUS_COLORS["unassigned"];
+		this.buildGraphic();
 	}
 
-	onPreDraw(gfx: ex.ExcaliburGraphicsContext, delta: number): void {
-		const flip = this.facingLeft ? -1 : 1;
+	private buildGraphic(): void {
+		const color = ex.Color.fromHex(this.statusColor);
+		const name = this.agentData.persona ?? this.agentData.name;
+		const isAi = this.agentData.agentType === "ai";
 
-		// ── Waiting glow pulse ───────────────────────────────
-		if (this.brainState === "waiting") {
-			this.pulsePhase += 0.04;
-			const alpha = 0.15 + 0.15 * Math.sin(this.pulsePhase);
-			const glowColor = ex.Color.fromHex(this.statusColor);
-			glowColor.a = alpha;
-			gfx.drawCircle(ex.vec(0, -8), 24, glowColor);
-		}
+		const canvas = new ex.Canvas({
+			width: ACTOR_SIZE,
+			height: ACTOR_SIZE,
+			cache: true,
+			draw: (ctx: CanvasRenderingContext2D) => {
+				const cx = ACTOR_SIZE / 2;
 
-		// ── Head ─────────────────────────────────────────────
-		const headY = -(BODY_HEIGHT / 2 + HEAD_RADIUS + 2);
-		gfx.drawCircle(
-			ex.vec(0, headY),
-			HEAD_RADIUS,
-			ex.Color.fromHex(this.statusColor),
-		);
+				// ── Circle avatar ────────────────────────────
+				ctx.fillStyle = color.toHex();
+				ctx.beginPath();
+				ctx.arc(cx, 18, AVATAR_RADIUS, 0, Math.PI * 2);
+				ctx.fill();
 
-		// ── Mood face ────────────────────────────────────────
-		this.drawFace(gfx, 0, headY, flip);
+				// ── Initials inside circle ──────────────────
+				ctx.fillStyle = "#ffffff";
+				ctx.font = "bold 12px system-ui, sans-serif";
+				ctx.textAlign = "center";
+				ctx.textBaseline = "middle";
+				const initials = name.slice(0, 2).toUpperCase();
+				ctx.fillText(initials, cx, 18);
 
-		// ── Body ─────────────────────────────────────────────
-		const bodyTop = -(BODY_HEIGHT / 2);
-		gfx.drawRectangle(
-			ex.vec(0, bodyTop + BODY_HEIGHT / 2),
-			BODY_WIDTH,
-			BODY_HEIGHT,
-			ex.Color.fromHex(this.statusColor),
-		);
+				// ── AI/H badge ──────────────────────────────
+				const badgeText = isAi ? "AI" : "H";
+				const badgeColor = isAi ? "#8b5cf6" : "#10b981";
+				ctx.fillStyle = badgeColor;
+				ctx.beginPath();
+				ctx.arc(cx + AVATAR_RADIUS - 2, 6, 7, 0, Math.PI * 2);
+				ctx.fill();
+				ctx.fillStyle = "#ffffff";
+				ctx.font = "bold 7px system-ui, sans-serif";
+				ctx.fillText(badgeText, cx + AVATAR_RADIUS - 2, 7);
 
-		// ── Arms ─────────────────────────────────────────────
-		const shoulderY = bodyTop + 3;
-		const armColor = ex.Color.fromHex(this.statusColor);
+				// ── Name label below ────────────────────────
+				ctx.fillStyle = "#e2e8f0";
+				ctx.font = "11px system-ui, sans-serif";
+				ctx.textAlign = "center";
+				ctx.textBaseline = "top";
+				const displayName = name.length > 8 ? name.slice(0, 7) + "…" : name;
+				ctx.fillText(displayName, cx, 38);
 
-		if (this.brainState === "working") {
-			// Arms forward (typing pose)
-			gfx.drawLine(
-				ex.vec(-BODY_WIDTH / 2, shoulderY),
-				ex.vec(-BODY_WIDTH / 2 - ARM_LENGTH * 0.5 * flip, shoulderY + ARM_LENGTH * 0.7),
-				armColor, 2,
-			);
-			gfx.drawLine(
-				ex.vec(BODY_WIDTH / 2, shoulderY),
-				ex.vec(BODY_WIDTH / 2 + ARM_LENGTH * 0.5 * flip, shoulderY + ARM_LENGTH * 0.7),
-				armColor, 2,
-			);
-		} else {
-			// Arms at sides
-			gfx.drawLine(
-				ex.vec(-BODY_WIDTH / 2, shoulderY),
-				ex.vec(-BODY_WIDTH / 2 - ARM_LENGTH * 0.6, shoulderY + ARM_LENGTH),
-				armColor, 2,
-			);
-			gfx.drawLine(
-				ex.vec(BODY_WIDTH / 2, shoulderY),
-				ex.vec(BODY_WIDTH / 2 + ARM_LENGTH * 0.6, shoulderY + ARM_LENGTH),
-				armColor, 2,
-			);
-		}
-
-		// ── Legs ─────────────────────────────────────────────
-		const hipY = bodyTop + BODY_HEIGHT;
-		const legColor = ex.Color.fromHex(this.statusColor);
-		gfx.drawLine(
-			ex.vec(-BODY_WIDTH / 4, hipY),
-			ex.vec(-BODY_WIDTH / 4 - 3, hipY + LEG_LENGTH),
-			legColor, 2,
-		);
-		gfx.drawLine(
-			ex.vec(BODY_WIDTH / 4, hipY),
-			ex.vec(BODY_WIDTH / 4 + 3, hipY + LEG_LENGTH),
-			legColor, 2,
-		);
-
-		// ── Working dots (typing indicator) ──────────────────
-		if (this.brainState === "working") {
-			this.workingTimer += delta;
-			if (this.workingTimer > 400) {
-				this.workingTimer = 0;
-				this.workingDots = (this.workingDots + 1) % 4;
-			}
-			const dotY = shoulderY + ARM_LENGTH * 0.7 + 4;
-			const dotBaseX = BODY_WIDTH / 2 + ARM_LENGTH * 0.5 * flip + 2 * flip;
-			for (let i = 0; i < this.workingDots; i++) {
-				gfx.drawCircle(
-					ex.vec(dotBaseX + i * 4 * flip, dotY),
-					1.5,
-					ex.Color.White,
-				);
-			}
-		}
-
-		// ── AI/H badge above head ────────────────────────────
-		const badgeY = headY - HEAD_RADIUS - 10;
-		const badgeText = this.agentData.agentType === "ai" ? "AI" : "H";
-		const badgeFont = new ex.Font({
-			family: "system-ui, sans-serif",
-			size: 9,
-			unit: ex.FontUnit.Px,
-			color: ex.Color.fromHex("#94a3b8"),
-			textAlign: ex.TextAlign.Center,
+				// ── Status dot ──────────────────────────────
+				ctx.fillStyle = color.toHex();
+				ctx.beginPath();
+				ctx.arc(cx, 52, 3, 0, Math.PI * 2);
+				ctx.fill();
+			},
 		});
-		const badge = new ex.Text({ text: badgeText, font: badgeFont });
-		badge.draw(gfx, -badge.width / 2, badgeY);
 
-		// ── Name label below ─────────────────────────────────
-		const displayName = this.agentData.persona ?? this.agentData.name;
-		const nameFont = new ex.Font({
-			family: "system-ui, sans-serif",
-			size: 11,
-			unit: ex.FontUnit.Px,
-			color: ex.Color.fromHex("#e2e8f0"),
-			textAlign: ex.TextAlign.Center,
-		});
-		const nameText = new ex.Text({ text: displayName, font: nameFont });
-		const nameY = hipY + LEG_LENGTH + 6;
-		nameText.draw(gfx, -nameText.width / 2, nameY);
-	}
-
-	private drawFace(gfx: ex.ExcaliburGraphicsContext, cx: number, cy: number, _flip: number): void {
-		const mood = this.agentData.mood ?? "neutral";
-		const eyeColor = ex.Color.White;
-
-		// Eyes
-		gfx.drawCircle(ex.vec(cx - 3, cy - 2), 1.5, eyeColor);
-		gfx.drawCircle(ex.vec(cx + 3, cy - 2), 1.5, eyeColor);
-
-		// Mouth varies by mood
-		if (mood === "happy" || mood === "enthusiastic" || mood === "excited") {
-			// Smile — two-segment arc
-			gfx.drawLine(
-				ex.vec(cx - 3, cy + 3),
-				ex.vec(cx, cy + 4),
-				eyeColor, 1,
-			);
-			gfx.drawLine(
-				ex.vec(cx, cy + 4),
-				ex.vec(cx + 3, cy + 3),
-				eyeColor, 1,
-			);
-		} else if (mood === "frustrated" || mood === "angry" || mood === "stressed") {
-			// Frown
-			gfx.drawLine(
-				ex.vec(cx - 3, cy + 4),
-				ex.vec(cx, cy + 3),
-				eyeColor, 1,
-			);
-			gfx.drawLine(
-				ex.vec(cx, cy + 3),
-				ex.vec(cx + 3, cy + 4),
-				eyeColor, 1,
-			);
-		} else if (mood === "focused" || mood === "determined") {
-			// Flat line mouth
-			gfx.drawLine(
-				ex.vec(cx - 2, cy + 3),
-				ex.vec(cx + 2, cy + 3),
-				eyeColor, 1,
-			);
-		} else {
-			// Neutral — small dot
-			gfx.drawCircle(ex.vec(cx, cy + 3), 1, eyeColor);
-		}
-
-		// Talking: pupil dots shift toward face direction
-		if (this.brainState === "talking") {
-			const pupilShift = this.facingLeft ? -1 : 1;
-			gfx.drawCircle(ex.vec(cx - 3 + pupilShift, cy - 2), 0.8, ex.Color.fromHex("#0a0a0f"));
-			gfx.drawCircle(ex.vec(cx + 3 + pupilShift, cy - 2), 0.8, ex.Color.fromHex("#0a0a0f"));
-		}
+		this.graphics.use(canvas);
 	}
 }

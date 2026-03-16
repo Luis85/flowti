@@ -242,6 +242,28 @@ export function registerAllHandlers(registry: HandlerRegistry): void {
 		return undefined;
 	});
 
+	registry.registerAction("agents:rebuild-dashboard", async (ctx) => {
+		const { log, input } = ctx.deps;
+		const { CLI_PROJECT, VAULT_ROOT } = await import("../../infrastructure/config.js");
+		const dashboardPath = ctx.deps.paths.join(CLI_PROJECT, "agents");
+		const buildScript = ctx.deps.paths.join(dashboardPath, "build.mjs");
+		if (!ctx.deps.disk.existsSync(buildScript)) {
+			log("\n  Dashboard source not found. Cannot rebuild.\n");
+			await input.waitForEnter();
+			return undefined;
+		}
+		const outDir = ctx.deps.paths.join(VAULT_ROOT, ".flowti", "agents");
+		log("\n  Rebuilding dashboard...");
+		const exitCode = ctx.deps.shell.run(`node build.mjs --outdir="${outDir}"`, { cwd: dashboardPath, label: "dashboard rebuild" });
+		if (exitCode === 0) {
+			log("  Dashboard rebuilt successfully.\n");
+		} else {
+			log("  Dashboard rebuild failed.\n");
+		}
+		await input.waitForEnter();
+		return undefined;
+	});
+
 	registry.registerAction("agents:stop-dashboard", async (ctx) => {
 		const { log, input } = ctx.deps;
 		stopDashboard(log);
