@@ -273,13 +273,13 @@ export function createServiceRegistrations(
 					secretStore,
 					eventBus,
 					adapter: new AzureDevOpsAdapter({
-					http: {
-						request: async (opts) => {
-							const response = await requestUrl(opts);
-							return { json: response.json, status: response.status, headers: response.headers };
+						http: {
+							request: async (opts) => {
+								const response = await requestUrl(opts);
+								return { json: response.json, status: response.status, headers: response.headers };
+							},
 						},
-					},
-				}),
+					}),
 					fileSystem: new FileSystemClient({ eventBus }),
 				});
 			},
