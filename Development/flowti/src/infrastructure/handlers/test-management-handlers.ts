@@ -8,14 +8,7 @@
 
 import type { PluginHandlerRegistry, TabContext } from "./plugin-handler-registry";
 import type { IEventBus } from "../events/types";
-
-type Props = Record<string, unknown>;
-
-function setProps(el: HTMLElement, props: Props): void {
-	for (const [key, value] of Object.entries(props)) {
-		(el as unknown as Props)[key] = value;
-	}
-}
+import { setProps } from "./handler-utils";
 
 export interface TestManagementHandlerDeps {
 	service: {
