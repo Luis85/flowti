@@ -6,6 +6,8 @@ export interface TabContext {
 	viewId: string;
 	eventBus: IEventBus;
 	searchText?: string;
+	/** The WorkspaceLeaf hosting this view (available in SitemapLeafView contexts) */
+	leaf?: unknown;
 }
 
 export interface ActionContext {

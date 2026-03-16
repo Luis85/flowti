@@ -89,6 +89,12 @@ import { registerTrainHandlers } from "./infrastructure/handlers/train-handlers"
 import { registerCatalogHandlers } from "./infrastructure/handlers/catalog-handlers";
 import { registerDataExchangeHandlers } from "./infrastructure/handlers/data-exchange-handlers";
 import { registerAnalyticsHandlers } from "./infrastructure/handlers/analytics-handlers";
+import { registerTrainTimelineHandler } from "./infrastructure/handlers/leaf-handlers/train-timeline-handler";
+import { registerTrainMainHandler } from "./infrastructure/handlers/leaf-handlers/train-main-handler";
+import { registerCanvasImportHandler } from "./infrastructure/handlers/leaf-handlers/canvas-import-handler";
+import { registerExportHandler } from "./infrastructure/handlers/leaf-handlers/export-handler";
+import { registerSessionWorkspaceHandler } from "./infrastructure/handlers/leaf-handlers/session-workspace-handler";
+import { registerJourneyBuilderHandler } from "./infrastructure/handlers/leaf-handlers/journey-builder-handler";
 import type { PluginSitemap } from "./domain/sitemap/plugin-sitemap-types";
 import pluginSitemap from "../plugin-sitemap.json";
 
@@ -966,13 +972,17 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.onboardingService = await this.services.get<OnboardingService>("onboardingService");
 		await this.timedServiceLoad("onboardingService", () => this.onboardingService!.load());
 
-		// Train Main View — register view factory + auto-open on train start
-		this.safeRegisterView(VIEW_TYPE_TRAIN_MAIN, (leaf) =>
-			new TrainMainView(leaf, this.eventBus, this.trainService!, () => ({
+		// Train Main — now sitemap-driven via SitemapLeafView + handler
+		registerTrainMainHandler(this.handlerRegistry!, {
+			trainService: this.trainService!,
+			eventBus: this.eventBus,
+			app: this.app,
+			getTrainSettings: () => ({
 				trainFolder: settingsService.getSettings().trainFolder,
 				trainCanvasEnabled: settingsService.getSettings().trainCanvasEnabled,
 				trainCanvasAutoOpen: settingsService.getSettings().trainCanvasAutoOpen,
-			}), {
+			}),
+			closureDeps: {
 				getSession: (sessionId) => this.sessionService?.getSessionById(sessionId) ?? null,
 				completeClosure: (sessionId, response) => {
 					void this.sessionService?.completeClosure(sessionId, response);
@@ -980,23 +990,43 @@ export default class FlowtiBasePlugin extends Plugin {
 				skipClosure: (sessionId) => {
 					void this.sessionService?.skipClosure(sessionId);
 				},
-			}),
-		);
+			},
+		});
 
-		// Train Timeline Sidebar — register view factory + auto-open in right sidebar
-		this.safeRegisterView(VIEW_TYPE_TRAIN_TIMELINE, (leaf) =>
-			new TrainTimelineSidebar(leaf, this.eventBus, this.trainService!, () => ({
+		// Train Timeline — now sitemap-driven via SitemapLeafView + handler
+		registerTrainTimelineHandler(this.handlerRegistry!, {
+			trainService: this.trainService!,
+			eventBus: this.eventBus,
+			app: { vault: { getAbstractFileByPath: (path: string) => this.app.vault.getAbstractFileByPath(path) } },
+			getTrainSettings: () => ({
 				trainFolder: settingsService.getSettings().trainFolder,
 				trainCanvasEnabled: settingsService.getSettings().trainCanvasEnabled,
 				trainCanvasAutoOpen: settingsService.getSettings().trainCanvasAutoOpen,
-			})),
-		);
+			}),
+		});
 
-		// Train Hub — now driven by SitemapHubView + Lit components (see registerTrainHandlers).
-		// View registration is handled by SitemapBootstrap via plugin-sitemap.json.
+		// Canvas Import — now sitemap-driven via SitemapLeafView + handler
+		registerCanvasImportHandler(this.handlerRegistry!, {
+			canvasService: this.canvasService!,
+			eventBus: this.eventBus,
+			app: this.app,
+		});
 
-		// Analytics Hub — now driven by SitemapHubView + Lit components (see registerAnalyticsHandlers).
-		// View registration is handled by SitemapBootstrap via plugin-sitemap.json.
+		// Export — now sitemap-driven via SitemapLeafView + handler
+		registerExportHandler(this.handlerRegistry!, {
+			dataExchangeService: this.dataExchangeService!,
+			eventBus: this.eventBus,
+			app: this.app,
+			getConfig: () => null, // Config passed via view state at open time
+		});
+
+		// Session Workspace — now sitemap-driven via SitemapLeafView + handler
+		registerSessionWorkspaceHandler(this.handlerRegistry!, {
+			sessionService: this.sessionService!,
+			eventBus: this.eventBus,
+			app: this.app,
+			trainService: this.trainService,
+		});
 
 		// Test Management Hub — quality cockpit for journey-based testing
 		this.testManagementService = await this.services.get<TestManagementService>("testManagementService");
@@ -1186,24 +1216,21 @@ export default class FlowtiBasePlugin extends Plugin {
 			}),
 		);
 
-		// Journey Builder — sidebar for creating E2E journey definitions
-		this.safeRegisterView(VIEW_TYPE_JOURNEY_BUILDER, (leaf) =>
-			new JourneyBuilderSidebar(leaf, {
-				eventBus: this.eventBus,
-				getEventCatalog: () => EVENT_CATALOG.map((e) => ({
-					type: e.type,
-					category: e.category,
-					description: e.description,
-				})),
-				getCommands: () => this.commands.getCommandsMeta().map((c) => ({ id: c.id, label: c.label, domain: c.domain })),
-				getJourneyFolder: () => settingsService.getSettings().journeyFolder,
-			}),
-		);
+		// Journey Builder — now sitemap-driven via SitemapLeafView + handler
+		registerJourneyBuilderHandler(this.handlerRegistry!, {
+			eventBus: this.eventBus,
+			app: this.app,
+			getEventCatalog: () => EVENT_CATALOG.map((e) => ({
+				type: e.type,
+				category: e.category,
+				description: e.description,
+			})),
+			getCommands: () => this.commands.getCommandsMeta().map((c) => ({ id: c.id, label: c.label, domain: c.domain })),
+			getJourneyFolder: () => settingsService.getSettings().journeyFolder,
+		});
 
-		// Journey File View — opens .journey files with summary + sidebar
-		this.safeRegisterView(VIEW_TYPE_JOURNEY_FILE, (leaf) =>
-			new JourneyFileView(leaf, this.eventBus, () => settingsService.getSettings().journeyFolder),
-		);
+		// Journey File View — still uses fileView factory (TextFileView subclass)
+		// Registered via SitemapBootstrap with fileView: true in plugin-sitemap.json
 		try {
 			this.registerExtensions(["journey"], VIEW_TYPE_JOURNEY_FILE);
 		} catch {

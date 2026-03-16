@@ -57,7 +57,6 @@ export interface SessionWorkspaceHandlerDeps {
 	sessionService: SessionService;
 	eventBus: IEventBus;
 	app: App;
-	leaf: WorkspaceLeaf;
 	trainService?: TrainService;
 	customSessionTypes?: Record<string, SessionTypeConfig>;
 	customOutputTemplates?: readonly SessionOutputTemplate[];
@@ -69,8 +68,8 @@ export function registerSessionWorkspaceHandler(
 	registry: PluginHandlerRegistry,
 	deps: SessionWorkspaceHandlerDeps,
 ): void {
-	registry.registerTabHandler("leaf:session-workspace", (container: HTMLElement, _ctx: TabContext) => {
-		createSessionWorkspace(container, deps);
+	registry.registerTabHandler("leaf:session-workspace", (container: HTMLElement, ctx: TabContext) => {
+		createSessionWorkspace(container, deps, ctx.leaf as WorkspaceLeaf);
 	});
 }
 
@@ -79,8 +78,9 @@ export function registerSessionWorkspaceHandler(
 function createSessionWorkspace(
 	container: HTMLElement,
 	deps: SessionWorkspaceHandlerDeps,
+	leaf: WorkspaceLeaf,
 ): () => void {
-	const { sessionService, eventBus, app, leaf } = deps;
+	const { sessionService, eventBus, app } = deps;
 	const customSessionTypes = deps.customSessionTypes ?? {};
 	const customOutputTemplates = deps.customOutputTemplates ?? [];
 

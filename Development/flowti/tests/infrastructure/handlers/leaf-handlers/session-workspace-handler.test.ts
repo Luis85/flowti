@@ -161,8 +161,16 @@ function createDeps(overrides: Partial<SessionWorkspaceHandlerDeps> = {}): Sessi
 		sessionService: createMockSessionService(session) as unknown as SessionWorkspaceHandlerDeps["sessionService"],
 		eventBus: createMockEventBus(),
 		app: createMockApp() as unknown as SessionWorkspaceHandlerDeps["app"],
-		leaf: createMockLeaf() as unknown as SessionWorkspaceHandlerDeps["leaf"],
 		...overrides,
+	};
+}
+
+function createCtx(eventBus: IEventBus) {
+	return {
+		tabId: "main",
+		viewId: "test",
+		eventBus,
+		leaf: createMockLeaf(),
 	};
 }
 
@@ -189,11 +197,7 @@ describe("registerSessionWorkspaceHandler", () => {
 			registerSessionWorkspaceHandler(registry, deps);
 
 			const container = document.createElement("div");
-			registry.getTabHandler("leaf:session-workspace")!(container, {
-				tabId: "main",
-				viewId: "test",
-				eventBus: deps.eventBus,
-			});
+			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
 			const empty = container.querySelector(".ft-session-workspace-empty");
 			expect(empty).not.toBeNull();
@@ -207,11 +211,7 @@ describe("registerSessionWorkspaceHandler", () => {
 			registerSessionWorkspaceHandler(registry, deps);
 
 			const container = document.createElement("div");
-			registry.getTabHandler("leaf:session-workspace")!(container, {
-				tabId: "main",
-				viewId: "test",
-				eventBus: deps.eventBus,
-			});
+			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
 			expect(panelMocks.goalsPanel.render).not.toHaveBeenCalled();
 			expect(panelMocks.executionPanel.render).not.toHaveBeenCalled();
@@ -225,11 +225,7 @@ describe("registerSessionWorkspaceHandler", () => {
 			registerSessionWorkspaceHandler(registry, deps);
 
 			const container = document.createElement("div");
-			registry.getTabHandler("leaf:session-workspace")!(container, {
-				tabId: "main",
-				viewId: "test",
-				eventBus: deps.eventBus,
-			});
+			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
 			expect(container.classList.contains("ft-session-workspace")).toBe(true);
 		});
@@ -239,11 +235,7 @@ describe("registerSessionWorkspaceHandler", () => {
 			registerSessionWorkspaceHandler(registry, deps);
 
 			const container = document.createElement("div");
-			registry.getTabHandler("leaf:session-workspace")!(container, {
-				tabId: "main",
-				viewId: "test",
-				eventBus: deps.eventBus,
-			});
+			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
 			const header = container.querySelector(".ft-session-workspace-header");
 			expect(header).not.toBeNull();
@@ -256,11 +248,7 @@ describe("registerSessionWorkspaceHandler", () => {
 			registerSessionWorkspaceHandler(registry, deps);
 
 			const container = document.createElement("div");
-			registry.getTabHandler("leaf:session-workspace")!(container, {
-				tabId: "main",
-				viewId: "test",
-				eventBus: deps.eventBus,
-			});
+			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
 			const statusBadge = container.querySelector(".ft-session-status-badge");
 			expect(statusBadge).not.toBeNull();
@@ -271,11 +259,7 @@ describe("registerSessionWorkspaceHandler", () => {
 			registerSessionWorkspaceHandler(registry, deps);
 
 			const container = document.createElement("div");
-			registry.getTabHandler("leaf:session-workspace")!(container, {
-				tabId: "main",
-				viewId: "test",
-				eventBus: deps.eventBus,
-			});
+			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
 			expect(panelMocks.energyPanel.render).toHaveBeenCalled();
 			expect(panelMocks.intelligencePanel.render).toHaveBeenCalled();
@@ -294,11 +278,7 @@ describe("registerSessionWorkspaceHandler", () => {
 			registerSessionWorkspaceHandler(registry, deps);
 
 			const container = document.createElement("div");
-			registry.getTabHandler("leaf:session-workspace")!(container, {
-				tabId: "main",
-				viewId: "test",
-				eventBus: deps.eventBus,
-			});
+			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
 			expect(panelMocks.timerPanel.render).toHaveBeenCalled();
 		});
@@ -311,11 +291,7 @@ describe("registerSessionWorkspaceHandler", () => {
 			registerSessionWorkspaceHandler(registry, deps);
 
 			const container = document.createElement("div");
-			registry.getTabHandler("leaf:session-workspace")!(container, {
-				tabId: "main",
-				viewId: "test",
-				eventBus: deps.eventBus,
-			});
+			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
 			expect(panelMocks.timerPanel.render).not.toHaveBeenCalled();
 		});
@@ -325,11 +301,7 @@ describe("registerSessionWorkspaceHandler", () => {
 			registerSessionWorkspaceHandler(registry, deps);
 
 			const container = document.createElement("div");
-			registry.getTabHandler("leaf:session-workspace")!(container, {
-				tabId: "main",
-				viewId: "test",
-				eventBus: deps.eventBus,
-			});
+			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
 			expect(panelMocks.guidingPanel.render).toHaveBeenCalled();
 		});
@@ -342,11 +314,7 @@ describe("registerSessionWorkspaceHandler", () => {
 			registerSessionWorkspaceHandler(registry, deps);
 
 			const container = document.createElement("div");
-			registry.getTabHandler("leaf:session-workspace")!(container, {
-				tabId: "main",
-				viewId: "test",
-				eventBus: deps.eventBus,
-			});
+			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
 			expect(panelMocks.guidingPanel.render).not.toHaveBeenCalled();
 		});
@@ -358,11 +326,7 @@ describe("registerSessionWorkspaceHandler", () => {
 			registerSessionWorkspaceHandler(registry, deps);
 
 			const container = document.createElement("div");
-			registry.getTabHandler("leaf:session-workspace")!(container, {
-				tabId: "main",
-				viewId: "test",
-				eventBus: deps.eventBus,
-			});
+			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
 			const actions = container.querySelector(".ft-session-workspace-actions");
 			expect(actions).not.toBeNull();
@@ -380,11 +344,7 @@ describe("registerSessionWorkspaceHandler", () => {
 			registerSessionWorkspaceHandler(registry, deps);
 
 			const container = document.createElement("div");
-			registry.getTabHandler("leaf:session-workspace")!(container, {
-				tabId: "main",
-				viewId: "test",
-				eventBus: deps.eventBus,
-			});
+			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
 			const actions = container.querySelector(".ft-session-workspace-actions");
 			const buttons = actions!.querySelectorAll("button");
@@ -401,11 +361,7 @@ describe("registerSessionWorkspaceHandler", () => {
 			registerSessionWorkspaceHandler(registry, deps);
 
 			const container = document.createElement("div");
-			registry.getTabHandler("leaf:session-workspace")!(container, {
-				tabId: "main",
-				viewId: "test",
-				eventBus: deps.eventBus,
-			});
+			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
 			expect(panelMocks.outputPanel.render).toHaveBeenCalled();
 		});
@@ -420,11 +376,7 @@ describe("registerSessionWorkspaceHandler", () => {
 			registerSessionWorkspaceHandler(registry, deps);
 
 			const container = document.createElement("div");
-			registry.getTabHandler("leaf:session-workspace")!(container, {
-				tabId: "main",
-				viewId: "test",
-				eventBus: deps.eventBus,
-			});
+			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
 			expect(panelMocks.closureOverlay.render).toHaveBeenCalled();
 			// Normal panels should NOT render when reviewing
@@ -439,11 +391,7 @@ describe("registerSessionWorkspaceHandler", () => {
 			registerSessionWorkspaceHandler(registry, deps);
 
 			const container = document.createElement("div");
-			registry.getTabHandler("leaf:session-workspace")!(container, {
-				tabId: "main",
-				viewId: "test",
-				eventBus: deps.eventBus,
-			});
+			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
 			expect(setupEventSubscriptions).toHaveBeenCalled();
 		});
@@ -459,11 +407,7 @@ describe("registerSessionWorkspaceHandler", () => {
 			registerSessionWorkspaceHandler(registry, deps);
 
 			const container = document.createElement("div");
-			registry.getTabHandler("leaf:session-workspace")!(container, {
-				tabId: "main",
-				viewId: "test",
-				eventBus: deps.eventBus,
-			});
+			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
 			expect(service.workspaceSessionId).toBe("session-1");
 		});
@@ -478,11 +422,7 @@ describe("registerSessionWorkspaceHandler", () => {
 			registerSessionWorkspaceHandler(registry, deps);
 
 			const container = document.createElement("div");
-			registry.getTabHandler("leaf:session-workspace")!(container, {
-				tabId: "main",
-				viewId: "test",
-				eventBus: deps.eventBus,
-			});
+			registry.getTabHandler("leaf:session-workspace")!(container, createCtx(deps.eventBus));
 
 			expect(service.getSessionById).toHaveBeenCalledWith("specific-id");
 		});

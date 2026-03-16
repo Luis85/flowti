@@ -49,21 +49,34 @@
 			"label": "Session Workspace",
 			"icon": "timer",
 			"type": "flowti-session-workspace",
-			"legacy": true
+			"handler": "leaf:session-workspace",
+			"refreshEvents": [
+				"session.started", "session.paused", "session.resumed", "session.ended",
+				"session.timer.tick", "session.goals.updated", "session.tasks.updated",
+				"session.notes.updated", "session.activity.recorded"
+			]
 		},
 		"train-main": {
 			"kind": "leaf",
 			"label": "Train of Thoughts",
 			"icon": "train-front",
 			"type": "flowti-train-main",
-			"legacy": true
+			"handler": "leaf:train-main",
+			"refreshEvents": [
+				"train.started", "train.paused", "train.resumed",
+				"train.completed", "train.thought.added"
+			]
 		},
 		"train-timeline": {
 			"kind": "panel",
 			"label": "Train Timeline",
 			"icon": "git-branch",
 			"type": "flowti-train-timeline",
-			"legacy": true
+			"handler": "leaf:train-timeline",
+			"refreshEvents": [
+				"train.started", "train.paused", "train.resumed",
+				"train.completed", "train.thought.added"
+			]
 		},
 		"train-hub": {
 			"kind": "hub",
@@ -158,28 +171,28 @@
 			"label": "Canvas Import",
 			"icon": "layout-dashboard",
 			"type": "flowti-canvas-import",
-			"legacy": true
+			"handler": "leaf:canvas-import"
 		},
 		"export": {
 			"kind": "leaf",
 			"label": "Export",
 			"icon": "file-output",
 			"type": "flowti-export",
-			"legacy": true
+			"handler": "leaf:export"
 		},
 		"journey-builder": {
 			"kind": "panel",
 			"label": "Journey Builder",
 			"icon": "route",
 			"type": "flowti-journey-builder",
-			"legacy": true
+			"handler": "leaf:journey-builder"
 		},
 		"journey-file": {
 			"kind": "leaf",
 			"label": "Journey Definition",
 			"icon": "route",
 			"type": "flowti-journey-file",
-			"legacy": true
+			"fileView": true
 		}
 	},
 	"commands": [

@@ -70,6 +70,7 @@ export class SitemapLeafView extends ItemView {
 					tabId: "main",
 					viewId: this.viewDef.type,
 					eventBus: this.eventBus,
+					leaf: this.leaf,
 				};
 				const result = await handler(container, ctx);
 				if (typeof result === "function") {
