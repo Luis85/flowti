@@ -16,6 +16,7 @@ export interface LoaderContext {
 	readonly deps: LoaderDeps;
 	readonly vaultRoot: string;
 	readonly projectPath: string | undefined;
+	readonly projectsDir: string;
 	readonly agentsConfig: AgentsConfig | undefined;
 	readonly params: Readonly<Record<string, string>>;
 }

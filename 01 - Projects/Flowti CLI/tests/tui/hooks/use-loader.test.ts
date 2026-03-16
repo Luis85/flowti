@@ -11,6 +11,7 @@ const mockCtx: LoaderContext = {
 	deps: { disk: {} as never, paths: {} as never, clock: {} as never, shell: {} as never, log: () => {} },
 	vaultRoot: "/vault",
 	projectPath: "/project",
+	projectsDir: "/vault/01 - Projects",
 	params: {},
 	agentsConfig: undefined,
 };

@@ -5,11 +5,24 @@ import { TuiProvider } from "../../../src/tui/context.js";
 import type { TuiContextValue } from "../../../src/tui/context.js";
 
 // Import triggers self-registration
-import "../../../src/tui/pages/agents-chat-page.js";
+import "../../../src/tui/pages/projects-list-page.js";
 import { getPage } from "../../../src/tui/pages/page-registry.js";
 
+const mockDisk = {
+	existsSync: () => true,
+	readdirSync: () => [
+		{ name: "Flowti CLI", isDirectory: () => true },
+		{ name: "Flowti Plugin", isDirectory: () => true },
+	],
+} as never;
+
+const mockPaths = {
+	join: (...args: string[]) => args.join("/"),
+	basename: (p: string) => p.split("/").pop() ?? p,
+} as never;
+
 const mockTuiContext: TuiContextValue = {
-	deps: { disk: {} as never, paths: {} as never, clock: {} as never, shell: {} as never, log: () => {} },
+	deps: { disk: mockDisk, paths: mockPaths, clock: {} as never, shell: {} as never, log: () => {} },
 	vaultRoot: "/vault",
 	projectPath: "/project",
 	projectsDir: "/vault/01 - Projects",
@@ -22,43 +35,27 @@ function lastFrame(instance: ReturnType<typeof render>): string {
 	return instance.lastFrame() ?? "";
 }
 
-describe("AgentsChatPage", () => {
+describe("ProjectsListPage", () => {
 	it("is registered in the page registry", () => {
-		const Page = getPage("agents-chat");
+		const Page = getPage("projects-list");
 		expect(Page).toBeDefined();
 	});
 
-	it("renders chat interface with agent name", () => {
-		const Page = getPage("agents-chat");
+	it("renders project names", () => {
+		const Page = getPage("projects-list");
 		const { unmount, ...inst } = render(
 			React.createElement(TuiProvider, { value: mockTuiContext },
 				React.createElement(Page, {
-					pageId: "agents-chat",
-					params: { agentName: "Atlas" },
+					pageId: "projects-list",
+					params: {},
 					navigate: () => {},
 					goBack: () => {},
 				}),
 			),
 		);
 		const frame = lastFrame(inst);
-		expect(frame).toContain("Atlas");
-		unmount();
-	});
-
-	it("shows status indicator", () => {
-		const Page = getPage("agents-chat");
-		const { unmount, ...inst } = render(
-			React.createElement(TuiProvider, { value: mockTuiContext },
-				React.createElement(Page, {
-					pageId: "agents-chat",
-					params: { agentName: "Atlas" },
-					navigate: () => {},
-					goBack: () => {},
-				}),
-			),
-		);
-		const frame = lastFrame(inst);
-		expect(frame).toContain("\u25CF");
+		expect(frame).toContain("Flowti CLI");
+		expect(frame).toContain("Flowti Plugin");
 		unmount();
 	});
 });

@@ -9,6 +9,7 @@ const mockTuiContext: TuiContextValue = {
 	deps: { disk: {} as never, paths: {} as never, clock: {} as never, shell: {} as never, log: () => {} },
 	vaultRoot: "/vault",
 	projectPath: "/project",
+	projectsDir: "/vault/01 - Projects",
 	agentsConfig: undefined,
 	iterationsConfig: undefined,
 	projectConfig: undefined,

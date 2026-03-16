@@ -35,18 +35,23 @@ function countFiles(ctx: LoaderContext, dir: string, extension: string): number 
 }
 
 export function loadProjectDetail(ctx: LoaderContext): ProjectDetailData {
-	const { deps, projectPath } = ctx;
+	const { deps, projectPath, projectsDir, params } = ctx;
 
-	if (!projectPath) {
+	// If a specific project was selected, use that path
+	const targetPath = params.project
+		? deps.paths.join(projectsDir, params.project)
+		: projectPath;
+
+	if (!targetPath) {
 		return { name: "", path: "", sourceFiles: 0, testFiles: 0 };
 	}
 
-	const name = deps.paths.basename(projectPath);
-	const srcDir = deps.paths.join(projectPath, "src");
-	const testsDir = deps.paths.join(projectPath, "tests");
+	const name = deps.paths.basename(targetPath);
+	const srcDir = deps.paths.join(targetPath, "src");
+	const testsDir = deps.paths.join(targetPath, "tests");
 
 	const sourceFiles = countFiles(ctx, srcDir, ".ts");
 	const testFiles = countFiles(ctx, testsDir, ".test.ts");
 
-	return { name, path: projectPath, sourceFiles, testFiles };
+	return { name, path: targetPath, sourceFiles, testFiles };
 }

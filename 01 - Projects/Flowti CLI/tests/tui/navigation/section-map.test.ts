@@ -21,6 +21,14 @@ describe("buildSections", () => {
 		expect(agents!.pages).toContain("agents-chat");
 	});
 
+	it("project section starts with projects-list", () => {
+		const sections = buildSections();
+		const project = sections.find((s) => s.id === "project");
+		expect(project).toBeDefined();
+		expect(project!.pages[0]).toBe("projects-list");
+		expect(project!.pages).toContain("project-detail");
+	});
+
 	it("every section has at least one page", () => {
 		const sections = buildSections();
 		for (const section of sections) {
