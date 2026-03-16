@@ -6,6 +6,9 @@ import { Badge } from "../../../src/tui/primitives/badge.js";
 import { StatCard } from "../../../src/tui/primitives/stat-card.js";
 import { StatGrid } from "../../../src/tui/primitives/stat-grid.js";
 import { Section } from "../../../src/tui/primitives/section.js";
+import { ActionBar } from "../../../src/tui/primitives/action-bar.js";
+import { KeyHints } from "../../../src/tui/primitives/key-hints.js";
+import { SearchInput } from "../../../src/tui/primitives/search-input.js";
 
 function frame(instance: ReturnType<typeof render>): string {
 	return instance.lastFrame() ?? "";
@@ -59,6 +62,49 @@ describe("Section", () => {
 		const f = frame(inst);
 		expect(f).toContain("Skills");
 		expect(f).toContain("TDD");
+		inst.unmount();
+	});
+});
+
+describe("ActionBar", () => {
+	it("renders action keys and labels", () => {
+		const actions = [{ key: "n", label: "New" }, { key: "d", label: "Delete" }];
+		const inst = render(React.createElement(ActionBar, { actions }));
+		const f = frame(inst);
+		expect(f).toContain("n");
+		expect(f).toContain("New");
+		expect(f).toContain("d");
+		expect(f).toContain("Delete");
+		inst.unmount();
+	});
+
+	it("renders nothing for empty actions", () => {
+		const inst = render(React.createElement(ActionBar, { actions: [] }));
+		expect(frame(inst)).toBe("");
+		inst.unmount();
+	});
+});
+
+describe("KeyHints", () => {
+	it("renders hint keys and labels", () => {
+		const hints = [{ key: "Enter", label: "Select" }];
+		const inst = render(React.createElement(KeyHints, { hints }));
+		expect(frame(inst)).toContain("Enter");
+		expect(frame(inst)).toContain("Select");
+		inst.unmount();
+	});
+});
+
+describe("SearchInput", () => {
+	it("renders filter text when active", () => {
+		const inst = render(React.createElement(SearchInput, { value: "bob", onChange: () => {}, active: true }));
+		expect(frame(inst)).toContain("bob");
+		inst.unmount();
+	});
+
+	it("renders nothing when inactive", () => {
+		const inst = render(React.createElement(SearchInput, { value: "", onChange: () => {}, active: false }));
+		expect(frame(inst)).toBe("");
 		inst.unmount();
 	});
 });
