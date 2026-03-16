@@ -10,7 +10,7 @@
  */
 
 import React, { useState, useCallback } from "react";
-import { Box, useApp, useInput } from "ink";
+import { Box, useApp, useInput, useStdout } from "ink";
 import { buildSections } from "./navigation/section-map.js";
 import { useNavigation } from "./navigation/use-navigation.js";
 import { useFocusZone } from "./hooks/use-focus-zone.js";
@@ -92,13 +92,16 @@ export function App(): React.JSX.Element {
 		}
 	});
 
+	const { stdout } = useStdout();
+	const termHeight = stdout?.rows ?? 24;
+
 	const activeState = state.sections[state.activeSection];
 	const activePage = activeState.pageStack[activeState.pageStack.length - 1];
 	const breadcrumbs = buildBreadcrumbs(sections, activeState.pageStack);
 	const hints = getHintsForZone(focusZone);
 
 	return (
-		<Box flexDirection="row" width="100%" height="100%">
+		<Box flexDirection="row" width="100%" height={termHeight} overflow="hidden">
 			<ActivityBar
 				sections={sections}
 				activeSection={state.activeSection}
