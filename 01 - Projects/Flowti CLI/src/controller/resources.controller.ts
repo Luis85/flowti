@@ -4,7 +4,7 @@
 
 import { adaptDescriptor } from "../infrastructure/command-engine.js";
 import type { CommandHandler, ResourceType } from "../infrastructure/types.js";
-import { listResources, createResourceFile } from "../domain/resources/resource-store.js";
+import { resourceStore, createResourceFile } from "../domain/resources/resource-store.js";
 import { analyzeFinancials } from "../domain/resources/resource-analysis.js";
 import { renderResourceList, renderFinancialSummary, renderResourceAdded } from "../ui/displays/resources-display.js";
 import { renderError } from "../ui/renderers/common-renderers.js";
@@ -13,7 +13,7 @@ import type { LogFn } from "../infrastructure/command-engine.js";
 
 const VALID_TYPES: ResourceType[] = ["human", "material", "role", "budget"];
 
-type ResourceListModel = ReturnType<typeof listResources>;
+type ResourceListModel = ReturnType<typeof resourceStore.list>;
 type FinancialSummaryModel = ReturnType<typeof analyzeFinancials>;
 type ResourceAddModel = { relPath: string } | ErrorModel;
 
@@ -29,7 +29,7 @@ function renderResourceAdd(data: ResourceAddModel, log: LogFn): void {
 export const commands: Record<string, CommandHandler> = {
 	"resources:list": adaptDescriptor<Record<string, unknown>, ResourceListModel>({
 		requires: "project",
-		handler: (ctx) => listResources(ctx.deps, ctx.project!.path, ctx.project!.config.management?.resources),
+		handler: (ctx) => resourceStore.list(ctx.deps, ctx.project!.path, ctx.project!.config.management?.resources ? { dir: ctx.project!.config.management.resources.dir } : undefined),
 		renderer: renderResourceList,
 	}),
 
@@ -79,7 +79,7 @@ export const commands: Record<string, CommandHandler> = {
 	"resources:summary": adaptDescriptor<Record<string, unknown>, FinancialSummaryModel>({
 		requires: "project",
 		handler: (ctx) => {
-			const resources = listResources(ctx.deps, ctx.project!.path, ctx.project!.config.management?.resources);
+			const resources = resourceStore.list(ctx.deps, ctx.project!.path, ctx.project!.config.management?.resources ? { dir: ctx.project!.config.management.resources.dir } : undefined);
 			return analyzeFinancials(resources);
 		},
 		renderer: renderFinancialSummary,

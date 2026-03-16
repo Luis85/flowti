@@ -34,7 +34,7 @@ vi.mock("../../../src/infrastructure/frontmatter.js", () => ({
 	}),
 }));
 
-import { timelogDir, listTimeLogEntries, createTimeLogEntry, summarizeTimeLog } from "../../../src/domain/timelog/timelog-store.js";
+import { timelogStore, createTimeLogEntry, summarizeTimeLog } from "../../../src/domain/timelog/timelog-store.js";
 
 const mockDisk = {
 	existsSync: vi.fn(() => false),
@@ -58,20 +58,20 @@ beforeEach(() => {
 	vi.clearAllMocks();
 });
 
-describe("timelogDir", () => {
+describe("timelogStore.resolveDir", () => {
 	it("returns default directory", () => {
-		expect(timelogDir(deps, "/project")).toBe("/project/docs/timelog");
+		expect(timelogStore.resolveDir(deps, "/project")).toBe("/project/docs/timelog");
 	});
 
 	it("respects config dir", () => {
-		expect(timelogDir(deps, "/project", { dir: "logs" })).toBe("/project/logs");
+		expect(timelogStore.resolveDir(deps, "/project", { dir: "logs" })).toBe("/project/logs");
 	});
 });
 
-describe("listTimeLogEntries", () => {
+describe("timelogStore.list", () => {
 	it("returns empty array when directory does not exist", () => {
 		mockDisk.existsSync.mockReturnValue(false);
-		expect(listTimeLogEntries(deps, "/project")).toEqual([]);
+		expect(timelogStore.list(deps, "/project")).toEqual([]);
 	});
 
 	it("parses entries from directory", () => {
@@ -79,7 +79,7 @@ describe("listTimeLogEntries", () => {
 		mockDisk.readdirSync.mockReturnValue(["2026-03-12-jane.md"]);
 		mockDisk.readFileSync.mockReturnValue("---\ndate: 2026-03-12\nperson: Jane\nhours: 4\ncategory: dev\ntask: Feature\n---\nSome notes");
 
-		const entries = listTimeLogEntries(deps, "/project");
+		const entries = timelogStore.list(deps, "/project");
 
 		expect(entries).toHaveLength(1);
 		expect(entries[0].person).toBe("Jane");
@@ -95,7 +95,7 @@ describe("listTimeLogEntries", () => {
 			.mockReturnValueOnce("---\ndate: 2026-03-10\nperson: A\nhours: 1\ncategory: dev\ntask: Old\n---")
 			.mockReturnValueOnce("---\ndate: 2026-03-12\nperson: B\nhours: 2\ncategory: dev\ntask: New\n---");
 
-		const entries = listTimeLogEntries(deps, "/project");
+		const entries = timelogStore.list(deps, "/project");
 
 		expect(entries[0].date).toBe("2026-03-12");
 		expect(entries[1].date).toBe("2026-03-10");

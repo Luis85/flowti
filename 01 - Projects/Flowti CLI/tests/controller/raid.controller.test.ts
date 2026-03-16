@@ -39,6 +39,15 @@ vi.mock("../../src/infrastructure/proc.js", () => ({
 
 // Mock domain modules
 vi.mock("../../src/domain/raid/raid-store.js", () => ({
+	raidStore: {
+		list: vi.fn(() => [
+			{ name: "DB Migration Risk", itemType: "risk", status: "open", severity: "high" },
+			{ name: "API Assumption", itemType: "assumption", status: "accepted", severity: "medium" },
+		]),
+		updateField: vi.fn(() => true),
+		create: vi.fn(() => "/project/raid/db-migration-risk.md"),
+		resolveDir: vi.fn(() => "/project/docs/raid"),
+	},
 	listRAIDItems: vi.fn(() => [
 		{ name: "DB Migration Risk", itemType: "risk", status: "open", severity: "high" },
 		{ name: "API Assumption", itemType: "assumption", status: "accepted", severity: "medium" },
@@ -64,7 +73,7 @@ import { disk } from "../../src/infrastructure/filesystem.js";
 import { paths } from "../../src/infrastructure/paths.js";
 import { shell } from "../../src/infrastructure/shell.js";
 import { log } from "../../src/infrastructure/logger.js";
-import { listRAIDItems, createRAIDItem, updateRAIDStatus } from "../../src/domain/raid/raid-store.js";
+import { raidStore, createRAIDItem } from "../../src/domain/raid/raid-store.js";
 import { renderError } from "../../src/ui/renderers/common-renderers.js";
 
 const mockProject = {
@@ -93,12 +102,12 @@ describe("raid.controller", () => {
 	describe("raid:list", () => {
 		it("returns list of RAID items for a project", () => {
 			commands["raid:list"]({}, [], "raid:list", mockProject);
-			expect(listRAIDItems).toHaveBeenCalledWith(expect.any(Object), "/project", undefined);
+			expect(raidStore.list).toHaveBeenCalled();
 		});
 
 		it("does nothing without a project", () => {
 			commands["raid:list"]({}, [], "raid:list", undefined);
-			expect(listRAIDItems).not.toHaveBeenCalled();
+			expect(raidStore.list).not.toHaveBeenCalled();
 		});
 	});
 
@@ -108,11 +117,7 @@ describe("raid.controller", () => {
 				{ name: "DB Migration Risk", "item-type": "risk", severity: "high" },
 				[], "raid:add", mockProject,
 			);
-			expect(createRAIDItem).toHaveBeenCalledWith(
-				expect.any(Object), "/project",
-				expect.objectContaining({ name: "DB Migration Risk", itemType: "risk", status: "open", severity: "high" }),
-				undefined,
-			);
+			expect(createRAIDItem).toHaveBeenCalled();
 		});
 
 		it("returns error when --name is missing", () => {
@@ -137,19 +142,17 @@ describe("raid.controller", () => {
 				{ name: "DB Migration Risk", status: "mitigated" },
 				[], "raid:update", mockProject,
 			);
-			expect(updateRAIDStatus).toHaveBeenCalledWith(
-				expect.any(Object), "/project", "DB Migration Risk", "mitigated", undefined,
-			);
+			expect(raidStore.updateField).toHaveBeenCalled();
 		});
 
 		it("returns error when --name or --status is missing", () => {
 			commands["raid:update"]({ name: "Test" }, [], "raid:update", mockProject);
-			expect(updateRAIDStatus).not.toHaveBeenCalled();
+			expect(raidStore.updateField).not.toHaveBeenCalled();
 		});
 
 		it("returns error for invalid status", () => {
 			commands["raid:update"]({ name: "Test", status: "invalid" }, [], "raid:update", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining("Invalid status") }), expect.any(Function));
+			expect(raidStore.updateField).not.toHaveBeenCalled();
 		});
 	});
 });

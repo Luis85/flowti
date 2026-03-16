@@ -5,6 +5,7 @@ vi.mock("../../../src/infrastructure/ui.js", () => ({
 	printHeader: vi.fn(), printSection: vi.fn(), printDivider: vi.fn(),
 }));
 vi.mock("../../../src/domain/capa/capa-store.js", () => ({
+	capaStore: { list: vi.fn(() => []), updateField: vi.fn(), create: vi.fn(), resolveDir: vi.fn(() => "") },
 	listCAPAItems: vi.fn(() => []),
 	createCAPAItem: vi.fn(),
 	updateCAPAStatus: vi.fn(),
@@ -15,13 +16,13 @@ vi.mock("../../../src/ui/displays/capa-display.js", () => ({
 	renderCAPAUpdated: vi.fn(),
 }));
 
-import { listCAPAItems, createCAPAItem, updateCAPAStatus, nextCapaId } from "../../../src/domain/capa/capa-store.js";
+import { capaStore, listCAPAItems, createCAPAItem, updateCAPAStatus, nextCapaId } from "../../../src/domain/capa/capa-store.js";
 import { renderCAPAAdded, renderCAPAUpdated } from "../../../src/ui/displays/capa-display.js";
 import { addCAPAInteractive, updateStatusInteractive } from "../../../src/ui/menus/capa-menu.js";
 
-const mockListCAPAItems = vi.mocked(listCAPAItems);
+const mockListCAPAItems = vi.mocked(capaStore.list);
 const mockCreateCAPAItem = vi.mocked(createCAPAItem);
-const mockUpdateCAPAStatus = vi.mocked(updateCAPAStatus);
+const mockUpdateCAPAStatus = vi.mocked(capaStore.updateField);
 const mockNextCapaId = vi.mocked(nextCapaId);
 const mockRenderCAPAAdded = vi.mocked(renderCAPAAdded);
 const mockRenderCAPAUpdated = vi.mocked(renderCAPAUpdated);
@@ -160,7 +161,7 @@ describe("updateStatusInteractive", () => {
 
 		await updateStatusInteractive("/project", undefined, deps);
 
-		expect(mockUpdateCAPAStatus).toHaveBeenCalledWith(deps, "/project", "C1", "investigating", undefined);
+		expect(mockUpdateCAPAStatus).toHaveBeenCalledWith(deps, "/project", "C1", "status", "investigating", undefined);
 		expect(mockRenderCAPAUpdated).toHaveBeenCalledWith("C1", "investigating", deps.log);
 	});
 

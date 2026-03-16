@@ -5,9 +5,8 @@
 import { adaptDescriptor } from "../infrastructure/command-engine.js";
 import type { CommandHandler, RequirementType, MoSCoWPriority } from "../infrastructure/types.js";
 import {
-	listRequirements, createRequirement, updateRequirementStatus, nextId,
-	listUseCases, createUseCase,
-	listUserStories, createUserStory,
+	requirementStore, useCaseStore, userStoryStore,
+	createRequirement, createUseCase, createUserStory, nextId,
 } from "../domain/requirements/requirement-store.js";
 import type { RequirementStatus } from "../domain/requirements/requirement-types.js";
 import {
@@ -21,9 +20,11 @@ import type { LogFn, CommandContext } from "../infrastructure/command-engine.js"
 const VALID_TYPES: RequirementType[] = ["functional", "non-functional", "constraint"];
 const VALID_STATUSES: RequirementStatus[] = ["draft", "proposed", "approved", "implemented", "verified", "rejected", "deferred"];
 
-type ReqListModel = ReturnType<typeof listRequirements>;
-type UseCaseListModel = ReturnType<typeof listUseCases>;
-type UserStoryListModel = ReturnType<typeof listUserStories>;
+const REQ_DEFAULT_DIR = "docs/requirements";
+
+type ReqListModel = ReturnType<typeof requirementStore.list>;
+type UseCaseListModel = ReturnType<typeof useCaseStore.list>;
+type UserStoryListModel = ReturnType<typeof userStoryStore.list>;
 type ReqAddModel = { relPath: string } | ErrorModel;
 type ReqUpdateModel = { name: string; status: string } | ErrorModel;
 
@@ -42,7 +43,8 @@ function renderReqUpdate(data: ReqUpdateModel, log: LogFn): void {
 }
 
 function createStoryResult(ctx: CommandContext, name: string, role: string, goal: string, benefit: string): ReqAddModel {
-	const existing = listUserStories(ctx.deps, ctx.project!.path, ctx.project!.config.management?.requirements);
+	const reqConfig = ctx.project!.config.management?.requirements;
+	const existing = userStoryStore.list(ctx.deps, ctx.project!.path, { dir: `${reqConfig?.dir ?? REQ_DEFAULT_DIR}/user-stories` });
 	const idFlag = ctx.flags.id as string | undefined;
 	const id = idFlag || nextId("US", existing.map((s) => s.id));
 	const pointsStr = ctx.flags.points as string | undefined;
@@ -62,7 +64,7 @@ function createStoryResult(ctx: CommandContext, name: string, role: string, goal
 export const commands: Record<string, CommandHandler> = {
 	"requirements:list": adaptDescriptor<Record<string, unknown>, ReqListModel>({
 		requires: "project",
-		handler: (ctx) => listRequirements(ctx.deps, ctx.project!.path, ctx.project!.config.management?.requirements),
+		handler: (ctx) => requirementStore.list(ctx.deps, ctx.project!.path, ctx.project!.config.management?.requirements ? { dir: ctx.project!.config.management.requirements.dir } : undefined),
 		renderer: renderRequirementList,
 	}),
 
@@ -84,7 +86,7 @@ export const commands: Record<string, CommandHandler> = {
 			if (!VALID_TYPES.includes(reqType)) {
 				return { error: `Invalid type "${reqType}". Valid: ${VALID_TYPES.join(", ")}` } as ErrorModel;
 			}
-			const existing = listRequirements(ctx.deps, ctx.project!.path, ctx.project!.config.management?.requirements);
+			const existing = requirementStore.list(ctx.deps, ctx.project!.path, ctx.project!.config.management?.requirements ? { dir: ctx.project!.config.management.requirements.dir } : undefined);
 			const id = (ctx.flags.id as string) || nextId("REQ", existing.map((r) => r.id));
 			const priority = (ctx.flags.priority as string) as MoSCoWPriority;
 			const filePath = createRequirement(ctx.deps, ctx.project!.path, {
@@ -117,7 +119,7 @@ export const commands: Record<string, CommandHandler> = {
 			if (!VALID_STATUSES.includes(status as RequirementStatus)) {
 				return { error: `Invalid status "${status}". Valid: ${VALID_STATUSES.join(", ")}` } as ErrorModel;
 			}
-			const ok = updateRequirementStatus(ctx.deps, ctx.project!.path, name, status as RequirementStatus, ctx.project!.config.management?.requirements);
+			const ok = requirementStore.updateField(ctx.deps, ctx.project!.path, name, "status", status, ctx.project!.config.management?.requirements ? { dir: ctx.project!.config.management.requirements.dir } : undefined);
 			if (ok) {
 				return { name, status };
 			}
@@ -128,7 +130,10 @@ export const commands: Record<string, CommandHandler> = {
 
 	"usecases:list": adaptDescriptor<Record<string, unknown>, UseCaseListModel>({
 		requires: "project",
-		handler: (ctx) => listUseCases(ctx.deps, ctx.project!.path, ctx.project!.config.management?.requirements),
+		handler: (ctx) => {
+			const reqConfig = ctx.project!.config.management?.requirements;
+			return useCaseStore.list(ctx.deps, ctx.project!.path, { dir: `${reqConfig?.dir ?? REQ_DEFAULT_DIR}/use-cases` });
+		},
 		renderer: renderUseCaseList,
 	}),
 
@@ -143,7 +148,8 @@ export const commands: Record<string, CommandHandler> = {
 		handler: (ctx) => {
 			const name = ctx.flags.name as string;
 			const actor = ctx.flags.actor as string;
-			const existing = listUseCases(ctx.deps, ctx.project!.path, ctx.project!.config.management?.requirements);
+			const reqConfig = ctx.project!.config.management?.requirements;
+			const existing = useCaseStore.list(ctx.deps, ctx.project!.path, { dir: `${reqConfig?.dir ?? REQ_DEFAULT_DIR}/use-cases` });
 			const id = (ctx.flags.id as string) || nextId("UC", existing.map((uc) => uc.id));
 			const filePath = createUseCase(ctx.deps, ctx.project!.path, {
 				name, id, actor,
@@ -159,7 +165,10 @@ export const commands: Record<string, CommandHandler> = {
 
 	"stories:list": adaptDescriptor<Record<string, unknown>, UserStoryListModel>({
 		requires: "project",
-		handler: (ctx) => listUserStories(ctx.deps, ctx.project!.path, ctx.project!.config.management?.requirements),
+		handler: (ctx) => {
+			const reqConfig = ctx.project!.config.management?.requirements;
+			return userStoryStore.list(ctx.deps, ctx.project!.path, { dir: `${reqConfig?.dir ?? REQ_DEFAULT_DIR}/user-stories` });
+		},
 		renderer: renderUserStoryList,
 	}),
 

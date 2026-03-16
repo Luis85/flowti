@@ -45,7 +45,8 @@ vi.mock("../../../src/domain/iterations/iteration-entities.js", () => ({
 	createEstimationFile: vi.fn(() => "/projects/my-project/docs/estimations/test-estimation.md"),
 }));
 vi.mock("../../../src/domain/agents/agent-store.js", () => ({
-	listAgents: vi.fn(() => []),
+	agentStore: { list: vi.fn(() => []) },
+	getProjectAgents: vi.fn(() => []),
 	createAgent: vi.fn(() => "/projects/my-project/docs/agents/test-agent.md"),
 }));
 vi.mock("../../../src/ui/displays/agents-display.js", () => ({
@@ -79,7 +80,7 @@ import {
 } from "../../../src/domain/iterations/iteration-store.js";
 import { getValidTransitions } from "../../../src/domain/lifecycle/lifecycle-engine.js";
 import { createResourceFile, createEstimationFile } from "../../../src/domain/iterations/iteration-entities.js";
-import { listAgents, createAgent } from "../../../src/domain/agents/agent-store.js";
+import { agentStore, createAgent } from "../../../src/domain/agents/agent-store.js";
 import { renderAgentList } from "../../../src/ui/displays/agents-display.js";
 import {
 	renderIterationCreated, renderIterationClosed,
@@ -124,7 +125,7 @@ const mockRenderAgentAttached = vi.mocked(renderAgentAdded);
 const mockRenderResourceAdded = vi.mocked(renderResourceAdded);
 const mockRenderCapacityAdded = vi.mocked(renderEstimationAdded);
 const mockRenderAdvanceResult = vi.mocked(renderAdvanceResult);
-const mockListAgents = vi.mocked(listAgents);
+const mockListAgents = vi.mocked(agentStore.list);
 const mockCreateAgent = vi.mocked(createAgent);
 const mockRenderAgentList = vi.mocked(renderAgentList);
 const mockCreateResourceFile = vi.mocked(createResourceFile);

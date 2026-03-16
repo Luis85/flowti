@@ -21,13 +21,14 @@ vi.mock("../../../../src/domain/project/project-config.js", () => ({
 }));
 
 vi.mock("../../../../src/domain/agents/agent-store.js", () => ({
+	agentStore: { list: vi.fn(() => []), resolveDir: vi.fn(() => "") },
 	listAgents: vi.fn(() => []),
 }));
 
 import * as fsMod from "../../../../src/infrastructure/filesystem.js";
 import { paths } from "../../../../src/infrastructure/paths.js";
 import { clock } from "../../../../src/infrastructure/clock.js";
-import { listAgents } from "../../../../src/domain/agents/agent-store.js";
+import { agentStore } from "../../../../src/domain/agents/agent-store.js";
 import { generateAgentRosterReference } from "../../../../src/domain/reports/generators/agent-roster-reference.js";
 
 const mockDeps = { disk: fsMod.disk, paths, clock, log: () => {} } as any;
@@ -49,7 +50,7 @@ describe("generateAgentRosterReference", () => {
 
 	it("generates with agents", () => {
 		setDisk(createMockFs());
-		vi.mocked(listAgents).mockReturnValue([
+		vi.mocked(agentStore.list).mockReturnValue([
 			{ name: "Architect", agentType: "ai", description: "Designs systems", domain: "dev", skills: [{ name: "design", level: "expert" }], tools: ["Read"], roles: ["architect"], tags: ["plan"], file: "architect.md" },
 			{ name: "Tester", agentType: "human", description: "Tests things", domain: "qa", skills: [{ name: "testing", level: "senior" }], tools: [], roles: ["tester"], tags: ["check"], file: "tester.md" },
 		]);
@@ -66,7 +67,7 @@ describe("generateAgentRosterReference", () => {
 	it("includes roster overview and domain sections", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		vi.mocked(listAgents).mockReturnValue([
+		vi.mocked(agentStore.list).mockReturnValue([
 			{ name: "Agent-A", agentType: "ai", description: "", domain: "dev", skills: [], tools: [], roles: ["dev"], tags: [], file: "a.md" },
 		]);
 
@@ -81,7 +82,7 @@ describe("generateAgentRosterReference", () => {
 	it("includes attributes table when agents have attributes", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		vi.mocked(listAgents).mockReturnValue([
+		vi.mocked(agentStore.list).mockReturnValue([
 			{ name: "Hero", agentType: "ai", description: "", domain: "dev", skills: [], tools: [], roles: [], tags: [], attributes: { str: 14, int: 16, wis: 12 }, file: "hero.md" },
 		]);
 

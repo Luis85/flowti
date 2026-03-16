@@ -26,7 +26,7 @@ import { isDashboardRunning, stopDashboard, getDashboardState } from "../../doma
 import { renderPlanningHeader } from "../displays/iterations-display.js";
 import { YELLOW } from "../../infrastructure/ui.js";
 import { cliConfig } from "../../infrastructure/config.js";
-import { listAgents } from "../../domain/agents/agent-store.js";
+import { agentStore } from "../../domain/agents/agent-store.js";
 import { registerCrudHandlers } from "./crud-handlers.js";
 import { registerExtensibilityHandlers } from "./extensibility-handlers.js";
 import { registerDevelopmentHandlers } from "./development-handlers.js";
@@ -56,7 +56,7 @@ interface WorkingAgent { name: string; persona?: string; status: string; task?: 
 function parseAgentStates(deps: Pick<CliDeps, "disk" | "paths">, varDir: string): WorkingAgent[] {
 	const agentFiles = deps.disk.readdirSync(varDir).filter((f) => f.startsWith("data-") && f.endsWith(".json"));
 	let agents: Array<{ name: string; persona?: string }> = [];
-	try { agents = listAgents(deps, VAULT_ROOT, cliConfig.agents); } catch { /* best-effort */ }
+	try { agents = agentStore.list(deps, VAULT_ROOT, cliConfig.agents ? { dir: cliConfig.agents.dir } : undefined); } catch { /* best-effort */ }
 	const result: WorkingAgent[] = [];
 	for (const file of agentFiles) {
 		const content = deps.disk.readFileSync(deps.paths.join(varDir, file), "utf-8");

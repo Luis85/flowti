@@ -237,14 +237,9 @@ export const agentStore: StoreApi<AgentSummary, AgentDefinition> = {
 
 // ── List ─────────────────────────────────────────────────────────────
 
-/** List all agents from the agents directory. */
-export function listAgents(deps: AgentStoreDeps, projectPath: string, config?: AgentsConfig): AgentSummary[] {
-	return agentStore.list(deps as StoreDeps, projectPath, config ? { dir: config.dir } : undefined);
-}
-
 /** List vault agents filtered to the project's agent roster. Returns all vault agents if no roster is defined. */
 export function getProjectAgents(deps: AgentStoreDeps, vaultRoot: string, vaultConfig: AgentsConfig | undefined, roster: string[] | undefined): AgentSummary[] {
-	const all = listAgents(deps, vaultRoot, vaultConfig);
+	const all = agentStore.list(deps as StoreDeps, vaultRoot, vaultConfig ? { dir: vaultConfig.dir } : undefined);
 	if (!roster || roster.length === 0) return all;
 	const rosterSet = new Set(roster.map((n) => n.toLowerCase()));
 	return all.filter((a) => rosterSet.has(a.name.toLowerCase()));
@@ -252,7 +247,7 @@ export function getProjectAgents(deps: AgentStoreDeps, vaultRoot: string, vaultC
 
 /** Find a single agent by name. */
 export function findAgent(deps: AgentStoreDeps, projectPath: string, name: string, config?: AgentsConfig): AgentSummary | null {
-	const agents = listAgents(deps, projectPath, config);
+	const agents = agentStore.list(deps as StoreDeps, projectPath, config ? { dir: config.dir } : undefined);
 	return agents.find((a) => a.name === name) ?? null;
 }
 

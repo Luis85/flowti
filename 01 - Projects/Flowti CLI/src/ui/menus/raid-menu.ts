@@ -6,7 +6,7 @@ import { printHeader } from "../../infrastructure/ui.js";
 import type { MenuDeps } from "../../infrastructure/deps.js";
 import type { RAIDConfig, RAIDItemType, RAIDStatus } from "../../infrastructure/types.js";
 import { collectFields, selectFromList, selectStatus } from "../../infrastructure/menu-helpers.js";
-import { listRAIDItems, createRAIDItem, updateRAIDStatus } from "../../domain/raid/raid-store.js";
+import { raidStore, createRAIDItem } from "../../domain/raid/raid-store.js";
 import { renderRAIDAdded, renderRAIDUpdated } from "../displays/raid-display.js";
 
 const STATUSES: RAIDStatus[] = ["open", "mitigated", "closed", "accepted", "resolved", "deferred"];
@@ -46,7 +46,7 @@ export async function addRAIDInteractive(itemType: RAIDItemType, projectPath: st
 export async function updateStatusInteractive(projectPath: string, config: RAIDConfig | undefined, deps: MenuDeps): Promise<void> {
 	printHeader("Update RAID Item Status");
 
-	const items = listRAIDItems(deps, projectPath, config);
+	const items = raidStore.list(deps, projectPath, config ? { dir: config.dir } : undefined);
 	const item = await selectFromList(items, deps, {
 		format: (i) => `${i.name} [${i.itemType}] [${i.status}]`,
 		emptyMessage: "No RAID items to update.",
@@ -56,7 +56,7 @@ export async function updateStatusInteractive(projectPath: string, config: RAIDC
 	const newStatus = await selectStatus(STATUSES, item.status, deps);
 	if (!newStatus) return;
 
-	const ok = updateRAIDStatus(deps, projectPath, item.name, newStatus, config);
+	const ok = raidStore.updateField(deps, projectPath, item.name, "status", newStatus, config ? { dir: config.dir } : undefined);
 	if (ok) {
 		renderRAIDUpdated(item.name, newStatus, deps.log);
 	}

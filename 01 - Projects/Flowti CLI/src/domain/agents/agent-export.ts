@@ -9,13 +9,13 @@ import type { CliDeps } from "../../infrastructure/deps.js";
 import type { AgentsConfig, ProjectConfig } from "../../infrastructure/types.js";
 import type { AgentSummary } from "./agent-types.js";
 import type { IterationSummary } from "../iterations/iteration-types.js";
-import { listAgents } from "./agent-store.js";
+import { agentStore } from "./agent-store.js";
 import { listIterations } from "../iterations/iteration-store.js";
 import { listProjectComponents } from "../make/component/component-list.js";
 import { listEvents } from "../events/event-catalog.js";
-import { listResources } from "../resources/resource-store.js";
-import { listDeliverables } from "../deliverables/deliverable-store.js";
-import { listRAIDItems } from "../raid/raid-store.js";
+import { resourceStore } from "../resources/resource-store.js";
+import { deliverableStore } from "../deliverables/deliverable-store.js";
+import { raidStore } from "../raid/raid-store.js";
 
 // ── Export types ─────────────────────────────────────────────────────
 
@@ -162,15 +162,15 @@ export function buildProjectEnvironment(project: ProjectEntry, deps: AgentExport
 		scopeItems: it.scopeItems.map((s) => ({ text: s.text, done: s.done })),
 	}));
 
-	const resources = listResources(deps, project.path, mgmt?.resources).map((r) => ({
+	const resources = resourceStore.list(deps, project.path, mgmt?.resources ? { dir: mgmt.resources.dir } : undefined).map((r) => ({
 		name: r.name, resourceType: r.resourceType, amount: r.amount, consumed: r.consumed,
 	}));
 
-	const deliverables = listDeliverables(deps, project.path, mgmt?.deliverables).map((d) => ({
+	const deliverables = deliverableStore.list(deps, project.path, mgmt?.deliverables ? { dir: mgmt.deliverables.dir } : undefined).map((d) => ({
 		name: d.name, status: d.status, completionPct: d.completionPct,
 	}));
 
-	const raidItems = listRAIDItems(deps, project.path, mgmt?.raid).map((r) => ({
+	const raidItems = raidStore.list(deps, project.path, mgmt?.raid ? { dir: mgmt.raid.dir } : undefined).map((r) => ({
 		name: r.name, itemType: r.itemType, status: r.status, severity: r.severity,
 	}));
 
@@ -186,7 +186,7 @@ export function exportAgentDashboardData(
 	projects: ProjectEntry[],
 	deps: AgentExportDeps,
 ): DashboardData {
-	const allAgents = listAgents(deps, vaultRoot, vaultAgentsConfig);
+	const allAgents = agentStore.list(deps, vaultRoot, vaultAgentsConfig ? { dir: vaultAgentsConfig.dir } : undefined);
 
 	const projectRosters = new Map<string, string[]>();
 	const activeIterations = new Map<string, IterationSummary[]>();

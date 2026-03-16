@@ -21,13 +21,14 @@ vi.mock("../../../../src/domain/project/project-config.js", () => ({
 }));
 
 vi.mock("../../../../src/domain/agents/agent-store.js", () => ({
+	agentStore: { list: vi.fn(() => []), resolveDir: vi.fn(() => "") },
 	listAgents: vi.fn(() => []),
 }));
 
 import * as fsMod from "../../../../src/infrastructure/filesystem.js";
 import { paths } from "../../../../src/infrastructure/paths.js";
 import { clock } from "../../../../src/infrastructure/clock.js";
-import { listAgents } from "../../../../src/domain/agents/agent-store.js";
+import { agentStore } from "../../../../src/domain/agents/agent-store.js";
 import { generateAgentSkillMap } from "../../../../src/domain/reports/generators/agent-skill-map.js";
 
 const mockDeps = { disk: fsMod.disk, paths, clock, log: () => {} } as any;
@@ -50,7 +51,7 @@ describe("generateAgentSkillMap", () => {
 
 	it("generates skill matrix with agents", () => {
 		setDisk(createMockFs());
-		vi.mocked(listAgents).mockReturnValue([
+		vi.mocked(agentStore.list).mockReturnValue([
 			{ name: "A", agentType: "ai", description: "", skills: [{ name: "typescript", level: "expert" }, { name: "testing", level: "senior" }], tools: [], roles: [], file: "a.md" },
 			{ name: "B", agentType: "ai", description: "", skills: [{ name: "typescript", level: "mid" }], tools: [], roles: [], file: "b.md" },
 		]);
@@ -65,7 +66,7 @@ describe("generateAgentSkillMap", () => {
 	it("identifies single-agent skills as coverage gaps", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		vi.mocked(listAgents).mockReturnValue([
+		vi.mocked(agentStore.list).mockReturnValue([
 			{ name: "Solo", agentType: "ai", description: "", skills: [{ name: "rare-skill", level: "expert" }], tools: [], roles: [], file: "solo.md" },
 		]);
 

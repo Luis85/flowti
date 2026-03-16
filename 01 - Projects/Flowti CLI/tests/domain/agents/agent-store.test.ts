@@ -7,7 +7,7 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 	log: vi.fn(),
 }));
 
-import { listAgents, getProjectAgents, findAgent, createAgent, updateAgentField, deleteAgent, agentToJson, addArrayItem, removeArrayItem, updateAgentJson, readSystemPrompt, writeSystemPrompt, listInventory, addInventoryItem, removeInventoryItem } from "../../../src/domain/agents/agent-store.js";
+import { agentStore, getProjectAgents, findAgent, createAgent, updateAgentField, deleteAgent, agentToJson, addArrayItem, removeArrayItem, updateAgentJson, readSystemPrompt, writeSystemPrompt, listInventory, addInventoryItem, removeInventoryItem } from "../../../src/domain/agents/agent-store.js";
 import type { AgentDefinition } from "../../../src/domain/agents/agent-types.js";
 
 function makeDeps(files: Record<string, string> = {}) {
@@ -37,7 +37,7 @@ function makeDeps(files: Record<string, string> = {}) {
 			isAbsolute: () => true,
 			sep: "/",
 		},
-	} as unknown as Parameters<typeof listAgents>[0];
+	} as unknown as Parameters<typeof agentStore.list>[0];
 }
 
 const AGENT_MD = `---
@@ -59,15 +59,15 @@ roles:
 `;
 
 
-describe("listAgents", () => {
+describe("agentStore.list", () => {
 	it("returns empty array when dir missing", () => {
 		const deps = makeDeps();
-		expect(listAgents(deps, "/proj")).toEqual([]);
+		expect(agentStore.list(deps, "/proj")).toEqual([]);
 	});
 
 	it("parses agent files with skills, tools, and roles", () => {
 		const deps = makeDeps({ "/proj/docs/agents/code-bot.md": AGENT_MD });
-		const agents = listAgents(deps, "/proj");
+		const agents = agentStore.list(deps, "/proj");
 		expect(agents).toHaveLength(1);
 		expect(agents[0].name).toBe("CodeBot");
 		expect(agents[0].agentType).toBe("ai");
@@ -265,7 +265,7 @@ describe("companion JSON definition", () => {
 			"/proj/docs/agents/ai-bot.md": AGENT_MD.replace("CodeBot", "AIBot"),
 			"/proj/docs/agents/ai-bot.json": jsonDef,
 		});
-		const agents = listAgents(deps, "/proj");
+		const agents = agentStore.list(deps, "/proj");
 		// Note: the name comes from frontmatter which still says CodeBot
 		const agent = agents.find((a) => a.file === "ai-bot.md");
 		expect(agent).toBeDefined();
@@ -332,7 +332,7 @@ suggestedTasks:
 describe("suggestedTasks parsing", () => {
 	it("parses suggested tasks with pipe-delimited phases", () => {
 		const deps = makeDeps({ "/proj/docs/agents/task-bot.md": AGENT_WITH_TASKS });
-		const agents = listAgents(deps, "/proj");
+		const agents = agentStore.list(deps, "/proj");
 		const agent = agents.find((a) => a.name === "TaskBot");
 		expect(agent).toBeDefined();
 		expect(agent!.suggestedTasks).toEqual([
@@ -345,7 +345,7 @@ describe("suggestedTasks parsing", () => {
 
 	it("returns empty suggestedTasks when field is absent", () => {
 		const deps = makeDeps({ "/proj/docs/agents/code-bot.md": AGENT_MD });
-		const agents = listAgents(deps, "/proj");
+		const agents = agentStore.list(deps, "/proj");
 		expect(agents[0].suggestedTasks).toEqual([]);
 	});
 
@@ -473,7 +473,7 @@ describe("inventory", () => {
 			"/proj/docs/agents/code-bot.md": AGENT_MD,
 			"/proj/docs/agents/code-bot.json": jsonDef,
 		});
-		const agents = listAgents(deps, "/proj");
+		const agents = agentStore.list(deps, "/proj");
 		expect(agents[0].inventory).toEqual([
 			{ path: "docs/notes.md", label: "Project Notes" },
 			{ path: "docs/spec.md" },

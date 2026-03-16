@@ -7,7 +7,7 @@
 
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "../cli/report-service.js";
-import { listAgents } from "../../agents/agent-store.js";
+import { agentStore } from "../../agents/agent-store.js";
 import { readAgentState } from "../../agents/agent-state.js";
 import { readProjectConfig } from "../../project/project-config.js";
 import { DEFAULT_SAFE_TOOLS } from "../../agents/permission-engine.js";
@@ -23,7 +23,7 @@ const VAR_DIR = ".flowti/var";
 export function generateAgentPermissionMatrix(projectPath: string, deps: ReportDeps): GeneratorOutput {
 	const svc = new ReportService(projectPath, deps);
 	const { config } = readProjectConfig(projectPath, deps);
-	const agents = listAgents(deps, projectPath, config?.management?.agents);
+	const agents = agentStore.list(deps, projectPath, config?.management?.agents ? { dir: config.management.agents.dir } : undefined);
 	const varDir = deps.paths.join(projectPath, VAR_DIR);
 
 	const rows = agents.map((agent) => {

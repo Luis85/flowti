@@ -29,6 +29,7 @@ vi.mock("../../../src/infrastructure/deps.js", () => ({
 
 // ── Domain / UI mocks for CRUD ──────────────────────────────────────
 vi.mock("../../../src/domain/raid/raid-store.js", () => ({
+	raidStore: { list: vi.fn(() => []), updateField: vi.fn(), create: vi.fn(), resolveDir: vi.fn(() => "") },
 	listRAIDItems: vi.fn(() => []),
 	createRAIDItem: vi.fn(),
 	updateRAIDStatus: vi.fn(),
@@ -43,6 +44,7 @@ vi.mock("../../../src/ui/menus/raid-menu.js", () => ({
 	updateStatusInteractive: vi.fn(),
 }));
 vi.mock("../../../src/domain/capa/capa-store.js", () => ({
+	capaStore: { list: vi.fn(() => []), updateField: vi.fn(), create: vi.fn(), resolveDir: vi.fn(() => "") },
 	listCAPAItems: vi.fn(() => []),
 }));
 vi.mock("../../../src/ui/displays/capa-display.js", () => ({
@@ -53,6 +55,7 @@ vi.mock("../../../src/ui/menus/capa-menu.js", () => ({
 	updateStatusInteractive: vi.fn(),
 }));
 vi.mock("../../../src/domain/deliverables/deliverable-store.js", () => ({
+	deliverableStore: { list: vi.fn(() => []), updateField: vi.fn(), create: vi.fn(), resolveDir: vi.fn(() => "") },
 	listDeliverables: vi.fn(() => []),
 }));
 vi.mock("../../../src/ui/displays/deliverables-display.js", () => ({
@@ -63,6 +66,7 @@ vi.mock("../../../src/ui/menus/deliverables-menu.js", () => ({
 	updateStatusInteractive: vi.fn(),
 }));
 vi.mock("../../../src/domain/resources/resource-store.js", () => ({
+	resourceStore: { list: vi.fn(() => []), updateField: vi.fn(), create: vi.fn(), resolveDir: vi.fn(() => "") },
 	listResources: vi.fn(() => []),
 }));
 vi.mock("../../../src/domain/resources/resource-analysis.js", () => ({
@@ -76,6 +80,7 @@ vi.mock("../../../src/ui/menus/resources-menu.js", () => ({
 	addResourceInteractive: vi.fn(),
 }));
 vi.mock("../../../src/domain/timelog/timelog-store.js", () => ({
+	timelogStore: { list: vi.fn(() => []), create: vi.fn(), resolveDir: vi.fn(() => "") },
 	listTimeLogEntries: vi.fn(() => []),
 	summarizeTimeLog: vi.fn(() => ({})),
 }));
@@ -130,20 +135,20 @@ vi.mock("../../../src/ui/handlers/iteration-template-loader.js", () => ({
 import { HandlerRegistry } from "../../../src/infrastructure/handler-registry.js";
 import { registerCrudHandlers } from "../../../src/ui/handlers/crud-handlers.js";
 import { input } from "../../../src/infrastructure/input.js";
-import { listRAIDItems } from "../../../src/domain/raid/raid-store.js";
+import { raidStore } from "../../../src/domain/raid/raid-store.js";
 import { renderRAIDList } from "../../../src/ui/displays/raid-display.js";
 import { addRAIDInteractive, updateStatusInteractive as updateRAIDStatus } from "../../../src/ui/menus/raid-menu.js";
-import { listCAPAItems } from "../../../src/domain/capa/capa-store.js";
+import { capaStore } from "../../../src/domain/capa/capa-store.js";
 import { renderCAPAList } from "../../../src/ui/displays/capa-display.js";
 import { addCAPAInteractive, updateStatusInteractive as updateCAPAStatus } from "../../../src/ui/menus/capa-menu.js";
-import { listDeliverables } from "../../../src/domain/deliverables/deliverable-store.js";
+import { deliverableStore } from "../../../src/domain/deliverables/deliverable-store.js";
 import { renderDeliverableList } from "../../../src/ui/displays/deliverables-display.js";
 import { addDeliverableInteractive, updateStatusInteractive as updateDeliverableStatus } from "../../../src/ui/menus/deliverables-menu.js";
-import { listResources } from "../../../src/domain/resources/resource-store.js";
+import { resourceStore } from "../../../src/domain/resources/resource-store.js";
 import { analyzeFinancials } from "../../../src/domain/resources/resource-analysis.js";
 import { renderResourceList, renderFinancialSummary } from "../../../src/ui/displays/resources-display.js";
 import { addResourceInteractive } from "../../../src/ui/menus/resources-menu.js";
-import { listTimeLogEntries, summarizeTimeLog } from "../../../src/domain/timelog/timelog-store.js";
+import { timelogStore, summarizeTimeLog } from "../../../src/domain/timelog/timelog-store.js";
 import { renderTimeLogList, renderTimeLogSummary } from "../../../src/ui/displays/timelog-display.js";
 import { logTimeInteractive } from "../../../src/ui/menus/timelog-menu.js";
 import { listIterations } from "../../../src/domain/iterations/iteration-store.js";
@@ -242,7 +247,7 @@ describe("registerCrudHandlers", () => {
 		it("lists and renders RAID items", async () => {
 			const handler = registry.getAction("raid:list");
 			await handler(mockCtx());
-			expect(listRAIDItems).toHaveBeenCalled();
+			expect(raidStore.list).toHaveBeenCalled();
 			expect(renderRAIDList).toHaveBeenCalled();
 			expect(input.waitForEnter).toHaveBeenCalled();
 		});
@@ -345,7 +350,7 @@ describe("registerCrudHandlers", () => {
 		it("lists and renders CAPA items", async () => {
 			const handler = registry.getAction("capa:list");
 			await handler(mockCtx());
-			expect(listCAPAItems).toHaveBeenCalled();
+			expect(capaStore.list).toHaveBeenCalled();
 			expect(renderCAPAList).toHaveBeenCalled();
 			expect(input.waitForEnter).toHaveBeenCalled();
 		});
@@ -409,7 +414,7 @@ describe("registerCrudHandlers", () => {
 		it("lists and renders deliverables", async () => {
 			const handler = registry.getAction("deliverables:list");
 			await handler(mockCtx());
-			expect(listDeliverables).toHaveBeenCalled();
+			expect(deliverableStore.list).toHaveBeenCalled();
 			expect(renderDeliverableList).toHaveBeenCalled();
 			expect(input.waitForEnter).toHaveBeenCalled();
 		});
@@ -460,7 +465,7 @@ describe("registerCrudHandlers", () => {
 		it("lists and renders resources", async () => {
 			const handler = registry.getAction("resources:list");
 			await handler(mockCtx());
-			expect(listResources).toHaveBeenCalled();
+			expect(resourceStore.list).toHaveBeenCalled();
 			expect(renderResourceList).toHaveBeenCalled();
 			expect(input.waitForEnter).toHaveBeenCalled();
 		});
@@ -534,7 +539,7 @@ describe("registerCrudHandlers", () => {
 		it("analyzes and renders financial summary", async () => {
 			const handler = registry.getAction("resources:financials");
 			await handler(mockCtx());
-			expect(listResources).toHaveBeenCalled();
+			expect(resourceStore.list).toHaveBeenCalled();
 			expect(analyzeFinancials).toHaveBeenCalled();
 			expect(renderFinancialSummary).toHaveBeenCalled();
 			expect(input.waitForEnter).toHaveBeenCalled();
@@ -558,7 +563,7 @@ describe("registerCrudHandlers", () => {
 		it("lists and renders time log entries", async () => {
 			const handler = registry.getAction("timelog:list");
 			await handler(mockCtx());
-			expect(listTimeLogEntries).toHaveBeenCalled();
+			expect(timelogStore.list).toHaveBeenCalled();
 			expect(renderTimeLogList).toHaveBeenCalled();
 			expect(input.waitForEnter).toHaveBeenCalled();
 		});
@@ -599,7 +604,7 @@ describe("registerCrudHandlers", () => {
 		it("summarizes and renders time log", async () => {
 			const handler = registry.getAction("timelog:summary");
 			await handler(mockCtx());
-			expect(listTimeLogEntries).toHaveBeenCalled();
+			expect(timelogStore.list).toHaveBeenCalled();
 			expect(summarizeTimeLog).toHaveBeenCalled();
 			expect(renderTimeLogSummary).toHaveBeenCalled();
 			expect(input.waitForEnter).toHaveBeenCalled();

@@ -5,7 +5,7 @@ vi.mock("../../../src/infrastructure/ui.js", () => ({
 	printHeader: vi.fn(), printSection: vi.fn(), printDivider: vi.fn(),
 }));
 vi.mock("../../../src/domain/agents/agent-store.js", () => ({
-	listAgents: vi.fn(() => []),
+	agentStore: { list: vi.fn(() => []) },
 	findAgent: vi.fn(),
 	createAgent: vi.fn(),
 	deleteAgent: vi.fn(),
@@ -60,7 +60,7 @@ vi.mock("../../../src/ui/displays/agent-run-display.js", () => ({
 	ThinkingDisplay: undefined,
 }));
 
-import { listAgents, createAgent, deleteAgent, updateAgentField, addArrayItem, removeArrayItem, updateAgentJson, readSystemPrompt, writeSystemPrompt } from "../../../src/domain/agents/agent-store.js";
+import { agentStore, createAgent, deleteAgent, updateAgentField, addArrayItem, removeArrayItem, updateAgentJson, readSystemPrompt, writeSystemPrompt } from "../../../src/domain/agents/agent-store.js";
 import { renderAgentList, renderAgentCreated, renderAgentDeleted } from "../../../src/ui/displays/agents-display.js";
 import { readProjectConfig, updateProjectConfig } from "../../../src/domain/project/project-config.js";
 import { listProjects } from "../../../src/domain/project/project.js";
@@ -77,7 +77,7 @@ import {
 import type { AgentSummary } from "../../../src/domain/agents/agent-types.js";
 import type { ProjectConfig } from "../../../src/infrastructure/types.js";
 
-const mockListAgents = vi.mocked(listAgents);
+const mockListAgents = vi.mocked(agentStore.list);
 const mockCreateAgent = vi.mocked(createAgent);
 const mockDeleteAgent = vi.mocked(deleteAgent);
 const mockUpdateField = vi.mocked(updateAgentField);

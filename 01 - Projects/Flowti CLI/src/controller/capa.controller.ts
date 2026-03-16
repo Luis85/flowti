@@ -5,7 +5,7 @@
 import { adaptDescriptor } from "../infrastructure/command-engine.js";
 import type { CommandHandler, CAPAStatus, CAPAType } from "../infrastructure/types.js";
 import type { CAPASeverity, CAPASource } from "../domain/capa/capa-types.js";
-import { listCAPAItems, createCAPAItem, updateCAPAStatus, nextCapaId } from "../domain/capa/capa-store.js";
+import { capaStore, createCAPAItem, nextCapaId } from "../domain/capa/capa-store.js";
 import { renderCAPAList, renderCAPAAdded, renderCAPAUpdated } from "../ui/displays/capa-display.js";
 import { renderError } from "../ui/renderers/common-renderers.js";
 import type { ErrorModel } from "../ui/renderers/common-renderers.js";
@@ -14,7 +14,7 @@ import type { LogFn } from "../infrastructure/command-engine.js";
 const VALID_TYPES: CAPAType[] = ["corrective", "preventive"];
 const VALID_STATUSES: CAPAStatus[] = ["open", "investigating", "action-planned", "implementing", "verification", "closed", "rejected"];
 
-type CAPAListModel = ReturnType<typeof listCAPAItems>;
+type CAPAListModel = ReturnType<typeof capaStore.list>;
 type CAPAAddModel = { relPath: string } | ErrorModel;
 type CAPAUpdateModel = { name: string; status: string } | ErrorModel;
 
@@ -35,7 +35,7 @@ function renderCAPAUpdate(data: CAPAUpdateModel, log: LogFn): void {
 export const commands: Record<string, CommandHandler> = {
 	"capa:list": adaptDescriptor<Record<string, unknown>, CAPAListModel>({
 		requires: "project",
-		handler: (ctx) => listCAPAItems(ctx.deps, ctx.project!.path, ctx.project!.config.management?.capa),
+		handler: (ctx) => capaStore.list(ctx.deps, ctx.project!.path, ctx.project!.config.management?.capa ? { dir: ctx.project!.config.management.capa.dir } : undefined),
 		renderer: renderCAPAList,
 	}),
 
@@ -58,7 +58,7 @@ export const commands: Record<string, CommandHandler> = {
 			if (!VALID_TYPES.includes(capaType)) {
 				return { error: `Invalid capa-type "${capaType}". Valid: ${VALID_TYPES.join(", ")}` } as ErrorModel;
 			}
-			const existing = listCAPAItems(ctx.deps, ctx.project!.path, ctx.project!.config.management?.capa);
+			const existing = capaStore.list(ctx.deps, ctx.project!.path, ctx.project!.config.management?.capa ? { dir: ctx.project!.config.management.capa.dir } : undefined);
 			const id = (ctx.flags.id as string) || nextCapaId(existing.map((c) => c.id));
 			const filePath = createCAPAItem(ctx.deps, ctx.project!.path, {
 				name, id, capaType,
@@ -90,7 +90,7 @@ export const commands: Record<string, CommandHandler> = {
 			if (!VALID_STATUSES.includes(status as CAPAStatus)) {
 				return { error: `Invalid status "${status}". Valid: ${VALID_STATUSES.join(", ")}` } as ErrorModel;
 			}
-			const ok = updateCAPAStatus(ctx.deps, ctx.project!.path, name, status as CAPAStatus, ctx.project!.config.management?.capa);
+			const ok = capaStore.updateField(ctx.deps, ctx.project!.path, name, "status", status, ctx.project!.config.management?.capa ? { dir: ctx.project!.config.management.capa.dir } : undefined);
 			if (ok) {
 				return { name, status };
 			}

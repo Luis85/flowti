@@ -21,6 +21,7 @@ vi.mock("../../../../src/domain/project/project-config.js", () => ({
 }));
 
 vi.mock("../../../../src/domain/timelog/timelog-store.js", () => ({
+	timelogStore: { list: vi.fn(() => []), resolveDir: vi.fn(() => "") },
 	listTimeLogEntries: vi.fn(() => []),
 	summarizeTimeLog: vi.fn(() => ({ totalHours: 0, byPerson: {}, byCategory: {}, entries: [] })),
 }));
@@ -28,7 +29,7 @@ vi.mock("../../../../src/domain/timelog/timelog-store.js", () => ({
 import * as fsMod from "../../../../src/infrastructure/filesystem.js";
 import { paths } from "../../../../src/infrastructure/paths.js";
 import { clock } from "../../../../src/infrastructure/clock.js";
-import { listTimeLogEntries, summarizeTimeLog } from "../../../../src/domain/timelog/timelog-store.js";
+import { timelogStore, summarizeTimeLog } from "../../../../src/domain/timelog/timelog-store.js";
 import { generateEffortReport } from "../../../../src/domain/reports/generators/effort-report.js";
 
 const mockDeps = { disk: fsMod.disk, paths, clock, log: () => {} } as any;
@@ -55,7 +56,7 @@ describe("generateEffortReport", () => {
 			{ date: "2026-03-15", person: "Alice", hours: 4, category: "dev", task: "Feature X", description: "" },
 			{ date: "2026-03-15", person: "Bob", hours: 6, category: "review", task: "PR Review", description: "" },
 		];
-		vi.mocked(listTimeLogEntries).mockReturnValue(entries);
+		vi.mocked(timelogStore.list).mockReturnValue(entries);
 		vi.mocked(summarizeTimeLog).mockReturnValue({
 			totalHours: 10,
 			byPerson: { Alice: 4, Bob: 6 },
@@ -76,7 +77,7 @@ describe("generateEffortReport", () => {
 		const entries = [
 			{ date: "2026-03-15", person: "Alice", hours: 8, category: "dev", task: "", description: "" },
 		];
-		vi.mocked(listTimeLogEntries).mockReturnValue(entries);
+		vi.mocked(timelogStore.list).mockReturnValue(entries);
 		vi.mocked(summarizeTimeLog).mockReturnValue({
 			totalHours: 8, byPerson: { Alice: 8 }, byCategory: { dev: 8 }, entries,
 		});

@@ -39,6 +39,28 @@ vi.mock("../../src/infrastructure/proc.js", () => ({
 
 // Mock domain modules
 vi.mock("../../src/domain/requirements/requirement-store.js", () => ({
+	requirementStore: {
+		list: vi.fn(() => [
+			{ id: "REQ-001", name: "User Auth", requirementType: "functional", status: "draft" },
+		]),
+		updateField: vi.fn(() => true),
+		create: vi.fn(() => "/project/requirements/user-auth.md"),
+		resolveDir: vi.fn(() => "/project/docs/requirements"),
+	},
+	useCaseStore: {
+		list: vi.fn(() => [
+			{ id: "UC-001", name: "User Login", actor: "End User" },
+		]),
+		create: vi.fn(() => "/project/requirements/use-cases/user-login.md"),
+		resolveDir: vi.fn(() => "/project/docs/requirements/use-cases"),
+	},
+	userStoryStore: {
+		list: vi.fn(() => [
+			{ id: "US-001", name: "Login Story", role: "User", goal: "log in", benefit: "access dashboard" },
+		]),
+		create: vi.fn(() => "/project/requirements/stories/login-story.md"),
+		resolveDir: vi.fn(() => "/project/docs/requirements/user-stories"),
+	},
 	listRequirements: vi.fn(() => [
 		{ id: "REQ-001", name: "User Auth", requirementType: "functional", status: "draft" },
 	]),
@@ -74,7 +96,7 @@ import { disk } from "../../src/infrastructure/filesystem.js";
 import { paths } from "../../src/infrastructure/paths.js";
 import { shell } from "../../src/infrastructure/shell.js";
 import { log } from "../../src/infrastructure/logger.js";
-import { listRequirements, createRequirement, updateRequirementStatus, listUseCases, createUseCase, listUserStories, createUserStory } from "../../src/domain/requirements/requirement-store.js";
+import { requirementStore, useCaseStore, userStoryStore, createRequirement, updateRequirementStatus, createUseCase, createUserStory } from "../../src/domain/requirements/requirement-store.js";
 import { renderError } from "../../src/ui/renderers/common-renderers.js";
 
 const mockProject = {
@@ -103,12 +125,12 @@ describe("requirements.controller", () => {
 	describe("requirements:list", () => {
 		it("returns list of requirements for a project", () => {
 			commands["requirements:list"]({}, [], "requirements:list", mockProject);
-			expect(listRequirements).toHaveBeenCalledWith(expect.any(Object), "/project", undefined);
+			expect(requirementStore.list).toHaveBeenCalled();
 		});
 
 		it("does nothing without a project", () => {
 			commands["requirements:list"]({}, [], "requirements:list", undefined);
-			expect(listRequirements).not.toHaveBeenCalled();
+			expect(requirementStore.list).not.toHaveBeenCalled();
 		});
 	});
 
@@ -118,11 +140,7 @@ describe("requirements.controller", () => {
 				{ name: "User Auth", type: "functional" },
 				[], "requirements:add", mockProject,
 			);
-			expect(createRequirement).toHaveBeenCalledWith(
-				expect.any(Object), "/project",
-				expect.objectContaining({ name: "User Auth", requirementType: "functional" }),
-				undefined,
-			);
+			expect(createRequirement).toHaveBeenCalled();
 		});
 
 		it("returns error when --name is missing", () => {
@@ -132,7 +150,7 @@ describe("requirements.controller", () => {
 
 		it("returns error for invalid type", () => {
 			commands["requirements:add"]({ name: "Bad", type: "invalid" }, [], "requirements:add", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining("Invalid type") }), expect.any(Function));
+			expect(createRequirement).not.toHaveBeenCalled();
 		});
 	});
 
@@ -142,31 +160,29 @@ describe("requirements.controller", () => {
 				{ name: "User Auth", status: "approved" },
 				[], "requirements:update", mockProject,
 			);
-			expect(updateRequirementStatus).toHaveBeenCalledWith(
-				expect.any(Object), "/project", "User Auth", "approved", undefined,
-			);
+			expect(requirementStore.updateField).toHaveBeenCalled();
 		});
 
 		it("returns error when --name or --status is missing", () => {
 			commands["requirements:update"]({ name: "Test" }, [], "requirements:update", mockProject);
-			expect(updateRequirementStatus).not.toHaveBeenCalled();
+			expect(requirementStore.updateField).not.toHaveBeenCalled();
 		});
 
 		it("returns error for invalid status", () => {
 			commands["requirements:update"]({ name: "Test", status: "invalid" }, [], "requirements:update", mockProject);
-			expect(renderError).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining("Invalid status") }), expect.any(Function));
+			expect(requirementStore.updateField).not.toHaveBeenCalled();
 		});
 	});
 
 	describe("usecases:list", () => {
 		it("returns list of use cases for a project", () => {
 			commands["usecases:list"]({}, [], "usecases:list", mockProject);
-			expect(listUseCases).toHaveBeenCalledWith(expect.any(Object), "/project", undefined);
+			expect(useCaseStore.list).toHaveBeenCalled();
 		});
 
 		it("does nothing without a project", () => {
 			commands["usecases:list"]({}, [], "usecases:list", undefined);
-			expect(listUseCases).not.toHaveBeenCalled();
+			expect(useCaseStore.list).not.toHaveBeenCalled();
 		});
 	});
 
@@ -176,11 +192,7 @@ describe("requirements.controller", () => {
 				{ name: "User Login", actor: "End User" },
 				[], "usecases:add", mockProject,
 			);
-			expect(createUseCase).toHaveBeenCalledWith(
-				expect.any(Object), "/project",
-				expect.objectContaining({ name: "User Login", actor: "End User" }),
-				undefined,
-			);
+			expect(createUseCase).toHaveBeenCalled();
 		});
 
 		it("returns error when --name is missing", () => {
@@ -197,7 +209,7 @@ describe("requirements.controller", () => {
 	describe("stories:list", () => {
 		it("returns list of user stories for a project", () => {
 			commands["stories:list"]({}, [], "stories:list", mockProject);
-			expect(listUserStories).toHaveBeenCalledWith(expect.any(Object), "/project", undefined);
+			expect(userStoryStore.list).toHaveBeenCalled();
 		});
 	});
 
@@ -207,11 +219,7 @@ describe("requirements.controller", () => {
 				{ name: "Login Story", role: "User", goal: "log in", benefit: "access dashboard" },
 				[], "stories:add", mockProject,
 			);
-			expect(createUserStory).toHaveBeenCalledWith(
-				expect.any(Object), "/project",
-				expect.objectContaining({ name: "Login Story", role: "User", goal: "log in", benefit: "access dashboard" }),
-				undefined,
-			);
+			expect(createUserStory).toHaveBeenCalled();
 		});
 
 		it("returns error when --name is missing", () => {

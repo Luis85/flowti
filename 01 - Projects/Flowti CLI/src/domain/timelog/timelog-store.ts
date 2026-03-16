@@ -33,16 +33,7 @@ export const timelogStore = createStore<TimeLogEntry, TimeLogEntry>({
 	buildBody: (def) => def.description ?? "",
 });
 
-// Backwards-compatible re-exports (removed in Phase 4 cleanup)
 export type TimeLogStoreDeps = StoreDeps & { clock: import("../../infrastructure/types.js").IClock };
-
-export function timelogDir(deps: Pick<import("../../infrastructure/deps.js").CliDeps, "paths">, projectPath: string, config?: TimeLogConfig): string {
-	return timelogStore.resolveDir(deps as StoreDeps, projectPath, config ? { dir: config.dir } : undefined);
-}
-
-export function listTimeLogEntries(deps: Pick<import("../../infrastructure/deps.js").CliDeps, "disk" | "paths">, projectPath: string, config?: TimeLogConfig): TimeLogEntry[] {
-	return timelogStore.list(deps as StoreDeps, projectPath, config ? { dir: config.dir } : undefined);
-}
 
 export function createTimeLogEntry(deps: TimeLogStoreDeps, projectPath: string, entry: TimeLogEntry, config?: TimeLogConfig): string | null {
 	const dir = timelogStore.resolveDir(deps, projectPath, config ? { dir: config.dir } : undefined);

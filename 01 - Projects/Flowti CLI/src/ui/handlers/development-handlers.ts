@@ -65,9 +65,9 @@ export function registerDevelopmentHandlers(registry: HandlerRegistry): void {
 	registry.registerAction("req:list", async (ctx) => {
 		if (!ctx.project) return undefined;
 		const { disk, paths, input } = ctx.deps;
-		const { listRequirements } = await import("../../domain/requirements/requirement-store.js");
+		const { requirementStore } = await import("../../domain/requirements/requirement-store.js");
 		const { renderRequirementList } = await import("../displays/requirements-display.js");
-		renderRequirementList(listRequirements({ disk, paths }, ctx.project.path, ctx.project.config.management?.requirements), ctx.deps.log);
+		renderRequirementList(requirementStore.list({ disk, paths }, ctx.project.path, ctx.project.config.management?.requirements ? { dir: ctx.project.config.management.requirements.dir } : undefined), ctx.deps.log);
 		await input.waitForEnter();
 		return "main" as MenuResult;
 	});

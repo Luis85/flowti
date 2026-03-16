@@ -5,6 +5,7 @@ vi.mock("../../../src/infrastructure/ui.js", () => ({
 	printHeader: vi.fn(), printSection: vi.fn(), printDivider: vi.fn(),
 }));
 vi.mock("../../../src/domain/deliverables/deliverable-store.js", () => ({
+	deliverableStore: { list: vi.fn(() => []), updateField: vi.fn(), create: vi.fn(), resolveDir: vi.fn(() => "") },
 	listDeliverables: vi.fn(() => []),
 	createDeliverableFile: vi.fn(),
 	updateDeliverableStatus: vi.fn(),
@@ -14,11 +15,11 @@ vi.mock("../../../src/ui/displays/deliverables-display.js", () => ({
 	renderDeliverableUpdated: vi.fn(),
 }));
 
-import { listDeliverables, createDeliverableFile, updateDeliverableStatus } from "../../../src/domain/deliverables/deliverable-store.js";
+import { deliverableStore, createDeliverableFile, updateDeliverableStatus } from "../../../src/domain/deliverables/deliverable-store.js";
 import { renderDeliverableAdded, renderDeliverableUpdated } from "../../../src/ui/displays/deliverables-display.js";
 import { addDeliverableInteractive, updateStatusInteractive } from "../../../src/ui/menus/deliverables-menu.js";
 
-const mockListDeliverables = vi.mocked(listDeliverables);
+const mockListDeliverables = vi.mocked(deliverableStore.list);
 const mockCreateDeliverableFile = vi.mocked(createDeliverableFile);
 const mockUpdateDeliverableStatus = vi.mocked(updateDeliverableStatus);
 const mockRenderDeliverableAdded = vi.mocked(renderDeliverableAdded);

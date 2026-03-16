@@ -2,7 +2,7 @@
 import { printHeader, RESET, DIM, GREEN, RED } from "../../infrastructure/ui.js";
 import type { MenuDeps } from "../../infrastructure/deps.js";
 import type { AgentsConfig, ProjectConfig } from "../../infrastructure/types.js";
-import { listAgents, createAgent, deleteAgent, updateAgentField, addArrayItem, removeArrayItem, updateAgentJson, readSystemPrompt, writeSystemPrompt, listInventory, addInventoryItem, removeInventoryItem } from "../../domain/agents/agent-store.js";
+import { agentStore, createAgent, deleteAgent, updateAgentField, addArrayItem, removeArrayItem, updateAgentJson, readSystemPrompt, writeSystemPrompt, listInventory, addInventoryItem, removeInventoryItem } from "../../domain/agents/agent-store.js";
 import type { AgentDefinition, AgentSkill, AgentType, AgentSummary } from "../../domain/agents/agent-types.js";
 import { renderAgentList, renderAgentCreated, renderAgentDeleted } from "../displays/agents-display.js";
 import { updateProjectConfig } from "../../domain/project/project-config.js";
@@ -37,7 +37,7 @@ export async function addAgentInteractive(projectPath: string, config: AgentsCon
 
 export async function removeAgentInteractive(projectPath: string, config: AgentsConfig | undefined, deps: MenuDeps): Promise<boolean> {
 	printHeader("Remove Agent");
-	const agents = listAgents(deps, projectPath, config);
+	const agents = agentStore.list(deps, projectPath, config ? { dir: config.dir } : undefined);
 	if (agents.length === 0) {
 		deps.log("\n  No agents to remove.\n");
 		return false;
@@ -203,7 +203,7 @@ function persistRoster(projectPath: string, projectConfig: ProjectConfig, newRos
 async function addToRoster(
 	projectPath: string, projectConfig: ProjectConfig, vaultRoot: string, vaultAgentsConfig: AgentsConfig | undefined, roster: string[], deps: MenuDeps,
 ): Promise<void> {
-	const allAgents = listAgents(deps, vaultRoot, vaultAgentsConfig);
+	const allAgents = agentStore.list(deps, vaultRoot, vaultAgentsConfig ? { dir: vaultAgentsConfig.dir } : undefined);
 	const rosterSet = new Set(roster.map((n) => n.toLowerCase()));
 	const available = allAgents.filter((a) => !rosterSet.has(a.name.toLowerCase()));
 

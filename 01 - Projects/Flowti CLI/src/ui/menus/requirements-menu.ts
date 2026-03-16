@@ -8,10 +8,11 @@ import type { MenuDeps } from "../../infrastructure/deps.js";
 import type { MenuResult, MenuEntry, RequirementsConfig, RequirementType, MoSCoWPriority } from "../../infrastructure/types.js";
 import { collectFields, selectFromList, selectStatus } from "../../infrastructure/menu-helpers.js";
 import {
-	listRequirements, createRequirement, updateRequirementStatus, nextId,
-	listUseCases, createUseCase,
-	listUserStories, createUserStory,
+	requirementStore, useCaseStore, userStoryStore,
+	createRequirement, createUseCase, createUserStory, nextId,
 } from "../../domain/requirements/requirement-store.js";
+
+const REQ_DEFAULT_DIR = "docs/requirements";
 import type { RequirementStatus } from "../../domain/requirements/requirement-types.js";
 import type { RequirementDefinition } from "../../domain/requirements/requirement-types.js";
 import {
@@ -29,7 +30,7 @@ export async function addRequirementInteractive(reqType: RequirementType, projec
 	};
 	printHeader(`Add ${labels[reqType]}`);
 
-	const existing = listRequirements(deps, projectPath, config);
+	const existing = requirementStore.list(deps, projectPath, config ? { dir: config.dir } : undefined);
 	const suggestedId = nextId("REQ", existing.map((r) => r.id));
 
 	const data = await collectFields([
@@ -63,7 +64,7 @@ export async function addRequirementInteractive(reqType: RequirementType, projec
 export async function addUseCaseInteractive(projectPath: string, config: RequirementsConfig | undefined, deps: MenuDeps): Promise<void> {
 	printHeader("Add Use Case");
 
-	const existing = listUseCases(deps, projectPath, config);
+	const existing = useCaseStore.list(deps, projectPath, { dir: `${config?.dir ?? REQ_DEFAULT_DIR}/use-cases` });
 	const suggestedId = nextId("UC", existing.map((uc) => uc.id));
 
 	const data = await collectFields([
@@ -91,7 +92,7 @@ export async function addUseCaseInteractive(projectPath: string, config: Require
 export async function addUserStoryInteractive(projectPath: string, config: RequirementsConfig | undefined, deps: MenuDeps): Promise<void> {
 	printHeader("Add User Story");
 
-	const existing = listUserStories(deps, projectPath, config);
+	const existing = userStoryStore.list(deps, projectPath, { dir: `${config?.dir ?? REQ_DEFAULT_DIR}/user-stories` });
 	const suggestedId = nextId("US", existing.map((s) => s.id));
 
 	const data = await collectFields([
@@ -128,7 +129,7 @@ export async function addUserStoryInteractive(projectPath: string, config: Requi
 export async function updateStatusInteractive(projectPath: string, config: RequirementsConfig | undefined, deps: MenuDeps): Promise<void> {
 	printHeader("Update Requirement Status");
 
-	const reqs = listRequirements(deps, projectPath, config);
+	const reqs = requirementStore.list(deps, projectPath, config ? { dir: config.dir } : undefined);
 	const req = await selectFromList(reqs, deps, {
 		format: (r) => `${r.id} ${r.name} [${r.status}]`,
 		emptyMessage: "No requirements to update.",
@@ -138,7 +139,7 @@ export async function updateStatusInteractive(projectPath: string, config: Requi
 	const newStatus = await selectStatus(REQ_STATUSES, req.status as RequirementStatus, deps);
 	if (!newStatus) return;
 
-	const ok = updateRequirementStatus(deps, projectPath, req.name, newStatus, config);
+	const ok = requirementStore.updateField(deps, projectPath, req.name, "status", newStatus, config ? { dir: config.dir } : undefined);
 	if (ok) {
 		renderRequirementUpdated(req.name, newStatus, deps.log);
 	}
@@ -150,7 +151,7 @@ export async function requirementsMenu(projectPath: string, config: Requirements
 			key: "1",
 			label: "List Requirements",
 			action: async () => {
-				renderRequirementList(listRequirements(deps, projectPath, config), deps.log);
+				renderRequirementList(requirementStore.list(deps, projectPath, config ? { dir: config.dir } : undefined), deps.log);
 				await deps.input.waitForEnter();
 				return "main" as const;
 			},

@@ -5,6 +5,7 @@ vi.mock("../../../src/infrastructure/ui.js", () => ({
 	printHeader: vi.fn(), printSection: vi.fn(), printDivider: vi.fn(),
 }));
 vi.mock("../../../src/domain/raid/raid-store.js", () => ({
+	raidStore: { list: vi.fn(() => []), updateField: vi.fn(), create: vi.fn(), resolveDir: vi.fn(() => "") },
 	listRAIDItems: vi.fn(() => []),
 	createRAIDItem: vi.fn(),
 	updateRAIDStatus: vi.fn(),
@@ -14,13 +15,13 @@ vi.mock("../../../src/ui/displays/raid-display.js", () => ({
 	renderRAIDUpdated: vi.fn(),
 }));
 
-import { listRAIDItems, createRAIDItem, updateRAIDStatus } from "../../../src/domain/raid/raid-store.js";
+import { raidStore, createRAIDItem } from "../../../src/domain/raid/raid-store.js";
 import { renderRAIDAdded, renderRAIDUpdated } from "../../../src/ui/displays/raid-display.js";
 import { addRAIDInteractive, updateStatusInteractive } from "../../../src/ui/menus/raid-menu.js";
 
-const mockListRAIDItems = vi.mocked(listRAIDItems);
+const mockListRAIDItems = vi.mocked(raidStore.list);
 const mockCreateRAIDItem = vi.mocked(createRAIDItem);
-const mockUpdateRAIDStatus = vi.mocked(updateRAIDStatus);
+const mockUpdateRAIDStatus = vi.mocked(raidStore.updateField);
 const mockRenderRAIDAdded = vi.mocked(renderRAIDAdded);
 const mockRenderRAIDUpdated = vi.mocked(renderRAIDUpdated);
 
@@ -146,7 +147,7 @@ describe("updateStatusInteractive", () => {
 
 		await updateStatusInteractive("/project", undefined, deps);
 
-		expect(mockUpdateRAIDStatus).toHaveBeenCalledWith(deps, "/project", "R1", "mitigated", undefined);
+		expect(mockUpdateRAIDStatus).toHaveBeenCalledWith(deps, "/project", "R1", "status", "mitigated", undefined);
 		expect(mockRenderRAIDUpdated).toHaveBeenCalledWith("R1", "mitigated", deps.log);
 	});
 

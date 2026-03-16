@@ -11,7 +11,7 @@ import type { AgentReference, ResourceAllocation, CapacityEntry } from "../../do
 import type { SuggestedTask } from "../../domain/agents/agent-types.js";
 import { createResourceFile, createEstimationFile } from "../../domain/iterations/iteration-entities.js";
 import type { ResourceNeedEntity, EstimationEntity } from "../../domain/iterations/iteration-entities.js";
-import { listAgents, getProjectAgents, createAgent } from "../../domain/agents/agent-store.js";
+import { agentStore, getProjectAgents, createAgent } from "../../domain/agents/agent-store.js";
 import { renderAgentList } from "../displays/agents-display.js";
 import {
 	findCurrentIteration,
@@ -53,7 +53,7 @@ export async function addAgentInteractive(projectPath: string, config: Iteration
 async function selectOrCreateAgent(agentsBasePath: string, agentsConfig: AgentsConfig | undefined, roster: string[] | undefined, deps: MenuDeps): Promise<{ name: string; file: string } | null> {
 	const existing = roster && roster.length > 0
 		? getProjectAgents(deps, agentsBasePath, agentsConfig, roster)
-		: listAgents(deps, agentsBasePath, agentsConfig);
+		: agentStore.list(deps, agentsBasePath, agentsConfig ? { dir: agentsConfig.dir } : undefined);
 	if (existing.length === 0) return createNewAgentViaStore(agentsBasePath, agentsConfig, deps);
 
 	renderAgentList(existing, deps.log);
@@ -84,7 +84,7 @@ async function createNewAgentViaStore(agentsBasePath: string, agentsConfig: Agen
 	}, agentsConfig);
 	if (!filePath) {
 		deps.log(`\n  Agent "${name}" already exists.\n`);
-		const agents = listAgents(deps, agentsBasePath, agentsConfig);
+		const agents = agentStore.list(deps, agentsBasePath, agentsConfig ? { dir: agentsConfig.dir } : undefined);
 		const match = agents.find((a) => a.name.toLowerCase() === name.toLowerCase());
 		return match ? { name: match.name, file: match.file } : null;
 	}

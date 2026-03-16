@@ -24,7 +24,9 @@ import { buildTraceabilityMatrix, detectGaps, validateTraceabilityLinks, coverag
 import { evaluateGates } from "../domain/review/quality-gates.js";
 import { listRuns } from "../domain/review/evidence.js";
 import { loadAllJourneys } from "../domain/e2e/journey/journey-loader.js";
-import { listRequirements, listUseCases, listUserStories } from "../domain/requirements/requirement-store.js";
+import { requirementStore, useCaseStore, userStoryStore } from "../domain/requirements/requirement-store.js";
+
+const REQ_DEFAULT_DIR = "docs/requirements";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -159,9 +161,11 @@ export const commands: Record<string, CommandHandler> = {
 			const listFiles = (d: string) => disk.existsSync(d) ? disk.readdirSync(d) : [];
 
 			const journeys = loadAllJourneys(readFile, listFiles, journeysDir);
-			const reqs = listRequirements({ disk, paths }, ctx.project!.path, ctx.project!.config.management?.requirements);
-			const ucs = listUseCases({ disk, paths }, ctx.project!.path, ctx.project!.config.management?.requirements);
-			const uss = listUserStories({ disk, paths }, ctx.project!.path, ctx.project!.config.management?.requirements);
+			const reqConfig = ctx.project!.config.management?.requirements;
+			const reqBaseDir = reqConfig?.dir ?? REQ_DEFAULT_DIR;
+			const reqs = requirementStore.list({ disk, paths }, ctx.project!.path, reqConfig ? { dir: reqConfig.dir } : undefined);
+			const ucs = useCaseStore.list({ disk, paths }, ctx.project!.path, { dir: `${reqBaseDir}/use-cases` });
+			const uss = userStoryStore.list({ disk, paths }, ctx.project!.path, { dir: `${reqBaseDir}/user-stories` });
 
 			const validation = validateTraceabilityLinks(
 				journeys,
@@ -189,7 +193,7 @@ export const commands: Record<string, CommandHandler> = {
 			const listFiles = (d: string) => disk.existsSync(d) ? disk.readdirSync(d) : [];
 
 			const journeys = loadAllJourneys(readFile, listFiles, journeysDir);
-			const reqs = listRequirements({ disk, paths }, ctx.project!.path, ctx.project!.config.management?.requirements);
+			const reqs = requirementStore.list({ disk, paths }, ctx.project!.path, ctx.project!.config.management?.requirements ? { dir: ctx.project!.config.management.requirements.dir } : undefined);
 
 			const matrix = buildTraceabilityMatrix(
 				journeys,

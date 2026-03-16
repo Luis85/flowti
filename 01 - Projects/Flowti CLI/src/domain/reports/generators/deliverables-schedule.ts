@@ -7,7 +7,7 @@
 
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "../cli/report-service.js";
-import { listDeliverables } from "../../deliverables/deliverable-store.js";
+import { deliverableStore } from "../../deliverables/deliverable-store.js";
 import { readProjectConfig } from "../../project/project-config.js";
 import type { ReportDeps } from "../../../infrastructure/deps.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
@@ -18,7 +18,7 @@ import type { DeliverableSummary } from "../../deliverables/deliverable-types.js
 export function generateDeliverablesSchedule(projectPath: string, deps: ReportDeps): GeneratorOutput {
 	const svc = new ReportService(projectPath, deps);
 	const { config } = readProjectConfig(projectPath, deps);
-	const deliverables = listDeliverables(deps, projectPath, config?.management?.deliverables);
+	const deliverables = deliverableStore.list(deps, projectPath, config?.management?.deliverables ? { dir: config.management.deliverables.dir } : undefined);
 
 	const avgCompletion = deliverables.length > 0
 		? Math.round(deliverables.reduce((sum, d) => sum + d.completionPct, 0) / deliverables.length)

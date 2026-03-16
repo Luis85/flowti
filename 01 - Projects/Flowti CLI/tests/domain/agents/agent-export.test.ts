@@ -6,6 +6,7 @@ import type { IterationSummary } from "../../../src/domain/iterations/iteration-
 // ── Mocks ────────────────────────────────────────────────────────────
 
 vi.mock("../../../src/domain/agents/agent-store.js", () => ({
+	agentStore: { list: vi.fn(() => []), resolveDir: vi.fn(() => "") },
 	listAgents: vi.fn(() => []),
 }));
 
@@ -22,33 +23,36 @@ vi.mock("../../../src/domain/events/event-catalog.js", () => ({
 }));
 
 vi.mock("../../../src/domain/resources/resource-store.js", () => ({
+	resourceStore: { list: vi.fn(() => []), resolveDir: vi.fn(() => "") },
 	listResources: vi.fn(() => []),
 }));
 
 vi.mock("../../../src/domain/deliverables/deliverable-store.js", () => ({
+	deliverableStore: { list: vi.fn(() => []), resolveDir: vi.fn(() => "") },
 	listDeliverables: vi.fn(() => []),
 }));
 
 vi.mock("../../../src/domain/raid/raid-store.js", () => ({
+	raidStore: { list: vi.fn(() => []), resolveDir: vi.fn(() => "") },
 	listRAIDItems: vi.fn(() => []),
 }));
 
-import { listAgents } from "../../../src/domain/agents/agent-store.js";
+import { agentStore } from "../../../src/domain/agents/agent-store.js";
 import { listIterations } from "../../../src/domain/iterations/iteration-store.js";
 import { listProjectComponents } from "../../../src/domain/make/component/component-list.js";
 import { listEvents } from "../../../src/domain/events/event-catalog.js";
-import { listResources } from "../../../src/domain/resources/resource-store.js";
-import { listDeliverables } from "../../../src/domain/deliverables/deliverable-store.js";
-import { listRAIDItems } from "../../../src/domain/raid/raid-store.js";
+import { resourceStore } from "../../../src/domain/resources/resource-store.js";
+import { deliverableStore } from "../../../src/domain/deliverables/deliverable-store.js";
+import { raidStore } from "../../../src/domain/raid/raid-store.js";
 import type { AgentSummary } from "../../../src/domain/agents/agent-types.js";
 
-const mockListAgents = vi.mocked(listAgents);
+const mockListAgents = vi.mocked(agentStore.list);
 const mockListIterations = vi.mocked(listIterations);
 const mockListComponents = vi.mocked(listProjectComponents);
 const mockListEvents = vi.mocked(listEvents);
-const mockListResources = vi.mocked(listResources);
-const mockListDeliverables = vi.mocked(listDeliverables);
-const mockListRAIDItems = vi.mocked(listRAIDItems);
+const mockListResources = vi.mocked(resourceStore.list);
+const mockListDeliverables = vi.mocked(deliverableStore.list);
+const mockListRAIDItems = vi.mocked(raidStore.list);
 
 function makeAgent(name: string, agentType: "human" | "ai" = "human", domain?: string): AgentSummary {
 	return { name, agentType, description: "", domain, skills: [], tools: [], roles: [], file: `${name}.md` };

@@ -33,10 +33,11 @@ vi.mock("../../../src/infrastructure/frontmatter.js", () => ({
 }));
 
 import {
-	requirementsDir, listRequirements, createRequirement, updateRequirementStatus, nextId,
-	listUseCases, createUseCase,
-	listUserStories, createUserStory,
+	requirementStore, useCaseStore, userStoryStore,
+	createRequirement, createUseCase, createUserStory, nextId,
 } from "../../../src/domain/requirements/requirement-store.js";
+
+const REQ_DEFAULT_DIR = "docs/requirements";
 
 const mockDisk = {
 	existsSync: vi.fn(() => false),
@@ -60,13 +61,13 @@ beforeEach(() => {
 	vi.clearAllMocks();
 });
 
-describe("requirementsDir", () => {
+describe("requirementStore.resolveDir", () => {
 	it("returns default directory", () => {
-		expect(requirementsDir(deps, "/project")).toBe("/project/docs/requirements");
+		expect(requirementStore.resolveDir(deps, "/project")).toBe("/project/docs/requirements");
 	});
 
 	it("respects config dir", () => {
-		expect(requirementsDir(deps, "/project", { dir: "specs" })).toBe("/project/specs");
+		expect(requirementStore.resolveDir(deps, "/project", { dir: "specs" })).toBe("/project/specs");
 	});
 });
 
@@ -84,10 +85,10 @@ describe("nextId", () => {
 	});
 });
 
-describe("listRequirements", () => {
+describe("requirementStore.list", () => {
 	it("returns empty array when directory does not exist", () => {
 		mockDisk.existsSync.mockReturnValue(false);
-		expect(listRequirements(deps, "/project")).toEqual([]);
+		expect(requirementStore.list(deps, "/project")).toEqual([]);
 	});
 
 	it("parses requirements from directory", () => {
@@ -97,7 +98,7 @@ describe("listRequirements", () => {
 			"---\ntype: Requirement\nname: User Auth\nid: REQ-001\nrequirementType: functional\nstatus: approved\npriority: must\n---\nDescription",
 		);
 
-		const result = listRequirements(deps, "/project");
+		const result = requirementStore.list(deps, "/project");
 
 		expect(result).toHaveLength(1);
 		expect(result[0].name).toBe("User Auth");
@@ -111,7 +112,7 @@ describe("listRequirements", () => {
 		mockDisk.readdirSync.mockReturnValue(["readme.md"]);
 		mockDisk.readFileSync.mockReturnValue("---\ntype: Other\nname: Readme\n---");
 
-		const result = listRequirements(deps, "/project");
+		const result = requirementStore.list(deps, "/project");
 		expect(result).toHaveLength(0);
 	});
 });
@@ -142,17 +143,17 @@ describe("createRequirement", () => {
 	});
 });
 
-describe("updateRequirementStatus", () => {
+describe("requirementStore.updateField (status)", () => {
 	it("returns false when file does not exist", () => {
 		mockDisk.existsSync.mockReturnValue(false);
-		expect(updateRequirementStatus(deps, "/project", "Test", "approved")).toBe(false);
+		expect(requirementStore.updateField(deps, "/project", "Test", "status", "approved")).toBe(false);
 	});
 
 	it("updates status in file content", () => {
 		mockDisk.existsSync.mockReturnValue(true);
 		mockDisk.readFileSync.mockReturnValue("---\nstatus: draft\npriority: must\n---\nBody");
 
-		const result = updateRequirementStatus(deps, "/project", "Test", "approved");
+		const result = requirementStore.updateField(deps, "/project", "Test", "status", "approved");
 
 		expect(result).toBe(true);
 		expect(mockDisk.writeFileSync).toHaveBeenCalledWith(
@@ -163,10 +164,10 @@ describe("updateRequirementStatus", () => {
 	});
 });
 
-describe("listUseCases", () => {
+describe("useCaseStore.list", () => {
 	it("returns empty array when directory does not exist", () => {
 		mockDisk.existsSync.mockReturnValue(false);
-		expect(listUseCases(deps, "/project")).toEqual([]);
+		expect(useCaseStore.list(deps, "/project", { dir: `${REQ_DEFAULT_DIR}/use-cases` })).toEqual([]);
 	});
 
 	it("parses use cases from subdirectory", () => {
@@ -176,7 +177,7 @@ describe("listUseCases", () => {
 			"---\ntype: UseCase\nname: User Login\nid: UC-001\nactor: End User\n---\nFlow",
 		);
 
-		const result = listUseCases(deps, "/project");
+		const result = useCaseStore.list(deps, "/project", { dir: `${REQ_DEFAULT_DIR}/use-cases` });
 
 		expect(result).toHaveLength(1);
 		expect(result[0].name).toBe("User Login");
@@ -198,10 +199,10 @@ describe("createUseCase", () => {
 	});
 });
 
-describe("listUserStories", () => {
+describe("userStoryStore.list", () => {
 	it("returns empty array when directory does not exist", () => {
 		mockDisk.existsSync.mockReturnValue(false);
-		expect(listUserStories(deps, "/project")).toEqual([]);
+		expect(userStoryStore.list(deps, "/project", { dir: `${REQ_DEFAULT_DIR}/user-stories` })).toEqual([]);
 	});
 
 	it("parses user stories from subdirectory", () => {
@@ -211,7 +212,7 @@ describe("listUserStories", () => {
 			"---\ntype: UserStory\nname: Login Story\nid: US-001\nrole: User\nstatus: backlog\nstoryPoints: 5\n---\nCriteria",
 		);
 
-		const result = listUserStories(deps, "/project");
+		const result = userStoryStore.list(deps, "/project", { dir: `${REQ_DEFAULT_DIR}/user-stories` });
 
 		expect(result).toHaveLength(1);
 		expect(result[0].name).toBe("Login Story");

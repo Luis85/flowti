@@ -6,7 +6,7 @@ import type { RouterContext } from "../../infrastructure/sitemap-types.js";
 import { RESET, DIM, GREEN, RED, BOLD } from "../../infrastructure/ui.js";
 import { VAULT_ROOT, CLI_PROJECT, cliConfig } from "../../infrastructure/config.js";
 import { navigateWithParams } from "../../infrastructure/sitemap-router.js";
-import { listAgents } from "../../domain/agents/agent-store.js";
+import { agentStore } from "../../domain/agents/agent-store.js";
 import { buildTaskMenuItems, showTaskActions } from "./agent-task-handlers.js";
 import { loadPlugins, scaffoldPlugin } from "../../domain/plugins/plugin-loader.js";
 import { generatePluginReference } from "../../domain/plugins/plugin-reference.js";
@@ -95,7 +95,7 @@ async function buildTaskContext(ctx: RouterContext): Promise<import("../menus/ag
 function maybeSyncAgents(ctx: RouterContext): void {
 	if (cliConfig.agents?.claudeSync !== true) return;
 	const agentsDir = ctx.deps.paths.join(VAULT_ROOT, cliConfig.agents?.dir ?? "docs/agents");
-	const agents = listAgents(ctx.deps, VAULT_ROOT, cliConfig.agents);
+	const agents = agentStore.list(ctx.deps, VAULT_ROOT, cliConfig.agents ? { dir: cliConfig.agents.dir } : undefined);
 	syncAgentsToClaude(ctx.deps, VAULT_ROOT, agentsDir, agents, cliConfig.agents?.skillMap);
 }
 
@@ -211,7 +211,7 @@ export function registerExtensibilityHandlers(registry: HandlerRegistry): void {
 	});
 	const vaultAgents = cliConfig.agents;
 	registry.registerDataSource("agents:list", (ctx: RouterContext): MenuEntry[] => {
-		const agents = listAgents(ctx.deps, VAULT_ROOT, vaultAgents);
+		const agents = agentStore.list(ctx.deps, VAULT_ROOT, vaultAgents ? { dir: vaultAgents.dir } : undefined);
 		return agents.map((a, i) => {
 			const typeTag = `${DIM}[${a.agentType}]${RESET}`;
 			const desc = a.description ? ` ${DIM}— ${a.description}${RESET}` : "";

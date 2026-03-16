@@ -96,21 +96,9 @@ function buildResourceFrontmatter(def: ResourceDefinition, date: string): Record
 	return fm;
 }
 
-// ── Backwards-compatible re-exports ────────────────────────────────
-
-/** Resolve the resources directory for a project. */
-export function resourcesDir(deps: Pick<import("../../infrastructure/deps.js").CliDeps, "paths">, projectPath: string, config?: ResourcesConfig): string {
-	return resourceStore.resolveDir(deps as StoreDeps, projectPath, config ? { dir: config.dir } : undefined);
-}
-
-/** List all resources from the resources directory. */
-export function listResources(deps: Pick<import("../../infrastructure/deps.js").CliDeps, "disk" | "paths">, projectPath: string, config?: ResourcesConfig): ResourceSummary[] {
-	return resourceStore.list(deps as StoreDeps, projectPath, config ? { dir: config.dir } : undefined);
-}
-
 /** Create a new resource markdown file. Returns the file path or null if it already exists. */
 export function createResourceFile(deps: ResourceStoreDeps, projectPath: string, def: ResourceDefinition, config?: ResourcesConfig): string | null {
-	const dir = resourcesDir(deps, projectPath, config);
+	const dir = resourceStore.resolveDir(deps, projectPath, config ? { dir: config.dir } : undefined);
 	deps.disk.mkdirSync(dir, { recursive: true });
 
 	const filename = toMdFilename(def.name);
@@ -128,7 +116,7 @@ export function createResourceFile(deps: ResourceStoreDeps, projectPath: string,
 
 /** Update the consumed quantity for a named resource. Returns true if successful. */
 export function updateConsumption(deps: Pick<import("../../infrastructure/deps.js").CliDeps, "disk" | "paths">, projectPath: string, resourceName: string, consumed: number, config?: ResourcesConfig): boolean {
-	const dir = resourcesDir(deps, projectPath, config);
+	const dir = resourceStore.resolveDir(deps as StoreDeps, projectPath, config ? { dir: config.dir } : undefined);
 	const filePath = deps.paths.join(dir, toMdFilename(resourceName));
 
 	if (!deps.disk.existsSync(filePath)) return false;

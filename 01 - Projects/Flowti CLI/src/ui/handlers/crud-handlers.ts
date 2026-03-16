@@ -17,9 +17,9 @@ export function registerCrudHandlers(registry: HandlerRegistry): void {
 	registry.registerAction("raid:list", async (ctx) => {
 		if (!ctx.project) return undefined;
 		const { disk, paths, input } = ctx.deps;
-		const { listRAIDItems } = await import("../../domain/raid/raid-store.js");
+		const { raidStore } = await import("../../domain/raid/raid-store.js");
 		const { renderRAIDList } = await import("../displays/raid-display.js");
-		renderRAIDList(listRAIDItems({ disk, paths }, ctx.project.path, ctx.project.config.management?.raid), ctx.deps.log);
+		renderRAIDList(raidStore.list({ disk, paths }, ctx.project.path, ctx.project.config.management?.raid ? { dir: ctx.project.config.management.raid.dir } : undefined), ctx.deps.log);
 		await input.waitForEnter();
 		return "main" as MenuResult;
 	});
@@ -83,9 +83,9 @@ export function registerCrudHandlers(registry: HandlerRegistry): void {
 	registry.registerAction("capa:list", async (ctx) => {
 		if (!ctx.project) return undefined;
 		const { disk, paths, input } = ctx.deps;
-		const { listCAPAItems } = await import("../../domain/capa/capa-store.js");
+		const { capaStore } = await import("../../domain/capa/capa-store.js");
 		const { renderCAPAList } = await import("../displays/capa-display.js");
-		renderCAPAList(listCAPAItems({ disk, paths }, ctx.project.path, ctx.project.config.management?.capa), ctx.deps.log);
+		renderCAPAList(capaStore.list({ disk, paths }, ctx.project.path, ctx.project.config.management?.capa ? { dir: ctx.project.config.management.capa.dir } : undefined), ctx.deps.log);
 		await input.waitForEnter();
 		return "main" as MenuResult;
 	});
@@ -122,9 +122,9 @@ export function registerCrudHandlers(registry: HandlerRegistry): void {
 	registry.registerAction("deliverables:list", async (ctx) => {
 		if (!ctx.project) return undefined;
 		const { disk, paths, input } = ctx.deps;
-		const { listDeliverables } = await import("../../domain/deliverables/deliverable-store.js");
+		const { deliverableStore } = await import("../../domain/deliverables/deliverable-store.js");
 		const { renderDeliverableList } = await import("../displays/deliverables-display.js");
-		renderDeliverableList(listDeliverables({ disk, paths }, ctx.project.path, ctx.project.config.management?.deliverables), ctx.deps.log);
+		renderDeliverableList(deliverableStore.list({ disk, paths }, ctx.project.path, ctx.project.config.management?.deliverables ? { dir: ctx.project.config.management.deliverables.dir } : undefined), ctx.deps.log);
 		await input.waitForEnter();
 		return "main" as MenuResult;
 	});
@@ -152,9 +152,9 @@ export function registerCrudHandlers(registry: HandlerRegistry): void {
 	registry.registerAction("resources:list", async (ctx) => {
 		if (!ctx.project) return undefined;
 		const { disk, paths, input } = ctx.deps;
-		const { listResources } = await import("../../domain/resources/resource-store.js");
+		const { resourceStore } = await import("../../domain/resources/resource-store.js");
 		const { renderResourceList } = await import("../displays/resources-display.js");
-		renderResourceList(listResources({ disk, paths }, ctx.project.path, ctx.project.config.management?.resources), ctx.deps.log);
+		renderResourceList(resourceStore.list({ disk, paths }, ctx.project.path, ctx.project.config.management?.resources ? { dir: ctx.project.config.management.resources.dir } : undefined), ctx.deps.log);
 		await input.waitForEnter();
 		return "main" as MenuResult;
 	});
@@ -198,10 +198,10 @@ export function registerCrudHandlers(registry: HandlerRegistry): void {
 	registry.registerAction("resources:financials", async (ctx) => {
 		if (!ctx.project) return undefined;
 		const { disk, paths, input } = ctx.deps;
-		const { listResources } = await import("../../domain/resources/resource-store.js");
+		const { resourceStore } = await import("../../domain/resources/resource-store.js");
 		const { analyzeFinancials } = await import("../../domain/resources/resource-analysis.js");
 		const { renderFinancialSummary } = await import("../displays/resources-display.js");
-		renderFinancialSummary(analyzeFinancials(listResources({ disk, paths }, ctx.project.path, ctx.project.config.management?.resources)), ctx.deps.log);
+		renderFinancialSummary(analyzeFinancials(resourceStore.list({ disk, paths }, ctx.project.path, ctx.project.config.management?.resources ? { dir: ctx.project.config.management.resources.dir } : undefined)), ctx.deps.log);
 		await input.waitForEnter();
 		return "main" as MenuResult;
 	});
@@ -211,9 +211,9 @@ export function registerCrudHandlers(registry: HandlerRegistry): void {
 	registry.registerAction("timelog:list", async (ctx) => {
 		if (!ctx.project) return undefined;
 		const { disk, paths, input } = ctx.deps;
-		const { listTimeLogEntries } = await import("../../domain/timelog/timelog-store.js");
+		const { timelogStore } = await import("../../domain/timelog/timelog-store.js");
 		const { renderTimeLogList } = await import("../displays/timelog-display.js");
-		renderTimeLogList(listTimeLogEntries({ disk, paths }, ctx.project.path, ctx.project.config.management?.timelog), ctx.deps.log);
+		renderTimeLogList(timelogStore.list({ disk, paths }, ctx.project.path, ctx.project.config.management?.timelog ? { dir: ctx.project.config.management.timelog.dir } : undefined), ctx.deps.log);
 		await input.waitForEnter();
 		return "main" as MenuResult;
 	});
@@ -230,9 +230,9 @@ export function registerCrudHandlers(registry: HandlerRegistry): void {
 	registry.registerAction("timelog:summary", async (ctx) => {
 		if (!ctx.project) return undefined;
 		const { disk, paths, input } = ctx.deps;
-		const { listTimeLogEntries, summarizeTimeLog } = await import("../../domain/timelog/timelog-store.js");
+		const { timelogStore, summarizeTimeLog } = await import("../../domain/timelog/timelog-store.js");
 		const { renderTimeLogSummary } = await import("../displays/timelog-display.js");
-		const entries = listTimeLogEntries({ disk, paths }, ctx.project.path, ctx.project.config.management?.timelog);
+		const entries = timelogStore.list({ disk, paths }, ctx.project.path, ctx.project.config.management?.timelog ? { dir: ctx.project.config.management.timelog.dir } : undefined);
 		renderTimeLogSummary(summarizeTimeLog(entries), ctx.deps.log);
 		await input.waitForEnter();
 		return "main" as MenuResult;

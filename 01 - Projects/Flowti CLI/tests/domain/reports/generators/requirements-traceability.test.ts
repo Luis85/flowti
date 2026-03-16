@@ -21,6 +21,9 @@ vi.mock("../../../../src/domain/project/project-config.js", () => ({
 }));
 
 vi.mock("../../../../src/domain/requirements/requirement-store.js", () => ({
+	requirementStore: { list: vi.fn(() => []), resolveDir: vi.fn(() => "docs/requirements") },
+	useCaseStore: { list: vi.fn(() => []), resolveDir: vi.fn(() => "docs/requirements/use-cases") },
+	userStoryStore: { list: vi.fn(() => []), resolveDir: vi.fn(() => "docs/requirements/user-stories") },
 	listRequirements: vi.fn(() => []),
 	listUseCases: vi.fn(() => []),
 	listUserStories: vi.fn(() => []),
@@ -29,7 +32,7 @@ vi.mock("../../../../src/domain/requirements/requirement-store.js", () => ({
 import * as fsMod from "../../../../src/infrastructure/filesystem.js";
 import { paths } from "../../../../src/infrastructure/paths.js";
 import { clock } from "../../../../src/infrastructure/clock.js";
-import { listRequirements, listUseCases, listUserStories } from "../../../../src/domain/requirements/requirement-store.js";
+import { requirementStore, useCaseStore, userStoryStore } from "../../../../src/domain/requirements/requirement-store.js";
 import { generateRequirementsTraceability } from "../../../../src/domain/reports/generators/requirements-traceability.js";
 
 const mockDeps = { disk: fsMod.disk, paths, clock, log: () => {} } as any;
@@ -51,13 +54,13 @@ describe("generateRequirementsTraceability", () => {
 
 	it("generates with requirements, use cases, and user stories", () => {
 		setDisk(createMockFs());
-		vi.mocked(listRequirements).mockReturnValue([
+		vi.mocked(requirementStore.list).mockReturnValue([
 			{ name: "Auth Login", id: "REQ-001", requirementType: "functional", status: "approved", priority: "must", file: "auth-login.md" },
 		]);
-		vi.mocked(listUseCases).mockReturnValue([
+		vi.mocked(useCaseStore.list).mockReturnValue([
 			{ name: "Login Flow", id: "UC-001", actor: "User", file: "login-flow.md" },
 		]);
-		vi.mocked(listUserStories).mockReturnValue([
+		vi.mocked(userStoryStore.list).mockReturnValue([
 			{ name: "User Login", id: "US-001", role: "user", status: "done", storyPoints: 5, file: "user-login.md" },
 		]);
 
@@ -72,7 +75,7 @@ describe("generateRequirementsTraceability", () => {
 	it("includes status summary for requirements", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		vi.mocked(listRequirements).mockReturnValue([
+		vi.mocked(requirementStore.list).mockReturnValue([
 			{ name: "R1", id: "REQ-001", requirementType: "functional", status: "approved", priority: "must", file: "r1.md" },
 			{ name: "R2", id: "REQ-002", requirementType: "functional", status: "draft", priority: "should", file: "r2.md" },
 		]);
@@ -88,7 +91,7 @@ describe("generateRequirementsTraceability", () => {
 	it("shows story points total", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		vi.mocked(listUserStories).mockReturnValue([
+		vi.mocked(userStoryStore.list).mockReturnValue([
 			{ name: "S1", id: "US-001", role: "dev", status: "done", storyPoints: 3, file: "s1.md" },
 			{ name: "S2", id: "US-002", role: "dev", status: "backlog", storyPoints: 8, file: "s2.md" },
 		]);

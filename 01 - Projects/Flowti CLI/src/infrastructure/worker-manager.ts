@@ -11,7 +11,7 @@ import type { AgentsConfig } from "./types-config.js";
 import type { IWorldStateManager, AgentAction } from "../domain/agents/world-state-types.js";
 import type { AgentSummary } from "../domain/agents/agent-types.js";
 import type { WorkerState, AgentWorker, IWorkerManager, IAgentProcessRunner, SendOptions } from "../domain/agents/worker-types.js";
-import { listAgents, readSystemPrompt } from "../domain/agents/agent-store.js";
+import { agentStore, readSystemPrompt } from "../domain/agents/agent-store.js";
 import { evaluateDecision, getRulesForAgent } from "../domain/agents/decision-engine.js";
 import { buildCharacter, buildTaskPrompt, buildResponsePrompt, respondFromState, acknowledge } from "../domain/agents/action-handlers.js";
 import { resolvePermissionPolicy, resolveAllowedTools } from "../domain/agents/permission-engine.js";
@@ -207,7 +207,7 @@ export function createWorkerManager(
 
 	return {
 		spawnAll(): void {
-			const agents = listAgents(deps, vaultRoot, config);
+			const agents = agentStore.list(deps, vaultRoot, config ? { dir: config.dir } : undefined);
 			for (const agent of agents) {
 				if (!workers.has(agent.name)) {
 					spawnWorker(agent);
@@ -216,7 +216,7 @@ export function createWorkerManager(
 		},
 
 		spawn(agentName: string): AgentWorker | null {
-			const agents = listAgents(deps, vaultRoot, config);
+			const agents = agentStore.list(deps, vaultRoot, config ? { dir: config.dir } : undefined);
 			const agent = agents.find((a) => a.name === agentName);
 			if (!agent) return null;
 			const impl = spawnWorker(agent);

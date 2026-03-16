@@ -7,7 +7,9 @@
 
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "../cli/report-service.js";
-import { listRequirements, listUseCases, listUserStories } from "../../requirements/requirement-store.js";
+import { requirementStore, useCaseStore, userStoryStore } from "../../requirements/requirement-store.js";
+
+const REQ_DEFAULT_DIR = "docs/requirements";
 import { readProjectConfig } from "../../project/project-config.js";
 import type { ReportDeps } from "../../../infrastructure/deps.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
@@ -18,9 +20,10 @@ export function generateRequirementsTraceability(projectPath: string, deps: Repo
 	const svc = new ReportService(projectPath, deps);
 	const { config } = readProjectConfig(projectPath, deps);
 	const reqConfig = config?.management?.requirements;
-	const requirements = listRequirements(deps, projectPath, reqConfig);
-	const useCases = listUseCases(deps, projectPath, reqConfig);
-	const userStories = listUserStories(deps, projectPath, reqConfig);
+	const reqBaseDir = reqConfig?.dir ?? REQ_DEFAULT_DIR;
+	const requirements = requirementStore.list(deps, projectPath, reqConfig ? { dir: reqConfig.dir } : undefined);
+	const useCases = useCaseStore.list(deps, projectPath, { dir: `${reqBaseDir}/use-cases` });
+	const userStories = userStoryStore.list(deps, projectPath, { dir: `${reqBaseDir}/user-stories` });
 
 	const totalItems = requirements.length + useCases.length + userStories.length;
 

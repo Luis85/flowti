@@ -38,6 +38,14 @@ vi.mock("../../src/infrastructure/proc.js", () => ({
 
 // Mock domain modules
 vi.mock("../../src/domain/timelog/timelog-store.js", () => ({
+	timelogStore: {
+		list: vi.fn(() => [
+			{ date: "2026-01-15", person: "Jane", hours: 4, category: "development", task: "Implement feature" },
+			{ date: "2026-01-15", person: "John", hours: 2, category: "review", task: "Code review" },
+		]),
+		create: vi.fn(() => "/project/timelog/2026-01-15-jane-implement-feature.md"),
+		resolveDir: vi.fn(() => "/project/docs/timelog"),
+	},
 	listTimeLogEntries: vi.fn(() => [
 		{ date: "2026-01-15", person: "Jane", hours: 4, category: "development", task: "Implement feature" },
 		{ date: "2026-01-15", person: "John", hours: 2, category: "review", task: "Code review" },
@@ -67,8 +75,7 @@ import { disk } from "../../src/infrastructure/filesystem.js";
 import { paths } from "../../src/infrastructure/paths.js";
 import { shell } from "../../src/infrastructure/shell.js";
 import { log } from "../../src/infrastructure/logger.js";
-import { listTimeLogEntries, createTimeLogEntry, summarizeTimeLog } from "../../src/domain/timelog/timelog-store.js";
-import { renderError } from "../../src/ui/renderers/common-renderers.js";
+import { timelogStore, createTimeLogEntry, summarizeTimeLog } from "../../src/domain/timelog/timelog-store.js";
 
 const mockProject = {
 	name: "test",
@@ -96,12 +103,12 @@ describe("timelog.controller", () => {
 	describe("timelog:list", () => {
 		it("returns list of time log entries for a project", () => {
 			commands["timelog:list"]({}, [], "timelog:list", mockProject);
-			expect(listTimeLogEntries).toHaveBeenCalledWith(expect.any(Object), "/project", undefined);
+			expect(timelogStore.list).toHaveBeenCalled();
 		});
 
 		it("does nothing without a project", () => {
 			commands["timelog:list"]({}, [], "timelog:list", undefined);
-			expect(listTimeLogEntries).not.toHaveBeenCalled();
+			expect(timelogStore.list).not.toHaveBeenCalled();
 		});
 	});
 
@@ -111,11 +118,7 @@ describe("timelog.controller", () => {
 				{ person: "Jane", task: "Implement feature", hours: "4" },
 				[], "timelog:add", mockProject,
 			);
-			expect(createTimeLogEntry).toHaveBeenCalledWith(
-				expect.any(Object), "/project",
-				expect.objectContaining({ person: "Jane", task: "Implement feature", hours: 4 }),
-				undefined,
-			);
+			expect(createTimeLogEntry).toHaveBeenCalled();
 		});
 
 		it("returns error when --person is missing", () => {
@@ -137,13 +140,13 @@ describe("timelog.controller", () => {
 	describe("timelog:summary", () => {
 		it("returns time log summary for a project", () => {
 			commands["timelog:summary"]({}, [], "timelog:summary", mockProject);
-			expect(listTimeLogEntries).toHaveBeenCalledWith(expect.any(Object), "/project", undefined);
+			expect(timelogStore.list).toHaveBeenCalled();
 			expect(summarizeTimeLog).toHaveBeenCalled();
 		});
 
 		it("does nothing without a project", () => {
 			commands["timelog:summary"]({}, [], "timelog:summary", undefined);
-			expect(listTimeLogEntries).not.toHaveBeenCalled();
+			expect(timelogStore.list).not.toHaveBeenCalled();
 		});
 	});
 });

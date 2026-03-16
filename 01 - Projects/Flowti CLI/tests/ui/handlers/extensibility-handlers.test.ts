@@ -29,7 +29,7 @@ vi.mock("../../../src/infrastructure/deps.js", () => ({
 
 // ── Agent mocks ─────────────────────────────────────────────────────
 vi.mock("../../../src/domain/agents/agent-store.js", () => ({
-	listAgents: vi.fn(() => []),
+	agentStore: { list: vi.fn(() => []) },
 	findAgent: vi.fn(),
 }));
 vi.mock("../../../src/infrastructure/sitemap-router.js", () => ({
@@ -118,7 +118,7 @@ import { loadAiTools, scaffoldAiTool } from "../../../src/domain/ai-tools/ai-too
 import { generateAiToolReference } from "../../../src/domain/ai-tools/ai-tool-reference.js";
 import { toToolListItems, toToolValidationItems } from "../../../src/domain/ai-tools/ai-tool-commands.js";
 import { renderToolList, renderToolValidation } from "../../../src/ui/displays/ai-tools-display.js";
-import { listAgents, findAgent } from "../../../src/domain/agents/agent-store.js";
+import { agentStore, findAgent } from "../../../src/domain/agents/agent-store.js";
 import { talkToAgentInteractive, assignTaskInteractive } from "../../../src/ui/menus/agents-menu.js";
 import { runAgentInteractive } from "../../../src/ui/menus/agents-run-menu.js";
 import { findCurrentIteration } from "../../../src/domain/iterations/iteration-store.js";
@@ -425,14 +425,14 @@ describe("registerExtensibilityHandlers", () => {
 
 	describe("agents:list data source", () => {
 		it("returns empty array when no agents", () => {
-			vi.mocked(listAgents).mockReturnValueOnce([]);
+			vi.mocked(agentStore.list).mockReturnValueOnce([]);
 			const ds = registry.getDataSource("agents:list");
 			const entries = ds(mockCtx());
 			expect(entries).toEqual([]);
 		});
 
 		it("returns selectable entries for each agent", () => {
-			vi.mocked(listAgents).mockReturnValueOnce([
+			vi.mocked(agentStore.list).mockReturnValueOnce([
 				{ name: "Alice", agentType: "human", description: "Lead dev", skills: [], tools: [], roles: [], behaviors: [] },
 				{ name: "GPT-4", agentType: "ai", description: "", skills: [], tools: [], roles: [], behaviors: [] },
 			] as any);
@@ -446,7 +446,7 @@ describe("registerExtensibilityHandlers", () => {
 		});
 
 		it("entry action navigates to agent-detail", () => {
-			vi.mocked(listAgents).mockReturnValueOnce([
+			vi.mocked(agentStore.list).mockReturnValueOnce([
 				{ name: "Alice", agentType: "human", description: "", skills: [], tools: [], roles: [], behaviors: [] },
 			] as any);
 			const ds = registry.getDataSource("agents:list");

@@ -32,7 +32,7 @@ vi.mock("../../../src/infrastructure/frontmatter.js", () => ({
 	}),
 }));
 
-import { raidDir, listRAIDItems, createRAIDItem, updateRAIDStatus } from "../../../src/domain/raid/raid-store.js";
+import { raidStore, createRAIDItem } from "../../../src/domain/raid/raid-store.js";
 
 const mockDisk = {
 	existsSync: vi.fn(() => false),
@@ -56,20 +56,20 @@ beforeEach(() => {
 	vi.clearAllMocks();
 });
 
-describe("raidDir", () => {
+describe("raidStore.resolveDir", () => {
 	it("returns default directory", () => {
-		expect(raidDir(deps, "/project")).toBe("/project/docs/raid");
+		expect(raidStore.resolveDir(deps, "/project")).toBe("/project/docs/raid");
 	});
 
 	it("respects config dir", () => {
-		expect(raidDir(deps, "/project", { dir: "custom/raid" })).toBe("/project/custom/raid");
+		expect(raidStore.resolveDir(deps, "/project", { dir: "custom/raid" })).toBe("/project/custom/raid");
 	});
 });
 
-describe("listRAIDItems", () => {
+describe("raidStore.list", () => {
 	it("returns empty array when directory does not exist", () => {
 		mockDisk.existsSync.mockReturnValue(false);
-		expect(listRAIDItems(deps, "/project")).toEqual([]);
+		expect(raidStore.list(deps, "/project")).toEqual([]);
 	});
 
 	it("parses RAID items from directory", () => {
@@ -79,7 +79,7 @@ describe("listRAIDItems", () => {
 			"---\nname: DB Migration Risk\nitemType: risk\nstatus: open\nseverity: high\nowner: Jane\ndueDate: 2026-04-01\n---\nDescription",
 		);
 
-		const result = listRAIDItems(deps, "/project");
+		const result = raidStore.list(deps, "/project");
 
 		expect(result).toHaveLength(1);
 		expect(result[0].name).toBe("DB Migration Risk");
@@ -96,7 +96,7 @@ describe("listRAIDItems", () => {
 			.mockReturnValueOnce("---\nname: Zeta\nitemType: risk\nstatus: open\nseverity: low\n---")
 			.mockReturnValueOnce("---\nname: Alpha\nitemType: issue\nstatus: open\nseverity: medium\n---");
 
-		const result = listRAIDItems(deps, "/project");
+		const result = raidStore.list(deps, "/project");
 
 		expect(result[0].name).toBe("Alpha");
 		expect(result[1].name).toBe("Zeta");
@@ -127,17 +127,17 @@ describe("createRAIDItem", () => {
 	});
 });
 
-describe("updateRAIDStatus", () => {
+describe("raidStore.updateField (status)", () => {
 	it("returns false when file does not exist", () => {
 		mockDisk.existsSync.mockReturnValue(false);
-		expect(updateRAIDStatus(deps, "/project", "Test Risk", "mitigated")).toBe(false);
+		expect(raidStore.updateField(deps, "/project", "Test Risk", "status", "mitigated")).toBe(false);
 	});
 
 	it("updates status in file content", () => {
 		mockDisk.existsSync.mockReturnValue(true);
 		mockDisk.readFileSync.mockReturnValue("---\nstatus: open\nseverity: high\n---\nBody");
 
-		const result = updateRAIDStatus(deps, "/project", "Test Risk", "mitigated");
+		const result = raidStore.updateField(deps, "/project", "Test Risk", "status", "mitigated");
 
 		expect(result).toBe(true);
 		expect(mockDisk.writeFileSync).toHaveBeenCalledWith(

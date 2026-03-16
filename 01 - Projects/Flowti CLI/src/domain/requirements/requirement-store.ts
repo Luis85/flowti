@@ -12,9 +12,9 @@ import type { StoreDeps } from "../../infrastructure/store-engine.js";
 import { toMdFilename } from "../../infrastructure/markdown-utils.js";
 import type { RequirementsConfig } from "../../infrastructure/types.js";
 import type {
-	RequirementDefinition, RequirementSummary, RequirementStatus,
+	RequirementDefinition, RequirementSummary,
 	UseCaseDefinition, UseCaseSummary,
-	UserStoryDefinition, UserStorySummary, UserStoryStatus,
+	UserStoryDefinition, UserStorySummary,
 } from "./requirement-types.js";
 
 export type RequirementStoreDeps = StoreDeps & { clock: import("../../infrastructure/types.js").IClock };
@@ -200,18 +200,6 @@ export function nextId(prefix: string, existingIds: string[]): string {
 	return `${prefix}-${String(max + 1).padStart(3, "0")}`;
 }
 
-// ── Backwards-compatible re-exports ────────────────────────────────
-
-/** Resolve the requirements root directory for a project. */
-export function requirementsDir(deps: Pick<import("../../infrastructure/deps.js").CliDeps, "paths">, projectPath: string, config?: RequirementsConfig): string {
-	return requirementStore.resolveDir(deps as StoreDeps, projectPath, config ? { dir: config.dir } : undefined);
-}
-
-/** List all requirements from the root requirements directory. */
-export function listRequirements(deps: Pick<import("../../infrastructure/deps.js").CliDeps, "disk" | "paths">, projectPath: string, config?: RequirementsConfig): RequirementSummary[] {
-	return requirementStore.list(deps as StoreDeps, projectPath, config ? { dir: config.dir } : undefined);
-}
-
 /** Create a new requirement markdown file. Returns the file path or null if it already exists. */
 export function createRequirement(deps: RequirementStoreDeps, projectPath: string, def: RequirementDefinition, config?: RequirementsConfig): string | null {
 	const dir = requirementStore.resolveDir(deps, projectPath, config ? { dir: config.dir } : undefined);
@@ -220,22 +208,6 @@ export function createRequirement(deps: RequirementStoreDeps, projectPath: strin
 	const fm = buildRequirementFrontmatter(def, deps.clock.iso());
 	const body = requirementStore.__descriptor.buildBody(def, deps);
 	return writeMarkdownFile(deps, dir, filename, fm, body);
-}
-
-/** Update the status of a named requirement. Returns true if successful. */
-export function updateRequirementStatus(
-	deps: Pick<import("../../infrastructure/deps.js").CliDeps, "disk" | "paths">,
-	projectPath: string,
-	reqName: string,
-	status: RequirementStatus,
-	config?: RequirementsConfig,
-): boolean {
-	return requirementStore.updateField(deps as StoreDeps, projectPath, reqName, "status", status, config ? { dir: config.dir } : undefined);
-}
-
-/** List all use cases from the use-cases/ subdirectory. */
-export function listUseCases(deps: Pick<import("../../infrastructure/deps.js").CliDeps, "disk" | "paths">, projectPath: string, config?: RequirementsConfig): UseCaseSummary[] {
-	return useCaseStore.list(deps as StoreDeps, projectPath, { dir: ucSubdir(config) });
 }
 
 /** Create a new use case markdown file. Returns the file path or null if it already exists. */
@@ -249,11 +221,6 @@ export function createUseCase(deps: RequirementStoreDeps, projectPath: string, d
 	return writeMarkdownFile(deps, dir, filename, fm, body);
 }
 
-/** List all user stories from the user-stories/ subdirectory. */
-export function listUserStories(deps: Pick<import("../../infrastructure/deps.js").CliDeps, "disk" | "paths">, projectPath: string, config?: RequirementsConfig): UserStorySummary[] {
-	return userStoryStore.list(deps as StoreDeps, projectPath, { dir: usSubdir(config) });
-}
-
 /** Create a new user story markdown file. Returns the file path or null if it already exists. */
 export function createUserStory(deps: RequirementStoreDeps, projectPath: string, def: UserStoryDefinition, config?: RequirementsConfig): string | null {
 	const subdir = usSubdir(config);
@@ -263,15 +230,4 @@ export function createUserStory(deps: RequirementStoreDeps, projectPath: string,
 	const fm = buildUserStoryFrontmatter(def, deps.clock.iso());
 	const body = userStoryStore.__descriptor.buildBody(def, deps);
 	return writeMarkdownFile(deps, dir, filename, fm, body);
-}
-
-/** Update the status of a named user story. Returns true if successful. */
-export function updateUserStoryStatus(
-	deps: Pick<import("../../infrastructure/deps.js").CliDeps, "disk" | "paths">,
-	projectPath: string,
-	storyName: string,
-	status: UserStoryStatus,
-	config?: RequirementsConfig,
-): boolean {
-	return userStoryStore.updateField(deps as StoreDeps, projectPath, storyName, "status", status, { dir: usSubdir(config) });
 }

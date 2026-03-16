@@ -5,12 +5,12 @@ vi.mock("../../src/infrastructure/paths.js", () => ({ paths: {} }));
 vi.mock("../../src/infrastructure/clock.js", () => ({ clock: {} }));
 vi.mock("../../src/infrastructure/logger.js", () => ({ log: vi.fn() }));
 vi.mock("../../src/domain/agents/agent-store.js", () => ({
-	listAgents: vi.fn(() => []),
+	agentStore: { list: vi.fn(() => []) },
 	readSystemPrompt: vi.fn(() => null),
 }));
 
 import { createWorkerManager } from "../../src/infrastructure/worker-manager.js";
-import { listAgents } from "../../src/domain/agents/agent-store.js";
+import { agentStore } from "../../src/domain/agents/agent-store.js";
 import type { AgentSummary } from "../../src/domain/agents/agent-types.js";
 import type { AgentProcess, IAgentProcessRunner, SendOptions } from "../../src/domain/agents/worker-types.js";
 import type { IWorldStateManager, AgentAction, WorldEntity } from "../../src/domain/agents/world-state-types.js";
@@ -65,13 +65,13 @@ function makeAction(overrides?: Partial<AgentAction>): AgentAction {
 
 describe("WorkerManager", () => {
 	beforeEach(() => {
-		vi.mocked(listAgents).mockReturnValue([]);
+		vi.mocked(agentStore.list).mockReturnValue([]);
 	});
 
 	// ── spawnAll ─────────────────────────────────────────────────────
 
 	it("spawnAll creates workers from agent definitions", () => {
-		vi.mocked(listAgents).mockReturnValue([makeAgent()]);
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
 		const mgr = createWorkerManager(makeDeps(), makeWorldState(), makeProcessRunner(), "/vault", undefined);
 		mgr.spawnAll();
 		expect(mgr.listWorkers()).toHaveLength(1);
@@ -79,7 +79,7 @@ describe("WorkerManager", () => {
 	});
 
 	it("spawnAll does not duplicate workers on repeated calls", () => {
-		vi.mocked(listAgents).mockReturnValue([makeAgent()]);
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
 		const mgr = createWorkerManager(makeDeps(), makeWorldState(), makeProcessRunner(), "/vault", undefined);
 		mgr.spawnAll();
 		mgr.spawnAll();
@@ -87,7 +87,7 @@ describe("WorkerManager", () => {
 	});
 
 	it("spawnAll spawns multiple agents", () => {
-		vi.mocked(listAgents).mockReturnValue([
+		vi.mocked(agentStore.list).mockReturnValue([
 			makeAgent({ name: "Alice" }),
 			makeAgent({ name: "Bob" }),
 			makeAgent({ name: "Charlie", agentType: "human" }),
@@ -98,7 +98,7 @@ describe("WorkerManager", () => {
 	});
 
 	it("spawnAll registers entities in world state", () => {
-		vi.mocked(listAgents).mockReturnValue([makeAgent()]);
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
 		const ws = makeWorldState();
 		const mgr = createWorkerManager(makeDeps(), ws, makeProcessRunner(), "/vault", undefined);
 		mgr.spawnAll();
@@ -110,7 +110,7 @@ describe("WorkerManager", () => {
 	// ── spawn (single) ──────────────────────────────────────────────
 
 	it("spawn creates a single named worker", () => {
-		vi.mocked(listAgents).mockReturnValue([makeAgent()]);
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
 		const mgr = createWorkerManager(makeDeps(), makeWorldState(), makeProcessRunner(), "/vault", undefined);
 		const worker = mgr.spawn("Bob");
 		expect(worker).not.toBeNull();
@@ -119,7 +119,7 @@ describe("WorkerManager", () => {
 	});
 
 	it("spawn returns null for unknown agent", () => {
-		vi.mocked(listAgents).mockReturnValue([]);
+		vi.mocked(agentStore.list).mockReturnValue([]);
 		const mgr = createWorkerManager(makeDeps(), makeWorldState(), makeProcessRunner(), "/vault", undefined);
 		const worker = mgr.spawn("Unknown");
 		expect(worker).toBeNull();
@@ -134,7 +134,7 @@ describe("WorkerManager", () => {
 	});
 
 	it("getWorker returns public worker with correct properties", () => {
-		vi.mocked(listAgents).mockReturnValue([makeAgent()]);
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
 		const mgr = createWorkerManager(makeDeps(), makeWorldState(), makeProcessRunner(), "/vault", undefined);
 		mgr.spawnAll();
 		const worker = mgr.getWorker("Bob");
@@ -148,7 +148,7 @@ describe("WorkerManager", () => {
 	// ── send ────────────────────────────────────────────────────────
 
 	it("send routes message to AI worker and spawns LLM process", () => {
-		vi.mocked(listAgents).mockReturnValue([makeAgent()]);
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
 		const runner = makeProcessRunner();
 		const mgr = createWorkerManager(makeDeps(), makeWorldState(), runner, "/vault", undefined);
 		mgr.spawnAll();
@@ -165,7 +165,7 @@ describe("WorkerManager", () => {
 	});
 
 	it("send does nothing for stopped worker", () => {
-		vi.mocked(listAgents).mockReturnValue([makeAgent()]);
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
 		const runner = makeProcessRunner();
 		const mgr = createWorkerManager(makeDeps(), makeWorldState(), runner, "/vault", undefined);
 		mgr.spawnAll();
@@ -175,7 +175,7 @@ describe("WorkerManager", () => {
 	});
 
 	it("send invokes onResponse callback with LLM result", async () => {
-		vi.mocked(listAgents).mockReturnValue([makeAgent()]);
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
 		const runner = makeProcessRunner({ text: "Hello back" });
 		const mgr = createWorkerManager(makeDeps(), makeWorldState(), runner, "/vault", undefined);
 		mgr.spawnAll();
@@ -190,7 +190,7 @@ describe("WorkerManager", () => {
 	});
 
 	it("send invokes onEvent callback for stream events", async () => {
-		vi.mocked(listAgents).mockReturnValue([makeAgent()]);
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
 		const runner = makeProcessRunner();
 		const mgr = createWorkerManager(makeDeps(), makeWorldState(), runner, "/vault", undefined);
 		mgr.spawnAll();
@@ -206,7 +206,7 @@ describe("WorkerManager", () => {
 
 	it("send to NPC agent returns static response without LLM", () => {
 		const npcAgent = makeAgent({ name: "Guard", agentType: "human" });
-		vi.mocked(listAgents).mockReturnValue([npcAgent]);
+		vi.mocked(agentStore.list).mockReturnValue([npcAgent]);
 		const runner = makeProcessRunner();
 		const mgr = createWorkerManager(makeDeps(), makeWorldState(), runner, "/vault", undefined);
 		mgr.spawnAll();
@@ -223,7 +223,7 @@ describe("WorkerManager", () => {
 	// ── Message queue behavior ──────────────────────────────────────
 
 	it("queues messages when worker is busy", () => {
-		vi.mocked(listAgents).mockReturnValue([makeAgent()]);
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
 		// Make the process never resolve so the worker stays busy
 		let resolveResult: ((v: { text: string; thinking: string; exitCode: number }) => void) | undefined;
 		const runner: IAgentProcessRunner = {
@@ -250,7 +250,7 @@ describe("WorkerManager", () => {
 	});
 
 	it("processes queued messages after current completes", async () => {
-		vi.mocked(listAgents).mockReturnValue([makeAgent()]);
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
 		let spawnCount = 0;
 		const runner: IAgentProcessRunner = {
 			spawn: vi.fn((): AgentProcess => {
@@ -275,7 +275,7 @@ describe("WorkerManager", () => {
 	// ── Failure tracking ────────────────────────────────────────────
 
 	it("increments failure count on LLM error", async () => {
-		vi.mocked(listAgents).mockReturnValue([makeAgent()]);
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
 		const runner = makeProcessRunner({ text: "", exitCode: 1 });
 		const ws = makeWorldState();
 		const mgr = createWorkerManager(makeDeps(), ws, runner, "/vault", undefined);
@@ -289,7 +289,7 @@ describe("WorkerManager", () => {
 	});
 
 	it("stops worker after 3 consecutive failures", async () => {
-		vi.mocked(listAgents).mockReturnValue([makeAgent()]);
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
 		let callCount = 0;
 		const runner: IAgentProcessRunner = {
 			spawn: vi.fn((): AgentProcess => {
@@ -322,7 +322,7 @@ describe("WorkerManager", () => {
 	});
 
 	it("resets failure count on successful response", async () => {
-		vi.mocked(listAgents).mockReturnValue([makeAgent()]);
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
 		let callCount = 0;
 		const runner: IAgentProcessRunner = {
 			spawn: vi.fn((): AgentProcess => {
@@ -360,7 +360,7 @@ describe("WorkerManager", () => {
 	// ── stop / stopAll ──────────────────────────────────────────────
 
 	it("stop sets individual worker to stopped", () => {
-		vi.mocked(listAgents).mockReturnValue([makeAgent()]);
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
 		const ws = makeWorldState();
 		const mgr = createWorkerManager(makeDeps(), ws, makeProcessRunner(), "/vault", undefined);
 		mgr.spawnAll();
@@ -380,7 +380,7 @@ describe("WorkerManager", () => {
 	});
 
 	it("stopAll stops all workers", () => {
-		vi.mocked(listAgents).mockReturnValue([
+		vi.mocked(agentStore.list).mockReturnValue([
 			makeAgent({ name: "Alice" }),
 			makeAgent({ name: "Bob" }),
 		]);
@@ -400,7 +400,7 @@ describe("WorkerManager", () => {
 	});
 
 	it("listWorkers returns snapshot with correct state", () => {
-		vi.mocked(listAgents).mockReturnValue([makeAgent()]);
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
 		const mgr = createWorkerManager(makeDeps(), makeWorldState(), makeProcessRunner(), "/vault", undefined);
 		mgr.spawnAll();
 		const workers = mgr.listWorkers();
@@ -412,7 +412,7 @@ describe("WorkerManager", () => {
 	// ── dispatchWorldEvent ──────────────────────────────────────────
 
 	it("dispatchWorldEvent skips originating agent (cycle protection)", () => {
-		vi.mocked(listAgents).mockReturnValue([makeAgent({ name: "Bob" })]);
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent({ name: "Bob" })]);
 		const runner = makeProcessRunner();
 		const mgr = createWorkerManager(makeDeps(), makeWorldState(), runner, "/vault", undefined);
 		mgr.spawnAll();
@@ -423,7 +423,7 @@ describe("WorkerManager", () => {
 	});
 
 	it("dispatchWorldEvent fans out to other workers", () => {
-		vi.mocked(listAgents).mockReturnValue([
+		vi.mocked(agentStore.list).mockReturnValue([
 			makeAgent({ name: "Alice" }),
 			makeAgent({ name: "Bob" }),
 		]);
@@ -437,7 +437,7 @@ describe("WorkerManager", () => {
 	});
 
 	it("dispatchWorldEvent skips stopped workers", () => {
-		vi.mocked(listAgents).mockReturnValue([
+		vi.mocked(agentStore.list).mockReturnValue([
 			makeAgent({ name: "Alice" }),
 			makeAgent({ name: "Bob" }),
 		]);
@@ -451,7 +451,7 @@ describe("WorkerManager", () => {
 	});
 
 	it("dispatchWorldEvent NPC acknowledges task", () => {
-		vi.mocked(listAgents).mockReturnValue([
+		vi.mocked(agentStore.list).mockReturnValue([
 			makeAgent({ name: "Alice" }),
 			makeAgent({ name: "Guard", agentType: "human" }),
 		]);
@@ -464,7 +464,7 @@ describe("WorkerManager", () => {
 	});
 
 	it("dispatchWorldEvent ignores unmatched action types", () => {
-		vi.mocked(listAgents).mockReturnValue([
+		vi.mocked(agentStore.list).mockReturnValue([
 			makeAgent({ name: "Alice" }),
 			makeAgent({ name: "Bob" }),
 		]);
@@ -480,7 +480,7 @@ describe("WorkerManager", () => {
 	// ── Worker public API ───────────────────────────────────────────
 
 	it("worker.stop() transitions to stopped", () => {
-		vi.mocked(listAgents).mockReturnValue([makeAgent()]);
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
 		const mgr = createWorkerManager(makeDeps(), makeWorldState(), makeProcessRunner(), "/vault", undefined);
 		mgr.spawnAll();
 		const worker = mgr.getWorker("Bob");
@@ -489,7 +489,7 @@ describe("WorkerManager", () => {
 	});
 
 	it("worker.send() delegates to manager send", () => {
-		vi.mocked(listAgents).mockReturnValue([makeAgent()]);
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
 		const runner = makeProcessRunner();
 		const mgr = createWorkerManager(makeDeps(), makeWorldState(), runner, "/vault", undefined);
 		mgr.spawnAll();
@@ -501,7 +501,7 @@ describe("WorkerManager", () => {
 	// ── State transitions during processing ─────────────────────────
 
 	it("worker transitions through thinking → working → idle", async () => {
-		vi.mocked(listAgents).mockReturnValue([makeAgent()]);
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
 		const ws = makeWorldState();
 		const runner = makeProcessRunner();
 		const mgr = createWorkerManager(makeDeps(), ws, runner, "/vault", undefined);
@@ -527,7 +527,7 @@ describe("WorkerManager", () => {
 	// ── send with task option ───────────────────────────────────────
 
 	it("send with task option builds task prompt", async () => {
-		vi.mocked(listAgents).mockReturnValue([makeAgent()]);
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
 		const runner = makeProcessRunner();
 		const mgr = createWorkerManager(makeDeps(), makeWorldState(), runner, "/vault", undefined);
 		mgr.spawnAll();
@@ -542,7 +542,7 @@ describe("WorkerManager", () => {
 	// ── Edge cases ──────────────────────────────────────────────────
 
 	it("handles process runner throwing", async () => {
-		vi.mocked(listAgents).mockReturnValue([makeAgent()]);
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
 		const runner: IAgentProcessRunner = {
 			spawn: vi.fn((): AgentProcess => ({
 				onEvent: vi.fn(() => () => {}),
@@ -562,7 +562,7 @@ describe("WorkerManager", () => {
 	});
 
 	it("messageQueue is a copy (not a mutable reference)", () => {
-		vi.mocked(listAgents).mockReturnValue([makeAgent()]);
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
 		const mgr = createWorkerManager(makeDeps(), makeWorldState(), makeProcessRunner(), "/vault", undefined);
 		mgr.spawnAll();
 		const worker = mgr.getWorker("Bob");

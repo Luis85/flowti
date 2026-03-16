@@ -81,9 +81,9 @@ vi.mock("../../src/domain/e2e/journey/journey-loader.js", () => ({
 	loadAllJourneys: vi.fn(() => []),
 }));
 vi.mock("../../src/domain/requirements/requirement-store.js", () => ({
-	listRequirements: vi.fn(() => []),
-	listUseCases: vi.fn(() => []),
-	listUserStories: vi.fn(() => []),
+	requirementStore: { list: vi.fn(() => []), updateField: vi.fn(), resolveDir: vi.fn(() => "") },
+	useCaseStore: { list: vi.fn(() => []), resolveDir: vi.fn(() => "") },
+	userStoryStore: { list: vi.fn(() => []), resolveDir: vi.fn(() => "") },
 }));
 vi.mock("../../src/ui/displays/review-display.js", () => ({
 	renderChangeAnalysis: vi.fn(),
@@ -116,7 +116,7 @@ import { buildTraceabilityMatrix, detectGaps, validateTraceabilityLinks, coverag
 import { evaluateGates } from "../../src/domain/review/quality-gates.js";
 import { listRuns } from "../../src/domain/review/evidence.js";
 import { loadAllJourneys } from "../../src/domain/e2e/journey/journey-loader.js";
-import { listRequirements, listUseCases, listUserStories } from "../../src/domain/requirements/requirement-store.js";
+import { requirementStore, useCaseStore, userStoryStore } from "../../src/domain/requirements/requirement-store.js";
 
 const mockProject = {
 	name: "test",
@@ -282,9 +282,9 @@ describe("review.controller", () => {
 			commands["review:traceability"]({}, [], "review:traceability", mockProject);
 
 			expect(loadAllJourneys).toHaveBeenCalled();
-			expect(listRequirements).toHaveBeenCalledWith(expect.any(Object), "/project", undefined);
-			expect(listUseCases).toHaveBeenCalledWith(expect.any(Object), "/project", undefined);
-			expect(listUserStories).toHaveBeenCalledWith(expect.any(Object), "/project", undefined);
+			expect(requirementStore.list).toHaveBeenCalledWith(expect.any(Object), "/project", undefined);
+			expect(useCaseStore.list).toHaveBeenCalledWith(expect.any(Object), "/project", { dir: "docs/requirements/use-cases" });
+			expect(userStoryStore.list).toHaveBeenCalledWith(expect.any(Object), "/project", { dir: "docs/requirements/user-stories" });
 		});
 
 		it("builds traceability matrix and validates links", () => {
@@ -330,7 +330,7 @@ describe("review.controller", () => {
 			commands["review:coverage"]({}, [], "review:coverage", mockProject);
 
 			expect(loadAllJourneys).toHaveBeenCalled();
-			expect(listRequirements).toHaveBeenCalled();
+			expect(requirementStore.list).toHaveBeenCalled();
 			expect(buildTraceabilityMatrix).toHaveBeenCalled();
 			expect(detectGaps).toHaveBeenCalled();
 			expect(coverageByCategory).toHaveBeenCalled();

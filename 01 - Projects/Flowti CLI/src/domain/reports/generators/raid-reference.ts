@@ -7,7 +7,7 @@
 
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "../cli/report-service.js";
-import { listRAIDItems } from "../../raid/raid-store.js";
+import { raidStore } from "../../raid/raid-store.js";
 import { readProjectConfig } from "../../project/project-config.js";
 import type { ReportDeps } from "../../../infrastructure/deps.js";
 import type { GeneratorOutput, RAIDItemType } from "../../../infrastructure/types.js";
@@ -30,7 +30,7 @@ export function generateRaidReference(projectPath: string, deps: ReportDeps): Ge
 	const svc = new ReportService(projectPath, deps);
 	const { config } = readProjectConfig(projectPath, deps);
 	const raidConfig = config?.management?.raid;
-	const items = listRAIDItems(deps, projectPath, raidConfig);
+	const items = raidStore.list(deps, projectPath, raidConfig ? { dir: raidConfig.dir } : undefined);
 
 	const byType = new Map<string, typeof items>();
 	for (const item of items) {

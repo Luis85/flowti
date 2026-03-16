@@ -34,16 +34,7 @@ export const deliverableStore = createStore<DeliverableSummary, DeliverableDefin
 	},
 });
 
-// Backwards-compatible re-exports (removed in Phase 4 cleanup)
 export type DeliverableStoreDeps = StoreDeps & { clock: import("../../infrastructure/types.js").IClock };
-
-export function deliverablesDir(deps: Pick<import("../../infrastructure/deps.js").CliDeps, "paths">, projectPath: string, config?: DeliverablesConfig): string {
-	return deliverableStore.resolveDir(deps as StoreDeps, projectPath, config ? { dir: config.dir } : undefined);
-}
-
-export function listDeliverables(deps: Pick<import("../../infrastructure/deps.js").CliDeps, "disk" | "paths">, projectPath: string, config?: DeliverablesConfig): DeliverableSummary[] {
-	return deliverableStore.list(deps as StoreDeps, projectPath, config ? { dir: config.dir } : undefined);
-}
 
 export function createDeliverableFile(deps: DeliverableStoreDeps, projectPath: string, def: DeliverableDefinition, config?: DeliverablesConfig): string | null {
 	const dir = deliverableStore.resolveDir(deps, projectPath, config ? { dir: config.dir } : undefined);

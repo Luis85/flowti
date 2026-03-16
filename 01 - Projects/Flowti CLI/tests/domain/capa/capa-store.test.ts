@@ -32,7 +32,7 @@ vi.mock("../../../src/infrastructure/frontmatter.js", () => ({
 	}),
 }));
 
-import { capaDir, listCAPAItems, createCAPAItem, updateCAPAStatus, nextCapaId } from "../../../src/domain/capa/capa-store.js";
+import { capaStore, createCAPAItem, nextCapaId } from "../../../src/domain/capa/capa-store.js";
 
 const mockDisk = {
 	existsSync: vi.fn(() => false),
@@ -56,13 +56,13 @@ beforeEach(() => {
 	vi.clearAllMocks();
 });
 
-describe("capaDir", () => {
+describe("capaStore.resolveDir", () => {
 	it("returns default directory", () => {
-		expect(capaDir(deps, "/project")).toBe("/project/docs/capa");
+		expect(capaStore.resolveDir(deps, "/project")).toBe("/project/docs/capa");
 	});
 
 	it("respects config dir", () => {
-		expect(capaDir(deps, "/project", { dir: "custom/capa" })).toBe("/project/custom/capa");
+		expect(capaStore.resolveDir(deps, "/project", { dir: "custom/capa" })).toBe("/project/custom/capa");
 	});
 });
 
@@ -80,10 +80,10 @@ describe("nextCapaId", () => {
 	});
 });
 
-describe("listCAPAItems", () => {
+describe("capaStore.list", () => {
 	it("returns empty array when directory does not exist", () => {
 		mockDisk.existsSync.mockReturnValue(false);
-		expect(listCAPAItems(deps, "/project")).toEqual([]);
+		expect(capaStore.list(deps, "/project")).toEqual([]);
 	});
 
 	it("parses CAPA items from directory", () => {
@@ -93,7 +93,7 @@ describe("listCAPAItems", () => {
 			"---\nname: Process Failure\nid: CAPA-001\ncapaType: corrective\nstatus: open\nseverity: high\nsource: audit\nowner: Jane\ndueDate: 2026-04-01\n---\nDescription",
 		);
 
-		const result = listCAPAItems(deps, "/project");
+		const result = capaStore.list(deps, "/project");
 
 		expect(result).toHaveLength(1);
 		expect(result[0].name).toBe("Process Failure");
@@ -112,7 +112,7 @@ describe("listCAPAItems", () => {
 			.mockReturnValueOnce("---\nname: Zeta\nid: CAPA-002\ncapaType: corrective\nstatus: open\nseverity: low\n---")
 			.mockReturnValueOnce("---\nname: Alpha\nid: CAPA-001\ncapaType: preventive\nstatus: open\nseverity: medium\n---");
 
-		const result = listCAPAItems(deps, "/project");
+		const result = capaStore.list(deps, "/project");
 
 		expect(result[0].name).toBe("Alpha");
 		expect(result[1].name).toBe("Zeta");
@@ -143,17 +143,17 @@ describe("createCAPAItem", () => {
 	});
 });
 
-describe("updateCAPAStatus", () => {
+describe("capaStore.updateField (status)", () => {
 	it("returns false when file does not exist", () => {
 		mockDisk.existsSync.mockReturnValue(false);
-		expect(updateCAPAStatus(deps, "/project", "Test Issue", "investigating")).toBe(false);
+		expect(capaStore.updateField(deps, "/project", "Test Issue", "status", "investigating")).toBe(false);
 	});
 
 	it("updates status in file content", () => {
 		mockDisk.existsSync.mockReturnValue(true);
 		mockDisk.readFileSync.mockReturnValue("---\nstatus: open\nseverity: high\n---\nBody");
 
-		const result = updateCAPAStatus(deps, "/project", "Test Issue", "investigating");
+		const result = capaStore.updateField(deps, "/project", "Test Issue", "status", "investigating");
 
 		expect(result).toBe(true);
 		expect(mockDisk.writeFileSync).toHaveBeenCalledWith(

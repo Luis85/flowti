@@ -6,7 +6,7 @@ import { printHeader } from "../../infrastructure/ui.js";
 import type { MenuDeps } from "../../infrastructure/deps.js";
 import type { DeliverablesConfig, DeliverableStatus } from "../../infrastructure/types.js";
 import { collectFields, selectFromList, selectStatus } from "../../infrastructure/menu-helpers.js";
-import { listDeliverables, createDeliverableFile, updateDeliverableStatus } from "../../domain/deliverables/deliverable-store.js";
+import { deliverableStore, createDeliverableFile, updateDeliverableStatus } from "../../domain/deliverables/deliverable-store.js";
 import { renderDeliverableAdded, renderDeliverableUpdated } from "../displays/deliverables-display.js";
 
 const STATUSES: DeliverableStatus[] = ["planned", "in-progress", "review", "done", "blocked"];
@@ -41,7 +41,7 @@ export async function addDeliverableInteractive(projectPath: string, config: Del
 export async function updateStatusInteractive(projectPath: string, config: DeliverablesConfig | undefined, deps: MenuDeps): Promise<void> {
 	printHeader("Update Deliverable Status");
 
-	const deliverables = listDeliverables(deps, projectPath, config);
+	const deliverables = deliverableStore.list(deps, projectPath, config ? { dir: config.dir } : undefined);
 	const d = await selectFromList(deliverables, deps, {
 		format: (item) => `${item.name} [${item.status}]`,
 		emptyMessage: "No deliverables to update.",

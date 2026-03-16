@@ -7,7 +7,7 @@ import type { MenuDeps } from "../../infrastructure/deps.js";
 import type { CAPAConfig, CAPAStatus, CAPAType } from "../../infrastructure/types.js";
 import type { CAPASource } from "../../domain/capa/capa-types.js";
 import { collectFields, selectFromList, selectStatus } from "../../infrastructure/menu-helpers.js";
-import { listCAPAItems, createCAPAItem, updateCAPAStatus, nextCapaId } from "../../domain/capa/capa-store.js";
+import { capaStore, createCAPAItem, nextCapaId } from "../../domain/capa/capa-store.js";
 import { renderCAPAAdded, renderCAPAUpdated } from "../displays/capa-display.js";
 
 const STATUSES: CAPAStatus[] = ["open", "investigating", "action-planned", "implementing", "verification", "closed", "rejected"];
@@ -17,7 +17,7 @@ export async function addCAPAInteractive(capaType: CAPAType, projectPath: string
 	const label = capaType === "corrective" ? "Corrective Action" : "Preventive Action";
 	printHeader(`Add ${label}`);
 
-	const existing = listCAPAItems(deps, projectPath, config);
+	const existing = capaStore.list(deps, projectPath, config ? { dir: config.dir } : undefined);
 	const suggestedId = nextCapaId(existing.map((c) => c.id));
 
 	const data = await collectFields([
@@ -53,7 +53,7 @@ export async function addCAPAInteractive(capaType: CAPAType, projectPath: string
 export async function updateStatusInteractive(projectPath: string, config: CAPAConfig | undefined, deps: MenuDeps): Promise<void> {
 	printHeader("Update CAPA Status");
 
-	const items = listCAPAItems(deps, projectPath, config);
+	const items = capaStore.list(deps, projectPath, config ? { dir: config.dir } : undefined);
 	const item = await selectFromList(items, deps, {
 		format: (i) => `${i.id} ${i.name} [${i.capaType}] [${i.status}]`,
 		emptyMessage: "No CAPA items to update.",
@@ -63,7 +63,7 @@ export async function updateStatusInteractive(projectPath: string, config: CAPAC
 	const newStatus = await selectStatus(STATUSES, item.status, deps);
 	if (!newStatus) return;
 
-	const ok = updateCAPAStatus(deps, projectPath, item.name, newStatus, config);
+	const ok = capaStore.updateField(deps, projectPath, item.name, "status", newStatus, config ? { dir: config.dir } : undefined);
 	if (ok) {
 		renderCAPAUpdated(item.name, newStatus, deps.log);
 	}

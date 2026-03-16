@@ -32,7 +32,7 @@ vi.mock("../../../src/infrastructure/frontmatter.js", () => ({
 	}),
 }));
 
-import { deliverablesDir, listDeliverables, createDeliverableFile, updateDeliverableStatus } from "../../../src/domain/deliverables/deliverable-store.js";
+import { deliverableStore, createDeliverableFile, updateDeliverableStatus } from "../../../src/domain/deliverables/deliverable-store.js";
 
 const mockDisk = {
 	existsSync: vi.fn(() => false),
@@ -56,20 +56,20 @@ beforeEach(() => {
 	vi.clearAllMocks();
 });
 
-describe("deliverablesDir", () => {
+describe("deliverableStore.resolveDir", () => {
 	it("returns default directory", () => {
-		expect(deliverablesDir(deps, "/project")).toBe("/project/docs/deliverables");
+		expect(deliverableStore.resolveDir(deps, "/project")).toBe("/project/docs/deliverables");
 	});
 
 	it("respects config dir", () => {
-		expect(deliverablesDir(deps, "/project", { dir: "deliverables" })).toBe("/project/deliverables");
+		expect(deliverableStore.resolveDir(deps, "/project", { dir: "deliverables" })).toBe("/project/deliverables");
 	});
 });
 
-describe("listDeliverables", () => {
+describe("deliverableStore.list", () => {
 	it("returns empty array when directory does not exist", () => {
 		mockDisk.existsSync.mockReturnValue(false);
-		expect(listDeliverables(deps, "/project")).toEqual([]);
+		expect(deliverableStore.list(deps, "/project")).toEqual([]);
 	});
 
 	it("parses deliverables from directory", () => {
@@ -79,7 +79,7 @@ describe("listDeliverables", () => {
 			"---\nname: MVP Release\nstatus: in-progress\ndueDate: 2026-04-01\nassignee: Jane\ncompletionPct: 65\n---\nDescription",
 		);
 
-		const result = listDeliverables(deps, "/project");
+		const result = deliverableStore.list(deps, "/project");
 
 		expect(result).toHaveLength(1);
 		expect(result[0].name).toBe("MVP Release");

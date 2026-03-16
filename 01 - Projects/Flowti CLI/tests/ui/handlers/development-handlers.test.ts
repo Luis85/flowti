@@ -53,6 +53,9 @@ vi.mock("../../../src/ui/menus/nested-lifecycle-menu.js", () => ({
 
 const mockListRequirements = vi.fn(() => []);
 vi.mock("../../../src/domain/requirements/requirement-store.js", () => ({
+	requirementStore: { list: (...args: unknown[]) => mockListRequirements(...args), resolveDir: vi.fn(() => "") },
+	useCaseStore: { list: vi.fn(() => []), resolveDir: vi.fn(() => "") },
+	userStoryStore: { list: vi.fn(() => []), resolveDir: vi.fn(() => "") },
 	listRequirements: (...args: unknown[]) => mockListRequirements(...args),
 }));
 

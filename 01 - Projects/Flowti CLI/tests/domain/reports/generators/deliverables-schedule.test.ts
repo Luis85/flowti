@@ -21,13 +21,14 @@ vi.mock("../../../../src/domain/project/project-config.js", () => ({
 }));
 
 vi.mock("../../../../src/domain/deliverables/deliverable-store.js", () => ({
+	deliverableStore: { list: vi.fn(() => []), resolveDir: vi.fn(() => "") },
 	listDeliverables: vi.fn(() => []),
 }));
 
 import * as fsMod from "../../../../src/infrastructure/filesystem.js";
 import { paths } from "../../../../src/infrastructure/paths.js";
 import { clock } from "../../../../src/infrastructure/clock.js";
-import { listDeliverables } from "../../../../src/domain/deliverables/deliverable-store.js";
+import { deliverableStore } from "../../../../src/domain/deliverables/deliverable-store.js";
 import { generateDeliverablesSchedule } from "../../../../src/domain/reports/generators/deliverables-schedule.js";
 
 const mockDeps = { disk: fsMod.disk, paths, clock, log: () => {} } as any;
@@ -49,7 +50,7 @@ describe("generateDeliverablesSchedule", () => {
 
 	it("generates with deliverables", () => {
 		setDisk(createMockFs());
-		vi.mocked(listDeliverables).mockReturnValue([
+		vi.mocked(deliverableStore.list).mockReturnValue([
 			{ name: "MVP", status: "in-progress", dueDate: "2026-04-01", assignee: "team", completionPct: 60, file: "mvp.md" },
 			{ name: "Docs", status: "planned", dueDate: "2026-04-15", assignee: "writer", completionPct: 0, file: "docs.md" },
 		]);
@@ -64,7 +65,7 @@ describe("generateDeliverablesSchedule", () => {
 	it("sorts timeline by due date", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		vi.mocked(listDeliverables).mockReturnValue([
+		vi.mocked(deliverableStore.list).mockReturnValue([
 			{ name: "Later", status: "planned", dueDate: "2026-05-01", assignee: "", completionPct: 0, file: "later.md" },
 			{ name: "Sooner", status: "planned", dueDate: "2026-04-01", assignee: "", completionPct: 0, file: "sooner.md" },
 		]);
@@ -80,7 +81,7 @@ describe("generateDeliverablesSchedule", () => {
 	it("groups by assignee", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		vi.mocked(listDeliverables).mockReturnValue([
+		vi.mocked(deliverableStore.list).mockReturnValue([
 			{ name: "Task A", status: "done", dueDate: "", assignee: "Alice", completionPct: 100, file: "a.md" },
 			{ name: "Task B", status: "in-progress", dueDate: "", assignee: "Bob", completionPct: 50, file: "b.md" },
 		]);

@@ -40,7 +40,7 @@ vi.mock("../../../src/infrastructure/frontmatter.js", () => ({
 	}),
 }));
 
-import { resourcesDir, listResources, createResourceFile, updateConsumption } from "../../../src/domain/resources/resource-store.js";
+import { resourceStore, createResourceFile, updateConsumption } from "../../../src/domain/resources/resource-store.js";
 
 const mockDisk = {
 	existsSync: vi.fn(() => false),
@@ -64,20 +64,20 @@ beforeEach(() => {
 	vi.clearAllMocks();
 });
 
-describe("resourcesDir", () => {
+describe("resourceStore.resolveDir", () => {
 	it("returns default directory", () => {
-		expect(resourcesDir(deps, "/project")).toBe("/project/docs/resources");
+		expect(resourceStore.resolveDir(deps, "/project")).toBe("/project/docs/resources");
 	});
 
 	it("respects config dir", () => {
-		expect(resourcesDir(deps, "/project", { dir: "custom/res" })).toBe("/project/custom/res");
+		expect(resourceStore.resolveDir(deps, "/project", { dir: "custom/res" })).toBe("/project/custom/res");
 	});
 });
 
-describe("listResources", () => {
+describe("resourceStore.list", () => {
 	it("returns empty array when directory does not exist", () => {
 		mockDisk.existsSync.mockReturnValue(false);
-		expect(listResources(deps, "/project")).toEqual([]);
+		expect(resourceStore.list(deps, "/project")).toEqual([]);
 	});
 
 	it("parses resource files from directory", () => {
@@ -87,7 +87,7 @@ describe("listResources", () => {
 			.mockReturnValueOnce("---\nname: Jane Doe\nresourceType: human\nprice: 100\namount: 1\nconsumed: 0.5\n---")
 			.mockReturnValueOnce("---\nname: Server\nresourceType: material\nprice: 500\namount: 3\nconsumed: 1\n---");
 
-		const result = listResources(deps, "/project");
+		const result = resourceStore.list(deps, "/project");
 
 		expect(result).toHaveLength(2);
 		expect(result[0].name).toBe("Jane Doe");
@@ -105,7 +105,7 @@ describe("listResources", () => {
 			.mockReturnValueOnce("---\nname: Zeta\nresourceType: human\nprice: 0\namount: 0\nconsumed: 0\n---")
 			.mockReturnValueOnce("---\nname: Alpha\nresourceType: human\nprice: 0\namount: 0\nconsumed: 0\n---");
 
-		const result = listResources(deps, "/project");
+		const result = resourceStore.list(deps, "/project");
 
 		expect(result[0].name).toBe("Alpha");
 		expect(result[1].name).toBe("Zeta");

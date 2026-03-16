@@ -21,6 +21,7 @@ vi.mock("../../../../src/domain/project/project-config.js", () => ({
 }));
 
 vi.mock("../../../../src/domain/agents/agent-store.js", () => ({
+	agentStore: { list: vi.fn(() => []), resolveDir: vi.fn(() => "") },
 	listAgents: vi.fn(() => []),
 }));
 
@@ -31,7 +32,7 @@ vi.mock("../../../../src/domain/agents/agent-state.js", () => ({
 import * as fsMod from "../../../../src/infrastructure/filesystem.js";
 import { paths } from "../../../../src/infrastructure/paths.js";
 import { clock } from "../../../../src/infrastructure/clock.js";
-import { listAgents } from "../../../../src/domain/agents/agent-store.js";
+import { agentStore } from "../../../../src/domain/agents/agent-store.js";
 import { readAgentState } from "../../../../src/domain/agents/agent-state.js";
 import { generateAgentPermissionMatrix } from "../../../../src/domain/reports/generators/agent-permission-matrix.js";
 
@@ -55,7 +56,7 @@ describe("generateAgentPermissionMatrix", () => {
 	it("shows permission modes for agents", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		vi.mocked(listAgents).mockReturnValue([
+		vi.mocked(agentStore.list).mockReturnValue([
 			{ name: "Trusted", agentType: "ai", description: "", skills: [], tools: [], roles: [], ai: { permissions: { mode: "trust" } }, file: "trusted.md" },
 			{ name: "Restricted", agentType: "ai", description: "", skills: [], tools: [], roles: [], ai: { permissions: { mode: "ask" } }, file: "restricted.md" },
 		]);
@@ -73,7 +74,7 @@ describe("generateAgentPermissionMatrix", () => {
 	it("shows grants detail when agents have active grants", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		vi.mocked(listAgents).mockReturnValue([
+		vi.mocked(agentStore.list).mockReturnValue([
 			{ name: "Agent-X", agentType: "ai", description: "", skills: [], tools: [], roles: [], file: "x.md" },
 		]);
 		vi.mocked(readAgentState).mockReturnValue({

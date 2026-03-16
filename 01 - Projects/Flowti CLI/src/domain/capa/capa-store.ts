@@ -7,7 +7,7 @@
 import { createStore } from "../../infrastructure/store-engine.js";
 import type { StoreDeps } from "../../infrastructure/store-engine.js";
 import { toMdFilename } from "../../infrastructure/markdown-utils.js";
-import type { CAPAConfig, CAPAStatus } from "../../infrastructure/types.js";
+import type { CAPAConfig } from "../../infrastructure/types.js";
 import type { CAPADefinition, CAPASummary } from "./capa-types.js";
 
 export const capaStore = createStore<CAPASummary, CAPADefinition & { id: string }>({
@@ -44,12 +44,7 @@ export const capaStore = createStore<CAPASummary, CAPADefinition & { id: string 
 	},
 });
 
-// Backwards-compatible re-exports (removed in Phase 4 cleanup)
 export type CAPAStoreDeps = StoreDeps & { clock: import("../../infrastructure/types.js").IClock };
-
-export function capaDir(deps: Pick<import("../../infrastructure/deps.js").CliDeps, "paths">, projectPath: string, config?: CAPAConfig): string {
-	return capaStore.resolveDir(deps as StoreDeps, projectPath, config ? { dir: config.dir } : undefined);
-}
 
 export function nextCapaId(existing: string[]): string {
 	let max = 0;
@@ -60,23 +55,9 @@ export function nextCapaId(existing: string[]): string {
 	return `CAPA-${String(max + 1).padStart(3, "0")}`;
 }
 
-export function listCAPAItems(deps: Pick<import("../../infrastructure/deps.js").CliDeps, "disk" | "paths">, projectPath: string, config?: CAPAConfig): CAPASummary[] {
-	return capaStore.list(deps as StoreDeps, projectPath, config ? { dir: config.dir } : undefined);
-}
-
 export function createCAPAItem(deps: CAPAStoreDeps, projectPath: string, def: CAPADefinition & { id: string }, config?: CAPAConfig): string | null {
 	const dir = capaStore.resolveDir(deps, projectPath, config ? { dir: config.dir } : undefined);
 	const filename = toMdFilename(def.name);
 	if (deps.disk.existsSync(deps.paths.join(dir, filename))) return null;
 	return capaStore.create(deps, projectPath, def, config ? { dir: config.dir } : undefined);
-}
-
-export function updateCAPAStatus(
-	deps: Pick<import("../../infrastructure/deps.js").CliDeps, "disk" | "paths">,
-	projectPath: string,
-	itemName: string,
-	status: CAPAStatus,
-	config?: CAPAConfig,
-): boolean {
-	return capaStore.updateField(deps as StoreDeps, projectPath, itemName, "status", status, config ? { dir: config.dir } : undefined);
 }

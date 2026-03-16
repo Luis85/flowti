@@ -4,13 +4,13 @@
 
 import { adaptDescriptor } from "../infrastructure/command-engine.js";
 import type { CommandHandler } from "../infrastructure/types.js";
-import { listTimeLogEntries, createTimeLogEntry, summarizeTimeLog } from "../domain/timelog/timelog-store.js";
+import { timelogStore, createTimeLogEntry, summarizeTimeLog } from "../domain/timelog/timelog-store.js";
 import { renderTimeLogList, renderTimeLogSummary, renderTimeLogAdded } from "../ui/displays/timelog-display.js";
 import { renderError } from "../ui/renderers/common-renderers.js";
 import type { ErrorModel } from "../ui/renderers/common-renderers.js";
 import type { LogFn } from "../infrastructure/command-engine.js";
 
-type TimeLogListModel = ReturnType<typeof listTimeLogEntries>;
+type TimeLogListModel = ReturnType<typeof timelogStore.list>;
 type TimeLogSummaryModel = ReturnType<typeof summarizeTimeLog>;
 type TimeLogAddModel = { relPath: string } | ErrorModel;
 
@@ -26,7 +26,7 @@ function renderTimeLogAdd(data: TimeLogAddModel, log: LogFn): void {
 export const commands: Record<string, CommandHandler> = {
 	"timelog:list": adaptDescriptor<Record<string, unknown>, TimeLogListModel>({
 		requires: "project",
-		handler: (ctx) => listTimeLogEntries(ctx.deps, ctx.project!.path, ctx.project!.config.management?.timelog),
+		handler: (ctx) => timelogStore.list(ctx.deps, ctx.project!.path, ctx.project!.config.management?.timelog ? { dir: ctx.project!.config.management.timelog.dir } : undefined),
 		renderer: renderTimeLogList,
 	}),
 
@@ -63,7 +63,7 @@ export const commands: Record<string, CommandHandler> = {
 	"timelog:summary": adaptDescriptor<Record<string, unknown>, TimeLogSummaryModel>({
 		requires: "project",
 		handler: (ctx) => {
-			const entries = listTimeLogEntries(ctx.deps, ctx.project!.path, ctx.project!.config.management?.timelog);
+			const entries = timelogStore.list(ctx.deps, ctx.project!.path, ctx.project!.config.management?.timelog ? { dir: ctx.project!.config.management.timelog.dir } : undefined);
 			return summarizeTimeLog(entries);
 		},
 		renderer: renderTimeLogSummary,

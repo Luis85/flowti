@@ -21,13 +21,14 @@ vi.mock("../../../../src/domain/project/project-config.js", () => ({
 }));
 
 vi.mock("../../../../src/domain/agents/agent-store.js", () => ({
+	agentStore: { list: vi.fn(() => []), resolveDir: vi.fn(() => "") },
 	listAgents: vi.fn(() => []),
 }));
 
 import * as fsMod from "../../../../src/infrastructure/filesystem.js";
 import { paths } from "../../../../src/infrastructure/paths.js";
 import { clock } from "../../../../src/infrastructure/clock.js";
-import { listAgents } from "../../../../src/domain/agents/agent-store.js";
+import { agentStore } from "../../../../src/domain/agents/agent-store.js";
 import { generatePdcaDashboard } from "../../../../src/domain/reports/generators/pdca-dashboard.js";
 
 const mockDeps = { disk: fsMod.disk, paths, clock, log: () => {} } as any;
@@ -49,7 +50,7 @@ describe("generatePdcaDashboard", () => {
 
 	it("groups agents by PDCA tags", () => {
 		setDisk(createMockFs());
-		vi.mocked(listAgents).mockReturnValue([
+		vi.mocked(agentStore.list).mockReturnValue([
 			{ name: "Planner", agentType: "ai", description: "", skills: [], tools: [], roles: [], tags: ["plan"], file: "planner.md" },
 			{ name: "Builder", agentType: "ai", description: "", skills: [], tools: [], roles: [], tags: ["do"], file: "builder.md" },
 			{ name: "Reviewer", agentType: "ai", description: "", skills: [], tools: [], roles: [], tags: ["check"], file: "reviewer.md" },
@@ -69,7 +70,7 @@ describe("generatePdcaDashboard", () => {
 	it("identifies untagged agents", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		vi.mocked(listAgents).mockReturnValue([
+		vi.mocked(agentStore.list).mockReturnValue([
 			{ name: "Orphan", agentType: "ai", description: "No tags", skills: [], tools: [], roles: [], file: "orphan.md" },
 		]);
 
@@ -83,7 +84,7 @@ describe("generatePdcaDashboard", () => {
 	it("shows coverage gaps for missing phases", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		vi.mocked(listAgents).mockReturnValue([
+		vi.mocked(agentStore.list).mockReturnValue([
 			{ name: "Planner", agentType: "ai", description: "", skills: [], tools: [], roles: [], tags: ["plan"], file: "p.md" },
 		]);
 

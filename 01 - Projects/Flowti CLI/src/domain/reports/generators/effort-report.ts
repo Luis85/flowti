@@ -6,7 +6,7 @@
 
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "../cli/report-service.js";
-import { listTimeLogEntries, summarizeTimeLog } from "../../timelog/timelog-store.js";
+import { timelogStore, summarizeTimeLog } from "../../timelog/timelog-store.js";
 import { readProjectConfig } from "../../project/project-config.js";
 import type { ReportDeps } from "../../../infrastructure/deps.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
@@ -17,7 +17,7 @@ import type { TimeLogEntry } from "../../timelog/timelog-types.js";
 export function generateEffortReport(projectPath: string, deps: ReportDeps): GeneratorOutput {
 	const svc = new ReportService(projectPath, deps);
 	const { config } = readProjectConfig(projectPath, deps);
-	const entries = listTimeLogEntries(deps, projectPath, config?.management?.timelog);
+	const entries = timelogStore.list(deps, projectPath, config?.management?.timelog ? { dir: config.management.timelog.dir } : undefined);
 	const summary = summarizeTimeLog(entries);
 
 	const doc = Document.create("Effort Report")

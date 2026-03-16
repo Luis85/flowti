@@ -21,13 +21,14 @@ vi.mock("../../../../src/domain/project/project-config.js", () => ({
 }));
 
 vi.mock("../../../../src/domain/raid/raid-store.js", () => ({
+	raidStore: { list: vi.fn(() => []), resolveDir: vi.fn(() => "") },
 	listRAIDItems: vi.fn(() => []),
 }));
 
 import * as fsMod from "../../../../src/infrastructure/filesystem.js";
 import { paths } from "../../../../src/infrastructure/paths.js";
 import { clock } from "../../../../src/infrastructure/clock.js";
-import { listRAIDItems } from "../../../../src/domain/raid/raid-store.js";
+import { raidStore } from "../../../../src/domain/raid/raid-store.js";
 import { generateRaidReference } from "../../../../src/domain/reports/generators/raid-reference.js";
 
 const mockDeps = { disk: fsMod.disk, paths, clock, log: () => {} } as any;
@@ -49,7 +50,7 @@ describe("generateRaidReference", () => {
 
 	it("generates with RAID items", () => {
 		setDisk(createMockFs());
-		vi.mocked(listRAIDItems).mockReturnValue([
+		vi.mocked(raidStore.list).mockReturnValue([
 			{ name: "Risk-001", itemType: "risk", status: "open", severity: "high", owner: "team", dueDate: "", file: "" },
 			{ name: "Issue-001", itemType: "issue", status: "open", severity: "critical", owner: "", dueDate: "", file: "" },
 			{ name: "Dec-001", itemType: "decision", status: "accepted", severity: "low", owner: "", dueDate: "", file: "" },
@@ -65,7 +66,7 @@ describe("generateRaidReference", () => {
 	it("includes summary table and type sections", () => {
 		const fs = createMockFs();
 		setDisk(fs);
-		vi.mocked(listRAIDItems).mockReturnValue([
+		vi.mocked(raidStore.list).mockReturnValue([
 			{ name: "Risk-001", itemType: "risk", status: "open", severity: "high", owner: "", dueDate: "", file: "" },
 		]);
 

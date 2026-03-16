@@ -4,7 +4,7 @@
 
 import { adaptDescriptor } from "../infrastructure/command-engine.js";
 import type { CommandHandler, DeliverableStatus } from "../infrastructure/types.js";
-import { listDeliverables, createDeliverableFile, updateDeliverableStatus } from "../domain/deliverables/deliverable-store.js";
+import { deliverableStore, createDeliverableFile, updateDeliverableStatus } from "../domain/deliverables/deliverable-store.js";
 import { renderDeliverableList, renderDeliverableAdded, renderDeliverableUpdated } from "../ui/displays/deliverables-display.js";
 import { renderError } from "../ui/renderers/common-renderers.js";
 import type { ErrorModel } from "../ui/renderers/common-renderers.js";
@@ -12,7 +12,7 @@ import type { LogFn } from "../infrastructure/command-engine.js";
 
 const VALID_STATUSES: DeliverableStatus[] = ["planned", "in-progress", "review", "done", "blocked"];
 
-type DeliverableListModel = ReturnType<typeof listDeliverables>;
+type DeliverableListModel = ReturnType<typeof deliverableStore.list>;
 type DeliverableAddModel = { relPath: string } | ErrorModel;
 type DeliverableUpdateModel = { name: string; status: string } | ErrorModel;
 
@@ -33,7 +33,7 @@ function renderDeliverableUpdate(data: DeliverableUpdateModel, log: LogFn): void
 export const commands: Record<string, CommandHandler> = {
 	"deliverables:list": adaptDescriptor<Record<string, unknown>, DeliverableListModel>({
 		requires: "project",
-		handler: (ctx) => listDeliverables(ctx.deps, ctx.project!.path, ctx.project!.config.management?.deliverables),
+		handler: (ctx) => deliverableStore.list(ctx.deps, ctx.project!.path, ctx.project!.config.management?.deliverables ? { dir: ctx.project!.config.management.deliverables.dir } : undefined),
 		renderer: renderDeliverableList,
 	}),
 

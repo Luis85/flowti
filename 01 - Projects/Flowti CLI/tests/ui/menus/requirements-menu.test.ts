@@ -7,6 +7,9 @@ vi.mock("../../../src/infrastructure/ui.js", () => ({
 }));
 vi.mock("../../../src/infrastructure/menu.js", () => ({ runMenu: vi.fn() }));
 vi.mock("../../../src/domain/requirements/requirement-store.js", () => ({
+	requirementStore: { list: vi.fn(() => []), updateField: vi.fn(), create: vi.fn(), resolveDir: vi.fn(() => "") },
+	useCaseStore: { list: vi.fn(() => []), create: vi.fn(), resolveDir: vi.fn(() => "") },
+	userStoryStore: { list: vi.fn(() => []), create: vi.fn(), resolveDir: vi.fn(() => "") },
 	listRequirements: vi.fn(() => []),
 	createRequirement: vi.fn(),
 	updateRequirementStatus: vi.fn(),
@@ -25,9 +28,9 @@ vi.mock("../../../src/ui/displays/requirements-display.js", () => ({
 import { printHeader } from "../../../src/infrastructure/ui.js";
 import { runMenu } from "../../../src/infrastructure/menu.js";
 import {
-	listRequirements, createRequirement, updateRequirementStatus, nextId,
-	listUseCases, createUseCase,
-	listUserStories, createUserStory,
+	requirementStore, useCaseStore, userStoryStore,
+	createRequirement, nextId,
+	createUseCase, createUserStory,
 } from "../../../src/domain/requirements/requirement-store.js";
 import {
 	renderRequirementList,
@@ -45,13 +48,13 @@ import type { MenuDeps } from "../../../src/infrastructure/deps.js";
 import type { RequirementsConfig } from "../../../src/infrastructure/types.js";
 
 const mockRunMenu = vi.mocked(runMenu);
-const mockListRequirements = vi.mocked(listRequirements);
+const mockListRequirements = vi.mocked(requirementStore.list);
 const mockCreateRequirement = vi.mocked(createRequirement);
-const mockUpdateRequirementStatus = vi.mocked(updateRequirementStatus);
+const mockUpdateRequirementStatus = vi.mocked(requirementStore.updateField);
 const mockNextId = vi.mocked(nextId);
-const mockListUseCases = vi.mocked(listUseCases);
+const mockListUseCases = vi.mocked(useCaseStore.list);
 const mockCreateUseCase = vi.mocked(createUseCase);
-const mockListUserStories = vi.mocked(listUserStories);
+const mockListUserStories = vi.mocked(userStoryStore.list);
 const mockCreateUserStory = vi.mocked(createUserStory);
 const mockRenderRequirementList = vi.mocked(renderRequirementList);
 const mockRenderRequirementAdded = vi.mocked(renderRequirementAdded);
@@ -436,7 +439,7 @@ describe("updateStatusInteractive", () => {
 
 		expect(mockDeps.log).toHaveBeenCalledWith(expect.stringContaining("REQ-001"));
 		expect(mockUpdateRequirementStatus).toHaveBeenCalledWith(
-			mockDeps, PROJECT_PATH, "Login", "approved", CONFIG,
+			mockDeps, PROJECT_PATH, "Login", "status", "approved", expect.anything(),
 		);
 		expect(mockRenderRequirementUpdated).toHaveBeenCalledWith("Login", "approved", mockDeps.log);
 	});
@@ -511,7 +514,7 @@ describe("updateStatusInteractive", () => {
 		expect(mockDeps.log).toHaveBeenCalledWith(expect.stringContaining("1."));
 		expect(mockDeps.log).toHaveBeenCalledWith(expect.stringContaining("2."));
 		expect(mockUpdateRequirementStatus).toHaveBeenCalledWith(
-			mockDeps, PROJECT_PATH, "Logout", "implemented", CONFIG,
+			mockDeps, PROJECT_PATH, "Logout", "status", "implemented", expect.anything(),
 		);
 	});
 });

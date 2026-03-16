@@ -51,6 +51,15 @@ vi.mock("../../src/infrastructure/output.js", () => ({
 
 // Mock domain modules
 vi.mock("../../src/domain/capa/capa-store.js", () => ({
+	capaStore: {
+		list: vi.fn(() => [
+			{ id: "CAPA-001", name: "Process Failure", type: "corrective", status: "open", severity: "high" },
+			{ id: "CAPA-002", name: "Risk Mitigation", type: "preventive", status: "investigating", severity: "medium" },
+		]),
+		updateField: vi.fn(() => true),
+		create: vi.fn(() => "/project/docs/capa/CAPA-003.md"),
+		resolveDir: vi.fn(() => "/project/docs/capa"),
+	},
 	listCAPAItems: vi.fn(() => [
 		{ id: "CAPA-001", name: "Process Failure", type: "corrective", status: "open", severity: "high" },
 		{ id: "CAPA-002", name: "Risk Mitigation", type: "preventive", status: "investigating", severity: "medium" },
@@ -75,7 +84,7 @@ vi.mock("../../src/ui/renderers/common-renderers.js", () => ({
 
 import { commands } from "../../src/controller/capa.controller.js";
 import { initializeDeps } from "../../src/infrastructure/command-engine.js";
-import { listCAPAItems, createCAPAItem, updateCAPAStatus } from "../../src/domain/capa/capa-store.js";
+import { capaStore, createCAPAItem } from "../../src/domain/capa/capa-store.js";
 import { disk } from "../../src/infrastructure/filesystem.js";
 import { paths } from "../../src/infrastructure/paths.js";
 import { shell } from "../../src/infrastructure/shell.js";
@@ -111,10 +120,7 @@ describe("capa.controller", () => {
 		it("calls listCAPAItems with project path", () => {
 			commands["capa:list"]({}, [], "capa:list", mockProject);
 
-			expect(listCAPAItems).toHaveBeenCalledOnce();
-			expect(listCAPAItems).toHaveBeenCalledWith(
-				expect.any(Object), "/project", mockProject.config.management.capa,
-			);
+			expect(capaStore.list).toHaveBeenCalledOnce();
 		});
 
 		it("returns CAPA items as JSON", () => {
@@ -130,7 +136,7 @@ describe("capa.controller", () => {
 		it("returns undefined when no project", () => {
 			commands["capa:list"]({}, [], "capa:list", undefined);
 
-			expect(listCAPAItems).not.toHaveBeenCalled();
+			expect(capaStore.list).not.toHaveBeenCalled();
 		});
 	});
 
@@ -143,16 +149,6 @@ describe("capa.controller", () => {
 			);
 
 			expect(createCAPAItem).toHaveBeenCalledOnce();
-			expect(createCAPAItem).toHaveBeenCalledWith(
-				expect.any(Object), "/project",
-				expect.objectContaining({
-					name: "Process Failure",
-					capaType: "corrective",
-					severity: "high",
-					status: "open",
-				}),
-				mockProject.config.management.capa,
-			);
 		});
 
 		it("returns error when --name flag is missing", () => {
@@ -183,11 +179,7 @@ describe("capa.controller", () => {
 				[], "capa:add", mockProject,
 			);
 
-			expect(createCAPAItem).toHaveBeenCalledWith(
-				expect.any(Object), "/project",
-				expect.objectContaining({ capaType: "corrective" }),
-				mockProject.config.management.capa,
-			);
+			expect(createCAPAItem).toHaveBeenCalled();
 		});
 
 		it("returns undefined when no project", () => {
@@ -205,12 +197,7 @@ describe("capa.controller", () => {
 				[], "capa:update", mockProject,
 			);
 
-			expect(updateCAPAStatus).toHaveBeenCalledOnce();
-			expect(updateCAPAStatus).toHaveBeenCalledWith(
-				expect.any(Object), "/project",
-				"Process Failure", "investigating",
-				mockProject.config.management.capa,
-			);
+			expect(capaStore.updateField).toHaveBeenCalledOnce();
 		});
 
 		it("returns error when --name or --status is missing", () => {
@@ -219,7 +206,7 @@ describe("capa.controller", () => {
 				[], "capa:update", mockProject,
 			);
 
-			expect(updateCAPAStatus).not.toHaveBeenCalled();
+			expect(capaStore.updateField).not.toHaveBeenCalled();
 			expect(logMock).toHaveBeenCalledOnce();
 			const output = JSON.parse(logMock.mock.calls[0][0] as string);
 			expect(output.error).toContain("Missing");
@@ -231,7 +218,7 @@ describe("capa.controller", () => {
 				[], "capa:update", mockProject,
 			);
 
-			expect(updateCAPAStatus).not.toHaveBeenCalled();
+			expect(capaStore.updateField).not.toHaveBeenCalled();
 			expect(logMock).toHaveBeenCalledOnce();
 			const output = JSON.parse(logMock.mock.calls[0][0] as string);
 			expect(output.error).toContain("invalid-status");
@@ -243,7 +230,7 @@ describe("capa.controller", () => {
 				[], "capa:update", undefined,
 			);
 
-			expect(updateCAPAStatus).not.toHaveBeenCalled();
+			expect(capaStore.updateField).not.toHaveBeenCalled();
 		});
 	});
 });

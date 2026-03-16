@@ -7,7 +7,7 @@
 
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "../cli/report-service.js";
-import { listAgents } from "../../agents/agent-store.js";
+import { agentStore } from "../../agents/agent-store.js";
 import { readProjectConfig } from "../../project/project-config.js";
 import type { ReportDeps } from "../../../infrastructure/deps.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
@@ -18,7 +18,7 @@ import type { AgentSummary } from "../../agents/agent-types.js";
 export function generateAgentSkillMap(projectPath: string, deps: ReportDeps): GeneratorOutput {
 	const svc = new ReportService(projectPath, deps);
 	const { config } = readProjectConfig(projectPath, deps);
-	const agents = listAgents(deps, projectPath, config?.management?.agents);
+	const agents = agentStore.list(deps, projectPath, config?.management?.agents ? { dir: config.management.agents.dir } : undefined);
 
 	const allSkills = collectSkills(agents);
 	const singleAgentSkills = findSingleAgentSkills(agents, allSkills);

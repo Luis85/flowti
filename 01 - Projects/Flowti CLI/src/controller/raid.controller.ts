@@ -4,7 +4,7 @@
 
 import { adaptDescriptor } from "../infrastructure/command-engine.js";
 import type { CommandHandler, RAIDItemType, RAIDStatus } from "../infrastructure/types.js";
-import { listRAIDItems, createRAIDItem, updateRAIDStatus } from "../domain/raid/raid-store.js";
+import { raidStore, createRAIDItem } from "../domain/raid/raid-store.js";
 import { renderRAIDList, renderRAIDAdded, renderRAIDUpdated } from "../ui/displays/raid-display.js";
 import { renderError } from "../ui/renderers/common-renderers.js";
 import type { ErrorModel } from "../ui/renderers/common-renderers.js";
@@ -13,7 +13,7 @@ import type { LogFn } from "../infrastructure/command-engine.js";
 const VALID_TYPES: RAIDItemType[] = ["risk", "assumption", "issue", "dependency", "decision"];
 const VALID_STATUSES: RAIDStatus[] = ["open", "mitigated", "closed", "accepted", "resolved", "deferred"];
 
-type RAIDListModel = ReturnType<typeof listRAIDItems>;
+type RAIDListModel = ReturnType<typeof raidStore.list>;
 type RAIDAddModel = { relPath: string } | ErrorModel;
 type RAIDUpdateModel = { name: string; status: string } | ErrorModel;
 
@@ -34,7 +34,7 @@ function renderRAIDUpdate(data: RAIDUpdateModel, log: LogFn): void {
 export const commands: Record<string, CommandHandler> = {
 	"raid:list": adaptDescriptor<Record<string, unknown>, RAIDListModel>({
 		requires: "project",
-		handler: (ctx) => listRAIDItems(ctx.deps, ctx.project!.path, ctx.project!.config.management?.raid),
+		handler: (ctx) => raidStore.list(ctx.deps, ctx.project!.path, ctx.project!.config.management?.raid ? { dir: ctx.project!.config.management.raid.dir } : undefined),
 		renderer: renderRAIDList,
 	}),
 
@@ -85,7 +85,7 @@ export const commands: Record<string, CommandHandler> = {
 			if (!VALID_STATUSES.includes(status as RAIDStatus)) {
 				return { error: `Invalid status "${status}". Valid: ${VALID_STATUSES.join(", ")}` } as ErrorModel;
 			}
-			const ok = updateRAIDStatus(ctx.deps, ctx.project!.path, name, status as RAIDStatus, ctx.project!.config.management?.raid);
+			const ok = raidStore.updateField(ctx.deps, ctx.project!.path, name, "status", status, ctx.project!.config.management?.raid ? { dir: ctx.project!.config.management.raid.dir } : undefined);
 			if (ok) {
 				return { name, status };
 			}

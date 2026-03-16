@@ -7,7 +7,7 @@
 
 import { Document } from "../../../infrastructure/document.js";
 import { ReportService } from "../cli/report-service.js";
-import { listResources } from "../../resources/resource-store.js";
+import { resourceStore } from "../../resources/resource-store.js";
 import { readProjectConfig } from "../../project/project-config.js";
 import type { ReportDeps } from "../../../infrastructure/deps.js";
 import type { GeneratorOutput } from "../../../infrastructure/types.js";
@@ -18,7 +18,7 @@ import type { ResourceSummary } from "../../resources/resource-types.js";
 export function generateResourceInventory(projectPath: string, deps: ReportDeps): GeneratorOutput {
 	const svc = new ReportService(projectPath, deps);
 	const { config } = readProjectConfig(projectPath, deps);
-	const resources = listResources(deps, projectPath, config?.management?.resources);
+	const resources = resourceStore.list(deps, projectPath, config?.management?.resources ? { dir: config.management.resources.dir } : undefined);
 
 	const totalCost = resources.reduce((sum, r) => sum + r.totalCost, 0);
 	const consumedCost = resources.reduce((sum, r) => sum + r.consumedCost, 0);
