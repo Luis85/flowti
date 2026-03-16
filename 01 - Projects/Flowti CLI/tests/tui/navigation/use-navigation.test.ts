@@ -40,17 +40,17 @@ describe("useNavigation", () => {
 
 	it("navigate pushes page onto stack", async () => {
 		const inst = render(React.createElement(NavigationHarness));
-		actionsRef.current!.navigate("agents");
+		actionsRef.current!.navigate("ai-tools");
 		await flush();
 		const state = parseState(inst.lastFrame());
-		expect(state.pageStack).toEqual(["start", "agents"]);
+		expect(state.pageStack).toEqual(["start", "ai-tools"]);
 		expect(state.section).toBe("agents");
 		inst.unmount();
 	});
 
 	it("goBack pops the stack", async () => {
 		const inst = render(React.createElement(NavigationHarness));
-		actionsRef.current!.navigate("agents");
+		actionsRef.current!.navigate("ai-tools");
 		await flush();
 		actionsRef.current!.goBack();
 		await flush();
@@ -71,7 +71,7 @@ describe("useNavigation", () => {
 
 	it("setSection resets stack to section root page", async () => {
 		const inst = render(React.createElement(NavigationHarness));
-		actionsRef.current!.navigate("agents");
+		actionsRef.current!.navigate("ai-tools");
 		await flush();
 		actionsRef.current!.navigate("agent-detail", { name: "bob" });
 		await flush();

@@ -14,10 +14,10 @@ describe("buildSections", () => {
 		expect(home!.pages).toContain("start");
 	});
 
-	it("agents section contains agents and agents-chat", () => {
+	it("agents section contains ai-tools and agents-chat", () => {
 		const sections = buildSections();
 		const agents = sections.find((s) => s.id === "agents");
-		expect(agents!.pages).toContain("agents");
+		expect(agents!.pages).toContain("ai-tools");
 		expect(agents!.pages).toContain("agents-chat");
 	});
 
