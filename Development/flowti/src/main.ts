@@ -313,6 +313,41 @@ export default class FlowtiBasePlugin extends Plugin {
 					eventBus: this.eventBus,
 				});
 
+				registerUserHandlers(handlerRegistry, {
+					userService: {
+						getUser: () => this.userService?.getUser() ?? null,
+					},
+					hubRegistry: {
+						getAll: () => this.hubRegistry?.getAll() ?? [],
+						openHub: (hubId: string, tabId?: string, detail?: string) => void this.hubRegistry?.openHub(hubId, tabId, detail),
+					},
+					inboxService: {
+						getItems: () => this.inboxService?.getItems() ?? [],
+						getUnreadCount: () => this.inboxService?.getUnreadCount() ?? 0,
+						markRead: (id: string) => void this.inboxService?.markRead(id),
+						dismiss: (id: string) => void this.inboxService?.dismiss(id),
+					},
+					sessionService: {
+						getSessions: () => this.sessionService?.getSessions() ?? [],
+						getActiveSession: () => this.sessionService?.getActiveSession() ?? null,
+					},
+					nudgeService: {
+						getConfigs: () => this.nudgeService?.getConfigs() ?? [],
+						isDismissedToday: (id: string) => this.nudgeService?.isDismissedToday(id) ?? false,
+					},
+					onboardingService: {
+						shouldShowCallout: (id: string) => !(this.onboardingService?.isCalloutDismissed(id) ?? false),
+					},
+					trainService: {
+						getAllTrains: () => this.trainService?.getAllTrains() ?? [],
+						getActiveTrain: () => this.trainService?.getActiveTrain(),
+					},
+					commandRegistry: {
+						getCommandsMeta: () => this.commands?.getCommandsMeta() ?? [],
+					},
+					eventBus: this.eventBus,
+				});
+
 				const conditionEvaluator = new ConditionEvaluator(handlerRegistry);
 
 				// Store registry for later handler registration (test-management in onLayoutReady)

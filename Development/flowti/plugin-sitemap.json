@@ -29,7 +29,20 @@
 			"label": "User Hub",
 			"icon": "home",
 			"type": "flowti-user-hub",
-			"legacy": true
+			"tabs": [
+				{ "id": "sessions", "label": "Sessions", "icon": "timer", "handler": "user:sessions", "searchPlaceholder": "Search sessions..." },
+				{ "id": "inbox", "label": "Inbox", "icon": "inbox", "handler": "user:inbox", "searchPlaceholder": "Search inbox..." },
+				{ "id": "commands", "label": "Commands", "icon": "terminal", "handler": "user:commands", "searchPlaceholder": "Search commands..." },
+				{ "id": "preferences", "label": "Preferences", "icon": "settings", "handler": "user:preferences" },
+				{ "id": "health", "label": "Health", "icon": "heart-pulse", "handler": "user:health", "searchPlaceholder": "Search health items..." }
+			],
+			"refreshEvents": [
+				"inbox.received", "inbox.dismissed", "inbox.actioned",
+				"session.started", "session.paused", "session.resumed", "session.ended", "session.timer.tick",
+				"settings.loaded", "settings.changed",
+				"user.profile.loaded", "user.profile.updated",
+				"hub.opened", "hub.closed"
+			]
 		},
 		"session-workspace": {
 			"kind": "panel",
