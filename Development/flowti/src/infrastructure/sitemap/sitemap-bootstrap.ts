@@ -5,6 +5,7 @@ import type { ConditionEvaluator } from "../handlers/condition-evaluator";
 import type { IEventBus } from "../events/types";
 import type { ILogger } from "../logger/types";
 import { SitemapHubView } from "../../ui/views/sitemap-hub-view";
+import { SitemapLeafView } from "../../ui/views/sitemap-leaf-view";
 
 export interface SitemapBootstrapDeps {
 	plugin: {
@@ -50,9 +51,17 @@ export class SitemapBootstrap {
 				continue;
 			}
 
-			this.safeRegister(viewDef.type, (leaf) =>
-				new SitemapHubView(leaf, this.deps.eventBus, viewDef, this.deps.handlerRegistry) as never,
-			);
+			if (viewDef.tabs) {
+				// Hub view — tabs + handlers
+				this.safeRegister(viewDef.type, (leaf) =>
+					new SitemapHubView(leaf, this.deps.eventBus, viewDef, this.deps.handlerRegistry) as never,
+				);
+			} else if (viewDef.component || viewDef.handler) {
+				// Leaf view — component or handler
+				this.safeRegister(viewDef.type, (leaf) =>
+					new SitemapLeafView(leaf, this.deps.eventBus, viewDef, this.deps.handlerRegistry) as never,
+				);
+			}
 			this.registeredViewTypes.push(viewDef.type);
 		}
 	}

@@ -111,15 +111,48 @@ describe("SitemapBootstrap", () => {
 			expect(logger.debug).toHaveBeenCalled();
 		});
 
-		it("registers non-legacy view as SitemapHubView", () => {
+		it("registers non-legacy view with tabs as SitemapHubView", () => {
 			const sitemap = minimalSitemap({
 				views: {
-					"new-hub": { kind: "hub", label: "New", icon: "star", type: "flowti-new-hub" },
+					"new-hub": { kind: "hub", label: "New", icon: "star", type: "flowti-new-hub", tabs: [{ id: "t", label: "T", icon: "x", handler: "h" }] },
 				},
 			});
 			const bootstrap = createBootstrap(sitemap);
 			bootstrap.registerAll();
 			expect(plugin.registerView).toHaveBeenCalledWith("flowti-new-hub", expect.any(Function));
+		});
+
+		it("registers view with handler field as SitemapLeafView", () => {
+			const sitemap = minimalSitemap({
+				views: {
+					"leaf": { kind: "leaf", label: "Leaf", icon: "file", type: "flowti-leaf", handler: "leaf:main" },
+				},
+			});
+			const bootstrap = createBootstrap(sitemap);
+			bootstrap.registerAll();
+			expect(plugin.registerView).toHaveBeenCalledWith("flowti-leaf", expect.any(Function));
+		});
+
+		it("registers view with component field as SitemapLeafView", () => {
+			const sitemap = minimalSitemap({
+				views: {
+					"leaf": { kind: "leaf", label: "Leaf", icon: "file", type: "flowti-leaf", component: "flowti-widget" },
+				},
+			});
+			const bootstrap = createBootstrap(sitemap);
+			bootstrap.registerAll();
+			expect(plugin.registerView).toHaveBeenCalledWith("flowti-leaf", expect.any(Function));
+		});
+
+		it("skips non-legacy view without tabs, handler, or component", () => {
+			const sitemap = minimalSitemap({
+				views: {
+					"empty": { kind: "hub", label: "Empty", icon: "x", type: "flowti-empty" },
+				},
+			});
+			const bootstrap = createBootstrap(sitemap);
+			bootstrap.registerAll();
+			expect(plugin.registerView).not.toHaveBeenCalled();
 		});
 	});
 
