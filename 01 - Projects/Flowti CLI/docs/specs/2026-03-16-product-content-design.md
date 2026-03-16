@@ -40,7 +40,7 @@ Small development teams (2-10 people) who want structure and visibility without 
 ### How Flowti Solves It
 
 - **AI agents that react to your project.** Persistent agent workers are triggered by project events and act — planning, reviewing, breaking down tasks. Not one-shot prompts; ongoing collaborators.
-- **Project management alongside your code.** Resources, deliverables, risks, requirements, time tracking, and lifecycle management — all as markdown files in your repository.
+- **Project management alongside your code.** Resources, deliverables, risks, requirements, time tracking, and feature tracking — all as markdown files in your repository.
 - **Every project, one binary.** Manage multiple projects of different types with consistent commands, shared health scoring, and unified workflows.
 - **Everything is a file you own.** Markdown with structured frontmatter. Git-friendly, diffable, searchable, editable in any tool. No vendor lock-in.
 
