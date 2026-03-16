@@ -1,12 +1,31 @@
 {
-	"name": "flowti-ibde",
-	"tools": {
-		"build": "npm run build",
-		"reports": "npm run generate:reports",
-		"devtools": "npm run dev:reload"
+	"name": "Flowti Plugin",
+	"type": "obsidian-plugin",
+	"build": {
+		"commands": {
+			"fast": "node esbuild.config.mjs --production --no-reports",
+			"full": "npm run build",
+			"watch": "node esbuild.config.mjs --watch",
+			"distribute": "node esbuild.config.mjs --production --no-reports --distribution"
+		}
 	},
-	"make": {
-		"templates": ["hub", "plugin", "app"]
+	"test": {
+		"commands": {
+			"unit": "npx vitest run",
+			"flows": "npx vitest run tests/flows/",
+			"e2e": "npm run test:e2e"
+		}
+	},
+	"devtools": {
+		"commands": {
+			"lint": "npx eslint src/",
+			"check": "npx tsc --noEmit --skipLibCheck",
+			"reload": "node scripts/cli-reload.mjs"
+		},
+		"thresholds": {
+			"maxComplexity": 15,
+			"maxLines": 400
+		}
 	},
 	"reports": {
 		"dir": "docs/reports",
@@ -28,19 +47,16 @@
 			"maxComplexity": 15,
 			"complexityAboveThresholdPct": 5,
 			"startupMs": 5000,
-			"eslintWarnings": 0,
-			"lintCommand": "npm run lint"
+			"eslintWarnings": 0
 		}
 	},
 	"review": {
-		"journeysDir": "tests/e2e/journeys",
-		"testVault": "../flowti-e2e",
-		"pluginId": "flowti-ibde",
-		"runner": "npm run test:e2e:list",
-		"build": "npm run build:increment",
-		"test": "npm run test:e2e",
-		"teardown": "node scripts/run-e2e.mjs --teardown",
-		"rebuild": "node scripts/run-e2e.mjs --rebuild"
+		"commands": {
+			"build": "npm run build:increment",
+			"test": "npm run test:e2e",
+			"teardown": "node scripts/run-e2e.mjs --teardown",
+			"rebuild": "node scripts/run-e2e.mjs --rebuild"
+		}
 	},
 	"docs": {
 		"generators": [
@@ -50,5 +66,15 @@
 			{ "label": "Tool Reference", "command": "node scripts/generate-tool-reference.mjs" },
 			{ "label": "CLI Reference", "command": "node scripts/generate-cli-reference.mjs" }
 		]
+	},
+	"make": {
+		"templates": ["hub", "plugin", "app"]
+	},
+	"health": {
+		"thresholds": {
+			"coverage": { "min": 75, "target": 85 },
+			"lint": { "maxErrors": 0, "maxWarnings": 10 },
+			"tests": { "minPassed": 7000 }
+		}
 	}
 }
