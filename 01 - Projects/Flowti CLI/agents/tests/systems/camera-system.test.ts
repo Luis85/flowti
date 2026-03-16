@@ -4,6 +4,8 @@ vi.mock("excalibur", () => ({
 	LockCameraToActorStrategy: class {
 		constructor(public actor: unknown) {}
 	},
+	vec: (x: number, y: number) => ({ x, y }),
+	EasingFunctions: { EaseInOutCubic: 0 },
 }));
 
 import { createCameraSystem } from "../../src/systems/camera-system.js";
@@ -22,30 +24,20 @@ function mockCamera() {
 	const strategies: unknown[] = [];
 	return {
 		addStrategy: vi.fn((s: unknown) => strategies.push(s)),
-		clearAllStrategies: vi.fn(() => strategies.length = 0),
+		clearAllStrategies: vi.fn(() => { strategies.length = 0; }),
+		move: vi.fn(() => Promise.resolve()),
+		pos: { x: 0, y: 0 },
 		zoom: 1,
 		strategies,
 	};
 }
 
-function mockContainer() {
-	const children: HTMLElement[] = [];
-	return {
-		appendChild: vi.fn((el: HTMLElement) => children.push(el)),
-		removeChild: vi.fn((el: HTMLElement) => {
-			const idx = children.indexOf(el);
-			if (idx >= 0) children.splice(idx, 1);
-		}),
-		querySelector: vi.fn(() => null),
-		children,
-	} as unknown as HTMLElement;
-}
+const sceneCenter = { x: 400, y: 300 };
 
 describe("createCameraSystem", () => {
-	it("startFollow locks camera and shows HUD", () => {
+	it("startFollow locks camera to actor", () => {
 		const camera = mockCamera();
-		const container = mockContainer();
-		const system = createCameraSystem(camera as never, container);
+		const system = createCameraSystem(camera as never, sceneCenter);
 		const actor = mockActor("alice");
 
 		system.startFollow(actor as never);
@@ -54,10 +46,9 @@ describe("createCameraSystem", () => {
 		expect(camera.addStrategy).toHaveBeenCalledOnce();
 	});
 
-	it("stopFollow releases camera and hides HUD", () => {
+	it("stopFollow releases camera", () => {
 		const camera = mockCamera();
-		const container = mockContainer();
-		const system = createCameraSystem(camera as never, container);
+		const system = createCameraSystem(camera as never, sceneCenter);
 		const actor = mockActor("alice");
 
 		system.startFollow(actor as never);
@@ -69,8 +60,7 @@ describe("createCameraSystem", () => {
 
 	it("checkDespawn stops follow when actor is killed", () => {
 		const camera = mockCamera();
-		const container = mockContainer();
-		const system = createCameraSystem(camera as never, container);
+		const system = createCameraSystem(camera as never, sceneCenter);
 		const actor = mockActor("alice", false);
 
 		system.startFollow(actor as never);
@@ -84,8 +74,7 @@ describe("createCameraSystem", () => {
 
 	it("onSceneActivate re-acquires agent in new scene", () => {
 		const camera = mockCamera();
-		const container = mockContainer();
-		const system = createCameraSystem(camera as never, container);
+		const system = createCameraSystem(camera as never, sceneCenter);
 		const actor = mockActor("alice");
 
 		system.startFollow(actor as never);
@@ -100,8 +89,7 @@ describe("createCameraSystem", () => {
 
 	it("onSceneActivate stops follow when agent not in new scene", () => {
 		const camera = mockCamera();
-		const container = mockContainer();
-		const system = createCameraSystem(camera as never, container);
+		const system = createCameraSystem(camera as never, sceneCenter);
 		const actor = mockActor("alice");
 
 		system.startFollow(actor as never);
@@ -114,8 +102,7 @@ describe("createCameraSystem", () => {
 
 	it("handleZoom clamps between 0.5 and 2.0", () => {
 		const camera = mockCamera();
-		const container = mockContainer();
-		const system = createCameraSystem(camera as never, container);
+		const system = createCameraSystem(camera as never, sceneCenter);
 
 		system.handleZoom(-100); // zoom out
 		system.applyZoom(16);

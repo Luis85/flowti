@@ -129,13 +129,14 @@ const defaultHabits: AgentHabits = {
 const bounds = { minX: 0, maxX: 400, minY: 0, maxY: 300 };
 
 describe("resolveIdleTarget", () => {
-	it("high socialDrift + nearby agent → targets near that agent", () => {
+	it("high socialDrift + nearby agent → targets within 80-140 radius of that agent", () => {
 		const habits = { ...defaultHabits, socialDrift: 1.0, focusDrift: 0 };
 		const nearby = [{ x: 200, y: 150 }];
 		const result = resolveIdleTarget(habits, nearby, bounds, () => 0);
 		expect(result).not.toBeNull();
-		expect(Math.abs(result!.x - 200)).toBeLessThanOrEqual(30);
-		expect(Math.abs(result!.y - 150)).toBeLessThanOrEqual(30);
+		const dist = Math.sqrt((result!.x - 200) ** 2 + (result!.y - 150) ** 2);
+		expect(dist).toBeGreaterThanOrEqual(80);
+		expect(dist).toBeLessThanOrEqual(140);
 	});
 
 	it("socialDrift miss + high focusDrift → targets far corner", () => {

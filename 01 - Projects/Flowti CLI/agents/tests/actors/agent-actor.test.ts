@@ -53,28 +53,15 @@ function mockAgent(overrides: Partial<DashboardAgent> = {}): DashboardAgent {
 }
 
 function mockSprites(): AgentSprites {
-	const anim = { strategy: null, clone: function() { return this; } };
+	const frame = { graphic: { name: "idle-frame-0" } };
+	const anim = { frames: [frame] };
 	return {
 		idle: anim as never,
-		walkDown: anim as never,
-		walkLeft: anim as never,
-		walkRight: anim as never,
-		walkUp: anim as never,
 	};
 }
 
 describe("AgentActor", () => {
-	it("creates with idle pose", () => {
-		const actor = new AgentActor({
-			agent: mockAgent(),
-			x: 100, y: 200,
-			onSelect: vi.fn(),
-			sprites: mockSprites(),
-		});
-		expect(actor.graphics.use).toHaveBeenCalledWith("idle");
-	});
-
-	it("registers all five animation slots plus label", () => {
+	it("uses frame 0 of idle spritesheet as static graphic on construction", () => {
 		const sprites = mockSprites();
 		const actor = new AgentActor({
 			agent: mockAgent(),
@@ -82,47 +69,53 @@ describe("AgentActor", () => {
 			onSelect: vi.fn(),
 			sprites,
 		});
-		const addCalls = (actor.graphics.add as ReturnType<typeof vi.fn>).mock.calls;
-		const names = addCalls.map((c: unknown[]) => c[0]);
-		expect(names).toContain("idle");
-		expect(names).toContain("walk-down");
-		expect(names).toContain("walk-left");
-		expect(names).toContain("walk-right");
-		expect(names).toContain("walk-up");
-		expect(names).toContain("label");
+		expect(actor.graphics.use).toHaveBeenCalledWith(sprites.idle.frames[0].graphic);
 	});
 
-	it("switches to walk-right when walking-to with positive dx", () => {
+	it("adds label child actor on construction", () => {
 		const actor = new AgentActor({
 			agent: mockAgent(),
 			x: 100, y: 200,
 			onSelect: vi.fn(),
 			sprites: mockSprites(),
 		});
-		actor.updateFromBrain("walking-to", { kind: "workstation", x: 300, y: 200 });
-		expect(actor.graphics.use).toHaveBeenCalledWith("walk-right");
+		// label + badge children are added
+		expect((actor.addChild as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThanOrEqual(1);
 	});
 
-	it("switches to walk-down when walking-to with positive dy", () => {
+	it("updateFromBrain updates brainState without switching animations", () => {
 		const actor = new AgentActor({
 			agent: mockAgent(),
 			x: 100, y: 200,
 			onSelect: vi.fn(),
 			sprites: mockSprites(),
 		});
-		actor.updateFromBrain("walking-to", { kind: "workstation", x: 100, y: 400 });
-		expect(actor.graphics.use).toHaveBeenCalledWith("walk-down");
+		actor.updateFromBrain("working");
+		expect(actor.brainState).toBe("working");
+		// graphics.use was called only once during construction
+		expect((actor.graphics.use as ReturnType<typeof vi.fn>).mock.calls.length).toBe(1);
 	});
 
-	it("returns to idle when brain state is working", () => {
+	it("focus() sets brainState to idle", () => {
 		const actor = new AgentActor({
 			agent: mockAgent(),
 			x: 100, y: 200,
 			onSelect: vi.fn(),
 			sprites: mockSprites(),
 		});
-		actor.updateFromBrain("walking-to", { kind: "workstation", x: 300, y: 200 });
-		actor.updateFromBrain("working", { kind: "none" });
-		expect(actor.graphics.use).toHaveBeenLastCalledWith("idle");
+		actor.updateFromBrain("walking-to");
+		expect(actor.brainState).toBe("walking-to");
+		actor.focus();
+		expect(actor.brainState).toBe("idle");
+	});
+
+	it("setWalkDirection is a no-op and does not throw", () => {
+		const actor = new AgentActor({
+			agent: mockAgent(),
+			x: 100, y: 200,
+			onSelect: vi.fn(),
+			sprites: mockSprites(),
+		});
+		expect(() => actor.setWalkDirection(300, 200)).not.toThrow();
 	});
 });
