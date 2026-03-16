@@ -1,6 +1,9 @@
-import { describe, it, expect } from "vitest";
-import { resolveMimeType, handleRequest } from "../../../src/domain/serve/static-server.js";
+import { describe, it, expect, vi } from "vitest";
+import { EventEmitter } from "node:events";
+import { resolveMimeType, handleRequest, parseJsonBody, handleSseConnection, handleApiRoute } from "../../../src/domain/serve/static-server.js";
+import type { ServerContext } from "../../../src/domain/serve/static-server.js";
 import type { IFileSystem, IPaths } from "../../../src/infrastructure/types.js";
+import type { IncomingMessage, ServerResponse } from "node:http";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -131,5 +134,184 @@ describe("handleRequest", () => {
 		const result = handleRequest("/data/info.json", root, deps);
 		expect(result.statusCode).toBe(200);
 		expect(result.contentType).toBe("application/json; charset=utf-8");
+	});
+});
+
+// ── parseJsonBody ───────────────────────────────────────────────────
+
+function fakeIncoming(body: string): IncomingMessage {
+	const emitter = new EventEmitter() as unknown as IncomingMessage;
+	setTimeout(() => {
+		if (body) emitter.emit("data", Buffer.from(body));
+		emitter.emit("end");
+	}, 0);
+	return emitter;
+}
+
+describe("parseJsonBody", () => {
+	it("parses valid JSON", async () => {
+		const result = await parseJsonBody(fakeIncoming('{"key":"value"}'));
+		expect(result).toEqual({ key: "value" });
+	});
+
+	it("rejects invalid JSON", async () => {
+		await expect(parseJsonBody(fakeIncoming("not json"))).rejects.toThrow("Invalid JSON");
+	});
+
+	it("parses empty object from empty body", async () => {
+		const emitter = new EventEmitter() as unknown as IncomingMessage;
+		setTimeout(() => {
+			emitter.emit("data", Buffer.from("{}"));
+			emitter.emit("end");
+		}, 0);
+		const result = await parseJsonBody(emitter);
+		expect(result).toEqual({});
+	});
+});
+
+// ── handleSseConnection ─────────────────────────────────────────────
+
+interface FakeRes {
+	res: ServerResponse;
+	state: { written: string; headers: Record<string, unknown>; statusCode: number };
+}
+
+function fakeResponse(): FakeRes {
+	const state = { written: "", headers: {} as Record<string, unknown>, statusCode: 0 };
+	const emitter = new EventEmitter();
+	const res = Object.assign(emitter, {
+		writeHead: (code: number, hdrs?: Record<string, string>) => { state.statusCode = code; if (hdrs) state.headers = hdrs; },
+		write: (data: string) => { state.written += data; return true; },
+		end: (data?: string) => { if (data) state.written += data; },
+	}) as unknown as ServerResponse;
+	return { res, state };
+}
+
+function fakeContext(overrides: Partial<ServerContext> = {}): ServerContext {
+	return {
+		worldState: {
+			emitAction: vi.fn(),
+			updateEntity: vi.fn(),
+			getState: vi.fn(),
+			getEntity: vi.fn().mockReturnValue(null),
+			flush: vi.fn(),
+			addActionListener: vi.fn(),
+			removeActionListener: vi.fn(),
+		},
+		workerManager: {
+			spawnAll: vi.fn(),
+			spawn: vi.fn(),
+			stop: vi.fn(),
+			stopAll: vi.fn(),
+			getWorker: vi.fn(),
+			listWorkers: vi.fn(),
+			send: vi.fn(),
+			dispatchWorldEvent: vi.fn(),
+		},
+		deps: {
+			disk: mockDisk({}) as IFileSystem,
+			paths: mockPaths as IPaths,
+			clock: { now: () => new Date("2026-01-01T00:00:00Z"), iso: () => "2026-01-01T00:00:00.000Z" },
+		},
+		sseClients: new Set(),
+		vaultRoot: "/vault",
+		...overrides,
+	};
+}
+
+describe("handleSseConnection", () => {
+	it("sends SSE headers and registers client", () => {
+		const ctx = fakeContext();
+		const { res, state } = fakeResponse();
+		handleSseConnection(res, ctx);
+		expect(state.statusCode).toBe(200);
+		expect(state.headers["Content-Type"]).toBe("text/event-stream");
+		expect(state.written).toContain("event: connected");
+		expect(ctx.sseClients.has(res)).toBe(true);
+	});
+
+	it("removes client on close", () => {
+		const ctx = fakeContext();
+		const { res } = fakeResponse();
+		handleSseConnection(res, ctx);
+		expect(ctx.sseClients.size).toBe(1);
+		res.emit("close");
+		expect(ctx.sseClients.size).toBe(0);
+	});
+});
+
+// ── handleApiRoute ──────────────────────────────────────────────────
+
+function fakeReq(method: string, url: string, body?: string): IncomingMessage {
+	const emitter = new EventEmitter() as unknown as IncomingMessage;
+	(emitter as unknown as Record<string, string>).method = method;
+	(emitter as unknown as Record<string, string>).url = url;
+	if (body !== undefined) {
+		setTimeout(() => {
+			emitter.emit("data", Buffer.from(body));
+			emitter.emit("end");
+		}, 0);
+	}
+	return emitter;
+}
+
+describe("handleApiRoute", () => {
+	it("returns 404 for unknown routes", async () => {
+		const ctx = fakeContext();
+		const { res, state } = fakeResponse();
+		await handleApiRoute(fakeReq("GET", "/api/unknown"), res, "/api/unknown", ctx);
+		const parsed = JSON.parse(state.written);
+		expect(parsed).toEqual({ error: "Not found" });
+	});
+
+	it("returns world-state file when it exists", async () => {
+		const worldJson = '{"version":1,"entities":{}}';
+		const wsFiles: Record<string, string> = { "/vault/.flowti/var/world-state.json": worldJson };
+		const ctx = fakeContext({
+			deps: {
+				disk: mockDisk(wsFiles) as IFileSystem,
+				paths: mockPaths as IPaths,
+				clock: { now: () => new Date(), iso: () => "2026-01-01T00:00:00.000Z" },
+			},
+		});
+		const { res, state } = fakeResponse();
+		await handleApiRoute(fakeReq("GET", "/api/world-state"), res, "/api/world-state", ctx);
+		expect(state.statusCode).toBe(200);
+		expect(state.written).toBe(worldJson);
+	});
+
+	it("returns 404 when world-state file does not exist", async () => {
+		const ctx = fakeContext();
+		const { res, state } = fakeResponse();
+		await handleApiRoute(fakeReq("GET", "/api/world-state"), res, "/api/world-state", ctx);
+		const parsed = JSON.parse(state.written);
+		expect(parsed).toEqual({ error: "No world state" });
+	});
+
+	it("returns agent entity when found", async () => {
+		const entity = { id: "alice", type: "agent" as const, components: { position: { x: 1, y: 2 } } };
+		const ctx = fakeContext();
+		(ctx.worldState.getEntity as ReturnType<typeof vi.fn>).mockReturnValue(entity);
+		const { res, state } = fakeResponse();
+		await handleApiRoute(fakeReq("GET", "/api/agent/alice"), res, "/api/agent/alice", ctx);
+		const parsed = JSON.parse(state.written);
+		expect(parsed).toEqual(entity);
+	});
+
+	it("returns 404 when agent not found", async () => {
+		const ctx = fakeContext();
+		const { res, state } = fakeResponse();
+		await handleApiRoute(fakeReq("GET", "/api/agent/bob"), res, "/api/agent/bob", ctx);
+		expect(state.statusCode).toBe(404);
+		expect(JSON.parse(state.written)).toEqual({ error: "Agent not found" });
+	});
+
+	it("handles /events GET by establishing SSE", async () => {
+		const ctx = fakeContext();
+		const { res, state } = fakeResponse();
+		await handleApiRoute(fakeReq("GET", "/events"), res, "/events", ctx);
+		expect(state.statusCode).toBe(200);
+		expect(state.headers["Content-Type"]).toBe("text/event-stream");
+		expect(ctx.sseClients.has(res)).toBe(true);
 	});
 });
