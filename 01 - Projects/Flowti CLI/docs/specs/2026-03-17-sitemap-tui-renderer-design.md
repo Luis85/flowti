@@ -60,7 +60,7 @@ interface NavigationContextValue {
 
 `App` provides this context. `SitemapPage`, custom override pages, and hooks all consume it via `useNavigationContext()`.
 
-### 3.3 Page Layout
+### 3.4 Page Layout
 
 ```
 ┌─────────────────────────────────┐
@@ -136,6 +136,7 @@ type TuiActionHandler = (ctx: TuiActionContext) => Promise<TuiActionResult>
 
 interface TuiActionContext {
   deps: TuiActionDeps
+  session: TuiSessionStore
   project?: ProjectContext
   tools?: Record<string, boolean>
   params?: Record<string, string>
@@ -356,6 +357,17 @@ Bridges `TuiContextValue` to the flat `Record<string, boolean>` expected by the 
 
 Called with a lightweight context built from TuiContext. Same function signatures as today (`(ctx) => boolean`), different context source.
 
+**Condition registry compatibility:** The existing `sitemap-conditions.ts` functions (`resolveDisabledCondition`, `resolveHiddenCondition`) take `HandlerRegistry` as a concrete parameter. To reuse them with `TuiHandlerRegistry`, extract an `IConditionRegistry` interface:
+
+```typescript
+interface IConditionRegistry {
+  hasCondition(id: string): boolean
+  getCondition(id: string): (ctx: unknown) => boolean
+}
+```
+
+Both `HandlerRegistry` and `TuiHandlerRegistry` implement this interface. `sitemap-conditions.ts` is refactored to accept `IConditionRegistry` instead of the concrete class. This is a minimal change — the functions only use `hasCondition` and `getCondition` on the registry parameter.
+
 ### 8.4 Form Field Conditions
 
 `useSitemapFields(pageId)` applies the same condition evaluation to `fields[]`, filtering hidden fields and marking disabled fields on each render.
@@ -456,7 +468,7 @@ src/ui/handlers/*-handlers.ts           — legacy handlers
 ```
 src/tui/loaders/*.ts                      — still provide typed data to SitemapPage
 src/infrastructure/key-assigner.ts        — reused directly
-src/infrastructure/sitemap-conditions.ts  — reused directly
+src/infrastructure/sitemap-conditions.ts  — refactored to accept IConditionRegistry interface (Section 8.3)
 src/domain/sitemap/unified-page.ts        — sitemap types
 configs/sitemap.json                      — the contract, unchanged
 ```
