@@ -12,7 +12,7 @@ import type { ExportFormat, SavedExportConfig, SavedImportConfig, VaultFileInfo 
 import { CsvActionView, VIEW_TYPE_CSV } from "../ui/csv/CsvActionView";
 import { CanvasActionView, VIEW_TYPE_CANVAS } from "../ui/canvas/CanvasActionView";
 import { ExportView, VIEW_TYPE_EXPORT, type ExportViewConfig } from "../ui/export/ExportView";
-import { DataExchangeHubView, VIEW_TYPE_DATA_EXCHANGE_HUB } from "../ui/hub/DataExchangeHubView";
+import { VIEW_TYPE_DATA_EXCHANGE_HUB } from "../domain/hub/types";
 import type { SignalService } from "../domain/signal/SignalService";
 import type { CanvasService } from "../domain/canvas/CanvasService";
 import type { AnalyticsService } from "../domain/analytics/AnalyticsService";
@@ -160,21 +160,7 @@ export class DataExchangeSetup {
 			return view;
 		});
 
-		// Data Exchange Hub — central management view
-		registerView(VIEW_TYPE_DATA_EXCHANGE_HUB, (leaf) =>
-			new DataExchangeHubView(
-				leaf,
-				eventBus,
-				dataExchangeService,
-				(csvPath, savedConfig) => this.openCsvImportWithConfig(csvPath, savedConfig),
-				(savedConfig) => this.openExportWithSavedConfig(savedConfig),
-				(sourcePath, sourceType, format) => this.openExportView(sourcePath, sourceType, format),
-				(canvasPath, configId?, autoRun?) => this.openCanvasImportView(canvasPath, configId, autoRun),
-				this.deps.onboardingService,
-				this.deps.signalService,
-				this.deps.canvasService,
-			),
-		);
+		// Data Exchange Hub — now registered via SitemapBootstrap (no longer legacy)
 	}
 
 	/** Register file-menu context items for CSV, .base, and TFolder. */
@@ -462,16 +448,14 @@ export class DataExchangeSetup {
 		const { workspace } = this.deps.app;
 		const existing = workspace.getLeavesOfType(VIEW_TYPE_DATA_EXCHANGE_HUB);
 		if (existing.length > 0) {
-			const view = existing[0].view as DataExchangeHubView;
-			view.showImportConfig(configId);
 			void workspace.revealLeaf(existing[0]);
+			void this.deps.eventBus.emit("ui.navigateTab" as never, { viewId: "data-exchange-hub", tabId: "imports", entityId: configId } as never);
 			return;
 		}
 		const leaf = workspace.getLeaf(true);
 		void leaf.setViewState({ type: VIEW_TYPE_DATA_EXCHANGE_HUB, active: true }).then(() => {
-			const view = leaf.view as DataExchangeHubView;
-			view.showImportConfig(configId);
 			void workspace.revealLeaf(leaf);
+			void this.deps.eventBus.emit("ui.navigateTab" as never, { viewId: "data-exchange-hub", tabId: "imports", entityId: configId } as never);
 		});
 	}
 }
