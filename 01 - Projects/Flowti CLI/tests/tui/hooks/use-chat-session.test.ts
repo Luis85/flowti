@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import React from "react";
 import { render } from "ink-testing-library";
 import { Text } from "ink";
@@ -35,6 +35,24 @@ describe("useChatSession", () => {
 		const { unmount, session } = renderHook();
 		expect(session().state.messages).toEqual([]);
 		expect(session().state.streamingText).toBe("");
+		unmount();
+	});
+
+	it("onUserInput registers a submit handler", () => {
+		const { unmount, session } = renderHook();
+		const handler = vi.fn();
+		session().onUserInput(handler);
+		session().submit("hello");
+		expect(handler).toHaveBeenCalledWith("hello");
+		unmount();
+	});
+
+	it("onCommandHandler registers a command handler", () => {
+		const { unmount, session } = renderHook();
+		const handler = vi.fn();
+		session().onCommandHandler(handler);
+		session().command({ type: "done" });
+		expect(handler).toHaveBeenCalledWith({ type: "done" });
 		unmount();
 	});
 });

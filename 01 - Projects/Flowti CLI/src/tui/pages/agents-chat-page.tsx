@@ -6,7 +6,7 @@
  * ChatShell wiring happens lazily when the user sends their first message.
  */
 
-import React from "react";
+import React, { useEffect } from "react";
 import { Box } from "ink";
 import { registerPage } from "./page-registry.js";
 import { useChatSession } from "../hooks/use-chat-session.js";
@@ -17,10 +17,32 @@ import { InputArea } from "../../infrastructure/chat/components/input-area.js";
 import { TaskView } from "../../infrastructure/chat/components/task-view.js";
 import type { PageProps } from "../types.js";
 
-function AgentsChatPage({ params, enabled }: PageProps): React.JSX.Element {
+function AgentsChatPage({ params, enabled, goBack }: PageProps): React.JSX.Element {
 	const agentName = params.agentName ?? "Agent";
 	const session = useChatSession();
 	const { state } = session;
+
+	useEffect(() => {
+		session.onUserInput((text: string) => {
+			const timestamp = new Date().toISOString();
+			session.pushMessage({ role: "user", content: text, timestamp });
+			session.updateStatus("thinking");
+			setTimeout(() => {
+				session.pushMessage({
+					role: "agent",
+					content: `[Chat integration pending] Received: "${text}"`,
+					timestamp: new Date().toISOString(),
+				});
+				session.updateStatus("idle");
+			}, 500);
+		});
+
+		session.onCommandHandler((cmd) => {
+			if (cmd.type === "done" || cmd.type === "back") {
+				goBack();
+			}
+		});
+	}, [session, goBack]);
 
 	const isDisabled = !enabled || state.status === "thinking" || state.status === "working";
 	const showTask = state.mode === "task" && state.taskTools.length > 0;

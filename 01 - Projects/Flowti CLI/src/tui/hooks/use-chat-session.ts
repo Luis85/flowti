@@ -42,6 +42,8 @@ export interface ChatSessionState {
 	readonly updateStatus: (status: ChatViewStatus) => void;
 	readonly updateMode: (mode: "conversation" | "task") => void;
 	readonly showHistory: (summary: string, turns: readonly ChatTurn[]) => void;
+	readonly onUserInput: (callback: (text: string) => void) => void;
+	readonly onCommandHandler: (callback: (cmd: ChatCommand) => void) => void;
 }
 
 interface DirtyRef {
@@ -172,6 +174,14 @@ export function useChatSession(): ChatSessionState {
 	const submit = useCallback((text: string) => { submitRef.current?.(text); }, []);
 	const command = useCallback((cmd: ChatCommand) => { commandRef.current?.(cmd); }, []);
 
+	const onUserInput = useCallback((callback: (text: string) => void) => {
+		submitRef.current = callback;
+	}, []);
+
+	const onCommandHandler = useCallback((callback: (cmd: ChatCommand) => void) => {
+		commandRef.current = callback;
+	}, []);
+
 	return {
 		state,
 		submit,
@@ -181,5 +191,7 @@ export function useChatSession(): ChatSessionState {
 		updateStatus,
 		updateMode,
 		showHistory,
+		onUserInput,
+		onCommandHandler,
 	};
 }
