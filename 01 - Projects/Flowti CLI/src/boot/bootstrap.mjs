@@ -19,7 +19,7 @@
  */
 
 import { existsSync, readFileSync, statSync, readdirSync, symlinkSync, lstatSync } from "node:fs";
-import { spawnSync, spawn } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { resolve, dirname, join, delimiter } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -137,29 +137,9 @@ const nodeModulesDir = resolve(SOURCE_DIR, "node_modules");
 const existingNodePath = process.env.NODE_PATH ?? "";
 const nodePath = existingNodePath ? `${nodeModulesDir}${delimiter}${existingNodePath}` : nodeModulesDir;
 
-const cliArgs = process.argv.slice(2);
-const cliEnv = { ...process.env, FLOWTI_VAULT_ROOT: VAULT_ROOT, NODE_PATH: nodePath };
-
-// Non-interactive commands use spawnSync (simpler, blocks until done).
-// Interactive mode (no args or --legacy) uses async spawn for proper TTY/stdin handling.
-const isInteractive = cliArgs.length === 0 || cliArgs[0] === "--legacy";
-
-if (isInteractive) {
-	const child = spawn(process.execPath, [BIN_ENTRY, ...cliArgs], {
-		stdio: "inherit",
-		cwd: VAULT_ROOT,
-		env: cliEnv,
-	});
-	child.on("exit", (code) => process.exit(code ?? 0));
-	child.on("error", (err) => {
-		console.error(`[flowti] ${err.message}`);
-		process.exit(1);
-	});
-} else {
-	const result = spawnSync(process.execPath, [BIN_ENTRY, ...cliArgs], {
-		stdio: "inherit",
-		cwd: VAULT_ROOT,
-		env: cliEnv,
-	});
-	process.exit(result.status ?? 0);
-}
+const result = spawnSync(process.execPath, [BIN_ENTRY, ...process.argv.slice(2)], {
+	stdio: "inherit",
+	cwd: VAULT_ROOT,
+	env: { ...process.env, FLOWTI_VAULT_ROOT: VAULT_ROOT, NODE_PATH: nodePath },
+});
+process.exit(result.status ?? 0);
