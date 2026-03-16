@@ -252,11 +252,11 @@ plugin-sitemap.json
 - File watcher — handler subscribes to CSV change events, invalidates tiles, triggers component re-render
 - Top bar actions (New Query, New Dashboard) — become action handlers in sitemap commands, open modals from handler layer
 
-**Deleted:** `src/ui/analytics/AnalyticsHubView.ts` + tab files (~2,170 LOC)
+**Deleted:** `src/ui/analytics/AnalyticsHubView.ts` + tab files + supporting files (DashboardBreadcrumbs, TileResultCache, ChartRenderer, etc.). The full `src/ui/analytics/` directory is ~6,669 LOC across 20 files; most will be replaced by Lit components. Supporting files that contain pure logic (cache, chart rendering) may be retained as handler deps rather than deleted.
 
 ### Chunk 6: Leaf/Panel Views
 
-**Goal:** Migrate remaining 7 leaf/panel views. Each assessed case-by-case.
+**Goal:** Migrate remaining 8 leaf/panel views. Each assessed case-by-case.
 
 **New generic infrastructure:**
 
@@ -287,9 +287,9 @@ plugin-sitemap.json
 | `session-workspace` | `src/ui/session/SessionWorkspaceView.ts` | 625 | View shell + Lit panels |
 | `train-main` | `src/ui/train/TrainMainView.ts` | 843 | View shell + Lit panels |
 | `train-timeline` | `src/ui/train/TrainTimelineSidebar.ts` | 554 | Assessed at implementation time |
-| `csv-action` | `src/ui/dataExchange/CsvActionView.ts` | 782 | View shell + Lit panels |
+| `csv-action` | `src/ui/csv/CsvActionView.ts` | 782 | View shell + Lit panels |
 | `canvas-import` | `src/ui/canvas/CanvasActionView.ts` | 540 | Assessed at implementation time |
-| `export` | `src/ui/dataExchange/ExportView.ts` | 689 | Assessed at implementation time |
+| `export` | `src/ui/export/ExportView.ts` | 689 | Assessed at implementation time |
 | `journey-builder` | `src/ui/journeyBuilder/JourneyBuilderSidebar.ts` | 1,047 | View shell + Lit panels (largest leaf view) |
 | `journey-file` | `src/ui/journeyBuilder/JourneyFileView.ts` | 156 | Full Lit component |
 
