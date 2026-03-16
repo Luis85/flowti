@@ -1,45 +1,18 @@
 /**
- * agent-actor.ts — Agent actor using Ninja Adventure sprite animations.
+ * agent-actor.ts — Agent actor with a static forward-facing sprite.
  *
- * Receives pre-loaded AgentSprites (idle + 4 directional walks) and switches
- * between them based on brain state. Name label is a child actor positioned
- * below the sprite so it stays visible during animation switches.
+ * Uses frame 0 of the idle spritesheet as a single static graphic.
+ * All animation/direction logic is removed — focus is on movement & behavior first.
  */
 
 import * as ex from "excalibur";
 import type { DashboardAgent } from "../data/types.js";
-import type { BrainState, MovementTarget } from "../brain/brain-types.js";
+import type { BrainState } from "../brain/brain-types.js";
 import type { AgentSprites } from "../sprites/sprite-loader.js";
 
 // ── Dimensions ───────────────────────────────────────────────────────
 
-const SCALE = 4;
-
-// ── Direction ────────────────────────────────────────────────────────
-
-type Direction = "down" | "left" | "right" | "up";
-
-function resolveDirection(dx: number, dy: number): Direction {
-	if (Math.abs(dx) > Math.abs(dy)) {
-		return dx > 0 ? "right" : "left";
-	}
-	return dy > 0 ? "down" : "up";
-}
-
-// ── Pose names ───────────────────────────────────────────────────────
-
-const POSE_IDLE = "idle";
-const POSE_WALK_DOWN = "walk-down";
-const POSE_WALK_LEFT = "walk-left";
-const POSE_WALK_RIGHT = "walk-right";
-const POSE_WALK_UP = "walk-up";
-
-const WALK_POSES: Record<Direction, string> = {
-	down: POSE_WALK_DOWN,
-	left: POSE_WALK_LEFT,
-	right: POSE_WALK_RIGHT,
-	up: POSE_WALK_UP,
-};
+const SCALE = 2;
 
 // ── AgentActor ───────────────────────────────────────────────────────
 
@@ -56,10 +29,8 @@ export class AgentActor extends ex.Actor {
 	public brainState: BrainState = "idle";
 
 	private readonly onSelect: (agentName: string) => void;
-	private currentPoseName: string = POSE_IDLE;
 	private bobPhase = 0;
 	private baseY: number;
-	private direction: Direction = "down";
 
 	constructor(config: AgentActorConfig) {
 		super({
@@ -73,135 +44,131 @@ export class AgentActor extends ex.Actor {
 		this.baseY = config.y;
 		this.scale = ex.vec(SCALE, SCALE);
 
-		this.registerAnimations(config.sprites);
+		// Use frame 0 of the idle spritesheet as a static forward-facing sprite
+		const frame = config.sprites.idle.frames[0].graphic;
+		this.graphics.use(frame);
+
 		this.buildLabelChild();
-		this.graphics.use(POSE_IDLE);
+		this.buildBadgeChild();
 	}
 
-	onInitialize(_engine: ex.Engine): void {
+	onInitialize(engine: ex.Engine): void {
 		this.on("pointerdown", () => {
 			this.onSelect(this.agentData.name);
+		});
+		this.on("pointerenter", () => {
+			engine.canvas.style.cursor = "pointer";
+		});
+		this.on("pointerleave", () => {
+			engine.canvas.style.cursor = "default";
 		});
 	}
 
 	onPreUpdate(_engine: ex.Engine, delta: number): void {
+		// Gentle bob when idle
 		if (this.brainState === "idle" || this.brainState === "waiting" || this.brainState === "on-break") {
 			this.bobPhase += delta * 0.003;
 			this.pos.y = this.baseY + Math.sin(this.bobPhase) * 1;
-		} else {
-			this.pos.y = this.baseY;
 		}
 	}
 
-	updateFromBrain(state: BrainState, target: MovementTarget): void {
+	/** Snap to idle. Called when selected. */
+	focus(): void {
+		this.brainState = "idle";
+	}
+
+	/** No-op — direction logic removed for now. */
+	setWalkDirection(_targetX: number, _targetY: number): void {
+		// Will be re-added with proper animation system
+	}
+
+	/** Update brain state for idle bob logic. No animation switching. */
+	updateFromBrain(state: BrainState): void {
 		this.brainState = state;
-
-		// Resolve direction only for walking states
-		if (target.x !== undefined && target.y !== undefined &&
-			(state === "walking-to" || state === "wandering")) {
-			const dx = target.x - this.pos.x;
-			const dy = target.y - this.pos.y;
-			if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
-				this.direction = resolveDirection(dx, dy);
-			}
-		}
-
-		const poseName = this.brainStateToPose(state);
-		if (poseName !== this.currentPoseName) {
-			this.currentPoseName = poseName;
-			this.graphics.use(poseName);
-		}
 	}
 
-	/** No-op: real sprites handle idle animation internally. */
-	setIdlePose(_poseName: string): void {
-		// No-op
-	}
-
-	updateVisualStatus(_status: string): void {
-		// Status is set at creation time via the label child.
-	}
+	/** No-op stubs kept for API compatibility. */
+	setIdlePose(_poseName: string): void { /* no-op */ }
+	updateVisualStatus(_status: string): void { /* no-op */ }
 
 	// ── Private ──────────────────────────────────────────────────────
 
-	private registerAnimations(sprites: AgentSprites): void {
-		this.graphics.add(POSE_IDLE, sprites.idle);
-		this.graphics.add(POSE_WALK_DOWN, sprites.walkDown);
-		this.graphics.add(POSE_WALK_LEFT, sprites.walkLeft);
-		this.graphics.add(POSE_WALK_RIGHT, sprites.walkRight);
-		this.graphics.add(POSE_WALK_UP, sprites.walkUp);
-	}
-
-	private brainStateToPose(state: BrainState): string {
-		switch (state) {
-			case "wandering":
-			case "walking-to":
-				return WALK_POSES[this.direction];
-			case "idle":
-			case "working":
-			case "talking":
-			case "waiting":
-			case "on-break":
-			default:
-				return POSE_IDLE;
-		}
-	}
-
 	private buildLabelChild(): void {
 		const name = this.agentData.persona ?? this.agentData.name;
-		const isAi = this.agentData.agentType === "ai";
 		const status = this.agentData.status;
 
 		const STATUS_COLORS: Record<string, string> = {
 			busy: "#22c55e", idle: "#3b82f6", unassigned: "#6b7280",
 		};
 
+		const LABEL_W = 100;
+		const LABEL_H = 28;
+
 		const labelCanvas = new ex.Canvas({
-			width: 48,
-			height: 16,
+			width: LABEL_W,
+			height: LABEL_H,
 			cache: true,
 			draw: (ctx: CanvasRenderingContext2D) => {
-				// Name label
+				const cx = LABEL_W / 2;
+
 				ctx.fillStyle = "#e2e8f0";
-				ctx.font = "9px system-ui, sans-serif";
+				ctx.font = "11px system-ui, sans-serif";
 				ctx.textAlign = "center";
 				ctx.textBaseline = "top";
-				const truncName = name.length > 8 ? name.slice(0, 7) + "\u2026" : name;
-				ctx.fillText(truncName, 24, 0);
+				const truncName = name.length > 12 ? name.slice(0, 11) + "\u2026" : name;
+				ctx.fillText(truncName, cx, 2);
 
-				// Status dot
 				ctx.fillStyle = STATUS_COLORS[status] ?? "#6b7280";
 				ctx.beginPath();
-				ctx.arc(24, 12, 2, 0, Math.PI * 2);
+				ctx.arc(cx, 22, 3, 0, Math.PI * 2);
 				ctx.fill();
-
-				// AI/H badge
-				const badgeX = 42;
-				const badgeY = 4;
-				const badgeText = isAi ? "AI" : "H";
-				const badgeColor = isAi ? "#8b5cf6" : "#10b981";
-				ctx.fillStyle = badgeColor;
-				ctx.beginPath();
-				ctx.arc(badgeX, badgeY, 5, 0, Math.PI * 2);
-				ctx.fill();
-				ctx.fillStyle = "#ffffff";
-				ctx.font = "bold 5px system-ui, sans-serif";
-				ctx.textAlign = "center";
-				ctx.textBaseline = "middle";
-				ctx.fillText(badgeText, badgeX, badgeY + 1);
 			},
 		});
 
-		// Add as named graphic "label" for test verification
 		this.graphics.add("label", labelCanvas);
 
-		// Create child actor for the label so it renders independently
 		const labelActor = new ex.Actor({
 			pos: ex.vec(0, 12),
 			anchor: ex.vec(0.5, 0),
 			z: 1,
 		});
+		labelActor.scale = ex.vec(1 / SCALE, 1 / SCALE);
 		labelActor.graphics.use(labelCanvas);
 		this.addChild(labelActor);
+	}
+
+	private buildBadgeChild(): void {
+		const isAi = this.agentData.agentType === "ai";
+		const badgeText = isAi ? "AI" : "H";
+		const badgeColor = isAi ? "#8b5cf6" : "#10b981";
+		const BADGE_SIZE = 18;
+
+		const badgeCanvas = new ex.Canvas({
+			width: BADGE_SIZE,
+			height: BADGE_SIZE,
+			cache: true,
+			draw: (ctx: CanvasRenderingContext2D) => {
+				const cx = BADGE_SIZE / 2;
+				const cy = BADGE_SIZE / 2;
+				ctx.fillStyle = badgeColor;
+				ctx.beginPath();
+				ctx.arc(cx, cy, 7, 0, Math.PI * 2);
+				ctx.fill();
+				ctx.fillStyle = "#ffffff";
+				ctx.font = "bold 8px system-ui, sans-serif";
+				ctx.textAlign = "center";
+				ctx.textBaseline = "middle";
+				ctx.fillText(badgeText, cx, cy + 1);
+			},
+		});
+
+		const badgeActor = new ex.Actor({
+			pos: ex.vec(7, -7),
+			anchor: ex.vec(0.5, 0.5),
+			z: 20,
+		});
+		badgeActor.scale = ex.vec(1 / SCALE, 1 / SCALE);
+		badgeActor.graphics.use(badgeCanvas);
+		this.addChild(badgeActor);
 	}
 }

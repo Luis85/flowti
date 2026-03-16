@@ -19,6 +19,7 @@ export class DoorwayActor extends ex.Actor {
 	public readonly label: string;
 	private readonly onClick: (targetScene: string) => void;
 	private glowPhase = Math.random() * Math.PI * 2;
+	private hovered = false;
 
 	constructor(config: DoorwayActorConfig) {
 		super({
@@ -33,9 +34,17 @@ export class DoorwayActor extends ex.Actor {
 		this.buildGraphic();
 	}
 
-	onInitialize(_engine: ex.Engine): void {
+	onInitialize(engine: ex.Engine): void {
 		this.on("pointerdown", () => {
 			this.onClick(this.targetScene);
+		});
+		this.on("pointerenter", () => {
+			this.hovered = true;
+			engine.canvas.style.cursor = "pointer";
+		});
+		this.on("pointerleave", () => {
+			this.hovered = false;
+			engine.canvas.style.cursor = "default";
 		});
 	}
 
@@ -48,7 +57,8 @@ export class DoorwayActor extends ex.Actor {
 	}
 
 	private buildGraphic(): void {
-		const glowAlpha = 0.4 + 0.3 * Math.sin(this.glowPhase);
+		const baseAlpha = this.hovered ? 0.8 : 0.4;
+		const glowAlpha = baseAlpha + 0.2 * Math.sin(this.glowPhase);
 
 		const canvas = new ex.Canvas({
 			width: ACTOR_SIZE,
@@ -71,7 +81,7 @@ export class DoorwayActor extends ex.Actor {
 				ctx.shadowBlur = 0;
 
 				// Door frame
-				ctx.fillStyle = "#1f2937";
+				ctx.fillStyle = this.hovered ? "#374151" : "#1f2937";
 				ctx.beginPath();
 				ctx.roundRect(doorX, doorY, doorW, doorH, 6);
 				ctx.fill();

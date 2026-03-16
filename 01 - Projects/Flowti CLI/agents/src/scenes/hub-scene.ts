@@ -2,10 +2,11 @@
  * hub-scene.ts — RPG hub scene: central gathering place for all agents.
  *
  * Dark floor with subtle grid, agents centered, doorways along the right edge.
+ * The bottom roster bar is a DOM overlay managed externally (roster-bar.ts).
  */
 
 import * as ex from "excalibur";
-import type { DashboardAgent, ActivityEntry, Setting } from "../data/types.js";
+import type { DashboardAgent, Setting } from "../data/types.js";
 import { AgentActor } from "../actors/agent-actor.js";
 import { DoorwayActor } from "../actors/doorway-actor.js";
 import { SCENE_THEMES } from "../config/settings.js";
@@ -17,7 +18,6 @@ import type { AgentSprites } from "../sprites/sprite-loader.js";
 
 const AGENT_SPACING = 120;
 const AGENTS_PER_ROW = 6;
-const ROSTER_BAR_HEIGHT = 56;
 
 // ── Config ──────────────────────────────────────────────────────────
 
@@ -28,19 +28,9 @@ export interface HubSceneConfig {
 
 // ── HubScene ────────────────────────────────────────────────────────
 
-// ── Indicator helpers ────────────────────────────────────────────────
-
-const STATUS_DOT_COLORS: Record<string, string> = {
-	busy: "#3b82f6",
-	idle: "#22c55e",
-	unassigned: "#6b7280",
-};
-
 export class HubScene extends ex.Scene {
 	private readonly config: HubSceneConfig;
 	private readonly agentActors = new Map<string, AgentActor>();
-	private readonly indicatorActors = new Map<string, ex.Actor>();
-	private tickerLabel: ex.Label | null = null;
 	private iterationLabel: ex.Label | null = null;
 	private connectionLabel: ex.Label | null = null;
 	private spriteRegistry: Map<string, AgentSprites> = new Map();
@@ -173,66 +163,18 @@ export class HubScene extends ex.Scene {
 			doorway.z = 5;
 			this.add(doorway);
 		}
-
-		// ── Roster bar background at bottom ─────────────────
-		const rosterBar = new ex.Actor({
-			pos: ex.vec(w / 2, h - ROSTER_BAR_HEIGHT / 2),
-			width: w,
-			height: ROSTER_BAR_HEIGHT,
-			anchor: ex.vec(0.5, 0.5),
-			z: 4,
-		});
-		const rosterBg = new ex.Canvas({
-			width: w,
-			height: ROSTER_BAR_HEIGHT,
-			cache: true,
-			draw: (ctx: CanvasRenderingContext2D) => {
-				ctx.fillStyle = "#0f172a";
-				ctx.fillRect(0, 0, w, ROSTER_BAR_HEIGHT);
-				ctx.fillStyle = "#1e293b";
-				ctx.fillRect(0, 0, w, 1);
-			},
-		});
-		rosterBar.graphics.use(rosterBg);
-		this.add(rosterBar);
-
-		// ── Activity ticker inside roster bar ────────────────
-		this.tickerLabel = new ex.Label({
-			text: "No recent activity",
-			pos: ex.vec(12, h - 12),
-			font: new ex.Font({
-				family: "system-ui, sans-serif",
-				size: 10,
-				unit: ex.FontUnit.Px,
-				color: ex.Color.fromHex("#475569"),
-				textAlign: ex.TextAlign.Left,
-			}),
-			anchor: ex.vec(0, 0.5),
-			z: 15,
-		});
-		this.add(this.tickerLabel);
 	}
 
 	/** Spawn or update agents from dashboard data. */
 	updateAgents(agents: readonly DashboardAgent[]): void {
 		const incoming = new Set<string>();
 
-		// Split agents into hub-resident (no domain or hub domain) and domain-assigned
-		const hubAgents: DashboardAgent[] = [];
-		const domainAgents: DashboardAgent[] = [];
-		for (const agent of agents) {
-			const setting = resolveSettingForDomain(agent.domain);
-			if (setting === "hub") {
-				hubAgents.push(agent);
-			} else {
-				domainAgents.push(agent);
-			}
-		}
+		// Only hub-resident agents get full actors in this scene
+		const hubAgents = agents.filter((a) => resolveSettingForDomain(a.domain) === "hub");
 
 		const w = this.engine?.drawWidth ?? 1200;
 		const h = this.engine?.drawHeight ?? 700;
 
-		// ── Full agent actors for hub-resident agents ────────
 		const cols = Math.min(hubAgents.length, AGENTS_PER_ROW);
 		const rows = Math.ceil(hubAgents.length / AGENTS_PER_ROW) || 1;
 		const gridW = cols * AGENT_SPACING;
@@ -271,75 +213,6 @@ export class HubScene extends ex.Scene {
 			}
 		}
 
-		// ── Roster cards for domain-assigned agents in bottom bar ─
-		const CARD_WIDTH = 80;
-		const CARD_HEIGHT = 36;
-		const cardSpacing = CARD_WIDTH + 8;
-		const cardStartX = 16 + CARD_WIDTH / 2;
-		const cardY = h - ROSTER_BAR_HEIGHT / 2 - 4;
-
-		for (let i = 0; i < domainAgents.length; i++) {
-			const agent = domainAgents[i];
-			incoming.add(agent.name);
-			const setting = resolveSettingForDomain(agent.domain);
-
-			const x = cardStartX + i * cardSpacing;
-
-			if (this.indicatorActors.has(agent.name)) {
-				continue;
-			}
-
-			const dotColor = STATUS_DOT_COLORS[agent.status] ?? "#6b7280";
-			const settingLabel = SCENE_THEMES[setting]?.label ?? setting;
-			const cardCanvas = new ex.Canvas({
-				width: CARD_WIDTH,
-				height: CARD_HEIGHT,
-				cache: true,
-				draw: (ctx: CanvasRenderingContext2D) => {
-					// Card background
-					ctx.fillStyle = "#1e293b";
-					ctx.beginPath();
-					ctx.roundRect(0, 0, CARD_WIDTH, CARD_HEIGHT, 4);
-					ctx.fill();
-
-					// Status dot
-					ctx.fillStyle = dotColor;
-					ctx.beginPath();
-					ctx.arc(10, CARD_HEIGHT / 2 - 3, 4, 0, Math.PI * 2);
-					ctx.fill();
-
-					// Agent name
-					ctx.fillStyle = "#e2e8f0";
-					ctx.font = "bold 10px system-ui, sans-serif";
-					ctx.textAlign = "left";
-					ctx.textBaseline = "middle";
-					const truncName = agent.name.length > 8 ? agent.name.slice(0, 7) + "\u2026" : agent.name;
-					ctx.fillText(truncName, 20, CARD_HEIGHT / 2 - 4);
-
-					// Domain/location label
-					ctx.fillStyle = "#64748b";
-					ctx.font = "8px system-ui, sans-serif";
-					ctx.fillText(settingLabel, 20, CARD_HEIGHT / 2 + 8);
-				},
-			});
-
-			const indicator = new ex.Actor({
-				pos: ex.vec(x, cardY),
-				width: CARD_WIDTH,
-				height: CARD_HEIGHT,
-				anchor: ex.vec(0.5, 0.5),
-				z: 15,
-			});
-			indicator.graphics.use(cardCanvas);
-
-			indicator.on("pointerdown", () => {
-				this.config.onSceneChange(setting);
-			});
-
-			this.add(indicator);
-			this.indicatorActors.set(agent.name, indicator);
-		}
-
 		// Remove stale agent actors
 		for (const [name, actor] of this.agentActors) {
 			if (!incoming.has(name)) {
@@ -347,36 +220,6 @@ export class HubScene extends ex.Scene {
 				this.agentActors.delete(name);
 			}
 		}
-
-		// Remove stale indicator actors
-		for (const [name, actor] of this.indicatorActors) {
-			if (!incoming.has(name)) {
-				actor.kill();
-				this.indicatorActors.delete(name);
-			}
-		}
-	}
-
-	/** Update the bottom activity ticker. */
-	updateTicker(activityLog: readonly ActivityEntry[]): void {
-		if (!this.tickerLabel) return;
-		if (activityLog.length === 0) {
-			this.tickerLabel.text = "No recent activity";
-			return;
-		}
-		const recent = activityLog.slice(-3);
-		const parts = recent.map((e) => {
-			const clean = e.summary
-				.replace(/^\d{4}-\d{2}-\d{2}T[\d:.]+Z\s*/i, "")
-				.replace(/^(thinking|speaking|asking|using-tool)\s*/i, "")
-				.replace(/```[\s\S]*?```/g, "[code]")
-				.replace(/\{[\s\S]*?\}/g, "")
-				.replace(/\n/g, " ")
-				.trim()
-				.slice(0, 50);
-			return `[${e.agentName}] ${clean}`;
-		});
-		this.tickerLabel.text = parts.join("  |  ");
 	}
 
 	/** Update the connection status indicator. */

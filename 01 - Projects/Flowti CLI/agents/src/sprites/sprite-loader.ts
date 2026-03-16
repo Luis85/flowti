@@ -17,10 +17,10 @@ export interface AgentSprites {
 
 /** Frame durations in ms for each animation type. */
 export const FRAME_DURATIONS = {
-	idle: 300,
-	walkSlow: 250,
-	walkFast: 150,
-	onBreak: 400,
+	idle: 500,
+	walkSlow: 350,
+	walkFast: 200,
+	onBreak: 500,
 } as const;
 
 /**
@@ -56,18 +56,18 @@ export async function loadAgentSprites(
 	const idle = ex.Animation.fromSpriteSheet(idleSheet, [0, 1, 2, 3], FRAME_DURATIONS.idle);
 	idle.strategy = ex.AnimationStrategy.Loop;
 
-	// Walk rows: 0=down, 1=left, 2=right, 3=up (4 frames each)
+	// NinjaAdventure Walk.png rows: 0=down, 1=up, 2=left, 3=right (4 frames each)
 	const walkDown = ex.Animation.fromSpriteSheet(walkSheet, [0, 1, 2, 3], FRAME_DURATIONS.walkSlow);
 	walkDown.strategy = ex.AnimationStrategy.Loop;
 
-	const walkLeft = ex.Animation.fromSpriteSheet(walkSheet, [4, 5, 6, 7], FRAME_DURATIONS.walkSlow);
+	const walkUp = ex.Animation.fromSpriteSheet(walkSheet, [4, 5, 6, 7], FRAME_DURATIONS.walkSlow);
+	walkUp.strategy = ex.AnimationStrategy.Loop;
+
+	const walkLeft = ex.Animation.fromSpriteSheet(walkSheet, [8, 9, 10, 11], FRAME_DURATIONS.walkSlow);
 	walkLeft.strategy = ex.AnimationStrategy.Loop;
 
-	const walkRight = ex.Animation.fromSpriteSheet(walkSheet, [8, 9, 10, 11], FRAME_DURATIONS.walkSlow);
+	const walkRight = ex.Animation.fromSpriteSheet(walkSheet, [12, 13, 14, 15], FRAME_DURATIONS.walkSlow);
 	walkRight.strategy = ex.AnimationStrategy.Loop;
-
-	const walkUp = ex.Animation.fromSpriteSheet(walkSheet, [12, 13, 14, 15], FRAME_DURATIONS.walkSlow);
-	walkUp.strategy = ex.AnimationStrategy.Loop;
 
 	return { idle, walkDown, walkLeft, walkRight, walkUp };
 }

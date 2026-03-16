@@ -51,6 +51,19 @@ export async function assignTask(baseUrl: string, agentName: string, task: strin
 	}
 }
 
+/** Pre-warm the LLM worker for an agent — spawns worker and caches conversation history. */
+export async function wakeAgent(baseUrl: string, agentName: string): Promise<void> {
+	try {
+		await fetch(`${baseUrl}/api/agent/wake`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ agentName }),
+		});
+	} catch {
+		// Best-effort — ignore failures
+	}
+}
+
 export async function grantPermission(
 	baseUrl: string,
 	agentName: string,

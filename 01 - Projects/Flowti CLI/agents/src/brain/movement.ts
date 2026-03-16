@@ -72,20 +72,24 @@ export function resolveAgentTarget(
 	return null;
 }
 
+const MIN_WANDER_DISTANCE = 100;
+
 /** Resolve an idle target based on personality habits. Priority: social → focus → wander. */
 export function resolveIdleTarget(
 	habits: AgentHabits,
 	nearbyAgents: readonly Position[],
 	bounds: Bounds,
 	rng: () => number,
+	agentPos?: Position,
 ): Position | null {
 	// Social drift: gravitate toward nearest agent
 	if (nearbyAgents.length > 0 && rng() < habits.socialDrift) {
 		const target = nearbyAgents[0];
 		const offsetAngle = rng() * Math.PI * 2;
+		const radius = 80 + rng() * 60;
 		return {
-			x: Math.max(bounds.minX, Math.min(bounds.maxX, target.x + Math.cos(offsetAngle) * 30)),
-			y: Math.max(bounds.minY, Math.min(bounds.maxY, target.y + Math.sin(offsetAngle) * 30)),
+			x: Math.max(bounds.minX, Math.min(bounds.maxX, target.x + Math.cos(offsetAngle) * radius)),
+			y: Math.max(bounds.minY, Math.min(bounds.maxY, target.y + Math.sin(offsetAngle) * radius)),
 		};
 	}
 
@@ -115,7 +119,22 @@ export function resolveIdleTarget(
 	}
 
 	// Fallback: random wander
-	return randomWanderPoint(bounds, rng);
+	const point = randomWanderPoint(bounds, rng);
+
+	// Enforce minimum distance so walks are visually meaningful
+	if (agentPos && point) {
+		const dx = point.x - agentPos.x;
+		const dy = point.y - agentPos.y;
+		if (dx * dx + dy * dy < MIN_WANDER_DISTANCE * MIN_WANDER_DISTANCE) {
+			// Pick a point at least MIN_WANDER_DISTANCE away in a random direction
+			const angle = rng() * Math.PI * 2;
+			return {
+				x: Math.max(bounds.minX, Math.min(bounds.maxX, agentPos.x + Math.cos(angle) * MIN_WANDER_DISTANCE)),
+				y: Math.max(bounds.minY, Math.min(bounds.maxY, agentPos.y + Math.sin(angle) * MIN_WANDER_DISTANCE)),
+			};
+		}
+	}
+	return point;
 }
 
 /** Find preferred workstation if available, otherwise nearest unoccupied. */

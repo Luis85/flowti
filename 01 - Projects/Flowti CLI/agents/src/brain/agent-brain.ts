@@ -46,7 +46,7 @@ export function computeParams(attrs: AgentAttributes): BrainParams {
 		speedMultiplier: MIN_SPEED + ((dex - 1) / 19) * (MAX_SPEED - MIN_SPEED),
 		socialRadius: 50 + (cha / 20) * 150,
 		focusDuration: 5000 + (int / 20) * 25000,
-		idleResistance: 3000 + (con / 20) * 17000,
+		idleResistance: 4000 + (con / 20) * 8000,
 		quoteFrequency: 30000 - (wis / 20) * 15000,
 	};
 }
