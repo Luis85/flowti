@@ -89,7 +89,7 @@ const toolVaultCli: ToolExecutor = (action, deps, opts) => {
 	const stdoutContains = action.stdoutContains as string | undefined;
 
 	try {
-		const r = execInVault(deps, `node .flowti/bin/main.js ${command}`, root, opts);
+		const r = execInVault(deps, `node .flowti/bin/main.mjs ${command}`, root, opts);
 		const exitMatch = r.exitCode === expectExit;
 		const containsMatch = stdoutContains ? r.stdout.includes(stdoutContains) : true;
 		const success = exitMatch && containsMatch;
@@ -114,7 +114,7 @@ function handleProjectList(
 	storeAs: string | undefined,
 	start: number,
 ): ActionResult {
-	const r = execInVault(deps, "node .flowti/bin/main.js info --format=json", root, opts);
+	const r = execInVault(deps, "node .flowti/bin/main.mjs info --format=json", root, opts);
 	storeVariable(opts, storeAs, r.stdout, "json");
 	return buildToolResult("vault-project", r.exitCode === 0, start, deps.clock, r.stdout.slice(0, 500));
 }
@@ -127,7 +127,7 @@ function handleProjectInfo(
 	storeAs: string | undefined,
 	start: number,
 ): ActionResult {
-	const r = execInVault(deps, `node .flowti/bin/main.js info --project="${project}" --format=json`, root, opts);
+	const r = execInVault(deps, `node .flowti/bin/main.mjs info --project="${project}" --format=json`, root, opts);
 	storeVariable(opts, storeAs, r.stdout, "json");
 	return buildToolResult("vault-project", r.exitCode === 0, start, deps.clock, r.stdout.slice(0, 500));
 }
@@ -143,7 +143,7 @@ function handleProjectRun(
 ): ActionResult {
 	const command = resolveString(action, "command", opts.variables ?? {});
 	const expectExit = typeof action.expectExit === "number" ? action.expectExit : 0;
-	const r = execInVault(deps, `node .flowti/bin/main.js ${command} --project="${project}"`, root, opts);
+	const r = execInVault(deps, `node .flowti/bin/main.mjs ${command} --project="${project}"`, root, opts);
 	if (storeAs && opts.variables) opts.variables[storeAs] = r.stdout;
 	return buildToolResult("vault-project", r.exitCode === expectExit, start, deps.clock, r.stdout.slice(0, 500));
 }
@@ -277,7 +277,7 @@ export function createVaultTestProvider(config?: VaultTestConfig): EnvironmentPr
 				const binDest = `${tmpDir}/.flowti/bin`;
 				deps.mkdir(binDest);
 				const safeBin = binSrc.replace(/\\/g, "/");
-				deps.exec(`node -e "require('fs').cpSync('${safeBin}', '${safeTmp}/.flowti/bin/main.js')"`, {});
+				deps.exec(`node -e "require('fs').cpSync('${safeBin}', '${safeTmp}/.flowti/bin/main.mjs')"`, {});
 			}
 
 			currentVaultRoot = tmpDir;

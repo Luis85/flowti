@@ -30,7 +30,7 @@ const infraDeps = createInfraDeps();
 
 const cliProjectRoot = join(import.meta.dirname, "../..");
 const templateDir = join(cliProjectRoot, "tests/vault-template");
-const binSrc = join(cliProjectRoot, "../../.flowti/bin/main.js");
+const binSrc = join(cliProjectRoot, "../../.flowti/bin/main.mjs");
 
 for (const journey of journeys) {
 	describe(`[Tier 1] ${journey.journey}`, () => {

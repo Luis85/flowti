@@ -8,14 +8,17 @@
 import React, { createContext, useContext, useMemo } from "react";
 import type { LoaderDeps, LoaderContext } from "./loaders/loader-types.js";
 import type { AgentsConfig, IterationsConfig, ProjectConfig } from "../infrastructure/types-config.js";
+import type { IAgentProcessRunner } from "../domain/agents/worker-types.js";
 
 export interface TuiContextValue {
 	readonly deps: LoaderDeps;
 	readonly vaultRoot: string;
 	readonly projectPath: string;
+	readonly projectsDir: string;
 	readonly agentsConfig: AgentsConfig | undefined;
 	readonly iterationsConfig: IterationsConfig | undefined;
 	readonly projectConfig: ProjectConfig | undefined;
+	readonly processRunner: IAgentProcessRunner;
 }
 
 const TuiCtx = createContext<TuiContextValue | null>(null);
@@ -41,6 +44,7 @@ export function useLoaderContext(params: Readonly<Record<string, string>>): Load
 		deps: tui.deps,
 		vaultRoot: tui.vaultRoot,
 		projectPath: tui.projectPath,
+		projectsDir: tui.projectsDir,
 		agentsConfig: tui.agentsConfig,
 		params,
 	}), [tui, params]);

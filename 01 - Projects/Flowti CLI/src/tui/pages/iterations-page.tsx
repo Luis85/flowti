@@ -23,7 +23,7 @@ const STATUS_COLORS: Record<string, string> = {
 	"cancelled": "red",
 };
 
-function IterationsPage({ params, navigate }: PageProps): React.JSX.Element {
+function IterationsPage({ params, navigate, enabled }: PageProps): React.JSX.Element {
 	const ctx = useLoaderContext(params);
 	const { data, error } = useLoader(loadIterations, ctx);
 
@@ -56,6 +56,7 @@ function IterationsPage({ params, navigate }: PageProps): React.JSX.Element {
 		renderDetail,
 		onSelect: (item: unknown) => { const iter = item as IterationListItem; navigate("iteration-detail", { number: String(iter.number) }); },
 		actions: [{ key: "Enter", label: "Detail" }],
+		enabled,
 	});
 }
 

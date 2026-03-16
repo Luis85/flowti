@@ -12,7 +12,7 @@ import { useLoaderContext } from "../context.js";
 import { loadEventCatalog } from "../loaders/event-catalog-loader.js";
 import type { PageProps } from "../types.js";
 
-function EventCatalogPage({ params }: PageProps): React.JSX.Element {
+function EventCatalogPage({ params, enabled }: PageProps): React.JSX.Element {
 	const ctx = useLoaderContext(params);
 	const { data, error } = useLoader(loadEventCatalog, ctx);
 
@@ -41,6 +41,7 @@ function EventCatalogPage({ params }: PageProps): React.JSX.Element {
 		items: data.events as readonly unknown[],
 		renderItem,
 		renderDetail,
+		enabled,
 	});
 }
 

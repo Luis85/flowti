@@ -333,11 +333,9 @@ async function main(): Promise<void> {
 		proc.exit(0);
 	}
 
-	// Default — modern Ink TUI (loaded from ESM bundle via pathToFileURL)
+	// Default — modern Ink TUI
 	printBanner();
-	const { pathToFileURL } = await import("node:url");
-	const tuiBundlePath = pathToFileURL(paths.join(VAULT_ROOT, ".flowti", "bin", "tui.mjs")).href;
-	const { runTui } = await import(tuiBundlePath) as { runTui: () => Promise<void> };
+	const { runTui } = await import("./tui/tui-entry.js");
 	await runTui();
 
 	deps.workerManager.stopAll();

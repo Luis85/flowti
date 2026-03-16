@@ -12,7 +12,7 @@ import { useLoaderContext } from "../context.js";
 import { loadRequirements } from "../loaders/requirements-loader.js";
 import type { PageProps } from "../types.js";
 
-function RequirementsPage({ params }: PageProps): React.JSX.Element {
+function RequirementsPage({ params, enabled }: PageProps): React.JSX.Element {
 	const ctx = useLoaderContext(params);
 	const { data, error } = useLoader(loadRequirements, ctx);
 
@@ -43,6 +43,7 @@ function RequirementsPage({ params }: PageProps): React.JSX.Element {
 		items: data.items as readonly unknown[],
 		renderItem,
 		renderDetail,
+		enabled,
 	});
 }
 

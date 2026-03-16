@@ -9,9 +9,11 @@ const mockTuiContext: TuiContextValue = {
 	deps: { disk: {} as never, paths: {} as never, clock: {} as never, shell: {} as never, log: () => {} },
 	vaultRoot: "/vault",
 	projectPath: "/project",
+	projectsDir: "/vault/01 - Projects",
 	agentsConfig: undefined,
 	iterationsConfig: undefined,
 	projectConfig: undefined,
+	processRunner: { spawn: () => ({ onEvent: () => () => {}, result: Promise.resolve({ text: "", thinking: "", exitCode: 0 }), kill: () => {} }) } as never,
 };
 
 function lastFrame(instance: ReturnType<typeof render>): string {
@@ -27,6 +29,8 @@ describe("ContentArea", () => {
 					params: {},
 					navigate: () => {},
 					goBack: () => {},
+					focused: true,
+					onEscapeDefault: () => {},
 				}),
 			),
 		);

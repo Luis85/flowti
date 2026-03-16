@@ -11,7 +11,7 @@ import { useLoaderContext } from "../context.js";
 import { loadMake } from "../loaders/make-loader.js";
 import type { PageProps } from "../types.js";
 
-function MakePage({ params }: PageProps): React.JSX.Element {
+function MakePage({ params, enabled }: PageProps): React.JSX.Element {
 	const ctx = useLoaderContext(params);
 	const { data, error } = useLoader(loadMake, ctx);
 
@@ -26,6 +26,7 @@ function MakePage({ params }: PageProps): React.JSX.Element {
 	return React.createElement(ListPage, {
 		items: data.templates as readonly unknown[],
 		renderItem,
+		enabled,
 	});
 }
 

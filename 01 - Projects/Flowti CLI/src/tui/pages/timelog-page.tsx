@@ -11,7 +11,7 @@ import { useLoaderContext } from "../context.js";
 import { loadTimelog } from "../loaders/timelog-loader.js";
 import type { PageProps } from "../types.js";
 
-function TimelogPage({ params }: PageProps): React.JSX.Element {
+function TimelogPage({ params, enabled }: PageProps): React.JSX.Element {
 	const ctx = useLoaderContext(params);
 	const { data, error } = useLoader(loadTimelog, ctx);
 
@@ -40,6 +40,7 @@ function TimelogPage({ params }: PageProps): React.JSX.Element {
 		items: data.items as readonly unknown[],
 		renderItem,
 		renderDetail,
+		enabled,
 	});
 }
 

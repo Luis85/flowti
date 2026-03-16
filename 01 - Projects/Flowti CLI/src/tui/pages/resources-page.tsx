@@ -12,7 +12,7 @@ import { useLoaderContext } from "../context.js";
 import { loadResources } from "../loaders/resources-loader.js";
 import type { PageProps } from "../types.js";
 
-function ResourcesPage({ params }: PageProps): React.JSX.Element {
+function ResourcesPage({ params, enabled }: PageProps): React.JSX.Element {
 	const ctx = useLoaderContext(params);
 	const { data, error } = useLoader(loadResources, ctx);
 
@@ -42,6 +42,7 @@ function ResourcesPage({ params }: PageProps): React.JSX.Element {
 		items: data.items as readonly unknown[],
 		renderItem,
 		renderDetail,
+		enabled,
 	});
 }
 

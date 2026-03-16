@@ -11,7 +11,7 @@ import { useLoaderContext } from "../context.js";
 import { loadScaffold } from "../loaders/scaffold-loader.js";
 import type { PageProps } from "../types.js";
 
-function ScaffoldPage({ params }: PageProps): React.JSX.Element {
+function ScaffoldPage({ params, enabled }: PageProps): React.JSX.Element {
 	const ctx = useLoaderContext(params);
 	const { data, error } = useLoader(loadScaffold, ctx);
 
@@ -26,6 +26,7 @@ function ScaffoldPage({ params }: PageProps): React.JSX.Element {
 	return React.createElement(ListPage, {
 		items: data.definitions as readonly unknown[],
 		renderItem,
+		enabled,
 	});
 }
 

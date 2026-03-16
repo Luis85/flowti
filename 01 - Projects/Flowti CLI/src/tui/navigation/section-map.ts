@@ -11,7 +11,7 @@ export function buildSections(): Section[] {
 	return [
 		{ id: "home", label: "Home", icon: "\u{1F3E0}", pages: ["start"] },
 		{ id: "agents", label: "Agents", icon: "\u{1F464}", pages: ["ai-tools", "agent-detail", "agents-chat"] },
-		{ id: "project", label: "Project", icon: "\u{1F4CB}", pages: ["project-detail", "build", "test", "health", "scaffold", "make", "review", "devtools"] },
+		{ id: "project", label: "Project", icon: "\u{1F4CB}", pages: ["projects-list", "project-detail", "build", "test", "health", "scaffold", "make", "review", "devtools"] },
 		{ id: "reports", label: "Reports", icon: "\u{1F4CA}", pages: ["reports"] },
 		{ id: "events", label: "Events", icon: "\u26A1", pages: ["event-catalog"] },
 		{ id: "management", label: "Manage", icon: "\u{1F527}", pages: ["iterations", "iteration-detail", "lifecycle", "resources", "timelog", "deliverables", "raid", "requirements", "capa"] },

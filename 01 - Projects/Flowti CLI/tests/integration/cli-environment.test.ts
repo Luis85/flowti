@@ -178,32 +178,32 @@ describe("TestVault service", () => {
 
 	it("copies CLI build when sourceBinDir is provided", () => {
 		const fs = createMockFs({
-			"/source/bin/main.js": "// main bundle",
-			"/source/bin/index.js": "// bootstrap",
-			"/source/bin/main.js.map": "// sourcemap",
+			"/source/bin/main.mjs": "// main bundle",
+			"/source/bin/index.mjs": "// bootstrap",
+			"/source/bin/main.mjs.map": "// sourcemap",
 		});
 		const layout = scaffoldTestVault("/v/copy-test", {
 			name: "copy-test",
 			sourceBinDir: "/source/bin",
 		}, fs);
-		expect(fs.existsSync(paths.join(layout.binDir, "main.js"))).toBe(true);
-		expect(fs.existsSync(paths.join(layout.binDir, "index.js"))).toBe(true);
-		expect(fs.existsSync(paths.join(layout.binDir, "main.js.map"))).toBe(true);
-		expect(fs.readFileSync(paths.join(layout.binDir, "main.js"), "utf-8")).toBe("// main bundle");
+		expect(fs.existsSync(paths.join(layout.binDir, "main.mjs"))).toBe(true);
+		expect(fs.existsSync(paths.join(layout.binDir, "index.mjs"))).toBe(true);
+		expect(fs.existsSync(paths.join(layout.binDir, "main.mjs.map"))).toBe(true);
+		expect(fs.readFileSync(paths.join(layout.binDir, "main.mjs"), "utf-8")).toBe("// main bundle");
 		const pkg = JSON.parse(fs.readFileSync(paths.join(layout.binDir, "package.json"), "utf-8"));
 		expect(pkg.type).toBe("module");
 	});
 
 	it("skips missing source files gracefully", () => {
 		const fs = createMockFs({
-			"/source/bin/main.js": "// main only",
+			"/source/bin/main.mjs": "// main only",
 		});
 		const layout = scaffoldTestVault("/v/partial-test", {
 			name: "partial-test",
 			sourceBinDir: "/source/bin",
 		}, fs);
-		expect(fs.existsSync(paths.join(layout.binDir, "main.js"))).toBe(true);
-		expect(fs.existsSync(paths.join(layout.binDir, "index.js"))).toBe(false);
+		expect(fs.existsSync(paths.join(layout.binDir, "main.mjs"))).toBe(true);
+		expect(fs.existsSync(paths.join(layout.binDir, "index.mjs"))).toBe(false);
 		// package.json is always written when sourceBinDir is set
 		expect(fs.existsSync(paths.join(layout.binDir, "package.json"))).toBe(true);
 	});
@@ -211,7 +211,7 @@ describe("TestVault service", () => {
 	it("does not copy build when sourceBinDir is omitted", () => {
 		const fs = createMockFs();
 		const layout = scaffoldTestVault("/v/no-bin-test", { name: "no-bin-test" }, fs);
-		expect(fs.existsSync(paths.join(layout.binDir, "main.js"))).toBe(false);
+		expect(fs.existsSync(paths.join(layout.binDir, "main.mjs"))).toBe(false);
 		expect(fs.existsSync(paths.join(layout.binDir, "package.json"))).toBe(false);
 	});
 });

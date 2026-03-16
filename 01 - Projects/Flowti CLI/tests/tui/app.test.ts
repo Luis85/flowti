@@ -9,9 +9,11 @@ const mockTuiContext: TuiContextValue = {
 	deps: { disk: {} as never, paths: {} as never, clock: {} as never, shell: {} as never, log: () => {} },
 	vaultRoot: "/vault",
 	projectPath: "/project",
+	projectsDir: "/vault/01 - Projects",
 	agentsConfig: undefined,
 	iterationsConfig: undefined,
 	projectConfig: undefined,
+	processRunner: { spawn: () => ({ onEvent: () => () => {}, result: Promise.resolve({ text: "", thinking: "", exitCode: 0 }), kill: () => {} }) } as never,
 };
 
 function lastFrame(instance: ReturnType<typeof render>): string {
@@ -27,10 +29,12 @@ function renderApp() {
 }
 
 describe("App", () => {
-	it("renders activity bar with section icons", () => {
+	it("renders activity bar with all section labels", () => {
 		const { unmount, ...instance } = renderApp();
 		const frame = lastFrame(instance);
-		expect(frame).toContain("\u{1F3E0}");
+		expect(frame).toContain("Home");
+		expect(frame).toContain("Agents");
+		expect(frame).toContain("Project");
 		unmount();
 	});
 
@@ -41,11 +45,12 @@ describe("App", () => {
 		unmount();
 	});
 
-	it("renders status bar with key hints", () => {
+	it("renders status bar with zone-aware hints", () => {
 		const { unmount, ...instance } = renderApp();
 		const frame = lastFrame(instance);
+		// Content zone is default focus — should show content hints
 		expect(frame).toContain("Navigate");
-		expect(frame).toContain("Esc");
+		expect(frame).toContain("Sidebar");
 		unmount();
 	});
 
