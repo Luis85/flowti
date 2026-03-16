@@ -24,6 +24,7 @@ Two chunks:
 - No proactive task self-assignment
 - No sound, particles, or day/night cycle
 - No minimap or free-camera WASD pan
+- No agent room transitions (agents stay in their domain-assigned room)
 
 ---
 
@@ -46,7 +47,7 @@ interface AgentHabits {
 }
 ```
 
-**Derivation** (extends existing `computeParams()` in `agent-brain.ts`):
+**Derivation** (new `computeHabits()` function, separate from existing `computeParams()`):
 
 | Field | Source | Formula |
 |-------|--------|---------|
@@ -59,8 +60,12 @@ interface AgentHabits {
 | `homeRoom` | domain | Existing `resolveSettingForDomain()` |
 | `preferredWorkstationId` | runtime | Set on first workstation occupy, sticky thereafter |
 
-**Files modified**: `agent-brain.ts` (extend `computeParams()`)
-**Files added**: None — habits interface lives in `brain-types.ts`
+**Relationship to `BrainParams`**: `computeParams()` continues to produce the existing `BrainParams` (speedMultiplier, socialRadius, focusDuration, idleResistance, quoteFrequency). `computeHabits()` produces `AgentHabits` as a separate object. The `movementStyle` speed multipliers (0.7x, 1.0x, 1.4x) **replace** the continuous `speedMultiplier` when resolving movement speed in brain-system. `breakThreshold` **supplements** `focusDuration` — focus duration governs maximum work time before returning to idle, break threshold governs when a break interrupts active work (break fires first if shorter). `socialDrift` replaces `socialRadius` for idle target selection.
+
+**Storage**: `AgentBrainEntry` in `brain-system.ts` gains a `habits: AgentHabits` field. The `register()` method calls both `computeParams()` and `computeHabits()`.
+
+**Files modified**: `agent-brain.ts` (add `computeHabits()`), `brain-system.ts` (store habits on entry, call `computeHabits()` in `register()`)
+**Files added**: None — `AgentHabits` interface lives in `brain-types.ts`
 
 ### A2. Personality-Driven Movement
 
@@ -80,10 +85,11 @@ When the idle timer fires, resolve target in priority order (first match wins):
 
 1. **Social drift** — roll against `socialDrift`. Hit → target nearest other agent's position, offset 30px (stand nearby, not on top)
 2. **Focus drift** — roll against `focusDrift`. Hit → target furthest corner from any other agent
-3. **Home room pull** — if agent is in hub or wrong room, 40% chance → target home room doorway
-4. **Fallback** — random wander within current room bounds (existing behavior)
+3. **Fallback** — random wander within current room bounds (existing behavior)
 
 Social drift and focus drift are mutually exclusive checks — a high-CHA agent usually drifts toward others; a high-INT agent usually seeks solitude. Mid-stat agents feel natural — sometimes social, sometimes alone.
+
+Note: agents do not move between rooms in this phase. Home-room pull (targeting doorways) is deferred to a future phase that adds room-transition mechanics.
 
 **New pure function**: `resolveIdleTarget(habits, nearbyAgents, roomBounds, rng)` in `movement.ts`
 
@@ -106,9 +112,9 @@ Replace static idle bob with personality-driven pose cycling.
 | `calm` | idle → (long hold) → look-around → idle | 8–15s |
 | `restless` | idle → look-around → idle → look-around → stretch | 5–10s |
 
-Implementation: `idlePoseTimer` counter on the agent actor. `brain-system.ts` update loop ticks the timer when state is `idle` and not moving, cycles through the pose sequence.
+Implementation: `idlePoseTimer` and `idlePoseIndex` stored on `AgentBrainEntry` in `brain-system.ts` (consistent with how `stateTimer` works — brain system owns all per-agent state, actor is purely visual). The system ticks the timer when state is `idle` and not moving, cycles through the pose sequence, and calls `actor.setIdlePose(poseIndex)` to update the visual.
 
-**Files modified**: `pixel-sprites.ts` (2 new pose functions), `agent-actor.ts` (pose timer + cycle logic), `brain-system.ts` (tick idle pose timer)
+**Files modified**: `pixel-sprites.ts` (2 new pose functions), `agent-actor.ts` (add `setIdlePose()` method), `brain-system.ts` (idle pose timer + cycle on `AgentBrainEntry`)
 
 ### A4. Break Routines
 
@@ -127,16 +133,23 @@ After sustained work, agents take visible breaks.
 
 **Settling pause**: On arrival at workstation, agent holds idle pose for `settlingPause` ms before switching to working pose.
 
-**Implementation**: New `on-break` visual sub-state (not a brain state — brain returns to `idle`, break logic is a timer sequence in `brain-system.ts`). ~30 lines in brain-system, ~10 lines in movement.ts for preferred workstation resolution.
+**Implementation**: Add `on-break` as a new brain state in the `BrainState` union type. This is cleaner than a parallel timer system that manually overrides the FSM. The break state integrates naturally with the existing transition table and `updateFromBrain()` in the agent actor.
 
-**Files modified**: `brain-system.ts` (break timer + sequence), `movement.ts` (preferred workstation resolver)
+Transitions:
+- `working` → (breakThreshold timer) → `on-break` (vacate workstation, walk to random point)
+- `on-break` → (5-10s timer) → `walking-to` (return to preferred workstation)
+- `walking-to` → (arrival) → `working` (if task active) or `idle` (if task done)
+
+The `Workstation` interface in `movement.ts` gains an `id: string` field for preferred workstation tracking. `WorkstationActor` provides this ID.
+
+**Files modified**: `brain-types.ts` (add `on-break` to `BrainState`), `agent-brain.ts` (break transition), `brain-system.ts` (break timer + sequence), `movement.ts` (preferred workstation resolver, `Workstation.id` field), `agent-actor.ts` (on-break pose mapping)
 
 ### A5. Social Proximity — Facing
 
 When two idle agents are within 40px of each other, they face each other and hold position briefly.
 
 **Behavior**:
-- Scan for agent pairs within 40px threshold
+- Scan for agent pairs within 70px threshold (agents are 48px wide; 40px would require near-overlap)
 - Both agents flip to face each other (existing direction-flip logic)
 - Both hold position for 3–5s
 - Resume normal idle cycle
@@ -158,9 +171,9 @@ Agent mood (already in dashboard data) applies multipliers to movement and work 
 
 A frustrated agent visibly paces the room faster and takes shorter breaks. A focused agent stays at their workstation longer and rarely drifts toward others. A happy agent ambles and lingers. You read team mood by watching movement patterns.
 
-**Implementation**: ~15 lines in `computeParams()` applying mood multipliers to existing timer values.
+**Implementation**: ~15 lines in `computeHabits()` applying mood multipliers to habit timer values. Mood is snapshot at spawn time. If mood changes during runtime (via world-state poll), `BrainSystem` exposes an `updateMood(name, mood)` method that recomputes the affected multipliers on the agent's habits without full re-registration.
 
-**Files modified**: `agent-brain.ts` (mood multipliers in `computeParams()`)
+**Files modified**: `agent-brain.ts` (mood multipliers in `computeHabits()`), `brain-system.ts` (add `updateMood()` method)
 
 ---
 
@@ -183,13 +196,15 @@ camera.clearAllStrategies();
 
 **Deactivation**: Click empty space, press Escape, or click HUD unfollow button.
 
-### B2. Cross-Room Tracking
+### B2. Follow Persistence Across Scenes
 
-When followed agent enters a doorway (transitions to a different room), camera auto-transitions to that scene.
+Agents do not move between rooms in this phase. Cross-room tracking means: when the **player** navigates to a different scene (clicks a doorway), the camera system checks if the followed agent exists in the new scene. If yes, re-acquire and continue following. If not, follow mode ends automatically.
 
-- Uses existing `goToScene()` with fade transition
-- After scene activate, camera system re-acquires actor reference in new scene
-- Smooth — no jarring cuts
+- `onSceneActivate()` searches new scene's actors for the followed agent by name
+- If found: re-apply `LockCameraToActorStrategy` to the new actor reference
+- If not found: call `stopFollow()`, hide HUD
+
+**Agent despawn handling**: The camera system checks `actor.isKilled()` each frame during follow. If the followed actor is removed (e.g., entity diff reconciliation removes an agent), `stopFollow()` fires automatically.
 
 ### B3. Scroll Zoom
 
@@ -197,7 +212,7 @@ Mouse wheel controls zoom level.
 
 - `wheel` event on canvas → adjust `camera.zoom` by ±0.1 per tick
 - Clamp to [0.5, 2.0] range
-- Smooth interpolation: lerp toward target zoom over 3 frames
+- Smooth interpolation: time-based lerp (`lerpFactor = 1 - Math.pow(0.05, deltaMs / 1000)`) for frame-rate independence
 - 0.5x = see whole room, 2x = pixel-level detail
 
 ### B4. HUD Indicator
@@ -233,10 +248,12 @@ Exports:
 ## Architecture Decisions
 
 1. **No new persistence** — habits are derived from attributes at spawn. No save/load needed.
-2. **No new brain states** — idle pose cycling and breaks are visual sub-states (timers on actor/system), not FSM states. Keeps the brain clean.
-3. **Pure functions for all behavior logic** — `resolveIdleTarget()`, preferred workstation resolution, mood multipliers. Fully testable with no ExcaliburJS dependency.
-4. **Camera uses ExcaliburJS built-ins** — `LockCameraToActorStrategy` for follow, `camera.zoom` for zoom. No custom camera math.
-5. **HTML overlay for HUD** — consistent with existing panel pattern. No canvas-drawn UI.
+2. **One new brain state** — `on-break` is added to the FSM for clean break-routine integration. Idle pose cycling remains visual-only (timers on `AgentBrainEntry`).
+3. **Separate `computeHabits()` function** — habits are a parallel data structure to `BrainParams`, not merged into it. Habits override specific param fields where they conflict (e.g., movement speed).
+4. **Pure functions for all behavior logic** — `resolveIdleTarget()`, preferred workstation resolution, mood multipliers. Fully testable with no ExcaliburJS dependency.
+5. **Camera uses ExcaliburJS built-ins** — `LockCameraToActorStrategy` for follow, `camera.zoom` for zoom. No custom camera math.
+6. **HTML overlay for HUD** — consistent with existing panel pattern. No canvas-drawn UI.
+7. **Brain system owns all per-agent state** — idle pose timers, break timers, and habits all live on `AgentBrainEntry`. Actors are purely visual.
 
 ## Test Strategy
 
@@ -253,24 +270,25 @@ Exports:
 **Camera system tests**:
 - Follow/unfollow lifecycle
 - Zoom clamping at bounds
-- Scene transition re-acquisition
+- Scene transition re-acquisition (agent found → continue, not found → stop)
+- Followed agent despawn → auto-stop
 
 ## File Summary
 
 | Action | File | Changes |
 |--------|------|---------|
-| Modify | `brain-types.ts` | Add `AgentHabits` interface |
-| Modify | `agent-brain.ts` | Extend `computeParams()` with habits + mood multipliers |
-| Modify | `movement.ts` | Add `resolveIdleTarget()`, preferred workstation resolver |
-| Modify | `brain-system.ts` | Idle pose timer, break sequence, social facing, habit-driven wander |
+| Modify | `brain-types.ts` | Add `AgentHabits` interface, add `on-break` to `BrainState` union |
+| Modify | `agent-brain.ts` | Add `computeHabits()`, break transition in transition table |
+| Modify | `movement.ts` | Add `resolveIdleTarget()`, preferred workstation resolver, `Workstation.id` field |
+| Modify | `brain-system.ts` | `AgentBrainEntry.habits` field, idle pose timer/index, break sequence, social facing, habit-driven wander, `updateMood()` method |
 | Modify | `pixel-sprites.ts` | Add `drawLookAroundPose`, `drawStretchPose` |
-| Modify | `agent-actor.ts` | Idle pose cycling, click→follow branch, settling pause |
+| Modify | `agent-actor.ts` | Add `setIdlePose()`, click→follow branch, settling pause, on-break pose mapping |
 | Modify | `main.ts` | Wire camera system, wheel event |
 | Modify | `hub-scene.ts` | Camera system scene activate hook |
 | Modify | `room-scene.ts` | Camera system scene activate hook |
-| Create | `systems/camera-system.ts` | Follow, zoom, HUD, scene transitions |
-| Create | `tests/systems/camera-system.test.ts` | Camera lifecycle tests |
-| Create | `tests/brain/habits.test.ts` | Habit derivation + idle target tests |
+| Create | `systems/camera-system.ts` | Follow, zoom, HUD, scene persistence, despawn detection |
+| Create | `tests/systems/camera-system.test.ts` | Camera lifecycle + despawn + scene re-acquisition tests |
+| Create | `tests/brain/habits.test.ts` | Habit derivation + idle target + mood multiplier tests |
 | Create | `tests/actors/idle-poses.test.ts` | Look-around + stretch pose tests |
 
-**Estimated**: ~400 new LOC (source) + ~250 LOC (tests), 1 new file, 9 modified files
+**Estimated**: ~500 new LOC (source) + ~300 LOC (tests), 1 new file, 9 modified files
