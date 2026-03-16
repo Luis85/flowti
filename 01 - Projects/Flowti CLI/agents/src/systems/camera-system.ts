@@ -1,8 +1,9 @@
 /**
- * camera-system.ts — Follow mode, zoom, and HUD indicator.
+ * camera-system.ts — Follow mode, zoom, and pan.
  *
  * Uses ExcaliburJS LockCameraToActorStrategy for follow,
- * camera.zoom for scroll zoom, and HTML overlay for HUD.
+ * camera.zoom for scroll zoom, and WASD/arrow keys for panning.
+ * The HTML HUD overlay is handled by <camera-hud> (Lit component).
  */
 
 import * as ex from "excalibur";
@@ -12,6 +13,7 @@ const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 2.0;
 const ZOOM_STEP = 0.1;
 const ZOOM_LERP_FACTOR = 0.05;
+const PAN_SPEED = 300; // pixels per second at zoom 1
 
 export interface CameraSystem {
 	startFollow(actor: AgentActor): void;
@@ -22,41 +24,26 @@ export interface CameraSystem {
 	onSceneActivate(findActor: (name: string) => AgentActor | undefined, sceneCamera: ex.Camera): void;
 	handleZoom(wheelDelta: number): void;
 	applyZoom(deltaMs: number): void;
+	updatePan(deltaMs: number): void;
+	handleKeyDown(key: string): void;
+	handleKeyUp(key: string): void;
 }
 
 export function createCameraSystem(
 	initialCamera: ex.Camera,
-	hudContainer: HTMLElement,
+	sceneCenter: { x: number; y: number },
 ): CameraSystem {
 	let camera = initialCamera;
 	let followedActor: AgentActor | null = null;
 	let followedName: string | null = null;
-	let hudEl: HTMLElement | null = null;
 	let targetZoom = camera.zoom;
+	let center = sceneCenter;
 
-	function showHud(name: string): void {
-		hideHud();
-		if (typeof document === "undefined") return;
-		const el = document.createElement("div");
-		el.className = "follow-hud";
-		el.style.cssText = "position:absolute;top:8px;left:50%;transform:translateX(-50%);" +
-			"background:#1e293b;color:#e2e8f0;padding:4px 12px;border-radius:6px;" +
-			"font:12px system-ui,sans-serif;display:flex;align-items:center;gap:8px;z-index:100;";
-		el.innerHTML = `<span>Following: ${name}</span>`;
-		const closeBtn = document.createElement("button");
-		closeBtn.textContent = "\u00d7";
-		closeBtn.style.cssText = "background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;padding:0 2px;";
-		closeBtn.onclick = () => stopFollow();
-		el.appendChild(closeBtn);
-		hudContainer.appendChild(el);
-		hudEl = el;
-	}
+	// Keyboard pan state
+	const keysHeld = new Set<string>();
 
-	function hideHud(): void {
-		if (hudEl && hudEl.parentElement) {
-			hudEl.parentElement.removeChild(hudEl);
-		}
-		hudEl = null;
+	function resetToCenter(): void {
+		void camera.move(ex.vec(center.x, center.y), 300, ex.EasingFunctions.EaseInOutCubic);
 	}
 
 	function startFollow(actor: AgentActor): void {
@@ -65,14 +52,13 @@ export function createCameraSystem(
 		followedName = actor.agentData.name;
 		camera.clearAllStrategies();
 		camera.addStrategy(new ex.LockCameraToActorStrategy(actor));
-		showHud(followedName);
 	}
 
 	function stopFollow(): void {
 		followedActor = null;
 		followedName = null;
 		camera.clearAllStrategies();
-		hideHud();
+		resetToCenter();
 	}
 
 	function checkDespawn(): void {
@@ -82,7 +68,6 @@ export function createCameraSystem(
 	}
 
 	function onSceneActivate(findActor: (name: string) => AgentActor | undefined, sceneCamera: ex.Camera): void {
-		// Always update camera reference to the active scene's camera
 		camera = sceneCamera;
 		targetZoom = camera.zoom;
 
@@ -107,6 +92,33 @@ export function createCameraSystem(
 		camera.zoom += (targetZoom - camera.zoom) * factor;
 	}
 
+	function handleKeyDown(key: string): void {
+		keysHeld.add(key);
+	}
+
+	function handleKeyUp(key: string): void {
+		keysHeld.delete(key);
+	}
+
+	function updatePan(deltaMs: number): void {
+		// Don't pan while following
+		if (followedActor) return;
+		if (keysHeld.size === 0) return;
+
+		const speed = (PAN_SPEED / camera.zoom) * (deltaMs / 1000);
+		let dx = 0;
+		let dy = 0;
+		if (keysHeld.has("ArrowLeft") || keysHeld.has("a")) dx -= speed;
+		if (keysHeld.has("ArrowRight") || keysHeld.has("d")) dx += speed;
+		if (keysHeld.has("ArrowUp") || keysHeld.has("w")) dy -= speed;
+		if (keysHeld.has("ArrowDown") || keysHeld.has("s")) dy += speed;
+
+		if (dx !== 0 || dy !== 0) {
+			camera.pos.x += dx;
+			camera.pos.y += dy;
+		}
+	}
+
 	return {
 		startFollow,
 		stopFollow,
@@ -116,5 +128,8 @@ export function createCameraSystem(
 		onSceneActivate,
 		handleZoom,
 		applyZoom,
+		updatePan,
+		handleKeyDown,
+		handleKeyUp,
 	};
 }

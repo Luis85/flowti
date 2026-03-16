@@ -14,7 +14,7 @@ import type { AgentActor } from "../actors/agent-actor.js";
 
 // ── Per-agent entry ──────────────────────────────────────────────────
 
-interface AgentBrainEntry {
+export interface AgentBrainEntry {
 	state: BrainState;
 	params: BrainParams;
 	habits: AgentHabits;
@@ -83,15 +83,18 @@ export class BrainSystem {
 		if (this.entries.has(name)) return;
 		const resolvedMood = mood ?? "neutral";
 		const resolvedDomain = domain ?? "general";
+		const params = computeParams(attributes);
+		// Random initial offset so agents don't all start wandering simultaneously
+		const initialTimer = Math.random() * params.idleResistance * 0.8;
 		this.entries.set(name, {
 			state: "idle",
-			params: computeParams(attributes),
+			params,
 			habits: computeHabits(attributes, resolvedMood, resolvedDomain),
 			attributes,
 			domain: resolvedDomain,
 			target: { kind: "none" },
 			targetPos: null,
-			stateTimer: 0,
+			stateTimer: initialTimer,
 			position: { x: 0, y: 0 },
 			idlePoseTimer: 0,
 			idlePoseIndex: 0,
@@ -145,6 +148,8 @@ export class BrainSystem {
 			const actor = getActor(name);
 			if (!actor) continue;
 
+			const prevState = entry.state;
+
 			switch (entry.state) {
 				case "idle":
 					this.updateIdlePoseCycle(entry, deltaMs, actor);
@@ -164,19 +169,29 @@ export class BrainSystem {
 					this.updateIdlePoseCycle(entry, deltaMs, actor);
 					break;
 				case "talking":
-					// Stay in talking until an event transitions out
 					break;
 				case "waiting":
-					// Stay in waiting until permission event
 					break;
 			}
 
-			actor.updateFromBrain(entry.state, entry.target);
+			// Set walk direction once when transitioning into a walking state
+			const isNowWalking = entry.state === "wandering" || entry.state === "walking-to" || (entry.state === "on-break" && entry.breakPhase === "moving");
+			const wasWalking = prevState === "wandering" || prevState === "walking-to" || (prevState === "on-break");
+			if (isNowWalking && !wasWalking && entry.targetPos) {
+				actor.setWalkDirection(entry.targetPos.x, entry.targetPos.y);
+			}
+
+			actor.updateFromBrain(entry.state);
 			entry.position = { x: actor.pos.x, y: actor.pos.y };
 		}
 
 		// Social facing pass (after all positions updated)
 		this.updateSocialFacing(deltaMs, getActor);
+	}
+
+	/** Read-only access to brain entries for the store frame adapter. */
+	getAllEntries(): ReadonlyMap<string, Readonly<AgentBrainEntry>> {
+		return this.entries;
 	}
 
 	/** Get the last known position for an agent. */
@@ -193,7 +208,7 @@ export class BrainSystem {
 			entry.state = "wandering";
 			entry.stateTimer = 0;
 			const nearbyAgents = this.getNearbyAgentPositions(name);
-			const dest = resolveIdleTarget(entry.habits, nearbyAgents, this.bounds, Math.random);
+			const dest = resolveIdleTarget(entry.habits, nearbyAgents, this.bounds, Math.random, entry.position);
 			if (dest) {
 				entry.targetPos = dest;
 				entry.target = { kind: "wander", x: dest.x, y: dest.y };
@@ -221,6 +236,7 @@ export class BrainSystem {
 			if (entry.state === "wandering") {
 				entry.state = "idle";
 				entry.target = { kind: "none" };
+				entry.stateTimer = 0;
 			} else if (entry.state === "walking-to") {
 				if (entry.target.kind === "workstation") {
 					// Settling pause before working
@@ -229,11 +245,11 @@ export class BrainSystem {
 					this.config.onWorkstationChange?.(name, "occupy", { x: entry.position.x, y: entry.position.y });
 				} else {
 					entry.state = "idle";
+					entry.stateTimer = 0;
 				}
 				entry.target = { kind: "none" };
 			}
 			entry.targetPos = null;
-			entry.stateTimer = entry.stateTimer || 0;
 			return;
 		}
 
@@ -245,8 +261,6 @@ export class BrainSystem {
 		actor.pos.x += moveX;
 		actor.pos.y += moveY;
 
-		// Face direction of movement
-		actor.facingLeft = dx < 0;
 	}
 
 	private updateWorking(entry: AgentBrainEntry, name: string): void {
@@ -296,7 +310,7 @@ export class BrainSystem {
 			const speed = BASE_SPEED * speedMult * (deltaMs / 1000);
 			actor.pos.x += (dx / dist) * Math.min(speed, dist);
 			actor.pos.y += (dy / dist) * Math.min(speed, dist);
-			actor.facingLeft = dx < 0;
+			// Direction handled by updateFromBrain
 		} else if (entry.breakPhase === "resting") {
 			entry.breakTimer += deltaMs;
 			if (entry.breakTimer >= entry.breakRestTarget) {
@@ -342,8 +356,7 @@ export class BrainSystem {
 					const actorA = getActor(nameA);
 					const actorB = getActor(nameB);
 					if (actorA && actorB) {
-						actorA.facingLeft = entryA.position.x > entryB.position.x;
-						actorB.facingLeft = entryB.position.x > entryA.position.x;
+						// Social facing — no-op, direction handled by updateFromBrain
 						entryA.socialHoldTimer = SOCIAL_HOLD_DURATION;
 						entryB.socialHoldTimer = SOCIAL_HOLD_DURATION;
 					}
