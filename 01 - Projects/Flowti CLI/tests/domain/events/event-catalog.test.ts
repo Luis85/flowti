@@ -106,11 +106,6 @@ vi.mock("../../../src/infrastructure/proc.js", () => ({
 	proc: { exit: vi.fn(), cwd: () => "/mock" },
 }));
 
-vi.mock("../../../src/infrastructure/request-response.js", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/infrastructure/request-response.js")>("../../../src/infrastructure/request-response.js");
-	return actual;
-});
-
 vi.mock("../../../src/infrastructure/output.js", () => ({
 	resolveFormat: vi.fn(() => "text"),
 	printOutput: vi.fn((_f: string, _d: unknown, render: () => void) => render()),

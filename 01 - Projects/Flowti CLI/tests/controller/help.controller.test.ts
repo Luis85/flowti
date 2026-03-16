@@ -33,10 +33,6 @@ vi.mock("../../src/infrastructure/input.js", () => ({
 	input: { ask: vi.fn(async () => ""), askYesNo: vi.fn(async () => false), waitForEnter: vi.fn(async () => {}) },
 }));
 vi.mock("../../src/ui/renderers/cli-event-renderer.js", () => ({ attachCliRenderer: vi.fn(() => () => {}) }));
-vi.mock("../../src/infrastructure/request-response.js", async () => {
-	const actual = await vi.importActual<typeof import("../../src/infrastructure/request-response.js")>("../../src/infrastructure/request-response.js");
-	return actual;
-});
 vi.mock("../../src/ui/help-content.js", () => ({
 	getHelp: vi.fn((section: string) => {
 		const content: Record<string, string> = {

@@ -43,11 +43,6 @@ vi.mock("../../../src/domain/reports/pipeline/doc-runner.js", () => ({
 	runAllDocs: (...args: unknown[]) => mockRunAllDocs(...args),
 }));
 
-vi.mock("../../../src/infrastructure/request-response.js", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/infrastructure/request-response.js")>("../../../src/infrastructure/request-response.js");
-	return actual;
-});
-
 vi.mock("../../../src/infrastructure/paths.js", () => ({
 	paths: {
 		join: (...args: string[]) => args.join("/"),

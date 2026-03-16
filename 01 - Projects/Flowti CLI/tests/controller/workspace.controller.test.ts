@@ -45,11 +45,6 @@ vi.mock("../../src/infrastructure/ui.js", () => ({
 	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", CYAN: "", YELLOW: "",
 }));
 vi.mock("../../src/ui/renderers/cli-event-renderer.js", () => ({ attachCliRenderer: vi.fn(() => () => {}) }));
-vi.mock("../../src/infrastructure/request-response.js", async () => {
-	const actual = await vi.importActual<typeof import("../../src/infrastructure/request-response.js")>("../../src/infrastructure/request-response.js");
-	return actual;
-});
-
 import { commands } from "../../src/controller/workspace.controller.js";
 
 describe("workspace controller", () => {

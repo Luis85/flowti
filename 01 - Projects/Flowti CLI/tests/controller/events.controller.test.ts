@@ -41,10 +41,6 @@ vi.mock("../../src/infrastructure/ui.js", () => ({
 	RESET: "", BOLD: "", DIM: "", GREEN: "", RED: "", CYAN: "", YELLOW: "",
 }));
 vi.mock("../../src/ui/renderers/cli-event-renderer.js", () => ({ attachCliRenderer: vi.fn(() => () => {}) }));
-vi.mock("../../src/infrastructure/request-response.js", async () => {
-	const actual = await vi.importActual<typeof import("../../src/infrastructure/request-response.js")>("../../src/infrastructure/request-response.js");
-	return actual;
-});
 vi.mock("../../src/domain/events/event-catalog.js", () => ({
 	listEvents: vi.fn(() => [
 		{ name: "user.created", domain: "user", version: "1.0.0" },

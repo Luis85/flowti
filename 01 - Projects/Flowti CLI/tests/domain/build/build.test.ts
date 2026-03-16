@@ -12,11 +12,6 @@ vi.mock("../../../src/infrastructure/logger.js", () => ({
 	warn: vi.fn(),
 }));
 
-vi.mock("../../../src/infrastructure/request-response.js", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/infrastructure/request-response.js")>("../../../src/infrastructure/request-response.js");
-	return actual;
-});
-
 import { commands } from "../../../src/controller/build.controller.js";
 import type { ProjectContext } from "../../../src/infrastructure/types.js";
 

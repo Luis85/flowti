@@ -42,11 +42,6 @@ vi.mock("../../../src/infrastructure/config.js", () => ({
 	PLUGIN_ROOT: "/vault/plugin",
 }));
 
-vi.mock("../../../src/infrastructure/request-response.js", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/infrastructure/request-response.js")>("../../../src/infrastructure/request-response.js");
-	return actual;
-});
-
 vi.mock("../../../src/domain/devtools/cli-reload.js", () => ({
 	reloadPlugin: vi.fn(() => true),
 }));

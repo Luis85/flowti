@@ -54,11 +54,6 @@ vi.mock("../../../src/infrastructure/output.js", () => ({
 	}),
 }));
 
-vi.mock("../../../src/infrastructure/request-response.js", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/infrastructure/request-response.js")>("../../../src/infrastructure/request-response.js");
-	return actual;
-});
-
 import { commands } from "../../../src/controller/plugins.controller.js";
 import { log } from "../../../src/infrastructure/logger.js";
 import { loadPlugins, discoverPluginFiles, validateManifest } from "../../../src/domain/plugins/plugin-loader.js";

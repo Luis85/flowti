@@ -46,11 +46,6 @@ vi.mock("../../../src/domain/scaffold/marketplace.js", () => ({
 	importDefinition: vi.fn(() => ({ success: true, targetPath: "/project/configs/definitions/test.json", errors: [] })),
 }));
 
-vi.mock("../../../src/infrastructure/request-response.js", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/infrastructure/request-response.js")>("../../../src/infrastructure/request-response.js");
-	return actual;
-});
-
 vi.mock("../../../src/infrastructure/filesystem.js", () => ({
 	disk: { existsSync: vi.fn(() => false), readFileSync: vi.fn(() => "{}"), readdirSync: vi.fn(() => []), writeFileSync: vi.fn(), mkdirSync: vi.fn() },
 }));

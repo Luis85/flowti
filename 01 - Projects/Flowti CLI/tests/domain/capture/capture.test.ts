@@ -55,11 +55,6 @@ vi.mock("../../../src/infrastructure/document.js", async () => {
 	return { Document };
 });
 
-vi.mock("../../../src/infrastructure/request-response.js", async () => {
-	const actual = await vi.importActual<typeof import("../../../src/infrastructure/request-response.js")>("../../../src/infrastructure/request-response.js");
-	return actual;
-});
-
 vi.mock("../../../src/infrastructure/proc.js", () => ({
 	proc: { cwd: () => "/mock", exit: vi.fn() },
 }));
