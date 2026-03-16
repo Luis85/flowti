@@ -1,14 +1,11 @@
 /**
  * esbuild.config.mjs — Bundles the Flowti CLI into .flowti/bin/.
  *
- * Produces three bundles:
- *   main.js  — CJS bundle (core CLI, no ink/react)
- *   tui.mjs  — ESM bundle (Ink TUI shell + all pages)
- *   chat.mjs — ESM bundle (ink chat renderer + React components)
+ * Produces a single ESM bundle:
+ *   main.mjs — ESM bundle (core CLI + TUI + chat, ink/react external)
  *
- * The CJS bundle loads tui.mjs / chat.mjs at runtime via pathToFileURL +
- * dynamic import(). This avoids CJS/ESM interop issues with ink (ESM-only,
- * top-level await).
+ * Ink/React are marked external and resolved at runtime from node_modules.
+ * Dynamic imports in main.ts ensure Ink is only loaded for interactive paths.
  *
  * Usage:
  *   node configs/esbuild.config.mjs           Build once
@@ -38,19 +35,23 @@ const INK_EXTERNALS = [
 	"react-devtools-core",
 ];
 
-// ── Bundle 1: Main CLI (CJS) ────────────────────────────────────────
-// Excludes ink/react — they're loaded via tui.mjs / chat.mjs when needed.
-
+// ── Single ESM bundle ────────────────────────────────────────────────
 const mainOptions = {
 	entryPoints: [path.join(projectRoot, "src/main.ts")],
 	bundle: true,
-	outfile: path.join(outDir, "main.js"),
+	outfile: path.join(outDir, "main.mjs"),
 	platform: "node",
-	format: "cjs",
+	format: "esm",
 	target: "node22",
 	sourcemap: !isWatch,
 	minify: !isWatch,
-	banner: { js: "#!/usr/bin/env node" },
+	banner: {
+		js: [
+			"#!/usr/bin/env node",
+			'import { createRequire } from "node:module";',
+			"const require = createRequire(import.meta.url);",
+		].join("\n"),
+	},
 	external: [
 		"node:*",
 		"eslint",
@@ -59,52 +60,12 @@ const mainOptions = {
 	],
 };
 
-// ── Bundle 2: TUI shell (ESM) ──────────────────────────────────────
-// Ink TUI with all pages, loaders, and primitives.
-// Loaded at runtime via pathToFileURL + dynamic import() from main.ts.
-
-const tuiOptions = {
-	entryPoints: [path.join(projectRoot, "src/tui/tui-entry.ts")],
-	bundle: true,
-	outfile: path.join(outDir, "tui.mjs"),
-	platform: "node",
-	format: "esm",
-	target: "node22",
-	sourcemap: !isWatch,
-	minify: !isWatch,
-	external: ["node:*", ...INK_EXTERNALS],
-};
-
-// ── Bundle 3: Chat renderer (ESM) ───────────────────────────────────
-// Ink is ESM-only with top-level await — must be an ESM bundle.
-// Loaded at runtime via pathToFileURL + dynamic import() from chat-handlers.ts.
-
-const chatOptions = {
-	entryPoints: [path.join(projectRoot, "src/infrastructure/chat/ink-chat-renderer.ts")],
-	bundle: true,
-	outfile: path.join(outDir, "chat.mjs"),
-	platform: "node",
-	format: "esm",
-	target: "node22",
-	sourcemap: !isWatch,
-	minify: !isWatch,
-	external: ["node:*", ...INK_EXTERNALS],
-};
-
 if (isWatch) {
-	const [mainCtx, tuiCtx, chatCtx] = await Promise.all([
-		esbuild.context(mainOptions),
-		esbuild.context(tuiOptions),
-		esbuild.context(chatOptions),
-	]);
-	await Promise.all([mainCtx.watch(), tuiCtx.watch(), chatCtx.watch()]);
+	const ctx = await esbuild.context(mainOptions);
+	await ctx.watch();
 	console.log("  Watching for changes...");
 } else {
-	await Promise.all([
-		esbuild.build(mainOptions),
-		esbuild.build(tuiOptions),
-		esbuild.build(chatOptions),
-	]);
+	await esbuild.build(mainOptions);
 	// Deploy bootstrap as index.mjs + package.json so `node .flowti/bin` works
 	copyFileSync(
 		path.join(projectRoot, "src", "boot", "bootstrap.mjs"),
@@ -112,10 +73,8 @@ if (isWatch) {
 	);
 	writeFileSync(
 		path.join(outDir, "package.json"),
-		JSON.stringify({ type: "commonjs", main: "index.mjs" }, null, 2) + "\n",
+		JSON.stringify({ type: "module" }, null, 2) + "\n",
 	);
-	console.log(`  Built: .flowti/bin/main.js`);
-	console.log(`  Built: .flowti/bin/tui.mjs`);
-	console.log(`  Built: .flowti/bin/chat.mjs`);
+	console.log(`  Built: .flowti/bin/main.mjs`);
 	console.log(`  Copied: .flowti/bin/index.mjs`);
 }

@@ -62,7 +62,7 @@ function resolveTestVault(projectPath: string, config: ReviewConfig, deps: Pick<
 
 function ensureTestVault(vaultPath: string, deps: Pick<CliDeps, "disk" | "paths" | "log">): boolean {
 	const sourceBinDir = deps.paths.join(VAULT_ROOT, ".flowti", "bin");
-	if (!deps.disk.existsSync(deps.paths.join(sourceBinDir, "main.js"))) {
+	if (!deps.disk.existsSync(deps.paths.join(sourceBinDir, "main.mjs"))) {
 		deps.log(`  ${RED}No CLI binary found at ${sourceBinDir}${RESET}`);
 		deps.log(`  ${DIM}Run the build from the source project first.${RESET}\n`);
 		return false;
@@ -81,7 +81,7 @@ function ensureTestVault(vaultPath: string, deps: Pick<CliDeps, "disk" | "paths"
 function refreshTestVaultBin(vaultPath: string, sourceBinDir: string, deps: Pick<CliDeps, "disk" | "paths">): void {
 	const binDir = deps.paths.join(vaultPath, ".flowti", "bin");
 	deps.disk.mkdirSync(binDir, { recursive: true });
-	for (const file of ["main.js", "main.js.map", "index.js"]) {
+	for (const file of ["main.mjs", "main.mjs.map", "index.mjs"]) {
 		const src = deps.paths.join(sourceBinDir, file);
 		if (deps.disk.existsSync(src)) deps.disk.copyFileSync(src, deps.paths.join(binDir, file));
 	}

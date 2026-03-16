@@ -1,8 +1,8 @@
 /**
  * bootstrap-standalone.test.ts — Verifies the bootstrap can run in standalone mode.
  *
- * Standalone mode: .flowti/bin/main.js exists but the source tree does not.
- * The bootstrap should skip npm ci / build / rebuild and run main.js directly.
+ * Standalone mode: .flowti/bin/main.mjs exists but the source tree does not.
+ * The bootstrap should skip npm ci / build / rebuild and run main.mjs directly.
  *
  * This test creates a temporary vault structure on disk and runs the bootstrap
  * to verify it handles standalone vs dev-mode correctly.
@@ -40,18 +40,18 @@ function scaffoldVault(opts: { mainJs?: string; configJson?: object }): string {
 
 	// Copy the real bootstrap script
 	const bootstrapSrc = resolve(import.meta.dirname, "..", "..", "src", "boot", "bootstrap.mjs");
-	writeFileSync(join(binDir, "index.js"), readFileSync(bootstrapSrc, "utf-8"), "utf-8");
+	writeFileSync(join(binDir, "index.mjs"), readFileSync(bootstrapSrc, "utf-8"), "utf-8");
 
-	// Optionally write main.js (the compiled CLI)
+	// Optionally write main.mjs (the compiled CLI)
 	if (opts.mainJs !== undefined) {
-		writeFileSync(join(binDir, "main.js"), opts.mainJs, "utf-8");
+		writeFileSync(join(binDir, "main.mjs"), opts.mainJs, "utf-8");
 	}
 
 	return root;
 }
 
 function runBootstrap(vaultRoot: string, args: string[] = []): { status: number | null; stdout: string; stderr: string } {
-	const result = spawnSync(process.execPath, [join(vaultRoot, ".flowti", "bin", "index.js"), ...args], {
+	const result = spawnSync(process.execPath, [join(vaultRoot, ".flowti", "bin", "index.mjs"), ...args], {
 		cwd: vaultRoot,
 		env: { ...process.env, FLOWTI_VAULT_ROOT: vaultRoot },
 		timeout: 10000,
@@ -64,7 +64,7 @@ function runBootstrap(vaultRoot: string, args: string[] = []): { status: number 
 }
 
 describe("Bootstrap standalone mode", () => {
-	it("runs main.js directly when source tree is absent", () => {
+	it("runs main.mjs directly when source tree is absent", () => {
 		const root = scaffoldVault({
 			mainJs: 'console.log("STANDALONE_OK"); process.exit(0);',
 		});
@@ -74,7 +74,7 @@ describe("Bootstrap standalone mode", () => {
 		expect(result.status).toBe(0);
 	});
 
-	it("exits with error when neither source nor main.js exist", () => {
+	it("exits with error when neither source nor main.mjs exist", () => {
 		const root = scaffoldVault({});
 
 		const result = runBootstrap(root);

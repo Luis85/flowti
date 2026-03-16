@@ -88,7 +88,7 @@ export function scaffoldTestVault(root: string, opts: TestVaultOptions, fs: IFil
 
 	// Copy CLI build into the test vault so `node .flowti/bin` works
 	if (opts.sourceBinDir) {
-		const binFiles = ["main.js", "main.js.map", "index.js"];
+		const binFiles = ["main.mjs", "main.mjs.map", "index.mjs"];
 		for (const file of binFiles) {
 			const src = paths.join(opts.sourceBinDir, file);
 			if (fs.existsSync(src)) {
