@@ -1,47 +1,45 @@
 /**
- * agent-actor.ts — Agent actor using pixel-art sprite poses.
+ * agent-actor.ts — Agent actor using Ninja Adventure sprite animations.
  *
- * Draws a pixel-art character with pose-specific graphics that swap
- * based on brain state. Includes name label and AI/H badge.
- * Click to open the agent panel.
+ * Receives pre-loaded AgentSprites (idle + 4 directional walks) and switches
+ * between them based on brain state. Name label is a child actor positioned
+ * below the sprite so it stays visible during animation switches.
  */
 
 import * as ex from "excalibur";
 import type { DashboardAgent } from "../data/types.js";
 import type { BrainState, MovementTarget } from "../brain/brain-types.js";
-import {
-	hashColor,
-	statusPalette,
-	drawIdlePose,
-	drawWalkFrame,
-	drawWorkingPose,
-	drawTalkingPose,
-	drawWaitingPose,
-	drawLookAroundPose,
-	drawStretchPose,
-} from "./pixel-sprites.js";
-import type { SpritePalette } from "./pixel-sprites.js";
+import type { AgentSprites } from "../sprites/sprite-loader.js";
 
 // ── Dimensions ───────────────────────────────────────────────────────
 
-/** Full canvas size including name label area below the sprite. */
-const CANVAS_WIDTH = 48;
-const CANVAS_HEIGHT = 56;
+const SCALE = 4;
 
-/** Sprite drawing area within the canvas. */
-const SPRITE_WIDTH = 24;
-const SPRITE_HEIGHT = 32;
+// ── Direction ────────────────────────────────────────────────────────
+
+type Direction = "down" | "left" | "right" | "up";
+
+function resolveDirection(dx: number, dy: number): Direction {
+	if (Math.abs(dx) > Math.abs(dy)) {
+		return dx > 0 ? "right" : "left";
+	}
+	return dy > 0 ? "down" : "up";
+}
 
 // ── Pose names ───────────────────────────────────────────────────────
 
 const POSE_IDLE = "idle";
-const POSE_WANDERING = "wandering";
-const POSE_WALKING_TO = "walking-to";
-const POSE_WORKING = "working";
-const POSE_TALKING = "talking";
-const POSE_WAITING = "waiting";
-const POSE_LOOK_AROUND = "look-around";
-const POSE_STRETCH = "stretch";
+const POSE_WALK_DOWN = "walk-down";
+const POSE_WALK_LEFT = "walk-left";
+const POSE_WALK_RIGHT = "walk-right";
+const POSE_WALK_UP = "walk-up";
+
+const WALK_POSES: Record<Direction, string> = {
+	down: POSE_WALK_DOWN,
+	left: POSE_WALK_LEFT,
+	right: POSE_WALK_RIGHT,
+	up: POSE_WALK_UP,
+};
 
 // ── AgentActor ───────────────────────────────────────────────────────
 
@@ -50,31 +48,33 @@ export interface AgentActorConfig {
 	readonly x: number;
 	readonly y: number;
 	readonly onSelect: (agentName: string) => void;
+	readonly sprites: AgentSprites;
 }
 
 export class AgentActor extends ex.Actor {
 	public agentData: DashboardAgent;
 	public brainState: BrainState = "idle";
-	public facingLeft = false;
 
 	private readonly onSelect: (agentName: string) => void;
-	private palette: SpritePalette;
 	private currentPoseName: string = POSE_IDLE;
 	private bobPhase = 0;
 	private baseY: number;
+	private direction: Direction = "down";
 
 	constructor(config: AgentActorConfig) {
 		super({
 			pos: ex.vec(config.x, config.y),
-			width: CANVAS_WIDTH,
-			height: CANVAS_HEIGHT,
+			width: 16,
+			height: 16,
 			anchor: ex.vec(0.5, 0.5),
 		});
 		this.agentData = config.agent;
 		this.onSelect = config.onSelect;
 		this.baseY = config.y;
-		this.palette = this.buildPalette();
-		this.buildAllPoses();
+		this.scale = ex.vec(SCALE, SCALE);
+
+		this.registerAnimations(config.sprites);
+		this.buildLabelChild();
 		this.graphics.use(POSE_IDLE);
 	}
 
@@ -85,7 +85,6 @@ export class AgentActor extends ex.Actor {
 	}
 
 	onPreUpdate(_engine: ex.Engine, delta: number): void {
-		// Idle bob: gentle +-1px sine oscillation
 		if (this.brainState === "idle" || this.brainState === "waiting" || this.brainState === "on-break") {
 			this.bobPhase += delta * 0.003;
 			this.pos.y = this.baseY + Math.sin(this.bobPhase) * 1;
@@ -97,18 +96,16 @@ export class AgentActor extends ex.Actor {
 	updateFromBrain(state: BrainState, target: MovementTarget): void {
 		this.brainState = state;
 
-		// Determine flip direction
-		const prevFlip = this.facingLeft;
-		if (target.x !== undefined && (state === "walking-to" || state === "talking")) {
-			this.facingLeft = target.x < this.pos.x;
+		// Resolve direction only for walking states
+		if (target.x !== undefined && target.y !== undefined &&
+			(state === "walking-to" || state === "wandering")) {
+			const dx = target.x - this.pos.x;
+			const dy = target.y - this.pos.y;
+			if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+				this.direction = resolveDirection(dx, dy);
+			}
 		}
 
-		// If flip direction changed, rebuild all poses
-		if (prevFlip !== this.facingLeft) {
-			this.buildAllPoses();
-		}
-
-		// Switch to the appropriate pose graphic
 		const poseName = this.brainStateToPose(state);
 		if (poseName !== this.currentPoseName) {
 			this.currentPoseName = poseName;
@@ -116,148 +113,71 @@ export class AgentActor extends ex.Actor {
 		}
 	}
 
-	/** Switch to a specific idle sub-pose (used by brain system for idle cycling). */
-	setIdlePose(poseName: string): void {
-		if (this.brainState !== "idle" && this.brainState !== "on-break") return;
-		const validPoses = [POSE_IDLE, POSE_LOOK_AROUND, POSE_STRETCH];
-		if (!validPoses.includes(poseName)) return;
-		this.currentPoseName = poseName;
-		this.graphics.use(poseName);
+	/** No-op: real sprites handle idle animation internally. */
+	setIdlePose(_poseName: string): void {
+		// No-op
 	}
 
-	updateVisualStatus(status: string): void {
-		const prev = this.palette;
-		this.palette = this.buildPalette(status);
-		if (prev.body !== this.palette.body || prev.limb !== this.palette.limb) {
-			this.buildAllPoses();
-			this.graphics.use(this.currentPoseName);
-		}
+	updateVisualStatus(_status: string): void {
+		// Status is set at creation time via the label child.
 	}
 
-	// ── Private helpers ──────────────────────────────────────────────
+	// ── Private ──────────────────────────────────────────────────────
 
-	private buildPalette(statusOverride?: string): SpritePalette {
-		const status = statusOverride ?? this.agentData.status;
-		const sp = statusPalette(status);
-		return {
-			body: sp.body,
-			limb: sp.limb,
-			hair: hashColor(this.agentData.name),
-		};
+	private registerAnimations(sprites: AgentSprites): void {
+		this.graphics.add(POSE_IDLE, sprites.idle);
+		this.graphics.add(POSE_WALK_DOWN, sprites.walkDown);
+		this.graphics.add(POSE_WALK_LEFT, sprites.walkLeft);
+		this.graphics.add(POSE_WALK_RIGHT, sprites.walkRight);
+		this.graphics.add(POSE_WALK_UP, sprites.walkUp);
 	}
 
 	private brainStateToPose(state: BrainState): string {
 		switch (state) {
-			case "idle": return POSE_IDLE;
-			case "wandering": return POSE_WANDERING;
-			case "walking-to": return POSE_WALKING_TO;
-			case "working": return POSE_WORKING;
-			case "talking": return POSE_TALKING;
-			case "waiting": return POSE_WAITING;
-			case "on-break": return POSE_IDLE;
-			default: return POSE_IDLE;
+			case "wandering":
+			case "walking-to":
+				return WALK_POSES[this.direction];
+			case "idle":
+			case "working":
+			case "talking":
+			case "waiting":
+			case "on-break":
+			default:
+				return POSE_IDLE;
 		}
 	}
 
-	private buildAllPoses(): void {
-		const pal = this.palette;
-		const mood = this.agentData.mood ?? "neutral";
-		const flip = this.facingLeft;
+	private buildLabelChild(): void {
 		const name = this.agentData.persona ?? this.agentData.name;
 		const isAi = this.agentData.agentType === "ai";
+		const status = this.agentData.status;
 
-		// Static poses
-		this.graphics.add(POSE_IDLE, this.makePoseCanvas(
-			(ctx) => drawIdlePose(ctx, pal, mood, flip),
-			name, isAi, pal,
-		));
+		const STATUS_COLORS: Record<string, string> = {
+			busy: "#22c55e", idle: "#3b82f6", unassigned: "#6b7280",
+		};
 
-		this.graphics.add(POSE_WORKING, this.makePoseCanvas(
-			(ctx) => drawWorkingPose(ctx, pal, mood, flip),
-			name, isAi, pal,
-		));
-
-		this.graphics.add(POSE_TALKING, this.makePoseCanvas(
-			(ctx) => drawTalkingPose(ctx, pal, mood, flip),
-			name, isAi, pal,
-		));
-
-		this.graphics.add(POSE_WAITING, this.makePoseCanvas(
-			(ctx) => drawWaitingPose(ctx, pal, mood, flip),
-			name, isAi, pal,
-		));
-
-		this.graphics.add(POSE_LOOK_AROUND, this.makePoseCanvas(
-			(ctx) => drawLookAroundPose(ctx, pal, mood, flip),
-			name, isAi, pal,
-		));
-
-		this.graphics.add(POSE_STRETCH, this.makePoseCanvas(
-			(ctx) => drawStretchPose(ctx, pal, mood, flip),
-			name, isAi, pal,
-		));
-
-		// Walk animations (2 frames)
-		const walkFrame0 = this.makePoseCanvas(
-			(ctx) => drawWalkFrame(ctx, pal, mood, flip, 0),
-			name, isAi, pal,
-		);
-		const walkFrame1 = this.makePoseCanvas(
-			(ctx) => drawWalkFrame(ctx, pal, mood, flip, 1),
-			name, isAi, pal,
-		);
-
-		// Wandering: slower walk (300ms per frame)
-		const wanderAnim = new ex.Animation({
-			frames: [
-				{ graphic: walkFrame0, duration: 300 },
-				{ graphic: walkFrame1, duration: 300 },
-			],
-			strategy: ex.AnimationStrategy.Loop,
-		});
-		this.graphics.add(POSE_WANDERING, wanderAnim);
-
-		// Walking-to: faster walk (200ms per frame)
-		const walkToFrame0 = this.makePoseCanvas(
-			(ctx) => drawWalkFrame(ctx, pal, mood, flip, 0),
-			name, isAi, pal,
-		);
-		const walkToFrame1 = this.makePoseCanvas(
-			(ctx) => drawWalkFrame(ctx, pal, mood, flip, 1),
-			name, isAi, pal,
-		);
-		const walkToAnim = new ex.Animation({
-			frames: [
-				{ graphic: walkToFrame0, duration: 200 },
-				{ graphic: walkToFrame1, duration: 200 },
-			],
-			strategy: ex.AnimationStrategy.Loop,
-		});
-		this.graphics.add(POSE_WALKING_TO, walkToAnim);
-	}
-
-	private makePoseCanvas(
-		drawPose: (ctx: CanvasRenderingContext2D) => void,
-		displayName: string,
-		isAi: boolean,
-		palette: SpritePalette,
-	): ex.Canvas {
-		return new ex.Canvas({
-			width: CANVAS_WIDTH,
-			height: CANVAS_HEIGHT,
+		const labelCanvas = new ex.Canvas({
+			width: 48,
+			height: 16,
 			cache: true,
 			draw: (ctx: CanvasRenderingContext2D) => {
-				// Center the 24x32 sprite in the canvas
-				const offsetX = (CANVAS_WIDTH - SPRITE_WIDTH) / 2;
-				const offsetY = 0;
-				ctx.save();
-				ctx.translate(offsetX, offsetY);
-				drawPose(ctx);
-				ctx.restore();
+				// Name label
+				ctx.fillStyle = "#e2e8f0";
+				ctx.font = "9px system-ui, sans-serif";
+				ctx.textAlign = "center";
+				ctx.textBaseline = "top";
+				const truncName = name.length > 8 ? name.slice(0, 7) + "\u2026" : name;
+				ctx.fillText(truncName, 24, 0);
 
-				// AI/H badge at top-right of sprite area
-				const badgeX = offsetX + SPRITE_WIDTH - 2;
-				const badgeY = 2;
+				// Status dot
+				ctx.fillStyle = STATUS_COLORS[status] ?? "#6b7280";
+				ctx.beginPath();
+				ctx.arc(24, 12, 2, 0, Math.PI * 2);
+				ctx.fill();
+
+				// AI/H badge
+				const badgeX = 42;
+				const badgeY = 4;
 				const badgeText = isAi ? "AI" : "H";
 				const badgeColor = isAi ? "#8b5cf6" : "#10b981";
 				ctx.fillStyle = badgeColor;
@@ -269,22 +189,19 @@ export class AgentActor extends ex.Actor {
 				ctx.textAlign = "center";
 				ctx.textBaseline = "middle";
 				ctx.fillText(badgeText, badgeX, badgeY + 1);
-
-				// Name label below sprite
-				const labelY = SPRITE_HEIGHT + 4;
-				ctx.fillStyle = "#e2e8f0";
-				ctx.font = "9px system-ui, sans-serif";
-				ctx.textAlign = "center";
-				ctx.textBaseline = "top";
-				const truncName = displayName.length > 8 ? displayName.slice(0, 7) + "\u2026" : displayName;
-				ctx.fillText(truncName, CANVAS_WIDTH / 2, labelY);
-
-				// Status dot below name
-				ctx.fillStyle = palette.body;
-				ctx.beginPath();
-				ctx.arc(CANVAS_WIDTH / 2, labelY + 14, 2, 0, Math.PI * 2);
-				ctx.fill();
 			},
 		});
+
+		// Add as named graphic "label" for test verification
+		this.graphics.add("label", labelCanvas);
+
+		// Create child actor for the label so it renders independently
+		const labelActor = new ex.Actor({
+			pos: ex.vec(0, 12),
+			anchor: ex.vec(0.5, 0),
+			z: 1,
+		});
+		labelActor.graphics.use(labelCanvas);
+		this.addChild(labelActor);
 	}
 }
