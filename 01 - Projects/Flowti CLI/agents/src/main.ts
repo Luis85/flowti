@@ -16,7 +16,7 @@ import { SyncSystem } from "./systems/sync-system.js";
 import { BrainSystem } from "./systems/brain-system.js";
 import { BubbleSystem } from "./systems/bubble-system.js";
 import { createPanelManager } from "./ui/panel-manager.js";
-import { renderAgentPanel } from "./ui/agent-panel.js";
+import { renderAgentPanel, switchToTab } from "./ui/agent-panel.js";
 import { appendAgentResponse } from "./ui/talk-tab.js";
 import { sendMessage, assignTask, grantPermission } from "./data/api-client.js";
 import type { AgentAction, DashboardAgent, ActivityEntry, PermissionEntry } from "./data/types.js";
@@ -91,6 +91,11 @@ async function main(): Promise<void> {
 				permissions: agentPermissions,
 				pendingPermissions: [],
 				currentPhase: undefined,
+				onTaskAssigned: (name, taskName) => {
+					brainSystem.applyEvent(name, "task-started");
+					const currentScene = engine.currentScene;
+					bubbleSystem.showBubble(name, "thought", `Starting: ${taskName}`, currentScene, findAgentActor);
+				},
 			});
 		},
 	});
@@ -179,18 +184,32 @@ async function main(): Promise<void> {
 
 				// Auto-open panel to Permissions tab when requesting-permission
 				if (action.type === "requesting-permission") {
-					const actor = findAgentActor(action.agentName);
-					if (actor) {
-						// Open or refresh the panel for this agent
+					// Check if the agent has an actor in the current scene
+					const currentScene = engine.currentScene;
+					const isInCurrentScene =
+						(currentScene === hubScene && hubScene.getAgentActor(action.agentName) !== undefined) ||
+						Object.values(roomScenes).some((room) =>
+							currentScene === room && room.getAgentActor(action.agentName) !== undefined,
+						);
+
+					if (isInCurrentScene) {
+						// Open panel and switch to Permissions tab
 						const rect = engine.canvas.getBoundingClientRect();
 						openPanelForAgent(action.agentName, rect.width * 0.6, rect.height * 0.15);
 
-						// Click the Permissions tab
 						const panelEl = canvasParent.querySelector(".agent-panel");
-						const permTab = panelEl?.querySelector('[data-tab="Permissions"]');
-						if (permTab instanceof HTMLElement) {
-							permTab.click();
+						if (panelEl instanceof HTMLElement) {
+							switchToTab(panelEl, "Permissions");
 						}
+					} else {
+						// Agent is in another scene — show notification in ticker
+						hubScene.updateTicker([{
+							id: `perm-${Date.now()}`,
+							agentName: action.agentName,
+							timestamp: new Date().toISOString(),
+							type: "requesting-permission",
+							summary: `${action.agentName} is requesting permission`,
+						}]);
 					}
 				}
 			}
