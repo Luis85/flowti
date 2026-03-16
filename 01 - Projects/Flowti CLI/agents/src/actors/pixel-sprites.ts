@@ -125,6 +125,29 @@ function applyFlip(
 	}
 }
 
+// ── Shared body drawing ──────────────────────────────────────────────
+
+function drawStandingBody(ctx: CanvasRenderingContext2D, palette: SpritePalette): void {
+	// Body: 6x8 rect at (x=9, y=7)
+	ctx.fillStyle = palette.body;
+	ctx.fillRect(9, 7, 6, 8);
+
+	// Left arm: 2px wide at x=7
+	ctx.fillStyle = palette.limb;
+	ctx.fillRect(7, 8, 2, 7);
+
+	// Right arm: 2px wide at x=15
+	ctx.fillRect(15, 8, 2, 7);
+}
+
+function drawStandingLegs(ctx: CanvasRenderingContext2D, palette: SpritePalette): void {
+	ctx.fillStyle = palette.limb;
+	// Left leg: 2px wide at x=9
+	ctx.fillRect(9, 15, 2, 6);
+	// Right leg: 2px wide at x=13
+	ctx.fillRect(13, 15, 2, 6);
+}
+
 // ── Pose: Idle ───────────────────────────────────────────────────────
 
 /**
@@ -138,24 +161,134 @@ export function drawIdlePose(
 	flip: boolean,
 ): void {
 	applyFlip(ctx, flip, 24, () => {
-		// Head: 4x4 at center (x=10, y=2)
+		drawHead(ctx, 10, 2, palette, mood);
+		drawStandingBody(ctx, palette);
+		drawStandingLegs(ctx, palette);
+	});
+}
+
+// ── Pose: Walk ───────────────────────────────────────────────────────
+
+/**
+ * Draw a walking frame (24x32 sprite area).
+ * Same body/head as idle, but legs alternate based on frame.
+ * Frame 0: left leg forward, right leg back.
+ * Frame 1: right leg forward, left leg back.
+ */
+export function drawWalkFrame(
+	ctx: CanvasRenderingContext2D,
+	palette: SpritePalette,
+	mood: string,
+	flip: boolean,
+	frame: 0 | 1,
+): void {
+	applyFlip(ctx, flip, 24, () => {
+		drawHead(ctx, 10, 2, palette, mood);
+		drawStandingBody(ctx, palette);
+
+		ctx.fillStyle = palette.limb;
+		if (frame === 0) {
+			// Left leg forward (shifted left), right leg back (shifted right)
+			ctx.fillRect(8, 15, 2, 6);
+			ctx.fillRect(14, 15, 2, 6);
+		} else {
+			// Right leg forward (shifted left), left leg back (shifted right)
+			ctx.fillRect(14, 15, 2, 6);
+			ctx.fillRect(8, 15, 2, 6);
+		}
+	});
+}
+
+// ── Pose: Working ────────────────────────────────────────────────────
+
+/**
+ * Draw the working/seated pose (24x32 sprite area).
+ * Body shifted down slightly (y=10 for seated effect), arms extend forward.
+ */
+export function drawWorkingPose(
+	ctx: CanvasRenderingContext2D,
+	palette: SpritePalette,
+	mood: string,
+	flip: boolean,
+): void {
+	applyFlip(ctx, flip, 24, () => {
+		// Head at y=4 (shifted down for seated)
+		drawHead(ctx, 10, 4, palette, mood);
+
+		// Body: seated at y=10
+		ctx.fillStyle = palette.body;
+		ctx.fillRect(9, 9, 6, 8);
+
+		// Arms extend forward (both reaching out)
+		ctx.fillStyle = palette.limb;
+		ctx.fillRect(5, 10, 4, 2);  // Left arm forward
+		ctx.fillRect(15, 10, 4, 2); // Right arm forward
+
+		// Legs: bent for seated posture
+		ctx.fillRect(9, 17, 2, 4);
+		ctx.fillRect(13, 17, 2, 4);
+	});
+}
+
+// ── Pose: Talking ────────────────────────────────────────────────────
+
+/**
+ * Draw the talking pose (24x32 sprite area).
+ * One arm raised (right arm angled up), mouth drawn wider.
+ */
+export function drawTalkingPose(
+	ctx: CanvasRenderingContext2D,
+	palette: SpritePalette,
+	mood: string,
+	flip: boolean,
+): void {
+	applyFlip(ctx, flip, 24, () => {
 		drawHead(ctx, 10, 2, palette, mood);
 
-		// Body: 6x8 rect at (x=9, y=7)
+		// Wider mouth for talking (overwrite the standard mouth)
+		ctx.fillStyle = "#1a1a2e";
+		ctx.fillRect(10, 5, 4, 1);
+
+		// Body
 		ctx.fillStyle = palette.body;
 		ctx.fillRect(9, 7, 6, 8);
 
-		// Left arm: 2px wide at x=7
+		// Left arm at side (normal)
 		ctx.fillStyle = palette.limb;
 		ctx.fillRect(7, 8, 2, 7);
 
-		// Right arm: 2px wide at x=15
-		ctx.fillRect(15, 8, 2, 7);
+		// Right arm raised / angled up
+		ctx.fillRect(15, 4, 2, 4);  // Upper arm going up
+		ctx.fillRect(17, 3, 2, 2);  // Hand waving
 
-		// Left leg: 2px wide at x=9
-		ctx.fillRect(9, 15, 2, 6);
+		// Normal standing legs
+		drawStandingLegs(ctx, palette);
+	});
+}
 
-		// Right leg: 2px wide at x=13
-		ctx.fillRect(13, 15, 2, 6);
+// ── Pose: Waiting ────────────────────────────────────────────────────
+
+/**
+ * Draw the waiting pose (24x32 sprite area).
+ * Same as idle + amber "?" drawn at y=0 above head.
+ */
+export function drawWaitingPose(
+	ctx: CanvasRenderingContext2D,
+	palette: SpritePalette,
+	mood: string,
+	flip: boolean,
+): void {
+	applyFlip(ctx, flip, 24, () => {
+		// Amber "?" indicator above head
+		ctx.fillStyle = "#f59e0b";
+		// Question mark pixels at y=0
+		ctx.fillRect(11, 0, 2, 1); // Top bar
+		ctx.fillRect(13, 0, 1, 1); // Right of top
+		ctx.fillRect(12, 1, 1, 1); // Middle dot
+
+		// Standard idle body below
+		drawHead(ctx, 10, 3, palette, mood);
+		drawStandingBody(ctx, palette);
+		drawStandingLegs(ctx, palette);
 	});
 }
