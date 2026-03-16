@@ -24,7 +24,7 @@ const STATUS_MAP: Record<string, (action: AgentAction) => Record<string, unknown
 	"tool-complete": () => ({ state: "busy", currentAction: "working" }),
 	"requesting-permission": (a) => ({ state: "waiting", currentAction: "requesting-permission", tool: a.data.tool }),
 	"permission-granted": () => ({ state: "busy", currentAction: "working" }),
-	"permission-denied": () => ({ state: "waiting", currentAction: "permission-denied" }),
+	"permission-denied": () => ({ state: "idle", currentAction: "permission-denied" }),
 	"task-started": (a) => ({ state: "busy", currentAction: "task-started", task: a.data.task }),
 	"task-completed": () => ({ state: "idle", currentAction: "idle" }),
 	"idle": () => ({ state: "idle", currentAction: "idle" }),
@@ -48,7 +48,7 @@ export function createWorldStateManager(deps: WorldStateDeps, vaultRoot: string)
 	let state = loadOrCreate(deps, filePath);
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	let dirty = false;
-	let actionCallback: ((action: AgentAction) => void) | null = null;
+	const actionListeners: Array<(action: AgentAction) => void> = [];
 
 	function scheduleWrite(): void {
 		dirty = true;
@@ -80,7 +80,7 @@ export function createWorldStateManager(deps: WorldStateDeps, vaultRoot: string)
 			if (log.length > ACTIVITY_LOG_CAP) log.splice(0, log.length - ACTIVITY_LOG_CAP);
 			state = { ...state, activityLog: log };
 			scheduleWrite();
-			if (actionCallback) actionCallback(action);
+			for (const listener of actionListeners) listener(action);
 		},
 
 		updateEntity(id: string, type: WorldEntityType, components: Record<string, unknown>): void {
@@ -99,8 +99,13 @@ export function createWorldStateManager(deps: WorldStateDeps, vaultRoot: string)
 			writeToDisk();
 		},
 
-		setActionCallback(callback: (action: AgentAction) => void): void {
-			actionCallback = callback;
+		addActionListener(callback: (action: AgentAction) => void): void {
+			actionListeners.push(callback);
+		},
+
+		removeActionListener(callback: (action: AgentAction) => void): void {
+			const idx = actionListeners.indexOf(callback);
+			if (idx >= 0) actionListeners.splice(idx, 1);
 		},
 	};
 }

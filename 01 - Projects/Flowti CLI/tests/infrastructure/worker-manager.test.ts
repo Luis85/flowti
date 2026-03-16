@@ -38,7 +38,8 @@ function makeWorldState(): IWorldStateManager {
 		getState: vi.fn(() => ({ version: 1 as const, updatedAt: "", entities: {}, permissions: {}, activityLog: [] })),
 		getEntity: vi.fn(() => null),
 		flush: vi.fn(),
-		setActionCallback: vi.fn(),
+		addActionListener: vi.fn(),
+		removeActionListener: vi.fn(),
 	};
 }
 

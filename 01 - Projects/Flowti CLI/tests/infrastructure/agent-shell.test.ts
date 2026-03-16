@@ -111,7 +111,8 @@ function createMockWorldState(): IWorldStateManager {
 		getState: vi.fn(() => ({ version: 1, updatedAt: "", entities: {}, permissions: {}, activityLog: [] })),
 		getEntity: vi.fn(() => null),
 		flush: vi.fn(),
-		setActionCallback: vi.fn(),
+		addActionListener: vi.fn(),
+		removeActionListener: vi.fn(),
 	} as unknown as IWorldStateManager;
 }
 

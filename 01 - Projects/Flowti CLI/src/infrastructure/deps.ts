@@ -111,7 +111,7 @@ export function createDefaultDeps(agentsConfig?: AgentsConfig, vaultRoot?: strin
 	const baseDeps = { disk, shell, paths, clock, log };
 	const processRunner = createProcessRunner(baseDeps, agentsConfig);
 	const workerManager = createWorkerManager(baseDeps, worldState, processRunner, resolvedRoot, agentsConfig);
-	worldState.setActionCallback((action) => workerManager.dispatchWorldEvent(action));
+	worldState.addActionListener((action) => workerManager.dispatchWorldEvent(action));
 
 	// Workspace-based agent shell (optional — only when workspacesConfig provided)
 	const workspacesConfig = undefined as WorkspacesConfig | undefined;
