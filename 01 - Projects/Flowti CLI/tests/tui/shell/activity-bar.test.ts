@@ -13,7 +13,7 @@ describe("ActivityBar", () => {
 
 	it("renders all section icons", () => {
 		const { unmount, ...instance } = render(
-			React.createElement(ActivityBar, { sections, activeSection: "home", onSelect: () => {} }),
+			React.createElement(ActivityBar, { sections, activeSection: "home", focused: false, cursorSection: "home", onSelect: () => {} }),
 		);
 		const frame = lastFrame(instance);
 		expect(frame).toContain("\u{1F3E0}");
@@ -22,21 +22,35 @@ describe("ActivityBar", () => {
 		unmount();
 	});
 
-	it("highlights the active section", () => {
+	it("always shows labels for all sections", () => {
 		const { unmount, ...instance } = render(
-			React.createElement(ActivityBar, { sections, activeSection: "agents", onSelect: () => {} }),
-		);
-		const frame = lastFrame(instance);
-		expect(frame).toContain("\u{1F464}");
-		unmount();
-	});
-
-	it("renders section labels", () => {
-		const { unmount, ...instance } = render(
-			React.createElement(ActivityBar, { sections, activeSection: "home", onSelect: () => {} }),
+			React.createElement(ActivityBar, { sections, activeSection: "home", focused: false, cursorSection: "home", onSelect: () => {} }),
 		);
 		const frame = lastFrame(instance);
 		expect(frame).toContain("Home");
+		expect(frame).toContain("Agents");
+		expect(frame).toContain("Project");
+		expect(frame).toContain("Reports");
+		expect(frame).toContain("Manage");
+		expect(frame).toContain("Help");
+		unmount();
+	});
+
+	it("shows cursor indicator when focused", () => {
+		const { unmount, ...instance } = render(
+			React.createElement(ActivityBar, { sections, activeSection: "home", focused: true, cursorSection: "agents", onSelect: () => {} }),
+		);
+		const frame = lastFrame(instance);
+		expect(frame).toContain("\u25B8");
+		unmount();
+	});
+
+	it("does not show cursor when not focused", () => {
+		const { unmount, ...instance } = render(
+			React.createElement(ActivityBar, { sections, activeSection: "home", focused: false, cursorSection: "agents", onSelect: () => {} }),
+		);
+		const frame = lastFrame(instance);
+		expect(frame).not.toContain("\u25B8");
 		unmount();
 	});
 });

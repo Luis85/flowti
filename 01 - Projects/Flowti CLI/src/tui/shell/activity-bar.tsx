@@ -1,8 +1,9 @@
 /**
  * activity-bar.tsx — Left icon column for section switching.
  *
- * Renders a vertical list of section icons. The active section is highlighted.
- * Arrow up/down navigation is handled by the parent via useKeyboard.
+ * Renders a vertical list of section icons with labels.
+ * When focused: shows cursor indicator on the cursor section.
+ * Active section is highlighted. Labels always visible.
  */
 
 import React from "react";
@@ -12,18 +13,32 @@ import type { Section } from "../types.js";
 interface ActivityBarProps {
 	readonly sections: readonly Section[];
 	readonly activeSection: string;
+	readonly focused: boolean;
+	readonly cursorSection: string;
 	readonly onSelect: (sectionId: string) => void;
 }
 
-export function ActivityBar({ sections, activeSection }: ActivityBarProps): React.JSX.Element {
+export function ActivityBar({ sections, activeSection, focused, cursorSection }: ActivityBarProps): React.JSX.Element {
 	return (
-		<Box flexDirection="column" width={8} borderStyle="single" borderRight borderTop={false} borderBottom={false} borderLeft={false}>
+		<Box
+			flexDirection="column"
+			width={14}
+			borderStyle="single"
+			borderRight
+			borderTop={false}
+			borderBottom={false}
+			borderLeft={false}
+			borderColor={focused ? "cyan" : undefined}
+		>
 			{sections.map((section) => {
 				const isActive = section.id === activeSection;
+				const isCursor = focused && section.id === cursorSection;
+				const prefix = isCursor ? "\u25B8 " : "  ";
+				const color = isCursor ? "cyan" : isActive ? "white" : undefined;
 				return (
 					<Box key={section.id} paddingX={1}>
-						<Text bold={isActive} color={isActive ? "cyan" : undefined} dimColor={!isActive}>
-							{section.icon} {isActive ? section.label : ""}
+						<Text bold={isCursor || isActive} color={color} dimColor={!isActive && !isCursor}>
+							{prefix}{section.icon} {section.label}
 						</Text>
 					</Box>
 				);

@@ -27,6 +27,7 @@ describe("ContentArea", () => {
 					params: {},
 					navigate: () => {},
 					goBack: () => {},
+					focused: true,
 				}),
 			),
 		);
