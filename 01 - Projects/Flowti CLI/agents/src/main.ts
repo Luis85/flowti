@@ -30,8 +30,12 @@ const BASE_URL = "";
 
 // ── Scene navigation helpers ─────────────────────────────────────────
 
-function handleSceneChange(engine: ex.Engine, targetScene: string): void {
-	engine.goToScene(targetScene);
+function handleSceneChange(engine: ex.Engine, targetScene: string, panelMgr: { close: () => void }): void {
+	panelMgr.close();
+	void engine.goToScene(targetScene, {
+		destinationIn: new ex.FadeInOut({ duration: 300, direction: "in" }),
+		sourceOut: new ex.FadeInOut({ duration: 300, direction: "out" }),
+	});
 }
 
 // ── Main ─────────────────────────────────────────────────────────────
@@ -106,7 +110,7 @@ async function main(): Promise<void> {
 
 	// ── Scene config ────────────────────────────────────
 	const sceneConfig = {
-		onSceneChange: (target: string) => handleSceneChange(engine, target),
+		onSceneChange: (target: string) => handleSceneChange(engine, target, panelManager),
 		onAgentSelect: handleAgentSelect,
 	};
 
@@ -205,8 +209,8 @@ async function main(): Promise<void> {
 			activityLog = log;
 			hubScene.updateTicker(log);
 		},
-		onConnectionStatus: (_status) => {
-			// Connection indicator integration pending
+		onConnectionStatus: (status) => {
+			hubScene.updateConnectionStatus(status);
 		},
 		onStateDiff: (_diff) => {
 			// Entity-level sync integration pending

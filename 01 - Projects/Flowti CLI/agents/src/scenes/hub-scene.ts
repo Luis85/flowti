@@ -9,6 +9,7 @@ import type { DashboardAgent, ActivityEntry, Setting } from "../data/types.js";
 import { AgentActor } from "../actors/agent-actor.js";
 import { DoorwayActor } from "../actors/doorway-actor.js";
 import { SCENE_THEMES } from "../config/settings.js";
+import { resolveSettingForDomain } from "../config/domain-map.js";
 
 // ── Layout ──────────────────────────────────────────────────────────
 
@@ -25,11 +26,21 @@ export interface HubSceneConfig {
 
 // ── HubScene ────────────────────────────────────────────────────────
 
+// ── Indicator helpers ────────────────────────────────────────────────
+
+const STATUS_DOT_COLORS: Record<string, string> = {
+	busy: "#3b82f6",
+	idle: "#22c55e",
+	unassigned: "#6b7280",
+};
+
 export class HubScene extends ex.Scene {
 	private readonly config: HubSceneConfig;
 	private readonly agentActors = new Map<string, AgentActor>();
+	private readonly indicatorActors = new Map<string, ex.Actor>();
 	private tickerLabel: ex.Label | null = null;
 	private iterationLabel: ex.Label | null = null;
+	private connectionLabel: ex.Label | null = null;
 
 	constructor(config: HubSceneConfig) {
 		super();
@@ -123,6 +134,22 @@ export class HubScene extends ex.Scene {
 		});
 		this.add(this.iterationLabel);
 
+		// ── Connection status indicator ─────────────────────
+		this.connectionLabel = new ex.Label({
+			text: "POLLING",
+			pos: ex.vec(w - 12, 16),
+			font: new ex.Font({
+				family: "system-ui, sans-serif",
+				size: 10,
+				unit: ex.FontUnit.Px,
+				color: ex.Color.fromHex("#f59e0b"),
+				textAlign: ex.TextAlign.Right,
+			}),
+			anchor: ex.vec(1, 0.5),
+			z: 20,
+		});
+		this.add(this.connectionLabel);
+
 		// ── Doorways along right edge ────────────────────────
 		const doorSettings: Setting[] = ["office", "village", "station"];
 		const doorSpacing = 120;
@@ -161,19 +188,32 @@ export class HubScene extends ex.Scene {
 	updateAgents(agents: readonly DashboardAgent[]): void {
 		const incoming = new Set<string>();
 
+		// Split agents into hub-resident (no domain or hub domain) and domain-assigned
+		const hubAgents: DashboardAgent[] = [];
+		const domainAgents: DashboardAgent[] = [];
+		for (const agent of agents) {
+			const setting = resolveSettingForDomain(agent.domain);
+			if (setting === "hub") {
+				hubAgents.push(agent);
+			} else {
+				domainAgents.push(agent);
+			}
+		}
+
 		const w = this.engine?.drawWidth ?? 1200;
 		const h = this.engine?.drawHeight ?? 700;
-		const cols = Math.min(agents.length, AGENTS_PER_ROW);
-		const rows = Math.ceil(agents.length / AGENTS_PER_ROW);
+
+		// ── Full agent actors for hub-resident agents ────────
+		const cols = Math.min(hubAgents.length, AGENTS_PER_ROW);
+		const rows = Math.ceil(hubAgents.length / AGENTS_PER_ROW) || 1;
 		const gridW = cols * AGENT_SPACING;
 		const gridH = rows * AGENT_SPACING;
-		// Center in the area left of doorways
 		const areaW = w - 120;
 		const startX = (areaW - gridW) / 2 + AGENT_SPACING / 2;
 		const startY = (h - gridH) / 2 + 20;
 
-		for (let i = 0; i < agents.length; i++) {
-			const agent = agents[i];
+		for (let i = 0; i < hubAgents.length; i++) {
+			const agent = hubAgents[i];
 			incoming.add(agent.name);
 
 			const col = i % AGENTS_PER_ROW;
@@ -198,10 +238,77 @@ export class HubScene extends ex.Scene {
 			}
 		}
 
+		// ── Compact indicator dots for domain-assigned agents ─
+		const indicatorStartX = 20;
+		const indicatorStartY = h - 60;
+		const indicatorSpacing = 32;
+
+		for (let i = 0; i < domainAgents.length; i++) {
+			const agent = domainAgents[i];
+			incoming.add(agent.name);
+			const setting = resolveSettingForDomain(agent.domain);
+
+			const x = indicatorStartX + i * indicatorSpacing;
+			const y = indicatorStartY;
+
+			if (this.indicatorActors.has(agent.name)) {
+				// Update existing indicator — no structural changes needed
+				continue;
+			}
+
+			const dotColor = STATUS_DOT_COLORS[agent.status] ?? "#6b7280";
+			const dotCanvas = new ex.Canvas({
+				width: 24,
+				height: 24,
+				cache: true,
+				draw: (ctx: CanvasRenderingContext2D) => {
+					// Status-colored dot
+					ctx.fillStyle = dotColor;
+					ctx.beginPath();
+					ctx.arc(12, 8, 5, 0, Math.PI * 2);
+					ctx.fill();
+
+					// Tiny name text
+					ctx.fillStyle = "#94a3b8";
+					ctx.font = "7px system-ui, sans-serif";
+					ctx.textAlign = "center";
+					ctx.textBaseline = "top";
+					const shortName = agent.name.length > 5 ? agent.name.slice(0, 4) + "\u2026" : agent.name;
+					ctx.fillText(shortName, 12, 16);
+				},
+			});
+
+			const indicator = new ex.Actor({
+				pos: ex.vec(x, y),
+				width: 24,
+				height: 24,
+				anchor: ex.vec(0.5, 0.5),
+				z: 15,
+			});
+			indicator.graphics.use(dotCanvas);
+
+			// Click to navigate to the agent's room
+			indicator.on("pointerdown", () => {
+				this.config.onSceneChange(setting);
+			});
+
+			this.add(indicator);
+			this.indicatorActors.set(agent.name, indicator);
+		}
+
+		// Remove stale agent actors
 		for (const [name, actor] of this.agentActors) {
 			if (!incoming.has(name)) {
 				actor.kill();
 				this.agentActors.delete(name);
+			}
+		}
+
+		// Remove stale indicator actors
+		for (const [name, actor] of this.indicatorActors) {
+			if (!incoming.has(name)) {
+				actor.kill();
+				this.indicatorActors.delete(name);
 			}
 		}
 	}
@@ -216,13 +323,39 @@ export class HubScene extends ex.Scene {
 		const recent = activityLog.slice(-3);
 		const parts = recent.map((e) => {
 			const clean = e.summary
+				.replace(/^\d{4}-\d{2}-\d{2}T[\d:.]+Z\s*/i, "")
 				.replace(/^(thinking|speaking|asking|using-tool)\s*/i, "")
 				.replace(/```[\s\S]*?```/g, "[code]")
+				.replace(/\{[\s\S]*?\}/g, "")
 				.replace(/\n/g, " ")
+				.trim()
 				.slice(0, 50);
 			return `[${e.agentName}] ${clean}`;
 		});
 		this.tickerLabel.text = parts.join("  |  ");
+	}
+
+	/** Update the connection status indicator. */
+	updateConnectionStatus(status: "connected" | "disconnected" | "reconnecting"): void {
+		if (!this.connectionLabel) return;
+		const labels: Record<string, string> = {
+			connected: "LIVE",
+			disconnected: "OFFLINE",
+			reconnecting: "POLLING",
+		};
+		const colors: Record<string, string> = {
+			connected: "#22c55e",
+			disconnected: "#ef4444",
+			reconnecting: "#f59e0b",
+		};
+		this.connectionLabel.text = labels[status] ?? "POLLING";
+		this.connectionLabel.font = new ex.Font({
+			family: "system-ui, sans-serif",
+			size: 10,
+			unit: ex.FontUnit.Px,
+			color: ex.Color.fromHex(colors[status] ?? "#f59e0b"),
+			textAlign: ex.TextAlign.Right,
+		});
 	}
 
 	updateIterationBadge(text: string): void {
