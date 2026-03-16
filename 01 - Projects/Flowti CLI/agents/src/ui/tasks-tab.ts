@@ -16,6 +16,7 @@ export interface TasksTabOptions {
 	readonly baseUrl: string;
 	readonly currentPhase?: string;
 	readonly isAiAgent?: boolean;
+	readonly onTaskAssigned?: (agentName: string, taskName: string) => void;
 }
 
 export function renderTasksTab(
@@ -77,10 +78,14 @@ export function renderTasksTab(
 				btn.addEventListener("click", () => {
 					if (options.isAiAgent) {
 						showConfirmDialog(container, task.name, () => {
-							void options.assignTask(options.baseUrl, agent.name, task.name);
+							void options.assignTask(options.baseUrl, agent.name, task.name).then(() => {
+								options.onTaskAssigned?.(agent.name, task.name);
+							});
 						});
 					} else {
-						void options.assignTask(options.baseUrl, agent.name, task.name);
+						void options.assignTask(options.baseUrl, agent.name, task.name).then(() => {
+							options.onTaskAssigned?.(agent.name, task.name);
+						});
 					}
 				});
 

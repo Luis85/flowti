@@ -19,6 +19,7 @@ interface AgentBrainEntry {
 	target: MovementTarget;
 	targetPos: Position | null;
 	stateTimer: number;
+	position: { x: number; y: number };
 }
 
 // ── Constants ────────────────────────────────────────────────────────
@@ -30,14 +31,17 @@ const ARRIVAL_THRESHOLD = 4; // pixels to consider "arrived"
 
 export interface BrainSystemConfig {
 	readonly bounds: Bounds;
+	readonly onWorkstationChange?: (agentName: string, action: "occupy" | "vacate", position: { x: number; y: number }) => void;
 }
 
 export class BrainSystem {
 	private readonly entries = new Map<string, AgentBrainEntry>();
 	private readonly bounds: Bounds;
+	private readonly config: BrainSystemConfig;
 
 	constructor(config: BrainSystemConfig) {
 		this.bounds = config.bounds;
+		this.config = config;
 	}
 
 	/** Register an agent with its attributes. */
@@ -49,6 +53,7 @@ export class BrainSystem {
 			target: { kind: "none" },
 			targetPos: null,
 			stateTimer: 0,
+			position: { x: 0, y: 0 },
 		});
 	}
 
@@ -68,11 +73,17 @@ export class BrainSystem {
 	applyEvent(name: string, eventType: string): void {
 		const entry = this.entries.get(name);
 		if (!entry) return;
+		const previousState = entry.state;
 		const result = transition(entry.state, { type: eventType as AgentActionType });
 		entry.state = result.state;
 		entry.target = result.target;
 		entry.targetPos = null;
 		entry.stateTimer = 0;
+
+		// Fire vacate callback when leaving working state
+		if (previousState === "working" && result.state !== "working") {
+			this.config.onWorkstationChange?.(name, "vacate", entry.position);
+		}
 	}
 
 	/** Advance all agent brains by deltaMs. Updates actor positions and visuals. */
@@ -87,10 +98,10 @@ export class BrainSystem {
 					this.updateIdle(entry, name);
 					break;
 				case "wandering":
-					this.updateMoving(entry, actor, deltaMs);
+					this.updateMoving(entry, actor, deltaMs, name);
 					break;
 				case "walking-to":
-					this.updateMoving(entry, actor, deltaMs);
+					this.updateMoving(entry, actor, deltaMs, name);
 					break;
 				case "working":
 					this.updateWorking(entry);
@@ -104,7 +115,15 @@ export class BrainSystem {
 			}
 
 			actor.updateFromBrain(entry.state, entry.target);
+			entry.position = { x: actor.pos.x, y: actor.pos.y };
 		}
+	}
+
+	/** Get the last known position for an agent. */
+	getPosition(name: string): { x: number; y: number } | undefined {
+		const entry = this.entries.get(name);
+		if (!entry) return undefined;
+		return entry.position;
 	}
 
 	private updateIdle(entry: AgentBrainEntry, _name: string): void {
@@ -118,7 +137,7 @@ export class BrainSystem {
 		}
 	}
 
-	private updateMoving(entry: AgentBrainEntry, actor: AgentActor, deltaMs: number): void {
+	private updateMoving(entry: AgentBrainEntry, actor: AgentActor, deltaMs: number, name: string): void {
 		if (!entry.targetPos) {
 			// No target, go idle
 			entry.state = "idle";
@@ -139,6 +158,7 @@ export class BrainSystem {
 			} else if (entry.state === "walking-to") {
 				if (entry.target.kind === "workstation") {
 					entry.state = "working";
+					this.config.onWorkstationChange?.(name, "occupy", { x: entry.position.x, y: entry.position.y });
 				} else {
 					entry.state = "idle";
 				}

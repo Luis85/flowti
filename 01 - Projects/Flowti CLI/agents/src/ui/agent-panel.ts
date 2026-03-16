@@ -32,6 +32,13 @@ export interface AgentPanelOptions {
 	readonly permissions: readonly PermissionEntry[];
 	readonly pendingPermissions: readonly PendingPermission[];
 	readonly currentPhase?: string;
+	readonly onTaskAssigned?: (agentName: string, taskName: string) => void;
+}
+
+/** Switch the active tab on an already-rendered agent panel. */
+export function switchToTab(panelContainer: HTMLElement, tabName: TabName): void {
+	const tabBtn = panelContainer.querySelector(`[data-tab="${tabName}"]`);
+	if (tabBtn instanceof HTMLElement) tabBtn.click();
 }
 
 export function renderAgentPanel(
@@ -177,6 +184,7 @@ export function renderAgentPanel(
 					baseUrl: options.baseUrl,
 					currentPhase: options.currentPhase,
 					isAiAgent: agent.agentType === "ai",
+					onTaskAssigned: options.onTaskAssigned,
 				} satisfies TasksTabOptions);
 				break;
 			case "Permissions":

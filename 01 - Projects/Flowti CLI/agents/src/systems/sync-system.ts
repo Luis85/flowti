@@ -9,6 +9,8 @@ import type { AgentAction, DashboardAgent, DashboardData, WorldState, ActivityEn
 import { createEventStream, type ConnectionStatus } from "../data/event-stream.js";
 import { fetchWorldState } from "../data/api-client.js";
 import { createStateStore, type StateStore } from "../data/state-store.js";
+import { resolveSettingForDomain } from "../config/domain-map.js";
+import type { RoomScene } from "../scenes/room-scene.js";
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -34,6 +36,7 @@ export class SyncSystem {
 	private pollTimer: ReturnType<typeof setInterval> | null = null;
 	private eventStreamHandle: { close: () => void } | null = null;
 	private dashboardAgents: DashboardAgent[] = [];
+	private roomScenes: Record<string, RoomScene> = {};
 
 	constructor(baseUrl: string, callbacks: SyncCallbacks) {
 		this.baseUrl = baseUrl;
@@ -41,11 +44,24 @@ export class SyncSystem {
 		this.stateStore = createStateStore();
 	}
 
+	/** Set room scenes for domain-based agent routing. */
+	setRoomScenes(scenes: Record<string, RoomScene>): void {
+		this.roomScenes = scenes;
+	}
+
 	/** Load dashboard data and start connections. */
 	async start(): Promise<readonly DashboardAgent[]> {
 		// Load initial dashboard roster
 		this.dashboardAgents = await this.loadDashboard();
 		this.callbacks.onAgentsUpdated(this.dashboardAgents);
+
+		// Route agents to room scenes by domain
+		for (const agent of this.dashboardAgents) {
+			const setting = resolveSettingForDomain(agent.domain);
+			if (setting !== "hub" && this.roomScenes[setting]) {
+				this.roomScenes[setting].spawnAgent(agent);
+			}
+		}
 
 		// Start SSE event stream
 		this.eventStreamHandle = createEventStream(
@@ -94,6 +110,25 @@ export class SyncSystem {
 
 	private handleWorldState(state: WorldState): void {
 		const diff = this.stateStore.applyState(state);
+
+		// Process changed entities — detect status component changes
+		for (const entityId of diff.changed) {
+			const entity = this.stateStore.getEntity(entityId);
+			if (entity && entity.type === "agent") {
+				const status = entity.components["status"];
+				if (typeof status === "string") {
+					const agent = this.dashboardAgents.find((a) => a.name === entityId);
+					if (agent && agent.status !== status) {
+						// Update the dashboard agent with new status
+						const idx = this.dashboardAgents.indexOf(agent);
+						if (idx >= 0) {
+							this.dashboardAgents[idx] = { ...agent, status: status as DashboardAgent["status"] };
+						}
+					}
+				}
+			}
+		}
+
 		this.callbacks.onStateDiff(diff);
 
 		if (state.activityLog) {

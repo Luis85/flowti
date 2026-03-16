@@ -16,7 +16,7 @@ import { SyncSystem } from "./systems/sync-system.js";
 import { BrainSystem } from "./systems/brain-system.js";
 import { BubbleSystem } from "./systems/bubble-system.js";
 import { createPanelManager } from "./ui/panel-manager.js";
-import { renderAgentPanel } from "./ui/agent-panel.js";
+import { renderAgentPanel, switchToTab } from "./ui/agent-panel.js";
 import { appendAgentResponse } from "./ui/talk-tab.js";
 import { sendMessage, assignTask, grantPermission } from "./data/api-client.js";
 import type { AgentAction, DashboardAgent, ActivityEntry, PermissionEntry } from "./data/types.js";
@@ -30,8 +30,12 @@ const BASE_URL = "";
 
 // ── Scene navigation helpers ─────────────────────────────────────────
 
-function handleSceneChange(engine: ex.Engine, targetScene: string): void {
-	engine.goToScene(targetScene);
+function handleSceneChange(engine: ex.Engine, targetScene: string, panelMgr: { close: () => void }): void {
+	panelMgr.close();
+	void engine.goToScene(targetScene, {
+		destinationIn: new ex.FadeInOut({ duration: 300, direction: "in" }),
+		sourceOut: new ex.FadeInOut({ duration: 300, direction: "out" }),
+	});
 }
 
 // ── Main ─────────────────────────────────────────────────────────────
@@ -87,6 +91,11 @@ async function main(): Promise<void> {
 				permissions: agentPermissions,
 				pendingPermissions: [],
 				currentPhase: undefined,
+				onTaskAssigned: (name, taskName) => {
+					brainSystem.applyEvent(name, "task-started");
+					const currentScene = engine.currentScene;
+					bubbleSystem.showBubble(name, "thought", `Starting: ${taskName}`, currentScene, findAgentActor);
+				},
 			});
 		},
 	});
@@ -106,7 +115,7 @@ async function main(): Promise<void> {
 
 	// ── Scene config ────────────────────────────────────
 	const sceneConfig = {
-		onSceneChange: (target: string) => handleSceneChange(engine, target),
+		onSceneChange: (target: string) => handleSceneChange(engine, target, panelManager),
 		onAgentSelect: handleAgentSelect,
 	};
 
@@ -130,6 +139,38 @@ async function main(): Promise<void> {
 	// ── Systems ─────────────────────────────────────────
 	const brainSystem = new BrainSystem({
 		bounds: { minX: 80, maxX: ENGINE_WIDTH - 80, minY: 80, maxY: ENGINE_HEIGHT - 60 },
+		onWorkstationChange: (agentName, action, position) => {
+			// Find which room scene contains the agent and update its workstations
+			for (const room of Object.values(roomScenes)) {
+				const actor = room.getAgentActor(agentName);
+				if (!actor) continue;
+
+				if (action === "occupy") {
+					// Find the nearest workstation to the agent's position
+					const workstations = room.getWorkstations();
+					let nearest = workstations[0];
+					let minDist = Infinity;
+					for (const ws of workstations) {
+						const dx = ws.pos.x - position.x;
+						const dy = ws.pos.y - position.y;
+						const dist = dx * dx + dy * dy;
+						if (dist < minDist && !ws.occupied) {
+							minDist = dist;
+							nearest = ws;
+						}
+					}
+					if (nearest && !nearest.occupied) {
+						nearest.occupy(agentName);
+					}
+				} else {
+					// Vacate — find the workstation this agent occupies
+					const workstations = room.getWorkstations();
+					const ws = workstations.find((w) => w.occupantName === agentName);
+					if (ws) ws.vacate();
+				}
+				break;
+			}
+		},
 	});
 
 	const bubbleSystem = new BubbleSystem();
@@ -175,18 +216,32 @@ async function main(): Promise<void> {
 
 				// Auto-open panel to Permissions tab when requesting-permission
 				if (action.type === "requesting-permission") {
-					const actor = findAgentActor(action.agentName);
-					if (actor) {
-						// Open or refresh the panel for this agent
+					// Check if the agent has an actor in the current scene
+					const activeScene = engine.currentScene;
+					const isInCurrentScene =
+						(activeScene === hubScene && hubScene.getAgentActor(action.agentName) !== undefined) ||
+						Object.values(roomScenes).some((room) =>
+							activeScene === room && room.getAgentActor(action.agentName) !== undefined,
+						);
+
+					if (isInCurrentScene) {
+						// Open panel and switch to Permissions tab
 						const rect = engine.canvas.getBoundingClientRect();
 						openPanelForAgent(action.agentName, rect.width * 0.6, rect.height * 0.15);
 
-						// Click the Permissions tab
 						const panelEl = canvasParent.querySelector(".agent-panel");
-						const permTab = panelEl?.querySelector('[data-tab="Permissions"]');
-						if (permTab instanceof HTMLElement) {
-							permTab.click();
+						if (panelEl instanceof HTMLElement) {
+							switchToTab(panelEl, "Permissions");
 						}
+					} else {
+						// Agent is in another scene — show notification in ticker
+						hubScene.updateTicker([{
+							id: `perm-${Date.now()}`,
+							agentName: action.agentName,
+							timestamp: new Date().toISOString(),
+							type: "requesting-permission",
+							summary: `${action.agentName} is requesting permission`,
+						}]);
 					}
 				}
 			}
@@ -205,14 +260,20 @@ async function main(): Promise<void> {
 			activityLog = log;
 			hubScene.updateTicker(log);
 		},
-		onConnectionStatus: (_status) => {
-			// Connection indicator integration pending
+		onConnectionStatus: (status) => {
+			hubScene.updateConnectionStatus(status);
 		},
 		onStateDiff: (_diff) => {
 			// Entity-level sync integration pending
 		},
 	});
 	syncRef = syncSystem;
+
+	// ── Wire room scenes to sync and brain systems ──────
+	syncSystem.setRoomScenes(roomScenes);
+	officeScene.setBrainSystem(brainSystem);
+	villageScene.setBrainSystem(brainSystem);
+	stationScene.setBrainSystem(brainSystem);
 
 	// ── Pre-update hook for brain and bubble systems ────
 	let lastTime = performance.now();
