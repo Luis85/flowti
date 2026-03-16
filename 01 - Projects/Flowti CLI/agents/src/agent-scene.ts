@@ -9,7 +9,7 @@
 
 import * as ex from "excalibur";
 import type { DashboardData, DashboardAgent, DashboardProject } from "./data-loader.js";
-import { AgentActor } from "./agent-actor.js";
+import { AgentActor } from "./actors/agent-actor.js";
 
 // ── Layout constants ─────────────────────────────────────────────────
 
@@ -117,12 +117,10 @@ export class AgentScene extends ex.Scene {
 			const y = GROUP_START_Y + HEADER_HEIGHT + row * AGENT_SPACING_Y + AGENT_SPACING_Y / 2;
 
 			const actor = new AgentActor({
-				name: agents[i].name,
-				agentType: agents[i].agentType,
-				status: agents[i].status,
-				project: agents[i].project,
-				iteration: agents[i].iteration,
-				pos: ex.vec(x, y),
+				agent: agents[i],
+				x,
+				y,
+				onSelect: (name) => { void name; }, // panel integration pending
 			});
 			this.add(actor);
 		}
