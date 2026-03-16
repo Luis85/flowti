@@ -26,11 +26,10 @@ export function ListPage<T>({ items, renderItem, renderDetail, actions, onSelect
 	const [selected, setSelected] = useState(0);
 
 	useInput((_input, key) => {
-		if (!enabled) return;
 		if (key.upArrow && selected > 0) setSelected((s) => s - 1);
 		if (key.downArrow && selected < items.length - 1) setSelected((s) => s + 1);
 		if (key.return && items[selected] && onSelect) onSelect(items[selected], selected);
-	});
+	}, { isActive: enabled });
 
 	const list = (
 		<ScrollableList

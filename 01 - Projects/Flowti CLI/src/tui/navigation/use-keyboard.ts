@@ -19,7 +19,6 @@ interface UseKeyboardOptions {
 
 export function useKeyboard({ sections, activeSection, onSectionChange, onSectionOpen, enabled }: UseKeyboardOptions): void {
 	useInput((_input, key) => {
-		if (!enabled) return;
 		if (key.upArrow) {
 			const idx = sections.findIndex((s) => s.id === activeSection);
 			if (idx > 0) {
@@ -39,5 +38,5 @@ export function useKeyboard({ sections, activeSection, onSectionChange, onSectio
 				onSectionChange(activeSection);
 			}
 		}
-	});
+	}, { isActive: enabled });
 }

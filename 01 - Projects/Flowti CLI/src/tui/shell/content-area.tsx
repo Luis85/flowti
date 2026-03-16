@@ -50,7 +50,6 @@ export function ContentArea({ pageId, params, navigate, goBack, focused, onEscap
 	// Default Escape handler — fires AFTER page handlers (parent registers after children).
 	// If a page claimed Escape via EscapeContext.claim(), we skip the default behavior.
 	useInput((_input, key) => {
-		if (!focused) return;
 		if (key.escape) {
 			if (escapeClaimedRef.current) {
 				escapeClaimedRef.current = false;
@@ -58,7 +57,7 @@ export function ContentArea({ pageId, params, navigate, goBack, focused, onEscap
 			}
 			onEscapeDefault();
 		}
-	});
+	}, { isActive: focused });
 
 	return (
 		<Box flexGrow={1} flexDirection="column">
