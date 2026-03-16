@@ -2,7 +2,8 @@
  * main.ts — ExcaliburJS engine setup with multi-scene navigation.
  *
  * Creates the engine with four scenes (hub, office, village, station),
- * wires up sync/brain/bubble systems, and starts the game loop.
+ * wires up sync/brain/bubble systems and the agent detail panel, and
+ * starts the game loop.
  */
 
 import * as ex from "excalibur";
@@ -14,7 +15,11 @@ import type { RoomScene } from "./scenes/room-scene.js";
 import { SyncSystem } from "./systems/sync-system.js";
 import { BrainSystem } from "./systems/brain-system.js";
 import { BubbleSystem } from "./systems/bubble-system.js";
-import type { AgentAction, DashboardAgent } from "./data/types.js";
+import { createPanelManager } from "./ui/panel-manager.js";
+import { renderAgentPanel } from "./ui/agent-panel.js";
+import { appendAgentResponse } from "./ui/talk-tab.js";
+import { sendMessage, assignTask, grantPermission } from "./data/api-client.js";
+import type { AgentAction, DashboardAgent, ActivityEntry, PermissionEntry } from "./data/types.js";
 import type { AgentActor } from "./actors/agent-actor.js";
 
 // ── Constants ────────────────────────────────────────────────────────
@@ -29,10 +34,6 @@ function handleSceneChange(engine: ex.Engine, targetScene: string): void {
 	engine.goToScene(targetScene);
 }
 
-function handleAgentSelect(_agentName: string): void {
-	// Agent detail panel integration pending
-}
-
 // ── Main ─────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
@@ -44,6 +45,64 @@ async function main(): Promise<void> {
 		antialiasing: true,
 		suppressPlayButton: true,
 	});
+
+	// ── Shared mutable state ────────────────────────────
+	const canvasParent = engine.canvas.parentElement ?? document.body;
+	let activityLog: readonly ActivityEntry[] = [];
+
+	// Late-bound reference — set after SyncSystem is created.
+	// All closures that reference syncRef are event callbacks, never called
+	// during construction, so the value is guaranteed to be set by runtime.
+	let syncRef: SyncSystem | null = null;
+
+	// ── Panel manager (DOM overlay) ─────────────────────
+	const panelManager = createPanelManager(canvasParent, {
+		fetchAgent: (name) => {
+			const agents = syncRef?.getAgents() ?? [];
+			return agents.find((a) => a.name === name) ?? null;
+		},
+		fetchActivityLog: (agentName) =>
+			activityLog.filter((e) => e.agentName === agentName),
+		fetchPermissions: (agentName) => {
+			const state = syncRef?.getStateStore().getState() ?? null;
+			return state?.permissions[agentName] ?? [];
+		},
+		onClose: () => { /* panel closed — nothing to do */ },
+		renderContent: (container, agentName, _callbacks) => {
+			const agent = (syncRef?.getAgents() ?? []).find((a) => a.name === agentName);
+			if (!agent) return;
+
+			const state = syncRef?.getStateStore().getState() ?? null;
+			const agentPermissions: readonly PermissionEntry[] =
+				state?.permissions[agentName] ?? [];
+			const agentActivity = activityLog.filter((e) => e.agentName === agentName);
+
+			renderAgentPanel(container, agent, {
+				onClose: () => panelManager.close(),
+				sendMessage,
+				assignTask,
+				grantPermission,
+				baseUrl: BASE_URL,
+				activityLog: agentActivity,
+				permissions: agentPermissions,
+				pendingPermissions: [],
+				currentPhase: undefined,
+			});
+		},
+	});
+
+	// ── Agent select handler ────────────────────────────
+	function openPanelForAgent(agentName: string, screenX: number, screenY: number): void {
+		panelManager.open(agentName, screenX, screenY);
+	}
+
+	function handleAgentSelect(agentName: string): void {
+		// Open panel near center-right of the canvas
+		const rect = engine.canvas.getBoundingClientRect();
+		const screenX = rect.width * 0.6;
+		const screenY = rect.height * 0.15;
+		openPanelForAgent(agentName, screenX, screenY);
+	}
 
 	// ── Scene config ────────────────────────────────────
 	const sceneConfig = {
@@ -97,6 +156,15 @@ async function main(): Promise<void> {
 				const text = typeof action.data["text"] === "string" ? action.data["text"] : "...";
 				const currentScene = engine.currentScene;
 				bubbleSystem.showBubble(action.agentName, "speech", text, currentScene, findAgentActor);
+
+				// If panel is open for this agent, append to the talk thread
+				if (panelManager.isOpen() && panelManager.getAgentName() === action.agentName) {
+					const panelEl = canvasParent.querySelector(".agent-panel");
+					const contentArea = panelEl?.querySelector(".agent-panel-content");
+					if (contentArea instanceof HTMLElement) {
+						appendAgentResponse(contentArea, `${action.agentName}: ${text}`);
+					}
+				}
 			} else if (action.type === "thinking") {
 				const text = typeof action.data["text"] === "string" ? action.data["text"] : "...";
 				const currentScene = engine.currentScene;
@@ -104,6 +172,23 @@ async function main(): Promise<void> {
 			} else if (action.type === "asking" || action.type === "requesting-permission") {
 				const currentScene = engine.currentScene;
 				bubbleSystem.showBubble(action.agentName, "question", "?", currentScene, findAgentActor);
+
+				// Auto-open panel to Permissions tab when requesting-permission
+				if (action.type === "requesting-permission") {
+					const actor = findAgentActor(action.agentName);
+					if (actor) {
+						// Open or refresh the panel for this agent
+						const rect = engine.canvas.getBoundingClientRect();
+						openPanelForAgent(action.agentName, rect.width * 0.6, rect.height * 0.15);
+
+						// Click the Permissions tab
+						const panelEl = canvasParent.querySelector(".agent-panel");
+						const permTab = panelEl?.querySelector('[data-tab="Permissions"]');
+						if (permTab instanceof HTMLElement) {
+							permTab.click();
+						}
+					}
+				}
 			}
 		},
 		onAgentsUpdated: (agents: readonly DashboardAgent[]) => {
@@ -117,6 +202,7 @@ async function main(): Promise<void> {
 			}
 		},
 		onActivityLog: (log) => {
+			activityLog = log;
 			hubScene.updateTicker(log);
 		},
 		onConnectionStatus: (_status) => {
@@ -126,6 +212,7 @@ async function main(): Promise<void> {
 			// Entity-level sync integration pending
 		},
 	});
+	syncRef = syncSystem;
 
 	// ── Pre-update hook for brain and bubble systems ────
 	let lastTime = performance.now();
