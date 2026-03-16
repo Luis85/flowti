@@ -10,7 +10,7 @@
  *   1. Derives vault root from own location (.flowti/bin/ → ../../)
  *   2. Reads .flowti/config.json to locate the CLI source project
  *   3. Ensures node_modules are installed (npm ci if missing)
- *   4. Builds the CLI if .flowti/bin/main.js is missing
+ *   4. Builds the CLI if .flowti/bin/main.mjs is missing
  *   5. Auto-rebuilds if source files are newer than the binary
  *   6. Runs the compiled CLI, forwarding all arguments
  *
@@ -36,13 +36,13 @@ if (existsSync(CONFIG_PATH)) {
 	config = JSON.parse(readFileSync(CONFIG_PATH, "utf-8"));
 }
 
-const BIN_ENTRY = resolve(VAULT_ROOT, ".flowti", "bin", "main.js");
+const BIN_ENTRY = resolve(VAULT_ROOT, ".flowti", "bin", "main.mjs");
 const SOURCE_DIR = resolve(VAULT_ROOT, config.source ?? "01 - Projects/Flowti CLI");
 const HAS_SOURCE = existsSync(SOURCE_DIR);
 
 // ── Standalone mode ──────────────────────────────────────────────────
 //
-// If main.js already exists, the CLI can run without the source tree.
+// If main.mjs already exists, the CLI can run without the source tree.
 // This enables test vaults and distributed installs where only .flowti/bin/
 // is present. Source-dependent steps (npm ci, build, rebuild) are skipped.
 
@@ -51,7 +51,7 @@ if (!HAS_SOURCE) {
 		console.error(`[flowti] CLI binary not found: ${BIN_ENTRY}`);
 		console.error(`[flowti] Source folder not found: ${SOURCE_DIR}`);
 		console.error(`[flowti] Either clone the full repository, set "source" in .flowti/config.json,`);
-		console.error(`[flowti] or copy the CLI binary into .flowti/bin/main.js`);
+		console.error(`[flowti] or copy the CLI binary into .flowti/bin/main.mjs`);
 		process.exit(1);
 	}
 	// Binary exists — run standalone (skip npm ci / build / rebuild checks)

@@ -1,13 +1,11 @@
 /**
  * esbuild.config.mjs — Bundles the Flowti CLI into .flowti/bin/.
  *
- * Produces two bundles:
- *   main.js  — CJS bundle (core CLI, no ink/react)
- *   chat.mjs — ESM bundle (ink chat renderer + React components)
+ * Produces a single ESM bundle:
+ *   main.mjs — Full CLI including Ink TUI, chat renderer, and all pages.
  *
- * The CJS bundle uses dynamic import() to load chat.mjs only when
- * the chat view is opened. This avoids CJS/ESM interop issues with
- * ink (ESM-only, top-level await).
+ * Ink/React are marked external — resolved from node_modules at runtime
+ * via the symlink in .flowti/bin/node_modules.
  *
  * Usage:
  *   node configs/esbuild.config.mjs           Build once
@@ -28,15 +26,16 @@ const isWatch = process.argv.includes("--watch");
 // Ensure output directory exists
 mkdirSync(outDir, { recursive: true });
 
-// ── Bundle 1: Main CLI (CJS) ────────────────────────────────────────
-// Excludes ink/react — they're loaded via chat.mjs when needed.
+// ── Single ESM bundle ───────────────────────────────────────────────
+// Everything in one file — CLI core, TUI shell, chat renderer, all pages.
+// Ink/React are external (ESM, resolved from node_modules via junction).
 
 const mainOptions = {
 	entryPoints: [path.join(projectRoot, "src/main.ts")],
 	bundle: true,
-	outfile: path.join(outDir, "main.js"),
+	outfile: path.join(outDir, "main.mjs"),
 	platform: "node",
-	format: "cjs",
+	format: "esm",
 	target: "node22",
 	sourcemap: !isWatch,
 	minify: !isWatch,
@@ -45,32 +44,6 @@ const mainOptions = {
 		"node:*",
 		"eslint",
 		"typedoc",
-		// Ink/React excluded from CJS bundle — loaded via chat.mjs (ESM)
-		"ink",
-		"react",
-		"react/jsx-runtime",
-		"@inkjs/ui",
-		"yoga-wasm-web",
-		"react-devtools-core",
-	],
-};
-
-// ── Bundle 2: Chat renderer (ESM) ───────────────────────────────────
-// Ink is ESM-only with top-level await — must be an ESM bundle.
-// Loaded at runtime via dynamic import() from chat-handlers.ts.
-
-const chatOptions = {
-	entryPoints: [path.join(projectRoot, "src/infrastructure/chat/ink-chat-renderer.ts")],
-	bundle: true,
-	outfile: path.join(outDir, "chat.mjs"),
-	platform: "node",
-	format: "esm",
-	target: "node22",
-	sourcemap: !isWatch,
-	minify: !isWatch,
-	external: [
-		"node:*",
-		// Ink/React resolved from project node_modules via junction
 		"ink",
 		"react",
 		"react/jsx-runtime",
@@ -81,27 +54,20 @@ const chatOptions = {
 };
 
 if (isWatch) {
-	const [mainCtx, chatCtx] = await Promise.all([
-		esbuild.context(mainOptions),
-		esbuild.context(chatOptions),
-	]);
-	await Promise.all([mainCtx.watch(), chatCtx.watch()]);
+	const mainCtx = await esbuild.context(mainOptions);
+	await mainCtx.watch();
 	console.log("  Watching for changes...");
 } else {
-	await Promise.all([
-		esbuild.build(mainOptions),
-		esbuild.build(chatOptions),
-	]);
-	// Deploy bootstrap as index.js + package.json so `node .flowti/bin` works
+	await esbuild.build(mainOptions);
+	// Deploy bootstrap as index.mjs + package.json so `node .flowti/bin` works
 	copyFileSync(
 		path.join(projectRoot, "src", "boot", "bootstrap.mjs"),
 		path.join(outDir, "index.mjs"),
 	);
 	writeFileSync(
 		path.join(outDir, "package.json"),
-		JSON.stringify({ type: "commonjs", main: "index.mjs" }, null, 2) + "\n",
+		JSON.stringify({ type: "module", main: "index.mjs" }, null, 2) + "\n",
 	);
-	console.log(`  Built: .flowti/bin/main.js`);
-	console.log(`  Built: .flowti/bin/chat.mjs`);
+	console.log(`  Built: .flowti/bin/main.mjs`);
 	console.log(`  Copied: .flowti/bin/index.mjs`);
 }
