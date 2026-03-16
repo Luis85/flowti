@@ -7,7 +7,7 @@
 	"subsystems": {
 		"plugin": {
 			"root": "Development/flowti",
-			"config": "flowti.config.json",
+			"config": "configs/flowti.config.json",
 			"manifest": "manifest.json",
 			"package": "package.json",
 			"scripts": "scripts"

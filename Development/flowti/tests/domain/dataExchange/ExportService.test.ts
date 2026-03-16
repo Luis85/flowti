@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { parseYaml } from "obsidian";
 import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import { ExportService } from "../../../src/domain/dataExchange/ExportService";
@@ -48,6 +49,7 @@ describe("ExportService", () => {
 		service = new ExportService({
 			eventBus,
 			fileSystem,
+			yamlParser: { parse: (c: string) => parseYaml(c) as Record<string, unknown> | null },
 			listFiles: (folder: string) => {
 				if (!folder) return mockFiles;
 				return mockFiles.filter((f) => f.folder === folder || f.folder.startsWith(folder + "/"));

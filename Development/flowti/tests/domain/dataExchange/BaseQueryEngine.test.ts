@@ -1,6 +1,12 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { BaseQueryEngine } from "../../../src/domain/dataExchange/BaseQueryEngine";
 import type { BaseFilterGroup, VaultFileInfo } from "../../../src/domain/dataExchange/types";
+import type { IYamlParser } from "../../../src/infrastructure/parsers/types";
+import { parseYaml } from "obsidian";
+
+const testParser: IYamlParser = {
+	parse: (content: string) => parseYaml(content) as Record<string, unknown> | null,
+};
 
 /**
  * Creates a minimal VaultFileInfo for testing.
@@ -20,7 +26,7 @@ describe("BaseQueryEngine", () => {
 	let engine: BaseQueryEngine;
 
 	beforeEach(() => {
-		engine = new BaseQueryEngine();
+		engine = new BaseQueryEngine(testParser);
 	});
 
 	describe("parseFilterExpression", () => {

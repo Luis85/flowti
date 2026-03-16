@@ -1,17 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import type { SignalConfig } from "../../../src/domain/signal/types";
-
-// ── Mock requestUrl before importing the adapter ──────────────
-const { mockRequestUrl } = vi.hoisted(() => ({
-	mockRequestUrl: vi.fn(),
-}));
-
-vi.mock("obsidian", async (importOriginal) => {
-	const actual = await importOriginal() as Record<string, unknown>;
-	return { ...actual, requestUrl: mockRequestUrl };
-});
-
+import type { IHttpClient } from "../../../src/infrastructure/http/types";
 import { AzureDevOpsAdapter } from "../../../src/domain/signal/adapters/AzureDevOpsAdapter";
+
+const mockRequest = vi.fn() as IHttpClient["request"] & ReturnType<typeof vi.fn>;
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -83,15 +75,15 @@ describe("AzureDevOpsAdapter", () => {
 	let adapter: AzureDevOpsAdapter;
 
 	beforeEach(() => {
-		adapter = new AzureDevOpsAdapter({ delay: async () => {} });
-		mockRequestUrl.mockReset();
+		mockRequest.mockReset();
+		adapter = new AzureDevOpsAdapter({ http: { request: mockRequest }, delay: async () => {} });
 	});
 
 	// ── testConnection ────────────────────────────────────────
 
 	describe("testConnection", () => {
 		it("should return success for valid connection", async () => {
-			mockRequestUrl.mockResolvedValue({
+			mockRequest.mockResolvedValue({
 				status: 200,
 				headers: {},
 				json: { id: "project-id", name: "MyProject" },
@@ -101,21 +93,21 @@ describe("AzureDevOpsAdapter", () => {
 			const result = await adapter.testConnection(makeConfig());
 
 			expect(result).toEqual({ success: true });
-			expect(mockRequestUrl).toHaveBeenCalledOnce();
+			expect(mockRequest).toHaveBeenCalledOnce();
 		});
 
 		it("should include project in the URL", async () => {
-			mockRequestUrl.mockResolvedValue({ status: 200, headers: {}, json: {}, text: "" });
+			mockRequest.mockResolvedValue({ status: 200, headers: {}, json: {}, text: "" });
 
 			await adapter.testConnection(makeConfig({ project: "My Project" }));
 
-			const calledUrl = mockRequestUrl.mock.calls[0][0].url as string;
+			const calledUrl = mockRequest.mock.calls[0][0].url as string;
 			expect(calledUrl).toContain("My%20Project");
 			expect(calledUrl).toContain("api-version=7.1-preview.1");
 		});
 
 		it("should return error for invalid PAT (401)", async () => {
-			mockRequestUrl.mockRejectedValue(httpError(401));
+			mockRequest.mockRejectedValue(httpError(401));
 
 			const result = await adapter.testConnection(makeConfig());
 
@@ -124,7 +116,7 @@ describe("AzureDevOpsAdapter", () => {
 		});
 
 		it("should return error for insufficient permissions (403)", async () => {
-			mockRequestUrl.mockRejectedValue(httpError(403));
+			mockRequest.mockRejectedValue(httpError(403));
 
 			const result = await adapter.testConnection(makeConfig());
 
@@ -133,7 +125,7 @@ describe("AzureDevOpsAdapter", () => {
 		});
 
 		it("should return error for project not found (404)", async () => {
-			mockRequestUrl.mockRejectedValue(httpError(404));
+			mockRequest.mockRejectedValue(httpError(404));
 
 			const result = await adapter.testConnection(makeConfig());
 
@@ -142,7 +134,7 @@ describe("AzureDevOpsAdapter", () => {
 		});
 
 		it("should return error for rate limiting (429) with Retry-After", async () => {
-			mockRequestUrl.mockRejectedValue(httpError(429, { "Retry-After": "30" }));
+			mockRequest.mockRejectedValue(httpError(429, { "Retry-After": "30" }));
 
 			const result = await adapter.testConnection(makeConfig());
 
@@ -152,7 +144,7 @@ describe("AzureDevOpsAdapter", () => {
 		});
 
 		it("should return error for server error (500)", async () => {
-			mockRequestUrl.mockRejectedValue(httpError(500));
+			mockRequest.mockRejectedValue(httpError(500));
 
 			const result = await adapter.testConnection(makeConfig());
 
@@ -161,7 +153,7 @@ describe("AzureDevOpsAdapter", () => {
 		});
 
 		it("should return error for network failure", async () => {
-			mockRequestUrl.mockRejectedValue(new Error("connect ECONNREFUSED 127.0.0.1:443"));
+			mockRequest.mockRejectedValue(new Error("connect ECONNREFUSED 127.0.0.1:443"));
 
 			const result = await adapter.testConnection(makeConfig());
 
@@ -175,7 +167,7 @@ describe("AzureDevOpsAdapter", () => {
 
 	describe("fetchItems", () => {
 		it("should fetch work items via WIQL + batch GET", async () => {
-			mockRequestUrl
+			mockRequest
 				.mockResolvedValueOnce({ status: 200, headers: {}, json: makeWiqlResponse([101, 102]), text: "" })
 				.mockResolvedValueOnce({ status: 200, headers: {}, json: makeWorkItemsResponse([{ id: 101 }, { id: 102 }]), text: "" });
 
@@ -183,38 +175,38 @@ describe("AzureDevOpsAdapter", () => {
 
 			expect(result.items).toHaveLength(2);
 			expect(result.errors).toHaveLength(0);
-			expect(mockRequestUrl).toHaveBeenCalledTimes(2);
+			expect(mockRequest).toHaveBeenCalledTimes(2);
 		});
 
 		it("should apply type filter to WIQL query", async () => {
-			mockRequestUrl
+			mockRequest
 				.mockResolvedValueOnce({ status: 200, headers: {}, json: makeWiqlResponse([]), text: "" });
 
 			await adapter.fetchItems(makeConfig({ itemTypeFilter: ["Bug", "Task"] }));
 
-			const body = JSON.parse(mockRequestUrl.mock.calls[0][0].body as string) as { query: string };
+			const body = JSON.parse(mockRequest.mock.calls[0][0].body as string) as { query: string };
 			expect(body.query).toContain("[System.WorkItemType] IN ('Bug', 'Task')");
 		});
 
 		it("should not add type filter when itemTypeFilter is empty", async () => {
-			mockRequestUrl
+			mockRequest
 				.mockResolvedValueOnce({ status: 200, headers: {}, json: makeWiqlResponse([]), text: "" });
 
 			await adapter.fetchItems(makeConfig({ itemTypeFilter: [] }));
 
-			const body = JSON.parse(mockRequestUrl.mock.calls[0][0].body as string) as { query: string };
+			const body = JSON.parse(mockRequest.mock.calls[0][0].body as string) as { query: string };
 			expect(body.query).not.toContain("WorkItemType");
 		});
 
 		it("should handle empty result set", async () => {
-			mockRequestUrl
+			mockRequest
 				.mockResolvedValueOnce({ status: 200, headers: {}, json: makeWiqlResponse([]), text: "" });
 
 			const result = await adapter.fetchItems(makeConfig());
 
 			expect(result.items).toHaveLength(0);
 			expect(result.errors).toHaveLength(0);
-			expect(mockRequestUrl).toHaveBeenCalledTimes(1);
+			expect(mockRequest).toHaveBeenCalledTimes(1);
 		});
 
 		it("should batch requests for >200 work items", async () => {
@@ -222,7 +214,7 @@ describe("AzureDevOpsAdapter", () => {
 			const batch1Items = ids.slice(0, 200).map(id => ({ id }));
 			const batch2Items = ids.slice(200).map(id => ({ id }));
 
-			mockRequestUrl
+			mockRequest
 				.mockResolvedValueOnce({ status: 200, headers: {}, json: makeWiqlResponse(ids), text: "" })
 				.mockResolvedValueOnce({ status: 200, headers: {}, json: makeWorkItemsResponse(batch1Items), text: "" })
 				.mockResolvedValueOnce({ status: 200, headers: {}, json: makeWorkItemsResponse(batch2Items), text: "" });
@@ -230,17 +222,17 @@ describe("AzureDevOpsAdapter", () => {
 			const result = await adapter.fetchItems(makeConfig());
 
 			expect(result.items).toHaveLength(250);
-			expect(mockRequestUrl).toHaveBeenCalledTimes(3);
+			expect(mockRequest).toHaveBeenCalledTimes(3);
 
 			// Verify batch URLs contain correct ID ranges
-			const batch1Url = mockRequestUrl.mock.calls[1][0].url as string;
-			const batch2Url = mockRequestUrl.mock.calls[2][0].url as string;
+			const batch1Url = mockRequest.mock.calls[1][0].url as string;
+			const batch2Url = mockRequest.mock.calls[2][0].url as string;
 			expect(batch1Url).toContain("ids=1,2,3");
 			expect(batch2Url).toContain("ids=201,202,203");
 		});
 
 		it("should map all Azure DevOps fields correctly", async () => {
-			mockRequestUrl
+			mockRequest
 				.mockResolvedValueOnce({ status: 200, headers: {}, json: makeWiqlResponse([42]), text: "" })
 				.mockResolvedValueOnce({
 					status: 200, headers: {}, text: "",
@@ -273,7 +265,7 @@ describe("AzureDevOpsAdapter", () => {
 		});
 
 		it("should handle missing optional fields gracefully", async () => {
-			mockRequestUrl
+			mockRequest
 				.mockResolvedValueOnce({ status: 200, headers: {}, json: makeWiqlResponse([1]), text: "" })
 				.mockResolvedValueOnce({
 					status: 200, headers: {}, text: "",
@@ -305,7 +297,7 @@ describe("AzureDevOpsAdapter", () => {
 		});
 
 		it("should handle WIQL query failure gracefully", async () => {
-			mockRequestUrl.mockRejectedValue(httpError(401));
+			mockRequest.mockRejectedValue(httpError(401));
 
 			const result = await adapter.fetchItems(makeConfig());
 
@@ -316,7 +308,7 @@ describe("AzureDevOpsAdapter", () => {
 		});
 
 		it("should handle batch fetch failure and report errors per item", async () => {
-			mockRequestUrl
+			mockRequest
 				.mockResolvedValueOnce({ status: 200, headers: {}, json: makeWiqlResponse([1, 2, 3]), text: "" })
 				.mockRejectedValueOnce(httpError(500));
 
@@ -333,7 +325,7 @@ describe("AzureDevOpsAdapter", () => {
 
 	describe("field mapping", () => {
 		it("should split tags by '; ' separator", async () => {
-			mockRequestUrl
+			mockRequest
 				.mockResolvedValueOnce({ status: 200, headers: {}, json: makeWiqlResponse([1]), text: "" })
 				.mockResolvedValueOnce({
 					status: 200, headers: {}, text: "",
@@ -348,7 +340,7 @@ describe("AzureDevOpsAdapter", () => {
 		});
 
 		it("should handle empty tags string", async () => {
-			mockRequestUrl
+			mockRequest
 				.mockResolvedValueOnce({ status: 200, headers: {}, json: makeWiqlResponse([1]), text: "" })
 				.mockResolvedValueOnce({
 					status: 200, headers: {}, text: "",
@@ -363,7 +355,7 @@ describe("AzureDevOpsAdapter", () => {
 		});
 
 		it("should extract displayName from AssignedTo object", async () => {
-			mockRequestUrl
+			mockRequest
 				.mockResolvedValueOnce({ status: 200, headers: {}, json: makeWiqlResponse([1]), text: "" })
 				.mockResolvedValueOnce({
 					status: 200, headers: {}, text: "",
@@ -380,7 +372,7 @@ describe("AzureDevOpsAdapter", () => {
 		});
 
 		it("should default priority to 0 when missing", async () => {
-			mockRequestUrl
+			mockRequest
 				.mockResolvedValueOnce({ status: 200, headers: {}, json: makeWiqlResponse([1]), text: "" })
 				.mockResolvedValueOnce({
 					status: 200, headers: {}, text: "",
@@ -399,17 +391,17 @@ describe("AzureDevOpsAdapter", () => {
 
 	describe("security", () => {
 		it("should send PAT as Base64 Basic auth header", async () => {
-			mockRequestUrl.mockResolvedValue({ status: 200, headers: {}, json: {}, text: "" });
+			mockRequest.mockResolvedValue({ status: 200, headers: {}, json: {}, text: "" });
 
 			await adapter.testConnection(makeConfig({ pat: "my-secret-pat" }));
 
-			const headers = mockRequestUrl.mock.calls[0][0].headers as Record<string, string>;
+			const headers = mockRequest.mock.calls[0][0].headers as Record<string, string>;
 			const expected = btoa(":my-secret-pat");
 			expect(headers["Authorization"]).toBe(`Basic ${expected}`);
 		});
 
 		it("should never include PAT in error messages on testConnection failure", async () => {
-			mockRequestUrl.mockRejectedValue(httpError(401));
+			mockRequest.mockRejectedValue(httpError(401));
 
 			const result = await adapter.testConnection(makeConfig({ pat: "super-secret-token" }));
 
@@ -417,7 +409,7 @@ describe("AzureDevOpsAdapter", () => {
 		});
 
 		it("should never include PAT in error objects on fetchItems failure", async () => {
-			mockRequestUrl.mockRejectedValue(httpError(403));
+			mockRequest.mockRejectedValue(httpError(403));
 
 			const result = await adapter.fetchItems(makeConfig({ pat: "super-secret-token" }));
 
@@ -439,7 +431,7 @@ describe("AzureDevOpsAdapter", () => {
 		];
 
 		it.each(errorCases)("should map HTTP %i to '%s'", async (status, expectedSubstring) => {
-			mockRequestUrl.mockRejectedValue(httpError(status));
+			mockRequest.mockRejectedValue(httpError(status));
 
 			const result = await adapter.testConnection(makeConfig());
 
@@ -448,7 +440,7 @@ describe("AzureDevOpsAdapter", () => {
 		});
 
 		it("should extract Retry-After from 429 response", async () => {
-			mockRequestUrl.mockRejectedValue(httpError(429, { "Retry-After": "60" }));
+			mockRequest.mockRejectedValue(httpError(429, { "Retry-After": "60" }));
 
 			const result = await adapter.testConnection(makeConfig());
 
@@ -456,7 +448,7 @@ describe("AzureDevOpsAdapter", () => {
 		});
 
 		it("should handle 429 without Retry-After header", async () => {
-			mockRequestUrl.mockRejectedValue(httpError(429));
+			mockRequest.mockRejectedValue(httpError(429));
 
 			const result = await adapter.testConnection(makeConfig());
 

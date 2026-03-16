@@ -24,6 +24,7 @@ import type {
 } from "./types";
 import { MAX_TRAINS, MAX_THOUGHTS_PER_TRAIN } from "./types";
 import { generateTrainSummary } from "./TrainSummaryWriter";
+import { registerTrainEventHandlers } from "./handlers/train-event-handlers";
 
 export interface TrainServiceOptions {
 	storage: ITypedStorage<TrainServiceState>;
@@ -69,55 +70,15 @@ export class TrainService {
 	/**
 	 * Sync train lifecycle with session lifecycle events.
 	 *
-	 * Sessions can be resumed/completed externally (Session Workspace, timer
-	 * expiry, User Hub). Without these listeners the train would get stuck
-	 * in a stale state.
+	 * Delegated to train-event-handlers module — keeps this class lean.
 	 */
 	private setupListeners(): void {
-		// Session completed externally → auto-complete the linked train
-		this.eventBus.on("session.completed", (event) => {
-			const session = event.payload.session;
-			const train = this.state.trains.find(
-				(t) => t.sessionId === session.id && t.status !== "completed",
-			);
-			if (!train) return;
-
-			train.status = "completed";
-			train.completedAt = new Date().toISOString();
-			void this.persist();
-			void this.eventBus.emit("train.completed", {
-				trainId: train.id,
-				thoughtCount: train.thoughts.length,
-			});
-			void this.writeSummary(train);
-		});
-
-		// Session resumed externally → auto-resume the linked train
-		this.eventBus.on("session.resumed", (event) => {
-			const session = event.payload.session;
-			const train = this.state.trains.find(
-				(t) => t.sessionId === session.id && t.status === "paused",
-			);
-			if (!train) return;
-
-			train.status = "running";
-			train.pausedAt = null;
-			void this.persist();
-			void this.eventBus.emit("train.resumed", { trainId: train.id });
-		});
-
-		// Session paused externally → auto-pause the linked train
-		this.eventBus.on("session.paused", (event) => {
-			const session = event.payload.session;
-			const train = this.state.trains.find(
-				(t) => t.sessionId === session.id && t.status === "running",
-			);
-			if (!train) return;
-
-			train.status = "paused";
-			train.pausedAt = new Date().toISOString();
-			void this.persist();
-			void this.eventBus.emit("train.paused", { trainId: train.id });
+		registerTrainEventHandlers({
+			trains: () => this.state.trains,
+			findBySessionId: (sid) => this.state.trains.find((t) => t.sessionId === sid),
+			persist: () => this.persist(),
+			writeSummary: (train) => this.writeSummary(train),
+			eventBus: this.eventBus,
 		});
 	}
 

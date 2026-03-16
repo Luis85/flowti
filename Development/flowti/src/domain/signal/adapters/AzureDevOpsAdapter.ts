@@ -12,7 +12,7 @@
  * - Contextual error messages (never includes PAT)
  */
 
-import { requestUrl } from "obsidian";
+import type { IHttpClient } from "../../../infrastructure/http/types";
 import type { SignalConfig, WorkItemMapping, SyncError } from "../types";
 import type { SignalAdapter, TestConnectionResult, FetchItemsResult } from "./SignalAdapter";
 
@@ -126,14 +126,17 @@ function mapWorkItem(raw: AzureDevOpsWorkItem): WorkItemMapping {
 // ── Adapter ───────────────────────────────────────────────────
 
 export interface AzureDevOpsAdapterOptions {
+	http: IHttpClient;
 	delay?: DelayFn;
 }
 
 export class AzureDevOpsAdapter implements SignalAdapter {
 	private readonly delay: DelayFn;
+	private readonly http: IHttpClient;
 
-	constructor(options?: AzureDevOpsAdapterOptions) {
-		this.delay = options?.delay ?? defaultDelay;
+	constructor(options: AzureDevOpsAdapterOptions) {
+		this.http = options.http;
+		this.delay = options.delay ?? defaultDelay;
 	}
 
 	private buildAuthHeaders(pat: string): Record<string, string> {
@@ -154,7 +157,7 @@ export class AzureDevOpsAdapter implements SignalAdapter {
 
 		for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
 			try {
-				const response = await requestUrl({
+				const response = await this.http.request({
 					url,
 					method: body ? "POST" : "GET",
 					headers: this.buildAuthHeaders(config.pat),

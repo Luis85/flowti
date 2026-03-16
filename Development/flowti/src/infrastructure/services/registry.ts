@@ -36,6 +36,7 @@ import { OnboardingService } from "../../domain/onboarding/OnboardingService";
 import { DocService } from "../../domain/docs/DocService";
 import { TestManagementService } from "../../domain/testManagement/TestManagementService";
 import { FileSystemClient } from "../filesystem/FileSystemClient";
+import { parseYaml, requestUrl } from "obsidian";
 import type { ISecretStore } from "../../utils/SecretStore";
 import type { IServiceContainer, ServiceRegistration } from "./types";
 
@@ -236,6 +237,7 @@ export function createServiceRegistrations(
 					storage: createTypedStorage(storage, "dataExchange", container),
 					eventBus,
 					fileSystem,
+					yamlParser: { parse: (content: string) => parseYaml(content) as Record<string, unknown> | null },
 				});
 			},
 		},
@@ -270,7 +272,14 @@ export function createServiceRegistrations(
 					storage: createTypedStorage(storage, "signal", container),
 					secretStore,
 					eventBus,
-					adapter: new AzureDevOpsAdapter(),
+					adapter: new AzureDevOpsAdapter({
+						http: {
+							request: async (opts) => {
+								const response = await requestUrl(opts);
+								return { json: response.json, status: response.status, headers: response.headers };
+							},
+						},
+					}),
 					fileSystem: new FileSystemClient({ eventBus }),
 				});
 			},
