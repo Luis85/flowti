@@ -14,12 +14,7 @@ import type { IEventBus } from "../events/types";
 import type { IDisposable } from "../services/types";
 import type { ExportFormat, SavedExportConfig, SavedImportConfig } from "../../domain/dataExchange/types";
 import type { ModalService } from "./ModalService";
-import { VIEW_TYPE_COMPONENT_SHOWCASE } from "../../ui/components/ComponentShowcaseView";
-import { VIEW_TYPE_EVENT_CATALOG } from "../../ui/catalog/EventCatalogView";
-import { VIEW_TYPE_EVENT_LOG } from "../../ui/catalog/EventLogView";
-import { VIEW_TYPE_DATA_EXCHANGE_HUB } from "../../ui/hub/DataExchangeHubView";
-import { VIEW_TYPE_USER_HUB } from "../../ui/userHub/UserHubView";
-import { VIEW_TYPE_TRAIN_HUB, VIEW_TYPE_ANALYTICS_HUB, VIEW_TYPE_TEST_MANAGEMENT_HUB } from "../../domain/hub/types";
+import { VIEW_TYPE_EVENT_CATALOG, VIEW_TYPE_TRAIN_HUB, VIEW_TYPE_ANALYTICS_HUB, VIEW_TYPE_TEST_MANAGEMENT_HUB, VIEW_TYPE_DATA_EXCHANGE_HUB, VIEW_TYPE_USER_HUB } from "../../domain/hub/types";
 import { VIEW_TYPE_JOURNEY_BUILDER } from "../../ui/journeyBuilder/JourneyBuilderSidebar";
 
 // ─────────────────────────────────────────────────────────────
@@ -107,18 +102,6 @@ export class UiCommandService implements IDisposable {
 		this.unsubscribes.push(
 			this.eventBus.on("ui.openEventCatalog", () =>
 				this.openView(VIEW_TYPE_EVENT_CATALOG, "eventCatalog", "main"),
-			),
-		);
-
-		this.unsubscribes.push(
-			this.eventBus.on("ui.openEventLog", () =>
-				this.openView(VIEW_TYPE_EVENT_LOG, "eventLog", "right"),
-			),
-		);
-
-		this.unsubscribes.push(
-			this.eventBus.on("ui.openComponentShowcase", () =>
-				this.openView(VIEW_TYPE_COMPONENT_SHOWCASE, "componentShowcase", "right"),
 			),
 		);
 

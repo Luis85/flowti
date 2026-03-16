@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildFilterCacheKey, discoverDateColumns, mergeCrossTileFilter } from "../../../src/ui/analytics/DashboardsTab";
+import { buildFilterCacheKey, discoverDateColumns, mergeCrossTileFilter } from "../../../src/ui/analytics/dashboardUtils";
 import type { DashboardTile, SavedAnalyticsQuery } from "../../../src/domain/analytics/types";
 
 describe("buildFilterCacheKey", () => {

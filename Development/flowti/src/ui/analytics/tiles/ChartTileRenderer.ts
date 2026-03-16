@@ -9,7 +9,7 @@
 
 import type { AnalyticsResult } from "../../../domain/analytics/types";
 import { ChartRenderer, type ChartOptions } from "../ChartRenderer";
-import { getNumericColumns } from "../TileSettingsPanel";
+import { getNumericColumns } from "../dashboardUtils";
 import type { TileRenderer, TileRenderContext } from "./types";
 
 /** Resolve effective columns from tile config, validated against available numeric columns. */

@@ -17,6 +17,14 @@ import type {
 	SavedAnalyticsQuery,
 } from "../../domain/analytics/types";
 
+// ── Numeric column helper ────────────────────────────────────
+
+/** Get numeric column names from a result (used by tile settings + chart/table renderers). */
+export function getNumericColumns(result: AnalyticsResult | null): string[] {
+	if (!result || result.rows.length === 0) return [];
+	return result.columns.filter((col) => typeof result.rows[0][col] === "number");
+}
+
 // ── Filter dimension discovery ───────────────────────────────
 
 export interface FilterDimension {

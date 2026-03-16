@@ -5,6 +5,7 @@ import type { ConditionEvaluator } from "../handlers/condition-evaluator";
 import type { IEventBus } from "../events/types";
 import type { ILogger } from "../logger/types";
 import { SitemapHubView } from "../../ui/views/sitemap-hub-view";
+import { SitemapLeafView } from "../../ui/views/sitemap-leaf-view";
 
 export interface SitemapBootstrapDeps {
 	plugin: {
@@ -17,7 +18,6 @@ export interface SitemapBootstrapDeps {
 	logger: ILogger;
 	handlerRegistry: PluginHandlerRegistry;
 	conditionEvaluator: ConditionEvaluator;
-	legacyViewFactories: Map<string, (leaf: WorkspaceLeaf) => unknown>;
 }
 
 export class SitemapBootstrap {
@@ -39,21 +39,34 @@ export class SitemapBootstrap {
 
 	private registerViews(): void {
 		for (const [viewId, viewDef] of Object.entries(this.sitemap.views)) {
-			if (viewDef.legacy) {
-				const factory = this.deps.legacyViewFactories.get(viewDef.type);
-				if (!factory) {
-					this.deps.logger.warn(`Legacy view factory not found for "${viewDef.type}" (${viewId})`);
-					continue;
-				}
-				this.deps.plugin.registerView(viewDef.type, (leaf) => factory(leaf) as never);
-				this.registeredViewTypes.push(viewDef.type);
+			if (viewDef.fileView) {
+				// TextFileView extensions — registered via domain setup classes in onLayoutReady
 				continue;
+			} else if (viewDef.tabs) {
+				// Hub view — tabs + handlers
+				this.safeRegister(viewDef.type, (leaf) =>
+					new SitemapHubView(leaf, this.deps.eventBus, viewDef, this.deps.handlerRegistry) as never,
+				);
+			} else if (viewDef.component || viewDef.handler) {
+				// Leaf view — component or handler
+				this.safeRegister(viewDef.type, (leaf) =>
+					new SitemapLeafView(leaf, this.deps.eventBus, viewDef, this.deps.handlerRegistry) as never,
+				);
 			}
-
-			this.deps.plugin.registerView(viewDef.type, (leaf) =>
-				new SitemapHubView(leaf, this.deps.eventBus, viewDef, this.deps.handlerRegistry) as never,
-			);
 			this.registeredViewTypes.push(viewDef.type);
+		}
+	}
+
+	/** Register a view type, tolerating "already registered" errors during hot-reload. */
+	private safeRegister(type: string, creator: (leaf: WorkspaceLeaf) => unknown): void {
+		try {
+			this.deps.plugin.registerView(type, creator);
+		} catch (err) {
+			if (err instanceof Error && err.message.includes("existing view type")) {
+				this.deps.logger.debug(`View "${type}" already registered (hot-reload)`);
+			} else {
+				throw err;
+			}
 		}
 	}
 
@@ -140,6 +153,19 @@ export class SitemapBootstrap {
 					});
 				}
 			});
+		}
+	}
+
+	/** Log warnings for any sitemap commands whose action handlers are not registered. */
+	validate(): void {
+		const missing: string[] = [];
+		for (const cmdDef of this.sitemap.commands) {
+			if (!this.deps.handlerRegistry.getAction(cmdDef.handler)) {
+				missing.push(`command "${cmdDef.id}" -> handler "${cmdDef.handler}"`);
+			}
+		}
+		if (missing.length > 0) {
+			this.deps.logger.warn(`SitemapBootstrap: ${missing.length} unregistered handler(s):\n${missing.join("\n")}`);
 		}
 	}
 

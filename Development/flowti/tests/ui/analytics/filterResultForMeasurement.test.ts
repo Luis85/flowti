@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { filterResultForMeasurement } from "../../../src/ui/analytics/DashboardsTab";
+import { filterResultForMeasurement } from "../../../src/ui/analytics/dashboardUtils";
 import type { AnalyticsResult, Measurement } from "../../../src/domain/analytics/types";
 
 const baseResult: AnalyticsResult = {

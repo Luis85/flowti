@@ -33,8 +33,7 @@ import { AnalyticsService } from "../../src/domain/analytics/AnalyticsService";
 import { AnalyticsEngine } from "../../src/domain/analytics/AnalyticsEngine";
 import type { AnalyticsResult, AnalyticsState } from "../../src/domain/analytics/types";
 import { extractPieData } from "../../src/ui/analytics/ChartRenderer";
-import { discoverFilterDimensions, buildFilterCacheKey } from "../../src/ui/analytics/DashboardsTab";
-import { getNumericColumns } from "../../src/ui/analytics/TileSettingsPanel";
+import { discoverFilterDimensions, buildFilterCacheKey, getNumericColumns } from "../../src/ui/analytics/dashboardUtils";
 import { createMockStorage } from "./testHelpers";
 
 // ── Fixtures ─────────────────────────────────────────────────

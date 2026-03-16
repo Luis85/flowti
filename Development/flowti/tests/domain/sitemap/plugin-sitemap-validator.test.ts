@@ -11,7 +11,6 @@ function validSitemap(overrides?: Partial<PluginSitemap>): PluginSitemap {
 				label: "Test Hub",
 				icon: "home",
 				type: "flowti-test-hub",
-				legacy: true,
 			},
 		},
 		commands: [

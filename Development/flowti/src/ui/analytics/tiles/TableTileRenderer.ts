@@ -7,7 +7,7 @@
 
 import type { AnalyticsResult } from "../../../domain/analytics/types";
 import { evaluateConditionalRules } from "../../../domain/analytics/conditionalFormatting";
-import { getNumericColumns } from "../TileSettingsPanel";
+import { getNumericColumns } from "../dashboardUtils";
 import type { TileRenderer, TileRenderContext } from "./types";
 import { fmtNum } from "./types";
 

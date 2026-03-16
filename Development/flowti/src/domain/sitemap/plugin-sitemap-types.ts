@@ -14,8 +14,13 @@ export interface ViewDef {
 	tabs?: SitemapTabDef[];
 	dataSources?: DataSourceRef[];
 	conditions?: ConditionSet;
-	legacy?: boolean;
+	/** True when the view extends TextFileView — registered via domain setup classes, not SitemapBootstrap */
+	fileView?: boolean;
 	refreshEvents?: string[];
+	/** Lit custom element tag name for leaf/panel views */
+	component?: string;
+	/** Handler ID for leaf/panel views (looked up in PluginHandlerRegistry) */
+	handler?: string;
 }
 
 export interface SitemapTabDef {

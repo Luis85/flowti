@@ -12,7 +12,7 @@ tags:
 
 This document describes the current frontend architecture of the Flowti IBDE Obsidian plugin, its design principles, view inventory, and refactoring history with planned next phases.
 
-> Last updated: 2026-03-05 (Post-Cycle 55 — Journey Builder domain added; metrics refreshed to 432 files / ~86K LOC / 6,764 tests / 283 suites)
+> Last updated: 2026-03-16 (Post sitemap-driven migration — all hub and leaf views now routed through SitemapBootstrap + Lit components; legacy view infrastructure removed)
 
 ---
 
@@ -24,9 +24,9 @@ This document describes the current frontend architecture of the Flowti IBDE Obs
 
 3. **Domain Hubs** — The application is organized around domains. Each hub provides focused interfaces that support the user's jobs to be done.
 
-4. **Hub Shell Pattern** — Hub views extend `BaseHubView<TPage>`, which owns the shared shell lifecycle (wrapper, top bar, tab bar, split layout, render scheduling, cleanup, hub lifecycle events). Subclasses implement domain-specific rendering via abstract methods. See [[ADR-024 BaseHubView Shell Extraction]].
+4. **Sitemap-Driven UI** — All views, commands, and ribbon icons are declared in `plugin-sitemap.json` and registered through `SitemapBootstrap`. Hub views use `SitemapHubView` (extends `BaseHubView`), leaf views use `SitemapLeafView`. Domain-specific rendering is handled by `TabHandler` functions registered in `PluginHandlerRegistry`, which wire Lit components to service data.
 
-5. **Orchestrator + Component pattern** — Complex views are split into a thin orchestrator (lifecycle, state, scanning, navigation) and plain TypeScript component classes (rendering). Components receive dependencies via injection, not inheritance.
+5. **Lit Component + Handler pattern** — Views are split into Lit web components (pure renderers: props in, CustomEvents out) and thin handler functions (bridge between services and components). Handlers subscribe to EventBus events, query services, and set component properties. Components use Shadow DOM with design tokens from `tokens.ts` and shared styles from `shared-styles.ts`.
 
 6. **File-driven entities** — Domains, services, flows, systems, actors, and products are defined as Markdown files with typed frontmatter. The catalog merges file-driven entries with code-registered metadata to produce a unified view.
 
@@ -110,27 +110,62 @@ Views read state via `deps.getState()` and write via `deps.setState(partial)`. T
 
 ## View Inventory
 
-### Obsidian ItemView Subclasses
+### Registration Architecture
 
-| View | Type Constant | LOC | Base Class | Layout | Purpose |
-|------|--------------|-----|------------|--------|---------|
-| `BaseHubView<TPage>` | — (abstract) | ~278 | `ItemView` | shell (wrapper + top bar + tab bar + split) | Abstract base: shared Hub lifecycle, navigation, render scheduling, cleanup |
-| `EventCatalogView` | `flowti-event-catalog` | ~723 | `BaseHubView<CatalogTab>` | master-detail | 8-tab catalog: Dashboard, Domains, Services, Events, Flows, Systems, Actors, Products |
-| `DataExchangeHubView` | `flowti-data-exchange-hub` | ~477 | `BaseHubView<DXTab>` | master-detail + tab bar | 10-page hub: Dashboard + 9 tabs (Pipelines, Imports, Exports, Types, Properties, Signals, Reports, Canvas, Analytics) |
-| `EventLogView` | `flowti-event-log` | ~581 | log list | Activity feed with category/type filters and subscribed/all modes |
-| `ExportView` | `flowti-export` | ~655 | wizard stepper | 4-page export wizard: View Select, Configure, Preview, Result |
-| `CanvasActionView` | `flowti-canvas` | ~545 | `ItemView` | page navigation | Canvas import: 4-page wizard (landing, config, preview, result) with saved config quick-run |
-| `CsvActionView` | `flowti-csv` | ~747 | landing + wizard | CSV file handler: column preview landing page + 4-page inline import wizard |
-| `UserHubView` | `flowti-user-hub` | ~273 | `BaseHubView<UserHubTab>` | 3-tab user hub: Dashboard, Inbox, Sessions (+ Preferences) |
-| `SessionWorkspaceView` | `flowti-session-workspace` | ~537 | `ItemView` | single-column | Dedicated focused workspace for a single session (timer, energy, goals, execution plan, notes, context, decisions, activity, outputs). Subscriptions extracted to `SessionWorkspaceSubscriptions.ts`, helpers to `SessionWorkspaceHelpers.ts` |
-| `TrainMainView` | `flowti-train-main` | ~237 | `ItemView` | single-column | Train navigator: thought detail, prev/next navigation, branch links. Subscriptions extracted to `TrainMainViewSubscriptions.ts` |
-| `TrainTimelineSidebar` | `flowti-train-timeline` | ~210 | `ItemView` | single-column | Vertical timeline graph: thought nodes, branch indentation, click-to-navigate. Subscriptions extracted to `TrainTimelineSidebarSubscriptions.ts` |
-| `TrainHubView` | `flowti-train-hub` | ~273 | `BaseHubView<TrainTab>` | Train domain hub: navigation, timeline, capture, stats |
-| `AnalyticsHubView` | `flowti-analytics-hub` | ~273 | `BaseHubView<AnalyticsTab>` | Analytics hub: dashboards, queries, measurements |
-| `JourneyBuilderSidebar` | `flowti-journey-builder` | ~570 | `ItemView` | Journey Builder sidebar: 3-state machine (welcome → setup → steps), 15 composable components |
-| `JourneyFileView` | `flowti-journey-file` | ~150 | `ItemView` | Journey JSON file viewer/editor |
-| `CanvasSessionSidebar` | `flowti-canvas-session` | ~210 | `ItemView` | Canvas session monitor sidebar |
-| `ComponentShowcaseView` | `flowti-component-showcase` | ~297 | showcase | Development view for previewing all CSS components |
+All views are declared in `plugin-sitemap.json` and registered via `SitemapBootstrap.registerAll()`:
+
+- **Hub views** (with `tabs` array) → `SitemapHubView` (extends `BaseHubView`), renders tabs via handler registry
+- **Leaf views** (with `handler` or `component`) → `SitemapLeafView`, delegates to handler functions
+- **File views** (with `fileView: true`) → Registered via domain setup classes in `onLayoutReady` (extend `TextFileView`)
+
+### Sitemap-Driven Views
+
+| View ID | Type Constant | Kind | Tabs/Handler | Purpose |
+|---------|--------------|------|--------------|---------|
+| `event-catalog` | `flowti-event-catalog` | hub | 6 tabs (events, domains, services, flows, systems, actors) | Entity catalog with master-detail |
+| `data-exchange-hub` | `flowti-data-exchange-hub` | hub | 8 tabs (dashboard, imports, exports, pipelines, types, properties, signals, reports, canvas) | Data exchange orchestration |
+| `user-hub` | `flowti-user-hub` | hub | 5 tabs (dashboard, sessions, inbox, commands, preferences, health) | User dashboard and session management |
+| `train-hub` | `flowti-train-hub` | hub | 3 tabs (dashboard, active, history) | Train navigation and stats |
+| `analytics-hub` | `flowti-analytics-hub` | hub | 3 tabs (dashboards, queries, measurements) | In-memory analytics engine |
+| `test-management-hub` | `flowti-test-management-hub` | hub | 8 tabs (dashboard, pyramid, coverage, compliance, feature-quality, journeys) | Test management and quality |
+| `session-workspace` | `flowti-session-workspace` | leaf | handler: `session-workspace:main` | Focused workspace for a single session |
+| `train-main` | `flowti-train-main` | leaf | handler: `train-main:render` | Train navigator: thought detail, navigation |
+| `train-timeline` | `flowti-train-timeline` | panel | handler: `train-timeline:render` | Vertical timeline graph with Lit component |
+| `journey-builder` | `flowti-journey-builder` | panel | handler: `journey-builder:render` | Journey Builder sidebar |
+| `canvas-import` | `flowti-canvas-import` | leaf | handler: `canvas-import:main` | Canvas import wizard |
+| `export` | `flowti-export` | leaf | handler: `export:main` | Export wizard |
+| `csv-action` | `flowti-csv` | leaf | fileView | CSV file handler with import wizard |
+| `journey-file` | `flowti-journey-file` | leaf | fileView | Journey JSON file viewer |
+
+### Lit Components (`src/components/`)
+
+All hub tabs and some leaf views render via Lit web components (Shadow DOM, design tokens):
+
+| Subdirectory | Components | Purpose |
+|-------------|-----------|---------|
+| `train/` | `flowti-train-dashboard`, `flowti-train-active`, `flowti-train-history`, `flowti-train-timeline` | Train hub tabs + timeline |
+| `catalog/` | `flowti-entity-scanner`, `flowti-catalog-events` | Event catalog tabs |
+| `dx/` | `flowti-dx-dashboard`, `flowti-dx-imports`, `flowti-dx-exports`, `flowti-dx-pipelines`, `flowti-dx-types`, `flowti-dx-properties`, `flowti-dx-signals`, `flowti-dx-reports`, `flowti-dx-canvas` | Data exchange hub tabs |
+| `user/` | `flowti-user-dashboard`, `flowti-user-sessions`, `flowti-user-inbox`, `flowti-user-commands`, `flowti-user-preferences`, `flowti-user-health` | User hub tabs |
+| `analytics/` | `flowti-analytics-tile`, `flowti-analytics-dashboard`, `flowti-analytics-queries`, `flowti-analytics-measurements` | Analytics hub tabs |
+| `test-management/` | `flowti-tm-dashboard`, `flowti-tm-pyramid`, `flowti-tm-coverage`, `flowti-tm-compliance`, `flowti-tm-feature-quality`, `flowti-tm-journeys` | Test management hub tabs |
+| root | `flowti-element` (base class), `flowti-status-badge`, `tokens`, `shared-styles` | Shared infrastructure |
+
+### Handler Registry (`src/infrastructure/handlers/`)
+
+Each handler file exports a `register*Handlers()` function that registers `TabHandler` functions with `PluginHandlerRegistry`:
+
+| File | Handlers | Domain |
+|------|----------|--------|
+| `action-handlers.ts` | ~40 action handlers | Cross-domain command routing |
+| `condition-handlers.ts` | 6 condition handlers | Command visibility conditions |
+| `train-handlers.ts` | 3 tab handlers | Train hub |
+| `catalog-handlers.ts` | 6 tab handlers | Event catalog |
+| `data-exchange-handlers.ts` | 9 tab handlers | Data exchange hub |
+| `user-handlers.ts` | 6 tab handlers | User hub |
+| `analytics-handlers.ts` | 3 tab handlers | Analytics hub |
+| `test-management-handlers.ts` | 8 tab handlers | Test management hub |
+| `leaf-handlers/` | 6 handler files | Leaf view orchestration |
 
 ### Modals
 
@@ -181,8 +216,6 @@ Both major views extend `BaseHubView<TPage>` and follow the **orchestrator + com
 - `SignalsTab` — Azure DevOps signal configuration with CRUD, inline Sync Now / Test Connection buttons (~333 LOC)
 - `AnalyticsTab` — CSV analytics query builder: source picker, joins, dimensions, measures, time bucketing, execution (~806 LOC)
 - `AnalyticsResultsPanel` — Results display with stat cards, sortable table, CSV export (~172 LOC)
-
-> **Planned**: Analytics tab will be extracted to a dedicated **Analytics Hub** in [[Cycle 28 - Analytics Hub]], reducing DX Hub from 9 to 8 tabs.
 
 **CSV Import** (`src/ui/csv/`, 10 files):
 - `CsvLanding` — Landing page orchestrator delegating to sub-components

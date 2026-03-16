@@ -20,18 +20,6 @@ import type { CommandDefinition, CommandMeta, ICommandRegistry } from "./types";
 export function createCommandDefinitions(): CommandDefinition[] {
 	return [
 		{
-			id: "flowti:open-component-showcase",
-			name: "Open component showcase",
-			description: "Open the UI component showcase for development reference",
-			domain: "developer",
-			category: "view",
-			icon: "palette",
-			handler: async (ctx) => {
-				ctx.logger.debug("Opening component showcase view");
-				void ctx.eventBus.emit("ui.openComponentShowcase", {});
-			},
-		},
-		{
 			id: "flowti:open-event-catalog",
 			name: "Open event catalog",
 			description: "Browse all events in the system with filtering and search",
@@ -41,18 +29,6 @@ export function createCommandDefinitions(): CommandDefinition[] {
 			handler: async (ctx) => {
 				ctx.logger.debug("Opening event catalog view");
 				void ctx.eventBus.emit("ui.openEventCatalog", {});
-			},
-		},
-		{
-			id: "flowti:open-event-log",
-			name: "Open event log",
-			description: "View the live event log showing all system activity",
-			domain: "developer",
-			category: "view",
-			icon: "activity",
-			handler: async (ctx) => {
-				ctx.logger.debug("Opening event log view");
-				void ctx.eventBus.emit("ui.openEventLog", {});
 			},
 		},
 		{

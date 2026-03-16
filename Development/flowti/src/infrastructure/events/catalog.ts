@@ -394,8 +394,6 @@ const CATALOG_DATA = {
 
 	// ── UI Commands ──────────────────────────────────────────
 	"ui.openEventCatalog":        { category: "UI Commands", description: "Open the Event Catalog view", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
-	"ui.openEventLog":            { category: "UI Commands", description: "Open the Event Log view", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
-	"ui.openComponentShowcase":   { category: "UI Commands", description: "Open the Component Showcase", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.openDataExchangeHub":     { category: "UI Commands", description: "Open the Data Exchange Hub", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.openUserHub":             { category: "UI Commands", description: "Open the User Hub", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.openSubscriptionManager": { category: "UI Commands", description: "Open the Watcher Manager modal", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },

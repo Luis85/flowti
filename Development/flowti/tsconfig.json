@@ -9,6 +9,8 @@
     "strict": true,
     "moduleResolution": "node",
     "importHelpers": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
     "isolatedModules": true,
 	"types": ["node", "vitest/globals"],
     "lib": [

@@ -55,12 +55,11 @@ import { DataExchangeProvider } from "./domain/hub/DataExchangeProvider";
 import { AnalyticsHubProvider } from "./domain/hub/AnalyticsHubProvider";
 import { UserHubProvider } from "./domain/hub/UserHubProvider";
 import { TrainHubProvider } from "./domain/hub/TrainHubProvider";
-import { UserHubView, VIEW_TYPE_USER_HUB } from "./ui/userHub/UserHubView";
+import { VIEW_TYPE_USER_HUB } from "./domain/hub/types";
+import { registerUserHandlers } from "./infrastructure/handlers/user-handlers";
 import { SessionWorkspaceView, VIEW_TYPE_SESSION_WORKSPACE } from "./ui/session/SessionWorkspaceView";
 import { TrainMainView, VIEW_TYPE_TRAIN_MAIN } from "./ui/train/TrainMainView";
 import { TrainTimelineSidebar, VIEW_TYPE_TRAIN_TIMELINE } from "./ui/train/TrainTimelineSidebar";
-import { TrainHubView, VIEW_TYPE_TRAIN_HUB } from "./ui/train/TrainHubView";
-import { AnalyticsHubView, VIEW_TYPE_ANALYTICS_HUB } from "./ui/analytics/AnalyticsHubView";
 import { CanvasSessionService } from "./domain/canvas/session/CanvasSessionService";
 import { JourneyBuilderSidebar, VIEW_TYPE_JOURNEY_BUILDER } from "./ui/journeyBuilder/JourneyBuilderSidebar";
 import { JourneyFileView, VIEW_TYPE_JOURNEY_FILE } from "./ui/journeyBuilder/JourneyFileView";
@@ -79,6 +78,24 @@ import { showNudgeNotification } from "./ui/shared/NudgeNotification";
 import { openStartPage } from "./infrastructure/StartpageHandler";
 import { NoticeService } from "./infrastructure/ui/NoticeService";
 import { ModalService } from "./infrastructure/ui/ModalService";
+import { SitemapBootstrap } from "./infrastructure/sitemap/sitemap-bootstrap";
+import { PluginHandlerRegistry } from "./infrastructure/handlers/plugin-handler-registry";
+import { ConditionEvaluator } from "./infrastructure/handlers/condition-evaluator";
+import { registerConditionHandlers } from "./infrastructure/handlers/condition-handlers";
+import { registerActionHandlers } from "./infrastructure/handlers/action-handlers";
+import { registerTestManagementHandlers, type TestManagementHandlerDeps } from "./infrastructure/handlers/test-management-handlers";
+import { registerTrainHandlers } from "./infrastructure/handlers/train-handlers";
+import { registerCatalogHandlers } from "./infrastructure/handlers/catalog-handlers";
+import { registerDataExchangeHandlers } from "./infrastructure/handlers/data-exchange-handlers";
+import { registerAnalyticsHandlers } from "./infrastructure/handlers/analytics-handlers";
+import { registerTrainTimelineHandler } from "./infrastructure/handlers/leaf-handlers/train-timeline-handler";
+import { registerTrainMainHandler } from "./infrastructure/handlers/leaf-handlers/train-main-handler";
+import { registerCanvasImportHandler } from "./infrastructure/handlers/leaf-handlers/canvas-import-handler";
+import { registerExportHandler } from "./infrastructure/handlers/leaf-handlers/export-handler";
+import { registerSessionWorkspaceHandler } from "./infrastructure/handlers/leaf-handlers/session-workspace-handler";
+import { registerJourneyBuilderHandler } from "./infrastructure/handlers/leaf-handlers/journey-builder-handler";
+import type { PluginSitemap } from "./domain/sitemap/plugin-sitemap-types";
+import pluginSitemap from "../plugin-sitemap.json";
 
 
 /**  
@@ -157,6 +174,8 @@ export default class FlowtiBasePlugin extends Plugin {
 	private pendingSettingsWarning?: unknown[];
 	private noticeService?: NoticeService;
 	private modalService?: ModalService;
+	private handlerRegistry?: PluginHandlerRegistry;
+	private installerServiceRef?: IInstallerService;
 
 	async onload() {
 		try {
@@ -229,8 +248,149 @@ export default class FlowtiBasePlugin extends Plugin {
 				getOnboardingService: () => this.onboardingService,
 			}));
 			BaseHubView.setViewStateStore(this.getViewStateStore());
-			this.bindViews();
-			this.bindCommands();
+
+			// ── SitemapBootstrap — single-path registration for views, commands, ribbon ──
+			{
+				// Create handler registry and register all handlers
+				const handlerRegistry = new PluginHandlerRegistry();
+				registerActionHandlers(handlerRegistry, {
+					trainService: { getActiveTrain: () => this.trainService?.getActiveTrain() ?? null },
+				});
+				registerConditionHandlers(handlerRegistry, {
+					trainService: { getActiveTrain: () => this.trainService?.getActiveTrain() ?? null },
+					sessionService: { getActiveSession: () => this.sessionService?.getActiveSession() ?? null },
+					installerService: { isInstalled: () => this.installerServiceRef?.isInstalled() ?? false },
+				});
+				registerTrainHandlers(handlerRegistry, {
+					trainService: {
+						getAllTrains: () => this.trainService?.getAllTrains() ?? [],
+						getActiveTrain: () => this.trainService?.getActiveTrain(),
+					},
+					onboardingService: {
+						shouldShowCallout: (id: string) => !(this.onboardingService?.isCalloutDismissed(id) ?? false),
+					},
+					eventBus: this.eventBus,
+					openTrainView: (trainId: string) => this.revealOrCreateTrainView(trainId),
+				});
+				registerCatalogHandlers(handlerRegistry, {
+					viewState: {
+						getDiscoveredEvents: () => this.discoveryService?.getDiscoveredEvents() ?? [],
+						getExcludedTypes: () => this.eventFilterService?.getExcludedTypes() ?? [],
+						getNotifiedTypes: () => this.eventNotifyService?.getNotifiedTypes() ?? [],
+						getDomainEntries: () => [],
+						getServiceEntries: () => [],
+						getFlowEntries: () => [],
+						getSystemEntries: () => [],
+						getActorEntries: () => [],
+						getCategories: () => [],
+					},
+					eventBus: this.eventBus,
+				});
+				registerDataExchangeHandlers(handlerRegistry, {
+					dataExchangeService: {
+						getSavedImportConfigs: () => this.dataExchangeService?.getSavedImportConfigs() ?? [],
+						getSavedExportConfigs: () => this.dataExchangeService?.getSavedExportConfigs() ?? [],
+						getSavedPipelines: () => this.dataExchangeService?.getSavedPipelines() ?? [],
+						buildDataDictionary: () => this.dataExchangeService?.buildDataDictionary() ?? [],
+						getPropertyDocPath: (name: string) => this.dataExchangeService?.getPropertyDocPath(name) ?? "",
+						getTypesFolderPath: () => this.dataExchangeService?.getTypesFolderPath() ?? "",
+						getReportsFolderPath: () => this.dataExchangeService?.getReportsFolderPath() ?? "",
+					},
+					signalService: this.signalService ? {
+						getSignals: () => this.signalService!.getSignals(),
+						syncAll: () => this.signalService!.syncAll(),
+					} : null,
+					canvasService: this.canvasService ? {
+						getConfigs: () => this.canvasService!.getConfigs(),
+					} : null,
+					operationTracker: {
+						getActiveOperations: () => [],
+					},
+					eventBus: this.eventBus,
+				});
+
+				registerAnalyticsHandlers(handlerRegistry, {
+					analyticsService: {
+						listQueries: () => this.analyticsService?.listQueries() ?? [],
+						listDashboards: () => this.analyticsService?.listDashboards() ?? [],
+						listMeasurements: () => this.analyticsService?.listMeasurements() ?? [],
+						getQuery: (id: string) => this.analyticsService?.getQuery(id) ?? null,
+						getDashboardQueryMap: (id: string) => this.analyticsService?.getDashboardQueryMap(id) ?? new Map(),
+						getDefaultDashboard: () => this.analyticsService?.getDefaultDashboard() ?? null,
+						runSavedQuery: (id: string) => this.analyticsService?.runSavedQuery(id),
+					},
+					tileResultCache: {
+						tryRun: () => ({ result: null, error: null }),
+						getTimestamp: () => undefined,
+						clear: () => {},
+						clearByQueryId: () => {},
+					},
+					onboardingService: {
+						isCalloutDismissed: (id: string) => this.onboardingService?.isCalloutDismissed(id) ?? false,
+						dismissCallout: (id: string) => void this.onboardingService?.markCalloutDismissed(id),
+						shouldShowCallout: (id: string) => !(this.onboardingService?.isCalloutDismissed(id) ?? false),
+					},
+					eventBus: this.eventBus,
+				});
+
+				registerUserHandlers(handlerRegistry, {
+					userService: {
+						getUser: () => this.userService?.getUser() ?? null,
+					},
+					hubRegistry: {
+						getAll: () => this.hubRegistry?.getAll() ?? [],
+						openHub: (hubId: string, tabId?: string, detail?: string) => void this.hubRegistry?.openHub(hubId, tabId, detail),
+					},
+					inboxService: {
+						getItems: () => this.inboxService?.getItems() ?? [],
+						getUnreadCount: () => this.inboxService?.getUnreadCount() ?? 0,
+						markRead: (id: string) => void this.inboxService?.markRead(id),
+						dismiss: (id: string) => void this.inboxService?.dismiss(id),
+					},
+					sessionService: {
+						getSessions: () => this.sessionService?.getSessions() ?? [],
+						getActiveSession: () => this.sessionService?.getActiveSession() ?? null,
+					},
+					nudgeService: {
+						getConfigs: () => this.nudgeService?.getConfigs() ?? [],
+						isDismissedToday: (id: string) => this.nudgeService?.isDismissedToday(id) ?? false,
+					},
+					onboardingService: {
+						shouldShowCallout: (id: string) => !(this.onboardingService?.isCalloutDismissed(id) ?? false),
+					},
+					trainService: {
+						getAllTrains: () => this.trainService?.getAllTrains() ?? [],
+						getActiveTrain: () => this.trainService?.getActiveTrain(),
+					},
+					commandRegistry: {
+						getCommandsMeta: () => this.commands?.getCommandsMeta() ?? [],
+					},
+					eventBus: this.eventBus,
+				});
+
+				const conditionEvaluator = new ConditionEvaluator(handlerRegistry);
+
+				// Store registry for later handler registration (test-management in onLayoutReady)
+				this.handlerRegistry = handlerRegistry;
+
+				const bootstrap = new SitemapBootstrap(pluginSitemap as PluginSitemap, {
+					plugin: this,
+					eventBus: this.eventBus,
+					logger: this.logger,
+					handlerRegistry,
+					conditionEvaluator,
+				});
+				bootstrap.registerAll();
+				bootstrap.validate();
+			}
+
+			// Listen for execute requests from the Command Catalog UI
+			{
+				const ctx = this.createCommandContext();
+				this.eventBus.on("command.execute.request", (event) => {
+					void this.commands.execute(event.payload.commandId, ctx);
+				});
+			}
 
 			// UI command service — central handler for all ui.* events
 			this.uiCommandService = new UiCommandService({
@@ -238,61 +398,6 @@ export default class FlowtiBasePlugin extends Plugin {
 				eventBus: this.eventBus,
 			});
 			this.uiCommandService.setModalService(this.modalService!);
-
-			// Ribbon icons — emit UI command events
-			this.addRibbonIcon("list", "Open event catalog", () => {
-				void this.eventBus.emit("ui.openEventCatalog", {});
-			});
-			this.addRibbonIcon("arrow-left-right", "Open data exchange hub", () => {
-				void this.eventBus.emit("ui.openDataExchangeHub", {});
-			});
-			this.addRibbonIcon("home", "Open user hub", () => {
-				void this.eventBus.emit("ui.openUserHub", {});
-			});
-			this.addRibbonIcon("lightbulb", "Add idea", () => {
-				void this.eventBus.emit("ui.openQuickCapture", { type: "idea" });
-			});
-			this.addRibbonIcon("file-text", "Add note", () => {
-				void this.eventBus.emit("ui.openQuickCapture", { type: "note" });
-			});
-			this.addRibbonIcon("check-square", "Add task", () => {
-				void this.eventBus.emit("ui.openQuickCapture", { type: "task" });
-			});
-			this.addRibbonIcon("help-circle", "Add question", () => {
-				void this.eventBus.emit("ui.openQuickCapture", { type: "question" });
-			});
-			this.addRibbonIcon("message-circle", "Add feedback", () => {
-				void this.eventBus.emit("ui.openQuickCapture", { type: "feedback" });
-			});
-			this.addRibbonIcon("bug", "Add bug", () => {
-				void this.eventBus.emit("ui.openQuickCapture", { type: "bug" });
-			});
-			this.addRibbonIcon("graduation-cap", "Add learning", () => {
-				void this.eventBus.emit("ui.openQuickCapture", { type: "learning" });
-			});
-			this.addRibbonIcon("waypoints", "Open train hub", () => {
-				void this.eventBus.emit("ui.openTrainHub", {});
-			});
-			this.addRibbonIcon("bar-chart-2", "Open analytics hub", () => {
-				void this.eventBus.emit("ui.openAnalyticsHub", {});
-			});
-			this.addRibbonIcon("train-front", "Train of thoughts", () => {
-				const activeTrain = this.trainService?.getActiveTrain();
-				if (activeTrain) {
-					void this.eventBus.emit("ui.openTrainView", { trainId: activeTrain.id });
-					return;
-				}
-				void this.eventBus.emit("ui.startTrain", {});
-			});
-			this.addRibbonIcon("layout-template", "Start canvas session", () => {
-				void this.eventBus.emit("ui.startCanvasSession", {});
-			});
-			this.addRibbonIcon("route", "Open journey builder", () => {
-				void this.eventBus.emit("ui.openJourneyBuilder", {});
-			});
-			this.addRibbonIcon("shield-check", "Open test management hub", () => {
-				void this.eventBus.emit("ui.openTestManagementHub", {});
-			});
 
 			// Status bar
 			const statusBarEl = this.addStatusBarItem();
@@ -350,7 +455,7 @@ export default class FlowtiBasePlugin extends Plugin {
 
 		// Detach all Flowti view leaves to prevent stale views during hot-reload
 		const viewTypes = [
-			"flowti-event-catalog", "flowti-event-log", "flowti-component-showcase",
+			"flowti-event-catalog",
 			"flowti-data-exchange-hub", "flowti-user-hub",
 			"flowti-train-main", "flowti-train-timeline", "flowti-train-hub",
 			"flowti-analytics-hub", "flowti-session-workspace",
@@ -462,60 +567,6 @@ export default class FlowtiBasePlugin extends Plugin {
 	}
 
 	/**
-	 * Binds all registered commands to Obsidian's command palette.
-	 * Each command is wrapped to execute through the middleware pipeline.
-	 *
-	 * Commands with state preconditions use `checkCallback` so they
-	 * only appear in the command palette when applicable.
-	 */
-	private bindCommands(): void {
-		const ctx = this.createCommandContext();
-
-		/** Commands that require an active/paused train. */
-		const trainPreconditions: Record<string, (train: { status: string }) => boolean> = {
-			"flowti:resume-train": (t) => t.status === "paused",
-			"flowti:complete-train": (t) => t.status === "running",
-			"flowti:view-train": () => true,
-			"flowti:open-train-canvas": () => true,
-			"flowti:open-train-timeline": () => true,
-		};
-
-		for (const command of this.commands.getCommands()) {
-			const trainCheck = trainPreconditions[command.id];
-
-			if (trainCheck) {
-				this.addCommand({
-					id: command.id,
-					name: command.name,
-					icon: command.icon,
-					mobileOnly: command.mobileOnly,
-					checkCallback: (checking) => {
-						const train = this.trainService?.getActiveTrain();
-						if (!train || !trainCheck(train)) return false;
-						if (!checking) void this.commands.execute(command.id, ctx);
-						return true;
-					},
-				});
-			} else {
-				this.addCommand({
-					id: command.id,
-					name: command.name,
-					icon: command.icon,
-					mobileOnly: command.mobileOnly,
-					callback: () => {
-						void this.commands.execute(command.id, ctx);
-					},
-				});
-			}
-		}
-
-		// Listen for execute requests from the Command Catalog UI
-		this.eventBus.on("command.execute.request", (event) => {
-			void this.commands.execute(event.payload.commandId, ctx);
-		});
-	}
-
-	/**
 	 * Create command context with all dependencies.
 	 */
 	private createCommandContext(): CommandContext {
@@ -618,15 +669,6 @@ export default class FlowtiBasePlugin extends Plugin {
 	}
 
 	/**
-	 * Bind registered views to Obsidian.
-	 */
-	private bindViews(): void {
-		for (const view of this.views.getViews()) {
-			this.safeRegisterView(view.type, view.factory);
-		}
-	}
-
-	/**
 	 * Final initialization step, deferred until Obsidian's workspace
 	 * layout is fully rendered.
 	 *
@@ -704,6 +746,7 @@ export default class FlowtiBasePlugin extends Plugin {
 
 		const installerService = await this.services.get<IInstallerService>("installerService");
 		await this.timedServiceLoad("installerService", () => installerService.load());
+		this.installerServiceRef = installerService;
 		InstallerWizardModal.showIfNeeded(this.app, installerService, this.eventBus);
 
 		// Register open-installer command — only available when not installed
@@ -918,13 +961,17 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.onboardingService = await this.services.get<OnboardingService>("onboardingService");
 		await this.timedServiceLoad("onboardingService", () => this.onboardingService!.load());
 
-		// Train Main View — register view factory + auto-open on train start
-		this.safeRegisterView(VIEW_TYPE_TRAIN_MAIN, (leaf) =>
-			new TrainMainView(leaf, this.eventBus, this.trainService!, () => ({
+		// Train Main — now sitemap-driven via SitemapLeafView + handler
+		registerTrainMainHandler(this.handlerRegistry!, {
+			trainService: this.trainService!,
+			eventBus: this.eventBus,
+			app: this.app,
+			getTrainSettings: () => ({
 				trainFolder: settingsService.getSettings().trainFolder,
 				trainCanvasEnabled: settingsService.getSettings().trainCanvasEnabled,
 				trainCanvasAutoOpen: settingsService.getSettings().trainCanvasAutoOpen,
-			}), {
+			}),
+			closureDeps: {
 				getSession: (sessionId) => this.sessionService?.getSessionById(sessionId) ?? null,
 				completeClosure: (sessionId, response) => {
 					void this.sessionService?.completeClosure(sessionId, response);
@@ -932,29 +979,43 @@ export default class FlowtiBasePlugin extends Plugin {
 				skipClosure: (sessionId) => {
 					void this.sessionService?.skipClosure(sessionId);
 				},
-			}),
-		);
+			},
+		});
 
-		// Train Timeline Sidebar — register view factory + auto-open in right sidebar
-		this.safeRegisterView(VIEW_TYPE_TRAIN_TIMELINE, (leaf) =>
-			new TrainTimelineSidebar(leaf, this.eventBus, this.trainService!, () => ({
+		// Train Timeline — now sitemap-driven via SitemapLeafView + handler
+		registerTrainTimelineHandler(this.handlerRegistry!, {
+			trainService: this.trainService!,
+			eventBus: this.eventBus,
+			app: { vault: { getAbstractFileByPath: (path: string) => this.app.vault.getAbstractFileByPath(path) } },
+			getTrainSettings: () => ({
 				trainFolder: settingsService.getSettings().trainFolder,
 				trainCanvasEnabled: settingsService.getSettings().trainCanvasEnabled,
 				trainCanvasAutoOpen: settingsService.getSettings().trainCanvasAutoOpen,
-			})),
-		);
+			}),
+		});
 
-		// Train Hub — central management view for all trains
-		this.safeRegisterView(VIEW_TYPE_TRAIN_HUB, (leaf) =>
-			new TrainHubView(leaf, this.eventBus, this.trainService!, (trainId) => {
-				this.revealOrCreateTrainView(trainId);
-			}, this.onboardingService!),
-		);
+		// Canvas Import — now sitemap-driven via SitemapLeafView + handler
+		registerCanvasImportHandler(this.handlerRegistry!, {
+			canvasService: this.canvasService!,
+			eventBus: this.eventBus,
+			app: this.app,
+		});
 
-		// Analytics Hub — dedicated analytics view
-		this.safeRegisterView(VIEW_TYPE_ANALYTICS_HUB, (leaf) =>
-			new AnalyticsHubView(leaf, this.eventBus, this.analyticsService!, this.onboardingService!),
-		);
+		// Export — now sitemap-driven via SitemapLeafView + handler
+		registerExportHandler(this.handlerRegistry!, {
+			dataExchangeService: this.dataExchangeService!,
+			eventBus: this.eventBus,
+			app: this.app,
+			getConfig: () => null, // Config passed via view state at open time
+		});
+
+		// Session Workspace — now sitemap-driven via SitemapLeafView + handler
+		registerSessionWorkspaceHandler(this.handlerRegistry!, {
+			sessionService: this.sessionService!,
+			eventBus: this.eventBus,
+			app: this.app,
+			trainService: this.trainService,
+		});
 
 		// Test Management Hub — quality cockpit for journey-based testing
 		this.testManagementService = await this.services.get<TestManagementService>("testManagementService");
@@ -1016,6 +1077,15 @@ export default class FlowtiBasePlugin extends Plugin {
 		await this.timedServiceLoad("testManagementService", () => this.testManagementService!.load());
 		// TestManagement hub is now driven by SitemapHubView + Lit components.
 		// View registration is handled by SitemapBootstrap via plugin-sitemap.json.
+		// Register tab handlers now that the service is available.
+		if (this.handlerRegistry) {
+			registerTestManagementHandlers(this.handlerRegistry, {
+				service: this.testManagementService! as unknown as TestManagementHandlerDeps["service"],
+				onboardingService: { shouldShowCallout: (id: string) => !(this.onboardingService?.isCalloutDismissed(id) ?? false) },
+				getSettings: () => ({ docsRootPath: settingsService.getSettings().docsRootPath }),
+				eventBus: this.eventBus,
+			});
+		}
 
 		// Feature Lifecycle — PRD scanning, stage management, gate checks
 		this.featureLifecycleService = await this.services.get<FeatureLifecycleService>("featureLifecycleService");
@@ -1135,24 +1205,21 @@ export default class FlowtiBasePlugin extends Plugin {
 			}),
 		);
 
-		// Journey Builder — sidebar for creating E2E journey definitions
-		this.safeRegisterView(VIEW_TYPE_JOURNEY_BUILDER, (leaf) =>
-			new JourneyBuilderSidebar(leaf, {
-				eventBus: this.eventBus,
-				getEventCatalog: () => EVENT_CATALOG.map((e) => ({
-					type: e.type,
-					category: e.category,
-					description: e.description,
-				})),
-				getCommands: () => this.commands.getCommandsMeta().map((c) => ({ id: c.id, label: c.label, domain: c.domain })),
-				getJourneyFolder: () => settingsService.getSettings().journeyFolder,
-			}),
-		);
+		// Journey Builder — now sitemap-driven via SitemapLeafView + handler
+		registerJourneyBuilderHandler(this.handlerRegistry!, {
+			eventBus: this.eventBus,
+			app: this.app,
+			getEventCatalog: () => EVENT_CATALOG.map((e) => ({
+				type: e.type,
+				category: e.category,
+				description: e.description,
+			})),
+			getCommands: () => this.commands.getCommandsMeta().map((c) => ({ id: c.id, label: c.label, domain: c.domain })),
+			getJourneyFolder: () => settingsService.getSettings().journeyFolder,
+		});
 
-		// Journey File View — opens .journey files with summary + sidebar
-		this.safeRegisterView(VIEW_TYPE_JOURNEY_FILE, (leaf) =>
-			new JourneyFileView(leaf, this.eventBus, () => settingsService.getSettings().journeyFolder),
-		);
+		// Journey File View — still uses fileView factory (TextFileView subclass)
+		// Registered via SitemapBootstrap with fileView: true in plugin-sitemap.json
 		try {
 			this.registerExtensions(["journey"], VIEW_TYPE_JOURNEY_FILE);
 		} catch {
@@ -1510,9 +1577,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.hubRegistry.register(new FeatureLifecycleProvider(this.featureLifecycleService));
 		}
 
-		this.safeRegisterView(VIEW_TYPE_USER_HUB, (leaf) =>
-			new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!, this.inboxService!, this.sessionService!, this.nudgeService!, this.onboardingService!, this.settings.inboxEnabledSources, this.settings, this.trainService, this.commands, () => this.featureLifecycleService?.getFeatures()?.map((f) => ({ name: f.name })) ?? []),
-		);
+		// UserHubView factory removed — User Hub is now sitemap-driven via SitemapHubView + Lit components (see registerUserHandlers).
 		this.hubRegistry.register(new UserHubProvider(this.userService, this.inboxService!));
 
 		// Session views, commands, and file-menu items

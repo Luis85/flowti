@@ -69,7 +69,6 @@ describe("plugin-sitemap integration", () => {
 			logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), setContext: vi.fn(), setDebugMode: vi.fn() } as never,
 			handlerRegistry: registry,
 			conditionEvaluator: evaluator,
-			legacyViewFactories: new Map(),
 		});
 
 		bootstrap.registerAll();
@@ -81,10 +80,9 @@ describe("plugin-sitemap integration", () => {
 		expect(mockPlugin.addRibbonIcon).toHaveBeenCalledTimes(sitemap.ribbon.length);
 	});
 
-	it("test-management-hub is no longer legacy and has tabs", () => {
+	it("test-management-hub has tabs and refreshEvents", () => {
 		const sitemap = loadSitemap();
 		const view = sitemap.views["test-management-hub"];
-		expect(view.legacy).toBeUndefined();
 		expect(view.tabs).toBeDefined();
 		expect(view.tabs!.length).toBeGreaterThanOrEqual(8);
 		expect(view.refreshEvents).toBeDefined();

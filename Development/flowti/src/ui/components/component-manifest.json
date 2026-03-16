@@ -87,40 +87,60 @@
 			"name": "User Dashboard",
 			"category": "user",
 			"description": "Personal cockpit with cross-hub summaries, active sessions, and idea capture.",
-			"source": "ui/userHub/UserHubDashboard.ts",
+			"source": "components/user/flowti-user-dashboard.ts",
 			"layouts": ["single"],
-			"emits": [],
-			"tags": ["dashboard"]
+			"emits": ["navigate-hub", "open-inbox", "open-session"],
+			"tags": ["dashboard", "lit"]
 		},
 		{
 			"id": "user-sessions",
 			"name": "Sessions Tab",
 			"category": "user",
 			"description": "Focus session browsing, creation, and timer management.",
-			"source": "ui/userHub/UserHubSessions.ts",
+			"source": "components/user/flowti-user-sessions.ts",
 			"layouts": ["split"],
-			"emits": ["session.start", "session.end"],
-			"tags": ["tab", "master-detail"]
+			"emits": ["session-selected", "session-action"],
+			"tags": ["tab", "lit"]
 		},
 		{
 			"id": "user-inbox",
 			"name": "Inbox Tab",
 			"category": "user",
 			"description": "Inbox item management with filters, triage actions, and source tracking.",
-			"source": "ui/userHub/UserHubInbox.ts",
+			"source": "components/user/flowti-user-inbox.ts",
 			"layouts": ["split"],
-			"emits": ["inbox.item.triaged"],
-			"tags": ["tab", "master-detail"]
+			"emits": ["item-selected", "mark-read", "dismiss", "action"],
+			"tags": ["tab", "lit"]
 		},
 		{
 			"id": "user-commands",
 			"name": "Commands Tab",
 			"category": "user",
 			"description": "Command catalog and discovery with categories and search.",
-			"source": "ui/userHub/UserHubCommands.ts",
+			"source": "components/user/flowti-user-commands.ts",
 			"layouts": ["single"],
-			"emits": [],
-			"tags": ["tab"]
+			"emits": ["execute-command"],
+			"tags": ["tab", "lit"]
+		},
+		{
+			"id": "user-preferences",
+			"name": "Preferences Tab",
+			"category": "user",
+			"description": "User preferences with sources, session, train, and nudge sub-panels.",
+			"source": "components/user/flowti-user-preferences.ts",
+			"layouts": ["split"],
+			"emits": ["setting-changed", "panel-switched"],
+			"tags": ["tab", "lit"]
+		},
+		{
+			"id": "user-health",
+			"name": "Health Tab",
+			"category": "user",
+			"description": "Health scanner dashboard for entity health checks.",
+			"source": "components/user/flowti-user-health.ts",
+			"layouts": ["split"],
+			"emits": ["item-selected"],
+			"tags": ["tab", "lit"]
 		}
 	]
 }

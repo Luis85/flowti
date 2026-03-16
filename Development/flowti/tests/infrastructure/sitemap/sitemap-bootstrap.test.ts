@@ -75,51 +75,63 @@ describe("SitemapBootstrap", () => {
 			logger,
 			handlerRegistry: registry,
 			conditionEvaluator: evaluator,
-			legacyViewFactories: new Map(),
 		});
 	}
 
 	describe("registerViews", () => {
-		it("registers legacy view using factory from legacyViewFactories map", () => {
-			const factory = vi.fn();
+		it("registers view with tabs as SitemapHubView", () => {
 			const sitemap = minimalSitemap({
 				views: {
-					"test": { kind: "hub", label: "Test", icon: "x", type: "flowti-test", legacy: true },
-				},
-			});
-			const bootstrap = new SitemapBootstrap(sitemap, {
-				plugin: plugin as never,
-				eventBus,
-				logger,
-				handlerRegistry: registry,
-				conditionEvaluator: evaluator,
-				legacyViewFactories: new Map([["flowti-test", factory]]),
-			});
-			bootstrap.registerAll();
-			expect(plugin.registerView).toHaveBeenCalledWith("flowti-test", expect.any(Function));
-		});
-
-		it("skips legacy view when factory not found", () => {
-			const sitemap = minimalSitemap({
-				views: {
-					"test": { kind: "hub", label: "Test", icon: "x", type: "flowti-test", legacy: true },
-				},
-			});
-			const bootstrap = createBootstrap(sitemap);
-			bootstrap.registerAll();
-			expect(plugin.registerView).not.toHaveBeenCalled();
-			expect(logger.warn).toHaveBeenCalled();
-		});
-
-		it("registers non-legacy view as SitemapHubView", () => {
-			const sitemap = minimalSitemap({
-				views: {
-					"new-hub": { kind: "hub", label: "New", icon: "star", type: "flowti-new-hub" },
+					"new-hub": { kind: "hub", label: "New", icon: "star", type: "flowti-new-hub", tabs: [{ id: "t", label: "T", icon: "x", handler: "h" }] },
 				},
 			});
 			const bootstrap = createBootstrap(sitemap);
 			bootstrap.registerAll();
 			expect(plugin.registerView).toHaveBeenCalledWith("flowti-new-hub", expect.any(Function));
+		});
+
+		it("registers view with handler field as SitemapLeafView", () => {
+			const sitemap = minimalSitemap({
+				views: {
+					"leaf": { kind: "leaf", label: "Leaf", icon: "file", type: "flowti-leaf", handler: "leaf:main" },
+				},
+			});
+			const bootstrap = createBootstrap(sitemap);
+			bootstrap.registerAll();
+			expect(plugin.registerView).toHaveBeenCalledWith("flowti-leaf", expect.any(Function));
+		});
+
+		it("registers view with component field as SitemapLeafView", () => {
+			const sitemap = minimalSitemap({
+				views: {
+					"leaf": { kind: "leaf", label: "Leaf", icon: "file", type: "flowti-leaf", component: "flowti-widget" },
+				},
+			});
+			const bootstrap = createBootstrap(sitemap);
+			bootstrap.registerAll();
+			expect(plugin.registerView).toHaveBeenCalledWith("flowti-leaf", expect.any(Function));
+		});
+
+		it("skips fileView views (registered via domain setup classes)", () => {
+			const sitemap = minimalSitemap({
+				views: {
+					"csv": { kind: "leaf", label: "CSV", icon: "file", type: "flowti-csv", fileView: true },
+				},
+			});
+			const bootstrap = createBootstrap(sitemap);
+			bootstrap.registerAll();
+			expect(plugin.registerView).not.toHaveBeenCalled();
+		});
+
+		it("skips view without tabs, handler, or component", () => {
+			const sitemap = minimalSitemap({
+				views: {
+					"empty": { kind: "hub", label: "Empty", icon: "x", type: "flowti-empty" },
+				},
+			});
+			const bootstrap = createBootstrap(sitemap);
+			bootstrap.registerAll();
+			expect(plugin.registerView).not.toHaveBeenCalled();
 		});
 	});
 

@@ -6,6 +6,8 @@ export interface TabContext {
 	viewId: string;
 	eventBus: IEventBus;
 	searchText?: string;
+	/** The WorkspaceLeaf hosting this view (available in SitemapLeafView contexts) */
+	leaf?: unknown;
 }
 
 export interface ActionContext {
@@ -25,7 +27,8 @@ export interface DataSourceContext {
 	params?: Record<string, string>;
 }
 
-export type TabHandler = (container: HTMLElement, ctx: TabContext) => void | Promise<void>;
+export type TabCleanup = () => void;
+export type TabHandler = (container: HTMLElement, ctx: TabContext) => void | TabCleanup | Promise<void | TabCleanup>;
 export type ActionHandler = (ctx: ActionContext) => void | Promise<void>;
 export type ConditionHandler = (ctx: ConditionContext) => boolean;
 export type DataSourceHandler = (ctx: DataSourceContext) => unknown | Promise<unknown>;

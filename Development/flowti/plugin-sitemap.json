@@ -1,68 +1,117 @@
 {
 	"version": 2,
 	"views": {
-		"component-showcase": {
-			"kind": "panel",
-			"label": "Flowti Components",
-			"icon": "palette",
-			"type": "flowti-component-showcase",
-			"legacy": true
-		},
 		"event-catalog": {
-			"kind": "panel",
+			"kind": "hub",
 			"label": "Event Catalog",
 			"icon": "list",
 			"type": "flowti-event-catalog",
-			"legacy": true
-		},
-		"event-log": {
-			"kind": "panel",
-			"label": "Activity Log",
-			"icon": "activity",
-			"type": "flowti-event-log",
-			"legacy": true
+			"tabs": [
+				{ "id": "events", "label": "Events", "icon": "zap", "handler": "catalog:events", "searchPlaceholder": "Search events..." },
+				{ "id": "domains", "label": "Domains", "icon": "boxes", "handler": "catalog:domains", "searchPlaceholder": "Search domains..." },
+				{ "id": "services", "label": "Services", "icon": "server", "handler": "catalog:services", "searchPlaceholder": "Search services..." },
+				{ "id": "flows", "label": "Flows", "icon": "git-branch", "handler": "catalog:flows", "searchPlaceholder": "Search flows..." },
+				{ "id": "systems", "label": "Systems", "icon": "cpu", "handler": "catalog:systems", "searchPlaceholder": "Search systems..." },
+				{ "id": "actors", "label": "Actors", "icon": "users", "handler": "catalog:actors", "searchPlaceholder": "Search actors..." }
+			],
+			"refreshEvents": [
+				"discovery.loaded", "discovery.updated", "discovery.removed",
+				"eventFilter.loaded", "eventFilter.changed",
+				"eventNotify.loaded", "eventNotify.changed",
+				"settings.loaded", "settings.changed",
+				"subscription.loaded", "subscription.created", "subscription.updated", "subscription.deleted",
+				"eventDefinition.loaded", "eventDefinition.created", "eventDefinition.updated", "eventDefinition.deleted",
+				"doc.created", "doc.deleted"
+			]
 		},
 		"user-hub": {
 			"kind": "hub",
 			"label": "User Hub",
 			"icon": "home",
 			"type": "flowti-user-hub",
-			"legacy": true
+			"tabs": [
+				{ "id": "sessions", "label": "Sessions", "icon": "timer", "handler": "user:sessions", "searchPlaceholder": "Search sessions..." },
+				{ "id": "inbox", "label": "Inbox", "icon": "inbox", "handler": "user:inbox", "searchPlaceholder": "Search inbox..." },
+				{ "id": "commands", "label": "Commands", "icon": "terminal", "handler": "user:commands", "searchPlaceholder": "Search commands..." },
+				{ "id": "preferences", "label": "Preferences", "icon": "settings", "handler": "user:preferences" },
+				{ "id": "health", "label": "Health", "icon": "heart-pulse", "handler": "user:health", "searchPlaceholder": "Search health items..." }
+			],
+			"refreshEvents": [
+				"inbox.received", "inbox.dismissed", "inbox.actioned",
+				"session.started", "session.paused", "session.resumed", "session.ended", "session.timer.tick",
+				"settings.loaded", "settings.changed",
+				"user.profile.loaded", "user.profile.updated",
+				"hub.opened", "hub.closed"
+			]
 		},
 		"session-workspace": {
 			"kind": "panel",
 			"label": "Session Workspace",
 			"icon": "timer",
 			"type": "flowti-session-workspace",
-			"legacy": true
+			"handler": "leaf:session-workspace",
+			"refreshEvents": [
+				"session.started", "session.paused", "session.resumed", "session.ended",
+				"session.timer.tick", "session.goals.updated", "session.tasks.updated",
+				"session.notes.updated", "session.activity.recorded"
+			]
 		},
 		"train-main": {
 			"kind": "leaf",
 			"label": "Train of Thoughts",
 			"icon": "train-front",
 			"type": "flowti-train-main",
-			"legacy": true
+			"handler": "leaf:train-main",
+			"refreshEvents": [
+				"train.started", "train.paused", "train.resumed",
+				"train.completed", "train.thought.added"
+			]
 		},
 		"train-timeline": {
 			"kind": "panel",
 			"label": "Train Timeline",
 			"icon": "git-branch",
 			"type": "flowti-train-timeline",
-			"legacy": true
+			"handler": "leaf:train-timeline",
+			"refreshEvents": [
+				"train.started", "train.paused", "train.resumed",
+				"train.completed", "train.thought.added"
+			]
 		},
 		"train-hub": {
 			"kind": "hub",
 			"label": "Train Hub",
 			"icon": "train-front",
 			"type": "flowti-train-hub",
-			"legacy": true
+			"tabs": [
+				{ "id": "active", "label": "Active", "icon": "play", "handler": "train:active", "searchPlaceholder": "Search active trains..." },
+				{ "id": "history", "label": "History", "icon": "history", "handler": "train:history", "searchPlaceholder": "Search completed trains..." }
+			],
+			"refreshEvents": [
+				"train.started", "train.paused", "train.resumed",
+				"train.completed", "train.deleted", "train.renamed",
+				"train.thought.added"
+			]
 		},
 		"analytics-hub": {
 			"kind": "hub",
 			"label": "Analytics Hub",
 			"icon": "bar-chart-2",
 			"type": "flowti-analytics-hub",
-			"legacy": true
+			"tabs": [
+				{ "id": "dashboards", "label": "Dashboards", "icon": "layout-grid", "handler": "analytics:dashboards", "searchPlaceholder": "Search dashboards..." },
+				{ "id": "queries", "label": "Queries", "icon": "search", "handler": "analytics:queries", "searchPlaceholder": "Search queries..." },
+				{ "id": "measurements", "label": "Measurements", "icon": "ruler", "handler": "analytics:measurements", "searchPlaceholder": "Search measurements..." }
+			],
+			"refreshEvents": [
+				"analytics.query.saved", "analytics.query.deleted",
+				"analytics.query.renamed", "analytics.query.duplicated", "analytics.query.favorited",
+				"analytics.dashboard.created", "analytics.dashboard.deleted", "analytics.dashboard.updated",
+				"analytics.dashboard.tile.added", "analytics.dashboard.tile.removed", "analytics.dashboard.tile.reordered",
+				"analytics.dashboard.favorited", "analytics.dashboard.defaultChanged",
+				"analytics.measurement.created", "analytics.measurement.updated",
+				"analytics.measurement.deleted", "analytics.measurement.favorited"
+			]
 		},
 		"test-management-hub": {
 			"kind": "hub",
@@ -92,53 +141,61 @@
 			"label": "Data Exchange Hub",
 			"icon": "arrow-left-right",
 			"type": "flowti-data-exchange-hub",
-			"legacy": true
+			"tabs": [
+				{ "id": "pipelines", "label": "Pipelines", "icon": "git-branch", "handler": "dx:pipelines", "searchPlaceholder": "Search pipelines..." },
+				{ "id": "imports", "label": "Imports", "icon": "file-input", "handler": "dx:imports", "searchPlaceholder": "Search imports..." },
+				{ "id": "exports", "label": "Exports", "icon": "file-output", "handler": "dx:exports", "searchPlaceholder": "Search exports..." },
+				{ "id": "types", "label": "Types", "icon": "tags", "handler": "dx:types", "searchPlaceholder": "Search types..." },
+				{ "id": "properties", "label": "Properties", "icon": "list", "handler": "dx:properties", "searchPlaceholder": "Search properties..." },
+				{ "id": "signals", "label": "Signals", "icon": "radio", "handler": "dx:signals", "searchPlaceholder": "Search signals..." },
+				{ "id": "reports", "label": "Reports", "icon": "bar-chart", "handler": "dx:reports", "searchPlaceholder": "Search reports..." },
+				{ "id": "canvas", "label": "Canvas", "icon": "layout-dashboard", "handler": "dx:canvas", "searchPlaceholder": "Search canvases..." }
+			],
+			"refreshEvents": [
+				"dataExchange.import.started", "dataExchange.import.completed", "dataExchange.import.failed",
+				"dataExchange.export.started", "dataExchange.export.completed", "dataExchange.export.failed",
+				"dataExchange.pipeline.started", "dataExchange.pipeline.completed", "dataExchange.pipeline.failed",
+				"signal.synced", "signal.created", "signal.deleted",
+				"canvas.imported", "canvas.created"
+			]
 		},
 		"csv-action": {
 			"kind": "leaf",
 			"label": "CSV File",
 			"icon": "file-spreadsheet",
 			"type": "flowti-csv",
-			"legacy": true
+			"fileView": true
 		},
 		"canvas-import": {
 			"kind": "leaf",
 			"label": "Canvas Import",
 			"icon": "layout-dashboard",
 			"type": "flowti-canvas-import",
-			"legacy": true
+			"handler": "leaf:canvas-import"
 		},
 		"export": {
 			"kind": "leaf",
 			"label": "Export",
 			"icon": "file-output",
 			"type": "flowti-export",
-			"legacy": true
+			"handler": "leaf:export"
 		},
 		"journey-builder": {
 			"kind": "panel",
 			"label": "Journey Builder",
 			"icon": "route",
 			"type": "flowti-journey-builder",
-			"legacy": true
+			"handler": "leaf:journey-builder"
 		},
 		"journey-file": {
 			"kind": "leaf",
 			"label": "Journey Definition",
 			"icon": "route",
 			"type": "flowti-journey-file",
-			"legacy": true
+			"fileView": true
 		}
 	},
 	"commands": [
-		{
-			"id": "flowti:open-component-showcase",
-			"name": "Open component showcase",
-			"domain": "developer",
-			"category": "view",
-			"icon": "palette",
-			"handler": "view:open-component-showcase"
-		},
 		{
 			"id": "flowti:open-event-catalog",
 			"name": "Open event catalog",
@@ -146,14 +203,6 @@
 			"category": "view",
 			"icon": "list",
 			"handler": "view:open-event-catalog"
-		},
-		{
-			"id": "flowti:open-event-log",
-			"name": "Open event log",
-			"domain": "developer",
-			"category": "view",
-			"icon": "activity",
-			"handler": "view:open-event-log"
 		},
 		{
 			"id": "flowti:open-user-hub",

@@ -20,12 +20,6 @@ export interface UiCommandEventMap {
 	/** Open the Event Catalog view (or reveal if already open) */
 	"ui.openEventCatalog": Record<string, never>;
 
-	/** Open the Event Log view in the right sidebar */
-	"ui.openEventLog": Record<string, never>;
-
-	/** Open the Component Showcase view in the right sidebar */
-	"ui.openComponentShowcase": Record<string, never>;
-
 	/** Open the Data Exchange Hub view */
 	"ui.openDataExchangeHub": Record<string, never>;
 
