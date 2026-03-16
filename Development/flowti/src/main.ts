@@ -1,4 +1,4 @@
-import { Plugin, TFile, TFolder, type ViewCreator } from "obsidian";
+import { Plugin, TFile, TFolder, type ViewCreator, type WorkspaceLeaf } from "obsidian";
 import { registerCommands } from "./infrastructure/commands/registry";
 import type { CommandContext, ICommandRegistry } from "./infrastructure/commands/types";
 import { LifecycleError } from "./infrastructure/errors/FlowtiError";
@@ -79,6 +79,14 @@ import { showNudgeNotification } from "./ui/shared/NudgeNotification";
 import { openStartPage } from "./infrastructure/StartpageHandler";
 import { NoticeService } from "./infrastructure/ui/NoticeService";
 import { ModalService } from "./infrastructure/ui/ModalService";
+import { SitemapBootstrap } from "./infrastructure/sitemap/sitemap-bootstrap";
+import { PluginHandlerRegistry } from "./infrastructure/handlers/plugin-handler-registry";
+import { ConditionEvaluator } from "./infrastructure/handlers/condition-evaluator";
+import { registerConditionHandlers } from "./infrastructure/handlers/condition-handlers";
+import { registerActionHandlers } from "./infrastructure/handlers/action-handlers";
+import { registerTestManagementHandlers, type TestManagementHandlerDeps } from "./infrastructure/handlers/test-management-handlers";
+import type { PluginSitemap } from "./domain/sitemap/plugin-sitemap-types";
+import pluginSitemap from "../plugin-sitemap.json";
 
 
 /**  
@@ -157,6 +165,8 @@ export default class FlowtiBasePlugin extends Plugin {
 	private pendingSettingsWarning?: unknown[];
 	private noticeService?: NoticeService;
 	private modalService?: ModalService;
+	private handlerRegistry?: PluginHandlerRegistry;
+	private installerServiceRef?: IInstallerService;
 
 	async onload() {
 		try {
@@ -229,8 +239,53 @@ export default class FlowtiBasePlugin extends Plugin {
 				getOnboardingService: () => this.onboardingService,
 			}));
 			BaseHubView.setViewStateStore(this.getViewStateStore());
-			this.bindViews();
-			this.bindCommands();
+
+			// ── SitemapBootstrap — single-path registration for views, commands, ribbon ──
+			{
+				// Build legacy view factories for views available at load time.
+				// Views registered in onLayoutReady (train, analytics, user hub, etc.)
+				// are not in this map — SitemapBootstrap will skip them with a warning,
+				// and they continue to be registered via safeRegisterView() in onLayoutReady.
+				const legacyViewFactories = new Map<string, (leaf: WorkspaceLeaf) => unknown>();
+				for (const view of this.views.getViews()) {
+					legacyViewFactories.set(view.type, view.factory);
+				}
+
+				// Create handler registry and register all handlers
+				const handlerRegistry = new PluginHandlerRegistry();
+				registerActionHandlers(handlerRegistry, {
+					trainService: { getActiveTrain: () => this.trainService?.getActiveTrain() ?? null },
+				});
+				registerConditionHandlers(handlerRegistry, {
+					trainService: { getActiveTrain: () => this.trainService?.getActiveTrain() ?? null },
+					sessionService: { getActiveSession: () => this.sessionService?.getActiveSession() ?? null },
+					installerService: { isInstalled: () => this.installerServiceRef?.isInstalled() ?? false },
+				});
+
+				const conditionEvaluator = new ConditionEvaluator(handlerRegistry);
+
+				// Store registry for later handler registration (test-management in onLayoutReady)
+				this.handlerRegistry = handlerRegistry;
+
+				const bootstrap = new SitemapBootstrap(pluginSitemap as PluginSitemap, {
+					plugin: this,
+					eventBus: this.eventBus,
+					logger: this.logger,
+					handlerRegistry,
+					conditionEvaluator,
+					legacyViewFactories,
+				});
+				bootstrap.registerAll();
+				bootstrap.validate();
+			}
+
+			// Listen for execute requests from the Command Catalog UI
+			{
+				const ctx = this.createCommandContext();
+				this.eventBus.on("command.execute.request", (event) => {
+					void this.commands.execute(event.payload.commandId, ctx);
+				});
+			}
 
 			// UI command service — central handler for all ui.* events
 			this.uiCommandService = new UiCommandService({
@@ -238,61 +293,6 @@ export default class FlowtiBasePlugin extends Plugin {
 				eventBus: this.eventBus,
 			});
 			this.uiCommandService.setModalService(this.modalService!);
-
-			// Ribbon icons — emit UI command events
-			this.addRibbonIcon("list", "Open event catalog", () => {
-				void this.eventBus.emit("ui.openEventCatalog", {});
-			});
-			this.addRibbonIcon("arrow-left-right", "Open data exchange hub", () => {
-				void this.eventBus.emit("ui.openDataExchangeHub", {});
-			});
-			this.addRibbonIcon("home", "Open user hub", () => {
-				void this.eventBus.emit("ui.openUserHub", {});
-			});
-			this.addRibbonIcon("lightbulb", "Add idea", () => {
-				void this.eventBus.emit("ui.openQuickCapture", { type: "idea" });
-			});
-			this.addRibbonIcon("file-text", "Add note", () => {
-				void this.eventBus.emit("ui.openQuickCapture", { type: "note" });
-			});
-			this.addRibbonIcon("check-square", "Add task", () => {
-				void this.eventBus.emit("ui.openQuickCapture", { type: "task" });
-			});
-			this.addRibbonIcon("help-circle", "Add question", () => {
-				void this.eventBus.emit("ui.openQuickCapture", { type: "question" });
-			});
-			this.addRibbonIcon("message-circle", "Add feedback", () => {
-				void this.eventBus.emit("ui.openQuickCapture", { type: "feedback" });
-			});
-			this.addRibbonIcon("bug", "Add bug", () => {
-				void this.eventBus.emit("ui.openQuickCapture", { type: "bug" });
-			});
-			this.addRibbonIcon("graduation-cap", "Add learning", () => {
-				void this.eventBus.emit("ui.openQuickCapture", { type: "learning" });
-			});
-			this.addRibbonIcon("waypoints", "Open train hub", () => {
-				void this.eventBus.emit("ui.openTrainHub", {});
-			});
-			this.addRibbonIcon("bar-chart-2", "Open analytics hub", () => {
-				void this.eventBus.emit("ui.openAnalyticsHub", {});
-			});
-			this.addRibbonIcon("train-front", "Train of thoughts", () => {
-				const activeTrain = this.trainService?.getActiveTrain();
-				if (activeTrain) {
-					void this.eventBus.emit("ui.openTrainView", { trainId: activeTrain.id });
-					return;
-				}
-				void this.eventBus.emit("ui.startTrain", {});
-			});
-			this.addRibbonIcon("layout-template", "Start canvas session", () => {
-				void this.eventBus.emit("ui.startCanvasSession", {});
-			});
-			this.addRibbonIcon("route", "Open journey builder", () => {
-				void this.eventBus.emit("ui.openJourneyBuilder", {});
-			});
-			this.addRibbonIcon("shield-check", "Open test management hub", () => {
-				void this.eventBus.emit("ui.openTestManagementHub", {});
-			});
 
 			// Status bar
 			const statusBarEl = this.addStatusBarItem();
@@ -462,60 +462,6 @@ export default class FlowtiBasePlugin extends Plugin {
 	}
 
 	/**
-	 * Binds all registered commands to Obsidian's command palette.
-	 * Each command is wrapped to execute through the middleware pipeline.
-	 *
-	 * Commands with state preconditions use `checkCallback` so they
-	 * only appear in the command palette when applicable.
-	 */
-	private bindCommands(): void {
-		const ctx = this.createCommandContext();
-
-		/** Commands that require an active/paused train. */
-		const trainPreconditions: Record<string, (train: { status: string }) => boolean> = {
-			"flowti:resume-train": (t) => t.status === "paused",
-			"flowti:complete-train": (t) => t.status === "running",
-			"flowti:view-train": () => true,
-			"flowti:open-train-canvas": () => true,
-			"flowti:open-train-timeline": () => true,
-		};
-
-		for (const command of this.commands.getCommands()) {
-			const trainCheck = trainPreconditions[command.id];
-
-			if (trainCheck) {
-				this.addCommand({
-					id: command.id,
-					name: command.name,
-					icon: command.icon,
-					mobileOnly: command.mobileOnly,
-					checkCallback: (checking) => {
-						const train = this.trainService?.getActiveTrain();
-						if (!train || !trainCheck(train)) return false;
-						if (!checking) void this.commands.execute(command.id, ctx);
-						return true;
-					},
-				});
-			} else {
-				this.addCommand({
-					id: command.id,
-					name: command.name,
-					icon: command.icon,
-					mobileOnly: command.mobileOnly,
-					callback: () => {
-						void this.commands.execute(command.id, ctx);
-					},
-				});
-			}
-		}
-
-		// Listen for execute requests from the Command Catalog UI
-		this.eventBus.on("command.execute.request", (event) => {
-			void this.commands.execute(event.payload.commandId, ctx);
-		});
-	}
-
-	/**
 	 * Create command context with all dependencies.
 	 */
 	private createCommandContext(): CommandContext {
@@ -618,15 +564,6 @@ export default class FlowtiBasePlugin extends Plugin {
 	}
 
 	/**
-	 * Bind registered views to Obsidian.
-	 */
-	private bindViews(): void {
-		for (const view of this.views.getViews()) {
-			this.safeRegisterView(view.type, view.factory);
-		}
-	}
-
-	/**
 	 * Final initialization step, deferred until Obsidian's workspace
 	 * layout is fully rendered.
 	 *
@@ -704,6 +641,7 @@ export default class FlowtiBasePlugin extends Plugin {
 
 		const installerService = await this.services.get<IInstallerService>("installerService");
 		await this.timedServiceLoad("installerService", () => installerService.load());
+		this.installerServiceRef = installerService;
 		InstallerWizardModal.showIfNeeded(this.app, installerService, this.eventBus);
 
 		// Register open-installer command — only available when not installed
@@ -1016,6 +954,15 @@ export default class FlowtiBasePlugin extends Plugin {
 		await this.timedServiceLoad("testManagementService", () => this.testManagementService!.load());
 		// TestManagement hub is now driven by SitemapHubView + Lit components.
 		// View registration is handled by SitemapBootstrap via plugin-sitemap.json.
+		// Register tab handlers now that the service is available.
+		if (this.handlerRegistry) {
+			registerTestManagementHandlers(this.handlerRegistry, {
+				service: this.testManagementService! as unknown as TestManagementHandlerDeps["service"],
+				onboardingService: { shouldShowCallout: (id: string) => !(this.onboardingService?.isCalloutDismissed(id) ?? false) },
+				getSettings: () => ({ docsRootPath: settingsService.getSettings().docsRootPath }),
+				eventBus: this.eventBus,
+			});
+		}
 
 		// Feature Lifecycle — PRD scanning, stage management, gate checks
 		this.featureLifecycleService = await this.services.get<FeatureLifecycleService>("featureLifecycleService");

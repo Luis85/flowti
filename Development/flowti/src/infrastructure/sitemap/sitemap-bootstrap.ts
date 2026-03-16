@@ -42,18 +42,31 @@ export class SitemapBootstrap {
 			if (viewDef.legacy) {
 				const factory = this.deps.legacyViewFactories.get(viewDef.type);
 				if (!factory) {
-					this.deps.logger.warn(`Legacy view factory not found for "${viewDef.type}" (${viewId})`);
+					this.deps.logger.debug(`Legacy view factory not found for "${viewDef.type}" (${viewId}) — will be registered later`);
 					continue;
 				}
-				this.deps.plugin.registerView(viewDef.type, (leaf) => factory(leaf) as never);
+				this.safeRegister(viewDef.type, (leaf) => factory(leaf) as never);
 				this.registeredViewTypes.push(viewDef.type);
 				continue;
 			}
 
-			this.deps.plugin.registerView(viewDef.type, (leaf) =>
+			this.safeRegister(viewDef.type, (leaf) =>
 				new SitemapHubView(leaf, this.deps.eventBus, viewDef, this.deps.handlerRegistry) as never,
 			);
 			this.registeredViewTypes.push(viewDef.type);
+		}
+	}
+
+	/** Register a view type, tolerating "already registered" errors during hot-reload. */
+	private safeRegister(type: string, creator: (leaf: WorkspaceLeaf) => unknown): void {
+		try {
+			this.deps.plugin.registerView(type, creator);
+		} catch (err) {
+			if (err instanceof Error && err.message.includes("existing view type")) {
+				this.deps.logger.debug(`View "${type}" already registered (hot-reload)`);
+			} else {
+				throw err;
+			}
 		}
 	}
 
@@ -140,6 +153,19 @@ export class SitemapBootstrap {
 					});
 				}
 			});
+		}
+	}
+
+	/** Log warnings for any sitemap commands whose action handlers are not registered. */
+	validate(): void {
+		const missing: string[] = [];
+		for (const cmdDef of this.sitemap.commands) {
+			if (!this.deps.handlerRegistry.getAction(cmdDef.handler)) {
+				missing.push(`command "${cmdDef.id}" -> handler "${cmdDef.handler}"`);
+			}
+		}
+		if (missing.length > 0) {
+			this.deps.logger.warn(`SitemapBootstrap: ${missing.length} unregistered handler(s):\n${missing.join("\n")}`);
 		}
 	}
 

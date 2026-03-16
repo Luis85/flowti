@@ -108,7 +108,7 @@ describe("SitemapBootstrap", () => {
 			const bootstrap = createBootstrap(sitemap);
 			bootstrap.registerAll();
 			expect(plugin.registerView).not.toHaveBeenCalled();
-			expect(logger.warn).toHaveBeenCalled();
+			expect(logger.debug).toHaveBeenCalled();
 		});
 
 		it("registers non-legacy view as SitemapHubView", () => {
