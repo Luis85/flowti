@@ -46,6 +46,20 @@ ContentArea currently uses a hardcoded page registry. The new flow:
 
 Custom overrides receive their page's sitemap actions and render their own content zone, but still get the standard sitemap-driven ActionBar.
 
+### 3.3 Navigation Context
+
+The existing TUI threads `navigate` and `goBack` as props through `PageProps`. For the sitemap renderer, these are lifted into a `NavigationContext` React context so that hooks (`useActionDispatch`) can access them without prop drilling:
+
+```typescript
+interface NavigationContextValue {
+  navigate: (pageId: string, params?: Record<string, string>) => void
+  goBack: () => void
+  refresh: () => void  // re-run loader, re-render current page
+}
+```
+
+`App` provides this context. `SitemapPage`, custom override pages, and hooks all consume it via `useNavigationContext()`.
+
 ### 3.3 Page Layout
 
 ```
@@ -121,11 +135,15 @@ Replaces the legacy `ActionHandler` signature:
 type TuiActionHandler = (ctx: TuiActionContext) => Promise<TuiActionResult>
 
 interface TuiActionContext {
-  deps: CliDeps
+  deps: TuiActionDeps
   project?: ProjectContext
   tools?: Record<string, boolean>
   params?: Record<string, string>
 }
+
+// Wider than LoaderDeps — includes shell for effect handlers (build, test, publish)
+// Excludes input/log (no terminal I/O). Constructed in tui-entry.ts from infrastructure singletons.
+type TuiActionDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "shell">
 
 type TuiActionResult =
   | { kind: "ok"; message?: string }
@@ -133,7 +151,7 @@ type TuiActionResult =
   | { kind: "error"; message: string }
 ```
 
-**Key constraint:** `TuiActionHandler` has no terminal I/O — no `input.ask()`, no `log()`, no `runMenu()`. It calls domain functions and returns a typed result. All rendering is Ink's responsibility.
+**Key constraint:** `TuiActionHandler` has no terminal I/O — no `input.ask()`, no `log()`, no `runMenu()`. It calls domain functions and returns a typed result. All rendering is Ink's responsibility. The `TuiActionDeps` type explicitly excludes `input` and `log` to enforce this at compile time. `tui-entry.ts` constructs `TuiActionDeps` from infrastructure singletons and passes it through `TuiContext`.
 
 ### 5.1 TuiHandlerRegistry
 
@@ -204,7 +222,26 @@ Becomes:
 
 Actions that navigate to another page: open project, view detail, browse list. These are already `navigate` type actions in the sitemap — they need zero handler code.
 
-### 6.4 Retired Systems
+### 6.4 Pipeline State Migration
+
+Legacy pipeline handlers (`pipeline-handlers.ts`) contain session-scoped mutable state (e.g., `{ buildPassed: false, testPassed: false }` for review gates). This state cannot live in React component state (resets on navigation) or in handlers (stateless).
+
+**Solution:** A `TuiSessionStore` — a plain object held in `TuiContext` that persists for the app lifetime. Handlers read/write pipeline state through `ctx.session`. The store is not reactive (no re-render on change); pages read it via their loader on each render.
+
+```typescript
+interface TuiSessionStore {
+  pipeline: Record<string, unknown>  // e.g., { buildPassed: true, testPassed: false }
+  selectedProject?: string
+}
+```
+
+### 6.5 onBeforeRender Migration
+
+Legacy `onBeforeRender` hooks (e.g., `"start:banner"`, `"project:banner"`) print status banners before the menu renders. In Ink, rendering is declarative — there is no "before render" imperative hook.
+
+**Solution:** Banner content moves into loaders. The `loadStart` loader already returns project counts, agent counts, etc. The banner data becomes part of the loader's typed return model. `SitemapPage` renders it as a header section above the content zone. Existing `onBeforeRender` handler IDs in sitemap.json are ignored by the TUI renderer (no registration needed).
+
+### 6.6 Retired Systems
 
 After migration, the following become dead code:
 
@@ -218,10 +255,11 @@ After migration, the following become dead code:
 
 `SitemapPage` reads `page.kind` and selects a content renderer:
 
-### 7.1 `"page"` → Dashboard Layout
+### 7.1 `"page"` / `"layout"` → Dashboard Layout
 
 - Loader returns typed data (stats, sections, lists)
 - Renders StatGrid for metrics, Section components for grouped content
+- `"layout"` is treated identically to `"page"` (both render as dashboards)
 - Pages: start, project-detail, health, lifecycle, help
 
 ### 7.2 `"list"` → List Layout
@@ -235,10 +273,22 @@ After migration, the following become dead code:
 ### 7.3 `"form"` → Form Layout
 
 - Reads `fields[]` and `validation[]` from sitemap definition
-- Renders FormPage with field components (text, select, toggle)
+- Renders FormPage with field components
 - Tab navigation, Enter submit, Escape cancel
 - Submit calls registered `TuiFormHandler`
 - Pages: all create/edit flows
+
+**Field type mapping:** The sitemap `FormField.type` supports 20 types. The TUI FormPage supports a subset. Unsupported types fall back to text input:
+
+| TUI native | Sitemap types |
+|------------|---------------|
+| `text` | `text`, `email`, `url`, `tel`, `password`, `date`, `datetime-local`, `time`, `textarea`, `file`, `color` |
+| `number` | `number`, `range` (renders as text input with numeric validation) |
+| `select` | `select`, `radio` |
+| `toggle` | `checkbox`, `toggle` |
+| (skipped) | `hidden` (uses `defaultValue`, not rendered) |
+
+This keeps FormPage simple. Future iterations can add richer field components (date picker, color picker) as needed.
 
 ### 7.4 `"dialog"` → Overlay Layout
 
@@ -248,7 +298,7 @@ After migration, the following become dead code:
 
 ### 7.5 Unmapped Kinds
 
-`"component"`, `"system"`, `"container"`, `"c4-component"`, `"person"`, `"ui-component"` — architecture visualization metadata, not interactive pages. SitemapPage ignores them.
+`"component"`, `"system"`, `"container"`, `"c4-component"`, `"person"`, `"ui-component"` — architecture visualization metadata, not interactive pages. SitemapPage skips rendering for these kinds.
 
 ### 7.6 Custom Overrides
 
@@ -266,8 +316,22 @@ Custom pages receive sitemap actions via the `useSitemapActions` hook and render
 ### 8.1 `useSitemapActions` Hook
 
 ```typescript
-function useSitemapActions(pageId: string): ActionDef[]
+function useSitemapActions(pageId: string): SitemapActionDef[]
+
+// Extended ActionDef with dispatch metadata
+interface SitemapActionDef {
+  key: string                        // assigned shortcut key
+  label: string                      // display label
+  disabled: boolean                  // condition-evaluated
+  disabledMessage?: string           // tooltip when disabled
+  group?: string                     // visual grouping
+  type: ActionType                   // navigate | handler | command | signal | form
+  target?: string                    // dispatch target
+  params?: Record<string, unknown>   // action params
+}
 ```
+
+The existing `ActionDef` interface (used by `ActionBar`) is extended to `SitemapActionDef` with `disabled`, `group`, `type`, and `target` fields. `ActionBar` is updated to accept the extended type — `disabled` actions render dimmed and ignore key presses. Existing call sites that pass the old `ActionDef` shape continue to work (new fields are optional in the component props).
 
 On each render:
 1. Read `page.actions[]` from sitemap
@@ -331,9 +395,9 @@ Renders between content zone and ActionBar. Single line, only visible when state
 
 For `command` type actions: scrollable text view replaces the content zone temporarily. Escape dismisses and returns to normal content.
 
-### 9.5 Background Effects
+### 9.5 Long-Running Effects
 
-If user presses Escape during a running effect, the effect continues in background. Status strip shows "running in background..." and actions re-enable.
+If user presses Escape during a running effect, the effect is **cancelled** (where possible via `AbortController`). If cancellation is not supported for that handler, the effect runs to completion but the result is discarded — no flash message, no state update. This avoids the complexity of managing background effect results across page navigations. The status strip clears and actions re-enable immediately on Escape.
 
 ## 10. File Structure
 
@@ -346,14 +410,16 @@ src/tui/
     sitemap-action-bar.tsx      — ActionBar driven by useSitemapActions
     effect-strip.tsx            — status strip for running effects
     command-output.tsx          — scrollable output overlay
+    navigation-context.tsx      — NavigationContext provider + useNavigationContext hook
   hooks/
-    use-sitemap-actions.ts      — reactive action filtering + key assignment
+    use-sitemap-actions.ts      — reactive action filtering + key assignment → SitemapActionDef[]
     use-sitemap-fields.ts       — reactive form field filtering
-    use-action-dispatch.ts      — dispatches by action type
-    use-action-effect.ts        — effect state machine
+    use-action-dispatch.ts      — dispatches by action type (uses NavigationContext)
+    use-action-effect.ts        — effect state machine (idle/running/success/error)
     use-condition-context.ts    — builds flat context from TuiContext
   registry/
     tui-handler-registry.ts     — TuiActionHandler registration + lookup
+    tui-session-store.ts        — session-scoped mutable state (pipeline gates, etc.)
     register-tui-handlers.ts    — entry point, delegates to sub-files
     effect-handlers.ts          — build, test, publish, reports, delete handlers
     form-handlers.ts            — form submit handlers (create, edit)
@@ -362,14 +428,17 @@ src/tui/
     data-source-handlers.ts     — dynamic data source handlers
 ```
 
+**Layer direction note:** Files in `src/tui/registry/` import from `src/domain/` and `src/infrastructure/`. This is permitted because TUI is the outermost layer (UI → Infrastructure → Domain is the allowed direction). Handler registration files must not import infrastructure singletons directly — they receive deps via the `TuiActionContext` at call time, same pattern as domain functions.
+
 ### 10.2 Modified Files
 
 ```
 src/tui/shell/content-area.tsx    — replace page registry with sitemap lookup + custom override map
-src/tui/primitives/action-bar.tsx — add disabled state + active effect indicator
-src/tui/primitives/form-page.tsx  — accept sitemap field definitions directly
-src/tui/context.tsx               — expose sitemap + TuiHandlerRegistry via context
-src/tui/tui-entry.ts             — load sitemap, create TuiHandlerRegistry, register all handlers
+src/tui/primitives/action-bar.tsx — extend ActionDef with disabled/group, render disabled actions dimmed
+src/tui/primitives/form-page.tsx  — accept sitemap FormField types with fallback mapping (Section 7.3)
+src/tui/context.tsx               — expose sitemap, TuiHandlerRegistry, TuiSessionStore, TuiActionDeps
+src/tui/app.tsx                   — wrap children in NavigationContext provider
+src/tui/tui-entry.ts             — load sitemap, construct TuiActionDeps, create TuiHandlerRegistry + TuiSessionStore, register all handlers
 ```
 
 ### 10.3 Deleted Files (after migration)
