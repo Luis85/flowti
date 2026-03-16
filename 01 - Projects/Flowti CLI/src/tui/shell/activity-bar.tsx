@@ -23,6 +23,7 @@ export function ActivityBar({ sections, activeSection, focused, cursorSection }:
 		<Box
 			flexDirection="column"
 			flexShrink={0}
+			minWidth={16}
 			borderStyle="single"
 			borderRight
 			borderTop={false}
