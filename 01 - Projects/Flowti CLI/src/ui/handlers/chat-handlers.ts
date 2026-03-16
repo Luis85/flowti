@@ -9,10 +9,13 @@ import type { HandlerRegistry } from "../../infrastructure/handler-registry.js";
 import type { MenuResult } from "../../infrastructure/types.js";
 import type { IChatRenderer } from "../../infrastructure/chat/chat-renderer-types.js";
 import { VAULT_ROOT, cliConfig } from "../../infrastructure/config.js";
+import { pathToFileURL } from "node:url";
+import { paths } from "../../infrastructure/paths.js";
 
-/** Load InkChatRenderer — now bundled in the main ESM bundle. */
+/** Load InkChatRenderer from the ESM chat bundle (.flowti/bin/chat.mjs). */
 async function defaultLoadRenderer(): Promise<{ InkChatRenderer: new () => IChatRenderer }> {
-	return await import("../../infrastructure/chat/ink-chat-renderer.js") as { InkChatRenderer: new () => IChatRenderer };
+	const chatBundlePath = pathToFileURL(paths.join(VAULT_ROOT, ".flowti", "bin", "chat.mjs")).href;
+	return await import(chatBundlePath) as { InkChatRenderer: new () => IChatRenderer };
 }
 
 export type ChatRendererLoader = () => Promise<{ InkChatRenderer: new () => IChatRenderer }>;
