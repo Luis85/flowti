@@ -1,11 +1,12 @@
 /**
  * scrollable-list.tsx — Arrow-key navigable list with virtualization.
  *
- * Uses a stateful scroll offset with follow-cursor behavior:
+ * Uses a ref-based scroll offset with follow-cursor behavior:
  * scroll stays still until the selection moves out of the visible window.
+ * Offset is computed synchronously during render (no useEffect double-render).
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useRef } from "react";
 import { Box, Text, useStdout } from "ink";
 
 interface ScrollableListProps<T> {
@@ -20,18 +21,16 @@ export function ScrollableList<T>({ items, selected, renderItem, maxHeight }: Sc
 	const { stdout } = useStdout();
 	const termRows = stdout?.rows ?? 24;
 	const visibleCount = maxHeight ?? Math.max(3, termRows - 10);
-	const [scrollOffset, setScrollOffset] = useState(0);
+	const offsetRef = useRef(0);
 
-	useEffect(() => {
-		setScrollOffset((prev) => {
-			if (selected < prev) return selected;
-			if (selected >= prev + visibleCount) return selected - visibleCount + 1;
-			return prev;
-		});
-	}, [selected, visibleCount]);
+	// Compute offset synchronously — no useEffect, no double-render
+	let offset = offsetRef.current;
+	if (selected < offset) offset = selected;
+	if (selected >= offset + visibleCount) offset = selected - visibleCount + 1;
+	offset = Math.max(0, Math.min(offset, Math.max(0, items.length - visibleCount)));
+	offsetRef.current = offset;
 
-	const safeOffset = Math.max(0, Math.min(scrollOffset, items.length - visibleCount));
-	const visibleItems = items.slice(safeOffset, safeOffset + visibleCount);
+	const visibleItems = items.slice(offset, offset + visibleCount);
 
 	if (items.length === 0) {
 		return (
@@ -43,12 +42,12 @@ export function ScrollableList<T>({ items, selected, renderItem, maxHeight }: Sc
 
 	return (
 		<Box flexDirection="column">
-			{safeOffset > 0 && <Text dimColor> {"  \u25B2 more"}</Text>}
+			{offset > 0 && <Text dimColor> {"  \u25B2 more"}</Text>}
 			{visibleItems.map((item, vi) => {
-				const actualIndex = safeOffset + vi;
+				const actualIndex = offset + vi;
 				const isSelected = actualIndex === selected;
 				return (
-					<Box key={actualIndex} paddingLeft={1}>
+					<Box key={`item-${actualIndex}`} paddingLeft={1}>
 						<Text color={isSelected ? "cyan" : undefined} bold={isSelected}>
 							{isSelected ? "\u25B6 " : "  "}
 						</Text>
@@ -56,7 +55,7 @@ export function ScrollableList<T>({ items, selected, renderItem, maxHeight }: Sc
 					</Box>
 				);
 			})}
-			{safeOffset + visibleCount < items.length && <Text dimColor> {"  \u25BC more"}</Text>}
+			{offset + visibleCount < items.length && <Text dimColor> {"  \u25BC more"}</Text>}
 		</Box>
 	);
 }
