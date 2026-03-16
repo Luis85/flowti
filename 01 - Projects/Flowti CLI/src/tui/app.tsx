@@ -53,7 +53,19 @@ export function App(): React.JSX.Element {
 		enabled: focusZone === "activity-bar",
 	});
 
-	// Global keys: Tab, Escape, Ctrl+N, q
+	// Default Escape behavior — passed to ContentArea, which delegates to pages first
+	const handleEscapeDefault = useCallback(() => {
+		if (focusZone !== "content") return;
+		const currentStack = state.sections[state.activeSection].pageStack;
+		if (currentStack.length > 1) {
+			goBack();
+		} else {
+			setFocusZone("activity-bar");
+			setCursorSection(state.activeSection);
+		}
+	}, [focusZone, state, goBack, setFocusZone, setCursorSection]);
+
+	// Global keys: Tab, Ctrl+N, q (Escape handled by ContentArea)
 	useInput((input, key) => {
 		if (key.tab) {
 			if (focusZone === "activity-bar") {
@@ -61,19 +73,6 @@ export function App(): React.JSX.Element {
 			} else {
 				setFocusZone("activity-bar");
 				setCursorSection(state.activeSection);
-			}
-			return;
-		}
-
-		if (key.escape) {
-			if (focusZone === "content") {
-				const currentStack = state.sections[state.activeSection].pageStack;
-				if (currentStack.length > 1) {
-					goBack();
-				} else {
-					setFocusZone("activity-bar");
-					setCursorSection(state.activeSection);
-				}
 			}
 			return;
 		}
@@ -115,6 +114,7 @@ export function App(): React.JSX.Element {
 					navigate={navigate}
 					goBack={goBack}
 					focused={focusZone === "content"}
+					onEscapeDefault={handleEscapeDefault}
 				/>
 				<StatusBar hints={hints} />
 			</Box>

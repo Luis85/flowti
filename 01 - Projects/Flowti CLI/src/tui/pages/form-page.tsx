@@ -7,6 +7,7 @@
 
 import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
+import { useClaimEscape } from "../shell/content-area.js";
 import { FormField } from "../primitives/form-field.js";
 import type { FormFieldProps } from "../primitives/form-field.js";
 
@@ -31,6 +32,7 @@ interface FormPageProps {
 
 export function FormPage({ title, fields, values, onValueChange, onSubmit, onCancel, enabled = true }: FormPageProps): React.JSX.Element {
 	const [focusedField, setFocusedField] = useState(0);
+	const claimEscape = useClaimEscape();
 
 	useInput((input, key) => {
 		if (!enabled) return;
@@ -48,7 +50,10 @@ export function FormPage({ title, fields, values, onValueChange, onSubmit, onCan
 				onSubmit();
 			}
 		}
-		if (key.escape) onCancel();
+		if (key.escape) {
+			claimEscape();
+			onCancel();
+		}
 
 		const field = fields[focusedField];
 		if (field?.type === "text" && input && !key.ctrl && !key.meta) {
