@@ -54,7 +54,7 @@ Install once. Point Flowti at your projects. Get a unified menu with every capab
 - **Progressive opt-in.** Start with nothing configured. Features activate when you're ready, not before.
 - **Definition-driven.** Structured definitions drive the system — project config and UI layouts in JSON, management data and agent definitions in markdown. Auditable and diffable.
 - **Local-first.** Everything runs on your machine, stores in your repository, and works offline.
-- **Security included.** Health scores factor in vulnerability scanning alongside tests, coverage, and lint — no separate security tool needed.
+- **Security included.** Health scores factor in dependency vulnerability scanning (via npm audit) alongside tests, coverage, and lint — no separate tool required for baseline dependency hygiene.
 
 ---
 
@@ -82,7 +82,7 @@ Persistent AI agents that live inside your project. They react to project events
 
 - Agents work with the same project data your team uses — markdown files, not a separate system.
 - Every agent action is traceable — stored as files, diffable in git, reviewable in pull requests.
-- No API keys required for non-AI agents. AI agents connect to your existing provider (Claude, Cursor, or a custom binary).
+- Teams define agents as AI-backed (using Claude, Cursor, or a local binary) or as placeholder roles for human team members. Placeholder agents require no API key.
 
 #### Progressive
 
@@ -107,7 +107,7 @@ Integrated management domains that live right next to your source code as markdo
 - **RAID Log** — Risks, assumptions, issues, dependencies, and decisions in one place.
 - **CAPA** — When something goes wrong: root cause, corrective action, verification that it's fixed.
 - **Requirements** — User stories, use cases, and traceability back to deliverables.
-- **Lifecycle** — Where each project, product, or feature sits in its journey, from inception to archive.
+- **Features** — Track feature progress through defined phases, from ideation to deprecation.
 
 #### Why it matters for your team
 
