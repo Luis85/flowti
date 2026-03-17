@@ -19,29 +19,34 @@ export class RosterBar extends LitElement {
 				left: 0;
 				right: 0;
 				height: 44px;
-				background: #0f172a;
-				border-top: 1px solid #1e293b;
+				background: var(--bg-primary);
+				border-top: 1px solid var(--border);
 				display: flex;
 				align-items: center;
-				padding: 0 12px;
-				gap: 6px;
+				padding: 0 10px;
+				gap: 4px;
 				z-index: 50;
 				overflow-x: auto;
 				overflow-y: hidden;
 			}
+			:host::-webkit-scrollbar { height: 0; }
+			:host { scrollbar-width: none; }
 			.card {
 				background: var(--bg-secondary);
-				border-radius: 4px;
-				padding: 4px 10px;
+				border: 1px solid var(--border);
+				border-radius: 2px;
+				padding: 4px 8px;
 				cursor: pointer;
 				display: flex;
 				flex-direction: column;
-				min-width: 70px;
-				transition: background 0.15s;
+				min-width: 64px;
+				transition: background 0.15s, border-color 0.2s, box-shadow 0.2s;
 				flex-shrink: 0;
 			}
 			.card:hover {
 				background: var(--bg-tertiary);
+				border-color: var(--accent-gold);
+				box-shadow: 0 0 8px rgba(217, 170, 78, 0.08);
 			}
 			.card-top {
 				display: flex;
@@ -49,20 +54,23 @@ export class RosterBar extends LitElement {
 				gap: 4px;
 			}
 			.status-dot {
-				width: 6px;
-				height: 6px;
+				width: 5px;
+				height: 5px;
 				border-radius: 50%;
 				flex-shrink: 0;
 			}
 			.agent-name {
-				font-size: 10px;
+				font-size: 9px;
 				font-weight: 600;
 				color: var(--text-primary);
+				letter-spacing: 0.03em;
 			}
 			.agent-location {
-				font-size: 8px;
+				font-size: 7px;
 				color: var(--text-muted);
 				margin-top: 1px;
+				text-transform: uppercase;
+				letter-spacing: 0.06em;
 			}
 		`,
 	];

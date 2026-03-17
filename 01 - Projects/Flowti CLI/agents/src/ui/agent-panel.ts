@@ -38,17 +38,19 @@ export class AgentPanel extends LitElement {
 
 			.panel {
 				position: absolute;
-				top: 0;
-				right: 0;
+				top: 8px;
+				right: 8px;
+				bottom: 52px;
 				width: 340px;
-				height: 100%;
-				background: #1e293b;
-				border-left: 1px solid #334155;
-				box-shadow: -4px 0 16px rgba(0, 0, 0, 0.5);
+				background: var(--bg-panel);
+				border: 1px solid var(--border);
+				border-left: 1px solid var(--border-glow);
+				box-shadow: var(--panel-shadow);
 				display: flex;
 				flex-direction: column;
 				overflow: hidden;
 				z-index: 100;
+				border-radius: 3px;
 			}
 
 			/* Header */
@@ -56,9 +58,9 @@ export class AgentPanel extends LitElement {
 				display: flex;
 				align-items: center;
 				justify-content: space-between;
-				padding: 12px 14px;
+				padding: 10px 12px;
 				border-bottom: 1px solid var(--border);
-				background: #0f172a;
+				background: var(--bg-primary);
 				flex-shrink: 0;
 			}
 
@@ -66,6 +68,12 @@ export class AgentPanel extends LitElement {
 				display: flex;
 				align-items: center;
 				gap: 8px;
+				min-width: 0;
+			}
+
+			.name-block {
+				display: flex;
+				flex-direction: column;
 				min-width: 0;
 			}
 
@@ -78,15 +86,56 @@ export class AgentPanel extends LitElement {
 				text-overflow: ellipsis;
 			}
 
+			.agent-persona {
+				font-size: 11px;
+				color: var(--text-secondary);
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+
 			.agent-type-badge {
-				font-size: 10px;
+				font-size: 9px;
 				font-weight: 600;
 				text-transform: uppercase;
+				letter-spacing: 0.06em;
+				padding: 2px 6px;
+				border-radius: 2px;
+				background: rgba(78, 139, 217, 0.1);
+				color: var(--accent-blue);
+				border: 1px solid rgba(78, 139, 217, 0.2);
+				flex-shrink: 0;
+			}
+
+			.llm-badge {
+				font-size: 9px;
+				font-weight: 600;
 				padding: 2px 6px;
 				border-radius: 3px;
-				background: #1e3a5f;
-				color: var(--accent-blue);
 				flex-shrink: 0;
+				display: flex;
+				align-items: center;
+				gap: 4px;
+			}
+
+			.llm-badge .dot {
+				width: 6px;
+				height: 6px;
+				border-radius: 50%;
+			}
+
+			.llm-idle .dot { background: #22c55e; }
+			.llm-idle { background: rgba(34, 197, 94, 0.12); color: #4ade80; }
+
+			.llm-thinking .dot { background: #f59e0b; animation: pulse 1s infinite; }
+			.llm-thinking { background: rgba(245, 158, 11, 0.12); color: #fbbf24; }
+
+			.llm-error .dot { background: #ef4444; }
+			.llm-error { background: rgba(239, 68, 68, 0.12); color: #f87171; }
+
+			@keyframes pulse {
+				0%, 100% { opacity: 1; }
+				50% { opacity: 0.3; }
 			}
 
 			.close-btn {
@@ -111,7 +160,7 @@ export class AgentPanel extends LitElement {
 			.tab-bar {
 				display: flex;
 				border-bottom: 1px solid var(--border);
-				background: #0f172a;
+				background: var(--bg-primary);
 				flex-shrink: 0;
 				overflow-x: auto;
 				scrollbar-width: none;
@@ -125,13 +174,15 @@ export class AgentPanel extends LitElement {
 				background: transparent;
 				border: none;
 				border-bottom: 2px solid transparent;
-				color: var(--text-secondary);
-				font-size: 12px;
+				color: var(--text-muted);
+				font-size: 10px;
 				font-family: inherit;
-				padding: 8px 12px;
+				letter-spacing: 0.08em;
+				text-transform: uppercase;
+				padding: 7px 10px;
 				cursor: pointer;
 				white-space: nowrap;
-				transition: color 0.15s, border-color 0.15s;
+				transition: color 0.2s, border-color 0.2s, text-shadow 0.2s;
 				flex-shrink: 0;
 				border-radius: 0;
 			}
@@ -141,15 +192,16 @@ export class AgentPanel extends LitElement {
 			}
 
 			.tab-btn[data-active="true"] {
-				color: var(--accent-blue);
-				border-bottom-color: var(--accent-blue);
+				color: var(--accent-gold);
+				border-bottom-color: var(--accent-gold);
+				text-shadow: 0 0 8px rgba(217, 170, 78, 0.3);
 			}
 
 			/* Content area */
 			.panel-content {
 				flex: 1;
 				overflow-y: auto;
-				padding: 12px;
+				padding: 10px 12px;
 				scrollbar-width: thin;
 				scrollbar-color: var(--bg-tertiary) transparent;
 			}
@@ -197,6 +249,22 @@ export class AgentPanel extends LitElement {
 		this.store.selectTab(tab);
 	}
 
+	private renderLlmBadge(agentName: string) {
+		const status = this.store.llmStatus.get(agentName);
+		const state = status?.state ?? "idle";
+		const labels: Record<string, string> = {
+			idle: "LLM idle",
+			thinking: "Thinking...",
+			error: "LLM error",
+		};
+		return html`
+			<span class="llm-badge llm-${state}">
+				<span class="dot"></span>
+				${labels[state] ?? state}
+			</span>
+		`;
+	}
+
 	private renderTabContent(agent: DashboardAgent) {
 		const tab = this.store.selectedTab;
 
@@ -228,8 +296,12 @@ export class AgentPanel extends LitElement {
 			<div class="panel" data-testid="agent-panel">
 				<div class="panel-header">
 					<div class="header-left">
-						<span class="agent-name" data-testid="panel-agent-name">${agent.name}</span>
+						<div class="name-block">
+							<span class="agent-name" data-testid="panel-agent-name">${agent.persona ?? agent.name}</span>
+							${agent.persona ? html`<span class="agent-persona">${agent.name}</span>` : nothing}
+						</div>
 						<span class="agent-type-badge">${agent.agentType}</span>
+						${this.renderLlmBadge(agent.name)}
 					</div>
 					<button
 						class="close-btn"

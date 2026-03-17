@@ -23,34 +23,41 @@ export class CameraHud extends LitElement {
 				flex-direction: row;
 				align-items: center;
 				gap: 8px;
-				background: #1e293b;
-				color: #e2e8f0;
-				border-radius: 6px;
-				padding: 6px 12px;
-				font-size: 13px;
+				background: var(--bg-panel);
+				color: var(--text-primary);
+				border: 1px solid var(--border);
+				border-radius: 2px;
+				padding: 5px 12px;
+				font-size: 11px;
+				letter-spacing: 0.04em;
 				pointer-events: auto;
 				white-space: nowrap;
-				box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+				box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
 			}
 			.label {
-				opacity: 0.7;
+				color: var(--text-muted);
+				text-transform: uppercase;
+				font-size: 9px;
+				letter-spacing: 0.08em;
 			}
 			.agent-name {
 				font-weight: 600;
+				color: var(--accent-gold);
+				text-shadow: 0 0 6px rgba(217, 170, 78, 0.2);
 			}
 			.close-btn {
 				background: none;
 				border: none;
-				color: #94a3b8;
+				color: var(--text-muted);
 				cursor: pointer;
-				font-size: 14px;
+				font-size: 13px;
 				line-height: 1;
 				padding: 0 2px;
-				border-radius: 3px;
+				border-radius: 2px;
 				transition: color 0.15s;
 			}
 			.close-btn:hover {
-				color: #e2e8f0;
+				color: var(--accent-gold);
 			}
 		`,
 	];
