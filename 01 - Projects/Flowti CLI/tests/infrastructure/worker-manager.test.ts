@@ -16,6 +16,7 @@ import type { AgentProcess, IAgentProcessRunner, SendOptions } from "../../src/d
 import type { IWorldStateManager, AgentAction, WorldEntity } from "../../src/domain/agents/world-state-types.js";
 import type { AgentStreamEvent } from "../../src/domain/agents/agent-stream.js";
 import type { AgentResponse } from "../../src/domain/agents/agent-conversation.js";
+import type { IProcessPool, AcquireResult } from "../../src/domain/agents/process-pool.js";
 
 function makeAgent(overrides?: Partial<AgentSummary>): AgentSummary {
 	return { name: "Bob", agentType: "ai", description: "Helper", skills: [], tools: [], roles: [], file: "bob.md", ...overrides };
@@ -62,6 +63,27 @@ function makeProcessRunner(resultOverride?: Partial<{ text: string; thinking: st
 
 function makeAction(overrides?: Partial<AgentAction>): AgentAction {
 	return { id: "a1", agentName: "Bob", timestamp: "t", type: "task-started", data: { task: "Build" }, ...overrides };
+}
+
+function makePool(queuedOverride = false): IProcessPool & { _lastResult: AcquireResult } {
+	let lastResult: AcquireResult;
+	return {
+		acquire: vi.fn((_agent: AgentSummary, _prompt: string, _tools: readonly string[]) => {
+			const proc: AgentProcess = {
+				onEvent: vi.fn(() => () => {}),
+				result: Promise.resolve({ text: "Hi", thinking: "", exitCode: 0 }),
+				kill: vi.fn(),
+			};
+			lastResult = { process: proc, queued: queuedOverride };
+			return lastResult;
+		}),
+		release: vi.fn(),
+		cancel: vi.fn(),
+		killAll: vi.fn(),
+		getQueueDepth: vi.fn(() => 0),
+		getActiveCount: vi.fn(() => 0),
+		get _lastResult() { return lastResult; },
+	};
 }
 
 describe("WorkerManager", () => {
@@ -570,5 +592,40 @@ describe("WorkerManager", () => {
 		const queue = worker!.messageQueue;
 		// TypeScript says readonly, but verify at runtime it's a separate array
 		expect(Array.isArray(queue)).toBe(true);
+	});
+
+	// ── Process pool integration ─────────────────────────────────────
+
+	it("send uses pool.acquire instead of processRunner.spawn", async () => {
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
+		const pool = makePool();
+		const mgr = createWorkerManager(makeDeps(), makeWorldState(), makeProcessRunner(), "/vault", undefined, pool);
+		mgr.spawnAll();
+		mgr.send("Bob", "Hello");
+		await vi.waitFor(() => { expect(pool.acquire).toHaveBeenCalled(); });
+	});
+
+	it("worker enters queued state when pool returns queued=true", async () => {
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
+		const ws = makeWorldState();
+		const pool = makePool(true);
+		const mgr = createWorkerManager(makeDeps(), ws, makeProcessRunner(), "/vault", undefined, pool);
+		mgr.spawnAll();
+		mgr.send("Bob", "Hello");
+		// Verify queued was the FIRST state set (before any "working" transition)
+		await vi.waitFor(() => {
+			const calls = vi.mocked(ws.updateEntity).mock.calls;
+			const queuedCall = calls.find((c) => c[0] === "Bob" && (c[2] as { status?: { state: string } }).status?.state === "queued");
+			expect(queuedCall).toBeDefined();
+		});
+	});
+
+	it("stop calls pool.cancel", () => {
+		vi.mocked(agentStore.list).mockReturnValue([makeAgent()]);
+		const pool = makePool();
+		const mgr = createWorkerManager(makeDeps(), makeWorldState(), makeProcessRunner(), "/vault", undefined, pool);
+		mgr.spawnAll();
+		mgr.stop("Bob");
+		expect(pool.cancel).toHaveBeenCalledWith("Bob");
 	});
 });
