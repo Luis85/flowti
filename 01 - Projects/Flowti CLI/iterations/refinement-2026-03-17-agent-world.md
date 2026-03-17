@@ -225,6 +225,70 @@ Acceptance criteria to be refined in next session.
 - Three highest-impact joy items (particles, emotes, glow) are all S-sized — front-loaded for fast wins
 - Proximity conversations elevated to Must despite M size — it's the "aha moment" that transforms the world
 
+## Polish Backlog (discovered during implementation)
+
+- Particle trail density may need tuning after visual review (currently 8px threshold)
+- Emote system uses thought bubbles instead of actual emote sprite float-up actors (pending emote sprite loading)
+- Workstation spark particles on `using-tool` SSE event not yet wired
+- Social conversation lines are generic — extend with domain-specific + personality-flavored variants
+- Emote sprite float-up animation (load actual PNGs from assets/Ui/Emote/) instead of text bubbles
+
+## Bob: World Narrator & Player Interface
+
+**Priority:** Must — next implementation target
+**Estimate:** L (4-8h)
+
+### Concept
+
+Bob is the **single LLM agent** behind ALL agent interactions in the world. Instead of each agent having its own LLM session (expensive, wasteful), Bob acts as:
+
+1. **Narrator** — generates ambient dialogue, impersonates agents during proximity conversations, provides personality-flavored quotes
+2. **World observer** — always knows the full world state (agent positions, brain states, tasks, moods, relationships)
+3. **Player interface** — the "Ask Bob" button lets the user talk to Bob directly. Bob answers as himself (cheerful, approachable) about what's happening in the world
+
+### Architecture
+
+```
+User clicks "Ask Bob"
+       ↓
+  Bob LLM session (single, persistent)
+       ↓
+  System prompt includes:
+    - Bob's personality (cheerful, curious, never judges)
+    - Current world state snapshot (all agents, positions, states, moods)
+    - Recent activity log (last 20 events)
+    - Agent roster with personalities/skills/relationships
+       ↓
+  Bob responds as himself, OR
+  Bob impersonates an agent (when user talks to agent via panel-talk)
+```
+
+### "Ask Bob" UI
+
+- Floating button in bottom-left corner (opposite the roster bar)
+- Opens a persistent chat overlay (not in the agent panel — it's global)
+- Bob's responses include world-state awareness: "Sage and Luna are chatting near the village forge right now" / "The Tech Lead has been working for 5 minutes straight"
+- Bob can narrate ambient events: "Looks like Pixel just finished a break and is heading back to the console"
+
+### Impersonation Mode
+
+When user sends a message via panel-talk to any agent, Bob receives:
+- The target agent's full definition (persona, personality, mood, skills, goals)
+- Instruction: "Respond as [agent name] in character"
+- World state context for that agent
+
+This means ONE LLM session handles all talk-tab conversations, just with different system prompt overlays.
+
+### Acceptance Criteria
+
+- [ ] "Ask Bob" button visible in dashboard UI (bottom-left, above roster bar)
+- [ ] Clicking opens a persistent chat overlay with Bob's persona
+- [ ] Bob receives world state snapshot on each message (agent positions, states, moods)
+- [ ] Bob can answer questions about what agents are doing
+- [ ] Panel-talk messages route through Bob with impersonation prompt
+- [ ] Bob's responses appear as agent speech bubbles in the world
+- [ ] Single LLM session — no per-agent API calls
+
 ## Carry-Over
 
 - Tier 3 items (16-20) deferred to Iteration 6 planning
