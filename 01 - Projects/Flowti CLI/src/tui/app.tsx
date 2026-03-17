@@ -20,6 +20,7 @@ import { ActivityBar } from "./shell/activity-bar.js";
 import { HeaderBar } from "./shell/header-bar.js";
 import { ContentArea } from "./shell/content-area.js";
 import { StatusBar } from "./shell/status-bar.js";
+import { NavigationProvider } from "./sitemap/navigation-context.js";
 import type { Section, FocusZone } from "./types.js";
 
 function buildBreadcrumbs(sections: readonly Section[], pageStack: readonly string[]): string[] {
@@ -38,6 +39,8 @@ export function App(): React.JSX.Element {
 	const { state, navigate, goBack, setSection } = useNavigation(sections);
 	const { active: focusZone, setActive: setFocusZone } = useFocusZone(ZONES);
 	const [cursorSection, setCursorSection] = useState(state.activeSection);
+	const [_refreshKey, setRefreshKey] = useState(0);
+	const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
 	const handleSectionOpen = useCallback((sectionId: string) => {
 		setSection(sectionId);
@@ -101,26 +104,28 @@ export function App(): React.JSX.Element {
 	const hints = getHintsForZone(focusZone);
 
 	return (
-		<Box flexDirection="row" width="100%" height={termHeight} overflow="hidden">
-			<ActivityBar
-				sections={sections}
-				activeSection={state.activeSection}
-				focused={focusZone === "activity-bar"}
-				cursorSection={cursorSection}
-				onSelect={handleSectionOpen}
-			/>
-			<Box flexDirection="column" flexGrow={1}>
-				<HeaderBar breadcrumbs={breadcrumbs} />
-				<ContentArea
-					pageId={activePage}
-					params={activeState.params}
-					navigate={navigate}
-					goBack={goBack}
-					focused={focusZone === "content"}
-					onEscapeDefault={handleEscapeDefault}
+		<NavigationProvider navigate={navigate} goBack={goBack} refresh={refresh}>
+			<Box flexDirection="row" width="100%" height={termHeight} overflow="hidden">
+				<ActivityBar
+					sections={sections}
+					activeSection={state.activeSection}
+					focused={focusZone === "activity-bar"}
+					cursorSection={cursorSection}
+					onSelect={handleSectionOpen}
 				/>
-				<StatusBar hints={hints} />
+				<Box flexDirection="column" flexGrow={1}>
+					<HeaderBar breadcrumbs={breadcrumbs} />
+					<ContentArea
+						pageId={activePage}
+						params={activeState.params}
+						navigate={navigate}
+						goBack={goBack}
+						focused={focusZone === "content"}
+						onEscapeDefault={handleEscapeDefault}
+					/>
+					<StatusBar hints={hints} />
+				</Box>
 			</Box>
-		</Box>
+		</NavigationProvider>
 	);
 }
