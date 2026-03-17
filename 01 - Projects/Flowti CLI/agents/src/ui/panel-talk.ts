@@ -173,15 +173,20 @@ export class PanelTalk extends LitElement {
 		const wasThinking = this.thinking;
 		this.thinking = this.store.isThinking(this.agentName);
 
-		// Manage thinking timer
-		if (this.thinking && !wasThinking) {
+		const status = this.store.llmStatus.get(this.agentName);
+
+		// Queued state: show waiting indicator
+		if (status?.state === "queued") {
+			this.thinking = true;
+			this.stopThinkingTimer();
+			this.thinkingPhrase = "Waiting for available slot...";
+		} else if (this.thinking && (!wasThinking || this.thinkingPhrase === "Waiting for available slot...")) {
+			// Start timer: either fresh thinking, or transitioning from queued → thinking
 			this.startThinkingTimer();
 		} else if (!this.thinking && wasThinking) {
 			this.stopThinkingTimer();
 		}
 
-		// LLM status
-		const status = this.store.llmStatus.get(this.agentName);
 		this.llmState = status ? status.state : "none";
 	}
 

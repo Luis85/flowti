@@ -130,6 +130,9 @@ export class AgentPanel extends LitElement {
 			.llm-thinking .dot { background: #f59e0b; animation: pulse 1s infinite; }
 			.llm-thinking { background: rgba(245, 158, 11, 0.12); color: #fbbf24; }
 
+			.llm-queued .dot { background: #f59e0b; animation: pulse 2s infinite; }
+			.llm-queued { background: rgba(245, 158, 11, 0.12); color: #fbbf24; }
+
 			.llm-error .dot { background: #ef4444; }
 			.llm-error { background: rgba(239, 68, 68, 0.12); color: #f87171; }
 
@@ -254,6 +257,7 @@ export class AgentPanel extends LitElement {
 		const state = status?.state ?? "idle";
 		const labels: Record<string, string> = {
 			idle: "LLM idle",
+			queued: "Queued...",
 			thinking: "Thinking...",
 			error: "LLM error",
 		};

@@ -153,4 +153,26 @@ describe("panel-talk", () => {
 		const lastTurn = turns[turns.length - 1];
 		expect(lastTurn.textContent).toContain("Rsp-59");
 	});
+
+	it("shows queued indicator when LLM status is queued", async () => {
+		store.setLlmStatus("TestBot", { state: "queued", since: Date.now() });
+		await flushStore(el);
+
+		const thinking = el.shadowRoot!.querySelector(".thinking");
+		expect(thinking).not.toBeNull();
+		expect(thinking!.textContent).toContain("Waiting for available slot");
+	});
+
+	it("transitions from queued to thinking phrase when slot opens", async () => {
+		store.setLlmStatus("TestBot", { state: "queued", since: Date.now() });
+		await flushStore(el);
+
+		store.setLlmStatus("TestBot", { state: "thinking", since: Date.now() });
+		store.pushUserMessage("TestBot", "test");
+		await flushStore(el);
+
+		const thinking = el.shadowRoot!.querySelector(".thinking");
+		expect(thinking).not.toBeNull();
+		expect(thinking!.textContent).not.toContain("Waiting for available slot");
+	});
 });
