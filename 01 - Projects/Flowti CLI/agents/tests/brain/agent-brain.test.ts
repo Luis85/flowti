@@ -40,6 +40,16 @@ describe("transition", () => {
 		const result = transition("idle", { type: "idle" });
 		expect(result.state).toBe("idle");
 	});
+	it("queued event transitions idle to waiting", () => {
+		const result = transition("idle", { type: "queued" });
+		expect(result.state).toBe("waiting");
+		expect(result.target.kind).toBe("none");
+	});
+	it("queued event transitions wandering to waiting", () => {
+		const result = transition("wandering", { type: "queued" });
+		expect(result.state).toBe("waiting");
+		expect(result.target.kind).toBe("none");
+	});
 });
 
 describe("computeParams", () => {

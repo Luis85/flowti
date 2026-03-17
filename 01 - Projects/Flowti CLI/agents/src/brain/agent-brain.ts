@@ -16,6 +16,7 @@ const TRANSITIONS: Record<string, TransitionFn> = {
 	"using-tool": () => ({ state: "working", target: TO_WORKSTATION }),
 	"idle": () => ({ state: "idle", target: NO_MOVE }),
 	"error": () => ({ state: "idle", target: NO_MOVE }),
+	"queued": () => ({ state: "waiting" as BrainState, target: NO_MOVE }),
 };
 
 const WAITING_OVERRIDES: Record<string, TransitionFn> = {

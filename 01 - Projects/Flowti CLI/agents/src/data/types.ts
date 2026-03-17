@@ -3,7 +3,8 @@
 export type AgentActionType =
 	| "thinking" | "speaking" | "asking" | "using-tool" | "tool-complete"
 	| "requesting-permission" | "permission-granted" | "permission-denied"
-	| "task-started" | "task-completed" | "idle" | "error";
+	| "task-started" | "task-completed" | "idle" | "error"
+	| "queued";
 
 export interface AgentAction {
 	readonly id: string;

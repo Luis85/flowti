@@ -14,7 +14,7 @@ export type ConnectionStatus = "connected" | "disconnected" | "reconnecting";
 export type TabName = "info" | "talk" | "tasks" | "permissions" | "history";
 
 export interface LlmStatus {
-	readonly state: "idle" | "thinking" | "error";
+	readonly state: "idle" | "queued" | "thinking" | "error";
 	readonly since: number;
 }
 
