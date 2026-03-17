@@ -4,7 +4,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
 	test: {
 		root: path.resolve(import.meta.dirname, ".."),
-		include: ["tests/**/*.test.ts"],
+		include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
 		exclude: ["tests/e2e/**", "tests/vault-template/**", "tests/vault-journeys/**"],
 		globals: true,
 		environment: "node",
@@ -32,7 +32,7 @@ export default defineConfig({
 			provider: "v8",
 			reportsDirectory: "reports/coverage",
 			reporter: ["json", "text"],
-			include: ["src/**/*.ts"],
+			include: ["src/**/*.ts", "src/**/*.tsx"],
 			exclude: [
 				"configs/vendor.d.ts",
 				"src/**/*.d.ts",
