@@ -18,7 +18,6 @@ The sitemap-TUI renderer migration (2026-03-17) replaced 28 hardcoded page files
 - **10 pages** show "No loader" (blank)
 - **22 iteration management handlers** are missing (create, edit scope, advance, assign agents)
 - **Agents chat** is a custom override that bypasses the sitemap system
-- **3 JS bundles** with pathToFileURL hacks instead of a single ESM output
 
 The TUI shell (focus zones, section memory, Tab/Escape, scroll stability, flexbox layout) works — that was delivered by the UX overhaul and layout polish specs. The primitives (`ListPage`, `FormPage`, `ScrollableList`, `MasterDetail`, `FormField`) exist and work. They just aren't used by the generic renderer.
 
@@ -32,34 +31,42 @@ The TUI shell (focus zones, section memory, Tab/Escape, scroll stability, flexbo
 | P0 | All sitemap pages render meaningful content (no blank pages) |
 | P0 | Full iteration lifecycle management in TUI |
 | P1 | Agents chat as a native sitemap-driven page |
-| P1 | Single-file ESM build |
+| P1 | Single-file ESM build (already delivered — verify after chat migration) |
 | P2 | CRUD factory pattern for consistent store-backed domains |
 
 ## 3. Architecture: Content Renderer Registry
 
-`SitemapPage` delegates content rendering to a **content renderer registry** — a map of `pageId` to renderer function. Default renderers handle 80% of pages; domain-specific renderers handle the rest.
+`SitemapPage` delegates content rendering to a **content renderer registry** — a map of `pageId` to renderer component. Default renderers handle 80% of pages; domain-specific renderers handle the rest.
 
 ### 3.1 Registry
 
+Content renderers are React function components (not plain functions), because renderers that manage selection state, call hooks, or handle keyboard input need the full React lifecycle. The type is `React.FC<ContentRendererProps>`:
+
 ```typescript
-type ContentRenderer = (
-  data: unknown,
-  page: PageObject,
-  params: Record<string, string>,
-  nav: NavigationContextValue,
-  registry: TuiHandlerRegistry,
-  actionCtx: TuiActionContext,
-) => React.JSX.Element;
+interface ContentRendererProps {
+  readonly data: unknown;
+  readonly page: PageObject;
+  readonly params: Record<string, string>;
+  readonly nav: NavigationContextValue;
+  readonly registry: TuiHandlerRegistry;
+  readonly actionCtx: TuiActionContext;
+  readonly onExtraParams?: (extra: Record<string, string>) => void;
+  readonly enabled?: boolean;
+}
+
+type ContentRenderer = React.FC<ContentRendererProps>;
 
 const contentRenderers: Record<string, ContentRenderer> = {
-  "iteration-detail": renderIterationDetail,
-  "iterations": renderIterationsList,
-  "projects-list": renderProjectsList,
-  "project-detail": renderProjectDetail,
-  "management": renderManagementHub,
-  "agents-chat": renderAgentsChat,
+  "iteration-detail": IterationDetailRenderer,
+  "iterations": IterationsListRenderer,
+  "projects-list": ProjectsListRenderer,
+  "project-detail": ProjectDetailRenderer,
+  "management": ManagementHubRenderer,
+  "agents-chat": AgentsChatRenderer,
 };
 ```
+
+The `onExtraParams` callback allows content renderers to communicate dynamic state (e.g., current list selection index) back to `SitemapPage` for inclusion in handler dispatch context. See Section 3.4.
 
 ### 3.2 ContentZone Resolution Order
 
@@ -83,6 +90,18 @@ src/tui/sitemap/
   list-configs.ts             — renderItem/renderDetail/onSelect per pageId
   crud-form-factory.ts        — generates form+submit handlers from StoreApi
 ```
+
+### 3.4 Dynamic Params: Content Renderer → Handler Dispatch
+
+Content renderers that track selection state (iteration-detail scope list, CRUD lists) need to communicate the current selection to handler dispatch. The mechanism:
+
+1. `SitemapPage` holds `extraParams` in `useState<Record<string, string>>({})`.
+2. `SitemapPage` passes `onExtraParams` callback to the content renderer.
+3. The content renderer calls `onExtraParams({ scopeIndex: "3" })` when selection changes.
+4. `SitemapPage` merges `extraParams` into `actionCtx.params` when building the handler context.
+5. Handlers read `ctx.params.scopeIndex` (or `ctx.params.selectedItem`, etc.) at dispatch time.
+
+This avoids ref hacks and keeps the data flow unidirectional: renderer → state → handler context.
 
 ## 4. Default List Renderer
 
@@ -161,17 +180,41 @@ type TuiActionResult =
   | { kind: "form"; title: string; fields: FormFieldDef[]; submitHandler: string }
 ```
 
-### 5.3 CRUD Form Factory
+### 5.3 Form State Management in SitemapPage
+
+The `kind: "form"` result must propagate from the handler dispatch chain back to `SitemapPage` to swap the content zone. The mechanism:
+
+1. `SitemapPage` holds `formState: FormDef | null` in `useState`, where `FormDef = { title: string; fields: FormFieldDef[]; submitHandler: string }`.
+2. `dispatchAction` is modified to return `Promise<TuiActionResult>` instead of `Promise<void>`.
+3. `useActionEffect.run()` accepts an optional `onFormRequested?: (form: FormDef) => void` callback. When the handler returns `kind: "form"`, `run()` calls `onFormRequested(result)` instead of flashing a success message.
+4. `SitemapPage`'s `handleAction` callback passes `onFormRequested: (form) => setFormState(form)` to `effect.run()`.
+5. When `formState !== null`, `ContentZone` renders `FormPage` instead of the normal content. On submit, `SitemapPage` calls `registry.getFormHandler(formState.submitHandler)` with collected form data. On success, it clears `formState` and refreshes the page loader. On cancel (Escape), it clears `formState`.
+
+This keeps the form state in the React tree (not in the handler dispatch chain), avoids breaking the existing `useActionEffect` success/error flow, and integrates cleanly with `FormPage`'s existing Escape claim via `EscapeContext`.
+
+### 5.4 CRUD Form Factory
 
 ```typescript
+interface CrudFormVariant {
+  readonly actionId: string;       // e.g., "raid:add-risk"
+  readonly submitId: string;       // e.g., "raid:create-risk"
+  readonly title: string;          // e.g., "Add Risk"
+  readonly fields: FormFieldDef[]; // form field definitions
+  readonly buildDef: (data: Record<string, string | boolean>) => unknown; // maps form data → store definition
+}
+
 function createCrudFormHandlers(
-  domain: string,
+  registry: TuiHandlerRegistry,
   store: StoreApi<unknown, unknown>,
-  variants: CrudFormVariant[],
+  variants: readonly CrudFormVariant[],
 ): void
 ```
 
-Each variant defines: action name prefix (e.g., `"raid:add-risk"`), form title, field definitions, and a mapping from form data to store definition. The factory registers both the handler (returns `kind: "form"`) and the form handler (calls `store.create()`).
+Each variant defines: the action handler ID (returns `kind: "form"`), the form submit handler ID (calls `store.create()`), the form title, field definitions, and a `buildDef` function that maps form data to a typed store definition.
+
+The factory registers both: the handler (returns `kind: "form"` with the variant's fields) and the form handler (calls `store.create(deps, projectPath, buildDef(data))`).
+
+**Important:** The factory replaces the stub navigate handlers currently in `crud-effect-handlers.ts`. Those stubs must be removed before the factory registers the same IDs — `TuiHandlerRegistry.registerHandler` throws on duplicate registration.
 
 **Domains covered:**
 - Resources: add-human, add-material, add-role, add-budget
@@ -326,42 +369,13 @@ agents-chat content renderer:
 - `use-streaming-process.ts` — streaming infrastructure, consumed by renderer
 - `ink-chat-renderer.ts` — the rendering primitives (message display, input, streaming indicator) — refactored into the content renderer
 
-## 9. Single-File ESM Build
+## 9. Single-File ESM Build — Already Delivered
 
-### 9.1 Current State (3 bundles)
+The single-file ESM build was delivered as part of the sitemap-TUI renderer migration. `esbuild.config.mjs` already produces a single `main.mjs` (ESM), marks ink/react as external, includes the `createRequire` banner, and cleans up stale 3-bundle artifacts (`main.js`, `tui.mjs`, `chat.mjs`).
 
-```
-esbuild.config.mjs
-├── main.js   (CJS)  — core CLI, excludes ink/react
-├── tui.mjs   (ESM)  — Ink TUI shell
-└── chat.mjs  (ESM)  — Ink chat renderer
+**Remaining work:** When `agents-chat-page.tsx` is deleted and replaced by a content renderer (Section 8), the separate `chat.mjs` entry point becomes dead code. The esbuild config already handles this — the chat code is absorbed into the single bundle via normal imports. No build config changes needed.
 
-main.ts loads tui.mjs via pathToFileURL hack.
-```
-
-### 9.2 Target State (1 bundle)
-
-```
-esbuild.config.mjs
-└── main.mjs  (ESM)  — everything in one file
-
-main.ts:
-  if (interactive) {
-    const { runTui } = await import("./tui/tui-entry.js");
-    await runTui();
-  }
-```
-
-### 9.3 Changes
-
-- `esbuild.config.mjs` → single build target, `format: "esm"`, `createRequire` banner for any remaining CJS patterns
-- `main.ts` → remove `pathToFileURL` hack, direct `import()`
-- `bootstrap.mjs` → reference `main.mjs` instead of `main.js`
-- Lazy loading preserved: non-interactive commands (`flowti build`, `flowti health`) never import ink/react
-
-### 9.4 Externals
-
-ink and react remain external (loaded from `node_modules`). All other imports are bundled.
+**Verification:** After the agents-chat migration, confirm that `node .flowti/bin/main.mjs help` works without loading ink, and that the TUI launches correctly with chat integrated.
 
 ## 10. Testing Strategy
 
@@ -382,11 +396,11 @@ ink and react remain external (loaded from `node_modules`). All other imports ar
 - Key press → action dispatch → handler → form display → submit → store mutation → page refresh
 - List selection → navigate to detail page → back returns to list with selection preserved
 
-### 10.4 Build Tests
+### 10.4 Build Verification (post-chat migration)
 
-- Single `.mjs` file exists, no `.js` or second `.mjs`
-- Non-interactive: `node main.mjs help` works without loading ink
-- Interactive: TUI launches and renders
+- `node .flowti/bin/main.mjs help` works without loading ink
+- TUI launches and renders with chat integrated
+- No stale `chat.mjs` referenced anywhere
 
 ## 11. Dependency on Existing Primitives
 
@@ -404,13 +418,11 @@ All rendering uses existing, tested primitives from the layout polish spec:
 
 ## 12. Architecture Decisions
 
-### AD-1: Content renderer functions, not page components
+### AD-1: Content renderer components, not page components
 
-**Decision:** Custom renderers are functions `(data, page, ...) => JSX`, not full React components with their own hooks.
+**Decision:** Custom renderers are `React.FC<ContentRendererProps>` — React function components that receive standardized props and return JSX for the content zone only. They are NOT full page components (no layout duplication, no action handling, no loader wiring).
 
-**Rationale:** Page components (the old 28 files) duplicated layout, action handling, and loader wiring. Renderer functions only own the content zone — SitemapPage handles everything else. Less code, consistent behavior, no registration ceremony.
-
-**Exception:** Renderers that need hooks (agents-chat, iteration-detail with scope toggle) are thin wrapper components that call hooks internally but still conform to the renderer signature.
+**Rationale:** Page components (the old 28 files) duplicated layout, action handling, and loader wiring. Renderer components only own the content zone — SitemapPage handles everything else. Less code, consistent behavior. Using `React.FC` (not plain functions) is required because renderers that manage selection state, call hooks (`useState`, `useInput`, `useChatSession`), or handle keyboard input need the full React lifecycle. In React's rules, a function that calls hooks IS a component — making this explicit in the type avoids confusion.
 
 ### AD-2: Heuristic list detection for CRUD pages
 
@@ -432,15 +444,17 @@ All rendering uses existing, tested primitives from the layout polish spec:
 
 ### AD-5: Agents chat as content renderer
 
-**Decision:** Chat is a content renderer registered in `content-renderers.ts`, using existing hooks (`use-chat-session`, `use-streaming-process`).
+**Decision:** Chat is a content renderer component registered in `content-renderers.ts`, using existing hooks (`use-chat-session`, `use-streaming-process`).
 
 **Rationale:** Chat was the Ink PoC — it validated the entire TUI approach. Keeping it as a custom override page that bypasses sitemap-driven rendering contradicts the architecture. Making it a content renderer means it gets sitemap actions, EffectStrip, consistent layout, and focus zone integration for free.
 
-### AD-6: Single ESM bundle with lazy TUI import
+**Component location:** The chat display components (`MessageArea`, `InputArea`, `StreamingIndicator`) currently live in `src/infrastructure/chat/components/`. These move to `src/tui/chat/` — they are presentation-only components that belong in the TUI layer, not infrastructure. The content renderer in `content-renderers.ts` imports from `src/tui/chat/`. The hooks (`use-chat-session.ts`, `use-streaming-process.ts`) stay in `src/tui/hooks/` where they already are.
 
-**Decision:** Merge 3 bundles into 1 ESM file. TUI and chat loaded via dynamic `import()`.
+### AD-6: Single ESM bundle (already delivered)
 
-**Rationale:** The 3-bundle split was a CJS/ESM workaround. With ESM throughout, the hack (`pathToFileURL`) is unnecessary. Non-interactive commands skip the TUI import entirely, so there's no performance penalty.
+**Decision:** The 3-bundle → 1-bundle migration was completed as part of the sitemap-TUI renderer work. No further build changes needed.
+
+**Remaining action:** When `agents-chat-page.tsx` is deleted (Section 8.3), verify that the chat code is absorbed into the single bundle via normal imports. No build config changes expected.
 
 ## 13. Risks
 
@@ -450,5 +464,5 @@ All rendering uses existing, tested primitives from the layout polish spec:
 | Inline form state conflicts with page navigation | Form data lost on accidental Escape | FormPage already has Escape claim via EscapeContext; double-press required |
 | Heuristic list detection false positives | Page with `items[]` that isn't a list | Only applies to pages without a custom renderer; the heuristic checks `CrudPageData` shape specifically |
 | Chat hooks need refactoring for renderer pattern | Scope creep | Hooks are already decoupled from the page component; renderer just consumes them |
-| ESM migration breaks edge cases | CLI won't start | Separate chunk — can ship content parity first, build migration second |
+| Chat component move breaks imports | Build fails | Move components first, update imports, run tsc before proceeding |
 | 34 new handlers + 10 new loaders = large PR | Review burden | Implementation plan chunks by domain; each chunk is independently testable and committable |
