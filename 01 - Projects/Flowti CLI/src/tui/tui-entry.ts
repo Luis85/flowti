@@ -18,44 +18,36 @@ import { log } from "../infrastructure/logger.js";
 import { VAULT_ROOT, CLI_PROJECT, PROJECTS_DIR, cliConfig, loadJson } from "../infrastructure/config.js";
 import type { ProjectConfig } from "../infrastructure/types-config.js";
 import { createProcessRunner } from "../infrastructure/agent-process-runner.js";
+import { loadSitemap } from "../infrastructure/sitemap-loader.js";
+import { TuiHandlerRegistry } from "./registry/tui-handler-registry.js";
+import { createSessionStore } from "./registry/tui-session-store.js";
+import { registerTuiHandlers } from "./registry/register-tui-handlers.js";
 
-// Import page modules to trigger self-registration
-import "./pages/start-page.js";
-import "./pages/ai-tools-page.js";
-import "./pages/agent-detail-page.js";
-import "./pages/projects-list-page.js";
-import "./pages/project-detail-page.js";
-import "./pages/health-page.js";
-import "./pages/iterations-page.js";
-import "./pages/resources-page.js";
-import "./pages/timelog-page.js";
-import "./pages/deliverables-page.js";
-import "./pages/raid-page.js";
-import "./pages/requirements-page.js";
-import "./pages/capa-page.js";
-import "./pages/lifecycle-page.js";
-import "./pages/build-page.js";
-import "./pages/test-page.js";
-import "./pages/scaffold-page.js";
-import "./pages/make-page.js";
-import "./pages/review-page.js";
-import "./pages/devtools-page.js";
-import "./pages/reports-page.js";
-import "./pages/event-catalog-page.js";
-import "./pages/publish-page.js";
-import "./pages/plugins-page.js";
-import "./pages/help-page.js";
+// Import custom override pages to trigger self-registration
+// (all other pages are now rendered by SitemapPage via sitemap.json)
 import "./pages/onboarding-page.js";
 import "./pages/onboarding-tour-page.js";
-import "./pages/knowledgebase-page.js";
-import "./pages/capture-page.js";
 import "./pages/agents-chat-page.js";
-import "./pages/iteration-detail-page.js";
 
 export async function runTui(): Promise<void> {
 	const projectConfig = loadJson<ProjectConfig>(paths.join(CLI_PROJECT, "configs", "flowti.config.json"));
 
 	const processRunner = createProcessRunner({ disk, paths, clock, shell, log }, cliConfig.agents);
+
+	// Load sitemap
+	const sitemapResult = loadSitemap(
+		paths.join(CLI_PROJECT, "configs", "sitemap.json"),
+		disk,
+	);
+	const sitemap = sitemapResult.sitemap ?? { version: 2 as const, pages: {} };
+
+	// Create TUI infrastructure
+	const tuiRegistry = new TuiHandlerRegistry();
+	const session = createSessionStore();
+	const actionDeps = { disk, paths, clock, shell };
+
+	// Register all TUI handlers
+	registerTuiHandlers(tuiRegistry);
 
 	const tuiContext: TuiContextValue = {
 		deps: { disk, paths, clock, shell, log },
@@ -66,6 +58,10 @@ export async function runTui(): Promise<void> {
 		iterationsConfig: projectConfig?.management?.iterations,
 		projectConfig: projectConfig ?? undefined,
 		processRunner,
+		sitemap,
+		tuiRegistry,
+		session,
+		actionDeps,
 	};
 
 	const instance = render(

@@ -8,7 +8,7 @@
 
 import type { DisabledCondition, HiddenCondition } from "../domain/sitemap/unified-page.js";
 import type { RouterContext } from "./sitemap-types.js";
-import type { HandlerRegistry } from "./handler-registry.js";
+import type { IConditionRegistry } from "./condition-registry.js";
 
 // ── Public API ──────────────────────────────────────────────────────
 
@@ -19,7 +19,7 @@ import type { HandlerRegistry } from "./handler-registry.js";
 export function resolveDisabledCondition(
 	condition: DisabledCondition | undefined,
 	ctx: RouterContext,
-	registry: HandlerRegistry,
+	registry: IConditionRegistry,
 ): boolean {
 	if (condition === undefined) return false;
 	if (typeof condition === "boolean") return condition;
@@ -35,7 +35,7 @@ export function resolveDisabledCondition(
 export function resolveHiddenCondition(
 	condition: HiddenCondition | undefined,
 	ctx: RouterContext,
-	registry: HandlerRegistry,
+	registry: IConditionRegistry,
 ): boolean {
 	if (condition === undefined) return false;
 	if (typeof condition === "boolean") return condition;
@@ -43,7 +43,7 @@ export function resolveHiddenCondition(
 }
 
 /** A string condition is either a registered handler ID or an inline expression. */
-function resolveStringCondition(condition: string, ctx: RouterContext, registry: HandlerRegistry): boolean {
+function resolveStringCondition(condition: string, ctx: RouterContext, registry: IConditionRegistry): boolean {
 	if (registry.hasCondition(condition)) return registry.getCondition(condition)(ctx);
 	return evaluateExpression(condition, buildFlatContext(ctx));
 }

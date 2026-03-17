@@ -12,7 +12,9 @@
 import React, { createContext, useContext, useRef, useState, useCallback } from "react";
 import { Box, Text, useInput } from "ink";
 import { getPage } from "../pages/page-registry.js";
-import { useLoaderContext } from "../context.js";
+import { PlaceholderPage } from "../pages/placeholder-page.js";
+import { SitemapPage } from "../sitemap/sitemap-page.js";
+import { useLoaderContext, useTuiContext } from "../context.js";
 
 interface EscapeContextValue {
 	readonly claim: () => void;
@@ -36,6 +38,7 @@ interface ContentAreaProps {
 export function ContentArea({ pageId, params, navigate, goBack, focused, onEscapeDefault }: ContentAreaProps): React.JSX.Element {
 	const [actionError, setActionError] = useState<string | null>(null);
 	const _ctx = useLoaderContext(params);
+	const { sitemap, tuiRegistry } = useTuiContext();
 	const Page = getPage(pageId);
 	const escapeClaimedRef = useRef(false);
 
@@ -59,6 +62,23 @@ export function ContentArea({ pageId, params, navigate, goBack, focused, onEscap
 		}
 	}, { isActive: focused });
 
+	// Determine which component to render:
+	// 1. Custom registered page (not PlaceholderPage) — use it directly
+	// 2. Sitemap has a definition for this pageId — use SitemapPage
+	// 3. Fallback — use PlaceholderPage
+	const isCustomPage = Page !== PlaceholderPage;
+	const sitemapPageObj = sitemap?.pages[pageId];
+
+	const renderPage = (): React.ReactNode => {
+		if (isCustomPage) {
+			return React.createElement(Page, { pageId, params, navigate, goBack, onAction: handleAction, enabled: focused });
+		}
+		if (sitemapPageObj) {
+			return React.createElement(SitemapPage, { page: sitemapPageObj, pageId, params, registry: tuiRegistry, enabled: focused });
+		}
+		return React.createElement(PlaceholderPage, { pageId, params, navigate, goBack, onAction: handleAction, enabled: focused });
+	};
+
 	return (
 		<Box flexGrow={1} flexDirection="column">
 			{actionError !== null && (
@@ -68,7 +88,7 @@ export function ContentArea({ pageId, params, navigate, goBack, focused, onEscap
 				</Box>
 			)}
 			<EscapeCtx.Provider value={{ claim: claimEscape }}>
-				{React.createElement(Page, { pageId, params, navigate, goBack, onAction: handleAction, enabled: focused })}
+				{renderPage()}
 			</EscapeCtx.Provider>
 		</Box>
 	);

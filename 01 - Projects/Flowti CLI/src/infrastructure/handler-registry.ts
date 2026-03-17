@@ -14,6 +14,7 @@ import type {
 import type { RouterContext } from "./sitemap-types.js";
 import type { MenuEntry } from "./types.js";
 import type { FormData } from "./form-runner.js";
+import type { ConditionFn, IConditionRegistry } from "./condition-registry.js";
 
 /** Handles a form submission — receives collected form data + context. */
 export type FormHandler = (ctx: RouterContext & { readonly formData: FormData }) => Promise<void>;
@@ -23,7 +24,7 @@ export type DataSourceHandler = (ctx: RouterContext, params?: Readonly<Record<st
 
 // ── Handler Registry ────────────────────────────────────────────────
 
-export class HandlerRegistry {
+export class HandlerRegistry implements IConditionRegistry {
 	readonly #views = new Map<string, ViewHandler>();
 	readonly #actions = new Map<string, ActionHandler>();
 	readonly #conditions = new Map<string, ConditionHandler>();
@@ -77,10 +78,10 @@ export class HandlerRegistry {
 		return h;
 	}
 
-	getCondition(id: string): ConditionHandler {
+	getCondition(id: string): ConditionFn {
 		const h = this.#conditions.get(id);
 		if (!h) throw new Error(`Unknown condition handler: "${id}"`);
-		return h;
+		return h as ConditionFn;
 	}
 
 	getBeforeRender(id: string): BeforeRenderHandler {

@@ -97,6 +97,9 @@ export type OnboardingDeps = Pick<CliDeps, "disk" | "paths" | "input" | "clock" 
 /** Dependencies for workspace management. */
 export type WorkspaceDeps = Pick<CliDeps, "disk" | "paths" | "shell" | "clock" | "bus" | "log">;
 
+/** Deps for TUI action handlers — includes shell for effects, excludes input/log (no terminal I/O). */
+export type TuiActionDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "shell">;
+
 /** Log function type for renderers. */
 export type Log = (msg?: string) => void;
 
