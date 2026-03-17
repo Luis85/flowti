@@ -17,6 +17,9 @@ export type AgentStreamEvent =
 	| { readonly kind: "usage"; readonly inputTokens: number; readonly outputTokens: number }
 	| { readonly kind: "done" };
 
+// Backward compat — AgentStreamEvent is now an alias for LLMEvent
+export type { LLMEvent } from "./llm-types.js";
+
 // ── Stream state ─────────────────────────────────────────────────────
 
 export interface StreamState {

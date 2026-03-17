@@ -75,3 +75,6 @@ export interface IAgentShell {
 	pendingQuestions(): PendingQuestion[];
 	answerAgent(agentName: string, answer: string): Promise<void>;
 }
+
+// Backward compat — AgentProcessResult is structurally identical to LLMResult
+export type { LLMResult } from "./llm-types.js";

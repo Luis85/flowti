@@ -75,3 +75,6 @@ export interface IWorkerManager {
 	send(agentName: string, message: string, opts?: SendOptions): void;
 	dispatchWorldEvent(event: import("./world-state-types.js").AgentAction): void;
 }
+
+// Backward compat — LLMProcess is the canonical type
+export type { LLMProcess, LLMResult } from "./llm-types.js";
