@@ -265,12 +265,13 @@ export class PanelTalk extends LitElement {
 	}
 
 	private renderThread() {
-		if (this.conversation.length === 0 && !this.thinking) {
+		const visible = this.conversation.slice(-50);
+		if (visible.length === 0 && !this.thinking) {
 			return html`<div class="empty">No messages yet. Start a conversation!</div>`;
 		}
 
 		return html`
-			${this.conversation.map((turn) => html`
+			${visible.map((turn) => html`
 				<div class="turn" data-role="${turn.role}">
 					${turn.text}
 				</div>

@@ -3,6 +3,12 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { DashboardStore } from "../../src/store/dashboard-store.js";
 import "../../src/ui/panel-talk.js";
 
+/** Flush RAF-deferred store notifications, then wait for Lit update. */
+async function flushStore(el: HTMLElement): Promise<void> {
+	await new Promise((r) => requestAnimationFrame(r));
+	await (el as any).updateComplete;
+}
+
 describe("panel-talk", () => {
 	let store: DashboardStore;
 	let el: HTMLElement;
@@ -27,7 +33,7 @@ describe("panel-talk", () => {
 	it("renders conversation turns from store", async () => {
 		store.pushUserMessage("TestBot", "Hello agent!");
 		store.pushAgentResponse("TestBot", "Hello human!");
-		await (el as any).updateComplete;
+		await flushStore(el);
 
 		const turns = el.shadowRoot!.querySelectorAll(".turn");
 		expect(turns.length).toBe(2);
@@ -41,7 +47,7 @@ describe("panel-talk", () => {
 
 	it("shows thinking indicator when agent is thinking", async () => {
 		store.pushUserMessage("TestBot", "What do you think?");
-		await (el as any).updateComplete;
+		await flushStore(el);
 
 		const thinking = el.shadowRoot!.querySelector(".thinking");
 		expect(thinking).not.toBeNull();
@@ -50,10 +56,10 @@ describe("panel-talk", () => {
 
 	it("hides thinking indicator after agent responds", async () => {
 		store.pushUserMessage("TestBot", "What do you think?");
-		await (el as any).updateComplete;
+		await flushStore(el);
 
 		store.pushAgentResponse("TestBot", "I think this.");
-		await (el as any).updateComplete;
+		await flushStore(el);
 
 		const thinking = el.shadowRoot!.querySelector(".thinking");
 		expect(thinking).toBeNull();
@@ -117,5 +123,34 @@ describe("panel-talk", () => {
 	it("renders input with correct placeholder", async () => {
 		const input = el.shadowRoot!.querySelector<HTMLInputElement>(".talk-input")!;
 		expect(input.placeholder).toBe("Message TestBot...");
+	});
+
+	it("renders at most 50 conversation turns", async () => {
+		for (let i = 0; i < 60; i++) {
+			if (i % 2 === 0) {
+				store.pushUserMessage("TestBot", `Message ${i}`);
+			} else {
+				store.pushAgentResponse("TestBot", `Response ${i}`);
+			}
+		}
+		await flushStore(el);
+
+		const turns = el.shadowRoot!.querySelectorAll(".turn");
+		expect(turns.length).toBe(50);
+	});
+
+	it("shows most recent turns when capped", async () => {
+		for (let i = 0; i < 60; i++) {
+			if (i % 2 === 0) {
+				store.pushUserMessage("TestBot", `Msg-${i}`);
+			} else {
+				store.pushAgentResponse("TestBot", `Rsp-${i}`);
+			}
+		}
+		await flushStore(el);
+
+		const turns = el.shadowRoot!.querySelectorAll(".turn");
+		const lastTurn = turns[turns.length - 1];
+		expect(lastTurn.textContent).toContain("Rsp-59");
 	});
 });

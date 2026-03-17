@@ -76,12 +76,24 @@ export class DashboardStore extends EventTarget {
 
 	// ── Notification ──────────────────────────────────────────────
 
+	private rafPending = false;
+
 	private notify(): void {
 		if (this.batchDepth > 0) {
 			this.batchDirty = true;
 			return;
 		}
-		this.dispatchEvent(new Event("state-changed"));
+		// In non-browser environments (Node tests), fall back to synchronous dispatch
+		if (typeof requestAnimationFrame === "undefined") {
+			this.dispatchEvent(new Event("state-changed"));
+			return;
+		}
+		if (this.rafPending) return;
+		this.rafPending = true;
+		requestAnimationFrame(() => {
+			this.rafPending = false;
+			this.dispatchEvent(new Event("state-changed"));
+		});
 	}
 
 	// ── State setters ─────────────────────────────────────────────

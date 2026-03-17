@@ -4,6 +4,12 @@ import { DashboardStore } from "../../src/store/dashboard-store.js";
 import "../../src/ui/agent-panel.js";
 import type { DashboardAgent } from "../../src/data/types.js";
 
+/** Flush RAF-deferred store notifications, then wait for Lit update. */
+async function flushStore(el: HTMLElement): Promise<void> {
+	await new Promise((r) => requestAnimationFrame(r));
+	await (el as any).updateComplete;
+}
+
 function makeAgent(overrides: Partial<DashboardAgent> = {}): DashboardAgent {
 	return {
 		name: "TestBot",
@@ -35,7 +41,7 @@ describe("agent-panel", () => {
 
 	it("renders nothing when no agent is selected", async () => {
 		// selectedAgent is null by default
-		await (el as any).updateComplete;
+		await flushStore(el);
 		const panel = el.shadowRoot!.querySelector("[data-testid='agent-panel']");
 		expect(panel).toBeNull();
 	});
@@ -43,7 +49,7 @@ describe("agent-panel", () => {
 	it("renders the panel when an agent is selected", async () => {
 		store.setAgents([makeAgent()]);
 		store.selectAgent("TestBot");
-		await (el as any).updateComplete;
+		await flushStore(el);
 
 		const panel = el.shadowRoot!.querySelector("[data-testid='agent-panel']");
 		expect(panel).not.toBeNull();
@@ -55,7 +61,7 @@ describe("agent-panel", () => {
 	it("renders 5 tab buttons", async () => {
 		store.setAgents([makeAgent()]);
 		store.selectAgent("TestBot");
-		await (el as any).updateComplete;
+		await flushStore(el);
 
 		const tabs = el.shadowRoot!.querySelectorAll(".tab-btn");
 		expect(tabs.length).toBe(5);
@@ -67,7 +73,7 @@ describe("agent-panel", () => {
 	it("shows info tab as active by default", async () => {
 		store.setAgents([makeAgent()]);
 		store.selectAgent("TestBot");
-		await (el as any).updateComplete;
+		await flushStore(el);
 
 		const tabs = el.shadowRoot!.querySelectorAll<HTMLButtonElement>(".tab-btn");
 		expect(tabs[0].getAttribute("data-active")).toBe("true");
@@ -77,7 +83,7 @@ describe("agent-panel", () => {
 	it("switches displayed tab when store.selectedTab changes", async () => {
 		store.setAgents([makeAgent()]);
 		store.selectAgent("TestBot");
-		await (el as any).updateComplete;
+		await flushStore(el);
 
 		// Default: info tab active
 		let activeTab = el.shadowRoot!.querySelector<HTMLButtonElement>("[data-active='true']");
@@ -85,14 +91,14 @@ describe("agent-panel", () => {
 
 		// Switch to talk
 		store.selectTab("talk");
-		await (el as any).updateComplete;
+		await flushStore(el);
 
 		activeTab = el.shadowRoot!.querySelector<HTMLButtonElement>("[data-active='true']");
 		expect(activeTab?.getAttribute("data-tab")).toBe("talk");
 
 		// Switch to history
 		store.selectTab("history");
-		await (el as any).updateComplete;
+		await flushStore(el);
 
 		activeTab = el.shadowRoot!.querySelector<HTMLButtonElement>("[data-active='true']");
 		expect(activeTab?.getAttribute("data-tab")).toBe("history");
@@ -101,12 +107,12 @@ describe("agent-panel", () => {
 	it("close button calls store.selectAgent(null)", async () => {
 		store.setAgents([makeAgent()]);
 		store.selectAgent("TestBot");
-		await (el as any).updateComplete;
+		await flushStore(el);
 
 		const closeBtn = el.shadowRoot!.querySelector<HTMLButtonElement>("[data-testid='panel-close']");
 		expect(closeBtn).not.toBeNull();
 		closeBtn!.click();
-		await (el as any).updateComplete;
+		await flushStore(el);
 
 		expect(store.selectedAgent).toBeNull();
 
@@ -118,7 +124,7 @@ describe("agent-panel", () => {
 	it("renders nothing when agent name is not found in store.agents", async () => {
 		// Select an agent that doesn't exist in agents array
 		store.selectAgent("GhostBot");
-		await (el as any).updateComplete;
+		await flushStore(el);
 
 		const panel = el.shadowRoot!.querySelector("[data-testid='agent-panel']");
 		expect(panel).toBeNull();
@@ -127,7 +133,7 @@ describe("agent-panel", () => {
 	it("displays the agent type badge", async () => {
 		store.setAgents([makeAgent({ agentType: "human" })]);
 		store.selectAgent("TestBot");
-		await (el as any).updateComplete;
+		await flushStore(el);
 
 		const badge = el.shadowRoot!.querySelector(".agent-type-badge");
 		expect(badge?.textContent?.trim()).toBe("human");
