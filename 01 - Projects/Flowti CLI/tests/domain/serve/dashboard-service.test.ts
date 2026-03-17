@@ -214,6 +214,7 @@ describe("dashboard-service SSE wiring", () => {
 describe("buildDashboard", () => {
 	it("returns error when dashboard is not enabled", () => {
 		const deps = makeDeps();
+		(deps.disk.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false);
 		const result = buildDashboard("/cli", "/out", undefined, deps);
 		expect(result.ok).toBe(false);
 		expect(result.error).toContain("not enabled");
