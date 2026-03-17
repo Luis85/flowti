@@ -8,8 +8,8 @@
     "build-storybook": "storybook build"
   },
   "devDependencies": {
-    "storybook": "^8.6.0",
-    "@storybook/html-vite": "^8.6.0",
-    "@storybook/addon-essentials": "^8.6.0"
+    "storybook": "latest",
+    "@storybook/html-vite": "latest",
+    "@storybook/addon-essentials": "latest"
   }
 }
