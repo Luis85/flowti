@@ -271,8 +271,13 @@ export function installStorybook(projectPath: string, projectName: string, confi
 			return false;
 		}
 	} else {
-		// Non-Angular: create a minimal package.json so storybook init has something to work with
+		// Non-Angular: create a minimal package.json and install deps so storybook init can detect the framework
 		writePackageJson(sbDir, projectName, framework, deps);
+		const depInstall = deps.shell.run("npm install", { cwd: sbDir, label: "Installing framework dependencies", env: nonInteractiveEnv });
+		if (depInstall !== 0) {
+			render.installFailed();
+			return false;
+		}
 	}
 
 	// Use official Storybook CLI to install with all features
