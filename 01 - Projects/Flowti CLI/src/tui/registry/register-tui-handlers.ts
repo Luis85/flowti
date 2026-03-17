@@ -7,7 +7,9 @@
 
 import type { TuiHandlerRegistry } from "./tui-handler-registry.js";
 import { registerConditionHandlers } from "./condition-handlers.js";
+import { registerEffectHandlers } from "./effect-handlers.js";
 
 export function registerTuiHandlers(registry: TuiHandlerRegistry): void {
 	registerConditionHandlers(registry);
+	registerEffectHandlers(registry);
 }
