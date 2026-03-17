@@ -6,7 +6,8 @@
  */
 
 import type { TuiHandlerRegistry } from "./tui-handler-registry.js";
+import { registerConditionHandlers } from "./condition-handlers.js";
 
-export function registerTuiHandlers(_registry: TuiHandlerRegistry): void {
-	// Handler registration will be added as handlers are migrated
+export function registerTuiHandlers(registry: TuiHandlerRegistry): void {
+	registerConditionHandlers(registry);
 }
