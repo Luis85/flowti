@@ -50,6 +50,14 @@ export interface HubSummary {
 }
 
 /**
+ * Abstracts workspace navigation so domain-layer code never touches
+ * the Obsidian workspace API directly.
+ */
+export interface IViewNavigator {
+	openView(viewType: string): Promise<void>;
+}
+
+/**
  * Interface that each hub implements to provide dashboard data.
  * Providers are standalone objects (not views) so they work
  * even when the hub view isn't open.

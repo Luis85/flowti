@@ -59,8 +59,8 @@ export interface UiCommandEventMap {
 	/** Toggle the Train Timeline Sidebar (show/hide). forceClose=true always collapses. */
 	"ui.toggleTrainTimeline": { trainId: string; forceClose?: boolean };
 
-	/** Resume the active paused train (command palette) */
-	"ui.resumeTrain": Record<string, never>;
+	/** Resume a paused train. trainId identifies which train to resume (omit for active train). */
+	"ui.resumeTrain": { trainId?: string };
 
 	/** Complete the active running/paused train (command palette) */
 	"ui.completeTrain": Record<string, never>;
@@ -80,8 +80,8 @@ export interface UiCommandEventMap {
 	/** Open the Analytics Hub view (or reveal if already open) */
 	"ui.openAnalyticsHub": Record<string, never>;
 
-	/** Open the Journey Builder sidebar in the right panel */
-	"ui.openJourneyBuilder": Record<string, never>;
+	/** Open the Journey Builder sidebar, optionally for a named journey */
+	"ui.openJourneyBuilder": { name?: string };
 
 	/** Open the Test Management Hub view (or reveal if already open) */
 	"ui.openTestManagementHub": Record<string, never>;
@@ -97,5 +97,176 @@ export interface UiCommandEventMap {
 	"ui.opened": {
 		target: string;
 		timestamp: string;
+	};
+
+	// ── Navigation events ─────────────────────────────────────
+
+	/** Navigate to a specific tab within a hub view */
+	"ui.navigateTab": {
+		viewId: string;
+		tabId: string;
+		entityId?: string;
+	};
+
+	/** Open a vault file in the editor */
+	"ui.openFile": {
+		filePath: string;
+	};
+
+	// ── Session UI events ─────────────────────────────────────
+
+	/** Open the Session Workspace view */
+	"ui.openSessionWorkspace": {
+		sessionId?: string;
+	};
+
+	/** Open the Session Workspace sidebar */
+	"ui.openSessionWorkspaceSidebar": Record<string, never>;
+
+	/** Create a new session */
+	"ui.createSession": Record<string, never>;
+
+	/** Resume the active paused session */
+	"ui.resumeSession": Record<string, never>;
+
+	/** A session was selected in the sessions list */
+	"ui.sessionSelected": {
+		sessionId: string;
+	};
+
+	// ── Installer UI events ───────────────────────────────────
+
+	/** Open the installer view */
+	"ui.openInstaller": Record<string, never>;
+
+	// ── Train UI events ───────────────────────────────────────
+
+	/** Pause an active train */
+	"ui.pauseTrain": {
+		trainId: string;
+	};
+
+	/** Delete a train */
+	"ui.deleteTrain": {
+		trainId: string;
+	};
+
+	// ── Inbox UI events ───────────────────────────────────────
+
+	/** An inbox item was selected */
+	"ui.inboxItemSelected": {
+		itemId: string;
+	};
+
+	/** An inbox action was triggered */
+	"ui.inboxAction": {
+		actionId: string;
+		itemId?: string;
+	};
+
+	// ── Data Exchange UI events ───────────────────────────────
+
+	/** Import a CSV file */
+	"ui.importCsv": Record<string, never>;
+
+	/** Export as CSV */
+	"ui.exportCsv": Record<string, never>;
+
+	/** Export as tab-delimited */
+	"ui.exportTab": Record<string, never>;
+
+	/** Sync signals */
+	"ui.signalSync": Record<string, never>;
+
+	/** Import a canvas file */
+	"ui.importCanvas": Record<string, never>;
+
+	/** Run a saved import config */
+	"ui.runImport": {
+		configId: string;
+	};
+
+	/** Edit a saved import config */
+	"ui.editImport": {
+		configId: string;
+	};
+
+	/** Delete a saved import config */
+	"ui.deleteImport": {
+		configId: string;
+	};
+
+	/** Create a new import config */
+	"ui.createImport": Record<string, never>;
+
+	/** Run a saved export config */
+	"ui.runExport": {
+		configId: string;
+	};
+
+	/** Edit a saved export config */
+	"ui.editExport": {
+		configId: string;
+	};
+
+	/** Delete a saved export config */
+	"ui.deleteExport": {
+		configId: string;
+	};
+
+	/** Create a new export config */
+	"ui.createExport": Record<string, never>;
+
+	/** Select a pipeline for viewing */
+	"ui.selectPipeline": {
+		pipelineId: string;
+	};
+
+	/** Create a property documentation file */
+	"ui.createPropertyDoc": {
+		propertyName: string;
+	};
+
+	/** Sync a specific signal */
+	"ui.syncSignal": {
+		signalId: string;
+	};
+
+	/** Run a canvas import workflow */
+	"ui.runCanvasImport": {
+		canvasPath: string;
+		configId?: string;
+	};
+
+	// ── Catalog UI events ─────────────────────────────────────
+
+	/** A health item was selected in the catalog */
+	"catalog.health.selected": {
+		itemId: string;
+	};
+
+	/** A domain entity was selected in the catalog */
+	"catalog.domains.selected": {
+		entityId: string;
+	};
+
+	/** A service entity was selected in the catalog */
+	"catalog.services.selected": {
+		entityId: string;
+	};
+
+	/** A flow entity was selected in the catalog */
+	"catalog.flows.selected": {
+		entityId: string;
+	};
+
+	/** A system entity was selected in the catalog */
+	"catalog.systems.selected": {
+		entityId: string;
+	};
+
+	/** An actor entity was selected in the catalog */
+	"catalog.actors.selected": {
+		entityId: string;
 	};
 }

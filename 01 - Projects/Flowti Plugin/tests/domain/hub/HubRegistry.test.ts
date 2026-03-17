@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import { HubRegistry } from "../../../src/domain/hub/HubRegistry";
-import type { HubDashboardProvider, HubSummary } from "../../../src/domain/hub/types";
+import type { HubDashboardProvider, IViewNavigator } from "../../../src/domain/hub/types";
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -21,31 +21,19 @@ function makeProvider(overrides?: Partial<HubDashboardProvider>): HubDashboardPr
 	};
 }
 
-function makeApp(): { workspace: ReturnType<typeof makeWorkspace> } {
-	return { workspace: makeWorkspace() };
-}
-
-function makeWorkspace() {
-	const leaf = {
-		setViewState: vi.fn().mockResolvedValue(undefined),
-	};
-	return {
-		getLeavesOfType: vi.fn().mockReturnValue([]),
-		getLeaf: vi.fn().mockReturnValue(leaf),
-		revealLeaf: vi.fn(),
-		_leaf: leaf,
-	};
+function makeNavigator(): IViewNavigator & { openView: ReturnType<typeof vi.fn> } {
+	return { openView: vi.fn().mockResolvedValue(undefined) };
 }
 
 describe("HubRegistry", () => {
 	let eventBus: IEventBus;
-	let app: ReturnType<typeof makeApp>;
+	let navigator: ReturnType<typeof makeNavigator>;
 	let registry: HubRegistry;
 
 	beforeEach(() => {
 		eventBus = new EventBus();
-		app = makeApp();
-		registry = new HubRegistry(app as never, eventBus);
+		navigator = makeNavigator();
+		registry = new HubRegistry(navigator, eventBus);
 	});
 
 	// ── Registration ────────────────────────────────────────
@@ -97,31 +85,15 @@ describe("HubRegistry", () => {
 		it("should do nothing for unknown hub ID", async () => {
 			await registry.openHub("nonexistent");
 
-			expect(app.workspace.getLeavesOfType).not.toHaveBeenCalled();
+			expect(navigator.openView).not.toHaveBeenCalled();
 		});
 
-		it("should create a new leaf when none exists", async () => {
+		it("should delegate to navigator with the view type", async () => {
 			registry.register(makeProvider());
-			app.workspace.getLeavesOfType.mockReturnValue([]);
 
 			await registry.openHub("test-hub");
 
-			expect(app.workspace.getLeaf).toHaveBeenCalledWith("tab");
-			expect(app.workspace._leaf.setViewState).toHaveBeenCalledWith({
-				type: "test-hub-view",
-				active: true,
-			});
-		});
-
-		it("should reuse existing leaf when one exists", async () => {
-			registry.register(makeProvider());
-			const existingLeaf = { view: {} };
-			app.workspace.getLeavesOfType.mockReturnValue([existingLeaf]);
-
-			await registry.openHub("test-hub");
-
-			expect(app.workspace.getLeaf).not.toHaveBeenCalled();
-			expect(app.workspace.revealLeaf).toHaveBeenCalledWith(existingLeaf);
+			expect(navigator.openView).toHaveBeenCalledWith("test-hub-view");
 		});
 
 		it("should NOT emit hub.navigate when no tabId is provided", async () => {

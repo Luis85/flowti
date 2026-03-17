@@ -47,13 +47,14 @@ export class SitemapBootstrap {
 				this.safeRegister(viewDef.type, (leaf) =>
 					new SitemapHubView(leaf, this.deps.eventBus, viewDef, this.deps.handlerRegistry) as never,
 				);
+				this.registeredViewTypes.push(viewDef.type);
 			} else if (viewDef.component || viewDef.handler) {
 				// Leaf view — component or handler
 				this.safeRegister(viewDef.type, (leaf) =>
 					new SitemapLeafView(leaf, this.deps.eventBus, viewDef, this.deps.handlerRegistry) as never,
 				);
+				this.registeredViewTypes.push(viewDef.type);
 			}
-			this.registeredViewTypes.push(viewDef.type);
 		}
 	}
 

@@ -55,6 +55,9 @@ export interface JourneyBuilderEventMap {
 	"journey-builder.canvas.changed": ParsedJourneyCanvas & {
 		canvasPath: string;
 	};
+	/** User clicked "Import from system" (file dialog) */
+	"journey-builder.import-from-system": Record<string, never>;
+
 	/** User selected a journey file to import */
 	"journey-builder.import-requested": {
 		path: string;

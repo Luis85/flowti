@@ -449,13 +449,13 @@ export class DataExchangeSetup {
 		const existing = workspace.getLeavesOfType(VIEW_TYPE_DATA_EXCHANGE_HUB);
 		if (existing.length > 0) {
 			void workspace.revealLeaf(existing[0]);
-			void this.deps.eventBus.emit("ui.navigateTab" as never, { viewId: "data-exchange-hub", tabId: "imports", entityId: configId } as never);
+			void this.deps.eventBus.emit("ui.navigateTab", { viewId: "data-exchange-hub", tabId: "imports", entityId: configId });
 			return;
 		}
 		const leaf = workspace.getLeaf(true);
 		void leaf.setViewState({ type: VIEW_TYPE_DATA_EXCHANGE_HUB, active: true }).then(() => {
 			void workspace.revealLeaf(leaf);
-			void this.deps.eventBus.emit("ui.navigateTab" as never, { viewId: "data-exchange-hub", tabId: "imports", entityId: configId } as never);
+			void this.deps.eventBus.emit("ui.navigateTab", { viewId: "data-exchange-hub", tabId: "imports", entityId: configId });
 		});
 	}
 }

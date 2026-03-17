@@ -180,4 +180,51 @@ export interface AnalyticsEventMap {
 
 	/** All analytics data was reset (queries, dashboards, templates, measurements) */
 	"analytics.reset": Record<string, never>;
+
+	// ── UI command events (handler → service) ────────────────
+
+	/** UI: request to add a tile to the current dashboard */
+	"analytics.ui.addTile": Record<string, never>;
+
+	/** UI: request to remove a tile from the current dashboard */
+	"analytics.ui.removeTile": {
+		tileId: string;
+	};
+
+	/** UI: request to rename the current dashboard */
+	"analytics.ui.renameDashboard": {
+		dashboardId: string;
+		name: string;
+	};
+
+	/** UI: navigate via breadcrumb to a dashboard */
+	"analytics.ui.navigateBreadcrumb": {
+		dashboardId: string;
+	};
+
+	/** UI: request to run the current query */
+	"analytics.ui.runQuery": Record<string, never>;
+
+	/** UI: request to save a query */
+	"analytics.ui.saveQuery": {
+		queryId: string;
+	};
+
+	/** UI: request to delete a saved query */
+	"analytics.ui.deleteQuery": {
+		queryId: string;
+	};
+
+	/** UI: a measurement was selected */
+	"analytics.ui.measurementSelected": {
+		measurementId: string;
+	};
+
+	/** UI: request to create a new measurement */
+	"analytics.ui.createMeasurement": Record<string, never>;
+
+	/** UI: request to delete a measurement */
+	"analytics.ui.deleteMeasurement": {
+		measurementId: string;
+	};
 }

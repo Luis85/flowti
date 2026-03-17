@@ -8,6 +8,7 @@
 
 import type { PluginHandlerRegistry, TabContext } from "./plugin-handler-registry";
 import type { IEventBus } from "../events/types";
+import type { FlowtiEventMap } from "../events/events";
 import { setProps } from "./handler-utils";
 
 interface ActiveOperation {
@@ -55,7 +56,7 @@ export function registerDataExchangeHandlers(
 		const activeOps = deps.operationTracker.getActiveOperations();
 		setProps(el, { activeOps });
 		el.addEventListener("open-pipelines", () => {
-			void deps.eventBus.emit("ui.navigateTab" as never, { viewId: "data-exchange-hub", tabId: "pipelines" } as never);
+			void deps.eventBus.emit("ui.navigateTab", { viewId: "data-exchange-hub", tabId: "pipelines" });
 		});
 		container.appendChild(el);
 	});
@@ -69,16 +70,16 @@ export function registerDataExchangeHandlers(
 		setProps(el, { imports });
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
 		el.addEventListener("run-import", ((e: CustomEvent) => {
-			void deps.eventBus.emit("ui.runImport" as never, e.detail as never);
+			void deps.eventBus.emit("ui.runImport", e.detail as FlowtiEventMap["ui.runImport"]);
 		}) as EventListener);
 		el.addEventListener("edit-import", ((e: CustomEvent) => {
-			void deps.eventBus.emit("ui.editImport" as never, e.detail as never);
+			void deps.eventBus.emit("ui.editImport", e.detail as FlowtiEventMap["ui.editImport"]);
 		}) as EventListener);
 		el.addEventListener("delete-import", ((e: CustomEvent) => {
-			void deps.eventBus.emit("ui.deleteImport" as never, e.detail as never);
+			void deps.eventBus.emit("ui.deleteImport", e.detail as FlowtiEventMap["ui.deleteImport"]);
 		}) as EventListener);
 		el.addEventListener("create-import", () => {
-			void deps.eventBus.emit("ui.createImport" as never, {} as never);
+			void deps.eventBus.emit("ui.createImport", {});
 		});
 		container.appendChild(el);
 	});
@@ -92,16 +93,16 @@ export function registerDataExchangeHandlers(
 		setProps(el, { exports });
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
 		el.addEventListener("run-export", ((e: CustomEvent) => {
-			void deps.eventBus.emit("ui.runExport" as never, e.detail as never);
+			void deps.eventBus.emit("ui.runExport", e.detail as FlowtiEventMap["ui.runExport"]);
 		}) as EventListener);
 		el.addEventListener("edit-export", ((e: CustomEvent) => {
-			void deps.eventBus.emit("ui.editExport" as never, e.detail as never);
+			void deps.eventBus.emit("ui.editExport", e.detail as FlowtiEventMap["ui.editExport"]);
 		}) as EventListener);
 		el.addEventListener("delete-export", ((e: CustomEvent) => {
-			void deps.eventBus.emit("ui.deleteExport" as never, e.detail as never);
+			void deps.eventBus.emit("ui.deleteExport", e.detail as FlowtiEventMap["ui.deleteExport"]);
 		}) as EventListener);
 		el.addEventListener("create-export", () => {
-			void deps.eventBus.emit("ui.createExport" as never, {} as never);
+			void deps.eventBus.emit("ui.createExport", {});
 		});
 		container.appendChild(el);
 	});
@@ -129,10 +130,10 @@ export function registerDataExchangeHandlers(
 		setProps(el, { operations });
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
 		el.addEventListener("run-pipeline", ((e: CustomEvent) => {
-			void deps.eventBus.emit("dataExchange.pipeline.execute" as never, e.detail as never);
+			void deps.eventBus.emit("dataExchange.pipeline.execute", e.detail as FlowtiEventMap["dataExchange.pipeline.execute"]);
 		}) as EventListener);
 		el.addEventListener("select-pipeline", ((e: CustomEvent) => {
-			void deps.eventBus.emit("ui.selectPipeline" as never, e.detail as never);
+			void deps.eventBus.emit("ui.selectPipeline", e.detail as FlowtiEventMap["ui.selectPipeline"]);
 		}) as EventListener);
 		container.appendChild(el);
 	});
@@ -147,7 +148,7 @@ export function registerDataExchangeHandlers(
 		setProps(el, { types: [] });
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
 		el.addEventListener("open-type", ((e: CustomEvent) => {
-			void deps.eventBus.emit("ui.openFile" as never, { filePath: (e.detail as { filePath: string }).filePath } as never);
+			void deps.eventBus.emit("ui.openFile", { filePath: (e.detail as { filePath: string }).filePath });
 		}) as EventListener);
 		container.appendChild(el);
 	});
@@ -171,10 +172,10 @@ export function registerDataExchangeHandlers(
 		el.addEventListener("open-property-doc", ((e: CustomEvent) => {
 			const propName = (e.detail as { propertyName: string }).propertyName;
 			const docPath = deps.dataExchangeService.getPropertyDocPath(propName);
-			void deps.eventBus.emit("ui.openFile" as never, { filePath: docPath } as never);
+			void deps.eventBus.emit("ui.openFile", { filePath: docPath });
 		}) as EventListener);
 		el.addEventListener("create-property-doc", ((e: CustomEvent) => {
-			void deps.eventBus.emit("ui.createPropertyDoc" as never, e.detail as never);
+			void deps.eventBus.emit("ui.createPropertyDoc", e.detail as FlowtiEventMap["ui.createPropertyDoc"]);
 		}) as EventListener);
 		container.appendChild(el);
 	});
@@ -188,7 +189,7 @@ export function registerDataExchangeHandlers(
 		setProps(el, { signals });
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
 		el.addEventListener("sync-signal", ((e: CustomEvent) => {
-			void deps.eventBus.emit("ui.syncSignal" as never, e.detail as never);
+			void deps.eventBus.emit("ui.syncSignal", e.detail as FlowtiEventMap["ui.syncSignal"]);
 		}) as EventListener);
 		el.addEventListener("sync-all", () => {
 			void deps.signalService?.syncAll();
@@ -205,7 +206,7 @@ export function registerDataExchangeHandlers(
 		setProps(el, { reports: [] });
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
 		el.addEventListener("open-report", ((e: CustomEvent) => {
-			void deps.eventBus.emit("ui.openFile" as never, { filePath: (e.detail as { reportPath: string }).reportPath } as never);
+			void deps.eventBus.emit("ui.openFile", { filePath: (e.detail as { reportPath: string }).reportPath });
 		}) as EventListener);
 		container.appendChild(el);
 	});
@@ -219,10 +220,10 @@ export function registerDataExchangeHandlers(
 		setProps(el, { canvases });
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
 		el.addEventListener("run-canvas", ((e: CustomEvent) => {
-			void deps.eventBus.emit("ui.runCanvasImport" as never, e.detail as never);
+			void deps.eventBus.emit("ui.runCanvasImport", e.detail as FlowtiEventMap["ui.runCanvasImport"]);
 		}) as EventListener);
 		el.addEventListener("open-canvas", ((e: CustomEvent) => {
-			void deps.eventBus.emit("ui.openFile" as never, { filePath: (e.detail as { canvasPath: string }).canvasPath } as never);
+			void deps.eventBus.emit("ui.openFile", { filePath: (e.detail as { canvasPath: string }).canvasPath });
 		}) as EventListener);
 		container.appendChild(el);
 	});

@@ -8,6 +8,8 @@ export interface TabContext {
 	searchText?: string;
 	/** The WorkspaceLeaf hosting this view (available in SitemapLeafView contexts) */
 	leaf?: unknown;
+	/** Restored state from a previous session (provided by Obsidian's setState) */
+	savedState?: Record<string, unknown>;
 }
 
 export interface ActionContext {
@@ -28,7 +30,11 @@ export interface DataSourceContext {
 }
 
 export type TabCleanup = () => void;
-export type TabHandler = (container: HTMLElement, ctx: TabContext) => void | TabCleanup | Promise<void | TabCleanup>;
+export type TabHandlerFn = (container: HTMLElement, ctx: TabContext) => void | TabCleanup | Promise<void | TabCleanup>;
+export type TabHandler = TabHandlerFn & {
+	/** Optional state serializer — called by SitemapLeafView.getState() for workspace persistence */
+	getState?: () => Record<string, unknown>;
+};
 export type ActionHandler = (ctx: ActionContext) => void | Promise<void>;
 export type ConditionHandler = (ctx: ConditionContext) => boolean;
 export type DataSourceHandler = (ctx: DataSourceContext) => unknown | Promise<unknown>;

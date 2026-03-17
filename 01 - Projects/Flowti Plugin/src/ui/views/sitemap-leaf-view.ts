@@ -1,4 +1,4 @@
-import { ItemView, type WorkspaceLeaf } from "obsidian";
+import { ItemView, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 import type { ViewDef } from "../../domain/sitemap/plugin-sitemap-types";
 import type { PluginHandlerRegistry, TabContext, TabCleanup } from "../../infrastructure/handlers/plugin-handler-registry";
 import type { IEventBus } from "../../infrastructure/events/types";
@@ -18,6 +18,7 @@ export class SitemapLeafView extends ItemView {
 	private eventBus: IEventBus;
 	private unsubscribes: (() => void)[] = [];
 	private handlerCleanup: TabCleanup | null = null;
+	private savedState: Record<string, unknown> = {};
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -35,6 +36,23 @@ export class SitemapLeafView extends ItemView {
 	getDisplayText(): string { return this.viewDef.label; }
 	getIcon(): string { return this.viewDef.icon; }
 
+	override getState(): Record<string, unknown> {
+		const base: Record<string, unknown> = { type: this.viewDef.type };
+		if (this.viewDef.handler) {
+			const handler = this.handlerRegistry.getTabHandler(this.viewDef.handler);
+			if (handler?.getState) {
+				return { ...base, ...handler.getState() };
+			}
+		}
+		return base;
+	}
+
+	override async setState(state: Record<string, unknown>, result: ViewStateResult): Promise<void> {
+		this.savedState = state;
+		await super.setState(state, result);
+		this.refresh();
+	}
+
 	async onOpen(): Promise<void> {
 		const container = this.contentEl;
 		container.empty();
@@ -48,6 +66,15 @@ export class SitemapLeafView extends ItemView {
 		}
 
 		await this.render(container);
+
+		// If handler was not yet available (registered in onLayoutReady),
+		// schedule a one-time re-render once layout is ready.
+		if (this.viewDef.handler && !this.handlerRegistry.getTabHandler(this.viewDef.handler)) {
+			const workspace = (this.app as unknown as { workspace?: { onLayoutReady?: (cb: () => void) => void } }).workspace;
+			if (workspace?.onLayoutReady) {
+				workspace.onLayoutReady(() => this.refresh());
+			}
+		}
 	}
 
 	async onClose(): Promise<void> {
@@ -71,11 +98,16 @@ export class SitemapLeafView extends ItemView {
 					viewId: this.viewDef.type,
 					eventBus: this.eventBus,
 					leaf: this.leaf,
+					savedState: Object.keys(this.savedState).length > 0 ? this.savedState : undefined,
 				};
 				const result = await handler(container, ctx);
 				if (typeof result === "function") {
 					this.handlerCleanup = result;
 				}
+			} else {
+				// Handler not yet registered (timing gap: views in onload, handlers in onLayoutReady)
+				const loading = container.createDiv({ cls: "flowti-loading" });
+				loading.setText("Loading...");
 			}
 			return;
 		}

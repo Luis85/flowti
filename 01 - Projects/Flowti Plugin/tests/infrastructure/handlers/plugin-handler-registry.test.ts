@@ -10,7 +10,7 @@ describe("PluginHandlerRegistry", () => {
 	describe("tab handlers", () => {
 		it("registers and retrieves a tab handler", () => {
 			const registry = createRegistry();
-			const handler: TabHandler = vi.fn();
+			const handler = vi.fn() as unknown as TabHandler;
 			registry.registerTabHandler("analytics:dashboard", handler);
 			expect(registry.getTabHandler("analytics:dashboard")).toBe(handler);
 		});
@@ -22,8 +22,8 @@ describe("PluginHandlerRegistry", () => {
 
 		it("overwrites on duplicate registration", () => {
 			const registry = createRegistry();
-			const first: TabHandler = vi.fn();
-			const second: TabHandler = vi.fn();
+			const first = vi.fn() as unknown as TabHandler;
+			const second = vi.fn() as unknown as TabHandler;
 			registry.registerTabHandler("tab:x", first);
 			registry.registerTabHandler("tab:x", second);
 			expect(registry.getTabHandler("tab:x")).toBe(second);
@@ -84,7 +84,7 @@ describe("PluginHandlerRegistry", () => {
 
 		it("getRegisteredIds returns all handler IDs across types", () => {
 			const registry = createRegistry();
-			registry.registerTabHandler("tab:a", vi.fn());
+			registry.registerTabHandler("tab:a", vi.fn() as unknown as TabHandler);
 			registry.registerAction("action:b", vi.fn());
 			registry.registerCondition("cond:c", vi.fn(() => false));
 			registry.registerDataSource("ds:d", vi.fn(() => null));
@@ -98,7 +98,7 @@ describe("PluginHandlerRegistry", () => {
 
 		it("clear removes all handlers", () => {
 			const registry = createRegistry();
-			registry.registerTabHandler("tab:a", vi.fn());
+			registry.registerTabHandler("tab:a", vi.fn() as unknown as TabHandler);
 			registry.registerAction("action:b", vi.fn());
 			registry.registerCondition("cond:c", vi.fn(() => false));
 			registry.registerDataSource("ds:d", vi.fn(() => null));

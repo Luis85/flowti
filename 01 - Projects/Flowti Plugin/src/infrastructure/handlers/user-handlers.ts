@@ -9,6 +9,7 @@
 
 import type { PluginHandlerRegistry, TabContext } from "./plugin-handler-registry";
 import type { IEventBus } from "../events/types";
+import type { EventType, FlowtiEventMap } from "../events/events";
 import { setProps } from "./handler-utils";
 
 /** Session action event names keyed by action string. */
@@ -96,12 +97,12 @@ export function registerUserHandlers(
 		}) as EventListener);
 
 		el.addEventListener("open-inbox", () => {
-			void deps.eventBus.emit("ui.navigateTab" as never, { viewId: "user-hub", tabId: "inbox" } as never);
+			void deps.eventBus.emit("ui.navigateTab", { viewId: "user-hub", tabId: "inbox" });
 		});
 
 		el.addEventListener("open-session", ((e: CustomEvent) => {
 			const { sessionId } = e.detail as { sessionId: string };
-			void deps.eventBus.emit("ui.openSessionWorkspace" as never, { sessionId } as never);
+			void deps.eventBus.emit("ui.openSessionWorkspace", { sessionId });
 		}) as EventListener);
 
 		container.appendChild(el);
@@ -118,14 +119,14 @@ export function registerUserHandlers(
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
 
 		el.addEventListener("session-selected", ((e: CustomEvent) => {
-			void deps.eventBus.emit("ui.sessionSelected" as never, e.detail as never);
+			void deps.eventBus.emit("ui.sessionSelected", e.detail as FlowtiEventMap["ui.sessionSelected"]);
 		}) as EventListener);
 
 		el.addEventListener("session-action", ((e: CustomEvent) => {
 			const { sessionId, action } = e.detail as { sessionId: string; action: string };
 			const eventName = SESSION_ACTION_EVENTS[action];
 			if (eventName) {
-				void deps.eventBus.emit(eventName as never, { sessionId } as never);
+				void deps.eventBus.emit(eventName as EventType, { sessionId } as FlowtiEventMap[EventType]);
 			}
 		}) as EventListener);
 
@@ -144,7 +145,7 @@ export function registerUserHandlers(
 
 		el.addEventListener("item-selected", ((e: CustomEvent) => {
 			const { itemId } = e.detail as { itemId: string };
-			void deps.eventBus.emit("ui.inboxItemSelected" as never, { itemId } as never);
+			void deps.eventBus.emit("ui.inboxItemSelected", { itemId });
 		}) as EventListener);
 
 		el.addEventListener("mark-read", ((e: CustomEvent) => {
@@ -158,7 +159,7 @@ export function registerUserHandlers(
 		}) as EventListener);
 
 		el.addEventListener("action", ((e: CustomEvent) => {
-			void deps.eventBus.emit("ui.inboxAction" as never, e.detail as never);
+			void deps.eventBus.emit("ui.inboxAction", e.detail as FlowtiEventMap["ui.inboxAction"]);
 		}) as EventListener);
 
 		container.appendChild(el);
@@ -176,7 +177,7 @@ export function registerUserHandlers(
 
 		el.addEventListener("execute-command", ((e: CustomEvent) => {
 			const { commandId } = e.detail as { commandId: string };
-			void deps.eventBus.emit("command.execute.request" as never, { commandId } as never);
+			void deps.eventBus.emit("command.execute.request", { commandId });
 		}) as EventListener);
 
 		container.appendChild(el);
@@ -201,7 +202,7 @@ export function registerUserHandlers(
 		});
 
 		el.addEventListener("setting-changed", ((e: CustomEvent) => {
-			void deps.eventBus.emit("settings.changed" as never, e.detail as never);
+			void deps.eventBus.emit("settings.changed", e.detail as FlowtiEventMap["settings.changed"]);
 		}) as EventListener);
 
 		el.addEventListener("panel-switched", ((e: CustomEvent) => {
@@ -226,7 +227,7 @@ export function registerUserHandlers(
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
 
 		el.addEventListener("item-selected", ((e: CustomEvent) => {
-			void deps.eventBus.emit("catalog.health.selected" as never, e.detail as never);
+			void deps.eventBus.emit("catalog.health.selected", e.detail as FlowtiEventMap["catalog.health.selected"]);
 		}) as EventListener);
 
 		container.appendChild(el);

@@ -94,7 +94,11 @@ export class AnalyticsService {
 	/** Load persisted state from storage. */
 	async load(): Promise<void> {
 		const saved = await this.storage.load();
-		if (saved && (saved.savedAnalyticsQueries?.length > 0 || saved.dashboards?.length > 0)) {
+		if (saved && (
+			(saved.savedAnalyticsQueries?.length ?? 0) > 0 ||
+			(saved.dashboards?.length ?? 0) > 0 ||
+			(saved.measurements?.length ?? 0) > 0
+		)) {
 			this.state = saved;
 		}
 

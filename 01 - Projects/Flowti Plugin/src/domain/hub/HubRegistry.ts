@@ -5,15 +5,14 @@
  * via the EventBus (hub.navigate event).
  */
 
-import type { App } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
-import type { HubDashboardProvider } from "./types";
+import type { HubDashboardProvider, IViewNavigator } from "./types";
 
 export class HubRegistry {
 	private providers = new Map<string, HubDashboardProvider>();
 
 	constructor(
-		private app: App,
+		private navigator: IViewNavigator,
 		private eventBus: IEventBus,
 	) {}
 
@@ -45,23 +44,16 @@ export class HubRegistry {
 	/**
 	 * Open a hub and optionally navigate to a specific tab/entity.
 	 *
-	 * Reveals or creates the Obsidian leaf, then emits `hub.navigate`
-	 * so that the hub view (BaseHubView) can navigate to the right tab.
+	 * Reveals or creates the Obsidian leaf via the navigator, then
+	 * emits `hub.navigate` so that the hub view can navigate to the
+	 * right tab.
 	 */
 	async openHub(hubId: string, tabId?: string, entityId?: string): Promise<void> {
 		const provider = this.providers.get(hubId);
 		if (!provider) return;
 
-		const viewType = provider.getViewType();
-
 		try {
-			// Reveal or create the leaf
-			let leaf = this.app.workspace.getLeavesOfType(viewType)[0];
-			if (!leaf) {
-				leaf = this.app.workspace.getLeaf("tab");
-				await leaf.setViewState({ type: viewType, active: true });
-			}
-			void this.app.workspace.revealLeaf(leaf);
+			await this.navigator.openView(provider.getViewType());
 		} catch (err) {
 			console.error(`[Flowti] Failed to open hub "${hubId}":`, err);
 			return;

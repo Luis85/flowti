@@ -8,6 +8,7 @@
 
 import type { PluginHandlerRegistry, TabContext } from "./plugin-handler-registry";
 import type { IEventBus } from "../events/types";
+import type { FlowtiEventMap } from "../events/events";
 import { setProps } from "./handler-utils";
 
 export interface TestManagementHandlerDeps {
@@ -44,10 +45,10 @@ export function registerTestManagementHandlers(
 			setProps(el, { searchText: ctx.searchText });
 		}
 		el.addEventListener("open-builder", ((e: CustomEvent) => {
-			void deps.eventBus.emit("ui.openJourneyBuilder" as never, e.detail as never);
+			void deps.eventBus.emit("ui.openJourneyBuilder", e.detail as FlowtiEventMap["ui.openJourneyBuilder"]);
 		}) as EventListener);
 		el.addEventListener("run-journey", ((e: CustomEvent) => {
-			void deps.eventBus.emit("ui.runJourney" as never, e.detail as never);
+			void deps.eventBus.emit("ui.runJourney", e.detail as FlowtiEventMap["ui.runJourney"]);
 		}) as EventListener);
 		el.addEventListener("request-review", ((e: CustomEvent) => {
 			const detail = e.detail as { name: string };

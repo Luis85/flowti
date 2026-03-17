@@ -8,6 +8,7 @@
 
 import type { PluginHandlerRegistry, TabContext } from "./plugin-handler-registry";
 import type { IEventBus } from "../events/types";
+import type { FlowtiEventMap } from "../events/events";
 import { setProps } from "./handler-utils";
 
 export interface TrainHandlerDeps {
@@ -48,7 +49,7 @@ export function registerTrainHandlers(
 			pausedTrain,
 		});
 		el.addEventListener("start-train", () => {
-			void deps.eventBus.emit("ui.startTrain" as never, {} as never);
+			void deps.eventBus.emit("ui.startTrain", {});
 		});
 		container.appendChild(el);
 	});
@@ -66,13 +67,13 @@ export function registerTrainHandlers(
 			deps.openTrainView((e.detail as { trainId: string }).trainId);
 		}) as EventListener);
 		el.addEventListener("resume-train", ((e: CustomEvent) => {
-			void deps.eventBus.emit("ui.resumeTrain" as never, e.detail as never);
+			void deps.eventBus.emit("ui.resumeTrain", e.detail as FlowtiEventMap["ui.resumeTrain"]);
 		}) as EventListener);
 		el.addEventListener("pause-train", ((e: CustomEvent) => {
-			void deps.eventBus.emit("ui.pauseTrain" as never, e.detail as never);
+			void deps.eventBus.emit("ui.pauseTrain", e.detail as FlowtiEventMap["ui.pauseTrain"]);
 		}) as EventListener);
 		el.addEventListener("delete-train", ((e: CustomEvent) => {
-			void deps.eventBus.emit("ui.deleteTrain" as never, e.detail as never);
+			void deps.eventBus.emit("ui.deleteTrain", e.detail as FlowtiEventMap["ui.deleteTrain"]);
 		}) as EventListener);
 		container.appendChild(el);
 	});
@@ -90,7 +91,7 @@ export function registerTrainHandlers(
 			deps.openTrainView((e.detail as { trainId: string }).trainId);
 		}) as EventListener);
 		el.addEventListener("delete-train", ((e: CustomEvent) => {
-			void deps.eventBus.emit("ui.deleteTrain" as never, e.detail as never);
+			void deps.eventBus.emit("ui.deleteTrain", e.detail as FlowtiEventMap["ui.deleteTrain"]);
 		}) as EventListener);
 		container.appendChild(el);
 	});

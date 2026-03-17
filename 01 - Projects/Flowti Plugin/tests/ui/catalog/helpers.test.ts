@@ -490,6 +490,7 @@ describe("catalog helpers", () => {
 		{ name: "Performance", visible: true },
 		{ name: "Notification", visible: true },
 		{ name: "Modal", visible: true },
+		{ name: "Catalog", visible: true },
 		{ name: "Journey Builder", visible: true },
 		{ name: "Test Management", visible: true },
 		{ name: "Feature Lifecycle", visible: true },
