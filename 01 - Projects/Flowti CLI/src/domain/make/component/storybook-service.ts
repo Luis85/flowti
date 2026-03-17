@@ -27,6 +27,14 @@ export {
 	stopStorybook,
 } from "./storybook-browser.js";
 
+// ── Non-interactive result type ──────────────────────────────────────
+
+export interface StorybookStartResult {
+	started: boolean;
+	url: string;
+	error?: string;
+}
+
 // ── Internal imports for orchestration ──────────────────────────────
 
 import type { StorybookDeps } from "./storybook-installer.js";
@@ -101,6 +109,54 @@ export async function runStorybookDev(projectPath: string, config: ComponentsCon
 	render.ready(url);
 	openStorybookUrl(projectPath, url, vaultRoot, render, deps);
 	await enterStorybookView(projectPath, url, render, deps);
+}
+
+export async function startStorybookDev(
+	projectPath: string,
+	config: ComponentsConfig,
+	vaultRoot: string,
+	deps: Omit<StorybookDeps, "input">,
+	render: StorybookRenderer = nullStorybookRenderer,
+): Promise<StorybookStartResult> {
+	const sbDir = resolveStorybookDir(projectPath, config, deps);
+	if (!isStorybookInstalled(projectPath, config, deps)) {
+		render.notInstalled();
+		return { started: false, url: "", error: "not-installed" };
+	}
+
+	if (isStorybookRunning()) {
+		render.alreadyRunning();
+		return { started: false, url: "", error: "already-running" };
+	}
+
+	render.starting();
+
+	const activeProcess = deps.shell.spawnBackground(
+		"npm run storybook",
+		{ cwd: sbDir, env: { CI: "true", NG_CLI_ANALYTICS: "false" } },
+	);
+	setActiveProcess(activeProcess);
+
+	const unsubscribe = activeProcess.onOutput((line) => render.progress(line));
+	const readyLine = await activeProcess.waitForOutput(READY_PATTERN, READY_TIMEOUT_MS);
+	unsubscribe();
+
+	if (!readyLine) {
+		if (!activeProcess.running) {
+			render.failedToStart();
+			const lines = activeProcess.output;
+			if (lines.length > 0) render.failOutput(lines.slice(-20));
+			setActiveProcess(null);
+			return { started: false, url: "", error: "failed-to-start" };
+		}
+		render.timeout();
+		return { started: false, url: "", error: "timeout" };
+	}
+
+	const url = extractLocalUrl(activeProcess.output);
+	render.ready(url);
+	openStorybookUrl(projectPath, url, vaultRoot, render, deps);
+	return { started: true, url };
 }
 
 export function runStorybookBuild(projectPath: string, config: ComponentsConfig, deps: Pick<StorybookDeps, "disk" | "paths" | "shell">, render: StorybookRenderer = nullStorybookRenderer): void {
