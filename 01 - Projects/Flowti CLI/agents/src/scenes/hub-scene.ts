@@ -16,7 +16,7 @@ import type { AgentSprites } from "../sprites/sprite-loader.js";
 
 // ── Layout ──────────────────────────────────────────────────────────
 
-const AGENT_SPACING = 120;
+const AGENT_SPACING = 80;
 const AGENTS_PER_ROW = 6;
 
 // ── Config ──────────────────────────────────────────────────────────

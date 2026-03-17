@@ -47,6 +47,9 @@ export class DashboardStore extends EventTarget {
 	// ── Private state ─────────────────────────────────────────────
 	private conversations: Map<string, ConversationTurn[]> = new Map();
 	private thinkingAgents: Set<string> = new Set();
+	private batchDepth = 0;
+	private batchDirty = false;
+	private wokenAgents: Map<string, number> = new Map();
 
 	private readonly baseUrl: string;
 
@@ -55,9 +58,29 @@ export class DashboardStore extends EventTarget {
 		this.baseUrl = baseUrl;
 	}
 
+	// ── Batching ──────────────────────────────────────────────────
+
+	/** Suppress notify() calls until endBatch(). Nestable. */
+	beginBatch(): void {
+		this.batchDepth++;
+	}
+
+	/** End a batch. Fires a single state-changed event if anything changed. */
+	endBatch(): void {
+		if (this.batchDepth > 0) this.batchDepth--;
+		if (this.batchDepth === 0 && this.batchDirty) {
+			this.batchDirty = false;
+			this.dispatchEvent(new Event("state-changed"));
+		}
+	}
+
 	// ── Notification ──────────────────────────────────────────────
 
 	private notify(): void {
+		if (this.batchDepth > 0) {
+			this.batchDirty = true;
+			return;
+		}
 		this.dispatchEvent(new Event("state-changed"));
 	}
 
@@ -114,12 +137,21 @@ export class DashboardStore extends EventTarget {
 	}
 
 	setAgentState(agentName: string, state: BrainState): void {
+		if (this.agentStates.get(agentName) === state) return;
 		this.agentStates.set(agentName, state);
 		this.notify();
 	}
 
 	setAgentTarget(agentName: string, target: Point): void {
+		const prev = this.agentTargets.get(agentName);
+		if (prev && Math.abs(prev.x - target.x) < 0.5 && Math.abs(prev.y - target.y) < 0.5) return;
 		this.agentTargets.set(agentName, target);
+		this.notify();
+	}
+
+	clearAgentTarget(agentName: string): void {
+		if (!this.agentTargets.has(agentName)) return;
+		this.agentTargets.delete(agentName);
 		this.notify();
 	}
 
@@ -130,6 +162,7 @@ export class DashboardStore extends EventTarget {
 		turns.push({ role: "user", text, timestamp: Date.now() });
 		this.conversations.set(agentName, turns);
 		this.thinkingAgents.add(agentName);
+		this.llmStatus.set(agentName, { state: "thinking", since: Date.now() });
 		this.notify();
 	}
 
@@ -138,6 +171,7 @@ export class DashboardStore extends EventTarget {
 		turns.push({ role: "agent", text, timestamp: Date.now() });
 		this.conversations.set(agentName, turns);
 		this.thinkingAgents.delete(agentName);
+		this.llmStatus.set(agentName, { state: "idle", since: Date.now() });
 		this.notify();
 	}
 
@@ -160,17 +194,22 @@ export class DashboardStore extends EventTarget {
 	// ── Action methods (call API client) ──────────────────────────
 
 	async sendMessage(agentName: string, message: string): Promise<{ ok: boolean; error?: string }> {
+		// Fire visual effects immediately (thought bubble + silence ambient talk)
+		this.dispatchEvent(new CustomEvent("agent-message-sent", { detail: { agentName } }));
 		const result = await api.sendMessage(this.baseUrl, agentName, message);
-		if (result.ok) {
-			this.dispatchEvent(new CustomEvent("agent-message-sent", { detail: { agentName } }));
+		if (!result.ok) {
+			// Push error as agent response so user sees feedback
+			this.pushAgentResponse(agentName, `[offline] ${result.error ?? "Cannot reach server."}`);
 		}
 		return result;
 	}
 
 	async assignTask(agentName: string, task: string): Promise<{ ok: boolean; error?: string }> {
+		// Fire visual effects immediately (brain transition + thought bubble)
+		this.dispatchEvent(new CustomEvent("task-assigned", { detail: { agentName, task } }));
 		const result = await api.assignTask(this.baseUrl, agentName, task);
-		if (result.ok) {
-			this.dispatchEvent(new CustomEvent("task-assigned", { detail: { agentName, task } }));
+		if (!result.ok) {
+			console.warn(`[store] Task assignment failed for ${agentName}:`, result.error);
 		}
 		return result;
 	}
@@ -179,7 +218,13 @@ export class DashboardStore extends EventTarget {
 		return api.grantPermission(this.baseUrl, agentName, tool, decision);
 	}
 
+	private static readonly WAKE_COOLDOWN_MS = 30_000;
+
 	async wakeAgent(agentName: string): Promise<void> {
+		const now = Date.now();
+		const lastWoken = this.wokenAgents.get(agentName) ?? 0;
+		if (now - lastWoken < DashboardStore.WAKE_COOLDOWN_MS) return;
+		this.wokenAgents.set(agentName, now);
 		return api.wakeAgent(this.baseUrl, agentName);
 	}
 }

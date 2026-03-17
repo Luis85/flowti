@@ -27,6 +27,7 @@
 	"agents": {
 		"dir": "03 - Resources/Agents",
 		"claudeSync": true,
+		"dashboard": true,
 		"skillMap": {
 			"engineering": [
 				"superpowers:test-driven-development",

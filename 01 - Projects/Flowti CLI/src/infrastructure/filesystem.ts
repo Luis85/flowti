@@ -9,8 +9,11 @@ import fsNode from "node:fs";
 import type { IFileSystem, DirEntry } from "./types.js";
 
 class NodeFileSystem implements IFileSystem {
-	readFileSync(path: string, encoding: BufferEncoding): string {
-		return fsNode.readFileSync(path, encoding);
+	readFileSync(path: string, encoding: BufferEncoding): string;
+	readFileSync(path: string): Buffer;
+	readFileSync(path: string, encoding?: BufferEncoding): string | Buffer {
+		if (encoding) return fsNode.readFileSync(path, encoding);
+		return fsNode.readFileSync(path);
 	}
 
 	writeFileSync(path: string, content: string, encoding: BufferEncoding): void {

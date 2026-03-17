@@ -114,7 +114,15 @@ async function main(): Promise<void> {
 			}
 			store.selectAgent(agentName);
 			store.selectTab("info");
-			void store.wakeAgent(agentName);
+			// Show a personality greeting via the talk engine instead of waking LLM
+			const agent = store.agents.find((a) => a.name === agentName);
+			if (agent) {
+				const greetings = agent.personality && agent.personality.length > 0
+					? [`Hey there!`, `What can I help with?`, `Good to see you.`]
+					: [`Hello!`, `What's up?`];
+				const greeting = greetings[Math.floor(Math.random() * greetings.length)];
+				bubbleSystem.showBubble(agentName, "speech", greeting, engine.currentScene, findAgentActor, 3000);
+			}
 		}
 	}
 

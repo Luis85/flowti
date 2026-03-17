@@ -59,32 +59,6 @@ describe("panel-talk", () => {
 		expect(thinking).toBeNull();
 	});
 
-	it("shows LLM status badge when status is set", async () => {
-		store.setLlmStatus("TestBot", { state: "thinking", since: Date.now() });
-		await (el as any).updateComplete;
-
-		const badge = el.shadowRoot!.querySelector(".llm-badge");
-		expect(badge).not.toBeNull();
-
-		const dot = el.shadowRoot!.querySelector(".llm-dot");
-		expect(dot).not.toBeNull();
-		expect(dot!.classList.contains("active")).toBe(true);
-	});
-
-	it("hides LLM badge when no status is set", async () => {
-		const badge = el.shadowRoot!.querySelector(".llm-badge");
-		expect(badge).toBeNull();
-	});
-
-	it("shows dormant dot for idle LLM status", async () => {
-		store.setLlmStatus("TestBot", { state: "idle", since: Date.now() });
-		await (el as any).updateComplete;
-
-		const dot = el.shadowRoot!.querySelector(".llm-dot");
-		expect(dot).not.toBeNull();
-		expect(dot!.classList.contains("dormant")).toBe(true);
-	});
-
 	it("sends message via store on button click", async () => {
 		const sendSpy = vi.spyOn(store, "sendMessage").mockResolvedValue({ ok: true });
 		const pushSpy = vi.spyOn(store, "pushUserMessage");

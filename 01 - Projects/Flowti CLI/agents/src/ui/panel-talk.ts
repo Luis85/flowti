@@ -283,7 +283,6 @@ export class PanelTalk extends LitElement {
 
 	render() {
 		return html`
-			${this.renderLlmBadge()}
 			<div class="thread">
 				${this.renderThread()}
 			</div>

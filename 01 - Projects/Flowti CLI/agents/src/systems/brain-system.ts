@@ -39,6 +39,7 @@ export interface AgentBrainEntry {
 
 const BASE_SPEED = 40; // pixels per second
 const ARRIVAL_THRESHOLD = 4; // pixels to consider "arrived"
+const SPRITE_MARGIN = 16; // half-sprite width at scale 2, keeps sprites fully inside bounds
 
 const IDLE_CYCLES: Record<AgentHabits["idleStyle"], readonly string[]> = {
 	fidgety: ["idle", "look-around", "stretch", "idle"],
@@ -71,10 +72,18 @@ export interface BrainSystemConfig {
 export class BrainSystem {
 	private readonly entries = new Map<string, AgentBrainEntry>();
 	private readonly bounds: Bounds;
+	/** Bounds shrunk by SPRITE_MARGIN — all wander/break targets land inside the clamped area. */
+	private readonly targetBounds: Bounds;
 	private readonly config: BrainSystemConfig;
 
 	constructor(config: BrainSystemConfig) {
 		this.bounds = config.bounds;
+		this.targetBounds = {
+			minX: config.bounds.minX + SPRITE_MARGIN,
+			maxX: config.bounds.maxX - SPRITE_MARGIN,
+			minY: config.bounds.minY + SPRITE_MARGIN,
+			maxY: config.bounds.maxY - SPRITE_MARGIN,
+		};
 		this.config = config;
 	}
 
@@ -108,6 +117,21 @@ export class BrainSystem {
 	/** Remove an agent from the brain system. */
 	unregister(name: string): void {
 		this.entries.delete(name);
+	}
+
+	/** Immediately stop an agent — cancel movement, go idle, face forward. */
+	freeze(name: string): void {
+		const entry = this.entries.get(name);
+		if (!entry) return;
+		if (entry.state === "working") {
+			this.config.onWorkstationChange?.(name, "vacate", entry.position);
+		}
+		entry.state = "idle";
+		entry.target = { kind: "none" };
+		entry.targetPos = null;
+		entry.stateTimer = 0;
+		entry.breakPhase = "none";
+		entry.breakTimer = 0;
 	}
 
 	/** Recompute habit multipliers when mood changes at runtime. */
@@ -208,7 +232,7 @@ export class BrainSystem {
 			entry.state = "wandering";
 			entry.stateTimer = 0;
 			const nearbyAgents = this.getNearbyAgentPositions(name);
-			const dest = resolveIdleTarget(entry.habits, nearbyAgents, this.bounds, Math.random, entry.position);
+			const dest = resolveIdleTarget(entry.habits, nearbyAgents, this.targetBounds, Math.random, entry.position);
 			if (dest) {
 				entry.targetPos = dest;
 				entry.target = { kind: "wander", x: dest.x, y: dest.y };
@@ -260,7 +284,7 @@ export class BrainSystem {
 		const moveY = (dy / dist) * Math.min(speed, dist);
 		actor.pos.x += moveX;
 		actor.pos.y += moveY;
-
+		this.clampToBounds(actor);
 	}
 
 	private updateWorking(entry: AgentBrainEntry, name: string): void {
@@ -272,7 +296,7 @@ export class BrainSystem {
 			entry.stateTimer = 0;
 			entry.breakTimer = 0;
 			this.config.onWorkstationChange?.(name, "vacate", entry.position);
-			const dest = randomWanderPoint(this.bounds, Math.random);
+			const dest = randomWanderPoint(this.targetBounds, Math.random);
 			entry.targetPos = dest;
 			entry.target = { kind: "wander", x: dest.x, y: dest.y };
 			return;
@@ -281,7 +305,7 @@ export class BrainSystem {
 			// Done working, start wandering
 			entry.state = "wandering";
 			entry.stateTimer = 0;
-			const dest = randomWanderPoint(this.bounds, Math.random);
+			const dest = randomWanderPoint(this.targetBounds, Math.random);
 			entry.targetPos = dest;
 			entry.target = { kind: "wander", x: dest.x, y: dest.y };
 		}
@@ -310,7 +334,7 @@ export class BrainSystem {
 			const speed = BASE_SPEED * speedMult * (deltaMs / 1000);
 			actor.pos.x += (dx / dist) * Math.min(speed, dist);
 			actor.pos.y += (dy / dist) * Math.min(speed, dist);
-			// Direction handled by updateFromBrain
+			this.clampToBounds(actor);
 		} else if (entry.breakPhase === "resting") {
 			entry.breakTimer += deltaMs;
 			if (entry.breakTimer >= entry.breakRestTarget) {
@@ -370,6 +394,12 @@ export class BrainSystem {
 				entry.socialHoldTimer -= deltaMs;
 			}
 		}
+	}
+
+	/** Clamp an actor's position within bounds (accounting for sprite size). */
+	private clampToBounds(actor: AgentActor): void {
+		actor.pos.x = Math.max(this.bounds.minX + SPRITE_MARGIN, Math.min(this.bounds.maxX - SPRITE_MARGIN, actor.pos.x));
+		actor.pos.y = Math.max(this.bounds.minY + SPRITE_MARGIN, Math.min(this.bounds.maxY - SPRITE_MARGIN, actor.pos.y));
 	}
 
 	private getNearbyAgentPositions(excludeName: string): Position[] {

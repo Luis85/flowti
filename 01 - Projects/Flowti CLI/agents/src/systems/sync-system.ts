@@ -53,6 +53,7 @@ export class SyncSystem {
 	async start(): Promise<readonly DashboardAgent[]> {
 		// Load initial dashboard roster
 		this.dashboardAgents = await this.loadDashboard();
+		console.log(`[sync] Loaded ${this.dashboardAgents.length} agents from dashboard`);
 		this.callbacks.onAgentsUpdated(this.dashboardAgents);
 
 		// Route agents to room scenes by domain
@@ -105,11 +106,15 @@ export class SyncSystem {
 	}
 
 	private handleAction(action: AgentAction): void {
+		console.log(`[sync] SSE action: ${action.agentName} → ${action.type}`);
 		this.callbacks.onAgentAction(action);
 	}
 
 	private handleWorldState(state: WorldState): void {
 		const diff = this.stateStore.applyState(state);
+		if (diff.added.length || diff.removed.length || diff.changed.length) {
+			console.log(`[sync] World state diff: +${diff.added.length} -${diff.removed.length} ~${diff.changed.length}`);
+		}
 
 		// Process changed entities — detect status component changes
 		for (const entityId of diff.changed) {

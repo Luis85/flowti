@@ -19,11 +19,15 @@ export class DashboardOverlays extends LitElement {
 				position: absolute;
 				width: 0;
 				height: 0;
-				border-left: 4px solid transparent;
-				border-right: 4px solid transparent;
-				border-bottom: 8px solid rgba(255, 255, 255, 0.6);
+				border-left: 5px solid transparent;
+				border-right: 5px solid transparent;
+				border-bottom: 10px solid rgba(255, 255, 255, 0.7);
 				transform-origin: center center;
 				transition: opacity 0.3s;
+				filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.5));
+			}
+			.arrow.idle {
+				border-bottom-color: rgba(100, 116, 139, 0.4);
 			}
 		`,
 	];
@@ -45,24 +49,32 @@ export class DashboardOverlays extends LitElement {
 	}
 
 	render() {
-		const arrows: { name: string; x: number; y: number; angle: number }[] = [];
+		const arrows: { name: string; x: number; y: number; angle: number; idle: boolean }[] = [];
 
-		for (const [name, target] of this.store.agentTargets) {
-			const pos = this.store.agentPositions.get(name);
-			if (!pos) continue;
+		// Show an arrow for every agent that has a known position
+		for (const [name, pos] of this.store.agentPositions) {
+			const target = this.store.agentTargets.get(name);
+			let angle = 180; // default: pointing down (facing user)
+			let idle = true;
 
-			const dx = target.x - pos.x;
-			const dy = target.y - pos.y;
-			if (Math.abs(dx) < 2 && Math.abs(dy) < 2) continue;
+			if (target) {
+				const dx = target.x - pos.x;
+				const dy = target.y - pos.y;
+				// Only show movement direction if far enough from target
+				if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+					angle = Math.atan2(dy, dx) * (180 / Math.PI) + 90;
+					idle = false;
+				}
+			}
 
-			const angle = Math.atan2(dy, dx) * (180 / Math.PI) + 90;
-			arrows.push({ name, x: pos.x, y: pos.y + 20, angle });
+			// Position below the status dot (offset down by ~40px in CSS space)
+			arrows.push({ name, x: pos.x, y: pos.y + 40, angle, idle });
 		}
 
 		return html`${arrows.map(
 			(a) => html`
 				<div
-					class="arrow"
+					class="arrow ${a.idle ? "idle" : ""}"
 					style="left:${a.x}px;top:${a.y}px;transform:translate(-50%,-50%) rotate(${a.angle}deg)"
 				></div>
 			`,

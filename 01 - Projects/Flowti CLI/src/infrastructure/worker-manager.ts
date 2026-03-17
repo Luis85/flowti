@@ -16,6 +16,7 @@ import { evaluateDecision, getRulesForAgent } from "../domain/agents/decision-en
 import { buildCharacter, buildTaskPrompt, buildResponsePrompt, respondFromState, acknowledge } from "../domain/agents/action-handlers.js";
 import { resolvePermissionPolicy, resolveAllowedTools } from "../domain/agents/permission-engine.js";
 import { readAgentState, writeAgentState, clearOnceGrants } from "../domain/agents/agent-state.js";
+import { parseAgentResponse } from "../domain/agents/agent-conversation.js";
 
 export type WorkerManagerDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "shell" | "log">;
 
@@ -157,7 +158,7 @@ export function createWorkerManager(
 			const cleared = clearOnceGrants(freshState);
 			if (cleared !== freshState) writeAgentState(deps, varDir, worker.name, cleared);
 
-			opts?.onResponse?.({ message: result.text, status: "message" });
+			opts?.onResponse?.(parseAgentResponse(result.text));
 		} catch {
 			worker.failureCount++;
 		}

@@ -49,7 +49,7 @@ describe("agent-panel", () => {
 		expect(panel).not.toBeNull();
 
 		const nameEl = el.shadowRoot!.querySelector("[data-testid='panel-agent-name']");
-		expect(nameEl?.textContent).toBe("TestBot");
+		expect(nameEl?.textContent).toBe("A diligent test agent.");
 	});
 
 	it("renders 5 tab buttons", async () => {

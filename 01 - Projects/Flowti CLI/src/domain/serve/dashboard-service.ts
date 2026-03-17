@@ -93,10 +93,10 @@ export function buildDashboard(
 	agentsConfig: AgentsDashboardConfig | undefined,
 	deps: DashboardDeps,
 ): BuildResult {
-	if (!agentsConfig?.dashboard) return { ok: false, error: "Agent dashboard is not enabled." };
-
-	// If build output already exists, skip rebuild
+	// If build output already exists, serve it regardless of config
 	if (hasBuildOutput(outDir, deps)) return { ok: true };
+
+	if (!agentsConfig?.dashboard) return { ok: false, error: "Agent dashboard is not enabled." };
 
 	const dashboardDir = agentsConfig.dashboardDir ?? DEFAULT_DASHBOARD_DIR;
 	const dashboardPath = deps.paths.join(cliProjectPath, dashboardDir);

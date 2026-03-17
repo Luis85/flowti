@@ -30,19 +30,21 @@ describe("dashboard-overlays", () => {
 		expect(arrows.length).toBe(1);
 	});
 
-	it("hides arrow when agent has no target", async () => {
+	it("shows idle arrow when agent has no target", async () => {
 		store.updatePositions(new Map([["Bob", { x: 100, y: 200 }]]));
-		// No target set — agentTargets map has no entry for Bob
+		// No target set — arrow shows in idle style (pointing down)
 		await (el as any).updateComplete;
 		const arrows = el.shadowRoot!.querySelectorAll(".arrow");
-		expect(arrows.length).toBe(0);
+		expect(arrows.length).toBe(1);
+		expect(arrows[0].classList.contains("idle")).toBe(true);
 	});
 
-	it("hides arrow when agent position and target are nearly identical", async () => {
+	it("shows idle arrow when agent position and target are nearly identical", async () => {
 		store.updatePositions(new Map([["Bob", { x: 100, y: 200 }]]));
 		store.setAgentTarget("Bob", { x: 101, y: 200 });
 		await (el as any).updateComplete;
 		const arrows = el.shadowRoot!.querySelectorAll(".arrow");
-		expect(arrows.length).toBe(0);
+		expect(arrows.length).toBe(1);
+		expect(arrows[0].classList.contains("idle")).toBe(true);
 	});
 });

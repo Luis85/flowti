@@ -30,7 +30,6 @@ export class AgentActor extends ex.Actor {
 
 	private readonly onSelect: (agentName: string) => void;
 	private bobPhase = 0;
-	private baseY: number;
 
 	constructor(config: AgentActorConfig) {
 		super({
@@ -41,7 +40,6 @@ export class AgentActor extends ex.Actor {
 		});
 		this.agentData = config.agent;
 		this.onSelect = config.onSelect;
-		this.baseY = config.y;
 		this.scale = ex.vec(SCALE, SCALE);
 
 		// Use frame 0 of the idle spritesheet as a static forward-facing sprite
@@ -65,10 +63,13 @@ export class AgentActor extends ex.Actor {
 	}
 
 	onPreUpdate(_engine: ex.Engine, delta: number): void {
-		// Gentle bob when idle
+		// Gentle bob when idle — offset only the sprite graphic, not the actor
+		// position, so child actors (label, badge) stay still.
 		if (this.brainState === "idle" || this.brainState === "waiting" || this.brainState === "on-break") {
-			this.bobPhase += delta * 0.003;
-			this.pos.y = this.baseY + Math.sin(this.bobPhase) * 1;
+			this.bobPhase += delta * 0.0015;
+			this.graphics.offset = ex.vec(0, Math.sin(this.bobPhase) * 0.5);
+		} else {
+			this.graphics.offset = ex.vec(0, 0);
 		}
 	}
 
@@ -84,6 +85,9 @@ export class AgentActor extends ex.Actor {
 
 	/** Update brain state for idle bob logic. No animation switching. */
 	updateFromBrain(state: BrainState): void {
+		if (state !== this.brainState) {
+			this.bobPhase = 0;
+		}
 		this.brainState = state;
 	}
 
