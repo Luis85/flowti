@@ -86,7 +86,7 @@ import { registerCanvasImportHandler } from "./infrastructure/handlers/leaf-hand
 import { registerExportHandler } from "./infrastructure/handlers/leaf-handlers/export-handler";
 import { registerSessionWorkspaceHandler } from "./infrastructure/handlers/leaf-handlers/session-workspace-handler";
 import type { PluginSitemap } from "./domain/sitemap/plugin-sitemap-types";
-import pluginSitemap from "../plugin-sitemap.json";
+import pluginSitemap from "../configs/sitemap.json";
 import type { TrainCanvasSyncService } from "./domain/train/TrainCanvasSyncService";
 
 

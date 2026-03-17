@@ -12,6 +12,14 @@ import type { IEventBus } from "../events/types";
 import type { EventType, FlowtiEventMap } from "../events/events";
 import { setProps } from "./handler-utils";
 
+// Side-effect imports: register Lit custom elements
+import "../../components/user/flowti-user-dashboard.js";
+import "../../components/user/flowti-user-sessions.js";
+import "../../components/user/flowti-user-inbox.js";
+import "../../components/user/flowti-user-commands.js";
+import "../../components/user/flowti-user-preferences.js";
+import "../../components/user/flowti-user-health.js";
+
 /** Session action event names keyed by action string. */
 const SESSION_ACTION_EVENTS: Record<string, string> = {
 	start: "session.start",

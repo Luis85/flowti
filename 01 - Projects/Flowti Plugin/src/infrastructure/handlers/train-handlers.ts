@@ -11,6 +11,11 @@ import type { IEventBus } from "../events/types";
 import type { FlowtiEventMap } from "../events/events";
 import { setProps } from "./handler-utils";
 
+// Side-effect imports: register Lit custom elements
+import "../../components/train/flowti-train-dashboard.js";
+import "../../components/train/flowti-train-active.js";
+import "../../components/train/flowti-train-history.js";
+
 export interface TrainHandlerDeps {
 	trainService: {
 		getAllTrains: () => readonly unknown[];

@@ -11,6 +11,14 @@ import type { IEventBus } from "../events/types";
 import type { FlowtiEventMap } from "../events/events";
 import { setProps } from "./handler-utils";
 
+// Side-effect imports: register Lit custom elements
+import "../../components/test-management/flowti-tm-journeys.js";
+import "../../components/test-management/flowti-tm-pyramid.js";
+import "../../components/test-management/flowti-tm-coverage.js";
+import "../../components/test-management/flowti-tm-compliance.js";
+import "../../components/test-management/flowti-tm-feature-quality.js";
+import "../../components/test-management/flowti-tm-dashboard.js";
+
 export interface TestManagementHandlerDeps {
 	service: {
 		getJourneys: () => unknown[];

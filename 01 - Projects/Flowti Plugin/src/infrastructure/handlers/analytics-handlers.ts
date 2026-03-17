@@ -11,6 +11,11 @@ import type { IEventBus } from "../events/types";
 import type { FlowtiEventMap } from "../events/events";
 import { setProps } from "./handler-utils";
 
+// Side-effect imports: register Lit custom elements
+import "../../components/analytics/flowti-analytics-dashboard.js";
+import "../../components/analytics/flowti-analytics-queries.js";
+import "../../components/analytics/flowti-analytics-measurements.js";
+
 export interface AnalyticsHandlerDeps {
 	analyticsService: {
 		listQueries: () => readonly unknown[];
@@ -41,7 +46,7 @@ export function registerAnalyticsHandlers(
 ): void {
 	// ── Dashboards handler ───────────────────────────────
 
-	registry.registerTabHandler("analytics:dashboards", (container: HTMLElement) => {
+	const dashboardHandler = (container: HTMLElement) => {
 		container.innerHTML = "";
 		const el = document.createElement("flowti-analytics-dashboard");
 
@@ -72,7 +77,9 @@ export function registerAnalyticsHandlers(
 		}) as EventListener);
 
 		container.appendChild(el);
-	});
+	};
+	registry.registerTabHandler("analytics:dashboards", dashboardHandler);
+	registry.registerTabHandler("analytics:dashboard", dashboardHandler);
 
 	// ── Queries handler ──────────────────────────────────
 

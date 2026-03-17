@@ -12,6 +12,9 @@ import type { FlowtiEventMap } from "../../events/events";
 import { computeGraphLayout } from "../../../domain/train/graph-layout";
 import { setProps } from "../handler-utils";
 
+// Side-effect import: register Lit custom element
+import "../../../components/train/flowti-train-timeline.js";
+
 export interface TrainTimelineHandlerDeps {
 	trainService: TrainService;
 	eventBus: IEventBus;

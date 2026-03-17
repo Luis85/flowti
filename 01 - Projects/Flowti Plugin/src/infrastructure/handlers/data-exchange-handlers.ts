@@ -11,6 +11,17 @@ import type { IEventBus } from "../events/types";
 import type { FlowtiEventMap } from "../events/events";
 import { setProps } from "./handler-utils";
 
+// Side-effect imports: register Lit custom elements
+import "../../components/dx/flowti-dx-dashboard.js";
+import "../../components/dx/flowti-dx-imports.js";
+import "../../components/dx/flowti-dx-exports.js";
+import "../../components/dx/flowti-dx-pipelines.js";
+import "../../components/dx/flowti-dx-types.js";
+import "../../components/dx/flowti-dx-properties.js";
+import "../../components/dx/flowti-dx-signals.js";
+import "../../components/dx/flowti-dx-reports.js";
+import "../../components/dx/flowti-dx-canvas.js";
+
 interface ActiveOperation {
 	operationId: string;
 	type: string;
@@ -50,7 +61,7 @@ export function registerDataExchangeHandlers(
 ): void {
 	// ── Dashboard handler ─────────────────────────────────
 
-	registry.registerTabHandler("dx:dashboard", (container: HTMLElement) => {
+	const dxDashboardHandler = (container: HTMLElement) => {
 		container.innerHTML = "";
 		const el = document.createElement("flowti-dx-dashboard");
 		const activeOps = deps.operationTracker.getActiveOperations();
@@ -59,7 +70,9 @@ export function registerDataExchangeHandlers(
 			void deps.eventBus.emit("ui.navigateTab", { viewId: "data-exchange-hub", tabId: "pipelines" });
 		});
 		container.appendChild(el);
-	});
+	};
+	registry.registerTabHandler("dx:dashboard", dxDashboardHandler);
+	registry.registerTabHandler("data-exchange:dashboard", dxDashboardHandler);
 
 	// ── Imports handler ───────────────────────────────────
 
