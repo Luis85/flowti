@@ -55,7 +55,7 @@ Add `management` section to `configs/flowti.config.json`:
   "raid": { "dir": "docs/raid" },
   "requirements": { "dir": "docs/requirements" },
   "capa": { "dir": "docs/capa" },
-  "features": { "dir": "docs/features" },
+  "lifecycle": { "featuresDir": "docs/features" },
   "iterations": {
     "dir": "iterations",
     "durationDays": 14,
@@ -83,15 +83,15 @@ Upgrade `reports` section from `{label, command}` to `{id, label, prerequisites,
   "dir": "docs/reports",
   "outputDir": "../../03 - Resources/Reports",
   "generators": [
-    { "id": "test", "label": "Test Report", "prerequisites": ["npx vitest run --reporter=json --outputFile=docs/reports/tests/testreport.json --coverage --coverage.reportsDirectory=docs/reports/coverage --coverage.reporter=json"] },
-    { "id": "coverage", "label": "Coverage Report", "prerequisites": ["npx vitest run --reporter=json --outputFile=docs/reports/tests/testreport.json --coverage --coverage.reportsDirectory=docs/reports/coverage --coverage.reporter=json"] },
-    { "id": "build", "label": "Build Report" },
-    { "id": "codebase", "label": "Codebase Report" },
-    { "id": "complexity", "label": "Complexity Report" },
-    { "id": "cycle", "label": "Cycle Report" },
-    { "id": "performance", "label": "Performance Report" },
-    { "id": "trace", "label": "Trace Report" },
-    { "id": "e2e", "label": "E2E Report" },
+    { "id": "test", "label": "Test Report", "command": "node scripts/generate-test-report.mjs", "prerequisites": ["npx vitest run --reporter=json --outputFile=docs/reports/tests/testreport.json --coverage --coverage.reportsDirectory=docs/reports/coverage --coverage.reporter=json"] },
+    { "id": "coverage", "label": "Coverage Report", "command": "node scripts/generate-coverage-report.mjs", "dependencies": ["test"] },
+    { "id": "build", "label": "Build Report", "command": "node scripts/generate-build-report.mjs" },
+    { "id": "codebase", "label": "Codebase Report", "command": "node scripts/generate-codebase-report.mjs" },
+    { "id": "complexity", "label": "Complexity Report", "command": "node scripts/generate-complexity-report.mjs" },
+    { "id": "cycle", "label": "Cycle Report", "command": "node scripts/generate-cycle-report.mjs" },
+    { "id": "performance", "label": "Performance Report", "command": "node scripts/generate-performance-report.mjs" },
+    { "id": "trace", "label": "Trace Report", "command": "node scripts/generate-trace-report.mjs" },
+    { "id": "e2e", "label": "E2E Report", "command": "node scripts/generate-e2e-report.mjs" },
     { "id": "status", "label": "Status Report", "dependencies": ["test", "coverage", "codebase", "complexity"] },
     { "id": "summary", "label": "Summary Report", "dependencies": ["test", "coverage", "codebase", "complexity", "status"] }
   ],
@@ -153,6 +153,8 @@ Target frontmatter per report type:
   "target": "obsidian-plugin",
   "build": "npm run build",
   "test": "npm test",
+  "teardown": "node scripts/run-e2e.mjs --teardown",
+  "rebuild": "node scripts/run-e2e.mjs --rebuild",
   "gates": {
     "coverage": { "statementCoverage": 75 },
     "security": { "required": false },
@@ -232,7 +234,16 @@ Phase 4 (Final):
   Item 1: Move to projects folder
 ```
 
-## 6. Out of Scope
+## 6. Notes
+
+- **`management.lifecycle.featuresDir`** is used instead of a top-level `management.features` because `ManagementConfig` does not include a `features` property — features live under `lifecycle`.
+- **Report pipeline deduplication:** The `coverage` generator declares `dependencies: ["test"]` so the shared prerequisite (vitest run with coverage) executes once via the `test` generator. The coverage generator then reads the already-generated data.
+- **`reports.allCommand`** is dropped — the CLI's pipeline engine replaces the all-command by resolving the generator DAG.
+- **Reference-to-generator mapping:** `docs.references[].id` maps to `docs.generators[].label` by convention (slug match). The CLI resolves references by iterating generators and matching the id to the slugified label.
+- **Publish endpoint paths** are resolved relative to the project root (not the config file). `../../.obsidian/plugins/flowti-ibde` resolves correctly from both `Development/flowti/` and `01 - Projects/Flowti Plugin/` because both are 2 levels deep from the vault root.
+- **Requirements migration scope:** The Plugin's `docs/requirements/` may be empty or contain non-store-format docs. If empty, Item 9 reduces to creating directory structure + subdirs. Estimate adjusted accordingly during implementation.
+
+## 7. Out of Scope
 
 - CLI enhancements for subsystem discovery (not needed — Plugin moves to projects folder)
 - New CLI commands specific to Plugin management
