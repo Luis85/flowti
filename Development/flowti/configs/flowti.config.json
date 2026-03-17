@@ -29,40 +29,105 @@
 	},
 	"reports": {
 		"dir": "docs/reports",
-		"allCommand": "npm run generate:reports",
+		"outputDir": "../../03 - Resources/Reports",
 		"generators": [
-			{ "label": "Test Report", "command": "node scripts/generate-test-report.mjs" },
-			{ "label": "Coverage Report", "command": "node scripts/generate-coverage-report.mjs" },
-			{ "label": "Build Report", "command": "node scripts/generate-build-report.mjs" },
-			{ "label": "Codebase Report", "command": "node scripts/generate-codebase-report.mjs" },
-			{ "label": "Cycle Report", "command": "node scripts/generate-cycle-report.mjs" },
-			{ "label": "Trace Report", "command": "node scripts/generate-trace-report.mjs" },
-			{ "label": "Performance Report", "command": "node scripts/generate-performance-report.mjs" },
-			{ "label": "Complexity Report", "command": "node scripts/generate-complexity-report.mjs" },
-			{ "label": "E2E Report", "command": "node scripts/generate-e2e-report.mjs" }
+			{
+				"id": "test",
+				"label": "Test Report",
+				"command": "node scripts/generate-test-report.mjs",
+				"prerequisites": [
+					"npx vitest run --reporter=json --outputFile=docs/reports/tests/testreport.json --coverage --coverage.reportsDirectory=docs/reports/coverage --coverage.reporter=json"
+				]
+			},
+			{
+				"id": "coverage",
+				"label": "Coverage Report",
+				"command": "node scripts/generate-coverage-report.mjs",
+				"dependencies": ["test"]
+			},
+			{
+				"id": "build",
+				"label": "Build Report",
+				"command": "node scripts/generate-build-report.mjs"
+			},
+			{
+				"id": "codebase",
+				"label": "Codebase Report",
+				"command": "node scripts/generate-codebase-report.mjs"
+			},
+			{
+				"id": "complexity",
+				"label": "Complexity Report",
+				"command": "node scripts/generate-complexity-report.mjs"
+			},
+			{
+				"id": "cycle",
+				"label": "Cycle Report",
+				"command": "node scripts/generate-cycle-report.mjs"
+			},
+			{
+				"id": "performance",
+				"label": "Performance Report",
+				"command": "node scripts/generate-performance-report.mjs"
+			},
+			{
+				"id": "trace",
+				"label": "Trace Report",
+				"command": "node scripts/generate-trace-report.mjs"
+			},
+			{
+				"id": "e2e",
+				"label": "E2E Report",
+				"command": "node scripts/generate-e2e-report.mjs"
+			},
+			{
+				"id": "status",
+				"label": "Status Report",
+				"dependencies": ["test", "coverage", "codebase", "complexity"]
+			},
+			{
+				"id": "summary",
+				"label": "Summary Report",
+				"dependencies": ["test", "coverage", "codebase", "complexity", "status"]
+			}
 		],
 		"thresholds": {
 			"coverageLines": 80,
 			"coverageBranches": 70,
 			"maxComplexity": 15,
+			"maxFileDecisionPoints": 90,
 			"complexityAboveThresholdPct": 5,
 			"startupMs": 5000,
 			"eslintWarnings": 0
 		}
 	},
 	"review": {
-		"commands": {
-			"build": "npm run build:increment",
-			"test": "npm run test:e2e",
-			"teardown": "node scripts/run-e2e.mjs --teardown",
-			"rebuild": "node scripts/run-e2e.mjs --rebuild"
+		"journeysDir": "tests/e2e",
+		"target": "obsidian-plugin",
+		"build": "npm run build",
+		"test": "npm test",
+		"teardown": "node scripts/run-e2e.mjs --teardown",
+		"rebuild": "node scripts/run-e2e.mjs --rebuild",
+		"gates": {
+			"coverage": { "statementCoverage": 75 },
+			"security": { "required": false },
+			"risk": { "criticalMustPass": true },
+			"release": { "allGatesMustPass": true }
 		}
 	},
 	"docs": {
+		"referenceDir": "../../03 - Resources/Reference",
+		"references": [
+			{ "id": "event-catalog", "label": "Event Catalog" },
+			{ "id": "data-dictionary", "label": "Data Dictionary" },
+			{ "id": "command-reference", "label": "Command Reference" },
+			{ "id": "tool-reference", "label": "Tool Reference" },
+			{ "id": "cli-reference", "label": "CLI Reference" }
+		],
 		"generators": [
-			{ "label": "Command Reference", "command": "node scripts/generate-command-reference.mjs" },
 			{ "label": "Event Catalog", "command": "node scripts/generate-event-catalog.mjs" },
 			{ "label": "Data Dictionary", "command": "node scripts/generate-data-dictionary.mjs" },
+			{ "label": "Command Reference", "command": "node scripts/generate-command-reference.mjs" },
 			{ "label": "Tool Reference", "command": "node scripts/generate-tool-reference.mjs" },
 			{ "label": "CLI Reference", "command": "node scripts/generate-cli-reference.mjs" }
 		]
@@ -70,11 +135,60 @@
 	"make": {
 		"templates": ["hub", "plugin", "app"]
 	},
+	"publish": {
+		"build": "npm run build",
+		"test": "npm test",
+		"outDir": "../..",
+		"artifacts": ["main.js", "manifest.json", "styles.css"],
+		"endpoints": [
+			{ "name": "Obsidian Plugin", "path": "../../.obsidian/plugins/flowti-ibde", "clean": true }
+		]
+	},
 	"health": {
 		"thresholds": {
 			"coverage": { "min": 75, "target": 85 },
 			"lint": { "maxErrors": 0, "maxWarnings": 10 },
 			"tests": { "minPassed": 7000 }
 		}
+	},
+	"management": {
+		"resources": { "dir": "docs/resources" },
+		"timelog": { "dir": "docs/timelog" },
+		"deliverables": { "dir": "docs/deliverables" },
+		"raid": { "dir": "docs/raid" },
+		"requirements": { "dir": "docs/requirements" },
+		"capa": { "dir": "docs/capa" },
+		"lifecycle": { "featuresDir": "docs/features" },
+		"iterations": {
+			"dir": "iterations",
+			"durationDays": 14,
+			"orchestration": {
+				"phases": {
+					"new": {
+						"agent": "Product Owner",
+						"role": "refiner",
+						"instruction": "Refine goal and identify initial scope items"
+					},
+					"planned": {
+						"agent": "Software Architect",
+						"role": "planner",
+						"instruction": "Break scope into actionable technical tasks"
+					}
+				}
+			}
+		},
+		"agents": {
+			"roster": [
+				"Product Owner",
+				"Software Architect",
+				"Software Developer",
+				"Tester",
+				"UI Designer",
+				"UX Designer"
+			]
+		}
+	},
+	"templates": {
+		"dir": "docs/templates"
 	}
 }
