@@ -10,13 +10,6 @@ import type { PluginHandlerRegistry, TabContext } from "../plugin-handler-regist
 import type { IEventBus } from "../../events/types";
 import type { DataExchangeService } from "../../../domain/dataExchange/DataExchangeService";
 import type { ExportService } from "../../../domain/dataExchange/ExportService";
-import type {
-	ExportResult,
-	ParsedBaseFile,
-	ResolvedColumn,
-	SavedExportConfig,
-	VaultFileInfo,
-} from "../../../domain/dataExchange/types";
 import type { ExportPage, ExportViewState, ExportComponentDeps } from "../../../ui/export/types";
 import {
 	ViewSelectPage,
@@ -24,9 +17,6 @@ import {
 	PreviewPage,
 	ResultPage,
 	STEP_LABELS,
-	getFilenameFromPath,
-	getOutputFilename,
-	buildOutputPath,
 } from "../../../ui/export/index";
 import { renderStepBar, renderConfigDropdown } from "../../../ui/hub/helpers";
 import { setIcon } from "obsidian";

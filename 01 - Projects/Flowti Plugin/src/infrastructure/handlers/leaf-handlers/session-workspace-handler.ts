@@ -108,7 +108,6 @@ function createSessionWorkspace(
 	let outputPanel: SessionOutputPanel | null = null;
 
 	// ── DOM refs for header ───────────────────────────────
-	let headerStatusEl: HTMLElement | null = null;
 	let actionsEl: HTMLElement | null = null;
 
 	// ── Helpers ───────────────────────────────────────────
@@ -248,7 +247,7 @@ function createSessionWorkspace(
 			cls: "ft-badge ft-session-type-badge",
 		});
 
-		headerStatusEl = titleRow.createEl("span", {
+		titleRow.createEl("span", {
 			text: SESSION_STATUS_LABELS[s.status] ?? s.status,
 			cls: `ft-badge ft-badge-status ft-session-status-badge ft-status-${getStatusClass(s.status)}`,
 		});

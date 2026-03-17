@@ -9,8 +9,8 @@
  * file/data access and Obsidian-specific callbacks.
  */
 
-import { setIcon } from "obsidian";
-import type { App, TFile } from "obsidian";
+import { setIcon, TFile } from "obsidian";
+import type { App } from "obsidian";
 import type { IEventBus } from "../../events/types";
 import type { DataExchangeService } from "../../../domain/dataExchange/DataExchangeService";
 import type { SavedImportConfig } from "../../../domain/dataExchange/types";
@@ -279,8 +279,8 @@ export function createCsvOrchestrator(
 				if (file) {
 					const docPath = dataExchangeService.resolveCsvDocPath(file.path, (p) => !!app.vault.getAbstractFileByPath(p));
 					const docFile = app.vault.getAbstractFileByPath(docPath);
-					if (docFile && app.metadataCache) {
-						const cache = app.metadataCache.getFileCache(docFile as TFile);
+					if (docFile instanceof TFile && app.metadataCache) {
+						const cache = app.metadataCache.getFileCache(docFile);
 						const nt = cache?.frontmatter?.noteType;
 						if (typeof nt === "string" && nt) reportNoteType = nt;
 					}

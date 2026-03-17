@@ -114,8 +114,6 @@ export function registerUserHandlers(
 		const el = document.createElement("flowti-user-sessions");
 
 		const sessions = deps.sessionService.getSessions();
-		const activeSession = deps.sessionService.getActiveSession() as { id: string } | null;
-
 		setProps(el, { sessions });
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
 

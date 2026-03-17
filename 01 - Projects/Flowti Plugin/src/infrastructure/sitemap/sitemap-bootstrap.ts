@@ -38,7 +38,7 @@ export class SitemapBootstrap {
 	}
 
 	private registerViews(): void {
-		for (const [viewId, viewDef] of Object.entries(this.sitemap.views)) {
+		for (const viewDef of Object.values(this.sitemap.views)) {
 			if (viewDef.fileView) {
 				// TextFileView extensions — registered via domain setup classes in onLayoutReady
 				continue;

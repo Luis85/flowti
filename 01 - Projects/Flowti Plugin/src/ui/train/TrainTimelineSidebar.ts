@@ -13,7 +13,7 @@ import { ItemView, setIcon } from "obsidian";
 import type { WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { TrainService } from "../../domain/train/TrainService";
-import type { ThoughtNode, TrainState } from "../../domain/train/types";
+import type { TrainState } from "../../domain/train/types";
 import type { TrainViewSettings } from "./TrainMainView";
 import { VIEW_TYPE_TRAIN_TIMELINE } from "./types";
 import { setupTrainTimelineSubscriptions } from "./TrainTimelineSidebarSubscriptions";

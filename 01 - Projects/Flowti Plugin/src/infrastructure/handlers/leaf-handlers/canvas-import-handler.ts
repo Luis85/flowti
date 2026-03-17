@@ -9,7 +9,7 @@
  *   CanvasLanding, CanvasConfigPage, CanvasPreviewPage, CanvasResultPage
  */
 
-import type { App, TFile } from "obsidian";
+import type { App } from "obsidian";
 import { setIcon } from "obsidian";
 import type { IEventBus } from "../../events/types";
 import type { CanvasService, CanvasConfigInput } from "../../../domain/canvas/CanvasService";

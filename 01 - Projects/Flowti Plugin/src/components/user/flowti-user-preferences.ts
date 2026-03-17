@@ -1,4 +1,4 @@
-import { html, css, nothing } from 'lit';
+import { html, css } from 'lit';
 import { FlowtiElement } from '../flowti-element.js';
 import { emptyState } from '../shared-styles.js';
 
