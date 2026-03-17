@@ -1,7 +1,7 @@
 import { App, Modal, Setting, setIcon } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
-import { DEFAULT_FOLDER_CONFIG, getTopLevelEntries } from "./folderConfig";
-import type { IInstallerService, InstallerStepStatusEntry } from "./types";
+import { DEFAULT_FOLDER_CONFIG, getTopLevelEntries } from "../../domain/installer/folderConfig";
+import type { IInstallerService, InstallerStepStatusEntry } from "../../domain/installer/types";
 
 type WizardPage = "welcome" | "review" | "progress" | "complete";
 

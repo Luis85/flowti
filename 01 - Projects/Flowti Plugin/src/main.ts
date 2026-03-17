@@ -14,7 +14,7 @@ import {
 	FlowtiSettingsSchema,
 } from "./domain/settings/settings";
 import type { IInstallerService } from "./domain/installer/types";
-import { InstallerWizardModal } from "./domain/installer/InstallerWizardModal";
+import { InstallerWizardModal } from "./ui/installer/InstallerWizardModal";
 import type { ISettingsService } from "./domain/settings/types";
 import type { IUserService } from "./domain/user/types";
 import type { EventNotificationService } from "./domain/eventNotify/EventNotificationService";

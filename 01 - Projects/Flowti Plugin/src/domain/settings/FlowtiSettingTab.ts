@@ -3,7 +3,7 @@ import type { IEventBus } from "../../infrastructure/events/types";
 import type { IInstallerService } from "../installer/types";
 import type { AnalyticsService } from "../analytics/AnalyticsService";
 import type { OnboardingService } from "../onboarding/OnboardingService";
-import { InstallerWizardModal } from "../installer/InstallerWizardModal";
+import { InstallerWizardModal } from "../../ui/installer/InstallerWizardModal";
 import { ConfirmModal } from "../../ui/modals";
 import { DEFAULT_ENTITY_PATHS, type FlowtiSettings } from "./settings";
 

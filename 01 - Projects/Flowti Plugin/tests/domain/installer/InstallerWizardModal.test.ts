@@ -8,7 +8,7 @@
 import "../../mocks/obsidian-stub";
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { InstallerWizardModal } from "../../../src/domain/installer/InstallerWizardModal";
+import { InstallerWizardModal } from "../../../src/ui/installer/InstallerWizardModal";
 import type { IInstallerService } from "../../../src/domain/installer/types";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import type { App } from "obsidian";
