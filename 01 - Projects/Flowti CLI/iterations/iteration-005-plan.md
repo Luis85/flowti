@@ -105,6 +105,17 @@ Phase B was delivered across 4 implementation plans, evolving from canvas-drawn 
 - Habits derived from GURPS attributes at spawn time, not runtime (B3 reimagined)
 - Talk engine handles ambient quotes separately from bubble system (B7 split)
 
+### Storybook CLI Integration
+
+- [x] Version-agnostic scaffold (replace pinned `^8.6.0` / `^10.0.0` with `"latest"`)
+- [x] Non-interactive CLI commands (`storybook:install`, `storybook:start`, `storybook:stop`, `storybook:build`, `storybook:generate`)
+- [x] `startStorybookDev()` non-interactive service function
+- [x] Post-init config patching for Storybook 10 format
+- [x] `npm install` before `storybook init` for framework detection
+- [x] `--type` flag for explicit framework detection
+- [x] Missing `node_modules` detection with helpful error message
+- [x] `storybook:install` must not clobber existing TUI component files
+
 **Remaining gaps (see refinement-2026-03-17-agent-world.md):**
 - [ ] Data export: game-side DashboardAgent missing `goals`, `behaviors`, `project`, `iteration`, `phase`
 - [ ] World state reconciliation: `onStateDiff` handler is a stub
