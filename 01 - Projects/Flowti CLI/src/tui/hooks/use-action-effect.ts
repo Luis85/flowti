@@ -22,7 +22,7 @@ export function useActionEffect(): UseActionEffectResult {
 	const [state, setState] = useState<EffectState>("idle");
 	const [message, setMessage] = useState("");
 	const cancelledRef = useRef(false);
-	const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>();
+	const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
 	const dismiss = useCallback(() => {
 		if (timerRef.current) clearTimeout(timerRef.current);
@@ -45,7 +45,7 @@ export function useActionEffect(): UseActionEffectResult {
 				setMessage(result.message);
 			} else {
 				setState("success");
-				setMessage(result.message ?? "Done");
+				setMessage(result.kind === "ok" ? (result.message ?? "Done") : "Done");
 				timerRef.current = setTimeout(() => {
 					setState("idle");
 					setMessage("");
