@@ -123,6 +123,14 @@ Phase B was delivered across 4 implementation plans, evolving from canvas-drawn 
 - [ ] Game feel: no particles, emotes, or workstation glow
 - [ ] Social interaction: facing only, no proximity conversations
 
+### Phase C: CLI-Plugin Integration — NEW (from increment review)
+
+- [ ] CLI interaction modal in Obsidian plugin (trigger CLI commands from within the plugin)
+- [ ] Agent launch from plugin — each agent opens/served in its own dedicated plugin view
+- [ ] Storybook launch from plugin (if project has it configured)
+- [ ] Fix: Plugin views crash (`getViewType` TypeError after migration)
+- [ ] Fix: TUI Ink migration regression (missing project, agent, storybook functionality)
+
 ---
 
 ### Meta (Phase Gate)
@@ -170,6 +178,8 @@ B10: Setting Themes (parallel with B4+)
 
 | Date | From | To | Reason |
 |---|---|---|---|
+| 2026-03-17 | in-review | in-progress | Increment review — 0/3 phases accepted, added Phase C (CLI-Plugin integration), 2 critical bugs filed |
+| 2026-03-17 | in-progress | in-review | Increment review ceremony initiated |
 | 2026-03-16 | in-progress | in-progress | Iteration planning ceremony — Phase A complete, Phase B (RPG World) committed with 10 scope items across 8 agents |
 | 2026-03-15 | ready | in-progress | Advanced to in-progress |
 | 2026-03-15 | planned | ready | Advanced to ready |
