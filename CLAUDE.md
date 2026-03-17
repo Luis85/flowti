@@ -9,7 +9,7 @@ This is an Obsidian vault and git root containing two projects:
 | Project | Path | Purpose |
 |---------|------|---------|
 | **Flowti CLI** | `01 - Projects/Flowti CLI/` | Definition-driven project orchestrator CLI (zero runtime deps) |
-| **Flowti Plugin** | `Development/flowti/` | Obsidian IBDE plugin (EventBus-driven) |
+| **Flowti Plugin** | `01 - Projects/Flowti Plugin/` | Obsidian IBDE plugin (EventBus-driven) |
 
 The git root is HERE (`c:\Projects\flowti`), not at either project root. Use full paths for `git mv`, `git add`, etc. On Windows, `git index.lock` can get stale — `rm -f .git/index.lock` if needed.
 
@@ -44,7 +44,7 @@ node configs/esbuild.config.mjs
 
 ## Flowti Plugin Commands
 
-All commands run from `cd "Development/flowti"`:
+All commands run from `cd "01 - Projects/Flowti Plugin"`:
 
 ```bash
 npm test                    # Full check (lint + tsc + tests)
@@ -127,6 +127,7 @@ Skill files are auto-regenerated when agents/tools are created, edited, or delet
 | `01 - Projects/Flowti CLI/configs/tsconfig.json` | TypeScript config (ES2022, NodeNext, strict) |
 | `01 - Projects/Flowti CLI/configs/vitest.config.ts` | Vitest config (forks pool, 70% coverage thresholds) |
 | `01 - Projects/Flowti CLI/configs/eslint.config.mjs` | ESLint config (architecture enforcement rules) |
+| `01 - Projects/Flowti Plugin/configs/flowti.config.json` | Plugin's project config (all CLI management sections) |
 | `.flowti/config.json` | Vault-level config (source project path) |
 
 ## Superpowers Output Location
