@@ -8,6 +8,7 @@
 
 import type { PluginHandlerRegistry, TabContext } from "./plugin-handler-registry";
 import type { IEventBus } from "../events/types";
+import type { EventType, FlowtiEventMap } from "../events/events";
 import { setProps } from "./handler-utils";
 
 export interface CatalogViewStateProvider {
@@ -78,10 +79,8 @@ export function registerCatalogHandlers(
 			if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
 
 			el.addEventListener("entity-selected", ((e: CustomEvent) => {
-				void deps.eventBus.emit(
-					`catalog.${config.entityType}.selected` as never,
-					e.detail as never,
-				);
+				const eventName = `catalog.${config.entityType}.selected` as EventType;
+				void deps.eventBus.emit(eventName, e.detail as FlowtiEventMap[typeof eventName]);
 			}) as EventListener);
 
 			container.appendChild(el);

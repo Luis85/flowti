@@ -172,6 +172,7 @@ export const EVENT_CATEGORIES = [
 	"Performance",
 	"Notification",
 	"Modal",
+	"Catalog",
 	"Journey Builder",
 	"Test Management",
 	"Feature Lifecycle",
@@ -414,6 +415,35 @@ const CATALOG_DATA = {
 	"ui.openTestManagementHub":   { category: "UI Commands", description: "Open the Test Management Hub view", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.runJourney":              { category: "UI Commands", description: "Run a journey definition from the vault", direction: "View → Plugin", domain: "journey-executor", services: "JourneyExecutorService" },
 	"ui.opened":                  { category: "UI Commands", description: "A UI view or modal was opened", direction: "Internal", domain: "ui", services: "UiCommandService", tags: ["system"] },
+	"ui.navigateTab":             { category: "UI Commands", description: "Navigate to a specific tab within a hub view", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.openFile":                { category: "UI Commands", description: "Open a file in the vault", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.openSessionWorkspace":    { category: "UI Commands", description: "Open a session workspace view", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.openSessionWorkspaceSidebar": { category: "UI Commands", description: "Open session workspace in sidebar", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.createExport":            { category: "UI Commands", description: "Create a new export configuration", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.createImport":            { category: "UI Commands", description: "Create a new import configuration", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.createPropertyDoc":       { category: "UI Commands", description: "Create a property documentation", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.createSession":           { category: "UI Commands", description: "Create a new session", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.deleteExport":            { category: "UI Commands", description: "Delete an export configuration", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.deleteImport":            { category: "UI Commands", description: "Delete an import configuration", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.deleteTrain":             { category: "UI Commands", description: "Delete a train", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.editExport":              { category: "UI Commands", description: "Edit an export configuration", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.editImport":              { category: "UI Commands", description: "Edit an import configuration", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.exportCsv":               { category: "UI Commands", description: "Export data as CSV", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.exportTab":               { category: "UI Commands", description: "Export data as tab-delimited", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.importCanvas":            { category: "UI Commands", description: "Import from Obsidian canvas", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.importCsv":               { category: "UI Commands", description: "Import data from CSV", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.inboxAction":             { category: "UI Commands", description: "Perform an action on an inbox item", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.inboxItemSelected":       { category: "UI Commands", description: "An inbox item was selected", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.openInstaller":           { category: "UI Commands", description: "Open the installer wizard", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.pauseTrain":              { category: "UI Commands", description: "Pause an active train", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.resumeSession":           { category: "UI Commands", description: "Resume a paused session", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.runCanvasImport":         { category: "UI Commands", description: "Execute a canvas import", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.runExport":               { category: "UI Commands", description: "Execute an export operation", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.runImport":               { category: "UI Commands", description: "Execute an import operation", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.selectPipeline":          { category: "UI Commands", description: "Select a data pipeline", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.sessionSelected":         { category: "UI Commands", description: "A session was selected in the list", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.signalSync":              { category: "UI Commands", description: "Trigger signal synchronization", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
+	"ui.syncSignal":              { category: "UI Commands", description: "Sync a signal (alternate event name)", direction: "View → Plugin", domain: "ui", services: "Handler layer", tags: ["system"] },
 
 	// ── Hub ──────────────────────────────────────────────────
 	"hub.opened":      { category: "Hub", description: "A hub view was opened", direction: "View → Plugin", domain: "hub", services: "BaseHubView", tags: ["system"] },
@@ -622,6 +652,18 @@ const CATALOG_DATA = {
 	"analytics.measurement.favorited":  { category: "Analytics", description: "A measurement's favorite status was toggled", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
 	"analytics.reset":                  { category: "Analytics", description: "All analytics data was reset (queries, dashboards, templates, measurements)", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
 
+	// ── Analytics UI Commands ────────────────────────────────
+	"analytics.ui.addTile":             { category: "Analytics", description: "Add a tile to a dashboard", direction: "View → Plugin", domain: "analytics", services: "AnalyticsHandlers" },
+	"analytics.ui.createMeasurement":   { category: "Analytics", description: "Create a new measurement", direction: "View → Plugin", domain: "analytics", services: "AnalyticsHandlers" },
+	"analytics.ui.deleteMeasurement":   { category: "Analytics", description: "Delete a measurement", direction: "View → Plugin", domain: "analytics", services: "AnalyticsHandlers" },
+	"analytics.ui.deleteQuery":         { category: "Analytics", description: "Delete a saved query", direction: "View → Plugin", domain: "analytics", services: "AnalyticsHandlers" },
+	"analytics.ui.measurementSelected": { category: "Analytics", description: "A measurement was selected", direction: "View → Plugin", domain: "analytics", services: "AnalyticsHandlers" },
+	"analytics.ui.navigateBreadcrumb": { category: "Analytics", description: "Navigate via breadcrumb in analytics view", direction: "View → Plugin", domain: "analytics", services: "AnalyticsHandlers" },
+	"analytics.ui.removeTile":          { category: "Analytics", description: "Remove a tile from a dashboard", direction: "View → Plugin", domain: "analytics", services: "AnalyticsHandlers" },
+	"analytics.ui.renameDashboard":     { category: "Analytics", description: "Rename a dashboard", direction: "View → Plugin", domain: "analytics", services: "AnalyticsHandlers" },
+	"analytics.ui.runQuery":            { category: "Analytics", description: "Execute an analytics query", direction: "View → Plugin", domain: "analytics", services: "AnalyticsHandlers" },
+	"analytics.ui.saveQuery":           { category: "Analytics", description: "Save an analytics query", direction: "View → Plugin", domain: "analytics", services: "AnalyticsHandlers" },
+
 	// ── Onboarding events ─────────────────────────────────────
 
 	"onboarding.started":        { category: "Onboarding", description: "Onboarding initialised after first install", direction: "Service → Listeners", domain: "onboarding", services: "OnboardingService" },
@@ -661,6 +703,14 @@ const CATALOG_DATA = {
 	"ui.openManualQa":           { category: "Modal", description: "Request to open a manual QA checkpoint modal", direction: "Internal", domain: "ui", services: "ModalService", tags: ["system"] },
 	"modal.manualQa.responded":  { category: "Modal", description: "Operator clicked pass or fail in the manual QA modal", direction: "Internal", domain: "ui", services: "ModalService", tags: ["system"] },
 
+	// ── Catalog ──────────────────────────────────────────────
+	"catalog.actors.selected":  { category: "Catalog", description: "An actor was selected in the catalog", direction: "View → Plugin", domain: "catalog", services: "CatalogHandlers" },
+	"catalog.domains.selected": { category: "Catalog", description: "A domain was selected in the catalog", direction: "View → Plugin", domain: "catalog", services: "CatalogHandlers" },
+	"catalog.flows.selected":   { category: "Catalog", description: "A flow was selected in the catalog", direction: "View → Plugin", domain: "catalog", services: "CatalogHandlers" },
+	"catalog.health.selected":  { category: "Catalog", description: "Health was selected in the catalog", direction: "View → Plugin", domain: "catalog", services: "CatalogHandlers" },
+	"catalog.services.selected": { category: "Catalog", description: "A service was selected in the catalog", direction: "View → Plugin", domain: "catalog", services: "CatalogHandlers" },
+	"catalog.systems.selected": { category: "Catalog", description: "A system was selected in the catalog", direction: "View → Plugin", domain: "catalog", services: "CatalogHandlers" },
+
 	// ── Journey Builder ───────────────────────────────────
 	"journey-builder.opened":           { category: "Journey Builder", description: "Journey Builder sidebar was opened", direction: "Plugin → Listeners", domain: "journey-builder", services: "JourneyBuilderSidebar" },
 	"journey-builder.create-new":       { category: "Journey Builder", description: "User clicked Create New Journey", direction: "View → Plugin", domain: "journey-builder", services: "JourneyBuilderSidebar" },
@@ -679,6 +729,7 @@ const CATALOG_DATA = {
 	"journey-builder.import-requested": { category: "Journey Builder", description: "User selected a journey file to import", direction: "View → Plugin", domain: "journey-builder", services: "JourneyBuilderSidebar" },
 	"journey-builder.imported":              { category: "Journey Builder", description: "Journey JSON was read and is ready for hydration", direction: "Service → Listeners", domain: "journey-builder", services: "JourneyBuilderService" },
 	"journey-builder.import-failed":        { category: "Journey Builder", description: "Journey import failed (file read error or validation failure)", direction: "Service → Listeners", domain: "journey-builder", services: "JourneyBuilderService" },
+	"journey-builder.import-from-system":   { category: "Journey Builder", description: "Import a journey definition from the system", direction: "View → Plugin", domain: "journey-builder", services: "JourneyBuilderHandler" },
 	"ui.openJourneyBuilder":                { category: "UI Commands", description: "Open the Journey Builder sidebar", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 
 	// ── Test Management Events ────────────────────────────────

@@ -8,6 +8,7 @@
 
 import type { PluginHandlerRegistry, TabContext } from "./plugin-handler-registry";
 import type { IEventBus } from "../events/types";
+import type { FlowtiEventMap } from "../events/events";
 import { setProps } from "./handler-utils";
 
 export interface AnalyticsHandlerDeps {
@@ -58,16 +59,16 @@ export function registerAnalyticsHandlers(
 		}
 
 		el.addEventListener("add-tile", () => {
-			void deps.eventBus.emit("analytics.ui.addTile" as never, {} as never);
+			void deps.eventBus.emit("analytics.ui.addTile", {});
 		});
 		el.addEventListener("remove-tile", ((e: CustomEvent) => {
-			void deps.eventBus.emit("analytics.ui.removeTile" as never, e.detail as never);
+			void deps.eventBus.emit("analytics.ui.removeTile", e.detail as FlowtiEventMap["analytics.ui.removeTile"]);
 		}) as EventListener);
 		el.addEventListener("rename-dashboard", ((e: CustomEvent) => {
-			void deps.eventBus.emit("analytics.ui.renameDashboard" as never, e.detail as never);
+			void deps.eventBus.emit("analytics.ui.renameDashboard", e.detail as FlowtiEventMap["analytics.ui.renameDashboard"]);
 		}) as EventListener);
 		el.addEventListener("navigate-breadcrumb", ((e: CustomEvent) => {
-			void deps.eventBus.emit("analytics.ui.navigateBreadcrumb" as never, e.detail as never);
+			void deps.eventBus.emit("analytics.ui.navigateBreadcrumb", e.detail as FlowtiEventMap["analytics.ui.navigateBreadcrumb"]);
 		}) as EventListener);
 
 		container.appendChild(el);
@@ -84,13 +85,13 @@ export function registerAnalyticsHandlers(
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
 
 		el.addEventListener("run-query", () => {
-			void deps.eventBus.emit("analytics.ui.runQuery" as never, {} as never);
+			void deps.eventBus.emit("analytics.ui.runQuery", {});
 		});
 		el.addEventListener("save-query", ((e: CustomEvent) => {
-			void deps.eventBus.emit("analytics.ui.saveQuery" as never, e.detail as never);
+			void deps.eventBus.emit("analytics.ui.saveQuery", e.detail as FlowtiEventMap["analytics.ui.saveQuery"]);
 		}) as EventListener);
 		el.addEventListener("delete-query", ((e: CustomEvent) => {
-			void deps.eventBus.emit("analytics.ui.deleteQuery" as never, e.detail as never);
+			void deps.eventBus.emit("analytics.ui.deleteQuery", e.detail as FlowtiEventMap["analytics.ui.deleteQuery"]);
 		}) as EventListener);
 
 		container.appendChild(el);
@@ -107,13 +108,13 @@ export function registerAnalyticsHandlers(
 		if (ctx.searchText) setProps(el, { searchText: ctx.searchText });
 
 		el.addEventListener("measurement-selected", ((e: CustomEvent) => {
-			void deps.eventBus.emit("analytics.ui.measurementSelected" as never, e.detail as never);
+			void deps.eventBus.emit("analytics.ui.measurementSelected", e.detail as FlowtiEventMap["analytics.ui.measurementSelected"]);
 		}) as EventListener);
 		el.addEventListener("create", () => {
-			void deps.eventBus.emit("analytics.ui.createMeasurement" as never, {} as never);
+			void deps.eventBus.emit("analytics.ui.createMeasurement", {});
 		});
 		el.addEventListener("delete", ((e: CustomEvent) => {
-			void deps.eventBus.emit("analytics.ui.deleteMeasurement" as never, e.detail as never);
+			void deps.eventBus.emit("analytics.ui.deleteMeasurement", e.detail as FlowtiEventMap["analytics.ui.deleteMeasurement"]);
 		}) as EventListener);
 
 		container.appendChild(el);

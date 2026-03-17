@@ -8,6 +8,7 @@
 import type { PluginHandlerRegistry, TabContext } from "../plugin-handler-registry";
 import type { TrainService } from "../../../domain/train/TrainService";
 import type { IEventBus } from "../../events/types";
+import type { FlowtiEventMap } from "../../events/events";
 import { computeGraphLayout } from "../../../domain/train/graph-layout";
 import { setProps } from "../handler-utils";
 
@@ -65,12 +66,13 @@ export function registerTrainTimelineHandler(
 
 		// Wire events
 		el.addEventListener("thought-activated", ((e: CustomEvent) => {
-			void deps.eventBus.emit("train.thought.activated" as never, e.detail as never);
-			void deps.eventBus.emit("ui.openTrainView" as never, { trainId: (e.detail as { trainId: string }).trainId } as never);
+			const detail = e.detail as FlowtiEventMap["train.thought.activated"];
+			void deps.eventBus.emit("train.thought.activated", detail);
+			void deps.eventBus.emit("ui.openTrainView", { trainId: detail.trainId });
 		}) as EventListener);
 
 		el.addEventListener("open-train-view", ((e: CustomEvent) => {
-			void deps.eventBus.emit("ui.openTrainView" as never, e.detail as never);
+			void deps.eventBus.emit("ui.openTrainView", e.detail as FlowtiEventMap["ui.openTrainView"]);
 		}) as EventListener);
 
 		el.addEventListener("open-canvas", (() => {

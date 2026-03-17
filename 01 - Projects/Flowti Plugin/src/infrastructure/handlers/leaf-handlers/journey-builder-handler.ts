@@ -419,7 +419,7 @@ export function registerJourneyBuilderHandler(
 
 		function onImportFromSystem(): void {
 			// Electron file dialog — delegated via event
-			void deps.eventBus.emit("journey-builder.import-from-system" as never, {} as never);
+			void deps.eventBus.emit("journey-builder.import-from-system", {});
 		}
 
 		function onContinue(): void {

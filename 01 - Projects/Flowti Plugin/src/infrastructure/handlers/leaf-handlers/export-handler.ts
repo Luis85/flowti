@@ -299,7 +299,7 @@ export function registerExportHandler(
 			}
 			state.noteType = cfg.noteType ?? "";
 			state.loadedConfigId = id;
-			void deps.eventBus.emit("notice.show" as never, { message: `Loaded config: ${cfg.name}` } as never);
+			void deps.eventBus.emit("notice.show", { message: `Loaded config: ${cfg.name}` });
 			renderPage();
 		}
 
