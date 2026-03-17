@@ -22,6 +22,7 @@ export class WorkstationActor extends ex.Actor {
 	public readonly workstationId: string;
 	private readonly workstationColor: string;
 	private readonly style: "desk" | "workbench" | "console";
+	private glowPhase = 0;
 
 	constructor(config: WorkstationActorConfig) {
 		super({
@@ -58,20 +59,41 @@ export class WorkstationActor extends ex.Actor {
 		this.buildGraphic();
 	}
 
+	/** Call each frame to pulse the glow when occupied. */
+	updateGlow(deltaMs: number): void {
+		if (!this.occupied) return;
+		this.glowPhase += deltaMs * 0.003;
+		this.buildGraphic();
+	}
+
 	private buildGraphic(): void {
 		const color = this.workstationColor;
 		const occupied = this.occupied;
 		const toolName = this.toolName;
 		const style = this.style;
+		const glowPhase = this.glowPhase;
 
 		const canvas = new ex.Canvas({
 			width: ACTOR_WIDTH,
 			height: ACTOR_HEIGHT,
-			cache: true,
+			cache: false,
 			draw: (ctx: CanvasRenderingContext2D) => {
 				const cx = ACTOR_WIDTH / 2;
 				const deskY = 8;
 				const deskH = 20;
+
+				// Radial glow behind monitor when occupied
+				if (occupied) {
+					const glowAlpha = 0.3 + 0.5 * ((Math.sin(glowPhase) + 1) / 2);
+					const hexAlpha = Math.round(glowAlpha * 255).toString(16).padStart(2, "0");
+					const glowGrad = ctx.createRadialGradient(cx, deskY - 2, 2, cx, deskY - 2, 22);
+					glowGrad.addColorStop(0, color + hexAlpha);
+					glowGrad.addColorStop(1, color + "00");
+					ctx.fillStyle = glowGrad;
+					ctx.beginPath();
+					ctx.arc(cx, deskY - 2, 22, 0, Math.PI * 2);
+					ctx.fill();
+				}
 
 				switch (style) {
 					case "workbench":
