@@ -173,9 +173,8 @@ function patchStorybookConfig(sbDir: string, deps: Pick<StorybookDeps, "disk" | 
 				'$1  core: {\n    disableTelemetry: true,\n  },\n$2',
 			);
 		}
-		// Remove chromatic and addon-vitest addons (not needed for our component library)
+		// Remove chromatic addon (not needed for our component library)
 		content = content.replace(/\s*"@chromatic-com\/storybook",?\n?/g, "\n");
-		content = content.replace(/\s*"@storybook\/addon-vitest",?\n?/g, "\n");
 		deps.disk.writeFileSync(mainPath, content, "utf-8");
 	} catch { /* leave as-is if file doesn't exist */ }
 }
