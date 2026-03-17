@@ -2,7 +2,7 @@
 
 **Date**: 2026-03-16
 **Branch**: `feat/iter-5/excalibur-rpg-phase-b3`
-**Status**: Draft
+**Status**: Closed — Phase 1 delivered (focus zones, section memory, status hints). Phase 2 (single-file build) absorbed into `2026-03-17-tui-functional-parity-design.md`.
 **Scope**: Fix TUI navigation UX with VS Code-style focus zones, integrate chat inline, then consolidate to single JS binary
 
 ---

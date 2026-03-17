@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Status:** Closed — Delivered. Primitives now used by functional parity design.
+
 **Goal:** Fix layout sizing, scroll jumping, and text overflow so the TUI fits any terminal without jitter.
 
 **Architecture:** Replace hardcoded widths with Ink flexbox properties (`flexBasis`, `flexShrink`, `flexGrow`). Replace derived scroll offset with stateful follow-cursor pattern. Memoize detail panel to prevent full re-renders.

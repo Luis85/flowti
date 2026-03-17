@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Status:** Closed — Delivered. Phase 2 (single-file build) absorbed into functional parity plan.
+
 **Goal:** Fix TUI navigation with VS Code-style focus zones — Tab switches between activity bar and content, arrow keys navigate within the focused zone, status bar shows context-aware hints.
 
 **Architecture:** Two focus zones (`activity-bar`, `content`) managed by `useFocusZone` hook. Navigation state redesigned to store per-section page stacks so switching sections resumes where you left off. All keyboard input gated by `enabled` props tied to focus zone. Status hints computed dynamically.

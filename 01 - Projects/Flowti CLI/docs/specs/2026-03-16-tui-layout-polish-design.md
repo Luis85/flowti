@@ -2,7 +2,7 @@
 
 **Date**: 2026-03-16
 **Branch**: `feat/iter-5/tui-ux-overhaul`
-**Status**: Approved
+**Status**: Closed — Delivered. Primitives (ScrollableList, MasterDetail, flexbox layout) now used by `2026-03-17-tui-functional-parity-design.md`.
 **Scope**: Fix layout sizing, scroll jumping, and text overflow in the TUI
 
 ---
