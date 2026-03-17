@@ -1303,7 +1303,16 @@ export default class FlowtiBasePlugin extends Plugin {
 	 * registers the User Hub view + session views/commands.
 	 */
 	private setupHubRegistry(): void {
-		this.hubRegistry = new HubRegistry(this.app, this.eventBus);
+		this.hubRegistry = new HubRegistry({
+			openView: async (viewType: string) => {
+				let leaf = this.app.workspace.getLeavesOfType(viewType)[0];
+				if (!leaf) {
+					leaf = this.app.workspace.getLeaf("tab");
+					await leaf.setViewState({ type: viewType, active: true });
+				}
+				void this.app.workspace.revealLeaf(leaf);
+			},
+		}, this.eventBus);
 		this.hubRegistry.register(new EventCatalogProvider({
 			getSettings: () => this.settings,
 			getExcludedTypes: () => this.eventFilterService?.getExcludedTypes() ?? [],
