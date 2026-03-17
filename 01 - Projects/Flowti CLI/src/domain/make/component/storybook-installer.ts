@@ -283,7 +283,9 @@ export function installStorybook(projectPath: string, projectName: string, confi
 	// Use official Storybook CLI to install with all features
 	// Angular uses webpack — addon-vitest requires Vite, so exclude "test" feature for Angular
 	const features = framework === "angular" ? "docs a11y" : "docs test a11y";
-	const initCmd = `npx storybook@latest init --yes --features ${features}`;
+	const typeMap: Record<string, string> = { html: "html", angular: "angular", react: "react", vue: "vue3" };
+	const typeFlag = typeMap[framework] ? ` --type ${typeMap[framework]}` : "";
+	const initCmd = `npx storybook@latest init --yes --features ${features}${typeFlag}`;
 	const code = deps.shell.run(initCmd, { cwd: sbDir, label: "Installing Storybook", env: nonInteractiveEnv });
 	if (code !== 0) {
 		render.installFailed();
