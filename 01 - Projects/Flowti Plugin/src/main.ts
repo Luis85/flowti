@@ -56,18 +56,16 @@ import { TrainHubProvider } from "./domain/hub/TrainHubProvider";
 import { registerUserHandlers } from "./infrastructure/handlers/user-handlers";
 import { SessionWorkspaceView, VIEW_TYPE_SESSION_WORKSPACE } from "./ui/session/SessionWorkspaceView";
 import type { CanvasSessionService } from "./domain/canvas/session/CanvasSessionService";
-import { VIEW_TYPE_JOURNEY_FILE } from "./ui/journeyBuilder/JourneyFileView";
-import { JourneyBuilderService } from "./domain/journeyBuilder/JourneyBuilderService";
+import type { JourneyBuilderService } from "./domain/journeyBuilder/JourneyBuilderService";
 import type { TestManagementService } from "./domain/testManagement/TestManagementService";
 import type { FeatureLifecycleService } from "./domain/featureLifecycle/FeatureLifecycleService";
 import type { ProcessService } from "./domain/process/ProcessService";
-import { JourneyExecutorService } from "./domain/journeyExecutor/JourneyExecutorService";
-import type { ToolHost, ExecutableJourney } from "./domain/journeyExecutor/types";
+import type { JourneyExecutorService } from "./domain/journeyExecutor/JourneyExecutorService";
+import type { ToolHost } from "./domain/journeyExecutor/types";
+import { setupJourneyDomain } from "./bootstrap/journeySetup";
 import { BaseHubView, type IViewStateStore } from "./ui/BaseHubView";
-import { ExecutionProgressModal } from "./ui/journeyExecutor/ExecutionProgressModal";
 import { TestManagementHubProvider } from "./domain/hub/TestManagementHubProvider";
 import { FeatureLifecycleProvider } from "./domain/hub/FeatureLifecycleProvider";
-import { EVENT_CATALOG } from "./infrastructure/events/catalog";
 import { showNudgeNotification } from "./ui/shared/NudgeNotification";
 import { openStartPage } from "./infrastructure/StartpageHandler";
 import { NoticeService } from "./infrastructure/ui/NoticeService";
@@ -87,7 +85,6 @@ import { registerTrainMainHandler } from "./infrastructure/handlers/leaf-handler
 import { registerCanvasImportHandler } from "./infrastructure/handlers/leaf-handlers/canvas-import-handler";
 import { registerExportHandler } from "./infrastructure/handlers/leaf-handlers/export-handler";
 import { registerSessionWorkspaceHandler } from "./infrastructure/handlers/leaf-handlers/session-workspace-handler";
-import { registerJourneyBuilderHandler } from "./infrastructure/handlers/leaf-handlers/journey-builder-handler";
 import type { PluginSitemap } from "./domain/sitemap/plugin-sitemap-types";
 import pluginSitemap from "../plugin-sitemap.json";
 import type { TrainCanvasSyncService } from "./domain/train/TrainCanvasSyncService";
@@ -896,15 +893,6 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.crossCuttingListeners.push(...trainResult.unsubscribes);
 		this.dataExchangeService!.setCanvasService(this.canvasService);
 
-		// Journey Builder Service — writes exported journey JSON via adapter
-		const journeyBuilderFs = new FileSystemClient({ eventBus: this.eventBus });
-		this.journeyBuilderService = new JourneyBuilderService({
-			fileSystem: journeyBuilderFs,
-			eventBus: this.eventBus,
-			getSettings: () => ({ journeyFolder: settingsService.getSettings().journeyFolder }),
-		});
-		this.journeyBuilderService.start();
-
 		// Analytics Service — in-memory CSV analytics engine
 		this.analyticsService = await this.services.get<AnalyticsService>("analyticsService");
 		await this.timedServiceLoad("analyticsService", () => this.analyticsService!.load());
@@ -1135,72 +1123,21 @@ export default class FlowtiBasePlugin extends Plugin {
 			}),
 		);
 
-		// Journey Executor — in-app journey runner
-		this.journeyExecutorService = new JourneyExecutorService({
-			eventBus: this.eventBus,
-			host: this.createToolHost(),
-			testManagementService: this.testManagementService!,
-		});
-		this.register(() => this.journeyExecutorService?.dispose());
-
-		// Run Journey — listen for ui.runJourney → load JSON → open ExecutionProgressModal
-		this.crossCuttingListeners.push(
-			this.eventBus.on("ui.runJourney", (event) => {
-				const { journeyName, jsonPath, canvasPath } = event.payload;
-				void (async () => {
-					try {
-						const file = this.app.vault.getAbstractFileByPath(jsonPath);
-						if (!file || !(file instanceof TFile)) {
-							void this.eventBus.emit("notice.show", { message: `Journey file not found: ${jsonPath}` });
-							return;
-						}
-						const raw = await this.app.vault.read(file);
-						const parsed = JSON.parse(raw) as ExecutableJourney;
-						if (!parsed.journey) parsed.journey = journeyName;
-						const modal = new ExecutionProgressModal({
-							app: this.app,
-							eventBus: this.eventBus,
-							executorService: this.journeyExecutorService!,
-							journey: parsed,
-							canvasPath,
-							writeFile: async (path, content) => {
-								const folder = path.substring(0, path.lastIndexOf("/"));
-								if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
-									await this.app.vault.createFolder(folder);
-								}
-								await this.app.vault.create(path, content);
-							},
-						});
-						modal.open();
-					} catch (err) {
-						void this.eventBus.emit("notice.show", {
-							message: `Failed to load journey: ${err instanceof Error ? err.message : String(err)}`,
-						});
-					}
-				})();
-			}),
-		);
-
-		// Journey Builder — now sitemap-driven via SitemapLeafView + handler
-		registerJourneyBuilderHandler(this.handlerRegistry!, {
-			eventBus: this.eventBus,
+		// Journey Builder + Executor domain
+		const journeyResult = setupJourneyDomain({
 			app: this.app,
-			getEventCatalog: () => EVENT_CATALOG.map((e) => ({
-				type: e.type,
-				category: e.category,
-				description: e.description,
-			})),
-			getCommands: () => this.commands.getCommandsMeta().map((c) => ({ id: c.id, label: c.label, domain: c.domain })),
-			getJourneyFolder: () => settingsService.getSettings().journeyFolder,
+			eventBus: this.eventBus,
+			settingsService,
+			commands: this.commands,
+			handlerRegistry: this.handlerRegistry!,
+			testManagementService: this.testManagementService!,
+			toolHost: this.createToolHost(),
+			registerExtensions: (exts, type) => { try { this.registerExtensions(exts, type); } catch { /* may already be registered */ } },
 		});
-
-		// Journey File View — still uses fileView factory (TextFileView subclass)
-		// Registered via SitemapBootstrap with fileView: true in plugin-sitemap.json
-		try {
-			this.registerExtensions(["journey"], VIEW_TYPE_JOURNEY_FILE);
-		} catch {
-			// Extension may already be registered
-		}
+		this.journeyBuilderService = journeyResult.journeyBuilderService;
+		this.journeyExecutorService = journeyResult.journeyExecutorService;
+		this.crossCuttingListeners.push(...journeyResult.unsubscribes);
+		this.register(() => this.journeyExecutorService?.dispose());
 
 		// Seed supplier dashboard and init onboarding after first-run install
 		this.crossCuttingListeners.push(
