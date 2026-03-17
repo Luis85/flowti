@@ -8,8 +8,12 @@
 import type { TuiHandlerRegistry } from "./tui-handler-registry.js";
 import { registerConditionHandlers } from "./condition-handlers.js";
 import { registerEffectHandlers } from "./effect-handlers.js";
+import { registerNavigationHandlers } from "./navigation-handlers.js";
+import { registerDataSourceHandlers } from "./data-source-handlers.js";
 
 export function registerTuiHandlers(registry: TuiHandlerRegistry): void {
 	registerConditionHandlers(registry);
 	registerEffectHandlers(registry);
+	registerNavigationHandlers(registry);
+	registerDataSourceHandlers(registry);
 }
