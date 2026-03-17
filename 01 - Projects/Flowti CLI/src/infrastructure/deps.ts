@@ -9,6 +9,7 @@
 import type { IFileSystem, IShell, IPaths, IClock, IProcess, IInput, IWorldStateManager, IWorkerManager, IAgentProcessRunner } from "./types.js";
 import type { ICliBus } from "./event-bus.js";
 import type { IAgentShell } from "../domain/agents/agent-shell.js";
+import type { IProviderRegistry } from "../domain/agents/llm-types.js";
 import { disk } from "./filesystem.js";
 import { shell } from "./shell.js";
 import { paths } from "./paths.js";
@@ -28,6 +29,10 @@ import { createWorkspaceRegistry } from "./workspace-registry.js";
 import { createWorkspaceProvisioner } from "./workspace-provisioner.js";
 import { createStateSplitter } from "./state-splitter.js";
 import { createStateCollector } from "./state-collector.js";
+import { createProviderRegistry } from "./llm/provider-registry.js";
+import { createClaudeProvider } from "./llm/claude-provider.js";
+import { createCursorProvider } from "./llm/cursor-provider.js";
+import { createOllamaProvider } from "./llm/ollama-provider.js";
 
 // ── Full dependency container ───────────────────────────────────────
 
@@ -45,6 +50,7 @@ export interface CliDeps {
 	readonly worldState: IWorldStateManager;
 	readonly workerManager: IWorkerManager;
 	readonly processRunner: IAgentProcessRunner;
+	readonly providerRegistry?: IProviderRegistry;
 	readonly agentShell?: IAgentShell;
 }
 
@@ -113,7 +119,11 @@ export function createDefaultDeps(agentsConfig?: AgentsConfig, vaultRoot?: strin
 	const resolvedRoot = vaultRoot ?? ".";
 	const worldState = createWorldStateManager({ disk, paths, clock }, resolvedRoot);
 	const baseDeps = { disk, shell, paths, clock, log };
-	const processRunner = createProcessRunner(baseDeps, agentsConfig);
+	const providerRegistry = createProviderRegistry();
+	providerRegistry.register(createClaudeProvider(baseDeps));
+	if (shell.check("cursor --version")) providerRegistry.register(createCursorProvider(baseDeps));
+	providerRegistry.register(createOllamaProvider());
+	const processRunner = createProcessRunner(baseDeps, agentsConfig, providerRegistry);
 	const pool = createProcessPool(processRunner, { set: setTimeout, clear: clearTimeout }, {
 		maxConcurrent: agentsConfig?.maxConcurrent ?? 2,
 		processTimeoutMs: agentsConfig?.processTimeoutMs ?? 3_600_000,
@@ -136,5 +146,5 @@ export function createDefaultDeps(agentsConfig?: AgentsConfig, vaultRoot?: strin
 		worldState,
 	}) : undefined;
 
-	return { disk, shell, paths, clock, proc, input, bus, log, warn, worldState, workerManager, processRunner, agentShell };
+	return { disk, shell, paths, clock, proc, input, bus, log, warn, worldState, workerManager, processRunner, providerRegistry, agentShell };
 }
