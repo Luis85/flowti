@@ -176,6 +176,20 @@ describe("installStorybook", () => {
 		expect(mockShell.run).not.toHaveBeenCalled();
 	});
 
+	it("skips storybook init when .storybook/main.ts already exists", () => {
+		// package.json missing (not "installed") but .storybook/main.ts exists
+		mockDisk.existsSync.mockImplementation((p) => String(p).includes("main.ts"));
+		mockShell.run.mockReturnValue(0);
+
+		const result = installStorybook("/project", "my-project", {}, sbDeps());
+
+		expect(result).toBe(true);
+		// Should run npm install twice (framework deps + update) but NOT storybook init
+		const runCalls = mockShell.run.mock.calls.map(([cmd]) => cmd);
+		expect(runCalls.every((cmd) => !cmd.includes("storybook@latest init"))).toBe(true);
+		expect(runCalls.some((cmd) => cmd === "npm install")).toBe(true);
+	});
+
 	it("uses custom storybookDir", () => {
 		mockShell.run.mockReturnValue(0);
 		const config: ComponentsConfig = { storybookDir: "sb" };

@@ -283,6 +283,18 @@ export function installStorybook(projectPath: string, projectName: string, confi
 		}
 	}
 
+	// Skip storybook init if already configured — only update packages
+	const mainTsPath = deps.paths.join(sbDir, ".storybook", "main.ts");
+	if (deps.disk.existsSync(mainTsPath)) {
+		const updateCode = deps.shell.run("npm install", { cwd: sbDir, label: "Updating Storybook packages", env: nonInteractiveEnv });
+		if (updateCode !== 0) {
+			render.installFailed();
+			return false;
+		}
+		render.installSuccess(sbDir);
+		return true;
+	}
+
 	// Use official Storybook CLI to install with all features
 	// Angular uses webpack — addon-vitest requires Vite, so exclude "test" feature for Angular
 	const features = framework === "angular" ? "docs a11y" : "docs test a11y";
