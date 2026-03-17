@@ -122,14 +122,35 @@ Phase B was delivered across 4 implementation plans, evolving from canvas-drawn 
 - [ ] Task execution: visual-only, no actual CLI agent runner integration
 - [ ] Game feel: no particles, emotes, or workstation glow
 - [ ] Social interaction: facing only, no proximity conversations
+- [ ] Interactive waiting: agents make small talk while LLM generates responses (talk engine expansion)
 
-### Phase C: CLI-Plugin Integration — NEW (from increment review)
+### Phase C: CLI-Plugin Unified Architecture — NEW (from increment review)
 
-- [ ] CLI interaction modal in Obsidian plugin (trigger CLI commands from within the plugin)
-- [ ] Agent launch from plugin — each agent opens/served in its own dedicated plugin view
-- [ ] Storybook launch from plugin (if project has it configured)
-- [ ] Fix: Plugin views crash (`getViewType` TypeError after migration)
+**Vision:** CLI is the orchestrator, Plugin is the UI on top. CLI bundled with Plugin on build.
+
+#### C0: BLOCKER — Plugin Views Crash (must fix first)
+- [ ] Fix: Plugin views crash (`getViewType` TypeError after migration) — plugin is completely unusable
+
+#### C1: TUI Regression Fix
 - [ ] Fix: TUI Ink migration regression (missing project, agent, storybook functionality)
+
+#### C2: CLI Bundling
+- [ ] Plugin build copies latest CLI build artifact into the plugin bundle
+- [ ] Plugin ships with embedded CLI (no external installation required)
+
+#### C3: Flowti CLI View (Main Entry Point)
+- [ ] Dedicated Flowti CLI View in Obsidian — main user interface for CLI
+- [ ] CLI Hub tab — easy-to-access features, primary entry point
+- [ ] Raw terminal tab — emulates terminal for direct CLI interaction
+- [ ] Agents Hub tab — agent management, launch, monitoring
+- [ ] Projects Hub tab — project management, build, test, reports
+- [ ] Plugin can execute ALL CLI functions and display output in this view
+
+#### C4: Storybook Integration (Reworked)
+- [ ] Right-click sitemap → "Generate Component Library" action
+- [ ] Auto-scaffold Storybook environment + files from sitemap (no project-specific config)
+- [ ] Framework templates: CLI App, HTML (Lit), Vue, Angular, React
+- [ ] Opt-in — good-looking baseline out of the box, no generators needed
 
 ---
 

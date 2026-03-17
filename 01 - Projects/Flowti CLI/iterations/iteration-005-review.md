@@ -48,11 +48,14 @@ completionRate: 86%
 1. **Plugin views crash after migration** — `TypeError: Cannot read properties of undefined (reading 'type')` at `getViewType`. Filed as RAID: `01 - Projects/Flowti Plugin/docs/raid/plugin-views-crash-after-migration.md`
 2. **TUI Ink migration regression** — Lost project management, agent launch, and Storybook launch from TUI. Filed as RAID: `01 - Projects/Flowti CLI/docs/raid/tui-ink-migration-regression.md`
 3. **CLI-Plugin integration is the key unlock** — A modal to interact with CLI from the plugin, agents in their own views, Storybook launch from plugin. Filed as requirement: `01 - Projects/Flowti CLI/docs/requirements/cli-plugin-integration-modal.md`
+4. **RPG agents need interactive waiting** — Agents should make small talk while waiting for LLM responses. Talk engine needs expansion (context-aware quotes, mood/task/domain-driven). Filed as requirement: `01 - Projects/Flowti CLI/docs/requirements/rpg-agent-interactive-waiting.md`
+5. **Plugin-CLI unified architecture** — CLI is the orchestrator, Plugin is the UI. CLI bundled with Plugin on build. Dedicated CLI View with Hub tabs (CLI Hub, Raw Terminal, Agents Hub, Projects Hub). Storybook reworked: right-click sitemap to generate component library, framework templates (CLI App, Lit, Vue, Angular, React), opt-in with good baseline. Filed as requirement: `01 - Projects/Flowti CLI/docs/requirements/plugin-cli-unified-architecture.md`
 
 ## Follow-Up Items
 
-- **Phase C added to iteration 5 scope** — 3 new features + 2 critical bug fixes
+- **Phase C expanded to unified architecture** — CLI bundling, CLI View with 4 hub tabs, bug fixes, Storybook rework with framework templates
+- **Phase B remaining gaps expanded** — added interactive waiting / talk engine expansion
 - **Phase A** — needs test consolidation before re-review
-- **Phase B** — needs polish and bug fixes before re-review
+- **Phase B** — needs polish, bug fixes, and talk engine expansion before re-review
 - **Storybook CLI** — needs rework to align with "no scripts" policy
 - **Next review** — when Phase C baseline is in place and bug fixes landed

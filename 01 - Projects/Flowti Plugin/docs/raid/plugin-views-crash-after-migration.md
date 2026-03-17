@@ -1,7 +1,8 @@
 ---
 type: RAID
 category: issue
-severity: critical
+severity: blocker
+priority: 1
 status: open
 source: increment-review
 iteration: 5
@@ -23,7 +24,7 @@ The error occurs when Obsidian tries to construct the view — `getViewType` ref
 
 ## Impact
 
-All Flowti Plugin views are non-functional. Users cannot interact with the plugin UI at all.
+**BLOCKER** — All Flowti Plugin views are non-functional. The entire plugin is unusable. Nothing else in Phase C can proceed until this is fixed.
 
 ## Console Observations
 
