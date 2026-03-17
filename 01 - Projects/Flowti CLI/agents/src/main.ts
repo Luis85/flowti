@@ -22,6 +22,7 @@ import type { AgentActor } from "./actors/agent-actor.js";
 import { preferredWorkstation } from "./brain/movement.js";
 import { createCameraSystem } from "./systems/camera-system.js";
 import { DOMAIN_POOLS } from "./sprites/character-pool.js";
+import { resolveSettingForDomain } from "./config/domain-map.js";
 import { preloadSpriteRegistry } from "./sprites/sprite-loader.js";
 import { DashboardStore } from "./store/dashboard-store.js";
 
@@ -33,8 +34,8 @@ import "./ui/agent-panel.js";
 
 // ── Constants ────────────────────────────────────────────────────────
 
-const ENGINE_WIDTH = 1200;
-const ENGINE_HEIGHT = 700;
+const ENGINE_WIDTH = 800;
+const ENGINE_HEIGHT = 500;
 const BASE_URL = "";
 
 // ── Main ─────────────────────────────────────────────────────────────
@@ -89,10 +90,13 @@ async function main(): Promise<void> {
 				store.stopFollow();
 			}
 			if (actor) {
+				// Stop the agent immediately and face the user
+				brainSystem.freeze(agentName);
 				actor.focus();
 				void engine.currentScene.camera.move(actor.pos, 300, ex.EasingFunctions.EaseInOutCubic);
 			}
 			store.selectAgent(agentName);
+			store.selectTab("info");
 			void store.wakeAgent(agentName);
 		}
 	}
@@ -194,6 +198,16 @@ async function main(): Promise<void> {
 		return undefined;
 	}
 
+	// Actor lookup in the current scene only (for position projection)
+	function findCurrentSceneActor(name: string): AgentActor | undefined {
+		const current = engine.currentScene;
+		if (current === hubScene) return hubScene.getAgentActor(name);
+		for (const [, room] of Object.entries(roomScenes)) {
+			if (current === room) return room.getAgentActor(name);
+		}
+		return undefined;
+	}
+
 	// ── Sync system ─────────────────────────────────────
 	const syncSystem = new SyncSystem(BASE_URL, {
 		onAgentAction: (action: AgentAction) => {
@@ -254,8 +268,49 @@ async function main(): Promise<void> {
 			hubScene.updateConnectionStatus(status);
 			store.setConnectionStatus(status);
 		},
-		onStateDiff: (_diff) => {
-			// Entity-level sync integration pending
+		onStateDiff: (diff) => {
+			// Spawn new agent entities
+			for (const entityId of diff.added) {
+				const entity = syncSystem.getStateStore().getEntity(entityId);
+				if (!entity || entity.type !== "agent") continue;
+				if (store.agents.find((a) => a.name === entityId)) continue;
+
+				const agentData: DashboardAgent = {
+					name: entityId,
+					agentType: "ai",
+					status: ((entity.components["status"] as string) ?? "idle") as DashboardAgent["status"],
+					domain: entity.components["domain"] as string | undefined,
+				};
+				const setting = resolveSettingForDomain(agentData.domain);
+				if (setting !== "hub" && roomScenes[setting]) {
+					roomScenes[setting].spawnAgent(agentData);
+				}
+				store.setAgents([...store.agents, agentData]);
+				hubScene.updateAgents([...store.agents]);
+				brainSystem.register(agentData.name, {}, undefined, agentData.domain);
+				bubbleSystem.showBubble(entityId, "speech", "Hello! I just arrived.", engine.currentScene, findAgentActor, 3000);
+			}
+
+			// Despawn removed agent entities
+			for (const entityId of diff.removed) {
+				brainSystem.unregister(entityId);
+				talkEngine.silence(entityId);
+				const updated = store.agents.filter((a) => a.name !== entityId);
+				store.setAgents(updated);
+				hubScene.updateAgents(updated);
+			}
+
+			// Update changed agent entities
+			for (const entityId of diff.changed) {
+				const entity = syncSystem.getStateStore().getEntity(entityId);
+				if (!entity || entity.type !== "agent") continue;
+				const statusComp = entity.components["status"];
+				if (typeof statusComp === "object" && statusComp !== null && "state" in statusComp) {
+					const state = (statusComp as { state: string }).state;
+					brainSystem.applyEvent(entityId, state as AgentAction["type"]);
+					bubbleSystem.showBubble(entityId, "speech", `I'm now ${state}!`, engine.currentScene, findAgentActor, 3000);
+				}
+			}
 		},
 	});
 	// ── Wire room scenes to sync and brain systems ──────
@@ -288,23 +343,34 @@ async function main(): Promise<void> {
 	});
 
 	// ── Post-frame adapter: push positions/targets/states to store ──
+	// Only projects agents in the CURRENT scene to avoid garbage coordinates
+	// from actors in non-active scenes. Uses worldToPageCoordinates() which
+	// accounts for CSS scaling from FitScreen mode.
 	engine.on("postframe", () => {
+		store.beginBatch();
 		const positions = new Map<string, { x: number; y: number }>();
+		const canvasRect = engine.canvas.getBoundingClientRect();
 
 		for (const [name, entry] of brainSystem.getAllEntries()) {
-			const actor = findAgentActor(name);
+			const actor = findCurrentSceneActor(name);
 			if (!actor) continue;
-			const screenPos = engine.worldToScreenCoordinates(actor.pos);
-			positions.set(name, { x: screenPos.x, y: screenPos.y });
+			const pagePos = engine.screen.worldToPageCoordinates(actor.pos);
+			positions.set(name, { x: pagePos.x - canvasRect.left, y: pagePos.y - canvasRect.top });
 
 			if (entry.targetPos) {
-				const targetScreen = engine.worldToScreenCoordinates(ex.vec(entry.targetPos.x, entry.targetPos.y));
-				store.setAgentTarget(name, { x: targetScreen.x, y: targetScreen.y });
+				const targetPage = engine.screen.worldToPageCoordinates(ex.vec(entry.targetPos.x, entry.targetPos.y));
+				store.setAgentTarget(name, {
+					x: targetPage.x - canvasRect.left,
+					y: targetPage.y - canvasRect.top,
+				});
+			} else {
+				store.clearAgentTarget(name);
 			}
 			store.setAgentState(name, entry.state);
 		}
 
 		store.updatePositions(positions);
+		store.endBatch();
 	});
 
 	// ── Store event listeners for engine-side effects ────
