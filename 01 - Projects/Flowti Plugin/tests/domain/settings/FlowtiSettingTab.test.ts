@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi } from "vitest";
 import "../../../tests/mocks/obsidian-stub";
-import { FlowtiSettingTab, type FlowtiSettingTabDeps } from "../../../src/domain/settings/FlowtiSettingTab";
+import { FlowtiSettingTab, type FlowtiSettingTabDeps } from "../../../src/ui/settings/FlowtiSettingTab";
 import { DEFAULT_SETTINGS } from "../../../src/domain/settings/settings";
 import type { OnboardingService } from "../../../src/domain/onboarding/OnboardingService";
 

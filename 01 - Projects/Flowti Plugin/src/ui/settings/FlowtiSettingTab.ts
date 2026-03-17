@@ -1,11 +1,11 @@
 import { App, Plugin, PluginSettingTab, Setting } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
-import type { IInstallerService } from "../installer/types";
-import type { AnalyticsService } from "../analytics/AnalyticsService";
-import type { OnboardingService } from "../onboarding/OnboardingService";
-import { InstallerWizardModal } from "../installer/InstallerWizardModal";
-import { ConfirmModal } from "../../ui/modals";
-import { DEFAULT_ENTITY_PATHS, type FlowtiSettings } from "./settings";
+import type { IInstallerService } from "../../domain/installer/types";
+import type { AnalyticsService } from "../../domain/analytics/AnalyticsService";
+import type { OnboardingService } from "../../domain/onboarding/OnboardingService";
+import { InstallerWizardModal } from "../../domain/installer/InstallerWizardModal";
+import { ConfirmModal } from "../modals";
+import { DEFAULT_ENTITY_PATHS, type FlowtiSettings } from "../../domain/settings/settings";
 
 /**
  * Dependencies injected into FlowtiSettingTab.
