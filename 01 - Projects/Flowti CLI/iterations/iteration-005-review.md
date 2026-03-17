@@ -50,6 +50,7 @@ completionRate: 86%
 3. **CLI-Plugin integration is the key unlock** — A modal to interact with CLI from the plugin, agents in their own views, Storybook launch from plugin. Filed as requirement: `01 - Projects/Flowti CLI/docs/requirements/cli-plugin-integration-modal.md`
 4. **RPG agents need interactive waiting** — Agents should make small talk while waiting for LLM responses. Talk engine needs expansion (context-aware quotes, mood/task/domain-driven). Filed as requirement: `01 - Projects/Flowti CLI/docs/requirements/rpg-agent-interactive-waiting.md`
 5. **Plugin-CLI unified architecture** — CLI is the orchestrator, Plugin is the UI. CLI bundled with Plugin on build. Dedicated CLI View with Hub tabs (CLI Hub, Raw Terminal, Agents Hub, Projects Hub). Storybook reworked: right-click sitemap to generate component library, framework templates (CLI App, Lit, Vue, Angular, React), opt-in with good baseline. Filed as requirement: `01 - Projects/Flowti CLI/docs/requirements/plugin-cli-unified-architecture.md`
+6. **Skill execution from Plugin** — Ribbon/button to trigger AI agent skills, executed on LLM via CLI, bidirectional streaming, interactive modal for human-in-the-loop conversation. Filed as requirement: `01 - Projects/Flowti CLI/docs/requirements/plugin-skill-execution.md`
 
 ## Follow-Up Items
 

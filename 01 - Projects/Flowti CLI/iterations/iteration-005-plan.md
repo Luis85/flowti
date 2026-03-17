@@ -146,7 +146,14 @@ Phase B was delivered across 4 implementation plans, evolving from canvas-drawn 
 - [ ] Projects Hub tab — project management, build, test, reports
 - [ ] Plugin can execute ALL CLI functions and display output in this view
 
-#### C4: Storybook Integration (Reworked)
+#### C4: Skill Execution from Plugin
+- [ ] Ribbon icon / button to launch skill picker
+- [ ] Skill picker lists available skills from agent roster / skill map
+- [ ] CLI-Plugin bidirectional streaming (LLM output → Plugin, user input → CLI)
+- [ ] Interactive modal for LLM conversation (display output, present questions, accept input)
+- [ ] Output persistence (session transcript / artifacts saved)
+
+#### C5: Storybook Integration (Reworked)
 - [ ] Right-click sitemap → "Generate Component Library" action
 - [ ] Auto-scaffold Storybook environment + files from sitemap (no project-specific config)
 - [ ] Framework templates: CLI App, HTML (Lit), Vue, Angular, React
