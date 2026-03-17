@@ -23,38 +23,11 @@ import { TuiHandlerRegistry } from "./registry/tui-handler-registry.js";
 import { createSessionStore } from "./registry/tui-session-store.js";
 import { registerTuiHandlers } from "./registry/register-tui-handlers.js";
 
-// Import page modules to trigger self-registration
-import "./pages/start-page.js";
-import "./pages/ai-tools-page.js";
-import "./pages/agent-detail-page.js";
-import "./pages/projects-list-page.js";
-import "./pages/project-detail-page.js";
-import "./pages/health-page.js";
-import "./pages/iterations-page.js";
-import "./pages/resources-page.js";
-import "./pages/timelog-page.js";
-import "./pages/deliverables-page.js";
-import "./pages/raid-page.js";
-import "./pages/requirements-page.js";
-import "./pages/capa-page.js";
-import "./pages/lifecycle-page.js";
-import "./pages/build-page.js";
-import "./pages/test-page.js";
-import "./pages/scaffold-page.js";
-import "./pages/make-page.js";
-import "./pages/review-page.js";
-import "./pages/devtools-page.js";
-import "./pages/reports-page.js";
-import "./pages/event-catalog-page.js";
-import "./pages/publish-page.js";
-import "./pages/plugins-page.js";
-import "./pages/help-page.js";
+// Import custom override pages to trigger self-registration
+// (all other pages are now rendered by SitemapPage via sitemap.json)
 import "./pages/onboarding-page.js";
 import "./pages/onboarding-tour-page.js";
-import "./pages/knowledgebase-page.js";
-import "./pages/capture-page.js";
 import "./pages/agents-chat-page.js";
-import "./pages/iteration-detail-page.js";
 
 export async function runTui(): Promise<void> {
 	const projectConfig = loadJson<ProjectConfig>(paths.join(CLI_PROJECT, "configs", "flowti.config.json"));
