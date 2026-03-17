@@ -35,7 +35,7 @@ export interface FrameworkPackages {
 }
 
 /**
- * Returns framework-specific package info for Storybook 10.
+ * Returns framework-specific package info for Storybook.
  *
  * In Storybook 10 the `-vite` framework packages serve as both
  * framework and renderer, and addons like `addon-interactions` and
@@ -88,7 +88,7 @@ function writePackageJson(sbDir: string, projectName: string, framework: Compone
 		private: true,
 		type: "module",
 		devDependencies: {
-			[fw.framework]: "^10.0.0",
+			[fw.framework]: "latest",
 			...fw.extra,
 		},
 	};
