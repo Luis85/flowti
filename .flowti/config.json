@@ -6,7 +6,7 @@
 	"featuresFolder": "03 - Features",
 	"subsystems": {
 		"plugin": {
-			"root": "Development/flowti",
+			"root": "01 - Projects/Flowti Plugin",
 			"config": "configs/flowti.config.json",
 			"manifest": "manifest.json",
 			"package": "package.json",
