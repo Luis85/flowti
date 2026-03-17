@@ -25,6 +25,18 @@ import { DOMAIN_POOLS } from "./sprites/character-pool.js";
 import { resolveSettingForDomain } from "./config/domain-map.js";
 import { preloadSpriteRegistry } from "./sprites/sprite-loader.js";
 import { DashboardStore } from "./store/dashboard-store.js";
+import { ParticlePool } from "./systems/particle-system.js";
+import { EmoteSystem } from "./systems/emote-system.js";
+import { SocialSystem } from "./systems/social-system.js";
+
+const DOMAIN_PARTICLE_COLORS: Record<string, string> = {
+	engineering: "#3b82f6",
+	design: "#a855f7",
+	product: "#f59e0b",
+	management: "#10b981",
+	quality: "#ef4444",
+	operations: "#06b6d4",
+};
 
 // Side-effect imports — register Lit custom elements
 import "./ui/dashboard-overlays.js";
@@ -187,6 +199,11 @@ async function main(): Promise<void> {
 		isIdle: (name) => brainSystem.getState(name)?.state === "idle",
 	});
 
+	// ── Joy systems: particles, emotes, social ──────────
+	const particlePool = new ParticlePool(200);
+	const emoteSystem = new EmoteSystem();
+	const socialSystem = new SocialSystem();
+
 	// Actor lookup across all scenes
 	function findAgentActor(name: string): AgentActor | undefined {
 		const hubActor = hubScene.getAgentActor(name);
@@ -249,16 +266,23 @@ async function main(): Promise<void> {
 			hubScene.updateAgents(agents);
 			store.setAgents(agents);
 
-			// Register agents in brain, bubble, and talk systems
+			// Register agents in brain, bubble, talk, emote, and social systems
 			for (const agent of agents) {
 				brainSystem.register(agent.name, agent.attributes ?? {}, agent.mood, agent.domain);
-				bubbleSystem.register(agent.name, agent.personality ?? [], brainSystem.getState(agent.name)!.params);
+				const brainState = brainSystem.getState(agent.name)!;
+				bubbleSystem.register(agent.name, agent.personality ?? [], brainState.params);
 				talkEngine.register(
 					agent.name,
 					agent.domain ?? "general",
 					agent.personality ?? [],
 					agent.attributes?.cha ?? 10,
 				);
+				emoteSystem.register(agent.name, agent.mood ?? "neutral", brainState.params.quoteFrequency);
+				socialSystem.register(agent.name, {
+					socialRadius: brainState.params.socialRadius,
+					personality: agent.personality ?? [],
+					relationships: agent.relationships ?? [],
+				});
 			}
 		},
 		onActivityLog: (log) => {
@@ -294,6 +318,8 @@ async function main(): Promise<void> {
 			// Despawn removed agent entities
 			for (const entityId of diff.removed) {
 				brainSystem.unregister(entityId);
+				emoteSystem.unregister(entityId);
+				socialSystem.unregister(entityId);
 				talkEngine.silence(entityId);
 				const updated = store.agents.filter((a) => a.name !== entityId);
 				store.setAgents(updated);
@@ -313,6 +339,42 @@ async function main(): Promise<void> {
 			}
 		},
 	});
+	// ── Wire emote callback ─────────────────────────────
+	emoteSystem.onEmote((name, _emoteIndex) => {
+		const actor = findAgentActor(name);
+		if (!actor) return;
+		// Float a thought bubble with a mood emote (using bubble system for now)
+		const agent = store.agents.find((a) => a.name === name);
+		const moodTexts: Record<string, string[]> = {
+			happy: ["Life is good.", "Feeling great!"],
+			frustrated: ["Hmm...", "This is tricky."],
+			focused: ["Deep in thought...", "Concentrating..."],
+			neutral: ["...", "Hmm."],
+			empathetic: ["I understand.", "How are you?"],
+			inspired: ["I have an idea!", "What if..."],
+			aesthetic: ["Beautiful.", "So elegant."],
+			playful: ["Hehe.", "Fun times!"],
+		};
+		const mood = agent?.mood ?? "neutral";
+		const texts = moodTexts[mood] ?? moodTexts["neutral"]!;
+		const text = texts[Math.floor(Math.random() * texts.length)];
+		bubbleSystem.showBubble(name, "thought", text, engine.currentScene, findAgentActor, 2500);
+	});
+
+	// ── Wire social conversation callback ────────────────
+	socialSystem.onConversation((nameA, nameB, lineA, lineB) => {
+		brainSystem.applyEvent(nameA, "speaking");
+		brainSystem.applyEvent(nameB, "speaking");
+		bubbleSystem.showBubble(nameA, "speech", lineA, engine.currentScene, findAgentActor, 4000);
+		setTimeout(() => {
+			bubbleSystem.showBubble(nameB, "speech", lineB, engine.currentScene, findAgentActor, 4000);
+		}, 800);
+		setTimeout(() => {
+			brainSystem.applyEvent(nameA, "idle");
+			brainSystem.applyEvent(nameB, "idle");
+		}, 5000);
+	});
+
 	// ── Wire room scenes to sync and brain systems ──────
 	syncSystem.setRoomScenes(roomScenes);
 	officeScene.setBrainSystem(brainSystem);
@@ -323,11 +385,65 @@ async function main(): Promise<void> {
 	let lastTime = performance.now();
 	let cameraSystem: ReturnType<typeof createCameraSystem> | null = null;
 
+	// Track previous walking state per agent for particle trail spawning
+	const prevWalkingState = new Map<string, boolean>();
+
 	engine.on("preframe", () => {
 		const now = performance.now();
 		const deltaMs = now - lastTime;
 		lastTime = now;
+
+		// Snapshot walking states before brain update
+		for (const [name, entry] of brainSystem.getAllEntries()) {
+			prevWalkingState.set(name, entry.state === "wandering" || entry.state === "walking-to");
+		}
+
 		brainSystem.update(deltaMs, findAgentActor);
+
+		// Particle trails: spawn trail dots for walking agents, dust on arrival
+		for (const [name, entry] of brainSystem.getAllEntries()) {
+			const wasWalking = prevWalkingState.get(name) ?? false;
+			const isWalking = entry.state === "wandering" || entry.state === "walking-to";
+
+			if (isWalking) {
+				// Spawn trail particle every ~8px of movement (approximated by frame delta)
+				const actor = findAgentActor(name);
+				if (actor) {
+					const agent = store.agents.find((a) => a.name === name);
+					const color = DOMAIN_PARTICLE_COLORS[agent?.domain ?? ""] ?? "#64748b";
+					// Approx: spawn one trail particle per frame while walking
+					particlePool.spawnTrail(actor.pos.x, actor.pos.y + 28, color, entry.state === "walking-to");
+				}
+			} else if (wasWalking && !isWalking) {
+				// Just arrived — dust burst
+				const actor = findAgentActor(name);
+				if (actor) {
+					const agent = store.agents.find((a) => a.name === name);
+					const color = DOMAIN_PARTICLE_COLORS[agent?.domain ?? ""] ?? "#64748b";
+					particlePool.spawnDustBurst(actor.pos.x, actor.pos.y + 28, color);
+				}
+			}
+		}
+
+		particlePool.update(deltaMs);
+
+		// Emote system
+		emoteSystem.update(deltaMs, (name) => brainSystem.getState(name)?.state ?? "idle");
+
+		// Social system
+		socialSystem.update(
+			deltaMs,
+			(name) => brainSystem.getPosition(name) ?? { x: 0, y: 0 },
+			(name) => brainSystem.getState(name)?.state ?? "idle",
+		);
+
+		// Workstation glow updates
+		for (const room of Object.values(roomScenes)) {
+			for (const ws of room.getWorkstations()) {
+				ws.updateGlow(deltaMs);
+			}
+		}
+
 		bubbleSystem.update(
 			deltaMs,
 			(name) => brainSystem.getState(name)?.state === "idle",
