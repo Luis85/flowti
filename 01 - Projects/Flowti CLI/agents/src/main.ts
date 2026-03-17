@@ -387,6 +387,34 @@ async function main(): Promise<void> {
 
 	// Track previous walking state per agent for particle trail spawning
 	const prevWalkingState = new Map<string, boolean>();
+	const lastTrailPos = new Map<string, { x: number; y: number }>();
+
+	// ── Particle renderer — ex.Canvas actor added to each scene ────────
+	function createParticleRenderer(): ex.Actor {
+		const actor = new ex.Actor({ pos: ex.vec(0, 0), anchor: ex.vec(0, 0), z: -10 });
+		const canvas = new ex.Canvas({
+			width: ENGINE_WIDTH,
+			height: ENGINE_HEIGHT,
+			cache: false,
+			draw: (ctx: CanvasRenderingContext2D) => {
+				for (const p of particlePool.getAll()) {
+					if (p.opacity <= 0.01) continue;
+					ctx.globalAlpha = p.opacity;
+					ctx.fillStyle = p.color;
+					ctx.beginPath();
+					ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+					ctx.fill();
+				}
+				ctx.globalAlpha = 1.0;
+			},
+		});
+		actor.graphics.use(canvas);
+		return actor;
+	}
+	hubScene.add(createParticleRenderer());
+	officeScene.add(createParticleRenderer());
+	villageScene.add(createParticleRenderer());
+	stationScene.add(createParticleRenderer());
 
 	engine.on("preframe", () => {
 		const now = performance.now();
@@ -400,27 +428,40 @@ async function main(): Promise<void> {
 
 		brainSystem.update(deltaMs, findAgentActor);
 
-		// Particle trails: spawn trail dots for walking agents, dust on arrival
+		// Particle trails: spawn trail dots every ~8px of movement, dust on arrival
 		for (const [name, entry] of brainSystem.getAllEntries()) {
 			const wasWalking = prevWalkingState.get(name) ?? false;
 			const isWalking = entry.state === "wandering" || entry.state === "walking-to";
 
 			if (isWalking) {
-				// Spawn trail particle every ~8px of movement (approximated by frame delta)
 				const actor = findAgentActor(name);
 				if (actor) {
-					const agent = store.agents.find((a) => a.name === name);
-					const color = DOMAIN_PARTICLE_COLORS[agent?.domain ?? ""] ?? "#64748b";
-					// Approx: spawn one trail particle per frame while walking
-					particlePool.spawnTrail(actor.pos.x, actor.pos.y + 28, color, entry.state === "walking-to");
+					const prev = lastTrailPos.get(name);
+					const x = actor.pos.x;
+					const y = actor.pos.y + 28;
+					if (prev) {
+						const dx = x - prev.x;
+						const dy = y - prev.y;
+						if (dx * dx + dy * dy >= 64) { // 8px^2
+							const agent = store.agents.find((a) => a.name === name);
+							const color = DOMAIN_PARTICLE_COLORS[agent?.domain ?? ""] ?? "#64748b";
+							particlePool.spawnTrail(x, y, color, entry.state === "walking-to");
+							lastTrailPos.set(name, { x, y });
+						}
+					} else {
+						lastTrailPos.set(name, { x, y });
+					}
 				}
-			} else if (wasWalking && !isWalking) {
-				// Just arrived — dust burst
-				const actor = findAgentActor(name);
-				if (actor) {
-					const agent = store.agents.find((a) => a.name === name);
-					const color = DOMAIN_PARTICLE_COLORS[agent?.domain ?? ""] ?? "#64748b";
-					particlePool.spawnDustBurst(actor.pos.x, actor.pos.y + 28, color);
+			} else {
+				lastTrailPos.delete(name);
+				if (wasWalking) {
+					// Just arrived — dust burst
+					const actor = findAgentActor(name);
+					if (actor) {
+						const agent = store.agents.find((a) => a.name === name);
+						const color = DOMAIN_PARTICLE_COLORS[agent?.domain ?? ""] ?? "#64748b";
+						particlePool.spawnDustBurst(actor.pos.x, actor.pos.y + 28, color);
+					}
 				}
 			}
 		}
