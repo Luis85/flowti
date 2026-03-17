@@ -167,11 +167,15 @@ function patchStorybookConfig(sbDir: string, deps: Pick<StorybookDeps, "disk" | 
 		content = content.replace(/\.\.\/stories\//g, "../");
 		// Disable telemetry if not already present
 		if (!content.includes("disableTelemetry")) {
+			// Match the closing of the config object — works with both SB 8 and 10 formats
 			content = content.replace(
-				/("framework":\s*"[^"]+?")\s*\n(\s*\};)/,
-				'$1,\n  "core": {\n    "disableTelemetry": true\n  }\n$2',
+				/(\n)(};?\s*\nexport default)/,
+				'$1  core: {\n    disableTelemetry: true,\n  },\n$2',
 			);
 		}
+		// Remove chromatic and addon-vitest addons (not needed for our component library)
+		content = content.replace(/\s*"@chromatic-com\/storybook",?\n?/g, "\n");
+		content = content.replace(/\s*"@storybook\/addon-vitest",?\n?/g, "\n");
 		deps.disk.writeFileSync(mainPath, content, "utf-8");
 	} catch { /* leave as-is if file doesn't exist */ }
 }
