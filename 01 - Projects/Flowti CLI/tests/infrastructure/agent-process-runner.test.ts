@@ -205,4 +205,33 @@ describe("createProcessRunner", () => {
 		}
 		expect(events).toHaveLength(0);
 	});
+
+	it("delegates to registry when provided", () => {
+		const deps = makeDeps();
+		const mockExecute = vi.fn(() => ({
+			onEvent: () => () => {},
+			result: Promise.resolve({ text: "from registry", thinking: "", exitCode: 0 }),
+			kill: vi.fn(),
+		}));
+		const mockProvider = {
+			name: "anthropic",
+			capabilities: () => ({ streaming: true, thinking: true, toolUse: true, structuredOutput: true }),
+			execute: mockExecute,
+		};
+		const mockRegistry = {
+			register: vi.fn(),
+			get: vi.fn(),
+			list: vi.fn(() => []),
+			select: vi.fn(() => ({ provider: mockProvider, reason: "configured" as const })),
+		};
+		const runner = createProcessRunner(deps, undefined, mockRegistry);
+		runner.spawn(makeAgent(), "Hello");
+		expect(mockRegistry.select).toHaveBeenCalledWith(
+			expect.objectContaining({ taskType: "conversation", required: { streaming: true } }),
+		);
+		expect(mockExecute).toHaveBeenCalledWith(
+			expect.objectContaining({ prompt: { message: "Hello" } }),
+		);
+		expect(deps.shell.spawnBackground).not.toHaveBeenCalled();
+	});
 });

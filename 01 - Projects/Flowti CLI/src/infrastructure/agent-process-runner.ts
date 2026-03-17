@@ -1,8 +1,8 @@
 /**
  * agent-process-runner.ts — Pure LLM process spawner.
  *
- * Spawns Claude CLI processes, streams events, returns results.
- * No lifecycle management, no notifications, no state — just process I/O.
+ * When a provider registry is supplied, delegates to it for multi-provider support.
+ * Otherwise falls back to legacy direct spawning (Claude CLI only).
  */
 
 import type { CliDeps } from "./deps.js";
@@ -10,16 +10,19 @@ import type { AgentsConfig } from "./types-config.js";
 import type { AgentSummary } from "../domain/agents/agent-types.js";
 import type { AgentStreamEvent } from "../domain/agents/agent-stream.js";
 import type { AgentProcess, IAgentProcessRunner, SpawnOptions } from "../domain/agents/worker-types.js";
+import type { IProviderRegistry } from "../domain/agents/llm-types.js";
 import { parseStreamLine, createStreamState, updateStreamState } from "../domain/agents/agent-stream.js";
 
 export type ProcessRunnerDeps = Pick<CliDeps, "disk" | "paths" | "clock" | "shell" | "log">;
+
+// ── Legacy provider resolution (used when no registry) ──────────────
 
 interface ProviderConfig {
 	readonly binary: string;
 	readonly args: readonly string[];
 }
 
-function resolveProvider(globalDefault?: string, agentProvider?: string): ProviderConfig {
+function resolveProviderLegacy(globalDefault?: string, agentProvider?: string): ProviderConfig {
 	const provider = agentProvider ?? globalDefault ?? "anthropic";
 	switch (provider) {
 		case "anthropic": return { binary: "claude", args: ["-p", "--output-format", "stream-json", "--verbose"] };
@@ -30,13 +33,31 @@ function resolveProvider(globalDefault?: string, agentProvider?: string): Provid
 
 let idCounter = 0;
 
-export function createProcessRunner(deps: ProcessRunnerDeps, config: AgentsConfig | undefined): IAgentProcessRunner {
+// ── Factory ─────────────────────────────────────────────────────────
+
+export function createProcessRunner(deps: ProcessRunnerDeps, config: AgentsConfig | undefined, registry?: IProviderRegistry): IAgentProcessRunner {
 	const globalProvider = config?.provider;
 	const processTimeout = config?.processTimeoutMs ?? 3_600_000;
 
 	return {
 		spawn(agent: AgentSummary, prompt: string, resolvedTools?: readonly string[], opts?: SpawnOptions): AgentProcess {
-			const provider = resolveProvider(globalProvider, agent.ai?.provider);
+			// When registry is available, delegate to it
+			if (registry) {
+				const selection = registry.select({
+					preferred: agent.ai?.provider,
+					taskType: "conversation",
+					required: { streaming: true },
+				});
+				return selection.provider.execute({
+					prompt: { message: prompt },
+					tools: resolvedTools,
+					timeout: processTimeout,
+					cwd: opts?.cwd,
+				});
+			}
+
+			// Legacy path — direct spawn (kept for backward compat during migration)
+			const provider = resolveProviderLegacy(globalProvider, agent.ai?.provider);
 			const tempPath = deps.paths.join(
 				deps.paths.resolve("."),
 				`.flowti-prompt-${deps.clock.ms()}-${++idCounter}.tmp`,
