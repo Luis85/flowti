@@ -176,6 +176,11 @@ export async function handleApiRoute(
 		const message = String(body.message ?? "");
 		if (!name || !message) { json(400, { error: "agentName and message required" }); return; }
 
+		// Ensure worker exists (mirrors /api/agent/wake pattern)
+		let worker = ctx.workerManager.getWorker(name);
+		if (!worker) worker = ctx.workerManager.spawn(name);
+		if (!worker) { json(404, { error: "Agent not found" }); return; }
+
 		const varDir = ctx.deps.paths.join(ctx.vaultRoot, ".flowti", "var");
 		const { loadConversation, appendTurn, saveConversation } = await import("../agents/agent-conversation-store.js");
 		const conv = loadConversation(ctx.deps, varDir, name);

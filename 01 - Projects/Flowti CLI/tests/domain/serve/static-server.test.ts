@@ -314,4 +314,23 @@ describe("handleApiRoute", () => {
 		expect(state.headers["Content-Type"]).toBe("text/event-stream");
 		expect(ctx.sseClients.has(res)).toBe(true);
 	});
+
+	it("POST /api/agent/send spawns worker if getWorker returns null", async () => {
+		const ctx = fakeContext();
+		(ctx.workerManager.getWorker as ReturnType<typeof vi.fn>).mockReturnValue(null);
+		(ctx.workerManager.spawn as ReturnType<typeof vi.fn>).mockReturnValue({ name: "NewAgent", state: "idle" });
+		const { res } = fakeResponse();
+		await handleApiRoute(fakeReq("POST", "/api/agent/send", JSON.stringify({ agentName: "NewAgent", message: "Hi" })), res, "/api/agent/send", ctx);
+		expect(ctx.workerManager.spawn).toHaveBeenCalledWith("NewAgent");
+		expect(ctx.workerManager.send).toHaveBeenCalled();
+	});
+
+	it("POST /api/agent/send returns 404 if agent cannot be spawned", async () => {
+		const ctx = fakeContext();
+		(ctx.workerManager.getWorker as ReturnType<typeof vi.fn>).mockReturnValue(null);
+		(ctx.workerManager.spawn as ReturnType<typeof vi.fn>).mockReturnValue(null);
+		const { res, state } = fakeResponse();
+		await handleApiRoute(fakeReq("POST", "/api/agent/send", JSON.stringify({ agentName: "Unknown", message: "Hi" })), res, "/api/agent/send", ctx);
+		expect(state.statusCode).toBe(404);
+	});
 });

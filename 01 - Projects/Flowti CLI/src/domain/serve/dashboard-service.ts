@@ -18,6 +18,7 @@ import { readProjectConfig } from "../project/project-config.js";
 import type { IWorldStateManager } from "../agents/world-state-types.js";
 import type { AgentAction, WorldEntityType } from "../agents/world-state-types.js";
 import type { IWorkerManager } from "../agents/worker-types.js";
+import type { IProcessPool } from "../agents/process-pool.js";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -35,6 +36,7 @@ let activeHandle: ServerHandle | null = null;
 let activeState: DashboardState | null = null;
 let activeSseListener: ((action: AgentAction) => void) | null = null;
 let activeWorldState: IWorldStateManager | null = null;
+let activePool: IProcessPool | null = null;
 
 export function isDashboardRunning(): boolean {
 	return activeHandle !== null;
@@ -46,6 +48,10 @@ export function getDashboardState(): DashboardState | null {
 
 export function stopDashboard(log: (msg: string) => void): void {
 	if (activeHandle) {
+		if (activePool) {
+			activePool.killAll();
+			activePool = null;
+		}
 		if (activeWorldState && activeSseListener) {
 			activeWorldState.removeActionListener(activeSseListener);
 		}
@@ -153,6 +159,7 @@ export interface StartDashboardOptions {
 	readonly vaultAgentsConfig: AgentsConfig | undefined;
 	readonly worldState: IWorldStateManager;
 	readonly workerManager: IWorkerManager;
+	readonly pool?: IProcessPool;
 }
 
 /** Start the dashboard server. Returns the dashboard state or null on failure. */
@@ -216,6 +223,7 @@ export async function startDashboardServer(opts: StartDashboardOptions, deps: Da
 	}, serverContext);
 
 	activeHandle = handle;
+	activePool = opts.pool ?? null;
 	activeState = { url: handle.url, port: opts.port, dir: opts.rootDir };
 
 	openInBrowser(handle.url, deps.shell);

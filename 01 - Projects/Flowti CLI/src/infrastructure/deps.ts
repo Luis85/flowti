@@ -22,6 +22,7 @@ import type { AgentsConfig, WorkspacesConfig } from "./types-config.js";
 import { createWorldStateManager } from "./world-state-manager.js";
 import { createProcessRunner } from "./agent-process-runner.js";
 import { createWorkerManager } from "./worker-manager.js";
+import { createProcessPool } from "../domain/agents/process-pool.js";
 import { createAgentShell } from "./agent-shell.js";
 import { createWorkspaceRegistry } from "./workspace-registry.js";
 import { createWorkspaceProvisioner } from "./workspace-provisioner.js";
@@ -110,7 +111,11 @@ export function createDefaultDeps(agentsConfig?: AgentsConfig, vaultRoot?: strin
 	const worldState = createWorldStateManager({ disk, paths, clock }, resolvedRoot);
 	const baseDeps = { disk, shell, paths, clock, log };
 	const processRunner = createProcessRunner(baseDeps, agentsConfig);
-	const workerManager = createWorkerManager(baseDeps, worldState, processRunner, resolvedRoot, agentsConfig);
+	const pool = createProcessPool(processRunner, { set: setTimeout, clear: clearTimeout }, {
+		maxConcurrent: agentsConfig?.maxConcurrent ?? 2,
+		processTimeoutMs: agentsConfig?.processTimeoutMs ?? 3_600_000,
+	});
+	const workerManager = createWorkerManager(baseDeps, worldState, processRunner, resolvedRoot, agentsConfig, pool);
 	worldState.addActionListener((action) => workerManager.dispatchWorldEvent(action));
 
 	// Workspace-based agent shell (optional — only when workspacesConfig provided)
