@@ -22,6 +22,8 @@ The user never leaves Obsidian. A persistent LLM companion sidepanel watches wha
 | Sitemap → Storybook | Right-click any sitemap JSON file | Most flexible, opt-in, no project-specific config |
 | RPG small talk | Template-driven with personality variables | No LLM cost, infinite combinatorics, easy to extend |
 | Canvas context | File watcher + incremental diffs | Uses Obsidian vault events, keeps context window small |
+| Canvas editing | File-based `.canvas` JSON manipulation | Obsidian Canvas API is undocumented/unstable; file writes are reliable |
+| API security | Shared secret token in headers | Localhost-only, but prevents other local apps from calling endpoints |
 
 ## 3. Phase C0: Plugin View Crash Fix (BLOCKER)
 
@@ -42,16 +44,20 @@ Sitemap-driven views (`SitemapHubView`, `SitemapLeafView`) receive their view ty
 
 ### Fix Approach
 
-1. Trace the registration path: `sitemap-bootstrap.ts` → `registerView()` → `app.workspace.registerView()` → constructor
-2. Verify the view definition (with `type` field) is passed through the entire constructor chain
-3. Verify extracted setup files did not change initialization order (phase 3 registration before phase 5 layout-ready)
-4. Test: all 6 hub views and all leaf views open without error
+1. **Reproduce and diagnose:** Enable source maps in dev build, reproduce the crash, identify the exact line where `type` is undefined
+2. Trace the registration path: `sitemap-bootstrap.ts` → `registerView()` → `app.workspace.registerView()` → constructor
+3. Verify the view definition (with `type` field) is passed through the entire constructor chain
+4. Verify extracted setup files did not change initialization order (phase 3 registration before phase 5 layout-ready)
+5. If suspected root cause is wrong, use the stack trace to find the actual undefined access
+6. Test: all 6 hub views and all leaf views open without error
 
 ### Acceptance Criteria
 
 - All existing Plugin views open without errors
 - No `TypeError` in console on view construction
 - Hub views render their tabs and content correctly
+
+**Effort: ~4h**
 
 ## 4. Phase C1: TUI Ink Migration Regression Fix
 
@@ -77,28 +83,58 @@ Non-interactive CLI commands still work — the gap is only in the interactive I
 - Storybook commands accessible from Ink TUI
 - Feature parity with legacy SitemapRouter (minus visual differences from Ink)
 
-## 5. Phase C2: CLI Bundling
+**Effort: ~12h**
+
+## 5. Phase C2: CLI Bundling & Server Lifecycle
 
 ### Build-Time Bundling
 
+The CLI builds to `.flowti/bin/main.mjs` (ESM format). Note: the root `CLAUDE.md` references `main.js` but the actual esbuild output is `main.mjs`. This spec uses the actual filename.
+
 Plugin's `esbuild.config.mjs` gains a post-build step:
 1. Copies `.flowti/bin/main.mjs` into plugin output: `.obsidian/plugins/flowti-ibde/cli/main.mjs`
-2. Writes `cli-version.json` alongside it with CLI build timestamp and git hash (stale bundle detection)
+2. Writes `cli-version.json` alongside it with CLI build timestamp, git hash, and protocol version (stale bundle + compatibility detection)
 3. Plugin's `package.json` build script chains: `npm run build:cli && npm run build:plugin`
+
+### New Plugin Infrastructure
+
+The Plugin currently has no async child process spawning or SSE client. These are new capabilities:
+
+- **Process spawning:** New `CliProcessManager` service in Plugin infrastructure using `child_process.spawn()` (not `execFileSync`). Manages the CLI server child process lifecycle (start, monitor, restart, stop).
+- **SSE client:** New `SseClient` service using Node.js `http` module to parse SSE streams (Obsidian's Electron environment may not expose browser `EventSource` API). Manual parsing of `text/event-stream` format with reconnection logic.
 
 ### Server Lifecycle (Managed by Plugin)
 
-1. On plugin load (phase 3), Plugin spawns `node cli/main.mjs serve --port=0 --json` as a background child process
-2. CLI picks an available port, writes it to stdout as JSON: `{"port": 47832}`
-3. Plugin reads the port, stores it, connects EventSource to `http://localhost:{port}/events`
-4. On plugin unload, Plugin sends `POST /api/shutdown` or kills the child process
-5. On SSE disconnect, Plugin detects and auto-restarts the server
+1. On plugin load (phase 3), Plugin's `CliProcessManager` spawns `node cli/main.mjs serve --port=0 --json` as a background child process
+2. **Port resolution (critical):** The CLI server must call `server.address()` after `listen()` completes to discover the actual bound port (current `startServer()` in `static-server.ts` does not do this — it must be patched). The resolved port is written to stdout as JSON: `{"port": 47832, "protocol": 1}`
+3. The `--json` flag is a new flag on the `serve` command that suppresses human-readable output and emits structured JSON instead
+4. Plugin reads the port from stdout, stores it, connects `SseClient` to `http://localhost:{port}/events`
+5. Plugin passes a shared secret token (generated at plugin load, sent via `Authorization` header) — CLI validates this on all API requests
+6. On plugin unload, Plugin sends `POST /api/shutdown` then kills the child process if it doesn't exit within 5s
+7. On SSE disconnect, Plugin detects and auto-restarts the server
+
+### `/api/shutdown` Behavior
+
+On receiving shutdown:
+1. Stop accepting new requests
+2. Complete in-flight requests (max 10s grace period)
+3. Pause active skill sessions (persist state so they can resume)
+4. Stop running agent processes (send SIGTERM, then SIGKILL after 5s)
+5. Close SSE connections
+6. Exit process
+
+### Protocol Version
+
+- `GET /api/version` returns `{ protocol: 1, cli: "x.y.z", features: [...] }`
+- Plugin checks protocol version on connect — if mismatched, shows a warning to rebuild
+- Protocol version bumped when endpoints change incompatibly
 
 ### New CLI Endpoints
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| `/api/command` | POST | Execute any CLI command, return JSON result |
+| `/api/version` | GET | Protocol version, CLI version, feature flags |
+| `/api/command` | POST | Execute a CLI command, return JSON result |
 | `/api/skill/start` | POST | Start a skill session (returns session ID) |
 | `/api/skill/respond` | POST | Send user response to active skill session |
 | `/api/skill/context` | POST | Send incremental context update from active leaf |
@@ -107,19 +143,63 @@ Plugin's `esbuild.config.mjs` gains a post-build step:
 
 Existing endpoints remain: `/api/world-state`, `/api/agent/send`, `/api/agent/task`, `/api/agent/permission`, `/api/agent/wake`, `/events`.
 
+### `/api/command` — Generic Command Executor
+
+This is a new subsystem that exposes the CLI's command registry over HTTP.
+
+**Request schema:**
+```json
+{
+  "command": "health",
+  "args": { "project": "Flowti CLI", "format": "json" },
+  "stream": false
+}
+```
+
+**Response schema (non-streaming):**
+```json
+{
+  "exitCode": 0,
+  "data": { ... },
+  "output": "rendered text output"
+}
+```
+
+**Streaming mode** (for long-running commands like `test`, `build`, `reports`):
+- When `"stream": true`, the response uses chunked transfer encoding
+- Each chunk is a JSON line: `{"type": "output", "text": "..."}\n` or `{"type": "complete", "exitCode": 0, "data": {...}}\n`
+- Plugin reads chunks progressively and renders output in real-time
+
+**Implementation:**
+- New handler in `static-server.ts` routes `/api/command` requests
+- Parses command + args into the format expected by `resolveCommand()` in `dispatch.ts`
+- Captures the command handler's result (typed data model) and serializes as JSON
+- For streaming: wraps the command execution in a stream adapter that captures `console.log` / renderer output
+- Security: validates shared secret token in `Authorization` header before executing
+
+**Scope limitation:** Only non-interactive CLI commands are exposed. Interactive TUI commands are not supported over HTTP.
+
 ### Acceptance Criteria
 
 - Plugin build produces a self-contained bundle with embedded CLI
-- Plugin spawns CLI server on load, connects via SSE
-- `cli-version.json` written with build metadata
+- Plugin spawns CLI server on load via `CliProcessManager`, connects via `SseClient`
+- `cli-version.json` written with build metadata and protocol version
 - Server auto-restarts on disconnect
+- `server.address()` used for actual port resolution (not the requested port)
+- `--json` flag works on `serve` command
+- Shared secret token validated on all API requests
+- `/api/command` executes commands and returns JSON (both streaming and non-streaming)
+- `/api/version` returns protocol version
+- `/api/shutdown` gracefully stops all in-flight work
 - All new endpoints functional and returning JSON
+
+**Effort: ~20h**
 
 ## 6. Phase C3: Flowti CLI View (Hub Architecture)
 
 ### View Registration
 
-New hub view type `flowti-cli-hub` registered in Plugin's `configs/sitemap.json`. Extends existing `SitemapHubView` / `BaseHubView` pattern. Ribbon icon for quick access.
+New hub view type `flowti-cli-hub` registered in Plugin's `configs/sitemap.json` using the existing `SitemapHubView` class. Four tab definitions added to the sitemap with corresponding handler registrations in `plugin-handler-registry.ts`. Ribbon icon for quick access.
 
 ### Tab: CLI Hub (Default)
 
@@ -164,6 +244,8 @@ Project management interface:
 - Agents Hub shows live agent state via SSE
 - Projects Hub lists projects with working action buttons
 
+**Effort: ~20h**
+
 ## 7. Phase C4: Skill Execution System
 
 ### Architecture: Sidepanel + Main Leaf
@@ -194,13 +276,16 @@ All modes share the same session, same input bar, same data — just different r
 - User and LLM responses visually separated
 - Best for back-and-forth dialogue, quick questions, clarifications
 
-**Creative mode (Canvas):**
+**Creative mode (Canvas) — stretch goal:**
 - Opens the session on an Obsidian Canvas
 - LLM responses, user inputs, and artifacts become canvas nodes
 - Nodes can be spatially arranged, grouped, connected with edges
-- LLM can add/edit/connect nodes via structured commands (`add-node`, `connect-nodes`, `move-node`, `update-node-content`)
 - New LLM responses land as nodes connected to the conversation thread
 - User can rearrange freely, create branches, add their own notes alongside LLM output
+- **Canvas editing approach:** LLM edits are applied by modifying the `.canvas` JSON file and relying on Obsidian to reload the view. This is file-based, not API-based, because the Obsidian Canvas API is undocumented and unstable. LLM sends structured commands (`add-node`, `connect-nodes`, `move-node`, `update-node-content`), Plugin translates them into `.canvas` JSON mutations and writes the file.
+- **Fallback:** If file-based canvas editing proves unreliable across Obsidian versions, degrade to read-only canvas (LLM can view but not edit; user edits manually)
+
+**Priority:** Document and Conversational modes are required. Creative (Canvas) mode is a stretch goal — implement if time allows after Document and Conversational are solid.
 
 ### Context Awareness (Incremental)
 
@@ -212,14 +297,22 @@ All modes share the same session, same input bar, same data — just different r
 - Debounced at 2-3 seconds to avoid flooding
 - CLI-side maintains a running context model per session, applies deltas incrementally
 - LLM receives compact change summaries, not full state
-- Periodic full resync available (every ~20 updates or on request) if context model drifts
+- Periodic full resync triggered by hash comparison (CLI computes hash of its context model, Plugin computes hash of actual file — if mismatch, full resync). This is more reliable than a fixed counter since large edits drift faster than small ones.
 - Self-edit detection: Plugin sets a flag before writing LLM edits, clears after, to prevent echo loops
+
+### Error Handling, Timeouts, and Limits
+
+- **LLM call timeout:** Configurable per skill session (default 120s). On timeout, session transitions to `errored` with option to retry or abort.
+- **LLM call failure:** SSE event `skill-error { sessionId, error, retryable }`. Plugin shows error in sidepanel with retry button if retryable.
+- **Concurrent session limit:** Max 3 active skill sessions (configurable in `.flowti/config.json` → `agents.maxConcurrent`). Additional requests are queued with a "waiting" indicator.
+- **Context size limit:** Max 50 canvas nodes or 10,000 lines sent as context. Beyond this, the Plugin sends a summary ("Canvas has 120 nodes across 5 groups") instead of the full diff.
+- **SSE disconnect during skill:** CLI continues execution for up to 30s (buffering output). If Plugin reconnects within 30s, buffered output is replayed. If not, session pauses and can be resumed manually.
 
 ### Session Integration
 
 - Plugin creates a Session via existing session domain when a skill starts
 - Session lifecycle governs: `initializing → active → paused → completing → completed → archived`
-- Pausing the session pauses the skill; resuming re-attaches SSE stream
+- Pausing the session pauses the skill; resuming re-attaches SSE stream and replays buffered output
 - Session appears in User Hub → Sessions tab alongside other sessions
 - Switching agents mid-session starts a new session linked to the new agent
 - Context snapshots stored with session for replay/audit
@@ -234,6 +327,7 @@ New domain: `src/domain/skill-session/`
   - `skill-question { sessionId, prompt }` — LLM is waiting for user input
   - `skill-canvas-edit { sessionId, operations: [...] }` — LLM wants to edit canvas
   - `skill-document-edit { sessionId, edits: [...] }` — LLM wants to edit document
+  - `skill-error { sessionId, error, retryable }` — LLM call failed
 
 ### Persistence
 
@@ -250,17 +344,23 @@ New domain: `src/domain/skill-session/`
 - Skill execution streams LLM output to sidepanel
 - LLM questions pause execution and activate input bar
 - User responses resume execution
-- All three modes work and switching preserves conversation
-- Canvas mode: LLM can add/edit nodes, user can rearrange
+- Document and Conversational modes work and switching preserves conversation
 - Context diffs sent incrementally (not full state)
 - Self-edit echo loop prevented
 - Sessions appear in User Hub → Sessions tab
+- Error states handled: timeout, LLM failure, SSE disconnect
+- Concurrent session limit enforced
+- Context size limit enforced
+
+**Effort: ~40h (Document + Conversational). Canvas stretch: +16h**
 
 ## 8. Phase C5: Storybook Integration (Reworked)
 
 ### Trigger
 
-- Right-click any `.json` file in vault → "Generate Component Library" (Plugin checks for sitemap structure: `pages` or `views` keys)
+- Right-click any `.json` file in vault → "Generate Component Library"
+- Plugin validates the file contains sitemap structure: must have a `pages` key (CLI sitemap format) or a `views` key (Plugin sitemap format). If neither key is present, the context menu item does not appear.
+- If the file has an unrecognized structure, Plugin shows a notice: "This file doesn't appear to be a sitemap."
 - Also accessible from CLI Hub → Projects Hub → per-project action
 
 ### Flow
@@ -300,20 +400,34 @@ Sitemap-to-story mapping:
 
 ### Acceptance Criteria
 
-- Right-click context menu appears on sitemap JSON files
+- Right-click context menu appears on sitemap JSON files (validated by `pages` or `views` key)
+- Non-sitemap JSON files do not show the menu item
 - Framework picker modal lists all 5 options
 - Generated Storybook runs out of the box for each framework
 - Stories map to sitemap pages
 - No project-specific config required
 - Storybook launchable from CLI Hub
 
+**Effort: ~16h**
+
 ## 9. RPG Agent Improvements — Interactive Waiting & Talk Engine
+
+### Reconciliation with Existing Implementation
+
+A working `TalkEngine` class already exists at `agents/src/systems/talk-engine.ts` with domain-topic approach, charisma-based social weighting, silence-on-LLM-response, and staggered startup. This spec extends and refactors that implementation — it is NOT a parallel system.
+
+**What changes:**
+- Refactor the existing `talk-engine.ts` into the domain-driven template structure below (extract templates into separate files)
+- Keep existing features: charisma-based weighting, silence-on-response, staggered startup
+- Add: template variable interpolation, wait-state integration with brain system, domain-organized expansion pattern
 
 ### Domain-Driven Template Architecture
 
+Refactor from the existing monolithic `talk-engine.ts` into:
+
 ```
-dashboard/src/talk/
-├── talk-engine.ts              — resolver, timer, variable interpolation
+agents/src/systems/talk/
+├── talk-engine.ts              — resolver, timer, variable interpolation (refactored from existing)
 ├── talk-types.ts               — template interfaces, variable types
 ├── templates/
 │   ├── core.ts                 — universal (filler, greetings, generic thinking)
@@ -323,6 +437,8 @@ dashboard/src/talk/
 │   ├── social.ts               — cross-agent social templates
 │   └── index.ts                — registry, collects and exports all template sets
 ```
+
+Note: path is `agents/src/systems/talk/` (matches existing codebase location), not `dashboard/src/talk/`.
 
 ### Template Contract
 
@@ -360,8 +476,8 @@ interface WeightedTemplate {
 - When agent enters `waiting` state (LLM generating), brain system activates talk engine on a timer
 - Interval: randomized 3-8 seconds (natural, not metronomic)
 - Each line triggers a speech bubble via existing bubble system
-- Templates selected based on agent personality type
-- When LLM response arrives (SSE `agent-action`), talk timer stops, current bubble finishes gracefully, real response presented
+- Templates selected based on agent personality type (preserves existing charisma-based weighting)
+- When LLM response arrives (SSE `agent-action`), talk timer stops, current bubble finishes gracefully, real response presented (preserves existing silence-on-response behavior)
 
 ### Template Categories & Weights
 
@@ -393,6 +509,9 @@ Category weights vary by personality type: focused engineer → more `thinking`,
 - Template files are domain-organized (not monolithic)
 - Adding a new domain is a single-file change
 - No LLM cost for small talk generation
+- Existing charisma-based weighting and staggered startup preserved
+
+**Effort: ~12h**
 
 ## 10. Phase A: Test Consolidation
 
@@ -409,6 +528,8 @@ Phase A (autonomous agent execution) was delivered but rejected — work from th
 - All Phase A test suites pass
 - No outstanding test TODOs from prior review
 - Agent runner, session store, process infrastructure fully tested
+
+**Effort: ~4h**
 
 ## 11. Phase B: RPG World Polish
 
@@ -436,29 +557,45 @@ Phase B (ExcaliburJS RPG World) was rejected as too barebones and buggy.
 - `onStateDiff` handles state changes
 - Game feel improvements visible
 
-## 12. Execution Priority
+**Effort: ~16h**
 
-| Order | Phase | Blocks | Effort |
-|-------|-------|--------|--------|
-| 1 | C0: Plugin crash fix | Everything | Small |
-| 2 | C1: TUI regression fix | CLI usability | Medium |
-| 3 | C2: CLI bundling + server lifecycle | C3, C4, C5 | Medium |
-| 4 | A: Test consolidation | — | Small |
-| 5 | C3: CLI View (4-tab hub) | — | Large |
-| 6 | C4: Skill execution (sidepanel + 3 modes) | — | Large |
-| 7 | B+: RPG talk engine + polish | — | Medium |
-| 8 | C5: Storybook rework | — | Medium |
+## 12. Execution Priority & Scope Management
 
-C0 → C1 → C2 is the critical path. Once the server lifecycle is up, C3/C4/C5 can be worked in parallel by different agents.
+| Order | Phase | Blocks | Effort | Cumulative |
+|-------|-------|--------|--------|------------|
+| 1 | C0: Plugin crash fix | Everything | ~4h | 4h |
+| 2 | C1: TUI regression fix | CLI usability | ~12h | 16h |
+| 3 | C2: CLI bundling + server lifecycle | C3, C4, C5 | ~20h | 36h |
+| 4 | A: Test consolidation | — | ~4h | 40h |
+| 5 | C3: CLI View (4-tab hub) | — | ~20h | 60h |
+| 6 | C4: Skill execution (doc + conv modes) | — | ~40h | 100h |
+| 7 | B+: RPG talk engine + polish | — | ~12h + ~16h | 128h |
+| 8 | C5: Storybook rework | — | ~16h | 144h |
+| — | C4 stretch: Canvas mode | — | ~16h | 160h |
+
+**Total: ~144h required, ~160h with canvas stretch.**
+
+C0 → C1 → C2 is the critical path. Once the server lifecycle is up, C3/C4/C5 and B+ can be worked in parallel by different agents.
+
+**Cutline (if time runs short):**
+- **Must ship:** C0, C1, C2, A (40h — functional Plugin + CLI bundling + server)
+- **Should ship:** C3, C4 without canvas (60h — CLI View + skill execution)
+- **Nice to have:** B+, C5, Canvas stretch (44h — polish, Storybook, canvas mode)
 
 ## 13. Risks
 
 | Risk | Mitigation |
 |------|------------|
-| Canvas JSON format changes between Obsidian versions | Defensive parsing, schema validation on canvas read |
-| Context diffs grow stale or drift | Periodic full resync (every ~20 updates) |
-| HTTP server port conflicts | `--port=0` auto-selects available port |
+| Canvas JSON format changes between Obsidian versions | Defensive parsing, schema validation, file-based editing with fallback to read-only |
+| Context diffs grow stale or drift | Hash-based resync (compare CLI model hash vs actual file hash) |
+| HTTP server port conflicts | `--port=0` with `server.address()` to resolve actual bound port |
 | CLI bundle size grows past acceptable threshold | Monitor bundle size in build, tree-shake aggressively |
 | Sidepanel + main leaf coordination complexity | Clear event contracts between sidepanel and leaf views |
 | Template-driven talk feels repetitive | Large template pools, weighted randomization, domain expansion |
 | LLM echo loop on canvas/document edits | Self-edit flag set before write, cleared after |
+| Obsidian Canvas API instability | File-based `.canvas` JSON editing, degrade to read-only if unreliable |
+| Plugin lacks SSE/spawn infrastructure | New `CliProcessManager` + `SseClient` services (explicit scope in C2) |
+| LLM call failure mid-skill | Timeout, retry, error SSE events, session pause/resume |
+| Concurrent skill sessions overload | Max 3 active sessions, queue with waiting indicator |
+| Local API security | Shared secret token generated per plugin load, validated on all requests |
+| Scope exceeds runway | Prioritized cutline: must/should/nice-to-have tiers |
