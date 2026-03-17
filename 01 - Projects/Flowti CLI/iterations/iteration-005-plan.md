@@ -67,229 +67,50 @@ We can interact with our agents in an ExcaliburJS RPG world — they wander, we 
 - [x] Agent launch flow (UI handlers — `agent:run`, `agent:run-brief`, `agents:autonomous-enabled`)
 - [x] Agent output display (renderers — brief generated, spawned, output, complete, session list)
 
-### Phase B: ExcaliburJS RPG World
-
-#### B1. Enhanced Data Export (foundation)
-
-Expand `DashboardAgent` to surface the rich agent model to the ExcaliburJS world.
-
-**Modify** `src/domain/agents/agent-export.ts`:
-- [ ] Add to `DashboardAgent`: `persona`, `mood`, `attributes` (STR/INT/WIS/CHA/DEX/CON), `personality` (string[]), `skills` (name+level[]), `suggestedTasks` (name+phases[]), `experience`, `currentTask` (string, derived from active brief/session)
-- [ ] Update `buildDashboardAgent()` to map these fields from `AgentSummary`
-- [ ] Derive `currentTask` from active session or brief for this agent
-
-**Modify** `agents/src/data-loader.ts`:
-- [ ] Update `DashboardAgent` interface to match new export fields
-- [ ] Add `AgentAttributes`, `AgentSkillEntry`, `AgentTask` interfaces
-
-**Test** `tests/domain/agents/agent-export.test.ts` (update):
-- [ ] Verify persona, mood, attributes, skills included in export
-- [ ] Verify currentTask derived from active session
-- [ ] Verify empty/missing fields have safe defaults
-
-**Acceptance:** `agent-dashboard.json` includes all RPG fields for every agent. Dashboard types match.
-
----
-
-#### B2. Scene Manager & Settings
-
-Replace single grid scene with a multi-scene world — three distinct settings agents can inhabit.
-
-**Create** `agents/src/settings/setting-config.ts`:
-- [ ] Define `SettingConfig` — name, displayName, description, bounds (width/height), spawnPoints (Vector[]), workstationSlots ({pos, label, type}[]), backgroundColor, themeColors
-- [ ] Define 3 presets: `OFFICE_SETTING`, `VILLAGE_SETTING`, `STATION_SETTING`
-- [ ] Export `ALL_SETTINGS` registry and `getSettingForAgent(domain)` — maps agent domain to default setting (engineering→office, design→village, product/management→station)
-
-**Create** `agents/src/settings/base-scene.ts`:
-- [ ] Abstract `BaseWorldScene extends ex.Scene` — shared logic: agent placement from data, workstation rendering, background drawing, scene label HUD
-- [ ] `setAgents(agents: DashboardAgent[])` — filter and place agents in this scene
-- [ ] `drawSettingBackground(gfx)` — abstract, implemented per setting
-- [ ] `getWorkstations()` — returns workstation actors for this setting
-
-**Create** `agents/src/settings/office-scene.ts`:
-- [ ] Extends `BaseWorldScene` — cool gray palette, desk rows, monitor rectangles, coffee machine corner, meeting room area, whiteboard on wall
-- [ ] Canvas-drawn environment (no image assets — shapes + labels, consistent with MVP approach)
-
-**Create** `agents/src/settings/village-scene.ts`:
-- [ ] Extends `BaseWorldScene` — warm earth palette, cobblestone ground, workshop building, forge area, library with book stacks, market square with stalls
-
-**Create** `agents/src/settings/station-scene.ts`:
-- [ ] Extends `BaseWorldScene` — dark blue/purple, neon accents, command bridge, lab benches, engineering bay, med bay, viewport with starfield
-
-**Create** `agents/src/scene-manager.ts`:
-- [ ] `SceneManager` class — registers all 3 scenes with engine, distributes agents by domain mapping
-- [ ] `switchScene(settingName)` — transition with optional fade
-- [ ] HUD overlay: setting name + navigation arrows/buttons to cycle settings
-
-**Modify** `agents/src/main.ts`:
-- [ ] Replace single `AgentScene` with `SceneManager` setup
-- [ ] Load data → distribute agents → start at office scene
-- [ ] Add keyboard shortcuts for scene cycling (Left/Right arrows)
-
-**Acceptance:** Three distinct scenes with domain-based agent distribution. Arrow keys switch scenes. Each setting has a unique visual identity drawn with canvas shapes.
-
----
-
-#### B3. Agent Visual Upgrade
-
-Replace status circles with character representations that show personality.
-
-**Modify** `agents/src/agent-actor.ts`:
-- [ ] Replace circle drawing with character body: head (circle), torso (rounded rect), simple limbs — all canvas-drawn, no sprites
-- [ ] Color body based on domain (engineering=blue, design=purple, product=green, management=orange)
-- [ ] Show persona name above head (or agent name if no persona)
-- [ ] Mood indicator: small emoji/icon next to name (maps mood string to icon)
-- [ ] Direction facing: flip body horizontally based on movement direction
-- [ ] Status badge: small colored dot (busy=green, idle=blue, working=yellow, talking=white)
-- [ ] Idle animation: subtle breathing (scale oscillation on torso)
-
-**Acceptance:** Agents look like characters, not circles. Mood and status are visible at a glance. Direction changes with movement.
-
----
-
-#### B4. Workstation Tiles
-
-Interactive furniture that agents walk to when working.
-
-**Create** `agents/src/tiles/workstation.ts`:
-- [ ] `Workstation extends ex.Actor` — canvas-drawn furniture piece with label, type icon, occupied indicator
-- [ ] Types: `desk` (office), `anvil` (village), `console` (station) — drawn differently per type
-- [ ] `occupy(agent)` / `vacate()` — track which agent is using this workstation
-- [ ] Visual: glow or highlight when occupied, dim when empty
-- [ ] Position defined by setting config (workstationSlots)
-
-**Acceptance:** Each scene has 4-6 workstations. Agents walk to them when assigned work. Occupied workstations glow.
-
----
-
-#### B5. Agent Wandering AI
-
-Agents move around their scene with purpose using a state machine.
-
-**Create** `agents/src/ai/agent-state-machine.ts`:
-- [ ] Define states: `idle`, `wandering`, `walking-to`, `working`, `talking`
-- [ ] State transitions: idle→wandering (random timer), wandering→idle (reached target), idle→walking-to (task assigned), walking-to→working (reached workstation), working→idle (task done), idle→talking (clicked), talking→idle (conversation ended)
-- [ ] Each state has `enter()`, `update(delta)`, `exit()` hooks
-- [ ] Expose `currentState`, `transitionTo(state)`, `update(delta)`
-
-**Create** `agents/src/ai/wander-behavior.ts`:
-- [ ] Random target selection within scene bounds (respecting spawn area)
-- [ ] Configurable pause duration at target (2-5s), wander speed (30-60 px/s)
-- [ ] Avoid overlapping with other agents (simple separation force)
-- [ ] Prefer areas near workstations and gathering points
-
-**Modify** `agents/src/agent-actor.ts`:
-- [ ] Integrate state machine — call `stateMachine.update(delta)` in `onPreUpdate`
-- [ ] Use `ex.Actor.actions.moveTo()` for smooth movement
-- [ ] Update facing direction based on movement vector
-- [ ] Trigger animations per state (breathing idle, walking bob, working focus)
-
-**Acceptance:** Agents wander naturally within their scene. They pause, change direction, avoid each other. Busy agents prefer workstations. Movement looks smooth and purposeful.
-
----
-
-#### B6. Click-to-Interact System
-
-Click an agent to open an interaction panel with talk, task assignment, and stats.
-
-**Create** `agents/src/ui/interaction-panel.ts`:
-- [ ] HTML overlay panel (positioned relative to canvas, not ExcaliburJS-internal) showing:
-  - Agent name / persona, role, domain
-  - Mood, personality traits
-  - Attributes as a mini stat bar (STR/INT/WIS/CHA/DEX/CON)
-  - Action buttons: Talk, Assign Task, View Stats, Close
-- [ ] Panel follows agent position (anchored above head)
-- [ ] Click outside panel or Close button dismisses it
-- [ ] Only one panel open at a time
-
-**Modify** `agents/src/agent-actor.ts`:
-- [ ] Add `pointerdown` event handler — opens interaction panel, transitions agent to `talking` state
-- [ ] Selection highlight ring around clicked agent
-- [ ] Emit custom event `agent-selected` with agent data
-
-**Acceptance:** Clicking any agent opens a styled panel with their info and action buttons. Panel tracks agent position. Only one panel at a time.
-
----
-
-#### B7. Speech & Thinking Bubbles
-
-Agents express themselves with floating text overlays.
-
-**Create** `agents/src/ui/speech-bubble.ts`:
-- [ ] `SpeechBubble` — canvas-drawn rounded rect with triangular tail pointing to agent, text inside, auto-wraps long text
-- [ ] Auto-dismiss after configurable duration (3-5s)
-- [ ] `showSpeech(agent, text, duration?)` — attach bubble above agent head
-- [ ] `showThinking(agent, text?)` — cloud-style bubble with "..." dots animation (three dots cycling)
-
-**Create** `agents/src/ui/bubble-manager.ts`:
-- [ ] Manages active bubbles, handles cleanup on dismiss
-- [ ] Random idle quotes: agents occasionally say things from their personality/mood (e.g., "Reviewing the architecture..." for an architect, "Running tests..." for a tester)
-- [ ] Queue system — if agent has pending bubble, wait for current to dismiss
-
-**Modify** `agents/src/agent-actor.ts`:
-- [ ] Integrate bubble manager — show thinking bubble when `working`, speech bubble when `talking`
-- [ ] On state transitions, trigger appropriate bubble
-
-**Acceptance:** Agents show speech bubbles when talked to, thinking bubbles when working. Idle agents occasionally show personality-driven quotes. Bubbles auto-dismiss.
-
----
-
-#### B8. Task Assignment from World
-
-Select a task from agent's skills and dispatch it within the world.
-
-**Create** `agents/src/ui/task-panel.ts`:
-- [ ] Sub-panel of interaction panel — lists agent's `suggestedTasks` as clickable buttons
-- [ ] Each task shows name and relevant phases
-- [ ] Clicking a task: closes panel, agent walks to nearest available workstation, enters `working` state, shows thinking bubble with task name
-
-**Create** `agents/src/task-dispatcher.ts`:
-- [ ] `dispatchTask(agent, task)` — triggers agent state transition: talking→walking-to→working
-- [ ] Working state duration: 5-15s (simulated — visual demo, not actual CLI execution)
-- [ ] On completion: agent shows speech bubble "Done: {task}!", returns to idle wander
-- [ ] Track assigned tasks per agent for the session
-
-**Acceptance:** Can assign any of an agent's suggested tasks from the interaction panel. Agent visibly walks to workstation, works with thinking bubble, completes with speech bubble.
-
----
-
-#### B9. Live Status Updates
-
-Agent status changes reflected in the world without full page refresh.
-
-**Create** `agents/src/data-poller.ts`:
-- [ ] Periodic re-fetch of `agent-dashboard.json` (default: 30s interval, configurable)
-- [ ] Diff detection: compare new data with current — identify status changes, new agents, removed agents
-- [ ] On status change: trigger state machine transition, show speech bubble announcing change (e.g., "I'm now busy on Iteration #5!")
-- [ ] On new agent: spawn into appropriate scene with entrance animation
-
-**Acceptance:** Dashboard auto-refreshes data. Status changes from CLI (e.g., assigning agent to iteration) appear in world within 30s. Speech bubbles announce transitions.
-
----
-
-#### B10. Setting Themes
-
-Visual theming per setting with distinct atmosphere.
-
-**Enhance** `agents/src/settings/office-scene.ts`:
-- [ ] Color palette: cool grays (#1a1a2e, #2d2d44), accent blue
-- [ ] Floor grid pattern, fluorescent light strips on ceiling
-- [ ] Decorative: potted plants (green circles), whiteboard (white rect with scribble lines), coffee machine
-- [ ] Ambient: subtle vignette around edges
-
-**Enhance** `agents/src/settings/village-scene.ts`:
-- [ ] Color palette: warm earth (#2d1b0e, #4a3523), accent amber
-- [ ] Cobblestone ground pattern (small gray/brown circles), grass edges
-- [ ] Decorative: trees (green triangles on brown rects), torch lights (yellow glow circles), wooden signs
-- [ ] Ambient: warm gradient sky at top
-
-**Enhance** `agents/src/settings/station-scene.ts`:
-- [ ] Color palette: deep blue/purple (#0a0a2e, #1a1a3e), neon cyan accents
-- [ ] Metal floor plate pattern, glowing panel lines
-- [ ] Decorative: viewport window with starfield (random white dots), control panels (colored rectangles), holographic displays
-- [ ] Ambient: scanline overlay effect
-
-**Acceptance:** Each setting has a distinct visual identity. Walking into a scene immediately communicates the theme. No image assets — all canvas-drawn.
+### Phase B: ExcaliburJS RPG World — DELIVERED
+
+Phase B was delivered across 4 implementation plans, evolving from canvas-drawn shapes to full Ninja Adventure pixel-art sprites. The original B1-B10 scope items below were superseded by the actual implementation.
+
+#### Phase B Delivery Notes
+
+**Evolution path:**
+1. **B1 Foundation** (`docs/plans/2026-03-16-excalibur-rpg-environment.md`) — CLI-side multi-listener, DashboardAgent RPG field expansion, SSE + HTTP API endpoints, world-state polling
+2. **B2 Pixel-Art + Rooms** (`docs/plans/2026-03-16-excalibur-rpg-phase-b2.md`) — Canvas2D pixel-art agents, domain-to-room routing, panel integration, sync system, scene backgrounds
+3. **B3 Habits + Camera** (`docs/plans/2026-03-16-excalibur-rpg-phase-b3.md`) — Personality-driven habits (computeHabits), on-break state, idle pose cycling, social facing, camera follow system
+4. **Ninja Adventure Sprites** (`docs/plans/2026-03-16-ninja-adventure-sprites.md`) — Replaced programmatic pixel-art with 86 Ninja Adventure character spritesheets (16x16 at 4x scale, idle + 4-directional walk animations)
+
+**What was built (39 source files, 19 test suites, 156 tests):**
+- [x] 5 scenes: hub, office, village, station + room base class with doorway navigation
+- [x] Sprite system: `sprite-loader.ts` + `character-pool.ts` (86 characters, domain-based pools)
+- [x] Brain system: `brain-system.ts` with 7 states (idle, wandering, walking-to, working, on-break, talking, waiting)
+- [x] Habit-driven AI: `agent-brain.ts` with `computeHabits()` — movement style, idle style, social/focus drift, break threshold, settling pause
+- [x] Movement engine: `movement.ts` — resolveIdleTarget (social drift, focus drift, random wander), randomWanderPoint, workstation preference
+- [x] Bubble system: `bubble-system.ts` + `bubble-actor.ts` — speech, thought, question bubbles with queue and auto-dismiss
+- [x] Talk engine: `talk-engine.ts` — ambient personality-driven idle quotes
+- [x] Camera system: `camera-system.ts` — click-to-follow, cross-room tracking, scroll zoom
+- [x] Panel UI: Lit-based `agent-panel.ts` with 5 tabs (info, talk, tasks, permissions, history)
+- [x] Store: `dashboard-store.ts` — reactive state management for all UI
+- [x] Sync system: `sync-system.ts` — SSE event stream, 30s world-state polling, dashboard boot
+- [x] API client: `api-client.ts` — POST /api/agent/send, /api/agent/task, /api/agent/permission
+- [x] Event stream: `event-stream.ts` — SSE with exponential backoff reconnection
+- [x] Workstation actors with occupy/vacate lifecycle
+- [x] Scene backgrounds: canvas-drawn themed environments per room
+- [x] Roster bar + camera HUD + dashboard overlays
+- [x] Domain-to-room mapping: `domain-map.ts` with `resolveSettingForDomain()`
+
+**Key architectural decisions that evolved from original plan:**
+- Sprites replaced canvas-drawn characters (B3 visual upgrade)
+- Lit web components replaced raw HTML panels (B6 click-to-interact)
+- Brain system is centralized (runs all agents from engine preframe), not per-actor state machines (B5)
+- Habits derived from GURPS attributes at spawn time, not runtime (B3 reimagined)
+- Talk engine handles ambient quotes separately from bubble system (B7 split)
+
+**Remaining gaps (see refinement-2026-03-17-agent-world.md):**
+- [ ] Data export: game-side DashboardAgent missing `goals`, `behaviors`, `project`, `iteration`, `phase`
+- [ ] World state reconciliation: `onStateDiff` handler is a stub
+- [ ] Task execution: visual-only, no actual CLI agent runner integration
+- [ ] Game feel: no particles, emotes, or workstation glow
+- [ ] Social interaction: facing only, no proximity conversations
 
 ---
 
