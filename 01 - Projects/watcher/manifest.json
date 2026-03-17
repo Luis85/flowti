@@ -1,0 +1,10 @@
+{
+	"id": "foreign-folder-watcher",
+	"name": "Foreign Folder Watcher",
+	"version": "1.0.0",
+	"minAppVersion": "1.11.4",
+	"description": "A simple plugin to sync data from outside of the vault.",
+	"author": "Luis Mendez",
+	"authorUrl": "https://luis-mendez.de",
+	"isDesktopOnly": true
+}

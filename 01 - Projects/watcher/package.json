@@ -1,0 +1,39 @@
+{
+	"name": "foreign-folder-watcher",
+	"version": "1.0.0",
+	"description": "A simple plugin to watch folders outside of the vault and sync them.",
+	"main": "main.js",
+	"scripts": {
+		"dev": "node esbuild.config.mjs --watch",
+		"build": "vitest run && typedoc && tsc -noEmit -skipLibCheck && node esbuild.config.mjs --production",
+		"build:distribute": "vitest run && typedoc && tsc -noEmit -skipLibCheck && node esbuild.config.mjs --distribution",
+		"version": "node version-bump.mjs && git add manifest.json versions.json",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:ui": "vitest --ui",
+		"test:coverage": "vitest run --coverage",
+		"docs": "typedoc",
+		"publish": "npm run test:coverage && npm run docs && npm run build && npx vite preview --outDir docs/tests --open"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "MIT",
+	"devDependencies": {
+		"@types/node": "^25.0.9",
+		"@typescript-eslint/eslint-plugin": "8.50.1",
+		"@typescript-eslint/parser": "8.50.1",
+		"@vitest/coverage-v8": "^4.0.16",
+		"@vitest/ui": "^4.0.16",
+		"builtin-modules": "5.0.0",
+		"esbuild": "0.27.2",
+		"memfs": "^4.52.0",
+		"obsidian": "latest",
+		"tslib": "2.8.1",
+		"typedoc": "^0.28.15",
+		"typescript": "5.9.3",
+		"vitest": "^4.0.16"
+	},
+	"dependencies": {
+		"chokidar": "^5.0.0"
+	}
+}

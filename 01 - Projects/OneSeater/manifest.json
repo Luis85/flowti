@@ -1,0 +1,10 @@
+{
+	"id": "obsidian-oneseater",
+	"name": "OneSeater",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "A simple plugin to fiddle around with motorsport data.",
+	"author": "Luis Mendez",
+	"authorUrl": "https://luis-mendez.de",
+	"isDesktopOnly": true
+}
