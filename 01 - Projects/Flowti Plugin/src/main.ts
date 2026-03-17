@@ -7,7 +7,7 @@ import type { IEventBridge, IEventBus } from "./infrastructure/events/types";
 import type { ILogger } from "./infrastructure/logger/types";
 import { registerServices } from "./infrastructure/services/registry";
 import type { IServiceContainer } from "./infrastructure/services/types";
-import { FlowtiSettingTab } from "./domain/settings/FlowtiSettingTab";
+import { FlowtiSettingTab } from "./ui/settings/FlowtiSettingTab";
 import {
 	DEFAULT_SETTINGS,
 	FlowtiSettings,
@@ -26,13 +26,10 @@ import type { InboxService } from "./domain/inbox/InboxService";
 import { FileSystemClient } from "./infrastructure/filesystem/FileSystemClient";
 import type { NudgeService } from "./domain/nudge/NudgeService";
 import type { SessionService } from "./domain/session/SessionService";
-import { SESSION_NOTES_FOLDER } from "./domain/session/types";
 import type { SignalService } from "./domain/signal/SignalService";
 import type { IngestionService } from "./domain/ingestion/IngestionService";
 import type { CaptureService } from "./domain/capture/CaptureService";
 import type { TrainService } from "./domain/train/TrainService";
-import { TrainCanvasSyncService } from "./domain/train/TrainCanvasSyncService";
-import { getCanvasPath } from "./domain/train/helpers";
 import type { CanvasService } from "./domain/canvas/CanvasService";
 import type { AnalyticsService } from "./domain/analytics/AnalyticsService";
 import type { OnboardingService } from "./domain/onboarding/OnboardingService";
@@ -46,6 +43,7 @@ import { IngestionStatusBar } from "./ui/shared/IngestionStatusBar";
 import { DataExchangeService } from "./domain/dataExchange/DataExchangeService";
 import { DataExchangeSetup } from "./bootstrap/dataExchangeSetup";
 import { SessionSetup } from "./bootstrap/sessionSetup";
+import { TrainSetup } from "./bootstrap/trainSetup";
 import { UiCommandService } from "./infrastructure/ui/UiCommandService";
 import { createInfrastructure, setupCrossCuttingListeners } from "./bootstrap/pluginBootstrap";
 import { createSecretStore } from "./utils/SecretStore";
@@ -57,9 +55,7 @@ import { UserHubProvider } from "./domain/hub/UserHubProvider";
 import { TrainHubProvider } from "./domain/hub/TrainHubProvider";
 import { registerUserHandlers } from "./infrastructure/handlers/user-handlers";
 import { SessionWorkspaceView, VIEW_TYPE_SESSION_WORKSPACE } from "./ui/session/SessionWorkspaceView";
-import { VIEW_TYPE_TRAIN_MAIN } from "./ui/train/TrainMainView";
-import { VIEW_TYPE_TRAIN_TIMELINE } from "./ui/train/TrainTimelineSidebar";
-import { CanvasSessionService } from "./domain/canvas/session/CanvasSessionService";
+import type { CanvasSessionService } from "./domain/canvas/session/CanvasSessionService";
 import { VIEW_TYPE_JOURNEY_FILE } from "./ui/journeyBuilder/JourneyFileView";
 import { JourneyBuilderService } from "./domain/journeyBuilder/JourneyBuilderService";
 import type { TestManagementService } from "./domain/testManagement/TestManagementService";
@@ -94,6 +90,7 @@ import { registerSessionWorkspaceHandler } from "./infrastructure/handlers/leaf-
 import { registerJourneyBuilderHandler } from "./infrastructure/handlers/leaf-handlers/journey-builder-handler";
 import type { PluginSitemap } from "./domain/sitemap/plugin-sitemap-types";
 import pluginSitemap from "../plugin-sitemap.json";
+import type { TrainCanvasSyncService } from "./domain/train/TrainCanvasSyncService";
 
 
 /**  
@@ -168,6 +165,8 @@ export default class FlowtiBasePlugin extends Plugin {
 	private uiCommandService?: UiCommandService;
 	private hubRegistry?: HubRegistry;
 	private sessionSetup?: SessionSetup;
+	private trainSetup?: TrainSetup;
+	private trainCanvasSync?: TrainCanvasSyncService;
 	private crossCuttingListeners: (() => void)[] = [];
 	private pendingSettingsWarning?: unknown[];
 	private noticeService?: NoticeService;
@@ -268,7 +267,7 @@ export default class FlowtiBasePlugin extends Plugin {
 						shouldShowCallout: (id: string) => !(this.onboardingService?.isCalloutDismissed(id) ?? false),
 					},
 					eventBus: this.eventBus,
-					openTrainView: (trainId: string) => this.revealOrCreateTrainView(trainId),
+					openTrainView: (trainId: string) => this.trainSetup?.revealOrCreateTrainView(trainId),
 				});
 				registerCatalogHandlers(handlerRegistry, {
 					viewState: {
@@ -465,6 +464,8 @@ export default class FlowtiBasePlugin extends Plugin {
 		for (const type of viewTypes) {
 			safeDispose(`detach:${type}`, () => this.app.workspace.detachLeavesOfType(type));
 		}
+		safeDispose("trainCanvasSync", () => this.trainCanvasSync?.destroy());
+		safeDispose("canvasSessionService", () => this.canvasSessionService?.dispose());
 		safeDispose("journeyBuilderService", () => this.journeyBuilderService?.stop());
 		safeDispose("canvasService", () => this.canvasService?.dispose());
 		safeDispose("signalService", () => this.signalService?.dispose());
@@ -874,46 +875,26 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.signalService = await this.services.get<SignalService>("signalService");
 		await this.timedServiceLoad("signalService", () => this.signalService!.load());
 
-		// Capture Service — quick note capture via ribbons and command palette
-		this.captureService = await this.services.get<CaptureService>("captureService");
-		this.captureService.getSettings = () => ({
-			captureFolder: settingsService.getSettings().captureFolder,
-		});
-
-		// Train Service — serial thought capture sessions
-		this.trainService = await this.services.get<TrainService>("trainService");
-		this.trainService.getSettings = () => ({
-			trainFolder: settingsService.getSettings().trainFolder,
-			trainMaxThoughts: settingsService.getSettings().trainMaxThoughts,
-		});
-		await this.timedServiceLoad("trainService", () => this.trainService!.load());
-
-		// Train Canvas Sync — auto-generate canvas from train graph
-		const trainCanvasFileSystem = new FileSystemClient({ eventBus: this.eventBus });
-		const trainCanvasSync = new TrainCanvasSyncService({
+		// Train domain — service instantiation, canvas sync, event subscriptions
+		this.trainSetup = new TrainSetup({
+			app: this.app,
 			eventBus: this.eventBus,
-			fileSystem: trainCanvasFileSystem,
-			getSettings: () => ({
-				trainCanvasEnabled: settingsService.getSettings().trainCanvasEnabled,
-			}),
-			getTrain: (id) => this.trainService?.getTrain(id),
+			services: this.services,
+			settingsService,
+			sessionService: this.sessionService!,
+			noticeService: this.noticeService!,
+			modalService: this.modalService!,
 		});
-		trainCanvasSync.setup();
-		this.register(() => trainCanvasSync.destroy());
-
-		// Canvas Service — canvas import configurations and orchestration
-		this.canvasService = await this.services.get<CanvasService>("canvasService");
-		await this.timedServiceLoad("canvasService", () => this.canvasService!.load());
+		const trainResult = await this.trainSetup.setup(
+			(name, loadFn) => this.timedServiceLoad(name, loadFn),
+		);
+		this.trainService = trainResult.trainService;
+		this.captureService = trainResult.captureService;
+		this.canvasService = trainResult.canvasService;
+		this.canvasSessionService = trainResult.canvasSessionService;
+		this.trainCanvasSync = trainResult.trainCanvasSync;
+		this.crossCuttingListeners.push(...trainResult.unsubscribes);
 		this.dataExchangeService!.setCanvasService(this.canvasService);
-
-		// Canvas Session Service — guided canvas session orchestration
-		const canvasSessionFs = new FileSystemClient({ eventBus: this.eventBus });
-		this.canvasSessionService = new CanvasSessionService({
-			eventBus: this.eventBus,
-			fileSystem: canvasSessionFs,
-			sessionFolder: SESSION_NOTES_FOLDER,
-		});
-		this.register(() => this.canvasSessionService?.dispose());
 
 		// Journey Builder Service — writes exported journey JSON via adapter
 		const journeyBuilderFs = new FileSystemClient({ eventBus: this.eventBus });
@@ -923,12 +904,6 @@ export default class FlowtiBasePlugin extends Plugin {
 			getSettings: () => ({ journeyFolder: settingsService.getSettings().journeyFolder }),
 		});
 		this.journeyBuilderService.start();
-
-		// Wire domain services into ModalService
-		this.modalService?.setCaptureService(this.captureService);
-		this.modalService?.setTrainService(this.trainService);
-		this.modalService?.setSessionService(this.sessionService!);
-		this.modalService?.setCanvasSessionService(this.canvasSessionService);
 
 		// Analytics Service — in-memory CSV analytics engine
 		this.analyticsService = await this.services.get<AnalyticsService>("analyticsService");
@@ -1242,188 +1217,6 @@ export default class FlowtiBasePlugin extends Plugin {
 			}),
 		);
 
-		this.crossCuttingListeners.push(
-			this.eventBus.on("train.started", (event) => {
-				this.revealOrCreateTrainView(event.payload.train.id);
-				this.revealOrCreateTrainTimeline(event.payload.train.id);
-			}),
-		);
-
-		// Auto-open canvas when created (if trainCanvasAutoOpen is enabled)
-		// Delay 500ms to allow metadataCache to settle before Advanced Canvas parses the file.
-		this.crossCuttingListeners.push(
-			this.eventBus.on("train.canvas.created", (event) => {
-				if (settingsService.getSettings().trainCanvasAutoOpen) {
-					setTimeout(() => {
-						void this.app.workspace.openLinkText(event.payload.canvasPath, "", false);
-					}, 500);
-				}
-			}),
-		);
-
-		// Resume train → reveal Train Main View (modal opened separately via ui.startTrain)
-		this.crossCuttingListeners.push(
-			this.eventBus.on("train.resumed", (event) => {
-				const train = this.trainService?.getTrain(event.payload.trainId);
-				if (train) {
-					this.revealOrCreateTrainView(train.id);
-				}
-			}),
-		);
-
-		// Open/reveal Train Main View on command (accepts optional trainId)
-		this.crossCuttingListeners.push(
-			this.eventBus.on("ui.openTrainView", (event) => {
-				const trainId = event.payload.trainId ?? this.trainService?.getActiveTrain()?.id ?? null;
-				this.revealOrCreateTrainView(trainId);
-			}),
-		);
-
-		// Toggle Train Timeline Sidebar — 3-state: open, reveal, or collapse
-		this.crossCuttingListeners.push(
-			this.eventBus.on("ui.toggleTrainTimeline", (event) => {
-				const rightSplit = (this.app.workspace as unknown as {
-					rightSplit?: { collapsed?: boolean; expand?: () => void; collapse?: () => void };
-				}).rightSplit;
-				const existingLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TRAIN_TIMELINE);
-
-				// Force close — always collapse (used after closure ritual)
-				if (event.payload.forceClose) {
-					rightSplit?.collapse?.();
-					return;
-				}
-
-				// Case 1: Sidebar is collapsed → expand and show timeline
-				if (rightSplit?.collapsed) {
-					rightSplit.expand?.();
-					if (existingLeaves.length > 0) {
-						void this.app.workspace.revealLeaf(existingLeaves[0]);
-					} else {
-						this.revealOrCreateTrainTimeline(event.payload.trainId);
-					}
-					return;
-				}
-
-				// Sidebar is open
-				if (existingLeaves.length > 0) {
-					// Timeline leaf exists — check if it's visible
-					const timelineLeaf = existingLeaves[0];
-					const isVisible = timelineLeaf.view?.containerEl?.isShown?.() !== false;
-					if (isVisible) {
-						// Case 2: Timeline is visible → collapse sidebar
-						rightSplit?.collapse?.();
-					} else {
-						// Case 3: Different tab is active → reveal timeline
-						void this.app.workspace.revealLeaf(timelineLeaf);
-					}
-				} else {
-					// No timeline leaf exists → create it
-					this.revealOrCreateTrainTimeline(event.payload.trainId);
-				}
-			}),
-		);
-
-		// Resume paused train (command palette)
-		this.crossCuttingListeners.push(
-			this.eventBus.on("ui.resumeTrain", () => {
-				const paused = this.trainService?.getAllTrains().find((t) => t.status === "paused");
-				if (!paused) {
-					this.noticeService!.show("No paused train to resume");
-					return;
-				}
-				void this.trainService!.resume(paused.id);
-			}),
-		);
-
-		// Complete current train (command palette)
-		this.crossCuttingListeners.push(
-			this.eventBus.on("ui.completeTrain", () => {
-				const active = this.trainService?.getActiveTrain();
-				if (!active) {
-					this.noticeService!.show("No active train to complete");
-					return;
-				}
-				void this.trainService!.completeTrain(active.id);
-			}),
-		);
-
-		// Rename train folder when train is renamed
-		this.crossCuttingListeners.push(
-			this.eventBus.on("train.renamed", (event) => {
-				const { oldFolder, newFolder } = event.payload;
-				if (oldFolder && newFolder && oldFolder !== newFolder) {
-					const folder = this.app.vault.getAbstractFileByPath(oldFolder);
-					if (folder) {
-						void this.app.vault.rename(folder, newFolder);
-					}
-				}
-			}),
-		);
-
-		// Rename vault note when a thought is renamed
-		this.crossCuttingListeners.push(
-			this.eventBus.on("train.thought.renamed", (event) => {
-				const { oldPath, newPath } = event.payload;
-				if (oldPath !== newPath) {
-					const file = this.app.vault.getAbstractFileByPath(oldPath);
-					if (file) {
-						void this.app.vault.rename(file, newPath);
-					}
-				}
-			}),
-		);
-
-		// Open canvas for active train (command palette)
-		this.crossCuttingListeners.push(
-			this.eventBus.on("ui.openTrainCanvas", () => {
-				const active = this.trainService?.getActiveTrain();
-				if (!active) {
-					this.noticeService!.show("No active train");
-					return;
-				}
-				const settings = settingsService.getSettings();
-				if (!settings.trainCanvasEnabled || !active.folderPath) {
-					this.noticeService!.show("Train canvas is not enabled");
-					return;
-				}
-				const canvasPath = getCanvasPath(active.title, active.folderPath);
-				void this.app.workspace.openLinkText(canvasPath, "", false);
-			}),
-		);
-
-		// Open train timeline sidebar for active train (command palette)
-		this.crossCuttingListeners.push(
-			this.eventBus.on("ui.openTrainTimeline", () => {
-				const active = this.trainService?.getActiveTrain();
-				if (!active) {
-					this.noticeService!.show("No active train");
-					return;
-				}
-				this.revealOrCreateTrainTimeline(active.id);
-			}),
-		);
-
-		// Auto-open Session Workspace for train closure ritual
-		// Train sessions suppress workspace on start, but need it for closure
-		this.crossCuttingListeners.push(
-			this.eventBus.on("session.closure.started", (event) => {
-				const session = this.sessionService?.getSessionById(event.payload.sessionId);
-				if (!session || session.type !== "train-of-thought") return;
-
-				const existingLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_SESSION_WORKSPACE);
-				if (existingLeaves.length > 0) {
-					// Already open — just reveal it (it will re-render the closure overlay)
-					void this.app.workspace.revealLeaf(existingLeaves[0]);
-					return;
-				}
-
-				void this.app.workspace.getLeaf("tab").setViewState({
-					type: VIEW_TYPE_SESSION_WORKSPACE,
-					active: true,
-				});
-			}),
-		);
-
 		// Auto-open workspace and focus file when a session starts
 		// Skip if a workspace already exists (e.g. started from sidebar)
 		// Skip for train-of-thought sessions — they use TrainMainView instead
@@ -1467,58 +1260,6 @@ export default class FlowtiBasePlugin extends Plugin {
 		);
 
 		return settingsService;
-	}
-
-	/**
-	 * Opens the Train capture modal in a recursive loop.
-	 * Each submit fires addThought in the background and opens the next modal
-	 * immediately (optimistic) to keep the capture flow snappy.
-	 * Cancel (escape/close) pauses the train. Complete ends it permanently.
-	 */
-	/**
-	 * Opens the Train Main View for a specific train, or reveals an existing one.
-	 * If no train ID is given (e.g. no active train), opens the view in empty state.
-	 */
-	private revealOrCreateTrainView(trainId: string | null): void {
-		const existingLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TRAIN_MAIN);
-		if (existingLeaves.length > 0) {
-			// Already open — refresh with the given train and reveal
-			for (const leaf of existingLeaves) {
-				void leaf.setViewState({
-					type: VIEW_TYPE_TRAIN_MAIN,
-					state: { trainId },
-				});
-			}
-			void this.app.workspace.revealLeaf(existingLeaves[0]);
-			return;
-		}
-		void this.app.workspace.getLeaf("tab").setViewState({
-			type: VIEW_TYPE_TRAIN_MAIN,
-			active: true,
-			state: { trainId },
-		});
-	}
-
-	/**
-	 * Opens the Train Timeline Sidebar in the right split, or reveals an existing one.
-	 */
-	private revealOrCreateTrainTimeline(trainId: string | null): void {
-		const existingLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TRAIN_TIMELINE);
-		if (existingLeaves.length > 0) {
-			for (const leaf of existingLeaves) {
-				void leaf.setViewState({
-					type: VIEW_TYPE_TRAIN_TIMELINE,
-					state: { trainId },
-				});
-			}
-			void this.app.workspace.revealLeaf(existingLeaves[0]);
-			return;
-		}
-		void this.app.workspace.getRightLeaf(false)?.setViewState({
-			type: VIEW_TYPE_TRAIN_TIMELINE,
-			active: true,
-			state: { trainId },
-		});
 	}
 
 	/**
