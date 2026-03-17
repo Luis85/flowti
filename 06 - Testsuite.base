@@ -1,8 +1,7 @@
 filters:
   and:
-    - file.inFolder("Development/flowti/docs/journeys")
+    - file.folder.contains("journey")
     - file.ext == "md"
-    - '!file.folder.contains("past")'
 views:
   - type: table
     name: Index
@@ -20,7 +19,7 @@ views:
       - tags
     columnSize:
       file.mtime: 160
-      file.name: 165
+      file.name: 261
       note.total_steps: 106
       note.passed: 101
       note.failed: 82

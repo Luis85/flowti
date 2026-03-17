@@ -34,3 +34,8 @@ complexity/
 docs/reports/build-endpoints.json
 
 styles.css
+
+*storybook.log
+storybook-static
+
+components/

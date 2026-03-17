@@ -1,6 +1,11 @@
 {
 	"nodes":[
 		{"id":"503aff305fed1757","type":"group","x":-240,"y":5280,"width":5727,"height":1200,"label":"Views and Improvements"},
+		{"id":"2c1e7c02563950b0","type":"group","x":1040,"y":-4960,"width":1660,"height":1000,"label":"Flowti Obsidian Plugin"},
+		{"id":"96ead2b8efcef87e","type":"group","x":1060,"y":-4460,"width":660,"height":480,"label":"Infrastructure"},
+		{"id":"c9cc0a6450acb269","type":"group","x":1760,"y":-4460,"width":580,"height":480,"label":"User Interface"},
+		{"id":"983ac3ec1a9ff970","type":"group","x":1080,"y":-4380,"width":300,"height":380,"label":"Eventsystem"},
+		{"id":"0c2045c923d1ccf0","type":"group","x":1780,"y":-370,"width":300,"height":180,"label":"Obsidian"},
 		{"id":"277a7b8ec3640f58","type":"group","x":-40,"y":-1930,"width":3440,"height":1960,"label":"Unit under Test"},
 		{"id":"b166cd871972398d","type":"group","x":1380,"y":2180,"width":2860,"height":1520,"label":"Flowti - Mental Model"},
 		{"id":"51179f94edca6611","type":"group","x":4600,"y":2180,"width":3540,"height":620,"label":"Road to ISO Compliance"},
@@ -24,7 +29,6 @@
 		{"id":"709db2caae500820","type":"group","backgroundStyle":"ratio","x":1730,"y":5360,"width":1648,"height":1100,"label":"Event Catalog - Dashboard","background":"03 - Resources/Attachments/Pasted image 20260213192558.png"},
 		{"id":"88cf99594f0985d7","type":"group","backgroundStyle":"ratio","x":3820,"y":5362,"width":1647,"height":1098,"label":"Event Catalog - Flows","background":"03 - Resources/Attachments/Pasted image 20260213192818.png"},
 		{"id":"08b14e23c906701d","type":"group","x":4800,"y":-880,"width":1920,"height":920,"label":"Project Environment"},
-		{"id":"2c1e7c02563950b0","type":"group","x":1040,"y":-4960,"width":1660,"height":1000,"label":"Flowti Obsidian Plugin"},
 		{"id":"1e795db265a03e30","type":"group","x":-40,"y":1440,"width":2240,"height":540,"label":"Quality Management System - Product Development"},
 		{"id":"39fcb04a6dfb4db0","type":"group","x":1740,"y":-1210,"width":1580,"height":500,"label":"Solution"},
 		{"id":"be68efe3c18f4579","type":"group","x":2840,"y":2520,"width":960,"height":820,"label":"Product Development"},
@@ -41,10 +45,8 @@
 		{"id":"25b3d6b5ce67a4e8","type":"group","x":860,"y":2180,"width":300,"height":1580,"label":"Output"},
 		{"id":"30eac272b7498959","type":"group","x":1740,"y":-1810,"width":880,"height":500,"label":"Problem"},
 		{"id":"e39a96cd6dcd80b2","type":"group","x":3680,"y":-520,"width":800,"height":520,"label":"Product or Service"},
-		{"id":"96ead2b8efcef87e","type":"group","x":1060,"y":-4460,"width":660,"height":480,"label":"Infrastructure"},
 		{"id":"23419d421cec7007","type":"group","x":380,"y":1540,"width":740,"height":420,"color":"2","label":"Quality Model"},
 		{"id":"db5a957f8155d342","type":"group","x":5460,"y":3580,"width":580,"height":500,"label":"Project Workflow"},
-		{"id":"c9cc0a6450acb269","type":"group","x":1760,"y":-4460,"width":580,"height":480,"label":"User Interface"},
 		{"id":"8693c91ef0c19664","type":"group","x":5060,"y":-1850,"width":300,"height":660,"label":"Journeys"},
 		{"id":"b2e30567a01d2f67","type":"group","x":2300,"y":1720,"width":1620,"height":120,"label":"Software Distribution Flow"},
 		{"id":"25c2f8a7fca6c9d7","type":"group","x":2920,"y":2640,"width":300,"height":580,"label":"Backstage"},
@@ -58,7 +60,6 @@
 		{"id":"bfb5429fcc72e2ad","type":"group","x":-20,"y":1540,"width":300,"height":420,"color":"2","label":"Input"},
 		{"id":"3590bf8227c8e5b2","type":"group","x":420,"y":2260,"width":300,"height":420,"label":"Discovery"},
 		{"id":"380df1894ee7006d","type":"group","x":5780,"y":3060,"width":300,"height":420,"label":"Delivery"},
-		{"id":"983ac3ec1a9ff970","type":"group","x":1080,"y":-4380,"width":300,"height":380,"label":"Eventsystem"},
 		{"id":"f1d5d38384754027","type":"group","x":420,"y":3240,"width":300,"height":340,"label":"Cycle 1 - N"},
 		{"id":"ac827defa91bd785","type":"group","x":4600,"y":-1690,"width":300,"height":340,"label":"Product"},
 		{"id":"fd0dec85aece3e54","type":"group","x":3920,"y":2702,"width":300,"height":275,"label":"Influencer"},
@@ -70,7 +71,6 @@
 		{"id":"0b7da98b74b828a2","type":"group","x":6200,"y":3140,"width":300,"height":260,"label":"Review"},
 		{"id":"eb56d8b9c2c758f2","type":"group","x":1800,"y":2710,"width":620,"height":120,"color":"2","label":"Sitemap"},
 		{"id":"68dd7eaa4f3de939","type":"group","x":3080,"y":-590,"width":300,"height":180,"label":"Agent inner-workings"},
-		{"id":"0c2045c923d1ccf0","type":"group","x":1780,"y":-370,"width":300,"height":180,"label":"Obsidian"},
 		{"id":"409938ccc702efe9","type":"group","x":4540,"y":3310,"width":300,"height":180,"label":"Documentation"},
 		{"id":"ac6b4ec2959f3db2","type":"group","x":3330,"y":2700,"width":300,"height":110,"color":"6","label":"Problemspace"},
 		{"id":"2262b012353cf0dd","type":"group","x":3330,"y":2880,"width":300,"height":110,"color":"6","label":"Solutionspace"},
@@ -357,46 +357,6 @@
 			"color":"2"
 		},
 		{
-			"id":"55ecf1e6b192a760",
-			"type":"text",
-			"text":"OneSeater Motorsport Manager",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1800,
-			"y":-120,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"02a1ec53b7e8088a",
-			"type":"text",
-			"text":"Private Vault",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1800,
-			"y":-350,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"a9f291e1774772fc",
-			"type":"text",
-			"text":"Public Vault",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1800,
-			"y":-270,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"f5c6fc5c5a4f7f20",
-			"type":"text",
-			"text":"Flowti Codebase",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2240,
-			"y":-390,
-			"width":260,
-			"height":60
-		},
-		{
 			"id":"0cc921be6148aa1f",
 			"type":"text",
 			"text":"ChatGPT - Product Owner",
@@ -405,17 +365,6 @@
 			"y":-470,
 			"width":260,
 			"height":60
-		},
-		{
-			"id":"4338c4ea406e8b96",
-			"type":"text",
-			"text":"Idea to Solution Workflow",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1800,
-			"y":-510,
-			"width":260,
-			"height":60,
-			"color":"3"
 		},
 		{
 			"id":"cd7a2daabf8bba73",
@@ -968,28 +917,6 @@
 			"color":"5"
 		},
 		{
-			"id":"4fea4d5d896f7410",
-			"type":"text",
-			"text":"Accepted Product Increment",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1260,
-			"y":-490,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"dc8b1ed0fc69fe71",
-			"type":"text",
-			"text":"Denied Product Increment",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1260,
-			"y":-410,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
 			"id":"6575e2e5f6c1e713",
 			"type":"text",
 			"text":"Planned Increment",
@@ -1076,28 +1003,6 @@
 			"styleAttributes":{"textAlign":"right"},
 			"x":480,
 			"y":-760,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"34b64249b4f5320d",
-			"type":"text",
-			"text":"Product Increment",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-490,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"8e7aac97cd743aaf",
-			"type":"text",
-			"text":"Definition of Done",
-			"styleAttributes":{"textAlign":"right"},
-			"x":480,
-			"y":-680,
 			"width":260,
 			"height":60,
 			"color":"5"
@@ -2640,6 +2545,134 @@
 			"height":60
 		},
 		{
+			"id":"d85c078ecbebdc11",
+			"type":"text",
+			"text":"Ribbons",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1780,
+			"y":-4360,
+			"width":260,
+			"height":60
+		},
+		{"id":"baa12726e956fea2","type":"file","file":"01 - Projects/Flowti CLI/Sketchpad.canvas","x":90,"y":-4840,"width":400,"height":400},
+		{
+			"id":"14cce5486e8c8939",
+			"type":"text",
+			"text":"How can we scaffold an app from this definitions?",
+			"styleAttributes":{},
+			"x":560,
+			"y":-4840,
+			"width":260,
+			"height":60,
+			"color":"3"
+		},
+		{
+			"id":"428196c5c8ba45cf",
+			"type":"text",
+			"text":"How can we evaluate first complexity metrics from a canvas?",
+			"styleAttributes":{},
+			"x":560,
+			"y":-4760,
+			"width":260,
+			"height":100,
+			"color":"3"
+		},
+		{
+			"id":"55ecf1e6b192a760",
+			"type":"text",
+			"text":"OneSeater Motorsport Manager",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1800,
+			"y":-120,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"02a1ec53b7e8088a",
+			"type":"text",
+			"text":"Private Vault",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1800,
+			"y":-350,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"a9f291e1774772fc",
+			"type":"text",
+			"text":"Public Vault",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1800,
+			"y":-270,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"f5c6fc5c5a4f7f20",
+			"type":"text",
+			"text":"Flowti Codebase",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2240,
+			"y":-390,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"4338c4ea406e8b96",
+			"type":"text",
+			"text":"Idea to Solution Workflow",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1800,
+			"y":-510,
+			"width":260,
+			"height":60,
+			"color":"3"
+		},
+		{
+			"id":"4fea4d5d896f7410",
+			"type":"text",
+			"text":"Accepted Product Increment",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1260,
+			"y":-490,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"dc8b1ed0fc69fe71",
+			"type":"text",
+			"text":"Denied Product Increment",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1260,
+			"y":-410,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"34b64249b4f5320d",
+			"type":"text",
+			"text":"Product Increment",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-490,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"8e7aac97cd743aaf",
+			"type":"text",
+			"text":"Definition of Done",
+			"styleAttributes":{"textAlign":"right"},
+			"x":480,
+			"y":-680,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
 			"id":"ddf47ec4eb2c8aee",
 			"type":"text",
 			"text":"Vault",
@@ -2690,16 +2723,6 @@
 			"height":380
 		},
 		{
-			"id":"d85c078ecbebdc11",
-			"type":"text",
-			"text":"Ribbons",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1780,
-			"y":-4360,
-			"width":260,
-			"height":60
-		},
-		{
 			"id":"4551aafce865d115",
 			"type":"text",
 			"text":"# Requirements\n\n- Domain Driven Design\n- Event Driven Design\n- Clean Architecture\n- Dependency Injection\n- Declarative UI\n- Test Driven Development\n- Clean Code Development\n- OWASP Best Practices\n- Self-documenting\n- Self-reporting",
@@ -2708,29 +2731,6 @@
 			"y":-4940,
 			"width":340,
 			"height":380
-		},
-		{"id":"baa12726e956fea2","type":"file","file":"01 - Projects/Flowti CLI/Sketchpad.canvas","x":90,"y":-4840,"width":400,"height":400},
-		{
-			"id":"14cce5486e8c8939",
-			"type":"text",
-			"text":"How can we scaffold an app from this definitions?",
-			"styleAttributes":{},
-			"x":560,
-			"y":-4840,
-			"width":260,
-			"height":60,
-			"color":"3"
-		},
-		{
-			"id":"428196c5c8ba45cf",
-			"type":"text",
-			"text":"How can we evaluate first complexity metrics from a canvas?",
-			"styleAttributes":{},
-			"x":560,
-			"y":-4760,
-			"width":260,
-			"height":100,
-			"color":"3"
 		}
 	],
 	"edges":[
