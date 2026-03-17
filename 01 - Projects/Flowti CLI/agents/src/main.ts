@@ -40,6 +40,7 @@ const DOMAIN_PARTICLE_COLORS: Record<string, string> = {
 
 // Side-effect imports — register Lit custom elements
 import "./ui/dashboard-overlays.js";
+import "./ui/ask-bob.js";
 import "./ui/roster-bar.js";
 import "./ui/camera-hud.js";
 import "./ui/agent-panel.js";
@@ -84,6 +85,10 @@ async function main(): Promise<void> {
 	const agentPanelEl = document.createElement("agent-panel") as any;
 	agentPanelEl.store = store;
 	canvasParent.appendChild(agentPanelEl);
+
+	const askBobEl = document.createElement("ask-bob") as any;
+	askBobEl.store = store;
+	canvasParent.appendChild(askBobEl);
 
 	// ── Agent select handler ────────────────────────────
 	function handleAgentSelect(agentName: string): void {
