@@ -10,10 +10,12 @@ import { registerConditionHandlers } from "./condition-handlers.js";
 import { registerEffectHandlers } from "./effect-handlers.js";
 import { registerNavigationHandlers } from "./navigation-handlers.js";
 import { registerDataSourceHandlers } from "./data-source-handlers.js";
+import { registerCrudEffectHandlers } from "./crud-effect-handlers.js";
 
 export function registerTuiHandlers(registry: TuiHandlerRegistry): void {
 	registerConditionHandlers(registry);
 	registerEffectHandlers(registry);
 	registerNavigationHandlers(registry);
 	registerDataSourceHandlers(registry);
+	registerCrudEffectHandlers(registry);
 }
