@@ -188,8 +188,7 @@ export class SessionService {
 				if (!s.activity) s.activity = [];
 				if (!s.activityFilter) s.activityFilter = [];
 				if (!s.contextBindings) s.contextBindings = [];
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				if (!s.type) (s as any).type = "documentation";
+				if (!s.type) (s as { type?: string }).type = "documentation";
 				if (!s.decisions) s.decisions = [];
 				if (s.workspaceState === undefined) s.workspaceState = null;
 				if (!s.outputArtifacts) s.outputArtifacts = [];

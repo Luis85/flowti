@@ -385,9 +385,11 @@ export default class FlowtiBasePlugin extends Plugin {
 			// Listen for execute requests from the Command Catalog UI
 			{
 				const ctx = this.createCommandContext();
-				this.eventBus.on("command.execute.request", (event) => {
-					void this.commands.execute(event.payload.commandId, ctx);
-				});
+				this.crossCuttingListeners.push(
+					this.eventBus.on("command.execute.request", (event) => {
+						void this.commands.execute(event.payload.commandId, ctx);
+					}),
+				);
 			}
 
 			// UI command service — central handler for all ui.* events
@@ -791,21 +793,22 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.inboxService.setTriageTargetFolder(settingsService.getSettings().inboxTriageTargetFolder ?? "");
 		await this.timedServiceLoad("inboxService", () => this.inboxService!.load());
 
-		this.eventBus.on("settings.changed", (event) => {
-			this.inboxService?.setEnabledSources(event.payload.settings.inboxEnabledSources);
-			this.inboxService?.setWatchedFolders(event.payload.settings.inboxWatchedFolders ?? []);
-			this.inboxService?.setTriageTargetFolder(event.payload.settings.inboxTriageTargetFolder ?? "");
-			if (this.sessionService) {
-				this.sessionService.globalActivityFilter = event.payload.settings.sessionActivityFilterGlobal ?? [];
-			}
-			this.analyticsService?.setAnalyticsFolder(event.payload.settings.analyticsFolder);
-			// Sync custom output templates to all open workspace views
-			const templates = event.payload.settings.customOutputTemplates ?? [];
-			for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_SESSION_WORKSPACE)) {
-				(leaf.view as SessionWorkspaceView).customOutputTemplates = templates;
-			}
-
-		});
+		this.crossCuttingListeners.push(
+			this.eventBus.on("settings.changed", (event) => {
+				this.inboxService?.setEnabledSources(event.payload.settings.inboxEnabledSources);
+				this.inboxService?.setWatchedFolders(event.payload.settings.inboxWatchedFolders ?? []);
+				this.inboxService?.setTriageTargetFolder(event.payload.settings.inboxTriageTargetFolder ?? "");
+				if (this.sessionService) {
+					this.sessionService.globalActivityFilter = event.payload.settings.sessionActivityFilterGlobal ?? [];
+				}
+				this.analyticsService?.setAnalyticsFolder(event.payload.settings.analyticsFolder);
+				// Sync custom output templates to all open workspace views
+				const templates = event.payload.settings.customOutputTemplates ?? [];
+				for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_SESSION_WORKSPACE)) {
+					(leaf.view as SessionWorkspaceView).customOutputTemplates = templates;
+				}
+			}),
+		);
 
 		this.ingestionService = await this.services.get<IngestionService>("ingestionService");
 		await this.timedServiceLoad("ingestionService", () => this.ingestionService!.load());
