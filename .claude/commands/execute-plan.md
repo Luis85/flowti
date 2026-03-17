@@ -49,6 +49,7 @@ When delegating to a subagent, provide:
 - Update checkboxes in the plan file as tasks complete (`- [ ]` to `- [x]`)
 - Commit after each completed task with descriptive messages
 - If a task fails or an edge case is discovered, extend the engine — do not add escape hatches or backwards-compat shims
+- Once finished, ask the user if you should start an interactive polishing session
 
 ## Constraints
 

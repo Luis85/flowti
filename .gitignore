@@ -44,8 +44,7 @@ build-endpoints.json
 /Development/flowti/docs/reports/cycles/
 /Development/flowti/docs/reports/traceability/
 /Development/flowti/docs/reports/performance/
-/Development/flowti/docs/journeys
-/Development/**/complexity
+/Development/flowti/docs/
 
 /** Flowti CLI runtime (generated) **/
 /.flowti/bin/
@@ -62,3 +61,5 @@ build-endpoints.json
 
 /** Git worktrees **/
 /.worktrees/
+
+.vscode

@@ -1,22 +1,38 @@
 {
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/block-sensitive-files.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/auto-lint.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/auto-typecheck.sh"
+          }
+        ]
+      }
+    ]
+  },
   "enabledPlugins": {
     "superpowers@claude-plugins-official": true,
     "feature-dev@claude-plugins-official": true,
     "ralph-loop@claude-plugins-official": true,
     "skill-creator@claude-plugins-official": true,
-    "claude-code-setup@claude-plugins-official": true
-  },
-  "hooks": {
-    "PreToolUse": [{
-      "matcher": "Edit|Write",
-      "hooks": [{ "type": "command", "command": "bash .claude/hooks/block-sensitive-files.sh" }]
-    }],
-    "PostToolUse": [{
-      "matcher": "Edit|Write",
-      "hooks": [
-        { "type": "command", "command": "bash .claude/hooks/auto-lint.sh" },
-        { "type": "command", "command": "bash .claude/hooks/auto-typecheck.sh" }
-      ]
-    }]
+    "claude-code-setup@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true
   }
 }
