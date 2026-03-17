@@ -18,6 +18,10 @@ import { log } from "../infrastructure/logger.js";
 import { VAULT_ROOT, CLI_PROJECT, PROJECTS_DIR, cliConfig, loadJson } from "../infrastructure/config.js";
 import type { ProjectConfig } from "../infrastructure/types-config.js";
 import { createProcessRunner } from "../infrastructure/agent-process-runner.js";
+import { loadSitemap } from "../infrastructure/sitemap-loader.js";
+import { TuiHandlerRegistry } from "./registry/tui-handler-registry.js";
+import { createSessionStore } from "./registry/tui-session-store.js";
+import { registerTuiHandlers } from "./registry/register-tui-handlers.js";
 
 // Import page modules to trigger self-registration
 import "./pages/start-page.js";
@@ -57,6 +61,21 @@ export async function runTui(): Promise<void> {
 
 	const processRunner = createProcessRunner({ disk, paths, clock, shell, log }, cliConfig.agents);
 
+	// Load sitemap
+	const sitemapResult = loadSitemap(
+		paths.join(CLI_PROJECT, "configs", "sitemap.json"),
+		disk,
+	);
+	const sitemap = sitemapResult.sitemap ?? { version: 2 as const, pages: {} };
+
+	// Create TUI infrastructure
+	const tuiRegistry = new TuiHandlerRegistry();
+	const session = createSessionStore();
+	const actionDeps = { disk, paths, clock, shell };
+
+	// Register all TUI handlers
+	registerTuiHandlers(tuiRegistry);
+
 	const tuiContext: TuiContextValue = {
 		deps: { disk, paths, clock, shell, log },
 		vaultRoot: VAULT_ROOT,
@@ -66,6 +85,10 @@ export async function runTui(): Promise<void> {
 		iterationsConfig: projectConfig?.management?.iterations,
 		projectConfig: projectConfig ?? undefined,
 		processRunner,
+		sitemap,
+		tuiRegistry,
+		session,
+		actionDeps,
 	};
 
 	const instance = render(
