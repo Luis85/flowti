@@ -28,23 +28,27 @@ export class SitemapHubView extends BaseHubView<string> {
 	}
 
 	// ── ItemView overrides ──────────────────────────────────
+	// NOTE: Obsidian's ItemView constructor calls getViewType() during super(),
+	// before this.viewDef is assigned. The factory in sitemap-bootstrap.ts creates
+	// a bound subclass that overrides these to return closure-captured values.
+	// The ?. guards here are a safety net for direct instantiation (e.g. tests).
 
 	getViewType(): string {
-		return this.viewDef.type;
+		return this.viewDef?.type ?? "";
 	}
 
 	getDisplayText(): string {
-		return this.viewDef.label;
+		return this.viewDef?.label ?? "";
 	}
 
 	getIcon(): string {
-		return this.viewDef.icon;
+		return this.viewDef?.icon ?? "";
 	}
 
 	// ── Hub metadata (abstract contract) ────────────────────
 
 	getHubId(): string {
-		return this.viewDef.type;
+		return this.viewDef?.type ?? "";
 	}
 
 	getHubType(): "system" | "domain" | "user" {
@@ -52,11 +56,11 @@ export class SitemapHubView extends BaseHubView<string> {
 	}
 
 	getHubDisplayName(): string {
-		return this.viewDef.label;
+		return this.viewDef?.label ?? "";
 	}
 
 	getHubIcon(): string {
-		return this.viewDef.icon;
+		return this.viewDef?.icon ?? "";
 	}
 
 	// ── Tab definitions ─────────────────────────────────────

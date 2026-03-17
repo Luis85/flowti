@@ -32,13 +32,17 @@ export class SitemapLeafView extends ItemView {
 		this.handlerRegistry = handlerRegistry;
 	}
 
-	getViewType(): string { return this.viewDef.type; }
-	getDisplayText(): string { return this.viewDef.label; }
-	getIcon(): string { return this.viewDef.icon; }
+	// NOTE: Obsidian's ItemView constructor calls getViewType() during super(),
+	// before this.viewDef is assigned. The factory in sitemap-bootstrap.ts creates
+	// a bound subclass that overrides these to return closure-captured values.
+	// The ?. guards here are a safety net for direct instantiation (e.g. tests).
+	getViewType(): string { return this.viewDef?.type ?? ""; }
+	getDisplayText(): string { return this.viewDef?.label ?? ""; }
+	getIcon(): string { return this.viewDef?.icon ?? ""; }
 
 	override getState(): Record<string, unknown> {
-		const base: Record<string, unknown> = { type: this.viewDef.type };
-		if (this.viewDef.handler) {
+		const base: Record<string, unknown> = { type: this.viewDef?.type ?? "" };
+		if (this.viewDef?.handler) {
 			const handler = this.handlerRegistry.getTabHandler(this.viewDef.handler);
 			if (handler?.getState) {
 				return { ...base, ...handler.getState() };
