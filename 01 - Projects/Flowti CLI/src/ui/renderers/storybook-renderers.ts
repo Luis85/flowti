@@ -105,3 +105,58 @@ export function renderStorybookOpenedIn(target: string, log: Log): void {
 export function renderStorybookProgress(line: string, log: Log): void {
 	log(`  ${DIM}${line}${RESET}`);
 }
+
+// ── CLI command renderers ────────────────────────────────────────────
+
+export interface StorybookInstallResultModel {
+	installed: boolean;
+	framework: string;
+	sbDir: string;
+}
+
+export function renderStorybookInstallResult(data: StorybookInstallResultModel, log: Log): void {
+	if (data.installed) {
+		log(`\n  ${GREEN}✓${RESET} Storybook installed (${data.framework}) at ${DIM}${data.sbDir}${RESET}\n`);
+	} else {
+		log(`\n  ${RED}✗${RESET} Storybook installation failed.\n`);
+	}
+}
+
+export interface StorybookStartResultModel {
+	started: boolean;
+	url: string;
+	error?: string;
+}
+
+export function renderStorybookStartResult(data: StorybookStartResultModel, log: Log): void {
+	if (data.started) {
+		log(`\n  ${GREEN}✓${RESET} Storybook running at ${DIM}${data.url}${RESET}\n`);
+	} else {
+		log(`\n  ${RED}✗${RESET} Storybook failed to start: ${data.error ?? "unknown"}\n`);
+	}
+}
+
+export interface StorybookStopResultModel {
+	stopped: boolean;
+	wasRunning: boolean;
+}
+
+export function renderStorybookStopResult(data: StorybookStopResultModel, log: Log): void {
+	if (data.wasRunning) {
+		log(`\n  ${GREEN}✓${RESET} Storybook stopped.\n`);
+	} else {
+		log(`\n  ${DIM}Storybook was not running.${RESET}\n`);
+	}
+}
+
+export interface StorybookBuildResultModel {
+	built: boolean;
+}
+
+export function renderStorybookBuildResult(data: StorybookBuildResultModel, log: Log): void {
+	if (data.built) {
+		log(`\n  ${GREEN}✓${RESET} Storybook build complete.\n`);
+	} else {
+		log(`\n  ${RED}✗${RESET} Storybook build failed.\n`);
+	}
+}
