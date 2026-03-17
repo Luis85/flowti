@@ -35,7 +35,7 @@ export interface FrameworkPackages {
 }
 
 /**
- * Returns framework-specific package info for Storybook 10.
+ * Returns framework-specific package info for Storybook.
  *
  * In Storybook 10 the `-vite` framework packages serve as both
  * framework and renderer, and addons like `addon-interactions` and
@@ -88,7 +88,7 @@ function writePackageJson(sbDir: string, projectName: string, framework: Compone
 		private: true,
 		type: "module",
 		devDependencies: {
-			[fw.framework]: "^10.0.0",
+			[fw.framework]: "latest",
 			...fw.extra,
 		},
 	};
@@ -167,11 +167,14 @@ function patchStorybookConfig(sbDir: string, deps: Pick<StorybookDeps, "disk" | 
 		content = content.replace(/\.\.\/stories\//g, "../");
 		// Disable telemetry if not already present
 		if (!content.includes("disableTelemetry")) {
+			// Match the closing of the config object — works with both SB 8 and 10 formats
 			content = content.replace(
-				/("framework":\s*"[^"]+?")\s*\n(\s*\};)/,
-				'$1,\n  "core": {\n    "disableTelemetry": true\n  }\n$2',
+				/(\n)(};?\s*\nexport default)/,
+				'$1  core: {\n    disableTelemetry: true,\n  },\n$2',
 			);
 		}
+		// Remove chromatic addon (not needed for our component library)
+		content = content.replace(/\s*"@chromatic-com\/storybook",?\n?/g, "\n");
 		deps.disk.writeFileSync(mainPath, content, "utf-8");
 	} catch { /* leave as-is if file doesn't exist */ }
 }
@@ -271,14 +274,33 @@ export function installStorybook(projectPath: string, projectName: string, confi
 			return false;
 		}
 	} else {
-		// Non-Angular: create a minimal package.json so storybook init has something to work with
+		// Non-Angular: create a minimal package.json and install deps so storybook init can detect the framework
 		writePackageJson(sbDir, projectName, framework, deps);
+		const depInstall = deps.shell.run("npm install", { cwd: sbDir, label: "Installing framework dependencies", env: nonInteractiveEnv });
+		if (depInstall !== 0) {
+			render.installFailed();
+			return false;
+		}
+	}
+
+	// Skip storybook init if already configured — only update packages
+	const mainTsPath = deps.paths.join(sbDir, ".storybook", "main.ts");
+	if (deps.disk.existsSync(mainTsPath)) {
+		const updateCode = deps.shell.run("npm install", { cwd: sbDir, label: "Updating Storybook packages", env: nonInteractiveEnv });
+		if (updateCode !== 0) {
+			render.installFailed();
+			return false;
+		}
+		render.installSuccess(sbDir);
+		return true;
 	}
 
 	// Use official Storybook CLI to install with all features
 	// Angular uses webpack — addon-vitest requires Vite, so exclude "test" feature for Angular
 	const features = framework === "angular" ? "docs a11y" : "docs test a11y";
-	const initCmd = `npx storybook@latest init --yes --features ${features}`;
+	const typeMap: Record<string, string> = { html: "html", angular: "angular", react: "react", vue: "vue3" };
+	const typeFlag = typeMap[framework] ? ` --type ${typeMap[framework]}` : "";
+	const initCmd = `npx storybook@latest init --yes --features ${features}${typeFlag}`;
 	const code = deps.shell.run(initCmd, { cwd: sbDir, label: "Installing Storybook", env: nonInteractiveEnv });
 	if (code !== 0) {
 		render.installFailed();

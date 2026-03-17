@@ -88,6 +88,7 @@ import {
 	isInsideVault,
 	extractLocalUrl,
 	getFrameworkPackages,
+	startStorybookDev,
 } from "../../../../src/domain/make/component/storybook-service.js";
 import { disk } from "../../../../src/infrastructure/filesystem.js";
 import { paths } from "../../../../src/infrastructure/paths.js";
@@ -173,6 +174,20 @@ describe("installStorybook", () => {
 
 		expect(result).toBe(true);
 		expect(mockShell.run).not.toHaveBeenCalled();
+	});
+
+	it("skips storybook init when .storybook/main.ts already exists", () => {
+		// package.json missing (not "installed") but .storybook/main.ts exists
+		mockDisk.existsSync.mockImplementation((p) => String(p).includes("main.ts"));
+		mockShell.run.mockReturnValue(0);
+
+		const result = installStorybook("/project", "my-project", {}, sbDeps());
+
+		expect(result).toBe(true);
+		// Should run npm install twice (framework deps + update) but NOT storybook init
+		const runCalls = mockShell.run.mock.calls.map(([cmd]) => cmd);
+		expect(runCalls.every((cmd) => !cmd.includes("storybook@latest init"))).toBe(true);
+		expect(runCalls.some((cmd) => cmd === "npm install")).toBe(true);
 	});
 
 	it("uses custom storybookDir", () => {
@@ -422,6 +437,107 @@ describe("getFrameworkPackages", () => {
 		const pkgs = getFrameworkPackages("vue");
 		expect(pkgs.framework).toBe("@storybook/vue3-vite");
 		expect(pkgs.extra!["vue"]).toBeDefined();
+	});
+});
+
+describe("startStorybookDev", () => {
+	it("returns started result with URL on success", async () => {
+		mockDisk.existsSync.mockReturnValue(true);
+		const mockProcess = createMockBackgroundProcess({
+			output: ["Local: http://localhost:6006/"],
+		});
+		mockShell.spawnBackground.mockReturnValue(mockProcess);
+
+		const result = await startStorybookDev("/project", {}, "/vault", { disk, paths, shell });
+
+		expect(result.started).toBe(true);
+		expect(result.url).toBe("http://localhost:6006");
+		expect(result.error).toBeUndefined();
+	});
+
+	it("returns error when not installed", async () => {
+		const render = createMockRenderer();
+		const result = await startStorybookDev("/project", {}, "/vault", { disk, paths, shell }, render);
+
+		expect(result.started).toBe(false);
+		expect(result.error).toBe("not-installed");
+		expect(render.notInstalled).toHaveBeenCalled();
+	});
+
+	it("returns error when already running", async () => {
+		mockDisk.existsSync.mockReturnValue(true);
+		// Start a process to make isStorybookRunning() return true
+		const firstProcess = createMockBackgroundProcess({
+			output: ["Local: http://localhost:6006/"],
+		});
+		mockShell.spawnBackground.mockReturnValue(firstProcess);
+		await startStorybookDev("/project", {}, "/vault", { disk, paths, shell });
+
+		const render = createMockRenderer();
+		const result = await startStorybookDev("/project", {}, "/vault", { disk, paths, shell }, render);
+
+		expect(result.started).toBe(false);
+		expect(result.error).toBe("already-running");
+		expect(render.alreadyRunning).toHaveBeenCalled();
+	});
+
+	it("returns error on timeout", async () => {
+		mockDisk.existsSync.mockReturnValue(true);
+		const mockProcess = createMockBackgroundProcess({
+			running: true,
+			waitForOutput: vi.fn().mockResolvedValue(null),
+		});
+		mockShell.spawnBackground.mockReturnValue(mockProcess);
+		const render = createMockRenderer();
+
+		const result = await startStorybookDev("/project", {}, "/vault", { disk, paths, shell }, render);
+
+		expect(result.started).toBe(false);
+		expect(result.error).toBe("timeout");
+		expect(render.timeout).toHaveBeenCalled();
+	});
+
+	it("returns error when process exits before ready", async () => {
+		mockDisk.existsSync.mockReturnValue(true);
+		const mockProcess = createMockBackgroundProcess({
+			running: false,
+			output: ["npm ERR! Missing script: storybook"],
+			waitForOutput: vi.fn().mockResolvedValue(null),
+		});
+		mockShell.spawnBackground.mockReturnValue(mockProcess);
+		const render = createMockRenderer();
+
+		const result = await startStorybookDev("/project", {}, "/vault", { disk, paths, shell }, render);
+
+		expect(result.started).toBe(false);
+		expect(result.error).toBe("failed-to-start");
+		expect(render.failedToStart).toHaveBeenCalled();
+	});
+
+	it("returns error when node_modules missing", async () => {
+		// package.json exists (installed) but node_modules does not
+		mockDisk.existsSync.mockImplementation((p) => !String(p).includes("node_modules"));
+		const render = createMockRenderer();
+
+		const result = await startStorybookDev("/project", {}, "/vault", { disk, paths, shell }, render);
+
+		expect(result.started).toBe(false);
+		expect(result.error).toBe("deps-not-installed");
+		expect(render.failedToStart).toHaveBeenCalled();
+		expect(render.failOutput).toHaveBeenCalled();
+	});
+
+	it("does not block on user input (no waitForEnter)", async () => {
+		mockDisk.existsSync.mockReturnValue(true);
+		const mockProcess = createMockBackgroundProcess({
+			output: ["Local: http://localhost:6006/"],
+		});
+		mockShell.spawnBackground.mockReturnValue(mockProcess);
+
+		await startStorybookDev("/project", {}, "/vault", { disk, paths, shell });
+
+		// Process should still be running (not killed by enterStorybookView)
+		expect(mockProcess.kill).not.toHaveBeenCalled();
 	});
 });
 
