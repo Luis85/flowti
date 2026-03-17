@@ -72,13 +72,20 @@ interface ProviderCapabilities {
 Universal prompt structure, decoupled from how any provider formats it:
 
 ```typescript
+/** Task context for clarification flows. Domain-layer type — not imported from UI. */
+interface LLMTaskContext {
+  taskName: string;
+  taskDescription: string;
+  context?: string;
+}
+
 interface PromptEnvelope {
   system?: string;                          // system instructions
   identity?: AgentIdentity;                 // name, persona, mood, personality, attributes
   history?: readonly ConversationTurn[];     // prior conversation turns
   message: string;                          // current user message
   responseFormat?: ResponseFormatHint;      // "json" | "text" | "auto"
-  taskContext?: TaskContext;                // for clarification flows
+  taskContext?: LLMTaskContext;             // for clarification flows
 }
 
 interface AgentIdentity {
@@ -164,9 +171,11 @@ interface ILLMProvider {
 ```typescript
 type TaskType = "autonomous" | "conversation" | "utility";
 
+type SelectionReason = "configured" | "routed" | "fallback";
+
 interface ProviderSelection {
   provider: ILLMProvider;
-  reason: string;   // "configured" | "routed" | "fallback"
+  reason: SelectionReason;
 }
 
 interface SelectOptions {
@@ -237,7 +246,7 @@ Builds the prompt string, adapting based on capabilities:
 1. **System instructions** — always included if present
 2. **Identity block** — always included (reuses existing `buildIdentityBlock()` logic from `agent-conversation.ts`)
 3. **Response format** — JSON format instructions included only when `shouldRequestJson(hint, caps)` returns true
-4. **Task context** — for clarification flows, included if present
+4. **Task context** — for clarification flows (`LLMTaskContext`), included if present
 5. **Conversation history** — formatted as labeled turns
 6. **Current message** — user's input with appropriate closing instruction
 
@@ -282,18 +291,26 @@ interface CliDeps {
 
 ### Provider Discovery at Startup
 
+CLI providers are detected synchronously via `shell.check()` (existing pattern). Ollama uses lazy registration — the provider is always registered but checks availability on first `execute()` call. This keeps `createDefaultDeps()` synchronous.
+
 ```typescript
 const registry = createProviderRegistry();
-registry.register(createClaudeProvider(deps));
+registry.register(createClaudeProvider(deps));   // always registered (primary)
 if (shell.check("cursor --version")) registry.register(createCursorProvider(deps));
-if (isOllamaRunning()) registry.register(createOllamaProvider());
+registry.register(createOllamaProvider());       // lazy — checks localhost:11434 on first use
 ```
 
-Providers are detected at startup — no config needed to "enable" them. If the binary exists or the HTTP API responds, it's available.
+The Ollama adapter's `execute()` performs a fast HTTP HEAD to `localhost:11434` before the first request. If unreachable, it throws with a clear error (`"Ollama is not running at localhost:11434"`). Subsequent calls reuse the cached availability check with a TTL of 60 seconds.
+
+Providers are auto-detected — no config needed to "enable" them.
 
 ### `IAgentProcessRunner` Bridge
 
-The existing `createProcessRunner()` is rewired to delegate to the registry internally:
+The existing `createProcessRunner()` is rewired to delegate to the registry internally.
+
+**Important:** The bridge receives a pre-built prompt string from existing callers (who call `buildConversationPrompt()` / `buildClarificationPrompt()` before `spawn()`). The bridge passes this as `prompt.message` — a raw string that already contains system instructions, identity, history, and response format. The adapters treat a `PromptEnvelope` with only `message` set as a pre-formatted prompt and pass it through without calling `formatPrompt()`. This preserves existing behavior exactly.
+
+Migrating callers to use `PromptEnvelope` fields (system, identity, history) instead of pre-building the full prompt string requires updating each call site individually — the bridge alone cannot do this. Step 5 of the migration plan covers this gradual transition.
 
 ```typescript
 function createProcessRunner(registry: IProviderRegistry, config: AgentsConfig): IAgentProcessRunner {
@@ -304,6 +321,8 @@ function createProcessRunner(registry: IProviderRegistry, config: AgentsConfig):
         taskType: "conversation",
         required: { streaming: true },
       });
+      // Bridge mode: prompt is a pre-built string from existing callers.
+      // Adapters detect "message-only" envelopes and use the raw string as-is.
       const request: LLMRequest = {
         prompt: { message: prompt },
         tools,
@@ -317,13 +336,36 @@ function createProcessRunner(registry: IProviderRegistry, config: AgentsConfig):
 
 All existing callers (`agents-interact-menu.ts`, `agents-run-menu.ts`, `chat-shell.ts`, `roster-task-menu.ts`, `agent-shell.ts`, `agent-task-handlers.ts`) keep working unchanged.
 
+**Adapters detect pre-formatted prompts** via a helper:
+
+```typescript
+function isPreFormatted(envelope: PromptEnvelope): boolean {
+  return !envelope.system && !envelope.identity && !envelope.history;
+}
+```
+
+When `isPreFormatted()` returns true, adapters use `envelope.message` directly as the prompt string. When false, they call `formatPrompt(envelope, capabilities)` to build it.
+
+### Provider Name Mapping
+
+`AgentAIConfig.provider` uses values like `"anthropic"`, `"cursor"`, `"ollama"`. The registry maps these to `ILLMProvider.name` via a canonical name table:
+
+| `AgentAIConfig.provider` | `ILLMProvider.name` | Notes |
+|--------------------------|---------------------|-------|
+| `"anthropic"` | `"anthropic"` | Default provider |
+| `"cursor"` | `"cursor"` | |
+| `"ollama"` | `"ollama"` | Utility tier |
+
+Each adapter sets `name` to match the `AgentAIConfig.provider` value. The registry's `get()` and `select()` use this name for lookup. This ensures existing agent configs (`ai.provider: "anthropic"`) route correctly without a translation layer.
+
 ### Migration Steps
 
 1. Add new types + adapters + registry alongside existing code
 2. Rewire `createProcessRunner()` to delegate to registry
-3. Existing callers never change — `processRunner.spawn()` still works
-4. New utility features call registry directly
-5. Gradually migrate callers to use `PromptEnvelope` for richer prompt building
+3. Update `process-pool.ts` to use the type aliases (`AgentStreamEvent` → re-export of `LLMEvent`, `AgentProcess` → re-export of `LLMProcess`) so it compiles against the new type chain
+4. Existing callers never change — `processRunner.spawn()` still works
+5. New utility features call registry directly
+6. Gradually migrate callers to use `PromptEnvelope` fields (system, identity, history) instead of pre-building the full prompt string — each call site updated individually
 
 ## File Layout
 
@@ -331,7 +373,7 @@ All existing callers (`agents-interact-menu.ts`, `agents-run-menu.ts`, `chat-she
 src/domain/agents/
   llm-types.ts              # LLMEvent, LLMRequest, PromptEnvelope, ProviderCapabilities,
                              # ILLMProvider, IProviderRegistry, LLMProcess, LLMResult
-  llm-prompt.ts             # formatPrompt(), shouldRequestJson() — pure functions
+  llm-prompt.ts             # formatPrompt(), shouldRequestJson(), isPreFormatted() — pure functions
   llm-router.ts             # selectForUtility(), routing helpers — pure functions
   agent-stream.ts           # existing — re-exports LLMEvent as AgentStreamEvent for compat
 
@@ -358,11 +400,16 @@ src/infrastructure/llm/
 - **Timeout:** Each adapter respects `LLMRequest.timeout` — CLI providers use `waitForExit(timeout)` (existing behavior), Ollama uses `AbortController` with timeout signal
 - **Temp file cleanup:** CLI adapters always clean up temp files in both success and error paths (existing pattern preserved)
 
+## DI Boundaries
+
+`ILLMProvider` and `IProviderRegistry` are dependency injection interfaces, analogous to `IFileSystem` and `IShell` in the existing codebase. They are defined in the domain layer (`llm-types.ts`) but implemented in infrastructure (`provider-registry.ts`, `*-provider.ts`). Domain code may hold and call these interfaces but never instantiates implementations directly — wiring happens in `deps.ts`.
+
 ## Backward Compatibility
 
 - `AgentStreamEvent` re-exported from `agent-stream.ts` as a type alias for `LLMEvent`
-- `AgentProcess` type alias for `LLMProcess`
-- `AgentProcessResult` type alias for `LLMResult`
+- `AgentProcess` type alias for `LLMProcess` (re-exported from `worker-types.ts`)
+- `AgentProcessResult` type alias for `LLMResult` (re-exported from `agent-shell.ts`, where it is currently defined)
 - `IAgentProcessRunner.spawn()` signature unchanged — all 9 existing callers work without modification
-- `DispatchRequest.provider` field still accepted — mapped to `SelectOptions.preferred`
+- `process-pool.ts` updated to use the re-exported type aliases so it compiles against the new type chain
+- `DispatchRequest.provider` field still accepted — mapped to `SelectOptions.preferred`. Type remains `"anthropic" | "cursor"` (not widened to include `"ollama"`) because Ollama is utility-tier only and not suitable for workspace-based autonomous dispatch which requires tool use
 - `resolveProvider()` removed — replaced by adapter-specific logic inside each provider
