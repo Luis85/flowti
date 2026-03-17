@@ -68,6 +68,16 @@ export async function runStorybookDev(projectPath: string, config: ComponentsCon
 		return;
 	}
 
+	if (!deps.disk.existsSync(deps.paths.join(sbDir, "node_modules"))) {
+		render.failedToStart();
+		render.failOutput([
+			'Dependencies not installed. Run "npm install" in the components directory,',
+			'or use "Install Storybook" to set up Storybook from scratch.',
+		]);
+		await deps.input.waitForEnter();
+		return;
+	}
+
 	if (isStorybookRunning()) {
 		render.alreadyRunning();
 		await deps.input.waitForEnter();
@@ -124,6 +134,15 @@ export async function startStorybookDev(
 		return { started: false, url: "", error: "not-installed" };
 	}
 
+	if (!deps.disk.existsSync(deps.paths.join(sbDir, "node_modules"))) {
+		render.failedToStart();
+		render.failOutput([
+			'Dependencies not installed. Run "npm install" in the components directory,',
+			'or use "flowti storybook:install" to set up Storybook from scratch.',
+		]);
+		return { started: false, url: "", error: "deps-not-installed" };
+	}
+
 	if (isStorybookRunning()) {
 		render.alreadyRunning();
 		return { started: false, url: "", error: "already-running" };
@@ -163,6 +182,14 @@ export function runStorybookBuild(projectPath: string, config: ComponentsConfig,
 	const sbDir = resolveStorybookDir(projectPath, config, deps);
 	if (!isStorybookInstalled(projectPath, config, deps)) {
 		render.notInstalled();
+		return;
+	}
+	if (!deps.disk.existsSync(deps.paths.join(sbDir, "node_modules"))) {
+		render.failedToStart();
+		render.failOutput([
+			'Dependencies not installed. Run "npm install" in the components directory,',
+			'or use "flowti storybook:install" to set up Storybook from scratch.',
+		]);
 		return;
 	}
 	deps.shell.run("npm run build-storybook", { cwd: sbDir, label: "Storybook build" });

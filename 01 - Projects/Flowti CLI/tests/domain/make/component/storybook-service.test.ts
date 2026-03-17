@@ -500,6 +500,19 @@ describe("startStorybookDev", () => {
 		expect(render.failedToStart).toHaveBeenCalled();
 	});
 
+	it("returns error when node_modules missing", async () => {
+		// package.json exists (installed) but node_modules does not
+		mockDisk.existsSync.mockImplementation((p) => !String(p).includes("node_modules"));
+		const render = createMockRenderer();
+
+		const result = await startStorybookDev("/project", {}, "/vault", { disk, paths, shell }, render);
+
+		expect(result.started).toBe(false);
+		expect(result.error).toBe("deps-not-installed");
+		expect(render.failedToStart).toHaveBeenCalled();
+		expect(render.failOutput).toHaveBeenCalled();
+	});
+
 	it("does not block on user input (no waitForEnter)", async () => {
 		mockDisk.existsSync.mockReturnValue(true);
 		const mockProcess = createMockBackgroundProcess({
