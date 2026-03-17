@@ -1,7 +1,7 @@
 /**
  * storybook.controller.ts — Non-interactive CLI commands for Storybook.
  *
- * Provides storybook:install, storybook:start, storybook:stop, storybook:build.
+ * Provides storybook:install, storybook:start, storybook:stop, storybook:build, storybook:generate.
  */
 
 import { adaptDescriptor } from "../infrastructure/command-engine.js";
@@ -25,10 +25,12 @@ import {
 	renderStorybookStartResult,
 	renderStorybookStopResult,
 	renderStorybookBuildResult,
+	renderStorybookGenerateResult,
 	type StorybookInstallResultModel,
 	type StorybookStartResultModel,
 	type StorybookStopResultModel,
 	type StorybookBuildResultModel,
+	type StorybookGenerateResultModel,
 } from "../ui/renderers/storybook-renderers.js";
 
 export const commands: Record<string, CommandHandler> = {
@@ -97,5 +99,16 @@ export const commands: Record<string, CommandHandler> = {
 			return { built: true };
 		},
 		renderer: renderStorybookBuildResult,
+	}),
+
+	"storybook:generate": adaptDescriptor<Record<string, unknown>, StorybookGenerateResultModel>({
+		requires: "project",
+		handler: (ctx) => {
+			const { shell, paths } = ctx.deps;
+			const scriptPath = paths.join(ctx.project!.path, "scripts", "generate-storybook.mjs");
+			const exitCode = shell.run(`node "${scriptPath}"`, { cwd: ctx.project!.path, label: "Generating sitemap stories" });
+			return { generated: exitCode === 0, exitCode };
+		},
+		renderer: renderStorybookGenerateResult,
 	}),
 };

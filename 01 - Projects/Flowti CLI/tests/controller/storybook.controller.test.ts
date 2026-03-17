@@ -163,3 +163,26 @@ describe("storybook:build", () => {
 		expect(result.built).toBe(false);
 	});
 });
+
+describe("storybook:generate", () => {
+	it("runs generate script and returns success", () => {
+		const ctx = createProjectContext({ command: "storybook:generate" });
+		const handler = getHandler("storybook:generate");
+		const result = handler(ctx) as { generated: boolean; exitCode: number };
+
+		expect(result.generated).toBe(true);
+		expect(result.exitCode).toBe(0);
+	});
+
+	it("returns generated: false when script fails", () => {
+		const ctx = createProjectContext({ command: "storybook:generate" });
+		const origRun = ctx.deps.shell.run;
+		ctx.deps.shell.run = () => 1;
+		const handler = getHandler("storybook:generate");
+		const result = handler(ctx) as { generated: boolean; exitCode: number };
+
+		expect(result.generated).toBe(false);
+		expect(result.exitCode).toBe(1);
+		ctx.deps.shell.run = origRun;
+	});
+});

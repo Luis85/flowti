@@ -160,3 +160,16 @@ export function renderStorybookBuildResult(data: StorybookBuildResultModel, log:
 		log(`\n  ${RED}✗${RESET} Storybook build failed.\n`);
 	}
 }
+
+export interface StorybookGenerateResultModel {
+	generated: boolean;
+	exitCode: number;
+}
+
+export function renderStorybookGenerateResult(data: StorybookGenerateResultModel, log: Log): void {
+	if (data.generated) {
+		log(`\n  ${GREEN}✓${RESET} Sitemap stories generated.\n`);
+	} else {
+		log(`\n  ${RED}✗${RESET} Story generation failed (exit code ${data.exitCode}).\n`);
+	}
+}
